@@ -25,7 +25,21 @@ import { NetSelector } from '@ziroeda/common/widgets/net_selector.js';
 import { INDETERMINATE_STATE } from '@ziroeda/common/widgets/ui_common.js';
 
 interface Props {
-  selection: TrackViaSelection;
+  /**
+   * The view-model form: the window is seeded by collectTrackViaValues. Being
+   * retired for `initial` (DIALOG_TRACK_VIA_PROPERTIES on the live items).
+   */
+  selection?: TrackViaSelection;
+  /**
+   * The live form: DIALOG_TRACK_VIA_PROPERTIES::TransferDataToWindow's
+   * window. OK hands back this window with only the controls the user
+   * changed replaced, so the ones this panel does not draw (backdrill,
+   * post-machining, protection, annular rings) pass through as shown.
+   */
+  initial?: TrackViaValues;
+  /** With `initial`: the dialog's `m_tracks` / `m_vias`. */
+  hasTracks?: boolean;
+  hasVias?: boolean;
   /** Net codes and names, for the Net choice. */
   nets: ReadonlyMap<number, string>;
   /** Copper layer names. */
@@ -64,6 +78,9 @@ const triLabel = (v: Tri): string => (v === undefined ? '—' : v ? '✓' : '');
 
 export function DialogTrackViaProperties({
   selection,
+  initial,
+  hasTracks: liveHasTracks = false,
+  hasVias: liveHasVias = false,
   nets,
   layers,
   trackWidths,
@@ -75,11 +92,18 @@ export function DialogTrackViaProperties({
   // ui/modal_escape.ts.
   useModalEscape(onClose);
 
-  const seed = useMemo(() => collectTrackViaValues(selection), [selection]);
+  const seed = useMemo(
+    () => initial ?? collectTrackViaValues(selection ?? { tracks: [], arcs: [], vias: [] }),
+    [initial, selection],
+  );
 
-  const hasTracks = selection.tracks.length > 0 || selection.arcs.length > 0;
-  const hasStraightTracks = selection.tracks.length > 0;
-  const hasVias = selection.vias.length > 0;
+  const hasTracks = initial
+    ? liveHasTracks
+    : !!selection && (selection.tracks.length > 0 || selection.arcs.length > 0);
+  // The live dialog edits an arc's start and end like a straight track's
+  // (dialog_track_via_properties.cpp:270-290); the view form blanked them.
+  const hasStraightTracks = initial ? liveHasTracks : !!selection && selection.tracks.length > 0;
+  const hasVias = initial ? liveHasVias : !!selection && selection.vias.length > 0;
 
   // ----- Common -----
   const [net, setNet] = useState<Text>(numText(seed.net));
@@ -118,6 +142,39 @@ export function DialogTrackViaProperties({
   const [tdBestWidth, setTdBestWidth] = useState<Text>(numText(seed.tdBestWidthPct));
   const [tdFilter, setTdFilter] = useState<Text>(numText(seed.tdFilterPct));
 
+  // What each control showed when the window opened: the live form reads
+  // back only the controls that no longer show it.
+  const [seedTexts] = useState(() => ({
+    net: numText(seed.net),
+    locked: seed.locked,
+    startX: mmText(seed.startX),
+    startY: mmText(seed.startY),
+    endX: mmText(seed.endX),
+    endY: mmText(seed.endY),
+    trackWidth: mmText(seed.trackWidth),
+    layer: seed.layer ?? '',
+    hasMask: seed.hasMask,
+    maskMargin:
+      seed.maskMargin === undefined || seed.maskMargin === null
+        ? ''
+        : String(pcbIuToMM(seed.maskMargin)),
+    viaX: mmText(seed.viaX),
+    viaY: mmText(seed.viaY),
+    viaDiameter: mmText(seed.viaDiameter),
+    viaDrill: mmText(seed.viaDrill),
+    viaType: seed.viaType ?? '',
+    startLayer: seed.startLayer ?? '',
+    endLayer: seed.endLayer ?? '',
+    tdEnabled: seed.tdEnabled,
+    tdAllowTwoTracks: seed.tdAllowTwoTracks,
+    tdCurvedEdges: seed.tdCurvedEdges,
+    tdMaxLen: mmText(seed.tdMaxLen),
+    tdMaxWidth: mmText(seed.tdMaxWidth),
+    tdBestLengthPct: numText(seed.tdBestLengthPct),
+    tdBestWidthPct: numText(seed.tdBestWidthPct),
+    tdFilterPct: numText(seed.tdFilterPct),
+  }));
+
   const apply = (): void => {
     const v: TrackViaValues = {
       net: readNum(net),
@@ -151,7 +208,53 @@ export function DialogTrackViaProperties({
       tdBestWidthPct: readNum(tdBestWidth),
       tdFilterPct: readNum(tdFilter),
     };
-    onApply(v);
+
+    if (!initial) {
+      onApply(v);
+      return;
+    }
+
+    // The live window: a control left as it was shown keeps the window's
+    // value, INDETERMINATE included; only a changed control is read back.
+    const shown = seedTexts;
+    const now: Record<keyof typeof shown, unknown> = {
+      net,
+      locked,
+      startX,
+      startY,
+      endX,
+      endY,
+      trackWidth,
+      layer,
+      hasMask,
+      maskMargin,
+      viaX,
+      viaY,
+      viaDiameter,
+      viaDrill,
+      viaType,
+      startLayer,
+      endLayer,
+      tdEnabled,
+      tdAllowTwoTracks: tdTwoTracks,
+      tdCurvedEdges: tdCurved,
+      tdMaxLen,
+      tdMaxWidth,
+      tdBestLengthPct: tdBestLen,
+      tdBestWidthPct: tdBestWidth,
+      tdFilterPct: tdFilter,
+    };
+    const out: TrackViaValues = { ...initial };
+
+    for (const key of Object.keys(shown) as (keyof typeof shown)[]) {
+      if (now[key] === shown[key]) continue;
+      (out as Record<string, unknown>)[key] = v[key];
+    }
+
+    // An armed mask margin box left empty is "use the Board Setup value".
+    if (now.maskMargin !== shown.maskMargin && maskMargin.trim() === '') out.maskMargin = null;
+
+    onApply(out);
   };
 
   const field = (
