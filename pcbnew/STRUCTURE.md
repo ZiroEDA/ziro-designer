@@ -16,8 +16,8 @@ you find one; keep the reason to a line.
 | `python/` | SWIG bindings. No interpreter here. |
 | `git/` | libgit2 merge driver for local project files. |
 | `navlib/` | 3Dconnexion SpaceMouse driver. |
-| `dialogs/` | Exists since 09-21 with the two `b` moves (`dialog_barcode_properties.ts`, `dialog_board_reannotate.ts`). 20 more root modules are its files with `dialog_` dropped (`create_array` … `zone_properties`); stage 6 of #636 rewrites them, and moving them first is churn. |
-| `widgets/` | 9 453 lines. Surface code, frozen until the core is KiCad's. |
+| `dialogs/` | Exists since 09-21; 21 modules now (09-28 added 19: `create_array`, `dimension_properties`, `filter_selection`, `footprint_checker`, `footprint_properties`, `global_deletion`, `global_edit_text_and_graphics`, `global_edit_tracks_and_vias`, `image_properties` → `dialog_reference_image_properties`, `move_exact`, `non_copper_zone_properties` → `dialog_non_copper_zones_properties`, `pad_properties`, `rule_area_properties`, `swap_layers`, `table_properties`, `textbox_properties`, `track_via_properties`, `teardrop_global_edit` → `dialog_global_edit_teardrops`, `pad_enumerate` → `dialog_enum_pads`). Still at root, unclear (no single KiCad counterpart): `position_relative.ts` (both `DIALOG_POSITION_RELATIVE` and `POSITION_RELATIVE_TOOL` in one file), `graphic_properties.ts` (merges `dialog_text_properties.cpp` + `dialog_shape_properties.cpp`), `zone_properties.ts` (ambiguous between `dialog_copper_zones.cpp` the frame and `panel_zone_properties.cpp` the fields), `via_placer.ts` (no dedicated file — part of `DRAWING_TOOL::DrawVia`), `distribute_items.ts` (shared with align in `ALIGN_DISTRIBUTE_TOOL`, no distribute-only file). (`teardrop.ts` at root is the old view-side copy from line 81-84 above, a #636 deletion candidate, not a move target.) |
+| `widgets/` | 9 453 lines upstream. We now have one file here — `pcb_net_inspector_panel.ts` (09-28, `PCB_NET_INSPECTOR_PANEL`) — the rest is still surface code, frozen until the core is KiCad's. |
 | `zone_manager/` | 1 595 lines, the Zone Manager dialog. Surface, frozen. |
 | `microwave/` | 1 341 lines, gap/stub/inductor generators. Unbuilt. |
 | `specctra_import_export/` | 6 532 lines, DSN/SES for external autorouters. Unbuilt. |
@@ -38,7 +38,7 @@ None since 09-21. `barcode/` (the Zint port) is `libs/zint` now — KiCad's
 | the BOARD_ITEM hierarchy | `footprint` 224/229 · `pad` 287/291 · `pcb_track` 203/207 · `zone` 155/160 · `pcb_shape` 52/56 · `pcb_text` 36/41 · `pcb_group` 33/37 · `padstack` 76/78 · `netinfo` 34/35 | **effectively complete.** Every absence is `Serialize`/`Deserialize` (the `api/` protobuf), `Show`/`ShowDummy` (debug dumps), `ZONE::SetFillPoly` (inside `#if defined(DEBUG)`) or `PCB_TEXT::ShowSyntaxHelp` (a wx `HTML_MESSAGE_BOX`). `FOOTPRINT::FootprintNeedsUpdate` is ours as `footprint_needs_update.ts` — a structural split, not a gap. |
 | `board.ts` | `board.h` + `.cpp` | **206/210 — done.** The 4: `Show`/`ShowDummy` (`#if DEBUG` ostream dumps), `ParseType`/`ShowType` (`LAYER`'s, ported there). `SaveToHistory` fills `HISTORY_FILE_DATA`; the snapshot store is the app's. PROJECT is real since 09-20: `common/project.ts`, `project/project_file.ts`, `SETTINGS_MANAGER` in `pgm_base.ts`. `ClearProject` gives BDS a fresh `NET_SETTINGS` where upstream leaves null. `GetTuningProfiles()` is ours - the two upstream callers read `GetProject()->GetProjectFile()` inline. |
 | `pcb_plotter.ts`, `plot_board_layers.ts`, `plot_brditems_plotter.ts`, `pcbplot.ts` | The Gerber path, byte-identical to kicad-cli (`qa/data/pcbnew/plot/gerber_oracle`). `StartPlotBoard` makes only the Gerber plotter and `PCB_PLOTTER::Plot` hands each file to a callback; `COLOR_SETTINGS` is not in the plot params, so `getColor` is black (Gerber ignores colour); `PlotInteractiveLayer` (PDF) is absent. `PLOT_CONTROLLER` is not ported. |
-| `exporters/gendrill_excellon_writer.ts`, `exporters/gerber_jobfile_writer.ts` | Function writers moved out of the deleted `plot_gerber.ts`, not yet the `GENDRILL_EXCELLON_WRITER` / `GERBER_JOBFILE_WRITER` classes. |
+| `exporters/gendrill_writer_base.ts`, `gendrill_excellon_writer.ts`, `gerber_jobfile_writer.ts` | `GENDRILL_WRITER_BASE`, `EXCELLON_WRITER`, `GERBER_JOBFILE_WRITER`, byte-identical to kicad-cli (`qa/data/pcbnew/plot/drill_oracle`, the gerber oracle's `.gbrjob`) but for program and clock. Files go to a sink (`SetFileSink`), "now" is `SetDate`'s, a PDF drill map is uncompressed unless given a deflater. A blind span ending on B.Cu follows the 10.0.5 source (`-back-in2`); 10.0.6 writes `-in2-back`. `GERBER_WRITER` (Gerber drill files) is not ported. |
 | `autorouter/ar_matrix.ts` | `AddCell`/`AndCell`/`OrCell`/`XorCell`/`SetCellOperation` are folded into `opCell`/`writeCell`. Same behaviour. |
 
 ## Verified 1:1
@@ -85,7 +85,10 @@ is already ported.
 
 24 more sit in a different directory than the counterpart their header cites —
 10 belong in `tools/`, 4 in `dialogs/`. Stage 3 of #636 moves that tool logic
-anyway.
+anyway. (09-28: 19 root dialog bodies moved to `dialogs/`, `point_editor.ts` to
+`tools/pcb_point_editor.ts`, `net_inspector.ts` to
+`widgets/pcb_net_inspector_panel.ts` — see the `dialogs/` and `widgets/` rows
+above.)
 
 These belong outside pcbnew entirely (central-value rule): `lset.ts`,
 `properties_panel.ts` → `common/` (`board_project_settings.ts` moved 09-19,
