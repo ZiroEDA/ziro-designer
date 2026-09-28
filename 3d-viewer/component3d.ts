@@ -36,13 +36,12 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { VRMLLoader } from 'three/addons/loaders/VRMLLoader.js';
 import type { Board } from '@ziroeda/pcbnew';
-import { FILENAME_RESOLVER } from '@ziroeda/common/filename_resolver.js';
+import { PROJECT_PCB } from '@ziroeda/pcbnew/project_pcb.js';
 import { PATHS } from '@ziroeda/common/paths.js';
 import { PgmOrNull } from '@ziroeda/common/pgm_base.js';
 import {
   type wxFileSystemMount,
   wxFindMount,
-  wxGetTempDir,
   wxMountFileSystem,
   wxReadFileSync,
 } from '@ziroeda/common/wx/filefn.js';
@@ -180,22 +179,6 @@ const joinUrl = (base: string, rel: string): string =>
     .join('/')}`;
 
 /**
- * `S3D_CACHE`'s resolver, set up as `PROJECT::Get3DCacheManager` does it:
- * `Set3DConfigDir`, `SetProgramBase( &Pgm() )`, `SetProject( aProject )`.
- * The config directory only has to exist (it is what builds the search-path
- * list); the settings folder exists on every desktop, and the one directory
- * a page always has is the temp directory.
- */
-function make3dResolver(): FILENAME_RESOLVER {
-  const resolver = new FILENAME_RESOLVER();
-  const pgm = PgmOrNull();
-  resolver.Set3DConfigDir(wxGetTempDir());
-  resolver.SetProgramBase(pgm);
-  resolver.SetProject(pgm ? pgm.GetSettingsManager().Prj() : null);
-  return resolver;
-}
-
-/**
  * The `SMATERIAL` a loader's three.js material stands for.
  *
  * Colours come back sRGB-ENCODED: KiCad's OCE loader reads a STEP colour with
@@ -312,7 +295,7 @@ export function mountComponents(
   const projectMount = new PROJECT_FILES_MOUNT(new Set(projectFiles?.map((f) => f.name) ?? []));
   const unmountProject =
     projectFiles && projectDir.startsWith('/') ? wxMountFileSystem(projectDir, projectMount) : null;
-  const resolver = make3dResolver();
+  const resolver = PROJECT_PCB.Get3DFilenameResolver();
   // wxFileName( fp_model.m_Filename ).GetFullName(): the name and extension
   const inFlight = new Set<string>();
   const reportInFlight = (): void => {
