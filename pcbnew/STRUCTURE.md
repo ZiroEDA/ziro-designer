@@ -304,19 +304,50 @@ Not moved, and why:
   `SaveAsDialog`'s own prop types turn out importable whole from `pcbnew`/
   `3d-viewer`/`common` — no designer-only type in either — so `PCBNEW_APP`
   can declare their real signatures rather than a loosened stand-in.
-  **Blocked, not just undone:** `PcbEditor.tsx` currently carries another
-  agent's uncommitted teardrop-BOARD work interleaved line-for-line with this
-  pass's import-path edits; it cannot be safely split into "their hunks" and
-  "these hunks" for a partial commit, so nothing in it beyond the import
-  lines already needed for the modules above to typecheck was touched. The
-  footprint editor's own remaining siblings — `FootprintCanvas.tsx`,
-  `cursors.ts`, `footprintBoard.ts`, `graphics_defaults.ts`, `grid.ts`,
-  `libraryManager.ts`, `new_footprint.ts` — are clean (no concurrent edits)
-  but each defaults a `cfg: FpEditSettings` parameter to the live
-  `settings.fpEdit` singleton the same way `board_settings.ts` and
-  `toggles.ts` did; each needs its own narrow `FP_EDIT_JSON_SETTINGS_LIKE`
-  slice (`design_settings.*`, `window.grid.*`) before it can move, and none
-  of that slice is written yet.
+  **Update (09-28, later the same day):** `graphics_defaults.ts`, `fp_grid.ts`
+  (was `grid.ts`, renamed to avoid colliding with the PCB editor's own
+  `pcb_grid.ts`), `new_footprint.ts` and `footprintBoard.ts` are moved —
+  `pcbnew/footprint_editor_settings.ts`'s new `FP_EDIT_JSON_SETTINGS_LIKE`
+  covers `design_settings.*` and `window.grid.*`, and all four now take
+  `cfg: FpEditSettings` as a *required* parameter instead of defaulting to
+  the live `settings.fpEdit` singleton (the one caller that relied on the
+  default, `FootprintEditor.tsx`'s `createFootprint`, now passes `fpCfg`
+  explicitly). `footprintBoard.ts` turned out to be widely shared —
+  `footprint_list.ts`, `footprint_preview_panel.tsx`, `cvpcb_app.tsx` and
+  `FootprintCanvas.tsx` all import it.
+
+  `PcbEditor.tsx` unblocked partway: the #636 helper now hands off dialog
+  patches (`~/ziro-handoff/*.patch`, one per five dialogs) against the
+  working file instead of leaving it interleaved; the first
+  (`PcbPropertiesPanel` onto the live BOARD) applied and committed clean
+  through a private index (its own teardrop-BOARD refactor is still
+  mid-flight and uncommitted in the same file, deliberately left alone).
+  Applying a handoff patch does not by itself let `PcbEditor.tsx` **move** —
+  that still needs `PCBNEW_APP` for `PreferencesDialog`/`HomeLink`/
+  `SaveAsDialog`/`useToolbarEntries`/the settings triad, none of which is
+  written yet — but each patch shrinks what the eventual move has to touch.
+
+  Still blocked and why: `FootprintCanvas.tsx` needs both `pcbTheme.ts` and
+  `renderBoard.ts` (below); `cursors.ts` (footprint) needs
+  `ui/tool_cursors.ts` / `ui/kicursors.ts`, which are genuinely shared across
+  every editor (schematic, symbol, pcb, footprint all import them) — a
+  `common/` move, not a `designer/` one, and out of scope here rather than a
+  `PCBNEW_APP` case. `libraryManager.ts` still needs `libraryBundleStore.ts`,
+  `libraryHosts.ts` and `widgets/library_loading.ts` (real account/library
+  plumbing).
+- `pcbTheme.ts` / `renderBoard.ts` — both widely used (by `PcbEditor.tsx`,
+  `FootprintCanvas.tsx` and others) and both mostly pure, but
+  `pcbTheme.ts`'s `themeByFilename` calls `colorSettingsById`
+  (`prefs/color_settings_list.ts`), which reads the live PCM store for
+  user-installed themes — not a JSON-settings read the `_LIKE` structural
+  trick covers, an actually-live registry. Multiple callers (`dialog_print_pcb.tsx`,
+  several qa tests) rely on the single-argument call reading the real
+  built-in list, so narrowing the signature the way `FpEditSettings` was
+  narrowed is not a small edit here. `renderBoard.ts` needs
+  `font/outline_fonts.ts` / `font/draw_outline_text.ts` /
+  `render/gl/bitmap_text.ts`, the outline-font rasteriser, real app-level
+  asset plumbing. Both need their own `PCBNEW_APP` design, not attempted
+  this pass.
 - `viewer3d_cache_shim.ts` — moved and reverted: its one `designer/` import,
   `model_cache.ts`, itself needs `cloud/blobStore.ts` + `home/idb_open.ts` +
   `home/local_vault.ts`, real app storage plumbing for a `PCBNEW_APP`, not a
