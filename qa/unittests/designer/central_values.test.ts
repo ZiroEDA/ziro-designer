@@ -96,6 +96,16 @@ const GERBVIEW = fileURLToPath(new URL('../../../gerbview', import.meta.url));
 const BITMAP2COMPONENT = fileURLToPath(new URL('../../../bitmap2component', import.meta.url));
 const PAGELAYOUT = fileURLToPath(new URL('../../../pagelayout_editor', import.meta.url));
 const CVPCB = fileURLToPath(new URL('../../../cvpcb', import.meta.url));
+/**
+ * The editor packages the file-structure pass moved UI into (09-28). They are
+ * counted under the editor areas their files came from, so a literal that moved
+ * stays on its editor's row instead of leaving the scan - which is what made
+ * editors/schematic read 37 metrics against a baseline of 128 without one
+ * literal having been fixed.
+ */
+const PCBNEW = fileURLToPath(new URL('../../../pcbnew', import.meta.url));
+const EESCHEMA = fileURLToPath(new URL('../../../eeschema', import.meta.url));
+const VIEWER3D = fileURLToPath(new URL('../../../3d-viewer', import.meta.url));
 
 /**
  * Seeded 2026-08-20 from the tree, per area, AFTER the central-values pass took
@@ -295,7 +305,11 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // 18 -> 17: the pcbnew file-structure move keeps carrying editors/pcb's
   // dialogs out to pcbnew/ commit by commit; one more colour left with
   // whichever of them went next. RESCANNED from this tree.
-  'editors/pcb': { colours: 17, metrics: 44 },
+  // 17/44 -> 24/141 (09-28): the scan now reads pcbnew/ and 3d-viewer/. The
+  // earlier drops (26 -> 17 colours, 1138 -> 1041 metrics) were sites carried
+  // OUT of the scan by the file-structure move, not fixed; 141 is 44 plus
+  // exactly the 97 that move removed from view.
+  'editors/pcb': { colours: 24, metrics: 141 },
   // At zero, and listed rather than absent: `prefs/` is the settings store, and
   // the one literal it had - the 3D viewer's `rgb(0,255,0)` selection colour -
   // is `PARAM<COLOR4D>( "render.opengl_selection_color", …, COLOR4D( 0, 1, 0, 1 ) )`
@@ -385,7 +399,8 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // #000000/#888 x4 - and 14 metrics), dialog_create_net_chain.tsx (0
   // colours, 8 metrics) and dialog_resolve_field_case_conflicts.tsx (0
   // colours, 1 metric). RESCANNED against the tree with them gone.
-  'editors/schematic': { colours: 16, metrics: 128 },
+  // 16 -> 15 (09-28): rescanned with eeschema/ in the scan.
+  'editors/schematic': { colours: 15, metrics: 128 },
   // 166 -> 163 metrics on `editors/schematic`, moved here whole: cvpcb's
   // three windows left `editors/schematic/dialogs/` for the root `cvpcb/`
   // package (cvpcb/STRUCTURE.md's stage two). No colours moved (the five
@@ -1007,6 +1022,16 @@ function scan(): Site[] {
       else if (/\.(css|tsx)$/.test(p)) files.push(p);
     }
   })(CVPCB);
+  for (const root of [PCBNEW, EESCHEMA, VIEWER3D]) {
+    (function walk(dir: string) {
+      for (const entry of readdirSync(dir)) {
+        if (entry === 'node_modules') continue;
+        const p = join(dir, entry);
+        if (statSync(p).isDirectory()) walk(p);
+        else if (/\.(css|tsx)$/.test(p)) files.push(p);
+      }
+    })(root);
+  }
   files.sort();
 
   const sites: Site[] = [];
@@ -1016,6 +1041,9 @@ function scan(): Site[] {
     const inBitmap2component = !relative(BITMAP2COMPONENT, file).startsWith('..');
     const inPagelayout = !relative(PAGELAYOUT, file).startsWith('..');
     const inCvpcb = !relative(CVPCB, file).startsWith('..');
+    const inPcbnew = !relative(PCBNEW, file).startsWith('..');
+    const inEeschema = !relative(EESCHEMA, file).startsWith('..');
+    const inViewer3d = !relative(VIEWER3D, file).startsWith('..');
     const rel = inCommon
       ? `common/${relative(COMMON, file)}`
       : inGerbview
@@ -1026,7 +1054,13 @@ function scan(): Site[] {
             ? `editors/drawingsheet/${relative(PAGELAYOUT, file)}`
             : inCvpcb
               ? `cvpcb/${relative(CVPCB, file)}`
-              : relative(SRC, file);
+              : inPcbnew || inViewer3d
+                ? `editors/pcb/${relative(inPcbnew ? PCBNEW : VIEWER3D, file)}`
+                : inEeschema
+                  ? relative(EESCHEMA, file).startsWith('symbol_editor')
+                    ? `editors/symbol/${relative(EESCHEMA, file)}`
+                    : `editors/schematic/${relative(EESCHEMA, file)}`
+                  : relative(SRC, file);
     const parts = rel.split('/');
     const area =
       parts[0] === 'editors' || parts[0] === 'common'
@@ -1318,7 +1352,9 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // agrees with the rescan.
     // 291 -> 290: `editors/pcb` 18 -> 17, one more site carried out to
     // pcbnew/ by the same still-running move.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(290);
+    // 290 -> 296 (09-28): pcbnew/, eeschema/ and 3d-viewer/ joined the scan;
+    // see the editors/pcb and editors/schematic rows (+7, -1).
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(296);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.
@@ -1513,7 +1549,9 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 1138 -> 1041 (pcbnew/pcb_edit_frame_ui Stage A): `editors/pcb` 133 -> 44
     // and `editors/footprint` 13 -> 5, the same dialogs/panels/appearance_controls
     // move; 1138 - 89 - 8 agrees with the rescan.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1041);
+    // 1041 -> 1138 (09-28): back to the pre-move figure with pcbnew/, eeschema/
+    // and 3d-viewer/ in the scan; the 97 had left the scan, not the code.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1138);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

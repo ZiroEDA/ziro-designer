@@ -52,6 +52,20 @@ import { fileURLToPath } from 'node:url';
 import { join, relative } from 'node:path';
 
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
+/**
+ * The editor packages the file-structure pass moved UI into (09-28), counted
+ * under the editor area each file came from, so a font size that moved stays
+ * on its editor's row instead of leaving the scan (editors/schematic read 9
+ * against a baseline of 35 without one size having been removed).
+ */
+const MOVED_ROOTS: [string, (rel: string) => string][] = [
+  [fileURLToPath(new URL('../../../pcbnew', import.meta.url)), () => 'editors/pcb'],
+  [fileURLToPath(new URL('../../../3d-viewer', import.meta.url)), () => 'editors/pcb'],
+  [
+    fileURLToPath(new URL('../../../eeschema', import.meta.url)),
+    (rel) => (rel.startsWith('symbol_editor') ? 'editors/symbol' : 'editors/schematic'),
+  ],
+];
 const SHELL_CSS = readFileSync(join(SRC, '../../common/widgets/shell.css'), 'utf8');
 
 /** CSS defines `pt` against 96 dpi exactly, which is also this desktop's dpi. */
@@ -286,7 +300,9 @@ const BASELINE: Record<string, number> = {
   // panels and the appearance_controls widget carried their fontSize sites
   // out to pcbnew/, which this scanner (designer/src only) does not walk.
   // RESCANNED from this tree.
-  'editors/pcb': 8,
+  // 8 -> 39 (09-28): the scan now reads pcbnew/ and 3d-viewer/. The drop to 8
+  // was the file-structure move carrying sites out of view, not removing them.
+  'editors/pcb': 39,
   // 55 -> 50: the COLOR_SWATCH sweep's second half. Seven Clear buttons and
   // one `(using Schematic Editor colors)` hint each carried an inline
   // `fontSize: 11`, and none of them exists upstream - the swatch clears
@@ -477,12 +493,27 @@ function scan(): Site[] {
       else if (/\.(css|tsx|ts)$/.test(p)) files.push(p);
     }
   })(SRC);
+  for (const [root] of MOVED_ROOTS) {
+    (function walk(dir: string) {
+      for (const entry of readdirSync(dir)) {
+        if (entry === 'node_modules') continue;
+        const p = join(dir, entry);
+        if (statSync(p).isDirectory()) walk(p);
+        else if (/\.(css|tsx)$/.test(p)) files.push(p);
+      }
+    })(root);
+  }
 
   const sites: Site[] = [];
   for (const file of files) {
-    const rel = relative(SRC, file);
+    const moved = MOVED_ROOTS.find(([root]) => !relative(root, file).startsWith('..'));
+    const rel = moved ? relative(moved[0], file) : relative(SRC, file);
     const parts = rel.split('/');
-    const area = parts[0] === 'editors' ? `editors/${parts[1]}` : (parts[0] ?? '');
+    const area = moved
+      ? moved[1](rel)
+      : parts[0] === 'editors'
+        ? `editors/${parts[1]}`
+        : (parts[0] ?? '');
     const isCss = file.endsWith('.css');
     readFileSync(file, 'utf8')
       .split('\n')
@@ -697,7 +728,9 @@ describe('hardcoded font sizes do not grow', () => {
     // 100 -> 69: `editors/pcb` 39 -> 8, see that row - the file-structure
     // move is still running and keeps carrying this scanner's sites out to
     // pcbnew/.
-    expect(sites.length).toBe(69);
+    // 69 -> 100 (09-28): back to the pre-move figure, now that the scan reads
+    // the packages the move carried sites into. Nothing was removed.
+    expect(sites.length).toBe(100);
   });
 });
 
