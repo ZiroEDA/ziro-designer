@@ -53,13 +53,13 @@ import type {
   SchSymbol,
   SchTable,
   SchTextBox,
-} from '@ziroeda/eeschema';
+} from './types.js';
 import {
   applyCollectionPatch,
   diffCollection,
   UNSAFE,
   type CollectionPatch,
-} from './collection_diff.js';
+} from '@ziroeda/common/collection_diff.js';
 
 export interface SchematicPatch {
   symbols?: CollectionPatch<SchSymbol>;

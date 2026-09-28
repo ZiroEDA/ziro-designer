@@ -32,7 +32,7 @@ import {
   diffSchematic,
   schematicPatchIsEmpty,
   type SchematicPatch,
-} from '../../sync/sch_diff.js';
+} from '@ziroeda/eeschema/sch_diff.js';
 import type {
   PeerRole,
   PresenceInfo,
