@@ -4,10 +4,7 @@
 /** PANEL_BOM_PRESETS on two read-only WX_GRIDs (panel_bom_presets.cpp). */
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
-import {
-  type BomPresets,
-  PanelBomPresets,
-} from '@ziroeda/eeschema/dialogs/panel_bom_presets.js';
+import { type BomPresets, PanelBomPresets } from '@ziroeda/eeschema/dialogs/panel_bom_presets.js';
 
 afterEach(cleanup);
 

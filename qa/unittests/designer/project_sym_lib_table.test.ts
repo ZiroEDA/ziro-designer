@@ -16,7 +16,7 @@ import {
   resolvedProjectSymLibs,
   findSymLibRowByUri,
   serializeSymLibTable,
-} from '@ziroeda/designer/src/editors/schematic/symbols/project_sym_lib_table.js';
+} from '@ziroeda/eeschema/project_sym_lib_table.js';
 
 const TABLE = `(sym_lib_table
   (version 7)

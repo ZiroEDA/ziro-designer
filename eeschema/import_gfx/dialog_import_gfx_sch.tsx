@@ -29,10 +29,7 @@
  */
 
 import { useMemo, useState, type JSX } from 'react';
-import {
-  GRAPHICS_IMPORTER_SCH,
-  type SchImportedItem,
-} from './graphics_importer_sch.js';
+import { GRAPHICS_IMPORTER_SCH, type SchImportedItem } from './graphics_importer_sch.js';
 import { GRAPHICS_IMPORTER_LIB_SYMBOL } from './graphics_importer_lib_symbol.js';
 import {
   fileExtension,

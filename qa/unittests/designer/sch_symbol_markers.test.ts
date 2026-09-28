@@ -29,8 +29,8 @@ import {
   SIM_EXCLUSION_STROKE_WIDTH,
   dnpMarkerSegments,
   simExclusionMarker,
-} from '@ziroeda/designer/src/editors/schematic/render/symbol_markers.js';
-import { dimmedColor } from '@ziroeda/designer/src/editors/schematic/render/render_color.js';
+} from '@ziroeda/eeschema/symbol_markers.js';
+import { dimmedColor } from '@ziroeda/eeschema/render_color.js';
 import { BUILTIN_DEFAULT_THEME } from '@ziroeda/common/settings/builtin_color_themes.js';
 import { toCssColor } from '@ziroeda/common';
 import { symbolBodyBBox, type BBox } from '@ziroeda/eeschema/tools/bbox.js';

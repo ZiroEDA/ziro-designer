@@ -73,7 +73,7 @@ describe('the Exclusion Comment callers', () => {
   const read = (rel: string): string => readFileSync(resolve(process.cwd(), '..', rel), 'utf8');
 
   for (const file of [
-    'designer/src/editors/schematic/components/ErcDialog.tsx',
+    'eeschema/dialogs/dialog_erc.tsx',
     'designer/src/editors/pcb/PcbEditor.tsx',
   ]) {
     it(`${file.split('/').pop()} asks with WX_TEXT_ENTRY_DIALOG, never prompt()`, () => {

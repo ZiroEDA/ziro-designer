@@ -105,10 +105,10 @@ import {
   SIM_EXCLUSION_STROKE_WIDTH,
   dnpMarkerSegments,
   simExclusionMarker,
-} from './symbol_markers.js';
-import { dimmedColor } from './render_color.js';
+} from '@ziroeda/eeschema/symbol_markers.js';
+import { dimmedColor } from '@ziroeda/eeschema/render_color.js';
 import { altIconBox } from '@ziroeda/eeschema/pin_box.js';
-import { drawAltPinModesIcon } from './pin_alt_icon.js';
+import { drawAltPinModesIcon } from '@ziroeda/eeschema/pin_alt_icon.js';
 
 /**
  * Which items this render is allowed to draw (`hiddenItems` / `onlyItems`).

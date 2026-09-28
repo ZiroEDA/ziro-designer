@@ -39,7 +39,7 @@ import {
   ERC_BADGE_MAX,
   ERC_DEFAULT_FILTERS,
   ercBadge,
-} from '@ziroeda/designer/src/editors/schematic/components/ErcDialog.js';
+} from '@ziroeda/eeschema/dialogs/dialog_erc.js';
 
 afterEach(cleanup);
 

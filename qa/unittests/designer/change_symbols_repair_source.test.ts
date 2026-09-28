@@ -24,7 +24,7 @@
  * up: a parameter nothing supplied honestly. This file pins that seam.
  */
 import { describe, expect, it, vi } from 'vitest';
-import { repairSourceLibs } from '@ziroeda/designer/src/editors/schematic/symbols/repair_source.js';
+import { repairSourceLibs } from '@ziroeda/eeschema/repair_source.js';
 import type { LibSymbol } from '@ziroeda/eeschema';
 
 /** A derived symbol as the old writer cached it: `extends`, and no geometry. */

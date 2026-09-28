@@ -16,12 +16,12 @@ import { Reporter } from '@ziroeda/common/reporter.js';
 import { searchTerm, type SearchTerm } from '@ziroeda/common';
 import { fetchLibraryIndex, libraryBase } from '../../../libraryHosts.js';
 import { trackLibraryLoad } from '../../../widgets/library_loading.js';
-import { libTreeItem, symbolProperty, type LibTreeItem } from './lib_tree_item.js';
+import { libTreeItem, symbolProperty, type LibTreeItem } from '@ziroeda/eeschema/lib_tree_item.js';
 import { loadLibraryItemsPooled } from './preload_pool.js';
 
-export type { LibTreeItem } from './lib_tree_item.js';
+export type { LibTreeItem } from '@ziroeda/eeschema/lib_tree_item.js';
 /** Re-exported so callers keep one import site for symbol access. */
-export { symbolProperty, libSymbolPinCount, libSymbolUnitCount } from './lib_tree_item.js';
+export { symbolProperty, libSymbolPinCount, libSymbolUnitCount } from '@ziroeda/eeschema/lib_tree_item.js';
 
 /**
  * Read a library, saying so when a derived symbol's parent is not in the file.

@@ -15,7 +15,7 @@ import {
   LIB_TREE_PRUNE,
   libTreeItem,
   readLibTreeItems,
-} from '@ziroeda/designer/src/editors/schematic/symbols/lib_tree_item.js';
+} from '@ziroeda/eeschema/lib_tree_item.js';
 
 const BUNDLED = fileURLToPath(new URL('../../../designer/public/symbols/', import.meta.url));
 const FIXTURE = join(homedir(), 'ziro-perf-fixtures/symbols');

@@ -23,7 +23,7 @@ import { fileURLToPath } from 'node:url';
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
-const PANEL = read('../../../designer/src/editors/schematic/components/NetNavigatorPanel.tsx');
+const PANEL = read('../../../eeschema/widgets/net_navigator_panel.tsx');
 const EDITOR = read('../../../designer/src/editors/schematic/SchematicEditor.tsx');
 const CSS = read('../../../common/widgets/shell.css');
 

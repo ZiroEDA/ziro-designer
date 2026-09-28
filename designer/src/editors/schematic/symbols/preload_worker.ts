@@ -22,7 +22,7 @@
  * lib_tree_item.ts for why the parsed form cannot be kept.
  */
 import { symbolLibraryText } from '../../../libraryBundleStore.js';
-import { readLibTreeItems, type LibTreeItem } from './lib_tree_item.js';
+import { readLibTreeItems, type LibTreeItem } from '@ziroeda/eeschema/lib_tree_item.js';
 
 /** `submit_task`'s argument: which library, and where it is served from. */
 export interface PreloadRequest {

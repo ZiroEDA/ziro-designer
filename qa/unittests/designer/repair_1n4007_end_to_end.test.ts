@@ -32,7 +32,7 @@ import {
   changeSymbols,
   defaultChangeSymbolsOptions,
 } from '@ziroeda/eeschema/tools/change_symbols.js';
-import { repairSourceLibs } from '@ziroeda/designer/src/editors/schematic/symbols/repair_source.js';
+import { repairSourceLibs } from '@ziroeda/eeschema/repair_source.js';
 
 /** As served: the parent carries the body, the child carries only fields. */
 const LIBRARY = `(kicad_symbol_lib (version 20241209) (generator "kicad_symbol_editor")

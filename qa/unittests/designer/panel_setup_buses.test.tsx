@@ -10,10 +10,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { useState } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { SetErrorPresenter } from '@ziroeda/common/confirm.js';
-import {
-  type BusAlias,
-  PanelSetupBuses,
-} from '@ziroeda/eeschema/dialogs/panel_setup_buses.js';
+import { type BusAlias, PanelSetupBuses } from '@ziroeda/eeschema/dialogs/panel_setup_buses.js';
 
 afterEach(cleanup);
 

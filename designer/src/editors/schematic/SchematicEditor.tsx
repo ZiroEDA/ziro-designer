@@ -325,7 +325,7 @@ import {
   type VAlign,
 } from '@ziroeda/eeschema/dialogs/dialog_text_properties.js';
 import { SymbolPropertiesDialog } from './components/SymbolPropertiesDialog.js';
-import { ErcDialog, type ErcDialogNav } from './components/ErcDialog.js';
+import { ErcDialog, type ErcDialogNav } from '@ziroeda/eeschema/dialogs/dialog_erc.js';
 import {
   DialogSymbolChooser,
   type PickedSymbol,
@@ -334,7 +334,7 @@ import {
 import { SymbolLibraryBrowser } from './components/SymbolLibraryBrowser.js';
 import { loadFootprint, loadFootprintIndex } from '../../widgets/footprint_list.js';
 import { libraryUri, loadIndex, loadSymbol, symbolsBase } from './symbols/index.js';
-import { repairSourceLibs } from './symbols/repair_source.js';
+import { repairSourceLibs } from '@ziroeda/eeschema/repair_source.js';
 import {
   findRescues,
   rescueDocumentCommand,
@@ -359,7 +359,7 @@ import {
   projectSymLibTable,
   projectSymLibTablePath,
   serializeSymLibTable,
-} from './symbols/project_sym_lib_table.js';
+} from '@ziroeda/eeschema/project_sym_lib_table.js';
 import { DialogSymLibTable } from '../../widgets/dialog_sym_lib_table.js';
 import {
   projectFpLibTablePath,
@@ -481,7 +481,7 @@ import {
   subpartSettings,
 } from '@ziroeda/eeschema/schematic_settings.js';
 import { netClassHumanReadableName } from '@ziroeda/common/project/net_settings.js';
-import type { PdfNetInfo } from './render/pdf_annotations.js';
+import type { PdfNetInfo } from '@ziroeda/eeschema/pdf_annotations.js';
 import type { Netlist } from '@ziroeda/eeschema/connectivity/nets.js';
 import { DEFAULT_WIRE_WIDTH } from './render/renderer.js';
 import { computeNetClassOverrides } from './net_overrides.js';
@@ -554,8 +554,8 @@ import type { RenderOpts } from './render/renderer.js';
 import type { InputPrefs } from '../../ui/view_controls.js';
 import { SchPropertiesPanel } from './components/SchPropertiesPanel.js';
 import { FootprintChooserFrame } from '../pcb/dialogs/footprint_chooser_frame.js';
-import { SearchPanel } from './components/SearchPanel.js';
-import { NetNavigatorPanel } from './components/NetNavigatorPanel.js';
+import { SearchPanel } from '@ziroeda/eeschema/widgets/sch_search_pane.js';
+import { NetNavigatorPanel } from '@ziroeda/eeschema/widgets/net_navigator_panel.js';
 import { DialogUpdateFromPcb } from '@ziroeda/eeschema/dialogs/dialog_update_from_pcb.js';
 import {
   DialogSyncSheetPins,

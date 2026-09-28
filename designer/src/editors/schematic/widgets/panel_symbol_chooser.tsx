@@ -46,7 +46,7 @@ import {
   loadedLibraryItems,
   type LibIndexEntry,
 } from '../symbols/index.js';
-import { libTreeItem, type LibTreeItem } from '../symbols/lib_tree_item.js';
+import { libTreeItem, type LibTreeItem } from '@ziroeda/eeschema/lib_tree_item.js';
 import { settings } from '../../../prefs/settings.js';
 import { Sash } from '@ziroeda/common/widgets/wx_splitter_window.js';
 

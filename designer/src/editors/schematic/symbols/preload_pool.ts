@@ -15,7 +15,7 @@
  * when it was six `fetch`es feeding one thread.)
  */
 import { loadLibraryItems, type PreloadRequest, type PreloadResult } from './preload_worker.js';
-import type { LibTreeItem } from './lib_tree_item.js';
+import type { LibTreeItem } from '@ziroeda/eeschema/lib_tree_item.js';
 
 /**
  * The cap on the pool.

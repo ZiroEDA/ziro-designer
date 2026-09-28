@@ -14,10 +14,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import {
-  DEFAULT_PARAMS,
-  runImport,
-} from '@ziroeda/eeschema/import_gfx/dialog_import_gfx_sch.js';
+import { DEFAULT_PARAMS, runImport } from '@ziroeda/eeschema/import_gfx/dialog_import_gfx_sch.js';
 import { symbolEditorMenus } from '@ziroeda/designer/src/editors/symbol/menubar.js';
 import { moveGraphic } from '@ziroeda/designer/src/editors/symbol/edits.js';
 
