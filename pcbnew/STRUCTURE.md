@@ -161,6 +161,22 @@ KiCad-python oracle in `text_knockout_hull.test.ts` now runs on the live
 `PCB_TEXT::TransformShapeToPolygon` (vertex-for-vertex to 0.5 µm). The
 hidden-text rule is the pour's (`addKnockout`), not the text's.
 
+**What is still blocked, and on which #636 stage (09-28):**
+- stage 3 (tools on the live BOARD): `courtyard_collision.ts` (the view move;
+  `drc/drc_interactive_courtyard_clearance.ts` is ported and pinned, waiting
+  for EDIT_TOOL), `courtyard.ts` (it, `edit-footprint`, the footprint checker,
+  the unreachable autoplacer), `convert_lines.ts` / `convert_shapes.ts`
+  (CONVERT_TOOL), `unused_pad_layers.ts` (the router's flash test), and
+  `text_metrics` / `textbox_` / `table_` / `dimension_geometry.ts` through
+  `edit-board`'s selection bbox and hit test and the dimension/point-edit tools.
+- stage 5 leftover: the same four geometry files through `renderBoard.ts`,
+  the old scene renderer the tool previews still draw with.
+- stage 4 (the pour on ZONE/BOARD): `zone_islands`, `zone_connection`,
+  `via_layers`, `convert_shape_list_to_polygon_legacy`, and this package's own
+  `convert_basic_shapes_to_polygon.ts` (also read by the 3D viewer's
+  `text_to_polyset` / `transform_shape_to_polygon`).
+- stage 6 (dialogs/properties panel on the classes): `padstack_drill.ts`.
+
 **`modify_lines.ts` + `outset_items.ts` + `polygon_booleans.ts` resolved
 09-28:** merged into `tools/item_modification_routine.ts`, matching
 `pcbnew/tools/item_modification_routine.cpp` (`PAIRWISE_LINE_ROUTINE`,
