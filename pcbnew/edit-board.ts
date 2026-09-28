@@ -39,7 +39,7 @@ import {
 import { dimensionBBox, distanceToDimension } from './dimension_geometry.js';
 import { textBoxBBox } from './textbox_geometry.js';
 import { tableBBox } from './table_geometry.js';
-import { imageBBox } from './image_geometry.js';
+import { imageBBox } from './pcb_reference_image.js';
 import type {
   PcbBarcode,
   Board,

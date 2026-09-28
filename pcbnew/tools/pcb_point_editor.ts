@@ -51,7 +51,7 @@ import { segLineProject } from '@ziroeda/kimath/src/geometry/seg.js';
 import { vectorSnapped45 } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
 import type { Board, PcbBarcode, PcbDimension, PcbShape } from '../types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-import { imageBBox } from '../image_geometry.js';
+import { imageBBox } from '../pcb_reference_image.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import { ARC_HIGH_DEF, pcbIUScale } from '@ziroeda/common/eda_units.js';
 import { ARC_EDIT_MODE } from '@ziroeda/common/frame_type.js';

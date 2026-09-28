@@ -640,7 +640,7 @@ export {
   imageSizeIU,
   iuPerPixel,
   FALLBACK_PIXELS,
-} from './image_geometry.js';
+} from './pcb_reference_image.js';
 
 export {
   startPlaceImage,

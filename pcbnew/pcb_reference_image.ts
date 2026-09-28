@@ -8,6 +8,15 @@
  *
  * Not here: `Serialize`/`Deserialize` (the kiapi protobuf surface) and
  * `PCB_REFERENCE_IMAGE_DESC`, the `PROPERTY_MANAGER` registration.
+ *
+ * Also carries the plain-record image-geometry helpers (moved from
+ * pcbnew/image_geometry.ts): `iuPerPixel`, `imageSizeIU` and `imageBBox` work
+ * over the board's `PcbImage` record rather than a built `PCB_REFERENCE_IMAGE`,
+ * for callers that only have the file's plain data. They stay here rather than
+ * in common/bitmap_base.ts or common/reference_image.ts because `PcbImage` is
+ * pcbnew-only and `iuPerPixel` hardcodes the board's `pcbIUScale` — exactly the
+ * per-editor specialisation eeschema keeps to itself in
+ * eeschema/tools/image_size.ts, rather than splitting into common/.
  */
 
 import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
@@ -20,10 +29,11 @@ import {
   LayerName,
   PCB_LAYER_ID,
 } from '@ziroeda/common/layer_id.js';
-import { REFERENCE_IMAGE } from '@ziroeda/common/reference_image.js';
+import { pixelSizeIu, REFERENCE_IMAGE } from '@ziroeda/common/reference_image.js';
 import type { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
 import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
-import type { FLIP_DIRECTION } from '@ziroeda/core/mirror.js';
+import { pngPPI, pngPixelSize } from '@ziroeda/common/wx/png_meta.js';
+import { type FLIP_DIRECTION } from '@ziroeda/core/mirror.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import type { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import {
@@ -36,8 +46,10 @@ import { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_chain.
 import { SHAPE_RECT } from '@ziroeda/kimath/src/geometry/shape_rect.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { type VECTOR2I, add } from '@ziroeda/kimath/src/math/vector2.js';
+import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import { HIGH_CONTRAST_MODE } from '@ziroeda/common/project/board_project_settings.js';
 import { BOARD_ITEM } from './board_item.js';
+import type { PcbImage } from './types.js';
 import { COORD_TYPES_T } from '@ziroeda/common/origin_transforms.js';
 import {
   ENUM_MAP,
@@ -410,3 +422,80 @@ export class PCB_REFERENCE_IMAGE extends BOARD_ITEM {
   const greyscale = 'Greyscale';
   void greyscale;
 })();
+
+// ---------------------------------------------------------------------------
+// Plain-record image geometry: how much board a `PcbImage` covers, without
+// building a `PCB_REFERENCE_IMAGE`.
+// ---------------------------------------------------------------------------
+/**
+ * How much board a reference image covers.
+ * Counterparts: `BITMAP_BASE::GetSize`, `REFERENCE_IMAGE::GetBoundingBox` and
+ * `PCB_REFERENCE_IMAGE::HitTest`.
+ *
+ * ## The image is centred on its position
+ *
+ * `(at …)` is the *middle* of the picture, not a corner — `GetBoundingBox`
+ * builds the box from the centre outwards. Treating it as a top-left corner
+ * would put every image half its own size out of place, consistently enough to
+ * look deliberate.
+ *
+ * ## Pixels become board units through the file's own resolution
+ *
+ * A pixel spans `25.4 mm / ppi`, where ppi comes from the PNG's `pHYs` chunk
+ * and falls back to `BITMAP_BASE`'s 300. That is then multiplied by `(scale …)`.
+ * So the same picture at 600 ppi covers half the board that it does at 300, and
+ * the scale factor is on top of that rather than instead of it.
+ *
+ * Board internal units are nanometres, which is why this cannot reuse the
+ * schematic's IU-per-pixel: there an IU is 100 nm.
+ *
+ * There is no `hitTestImage` here. `boardHitCandidates` needs the *distance* to
+ * the box for its size ranking rather than a boolean, so it measures against
+ * `imageBBox` directly; a predicate was written and had no caller, so it is not
+ * kept. Same call as the text box work.
+ */
+
+/**
+ * The size a payload-less or unreadable image is given, so it stays selectable
+ * rather than becoming an invisible zero-size item on the board.
+ */
+export const FALLBACK_PIXELS = { w: 40, h: 40 };
+
+/**
+ * The board's binding of `REFERENCE_IMAGE`, whose constructor takes the frame's
+ * `EDA_IU_SCALE` (`PCB_REFERENCE_IMAGE::m_referenceImage`,
+ * pcbnew/pcb_reference_image.h:138, is built with `pcbIUScale`). The arithmetic
+ * is shared with the schematic, as `REFERENCE_IMAGE::updatePixelSizeInIU` is
+ * upstream; only the scale is the board's.
+ */
+export function iuPerPixel(ppi: number): number {
+  return pixelSizeIu(pcbIUScale, ppi);
+}
+
+/** `BITMAP_BASE::GetSize`: the image's extent in board IU. */
+export function imageSizeIU(img: PcbImage): { w: number; h: number } {
+  const px = pngPixelSize(img.data) ?? FALLBACK_PIXELS;
+  const per = iuPerPixel(pngPPI(img.data));
+  const scale = img.scale ?? 1;
+  return { w: Math.round(px.w * per * scale), h: Math.round(px.h * per * scale) };
+}
+
+/**
+ * `REFERENCE_IMAGE::GetBoundingBox`, which is `BOX2I::ByCenter(pos, size)` —
+ * `BOX2(center - size / 2, size)`.
+ *
+ * `size / 2` is `VECTOR2<int>::operator/( double )`, which ROUNDS each
+ * coordinate (KiROUND), so an odd size sits half an IU off-centre towards the
+ * origin; the box is then exactly `size` across.
+ */
+export function imageBBox(img: PcbImage): {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+} {
+  const { w, h } = imageSizeIU(img);
+  const minX = img.at.x - KiROUND(w / 2);
+  const minY = img.at.y - KiROUND(h / 2);
+  return { minX, minY, maxX: minX + w, maxY: minY + h };
+}
