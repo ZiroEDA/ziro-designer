@@ -470,6 +470,45 @@ other agents on this branch, not this pass — this pass's own contribution is
 `symbol_tree_synchronizing_adapter.ts`, +1/+1). `SAME` in the regenerated
 probe output is 94 (up from 72).
 
+## Stage E3 pt 1 (2026-09-28): the live item classes, and the s-expression reader/writer
+
+KiCad 10.0.5's schematic model built alongside the record model (`types.ts` and
+its EditCommands are untouched; no caller is switched yet), file for file:
+
+- Items: `sch_item`, `sch_line`, `sch_junction`, `sch_no_connect`, `sch_bus_entry`,
+  `sch_field` (class appended), `sch_text`, `sch_label` (every label kind),
+  `sch_textbox`, `sch_shape`, `sch_bitmap`, `sch_table`, `sch_tablecell`,
+  `sch_group`, `sch_rule_area`, `symbol`, `lib_symbol` (class appended), `sch_pin`
+  (class appended), `sch_symbol` (class appended beside the record getters),
+  `sch_sheet`, `sch_sheet_pin`, `sch_sheet_path` (SCH_SHEET_PATH/LIST and the
+  instance/variant records appended), `sch_screen` (+ `SCH_SCREENS`), `sch_rtree`
+  (`EE_RTREE`), `schematic` (class appended), `schematic_settings`
+  (`SCHEMATIC_SETTINGS` appended), `bus_alias`, `default_values`,
+  `sch_file_versions`; `junction_helpers` gained the live `AnalyzePoint`.
+- `sch_io/kicad_sexpr/`: `sch_io_kicad_sexpr_parser`, `sch_io_kicad_sexpr`,
+  `sch_io_kicad_sexpr_lib_cache`, `sch_io_kicad_sexpr_common`. A load takes a
+  `readFile( absolutePath )` callback (no disk); a save returns the text.
+
+Deliberate divergences, each marked in its file:
+
+- `EE_RTREE` keeps items per type in insertion order and tests boxes when asked,
+  not when inserted (a query sees where an item is now).
+- `SCH_SYMBOL::UpdatePins` reuses spare pins in `m_pins` order; upstream walks a
+  `std::set<SCH_PIN*>`, i.e. allocation addresses.
+- `SCH_SHEET_PATH`'s hash is the KIID path text.
+- `SCHEMATIC::Settings()` / `ErcSettings()` are schematic-owned (no live project file).
+- Pending: plotting, SCH_CONNECTION / CONNECTION_GRAPH, SIM models, SCH_COMMIT,
+  PIN_LAYOUT_CACHE (so a pin's bounding box, and any spatial query that reaches
+  one, throws), the fontconfig cache (fonts resolve by name, no embedded fonts),
+  the symbol-library plugin half (library table), the clipboard `Format`.
+
+Round-trip oracle (`qa/data/eeschema/sexpr_oracle`, kicad-cli 10.0.6
+`sch|sym upgrade --force` run twice, as JobUpgrade loads and saves):
+KiCad's rewrite read and written by us is byte-identical for all 34 schematics
+and 6 symbol libraries; originals are byte-identical for 23 schematics and all
+libraries, and equal for the other 10 once KiCad's freshly invented uuids and its
+pointer-ordered pin runs are normalised.
+
 ## Stage E3b (2026-09-28): markers, connections, the graph, commits on the live items
 
 One KiCad class per commit, each onto the live `SCH_*` model (nothing in the
