@@ -30,7 +30,13 @@ import {
   rotateBoardItemsBy,
 } from '../edit-board.js';
 import type { Board, PcbShape } from '../types.js';
-import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+import type { Vec2, VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+import { RECURSE_MODE } from '@ziroeda/common/eda_item.js';
+import type { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import { BOARD_COMMIT } from '../board_commit.js';
+import type { BOARD_ITEM } from '../board_item.js';
+import type { PCB_BASE_EDIT_FRAME } from '../pcb_base_edit_frame.js';
+import type { PCB_SELECTION } from '../tools/pcb_selection.js';
 
 /** `ROTATION_ANCHOR` (dialog_move_exact.h). */
 export type RotationAnchor = 'itemAnchor' | 'selectionCenter' | 'userOrigin' | 'auxOrigin';
@@ -228,4 +234,72 @@ export function moveExact(
   if (!centre) return next;
 
   return rotateBoardItemsBy(next, ids, rotation, centre);
+}
+
+// ---------------------------------------------------------------------------
+// The live apply: EDIT_TOOL::MoveExact's OK branch on a PCB_SELECTION
+// (#636 stage 6)
+// ---------------------------------------------------------------------------
+
+/**
+ * `EDIT_TOOL::MoveExact` (edit_tool.cpp), from the dialog's OK on: one
+ * BOARD_COMMIT, "Move Exactly", over the selection's board items. Each item is
+ * Modify'd recursively, moved by the translation unless its parent is also
+ * selected (the parent carries it), then rotated about its anchor
+ * (`GetPosition()`), the selection centre advanced by the translation, the
+ * frame's local (user) origin, or the board's aux origin.
+ *
+ * The selection centre is `SELECTION::GetCenter()` before the move - the
+ * union of the items' own bounding boxes, not PCB_SELECTION's footprint-wide
+ * one. The Y-axis negation upstream writes into `rotation` is dead (every
+ * Rotate uses `angle`), as the header of this file notes.
+ *
+ * Selection filtering (`RequestSelection`'s locked / hierarchy / free-pad
+ * filters) is the caller's: the selection tool is #636 stage 3.
+ */
+export function moveExactOnSelection(
+  aFrame: PCB_BASE_EDIT_FRAME,
+  aSelection: PCB_SELECTION,
+  aTranslation: VECTOR2I,
+  aRotation: EDA_ANGLE,
+  aAnchor: RotationAnchor,
+): void {
+  if (aSelection.Empty()) return;
+
+  const commit = new BOARD_COMMIT(aFrame);
+  const angle = aRotation;
+  const rp = aSelection.GetCenter();
+  // Make sure the rotation is from the right reference point
+  const selCenter = { x: rp.x + aTranslation.x, y: rp.y + aTranslation.y };
+
+  for (const item of aSelection) {
+    if (!item.IsBOARD_ITEM()) continue;
+
+    const boardItem = item as BOARD_ITEM;
+
+    commit.Modify(boardItem, null, RECURSE_MODE.RECURSE);
+
+    const parent = boardItem.GetParent();
+
+    if (!parent || !aSelection.Contains(parent)) boardItem.Move(aTranslation);
+
+    switch (aAnchor) {
+      case 'itemAnchor':
+        boardItem.Rotate(boardItem.GetPosition(), angle);
+        break;
+      case 'selectionCenter':
+        boardItem.Rotate(selCenter, angle);
+        break;
+      case 'userOrigin': {
+        const o = aFrame.GetScreen()?.m_LocalOrigin ?? { x: 0, y: 0 };
+        boardItem.Rotate({ x: o.x, y: o.y }, angle);
+        break;
+      }
+      case 'auxOrigin':
+        boardItem.Rotate(aFrame.GetBoard()!.GetDesignSettings().GetAuxOrigin(), angle);
+        break;
+    }
+  }
+
+  commit.Push('Move Exactly');
 }
