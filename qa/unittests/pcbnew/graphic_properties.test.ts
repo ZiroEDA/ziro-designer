@@ -11,16 +11,18 @@ import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
 import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/write_board.js';
 import {
-  applyShapeValues,
   applyTextValues,
-  collectShapeValues,
   collectTextValues,
+  textAt,
+  type TextValues,
+} from '@ziroeda/pcbnew/dialogs/dialog_text_properties.js';
+import {
+  applyShapeValues,
+  collectShapeValues,
   shapeAt,
   shapePointsUsed,
-  textAt,
   type ShapeValues,
-  type TextValues,
-} from '@ziroeda/pcbnew/graphic_properties.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_shape_properties.js';
 import type { Board, PcbShape } from '@ziroeda/pcbnew/types.js';
 import { U, emptyBoard, flatText, writtenItems, writtenNodes } from './support/written_node.js';
 

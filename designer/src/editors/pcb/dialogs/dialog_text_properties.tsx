@@ -48,7 +48,7 @@
 
 import { useState, type JSX } from 'react';
 import { pcbIuToMM, pcbIUScale, pcbMmToIU } from '@ziroeda/common/eda_units.js';
-import type { TextValues } from '@ziroeda/pcbnew/graphic_properties.js';
+import type { TextValues } from '@ziroeda/pcbnew/dialogs/dialog_text_properties.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
 import { FontChoice } from '@ziroeda/common/widgets/font_choice.js';

@@ -24,7 +24,10 @@ import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
 import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/write_board.js';
 import { fontNode } from '@ziroeda/pcbnew/eda_text_format.js';
 import { flatText, writtenNodes } from './support/written_node.js';
-import { applyTextValues, collectTextValues } from '@ziroeda/pcbnew/graphic_properties.js';
+import {
+  applyTextValues,
+  collectTextValues,
+} from '@ziroeda/pcbnew/dialogs/dialog_text_properties.js';
 import { applyTextBoxValues, collectTextBoxValues } from '@ziroeda/pcbnew/dialogs/dialog_textbox_properties.js';
 
 const BOARD = `(kicad_pcb (version 20241229) (generator "pcbnew")

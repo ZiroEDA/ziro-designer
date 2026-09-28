@@ -372,15 +372,17 @@ export {
 } from './dialogs/dialog_pad_properties.js';
 export {
   textAt,
-  shapeAt,
   collectTextValues,
   applyTextValues,
+  type TextValues,
+} from './dialogs/dialog_text_properties.js';
+export {
+  shapeAt,
   collectShapeValues,
   applyShapeValues,
   shapePointsUsed,
-  type TextValues,
   type ShapeValues,
-} from './graphic_properties.js';
+} from './dialogs/dialog_shape_properties.js';
 
 // Custom design rules (pcbnew/drc: DRC_RULES_PARSER, LIBEVAL over PCBEXPR).
 export {

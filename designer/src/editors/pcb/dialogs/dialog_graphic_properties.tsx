@@ -16,13 +16,15 @@
  * others are alternative ways to type the same two points, and the point editor
  * already covers dragging them.
  *
- * The decision logic lives in `pcbnew/graphic_properties.ts`.
+ * The decision logic lives in `pcbnew/dialogs/dialog_text_properties.ts` and
+ * `pcbnew/dialogs/dialog_shape_properties.ts`.
  */
 
 import { useState, type JSX } from 'react';
 import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/eda_units.js';
-import type { ShapeValues, TextValues } from '@ziroeda/pcbnew/graphic_properties.js';
-import { shapePointsUsed } from '@ziroeda/pcbnew/graphic_properties.js';
+import type { TextValues } from '@ziroeda/pcbnew/dialogs/dialog_text_properties.js';
+import type { ShapeValues } from '@ziroeda/pcbnew/dialogs/dialog_shape_properties.js';
+import { shapePointsUsed } from '@ziroeda/pcbnew/dialogs/dialog_shape_properties.js';
 import type { PcbShape } from '@ziroeda/pcbnew/types.js';
 import { LINE_STYLE_NAMES, lineStyleComboValue } from '@ziroeda/common/stroke_params.js';
 import { UI_FILL_MODE_CHOICES } from '@ziroeda/pcbnew/shape_fill.js';

@@ -82,14 +82,16 @@ import {
   type ZoneValues,
 } from './zone_properties.js';
 import {
-  applyShapeValues,
   applyTextValues,
-  collectShapeValues,
   collectTextValues,
+  type TextValues,
+} from './dialogs/dialog_text_properties.js';
+import {
+  applyShapeValues,
+  collectShapeValues,
   shapePointsUsed,
   type ShapeValues,
-  type TextValues,
-} from './graphic_properties.js';
+} from './dialogs/dialog_shape_properties.js';
 import { fillZones } from './zone_filler.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import {

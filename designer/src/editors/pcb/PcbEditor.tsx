@@ -443,15 +443,17 @@ import { DialogPadProperties } from './dialogs/dialog_pad_properties.js';
 import { DialogShapeProperties } from './dialogs/dialog_graphic_properties.js';
 import { DialogTextProperties } from './dialogs/dialog_text_properties.js';
 import {
-  applyShapeValues,
   applyTextValues,
-  collectShapeValues,
   collectTextValues,
-  shapeAt,
   textAt,
-  type ShapeValues,
   type TextValues,
-} from '@ziroeda/pcbnew/graphic_properties.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_text_properties.js';
+import {
+  applyShapeValues,
+  collectShapeValues,
+  shapeAt,
+  type ShapeValues,
+} from '@ziroeda/pcbnew/dialogs/dialog_shape_properties.js';
 import {
   applyPadValues,
   collectPadValues,
