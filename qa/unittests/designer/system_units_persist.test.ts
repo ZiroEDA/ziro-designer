@@ -49,7 +49,7 @@ import {
   toggleUnitsId,
   unitsToggleId,
   type UnitsSlice,
-} from '@ziroeda/designer/src/ui/app_settings_units.js';
+} from '@ziroeda/common/settings/app_settings_units.js';
 import {
   persistSymbolToggle,
   symbolTogglesFromSettings,
@@ -175,39 +175,35 @@ describe('Preferences > Grids asks the frame, not a constant', () => {
     }
   });
 
-  it('all four Grids pages now read their own app’s stored unit', () => {
+  // GerbView's Grids page is gerbview.ts's CreateKiWindow now, and
+  // gerbview_prefs_grids.test.ts calls it and reads the unit it passes.
+  it('the Grids pages read their own app’s stored unit', () => {
     for (const [rel, expr] of [
       ['editors/symbol/prefs/PanelSymbolEditorGrids.tsx', 'symbolEditor.system.units'],
       ['editors/schematic/prefs/PanelEeschemaGrids.tsx', 'eeschema.system.units'],
-      ['editors/drawingsheet/prefs/PanelPlEditorGrids.tsx', 'plEditor.system.units'],
-      ['editors/gerbview/prefs/PanelGerbviewGrids.tsx', 'gerbview.system.units'],
     ] as const) {
       expect(read(rel), rel).toContain(`units={toStatusUnits(${expr})}`);
     }
+    // pl_editor's Grids page is its KIFACE's CreateKiWindow, as GerbView's is.
+    expect(read('../../pagelayout_editor/pl_editor.ts')).toContain(
+      'units: toStatusUnits(ctx.plEditor.system.units),',
+    );
   });
 });
 
 describe('one copy of the unit actions', () => {
   it('no editor re-implements the family bookkeeping', () => {
-    // `drawingsheet/toggles.ts` had its own `isImperial` + `switchUnits`, and
-    // `gerbview/toggles.ts` inlined the mapping both ways — and dropped the
-    // `last_*_units` half, so Ctrl+U there came back to the default rather
-    // than to the unit actually used last.
-    for (const rel of [
-      'editors/drawingsheet/toggles.ts',
-      'editors/gerbview/toggles.ts',
-      'editors/symbol/toggles.ts',
-    ]) {
+    // `drawingsheet/toggles.ts` had its own `isImperial` + `switchUnits`.
+    // GerbView's units are EDA_DRAW_FRAME's now, pinned in
+    // unittests/gerbview/gerbview_frame.test.ts.
+    // pl_editor's are COMMON_TOOLS' on PL_EDITOR_FRAME now, pinned in
+    // unittests/pagelayout_editor/pl_editor_chrome.test.ts.
+    for (const rel of ['editors/symbol/toggles.ts']) {
       const src = read(rel);
       expect(src, `${rel} declares its own isImperial`).not.toMatch(/function isImperial\b/);
       expect(src, `${rel} does not use the shared module`).toContain(
-        "from '../../ui/app_settings_units.js'",
+        "from '@ziroeda/common/settings/app_settings_units.js'",
       );
     }
-  });
-
-  it('gerbview goes through switchUnits, so its last_* fields move', () => {
-    const src = read('editors/gerbview/toggles.ts');
-    expect(src).toContain('switchUnits(cfg.system, unitsId)');
   });
 });

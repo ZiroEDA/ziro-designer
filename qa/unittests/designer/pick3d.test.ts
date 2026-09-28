@@ -5,14 +5,14 @@
  * text `EDA_3D_CANVAS` makes of a hit (eda_3d_canvas.cpp:985-1078, 1129-1163).
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import {
   boardItemAt,
   clickSelectionParts,
   hoveredItemMessage,
   pickBoardItem,
-} from '@ziroeda/designer/src/editors/pcb/pick3d.js';
+} from '@ziroeda/3d-viewer/pick3d.js';
 
 const MM = 1e6;
 const board = readBoard(

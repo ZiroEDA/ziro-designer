@@ -1,0 +1,24 @@
+{
+  "name": "@ziroeda/cvpcb",
+  "version": "0.0.0",
+  "description": "Assign Footprints mirroring KiCad's cvpcb/: the frame's COMPONENT list and association state, the listboxes, automatic association from .equ files, the association and control tools, and the footprint viewer's toolbars.",
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ziroeda/common": "workspace:*",
+    "@ziroeda/core": "workspace:*",
+    "@ziroeda/eeschema": "workspace:*",
+    "@ziroeda/kimath": "workspace:*",
+    "@ziroeda/pcbnew": "workspace:*",
+    "react": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.18",
+    "vite": "^6.0.7"
+  }
+}

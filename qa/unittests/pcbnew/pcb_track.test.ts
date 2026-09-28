@@ -8,22 +8,22 @@
  * BOARD as parent), not derived from our port.
  */
 import { describe, expect, it } from 'vitest';
-import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { UNITS_PROVIDER } from '@ziroeda/common/src/units_provider.js';
-import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
-import { FLIP_DIRECTION } from '@ziroeda/core/src/mirror.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { FLIP_DIRECTION } from '@ziroeda/core/mirror.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { ANGLE_90 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { SHAPE_CIRCLE } from '@ziroeda/kimath/src/geometry/shape_circle.js';
-import { BOARD } from '@ziroeda/pcbnew/src/board.js';
+import { BOARD } from '@ziroeda/pcbnew/board.js';
 import {
   PCB_ARC,
   PCB_TRACK,
   PCB_VIA,
   VIA_PARAMETER_ERROR_FIELD,
   VIATYPE,
-} from '@ziroeda/pcbnew/src/pcb_track.js';
-import { ENDPOINT, STARTPOINT } from '@ziroeda/common/src/eda_item_flags.js';
+} from '@ziroeda/pcbnew/pcb_track.js';
+import { ENDPOINT, STARTPOINT } from '@ziroeda/common/eda_item_flags.js';
 
 const bbox = (item: PCB_TRACK): [number, number, number, number] => {
   const r = item.GetBoundingBox();

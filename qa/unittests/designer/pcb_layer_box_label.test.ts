@@ -17,7 +17,7 @@ import {
   layerBoxLabel,
   layerForHotkey,
   PCB_LAYER_HOTKEYS,
-} from '@ziroeda/designer/src/editors/pcb/layer_box_label.js';
+} from '@ziroeda/pcbnew/pcb_layer_box_selector.js';
 
 describe('layerBoxLabel', () => {
   it('names the hotkey on the two layers that have one', () => {

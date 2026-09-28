@@ -3,10 +3,10 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { describe, it, expect } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
-import type { Board } from '@ziroeda/pcbnew/src/types.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import type { Board } from '@ziroeda/pcbnew/types.js';
 
 // Strip the model (`k`) and turn Maps into entry arrays so two boards compare by
 // their modelled content, like the footprint round-trip test's strip().

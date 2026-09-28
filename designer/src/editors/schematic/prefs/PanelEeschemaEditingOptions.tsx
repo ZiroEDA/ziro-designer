@@ -11,7 +11,7 @@
  * at 5d6a2f40, in prefs/PreferencesDialog.tsx); no behaviour change.
  */
 import type { JSX } from 'react';
-import { Check, ColorRow, Group, Num, Sel } from '../../../dialogs/prefs/widgets.js';
+import { Check, ColorRow, Group, Num, Sel } from '@ziroeda/common/wx/controls.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
 
 /**

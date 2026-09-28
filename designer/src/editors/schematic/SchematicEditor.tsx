@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+import { GetAssociatedDocument } from '@ziroeda/common/eda_doc.js';
+import * as KIPLATFORM_UI from '@ziroeda/common/kiplatform/ui.js';
+import { STATUS_TEXT_POPUP } from '@ziroeda/common/status_popup.js';
+import { Priority } from '@ziroeda/eeschema/connectivity/nets.js';
 import type { Vec2 } from '@ziroeda/kimath';
 import {
   ensureFileExtension,
@@ -16,6 +20,11 @@ import {
 } from '@ziroeda/common';
 import { resolveActiveSheet, readSheetRef, writeSheetRefText } from '@ziroeda/common';
 import { Fragment, useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { FRAME_T } from '@ziroeda/common/frame_type.js';
+import type { KIWAY } from '@ziroeda/common/kiway.js';
+import { SCH_EDIT_FRAME } from '@ziroeda/eeschema/sch_edit_frame.js';
+import { assignFootprintsCommands } from '@ziroeda/eeschema/tools/assign_footprints.js';
+import { fetchNetlistFromSchematic } from '@ziroeda/pcbnew/netlist_from_schematic.js';
 import { parse } from '@ziroeda/sexpr';
 import { useProjectSync } from '../../sync/ProjectSyncProvider.js';
 import {
@@ -30,7 +39,7 @@ import type {
   ProjectSyncTransport,
 } from '../../sync/ProjectSyncTransport.js';
 import { PresencePanel } from '../../ui/PresencePanel.js';
-import { ReadOnlyNotice } from '../../ui/ReadOnlyNotice.js';
+import { ReadOnlyNotice } from '@ziroeda/common/widgets/wx_infobar.js';
 import { useAuth } from '../../auth/AuthProvider.js';
 import {
   type ArcEditMode,
@@ -169,10 +178,6 @@ import {
   symbolLibIdRows,
   orphanCandidates,
   libIdChangeCommand,
-  detectFieldCaseConflicts,
-  resolveFieldCaseConflictsCommand,
-  type FieldCaseAction,
-  type FieldCaseConflict,
   type ChangeSymbolsMessage,
   type ChangeSymbolsMode,
   type ChangeSymbolsOptions,
@@ -312,15 +317,15 @@ import {
   DialogLabelProperties,
   type LabelPropsKind,
   type LabelPropsResult,
-} from './dialogs/dialog_label_properties.js';
+} from '@ziroeda/eeschema/dialogs/dialog_label_properties.js';
 import {
   DialogTextProperties,
   type HAlign,
   type TextPropsResult,
   type VAlign,
-} from './dialogs/dialog_text_properties.js';
+} from '@ziroeda/eeschema/dialogs/dialog_text_properties.js';
 import { SymbolPropertiesDialog } from './components/SymbolPropertiesDialog.js';
-import { ErcDialog, type ErcDialogNav } from './components/ErcDialog.js';
+import { ErcDialog, type ErcDialogNav } from '@ziroeda/eeschema/dialogs/dialog_erc.js';
 import {
   DialogSymbolChooser,
   type PickedSymbol,
@@ -329,7 +334,7 @@ import {
 import { SymbolLibraryBrowser } from './components/SymbolLibraryBrowser.js';
 import { loadFootprint, loadFootprintIndex } from '../../widgets/footprint_list.js';
 import { libraryUri, loadIndex, loadSymbol, symbolsBase } from './symbols/index.js';
-import { repairSourceLibs } from './symbols/repair_source.js';
+import { repairSourceLibs } from '@ziroeda/eeschema/repair_source.js';
 import {
   findRescues,
   rescueDocumentCommand,
@@ -337,38 +342,46 @@ import {
   rescueLibraryNickname,
   rescuedDefinition,
   type RescueCandidate,
-} from '@ziroeda/eeschema/src/tools/project_rescue.js';
+} from '@ziroeda/eeschema/project_rescue.js';
 import { DialogRescueEach, type RescueInstance } from './dialogs/dialog_rescue_each.js';
 import {
   legacyCacheFileNames,
   readLegacySymbolLibrary,
-} from '@ziroeda/eeschema/src/sch_io/legacy/read-lib.js';
+} from '@ziroeda/eeschema/sch_io/legacy/read-lib.js';
 import {
   legacyLibrarySymbols,
   legacyRootFile,
   readLegacyProject,
-} from '@ziroeda/eeschema/src/sch_io/legacy/read-schematic.js';
+} from '@ziroeda/eeschema/sch_io/legacy/read-schematic.js';
 import { preloadSchematicLibraries } from './preload.js';
 import {
   projectSymbolLibraries,
   projectSymLibTable,
   projectSymLibTablePath,
   serializeSymLibTable,
-} from './symbols/project_sym_lib_table.js';
+} from '@ziroeda/eeschema/project_sym_lib_table.js';
 import { DialogSymLibTable } from '../../widgets/dialog_sym_lib_table.js';
 import {
   projectFpLibTablePath,
   serializeFpLibTable,
   type FpLibRow,
-} from '../footprint/fp_lib_table.js';
-import { Toolbar } from '../../ui/Toolbar.js';
+} from '@ziroeda/common/fp_lib_table.js';
+import { Toolbar } from '@ziroeda/common/tool/action_toolbar.js';
 import { OpenFileDialog } from '../../fs/OpenFileDialog.js';
 import { SaveAsDialog } from '../../fs/SaveAsDialog.js';
-import { kicadSchematicWildcard } from '../../fs/wildcards.js';
-import { RIGHT_TOOLBAR_COMMANDS, SCH_DEFAULT_TOOLBARS } from './toolbars_sch_editor.js';
+import { kicadSchematicWildcard } from '@ziroeda/common/wildcards_and_files_ext.js';
+import {
+  RIGHT_TOOLBAR_COMMANDS,
+  SCH_DEFAULT_TOOLBARS,
+} from '@ziroeda/eeschema/toolbars_sch_editor.js';
 import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
-import { MenuBar, ContextMenu, type Menu, type MenuItem } from '../../ui/MenuBar.js';
-import { assembleMenu, type RankedItem } from '../../ui/menu_rank.js';
+import {
+  MenuBar,
+  ContextMenu,
+  type Menu,
+  type MenuItem,
+} from '@ziroeda/common/tool/action_menu_bar.js';
+import { assembleMenu, type RankedItem } from '@ziroeda/common/tool/action_menu_rank.js';
 import {
   clearHoverSelection,
   isHoverSelection,
@@ -376,104 +389,104 @@ import {
   rightClickSelection,
   type HoverSelection,
 } from './hover_selection.js';
-import { buildMenus } from './menubar.js';
+import { buildMenus } from '@ziroeda/eeschema/menubar.js';
 import {
   CONFIRMATION_CAPTION,
   LOAD_REPAIRED_MESSAGE,
   revertPromptMessage,
   savedFileMessage,
-} from './files_io.js';
-import { MessageDialogOk, MessageDialogYesNo } from '../../ui/dialog_message.js';
-import { INFO_CAPTION } from '../../ui/message_dialog.js';
-import { dispatchMenuHotkey, focusBlocksHotkey } from '../../ui/menu_hotkeys.js';
-import { wasBrowserSuppressed, type FocusLike } from '../../ui/browser_hotkeys.js';
+} from '@ziroeda/eeschema/files-io.js';
+import { MessageDialogOk, MessageDialogYesNo } from '@ziroeda/common/dialogs/dialog_message.js';
+import { INFO_CAPTION } from '@ziroeda/common/confirm_types.js';
+import { dispatchMenuHotkey, focusBlocksHotkey } from '@ziroeda/common/tool/action_menu_hotkeys.js';
+import { wasBrowserSuppressed, type FocusLike } from '@ziroeda/common/browser_hotkeys.js';
 import { remapEvent } from './hotkey_bindings.js';
 import { applyHotkeyOverrides } from './hotkey_list.js';
-import { DialogAssignNetclass } from './dialogs/dialog_assign_netclass.js';
-import { showHotkeyList } from '../../ui/hotkey_list_action.js';
-import { DialogTableCellProperties } from './dialogs/dialog_tablecell_properties.js';
+import { DialogAssignNetclass } from '@ziroeda/common/dialogs/dialog_assign_netclass.js';
+import { showHotkeyList } from '@ziroeda/common/hotkeys_basic.js';
+import { DialogTableCellProperties } from '@ziroeda/eeschema/dialogs/dialog_tablecell_properties.js';
 import {
   SchNavigateTool,
   flattenHierarchy,
   parentPath,
   type SheetRef,
-} from './sch_navigate_tool.js';
+} from '@ziroeda/eeschema/tools/sch_navigate_tool.js';
 import { DialogSchFind } from '../../widgets/dialog_sch_find.js';
 import {
   DialogIncrementAnnotations,
   type IncrementAnnotationsResult,
-} from './dialogs/dialog_increment_annotations.js';
+} from '@ziroeda/eeschema/dialogs/dialog_increment_annotations.js';
 import {
   DialogGlobalEditTextAndGraphics,
   type GlobalEditResult,
-} from './dialogs/dialog_global_edit_text_and_graphics.js';
+} from '@ziroeda/eeschema/dialogs/dialog_global_edit_text_and_graphics.js';
 import { DialogChangeSymbols, type ChangeSymbolsSubject } from './dialogs/dialog_change_symbols.js';
-import { DialogEditSymbolsLibId } from './dialogs/dialog_edit_symbols_libid.js';
-import { DialogResolveFieldCaseConflicts } from './dialogs/dialog_resolve_field_case_conflicts.js';
+import { DialogEditSymbolsLibId } from '@ziroeda/eeschema/dialogs/dialog_edit_symbols_libid.js';
 import { DialogAnnotate, type AnnotateRun } from './dialogs/dialog_annotate.js';
-import { DialogLineProperties, type ItemColor } from './dialogs/dialog_line_properties.js';
+import {
+  DialogLineProperties,
+  type ItemColor,
+} from '@ziroeda/eeschema/dialogs/dialog_line_properties.js';
 import { DialogEeschemaPageSettings } from '../../dialogs/dialog_eeschema_page_settings.js';
 import {
   pageSettingsValue,
   toPaperToken,
   type PageExportFlags,
   type PageSettingsValue,
-} from '../../dialogs/page_settings_model.js';
+} from '@ziroeda/common/dialogs/dialog_page_settings.js';
 // `DIALOG_PASTE_SPECIAL` is a `common/dialogs/` dialog upstream, built by
 // eeschema AND pcbnew, so it is one module here too rather than a copy under
 // this editor's own `dialogs/`. `SCH_EDITOR_CONTROL::Paste` supplies the two
 // things that differ: the mode it opens on, and no `aDefaultRef`.
-import { DialogPasteSpecial, type PasteSpecialMode } from '../../dialogs/dialog_paste_special.js';
-import { DialogSheetProperties, type SheetPropsResult } from './dialogs/dialog_sheet_properties.js';
-import { DialogShapeProperties, type ShapePropsResult } from './dialogs/dialog_shape_properties.js';
-import { DialogImageProperties, type ImagePropsResult } from './dialogs/dialog_image_properties.js';
+import {
+  DialogPasteSpecial,
+  type PasteSpecialMode,
+} from '@ziroeda/common/dialogs/dialog_paste_special.js';
+import {
+  DialogSheetProperties,
+  type SheetPropsResult,
+} from '@ziroeda/eeschema/dialogs/dialog_sheet_properties.js';
+import {
+  DialogShapeProperties,
+  type ShapePropsResult,
+} from '@ziroeda/eeschema/dialogs/dialog_shape_properties.js';
+import {
+  DialogImageProperties,
+  type ImagePropsResult,
+} from '@ziroeda/eeschema/dialogs/dialog_image_properties.js';
 import { DialogFieldProperties, type FieldPropsResult } from './dialogs/dialog_field_properties.js';
 import {
   DialogSheetPinProperties,
   type SheetPinPropsResult,
-} from './dialogs/dialog_sheet_pin_properties.js';
+} from '@ziroeda/eeschema/dialogs/dialog_sheet_pin_properties.js';
 import {
   DialogSchematicSetup,
   defaultSchematicSetup,
   type SchematicSetup,
-} from './dialogs/dialog_schematic_setup.js';
-import {
-  DialogCreateNetChain,
-  type CreateChainFocusHint,
-} from './dialogs/dialog_create_net_chain.js';
+} from '@ziroeda/eeschema/dialogs/dialog_schematic_setup.js';
 import {
   findProjectPro,
   readSchematicSetup,
   writeEquivalenceFilesText,
   writeSchematicSetupText,
-} from './project_settings.js';
+} from '@ziroeda/eeschema/project_settings.js';
 import {
   IU_PER_MILS,
   hopOverArcRadiusIU,
   junctionDotDiameterIU,
   resolveEffectiveNetClass,
   subpartSettings,
-} from './schematic_settings.js';
-import { netClassHumanReadableName } from '@ziroeda/common/src/project/net_settings.js';
-import type { PdfNetInfo } from './render/pdf_annotations.js';
-import type { Netlist } from '@ziroeda/eeschema/src/connectivity/nets.js';
+} from '@ziroeda/eeschema/schematic_settings.js';
+import { netClassHumanReadableName } from '@ziroeda/common/project/net_settings.js';
+import type { PdfNetInfo } from '@ziroeda/eeschema/pdf_annotations.js';
+import type { Netlist } from '@ziroeda/eeschema/connectivity/nets.js';
 import { DEFAULT_WIRE_WIDTH } from './render/renderer.js';
 import { computeNetClassOverrides } from './net_overrides.js';
 import {
   RefDesTracker,
   buildPageRefsMap,
-  chainPatternAssignments,
   connectionName,
   equivalentBusNames,
-  detectNetChains,
-  isValidNetChainName,
-  netChainsCommand,
-  readNetChains,
-  removeFromNetChainCommand,
-  restoreCommittedNetChains,
-  writeNetChains,
-  type CommittedNetChain,
-  expandTextVars,
   intersheetRefsText,
   addEmbeddedFile,
   embeddedFilesCommand,
@@ -481,13 +494,18 @@ import {
   listEmbeddedFiles,
   removeEmbeddedFile,
   setEmbedFonts,
-  schematicTextVarResolver,
   type IntersheetRefsConfig,
   type IntersheetSheet,
 } from '@ziroeda/eeschema';
-import { DialogExportNetlist } from './dialogs/dialog_export_netlist.js';
-import { DialogSymbolFieldsTable, type FieldsEdits } from './dialogs/dialog_symbol_fields_table.js';
-import { DialogAssignFootprints } from './dialogs/dialog_assign_footprints.js';
+import { schematicTextVarResolver } from '@ziroeda/eeschema/schematic.js';
+import { ResolveShownText, type TextVarResolverFn } from '@ziroeda/common/common.js';
+import { DialogExportNetlist } from '@ziroeda/eeschema/dialogs/dialog_export_netlist.js';
+import {
+  DialogSymbolFieldsTable,
+  type FieldsEdits,
+} from '@ziroeda/eeschema/dialogs/dialog_symbol_fields_table.js';
+import { DialogAssignFootprints } from '@ziroeda/cvpcb/cvpcb_mainframe_ui.js';
+import { useCvpcbApp } from './cvpcb_app.js';
 import { DialogPrint } from './dialogs/dialog_print.js';
 import { DialogPlot, type PlotRequest } from './dialogs/dialog_plot.js';
 import {
@@ -504,11 +522,13 @@ import {
   type PlotOpts,
   type PlotSink,
 } from './render/plot.js';
-import { DEFAULT_SETUP } from '@ziroeda/common/src/drawing_sheet/types.js';
+import { DEFAULT_SETUP } from '@ziroeda/common/drawing_sheet/types.js';
 import { BUILTIN_THEMES } from './theme.js';
-import { ProgressDialog, nextPaint } from '../../ui/ProgressDialog.js';
-import type { ProgressSnapshot } from '../../ui/progress_reporter.js';
+import { ProgressDialog, nextPaint } from '@ziroeda/common/widgets/wx_progress_reporters.js';
+import type { ProgressSnapshot } from '@ziroeda/common/widgets/progress_reporter_snapshot.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
+import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
+import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
 import type { PrefsPageId } from '../../dialogs/prefs/types.js';
 import { settings, gridSizeToIU } from '../../prefs/settings.js';
 import {
@@ -517,8 +537,8 @@ import {
   gridChoiceLabel,
   gridFeedback,
   type FastGridAction,
-} from '../../ui/grid_settings.js';
-import { useHotkeyCyclePopup } from '../../widgets/HotkeyCyclePopup.js';
+} from '@ziroeda/common/settings/grid_settings_ui.js';
+import { useHotkeyCyclePopup } from '@ziroeda/common/dialogs/hotkey_cycle_popup_ui.js';
 import {
   useCommonSettings,
   useEeschemaSettings,
@@ -528,32 +548,35 @@ import {
 } from '../../prefs/useSettings.js';
 import { resolveTemplateFieldnames } from './template_fieldnames.js';
 import type { RenderOpts } from './render/renderer.js';
-import type { InputPrefs } from '../../ui/view_controls.js';
+import type { InputPrefs } from '@ziroeda/common/ui/view_controls.js';
 import { SchPropertiesPanel } from './components/SchPropertiesPanel.js';
 import { FootprintChooserFrame } from '../pcb/dialogs/footprint_chooser_frame.js';
-import { SearchPanel } from './components/SearchPanel.js';
-import { NetNavigatorPanel } from './components/NetNavigatorPanel.js';
-import { DialogUpdateFromPcb } from './dialogs/dialog_update_from_pcb.js';
-import { DialogSyncSheetPins, type SyncSheetEntry } from './dialogs/dialog_sync_sheet_pins.js';
+import { SearchPanel } from '@ziroeda/eeschema/widgets/sch_search_pane.js';
+import { NetNavigatorPanel } from '@ziroeda/eeschema/widgets/net_navigator_panel.js';
+import { DialogUpdateFromPcb } from '@ziroeda/eeschema/dialogs/dialog_update_from_pcb.js';
+import {
+  DialogSyncSheetPins,
+  type SyncSheetEntry,
+} from '@ziroeda/eeschema/dialogs/dialog_sync_sheet_pins.js';
 import {
   applySchTableValues,
   collectSchTableValues,
   tableWithValues,
   type SchTableValues,
-} from '@ziroeda/eeschema/src/tools/sch_table_properties.js';
-import { DialogTableProperties } from './dialogs/dialog_table_properties.js';
-import { DialogImportGfx } from './dialogs/dialog_import_gfx.js';
-import { KiStatusBar } from '../../ui/KiStatusBar.js';
-import { MsgPanel } from '../../ui/MsgPanel.js';
+} from '@ziroeda/eeschema/tools/sch_table_properties.js';
+import { DialogTableProperties } from '@ziroeda/eeschema/dialogs/dialog_table_properties.js';
+import { DialogImportGfx } from '@ziroeda/eeschema/import_gfx/dialog_import_gfx_sch.js';
+import { KiStatusBar } from '@ziroeda/common/widgets/kistatusbar.js';
+import { MsgPanel } from '@ziroeda/common/widgets/msgpanel_ui.js';
 import {
   gridMsg,
   messageTextFromValue,
   type StatusUnits,
   unitsMsg,
-} from '../../ui/status_format.js';
-import { formatTitle, useDocumentTitle } from '../../ui/useDocumentTitle.js';
-import { useLiveState } from '../../ui/useLiveState.js';
-import { withSaveEnablement } from '../../ui/save_enablement.js';
+} from '@ziroeda/common/widgets/kistatusbar_format.js';
+import { formatTitle, useDocumentTitle } from '@ziroeda/common/use_document_title.js';
+import { useLiveState } from '@ziroeda/common/use_live_state.js';
+import { withSaveEnablement } from '@ziroeda/common/save_enablement.js';
 import { fileBaseName, pathHumanReadable, SCH_FRAME_NAME, schFrameTitle } from './frame_title.js';
 import {
   SCH_BOTTOM_DOCK,
@@ -566,14 +589,14 @@ import {
   type SchLeftPane,
 } from './panes.js';
 import { SelectionFilterPanel } from '../../ui/SelectionFilterPanel.js';
-import { DockSash } from '../../ui/DockSash.js';
-import { loadOutlineFontsFor } from '../../font/outline_fonts.js';
-import { useStatusReadout } from '../../ui/useStatusReadout.js';
-import { useUnsavedGuard } from '../../ui/useUnsavedGuard.js';
-import '../../ui/shell.css';
+import { DockSash } from '@ziroeda/common/widgets/wx_aui_sash.js';
+import { loadOutlineFontsFor } from '@ziroeda/common/font/outline_fonts.js';
+import { useStatusReadout } from '@ziroeda/common/use_status_readout.js';
+import { useUnsavedGuard } from '@ziroeda/common/use_unsaved_guard.js';
+import '@ziroeda/common/widgets/shell.css';
 import { schSymbolLibraryName } from '@ziroeda/eeschema';
-import { busJunctionIds as busJunctionIdsOf } from '@ziroeda/eeschema/src/connectivity/bus.js';
-import { useModalEscape } from '../../ui/useModalEscape.js';
+import { busJunctionIds as busJunctionIdsOf } from '@ziroeda/eeschema/connectivity/bus.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { applyToggle, DEFAULT_TOGGLES } from './toggles.js';
 import {
   CROSS_PROBE_FLASH_INTERVAL_MS,
@@ -758,10 +781,16 @@ const DEFAULT_FILE = 'untitled.kicad_sch';
 const sSymbolHistoryList: PickedSymbol[] = [];
 const sPowerHistoryList: PickedSymbol[] = [];
 
+/** A token's value from a resolver, or '' when it does not answer. */
+function resolveToken(aResolver: TextVarResolverFn | undefined, aName: string): string {
+  const token = { value: aName };
+  return aResolver?.(token) ? token.value : '';
+}
+
 export function SchematicEditor({
   onExitToHome,
   onShowPcb,
-  onUpdatePcb,
+  hasBoard,
   onEditSymbolInEditor,
   editedSymbol,
   readOnlyNotice,
@@ -785,16 +814,13 @@ export function SchematicEditor({
   extraSheetFiles,
   projectName,
   rootPro,
-  onCrossProbeNet,
-  syncSelectionFromPcb,
-  crossProbeNetFromPcb,
-  onSelectOnPcb,
+  kiway,
 }: {
   onExitToHome: () => void;
   onShowPcb?: () => void;
-  /** Tools > Update PCB from Schematic (F8): switch to the PCB editor and run
-   *  its update dialog. Absent when the project has no board. */
-  onUpdatePcb?: () => void;
+  /** Whether the project has a board, which Tools > Update PCB from Schematic
+   *  (F8) needs here: upstream would create one, this editor does not. */
+  hasBoard?: boolean;
   /** SCH_EDIT_TOOL's Edit with Symbol Editor (Ctrl+E): hand the placement's
    *  symbol to the symbol editor and switch to it. */
   onEditSymbolInEditor?: (req: {
@@ -893,22 +919,12 @@ export function SchematicEditor({
    *  holds several projects, this pins which one's root sheet to load, so the
    *  editor matches the launcher tree instead of guessing the first/last pro. */
   rootPro?: string;
-  /** The net the highlight tools are showing, cross-probed to the PCB editor
-   *  (SCH_EDIT_FRAME::SendCrossProbeConnection / SendCrossProbeClearHighlight);
-   *  null when the highlight is cleared. */
-  onCrossProbeNet?: (net: string | null) => void;
   /**
-   * The board's selection arriving here — `SCH_EDIT_FRAME::KiwayMailIn`'s
-   * `MAIL_SELECTION` (`eeschema/sch_edit_frame.cpp`), which parses the
-   * `$SELECT:` parts and hands them to `SCH_SELECTION_TOOL::SyncSelection`.
-   * The nonce makes the same packet arriving twice arrive twice.
+   * The program's KIWAY: the editor's SCH_EDIT_FRAME registers as FRAME_SCH's
+   * player on it, so the board's cross-probe mail reaches `KiwayMailIn`, and
+   * sends its own through it.
    */
-  syncSelectionFromPcb?: { parts: readonly string[]; nonce: number } | null;
-  /** The board's highlighted net, arriving as KiCad's `$NET: "<name>"`. */
-  crossProbeNetFromPcb?: string | null;
-  /** Select on PCB (SCH_ACTIONS::selectOnPCB): the `$SELECT:` parts of the
-   *  current selection, for the board frame to resolve and select. */
-  onSelectOnPcb?: (parts: readonly string[]) => void;
+  kiway?: KIWAY;
 }): JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const initial = useMemo<Schematic | null>(() => {
@@ -1554,6 +1570,7 @@ export function SchematicEditor({
     height: panelHeights.search ?? SCH_BOTTOM_DOCK.bestHeight,
   };
   const [prefsOpen, setPrefsOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
   /**
    * `ShowPreferences( aStartPage, aStartParentPage )`'s first argument, for the
    * callers that name a page — `COMMON_TOOLS::GridProperties` is the only one
@@ -1804,7 +1821,7 @@ export function SchematicEditor({
   // user just changed depends on it, so the edit is painted first and the nets
   // are rebuilt immediately afterwards, with the previous result left on screen
   // for that one frame rather than blanking. Everything derived from the graph
-  // (net colours, netclass widths, chains) keys off `connDoc` so it stays
+  // (net colours, netclass widths) keys off `connDoc` so it stays
   // self-consistent; a wire drawn this frame simply has no override yet.
   //
   // This does not widen any window a caller could observe: a handler that edits
@@ -1823,29 +1840,6 @@ export function SchematicEditor({
     () => (connDoc ? computeNetlist(connDoc, libById, { busAliases }) : null),
     [connDoc, libById, busAliases],
   );
-  // This run's potential chains (RebuildNetChains) and the committed chains
-  // restored against them, shared by netclass resolution, the highlight
-  // actions and the Create Net Chain dialog.
-  const potentialChains = useMemo(
-    () => (connDoc && netlist ? detectNetChains(connDoc, libById, netlist) : []),
-    [connDoc, libById, netlist],
-  );
-  const committedChains = useMemo(() => {
-    if (!connDoc) return [];
-    return netlist
-      ? restoreCommittedNetChains(
-          connDoc,
-          libById,
-          netlist,
-          potentialChains,
-          readNetChains(connDoc),
-        )
-      : readNetChains(connDoc);
-  }, [connDoc, libById, netlist, potentialChains]);
-
-  // SetHighlightedNetChain (SCHEMATIC::m_highlightedNetChain): exclusive with
-  // the plain net highlight, like upstream.
-  const [highlightedChain, setHighlightedChain] = useState<string | null>(null);
   /**
    * A net highlighted by a `$NET:` probe from the board, subject to
    * `cross_probing.auto_highlight` — `if( !crossProbingSettings.auto_highlight )
@@ -1853,21 +1847,63 @@ export function SchematicEditor({
    * touching the highlight, so a refused probe leaves whatever is lit alone.
    */
   const [probedNet, setProbedNet] = useState<string | null>(null);
+  // The frame's KIWAY half: `$NET:` from the board lands in `setProbedNet`,
+  // `auto_highlight` having been checked by ExecuteRemoteCommand.
+  const schFrameRef = useRef<SCH_EDIT_FRAME | null>(null);
+  // MAIL_ASSIGN_FOOTPRINTS and MAIL_SCH_SAVE, filled in below once the
+  // project edit and the save they call exist.
+  const assignFootprintsRef = useRef<(aPayload: string) => void>(() => {});
+  const saveProjectRef = useRef<() => boolean>(() => false);
+  const getNetlistRef = useRef<(aAnnotateMessage: string) => string | null>(() => null);
+  /**
+   * `SaveProject()` arriving in the same tick as the assignment it saves: the
+   * assignment's step folds on the next render, so it is marked to be written
+   * then rather than left to the debounced save.
+   */
+  const saveRequestedRef = useRef(false);
+  const assignPendingRef = useRef(false);
+  if (!schFrameRef.current) {
+    schFrameRef.current = new SCH_EDIT_FRAME({
+      crossProbingSettings: () => settings.eeschema.cross_probing,
+      highlightNet: (aNetName) => setProbedNet(aNetName === '' ? null : aNetName),
+      syncSelection: (aParts) => applyPcbSelectionRef.current(aParts),
+      assignFootprints: (aPayload) => assignFootprintsRef.current(aPayload),
+      saveProject: () => saveProjectRef.current(),
+      getNetlist: (aAnnotateMessage) => getNetlistRef.current(aAnnotateMessage),
+    });
+  }
+  const applyPcbSelectionRef = useRef<(parts: readonly string[]) => void>(() => {});
+  /**
+   * `SCH_EDITOR_CONTROL::CrossProbeToPcb` on every Selected / Unselected /
+   * Cleared event: the selection's parts, mailed unforced so the board's own
+   * `on_selection` decides. A selection that has not changed has nothing to
+   * say, and one that names nothing on the board sends nothing.
+   *
+   * `lastSchPartsRef` is also the recursion guard (`m_probingPcbToSch`): a
+   * probe from the board records the parts of the selection it applied.
+   */
+  const lastSchPartsRef = useRef('');
+  // `KIWAY::Player()` stores the frame it created as FRAME_SCH's player, and
+  // the frame's close tells KIWAY it is gone (`PlayerDidClose`).
+  useEffect(() => {
+    const frame = schFrameRef.current!;
+    if (!kiway) return;
+    frame.SetKiway(kiway);
+    kiway.SetPlayerFrame(FRAME_T.FRAME_SCH, frame);
+    return () => {
+      kiway.PlayerDidClose(FRAME_T.FRAME_SCH, frame);
+      frame.SetKiway(null);
+    };
+  }, [kiway]);
+  /** Tools > Update PCB from Schematic (F8): `SCH_EDIT_FRAME::OnUpdatePCB`. */
+  const onUpdatePcb = useMemo(
+    () => (hasBoard && kiway ? () => schFrameRef.current!.OnUpdatePCB() : undefined),
+    [hasBoard, kiway],
+  );
   const { highlightWires, highlightName } = useMemo(() => {
     const items = new Set<string>();
     let name: string | null = null;
-    if (netlist && highlightedChain !== null) {
-      // A highlighted chain brightens every member net's items
-      // (UpdateNetHighlighting walks the chain's nets).
-      const chain = committedChains.find((c) => c.name === highlightedChain);
-      if (chain) {
-        name = chain.name;
-        for (const netName of chain.nets) {
-          const net = netlist.nets.find((n) => n.name === netName);
-          if (net) for (const item of net.items) items.add(item);
-        }
-      }
-    } else if (netlist && (highlightItem !== null || probedNet !== null)) {
+    if (netlist && (highlightItem !== null || probedNet !== null)) {
       // `$NET: "<name>"` from the board (`eeschema/cross-probing.cpp:225-250`)
       // names a net directly, where a click names an ITEM and the net is
       // derived from it. Both end in the same `connNames` walk below, which is
@@ -1894,19 +1930,14 @@ export function SchematicEditor({
       }
     }
     return { highlightWires: items, highlightName: name };
-  }, [netlist, highlightItem, highlightedChain, highlightBusMembers, committedChains, probedNet]);
+  }, [netlist, highlightItem, highlightBusMembers, probedNet]);
 
-  // Cross-probe the highlight to the PCB editor. A highlighted chain probes its
-  // first member net, the PCB side takes one net, as upstream notes when it
-  // cross-probes a chain (sch_editor_control.cpp:1250).
-  const crossProbeNet = useMemo(() => {
-    if (highlightedChain !== null)
-      return committedChains.find((c) => c.name === highlightedChain)?.nets[0] ?? null;
-    return highlightName;
-  }, [highlightedChain, highlightName, committedChains]);
+  // Cross-probe the highlight to the PCB editor.
   useEffect(() => {
-    onCrossProbeNet?.(crossProbeNet);
-  }, [crossProbeNet, onCrossProbeNet]);
+    const frame = schFrameRef.current!;
+    if (highlightName === null) frame.SendCrossProbeClearHighlight();
+    else frame.SendCrossProbeNetName(highlightName);
+  }, [highlightName]);
 
   /**
    * ...and the board's selection arriving HERE — `SCH_SELECTION_TOOL::
@@ -1922,29 +1953,29 @@ export function SchematicEditor({
    *   flash_selection the newly probed items blink
    *   auto_highlight  belongs to the `$NET:` probe, not to this one
    */
-  useEffect(() => {
-    if (crossProbeNetFromPcb === undefined) return;
-    // The refusal is the whole of what `auto_highlight` does here.
-    if (!settings.eeschema.cross_probing.auto_highlight) return;
-    setProbedNet(crossProbeNetFromPcb);
-  }, [crossProbeNetFromPcb]);
 
-  const probeNonceRef = useRef<number | null>(null);
-  useEffect(() => {
-    if (!syncSelectionFromPcb || syncSelectionFromPcb.nonce === probeNonceRef.current) return;
-    probeNonceRef.current = syncSelectionFromPcb.nonce;
+  const applyPcbSelection = (parts: readonly string[]): void => {
     const doc = docRef.current;
     if (!doc) return;
+    // Forced: `SCH_EDIT_FRAME::KiwayMailIn` has already refused a MAIL_SELECTION
+    // with `on_selection` off, before touching the selection.
     const ids = crossProbeSchSelection(
       settings.eeschema.cross_probing,
       doc,
-      syncSelectionFromPcb.parts,
+      parts,
       currentPath,
       libByIdRef.current,
+      true,
     );
-    // null is the probe REFUSED (`on_selection` off): upstream `break`s before
-    // touching the selection, so whatever the user had picked stays picked.
     if (ids === null) return;
+    // `m_syncingPcbToSchSelection = true`: this selection came from the board,
+    // so it is not sent back to it.
+    lastSchPartsRef.current = syncSelectionParts(
+      doc,
+      new Set(ids),
+      currentPath,
+      libByIdRef.current,
+    ).join(',');
     setSelection(new Set(ids));
     if (ids.length === 0) return;
 
@@ -1977,10 +2008,21 @@ export function SchematicEditor({
     }
 
     // `flash_selection` — "visual attention aid" (`app_settings.h:37`). The
-    // phases and the interval are `pcbnew/src/cross_probe.ts`', because the
+    // phases and the interval are `pcbnew/cross-probing.ts`', because the
     // blink is one behaviour and only the items differ.
     if (cfg.flash_selection) setFlashPhase(0);
-  }, [syncSelectionFromPcb, currentPath]);
+  };
+  applyPcbSelectionRef.current = applyPcbSelection;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the selection (and the sheet it is read against) is the trigger; the document and library are read through refs
+  useEffect(() => {
+    const doc = docRef.current;
+    if (!doc) return;
+    const parts = syncSelectionParts(doc, selection, currentPath, libByIdRef.current);
+    const key = parts.join(',');
+    if (key === lastSchPartsRef.current) return;
+    lastSchPartsRef.current = key;
+    schFrameRef.current!.SendSelectItemsToPcb(parts, false);
+  }, [selection, currentPath]);
 
   /**
    * The flash itself: `crossProbeFlashSelection` decides which ids are lit at
@@ -2012,19 +2054,6 @@ export function SchematicEditor({
     );
     return () => clearTimeout(t);
   }, [flashPhase]);
-
-  // Wire tint while a coloured chain is highlighted (painter chain block).
-  const chainHighlight = useMemo(() => {
-    if (!netlist || highlightedChain === null) return undefined;
-    const chain = committedChains.find((c) => c.name === highlightedChain);
-    if (!chain || chain.color === '') return undefined;
-    const lineIds = new Set<string>();
-    for (const netName of chain.nets) {
-      const net = netlist.nets.find((n) => n.name === netName);
-      if (net) for (const item of net.items) lineIds.add(item);
-    }
-    return { lineIds, color: chain.color };
-  }, [netlist, highlightedChain, committedChains]);
 
   // The live document for stable callbacks is `docRef`, kept by `setDoc`.
   // Which file that document is, for the same reason: an undo step is applied
@@ -2077,11 +2106,10 @@ export function SchematicEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // SCH_EDITOR_CONTROL::ClearHighlight, the net, the chain and the bus-member
-  // mode all drop together (`~`, Esc, or a click on empty space).
+  // SCH_EDITOR_CONTROL::ClearHighlight, the net and the bus-member mode drop
+  // together (`~`, Esc, or a click on empty space).
   const clearHighlight = useCallback(() => {
     setHighlightItem(null);
-    setHighlightedChain(null);
     setHighlightBusMembers(false);
   }, []);
 
@@ -2089,12 +2117,8 @@ export function SchematicEditor({
   // stays stable across renders.
   const netlistRef = useRef(netlist);
   netlistRef.current = netlist;
-  const chainsRef = useRef(committedChains);
-  chainsRef.current = committedChains;
-  // GetHighlightedConnection(): empty while a chain is highlighted, since the
-  // two modes are exclusive upstream.
   const highlightConnRef = useRef<string | null>(null);
-  highlightConnRef.current = highlightedChain !== null ? null : highlightName;
+  highlightConnRef.current = highlightName;
 
   // Highlight-Net tool, a port of eeschema's static highlightNet()
   // (sch_editor_control.cpp:1051). The selection is left alone: upstream's
@@ -2109,28 +2133,18 @@ export function SchematicEditor({
     const nl = netlistRef.current;
     const name = id !== null && nl ? connectionName(nl, id) : null;
     if (name === null) {
-      // No connection under the cursor: clear the net *and* the chain highlight.
+      // No connection under the cursor: clear the highlight.
       setHighlightItem(null);
-      setHighlightedChain(null);
       setHighlightBusMembers(false);
       return;
     }
     if (name !== highlightConnRef.current) {
       setHighlightBusMembers(false);
-      setHighlightedChain(null);
       setHighlightItem(id);
       return;
     }
-    // Same net re-invoked: expand to the chain that contains it, or fall back
-    // to toggling the bus members in and out of the highlight.
-    const chain = chainsRef.current.find((c) => c.nets.includes(name));
-    if (chain) {
-      setHighlightItem(null);
-      setHighlightBusMembers(false);
-      setHighlightedChain(chain.name);
-    } else {
-      setHighlightBusMembers((v) => !v);
-    }
+    // Same net re-invoked: toggle the bus members in and out of the highlight.
+    setHighlightBusMembers((v) => !v);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -2332,7 +2346,7 @@ export function SchematicEditor({
       for (const [file, next] of step.docs) {
         // The open sheet is written to disk by the ordinary (debounced) save, so
         // it is reported only when the caller asked to persist right now.
-        if (file === here && !persist) continue;
+        if (file === here && !persist && !saveRequestedRef.current) continue;
         if (file !== here) project.current.docs.set(file, next);
         try {
           changed.push({ name: file, text: serializeSchematic(next) });
@@ -2344,7 +2358,7 @@ export function SchematicEditor({
         pendingProjectChange.current.push(...changed);
         if (!applyingRemoteRef.current) pendingIsMine.current = true;
       }
-      if (persist) pendingPersist.current = true;
+      if (persist || saveRequestedRef.current) pendingPersist.current = true;
       // The one status whose undo navigates; see `EditCommand.pageSettings`.
       if (step.showSheet && step.showSheet !== here) pendingShowSheet.current = step.showSheet;
       return step.docs.get(here) ?? fallback;
@@ -2379,6 +2393,8 @@ export function SchematicEditor({
    */
   const pendingClearHistory = useRef(false);
   useEffect(() => {
+    saveRequestedRef.current = false;
+    assignPendingRef.current = false;
     if (pendingClearHistory.current) {
       pendingClearHistory.current = false;
       history.current.clear();
@@ -3007,32 +3023,20 @@ export function SchematicEditor({
   // ERC severities + pin-conflict map that the ERC checker reads. (The setup
   // state itself is declared above the netlist memo, which consumes it.)
   const [setupOpen, setSetupOpen] = useState(false);
-  // Net-chain tools: the Create Net Chain dialog (ShowCreateNetChain) and the
-  // Name Net Chain prompt (NameNetChain's wxGetTextFromUser).
-  const [createChainOpen, setCreateChainOpen] = useState(false);
-  const [chainRename, setChainRename] = useState<{ orig: string; name: string } | null>(null);
-
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts. Registered only while the dialog is up, so a
-  // closed one does not sit on the stack swallowing the key.
-  useModalEscape(() => setChainRename(null), chainRename !== null);
   // Generate Bill of Materials (Symbol Fields Table export) dialog.
   const [bomOpen, setBomOpen] = useState(false);
   // Export Netlist (DIALOG_EXPORT_NETLIST) dialog.
   const [netlistOpen, setNetlistOpen] = useState(false);
   // Bulk Edit Symbol Fields (Symbol Fields Table edit view) dialog.
   const [fieldsTableOpen, setFieldsTableOpen] = useState(false);
-  // DIALOG_RESOLVE_FIELD_CASE_CONFLICTS gates the fields table: two field names
-  // differing only in case cannot both be a column, so the table will not open
-  // until they are resolved. `pending` is the view it should open afterwards.
-  const [caseConflicts, setCaseConflicts] = useState<{
-    list: readonly FieldCaseConflict[];
-    pending: 'edit' | 'bom';
-  } | null>(null);
   // Symbol Library Browser (SYMBOL_VIEWER_FRAME).
   const [browserOpen, setBrowserOpen] = useState(false);
   // Assign Footprints (CVPCB_MAINFRAME).
   const [assignFpOpen, setAssignFpOpen] = useState(false);
+  // What `cvpcb` (Assign Footprints, its footprint viewer and Manage
+  // Footprint Association Files) asks of the program: `cvpcb` never imports
+  // `designer`. See `cvpcb_app.tsx`.
+  const cvpcbApp = useCvpcbApp();
   // The sheets of THIS design, in hierarchy order, cvpcb is handed the
   // current schematic's netlist, so sibling projects sharing the folder (and
   // sheets reached twice) must not add rows.
@@ -3251,9 +3255,6 @@ export function SchematicEditor({
   // Per-item netclass render fallbacks (wire colour/width/style, junction
   // clamp) for the current sheet, reuses the connectivity memo; undefined
   // when no class carries a visual parameter.
-  // Committed-chain netclass overrides join the per-net resolution
-  // (CONNECTION_GRAPH::ApplyNetChainNetclasses feeds NET_SETTINGS' chain
-  // pattern assignments) so member nets draw with the chain's netclass.
   // Keyed on connDoc alongside the graph it resolves against, the ids in the
   // override maps are only meaningful for the document the netlist was built
   // from. An item added since simply has no override for a frame.
@@ -3261,7 +3262,6 @@ export function SchematicEditor({
     () =>
       connDoc
         ? computeNetClassOverrides(connDoc, libById, setup, netlist, [
-            ...chainPatternAssignments(committedChains),
             // Netclass directive labels assign to whatever net they sit on.
             ...directiveNetclassAssignments(connDoc, netlist),
             // ...and a rule area assigns to every net it encloses, from the
@@ -3270,7 +3270,7 @@ export function SchematicEditor({
             ...ruleAreaNetclassAssignments(connDoc, libById, netlist),
           ])
         : undefined,
-    [connDoc, libById, setup, netlist, committedChains],
+    [connDoc, libById, setup, netlist],
   );
 
   // `${VAR}` resolver for a document: project text variables (Schematic Setup
@@ -3639,34 +3639,11 @@ export function SchematicEditor({
     }
   }, [pendingRemoteChange, sheetInstanceRefs, currentFile, applySheetDocument]);
 
-  /** Open the fields table, unless its field names have to be resolved first. */
-  const openFieldsTable = useCallback(
-    (view: 'edit' | 'bom') => {
-      const conflicts = doc ? detectFieldCaseConflicts(doc) : [];
-      if (conflicts.length > 0) {
-        setCaseConflicts({ list: conflicts, pending: view });
-        return;
-      }
-      if (view === 'bom') setBomOpen(true);
-      else setFieldsTableOpen(true);
-    },
-    [doc],
-  );
-
-  const applyCaseConflicts = useCallback(
-    (actions: Map<string, FieldCaseAction>, separator: string) => {
-      if (!doc || !caseConflicts) return;
-      const cmd = resolveFieldCaseConflictsCommand(doc, caseConflicts.list, actions, separator);
-      if (cmd) runCommand(cmd);
-      const view = caseConflicts.pending;
-      setCaseConflicts(null);
-      // Resolving only the first two spellings of a name can leave a third, so
-      // the table opens on the next pass rather than after this one.
-      if (view === 'bom') setBomOpen(true);
-      else setFieldsTableOpen(true);
-    },
-    [doc, caseConflicts, runCommand],
-  );
+  /** Open the fields table (DIALOG_SYMBOL_FIELDS_TABLE opens directly). */
+  const openFieldsTable = useCallback((view: 'edit' | 'bom') => {
+    if (view === 'bom') setBomOpen(true);
+    else setFieldsTableOpen(true);
+  }, []);
 
   // Bulk Edit Symbol Library Links (DIALOG_EDIT_SYMBOLS_LIBID). A bad row keeps
   // the dialog open on its error rather than closing on a half-applied edit.
@@ -4380,7 +4357,7 @@ export function SchematicEditor({
           sch,
           virtualPage: i + 1,
           pageString: page,
-          resolve: (t) => expandTextVars(t, resolver),
+          resolve: (t) => ResolveShownText(t, resolver),
         });
       }
     });
@@ -4392,7 +4369,7 @@ export function SchematicEditor({
         sch: doc,
         virtualPage: 1,
         pageString: '1',
-        resolve: (t) => expandTextVars(t, resolver),
+        resolve: (t) => ResolveShownText(t, resolver),
       });
     }
     return { pageRefsMap: buildPageRefsMap(sheets), virtualPageToPages };
@@ -4614,8 +4591,9 @@ export function SchematicEditor({
             ? {
                 pdfMetadata: {
                   title: d.titleBlock?.title || name,
-                  author: resolve?.('AUTHOR') ?? '',
-                  subject: resolve?.('SUBJECT') ?? '',
+                  // `m_schematic->ResolveTextVar( &sheet, &msg, 0 )` with the bare token.
+                  author: resolveToken(resolve, 'AUTHOR'),
+                  subject: resolveToken(resolve, 'SUBJECT'),
                 },
               }
             : {}),
@@ -4774,7 +4752,6 @@ export function SchematicEditor({
   const resetTransient = useCallback(() => {
     setSelection(new Set());
     setHighlightItem(null);
-    setHighlightedChain(null);
     setHighlightBusMembers(false);
     setPendingLabel(null);
     setActiveTool('select');
@@ -5449,6 +5426,41 @@ export function SchematicEditor({
     setDirty(false);
     setUnsaved(false);
   }, [fileName, currentFile, onPersistFiles, onSaveFiles]);
+  // `SCH_EDITOR_CONTROL::AssignFootprints`: CvPcb's netlist, one commit over
+  // every sheet it reaches.
+  assignFootprintsRef.current = (aPayload) => {
+    const commands = assignFootprintsCommands(liveDocs(), assignFpFiles, aPayload);
+    if (!commands) return;
+    assignPendingRef.current = true;
+    runProject(commands);
+  };
+  // MAIL_SCH_GET_NETLIST: ReadyToNetlist and NETLIST_EXPORTER_KICAD over the
+  // live sheets - the open one included, whose edits the project's files only
+  // get on the debounced save - with the project's other files as they are.
+  getNetlistRef.current = (aAnnotateMessage) => {
+    const live = new Map<string, string>();
+    try {
+      for (const [file, sheet] of project.current.docs) live.set(file, serializeSchematic(sheet));
+      if (docRef.current) live.set(currentFileRef.current, serializeSchematic(docRef.current));
+    } catch {
+      return null;
+    }
+    const baseOf = (name: string): string =>
+      name.slice(Math.max(name.lastIndexOf('/'), name.lastIndexOf('\\')) + 1);
+    const files = rawFiles.map((f) => {
+      const text = live.get(baseOf(f.name));
+      return text === undefined ? f : { name: f.name, text };
+    });
+    const fetched = fetchNetlistFromSchematic(files, aAnnotateMessage, rootPro);
+    return fetched.ok ? fetched.netlistText : null;
+  };
+  // `SaveProject()`: an assignment from this same mail round is written as it
+  // folds; with nothing pending, the open sheet is saved now.
+  saveProjectRef.current = () => {
+    if (assignPendingRef.current) saveRequestedRef.current = true;
+    else save();
+    return true;
+  };
 
   /**
    * `SCH_EDITOR_CONTROL::SaveCurrSheetCopyAs` (eeschema/tools/
@@ -5790,7 +5802,7 @@ export function SchematicEditor({
         busAliases,
         subSheets: docs,
         otherSheetGlobalLabels: otherGlobals,
-        resolveTextVar: (name) => resolveTextVar?.(name),
+        ...(resolveTextVar ? { resolveTextVar } : {}),
         // SIM_LIB_MGR::ResolveLibraryPath: a `Sim.Library` path resolves
         // against the project, so the project's own files are the library set.
         simLibraryText: (path) => {
@@ -6432,8 +6444,6 @@ export function SchematicEditor({
       ...(resolveTextVar ? { resolveTextVar } : {}),
       // ${INTERSHEET_REFS} on global labels (LAYER_INTERSHEET_REFS shown).
       ...(intersheetRefs ? { intersheetRefs } : {}),
-      // Highlighted-chain wire tint (SetHighlightedNetChain + chain colour).
-      ...(chainHighlight ? { chainHighlight } : {}),
       selectionThicknessMils: es.selection.thickness,
       highlightThicknessMils: es.selection.highlight_thickness,
       grid: {
@@ -6583,6 +6593,29 @@ export function SchematicEditor({
       ? doc
       : (project.current.docs.get(syncParentFile.current) ?? null);
 
+  /**
+   * SCH_DRAWING_TOOLS::m_statusPopup: a tool's one popup, replaced by the next
+   * (`std::make_unique` over the old one) and shown beside the cursor for two
+   * seconds - `Move( GetMousePosition() + wxPoint( 20, 20 ) ); PopupFor( 2000 )`.
+   */
+  const statusPopupRef = useRef<STATUS_TEXT_POPUP | null>(null);
+  const showStatusPopup = useCallback((aText: string) => {
+    statusPopupRef.current?.Destroy();
+    const popup = new STATUS_TEXT_POPUP();
+    statusPopupRef.current = popup;
+    popup.SetText(aText);
+    const at = KIPLATFORM_UI.GetMousePosition();
+    popup.Move({ x: at.x + 20, y: at.y + 20 });
+    popup.PopupFor(2000);
+  }, []);
+  useEffect(() => () => statusPopupRef.current?.Destroy(), []);
+
+  /** `isSheetPin` with no sheet under the cursor (sch_drawing_tools.cpp:2299). */
+  const onSheetPinMiss = useCallback(
+    () => showStatusPopup('Click over a sheet.'),
+    [showStatusPopup],
+  );
+
   const onSheetPinClick = useCallback(
     (index: number, at: Vec2, side: SheetSide) => {
       const d = doc;
@@ -6601,11 +6634,10 @@ export function SchematicEditor({
       const queued = placing?.kind === 'sheetPin' ? placing.queue[0] : undefined;
       const next = queued ?? nextImportableSheetPin(sheet, liveDocs().get(sheetFile(sheet)));
       if (!next) {
-        setInfoBar('No new hierarchical labels found.');
+        showStatusPopup('No new hierarchical labels found.');
         setActiveTool('select');
         return;
       }
-      setInfoBar(null);
       lastSheetPin.current = { shape: next.shape };
       runCommand(replaceSheet(index, addSheetPin(sheet, next.text, at, side, next.shape)));
       if (!placing || !queued) return;
@@ -6615,7 +6647,7 @@ export function SchematicEditor({
       setSyncPlacement(rest);
       if (!rest) endSyncPlacement();
     },
-    [doc, liveDocs, runCommand, endSyncPlacement],
+    [doc, liveDocs, runCommand, endSyncPlacement, showStatusPopup],
   );
 
   /** The active grid step, which the table's cell size is snapped to. */
@@ -6972,11 +7004,11 @@ export function SchematicEditor({
         const page = link.slice(1);
         const target = flatSheets.find((ref) => pageNumberOf(ref.path) === page);
         if (target) switchSheet(target.path, target.file);
-        else setInfoBar(`No sheet with page number "${page}".`);
+        else setInfoBar(`Page '${page}' not found.`);
         return;
       }
-      if (/^https?:\/\//i.test(link)) window.open(link, '_blank', 'noopener,noreferrer');
-      else setInfoBar(`Cannot open "${link}" from the browser.`);
+      // SCH_NAVIGATE_TOOL::HypertextCommand (sch_navigate_tool.cpp:108).
+      GetAssociatedDocument(link, null);
     },
     [flatSheets, pageNumberOf, switchSheet],
   );
@@ -7465,6 +7497,12 @@ export function SchematicEditor({
 
   const onTopAction = useCallback(
     (id: string) => {
+      // ACTIONS::about — Help > About. The menu sent this id and nothing
+      // answered it, so the schematic's About did nothing at all.
+      if (id === 'about') {
+        setAboutOpen(true);
+        return;
+      }
       // ACTIONS::listHotKeys — Ctrl+F1 and Help > List Hotkeys.
       if (id === 'listHotkeys') {
         showHotkeyList();
@@ -7504,9 +7542,6 @@ export function SchematicEditor({
       else if (id === 'revert') revert();
       else if (id === 'erc') setErcOpen(true);
       else if (id === 'manageSymbolLibraries') setSymLibTableOpen(true);
-      // SCH_EDITOR_CONTROL::ShowCreateNetChain opens whatever is selected; a
-      // symbol selection only pre-fills the dialog's from/to focus hint.
-      else if (id === 'createNetChain') setCreateChainOpen(true);
       else if (id === 'ercPrevMarker' || id === 'ercNextMarker' || id === 'ercExcludeMarker') {
         // The dialog owns the tree, so raise it first and act on the next tick,
         // when it has mounted and filled in the ref (dlg->Show(true); dlg->Raise();
@@ -7689,37 +7724,14 @@ export function SchematicEditor({
       } else if (id === 'schematicSetup') {
         // The Embedded Files page lists the sheet's embedded_files section
         // (names + embed-fonts flag) fresh from the document on every open,
-        // read-only until the zstd blobs can be decoded, and the Net Chains
-        // page shows the engine's detected (potential) chains
-        // (CONNECTION_GRAPH::RebuildNetChains), each keeping its persisted
-        // chain-class assignment.
+        // read-only until the zstd blobs can be decoded.
         if (doc) {
           const emb = listEmbeddedFiles(doc);
-          const detected = netlist ? detectNetChains(doc, libById, netlist) : [];
           setSetup((prev) => ({
             ...prev,
             embeddedFiles: {
               files: emb.files.map((f) => ({ name: f.name, reference: f.reference })),
               embedFonts: emb.embedFonts,
-            },
-            netChains: {
-              ...prev.netChains,
-              // The grid lists committed chains (PANEL_SETUP_NET_CHAINS::
-              // loadFromModel): persisted (net_chain …) nodes restored against
-              // this run's potentials (RebuildNetChains passes 2a/2b).
-              chains: (netlist
-                ? restoreCommittedNetChains(doc, libById, netlist, detected, readNetChains(doc))
-                : readNetChains(doc)
-              ).map((c) => ({
-                origName: c.name,
-                name: c.name,
-                members: [...c.nets],
-                chainClass: prev.netChains.classByChain[c.name] ?? '',
-                netClass: c.netClass,
-                color: c.color,
-                from: c.from,
-                to: c.to,
-              })),
             },
           }));
         }
@@ -7892,7 +7904,6 @@ export function SchematicEditor({
     //   200   Transform, Attributes, Properties…  sch_edit_tool.cpp
     //   250   sheet pins, labels, netclass, Lock  sch_selection_tool / sch_edit_tool
     //   300   the clipboard block                 sch_edit_tool.cpp
-    //   400   net chain menu                      sch_selection_tool.cpp
     //   401   Select All / Unselect All           sch_edit_tool.cpp
     //  1000   Zoom / Grid                         AddStandardSubMenus
     //
@@ -7978,12 +7989,19 @@ export function SchematicEditor({
       // SCH_ACTIONS::selectOnPCB, gated on `crossProbingSelection` — the kinds
       // that name something on the board (symbols, pins, sheets). A selection
       // of wires or labels has nothing to send, so the entry is absent.
-      if (doc && onSelectOnPcb) {
+      if (doc && kiway) {
         const parts = syncSelectionParts(doc, selection, currentPath, libById);
         if (parts.length > 0)
           add(150.2, {
             label: 'Select on PCB',
-            action: () => onSelectOnPcb(parts),
+            // `ExplicitCrossProbeToPcb`: a forced probe. Upstream the board frame
+            // is already on screen beside the schematic; here one editor shows
+            // at a time, so the board is brought up first (`Kiway().Player()`),
+            // and the mail waits for it if it is still mounting.
+            action: () => {
+              kiway.Player(FRAME_T.FRAME_PCB_EDITOR);
+              schFrameRef.current!.SendSelectItemsToPcb(parts, true);
+            },
           });
       }
       if (netlist && selectedNets(netlist, selection).length > 0)
@@ -8464,72 +8482,26 @@ export function SchematicEditor({
           tool('Place Global Label', 'placeGlobalLabel', 'Ctrl+L'),
           tool('Place Hierarchical Label', 'placeHierLabel', 'H'),
         );
-      // SCH_SELECTION_TOOL's net-chain menu: Create for symbols-only
-      // selections; Highlight / Remove-from / Name when the hit item's net
-      // belongs to a committed chain.
+      // SCH_ACTIONS::clearHighlight (sch_selection_tool.cpp:353), rank 1,
+      // right after the group-enter items.
+      if (highlightItem !== null)
+        add(1.9, { label: 'Clear Net Highlighting', action: clearHighlight });
+      // SCH_ACTIONS::findNetInInspector (sch_selection_tool.cpp:387), rank 250,
+      // between assignNetclass and editPageNumber.
       {
-        const chainItems: MenuItem[] = [];
-        const symbolIds = doc
-          ? new Set(doc.symbols.map((s, i) => refId('symbol', s.uuid, i)))
-          : new Set<string>();
-        const symbolsOnly = selection.size > 0 && [...selection].every((id) => symbolIds.has(id));
-        if (symbolsOnly)
-          chainItems.push({
-            label: 'Create Net Chain...',
-            action: () => setCreateChainOpen(true),
-          });
         const hitCode = hit && netlist ? netlist.netByItem.get(hit.id) : undefined;
         const hitNet =
           hitCode !== undefined
             ? (netlist?.nets.find((n) => n.code === hitCode)?.name ?? null)
             : null;
-        const hitChain = hitNet ? committedChains.find((c) => c.nets.includes(hitNet)) : undefined;
-        if (hitChain && hitNet) {
-          chainItems.push(
-            {
-              label: 'Highlight Net Chain',
-              action: () => {
-                // HighlightNetChain: the chain replaces the net highlight; the
-                // selection is untouched.
-                setHighlightItem(null);
-                setHighlightBusMembers(false);
-                setHighlightedChain(hitChain.name);
-              },
-            },
-            {
-              label: 'Remove from Net Chain',
-              action: () => {
-                // RemoveFromNetChain: block every 2-pin symbol bridging this
-                // net out of its chain, then chains rebuild via the memos.
-                if (doc && netlist) {
-                  const cmd = removeFromNetChainCommand(doc, libById, netlist, hitNet);
-                  if (cmd) runCommand(cmd);
-                }
-              },
-            },
-            {
-              label: 'Name Net Chain...',
-              action: () => setChainRename({ orig: hitChain.name, name: hitChain.name }),
-            },
-          );
-        }
         if (hitNet)
-          chainItems.push({
-            // SCH_ACTIONS::findNetInInspector: show the Net Navigator and put
-            // the selection on the clicked item's row, which is what the panel
-            // marks as active.
+          add(250.35, {
             label: 'Find in Net Navigator',
             action: () => {
               setLocalToggles((prev) => new Set(prev).add('showNetNavigator'));
               if (hit) setSelection(new Set([hit.id]));
             },
           });
-        if (highlightedChain !== null || highlightItem !== null)
-          chainItems.push({
-            label: 'Clear Net Highlighting',
-            action: clearHighlight,
-          });
-        if (chainItems.length > 0) add(400, ...chainItems);
       }
       // SCH_ACTIONS::selectConnection, gated on `expandableSelection` — the
       // connectivity-carrying kinds. A sheet is not one of them.
@@ -8653,8 +8625,9 @@ export function SchematicEditor({
     );
 
     // The separators this menu declares: two at rank 100 (the second is the
-    // line under Draw Buses), then 200, 300, 400, the edit tool's own at 400
-    // that lands after the net chain menu, and AddStandardSubMenus' at 1000.
+    // line under Draw Buses), then 200, 300, 400 (sch_selection_tool.cpp),
+    // the edit tool's own separator also at 400 (sch_edit_tool.cpp, before
+    // Select All / Unselect All), and AddStandardSubMenus' at 1000.
     return assembleMenu(entries, [100, 101, 200, 300, 400, 401, 1000]);
   };
 
@@ -9221,10 +9194,10 @@ export function SchematicEditor({
               : doc.symbols.find((sy, i) => refId('symbol', sy.uuid, i) === id);
           if (sym) {
             e.preventDefault();
-            const url = (sym.fields.find((f) => f.key === 'Datasheet')?.value ?? '').trim();
-            // "~" is KiCad's "no datasheet", not a URL.
-            if (url === '' || url === '~') setError('No datasheet defined.');
-            else window.open(url, '_blank', 'noopener,noreferrer');
+            const datasheet = sym.fields.find((f) => f.key === 'Datasheet')?.value ?? '';
+            // "~" is KiCad's "no datasheet", not a URL (sch_inspection_tool.cpp:511).
+            if (datasheet === '' || datasheet === '~') setError('No datasheet defined.');
+            else GetAssociatedDocument(datasheet, null);
             finishCommand();
             return;
           }
@@ -9730,7 +9703,7 @@ export function SchematicEditor({
                                 libById={libById}
                                 fmt={fmt}
                                 selectedId={selection.size === 1 ? [...selection][0] : undefined}
-                                highlightedNet={highlightedChain}
+                                highlightedNet={highlightName}
                                 prebuilt={netNavigatorTree}
                                 onSelect={(id) => {
                                   // onNetNavigatorSelection ends in
@@ -9936,6 +9909,7 @@ export function SchematicEditor({
               // fifteen characters wide and a row two high.
               tableFontSizeIU={setup.formatting.defaultTextSizeMils * IU_PER_MILS}
               onSheetPinClick={onSheetPinClick}
+              onSheetPinMiss={onSheetPinMiss}
               pendingImage={pendingImage}
               onImagePlaced={onImagePlaced}
               grabRequest={grabRequest}
@@ -10382,14 +10356,6 @@ export function SchematicEditor({
                 }}
               />
             )}
-            {caseConflicts && (
-              <DialogResolveFieldCaseConflicts
-                conflicts={caseConflicts.list}
-                onApply={applyCaseConflicts}
-                // Cancel abandons opening the table (m_aborted upstream).
-                onCancel={() => setCaseConflicts(null)}
-              />
-            )}
             {libIdsOpen && doc && (
               <DialogEditSymbolsLibId
                 rows={symbolLibIdRows(doc, libById)}
@@ -10537,151 +10503,11 @@ export function SchematicEditor({
                 onClose={() => setPlotOpen(false)}
               />
             )}
-            {createChainOpen && doc && (
-              <DialogCreateNetChain
-                potentials={potentialChains}
-                committed={committedChains}
-                hint={(() => {
-                  // ShowCreateNetChain's FOCUS_HINT from the current selection:
-                  // symbol references, or a single wire's net name.
-                  const hint: CreateChainFocusHint = {};
-                  if (doc) {
-                    const selSymbols = doc.symbols
-                      .map((s, i) => ({ s, id: refId('symbol', s.uuid, i) }))
-                      .filter((e) => selection.has(e.id));
-                    const ref = (sym: (typeof selSymbols)[number]['s']): string =>
-                      sym.fields.find((f) => f.key === 'Reference')?.value ?? '';
-                    if (selSymbols[0]) hint.fromRef = ref(selSymbols[0].s);
-                    if (selSymbols[1]) hint.toRef = ref(selSymbols[1].s);
-                    if (selSymbols.length === 0 && selection.size === 1 && netlist) {
-                      const code = netlist.netByItem.get([...selection][0]!);
-                      const net =
-                        code !== undefined ? netlist.nets.find((n) => n.code === code) : undefined;
-                      if (net) hint.netName = net.name;
-                    }
-                  }
-                  return hint;
-                })()}
-                onCreate={(chain) => {
-                  // CreateNetChainFromPotential + highlight the new chain.
-                  runCommand(netChainsCommand(writeNetChains(doc, [...committedChains, chain])));
-                  setSelection(new Set());
-                  setHighlightItem(null);
-                  setHighlightBusMembers(false);
-                  setHighlightedChain(chain.name);
-                }}
-                onClose={() => setCreateChainOpen(false)}
-              />
-            )}
-            {chainRename && doc && (
-              <div className="ze-modal-backdrop" onMouseDown={() => setChainRename(null)}>
-                <div className="ze-modal" onMouseDown={(e) => e.stopPropagation()}>
-                  <div className="ze-modal-header">
-                    Name Net Chain
-                    <span className="x" title="Cancel" onClick={() => setChainRename(null)}>
-                      ✕
-                    </span>
-                  </div>
-                  <div className="ze-modal-body" style={{ display: 'block', padding: 14 }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      Net chain name:
-                      <input
-                        style={{ flex: 1 }}
-                        value={chainRename.name}
-                        autoFocus
-                        onChange={(e) =>
-                          setChainRename((p) => (p ? { ...p, name: e.target.value } : p))
-                        }
-                      />
-                    </label>
-                  </div>
-                  <div className="ze-modal-footer">
-                    <button className="ze-btn" onClick={() => setChainRename(null)}>
-                      Cancel
-                    </button>
-                    <button
-                      className="ze-btn primary"
-                      onClick={() => {
-                        // NameNetChain: rename the committed chain (collisions
-                        // rejected like RenameCommittedNetChain), rekey the
-                        // chain->class map, and keep the chain highlighted.
-                        const { orig, name } = chainRename;
-                        if (
-                          name === orig ||
-                          !isValidNetChainName(name) ||
-                          committedChains.some((c) => c.name === name)
-                        ) {
-                          setChainRename(null);
-                          return;
-                        }
-                        runCommand(
-                          netChainsCommand(
-                            writeNetChains(
-                              doc,
-                              committedChains.map((c) => (c.name === orig ? { ...c, name } : c)),
-                            ),
-                          ),
-                        );
-                        const classByChain = { ...setup.netChains.classByChain };
-                        if (classByChain[orig] !== undefined) {
-                          classByChain[name] = classByChain[orig];
-                          delete classByChain[orig];
-                          commitSetup({
-                            ...setup,
-                            netChains: { ...setup.netChains, classByChain },
-                          });
-                        }
-                        if (highlightedChain === orig) setHighlightedChain(name);
-                        setChainRename(null);
-                      }}
-                    >
-                      OK
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
             {setupOpen && (
               <DialogSchematicSetup
                 value={setup}
-                onOk={(nextIn) => {
-                  // PANEL_SETUP_NET_CHAINS::ApplyEdits: rekey the chain->class
-                  // map for renamed rows and drop deleted chains before the
-                  // project file persists it.
-                  let next = nextIn;
-                  if (doc) {
-                    const committedAtOpen = readNetChains(doc).map((c) => c.name);
-                    const rows = next.netChains.chains;
-                    const rowByOrig = new Map(
-                      rows.filter((r) => r.origName).map((r) => [r.origName, r]),
-                    );
-                    const classByChain = { ...next.netChains.classByChain };
-                    for (const name of committedAtOpen) {
-                      const row = rowByOrig.get(name);
-                      if (!row || row.name !== name) delete classByChain[name];
-                    }
-                    for (const row of rows) {
-                      if (row.chainClass) classByChain[row.name] = row.chainClass;
-                      else delete classByChain[row.name];
-                    }
-                    next = { ...next, netChains: { ...next.netChains, classByChain } };
-                  }
+                onOk={(next) => {
                   commitSetup(next);
-                  // Net-chain renames/edits/deletes write back to the document's
-                  // (net_chain …) nodes (they live in .kicad_sch, root sheet).
-                  if (doc) {
-                    const before = readNetChains(doc);
-                    const rowByOrig = new Map(
-                      next.netChains.chains.filter((r) => r.origName).map((r) => [r.origName, r]),
-                    );
-                    const after = before.flatMap((c) => {
-                      const row = rowByOrig.get(c.name);
-                      if (!row) return []; // deleted
-                      return [{ ...c, name: row.name, netClass: row.netClass, color: row.color }];
-                    });
-                    if (JSON.stringify(after) !== JSON.stringify(before))
-                      runCommand(netChainsCommand(writeNetChains(doc, after)));
-                  }
                   // The Embedded Files page edits the document itself
                   // (EMBEDDED_FILES lives in .kicad_sch, not the project file):
                   // compress added files, drop removed ones, set the fonts flag.
@@ -10774,15 +10600,13 @@ export function SchematicEditor({
               edits through the same per-sheet pathway as the fields table. */}
             {assignFpOpen && (
               <DialogAssignFootprints
+                app={cvpcbApp}
                 docs={liveDocs()}
                 // The netlist CVPCB works on is this design's sheets, in
                 // hierarchy order, not every .kicad_sch in the project folder.
                 files={assignFpFiles}
                 projectFootprints={projectFootprintFiles}
-                onApply={(edits, { save, close }) => {
-                  applyFieldsEdits(edits, { persist: save });
-                  if (close) setAssignFpOpen(false);
-                }}
+                kiway={kiway}
                 onSaveLibTable={saveProjectFpLibTable}
                 onSaveEquFiles={saveProjectEquFiles}
                 onClose={() => setAssignFpOpen(false)}
@@ -10821,10 +10645,16 @@ export function SchematicEditor({
                       doc={doc}
                       libById={libById}
                       fmt={fmt}
-                      selectionZoom={settings.common.search_pane.selection_zoom}
-                      onSelectionZoomChange={(mode) =>
+                      menuState={{
+                        selectionZoom: settings.common.search_pane.selection_zoom,
+                        searchHiddenFields: settings.common.search_pane.search_hidden_fields,
+                        searchMetadata: settings.common.search_pane.search_metadata,
+                      }}
+                      onMenuStateChange={(next) =>
                         settings.updateCommon((c) => {
-                          c.search_pane.selection_zoom = mode;
+                          c.search_pane.selection_zoom = next.selectionZoom;
+                          c.search_pane.search_hidden_fields = next.searchHiddenFields;
+                          c.search_pane.search_metadata = next.searchMetadata;
                         })
                       }
                       selection={selection}
@@ -10902,6 +10732,9 @@ export function SchematicEditor({
         />
       )}
 
+      {aboutOpen && (
+        <ShowAboutDialog title={ABOUT_TITLES.schematic} onClose={() => setAboutOpen(false)} />
+      )}
       {prefsOpen && (
         <PreferencesDialog initialPage={prefsPage} onClose={() => setPrefsOpen(false)} />
       )}
@@ -11156,13 +10989,30 @@ export function SchematicEditor({
       {/* Assign Netclass (DIALOG_ASSIGN_NETCLASS). */}
       {netclassPatterns && (
         <DialogAssignNetclass
-          patterns={netclassPatterns}
-          netClasses={setup.netClasses.classes.map((c) => c.name)}
+          frame="schematic"
+          netNames={new Set(netclassPatterns)}
+          // SCHEMATIC::GetNetClassAssignmentCandidates (schematic.cpp:742-758):
+          // every non-bus net driven at least by a pin, as a sorted set.
+          candidateNetNames={[
+            ...new Set(
+              (netlist?.nets ?? [])
+                .filter((n) => n.driverPriority >= Priority.Pin)
+                .map((n) => n.name),
+            ),
+          ].sort()}
+          // netSettings->GetNetclasses(): a std::map, so by name, and without Default.
+          netClasses={setup.netClasses.classes
+            .map((c) => c.name)
+            .filter((n) => n !== 'Default')
+            .sort()}
           onCancel={() => setNetclassPatterns(null)}
-          onOk={(netClass) => {
-            const assignments = netclassPatterns.reduce(
-              (acc, pattern) => addNetclassAssignment(acc, pattern, netClass),
+          onOk={(pattern, netClass) => {
+            // SetNetclassPatternAssignment( pattern, netclass ): the one pattern,
+            // bus members expanded.
+            const assignments = addNetclassAssignment(
               setup.netClasses.assignments,
+              pattern,
+              netClass,
             );
             commitSetup({
               ...setup,
@@ -11315,6 +11165,8 @@ export function SchematicEditor({
             setFpChooser(null);
           }}
           onCancel={() => setFpChooser(null)}
+          loadFootprintIndex={loadFootprintIndex}
+          loadFootprint={loadFootprint}
         />
       )}
 

@@ -19,14 +19,17 @@
  * labelled "D1" on the silkscreen and "REF**" in the middle.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoardFootprint, readFootprintFile } from '@ziroeda/pcbnew/src/read-board.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import {
+  readBoardFootprint,
+  readFootprintFile,
+} from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import {
   footprintTextRaw,
   resolveFootprintTextVars,
   setFootprintReference,
   setFootprintValue,
-} from '@ziroeda/pcbnew/src/edit-footprint.js';
+} from '@ziroeda/pcbnew/edit-footprint.js';
 
 /** A library footprint the way KiCad ships one: REF** plus a `${REFERENCE}`. */
 const SRC = `(footprint "D_DO-41"

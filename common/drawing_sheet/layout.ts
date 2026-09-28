@@ -1,0 +1,518 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+/**
+ * Drawing-sheet layout resolver: turn corner-anchored millimetre items into
+ * concrete IU page geometry for a specific page, mirroring KiCad's
+ * DS_DRAW_ITEM_LIST::BuildDrawItemsList + DS_DATA_ITEM::SyncDrawItems
+ * (common/drawing_sheet/ds_draw_item.cpp, ds_data_item.cpp).
+ *
+ * Responsibilities, all from upstream:
+ *  - corner anchoring: the four page corners are the margin-box corners, and an
+ *    item coordinate is measured *inward* from its anchor corner;
+ *  - repeats: an item with `repeat > 1` is emitted per repeat, each copy offset
+ *    by (incrx, incry) mm, but a repeat other than the first is dropped when it
+ *    falls outside the margin box (DS_DATA_ITEM::IsInsidePage), which is what
+ *    clips the `repeat 100` coordinate-band labels at the page edge;
+ *  - per-repeat text labels increment via DS_DATA_ITEM_TEXT::IncrementLabel (STRING_INCREMENTER)
+ *    (last character only), never for multiline texts;
+ *  - literal `\n` / `\\` sequences in text become newline / backslash
+ *    (ReplaceAntiSlashSequence);
+ *  - `maxlen` / `maxheight` shrink the text size proportionally, never grow it
+ *    (SetConstrainedTextSize);
+ *  - page filtering: `page1only` / `notonpage1` items are dropped as appropriate;
+ *  - text variables: `${…}` tokens are expanded against the supplied title-block
+ *    / page context.
+ */
+
+import { mmToIU, schIUScale } from '../eda_units.js';
+import type { Vec2 } from '@ziroeda/kimath';
+import { bitmapSizeIu } from '../reference_image.js';
+import { interline, layoutText } from '../font/stroke_font.js';
+import { STRING_INCREMENTER } from '../increment.js';
+import type {
+  WksSheet,
+  WksItem,
+  WksText,
+  WksPoint,
+  WksCorner,
+  WksColor,
+  WksHJustify,
+  WksVJustify,
+} from './types.js';
+
+/** Page dimensions in millimetres (landscape/portrait already applied). */
+export interface WksPage {
+  widthMM: number;
+  heightMM: number;
+}
+
+/** Values the `${…}` variables and page-number tokens resolve against. */
+export interface WksResolveContext {
+  /** 1-based sheet ordinal (DS_DRAW_ITEM_LIST m_sheetNumber), drives the
+   *  page1only/notonpage1 item visibility and is the `${#}` fallback. */
+  pageNumber?: number;
+  /** The page number *string* shown by `${#}` (DS_DRAW_ITEM_LIST
+   *  m_pageNumber / SCH_SHEET_PATH::GetPageNumber, may be "A", "ii", …).
+   *  Unset = the ordinal. */
+  pageName?: string;
+  /** Total number of sheets. */
+  sheetCount?: number;
+  title?: string;
+  rev?: string;
+  date?: string;
+  company?: string;
+  comments?: string[];
+  /** Paper size string (e.g. "A4"). */
+  paper?: string;
+  layer?: string;
+  fileName?: string;
+  sheetName?: string;
+  sheetPath?: string;
+  appVersion?: string;
+  /**
+   * When true, leave `${…}` tokens unresolved (the editor's "Show title block
+   * in edit mode", where the raw field templates are shown instead of data).
+   */
+  rawText?: boolean;
+}
+
+export interface DsLineItem {
+  kind: 'line' | 'rect';
+  a: Vec2;
+  b: Vec2;
+  width: number;
+  src: number;
+}
+export interface DsTextItem {
+  kind: 'text';
+  text: string;
+  at: Vec2;
+  w: number;
+  h: number;
+  thickness: number;
+  bold: boolean;
+  italic: boolean;
+  /** Font face name; empty/undefined = stroke font. */
+  face?: string;
+  /** Per-item colour override, if any. */
+  color?: WksColor;
+  hjustify: WksHJustify;
+  vjustify: WksVJustify;
+  rotate: number;
+  src: number;
+}
+export interface DsPolyItem {
+  kind: 'poly';
+  pts: Vec2[];
+  width: number;
+  src: number;
+}
+export interface DsBitmapItem {
+  kind: 'bitmap';
+  at: Vec2;
+  scale: number;
+  pngB64: string;
+  ppi: number;
+  /** Natural pixel dimensions, when the image has been decoded (see WksBitmap). */
+  pxW?: number;
+  pxH?: number;
+  src: number;
+}
+export type DsDrawItem = DsLineItem | DsTextItem | DsPolyItem | DsBitmapItem;
+
+interface Margins {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+
+/** Corner-anchored mm coordinate (+ per-repeat offset) → page-space mm. */
+function resolveMM(p: WksPoint, m: Margins, dx: number, dy: number): { x: number; y: number } {
+  const x = p.x + dx;
+  const y = p.y + dy;
+  switch (p.corner as WksCorner) {
+    case 'ltcorner':
+      return { x: m.left + x, y: m.top + y };
+    case 'rtcorner':
+      return { x: m.right - x, y: m.top + y };
+    case 'lbcorner':
+      return { x: m.left + x, y: m.bottom - y };
+    default:
+      return { x: m.right - x, y: m.bottom - y };
+  }
+}
+
+const toIU = (p: { x: number; y: number }): Vec2 => ({ x: mmToIU(p.x), y: mmToIU(p.y) });
+
+/** DS_DATA_ITEM::IsInsidePage: point within the margin box (mm)? */
+function insidePage(p: { x: number; y: number }, m: Margins): boolean {
+  return p.x >= m.left && p.x <= m.right && p.y >= m.top && p.y <= m.bottom;
+}
+
+/**
+ * `${PAPER}` is the page TYPE, not the page.
+ *
+ *     m_paperFormat = aPageInfo.GetTypeAsString();   (ds_draw_item.cpp:552)
+ *
+ * `PAGE_INFO::GetTypeAsString()` is "A4", "USLetter", "User" — the name alone.
+ * A document's `(paper …)` node carries the width and height after it whenever
+ * the type is User, and passing that whole string through printed
+ * "Size: User 152.4000 127.0000" across the Date cell beside it.
+ */
+export const paperTypeName = (paper: string | undefined): string =>
+  (paper ?? '').trim().split(/\s+/)[0] ?? '';
+
+/** Expand `${…}` variables in a template string (title-block text variables). */
+export function resolveDrawingSheetText(text: string, ctx: WksResolveContext): string {
+  const page = ctx.pageNumber ?? 1;
+  const count = ctx.sheetCount ?? 1;
+  return text.replace(/\$\{([^}]*)\}/g, (whole, name: string) => {
+    const key = name.trim().toUpperCase();
+    switch (key) {
+      case 'TITLE':
+        return ctx.title ?? '';
+      case 'REVISION':
+        return ctx.rev ?? '';
+      case 'ISSUE_DATE':
+        return ctx.date ?? '';
+      case 'COMPANY':
+        return ctx.company ?? '';
+      case 'PAPER':
+        return ctx.paper ?? '';
+      case 'LAYER':
+        return ctx.layer ?? '';
+      case 'FILENAME':
+        return ctx.fileName ?? '';
+      case 'SHEETNAME':
+        return ctx.sheetName ?? '';
+      case 'SHEETPATH':
+        return ctx.sheetPath ?? '';
+      case 'KICAD_VERSION':
+        return ctx.appVersion ?? '';
+      case '#':
+        return ctx.pageName ?? String(page);
+      case '##':
+        return String(count);
+      default: {
+        const cm = /^COMMENT([1-9])$/.exec(key);
+        if (cm) return ctx.comments?.[Number(cm[1]) - 1] ?? '';
+        return whole; // leave unknown tokens intact, as upstream does
+      }
+    }
+  });
+}
+
+/**
+ * `DS_DATA_ITEM_TEXT::IncrementLabel` (ds_data_item.cpp:627): the rightmost
+ * letter or number of the RAW text stepped, carrying within its own type so a
+ * letter rolls z -> aa; every letter counts and there is no length bound. A
+ * text with nothing to step repeats unchanged.
+ */
+export function incrementLabel(aTextBase: string, aIncr: number): string {
+  const incrementer = new STRING_INCREMENTER();
+  incrementer.SetSkipIOSQXZ(false); // step through every letter
+  incrementer.SetAlphabeticMaxIndex(-1); // no upper bound on label length
+
+  return incrementer.Increment(aTextBase, aIncr, 0) ?? aTextBase;
+}
+
+/**
+ * Replace literal `\n` with a newline and `\\` with `\`
+ * (DS_DATA_ITEM_TEXT::ReplaceAntiSlashSequence).
+ */
+export function expandTextEscapes(text: string): string {
+  let out = '';
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i]!;
+    if (c === '\\' && i + 1 < text.length) {
+      const n = text[i + 1]!;
+      if (n === '\\') {
+        out += '\\';
+        i++;
+        continue;
+      }
+      if (n === 'n') {
+        out += '\n';
+        i++;
+        continue;
+      }
+    }
+    out += c;
+  }
+  return out;
+}
+
+/**
+ * Measure a text's box in mm at a given size (approximating EDA_TEXT::
+ * GetTextBox with the stroke font), for the maxlen/maxheight constraint.
+ */
+function measureTextMM(text: string, wMM: number, hMM: number): { w: number; h: number } {
+  const lines = text.split('\n');
+  let widest = 0;
+  for (const line of lines) {
+    const { width } = layoutText(line, hMM);
+    if (width > widest) widest = width;
+  }
+  const scaleX = hMM > 0 ? wMM / hMM : 1;
+  // `STROKE_FONT::GetInterline`, the same pitch `layoutText` above stacks the
+  // lines at — not the bare METRICS pitch, which is 4.3 % looser.
+  const height = hMM + (lines.length - 1) * interline(hMM);
+  return { w: widest * scaleX, h: height };
+}
+
+/**
+ * DS_DATA_ITEM_TEXT::SetConstrainedTextSize: start from the item size (or the
+ * setup default), and if the measured box exceeds maxlen/maxheight shrink each
+ * axis proportionally. Never grows the text.
+ */
+export function constrainedTextSize(
+  t: WksText,
+  fullText: string,
+  defaultW: number,
+  defaultH: number,
+): { w: number; h: number } {
+  let w = t.fontW !== 0 ? t.fontW : defaultW;
+  let h = t.fontH !== 0 ? t.fontH : defaultH;
+  if (t.maxlen > 0 || t.maxheight > 0) {
+    const size = measureTextMM(fullText, w, h);
+    if (t.maxlen > 0 && size.w > t.maxlen) w *= t.maxlen / size.w;
+    if (t.maxheight > 0 && size.h > t.maxheight) h *= t.maxheight / size.h;
+  }
+  return { w, h };
+}
+
+/** GetPenSizeForBold: bold stroke width is size / 5. */
+const penSizeForBold = (sizeMM: number): number => sizeMM / 5;
+
+/** True if `option` should be drawn on this page number. */
+function visibleOnPage(option: WksItem['option'], pageNumber: number): boolean {
+  if (option === 'page1only') return pageNumber === 1;
+  if (option === 'notonpage1') return pageNumber !== 1;
+  return true;
+}
+
+/**
+ * Resolve every item of `sheet` into concrete IU draw primitives for `page`.
+ * The returned items carry `src` (their index in `sheet.items`) so a caller can
+ * map a picked primitive back to the model item it came from.
+ */
+export function layoutDrawingSheet(
+  sheet: WksSheet,
+  page: WksPage,
+  ctx: WksResolveContext = {},
+): DsDrawItem[] {
+  const s = sheet.setup;
+  const m: Margins = {
+    left: s.leftMargin,
+    top: s.topMargin,
+    right: page.widthMM - s.rightMargin,
+    bottom: page.heightMM - s.bottomMargin,
+  };
+  const pageNumber = ctx.pageNumber ?? 1;
+  const defLineW = mmToIU(s.lineWidth);
+  const out: DsDrawItem[] = [];
+
+  sheet.items.forEach((it, src) => {
+    if (!visibleOnPage(it.option, pageNumber)) return;
+    // DS_DATA_ITEM_TEXT::SyncDrawItems (ds_data_item.cpp:536-613): m_FullText
+    // is built once - m_TextBase in edit mode, else its variables resolved and
+    // its escapes replaced - and the size is constrained on it. Each later
+    // repeat shows IncrementLabel of the RAW m_TextBase, stepped only after
+    // a repeat is drawn (so one skipped off the page does not advance it).
+    let fullText = '';
+    let multiline = false;
+    let size = { w: 0, h: 0 };
+    if (it.type === 'text') {
+      if (ctx.rawText) {
+        fullText = it.text;
+      } else {
+        fullText = expandTextEscapes(resolveDrawingSheetText(it.text, ctx));
+        multiline = fullText.includes('\n');
+      }
+      size = constrainedTextSize(it, fullText, s.textW, s.textH);
+    }
+    for (let i = 0; i < it.repeat; i++) {
+      const dx = it.incrx * i;
+      const dy = it.incry * i;
+      switch (it.type) {
+        case 'line':
+        case 'rect': {
+          const a = resolveMM(it.start, m, dx, dy);
+          const b = resolveMM(it.end, m, dx, dy);
+          // Repeats beyond the first are dropped once off the margin box.
+          if (i > 0 && !(insidePage(a, m) && insidePage(b, m))) continue;
+          out.push({
+            kind: it.type,
+            a: toIU(a),
+            b: toIU(b),
+            width: it.lineWidth > 0 ? mmToIU(it.lineWidth) : defLineW,
+            src,
+          });
+          break;
+        }
+        case 'text': {
+          const at = resolveMM(it.pos, m, dx, dy);
+          if (i > 0 && !insidePage(at, m)) continue;
+          const basePen = it.lineWidth > 0 ? it.lineWidth : s.textLineWidth;
+          const pen = it.bold ? penSizeForBold(Math.min(size.w, size.h)) : basePen;
+          out.push({
+            kind: 'text',
+            text: fullText,
+            at: toIU(at),
+            w: mmToIU(size.w),
+            h: mmToIU(size.h),
+            thickness: mmToIU(pen),
+            bold: it.bold,
+            italic: it.italic,
+            ...(it.face ? { face: it.face } : {}),
+            ...(it.color ? { color: it.color } : {}),
+            hjustify: it.hjustify,
+            vjustify: it.vjustify,
+            rotate: it.rotate,
+            src,
+          });
+          // Increment label for the next text (has no meaning for multiline texts)
+          if (it.repeat > 1 && !multiline)
+            fullText = incrementLabel(it.text, (i + 1) * it.incrlabel);
+          break;
+        }
+        case 'polygon': {
+          const origin = resolveMM(it.pos, m, dx, dy);
+          if (i > 0 && !insidePage(origin, m)) continue;
+          const at = toIU(origin);
+          const rad = (it.rotate * Math.PI) / 180;
+          const cos = Math.cos(rad);
+          const sin = Math.sin(rad);
+          // A poly-polygon draws each contour independently, rotated about pos.
+          for (const contour of it.contours) {
+            const pts = contour.map((p) => {
+              const px = mmToIU(p.x);
+              const py = mmToIU(p.y);
+              return { x: at.x + px * cos - py * sin, y: at.y + px * sin + py * cos };
+            });
+            out.push({
+              kind: 'poly',
+              pts,
+              width: it.lineWidth > 0 ? mmToIU(it.lineWidth) : defLineW,
+              src,
+            });
+          }
+          break;
+        }
+        case 'bitmap': {
+          const at = resolveMM(it.pos, m, dx, dy);
+          if (i > 0 && !insidePage(at, m)) continue;
+          out.push({
+            kind: 'bitmap',
+            at: toIU(at),
+            scale: it.scale,
+            pngB64: it.pngB64,
+            ppi: it.ppi,
+            ...(it.pxW ? { pxW: it.pxW } : {}),
+            ...(it.pxH ? { pxH: it.pxH } : {}),
+            src,
+          });
+          break;
+        }
+      }
+    }
+  });
+
+  return out;
+}
+
+// ----- hit testing ------------------------------------------------------------
+
+/** Distance from p to the segment a-b. */
+function distToSeg(p: Vec2, a: Vec2, b: Vec2): number {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len2 = dx * dx + dy * dy;
+  if (len2 === 0) return Math.hypot(p.x - a.x, p.y - a.y);
+  let t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
+}
+
+/** Whether p is within `accuracy` of one laid-out drawing-sheet item. */
+function hitsDrawItem(item: DsDrawItem, p: Vec2, accuracy: number): boolean {
+  switch (item.kind) {
+    case 'line': {
+      const tol = accuracy + item.width / 2;
+      return distToSeg(p, item.a, item.b) <= tol;
+    }
+    case 'rect': {
+      // A drawing-sheet rectangle is its outline, not a filled area, the
+      // border frame must not swallow clicks over the whole page.
+      const tol = accuracy + item.width / 2;
+      const x0 = Math.min(item.a.x, item.b.x);
+      const x1 = Math.max(item.a.x, item.b.x);
+      const y0 = Math.min(item.a.y, item.b.y);
+      const y1 = Math.max(item.a.y, item.b.y);
+      return (
+        distToSeg(p, { x: x0, y: y0 }, { x: x1, y: y0 }) <= tol ||
+        distToSeg(p, { x: x0, y: y1 }, { x: x1, y: y1 }) <= tol ||
+        distToSeg(p, { x: x0, y: y0 }, { x: x0, y: y1 }) <= tol ||
+        distToSeg(p, { x: x1, y: y0 }, { x: x1, y: y1 }) <= tol
+      );
+    }
+    case 'poly': {
+      const tol = accuracy + item.width / 2;
+      for (let i = 1; i < item.pts.length; i++) {
+        if (distToSeg(p, item.pts[i - 1]!, item.pts[i]!) <= tol) return true;
+      }
+      return false;
+    }
+    case 'text': {
+      // The text's box: DS_DRAW_ITEM_TEXT hit-tests its bounding box, which is
+      // what makes the whole title block clickable rather than just the glyphs.
+      const halfH = item.h / 2 + accuracy;
+      const halfW = (Math.max(1, item.text.length) * item.w) / 2 + accuracy;
+      const cx =
+        item.hjustify === 'left'
+          ? item.at.x + halfW - accuracy
+          : item.hjustify === 'right'
+            ? item.at.x - halfW + accuracy
+            : item.at.x;
+      const cy =
+        item.vjustify === 'top'
+          ? item.at.y + halfH - accuracy
+          : item.vjustify === 'bottom'
+            ? item.at.y - halfH + accuracy
+            : item.at.y;
+      return Math.abs(p.x - cx) <= halfW && Math.abs(p.y - cy) <= halfH;
+    }
+    case 'bitmap': {
+      // `DS_DRAW_ITEM_BITMAP::HitTest` is `GetBoundingBox().Inflate( aAccuracy )`
+      // (ds_draw_item.cpp:505-511), and that box is `BITMAP_BASE::GetSize()`,
+      // which multiplies by the scale factor as well as the resolution
+      // (bitmap_base.cpp:416-427). This dropped the `* scale`, so a scaled
+      // image was drawn at one size and picked at another.
+      const w = bitmapSizeIu(schIUScale, item.pxW ?? 0, item.ppi || 300, item.scale) / 2;
+      const h = bitmapSizeIu(schIUScale, item.pxH ?? 0, item.ppi || 300, item.scale) / 2;
+      return Math.abs(p.x - item.at.x) <= w + accuracy && Math.abs(p.y - item.at.y) <= h + accuracy;
+    }
+  }
+}
+
+/**
+ * Whether `p` lands on any part of the drawing sheet, the page border, its
+ * rulers, or the title block.
+ *
+ * `DS_PROXY_VIEW_ITEM::HitTestDrawingSheetItems` (ds_proxy_view_item.cpp) walks
+ * the laid-out sheet and tests each item with five pixels of slop at the
+ * current zoom. It is deliberately a test against the *items*, not against the
+ * page rectangle: clicking empty paper inside the frame hits nothing.
+ */
+export function hitTestDrawingSheet(
+  draws: readonly DsDrawItem[],
+  p: Vec2,
+  accuracy: number,
+): boolean {
+  for (const item of draws) {
+    if (hitsDrawItem(item, p, accuracy)) return true;
+  }
+  return false;
+}

@@ -23,9 +23,9 @@ import { fileURLToPath } from 'node:url';
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
-const PANEL = read('../../../designer/src/editors/schematic/components/NetNavigatorPanel.tsx');
+const PANEL = read('../../../eeschema/widgets/net_navigator_panel.tsx');
 const EDITOR = read('../../../designer/src/editors/schematic/SchematicEditor.tsx');
-const CSS = read('../../../designer/src/ui/shell.css');
+const CSS = read('../../../common/widgets/shell.css');
 
 describe('the Net Navigator matches upstream', () => {
   it('roots the tree at "Nets" when no net is highlighted', () => {
@@ -72,7 +72,9 @@ describe('the Net Navigator matches upstream', () => {
   });
 
   it('is told which net is highlighted', () => {
-    expect(EDITOR).toContain('highlightedNet={highlightedChain}');
+    // `highlightName` is `GetHighlightedConnection()` (m_highlightedConn),
+    // the same value net_navigator.cpp's RefreshNetNavigator reads.
+    expect(EDITOR).toContain('highlightedNet={highlightName}');
   });
 });
 
@@ -92,9 +94,7 @@ describe('disclosure arrows are the project tree chevron', () => {
     // Only the expander glyphs. A column's ▲/▼ sort indicator stays a triangle:
     // that is what wxGrid's ShowSortIndicator draws, and it is not a disclosure
     // control.
-    const FIELDS = read(
-      '../../../designer/src/editors/schematic/dialogs/dialog_symbol_fields_table.tsx',
-    );
+    const FIELDS = read('../../../eeschema/dialogs/dialog_symbol_fields_table.tsx');
     for (const [name, src] of [
       ['net navigator', PANEL],
       ['fields table', FIELDS],
@@ -109,9 +109,9 @@ describe('disclosure arrows are the project tree chevron', () => {
 
   it('both use the twisty markup', () => {
     expect(PANEL).toContain('twisty expandable');
-    expect(
-      read('../../../designer/src/editors/schematic/dialogs/dialog_symbol_fields_table.tsx'),
-    ).toContain('twisty expandable');
+    expect(read('../../../eeschema/dialogs/dialog_symbol_fields_table.tsx')).toContain(
+      'twisty expandable',
+    );
   });
 });
 
@@ -125,7 +125,7 @@ describe('picking a leaf focuses the item', () => {
   it('centres on the item bounding box, as FocusOnLocation does', () => {
     expect(EDITOR).toContain('FocusOnLocation');
     expect(EDITOR).toMatch(
-      /highlightedNet=\{highlightedChain\}[\s\S]{0,900}?controller\.current\?\.centerOn/,
+      /highlightedNet=\{highlightName\}[\s\S]{0,900}?controller\.current\?\.centerOn/,
     );
   });
 

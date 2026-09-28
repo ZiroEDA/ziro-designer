@@ -35,15 +35,15 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { cleanup, fireEvent, render } from '@testing-library/react';
-import { LibTree } from '@ziroeda/designer/src/widgets/lib_tree.js';
-import { LibTreeModelAdapter } from '@ziroeda/designer/src/widgets/lib_tree_model_adapter.js';
+import { LibTree } from '@ziroeda/common/widgets/lib_tree.js';
+import { LibTreeModelAdapter } from '@ziroeda/common/lib_tree_model_adapter.js';
 import { EESCHEMA_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
 
 afterEach(cleanup);
 
 // `import.meta.url` is not a file: URL under happy-dom, so the path is
 // resolved from vitest's root (`qa/`) instead.
-const SHELL = readFileSync(resolve(process.cwd(), '../designer/src/ui/shell.css'), 'utf8');
+const SHELL = readFileSync(resolve(process.cwd(), '../common/widgets/shell.css'), 'utf8');
 
 /** A token's declared value, or undefined when it is not declared at all. */
 function token(name: string): string | undefined {

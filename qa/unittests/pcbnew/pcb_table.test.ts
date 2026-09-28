@@ -11,14 +11,15 @@
  * does not wrap PCB_TABLECELL.
  */
 import { describe, expect, it } from 'vitest';
-import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { LINE_STYLE, STROKE_PARAMS } from '@ziroeda/common/src/stroke_params.js';
-import { FLIP_DIRECTION } from '@ziroeda/core/src/mirror.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { LINE_STYLE, STROKE_PARAMS } from '@ziroeda/common/stroke_params.js';
+import { FLIP_DIRECTION } from '@ziroeda/core/mirror.js';
 import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import { EDA_ANGLE, EDA_ANGLE_T } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
-import { BOARD } from '@ziroeda/pcbnew/src/board.js';
-import { PCB_TABLE, PCB_TABLECELL } from '@ziroeda/pcbnew/src/pcb_table.js';
+import { BOARD } from '@ziroeda/pcbnew/board.js';
+import { PCB_TABLE } from '@ziroeda/pcbnew/pcb_table.js';
+import { PCB_TABLECELL } from '@ziroeda/pcbnew/pcb_tablecell.js';
 
 const deg = (d: number) => new EDA_ANGLE(d, EDA_ANGLE_T.DEGREES_T);
 

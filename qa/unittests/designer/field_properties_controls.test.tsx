@@ -29,7 +29,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { DialogFieldProperties } from '@ziroeda/designer/src/editors/schematic/dialogs/dialog_field_properties.js';
 import type { FieldPropsResult } from '@ziroeda/designer/src/editors/schematic/dialogs/dialog_field_properties.js';
-import { fieldEditCaption } from '@ziroeda/eeschema/src/tools/field_properties.js';
+import { fieldEditCaption } from '@ziroeda/eeschema/tools/field_properties.js';
 import { schIUScale } from '@ziroeda/common';
 
 afterEach(cleanup);

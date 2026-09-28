@@ -32,12 +32,12 @@ import {
   TOOLBAR_CONTEXT_MENUS,
   toolbarContextMenu,
   toolbarContextMenuRows,
-} from '@ziroeda/designer/src/ui/toolbar_context_menu_registry.js';
+} from '@ziroeda/common/tool/ui/toolbar_context_menu_registry.js';
 import {
   COMMON_TOOLBAR_ACTIONS,
   toolbarActionMenuLabel,
   toolbarActionTooltip,
-} from '@ziroeda/designer/src/ui/toolbar_actions.js';
+} from '@ziroeda/common/tool/action_toolbar_actions.js';
 
 /** The exact rows of each frame's registered menu, as the C++ writes them. */
 const EXPECTED: Record<string, Record<string, string[]>> = {
@@ -148,7 +148,7 @@ const read = (rel: string): string => readFileSync(join(SRC, rel), 'utf8');
 
 /** Each frame that registers a grid menu, and the file that mounts its toolbar. */
 const CALL_SITES: [app: string, file: string][] = [
-  ['pl_editor', 'editors/drawingsheet/DrawingSheetEditor.tsx'],
+  ['pl_editor', '../../pagelayout_editor/pl_editor_frame_ui.tsx'],
   ['eeschema', 'editors/schematic/SchematicEditor.tsx'],
   ['symbol_editor', 'editors/symbol/SymbolEditor.tsx'],
   ['pcbnew', 'editors/pcb/PcbEditor.tsx'],
@@ -160,9 +160,17 @@ describe('every frame with a registered menu is wired to receive it', () => {
     expect(read(rel)).toContain(`app="${app}"`);
   });
 
-  it.each(CALL_SITES)('%s dispatches the menu`s action', (_app, rel) => {
+  it.each(CALL_SITES)('%s dispatches the menu`s action', (app, rel) => {
     // The row runs through the frame's own `onActivate`, so the frame has to
-    // answer for an id that is on no button of its own.
+    // answer for an id that is on no button of its own. pl_editor's toolbar
+    // runs every id as its TOOL_ACTION through the bridge's table.
+    if (app === 'pl_editor') {
+      expect(read(rel)).toContain('const action = ACTION_FOR_ID[id];');
+      expect(read('../../pagelayout_editor/pl_editor_settings_bridge.ts')).toContain(
+        'gridProperties: ACTIONS.gridProperties,',
+      );
+      return;
+    }
     expect(read(rel)).toMatch(/id === 'gridProperties'/);
   });
 

@@ -16,15 +16,18 @@
  * The heading and this page were missing here entirely, so the editor drew
  * `FP_*_TOOLBAR` directly and there was nothing to customise.
  */
+import { catalogueFor, ourToolbarId } from '../../../ui/action_catalogue.js';
 import type { JSX } from 'react';
-import { PanelToolbarCustomization } from '../../../dialogs/prefs/PanelToolbarCustomization.js';
+import { PanelToolbarCustomization } from '@ziroeda/common/dialogs/panel_toolbar_customization.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
-import { FP_DEFAULT_TOOLBARS } from '../footprintToolbars.js';
+import { FP_DEFAULT_TOOLBARS } from '@ziroeda/pcbnew/toolbars_footprint_editor.js';
 
 export function PanelFpToolbars({ ctx }: { ctx: PrefsContext }): JSX.Element {
   return (
     <PanelToolbarCustomization
       app="fpedit"
+      availableTools={catalogueFor('fpedit')}
+      toolbarIdOf={ourToolbarId}
       defaults={FP_DEFAULT_TOOLBARS}
       custom={ctx.fpEdit.appearance.custom_toolbars}
       setCustom={(v) => {

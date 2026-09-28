@@ -29,7 +29,7 @@ const read = (rel: string): string => readFileSync(resolve(SRC, rel), 'utf8');
 const PANEL = read('editors/schematic/prefs/PanelEeschemaDisplayOptions.tsx');
 const GROUP = read('dialogs/prefs/CrossProbingGroup.tsx');
 const PCB = read('editors/pcb/prefs/PanelPcbDisplayOptions.tsx');
-const CSS = read('ui/shell.css');
+const CSS = read('../../common/widgets/shell.css');
 /** Comments stripped: prose ABOUT a row is not that row. */
 const strip = (t: string): string =>
   t.replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -92,7 +92,7 @@ describe('the controls upstream draws are all here', () => {
 /**
  * The cross-probing settings are read on ONE side. `pcbnew.cross_probing` feeds
  * `crossProbeSelection` and `crossProbeNetHighlight`
- * (`editors/pcb/PcbEditor.tsx:3302`, `pcbnew/src/cross_probe.ts:205`, `:287`);
+ * (`editors/pcb/PcbEditor.tsx:3302`, `pcbnew/cross-probing.ts:205`, `:287`);
  * `eeschema.cross_probing` — probes arriving in the SCHEMATIC from the board —
  * has no reader at all.
  */

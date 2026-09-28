@@ -20,7 +20,7 @@ Ground truth for every mapping below is the KiCad source
 | Panels (UI only; re-export their data slices from schematic_settings.ts) | `designer/src/editors/schematic/dialogs/panels/panel_*.tsx` |
 | Hydrate on project load / persist on OK | `SchematicEditor.tsx` (project-load effect + dialog `onOk`; same flow as the drawing-sheet ref in `projectSheet.ts`) |
 | Render-time consumers | `render/renderer.ts` (`RenderOpts` + module globals), threaded to print/plot via `PlotOpts` (`render/plot.ts`); editor builds them once in the `drawingDefaults` memo |
-| ERC consumers | `eeschema/src/connectivity/erc.ts` (`runErc(sch, libById, settings, { connectionGridIU })`) |
+| ERC consumers | `eeschema/erc/erc.ts` (`runErc(sch, libById, settings, { connectionGridIU })`) |
 | Tests | `qa/unittests/designer/project_settings.test.ts`, `qa/unittests/designer/schematic_settings.test.ts`, `qa/unittests/eeschema/erc_settings.test.ts` |
 
 ## Page-by-page status
@@ -51,7 +51,7 @@ Ground truth for every mapping below is the KiCad source
   - *Label size ratio* → global-label flag margin (`GetLabelBoxExpansion`).
   - *Overbar offset* → `~{...}` overbar height; the renderer seeds the shared
     stroke font per render (`setOverbarHeightRatio` in
-    `common/src/font/stroke_font.ts`).
+    `common/font/stroke_font.ts`).
   - *Pin symbol size* → negation bubble / polarity slopes / clock notch, with
     KiCad's 0-fallback (number-size/2 external, name-size/2 else number/2 clock).
   - *Connection grid* → the `endpoint_off_grid` ERC rule (see below). This is
@@ -84,7 +84,7 @@ Ground truth for every mapping below is the KiCad source
   grid can't express an unset line style, so only non-Solid styles
   contribute to merges.
 - **Text Variables** (PR #122), `expandTextVars` +
-  `schematicTextVarResolver` (`eeschema/src/tools/text_vars.ts`): recursive
+  `schematicTextVarResolver` (`eeschema/tools/text_vars.ts`): recursive
   `${VAR}` expansion with the TITLE_BLOCK / SCHEMATIC / PROJECT token set,
   applied at the renderer's GetShownText choke points (labels, free text,
   text boxes, tables, fields) on screen, print and plot.
@@ -92,7 +92,7 @@ Ground truth for every mapping below is the KiCad source
   in `.kicad_pro`, where current KiCad stores them (the schematic writer no
   longer emits `bus_alias` nodes; the parser only accepts legacy ones).
 - **Bus connectivity** (PRs #124-#126), `NET_SETTINGS` bus-label parsing +
-  member expansion (`eeschema/src/connectivity/bus.ts`), bus subgraphs with
+  member expansion (`eeschema/connectivity/bus.ts`), bus subgraphs with
   member-net joins in the netlist (separate union-find; entries split
   bus-side/wire-side; aliases unfold), and the three bus ERC rules
   (`net_not_bus_member`, `bus_to_net_conflict`, `bus_to_bus_conflict`).
@@ -101,34 +101,25 @@ Ground truth for every mapping below is the KiCad source
   `REFDES_TRACKER` port (serialize/deserialize in
   `schematic.used_designators`), and the dialog's Reset-to-Defaults +
   Import-Settings buttons (exact `DIALOG_SCH_IMPORT_SETTINGS` checkbox set).
-- **Net Chains** (PR #134), detection AND the committed store are live:
-  `CONNECTION_GRAPH::RebuildNetChains` port
-  (`eeschema/src/connectivity/net_chains.ts`), nets bridged through 2-pin
-  passives with collinear wires, power-edge drops, leaf/stub pruning,
-  label-driven naming, plus `(net_chain …)` node persistence in `.kicad_sch`
-  (parse/write per `parseSchNetChain` / `SCH_IO_KICAD_SEXPR::Format`), the
-  symbol `(passthrough block|force)` attribute with its bridge gates,
-  terminal-pin selection (farthest pin pair), the committed-restore passes
-  (terminal match into a potential, member-net fallback), and chain-netclass
-  application into netclass resolution (`ApplyNetChainNetclasses`). The Setup
-  grid edits committed chains (rename/netclass/colour/delete) with
-  `ApplyEdits`' chain→class rekeying into `net_settings.net_chain_classes`.
-- **Net-chain editor tools** (PR #134), the Create Net Chain dialog
-  (`DIALOG_CREATE_NET_CHAIN` port: uncommitted potentials, editable suggested
-  names, terminals column, focus hints, multi-create), plus the context-menu
-  actions Highlight Net Chain (member nets brighten; wires tint in the
-  chain's colour), Remove from Net Chain (`(passthrough block)` on bridging
-  symbols, undoable) and Name Net Chain (rename with collision rejection and
-  chain→class rekeying).
+- **Net Chains: removed** (this pass). `eeschema/connectivity/net_chains.ts`,
+  the Create Net Chain dialog, the Setup page, the context-menu actions
+  (Create/Highlight/Remove-from/Name Net Chain), the symbol
+  `(passthrough block|force)` attribute, and the `(net_chain …)` node were all
+  ported from KiCad *master* ahead of the 10.0.5 pin — `grep -rin netchain`
+  over the whole 10.0.5 tree hits nothing outside translated documentation
+  strings. A `.kicad_sch` still carrying a `(net_chain …)` node no longer
+  round-trips it: the reader drops the node (10.0.5's own parser would throw
+  `Expecting()` on an unrecognised top-level token; see
+  `sch_io_kicad_sexpr_parser.cpp`'s `ParseSchematic` default case).
 - **Wire hop-overs** (PR #134), Formatting's Hop-over size choice draws hop
   arcs where wires cross: `SCH_LINE::ShouldHopOver` +
-  `BuildWireWithHopShape` ports (`eeschema/src/tools/hop_over.ts`, with
+  `BuildWireWithHopShape` ports (`eeschema/tools/hop_over.ts`, with
   `SEG::Intersect`'s integer parametric test and `CalcArcCenter` in
   `libs/kimath/src/trigo.ts`); arc radius = default line width ×
   `hopover_size_mult_list[choice]`; screen, print and plot.
 - **Embedded Files, write side** (PR #134), add/remove/export are live:
   `CompressAndEncode`/`DecompressAndDecode` ports in
-  `eeschema/src/tools/embedded.ts` (zstd level 15 via `@bokuweb/zstd-wasm`,
+  `eeschema/tools/embedded.ts` (zstd level 15 via `@bokuweb/zstd-wasm`,
   76-column `|`-delimited base64, MurmurHash3 x64_128 checksum with the V1
   tail and legacy SHA-256 fallbacks, `libs/kimath/src/mmh3_hash.ts`);
   AddFile's extension→type table and name-sorted collection; the panel adds
@@ -137,14 +128,14 @@ Ground truth for every mapping below is the KiCad source
 - **Inter-sheet references** (PR #134), Formatting's show flag draws the
   implicit "Intersheet References" field beside global labels:
   `RecomputeIntersheetRefs` map build + `ResolveTextVar` INTERSHEET_REFS
-  ports (`eeschema/src/tools/intersheet_refs.ts`), autoplaced past the flag
+  ports (`eeschema/tools/intersheet_refs.ts`), autoplaced past the flag
   tail per `AutoplaceFields` or at the stored field position; own-page /
   abbreviated / prefix / suffix options all live; per-sheet virtual page on
   screen, print and plot.
 - **Embedded Files, read side** (PR #123), the page lists the document's
   real `embedded_files` section (names, types, `kicad-embed://` references)
   and the `embedded_fonts` flag via `listEmbeddedFiles`
-  (`eeschema/src/tools/embedded.ts`), refreshed on every dialog open; the
+  (`eeschema/tools/embedded.ts`), refreshed on every dialog open; the
   zstd blobs round-trip byte-exact through the lossless AST.
 
 ### 🟡 Persisted correctly, not consumed yet

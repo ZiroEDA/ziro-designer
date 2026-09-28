@@ -44,7 +44,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-const SHELL = readFileSync(join(__dirname, '../../../designer/src/ui/shell.css'), 'utf8');
+const SHELL = readFileSync(join(__dirname, '../../../common/widgets/shell.css'), 'utf8');
 
 /** The declarations of one rule, by exact selector, comments stripped. */
 function rule(selector: string): string {
@@ -76,7 +76,8 @@ describe('the inset surfaces take the listbox/window colour, not the button face
   });
 
   it('m_fieldsBox, a wxCheckListBox, is wxSYS_COLOUR_LISTBOX', () => {
-    expect(decl('.ze-chsym-fieldbox', 'background')).toBe('var(--chrome-bg2)');
+    // The shared wxCheckListBox rule since 09-26; m_fieldsBox carries it.
+    expect(decl('.ze-checklistbox', 'background')).toBe('var(--chrome-bg2)');
   });
 
   it('the report panel’s message view is wxSYS_COLOUR_WINDOW', () => {
@@ -86,7 +87,7 @@ describe('the inset surfaces take the listbox/window colour, not the button face
   });
 
   it('and neither one is the button face', () => {
-    for (const sel of ['.ze-chsym-fieldbox', '.ze-report-view'])
+    for (const sel of ['.ze-checklistbox', '.ze-report-view'])
       expect(decl(sel, 'background')).not.toBe('var(--ctl-face)');
   });
 });

@@ -6,16 +6,16 @@
  * `KI_TEST::FillZones` is a no-op: none of these boards has a zone.)
  */
 import { beforeAll, describe, expect, it } from 'vitest';
-import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
-import { EMBEDDED_FILES } from '@ziroeda/common/src/embedded_files.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { RPT_SEVERITY_ERROR, RPT_SEVERITY_IGNORE } from '@ziroeda/common/src/reporter.js';
-import { UNITS_PROVIDER } from '@ziroeda/common/src/units_provider.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
-import type { DRC_ITEM } from '@ziroeda/pcbnew/src/drc/drc_item.js';
-import { PCB_DRC_CODE } from '@ziroeda/pcbnew/src/drc/drc_item.js';
-import { LENGTH_DELAY_CALCULATION } from '@ziroeda/pcbnew/src/length_delay_calculation/length_delay_calculation.js';
-import type { PCB_VIA } from '@ziroeda/pcbnew/src/pcb_track.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { RPT_SEVERITY_ERROR, RPT_SEVERITY_IGNORE } from '@ziroeda/common/reporter.js';
+import { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import type { DRC_ITEM } from '@ziroeda/pcbnew/drc/drc_item.js';
+import { PCB_DRC_CODE } from '@ziroeda/pcbnew/drc/drc_item.js';
+import { LENGTH_DELAY_CALCULATION } from '@ziroeda/pcbnew/length_delay_calculation/length_delay_calculation.js';
+import type { PCB_VIA } from '@ziroeda/pcbnew/pcb_track.js';
 import { HAVE_TEST_DATA, LoadBoard } from './drc_test_utils.js';
 
 const suite = HAVE_TEST_DATA ? describe : describe.skip;

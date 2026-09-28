@@ -26,12 +26,12 @@ import { resolve } from 'node:path';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { PreferencesDialog } from '@ziroeda/designer/src/dialogs/PreferencesDialog.js';
 import { resetPrefsPanelCache } from '@ziroeda/designer/src/dialogs/prefs/lazy_pages.js';
-import { GAL_GROUP_TITLES } from '@ziroeda/designer/src/dialogs/prefs/gal_options.js';
-import { OVERRIDE_ROWS } from '@ziroeda/designer/src/dialogs/prefs/grid_settings_rows.js';
+import { GAL_GROUP_TITLES } from '@ziroeda/common/dialogs/panel_gal_options.js';
+import { OVERRIDE_ROWS } from '@ziroeda/common/dialogs/panel_grid_settings.js';
 import { shippedUnder } from '@ziroeda/designer/src/dialogs/prefs/registry.js';
 import { FPEDIT_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
 import { fpColorRows } from '@ziroeda/designer/src/editors/footprint/fpColorLayers.js';
-import { GRAPHICS_ROWS } from '@ziroeda/designer/src/editors/footprint/graphics_defaults.js';
+import { GRAPHICS_ROWS } from '@ziroeda/pcbnew/footprint_editor_settings.js';
 
 afterEach(() => {
   cleanup();
@@ -93,6 +93,29 @@ const panelText = (): string =>
 /** The labels a `Combo` offers — see the note in `ds_prefs_pages.test.tsx`. */
 const comboOptions = (root: ParentNode = document): string[] =>
   Array.from(root.querySelectorAll('.ze-combo-ghost')).map((o) => o.textContent ?? '');
+
+/** A Graphics Defaults grid cell, by row label and column. */
+const gfxCell = (rowLabel: string, col: number): HTMLElement => {
+  const row = GRAPHICS_ROWS.findIndex((r) => r.label === rowLabel);
+  const cell = document.querySelector<HTMLElement>(
+    `.ze-fp-gfxgrid tbody tr:nth-child(${row + 1}) td[data-col="${col}"]`,
+  );
+  if (!cell) throw new Error(`no cell ${rowLabel}/${col}`);
+  return cell;
+};
+
+/** Click a grid cell open (mouse-up opens the editor) and type into its editor. */
+const typeInCell = (cell: HTMLElement, text: string): void => {
+  fireEvent.mouseDown(cell, { button: 0 });
+  fireEvent.mouseUp(cell);
+  const input = cell.querySelector('input');
+  if (!input) throw new Error('no editor opened');
+  fireEvent.change(input, { target: { value: text } });
+  fireEvent.blur(input);
+};
+
+/** The auto-eval re-format runs after the edit is applied (`CallAfter`). */
+const settle = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
 
 /** vitest's own per-test budget, which has to clear `openPage`'s. */
 const SLOW = 60000;
@@ -365,16 +388,16 @@ describe('Footprint Editor > Footprint Defaults', () => {
     async () => {
       await openPage('fp-defaults');
       const [ref, value] = FPEDIT_DEFAULTS.design_settings.default_footprint_text_items;
-      const inputs = Array.from(
-        document.querySelectorAll<HTMLInputElement>('.ze-fp-fieldprops input[type="text"]'),
-      ).map((i) => i.value);
-      expect(inputs[0]).toBe(ref?.text);
-      expect(inputs[1]).toBe(value?.text);
+      const values = Array.from(
+        document.querySelectorAll('.ze-fp-fieldprops tbody td[data-col="0"]'),
+      ).map((c) => c.textContent);
+      expect(values[0]).toBe(ref?.text);
+      expect(values[1]).toBe(value?.text);
       // The third default item — `${REFERENCE}` on F.Fab — is the lower grid's
       // one row on a fresh install.
       const items = Array.from(
-        document.querySelectorAll<HTMLInputElement>('.ze-fp-textitems input[type="text"]'),
-      ).map((i) => i.value);
+        document.querySelectorAll('.ze-fp-textitems tbody td[data-col="0"]'),
+      ).map((c) => c.textContent);
       expect(items).toEqual(
         FPEDIT_DEFAULTS.design_settings.default_footprint_text_items.slice(2).map((t) => t.text),
       );
@@ -390,7 +413,11 @@ describe('Footprint Editor > Footprint Defaults', () => {
       // `getEnabledLayers()` is `LSET::AllLayersMask()` and `UIOrder()` yields
       // 95 rows. See `fp_layer_choices.test.ts` for the list itself; this is
       // the assertion that the PAGE reaches it.
-      const cell = document.querySelector('.ze-fp-fieldprops td:last-child');
+      const cell = document.querySelector('.ze-fp-fieldprops tbody td[data-col="2"]');
+      expect(cell).not.toBeNull();
+      // A click opens the cell's editor, and the layer box is that editor.
+      fireEvent.mouseDown(cell!, { button: 0 });
+      fireEvent.mouseUp(cell!);
       const offered = comboOptions(cell ?? document);
       expect(offered).toHaveLength(95);
       expect(offered[0]).toBe('F.Cu');
@@ -408,7 +435,7 @@ describe('Footprint Editor > Footprint Defaults', () => {
     // width stated, so both grids stop at 610 and the page is empty to the
     // right of them. Column 0 was taking the slack instead, which stretched
     // Value across the dialog and pushed Layer to the far edge.
-    const css = readFileSync(resolve(process.cwd(), '../designer/src/ui/shell.css'), 'utf8');
+    const css = readFileSync(resolve(process.cwd(), '../common/widgets/shell.css'), 'utf8');
     const rule = (selector: string): string => {
       for (const m of css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g))
         if ((m[1] ?? '').split(',').some((sel) => sel.trim() === selector)) return m[2] ?? '';
@@ -460,12 +487,11 @@ describe('Footprint Editor > Graphics Defaults', () => {
       // `SetCellValue( row, col, StringFromValue( value, true ) )`
       // (`common/widgets/wx_grid.cpp:970-980`) — so a live footprint editor
       // reads "0.1 mm", and its column headers carry no "(mm)" of their own.
-      const cell = (label: string): string =>
-        (screen.getByLabelText(label) as HTMLInputElement).value;
-      expect(cell('Silk Layers line thickness')).toBe('0.1 mm');
-      expect(cell('Copper Layers text width')).toBe('1.5 mm');
-      expect(cell('Copper Layers text thickness')).toBe('0.3 mm');
-      expect(cell('Edge Cuts line thickness')).toBe('0.05 mm');
+      const cell = (row: string, col: number): string => gfxCell(row, col).textContent ?? '';
+      expect(cell('Silk Layers', 0)).toBe('0.1 mm');
+      expect(cell('Copper Layers', 1)).toBe('1.5 mm');
+      expect(cell('Copper Layers', 3)).toBe('0.3 mm');
+      expect(cell('Edge Cuts', 0)).toBe('0.05 mm');
       // The header states the quantity, never the unit.
       const headers = Array.from(document.querySelectorAll('.ze-fp-gfxgrid thead th')).map(
         (h) => h.textContent ?? '',
@@ -480,15 +506,14 @@ describe('Footprint Editor > Graphics Defaults', () => {
     'commits a cell when its editor closes, and takes a typed unit designator',
     async () => {
       await openPage('fp-graphics');
-      const field = screen.getByLabelText('Fab Layers text height') as HTMLInputElement;
+      const cell = gfxCell('Fab Layers', 2);
       // A wxGrid editor holds its own text until it loses the cell; nothing is
       // reformatted under the caret while it is open.
-      fireEvent.change(field, { target: { value: '40 mils' } });
-      expect(field.value).toBe('40 mils');
-      fireEvent.blur(field);
+      typeInCell(cell, '40 mils');
+      await settle();
       // `ValueFromString` reads the trailing designator, so 40 mils is 1.016 mm
       // and the cell comes back in the frame's own unit.
-      expect(field.value).toBe('1.016 mm');
+      expect(gfxCell('Fab Layers', 2).textContent).toBe('1.016 mm');
     },
     SLOW,
   );
@@ -497,12 +522,13 @@ describe('Footprint Editor > Graphics Defaults', () => {
     'refuses a line width outside KiCad’s limits and says so beside the grid',
     async () => {
       await openPage('fp-graphics');
-      const field = screen.getByLabelText('Silk Layers line thickness') as HTMLInputElement;
-      fireEvent.change(field, { target: { value: '0.001' } });
-      fireEvent.blur(field);
+      typeInCell(gfxCell('Silk Layers', 0), '0.001');
+      await settle();
       // `TransferDataFromWindow`'s KIDIALOG. The value is NOT applied and the
-      // bad text stays in the cell for the user to correct.
-      expect(field.value).toBe('0.001');
+      // bad value stays in the cell for the user to correct - re-formatted in
+      // the frame's unit by `WX_GRID::onCellEditorHidden`, as every auto-eval
+      // cell is.
+      expect(gfxCell('Silk Layers', 0).textContent).toBe('0.001 mm');
       expect(document.querySelector('.ze-prefs-error')?.textContent).toContain(
         'Silk Layers: Incorrect line width.',
       );
@@ -514,12 +540,11 @@ describe('Footprint Editor > Graphics Defaults', () => {
     'truncates a text thickness thicker than a quarter of the text size',
     async () => {
       await openPage('fp-graphics');
-      const field = screen.getByLabelText('Silk Layers text thickness') as HTMLInputElement;
       // Silk text is 1 mm, so the ceiling is 0.25 mm. This one is CLAMPED
       // rather than refused, and the cell is rewritten with the truncation.
-      fireEvent.change(field, { target: { value: '0.6' } });
-      fireEvent.blur(field);
-      expect(field.value).toBe('0.25 mm');
+      typeInCell(gfxCell('Silk Layers', 3), '0.6');
+      await settle();
+      expect(gfxCell('Silk Layers', 3).textContent).toBe('0.25 mm');
       expect(document.querySelector('.ze-prefs-error')?.textContent).toContain(
         'It will be truncated to 0.25 mm',
       );
@@ -533,10 +558,13 @@ describe('Footprint Editor > Graphics Defaults', () => {
       await openPage('fp-graphics');
       const rows = Array.from(document.querySelectorAll('.ze-fp-gfxgrid tbody tr'));
       for (const [i, r] of GRAPHICS_ROWS.entries()) {
-        const cells = Array.from(rows[i]?.querySelectorAll('td') ?? []);
+        const cells = Array.from(rows[i]?.querySelectorAll<HTMLElement>('td[data-col]') ?? []);
         // Column 0 is the line width, which every row has.
-        expect(cells[0]?.querySelector('input')).not.toBeNull();
-        const disabled = cells.slice(1).filter((c) => c.classList.contains('ze-grid-disabled'));
+        expect(cells[0]?.textContent).toMatch(/mm$/);
+        // `disableCell`: painted wxSYS_COLOUR_FRAMEBK, the label colour.
+        const disabled = cells
+          .slice(1)
+          .filter((c) => c.style.background.includes('--grid-label-bg'));
         expect(disabled, `${r.label}`).toHaveLength(r.text ? 0 : 4);
       }
     },
@@ -550,7 +578,7 @@ describe('Footprint Editor > Graphics Defaults', () => {
     // true, true, aKeep = true )`. [px] the live editor's gridlines fall at
     // 776 / 887 / 987 / 1087 / 1193 / 1253 — 125 then 110/100/100/105/59, with
     // only Text Thickness widened, by its own header.
-    const css = readFileSync(resolve(process.cwd(), '../designer/src/ui/shell.css'), 'utf8');
+    const css = readFileSync(resolve(process.cwd(), '../common/widgets/shell.css'), 'utf8');
     const rule = (selector: string): string => {
       for (const m of css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g))
         if ((m[1] ?? '').split(',').some((sel) => sel.trim() === selector)) return m[2] ?? '';
@@ -627,8 +655,12 @@ describe('Footprint Editor > User Layer Names', () => {
       // The grid starts empty — a fresh install has named no user layer — so
       // `m_bpAdd` is what puts a layer cell on the page.
       fireEvent.click(screen.getByLabelText('Add layer'));
-      const cell = document.querySelector('.ze-fp-layernames tbody td:first-child');
+      const cell = document.querySelector('.ze-fp-layernames tbody td[data-col="0"]');
       expect(cell, 'the added row').not.toBeNull();
+      // Add opens no editor upstream (`OnAddRow` returns column -1); a click on
+      // the layer cell does, and the layer box is that editor.
+      fireEvent.mouseDown(cell!, { button: 0 });
+      fireEvent.mouseUp(cell!);
       const offered = comboOptions(cell ?? document);
       expect(offered).toHaveLength(49);
       expect(offered[0]).toBe('User.Drawings');
@@ -647,7 +679,7 @@ describe('Footprint Editor > User Layer Names', () => {
     // 100% wins — Layer and Name collapsed onto their own text. Only
     // `table-layout: fixed` reads a stated width as stated, and in that
     // algorithm the filler has to be `auto` or it takes the whole table.
-    const css = readFileSync(resolve(process.cwd(), '../designer/src/ui/shell.css'), 'utf8');
+    const css = readFileSync(resolve(process.cwd(), '../common/widgets/shell.css'), 'utf8');
     const rule = (selector: string): string => {
       for (const m of css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g))
         if ((m[1] ?? '').split(',').some((sel) => sel.trim() === selector)) return m[2] ?? '';

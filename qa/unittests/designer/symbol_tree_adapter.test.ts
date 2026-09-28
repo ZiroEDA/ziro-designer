@@ -15,8 +15,8 @@
  * the one thing BOTH adapters do and the chooser must not lose it.
  */
 import { describe, expect, it } from 'vitest';
-import { LibTreeNode, LibTreeNodeType } from '@ziroeda/designer/src/widgets/lib_tree_model.js';
-import { LibTreeModelAdapter } from '@ziroeda/designer/src/widgets/lib_tree_model_adapter.js';
+import { LibTreeNode, LibTreeNodeType } from '@ziroeda/common/lib_tree_model.js';
+import { LibTreeModelAdapter } from '@ziroeda/common/lib_tree_model_adapter.js';
 import {
   SymbolTreeSynchronizingAdapter,
   type SymbolTreeSource,

@@ -43,7 +43,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 const SHELL = readFileSync(
-  fileURLToPath(new URL('../../../designer/src/ui/shell.css', import.meta.url)),
+  fileURLToPath(new URL('../../../common/widgets/shell.css', import.meta.url)),
   'utf8',
 );
 
@@ -152,8 +152,8 @@ describe('the sash, not a rule, separates a dock from the toolbar beside it', ()
 describe('a DockSash is a sibling of its pane, never a child', () => {
   const FRAMES = [
     'editors/pcb/PcbEditor.tsx',
-    'editors/gerbview/GerberViewer.tsx',
-    'editors/drawingsheet/DrawingSheetEditor.tsx',
+    '../../gerbview/gerbview_frame_ui.tsx',
+    '../../pagelayout_editor/pl_editor_frame_ui.tsx',
   ];
 
   /** A line's leading-space count. */

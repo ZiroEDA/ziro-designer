@@ -23,12 +23,12 @@ import {
   type NetHandle,
   type PnsConstraint,
   type PnsRuleResolver,
-} from '@ziroeda/pcbnew/src/router/pns_collision.js';
-import { installLocatingShapeCollider } from '@ziroeda/pcbnew/src/router/pns_shape_collider.js';
-import type { PnsItem } from '@ziroeda/pcbnew/src/router/pns_item.js';
-import { PnsLayerRange } from '@ziroeda/pcbnew/src/router/pns_layerset.js';
-import { PnsSegment } from '@ziroeda/pcbnew/src/router/pns_segment.js';
-import { PnsVia } from '@ziroeda/pcbnew/src/router/pns_via.js';
+} from '@ziroeda/pcbnew/router/pns_collision.js';
+import { installLocatingShapeCollider } from '@ziroeda/pcbnew/router/pns_shape_collider.js';
+import type { PnsItem } from '@ziroeda/pcbnew/router/pns_item.js';
+import { PnsLayerRange } from '@ziroeda/pcbnew/router/pns_layerset.js';
+import { PnsSegment } from '@ziroeda/pcbnew/router/pns_segment.js';
+import { PnsVia } from '@ziroeda/pcbnew/router/pns_via.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 // ----- stubs -------------------------------------------------------------------

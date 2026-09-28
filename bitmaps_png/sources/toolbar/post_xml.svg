@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   id="Слой_1"
+   data-name="Слой 1"
+   viewBox="0 0 24 24"
+   version="1.1"
+   sodipodi:docname="post_xml.svg"
+   inkscape:version="1.2.2 (b0a8486541, 2022-12-01)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <sodipodi:namedview
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1"
+     objecttolerance="10"
+     gridtolerance="10"
+     guidetolerance="10"
+     inkscape:pageopacity="0"
+     inkscape:pageshadow="2"
+     inkscape:window-width="3840"
+     inkscape:window-height="2109"
+     id="namedview159354"
+     showgrid="true"
+     inkscape:zoom="30.291667"
+     inkscape:cx="21.392022"
+     inkscape:cy="16.225584"
+     inkscape:window-x="0"
+     inkscape:window-y="27"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="Слой_1"
+     inkscape:showpageshadow="2"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1">
+    <inkscape:grid
+       type="xygrid"
+       id="grid6877"
+       empspacing="2"
+       spacingx="0.5"
+       spacingy="0.5" />
+  </sodipodi:namedview>
+  <metadata
+     id="metadata43">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title>post_xml</dc:title>
+        <cc:license
+           rdf:resource="http://creativecommons.org/licenses/by-sa/4.0/" />
+      </cc:Work>
+      <cc:License
+         rdf:about="http://creativecommons.org/licenses/by-sa/4.0/">
+        <cc:permits
+           rdf:resource="http://creativecommons.org/ns#Reproduction" />
+        <cc:permits
+           rdf:resource="http://creativecommons.org/ns#Distribution" />
+        <cc:requires
+           rdf:resource="http://creativecommons.org/ns#Notice" />
+        <cc:requires
+           rdf:resource="http://creativecommons.org/ns#Attribution" />
+        <cc:permits
+           rdf:resource="http://creativecommons.org/ns#DerivativeWorks" />
+        <cc:requires
+           rdf:resource="http://creativecommons.org/ns#ShareAlike" />
+      </cc:License>
+    </rdf:RDF>
+  </metadata>
+  <defs
+     id="defs159331">
+    <style
+       id="style159329">.cls-1{fill:#b9b9b9;}.cls-2{fill:#1a81c4;}.cls-3{fill:#fff;}.cls-4{fill:#bf2641;}.cls-5{fill:none;stroke:#f5f5f5;stroke-linecap:round;stroke-linejoin:round;stroke-width:2px;}</style>
+  </defs>
+  <title
+     id="title159333">post_xml</title>
+  <rect
+     class="cls-1"
+     x="3.0489998"
+     y="0"
+     width="17.937201"
+     height="17.983299"
+     rx="2.9934001"
+     id="rect159335"
+     style="fill:#8f8f8f;fill-opacity:1" />
+  <rect
+     class="cls-2"
+     x="0.00010001659"
+     y="2.9995"
+     width="18.7099"
+     height="9.2299004"
+     id="rect159337"
+     style="fill:#42b8eb;fill-opacity:1" />
+  <g
+     aria-label="xml"
+     id="text5854"
+     style="font-size:8.52777px;line-height:1.25;font-family:'Tiresias LPfont';-inkscape-font-specification:'Tiresias LPfont';stroke-width:0.700254">
+    <path
+       d="M 3.8969283,7.587901 2.6647828,5.3280419 H 3.7175654 L 4.4974043,6.880096 5.2850417,5.3280419 H 6.3300259 L 5.0900819,7.5964287 6.3846146,9.958621 H 5.3396304 L 4.4896059,8.3042336 3.6473799,9.958621 H 2.6023957 Z"
+       style="font-weight:600;font-stretch:semi-condensed;font-family:'Noto Sans';-inkscape-font-specification:'Noto Sans Semi-Bold Semi-Condensed';fill:#ffffff;stroke-width:0.669638"
+       id="path6460" />
+    <path
+       d="m 10.980765,5.2427642 c 0.391193,0 0.545706,0.1364443 0.743658,0.409333 0.197954,0.2672034 0.29693,0.6907493 0.29693,1.2706377 V 9.958621 H 11.037525 V 7.1529847 c 0,-0.6992771 -0.07181,-0.9380351 -0.448863,-0.9380351 -0.230177,0 -0.352273,0.081193 -0.455934,0.2643412 C 10.019612,6.7237536 9.998069,7.0790774 9.998069,7.5452621 V 9.958621 H 9.0609388 V 7.1444569 C 9.0609388,6.450865 8.8838823,6.1689327 8.5070321,6.1565914 8.277701,6.1490811 8.1739136,6.3182798 8.1128246,6.481079 8.0091349,6.7539677 7.9864691,7.1842532 7.9864691,7.6902342 V 9.958621 H 6.9792978 V 5.3280419 h 0.6645567 l 0.03725,0.6139994 h 0.049488 C 7.8295695,5.7032638 8.0468304,5.5270232 8.2306439,5.4133196 8.4144575,5.299616 8.6147672,5.2427642 8.8315729,5.2427642 c 0.5184395,0 0.8624963,0.235935 1.0321705,0.7078049 h 0.063628 C 10.035774,5.7117916 10.181883,5.535551 10.365696,5.4218474 10.554223,5.3024586 10.759246,5.2427642 10.980765,5.2427642 Z"
+       style="font-weight:600;font-stretch:semi-condensed;font-family:'Noto Sans';-inkscape-font-specification:'Noto Sans Semi-Bold Semi-Condensed';fill:#ffffff;stroke-width:0.637588"
+       id="path6462"
+       sodipodi:nodetypes="scsccsscsccsscsccccccsscccs" />
+    <path
+       d="M 14.018376,9.958621 H 12.986515 V 3.4775158 h 1.031861 z"
+       style="font-weight:600;font-stretch:semi-condensed;font-family:'Noto Sans';-inkscape-font-specification:'Noto Sans Semi-Bold Semi-Condensed';fill:#ffffff"
+       id="path6464" />
+  </g>
+  <path
+     class="cls-3"
+     d="M 2.07,9.9365 H 0.9965 V 8.9 H 2.07 Z"
+     id="path159339" />
+  <ellipse
+     class="cls-4"
+     cx="17.0075"
+     cy="16.996099"
+     rx="6.9924002"
+     ry="7.0039001"
+     id="ellipse159347"
+     style="fill:#f2647e;fill-opacity:1" />
+  <line
+     class="cls-5"
+     x1="17.1112"
+     y1="13.6254"
+     x2="17.1112"
+     y2="20.629299"
+     id="line159349" />
+  <polyline
+     class="cls-5"
+     points="15.362 17.16 18.111 14.406 20.861 17.16"
+     id="polyline159351"
+     transform="translate(-1,-1)" />
+</svg>

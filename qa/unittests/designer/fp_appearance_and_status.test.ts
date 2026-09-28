@@ -27,18 +27,18 @@ import {
   appearanceLayerRows,
   layerTooltip,
   NON_CU_ORDER,
-} from '@ziroeda/designer/src/widgets/appearance_layers.js';
+} from '@ziroeda/pcbnew/widgets/appearance_layers.js';
 import {
   FOOTPRINT_COPPER_STACK,
   FOOTPRINT_LAYERS,
   FP_DEFAULT_ACTIVE_LAYER,
-} from '@ziroeda/designer/src/editors/footprint/footprintBoard.js';
-import { footprintToolMsg } from '@ziroeda/designer/src/editors/footprint/footprintToolbars.js';
+} from '@ziroeda/pcbnew/footprint_edit_frame.js';
+import { footprintToolMsg } from '@ziroeda/pcbnew/toolbars_footprint_editor.js';
 // The frame's opening toolbar state moved to `footprint/toggles.ts`, beside the
 // radio groups and the reducer that were still stranded in `FootprintEditor.tsx`.
-import { DEFAULT_TOGGLES as FP_DEFAULT_TOGGLES } from '@ziroeda/designer/src/editors/footprint/toggles.js';
-import { angleSnapModeOf, constraintsMsg } from '@ziroeda/designer/src/ui/status_format.js';
-import { GetLayerName } from '@ziroeda/pcbnew/src/layer_ids.js';
+import { DEFAULT_TOGGLES as FP_DEFAULT_TOGGLES } from '@ziroeda/pcbnew/footprint_edit_frame.js';
+import { angleSnapModeOf, constraintsMsg } from '@ziroeda/common/widgets/kistatusbar_format.js';
+import { GetLayerName } from '@ziroeda/common/layer_ids.js';
 
 const NAMES = FOOTPRINT_LAYERS.map((l) => l.name);
 const shown = (name: string): string => GetLayerName(FOOTPRINT_LAYERS, name);

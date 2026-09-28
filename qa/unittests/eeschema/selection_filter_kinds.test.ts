@@ -13,13 +13,13 @@
  */
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
-import { readSchematic } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
+import { readSchematic } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
 import {
   itemPassesFilter,
   type SelectionFilterOptions,
-} from '@ziroeda/eeschema/src/tools/sch_selection_filter.js';
-import { refId, sheetPinId } from '@ziroeda/eeschema/src/tools/hittest.js';
-import type { Schematic } from '@ziroeda/eeschema/src/types.js';
+} from '@ziroeda/eeschema/tools/sch_selection_filter.js';
+import { refId, sheetPinId } from '@ziroeda/eeschema/tools/hittest.js';
+import type { Schematic } from '@ziroeda/eeschema/types.js';
 
 const sheet = (body: string): Schematic =>
   readSchematic(parse(`(kicad_sch (version 20250114)\n${body}\n)`));

@@ -11,9 +11,16 @@
  * It keeps its own props rather than taking the whole working copy.
  */
 import type { JSX } from 'react';
-import { PanelHotkeysEditor } from './PanelHotkeysEditor.js';
+import { PanelHotkeysEditor } from '@ziroeda/common/dialogs/panel_hotkeys_editor.js';
+import { buildHotkeySections } from '../../../ui/hotkeys_inventory.js';
 import type { PrefsContext } from '../types.js';
 
 export function PanelHotkeys({ ctx }: { ctx: PrefsContext }): JSX.Element {
-  return <PanelHotkeysEditor overrides={ctx.hotkeys} onChange={ctx.setHotkeys} />;
+  return (
+    <PanelHotkeysEditor
+      actions={buildHotkeySections}
+      overrides={ctx.hotkeys}
+      onChange={ctx.setHotkeys}
+    />
+  );
 }

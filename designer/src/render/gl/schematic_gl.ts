@@ -50,7 +50,7 @@ import {
   setVectorText,
   type RenderOpts,
 } from '../../editors/schematic/render/renderer.js';
-import type { Schematic } from '@ziroeda/eeschema/src/types.js';
+import type { Schematic } from '@ziroeda/eeschema/types.js';
 import type { Theme } from '../../editors/schematic/theme.js';
 import { createGlDevice, type GlDevice } from './device.js';
 import { Scene } from './scene.js';

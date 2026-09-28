@@ -14,18 +14,18 @@
  * two apart and proves nothing.
  */
 import { describe, expect, it } from 'vitest';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import {
   positionRelative,
   promotePadsToFootprints,
   selectionAnchorId,
   selectionAnchorPosition,
   topLeftItem,
-} from '@ziroeda/pcbnew/src/position_relative.js';
-import { boardAuxOrigin, boardGridOrigin } from '@ziroeda/pcbnew/src/plot_gerber.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import type { Board, PcbFootprint, PcbPad, PcbTrack } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/tools/position_relative_tool.js';
+import { boardAuxOrigin, boardGridOrigin } from '@ziroeda/pcbnew/board_design_settings.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import type { Board, PcbFootprint, PcbPad, PcbTrack } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 

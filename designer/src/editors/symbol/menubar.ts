@@ -41,7 +41,7 @@
  * THE THREE HANDLERS
  * ---------------------------------------------------------------------------
  *
- * Same shape as `editors/schematic/menubar.ts`, because it is the same idea:
+ * Same shape as `eeschema/menubar.ts`, because it is the same idea:
  *
  *   - `tool(id)`   arms a placement/drawing tool (the RIGHT_TOOLBAR ids);
  *   - `action(id)` runs a one-shot command (save / undo / zoom …);
@@ -55,11 +55,11 @@
  * row's `icon` below IS its action id rather than a picture name.
  */
 
-import type { Menu, MenuItem } from '../../ui/menu_types.js';
-import { addClose } from '../../ui/action_menu.js';
-import { browserSafeKey } from '../../ui/browser_reserved.js';
-import { standardHelpMenu } from '../../ui/help_menu.js';
-import { setLanguageMenuItem } from '../../ui/language_menu.js';
+import type { Menu, MenuItem } from '@ziroeda/common/tool/action_menu_types.js';
+import { addClose } from '@ziroeda/common/tool/action_menu.js';
+import { browserSafeKey } from '@ziroeda/common/browser_reserved.js';
+import { standardHelpMenu } from '@ziroeda/common/eda_base_frame_help_menu.js';
+import { setLanguageMenuItem } from '@ziroeda/common/eda_base_frame_language_menu.js';
 import { type SymbolConditions, symbolActionEnabled } from './conditions.js';
 
 const SEP: MenuItem = { sep: true };

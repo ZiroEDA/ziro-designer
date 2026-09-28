@@ -1,0 +1,76 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+/**
+ * Which cursor the board editor's canvas shows, as a function rather than a
+ * ternary buried in the JSX — the shape `editors/schematic/cursors.ts` already
+ * had, and the reason it is worth copying: a decision inside a component can
+ * only be checked by rendering it, so in practice it was not checked at all.
+ * The board editor lost the delete tool's eraser that way.
+ */
+import { kiCursor } from '@ziroeda/common/gal/kicursors.js';
+import { toolCursorCss } from '@ziroeda/common/tool/tool_cursors.js';
+
+/** What the board canvas needs to know beyond the tool id. */
+export interface BoardCursorState {
+  /**
+   * A table's first corner has been clicked and the second is being dragged.
+   *
+   * `DRAWING_TOOL::DrawTable`'s `setCursor` is a two-arm chain rather than one
+   * answer (`drawing_tool.cpp:1203-1210`):
+   *
+   *     if( table ) SetCurrentCursor( KICURSOR::MOVING );
+   *     else        SetCurrentCursor( KICURSOR::PENCIL );
+   *
+   * so the tool id alone cannot answer for it — the same reason
+   * `editors/drawingsheet/cursors.ts` takes a state.
+   */
+  tableDragging?: boolean;
+  /**
+   * An image is on the cursor, between the file chooser and the click that
+   * drops it.
+   *
+   * `DRAWING_TOOL::PlaceReferenceImage`'s `setCursor` is the same two-arm chain
+   * (`drawing_tool.cpp:105-112`):
+   *
+   *     if( image ) SetCurrentCursor( KICURSOR::MOVING );
+   *     else        SetCurrentCursor( KICURSOR::ARROW );
+   *
+   * The idle arm is the plain arrow, which is this frame's fallback and why
+   * `placeReferenceImage` is deliberately absent from `ui/tool_cursors.ts`. The
+   * MOVING arm is the half that needs the state, exactly as the table's does.
+   */
+  imagePlacing?: boolean;
+}
+
+/**
+ * `ui/tool_cursors.ts` answers for every action another editor also has; what
+ * is left here is this frame's own.
+ *
+ * `BOARD_INSPECTION_TOOL::LocalRatsnestTool` is a picker with
+ * `picker->SetCursor( KICURSOR::BULLSEYE )` (`board_inspection_tool.cpp:2296`).
+ * It is this frame's own — the footprint editor has no ratsnest — which is
+ * why it is answered here and not in the shared table. Ours said "sets no
+ * cursor of its own" and showed a crosshair; that was a misreading of the
+ * source, not a measurement. Everything unarmed is the plain arrow.
+ */
+export const boardToolCursor = (tool: string, state: BoardCursorState = {}): string => {
+  // The one tool whose cursor changes partway through the gesture. Checked
+  // before the shared table, which holds its idle answer.
+  if (tool === 'drawTable' && state.tableDragging) return kiCursor('MOVING');
+  if (tool === 'placeReferenceImage' && state.imagePlacing) return kiCursor('MOVING');
+  if (tool === 'localRatsnestTool') return kiCursor('BULLSEYE');
+  // `BOARD_EDITOR_CONTROL::PlaceFootprint`'s `setCursor` is one unconditional
+  // line, `SetCurrentCursor( KICURSOR::PENCIL )` (board_editor_control.cpp:1370),
+  // before and while a footprint rides the pointer alike. This frame's own:
+  // the footprint editor has no such tool.
+  if (tool === 'placeFootprint') return kiCursor('PENCIL');
+  // `ROUTER_TOOL::MainLoop`'s `setCursor` (router_tool.cpp:1950-1953) is one
+  // line, `SetCurrentCursor( KICURSOR::PENCIL )`, run on arming and on every
+  // event — idle and mid-route alike, single track and differential pair
+  // alike (both are this loop with a different PNS::ROUTER_MODE).
+  // `finishInteractive`'s ARROW (:1465) lasts until the loop's next event.
+  // Ours showed the plain arrow.
+  if (tool === 'routeSingleTrack' || tool === 'routeDiffPair') return kiCursor('PENCIL');
+  return toolCursorCss(tool, 'default');
+};

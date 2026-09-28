@@ -6,17 +6,17 @@
  * providers.
  */
 import { beforeAll, describe, expect, it } from 'vitest';
-import { EMBEDDED_FILES } from '@ziroeda/common/src/embedded_files.js';
-import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
+import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import {
   RPT_SEVERITY_ERROR,
   RPT_SEVERITY_IGNORE,
   type Severity,
-} from '@ziroeda/common/src/reporter.js';
-import { UNITS_PROVIDER } from '@ziroeda/common/src/units_provider.js';
-import type { DRC_ITEM } from '@ziroeda/pcbnew/src/drc/drc_item.js';
-import { PCB_DRC_CODE } from '@ziroeda/pcbnew/src/drc/drc_item.js';
-import { PCB_MARKER } from '@ziroeda/pcbnew/src/pcb_marker.js';
+} from '@ziroeda/common/reporter.js';
+import { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
+import type { DRC_ITEM } from '@ziroeda/pcbnew/drc/drc_item.js';
+import { PCB_DRC_CODE } from '@ziroeda/pcbnew/drc/drc_item.js';
+import { PCB_MARKER } from '@ziroeda/pcbnew/pcb_marker.js';
 import { HAVE_TEST_DATA, LoadBoard } from './drc_test_utils.js';
 
 const suite = HAVE_TEST_DATA ? describe : describe.skip;

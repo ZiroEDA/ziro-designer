@@ -38,9 +38,30 @@ import { fileURLToPath } from 'node:url';
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
+// The Open and Save As choosers are the page's: the account's storage is the program's.
 const PL = read('../../../designer/src/editors/drawingsheet/DrawingSheetEditor.tsx');
 const SAVEAS = read('../../../designer/src/fs/SaveAsDialog.tsx');
 const SCH = read('../../../designer/src/editors/schematic/SchematicEditor.tsx');
+
+describe('a written sheet reaches the program', () => {
+  // `WriteFile` is the frame's host call; the window keeps the text for
+  // ReadFile and hands the write to PL_EDITOR_APP, and the page puts it in the
+  // project or downloads it. Saving needs a GL canvas, which happy-dom has
+  // not, so this is read rather than run.
+  const WINDOW = read('../../../pagelayout_editor/pl_editor_frame_ui.tsx');
+
+  it('the window hands every write to the program', () => {
+    const body = WINDOW.slice(WINDOW.indexOf('WriteFile: (aPath, aContents) => {'));
+    const call = body.slice(0, body.indexOf('return true;'));
+    expect(call).toContain('files.current.set(aPath, aContents);');
+    expect(call).toContain('appRef.current.WriteFile(aPath, aContents);');
+  });
+
+  it('the page writes to the project, or downloads with none', () => {
+    expect(PL).toContain('if (onSaveToProject) onSaveToProject(aPath, aContents);');
+    expect(PL).toContain('else download(leafOf(aPath), aContents);');
+  });
+});
 
 describe('the drawing sheet editor asks for the right folders', () => {
   it('names Templates as its kind, in both Open and Save As', () => {

@@ -19,6 +19,7 @@
  * picker is one launcher that cannot see the account.
  */
 import { describe, expect, it } from 'vitest';
+import { resolve } from 'node:path';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { extendSelection, selectionToAccept } from '@ziroeda/designer/src/fs/chooser_selection.js';
@@ -27,7 +28,7 @@ import {
   DRAWING_SHEET_FILE_EXTENSION,
   KICAD_SCHEMATIC_FILE_EXTENSION,
   ensureFileExtension,
-} from '@ziroeda/common/src/common.js';
+} from '@ziroeda/common/common.js';
 
 const src = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(`../../../designer/src/${rel}`, import.meta.url)), 'utf8');
@@ -117,50 +118,72 @@ describe('GerbView opens from the account and from the machine', () => {
    * the machine, so both doors are offered - the same pair Open Existing
    * Project has had all along.
    */
+  /** The page: the account's chooser and the computer's, as GERBVIEW_APP::FileDialog. */
   const GV = src('editors/gerbview/GerberViewer.tsx');
+  /** The window: the answer onto the RAM disk, where the frame reads it by path. */
+  const WINDOW = src('../../gerbview/gerbview_frame_ui.tsx');
+  /** The dialogs are GERBVIEW_FRAME's now, asked for through its host. */
+  const FILES = readFileSync(
+    fileURLToPath(new URL('../../../gerbview/files.ts', import.meta.url)),
+    'utf8',
+  );
+  const JOB = readFileSync(
+    fileURLToPath(new URL('../../../gerbview/job_file_reader.ts', import.meta.url)),
+    'utf8',
+  );
 
   it('opens the chooser, multi-select, for gerbers and drill files', () => {
     expect(GV).toContain('<OpenFileDialog');
-    expect(GV).toContain('multiple={gbrOpen.multiple}');
+    expect(GV).toContain('multiple={fileDialog.multiple}');
+    // LoadFileOrShowDialog: wxFD_MULTIPLE, and the three titles of
+    // files.cpp:203,246,257 - "Open Gerber File(s)", not the menu's label.
+    const show = FILES.slice(FILES.indexOf('export async function LoadFileOrShowDialog'));
+    expect(show.slice(0, show.indexOf('lastGerberFileWildcard,'))).toMatch(
+      /FileDialog\(\s*dialogTitle,\s*dialogFiletypes,\s*true,/,
+    );
     for (const title of [
-      "title: 'Open Gerber Plot File(s)'",
-      "title: 'Open NC (Excellon) Drill File(s)'",
-      "title: 'Open Autodetected File(s)'",
+      "'Open Autodetected File(s)'",
+      "'Open Gerber File(s)'",
+      "'Open NC (Excellon) Drill File(s)'",
     ]) {
-      expect(GV, `no entry point for ${title}`).toContain(title);
+      expect(FILES, `no entry point for ${title}`).toContain(title);
     }
+    expect(JOB).toContain("'Open Gerber Job File'");
   });
 
   it('asks for ONE file for the zip, as its own dialog does', () => {
-    const zip = GV.slice(GV.indexOf("title: 'Open Zip File'"));
-    expect(zip.slice(0, zip.indexOf('});'))).toContain('multiple: false');
+    // files.cpp:661, wxFD_OPEN | wxFD_FILE_MUST_EXIST: no wxFD_MULTIPLE.
+    expect(FILES).toContain("FileDialog('Open Zip File', GERBVIEW_ZIP_FILTERS, false, 0)");
   });
 
   it('keeps the machine as the other door', () => {
-    // Read the BUTTON, not the file: `toContain('Open from Computer...')` over
-    // the source matched the comment three lines above it, so a sweep that
-    // replaced the label passed. `openLocalFiles` is unchanged and is what the
-    // button runs.
-    const el = [...GV.matchAll(/<OpenFileDialog\b[\s\S]*?\/>/g)].map((m) => m[0]).join('\n');
+    // Read the ELEMENT, not the file, so a comment cannot satisfy it.
+    const el = GV.slice(
+      GV.indexOf('<OpenFileDialog'),
+      GV.indexOf('<input', GV.indexOf('<OpenFileDialog')),
+    );
     expect(el, 'the from-computer button is gone').toContain('Open from Computer...');
-    expect(el).toContain('const from = gbrOpen.fromComputer;');
+    expect(el).toContain('void openFileDialog(req.filters, {');
   });
 
   it('names no shared folder, because a gerber belongs to one board', () => {
     // Plotted output goes to the project's own `gerbers/`
     // (dialog_plot_pcb.tsx:93,121-133), so every project is listed and there is
     // no Templates-style row for it.
-    const el = [...GV.matchAll(/<OpenFileDialog\b[\s\S]*?\/>/g)].map((m) => m[0]).join('\n');
+    const el = GV.slice(
+      GV.indexOf('<OpenFileDialog'),
+      GV.indexOf('<input', GV.indexOf('<OpenFileDialog')),
+    );
     expect(el).not.toMatch(/kind=/);
   });
 
-  it('hands the batch to the loader that already knows these formats', () => {
-    // `loadFiles` is LoadListOfGerberAndDrillFiles and handles the zip, the job
-    // file and the drill reader between them. A second loader taking a
-    // different shape would be that function twice.
+  it('hands every chosen file back to the frame, which loads it by path', () => {
+    // The chooser's rows go onto the RAM disk and their paths are the dialog's
+    // answer, as GetPaths() is upstream; the frame's loader takes it from there.
     expect(GV).toContain(
-      'void loadFiles([asFile(file), ...file.rest.map(asFile)], opened.fileType);',
+      'req.resolve([file, ...file.rest].map((f) => ({ name: f.path, bytes: f.bytes })));',
     );
+    expect(WINDOW).toContain('paths: files.map((f) => putFile(f.name, f.bytes))');
   });
 });
 
@@ -231,7 +254,10 @@ describe('the capabilities that used to block it', () => {
   it('and the open dialog hands back BYTES, not only text', () => {
     // A `.zip` is not text. Handing back only one of the two is what made the
     // dialog unusable for the binary callers.
-    expect(src('fs/OpenFileDialog.tsx')).toContain('bytes: Uint8Array;');
+    // The result type is wxFileDialog's, declared in common/wx since 09-26.
+    expect(readFileSync(resolve(process.cwd(), '../common/wx/filedlg.tsx'), 'utf8')).toContain(
+      'bytes: Uint8Array;',
+    );
     expect(src('fs/OpenFileDialog.tsx')).toContain(
       'onDone({ path, text: new TextDecoder().decode(bytes), bytes, rest: others });',
     );
@@ -240,7 +266,7 @@ describe('the capabilities that used to block it', () => {
   it('leaves the bitmap pickers on the OS picker, which is correct', () => {
     // A bitmap comes from your machine, not from the project - the same reason
     // KiCad's bitmap2component opens a plain file dialog. Not a gap.
-    for (const file of ['editors/image/ImageConverter.tsx']) {
+    for (const file of ['../../bitmap2component/bitmap2cmp_frame_ui.tsx']) {
       expect(code(src(file))).toContain('type="file"');
     }
   });
@@ -518,8 +544,8 @@ describe('the extension is fixed on accept, not locked in the entry', () => {
     expect(savePathWithExtension('/Templates/frame', DRAWING_SHEET_FILE_EXTENSION)).toBe(
       '/Templates/frame.kicad_wks',
     );
-    expect(src('editors/drawingsheet/DrawingSheetEditor.tsx')).toContain(
-      'savePathWithExtension(path, DRAWING_SHEET_FILE_EXTENSION)',
-    );
+    // pl_editor's Save As is not a call site any more: PL_EDITOR_FRAME::Files_io
+    // appends the extension itself, as files.cpp:216-221 does, pinned in
+    // unittests/pagelayout_editor/files_io.test.ts.
   });
 });

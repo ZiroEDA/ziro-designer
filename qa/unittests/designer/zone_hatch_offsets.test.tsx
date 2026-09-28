@@ -19,22 +19,20 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { useState, type JSX } from 'react';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { PanelPcbZoneHatchOffsets } from '@ziroeda/designer/src/editors/pcb/dialogs/panels/panel_pcb_zone_hatch_offsets.js';
+import { PanelPcbZoneHatchOffsets } from '@ziroeda/pcbnew/dialogs/panels/panel_pcb_zone_hatch_offsets.js';
 import {
   ZONE_LAYER_GRID_COLUMNS,
   ZoneLayerPropertiesGrid,
-} from '@ziroeda/designer/src/widgets/zone_layer_properties_grid.js';
+} from '@ziroeda/pcbnew/widgets/zone_layer_properties_grid.js';
 import {
   copperStackNames,
   defaultBoardSetup,
   syncCopperLayers,
   type ZoneLayerPropertiesMap,
-} from '@ziroeda/designer/src/editors/pcb/board_settings.js';
-import {
-  applyBoardFileSetup,
-  writeBoardFileSetup,
-} from '@ziroeda/designer/src/editors/pcb/board_file_settings.js';
-import { LSET_Name, LSET_NameToLayer } from '@ziroeda/pcbnew/src/layer_ids.js';
+} from '@ziroeda/pcbnew/board_settings.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { readSetup, writeSetup } from './board_setup_test_utils.js';
+import { LSET_Name, LSET_NameToLayer } from '@ziroeda/common/layer_ids.js';
 
 afterEach(cleanup);
 
@@ -55,6 +53,28 @@ const BOARD = `(kicad_pcb (version 20241229) (generator "test")
   (setup)
 )`;
 
+/** A layer's offset cell: the row whose Layer cell names it, column 1 (X) or 2 (Y). */
+function offsetCell(aLayer: string, aAxis: 'X' | 'Y'): HTMLElement {
+  const row = [...document.querySelectorAll('.ze-zone-layer-grid tbody tr')].find(
+    (tr) => tr.querySelector('td[data-col="0"]')?.textContent === aLayer,
+  ) as HTMLElement;
+  return row.querySelector(`td[data-col="${aAxis === 'X' ? 1 : 2}"]`) as HTMLElement;
+}
+
+/** The text a layer's offset cell shows. */
+const offsetText = (aLayer: string, aAxis: 'X' | 'Y'): string =>
+  offsetCell(aLayer, aAxis).textContent ?? '';
+
+/** Type into a layer's offset cell through its editor, as a user would. */
+function editOffset(aLayer: string, aAxis: 'X' | 'Y', aText: string): void {
+  const td = offsetCell(aLayer, aAxis);
+  fireEvent.mouseDown(td, { button: 0 });
+  fireEvent.mouseUp(td);
+  const input = td.querySelector('input') as HTMLInputElement;
+  fireEvent.change(input, { target: { value: aText } });
+  fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' });
+}
+
 describe('the page', () => {
   it('is a caption, a rule and the shared grid', () => {
     render(<Harness layers={copperStackNames(2)} />);
@@ -69,7 +89,9 @@ describe('the page', () => {
     expect([...ZONE_LAYER_GRID_COLUMNS]).toEqual(['Layer', 'Offset X', 'Offset Y']);
     render(<Harness layers={copperStackNames(2)} />);
     expect(
-      [...document.querySelectorAll('.ze-zone-layer-grid th')].map((t) => t.textContent),
+      [...document.querySelectorAll('.ze-zone-layer-grid th:not(.ze-grid-filler)')].map(
+        (t) => t.textContent,
+      ),
     ).toEqual(['Layer', 'Offset X', 'Offset Y']);
   });
 
@@ -85,16 +107,16 @@ describe('the page', () => {
     // `GetValue()` is `hatching_offset.value_or( VECTOR2I() )` and goes through
     // `StringFromValue( …, true )`.
     render(<Harness layers={copperStackNames(2)} />);
-    expect((screen.getByLabelText('F.Cu offset X') as HTMLInputElement).value).toBe('0 mm');
-    expect((screen.getByLabelText('B.Cu offset Y') as HTMLInputElement).value).toBe('0 mm');
+    expect(offsetText('F.Cu', 'X')).toBe('0 mm');
+    expect(offsetText('B.Cu', 'Y')).toBe('0 mm');
   });
 
   it('gives a layer an offset the moment one axis is edited', () => {
     // `SetValue()` assigns the whole VECTOR2I back, so the optional becomes set.
     render(<Harness layers={copperStackNames(2)} />);
-    fireEvent.change(screen.getByLabelText('F.Cu offset X'), { target: { value: '0.5 mm' } });
-    expect((screen.getByLabelText('F.Cu offset X') as HTMLInputElement).value).toBe('0.5 mm');
-    expect((screen.getByLabelText('F.Cu offset Y') as HTMLInputElement).value).toBe('0 mm');
+    editOffset('F.Cu', 'X', '0.5 mm');
+    expect(offsetText('F.Cu', 'X')).toBe('0.5 mm');
+    expect(offsetText('F.Cu', 'Y')).toBe('0 mm');
   });
 
   it('edits one axis without disturbing the other', () => {
@@ -107,11 +129,11 @@ describe('the page', () => {
         initial={{ 'F.Cu': { hatchingOffset: { x: 0, y: -3 } } }}
       />,
     );
-    fireEvent.change(screen.getByLabelText('F.Cu offset X'), { target: { value: '0.5 mm' } });
-    expect((screen.getByLabelText('F.Cu offset Y') as HTMLInputElement).value).toBe('-3 mm');
+    editOffset('F.Cu', 'X', '0.5 mm');
+    expect(offsetText('F.Cu', 'Y')).toBe('-3 mm');
 
-    fireEvent.change(screen.getByLabelText('F.Cu offset Y'), { target: { value: '7 mm' } });
-    expect((screen.getByLabelText('F.Cu offset X') as HTMLInputElement).value).toBe('0.5 mm');
+    editOffset('F.Cu', 'Y', '7 mm');
+    expect(offsetText('F.Cu', 'X')).toBe('0.5 mm');
   });
 });
 
@@ -120,7 +142,7 @@ describe('the grid is content-sized, so it must not be contained', () => {
   // i.e. it takes its own size rather than stretching. A `contain: inline-size`
   // on such a box has nothing left to size it and it collapses: the page went
   // blank, caption and rule only, when that landed on the shared pane class.
-  const css = readFileSync(join(__dirname, '../../../designer/src/ui/shell.css'), 'utf8');
+  const css = readFileSync(join(__dirname, '../../../common/widgets/shell.css'), 'utf8');
   const ruleFor = (selector: string): string => {
     const at = css.indexOf(`\n${selector} {`);
     if (at === -1) throw new Error(`no rule for ${selector}`);
@@ -150,8 +172,8 @@ describe('the grid is the shared one', () => {
         onChange={() => {}}
       />,
     );
-    expect((screen.getByLabelText('F.Cu offset X') as HTMLInputElement).value).toBe('1 mm');
-    expect((screen.getByLabelText('F.Cu offset Y') as HTMLInputElement).value).toBe('-2 mm');
+    expect(offsetText('F.Cu', 'X')).toBe('1 mm');
+    expect(offsetText('F.Cu', 'Y')).toBe('-2 mm');
   });
 
   it('draws each layer’s swatch from LAYER_PRESENTATION', () => {
@@ -212,33 +234,41 @@ describe('SyncCopperLayers', () => {
   });
 });
 
-describe('(zone_defaults …) round-trips through the board file', () => {
-  it('writes nothing at all when no layer has an offset', () => {
-    // `format()` returns early on an unset optional, and the block itself is
-    // only opened when the map is non-empty (`pcb_io_kicad_sexpr.cpp:607`).
-    const s = defaultBoardSetup();
-    expect(writeBoardFileSetup(BOARD, s)).not.toContain('zone_defaults');
-    s.zoneLayerProperties = { 'F.Cu': {} }; // present but unset
-    expect(writeBoardFileSetup(BOARD, s)).not.toContain('zone_defaults');
+describe('(zone_defaults …) through the board file, as 10.0.5 does it', () => {
+  it('after the dialog every enabled copper layer has an entry; an unset one prints nothing', () => {
+    // `PANEL_SETUP_ZONE_HATCH_OFFSETS::TransferDataFromWindow` stores a
+    // ZONE_LAYER_PROPERTIES per row (`:116`), so the map is never empty after
+    // an OK and the writer opens the block (`pcb_io_kicad_sexpr.cpp:607`);
+    // `format()` returns early on an unset optional, so it holds nothing.
+    const f = readSetup(BOARD);
+    const out = writeSetup(f);
+    expect(out).toContain('(zone_defaults)');
+    expect(out).not.toContain('hatch_position');
   });
 
   it('writes a property per layer that has one', () => {
-    const s = defaultBoardSetup();
-    s.zoneLayerProperties = { 'F.Cu': { hatchingOffset: { x: 0.5, y: -0.25 } } };
-    const out = writeBoardFileSetup(BOARD, s)!;
+    const f = readSetup(BOARD);
+    f.values.zoneLayerProperties = { 'F.Cu': { hatchingOffset: { x: 0.5, y: -0.25 } } };
+    const out = writeSetup(f);
     expect(out).toContain('zone_defaults');
     expect(out).toContain('"F.Cu"');
     expect(out).toContain('hatch_position');
     expect(out).toMatch(/\(xy 0\.5 -0\.25\)/);
   });
 
-  it('reads them back', () => {
-    const s = defaultBoardSetup();
-    s.zoneLayerProperties = { 'B.Cu': { hatchingOffset: { x: 1.25, y: 2 } } };
-    const out = writeBoardFileSetup(BOARD, s)!;
+  it('a reload lands them in the default ZONE_SETTINGS, not the panel (upstream 10.0.5)', () => {
+    // The writer reads `BOARD_DESIGN_SETTINGS::m_ZoneLayerProperties`
+    // (`pcb_io_kicad_sexpr.cpp:611`) but the parser fills
+    // `GetDefaultZoneSettings().m_LayerProperties` (`..._parser.cpp:2891,2926`),
+    // so in 10.0.5 the page comes back empty after a save and reload. Pinned
+    // as upstream has it; a KiCad that fixes it changes this test.
+    const f = readSetup(BOARD);
+    f.values.zoneLayerProperties = { 'B.Cu': { hatchingOffset: { x: 1.25, y: 2 } } };
+    const out = writeSetup(f);
 
-    const back = defaultBoardSetup();
-    expect(applyBoardFileSetup(out, back)).toBe(true);
-    expect(back.zoneLayerProperties['B.Cu']).toEqual({ hatchingOffset: { x: 1.25, y: 2 } });
+    const back = readSetup(out);
+    expect(back.values.zoneLayerProperties['B.Cu']).toEqual({});
+    const loaded = back.board.GetDesignSettings().GetDefaultZoneSettings().m_LayerProperties;
+    expect(loaded.get(PCB_LAYER_ID.B_Cu)?.hatching_offset).toEqual({ x: 1_250_000, y: 2_000_000 });
   });
 });

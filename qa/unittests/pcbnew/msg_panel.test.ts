@@ -4,7 +4,7 @@
 /**
  * The board's message-panel rows.
  * Counterparts: the `GetMsgPanelInfo` overrides listed at the top of
- * `pcbnew/src/msg_panel.ts`, and `PCB_CONTROL::UpdateMessagePanel`.
+ * `pcbnew/msg_panel.ts`, and `PCB_CONTROL::UpdateMessagePanel`.
  *
  * **Every row is asserted as a label/value pair, and the whole list is compared
  * at once.** A test that only counted rows, or only checked that some row said
@@ -28,7 +28,7 @@ import {
   viaMsgPanelInfo,
   zoneMsgPanelInfo,
   type PcbMsgPanelContext,
-} from '@ziroeda/pcbnew/src/msg_panel.js';
+} from '@ziroeda/pcbnew/msg_panel.js';
 import type {
   Board,
   PcbArcTrack,
@@ -39,7 +39,7 @@ import type {
   PcbTrack,
   PcbVia,
   PcbZone,
-} from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/types.js';
 
 const P = (x: number, y: number) => ({ x, y });
 

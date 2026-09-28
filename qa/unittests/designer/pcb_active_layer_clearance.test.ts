@@ -11,11 +11,11 @@
  * (seen on CM5_MINIMA_3, 2026-09-18).
  */
 import { describe, expect, it } from 'vitest';
-import { CLEARANCE_LAYER_FOR, PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import type { PCB_DRAW_PANEL_GAL } from '@ziroeda/pcbnew/src/pcb_draw_panel_gal.js';
-import { PCB_SCREEN } from '@ziroeda/pcbnew/src/pcb_screen.js';
-import { PCBNEW_SETTINGS } from '@ziroeda/pcbnew/src/pcbnew_settings.js';
-import { PCB_EDIT_FRAME } from '@ziroeda/designer/src/editors/pcb/pcb_edit_frame.js';
+import { CLEARANCE_LAYER_FOR, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import type { PCB_DRAW_PANEL_GAL } from '@ziroeda/pcbnew/pcb_draw_panel_gal.js';
+import { PCB_SCREEN } from '@ziroeda/pcbnew/pcb_screen.js';
+import { PCBNEW_SETTINGS } from '@ziroeda/pcbnew/pcbnew_settings.js';
+import { PCB_EDIT_FRAME } from '@ziroeda/pcbnew/pcb_edit_frame.js';
 
 function makeFrame() {
   const frame = new PCB_EDIT_FRAME({
@@ -34,6 +34,9 @@ function makeFrame() {
     showExchangeFootprintsDialog: () => {},
     findDialogRects: () => [],
     setViewCenter: () => {},
+    setHighlightNets: () => {},
+    syncSelection: () => {},
+    updatePcbFromSchematic: () => {},
   });
   // `createPcbDrawPanel`'s screen, whose m_Active_Layer the frame reads.
   frame.SetScreen(new PCB_SCREEN({ x: 297000000, y: 210000000 }));

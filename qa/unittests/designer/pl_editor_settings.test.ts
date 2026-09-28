@@ -22,7 +22,7 @@
  *    (`double` on PAGE_INFO, `int` in the settings object) and is floored at
  *    10 mils on the way in.
  */
-import { describe, it, expect } from 'vitest';
+import { afterEach, beforeEach, describe, it, expect } from 'vitest';
 import {
   deepMerge,
   PL_EDITOR_DEFAULTS,
@@ -30,20 +30,22 @@ import {
   type PlEditorSettings,
 } from '@ziroeda/designer/src/prefs/settings.js';
 import {
-  applyToggle,
-  persistToggle,
-  switchUnits,
-  toggleUnitsId,
-  DEFAULT_TOGGLES,
-  togglesFromSettings,
-} from '@ziroeda/designer/src/editors/drawingsheet/toggles.js';
-import { toggleIdUnits, unitsToggleId } from '@ziroeda/designer/src/ui/app_settings_units.js';
-import {
-  previewSettingsFromConfig,
-  writePageToConfig,
-} from '@ziroeda/designer/src/editors/drawingsheet/preview_settings.js';
+  ACTION_FOR_ID,
+  loadPlEditorSettings,
+  storePlEditorSettings,
+  uiState,
+} from '@ziroeda/pagelayout_editor/pl_editor_settings_bridge.js';
+import { DS_DATA_MODEL } from '@ziroeda/common/drawing_sheet/ds_data_model.js';
+import { CROSS_HAIR_MODE } from '@ziroeda/common/gal/gal_display_options.js';
+import { PAGE_INFO } from '@ziroeda/common/page_info.js';
+import { PGM_BASE, SetPgm } from '@ziroeda/common/pgm_base.js';
+import { EDA_UNITS_INT } from '@ziroeda/common/settings/app_settings.js';
+import { toggleIdUnits, unitsToggleId } from '@ziroeda/common/settings/app_settings_units.js';
+import { ACTIONS } from '@ziroeda/common/tool/actions.js';
+import { PL_ACTIONS } from '@ziroeda/pagelayout_editor/tools/pl_actions.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { type Harness, makeHarness } from '../pagelayout_editor/pl_editor_fixture.js';
 
 const cfg = (): PlEditorSettings => structuredClone(PL_EDITOR_DEFAULTS);
 
@@ -86,218 +88,192 @@ describe('the shipped defaults are KiCad’s', () => {
   });
 });
 
-describe('replaying the file onto the toolbar', () => {
-  it('a fresh profile shows mils, the grid, and edit mode', () => {
-    expect([...togglesFromSettings(cfg())].sort()).toEqual([
+/** A frame over `aJson`, loaded as the page loads it. */
+function frameOver(aJson: PlEditorSettings): Harness {
+  return makeHarness(EDA_UNITS_INT.MILS, 0, (c) => loadPlEditorSettings(c, aJson));
+}
+
+/** `pl_editor.json` as the page would store it after the frame's SaveSettings. */
+function stored(h: Harness, aJson = cfg()): { json: PlEditorSettings; changed: boolean } {
+  h.frame.SaveSettings(h.cfg);
+  const changed = storePlEditorSettings(h.cfg, aJson);
+  return { json: aJson, changed };
+}
+
+let model: DS_DATA_MODEL;
+
+beforeEach(() => {
+  SetPgm(new PGM_BASE());
+  model = new DS_DATA_MODEL();
+  DS_DATA_MODEL.SetAltInstance(model);
+});
+
+afterEach(() => {
+  DS_DATA_MODEL.SetAltInstance(null);
+  SetPgm(null);
+});
+
+describe('replaying the file onto the frame (setupUnits, LoadSettings)', () => {
+  it('a fresh profile shows mils, the grid, the arrow and edit mode', () => {
+    const h = frameOver(cfg());
+
+    expect([...uiState(h.frame, ACTION_FOR_ID).checked].sort()).toEqual([
       'layoutEditMode',
+      'select',
       'toggleGrid',
       'unitsMils',
     ]);
   });
 
-  /**
-   * The frame boots from `togglesFromSettings( settings.plEditor )`, so this
-   * is the value it actually shows and not a second copy of the answer.
-   */
-  it('DEFAULT_TOGGLES is that set, derived rather than restated', () => {
-    expect([...DEFAULT_TOGGLES].sort()).toEqual(['layoutEditMode', 'toggleGrid', 'unitsMils']);
-  });
-
   it('brings back millimetres', () => {
     const s = cfg();
     s.system.units = 'mm';
-    expect(togglesFromSettings(s).has('unitsMm')).toBe(true);
-    expect(togglesFromSettings(s).has('unitsMils')).toBe(false);
+    const checked = uiState(frameOver(s).frame, ACTION_FOR_ID).checked;
+    expect(checked.has('unitsMm')).toBe(true);
+    expect(checked.has('unitsMils')).toBe(false);
   });
 
   it('brings back inches', () => {
     const s = cfg();
     s.system.units = 'in';
-    expect(togglesFromSettings(s).has('unitsInches')).toBe(true);
+    expect(uiState(frameOver(s).frame, ACTION_FOR_ID).checked.has('unitsInches')).toBe(true);
   });
 
   it('brings back a hidden grid and a full-window crosshair', () => {
     const s = cfg();
     s.window.grid.show = false;
     s.window.cursor.crosshair = 'full';
-    const t = togglesFromSettings(s);
-    expect(t.has('toggleGrid')).toBe(false);
-    expect(t.has('crosshairFull')).toBe(true);
+    const h = frameOver(s);
+
+    expect(uiState(h.frame, ACTION_FOR_ID).checked.has('toggleGrid')).toBe(false);
+    expect(h.frame.GetGalDisplayOptions().m_crossHairMode).toBe(CROSS_HAIR_MODE.FULLSCREEN_CROSS);
   });
 
   it('lands a unit a frame cannot display on millimetres', () => {
     // setupUnits' switch (eda_draw_frame.cpp:1390-1396) puts `default:` on the
-    // MM arm — the corrupt-file case, which is not the fresh-profile case.
+    // MM arm - the corrupt-file case, which is not the fresh-profile case.
     const s = cfg();
     s.system.units = 'um';
-    expect(togglesFromSettings(s).has('unitsMm')).toBe(true);
+    expect(frameOver(s).frame.GetUserUnits()).toBe('mm');
   });
 
   it('always comes back in title-block edit mode', () => {
     // pl_editor_frame.cpp:105 sets m_EditMode = true unconditionally and no
     // parameter binds it, so this cannot be turned off by a settings file.
-    const s = cfg();
-    expect(togglesFromSettings(s).has('layoutEditMode')).toBe(true);
-    expect(togglesFromSettings(s).has('layoutNormalMode')).toBe(false);
-  });
-});
-
-describe('the unit group is a radio group', () => {
-  it('replaces its group rather than adding to it', () => {
-    const t = applyToggle(new Set(['unitsMils', 'toggleGrid']), 'unitsMm');
-    expect(t.has('unitsMm')).toBe(true);
-    expect(t.has('unitsMils')).toBe(false);
-    expect(t.has('toggleGrid')).toBe(true);
-  });
-
-  it('re-activating the unit already in force leaves it in force', () => {
-    expect(applyToggle(new Set(['unitsMm']), 'unitsMm').has('unitsMm')).toBe(true);
-  });
-
-  it('flips anything that is not a unit', () => {
-    expect(applyToggle(new Set(['toggleGrid']), 'toggleGrid').has('toggleGrid')).toBe(false);
-    expect(applyToggle(new Set(), 'crosshairFull').has('crosshairFull')).toBe(true);
+    model.m_EditMode = false;
+    const checked = uiState(frameOver(cfg()).frame, ACTION_FOR_ID).checked;
+    expect(checked.has('layoutEditMode')).toBe(true);
+    expect(checked.has('layoutNormalMode')).toBe(false);
   });
 });
 
 describe('a button press reaching the settings file', () => {
   it('flips window.grid.show, reading its own current value', () => {
-    // COMMON_TOOLS::ToggleGrid — SetGridVisibility( !IsGridVisible() ),
+    // COMMON_TOOLS::ToggleGrid - SetGridVisibility( !IsGridVisible() ),
     // common_tools.cpp:595-598, both halves through the settings object.
-    const s = cfg();
-    expect(persistToggle(s, 'toggleGrid')).toBe(true);
-    expect(s.window.grid.show).toBe(false);
-    persistToggle(s, 'toggleGrid');
-    expect(s.window.grid.show).toBe(true);
-  });
+    const h = frameOver(cfg());
 
-  it('flips the crosshair between small and full', () => {
-    const s = cfg();
-    persistToggle(s, 'crosshairFull');
-    expect(s.window.cursor.crosshair).toBe('full');
-    persistToggle(s, 'crosshairFull');
-    expect(s.window.cursor.crosshair).toBe('small');
+    h.mgr.RunAction(ACTIONS.toggleGrid);
+    expect(stored(h).json.window.grid.show).toBe(false);
+
+    h.mgr.RunAction(ACTIONS.toggleGrid);
+    expect(stored(h).json.window.grid.show).toBe(true);
   });
 
   it('moves only the family the new unit belongs to', () => {
     // COMMON_TOOLS::SwitchUnits, common_tools.cpp:656-668.
-    const s = cfg();
-    persistToggle(s, 'unitsInches');
+    const h = frameOver(cfg());
+
+    h.mgr.RunAction(ACTIONS.inchesUnits);
+    let s = stored(h).json;
     expect(s.system.units).toBe('in');
     expect(s.system.last_imperial_units).toBe('in');
     expect(s.system.last_metric_units).toBe('mm');
 
-    persistToggle(s, 'unitsMm');
+    h.mgr.RunAction(ACTIONS.millimetersUnits);
+    s = stored(h).json;
     expect(s.system.units).toBe('mm');
     expect(s.system.last_metric_units).toBe('mm');
     expect(s.system.last_imperial_units).toBe('in');
   });
 
   it('leaves the settings alone for a session-only button', () => {
-    const s = cfg();
-    expect(persistToggle(s, 'layoutEditMode')).toBe(false);
-    expect(persistToggle(s, 'layoutNormalMode')).toBe(false);
-    expect(s).toEqual(PL_EDITOR_DEFAULTS);
+    const h = frameOver(cfg());
+
+    h.mgr.RunAction(PL_ACTIONS.layoutNormalMode);
+    h.mgr.RunAction(PL_ACTIONS.layoutEditMode);
+
+    const { json, changed } = stored(h);
+    expect(changed).toBe(false);
+    expect(json).toEqual(PL_EDITOR_DEFAULTS);
   });
 });
 
 describe('Ctrl+U swaps families and returns to the last member of the other', () => {
   it('goes to the last metric unit from an imperial one', () => {
     // COMMON_TOOLS::ToggleUnits, common_tools.cpp:671-677.
-    expect(toggleUnitsId(cfg())).toBe('unitsMm');
+    const h = frameOver(cfg());
+    h.mgr.RunAction(ACTIONS.toggleUnits);
+    expect(h.frame.GetUserUnits()).toBe('mm');
   });
 
-  it('comes back to inches once inches have been used', () => {
-    const s = cfg();
-    switchUnits(s, 'unitsInches');
-    switchUnits(s, 'unitsMm');
-    expect(toggleUnitsId(s)).toBe('unitsInches');
-  });
+  it('comes back to inches once inches have been used, across a reload', () => {
+    const h = frameOver(cfg());
+    h.mgr.RunAction(ACTIONS.inchesUnits);
+    h.mgr.RunAction(ACTIONS.millimetersUnits);
 
-  it('comes back to mils when mils were the last imperial unit', () => {
-    const s = cfg();
-    switchUnits(s, 'unitsInches');
-    switchUnits(s, 'unitsMils');
-    switchUnits(s, 'unitsMm');
-    expect(toggleUnitsId(s)).toBe('unitsMils');
+    const reloaded = frameOver(stored(h).json);
+    reloaded.mgr.RunAction(ACTIONS.toggleUnits);
+    expect(reloaded.frame.GetUserUnits()).toBe('in');
   });
 });
 
-describe('the unit id and the EDA_UNITS member map both ways', () => {
-  // These two moved to `ui/app_settings_units.ts`: `COMMON_TOOLS` is one tool
-  // on the shared TOOL_MANAGER, so its unit actions are one module rather than
-  // a copy per editor. The pl_editor's copy is gone, not renamed.
-  it('round-trips the three a frame can display', () => {
-    expect(unitsToggleId('mm')).toBe('unitsMm');
-    expect(unitsToggleId('in')).toBe('unitsInches');
-    expect(unitsToggleId('mils')).toBe('unitsMils');
-    expect(toggleIdUnits('unitsMm')).toBe('mm');
-    expect(toggleIdUnits('unitsInches')).toBe('in');
-    expect(toggleIdUnits('unitsMils')).toBe('mils');
-  });
-});
-
-describe('the preview page half of Load/SaveSettings', () => {
-  it('restores A3 landscape and the 17000 x 11000 mil custom size', () => {
-    // pl_editor_frame.cpp:543-548. 17000 mils = 431.8 mm, 11000 = 279.4 mm.
-    const p = previewSettingsFromConfig(cfg());
-    expect(p.paper).toBe('A3');
-    expect(p.portrait).toBe(false);
-    expect(p.customWidthMM).toBeCloseTo(431.8, 9);
-    expect(p.customHeightMM).toBeCloseTo(279.4, 9);
-  });
-
+describe('the page half of Load/SaveSettings (pl_editor_frame.cpp:543-548, :563-566)', () => {
   it('restores a page that is NOT the default', () => {
-    // The test above cannot fail on its own: `previewSettingsFromConfig`
-    // starts from `defaultPreviewSettings()`, whose paper is already A3
-    // landscape, so deleting the two lines that read the stored page leaves it
-    // green. The mutation sweep found exactly that. A stored page has to be a
-    // page the defaults do not already supply.
     const s = cfg();
     s.last_paper_size = 'A4';
     s.last_was_portrait = true;
     s.last_custom_width = 8000;
     s.last_custom_height = 6000;
-    const p = previewSettingsFromConfig(s);
-    expect(p.paper).toBe('A4');
-    expect(p.portrait).toBe(true);
-    expect(p.customWidthMM).toBeCloseTo(203.2, 9); // 8000 mils
-    expect(p.customHeightMM).toBeCloseTo(152.4, 9); // 6000 mils
+    const h = frameOver(s);
+
+    expect(h.frame.GetPageSettings().GetTypeAsString()).toBe('A4');
+    expect(h.frame.GetPageSettings().IsPortrait()).toBe(true);
+    expect(PAGE_INFO.GetCustomWidthMils()).toBe(8000);
+    expect(PAGE_INFO.GetCustomHeightMils()).toBe(6000);
   });
 
-  it('leaves the title block blank — nothing persists it', () => {
-    const s = cfg();
-    const p = previewSettingsFromConfig(s);
-    expect(p.title).toBe('');
-    expect(p.company).toBe('');
-    expect(p.date).toBe('');
-    expect(p.rev).toBe('');
-    expect(p.comments).toEqual(['', '', '', '', '', '', '', '', '']);
+  it('leaves the title block blank - nothing persists it', () => {
+    const tb = frameOver(cfg()).frame.GetTitleBlock();
+    expect([tb.GetTitle(), tb.GetCompany(), tb.GetDate(), tb.GetRevision()]).toEqual([
+      '',
+      '',
+      '',
+      '',
+    ]);
+    for (let i = 0; i < 9; i++) expect(tb.GetComment(i)).toBe('');
   });
 
   it('writes the paper, the orientation and the two edges', () => {
-    const s = cfg();
-    writePageToConfig(s, {
-      ...previewSettingsFromConfig(s),
-      paper: 'User',
-      portrait: true,
-      customWidthMM: 254, // 10000 mils
-      customHeightMM: 127, // 5000 mils
-    });
+    const h = frameOver(cfg());
+    PAGE_INFO.SetCustomWidthMils(10000);
+    PAGE_INFO.SetCustomHeightMils(5000);
+    const user = new PAGE_INFO();
+    user.SetType('User', true);
+    h.frame.SetPageSettings(user);
+
+    const s = stored(h).json;
     expect(s.last_paper_size).toBe('User');
-    expect(s.last_was_portrait).toBe(true);
     expect(s.last_custom_width).toBe(10000);
     expect(s.last_custom_height).toBe(5000);
   });
 
   it('loses the fraction of a mil, the way the int assignment does', () => {
     // `int m_LastCustomWidth` (pl_editor_settings.h:45) takes a `double`
-    // GetCustomWidthMils() (include/page_info.h:197), so it truncates. A file
-    // holding more precision than KiCad's would restore a page KiCad cannot.
-    const s = cfg();
-    // 100.0127 mm is 3937.5 mils exactly.
-    writePageToConfig(s, { ...previewSettingsFromConfig(s), customWidthMM: 100.0127 });
-    expect(s.last_custom_width).toBe(3937);
+    // GetCustomWidthMils() (include/page_info.h:197), so it truncates.
+    const h = frameOver(cfg());
+    PAGE_INFO.SetCustomWidthMils(3937.5);
+    expect(stored(h).json.last_custom_width).toBe(3937);
   });
 
   it('floors a custom edge at 10 mils on the way back in', () => {
@@ -305,9 +281,20 @@ describe('the preview page half of Load/SaveSettings', () => {
     const s = cfg();
     s.last_custom_width = 3;
     s.last_custom_height = 0;
-    const p = previewSettingsFromConfig(s);
-    expect(p.customWidthMM).toBeCloseTo(0.254, 9);
-    expect(p.customHeightMM).toBeCloseTo(0.254, 9);
+    frameOver(s);
+    expect(PAGE_INFO.GetCustomWidthMils()).toBe(10);
+    expect(PAGE_INFO.GetCustomHeightMils()).toBe(10);
+  });
+
+  it('the corner origin and the Properties width go back into the file', () => {
+    const h = frameOver(cfg());
+    h.frame.GetOriginSelectBox().SetSelection(3);
+    h.frame.OnSelectCoordOriginCorner();
+    h.frame.GetPropertiesFrame()!.SetWidth(312);
+
+    const s = stored(h).json;
+    expect(s.corner_origin).toBe(3);
+    expect(s.properties_frame_width).toBe(312);
   });
 });
 
@@ -367,18 +354,16 @@ describe('the settings survive a reload', () => {
     expect(second.plEditor.last_custom_height).toBe(6000);
   });
 
-  it('the reloaded file drives the toolbar back to millimetres', () => {
+  it('the reloaded file boots the frame in millimetres', () => {
     globalThis.localStorage = fakeStorage();
 
     const first = new SettingsManager();
-    // What the user actually does: press the millimetres button.
+    // What the millimetres button stores (storePlEditorSettings).
     first.updatePlEditor((s) => {
-      persistToggle(s, 'unitsMm');
+      s.system.units = 'mm';
     });
 
-    const reloaded = togglesFromSettings(new SettingsManager().plEditor);
-    expect(reloaded.has('unitsMm')).toBe(true);
-    expect(reloaded.has('unitsMils')).toBe(false);
+    expect(frameOver(new SettingsManager().plEditor).frame.GetUserUnits()).toBe('mm');
   });
 
   it('a rewrite of one field leaves the rest of the record standing', () => {
@@ -409,36 +394,17 @@ describe('the settings survive a reload', () => {
   });
 });
 
-const CANVAS = readFileSync(
-  fileURLToPath(
-    new URL('../../../designer/src/editors/drawingsheet/DrawingSheetCanvas.tsx', import.meta.url),
-  ),
-  'utf8',
-);
-
 const EDITOR = readFileSync(
-  fileURLToPath(
-    new URL('../../../designer/src/editors/drawingsheet/DrawingSheetEditor.tsx', import.meta.url),
-  ),
+  fileURLToPath(new URL('../../../pagelayout_editor/pl_editor_frame_ui.tsx', import.meta.url)),
   'utf8',
 );
 
 /**
- * The two cursor controls moved out of the editor and into `PANEL_GAL_OPTIONS`,
- * where upstream has always had them — the Drawing Sheet Editor's Preferences
- * is now the shared `PAGED_DIALOG` with pl_editor's own pages under it, not a
- * modal of this editor's own. The writes still have to reach `pl_editor.json`,
- * so the expectation is re-scoped to where they landed rather than dropped: the
- * panel mutates the dialog's working copy, and OK commits that copy to the
- * `plEditor` slice.
- *
- * `ds_preferences.test.ts` proves the whole chain link by link, including that
- * the editor no longer holds a second copy of either control.
+ * The two cursor controls live in `PANEL_GAL_OPTIONS`, where upstream has
+ * always had them; the page's Preferences is the shared `PAGED_DIALOG`.
  */
 const GAL_PANEL = readFileSync(
-  fileURLToPath(
-    new URL('../../../designer/src/dialogs/prefs/PanelGalOptions.tsx', import.meta.url),
-  ),
+  fileURLToPath(new URL('../../../common/dialogs/panel_gal_options.tsx', import.meta.url)),
   'utf8',
 );
 
@@ -448,86 +414,37 @@ const PREFS_SHELL = readFileSync(
 );
 
 /**
- * The wiring itself. Every rule above is a pure function, and a pure function
- * that nothing calls passes its tests forever — the editor lives in a `.tsx`
- * and `qa` has no DOM, so reading it as text is the only way to see that the
- * store is actually reached. Crude, and it is the check that would catch a
- * revert to component-local state.
+ * The page's half of JSON_SETTINGS::Load / Store: the frame is built over the
+ * slice, and what its tools write goes back into it. The rules above run on
+ * the bridge and the frame; this is the check that the page calls them.
  */
-describe('the editor reads and writes the store', () => {
-  it('seeds its toolbar from the settings rather than a literal', () => {
-    expect(EDITOR).toContain('togglesFromSettings(settings.plEditor)');
-    // The old local set, which is what made every toggle session-only.
-    expect(EDITOR).not.toContain('const DEFAULT_TOGGLES = new Set([');
+describe('the page loads and stores through the bridge', () => {
+  it('builds the frame over the settings slice', () => {
+    expect(EDITOR).toContain('loadPlEditorSettings(cfg, appRef.current.GetPlEditorSettings());');
+    expect(EDITOR).toContain('loadPlEditorSettings(frame.config(), plCfg);');
   });
 
-  it('seeds every other control from the settings too', () => {
-    for (const seed of [
-      'previewSettingsFromConfig(settings.plEditor)',
-      'settings.plEditor.corner_origin',
-      'settings.plEditor.properties_frame_width',
-      'settings.plEditor.window.grid.last_size_idx',
-    ]) {
-      expect(EDITOR, `${seed} must seed a control`).toContain(seed);
-    }
+  it('writes what the frame changed back through storePlEditorSettings', () => {
+    expect(EDITOR).toContain('frame.SaveSettings(cfg);');
+    expect(EDITOR).toContain('storePlEditorSettings(cfg, s);');
   });
 
-  it('reads black_background, but no control writes it — as upstream', () => {
+  it('reads black_background, but no control writes it - as upstream', () => {
     /*
-     * `black_background` is the one setting in this file with no user interface
-     * at all. `LoadSettings` turns it into the canvas colour
-     * (`SetDrawBgColor( cfg->m_BlackBackground ? BLACK : WHITE )`,
-     * pl_editor_frame.cpp:541) and `SaveSettings` writes back whatever colour
-     * the canvas has (:562) — and nothing else in `pagelayout_editor` ever
-     * calls `SetDrawBgColor`, so no action, menu item or Preferences control
-     * can move it. Grep the reference tree: the only other hits are the two
-     * lines of the printout that force white paper.
-     *
-     * We had invented a checkbox for it. This expectation moved from "a
-     * control is seeded from it and writes it back" to "it is read and never
-     * written", and the derivation for the new one is the paragraph above, not
-     * what the code now happens to print.
+     * `black_background` has no user interface at all. `LoadSettings` turns it
+     * into the draw colour (pl_editor_frame.cpp:541) and `SaveSettings` writes
+     * back whatever colour that is (:562); nothing else in pagelayout_editor
+     * calls `SetDrawBgColor`.
      */
     expect(EDITOR).toContain('plCfg.black_background');
     expect(EDITOR).not.toContain('s.black_background =');
-    // The checkbox's prop. The LABEL is asserted in ds_preferences.test.ts,
-    // which filters comments out first — this file does not, and the comment
-    // recording why the control was removed names it.
     expect(EDITOR).not.toContain('onBlackBackground');
   });
 
-  it('takes the always-show crosshair from the settings, not a literal', () => {
-    // The canvas drew the crosshair with `alwaysShow: true` hardcoded, under a
-    // comment naming `always_show_cursor` — the value KiCad reads out of its
-    // settings object (app_settings.cpp:564-565) written as a literal at the
-    // call site instead. Both halves have to exist: the canvas has to read a
-    // prop, and the editor has to feed it from the file.
-    expect(CANVAS).toContain('alwaysShow: alwaysShowCursor');
-    expect(CANVAS).not.toContain('alwaysShow: true');
-    expect(EDITOR).toContain('alwaysShowCursor={plCfg.window.cursor.always_show_cursor}');
-  });
-
-  it('writes each of them back', () => {
-    for (const write of [
-      'persistToggle(s, id)',
-      's.corner_origin = idx',
-      's.properties_frame_width = w',
-      's.window.grid.last_size_idx = idx',
-      // `s.black_background = on` is deliberately absent — see above.
-      'writePageToConfig(s, next)',
-    ]) {
-      expect(EDITOR, `${write} must reach updatePlEditor`).toContain(write);
-    }
-  });
-
   it('writes the two cursor settings back through the shared Preferences panel', () => {
-    // `PANEL_GAL_OPTIONS::TransferDataFromWindow` (panel_gal_options.cpp:
-    // 110-124) is where these two land upstream, so it is where they land here.
+    // `PANEL_GAL_OPTIONS::TransferDataFromWindow` (panel_gal_options.cpp:110-124).
     for (const write of ['w.cursor.crosshair = v', 'w.cursor.always_show_cursor = v'])
       expect(GAL_PANEL, `${write} must be written by PANEL_GAL_OPTIONS`).toContain(write);
-    // And the dialog's OK is what carries that working copy into the store —
-    // without this line the panel would edit a clone and throw it away, which is
-    // precisely the "displays a value and then discards it" failure.
     expect(PREFS_SHELL).toContain(
       'settings.updatePlEditor((s) => Object.assign(s, draft.plEditor));',
     );

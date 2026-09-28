@@ -10,7 +10,7 @@
  * token keeps not carrying it.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic, serializeSchematic, replaceSymbol } from '@ziroeda/eeschema';
 
 const doc = (extra: string) =>

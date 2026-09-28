@@ -29,14 +29,14 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { cleanup, fireEvent, render } from '@testing-library/react';
-import { PropertiesPanel } from '@ziroeda/designer/src/widgets/properties_panel.js';
-import type { PropertyGridRow } from '@ziroeda/designer/src/widgets/properties_panel.js';
-import { DialogColorPicker } from '@ziroeda/designer/src/ui/DialogColorPicker.js';
+import { PropertiesPanel } from '@ziroeda/common/widgets/properties_panel_ui.js';
+import type { PropertyGridRow } from '@ziroeda/common/widgets/properties_panel_ui.js';
+import { DialogColorPicker } from '@ziroeda/common/dialogs/dialog_color_picker.js';
 import {
   COLOR_PICKER_TABS,
   loadColorPickerTab,
   saveColorPickerTab,
-} from '@ziroeda/designer/src/ui/color_picker_tab.js';
+} from '@ziroeda/common/dialogs/dialog_color_picker_tab.js';
 import { settings } from '@ziroeda/designer/src/prefs/settings.js';
 
 afterEach(cleanup);
@@ -99,7 +99,7 @@ describe("PG_COLOR_EDITOR's swatch", () => {
     // happy-dom computes no var() and paints nothing, so the rule itself is
     // what says this.
     const css = readFileSync(
-      resolve(process.cwd(), '../designer/src/widgets/properties_panel.css'),
+      resolve(process.cwd(), '../common/widgets/properties_panel.css'),
       'utf8',
     );
     const start = css.indexOf('.ze-pgrid-colorcell {');
@@ -126,7 +126,7 @@ describe("PG_COLOR_EDITOR's swatch", () => {
    * rule is where "none" belongs and `.large` must not put one back.
    */
   it('draws no border, because nothing upstream draws one there', () => {
-    const css = readFileSync(resolve(process.cwd(), '../designer/src/ui/shell.css'), 'utf8');
+    const css = readFileSync(resolve(process.cwd(), '../common/widgets/shell.css'), 'utf8');
     // Anchored at a line start: `.ze-swatch {` is a substring of
     // `.ze-colorgrid > .ze-swatch {`, and matching that one would test the
     // colour list's margin rule instead.

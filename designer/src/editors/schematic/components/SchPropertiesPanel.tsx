@@ -27,9 +27,10 @@
 import type { JSX } from 'react';
 import type { EditCommand, PropRow } from '@ziroeda/eeschema';
 import { schIUScale } from '@ziroeda/common';
-import type { StatusUnits } from '../../../ui/status_format.js';
-import { PropertiesPanel } from '../../../widgets/properties_panel.js';
-import { distanceToString, stringToDistance } from '../../../widgets/pg_properties.js';
+import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
+import { PropertiesPanel } from '@ziroeda/common/widgets/properties_panel_ui.js';
+import { PGPROPERTY_DISTANCE, type PG_FRAME } from '@ziroeda/common/properties/pg_properties.js';
+import { PG_UNIT_EDITOR } from '@ziroeda/common/properties/pg_editors.js';
 
 export function SchPropertiesPanel({
   rows,
@@ -55,6 +56,9 @@ export function SchPropertiesPanel({
    */
   onBrowseFootprint?: (current: string, commit: (picked: string) => void) => void;
 }): JSX.Element {
+  // The frame a property asks: its user units and its EDA_IU_SCALE.
+  const frame: PG_FRAME = { units, iuScale: schIUScale };
+
   return (
     <PropertiesPanel<EditCommand>
       selectionCount={selectionCount}
@@ -66,8 +70,8 @@ export function SchPropertiesPanel({
          formatter from the caller is what upstream's per-frame property does,
          and it is why eeschema cannot again be handed the message panel's
          `MessageTextFromValue` by mistake. */
-      fmt={(iu) => distanceToString(iu, units, schIUScale)}
-      parse={(text) => stringToDistance(text, units, schIUScale)}
+      fmt={(iu) => new PGPROPERTY_DISTANCE(frame).DistanceToString(iu)}
+      parse={(text) => PG_UNIT_EDITOR.GetValueFromControl(text, false, frame) ?? null}
       onCommand={onCommand}
       onBrowse={onBrowseFootprint}
     />

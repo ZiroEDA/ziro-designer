@@ -22,14 +22,14 @@
  * amount for every footprint, which is why a rotated part walks off its pads.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import {
   boardItemPosition,
   boardSelectionBBox,
   modificationPoint,
   rotateBoardItems,
-} from '@ziroeda/pcbnew/src/edit-board.js';
+} from '@ziroeda/pcbnew/edit-board.js';
 
 const MM = 1e6;
 

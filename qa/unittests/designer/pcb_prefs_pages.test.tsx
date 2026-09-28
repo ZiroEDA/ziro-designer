@@ -31,8 +31,8 @@ import { resetPcbColors } from '@ziroeda/designer/src/editors/pcb/prefs/resets.j
 import { pcbColorRows } from '@ziroeda/designer/src/editors/pcb/pcbColorLayers.js';
 import { fpColorRows } from '@ziroeda/designer/src/editors/footprint/fpColorLayers.js';
 import { parse } from '@ziroeda/sexpr';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { DEFAULT_DRAW_OPTIONS as PCB_DEFAULT_DRAW_OPTIONS } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { DEFAULT_DRAW_OPTIONS as PCB_DEFAULT_DRAW_OPTIONS } from '@ziroeda/pcbnew/renderBoard.js';
 import { pageSizeMM } from '@ziroeda/common';
 import PREVIEW_BOARD_TEXT from '@ziroeda/designer/src/editors/pcb/data/color_preview_board.kicad_pcb?raw';
 import { DISPLAY_ORIGIN_CHOICES } from '@ziroeda/designer/src/dialogs/prefs/PanelDisplayOrigin.js';
@@ -41,7 +41,7 @@ import {
   isStoredPcbToggle,
   lineModeToggleId,
   pcbTogglesFromSettings,
-} from '@ziroeda/designer/src/editors/pcb/toggles.js';
+} from '@ziroeda/pcbnew/pcb_edit_frame.js';
 
 const SLOW = 60000;
 
@@ -323,7 +323,7 @@ describe('PCB Editor > Colors', () => {
     //
     // The PCB renderer's private paper table had no `User` branch — the
     // schematic's copy did — so the sheet and the page limits drew NOTHING.
-    // `common/src/page_info.ts` is now the one table.
+    // `common/page_info.ts` is now the one table.
     expect(pageSizeMM('User 152.4 127')).toEqual({ w: 152.4, h: 127 });
     // 6000 x 5000 mils IS that page.
     expect(6000 * 0.0254).toBeCloseTo(152.4, 6);
@@ -334,7 +334,7 @@ describe('PCB Editor > Colors', () => {
     // (11693 x 8268 mils), which is `PAGE_INFO`'s own storage — KiCad holds a
     // page in MILS and converts, so 11693 x 0.0254 = 297.0022 is the number it
     // actually computes. The two private tables both said a clean 297, which
-    // was the LESS faithful value; see the head of `common/src/page_info.ts`.
+    // was the LESS faithful value; see the head of `common/page_info.ts`.
     const a4 = pageSizeMM('A4');
     expect(a4?.w).toBeCloseTo(297.0022, 4);
     expect(a4?.h).toBeCloseTo(210.0072, 4);
@@ -418,7 +418,7 @@ describe('PCB Editor > Colors', () => {
     // and ours showed none. `board.anchor` is a swatch on this very page.
     expect(src).toContain('drawAnchors(ctx, built.scene, view, layers, w, h, drawOpts');
     // …and it is the SHARED pass, not a cross drawn here.
-    expect(src).toContain("from '../renderBoard.js'");
+    expect(src).toContain("from '@ziroeda/pcbnew/renderBoard.js'");
   });
 
   it('previews KiCad’s own `g_previewBoard`, through the central renderer', () => {

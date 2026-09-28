@@ -3,7 +3,7 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * We must not identify ourselves as KiCad or any of its programs
- * (common/src/generator.ts).
+ * (common/generator.ts).
  *
  * KiCad's formats carry a `(generator ...)` token naming the program that wrote
  * the file. Writing KiCad's own program names there misuses the KiCad name, and
@@ -22,7 +22,7 @@ import {
   GENERATOR_APPLICATION,
   GENERATOR_VENDOR,
   GENERATOR_VERSION,
-} from '@ziroeda/common/src/generator.js';
+} from '@ziroeda/common/generator.js';
 
 /** KiCad's own program names, as they appear in `(generator ...)` tokens. */
 const KICAD_PROGRAM_NAMES = [
@@ -36,7 +36,22 @@ const KICAD_PROGRAM_NAMES = [
 ];
 
 const ROOT = new URL('../../../', import.meta.url).pathname;
-const PACKAGES = ['common', 'eeschema', 'pcbnew', 'designer', 'gerbview'];
+/**
+ * Where each package keeps its sources. Only `designer` still has a `src/`;
+ * the KiCad packages sit at their package root as KiCad's do. This list used
+ * to append 'src' to every package, and `sourceFiles` swallows a missing
+ * directory, so once pcbnew (09-20) and common (09-26) lost their `src/` the
+ * check read no file from either and still passed. The guard below fails
+ * that way now.
+ */
+const SOURCE_ROOTS = [
+  'common',
+  'eeschema',
+  'pcbnew',
+  'designer/src',
+  'gerbview',
+  'bitmap2component',
+];
 
 /**
  * Bundled library content that KiCad itself authored. The rule against wearing
@@ -98,6 +113,14 @@ describe('generator identity', () => {
     expect(GENERATOR_VENDOR).toBe('ZiroEDA');
   });
 
+  it('reads every package it names', () => {
+    for (const pkg of SOURCE_ROOTS) {
+      // bitmap2component is KiCad's smallest folder: seven units, nine files here.
+      const floor = pkg === 'bitmap2component' ? 8 : 10;
+      expect(sourceFiles(join(ROOT, pkg)).length, pkg).toBeGreaterThan(floor);
+    }
+  });
+
   it('does not borrow a KiCad program name', () => {
     expect(KICAD_PROGRAM_NAMES).not.toContain(GENERATOR);
     expect(GENERATOR_VERSION).not.toBe('9.0'); // KiCad's version, not ours
@@ -105,8 +128,8 @@ describe('generator identity', () => {
 
   it('no writer emits a KiCad program name as its generator', () => {
     const offenders: string[] = [];
-    for (const pkg of PACKAGES) {
-      for (const file of sourceFiles(join(ROOT, pkg, 'src'))) {
+    for (const pkg of SOURCE_ROOTS) {
+      for (const file of sourceFiles(join(ROOT, pkg))) {
         if (exempt(file)) continue;
         for (const line of readFileSync(file, 'utf8').split('\n')) {
           if (isComment(line)) continue;
@@ -125,8 +148,8 @@ describe('generator identity', () => {
 
   it('no writer claims to be Pcbnew in Gerber generation software', () => {
     const offenders: string[] = [];
-    for (const pkg of PACKAGES) {
-      for (const file of sourceFiles(join(ROOT, pkg, 'src'))) {
+    for (const pkg of SOURCE_ROOTS) {
+      for (const file of sourceFiles(join(ROOT, pkg))) {
         if (exempt(file)) continue;
         for (const line of readFileSync(file, 'utf8').split('\n')) {
           if (isComment(line)) continue;

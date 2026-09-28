@@ -6,16 +6,17 @@
  * no-connect flags, and label checks, against KiCad's documented behaviour
  * (erc.cpp, erc_settings.cpp, connection_graph.cpp).
  */
+import { wxSetEnv, wxUnsetEnv } from '@ziroeda/common/wx/utils.js';
 import { describe, it, expect } from 'vitest';
-import { parse, serialize } from '@ziroeda/sexpr/src/index.js';
+import { parse, serialize } from '@ziroeda/sexpr/index.js';
 import { readSchematic, writeSchematic } from '@ziroeda/eeschema';
-import { runErc } from '@ziroeda/eeschema/src/connectivity/erc.js';
-import { computeNetlist } from '@ziroeda/eeschema/src/connectivity/nets.js';
-import { defaultErcSettings } from '@ziroeda/eeschema/src/erc/erc_settings.js';
-import { makeNoConnect } from '@ziroeda/eeschema/src/tools/build.js';
-import { flattenLibSymbol } from '@ziroeda/eeschema/src/lib_symbol.js';
-import { addItems } from '@ziroeda/eeschema/src/tools/mutate.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { runErc } from '@ziroeda/eeschema/erc/erc.js';
+import { computeNetlist } from '@ziroeda/eeschema/connectivity/nets.js';
+import { defaultErcSettings } from '@ziroeda/eeschema/erc/erc_settings.js';
+import { makeNoConnect } from '@ziroeda/eeschema/tools/build.js';
+import { flattenLibSymbol } from '@ziroeda/eeschema/lib_symbol.js';
+import { addItems } from '@ziroeda/eeschema/tools/mutate.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 
 /** One-pin test symbol; the pin's connection point is the symbol position. */
 function libDef(name: string, type: string, power = false): string {
@@ -657,9 +658,80 @@ describe('runErc, schematic-wide tests', () => {
   it('flags an unresolved text variable', () => {
     const { doc, libById } = sch(`${label('${MISSING}', 10, 10, 'l1')}`);
     const v = runErc(doc, libById, defaultErcSettings(), {
-      resolveTextVar: (name) => (name === 'KNOWN' ? 'x' : undefined),
+      resolveTextVar: (t) => {
+        if (t.value !== 'KNOWN') return false;
+        t.value = 'x';
+        return true;
+      },
     });
     expect(codes(v)).toContain('unresolved_variable');
+    // A resolved one is not. An escaped one IS in 10.0.5: SCH_LABEL's
+    // GetShownText turns the escape marker back into a literal `${` before
+    // `unresolved` looks (sch_label.cpp:991, erc.cpp:190-195).
+    const { doc: d3, libById: l3 } = sch(`${label('\\${MISSING}', 10, 10, 'l3')}`);
+    expect(
+      codes(
+        runErc(d3, l3, defaultErcSettings(), {
+          resolveTextVar: () => false,
+        }),
+      ),
+    ).toContain('unresolved_variable');
+    // An environment variable is substituted before `unresolved` looks.
+    wxSetEnv('ERC_TEST_ENV', 'e');
+    try {
+      const { doc: d4, libById: l4 } = sch(`${label('${ERC_TEST_ENV}', 10, 10, 'l4')}`);
+      expect(
+        codes(runErc(d4, l4, defaultErcSettings(), { resolveTextVar: () => false })),
+      ).not.toContain('unresolved_variable');
+    } finally {
+      wxUnsetEnv('ERC_TEST_ENV');
+    }
+    // A value that is itself a variable resolves in ResolveTextVars' passes.
+    const { doc: d5, libById: l5 } = sch(`${label('${OUTER}', 10, 10, 'l5')}`);
+    expect(
+      codes(
+        runErc(d5, l5, defaultErcSettings(), {
+          resolveTextVar: (t) => {
+            const v = ({ OUTER: '${INNER}x', INNER: 'y' } as Record<string, string>)[t.value];
+            if (v === undefined) return false;
+            t.value = v;
+            return true;
+          },
+        }),
+      ),
+    ).not.toContain('unresolved_variable');
+    // A token built from another token: ExpandTextVars expands the inner one
+    // first (`${A${B}}` asks for `A1`), which the environment pass cannot.
+    const { doc: d6, libById: l6 } = sch(`${label('${A${B}}', 10, 10, 'l6')}`);
+    expect(
+      codes(
+        runErc(d6, l6, defaultErcSettings(), {
+          resolveTextVar: (t) => {
+            const v = ({ B: '1', A1: 'ok' } as Record<string, string>)[t.value];
+            if (v === undefined) return false;
+            t.value = v;
+            return true;
+          },
+        }),
+      ),
+    ).not.toContain('unresolved_variable');
+    // The shown text, not the source: ExpandTextVars drops an empty `${}`,
+    // so nothing is left to flag (common.cpp:238).
+    const { doc: d7, libById: l7 } = sch(`${label('a${}b', 10, 10, 'l7')}`);
+    expect(
+      codes(runErc(d7, l7, defaultErcSettings(), { resolveTextVar: () => false })),
+    ).not.toContain('unresolved_variable');
+    for (const text of ['${KNOWN}']) {
+      const { doc: d2, libById: l2 } = sch(`${label(text, 10, 10, 'l2')}`);
+      const ok = runErc(d2, l2, defaultErcSettings(), {
+        resolveTextVar: (t) => {
+          if (t.value !== 'KNOWN') return false;
+          t.value = 'x';
+          return true;
+        },
+      });
+      expect(codes(ok), text).not.toContain('unresolved_variable');
+    }
   });
 
   it('flags footprint links to unknown libraries and missing footprints', () => {

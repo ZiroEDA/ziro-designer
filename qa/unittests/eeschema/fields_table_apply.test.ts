@@ -12,7 +12,7 @@
  * below is that function with the React plumbing removed.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import {
   buildFieldsReferences,
   bulkEditFieldsCommand,
@@ -76,8 +76,8 @@ function openTable(docs: ReadonlyMap<string, Schematic>): FieldsDataModel {
     sortAsc: true,
     filterString: '',
     groupSymbols: false,
-    excludeDnp: false,
-    includeExcludedFromBom: true,
+    excludeDNP: false,
+    includeExcludedFromBOM: true,
   });
   return model;
 }

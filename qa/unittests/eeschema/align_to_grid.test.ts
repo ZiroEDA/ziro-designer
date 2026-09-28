@@ -8,17 +8,14 @@
  */
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
-import { readSchematic, readSymbolLib } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
-import {
-  alignToGridCommand,
-  alignToGridPoint,
-  mostCommonGridShift,
-} from '@ziroeda/eeschema/src/tools/align_to_grid.js';
-import { refId } from '@ziroeda/eeschema/src/tools/hittest.js';
+import { readSchematic, readSymbolLib } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
+import { alignToGridCommand } from '@ziroeda/eeschema/tools/align_to_grid.js';
+import { alignToGridPoint, mostCommonGridShift } from '@ziroeda/eeschema/sch_item_alignment.js';
+import { refId } from '@ziroeda/eeschema/tools/hittest.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { mmToIU, iuToMM } from '@ziroeda/common/src/eda_units.js';
-import type { LibSymbol, Schematic, Vec2 } from '@ziroeda/eeschema/src/types.js';
+import { mmToIU, iuToMM } from '@ziroeda/common/eda_units.js';
+import type { LibSymbol, Schematic, Vec2 } from '@ziroeda/eeschema/types.js';
 
 const rawR = readFileSync(
   fileURLToPath(new URL('../../data/R.kicad_sym', import.meta.url)),

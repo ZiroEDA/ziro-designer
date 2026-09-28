@@ -8,13 +8,13 @@
  * DCLICK), the button state after the event, and the key codes.
  */
 import { describe, expect, it } from 'vitest';
-import { WXK } from '@ziroeda/core/src/wx_keycodes.js';
+import { WXK } from '@ziroeda/core/wx_keycodes.js';
 import {
   wxKeyCodeFromDom,
   wxMouseEventFromDom,
   wxWheelEventFromDom,
-} from '@ziroeda/common/src/wx/dom_events.js';
-import { wxGetKeyState, wxMouseWheelAxis } from '@ziroeda/common/src/wx/wx_event.js';
+} from '@ziroeda/common/wx/dom_events.js';
+import { wxGetKeyState, wxMouseWheelAxis } from '@ziroeda/common/wx/wx_event.js';
 
 const target = {
   getBoundingClientRect: () => ({ left: 10, top: 20 }),

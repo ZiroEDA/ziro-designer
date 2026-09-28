@@ -34,7 +34,7 @@ import {
   COLOR_PREVIEW_SELECTION,
 } from '@ziroeda/designer/src/editors/schematic/prefs/color_preview_schematic.js';
 import type { LibSymbol, Schematic } from '@ziroeda/eeschema';
-import { intersheetRefsField } from '@ziroeda/eeschema/src/tools/intersheet_refs.js';
+import { intersheetRefsField } from '@ziroeda/eeschema/tools/intersheet_refs.js';
 import { readSchematic } from '@ziroeda/eeschema';
 import { parse } from '@ziroeda/sexpr';
 

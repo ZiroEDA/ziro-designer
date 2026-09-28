@@ -46,9 +46,14 @@ vi.mock('three', async (importOriginal) => {
   return { ...real, WebGLRenderer: FakeRenderer };
 });
 
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { mount3DViewer } from '../pcb3d.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { mount3DViewer } from '@ziroeda/3d-viewer/pcb3d.js';
+import { InitPgm } from '../../../pgm_app.js';
+
+// main.tsx runs PGM_BASE::InitPgm before any frame exists; it is what puts
+// ${KICAD10_3DMODEL_DIR} and the rest in the environment the 3D resolver reads.
+InitPgm();
 
 const BOARD = resolve(__dirname, '../../../../public/demos/ecc83/ecc83-pp.kicad_pcb');
 

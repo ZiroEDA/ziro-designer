@@ -12,9 +12,9 @@
  * integer division and the step vector is rounded rather than truncated.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readFootprintFile } from '@ziroeda/pcbnew/src/read-board.js';
-import { serializeFootprint } from '@ziroeda/pcbnew/src/write-footprint.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { readFootprintFile } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { serializeFootprint } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { EuclideanNormI, divideI } from '@ziroeda/kimath/src/math/vector2.js';
 import {
   applyPadEnumeration,
@@ -32,8 +32,8 @@ import {
   PAD_ENUMERATION_COMMIT_LABEL,
   PAD_ENUMERATION_SAMPLE_STEP_IU,
   type SequentialPadEnumerationParams,
-} from '@ziroeda/pcbnew/src/pad_enumerate.js';
-import type { PcbFootprint, PcbPad } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_enum_pads.js';
+import type { PcbFootprint, PcbPad } from '@ziroeda/pcbnew/types.js';
 
 const pad = (over: Partial<PcbPad> = {}): PcbPad => ({
   number: '',

@@ -10,10 +10,10 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ensureFileExtension, KICAD_SCHEMATIC_FILE_EXTENSION } from '@ziroeda/common';
-import { savedFileMessage } from '@ziroeda/designer/src/editors/schematic/files_io.js';
+import { savedFileMessage } from '@ziroeda/eeschema/files-io.js';
 
 const EDITOR = join(__dirname, '../../../designer/src/editors/schematic/SchematicEditor.tsx');
-const MENUBAR = join(__dirname, '../../../designer/src/editors/schematic/menubar.ts');
+const MENUBAR = join(__dirname, '../../../eeschema/menubar.ts');
 
 describe('EnsureFileExtension (common/common.cpp:662-678)', () => {
   const ext = KICAD_SCHEMATIC_FILE_EXTENSION;

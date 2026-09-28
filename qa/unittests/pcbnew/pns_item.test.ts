@@ -23,16 +23,11 @@
  *   sentinels would be wrong in a way that costs one wasted query per pair.
  */
 import { describe, expect, it } from 'vitest';
-import {
-  LineMarker,
-  PnsItem,
-  PnsKind,
-  PnsLinkHolder,
-} from '@ziroeda/pcbnew/src/router/pns_item.js';
-import { PnsItemSet } from '@ziroeda/pcbnew/src/router/pns_itemset.js';
-import { PnsLayerRange } from '@ziroeda/pcbnew/src/router/pns_layerset.js';
-import { PnsSegment } from '@ziroeda/pcbnew/src/router/pns_segment.js';
-import { PnsVia } from '@ziroeda/pcbnew/src/router/pns_via.js';
+import { LineMarker, PnsItem, PnsKind, PnsLinkHolder } from '@ziroeda/pcbnew/router/pns_item.js';
+import { PnsItemSet } from '@ziroeda/pcbnew/router/pns_itemset.js';
+import { PnsLayerRange } from '@ziroeda/pcbnew/router/pns_layerset.js';
+import { PnsSegment } from '@ziroeda/pcbnew/router/pns_segment.js';
+import { PnsVia } from '@ziroeda/pcbnew/router/pns_via.js';
 
 /** A minimal concrete item, for the parts of ITEM that no subclass changes. */
 class TestItem extends PnsItem {

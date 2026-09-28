@@ -13,16 +13,16 @@
  * grips, their hit tolerance and their painting were already there.
  */
 import { describe, expect, it } from 'vitest';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import {
   boardEditHandles,
   dragBoardHandle,
   editablePointItems,
   type BoardEditHandle,
-} from '@ziroeda/pcbnew/src/point_editor.js';
-import { boardItemId } from '@ziroeda/pcbnew/src/edit-board.js';
-import { radialKnee } from '@ziroeda/pcbnew/src/dimension_geometry.js';
-import type { Board, PcbDimension, PcbTextItem } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/tools/pcb_point_editor.js';
+import { boardItemId } from '@ziroeda/pcbnew/edit-board.js';
+import { radialKnee } from '@ziroeda/pcbnew/dimension_geometry.js';
+import type { Board, PcbDimension, PcbTextItem } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 const P = (x: number, y: number): { x: number; y: number } => ({ x: MM(x), y: MM(y) });

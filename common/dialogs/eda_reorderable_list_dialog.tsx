@@ -1,0 +1,141 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+/**
+ * `EDA_REORDERABLE_LIST_DIALOG` (common/dialogs/eda_reorderable_list_dialog.cpp):
+ * an Available list on the left, an Enabled list on the right, ">" / "<"
+ * between them and Move up / Move down beside the enabled list. The library
+ * tree's header menu opens it as `EDA_REORDERABLE_LIST_DIALOG dlg( m_parent,
+ * _( "Select Columns" ), ... )` (widgets/lib_tree.cpp:1105).
+ */
+import { useState } from 'react';
+import { useModalEscape } from '../dialog_shim.js';
+
+export interface EDA_REORDERABLE_LIST_DIALOG_PROPS {
+  /** `aTitle`. */
+  title: string;
+  /** Every column the tree can show (m_availableItems). */
+  available: readonly string[];
+  /** Currently shown columns, in order (m_enabledItems). */
+  enabled: readonly string[];
+  onOk: (enabled: string[]) => void;
+  onCancel: () => void;
+}
+
+export function EDA_REORDERABLE_LIST_DIALOG({
+  title,
+  available,
+  enabled,
+  onOk,
+  onCancel,
+}: EDA_REORDERABLE_LIST_DIALOG_PROPS): JSX.Element {
+  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
+  // ui/modal_escape.ts.
+  useModalEscape(onCancel);
+
+  const [enabledList, setEnabledList] = useState<string[]>([...enabled]);
+  const [selAvailable, setSelAvailable] = useState<string | null>(null);
+  const [selEnabled, setSelEnabled] = useState<string | null>(null);
+
+  // updateItems: the available list shows only what isn't enabled yet.
+  const availableList = available.filter((c) => !enabledList.includes(c));
+
+  const add = () => {
+    if (!selAvailable) return;
+    setEnabledList((prev) => [...prev, selAvailable]);
+    setSelEnabled(selAvailable);
+    setSelAvailable(null);
+  };
+
+  const remove = () => {
+    // "Item" is always shown, so it can never be moved back to available.
+    if (!selEnabled || selEnabled === 'Item') return;
+    setEnabledList((prev) => prev.filter((c) => c !== selEnabled));
+    setSelAvailable(selEnabled);
+    setSelEnabled(null);
+  };
+
+  const move = (delta: number) => {
+    if (!selEnabled) return;
+    setEnabledList((prev) => {
+      const idx = prev.indexOf(selEnabled);
+      const next = idx + delta;
+      if (idx < 0 || next < 0 || next >= prev.length) return prev;
+      const out = [...prev];
+      out.splice(idx, 1);
+      out.splice(next, 0, selEnabled);
+      return out;
+    });
+  };
+
+  return (
+    <div className="ze-modal-backdrop" onMouseDown={onCancel}>
+      <div className="ze-modal ze-select-columns" onMouseDown={(e) => e.stopPropagation()}>
+        <div className="ze-modal-header">
+          {title}
+          <span className="x" onClick={onCancel}>
+            ✕
+          </span>
+        </div>
+        <div className="ze-modal-body ze-reorderable">
+          <div className="ze-reorderable-col">
+            <label>Available:</label>
+            <div className="ze-reorderable-list">
+              {availableList.map((c) => (
+                <div
+                  key={c}
+                  className={`row${c === selAvailable ? ' active' : ''}`}
+                  onClick={() => setSelAvailable(c)}
+                  onDoubleClick={() => {
+                    setSelAvailable(c);
+                    setEnabledList((prev) => [...prev, c]);
+                  }}
+                >
+                  {c}
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="ze-reorderable-buttons">
+            <button type="button" className="ze-btn" title="Add" onClick={add}>
+              &gt;
+            </button>
+            <button type="button" className="ze-btn" title="Remove" onClick={remove}>
+              &lt;
+            </button>
+          </div>
+          <div className="ze-reorderable-col wide">
+            <label>Enabled:</label>
+            <div className="ze-reorderable-list">
+              {enabledList.map((c) => (
+                <div
+                  key={c}
+                  className={`row${c === selEnabled ? ' active' : ''}`}
+                  onClick={() => setSelEnabled(c)}
+                >
+                  {c}
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="ze-reorderable-buttons">
+            <button type="button" className="ze-btn" title="Move up" onClick={() => move(-1)}>
+              ▲
+            </button>
+            <button type="button" className="ze-btn" title="Move down" onClick={() => move(1)}>
+              ▼
+            </button>
+          </div>
+        </div>
+        <div className="ze-modal-footer">
+          <button type="button" className="ze-btn primary" onClick={() => onOk(enabledList)}>
+            OK
+          </button>
+          <button type="button" className="ze-btn" onClick={onCancel}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

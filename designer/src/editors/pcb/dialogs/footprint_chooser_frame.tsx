@@ -27,14 +27,16 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { JSX } from 'react';
-import { PanelFootprintChooser } from '../widgets/panel_footprint_chooser.js';
-import type { FootprintTreeFilter } from '../widgets/fp_tree_model_adapter.js';
-import { footprintHistory } from '../widgets/footprint_history.js';
+import { PanelFootprintChooser } from '@ziroeda/pcbnew/widgets/panel_footprint_chooser.js';
+import type { FootprintTreeFilter } from '@ziroeda/pcbnew/fp_tree_model_adapter.js';
+import { footprintHistory } from '@ziroeda/pcbnew/widgets/footprint_history.js';
 import { FootprintPreview3D, useFootprintHolderBoard } from '../widgets/footprint_preview_3d.js';
 import { Viewer3DFrame } from '../Viewer3DFrame.js';
-import { loadFootprintIndex, type FpIndexEntry } from '../../../widgets/footprint_list.js';
-import { useModalEscape } from '../../../ui/useModalEscape.js';
-import { bitmapUrl } from '../../../ui/toolbarIcons.js';
+import { PCB_FOOTPRINT_PREVIEW_PANEL } from '../footprint_preview_panel.js';
+import type { FootprintIndexLibrary } from '@ziroeda/pcbnew/footprint_info_impl.js';
+import type { PcbFootprint } from '@ziroeda/pcbnew';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { BitmapButton, BitmapButtonSeparator } from '@ziroeda/common/widgets/bitmap_button.js';
 
 /**
  * `inline static bool m_showDescription = true; m_showFpMode = true;
@@ -43,36 +45,6 @@ import { bitmapUrl } from '../../../ui/toolbarIcons.js';
  * resets them. Module-level for the same reason.
  */
 const views = { description: true, fp: true, threeD: false };
-
-/**
- * `BITMAP_BUTTON` with `SetIsRadioButton()` and `Check()`, the bottom panel's
- * three toggles. The same class paints the text-format bars, so it is their
- * `.ze-lp-iconbtn` rule and not a second one.
- */
-function ViewToggle({
-  bitmap,
-  tooltip,
-  checked,
-  onClick,
-}: {
-  bitmap: string;
-  tooltip: string;
-  checked: boolean;
-  onClick: () => void;
-}): JSX.Element {
-  const url = bitmapUrl(bitmap);
-  return (
-    <button
-      type="button"
-      className={`ze-lp-iconbtn${checked ? ' checked' : ''}`}
-      title={tooltip}
-      aria-pressed={checked}
-      onClick={onClick}
-    >
-      {url ? <img src={url} alt="" /> : tooltip}
-    </button>
-  );
-}
 
 export interface FootprintChooserFrameProps {
   /**
@@ -95,6 +67,16 @@ export interface FootprintChooserFrameProps {
   onOk: (libId: string) => void;
   /** Cancel, Escape, or OK with nothing chosen — `DismissModal( false )`. */
   onCancel: () => void;
+  /**
+   * `widgets/footprint_list.ts`'s hosted footprint library index and its lazy
+   * per-footprint fetch — app-level (they reach the account's hosted bundle),
+   * so they arrive as props rather than an import. The seam
+   * `PCBNEW_APP` / `CVPCB_APP` give a frame; this dialog is not a `_ui.tsx`
+   * frame yet, so it takes the two functions directly instead of a whole app
+   * object.
+   */
+  loadFootprintIndex: () => Promise<FootprintIndexLibrary[]>;
+  loadFootprint: (libId: string) => Promise<PcbFootprint | null>;
 }
 
 export function FootprintChooserFrame({
@@ -103,10 +85,12 @@ export function FootprintChooserFrame({
   pinCount,
   onOk,
   onCancel,
+  loadFootprintIndex,
+  loadFootprint,
 }: FootprintChooserFrameProps): JSX.Element {
   useModalEscape(onCancel);
 
-  const [index, setIndex] = useState<readonly FpIndexEntry[]>([]);
+  const [index, setIndex] = useState<readonly FootprintIndexLibrary[]>([]);
   /**
    * `SetTitle( GetTitle() + " (%d items loaded)" )` runs ONCE, in the
    * constructor, before any `Regenerate()` - so the count is the whole library
@@ -132,7 +116,7 @@ export function FootprintChooserFrame({
   const [show3D, setShow3D] = useState(views.threeD);
   /** `m_show3DViewer`, unticked on every open — a plain wxCheckBox, no setting. */
   const [ownWindow, setOwnWindow] = useState(false);
-  const holderBoard = useFootprintHolderBoard(show3D ? (selected ?? '') : '');
+  const holderBoard = useFootprintHolderBoard(show3D ? (selected ?? '') : '', loadFootprint);
 
   /** `toggleBottomSplit` (:808-838). */
   const toggleDescription = (): void => {
@@ -242,6 +226,7 @@ export function FootprintChooserFrame({
             preselect={preselect}
             history={footprintHistory()}
             showFpView={showFp}
+            panel={PCB_FOOTPRINT_PREVIEW_PANEL}
             preview3D={show3D ? <FootprintPreview3D board={holderBoard} /> : undefined}
             showDetails={showDescription}
             onSelect={setSelected}
@@ -252,26 +237,26 @@ export function FootprintChooserFrame({
             BITMAP_BUTTONs with their two separators, the checkbox, a 20px
             spacer and the wxStdDialogButtonSizer — everything right-aligned. */}
         <div className="ze-cp-buttons ze-fpchooser-foot">
-          <ViewToggle
+          <BitmapButton
             bitmap={showDescription ? 'text_visibility_off' : 'text_visibility'}
             tooltip="Show/hide description panel"
             checked={showDescription}
             onClick={toggleDescription}
           />
-          <span className="ze-lp-sep" />
-          <ViewToggle
+          <BitmapButtonSeparator />
+          <BitmapButton
             bitmap="shape_3d"
             tooltip="Show/hide 3D view panel"
             checked={show3D}
             onClick={toggle3D}
           />
-          <ViewToggle
+          <BitmapButton
             bitmap="module"
             tooltip="Show/hide footprint view panel"
             checked={showFp}
             onClick={toggleFp}
           />
-          <span className="ze-lp-sep" />
+          <BitmapButtonSeparator />
           {/* m_show3DViewer (:178) — `onExternalViewer3DEnable`: ticked with
               the 3D view on opens EDA_3D_VIEWER_FRAME; unticked closes it. */}
           <label className="ze-check">

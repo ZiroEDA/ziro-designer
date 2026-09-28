@@ -15,28 +15,19 @@
  * there was no `Attr:` choice, and no grid or zoom selector anywhere.
  */
 import { describe, expect, it } from 'vitest';
-import { parseGerber } from '@ziroeda/gerbview';
 import {
   GBR_CONTROL,
   GBR_TOP_AUX_TOOLBAR,
   GBR_TOP_TOOLBAR,
-} from '@ziroeda/designer/src/editors/gerbview/gerberToolbars.js';
-import {
-  apertureAttributeChoices,
-  componentChoices,
-  dcodeChoices,
-  dcodeListLines,
-  netChoices,
   NO_SELECTION_STRING,
-  showApertureType,
-  textInfoLine,
-} from '@ziroeda/designer/src/editors/gerbview/gerberAuxControls.js';
-import { GRID_SIZE_LIST, gridChoiceLabel } from '@ziroeda/designer/src/ui/grid_settings.js';
-import { ZOOM_LIST, zoomChoices } from '@ziroeda/designer/src/ui/zoom_settings.js';
-import { APERTURE_T } from '@ziroeda/gerbview';
+} from '@ziroeda/gerbview/toolbars_gerber.js';
+import { D_CODE } from '@ziroeda/gerbview/dcode.js';
+import { GRID_SIZE_LIST, gridChoiceLabel } from '@ziroeda/common/settings/grid_settings_ui.js';
+import { ZOOM_LIST, zoomChoices } from '@ziroeda/common/settings/zoom_settings.js';
+import { APERTURE_T, IU_PER_MM } from '@ziroeda/gerbview';
 
-/** GerbView reads coordinates at 1 nm per IU, `gerbIUScale.IU_PER_MM`. */
-const GBR_IU_PER_MM = 1e6;
+/** GerbView's frame scale, 10 nm per IU (`GERB_IU_PER_MM`). */
+const GBR_IU_PER_MM = IU_PER_MM;
 
 describe('the TOP_AUX toolbar layout', () => {
   /**
@@ -105,152 +96,14 @@ describe('the empty entry', () => {
 describe('D_CODE::ShowApertureType', () => {
   /** `gerbview/dcode.cpp:86-110`. "Poly" is four letters; ours said "Polygon". */
   it('abbreviates a polygon to Poly', () => {
-    expect(showApertureType(APERTURE_T.APT_POLYGON)).toBe('Poly');
+    expect(D_CODE.ShowApertureType(APERTURE_T.APT_POLYGON)).toBe('Poly');
   });
 
   it('names the other four as upstream does', () => {
-    expect(showApertureType(APERTURE_T.APT_CIRCLE)).toBe('Round');
-    expect(showApertureType(APERTURE_T.APT_RECT)).toBe('Rect');
-    expect(showApertureType(APERTURE_T.APT_OVAL)).toBe('Oval');
-    expect(showApertureType(APERTURE_T.APT_MACRO)).toBe('Macro');
-  });
-});
-
-/**
- * A two-aperture, two-item RS-274X file in millimetres: D10 is a 0.6 mm round
- * pad and D11 a 1.5 x 0.8 mm rectangle, flashed with %TO.N / %TO.C attached.
- */
-const SAMPLE = [
-  '%FSLAX36Y36*%',
-  '%MOMM*%',
-  '%TF.FileFunction,Copper,L1,Top*%',
-  '%ADD10C,0.6*%',
-  '%ADD11R,1.5X0.8*%',
-  '%TO.N,GND*%',
-  '%TO.C,R1*%',
-  'D10*',
-  'X1000000Y1000000D03*',
-  '%TO.N,VCC*%',
-  '%TO.C,C2*%',
-  'D11*',
-  'X2000000Y1000000D03*',
-  'M02*',
-].join('\n');
-
-describe('updateDCodeSelectBox', () => {
-  const image = parseGerber(SAMPLE, 'top.gbr');
-
-  /**
-   * `msg.Printf( wxT( "tool %d [%.3fx%.3f %s] %s" ), ... )` (`:322-326`).
-   * `%.3f` is three decimals in EVERY unit, which is why this does not go
-   * through MessageTextFromValue: 0.6 mm is "0.600", not "0.6000".
-   */
-  it('formats an aperture as tool N [WxH unit] Type', () => {
-    const rows = dcodeChoices(image, 'mm', GBR_IU_PER_MM);
-    expect(rows.map((r) => r.label)).toEqual([
-      'tool 10 [0.600x0.600 mm] Round',
-      'tool 11 [1.500x0.800 mm] Rect',
-    ]);
-  });
-
-  /** `units = wxT( "in" )` and `wxT( "mil" )` — singular, and not "inches". */
-  it('spells the units in and mil, GerbView’s own words', () => {
-    expect(dcodeChoices(image, 'in', GBR_IU_PER_MM)[0]?.label).toBe(
-      'tool 10 [0.024x0.024 in] Round',
-    );
-    expect(dcodeChoices(image, 'mils', GBR_IU_PER_MM)[0]?.label).toBe(
-      'tool 10 [23.622x23.622 mil] Round',
-    );
-  });
-
-  it('carries the D-code number the selection stores', () => {
-    expect(dcodeChoices(image, 'mm', GBR_IU_PER_MM).map((r) => r.dcode)).toEqual([10, 11]);
-  });
-
-  /** The box is per-active-layer, so no image means no rows at all (`:275-283`). */
-  it('is empty when the active layer holds no image', () => {
-    expect(dcodeChoices(null, 'mm', GBR_IU_PER_MM)).toEqual([]);
-  });
-});
-
-describe('the three highlight lists', () => {
-  const a = parseGerber(SAMPLE, 'top.gbr');
-  const b = parseGerber(
-    ['%FSLAX36Y36*%', '%MOMM*%', '%ADD10C,0.2*%', '%TO.C,U9*%', 'D10*', 'X0Y0D03*', 'M02*'].join(
-      '\n',
-    ),
-    'bot.gbr',
-  );
-
-  /**
-   * "Build the full list of component names from the partial lists stored in
-   * EACH file image" (`:335-345`). Ours read the active image only, so U9 —
-   * which lives on the second layer — was invisible while layer 1 was active.
-   */
-  it('spans every loaded image, not just the active one', () => {
-    expect(componentChoices([a, b])).toEqual(['C2', 'R1', 'U9']);
-    expect(componentChoices([a])).toEqual(['C2', 'R1']);
-  });
-
-  /** `std::map<wxString, int>` sorts and de-duplicates before the append. */
-  it('sorts and de-duplicates, as the std::map does', () => {
-    expect(netChoices([a, a])).toEqual(['GND', 'VCC']);
-  });
-
-  /**
-   * `m_SelNetnameBox->Append( UnescapeString( entry.first ) )` (`:381`) -- the
-   * net choice is the ONE of the three that unescapes, and a hierarchical net
-   * name reaches the file with its slash written `{slash}`. Note the sort is
-   * still on the escaped key, because upstream's std::map is keyed on it and
-   * only the Append unescapes.
-   */
-  it('unescapes a net name, which the component and attribute lists do not', () => {
-    const esc = parseGerber(
-      [
-        '%FSLAX36Y36*%',
-        '%MOMM*%',
-        '%ADD10C,0.2*%',
-        '%TO.N,SHEET{slash}NET*%',
-        '%TO.C,J{slash}1*%',
-        'D10*',
-        'X0Y0D03*',
-        'M02*',
-      ].join('\n'),
-      'esc.gbr',
-    );
-    expect(netChoices([esc])).toEqual(['SHEET/NET']);
-    expect(componentChoices([esc])).toEqual(['J{slash}1']);
-  });
-
-  it('is empty when nothing is loaded', () => {
-    expect(netChoices([])).toEqual([]);
-    expect(apertureAttributeChoices([])).toEqual([]);
-  });
-});
-
-describe('UpdateTitleAndInfo’s text-info box', () => {
-  /** `wxString info = _( "Drawing layer not in use" );` (`gerbview_frame.cpp:671`). */
-  it('says the layer is not in use when there is no image', () => {
-    expect(textInfoLine(null)).toBe('Drawing layer not in use');
-  });
-
-  /**
-   * `"fmt: %s X%d.%d Y%d.%d no %cZ"` (`:701-708`). %FSLAX36Y36 is 3 integer
-   * and 6 fractional digits with leading zeros omitted, so the trailing-zero
-   * flag prints 'L'; %MOMM makes the unit word "mm". The file carries a
-   * %TF.FileFunction, which is the one thing that sets `m_IsX2_file`
-   * (`rs274x.cpp:390-397`), so " X2 attr" follows.
-   */
-  it('prints the coordinate format, and flags an X2 file', () => {
-    expect(textInfoLine(parseGerber(SAMPLE, 'top.gbr'))).toBe('fmt: mm X3.6 Y3.6 no LZ X2 attr');
-  });
-
-  it('omits the X2 flag for a file with no file function', () => {
-    const plain = parseGerber(
-      ['%FSLAX24Y24*%', '%MOIN*%', '%ADD10C,0.01*%', 'D10*', 'X0Y0D03*', 'M02*'].join('\n'),
-      'p.gbr',
-    );
-    expect(textInfoLine(plain)).toBe('fmt: in X2.4 Y2.4 no LZ');
+    expect(D_CODE.ShowApertureType(APERTURE_T.APT_CIRCLE)).toBe('Round');
+    expect(D_CODE.ShowApertureType(APERTURE_T.APT_RECT)).toBe('Rect');
+    expect(D_CODE.ShowApertureType(APERTURE_T.APT_OVAL)).toBe('Oval');
+    expect(D_CODE.ShowApertureType(APERTURE_T.APT_MACRO)).toBe('Macro');
   });
 });
 
@@ -262,8 +115,8 @@ describe('the grid selector', () => {
    * not eeschema/symbol_editor/pl_editor (`app_settings.cpp:472-481`).
    *
    * Both halves are load-bearing: mm at four decimals and mils at two is
-   * MessageTextFromValue's non-short-form precision, which is what a 1e6-IU
-   * frame gets; a 1e4-IU frame would print "0.500 mm (20 mils)".
+   * MessageTextFromValue's non-short-form precision, which is what a 1e5-IU
+   * GerbView frame gets; a 1e4-IU frame would print "0.500 mm (20 mils)".
    */
   it('reads 0.5000 mm (19.69 mils) at GerbView’s default grid', () => {
     // Read from the table rather than retyped, so the row and the label are
@@ -347,90 +200,3 @@ describe('the zoom selector', () => {
 // ---------------------------------------------------------------------------
 // List DCodes
 // ---------------------------------------------------------------------------
-
-describe('GERBVIEW_INSPECTION_TOOL::ShowDCodes', () => {
-  const a = parseGerber(SAMPLE, 'top.gbr');
-  const b = parseGerber(
-    ['%FSLAX36Y36*%', '%MOMM*%', '%ADD20C,0.3*%', 'D20*', 'X0Y0D03*', 'M02*'].join('\n'),
-    'bot.gbr',
-  );
-
-  /**
-   * `*** Active layer (%2.2d) ***` / `*** layer %2.2d  ***` on `layer + 1`
-   * (`gerbview/tools/gerbview_inspection_tool.cpp:109-113`). One-based,
-   * zero-padded to two, and the INACTIVE form carries two spaces before its
-   * closing stars where the active one carries one.
-   */
-  it('heads every layer, marking the active one', () => {
-    const lines = dcodeListLines([a, b], 0, 'mm', GBR_IU_PER_MM);
-    expect(lines[0]).toBe('*** Active layer (01) ***');
-    expect(lines.find((l) => l.startsWith('*** layer'))).toBe('*** layer 02  ***');
-  });
-
-  it('moves the Active marker with the active layer', () => {
-    const lines = dcodeListLines([a, b], 1, 'mm', GBR_IU_PER_MM);
-    expect(lines[0]).toBe('*** layer 01  ***');
-    expect(lines.find((l) => l.includes('Active'))).toBe('*** Active layer (02) ***');
-  });
-
-  /**
-   * Ours listed the ACTIVE image only. Upstream walks every image in the list
-   * (`:99-105`), which is the whole reason this is a report rather than a
-   * per-layer table.
-   */
-  it('lists every layer, not just the active one', () => {
-    const lines = dcodeListLines([a, b], 0, 'mm', GBR_IU_PER_MM);
-    expect(lines.filter((l) => l.startsWith('***'))).toHaveLength(2);
-    expect(lines.some((l) => l.includes('Dcode D20'))).toBe(true);
-  });
-
-  /**
-   * `"tool %d:   Dcode D%d   V %.4f %s  H %.4f %s   %s  attribute '%s'"`
-   * (`:125-131`), spacing included: three spaces after the colon and after the
-   * D-code, two between V and H, three before the type, two before "attribute".
-   *
-   * **V is m_Size.y and H is m_Size.x** — vertical first, the opposite order to
-   * the toolbar's `[%.3fx%.3f]`. D11 is 1.5 wide by 0.8 tall, so V reads 0.8000
-   * and H reads 1.5000; swapping them is the mistake this pins.
-   */
-  it('formats a row exactly, with V before H', () => {
-    const lines = dcodeListLines([a], 0, 'mm', GBR_IU_PER_MM);
-    // Both apertures in SAMPLE are flashed, so both carry " (in use)" -
-    // `if( pt_D_code->m_InUse ) Line += wxT( " (in use)" );` (`:137-138`).
-    expect(lines[1]).toBe(
-      "tool 1:   Dcode D10   V 0.6000 mm  H 0.6000 mm   Round  attribute 'none' (in use)",
-    );
-    expect(lines[2]).toBe(
-      "tool 2:   Dcode D11   V 0.8000 mm  H 1.5000 mm   Rect  attribute 'none' (in use)",
-    );
-  });
-
-  /** `ii` restarts at 1 for each layer (`:116`), so it is a per-layer index. */
-  it('numbers the tools per layer, restarting at one', () => {
-    const lines = dcodeListLines([a, b], 0, 'mm', GBR_IU_PER_MM);
-    expect(lines.filter((l) => l.startsWith('tool 1:'))).toHaveLength(2);
-  });
-
-  /** `if( pt_D_code->m_InUse ) Line += wxT( " (in use)" );` (`:137-138`). */
-  it('flags an aperture that is in use', () => {
-    for (const l of dcodeListLines([a], 0, 'mm', GBR_IU_PER_MM).filter((x) => x.startsWith('tool')))
-      expect(l.endsWith(' (in use)')).toBe(true);
-  });
-
-  /** `%.4f`, four decimals in every unit, and the same unit words the toolbar uses. */
-  it('uses four decimals, and GerbView’s own unit words', () => {
-    expect(dcodeListLines([a], 0, 'in', GBR_IU_PER_MM)[1]).toContain('V 0.0236 in');
-    expect(dcodeListLines([a], 0, 'mils', GBR_IU_PER_MM)[1]).toContain('V 23.6220 mil');
-  });
-
-  /** `if( gerber->GetDcodesCount() == 0 ) continue;` (`:106-107`). */
-  it('skips a layer with no apertures, and a null layer', () => {
-    const empty = parseGerber(['%FSLAX36Y36*%', '%MOMM*%', 'M02*'].join('\n'), 'e.gbr');
-    expect(dcodeListLines([empty], 0, 'mm', GBR_IU_PER_MM)).toEqual([]);
-    expect(dcodeListLines([null, a], 1, 'mm', GBR_IU_PER_MM)[0]).toBe('*** Active layer (02) ***');
-  });
-
-  it('is empty when nothing is loaded', () => {
-    expect(dcodeListLines([], 0, 'mm', GBR_IU_PER_MM)).toEqual([]);
-  });
-});

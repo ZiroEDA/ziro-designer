@@ -24,7 +24,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { hitTestErcMarker } from '@ziroeda/designer/src/editors/schematic/render/renderer.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 
 const AT = { x: mmToIU(100), y: mmToIU(100) };
 /** The marker polygon is 13 units of 0.15 mm, growing +x/+y from the anchor. */

@@ -1,6 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+import { drawOriginViewItem } from '@ziroeda/common/origin_viewitem.js';
+import { drawConstructionGeom } from '@ziroeda/common/preview_items/construction_geom.js';
+import {
+  drawSnapIndicator,
+  SNAP_INDICATOR_DEFAULT_SIZE,
+} from '@ziroeda/common/preview_items/snap_indicator.js';
+import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
+import { GRID_HELPER_GRIDS } from '@ziroeda/common/tool/grid_helper.js';
 import type { Vec2 } from '@ziroeda/kimath';
 import { rotateOrientation, mirrorOrientation, type Orientation } from '@ziroeda/common';
 import {
@@ -27,6 +35,7 @@ import {
   findTargetSheet,
   copySelectionText,
   selectionBBox,
+  isEmpty as bboxIsEmpty,
   hasExtent,
   type BBox,
   PREVIEW_JUNCTION_DIAMETER_IU,
@@ -91,9 +100,8 @@ import {
   makeBusEntryOrSegment,
   makeImage,
   DEFAULT_ENTRY_SIZE,
-  collectAnchors,
-  selectionAnchors,
-  nearestAnchor,
+  EE_GRID_HELPER,
+  nearestSnapAnchor,
   danglingPinPositions,
   boxSelect,
   lassoSelect,
@@ -128,17 +136,17 @@ import {
   makeSymbol,
 } from '@ziroeda/eeschema';
 // Imported by module path rather than through the package barrel: Vite serves
-// a cached transform of `eeschema/src/index.ts` and does not re-transform it
+// a cached transform of `eeschema/index.ts` and does not re-transform it
 // when a new export appears, so a barrel import of anything added since the
 // dev server started resolves to `undefined` at runtime.
-import { makeBezier } from '@ziroeda/eeschema/src/tools/build-graphics.js';
+import { makeBezier } from '@ziroeda/eeschema/tools/build-graphics.js';
 import {
   type BezierDraw,
   beginBezier,
   bezierPoints,
   calcBezier,
   continueBezier,
-} from '@ziroeda/eeschema/src/tools/bezier_geom.js';
+} from '@ziroeda/eeschema/tools/bezier_geom.js';
 import { hitTestDrawingSheet } from '@ziroeda/common';
 import {
   renderSchematic,
@@ -255,19 +263,19 @@ import {
   cssWithAlpha,
 } from '@ziroeda/common';
 import { toolCursor as kiToolCursor } from '../cursors.js';
-import { applyCanvasSize, backingSizeFor } from '../../../ui/canvas_size.js';
-import { kiCursor } from '../../../ui/kicursors.js';
+import { applyCanvasSize, backingSizeFor } from '@ziroeda/common/widgets/canvas_size.js';
+import { kiCursor } from '@ziroeda/common/gal/kicursors.js';
 import { remapEvent } from '../hotkey_bindings.js';
 import { settings } from '../../../prefs/settings.js';
 import { peerColor } from '../../../sync/peerColor.js';
-import type { InputPrefs } from '../../../ui/view_controls.js';
-import { onOutlineFontsChanged } from '../../../font/outline_fonts.js';
+import type { InputPrefs } from '@ziroeda/common/ui/view_controls.js';
+import { onOutlineFontsChanged } from '@ziroeda/common/font/outline_fonts.js';
 import {
   drawGrid,
   drawCrosshair,
   gridSnappingEnabled,
   viewFromOffsets,
-} from '../../../ui/grid_cursor.js';
+} from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
 import {
   DEFAULT_INPUT_PREFS,
   dragGesture,
@@ -276,7 +284,7 @@ import {
   makeMotionPan,
   makeZoomController,
   wheelAction,
-} from '../../../ui/view_controls.js';
+} from '@ziroeda/common/ui/view_controls.js';
 
 /**
  * Tools that snap to connection anchors (pins, wire ends) rather than plain
@@ -757,6 +765,8 @@ interface Props {
   onTableDrawn?: (start: Vec2, end: Vec2) => void;
   /** A sheet-pin click landed on a sheet edge: prompt for the pin name and add it. */
   onSheetPinClick?: (sheetIndex: number, at: Vec2, side: 0 | 90 | 180 | 270) => void;
+  /** The sheet-pin tool clicked with no sheet under the cursor. */
+  onSheetPinMiss?: () => void;
   /**
    * `schematic->Settings().m_DefaultTextSize`, in IU. The table tool needs it:
    * a column is fifteen characters wide and a row two high, so the grid a drag
@@ -868,6 +878,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
     onTextBoxDrawn,
     onTableDrawn,
     onSheetPinClick,
+    onSheetPinMiss,
     tableFontSizeIU,
     pendingImage,
     onImagePlaced,
@@ -944,6 +955,40 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
   );
   const snap = (p: Vec2): Vec2 =>
     snapping ? { x: Math.round(p.x / GRID) * GRID, y: Math.round(p.y / GRID) * GRID } : p;
+  /**
+   * The canvas's `EE_GRID_HELPER`, held for the life of the canvas the way a
+   * tool holds its `grid` for the life of its event loop. What a tool reads off
+   * the GAL and the settings each event (grid, snapping, overrides) is loaded
+   * from `gridCfgRef` on every ask, and the sheet it queries is re-indexed only
+   * when the document changes.
+   */
+  const gridHelperRef = useRef<EE_GRID_HELPER | null>(null);
+  const gridCfgRef = useRef({ size: 0, snapping: true, overrides: o, libById });
+  gridCfgRef.current = { size: renderOpts.grid.sizeIU, snapping, overrides: o, libById };
+  const gridHelper = useCallback((doc: Schematic): EE_GRID_HELPER => {
+    if (!gridHelperRef.current) {
+      gridHelperRef.current = new EE_GRID_HELPER();
+      // The overlay is the helper's VIEW: the snap point and construction
+      // preview are drawn there, and it repaints when they change.
+      gridHelperRef.current.AttachView(() => requestOverlayRef.current());
+    }
+    const h = gridHelperRef.current;
+    const cfg = gridCfgRef.current;
+    h.SetSchematic(doc, cfg.libById);
+    h.SetGridSize({ x: cfg.size, y: cfg.size });
+    h.SetGridSnapping(cfg.snapping);
+    h.SetGridOverrides(
+      cfg.overrides?.enabled
+        ? {
+            connected: cfg.overrides.connected,
+            wires: cfg.overrides.wires,
+            text: cfg.overrides.text,
+            graphics: cfg.overrides.graphics,
+          }
+        : null,
+    );
+    return h;
+  }, []);
   // EDIT_POINTS::ViewDraw's colours, which depend on the theme's aux-items
   // colour *and* on the canvas background it is compared against.
   const editPointColor = useMemo(
@@ -1064,10 +1109,14 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
   // commits on the next left click (vs a button-drag, committed on pointer-up).
   const grabbedRef = useRef(false);
   const effSelRef = useRef<ReadonlySet<string>>(new Set());
-  // Connectable snapping during a move: the moved items' own connection points and the
-  // anchors of everything else, so a dragged pin/wire-end snaps onto a matching anchor.
-  const movePointsRef = useRef<Vec2[]>([]);
-  const moveAnchorsRef = useRef<Vec2[]>([]);
+  // SCH_MOVE_TOOL's snapping: `m_cursor = grid.BestSnapAnchor( mouse, snapLayer,
+  // selection )`. `moveSkipRef` is the selection plus the wires rubber-banding
+  // with it, `moveGridRef` the selection's grid, and `moveWarpRef` the offset
+  // the warped pointer would have - the drag origin less where the mouse went
+  // down - since a page cannot move the OS pointer.
+  const moveSkipRef = useRef<ReadonlySet<string>>(new Set());
+  const moveGridRef = useRef<GRID_HELPER_GRIDS>(GRID_HELPER_GRIDS.GRID_CURRENT);
+  const moveWarpRef = useRef<Vec2>({ x: 0, y: 0 });
 
   // Point editing (SCH_POINT_EDITOR): the handles of the one selected item,
   // which one the cursor is over, and the drag in flight. The reshaped document
@@ -1328,31 +1377,64 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
   );
 
   // Dangling (unconnected) pins, KiCad's clickable wire-start anchors.
-  const danglingPins = useMemo(
-    () => danglingPinPositions(schematic, libById),
-    [schematic, libById],
-  );
+  const danglingPins = useMemo(() => {
+    const helper = new EE_GRID_HELPER();
+    helper.computePinAnchors(danglingPinPositions(schematic, libById));
+    return helper;
+  }, [schematic, libById]);
   /** The dangling pin at/near a world point (within ~8px), or null. */
   const danglingPinAt = useCallback(
     (world: Vec2): Vec2 | null => {
       const vp = viewportRef.current;
       const maxDist = vp && vp.scale > 0 ? 8 / vp.scale : GRID / 2;
-      return nearestAnchor(world, danglingPins, maxDist);
+      return nearestSnapAnchor(danglingPins, world, maxDist);
     },
     [danglingPins],
   );
 
-  // Connectable anchors (pins/wire-ends/junctions/labels) for cursor snapping, à la
-  // KiCad's BestSnapAnchor with GRID_CONNECTABLE.
-  const anchors = useMemo(() => collectAnchors(schematic, libById), [schematic, libById]);
-  /** Snap a world point to the nearest connection anchor within ~10px, else to the grid. */
+  /**
+   * `SCH_MOVE_TOOL::initializeMoveOperation`'s start point (sch_move_tool.cpp:
+   * 1346-1411): the selection's grid, then - with "warp mouse to origin of
+   * moved object" on, its default - `grid.BestDragOrigin` from the gridded
+   * cursor, or the gridded cursor itself for a lone item that
+   * `!IsMovableFromAnchorPoint()`. The pointer would be warped onto the
+   * origin; `moveWarpRef` carries that offset instead.
+   */
+  const snapRef = useRef(snap);
+  snapRef.current = snap;
+  const moveOriginFor = useCallback(
+    (ids: ReadonlySet<string>, mouse: Vec2, grabbedEnd?: Vec2): Vec2 => {
+      const h = gridHelper(schematic);
+      moveGridRef.current = h.GetSelectionGridOf(ids);
+      const cursor = snapRef.current(mouse);
+      const lone = ids.size === 1 ? [...ids][0]! : null;
+      if (!grabbedEnd && lone !== null && !h.IsMovableFromAnchorPoint(lone)) {
+        moveWarpRef.current = { x: 0, y: 0 };
+        return cursor;
+      }
+      const origin =
+        grabbedEnd ??
+        h.BestDragOrigin(cursor, moveGridRef.current, ids, viewportRef.current?.scale || 1);
+      moveWarpRef.current = { x: origin.x - mouse.x, y: origin.y - mouse.y };
+      return origin;
+    },
+    [gridHelper, schematic],
+  );
+  /**
+   * `grid.BestSnapAnchor( pos, gridType, nullptr )` for the connection tools:
+   * the wire and bus tools on `GRID_WIRES` (sch_line_wire_bus_tool.cpp:355),
+   * a junction on its item grid, `GRID_WIRES`, and the rest on
+   * `GRID_CONNECTABLE`.
+   */
   const snapConn = useCallback(
     (world: Vec2): Vec2 => {
-      const vp = viewportRef.current;
-      const maxDist = vp && vp.scale > 0 ? 10 / vp.scale : GRID / 2;
-      return nearestAnchor(world, anchors, maxDist) ?? snap(world);
+      const grid =
+        activeTool === 'drawWire' || activeTool === 'drawBus' || activeTool === 'junction'
+          ? GRID_HELPER_GRIDS.GRID_WIRES
+          : GRID_HELPER_GRIDS.GRID_CONNECTABLE;
+      return gridHelper(schematic).BestSnapAnchor(world, grid);
     },
-    [anchors],
+    [gridHelper, schematic, activeTool],
   );
   /**
    * Track the cursor with the live segment(s) of the wire chain, the motion
@@ -1520,10 +1602,12 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       moveKindRef.current = 'drag';
       effSelRef.current = new Set([...plan.dragEnd, ...plan.dragStart]);
       moveSpecRef.current = plan.spec;
-      movePointsRef.current = plan.at ? [plan.at] : [];
-      moveAnchorsRef.current = collectAnchors(split, libById, effSelRef.current);
+      moveSkipRef.current = effSelRef.current;
+      moveGridRef.current = gridHelper(split).GetSelectionGridOf(effSelRef.current);
       // `m_breakPos` seeds the cursor so the first motion is measured from the
       // break, not from wherever the pointer was when the menu was dismissed.
+      // No warp: the pointer stays where it was.
+      moveWarpRef.current = { x: 0, y: 0 };
       moveStartRef.current = plan.at ?? cursor;
       moveDeltaRef.current = { x: 0, y: 0 };
       if (isRemotelyLocked(effSelRef.current)) return; // a peer's claim
@@ -1552,23 +1636,24 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       moveKindRef.current = kind;
       const next = planMove(schematic, libById, effSelRef.current);
       moveSpecRef.current = next;
-      const moved = new Set([...effSelRef.current, ...next.wireStart, ...next.wireEnd]);
-      moveAnchorsRef.current = collectAnchors(schematic, libById, moved);
+      moveSkipRef.current = new Set([...effSelRef.current, ...next.wireStart, ...next.wireEnd]);
       requestDraw();
       return;
     }
 
     if (isRemotelyLocked(selection)) return; // designer/src/sync/ — a peer's claim
-    const anchors = selectionAnchors(schematic, libById, selection);
-    const origin = cursorRef.current ? snap(cursorRef.current) : (anchors[0] ?? null);
-    if (!origin) return;
+    // With no pointer over the canvas, the selection's centre stands in for it.
+    const bb = selectionBBox(schematic, selection, libById);
+    const mouse =
+      cursorRef.current ??
+      (bboxIsEmpty(bb) ? null : { x: (bb.minX + bb.maxX) / 2, y: (bb.minY + bb.maxY) / 2 });
+    if (!mouse) return;
     moveKindRef.current = kind;
     effSelRef.current = selection;
     const spec = planMove(schematic, libById, selection);
     moveSpecRef.current = spec;
-    movePointsRef.current = anchors;
-    const moving = new Set([...selection, ...spec.wireStart, ...spec.wireEnd]);
-    moveAnchorsRef.current = collectAnchors(schematic, libById, moving);
+    const origin = moveOriginFor(selection, mouse);
+    moveSkipRef.current = new Set([...selection, ...spec.wireStart, ...spec.wireEnd]);
     moveStartRef.current = origin;
     moveDeltaRef.current = { x: 0, y: 0 };
     modeRef.current = 'move';
@@ -2743,12 +2828,74 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       }
     }
 
+    // The grid helper's view items (ee_grid_helper.cpp:47-65): the construction
+    // preview, `m_viewAxis` - a CROSS of 20000 px in (0, 0.1, 0.4, 0.8) - and
+    // `m_viewSnapPoint`, a default-sized CIRCLE_CROSS in (0, 0.1, 0.4, 1).
+    // Computed from the cursor first, so what is drawn is this frame's.
+    const gh = gridHelperRef.current;
+    const snappedCur = cur
+      ? CONNECTION_SNAP_TOOLS.has(activeTool)
+        ? snapConn(cur)
+        : snap(cur)
+      : null;
+    if (gh) {
+      const cg = gh.GetConstructionGeomState();
+      if (cg.visible) {
+        const x0 = -vp.offsetX / vp.scale;
+        const y0 = -vp.offsetY / vp.scale;
+        ctx.save();
+        ctx.setTransform(vp.scale, 0, 0, vp.scale, vp.offsetX, vp.offsetY);
+        drawConstructionGeom(ctx, cg.geom, {
+          viewport: BOX2I.ByCorners(
+            { x: x0, y: y0 },
+            { x: x0 + canvas.width / vp.scale, y: y0 + canvas.height / vp.scale },
+          ),
+          worldScale: vp.scale,
+        });
+        ctx.restore();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+      }
+      const toPx = (p: Vec2): Vec2 => ({
+        x: p.x * vp.scale + vp.offsetX,
+        y: p.y * vp.scale + vp.offsetY,
+      });
+      const axis = gh.GetAxisState();
+      if (axis.visible)
+        drawOriginViewItem(ctx, {
+          position: axis.position,
+          toPx,
+          style: 'cross',
+          size: 20000 * dpr(),
+          // [data] EE_GRID_HELPER's m_viewAxis: COLOR4D( 0.0, 0.1, 0.4, 0.8 )
+          // (ee_grid_helper.cpp:58), fixed regardless of colour theme.
+          color: 'rgba(0, 26, 102, 0.8)',
+          drawAtZero: true,
+          lineWidth: Math.max(1, dpr()),
+        });
+      const sp = gh.GetSnapIndicatorState();
+      if (sp.visible)
+        drawSnapIndicator(ctx, {
+          position: sp.position,
+          toPx,
+          style: 'circle_cross',
+          size: SNAP_INDICATOR_DEFAULT_SIZE * dpr(),
+          // [data] EE_GRID_HELPER's m_viewSnapPoint: COLOR4D( 0.0, 0.1, 0.4, 1.0 )
+          // (ee_grid_helper.cpp:64), fixed regardless of colour theme.
+          color: 'rgb(0, 26, 102)',
+          drawAtZero: true,
+          snapTypes: sp.snapTypes,
+          lineWidth: Math.max(1, dpr()),
+          canvasWidth: canvas.width,
+          canvasHeight: canvas.height,
+        });
+    }
+
     // Crosshair cursor (GAL::blitCursor), in the LAYER_SCHEMATIC_CURSOR colour.
     // The drawing tools ask for it (ShowCursor(true)); the selection tool does
     // not, so with `select` active it appears only because "Always show
     // crosshairs" forced it, and upstream dims a forced cursor to half alpha.
-    if (cur) {
-      const c = CONNECTION_SNAP_TOOLS.has(activeTool) ? snapConn(cur) : snap(cur);
+    if (snappedCur) {
+      const c = snappedCur;
       drawCrosshair(
         ctx,
         { x: c.x * vp.scale + vp.offsetX, y: c.y * vp.scale + vp.offsetY },
@@ -3557,6 +3704,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       if (activeTool === 'sheetPin') {
         const found = nearestSheetEdge(schematic, world, (10 * dpr()) / vp.scale, snap);
         if (found) onSheetPinClick?.(found.index, found.at, found.side);
+        else onSheetPinMiss?.();
         return;
       }
 
@@ -3825,7 +3973,6 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         // one, which is why `pointEditTarget` no longer offers any.
         const grabbedEnd = wireEndUnderPress(effSel, world);
         effSelRef.current = grabbedEnd ? new Set<string>() : effSel;
-        moveStartRef.current = world;
         moveDeltaRef.current = { x: 0, y: 0 };
         // Nothing moves whole; the endpoint does, and every wire meeting it
         // picks up STARTPOINT/ENDPOINT from that.
@@ -3833,14 +3980,15 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
           ? planMoveFromPoints(schematic, libById, new Set(), [grabbedEnd])
           : planMove(schematic, libById, effSel);
         moveSpecRef.current = spec;
-        movePointsRef.current = grabbedEnd
-          ? [grabbedEnd]
-          : selectionAnchors(schematic, libById, effSel);
-        // Snap targets are the fixed anchors: exclude the selection AND the wires that
-        // rubber-band with it (spec.wireStart/wireEnd), so a moved point never snaps
-        // back onto a wire that is moving with it.
-        const moving = new Set([...effSelRef.current, ...spec.wireStart, ...spec.wireEnd]);
-        moveAnchorsRef.current = collectAnchors(schematic, libById, moving);
+        // The grabbed end is the nearest corner BestDragOrigin would pick on
+        // the line; anything else asks it.
+        moveStartRef.current = grabbedEnd
+          ? moveOriginFor(effSel, world, grabbedEnd)
+          : moveOriginFor(effSel, world);
+        // `aSkip` is the selection AND the wires that rubber-band with it
+        // (spec.wireStart/wireEnd), so a moved point never snaps back onto a
+        // wire that is moving with it.
+        moveSkipRef.current = new Set([...effSelRef.current, ...spec.wireStart, ...spec.wireEnd]);
       } else {
         // Empty canvas (or SELECT-mode drag): start a KiCad drag-box selection
         // (left-to-right = window select, right-to-left = greedy). A no-drag
@@ -3883,6 +4031,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       onPasteDone,
       onImagePlaced,
       onSheetPinClick,
+      onSheetPinMiss,
       danglingPinAt,
       onCommand,
       buildMoveCommit,
@@ -3896,6 +4045,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       handleAt,
       inputPrefs,
       wireEndUnderPress,
+      moveOriginFor,
     ],
   );
 
@@ -4031,26 +4181,17 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
         return;
       }
       if (modeRef.current === 'move' && moveStartRef.current) {
-        const raw = { x: world.x - moveStartRef.current.x, y: world.y - moveStartRef.current.y };
-        let delta = { x: Math.round(raw.x / GRID) * GRID, y: Math.round(raw.y / GRID) * GRID };
-        // Connectable snap: if a moved connection point lands near a fixed anchor, snap
-        // the whole move so it coincides exactly (KiCad drags snap to connection points).
-        const maxDist = vp.scale > 0 ? 10 / vp.scale : GRID / 2;
-        let bestD = maxDist * maxDist;
-        let bestDelta: Vec2 | null = null;
-        for (const mp of movePointsRef.current) {
-          const cand = { x: mp.x + delta.x, y: mp.y + delta.y };
-          const a = nearestAnchor(cand, moveAnchorsRef.current, maxDist);
-          if (!a) continue;
-          const dx = a.x - cand.x,
-            dy = a.y - cand.y,
-            d = dx * dx + dy * dy;
-          if (d < bestD) {
-            bestD = d;
-            bestDelta = { x: delta.x + dx, y: delta.y + dy };
-          }
-        }
-        if (bestDelta) delta = bestDelta;
+        // `m_cursor = grid.BestSnapAnchor( controls->GetCursorPosition( false ),
+        // snapLayer, selection )` (sch_move_tool.cpp:805), from where the
+        // warped pointer would be, and the move is its distance from the drag
+        // origin.
+        const pointer = { x: world.x + moveWarpRef.current.x, y: world.y + moveWarpRef.current.y };
+        const cursor = gridHelper(moveBaseRef.current ?? schematic).BestSnapAnchor(
+          pointer,
+          moveGridRef.current,
+          moveSkipRef.current,
+        );
+        let delta = { x: cursor.x - moveStartRef.current.x, y: cursor.y - moveStartRef.current.y };
         // Once an arrow has fixed the axis, the mouse cannot pull the item off
         // it — the lock is applied to the pointer path as well as the keyboard
         // one, which is the whole reason it exists.
@@ -4107,6 +4248,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       arcEditMode,
       setPointHandles,
       GRID,
+      gridHelper,
     ],
   );
 
@@ -4448,7 +4590,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
       if ((activeTool === 'placeSymbol' || activeTool === 'placePower') && placeLib) {
         // Advance the attached symbol's orientation in place. Serialized mirror
         // axis 'y' is KiCad's MirrorHorizontally (hotkey X), 'x' its
-        // MirrorVertically (hotkey Y), see common/transform.ts.
+        // MirrorVertically (hotkey Y), see libs/kimath/src/transform.ts.
         const inst = placeInstanceRef.current;
         if (inst) {
           // A copied symbol turns exactly as a placed one does: about its own

@@ -28,8 +28,8 @@ import { fileURLToPath } from 'node:url';
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(`../../../designer/src/${rel}`, import.meta.url)), 'utf8');
 
-const DIALOG = read('editors/pcb/dialogs/dialog_textbox_properties.tsx');
-const CSS = read('ui/shell.css');
+const DIALOG = read('../../pcbnew/dialogs/dialog_textbox_properties_ui.tsx');
+const CSS = read('../../common/widgets/shell.css');
 /** The file's own header names the invented controls to explain them. */
 const code = DIALOG.slice(DIALOG.indexOf('*/') + 2);
 
@@ -120,7 +120,7 @@ describe('the shared pieces it reuses', () => {
     // `m_mirrored` is the last BITMAP_BUTTON on pcbnew's bars; eeschema spends
     // that slot on the horizontal/vertical pair instead.
     expect(code).toContain('onMirrored');
-    const bar = read('ui/TextFormatBar.tsx');
+    const bar = read('../../common/widgets/text_format_bar.tsx');
     expect(bar).toContain('text_mirrored');
     expect(bar).toContain('onMirrored');
   });
@@ -215,7 +215,7 @@ describe('the tool that opens it wears the right cursor', () => {
   it('is the pencil, like every other graphic-drawing tool', () => {
     // `DRAWING_TOOL::drawShape`'s setCursor is one unconditional line, and the
     // text box is `DrawRectangle`'s `isTextBox` arm, so it goes through it.
-    const cursors = read('ui/tool_cursors.ts');
+    const cursors = read('../../common/tool/tool_cursors.ts');
     for (const tool of [
       'drawTextBox',
       'drawLine',

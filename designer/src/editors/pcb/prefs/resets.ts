@@ -14,9 +14,9 @@ import {
   VIEWER3D_CAMERA_DEFAULTS,
   VIEWER3D_RENDER_DEFAULTS,
 } from '../../../prefs/settings.js';
-import { resetKeys } from '../../../dialogs/prefs/reset.js';
+import { resetKeys } from '@ziroeda/common/settings/json_settings.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
-import { resetToolbarsPanel } from '../../../dialogs/prefs/toolbar_reset.js';
+import { resetToolbarsPanel } from '@ziroeda/common/tool/ui/toolbar_configuration.js';
 
 /**
  * `PANEL_DISPLAY_OPTIONS::ResetPanel` (`pcbnew/dialogs/panel_display_options.cpp`)

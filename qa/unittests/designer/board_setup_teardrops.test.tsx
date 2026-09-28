@@ -28,8 +28,11 @@ import {
   PanelPcbTeardrops,
   defaultTeardrops,
   type TeardropsSetup,
-} from '@ziroeda/designer/src/editors/pcb/dialogs/panels/panel_pcb_teardrops.js';
-import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
+} from '@ziroeda/pcbnew/dialogs/panel_setup_teardrops.js';
+import { BoardSetupFromWindow } from '@ziroeda/pcbnew/dialogs/board_setup_transfer.js';
+import { EMPTY_PCB } from '@ziroeda/designer/src/home/new_project.js';
+import { TARGET_TD } from '@ziroeda/pcbnew/teardrop/teardrop_parameters.js';
+import { readSetup } from './board_setup_test_utils.js';
 
 afterEach(cleanup);
 
@@ -112,7 +115,7 @@ describe('the dialog is big enough to show them', () => {
     // [px] 1227 x 786, off a live Board Setup on the Teardrops page: the window
     // spans x 330..1556 and y 256..1041 in a 1920 x 1200 screenshot.
     const src = readFileSync(
-      resolve(process.cwd(), '../designer/src/editors/pcb/dialogs/dialog_board_setup.tsx'),
+      resolve(process.cwd(), '../pcbnew/dialogs/dialog_board_setup.tsx'),
       'utf8',
     );
     expect(src).toMatch(/initialSize=\{\{ width: 1227, height: 786 \}\}/);
@@ -164,62 +167,60 @@ describe('a control writes its own field', () => {
   });
 });
 
-describe('what the painter is handed', () => {
+describe('what TEARDROP_MANAGER is handed', () => {
   /**
-   * `PcbEditor`'s `teardropParamsList`, which is the only reader outside the
-   * dialog — restated here so the three conversions it performs are asserted
-   * rather than assumed.
+   * `PANEL_SETUP_TEARDROPS::TransferDataFromWindow` writes the page onto
+   * `BOARD_DESIGN_SETTINGS::m_TeardropParamsList`, which is what
+   * TEARDROP_MANAGER reads inside BOARD_COMMIT::Push. Board Setup's OK runs it
+   * (`BoardSetupFromWindow`); nothing re-applies the page per commit, as
+   * nothing does upstream.
    */
-  const toParams = (s: TeardropsSetup['round']) => ({
-    allowUseTwoTracks: s.allowSpanTwoSegments,
-    tdOnPadsInZones: !s.preferZoneConnection,
-    bestLengthRatio: s.bestLengthPct / 100,
-    tdMaxLen: Math.round(s.maxLengthMM * PCB_IU_PER_MM),
-    bestWidthRatio: s.bestWidthPct / 100,
-    tdMaxWidth: Math.round(s.maxWidthMM * PCB_IU_PER_MM),
-    curvedEdges: s.curvedEdges,
-    widthtoSizeFilterRatio: s.trackWidthLimitPct / 100,
-  });
+  const handed = (edit: (t: TeardropsSetup) => void) => {
+    const f = readSetup(EMPTY_PCB);
+    edit(f.values.teardrops);
+    BoardSetupFromWindow(f.values, f.board, f.project);
+    const tdl = f.board.GetDesignSettings().GetTeadropParamsList();
+    return { tdl, round: tdl.GetParameters(TARGET_TD.TARGET_ROUND) };
+  };
 
   it('turns the percentages into ratios and the millimetres into IU', () => {
-    const p = toParams(defaultTeardrops().round);
-    // `m_BestLengthRatio = 0.5`, `m_BestWidthRatio = 1.0` — the panel shows 50
-    // and 100 because they are percentages of the pad, not of anything else.
-    expect(p.bestLengthRatio).toBe(0.5);
-    expect(p.bestWidthRatio).toBe(1);
-    expect(p.widthtoSizeFilterRatio).toBeCloseTo(0.9, 10);
-    // 1 mm and 2 mm at the pcbnew IU scale.
-    expect(p.tdMaxLen).toBe(1_000_000);
-    expect(p.tdMaxWidth).toBe(2_000_000);
+    const { round: p } = handed((t) => {
+      t.round.bestLengthPct = 40;
+      t.round.bestWidthPct = 80;
+      t.round.trackWidthLimitPct = 70;
+      t.round.maxLengthMM = 1.5;
+      t.round.maxWidthMM = 2.5;
+    });
+    expect(p.m_BestLengthRatio).toBeCloseTo(0.4, 12);
+    expect(p.m_BestWidthRatio).toBeCloseTo(0.8, 12);
+    expect(p.m_WidthtoSizeFilterRatio).toBeCloseTo(0.7, 12);
+    // 1.5 mm and 2.5 mm at the pcbnew IU scale.
+    expect(p.m_TdMaxLen).toBe(1_500_000);
+    expect(p.m_TdMaxWidth).toBe(2_500_000);
   });
 
   it('INVERTS Prefer zone connection, which is the field to get wrong', () => {
     // The checkbox asks whether to PREFER the zone; the parameter records
     // whether to put teardrops on pads that are IN one. Wiring it straight
     // through reads perfectly and does the opposite on every zone-connected pad.
-    expect(
-      toParams({ ...defaultTeardrops().round, preferZoneConnection: true }).tdOnPadsInZones,
-    ).toBe(false);
-    expect(
-      toParams({ ...defaultTeardrops().round, preferZoneConnection: false }).tdOnPadsInZones,
-    ).toBe(true);
+    expect(handed((t) => (t.round.preferZoneConnection = true)).round.m_TdOnPadsInZones).toBe(
+      false,
+    );
+    expect(handed((t) => (t.round.preferZoneConnection = false)).round.m_TdOnPadsInZones).toBe(
+      true,
+    );
   });
 
-  it('and PcbEditor really does perform those conversions', () => {
-    // The restatement above is only worth something if it matches the frame.
-    const frame = readFileSync(
-      resolve(process.cwd(), '../designer/src/editors/pcb/PcbEditor.tsx'),
-      'utf8',
-    );
-    expect(frame).toMatch(/tdOnPadsInZones: !s\.preferZoneConnection/);
-    expect(frame).toMatch(/bestLengthRatio: s\.bestLengthPct \/ 100/);
-    expect(frame).toMatch(/tdMaxLen: Math\.round\(s\.maxLengthMM \* MM\)/);
-    expect(frame).toMatch(/widthtoSizeFilterRatio: s\.trackWidthLimitPct \/ 100/);
-    // ...and that it reaches the generator: every commit copies it onto
-    // BOARD_DESIGN_SETTINGS::m_TeardropParamsList, which TEARDROP_MANAGER
-    // reads inside BOARD_COMMIT::Push, rather than computing it and dropping it.
-    expect(frame).toMatch(
-      /applyTeardropParametersList\(\s*kb\.GetDesignSettings\(\)\.GetTeadropParamsList\(\),\s*teardropListRef\.current\(\),?\s*\)/,
-    );
+  it('writes the scope flags, and never enables a parameter set', () => {
+    // `m_Enabled` is not on the page: the per-item one is Edit Teardrops', and
+    // TARGET_TRACK's is set only by that dialog (dialog_global_edit_teardrops.cpp).
+    const { tdl } = handed((t) => {
+      t.targets.trackToTrack = true;
+      t.targets.vias = false;
+    });
+    expect(tdl.m_TargetTrack2Track).toBe(true);
+    expect(tdl.m_TargetVias).toBe(false);
+    for (const t of [TARGET_TD.TARGET_ROUND, TARGET_TD.TARGET_RECT, TARGET_TD.TARGET_TRACK])
+      expect(tdl.GetParameters(t).m_Enabled).toBe(false);
   });
 });

@@ -32,7 +32,7 @@ import {
   segmentHull,
   viaHull,
   type Hull,
-} from '@ziroeda/pcbnew/src/router/pns_hull.js';
+} from '@ziroeda/pcbnew/router/pns_hull.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 const P = (x: number, y: number): Vec2 => ({ x, y });

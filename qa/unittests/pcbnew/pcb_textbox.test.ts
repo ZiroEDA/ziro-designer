@@ -8,16 +8,16 @@
  * text and 0.1 mm border), not derived from our port.
  */
 import { describe, expect, it } from 'vitest';
-import { SHAPE_T } from '@ziroeda/common/src/eda_shape.js';
-import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/src/font/text_attributes.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { FLIP_DIRECTION } from '@ziroeda/core/src/mirror.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
+import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
+import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/font/text_attributes.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { FLIP_DIRECTION } from '@ziroeda/core/mirror.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import { EDA_ANGLE, EDA_ANGLE_T } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
-import { BOARD } from '@ziroeda/pcbnew/src/board.js';
-import { PCB_TEXTBOX } from '@ziroeda/pcbnew/src/pcb_textbox.js';
+import { BOARD } from '@ziroeda/pcbnew/board.js';
+import { PCB_TEXTBOX } from '@ziroeda/pcbnew/pcb_textbox.js';
 
 const deg = (d: number) => new EDA_ANGLE(d, EDA_ANGLE_T.DEGREES_T);
 

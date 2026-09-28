@@ -18,17 +18,17 @@
  * assertions that say the canvas asked.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import type { Board } from '@ziroeda/pcbnew/src/types.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import type { Board } from '@ziroeda/pcbnew/types.js';
 import {
   buildScene,
   drawBoard,
   DEFAULT_DRAW_OPTIONS,
   type PcbDrawOptions,
-} from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
-import { PCB_SPECIAL } from '@ziroeda/designer/src/editors/pcb/pcbTheme.js';
-import { DEFAULT_OBJECTS } from '@ziroeda/designer/src/widgets/appearance_objects.js';
+} from '@ziroeda/pcbnew/renderBoard.js';
+import { PCB_SPECIAL } from '@ziroeda/pcbnew/pcbTheme.js';
+import { DEFAULT_OBJECTS } from '@ziroeda/pcbnew/widgets/appearance_objects.js';
 
 const MM = 1e6;
 

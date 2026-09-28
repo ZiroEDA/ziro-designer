@@ -21,12 +21,12 @@
  */
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { Toolbar } from '@ziroeda/designer/src/ui/Toolbar.js';
+import { Toolbar } from '@ziroeda/common/tool/action_toolbar.js';
 import {
   DS_LEFT_TOOLBAR,
   DS_RIGHT_TOOLBAR,
-} from '@ziroeda/designer/src/editors/drawingsheet/drawingSheetToolbars.js';
-import { PCB_LEFT_TOOLBAR } from '@ziroeda/designer/src/editors/pcb/pcbToolbars.js';
+} from '@ziroeda/pagelayout_editor/toolbars_pl_editor.js';
+import { PCB_LEFT_TOOLBAR } from '@ziroeda/pcbnew/toolbars_pcb_editor.js';
 
 // `qa` has no testing-library setup file, so the auto-cleanup that ships with
 // one is not running: without this every render stays in the document and the

@@ -10,14 +10,15 @@
  * close over its own pins, and everything anchored to a sheet pin follows it.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
-import { refId, hitTest } from '@ziroeda/eeschema/src/tools/hittest.js';
-import { imagePixelSize, imagePPI, imageSizeIU } from '@ziroeda/eeschema/src/tools/image_size.js';
+import { refId, hitTest } from '@ziroeda/eeschema/tools/hittest.js';
+import { imagePixelSize, imagePPI, imageSizeIU } from '@ziroeda/eeschema/tools/image_size.js';
 import { CalcArcCenter } from '@ziroeda/kimath/src/trigo.js';
-import { ArcEditMode, incrementArcEditMode } from '@ziroeda/eeschema/src/tools/arc_edit.js';
+import { ArcEditMode, incrementArcEditMode } from '@ziroeda/eeschema/tools/arc_edit.js';
 import {
   pointEditTarget,
+  graphicHandles,
   canAddCorner,
   canRemoveCorner,
   addCorner,
@@ -27,8 +28,9 @@ import {
   dragHandle,
   reshapeCommand,
   type EditHandle,
-} from '@ziroeda/eeschema/src/tools/point_editor.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+} from '@ziroeda/eeschema/tools/point_editor.js';
+import type { LibGraphic } from '@ziroeda/eeschema/types.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 
 type P = { x: number; y: number };
 const mm = (v: number): number => mmToIU(v);
@@ -111,12 +113,19 @@ describe('which items have handles', () => {
     expect(editHandles(sch, targetOf(SHEET_ID)).some((h) => h.index === 4)).toBe(false);
   });
 
-  it('gives a polyline one handle per vertex', () => {
+  it('gives a polyline a handle per vertex and one per edge, the closing edge too', () => {
+    // An SCH_SHAPE POLY: BuildForPolyOutline's points, then its lines - which
+    // include the one from the last corner back to the first.
     const hs = editHandles(sch, targetOf(POLY_ID));
-    expect(hs.map((h) => h.at)).toEqual([
+    expect(hs.filter((h) => h.kind === 'point').map((h) => h.at)).toEqual([
       { x: mm(10), y: mm(40) },
       { x: mm(20), y: mm(40) },
       { x: mm(20), y: mm(50) },
+    ]);
+    expect(hs.filter((h) => h.kind === 'line').map((h) => h.at)).toEqual([
+      { x: mm(15), y: mm(40) },
+      { x: mm(20), y: mm(45) },
+      { x: mm(15), y: mm(45) },
     ]);
   });
 });
@@ -169,14 +178,17 @@ describe('rectangles', () => {
 });
 
 describe('circles', () => {
-  it('moves the circle from its centre handle', () => {
+  it('moves the centre and keeps the end, so the radius follows', () => {
+    // EDA_CIRCLE_POINT_EDIT_BEHAVIOR::UpdateItem calls SetCenter, which for a
+    // circle sets m_start only (eda_shape.cpp:1104-1107): the end stays at
+    // (55, 10), and from (70, 30) that is hypot(15, 20) = 25 mm away.
     const out = dragHandle(sch, targetOf(CIRCLE_ID), handle(CIRCLE_ID, 'point', 0), {
       x: mm(70),
       y: mm(30),
     });
     const g = out.graphics[1] as { center: { x: number; y: number }; radius: number };
     expect(g.center).toEqual({ x: mm(70), y: mm(30) });
-    expect(g.radius).toBe(mm(5));
+    expect(g.radius).toBe(mm(25));
   });
 
   it('sets the radius from the distance to the centre', () => {
@@ -429,6 +441,24 @@ describe('arcs', () => {
     expect(arcHandle(3).at.y).toBeCloseTo(mm(20), -2);
   });
 
+  it('puts the mid handle at the stored mid while the arc is untouched', () => {
+    // MakePoints adds `m_arc.GetArcMid()`, and GetArcMid returns the stored
+    // `m_arcMidData.mid` while start, end and centre are the ones it was loaded
+    // with - "keep the original mid point data to minimize churn"
+    // (eda_shape.cpp:1117-1120). A file may store any point on the arc as its
+    // mid - here one at -60 deg rather than the angular midpoint at -45 deg -
+    // and the handle sits on it. (Ours used to re-derive the -45 deg point.)
+    const offMid = readSchematic(
+      parse(
+        `(kicad_sch (version 1) (lib_symbols)
+           (arc (start 60 10) (mid 65 11.3397) (end 70 20) (uuid "a2")))`,
+      ),
+    );
+    const t = pointEditTarget(offMid, ARC_ID)!;
+    const midHandle = editHandles(offMid, t).find((h) => h.index === 1 && h.kind === 'point')!;
+    expect(midHandle.at).toEqual({ x: mm(65), y: mm(11.3397) });
+  });
+
   it('moves the whole arc when the centre is dragged, keeping the centre', () => {
     // KEEP_CENTER_ADJUST_ANGLE_RADIUS and KEEP_CENTER_ENDS_ADJUST_ANGLE both
     // just translate the arc by the centre's delta.
@@ -516,6 +546,26 @@ describe('arcs', () => {
       ArcEditMode.KeepCenterEndsAdjustAngle,
     );
     expect(radius(arcOf(out))).toBeCloseTo(before, -2);
+  });
+
+  it('keeps the other end and its tangent when an endpoint is dragged in keep-endpoints mode', () => {
+    // editArcEndpointKeepTangent: the end that does not move keeps its tangent,
+    // so the new centre stays on the line through that end and the old centre -
+    // here y = 20 mm, the old centre being (60, 20) and the fixed end (70, 20).
+    const out = dragHandle(
+      arcDoc,
+      target(),
+      arcHandle(0),
+      { x: mm(63), y: mm(8) },
+      ArcEditMode.KeepEndpointsOrStartDirection,
+    );
+    const g = arcOf(out);
+    expect(g.end).toEqual(arcOf(arcDoc).end);
+    expect(g.start).toEqual({ x: mm(63), y: mm(8) });
+    const c = CalcArcCenter(g.start, g.mid, g.end);
+    expect(c.y).toBeCloseTo(mm(20), -3);
+    // ...and it did move along that line: the radius is not the old 10 mm.
+    expect(Math.abs(radius(g) - mm(10))).toBeGreaterThan(mm(1));
   });
 
   it('leaves an untouched arc exactly where it was', () => {
@@ -669,6 +719,49 @@ describe('images', () => {
     const halfW = (64 * IU_PER_PIXEL) / 2;
     expect(hit(halfW * 0.9, 0)).toBe('image');
     expect(hit(halfW * 1.5, 0)).toBeNull();
+  });
+});
+
+describe('a polyline edge drag (EC_CONVERGING)', () => {
+  // A trapezium: the top edge (0,0)-(40,0) between two slanted sides.
+  const trap = readSchematic(
+    parse(`(kicad_sch (version 1) (lib_symbols)
+      (polyline (pts (xy 0 0) (xy 40 0) (xy 30 20) (xy 10 20)) (uuid "t1")))`),
+  );
+  const target = { kind: 'line', index: 0 } as const;
+  const hs = () => editHandles(trap, target);
+
+  it('offers an edge handle on every side, the closing one included', () => {
+    // BuildForPolyOutline adds the last line, from the last corner to the first.
+    const lines = hs().filter((h) => h.kind === 'line');
+    expect(lines).toHaveLength(4);
+    expect(lines[3]!.at).toEqual({ x: mm(5), y: mm(10) });
+  });
+
+  it('slides the edge perpendicular to itself, its ends riding the sides', () => {
+    const edge = hs().find((h) => h.kind === 'line' && h.index === 0)!;
+    const out = dragHandle(trap, target, edge, { x: mm(20), y: mm(-10) });
+    const g = out.lines[0]!;
+    // The side (10,20)-(0,0) extended meets y = -10 at x = -5, and (30,20)-(40,0)
+    // at x = 45 - not both ends shifted by the drag, which would give 0 and 40.
+    expect(g.points?.[0]).toEqual({ x: mm(-5), y: mm(-10) });
+    expect(g.points?.[1]).toEqual({ x: mm(45), y: mm(-10) });
+    expect(g.points?.[2]).toEqual({ x: mm(30), y: mm(20) });
+  });
+});
+
+describe('a closed symbol polyline keeps its repeated vertex', () => {
+  it('shows a handle on every stored point, unlike a rule area', () => {
+    // Only parseSchRuleArea calls SetClosed( true ); a plain POLY keeps all five.
+    const sq = [
+      { x: 0, y: 0 },
+      { x: mm(10), y: 0 },
+      { x: mm(10), y: mm(10) },
+      { x: 0, y: mm(10) },
+      { x: 0, y: 0 },
+    ];
+    const hs = graphicHandles({ kind: 'polyline', points: sq } as unknown as LibGraphic);
+    expect(hs.filter((h) => h.kind === 'point')).toHaveLength(5);
   });
 });
 

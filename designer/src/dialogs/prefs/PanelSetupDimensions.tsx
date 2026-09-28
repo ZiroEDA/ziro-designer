@@ -46,8 +46,8 @@
  * as a component one.
  */
 import type { JSX } from 'react';
-import { Check, Num, Sel } from './widgets.js';
-import type { StatusUnits } from '../../ui/status_format.js';
+import { Check, Num, Sel } from '@ziroeda/common/wx/controls.js';
+import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
 
 /**
  * The eight `BOARD_DESIGN_SETTINGS` fields this panel edits, as the settings

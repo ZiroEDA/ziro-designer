@@ -34,17 +34,17 @@ const BACKDROPS = ['ze-modal-backdrop', 'calc-modal-backdrop', 'imgc-modal-backd
 /**
  * Frames that render a dialog inline and also own a canvas, where Esc is
  * `ACTIONS::cancelInteractive` - abandon the tool - and has nothing to do with
- * any dialog. `PanelHotkeysEditor` is here for the mirror image: HK_PROMPT_DIALOG
+ * any dialog. `WidgetHotkeyList` is here for the mirror image: HK_PROMPT_DIALOG
  * eats every keystroke to assign it, and has to let this one through to the
  * stack rather than assign Esc as a hotkey.
  */
 const OWNS_A_CANVAS = [
-  'editors/drawingsheet/DrawingSheetEditor.tsx',
+  '../../pagelayout_editor/pl_editor_frame_ui.tsx',
   'editors/footprint/FootprintEditor.tsx',
   'editors/pcb/PcbEditor.tsx',
   'editors/schematic/SchematicEditor.tsx',
   'editors/symbol/SymbolEditor.tsx',
-  'dialogs/prefs/panels/PanelHotkeysEditor.tsx',
+  '../../common/widgets/widget_hotkey_list.tsx',
 ];
 
 function walk(dir: string, out: string[] = []): string[] {
@@ -56,7 +56,43 @@ function walk(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-const FILES = walk(SRC).map((path) => ({
+/**
+ * KiCad's shared dialogs live in `common/` (its `common/dialogs` and
+ * `common/dialog_about`), and ours have been moving there since 09-26. A walk
+ * of `designer/src` alone lost every dialog the moment it moved - they were
+ * no longer checked, and nothing failed. Both trees are walked; a `common/`
+ * file's `rel` is spelled from `designer/src` (`../../common/...`).
+ */
+const COMMON = fileURLToPath(new URL('../../../common', import.meta.url));
+// Assign Footprints and the two windows it opens moved out of `designer/src`
+// into `cvpcb/` (cvpcb/STRUCTURE.md's stage two): same reason `common/` is
+// walked alongside `designer/src` above.
+const CVPCB = fileURLToPath(new URL('../../../cvpcb', import.meta.url));
+// The schematic editor's dialogs started moving out of `designer/src` into
+// `eeschema/` (eeschema/STRUCTURE.md's stage E2): same reason again.
+const EESCHEMA = fileURLToPath(new URL('../../../eeschema', import.meta.url));
+// The PCB and Footprint editors' windows started moving out of `designer/src`
+// into `pcbnew/` (pcbnew/STRUCTURE.md's file-structure-parity stage): same
+// reason again.
+const PCBNEW = fileURLToPath(new URL('../../../pcbnew', import.meta.url));
+
+function walkCommon(dir: string, out: string[] = []): string[] {
+  for (const name of readdirSync(dir)) {
+    if (name === 'node_modules') continue;
+    const path = join(dir, name);
+    if (statSync(path).isDirectory()) walkCommon(path, out);
+    else if (name.endsWith('.tsx')) out.push(path);
+  }
+  return out;
+}
+
+const FILES = [
+  ...walk(SRC),
+  ...walkCommon(COMMON),
+  ...walkCommon(CVPCB),
+  ...walkCommon(EESCHEMA),
+  ...walkCommon(PCBNEW),
+].map((path) => ({
   rel: relative(SRC, path),
   src: readFileSync(path, 'utf8'),
 }));
@@ -79,7 +115,9 @@ describe('every modal gets wxDialog Esc', () => {
   });
 
   it('imports the hook it calls', () => {
+    // dialog_shim.tsx is where the hook is defined (DIALOG_SHIM), not a caller.
     const unimported = FILES.filter((f) => /\buseModalEscape\(/.test(f.src))
+      .filter((f) => !/export function useModalEscape\(/.test(f.src))
       .filter((f) => !/import \{ useModalEscape \} from/.test(f.src))
       .map((f) => f.rel);
     expect(unimported).toEqual([]);
@@ -110,17 +148,20 @@ describe('what the registered cancel means', () => {
     // CVPCB's Cancel is `canCloseWindow`: modified links prompt before they go.
     // Registering the bare `onClose` here would throw the user's assignments
     // away without asking, which is the one thing Esc must never do.
-    expect(registered('editors/schematic/dialogs/dialog_assign_footprints.tsx')).toEqual([
-      'closeWindow',
-    ]);
+    expect(registered('../../cvpcb/cvpcb_mainframe_ui.tsx')).toEqual(['closeWindow']);
     // Same shape in the Symbol Fields Table: `onCancel` confirms, `onClose`
     // does not.
-    expect(registered('editors/schematic/dialogs/dialog_symbol_fields_table.tsx')).toEqual([
+    expect(registered('../../eeschema/dialogs/dialog_symbol_fields_table.tsx')).toEqual([
       'onCancel',
     ]);
     // DIALOG_PRINT's Close stores the print options on the way out.
     expect(registered('editors/schematic/dialogs/dialog_print.tsx')).toEqual(['saveAndClose']);
-    expect(registered('editors/pcb/dialogs/dialog_print_pcb.tsx')).toEqual(['saveAndClose']);
+    // The board's is DIALOG_PRINT_PCBNEW on the common DIALOG_PRINT_GENERIC:
+    // the base registers its Close, and the board hands it saveAndClose.
+    expect(registered('../../common/dialogs/dialog_print_generic_ui.tsx')).toEqual(['onClose']);
+    expect(
+      FILES.find((f) => f.rel === '../../pcbnew/dialogs/dialog_print_pcbnew.tsx')?.src,
+    ).toContain('onClose={saveAndClose}');
   });
 
   it('is not registered at all where the dialog has no Cancel', () => {
@@ -134,6 +175,8 @@ describe('what the registered cancel means', () => {
     // :347 - and only then does Esc reach the dialog. The tree registers above
     // the dialog containing it and drops off when the box empties, so the
     // ordering is the stack's rather than a listener race.
-    expect(registered('widgets/lib_tree.tsx')).toEqual([`() => onQueryText(''), search !== ''`]);
+    expect(registered('../../common/widgets/lib_tree.tsx')).toEqual([
+      `() => onQueryText(''), search !== ''`,
+    ]);
   });
 });

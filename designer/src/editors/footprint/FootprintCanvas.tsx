@@ -31,17 +31,22 @@ import {
   wheelAction,
   zoomFitView,
   type FitFrame,
-} from '../../ui/view_controls.js';
+} from '@ziroeda/common/ui/view_controls.js';
 import {
   type CrosshairMode,
   drawCrosshair,
   drawGrid,
   type GridStyle,
-} from '../../ui/grid_cursor.js';
-import { footprintToolCursor } from './cursors.js';
-import { clampViewScale } from '../../ui/zoom_settings.js';
-import { zoomAreaTarget, type ZoomArea } from '../../ui/zoom_tool.js';
-import { drawRulerItem, rulerEnd, type RulerPoint, type RulerUnits } from '../../ui/ruler_item.js';
+} from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
+import { footprintToolCursor } from '@ziroeda/pcbnew/footprint_cursors.js';
+import { clampViewScale } from '@ziroeda/common/settings/zoom_settings.js';
+import { zoomAreaTarget, type ZoomArea } from '@ziroeda/common/tool/zoom_tool.js';
+import {
+  drawRulerItem,
+  rulerEnd,
+  type RulerPoint,
+  type RulerUnits,
+} from '@ziroeda/common/preview_items/ruler_item.js';
 import { hitTestFootprint } from '@ziroeda/pcbnew';
 import { itemsInBox, fpItemBBox, type PcbFootprint } from '@ziroeda/pcbnew';
 import {
@@ -52,13 +57,18 @@ import {
   DEFAULT_DRAW_OPTIONS,
   type BoardScene,
   type PcbDrawOptions,
-} from '../pcb/renderBoard.js';
-import { PCB_BACKGROUND, PCB_CURSOR, PCB_GRID_AXES, PCB_SPECIAL } from '../pcb/pcbTheme.js';
+} from '@ziroeda/pcbnew/renderBoard.js';
+import {
+  PCB_BACKGROUND,
+  PCB_CURSOR,
+  PCB_GRID_AXES,
+  PCB_SPECIAL,
+} from '@ziroeda/pcbnew/pcbTheme.js';
 import { drawSelectionArea, isBackgroundDark, selectionAreaColors } from '@ziroeda/common';
-import { FOOTPRINT_LAYERS, footprintToBoard } from './footprintBoard.js';
-import type { PcbLayerDef } from '@ziroeda/pcbnew/src/types.js';
-import { pcbGridOptions, PCB_DEFAULT_GRID_IU } from '../pcb/renderBoard.js';
-import { snapToGridSize } from '../pcb/pcb_grid.js';
+import { FOOTPRINT_LAYERS, footprintToBoard } from '@ziroeda/pcbnew/footprint_edit_frame.js';
+import type { PcbLayerDef } from '@ziroeda/pcbnew/types.js';
+import { pcbGridOptions, PCB_DEFAULT_GRID_IU } from '@ziroeda/pcbnew/renderBoard.js';
+import { PCB_GRID_HELPER } from '@ziroeda/pcbnew/tools/pcb_grid_helper.js';
 
 export interface FootprintCanvasController {
   zoomToFit: () => void;
@@ -316,14 +326,21 @@ export const FootprintCanvas = forwardRef<FootprintCanvasController, FootprintCa
     const activeToolRef = useRef(activeTool);
     activeToolRef.current = activeTool;
     /** GRID_HELPER::BestSnapAnchor, reduced to the plain grid about the
-     *  frame's grid origin. */
+     *  frame's grid origin - `Align` on the frame's one `PCB_GRID_HELPER`,
+     *  held for the canvas's life as a tool holds its grid helper. */
     const gridOriginRef = useRef(gridOrigin);
     gridOriginRef.current = gridOrigin;
+    const gridHelperRef = useRef<PCB_GRID_HELPER | null>(null);
     const snapRef = useRef((p: Vec2): Vec2 => p);
     // `snapping` unset keeps the old reading for the two viewer frames, which
     // have no Snap to grid control of their own yet.
     const snapOn = snapping ?? showGrid;
-    snapRef.current = (p: Vec2): Vec2 => (snapOn ? snapToGridSize(p, gridIU, gridOrigin) : p);
+    snapRef.current = (p: Vec2): Vec2 => {
+      gridHelperRef.current ??= new PCB_GRID_HELPER();
+      return gridHelperRef.current
+        .SetState({ size: gridIU, origin: gridOrigin, enableGrid: snapOn, enableSnap: true })
+        .Align(p);
+    };
 
     // Compile the footprint (wrapped as a board) into retained per-layer paths.
     // `layers` is the FRAME's set, which in the editor carries the user layers

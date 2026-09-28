@@ -8,7 +8,7 @@
  * columns, attribute columns, the delimited export and applying edits back.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic, type Schematic } from '@ziroeda/eeschema';
 import {
   buildFieldsReferences,
@@ -17,7 +17,7 @@ import {
   loadFieldNames,
   QUANTITY_VARIABLE,
   type BomPresetSpec,
-} from '@ziroeda/eeschema/src/tools/fields_data_model.js';
+} from '@ziroeda/eeschema/fields_data_model.js';
 
 const sym = (
   ref: string,
@@ -53,8 +53,8 @@ function modelOf(doc: Schematic, preset?: Partial<BomPresetSpec>): FieldsDataMod
     sortAsc: true,
     filterString: '',
     groupSymbols: true,
-    excludeDnp: false,
-    includeExcludedFromBom: true,
+    excludeDNP: false,
+    includeExcludedFromBOM: true,
     ...preset,
   });
   return model;
@@ -126,6 +126,22 @@ describe('fields table data model', () => {
     // Writing a value sets it on every symbol of the group.
     model.setValue(0, mpn, 'CCC');
     expect(model.getValue(0, mpn)).toBe('CCC');
+  });
+
+  it('resolves a token only the document answers, through the symbol resolver', () => {
+    // SCH_SYMBOL::ResolveTextVar falls through to SCHEMATIC::ResolveTextVar
+    // for a token that is none of its own.
+    const doc = load(`${sym('R1', '${TITLE}', 'R_0603', 'a')}`);
+    const docs = new Map([['root.kicad_sch', doc]]);
+    const refs = buildFieldsReferences(docs, 'root.kicad_sch');
+    const model = new FieldsDataModel(refs, () => (t) => {
+      if (t.value !== 'TITLE') return false;
+      t.value = 'Amp';
+      return true;
+    });
+    loadFieldNames(model, refs);
+    model.rebuildRows();
+    expect(model.getExportValue(0, model.getFieldNameCol('Value'), ', ', '-')).toBe('Amp');
   });
 
   it('expands and collapses a group into its members', () => {

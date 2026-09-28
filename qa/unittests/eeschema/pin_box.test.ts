@@ -13,11 +13,11 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readSchematic } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
-import { libPinBoundingBox, altIconBox } from '@ziroeda/eeschema/src/pin_box.js';
-import type { LibSymbol, LibPin } from '@ziroeda/eeschema/src/types.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { readSchematic } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
+import { libPinBoundingBox, altIconBox } from '@ziroeda/eeschema/pin_layout_cache.js';
+import type { LibSymbol, LibPin } from '@ziroeda/eeschema/types.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 
 /**
  * One library symbol carrying one pin, built from the caller's tokens.

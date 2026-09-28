@@ -1,0 +1,3972 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+/**
+ * Board renderer: PCB_PAINTER (pcbnew/pcb_painter.cpp) ported to Canvas 2D.
+ *
+ * The whole board is compiled once into retained per-layer Path2D buckets,
+ * split by object class exactly like pcbnew's Appearance>Objects rows
+ * (appearance_controls.cpp s_objectSettings): tracks, vias, pads, zones,
+ * graphics and the three footprint-text classes. Every frame just sets the
+ * view transform and replays the buckets in GAL_LAYER_ORDER
+ * (pcb_draw_panel_gal.cpp), honoring per-object visibility and opacity
+ * (project_local_settings.cpp defaults: zones 0.6, images 0.6, rest 1.0).
+ *
+ * Faithfulness notes (pcb_painter.cpp / pad.cpp):
+ *  - vias and through-pads flash on every copper layer they span, in that
+ *    layer's color (v9 padstack rendering);
+ *  - holes draw above all copper: walls rgb(236,236,236), via holes
+ *    rgb(227,183,46), plated pad holes rgb(194,194,0), NPTH rgb(26,196,210);
+ *  - text renders on its own board layer (LAYER_FP_TEXT is only a visibility
+ *    switch); roundrect radius = ratio·min(w,h); trapezoid corners per
+ *    pad.cpp; zone fills sit directly under their layer's tracks.
+ */
+
+import { PCB_IU_PER_MM } from '@ziroeda/common/eda_units.js';
+import { pageSizeMM } from '@ziroeda/common/page_info.js';
+import { boardOutlineLoops } from '@ziroeda/3d-viewer/board_outline.js';
+import { galSnapPx } from '@ziroeda/common/gal_pixel_grid.js';
+import {
+  brightened,
+  brightness,
+  darkened,
+  parseColor4d,
+  toCssColor,
+} from '@ziroeda/common/gal/color4d.js';
+import { drawOriginViewItem, ORIGIN_VIEWITEM_SIZE } from '@ziroeda/common/origin_viewitem.js';
+import { printableCharCount, unescapeString } from '@ziroeda/common/string_utils.js';
+import {
+  HI_CONTRAST_FACTOR,
+  edgeCutsContrastFactor,
+  hiContrastColor,
+} from '@ziroeda/common/render_settings.js';
+import { drawDrawingSheetItems, hitTestDrawingSheet } from '@ziroeda/common';
+import {
+  defaultDrawingSheet,
+  type DsDrawItem,
+  layoutDrawingSheet,
+  paperTypeName,
+  SCH_IU_PER_MM,
+  type WksSheet,
+} from '@ziroeda/common';
+import type { Vec2 } from '@ziroeda/kimath';
+import {
+  dimensionBBox,
+  dimensionSegments,
+  arcCenter,
+  arcSweepDegrees,
+  displayNetname,
+  displayNetnames,
+  shortNetname,
+  imageBBox,
+  tableBBox,
+  tableBorderSegments,
+  textBoxBBox,
+  textBoxCorners,
+  tessellateArc,
+  footprintBBox,
+  type Board,
+  type PcbDimension,
+  type PcbImage,
+  type PcbTable,
+  type PcbTextBox,
+  type PcbPad,
+  type PcbBarcode,
+  type PcbPoint,
+  type PcbShape,
+  type PcbTextItem,
+} from './index.js';
+import { barcodeBBox, barcodeGeometry } from './pcb_io/kicad_sexpr/board_view.js';
+import { textPenWidth } from './text_metrics.js';
+import { effectiveTextPenWidth, ITALIC_TILT } from '@ziroeda/common/font/text_box.js';
+import {
+  PCB_PAINT_ORDER,
+  PCB_SPECIAL,
+  layerColor,
+  PCB_BACKGROUND,
+  PCB_GRID,
+  PCB_PLACE_ORIGIN,
+  type PcbColorTheme,
+} from './pcbTheme.js';
+import { layoutText, measureText, textBlockOffset } from '@ziroeda/common/font/stroke_font.js';
+import { metricsInterline } from '@ziroeda/common/font/font_metrics.js';
+import type { OutlineFont } from '@ziroeda/common/font/outline_font.js';
+import { getOutlineFont } from '@ziroeda/common/font/outline_fonts.js';
+import { outlineLayout } from '@ziroeda/common/font/draw_outline_text.js';
+import { padShapePos } from './padstack.js';
+import type { BitmapTextPlacement } from '@ziroeda/common/gal/opengl/bitmap_text.js';
+import { ResolveShownText, type TextVarResolverFn } from '@ziroeda/common/common.js';
+
+const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
+
+/**
+ * GAL's screen DPI (advanced_config.cpp `m_ScreenDPI = 91`), the constant every
+ * level-of-detail threshold and the zoom factor itself are defined against. Not
+ * the browser's 96: KiCad chose 91 as "the closest match to the legacy
+ * renderer", and using 96 shifts every LOD gate by 5%.
+ *
+ * Declared with the shared status-bar formatters, which need the same number to
+ * report a zoom factor, and re-exported here so board code keeps one import.
+ */
+import { GAL_SCREEN_DPI } from '@ziroeda/common/widgets/kistatusbar_format.js';
+import {
+  DEFAULT_GRID_APPEARANCE,
+  type GridOptions,
+  type GridStyle,
+} from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
+import { isHatchedFill, isSolidFill, shapeHatchLines } from './shape_fill.js';
+
+export { GAL_SCREEN_DPI };
+
+/**
+ * The painted hole-wall ring (pcb_painter.cpp `draw(PCB_VIA)` LAYER_VIA_HOLEWALLS
+ * and `draw(PAD)` LAYER_PAD_HOLEWALLS).
+ *
+ * `m_holePlatingThickness` is `BOARD_DESIGN_SETTINGS::GetHolePlatingThickness`,
+ * advanced_config.cpp's `m_HoleWallThickness = 0.020` mm, and the painter widens
+ * it by `m_HoleWallPaintingMultiplier = 1.5` — so 0.030 mm of plating is drawn.
+ *
+ * That is a third of a screen pixel on a whole-board view, and the ring is
+ * nonetheless one of the most recognisable things about a KiCad board: GAL
+ * floors it at `u_minLinePixelWidth`, one device pixel (the `SHADER_HOLE_WALL`
+ * branch of kicad_vert.glsl clamps `pixelWidth` before adding it to the radius).
+ * So it is drawn here as a *stroke* rather than a fill, because a stroke is
+ * already subject to the same per-frame minimum pen in both backends. Filling a
+ * ring 0.03 mm wide instead makes every via and plated hole read as a black dot
+ * zoomed out, where KiCad shows amber.
+ */
+const HOLE_WALL_PAINT_WIDTH = 0.02 * 1.5 * MM;
+
+// Default net-class clearance (netclass.cpp DEFAULT_CLEARANCE = 0.2 mm). This
+// board carries no explicit net class (those live in the .kicad_pro), so KiCad
+// falls back to it for the pad-clearance outlines shown by default.
+const DEFAULT_PAD_CLEARANCE = 0.2 * MM;
+
+// ---------------------------------------------------------------------------
+// Emphasis colors (COLOR4D + RENDER_SETTINGS::update + PCB_PAINTER::GetColor).
+//
+// RENDER_SETTINGS's two factors are both 0.5 (render_settings.cpp), and every
+// emphasis below is derived from the base layer color with them, none of it is
+// a fixed "make it lighter" nudge, which is why a flat brighten never matches.
+
+/**
+ * `RENDER_SETTINGS::m_selectFactor` / `m_highlightFactor`.
+ *
+ * **Not the `render_settings.cpp:39-40` constructor pair.** Both of those are
+ * 0.5, but `PCB_BASE_FRAME::LoadSettings` immediately overwrites them from the
+ * application settings (`pcb_base_frame.cpp:854-855`), and there
+ * `graphics.select_factor` defaults to **0.75** while `graphics.highlight_factor`
+ * defaults to 0.5 (`common/settings/app_settings.cpp:131-135`). So a selected
+ * item in pcbnew lifts half again as far as the constructor suggests, and
+ * reading the constructor is how ours came to under-brighten every selected
+ * item on the board.
+ *
+ * [px] settled against KiCad on this machine: the courtyard-conflict shadow of
+ * a footprint being moved measures rgb(153, 85, 96) on screen, which is
+ * `Brightened( 0.75·0.5 + 0.30129³ )` of rgba(255,0,5,0.5) and no other factor.
+ */
+const SELECT_FACTOR = 0.75;
+const HIGHLIGHT_FACTOR = 0.5;
+
+/** An `rgb()/rgba()` string split into 0..1 channels + alpha. */
+function parseRgba(color: string): { r: number; g: number; b: number; a: string | null } | null {
+  const m = /rgba?\(([^)]+)\)/.exec(color);
+  if (!m) return null;
+  const parts = m[1]!.split(',').map((s) => s.trim());
+  return {
+    r: Number(parts[0]) / 255,
+    g: Number(parts[1]) / 255,
+    b: Number(parts[2]) / 255,
+    a: parts.length > 3 ? parts[3]! : null,
+  };
+}
+
+const formatRgba = (r: number, g: number, b: number, a: string | null): string => {
+  const ch = (v: number): number => Math.round(Math.min(1, Math.max(0, v)) * 255);
+  return a === null ? `rgb(${ch(r)},${ch(g)},${ch(b)})` : `rgba(${ch(r)},${ch(g)},${ch(b)},${a})`;
+};
+
+/**
+ * COLOR4D::Brightened(f): push each channel toward white by factor f
+ * (c·(1−f)+f), alpha untouched. Parses the `rgb()/rgba()` strings the theme
+ * emits and re-emits the same form.
+ */
+export function brightenColor(color: string, f: number): string {
+  if (f <= 0) return color;
+  const c = parseRgba(color);
+  if (!c) return color;
+  return formatRgba(c.r * (1 - f) + f, c.g * (1 - f) + f, c.b * (1 - f) + f, c.a);
+}
+
+/** COLOR4D::Darkened(f): scale each channel by (1−f), alpha untouched. */
+export function darkenColor(color: string, f: number): string {
+  if (f <= 0) return color;
+  const c = parseRgba(color);
+  if (!c) return color;
+  return formatRgba(c.r * (1 - f), c.g * (1 - f), c.b * (1 - f), c.a);
+}
+
+/** COLOR4D::GetBrightness, KiCad's weighted W3C formula (blue weight .117). */
+export function colorBrightness(color: string): number {
+  const c = parseRgba(color);
+  if (!c) return 0;
+  return c.r * 0.299 + c.g * 0.587 + c.b * 0.117;
+}
+
+/**
+ * RENDER_SETTINGS::update()'s m_layerColorsSel, the color a *selected* item
+ * takes. Not a fixed brighten: the factor grows with the layer's own brightness
+ * (`selectFactor/2 + brightness³`) so dark layers lift a little and bright ones
+ * lift a lot, and two cases opt out entirely ,
+ *
+ *  - a near-black color (brightness < 0.05) and net-name text are left alone;
+ *  - a color already so bright that brightening moves it less than 0.05 is
+ *    *darkened* instead, with the blue channel pushed up, which is the faint
+ *    blue glow KiCad puts on selected white silkscreen.
+ */
+export function selectedColor(color: string, isNetname = false): string {
+  const c = parseRgba(color);
+  if (!c) return color;
+
+  const brightness = colorBrightness(color);
+  if (isNetname || brightness < 0.05) return color;
+
+  const factor = Math.min(1, SELECT_FACTOR * 0.5 + brightness ** 3);
+  const brightened = brightenColor(color, factor);
+
+  if (Math.abs(colorBrightness(brightened) - brightness) >= 0.05) return brightened;
+
+  const darkened = parseRgba(darkenColor(color, SELECT_FACTOR * 0.4))!;
+  return formatRgba(darkened.r, darkened.g, c.b * (1 - factor) + factor, c.a);
+}
+
+/** The color a highlighted net takes (pcb_painter.cpp: Brightened(0.5)). */
+export const highlightedColor = (color: string): string => brightenColor(color, HIGHLIGHT_FACTOR);
+
+/** …and what everything else takes for contrast: Darkened(1 − 0.5). */
+export const dimmedColor = (color: string): string => darkenColor(color, 1 - HIGHLIGHT_FACTOR);
+
+/** Which emphasis a paint pass applies to every color it draws. */
+export type Emphasis = 'none' | 'selected' | 'highlighted' | 'dimmed';
+
+/** Apply an emphasis to one color. `isNetname` only matters for 'selected'. */
+export function emphasize(color: string, emphasis: Emphasis, isNetname = false): string {
+  switch (emphasis) {
+    case 'selected':
+      return selectedColor(color, isNetname);
+    case 'highlighted':
+      return highlightedColor(color);
+    case 'dimmed':
+      return dimmedColor(color);
+    default:
+      return color;
+  }
+}
+
+/** Object visibility + opacity, mirroring pcbnew's Appearance>Objects tab. */
+export interface PcbDrawOptions {
+  tracks: boolean;
+  vias: boolean;
+  pads: boolean;
+  zones: boolean;
+  /**
+   * `LAYER_POINTS` — the Objects tab's "Points" row ("Show explicit snap
+   * points as crosses"). `PCB_POINT::ViewGetLOD` opens with
+   * `if( !aView->IsLayerVisible( LAYER_POINTS ) ) return LOD_HIDE`, so this
+   * hides every point whatever its own layer is doing.
+   */
+  points: boolean;
+  fpValues: boolean;
+  fpReferences: boolean;
+  fpText: boolean;
+  drawingSheet: boolean;
+  trackOpacity: number;
+  viaOpacity: number;
+  /**
+   * Minimum stroke width in IU, overriding the default "one device pixel at the
+   * current zoom".
+   *
+   * Only a retained backend should set this, and only to 0: the default depends
+   * on the view, so it makes recorded geometry zoom-dependent. See where it is
+   * read in `buildDrawSteps`.
+   */
+  minPenWidth?: number;
+  padOpacity: number;
+  /** PCB_DISPLAY_OPTIONS::m_NetNames >= 2, net names on tracks, arcs and
+   *  copper shapes. Default on (pcbnew_settings.cpp ships m_NetNames = 3,
+   *  pads *and* tracks). */
+  netNames: boolean;
+  /**
+   * `PCB_DISPLAY_OPTIONS::m_NetNames == 1 || == 3`, net names on **pads**
+   * (`pcb_painter.cpp:1403`).
+   *
+   * A separate field because the setting is one 4-valued choice — 0 none,
+   * 1 pads, 2 tracks, 3 both — and the two halves gate different items. There
+   * was no field for this at all, so pad net names were drawn unconditionally
+   * and "Show net names: tracks only" still lettered every pad.
+   */
+  padNetNames: boolean;
+  /**
+   * `m_NetNames != 0`, net names on **vias** (`pcb_painter.cpp:1118`).
+   *
+   * A third threshold on the same setting, and not the same as `netNames`: a
+   * via shows its net name when net names are on for *either* pads or tracks,
+   * so "pads only" letters the vias too. Reusing `netNames` here hid them.
+   */
+  viaNetNames: boolean;
+  zoneOpacity: number;
+  /**
+   * `PCB_RENDER_SETTINGS::m_imageOpacity`, which `draw( PCB_REFERENCE_IMAGE )`
+   * folds into the blit's alpha: `color.a *= m_imageOpacity`
+   * (`pcb_painter.cpp:578`). Appearance > Objects has the slider and
+   * `project_local_settings.cpp` defaults it to 0.6 — a reference image is
+   * meant to sit UNDER the board you are tracing on it, and ours was painting
+   * at full strength.
+   */
+  imageOpacity: number;
+  /**
+   * `PCB_VIEWERS_SETTINGS_BASE::m_ViewersDisplay.m_DisplayPadNumbers`, the
+   * `PCB_ACTIONS::showPadNumbers` toggle. Default true
+   * (`pcbnew/pcbnew_settings.h:132`).
+   *
+   * `PCB_PAINTER::draw( const PAD*, aLayer )`'s netname branch reads it FIRST
+   * and leaves `padNumber` empty when it is off (`pcb_painter.cpp:1393-1398`),
+   * so the pad's number disappears while its net name stays — two independent
+   * gates on one label, which is why this is separate from `netNames`.
+   */
+  padNumbers: boolean;
+  /** Zone display mode: false = filled (default), true = outline sketch. */
+  zoneOutline: boolean;
+  /** Show pad clearance outlines (m_Display.m_PadClearance, default on). */
+  padClearance: boolean;
+  /**
+   * `LAYER_BOARD_OUTLINE_AREA` — the Objects tab's "Board Area Shadow", a
+   * translucent grey fill of everything inside Edge.Cuts.
+   *
+   * **Default OFF.** `LSET::VisibleGALLayers()` lists every layer a board opens
+   * with and this one is commented out of it — "currently hidden by default"
+   * (`common/lset.cpp:825`). A `PCB_DRAW_PANEL_GAL` that is not the board
+   * editor has no project to read that set from, so the preview panels DO show
+   * it, which is where the difference against a live KiCad shows up.
+   */
+  boardOutlineArea: boolean;
+  /**
+   * `m_Display.m_UseViaColorForNormalTHPadstacks`, default **false**
+   * (`pcbnew_settings.cpp:243-244`) — the Pads group on Preferences > PCB
+   * Editor > Display Options.
+   *
+   * `PCB_PAINTER::GetColor` swaps a PTH pad's copper layer for
+   * `LAYER_VIA_HOLES` when it is set (`pcb_painter.cpp:266-283`), which is why
+   * the scene keeps those pads in a path of their own.
+   */
+  viaColorForThPads: boolean;
+  /**
+   * `m_Display.m_TrackClearance`, a `TRACK_CLEARANCE_MODE`
+   * (`pcbnew/pcbnew_settings.h:85-92`), default `SHOW_WITH_VIA_WHILE_ROUTING`
+   * = 2 — the Clearance Outlines group's Tracks choice.
+   *
+   * Only `SHOW_WITH_VIA_ALWAYS` = 4 changes a board at rest; 1, 2 and 3 differ
+   * from each other only during a routing or drag gesture.
+   */
+  trackClearanceMode: 0 | 1 | 2 | 3 | 4;
+  /** Fill vs sketch (outline) for tracks / vias / pads (m_Display*Fill; default
+   *  filled). Sketch strokes each item's outline at min-pen, like pcb_painter. */
+  trackFill: boolean;
+  viaFill: boolean;
+  padFill: boolean;
+  /**
+   * `m_ViewersDisplay.m_DisplayGraphicsFill` / `m_DisplayTextFill`, flipped by
+   * `PCB_ACTIONS::graphicsOutlines` / `textOutlines`.
+   *
+   * The painter reads them as `outline_mode = !fill` and then uses
+   * `m_pcbSettings.m_outlineWidth` in place of the item's own width
+   * (`pcb_painter.cpp:2014` for shapes, `:2521` for text, where it is
+   * `attrs.m_StrokeWidth = m_outlineWidth`). `m_outlineWidth` is `1`
+   * (`common/render_settings.cpp:43`) — one internal unit, which the min-pen
+   * floor lifts to a single device pixel, so outline mode is the thinnest
+   * stroke the view can draw. That is why `minPen` is the right width here and
+   * why it matches the sketch convention the three flags above already use.
+   */
+  graphicFill: boolean;
+  textFill: boolean;
+  /** Opacity of filled graphic shapes (s_objectSettings "Filled Shapes"). */
+  filledShapeOpacity: number;
+  /** High-contrast mode for inactive layers (HIGH_CONTRAST_MODE): 'dim' mixes
+   *  them toward the background by m_hiContrastFactor, 'hide' drops them
+   *  entirely; Edge.Cuts is clamped at 0.3 and stays visible even in hide mode
+   *  (pcb_painter.cpp:511-545). */
+  contrastMode: 'normal' | 'dim' | 'hide';
+  /**
+   * `RENDER_SETTINGS::m_hiContrastFactor` — how much of an inactive layer's own
+   * colour survives. `1.0 - appearance.hicontrast_dimming_factor`
+   * (`pcb_painter.cpp:176`); left out, the constant that expression yields at
+   * the shipped default, which is `PCB_PAINTER`'s own fallback at `:178`.
+   */
+  hiContrastFactor?: number;
+  /** The active layer, exempt from contrast dimming. */
+  activeLayer?: string;
+  /** Paint every layer in this color, the net-color overlay pass
+   *  (net colors mode "All": copper items tinted with their net's color). */
+  colorOverride?: string;
+  /** Print's drill-marks mode: 'none' hides holes ('small' renders as real,
+   *  hole geometry is pre-baked in the scene). Default: real. */
+  drillMarks?: 'none' | 'small' | 'real';
+  /** Color theme override (COLOR_SETTINGS): the print dialog's "Use a
+   *  different color theme" passes one of PCB_THEMES (or the synthetic B&W
+   *  palette). Absent = the built-in KiCad Default palette. */
+  theme?: PcbColorTheme;
+  /** Decoded reference-image bitmaps, keyed by payload (`ReferenceImageCache`).
+   *  A payload that is absent has not been decoded yet and a `null` one never
+   *  will be; either way the pass outlines the extent instead. Callers that do
+   *  not paint images — print, plot — simply omit this. */
+  imageBitmaps?: ReadonlyMap<string, CanvasImageSource | null>;
+}
+
+/** KiCad defaults (project_local_settings.cpp + s_objectSettings). */
+export const DEFAULT_DRAW_OPTIONS: PcbDrawOptions = {
+  tracks: true,
+  vias: true,
+  pads: true,
+  zones: true,
+  points: true,
+  fpValues: true,
+  fpReferences: true,
+  fpText: true,
+  drawingSheet: true,
+  trackOpacity: 1.0,
+  viaOpacity: 1.0,
+  padOpacity: 1.0,
+  netNames: true,
+  padNetNames: true,
+  viaNetNames: true,
+  padNumbers: true,
+  zoneOpacity: 0.6,
+  // `project_local_settings.cpp`: a reference image is 0.6 by default, and
+  // Appearance > Objects has the slider.
+  imageOpacity: 0.6,
+  zoneOutline: false,
+  padClearance: true,
+  // Off, and only here: this is the base the FOOTPRINT editor and the preview
+  // widgets draw from, and their BOARD has no project, so
+  // `BOARD::GetVisibleElements()` falls back to `GAL_SET::DefaultVisible()`,
+  // which has LAYER_BOARD_OUTLINE_AREA commented out (`pcbnew/board.cpp:1040`,
+  // `common/lset.cpp:825`). The board editor never reads this field — it passes
+  // the Objects tab's `boardAreaShadow` row, which opens ON.
+  boardOutlineArea: false,
+  // `pcb_display.pad_use_via_color_for_normal_th_padstacks`, false.
+  viaColorForThPads: false,
+  // `pcb_display.track_clearance_mode`, SHOW_WITH_VIA_WHILE_ROUTING.
+  trackClearanceMode: 2,
+  trackFill: true,
+  viaFill: true,
+  padFill: true,
+  graphicFill: true,
+  textFill: true,
+  filledShapeOpacity: 1.0,
+  contrastMode: 'normal',
+};
+
+interface LayerBuckets {
+  zones: Path2D;
+  hasZones: boolean;
+  zoneOutlines: Path2D; // zone boundary borders (drawn full-opacity over the fill)
+  hasZoneOutlines: boolean;
+  clearance: Path2D; // pad clearance outlines (stroked in the copper color)
+  hasClearance: boolean;
+  /**
+   * Track, arc and via clearance outlines — the ring `PCB_PAINTER::draw`
+   * strokes at `width + clearance * 2` on the item's CLEARANCE layer
+   * (`pcb_painter.cpp:856-870` for a segment, `:1022-1044` for an arc,
+   * `:1355-1375` for a via).
+   *
+   * Its own path and not `clearance`'s, because the two are gated by different
+   * settings: pads by `m_Display.m_PadClearance` and these by
+   * `m_Display.m_TrackClearance == SHOW_WITH_VIA_ALWAYS`.
+   */
+  trackClearance: Path2D;
+  hasTrackClearance: boolean;
+  trackOutlines: Path2D; // track/arc stadium outlines for sketch (unfilled) mode
+  hasTrackOutlines: boolean;
+  tracks: Map<number, Path2D>; // width -> segments/arcs (object: Tracks)
+  pads: Path2D; // pad flashes (object: Pads)
+  hasPads: boolean;
+  /**
+   * The pad flashes `PCB_PAINTER::GetColor` may recolour: a `PAD_ATTRIB::PTH`
+   * pad whose padstack is `PADSTACK::MODE::NORMAL` takes `LAYER_VIA_HOLES`'
+   * colour instead of the copper layer's when
+   * `m_Display.m_UseViaColorForNormalTHPadstacks` is set
+   * (`pcb_painter.cpp:266-283`, "old-skool display for people who struggle
+   * with change").
+   *
+   * A SEPARATE path rather than a flag on the draw, because the scene is built
+   * once and the setting can move without it: both buckets are always filled,
+   * and `paintCopper` decides which colour each takes. These pads are NOT in
+   * `pads`; the two are disjoint.
+   */
+  padsPthNormal: Path2D;
+  hasPadsPthNormal: boolean;
+  vias: Path2D; // via annuli (object: Vias)
+  hasVias: boolean;
+  gfxFill: Path2D;
+  hasGfxFill: boolean;
+  /**
+   * `PCB_BARCODE`s on this layer. Their own path rather than `gfxFill`'s,
+   * because `PCB_PAINTER::draw( const PCB_BARCODE*, int )`
+   * (`pcb_painter.cpp:3061-3079`) sets `SetIsFill( true )` outright and never
+   * consults `m_DisplayGraphicsFill` — a barcode with unfilled modules would
+   * not scan, so "Sketch graphic items" does not apply to it.
+   */
+  barcodes: Path2D;
+  hasBarcodes: boolean;
+  gfxStrokes: Map<number, Path2D>;
+  textRef: Map<number, Path2D>; // thickness -> glyph strokes
+  textVal: Map<number, Path2D>;
+  textFp: Map<number, Path2D>;
+  textBoard: Map<number, Path2D>;
+  /**
+   * The same four kinds of text set in an OUTLINE face: filled glyph rings
+   * rather than stroked polylines, so they cannot share the pen-keyed maps
+   * above. `PCB_PAINTER::draw( const PCB_TEXT* )` (pcb_painter.cpp:2573-2579)
+   * takes the outline font's render cache to `DrawGlyphs`, which fills, in
+   * sketch mode as much as in filled mode — there is no thin-pen variant of a
+   * faced text, so these have no `minPen` twin.
+   */
+  textRefFill: Path2D;
+  textValFill: Path2D;
+  textFpFill: Path2D;
+  textBoardFill: Path2D;
+  hasTextFill: boolean;
+  /**
+   * `PCB_POINT`s on this layer, as two paths because they are two colours: the
+   * X takes LAYER_POINTS and the ring takes the point's own board layer
+   * (`draw( const PCB_POINT* )`, `pcb_painter.cpp:3225-3269`). Bucketed per
+   * layer even though the cross colour is global, because visibility is per
+   * layer: `PCB_POINT::ViewGetLOD` hides the marker when either LAYER_POINTS
+   * or its board layer is off.
+   */
+  pointCross: Path2D;
+  pointRing: Path2D;
+  hasPoints: boolean;
+}
+
+/** A reference image's payload and where it goes; the bitmap is cached apart. */
+export interface SceneImage {
+  data: string;
+  layer: string;
+  box: { minX: number; minY: number; maxX: number; maxY: number };
+}
+
+/**
+ * One line of a pad's text: the stroke-font item, and beside it the glyph size
+ * `draw(PAD)` actually set.
+ *
+ * They differ, and neither is redundant. KiCad calls `BitmapText`, which takes
+ * the glyph size and samples an atlas; a backend without that atlas has to
+ * stroke the same call, and `GAL::BitmapText` compensates for the metrics
+ * mismatch when it does the same thing (height x 0.95, pen x 0.74). `size`
+ * carries that compensation baked in, so the atlas path — which needs no
+ * compensation, because it is the thing being compensated for — reads
+ * {@link PadTextItem.glyph} instead.
+ */
+export interface PadTextItem extends PcbTextItem {
+  /** `GetGlyphSize().y` as the painter set it, before any compensation. */
+  glyph: number;
+  /**
+   * Which of `draw( const PAD* )`'s two strings this is. They are laid out
+   * together but gated apart — the number by `m_DisplayPadNumbers` and the net
+   * name by `m_Display.m_NetNames` — so the pass that draws them has to be
+   * able to tell them apart.
+   */
+  padText: 'number' | 'net';
+  /**
+   * The same item laid out as the pad's *only* string.
+   *
+   * `draw( const PAD* )` sizes and offsets its two strings together: when both
+   * are shown they are drawn at 1/2.5 the size and pushed above and below the
+   * centre, and when only one is shown it sits centred at full size. Which of
+   * them is shown depends on `m_DisplayPadNumbers` and `m_Display.m_NetNames`,
+   * two settings a person toggles from a menu — and the retained scene is not
+   * rebuilt for either, so the gate has to be applied per frame.
+   *
+   * Applying only the *visibility* per frame, as this did, keeps the paired
+   * layout after its partner has gone: turning pad numbers off left the net
+   * name at 40% of its size, still offset below the pad centre, where KiCad
+   * re-centres it at full size. So both layouts are computed here and the pass
+   * picks one. Absent when this item has no partner to begin with.
+   */
+  solo?: { at: Vec2; glyph: number; size: Vec2; thickness: number };
+}
+
+/** One pad's laid-out text, ready for the zoom-dependent pass to gate. */
+export interface PadTextLabel {
+  /**
+   * The board-item id of the footprint this pad belongs to.
+   *
+   * Same reason the anchors carry one: this pass is per-frame and world-space,
+   * so a GPU drag that translates the footprint's recorded vertices leaves the
+   * numbers behind unless it is told. See {@link ScenePerFrameShift}.
+   */
+  owner: string;
+  /** The pad centre, for viewport culling. */
+  at: { x: number; y: number };
+  /**
+   * The net string is `x` or `*` (`IsNoConnectPad` / `IsFreePad`) rather than
+   * a net name, so `m_NetNames` does not gate it. See `PadTextItem.solo`.
+   */
+  netIsOverride?: boolean;
+  /** The pad bounding box's shorter side, PAD::ViewGetLOD's subject. */
+  minSide: number;
+  /**
+   * The copper layers the pad flashes on. PAD::ViewGetLOD hides the text
+   * unless the pad is flashed to a *visible* layer, so hiding every copper
+   * layer must take the numbers and net names with it.
+   */
+  layers: string[];
+  /** The number and/or net-name glyph runs, in world coordinates. */
+  items: PadTextItem[];
+}
+
+/** One track's net label, ready for the zoom-dependent pass to place. */
+export interface TrackNetLabel {
+  start: { x: number; y: number };
+  end: { x: number; y: number };
+  width: number;
+  layer: string;
+  /** GetDisplayNetname(), the short name, after the last '/'. */
+  text: string;
+}
+
+/**
+ * One arc's net name: `draw( const PCB_ARC* )`'s netname branch.
+ *
+ * Its own type rather than a `TrackNetLabel`, because the painter treats an arc
+ * differently in both of the ways that matter. It places ONE name, at the arc
+ * midpoint, rather than repeating along the run; and its length gate measures
+ * the arc — `radius · angle` — where a segment measures the chord. Reusing the
+ * segment label would put the name at the chord's midpoint, which is off the
+ * copper for anything more than a shallow bend.
+ */
+export interface ArcNetLabel {
+  /** The arc midpoint, `GetMid()`, where the single name is centred. */
+  at: { x: number; y: number };
+  /** Tangent orientation there, degrees, normalised into ]-90°, 90°]. */
+  angle: number;
+  width: number;
+  /** `|radius · angle|`, the gate's length. */
+  arcLength: number;
+  layer: string;
+  /** GetDisplayNetname(), the short name, unescaped. */
+  text: string;
+}
+
+/**
+ * One via's description text, the netname-layer branch of
+ * PCB_PAINTER::draw(PCB_VIA): the net's short name, and for a via that does not
+ * span the whole stack a second "top-bottom" line of copper-layer numbers.
+ * Like the track labels this is data, not baked glyphs — whether it shows at
+ * all is PCB_VIA::ViewGetLOD against the zoom.
+ */
+export interface ViaNetLabel {
+  at: { x: number; y: number };
+  /** The via diameter, which is both the LOD subject and the font basis. */
+  width: number;
+  /** Any copper layer the via spans; the label shows if one is visible. */
+  layers: string[];
+  /** GetDisplayNetname(); empty when the via has no (or the unconnected) net. */
+  text: string;
+  /** "top-bottom" copper layer numbers, empty for a through via. */
+  layerIds: string;
+}
+
+export interface BoardScene {
+  layers: Map<string, LayerBuckets>;
+  viaHoles: Path2D;
+  /** Hole-wall rings, thickness → circle/slot centrelines. Stroked, not filled;
+   *  see {@link HOLE_WALL_PAINT_WIDTH}. */
+  viaHoleWalls: Map<number, Path2D>;
+  padHolesPlated: Path2D;
+  padHoleWalls: Map<number, Path2D>;
+  padHolesNP: Path2D;
+  /** Every hole redrawn at the SMALL_DRILL cap (0.35 mm), print's
+   *  "Drill marks: Small mark" (pcbplot.h SMALL_DRILL). */
+  holesSmall: Path2D;
+  /** Track net labels, kept as data rather than baked glyphs: where they go and
+   *  whether they appear at all depends on the zoom (PCB_TRACK::ViewGetLOD). */
+  netLabels: TrackNetLabel[];
+  /** Arc net names; see {@link ArcNetLabel}. */
+  arcNetLabels: ArcNetLabel[];
+  /** Via net/layer labels, data for the same reason (PCB_VIA::ViewGetLOD). */
+  viaNetLabels: ViaNetLabel[];
+  /**
+   * Footprint origins for the LAYER_ANCHOR crosses, with the layer each
+   * footprint sits on: FOOTPRINT::ViewGetLOD shows an anchor only while that
+   * layer is visible.
+   *
+   * `owner` is the footprint's board-item id. A cross is screen-space, so it
+   * can never live in the retained buffer a GPU drag translates — which means
+   * an in-place move has to be told to shift it, and needs to know which
+   * crosses belong to what is moving. See {@link ScenePerFrameShift}.
+   */
+  anchors: { x: number; y: number; layer: string; owner: string }[];
+  /**
+   * Pad number / net-name text, as data for the per-frame pass: whether a
+   * pad's text shows depends on the zoom (PAD::ViewGetLOD, 0.5 mm against the
+   * pad's shorter side), so like the track and via names it cannot live in a
+   * retained scene. The glyph items are laid out once here; the pass only
+   * gates, places and strokes them.
+   */
+  padLabels: PadTextLabel[];
+  /** Reference images, as payload + destination. The pixels live in the cache. */
+  images: SceneImage[];
+  bbox: { minX: number; minY: number; maxX: number; maxY: number } | null;
+  /**
+   * `PCB_BOARD_OUTLINE` — the closed Edge.Cuts loops, as one even-odd path so
+   * a cutout is a hole in the fill (`pcbnew/pcb_board_outline.cpp`, whose
+   * `ViewGetLayers` is `{ LAYER_BOARD_OUTLINE_AREA }` and nothing else).
+   *
+   * Retained rather than rebuilt per frame: chaining the segments into rings is
+   * the expensive part and the outline does not move between edits.
+   */
+  boardOutlineArea: Path2D | null;
+}
+
+/**
+ * The browser geometry `buildScene` records into.
+ *
+ * A `Path2D` keeps its definition but will not hand the segments back, which is
+ * precisely what a GPU renderer needs from it. Recording through a factory lets
+ * a WebGL build substitute paths that retain their vertices, without
+ * `buildScene`'s logic or the `BoardScene` shape knowing that happened.
+ *
+ * The default is the real thing, so existing callers are untouched: `pcb3d.ts`,
+ * `FootprintCanvas.tsx` and `footprint_preview_widget.tsx` keep receiving
+ * concrete `Path2D` objects and keep drawing them onto a real canvas.
+ *
+ * `DOMMatrix` is here for the same reason — pad geometry is placed with one,
+ * and it is as browser-only as `Path2D` is.
+ */
+export interface ScenePathFactory {
+  path(): Path2D;
+  matrix(): DOMMatrix;
+  /**
+   * Name the board item everything recorded next belongs to.
+   *
+   * Only the GL factory keeps it — the browser's `Path2D` has nowhere to put
+   * it — and it is what lets a move rewrite one footprint's vertices instead
+   * of the board, the way KiCad's per-item cache chunks do.
+   */
+  setOwner?(id: string | undefined): void;
+}
+
+/** The browser's own implementations; the default for every caller. */
+export const DOM_PATH_FACTORY: ScenePathFactory = {
+  path: () => new Path2D(),
+  matrix: () => new DOMMatrix(),
+};
+
+/**
+ * The factory in force for the current `buildScene` call.
+ *
+ * Scoped rather than threaded as a parameter. Threading it would add an
+ * argument to thirteen internal helpers and their thirty-odd call sites, and
+ * bury a purely mechanical change inside the KiCad-derived drawing code it
+ * passes through — the one part of this file worth keeping readable against its
+ * C++ original. `buildScene` is synchronous, so the save/restore in the wrapper
+ * below is all the isolation this needs.
+ *
+ * The grid is not part of a scene at all: it is zoom-dependent and painted on
+ * the live canvas each frame by the shared `ui/grid_cursor.ts` painter, the way
+ * GAL draws it to TARGET_NONCACHED.
+ */
+let pathFactory: ScenePathFactory = DOM_PATH_FACTORY;
+
+const newBuckets = (): LayerBuckets => ({
+  zones: pathFactory.path(),
+  hasZones: false,
+  zoneOutlines: pathFactory.path(),
+  hasZoneOutlines: false,
+  clearance: pathFactory.path(),
+  hasClearance: false,
+  trackClearance: pathFactory.path(),
+  hasTrackClearance: false,
+  trackOutlines: pathFactory.path(),
+  hasTrackOutlines: false,
+  tracks: new Map(),
+  pads: pathFactory.path(),
+  hasPads: false,
+  padsPthNormal: pathFactory.path(),
+  hasPadsPthNormal: false,
+  vias: pathFactory.path(),
+  hasVias: false,
+  gfxFill: pathFactory.path(),
+  hasGfxFill: false,
+  barcodes: pathFactory.path(),
+  hasBarcodes: false,
+  gfxStrokes: new Map(),
+  textRef: new Map(),
+  textVal: new Map(),
+  textFp: new Map(),
+  textBoard: new Map(),
+  textRefFill: pathFactory.path(),
+  textValFill: pathFactory.path(),
+  textFpFill: pathFactory.path(),
+  textBoardFill: pathFactory.path(),
+  hasTextFill: false,
+  pointCross: pathFactory.path(),
+  pointRing: pathFactory.path(),
+  hasPoints: false,
+});
+
+const buckets = (scene: BoardScene, layer: string): LayerBuckets => {
+  let b = scene.layers.get(layer);
+  if (!b) {
+    b = newBuckets();
+    scene.layers.set(layer, b);
+  }
+  return b;
+};
+
+const pathIn = (map: Map<number, Path2D>, width: number): Path2D => {
+  let p = map.get(width);
+  if (!p) {
+    p = pathFactory.path();
+    map.set(width, p);
+  }
+  return p;
+};
+
+/** Expand a pad/via layer list ('*.Cu' wildcards) to real board layer names. */
+function expandLayers(list: string[], copperNames: string[]): string[] {
+  const out: string[] = [];
+  for (const l of list) {
+    if (l === '*.Cu') out.push(...copperNames);
+    else if (l === 'F&B.Cu') out.push('F.Cu', 'B.Cu');
+    else if (l.startsWith('*.')) out.push(`F${l.slice(1)}`, `B${l.slice(1)}`);
+    else out.push(l);
+  }
+  return out;
+}
+
+/** Copper layers spanned by a via, in board stackup order. */
+function viaSpan(from: string, to: string, copperNames: string[]): string[] {
+  const i0 = copperNames.indexOf(from);
+  const i1 = copperNames.indexOf(to);
+  if (i0 < 0 || i1 < 0) return copperNames;
+  const [a, b] = i0 <= i1 ? [i0, i1] : [i1, i0];
+  return copperNames.slice(a, b + 1);
+}
+
+/**
+ * Stadium outline of a track centreline A→B of width `w` (radius r = w/2): the
+ * two parallel edges plus the semicircular end caps, as a closed subpath. This
+ * is what a track drawn in sketch mode outlines (pcb_painter.cpp DrawSegment in
+ * stroke mode). Caps are sampled to stay independent of arc-direction quirks.
+ */
+function addStadiumOutline(path: Path2D, a: Vec2, b: Vec2, r: number): void {
+  if (r <= 0) return;
+  const ang = Math.atan2(b.y - a.y, b.x - a.x);
+  const N = 8;
+  const pt: [number, number][] = [];
+  // Forward cap around B: from B-perp through B+dir to B+perp.
+  for (let i = 0; i <= N; i++) {
+    const t = ang - Math.PI / 2 + (Math.PI * i) / N;
+    pt.push([b.x + r * Math.cos(t), b.y + r * Math.sin(t)]);
+  }
+  // Backward cap around A: from A+perp through A-dir to A-perp.
+  for (let i = 0; i <= N; i++) {
+    const t = ang + Math.PI / 2 + (Math.PI * i) / N;
+    pt.push([a.x + r * Math.cos(t), a.y + r * Math.sin(t)]);
+  }
+  path.moveTo(pt[0]![0], pt[0]![1]);
+  for (let i = 1; i < pt.length; i++) path.lineTo(pt[i]![0], pt[i]![1]);
+  path.closePath();
+}
+
+/** Outline of a poly-line track (tessellated arc) of width `w`: offset each side. */
+function addPolylineOutline(path: Path2D, pts: Vec2[], r: number): void {
+  if (r <= 0 || pts.length < 2) return;
+  const left: [number, number][] = [];
+  const right: [number, number][] = [];
+  for (let i = 0; i < pts.length; i++) {
+    const p = pts[i]!;
+    const a = pts[Math.max(0, i - 1)]!;
+    const b = pts[Math.min(pts.length - 1, i + 1)]!;
+    const ang = Math.atan2(b.y - a.y, b.x - a.x);
+    const px = -Math.sin(ang) * r;
+    const py = Math.cos(ang) * r;
+    left.push([p.x + px, p.y + py]);
+    right.push([p.x - px, p.y - py]);
+  }
+  path.moveTo(left[0]![0], left[0]![1]);
+  for (let i = 1; i < left.length; i++) path.lineTo(left[i]![0], left[i]![1]);
+  for (let i = right.length - 1; i >= 0; i--) path.lineTo(right[i]![0], right[i]![1]);
+  path.closePath();
+}
+
+/** Pad outline as a Path2D subpath in board coordinates.
+ *
+ *  `PCB_PAINTER::draw( PAD )` strokes `GetEffectiveShape()`, which is built at
+ *  `ShapePos` — the pad position plus its rotated drill offset. */
+function addPadShape(path: Path2D, pad: PcbPad): void {
+  const c = padShapePos(pad);
+  const m = pathFactory.matrix().translate(c.x, c.y).rotate(-pad.angle);
+  const w = pad.size.x;
+  const h = pad.size.y;
+  const sub = pathFactory.path();
+  switch (pad.shape) {
+    case 'circle':
+      sub.arc(0, 0, w / 2, 0, Math.PI * 2);
+      break;
+    case 'oval': {
+      const r = Math.min(w, h) / 2;
+      sub.roundRect(-w / 2, -h / 2, w, h, r);
+      break;
+    }
+    case 'rect':
+      sub.rect(-w / 2, -h / 2, w, h);
+      break;
+    case 'roundrect': {
+      // GetRoundRectCornerRadius: ratio · min(w, h), ratio ≤ 0.5.
+      const r = Math.min(0.5, pad.roundrectRatio ?? 0.25) * Math.min(w, h);
+      if (pad.chamferRatio && pad.chamfer && pad.chamfer.length > 0) {
+        addChamferedRect(sub, w, h, r, pad.chamferRatio, pad.chamfer);
+      } else {
+        sub.roundRect(-w / 2, -h / 2, w, h, r);
+      }
+      break;
+    }
+    case 'trapezoid': {
+      // pad.cpp TransformShapeToPolygon corner order.
+      const hx = w / 2;
+      const hy = h / 2;
+      const dx = (pad.delta?.x ?? 0) / 2;
+      const dy = (pad.delta?.y ?? 0) / 2;
+      sub.moveTo(-hx - dy, hy + dx);
+      sub.lineTo(hx + dy, hy - dx);
+      sub.lineTo(hx - dy, -hy + dx);
+      sub.lineTo(-hx + dy, -hy - dx);
+      sub.closePath();
+      break;
+    }
+    case 'custom': {
+      // Anchor shape first (circle or rect of `size`), then primitives.
+      if (w > 0) sub.arc(0, 0, w / 2, 0, Math.PI * 2);
+      for (const prim of pad.primitives ?? []) {
+        if (prim.kind === 'gr_poly' && prim.pts && prim.pts.length >= 3) {
+          sub.moveTo(prim.pts[0]!.x, prim.pts[0]!.y);
+          for (let i = 1; i < prim.pts.length; i++) sub.lineTo(prim.pts[i]!.x, prim.pts[i]!.y);
+          sub.closePath();
+        } else if (prim.kind === 'gr_circle' && prim.center) {
+          const r = prim.end
+            ? Math.hypot(prim.end.x - prim.center.x, prim.end.y - prim.center.y)
+            : 0;
+          if (r > 0) {
+            sub.moveTo(prim.center.x + r, prim.center.y);
+            sub.arc(prim.center.x, prim.center.y, r, 0, Math.PI * 2);
+          }
+        } else if (prim.kind === 'gr_rect' && prim.start && prim.end) {
+          sub.rect(
+            Math.min(prim.start.x, prim.end.x),
+            Math.min(prim.start.y, prim.end.y),
+            Math.abs(prim.end.x - prim.start.x),
+            Math.abs(prim.end.y - prim.start.y),
+          );
+        }
+      }
+      break;
+    }
+  }
+  path.addPath(sub, m);
+}
+
+/**
+ * The pad outline inflated by `clr`, the pad-clearance outline KiCad strokes
+ * in the copper color (pcb_painter.cpp draw(PAD) clearance layer): a circle of
+ * radius+clr for round pads, otherwise the shape offset outward by clr (which
+ * rounds the corners with radius clr).
+ */
+function addPadClearanceShape(path: Path2D, pad: PcbPad, clr: number): void {
+  const c = padShapePos(pad);
+  const m = pathFactory.matrix().translate(c.x, c.y).rotate(-pad.angle);
+  const w = pad.size.x;
+  const h = pad.size.y;
+  const sub = pathFactory.path();
+  const x = -w / 2 - clr;
+  const y = -h / 2 - clr;
+  const rw = w + 2 * clr;
+  const rh = h + 2 * clr;
+  switch (pad.shape) {
+    case 'circle':
+      sub.arc(0, 0, w / 2 + clr, 0, Math.PI * 2);
+      break;
+    case 'oval':
+      sub.roundRect(x, y, rw, rh, Math.min(w, h) / 2 + clr);
+      break;
+    case 'roundrect': {
+      const r = Math.min(0.5, pad.roundrectRatio ?? 0.25) * Math.min(w, h);
+      sub.roundRect(x, y, rw, rh, r + clr);
+      break;
+    }
+    default:
+      // rect / trapezoid / custom: offset outward with clr-radius corners.
+      sub.roundRect(x, y, rw, rh, clr);
+      break;
+  }
+  path.addPath(sub, m);
+}
+
+/** Chamfered roundrect: straight cuts on `corners`, radius `r` elsewhere. */
+function addChamferedRect(
+  sub: Path2D,
+  w: number,
+  h: number,
+  r: number,
+  chamferRatio: number,
+  corners: string[],
+): void {
+  const cut = chamferRatio * Math.min(w, h);
+  const hx = w / 2;
+  const hy = h / 2;
+  const has = (c: string): boolean => corners.includes(c);
+  const tl = has('top_left');
+  const tr = has('top_right');
+  const br = has('bottom_right');
+  const bl = has('bottom_left');
+  sub.moveTo(-hx + (tl ? cut : r), -hy);
+  if (tr) {
+    sub.lineTo(hx - cut, -hy);
+    sub.lineTo(hx, -hy + cut);
+  } else {
+    sub.lineTo(hx - r, -hy);
+    sub.arcTo(hx, -hy, hx, -hy + r, r);
+  }
+  if (br) {
+    sub.lineTo(hx, hy - cut);
+    sub.lineTo(hx - cut, hy);
+  } else {
+    sub.lineTo(hx, hy - r);
+    sub.arcTo(hx, hy, hx - r, hy, r);
+  }
+  if (bl) {
+    sub.lineTo(-hx + cut, hy);
+    sub.lineTo(-hx, hy - cut);
+  } else {
+    sub.lineTo(-hx + r, hy);
+    sub.arcTo(-hx, hy, -hx, hy - r, r);
+  }
+  if (tl) {
+    sub.lineTo(-hx, -hy + cut);
+    sub.lineTo(-hx + cut, -hy);
+  } else {
+    sub.lineTo(-hx, -hy + r);
+    sub.arcTo(-hx, -hy, -hx + r, -hy, r);
+  }
+  sub.closePath();
+}
+
+/**
+ * `PCB_PAINTER::draw( const PCB_POINT*, int )` (`pcb_painter.cpp:3225-3269`).
+ *
+ * An X and a circle, both in world units and both stroked at
+ * `m_pcbSettings.m_outlineWidth` — GAL's minimum pen, which the paint pass
+ * supplies as `minPen`:
+ *
+ *     double size = (double) aPoint->GetSize() / 2;
+ *     …
+ *     m_gal->DrawLine( { -size, -size }, {  size,  size } );
+ *     m_gal->DrawLine( {  size, -size }, { -size,  size } );
+ *     m_gal->SetStrokeColor( ringColor );
+ *     m_gal->DrawCircle( { 0, 0 }, size / 2 );
+ *
+ * So the X spans the full `GetSize()` corner to corner and the ring's radius
+ * is a quarter of it. "Draw as X to make it clearer when overlaid on cursor or
+ * axes" — the marker is deliberately not the `+` a footprint anchor uses.
+ */
+function addPoint(scene: BoardScene, p: PcbPoint): void {
+  const b = buckets(scene, p.layer);
+  const size = p.size / 2;
+  b.pointCross.moveTo(p.at.x - size, p.at.y - size);
+  b.pointCross.lineTo(p.at.x + size, p.at.y + size);
+  b.pointCross.moveTo(p.at.x + size, p.at.y - size);
+  b.pointCross.lineTo(p.at.x - size, p.at.y + size);
+  b.pointRing.moveTo(p.at.x + size / 2, p.at.y);
+  b.pointRing.arc(p.at.x, p.at.y, size / 2, 0, Math.PI * 2);
+  b.hasPoints = true;
+}
+
+/**
+ * `PCB_PAINTER::draw( const PCB_BARCODE*, int )` (`pcb_painter.cpp:3061-3079`):
+ * one filled polygon, `m_poly`, in the layer's own colour.
+ *
+ * Everything interesting has already happened in `barcodeGeometry` — encoding,
+ * scaling, the human-readable line, the knockout inversion, the back-layer
+ * mirror and the rotation. There is nothing left here but the fill, which is
+ * exactly the shape of upstream's painter.
+ */
+function addBarcode(scene: BoardScene, bc: PcbBarcode): void {
+  const b = buckets(scene, bc.layer);
+  const { poly } = barcodeGeometry(bc);
+
+  for (const rings of poly) {
+    for (const ring of rings) {
+      if (ring.length < 3) continue;
+      b.barcodes.moveTo(ring[0]!.x, ring[0]!.y);
+      for (let i = 1; i < ring.length; i++) b.barcodes.lineTo(ring[i]!.x, ring[i]!.y);
+      b.barcodes.closePath();
+      b.hasBarcodes = true;
+    }
+  }
+}
+
+function addShape(scene: BoardScene, s: PcbShape): void {
+  const b = buckets(scene, s.layer);
+  const width = Math.max(s.width, 1);
+  if (s.kind === 'line' && s.start && s.end) {
+    const p = pathIn(b.gfxStrokes, width);
+    p.moveTo(s.start.x, s.start.y);
+    p.lineTo(s.end.x, s.end.y);
+  } else if (s.kind === 'rect' && s.start && s.end) {
+    const x = Math.min(s.start.x, s.end.x);
+    const y = Math.min(s.start.y, s.end.y);
+    const rw = Math.abs(s.end.x - s.start.x);
+    const rh = Math.abs(s.end.y - s.start.y);
+    // `(radius …)`: a rounded rectangle, which EDA_SHAPE draws as a ROUNDRECT
+    // (eda_shape.cpp:702-706). Clamped here as `SetCornerRadius` clamps, so a
+    // hand-edited file with an oversized radius draws a stadium rather than
+    // crossing its own corners.
+    const r = Math.min(s.cornerRadius ?? 0, Math.min(rw, rh) / 2);
+    const box = (path: Path2D): void => {
+      if (r > 0) path.roundRect(x, y, rw, rh, r);
+      else path.rect(x, y, rw, rh);
+    };
+    if (isSolidFill(s)) {
+      box(b.gfxFill);
+      b.hasGfxFill = true;
+    }
+    box(pathIn(b.gfxStrokes, width));
+    addHatch(b, s);
+  } else if (s.kind === 'circle' && s.center && s.end) {
+    const r = Math.hypot(s.end.x - s.center.x, s.end.y - s.center.y);
+    if (r <= 0) return;
+    if (isSolidFill(s)) {
+      b.gfxFill.moveTo(s.center.x + r, s.center.y);
+      b.gfxFill.arc(s.center.x, s.center.y, r, 0, Math.PI * 2);
+      b.hasGfxFill = true;
+    }
+    const p = pathIn(b.gfxStrokes, width);
+    p.moveTo(s.center.x + r, s.center.y);
+    p.arc(s.center.x, s.center.y, r, 0, Math.PI * 2);
+    addHatch(b, s);
+  } else if (s.kind === 'arc' && s.start && s.mid && s.end) {
+    const pts = tessellateArc(s.start, s.mid, s.end);
+    const p = pathIn(b.gfxStrokes, width);
+    p.moveTo(pts[0]!.x, pts[0]!.y);
+    for (let i = 1; i < pts.length; i++) p.lineTo(pts[i]!.x, pts[i]!.y);
+  } else if (s.kind === 'curve' && s.pts && s.pts.length >= 4) {
+    // `PCB_PAINTER::draw( PCB_SHAPE )`, `case SHAPE_T::BEZIER`: the curve, not
+    // the control polygon. This branch used to fall in with `poly` below and
+    // stroke a line through all four points, so every bezier on a board — ours
+    // or one KiCad wrote — rendered as a zigzag between its handles.
+    //
+    // Upstream tessellates through `BEZIER_POLY` because GAL has no curve
+    // primitive at this level; a 2D context does, and `bezierCurveTo` is the
+    // same cubic to within the rasteriser's own flattening tolerance, so there
+    // is nothing to gain by re-deriving `m_MaxError` here.
+    const [a, c1, c2, e] = s.pts as [Vec2, Vec2, Vec2, Vec2];
+    if (isSolidFill(s)) {
+      // `DrawPolygon( GetBezierPoints() )` — the fill closes the chord from the
+      // end back to the start, exactly as a filled polygon of those points does.
+      b.gfxFill.moveTo(a.x, a.y);
+      b.gfxFill.bezierCurveTo(c1.x, c1.y, c2.x, c2.y, e.x, e.y);
+      b.gfxFill.closePath();
+      b.hasGfxFill = true;
+    }
+    const p = pathIn(b.gfxStrokes, width);
+    p.moveTo(a.x, a.y);
+    p.bezierCurveTo(c1.x, c1.y, c2.x, c2.y, e.x, e.y);
+    if (isSolidFill(s)) p.closePath();
+    addHatch(b, s);
+  } else if ((s.kind === 'poly' || s.kind === 'curve') && s.pts && s.pts.length >= 2) {
+    if (isSolidFill(s) && s.pts.length >= 3) {
+      b.gfxFill.moveTo(s.pts[0]!.x, s.pts[0]!.y);
+      for (let i = 1; i < s.pts.length; i++) b.gfxFill.lineTo(s.pts[i]!.x, s.pts[i]!.y);
+      b.gfxFill.closePath();
+      b.hasGfxFill = true;
+    }
+    const p = pathIn(b.gfxStrokes, width);
+    p.moveTo(s.pts[0]!.x, s.pts[0]!.y);
+    for (let i = 1; i < s.pts.length; i++) p.lineTo(s.pts[i]!.x, s.pts[i]!.y);
+    if (isSolidFill(s)) p.closePath();
+    addHatch(b, s);
+  }
+}
+
+/**
+ * The hatch lines of a hatched fill, stroked at the shape's own line width.
+ *
+ * `EDA_SHAPE::UpdateHatching` builds real segments and the painter draws them
+ * as strokes (not as a pattern), so they go into the same width-keyed stroke
+ * map every other graphic uses and pick up the same pen quantisation.
+ */
+function addHatch(b: LayerBuckets, s: PcbShape): void {
+  if (!isHatchedFill(s)) return;
+  const p = pathIn(b.gfxStrokes, s.width);
+  for (const seg of shapeHatchLines(s)) {
+    p.moveTo(seg.a.x, seg.a.y);
+    p.lineTo(seg.b.x, seg.b.y);
+  }
+}
+
+/** Bake a text item's glyph strokes into the given thickness->path map. */
+/**
+ * A text box's border and its text.
+ * Counterpart: `PCB_PAINTER::draw( const PCB_TEXTBOX* )`, which strokes the
+ * corners at the box's line width and then draws the text inside.
+ *
+ * The border is drawn **only when it is enabled** — a box with `border no` is
+ * text with invisible margins, not a rectangle. The text still goes in either
+ * way, which is why the two are separate decisions here.
+ */
+function addTextBox(scene: BoardScene, t: PcbTextBox): void {
+  const b = buckets(scene, t.layer);
+  if (t.border) {
+    const pts = textBoxCorners(t);
+    if (pts.length > 1) {
+      const p = pathIn(b.gfxStrokes, Math.max(t.strokeWidth ?? 0, 1));
+      p.moveTo(pts[0]!.x, pts[0]!.y);
+      for (let i = 1; i < pts.length; i++) p.lineTo(pts[i]!.x, pts[i]!.y);
+      p.closePath();
+    }
+  }
+  if (t.text !== '') {
+    addText(b, 'board', {
+      kind: 'user',
+      text: t.text,
+      at: textBoxTextAnchor(t),
+      angle: t.angle ?? 0,
+      layer: t.layer,
+      size: t.size,
+      thickness: t.thickness,
+      bold: t.bold,
+      italic: t.italic,
+      justify: t.justify,
+    });
+  }
+}
+
+/**
+ * Where the wrapped text starts.
+ *
+ * Upstream lays the text out inside the box's margins with the font metrics,
+ * wrapping it to the width. We have no wrapping, so the string is drawn from
+ * the top-left corner plus the left/top margins — the right place for the first
+ * line, and honest about being no more than that.
+ */
+function textBoxTextAnchor(t: PcbTextBox): Vec2 {
+  const pts = textBoxCorners(t);
+  if (pts.length === 0) return { x: 0, y: 0 };
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  for (const p of pts) {
+    if (p.x < minX) minX = p.x;
+    if (p.y < minY) minY = p.y;
+  }
+  return { x: minX + t.margins.left, y: minY + t.margins.top + t.size.y };
+}
+
+/**
+ * A reference image's extent, as an outline.
+ * Counterpart: `PCB_PAINTER::draw( const PCB_REFERENCE_IMAGE* )`, which blits
+ * the decoded bitmap.
+ *
+ * **The picture is recorded, not drawn.** The scene is Path2D geometry built
+ * synchronously; a raster is neither a path nor synchronous — decoding the
+ * base64 hands back a promise and a `CanvasImageSource`. So what goes in the
+ * scene is the payload, the layer and the box it fills, and the paint pass
+ * blits it once `ReferenceImageCache` has decoded it. Same arrangement as
+ * `netLabels`, which are data for the same kind of reason.
+ *
+ * Nothing is added to the stroke buckets: an outline is what the paint pass
+ * falls back to when the payload will not decode, so drawing one here would put
+ * a permanent box around every picture that *does*.
+ */
+function addImage(scene: BoardScene, img: PcbImage): void {
+  scene.images.push({ data: img.data, layer: img.layer, box: imageBBox(img) });
+}
+
+/**
+ * A table: every cell drawn as a text box, then the borders and separators.
+ * Counterpart: `PCB_PAINTER::draw( const PCB_TABLE* )`.
+ *
+ * A cell is drawn *without* its own border — upstream calls the shared text box
+ * painter, and a cell's `border` is never set from a file — so all the lines
+ * come from `tableBorderSegments`. They are bucketed by stroke width, since a
+ * header separator uses the heavier border weight while the rest use the
+ * separators weight.
+ */
+function addTable(scene: BoardScene, t: PcbTable): void {
+  if (t.cells.length === 0) return;
+  const b = buckets(scene, t.layer);
+
+  for (const cell of t.cells) {
+    // A zero span means the cell was merged away; upstream skips those.
+    if (cell.colSpan === 0 || cell.rowSpan === 0) continue;
+    if (cell.text !== '') {
+      addText(b, 'board', {
+        kind: 'user',
+        text: cell.text,
+        at: textBoxTextAnchor(cell),
+        angle: cell.angle ?? 0,
+        layer: t.layer,
+        size: cell.size,
+        thickness: cell.thickness,
+        bold: cell.bold,
+        italic: cell.italic,
+        justify: cell.justify,
+      });
+    }
+  }
+
+  for (const seg of tableBorderSegments(t)) {
+    const p = pathIn(b.gfxStrokes, Math.max(seg.width, 1));
+    p.moveTo(seg.a.x, seg.a.y);
+    p.lineTo(seg.b.x, seg.b.y);
+  }
+}
+
+/**
+ * A dimension's lines, into the graphics-stroke bucket of its layer.
+ * Counterpart: `PCB_PAINTER::draw( const PCB_DIMENSION_BASE* )`, which walks
+ * the shapes `updateGeometry` produced and strokes them at the line width.
+ *
+ * The extension lines, crossbar, arrowheads and leader all share one width, so
+ * they collapse into a single Path2D — the same bucket a graphic line uses, and
+ * therefore the same stroke pass. The label goes to the board-text bucket, so it
+ * picks up the stroke font like any other board text.
+ */
+function addDimension(scene: BoardScene, d: PcbDimension): void {
+  const b = buckets(scene, d.layer);
+  const p = pathIn(b.gfxStrokes, Math.max(d.style.thickness, 1));
+  for (const seg of dimensionSegments(d)) {
+    p.moveTo(seg.a.x, seg.a.y);
+    p.lineTo(seg.b.x, seg.b.y);
+  }
+  if (d.text && !d.text.hide) addText(b, 'board', d.text);
+}
+
+// Text-variable resolver for the current render (unset = draw verbatim).
+let g_resolveText: SceneFilter['resolveTextVar'];
+
+/** `GetShownText`: expand `${VAR}` when a resolver is active. */
+function shownText(text: string): string {
+  return g_resolveText && text.includes('${') ? ResolveShownText(text, g_resolveText) : text;
+}
+
+type TextKind = 'ref' | 'val' | 'fp' | 'board';
+
+function addText(b: LayerBuckets, kind: TextKind, t: PcbTextItem): void {
+  // Every board text goes through here — board text, footprint fields,
+  // dimensions, table cells and text boxes — so this is the one place the
+  // expansion has to happen, the way `GetShownText` is the one place upstream.
+  if (g_resolveText && t.text.includes('${')) t = { ...t, text: shownText(t.text) };
+  if (t.size.y <= 0 || t.text === '') return;
+  // `FONT::GetFont( face, bold, italic )`: an outline face fills its glyph
+  // rings; the stroke font — no face, or a face not fetched yet — strokes.
+  const outline = t.face ? getOutlineFont(t.face, !!t.bold, !!t.italic) : null;
+  if (outline) {
+    const fill =
+      kind === 'ref'
+        ? b.textRefFill
+        : kind === 'val'
+          ? b.textValFill
+          : kind === 'fp'
+            ? b.textFpFill
+            : b.textBoardFill;
+    emitBoardOutlineText(t, outline, fill);
+    b.hasTextFill = true;
+    return;
+  }
+  const map =
+    kind === 'ref'
+      ? b.textRef
+      : kind === 'val'
+        ? b.textVal
+        : kind === 'fp'
+          ? b.textFp
+          : b.textBoard;
+  addStrokeText(map, t);
+}
+
+/** A stroke-font text into a pen-keyed map: the net-name runs, which carry no face. */
+function addStrokeText(map: Map<number, Path2D>, t: PcbTextItem): void {
+  if (t.size.y <= 0 || t.text === '') return;
+  emitBoardText(t, pathIn(map, boardTextPen(t)));
+}
+
+/**
+ * A faced text's glyph rings, appended to `path` — `OUTLINE_FONT` through
+ * the shared layout, placed by `FONT::getLinePositions` without its two
+ * stroke-only fudges, and put on the board by the same rotation, mirror and
+ * keep-upright arithmetic the stroke glyphs get in {@link emitBoardText}.
+ *
+ * The x size is the outline font's own: `GetTextAsGlyphs` scales each glyph
+ * by `glyphSize.x / faceSize()` across and `glyphSize.y / faceSize()` down
+ * (outline_font.cpp:398-400), so a condensed `(size 1.5 0.6)` text condenses
+ * in the layout itself rather than by the `sx` squeeze the stroke path
+ * applies after the fact.
+ */
+function emitBoardOutlineText(t: PcbTextItem, font: OutlineFont, path: Path2D): void {
+  const size = t.size.y;
+  const justify = t.justify ?? [];
+  const hAlign = justify.includes('left') ? 'left' : justify.includes('right') ? 'right' : 'center';
+  const vAlign = justify.includes('top') ? 'top' : justify.includes('bottom') ? 'bottom' : 'center';
+  const layout = outlineLayout(font, t.text, size, hAlign, t.size.x);
+  const blockH = size * 1.17 + (layout.lineCount - 1) * metricsInterline(size);
+  const offY = vAlign === 'top' ? size : vAlign === 'bottom' ? size - blockH : size - blockH / 2;
+  const offX = hAlign === 'right' ? -layout.width : hAlign === 'left' ? 0 : -layout.width / 2;
+  let drawAngle = t.angle;
+  if (t.keepUpright) {
+    while (drawAngle > 90) drawAngle -= 180;
+    while (drawAngle <= -90) drawAngle += 180;
+  }
+  const rad = (-drawAngle * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  const mir = t.mirror ? -1 : 1;
+  const place = (px: number, py: number): [number, number] => {
+    const gx = (px + offX) * mir;
+    const gy = py + offY;
+    return [t.at.x + gx * cos - gy * sin, t.at.y + gx * sin + gy * cos];
+  };
+  for (const g of layout.glyphs) {
+    for (const ring of g.rings) {
+      if (ring.length < 3) continue;
+      const [x0, y0] = place(ring[0]!.x, ring[0]!.y);
+      path.moveTo(x0, y0);
+      for (let i = 1; i < ring.length; i++) {
+        const [x, y] = place(ring[i]!.x, ring[i]!.y);
+        path.lineTo(x, y);
+      }
+      path.closePath();
+    }
+  }
+  // The overbar is a stroke upstream (`drawMarkup`'s STROKE_GLYPH), at the
+  // text's pen; as a ring of the fill it is a rectangle of that width.
+  const pen = boardTextPen(t);
+  for (const bar of layout.bars) {
+    const [ax, ay] = place(bar[0]!.x, bar[0]!.y - pen / 2);
+    const [bx, by] = place(bar[1]!.x, bar[1]!.y - pen / 2);
+    const [cx, cy] = place(bar[1]!.x, bar[1]!.y + pen / 2);
+    const [dx, dy] = place(bar[0]!.x, bar[0]!.y + pen / 2);
+    path.moveTo(ax, ay);
+    path.lineTo(bx, by);
+    path.lineTo(cx, cy);
+    path.lineTo(dx, dy);
+    path.closePath();
+  }
+}
+
+/**
+ * `EDA_TEXT::GetEffectiveTextPenWidth` (eda_text.cpp:1093-1108), through the
+ * shared port: file thickness if > 1, else `GetPenSizeForBold( GetTextWidth() )`
+ * or `GetPenSizeForNormal( GetTextWidth() )` — both of which take
+ * `GetTextSize().x`, not the height — then `ClampTextPenSize` against the
+ * *smaller* of the two dimensions. Deriving it from `size.y` here drew
+ * condensed board text, `(size 1.5 0.6)`, with a pen 2.5× too heavy.
+ * The floor of 1 is ours: a zero-width canvas stroke draws nothing.
+ */
+const boardTextPen = (t: PcbTextItem): number => Math.max(textPenWidth(t), 1);
+
+/**
+ * One board text item on a path of its own, plus the pen it should be stroked
+ * with — for the drawing tools' live previews, which paint straight onto the
+ * canvas rather than into a scene.
+ *
+ * It shares {@link emitBoardText} with {@link addText} rather than repeating the
+ * alignment/rotation/mirror/italic arithmetic, which is how a preview starts
+ * disagreeing with the thing it previews. The path comes from the scene's
+ * factory, not from `new Path2D()`: outside `buildScene` that is the browser's
+ * own, and inside it, it is whatever the scene is recording into.
+ */
+export function boardTextPath(t: PcbTextItem): { path: Path2D; thickness: number } | null {
+  if (t.size.y <= 0 || t.text === '') return null;
+  const path = pathFactory.path();
+  emitBoardText(t, path);
+  return { path, thickness: boardTextPen(t) };
+}
+
+/** The glyph strokes of one text item, appended to `path`. */
+function emitBoardText(t: PcbTextItem, path: Path2D): void {
+  const size = t.size.y;
+  // PCB text anchors CENTER/CENTER by default (EDA_TEXT on boards).
+  const justify = t.justify ?? [];
+  const hAlign = justify.includes('left') ? 'left' : justify.includes('right') ? 'right' : 'center';
+  const vAlign = justify.includes('top') ? 'top' : justify.includes('bottom') ? 'bottom' : 'center';
+  const { strokes, width, lineCount } = layoutText(t.text, size, hAlign);
+  // `FONT::getLinePositions` — the fudge factors that put the block where
+  // upstream puts it, shared with the pour's knockout hull.
+  const { x: offX, y: offY } = textBlockOffset({
+    size,
+    width,
+    strokeWidth: t.thickness ?? 0,
+    lineCount,
+    hAlign,
+    vAlign,
+  });
+  // PCB_TEXT::GetDrawRotation: footprint text keeps its angle in ]-90°, 90°] so
+  // it stays readable, e.g. a 270° "POWER" field draws at 90°, not upside-down.
+  let drawAngle = t.angle;
+  if (t.keepUpright) {
+    while (drawAngle > 90) drawAngle -= 180;
+    while (drawAngle <= -90) drawAngle += 180;
+  }
+  const rad = (-drawAngle * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  const mir = t.mirror ? -1 : 1;
+  const tilt = t.italic ? ITALIC_TILT : 0;
+  // KiCad scales glyphs by width and height separately (eda_text.cpp writes
+  // "(size height width)"); layoutText uses height for both, so condense x by
+  // width/height for non-square text (e.g. a condensed board name).
+  const sx = size > 0 ? t.size.x / size : 1;
+  for (const stroke of strokes) {
+    for (let i = 0; i < stroke.length; i++) {
+      const gx = ((stroke[i]!.x + offX) * sx - stroke[i]!.y * tilt) * mir;
+      const gy = stroke[i]!.y + offY;
+      const x = t.at.x + gx * cos - gy * sin;
+      const y = t.at.y + gx * sin + gy * cos;
+      if (i === 0) path.moveTo(x, y);
+      else path.lineTo(x, y);
+      if (stroke.length === 1) path.lineTo(x + 1, y);
+    }
+  }
+}
+
+// KiCad caps pad-label font size (PCB_RENDER_SETTINGS::MAX_FONT_SIZE = 10mm).
+const MAX_PAD_FONT = 10 * MM;
+
+/**
+ * Pad number (top) + net name (bottom) drawn on a pad, a faithful port of the
+ * netname-layer branch of PCB_PAINTER::draw(PAD): the text runs along the pad's
+ * longer axis, both are bold and centred, and the sizes come from KiCad's
+ * "magic numbers" (1.5·along / max(chars, 3|5), halved and offset when both are
+ * shown). Kept as data for the per-frame pass, not baked: whether a pad's
+ * text shows at all depends on the zoom (PAD::ViewGetLOD).
+ */
+function addPadLabels(
+  scene: BoardScene,
+  pad: PcbPad,
+  netName: string,
+  /**
+   * `GetDisplayNetname()` for this pad's net, resolved against the whole net
+   * list — so a net sharing its short name with another arrives already
+   * widened. `netName` stays the raw, escaped name because `IsFreePad()` tests
+   * that one.
+   */
+  displayName: string,
+  layers: string[],
+  owner: string,
+): void {
+  // Unescaped, like every other string this painter draws:
+  // `padNumber = UnescapeString( aPad->GetNumber() )` (pcb_painter.cpp:1395,
+  // and BRDITEMS_PLOTTER::PlotPadNumber does the same).
+  const padNumber = unescapeString(pad.number ?? '');
+  // Net label per PCB_PAINTER::draw(PAD): the display netname is the SHORT net
+  // name (NETINFO's part after the last '/'), unescaped.
+  //
+  // The two overrides are NOT gated by the net-name setting. Upstream reads
+  // `m_NetNames == 1 || 3` to decide whether to put a *name* here, and then
+  // applies `IsNoConnectPad()` / `IsFreePad()` unconditionally — so a
+  // no-connect pad keeps its "x" and a free pad its "*" even with net names
+  // switched off entirely. Gating them behind the name is why they used to
+  // vanish together with it.
+  //
+  // `IsFreePad()` tests `GetShortNetname()`, the escaped short name, not the
+  // displayed one: the prefix it looks for is `unconnected-(`, and testing the
+  // unescaped string would answer for a name the file does not contain.
+  const shortName = shortNetname(netName);
+  let netLabel = (pad.net ?? 0) > 0 ? displayName : '';
+  let netIsOverride = false;
+  if (pad.pinType?.includes('no_connect')) {
+    netLabel = 'x';
+    netIsOverride = true;
+  } else if (pad.pinType === 'free' && shortName.startsWith('unconnected-(')) {
+    netLabel = '*';
+    netIsOverride = true;
+  }
+  const showNet = netLabel !== '';
+  if (padNumber === '' && !showNet) return;
+
+  const round = pad.shape === 'circle' || pad.shape === 'oval';
+  // KiCad works from the pad's AXIS-ALIGNED bounding box (GetBoundingBox), not
+  // the rotated pad frame, and draws with ANGLE_HORIZONTAL, so labels are
+  // always upright regardless of pad rotation; only a portrait bbox turns the
+  // text -90° to run down the long axis.
+  const rot = ((pad.angle ?? 0) * Math.PI) / 180;
+  const cosR = Math.abs(Math.cos(rot));
+  const sinR = Math.abs(Math.sin(rot));
+  let px = pad.size.x * cosR + pad.size.y * sinR; // bbox width
+  let py = pad.size.x * sinR + pad.size.y * cosR; // bbox height
+  // "Don't allow a 45° rotation to bloat a pad's bounding box unnecessarily."
+  if (pad.shape !== 'custom') {
+    const limit = Math.min(pad.size.x, pad.size.y) * 1.1;
+    if (px > limit && py > limit) {
+      px = limit;
+      py = limit;
+    }
+  }
+  let angle = 0;
+  let size = py;
+  // Portrait bbox: rotate the text 90° and run it down the taller axis.
+  if (px < py * 0.95) {
+    angle = 90;
+    size = px;
+    [px, py] = [py, px];
+  }
+  if (size > MAX_PAD_FONT) size = MAX_PAD_FONT;
+  const along = px;
+  // Both strings shown means both are drawn small and offset; one means it is
+  // centred at full size. `size` is left at the full value and the /2.5 is
+  // applied per layout below, so the solo variant can still be computed.
+  const both = showNet && padNumber !== '';
+  const Xscale = 0.9; // condense x for the stroke font
+  // A local +Y (down) offset in the text frame (upright or the -90° portrait
+  // case) maps to world coords about the pad centre.
+  // `position = padBBox.Centre()` — the COPPER's box, so an offset pad's number
+  // rides with the copper.
+  const centre = padShapePos(pad);
+  const anchor = (dy: number): Vec2 =>
+    angle === 90 ? { x: centre.x + dy, y: centre.y } : { x: centre.x, y: centre.y + dy };
+  const items: PadTextItem[] = [];
+  const mkItem = (text: string, at: Vec2, glyph: number): PadTextItem =>
+    ({
+      kind: 'user',
+      text,
+      at,
+      angle,
+      layer: '',
+      // KiCad draws these labels with `BitmapText`, which on the OpenGL GAL is a
+      // texture atlas: it takes the colour and the glyph size and **ignores**
+      // `SetLineWidth` and `SetFontBold` entirely, so the weight on screen is
+      // whatever the atlas bitmap has. We have no atlas and draw them with the
+      // stroke font, which does honour the pen — and a pen of a sixth of the
+      // glyph height, in bold, is heavy enough to swamp the copper underneath.
+      // A ground pad came out reading as a white blob with the red barely
+      // showing through, and neighbouring labels ran into each other.
+      //
+      // The two factors are KiCad's own rather than a guess: `GAL::BitmapText`
+      // stroke-renders this same call wherever the OpenGL path cannot, and
+      // compensates for exactly this difference — "Bitmap font has different
+      // metrics than the stroke font so we compensate a bit before stroking",
+      // height x 0.95 and pen x 0.74 (graphics_abstraction_layer.cpp).
+      size: { x: glyph * Xscale, y: glyph * 0.95 },
+      thickness: ((glyph * Xscale) / 6) * 0.74,
+      bold: true,
+      // What `SetGlyphSize` was handed, for the backend that has the atlas and
+      // so needs none of the compensation above.
+      glyph,
+    }) as PadTextItem;
+
+  // Each string's geometry for a given `both`, so the per-frame gate can pick
+  // the layout that matches what it is actually going to draw.
+  const netGeom = (paired: boolean): { at: Vec2; glyph: number } => {
+    const cap = paired ? size / 2.5 : size;
+    let tsize = Math.min((1.5 * along) / Math.max(printableCharCount(netLabel) + 1, 5), cap);
+    tsize *= 0.85;
+    if (round) tsize *= 0.9;
+    const ty = paired ? Math.min(tsize * 1.4, size / 2.5 / 1.4) : 0;
+    return { at: anchor(ty), glyph: tsize };
+  };
+  const numGeom = (paired: boolean): { at: Vec2; glyph: number } => {
+    const cap = paired ? size / 2.5 : size;
+    let tsize = Math.min((1.5 * along) / Math.max(printableCharCount(padNumber), 3), cap);
+    tsize = Math.min(tsize * 0.85, cap);
+    return { at: anchor(paired ? -(size / 2.5 / 1.7) : 0), glyph: tsize };
+  };
+  const withSolo = (
+    text: string,
+    padText: 'number' | 'net',
+    geom: (paired: boolean) => { at: Vec2; glyph: number },
+  ): void => {
+    const here = geom(both);
+    const item = { ...mkItem(text, here.at, here.glyph), padText } as PadTextItem;
+    if (both) {
+      const alone = geom(false);
+      const m = mkItem(text, alone.at, alone.glyph);
+      item.solo = {
+        at: alone.at,
+        glyph: alone.glyph,
+        size: m.size,
+        thickness: m.thickness ?? 0,
+      };
+    }
+    items.push(item);
+  };
+
+  if (showNet) withSolo(netLabel, 'net', netGeom);
+  if (padNumber !== '') withSolo(padNumber, 'number', numGeom);
+  if (items.length > 0)
+    scene.padLabels.push({
+      owner,
+      at: centre,
+      minSide: Math.min(px, py),
+      layers,
+      items,
+      // Whether the net string is `x`/`*` rather than a net name. The name is
+      // hidden by `m_NetNames`; the override never is.
+      ...(netIsOverride ? { netIsOverride: true } : {}),
+    });
+}
+
+/**
+ * How far the items of an in-flight drag have moved, for the passes that are
+ * drawn per frame from world coordinates rather than from the retained buffer.
+ *
+ * KiCad needs no equivalent because it has no such split: `VIEW::Update`
+ * re-caches the whole item and its anchor goes with it. Our GPU drag
+ * translates the item's recorded vertices in place and never touches the
+ * screen-space passes, so those have to be told. Without it a dragged
+ * footprint left its magenta LAYER_ANCHOR cross — rgb(255, 38, 226) — sitting
+ * at the position it started from until the drop.
+ */
+export interface ScenePerFrameShift {
+  /** Board-item ids currently being dragged. */
+  ids: ReadonlySet<string>;
+  dx: number;
+  dy: number;
+}
+
+export interface SceneFilter {
+  /** Appearance>Objects "Footprints Front/Back": hide whole footprints per side. */
+  hideFrontFootprints?: boolean;
+  hideBackFootprints?: boolean;
+  /**
+   * The clearance the pad-clearance outline is inflated by, resolved per net
+   * name the way BOARD_CONNECTED_ITEM::GetOwnClearance ends up doing for the
+   * common case: the net's class clearance, floored by the board's minimum
+   * clearance rule. Absent, the outlines fall back to netclass.cpp's 0.2 mm
+   * default — which on any board whose Default class says otherwise draws
+   * every ring visibly off (this board's says 0.15 mm).
+   */
+  clearanceForNet?: (netName: string) => number;
+  /**
+   * `BOARD::ResolveTextVar` reached through `PCB_TEXT::GetShownText`
+   * (`pcbnew/pcb_text.cpp`) — the project's text variables, so a board text
+   * reading `${REVISION}` draws its value. Unset draws the source verbatim,
+   * which is what every board did before: the Text Variables page stored its
+   * rows in the project file and no board text ever consulted them.
+   *
+   * The same shape as the schematic renderer's `RenderOpts.resolveTextVar`,
+   * because it is the same upstream call.
+   */
+  resolveTextVar?: TextVarResolverFn;
+}
+
+/** Even-odd ray cast: is point `p` inside the closed polygon `poly`? */
+function pointInPoly(p: Vec2, poly: Vec2[]): boolean {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const a = poly[i]!;
+    const b = poly[j]!;
+    if (a.y > p.y !== b.y > p.y && p.x < ((b.x - a.x) * (p.y - a.y)) / (b.y - a.y) + a.x)
+      inside = !inside;
+  }
+  return inside;
+}
+
+/**
+ * Zone border hatch ticks (SHAPE_POLY_SET::GenerateHatchLines / ZONE::HatchBorder):
+ * a family of parallel lines y = slope·x + a spaced by `spacing` is intersected
+ * with the outline; each in-polygon crossing yields a tick of length `lineLen`
+ * running inward from the border (`lineLen = -1` keeps the full crossing, for the
+ * DIAGONAL_FULL style). Copper zones use slope −1 (all copper layer ids are even).
+ */
+function zoneHatchSegments(
+  rings: Vec2[][],
+  slope: number,
+  spacing: number,
+  lineLen: number,
+): [Vec2, Vec2][] {
+  const out: [Vec2, Vec2][] = [];
+  const outline = rings[0] ?? [];
+  if (outline.length < 3 || spacing <= 0) return out;
+  let minX = outline[0]!.x;
+  let maxX = minX;
+  let minY = outline[0]!.y;
+  let maxY = minY;
+  for (const p of outline) {
+    if (p.x < minX) minX = p.x;
+    if (p.x > maxX) maxX = p.x;
+    if (p.y < minY) minY = p.y;
+    if (p.y > maxY) maxY = p.y;
+  }
+  // `HatchBorder` walks `m_Poly->CIterateSegmentsWithHoles()`: every ring's
+  // edges cut the hatch line, and the parity pairing below then leaves the
+  // inside of a hole unhatched by itself. Outline-only, a cutout hatched over.
+  const edges: [Vec2, Vec2][] = [];
+  for (const ring of rings) {
+    if (ring.length < 3) continue;
+    for (let i = 0; i < ring.length; i++) edges.push([ring[i]!, ring[(i + 1) % ring.length]!]);
+  }
+  // `SHAPE_POLY_SET::Contains`: inside the outline and in none of the holes.
+  const inside = (p: Vec2): boolean =>
+    pointInPoly(p, outline) && !rings.slice(1).some((h) => h.length >= 3 && pointInPoly(p, h));
+  let maxA: number;
+  let minA: number;
+  if (slope > 0) {
+    maxA = Math.round(maxY - slope * minX);
+    minA = Math.round(minY - slope * maxX);
+  } else {
+    maxA = Math.round(maxY - slope * maxX);
+    minA = Math.round(minY - slope * minX);
+  }
+  minA = Math.floor(minA / spacing) * spacing;
+  for (let a = minA; a < maxA; a += spacing) {
+    const pts: Vec2[] = [];
+    for (const [A, B] of edges) {
+      // Segment A→B ∩ line y = slope·x + a. f(t) = f0 + t·d, t ∈ [0,1).
+      const f0 = A.y - slope * A.x - a;
+      const d = B.y - A.y - slope * (B.x - A.x);
+      if (d === 0) continue;
+      const t = -f0 / d;
+      if (t < 0 || t >= 1) continue;
+      const x = A.x + t * (B.x - A.x);
+      const y = A.y + t * (B.y - A.y);
+      if (x < minX || x > maxX || y < minY || y > maxY) continue;
+      pts.push({ x, y });
+    }
+    if (pts.length > 2) pts.sort((p, q) => q.x - p.x); // descending x
+    for (let ip = 0; ip + 1 < pts.length; ip++) {
+      const p1 = pts[ip]!;
+      const p2 = pts[ip + 1]!;
+      if (p1.x === p2.x && p1.y === p2.y) continue;
+      const mid = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+      if (!inside(mid)) continue;
+      const dx = p2.x - p1.x;
+      if (lineLen === -1 || Math.abs(dx) < 2 * lineLen) {
+        out.push([p1, p2]);
+      } else {
+        const s = (p2.y - p1.y) / dx;
+        const ddx = dx > 0 ? lineLen : -lineLen;
+        out.push([p1, { x: p1.x + ddx, y: p1.y + ddx * s }]);
+        out.push([p2, { x: p2.x - ddx, y: p2.y - ddx * s }]);
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Compile the board into retained per-layer, per-object paths.
+ *
+ * `factory` decides what those paths *are*. It defaults to the browser's
+ * `Path2D`/`DOMMatrix`, so every existing caller behaves exactly as before; a
+ * GPU renderer passes one whose paths keep their vertices. See
+ * {@link ScenePathFactory}.
+ */
+export function buildScene(
+  board: Board,
+  filter: SceneFilter = {},
+  factory: ScenePathFactory = DOM_PATH_FACTORY,
+): BoardScene {
+  const prev = pathFactory;
+  const prevResolve = g_resolveText;
+  g_resolveText = filter.resolveTextVar;
+  pathFactory = factory;
+  try {
+    return compileScene(board, filter);
+  } finally {
+    // Belt and braces rather than load-bearing: every entry above reassigns
+    // `pathFactory`, so a build that throws cannot actually strand the wrong
+    // backend on the next caller. Restoring anyway keeps that an invariant of
+    // this function instead of a coincidence of its callers, which is what a
+    // future nested or early-returning build would need.
+    pathFactory = prev;
+    g_resolveText = prevResolve;
+  }
+}
+
+function compileScene(board: Board, filter: SceneFilter): BoardScene {
+  // Every net's display name, computed once for the whole list.
+  //
+  // `GetDisplayNetname()` is a per-item accessor upstream, but the value behind
+  // it is a property of the *list*: a short name is only shown when it is
+  // unique, and widening a name means comparing it against every other net that
+  // shortens the same way (`NETINFO_LIST::RebuildDisplayNetnames`). KiCad
+  // rebuilds the whole table when the list is dirty and the accessor then just
+  // reads it; this is that rebuild, at the one point that has the board.
+  const displayNames = displayNetnames(board.nets);
+  const displayNameOf = (code: number): string =>
+    displayNames.get(code) ?? displayNetname(board.nets.get(code) ?? '');
+  const scene: BoardScene = {
+    layers: new Map(),
+    viaHoles: pathFactory.path(),
+    viaHoleWalls: new Map(),
+    padHolesPlated: pathFactory.path(),
+    padHoleWalls: new Map(),
+    padHolesNP: pathFactory.path(),
+    holesSmall: pathFactory.path(),
+    netLabels: [],
+    arcNetLabels: [],
+    viaNetLabels: [],
+    anchors: [],
+    padLabels: [],
+    images: [],
+    bbox: null,
+    boardOutlineArea: null,
+  };
+  const copperNames = board.layers
+    .filter((l) => /\.Cu$/.test(l.name))
+    .sort((a, b) => cuOrder(a.name) - cuOrder(b.name))
+    .map((l) => l.name);
+
+  let minX = Infinity,
+    minY = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity;
+  const grow = (x: number, y: number, pad = 0): void => {
+    if (x - pad < minX) minX = x - pad;
+    if (y - pad < minY) minY = y - pad;
+    if (x + pad > maxX) maxX = x + pad;
+    if (y + pad > maxY) maxY = y + pad;
+  };
+
+  /**
+   * `BOARD_CONNECTED_ITEM::GetOwnClearance( layer )` for a track, arc or via —
+   * the same question the pad loop asks, so the same answer and the same
+   * fallback for a board with no rules.
+   */
+  const trackClearanceOf = (net: number): number =>
+    filter.clearanceForNet?.(board.nets.get(net) ?? '') ?? DEFAULT_PAD_CLEARANCE;
+  for (const [ti, t] of board.tracks.entries()) {
+    pathFactory.setOwner?.(`track:${ti}`);
+    const b = buckets(scene, t.layer);
+    const p = pathIn(b.tracks, Math.max(t.width, 1));
+    p.moveTo(t.start.x, t.start.y);
+    p.lineTo(t.end.x, t.end.y);
+    addStadiumOutline(b.trackOutlines, t.start, t.end, t.width / 2);
+    b.hasTrackOutlines = true;
+    // `DrawSegment( start, end, track_width + clearance * 2 )` — the same
+    // stadium, grown by the clearance. Built unconditionally: the scene is
+    // compiled once and `m_Display.m_TrackClearance` can move without it.
+    {
+      const clr = trackClearanceOf(t.net);
+      if (clr > 0) {
+        addStadiumOutline(b.trackClearance, t.start, t.end, t.width / 2 + clr);
+        b.hasTrackClearance = true;
+      }
+    }
+    grow(t.start.x, t.start.y, t.width);
+    grow(t.end.x, t.end.y, t.width);
+    // PCB_TRACK::ViewGetLOD skips the unconnected net; the name itself is the
+    // short one (GetDisplayNetname).
+    if (t.net > 0) {
+      const name = board.nets.get(t.net) ?? '';
+      const shown = displayNameOf(t.net);
+      if (shown !== '')
+        scene.netLabels.push({
+          start: t.start,
+          end: t.end,
+          width: t.width,
+          layer: t.layer,
+          text: shown,
+        });
+    }
+  }
+  for (const [ai, a] of board.arcs.entries()) {
+    pathFactory.setOwner?.(`arc:${ai}`);
+    const pts = tessellateArc(a.start, a.mid, a.end);
+    const b = buckets(scene, a.layer);
+    const p = pathIn(b.tracks, Math.max(a.width, 1));
+    p.moveTo(pts[0]!.x, pts[0]!.y);
+    for (let i = 1; i < pts.length; i++) p.lineTo(pts[i]!.x, pts[i]!.y);
+    addPolylineOutline(b.trackOutlines, pts, a.width / 2);
+    b.hasTrackOutlines = true;
+    {
+      const clr = trackClearanceOf(a.net);
+      if (clr > 0) {
+        addPolylineOutline(b.trackClearance, pts, a.width / 2 + clr);
+        b.hasTrackClearance = true;
+      }
+    }
+    grow(a.start.x, a.start.y, a.width);
+    grow(a.end.x, a.end.y, a.width);
+    // draw(PCB_ARC)'s netname branch. One name at the arc midpoint, turned to
+    // the tangent there — the radius is perpendicular to it, so rotating the
+    // radial vector by 90° gives the text direction (pcb_painter.cpp:978-981).
+    if (a.net > 0) {
+      const text = displayNameOf(a.net);
+      const c = arcCenter(a.start, a.mid, a.end);
+      if (text !== '' && c) {
+        const radius = Math.hypot(a.start.x - c.x, a.start.y - c.y);
+        // `aArc->GetAngle()`, i.e. EDA_SHAPE::GetArcAngle, in radians.
+        const sweep = (arcSweepDegrees(c, a.start, a.end) * Math.PI) / 180;
+        // `EDA_ANGLE( VECTOR2D( -radial.y, radial.x ) )`, negated and
+        // normalised into ]-90°, 90°] so the name never reads upside down.
+        const rx = a.mid.x - c.x;
+        const ry = a.mid.y - c.y;
+        let angle = -(Math.atan2(rx, -ry) * 180) / Math.PI;
+        while (angle > 90) angle -= 180;
+        while (angle <= -90) angle += 180;
+        scene.arcNetLabels.push({
+          at: a.mid,
+          angle,
+          width: a.width,
+          arcLength: Math.abs(radius * sweep),
+          layer: a.layer,
+          text,
+        });
+      }
+    }
+  }
+  for (const [vi, v] of board.vias.entries()) {
+    pathFactory.setOwner?.(`via:${vi}`);
+    const r = v.size / 2;
+    const span = viaSpan(v.layers[0], v.layers[1], copperNames);
+    const viaClr = trackClearanceOf(v.net ?? 0);
+    for (const layer of span) {
+      const b = buckets(scene, layer);
+      b.vias.moveTo(v.at.x + r, v.at.y);
+      b.vias.arc(v.at.x, v.at.y, r, 0, Math.PI * 2);
+      b.hasVias = true;
+      if (viaClr > 0) {
+        b.trackClearance.moveTo(v.at.x + r + viaClr, v.at.y);
+        b.trackClearance.arc(v.at.x, v.at.y, r + viaClr, 0, Math.PI * 2);
+        b.hasTrackClearance = true;
+      }
+    }
+    {
+      // draw(PCB_VIA)'s netname layer: the short net name, and for a via that
+      // is not a full-stack through via a "top-bottom" line of copper layer
+      // numbers (F.Cu = 1 … B.Cu = copper count, matching the layer manager).
+      const name = (v.net ?? 0) > 0 ? (board.nets.get(v.net) ?? '') : '';
+      const text = displayNameOf(v.net ?? 0);
+      let layerIds = '';
+      if (v.kind && v.kind !== 'through') {
+        const top = copperNames.indexOf(v.layers[0]) + 1;
+        const bottom = copperNames.indexOf(v.layers[1]) + 1;
+        if (top > 0 && bottom > 0) layerIds = `${top}-${bottom}`;
+      }
+      if (text !== '' || layerIds !== '')
+        scene.viaNetLabels.push({ at: v.at, width: v.size, layers: span, text, layerIds });
+    }
+    const hr = v.drill / 2;
+    // "Clamp the hole wall so it doesn't extend beyond the via's copper."
+    const wall = Math.min(HOLE_WALL_PAINT_WIDTH, r - hr);
+    if (wall > 0) {
+      const p = pathIn(scene.viaHoleWalls, wall);
+      p.moveTo(v.at.x + hr + wall / 2, v.at.y);
+      p.arc(v.at.x, v.at.y, hr + wall / 2, 0, Math.PI * 2);
+    }
+    {
+      const sr = Math.min(hr, 0.175 * MM);
+      scene.holesSmall.moveTo(v.at.x + sr, v.at.y);
+      scene.holesSmall.arc(v.at.x, v.at.y, sr, 0, Math.PI * 2);
+    }
+    scene.viaHoles.moveTo(v.at.x + hr, v.at.y);
+    scene.viaHoles.arc(v.at.x, v.at.y, hr, 0, Math.PI * 2);
+    grow(v.at.x, v.at.y, r);
+  }
+  for (const z of board.zones) {
+    for (const fill of z.fills) {
+      const b = buckets(scene, fill.layer);
+      for (const poly of fill.polys) {
+        b.zones.moveTo(poly[0]!.x, poly[0]!.y);
+        for (let i = 1; i < poly.length; i++) b.zones.lineTo(poly[i]!.x, poly[i]!.y);
+        b.zones.closePath();
+        b.hasZones = true;
+        for (const pt of poly) grow(pt.x, pt.y);
+      }
+    }
+    // The zone boundary is drawn as a border on each of the zone's layers
+    // (pcb_painter.cpp draw(ZONE): outline of GetBoardOutline in the layer
+    // color). INVISIBLE_BORDER suppresses it entirely — that is what teardrops
+    // use, and without it every flare gets a full-opacity outline traced over a
+    // 0.6-opacity fill, which reads as a bright wire around the copper.
+    if (z.hatchStyle !== 'invisible' && z.outline && z.outline.length >= 3) {
+      // DIAGONAL_EDGE = short ticks (length = pitch, spacing = pitch);
+      // DIAGONAL_FULL = full diagonals (spacing = pitch·2). Copper slope = −1.
+      const style = z.hatchStyle ?? 'edge';
+      const pitch = z.hatchPitch ?? 0;
+      // The border is every ring of `m_Poly` — a cutout has its own edge, in
+      // the same stroke, and the hatch stops at it.
+      const rings = [z.outline, ...(z.holes ?? [])];
+      const hatch =
+        style !== 'none' && pitch > 0
+          ? zoneHatchSegments(
+              rings,
+              -1,
+              style === 'full' ? pitch * 2 : pitch,
+              style === 'full' ? -1 : pitch,
+            )
+          : [];
+      for (const layer of z.layers) {
+        const b = buckets(scene, layer);
+        for (const ring of rings) {
+          if (ring.length < 3) continue;
+          b.zoneOutlines.moveTo(ring[0]!.x, ring[0]!.y);
+          for (let i = 1; i < ring.length; i++) b.zoneOutlines.lineTo(ring[i]!.x, ring[i]!.y);
+          b.zoneOutlines.closePath();
+        }
+        for (const [p, q] of hatch) {
+          b.zoneOutlines.moveTo(p.x, p.y);
+          b.zoneOutlines.lineTo(q.x, q.y);
+        }
+        b.hasZoneOutlines = true;
+      }
+      for (const pt of z.outline) grow(pt.x, pt.y);
+    }
+  }
+  for (const [si, s] of board.shapes.entries()) {
+    // Its own owner, as tracks, arcs and vias get above. Without this the loop
+    // inherits whatever the via loop left open, so every board graphic was
+    // attributed to the LAST via on the board and would translate with it in an
+    // in-place drag. That went unseen only because the one shape kind common on
+    // these layers -- the rectangle -- reached the buffer untagged and so moved
+    // with nothing at all; tagging it correctly is what exposed the leak.
+    pathFactory.setOwner?.(`shape:${si}`);
+    addShape(scene, s);
+    // draw(PCB_SHAPE)'s netname branch: a copper graphic belongs to a net like
+    // anything else, and a SEGMENT-shaped one is lettered through the very
+    // `renderNetNameForSegment` a track uses — so it becomes an ordinary track
+    // label. Upstream draws nothing for the other shapes ("TODO: Maybe use some
+    // of the pad code?", pcb_painter.cpp:2061), and neither do we.
+    if (s.kind === 'line' && (s.net ?? 0) > 0 && s.start && s.end) {
+      const text = displayNameOf(s.net!);
+      if (text !== '')
+        scene.netLabels.push({
+          start: s.start,
+          end: s.end,
+          width: s.width,
+          layer: s.layer,
+          text,
+        });
+    }
+    if (s.start) grow(s.start.x, s.start.y, s.width);
+    if (s.end) grow(s.end.x, s.end.y, s.width);
+    if (s.center) grow(s.center.x, s.center.y);
+    for (const pt of s.pts ?? []) grow(pt.x, pt.y);
+  }
+  for (const [bi, bc] of board.barcodes.entries()) {
+    pathFactory.setOwner?.(`barcode:${bi}`);
+    addBarcode(scene, bc);
+    const box = barcodeBBox(bc);
+    grow(box.x1, box.y1);
+    grow(box.x2, box.y2);
+  }
+  for (const [pi, pt] of board.points.entries()) {
+    pathFactory.setOwner?.(`point:${pi}`);
+    addPoint(scene, pt);
+    grow(pt.at.x, pt.at.y, pt.size / 2);
+  }
+  for (const [fi, fp] of board.footprints.entries()) {
+    pathFactory.setOwner?.(`footprint:${fi}`);
+    if (filter.hideFrontFootprints && fp.layer === 'F.Cu') continue;
+    if (filter.hideBackFootprints && fp.layer === 'B.Cu') continue;
+    // After the hide checks, not before: FOOTPRINT::ViewGetLOD resolves the
+    // anchor against LAYER_FOOTPRINTS_FR/BK, so hiding Footprints Front or
+    // Back takes their anchors with them.
+    scene.anchors.push({ x: fp.at.x, y: fp.at.y, layer: fp.layer, owner: `footprint:${fi}` });
+    for (const s of fp.shapes) addShape(scene, s);
+    // `FOOTPRINT::Points()`, drawn by the same `draw( const PCB_POINT* )` — a
+    // footprint's snap points are not graphics and are not pads, so they get
+    // their own pass here.
+    for (const pt of fp.points) {
+      addPoint(scene, pt);
+      grow(pt.at.x, pt.at.y, pt.size / 2);
+    }
+    for (const bc of fp.barcodes) {
+      addBarcode(scene, bc);
+      const box = barcodeBBox(bc);
+      grow(box.x1, box.y1);
+      grow(box.x2, box.y2);
+    }
+    for (const t of fp.texts) {
+      if (t.hide) continue;
+      const b = buckets(scene, t.layer);
+      addText(b, t.kind === 'reference' ? 'ref' : t.kind === 'value' ? 'val' : 'fp', t);
+    }
+    for (const pad of fp.pads) {
+      if (pad.type === 'np_thru_hole') {
+        // Painter draws NPTH as its hole in LAYER_NON_PLATEDHOLES.
+        if (pad.drill) {
+          addHole(scene.padHolesNP, pad, pad.drill);
+          addSmallHole(scene, pad);
+        }
+        continue;
+      }
+      const padClr =
+        filter.clearanceForNet?.(board.nets.get(pad.net ?? 0) ?? '') ?? DEFAULT_PAD_CLEARANCE;
+      // `pad->GetAttribute() == PAD_ATTRIB::PTH && pad->Padstack().Mode() ==
+      // PADSTACK::MODE::NORMAL` (`pcb_painter.cpp:272-274`). The second half is
+      // free here: this model has only NORMAL padstacks — see
+      // `footprint_checker.ts`' note — so a `thru_hole` pad IS the case the
+      // painter recolours. A per-layer padstack model would have to ask.
+      const pthNormal = pad.type === 'thru_hole';
+      for (const layer of expandLayers(pad.layers, copperNames)) {
+        const b = buckets(scene, layer);
+        if (pthNormal) {
+          addPadShape(b.padsPthNormal, pad);
+          b.hasPadsPthNormal = true;
+        } else {
+          addPadShape(b.pads, pad);
+          b.hasPads = true;
+        }
+        // Pad clearance outline is drawn per copper layer the pad flashes on
+        // (not the mask layers), in that layer's color — and only when the
+        // clearance the rules resolve to is greater than zero
+        // (`draw( const PAD* )`: `if( aPad->FlashLayer( … ) && clearance > 0 )`,
+        // pcb_painter.cpp:1974). A board with no design rules answers 0 from
+        // `BOARD_CONNECTED_ITEM::GetOwnClearance`, whose whole body is "if this
+        // board has a DRC engine, ask it; otherwise 0"
+        // (board_connected_item.cpp:121-130) — which is the case for the
+        // footprint preview's dummy BOARD, and why upstream draws no ring there
+        // while a ring exactly on the pad edge is all a zero clearance can be.
+        if (copperNames.includes(layer) && padClr > 0) {
+          addPadClearanceShape(b.clearance, pad, padClr);
+          b.hasClearance = true;
+        }
+      }
+      if (pad.drill && pad.type === 'thru_hole') {
+        // draw(PAD) LAYER_PAD_HOLEWALLS: the plating width, never more than
+        // half the pad. The ring is the hole outline pushed out by half of it,
+        // so stroking at that width lands its edges on the hole and on
+        // hole+wall exactly as KiCad's filled disc does.
+        const wall = Math.min(HOLE_WALL_PAINT_WIDTH, pad.size.x / 2, pad.size.y / 2);
+        if (wall > 0) {
+          addHole(pathIn(scene.padHoleWalls, wall), pad, {
+            ...pad.drill,
+            w: pad.drill.w + wall,
+            h: pad.drill.h + wall,
+          });
+        }
+        addHole(scene.padHolesPlated, pad, pad.drill);
+        addSmallHole(scene, pad);
+      }
+      // Pad number + net name text (PCB_PAINTER::draw(PAD) netname layer).
+      addPadLabels(
+        scene,
+        pad,
+        board.nets.get(pad.net ?? 0) ?? '',
+        displayNameOf(pad.net ?? 0),
+        expandLayers(pad.layers, copperNames).filter((l) => copperNames.includes(l)),
+        `footprint:${fi}`,
+      );
+      {
+        const c = padShapePos(pad);
+        grow(c.x, c.y, Math.max(pad.size.x, pad.size.y) / 2);
+      }
+    }
+    grow(fp.at.x, fp.at.y);
+    // `BOARD::ComputeBoundingBox` merges `footprint->GetBoundingBox( true )`
+    // (`pcbnew/board.cpp:2255`) — the whole footprint, not just its pads. This
+    // loop grew the box by the pads and the anchor only, so a footprint's
+    // silkscreen, courtyard, fabrication outline and text were drawn but never
+    // measured: zoom-to-fit in the PCB and footprint editors cropped exactly
+    // the ink that sits outside the pads.
+    const fpBox = footprintBBox(fp);
+    if (fpBox) {
+      grow(fpBox.minX, fpBox.minY);
+      grow(fpBox.maxX, fpBox.maxY);
+    }
+  }
+  pathFactory.setOwner?.(undefined);
+  for (const t of board.texts) {
+    if (!t.hide) addText(buckets(scene, t.layer), 'board', t);
+  }
+  for (const t of board.textBoxes) {
+    addTextBox(scene, t);
+    const tb = textBoxBBox(t);
+    grow(tb.minX, tb.minY);
+    grow(tb.maxX, tb.maxY);
+  }
+  for (const img of board.images) {
+    addImage(scene, img);
+    const ib = imageBBox(img);
+    grow(ib.minX, ib.minY);
+    grow(ib.maxX, ib.maxY);
+  }
+  for (const t of board.tables) {
+    addTable(scene, t);
+    const tb = tableBBox(t);
+    grow(tb.minX, tb.minY);
+    grow(tb.maxX, tb.maxY);
+  }
+  for (const d of board.dimensions) {
+    addDimension(scene, d);
+    // From the drawn lines, not the feature points: the crossbar and the
+    // arrowheads reach past both of them.
+    const db = dimensionBBox(d);
+    grow(db.minX, db.minY);
+    grow(db.maxX, db.maxY);
+  }
+
+  scene.bbox = minX < maxX ? { minX, minY, maxX, maxY } : null;
+
+  // `PCB_BOARD_OUTLINE`'s loops, as one even-odd path. NO fallback box: KiCad
+  // draws no board area for a board whose Edge.Cuts do not close, rather than
+  // inventing a rectangle — the 3D viewer wants that fallback and this does not.
+  {
+    const loops = boardOutlineLoops(board);
+    if (loops.length > 0) {
+      const path = pathFactory.path();
+      for (const loop of loops) {
+        path.moveTo(loop[0]!.x, loop[0]!.y);
+        for (let i = 1; i < loop.length; i++) path.lineTo(loop[i]!.x, loop[i]!.y);
+        path.closePath();
+      }
+      scene.boardOutlineArea = path;
+    }
+  }
+
+  return scene;
+}
+
+const addHole = (
+  path: Path2D,
+  pad: PcbPad,
+  drill: { oblong: boolean; w: number; h: number; offset?: Vec2 },
+): void => {
+  // `GetEffectiveHoleShape()` is built from `m_pos`: the drill offset moves the
+  // pad's copper, not its hole.
+  const m = pathFactory.matrix().translate(pad.at.x, pad.at.y).rotate(-pad.angle);
+  const sub = pathFactory.path();
+  if (drill.oblong) {
+    const r = Math.min(drill.w, drill.h) / 2;
+    sub.roundRect(-drill.w / 2, -drill.h / 2, drill.w, drill.h, r);
+  } else {
+    sub.arc(0, 0, drill.w / 2, 0, Math.PI * 2);
+  }
+  path.addPath(sub, m);
+};
+
+/** Small-mark hole for a pad: same centre, diameter capped at 0.35 mm. */
+const addSmallHole = (scene: BoardScene, pad: PcbPad): void => {
+  if (!pad.drill) return;
+  const r = Math.min(Math.min(pad.drill.w, pad.drill.h) / 2, 0.175 * MM);
+  const m = pathFactory.matrix().translate(pad.at.x, pad.at.y).rotate(-pad.angle);
+  const sub = pathFactory.path();
+  sub.arc(0, 0, r, 0, Math.PI * 2);
+  scene.holesSmall.addPath(sub, m);
+};
+
+/** F.Cu first, inners in numeric order, B.Cu last (board stackup). */
+const cuOrder = (name: string): number => {
+  if (name === 'F.Cu') return 0;
+  if (name === 'B.Cu') return 1000;
+  const m = /^In(\d+)\.Cu$/.exec(name);
+  return m ? Number(m[1]) : 500;
+};
+
+export interface PcbViewTransform {
+  scale: number; // canvas px per IU
+  tx: number;
+  ty: number;
+  /** Horizontal mirror of the view (APPEARANCE_CONTROLS "Flip board view",
+   *  KIGFX::VIEW::SetMirror on X): screenX = worldX·(−scale) + tx. */
+  flipX?: boolean;
+}
+
+// KiCad renders every stroke at a minimum on-screen width so thin tracks stay
+// crisp and visible when zoomed out (GAL's minimum pen), instead of fading to a
+// sub-pixel blur. `minPen` is 1 device pixel expressed in world (IU) units.
+/**
+ * Stroke every path at ONE width, ignoring the width each was bucketed under.
+ *
+ * This is outline mode: `m_gal->SetLineWidth( m_pcbSettings.m_outlineWidth )`
+ * for shapes and `attrs.m_StrokeWidth = m_outlineWidth` for text, in place of
+ * the item's own thickness.
+ */
+const strokeAllAt = (
+  ctx: CanvasRenderingContext2D,
+  map: Map<number, Path2D>,
+  pen: number,
+): void => {
+  ctx.lineWidth = pen;
+  for (const path of map.values()) ctx.stroke(path);
+};
+
+const strokeAll = (ctx: CanvasRenderingContext2D, map: Map<number, Path2D>, minPen = 0): void => {
+  for (const [width, path] of map) {
+    ctx.lineWidth = Math.max(width, minPen);
+    ctx.stroke(path);
+  }
+};
+
+/**
+ * Paint `fn`'s strokes as KiCad's `BitmapText` rather than as lines.
+ *
+ * The two differ below one device pixel and only there. A line is clamped up to
+ * `u_minLinePixelWidth` and drawn solid, so it survives any zoom; bitmap text is
+ * a texture that simply gets smaller and fainter. Almost everything on a board
+ * is a line — even silkscreen and fab *text*, which KiCad strokes with the
+ * Newstroke font like any other geometry. The exceptions are the pad and via net
+ * names, which `PCB_PAINTER` draws with `m_gal->BitmapText`, and which we stroke
+ * only because there is no atlas to sample.
+ *
+ * A retained backend needs to be told, because it applies the pixel floor per
+ * frame and cannot see which pass a stroke came from. `CanvasRenderingContext2D`
+ * has no such property and does not need one — its own rasteriser already fades
+ * a sub-pixel stroke — so the flag is set on whatever object is being painted
+ * through and ignored by a real canvas.
+ */
+function asBitmapText(ctx: CanvasRenderingContext2D, fn: () => void): void {
+  const target = ctx as { hairlines?: 'fade' | 'solid' | 'bitmap' };
+  const previous = target.hairlines;
+  if (previous !== undefined) target.hairlines = 'bitmap';
+  try {
+    fn();
+  } finally {
+    if (previous !== undefined) target.hairlines = previous;
+  }
+}
+
+// ----- drawing sheet (page frame + title block) ------------------------------
+// KiCad's default worksheet (common/drawing_sheet/drawing_sheet_default_
+// description.cpp): 10 mm margins, a double border 2 mm apart, a 50 mm
+// coordinate band, and the 110×34 mm title block in the bottom-right corner.
+// pcbnew draws it in LAYER_DRAWINGSHEET colour rgb(200,114,171)
+// (builtin_color_themes.h). The board origin (0,0) is the page's top-left.
+
+/**
+ * `PAGE_INFO`'s size for this `(paper …)` token, in pcbnew's IU.
+ *
+ * The table is `common/page_info.ts` — one copy, because eeschema's
+ * renderer needs the same one. This file's private copy did not handle
+ * `PAGE_SIZE_TYPE::User`, so a board with a custom page size drew neither its
+ * sheet nor its page limits; the schematic's copy did, which is how the two
+ * came to disagree.
+ */
+const paperSizeIU = (paper: string | undefined): { w: number; h: number } | null => {
+  const mm = pageSizeMM(paper);
+  return mm ? { w: mm.w * MM, h: mm.h * MM } : null;
+};
+
+export interface SheetInfo {
+  paper?: string;
+  titleBlock?: {
+    title?: string;
+    date?: string;
+    rev?: string;
+    company?: string;
+    /** `(comment N "text")`, index 0 = comment 1. The title block shows them. */
+    comments?: string[];
+  };
+  fileName?: string;
+}
+
+/** Stroke a Newstroke string at (x, y) baseline, with optional bold/italic. */
+function sheetText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  size: number,
+  justify: 'left' | 'center' = 'left',
+  bold = false,
+  italic = false,
+): void {
+  if (!text) return;
+  const { strokes, width } = layoutText(text, size);
+  const offX = justify === 'center' ? -width / 2 : 0;
+  // Title-block text is square, so `GetTextWidth()` is this one size.
+  ctx.lineWidth = effectiveTextPenWidth({ size: { x: size, y: size }, bold });
+  const tilt = italic ? ITALIC_TILT : 0;
+  ctx.beginPath();
+  for (const stroke of strokes) {
+    for (let i = 0; i < stroke.length; i++) {
+      // Italic shear: y is negative above the baseline, so tops lean right.
+      const px = x + stroke[i]!.x - stroke[i]!.y * tilt + offX;
+      const py = y + stroke[i]!.y;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+      if (stroke.length === 1) ctx.lineTo(px + 1, py);
+    }
+  }
+  ctx.stroke();
+}
+
+const DRAWINGSHEET_COLOR = 'rgb(200,114,171)';
+
+const NO_DS_SELECTION: ReadonlySet<number> = new Set();
+
+/**
+ * The paper edge (LAYER_PAGE_LIMITS): a rectangle from the page origin to the
+ * page size, in its own colour.
+ *
+ * `DS_PAINTER::DrawBorder`, called from `DS_PROXY_VIEW_ITEM::ViewDraw` after the
+ * sheet's own items and gated on `GetShowPageLimits()`. Every editor that shows
+ * a drawing sheet goes through that proxy item, so pcbnew draws this exactly as
+ * eeschema does — it is not part of the sheet description, which is why it is a
+ * separate call here.
+ *
+ * (`DS_DRAW_ITEM_PAGE`, which also draws a page rectangle plus a corner marker,
+ * is built only by `pl_draw_panel_gal.cpp`: it belongs to the drawing sheet
+ * editor and is not what a board shows.)
+ */
+export function drawPageLimits(
+  ctx: CanvasRenderingContext2D,
+  info: SheetInfo,
+  color: string,
+  minWidth = 0,
+): void {
+  const page = paperSizeIU(info.paper);
+  if (!page) return;
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = Math.max(0.1 * MM, minWidth);
+  ctx.setLineDash([]);
+  ctx.strokeRect(0, 0, page.w, page.h);
+  ctx.restore();
+}
+
+/**
+ * The board's drawing sheet as `DS_DRAW_ITEM`s — `DS_PROXY_VIEW_ITEM::buildDrawList`.
+ *
+ * Its own function because two things need the same list and they must not
+ * build it differently: the painter below, and `hitTestBoardDrawingSheet`, which
+ * is how a double-click on the frame or the title block finds its way to Page
+ * Settings. Upstream that identity is structural — `HitTestDrawingSheetItems`
+ * calls `buildDrawList` itself (ds_proxy_view_item.cpp:161-174).
+ *
+ * The list comes back in **schematic** internal units, because that is what the
+ * shared drawing-sheet engine works in. Everything on this side of the boundary
+ * has to convert; {@link DS_IU_TO_PCB} is the one factor to do it with.
+ */
+export function boardDrawingSheetItems(info: SheetInfo, sheet?: WksSheet): DsDrawItem[] {
+  const page = paperSizeIU(info.paper);
+  if (!page) return [];
+  const tb = info.titleBlock ?? {};
+
+  return layoutDrawingSheet(
+    sheet ?? defaultDrawingSheet(),
+    { widthMM: page.w / PCB_IU_PER_MM, heightMM: page.h / PCB_IU_PER_MM },
+    {
+      // A board is one page: pcbnew has no sheet hierarchy to number.
+      pageNumber: 1,
+      sheetCount: 1,
+      title: tb.title ?? '',
+      rev: tb.rev ?? '',
+      date: tb.date ?? '',
+      company: tb.company ?? '',
+      comments: [...(tb.comments ?? [])],
+      // `m_paperFormat = aPageInfo.GetTypeAsString()` (ds_draw_item.cpp:552).
+      paper: paperTypeName(info.paper),
+      fileName: info.fileName ?? '',
+      sheetPath: '/',
+      appVersion: 'ZiroEDA',
+    },
+  );
+}
+
+/** Schematic internal units to board ones — the drawing sheet's whole boundary. */
+export const DS_IU_TO_PCB = PCB_IU_PER_MM / SCH_IU_PER_MM;
+
+/**
+ * `DS_PROXY_VIEW_ITEM::HitTestDrawingSheetItems` (ds_proxy_view_item.cpp:161):
+ * is `p` on one of the drawing sheet's items?
+ *
+ *     int accuracy = (int) aView->ToWorld( 5.0 );   // five pixels at current zoom
+ *     …
+ *     if( item->HitTest( aPosition, accuracy ) ) return true;
+ *
+ * This is what makes a double-click on the page frame or anywhere in the title
+ * block open Page Settings (`EDIT_TOOL::Properties`, edit_tool.cpp:2153-2161,
+ * and the same test gates the Properties menu row at :616-631). `p` and
+ * `accuracy` are in board units, as upstream's are.
+ */
+export function hitTestBoardDrawingSheet(
+  info: SheetInfo,
+  sheet: WksSheet | undefined,
+  p: Vec2,
+  accuracy: number,
+): boolean {
+  return hitTestDrawingSheet(
+    boardDrawingSheetItems(info, sheet),
+    { x: p.x / DS_IU_TO_PCB, y: p.y / DS_IU_TO_PCB },
+    accuracy / DS_IU_TO_PCB,
+  );
+}
+
+/**
+ * The page frame and title block, through the same engine eeschema and
+ * pl_editor use.
+ *
+ * This was a hand-drawn approximation: fixed margins, a fixed double border and
+ * a title block laid out from remembered dimensions. It looked close and was
+ * not the same drawing, so a board next to the same board in KiCad did not
+ * match, and none of it responded to a project's own `.kicad_wks`.
+ *
+ * `layoutDrawingSheet` is document-agnostic — a sheet description, a page size
+ * and the values to substitute — so the board feeds it exactly what the
+ * schematic does. Every title-block field, including the comment lines, is
+ * resolved by the same code path rather than by a second implementation that
+ * has to be kept in step.
+ */
+export function drawDrawingSheet(
+  ctx: CanvasRenderingContext2D,
+  info: SheetInfo,
+  // LAYER_DRAWINGSHEET from the active theme (print passes the print theme's).
+  color: string = DRAWINGSHEET_COLOR,
+  // The project's own drawing sheet, when it has one; KiCad's default when not.
+  sheet?: WksSheet,
+  // World width of one device pixel, so hairlines stay visible when zoomed out.
+  minWidth = 0,
+): void {
+  // Page size in millimetres, from *this* file's internal units.
+  //
+  // `iuToMM` is the schematic scale (1e4/mm) and `page` is in board units
+  // (1e6/mm), so putting one through the other asked for a page a hundred times
+  // too large: a 297 mm sheet became a 29.7 metre one, laid out so far outside
+  // the board that nothing was visible on screen at all.
+  const items = boardDrawingSheetItems(info, sheet);
+  if (items.length === 0) return;
+  // The layout comes back in schematic internal units, because that is what the
+  // shared engine works in; this canvas is in board units. Scaling the context
+  // rather than every coordinate also scales the pen widths, which are in the
+  // same units and would otherwise be a hundred times too fine.
+  const toPcb = DS_IU_TO_PCB;
+  ctx.save();
+  ctx.scale(toPcb, toPcb);
+  drawDrawingSheetItems(ctx, items, NO_DS_SELECTION, { color, minWidth: minWidth / toPcb });
+  ctx.restore();
+}
+
+/**
+ * pcbnew's default grid, and the footprint editor's: `last_size_idx` 15 of
+ * `APP_SETTINGS_BASE::DefaultGridSizeList()`'s non-eeschema list
+ * (`common/settings/app_settings.cpp:463-481, 641-660`), which is "0.50 mm".
+ */
+export const PCB_DEFAULT_GRID_IU = 0.5 * MM;
+
+/** `GAL::m_gridOrigin` before a board with its own `(setup (grid_origin ...))`. */
+export const PCB_DEFAULT_GRID_ORIGIN: Vec2 = { x: 0, y: 0 };
+
+/**
+ * `GAL::DrawGrid` options for a board canvas — the mapping only; the painting
+ * is `ui/grid_cursor.ts`, the one GAL every frame shares.
+ *
+ * The colour is `LAYER_GRID` off the active theme (`pcb_painter.h:133`,
+ * `pcb_draw_panel_gal.cpp:494`); pcbnew and the footprint editor read the same
+ * layer (`footprint_editor_utils.cpp:269`). The appearance fields fall back to
+ * KiCad's `GAL_DISPLAY_OPTIONS` defaults.
+ */
+export function pcbGridOptions(o: {
+  show?: boolean;
+  sizeIU?: number;
+  origin?: Vec2;
+  /** The active PCB_COLOR_THEME's `grid`. */
+  color?: string;
+  devicePixelRatio?: number;
+  style?: GridStyle;
+  lineWidthPx?: number;
+  minSpacingPx?: number;
+  /**
+   * `GAL_DISPLAY_OPTIONS::m_axesEnabled` + `SetAxesColor`.
+   *
+   * OFF for the board editor, which never enables them, and ON for the three
+   * frames that do: `footprint_edit_frame.cpp:157`,
+   * `footprint_viewer_frame.cpp:202` and `cvpcb/display_footprints_frame.cpp:144`.
+   * GAL draws them inside `drawGrid` -- a line at y=0 across the viewport and
+   * one at x=0 down it, at minorLineWidth (`opengl_gal.cpp:1921-1928`) -- which
+   * is why they are a grid option and not a scene item.
+   */
+  axes?: { color: string } | null;
+}): GridOptions {
+  return {
+    show: o.show,
+    sizeIU: o.sizeIU ?? PCB_DEFAULT_GRID_IU,
+    origin: o.origin ?? PCB_DEFAULT_GRID_ORIGIN,
+    color: o.color ?? PCB_GRID,
+    style: o.style ?? DEFAULT_GRID_APPEARANCE.style,
+    lineWidthPx: o.lineWidthPx ?? DEFAULT_GRID_APPEARANCE.lineWidthPx,
+    minSpacingPx: o.minSpacingPx ?? DEFAULT_GRID_APPEARANCE.minSpacingPx,
+    devicePixelRatio: o.devicePixelRatio,
+    axes: o.axes ?? null,
+  };
+}
+
+/**
+ * The paint sequence as resumable steps, one per stacking pass. The editor
+ * runs these across animation frames with a time budget so a 20k-track board
+ * never blocks the UI while the crisp raster streams in.
+ */
+export function buildDrawSteps(
+  ctx: CanvasRenderingContext2D,
+  scene: BoardScene,
+  view: PcbViewTransform,
+  visible: ReadonlySet<string>,
+  widthPx: number,
+  heightPx: number,
+  opts: PcbDrawOptions = DEFAULT_DRAW_OPTIONS,
+  sheet?: SheetInfo,
+  // Overlay pass (live move preview): paint the items on top of an existing
+  // frame, so skip the background clear and the drawing sheet.
+  overlay = false,
+  // How this pass emphasises what it paints (PCB_PAINTER::GetColor): selected
+  // items take m_layerColorsSel, a highlighted net brightens and the rest of the
+  // board darkens. 'none' paints the layer colors as-is.
+  emphasis: Emphasis = 'none',
+): (() => void)[] {
+  const steps: (() => void)[] = [];
+  // Per-layer color from the active theme, under this pass's emphasis.
+  const themeColors = opts.theme?.layerColors;
+  const special = opts.theme?.special ?? PCB_SPECIAL;
+  /**
+   * `PCB_PAINTER::GetColor`'s inactive-layer branch
+   * (`pcbnew/pcb_painter.cpp:511-545`), which is a colour MIX toward the
+   * background and not a transparency:
+   *
+   *     color = color.Mix( backgroundColor, m_hiContrastFactor );
+   *
+   * This was `ctx.globalAlpha = 0.2`, which is a different picture: alpha
+   * composites against whatever happens to be under the item, so two dimmed
+   * layers overlapping came out BRIGHTER than either, and a dimmed track over
+   * a zone read differently from the same track over bare board.
+   * `render_settings.ts` says as much beside `hiContrastColor` — GerbView
+   * already did it correctly and the board did not.
+   *
+   * The factor is the user's, not a constant: `m_hiContrastFactor = 1.0 -
+   * appearance.hicontrast_dimming_factor`.
+   */
+  const hcFactor = opts.hiContrastFactor ?? HI_CONTRAST_FACTOR;
+  // `m_layerColors[LAYER_PCB_BACKGROUND]` — the theme's own board background,
+  // which is what the mix runs toward (`pcb_painter.cpp:538-539`). The same
+  // `theme?.background ?? PCB_BACKGROUND` the grid origin already resolves.
+  const hcBackground = parseColor4d(opts.theme?.background ?? PCB_BACKGROUND);
+  const dimmed = (layer: string, css: string): string => {
+    if (opts.contrastMode === 'normal' || layer === opts.activeLayer) return css;
+    const f = layer === 'Edge.Cuts' ? edgeCutsContrastFactor(hcFactor) : hcFactor;
+    return toCssColor(hiContrastColor(parseColor4d(css), hcBackground, f));
+  };
+  const col = (layer: string): string =>
+    dimmed(
+      layer,
+      opts.colorOverride ?? emphasize(themeColors?.[layer] ?? layerColor(layer), emphasis),
+    );
+  const sp = (c: string): string => emphasize(c, emphasis);
+  steps.push(() => {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    // The raster is kept transparent so the grid (painted on the live canvas
+    // behind the raster, like GAL's GRID_DEPTH) shows through the empty board
+    // areas. The visible canvas fills PCB_BACKGROUND before blitting.
+    // A flipped view negates the X scale (SetMirror on X).
+    ctx.setTransform(view.flipX ? -view.scale : view.scale, 0, 0, view.scale, view.tx, view.ty);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    // Drawing sheet (page frame + title block) behind the board, like pcbnew,
+    // in the theme's LAYER_DRAWINGSHEET color (classic: dark red; B&W: black).
+    // `LAYER_BOARD_OUTLINE_AREA`, under the copper and over the sheet: it is a
+    // SHADOW of the board area, so everything on the board draws on top of it.
+    // `evenodd` so an Edge.Cuts cutout is a hole and not a second filled ring.
+    if (!overlay && opts.boardOutlineArea && scene.boardOutlineArea) {
+      ctx.fillStyle = sp(special.outlineArea);
+      ctx.fill(scene.boardOutlineArea, 'evenodd');
+    }
+    if (!overlay && sheet && opts.drawingSheet) {
+      // LAYER_PAGE_LIMITS first: the paper edge is its own rectangle in its own
+      // grey, drawn outside the sheet's frame, and pcbnew shows it exactly as
+      // eeschema does. Without it the outermost line on a board was the frame,
+      // 10 mm inside where KiCad's page ends.
+      drawPageLimits(ctx, sheet, special.pageLimits);
+      drawDrawingSheet(ctx, sheet, special.drawingSheet);
+    }
+  });
+
+  // KiCad's minimum pen: never stroke thinner than one device pixel, expressed
+  // in IU so it can go straight into `lineWidth`.
+  //
+  // A backend that retains geometry must opt out of it with `minPenWidth: 0`.
+  // The floor depends on the view, so baking it into a width makes the geometry
+  // depend on the zoom, and a retained buffer would then have to be rebuilt on
+  // every zoom step — which is the entire cost the WebGL backend exists to
+  // remove. Such a backend applies the same floor per frame instead, in the
+  // shader, exactly as KiCad's `u_minLinePixelWidth` does.
+  const minPen = opts.minPenWidth ?? (view.scale > 0 ? 1 / view.scale : 0);
+
+  /**
+   * Whether an inactive layer is drawn at all, which after the change above is
+   * ALL this decides — the dimming is in `col`, where upstream puts it.
+   *
+   *     if( m_ContrastModeDisplay == HIGH_CONTRAST_MODE::HIDDEN || … )
+   *     {
+   *         if( originalLayer == Edge_Cuts ) color = color.Mix( …, dim_factor_Edge_Cuts );
+   *         else                             color = COLOR4D::CLEAR;
+   *     }
+   *                                       (`pcbnew/pcb_painter.cpp:517-530`)
+   *
+   * so HIDDEN clears every inactive layer except Edge.Cuts, which is mixed at
+   * its own clamped factor and stays visible. Returned as an opacity because
+   * that is what the paint helpers below take; it is 1 or 0 and nothing else.
+   */
+  const layerAlpha = (layer: string): number => {
+    if (opts.contrastMode !== 'hide' || layer === opts.activeLayer) return 1;
+    return layer === 'Edge.Cuts' ? 1 : 0;
+  };
+
+  const paintZones = (layer: string, la: number) => (): void => {
+    const b = scene.layers.get(layer);
+    if (!b || !opts.zones || (!b.hasZones && !b.hasZoneOutlines)) return;
+    const color = col(layer);
+    if (b.hasZones) {
+      ctx.globalAlpha = opts.zoneOpacity * la;
+      if (opts.zoneOutline) {
+        // PCB_ACTIONS::zoneDisplayOutline, sketch the fill outlines.
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 0.05 * MM;
+        ctx.stroke(b.zones);
+      } else {
+        ctx.fillStyle = color;
+        ctx.fill(b.zones, 'nonzero');
+      }
+    }
+    // Zone boundary border: full opacity (color.WithAlpha(1.0)), min-pen width
+    // (m_outlineWidth = 1 IU), drawn over the fill, the outline KiCad always
+    // shows around a filled zone.
+    if (b.hasZoneOutlines) {
+      ctx.globalAlpha = la;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = minPen;
+      ctx.stroke(b.zoneOutlines);
+    }
+    ctx.globalAlpha = 1;
+  };
+  const paintCopper = (layer: string, la: number) => (): void => {
+    const b = scene.layers.get(layer);
+    if (!b) return;
+    const color = col(layer);
+    // `outline_mode = !m_DisplayGraphicsFill`: a sketched shape is not filled,
+    // and its stroke drops to m_outlineWidth rather than its own width.
+    if (b.hasGfxFill && opts.graphicFill) {
+      ctx.globalAlpha = opts.filledShapeOpacity * la;
+      ctx.fillStyle = color;
+      ctx.fill(b.gfxFill, 'nonzero');
+    }
+    ctx.globalAlpha = la;
+    ctx.strokeStyle = color;
+    if (opts.graphicFill) strokeAll(ctx, b.gfxStrokes, minPen);
+    else strokeAllAt(ctx, b.gfxStrokes, minPen);
+    if (opts.tracks && b.tracks.size > 0) {
+      ctx.globalAlpha = opts.trackOpacity * la;
+      if (opts.trackFill) {
+        strokeAll(ctx, b.tracks, minPen);
+      } else if (b.hasTrackOutlines) {
+        // Sketch: outline each track at min-pen instead of filling it.
+        ctx.lineWidth = minPen;
+        ctx.stroke(b.trackOutlines);
+      }
+    }
+    // Pad clearance outlines, the ring KiCad shows around every pad by default
+    // (m_Display.m_PadClearance ships true, pcbnew_settings.cpp). Stroked in the
+    // copper colour at `m_pcbSettings.m_outlineWidth` — which is 1 IU
+    // (render_settings.cpp), so it is GAL's minimum pen and nothing else — and
+    // at the layer's own opacity: `draw(PAD)`'s clearance branch sets a stroke
+    // colour and no alpha of its own.
+    //
+    // Below the vias and pads, not above: GAL_LAYER_ORDER stacks a copper layer
+    // as zone, layer, CLEARANCE_LAYER_FOR, VIA_COPPER_LAYER_FOR,
+    // PAD_COPPER_LAYER_FOR, netnames — so a clearance ring is drawn under the
+    // copper it belongs to and is hidden wherever another pad overlaps it.
+    // `opts.pads` gates this too: PAD::ViewGetLOD opens with a meta control,
+    // "if( !aView->IsLayerVisibleCached( LAYER_PADS ) ) return LOD_HIDE", which
+    // applies to every layer the pad draws on — its clearance layer included.
+    // Without that, hiding Pads left a copper-coloured ring around every pad.
+    // `m_Display.m_TrackClearance == SHOW_WITH_VIA_ALWAYS` — the ONLY mode the
+    // painter draws a standing clearance ring in (`pcb_painter.cpp:858`,
+    // `:1024`, `:1360`). The other four are router-preview states: the ring
+    // appears around the track being routed or dragged and is gone the moment
+    // the gesture ends, so a board at rest looks identical under all of them.
+    if (opts.tracks && opts.trackClearanceMode === 4 && b.hasTrackClearance) {
+      ctx.globalAlpha = la;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = minPen;
+      ctx.stroke(b.trackClearance);
+    }
+    if (opts.pads && opts.padClearance && b.hasClearance) {
+      ctx.globalAlpha = la;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = minPen;
+      ctx.stroke(b.clearance);
+    }
+    if (opts.vias && b.hasVias) {
+      ctx.globalAlpha = opts.viaOpacity * la;
+      ctx.strokeStyle = color;
+      if (opts.viaFill) {
+        ctx.fillStyle = color;
+        ctx.fill(b.vias, 'nonzero');
+      } else {
+        ctx.lineWidth = minPen;
+        ctx.stroke(b.vias);
+      }
+    }
+    if (opts.pads && (b.hasPads || b.hasPadsPthNormal)) {
+      ctx.globalAlpha = opts.padOpacity * la;
+      const paint = (path: Path2D, clr: string): void => {
+        ctx.strokeStyle = clr;
+        if (opts.padFill) {
+          ctx.fillStyle = clr;
+          ctx.fill(path, 'nonzero');
+        } else {
+          ctx.lineWidth = minPen;
+          ctx.stroke(path);
+        }
+      };
+      if (b.hasPads) paint(b.pads, color);
+      if (b.hasPadsPthNormal) {
+        // `aLayer = LAYER_VIA_HOLES` in `GetColor`, so the recoloured pad takes
+        // the via HOLE colour and not the via annulus'. Emphasis still applies:
+        // GetColor runs the selection/highlight adjustment after this branch.
+        paint(b.padsPthNormal, opts.viaColorForThPads ? sp(special.viaHole) : color);
+      }
+    }
+    ctx.globalAlpha = 1;
+  };
+  const paintBarcodes = (layer: string, la: number) => (): void => {
+    const b = scene.layers.get(layer);
+    if (!b || !b.hasBarcodes) return;
+    ctx.globalAlpha = la;
+    ctx.fillStyle = col(layer);
+    // `nonzero`, not `evenodd`: `AssembleBarcode` fractures the polygon, so a
+    // knockout's holes arrive as slits in one ring rather than as separate
+    // rings that an even-odd fill would have to cancel.
+    ctx.fill(b.barcodes, 'nonzero');
+    ctx.globalAlpha = 1;
+  };
+  const paintText = (layer: string, la: number) => (): void => {
+    const b = scene.layers.get(layer);
+    if (!b) return;
+    ctx.globalAlpha = la;
+    ctx.strokeStyle = col(layer);
+    // `outline_mode = !m_DisplayTextFill` sets attrs.m_StrokeWidth to
+    // m_outlineWidth, so every glyph is stroked at the thin pen instead of the
+    // text's own pen width.
+    const strokeText = opts.textFill
+      ? (m: Map<number, Path2D>): void => strokeAll(ctx, m)
+      : (m: Map<number, Path2D>): void => strokeAllAt(ctx, m, minPen);
+    if (opts.fpReferences) strokeText(b.textRef);
+    if (opts.fpValues) strokeText(b.textVal);
+    if (opts.fpText) strokeText(b.textFp);
+    strokeText(b.textBoard);
+    if (b.hasTextFill) {
+      // An outline face is filled whatever the text-fill setting: the
+      // painter's outline_mode only changes `attrs.m_StrokeWidth`, and an
+      // OUTLINE_GLYPH is drawn by `DrawGlyphs`, which fills.
+      ctx.fillStyle = col(layer);
+      if (opts.fpReferences) ctx.fill(b.textRefFill);
+      if (opts.fpValues) ctx.fill(b.textValFill);
+      if (opts.fpText) ctx.fill(b.textFpFill);
+      ctx.fill(b.textBoardFill);
+    }
+    ctx.globalAlpha = 1;
+  };
+  /**
+   * `POINT_LAYER_FOR( layer )`, which GAL_LAYER_ORDER files directly above the
+   * board layer it belongs to (`pcb_draw_panel_gal.cpp:84-140`) — so a point
+   * paints over its own layer's copper and graphics, and under the next layer
+   * up. Two strokes, two colours: the X in LAYER_POINTS and the ring in the
+   * layer's own colour, both at the minimum pen.
+   */
+  const paintPoints = (layer: string, la: number) => (): void => {
+    const b = scene.layers.get(layer);
+    if (!b || !b.hasPoints || !opts.points) return;
+    ctx.globalAlpha = la;
+    ctx.lineWidth = minPen;
+    ctx.strokeStyle = sp(special.points);
+    ctx.stroke(b.pointCross);
+    ctx.strokeStyle = col(layer);
+    ctx.stroke(b.pointRing);
+    ctx.globalAlpha = 1;
+  };
+  const pushLayer = (layer: string): void => {
+    if (!visible.has(layer) || !scene.layers.has(layer)) return;
+    const la = layerAlpha(layer);
+    if (la <= 0) return;
+    steps.push(
+      paintZones(layer, la),
+      paintCopper(layer, la),
+      paintBarcodes(layer, la),
+      paintText(layer, la),
+      paintPoints(layer, la),
+    );
+  };
+
+  const fCuIndex = PCB_PAINT_ORDER.indexOf('F.Cu');
+  for (let i = 0; i <= fCuIndex; i++) {
+    pushLayer(PCB_PAINT_ORDER[i]!);
+    // Right above the back copper, where GAL_LAYER_ORDER files
+    // LAYER_PAD_BK_NETNAMES and the back netnames layer: above their own
+    // B.Cu, below every inner layer and the front pour. A retained backend
+    // notes the depth and draws that pass here itself; a canvas has no marks
+    // and simply never sees the call.
+    //
+    // It has to be *pushed as a step*, not called here. This function only
+    // builds the closures; nothing has been recorded when it runs, so marking
+    // inline filed the depth at run zero and the recorder dutifully drew the
+    // whole under pass beneath the entire board — every back pad number hidden
+    // under its own opaque pad.
+    if (PCB_PAINT_ORDER[i] === 'B.Cu') {
+      steps.push(() => {
+        (ctx as { mark?: (name: string) => void }).mark?.(BACK_NETNAMES_MARK);
+      });
+    }
+  }
+
+  steps.push(() => {
+    // Print's drill-marks modes: 'none' suppresses every hole; 'small' draws
+    // each hole capped at SMALL_DRILL (0.35 mm) instead of true size.
+    if (opts.drillMarks === 'none') return;
+    if (opts.drillMarks === 'small') {
+      ctx.fillStyle = sp(special.padPlatedHole);
+      ctx.fill(scene.holesSmall);
+      return;
+    }
+    // GAL_LAYER_ORDER, bottom-up: LAYER_NON_PLATEDHOLES, LAYER_PAD_HOLEWALLS,
+    // LAYER_PAD_PLATEDHOLES, LAYER_VIA_HOLEWALLS, LAYER_VIA_HOLES. Each hole is
+    // painted over its own wall, so the wall reads as a ring.
+    if (opts.pads) {
+      ctx.fillStyle = sp(special.nonPlatedHole);
+      ctx.fill(scene.padHolesNP);
+      ctx.strokeStyle = sp(special.padHoleWall);
+      strokeAll(ctx, scene.padHoleWalls, minPen);
+      ctx.fillStyle = sp(special.padPlatedHole);
+      ctx.fill(scene.padHolesPlated);
+    }
+    if (opts.vias) {
+      ctx.strokeStyle = sp(special.viaHoleWall);
+      strokeAll(ctx, scene.viaHoleWalls, minPen);
+      ctx.fillStyle = sp(special.viaHole);
+      ctx.fill(scene.viaHoles);
+    }
+  });
+
+  for (let i = fCuIndex + 1; i < PCB_PAINT_ORDER.length; i++) pushLayer(PCB_PAINT_ORDER[i]!);
+
+  // Pad numbers and net names draw with the track and via names in the
+  // per-frame netname pass at the end of this function: whether they show at
+  // all is PAD::ViewGetLOD against the zoom, and overlapping labels must not
+  // compound (see drawNetNames), neither of which a baked stroke pass can do.
+
+  // Reference images. Painted before the net names but after the copper, which
+  // is where PCB_PAINTER puts them: a reference image is something to trace
+  // over, so it must not cover the board.
+  //
+  // A picture that has not decoded yet, or never will, is outlined instead —
+  // the item stays visible and selectable, which is what it did before any of
+  // this could paint at all.
+  if (scene.images.length > 0) {
+    steps.push(() => {
+      for (const img of scene.images) {
+        if (!visible.has(img.layer)) continue;
+        const la = layerAlpha(img.layer);
+        if (la === 0) continue;
+
+        const w = img.box.maxX - img.box.minX;
+        const h = img.box.maxY - img.box.minY;
+        const bitmap = opts.imageBitmaps?.get(img.data);
+
+        // `color.a *= m_imageOpacity` — the picture is dimmed, the fallback
+        // outline is not: an outline at 0.6 on a dark board is barely there,
+        // and it exists to say "an item is here" when the payload will not
+        // decode.
+        ctx.globalAlpha = bitmap ? opts.imageOpacity * la : la;
+        if (bitmap) {
+          // A flipped view already negates the X scale on the context, so the
+          // picture mirrors with the board rather than needing its own flip.
+          ctx.drawImage(bitmap, img.box.minX, img.box.minY, w, h);
+        } else {
+          ctx.strokeStyle = col(img.layer);
+          ctx.lineWidth = minPen;
+          ctx.strokeRect(img.box.minX, img.box.minY, w, h);
+        }
+        ctx.globalAlpha = 1;
+      }
+    });
+  }
+
+  // Track and via net names, last: whether a label exists at all depends on
+  // the zoom (ViewGetLOD), so the pass is laid out per frame rather than baked.
+  //
+  // A *retained* recorder must not receive it: the recording would freeze the
+  // one zoom's answer forever, which on the GL path meant no net name could
+  // ever appear — the scene was recorded at the board-fit zoom, where every
+  // label fails its LOD, and zooming in never re-records. The GL caller draws
+  // this pass itself, per frame, on the overlay canvas (`drawNetNames`); the
+  // recorder is recognised by the `hairlines` switch only it carries.
+  //
+  // `padLabels` belongs in this test, and its absence is why no pad ever showed
+  // its number in the footprint editor or in the chooser's footprint preview:
+  // a board holding one footprint has no tracks and no vias, so the whole pass
+  // — the pass that draws pad numbers as well — was never scheduled. In
+  // pcb_painter.cpp the three are independent draw() branches on independent
+  // layers (LAYER_PAD_NETNAMES vs the track and via netname layers), so one
+  // being empty says nothing about the others.
+  const retained = (ctx as { hairlines?: unknown }).hairlines !== undefined;
+  if (
+    !retained &&
+    (scene.netLabels.length > 0 || scene.viaNetLabels.length > 0 || scene.padLabels.length > 0)
+  ) {
+    steps.push(() => {
+      drawNetNames(ctx, scene, view, visible, widthPx, heightPx, opts, emphasis);
+    });
+  }
+  return steps;
+}
+
+/**
+ * The zoom-dependent net-name pass: track net names (renderNetNameForSegment)
+ * and via net/layer descriptions (draw(PCB_VIA)'s netname branch), each behind
+ * its item's ViewGetLOD gate. Drawn per frame — on the Canvas2D path as the
+ * last `buildDrawSteps` step, on the GL path by `PcbEditor` on the overlay
+ * canvas, where the current zoom is actually known.
+ *
+ * `dpr` matters to the gates: GAL's screen DPI is per *physical* pixel, so on
+ * a scaled display the same board is "zoomed in" less than the device-pixel
+ * view scale suggests.
+ */
+export function drawNetNames(
+  ctx: CanvasRenderingContext2D,
+  scene: BoardScene,
+  view: PcbViewTransform,
+  visible: ReadonlySet<string>,
+  widthPx: number,
+  heightPx: number,
+  opts: PcbDrawOptions = DEFAULT_DRAW_OPTIONS,
+  emphasis: Emphasis = 'none',
+  dpr = 1,
+  where: NetNamePass = 'over',
+  shift: ScenePerFrameShift | null = null,
+): void {
+  const special = opts.theme?.special ?? PCB_SPECIAL;
+  const minPen = opts.minPenWidth ?? (view.scale > 0 ? 1 / view.scale : 0);
+  const viewport = viewportInWorld(view, widthPx, heightPx);
+  const byColor = new Map<string, NetTextRun[]>();
+  // A retained backend draws this pass at its real depth (see the mark in
+  // buildDrawSteps), so it needs no stand-in; only a flat canvas, which has no
+  // depth to draw into, pays for the layers above in alpha.
+  const retained = (ctx as { hairlines?: unknown }).hairlines !== undefined;
+  // ...and only a backend with the font atlas can draw these the way pcbnew
+  // does. The rest stroke them; see `NetTextRun`.
+  const atlas = atlasTarget(ctx);
+  const attenuate = (color: string): string => {
+    if (where === 'over' || retained) return color;
+    const m = /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+))?\)/.exec(color);
+    if (!m) return color;
+    return `rgba(${m[1]},${m[2]},${m[3]},${(m[4] !== undefined ? +m[4] : 1) * UNDER_PASS_TRANSMISSION})`;
+  };
+  const runsFor = (color: string): NetTextRun[] => {
+    let m = byColor.get(color);
+    if (!m) {
+      m = [];
+      byColor.set(color, m);
+    }
+    return m;
+  };
+  // Self-contained: the transform is whatever the previous pass left, so state
+  // it. (On the Canvas2D path this re-states what the first step already set.)
+  //
+  // A retained target gets the scale and *nothing else*. Its buffer holds world
+  // coordinates and the device applies the view — the pan and the mirror
+  // included — so baking them in here would apply both twice. It did: the
+  // per-frame pass was recorded through the real view and un-shifted by a fixed
+  // origin that assumed the synthetic one `recordBoardScene` uses, which landed
+  // every glyph about two billion units off the board, far outside any viewport.
+  // The scale stays because the recorder derives pen widths from it.
+  if (retained) ctx.setTransform(view.scale, 0, 0, view.scale, 0, 0);
+  else ctx.setTransform(view.flipX ? -view.scale : view.scale, 0, 0, view.scale, view.tx, view.ty);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  // draw(PCB_TRACK) takes its color from GetColor(track, aLayer) with aLayer
+  // the *netname* layer — per copper layer, the theme's netnames color or its
+  // inverse (see netnameColorFor). A via's description is LAYER_VIA_NETNAMES,
+  // near-black over the via copper.
+  if (opts.netNames) {
+    for (const label of scene.netLabels) {
+      if (!visible.has(label.layer)) continue;
+      // NETNAMES_LAYER_INDEX( F_Cu ) sits above F.Cu, but each inner and back
+      // layer's netnames sit with their own copper — under the front pour.
+      if ((label.layer === 'F.Cu') !== (where === 'over')) continue;
+      if (!showsNetName(label, view, dpr)) continue;
+      const color = attenuate(emphasize(netnameColorFor(label.layer, opts.theme), emphasis, true));
+      addTrackNetName(runsFor(color), label, viewport);
+    }
+    // Arcs, on the same netname layers and behind the same setting; one name at
+    // the midpoint rather than repeated along the run (draw(PCB_ARC)).
+    for (const label of scene.arcNetLabels) {
+      if (!visible.has(label.layer)) continue;
+      if (!showsArcNetName(label, view, dpr)) continue;
+      if (label.at.x < viewport.minX || label.at.x > viewport.maxX) continue;
+      if (label.at.y < viewport.minY || label.at.y > viewport.maxY) continue;
+      const color = attenuate(emphasize(netnameColorFor(label.layer, opts.theme), emphasis, true));
+      const textSize = label.width;
+      runsFor(color).push({
+        text: label.text,
+        at: label.at,
+        angle: label.angle,
+        glyph: textSize * 0.55,
+        item: {
+          kind: 'user',
+          text: label.text,
+          at: label.at,
+          angle: label.angle,
+          layer: label.layer,
+          size: { x: textSize * 0.55, y: textSize * 0.55 },
+          thickness: textSize / 12,
+        },
+      });
+    }
+  }
+  // LAYER_VIA_NETNAMES is up with the overlays, above every copper layer.
+  if (where === 'over') {
+    const viaColor = emphasize(special.viaName ?? special.padName, emphasis, true);
+    for (const label of scene.viaNetLabels) {
+      if (!showsViaNetName(label, view, dpr)) continue;
+      if (!label.layers.some((l) => visible.has(l))) continue;
+      if (label.at.x < viewport.minX || label.at.x > viewport.maxX) continue;
+      if (label.at.y < viewport.minY || label.at.y > viewport.maxY) continue;
+      // `m_NetNames != 0`, not `>= 2`: a via letters its net whenever net
+      // names are on for pads *or* tracks (pcb_painter.cpp:1118).
+      addViaNetName(runsFor(viaColor), label, opts.viaNetNames);
+    }
+  }
+  // Pad text, gated like everything else here, and on PAD::ViewGetLOD's own
+  // terms: the pad bounding box's shorter side against 0.5 mm, which is the
+  // only zoom rule the C++ has for these. A target without the atlas takes one
+  // more floor on top; see GLYPH_LEGIBLE_PX for why that is a property of
+  // stroking and not of KiCad.
+  if (opts.pads && scene.padLabels.length > 0) {
+    const pad = (v: number): boolean => v * view.scale >= PAD_TEXT_MIN_PX * dpr;
+    for (const label of scene.padLabels) {
+      if (!pad(label.minSide)) continue;
+      // The same debt as the anchors: this pass is world-space and per-frame,
+      // so a GPU drag that translated the footprint's recorded vertices left
+      // its pad numbers and net names sitting at the old position.
+      const moving = shift !== null && shift.ids.has(label.owner);
+      const ldx = moving ? shift.dx : 0;
+      const ldy = moving ? shift.dy : 0;
+      // PAD::ViewGetLOD: "Hide netnames unless pad is flashed to a visible
+      // layer." Without this the numbers and net names survived hiding every
+      // copper layer, floating over an otherwise empty board.
+      const shownOn = label.layers.find((l) => visible.has(l));
+      if (shownOn === undefined) continue;
+      // A through-hole pad's text is LAYER_PAD_NETNAMES, up with the overlays;
+      // an SMD pad's is LAYER_PAD_FR_NETNAMES just above F.Cu, or
+      // LAYER_PAD_BK_NETNAMES down in the back-copper block, beneath the inner
+      // layers and the front pour. That last one is why pcbnew shows back-side
+      // pad text as a pale ghost under the pour while ours read as brightly as
+      // the front.
+      if (label.layers.includes('F.Cu') !== (where === 'over')) continue;
+      const m = label.minSide;
+      const lx = label.at.x + ldx;
+      const ly = label.at.y + ldy;
+      if (lx + m < viewport.minX || lx - m > viewport.maxX) continue;
+      if (ly + m < viewport.minY || ly - m > viewport.maxY) continue;
+      // draw(PAD)'s netname branch resolves LAYER_PAD_FR_NETNAMES and
+      // LAYER_PAD_BK_NETNAMES to `GetNetnameLayer( F_Cu / B_Cu )`, so an SMD
+      // pad's text follows the same per-layer light/dark rule as a track's:
+      // dark over a copper colour bright enough to need it.
+      const runs = runsFor(
+        attenuate(emphasize(netnameColorFor(shownOn, opts.theme, true), emphasis, true)),
+      );
+      for (const item of label.items) {
+        // `m_DisplayPadNumbers` off empties `padNumber` before anything is
+        // measured (`pcb_painter.cpp:1393`), so the number goes and the net
+        // name stays where it was.
+        if (item.padText === 'number' && !opts.padNumbers) continue;
+        // `m_NetNames == 1 || 3` decides whether a pad carries a net *name*.
+        // An `x` or `*` is not one — `IsNoConnectPad()` / `IsFreePad()` are
+        // applied after the setting is read and regardless of it — so the
+        // override survives when the names are switched off.
+        if (item.padText === 'net' && !opts.padNetNames && !label.netIsOverride) continue;
+        // Its partner is hidden, so this string is now the pad's only one and
+        // takes the centred, full-size layout the painter would have given it.
+        const partnerHidden =
+          item.solo !== undefined &&
+          (item.padText === 'net' ? !opts.padNumbers : !opts.padNetNames && !label.netIsOverride);
+        const geom = partnerHidden ? item.solo! : item;
+        if (!atlas && geom.size.y * view.scale < GLYPH_LEGIBLE_PX * dpr) continue;
+        const base = geom.at;
+        const at = moving ? { x: base.x + ldx, y: base.y + ldy } : base;
+        runs.push({
+          text: item.text,
+          at,
+          angle: item.angle,
+          glyph: geom.glyph,
+          item: partnerHidden ? ({ ...item, ...item.solo! } as PadTextItem) : item,
+        });
+      }
+    }
+  }
+  if (byColor.size === 0) return;
+
+  // The atlas path: each run is one `BitmapText` call and the GPU does the
+  // rest, including the overlap — every glyph of a pass is filed at one depth,
+  // so the second label to reach a pixel is rejected rather than added to the
+  // first. That is KiCad's own mechanism, not an imitation of it.
+  if (atlas) {
+    for (const [color, runs] of byColor) {
+      ctx.strokeStyle = color;
+      for (const run of runs)
+        atlas.bitmapText(run.text, {
+          x: run.at.x,
+          y: run.at.y,
+          angle: run.angle,
+          glyphSize: run.glyph,
+          flipX: view.flipX,
+        });
+    }
+    return;
+  }
+
+  // Without it, stroke the same calls from the Newstroke font, and composite
+  // each colour group through a scratch canvas: strokes drawn at full ink, the
+  // union stamped once at the group's alpha. That reproduces the same
+  // no-compounding behaviour on a backend that has no depth to test against.
+  // Stroking straight onto the board at 0.7 alpha made every crossing brighter
+  // than its surroundings, which is exactly the "text overlapping" a
+  // side-by-side against pcbnew shows.
+  const strokeRuns = (target: CanvasRenderingContext2D, runs: NetTextRun[]): void => {
+    const map = new Map<number, Path2D>();
+    for (const run of runs) addStrokeText(map, run.item);
+    strokeAll(target, map, minPen);
+  };
+  const sc = scratchFor(widthPx, heightPx);
+  if (!sc) {
+    // No DOM (tests, workers): stroke directly; overlaps compound, gates don't.
+    asBitmapText(ctx, () => {
+      for (const [color, runs] of byColor) {
+        ctx.strokeStyle = color;
+        strokeRuns(ctx, runs);
+      }
+    });
+    return;
+  }
+  for (const [color, runs] of byColor) {
+    const parsed = /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+))?\)/.exec(color);
+    const ink = parsed ? `rgb(${parsed[1]},${parsed[2]},${parsed[3]})` : color;
+    const alpha = parsed?.[4] !== undefined ? +parsed[4] : 1;
+    sc.ctx.setTransform(1, 0, 0, 1, 0, 0);
+    sc.ctx.clearRect(0, 0, widthPx, heightPx);
+    sc.ctx.setTransform(view.flipX ? -view.scale : view.scale, 0, 0, view.scale, view.tx, view.ty);
+    sc.ctx.lineCap = 'round';
+    sc.ctx.lineJoin = 'round';
+    sc.ctx.strokeStyle = ink;
+    strokeRuns(sc.ctx, runs);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(sc.canvas, 0, 0);
+    ctx.globalAlpha = 1;
+  }
+  ctx.setTransform(view.flipX ? -view.scale : view.scale, 0, 0, view.scale, view.tx, view.ty);
+}
+
+/**
+ * Which side of the board raster a net-name pass paints on.
+ *
+ * `'over'` is everything KiCad puts above the copper — through-hole pad text,
+ * via descriptions and front-layer names. `'under'` is what it files with the
+ * back and inner copper, beneath the layers stacked above.
+ *
+ * Both draw on the *same* canvas, and `'under'` pays for its depth in alpha
+ * instead. Painting it beneath the board raster was the obvious move and it is
+ * wrong: a back pad's text then sits under the very pad it labels, which is
+ * opaque, so it disappears altogether — pcbnew draws it above its own B.Cu and
+ * only *then* under the inner layers and the front pour. Our board is one
+ * retained raster, so a per-frame pass cannot slot inside it; attenuating by
+ * one pour's worth of transmission reproduces what that stack does to it
+ * without pretending to be it.
+ */
+export type NetNamePass = 'over' | 'under';
+
+/**
+ * What a back-side name keeps once the layers above have had their turn.
+ *
+ * A zone fill composites at `zoneOpacity` (0.6 by default), so what lies under
+ * it keeps 1 - 0.6 of its strength. One pour is the common case on a board
+ * with a ground plane, and it is what makes pcbnew's back-side pad text the
+ * pale ghost it is.
+ */
+const UNDER_PASS_TRANSMISSION = 0.4;
+
+/**
+ * The depth the back-side net names are drawn at, for a retained backend that
+ * splits its run walk there. See `NetNamePass`.
+ */
+export const BACK_NETNAMES_MARK = 'backNetNames';
+
+/** PAD::ViewGetLOD's 0.5 mm threshold, as pixels of pad. */
+const PAD_TEXT_MIN_PX = (0.5 * GAL_SCREEN_DPI) / 25.4;
+
+/**
+ * Below this glyph height a *stroked* label is dropped rather than drawn.
+ *
+ * There is no such rule in KiCad, and this applies only to the backends that
+ * have no font atlas. The OpenGL GAL's glyphs come from a distance field
+ * sampled with `GL_LINEAR` and **no mipmaps** (`opengl_gal.cpp`), so a glyph
+ * shrinking past legibility widens the shader's threshold ramp and fades to a
+ * soft grey — it never piles up. Stroke-font glyphs do pile up: every character
+ * is several sub-pixel strokes crossing, alpha compositing saturates, and a
+ * board-fit view turns into a sheet of glare that pcbnew does not have. This is
+ * the floor that stops that, and it goes away as soon as the real atlas is
+ * doing the drawing.
+ */
+const GLYPH_LEGIBLE_PX = 2.5;
+
+/** The cached scratch canvas the netname pass unions each color group on. */
+let scratch: { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D } | null = null;
+
+function scratchFor(
+  w: number,
+  h: number,
+): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D } | null {
+  if (typeof document === 'undefined') return null;
+  if (!scratch) {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    scratch = { canvas, ctx };
+  }
+  if (scratch.canvas.width < w || scratch.canvas.height < h) {
+    scratch.canvas.width = Math.max(w, scratch.canvas.width);
+    scratch.canvas.height = Math.max(h, scratch.canvas.height);
+  }
+  return scratch;
+}
+
+/**
+ * The netname-layer color for one copper layer, RENDER_SETTINGS::update():
+ * `lightLabel` is the theme's netnames color, `darkLabel` its RGB inverse, and
+ * a layer whose own color has a W3C brightness over 0.5 takes the dark one —
+ * so names on F.Cu's dark red are white while names on In1.Cu's light green
+ * are near-black, which doubles as KiCad's way of making inner-layer names
+ * read quieter than front ones.
+ */
+export function netnameColorFor(layer: string, theme?: PcbColorTheme, forPad = false): string {
+  const special = theme?.special ?? PCB_SPECIAL;
+  const light = forPad ? special.padName : (special.netName ?? special.padName);
+  const layerCss = theme?.layerColors?.[layer] ?? layerColor(layer);
+  const m = /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+))?\)/.exec(layerCss);
+  if (!m) return light;
+  const brightness = (0.299 * +m[1]! + 0.587 * +m[2]! + 0.117 * +m[3]!) / 255;
+  if (brightness <= 0.5) return light;
+  const lm = /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+))?\)/.exec(light);
+  if (!lm) return light;
+  const a = lm[4] !== undefined ? +lm[4] : 1;
+  return `rgba(${255 - +lm[1]!},${255 - +lm[2]!},${255 - +lm[3]!},${a})`;
+}
+
+/**
+ * The LAYER_ANCHOR crosses, draw(FOOTPRINT): a cross at every footprint
+ * origin, "size and width constant, not related to the scale because the
+ * anchor is just a marker on screen" — 5 px arms, 1 px pen. Screen-space, so
+ * it is a per-frame pass like the net names, never part of a retained scene.
+ */
+export function drawAnchors(
+  ctx: CanvasRenderingContext2D,
+  scene: BoardScene,
+  view: PcbViewTransform,
+  visible: ReadonlySet<string>,
+  widthPx: number,
+  heightPx: number,
+  opts: PcbDrawOptions = DEFAULT_DRAW_OPTIONS,
+  emphasis: Emphasis = 'none',
+  dpr = 1,
+  shift: ScenePerFrameShift | null = null,
+): void {
+  if (scene.anchors.length === 0) return;
+  // FOOTPRINT::ViewGetLOD returns MINIMAL_ZOOM_LEVEL_FOR_VISIBILITY for the
+  // anchor layer, and VIEW draws an item when its LOD is below the view scale
+  // — which is the zoom factor the toolbar shows (UpdateZoomSelectBox reads
+  // GetGAL()->GetZoomFactor()). So anchors appear only past zoom 1.5, i.e.
+  // once you are closer in than a whole-board view. Without this the board
+  // came up under a couple of hundred crosses that pcbnew does not draw.
+  if (zoomFactor(view, dpr) <= MINIMAL_ZOOM_FOR_ANCHORS) return;
+  const special = opts.theme?.special ?? PCB_SPECIAL;
+  const arm = 5 * dpr;
+  const pen = Math.max(1, dpr);
+  const sx = view.flipX ? -view.scale : view.scale;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.strokeStyle = emphasize(special.anchor, emphasis);
+  ctx.lineWidth = pen;
+  ctx.beginPath();
+  let drawn = 0;
+  for (const a of scene.anchors) {
+    // "Only show anchors if the layer the footprint is on is visible."
+    if (!visible.has(a.layer)) continue;
+    const moving = shift !== null && shift.ids.has(a.owner);
+    const ax = moving ? a.x + shift.dx : a.x;
+    const ay = moving ? a.y + shift.dy : a.y;
+    const x = galSnapPx(ax * sx + view.tx, pen);
+    const y = galSnapPx(ay * view.scale + view.ty, pen);
+    if (x < -arm || x > widthPx + arm || y < -arm || y > heightPx + arm) continue;
+    ctx.moveTo(x - arm, y);
+    ctx.lineTo(x + arm, y);
+    ctx.moveTo(x, y - arm);
+    ctx.lineTo(x, y + arm);
+    drawn++;
+  }
+  if (drawn > 0) ctx.stroke();
+}
+
+/**
+ * The board's two origin markers, both `KIGFX::ORIGIN_VIEWITEM`s on
+ * LAYER_GP_OVERLAY — i.e. above the board.
+ *
+ *   - the drill/place file origin, `BOARD_EDITOR_CONTROL::m_placeOrigin`:
+ *     CIRCLE_CROSS in `COLOR4D( 0.8, 0.0, 0.0, 1.0 )`
+ *     (`board_editor_control.cpp:330-331`);
+ *   - the grid origin, `PCB_CONTROL::m_gridOrigin`: the constructor's default
+ *     CIRCLE_X, in the grid colour pushed away from the background
+ *     (`pcb_control.cpp:116`, `:130-146`).
+ *
+ * The drawing itself is the shared `ORIGIN_VIEWITEM` painter in `common/`,
+ * because upstream has exactly one and five callers reach for it. This module
+ * used to carry a private copy that could draw only the first of the two, in
+ * one hardcoded style — so the grid origin had no marker at all.
+ */
+export function drawOriginMarkers(
+  ctx: CanvasRenderingContext2D,
+  origins: { aux: { x: number; y: number }; grid: { x: number; y: number } },
+  view: PcbViewTransform,
+  widthPx: number,
+  heightPx: number,
+  dpr = 1,
+  theme?: PcbColorTheme,
+): void {
+  const sx = view.flipX ? -view.scale : view.scale;
+  const toPx = (p: { x: number; y: number }): { x: number; y: number } => ({
+    x: p.x * sx + view.tx,
+    y: p.y * view.scale + view.ty,
+  });
+  const common = {
+    toPx,
+    size: ORIGIN_VIEWITEM_SIZE * dpr,
+    // `SetLineWidth( 1 )` is one internal unit, i.e. nothing: the pen floor
+    // is what draws it.
+    lineWidth: Math.max(1, dpr),
+    canvasWidth: widthPx,
+    canvasHeight: heightPx,
+  };
+
+  drawOriginViewItem(ctx, {
+    ...common,
+    position: origins.aux,
+    style: 'circle_cross',
+    color: PCB_PLACE_ORIGIN,
+  });
+  drawOriginViewItem(ctx, {
+    ...common,
+    position: origins.grid,
+    style: 'circle_x',
+    color: gridOriginColor(theme?.grid ?? PCB_GRID, theme?.background ?? PCB_BACKGROUND),
+  });
+}
+
+/**
+ * `PCB_CONTROL::Reset`'s colour for the grid-origin marker
+ * (`pcb_control.cpp:133-142`):
+ *
+ *     double backgroundBrightness = …GetGAL()->GetClearColor().GetBrightness();
+ *     COLOR4D color = m_frame->GetGridColor();
+ *     if( backgroundBrightness > 0.5 ) color.Darken( 0.25 );
+ *     else                             color.Brighten( 0.25 );
+ *
+ * The grid colour on its own would be nearly invisible against the grid it
+ * sits on, so the marker is pushed a quarter of the way *away* from the
+ * background — brighter on a dark board, darker on a light one.
+ */
+function gridOriginColor(gridCss: string, backgroundCss: string): string {
+  const grid = parseColor4d(gridCss);
+  // `GetClearColor()` is the canvas background; `GetBrightness()` is the
+  // weighted W3C formula, which `common/color4d.ts` already ports.
+  const bg = brightness(parseColor4d(backgroundCss));
+  return toCssColor(bg > 0.5 ? darkened(grid, 0.25) : brightened(grid, 0.25));
+}
+
+/** FOOTPRINT::ViewGetLOD's `MINIMAL_ZOOM_LEVEL_FOR_VISIBILITY`. */
+const MINIMAL_ZOOM_FOR_ANCHORS = 1.5;
+
+/**
+ * GAL's zoom factor for this view — the number the zoom selector shows.
+ *
+ * `worldScale = screenDPI · worldUnitLength · zoomFactor`
+ * (graphics_abstraction_layer.h) with `worldUnitLength` 1 nm in inches and
+ * `worldScale` our device px per IU, so the DPI divides back out. Per
+ * *physical* pixel, hence the ÷ dpr.
+ */
+export function zoomFactor(view: PcbViewTransform, dpr = 1): number {
+  return (view.scale * MM * 25.4) / (GAL_SCREEN_DPI * dpr);
+}
+
+/** The visible world rectangle, for the netname repeat/clip rules. */
+function viewportInWorld(
+  view: PcbViewTransform,
+  widthPx: number,
+  heightPx: number,
+): { minX: number; minY: number; maxX: number; maxY: number } {
+  const sx = view.flipX ? -view.scale : view.scale;
+  const x0 = (0 - view.tx) / sx;
+  const x1 = (widthPx - view.tx) / sx;
+  const y0 = (0 - view.ty) / view.scale;
+  const y1 = (heightPx - view.ty) / view.scale;
+  return {
+    minX: Math.min(x0, x1),
+    maxX: Math.max(x0, x1),
+    minY: Math.min(y0, y1),
+    maxY: Math.max(y0, y1),
+  };
+}
+
+/**
+ * PCB_TRACK::ViewGetLOD for a netname layer: the label shows once the track is
+ * drawn at least as wide on screen as 4 mm is at scale 1, `lodScaleForThreshold
+ * (view, m_width, mmToIU(4.0))`, compared against the view scale, and only when
+ * the track is long enough to hold the text (`length² >= (width · chars)²`).
+ */
+export function showsNetName(label: TrackNetLabel, view: PcbViewTransform, dpr = 1): boolean {
+  if (label.width <= 0) return false;
+
+  const dx = label.end.x - label.start.x;
+  const dy = label.end.y - label.start.y;
+  const nameSize = label.text.length * label.width;
+  if (dx * dx + dy * dy < nameSize * nameSize) return false;
+
+  return label.width * view.scale >= NETNAME_MIN_PX * dpr;
+}
+
+/**
+ * `draw( const PCB_ARC* )`'s own length gate, plus PCB_TRACK::ViewGetLOD.
+ *
+ * The length rule is the arc's, not the chord's: `arcLen < width · chars`
+ * (pcb_painter.cpp:972-975). Both the C++ and this compare a length against
+ * `width · character count`, but the segment squares both sides and the arc
+ * does not; the comparison is the same either way.
+ */
+export function showsArcNetName(label: ArcNetLabel, view: PcbViewTransform, dpr = 1): boolean {
+  if (label.width <= 0) return false;
+  if (label.arcLength < label.width * label.text.length) return false;
+  return label.width * view.scale >= NETNAME_MIN_PX * dpr;
+}
+
+/**
+ * PCB_VIA::ViewGetLOD for the netname layer: `lodScaleForThreshold(view,
+ * width, mmToIU(10))`, i.e. the description shows once the via is drawn as
+ * wide as 10 mm is at scale 1 — ≈ 35.8 physical px of via.
+ */
+export function showsViaNetName(label: ViaNetLabel, view: PcbViewTransform, dpr = 1): boolean {
+  return label.width > 0 && label.width * view.scale >= VIA_NETNAME_MIN_PX * dpr;
+}
+
+/**
+ * KiCad's 4 mm threshold in screen pixels.
+ *
+ * `lodScaleForThreshold(view, what, threshold)` returns `threshold / what` and
+ * `VIEW` draws the item when that is below the view scale, so the gate is
+ * `what · zoom > threshold`. Turning GAL's zoom factor into pixels
+ * (`worldScale = screenDPI · worldUnitLength · zoom`) leaves the threshold as a
+ * pixel width: 4 mm at GAL's 91 dpi, ≈ 14.3 px of track.
+ */
+const NETNAME_MIN_PX = (4 * GAL_SCREEN_DPI) / 25.4;
+
+/** PCB_VIA::ViewGetLOD's 10 mm threshold, as pixels of via diameter. */
+const VIA_NETNAME_MIN_PX = (10 * GAL_SCREEN_DPI) / 25.4;
+
+/**
+ * Lay out one via's description, the netname branch of draw(PCB_VIA): the
+ * short net name centred on the via (nudged down when a second line exists),
+ * and the "top-bottom" copper-layer line above it for a via that does not span
+ * the whole stack. Sizes are KiCad's: room for at least 6 characters when both
+ * lines show (the layer line has at most 5), 3 otherwise, the result taken
+ * ×0.75 "to handle interline, pen size", capped at the via width, with a pen
+ * of a tenth of the glyph.
+ */
+/**
+ * One `m_gal->BitmapText()` call, before a backend decides how to draw it.
+ *
+ * The painter makes no distinction — it sets a glyph size, a colour and an
+ * angle and calls `BitmapText`, and what happens next is the GAL's business.
+ * Ours is split the same way: the pass below gates and places the calls, and
+ * only at the end does it matter whether the target has the font atlas (draw
+ * the quads) or not (stroke `item` from the Newstroke font instead).
+ */
+interface NetTextRun {
+  text: string;
+  at: { x: number; y: number };
+  /** Degrees, as the painter's `EDA_ANGLE`. */
+  angle: number;
+  /** `GetGlyphSize().y`; the x component is ignored, as it is in the C++. */
+  glyph: number;
+  /** The same call spelled as a stroke-font item, for a target without the atlas. */
+  item: PcbTextItem;
+}
+
+/** A drawing target that can draw from the bitmap-font atlas — the GL recorder. */
+interface AtlasTarget {
+  bitmapText(text: string, place: BitmapTextPlacement): void;
+}
+
+/** That target, if this is one. Ordinary `CanvasRenderingContext2D`s are not. */
+function atlasTarget(ctx: CanvasRenderingContext2D): AtlasTarget | null {
+  const c = ctx as unknown as Partial<AtlasTarget>;
+  return typeof c.bitmapText === 'function' ? (c as AtlasTarget) : null;
+}
+
+function addViaNetName(out: NetTextRun[], label: ViaNetLabel, netNames: boolean): void {
+  const showNet = netNames && label.text !== '';
+  const showLayers = label.layerIds !== '';
+  if (!showNet && !showLayers) return;
+  const size = Math.min(label.width, MAX_PAD_FONT);
+  const minCharCnt = showLayers ? 6 : 3;
+  let tsize = Math.min((1.5 * size) / Math.max(label.text.length, minCharCnt), size);
+  tsize *= 0.75;
+  const both = showNet && showLayers;
+  const netY = both ? (tsize * 1.3) / 2 : 0;
+  const put = (text: string, y: number): void => {
+    const at = { x: label.at.x, y };
+    out.push({
+      text,
+      at,
+      angle: 0,
+      glyph: tsize,
+      item: {
+        kind: 'user',
+        text,
+        at,
+        angle: 0,
+        layer: '',
+        size: { x: tsize, y: tsize },
+        thickness: tsize / 10,
+      } as PcbTextItem,
+    });
+  };
+  if (showNet) put(label.text, label.at.y + netY);
+  if (showLayers) put(label.layerIds, label.at.y + netY - (both ? tsize * 1.3 : 0));
+}
+
+/**
+ * PCB_PAINTER::renderNetNameForSegment: the text is the track's width tall
+ * (glyphs at 0.55 of it), runs along the segment turned into ]-90°, 90°], and
+ * repeats once per viewport-length of track so a long trace stays labelled
+ * wherever you are looking. Positions outside the viewport are skipped.
+ */
+function addTrackNetName(
+  out: NetTextRun[],
+  label: TrackNetLabel,
+  viewport: { minX: number; minY: number; maxX: number; maxY: number },
+): void {
+  const dx = label.end.x - label.start.x;
+  const dy = label.end.y - label.start.y;
+  const length = Math.hypot(dx, dy);
+  const textSize = label.width;
+
+  let angle: number;
+  let numNames = 1;
+  const vw = viewport.maxX - viewport.minX;
+  const vh = viewport.maxY - viewport.minY;
+
+  if (dy === 0) {
+    angle = 0;
+    numNames = Math.max(numNames, Math.round(length / vw));
+  } else if (dx === 0) {
+    angle = 90;
+    numNames = Math.max(numNames, Math.round(length / vh));
+  } else {
+    // -EDA_ANGLE(segV), normalised into ]-90°, 90°] so the text stays readable.
+    angle = -(Math.atan2(dy, dx) * 180) / Math.PI;
+    while (angle > 90) angle -= 180;
+    while (angle <= -90) angle += 180;
+    numNames = Math.max(numNames, Math.round(length / (Math.SQRT2 * Math.min(vw, vh))));
+  }
+
+  const divisions = numNames + 1;
+  for (let i = 1; i < divisions; i++) {
+    const x = label.start.x + (dx * i) / divisions;
+    const y = label.start.y + (dy * i) / divisions;
+    if (x < viewport.minX || x > viewport.maxX || y < viewport.minY || y > viewport.maxY) continue;
+    out.push({
+      text: label.text,
+      at: { x, y },
+      angle,
+      // SetGlyphSize( textSize * 0.55 ) in renderNetNameForSegment.
+      glyph: textSize * 0.55,
+      item: {
+        kind: 'user',
+        text: label.text,
+        at: { x, y },
+        angle,
+        layer: label.layer,
+        // GAL glyph size is 0.55 · textSize; the pen is textSize/12.
+        size: { x: textSize * 0.55, y: textSize * 0.55 },
+        thickness: textSize / 12,
+      },
+    });
+  }
+}
+
+/** Paint the compiled scene in one blocking pass (small boards / exports). */
+export function drawBoard(
+  ctx: CanvasRenderingContext2D,
+  scene: BoardScene,
+  view: PcbViewTransform,
+  visible: ReadonlySet<string>,
+  widthPx: number,
+  heightPx: number,
+  opts: PcbDrawOptions = DEFAULT_DRAW_OPTIONS,
+  sheet?: SheetInfo,
+  overlay = false,
+  emphasis: Emphasis = 'none',
+): void {
+  for (const step of buildDrawSteps(
+    ctx,
+    scene,
+    view,
+    visible,
+    widthPx,
+    heightPx,
+    opts,
+    sheet,
+    overlay,
+    emphasis,
+  ))
+    step();
+}
+
+// ---------------------------------------------------------------------------
+// DRC markers (PCB_MARKER / MARKER_BASE).
+
+/**
+ * MARKER_BASE MarkerShapeCorners (marker_base.cpp): the marker polygon in
+ * arbitrary units, scaled by MarkerScale() at paint time (the last corner
+ * repeats the first so the polyline reads as closed).
+ */
+const MARKER_SHAPE_CORNERS: readonly (readonly [number, number])[] = [
+  [0, 0],
+  [8, 1],
+  [4, 3],
+  [13, 8],
+  [9, 9],
+  [8, 13],
+  [3, 4],
+  [1, 8],
+  [0, 0],
+];
+
+/** PCB_MARKER SCALING_FACTOR = pcbIUScale.mmToIU( 0.1625 ). */
+const MARKER_SCALING_FACTOR = 0.1625 * MM;
+
+/** A marker to paint (severity resolved like PCB_MARKER::GetSeverity). */
+export interface DrcMarkerDraw {
+  pos: { x: number; y: number };
+  severity: 'error' | 'warning' | 'exclusion';
+  /** Brightened/selected, repaints in LAYER_DRC_HIGHLIGHTED on top with the
+   *  collision 'X' (LAYER_DRC_SHAPES), like the dialog's active violation. */
+  active?: boolean;
+}
+
+/**
+ * MarkerScale() in IU. pcb_painter.cpp draw(PCB_MARKER) calls
+ * SetZoom( 1.0 / sqrt( gal->GetZoomFactor() ) ), so the scale is
+ * SCALING_FACTOR / sqrt(zoom). The GAL zoom factor satisfies
+ * worldScale = screenDPI · worldUnitLength · zoomFactor
+ * (graphics_abstraction_layer.h) with worldUnitLength = 1 nm in inches
+ * (1e-9 / 0.0254) and worldScale our view.scale in device px per IU; screenDPI
+ * is GAL's own constant, 91 (advanced_config.cpp m_ScreenDPI, "the closest
+ * match to the legacy renderer"), per physical pixel, hence the ÷ dpr.
+ */
+const markerScaleIU = (view: PcbViewTransform, dpr: number): number => {
+  const zoom = (view.scale * MM * 25.4) / (GAL_SCREEN_DPI * dpr);
+  return MARKER_SCALING_FACTOR / Math.sqrt(Math.max(zoom, 1e-9));
+};
+
+const withAlpha = (color: string, a: number): string => {
+  const m = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/.exec(color);
+  return m ? `rgba(${m[1]},${m[2]},${m[3]},${a})` : color;
+};
+
+/**
+ * Paint DRC markers, mirroring pcb_painter.cpp draw(PCB_MARKER*) and the
+ * GAL layer order (pcb_draw_panel_gal.cpp, top-first: DRC_HIGHLIGHTED,
+ * DRC_ERROR, DRC_WARNING, DRC_EXCLUSION, MARKER_SHADOWS): every marker's
+ * shadow first, then exclusion fills, warning fills, error fills, and the
+ * active marker last, repainted in the highlighted color with its
+ * LAYER_DRC_SHAPES collision 'X' (PCB_MARKER::GetShapes when the path is
+ * degenerate). The shadow is a stroked outline in the background color at
+ * alpha 0.6 (PCB_RENDER_SETTINGS::GetColor LAYER_MARKER_SHADOWS) with line
+ * width MarkerScale().
+ */
+export function drawDrcMarkers(
+  ctx: CanvasRenderingContext2D,
+  markers: readonly DrcMarkerDraw[],
+  view: PcbViewTransform,
+  dpr: number,
+  colors: {
+    background: string;
+    drcError: string;
+    drcWarning: string;
+    drcExclusion: string;
+    drcHighlighted: string;
+  },
+): void {
+  if (markers.length === 0) return;
+  const scale = markerScaleIU(view, dpr);
+  const sx = view.flipX ? -view.scale : view.scale;
+
+  const tracePolygon = (m: DrcMarkerDraw): void => {
+    ctx.beginPath();
+    MARKER_SHAPE_CORNERS.forEach(([cx, cy], i) => {
+      const px = (m.pos.x + cx * scale) * sx + view.tx;
+      const py = (m.pos.y + cy * scale) * view.scale + view.ty;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    });
+    ctx.closePath();
+  };
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+  // LAYER_MARKER_SHADOWS pass (isShadow: stroke, width MarkerScale()).
+  ctx.strokeStyle = withAlpha(colors.background, 0.6);
+  ctx.lineWidth = scale * view.scale;
+  ctx.lineJoin = 'round';
+  for (const m of markers) {
+    tracePolygon(m);
+    ctx.stroke();
+  }
+
+  // Severity fills, bottom-up: exclusions, warnings, errors.
+  const fillPass = (severity: DrcMarkerDraw['severity'], color: string): void => {
+    ctx.fillStyle = color;
+    for (const m of markers) {
+      if (m.severity !== severity || m.active) continue;
+      tracePolygon(m);
+      ctx.fill();
+    }
+  };
+  fillPass('exclusion', colors.drcExclusion);
+  fillPass('warning', colors.drcWarning);
+  fillPass('error', colors.drcError);
+
+  // LAYER_DRC_HIGHLIGHTED + LAYER_DRC_SHAPES: the active marker lands on top
+  // of any neighbouring inactive markers, in the highlighted color.
+  for (const m of markers) {
+    if (!m.active) continue;
+    tracePolygon(m);
+    ctx.fillStyle = colors.drcHighlighted;
+    ctx.fill();
+    // Collision 'X' at the degenerate path: diagonals of half-length
+    // 2.5·MarkerScale(), hairline stroke width MarkerScale()/2.
+    const len = 2.5 * scale;
+    ctx.strokeStyle = colors.drcHighlighted;
+    ctx.lineWidth = (scale / 2) * view.scale;
+    ctx.beginPath();
+    const seg = (ax: number, ay: number, bx: number, by: number): void => {
+      ctx.moveTo((m.pos.x + ax) * sx + view.tx, (m.pos.y + ay) * view.scale + view.ty);
+      ctx.lineTo((m.pos.x + bx) * sx + view.tx, (m.pos.y + by) * view.scale + view.ty);
+    };
+    seg(-len, -len, len, len);
+    seg(-len, len, len, -len);
+    ctx.stroke();
+  }
+}
+
+export { measureText };

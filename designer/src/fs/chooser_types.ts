@@ -20,13 +20,8 @@
 
 import type { FileSystem } from './filesystem.js';
 
-/** One entry of the type combo at the bottom right. */
-export interface ChooserFilter {
-  /** The whole string the combo shows — `KiCad project files (*.kicad_pro)`. */
-  readonly label: string;
-  /** Lowercase extensions without the dot. Empty means everything. */
-  readonly extensions: readonly string[];
-}
+/** One entry of the type combo: wxFileDialog's wildcard, so common/wx's. */
+export type { ChooserFilter } from '@ziroeda/common/wx/filedlg.js';
 
 /**
  * One row of the places sidebar.

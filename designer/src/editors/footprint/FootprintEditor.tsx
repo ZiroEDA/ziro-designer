@@ -2,15 +2,29 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { parse } from '@ziroeda/sexpr';
+import { FRAME_T } from '@ziroeda/common/frame_type.js';
+import type { KIWAY } from '@ziroeda/common/kiway.js';
+import { FOOTPRINT_EDIT_FRAME } from '@ziroeda/pcbnew/footprint_edit_frame.js';
 import type { Vec2 } from '@ziroeda/kimath';
 import { mmToIU, pcbIuToMM, PCB_IU_PER_MM, SCH_IU_PER_MM } from '@ziroeda/common';
-import { EDIT_GRIDS_LABEL, GRID_LIST_SEPARATOR, gridChoiceLabel } from '../../ui/grid_settings.js';
-import { footprintGridForTool, footprintGridIU, footprintSnappingEnabled } from './grid.js';
-import { newFootprint } from './new_footprint.js';
-import { fpLineThicknessMM } from './graphics_defaults.js';
+import {
+  EDIT_GRIDS_LABEL,
+  GRID_LIST_SEPARATOR,
+  gridChoiceLabel,
+} from '@ziroeda/common/settings/grid_settings_ui.js';
+import {
+  footprintGridForTool,
+  footprintGridIU,
+  footprintSnappingEnabled,
+} from '@ziroeda/pcbnew/footprint_edit_frame.js';
+import { newFootprint } from '@ziroeda/pcbnew/footprint_editor_utils.js';
+import { fpLineThicknessMM } from '@ziroeda/pcbnew/footprint_editor_settings.js';
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
-import { applyBarcodeValues, barcodeValues } from '@ziroeda/pcbnew/src/barcode_properties.js';
-import { DialogBarcodeProperties } from '../pcb/dialogs/dialog_barcode_properties.js';
+import {
+  applyBarcodeValues,
+  barcodeValues,
+} from '@ziroeda/pcbnew/dialogs/dialog_barcode_properties.js';
+import { DialogBarcodeProperties } from '@ziroeda/pcbnew/dialogs/dialog_barcode_properties_ui.js';
 import {
   readFootprintFile,
   moveFootprintItems,
@@ -39,24 +53,31 @@ import {
   type PcbShape,
   type PcbTextItem,
 } from '@ziroeda/pcbnew';
-import { FootprintPropertiesDialog, PadPropertiesDialog } from './dialogs.js';
-import { MenuBar, ContextMenu, type Menu } from '../../ui/MenuBar.js';
-import { footprintTreeContextMenu } from './tree_context_menu.js';
-import { Toolbar } from '../../ui/Toolbar.js';
-import { useStatusReadout } from '../../ui/useStatusReadout.js';
+import {
+  FootprintPropertiesDialog,
+  PadPropertiesDialog,
+} from '@ziroeda/pcbnew/dialogs/dialog_footprint_properties_fp_editor.js';
+import { MenuBar, ContextMenu, type Menu } from '@ziroeda/common/tool/action_menu_bar.js';
+import {
+  footprintTreeContextMenu,
+  fpTreeSelectedNodes,
+} from '@ziroeda/pcbnew/tools/footprint_editor_control.js';
+import { LibrariesToRepin } from '@ziroeda/common/tool/library_editor_control.js';
+import { Toolbar } from '@ziroeda/common/tool/action_toolbar.js';
+import { useStatusReadout } from '@ziroeda/common/use_status_readout.js';
 
 /** `BOARD::m_LocalOrigin`; a module constant so its identity is stable. */
 const FP_LOCAL_ORIGIN = { x: 0, y: 0 };
-import { ProgressDialog } from '../../ui/ProgressDialog.js';
-import { formatTitle, useDocumentTitle } from '../../ui/useDocumentTitle.js';
-import { FP_FRAME_NAME, fpFrameTitle } from './frame_title.js';
-import { useUnsavedGuard } from '../../ui/useUnsavedGuard.js';
+import { ProgressDialog } from '@ziroeda/common/widgets/wx_progress_reporters.js';
+import { formatTitle, useDocumentTitle } from '@ziroeda/common/use_document_title.js';
+import { FP_FRAME_NAME, fpFrameTitle } from '@ziroeda/pcbnew/footprint_edit_frame.js';
+import { useUnsavedGuard } from '@ziroeda/common/use_unsaved_guard.js';
 import { LibraryLoadingPanel } from '../../widgets/library_loading_panel.js';
-import { LibTree } from '../../widgets/lib_tree.js';
-import { LibTreeNode, LibTreeNodeType } from '../../widgets/lib_tree_model.js';
-import { FpTreeSynchronizingAdapter } from './fp_tree_synchronizing_adapter.js';
-import { KiStatusBar } from '../../ui/KiStatusBar.js';
-import { MsgPanel, type MsgPanelItem } from '../../ui/MsgPanel.js';
+import { LibTree } from '@ziroeda/common/widgets/lib_tree.js';
+import { LibTreeNode, LibTreeNodeType } from '@ziroeda/common/lib_tree_model.js';
+import { FpTreeSynchronizingAdapter } from '@ziroeda/pcbnew/fp_tree_synchronizing_adapter.js';
+import { KiStatusBar } from '@ziroeda/common/widgets/kistatusbar.js';
+import { MsgPanel, type MsgPanelItem } from '@ziroeda/common/widgets/msgpanel_ui.js';
 import {
   angleSnapModeOf,
   constraintsMsg,
@@ -66,70 +87,76 @@ import {
   unitsMsg,
   zoomFactorForScale,
   zoomMsg,
-} from '../../ui/status_format.js';
-import { FP_DEFAULT_TOOLBARS, footprintToolMsg } from './footprintToolbars.js';
+} from '@ziroeda/common/widgets/kistatusbar_format.js';
+import {
+  FP_DEFAULT_TOOLBARS,
+  footprintToolMsg,
+} from '@ziroeda/pcbnew/toolbars_footprint_editor.js';
 import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
-import { applyToggle, DEFAULT_TOGGLES } from './toggles.js';
+import { applyToggle, DEFAULT_TOGGLES } from '@ziroeda/pcbnew/footprint_edit_frame.js';
 import { FootprintCanvas, type FootprintCanvasController } from './FootprintCanvas.js';
 import { FootprintLibraryManager, fpNameOf, footprintsBase } from './libraryManager.js';
-import { projectFpLibTable, projectLibraryNickname } from './fp_lib_table.js';
+import { projectFpLibTable, projectLibraryNickname } from '@ziroeda/common/fp_lib_table.js';
 import {
   FOOTPRINT_COPPER_STACK,
   footprintLayers,
   FP_DEFAULT_ACTIVE_LAYER,
-} from './footprintBoard.js';
-import { layerColor, PCB_BACKGROUND, PCB_OBJECT_COLORS } from '../pcb/pcbTheme.js';
-import { appearanceLayerRows } from '../../widgets/appearance_layers.js';
+} from '@ziroeda/pcbnew/footprint_edit_frame.js';
+import { layerColor, PCB_BACKGROUND, PCB_OBJECT_COLORS } from '@ziroeda/pcbnew/pcbTheme.js';
+import { appearanceLayerRows } from '@ziroeda/pcbnew/widgets/appearance_layers.js';
 // APPEARANCE_CONTROLS and PANEL_SELECTION_FILTER are the same two widgets
 // pcbnew docks; FOOTPRINT_EDIT_FRAME passes `aFpEditor = true` and its own
 // board's data, and that is the whole of the difference
 // (footprint_edit_frame.cpp:177-178).
-import { AppearanceControls, type AppearanceTab } from '../../widgets/appearance_controls.js';
+import {
+  AppearanceControls,
+  type AppearanceTab,
+} from '@ziroeda/pcbnew/widgets/appearance_controls.js';
 import {
   DEFAULT_OBJECTS,
   DEFAULT_OPACITY,
   OBJECT_ROWS,
   toggleObject,
   type ObjectState,
-} from '../../widgets/appearance_objects.js';
+} from '@ziroeda/pcbnew/widgets/appearance_objects.js';
 import {
   BUILTIN_PRESETS,
   matchPresetName,
   presetComboItems,
   PRESET_SEPARATOR,
   viewportComboItems,
-} from '../../widgets/appearance_presets.js';
+} from '@ziroeda/pcbnew/widgets/appearance_presets.js';
 import {
   DEFAULT_SELECTION_FILTER_OPTIONS,
   SelectionFilterOnlyMenu,
   SelectionFilterPanel,
   type SelectionFilterItem,
-} from '../../widgets/panel_selection_filter.js';
-import { GetLayerName } from '@ziroeda/pcbnew/src/layer_ids.js';
-import { DEFAULT_DRAW_OPTIONS, type PcbDrawOptions } from '../pcb/renderBoard.js';
-import '../../ui/shell.css';
-import { AboutDialog } from '../../home/dialogs/dialog_about.js';
+} from '@ziroeda/pcbnew/widgets/panel_selection_filter.js';
+import { GetLayerName } from '@ziroeda/common/layer_ids.js';
+import { DEFAULT_DRAW_OPTIONS, type PcbDrawOptions } from '@ziroeda/pcbnew/renderBoard.js';
+import '@ziroeda/common/widgets/shell.css';
+import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
 import type { PrefsPageId } from '../../dialogs/prefs/types.js';
-import { Combo } from '../../ui/Combo.js';
+import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import {
   useCommonSettings,
   useFpEditSettings,
   useUserColors,
   useUserThemes,
 } from '../../prefs/useSettings.js';
-import { pcbThemeWithOverrides } from '../pcb/pcbTheme.js';
+import { pcbThemeWithOverrides } from '@ziroeda/pcbnew/pcbTheme.js';
 import { settings } from '../../prefs/settings.js';
-import { hiContrastFactorFor } from '@ziroeda/common/src/render_settings.js';
-import { footprintEditorMenus } from './menubar.js';
-import { showHotkeyList } from '../../ui/hotkey_list_action.js';
-import { ABOUT_TITLES } from '../../ui/about_titles.js';
-import { useModalEscape } from '../../ui/useModalEscape.js';
-import { dispatchMenuHotkey, focusBlocksHotkey } from '../../ui/menu_hotkeys.js';
-import { wasBrowserSuppressed, type FocusLike } from '../../ui/browser_hotkeys.js';
+import { hiContrastFactorFor } from '@ziroeda/common/render_settings.js';
+import { footprintEditorMenus } from '@ziroeda/pcbnew/menubar_footprint_editor.js';
+import { showHotkeyList } from '@ziroeda/common/hotkeys_basic.js';
+import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { dispatchMenuHotkey, focusBlocksHotkey } from '@ziroeda/common/tool/action_menu_hotkeys.js';
+import { wasBrowserSuppressed, type FocusLike } from '@ziroeda/common/browser_hotkeys.js';
 import { OpenFileDialog } from '../../fs/OpenFileDialog.js';
-import { kicadFootprintLibWildcard } from '../../fs/wildcards.js';
-import { CONFIRM_REVERT_EXTENDED, confirmRevertMessage } from '../../ui/confirm.js';
+import { kicadFootprintLibWildcard } from '@ziroeda/common/wildcards_and_files_ext.js';
+import { CONFIRM_REVERT_EXTENDED, confirmRevertMessage } from '@ziroeda/common/confirm.js';
 import { HomeLink } from '../../ui/HomeLink.js';
 
 /**
@@ -232,13 +259,16 @@ const FP_LEFT_DISABLED: ReadonlySet<string> = new Set(['gridOrigin']);
 export function FootprintEditor({
   onExitToHome,
   initialProject,
-  openRequest,
+  kiway,
 }: {
   onExitToHome: () => void;
   initialProject?: FootprintEditorFile[] | null;
-  /** The `.kicad_mod` the project manager launched us on (KiCad's MAIL_FP_EDIT).
-   *  Re-sent with a fresh nonce each activation so a resident editor re-opens. */
-  openRequest?: { file: string | null; nonce: number } | null;
+  /**
+   * The program's KIWAY: the editor's FOOTPRINT_EDIT_FRAME registers as
+   * FRAME_FOOTPRINT_EDITOR's player on it, so the project manager's
+   * MAIL_FP_EDIT reaches `KiwayMailIn`.
+   */
+  kiway?: KIWAY;
 }): JSX.Element {
   /*
    * `EDA_BASE_FRAME::RecreateToolbars` asks the TOOLBAR_SETTINGS for each
@@ -615,9 +645,7 @@ export function FootprintEditor({
   // MAIL_FP_EDIT. Resolve its `.pretty` library and name, expand and select it
   // in the library tree, and load it onto the canvas. Runs after the bootstrap
   // effect has registered the project libraries (same mount, declared earlier).
-  useEffect(() => {
-    const file = openRequest?.file;
-    if (!file) return;
+  const fpEdit = (file: string): void => {
     const { lib, name } = fpTargetOf(file);
     if (!manager.current.libraryExists(lib)) return;
     const names = manager.current.footprintNames(lib);
@@ -628,8 +656,24 @@ export function FootprintEditor({
     setSelectLibId(`${lib}:${target}`);
     setTreeSel({ lib, name: target });
     void loadFootprint(lib, target);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openRequest?.nonce]);
+  };
+  const fpEditRef = useRef(fpEdit);
+  fpEditRef.current = fpEdit;
+  const [fpFrame] = useState(
+    () => new FOOTPRINT_EDIT_FRAME({ fpEdit: (f) => fpEditRef.current(f) }),
+  );
+  // `KIWAY::Player()` stores the frame it created as FRAME_FOOTPRINT_EDITOR's
+  // player; mail held for it is delivered here, after the bootstrap effect
+  // above has registered the project's libraries.
+  useEffect(() => {
+    if (!kiway) return;
+    fpFrame.SetKiway(kiway);
+    kiway.SetPlayerFrame(FRAME_T.FRAME_FOOTPRINT_EDITOR, fpFrame);
+    return () => {
+      kiway.PlayerDidClose(FRAME_T.FRAME_FOOTPRINT_EDITOR, fpFrame);
+      fpFrame.SetKiway(null);
+    };
+  }, [kiway, fpFrame]);
 
   // ----- undoable edits ---------------------------------------------------------
   /** Commit one edit: snapshot for undo, buffer to the manager, mark modified. */
@@ -955,13 +999,13 @@ export function FootprintEditor({
       setNewFpName(null);
       const libName = targetLib;
       if (!libName || !name.trim()) return;
-      const fp = newFootprint(name.trim());
+      const fp = newFootprint(name.trim(), fpCfg);
       manager.current.updateFootprint(libName, name.trim(), fp);
       setSelectLibId(`${libName}:${name.trim()}`);
       bump();
       void loadFootprint(libName, name.trim());
     },
-    [targetLib, bump, loadFootprint],
+    [targetLib, bump, loadFootprint, fpCfg],
   );
 
   const addLibraryEntries = useCallback(
@@ -1538,11 +1582,20 @@ export function FootprintEditor({
       switch (id) {
         // `LIBRARY_EDITOR_CONTROL::changeSelectedPinStatus`
         // (`common/tool/library_editor_control.cpp:99-130`).
+        // Only a selected LIBRARY row is repinned; a footprint row is not.
         case 'pinLibrary':
-        case 'unpinLibrary':
-          manager.current.setPinned(target.lib, id === 'pinLibrary');
+        case 'unpinLibrary': {
+          const pin = id === 'pinLibrary';
+          const sel = fpTreeSelectedNodes({
+            library: target.lib,
+            footprint: target.name,
+            pinned: manager.current.isPinned(target.lib),
+          });
+          for (const lib of LibrariesToRepin(sel, pin))
+            manager.current.setPinned(lib.libNickname, pin);
           bump();
           break;
+        }
         // `PCB_ACTIONS::deleteFootprint` — the tree's row, which acts on the
         // tree selection and not on the canvas.
         case 'deleteFootprint':
@@ -2130,7 +2183,7 @@ export function FootprintEditor({
       )}
 
       {aboutOpen && (
-        <AboutDialog title={ABOUT_TITLES.footprint} onClose={() => setAboutOpen(false)} />
+        <ShowAboutDialog title={ABOUT_TITLES.footprint} onClose={() => setAboutOpen(false)} />
       )}
       {prefsOpen && (
         <PreferencesDialog

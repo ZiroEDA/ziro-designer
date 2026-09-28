@@ -19,9 +19,7 @@ import {
   frameTitleName,
   READ_ONLY_SUFFIX,
   UNSAVED_SUFFIX,
-} from '@ziroeda/designer/src/ui/useDocumentTitle.js';
-import { gerbviewFrameTitle } from '@ziroeda/designer/src/editors/gerbview/gerberAuxControls.js';
-import type { GERBER_FILE_IMAGE } from '@ziroeda/gerbview';
+} from '@ziroeda/common/use_document_title.js';
 
 describe('the separator', () => {
   /** `wxT( " — " )`, U+2014 with one ASCII space either side. */
@@ -135,58 +133,6 @@ describe('frameTitleName, wxFileName::GetName', () => {
     expect(frameTitleName('', '[no schematic loaded]')).toBe('[no schematic loaded]');
     // A path that is nothing but separators has no name half at all.
     expect(frameTitleName('/', '[none]')).toBe('[none]');
-  });
-});
-
-describe('GerbView’s own two titles', () => {
-  /**
-   * Through `gerbviewFrameTitle`, the real call site, not through `frameTitle`
-   * with hand-written arguments. That distinction is the point: while this
-   * lived inside the `.tsx`, mutants that stripped the extension and that
-   * dropped the X2 suffix both SURVIVED a sweep, with this very block claiming
-   * to cover them.
-   */
-  const image = (fileName: string, fileFunction: string | null = null) =>
-    ({ fileName, fileFunction }) as GERBER_FILE_IMAGE;
-
-  /**
-   * `title = filename.GetFullName();` (`gerbview_frame.cpp:684`) — WITH the
-   * extension. GerbView and the Image Converter are the only two of the
-   * thirteen frames that keep it, so a helper that always strips would be
-   * wrong for both.
-   */
-  it('keeps the file extension, unlike nine of the thirteen frames', () => {
-    expect(gerbviewFrameTitle(image('top.gbr')).full).toBe('top.gbr — Gerber Viewer');
-    expect(gerbviewFrameTitle(image('top.gbr')).document).toBe('top.gbr');
-  });
-
-  /** `title += wxS( " " ) + _( "(with X2 attributes)" );` (`:686-688`). */
-  it('flags an X2 file before the dash', () => {
-    expect(gerbviewFrameTitle(image('top.gbr', 'Copper,L1,Top')).full).toBe(
-      'top.gbr (with X2 attributes) — Gerber Viewer',
-    );
-  });
-
-  /** m_IsX2_file is set only once a %TF FILE FUNCTION parses (`rs274x.cpp:390-397`). */
-  it('does not flag a file with no file function', () => {
-    expect(gerbviewFrameTitle(image('top.gbr')).full).not.toContain('X2');
-  });
-
-  /** `SetTitle( _("Gerber Viewer") );` (`:667`) — one string, no dash. */
-  it('is the bare frame name with nothing loaded', () => {
-    const t = gerbviewFrameTitle(null);
-    expect(t.full).toBe('Gerber Viewer');
-    expect(t.separator).toBe('');
-    expect(t.document).toBe('');
-  });
-
-  /**
-   * The document half is the ACTIVE LAYER's file name. Ours passed the project
-   * name, which this title has nothing to do with.
-   */
-  it('follows the active image, so switching layer changes the title', () => {
-    expect(gerbviewFrameTitle(image('top.gbr')).document).toBe('top.gbr');
-    expect(gerbviewFrameTitle(image('bottom.gbl')).document).toBe('bottom.gbl');
   });
 });
 

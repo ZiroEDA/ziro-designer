@@ -12,14 +12,14 @@
  * the wrong units into every dimension the user places, and nothing complains.
  */
 import { describe, expect, it } from 'vitest';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import { DEFAULT_DIMENSION_DEFAULTS, startDimension } from '@ziroeda/pcbnew';
 import {
   DIMENSION_TOOLS,
   dimensionDefaultsFrom,
   dimensionToolKind,
   isDimensionTool,
-} from '@ziroeda/designer/src/editors/pcb/dimension_tools.js';
+} from '@ziroeda/pcbnew/tools/drawing_tool.js';
 
 const MM = (n: number): number => mmToIU(n);
 

@@ -27,14 +27,14 @@ import {
   AppearanceControls,
   appearanceTabs,
   type AppearanceControlsProps,
-} from '@ziroeda/designer/src/widgets/appearance_controls.js';
+} from '@ziroeda/pcbnew/widgets/appearance_controls.js';
 import {
   appearanceObjectRows,
   DEFAULT_OBJECTS,
   DEFAULT_OPACITY,
   FP_EDITOR_OBJECT_KEYS,
   OBJECT_ROWS,
-} from '@ziroeda/designer/src/widgets/appearance_objects.js';
+} from '@ziroeda/pcbnew/widgets/appearance_objects.js';
 import {
   DEFAULT_SELECTION_FILTER_OPTIONS,
   SELECTION_FILTER_ALL_KEYS,
@@ -42,17 +42,14 @@ import {
   SelectionFilterPanel,
   selectionFilterAll,
   toggleSelectionFilterAll,
-} from '@ziroeda/designer/src/widgets/panel_selection_filter.js';
-import { appearanceLayerRows } from '@ziroeda/designer/src/widgets/appearance_layers.js';
+} from '@ziroeda/pcbnew/widgets/panel_selection_filter.js';
+import { appearanceLayerRows } from '@ziroeda/pcbnew/widgets/appearance_layers.js';
 import {
   presetComboItems,
   viewportComboItems,
-} from '@ziroeda/designer/src/widgets/appearance_presets.js';
-import {
-  FOOTPRINT_COPPER_STACK,
-  FOOTPRINT_LAYERS,
-} from '@ziroeda/designer/src/editors/footprint/footprintBoard.js';
-import { GetLayerName } from '@ziroeda/pcbnew/src/layer_ids.js';
+} from '@ziroeda/pcbnew/widgets/appearance_presets.js';
+import { FOOTPRINT_COPPER_STACK, FOOTPRINT_LAYERS } from '@ziroeda/pcbnew/footprint_edit_frame.js';
+import { GetLayerName } from '@ziroeda/common/layer_ids.js';
 
 afterEach(cleanup);
 
@@ -240,7 +237,7 @@ describe('the Layers page, per frame, out of the one widget', () => {
    * that is doing the real work.
    */
   it('paints the active row m_layerPanelColour + 15, not the accent', () => {
-    const css = readFileSync(resolve(process.cwd(), '../designer/src/ui/shell.css'), 'utf8');
+    const css = readFileSync(resolve(process.cwd(), '../common/widgets/shell.css'), 'utf8');
     const body = (selector: string): string => {
       const at = css.indexOf(`\n${selector} {`);
       expect(at, selector).toBeGreaterThan(-1);

@@ -22,8 +22,8 @@ import {
   fromWavelengthVacuum,
   printfG,
 } from '@ziroeda/pcb_calculator';
-import { Combo } from '../../../ui/Combo.js';
-import { SingleChoiceDialog } from '../../../ui/dialog_single_choice.js';
+import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
+import { SingleChoiceDialog } from '@ziroeda/common/dialogs/dialog_single_choice.js';
 import {
   CABLE_LEN_UNITS,
   FREQ_UNITS,

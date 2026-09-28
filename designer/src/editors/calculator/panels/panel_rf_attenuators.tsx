@@ -17,6 +17,7 @@ import {
   type CalcAttenuatorName,
   type PcbCalculatorAttenuator,
 } from '../../../prefs/settings.js';
+import { svgUrl } from '@ziroeda/bitmaps_png';
 
 /**
  * The radio selection is `attenuators.type` and it indexes this list, which is
@@ -27,12 +28,6 @@ const attName = (t: AttenuatorType): CalcAttenuatorName =>
   CALC_ATTENUATOR_NAMES[t] ?? CALC_ATTENUATOR_NAMES[0];
 
 // KiCad's own dark-theme artwork (GPL), vendored under assets/.
-const ATT_ART = import.meta.glob('../../../assets/calculator/*.svg', {
-  query: '?url',
-  import: 'default',
-  eager: true,
-}) as Record<string, string>;
-
 /**
  * m_attenuatorBitmap: BITMAPS::att_pi / att_tee / att_bridge / att_splitter,
  * whichever the selected topology carries (attenuator_classes.cpp), drawn 1:1
@@ -49,15 +44,7 @@ const ATT_ART_NAME: Record<AttenuatorType, string> = {
 function AttenuatorDrawing({ type }: { type: AttenuatorType }): JSX.Element {
   const name = ATT_ART_NAME[type];
   const [w, h] = CALC_ART_SIZE[name] ?? [0, 0];
-  return (
-    <img
-      className="calc-art"
-      src={ATT_ART[`../../../assets/calculator/${name}.svg`]}
-      alt=""
-      width={w}
-      height={h}
-    />
-  );
+  return <img className="calc-art" src={svgUrl('calculator', name)} alt="" width={w} height={h} />;
 }
 
 function AttenuatorFormula({ type }: { type: AttenuatorType }): JSX.Element {
@@ -358,12 +345,7 @@ export function PanelRfAttenuators(): JSX.Element {
               aria-label="Calculate"
               onClick={calculate}
             >
-              <img
-                src={ATT_ART['../../../assets/calculator/small_down.svg']}
-                alt=""
-                width={16}
-                height={16}
-              />
+              <img src={svgUrl('calculator', 'small_down')} alt="" width={16} height={16} />
             </button>
           </div>
           {/* The Values box always has three rows. A bridged tee has only two

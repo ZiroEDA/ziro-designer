@@ -11,12 +11,12 @@ import {
   polyAsAxisAlignedRect,
   rectBreakouts,
   SMART_PADS_FORBIDDEN_ANGLES,
-} from '@ziroeda/pcbnew/src/router/pns_smart_pads.js';
-import { PnsNode } from '@ziroeda/pcbnew/src/router/pns_node.js';
-import { PnsSolid } from '@ziroeda/pcbnew/src/router/pns_solid.js';
-import { PnsLayerRange } from '@ziroeda/pcbnew/src/router/pns_layerset.js';
-import type { NetHandle } from '@ziroeda/pcbnew/src/router/pns_collision.js';
-import type { Shape } from '@ziroeda/pcbnew/src/drc/drc_geometry.js';
+} from '@ziroeda/pcbnew/router/pns_smart_pads.js';
+import { PnsNode } from '@ziroeda/pcbnew/router/pns_node.js';
+import { PnsSolid } from '@ziroeda/pcbnew/router/pns_solid.js';
+import { PnsLayerRange } from '@ziroeda/pcbnew/router/pns_layerset.js';
+import type { NetHandle } from '@ziroeda/pcbnew/router/pns_collision.js';
+import type { Shape } from '@ziroeda/pcbnew/drc/drc_geometry.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 const V = (x: number, y: number): Vec2 => ({ x, y });

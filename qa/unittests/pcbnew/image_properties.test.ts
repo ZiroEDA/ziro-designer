@@ -14,8 +14,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import { U, writtenItems } from './support/written_node.js';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import {
   applyImageValues,
   collectImageValues,
@@ -23,10 +23,10 @@ import {
   scaleForHeight,
   scaleForWidth,
   sizeForScale,
-} from '@ziroeda/pcbnew/src/image_properties.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
-import type { Board, PcbImage } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_reference_image_properties.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import type { Board, PcbImage } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 

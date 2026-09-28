@@ -31,9 +31,9 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render } from '@testing-library/react';
-import { LibTree } from '@ziroeda/designer/src/widgets/lib_tree.js';
-import { LibTreeModelAdapter } from '@ziroeda/designer/src/widgets/lib_tree_model_adapter.js';
-import { makeItemNode } from '@ziroeda/designer/src/widgets/lib_tree_model.js';
+import { LibTree } from '@ziroeda/common/widgets/lib_tree.js';
+import { LibTreeModelAdapter } from '@ziroeda/common/lib_tree_model_adapter.js';
+import { makeItemNode } from '@ziroeda/common/lib_tree_model.js';
 
 afterEach(cleanup);
 

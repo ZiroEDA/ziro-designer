@@ -22,8 +22,8 @@ import { describe, expect, it } from 'vitest';
 import {
   footprintTreeContextMenu,
   type FpTreeSelection,
-} from '@ziroeda/designer/src/editors/footprint/tree_context_menu.js';
-import type { MenuItem } from '@ziroeda/designer/src/ui/menu_types.js';
+} from '@ziroeda/pcbnew/tools/footprint_editor_control.js';
+import type { MenuItem } from '@ziroeda/common/tool/action_menu_types.js';
 
 const noop = (): void => {};
 const handlers = { action: noop };
@@ -66,7 +66,8 @@ describe('a library row', () => {
 
   /**
    * `pinnedLibSelectedCondition` / `unpinnedLibSelectedCondition` (:69-77) —
-   * one row or the other, never both and never neither.
+   * on a LIBRARY row, one or the other: `checkPinnedStatus( aPin )` fails when
+   * that node's `m_Pinned != aPin`.
    */
   it('offers Unpin when the library is pinned', () => {
     const r = rows(menu({ library: 'Audio_Module', pinned: true }));
@@ -84,6 +85,7 @@ describe('a footprint row', () => {
   it('is upstream, row for row', () => {
     expect(rows(menu({ library: 'Audio_Module', footprint: 'Reverb_BTDR-1H' }))).toEqual([
       'Pin Library',
+      'Unpin Library',
       '---',
       'Save',
       'Save As...',
@@ -101,6 +103,19 @@ describe('a footprint row', () => {
       '---',
       'Hide Library Tree',
     ]);
+  });
+
+  /**
+   * `checkPinnedStatus` (library_editor_control.cpp:43-67) only fails on a
+   * selected node with `m_Type == LIBRARY`; a footprint row is an ITEM node, so
+   * both conditions hold and both rows show, whatever the library's pin state
+   * - and `changeSelectedPinStatus` then repins nothing.
+   */
+  it('shows Pin and Unpin together, pinned library or not', () => {
+    for (const pinned of [false, true]) {
+      const r = rows(menu({ library: 'L', footprint: 'F', pinned }));
+      expect(r.slice(0, 3)).toEqual(['Pin Library', 'Unpin Library', '---']);
+    }
   });
 
   /**
@@ -123,13 +138,22 @@ describe('a footprint row', () => {
 
 describe('no selection', () => {
   /**
-   * Every tree condition false. Only `ACTIONS::save` (ShowAlways, :138) and
-   * `ACTIONS::hideLibraryTree` (ShowAlways, :83) survive — and the separators
-   * around them collapse, because `CONDITIONAL_MENU::Evaluate` skips a
+   * Every footprint-editor tree condition false. `ACTIONS::save` (ShowAlways,
+   * :138) and `ACTIONS::hideLibraryTree` (ShowAlways, :83) survive, and so do
+   * both pin rows: an empty `GetSelectedTreeNodes` has no LIBRARY node to fail
+   * `checkPinnedStatus`. The order-10 and order-100 separators with nothing
+   * after them collapse, because `CONDITIONAL_MENU::Evaluate` skips a
    * separator with nothing emitted since the last one.
    */
-  it('leaves the two unconditional rows and no stray rules', () => {
-    expect(rows(menu({}))).toEqual(['Save', '---', 'Hide Library Tree']);
+  it('leaves the unconditional rows, both pin rows, and no stray rules', () => {
+    expect(rows(menu({}))).toEqual([
+      'Pin Library',
+      'Unpin Library',
+      '---',
+      'Save',
+      '---',
+      'Hide Library Tree',
+    ]);
   });
 
   /** Never a leading or trailing separator, whatever the selection. */

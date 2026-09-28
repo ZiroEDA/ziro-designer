@@ -23,22 +23,19 @@ import { parse } from '@ziroeda/sexpr';
 import {
   readBoard,
   crossProbeSelection,
-  crossProbeHighlightNet,
   crossProbeViewChange,
   crossProbeFlashSelection,
   CROSS_PROBE_FLASH_INTERVAL_MS,
   CROSS_PROBE_FLASH_LAST_PHASE,
 } from '@ziroeda/pcbnew';
-import { pcbMmToIU } from '@ziroeda/common/src/eda_units.js';
-import {
-  CROSS_PROBING_DEFAULTS,
-  type CrossProbingSettings,
-} from '@ziroeda/common/src/cross_probing_settings.js';
+import { pcbMmToIU } from '@ziroeda/common/eda_units.js';
+import { CROSS_PROBING_SETTINGS } from '@ziroeda/common/settings/app_settings.js';
 import {
   EESCHEMA_DEFAULTS,
   PCBNEW_DEFAULTS,
   deepMerge,
 } from '@ziroeda/designer/src/prefs/settings.js';
+import { pcbnewSettingsOf } from '@ziroeda/pcbnew/pcb_edit_frame.js';
 
 const BOARD = `(kicad_pcb (version 20241229) (generator "pcbnew")
   (general (thickness 1.6))
@@ -58,8 +55,8 @@ const BOARD = `(kicad_pcb (version 20241229) (generator "pcbnew")
 `;
 const board = readBoard(parse(BOARD));
 
-const cfg = (over: Partial<CrossProbingSettings>): CrossProbingSettings => ({
-  ...CROSS_PROBING_DEFAULTS,
+const cfg = (over: Partial<CROSS_PROBING_SETTINGS>): CROSS_PROBING_SETTINGS => ({
+  ...new CROSS_PROBING_SETTINGS(),
   ...over,
 });
 
@@ -68,7 +65,7 @@ const cfg = (over: Partial<CrossProbingSettings>): CrossProbingSettings => ({
 describe('cross_probing settings round-trip', () => {
   it('carries KiCad’s own defaults: four on, flash off', () => {
     // APP_SETTINGS_BASE::APP_SETTINGS_BASE, common/settings/app_settings.cpp:290-303.
-    expect(CROSS_PROBING_DEFAULTS).toEqual({
+    expect({ ...new CROSS_PROBING_SETTINGS() }).toEqual({
       on_selection: true,
       center_on_items: true,
       zoom_to_fit: true,
@@ -79,8 +76,8 @@ describe('cross_probing settings round-trip', () => {
 
   it('hangs off both editors, as it hangs off APP_SETTINGS_BASE upstream', () => {
     // app_settings.h:226 — one per frame that can receive a probe.
-    expect(EESCHEMA_DEFAULTS.cross_probing).toEqual(CROSS_PROBING_DEFAULTS);
-    expect(PCBNEW_DEFAULTS.cross_probing).toEqual(CROSS_PROBING_DEFAULTS);
+    expect(EESCHEMA_DEFAULTS.cross_probing).toEqual({ ...new CROSS_PROBING_SETTINGS() });
+    expect(PCBNEW_DEFAULTS.cross_probing).toEqual({ ...new CROSS_PROBING_SETTINGS() });
   });
 
   it('takes a stored value back and defaults the keys the store predates', () => {
@@ -197,23 +194,8 @@ describe('center_on_items and zoom_to_fit decide where the view lands', () => {
 
 // ----- auto_highlight ---------------------------------------------------------
 
-describe('auto_highlight decides whether a net probe lights anything', () => {
-  it('resolves the net name against the board when it is on', () => {
-    expect(crossProbeHighlightNet(cfg({}), board, 'VCC')).toBe(2);
-  });
-
-  it('refuses the probe when it is off, leaving the current highlight lit', () => {
-    // `if( !auto_highlight ) return;` fires before the highlight is touched
-    // (cross-probing.cpp:140), so null must be distinguishable from 0.
-    expect(crossProbeHighlightNet(cfg({ auto_highlight: false }), board, 'VCC')).toBeNull();
-  });
-
-  it('clears the highlight for a net the board does not have', () => {
-    // netcode <= 0 falls through to `SetHighlight( false )`.
-    expect(crossProbeHighlightNet(cfg({}), board, 'NOT_A_NET')).toBe(0);
-    expect(crossProbeHighlightNet(cfg({}), board, null)).toBe(0);
-  });
-});
+// auto_highlight is pinned through the frame's ExecuteRemoteCommand, in
+// pcb_cross_probe_mail.test.ts.
 
 // ----- flash_selection --------------------------------------------------------
 
@@ -286,8 +268,17 @@ describe('PcbEditor routes its cross-probes through the settings', () => {
     expect(PCB_EDITOR).not.toContain('findItemsFromSyncSelection(');
   });
 
-  it('asks crossProbeHighlightNet rather than walking the net table itself', () => {
-    expect(PCB_EDITOR).toMatch(/crossProbeHighlightNet\(\s*settings\.pcbnew\.cross_probing\s*,/);
+  it("hands pcbnew's copy to the frame whose ExecuteRemoteCommand reads it", () => {
+    // `$NET:` is received by PCB_EDIT_FRAME, which reads `GetPcbNewSettings()->
+    // m_CrossProbing` (pcbnew/cross-probing.cpp:92).
+    const json = deepMerge(PCBNEW_DEFAULTS, {
+      cross_probing: { auto_highlight: false, zoom_to_fit: false },
+    }) as typeof PCBNEW_DEFAULTS;
+    expect({ ...pcbnewSettingsOf(json).m_CrossProbing }).toEqual({
+      ...new CROSS_PROBING_SETTINGS(),
+      auto_highlight: false,
+      zoom_to_fit: false,
+    });
   });
 
   it('asks crossProbeViewChange rather than zooming unconditionally', () => {

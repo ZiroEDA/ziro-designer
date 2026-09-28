@@ -4,7 +4,7 @@
 /**
  * Schematic Setup persistence: read/write of SCHEMATIC_SETTINGS / ERC_SETTINGS /
  * NET_SETTINGS / text_variables through the project's .kicad_pro
- * (designer/src/editors/schematic/project_settings.ts).
+ * (eeschema/project_settings.ts).
  */
 import { describe, it, expect } from 'vitest';
 import {
@@ -12,12 +12,12 @@ import {
   readSchematicSetup,
   readSchematicSetupText,
   writeSchematicSetupText,
-} from '@ziroeda/designer/src/editors/schematic/project_settings.js';
+} from '@ziroeda/eeschema/project_settings.js';
 import {
   blankNetClass,
   defaultSchematicSetup,
   type SchematicSetup,
-} from '@ziroeda/designer/src/editors/schematic/schematic_settings.js';
+} from '@ziroeda/eeschema/schematic_settings.js';
 import { projectJson } from '@ziroeda/designer/src/home/new_project.js';
 
 const TEMPLATE = projectJson('proj', '00000000-0000-0000-0000-000000000000');
@@ -111,11 +111,6 @@ function customSetup(): SchematicSetup {
     // carry them across a write or a schematic save would drop the board's.
     netColors: { '+3V3': '#ee8a00' },
   };
-  s.netChains = {
-    chains: [{ name: 'CHAIN1', members: ['N1', 'N2'], chainClass: 'CC1', netClass: '', color: '' }],
-    classes: [{ name: 'CC1', members: 1 }],
-    classByChain: { CHAIN1: 'CC1' },
-  };
   s.usedDesignators = 'R1-3,U1';
   s.busAliases = [
     { name: 'DATA', members: ['D0', 'D1', 'D2'] },
@@ -148,12 +143,10 @@ describe('schematic setup .kicad_pro persistence', () => {
     const back = readSchematicSetupText(text!);
 
     // Not persisted in .kicad_pro (documented): embedded files (.kicad_sch
-    // data), the net-chain member lists, and the internal pin_to_pin_error
-    // severity.
+    // data) and the internal pin_to_pin_error severity.
     const strip = (x: SchematicSetup): SchematicSetup => ({
       ...x,
       embeddedFiles: { files: [], embedFonts: false },
-      netChains: { ...x.netChains, chains: [] },
       erc: {
         ...x.erc,
         severities: { ...x.erc.severities, pin_to_pin_error: 'error' },
@@ -205,7 +198,6 @@ describe('schematic setup .kicad_pro persistence', () => {
           },
         ],
         netclass_patterns: [{ netclass: 'A', pattern: 'VCC*' }],
-        net_chain_classes: { C1: 'CCA', C2: 'CCA', C3: 'CCB' },
       },
       schematic: {
         annotate_start_num: 200,
@@ -295,8 +287,8 @@ describe('schematic setup .kicad_pro persistence', () => {
         sortAsc: true,
         filterString: '',
         groupSymbols: true,
-        excludeDnp: false,
-        includeExcludedFromBom: false,
+        excludeDNP: false,
+        includeExcludedFromBOM: false,
         fieldsOrdered: [
           { name: 'Reference', label: 'Reference', show: true, groupBy: false },
           { name: 'Value', label: 'Value', show: true, groupBy: true },
@@ -330,10 +322,6 @@ describe('schematic setup .kicad_pro persistence', () => {
     });
     expect(s.netClasses.classes[2]!.color).toBe('#ff0000');
     expect(s.netClasses.assignments).toEqual([{ pattern: 'VCC*', netClass: 'A' }]);
-    expect(s.netChains.classes).toEqual([
-      { name: 'CCA', members: 2 },
-      { name: 'CCB', members: 1 },
-    ]);
     expect(s.textVars).toEqual([{ name: 'PROJ', value: 'Ziro' }]);
 
     // Unknown severity keys survive an unchanged OK.

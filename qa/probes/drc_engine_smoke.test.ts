@@ -3,13 +3,14 @@
 // `kicad-cli pcb drc` on the same files. Not a gate test; run it by name.
 import { readFileSync } from 'node:fs';
 import { it } from 'vitest';
-import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
-import { ENUM_MAP } from '@ziroeda/common/src/properties/property.js';
-import { DRC_ENGINE } from '@ziroeda/pcbnew/src/drc/drc_engine.js';
-import type { DRC_ITEM } from '@ziroeda/pcbnew/src/drc/drc_item.js';
-import '@ziroeda/pcbnew/src/drc/drc_test_providers.js';
-import { ParseBoard } from '@ziroeda/pcbnew/src/read-board.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import { SETTINGS_MANAGER } from '@ziroeda/common/pgm_base.js';
+import { ENUM_MAP } from '@ziroeda/common/properties/property.js';
+import { DRC_ENGINE } from '@ziroeda/pcbnew/drc/drc_engine.js';
+import type { DRC_ITEM } from '@ziroeda/pcbnew/drc/drc_item.js';
+import '@ziroeda/pcbnew/drc/drc_test_providers.js';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 
 const DEMO = new URL('../../designer/public/demos/ecc83/', import.meta.url);
 
@@ -18,8 +19,9 @@ it('runs every provider on ecc83', () => {
   const pro = JSON.parse(readFileSync(new URL('ecc83-pp.kicad_pro', DEMO), 'utf8'));
   const board = ParseBoard(text);
 
-  board.GetDesignSettings().LoadFromJson(pro.board.design_settings);
-  board.GetDesignSettings().m_NetSettings.LoadFromJson(pro.net_settings);
+  const manager = new SETTINGS_MANAGER();
+  manager.LoadProject(new URL('ecc83-pp.kicad_pcb', DEMO).pathname, pro);
+  board.SetProject(manager.Prj());
   board.SynchronizeNetsAndNetClasses(false);
 
   const layerEnum = ENUM_MAP.Instance<PCB_LAYER_ID>('PCB_LAYER_ID');

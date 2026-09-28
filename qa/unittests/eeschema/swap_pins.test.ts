@@ -21,9 +21,9 @@ import {
   symbolIsShared,
   placedPinRefs,
   type SwapPinsPlan,
-} from '@ziroeda/eeschema/src/tools/swap_pins.js';
-import { schSymbolLibraryName } from '@ziroeda/eeschema/src/lib_symbol_compare.js';
-import type { LibSymbol, Schematic } from '@ziroeda/eeschema/src/types.js';
+} from '@ziroeda/eeschema/tools/swap_pins.js';
+import { schSymbolLibraryName } from '@ziroeda/eeschema/lib_symbol_compare.js';
+import type { LibSymbol, Schematic } from '@ziroeda/eeschema/types.js';
 
 const LIB_R = `(symbol "Device:R" (pin_names (offset 0)) (in_bom yes) (on_board yes)
       (property "Reference" "R" (at 0 0 90) (effects (font (size 1.27 1.27))))

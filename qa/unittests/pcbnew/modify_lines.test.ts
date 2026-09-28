@@ -11,11 +11,14 @@
  * rather than left as zero-length items.
  */
 import { describe, expect, it } from 'vitest';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { flatText, writtenNodes } from './support/written_node.js';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import { modifiableLineCount, modifyLines } from '@ziroeda/pcbnew/src/modify_lines.js';
-import type { Board, PcbShape } from '@ziroeda/pcbnew/src/types.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
+import {
+  modifiableLineCount,
+  modifyLines,
+} from '@ziroeda/pcbnew/tools/item_modification_routine.js';
+import type { Board, PcbShape } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 

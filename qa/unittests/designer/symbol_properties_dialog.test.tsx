@@ -33,11 +33,11 @@ import { cleanup, createEvent, fireEvent, render, screen, within } from '@testin
 import { afterEach, describe, expect, it } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic } from '@ziroeda/eeschema';
 import type { LibSymbol, SchSymbol, SymbolEdit } from '@ziroeda/eeschema';
 import { SymbolPropertiesDialog } from '@ziroeda/designer/src/editors/schematic/components/SymbolPropertiesDialog.js';
-import { BUNDLED_FAMILIES } from '@ziroeda/designer/src/font/outline_fonts.js';
+import { BUNDLED_FAMILIES } from '@ziroeda/common/font/outline_fonts.js';
 import {
   PIN_SHAPE_BITMAPS,
   PIN_TYPE_BITMAPS,
@@ -53,7 +53,7 @@ import {} from '@ziroeda/designer/src/editors/symbol/render/symbolRenderer.js';
  * slicing to the first `}` in the raw text lands inside that comment and returns
  * a body missing everything after it.
  */
-const SHELL = readFileSync(join(__dirname, '../../../designer/src/ui/shell.css'), 'utf8').replace(
+const SHELL = readFileSync(join(__dirname, '../../../common/widgets/shell.css'), 'utf8').replace(
   /\/\*[\s\S]*?\*\//g,
   '',
 );
@@ -75,7 +75,7 @@ afterEach(cleanup);
 
 /**
  * A resistor placed the way OUR placer places one — Reference and Value only
- * (`makeSymbol`, eeschema/src/tools/build.ts) — beside a library part that
+ * (`makeSymbol`, eeschema/tools/build.ts) — beside a library part that
  * carries all five mandatory properties. That gap is difference 2: KiCad's
  * SCH_SYMBOL always has five fields because it copied the part's.
  */
@@ -1434,7 +1434,7 @@ describe('a pin row draws its type and shape icon, not just the name', () => {
     // silently draws nothing.
     const all = [...Object.values(PIN_TYPE_BITMAPS), ...Object.values(PIN_SHAPE_BITMAPS)];
     expect(new Set(all).size).toBe(all.length);
-    const dir = join(__dirname, '../../../designer/src/assets/toolbar');
+    const dir = join(__dirname, '../../../bitmaps_png/sources/toolbar');
     for (const name of all) {
       expect(existsSync(join(dir, `${name}.svg`)), `${name}.svg is not vendored`).toBe(true);
     }

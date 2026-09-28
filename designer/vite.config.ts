@@ -82,7 +82,7 @@ export default defineConfig({
   /**
    * ES, not Vite's default IIFE.
    *
-   * The OCCT worker (`editors/pcb/occt_worker.ts`) lazily imports the 7.6 MB
+   * The OCCT worker (`3d-viewer/occt_worker.ts`) lazily imports the 7.6 MB
    * WASM kernel, and a lazy import is a code split. Rollup cannot emit a
    * split build as IIFE, so the default fails the whole build with "UMD and
    * IIFE output formats are not supported for code-splitting builds" — not at

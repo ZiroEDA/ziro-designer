@@ -20,15 +20,15 @@
  *    there is a test for it precisely so nobody "fixes" it.
  */
 import { describe, expect, it } from 'vitest';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import {
   commonParallelProjection,
   coupledSpans,
   evaluateDiffPair,
   matchDpSuffix,
   type DpTrack,
-} from '@ziroeda/pcbnew/src/drc/drc_diff_pair.js';
-import type { Board, PcbTrack } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/drc/drc_diff_pair.js';
+import type { Board, PcbTrack } from '@ziroeda/pcbnew/types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 const MM = (n: number): number => mmToIU(n);

@@ -6,24 +6,22 @@
  * with no canvas. KiCad's creepage board (1 violation) is the fixture.
  */
 import { beforeAll, describe, expect, it } from 'vitest';
-import { EMBEDDED_FILES } from '@ziroeda/common/src/embedded_files.js';
+import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
 import {
   RPT_SEVERITY_ERROR,
   RPT_SEVERITY_EXCLUSION,
   RPT_SEVERITY_IGNORE,
-} from '@ziroeda/common/src/reporter.js';
-import { RC_TREE_NODE_TYPE } from '@ziroeda/common/src/rc_item.js';
+} from '@ziroeda/common/reporter.js';
+import { RC_TREE_NODE_TYPE } from '@ziroeda/common/rc_item.js';
 import type { BOX2D } from '@ziroeda/kimath/src/math/box2.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-import {
-  DIALOG_DRC,
-  type DIALOG_DRC_WINDOW,
-} from '@ziroeda/designer/src/editors/pcb/dialogs/dialog_drc_model.js';
-import { PCB_EDIT_FRAME } from '@ziroeda/designer/src/editors/pcb/pcb_edit_frame.js';
-import { PCBNEW_SETTINGS } from '@ziroeda/pcbnew/src/pcbnew_settings.js';
-import { DRC_ITEM, PCB_DRC_CODE } from '@ziroeda/pcbnew/src/drc/drc_item.js';
-import { PCB_ACTIONS } from '@ziroeda/pcbnew/src/tools/pcb_actions.js';
-import { DRC_TOOL } from '@ziroeda/pcbnew/src/tools/drc_tool.js';
+import { DIALOG_DRC, type DIALOG_DRC_WINDOW } from '@ziroeda/pcbnew/dialogs/dialog_drc_model.js';
+import { PCB_EDIT_FRAME } from '@ziroeda/pcbnew/pcb_edit_frame.js';
+import { PGM_BASE, SetPgm } from '@ziroeda/common/pgm_base.js';
+import { PCBNEW_SETTINGS } from '@ziroeda/pcbnew/pcbnew_settings.js';
+import { DRC_ITEM, PCB_DRC_CODE } from '@ziroeda/pcbnew/drc/drc_item.js';
+import { PCB_ACTIONS } from '@ziroeda/pcbnew/tools/pcb_actions.js';
+import { DRC_TOOL } from '@ziroeda/pcbnew/tools/drc_tool.js';
 import { readFileSync } from 'node:fs';
 import { HAVE_TEST_DATA, LoadBoard, PCBNEW_TEST_DATA_DIR } from './drc_test_utils.js';
 
@@ -119,6 +117,9 @@ function makeHarness(): Harness {
     showExchangeFootprintsDialog: () => {},
     findDialogRects: (): BOX2D[] => [],
     setViewCenter: (_aPos: Vec2) => {},
+    setHighlightNets: () => {},
+    syncSelection: () => {},
+    updatePcbFromSchematic: () => {},
   });
 
   h.frame = frame;
@@ -137,6 +138,10 @@ const runDialog = (dialog: DIALOG_DRC): Promise<void> =>
     };
     setTimeout(poll, 20);
   });
+
+// `Prj()` on the frame is `Pgm().GetSettingsManager().Prj()`: the project
+// LoadBoard loads is the one SetBoard hands the board.
+SetPgm(new PGM_BASE());
 
 suite('DRC_TOOL + DIALOG_DRC on the live engine', () => {
   beforeAll(async () => {
@@ -400,7 +405,7 @@ describe('DRC_TOOL: the board the worker gets', () => {
 `;
 
   it('carries every pad on the layers the live board has it on', async () => {
-    const { ParseBoard } = await import('@ziroeda/pcbnew/src/read-board.js');
+    const { ParseBoard } = await import('@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js');
     const h = makeHarness();
     const board = ParseBoard(FIXTURE, 'transport.kicad_pcb');
 

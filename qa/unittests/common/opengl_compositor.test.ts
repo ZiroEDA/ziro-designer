@@ -20,9 +20,9 @@
  * and refuses the draw the way Chrome does.
  */
 import { describe, expect, it } from 'vitest';
-import { GAL_ANTIALIASING_MODE } from '@ziroeda/common/src/gal/gal_display_options.js';
-import { GL_FIXED_FUNCTION } from '@ziroeda/common/src/gal/opengl/gl_fixed_function.js';
-import { OPENGL_COMPOSITOR } from '@ziroeda/common/src/gal/opengl/opengl_compositor.js';
+import { GAL_ANTIALIASING_MODE } from '@ziroeda/common/gal/gal_display_options.js';
+import { GL_FIXED_FUNCTION } from '@ziroeda/common/gal/opengl/gl_fixed_function.js';
+import { OPENGL_COMPOSITOR } from '@ziroeda/common/gal/opengl/opengl_compositor.js';
 
 const GL = {
   NO_ERROR: 0,

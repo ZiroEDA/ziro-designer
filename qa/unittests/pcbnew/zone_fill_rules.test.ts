@@ -17,15 +17,15 @@
  * since the DRC port; this is the filler asking it.
  */
 import { beforeAll, describe, expect, it } from 'vitest';
-import { EMBEDDED_FILES } from '@ziroeda/common/src/embedded_files.js';
-import { pcbMmToIU as MM } from '@ziroeda/common/src/eda_units.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { DRC_ENGINE } from '@ziroeda/pcbnew/src/drc/drc_engine.js';
-import { DRC_CONSTRAINT_T } from '@ziroeda/pcbnew/src/drc/drc_rule.js';
-import { ParseBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { boardFromBOARD } from '@ziroeda/pcbnew/src/pcb_io/kicad_sexpr/board_view.js';
-import { fillZone } from '@ziroeda/pcbnew/src/zone_filler.js';
-import type { BOARD } from '@ziroeda/pcbnew/src/board.js';
+import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
+import { pcbMmToIU as MM } from '@ziroeda/common/eda_units.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { DRC_ENGINE } from '@ziroeda/pcbnew/drc/drc_engine.js';
+import { DRC_CONSTRAINT_T } from '@ziroeda/pcbnew/drc/drc_rule.js';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { boardFromBOARD } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/board_view.js';
+import { fillZone } from '@ziroeda/pcbnew/zone_filler.js';
+import type { BOARD } from '@ziroeda/pcbnew/board.js';
 
 /**
  * A 20 mm GND pour on F.Cu with one thermally-connected GND pad at its

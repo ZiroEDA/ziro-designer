@@ -28,7 +28,7 @@ import { fileURLToPath } from 'node:url';
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(`../../../designer/src/${rel}`, import.meta.url)), 'utf8');
 
-const SHELL = read('ui/shell.css');
+const SHELL = read('../../common/widgets/shell.css');
 
 /** The body of the `.ze-app select { … }` rule. */
 function selectRule(): string {
@@ -58,8 +58,8 @@ describe('no launcher restates it', () => {
   // right and hides that the root is wrong for all the others.
   const LAUNCHERS = [
     'editors/calculator/calculator.css',
-    'editors/image/imageConverter.css',
-    'widgets/properties_panel.css',
+    '../../bitmap2component/bitmap2cmp_frame.css',
+    '../../common/widgets/properties_panel.css',
   ];
 
   it.each(LAUNCHERS)('%s states no accent-color of its own', (rel) => {

@@ -2,13 +2,13 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readSchematic } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
-import { makeWire, makeLabel } from '@ziroeda/eeschema/src/tools/build.js';
-import { addItems } from '@ziroeda/eeschema/src/tools/mutate.js';
-import { lassoSelect } from '@ziroeda/eeschema/src/tools/boxselect.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
-import { lassoIsInside } from '@ziroeda/common/src/preview_items/selection_area.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { readSchematic } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
+import { makeWire, makeLabel } from '@ziroeda/eeschema/tools/build.js';
+import { addItems } from '@ziroeda/eeschema/tools/mutate.js';
+import { lassoSelect } from '@ziroeda/eeschema/tools/boxselect.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
+import { lassoIsInside } from '@ziroeda/common/preview_items/selection_area.js';
 
 const EMPTY = () => readSchematic(parse('(kicad_sch (version 1) (lib_symbols))'));
 const at = (x: number, y: number) => ({ x: mmToIU(x), y: mmToIU(y) });

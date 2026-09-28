@@ -22,7 +22,7 @@ import {
   trackball,
   type Mat4,
   type Vec3,
-} from '@ziroeda/designer/src/editors/pcb/camera3d.js';
+} from '@ziroeda/3d-viewer/camera3d.js';
 
 const near = (a: ArrayLike<number>, b: ArrayLike<number>, digits = 4): void => {
   expect(a.length).toBe(b.length);

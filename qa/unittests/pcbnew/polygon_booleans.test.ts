@@ -15,18 +15,18 @@
  * one.
  */
 import { describe, expect, it } from 'vitest';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import {
   booleanableShapeCount,
   polygonBoolean,
   shapeAsPolygon,
-} from '@ziroeda/pcbnew/src/polygon_booleans.js';
+} from '@ziroeda/pcbnew/tools/item_modification_routine.js';
 import {
   booleanAdd,
   booleanIntersection,
   booleanSubtract,
 } from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';
-import type { Board, PcbShape } from '@ziroeda/pcbnew/src/types.js';
+import type { Board, PcbShape } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 

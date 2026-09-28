@@ -29,7 +29,7 @@ import {
   fastGridActionForKey,
   fastGridIndex,
   type FastGridSlice,
-} from '@ziroeda/designer/src/ui/grid_settings.js';
+} from '@ziroeda/common/settings/grid_settings_ui.js';
 import {
   EESCHEMA_DEFAULTS,
   GERBVIEW_DEFAULTS,
@@ -124,8 +124,10 @@ describe('every app’s stored defaults land where the page says', () => {
 const FRAME: Record<string, string> = {
   eeschema: 'editors/schematic/SchematicEditor.tsx',
   symbol_editor: 'editors/symbol/SymbolEditor.tsx',
-  pl_editor: 'editors/drawingsheet/DrawingSheetEditor.tsx',
-  gerbview: 'editors/gerbview/GerberViewer.tsx',
+  // pl_editor binds them as upstream does, COMMON_TOOLS on PL_EDITOR_FRAME,
+  // pinned in unittests/pagelayout_editor/pl_editor_chrome.test.ts.
+  // gerbview binds them as upstream does, COMMON_TOOLS on GERBVIEW_FRAME,
+  // pinned in unittests/gerbview/gerbview_frame.test.ts.
 };
 
 /** Which settings object each frame must write, and no other. */
@@ -133,7 +135,6 @@ const OWN_WRITE: Record<string, string> = {
   eeschema: 'settings.updateEeschema',
   symbol_editor: 'settings.updateSymbolEditor',
   pl_editor: 'settings.plEditor.window.grid',
-  gerbview: 'settings.gerbview.window.grid',
 };
 
 describe('each frame binds the three actions, through the shared implementation', () => {
@@ -158,13 +159,5 @@ describe('each frame binds the three actions, through the shared implementation'
     // schematic came to disagree with the page in the first place.
     for (const rel of Object.values(FRAME))
       expect(read(rel), rel).not.toMatch(/fast_grid_2\s*,\s*1\s*\)/);
-  });
-
-  it('the drawing sheet writes through its own setter, not past it', () => {
-    // It mirrors `last_size_idx` in React state; writing the settings object
-    // directly would leave the toolbar's grid selector showing the old row.
-    const src = read(FRAME.pl_editor as string);
-    const at = src.indexOf('fastGridActionForKey(e.key)');
-    expect(src.slice(at, at + 600)).toContain('setGridIndex(idx)');
   });
 });

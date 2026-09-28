@@ -35,14 +35,11 @@ import { cleanup } from '@testing-library/react';
 afterEach(cleanup);
 
 const PANEL = readFileSync(
-  resolve(process.cwd(), '../designer/src/dialogs/prefs/panels/PanelCommonSettings.tsx'),
+  resolve(process.cwd(), '../common/dialogs/panel_common_settings.tsx'),
   'utf8',
 );
-const CSS = readFileSync(resolve(process.cwd(), '../designer/src/ui/shell.css'), 'utf8');
-const WIDGETS = readFileSync(
-  resolve(process.cwd(), '../designer/src/dialogs/prefs/widgets.tsx'),
-  'utf8',
-);
+const CSS = readFileSync(resolve(process.cwd(), '../common/widgets/shell.css'), 'utf8');
+const WIDGETS = readFileSync(resolve(process.cwd(), '../common/wx/controls.tsx'), 'utf8');
 /** The panel with its comments stripped: prose ABOUT a row is not that row. */
 const PANEL_CODE = PANEL.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
 
@@ -182,7 +179,7 @@ describe('a group heading is a label and a rule, at the dialog font', () => {
  *                                                every toolbar metric derives
  *                                                from
  *     appearance.hicontrast_dimming_factor
- *                                     LIVE     — common/src/render_settings.ts
+ *                                     LIVE     — common/render_settings.ts
  *                                                `hiContrastFactorFor`, passed
  *                                                by the board, footprint and
  *                                                Gerber painters
@@ -231,9 +228,11 @@ describe('a row is enabled exactly when something reads its setting', () => {
     [
       'Show popup indicator when toggling settings with hotkeys',
       'hotkey_feedback',
-      'designer/src/widgets/hotkey_cycle_popup.ts',
+      'common/dialogs/hotkey_cycle_popup.ts',
     ],
-    ['Disable custom cursors', 'use_custom_cursors', 'designer/src/ui/kicursors.ts'],
+    // The read moved with InitPgm's provider registration when kicursors.ts
+    // moved to common/gal/ (common/ may not read the app's live settings).
+    ['Disable custom cursors', 'use_custom_cursors', 'designer/src/pgm_app.ts'],
     [
       'Use alternating row colors in tables',
       'grid_striping',
@@ -247,7 +246,7 @@ describe('a row is enabled exactly when something reads its setting', () => {
     ],
     // The ELEMENT, not the import above it: `indexOf('ZoomCorrectionCtrl')`
     // lands on the import, and the first `/>` after that is some other row's.
-    ['<ZoomCorrectionCtrl', 'zoom_correction_factor', 'designer/src/ui/status_format.ts'],
+    ['<ZoomCorrectionCtrl', 'zoom_correction_factor', 'common/widgets/kistatusbar_format.ts'],
   ])('%s is live, bound to %s, and read by %s', (label, setting, reader) => {
     const p = props(label);
     expect(p, label).toContain(setting);

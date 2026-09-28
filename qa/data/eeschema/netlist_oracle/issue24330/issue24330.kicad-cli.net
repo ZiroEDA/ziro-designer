@@ -1,0 +1,250 @@
+(export
+	(version "E")
+	(design
+		(source "/home/akshay/netlist-oracle/all/issue24330/issue24330.kicad_sch")
+		(date "2026-09-26T22:52:15")
+		(tool "Eeschema 10.0.6-10.0.6~ubuntu24.04.1")
+		(sheet
+			(number "1")
+			(name "/")
+			(tstamps "/")
+			(title_block
+				(title)
+				(company)
+				(rev)
+				(date)
+				(source "issue24330.kicad_sch")
+				(comment
+					(number "1")
+					(value "")
+				)
+				(comment
+					(number "2")
+					(value "")
+				)
+				(comment
+					(number "3")
+					(value "")
+				)
+				(comment
+					(number "4")
+					(value "")
+				)
+				(comment
+					(number "5")
+					(value "")
+				)
+				(comment
+					(number "6")
+					(value "")
+				)
+				(comment
+					(number "7")
+					(value "")
+				)
+				(comment
+					(number "8")
+					(value "")
+				)
+				(comment
+					(number "9")
+					(value "")
+				)
+			)
+		)
+	)
+	(components
+		(comp
+			(ref "U1")
+			(value "BGA_TEST")
+			(fields
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description")
+				)
+			)
+			(libsource
+				(lib "Local")
+				(part "BGA_TEST")
+				(description "")
+			)
+			(property
+				(name "Sheetname")
+				(value "issue24330")
+			)
+			(property
+				(name "Sheetfile")
+				(value "issue24330.kicad_sch")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "af06e391-97a5-4828-9343-f3162acaa60a")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "AAB10")
+						)
+						(pin
+							(num "AAB11")
+						)
+						(pin
+							(num "AAB12")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "U2")
+			(value "BGA_TEST")
+			(fields
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description")
+				)
+			)
+			(libsource
+				(lib "Local")
+				(part "BGA_TEST")
+				(description "")
+			)
+			(property
+				(name "Sheetname")
+				(value "issue24330")
+			)
+			(property
+				(name "Sheetfile")
+				(value "issue24330.kicad_sch")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "bf06e391-97a5-4828-9343-f3162acaa60b")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "AAB10")
+						)
+						(pin
+							(num "AAB11")
+						)
+						(pin
+							(num "AAB12")
+						)
+					)
+				)
+			)
+		)
+	)
+	(groups)
+	(variants)
+	(libparts
+		(libpart
+			(lib "Local")
+			(part "BGA_TEST")
+			(fields
+				(field
+					(name "Reference") "U")
+				(field
+					(name "Value") "BGA_TEST")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description")
+				)
+			)
+			(pins
+				(pin
+					(num "AAB10")
+					(name "P1")
+					(type "passive")
+				)
+				(pin
+					(num "AAB11")
+					(name "P2")
+					(type "passive")
+				)
+				(pin
+					(num "AAB12")
+					(name "P3")
+					(type "passive")
+				)
+			)
+		)
+	)
+	(libraries)
+	(nets
+		(net
+			(code "1")
+			(name "/NET_BOT")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "AAB12")
+				(pinfunction "P3_AAB12")
+				(pintype "passive")
+			)
+			(node
+				(ref "U2")
+				(pin "AAB12")
+				(pinfunction "P3_AAB12")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "2")
+			(name "/NET_MID")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "AAB11")
+				(pinfunction "P2_AAB11")
+				(pintype "passive")
+			)
+			(node
+				(ref "U2")
+				(pin "AAB11")
+				(pinfunction "P2_AAB11")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "3")
+			(name "/NET_TOP")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "AAB10")
+				(pinfunction "P1_AAB10")
+				(pintype "passive")
+			)
+			(node
+				(ref "U2")
+				(pin "AAB10")
+				(pinfunction "P1_AAB10")
+				(pintype "passive")
+			)
+		)
+	)
+)

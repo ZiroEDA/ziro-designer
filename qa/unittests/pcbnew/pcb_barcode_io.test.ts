@@ -22,13 +22,16 @@ import { describe, expect, it, vi } from 'vitest';
 // Every read assembles the barcode's symbol (`PCB_BARCODE::AssembleBarcode`,
 // the parser's last step), and a knockout QR takes a second or more.
 vi.setConfig({ testTimeout: 30_000 });
-import { parse, head } from '@ziroeda/sexpr/src/index.js';
-import { readBoard, readFootprintFile } from '@ziroeda/pcbnew/src/read-board.js';
-import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
+import { parse, head } from '@ziroeda/sexpr/index.js';
+import {
+  readBoard,
+  readFootprintFile,
+} from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { emptyBoard, flatText, writtenNode } from './support/written_node.js';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import { GENERATOR } from '@ziroeda/common/src/generator.js';
-import type { Board, PcbBarcode } from '@ziroeda/pcbnew/src/types.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
+import { GENERATOR } from '@ziroeda/common/generator.js';
+import type { Board, PcbBarcode } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 const read = (src: string): Board => readBoard(parse(src));

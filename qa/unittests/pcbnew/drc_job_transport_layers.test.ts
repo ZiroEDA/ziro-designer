@@ -19,14 +19,14 @@
  * two answers differed - which is how the round trip was caught.
  */
 import { describe, expect, it } from 'vitest';
-import { IsCopperLayer, PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { GENERATOR } from '@ziroeda/common/src/generator.js';
+import { IsCopperLayer, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { GENERATOR } from '@ziroeda/common/generator.js';
 import {
   CTL_ENUMERATE_LAYERS,
   CTL_FOR_BOARD,
   FormatBoard,
-} from '@ziroeda/pcbnew/src/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { ParseBoard } from '@ziroeda/pcbnew/src/read-board.js';
+} from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 
 /**
  * Four copper layers, so "front and back" and "all copper" are different

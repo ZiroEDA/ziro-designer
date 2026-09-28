@@ -28,15 +28,17 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic } from '@ziroeda/eeschema';
-import { itemRefById, refId } from '@ziroeda/eeschema/src/tools/hittest.js';
-import { tableCellId } from '@ziroeda/eeschema/src/tools/table_cells.js';
-import type { Schematic } from '@ziroeda/eeschema/src/types.js';
+import { itemRefById, refId } from '@ziroeda/eeschema/tools/hittest.js';
+import { tableCellId } from '@ziroeda/eeschema/tools/table_cells.js';
+import type { Schematic } from '@ziroeda/eeschema/types.js';
 
-const SRC = resolve(process.cwd(), '../eeschema/src');
+const SRC = resolve(process.cwd(), '../eeschema');
 
-/** Every .ts file under eeschema/src. */
+/** Every .ts file under eeschema. */
 function sources(dir: string, out: string[] = []): string[] {
   for (const e of readdirSync(dir)) {
+    // node_modules sits beside the sources now that eeschema has no src/.
+    if (e === 'node_modules') continue;
     const p = join(dir, e);
     if (statSync(p).isDirectory()) sources(p, out);
     else if (p.endsWith('.ts')) out.push(p);

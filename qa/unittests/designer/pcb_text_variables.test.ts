@@ -9,7 +9,7 @@
  * The page stored its rows in the project file and nothing on the board ever
  * read them, so a text reading `${REVISION}` drew those nine characters. The
  * schematic side already expanded them; the expander itself was stranded in
- * `eeschema/src/tools/`, which is why the board could not reach it. Upstream
+ * `eeschema/tools/`, which is why the board could not reach it. Upstream
  * keeps it in `common/` precisely because both editors call it, so it moved
  * there rather than being copied.
  *
@@ -18,10 +18,10 @@
  * table cells and text boxes — so one call covers all of them.
  */
 import { describe, expect, it } from 'vitest';
-import { expandTextVars } from '@ziroeda/common/src/text_vars.js';
+import { ResolveShownText, type TextVarResolverFn } from '@ziroeda/common/common.js';
 import { parse } from '@ziroeda/sexpr';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { buildScene } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { buildScene } from '@ziroeda/pcbnew/renderBoard.js';
 
 const BOARD_TEXT = `(kicad_pcb (version 20241229) (generator "test")
   (general (thickness 1.6))
@@ -73,22 +73,26 @@ function glyphOps(filter = {}): number {
   return ops;
 }
 
-describe('the expander is shared, not per editor', () => {
-  it('lives in common, where ExpandTextVars does', async () => {
-    // A copy in pcbnew would have been the easy move and the wrong one.
-    const mod = await import('@ziroeda/common/src/text_vars.js');
-    expect(typeof mod.expandTextVars).toBe('function');
-  });
+/** A KiCad-shaped resolver over a table: `std::function<bool( wxString* )>`. */
+const table =
+  (vars: Record<string, string>): TextVarResolverFn =>
+  (t) => {
+    const v = vars[t.value];
+    if (v === undefined) return false;
+    t.value = v;
+    return true;
+  };
 
+describe("GetShownText's resolution, common's and not per editor", () => {
   it('leaves an unresolved token verbatim', () => {
     // Upstream does; a board that half-expands is worse than one that does not.
-    expect(expandTextVars('Rev ${NOPE}', () => undefined)).toBe('Rev ${NOPE}');
+    expect(ResolveShownText('Rev ${NOPE}', table({}))).toBe('Rev ${NOPE}');
   });
 
-  it('resolves recursively and honours the backslash escape', () => {
-    const vars: Record<string, string> = { A: '${B}', B: 'deep' };
-    expect(expandTextVars('${A}', (t) => vars[t])).toBe('deep');
-    expect(expandTextVars('\\${A}', (t) => vars[t])).toBe('${A}');
+  it('resolves in passes and honours the backslash escape', () => {
+    const vars = table({ A: '${B}', B: 'deep' });
+    expect(ResolveShownText('${A}', vars)).toBe('deep');
+    expect(ResolveShownText('\\${A}', vars)).toBe('${A}');
   });
 });
 
@@ -98,7 +102,7 @@ describe('a board text resolves its variables when rendered', () => {
     // count is, it must not be the same one.
     const verbatim = glyphOps();
     const resolved = glyphOps({
-      resolveTextVar: (t: string) => (t === 'REVISION' ? '2' : undefined),
+      resolveTextVar: table({ REVISION: '2' }),
     });
     expect(verbatim).toBeGreaterThan(0);
     expect(resolved).not.toBe(verbatim);
@@ -110,13 +114,13 @@ describe('a board text resolves its variables when rendered', () => {
     // built after one that had a resolver keeps expanding — a board would show
     // resolved text in a context that never asked for it, and only sometimes.
     const verbatim = glyphOps();
-    glyphOps({ resolveTextVar: (t: string) => (t === 'REVISION' ? '2' : undefined) });
+    glyphOps({ resolveTextVar: table({ REVISION: '2' }) });
     expect(glyphOps()).toBe(verbatim);
   });
 
   it('leaves a board with no variables untouched by the resolver', () => {
     // The second text is "plain"; a resolver must not perturb it. Rendering the
     // whole board with a resolver that answers nothing must equal no resolver.
-    expect(glyphOps({ resolveTextVar: () => undefined })).toBe(glyphOps());
+    expect(glyphOps({ resolveTextVar: table({}) })).toBe(glyphOps());
   });
 });

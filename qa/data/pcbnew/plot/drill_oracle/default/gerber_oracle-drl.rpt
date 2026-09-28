@@ -1,0 +1,45 @@
+Drill report for gerber_oracle.kicad_pcb
+Created on 2026-09-28T08:25:56
+
+Copper Layer Stackup:
+    =============================================================
+    L1 :  F.Cu                      front
+    L2 :  In1.Cu                    in1
+    L3 :  In2.Cu                    in2
+    L4 :  B.Cu                      back
+
+
+Drill file 'gerber_oracle.drl' contains
+    plated through holes:
+    =============================================================
+    T1  0.300mm  0.0118"  (1 hole)
+    T2  0.400mm  0.0157"  (2 holes))
+    T3  0.600mm  0.0236"  (2 holes)  (with 2 slots)
+    T4  0.800mm  0.0315"  (1 hole)
+    T5  1.000mm  0.0394"  (2 holes))
+
+    Total plated holes count 8
+
+
+Drill file 'gerber_oracle-front-in1.drl' contains
+    holes connecting layer pair: 'F.Cu and In1.Cu' (blind vias):
+    =============================================================
+    T1  0.300mm  0.0118"  (1 hole)
+
+    Total plated holes count 1
+
+
+Drill file 'gerber_oracle-in1-in2.drl' contains
+    holes connecting layer pair: 'In1.Cu and In2.Cu' (buried vias):
+    =============================================================
+    T1  0.250mm  0.0098"  (1 hole)
+
+    Total plated holes count 1
+
+
+Not plated through holes are merged with plated holes
+    unplated through holes:
+    =============================================================
+    T6  1.200mm  0.0472"  (1 hole)
+
+    Total unplated holes count 1

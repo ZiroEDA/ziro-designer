@@ -17,19 +17,23 @@
  * names a net nothing declares, and loads back unconnected.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { head, isList, type SList, type SNode } from '@ziroeda/sexpr/src/types.js';
-import { arg, numArg } from '@ziroeda/sexpr/src/query.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
-import { applyPadValues, collectPadValues, padAt } from '@ziroeda/pcbnew/src/pad_properties.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { head, isList, type SList, type SNode } from '@ziroeda/sexpr/types.js';
+import { arg, numArg } from '@ziroeda/sexpr/query.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import {
+  applyPadValues,
+  collectPadValues,
+  padAt,
+} from '@ziroeda/pcbnew/dialogs/dialog_pad_properties.js';
 import {
   applyTrackViaValues,
   collectTrackViaValues,
   trackViaSelection,
-} from '@ziroeda/pcbnew/src/track_via_properties.js';
-import { ORPHANED_NET } from '@ziroeda/pcbnew/src/netinfo.js';
-import type { Board } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_track_via_properties.js';
+import { ORPHANED_NET } from '@ziroeda/pcbnew/netinfo.js';
+import type { Board } from '@ziroeda/pcbnew/types.js';
 import { U } from './support/written_node.js';
 
 const load = (text: string): Board => readBoard(parse(text));

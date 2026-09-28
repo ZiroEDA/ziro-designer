@@ -27,9 +27,9 @@ import { GlRecorder } from '@ziroeda/designer/src/render/gl/recorder.js';
 import { facetsForRadius } from '@ziroeda/designer/src/render/gl/tessellate.js';
 import { GL_PATH_FACTORY } from '@ziroeda/designer/src/render/gl/gl_path.js';
 import { recordBoardScene } from '@ziroeda/designer/src/render/gl/pcb_gl.js';
-import { buildScene, DEFAULT_DRAW_OPTIONS } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { buildScene, DEFAULT_DRAW_OPTIONS } from '@ziroeda/pcbnew/renderBoard.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 
 const MM = 1e6;
 

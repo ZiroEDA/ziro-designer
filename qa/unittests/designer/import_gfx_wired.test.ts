@@ -14,9 +14,9 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { HOTKEYS } from '@ziroeda/designer/src/editors/schematic/hotkeys.js';
-import { buildMenus } from '@ziroeda/designer/src/editors/schematic/menubar.js';
+import { buildMenus } from '@ziroeda/eeschema/menubar.js';
 import { eventFromCombo } from '@ziroeda/designer/src/editors/schematic/hotkey_bindings.js';
-import { dispatchMenuHotkey } from '@ziroeda/designer/src/ui/menu_hotkeys.js';
+import { dispatchMenuHotkey } from '@ziroeda/common/tool/action_menu_hotkeys.js';
 
 /** A stand-in event for `eventFromCombo` to build a synthetic keystroke from. */
 const BASE = {
@@ -34,8 +34,8 @@ const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
 const EDITOR = read('../../../designer/src/editors/schematic/SchematicEditor.tsx');
-const MENUBAR = read('../../../designer/src/editors/schematic/menubar.ts');
-const DIALOG = read('../../../designer/src/editors/schematic/dialogs/dialog_import_gfx.tsx');
+const MENUBAR = read('../../../eeschema/menubar.ts');
+const DIALOG = read('../../../eeschema/import_gfx/dialog_import_gfx_sch.tsx');
 
 describe('the way in', () => {
   it('the File > Import > Graphics entry dispatches rather than being a stub', () => {

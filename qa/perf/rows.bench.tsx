@@ -6,7 +6,7 @@
  */
 import { test } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
-import { LibTreeNode, LibTreeNodeType } from '@ziroeda/designer/src/widgets/lib_tree_model.js';
+import { LibTreeNode, LibTreeNodeType } from '@ziroeda/common/lib_tree_model.js';
 
 interface Row {
   node: LibTreeNode;
@@ -33,7 +33,7 @@ function makeRows(n: number): Row[] {
   return out;
 }
 
-// The row markup of designer/src/widgets/lib_tree.tsx, verbatim in shape.
+// The row markup of common/widgets/lib_tree.tsx, verbatim in shape.
 function Rows({ rows }: { rows: Row[] }): JSX.Element {
   return (
     <div className="ze-libtree-list">

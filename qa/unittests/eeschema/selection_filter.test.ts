@@ -7,14 +7,14 @@
  * category gates its kinds.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic } from '@ziroeda/eeschema';
 import {
   defaultSelectionFilter,
   applySelectionFilter,
   clickTarget,
   itemPassesFilter,
-} from '@ziroeda/eeschema/src/tools/sch_selection_filter.js';
+} from '@ziroeda/eeschema/tools/sch_selection_filter.js';
 
 const doc = readSchematic(
   parse(`(kicad_sch (version 20231120) (generator "test") (lib_symbols)

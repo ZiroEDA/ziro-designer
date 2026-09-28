@@ -15,8 +15,8 @@ import {
   unitDisplayName,
   unitLetter,
   unplacedUnits,
-} from '@ziroeda/eeschema/src/tools/symbol_unit.js';
-import type { LibSymbol, Schematic } from '@ziroeda/eeschema/src/types.js';
+} from '@ziroeda/eeschema/tools/symbol_unit.js';
+import type { LibSymbol, Schematic } from '@ziroeda/eeschema/types.js';
 
 /** A four-unit part; unit 3 carries a name of its own. */
 const LIB = `(symbol "Amp:LM324"

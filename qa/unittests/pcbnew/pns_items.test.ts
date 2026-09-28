@@ -29,13 +29,13 @@
  *   slot 0 — including the answer to `shape(-1)`.
  */
 import { describe, expect, it } from 'vitest';
-import { LineMarker, PnsKind } from '@ziroeda/pcbnew/src/router/pns_item.js';
-import { PnsLayerRange } from '@ziroeda/pcbnew/src/router/pns_layerset.js';
-import { PnsArc } from '@ziroeda/pcbnew/src/router/pns_arc.js';
-import { PnsHole } from '@ziroeda/pcbnew/src/router/pns_hole.js';
-import { PnsSegment } from '@ziroeda/pcbnew/src/router/pns_segment.js';
-import { PnsSolid } from '@ziroeda/pcbnew/src/router/pns_solid.js';
-import { PnsVia, PnsVVia, ViaStackMode } from '@ziroeda/pcbnew/src/router/pns_via.js';
+import { LineMarker, PnsKind } from '@ziroeda/pcbnew/router/pns_item.js';
+import { PnsLayerRange } from '@ziroeda/pcbnew/router/pns_layerset.js';
+import { PnsArc } from '@ziroeda/pcbnew/router/pns_arc.js';
+import { PnsHole } from '@ziroeda/pcbnew/router/pns_hole.js';
+import { PnsSegment } from '@ziroeda/pcbnew/router/pns_segment.js';
+import { PnsSolid } from '@ziroeda/pcbnew/router/pns_solid.js';
+import { PnsVia, PnsVVia, ViaStackMode } from '@ziroeda/pcbnew/router/pns_via.js';
 
 // ----- SEGMENT ------------------------------------------------------------------
 

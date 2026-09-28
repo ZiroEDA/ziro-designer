@@ -9,7 +9,8 @@
  * they match each other:
  *
  *   - the drawing sheet's `toFixed(6)` (`drawing_sheet/write.ts`);
- *   - `net_chains`'s `String(Number(v.toPrecision(10)))`;
+ *   - `net_chains`'s `String(Number(v.toPrecision(10)))` (that module has since
+ *     been removed — net chains were a KiCad master feature, not in 10.0.5);
  *   - `write-footprint`'s `toFixed(10)` — which is `%.10f`, not `%.10g`.
  *
  * Replacing all three with one port moved **zero** existing expectations, which
@@ -24,7 +25,7 @@
  * implementation returns, would make this file unable to fail.
  */
 import { describe, expect, it } from 'vitest';
-import { formatDouble2Str } from '@ziroeda/common/src/plotters/fmt.js';
+import { formatDouble2Str } from '@ziroeda/common/plotters/fmt.js';
 
 describe('the %.10g branch', () => {
   it('keeps ten significant digits, not ten decimal places', () => {
@@ -94,7 +95,7 @@ describe('the |v| <= 0.0001 branch', () => {
 describe('the drawing sheet writes through it', () => {
   it('no longer rounds a small value to a flat zero', async () => {
     const { serializeDrawingSheet, defaultDrawingSheet } = await import(
-      '@ziroeda/common/src/drawing_sheet/index.js'
+      '@ziroeda/common/drawing_sheet/index.js'
     );
     const sheet = defaultDrawingSheet();
     // A pen width below 1e-7: toFixed(6) wrote `0`, which reads back as "use

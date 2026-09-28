@@ -34,16 +34,17 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse, serialize, isList, head, type SNode } from '@ziroeda/sexpr';
 import { readSchematic, writeSchematic } from '@ziroeda/eeschema';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
-import { annotateSymbols, defaultAnnotateOptions } from '@ziroeda/eeschema/src/tools/annotate.js';
-import type { Schematic } from '@ziroeda/eeschema/src/types.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
+import { defaultAnnotateOptions } from '@ziroeda/eeschema/annotate.js';
+import { annotateSymbols } from '@ziroeda/eeschema/sch_reference_list.js';
+import type { Schematic } from '@ziroeda/eeschema/types.js';
 import {
   copySelectionText,
   parsePastedText,
   translatePayload,
   pasteItems,
-} from '@ziroeda/eeschema/src/tools/clipboard.js';
-import { refId } from '@ziroeda/eeschema/src/tools/hittest.js';
+} from '@ziroeda/eeschema/tools/clipboard.js';
+import { refId } from '@ziroeda/eeschema/tools/hittest.js';
 
 /** A whole, loadable document: KiCad needs the header, not just the items. */
 const sch = (body: string): Schematic =>
@@ -440,7 +441,7 @@ describe('a symbol reference lives in its (instances …), not its property', ()
   });
 
   // A symbol placed on two sheet paths. Our model has one reference per symbol
-  // and no current sheet path (tools/annotate.ts documents the difference), so
+  // and no current sheet path (annotate.ts documents the difference), so
   // the edit goes to the record the model's reference came from — the other
   // path keeps the annotation the file gave it rather than being overwritten
   // with a reference that was never about it.

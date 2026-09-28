@@ -29,10 +29,10 @@ import {
   boardEditHandles,
   dragBoardHandle,
   editablePointItems,
-} from '@ziroeda/pcbnew/src/point_editor.js';
-import { imageBBox } from '@ziroeda/pcbnew/src/image_geometry.js';
-import { boardItemId } from '@ziroeda/pcbnew/src/edit-board.js';
-import type { Board, PcbImage } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/tools/pcb_point_editor.js';
+import { imageBBox } from '@ziroeda/pcbnew/pcb_reference_image.js';
+import { boardItemId } from '@ziroeda/pcbnew/edit-board.js';
+import type { Board, PcbImage } from '@ziroeda/pcbnew/types.js';
 
 /**
  * A 2x2 red PNG, so `pngPixelSize` has something real to read.
@@ -182,7 +182,7 @@ describe('and the canvas draws what a selected or half-placed image needs', () =
     'utf8',
   );
   const RENDER = readFileSync(
-    fileURLToPath(new URL('../../../designer/src/editors/pcb/renderBoard.ts', import.meta.url)),
+    fileURLToPath(new URL('../../../pcbnew/renderBoard.ts', import.meta.url)),
     'utf8',
   );
 

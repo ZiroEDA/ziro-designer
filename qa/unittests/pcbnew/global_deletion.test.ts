@@ -23,7 +23,7 @@ import {
   layerMatchesDrawingFilter,
   layerMatchesFilter,
   type GlobalDeletionOptions,
-} from '@ziroeda/pcbnew/src/global_deletion.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_global_deletion.js';
 import type {
   Board,
   PcbArcTrack,
@@ -38,8 +38,8 @@ import type {
   PcbTrack,
   PcbVia,
   PcbZone,
-} from '@ziroeda/pcbnew/src/types.js';
-import type { SList, SNode } from '@ziroeda/sexpr/src/types.js';
+} from '@ziroeda/pcbnew/types.js';
+import type { SList, SNode } from '@ziroeda/sexpr/types.js';
 
 const P = (x: number, y: number) => ({ x, y });
 

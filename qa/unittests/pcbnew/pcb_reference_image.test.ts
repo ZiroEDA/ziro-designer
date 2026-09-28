@@ -13,12 +13,12 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { WX_IMAGE } from '@ziroeda/common/src/wx_image.js';
-import { FLIP_DIRECTION } from '@ziroeda/core/src/mirror.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { WX_IMAGE } from '@ziroeda/common/wx/wx_image.js';
+import { FLIP_DIRECTION } from '@ziroeda/core/mirror.js';
 import { EDA_ANGLE, EDA_ANGLE_T } from '@ziroeda/kimath/src/geometry/eda_angle.js';
-import { BOARD } from '@ziroeda/pcbnew/src/board.js';
-import { PCB_REFERENCE_IMAGE } from '@ziroeda/pcbnew/src/pcb_reference_image.js';
+import { BOARD } from '@ziroeda/pcbnew/board.js';
+import { PCB_REFERENCE_IMAGE } from '@ziroeda/pcbnew/pcb_reference_image.js';
 
 const dir = new URL('../../fixtures/png/', import.meta.url);
 const png = (name: string) =>

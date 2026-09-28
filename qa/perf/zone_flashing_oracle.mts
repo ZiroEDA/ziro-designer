@@ -22,14 +22,14 @@
  *     npx tsx perf/zone_flashing_oracle.mts <board.kicad_pcb>
  */
 import { readFileSync } from 'node:fs';
-import { EMBEDDED_FILES } from '@ziroeda/common/src/embedded_files.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
-import { ParseBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { ZONE_LAYER_OVERRIDE } from '@ziroeda/pcbnew/src/board_item.js';
-import { ZONE_FILLER } from '@ziroeda/pcbnew/src/zone_filler.js';
-import type { PCB_VIA } from '@ziroeda/pcbnew/src/pcb_track.js';
-import type { PAD } from '@ziroeda/pcbnew/src/pad.js';
+import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
+import { ZONE_LAYER_OVERRIDE } from '@ziroeda/pcbnew/board_item.js';
+import { ZONE_FILLER } from '@ziroeda/pcbnew/zone_filler.js';
+import type { PCB_VIA } from '@ziroeda/pcbnew/pcb_track.js';
+import type { PAD } from '@ziroeda/pcbnew/pad.js';
 
 await EMBEDDED_FILES.InitCodec();
 

@@ -6,10 +6,10 @@
  * no port, so the hasher checks are not here; `Compare` is what they hash.
  */
 import { describe, expect, it } from 'vitest';
-import { EDA_TEXT } from '@ziroeda/common/src/eda_text.js';
-import { pcbIUScale, unityScale } from '@ziroeda/common/src/eda_units.js';
-import { STRING_FORMATTER } from '@ziroeda/common/src/richio.js';
-import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/src/font/text_attributes.js';
+import { EDA_TEXT } from '@ziroeda/common/eda_text.js';
+import { pcbIUScale, unityScale } from '@ziroeda/common/eda_units.js';
+import { STRING_FORMATTER } from '@ziroeda/common/richio.js';
+import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/font/text_attributes.js';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 
 describe('EdaText', () => {

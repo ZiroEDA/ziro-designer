@@ -31,8 +31,8 @@ import { COMMON_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
 const src = (rel: string): string =>
   readFileSync(resolve(process.cwd(), '../designer/src', rel), 'utf8');
 
-const CSS = src('ui/shell.css');
-const PANEL = src('dialogs/prefs/panels/PanelMaintenance.tsx');
+const CSS = src('../../common/widgets/shell.css');
+const PANEL = src('../../common/dialogs/panel_maintenance.tsx');
 const DIALOG = src('dialogs/PreferencesDialog.tsx');
 /** Comments stripped: prose ABOUT a control is not that control. */
 const strip = (s: string): string =>
@@ -149,7 +149,7 @@ describe('the 3D cache duration is a live control', () => {
     const frame = strip(src('editors/pcb/PcbEditor.tsx'));
     expect(frame).toMatch(/cleanup3dCache\(settings\.common\.system\.clear_3d_cache_interval\)/);
     // Neither way out of the editor may call `onExit` raw. The File menu's
-    // Close is one step further away since the bar became `editors/pcb/menubar.ts`:
+    // Close is one step further away since the bar became `pcbnew/menubar_pcb_editor.ts`:
     // the row dispatches `close`, and the frame's switch is what runs
     // `closeFrame` — so the assertion is on the case, not on the row.
     expect(frame).toMatch(/case 'showProjectManager':\s*\n\s*case 'close':\s*\n\s*closeFrame\(\);/);
@@ -174,7 +174,9 @@ describe('every button on the page is live', () => {
     const at = CODE.indexOf('Reset &quot;Don&apos;t Show Again&quot; Dialogs');
     expect(at).toBeGreaterThan(-1);
     const arm = CODE.slice(CODE.lastIndexOf('<button', at), at);
-    expect(arm).toMatch(/clearDoNotShowAgainSettings\(\)/);
+    // The persisted half is the settings manager's since 09-26 (the panel is
+    // handed the operations upstream reaches through Pgm()).
+    expect(arm).toMatch(/settingsManager\.ClearDontShowAgain\(\)/);
     expect(arm).toMatch(/clearDoNotShowAgainDialogs\(\)/);
   });
 

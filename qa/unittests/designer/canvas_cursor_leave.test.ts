@@ -38,12 +38,7 @@ import { describe, expect, it } from 'vitest';
 const SRC = fileURLToPath(new URL('../../../designer/src/editors/', import.meta.url));
 
 /** Every canvas that draws a crosshair and reports a cursor to a status bar. */
-const CANVASES = [
-  'drawingsheet/DrawingSheetCanvas.tsx',
-  'gerbview/GerberCanvas.tsx',
-  'symbol/SymbolCanvas.tsx',
-  'footprint/FootprintCanvas.tsx',
-];
+const CANVASES = ['symbol/SymbolCanvas.tsx', 'footprint/FootprintCanvas.tsx'];
 
 /**
  * A canvas's source with comments blanked.

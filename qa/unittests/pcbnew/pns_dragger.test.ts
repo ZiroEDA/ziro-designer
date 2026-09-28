@@ -29,29 +29,29 @@
  *   `iter == aMaxIterations` boundary.
  */
 import { describe, expect, it } from 'vitest';
-import { PnsDragger, viaPushoutForce } from '@ziroeda/pcbnew/src/router/pns_dragger.js';
+import { PnsDragger, viaPushoutForce } from '@ziroeda/pcbnew/router/pns_dragger.js';
 import {
   PnsDragMode,
   makePnsRouterHost,
   type PnsRouterHost,
-} from '@ziroeda/pcbnew/src/router/pns_drag_algo.js';
-import { PnsNode } from '@ziroeda/pcbnew/src/router/pns_node.js';
-import { type PnsLine, PnsLineChain } from '@ziroeda/pcbnew/src/router/pns_line_item.js';
-import { PnsSegment } from '@ziroeda/pcbnew/src/router/pns_segment.js';
-import { PnsArc } from '@ziroeda/pcbnew/src/router/pns_arc.js';
-import { PnsSolid } from '@ziroeda/pcbnew/src/router/pns_solid.js';
-import { PnsVVia, PnsVia } from '@ziroeda/pcbnew/src/router/pns_via.js';
-import { PnsItemSet } from '@ziroeda/pcbnew/src/router/pns_itemset.js';
-import { PnsLayerRange } from '@ziroeda/pcbnew/src/router/pns_layerset.js';
-import { PnsKind } from '@ziroeda/pcbnew/src/router/pns_item.js';
-import { itemHull } from '@ziroeda/pcbnew/src/router/pns_item_hull.js';
+} from '@ziroeda/pcbnew/router/pns_drag_algo.js';
+import { PnsNode } from '@ziroeda/pcbnew/router/pns_node.js';
+import { type PnsLine, PnsLineChain } from '@ziroeda/pcbnew/router/pns_line_item.js';
+import { PnsSegment } from '@ziroeda/pcbnew/router/pns_segment.js';
+import { PnsArc } from '@ziroeda/pcbnew/router/pns_arc.js';
+import { PnsSolid } from '@ziroeda/pcbnew/router/pns_solid.js';
+import { PnsVVia, PnsVia } from '@ziroeda/pcbnew/router/pns_via.js';
+import { PnsItemSet } from '@ziroeda/pcbnew/router/pns_itemset.js';
+import { PnsLayerRange } from '@ziroeda/pcbnew/router/pns_layerset.js';
+import { PnsKind } from '@ziroeda/pcbnew/router/pns_item.js';
+import { itemHull } from '@ziroeda/pcbnew/router/pns_item_hull.js';
 import {
   DEFAULT_ROUTING_SETTINGS,
   PnsMode,
   type RoutingSettings,
-} from '@ziroeda/pcbnew/src/router/pns_routing_settings.js';
-import type { PnsItem } from '@ziroeda/pcbnew/src/router/pns_item.js';
-import type { NetHandle, PnsRuleResolver } from '@ziroeda/pcbnew/src/router/pns_collision.js';
+} from '@ziroeda/pcbnew/router/pns_routing_settings.js';
+import type { PnsItem } from '@ziroeda/pcbnew/router/pns_item.js';
+import type { NetHandle, PnsRuleResolver } from '@ziroeda/pcbnew/router/pns_collision.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 const V = (x: number, y: number): Vec2 => ({ x, y });

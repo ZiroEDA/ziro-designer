@@ -24,14 +24,7 @@ import { describe, expect, it } from 'vitest';
 
 const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 
-const SOURCE_DIRS = [
-  'designer/src',
-  'common/src',
-  'eeschema/src',
-  'pcbnew/src',
-  'gerbview/src',
-  'pcb_calculator/src',
-];
+const SOURCE_DIRS = ['designer/src', 'common', 'eeschema', 'pcbnew', 'gerbview', 'pcb_calculator'];
 
 /**
  * The occurrences that are not this convention at all.
@@ -42,18 +35,20 @@ const SOURCE_DIRS = [
  * one is a decision somebody writes down.
  */
 const ALLOWED = new Map<string, string>([
-  ['eeschema/src/tools/sch_collectors.ts', 'ellipsize() truncates a long name'],
+  ['eeschema/sch_collectors.ts', 'ellipsize() truncates a long name'],
   ['designer/src/ui/hotkeys_inventory.ts', 'a regex that must keep matching BOTH forms'],
   // The marker moved with the Nets list into the shared APPEARANCE_CONTROLS.
-  ['designer/src/widgets/appearance_controls.tsx', 'a leading "…N more" truncation marker'],
+  ['pcbnew/widgets/appearance_controls.tsx', 'a leading "…N more" truncation marker'],
   ['designer/src/telemetry/scrub.ts', '"…[truncated]" in a scrubbed report'],
-  ['common/src/drawing_sheet/read.ts', 'an elided s-expression in a parser error'],
+  ['common/drawing_sheet/read.ts', 'an elided s-expression in a parser error'],
 ]);
 
 /** Source files, comments blanked, so prose about the rule is not the rule. */
 function* codeLines(): Generator<{ where: string; line: string }> {
   const walk = function* (dir: string): Generator<string> {
     for (const name of readdirSync(dir)) {
+      // node_modules sits beside the sources now that pcbnew has no src/.
+      if (name === 'node_modules' || name === 'dist') continue;
       const full = `${dir}/${name}`;
       if (statSync(full).isDirectory()) yield* walk(full);
       else if (/\.(ts|tsx|css)$/.test(name)) yield full;

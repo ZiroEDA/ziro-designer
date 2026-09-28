@@ -9,7 +9,7 @@ import {
 } from '@ziroeda/eeschema';
 import { iuToMM, schIUScale } from '@ziroeda/common';
 import { mmToIU, symbolTransform, composeMirror, orientationFromTransform } from '@ziroeda/common';
-import type { FieldTemplate } from '../schematic_settings.js';
+import type { FieldTemplate } from '@ziroeda/eeschema/schematic_settings.js';
 import {
   canDeleteRow,
   canMoveRowDown,
@@ -26,7 +26,7 @@ import {
   rowsFromSymbol,
   validateRows,
   type FieldRow,
-} from '../symbol_props_rows.js';
+} from '@ziroeda/eeschema/fields_grid_table.js';
 import { useMemo, useState, type JSX } from 'react';
 import {
   effectiveHorizJustify,
@@ -54,23 +54,27 @@ import {
   embeddedFilesIn,
 } from '@ziroeda/eeschema';
 import { PIN_SHAPE_BITMAPS, PIN_TYPE_BITMAPS } from '../pin_icons.js';
-import { bitmapUrl } from '../../../ui/toolbarIcons.js';
+import { bitmapUrl } from '@ziroeda/common/bitmap_store.js';
 import {
   DEFAULT_FONT_NAME,
   KICAD_FONT_NAME,
   measureText,
-} from '@ziroeda/common/src/font/stroke_font.js';
-import { BUNDLED_FAMILIES } from '../../../font/outline_fonts.js';
-import { parseUnitValueDouble, stringFromValue, type EdaUnits } from '../../../ui/unit_binder.js';
-import { useModalEscape } from '../../../ui/useModalEscape.js';
-import { ColorSwatch } from '../../../ui/ColorSwatch.js';
-import { Icon } from '../../../ui/icons.js';
+} from '@ziroeda/common/font/stroke_font.js';
+import { BUNDLED_FAMILIES } from '@ziroeda/common/font/outline_fonts.js';
+import {
+  parseUnitValueDouble,
+  stringFromValue,
+  type EdaUnits,
+} from '@ziroeda/common/widgets/unit_binder.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { ColorSwatch } from '@ziroeda/common/widgets/color_swatch.js';
+import { Icon } from '@ziroeda/common/widgets/icons.js';
 // The wxChoice port. A native <select> draws its option list with the OS,
 // so its highlight is Chrome's blue rgb(153,200,255) where GTK paints
 // rgb(62,62,62) — see the header of ui/Combo.tsx for the measurements.
-import { Combo } from '../../../ui/Combo.js';
-import { StdBitmapButton } from '../../../ui/StdBitmapButton.js';
-import { color4dToItemColor, itemColorToColor4d } from '../dialogs/item_color.js';
+import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
+import { StdBitmapButton } from '@ziroeda/common/widgets/std_bitmap_button.js';
+import { color4dToItemColor, itemColorToColor4d } from '@ziroeda/eeschema/dialogs/item_color.js';
 
 /**
  * Symbol Properties. Counterpart: `DIALOG_SYMBOL_PROPERTIES`
@@ -1462,7 +1466,7 @@ export function SymbolPropertiesDialog({
               live for every other one, with no wxUpdateUI handler and no
               enable condition at all.
               SEAM: it stays disabled here because `OnEditSpiceModel` (:587)
-              opens DIALOG_SIM_MODEL, which is not ported — eeschema/src/sim/
+              opens DIALOG_SIM_MODEL, which is not ported — eeschema/sim/
               carries the model types the SPICE exporter needs, not the dialog.
               A live button that opened nothing would be the worse divergence,
               so the reason is stated in the tooltip the user actually sees. */}

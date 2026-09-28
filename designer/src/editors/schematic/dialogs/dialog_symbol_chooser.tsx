@@ -16,7 +16,7 @@ import {
   type PickedSymbol,
 } from '../widgets/panel_symbol_chooser.js';
 import { useDialogControl } from '../../../ui/useDialogControl.js';
-import { useModalEscape } from '../../../ui/useModalEscape.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 export type { PickedSymbol } from '../widgets/panel_symbol_chooser.js';
 

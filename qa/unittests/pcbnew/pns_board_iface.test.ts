@@ -29,16 +29,16 @@ import {
   padHoleShape,
   pnsLayerFromBoardLayer,
   solidShapeForPad,
-} from '@ziroeda/pcbnew/src/router/pns_board_iface.js';
-import { setRouterIface } from '@ziroeda/pcbnew/src/router/pns_collision.js';
-import { PnsKind } from '@ziroeda/pcbnew/src/router/pns_item.js';
-import { PnsLayerRange } from '@ziroeda/pcbnew/src/router/pns_layerset.js';
-import { PnsNode } from '@ziroeda/pcbnew/src/router/pns_node.js';
-import type { PnsBoardNet } from '@ziroeda/pcbnew/src/router/pns_board_iface.js';
-import type { PnsSegment } from '@ziroeda/pcbnew/src/router/pns_segment.js';
-import type { PnsSolid } from '@ziroeda/pcbnew/src/router/pns_solid.js';
-import type { PnsVia } from '@ziroeda/pcbnew/src/router/pns_via.js';
-import type { Board, PcbPad } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/router/pns_board_iface.js';
+import { setRouterIface } from '@ziroeda/pcbnew/router/pns_collision.js';
+import { PnsKind } from '@ziroeda/pcbnew/router/pns_item.js';
+import { PnsLayerRange } from '@ziroeda/pcbnew/router/pns_layerset.js';
+import { PnsNode } from '@ziroeda/pcbnew/router/pns_node.js';
+import type { PnsBoardNet } from '@ziroeda/pcbnew/router/pns_board_iface.js';
+import type { PnsSegment } from '@ziroeda/pcbnew/router/pns_segment.js';
+import type { PnsSolid } from '@ziroeda/pcbnew/router/pns_solid.js';
+import type { PnsVia } from '@ziroeda/pcbnew/router/pns_via.js';
+import type { Board, PcbPad } from '@ziroeda/pcbnew/types.js';
 
 const ECC83 = new URL('../../../designer/public/demos/ecc83/ecc83-pp.kicad_pcb', import.meta.url);
 

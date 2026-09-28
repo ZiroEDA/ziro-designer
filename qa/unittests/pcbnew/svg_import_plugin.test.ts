@@ -3,22 +3,23 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { describe, it, expect } from 'vitest';
 import type { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
-import type { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/src/eda_text.js';
+import type { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/eda_text.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-import { LINE_STYLE, COLOR4D_BLACK, type Color4d } from '@ziroeda/pcbnew/src/plot_dxf.js';
+import { COLOR4D_BLACK, type Color4d } from '@ziroeda/common/gal/color4d.js';
+import { LINE_STYLE } from '@ziroeda/common/stroke_params.js';
 import {
   COLOR4D_UNSPECIFIED,
   GRAPHICS_IMPORTER,
   GRAPHICS_IMPORTER_BUFFER,
   IMPORTED_STROKE,
   POLY_FILL_RULE,
-} from '@ziroeda/common/src/import_gfx/graphics_importer.js';
+} from '@ziroeda/common/import_gfx/graphics_importer.js';
 import {
   NSVG_FLAGS_VISIBLE,
   NSVGfillRule,
   NSVGpaintType,
   nsvgParse,
-} from '@ziroeda/common/src/import_gfx/nanosvg.js';
+} from '@ziroeda/common/import_gfx/nanosvg.js';
 import {
   GatherInterpolatedCubicBezierCurve,
   GatherInterpolatedCubicBezierPath,
@@ -26,7 +27,7 @@ import {
   calculateBezierSegmentationThreshold,
   distanceFromPointToLine,
   getBezierPoint,
-} from '@ziroeda/common/src/import_gfx/svg_import_plugin.js';
+} from '@ziroeda/common/import_gfx/svg_import_plugin.js';
 
 // ---------------------------------------------------------------------------
 // harness

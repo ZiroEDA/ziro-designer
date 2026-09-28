@@ -25,7 +25,7 @@ import {
   readRoutingSettings,
   writeRoutingSettings,
   type RoutingSettings,
-} from '@ziroeda/pcbnew/src/router/pns_routing_settings.js';
+} from '@ziroeda/pcbnew/router/pns_routing_settings.js';
 
 /** Every key `m_params` registers, in registration order (plus `meta`). */
 const PARAM_KEYS = [

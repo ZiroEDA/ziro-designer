@@ -18,12 +18,16 @@
  * a step away from the tracks and pads KiCad placed on the grid.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { boardGridOrigin } from '@ziroeda/pcbnew/src/plot_gerber.js';
-import { snapToGridSize } from '@ziroeda/designer/src/editors/pcb/pcb_grid.js';
-import { pcbGridOptions } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
-import { drawGrid, visibleGridStep } from '@ziroeda/designer/src/ui/grid_cursor.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { boardGridOrigin } from '@ziroeda/pcbnew/board_design_settings.js';
+import { align } from '@ziroeda/pcbnew/tools/pcb_grid_helper.js';
+import { pcbGridOptions } from '@ziroeda/pcbnew/renderBoard.js';
+import { drawGrid, visibleGridStep } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
+
+/** `PCB_GRID_HELPER::Align` on a grid of `size` about `origin`, snapping on. */
+const gridAlign = (p: { x: number; y: number }, size: number, origin: { x: number; y: number }) =>
+  align(p, { size, origin, enableGrid: true, enableSnap: true });
 
 const MM = 1e6;
 
@@ -57,22 +61,22 @@ describe('snapping (GRID_HELPER::computeNearest)', () => {
     // A point already on that grid is left exactly where it is — which is the
     // property that matters, because it is where KiCad put the track.
     const onGrid = { x: origin.x + 7 * step, y: origin.y - 3 * step };
-    expect(snapToGridSize(onGrid, step, origin)).toEqual(onGrid);
+    expect(gridAlign(onGrid, step, origin)).toEqual(onGrid);
     // And the same point snapped to a grid anchored at zero is moved, so the
     // two answers really do differ on this board.
-    expect(snapToGridSize(onGrid, step, { x: 0, y: 0 })).not.toEqual(onGrid);
+    expect(gridAlign(onGrid, step, { x: 0, y: 0 })).not.toEqual(onGrid);
   });
 
   it('rounds to the nearest node, not toward the origin', () => {
     const origin = { x: 1000, y: 1000 };
-    expect(snapToGridSize({ x: 1000 + step * 0.6, y: 1000 }, step, origin).x).toBe(1000 + step);
-    expect(snapToGridSize({ x: 1000 + step * 0.4, y: 1000 }, step, origin).x).toBe(1000);
+    expect(gridAlign({ x: 1000 + step * 0.6, y: 1000 }, step, origin).x).toBe(1000 + step);
+    expect(gridAlign({ x: 1000 + step * 0.4, y: 1000 }, step, origin).x).toBe(1000);
     // Negative offsets round the same way rather than truncating toward zero.
-    expect(snapToGridSize({ x: 1000 - step * 0.6, y: 1000 }, step, origin).x).toBe(1000 - step);
+    expect(gridAlign({ x: 1000 - step * 0.6, y: 1000 }, step, origin).x).toBe(1000 - step);
   });
 
   it('leaves a point alone rather than dividing by a zero grid', () => {
-    expect(snapToGridSize({ x: 7, y: 9 }, 0, { x: 0, y: 0 })).toEqual({ x: 7, y: 9 });
+    expect(gridAlign({ x: 7, y: 9 }, 0, { x: 0, y: 0 })).toEqual({ x: 7, y: 9 });
   });
 });
 

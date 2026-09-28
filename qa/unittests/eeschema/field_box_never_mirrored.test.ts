@@ -32,8 +32,8 @@
  * the alternative — a comment alone — is exactly what a later reader "fixes".
  */
 import { describe, expect, it } from 'vitest';
-import { fieldTextBox } from '@ziroeda/eeschema/src/fieldbox.js';
-import type { SchField } from '@ziroeda/eeschema/src/types.js';
+import { fieldTextBox } from '@ziroeda/eeschema/fieldbox.js';
+import type { SchField } from '@ziroeda/eeschema/types.js';
 
 const SIZE = 1270000;
 

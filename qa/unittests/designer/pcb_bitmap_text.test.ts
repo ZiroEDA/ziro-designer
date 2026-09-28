@@ -16,14 +16,14 @@
  * net-name pass actually reaches it.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import type { Board } from '@ziroeda/pcbnew/src/types.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import type { Board } from '@ziroeda/pcbnew/types.js';
 import {
   bitmapTextSize,
   glyphIndex,
   layoutBitmapText,
-} from '@ziroeda/designer/src/render/gl/bitmap_text.js';
+} from '@ziroeda/common/gal/opengl/bitmap_text.js';
 import {
   ATLAS_HEIGHT,
   ATLAS_WIDTH,
@@ -31,8 +31,8 @@ import {
   GLYPHS,
   GLYPH_STRIDE,
   LAST_CODEPOINT,
-} from '@ziroeda/designer/src/render/gl/bitmap_font.js';
-import { buildScene, drawNetNames } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
+} from '@ziroeda/common/gal/opengl/bitmap_font.js';
+import { buildScene, drawNetNames } from '@ziroeda/pcbnew/renderBoard.js';
 import { GL_PATH_FACTORY } from '@ziroeda/designer/src/render/gl/gl_path.js';
 import { GlRecorder } from '@ziroeda/designer/src/render/gl/recorder.js';
 import { Scene } from '@ziroeda/designer/src/render/gl/scene.js';

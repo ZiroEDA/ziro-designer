@@ -31,16 +31,16 @@ import {
   TOOLBAR_LOC_NAMES,
   type ToolbarDefaults,
   type ToolbarSettings,
-} from '@ziroeda/designer/src/ui/toolbar_config.js';
+} from '@ziroeda/common/tool/ui/toolbar_configuration.js';
 import {
   DS_DEFAULT_TOOLBARS,
   DS_LEFT_TOOLBAR,
   DS_RIGHT_TOOLBAR,
   DS_TOP_TOOLBAR,
-} from '@ziroeda/designer/src/editors/drawingsheet/drawingSheetToolbars.js';
-import { SCH_DEFAULT_TOOLBARS } from '@ziroeda/designer/src/editors/schematic/toolbars_sch_editor.js';
-import { PCB_DEFAULT_TOOLBARS } from '@ziroeda/designer/src/editors/pcb/pcbToolbars.js';
-import type { ToolEntry } from '@ziroeda/designer/src/ui/toolbar_types.js';
+} from '@ziroeda/pagelayout_editor/toolbars_pl_editor.js';
+import { SCH_DEFAULT_TOOLBARS } from '@ziroeda/eeschema/toolbars_sch_editor.js';
+import { PCB_DEFAULT_TOOLBARS } from '@ziroeda/pcbnew/toolbars_pcb_editor.js';
+import type { ToolEntry } from '@ziroeda/common/tool/action_toolbar_types.js';
 import {
   EESCHEMA_DEFAULTS,
   PCBNEW_DEFAULTS,

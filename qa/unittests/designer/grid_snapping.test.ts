@@ -34,8 +34,11 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
-import { gridSnappingEnabled, type GridSnapping } from '@ziroeda/designer/src/ui/grid_cursor.js';
-import { GRID_SNAP_CHOICES } from '@ziroeda/designer/src/dialogs/prefs/gal_options.js';
+import {
+  gridSnappingEnabled,
+  type GridSnapping,
+} from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
+import { GRID_SNAP_CHOICES } from '@ziroeda/common/dialogs/panel_gal_options.js';
 import {
   EESCHEMA_DEFAULTS,
   GERBVIEW_DEFAULTS,
@@ -104,8 +107,6 @@ describe('every app defaults to ALWAYS, so the sweep changed no default', () => 
 const CANVAS: Record<string, string> = {
   eeschema: 'editors/schematic/components/SchematicCanvas.tsx',
   symbol_editor: 'editors/symbol/grid.ts',
-  pl_editor: 'editors/drawingsheet/DrawingSheetCanvas.tsx',
-  gerbview: 'editors/gerbview/GerberCanvas.tsx',
 };
 
 /** The settings-object expression each canvas must reach for. */
@@ -149,22 +150,6 @@ describe('each canvas asks GetGridSnapping, with its own settings', () => {
     expect(src).toMatch(/snapping\s*\?\s*\{\s*x:\s*Math\.round\(p\.x \/ GRID\)/);
     expect(src).toMatch(/:\s*p;/);
   });
-
-  it('the drawing sheet no longer ties snapping to Show Grid', () => {
-    // It was `showGrid && gridIU > 0`, i.e. WITH_GRID hardcoded.
-    const src = read(CANVAS.pl_editor as string);
-    expect(src).toContain('snapping && gridIU > 0');
-    expect(src).not.toContain('showGrid && gridIU > 0');
-  });
-
-  it('gerbview no longer ties its crosshair to Show Grid', () => {
-    // It was `sg && g > 0`, where `sg` was `showGrid` off the same ref.
-    const src = read(CANVAS.gerbview as string);
-    expect(src).toContain('sn && g > 0');
-    expect(src).not.toMatch(
-      /const \{ showGrid: sg[^}]*\} = gridRef\.current;\s*\n\s*const snapped/,
-    );
-  });
 });
 
 // ------------------------------------------------------------------- the pages
@@ -173,8 +158,8 @@ describe('the choice is drawn live, because it now is', () => {
   it.each([
     ['schematic', 'editors/schematic/prefs/PanelEeschemaDisplayOptions.tsx'],
     ['symbol', 'editors/symbol/prefs/PanelSymbolEditorDisplayOptions.tsx'],
-    ['drawing sheet', 'editors/drawingsheet/prefs/PanelPlEditorDisplayOptions.tsx'],
-    ['gerbview', 'editors/gerbview/prefs/PanelGerbviewDisplayOptions.tsx'],
+    ['drawing sheet', '../../pagelayout_editor/dialogs/panel_pl_editor_display_options_ui.tsx'],
+    ['gerbview', '../../gerbview/dialogs/panel_gerbview_display_options_ui.tsx'],
   ])('%s embeds the shared PANEL_GAL_OPTIONS over its own window slice', (_name, rel) => {
     const src = read(rel);
     expect(src).toContain('<PanelGalOptions');

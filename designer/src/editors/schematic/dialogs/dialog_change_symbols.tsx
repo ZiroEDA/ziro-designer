@@ -44,9 +44,9 @@ import {
   type SymbolMatchMode,
 } from '@ziroeda/eeschema';
 import { RPT_SEVERITY_ACTION, RPT_SEVERITY_ERROR, type ReportLine } from '@ziroeda/common';
-import { useModalEscape } from '../../../ui/useModalEscape.js';
-import { HtmlReportPanel, RPT_SEVERITY_ALL } from '../../../widgets/wx_html_report_panel.js';
-import { Icon } from '../../../ui/icons.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { HtmlReportPanel, RPT_SEVERITY_ALL } from '@ziroeda/common/widgets/wx_html_report_panel.js';
+import { Icon } from '@ziroeda/common/widgets/icons.js';
 import { SymbolChooserFrame } from './symbol_chooser_frame.js';
 import type { PickedSymbol } from '../widgets/panel_symbol_chooser.js';
 
@@ -402,7 +402,7 @@ export function DialogChangeSymbols({
                 {/* m_fieldsBox is a wxCheckListBox: a bordered, scrolling list
                   with a checkbox per row, which is why it reads as a box and
                   not as a run of loose checkboxes. */}
-                <div className="ze-chsym-fieldbox">
+                <div className="ze-checklistbox ze-chsym-fieldbox">
                   {fieldNames.map((name) => (
                     <label className="row" key={name}>
                       <input

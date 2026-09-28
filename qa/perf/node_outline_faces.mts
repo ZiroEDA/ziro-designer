@@ -3,9 +3,9 @@
 // fetches — so a qa run resolves the outline fonts KiCad's oracle used.
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { findFont } from '@ziroeda/common/src/font/fontconfig.js';
-import { OUTLINE_FONT } from '@ziroeda/common/src/font/outline_font.js';
-import { type OutlineFace, parseOutlineFace } from '@ziroeda/common/src/font/outline_face.js';
+import { findFont } from '@ziroeda/common/font/fontconfig.js';
+import { OUTLINE_FONT } from '@ziroeda/common/font/outline_font.js';
+import { type OutlineFace, parseOutlineFace } from '@ziroeda/common/font/outline_face.js';
 
 const fontsDir = fileURLToPath(new URL('../../designer/public/fonts/', import.meta.url));
 const faces = new Map<string, OutlineFace | null>();

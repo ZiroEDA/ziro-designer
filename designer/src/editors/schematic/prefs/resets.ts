@@ -18,11 +18,11 @@
  * so upstream greys the button out on that page.
  */
 import { EESCHEMA_DEFAULTS } from '../../../prefs/settings.js';
-import { resetKeys } from '../../../dialogs/prefs/reset.js';
+import { resetKeys } from '@ziroeda/common/settings/json_settings.js';
 import { MOUSE_DEFAULTS } from './PanelSimulatorPreferences.js';
 import { templateNamesNeedingTrim, transferTemplateFieldnames } from '../template_fieldnames.js';
 import type { PrefsContext, PrefsTransferPrompt } from '../../../dialogs/prefs/types.js';
-import { resetToolbarsPanel } from '../../../dialogs/prefs/toolbar_reset.js';
+import { resetToolbarsPanel } from '@ziroeda/common/tool/ui/toolbar_configuration.js';
 
 /**
  * `PANEL_EESCHEMA_DISPLAY_OPTIONS::ResetPanel`

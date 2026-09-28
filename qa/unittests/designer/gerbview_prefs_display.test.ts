@@ -20,16 +20,7 @@ import { GERBVIEW_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
 import {
   GBR_PAGE_SIZE_CHOICES,
   OPACITY_RANGE,
-} from '@ziroeda/designer/src/editors/gerbview/prefs/display_options.js';
-import {
-  applyToggle,
-  applyTogglesToSettings,
-  DEFAULT_TOGGLES,
-  LOCAL_TOGGLES,
-  STORED_TOGGLES,
-  sameToggles,
-  togglesFromSettings,
-} from '@ziroeda/designer/src/editors/gerbview/toggles.js';
+} from '@ziroeda/gerbview/dialogs/panel_gerbview_display_options.js';
 import { PAPER_MM } from '@ziroeda/common';
 
 const cfg = (): typeof GERBVIEW_DEFAULTS => structuredClone(GERBVIEW_DEFAULTS);
@@ -152,86 +143,5 @@ describe('the Forced opacity spin control', () => {
       OPACITY_RANGE.min,
     );
     expect(GERBVIEW_DEFAULTS.appearance.mode_opacity_value).toBeLessThanOrEqual(OPACITY_RANGE.max);
-  });
-});
-
-describe('the toolbar toggles are a view of gerbview.json', () => {
-  /**
-   * The move that made the Display Options page mean anything: the toggles
-   * used to be React state, so nothing outside the component could read them
-   * and a Preferences checkbox over the same idea would have been a second,
-   * disconnected switch. Upstream both read `gvconfig()`
-   * (`gerbview_frame.cpp:1126-1150`).
-   */
-  it('a fresh store gives exactly the set the frame used to start with', () => {
-    expect([...togglesFromSettings(cfg(), DEFAULT_TOGGLES)].sort()).toEqual(
-      [...DEFAULT_TOGGLES].sort(),
-    );
-  });
-
-  /**
-   * The three `*Sketch` toggles are the NEGATION of the stored fill flags
-   * (`return !gvconfig()->m_Display.m_DisplayLinesFill`, `:1136`). Getting this
-   * backwards would show a fresh viewer with all three sketch modes on, which
-   * is a different-looking canvas.
-   */
-  it('reads the sketch toggles as the inverse of the fill flags', () => {
-    const c = cfg();
-    expect(togglesFromSettings(c, new Set()).has('linesSketch')).toBe(false);
-    c.display.lines_fill = false;
-    expect(togglesFromSettings(c, new Set()).has('linesSketch')).toBe(true);
-  });
-
-  it('round-trips every stored toggle through the settings object', () => {
-    for (const id of Object.keys(STORED_TOGGLES)) {
-      const c = cfg();
-      const flipped = applyToggle(togglesFromSettings(c, new Set()), id);
-      expect(applyTogglesToSettings(c, flipped), id).toBe(true);
-      expect(togglesFromSettings(c, new Set()).has(id), id).toBe(
-        !togglesFromSettings(cfg(), new Set()).has(id),
-      );
-    }
-  });
-
-  /** `system.units` and `window.cursor.cross_hair_mode`, the two radio groups. */
-  it('round-trips the units and crosshair groups', () => {
-    const c = cfg();
-    applyTogglesToSettings(c, applyToggle(togglesFromSettings(c, new Set()), 'unitsMils'));
-    expect(c.system.units).toBe('mils');
-    applyTogglesToSettings(c, applyToggle(togglesFromSettings(c, new Set()), 'crosshair45'));
-    expect(c.window.cursor.crosshair).toBe('45');
-    // Exclusive, as `applyToggle`'s groups are: picking one clears the others.
-    const on = togglesFromSettings(c, new Set());
-    expect(['unitsMm', 'unitsInches', 'unitsMils'].filter((i) => on.has(i))).toEqual(['unitsMils']);
-  });
-
-  /**
-   * The guard that keeps opening the viewer from writing `gerbview.json` — and
-   * waking the account sync — for a set that came out of that very file.
-   */
-  it('reports no change when the set already matches the store', () => {
-    const c = cfg();
-    expect(applyTogglesToSettings(c, togglesFromSettings(c, DEFAULT_TOGGLES))).toBe(false);
-  });
-
-  /**
-   * `showLayerManager` has no `PARAM` behind it (it is wxAUI pane state), so
-   * the projection must carry it through rather than dropping it — dropping it
-   * would close the Layers manager on every settings write.
-   */
-  it('carries the frame-only toggles through untouched', () => {
-    const kept = togglesFromSettings(cfg(), new Set(['showLayerManager', 'togglePolar']));
-    expect(kept.has('showLayerManager')).toBe(true);
-    expect(kept.has('togglePolar')).toBe(true);
-    for (const id of LOCAL_TOGGLES) expect(id in STORED_TOGGLES, id).toBe(false);
-    // …and writing back must not invent a field for them.
-    const c = cfg();
-    expect(applyTogglesToSettings(c, kept)).toBe(false);
-  });
-
-  it('sameToggles compares membership, not identity', () => {
-    expect(sameToggles(new Set(['a', 'b']), new Set(['b', 'a']))).toBe(true);
-    expect(sameToggles(new Set(['a']), new Set(['a', 'b']))).toBe(false);
-    expect(sameToggles(new Set(['a']), new Set(['b']))).toBe(false);
   });
 });

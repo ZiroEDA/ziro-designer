@@ -49,9 +49,9 @@ function read(rel: string): string {
   );
 }
 
-const SHELL = read('ui/shell.css');
-const PROPS = read('widgets/properties_panel.css');
-const APPEAR = read('widgets/appearance_controls.css');
+const SHELL = read('../../common/widgets/shell.css');
+const PROPS = read('../../common/widgets/properties_panel.css');
+const APPEAR = read('../../pcbnew/widgets/appearance_controls.css');
 
 /**
  * A rule's DECLARATIONS, by exact selector, with the comments stripped.
@@ -155,7 +155,7 @@ describe('APPEARANCE_CONTROLS', () => {
     expect(body(APPEAR, '.ze-appearance > .ze-nb-frame')).toMatch(/margin:\s*5px 0/);
     // The shared notebook box, the same one PANEL_SYMBOL_PROPS takes.
     expect(SHELL).toContain('.ze-nb-frame {');
-    const tsx = read('widgets/appearance_controls.tsx');
+    const tsx = read('../../pcbnew/widgets/appearance_controls.tsx');
     expect(tsx).toContain('className="ze-nb-frame ze-appearance-nb"');
   });
 
@@ -211,8 +211,8 @@ describe('the three pages, and the controls on them', () => {
   });
 
   it('and the slider on it is the shared one, not a range input of its own', () => {
-    const tsx = read('widgets/appearance_controls.tsx');
-    expect(tsx).toContain("import { Slider } from '../ui/Slider.js'");
+    const tsx = read('../../pcbnew/widgets/appearance_controls.tsx');
+    expect(tsx).toContain("import { Slider } from '@ziroeda/common/widgets/slider.js'");
     // The JSX, with the comments stripped: the note at the call site names the
     // input it replaced, and a raw `toContain` matches that prose.
     expect(tsx.replace(/\/\*[\s\S]*?\*\//g, '')).not.toContain('type="range"');
@@ -230,15 +230,15 @@ describe('the three pages, and the controls on them', () => {
     // `m_netsTabSplitter->SplitHorizontally( m_panelNets, m_panelNetclasses,
     // 300 )` with `SetMinimumPaneSize( 80 )` (appearance_controls_base.cpp:52,
     // :144). Without it a 220-net board pushed Net Classes off the pane.
-    const tsx = read('widgets/appearance_controls.tsx');
-    expect(tsx).toContain("import { Sash } from '../ui/Sash.js'");
+    const tsx = read('../../pcbnew/widgets/appearance_controls.tsx');
+    expect(tsx).toContain("import { Sash } from '@ziroeda/common/widgets/wx_splitter_window.js'");
     expect(tsx).toMatch(/const NETS_SASH_POS = 300;/);
     expect(tsx).toMatch(/const NETS_MIN_PANE = 80;/);
     // The shared sash, which is the wxSplitterWindow one — #181818 and 5px,
     // not wxAUI's #373737. Its geometry is `resizeDock`, the same clamp
     // DockSash uses, so the sign rule is stated once.
-    const sash = read('ui/Sash.tsx');
-    expect(sash).toContain("from './dock_sash.js'");
+    const sash = read('../../common/widgets/wx_splitter_window.tsx');
+    expect(sash).toContain("from './wx_aui_sash_geometry.js'");
     expect(sash).toContain("className={`ze-sash ${vertical ? 'h' : 'v'}`}");
     expect(body(SHELL, '.ze-sash')).toMatch(/background:\s*var\(--splitter-sash\)/);
   });
@@ -258,6 +258,6 @@ describe('GerbView', () => {
   it('the layers dock has no canvas-facing rule either', () => {
     // `.PaneBorder( false )` (gerbview_frame.cpp:170), and the dock already
     // renders the 5px sash that separates it from the toolbar.
-    expect(body(read('editors/gerbview/gerbview.css'), '.ze-gbr-dock')).not.toMatch(/border/);
+    expect(body(read('../../gerbview/gerbview_frame.css'), '.ze-gbr-dock')).not.toMatch(/border/);
   });
 });

@@ -3,9 +3,10 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { describe, it, expect } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard, rotatePcb, arcCenter } from '@ziroeda/pcbnew/src/read-board.js';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { arcCenter, rotatePcb } from '@ziroeda/pcbnew/edit-board.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 
 // Local KiCad source clone (gitignored); the suite is skipped when absent.
 const STICKHUB = new URL('../../../kicad-src/demos/stickhub/StickHub.kicad_pcb', import.meta.url)

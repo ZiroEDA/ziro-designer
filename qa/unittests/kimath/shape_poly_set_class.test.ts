@@ -12,7 +12,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { SEG } from '@ziroeda/kimath/src/geometry/seg.js';
-import { SHAPE_ARC } from '@ziroeda/kimath/src/geometry/shape_arc.js';
+import type { SHAPE_ARC } from '@ziroeda/kimath/src/geometry/shape_arc.js';
 import { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_chain.js';
 import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';

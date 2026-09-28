@@ -13,19 +13,19 @@ import {
   addFootprintToHistory,
   clearFootprintHistory,
   footprintHistory,
-} from '@ziroeda/designer/src/editors/pcb/widgets/footprint_history.js';
+} from '@ziroeda/pcbnew/widgets/footprint_history.js';
 import {
   addFootprintHistory,
   addFootprintLibraries,
-} from '@ziroeda/designer/src/editors/pcb/widgets/fp_tree_model_adapter.js';
+} from '@ziroeda/pcbnew/fp_tree_model_adapter.js';
 import {
   footprintLibraryDescription,
   symbolLibraryDescription,
-} from '@ziroeda/designer/src/widgets/lib_table_descriptions.js';
-import { LibTreeModelAdapter } from '@ziroeda/designer/src/widgets/lib_tree_model_adapter.js';
-import type { FpIndexEntry } from '@ziroeda/designer/src/widgets/footprint_list.js';
+} from '@ziroeda/common/lib_table_descriptions.js';
+import { LibTreeModelAdapter } from '@ziroeda/common/lib_tree_model_adapter.js';
+import type { FootprintIndexLibrary } from '@ziroeda/pcbnew/footprint_info_impl.js';
 
-const INDEX: FpIndexEntry[] = [
+const INDEX: FootprintIndexLibrary[] = [
   { name: 'Battery', footprints: ['BatteryClip_A', 'BatteryClip_B'], pads: [2, 2] },
   { name: 'Resistor_SMD', footprints: ['R_0805'], pads: [2], descr: ['Resistor SMD 0805'] },
 ];
@@ -99,9 +99,7 @@ describe('the library rows’ descriptions', () => {
     );
     expect(existsSync(script)).toBe(true);
     const out = readFileSync(
-      fileURLToPath(
-        new URL('../../../designer/src/widgets/lib_table_descriptions.ts', import.meta.url),
-      ),
+      fileURLToPath(new URL('../../../common/lib_table_descriptions.ts', import.meta.url)),
       'utf8',
     );
     expect(out).toContain('GENERATED');

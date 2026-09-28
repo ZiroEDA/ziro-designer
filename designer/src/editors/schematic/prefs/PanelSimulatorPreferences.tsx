@@ -33,8 +33,8 @@
  * easy to port wrongly.
  */
 import { Fragment, type JSX } from 'react';
-import { Combo } from '../../../ui/Combo.js';
-import { Group } from '../../../dialogs/prefs/widgets.js';
+import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
+import { Group } from '@ziroeda/common/wx/controls.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
 
 /**

@@ -27,15 +27,15 @@
  * from `measureText` and the two C++ constants, never from `textBoxWidth`.
  */
 import { describe, expect, it } from 'vitest';
-import { measureText } from '@ziroeda/common/src/font/stroke_font.js';
+import { measureText } from '@ziroeda/common/font/stroke_font.js';
 import {
   globalLabelShape,
   labelTextBox,
   textBoxWidth,
   textPenWidth,
-} from '@ziroeda/eeschema/src/tools/bbox.js';
-import { fieldTextBox } from '@ziroeda/eeschema/src/fieldbox.js';
-import type { SchField, SchLabel } from '@ziroeda/eeschema/src/types.js';
+} from '@ziroeda/eeschema/tools/bbox.js';
+import { fieldTextBox } from '@ziroeda/eeschema/fieldbox.js';
+import type { SchField, SchLabel } from '@ziroeda/eeschema/types.js';
 
 /** `KiROUND`: half away from zero. */
 const kiRound = (v: number): number => (v < 0 ? Math.ceil(v - 0.5) : Math.floor(v + 0.5));

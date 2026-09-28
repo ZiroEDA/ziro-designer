@@ -1,0 +1,28 @@
+{
+  "name": "@ziroeda/3d-viewer",
+  "version": "0.0.0",
+  "description": "The 3D viewer mirroring KiCad's 3d-viewer/: EDA_3D_VIEWER_FRAME, its menu bar and toolbars, the three.js scene builder (create_scene.cpp's counterpart), the OpenCascade STEP/IGES loader, and the board-outline/appearance data the scene reads.",
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ziroeda/common": "workspace:*",
+    "@ziroeda/core": "workspace:*",
+    "@ziroeda/kimath": "workspace:*",
+    "@ziroeda/pcbnew": "workspace:*",
+    "earcut": "^3.2.3",
+    "occt-import-js": "^0.0.23",
+    "react": "^18.3.1",
+    "three": "^0.185.1"
+  },
+  "devDependencies": {
+    "@types/earcut": "^3.0.0",
+    "@types/react": "^18.3.18",
+    "@types/three": "^0.185.1",
+    "vite": "^6.0.7"
+  }
+}

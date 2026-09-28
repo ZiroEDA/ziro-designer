@@ -31,13 +31,13 @@ import { useState } from 'react';
 import {
   PanelTemplateFieldnames,
   type FieldTemplate,
-} from '@ziroeda/designer/src/editors/schematic/dialogs/panels/panel_template_fieldnames.js';
+} from '@ziroeda/eeschema/dialogs/panel_template_fieldnames.js';
 
 afterEach(cleanup);
 
 const SRC = resolve(process.cwd(), '../designer/src');
 const read = (rel: string): string => readFileSync(resolve(SRC, rel), 'utf8');
-const CSS = read('ui/shell.css');
+const CSS = read('../../common/widgets/shell.css');
 
 /** A rule body by exact selector, comments stripped. */
 const rule = (selector: string): string => {
@@ -82,9 +82,12 @@ const mount = (global?: boolean): { templates: FieldTemplate[] } => {
 };
 
 const rows = (): string[] =>
-  Array.from(document.querySelectorAll('tbody tr td:first-child input')).map(
-    (i) => (i as HTMLInputElement).value,
+  Array.from(document.querySelectorAll('tbody tr td[data-col="0"]')).map(
+    (td) => td.textContent ?? '',
   );
+
+const cell = (r: number, c: number): HTMLElement =>
+  document.querySelector(`td[data-row="${r}"][data-col="${c}"]`) as HTMLElement;
 
 describe('one panel, two titles', () => {
   it('says Global when there is no project template manager', () => {
@@ -101,7 +104,7 @@ describe('one panel, two titles', () => {
     // The claim this whole change rests on: the prefs page constructs the
     // shared panel rather than owning a table.
     const page = read('editors/schematic/prefs/PanelTemplateFieldnames.tsx');
-    expect(page).toContain("from '../dialogs/panels/panel_template_fieldnames.js'");
+    expect(page).toContain("from '@ziroeda/eeschema/dialogs/panel_template_fieldnames.js'");
     expect(page).not.toContain('<table');
   });
 
@@ -157,31 +160,36 @@ describe('the rows behave the way WX_GRID’s helpers make them behave', () => {
     expect(seen.templates.at(-1)).toEqual({ name: 'Untitled Field', visible: false, url: false });
   });
 
-  it('moves the selected row, and only the selected row', () => {
+  it('moves the cursor row, and bells (does nothing) at the ends', () => {
+    // `OnMoveRowUp` / `OnMoveRowDown` (wx_grid.cpp): the buttons are never
+    // disabled; past the end the move is a `wxBell()`.
     const seen = mount(true);
-    // The first row is selected on mount, so Move up is dead and Move down works.
-    expect(screen.getByLabelText('Move up').hasAttribute('disabled')).toBe(true);
+    fireEvent.click(screen.getByLabelText('Move up'));
+    expect(seen.templates.map((t) => t.name)).toEqual(['Datasheet', 'MPN']);
     fireEvent.click(screen.getByLabelText('Move down'));
     expect(seen.templates.map((t) => t.name)).toEqual(['MPN', 'Datasheet']);
-    // The selection travels with the row, as `SwapRows` leaves it.
-    expect(screen.getByLabelText('Move down').hasAttribute('disabled')).toBe(true);
+    // The cursor travels with the row, so a second Move down is past the end.
+    fireEvent.click(screen.getByLabelText('Move down'));
+    expect(seen.templates.map((t) => t.name)).toEqual(['MPN', 'Datasheet']);
   });
 
-  it('deletes the selected row and falls back to a neighbour', () => {
+  it('deletes the cursor row', () => {
     const seen = mount(true);
     fireEvent.click(screen.getByLabelText('Delete field'));
     expect(seen.templates.map((t) => t.name)).toEqual(['MPN']);
     expect(rows()).toEqual(['MPN']);
   });
 
-  it('edits a name, a Visible and a URL in place', () => {
+  it('edits a name in its cell editor, and toggles Visible with one click', () => {
     const seen = mount(true);
-    const name = document.querySelector('tbody tr td:first-child input') as HTMLInputElement;
+    fireEvent.mouseDown(cell(0, 0), { button: 0 });
+    fireEvent.mouseUp(cell(0, 0));
+    const name = cell(0, 0).querySelector('input') as HTMLInputElement;
     fireEvent.change(name, { target: { value: 'Sheet' } });
+    fireEvent.keyDown(name, { key: 'Enter', code: 'Enter' });
     expect(seen.templates[0]?.name).toBe('Sheet');
 
-    const visible = screen.getAllByLabelText('Visible')[0] as HTMLInputElement;
-    fireEvent.click(visible);
+    fireEvent.mouseDown(cell(0, 1), { button: 0 });
     expect(seen.templates[0]?.visible).toBe(false);
   });
 });
@@ -189,7 +197,10 @@ describe('the rows behave the way WX_GRID’s helpers make them behave', () => {
 describe('the grid is the size the base file gives it', () => {
   it('takes the two boolean columns’ 48 and lets Name have the slack', () => {
     // `SetColSize( 1, 48 )`, `SetColSize( 2, 48 )`, `SetupColumnAutosizer( 0 )`.
-    expect(rule('.ze-fieldnames-bool')).toMatch(/width:\s*48px/);
+    mount(true);
+    const ths = [...document.querySelectorAll('thead th')] as HTMLElement[];
+    expect(ths.map((t) => t.style.width)).toEqual(['', '48px', '48px', '']);
+    expect(cell(0, 0).classList.contains('ze-grid-flexcol')).toBe(true);
   });
 
   it('is at least 180 tall and fills the page', () => {

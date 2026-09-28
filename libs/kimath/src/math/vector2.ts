@@ -100,7 +100,7 @@ const sgn = (v: number): number => (v > 0 ? 1 : v < 0 ? -1 : 0);
  * the router feeds it — a gap vector is resized once per differential-pair
  * gateway, and a one-unit difference in an anchor is a different anchor.
  *
- * There is an existing `resize` in `pcbnew/src/router/pns_hull.ts` and another
+ * There is an existing `resize` in `pcbnew/router/pns_hull.ts` and another
  * in `drc/shape_collisions.ts`; both are the floating-point shortcut and say
  * so. They are left alone — their callers only rank candidates.
  *

@@ -19,16 +19,18 @@ import { describe, it, expect } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
-import { fontNode } from '@ziroeda/pcbnew/src/eda_text_format.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { flatText, writtenNodes } from './support/written_node.js';
-import { applyTextValues, collectTextValues } from '@ziroeda/pcbnew/src/graphic_properties.js';
+import {
+  applyTextValues,
+  collectTextValues,
+} from '@ziroeda/pcbnew/dialogs/dialog_text_properties.js';
 import {
   applyTextBoxValues,
   collectTextBoxValues,
-} from '@ziroeda/pcbnew/src/textbox_properties.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_textbox_properties.js';
 
 const BOARD = `(kicad_pcb (version 20241229) (generator "pcbnew")
   (gr_text "faced" (at 10 10) (layer "F.SilkS")
@@ -100,44 +102,48 @@ describe('the two dialogs carry it, so it is editable rather than merely kept', 
   });
 });
 
-describe('one (font …) builder, as upstream has one EDA_TEXT::Format', () => {
+describe('one (font …) writer: EDA_TEXT::Format', () => {
+  /** The `(font …)` the board writer emits for one gr_text's font tokens. */
+  const fontOf = (tokens: string): string => {
+    const text = serializeBoard(
+      readBoard(
+        parse(`(kicad_pcb (version 20241229) (generator "pcbnew")
+  (layers (0 "F.Cu" signal) (2 "B.Cu" signal) (37 "F.SilkS" user))
+  (gr_text "X" (at 10 10) (layer "F.SilkS") (uuid "00000000-0000-4000-8000-0000000000c1")
+    (effects (font ${tokens})))
+)`),
+      ),
+    );
+    return /\(font\b.*?\)\s*\)/.exec(text.replace(/\s+/g, ' '))![0];
+  };
+  const heads = (font: string): string[] => [...font.matchAll(/\((\w+)/g)].map((m) => m[1]!);
+
   it('writes the tokens in the file format’s order', () => {
-    const node = fontNode({
-      face: 'Sans Serif',
-      size: { x: 1_500_000, y: 1_500_000 },
-      thickness: 300_000,
-      bold: true,
-      italic: true,
-    });
-    const words = node.items.map((n) => {
-      if (n.kind === 'atom') return n.value;
-      if (n.kind !== 'list') return '?';
-      const head = n.items[0];
-      return head?.kind === 'atom' ? head.value : '?';
-    });
-    expect(words).toEqual(['font', 'face', 'size', 'thickness', 'bold', 'italic']);
+    const font = fontOf(
+      '(face "Sans Serif") (size 1.5 1.5) (thickness 0.3) (bold yes) (italic yes)',
+    );
+    expect(heads(font)).toEqual(['font', 'face', 'size', 'thickness', 'bold', 'italic']);
   });
 
   it('omits a thickness of zero, because auto IS a stored zero', () => {
     // `if( !GetAutoThickness() )` (`eda_text.cpp:1079-1084`) and
-    // `GetAutoThickness()` is `GetTextThickness() == 0` (`eda_text.h:150`). The
-    // two board writers used to test `!== undefined`, which wrote `(thickness 0)`.
-    const zero = fontNode({ size: { x: 1, y: 1 }, thickness: 0 });
-    expect(JSON.stringify(zero)).not.toContain('thickness');
-    const none = fontNode({ size: { x: 1, y: 1 } });
-    expect(JSON.stringify(none)).not.toContain('thickness');
+    // `GetAutoThickness()` is `GetTextThickness() == 0` (`eda_text.h:150`).
+    expect(fontOf('(size 1 1) (thickness 0)')).not.toContain('thickness');
+    expect(fontOf('(size 1 1)')).not.toContain('thickness');
   });
 
   it('and nothing else in pcbnew builds a (font …) of its own', () => {
     // The guard against the six copies coming back. A file that spells
-    // `atom('font')` is building the node by hand; only the shared one may.
-    const SRC = fileURLToPath(new URL('../../../pcbnew/src', import.meta.url));
+    // `atom('font')` is building the node by hand; EDA_TEXT::Format is the one.
+    const SRC = fileURLToPath(new URL('../../../pcbnew', import.meta.url));
     const offenders: string[] = [];
     (function walk(dir: string): void {
       for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        // node_modules sits beside the sources now that pcbnew has no src/.
+        if (entry.name === 'node_modules' || entry.name === 'dist') continue;
         const p = join(dir, entry.name);
         if (entry.isDirectory()) walk(p);
-        else if (entry.name.endsWith('.ts') && entry.name !== 'eda_text_format.ts') {
+        else if (entry.name.endsWith('.ts')) {
           if (readFileSync(p, 'utf8').includes("atom('font')")) offenders.push(entry.name);
         }
       }

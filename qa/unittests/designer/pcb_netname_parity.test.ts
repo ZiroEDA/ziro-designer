@@ -30,16 +30,12 @@
  *     numbers off left the net name at 40% size, still offset below the centre.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import type { Board } from '@ziroeda/pcbnew/src/types.js';
-import {
-  buildScene,
-  DEFAULT_DRAW_OPTIONS,
-  showsArcNetName,
-} from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import type { Board } from '@ziroeda/pcbnew/types.js';
+import { buildScene, DEFAULT_DRAW_OPTIONS, showsArcNetName } from '@ziroeda/pcbnew/renderBoard.js';
 import { GL_PATH_FACTORY } from '@ziroeda/designer/src/render/gl/gl_path.js';
-import { printableCharCount } from '@ziroeda/common/src/string_utils.js';
+import { printableCharCount } from '@ziroeda/common/string_utils.js';
 
 const MM = 1e6;
 

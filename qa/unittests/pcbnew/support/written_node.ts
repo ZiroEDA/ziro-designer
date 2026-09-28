@@ -9,11 +9,11 @@
  * `(table …)` puts the item on a board, writes the board, and reads the node
  * back out of the text.
  */
-import { parse, serialize } from '@ziroeda/sexpr/src/index.js';
-import { head, isList, type SList } from '@ziroeda/sexpr/src/types.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
-import type { Board } from '@ziroeda/pcbnew/src/types.js';
+import { parse, serialize } from '@ziroeda/sexpr/index.js';
+import { head, isList, type SList } from '@ziroeda/sexpr/types.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import type { Board } from '@ziroeda/pcbnew/types.js';
 
 /** A two-layer board with nothing on it. */
 export const emptyBoard = (): Board =>

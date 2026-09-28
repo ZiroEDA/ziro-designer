@@ -22,7 +22,7 @@ import {
   pcbPageSizeIU,
   pcbZoomFitBox,
   type ExtentsBox,
-} from '@ziroeda/designer/src/editors/pcb/document_extents.js';
+} from '@ziroeda/pcbnew/pcb_base_frame.js';
 
 /** A4 landscape, as `PAGE_INFO` stores it: mils, then x 25400 nm per mil. */
 const A4_W = 11693 * 25400;
@@ -257,7 +257,7 @@ describe('the PCB frame asks for that box', () => {
   );
 
   it('routes Zoom to Fit through pcbZoomFitBox', () => {
-    expect(src).toContain("from './document_extents.js'");
+    expect(src).toContain("from '@ziroeda/pcbnew/pcb_base_frame.js'");
     expect(src).toContain('pcbZoomFitBox(');
   });
 
@@ -267,7 +267,7 @@ describe('the PCB frame asks for that box', () => {
 
   it('keeps no page-size table of its own', () => {
     // The literal `A4: [297, 210]` this file carried is PAGE_INFO's data, and
-    // PAGE_INFO is `common/src/page_info.ts` here.
+    // PAGE_INFO is `common/page_info.ts` here.
     expect(src).not.toMatch(/A4:\s*\[\s*297\s*,\s*210\s*\]/);
   });
 });

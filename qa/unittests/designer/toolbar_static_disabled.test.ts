@@ -31,11 +31,7 @@
  * it back.
  */
 import { describe, expect, it } from 'vitest';
-import {
-  TOP_TOOLBAR,
-  LEFT_TOOLBAR,
-  RIGHT_TOOLBAR,
-} from '@ziroeda/designer/src/editors/schematic/toolbars_sch_editor.js';
+import { TOP_TOOLBAR, LEFT_TOOLBAR, RIGHT_TOOLBAR } from '@ziroeda/eeschema/toolbars_sch_editor.js';
 import {
   SYM_TOP_TOOLBAR,
   SYM_LEFT_TOOLBAR,
@@ -46,24 +42,24 @@ import {
   PCB_AUX_TOOLBAR,
   PCB_LEFT_TOOLBAR,
   PCB_RIGHT_TOOLBAR,
-} from '@ziroeda/designer/src/editors/pcb/pcbToolbars.js';
+} from '@ziroeda/pcbnew/toolbars_pcb_editor.js';
 import {
   FP_TOP_TOOLBAR,
   FP_LEFT_TOOLBAR,
   FP_RIGHT_TOOLBAR,
-} from '@ziroeda/designer/src/editors/footprint/footprintToolbars.js';
+} from '@ziroeda/pcbnew/toolbars_footprint_editor.js';
 import {
   GBR_TOP_TOOLBAR,
   GBR_TOP_AUX_TOOLBAR,
   GBR_LEFT_TOOLBAR,
-} from '@ziroeda/designer/src/editors/gerbview/gerberToolbars.js';
+} from '@ziroeda/gerbview/toolbars_gerber.js';
 import {
   DS_TOP_TOOLBAR,
   DS_LEFT_TOOLBAR,
   DS_RIGHT_TOOLBAR,
-} from '@ziroeda/designer/src/editors/drawingsheet/drawingSheetToolbars.js';
-import { VIEWER3D_TOP_TOOLBAR } from '@ziroeda/designer/src/editors/pcb/viewer3dToolbars.js';
-import type { ToolButton, ToolEntry } from '@ziroeda/designer/src/ui/toolbar_types.js';
+} from '@ziroeda/pagelayout_editor/toolbars_pl_editor.js';
+import { VIEWER3D_TOP_TOOLBAR } from '@ziroeda/3d-viewer/toolbars_3d.js';
+import type { ToolButton, ToolEntry } from '@ziroeda/common/tool/action_toolbar_types.js';
 
 const buttons = (entries: readonly ToolEntry[]): ToolButton[] =>
   entries.flatMap((e) =>
@@ -118,7 +114,7 @@ const UNBUILT: Readonly<Record<string, readonly string[]>> = {
   'pcb top': [],
   // `autoTrackWidth` came off this list when it was built: the toggle is
   // `BOARD_DESIGN_SETTINGS::m_UseConnectedTrackWidth` and the width rule behind
-  // it is `pcbnew/src/inherit_track_width.ts`. `selectLayerPair` still needs
+  // it is `pcbnew/inherit_track_width.ts`. `selectLayerPair` still needs
   // DIALOG_SET_LAYER_PAIR, so it stays.
   'pcb aux': ['selectLayerPair'],
   'pcb left': [],
@@ -144,7 +140,7 @@ const UNBUILT: Readonly<Record<string, readonly string[]>> = {
     // `DIALOG_RULE_AREA_PROPERTIES`, which `InvokeRuleAreaEditor` opens from
     // `ZONE_CREATE_HELPER::createNewZone`.
     // `drawBezier` came off with `DRAWING_TOOL::DrawBezier`: the four-click
-    // gesture is `pcbnew/src/bezier_tool.ts` over `BEZIER_GEOM_MANAGER`, and
+    // gesture is `pcbnew/bezier_tool.ts` over `BEZIER_GEOM_MANAGER`, and
     // the shape it commits is the `gr_curve` the reader and writer already
     // understood.
     // The whole "PCB origins and points" group came off this list together:

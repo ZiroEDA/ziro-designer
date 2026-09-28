@@ -29,14 +29,14 @@ const read = (rel: string): string =>
 
 const CANVAS = read('../../../designer/src/editors/schematic/components/SchematicCanvas.tsx');
 const EDITOR = read('../../../designer/src/editors/schematic/SchematicEditor.tsx');
-const DIALOG = read('../../../designer/src/editors/schematic/dialogs/dialog_table_properties.tsx');
+const DIALOG = read('../../../eeschema/dialogs/dialog_table_properties.tsx');
 /**
  * The dialog's body is shared with pcbnew now (`ui/DialogTableProperties.tsx`);
  * what stays in eeschema's file is the schematic's own scale, its stroke
  * colours and its greying rule. Assertions about the *layout* therefore read
  * the shared file, and assertions about what eeschema contributes read DIALOG.
  */
-const SHARED_DIALOG = read('../../../designer/src/ui/DialogTableProperties.tsx');
+const SHARED_DIALOG = read('../../../common/dialogs/dialog_table_properties.tsx');
 
 describe('the preview while the table is being dragged out', () => {
   it('builds a real table, not a rectangle', () => {

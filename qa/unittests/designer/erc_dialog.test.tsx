@@ -39,7 +39,7 @@ import {
   ERC_BADGE_MAX,
   ERC_DEFAULT_FILTERS,
   ercBadge,
-} from '@ziroeda/designer/src/editors/schematic/components/ErcDialog.js';
+} from '@ziroeda/eeschema/dialogs/dialog_erc.js';
 
 afterEach(cleanup);
 
@@ -92,10 +92,10 @@ const buttonRow = (): { label: string; disabled: boolean }[] =>
   }));
 
 const badges = (): { text: string; kind: string }[] =>
-  Array.from(document.querySelectorAll('.ze-erc-footer .badge')).map((b) => ({
+  Array.from(document.querySelectorAll('.ze-erc-footer .ze-badge')).map((b) => ({
     text: b.textContent ?? '',
     kind: Array.from(b.classList)
-      .filter((c) => c !== 'badge')
+      .filter((c) => c !== 'ze-badge')
       .join(' '),
   }));
 
@@ -417,7 +417,7 @@ describe('DIALOG_ERC: chrome', () => {
     expect(document.querySelector('.ze-erc-panel')).toBeTruthy();
     // `import.meta.url` is not a file: URL under happy-dom, so the path is
     // resolved from the vitest root the way the other .tsx suites resolve it.
-    const css = readFileSync(resolve(process.cwd(), '../designer/src/ui/shell.css'), 'utf8');
+    const css = readFileSync(resolve(process.cwd(), '../common/widgets/shell.css'), 'utf8');
     const rule = css.slice(css.indexOf('.ze-erc-panel {'));
     expect(rule.slice(0, rule.indexOf('}'))).toContain('resize: both');
   });

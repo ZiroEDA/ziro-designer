@@ -19,7 +19,7 @@ import { join } from 'node:path';
 
 const DESIGNER = join(__dirname, '../../../designer');
 const VITE = readFileSync(join(DESIGNER, 'vite.config.ts'), 'utf8');
-const SINK = readFileSync(join(DESIGNER, 'src/telemetry/sentrySink.ts'), 'utf8');
+const SINK = readFileSync(join(DESIGNER, 'src/telemetry/sentry_backend.ts'), 'utf8');
 
 describe('bitmaps are files, as KiCad ships them', () => {
   it('nothing is inlined into the entry as a data: URI', () => {
@@ -37,14 +37,12 @@ describe('the telemetry SDK arrives after the first paint', () => {
   });
 
   it('queues what is captured before the SDK lands, and drains the queue into it', () => {
-    expect(SINK).toMatch(/else if \(!closed\) queued\.push\(\[err, context\]\);/);
-    expect(SINK).toMatch(
-      /for \(const \[err, context\] of queued\.splice\(0\)\)\s*sdk\.captureException\(/,
-    );
+    expect(SINK).toMatch(/else if \(!closed\) queued\.push\(\(\) => sdk && aCall\(sdk\)\);/);
+    expect(SINK).toMatch(/for \(const call of queued\.splice\(0\)\) call\(\);/);
   });
 
   it('a close before the SDK lands stops it initialising at all', () => {
     expect(SINK).toMatch(/if \(closed\) return;\s*Sentry\.init\(/);
-    expect(SINK).toMatch(/close\(\) \{[\s\S]*?closed = true;[\s\S]*?queued\.length = 0;/);
+    expect(SINK).toMatch(/Close: \(\) => \{[\s\S]*?closed = true;[\s\S]*?queued\.length = 0;/);
   });
 });

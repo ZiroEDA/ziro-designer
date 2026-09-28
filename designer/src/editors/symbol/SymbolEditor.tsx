@@ -3,6 +3,9 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { iuToMM, SCH_IU_PER_MM } from '@ziroeda/common';
 import { parse } from '@ziroeda/sexpr';
+import { FRAME_T } from '@ziroeda/common/frame_type.js';
+import type { KIWAY } from '@ziroeda/common/kiway.js';
+import { SYMBOL_EDIT_FRAME } from './symbol_edit_frame.js';
 import type { Vec2 } from '@ziroeda/kimath';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -16,24 +19,25 @@ import {
   type SchField,
 } from '@ziroeda/eeschema';
 import * as sexpr from '@ziroeda/sexpr';
-import { MenuBar, type Menu } from '../../ui/MenuBar.js';
-import { Toolbar } from '../../ui/Toolbar.js';
-import { useStatusReadout } from '../../ui/useStatusReadout.js';
-import { useKiDialog } from '../../ui/kidialog.js';
-import { DO_NOT_SHOW_KEYS } from '../../ui/do_not_show_again.js';
+import { GetAssociatedDocument } from '@ziroeda/common/eda_doc.js';
+import { MenuBar, type Menu } from '@ziroeda/common/tool/action_menu_bar.js';
+import { Toolbar } from '@ziroeda/common/tool/action_toolbar.js';
+import { useStatusReadout } from '@ziroeda/common/use_status_readout.js';
+import { useKiDialog } from '@ziroeda/common/kidialog.js';
+import { DO_NOT_SHOW_KEYS } from '@ziroeda/common/kidialog_do_not_show.js';
 
 /** `SCH_SCREEN::m_LocalOrigin`; a module constant so its identity is stable. */
 const SYM_LOCAL_ORIGIN = { x: 0, y: 0 };
-import { ProgressDialog } from '../../ui/ProgressDialog.js';
-import { formatTitle, useDocumentTitle } from '../../ui/useDocumentTitle.js';
-import { useUnsavedGuard } from '../../ui/useUnsavedGuard.js';
+import { ProgressDialog } from '@ziroeda/common/widgets/wx_progress_reporters.js';
+import { formatTitle, useDocumentTitle } from '@ziroeda/common/use_document_title.js';
+import { useUnsavedGuard } from '@ziroeda/common/use_unsaved_guard.js';
 import { LibraryLoadingPanel } from '../../widgets/library_loading_panel.js';
 // The ONE tree widget, as `SYMBOL_TREE_PANE` mounts the ONE `LIB_TREE`.
-import { LibTree } from '../../widgets/lib_tree.js';
-import { LibTreeNode, LibTreeNodeType } from '../../widgets/lib_tree_model.js';
+import { LibTree } from '@ziroeda/common/widgets/lib_tree.js';
+import { LibTreeNode, LibTreeNodeType } from '@ziroeda/common/lib_tree_model.js';
 import { SymbolTreeSynchronizingAdapter } from './symbol_tree_synchronizing_adapter.js';
-import { KiStatusBar } from '../../ui/KiStatusBar.js';
-import { MsgPanel, type MsgPanelItem } from '../../ui/MsgPanel.js';
+import { KiStatusBar } from '@ziroeda/common/widgets/kistatusbar.js';
+import { MsgPanel, type MsgPanelItem } from '@ziroeda/common/widgets/msgpanel_ui.js';
 import {
   gridMsg,
   messageTextFromValue,
@@ -41,7 +45,7 @@ import {
   unitsMsg,
   zoomFactorForScale,
   zoomMsg,
-} from '../../ui/status_format.js';
+} from '@ziroeda/common/widgets/kistatusbar_format.js';
 import {
   LISTBOX_WIDTH,
   SYM_CONTROL,
@@ -57,8 +61,8 @@ import { SymbolLibraryManager, type ManagedLibrary } from './libraryManager.js';
 import {
   findSymLibRowByUri,
   resolvedProjectSymLibs,
-} from '../schematic/symbols/project_sym_lib_table.js';
-import { unescapeString } from '@ziroeda/common/src/string_utils.js';
+} from '@ziroeda/eeschema/project_sym_lib_table.js';
+import { unescapeString } from '@ziroeda/common/string_utils.js';
 import { SYM_FRAME_NAME, symFrameTitle } from './frame_title.js';
 import { loadIndex } from '../schematic/symbols/index.js';
 import {
@@ -93,7 +97,7 @@ import {
   fastGridActionForKey,
   fastGridIndex,
   type FastGridAction,
-} from '../../ui/grid_settings.js';
+} from '@ziroeda/common/settings/grid_settings_ui.js';
 import { settings } from '../../prefs/settings.js';
 import type { SymbolHit } from './edits.js';
 import {
@@ -107,10 +111,10 @@ import {
   type NewSymbolResult,
   type PinDialogResult,
 } from './components/dialogs.js';
-import { DialogImportGfx } from '../schematic/dialogs/dialog_import_gfx.js';
-import { MessageDialogOk } from '../../ui/dialog_message.js';
-import '../../ui/shell.css';
-import { AboutDialog } from '../../home/dialogs/dialog_about.js';
+import { DialogImportGfx } from '@ziroeda/eeschema/import_gfx/dialog_import_gfx_sch.js';
+import { MessageDialogOk } from '@ziroeda/common/dialogs/dialog_message.js';
+import '@ziroeda/common/widgets/shell.css';
+import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
 import type { PrefsPageId } from '../../dialogs/prefs/types.js';
 import { symbolEditorMenus } from './menubar.js';
@@ -122,15 +126,15 @@ import {
   type SchSearchData,
   type SymbolFindMatch,
   type SymbolItemRef,
-} from '@ziroeda/eeschema/src/tools/sch_find_replace_tool.js';
+} from '@ziroeda/eeschema/tools/sch_find_replace_tool.js';
 import { type SymbolConditions, symbolConditions, symbolToolbarDisabledIds } from './conditions.js';
-import { showHotkeyList } from '../../ui/hotkey_list_action.js';
-import { ABOUT_TITLES } from '../../ui/about_titles.js';
-import { useModalEscape } from '../../ui/useModalEscape.js';
-import { dispatchMenuHotkey, focusBlocksHotkey } from '../../ui/menu_hotkeys.js';
-import { wasBrowserSuppressed, type FocusLike } from '../../ui/browser_hotkeys.js';
+import { showHotkeyList } from '@ziroeda/common/hotkeys_basic.js';
+import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { dispatchMenuHotkey, focusBlocksHotkey } from '@ziroeda/common/tool/action_menu_hotkeys.js';
+import { wasBrowserSuppressed, type FocusLike } from '@ziroeda/common/browser_hotkeys.js';
 import { OpenFileDialog } from '../../fs/OpenFileDialog.js';
-import { kicadSymbolLibWildcard } from '../../fs/wildcards.js';
+import { kicadSymbolLibWildcard } from '@ziroeda/common/wildcards_and_files_ext.js';
 import {
   applyToggle,
   mergeSymbolToggles,
@@ -145,7 +149,7 @@ import { symSelectionFilterShown } from '../../ui/selection_filter_panel.js';
 import {
   defaultSelectionFilter,
   type SelectionFilterOptions,
-} from '@ziroeda/eeschema/src/tools/sch_selection_filter.js';
+} from '@ziroeda/eeschema/tools/sch_selection_filter.js';
 import { HomeLink } from '../../ui/HomeLink.js';
 
 /**
@@ -241,7 +245,7 @@ export function SymbolEditor({
   projectName,
   initialProject,
   onAddSymbolToSchematic,
-  openRequest,
+  kiway,
   schematicSymbol,
   onSaveToSchematic,
   readOnlyNotice,
@@ -252,9 +256,12 @@ export function SymbolEditor({
   initialProject?: SymbolEditorFile[] | null;
   /** eeschema wiring for "Add symbol to schematic" (SCH_ACTIONS::addSymbolToSchematic). */
   onAddSymbolToSchematic?: (sym: LibSymbol) => void;
-  /** The `.kicad_sym` the project manager launched us on (KiCad's MAIL_LIB_EDIT).
-   *  Re-sent with a fresh nonce each activation so a resident editor re-opens. */
-  openRequest?: { file: string | null; nonce: number } | null;
+  /**
+   * The program's KIWAY: the editor's SYMBOL_EDIT_FRAME registers as
+   * FRAME_SCH_SYMBOL_EDITOR's player on it, so the project manager's
+   * MAIL_LIB_EDIT reaches `KiwayMailIn`.
+   */
+  kiway?: KIWAY;
   /** A symbol handed over from the schematic (SCH_EDIT_TOOL's Edit with Symbol
    *  Editor). Re-sent with a fresh nonce so a resident editor re-opens it. */
   schematicSymbol?: {
@@ -682,9 +689,7 @@ export function SymbolEditor({
   // MAIL_LIB_EDIT. A `.kicad_sym` is a whole library, so select it in the tree
   // (like KiCad highlighting the library node) and load its first symbol so the
   // canvas isn't blank. Runs after the bootstrap effect registered the library.
-  useEffect(() => {
-    const file = openRequest?.file;
-    if (!file) return;
+  const libEdit = (file: string): void => {
     // KiwayMailIn's MAIL_LIB_EDIT: the payload is a *URI*, resolved through the
     // library table, and the nickname comes from the row it matches. A file no
     // row points at is refused with upstream's message rather than opened.
@@ -715,8 +720,24 @@ export function SymbolEditor({
       setTreeSel({ lib, name: first ?? null });
       if (first) void loadSymbol(lib, first);
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openRequest?.nonce]);
+  };
+  const libEditRef = useRef(libEdit);
+  libEditRef.current = libEdit;
+  const [symFrame] = useState(
+    () => new SYMBOL_EDIT_FRAME({ libEdit: (uri) => libEditRef.current(uri) }),
+  );
+  // `KIWAY::Player()` stores the frame it created as FRAME_SCH_SYMBOL_EDITOR's
+  // player; mail held for it is delivered here, after the bootstrap effect
+  // above has registered the project's libraries.
+  useEffect(() => {
+    if (!kiway) return;
+    symFrame.SetKiway(kiway);
+    kiway.SetPlayerFrame(FRAME_T.FRAME_SCH_SYMBOL_EDITOR, symFrame);
+    return () => {
+      kiway.PlayerDidClose(FRAME_T.FRAME_SCH_SYMBOL_EDITOR, symFrame);
+      symFrame.SetKiway(null);
+    };
+  }, [kiway, symFrame]);
 
   // A symbol on loan from the schematic. Upstream hands it to a session-only
   // instance tab (findOrCreateSymbolInstanceTab); we have no tabs, so it goes
@@ -1048,9 +1069,11 @@ export function SymbolEditor({
   );
 
   const showDatasheet = useCallback(() => {
-    const url = workSymbol?.properties.find((f) => f.key === 'Datasheet')?.value ?? '';
-    if (/^https?:\/\//i.test(url)) window.open(url, '_blank', 'noopener');
-    else setStatus(url ? `Datasheet: ${url}` : 'No datasheet defined');
+    // SCH_INSPECTION_TOOL::ShowDatasheet (sch_inspection_tool.cpp:473-519).
+    if (!workSymbol) return;
+    const datasheet = workSymbol.properties.find((f) => f.key === 'Datasheet')?.value ?? '';
+    if (datasheet === '' || datasheet === '~') setStatus('No datasheet defined.');
+    else GetAssociatedDocument(datasheet, null);
   }, [workSymbol]);
 
   // ----- Find / Find and Replace (SCH_FIND_REPLACE_TOOL) ------------------------------
@@ -2323,7 +2346,7 @@ export function SymbolEditor({
           // schematic's own embedded `lib_symbols` and writing `R12` back into
           // the cached `Device:R` would arm "Update Symbols from Library" to
           // push it onto every other resistor. That trade is documented at
-          // `eeschema/src/tools/symbol_from_schematic.ts:30-47` and owned
+          // `eeschema/tools/symbol_from_schematic.ts:30-47` and owned
           // there; the title just reports what the working symbol says.
           reference: workSymbol?.properties.find((f) => f.key === 'Reference')?.value ?? '',
           // `GetCurSymbol()->GetLibId().Format()`, still escaped - the module
@@ -2806,7 +2829,9 @@ export function SymbolEditor({
           onReplaceAll={doReplaceAll}
         />
       )}
-      {aboutOpen && <AboutDialog title={ABOUT_TITLES.symbol} onClose={() => setAboutOpen(false)} />}
+      {aboutOpen && (
+        <ShowAboutDialog title={ABOUT_TITLES.symbol} onClose={() => setAboutOpen(false)} />
+      )}
       {prefsOpen && (
         <PreferencesDialog
           onClose={() => setPrefsOpen(null)}

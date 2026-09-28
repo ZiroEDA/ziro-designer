@@ -17,8 +17,8 @@
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
-import { replaceTable } from '@ziroeda/eeschema/src/tools/mutate.js';
-import type { Schematic } from '@ziroeda/eeschema/src/types.js';
+import { replaceTable } from '@ziroeda/eeschema/tools/mutate.js';
+import type { Schematic } from '@ziroeda/eeschema/types.js';
 
 const sheet = (body: string): Schematic =>
   readSchematic(parse(`(kicad_sch (version 20250114)\n${body}\n)`));

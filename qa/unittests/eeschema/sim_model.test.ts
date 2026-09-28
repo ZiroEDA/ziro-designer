@@ -7,13 +7,13 @@
  * TestSimModelIssues turns into markers.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic } from '@ziroeda/eeschema';
 import {
   checkSimModel,
   findSpiceModel,
   readTypeFromFields,
-} from '@ziroeda/eeschema/src/sim/sim_model.js';
+} from '@ziroeda/eeschema/sim/sim_model.js';
 
 /** A two-pin symbol with the given fields. */
 const symbolWith = (fields: string, ref = 'R1') => {

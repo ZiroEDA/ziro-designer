@@ -17,7 +17,7 @@
  *   cannot be written in terms of each other.
  */
 import { describe, expect, it } from 'vitest';
-import { PnsLayerRange } from '@ziroeda/pcbnew/src/router/pns_layerset.js';
+import { PnsLayerRange } from '@ziroeda/pcbnew/router/pns_layerset.js';
 
 describe('PnsLayerRange construction', () => {
   it('defaults to the empty range', () => {

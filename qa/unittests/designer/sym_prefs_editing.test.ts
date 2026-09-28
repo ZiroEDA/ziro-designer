@@ -193,7 +193,7 @@ describe('every control on the page reads', () => {
     // comes from the shared module rather than a symbol-side copy.
     expect(read('editors/symbol/SymbolCanvas.tsx')).toContain('symCfg.drag_pins_along_with_edges');
     expect(read('editors/symbol/edits.ts')).toContain(
-      "from '@ziroeda/eeschema/src/tools/point_editor.js'",
+      "from '@ziroeda/eeschema/tools/point_editor.js'",
     );
   });
 });

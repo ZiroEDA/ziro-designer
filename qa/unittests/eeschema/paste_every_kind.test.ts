@@ -22,19 +22,19 @@
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic } from '@ziroeda/eeschema';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import {
   pasteItems,
   translatePayload,
   type PastePayload,
-} from '@ziroeda/eeschema/src/tools/clipboard.js';
+} from '@ziroeda/eeschema/tools/clipboard.js';
 import {
   makeCircle,
   makeRectangle,
   makeTable,
   makeTextBox,
-} from '@ziroeda/eeschema/src/tools/build-graphics.js';
-import type { Schematic } from '@ziroeda/eeschema/src/types.js';
+} from '@ziroeda/eeschema/tools/build-graphics.js';
+import type { Schematic } from '@ziroeda/eeschema/types.js';
 
 const blank = (): Schematic =>
   readSchematic(parse(`(kicad_sch (version 20250114) (paper "A4") (lib_symbols))`));

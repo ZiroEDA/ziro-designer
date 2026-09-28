@@ -17,10 +17,9 @@
  * too, which is what makes "three canvases, one ruler" checkable.
  */
 import { readFileSync } from 'node:fs';
-import { toolCursorCss } from '@ziroeda/designer/src/ui/tool_cursors.js';
-import { boardToolCursor } from '@ziroeda/designer/src/editors/pcb/cursors.js';
-import { footprintToolCursor } from '@ziroeda/designer/src/editors/footprint/cursors.js';
-import { gerberToolCursor } from '@ziroeda/designer/src/editors/gerbview/cursors.js';
+import { toolCursorCss } from '@ziroeda/common/tool/tool_cursors.js';
+import { boardToolCursor } from '@ziroeda/pcbnew/cursors.js';
+import { footprintToolCursor } from '@ziroeda/pcbnew/footprint_cursors.js';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
@@ -28,7 +27,7 @@ import {
   rulerDimensionStrings,
   rulerLineWidthPx,
   type RulerDrawOptions,
-} from '@ziroeda/designer/src/ui/ruler_item.js';
+} from '@ziroeda/common/preview_items/ruler_item.js';
 
 interface Call {
   op: string;
@@ -179,11 +178,7 @@ describe('drawRulerItem', () => {
 });
 
 describe('one ruler, three canvases', () => {
-  const CANVASES = [
-    'editors/pcb/PcbEditor.tsx',
-    'editors/footprint/FootprintCanvas.tsx',
-    'editors/gerbview/GerberCanvas.tsx',
-  ];
+  const CANVASES = ['editors/pcb/PcbEditor.tsx', 'editors/footprint/FootprintCanvas.tsx'];
 
   const read = (rel: string): string =>
     readFileSync(fileURLToPath(new URL(`../../../designer/src/${rel}`, import.meta.url)), 'utf8');
@@ -212,10 +207,10 @@ describe('one ruler, three canvases', () => {
     // ruler on. The footprint editor called it `measure`: the button lit, the
     // canvas heard nothing, and the only ruler in that frame was the viewer's.
     const bars: [string, string][] = [
-      ['editors/pcb/pcbToolbars.ts', 'PCB_RIGHT'],
-      ['editors/footprint/footprintToolbars.ts', 'FP_RIGHT'],
-      ['editors/schematic/display_footprints_toolbars.ts', 'viewer'],
-      ['editors/gerbview/gerberToolbars.ts', 'GBR_LEFT'],
+      ['../../pcbnew/toolbars_pcb_editor.ts', 'PCB_RIGHT'],
+      ['../../pcbnew/toolbars_footprint_editor.ts', 'FP_RIGHT'],
+      ['../../cvpcb/toolbars_display_footprints.ts', 'viewer'],
+      ['../../gerbview/toolbars_gerber.ts', 'GBR_LEFT'],
     ];
     for (const [rel, what] of bars) {
       expect(read(rel), `${what} has no measure button`).toMatch(/measureTool|'measure'/);
@@ -231,7 +226,7 @@ describe('one ruler, three canvases', () => {
     // We had `measure`, `measureTool` and `gerbMeasure` in front of it, and
     // the alias is what let the footprint editor's button drift off the name
     // its own canvas listens for.
-    const bitmaps = read('ui/toolbar_bitmaps.ts');
+    const bitmaps = read('../../common/bitmap_store_actions.ts');
     const keys = [...bitmaps.matchAll(/^ {2}(\w+): 'measurement',/gm)].map((m) => m[1]);
     expect(keys).toEqual(['measureTool']);
   });
@@ -242,8 +237,11 @@ describe('one ruler, three canvases', () => {
     // in mm there whatever its Units radio said.
     for (const rel of [
       'editors/footprint/FootprintEditor.tsx',
-      'editors/schematic/dialogs/display_footprints_frame.tsx',
-      'editors/gerbview/GerberViewer.tsx',
+      // `display_footprints_frame.tsx` moved to `cvpcb/` (cvpcb/STRUCTURE.md's
+      // stage two) and hands `measureUnits` through `CVPCB_APP.FootprintCanvas`
+      // as a plain object field; the actual `<FootprintCanvas measureUnits=.../>`
+      // JSX is the designer-side adapter that implements it.
+      'editors/schematic/cvpcb_app.tsx',
     ]) {
       expect(read(rel), `${rel} does not hand the canvas its units`).toContain('measureUnits=');
     }
@@ -267,7 +265,6 @@ describe('one ruler, three canvases', () => {
     for (const [name, cursorFor, tool] of [
       ['the board editor', boardToolCursor, 'measureTool'],
       ['the footprint editor', footprintToolCursor, 'measureTool'],
-      ['GerbView', gerberToolCursor, 'measure'],
     ] as const) {
       expect(cursorFor(tool), `${name} does not set the measure cursor`).toBe(MEASURE);
     }

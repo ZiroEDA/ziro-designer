@@ -17,8 +17,8 @@ import {
   hatchSpacing,
   segIntersectsLine,
 } from '@ziroeda/kimath/src/geometry/hatch_lines.js';
-import { shapeFillOutline, shapeHatchLines } from '@ziroeda/pcbnew/src/shape_fill.js';
-import type { PcbShape } from '@ziroeda/pcbnew/src/types.js';
+import { shapeFillOutline, shapeHatchLines } from '@ziroeda/pcbnew/shape_fill.js';
+import type { PcbShape } from '@ziroeda/pcbnew/types.js';
 
 const square = (side: number, fillMode: PcbShape['fillMode'], width = 100): PcbShape => ({
   kind: 'rect',

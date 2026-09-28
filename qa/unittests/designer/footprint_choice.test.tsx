@@ -27,13 +27,13 @@ import {
   FootprintChoice,
   drawFootprintItem,
   greyRange,
-} from '@ziroeda/designer/src/widgets/footprint_choice.js';
+} from '@ziroeda/common/widgets/footprint_choice.js';
 import {
   FootprintSelectWidget,
   footprintChoiceItems,
-} from '@ziroeda/designer/src/widgets/footprint_select_widget.js';
-import { POPUP_MAX_H, placeComboPopup } from '@ziroeda/designer/src/ui/owner_drawn_combo_popup.js';
-import { resetModalStack } from '@ziroeda/designer/src/ui/modal_escape.js';
+} from '@ziroeda/common/widgets/footprint_select_widget.js';
+import { POPUP_MAX_H, placeComboPopup } from '@ziroeda/common/wx/odcombo_popup.js';
+import { resetModalStack } from '@ziroeda/common/dialog_shim.js';
 
 afterEach(() => {
   cleanup();
@@ -45,7 +45,7 @@ afterEach(() => {
 
 // `import.meta.url` is not a file: URL under happy-dom, so the path is resolved
 // from the working directory instead, as chooser_shell_metrics.test.tsx does.
-const CSS = readFileSync(resolve(process.cwd(), '../designer/src/ui/shell.css'), 'utf8');
+const CSS = readFileSync(resolve(process.cwd(), '../common/widgets/shell.css'), 'utf8');
 
 /** The body of one CSS rule, comments stripped so they cannot read as code. */
 function rule(selector: string): string {

@@ -1,0 +1,254 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+/**
+ * Sheet-path page numbers. Counterpart: `eeschema/sch_sheet_path.cpp`
+ * (SCH_SHEET_PATH::GetPageNumber / SetPageNumber) + `sch_sheet.cpp`
+ * (SCH_SHEET::getInstance / AddInstance).
+ *
+ * A sheet instance is keyed by the KIID path of its *containing* sheet-path,
+ * the chain of sheet UUIDs from the root document down to, but excluding, the
+ * sheet itself (SCH_SHEET_PATH::Path() then pop_back). We build that key from
+ * the root document's uuid and the chain of sheet-symbol uuids that identify
+ * the instance, exactly as KiCad serializes it: "/" joined by the ancestor
+ * uuids, e.g. "/<rootUuid>" for a sheet directly under the root or
+ * "/<rootUuid>/<ancestor>" one level deeper. The root sheet itself has no such
+ * key; its page lives in the document-level (sheet_instances (path "/" …)).
+ */
+
+import type { LEGACY_SYMBOL_INSTANCE, SchSheet, SheetInstance, Schematic } from './types.js';
+import { AddHierarchicalReference, GetRef, GetUnitSelection } from './sch_symbol.js';
+import type { EditCommand } from './tools/command.js';
+import { str } from '@ziroeda/sexpr';
+import type { SList } from '@ziroeda/sexpr';
+import { strNumCmp } from '@ziroeda/common';
+
+/**
+ * The instance key for the sheet identified by `chain` (the sheet-symbol uuids
+ * from the root down to and including the target sheet). Drops the target's own
+ * uuid, so the result addresses the sheet's instance the way KiCad stores it.
+ */
+export function instanceKey(rootUuid: string, chain: readonly string[]): string {
+  const ancestors = chain.slice(0, -1); // KIID Path() then pop_back()
+  return `/${[rootUuid, ...ancestors].join('/')}`;
+}
+
+/** The instance on `sheet` for `path` (SCH_SHEET::getInstance). */
+export function getInstance(
+  sheet: SchSheet,
+  path: string,
+  project?: string,
+): SheetInstance | undefined {
+  return sheet.instances.find(
+    (i) => i.path === path && (project === undefined || (i.project ?? '') === project),
+  );
+}
+
+/** Page number of the sheet at `path` (SCH_SHEET_PATH::GetPageNumber); '' if unset. */
+export function getSheetPageNumber(sheet: SchSheet, path: string, project?: string): string {
+  return getInstance(sheet, path, project)?.page ?? '';
+}
+
+/** Page number of the root sheet (document-level sheet_instances). */
+export function getRootPageNumber(doc: Schematic, path = '/'): string {
+  return doc.sheetInstances.find((i) => i.path === path)?.page ?? '';
+}
+
+/**
+ * Order two page numbers the way the hierarchy tree sorts siblings
+ * (SCH_SHEET::ComparePageNum, sch_sheet.cpp:1743): numeric pages compare by
+ * value, a numeric page always sorts before a non-numeric one (including an
+ * unset ''), and two non-numeric pages fall back to `StrNumCmp` — the natural
+ * compare in common/, which is case-sensitive and codepoint-ordered. This used
+ * `localeCompare(…, { sensitivity: 'base' })`, which folds case and follows
+ * the browser's locale, so "a" and "A" tied here where upstream orders them.
+ */
+export function comparePageNum(a: string, b: string): number {
+  if (a === b) return 0;
+  const isIntA = /^[+-]?\d+$/.test(a);
+  const isIntB = /^[+-]?\d+$/.test(b);
+  if (isIntA && isIntB) return parseInt(a, 10) - parseInt(b, 10);
+  if (isIntA) return -1;
+  if (isIntB) return 1;
+  return Math.sign(strNumCmp(a, b));
+}
+
+const setPageOnSource = (pathNode: SList, page: string): SList => {
+  const hasPage = pathNode.items.some(
+    (it) => it.kind === 'list' && it.items[0]?.kind === 'atom' && it.items[0].value === 'page',
+  );
+  if (hasPage) {
+    return {
+      kind: 'list',
+      items: pathNode.items.map((it) =>
+        it.kind === 'list' && it.items[0]?.kind === 'atom' && it.items[0].value === 'page'
+          ? { kind: 'list', items: [it.items[0], str(page)] }
+          : it,
+      ),
+    };
+  }
+  // No (page …) yet: append one (SCH_SHEET::AddInstance on a fresh instance).
+  return {
+    kind: 'list',
+    items: [
+      ...pathNode.items,
+      { kind: 'list', items: [{ kind: 'atom', value: 'page' }, str(page)] },
+    ],
+  };
+};
+
+function withPage(inst: SheetInstance, page: string): SheetInstance {
+  return { ...inst, page, source: setPageOnSource(inst.source, page) };
+}
+
+/** Set the page number of a sub-sheet instance (SCH_SHEET_PATH::SetPageNumber),
+ *  as an undoable command over the parent document that holds `sheetIndex`. */
+export function setSheetPageNumberCommand(
+  sheetIndex: number,
+  path: string,
+  page: string,
+  project?: string,
+): EditCommand {
+  return {
+    label: 'Edit Sheet Page Number',
+    apply(doc: Schematic): Schematic {
+      const sheet = doc.sheets[sheetIndex];
+      if (!sheet) return doc;
+      const idx = sheet.instances.findIndex(
+        (i) => i.path === path && (project === undefined || (i.project ?? '') === project),
+      );
+      if (idx === -1) return doc; // no matching instance to edit
+      const instances = sheet.instances.map((i, n) => (n === idx ? withPage(i, page) : i));
+      const sheets = doc.sheets.map((s, n) => (n === sheetIndex ? { ...s, instances } : s));
+      return { ...doc, sheets };
+    },
+    invert(before: Schematic): EditCommand {
+      const prev = before.sheets[sheetIndex]?.instances.find(
+        (i) => i.path === path && (project === undefined || (i.project ?? '') === project),
+      );
+      return setSheetPageNumberCommand(sheetIndex, path, prev?.page ?? '', project);
+    },
+  };
+}
+
+/** Set the root sheet's page number (document-level sheet_instances). */
+export function setRootPageNumberCommand(page: string, path = '/'): EditCommand {
+  return {
+    label: 'Edit Sheet Page Number',
+    apply(doc: Schematic): Schematic {
+      const idx = doc.sheetInstances.findIndex((i) => i.path === path);
+      if (idx === -1) return doc;
+      const sheetInstances = doc.sheetInstances.map((i, n) => (n === idx ? withPage(i, page) : i));
+      return { ...doc, sheetInstances };
+    },
+    invert(before: Schematic): EditCommand {
+      const prev = before.sheetInstances.find((i) => i.path === path);
+      return setRootPageNumberCommand(prev?.page ?? '', path);
+    },
+  };
+}
+
+/**
+ * `SCH_SHEET_PATH::Path()` for a sheet of the hierarchy: the root's uuid, then
+ * every sheet symbol's uuid down to this sheet. `aSheetPath` is the walk's
+ * `/<sheet uuids…>/` (`"/"` for the root).
+ */
+export function sheetKiidPath(aRootUuid: string, aSheetPath: string): string {
+  const inner = aSheetPath.replace(/^\/+|\/+$/g, '');
+  return inner === '' ? `/${aRootUuid}` : `/${aRootUuid}/${inner}`;
+}
+
+/**
+ * `SCH_SHEET_LIST::UpdateSymbolInstanceData` (sch_sheet_path.cpp:1539): the
+ * root file's legacy `symbol_instances` applied to the hierarchy. For every
+ * sheet path (in sheet-list order) and every symbol on it, the record whose
+ * path is that sheet path plus the symbol uuid becomes the symbol's
+ * hierarchical reference for the path, and its reference / value / footprint
+ * become the shared fields - so, as upstream, the last sheet path visited
+ * wins the fields.
+ *
+ * `aSheets` is the flattened hierarchy (path + file); the documents are
+ * returned updated, by file.
+ */
+export function UpdateSymbolInstanceData(
+  aSheets: readonly { path: string; file: string }[],
+  aDocs: ReadonlyMap<string, Schematic>,
+  aRootUuid: string,
+  aSymbolInstances: readonly LEGACY_SYMBOL_INSTANCE[],
+): Map<string, Schematic> {
+  const out = new Map(aDocs);
+
+  for (const sheet of aSheets) {
+    const doc = out.get(sheet.file);
+    if (!doc) continue;
+
+    const sheetKiid = sheetKiidPath(aRootUuid, sheet.path);
+    // The file's paths carry no root uuid; the parser prepends it (m_rootUuid).
+    const rootless = sheetKiid.slice(aRootUuid.length + 1);
+
+    let changed = false;
+    const symbols = doc.symbols.map((sym) => {
+      if (!sym.uuid) return sym;
+
+      const it = aSymbolInstances.find((r) => r.path === `${rootless}/${sym.uuid}`);
+      if (!it) return sym;
+
+      changed = true;
+      let next = AddHierarchicalReference(sym, sheetKiid, it.reference, it.unit);
+      const setField = (key: string, value: string): void => {
+        next = {
+          ...next,
+          fields: next.fields.map((f) => (f.key === key ? { ...f, value } : f)),
+        };
+      };
+      setField('Reference', it.reference);
+      if (it.value !== '') setField('Value', it.value);
+      if (it.footprint !== '') setField('Footprint', it.footprint);
+      return next;
+    });
+
+    if (changed) out.set(sheet.file, { ...doc, symbols });
+  }
+
+  return out;
+}
+
+/**
+ * One sheet instance as its consumers see it: each symbol's Reference field
+ * and unit are `GetRef( &sheet )` and `GetUnitSelection( &sheet )` for this
+ * sheet path. A sheet used twice gives two different documents.
+ */
+export function SheetInstanceView(doc: Schematic, aInstancePath: string): Schematic {
+  let changed = false;
+  const symbols = doc.symbols.map((sym) => {
+    const ref = GetRef(sym, aInstancePath);
+    const unit = GetUnitSelection(sym, aInstancePath);
+    const cur = sym.fields.find((f) => f.key === 'Reference')?.value ?? '';
+    if (ref === cur && unit === sym.unit) return sym;
+    changed = true;
+    return {
+      ...sym,
+      unit,
+      fields: sym.fields.map((f) => (f.key === 'Reference' ? { ...f, value: ref } : f)),
+    };
+  });
+  return changed ? { ...doc, symbols } : doc;
+}
+
+// ---------------------------------------------------------------------------
+// `SCH_SHEET_PATH`, forward declaration (eeschema stage E3, part 1): the members the
+// live item classes already call. The class itself lands with SCH_SHEET; everything
+// above is the record model's helpers, untouched.
+// ---------------------------------------------------------------------------
+
+import type { SCH_SHEET } from './sch_sheet.js';
+
+export interface SCH_SHEET_PATH {
+  Clone(): SCH_SHEET_PATH;
+  push_back(aSheet: SCH_SHEET): void;
+  Last(): SCH_SHEET | null;
+  empty(): boolean;
+  /** `Path().AsString()`: the key the per-sheet maps use. */
+  PathAsString(): string;
+  GetVirtualPageNumber(): number;
+}

@@ -22,8 +22,6 @@
  * or the other, so the two sets can never be on screen together.
  */
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import {
   wksItemMsgPanelInfo,
   ellipsizeStatusText,
@@ -119,42 +117,9 @@ describe('wksItemMsgPanelInfo', () => {
   });
 });
 
-const EDITOR = readFileSync(
-  fileURLToPath(
-    new URL('../../../designer/src/editors/drawingsheet/DrawingSheetEditor.tsx', import.meta.url),
-  ),
-  'utf8',
-);
-
-/** The body of the `dsMsgPanelItems` memo, which is the whole panel. */
-const MSG_PANEL_BODY = (() => {
-  const at = EDITOR.indexOf('const dsMsgPanelItems');
-  expect(at, 'dsMsgPanelItems memo not found').toBeGreaterThan(-1);
-  return EDITOR.slice(at, EDITOR.indexOf('}, [', at));
-})();
-
-describe('PL_EDITOR_FRAME message panel', () => {
-  it('falls back to Page Width and Page Height and nothing else', () => {
-    // pl_editor_frame.cpp:968-977 emplaces exactly two rows.
-    const uppers = [...MSG_PANEL_BODY.matchAll(/upper: '([^']*)'/g)].map((m) => m[1]);
-    expect(uppers).toEqual(['Page Width', 'Page Height']);
-  });
-
-  it('routes a single selection through the item’s own rows', () => {
-    expect(MSG_PANEL_BODY).toContain('selection.size === 1');
-    expect(MSG_PANEL_BODY).toContain('wksItemMsgPanelInfo');
-  });
-
-  it('no longer shows the invented Paper / Page / Selected rows', () => {
-    for (const gone of ["upper: 'Paper'", "upper: 'Page'", "upper: 'Selected'"])
-      expect(MSG_PANEL_BODY).not.toContain(gone);
-  });
-
-  it('appends the unit label MessageTextFromValue adds by default', () => {
-    // include/units_provider.h:127 — aAddUnitLabel = true.
-    expect(MSG_PANEL_BODY).toContain('unitText(u)');
-  });
-});
+// The frame's own panel - the page rows when nothing or several are selected,
+// an item's rows for one - is PL_EDITOR_CONTROL::UpdateMessagePanel's now,
+// driven in unittests/pagelayout_editor/pl_editor_frame.test.ts.
 
 // ---------------------------------------------------------------------------
 

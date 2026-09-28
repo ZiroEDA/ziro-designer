@@ -9,16 +9,16 @@
  * keepout and a hand-written rule reach the checks by exactly the same path.
  */
 import { describe, expect, it } from 'vitest';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import {
   areaOutline,
   areasMatching,
   deflatePolygon,
   shapesEnclosedByArea,
   shapesIntersectArea,
-} from '@ziroeda/pcbnew/src/drc/drc_areas.js';
-import { ruleAreaRules } from '@ziroeda/pcbnew/src/drc/drc_engine_view.js';
-import type { Board, PcbTrack, PcbVia, PcbZone } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/drc/drc_areas.js';
+import { ruleAreaRules } from '@ziroeda/pcbnew/drc/drc_engine_view.js';
+import type { Board, PcbTrack, PcbVia, PcbZone } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 

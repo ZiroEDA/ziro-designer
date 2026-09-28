@@ -18,16 +18,30 @@
  * two ends), and `cvpcb/cvpcb_mainframe.cpp:122-131` (the panes wxAUI puts a
  * sash between).
  *
- * The commands the rows RUN are pinned in `cvpcb_commands.test.ts`; what is
+ * The commands the rows RUN are pinned in `unittests/cvpcb/cvpcb_commands.test.ts`; what is
  * here is the window — which rows exist, in which order, and what survives a
  * close and re-open.
  */
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render } from '@testing-library/react';
+import type { JSX } from 'react';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic } from '@ziroeda/eeschema';
-import { DialogAssignFootprints } from '@ziroeda/designer/src/editors/schematic/dialogs/dialog_assign_footprints.js';
+import { DialogAssignFootprints } from '@ziroeda/cvpcb/cvpcb_mainframe_ui.js';
+import { useCvpcbApp } from '@ziroeda/designer/src/editors/schematic/cvpcb_app.js';
 import { settings } from '@ziroeda/designer/src/prefs/settings.js';
+
+/** `DialogAssignFootprints` with the real program: `cvpcb` never imports
+ *  `designer`, so the window is handed its `CVPCB_APP` the way
+ *  `SchematicEditor.tsx` does. */
+function Window({
+  docs,
+}: {
+  docs: ReadonlyMap<string, ReturnType<typeof readSchematic>>;
+}): JSX.Element {
+  const app = useCvpcbApp();
+  return <DialogAssignFootprints app={app} docs={docs} onClose={() => {}} />;
+}
 
 // The dialog fetches the hosted footprint index on mount; there is no server.
 beforeAll(() => {
@@ -66,9 +80,7 @@ const ASSIGNED_SHEET = SHEET.replace(
 
 function render_(sheet: string): HTMLElement {
   const docs = new Map([['a.kicad_sch', readSchematic(parse(sheet))]]);
-  const { container } = render(
-    <DialogAssignFootprints docs={docs} onApply={() => {}} onClose={() => {}} />,
-  );
+  const { container } = render(<Window docs={docs} />);
   return container;
 }
 

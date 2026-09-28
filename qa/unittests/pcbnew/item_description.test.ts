@@ -10,13 +10,13 @@
  * only parts of the row that tell them apart.
  */
 import { describe, it, expect } from 'vitest';
-import type { Board, PcbZone } from '@ziroeda/pcbnew/src/types.js';
+import type { Board, PcbZone } from '@ziroeda/pcbnew/types.js';
 import {
   boardLayerName,
   netnameMsg,
   zoneItemDescription,
-} from '@ziroeda/pcbnew/src/item_description.js';
-import type { SList } from '@ziroeda/sexpr/src/index.js';
+} from '@ziroeda/pcbnew/item_description.js';
+import type { SList } from '@ziroeda/sexpr/index.js';
 
 const EMPTY = { kind: 'list', items: [] } as unknown as SList;
 

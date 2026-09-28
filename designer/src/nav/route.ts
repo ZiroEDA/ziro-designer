@@ -235,8 +235,8 @@ export function parseRoute(href: string, base = '/'): Route {
  *
  * `carry` is the search string the app is currently on, and everything in it
  * that the router does not own comes along: `?perf=1` is read by
- * `SchematicCanvas` and `GerberCanvas`, and losing it on the first navigation
- * would break the perf overlay in a way that looks like the overlay's fault.
+ * `SchematicCanvas`, and losing it on the first navigation would break the
+ * perf overlay in a way that looks like the overlay's fault.
  */
 export function routeHref(route: Route, base = '/', carry = ''): string {
   const b = base.endsWith('/') ? base : `${base}/`;

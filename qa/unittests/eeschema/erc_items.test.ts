@@ -13,11 +13,7 @@
  * error and then names the exceptions.
  */
 import { describe, it, expect } from 'vitest';
-import {
-  DEFAULT_SEVERITIES,
-  ERC_ITEMS,
-  type ErcCode,
-} from '@ziroeda/eeschema/src/erc/erc_settings.js';
+import { DEFAULT_SEVERITIES, ERC_ITEMS, type ErcCode } from '@ziroeda/eeschema/erc/erc_settings.js';
 
 const UPSTREAM: [group: string, key: string, title: string, severity: string][] = [
   ['Connections', 'pin_not_connected', 'Pin not connected', 'error'],

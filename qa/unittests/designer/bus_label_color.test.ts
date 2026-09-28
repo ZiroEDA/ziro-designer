@@ -23,7 +23,7 @@ import {
   setVectorText,
 } from '@ziroeda/designer/src/editors/schematic/render/renderer.js';
 import { KICAD_DEFAULT } from '@ziroeda/designer/src/editors/schematic/theme.js';
-import type { Schematic } from '@ziroeda/eeschema/src/types.js';
+import type { Schematic } from '@ziroeda/eeschema/types.js';
 
 /** Records every stroke colour used, so a colour can be looked for by name. */
 function spy(): { colors: Set<string>; ctx: CanvasRenderingContext2D } {

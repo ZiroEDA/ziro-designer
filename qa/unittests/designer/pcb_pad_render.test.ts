@@ -29,16 +29,16 @@
  * pinned it, so a regression to "everything is a circle" would have been silent.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import type { Board, PadShape } from '@ziroeda/pcbnew/src/types.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import type { Board, PadShape } from '@ziroeda/pcbnew/types.js';
 import {
   buildScene,
   drawBoard,
   drawNetNames,
   DEFAULT_DRAW_OPTIONS,
   type ScenePathFactory,
-} from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
+} from '@ziroeda/pcbnew/renderBoard.js';
 
 const MM = 1e6;
 

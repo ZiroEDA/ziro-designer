@@ -34,14 +34,37 @@
  *    ban. Removing one means lowering the number here in the same commit.
  */
 import { describe, expect, it } from 'vitest';
-import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { join, relative } from 'node:path';
 
 const SRC = join(__dirname, '../../../designer/src');
-const SHELL = join(SRC, 'ui/shell.css');
+const SHELL = join(SRC, '../../common/widgets/shell.css');
+
+const REPO = join(__dirname, '../../..');
+
+/**
+ * Every package a dialog can live in. designer/src alone stopped seeing Board
+ * Setup the day the file-structure pass moved it to pcbnew/dialogs/.
+ */
+const ROOTS = [
+  'designer/src',
+  'common',
+  'pcbnew',
+  'eeschema',
+  'cvpcb',
+  '3d-viewer',
+  'gerbview',
+  'pagelayout_editor',
+  'bitmap2component',
+].map((r) => join(REPO, r));
+
+function sources(): string[] {
+  return ROOTS.flatMap((r) => (existsSync(r) ? walk(r) : []));
+}
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
+    if (name === 'node_modules') continue;
     const p = join(dir, name);
     if (statSync(p).isDirectory()) walk(p, out);
     else if (p.endsWith('.tsx')) out.push(p);
@@ -65,10 +88,10 @@ function walk(dir: string, out: string[] = []): string[] {
  */
 function inlineSized(): string[] {
   const hits: string[] = [];
-  for (const file of walk(SRC)) {
+  for (const file of sources()) {
     const text = readFileSync(file, 'utf8');
     const at = (i: number): string =>
-      `${file.slice(SRC.length + 1)}:${text.slice(0, i).split('\n').length}`;
+      `${relative(REPO, file)}:${text.slice(0, i).split('\n').length}`;
     for (const m of text.matchAll(/className="ze-modal[^"]*"/g)) {
       // the same JSX element only, i.e. up to its closing angle bracket
       const element = text.slice(m.index, m.index + 600).split('>')[0] ?? '';
@@ -99,7 +122,7 @@ function modalVariants(): Set<string> {
   // same shape as the flex-direction guard, which had the same bug.
   if (modalVariantsCache) return modalVariantsCache;
   const out = new Set<string>();
-  for (const file of walk(SRC)) {
+  for (const file of sources()) {
     const text = readFileSync(file, 'utf8');
     for (const m of text.matchAll(/className=(?:"([^"]*)"|\{`([^`]*)`\})/g)) {
       const names = (m[1] ?? m[2] ?? '').split(/[\s${}]+/).filter((c) => c && !c.startsWith('$'));
@@ -177,6 +200,10 @@ describe('the pile of hand-picked dialog sizes does not grow', () => {
   // merged component states no size, exactly as `bMainSizer->Fit( this )` and
   // `GetSizer()->SetSizeHints( this )` leave it (dialog_page_settings_base.cpp:
   // 403-405, dialog_page_settings.cpp:192).
+  // 3 -> 2. `dialog_assign_footprints` moved out of `designer/src` into
+  // `cvpcb/cvpcb_mainframe_ui.tsx` (cvpcb/STRUCTURE.md's stage two): its
+  // `FRAME_SIZE` inline style is still there, cited the same way, this walk
+  // just no longer reaches it. `cvpcb_window_metrics.test.tsx` still pins it.
   it('3 call sites still name their own size', () => {
     // 29 -> 1. The same sweep as the shell.css block below, at the call sites:
     // twenty-five files stated a width or a height inline on a `.ze-modal`,
@@ -208,6 +235,12 @@ describe('the pile of hand-picked dialog sizes does not grow', () => {
     // `width: max-content`: a floor does not stop max-content going above it,
     // and Board Setup visibly re-sized itself on every row of its tree. Same
     // reasoning, and the same fix, as `.ze-prefs-dialog`.
+    //
+    // 2 -> 3 (09-28): CvPcb's window, cvpcb_mainframe_ui.tsx, states EDA_BASE_FRAME's
+    // defaultSize() - FromDIP( wxSize( 1280, 720 ) ), min 500x400
+    // (common/eda_base_frame.cpp:96-120) - so it clears the same bar. The count had
+    // dropped to 2 in 5c520e41 only because the file moved out of designer/src,
+    // which this scan then did not read.
     expect(inlineSized()).toHaveLength(3);
   });
 

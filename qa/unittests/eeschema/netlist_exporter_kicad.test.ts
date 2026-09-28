@@ -8,7 +8,7 @@
  * parser has to see the same components, pads and nets.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic, netlistKicad, type NetlistSheet } from '@ziroeda/eeschema';
 import { loadKicadNetlist } from '@ziroeda/pcbnew';
 
@@ -69,6 +69,8 @@ const netlistText = netlistKicad({
   source: 'divider.kicad_sch',
   date: '2026-07-25T00:00:00.000Z',
   netClassFor: () => 'Default',
+  // kicad-cli ran with KiCad's global sym-lib-table, which has Device.
+  libraryUri: (nick) => `\${KICAD10_SYMBOL_DIR}/${nick}.kicad_sym`,
 });
 
 describe('netlistKicad', () => {
@@ -84,10 +86,127 @@ describe('netlistKicad', () => {
     expect(netlistText).toContain('(value "first")');
   });
 
-  it("emits every section pcbnew's parser looks for, in order", () => {
-    const order = ['(design', '(components', '(groups', '(libparts', '(libraries', '(nets'].map(
-      (section) => netlistText.indexOf(section),
+  it('prints the design header byte for byte as kicad-cli does', () => {
+    // `kicad-cli sch export netlist --format kicadsexpr` on this very schematic
+    // (09-26), source/date/tool aside: NETLIST_EXPORTER_XML::node adds no text
+    // child for an empty value, so an empty company is `(company)`, not
+    // `(company "")`, and XNODE::Format + Prettify lays it out with tabs.
+    const titleBlock = [
+      '\t\t\t(title_block',
+      '\t\t\t\t(title "Divider")',
+      '\t\t\t\t(company)',
+      '\t\t\t\t(rev "A")',
+      '\t\t\t\t(date)',
+      '\t\t\t\t(source "divider.kicad_sch")',
+      '\t\t\t\t(comment',
+      '\t\t\t\t\t(number "1")',
+      '\t\t\t\t\t(value "first")',
+      '\t\t\t\t)',
+      '\t\t\t\t(comment',
+      '\t\t\t\t\t(number "2")',
+      '\t\t\t\t\t(value "")',
+      '\t\t\t\t)',
+    ].join('\n');
+    expect(netlistText).toContain(titleBlock);
+    expect(netlistText.startsWith('(export\n\t(version "E")\n\t(design\n')).toBe(true);
+  });
+
+  it('names each unit by its display name, pins in position order', () => {
+    // LIB_SYMBOL::GetUnitPinInfo: the letter "A", not the sub-symbol "C_1_1".
+    // Byte for byte what kicad-cli wrote for this schematic's first comp (09-26).
+    const units = [
+      '\t\t\t(units',
+      '\t\t\t\t(unit',
+      '\t\t\t\t\t(name "A")',
+      '\t\t\t\t\t(pins',
+      '\t\t\t\t\t\t(pin',
+      '\t\t\t\t\t\t\t(num "1")',
+      '\t\t\t\t\t\t)',
+      '\t\t\t\t\t\t(pin',
+      '\t\t\t\t\t\t\t(num "2")',
+      '\t\t\t\t\t\t)',
+      '\t\t\t\t\t)',
+      '\t\t\t\t)',
+      '\t\t\t)',
+    ].join('\n');
+    expect(netlistText).toContain(units);
+    expect(netlistText).not.toContain('(name "C_1_1")');
+  });
+
+  it('writes (variants), the libpart fields and the library uri as kicad-cli does', () => {
+    // Byte for byte from `kicad-cli sch export netlist` on this schematic (09-26).
+    expect(netlistText).toContain('\n\t(variants)\n\t(libparts\n');
+    // LIB_SYMBOL::GetFields: the five mandatory fields, empty ones included;
+    // ki_keywords / ki_fp_filters are not fields.
+    const rFields = [
+      '\t\t\t(fields',
+      '\t\t\t\t(field',
+      '\t\t\t\t\t(name "Reference") "R")',
+      '\t\t\t\t(field',
+      '\t\t\t\t\t(name "Value") "R")',
+      '\t\t\t\t(field',
+      '\t\t\t\t\t(name "Footprint")',
+      '\t\t\t\t)',
+      '\t\t\t\t(field',
+      '\t\t\t\t\t(name "Datasheet")',
+      '\t\t\t\t)',
+      '\t\t\t\t(field',
+      '\t\t\t\t\t(name "Description")',
+      '\t\t\t\t)',
+      '\t\t\t)',
+      '\t\t\t(pins',
+    ].join('\n');
+    expect(netlistText).toContain(rFields);
+    // (A component still carries it as a (property …), as upstream writes it.)
+    expect(netlistText).not.toContain('(name "ki_keywords") "R res resistor")');
+    expect(netlistText).toContain(
+      '\t\t(library\n\t\t\t(logical "Device")\n\t\t\t(uri "${KICAD10_SYMBOL_DIR}/Device.kicad_sym")\n\t\t)',
     );
+  });
+
+  it('leaves out a library no table knows, as makeLibraries does', () => {
+    const text = netlistKicad({
+      sheets: SHEETS,
+      libsFor: (s) => new Map(s.doc.libSymbols.map((l) => [l.libId, l])),
+      source: 'divider.kicad_sch',
+      libraryUri: () => undefined,
+    });
+    expect(text).not.toContain('(library\n');
+  });
+
+  it('lists variants by name in std::set order, with the project description', () => {
+    const text = netlistKicad({
+      sheets: SHEETS,
+      libsFor: (s) => new Map(s.doc.libSymbols.map((l) => [l.libId, l])),
+      source: 'divider.kicad_sch',
+      variantDescriptions: new Map([
+        ['Variant2', 'Test of variant 2 desc'],
+        ['Variant 1', ''],
+      ]),
+    });
+    expect(text).toContain(
+      '\t(variants\n\t\t(variant\n\t\t\t(name "Variant 1")\n\t\t)\n\t\t(variant\n\t\t\t(name "Variant2")\n\t\t\t(description "Test of variant 2 desc")\n\t\t)\n\t)',
+    );
+  });
+
+  it('names the root sheet "Root" when no project names it', () => {
+    // kicad-cli on this schematic (no .kicad_pro beside it, 09-26):
+    //   (property (name "Sheetname") (value "Root"))
+    expect(netlistText).toContain(
+      '\t\t\t(property\n\t\t\t\t(name "Sheetname")\n\t\t\t\t(value "Root")\n\t\t\t)',
+    );
+  });
+
+  it("emits every section pcbnew's parser looks for, in order", () => {
+    const order = [
+      '(design',
+      '(components',
+      '(groups',
+      '(variants',
+      '(libparts',
+      '(libraries',
+      '(nets',
+    ].map((section) => netlistText.indexOf(section));
     for (const index of order) expect(index).toBeGreaterThan(0);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
   });
@@ -154,8 +273,10 @@ describe('netlistKicad -> loadKicadNetlist', () => {
 
   it('gives an unconnected pin its own auto-named net', () => {
     const r1 = netlist.GetComponentByReference('R1')!;
-    // R1 pin 1 is dangling: the connection graph auto-names it Net-(R1-Pad1).
-    expect(r1.GetNet('1').netName).toBe('Net-(R1-Pad1)');
+    // R1 pin 1 is dangling: its net's one driver is that pin, so the graph names
+    // it unconnected-(R1-Pad1) (connection_graph.cpp:2650) - what kicad-cli wrote
+    // for this very schematic (09-26).
+    expect(r1.GetNet('1').netName).toBe('unconnected-(R1-Pad1)');
   });
 
   it('leaves a symbol excluded from the board out of the netlist', () => {

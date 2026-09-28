@@ -2,8 +2,8 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import type { JSX, ReactNode } from 'react';
-import type { CrossProbingSettings } from '@ziroeda/common/src/cross_probing_settings.js';
-import { Check, Group } from './widgets.js';
+import type { CROSS_PROBING_SETTINGS } from '@ziroeda/common/settings/app_settings.js';
+import { Check, Group } from '@ziroeda/common/wx/controls.js';
 
 /**
  * The "Cross-probing" group, written once because KiCad writes it twice: the
@@ -29,8 +29,8 @@ export function CrossProbingGroup({
   disabled,
   children,
 }: {
-  value: CrossProbingSettings;
-  onChange: (fn: (s: CrossProbingSettings) => void) => void;
+  value: CROSS_PROBING_SETTINGS;
+  onChange: (fn: (s: CROSS_PROBING_SETTINGS) => void) => void;
   /** The editor on the far end of the probe, as this panel's labels name it. */
   peer: 'pcb' | 'schematic';
   /** `wxWindow::Enable( false )` on all five — drawn, but nothing reads them. */

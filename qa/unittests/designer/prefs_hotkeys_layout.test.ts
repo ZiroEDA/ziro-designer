@@ -30,11 +30,14 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-const PANEL = readFileSync(
-  resolve(process.cwd(), '../designer/src/dialogs/prefs/panels/PanelHotkeysEditor.tsx'),
-  'utf8',
-);
-const CSS = readFileSync(resolve(process.cwd(), '../designer/src/ui/shell.css'), 'utf8');
+/** PANEL_HOTKEYS_EDITOR and the WIDGET_HOTKEY_LIST it hosts, read as one. */
+const PANEL = [
+  '../common/dialogs/panel_hotkeys_editor.tsx',
+  '../common/widgets/widget_hotkey_list.tsx',
+]
+  .map((f) => readFileSync(resolve(process.cwd(), f), 'utf8'))
+  .join('\n');
+const CSS = readFileSync(resolve(process.cwd(), '../common/widgets/shell.css'), 'utf8');
 /** The panel with its comments stripped: prose ABOUT a row is not that row. */
 const CODE = PANEL.replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
 

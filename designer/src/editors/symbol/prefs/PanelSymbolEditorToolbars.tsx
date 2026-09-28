@@ -23,8 +23,9 @@
  * `appearance.custom_toolbars` is on and one exists, `DefaultToolbarConfig`
  * otherwise. So both controls on this page are live.
  */
+import { catalogueFor, ourToolbarId } from '../../../ui/action_catalogue.js';
 import type { JSX } from 'react';
-import { PanelToolbarCustomization } from '../../../dialogs/prefs/PanelToolbarCustomization.js';
+import { PanelToolbarCustomization } from '@ziroeda/common/dialogs/panel_toolbar_customization.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
 import { SYM_DEFAULT_TOOLBARS } from '../symbolToolbars.js';
 
@@ -32,6 +33,8 @@ export function PanelSymbolEditorToolbars({ ctx }: { ctx: PrefsContext }): JSX.E
   return (
     <PanelToolbarCustomization
       app="symbol_editor"
+      availableTools={catalogueFor('symbol_editor')}
+      toolbarIdOf={ourToolbarId}
       defaults={SYM_DEFAULT_TOOLBARS}
       custom={ctx.symbolEditor.appearance.custom_toolbars}
       setCustom={(v) => {

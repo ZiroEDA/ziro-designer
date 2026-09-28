@@ -26,10 +26,10 @@
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
-import { makeRuleArea, makeRuleAreaPreview } from '@ziroeda/eeschema/src/tools/build-graphics.js';
-import { dragHandle, editHandles } from '@ziroeda/eeschema/src/tools/point_editor.js';
-import type { Schematic } from '@ziroeda/eeschema/src/types.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
+import { makeRuleArea, makeRuleAreaPreview } from '@ziroeda/eeschema/tools/build-graphics.js';
+import { dragHandle, editHandles } from '@ziroeda/eeschema/tools/point_editor.js';
+import type { Schematic } from '@ziroeda/eeschema/types.js';
 
 const SRC = `(kicad_sch (version 20250114) (lib_symbols)
   (rule_area (exclude_from_sim no) (in_bom yes) (on_board yes) (dnp no)
@@ -272,8 +272,10 @@ describe('the handles a finished rule area shows', () => {
   const handlesOf = (d: Schematic) => editHandles(d, { kind: 'graphic', index: 0 });
 
   it('a square handle on every vertex', () => {
+    // Five stored points, the last repeating the first: parseSchRuleArea's
+    // SetClosed( true ) merges it, so the outline - and its handles - are four.
     const hs = handlesOf(square());
-    expect(hs.filter((h) => h.kind === 'point')).toHaveLength(5);
+    expect(hs.filter((h) => h.kind === 'point')).toHaveLength(4);
   });
 
   it('and a circle between each adjacent pair', () => {

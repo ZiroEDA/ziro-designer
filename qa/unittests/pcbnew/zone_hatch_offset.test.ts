@@ -22,13 +22,13 @@
  */
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { fillZones, hatchingOffsetFor } from '@ziroeda/pcbnew/src/zone_filler.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { fillZones, hatchingOffsetFor } from '@ziroeda/pcbnew/zone_filler.js';
 // NOT the bare `mmToIU`, which is the DRAWING SHEET scale (1e3 IU/mm). A board
 // is 1e6, so `mmToIU(1)` here would be a thousandth of what is meant and every offset below would be
 // far too small to move a 3 mm hatch grid — which is exactly how this file
 // failed first time round.
-import { pcbMmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU } from '@ziroeda/common/eda_units.js';
 
 /** A 20 x 20 mm hatched copper zone on F.Cu, with a coarse enough grid to see. */
 const BOARD_TEXT = (extra = ''): string => `(kicad_pcb (version 20241229) (generator "test")

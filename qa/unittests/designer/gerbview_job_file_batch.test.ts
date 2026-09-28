@@ -30,11 +30,19 @@
  * `/home/akshay/ki_demo`, so the case this pins is the one that failed.
  */
 import { describe, expect, it } from 'vitest';
-import {
-  decideLoad,
-  plotBatchSelfSorts,
-} from '@ziroeda/designer/src/editors/gerbview/gerber_load_report.js';
-import { compareByFileExtension } from '@ziroeda/gerbview';
+import { decideLoad, plotBatchSelfSorts } from '@ziroeda/gerbview/files.js';
+import { asComparator, GERBER_FILE_IMAGE, sortFileExtension } from '@ziroeda/gerbview';
+
+/** `sortFileExtension` over two in-use images carrying these file names. */
+const compareByFileExtension = (a: string, b: string): number => {
+  const image = (name: string): GERBER_FILE_IMAGE => {
+    const img = new GERBER_FILE_IMAGE(0);
+    img.m_FileName = name;
+    img.m_InUse = true;
+    return img;
+  };
+  return asComparator(sortFileExtension)(image(a), image(b));
+};
 
 const P = 'kit-dev-coldfire-xilinx_5213-';
 

@@ -11,13 +11,10 @@
  * produces, is logic; the dialog around it is not.
  */
 import { describe, expect, it } from 'vitest';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import { parseDrcRules } from '@ziroeda/pcbnew';
 import type { Board } from '@ziroeda/pcbnew';
-import {
-  describeSelected,
-  inspectSelection,
-} from '@ziroeda/designer/src/editors/pcb/inspect_selection.js';
+import { describeSelected, inspectSelection } from '@ziroeda/pcbnew/tools/board_inspection_tool.js';
 
 const MM = (n: number): number => mmToIU(n);
 
@@ -166,9 +163,9 @@ describe('inspectSelection', () => {
     const s = inspectSelection(b, ['via:0'], RULES, noClasses);
 
     expect(s.map((x) => x.title)).toEqual([
-      'via_diameter resolution for:',
-      'hole_size resolution for:',
-      'annular_width resolution for:',
+      'Via diameter resolution for:',
+      'Hole size resolution for:',
+      'Via annular width resolution for:',
     ]);
   });
 
@@ -187,9 +184,9 @@ describe('inspectSelection', () => {
     const s = inspectSelection(b, ['track:0', 'shape:0'], RULES, noClasses);
 
     expect(s.map((x) => x.title)).toEqual([
-      'track_width resolution for:',
-      'track_segment_length resolution for:',
-      'track_angle resolution for:',
+      'Track width resolution for:',
+      'Track segment length resolution for:',
+      'Track Angle resolution for:',
     ]);
   });
 

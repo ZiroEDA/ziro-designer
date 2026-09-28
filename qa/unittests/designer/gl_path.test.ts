@@ -14,9 +14,9 @@
  * unit-agnostic and testing it in millimetres would only add noise.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { buildScene } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { buildScene } from '@ziroeda/pcbnew/renderBoard.js';
 import {
   GlMatrix,
   GlPath,

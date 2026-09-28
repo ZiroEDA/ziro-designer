@@ -3,8 +3,8 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /** `qa/tests/common/test_markup_parser.cpp`, transcribed. */
 import { describe, expect, it } from 'vitest';
-import { MARKUP_PARSER, type NODE } from '@ziroeda/common/src/markup_parser.js';
-import { STROKE_FONT } from '@ziroeda/common/src/font/stroke_font.js';
+import { MARKUP_PARSER, type NODE } from '@ziroeda/common/markup_parser.js';
+import { STROKE_FONT } from '@ziroeda/common/font/stroke_font.js';
 import { ANGLE_0 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 
 function nodeToString(aNode: NODE, aStringToPopulate: { value: string }): void {

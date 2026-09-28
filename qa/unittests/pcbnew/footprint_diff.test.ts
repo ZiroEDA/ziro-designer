@@ -17,14 +17,14 @@
  * and reporting any one of them would mark every board on the bench stale.
  */
 import { describe, expect, it } from 'vitest';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import {
   footprintDifferences,
   footprintLocalPos,
   footprintNeedsUpdate,
-} from '@ziroeda/pcbnew/src/footprint_diff.js';
-import { rotatePcb } from '@ziroeda/pcbnew/src/read-board.js';
-import type { PcbFootprint, PcbPad, PcbShape, PcbTextItem } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/footprint_diff.js';
+import { rotatePcb } from '@ziroeda/pcbnew/edit-board.js';
+import type { PcbFootprint, PcbPad, PcbShape, PcbTextItem } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 

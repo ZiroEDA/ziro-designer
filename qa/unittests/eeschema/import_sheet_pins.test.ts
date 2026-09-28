@@ -29,8 +29,8 @@ import {
   importableSheetPins,
   nextImportableSheetPin,
   sheetHasPin,
-} from '@ziroeda/eeschema/src/tools/import_sheet_pins.js';
-import type { Schematic } from '@ziroeda/eeschema/src/types.js';
+} from '@ziroeda/eeschema/tools/import_sheet_pins.js';
+import type { Schematic } from '@ziroeda/eeschema/types.js';
 
 /** A child schematic carrying the given hierarchical labels. */
 const child = (labels: { name: string; shape?: string }[]): Schematic =>

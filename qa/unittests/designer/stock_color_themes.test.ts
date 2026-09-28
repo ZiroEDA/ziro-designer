@@ -10,7 +10,7 @@
  * sheet is LIGHT, `rgb(236, 239, 244)`. The theme this replaced said dark,
  * because it was written from the palette's name rather than from the file.
  */
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { DEFAULT_REPOSITORY } from '@ziroeda/designer/src/pcm/defaultRepo.js';
@@ -20,16 +20,26 @@ import {
   colorSettingsList,
   stockThemeId,
 } from '@ziroeda/designer/src/prefs/color_settings_list.js';
-import { colorThemeOptions } from '@ziroeda/designer/src/dialogs/prefs/ColorThemeChoice.js';
+import { colorThemeOptions } from '@ziroeda/common/dialogs/panel_color_settings.js';
 import {
   overrideItemColorsFor,
   resolveThemeById,
 } from '@ziroeda/designer/src/prefs/useSettings.js';
-import { PCB_THEMES, themeByFilename } from '@ziroeda/designer/src/editors/pcb/pcbTheme.js';
+import {
+  PCB_THEMES,
+  setColorSettingsByIdProvider,
+  themeByFilename,
+} from '@ziroeda/pcbnew/pcbTheme.js';
 import { themeFilesFor } from '@ziroeda/designer/src/prefs/theme_files.js';
 
 const DIR = resolve(import.meta.dirname, '../../../designer/src/assets/color_schemes');
 const stock = (stem: string) => STOCK_COLOR_THEMES.find((t) => t.id === stockThemeId(stem))!;
+
+// The app registers the installed/stock-theme lookup at startup
+// (pgm_app.ts: `setColorSettingsByIdProvider(colorSettingsById)`), since
+// pcbnew/ may not import designer/. A test that never starts the app does the
+// same, or every non-built-in theme falls back to KiCad Default.
+beforeAll(() => setColorSettingsByIdProvider(colorSettingsById));
 
 describe('the stock directory is the seven files, read as COLOR_SETTINGS reads them', () => {
   it('is every file in the folder, under its stem: nothing vendored and forgotten', () => {

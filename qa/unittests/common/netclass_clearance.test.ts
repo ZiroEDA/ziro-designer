@@ -18,8 +18,8 @@ import {
   netClassClearanceMM,
   netClassHumanReadableName,
   resolveEffectiveNetClass,
-} from '@ziroeda/common/src/project/net_settings.js';
-import type { NetClass, NetClassesData } from '@ziroeda/common/src/project/net_settings.js';
+} from '@ziroeda/common/project/net_settings.js';
+import type { NetClass, NetClassesData } from '@ziroeda/common/project/net_settings.js';
 
 const cls = (name: string, clearance: string): ReturnType<typeof blankNetClass> => ({
   ...blankNetClass(name),

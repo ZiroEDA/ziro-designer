@@ -382,6 +382,19 @@ describe('what the private tree did, and still happens', () => {
   });
 
   /**
+   * `changeSelectedPinStatus` repins only LIBRARY nodes: Pin Library on a
+   * footprint row (where the menu shows it, `checkPinnedStatus` passing for an
+   * ITEM node) leaves its library unpinned.
+   */
+  it('but Pin Library on a footprint row pins nothing', async () => {
+    const container = await open();
+    fireEvent.click(twistyOf(rowNamed(container, 'Resistor_SMD')!));
+    pin(container, 'R_0805');
+    await new Promise((r) => setTimeout(r, 50));
+    expect(rows(container).map(itemText).slice(0, 2)).toEqual(['Capacitor_SMD', 'Resistor_SMD']);
+  });
+
+  /**
    * The Description column, which the private tree did not have at all — a
    * footprint's `(descr …)` was nowhere in that pane. A footprint with one has
    * it in cell 2 and one without has an empty cell.

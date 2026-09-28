@@ -22,7 +22,7 @@
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
-import type { Schematic, SchSheet } from '@ziroeda/eeschema/src/types.js';
+import type { Schematic, SchSheet } from '@ziroeda/eeschema/types.js';
 
 const BLUE = [170, 230, 255, 1] as const;
 

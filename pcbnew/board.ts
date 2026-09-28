@@ -1,0 +1,4162 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+/**
+ * `pcbnew/board.h` / `pcbnew/board.cpp`: `BOARD`, information pertinent to a
+ * Pcbnew printed circuit board.
+ *
+ * IN PROGRESS (#636): the container, the layer table with its opposites,
+ * the design settings, the page, title block and plot options, the board
+ * use, the file-format bookkeeping, `EMBEDDED_FILES` (the second base,
+ * mixed in), `m_NetInfo`, and `Add`/`Remove` over the item collections are
+ * here, with `m_connectivity`, the listeners, the outline and the
+ * solder-mask bridges zone. Still to land with their classes: the DRC
+ * caches (the RTree cache is declared, DRC fills it), the component-class
+ * manager, the length/delay calculator, the project. `board_types.ts`
+ * carries `LAYER_T`, `LAYER` and `BOARD_USE`, which C++ declares in this
+ * header.
+ */
+
+import {
+  CompareByUuid,
+  EDA_ITEM,
+  INSPECT_RESULT,
+  type INSPECTOR,
+  RECURSE_MODE,
+} from '@ziroeda/common/eda_item.js';
+import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
+import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
+import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
+import { PAD_ATTRIB } from './padstack.js';
+import {
+  BuildBoardPolygonOutlines,
+  type OUTLINE_ERROR_HANDLER,
+} from './convert_shape_list_to_polygon.js';
+import type { EDA_GROUP } from '@ziroeda/common/eda_group.js';
+import { STRUCT_DELETED } from '@ziroeda/common/eda_item_flags.js';
+import { type EdaUnits, pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { type KIID, niluuid } from '@ziroeda/common/kiid.js';
+import {
+  FlipLayer as flipLayerId,
+  GAL_LAYER_ID,
+  GAL_SET,
+  IsBackLayer as isBackLayerId,
+  IsCopperLayer,
+  IsFrontLayer as isFrontLayerId,
+  LayerName,
+  PCB_LAYER_ID,
+  ToLAYER_ID,
+} from '@ziroeda/common/layer_id.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import { VIEW } from '@ziroeda/common/view/view.js';
+import { RPT_SEVERITY_EXCLUSION } from '@ziroeda/common/reporter.js';
+import type { OutStr } from '@ziroeda/common/font/font.js';
+import { GetDefaultVariantName, SortVariantNames } from '@ziroeda/common/string_utils.js';
+import type { HISTORY_FILE_DATA } from '@ziroeda/common/local_history.js';
+import { FORMAT_MODE } from '@ziroeda/common/io/kicad/kicad_io_utils.js';
+import { STRING_FORMATTER } from '@ziroeda/common/richio.js';
+import { PCB_IO_KICAD_SEXPR } from './pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { DIM_UNITS_MODE } from './pcb_dimension_types.js';
+import { TITLE_BLOCK } from '@ziroeda/common/title_block.js';
+import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
+import { PAGE_INFO, PAGE_SIZE_TYPE } from '@ziroeda/common/page_info.js';
+import { applyMixins } from '@ziroeda/core/mixins.js';
+import { PCB_PLOT_PARAMS } from './pcb_plot_params.js';
+import { NETCLASS } from '@ziroeda/common/netclass.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+import { BOARD_DESIGN_SETTINGS } from './board_design_settings.js';
+import { BOARD_ITEM, DELETED_BOARD_ITEM } from './board_item.js';
+import { ADD_MODE, BOARD_ITEM_CONTAINER, REMOVE_MODE } from './board_item_container.js';
+import { BOARD_USE, LAYER, LAYER_T } from './board_types.js';
+import { type PROJECT, PROJECT_ELEM } from '@ziroeda/common/project.js';
+import { NET_SETTINGS } from '@ziroeda/common/project/net_settings.js';
+import { TUNING_PROFILES } from '@ziroeda/common/project/tuning_profiles.js';
+import type { FOOTPRINT_LIBRARY_ADAPTER } from './footprint_library_adapter.js';
+import {
+  LENGTH_DELAY_CALCULATION,
+  LENGTH_DELAY_DOMAIN_OPT,
+  LENGTH_DELAY_LAYER_OPT,
+  type PATH_OPTIMISATIONS,
+} from './length_delay_calculation/length_delay_calculation.js';
+import {
+  type LENGTH_DELAY_CALCULATION_ITEM,
+  LENGTH_DELAY_CALCULATION_ITEM_TYPE,
+} from './length_delay_calculation/length_delay_calculation_item.js';
+import { NETINFO_ITEM, NETINFO_LIST, UNCONNECTED_NET } from './netinfo.js';
+import type { FOOTPRINT } from './footprint.js';
+import type { PCB_GENERATOR } from './pcb_generator.js';
+import type { PCB_GROUP } from './pcb_group.js';
+import type { PCB_POINT } from './pcb_point.js';
+import { PCB_MARKER } from './pcb_marker.js';
+import { PCB_TABLE } from './pcb_table.js';
+import { PCB_BARCODE } from './pcb_barcode.js';
+import type { PCB_SHAPE } from './pcb_shape.js';
+import type { RENDER_SETTINGS } from '@ziroeda/common/render_settings.js';
+import type { PCB_DIMENSION_BASE } from './pcb_dimension.js';
+import type { PCB_TEXT } from './pcb_text.js';
+import type { PCB_TEXTBOX } from './pcb_textbox.js';
+import { EDA_SHAPE } from '@ziroeda/common/eda_shape.js';
+import { EDA_TEXT } from '@ziroeda/common/eda_text.js';
+import type { PCB_TRACK, PCB_VIA } from './pcb_track.js';
+import { type ENDPOINT_T, VIATYPE } from './pcb_track_types.js';
+import { type ISOLATED_ISLANDS, ZONE } from './zone.js';
+import { ZONE_BORDER_DISPLAY_STYLE } from './zone_settings.js';
+import type { BOARD_CONNECTED_ITEM } from './board_connected_item.js';
+import { BOARD_STACKUP } from './board_stackup_manager/board_stackup.js';
+import {
+  ITEM_PICKER,
+  type PICKED_ITEMS_LIST,
+  UNDO_REDO,
+} from '@ziroeda/common/undo_redo_container.js';
+import type { BOARD_COMMIT } from './board_commit.js';
+import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
+import type { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
+import { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
+import { GENERAL_COLLECTOR, PCB_LAYER_COLLECTOR } from './collectors.js';
+import type { PAD } from './pad.js';
+import { PAD_PROP } from './padstack.js';
+import { MARKER_T } from '@ziroeda/common/marker_base.js';
+import { PCB_BOARD_OUTLINE } from './pcb_board_outline.js';
+import type { DRC_RTREE } from './drc/drc_rtree.js';
+import type { COMMIT } from '@ziroeda/common/commit.js';
+import { CONNECTIVITY_DATA, EXCLUDE_ZONES } from './connectivity/connectivity_data.js';
+import { COMPONENT_CLASS_MANAGER } from './component_classes/component_class_manager.js';
+import type { CN_EDGE, PROGRESS_REPORTER_LIKE } from './connectivity/connectivity_algo.js';
+
+export { BOARD_USE, LAYER, LAYER_T } from './board_types.js';
+
+/** `DEFAULT_CHAINING_EPSILON_MM` (`board.h`): the outline-chaining tolerance. */
+export const DEFAULT_CHAINING_EPSILON_MM = 0.01;
+
+/** `LEGACY_BOARD_FILE_VERSION` (cmake/config.h.cmake:76). */
+export const LEGACY_BOARD_FILE_VERSION = 2;
+
+/**
+ * `sortPadsByXthenYCoord` (board.cpp): X first, Y as the tie-break.
+ *
+ * A comparator here returns a number, not a bool, so the `<` becomes the sign
+ * of the difference — same ordering, and no branch on equality needed for Y
+ * because a zero difference already means "keep going".
+ */
+function sortPadsByXthenYCoord(aLH: PAD, aRH: PAD): number {
+  if (aLH.GetPosition().x === aRH.GetPosition().x) return aLH.GetPosition().y - aRH.GetPosition().y;
+
+  return aLH.GetPosition().x - aRH.GetPosition().x;
+}
+
+// `class BOARD : public BOARD_ITEM_CONTAINER, public EMBEDDED_FILES`
+// biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (EMBEDDED_FILES mixin)
+export interface BOARD extends EMBEDDED_FILES {}
+
+/** `std::set<wxString>` order: `wxString::operator<` is a code-unit compare. */
+const strLess = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
+
+function FindByFirstNFields(
+  strSet: Set<string>,
+  searchStr: string,
+  delimiter: string,
+  n: number,
+): string | undefined {
+  let searchPrefix = searchStr;
+
+  // Extract first n fields from the search string
+  let delimiterCount = 0;
+  let pos = 0;
+
+  while (pos < searchPrefix.length && delimiterCount < n) {
+    if (searchPrefix[pos] === delimiter) delimiterCount++;
+
+    pos++;
+  }
+
+  if (delimiterCount === n) searchPrefix = searchPrefix.slice(0, pos - 1); // Exclude the nth delimiter
+
+  for (const it of strSet) {
+    if (it.startsWith(searchPrefix + delimiter) || it === searchPrefix) return it;
+  }
+
+  return undefined;
+}
+
+/** What a board without a project answers for its tuning profiles. */
+const EMPTY_TUNING_PROFILES = new TUNING_PROFILES();
+
+/**
+ * `BOARD_LISTENER` (board.h:284): the observer a BOARD notifies of its
+ * changes. Every method has an empty default, so a listener overrides the
+ * ones it cares about — the editor's React state is one such listener.
+ */
+export class BOARD_LISTENER {
+  OnBoardItemAdded(_aBoard: BOARD, _aBoardItem: BOARD_ITEM): void {}
+  OnBoardItemsAdded(_aBoard: BOARD, _aBoardItems: BOARD_ITEM[]): void {}
+  OnBoardItemRemoved(_aBoard: BOARD, _aBoardItem: BOARD_ITEM): void {}
+  OnBoardItemsRemoved(_aBoard: BOARD, _aBoardItems: BOARD_ITEM[]): void {}
+  OnBoardNetSettingsChanged(_aBoard: BOARD): void {}
+  OnBoardItemChanged(_aBoard: BOARD, _aBoardItem: BOARD_ITEM): void {}
+  OnBoardItemsChanged(_aBoard: BOARD, _aBoardItems: BOARD_ITEM[]): void {}
+  OnBoardHighlightNetChanged(_aBoard: BOARD): void {}
+  OnBoardRatsnestChanged(_aBoard: BOARD): void {}
+  OnBoardCompositeUpdate(
+    _aBoard: BOARD,
+    _aAddedItems: BOARD_ITEM[],
+    _aRemovedItems: BOARD_ITEM[],
+    _aChangedItems: BOARD_ITEM[],
+  ): void {}
+}
+
+/**
+ * `HIGH_LIGHT_INFO` (board.h:256): the nets a board is highlighting.
+ */
+export class HIGH_LIGHT_INFO {
+  m_netCodes = new Set<number>(); // net(s) selected for highlight (-1 when no net selected )
+  m_highLightOn = false; // highlight active
+
+  Clear(): void {
+    this.m_netCodes.clear();
+    this.m_highLightOn = false;
+  }
+}
+
+/**
+ * Information pertinent to a Pcbnew printed circuit board.
+ */
+// biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (EMBEDDED_FILES mixin)
+export class BOARD extends BOARD_ITEM_CONTAINER {
+  /**
+   * Visibility settings stored in board prior to 6.0, only used for loading legacy files
+   */
+  m_LegacyVisibleLayers = new LSET();
+  m_LegacyVisibleItems = new GAL_SET();
+
+  /**
+   * True if the legacy board design settings were loaded from a file
+   */
+  m_LegacyDesignSettingsLoaded: boolean;
+  m_LegacyCopperEdgeClearanceLoaded: boolean;
+
+  /**
+   * True if netclasses were loaded from the file
+   */
+  m_LegacyNetclassesLoaded: boolean;
+
+  private m_project: PROJECT | null = null; // project this board is a part of
+
+  static ClassOf(aItem: { Type(): KICAD_T } | null): boolean {
+    return !!aItem && KICAD_T.PCB_T === aItem.Type();
+  }
+
+  private m_boardUse: BOARD_USE;
+  private m_timeStamp: number; // actually a modification counter
+  private m_userUnits: EdaUnits = 'mm'; // BOARD::BOARD() : m_userUnits( EDA_UNITS::MM )
+  private m_fileName = '';
+
+  private m_fileFormatVersionAtLoad: number; // the version loaded from the file
+  private m_generator = ''; // the generator tag from the file
+
+  private m_paper: PAGE_INFO;
+  private m_plotOptions = new PCB_PLOT_PARAMS();
+
+  /**
+   * Teardrops in 7.0 were applied as a post-processing step (rather than from pad and via
+   * properties).  If this flag is set, then the teardrops are generated from pad and via
+   * properties instead.
+   */
+  private m_legacyTeardrops = false;
+
+  // Used for dummy boards, such as a footprint holder, where we don't want to make a copy
+  // of all the parent's embedded data.
+  private m_embeddedFilesDelegate: EMBEDDED_FILES | null;
+
+  private m_designSettings: BOARD_DESIGN_SETTINGS;
+
+  private m_properties = new Map<string, string>();
+
+  private m_titles = new TITLE_BLOCK(); // text in lower right of screen and plots
+
+  private m_currentVariant = ''; // Currently active variant (empty = default)
+  private m_variantNames: string[] = []; // All variant names in the board
+  private m_variantDescriptions = new Map<string, string>(); // Descriptions for each variant
+
+  private m_layers = new Map<number, LAYER>();
+
+  protected m_NetInfo: NETINFO_LIST; ///< net info list (name, design constraints...)
+
+  // The item collections (`m_footprints`, `m_tracks` are std::deques; the rest vectors).
+  protected m_drawings: BOARD_ITEM[] = [];
+  protected m_footprints: FOOTPRINT[] = [];
+  protected m_tracks: PCB_TRACK[] = [];
+  protected m_zones: ZONE[] = [];
+  protected m_generators: PCB_GENERATOR[] = [];
+  protected m_markers: PCB_MARKER[] = [];
+  protected m_groups: PCB_GROUP[] = [];
+
+  private m_listeners: BOARD_LISTENER[] = [];
+  private m_highLight = new HIGH_LIGHT_INFO(); // current high light data
+  private m_highLightPrevious = new HIGH_LIGHT_INFO(); // a previously stored high light data
+  protected m_points: PCB_POINT[] = [];
+
+  protected m_itemByIdCache = new Map<KIID, BOARD_ITEM>();
+
+  protected m_outlinesChainingEpsilon: number;
+
+  // ------------ Run-time caches -------------
+  // (`m_CachesMutex` guards them in the C++; there is one thread here.) The
+  // PTR_PTR keys are nested Maps: outer by the first pointer, inner by the second.
+  m_IntersectsCourtyardCache = new Map<BOARD_ITEM, Map<BOARD_ITEM, boolean>>();
+  m_IntersectsFCourtyardCache = new Map<BOARD_ITEM, Map<BOARD_ITEM, boolean>>();
+  m_IntersectsBCourtyardCache = new Map<BOARD_ITEM, Map<BOARD_ITEM, boolean>>();
+  /** `PTR_PTR_LAYER_CACHE_KEY`: area -> item -> layer -> result. */
+  m_IntersectsAreaCache = new Map<BOARD_ITEM, Map<BOARD_ITEM, Map<PCB_LAYER_ID, boolean>>>();
+  m_EnclosedByAreaCache = new Map<BOARD_ITEM, Map<BOARD_ITEM, Map<PCB_LAYER_ID, boolean>>>();
+  m_LayerExpressionCache = new Map<string, LSET>();
+
+  /** `m_ZoneBBoxCache`: the zone bounding boxes, written by `ZONE::GetBoundingBox` (`friend class ZONE`). */
+  m_ZoneBBoxCache = new Map<ZONE, BOX2I>();
+  m_maxClearanceValue: number | undefined = undefined;
+
+  m_ItemNetclassCache = new Map<BOARD_ITEM, string>();
+
+  // Zone name lookup cache for DRC rule area functions like enclosedByArea/intersectsArea.
+  // Maps zone names to vectors of matching zones to avoid O(n) zone iteration per lookup.
+  m_ZonesByNameCache = new Map<string, ZONE[]>();
+
+  // Deflated zone outline cache for DRC area checks. Caches the deflated outline for each zone
+  // to avoid repeated expensive deflation operations during collidesWithArea calls.
+  m_DeflatedZoneOutlineCache = new Map<ZONE, SHAPE_POLY_SET>();
+
+  /** `std::shared_ptr<DRC_RTREE> m_CopperItemRTreeCache`, filled by DRC_CACHE_GENERATOR. */
+  m_CopperItemRTreeCache: DRC_RTREE | null = null;
+
+  /** `std::unordered_map<ZONE*, std::unique_ptr<DRC_RTREE>> m_CopperZoneRTreeCache`, filled by DRC_CACHE_GENERATOR. */
+  m_CopperZoneRTreeCache = new Map<ZONE, DRC_RTREE>();
+
+  // ------------ DRC caches -------------
+  m_DRCZones: ZONE[] = [];
+  m_DRCCopperZones: ZONE[] = [];
+  m_DRCMaxClearance = 0;
+  m_DRCMaxPhysicalClearance = 0;
+  m_ZoneIsolatedIslandsMap = new Map<ZONE, Map<PCB_LAYER_ID, ISOLATED_ISLANDS>>();
+
+  /** Zone to show sloder mask bridges created by a min web value. */
+  m_SolderMaskBridges: ZONE;
+
+  private m_boardOutline: PCB_BOARD_OUTLINE;
+
+  private m_connectivity: CONNECTIVITY_DATA;
+
+  private m_componentClassManager: COMPONENT_CLASS_MANAGER;
+
+  constructor() {
+    super(null, KICAD_T.PCB_T);
+    this.m_LegacyDesignSettingsLoaded = false;
+    this.m_LegacyCopperEdgeClearanceLoaded = false;
+    this.m_LegacyNetclassesLoaded = false;
+    this.m_boardUse = BOARD_USE.NORMAL;
+    this.m_timeStamp = 1;
+    this.m_paper = new PAGE_INFO(PAGE_SIZE_TYPE.A4);
+    this.m_designSettings = new BOARD_DESIGN_SETTINGS(null, 'board.design_settings');
+    this.m_NetInfo = new NETINFO_LIST(this);
+    this.m_componentClassManager = new COMPONENT_CLASS_MANAGER(this);
+    this.initEmbeddedFiles();
+    this.m_embeddedFilesDelegate = null;
+
+    // we have not loaded a board yet, assume latest until then.
+    this.m_fileFormatVersionAtLoad = LEGACY_BOARD_FILE_VERSION;
+
+    // A too small value do not allow connecting 2 shapes (i.e. segments) not exactly connected
+    // A too large value do not allow safely connecting 2 shapes like very short segments.
+    this.m_outlinesChainingEpsilon = pcbIUScale.mmToIU(DEFAULT_CHAINING_EPSILON_MM);
+
+    for (let layer = 0; layer < PCB_LAYER_ID.PCB_LAYER_ID_COUNT; ++layer) {
+      const entry = this.layerEntry(layer);
+
+      entry.m_name = BOARD.GetStandardLayerName(ToLAYER_ID(layer));
+
+      if (IsCopperLayer(layer)) entry.m_type = LAYER_T.LT_SIGNAL;
+      else if (layer >= PCB_LAYER_ID.User_1 && layer & 1) entry.m_type = LAYER_T.LT_AUX;
+      else entry.m_type = LAYER_T.LT_UNDEFINED;
+    }
+
+    this.recalcOpposites();
+
+    this.m_boardOutline = new PCB_BOARD_OUTLINE(this);
+
+    // Creates a zone to show sloder mask bridges created by a min web value
+    // it it just to show them
+    this.m_SolderMaskBridges = new ZONE(this);
+    this.m_SolderMaskBridges.SetHatchStyle(ZONE_BORDER_DISPLAY_STYLE.INVISIBLE_BORDER);
+    this.m_SolderMaskBridges.SetLayerSet(
+      new LSET().set(PCB_LAYER_ID.F_Mask).set(PCB_LAYER_ID.B_Mask),
+    );
+    const infinity = Math.trunc(2147483647 / 2) - pcbIUScale.mmToIU(1);
+    this.m_SolderMaskBridges.Outline().NewOutline();
+    this.m_SolderMaskBridges.Outline().Append(-infinity, -infinity);
+    this.m_SolderMaskBridges.Outline().Append(-infinity, +infinity);
+    this.m_SolderMaskBridges.Outline().Append(+infinity, +infinity);
+    this.m_SolderMaskBridges.Outline().Append(+infinity, -infinity);
+    this.m_SolderMaskBridges.SetMinThickness(0);
+
+    const bds = this.GetDesignSettings();
+
+    // Initialize default netclass.
+    bds.m_NetSettings.SetDefaultNetclass(new NETCLASS(NETCLASS.Default));
+    bds.m_NetSettings.GetDefaultNetclass().SetDescription('This is the default net class.');
+
+    bds.UseCustomTrackViaSize(false);
+
+    // Initialize ratsnest
+    this.m_connectivity = new CONNECTIVITY_DATA();
+  }
+
+  override Visit(
+    inspector: INSPECTOR,
+    testData: unknown,
+    scanTypes: readonly KICAD_T[],
+  ): INSPECT_RESULT {
+    let footprintsScanned = false;
+    let drawingsScanned = false;
+    let tracksScanned = false;
+
+    for (const scanType of scanTypes) {
+      switch (scanType) {
+        case KICAD_T.PCB_T:
+          if (inspector(this, testData) === INSPECT_RESULT.QUIT) return INSPECT_RESULT.QUIT;
+
+          break;
+
+        /*
+         * Instances of the requested KICAD_T live in a list, either one that I manage, or one
+         * that my footprints manage.  If it's a type managed by class FOOTPRINT, then simply
+         * pass it on to each footprint's Visit() function via IterateForward( m_footprints, ... ).
+         */
+
+        case KICAD_T.PCB_FOOTPRINT_T:
+        case KICAD_T.PCB_PAD_T:
+        case KICAD_T.PCB_SHAPE_T:
+        case KICAD_T.PCB_REFERENCE_IMAGE_T:
+        case KICAD_T.PCB_FIELD_T:
+        case KICAD_T.PCB_TEXT_T:
+        case KICAD_T.PCB_TEXTBOX_T:
+        case KICAD_T.PCB_TABLE_T:
+        case KICAD_T.PCB_TABLECELL_T:
+        case KICAD_T.PCB_DIM_ALIGNED_T:
+        case KICAD_T.PCB_DIM_CENTER_T:
+        case KICAD_T.PCB_DIM_RADIAL_T:
+        case KICAD_T.PCB_DIM_ORTHOGONAL_T:
+        case KICAD_T.PCB_DIM_LEADER_T:
+        case KICAD_T.PCB_TARGET_T:
+        case KICAD_T.PCB_BARCODE_T:
+          if (!footprintsScanned) {
+            if (
+              EDA_ITEM.IterateForward(this.m_footprints, inspector, testData, scanTypes) ===
+              INSPECT_RESULT.QUIT
+            ) {
+              return INSPECT_RESULT.QUIT;
+            }
+
+            footprintsScanned = true;
+          }
+
+          if (!drawingsScanned) {
+            if (
+              EDA_ITEM.IterateForward(this.m_drawings, inspector, testData, scanTypes) ===
+              INSPECT_RESULT.QUIT
+            ) {
+              return INSPECT_RESULT.QUIT;
+            }
+
+            drawingsScanned = true;
+          }
+
+          break;
+
+        case KICAD_T.PCB_VIA_T:
+        case KICAD_T.PCB_TRACE_T:
+        case KICAD_T.PCB_ARC_T:
+          if (!tracksScanned) {
+            if (
+              EDA_ITEM.IterateForward(this.m_tracks, inspector, testData, scanTypes) ===
+              INSPECT_RESULT.QUIT
+            ) {
+              return INSPECT_RESULT.QUIT;
+            }
+
+            tracksScanned = true;
+          }
+
+          break;
+
+        case KICAD_T.PCB_MARKER_T:
+          for (const marker of this.m_markers) {
+            if (marker.Visit(inspector, testData, [scanType]) === INSPECT_RESULT.QUIT)
+              return INSPECT_RESULT.QUIT;
+          }
+
+          break;
+
+        case KICAD_T.PCB_POINT_T:
+          for (const point of this.m_points) {
+            if (point.Visit(inspector, testData, [scanType]) === INSPECT_RESULT.QUIT)
+              return INSPECT_RESULT.QUIT;
+          }
+
+          break;
+
+        case KICAD_T.PCB_ZONE_T:
+          if (!footprintsScanned) {
+            if (
+              EDA_ITEM.IterateForward(this.m_footprints, inspector, testData, scanTypes) ===
+              INSPECT_RESULT.QUIT
+            ) {
+              return INSPECT_RESULT.QUIT;
+            }
+
+            footprintsScanned = true;
+          }
+
+          for (const zone of this.m_zones) {
+            if (zone.Visit(inspector, testData, [scanType]) === INSPECT_RESULT.QUIT)
+              return INSPECT_RESULT.QUIT;
+          }
+
+          break;
+
+        case KICAD_T.PCB_GENERATOR_T:
+          if (!footprintsScanned) {
+            if (
+              EDA_ITEM.IterateForward(this.m_footprints, inspector, testData, scanTypes) ===
+              INSPECT_RESULT.QUIT
+            ) {
+              return INSPECT_RESULT.QUIT;
+            }
+
+            footprintsScanned = true;
+          }
+
+          if (
+            EDA_ITEM.IterateForward(this.m_generators, inspector, testData, [scanType]) ===
+            INSPECT_RESULT.QUIT
+          ) {
+            return INSPECT_RESULT.QUIT;
+          }
+
+          break;
+
+        case KICAD_T.PCB_GROUP_T:
+          if (
+            EDA_ITEM.IterateForward(this.m_groups, inspector, testData, [scanType]) ===
+            INSPECT_RESULT.QUIT
+          ) {
+            return INSPECT_RESULT.QUIT;
+          }
+
+          break;
+
+        default:
+          break;
+      }
+    }
+
+    return INSPECT_RESULT.CONTINUE;
+  }
+
+  /**
+   * Calculate the bounding box containing all board items (or board edge segments).
+   *
+   * @param aBoardEdgesOnly is true if we are interested in board edge segments only.
+   * @param aPhysicalLayersOnly is true if we are interested in physical layers only.
+   * @return the board's bounding box.
+   */
+  ComputeBoundingBox(aBoardEdgesOnly = false, aPhysicalLayersOnly = false): BOX2I {
+    const bbox = new BOX2I();
+    let visible = this.GetVisibleLayers();
+
+    if (aPhysicalLayersOnly) visible = visible.and(LSET.PhysicalLayersMask());
+
+    // If the board is just showing a footprint, we want all footprint layers included in the
+    // bounding box
+    if (this.IsFootprintHolder()) visible.set();
+
+    if (aBoardEdgesOnly) visible.set(PCB_LAYER_ID.Edge_Cuts);
+
+    // Check shapes, dimensions, texts, and fiducials
+    for (const item of this.m_drawings) {
+      if (
+        aBoardEdgesOnly &&
+        (item.GetLayer() !== PCB_LAYER_ID.Edge_Cuts || item.Type() !== KICAD_T.PCB_SHAPE_T)
+      )
+        continue;
+
+      if (item.GetLayerSet().and(visible).any()) bbox.Merge(item.GetBoundingBox());
+    }
+
+    // Check footprints
+    for (const footprint of this.m_footprints) {
+      if (aBoardEdgesOnly) {
+        for (const edge of footprint.GraphicalItems()) {
+          if (edge.GetLayer() === PCB_LAYER_ID.Edge_Cuts && edge.Type() === KICAD_T.PCB_SHAPE_T)
+            bbox.Merge(edge.GetBoundingBox());
+        }
+      } else if (footprint.GetLayerSet().and(visible).any()) {
+        bbox.Merge(footprint.GetBoundingBox(true));
+      }
+    }
+
+    if (!aBoardEdgesOnly) {
+      // Check tracks
+      for (const track of this.m_tracks) {
+        if (track.GetLayerSet().and(visible).any()) bbox.Merge(track.GetBoundingBox());
+      }
+
+      // Check zones
+      for (const aZone of this.m_zones) {
+        if (aZone.GetLayerSet().and(visible).any()) bbox.Merge(aZone.GetBoundingBox());
+      }
+
+      for (const point of this.m_points) {
+        bbox.Merge(point.GetBoundingBox());
+      }
+    }
+
+    return bbox;
+  }
+
+  override GetBoundingBox(): BOX2I {
+    return this.ComputeBoundingBox(false, false);
+  }
+
+  /**
+   * Return the board bounding box calculated using exclusively the board edges (graphics
+   * on Edge.Cuts layer).
+   *
+   * If there is no edge, inits the board bounding box to a default size of 100 mm x 100 mm.
+   */
+  GetBoardEdgesBoundingBox(): BOX2I {
+    return this.ComputeBoundingBox(true, true);
+  }
+
+  /**
+   * Extract the board outlines and build a closed polygon from lines, arcs and circle items
+   * on edge cut layer.
+   *
+   * Any closed outline inside the main outline is a hole.  All contours should be closed,
+   * i.e. have valid vertices to build a closed polygon.
+   *
+   * @param aOutlines is the #SHAPE_POLY_SET to fill in with outlines/holes.
+   * @param aInferOutlineIfNecessary is true to build a rectangle outline from the board or
+   *                                 items bounding box when no valid outline is found.
+   * @param aErrorHandler is an optional DRC_ITEM error handler.
+   * @param aAllowUseArcsInPolygons is an optional flag to allow adding arcs in
+   *                                #SHAPE_LINE_CHAIN polylines/polygons when building outlines
+   *                                from aShapeList
+   * @param aIncludeNPTHAsOutlines is an optional flag to include NPTH pad holes in board
+   *                               outlines.
+   * @return true if success, false if a contour is not valid
+   */
+  GetBoardPolygonOutlines(
+    aOutlines: SHAPE_POLY_SET,
+    aInferOutlineIfNecessary: boolean,
+    aErrorHandler: OUTLINE_ERROR_HANDLER | null = null,
+    aAllowUseArcsInPolygons = false,
+    aIncludeNPTHAsOutlines = false,
+  ): boolean {
+    // max dist from one endPt to next startPt: use the current value
+    const chainingEpsilon = this.GetOutlinesChainingEpsilon();
+
+    const success = BuildBoardPolygonOutlines(
+      this,
+      aOutlines,
+      this.GetDesignSettings().m_MaxError,
+      chainingEpsilon,
+      aInferOutlineIfNecessary,
+      aErrorHandler,
+      aAllowUseArcsInPolygons,
+    );
+
+    // Now subtract NPTH oval holes from outlines if required
+    if (aIncludeNPTHAsOutlines) {
+      for (const fp of this.Footprints()) {
+        for (const pad of fp.Pads()) {
+          if (pad.GetAttribute() !== PAD_ATTRIB.NPTH) continue;
+
+          const hole = new SHAPE_POLY_SET();
+          pad.TransformHoleToPolygon(hole, 0, pad.GetMaxError(), ERROR_LOC.ERROR_INSIDE);
+
+          if (hole.OutlineCount() > 0) {
+            // can be not the case for malformed NPTH holes
+            // Issue #20159: BooleanSubtract correctly clips holes extending past board
+            // edges (common with oval holes near irregular boards). O(n log n) per hole
+            // vs O(1) for AddHole, but only used for 3D viewer generation, not a hot path.
+            aOutlines.BooleanSubtract(hole);
+          }
+        }
+      }
+    }
+
+    // Make polygon strictly simple to avoid issues (especially in 3D viewer)
+    aOutlines.Simplify();
+
+    return success;
+  }
+
+  /**
+   * Find a #PAD at \a aPosition on the given layers (`GetPad( const VECTOR2I&, const LSET& )`),
+   * or the pad a track ends on (`GetPad( const PCB_TRACK*, ENDPOINT_T )`).
+   */
+  GetPad(aPosition: VECTOR2I, aLayerSet: LSET): PAD | null;
+  GetPad(aTrace: PCB_TRACK, aEndPoint: ENDPOINT_T): PAD | null;
+  GetPad(a: VECTOR2I | PCB_TRACK, b: LSET | ENDPOINT_T): PAD | null {
+    if (!('x' in a)) {
+      const aPosition = a.GetEndPoint(b as ENDPOINT_T);
+
+      const lset = new LSET([a.GetLayer()]);
+
+      return this.GetPad(aPosition, lset);
+    }
+
+    const aPosition = a;
+    const aLayerSet = b as LSET;
+
+    for (const footprint of this.m_footprints) {
+      let pad: PAD | null = null;
+
+      if (footprint.HitTest(aPosition))
+        pad = footprint.GetPad(aPosition, aLayerSet.any() ? aLayerSet : LSET.AllCuMask());
+
+      if (pad) return pad;
+    }
+
+    return null;
+  }
+
+  GetComponentClassManager(): COMPONENT_CLASS_MANAGER {
+    return this.m_componentClassManager;
+  }
+
+  /**
+   * `PROJECT_PCB::FootprintLibAdapter( GetProject() )`: the project's footprint
+   * libraries, as the host installed them. PROJECT is not ported, so the
+   * adapter hangs off the board; null when no project is loaded.
+   */
+  private m_footprintLibAdapter: FOOTPRINT_LIBRARY_ADAPTER | null = null;
+
+  /**
+   * `GetProject()->GetProjectFile().TuningProfileParameters()`, where the two
+   * callers upstream read the profiles from; empty when there is no project.
+   */
+  GetTuningProfiles(): TUNING_PROFILES {
+    return this.m_project?.GetProjectFile().TuningProfileParameters() ?? EMPTY_TUNING_PROFILES;
+  }
+
+  /** `std::unique_ptr<LENGTH_DELAY_CALCULATION> m_lengthDelayCalc`, made with the board. */
+  private m_lengthDelayCalc: LENGTH_DELAY_CALCULATION | null = null;
+
+  GetLengthCalculation(): LENGTH_DELAY_CALCULATION {
+    if (!this.m_lengthDelayCalc) this.m_lengthDelayCalc = new LENGTH_DELAY_CALCULATION(this);
+
+    return this.m_lengthDelayCalc;
+  }
+
+  /** `BOARD::SynchronizeTuningProfileProperties` (board.cpp:2774). */
+  SynchronizeTuningProfileProperties(): void {
+    this.GetLengthCalculation().SynchronizeTuningProfileProperties();
+  }
+
+  /**
+   * `BOARD::GetTrackLength( aTrack )` (board.cpp:3014).
+   *
+   * @return [count, length, package length, delay, package delay]
+   */
+  GetTrackLength(aTrack: PCB_TRACK): [number, number, number, number, number] {
+    const connectivity = this.GetConnectivity();
+    const items: LENGTH_DELAY_CALCULATION_ITEM[] = [];
+
+    for (const boardItem of connectivity.GetConnectedItems(aTrack, EXCLUDE_ZONES)) {
+      const item = this.GetLengthCalculation().GetLengthCalculationItem(boardItem);
+
+      if (item.Type() !== LENGTH_DELAY_CALCULATION_ITEM_TYPE.UNKNOWN) items.push(item);
+    }
+
+    const opts: PATH_OPTIMISATIONS = {
+      OptimiseVias: true,
+      MergeTracks: true,
+      OptimiseTracesInPads: true,
+      InferViaInPad: false,
+    };
+    const details = this.GetLengthCalculation().CalculateLengthDetails(
+      items,
+      opts,
+      null,
+      null,
+      LENGTH_DELAY_LAYER_OPT.NO_LAYER_DETAIL,
+      LENGTH_DELAY_DOMAIN_OPT.WITH_DELAY_DETAIL,
+    );
+
+    return [
+      items.length,
+      details.TrackLength + details.ViaLength,
+      details.PadToDieLength,
+      details.TrackDelay + details.ViaDelay,
+      details.PadToDieDelay,
+    ];
+  }
+
+  GetFootprintLibAdapter(): FOOTPRINT_LIBRARY_ADAPTER | null {
+    return this.m_footprintLibAdapter;
+  }
+
+  SetFootprintLibAdapter(aAdapter: FOOTPRINT_LIBRARY_ADAPTER | null): void {
+    this.m_footprintLibAdapter = aAdapter;
+  }
+
+  /** `BOARD::BuildListOfNets` (board.h:967). */
+  BuildListOfNets(): void {
+    this.m_NetInfo.buildListOfNets();
+  }
+
+  /**
+   * `BOARD::SetAreasNetCodesFromNetNames` (board.cpp:2819): set the .m_NetCode
+   * member of all copper areas, according to the area Net Name.
+   *
+   * @return the error count (areas with a net name that no longer exists).
+   */
+  SetAreasNetCodesFromNetNames(): number {
+    let error_count = 0;
+
+    for (const zone of this.Zones()) {
+      if (!zone.IsOnCopperLayer()) {
+        zone.SetNetCode(UNCONNECTED_NET);
+        continue;
+      }
+
+      if (zone.GetNetCode() !== 0) {
+        // i.e. if this zone is connected to a net
+        const net = zone.GetNet();
+
+        if (net) {
+          zone.SetNetCode(net.GetNetCode());
+        } else {
+          error_count++;
+
+          // keep Net Name and set m_NetCode to -1 : error flag.
+          zone.SetNetCode(-1);
+        }
+      }
+    }
+
+    return error_count;
+  }
+
+  SynchronizeNetsAndNetClasses(aResetTrackAndViaSizes: boolean): void {
+    if (!this.m_project) return;
+
+    const bds = this.GetDesignSettings();
+    const defaultNetClass = bds.m_NetSettings.GetDefaultNetclass();
+
+    bds.m_NetSettings.ClearAllCaches();
+
+    for (const net of this.m_NetInfo)
+      net.SetNetClass(bds.m_NetSettings.GetEffectiveNetClass(net.GetNetname()));
+
+    if (aResetTrackAndViaSizes) {
+      // Set initial values for custom track width & via size to match the default
+      // netclass settings
+      bds.UseCustomTrackViaSize(false);
+      bds.SetCustomTrackWidth(defaultNetClass.GetTrackWidth());
+      bds.SetCustomViaSize(defaultNetClass.GetViaDiameter());
+      bds.SetCustomViaDrill(defaultNetClass.GetViaDrill());
+      bds.SetCustomDiffPairWidth(defaultNetClass.GetDiffPairWidth());
+      bds.SetCustomDiffPairGap(defaultNetClass.GetDiffPairGap());
+      bds.SetCustomDiffPairViaGap(defaultNetClass.GetDiffPairViaGap());
+    }
+
+    this.InvokeListeners((l) => l.OnBoardNetSettingsChanged(this));
+  }
+
+  /** Synchronise component classes with the project's assignment rules. */
+  SynchronizeComponentClasses(aNewSheetPaths: ReadonlySet<string>): boolean {
+    const settings = this.GetProject()!.GetProjectFile().ComponentClassSettings();
+
+    return this.m_componentClassManager.SyncDynamicComponentClassAssignments(
+      settings.GetComponentClassAssignments(),
+      settings.GetEnableSheetComponentClasses(),
+      aNewSheetPaths,
+    );
+  }
+
+  GetFirstFootprint(): FOOTPRINT | null {
+    return this.m_footprints.length === 0 ? null : this.m_footprints[0]!;
+  }
+
+  GetOutlinesChainingEpsilon(): number {
+    return this.m_outlinesChainingEpsilon;
+  }
+
+  SetOutlinesChainingEpsilon(aValue: number): void {
+    this.m_outlinesChainingEpsilon = aValue;
+  }
+
+  BuildConnectivity(aReporter: PROGRESS_REPORTER_LIKE | null = null): boolean {
+    if (!this.GetConnectivity().Build(this, aReporter)) return false;
+
+    this.UpdateRatsnestExclusions();
+    return true;
+  }
+
+  /**
+   * Return a list of missing connections between components/tracks.
+   * @return an object that contains information about missing connections.
+   */
+  GetConnectivity(): CONNECTIVITY_DATA {
+    return this.m_connectivity;
+  }
+
+  BoardOutline(): PCB_BOARD_OUTLINE {
+    return this.m_boardOutline;
+  }
+
+  UpdateBoardOutline(): void {
+    this.m_boardOutline.GetOutline().RemoveAllContours();
+
+    const has_outline = this.GetBoardPolygonOutlines(this.m_boardOutline.GetOutline(), false);
+
+    if (has_outline) this.m_boardOutline.GetOutline().Fracture();
+  }
+
+  RecordDRCExclusions(): void {
+    this.m_designSettings.m_DrcExclusions.clear();
+    this.m_designSettings.m_DrcExclusionComments.clear();
+
+    for (const marker of this.m_markers) {
+      // SerializeToString() dereferences the RC_ITEM, so a marker carrying none would fault
+      // while persisting exclusions during a save or window close.
+      if (!marker.GetRCItem()) continue;
+
+      if (marker.IsExcluded()) {
+        const serialized = marker.SerializeToString();
+        this.m_designSettings.m_DrcExclusions.add(serialized);
+        this.m_designSettings.m_DrcExclusionComments.set(serialized, marker.GetComment());
+      }
+    }
+
+    // if( m_project ) { projectFile->m_BoardSettings->m_DrcExclusions = ... }: PROJECT_FILE
+    // is the caller's (the designer writes the .kicad_pro from these settings).
+  }
+
+  ResolveDRCExclusions(aCreateMarkers: boolean): PCB_MARKER[] {
+    // std::set<wxString>: iterated in string order
+    const exclusions = new Set<string>([...this.m_designSettings.m_DrcExclusions].sort(strLess));
+    const comments = new Map<string, string>(this.m_designSettings.m_DrcExclusionComments);
+
+    this.m_designSettings.m_DrcExclusions.clear();
+    this.m_designSettings.m_DrcExclusionComments.clear();
+
+    for (const marker of this.GetBoard()!.Markers()) {
+      let it: string | undefined;
+      const serialized = marker.SerializeToString();
+      let matchedExclusion = '';
+
+      if (!serialized.includes('unconnected_items')) {
+        it = exclusions.has(serialized) ? serialized : undefined;
+
+        if (it !== undefined) matchedExclusion = it;
+      } else {
+        const numberOfFieldsExcludingIds = 3;
+        const delimiter = '|';
+        it = FindByFirstNFields(exclusions, serialized, delimiter, numberOfFieldsExcludingIds);
+
+        if (it !== undefined) matchedExclusion = it;
+      }
+
+      if (it !== undefined) {
+        marker.SetExcluded(true, comments.get(matchedExclusion) ?? '');
+
+        // Exclusion still valid; store back to BOARD_DESIGN_SETTINGS
+        this.m_designSettings.m_DrcExclusions.add(matchedExclusion);
+        this.m_designSettings.m_DrcExclusionComments.set(
+          matchedExclusion,
+          comments.get(matchedExclusion) ?? '',
+        );
+
+        exclusions.delete(it);
+      }
+    }
+
+    const newMarkers: PCB_MARKER[] = [];
+
+    if (aCreateMarkers) {
+      for (const serialized of exclusions) {
+        let marker = PCB_MARKER.DeserializeFromString(serialized);
+
+        if (!marker) continue;
+
+        const ids = marker.GetRCItem()!.GetIDs();
+
+        let uuidCount = 0;
+
+        for (const uuid of ids) {
+          if (uuidCount < 1 || uuid !== niluuid) {
+            if (!this.ResolveItem(uuid, true)) {
+              marker = null;
+              break;
+            }
+          }
+          uuidCount++;
+        }
+
+        if (marker) {
+          marker.SetExcluded(true, comments.get(serialized) ?? '');
+          newMarkers.push(marker);
+
+          // Exclusion still valid; store back to BOARD_DESIGN_SETTINGS
+          this.m_designSettings.m_DrcExclusions.add(serialized);
+          this.m_designSettings.m_DrcExclusionComments.set(
+            serialized,
+            comments.get(serialized) ?? '',
+          );
+        }
+      }
+    }
+
+    return newMarkers;
+  }
+
+  UpdateRatsnestExclusions(): void {
+    const m_ratsnestExclusions = new Set<string>();
+
+    for (const marker of this.GetBoard()!.Markers()) {
+      if (marker.GetMarkerType() === MARKER_T.MARKER_RATSNEST && marker.IsExcluded()) {
+        const rcItem = marker.GetRCItem()!;
+        m_ratsnestExclusions.add(`${rcItem.GetMainItemID()}|${rcItem.GetAuxItemID()}`);
+        m_ratsnestExclusions.add(`${rcItem.GetAuxItemID()}|${rcItem.GetMainItemID()}`);
+      }
+    }
+
+    this.GetConnectivity().RunOnUnconnectedEdges((aEdge: CN_EDGE) => {
+      if (
+        aEdge.GetSourceNode() &&
+        aEdge.GetTargetNode() &&
+        !aEdge.GetSourceNode()!.Dirty() &&
+        !aEdge.GetTargetNode()!.Dirty()
+      ) {
+        const ids = `${aEdge.GetSourceNode()!.Parent().m_Uuid}|${aEdge.GetTargetNode()!.Parent().m_Uuid}`;
+
+        aEdge.SetVisible(!m_ratsnestExclusions.has(ids));
+      }
+
+      return true;
+    });
+  }
+
+  /**
+   * `BOARD::CacheTriangulation` as the C++ runs it: every zone is a task of
+   * `GetKiCadThreadPool()`, submitted at once, and this waits for the lot —
+   * asynchronously, since a browser's main thread cannot block on a future
+   * the way `wait_for( 250ms )` + `KeepRefreshing()` does. The synchronous
+   * `CacheTriangulation` below then finds nothing left to do.
+   */
+  async CacheTriangulationAsync(
+    aReporter: PROGRESS_REPORTER_LIKE | null = null,
+    aZones: readonly ZONE[] = [],
+  ): Promise<void> {
+    let zones: readonly ZONE[] = aZones;
+
+    if (zones.length === 0) zones = this.m_zones;
+
+    if (zones.length === 0) return;
+
+    if (aReporter) aReporter.Report('Tessellating copper zones...');
+
+    const cache_zones = async (aZone: ZONE): Promise<number> => {
+      if (aReporter?.IsCancelled()) return 0;
+
+      await aZone.CacheTriangulationAsync();
+
+      if (aReporter) aReporter.AdvanceProgress();
+
+      return 1;
+    };
+
+    const returns: Promise<number>[] = [];
+
+    for (const zone of zones) returns.push(cache_zones(zone));
+
+    // Finalize the triangulation threads
+    await Promise.all(returns);
+  }
+
+  CacheTriangulation(
+    aReporter: PROGRESS_REPORTER_LIKE | null = null,
+    aZones: readonly ZONE[] = [],
+  ): void {
+    let zones: readonly ZONE[] = aZones;
+
+    if (zones.length === 0) zones = this.m_zones;
+
+    if (zones.length === 0) return;
+
+    if (aReporter) aReporter.Report('Tessellating copper zones...');
+
+    for (const aZone of zones) {
+      if (aReporter?.IsCancelled()) continue;
+
+      aZone.CacheTriangulation();
+
+      if (aReporter) aReporter.AdvanceProgress();
+    }
+  }
+
+  AllConnectedItems(): BOARD_CONNECTED_ITEM[] {
+    const items: BOARD_CONNECTED_ITEM[] = [];
+
+    for (const track of this.Tracks()) items.push(track);
+
+    for (const footprint of this.Footprints()) {
+      for (const pad of footprint.Pads()) items.push(pad);
+
+      for (const zone of footprint.Zones()) items.push(zone);
+
+      for (const dwg of footprint.GraphicalItems()) {
+        if (dwg.IsConnected()) items.push(dwg as BOARD_CONNECTED_ITEM);
+      }
+    }
+
+    for (const zone of this.Zones()) items.push(zone);
+
+    for (const item of this.Drawings()) {
+      if (item.IsConnected()) items.push(item as BOARD_CONNECTED_ITEM);
+    }
+
+    return items;
+  }
+
+  SanitizeNetcodes(): void {
+    for (const item of this.AllConnectedItems()) {
+      if (this.FindNet(item.GetNetCode()) === null) item.SetNetCode(NETINFO_LIST.ORPHANED);
+    }
+  }
+
+  /** `m_layers[layer]`: a `std::map` creates the entry on first access. */
+  private layerEntry(aLayer: number): LAYER {
+    let entry = this.m_layers.get(aLayer);
+
+    if (!entry) {
+      entry = new LAYER();
+      entry.m_number = 0;
+      this.m_layers.set(aLayer, entry);
+    }
+
+    return entry;
+  }
+
+  GetClass(): string {
+    return 'BOARD';
+  }
+
+  Similarity(aItem: BOARD_ITEM): number {
+    return 0.0;
+  }
+
+  equals(aItem: BOARD_ITEM): boolean {
+    return (this as BOARD_ITEM) === aItem;
+  }
+
+  override GetPosition(): VECTOR2I {
+    return BOARD_ITEM.ZeroOffset;
+  }
+  override SetPosition(aPos: VECTOR2I): void {
+    // wxLogWarning( wxT( "This should not be called on the BOARD object") );
+  }
+
+  /**
+   * Set what the board is going to be used for.
+   *
+   * @param aUse is the flag
+   */
+  SetBoardUse(aUse: BOARD_USE): void {
+    this.m_boardUse = aUse;
+  }
+
+  /**
+   * Get what the board use is.
+   *
+   * @return what the board is being used for
+   */
+  GetBoardUse(): BOARD_USE {
+    return this.m_boardUse;
+  }
+
+  GetProject(): PROJECT | null {
+    return this.m_project;
+  }
+
+  /**
+   * Link a board to a given project.
+   *
+   * Calling this also loads the PROJECT's board design settings, and the
+   * project's net settings become the board's.
+   *
+   * @param aReferenceOnly avoids taking ownership of settings stored in the project
+   */
+  SetProject(aProject: PROJECT | null, aReferenceOnly = false): void {
+    if (this.m_project) this.ClearProject();
+
+    this.m_project = aProject;
+
+    if (aProject && !aReferenceOnly) {
+      const project = aProject.GetProjectFile();
+
+      // Link the design settings object to the project file
+      project.m_BoardSettings = this.GetDesignSettings();
+
+      // Set parent, which also will load the values from JSON stored in the project if we don't
+      // have legacy design settings loaded already
+      project.m_BoardSettings.SetParent(project, !this.m_LegacyDesignSettingsLoaded);
+
+      // The DesignSettings' netclasses pointer will be pointing to its internal netclasses
+      // list at this point. If we loaded anything into it from a legacy board file then we
+      // want to transfer it over to the project netclasses list.
+      if (this.m_LegacyNetclassesLoaded) {
+        const legacySettings = this.GetDesignSettings().m_NetSettings;
+        const projectSettings = project.NetSettings();
+
+        projectSettings.SetDefaultNetclass(legacySettings.GetDefaultNetclass());
+        projectSettings.SetNetclasses(legacySettings.GetNetclasses());
+        projectSettings.SetNetclassPatternAssignments(
+          legacySettings.GetNetclassPatternAssignments(),
+        );
+      }
+
+      // Now update the DesignSettings' netclass pointer to point into the project.
+      this.GetDesignSettings().m_NetSettings = project.NetSettings();
+    }
+  }
+
+  /**
+   * `ClearProject`: the design settings stop being the file's, and the net
+   * settings go back to a fresh set of their own (upstream leaves a null
+   * behind; nothing reads it before the next `SetProject`).
+   */
+  ClearProject(): void {
+    if (!this.m_project) return;
+
+    const project = this.m_project.GetProjectFile();
+
+    // Owned by the BOARD
+    if (project.m_BoardSettings) {
+      project.ReleaseNestedSettings(project.m_BoardSettings);
+      project.m_BoardSettings = null;
+    }
+
+    this.GetDesignSettings().m_NetSettings = new NET_SETTINGS();
+    this.GetDesignSettings().SetParent(null);
+    this.m_project = null;
+  }
+
+  ProjectElementType(): PROJECT_ELEM {
+    return PROJECT_ELEM.BOARD;
+  }
+
+  /** Copy the project's text variables into the board's properties. */
+  SynchronizeProperties(): void {
+    if (this.m_project && !this.m_project.IsNullProject())
+      this.SetProperties(this.m_project.GetTextVars());
+  }
+
+  /**
+   * Update the automatic-units dimensions under `aItem` after a user-units
+   * change, and repaint them through `aView` if there is one.
+   */
+  UpdateUserUnits(aItem: BOARD_ITEM, aView: VIEW | null): void {
+    const inspector = (descendant: EDA_ITEM): INSPECT_RESULT => {
+      const dimension = descendant as PCB_DIMENSION_BASE;
+
+      if (dimension.GetUnitsMode() === DIM_UNITS_MODE.AUTOMATIC) {
+        dimension.UpdateUnits();
+
+        if (aView) aView.Update(dimension);
+      }
+
+      return INSPECT_RESULT.CONTINUE;
+    };
+
+    aItem.Visit(inspector, null, [
+      KICAD_T.PCB_DIM_ALIGNED_T,
+      KICAD_T.PCB_DIM_LEADER_T,
+      KICAD_T.PCB_DIM_ORTHOGONAL_T,
+      KICAD_T.PCB_DIM_CENTER_T,
+      KICAD_T.PCB_DIM_RADIAL_T,
+    ]);
+  }
+
+  /**
+   * The local-history saver: the board serialised for a snapshot of
+   * `aProjectPath`, appended to `aFileData`. The trace lines upstream logs
+   * for each skip are the reasons the early returns spell out.
+   */
+  SaveToHistory(aProjectPath: string, aFileData: HISTORY_FILE_DATA[]): void {
+    // The board can transiently have no project (e.g. during a non-KiCad import while the old
+    // project is being unloaded and the new one has not yet been linked). The autosave timer can
+    // fire in that window, so guard against a null project here rather than dereferencing it.
+    const project = this.GetProject();
+
+    if (!project) return;
+
+    const projPath = project.GetProjectPath();
+
+    if (projPath === '') return;
+
+    // Verify we're saving for the correct project
+    if (projPath !== aProjectPath) return;
+
+    const boardPath = this.GetFileName();
+
+    if (boardPath === '') return; // unsaved board
+
+    // Derive relative path from project root.
+    if (!boardPath.startsWith(projPath)) return; // not under project
+
+    const rel = boardPath.slice(projPath.length);
+
+    try {
+      const formatter = new STRING_FORMATTER();
+      const pi = new PCB_IO_KICAD_SEXPR(formatter);
+
+      pi.FormatBoardToFormatter(formatter, this);
+
+      // ADVANCED_CFG::GetCfg().m_CompactSave is off: FORMAT_MODE::NORMAL.
+      aFileData.push({
+        relativePath: rel,
+        content: formatter.GetString(),
+        sourcePath: '',
+        prettify: true,
+        formatMode: FORMAT_MODE.NORMAL,
+      });
+    } catch {
+      // IO_ERROR: the snapshot goes without the board, as upstream's does.
+    }
+  }
+
+  IncrementTimeStamp(): void {
+    this.m_timeStamp++;
+
+    if (
+      this.m_IntersectsAreaCache.size > 0 ||
+      this.m_EnclosedByAreaCache.size > 0 ||
+      this.m_IntersectsCourtyardCache.size > 0 ||
+      this.m_IntersectsFCourtyardCache.size > 0 ||
+      this.m_IntersectsBCourtyardCache.size > 0 ||
+      this.m_LayerExpressionCache.size > 0 ||
+      this.m_ZoneBBoxCache.size > 0 ||
+      this.m_CopperItemRTreeCache !== null ||
+      this.m_maxClearanceValue !== undefined ||
+      this.m_ItemNetclassCache.size > 0 ||
+      this.m_ZonesByNameCache.size > 0 ||
+      this.m_DeflatedZoneOutlineCache.size > 0
+    ) {
+      this.m_IntersectsAreaCache.clear();
+      this.m_EnclosedByAreaCache.clear();
+      this.m_IntersectsCourtyardCache.clear();
+      this.m_IntersectsFCourtyardCache.clear();
+      this.m_IntersectsBCourtyardCache.clear();
+      this.m_LayerExpressionCache.clear();
+      this.m_ItemNetclassCache.clear();
+      this.m_ZonesByNameCache.clear();
+      this.m_DeflatedZoneOutlineCache.clear();
+
+      this.m_ZoneBBoxCache.clear();
+
+      this.m_CopperItemRTreeCache = null;
+
+      // These are always regenerated before use, but still probably safer to clear them
+      // while we're here.
+      this.m_DRCMaxClearance = 0;
+      this.m_DRCMaxPhysicalClearance = 0;
+      this.m_DRCZones.length = 0;
+      this.m_DRCCopperZones.length = 0;
+      this.m_ZoneIsolatedIslandsMap.clear();
+      this.m_CopperZoneRTreeCache.clear();
+
+      this.m_maxClearanceValue = undefined;
+    }
+  }
+
+  /** `BOARD::InvalidateClearanceCache` (board.cpp:1105). */
+  InvalidateClearanceCache(aUuid: KIID): void {
+    if (this.m_designSettings?.m_DRCEngine)
+      this.m_designSettings.m_DRCEngine.InvalidateClearanceCache(aUuid);
+  }
+
+  InitializeClearanceCache(): void {
+    if (this.m_designSettings && this.m_designSettings.m_DRCEngine)
+      this.m_designSettings.m_DRCEngine.InitializeClearanceCache();
+  }
+
+  /** `BOARD::GetMaxClearanceValue` (board.cpp:1119). */
+  GetMaxClearanceValue(): number {
+    if (this.m_maxClearanceValue === undefined) {
+      let worstClearance = this.m_designSettings.GetBiggestClearanceValue();
+
+      for (const zone of this.m_zones)
+        worstClearance = Math.max(worstClearance, zone.GetLocalClearance() ?? 0);
+
+      for (const footprint of this.m_footprints) {
+        for (const pad of footprint.Pads()) {
+          const override = pad.GetClearanceOverrides(null);
+
+          if (override !== undefined) worstClearance = Math.max(worstClearance, override);
+        }
+
+        for (const zone of footprint.Zones())
+          worstClearance = Math.max(worstClearance, zone.GetLocalClearance() ?? 0);
+      }
+
+      this.m_maxClearanceValue = worstClearance;
+    }
+
+    return this.m_maxClearanceValue ?? 0;
+  }
+
+  GetTimeStamp(): number {
+    return this.m_timeStamp;
+  }
+
+  /**
+   * Find out if the board is being used to hold a single footprint for editing/viewing.
+   *
+   * @return if the board is just holding a footprint
+   */
+  IsFootprintHolder(): boolean {
+    return this.m_boardUse === BOARD_USE.FPHOLDER;
+  }
+
+  SetFileName(aFileName: string): void {
+    this.m_fileName = aFileName;
+  }
+
+  GetFileName(): string {
+    return this.m_fileName;
+  }
+
+  GetProperties(): Map<string, string> {
+    return this.m_properties;
+  }
+  SetProperties(aProps: Map<string, string>): void {
+    this.m_properties = new Map(aProps);
+  }
+
+  /**
+   * Get the name of the currently active variant.
+   * @return The active variant name, or empty string for default
+   */
+  GetUserUnits(): EdaUnits {
+    return this.m_userUnits;
+  }
+  SetUserUnits(aUnits: EdaUnits): void {
+    this.m_userUnits = aUnits;
+  }
+
+  GetCurrentVariant(): string {
+    return this.m_currentVariant;
+  }
+
+  SetCurrentVariant(aVariant: string): void {
+    if (aVariant === '' || cmpNoCase(aVariant, GetDefaultVariantName()) === 0) {
+      this.m_currentVariant = '';
+      return;
+    }
+
+    const actualName = FindVariantNameCaseInsensitive(this.m_variantNames, aVariant);
+
+    if (actualName === '') this.m_currentVariant = '';
+    else this.m_currentVariant = actualName;
+  }
+
+  GetVariantNames(): string[] {
+    return this.m_variantNames;
+  }
+  SetVariantNames(aNames: string[]): void {
+    this.m_variantNames = [...aNames];
+  }
+
+  HasVariant(aVariantName: string): boolean {
+    return FindVariantNameCaseInsensitive(this.m_variantNames, aVariantName) !== '';
+  }
+
+  AddVariant(aVariantName: string): void {
+    if (
+      aVariantName === '' ||
+      cmpNoCase(aVariantName, GetDefaultVariantName()) === 0 ||
+      this.HasVariant(aVariantName)
+    )
+      return;
+
+    this.m_variantNames.push(aVariantName);
+  }
+
+  /**
+   * Delete a variant from the board.
+   * @param aVariantName The name of the variant to delete.
+   */
+  DeleteVariant(aVariantName: string): void {
+    if (aVariantName === '' || cmpNoCase(aVariantName, GetDefaultVariantName()) === 0) return;
+
+    const idx = this.m_variantNames.findIndex((name) => cmpNoCase(name, aVariantName) === 0);
+
+    if (idx >= 0) {
+      const actualName = this.m_variantNames[idx]!;
+      this.m_variantNames.splice(idx, 1);
+      this.m_variantDescriptions.delete(actualName);
+
+      // Clear current variant if it was the deleted one
+      if (cmpNoCase(this.m_currentVariant, aVariantName) === 0) this.m_currentVariant = '';
+
+      // Remove variant from all footprints
+      for (const fp of this.m_footprints) fp.DeleteVariant(actualName);
+    }
+  }
+
+  /**
+   * Rename a variant.
+   * @param aOldName The current name of the variant.
+   * @param aNewName The new name for the variant.
+   */
+  RenameVariant(aOldName: string, aNewName: string): void {
+    if (aNewName === '' || cmpNoCase(aNewName, GetDefaultVariantName()) === 0) return;
+
+    const idx = this.m_variantNames.findIndex((name) => cmpNoCase(name, aOldName) === 0);
+
+    if (idx >= 0) {
+      const actualOldName = this.m_variantNames[idx]!;
+
+      // Check if new name already exists (case-insensitive) and isn't the same variant
+      const existingName = FindVariantNameCaseInsensitive(this.m_variantNames, aNewName);
+
+      if (existingName !== '' && cmpNoCase(existingName, actualOldName) !== 0) return;
+
+      if (actualOldName === aNewName) return;
+
+      this.m_variantNames[idx] = aNewName;
+
+      // Transfer description
+      const desc = this.m_variantDescriptions.get(actualOldName);
+
+      if (desc !== undefined) {
+        if (desc !== '') this.m_variantDescriptions.set(aNewName, desc);
+
+        this.m_variantDescriptions.delete(actualOldName);
+      }
+
+      // Update current variant if it was the renamed one
+      if (cmpNoCase(this.m_currentVariant, aOldName) === 0) this.m_currentVariant = aNewName;
+
+      // Rename variant in all footprints
+      for (const fp of this.m_footprints) fp.RenameVariant(actualOldName, aNewName);
+    }
+  }
+
+  /**
+   * Get the list of variant names for the UI: the default variant first,
+   * then the board's, in natural order.
+   */
+  GetVariantNamesForUI(): string[] {
+    const names: string[] = [GetDefaultVariantName()];
+
+    for (const name of this.m_variantNames) names.push(name);
+
+    names.sort(SortVariantNames);
+
+    return names;
+  }
+
+  GetVariantDescription(aVariantName: string): string {
+    if (aVariantName === '' || cmpNoCase(aVariantName, GetDefaultVariantName()) === 0) return '';
+
+    const actualName = FindVariantNameCaseInsensitive(this.m_variantNames, aVariantName);
+
+    if (actualName === '') return '';
+
+    const it = this.m_variantDescriptions.get(actualName);
+
+    if (it !== undefined) return it;
+
+    return '';
+  }
+
+  SetVariantDescription(aVariantName: string, aDescription: string): void {
+    if (aVariantName === '' || cmpNoCase(aVariantName, GetDefaultVariantName()) === 0) return;
+
+    const actualName = FindVariantNameCaseInsensitive(this.m_variantNames, aVariantName);
+
+    if (actualName === '') return;
+
+    if (aDescription === '') this.m_variantDescriptions.delete(actualName);
+    else this.m_variantDescriptions.set(actualName, aDescription);
+  }
+
+  GetTitleBlock(): TITLE_BLOCK {
+    return this.m_titles;
+  }
+  SetTitleBlock(aTitleBlock: TITLE_BLOCK): void {
+    this.m_titles = aTitleBlock.clone();
+  }
+
+  /**
+   * Resolve a text variable against the board: a `REF:FIELD` footprint token, the file
+   * name tokens, the variant tokens, the board properties and the title block.
+   * `PROJECTNAME` and the project's own variables come with `PROJECT` (not ported).
+   */
+  ConvertCrossReferencesToKIIDs(aSource: string): string {
+    let newbuf = '';
+    const sourceLen = aSource.length;
+
+    for (let i = 0; i < sourceLen; ++i) {
+      // Check for escaped expressions: \${ or \@{
+      // These should be copied verbatim without any ref→KIID conversion
+      if (
+        aSource[i] === '\\' &&
+        i + 2 < sourceLen &&
+        aSource[i + 2] === '{' &&
+        (aSource[i + 1] === '$' || aSource[i + 1] === '@')
+      ) {
+        // Copy the escape sequence and the entire escaped expression
+        newbuf += aSource[i]; // backslash
+        newbuf += aSource[i + 1]; // $ or @
+        newbuf += aSource[i + 2]; // {
+        i += 2;
+
+        // Find and copy everything until the matching closing brace
+        let braceDepth = 1;
+        for (i = i + 1; i < sourceLen && braceDepth > 0; ++i) {
+          if (aSource[i] === '{') braceDepth++;
+          else if (aSource[i] === '}') braceDepth--;
+
+          newbuf += aSource[i];
+        }
+        i--; // Back up one since the for loop will increment
+        continue;
+      }
+
+      if (aSource[i] === '$' && i + 1 < sourceLen && aSource[i + 1] === '{') {
+        let token = '';
+        let isCrossRef = false;
+
+        for (i = i + 2; i < sourceLen; ++i) {
+          if (aSource[i] === '}') break;
+
+          if (aSource[i] === ':') isCrossRef = true;
+
+          token += aSource[i];
+        }
+
+        if (isCrossRef) {
+          const colon = token.indexOf(':');
+          const ref = token.slice(0, colon);
+          const remainder = token.slice(colon + 1);
+
+          for (const footprint of this.Footprints()) {
+            if (footprint.GetReference().toLowerCase() === ref.toLowerCase()) {
+              const test: OutStr = { value: remainder };
+
+              if (footprint.ResolveTextVar(test)) token = `${footprint.m_Uuid}:${remainder}`;
+
+              break;
+            }
+          }
+        }
+
+        newbuf += `\${${token}}`;
+      } else {
+        newbuf += aSource[i];
+      }
+    }
+
+    return newbuf;
+  }
+
+  ResolveTextVar(token: OutStr, aDepth: number): boolean {
+    if (token.value.includes(':')) {
+      const colon = token.value.indexOf(':');
+      const ref = token.value.slice(0, colon);
+      let remainder = token.value.slice(colon + 1);
+      const refItem = this.ResolveItem(ref, true);
+
+      if (refItem && refItem.Type() === KICAD_T.PCB_FOOTPRINT_T) {
+        const refFP = refItem as FOOTPRINT;
+        const rem: OutStr = { value: remainder };
+
+        if (refFP.ResolveTextVar(rem, aDepth + 1)) {
+          token.value = rem.value;
+          return true;
+        }
+
+        remainder = rem.value;
+      }
+
+      // If UUID resolution failed, try to resolve by reference designator
+      // This handles typing ${U1:VALUE} directly without save/reload
+      if (!refItem) {
+        for (const item of this.Footprints()) {
+          const footprint = item as FOOTPRINT;
+
+          if (cmpNoCase(footprint.GetReference(), ref) === 0) {
+            const remainderCopy: OutStr = { value: remainder };
+
+            if (footprint.ResolveTextVar(remainderCopy, aDepth + 1)) {
+              token.value = remainderCopy.value;
+            } else {
+              // Field/function not found on footprint
+              token.value = `<Unresolved: ${footprint.GetReference()}:${remainder}>`;
+            }
+
+            return true;
+          }
+        }
+
+        // Reference not found - show error message
+        token.value = `<Unknown reference: ${ref}>`;
+        return true;
+      }
+    }
+
+    if (token.value === 'FILENAME') {
+      token.value = wxFileNameFullName(this.GetFileName());
+      return true;
+    } else if (token.value === 'FILEPATH') {
+      token.value = this.GetFileName();
+      return true;
+    } else if (token.value === 'VARIANT') {
+      token.value = this.GetCurrentVariant();
+      return true;
+    } else if (token.value === 'VARIANT_DESC') {
+      token.value = this.GetVariantDescription(this.GetCurrentVariant());
+      return true;
+    } else if (token.value === 'PROJECTNAME' && this.GetProject()) {
+      token.value = this.GetProject()!.GetProjectName();
+      return true;
+    }
+
+    const v = token.value;
+
+    if (this.m_properties.has(v)) {
+      token.value = this.m_properties.get(v)!;
+      return true;
+    } else if (this.GetTitleBlock().TextVarResolver(token, this.m_project)) {
+      return true;
+    }
+
+    if (this.GetProject()?.TextVarResolver(token)) return true;
+
+    return false;
+  }
+
+  Footprints(): FOOTPRINT[] {
+    return this.m_footprints;
+  }
+
+  /**
+   * `BOARD::MatchDpSuffix( aNetName, aComplementNet )` (board.cpp:2493).
+   *
+   * @return the polarity (1 for +/P, -1 for -/N, 0 for no match) and the complement net name.
+   */
+  static MatchDpSuffix(aNetName: string): { polarity: number; complementNet: string } {
+    let rv = 0;
+    let count = 0;
+    let aComplementNet = '';
+
+    for (let i = aNetName.length - 1; i >= 0 && rv === 0; --i, ++count) {
+      const ch = aNetName[i]!;
+
+      if ((ch >= '0' && ch <= '9') || ch === '_') {
+      } else if (ch === '+') {
+        aComplementNet = '-';
+        rv = 1;
+      } else if (ch === '-') {
+        aComplementNet = '+';
+        rv = -1;
+      } else if (ch === 'N') {
+        aComplementNet = 'P';
+        rv = -1;
+      } else if (ch === 'P') {
+        aComplementNet = 'N';
+        rv = 1;
+      } else {
+        break;
+      }
+    }
+
+    if (rv !== 0 && count >= 1) {
+      aComplementNet =
+        aNetName.substring(0, aNetName.length - count) +
+        aComplementNet +
+        aNetName.substring(aNetName.length - (count - 1));
+    }
+
+    return { polarity: rv, complementNet: aComplementNet };
+  }
+
+  /** `BOARD::DpCoupledNet( aNet )` (board.cpp:2541). */
+  DpCoupledNet(aNet: NETINFO_ITEM | null): NETINFO_ITEM | null {
+    if (aNet) {
+      const refName = aNet.GetNetname();
+      const dp = BOARD.MatchDpSuffix(refName);
+
+      if (dp.polarity !== 0) return this.FindNet(dp.complementNet);
+    }
+
+    return null;
+  }
+
+  /** `BOARD::FindFootprintByReference` (board.cpp:2556). */
+  FindFootprintByReference(aReference: string): FOOTPRINT | null {
+    for (const footprint of this.m_footprints) {
+      if (aReference === footprint.GetReference()) return footprint;
+    }
+
+    return null;
+  }
+
+  /** `BOARD::FindFootprintByPath` (board.cpp:2568). */
+  FindFootprintByPath(aPath: readonly KIID[]): FOOTPRINT | null {
+    for (const footprint of this.m_footprints) {
+      const path = footprint.GetPath();
+
+      if (path.length === aPath.length && path.every((id, i) => id === aPath[i])) return footprint;
+    }
+
+    return null;
+  }
+
+  Tracks(): PCB_TRACK[] {
+    return this.m_tracks;
+  }
+
+  /**
+   * Return a list of all the pads by value.
+   *
+   * The returned list is not sorted and contains pointers to PADS, but those pointers do not
+   * convey ownership of the respective PADs.
+   */
+  GetPads(): PAD[] {
+    const allPads: PAD[] = [];
+
+    for (const footprint of this.Footprints()) {
+      for (const pad of footprint.Pads()) allPads.push(pad);
+    }
+
+    return allPads;
+  }
+  Zones(): ZONE[] {
+    return this.m_zones;
+  }
+  Generators(): PCB_GENERATOR[] {
+    return this.m_generators;
+  }
+  DeleteMARKERs(): void;
+  DeleteMARKERs(aWarningsAndErrors: boolean, aExclusions: boolean): void;
+  DeleteMARKERs(aWarningsAndErrors?: boolean, aExclusions?: boolean): void {
+    if (aWarningsAndErrors === undefined) {
+      for (const marker of this.m_markers) this.m_itemByIdCache.delete(marker.m_Uuid);
+
+      // delete marker: ~VIEW_ITEM takes it out of the VIEW that holds it
+      for (const marker of this.m_markers) VIEW.OnDestroy(marker);
+
+      this.m_markers = [];
+      this.IncrementTimeStamp();
+      return;
+    }
+
+    // Deleting lots of items from a vector can be very slow.  Copy remaining items instead.
+    const remaining: PCB_MARKER[] = [];
+
+    for (const marker of this.m_markers) {
+      if (
+        (marker.GetSeverity() === RPT_SEVERITY_EXCLUSION && aExclusions) ||
+        (marker.GetSeverity() !== RPT_SEVERITY_EXCLUSION && aWarningsAndErrors)
+      ) {
+        this.m_itemByIdCache.delete(marker.m_Uuid);
+        VIEW.OnDestroy(marker); // delete marker
+      } else {
+        remaining.push(marker);
+      }
+    }
+
+    this.m_markers = remaining;
+    this.IncrementTimeStamp();
+  }
+
+  Markers(): PCB_MARKER[] {
+    return this.m_markers;
+  }
+  Drawings(): BOARD_ITEM[] {
+    return this.m_drawings;
+  }
+  Groups(): PCB_GROUP[] {
+    return this.m_groups;
+  }
+  Points(): PCB_POINT[] {
+    return this.m_points;
+  }
+
+  /**
+   * `SetDesignSettings`: assigns *into* the existing object rather than
+   * replacing the pointer, so everything already holding a reference — the
+   * zone filler, the DRC engine — sees the new values.
+   */
+  SetDesignSettings(aSettings: BOARD_DESIGN_SETTINGS): void {
+    Object.assign(this.m_designSettings, aSettings);
+  }
+
+  /** `GetCenter()`/`GetFocusPosition()`: the bounding box's middle. */
+  override GetCenter(): VECTOR2I {
+    return this.GetBoundingBox().GetCenter();
+  }
+
+  /** @copydoc EDA_ITEM::GetFocusPosition */
+  override GetFocusPosition(): VECTOR2I {
+    return this.GetCenter();
+  }
+
+  /**
+   * The footprint whose bounding-box centre is nearest `aPosition`.
+   *
+   * Two candidates are kept, not one: the best on the *active* side and the
+   * best on the other. A footprint on the side you are working on wins even
+   * when one on the far side is nearer, and the far-side one is only
+   * considered at all when `aVisibleOnly` is set — which reads backwards until
+   * you notice the alternate is a fallback, not a competitor.
+   */
+  GetFootprint(
+    aPosition: VECTOR2I,
+    aActiveLayer: PCB_LAYER_ID,
+    aVisibleOnly: boolean,
+    aIgnoreLocked = false,
+  ): FOOTPRINT | null {
+    let footprint: FOOTPRINT | null = null;
+    let alt_footprint: FOOTPRINT | null = null;
+    let min_dim = 0x7fffffff;
+    let alt_min_dim = 0x7fffffff;
+    const current_layer_back = isBackLayerId(aActiveLayer);
+
+    for (const candidate of this.m_footprints) {
+      // is the ref point within the footprint's bounds?
+      if (!candidate.HitTest(aPosition)) continue;
+
+      // if caller wants to ignore locked footprints, and this one is locked, skip it.
+      if (aIgnoreLocked && candidate.IsLocked()) continue;
+
+      const layer = candidate.GetLayer();
+
+      // Filter non visible footprints if requested
+      if (!aVisibleOnly || this.IsFootprintLayerVisible(layer)) {
+        const bb = candidate.GetBoundingBox(false);
+
+        // off x & offy point to the middle of the box.
+        const offx = bb.GetX() + Math.trunc(bb.GetWidth() / 2);
+        const offy = bb.GetY() + Math.trunc(bb.GetHeight() / 2);
+
+        // `int dist = dx*dx + dy*dy` — and it is a 32-bit int upstream, which
+        // at nanometre IU overflows for anything further than ~0.046 mm from
+        // the point. C++ wraps; JavaScript would not, and an unwrapped square
+        // is larger than the 0x7FFFFFFF sentinel, so every candidate would
+        // lose and the function would always return null. Math.imul and `| 0`
+        // reproduce the wrap exactly.
+        const dx = aPosition.x - offx;
+        const dy = aPosition.y - offy;
+        const dist = (Math.imul(dx, dx) + Math.imul(dy, dy)) | 0;
+
+        if (current_layer_back === isBackLayerId(layer)) {
+          if (dist <= min_dim) {
+            // better footprint shown on the active side
+            footprint = candidate;
+            min_dim = dist;
+          }
+        } else if (aVisibleOnly && this.IsFootprintLayerVisible(layer)) {
+          if (dist <= alt_min_dim) {
+            // better footprint shown on the other side
+            alt_footprint = candidate;
+            alt_min_dim = dist;
+          }
+        }
+      }
+    }
+
+    if (footprint) return footprint;
+
+    return alt_footprint;
+  }
+
+  /**
+   * `IsFootprintLayerVisible`: the two *footprint* visibility flags, which are
+   * not the copper layers' own. A footprint on F.Cu can be hidden while F.Cu
+   * is shown.
+   */
+  IsFootprintLayerVisible(aLayer: PCB_LAYER_ID): boolean {
+    switch (aLayer) {
+      case PCB_LAYER_ID.F_Cu:
+        return this.IsElementVisible(GAL_LAYER_ID.LAYER_FOOTPRINTS_FR);
+      case PCB_LAYER_ID.B_Cu:
+        return this.IsElementVisible(GAL_LAYER_ID.LAYER_FOOTPRINTS_BK);
+      default:
+        // `wxFAIL_MSG( "BOARD::IsModuleLayerVisible(): bad layer" ); return true;`
+        return true;
+    }
+  }
+
+  /** `GetVisibleElements()`: the project's set, or the built-in default. */
+  GetVisibleElements(): GAL_SET {
+    return this.m_project
+      ? this.m_project.GetLocalSettings().m_VisibleItems
+      : GAL_SET.DefaultVisible();
+  }
+
+  /**
+   * `SetVisibleElements( aSet )`.
+   *
+   * Goes through `SetElementVisibility` per element rather than assigning the
+   * set, because some elements do more than flip a flag.
+   */
+  SetVisibleElements(aSet: GAL_SET): void {
+    for (let i = 0; i < aSet.size(); i++)
+      this.SetElementVisibility(GAL_LAYER_ID.GAL_LAYER_ID_START + i, aSet.at(i));
+  }
+
+  /** `SetVisibleAlls()`: every layer and every element on. */
+  SetVisibleAlls(): void {
+    this.SetVisibleLayers(new LSET().set());
+
+    // Call SetElementVisibility for each item, to ensure specific calculations
+    // that can be needed by some items
+    for (let ii = GAL_LAYER_ID.GAL_LAYER_ID_START; ii < GAL_LAYER_ID.GAL_LAYER_ID_BITMASK_END; ++ii)
+      this.SetElementVisibility(ii, true);
+  }
+
+  /**
+   * `MapNets( aDestBoard )`: re-point every connected item at the destination
+   * board's net of the same NAME, creating one there when it has none.
+   *
+   * Net *codes* are not carried over — two boards number their nets
+   * independently, so the name is the only stable identity.
+   */
+  MapNets(aDestBoard: BOARD): void {
+    for (const item of this.AllConnectedItems()) {
+      const netInfo = aDestBoard.FindNet(item.GetNetname());
+
+      if (netInfo) item.SetNet(netInfo);
+      else {
+        const newNet = new NETINFO_ITEM(aDestBoard, item.GetNetname());
+        aDestBoard.Add(newNet);
+        item.SetNet(newNet);
+      }
+    }
+  }
+
+  /** `GetNetClassAssignmentCandidates()`: every non-empty net name. */
+  GetNetClassAssignmentCandidates(): Set<string> {
+    const names = new Set<string>();
+
+    for (const net of this.m_NetInfo) {
+      if (net.GetNetname() !== '') names.add(net.GetNetname());
+    }
+
+    return names;
+  }
+
+  /** `RemoveUnusedNets( aCommit )`: delegates to the net list. */
+  RemoveUnusedNets(aCommit: BOARD_COMMIT | null): void {
+    this.m_NetInfo.RemoveUnusedNets(aCommit);
+  }
+
+  /**
+   * `BeginNets()` / `EndNets()`: the net list's iterators.
+   *
+   * A pair of C++ iterators is one iterable here, so both return the same
+   * thing; they exist under KiCad's names because callers ported from upstream
+   * ask for them by name.
+   */
+  BeginNets(): IterableIterator<NETINFO_ITEM> {
+    return this.m_NetInfo[Symbol.iterator]();
+  }
+
+  /** @see BeginNets */
+  EndNets(): IterableIterator<NETINFO_ITEM> {
+    return this.m_NetInfo[Symbol.iterator]();
+  }
+
+  /**
+   * `AddArea`: start a new zone at one corner.
+   *
+   * The zone is pushed straight onto `m_zones` rather than through `Add()`, so
+   * the connectivity is not told about a zone that has a single corner and no
+   * area yet — the caller completes it and commits.
+   */
+  AddArea(
+    aNewZonesList: PICKED_ITEMS_LIST | null,
+    aNetcode: number,
+    aLayer: PCB_LAYER_ID,
+    aStartPointPosition: VECTOR2I,
+    aHatch: ZONE_BORDER_DISPLAY_STYLE,
+  ): ZONE {
+    const new_area = new ZONE(this);
+
+    new_area.SetNetCode(aNetcode);
+    new_area.SetLayer(aLayer);
+
+    this.m_zones.push(new_area);
+
+    new_area.SetHatchStyle(aHatch);
+
+    // Add the first corner to the new zone
+    new_area.AppendCorner(aStartPointPosition, -1);
+
+    if (aNewZonesList) {
+      aNewZonesList.PushItem(new ITEM_PICKER(null, new_area, UNDO_REDO.NEWITEM));
+    }
+
+    return new_area;
+  }
+
+  /**
+   * `TestZoneIntersection` (`edit_zone_helpers.cpp:91`): can these two zones be
+   * combined?
+   *
+   * Three tests in widening cost order — a shared layer, overlapping bounding
+   * boxes, then crossing segments. The last one is the subtle one: two zones
+   * where one sits wholly *inside* the other cross no segments at all, so a
+   * segment test alone says no. The corner-containment pass after it catches
+   * that, and one corner is enough.
+   */
+  TestZoneIntersection(aZone1: ZONE, aZone2: ZONE): boolean {
+    // see if areas are on same layer
+    if (!aZone1.GetLayerSet().and(aZone2.GetLayerSet()).any()) return false;
+
+    const poly1 = aZone1.Outline();
+    const poly2 = aZone2.Outline();
+
+    // test bounding rects
+    if (!poly1.BBox().Intersects(poly2.BBox())) return false;
+
+    // Now test for intersecting segments
+    for (const firstSegment of poly1.IterateSegmentsWithHoles()) {
+      for (const secondSegment of poly2.IterateSegmentsWithHoles()) {
+        // Check whether the two segments built collide
+        if (firstSegment.Collide(secondSegment, 0)) return true;
+      }
+    }
+
+    // If a contour is inside another contour, no segments intersects, but the
+    // zones can be combined if a corner is inside an outline (only one corner
+    // is enough)
+    for (const pt of poly2.IterateWithHoles()) {
+      if (poly1.Contains(pt)) return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * `RemoveAll( aTypes )`: empty whole collections at once.
+   *
+   * Per type, because each lives in its own container and two of the
+   * requests are refused by design: `PCB_ARC_T`/`PCB_VIA_T` share `m_tracks`
+   * with `PCB_TRACE_T`, and every graphic and text shares `m_drawings` with
+   * `PCB_SHAPE_T`, so asking for one of those alone would either clear more
+   * than was asked or leave the container half-emptied. Upstream fails the
+   * assertion; here the request is ignored, which is what a release build of
+   * upstream does too.
+   *
+   * `PCB_NETINFO_T` is deferred to the end: `m_NetInfo.clear()` frees the nets,
+   * so it has to come after the cache purge and `FinalizeBulkRemove`, or those
+   * would dereference a freed net.
+   */
+  RemoveAll(
+    aTypes: readonly KICAD_T[] = [
+      KICAD_T.PCB_NETINFO_T,
+      KICAD_T.PCB_MARKER_T,
+      KICAD_T.PCB_GROUP_T,
+      KICAD_T.PCB_ZONE_T,
+      KICAD_T.PCB_GENERATOR_T,
+      KICAD_T.PCB_FOOTPRINT_T,
+      KICAD_T.PCB_TRACE_T,
+      KICAD_T.PCB_SHAPE_T,
+      KICAD_T.PCB_POINT_T,
+    ],
+  ): void {
+    const removed: BOARD_ITEM[] = [];
+    let clearNets = false;
+
+    for (const type of aTypes) {
+      switch (type) {
+        case KICAD_T.PCB_NETINFO_T:
+          for (const item of this.m_NetInfo) removed.push(item);
+
+          // m_NetInfo.clear() deletes its nets, so defer it past the cache purge and
+          // FinalizeBulkRemove() to keep those from dereferencing a freed net.
+          clearNets = true;
+          break;
+
+        case KICAD_T.PCB_MARKER_T:
+          removed.push(...this.m_markers);
+          this.m_markers = [];
+          break;
+
+        case KICAD_T.PCB_GROUP_T:
+          removed.push(...this.m_groups);
+          this.m_groups = [];
+          break;
+
+        case KICAD_T.PCB_POINT_T:
+          removed.push(...this.m_points);
+          this.m_points = [];
+          break;
+
+        case KICAD_T.PCB_ZONE_T:
+          removed.push(...this.m_zones);
+          this.m_zones = [];
+          break;
+
+        case KICAD_T.PCB_GENERATOR_T:
+          removed.push(...this.m_generators);
+          this.m_generators = [];
+          break;
+
+        case KICAD_T.PCB_FOOTPRINT_T:
+          removed.push(...this.m_footprints);
+          this.m_footprints = [];
+          break;
+
+        case KICAD_T.PCB_TRACE_T:
+          removed.push(...this.m_tracks);
+          this.m_tracks = [];
+          break;
+
+        case KICAD_T.PCB_ARC_T:
+        case KICAD_T.PCB_VIA_T:
+          // wxFAIL_MSG( "Use PCB_TRACE_T to remove all tracks, arcs, and vias" )
+          break;
+
+        case KICAD_T.PCB_SHAPE_T:
+          removed.push(...this.m_drawings);
+          this.m_drawings = [];
+          break;
+
+        case KICAD_T.PCB_DIM_ALIGNED_T:
+        case KICAD_T.PCB_DIM_CENTER_T:
+        case KICAD_T.PCB_DIM_RADIAL_T:
+        case KICAD_T.PCB_DIM_ORTHOGONAL_T:
+        case KICAD_T.PCB_DIM_LEADER_T:
+        case KICAD_T.PCB_REFERENCE_IMAGE_T:
+        case KICAD_T.PCB_FIELD_T:
+        case KICAD_T.PCB_TEXT_T:
+        case KICAD_T.PCB_TEXTBOX_T:
+        case KICAD_T.PCB_TABLE_T:
+        case KICAD_T.PCB_TARGET_T:
+        case KICAD_T.PCB_BARCODE_T:
+          // wxFAIL_MSG( "Use PCB_SHAPE_T to remove all graphics and text" )
+          break;
+
+        default:
+          // wxFAIL_MSG( "BOARD::RemoveAll() needs more ::Type() support" )
+          break;
+      }
+    }
+
+    // Drop the removed items and their footprint/table children from m_itemByIdCache as
+    // BOARD::Remove() does; otherwise DeleteAllFootprints() frees them and ResolveItem() hands a
+    // dangling pointer to consumers like the DRC results panel.
+    const uncacheChild = (aChild: BOARD_ITEM): void => {
+      this.m_itemByIdCache.delete(aChild.m_Uuid);
+    };
+
+    for (const item of removed) {
+      this.m_itemByIdCache.delete(item.m_Uuid);
+
+      if (item.Type() === KICAD_T.PCB_FOOTPRINT_T)
+        (item as FOOTPRINT).RunOnChildren(uncacheChild, RECURSE_MODE.NO_RECURSE);
+      else if (item.Type() === KICAD_T.PCB_TABLE_T)
+        (item as PCB_TABLE).RunOnChildren(uncacheChild, RECURSE_MODE.NO_RECURSE);
+    }
+
+    this.IncrementTimeStamp();
+
+    this.FinalizeBulkRemove(removed);
+
+    if (clearNets) this.m_NetInfo.clear();
+  }
+
+  /**
+   * `DeleteAllFootprints()`: remove every footprint and free them.
+   *
+   * The copy before `RemoveAll` is what makes this safe: `RemoveAll` hands the
+   * listeners the list it emptied, and a listener may still be holding a
+   * footprint when the C++ deletes it. There is no `delete` here, but the
+   * shape is kept so the two read alike.
+   */
+  DeleteAllFootprints(): void {
+    this.RemoveAll([KICAD_T.PCB_FOOTPRINT_T]);
+  }
+
+  /**
+   * `DetachAllFootprints()`: remove every footprint but keep them alive,
+   * parentless, for the caller to re-home.
+   */
+  DetachAllFootprints(): void {
+    const footprints = [...this.m_footprints];
+
+    this.RemoveAll([KICAD_T.PCB_FOOTPRINT_T]);
+
+    for (const footprint of footprints) footprint.SetParent(null);
+  }
+
+  /**
+   * `GetContextualTextVars`: the variable names a text on this board may use.
+   *
+   * The `DRC_ERROR`/`DRC_WARNING` pair carry a placeholder in their name
+   * because that is what the completion popup shows; they are not resolved
+   * from this list. The project's own variables are appended in KiCad; there
+   * is no PROJECT here, so that loop is absent.
+   */
+  GetContextualTextVars(aVars: string[]): void {
+    const add = (aVar: string): void => {
+      if (!aVars.includes(aVar)) aVars.push(aVar);
+    };
+
+    add('LAYER');
+    add('FILENAME');
+    add('FILEPATH');
+    add('PROJECTNAME');
+    add('DRC_ERROR <message_text>');
+    add('DRC_WARNING <message_text>');
+    add('VARIANT');
+    add('VARIANT_DESC');
+
+    TITLE_BLOCK.GetContextualTextVars(aVars);
+
+    if (this.GetProject()) {
+      for (const [name] of this.GetProject()!.GetTextVars()) add(name);
+    }
+  }
+
+  /**
+   * `ConvertKIIDsToCrossReferences`: rewrite `${<kiid>:FIELD}` as
+   * `${<REF>:FIELD}` so a text that refers to another footprint by identity
+   * reads by reference designator.
+   *
+   * Two things are deliberately left alone. An escaped expression, `\${...}`
+   * or `\@{...}`, is copied verbatim to its matching brace, depth counted, so
+   * a literal dollar-brace in a text survives. And a token with no colon is
+   * not a cross-reference at all — `${LAYER}` — and is copied unchanged even
+   * though it looks like one.
+   */
+  ConvertKIIDsToCrossReferences(aSource: string): string {
+    let newbuf = '';
+    const sourceLen = aSource.length;
+
+    for (let i = 0; i < sourceLen; ++i) {
+      // Check for escaped expressions: \${ or \@{
+      // These should be copied verbatim without any KIID->ref conversion
+      if (
+        aSource[i] === '\\' &&
+        i + 2 < sourceLen &&
+        aSource[i + 2] === '{' &&
+        (aSource[i + 1] === '$' || aSource[i + 1] === '@')
+      ) {
+        // Copy the escape sequence and the entire escaped expression
+        newbuf += aSource[i]; // backslash
+        newbuf += aSource[i + 1]; // $ or @
+        newbuf += aSource[i + 2]; // {
+        i += 2;
+
+        // Find and copy everything until the matching closing brace
+        let braceDepth = 1;
+        for (i = i + 1; i < sourceLen && braceDepth > 0; ++i) {
+          if (aSource[i] === '{') braceDepth++;
+          else if (aSource[i] === '}') braceDepth--;
+
+          newbuf += aSource[i];
+        }
+        i--; // Back up one since the for loop will increment
+        continue;
+      }
+
+      if (aSource[i] === '$' && i + 1 < sourceLen && aSource[i + 1] === '{') {
+        let token = '';
+        let isCrossRef = false;
+
+        for (i = i + 2; i < sourceLen; ++i) {
+          if (aSource[i] === '}') break;
+
+          if (aSource[i] === ':') isCrossRef = true;
+
+          token += aSource[i];
+        }
+
+        if (isCrossRef) {
+          const colon = token.indexOf(':');
+          const ref = token.slice(0, colon);
+          const remainder = token.slice(colon + 1);
+          const refItem = this.ResolveItem(ref, true);
+
+          if (refItem && refItem.Type() === KICAD_T.PCB_FOOTPRINT_T) {
+            token = `${(refItem as FOOTPRINT).GetReference()}:${remainder}`;
+          }
+        }
+
+        newbuf += `\${${token}}`;
+      } else {
+        newbuf += aSource[i];
+      }
+    }
+
+    return newbuf;
+  }
+
+  /**
+   * `ConvertBrdLayerToPolygonalContours`: every copper feature on one layer as
+   * polygons — tracks, pads, footprint graphics, zones, board-level graphics
+   * and text. What the 3D viewer and the plotters build a layer from.
+   *
+   * `aRenderSettings` reaches only the table cells, which need it to know
+   * which cell borders are drawn; nothing else here looks at it.
+   */
+  ConvertBrdLayerToPolygonalContours(
+    aLayer: PCB_LAYER_ID,
+    aOutlines: SHAPE_POLY_SET,
+    aRenderSettings: RENDER_SETTINGS | null = null,
+  ): void {
+    const maxError = this.GetDesignSettings().m_MaxError;
+
+    // convert tracks and vias:
+    for (const track of this.m_tracks) {
+      if (!track.IsOnLayer(aLayer)) continue;
+
+      track.TransformShapeToPolygon(aOutlines, aLayer, 0, maxError, ERROR_LOC.ERROR_INSIDE);
+    }
+
+    // convert pads and other copper items in footprints
+    for (const footprint of this.m_footprints) {
+      footprint.TransformPadsToPolySet(aOutlines, aLayer, 0, maxError, ERROR_LOC.ERROR_INSIDE);
+
+      footprint.TransformFPShapesToPolySet(
+        aOutlines,
+        aLayer,
+        0,
+        maxError,
+        ERROR_LOC.ERROR_INSIDE,
+        true /* include text */,
+        true /* include shapes */,
+        false /* include private items */,
+      );
+
+      for (const zone of footprint.Zones()) {
+        if (zone.GetLayerSet().test(aLayer))
+          zone.TransformSolidAreasShapesToPolygon(aLayer, aOutlines);
+      }
+    }
+
+    // convert copper zones
+    for (const zone of this.Zones()) {
+      if (zone.GetLayerSet().test(aLayer))
+        zone.TransformSolidAreasShapesToPolygon(aLayer, aOutlines);
+    }
+
+    // convert graphic items on copper layers (texts)
+    for (const item of this.m_drawings) {
+      if (!item.IsOnLayer(aLayer)) continue;
+
+      switch (item.Type()) {
+        case KICAD_T.PCB_SHAPE_T:
+        case KICAD_T.PCB_BARCODE_T:
+          item.TransformShapeToPolygon(aOutlines, aLayer, 0, maxError, ERROR_LOC.ERROR_INSIDE);
+          break;
+
+        case KICAD_T.PCB_FIELD_T:
+        case KICAD_T.PCB_TEXT_T:
+          (item as PCB_TEXT).TransformTextToPolySet(aOutlines, 0, maxError, ERROR_LOC.ERROR_INSIDE);
+          break;
+
+        case KICAD_T.PCB_TEXTBOX_T: {
+          const textbox = item as PCB_TEXTBOX;
+          // border
+          textbox.TransformShapeToPolygon(aOutlines, aLayer, 0, maxError, ERROR_LOC.ERROR_INSIDE);
+          // text
+          textbox.TransformTextToPolySet(aOutlines, 0, maxError, ERROR_LOC.ERROR_INSIDE);
+          break;
+        }
+
+        case KICAD_T.PCB_TABLE_T:
+          (item as PCB_TABLE).TransformGraphicItemsToPolySet(
+            aOutlines,
+            maxError,
+            ERROR_LOC.ERROR_INSIDE,
+            aRenderSettings,
+          );
+          break;
+
+        case KICAD_T.PCB_DIM_ALIGNED_T:
+        case KICAD_T.PCB_DIM_CENTER_T:
+        case KICAD_T.PCB_DIM_RADIAL_T:
+        case KICAD_T.PCB_DIM_ORTHOGONAL_T:
+        case KICAD_T.PCB_DIM_LEADER_T: {
+          const dim = item as PCB_DIMENSION_BASE;
+          dim.TransformShapeToPolygon(aOutlines, aLayer, 0, maxError, ERROR_LOC.ERROR_INSIDE);
+          dim.TransformTextToPolySet(aOutlines, 0, maxError, ERROR_LOC.ERROR_INSIDE);
+          break;
+        }
+
+        default:
+          break;
+      }
+    }
+  }
+
+  /**
+   * `HasItemsOnLayer`: is anything the user placed on this layer?
+   *
+   * Asked before a layer is removed in Board Setup. Footprints and their
+   * children are skipped — they are not removed with a layer — and a through
+   * via is skipped because it is on every copper layer and none in
+   * particular; only a blind/buried via whose top or bottom IS this layer
+   * counts.
+   */
+  HasItemsOnLayer(aLayer: PCB_LAYER_ID): boolean {
+    const collector = new PCB_LAYER_COLLECTOR(aLayer);
+
+    collector.Collect(this, GENERAL_COLLECTOR.BoardLevelItems);
+
+    if (collector.GetCount() !== 0) {
+      // Skip items owned by footprints and footprints when building
+      // the actual list of removed layers: these items are not removed
+      for (let i = 0; i < collector.GetCount(); i++) {
+        const item = collector.at(i)!;
+
+        if (item.Type() === KICAD_T.PCB_FOOTPRINT_T || item.GetParentFootprint()) continue;
+
+        // Vias are on multiple adjacent layers, but only the top and
+        // the bottom layers are stored. So there are issues only if one
+        // is on a removed layer
+        if (item.Type() === KICAD_T.PCB_VIA_T) {
+          const via = item as PCB_VIA;
+
+          if (via.GetViaType() === VIATYPE.THROUGH) continue;
+
+          const [top_layer, bottom_layer] = via.LayerPair();
+
+          if (top_layer !== aLayer && bottom_layer !== aLayer) continue;
+        }
+
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * `RemoveAllItemsOnLayer`: take a layer away from everything on it.
+   *
+   * An item on several layers keeps the others; one on this layer alone is
+   * removed. A through via is left as it is — it has no layer set to edit —
+   * and a blind/buried via whose top or bottom is this layer is removed
+   * rather than re-spanned, because guessing the new span is worse than
+   * asking. Connectivity is rebuilt only when something actually changed.
+   *
+   * @returns whether any item was removed (not merely re-layered).
+   */
+  RemoveAllItemsOnLayer(aLayer: PCB_LAYER_ID): boolean {
+    let modified = false;
+    let removedItemLayers = false;
+    const collector = new PCB_LAYER_COLLECTOR(aLayer);
+
+    collector.Collect(this, GENERAL_COLLECTOR.BoardLevelItems);
+
+    for (let i = 0; i < collector.GetCount(); i++) {
+      const item = collector.at(i)!;
+
+      // Do not remove/change an item owned by a footprint
+      if (item.GetParentFootprint()) continue;
+
+      // Do not remove footprints
+      if (item.Type() === KICAD_T.PCB_FOOTPRINT_T) continue;
+
+      // Note: vias are specific. They are only on copper layers,  and
+      // do not use a layer set, only store the copper top and the copper bottom.
+      // So reinit the layer set does not work with vias
+      if (item.Type() === KICAD_T.PCB_VIA_T) {
+        const via = item as PCB_VIA;
+
+        if (via.GetViaType() === VIATYPE.THROUGH) {
+          removedItemLayers = true;
+          continue;
+        }
+
+        if (via.IsOnLayer(aLayer)) {
+          const [top_layer, bottom_layer] = via.LayerPair();
+
+          if (top_layer === aLayer || bottom_layer === aLayer) {
+            // blind/buried vias with a top or bottom layer on a removed layer
+            // are removed. Perhaps one could just modify the top/bottom layer,
+            // but I am not sure this is better.
+            this.Remove(item);
+            modified = true;
+          }
+
+          removedItemLayers = true;
+        }
+      } else if (item.IsOnLayer(aLayer)) {
+        const layers = item.GetLayerSet();
+
+        layers.reset(aLayer);
+
+        if (layers.any()) {
+          item.SetLayerSet(layers);
+        } else {
+          this.Remove(item);
+          modified = true;
+        }
+
+        removedItemLayers = true;
+      }
+    }
+
+    if (removedItemLayers) this.BuildConnectivity();
+
+    return modified;
+  }
+
+  /**
+   * `GetMsgPanelInfo`: the five counts in the message panel when nothing is
+   * selected — pads, vias, track segments, nets, unrouted.
+   *
+   * "Nets" is the count of nets that something is actually ON, not the count
+   * in the net list: a net declared by the schematic but with no pad or track
+   * yet does not appear. The unrouted count comes from the connectivity and
+   * counts only visible items.
+   */
+  override GetMsgPanelInfo(_aFrame: EDA_DRAW_FRAME_LIKE, aList: MSG_PANEL_ITEM[]): void {
+    let padCount = 0;
+    let viaCount = 0;
+    let trackSegmentCount = 0;
+    const netCodes = new Set<number>();
+    const unconnected = this.GetConnectivity().GetUnconnectedCount(true);
+
+    for (const item of this.m_tracks) {
+      if (item.Type() === KICAD_T.PCB_VIA_T) viaCount++;
+      else trackSegmentCount++;
+
+      if (item.GetNetCode() > 0) netCodes.add(item.GetNetCode());
+    }
+
+    for (const footprint of this.Footprints()) {
+      for (const pad of footprint.Pads()) {
+        padCount++;
+
+        if (pad.GetNetCode() > 0) netCodes.add(pad.GetNetCode());
+      }
+    }
+
+    aList.push(new MSG_PANEL_ITEM('Pads', `${padCount}`));
+    aList.push(new MSG_PANEL_ITEM('Vias', `${viaCount}`));
+    aList.push(new MSG_PANEL_ITEM('Track Segments', `${trackSegmentCount}`));
+    aList.push(new MSG_PANEL_ITEM('Nets', `${netCodes.size}`));
+    aList.push(new MSG_PANEL_ITEM('Unrouted', `${unconnected}`));
+  }
+
+  override GetItemDescription(_aUnitsProvider: UNITS_PROVIDER | null, _aFull: boolean): string {
+    return 'PCB';
+  }
+
+  /** `board.cpp:1234` — no drawings, footprints, tracks, zones or points. */
+  IsEmpty(): boolean {
+    return (
+      this.m_drawings.length === 0 &&
+      this.m_footprints.length === 0 &&
+      this.m_tracks.length === 0 &&
+      this.m_zones.length === 0 &&
+      this.m_points.length === 0
+    );
+  }
+
+  /**
+   * Move every *top-level* item by `aMoveVector`.
+   *
+   * The guard is KiCad's: an item inside a group or a footprint is skipped,
+   * because its parent is in the same traversal and moving both would move the
+   * child twice.
+   */
+  override Move(aMoveVector: VECTOR2I): void {
+    const inspector: INSPECTOR = (item: EDA_ITEM): INSPECT_RESULT => {
+      if (item.IsBOARD_ITEM()) {
+        const boardItem = item as BOARD_ITEM;
+
+        // aMoveVector was snapshotted, don't need "data".
+        // Only move the top level group
+        if (!boardItem.GetParentGroup() && !boardItem.GetParentFootprint())
+          boardItem.Move(aMoveVector);
+      }
+
+      return INSPECT_RESULT.CONTINUE;
+    };
+
+    this.Visit(inspector, null, GENERAL_COLLECTOR.BoardLevelItems);
+  }
+
+  /**
+   * The number of *pads* connected to a net — KiCad's "nodes" in the status
+   * bar. `aNet` of -1 counts every pad on any net at all.
+   */
+  GetNodesCount(aNet = -1): number {
+    let retval = 0;
+
+    for (const footprint of this.Footprints()) {
+      for (const pad of footprint.Pads()) {
+        if ((aNet === -1 && pad.GetNetCode() > 0) || aNet === pad.GetNetCode()) retval++;
+      }
+    }
+
+    return retval;
+  }
+
+  /** Every track, arc and via carrying `aNetCode`. */
+  TracksInNet(aNetCode: number): PCB_TRACK[] {
+    const ret: PCB_TRACK[] = [];
+
+    const inspector: INSPECTOR = (item: EDA_ITEM): INSPECT_RESULT => {
+      const t = item as PCB_TRACK;
+
+      if (t.GetNetCode() === aNetCode) ret.push(t);
+
+      return INSPECT_RESULT.CONTINUE;
+    };
+
+    // visit this BOARD's PCB_TRACKs and PCB_VIAs with above TRACK INSPECTOR which
+    // appends all in aNetCode to ret.
+    this.Visit(inspector, null, GENERAL_COLLECTOR.Tracks);
+
+    return ret;
+  }
+
+  /**
+   * The zones, optionally including those owned by footprints.
+   *
+   * `Zones()` hands back the board's own container; this copies, because the
+   * footprint zones are appended to the result and must not land in it.
+   */
+  GetZoneList(aIncludeZonesInFootprints = false): ZONE[] {
+    const zones: ZONE[] = [];
+
+    for (const zone of this.Zones()) zones.push(zone);
+
+    if (aIncludeZonesInFootprints) {
+      for (const footprint of this.m_footprints) {
+        for (const zone of footprint.Zones()) zones.push(zone);
+      }
+    }
+
+    return zones;
+  }
+
+  /** `GetAreaCount()`: zones are "areas" in the legacy API. */
+  GetAreaCount(): number {
+    return this.m_zones.length;
+  }
+
+  /** `GetArea( index )`: the zone at `index`, or null past the end. */
+  GetArea(index: number): ZONE | null {
+    if (index >= 0 && index < this.m_zones.length) return this.m_zones[index]!;
+
+    return null;
+  }
+
+  /**
+   * Every pad, sorted by X then Y, optionally filtered to one net.
+   *
+   * Appends to `aVector` rather than returning, as upstream does, because the
+   * callers reuse one buffer across nets.
+   */
+  GetSortedPadListByXthenYCoord(aVector: PAD[], aNetCode = -1): void {
+    for (const footprint of this.Footprints()) {
+      for (const pad of footprint.Pads()) {
+        if (aNetCode < 0 || pad.GetNetCode() === aNetCode) aVector.push(pad);
+      }
+    }
+
+    aVector.sort(sortPadsByXthenYCoord);
+  }
+
+  /** The number of PTH with the Castellated fabrication property. */
+  GetPadWithCastellatedAttrCount(): number {
+    let count = 0;
+
+    for (const footprint of this.Footprints()) {
+      for (const pad of footprint.Pads()) {
+        if (pad.GetProperty() === PAD_PROP.CASTELLATED) count++;
+      }
+    }
+
+    return count;
+  }
+
+  /** The number of PTH with the Press-Fit fabrication property. */
+  GetPadWithPressFitAttrCount(): number {
+    let count = 0;
+
+    for (const footprint of this.Footprints()) {
+      for (const pad of footprint.Pads()) {
+        if (pad.GetProperty() === PAD_PROP.PRESSFIT) count++;
+      }
+    }
+
+    return count;
+  }
+
+  /**
+   * `GetItemSet()`: `BOARD_ITEM_SET`, a `std::set<BOARD_ITEM*, CompareByUuid>`
+   * of every top-level item, so the order is the UUIDs'.
+   */
+  GetItemSet(): BOARD_ITEM[] {
+    const items: BOARD_ITEM[] = [];
+
+    items.push(...this.m_tracks);
+    items.push(...this.m_zones);
+    items.push(...this.m_generators);
+    items.push(...this.m_footprints);
+    items.push(...this.m_drawings);
+    items.push(...this.m_markers);
+    items.push(...this.m_groups);
+    items.push(...this.m_points);
+
+    items.sort((a, b) => (CompareByUuid(a, b) ? -1 : CompareByUuid(b, a) ? 1 : 0));
+
+    return items;
+  }
+
+  /** `EMBEDDED_FILES::GetFontFiles`: the fontconfig cache is not ported (no disk). */
+  GetFontFiles(): readonly string[] | null {
+    return null;
+  }
+
+  SetFileFormatVersionAtLoad(aVersion: number): void {
+    this.m_fileFormatVersionAtLoad = aVersion;
+  }
+
+  GetFileFormatVersionAtLoad(): number {
+    return this.m_fileFormatVersionAtLoad;
+  }
+
+  SetGenerator(aGenerator: string): void {
+    this.m_generator = aGenerator;
+  }
+
+  GetGenerator(): string {
+    return this.m_generator;
+  }
+
+  GetPageSettings(): PAGE_INFO {
+    return this.m_paper;
+  }
+
+  SetPageSettings(aPageSettings: PAGE_INFO): void {
+    this.m_paper.assign(aPageSettings);
+  }
+
+  GetPlotOptions(): PCB_PLOT_PARAMS {
+    return this.m_plotOptions;
+  }
+
+  SetPlotOptions(aOptions: PCB_PLOT_PARAMS): void {
+    this.m_plotOptions.assign(aOptions);
+  }
+
+  LegacyTeardrops(): boolean {
+    return this.m_legacyTeardrops;
+  }
+
+  SetLegacyTeardrops(aFlag: boolean): void {
+    this.m_legacyTeardrops = aFlag;
+  }
+
+  override GetEmbeddedFiles(): EMBEDDED_FILES {
+    if (this.m_embeddedFilesDelegate) return this.m_embeddedFilesDelegate;
+
+    return this;
+  }
+
+  /** `BOARD::SetEmbeddedFilesDelegate`: the footprint holder shares its parent's files. */
+  SetEmbeddedFilesDelegate(aDelegate: EMBEDDED_FILES | null): void {
+    this.m_embeddedFilesDelegate = aDelegate;
+  }
+
+  RunOnNestedEmbeddedFiles(aFunction: (aFiles: EMBEDDED_FILES) => void): void {
+    for (const footprint of this.m_footprints) aFunction(footprint.GetEmbeddedFiles());
+  }
+
+  /**
+   * Get a list of outline fonts referenced in the board
+   */
+  GetFonts(): Set<unknown> {
+    // for each EDA_TEXT drawing: if the font is an outline font whose EMBEDDING_PERMISSION is
+    // EDITABLE or INSTALLABLE, collect it        -- OUTLINE_FONT::GetEmbeddingPermission pending (#636)
+    return new Set();
+  }
+
+  EmbedFonts(): void {
+    // for( OUTLINE_FONT* font : GetFonts() ) GetEmbeddedFiles()->AddFile( font->GetFileName(), false )
+    //                                                     -- OUTLINE_FONT embedding pending (#636)
+  }
+
+  /**
+   * Set the layer information from a #LAYER object.
+   */
+  SetLayerDescr(aIndex: PCB_LAYER_ID, aLayer: LAYER): boolean {
+    this.m_layers.set(aIndex, LAYER.copyOf(aLayer)); // m_layers[aIndex] = aLayer: by value
+    this.recalcOpposites();
+    return true;
+  }
+
+  /**
+   * Return the ID of a layer.
+   */
+  GetLayerID(aLayerName: string): PCB_LAYER_ID {
+    // Check the BOARD physical layer names.
+    for (const [layer_id, layer] of this.m_layers) {
+      if (layer.m_name === aLayerName || layer.m_userName === aLayerName)
+        return ToLAYER_ID(layer_id);
+    }
+
+    // Otherwise fall back to the system standard layer names for virtual layers.
+    for (let layer = 0; layer < PCB_LAYER_ID.PCB_LAYER_ID_COUNT; ++layer) {
+      if (BOARD.GetStandardLayerName(ToLAYER_ID(layer)) === aLayerName) return ToLAYER_ID(layer);
+    }
+
+    return PCB_LAYER_ID.UNDEFINED_LAYER;
+  }
+
+  /**
+   * Return the name of a \a aLayer.
+   *
+   * @param aLayer is the #PCB_LAYER_ID of the layer.
+   * @return a string containing the name of the layer.
+   */
+  override GetLayerName(aLayer: PCB_LAYER_ID = this.m_layer): string {
+    // All layer names are stored in the BOARD.
+    if (this.IsLayerEnabled(aLayer)) {
+      const it = this.m_layers.get(aLayer);
+
+      // Standard names were set in BOARD::BOARD() but they may be over-ridden by
+      // BOARD::SetLayerName().  For copper layers, return the user defined layer name,
+      // if it was set.  Otherwise return the Standard English layer name.
+      if (it !== undefined && it.m_userName !== '') return it.m_userName;
+    }
+
+    return BOARD.GetStandardLayerName(aLayer);
+  }
+
+  /**
+   * Changes the name of the layer given by aLayer.
+   *
+   * @param aLayer A layer, like B_Cu, etc.
+   * @param aLayerName The new layer name
+   * @return true if aLayerName was legal and unique among other layer names at other layer
+   *         indices and aLayer was within range, else false.
+   */
+  SetLayerName(aLayer: PCB_LAYER_ID, aLayerName: string): boolean {
+    if (aLayerName === '') {
+      // If the name is empty, we clear the user name.
+      this.layerEntry(aLayer).m_userName = '';
+      this.recalcOpposites();
+    } else {
+      // no quote chars in the name allowed
+      if (aLayerName.includes('"')) return false;
+
+      if (this.IsLayerEnabled(aLayer)) {
+        this.layerEntry(aLayer).m_userName = aLayerName;
+        this.recalcOpposites();
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Return an "English Standard" name of a PCB layer when given \a aLayerNumber.
+   *
+   * This function is static so it can be called without a BOARD instance.  Use
+   * GetLayerName() if want the layer names of a specific BOARD, which could
+   * be different than the default if the user has renamed any copper layers.
+   *
+   * @param  aLayerId is the layer identifier (index) to fetch.
+   * @return a string containing the layer name or "BAD INDEX" if aLayerId is not legal.
+   */
+  static GetStandardLayerName(aLayerId: PCB_LAYER_ID): string {
+    // a BOARD's standard layer name is the LayerName( )
+    return LayerName(aLayerId);
+  }
+
+  IsFrontLayer(aLayer: PCB_LAYER_ID): boolean {
+    return isFrontLayerId(aLayer) || this.GetLayerType(aLayer) === LAYER_T.LT_FRONT;
+  }
+
+  IsBackLayer(aLayer: PCB_LAYER_ID): boolean {
+    return isBackLayerId(aLayer) || this.GetLayerType(aLayer) === LAYER_T.LT_BACK;
+  }
+
+  /**
+   * Return the type of the copper layer given by aLayer.
+   *
+   * @param aLayer A layer index, like B_Cu, etc.
+   * @return the layer type, or LAYER_T(-1) if the index was out of range.
+   */
+  GetLayerType(aLayer: PCB_LAYER_ID): LAYER_T {
+    if (this.IsLayerEnabled(aLayer)) {
+      const it = this.m_layers.get(aLayer);
+
+      if (it !== undefined) return it.m_type;
+    }
+
+    if (aLayer >= PCB_LAYER_ID.User_1 && !IsCopperLayer(aLayer)) return LAYER_T.LT_AUX;
+    else if (IsCopperLayer(aLayer)) return LAYER_T.LT_SIGNAL;
+    else return LAYER_T.LT_UNDEFINED;
+  }
+
+  /**
+   * Change the type of the layer given by aLayer.
+   *
+   * @param aLayer A layer index, like B_Cu, etc.
+   * @param aLayerType The new layer type.
+   * @return true if aLayerType was legal and aLayer was within range, else false.
+   */
+  SetLayerType(aLayer: PCB_LAYER_ID, aLayerType: LAYER_T): boolean {
+    if (this.IsLayerEnabled(aLayer)) {
+      this.layerEntry(aLayer).m_type = aLayerType;
+      this.recalcOpposites();
+      return true;
+    }
+
+    return false;
+  }
+
+  private recalcOpposites(): void {
+    for (let layer: number = PCB_LAYER_ID.F_Cu; layer < PCB_LAYER_ID.PCB_LAYER_ID_COUNT; ++layer)
+      this.layerEntry(layer).m_opposite = flipLayerId(
+        ToLAYER_ID(layer),
+        this.GetCopperLayerCount(),
+      );
+
+    // Match up similary-named front/back user layers
+    for (
+      let layer: number = PCB_LAYER_ID.User_1;
+      layer <= PCB_LAYER_ID.PCB_LAYER_ID_COUNT;
+      layer += 2
+    ) {
+      if (this.layerEntry(layer).m_opposite !== layer)
+        // already paired
+        continue;
+
+      if (
+        this.layerEntry(layer).m_type !== LAYER_T.LT_FRONT &&
+        this.layerEntry(layer).m_type !== LAYER_T.LT_BACK
+      )
+        continue;
+
+      const principalName = wxAfterFirst(this.layerEntry(layer).m_userName, '.');
+
+      for (let ii = layer + 2; ii <= PCB_LAYER_ID.PCB_LAYER_ID_COUNT; ii += 2) {
+        if (this.layerEntry(ii).m_opposite !== ii)
+          // already paired
+          continue;
+
+        if (
+          this.layerEntry(ii).m_type !== LAYER_T.LT_FRONT &&
+          this.layerEntry(ii).m_type !== LAYER_T.LT_BACK
+        )
+          continue;
+
+        if (this.layerEntry(layer).m_type === this.layerEntry(ii).m_type) continue;
+
+        const candidate = wxAfterFirst(this.layerEntry(ii).m_userName, '.');
+
+        if (candidate !== '' && candidate === principalName) {
+          this.layerEntry(layer).m_opposite = ii;
+          this.layerEntry(ii).m_opposite = layer;
+          break;
+        }
+      }
+    }
+
+    // Match up non-custom-named consecutive front/back user layer pairs
+    for (
+      let layer: number = PCB_LAYER_ID.User_1;
+      layer < PCB_LAYER_ID.PCB_LAYER_ID_COUNT - 2;
+      layer += 2
+    ) {
+      const next = layer + 2;
+
+      // ignore already-matched layers
+      if (this.layerEntry(layer).m_opposite !== layer || this.layerEntry(next).m_opposite !== next)
+        continue;
+
+      // ignore layer pairs that aren't consecutive front/back
+      if (
+        this.layerEntry(layer).m_type !== LAYER_T.LT_FRONT ||
+        this.layerEntry(next).m_type !== LAYER_T.LT_BACK
+      )
+        continue;
+
+      if (
+        this.layerEntry(layer).m_userName !== this.layerEntry(layer).m_name &&
+        this.layerEntry(next).m_userName !== this.layerEntry(next).m_name
+      ) {
+        this.layerEntry(layer).m_opposite = next;
+        this.layerEntry(next).m_opposite = layer;
+      }
+    }
+  }
+
+  /**
+   * @return the layer on the opposite side of the board, as the board's stackup pairs them.
+   */
+  FlipLayer(aLayer: PCB_LAYER_ID): PCB_LAYER_ID {
+    const it = this.m_layers.get(aLayer);
+    return it === undefined ? aLayer : ToLAYER_ID(it.m_opposite);
+  }
+
+  /**
+   * @return The number of copper layers in the BOARD.
+   */
+  /**
+   * The board's stackup, or a default one built for its copper layer count.
+   *
+   * `m_HasStackup` is false until the Board Setup stackup page has been
+   * visited, and a board saved before that carries no `(stackup ...)` at all —
+   * so the caller that wants a thickness or a layer list must not be handed
+   * an empty descriptor. Upstream builds a throwaway default instead, and it
+   * is a *copy*, not the board's own: mutating the result changes nothing.
+   */
+  GetStackupOrDefault(): BOARD_STACKUP {
+    if (this.GetDesignSettings().m_HasStackup)
+      return this.GetDesignSettings().GetStackupDescriptor();
+
+    const stackup = new BOARD_STACKUP();
+    stackup.BuildDefaultStackupList(this.GetDesignSettings(), this.GetCopperLayerCount());
+    return stackup;
+  }
+
+  GetCopperLayerCount(): number {
+    return this.GetDesignSettings().GetCopperLayerCount();
+  }
+  SetCopperLayerCount(aCount: number): void {
+    this.GetDesignSettings().SetCopperLayerCount(aCount);
+    this.recalcOpposites();
+  }
+
+  GetUserDefinedLayerCount(): number {
+    return this.GetDesignSettings().GetUserDefinedLayerCount();
+  }
+  SetUserDefinedLayerCount(aCount: number): void {
+    this.GetDesignSettings().SetUserDefinedLayerCount(aCount);
+  }
+
+  GetCopperLayerStackMaxId(): PCB_LAYER_ID {
+    const imax = this.GetCopperLayerCount();
+
+    // layers IDs are F_Cu, B_Cu, and even IDs values (imax values)
+    if (imax <= 2)
+      // at least 2 layers are expected
+      return PCB_LAYER_ID.B_Cu;
+
+    // For a 4 layer, last ID is In2_Cu = 6 (IDs are 0, 2, 4, 6)
+    return ((imax - 1) * 2) as PCB_LAYER_ID;
+  }
+
+  /**
+   * Return the number of copper layers between the two given layers (inclusive), counting
+   * B_Cu as the bottom of the stack.
+   */
+  LayerDepth(aStartLayer: PCB_LAYER_ID, aEndLayer: PCB_LAYER_ID): number {
+    if (aStartLayer > aEndLayer) [aStartLayer, aEndLayer] = [aEndLayer, aStartLayer];
+
+    if (aEndLayer === PCB_LAYER_ID.B_Cu)
+      aEndLayer = ToLAYER_ID(PCB_LAYER_ID.F_Cu + this.GetCopperLayerCount() - 1);
+
+    return aEndLayer - aStartLayer;
+  }
+
+  /**
+   * A proxy function that calls the corresponding function in m_BoardSettings.
+   *
+   * @return the enabled layers in bit-mapped form.
+   */
+  GetEnabledLayers(): LSET {
+    return this.GetDesignSettings().GetEnabledLayers();
+  }
+
+  /**
+   * A proxy function that calls the correspondent function in m_BoardSettings.
+   *
+   * @param aLayerMask = The new bit-mask of enabled layers.
+   */
+  SetEnabledLayers(aLayerSet: LSET): void {
+    this.GetDesignSettings().SetEnabledLayers(aLayerSet);
+  }
+
+  /**
+   * Test whether a given element category is visible.
+   *
+   * @param aLayer is from the enum by the same name.
+   * @return true if the element is visible.
+   * @see enum GAL_LAYER_ID
+   */
+  IsElementVisible(aLayer: GAL_LAYER_ID): boolean {
+    return (
+      !this.m_project ||
+      this.m_project
+        .GetLocalSettings()
+        .m_VisibleItems.test(aLayer - GAL_LAYER_ID.GAL_LAYER_ID_START)
+    );
+  }
+
+  /**
+   * Change the visibility of an element category.
+   *
+   * @param aLayer is from the enum by the same name.
+   * @param aNewState is the new visibility state of the element category.
+   * @see enum GAL_LAYER_ID
+   */
+  SetElementVisibility(aLayer: GAL_LAYER_ID, isEnabled: boolean): void {
+    if (this.m_project) {
+      this.m_project
+        .GetLocalSettings()
+        .m_VisibleItems.set(aLayer - GAL_LAYER_ID.GAL_LAYER_ID_START, isEnabled);
+    }
+
+    switch (aLayer) {
+      case GAL_LAYER_ID.LAYER_RATSNEST: {
+        // because we have a tool to show/hide ratsnest relative to a pad or a footprint
+        // so the hide/show option is a per item selection
+
+        for (const track of this.Tracks()) track.SetLocalRatsnestVisible(isEnabled);
+
+        for (const footprint of this.Footprints()) {
+          for (const pad of footprint.Pads()) pad.SetLocalRatsnestVisible(isEnabled);
+        }
+
+        for (const zone of this.Zones()) zone.SetLocalRatsnestVisible(isEnabled);
+
+        break;
+      }
+
+      default:
+    }
+  }
+
+  /** `BOARD::FillItemMap( std::map<KIID, EDA_ITEM*>& )` (board.cpp:2004). */
+  FillItemMap(): Map<KIID, EDA_ITEM> {
+    const aMap = new Map<KIID, EDA_ITEM>();
+
+    // the board itself
+    aMap.set(this.m_Uuid, this);
+
+    for (const track of this.Tracks()) aMap.set(track.m_Uuid, track);
+
+    for (const footprint of this.Footprints()) {
+      aMap.set(footprint.m_Uuid, footprint);
+
+      for (const pad of footprint.Pads()) aMap.set(pad.m_Uuid, pad);
+
+      aMap.set(footprint.Reference().m_Uuid, footprint.Reference());
+      aMap.set(footprint.Value().m_Uuid, footprint.Value());
+
+      for (const drawing of footprint.GraphicalItems()) aMap.set(drawing.m_Uuid, drawing);
+    }
+
+    for (const zone of this.Zones()) aMap.set(zone.m_Uuid, zone);
+
+    for (const drawing of this.Drawings()) aMap.set(drawing.m_Uuid, drawing);
+
+    for (const marker of this.Markers()) aMap.set(marker.m_Uuid, marker);
+
+    for (const group of this.Groups()) aMap.set(group.m_Uuid, group);
+
+    for (const point of this.m_points) aMap.set(point.m_Uuid, point);
+
+    return aMap;
+  }
+
+  /** `CacheItemById`: add an item (and a group's children) to the item-by-id cache. */
+  /**
+   * Fetch an item by KIID.
+   *
+   * Note that this only checks items which are currently in the cache; the linear scan is
+   * the fallback and any hit is cached.
+   *
+   * @return the item, nullptr (when aAllowNullptrReturn), or DELETED_BOARD_ITEM
+   */
+  ResolveItem(aID: KIID, aAllowNullptrReturn = false): BOARD_ITEM | null {
+    if (aID === niluuid) return null;
+
+    const cacheIt = this.m_itemByIdCache.get(aID);
+
+    if (cacheIt !== undefined) return cacheIt;
+
+    // Linear scan fallback for items not in the cache.  Any hit is cached so
+    // subsequent lookups for the same item are O(1).
+
+    const cacheAndReturn = (aItem: BOARD_ITEM): BOARD_ITEM => {
+      this.m_itemByIdCache.set(aID, aItem);
+      return aItem;
+    };
+
+    for (const group of this.m_groups) {
+      if (group.m_Uuid === aID) return cacheAndReturn(group);
+    }
+
+    for (const generator of this.m_generators) {
+      if (generator.m_Uuid === aID) return cacheAndReturn(generator);
+    }
+
+    for (const track of this.Tracks()) {
+      if (track.m_Uuid === aID) return cacheAndReturn(track);
+    }
+
+    for (const footprint of this.Footprints()) {
+      if (footprint.m_Uuid === aID) return cacheAndReturn(footprint);
+
+      for (const pad of footprint.Pads()) {
+        if (pad.m_Uuid === aID) return cacheAndReturn(pad);
+      }
+
+      for (const field of footprint.GetFields()) {
+        if (!field) continue; // wxCHECK2( field, continue )
+
+        if (field && field.m_Uuid === aID) return cacheAndReturn(field);
+      }
+
+      for (const drawing of footprint.GraphicalItems()) {
+        if (drawing.m_Uuid === aID) return cacheAndReturn(drawing);
+      }
+
+      for (const zone of footprint.Zones()) {
+        if (zone.m_Uuid === aID) return cacheAndReturn(zone);
+      }
+
+      for (const group of footprint.Groups()) {
+        if (group.m_Uuid === aID) return cacheAndReturn(group);
+      }
+
+      for (const point of footprint.Points()) {
+        if (point.m_Uuid === aID) return cacheAndReturn(point);
+      }
+    }
+
+    for (const zone of this.Zones()) {
+      if (zone.m_Uuid === aID) return cacheAndReturn(zone);
+    }
+
+    for (const drawing of this.Drawings()) {
+      if (drawing.Type() === KICAD_T.PCB_TABLE_T) {
+        for (const cell of (drawing as PCB_TABLE).GetCells()) {
+          if (cell.m_Uuid === aID) return cacheAndReturn(drawing);
+        }
+      }
+
+      if (drawing.m_Uuid === aID) return cacheAndReturn(drawing);
+    }
+
+    for (const marker of this.m_markers) {
+      if (marker.m_Uuid === aID) return cacheAndReturn(marker);
+    }
+
+    for (const point of this.m_points) {
+      if (point.m_Uuid === aID) return cacheAndReturn(point);
+    }
+
+    for (const netInfo of this.m_NetInfo) {
+      if (netInfo.m_Uuid === aID) return cacheAndReturn(netInfo);
+    }
+
+    if (this.m_Uuid === aID) return this;
+
+    // Not found; weak reference has been deleted.
+    if (aAllowNullptrReturn) return null;
+
+    return DELETED_BOARD_ITEM.GetInstance();
+  }
+
+  /**
+   * Must be used if Add() is used using a BULK_x ADD_MODE to generate a change event for
+   * listeners.
+   */
+  FinalizeBulkAdd(aNewItems: BOARD_ITEM[]): void {
+    this.InvokeListeners((l) => l.OnBoardItemsAdded(this, aNewItems));
+  }
+
+  /**
+   * Must be used if Remove() is used using a BULK_x REMOVE_MODE to generate a change event
+   * for listeners.
+   */
+  FinalizeBulkRemove(aRemovedItems: BOARD_ITEM[]): void {
+    this.InvokeListeners((l) => l.OnBoardItemsRemoved(this, aRemovedItems));
+  }
+
+  FixupEmbeddedData(): void {
+    this.RunOnNestedEmbeddedFiles((nested) => {
+      for (const [filename, embeddedFile] of nested.EmbeddedFileMap()) {
+        const file = this.GetEmbeddedFile(filename);
+
+        if (file) {
+          embeddedFile.compressedEncodedData = file.compressedEncodedData;
+          embeddedFile.decompressedData = file.decompressedData;
+          embeddedFile.data_hash = file.data_hash;
+          embeddedFile.is_valid = file.is_valid;
+        }
+      }
+    });
+  }
+
+  /**
+   * Check that the board is valid and that all groups are sane.
+   *
+   * @param repair if true, the board is repaired (as well as possible).
+   * @return the error message, or an empty string on success.
+   */
+  GroupsSanityCheck(repair = false): string {
+    if (repair) {
+      while (this.GroupsSanityCheckInternal(repair) !== '') {
+        // repeat until clean
+      }
+
+      return '';
+    }
+    return this.GroupsSanityCheckInternal(repair);
+  }
+
+  GroupsSanityCheckInternal(repair: boolean): string {
+    // Cycle detection
+    //
+    // Each group has at most one parent group.
+    // So we start at group 0 and traverse the parent chain, marking groups seen along the way.
+    // If we ever see a group that we've already marked, that's a cycle.
+    // If we reach the end of the chain, we know all groups in that chain are not part of any cycle.
+    //
+    // Algorithm below is linear in the # of groups because each group is visited only once.
+    // There may be extra time taken due to the container access calls and iterators.
+    //
+    // Groups we know are cycle free
+    const knownCycleFreeGroups = new Set<EDA_GROUP>();
+    // Groups in the current chain we're exploring.
+    const currentChainGroups = new Set<EDA_GROUP>();
+    // Groups we haven't checked yet.
+    const toCheckGroups = new Set<EDA_GROUP>();
+
+    // Initialize set of groups and generators to check that could participate in a cycle.
+    for (const group of this.Groups()) toCheckGroups.add(group);
+
+    for (const gen of this.Generators()) toCheckGroups.add(gen);
+
+    while (toCheckGroups.size > 0) {
+      currentChainGroups.clear();
+      let group: EDA_GROUP | null = toCheckGroups.values().next().value as EDA_GROUP;
+
+      while (true) {
+        if (currentChainGroups.has(group)) {
+          if (repair) this.Remove(group.AsEdaItem() as BOARD_ITEM);
+
+          return 'Cycle detected in group membership';
+        }
+
+        if (knownCycleFreeGroups.has(group)) {
+          // Parent is a group we know does not lead to a cycle
+          break;
+        }
+
+        currentChainGroups.add(group);
+        // We haven't visited currIdx yet, so it must be in toCheckGroups
+        toCheckGroups.delete(group);
+
+        group = group.AsEdaItem().GetParentGroup();
+
+        if (!group) {
+          // end of chain and no cycles found in this chain
+          break;
+        }
+      }
+
+      // No cycles found in chain, so add it to set of groups we know don't participate
+      // in a cycle.
+      for (const g of currentChainGroups) knownCycleFreeGroups.add(g);
+    }
+
+    // Success
+    return '';
+  }
+
+  /** `BOARD::cmp_items::operator()`. */
+  static cmp_items(a: BOARD_ITEM, b: BOARD_ITEM): boolean {
+    if (a.Type() !== b.Type()) return a.Type() < b.Type();
+
+    if (a.GetLayer() !== b.GetLayer()) return a.GetLayer() < b.GetLayer();
+
+    if (a.GetPosition().x !== b.GetPosition().x) return a.GetPosition().x < b.GetPosition().x;
+
+    if (a.GetPosition().y !== b.GetPosition().y) return a.GetPosition().y < b.GetPosition().y;
+
+    if (a.m_Uuid !== b.m_Uuid)
+      // shopuld be always the case foer valid boards
+      return a.m_Uuid < b.m_Uuid;
+
+    return false; // a < b: pointer order, no analogue
+  }
+
+  /** `BOARD::cmp_drawings::operator()`. */
+  static cmp_drawings(aFirst: BOARD_ITEM, aSecond: BOARD_ITEM): boolean {
+    if (aFirst.Type() !== aSecond.Type()) return aFirst.Type() < aSecond.Type();
+
+    if (aFirst.GetLayer() !== aSecond.GetLayer()) return aFirst.GetLayer() < aSecond.GetLayer();
+
+    if (aFirst.Type() === KICAD_T.PCB_SHAPE_T) {
+      const shape = aFirst as PCB_SHAPE;
+      const other = aSecond as PCB_SHAPE;
+      return shape.Compare(other as unknown as EDA_SHAPE) < 0;
+    }
+
+    if (aFirst.Type() === KICAD_T.PCB_TEXT_T || aFirst.Type() === KICAD_T.PCB_FIELD_T) {
+      const text = aFirst as PCB_TEXT;
+      const other = aSecond as PCB_TEXT;
+      return text.Compare(other as unknown as EDA_TEXT) < 0;
+    }
+
+    if (aFirst.Type() === KICAD_T.PCB_TEXTBOX_T) {
+      const textbox = aFirst as PCB_TEXTBOX;
+      const other = aSecond as PCB_TEXTBOX;
+
+      const shapeCmp = EDA_SHAPE.prototype.Compare.call(textbox, other as unknown as EDA_SHAPE);
+
+      if (shapeCmp !== 0) return shapeCmp < 0;
+
+      return EDA_TEXT.prototype.Compare.call(textbox, other as unknown as EDA_TEXT) < 0;
+    }
+
+    if (aFirst.Type() === KICAD_T.PCB_TABLE_T) {
+      const table = aFirst as PCB_TABLE;
+      const other = aSecond as PCB_TABLE;
+
+      return PCB_TABLE.Compare(table, other) < 0;
+    }
+
+    if (aFirst.Type() === KICAD_T.PCB_BARCODE_T) {
+      const barcode = aFirst as PCB_BARCODE;
+      const other = aSecond as PCB_BARCODE;
+
+      return PCB_BARCODE.Compare(barcode, other) < 0;
+    }
+
+    return aFirst.m_Uuid < aSecond.m_Uuid;
+  }
+
+  override RunOnChildren(aFunction: (aItem: BOARD_ITEM) => void, aMode: RECURSE_MODE): void {
+    for (const track of this.m_tracks) aFunction(track);
+
+    for (const zone of this.m_zones) aFunction(zone);
+
+    for (const marker of this.m_markers) aFunction(marker);
+
+    for (const group of this.m_groups) aFunction(group);
+
+    for (const point of this.m_points) aFunction(point);
+
+    for (const footprint of this.m_footprints) {
+      aFunction(footprint);
+
+      if (aMode === RECURSE_MODE.RECURSE) footprint.RunOnChildren(aFunction, RECURSE_MODE.RECURSE);
+    }
+
+    for (const drawing of this.m_drawings) {
+      aFunction(drawing);
+
+      if (aMode === RECURSE_MODE.RECURSE) drawing.RunOnChildren(aFunction, RECURSE_MODE.RECURSE);
+    }
+  }
+
+  GetItemByIdCache(): ReadonlyMap<KIID, BOARD_ITEM> {
+    return this.m_itemByIdCache;
+  }
+
+  CacheItemById(aItem: BOARD_ITEM): void {
+    if (this.IsFootprintHolder()) return;
+
+    this.m_itemByIdCache.set(aItem.m_Uuid, aItem);
+  }
+
+  /** `UncacheItemById`: drop an item from the item-by-id cache. */
+  UncacheItemById(aId: KIID): void {
+    this.m_itemByIdCache.delete(aId);
+  }
+
+  /**
+   * A proxy function that calls the correspondent function in m_BoardSettings
+   * tests whether a given layer is visible
+   * @param aLayer = The layer to be tested
+   * @return true if the layer is visible.
+   */
+  IsLayerVisible(aLayer: PCB_LAYER_ID): boolean {
+    // If there is no project, assume layer is visible always
+    return (
+      this.GetDesignSettings().IsLayerEnabled(aLayer) &&
+      (!this.m_project || this.m_project.GetLocalSettings().m_VisibleLayers.test(aLayer))
+    );
+  }
+
+  /**
+   * A proxy function that calls the correspondent function in m_BoardSettings.
+   *
+   * @return the visible layers in bit-mapped form.
+   */
+  GetVisibleLayers(): LSET {
+    return this.m_project
+      ? this.m_project.GetLocalSettings().m_VisibleLayers
+      : LSET.AllLayersMask();
+  }
+
+  /**
+   * A proxy function that calls the correspondent function in m_BoardSettings
+   * changes the bit-mask of visible layers.
+   *
+   * @param aLayerMask = The new bit-mask of visible layers.
+   */
+  SetVisibleLayers(aLayerSet: LSET): void {
+    if (this.m_project) this.m_project.GetLocalSettings().m_VisibleLayers = aLayerSet;
+  }
+
+  /**
+   * A proxy function that calls the correspondent function in m_BoardSettings
+   * tests whether a given layer is enabled
+   * @param aLayer = The layer to be tested
+   * @return true if the layer is visible.
+   */
+  IsLayerEnabled(aLayer: PCB_LAYER_ID): boolean {
+    return this.GetDesignSettings().IsLayerEnabled(aLayer);
+  }
+
+  override GetLayerSet(): LSET {
+    return this.GetEnabledLayers();
+  }
+
+  /**
+   * Return a zone name that is unique on this board, derived from aBaseName.
+   */
+  GetUniqueZoneName(aBaseName: string, aExclude: ZONE | null): string {
+    if (aBaseName === '') return aBaseName;
+
+    const inUse = (aName: string): boolean => {
+      for (const zone of this.m_zones as ZONE[]) {
+        if (zone !== aExclude && zone.GetZoneName() === aName) return true;
+      }
+
+      return false;
+    };
+
+    if (!inUse(aBaseName)) return aBaseName;
+
+    // Strip a trailing _<number> so repeated copies increment the root (foo_1 -> foo_2),
+    // instead of stacking suffixes (foo_1_1_1).
+    let root = aBaseName;
+
+    if (aBaseName.includes('_')) {
+      const suffix = aBaseName.slice(aBaseName.lastIndexOf('_') + 1);
+      let allDigits = suffix !== '';
+
+      for (const ch of suffix) {
+        if (!(ch >= '0' && ch <= '9')) {
+          allDigits = false;
+          break;
+        }
+      }
+
+      if (allDigits) root = aBaseName.slice(0, aBaseName.lastIndexOf('_'));
+    }
+
+    for (let i = 1; ; ++i) {
+      const candidate = `${root}_${i}`;
+
+      if (!inUse(candidate)) return candidate;
+    }
+  }
+
+  /**
+   * @return the BOARD_DESIGN_SETTINGS for this BOARD
+   */
+  GetDesignSettings(): BOARD_DESIGN_SETTINGS {
+    return this.m_designSettings;
+  }
+
+  /**
+   * @return the number of nets (NETINFO_ITEM) in the board.
+   */
+  GetNetCount(): number {
+    return this.m_NetInfo.GetNetCount();
+  }
+
+  /**
+   * Search for a net with the given netcode.
+   *
+   * @param aNetcode A netcode to search for.
+   * @return the net if found or NULL if not found.
+   */
+  FindNet(aNetcode: number): NETINFO_ITEM | null;
+  /**
+   * Search for a net with the given name.
+   *
+   * @param aNetname A Netname to search for.
+   * @return the net if found or NULL if not found.
+   */
+  FindNet(aNetname: string): NETINFO_ITEM | null;
+  FindNet(a: number | string): NETINFO_ITEM | null {
+    if (typeof a === 'number') {
+      // the first valid netcode is 1 and the last is m_NetInfo.GetCount()-1.
+      // zero is reserved for "no connection" and is not actually a net.
+      // nullptr is returned for non valid netcodes
+
+      if (a === NETINFO_LIST.UNCONNECTED && this.m_NetInfo.GetNetCount() === 0)
+        return NETINFO_LIST.OrphanedItem();
+      else return this.m_NetInfo.GetNetItem(a);
+    }
+
+    return this.m_NetInfo.GetNetItem(a);
+  }
+
+  GetNetInfo(): NETINFO_LIST {
+    return this.m_NetInfo;
+  }
+
+  /**
+   * Adds an item to the container.
+   */
+  Add(
+    aBoardItem: BOARD_ITEM | null,
+    aMode: ADD_MODE = ADD_MODE.INSERT,
+    aSkipConnectivity = false,
+  ): void {
+    if (aBoardItem === null) {
+      console.assert(false, 'BOARD::Add() param error: aBoardItem nullptr');
+      return;
+    }
+
+    this.m_itemByIdCache.set(aBoardItem.m_Uuid, aBoardItem);
+
+    switch (aBoardItem.Type()) {
+      case KICAD_T.PCB_NETINFO_T:
+        this.m_NetInfo.AppendNet(aBoardItem as NETINFO_ITEM);
+        break;
+
+      // this one uses a vector
+      case KICAD_T.PCB_MARKER_T:
+        this.m_markers.push(aBoardItem as PCB_MARKER);
+        break;
+
+      // this one uses a vector
+      case KICAD_T.PCB_GROUP_T:
+        this.m_groups.push(aBoardItem as PCB_GROUP);
+        break;
+
+      // this one uses a vector
+      case KICAD_T.PCB_GENERATOR_T:
+        this.m_generators.push(aBoardItem as PCB_GENERATOR);
+        break;
+
+      // this one uses a vector
+      case KICAD_T.PCB_ZONE_T:
+        this.m_zones.push(aBoardItem as ZONE);
+        break;
+
+      case KICAD_T.PCB_VIA_T:
+        if (aMode === ADD_MODE.APPEND || aMode === ADD_MODE.BULK_APPEND)
+          this.m_tracks.push(aBoardItem as PCB_TRACK);
+        else this.m_tracks.unshift(aBoardItem as PCB_TRACK);
+
+        break;
+
+      case KICAD_T.PCB_TRACE_T:
+      case KICAD_T.PCB_ARC_T:
+        if (!IsCopperLayer(aBoardItem.GetLayer())) {
+          // The only current known source of these is SWIG (KICAD-BY7, et al).
+          // N.B. This inserts a small memory leak as we lose the track/via/arc.
+          console.assert(
+            false,
+            `BOARD::Add() Cannot place Track on non-copper layer: ${aBoardItem.GetLayer()} = ${this.GetLayerName(aBoardItem.GetLayer())}`,
+          );
+          return;
+        }
+
+        if (aMode === ADD_MODE.APPEND || aMode === ADD_MODE.BULK_APPEND)
+          this.m_tracks.push(aBoardItem as PCB_TRACK);
+        else this.m_tracks.unshift(aBoardItem as PCB_TRACK);
+
+        break;
+
+      case KICAD_T.PCB_FOOTPRINT_T: {
+        const footprint = aBoardItem as FOOTPRINT;
+
+        if (aMode === ADD_MODE.APPEND || aMode === ADD_MODE.BULK_APPEND)
+          this.m_footprints.push(footprint);
+        else this.m_footprints.unshift(footprint);
+
+        footprint.RunOnChildren((aChild) => {
+          this.m_itemByIdCache.set(aChild.m_Uuid, aChild);
+        }, RECURSE_MODE.NO_RECURSE);
+        break;
+      }
+
+      case KICAD_T.PCB_BARCODE_T:
+      case KICAD_T.PCB_DIM_ALIGNED_T:
+      case KICAD_T.PCB_DIM_CENTER_T:
+      case KICAD_T.PCB_DIM_RADIAL_T:
+      case KICAD_T.PCB_DIM_ORTHOGONAL_T:
+      case KICAD_T.PCB_DIM_LEADER_T:
+      case KICAD_T.PCB_SHAPE_T:
+      case KICAD_T.PCB_REFERENCE_IMAGE_T:
+      case KICAD_T.PCB_FIELD_T:
+      case KICAD_T.PCB_TEXT_T:
+      case KICAD_T.PCB_TEXTBOX_T:
+      case KICAD_T.PCB_TABLE_T:
+      case KICAD_T.PCB_TARGET_T: {
+        if (aMode === ADD_MODE.APPEND || aMode === ADD_MODE.BULK_APPEND)
+          this.m_drawings.push(aBoardItem);
+        else this.m_drawings.unshift(aBoardItem);
+
+        if (aBoardItem.Type() === KICAD_T.PCB_TABLE_T) {
+          const table = aBoardItem;
+
+          table.RunOnChildren((aChild) => {
+            this.m_itemByIdCache.set(aChild.m_Uuid, aChild);
+          }, RECURSE_MODE.NO_RECURSE);
+        }
+
+        break;
+      }
+
+      case KICAD_T.PCB_POINT_T:
+        // These aren't graphics as they have no physical presence
+        this.m_points.push(aBoardItem as PCB_POINT);
+        break;
+
+      case KICAD_T.PCB_TABLECELL_T:
+        // Handled by parent table
+        break;
+
+      default:
+        console.assert(false, `BOARD::Add() item type ${aBoardItem.GetClass()} not handled`);
+        return;
+    }
+
+    aBoardItem.SetParent(this);
+    aBoardItem.ClearEditFlags();
+
+    if (!aSkipConnectivity) this.m_connectivity.Add(aBoardItem);
+
+    if (aMode !== ADD_MODE.BULK_INSERT && aMode !== ADD_MODE.BULK_APPEND)
+      this.InvokeListeners((l) => l.OnBoardItemAdded(this, aBoardItem));
+  }
+
+  /**
+   * Remove every teardrop zone flagged STRUCT_DELETED, telling the commit.
+   */
+  BulkRemoveStaleTeardrops(aCommit: COMMIT): void {
+    for (let ii = this.m_zones.length - 1; ii >= 0; --ii) {
+      const zone = this.m_zones[ii]!;
+
+      if (zone.IsTeardropArea() && zone.HasFlag(STRUCT_DELETED)) {
+        this.m_itemByIdCache.delete(zone.m_Uuid);
+        this.m_zones.splice(ii, 1);
+        this.m_connectivity.Remove(zone);
+        aCommit.Removed(zone);
+      }
+    }
+  }
+
+  /**
+   * Removes an item from the container.
+   */
+  Remove(aBoardItem: BOARD_ITEM, aRemoveMode: REMOVE_MODE = REMOVE_MODE.NORMAL): void {
+    // find these calls and fix them!  Don't send me no stinking' nullptr.
+    console.assert(!!aBoardItem);
+
+    // This is redundant with BOARD_COMMIT::Push but necessary to support SWIG interaction
+    // until the SWIG API is completely removed (since it doesn't use the commit system)
+    const parentGroup = aBoardItem.GetParentGroup();
+
+    if (parentGroup && !(parentGroup.AsEdaItem().GetFlags() & STRUCT_DELETED)) {
+      parentGroup.RemoveItem(aBoardItem);
+    }
+
+    this.m_itemByIdCache.delete(aBoardItem.m_Uuid);
+
+    switch (aBoardItem.Type()) {
+      case KICAD_T.PCB_NETINFO_T: {
+        const netItem = aBoardItem as NETINFO_ITEM;
+        const unconnected = this.m_NetInfo.GetNetItem(NETINFO_LIST.UNCONNECTED);
+
+        for (const boardItem of this.AllConnectedItems()) {
+          if (boardItem.GetNet() === netItem) boardItem.SetNet(unconnected);
+        }
+
+        this.m_NetInfo.RemoveNet(netItem);
+        break;
+      }
+
+      case KICAD_T.PCB_MARKER_T:
+        erase(this.m_markers, aBoardItem);
+        break;
+
+      case KICAD_T.PCB_GROUP_T:
+        erase(this.m_groups, aBoardItem);
+        break;
+
+      case KICAD_T.PCB_ZONE_T:
+        erase(this.m_zones, aBoardItem);
+        break;
+
+      case KICAD_T.PCB_POINT_T:
+        erase(this.m_points, aBoardItem);
+        break;
+
+      case KICAD_T.PCB_GENERATOR_T:
+        erase(this.m_generators, aBoardItem);
+        break;
+
+      case KICAD_T.PCB_FOOTPRINT_T: {
+        erase(this.m_footprints, aBoardItem);
+        const footprint = aBoardItem;
+
+        footprint.RunOnChildren((aChild) => {
+          this.m_itemByIdCache.delete(aChild.m_Uuid);
+        }, RECURSE_MODE.NO_RECURSE);
+
+        break;
+      }
+
+      case KICAD_T.PCB_TRACE_T:
+      case KICAD_T.PCB_ARC_T:
+      case KICAD_T.PCB_VIA_T:
+        erase(this.m_tracks, aBoardItem);
+        break;
+
+      case KICAD_T.PCB_BARCODE_T:
+      case KICAD_T.PCB_DIM_ALIGNED_T:
+      case KICAD_T.PCB_DIM_CENTER_T:
+      case KICAD_T.PCB_DIM_RADIAL_T:
+      case KICAD_T.PCB_DIM_ORTHOGONAL_T:
+      case KICAD_T.PCB_DIM_LEADER_T:
+      case KICAD_T.PCB_SHAPE_T:
+      case KICAD_T.PCB_REFERENCE_IMAGE_T:
+      case KICAD_T.PCB_FIELD_T:
+      case KICAD_T.PCB_TEXT_T:
+      case KICAD_T.PCB_TEXTBOX_T:
+      case KICAD_T.PCB_TABLE_T:
+      case KICAD_T.PCB_TARGET_T: {
+        erase(this.m_drawings, aBoardItem);
+
+        if (aBoardItem.Type() === KICAD_T.PCB_TABLE_T) {
+          const table = aBoardItem;
+
+          table.RunOnChildren((aChild) => {
+            this.m_itemByIdCache.delete(aChild.m_Uuid);
+          }, RECURSE_MODE.NO_RECURSE);
+        }
+
+        break;
+      }
+
+      case KICAD_T.PCB_TABLECELL_T:
+        // Handled by parent table
+        break;
+
+      // other types may use linked list
+      default:
+        console.assert(false, `BOARD::Remove() item type ${aBoardItem.GetClass()} not handled`);
+    }
+
+    aBoardItem.SetFlags(STRUCT_DELETED);
+
+    this.m_connectivity.Remove(aBoardItem);
+
+    if (aRemoveMode !== REMOVE_MODE.BULK)
+      this.InvokeListeners((l) => l.OnBoardItemRemoved(this, aBoardItem));
+  }
+
+  /**
+   * Add a listener to the board to receive calls whenever something on the
+   * board has been modified.  The board does not take ownership of the
+   * listener object.  Make sure to call RemoveListener before deleting the
+   * listener object.  The order of listener invocations is not guaranteed.
+   * If the specified listener object has been added before, it will not be
+   * added again.
+   */
+  AddListener(aListener: BOARD_LISTENER): void {
+    if (!this.m_listeners.includes(aListener)) this.m_listeners.push(aListener);
+  }
+
+  /**
+   * Remove the specified listener.  If it has not been added before, it
+   * will do nothing.
+   */
+  RemoveListener(aListener: BOARD_LISTENER): void {
+    const i = this.m_listeners.indexOf(aListener);
+
+    if (i >= 0) {
+      // std::iter_swap( i, end - 1 ); pop_back()
+      this.m_listeners[i] = this.m_listeners[this.m_listeners.length - 1]!;
+      this.m_listeners.pop();
+    }
+  }
+
+  /**
+   * Remove all listeners
+   */
+  RemoveAllListeners(): void {
+    this.m_listeners = [];
+  }
+
+  /**
+   * Notify the board and its listeners that an item on the board has
+   * been modified in some way.
+   */
+  OnItemChanged(aItem: BOARD_ITEM): void {
+    this.InvokeListeners((l) => l.OnBoardItemChanged(this, aItem));
+  }
+
+  /**
+   * Notify the board and its listeners that an item on the board has
+   * been modified in some way.
+   */
+  OnItemsChanged(aItems: BOARD_ITEM[]): void {
+    this.InvokeListeners((l) => l.OnBoardItemsChanged(this, aItems));
+  }
+
+  /**
+   * Notify the board and its listeners that items on the board have
+   * been modified in a composite operation.
+   */
+  OnItemsCompositeUpdate(
+    aAddedItems: BOARD_ITEM[],
+    aRemovedItems: BOARD_ITEM[],
+    aChangedItems: BOARD_ITEM[],
+  ): void {
+    this.InvokeListeners((l) =>
+      l.OnBoardCompositeUpdate(this, aAddedItems, aRemovedItems, aChangedItems),
+    );
+  }
+
+  /**
+   * Notify the board and its listeners that the ratsnest has been recomputed.
+   */
+  OnRatsnestChanged(): void {
+    this.InvokeListeners((l) => l.OnBoardRatsnestChanged(this));
+  }
+
+  /** `InvokeListeners( &BOARD_LISTENER::X, *this, args... )`. */
+  InvokeListeners(aFunc: (aListener: BOARD_LISTENER) => void): void {
+    for (const l of this.m_listeners) aFunc(l);
+  }
+
+  /**
+   * Reset all high light data to the init state
+   */
+  ResetNetHighLight(): void {
+    this.m_highLight.Clear();
+    this.m_highLightPrevious.Clear();
+
+    this.InvokeListeners((l) => l.OnBoardHighlightNetChanged(this));
+  }
+
+  /**
+   * @return the set of net codes that should be highlighted
+   */
+  GetHighLightNetCodes(): ReadonlySet<number> {
+    return this.m_highLight.m_netCodes;
+  }
+
+  /**
+   * Select the netcode to be highlighted.
+   *
+   * @param aNetCode is the net to highlight.
+   * @param aMulti is true if you want to add a highlighted net without clearing the old one.
+   */
+  SetHighLightNet(aNetCode: number, aMulti = false): void {
+    if (!this.m_highLight.m_netCodes.has(aNetCode)) {
+      if (!aMulti) this.m_highLight.m_netCodes.clear();
+
+      this.m_highLight.m_netCodes.add(aNetCode);
+      this.InvokeListeners((l) => l.OnBoardHighlightNetChanged(this));
+    }
+  }
+
+  /**
+   * @return true if a net is currently highlighted
+   */
+  IsHighLightNetON(): boolean {
+    return this.m_highLight.m_highLightOn;
+  }
+
+  /**
+   * Enable or disable net highlighting.
+   *
+   * If a netcode >= 0 has been set with SetHighLightNet and aValue is true, the net will be
+   * highlighted.  If aValue is false, net highlighting will be disabled regardless of
+   * the highlight status.
+   */
+  HighLightON(aValue = true): void {
+    if (this.m_highLight.m_highLightOn !== aValue) {
+      this.m_highLight.m_highLightOn = aValue;
+      this.InvokeListeners((l) => l.OnBoardHighlightNetChanged(this));
+    }
+  }
+
+  /**
+   * Disable net highlight.
+   */
+  HighLightOFF(): void {
+    this.HighLightON(false);
+  }
+}
+
+/** `wxString::CmpNoCase`. */
+function cmpNoCase(a: string, b: string): number {
+  const la = a.toLowerCase();
+  const lb = b.toLowerCase();
+
+  return la < lb ? -1 : la > lb ? 1 : 0;
+}
+
+function FindVariantNameCaseInsensitive(aNames: readonly string[], aVariantName: string): string {
+  for (const name of aNames) {
+    if (cmpNoCase(name, aVariantName) === 0) return name;
+  }
+
+  return '';
+}
+
+/** `wxFileName( path ).GetFullName()`: the name with its extension, no directory. */
+function wxFileNameFullName(aPath: string): string {
+  const i = Math.max(aPath.lastIndexOf('/'), aPath.lastIndexOf('\\'));
+
+  return i < 0 ? aPath : aPath.slice(i + 1);
+}
+
+/** `std::erase( vector, value )`. */
+function erase(aVector: BOARD_ITEM[], aItem: BOARD_ITEM): void {
+  const i = aVector.indexOf(aItem);
+
+  if (i >= 0) aVector.splice(i, 1);
+}
+
+/** `wxString::AfterFirst`: the part after the first `ch`, or the empty string. */
+function wxAfterFirst(aStr: string, ch: string): string {
+  const i = aStr.indexOf(ch);
+
+  return i < 0 ? '' : aStr.slice(i + 1);
+}
+
+applyMixins(BOARD, [EMBEDDED_FILES]);

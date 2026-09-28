@@ -2,16 +2,16 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import {
   boardItemId,
   parseBoardItemId,
   boardHitCandidates,
   moveBoardItems,
-} from '@ziroeda/pcbnew/src/edit-board.js';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+} from '@ziroeda/pcbnew/edit-board.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 
 // A footprint at (100,100) rotated 0°, with a reference "R1" at local (0,-2).
 const BOARD = `(kicad_pcb (version 20241229) (generator "test")

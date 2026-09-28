@@ -24,8 +24,8 @@ import {
   stringBoundaryLimits,
   strokeInterline,
   textBox,
-} from '@ziroeda/common/src/font/text_box.js';
-import { measureText } from '@ziroeda/common/src/font/stroke_font.js';
+} from '@ziroeda/common/font/text_box.js';
+import { measureText } from '@ziroeda/common/font/stroke_font.js';
 
 const MM = 1e6; // pcbnew IU = 1 nm
 /** KiCad's default footprint text: 1 mm glyph box, 0.15 mm pen. */

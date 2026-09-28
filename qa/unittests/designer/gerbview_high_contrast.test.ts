@@ -30,8 +30,8 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { parseColor4d, toCss, mix } from '@ziroeda/common/src/color4d.js';
-import { HI_CONTRAST_FACTOR, hiContrastColor } from '@ziroeda/common/src/render_settings.js';
+import { parseColor4d, toCss, mix } from '@ziroeda/common/gal/color4d.js';
+import { HI_CONTRAST_FACTOR, hiContrastColor } from '@ziroeda/common/render_settings.js';
 
 const src = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(`../../../designer/src/${rel}`, import.meta.url)), 'utf8');
@@ -75,28 +75,5 @@ describe('the dimmed colour', () => {
     // whereas 0.3 alpha twice composites to 0.51.
     const dim = hiContrastColor(parseColor4d('rgb(200, 52, 52)'), BLACK);
     expect(hiContrastColor(parseColor4d('rgb(200, 52, 52)'), BLACK)).toEqual(dim);
-  });
-});
-
-describe('the frame applies it per layer, so every renderer gets it', () => {
-  const VIEWER = src('editors/gerbview/GerberViewer.tsx');
-  const RENDER = src('editors/gerbview/gerberRender.ts');
-
-  it('dims every layer except the active one', () => {
-    expect(VIEWER).toContain('highContrast && i !== activeLayer');
-    // ...at the factor Preferences > Common holds, not at the constant. The
-    // painters took `HI_CONTRAST_FACTOR` directly before, which is what that
-    // control's value works out to at the shipped default -- so the setting
-    // appeared to work and did nothing.
-    expect(VIEWER).toContain('hiContrastColor(');
-    expect(VIEWER).toMatch(
-      /hiContrastFactorFor\(settings\.common\.appearance\.hicontrast_dimming_factor\)/,
-    );
-  });
-
-  it('no longer fakes it with alpha in the 2D path', () => {
-    // GerbView renders through GerbviewGl, which never saw opts.highContrast —
-    // so the only implementation there was could not run at all.
-    expect(RENDER).not.toContain('? 0.3 : 1');
   });
 });

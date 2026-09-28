@@ -26,7 +26,7 @@
  * health.
  */
 
-import { captureError } from './reporter.js';
+import { HandleException } from '@ziroeda/common/pgm_base.js';
 
 interface EventTargetLike {
   addEventListener(type: string, listener: (e: unknown) => void): void;
@@ -36,7 +36,7 @@ interface EventTargetLike {
 export interface GlobalHandlerOptions {
   /** Defaults to `window`; injected so this is testable off a real page. */
   target?: EventTargetLike;
-  /** Defaults to `captureError`. */
+  /** Defaults to `PGM_BASE::HandleException( err, true )`. */
   capture?: (err: unknown, context?: Record<string, string>) => void;
   /** Injectable clock. */
   now?: () => number;
@@ -64,7 +64,7 @@ function signatureOf(err: unknown): string {
 export function installGlobalErrorHandlers(opts: GlobalHandlerOptions = {}): () => void {
   const target =
     opts.target ?? (typeof window !== 'undefined' ? (window as EventTargetLike) : null);
-  const capture = opts.capture ?? captureError;
+  const capture = opts.capture ?? ((err: unknown) => HandleException(err, true));
   const now = opts.now ?? (() => Date.now());
   const maxPerWindow = opts.maxPerWindow ?? 10;
   const windowMs = opts.windowMs ?? 60_000;

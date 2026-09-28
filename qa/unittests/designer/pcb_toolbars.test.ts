@@ -14,9 +14,9 @@ import {
   PCB_AUX_TOOLBAR,
   PCB_RIGHT_TOOLBAR,
   PCB_CONTROL,
-} from '@ziroeda/designer/src/editors/pcb/pcbToolbars.js';
-import { BITMAP } from '@ziroeda/designer/src/ui/toolbar_bitmaps.js';
-import type { ToolEntry } from '@ziroeda/designer/src/ui/toolbar_types.js';
+} from '@ziroeda/pcbnew/toolbars_pcb_editor.js';
+import { BITMAP } from '@ziroeda/common/bitmap_store_actions.js';
+import type { ToolEntry } from '@ziroeda/common/tool/action_toolbar_types.js';
 
 /** One rendered slot: a button id, `GROUP:name`, `CTRL:name`, or a separator. */
 const slots = (entries: readonly ToolEntry[]): string[] =>

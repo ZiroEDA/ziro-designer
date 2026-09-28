@@ -10,36 +10,52 @@
  * viewer pipeline, layer/object controls and presets are fully functional.
  */
 
-import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
-import { editPointColors } from '@ziroeda/common/src/color4d.js';
-import { galPenWidth, galSnapPx } from '@ziroeda/common/src/gal_pixel_grid.js';
+import type { OutStr } from '@ziroeda/common/eda_item.js';
+import { type ARC_EDIT_MODE, FRAME_T } from '@ziroeda/common/frame_type.js';
+import type { KIWAY } from '@ziroeda/common/kiway.js';
+import { SaveAsDialog } from '../../fs/SaveAsDialog.js';
+import { jsonFileWildcard, reportFileWildcard } from '@ziroeda/common/wildcards_and_files_ext.js';
+import { DialogAssignNetclass } from '@ziroeda/common/dialogs/dialog_assign_netclass.js';
+import { addNetclassAssignment } from '@ziroeda/eeschema/tools/assign_netclass.js';
+import { connectedItemIdsOnNets } from '@ziroeda/pcbnew/edit-board.js';
+import { EDA_VIEW_SWITCHER } from '@ziroeda/common/dialogs/eda_view_switcher.js';
+import { WxTextEntryDialog } from '@ziroeda/common/wx/textdlg.js';
+import { WX_TEXT_ENTRY_DIALOG } from '@ziroeda/common/dialogs/dialog_text_entry.js';
+import { Pgm } from '@ziroeda/common/pgm_base.js';
+import type { JsonValue } from '@ziroeda/common/settings/json_settings.js';
+import { PCB_IU_PER_MM } from '@ziroeda/common/eda_units.js';
+import { editPointColors } from '@ziroeda/common/gal/color4d.js';
+import { galPenWidth, galSnapPx } from '@ziroeda/common/gal_pixel_grid.js';
 import {
   drawSelectionArea,
   drawSelectionLasso,
   isBackgroundDark,
   lassoIsInside,
   selectionAreaColors,
-} from '@ziroeda/common/src/preview_items/selection_area.js';
-import { overlayTargetColor } from '../../render/gl/scene.js';
-import { BezierStep } from '@ziroeda/common/src/preview_items/bezier_geom_manager.js';
-import { PolygonGeomManager } from '@ziroeda/common/src/preview_items/polygon_geom_manager.js';
-import { COLOR4D_WHITE, brightness, cssWithAlpha, toCss } from '@ziroeda/common/src/color4d.js';
-import { drawPolygonItem } from '../../ui/polygon_item.js';
-import { DialogRuleAreaProperties } from './dialogs/dialog_rule_area_properties.js';
-import type { PROGRESS_REPORTER_LIKE } from '@ziroeda/pcbnew/src/connectivity/connectivity_algo.js';
-import { PROF_TIMER, traceAllegroPerf, wxLogTrace } from '@ziroeda/common/src/trace_helpers.js';
-import { placeVia } from '@ziroeda/pcbnew/src/via_placer.js';
-import { DEFAULT_RULE_AREA_KEEPOUT } from '@ziroeda/pcbnew/src/convert_shapes.js';
+} from '@ziroeda/common/preview_items/selection_area.js';
+import { BezierStep } from '@ziroeda/common/preview_items/bezier_geom_manager.js';
+import { PolygonGeomManager } from '@ziroeda/common/preview_items/polygon_geom_manager.js';
+import { COLOR4D_WHITE, brightness, cssWithAlpha, toCss } from '@ziroeda/common/gal/color4d.js';
+import { drawPolygonItem } from '@ziroeda/common/preview_items/polygon_item.js';
+import { DialogRuleAreaProperties } from '@ziroeda/pcbnew/dialogs/dialog_rule_area_properties_ui.js';
+import type { PROGRESS_REPORTER_LIKE } from '@ziroeda/pcbnew/connectivity/connectivity_algo.js';
+import { PROF_TIMER, traceAllegroPerf, wxLogTrace } from '@ziroeda/common/trace_helpers.js';
+import { placeVia } from '@ziroeda/pcbnew/tools/drawing_tool.js';
+import { DEFAULT_RULE_AREA_KEEPOUT } from '@ziroeda/pcbnew/convert_shapes.js';
 import {
   collectPlacementSources,
+  DIALOG_RULE_AREA_PROPERTIES,
   uniqueZoneName,
   type RuleAreaValues,
   type ZoneBorderStyle,
-} from '@ziroeda/pcbnew/src/rule_area_properties.js';
-import { TwoPointGeomManager } from '@ziroeda/common/src/preview_items/two_point_geom_manager.js';
-import { ArcGeomManager, ArcStep } from '@ziroeda/common/src/preview_items/arc_geom_manager.js';
-import { arcMidPoint, drawArcAssistant } from '../../ui/arc_assistant.js';
-import { drawTwoPointAssistant, type TwoPointShape } from '../../ui/two_point_assistant.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_rule_area_properties.js';
+import { TWO_POINT_GEOMETRY_MANAGER } from '@ziroeda/common/preview_items/two_point_geom_manager.js';
+import { ArcGeomManager, ArcStep } from '@ziroeda/common/preview_items/arc_geom_manager.js';
+import { arcMidPoint, drawArcAssistant } from '@ziroeda/common/preview_items/arc_assistant.js';
+import {
+  drawTwoPointAssistant,
+  type TwoPointShape,
+} from '@ziroeda/common/preview_items/two_point_assistant.js';
 import {
   LeaderMode,
   vectorSnapped45,
@@ -52,7 +68,7 @@ import {
   EDIT_POINT_BORDER_SIZE,
   EDIT_POINT_HOVER_SIZE,
   EDIT_POINT_SIZE,
-} from '@ziroeda/common/src/preview_items/edit_points.js';
+} from '@ziroeda/common/preview_items/edit_points.js';
 import {
   commonInputPrefs,
   dragGesture,
@@ -62,36 +78,40 @@ import {
   makeZoomController,
   wheelAction,
   zoomFitScale,
-} from '../../ui/view_controls.js';
-import { DockSash } from '../../ui/DockSash.js';
-import { onOutlineFontsChanged } from '../../font/outline_fonts.js';
-import { applyCanvasSize, canvasBackingSize, isMeasured } from '../../ui/canvas_size.js';
-import { appearanceNetRows } from './appearance_nets.js';
-import { useStatusReadout } from '../../ui/useStatusReadout.js';
+} from '@ziroeda/common/ui/view_controls.js';
+import { DockSash } from '@ziroeda/common/widgets/wx_aui_sash.js';
+import { onOutlineFontsChanged } from '@ziroeda/common/font/outline_fonts.js';
+import {
+  applyCanvasSize,
+  canvasBackingSize,
+  isMeasured,
+} from '@ziroeda/common/widgets/canvas_size.js';
+import { appearanceNetRows } from '@ziroeda/pcbnew/widgets/appearance_nets.js';
+import { useStatusReadout } from '@ziroeda/common/use_status_readout.js';
 
 /**
  * `BASE_SCREEN::m_LocalOrigin`, the point pane 3's dx/dy/dist measures from.
  * A module constant so its identity is stable across renders.
  */
 const PCB_LOCAL_ORIGIN = { x: 0, y: 0 };
-import { drawRulerItem, rulerEnd } from '../../ui/ruler_item.js';
-import { boardToolCursor } from './cursors.js';
-import { pickerSnapsToGridOnly } from './picker_snap.js';
+import { drawRulerItem, rulerEnd } from '@ziroeda/common/preview_items/ruler_item.js';
+import { boardToolCursor } from '@ziroeda/pcbnew/cursors.js';
+import { pickerSnapsToGridOnly } from '@ziroeda/pcbnew/tools/pcb_picker_tool.js';
 import {
   groupBoxSegments,
   groupLabelAnchor,
   groupLabelFits,
   groupLabelTextSize,
-} from './group_box.js';
-import { appearanceLayerRows, layerTooltip } from '../../widgets/appearance_layers.js';
+} from '@ziroeda/pcbnew/group_box.js';
+import { appearanceLayerRows, layerTooltip } from '@ziroeda/pcbnew/widgets/appearance_layers.js';
 import {
   ZOOM_AUTO_LABEL,
   ZOOM_LIST,
   isZoomSelectPreset,
   zoomSelectLabel,
-} from '../../ui/zoom_settings.js';
+} from '@ziroeda/common/settings/zoom_settings.js';
 
-import type { FitType } from '../../ui/view_controls.js';
+import type { FitType } from '@ziroeda/common/ui/view_controls.js';
 import { pcbIUScale, pcbIuToMM as iuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common';
 import {
   useCallback,
@@ -202,6 +222,7 @@ import {
   addBoardDimension,
   addBoardTextBox,
   addBoardTable,
+  moveTable,
   clickDimension,
   dimensionSegments,
   dimensionSnapsToGrid,
@@ -226,7 +247,6 @@ import {
   type ImagePlaceState,
   crossProbeSelection,
   boardSyncSelectionParts,
-  crossProbeHighlightNet,
   crossProbeViewChange,
   crossProbeFlashSelection,
   CROSS_PROBE_FLASH_INTERVAL_MS,
@@ -239,47 +259,46 @@ import {
   applyBarcodeValues,
   barcodeAt,
   barcodeValues,
-} from '@ziroeda/pcbnew/src/barcode_properties.js';
-import { DialogBarcodeProperties } from './dialogs/dialog_barcode_properties.js';
-import { GetLayerName } from '@ziroeda/pcbnew/src/layer_ids.js';
+  DIALOG_BARCODE_PROPERTIES,
+} from '@ziroeda/pcbnew/dialogs/dialog_barcode_properties.js';
+import { DialogBarcodeProperties } from '@ziroeda/pcbnew/dialogs/dialog_barcode_properties_ui.js';
+import { GetLayerName, IsCopperLayer } from '@ziroeda/common/layer_ids.js';
 import {
   boardIsEmpty,
   hasLockedItems,
   hasUnlockedItems,
-} from '@ziroeda/pcbnew/src/pcb_selection_conditions.js';
-import { Icon } from '../../ui/icons.js';
-import { applyPnsChanges, PnsSession } from '@ziroeda/pcbnew/src/router/pns_session.js';
-import { PnsRouterMode } from '@ziroeda/pcbnew/src/router/pns_router.js';
-import type { PnsDesignSettings } from '@ziroeda/pcbnew/src/router/pns_board_iface.js';
-import {
-  defaultTrackViaSizeState,
-  withNetclassEntry,
-} from '@ziroeda/pcbnew/src/board_design_settings_sizes.js';
-import { Infobar } from '../../ui/ReadOnlyNotice.js';
-import { ReferenceImageCache } from './image_cache.js';
+} from '@ziroeda/pcbnew/tools/pcb_selection_conditions.js';
+import { Icon } from '@ziroeda/common/widgets/icons.js';
+import { applyPnsChanges, PnsSession } from '@ziroeda/pcbnew/router/pns_session.js';
+import { PnsRouterMode } from '@ziroeda/pcbnew/router/pns_router.js';
+import type { PnsDesignSettings } from '@ziroeda/pcbnew/router/pns_board_iface.js';
+import { Infobar } from '@ziroeda/common/widgets/wx_infobar.js';
+import { ReferenceImageCache } from '@ziroeda/pcbnew/pcb_reference_image.js';
 import { cleanup3dCache } from './model_cache.js';
-import { buildPcbMenus } from './menubar.js';
+import { buildPcbMenus } from '@ziroeda/pcbnew/menubar_pcb_editor.js';
 import { Viewer3DFrame } from './Viewer3DFrame.js';
-import { dimensionDefaultsFrom, dimensionToolKind } from './dimension_tools.js';
-import { DialogDimensionProperties } from './dialogs/dialog_dimension_properties.js';
-import { DialogTextBoxProperties } from './dialogs/dialog_textbox_properties.js';
-import { DialogReferenceImageProperties } from './dialogs/dialog_reference_image_properties.js';
-import { DialogTableProperties } from '../../ui/DialogTableProperties.js';
+import { dimensionDefaultsFrom, dimensionToolKind } from '@ziroeda/pcbnew/tools/drawing_tool.js';
+import { DialogDimensionProperties } from '@ziroeda/pcbnew/dialogs/dialog_dimension_properties_ui.js';
+import { DialogTextBoxProperties } from '@ziroeda/pcbnew/dialogs/dialog_textbox_properties_ui.js';
+import { DialogReferenceImageProperties } from '@ziroeda/pcbnew/dialogs/dialog_reference_image_properties_ui.js';
+import { DialogTableProperties } from '@ziroeda/common/dialogs/dialog_table_properties.js';
 import {
   applyTableValues,
   collectTableValues,
+  DIALOG_TABLE_PROPERTIES,
   isBackLayer,
   tableAt,
   type TableValues,
-} from '@ziroeda/pcbnew/src/table_properties.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_table_properties.js';
 import {
   applyTextBoxValues,
   collectTextBoxValues,
+  DIALOG_TEXTBOX_PROPERTIES,
   textBoxAt,
   type TextBoxValues,
-} from '@ziroeda/pcbnew/src/textbox_properties.js';
-import { isDrawableTextBox, newTextBox } from '@ziroeda/pcbnew/src/draw_textbox.js';
-import { newTable, type TableDefaults } from '@ziroeda/pcbnew/src/draw_table.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_textbox_properties.js';
+import { isDrawableTextBox, newTextBox } from '@ziroeda/pcbnew/draw_textbox.js';
+import { newTable, type TableDefaults } from '@ziroeda/pcbnew/draw_table.js';
 
 /** An empty source node, for an item that has not been saved yet. */
 
@@ -287,30 +306,37 @@ import { newTable, type TableDefaults } from '@ziroeda/pcbnew/src/draw_table.js'
 const EMPTY_IDS: ReadonlySet<string> = new Set();
 const ORTHO_ON: ReadonlySet<string> = new Set(['toggleOrtho']);
 import {
-  applyDimensionValues,
-  collectDimensionValues,
+  DIALOG_DIMENSION_PROPERTIES,
   dimensionAt,
   type DimensionValues,
-} from '@ziroeda/pcbnew/src/dimension_properties.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_dimension_properties.js';
 import { Reporter, type ReportLine } from '@ziroeda/common';
 import { netClassClearanceMM } from '@ziroeda/common';
-import { MenuBar, ContextMenu, type Menu, type MenuItem } from '../../ui/MenuBar.js';
-import { Combo } from '../../ui/Combo.js';
-import { layerBoxLabel, layerForHotkey } from './layer_box_label.js';
-import { Toolbar } from '../../ui/Toolbar.js';
-import { formatTitle, useDocumentTitle } from '../../ui/useDocumentTitle.js';
-import { PCB_FRAME_NAME, pcbFrameTitle } from './frame_title.js';
-import { withSaveEnablement } from '../../ui/save_enablement.js';
+import {
+  MenuBar,
+  ContextMenu,
+  type Menu,
+  type MenuItem,
+} from '@ziroeda/common/tool/action_menu_bar.js';
+import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
+import { layerBoxLabel, layerForHotkey } from '@ziroeda/pcbnew/pcb_layer_box_selector.js';
+import { Toolbar } from '@ziroeda/common/tool/action_toolbar.js';
+import { formatTitle, useDocumentTitle } from '@ziroeda/common/use_document_title.js';
+import { PCB_FRAME_NAME, pcbFrameTitle } from '@ziroeda/pcbnew/pcb_edit_frame.js';
+import { withSaveEnablement } from '@ziroeda/common/save_enablement.js';
 import {
   copySelectionToClipboardText,
   cutSelectionToClipboardText,
   parseClipboardText,
   pasteIntoBoard,
   type PasteMode,
-} from '@ziroeda/pcbnew/src/pcb_clipboard.js';
-import { DialogPasteSpecial, type PasteSpecialMode } from '../../dialogs/dialog_paste_special.js';
-import { KiStatusBar } from '../../ui/KiStatusBar.js';
-import { MsgPanel, type MsgPanelItem } from '../../ui/MsgPanel.js';
+} from '@ziroeda/pcbnew/kicad_clipboard.js';
+import {
+  DialogPasteSpecial,
+  type PasteSpecialMode,
+} from '@ziroeda/common/dialogs/dialog_paste_special.js';
+import { KiStatusBar } from '@ziroeda/common/widgets/kistatusbar.js';
+import { MsgPanel, type MsgPanelItem } from '@ziroeda/common/widgets/msgpanel_ui.js';
 import {
   gridMsg,
   messageTextFromValue,
@@ -320,56 +346,89 @@ import {
   unitText,
   zoomFactorForScale,
   zoomMsg,
-} from '../../ui/status_format.js';
-import { DialogPcbFind, DEFAULT_PCB_FIND, type PcbFindOptions } from './dialogs/dialog_find.js';
-import { DialogPageSettings } from '../../dialogs/dialog_page_settings.js';
-import { pageSettingsValue, toPaperToken } from '../../dialogs/page_settings_model.js';
-import { type ExtentsBox, pcbZoomFitBox } from './document_extents.js';
-import { DialogPcbPrint } from './dialogs/dialog_print_pcb.js';
-import { DialogPcbPlot } from './dialogs/dialog_plot_pcb.js';
+} from '@ziroeda/common/widgets/kistatusbar_format.js';
+import {
+  DialogPcbFind,
+  DEFAULT_PCB_FIND,
+  type PcbFindOptions,
+} from '@ziroeda/pcbnew/dialogs/dialog_find.js';
+import { DialogPageSettings } from '@ziroeda/common/dialogs/dialog_page_settings.js';
+import { pageSettingsValue, toPaperToken } from '@ziroeda/common/dialogs/dialog_page_settings.js';
+import { type ExtentsBox, pcbZoomFitBox } from '@ziroeda/pcbnew/pcb_base_frame.js';
+import { DialogPcbPrint } from '@ziroeda/pcbnew/dialogs/dialog_print_pcbnew.js';
+import { DialogPcbPlot } from '@ziroeda/pcbnew/dialogs/dialog_plot.js';
 import {
   DialogBoardSetup,
   defaultBoardSetup,
   type BoardSetupValues,
   type PageId as BoardSetupPageId,
-} from './dialogs/dialog_board_setup.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_board_setup.js';
 import {
   druFileName,
   findProjectDru,
+  findProjectPrl,
   findProjectPro,
-  readBoardSetupPro,
-  writeBoardSetupProText,
-} from './project_settings.js';
-import { clampMaxErrorMM } from './board_settings.js';
-import type { TextGfxRow } from './board_settings.js';
-import { applyBoardFileSetup, writeBoardFileSetup } from './board_file_settings.js';
-import { DialogDrc } from './dialogs/dialog_drc.js';
-import { DialogUpdatePcb, type UpdatePcbOptions } from './dialogs/dialog_update_pcb.js';
-import { DialogGlobalEditTeardrops } from './dialogs/dialog_global_edit_teardrops.js';
-import { DialogFilterSelection } from './dialogs/dialog_filter_selection.js';
-import { DialogMoveExact, type MoveExactValues } from './dialogs/dialog_move_exact.js';
-import { DialogLineModification } from './dialogs/dialog_line_modification.js';
-import { DialogCreateArray } from './dialogs/dialog_create_array.js';
-import { DEFAULT_ARRAY_SETTINGS, arraySpecFrom, type ArraySettings } from './array_settings.js';
-import { handleAtPoint, handleDragTarget, handleTolerance } from './point_edit_canvas.js';
-import { DialogOutsetItems } from './dialogs/dialog_outset_items.js';
-import { DialogPnsSettings } from './dialogs/dialog_pns_settings.js';
+} from '@ziroeda/pcbnew/pcb_edit_frame.js';
+import { clampMaxErrorMM } from '@ziroeda/pcbnew/board_settings.js';
+import type { TextGfxRow } from '@ziroeda/pcbnew/board_settings.js';
+import {
+  BoardSetupFromWindow,
+  BoardSetupToWindow,
+} from '@ziroeda/pcbnew/dialogs/board_setup_transfer.js';
+import { DumpJson } from '@ziroeda/common/settings/json_dump.js';
+import type { BOARD } from '@ziroeda/pcbnew/board.js';
+import { DialogDrc } from '@ziroeda/pcbnew/dialogs/dialog_drc.js';
+import {
+  DialogUpdatePcb,
+  type UpdatePcbOptions,
+} from '@ziroeda/pcbnew/dialogs/dialog_update_pcb.js';
+import { DialogGlobalEditTeardrops } from '@ziroeda/pcbnew/dialogs/dialog_global_edit_teardrops_ui.js';
+import {
+  BOARD_DESIGN_SETTINGS,
+  DIFF_PAIR_DIMENSION,
+  VIA_DIMENSION,
+} from '@ziroeda/pcbnew/board_design_settings.js';
+import { BuildBomTextFromBoard } from '@ziroeda/pcbnew/build_BOM_from_board.js';
+import { DialogBoardStatistics } from '@ziroeda/pcbnew/dialogs/dialog_board_statistics.js';
+import { DialogFilterSelection } from '@ziroeda/pcbnew/dialogs/dialog_filter_selection_ui.js';
+import {
+  DialogMoveExact,
+  type MoveExactValues,
+} from '@ziroeda/pcbnew/dialogs/dialog_move_exact_ui.js';
+import { WX_UNIT_ENTRY_DIALOG } from '@ziroeda/common/dialogs/dialog_unit_entry.js';
+import { WX_MULTI_ENTRY_DIALOG } from '@ziroeda/common/dialogs/dialog_multi_unit_entry.js';
+import { DialogCreateArray } from '@ziroeda/pcbnew/dialogs/dialog_create_array_ui.js';
+import {
+  DEFAULT_ARRAY_SETTINGS,
+  arraySpecFrom,
+  type ArraySettings,
+} from '@ziroeda/pcbnew/dialogs/dialog_create_array.js';
+import {
+  handleAtPoint,
+  handleDragTarget,
+  handleTolerance,
+} from '@ziroeda/pcbnew/tools/pcb_point_editor_canvas.js';
+import { DialogOutsetItems } from '@ziroeda/pcbnew/dialogs/dialog_outset_items.js';
+import { DialogPnsSettings } from '@ziroeda/pcbnew/dialogs/dialog_pns_settings.js';
 import {
   DEFAULT_OUTSET_SETTINGS,
   outsetOptionsFrom,
   type OutsetSettings,
-} from './outset_settings.js';
+} from '@ziroeda/pcbnew/tools/item_modification_routine.js';
 import {
   DialogPositionRelative,
   type PositionRelativeValues,
-} from './dialogs/dialog_position_relative.js';
-import { DialogInspectConstraints } from './dialogs/dialog_inspect_constraints.js';
-import { inspectSelection, describeSelected } from './inspect_selection.js';
-import { netClassFor, netclassesForNet } from './netclass_resolve.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_position_relative_ui.js';
+import { DIALOG_BOOK_REPORTER } from '@ziroeda/common/dialogs/dialog_book_reporter.js';
+import { inspectReport, describeSelected } from '@ziroeda/pcbnew/tools/board_inspection_tool.js';
+import { netClassFor, netclassesForNet } from '@ziroeda/pcbnew/netclass_resolve.js';
 // APPEARANCE_CONTROLS is ONE widget that PCB_EDIT_FRAME and
 // FOOTPRINT_EDIT_FRAME both construct, so the panel, its Objects table and its
 // presets live in `widgets/` and this frame supplies only its own data.
-import { AppearanceControls, type AppearanceTab } from '../../widgets/appearance_controls.js';
+import {
+  AppearanceControls,
+  type AppearanceTab,
+} from '@ziroeda/pcbnew/widgets/appearance_controls.js';
 import {
   DEFAULT_OBJECTS,
   DEFAULT_OPACITY,
@@ -377,106 +436,104 @@ import {
   toggleObject,
   type ObjectOpacity,
   type ObjectState,
-} from '../../widgets/appearance_objects.js';
+} from '@ziroeda/pcbnew/widgets/appearance_objects.js';
 import {
   BUILTIN_PRESETS,
   matchPresetName,
   presetComboItems,
   PRESET_SEPARATOR,
   viewportComboItems,
-} from '../../widgets/appearance_presets.js';
+} from '@ziroeda/pcbnew/widgets/appearance_presets.js';
 import {
   DEFAULT_SELECTION_FILTER_OPTIONS,
   SelectionFilterOnlyMenu,
   SelectionFilterPanel,
   type SelectionFilterItem,
-} from '../../widgets/panel_selection_filter.js';
-import { align, type PcbGridState } from '@ziroeda/pcbnew/src/pcb_grid_helper.js';
+} from '@ziroeda/pcbnew/widgets/panel_selection_filter.js';
+import { PCB_GRID_HELPER, type PcbGridState } from '@ziroeda/pcbnew/tools/pcb_grid_helper.js';
+import { drawConstructionGeom } from '@ziroeda/common/preview_items/construction_geom.js';
+import { drawSnapIndicator } from '@ziroeda/common/preview_items/snap_indicator.js';
+import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
+import { type BoardCursorSnap, snapToBoardCopper } from '@ziroeda/pcbnew/pcb_cursor_snap.js';
+import { inheritTrackWidth } from '@ziroeda/pcbnew/inherit_track_width.js';
+import { moveDelta } from '@ziroeda/pcbnew/pcb_edit_frame.js';
+import { contextMenuPick } from '@ziroeda/pcbnew/tools/pcb_selection_tool.js';
+import { parseDrcRules } from '@ziroeda/pcbnew/drc/drc_rule_view.js';
+import { DialogTrackViaProperties } from '@ziroeda/pcbnew/dialogs/dialog_track_via_properties_ui.js';
+import { DialogCopperZones } from '@ziroeda/pcbnew/dialogs/dialog_copper_zones.js';
+import { DialogFootprintProperties } from '@ziroeda/pcbnew/dialogs/dialog_footprint_properties_ui.js';
 import {
-  bestDragOrigin,
-  bestSnapAnchor,
-  type BoardCursorSnap,
-  snapToBoardCopper,
-} from '@ziroeda/pcbnew/src/pcb_cursor_snap.js';
-import { inheritTrackWidth } from '@ziroeda/pcbnew/src/inherit_track_width.js';
-import { moveDelta } from './pcb_grid.js';
-import { contextMenuPick } from './pcb_context_selection.js';
-import { parseDrcRules } from '@ziroeda/pcbnew/src/drc/drc_rule_view.js';
-import { DialogTrackViaProperties } from './dialogs/dialog_track_via_properties.js';
-import { DialogCopperZones } from './dialogs/dialog_copper_zones.js';
-import { DialogFootprintProperties } from './dialogs/dialog_footprint_properties.js';
-import {
-  applyFootprintValues,
-  collectFootprintValues,
+  DIALOG_FOOTPRINT_PROPERTIES,
   footprintAt,
   type FootprintValues,
-} from '@ziroeda/pcbnew/src/footprint_properties.js';
-import { flipBoardItems, modificationPoint } from '@ziroeda/pcbnew/src/edit-board.js';
-import { zoneItemDescription } from '@ziroeda/pcbnew/src/item_description.js';
-import { DialogPadProperties } from './dialogs/dialog_pad_properties.js';
-import { DialogShapeProperties } from './dialogs/dialog_graphic_properties.js';
-import { DialogTextProperties } from './dialogs/dialog_text_properties.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_footprint_properties.js';
+import { flipBoardItems, modificationPoint } from '@ziroeda/pcbnew/edit-board.js';
+import { zoneItemDescription } from '@ziroeda/pcbnew/item_description.js';
+import { DialogPadProperties } from '@ziroeda/pcbnew/dialogs/dialog_pad_properties_ui.js';
+import { DialogShapeProperties } from '@ziroeda/pcbnew/dialogs/dialog_graphic_properties.js';
+import { DialogTextProperties } from '@ziroeda/pcbnew/dialogs/dialog_text_properties_ui.js';
 import {
-  applyShapeValues,
   applyTextValues,
-  collectShapeValues,
-  collectTextValues,
-  shapeAt,
+  DIALOG_TEXT_PROPERTIES,
   textAt,
-  type ShapeValues,
   type TextValues,
-} from '@ziroeda/pcbnew/src/graphic_properties.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_text_properties.js';
 import {
-  applyPadValues,
-  collectPadValues,
+  DIALOG_SHAPE_PROPERTIES,
+  shapeAt,
+  type ShapeValues,
+} from '@ziroeda/pcbnew/dialogs/dialog_shape_properties.js';
+import {
+  DIALOG_PAD_PROPERTIES,
   // `padAt` is taken by the local hit-test helper below.
   padAt as selectedPadAt,
   type PadRef,
   type PadValues,
-} from '@ziroeda/pcbnew/src/pad_properties.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_pad_properties.js';
 import {
   applyZoneValues,
   collectZoneValues,
+  DIALOG_COPPER_ZONE,
   uniqueZonePriority,
   zoneAt,
   type ZoneValues,
-} from '@ziroeda/pcbnew/src/zone_properties.js';
+} from '@ziroeda/pcbnew/dialogs/panel_zone_properties.js';
 import {
   applyTrackViaValues,
   hasTrackOrVia,
   trackViaSelection,
   type TrackViaValues,
-} from '@ziroeda/pcbnew/src/track_via_properties.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_track_via_properties.js';
 import {
   applyGlobalTeardropEdit,
   type GlobalTeardropEditOptions,
-} from '@ziroeda/pcbnew/src/teardrop_global_edit.js';
-import {
-  defaultTeardropParametersList,
-  type TeardropParametersList,
-} from '@ziroeda/pcbnew/src/teardrop.js';
-import { SKIP_TEARDROPS } from '@ziroeda/pcbnew/src/board_commit.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_global_edit_teardrops.js';
+import { SKIP_TEARDROPS } from '@ziroeda/pcbnew/board_commit.js';
 import {
   boardFromBOARD,
+  tableView,
   viewIdOfBoardItem,
-} from '@ziroeda/pcbnew/src/pcb_io/kicad_sexpr/board_view.js';
-import { PCB_ACTIONS } from '@ziroeda/pcbnew/src/tools/pcb_actions.js';
-import type { DRC_TOOL } from '@ziroeda/pcbnew/src/tools/drc_tool.js';
+} from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/board_view.js';
+import { Build_Board_Characteristics_Table } from '@ziroeda/pcbnew/board_tables/board_characteristics_table.js';
+import { Build_Board_Stackup_Table } from '@ziroeda/pcbnew/board_tables/board_stackup_table.js';
+import { PCB_ACTIONS } from '@ziroeda/pcbnew/tools/pcb_actions.js';
+import type { DRC_TOOL } from '@ziroeda/pcbnew/tools/drc_tool.js';
 import { BOX2D } from '@ziroeda/kimath/src/math/box2.js';
 import type { Vec2 as KVec2 } from '@ziroeda/kimath/src/math/vector2.js';
-import { DIALOG_DRC, type DIALOG_DRC_WINDOW } from './dialogs/dialog_drc_model.js';
-import { MessageDialogYesNoCancel } from '../../ui/dialog_message.js';
+import { DIALOG_DRC, type DIALOG_DRC_WINDOW } from '@ziroeda/pcbnew/dialogs/dialog_drc_model.js';
+import { MessageDialogYesNoCancel } from '@ziroeda/common/dialogs/dialog_message.js';
+import { commitViewToBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/board_view_commit.js';
 import {
-  applyTeardropParametersList,
-  commitViewToBoard,
-} from '@ziroeda/pcbnew/src/pcb_io/kicad_sexpr/board_view_commit.js';
-import { PCB_EDIT_FRAME, REACT_BOARD_LISTENER, pcbnewSettingsOf } from './pcb_edit_frame.js';
-import { fetchNetlistFromSchematic } from './netlist_from_schematic.js';
-import { loadFootprint } from '../../widgets/footprint_list.js';
+  PCB_EDIT_FRAME,
+  REACT_BOARD_LISTENER,
+  pcbnewSettingsOf,
+} from '@ziroeda/pcbnew/pcb_edit_frame.js';
+import { FetchNetlistFromSchematic } from '@ziroeda/pcbnew/netlist_from_schematic.js';
+import { loadFootprint, loadFootprintIndex } from '../../widgets/footprint_list.js';
 import { FootprintChooserFrame } from './dialogs/footprint_chooser_frame.js';
-import { addFootprintToHistory } from './widgets/footprint_history.js';
+import { addFootprintToHistory } from '@ziroeda/pcbnew/widgets/footprint_history.js';
 import { preloadBoardLibraries } from './preload.js';
-import { parseFootprint } from '../footprint/footprintBoard.js';
+import { parseFootprint } from '@ziroeda/pcbnew/footprint_edit_frame.js';
 import {
   buildScene,
   drawBoard,
@@ -491,7 +548,7 @@ import {
   type PcbDrawOptions,
   type ScenePathFactory,
   type SceneFilter,
-} from './renderBoard.js';
+} from '@ziroeda/pcbnew/renderBoard.js';
 import {
   applyDisplayState,
   attachBoardToPanel,
@@ -505,21 +562,21 @@ import {
   setItemsHidden,
   syncViewTransform,
 } from './pcb_canvas.js';
-import type { PCB_DRAW_PANEL_GAL } from '@ziroeda/pcbnew/src/pcb_draw_panel_gal.js';
-import type { BOARD_ITEM } from '@ziroeda/pcbnew/src/board_item.js';
-import { PCB_DISPLAY_OPTIONS, type PCB_PAINTER } from '@ziroeda/pcbnew/src/pcb_painter.js';
+import type { PCB_DRAW_PANEL_GAL } from '@ziroeda/pcbnew/pcb_draw_panel_gal.js';
+import type { BOARD_ITEM } from '@ziroeda/pcbnew/board_item.js';
+import { PCB_DISPLAY_OPTIONS, type PCB_PAINTER } from '@ziroeda/pcbnew/pcb_painter.js';
 import {
   HIGH_CONTRAST_MODE,
   NET_COLOR_MODE,
   ZONE_DISPLAY_MODE,
-} from '@ziroeda/pcbnew/src/board_project_settings.js';
-import { GAL_LAYER_ID, LayerName, PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
-import { VIEW_UPDATE_FLAGS, type VIEW_ITEM } from '@ziroeda/common/src/view/view_item.js';
-import { PAD } from '@ziroeda/pcbnew/src/pad.js';
-import { PCB_TRACK, PCB_VIA } from '@ziroeda/pcbnew/src/pcb_track.js';
-import { TRACK_CLEARANCE_MODE } from '@ziroeda/pcbnew/src/pcbnew_settings.js';
-import { GRID_STYLE } from '@ziroeda/common/src/gal/gal_display_options.js';
+} from '@ziroeda/common/project/board_project_settings.js';
+import { GAL_LAYER_ID, LayerName, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import { VIEW_UPDATE_FLAGS, type VIEW_ITEM } from '@ziroeda/common/view/view_item.js';
+import { PAD } from '@ziroeda/pcbnew/pad.js';
+import { PCB_TRACK, PCB_VIA } from '@ziroeda/pcbnew/pcb_track.js';
+import { TRACK_CLEARANCE_MODE } from '@ziroeda/pcbnew/pcbnew_settings.js';
+import { commonSettingsOf, windowSettingsOf } from '../../pgm_app.js';
 import {
   applyToggle,
   crosshairToggleId,
@@ -527,7 +584,7 @@ import {
   isStoredPcbToggle,
   lineModeToggleId,
   pcbTogglesFromSettings,
-} from './toggles.js';
+} from '@ziroeda/pcbnew/pcb_edit_frame.js';
 import {
   layerColor,
   pcbThemeWithOverrides,
@@ -535,55 +592,64 @@ import {
   PCB_CURSOR,
   PCB_OBJECT_COLORS,
   PCB_SPECIAL,
-} from './pcbTheme.js';
-import { PcbPropertiesPanel } from './PcbPropertiesPanel.js';
+} from '@ziroeda/pcbnew/pcbTheme.js';
+import { PcbPropertiesPanel } from '@ziroeda/pcbnew/widgets/pcb_properties_panel_ui.js';
 import {
-  pcbItemFriendlyName,
-  pcbPropertiesFor,
-  type PcbPropRow,
-} from '@ziroeda/pcbnew/src/properties_panel.js';
-import { drawGrid, drawCrosshair, gridSnappingEnabled } from '../../ui/grid_cursor.js';
-import { GRID_SIZE_LIST, gridEntryOf, gridSizeToIU, gridSizesIU } from '../../ui/grid_settings.js';
+  drawGrid,
+  drawCrosshair,
+  gridSnappingEnabled,
+} from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
+import {
+  GRID_SIZE_LIST,
+  gridEntryOf,
+  gridSizeToIU,
+  gridSizesIU,
+} from '@ziroeda/common/settings/grid_settings_ui.js';
 import {
   type ConditionalEntry,
   evaluateConditionalMenu,
   menuEntry,
   menuSeparator,
-} from '../../ui/conditional_menu.js';
-import { standardSubMenuEntries } from '../../ui/standard_submenus.js';
-import { PCB_CONTROL, PCB_DEFAULT_TOOLBARS } from './pcbToolbars.js';
+} from '@ziroeda/common/tool/conditional_menu.js';
+import { standardSubMenuEntries } from '@ziroeda/common/eda_draw_frame_submenus.js';
+import { PCB_CONTROL, PCB_DEFAULT_TOOLBARS } from '@ziroeda/pcbnew/toolbars_pcb_editor.js';
 import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
-import '../../ui/shell.css';
-import { AboutDialog } from '../../home/dialogs/dialog_about.js';
+import '@ziroeda/common/widgets/shell.css';
+import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
 import { EMPTY_PCB } from '../../home/new_project.js';
-import { ProgressDialog, nextPaint } from '../../ui/ProgressDialog.js';
-import { yieldToEventLoop } from '@ziroeda/common/src/yield_to_event_loop.js';
-import type { ProgressSnapshot } from '../../ui/progress_reporter.js';
+import { ProgressDialog, nextPaint } from '@ziroeda/common/widgets/wx_progress_reporters.js';
+import { yieldToEventLoop } from '@ziroeda/common/yield_to_event_loop.js';
+import type { ProgressSnapshot } from '@ziroeda/common/widgets/progress_reporter_snapshot.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
-import { standardHelpMenu } from '../../ui/help_menu.js';
-import { showHotkeyList } from '../../ui/hotkey_list_action.js';
-import { ABOUT_TITLES } from '../../ui/about_titles.js';
-import { useModalEscape } from '../../ui/useModalEscape.js';
-import { addQuitOrClose } from '../../ui/action_menu.js';
-import { dispatchMenuHotkey, focusBlocksHotkey } from '../../ui/menu_hotkeys.js';
-import { isTypingTarget, wasBrowserSuppressed, type FocusLike } from '../../ui/browser_hotkeys.js';
-import { browserSafeKey } from '../../ui/browser_reserved.js';
+import { standardHelpMenu } from '@ziroeda/common/eda_base_frame_help_menu.js';
+import { showHotkeyList } from '@ziroeda/common/hotkeys_basic.js';
+import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
+import { addQuitOrClose } from '@ziroeda/common/tool/action_menu.js';
+import { dispatchMenuHotkey, focusBlocksHotkey } from '@ziroeda/common/tool/action_menu_hotkeys.js';
+import {
+  isTypingTarget,
+  wasBrowserSuppressed,
+  type FocusLike,
+} from '@ziroeda/common/browser_hotkeys.js';
+import { browserSafeKey } from '@ziroeda/common/browser_reserved.js';
 import { settings } from '../../prefs/settings.js';
-import { setLanguageMenuItem } from '../../ui/language_menu.js';
-import { hiContrastFactorFor } from '@ziroeda/common/src/render_settings.js';
+import { setLanguageMenuItem } from '@ziroeda/common/eda_base_frame_language_menu.js';
+import { hiContrastFactorFor } from '@ziroeda/common/render_settings.js';
 import {
   useCommonSettings,
   usePcbnewSettings,
   useUserColors,
   useUserThemes,
 } from '../../prefs/useSettings.js';
-import { ColorSwatch } from '../../ui/ColorSwatch.js';
+import { ColorSwatch } from '@ziroeda/common/widgets/color_swatch.js';
 import {
   COLOR4D_UNSPECIFIED,
   parseColor4d,
   toCssColor,
   type Color4d,
-} from '@ziroeda/common/src/color4d.js';
+} from '@ziroeda/common/gal/color4d.js';
 import { HomeLink } from '../../ui/HomeLink.js';
 
 const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
@@ -813,6 +879,10 @@ const isClickTool = (t: string): boolean =>
   // with `GRID_TEXT` (`drawing_tool.cpp:1478-1481`) before the click, exactly
   // as the text tool does.
   t === 'placeBarcode' ||
+  // `PCB_CONTROL::PlaceCharacteristics` / `PlaceStackup` build the table and
+  // hand it to `placeBoardItems`, an interactive move ending on a click.
+  t === 'placeCharacteristics' ||
+  t === 'placeStackup' ||
   // `PCB_PICKER_TOOL::Main` runs the cursor through `BestSnapAnchor` on every
   // motion (`pcb_picker_tool.cpp`), which is what lets an origin be dropped
   // exactly on a pad or a track end.
@@ -898,7 +968,7 @@ const traceArc3 = (
 // The user-facing name of a layer is BOARD::GetLayerName's, which every
 // upstream caller goes through: the board's own name for it when the file
 // carries one, and LayerName()'s standard English name otherwise. Both halves
-// live in @ziroeda/pcbnew/src/layer_ids.ts — the table used to be restated
+// live in @ziroeda/pcbnew/layer_ids.ts — the table used to be restated
 // here, and this copy had no way to reach the board's names at all.
 
 // Routing dimensions of a net class (NETCLASS factory defaults, in IU), the
@@ -970,8 +1040,8 @@ function promotePadsForCommand(
  * loaded into the board's BOARD_DESIGN_SETTINGS and its `net_settings` into
  * the board's own NET_SETTINGS, the nets take their classes
  * (`SynchronizeNetsAndNetClasses`), the engine compiles the implicit rules
- * plus the custom ones and fills the clearance cache. PROJECT itself is not
- * ported, so the files come from the editor's project file list.
+ * plus the custom ones and fills the clearance cache. The files come from
+ * the editor's project file list, the way SETTINGS_MANAGER reads them off disk.
  *
  * On a later change of those files (Board Setup's OK persists them) the
  * pads and tracks repaint with the new clearances, as
@@ -983,32 +1053,43 @@ function syncProjectSettingsIntoBoard(
   files: readonly { name: string; text: string }[],
   rootPro: string | undefined,
   aFromBoardSetup: boolean,
+  /**
+   * The project folder's absolute path, `/<projectName>` - where the file
+   * dialogs show it and where the 3D viewer mounts its files. KiCad's project
+   * is always an absolute path; KIPRJMOD and FILENAME_RESOLVER need one.
+   */
+  aProjectDir: string,
 ): void {
   const kb = frame.GetBoard();
   if (!kb) return;
+  // SETTINGS_MANAGER::LoadProject + BOARD::SetProject: the `.kicad_pro` is
+  // the PROJECT_FILE, and its `board.design_settings`, `net_settings` and
+  // `tuning_profiles` become the board's. A changed file (Board Setup's OK
+  // persists one) is a fresh load: the manager drops the old project first.
   const pro = findProjectPro(files, rootPro);
+  const manager = Pgm().GetSettingsManager();
+  const proName = pro?.name ?? `${rootPro ?? 'untitled'}.kicad_pro`;
+  const proPath = aProjectDir === '' ? proName : `${aProjectDir}/${proName}`;
+  let proJson: JsonValue | null = null;
   if (pro) {
-    let json: unknown = null;
     try {
-      json = JSON.parse(pro.text);
+      proJson = JSON.parse(pro.text) as JsonValue;
     } catch {
-      json = null;
+      proJson = null;
     }
-    const j = json !== null && typeof json === 'object' ? (json as Record<string, unknown>) : {};
-    // `board.design_settings`: the BOARD_DESIGN_SETTINGS nested settings - the
-    // constraints (min clearance, copper-to-hole, ...) live only here, never
-    // in the board file, so without this every board ran on the defaults.
-    const boardJ =
-      j.board !== null && typeof j.board === 'object' ? (j.board as Record<string, unknown>) : {};
-    if (boardJ.design_settings !== undefined)
-      kb.GetDesignSettings().LoadFromJson(boardJ.design_settings);
-    if (j.net_settings !== undefined)
-      kb.GetDesignSettings().m_NetSettings.LoadFromJson(j.net_settings);
-    // `PROJECT_FILE::m_tuningProfileParameters`: the time-domain profiles the
-    // matched-length and skew DRC providers query. Without them every delay
-    // falls back to the defaults.
-    if (j.tuning_profiles !== undefined) kb.GetTuningProfiles().LoadFromJson(j.tuning_profiles);
   }
+  const prl = findProjectPrl(files, rootPro);
+  let prlJson: JsonValue | null = null;
+  if (prl) {
+    try {
+      prlJson = JSON.parse(prl.text) as JsonValue;
+    } catch {
+      prlJson = null;
+    }
+  }
+  if (manager.GetProject(proPath)) manager.UnloadProject(manager.GetProject(proPath));
+  manager.LoadProject(proPath, proJson, prlJson);
+  kb.SetProject(manager.Prj());
   // `SynchronizeNetsAndNetClasses( true )` after the dialog resets the custom
   // track/via sizes to the Default class; the load's own call (inside
   // InitEngine's loadImplicitRules) passes false.
@@ -1021,6 +1102,15 @@ function syncProjectSettingsIntoBoard(
   // The load stops here: OnBoardLoaded's own tail (SetActiveLayer + a full
   // UpdateAllItems) is the first display sync of the board, in pcb_canvas.
   if (!aFromBoardSetup || !panel) return;
+  boardSetupRepaint(frame, panel, kb);
+}
+
+/**
+ * `ShowBoardSetupDialog`'s `UpdateAllItemsConditionally`: what the dialog's
+ * OK repaints — pads and vias whose mask/paste layers may have appeared,
+ * tracks and pads drawn with their clearance.
+ */
+function boardSetupRepaint(frame: PCB_EDIT_FRAME, panel: PCB_DRAW_PANEL_GAL, kb: BOARD): void {
   const settings = frame.GetPcbNewSettings();
   const maskAndPasteLayers = new LSET([
     PCB_LAYER_ID.F_Mask,
@@ -1074,13 +1164,9 @@ export function PcbEditor({
   rootPro,
   onPersistFiles,
   onOutputFile,
-  crossProbeNet,
-  syncSelection,
-  onSyncSelectionToSch,
+  kiway,
   viewer3DOpen,
   onViewer3DOpenChange,
-  onCrossProbeNetToSch,
-  updateFromSchematic,
   readOnlyNotice,
   readOnly,
 }: {
@@ -1144,21 +1230,12 @@ export function PcbEditor({
   /** Write a generated output file (plot / drill) into the project's file
    *  manager; the path is relative to the project folder. */
   onOutputFile?: (path: string, bytes: Uint8Array, mime: string) => void;
-  /** Net highlighted in the schematic editor, cross-probed here (KiCad's
-   *  SCH_EDIT_FRAME::SendCrossProbeConnection -> pcbnew's "$NET:" handler);
-   *  null clears the highlight (SendCrossProbeClearHighlight). */
-  crossProbeNet?: string | null;
-  /** Select on PCB from the schematic: the `$SELECT:` parts to resolve against
-   *  this board (pcbnew's own handler, `FindItemsFromSyncSelection` then
-   *  `syncSelection`). The nonce makes a repeat of the same request arrive. */
-  syncSelection?: { parts: readonly string[]; nonce: number } | null;
   /**
-   * The other direction: this board's selection, as the `$SELECT:` parts the
-   * schematic resolves — `PCB_EDIT_FRAME::SendSelectItemsToSch`
-   * (`pcbnew/cross-probing.cpp:349`). The nonce is what makes selecting the
-   * same items twice arrive twice, since it is an event rather than a state.
+   * The program's KIWAY: the frame registers as FRAME_PCB_EDITOR's player on
+   * it, so the schematic's cross-probe mail reaches `KiwayMailIn`, and sends
+   * its own through it.
    */
-  onSyncSelectionToSch?: (sel: { parts: readonly string[]; nonce: number }) => void;
+  kiway?: KIWAY;
   /**
    * The 3D viewer (`EDA_3D_VIEWER_FRAME`) open over this frame, controlled
    * from outside so the address can carry it (`/p/<uid>/pcb/3d`). Omitted,
@@ -1166,12 +1243,6 @@ export function PcbEditor({
    */
   viewer3DOpen?: boolean;
   onViewer3DOpenChange?: (open: boolean) => void;
-  /**
-   * This board's highlighted net, as KiCad's `$NET: "<name>"` —
-   * `PCB_EDIT_FRAME::SendCrossProbeNetName` (`pcbnew/cross-probing.cpp:405`).
-   * null is `SendCrossProbeClearHighlight`.
-   */
-  onCrossProbeNetToSch?: (net: string | null) => void;
   /** A strip to show above the canvas, e.g. "this demo is not being saved". */
   readOnlyNotice?: JSX.Element | null;
   /**
@@ -1183,10 +1254,6 @@ export function PcbEditor({
    * `App.tsx`, since its title was rebuilt on the shared rule.
    */
   readOnly?: boolean;
-  /** Bumped by the schematic editor's Tools > Update PCB from Schematic (F8),
-   *  which switches here and then runs the same dialog this frame's own F8 does
-   *  (KiCad's SCH_EDIT_FRAME::doUpdatePcb hands off to pcbnew the same way). */
-  updateFromSchematic?: number | null;
 }): JSX.Element {
   /**
    * `EDA_BASE_FRAME::RecreateToolbars` (`common/eda_base_frame.cpp:1728-1843`):
@@ -1260,6 +1327,13 @@ export function PcbEditor({
    */
   const rotationStepRef = useRef(90);
   rotationStepRef.current = pcbCfg.editing.rotation_angle / 10;
+  /**
+   * `PCB_POINT_EDITOR::m_arcEditMode`, read from `PCBNEW_SETTINGS::m_ArcEditMode`
+   * when the point editor starts (pcb_point_editor.cpp:2322); a ref because the
+   * handle drag runs in a long-lived pointer handler.
+   */
+  const arcEditModeRef = useRef<ARC_EDIT_MODE>(0);
+  arcEditModeRef.current = pcbCfg.editing.arc_edit_mode as ARC_EDIT_MODE;
   /** `MAGNETIC_SETTINGS`, for the snap path, which is not a React consumer. */
   const magneticRef = useRef({ pads: 1, tracks: 1 });
   magneticRef.current = {
@@ -1396,8 +1470,26 @@ export function PcbEditor({
     { name: string; view: { tx: number; ty: number; scale: number } }[]
   >([]);
   const [viewportSel, setViewportSel] = useState('---');
+  // BOARD_EDITOR_CONTROL::AssignNetclass: the labelled nets of the selection,
+  // while DIALOG_ASSIGN_NETCLASS is up.
+  const [netclassNets, setNetclassNets] = useState<Set<string> | null>(null);
   // "Delete preset/viewport..." chooser popup.
   const [deleteChooser, setDeleteChooser] = useState<'presets' | 'viewports' | null>(null);
+  // APPEARANCE_CONTROLS::m_presetMRU / m_viewportMRU: most recent first. The
+  // preset list starts as every preset in m_layerPresets' (alphabetical)
+  // order (rebuildLayerPresetsWidget( true )); viewports as they are added.
+  const [presetMRU, setPresetMRU] = useState<string[]>(() =>
+    BUILTIN_PRESETS.map((p) => p.name).sort(),
+  );
+  const [viewportMRU, setViewportMRU] = useState<string[]>([]);
+  const touchMRU = (list: string[], name: string): string[] => [
+    name,
+    ...list.filter((n) => n !== name),
+  ];
+  // The EDA_VIEW_SWITCHER that is up, and which list it is cycling.
+  const [viewSwitcher, setViewSwitcher] = useState<'presets' | 'viewports' | null>(null);
+  // "Save preset..." / "Save viewport...": the wxTextEntryDialog that is up.
+  const [saveNameAsk, setSaveNameAsk] = useState<'preset' | 'viewport' | null>(null);
   // Nets tab state: per-net / per-class colors, ratsnest visibility, and the
   // Net Display Options modes (appearance_controls.cpp net display pane).
   const [hiddenNets, setHiddenNets] = useState<ReadonlySet<number>>(new Set());
@@ -1441,25 +1533,6 @@ export function PcbEditor({
   // The previously-shown highlight set, restored by the toggle button/Alt+`
   // (BOARD_INSPECTION_TOOL::m_lastHighlighted).
   const lastHighlightRef = useRef<ReadonlySet<number>>(new Set());
-  // Cross-probe from the schematic's net highlight: the net name arrives here
-  // and is resolved against the board's net table, exactly as pcbnew's
-  // "$NET: <name>" express-mail handler does.
-  useEffect(() => {
-    if (crossProbeNet === undefined) return;
-    const brd = boardRef.current;
-    if (!brd) return;
-    // null is "$NET:" refused because auto_highlight is off
-    // (pcbnew/cross-probing.cpp:140): the probe returns before touching the
-    // highlight, so whatever is lit stays lit. 0 is "no such net", which does
-    // clear it.
-    const code = crossProbeHighlightNet(settings.pcbnew.cross_probing, brd, crossProbeNet);
-    if (code === null) return;
-    setHighlightNets((prev) => {
-      if (code <= 0) return prev.size === 0 ? prev : new Set();
-      if (prev.size === 1 && prev.has(code)) return prev;
-      return new Set([code]);
-    });
-  }, [crossProbeNet]);
   const [activeTool, setActiveTool] = useState('selectSetRect');
   // Selected board items (PCB_SELECTION_TOOL's selection), by `${kind}:${index}` id.
   const [selection, setSelection] = useState<ReadonlySet<string>>(new Set());
@@ -1473,35 +1546,35 @@ export function PcbEditor({
    * the schematic side already does when a CHAIN is highlighted.
    */
   useEffect(() => {
-    if (!onCrossProbeNetToSch) return;
     const brd = boardRef.current;
     if (!brd) return;
     const first = [...highlightNets][0];
-    onCrossProbeNetToSch(first === undefined ? null : (brd.nets.get(first) ?? null));
-  }, [highlightNets, onCrossProbeNetToSch]);
+    frameRef.current?.SendCrossProbeNetName(first === undefined ? '' : (brd.nets.get(first) ?? ''));
+  }, [highlightNets]);
 
   /**
    * Send this selection to the schematic — `PCB_EDIT_FRAME::SendSelectItemsToSch`,
    * which `PCB_SELECTION_TOOL` calls whenever the selection settles.
    *
-   * The nonce comes from the parts themselves rather than a counter: re-sending
-   * an identical packet is what upstream's `aForce` is for, and this side never
-   * forces, so a selection that has not changed has nothing to say. An empty
-   * selection still sends — that is how the schematic learns to clear its own.
+   * A selection that has not changed has nothing to say: re-sending an
+   * identical packet is what upstream's `aForce` is for, and this side never
+   * forces. An empty selection sends nothing (`if( parts.empty() ) return;`),
+   * so clearing the board's selection leaves the schematic's alone.
+   *
+   * `lastPartsRef` is also `m_ProbingSchToPcb`, the recursion guard: a probe
+   * from the schematic records the parts of the selection it applied, so that
+   * selection is not mailed back.
    */
   const lastPartsRef = useRef<string>('');
-  const syncNonceRef = useRef(0);
   useEffect(() => {
-    if (!onSyncSelectionToSch) return;
     const brd = boardRef.current;
     if (!brd) return;
     const parts = boardSyncSelectionParts(brd, selection);
     const key = parts.join(',');
     if (key === lastPartsRef.current) return;
     lastPartsRef.current = key;
-    syncNonceRef.current += 1;
-    onSyncSelectionToSch({ parts, nonce: syncNonceRef.current });
-  }, [selection, onSyncSelectionToSch]);
+    frameRef.current?.SendSelectItemsToSch(parts, false);
+  }, [selection]);
   // Disambiguation menu (PCB_SELECTION_TOOL::doSelectionMenu): shown at a click
   // that hits several equally-plausible items so the user can pick one.
   const [disambig, setDisambig] = useState<{
@@ -1525,6 +1598,29 @@ export function PcbEditor({
   /** DIALOG_PASTE_SPECIAL, opened only by `ACTIONS::pasteSpecial`. */
   const [pasteSpecialOpen, setPasteSpecialOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [statsOpen, setStatsOpen] = useState(false);
+
+  /**
+   * `DIALOG_BOARD_STATISTICS::saveReportClicked`: the report is a generated
+   * output, so it takes the same route as a plot - the file manager when the
+   * host offers one, a download when it does not.
+   */
+  const saveReportFile = useCallback(
+    (text: string, name: string) => {
+      if (onOutputFile) {
+        onOutputFile(name, new TextEncoder().encode(text), 'text/plain');
+        return;
+      }
+
+      const url = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = name;
+      a.click();
+      URL.revokeObjectURL(url);
+    },
+    [onOutputFile],
+  );
   const [moveExactOpen, setMoveExactOpen] = useState(false);
   const [posRelOpen, setPosRelOpen] = useState(false);
   // Fillet / chamfer prompts. Upstream keeps the last value in a
@@ -1540,6 +1636,8 @@ export function PcbEditor({
   const [filletRadius, setFilletRadius] = useState(1_000_000);
   const [chamferSetback, setChamferSetback] = useState(1_000_000);
   const [dogboneRadius, setDogboneRadius] = useState(1_000_000);
+  // s_dogBoneParams.AddSlots, true until the user says otherwise.
+  const [dogboneSlots, setDogboneSlots] = useState(true);
   // The reference item for Position Relative, chosen by clicking the canvas
   // (upstream arms PCB_PICKER_TOOL for this). Kept across openings, as upstream
   // keeps its dialog alive between calls.
@@ -1624,6 +1722,22 @@ export function PcbEditor({
     auxAxis: auxAxisRef.current,
   });
   /**
+   * The editor's `PCB_GRID_HELPER`, held for its life as a tool holds its
+   * `m_gridHelper` (`PCB_TOOL_BASE`, `ROUTER_TOOL`, `EDIT_TOOL`); each ask
+   * pokes this event's state into it, as upstream's handlers call
+   * `SetUseGrid` / `SetSnap` / `SetAuxAxes` on the long-lived one.
+   */
+  const gridHelperRef = useRef<PCB_GRID_HELPER | null>(null);
+  const gridHelper = (): PCB_GRID_HELPER => {
+    if (!gridHelperRef.current) {
+      gridHelperRef.current = new PCB_GRID_HELPER();
+      // The canvas is the helper's VIEW: its snap point and construction
+      // preview are drawn on the overlay, which repaints when they change.
+      gridHelperRef.current.AttachView(() => requestDrawRef.current());
+    }
+    return gridHelperRef.current.SetState(gridState());
+  };
+  /**
    * What the drawing sheet is drawn from — `DS_PROXY_VIEW_ITEM`'s properties.
    *
    * One function because two callers must not disagree: the painter, and the
@@ -1644,7 +1758,7 @@ export function PcbEditor({
   // and quantise the gesture's origin away again — which is the bug this is
   // here to prevent, so there is deliberately no other route to the grid.
   const snapToGrid = (p: { x: number; y: number }): { x: number; y: number } =>
-    align(p, gridState());
+    gridHelper().Align(p);
   // Where the routing crosshair actually goes — `controls()->ForceCursorPosition(
   // true, m_endSnapPoint )` at the end of `TOOL_BASE::updateEndItem`. `draw` is
   // memoised long before `copperAt` exists, so it reads the live one off a ref
@@ -1677,7 +1791,7 @@ export function PcbEditor({
 
     if (!brd) return snapToGrid(w);
 
-    return bestSnapAnchor(brd, w, gridState(), {
+    return gridHelper().BestSnapAnchor(brd, w, {
       // `view->ToWorld( 25 )` and `view->ToWorld( m_SnapHysteresis )`.
       snapScale: 25 / viewRef.current.scale,
       hysteresis: 5 / viewRef.current.scale,
@@ -1873,6 +1987,12 @@ export function PcbEditor({
     setViewCenter: (aPos: KVec2, aRects: readonly BOX2D[]) => void;
   } | null>(null);
   if (!frameRef.current) {
+    // `PGM_BASE::InitPgm` runs before any KiCad frame exists, and the frame
+    // needs it at once: the SetBoard below joins the board to `Prj()`, which is
+    // `Pgm().GetSettingsManager().Prj()`. Installing it only in the canvas
+    // effect, after this first render, threw "Pgm() called before the PGM_BASE
+    // was set" whenever the PCB editor was the first frame to open.
+    installPgm();
     frameRef.current = new PCB_EDIT_FRAME({
       settings: () => pcbnewSettingsOf(pcbCfgRef.current),
       onModify: () => setDirtyRef.current(true),
@@ -1893,6 +2013,18 @@ export function PcbEditor({
       },
       findDialogRects: () => drcWindowRef.current!.findDialogRects(),
       setViewCenter: (aPos, aRects) => drcWindowRef.current!.setViewCenter(aPos, aRects),
+      // The `$NET:` probe's highlight, kept as the same set when it is unchanged
+      // so the send-back below does not fire for it.
+      // MAIL_SELECTION(_FORCE): the frame has checked `on_selection` already,
+      // so the parts are applied as a forced probe.
+      syncSelection: (aParts) => applySyncSelectionRef.current(aParts, true),
+      updatePcbFromSchematic: () => void openUpdatePcbRef.current(),
+      setHighlightNets: (aNetCodes) =>
+        setHighlightNets((prev) =>
+          prev.size === aNetCodes.size && [...aNetCodes].every((c) => prev.has(c))
+            ? prev
+            : aNetCodes,
+        ),
     });
     // `PCB_EDIT_FRAME::PCB_EDIT_FRAME`: `SetBoard( new BOARD() )` (:250) --
     // the frame never has no board, and the empty one's drawing sheet is on
@@ -1901,6 +2033,18 @@ export function PcbEditor({
     // SetBoard, seconds later.
     if (emptyBoard.k) frameRef.current.SetBoard(emptyBoard.k, false);
   }
+  // `KIWAY::Player()` stores the frame it created as FRAME_PCB_EDITOR's player,
+  // and the frame's close tells KIWAY it is gone (`PlayerDidClose`).
+  useEffect(() => {
+    const frame = frameRef.current;
+    if (!kiway || !frame) return;
+    frame.SetKiway(kiway);
+    kiway.SetPlayerFrame(FRAME_T.FRAME_PCB_EDITOR, frame);
+    return () => {
+      kiway.PlayerDidClose(FRAME_T.FRAME_PCB_EDITOR, frame);
+      frame.SetKiway(null);
+    };
+  }, [kiway]);
   // The rows the disambiguation menu is pointing at, and their geometry.
   //
   // `doSelectionMenu` answers TA_CHOICE_MENU_UPDATE with
@@ -1943,7 +2087,7 @@ export function PcbEditor({
    * of its own; what stays here is the per-shape *choice* of constraint, which
    * `drawShape` makes on every event and which is not the same for all three.
    */
-  const twoPtRef = useRef(new TwoPointGeomManager());
+  const twoPtRef = useRef(new TWO_POINT_GEOMETRY_MANAGER());
   const twoPtStartedRef = useRef(false);
   /** `ARC_GEOM_MANAGER` — centre, then start, then swept angle. */
   const arcMgrRef = useRef(new ArcGeomManager());
@@ -2052,6 +2196,17 @@ export function PcbEditor({
   // The modal sub-dialogs DIALOG_DRC raises: "Delete exclusions too?"
   const [drcYesNoCancel, setDrcYesNoCancel] = useState<{
     resolve: (r: 'yes' | 'no' | 'cancel') => void;
+  } | null>(null);
+  // ...its "Save Report File" (wxFileDialog, wxFD_SAVE)...
+  const [drcSaveReport, setDrcSaveReport] = useState<{
+    defaultName: string;
+    resolve: (path: string | null) => void;
+  } | null>(null);
+  // ...and "Exclusion Comment" (WX_TEXT_ENTRY_DIALOG).
+  const [drcTextEntry, setDrcTextEntry] = useState<{
+    caption: string;
+    initial: string;
+    resolve: (value: string | null) => void;
   } | null>(null);
   // Edit Teardrops (DIALOG_GLOBAL_EDIT_TEARDROPS).
   const [teardropsOpen, setTeardropsOpen] = useState(false);
@@ -2349,7 +2504,12 @@ export function PcbEditor({
    * (router_tool.cpp:1436, :1600) — why the router refused, in the infobar
    * above the canvas, with its close button.
    */
-  const [routerError, setRouterError] = useState<string | null>(null);
+  /**
+   * The frame's info bar, `EDA_BASE_FRAME::ShowInfoBarError`. One bar per
+   * frame upstream, so one state here: the router was its first user, not its
+   * owner.
+   */
+  const [infoBarError, setInfoBarError] = useState<string | null>(null);
   /**
    * Decoded reference-image pixels. A ref, not state: the map is mutated in
    * place and the redraw is what publishes it, so making it state would rebuild
@@ -2363,7 +2523,7 @@ export function PcbEditor({
     // `cleanup()`'s `polyGeomMgr.Reset()` (drawing_tool.cpp:3494).
     polyMgrRef.current?.reset();
     zoneMgrRef.current?.reset();
-    twoPtRef.current.reset();
+    twoPtRef.current.Reset();
     twoPtStartedRef.current = false;
     arcMgrRef.current.reset();
     setRuleAreaDialog(null);
@@ -2462,19 +2622,22 @@ export function PcbEditor({
    * `BOARD::ResolveTextVar` (`pcbnew/board.cpp`), reached from
    * `PCB_TEXT::GetShownText`: the project's text variables — the Text Variables
    * page's rows — plus the two board tokens that need no title block.
-   * Unresolved names are left verbatim by `expandTextVars`, as upstream leaves
-   * them.
+   * An unanswered name is left verbatim by `ResolveTextVars`, as upstream
+   * leaves it.
    *
    * Not resolved here: the title-block tokens (ISSUE_DATE, REVISION, COMPANY,
    * COMMENT1-9) and `LAYER`, which is per drawn item rather than per board.
    */
-  const resolveTextVar = (token: string): string | undefined => {
+  const resolveTextVar = (token: OutStr): boolean => {
     const vars = boardSetupRef.current.textVars;
-    const hit = vars.find((v) => v.name === token);
-    if (hit) return hit.value;
-    if (token === 'PROJECTNAME') return projectName || undefined;
-    if (token === 'FILENAME') return fileName || undefined;
-    return undefined;
+    const hit = vars.find((v) => v.name === token.value);
+    let value: string | undefined;
+    if (hit) value = hit.value;
+    else if (token.value === 'PROJECTNAME') value = projectName || undefined;
+    else if (token.value === 'FILENAME') value = fileName || undefined;
+    if (value === undefined) return false;
+    token.value = value;
+    return true;
   };
 
   const buildBoardScene = (b: Board, filter: SceneFilter = {}): BoardScene => {
@@ -2700,6 +2863,11 @@ export function PcbEditor({
   const parsedOpen = useRef<string | null>(null);
   /** The board whose first paint closes the Load PCB dialog, while one is pending. */
   const firstPaintPendingRef = useRef<Board | null>(null);
+  // The project folder, `/<projectName>`: read through a ref by the loads
+  // below, which run on their own triggers (opening a board, Board Setup).
+  const projectDirRef = useRef('');
+  projectDirRef.current = projectName ? `/${projectName}` : '';
+
   // Parse after the first paint, so the frame — and the progress dialog over
   // it — is on screen before the (synchronous) read blocks the thread.
   useEffect(() => {
@@ -2814,7 +2982,14 @@ export function PcbEditor({
           // rules into the DRC engine. Its tail - SetActiveLayer( ..., true )
           // and the UpdateAllItems( ALL ) that re-records what a frame drew
           // before the rules existed - is the board's first display sync.
-          syncProjectSettingsIntoBoard(frame, panelRef.current, projectFilesNow(), rootPro, false);
+          syncProjectSettingsIntoBoard(
+            frame,
+            panelRef.current,
+            projectFilesNow(),
+            rootPro,
+            false,
+            projectDirRef.current,
+          );
           wxLogTrace(
             traceAllegroPerf,
             () => `Post-load DRC engine: ${postLoadTimer.msecs(true).toFixed(3)} ms`,
@@ -2865,84 +3040,27 @@ export function PcbEditor({
     [projectFilesNow],
   );
 
-  // Hydrate Board Setup from the loaded project: the .kicad_pro slices
-  // (design settings, netclasses, component classes, tuning profiles, text
-  // variables), the board file's setup sections and the .kicad_dru rules,
-  // the same load KiCad does in BOARD::SetProject + LoadProjectSettings.
+  // The project's files changed under the editor (a save from Board Setup,
+  // another session, the schematic side): reload them into the BOARD, the way
+  // BOARD::SetProject + LoadProjectSettings do, and re-read the Board Setup
+  // snapshot from the live objects.
   useEffect(() => {
     const files = projectFilesNow();
-    const s = readBoardSetupPro(files, rootPro);
-    applyBoardFileSetup(textRef.current, s);
-    const dru = findProjectDru(files, rootPro);
-    if (dru) s.customRules.text = dru.text;
-    setBoardSetup(s);
-    // The live board's netclasses and rules follow the files: KiCad's
-    // ShowBoardSetupDialog OK path (SynchronizeNetsAndNetClasses( true ),
-    // the netclasses ticker, CommonSettingsChanged's InitEngine).
     const frame = frameRef.current;
-    if (frame && frame.GetBoard() && parsedOpen.current !== null)
-      syncProjectSettingsIntoBoard(frame, panelRef.current, files, rootPro, true);
+    if (frame && frame.GetBoard() && parsedOpen.current !== null) {
+      syncProjectSettingsIntoBoard(
+        frame,
+        panelRef.current,
+        files,
+        rootPro,
+        true,
+        projectDirRef.current,
+      );
+      const dru = findProjectDru(files, rootPro);
+      setBoardSetup(BoardSetupToWindow(frame.GetBoard()!, frame.Prj(), dru?.text ?? ''));
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setupSourceKey, rootPro, openNonce]);
-
-  // Commit Board Setup on dialog OK, KiCad's DIALOG_BOARD_SETUP flow: the
-  // project-side slices merge into the .kicad_pro (+ .kicad_dru), persisted
-  // immediately; the board-side slices patch the current board text, which is
-  // reloaded into the editor and saved through the normal board-save path.
-  const commitBoardSetup = useCallback(
-    (next: BoardSetupValues) => {
-      setBoardSetup(next);
-
-      // .kicad_pro + .kicad_dru (merge-writes preserve unowned keys).
-      const files = projectFilesNow();
-      const baseOf = (name: string): string =>
-        (projectFiles ?? []).find((f) => f.name === name)?.text ?? '';
-      const persist: { name: string; text: string }[] = [];
-      const pro = findProjectPro(files, rootPro);
-      if (pro) {
-        const updated = writeBoardSetupProText(pro.text, next);
-        if (updated !== null && updated !== pro.text)
-          persist.push({ name: pro.name, text: updated });
-        const druName = druFileName(pro.name);
-        const dru = findProjectDru(files, rootPro);
-        if (dru ? next.customRules.text !== dru.text : next.customRules.text.trim() !== '') {
-          persist.push({ name: dru?.name ?? druName, text: next.customRules.text });
-        }
-      }
-      if (persist.length) {
-        for (const f of persist)
-          projectFileEditsRef.current.set(f.name, { base: baseOf(f.name), text: f.text });
-        onPersistFiles?.(persist);
-      }
-
-      // Board file: patch the *current* board serialization (not the original
-      // text, live edits must survive), then reload so the editor's board
-      // model, layer list and future saves all see the new setup.
-      const current = boardRef.current ? serializeBoard(boardRef.current) : text;
-      const patched = writeBoardFileSetup(current, next);
-      if (patched !== null && patched !== current) {
-        try {
-          const b = { ...readBoard(parse(patched)), fileName };
-          boardRef.current = b;
-          sceneRef.current = buildBoardScene(b);
-          setBoard(b);
-          // Newly enabled layers become visible; existing choices stay.
-          setVisible((prev) => {
-            const nextVisible = new Set(prev);
-            const before = new Set(board?.layers.map((l) => l.name) ?? []);
-            for (const l of b.layers) if (!before.has(l.name)) nextVisible.add(l.name);
-            return nextVisible;
-          });
-          if (onSaveBoard) onSaveBoard(patched);
-          else setDirty(true);
-        } catch {
-          // A patch that fails to re-parse would corrupt the session: keep the
-          // old board and skip the board-file write.
-        }
-      }
-    },
-    [projectFilesNow, projectFiles, rootPro, onPersistFiles, onSaveBoard, text, fileName, board],
-  );
 
   // PCB_POINT_EDITOR shows its points for a *single* selected item: a handle per
   // corner or vertex, plus one at each edge midpoint. Which items have any is
@@ -3667,9 +3785,9 @@ export function PcbEditor({
       };
       const geom = kind ? twoPointShape[kind] : undefined;
 
-      if (geom && twoPtStartedRef.current && !mgr.isReset()) {
-        const origin = mgr.getOrigin();
-        const end = mgr.getEnd();
+      if (geom && twoPtStartedRef.current && !mgr.IsReset()) {
+        const origin = mgr.GetOrigin();
+        const end = mgr.GetEnd();
         const toPx = (q: { x: number; y: number }): { x: number; y: number } => ({
           x: q.x * sx + v.tx,
           y: q.y * v.scale + v.ty,
@@ -3846,6 +3964,42 @@ export function PcbEditor({
       ctx.lineTo(ax, canvas.height);
       ctx.stroke();
       ctx.restore();
+    }
+    // The grid helper's own view items: `m_constructionGeomPreview`
+    // (grid_helper.cpp:67) and `m_viewSnapPoint`, a 10 px CIRCLE_CROSS in the
+    // aux-items colour (pcb_grid_helper.cpp:174-178).
+    const gh = gridHelperRef.current;
+    if (gh) {
+      const cg = gh.GetConstructionGeomState();
+      if (cg.visible) {
+        const x0 = (0 - v.tx) / sx;
+        const x1 = (canvas.width - v.tx) / sx;
+        const y0 = (0 - v.ty) / v.scale;
+        const y1 = (canvas.height - v.ty) / v.scale;
+        ctx.save();
+        ctx.setTransform(sx, 0, 0, v.scale, v.tx, v.ty);
+        drawConstructionGeom(ctx, cg.geom, {
+          viewport: BOX2I.ByCorners({ x: x0, y: y0 }, { x: x1, y: y1 }),
+          worldScale: Math.abs(v.scale),
+        });
+        ctx.restore();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+      }
+      const sp = gh.GetSnapIndicatorState();
+      if (sp.visible) {
+        drawSnapIndicator(ctx, {
+          position: sp.position,
+          toPx: (p) => ({ x: p.x * sx + v.tx, y: p.y * v.scale + v.ty }),
+          style: 'circle_cross',
+          size: 10 * dpr,
+          color: drawOpts.theme?.special.auxItems ?? PCB_SPECIAL.auxItems,
+          drawAtZero: true,
+          snapTypes: sp.snapTypes,
+          lineWidth: Math.max(1, dpr),
+          canvasWidth: canvas.width,
+          canvasHeight: canvas.height,
+        });
+      }
     }
     // Crosshair cursor (GAL::blitCursor): the LAYER_CURSOR cross at the
     // grid-snapped cursor, drawn topmost, by the shared painter.
@@ -4044,7 +4198,7 @@ export function PcbEditor({
     installPgm();
     // `EDA_DRAW_FRAME::EDA_DRAW_FRAME`: `m_galDisplayOptions.ReadCommonConfig(
     // *Pgm().GetCommonSettings(), this )` before the canvas is built.
-    frame.GetGalDisplayOptions().ReadCommonConfig(settings.common);
+    frame.GetGalDisplayOptions().ReadCommonConfig(commonSettingsOf(), window);
     const panel = createPcbDrawPanel(frame, canvas, fontImage);
     glOkRef.current = panel !== null;
     if (!panel) {
@@ -4126,6 +4280,78 @@ export function PcbEditor({
   );
 
   /**
+   * `PCB_EDIT_FRAME::ShowBoardSetupDialog`, the OK half: every panel's
+   * TransferDataFromWindow into the live BOARD / BOARD_DESIGN_SETTINGS /
+   * PROJECT_FILE, then the syncs, tickers and repaints upstream does after
+   * `ShowQuasiModal() == wxID_OK`. The `.kicad_pro` is then what
+   * `SETTINGS_MANAGER::SaveProject()` writes (upstream writes it on the next
+   * board save; here it is persisted at once, as every edit is), the `.kicad_dru`
+   * is the Custom Rules text, and the board goes out through the normal save
+   * when something board-side moved.
+   */
+  const commitBoardSetup = useCallback(
+    (next: BoardSetupValues) => {
+      const frame = frameRef.current;
+      const kb = frame?.GetBoard();
+      if (!frame || !kb) return;
+      const prj = frame.Prj();
+
+      const modified = BoardSetupFromWindow(next, kb, prj);
+
+      // Note: We must synchronise time domain properties before nets and classes, otherwise the
+      // updates called by the board listener events are using stale data
+      kb.SynchronizeTuningProfileProperties();
+      kb.SynchronizeNetsAndNetClasses(true);
+
+      if (!kb.SynchronizeComponentClasses(new Set()))
+        setInfoBarError('Could not load component class assignment rules');
+
+      prj.IncrementTextVarsTicker();
+      prj.IncrementNetclassesTicker();
+
+      // The rules file is the frame's (OnBoardLoaded reads it): the DRC engine
+      // is re-initialised on the new constraints, netclasses and custom rules.
+      frame.OnBoardLoaded(next.customRules.text, druFileName(rootPro ?? ''));
+
+      // The view over the BOARD: layers, stackup, plot options, embedded files.
+      setBoardModel({ ...boardFromBOARD(kb, fileNameRef.current), fileName: fileNameRef.current });
+      const panel = panelRef.current;
+      if (panel) boardSetupRepaint(frame, panel, kb);
+
+      // .kicad_pro + .kicad_dru, persisted now.
+      const files = projectFilesNow();
+      const baseOf = (name: string): string =>
+        (projectFiles ?? []).find((f) => f.name === name)?.text ?? '';
+      const persist: { name: string; text: string }[] = [];
+      const pro = findProjectPro(files, rootPro);
+      const saved = Pgm().GetSettingsManager().SaveProject(prj);
+      if (pro && saved) {
+        const updated = DumpJson(saved.pro);
+        if (updated !== pro.text) persist.push({ name: pro.name, text: updated });
+        const druName = druFileName(pro.name);
+        const dru = findProjectDru(files, rootPro);
+        if (dru ? next.customRules.text !== dru.text : next.customRules.text.trim() !== '') {
+          persist.push({ name: dru?.name ?? druName, text: next.customRules.text });
+        }
+      }
+      if (persist.length) {
+        for (const f of persist)
+          projectFileEditsRef.current.set(f.name, { base: baseOf(f.name), text: f.text });
+        onPersistFiles?.(persist);
+      }
+
+      setBoardSetup(BoardSetupToWindow(kb, prj, next.customRules.text));
+
+      // We don't know if anything was modified, so err on the side of requiring a save
+      if (modified) {
+        if (onSaveBoard) onSaveBoard(serializeBoard(boardRef.current!));
+        else setDirty(true);
+      }
+    },
+    [projectFilesNow, projectFiles, rootPro, onPersistFiles, onSaveBoard, setBoardModel],
+  );
+
+  /**
    * The BOARD_LISTENER that drives React: whatever a commit, an undo or a
    * redo did to the BOARD, the view is re-derived from it once, after the
    * operation has finished.
@@ -4151,7 +4377,7 @@ export function PcbEditor({
   // biome-ignore lint/correctness/useExhaustiveDependencies: the mode is the trigger; the body reads the settings store and refs
   useEffect(() => {
     if (!panelRef.current) return;
-    frameRef.current?.GetGalDisplayOptions().ReadCommonConfig(settings.common);
+    frameRef.current?.GetGalDisplayOptions().ReadCommonConfig(commonSettingsOf(), window);
   }, [antialiasingMode]);
   const boardK = board?.k ?? null;
   useEffect(() => {
@@ -4182,25 +4408,6 @@ export function PcbEditor({
   }, [boardK]);
 
   /**
-   * Does anything on the board ask for teardrops?
-   *
-   * The refresh below is a full rebuild, so it is worth one cheap scan to skip
-   * it entirely — which is what happens on every board that has never opened
-   * the Edit Teardrops dialog.
-   */
-  // teardropParamsList is defined further down (it needs boardSetup); commitBoard
-  // reaches it through a ref so its own identity stays stable.
-  const teardropListRef = useRef<() => TeardropParametersList>(defaultTeardropParametersList);
-  // BOARD_DESIGN_SETTINGS::m_SolderMaskExpansion, for the mask zone a teardrop
-  // grows when its track opens the mask.
-  const teardropMaskExpansionRef = useRef(0);
-
-  const boardWantsTeardrops = (b: Board): boolean =>
-    b.vias.some((v) => v.teardrops?.enabled) ||
-    b.footprints.some((f) => f.pads.some((p) => p.teardrops?.enabled)) ||
-    b.zones.some((z) => z.teardropType !== undefined);
-
-  /**
    * Commit an edit: the view the tool produced becomes one BOARD_COMMIT on
    * the live BOARD (`commitViewToBoard`), which files the undo entry, keeps
    * the connectivity, and — as `BOARD_COMMIT::Push` does on every commit that
@@ -4223,12 +4430,6 @@ export function PcbEditor({
         setBoardModel(next);
         return;
       }
-
-      // The project's teardrop settings, onto the BOARD_DESIGN_SETTINGS the manager reads.
-      applyTeardropParametersList(
-        kb.GetDesignSettings().GetTeadropParamsList(),
-        teardropListRef.current(),
-      );
 
       const listener = listenerRef.current!;
       commitViewToBoard(
@@ -4267,7 +4468,9 @@ export function PcbEditor({
     setUpdatePcbError(null);
     const files = projectFilesNow();
 
-    const fetched = fetchNetlistFromSchematic(
+    const fetched = FetchNetlistFromSchematic(
+      frameRef.current?.Kiway() ?? null,
+      frameRef.current,
       files,
       'Updating PCB requires a fully annotated schematic.',
       rootPro,
@@ -4319,16 +4522,10 @@ export function PcbEditor({
     }
   }, [projectFilesNow, rootPro]);
 
-  // Tools > Update PCB from Schematic, invoked from the schematic editor: the
-  // app switches to this frame and bumps the nonce, and the same dialog opens
-  // as for this frame's own F8. Skipped on mount so merely opening the PCB
-  // editor does not pop it.
-  const updateReqRef = useRef<number | null | undefined>(updateFromSchematic);
-  useEffect(() => {
-    if (updateFromSchematic === updateReqRef.current) return;
-    updateReqRef.current = updateFromSchematic;
-    if (updateFromSchematic != null) void openUpdatePcb();
-  }, [updateFromSchematic, openUpdatePcb]);
+  // Tools > Update PCB from Schematic, invoked from the schematic editor:
+  // MAIL_PCB_UPDATE runs the same dialog as this frame's own F8.
+  const openUpdatePcbRef = useRef(openUpdatePcb);
+  openUpdatePcbRef.current = openUpdatePcb;
 
   /**
    * DIALOG_UPDATE_PCB::PerformUpdate. A dry run only reports; a real run commits the
@@ -4450,7 +4647,7 @@ export function PcbEditor({
     // `grid.BestSnapAnchor( refPt, nullptr )`, the multi-item branch's snap.
     return (
       modificationPoint(brd, items, (p) =>
-        bestSnapAnchor(brd, p, gridState(), {
+        gridHelper().BestSnapAnchor(brd, p, {
           snapScale: 25 / viewRef.current.scale,
           hysteresis: 5 / viewRef.current.scale,
           visibleGrid: gridIURef.current,
@@ -4729,7 +4926,7 @@ export function PcbEditor({
 
   /** EDIT_TOOL::ModifyLines — fillet, chamfer or extend the selected lines. */
   const applyLineModification = useCallback(
-    (op: LineModification, valueIU?: number) => {
+    (op: LineModification, valueIU?: number, addSlots = true) => {
       const brd = boardRef.current;
       const sel = [...selForDrawRef.current];
       if (!brd || sel.length < 2) return;
@@ -4738,10 +4935,8 @@ export function PcbEditor({
         radius: valueIU,
         setback: valueIU,
         dogboneRadius: valueIU,
-        // Without slots, an acute corner yields a pocket no cutter can reach.
-        // Upstream offers the choice; taking the usable one is the better
-        // default, and the engine reports which case it hit either way.
-        addSlots: true,
+        // DOGBONE_CORNER_ROUTINE::PARAMETERS::AddSlots, as the dialog answered.
+        addSlots,
       });
       if (res.board !== brd) commitBoard(res.board);
       setLineModOpen(null);
@@ -4919,11 +5114,6 @@ export function PcbEditor({
   // the one whose settings decide what it does (pcbnew/cross-probing.cpp:734
   // reads `GetPcbNewSettings()`), so the schematic's copy has no say here.
   //
-  // Keyed on the nonce alone: the parts of a repeated request are equal, and
-  // re-running on every render would fight the user's own clicks.
-  const syncNonce = syncSelection?.nonce;
-  const syncPartsRef = useRef(syncSelection?.parts);
-  syncPartsRef.current = syncSelection?.parts;
   // The flash run in progress (pcb_edit_frame.cpp:665-679): the ids to restore
   // and the interval handle, kept out of state so a phase tick does not have to
   // survive a re-render to be cancellable.
@@ -4935,15 +5125,18 @@ export function PcbEditor({
    * through `MAIL_SELECTION` and the same cross-probing settings.
    */
   const applySyncSelection = useCallback(
-    (parts: readonly string[]) => {
+    (parts: readonly string[], force = false) => {
       const brd = boardRef.current;
       const canvas = canvasRef.current;
       if (!brd) return;
       const cfg = settings.pcbnew.cross_probing;
       // null is `case MAIL_SELECTION: if( !...on_selection ) break;` — the packet
       // is dropped whole, so the existing selection stays as the user left it.
-      const ids = crossProbeSelection(cfg, brd, parts);
+      const ids = crossProbeSelection(cfg, brd, parts, force);
       if (ids === null) return;
+      // `m_ProbingSchToPcb = true`: this selection came from the schematic, so
+      // it is not sent back to it.
+      lastPartsRef.current = boardSyncSelectionParts(brd, new Set(ids)).join(',');
       setSelection(new Set(ids));
 
       // A fresh probe restarts any flash still running (`m_crossProbeFlashTimer.Stop()`).
@@ -5007,10 +5200,8 @@ export function PcbEditor({
     },
     [requestDraw, settings.pcbnew.cross_probing],
   );
-  useEffect(() => {
-    if (syncNonce === undefined) return;
-    applySyncSelection(syncPartsRef.current ?? []);
-  }, [syncNonce, applySyncSelection]);
+  const applySyncSelectionRef = useRef(applySyncSelection);
+  applySyncSelectionRef.current = applySyncSelection;
   /** The footprint indices in the selection, for the 3D viewer's `IsSelected()`. */
   const selectedFootprints = useMemo(() => {
     const out = new Set<number>();
@@ -5157,15 +5348,24 @@ export function PcbEditor({
       let dialog: DIALOG_DRC;
 
       const window: DIALOG_DRC_WINDOW = {
-        // WX_TEXT_ENTRY_DIALOG( _( "Exclusion Comment" ) ) - the ERC dialog asks the same way.
-        textEntry: async (title, initial) => globalThis.prompt(title, initial),
+        // WX_TEXT_ENTRY_DIALOG( this, wxEmptyString, _( "Exclusion Comment" ),
+        // aInitial, true ) - the shared dialog, as the ERC dialog asks too.
+        textEntry: (caption, initial) =>
+          new Promise<string | null>((resolve) => setDrcTextEntry({ caption, initial, resolve })),
         askDeleteExclusions: () =>
           new Promise<'yes' | 'no' | 'cancel'>((resolve) => setDrcYesNoCancel({ resolve })),
         saveReport: async (defaultName, write) => {
           // wxFileDialog( _( "Save Report File" ), Prj().GetProjectPath(), ... ): the report
           // goes to the project's files, as the plots do; a report or the JSON schema.
-          const name = globalThis.prompt('Save Report File', defaultName);
-          if (name === null) return null;
+          // wxFD_SAVE in the project folder, the report's name suggested.
+          const path = await new Promise<string | null>((resolve) =>
+            setDrcSaveReport({ defaultName, resolve }),
+          );
+          if (path === null) return null;
+          const prefix = projectName ? `/${projectName}/` : '/';
+          const name = path.startsWith(prefix)
+            ? path.slice(prefix.length)
+            : path.slice(path.lastIndexOf('/') + 1);
           const text = write(name);
           if (text === null) return name;
           if (onOutputFile) onOutputFile(name, new TextEncoder().encode(text), 'text/plain');
@@ -5208,7 +5408,13 @@ export function PcbEditor({
     },
     isSingle: () => !projectHasSchematic,
     fetchNetlistFromSchematic: (aNetlist: NETLIST, aMessage: string): boolean => {
-      const fetched = fetchNetlistFromSchematic(projectFilesNow(), aMessage, rootPro);
+      const fetched = FetchNetlistFromSchematic(
+        frameRef.current?.Kiway() ?? null,
+        frameRef.current,
+        projectFilesNow(),
+        aMessage,
+        rootPro,
+      );
 
       if (!fetched.ok) {
         // DisplayErrorMessage( this, msg, details )
@@ -5775,7 +5981,7 @@ export function PcbEditor({
   /**
    * `PCB_CONTROL::CopyToClipboard` / `CutToClipboard` / `Paste`
    * (`pcbnew/tools/pcb_control.cpp`). The payload itself is built and parsed by
-   * `pcbnew/src/pcb_clipboard.ts`; only the system-clipboard I/O and the drop
+   * `pcbnew/pcb_clipboard.ts`; only the system-clipboard I/O and the drop
    * point are here, because those are the two things a pure function cannot do.
    *
    * The reference point is upstream's `grid.BestDragOrigin` — the anchor the
@@ -6192,10 +6398,8 @@ export function PcbEditor({
       ),
       // `assignNetClass` (edit_tool.cpp:799-800), between Properties and the
       // clearance inspector, on `OnlyTypes( connectedTypes ) &&
-      // !inFootprintEditor`. It opens DIALOG_ASSIGN_NETCLASS, which we do not
-      // have, so it is greyed in position rather than missing: over a pad or a
-      // track KiCad prints this row and ours printed nothing.
-      menuEntry(TODO('Assign Netclass...'), -1, onlyConnected),
+      // !inFootprintEditor`: BOARD_EDITOR_CONTROL::AssignNetclass.
+      menuEntry({ label: 'Assign Netclass...', action: () => assignNetclass() }, -1, onlyConnected),
       menuEntry(
         {
           label: selection.size === 2 ? 'Clearance Resolution...' : 'Constraints Resolution...',
@@ -6513,23 +6717,23 @@ export function PcbEditor({
     const snap = shapeAngleSnap(kind, ctrlDownRef.current);
 
     if (twoPtStartedRef.current && snap !== LeaderMode.DIRECT) {
-      const origin = mgr.getOrigin();
+      const origin = mgr.GetOrigin();
       const lineVector = { x: p.x - origin.x, y: p.y - origin.y };
       const newEnd =
         snap === LeaderMode.DEG90
           ? vectorSnapped90(lineVector)
           : vectorSnapped45(lineVector, kind === 'rect');
-      mgr.setEnd({ x: origin.x + newEnd.x, y: origin.y + newEnd.y });
-      mgr.setAngleSnap(snap);
+      mgr.SetEnd({ x: origin.x + newEnd.x, y: origin.y + newEnd.y });
+      mgr.SetAngleSnap(snap);
     } else {
-      mgr.setEnd(p);
-      mgr.setAngleSnap(LeaderMode.DIRECT);
+      mgr.SetEnd(p);
+      mgr.SetAngleSnap(LeaderMode.DIRECT);
     }
   };
 
   /** `cleanup()` — throw the in-flight shape away and leave the tool armed. */
   const cleanupShape = (): void => {
-    twoPtRef.current.reset();
+    twoPtRef.current.Reset();
     twoPtStartedRef.current = false;
     arcMgrRef.current.reset();
     drawingRef.current = [];
@@ -6607,9 +6811,9 @@ export function PcbEditor({
         if (!twoPtStartedRef.current) {
           // "Init the new item attributes", then origin and end both on the
           // cursor so a shape that is never dragged is empty rather than stale.
-          mgr.setAngleSnap(LeaderMode.DIRECT);
-          mgr.setOrigin(p);
-          mgr.setEnd(p);
+          mgr.SetAngleSnap(LeaderMode.DIRECT);
+          mgr.SetOrigin(p);
+          mgr.SetEnd(p);
           twoPtStartedRef.current = true;
           break;
         }
@@ -6617,20 +6821,20 @@ export function PcbEditor({
         updateTwoPointCursor(kind, p);
 
         // "User has clicked twice in the same spot, meaning we're finished."
-        if (mgr.isEmpty() || dbl) {
+        if (mgr.IsEmpty() || dbl) {
           cleanupShape();
           break;
         }
 
-        const origin = mgr.getOrigin();
-        const end = mgr.getEnd();
+        const origin = mgr.GetOrigin();
+        const end = mgr.GetEnd();
 
         if (kind === 'line') {
           commitShape({ kind: 'line', start: origin, end, ...base }, false);
           // `startingPoint = VECTOR2D( line->GetEnd() )` — the chain carries on
           // from this segment's end.
-          mgr.setOrigin(end);
-          mgr.setEnd(end);
+          mgr.SetOrigin(end);
+          mgr.SetEnd(end);
         } else if (kind === 'rect') {
           // `rect->Normalize()` before the commit: start is the top-left
           // corner and end the bottom-right, whichever way it was dragged.
@@ -6663,7 +6867,7 @@ export function PcbEditor({
       case 'curve': {
         // `drawOneBezier`: four clicks — start, C1, end, C2 — and the tool
         // commits and chains straight into the next curve without leaving.
-        // The rules are in `pcbnew/src/bezier_tool.ts` so they can be driven
+        // The rules are in `pcbnew/bezier_tool.ts` so they can be driven
         // without a canvas; this is only the click reaching them.
         const r = bezierClick(pts, p);
         if (r.kind === 'continue') {
@@ -6907,7 +7111,7 @@ export function PcbEditor({
   const copperAt = (w: { x: number; y: number }): BoardCursorSnap | null => {
     const brd = boardRef.current;
     if (!brd) return null;
-    return snapToBoardCopper(brd, w, gridState(), {
+    return snapToBoardCopper(brd, w, gridHelper(), {
       tol: tolOf(),
       // `pickSingleItem`'s `tl`, the view's top layer. A preference, not a
       // filter: an item elsewhere is still picked when this layer has none.
@@ -6929,7 +7133,7 @@ export function PcbEditor({
     const brd = boardRef.current;
     if (!brd) return snapToGrid(w);
     return (
-      snapToBoardCopper(brd, w, gridState(), {
+      snapToBoardCopper(brd, w, gridHelper(), {
         tol: tolOf(),
         layer: /\.Cu$/.test(activeLayerRef.current) ? activeLayerRef.current : undefined,
         avoid: aAvoid ?? undefined,
@@ -7495,30 +7699,41 @@ export function PcbEditor({
       holeToHoleMin: mm(c.minHoleToHoleMM),
       useConnectedTrackWidth: autoTrackWidthRef.current,
       tempOverrideTrackWidth: false,
-      sizes: {
-        trackWidthList: withNetclassEntry(trackWidthListRef.current, 0),
-        viasDimensionsList: withNetclassEntry(viaSizeListRef.current, { diameter: 0, drill: 0 }),
-        diffPairDimensionsList: withNetclassEntry(
-          boardSetup.diffPairsMM
+      // `StackupHeight` reads both off the live BOARD; Board Setup edits them in place.
+      useHeightForLengthCalcs: boardRef.current?.k?.GetDesignSettings().m_UseHeightForLengthCalcs,
+      stackup: boardRef.current?.k?.GetDesignSettings().GetStackupDescriptor(),
+      sizes: (() => {
+        // A real BOARD_DESIGN_SETTINGS, not a copy of one. The three lists
+        // keep their reserved `[0]` "use netclass" row, which is why the
+        // indices the toolbar holds line up with `m_TrackWidthList` directly.
+        const bds = new BOARD_DESIGN_SETTINGS();
+
+        bds.m_TrackWidthList = [0, ...trackWidthListRef.current];
+        bds.m_ViasDimensionsList = [
+          new VIA_DIMENSION(0, 0),
+          ...viaSizeListRef.current.map((v) => new VIA_DIMENSION(v.diameter, v.drill)),
+        ];
+        bds.m_DiffPairDimensionsList = [
+          new DIFF_PAIR_DIMENSION(0, 0, 0),
+          ...boardSetup.diffPairsMM
             .filter((d) => d.width > 0)
-            .map((d) => ({ width: mm(d.width), gap: mm(d.gap), viaGap: mm(d.viaGap) })),
-          { width: 0, gap: 0, viaGap: 0 },
-        ),
-        defaultNetclass: {
-          trackWidth: dims.trackWidth,
-          clearance: netclassInfo.classClearance.get('Default') ?? 0,
-          viaDiameter: dims.viaDiameter,
-          viaDrill: dims.viaDrill,
-          ...(mmOpt(dflt?.dpWidth) !== undefined ? { diffPairWidth: mmOpt(dflt?.dpWidth) } : {}),
-          ...(mmOpt(dflt?.dpGap) !== undefined ? { diffPairGap: mmOpt(dflt?.dpGap) } : {}),
-          ...(mmOpt(dflt?.dpViaGap) !== undefined ? { diffPairViaGap: mmOpt(dflt?.dpViaGap) } : {}),
-        },
-        selection: {
-          ...defaultTrackViaSizeState(),
-          trackWidthIndex: trackSelRef.current,
-          viaSizeIndex: viaSelRef.current,
-        },
-      },
+            .map((d) => new DIFF_PAIR_DIMENSION(mm(d.width), mm(d.gap), mm(d.viaGap))),
+        ];
+
+        const nc = bds.m_NetSettings.GetDefaultNetclass();
+        nc.SetTrackWidth(dims.trackWidth);
+        nc.SetClearance(netclassInfo.classClearance.get('Default') ?? 0);
+        nc.SetViaDiameter(dims.viaDiameter);
+        nc.SetViaDrill(dims.viaDrill);
+        if (mmOpt(dflt?.dpWidth) !== undefined) nc.SetDiffPairWidth(mmOpt(dflt?.dpWidth)!);
+        if (mmOpt(dflt?.dpGap) !== undefined) nc.SetDiffPairGap(mmOpt(dflt?.dpGap)!);
+        if (mmOpt(dflt?.dpViaGap) !== undefined) nc.SetDiffPairViaGap(mmOpt(dflt?.dpViaGap)!);
+
+        bds.SetTrackWidthIndex(trackSelRef.current);
+        bds.SetViaSizeIndex(viaSelRef.current);
+
+        return bds;
+      })(),
     };
   };
 
@@ -7581,11 +7796,11 @@ export function PcbEditor({
         isLayerVisible: (l) => visible.has(l),
       });
       if (!next.start(at, layer)) {
-        setRouterError(next.failureReason || 'The routing start point violates DRC.');
+        setInfoBarError(next.failureReason || 'The routing start point violates DRC.');
         next.abort();
         return;
       }
-      setRouterError(null);
+      setInfoBarError(null);
       pnsSessionRef.current = next;
       next.move(at);
       updatePnsPreview();
@@ -7599,7 +7814,7 @@ export function PcbEditor({
       pnsSessionRef.current = null;
       pnsPreviewSceneRef.current = null;
       if (result.ok) commitBoard(applyPnsChanges(brd, result.changes));
-      else if (result.reason) setRouterError(result.reason);
+      else if (result.reason) setInfoBarError(result.reason);
     } else {
       // `syncRouterAndFrameLayer()` after every fix: the frame's active layer
       // follows the router's, which a fixed via has just changed.
@@ -7790,7 +8005,7 @@ export function PcbEditor({
    * what `routeDims` already answers.
    *
    * The rest — the net pickup order and the track split — is `PlaceItem`, in
-   * `pcbnew/src/via_placer.ts` so it can be driven without a canvas.
+   * `pcbnew/via_placer.ts` so it can be driven without a canvas.
    */
   const handleViaClick = (world: { x: number; y: number }): void => {
     const brd = boardRef.current;
@@ -7829,6 +8044,41 @@ export function PcbEditor({
    * `activeTool`; `IPO_SINGLE_CLICK` is why one click both creates and commits
    * (the preview item exists before the first click, see `pointPreviewRef`).
    */
+  /**
+   * `PCB_CONTROL::PlaceCharacteristics` / `PlaceStackup`
+   * (`pcb_control.cpp:2907-2942`): build the table on the active layer and
+   * `placeBoardItems( …, isNew, anchorAtOrigin )` it — the table's origin lands
+   * on the cursor, and the commit is "Place Board Characteristics" / "Place
+   * Board Stackup Table". Upstream's interactive move runs before the click;
+   * here the click IS the drop, and the action is a one-shot.
+   */
+  const handlePlaceTableClick = (
+    which: 'placeCharacteristics' | 'placeStackup',
+    world: { x: number; y: number },
+  ): void => {
+    const brd = boardRef.current;
+    const kb = brd?.k;
+    if (!brd || !kb) return;
+    const table =
+      which === 'placeCharacteristics'
+        ? Build_Board_Characteristics_Table(kb, unitsRef.current)
+        : Build_Board_Stackup_Table(kb, unitsRef.current);
+    // The view carries no `k`: the built table is a template the view layer
+    // re-creates on the live BOARD through `applyTable`, like any new item.
+    const view = tableView(table);
+    const placed = moveTable(
+      {
+        ...view,
+        layer: activeLayerRef.current,
+        k: undefined,
+        cells: view.cells.map((c) => ({ ...c, k: undefined })),
+      },
+      cursorSnapRef.current(world),
+    );
+    commitBoard(addBoardTable(brd, placed).board);
+    setActiveTool(selectModeRef.current);
+  };
+
   const handlePointClick = (world: { x: number; y: number }): void => {
     const brd = boardRef.current;
     if (!brd) return;
@@ -7935,7 +8185,9 @@ export function PcbEditor({
     // keeps the part's *original* off-grid position reachable, so a move that
     // changes its mind can put it back exactly.
     auxAxisRef.current = null;
-    const dragOrigin = bestDragOrigin(brd, sel, origin, { gridSize: gridIURef.current });
+    const dragOrigin = gridHelper().BestDragOrigin(brd, sel, origin, {
+      gridSize: gridIURef.current,
+    });
     moveAnchorRef.current = dragOrigin;
     auxAxisRef.current = dragOrigin;
     const fpIdx = new Set<number>();
@@ -8105,7 +8357,7 @@ export function PcbEditor({
     const brd = boardRef.current;
     if (!brd) return snapToGrid(w);
     const id = editHandleItemRef.current;
-    return bestSnapAnchor(brd, w, gridState(), {
+    return gridHelper().BestSnapAnchor(brd, w, {
       snapScale: 25 / viewRef.current.scale,
       hysteresis: 5 / viewRef.current.scale,
       visibleGrid: gridIURef.current,
@@ -8135,41 +8387,6 @@ export function PcbEditor({
   // The global key handler is stable, so it reaches the action through a ref.
   const fillAllZonesRef = useRef(fillAllZones);
   fillAllZonesRef.current = fillAllZones;
-
-  /**
-   * The board's TEARDROP_PARAMETERS_LIST, built from the Board Setup panel's
-   * millimetre/percentage values. The scope and enable flags live in the
-   * project file's `teardrop_options`, which Board Setup preserves but does not
-   * model, so the dialog owns them for the length of the edit.
-   */
-  const teardropParamsList = useCallback((): TeardropParametersList => {
-    const base = defaultTeardropParametersList();
-    const targets = boardSetup.teardrops.targets;
-    const shape = (s: (typeof boardSetup)['teardrops']['round']) => ({
-      enabled: true,
-      allowUseTwoTracks: s.allowSpanTwoSegments,
-      tdOnPadsInZones: !s.preferZoneConnection,
-      bestLengthRatio: s.bestLengthPct / 100,
-      tdMaxLen: Math.round(s.maxLengthMM * MM),
-      bestWidthRatio: s.bestWidthPct / 100,
-      tdMaxWidth: Math.round(s.maxWidthMM * MM),
-      curvedEdges: s.curvedEdges,
-      widthtoSizeFilterRatio: s.trackWidthLimitPct / 100,
-    });
-    return {
-      ...base,
-      round: shape(boardSetup.teardrops.round),
-      rect: shape(boardSetup.teardrops.rect),
-      track: shape(boardSetup.teardrops.trackToTrack),
-      targetVias: targets.vias,
-      targetPTHPads: targets.pthPads,
-      targetSMDPads: targets.smdPads,
-      targetTrack2Track: targets.trackToTrack,
-      useRoundShapesOnly: targets.roundShapesOnly,
-    };
-  }, [boardSetup]);
-  teardropListRef.current = teardropParamsList;
-  teardropMaskExpansionRef.current = Math.round(boardSetup.maskPaste.maskExpansionMM * MM);
 
   /**
    * EDIT_TOOL::Properties: open Track & Via Properties on the selection.
@@ -8267,11 +8484,13 @@ export function PcbEditor({
       const brd = boardRef.current;
       const index = textPropsIndex;
       setTextPropsIndex(null);
-      if (!brd || index === null) return;
-      const next = applyTextValues(brd, index, values);
-      if (next !== brd) commitBoard(next);
+      const frame = frameRef.current;
+      const k = index === null ? undefined : brd?.texts[index]?.k;
+      if (!frame || !k) return;
+      // DIALOG_TEXT_PROPERTIES on the live PCB_TEXT: one BOARD_COMMIT.
+      new DIALOG_TEXT_PROPERTIES(frame, k).TransferDataFromWindow(values);
     },
-    [commitBoard, textPropsIndex],
+    [textPropsIndex],
   );
 
   /** DIALOG_TABLE_PROPERTIES::TransferDataFromWindow. */
@@ -8280,11 +8499,13 @@ export function PcbEditor({
       const brd = boardRef.current;
       const index = tablePropsIndex;
       setTablePropsIndex(null);
-      if (!brd || index === null) return;
-      const next = applyTableValues(brd, index, values);
-      if (next !== brd) commitBoard(next);
+      const frame = frameRef.current;
+      const k = index === null ? undefined : brd?.tables[index]?.k;
+      if (!frame || !k) return;
+      // DIALOG_TABLE_PROPERTIES on the live PCB_TABLE: one BOARD_COMMIT.
+      new DIALOG_TABLE_PROPERTIES(frame, k).TransferDataFromWindow(values);
     },
-    [commitBoard, tablePropsIndex],
+    [tablePropsIndex],
   );
 
   /** DIALOG_TEXTBOX_PROPERTIES::TransferDataFromWindow. */
@@ -8293,11 +8514,13 @@ export function PcbEditor({
       const brd = boardRef.current;
       const index = textBoxPropsIndex;
       setTextBoxPropsIndex(null);
-      if (!brd || index === null) return;
-      const next = applyTextBoxValues(brd, index, values);
-      if (next !== brd) commitBoard(next);
+      const frame = frameRef.current;
+      const k = index === null ? undefined : brd?.textBoxes[index]?.k;
+      if (!frame || !k) return;
+      // DIALOG_TEXTBOX_PROPERTIES on the live PCB_TEXTBOX: one BOARD_COMMIT.
+      new DIALOG_TEXTBOX_PROPERTIES(frame, k).TransferDataFromWindow(values);
     },
-    [commitBoard, textBoxPropsIndex],
+    [textBoxPropsIndex],
   );
 
   /** DIALOG_REFERENCE_IMAGE_PROPERTIES::TransferDataFromWindow. */
@@ -8319,11 +8542,13 @@ export function PcbEditor({
       const brd = boardRef.current;
       const index = dimensionPropsIndex;
       setDimensionPropsIndex(null);
-      if (!brd || index === null) return;
-      const next = applyDimensionValues(brd, index, values, unitsRef.current);
-      if (next !== brd) commitBoard(next);
+      const frame = frameRef.current;
+      const k = index === null ? undefined : brd?.dimensions[index]?.k;
+      if (!frame || !k) return;
+      // DIALOG_DIMENSION_PROPERTIES on the live dimension: one BOARD_COMMIT.
+      new DIALOG_DIMENSION_PROPERTIES(frame, k).TransferDataFromWindow(values);
     },
-    [commitBoard, dimensionPropsIndex],
+    [dimensionPropsIndex],
   );
 
   const applyShapeEdit = useCallback(
@@ -8331,11 +8556,13 @@ export function PcbEditor({
       const brd = boardRef.current;
       const index = shapePropsIndex;
       setShapePropsIndex(null);
-      if (!brd || index === null) return;
-      const next = applyShapeValues(brd, index, values);
-      if (next !== brd) commitBoard(next);
+      const frame = frameRef.current;
+      const k = index === null ? undefined : brd?.shapes[index]?.k;
+      if (!frame || !k) return;
+      // DIALOG_SHAPE_PROPERTIES on the live PCB_SHAPE: one BOARD_COMMIT.
+      new DIALOG_SHAPE_PROPERTIES(frame, k).TransferDataFromWindow(values);
     },
-    [commitBoard, shapePropsIndex],
+    [shapePropsIndex],
   );
 
   /** DIALOG_PAD_PROPERTIES::TransferDataFromWindow. */
@@ -8344,11 +8571,13 @@ export function PcbEditor({
       const brd = boardRef.current;
       const ref = padPropsRef;
       setPadPropsRef(null);
-      if (!brd || !ref) return;
-      const next = applyPadValues(brd, ref, values);
-      if (next !== brd) commitBoard(next);
+      const frame = frameRef.current;
+      const k = ref ? brd?.footprints[ref.footprint]?.pads[ref.pad]?.k : undefined;
+      if (!frame || !k) return;
+      // DIALOG_PAD_PROPERTIES on the live PAD: one BOARD_COMMIT.
+      new DIALOG_PAD_PROPERTIES(frame, k).TransferDataFromWindow(values);
     },
-    [commitBoard, padPropsRef],
+    [padPropsRef],
   );
 
   /** DIALOG_FOOTPRINT_PROPERTIES::TransferDataFromWindow. */
@@ -8357,11 +8586,13 @@ export function PcbEditor({
       const brd = boardRef.current;
       const index = fpPropsIndex;
       setFpPropsIndex(null);
-      if (!brd || index === null) return;
-      const next = applyFootprintValues(brd, index, values);
-      if (next !== brd) commitBoard(next);
+      const frame = frameRef.current;
+      const k = index === null ? undefined : brd?.footprints[index]?.k;
+      if (!frame || !k) return;
+      // DIALOG_FOOTPRINT_PROPERTIES on the live FOOTPRINT: one BOARD_COMMIT.
+      new DIALOG_FOOTPRINT_PROPERTIES(frame, k).TransferDataFromWindow(values);
     },
-    [commitBoard, fpPropsIndex],
+    [fpPropsIndex],
   );
 
   /** PANEL_ZONE_PROPERTIES::TransferDataFromWindow. */
@@ -8371,6 +8602,14 @@ export function PcbEditor({
       const index = zonePropsIndex;
       setZonePropsIndex(null);
       if (!brd || index === null) return;
+      const frame = frameRef.current;
+      const k = brd.zones[index]?.k;
+      // Edit_Zone_Params: a copper zone is DIALOG_COPPER_ZONE on the live
+      // ZONE, one BOARD_COMMIT; the commit refills under "Auto-refill zones".
+      if (frame && k && !k.GetIsRuleArea() && IsCopperLayer(k.GetFirstLayer())) {
+        new DIALOG_COPPER_ZONE(frame, k).TransferDataFromWindow(values);
+        return;
+      }
       const next = applyZoneValues(brd, index, values);
       // A changed zone has to be re-poured; its fill was built from the old
       // clearances (ZONE_FILLER runs on the commit that closes the dialog).
@@ -8379,53 +8618,80 @@ export function PcbEditor({
     [commitBoard, zonePropsIndex, zoneFillOptions],
   );
 
-  /** DIALOG_GLOBAL_EDIT_TEARDROPS::TransferDataFromWindow. */
+  /** Edit_Zone_Params on a rule area: DIALOG_RULE_AREA_PROPERTIES on the live ZONE. */
+  const applyRuleAreaEdit = useCallback(
+    (values: RuleAreaValues) => {
+      const brd = boardRef.current;
+      const index = zonePropsIndex;
+      setZonePropsIndex(null);
+      const frame = frameRef.current;
+      const k = index === null ? undefined : brd?.zones[index]?.k;
+      if (!frame || !k) return;
+      new DIALOG_RULE_AREA_PROPERTIES(frame, k).TransferDataFromWindow(values);
+    },
+    [zonePropsIndex],
+  );
+
+  /**
+   * DIALOG_GLOBAL_EDIT_TEARDROPS::TransferDataFromWindow, on the live BOARD:
+   * the items' parameters are staged on a BOARD_COMMIT and TEARDROP_MANAGER
+   * rebuilds the zones, as upstream does; the listener re-derives the view.
+   */
   const applyTeardropEdit = useCallback(
     (options: GlobalTeardropEditOptions) => {
       const brd = boardRef.current;
+      const frame = frameRef.current;
+      const kb = frame?.GetBoard();
       setTeardropsOpen(false);
-      if (!brd) return;
+      if (!brd || !frame || !kb) return;
 
-      const selected = selection;
-      const next = applyGlobalTeardropEdit(brd, options, {
-        list: teardropParamsList(),
-        solderMaskExpansion: teardropMaskExpansionRef.current,
-        // NETCLASS::ContainsNetclassWithName searches every constituent, so a
-        // net in two classes has to answer to a filter on either.
-        netclassOf: (net) =>
-          netclassesForNet(brd.nets.get(net) ?? '', boardSetupRef.current.netClasses.assignments),
-        isSelected: (item) => {
-          // Pads are selected as `pad:<footprint>:<index>`, vias as `via:<index>`.
-          for (let fi = 0; fi < brd.footprints.length; fi++) {
-            const pads = brd.footprints[fi]!.pads;
-            for (let pi = 0; pi < pads.length; pi++) {
-              if (pads[pi] === item) return selected.has(`pad:${fi}:${pi}`);
-            }
-          }
-          const vi = brd.vias.indexOf(item as (typeof brd.vias)[number]);
-          return vi >= 0 && selected.has(`via:${vi}`);
-        },
-      });
+      // EDA_ITEM::IsSelected: the editor's selection speaks view ids
+      // (`pad:<fp>:<i>`, `via:<i>`, `group:<i>`), not the items' SELECTED flag
+      // (PCB_SELECTION_TOOL is stage 3 of #636).
+      const selectedItems = new Set<unknown>();
+      if (options.selectedOnly) {
+        brd.footprints.forEach((fp, fi) =>
+          fp.pads.forEach((pad, pi) => {
+            if (selection.has(boardItemId('pad', fi, pi))) selectedItems.add(pad.k);
+          }),
+        );
+        brd.vias.forEach((via, vi) => {
+          if (selection.has(boardItemId('via', vi))) selectedItems.add(via.k);
+        });
+        brd.groups.forEach((group, gi) => {
+          if (selection.has(boardItemId('group', gi))) selectedItems.add(group.k);
+        });
+      }
 
-      commitBoard(next.board, { skipTeardrops: true });
+      const listener = listenerRef.current!;
+      applyGlobalTeardropEdit(frame, options, (item) => selectedItems.has(item));
 
-      // The scope checkboxes are project state (`teardrop_options`), so they
-      // survive the dialog closing and the next reload.
+      // A run that changed no item (every filter missed) raises no listener
+      // call; the view is re-derived here instead.
+      if (!listener.IsPending())
+        setBoardModel({
+          ...boardFromBOARD(kb, fileNameRef.current),
+          fileName: fileNameRef.current,
+        });
+
+      // The scope checkboxes are project state (`teardrop_options`), which the
+      // dialog wrote onto BOARD_DESIGN_SETTINGS; persist them with the project.
+      const tdl = kb.GetDesignSettings().GetTeadropParamsList();
       commitBoardSetup({
         ...boardSetupRef.current,
         teardrops: {
           ...boardSetupRef.current.teardrops,
           targets: {
-            vias: next.list.targetVias,
-            pthPads: next.list.targetPTHPads,
-            smdPads: next.list.targetSMDPads,
-            trackToTrack: next.list.targetTrack2Track,
-            roundShapesOnly: next.list.useRoundShapesOnly,
+            vias: tdl.m_TargetVias,
+            pthPads: tdl.m_TargetPTHPads,
+            smdPads: tdl.m_TargetSMDPads,
+            trackToTrack: tdl.m_TargetTrack2Track,
+            roundShapesOnly: tdl.m_UseRoundShapesOnly,
           },
         },
       });
     },
-    [commitBoard, commitBoardSetup, selection, teardropParamsList],
+    [commitBoardSetup, selection, setBoardModel],
   );
 
   /** Put the net highlight back the way a track drag found it. */
@@ -8470,7 +8736,7 @@ export function PcbEditor({
   const moveSnap = (raw: { x: number; y: number }): { x: number; y: number } => {
     const brd = boardRef.current;
     if (!brd) return snapToGrid(raw);
-    return bestSnapAnchor(brd, raw, gridState(), {
+    return gridHelper().BestSnapAnchor(brd, raw, {
       snapScale: 25 / viewRef.current.scale,
       hysteresis: 5 / viewRef.current.scale,
       visibleGrid: gridIURef.current,
@@ -9007,7 +9273,7 @@ export function PcbEditor({
       if (cur && brd && id) {
         const to = handleSnap(cur);
         const target = handleDragTarget(handleDrag.handle, handleDrag.origin, to);
-        const next = dragBoardHandle(brd, id, handleDrag.handle, target);
+        const next = dragBoardHandle(brd, id, handleDrag.handle, target, arcEditModeRef.current);
         pointEditPreviewRef.current = next;
         editHandlesRef.current = boardEditHandles(next, id);
         editIndicatorsRef.current = boardIndicatorLines(next, id);
@@ -9249,6 +9515,12 @@ export function PcbEditor({
         } else if (activeToolRef.current === 'placePoint') {
           const w = worldAt(e.clientX, e.clientY);
           if (w) handlePointClick(w);
+        } else if (
+          activeToolRef.current === 'placeCharacteristics' ||
+          activeToolRef.current === 'placeStackup'
+        ) {
+          const w = worldAt(e.clientX, e.clientY);
+          if (w) handlePlaceTableClick(activeToolRef.current, w);
         } else if (activeToolRef.current === 'measureTool') {
           const w = worldAt(e.clientX, e.clientY);
           if (w) handleMeasureClick(w);
@@ -9314,6 +9586,13 @@ export function PcbEditor({
       const target = e.target as (FocusLike & { readOnly?: boolean; disabled?: boolean }) | null;
       if (focusBlocksHotkey(target, e)) return;
       const mod = e.ctrlKey || e.metaKey;
+
+      // PCB_BASE_EDIT_FRAME::TryBefore: Tab with PRESET_SWITCH_KEY (Ctrl) or
+      // VIEWPORT_SWITCH_KEY (Shift) raises EDA_VIEW_SWITCHER.
+      if (e.key === 'Tab' && openViewSwitcherRef.current(mod, e.shiftKey)) {
+        e.preventDefault();
+        return;
+      }
 
       // --- context: what the live tool / selection owns ---------------------
       // ACTIONS::highContrastModeCycle (H): Normal -> Dim -> Hide -> Normal.
@@ -9650,7 +9929,38 @@ export function PcbEditor({
     });
   };
 
+  /**
+   * BOARD_EDITOR_CONTROL::AssignNetclass (board_editor_control.cpp:2159-2230):
+   * the selection's nets, skipping any whose name was generated rather than
+   * given (NETINFO_ITEM::HasAutoGeneratedNetname - the short name starting
+   * `Net-(` or `unconnected-(`); none left is an infobar error. The nets are
+   * selected (selectNet), and the dialog opens on them.
+   */
+  const assignNetclass = (): void => {
+    const brd = boardRef.current;
+    if (!brd) return;
+    const names = new Set<string>();
+    const codes = new Set<number>();
+    for (const id of selection) {
+      const d = describeSelected(brd, id);
+      if (!d) continue;
+      const name = brd.nets.get(d.net);
+      if (!name) continue;
+      const short = name.slice(name.lastIndexOf('/') + 1);
+      if (short.startsWith('Net-(') || short.startsWith('unconnected-(')) continue;
+      names.add(name);
+      codes.add(d.net);
+    }
+    if (names.size === 0) {
+      setInfoBarError('Selection contains no items with labeled nets.');
+      return;
+    }
+    setSelection(new Set(connectedItemIdsOnNets(brd, codes)));
+    setNetclassNets(names);
+  };
+
   const applyPreset = (name: string): void => {
+    setPresetMRU((m) => touchMRU(m, name));
     const user = userPresets.find((x) => x.name === name);
     if (user) {
       setVisible(new Set(user.layers));
@@ -9738,9 +10048,8 @@ export function PcbEditor({
   const onPresetChoice = (value: string): void => {
     if (value === PRESET_SEPARATOR) return;
     if (value === 'Save preset...') {
-      const name = window.prompt('Layer preset name:')?.trim();
-      if (!name) return;
-      setUserPresets((p) => [...p.filter((x) => x.name !== name), { name, layers: [...visible] }]);
+      // wxTextEntryDialog( _( "Layer preset name:" ), _( "Save Layer Preset" ) ).
+      setSaveNameAsk('preset');
       return;
     }
     if (value === 'Delete preset...') {
@@ -9755,11 +10064,8 @@ export function PcbEditor({
   const onViewportChoice = (value: string): void => {
     if (value === '---') return;
     if (value === 'Save viewport...') {
-      const name = window.prompt('Viewport name:')?.trim();
-      if (!name) return;
-      const v = { ...viewRef.current };
-      setViewports((p) => [...p.filter((x) => x.name !== name), { name, view: v }]);
-      setViewportSel(name);
+      // wxTextEntryDialog( _( "Viewport name:" ), _( "Save Viewport" ), name ).
+      setSaveNameAsk('viewport');
       return;
     }
     if (value === 'Delete viewport...') {
@@ -9772,7 +10078,43 @@ export function PcbEditor({
     viewRef.current.ty = vp.view.ty;
     viewRef.current.scale = vp.view.scale;
     setViewportSel(value);
+    setViewportMRU((m) => touchMRU(m, value));
     requestDraw();
+  };
+
+  /** The two saves, once the name dialog answers. */
+  const saveNamed = (kind: 'preset' | 'viewport', name: string): void => {
+    if (kind === 'preset') {
+      setUserPresets((p) => [...p.filter((x) => x.name !== name), { name, layers: [...visible] }]);
+      setPresetMRU((m) => touchMRU(m, name));
+    } else {
+      const v = { ...viewRef.current };
+      setViewports((p) => [...p.filter((x) => x.name !== name), { name, view: v }]);
+      setViewportSel(name);
+      setViewportMRU((m) => touchMRU(m, name));
+    }
+  };
+
+  // PCB_BASE_EDIT_FRAME::TryBefore (pcb_base_edit_frame.cpp:117-190): Tab
+  // with PRESET_SWITCH_KEY (Ctrl) held raises the preset switcher, with
+  // VIEWPORT_SWITCH_KEY (Shift) the viewport one, when there is anything to
+  // offer. A page is never given Ctrl+Tab by the browser outside fullscreen
+  // (common/browser_reserved.ts), so in practice the preset switcher opens
+  // only there; Shift+Tab always reaches it.
+  // Read by the frame's one keydown chain (below): it raises the switcher when
+  // there is a list to offer, and says whether it did.
+  const openViewSwitcherRef = useRef<(ctrl: boolean, shift: boolean) => boolean>(() => false);
+  openViewSwitcherRef.current = (ctrl, shift) => {
+    if (viewSwitcher) return false;
+    if (ctrl && presetMRU.length > 0) {
+      setViewSwitcher('presets');
+      return true;
+    }
+    if (shift && !ctrl && viewportMRU.length > 0) {
+      setViewSwitcher('viewports');
+      return true;
+    }
+    return false;
   };
 
   // `NET_GRID_TABLE::Rebuild`'s filter and sort, in a module qa can import;
@@ -9791,10 +10133,10 @@ export function PcbEditor({
    * Built from the same rule set DRC runs with, through the same walk, so the
    * explanation cannot disagree with the markers it exists to explain.
    */
-  const inspectSections = useMemo(() => {
-    if (!board || !inspectOpen) return [];
+  const inspectReportPages = useMemo(() => {
+    if (!board || !inspectOpen) return null;
 
-    return inspectSelection(board, selection, parseDrcRules(boardSetup.customRules.text), (net) =>
+    return inspectReport(board, selection, parseDrcRules(boardSetup.customRules.text), (net) =>
       netclassesForNet(net, boardSetup.netClasses.assignments),
     );
   }, [
@@ -10007,17 +10349,8 @@ export function PcbEditor({
     gal.SetGridSize({ x: gridIU, y: gridIU });
     gal.SetGridOrigin(gridOriginRef.current);
     gal.SetGridVisibility(objects.grid && toggles.has('toggleGrid'));
-    const galOpts = frame.GetGalDisplayOptions();
-    const g = galRef.current;
-    galOpts.m_gridStyle =
-      g.style === 'lines'
-        ? GRID_STYLE.LINES
-        : g.style === 'crosses'
-          ? GRID_STYLE.SMALL_CROSS
-          : GRID_STYLE.DOTS;
-    galOpts.m_gridLineWidth = g.line_width;
-    galOpts.m_gridMinSpacing = g.min_spacing;
-    galOpts.NotifyChanged();
+    // EDA_DRAW_FRAME::LoadSettings: m_galDisplayOptions.ReadWindowSettings( m_Window ).
+    frame.GetGalDisplayOptions().ReadWindowSettings(windowSettingsOf(galRef.current));
     requestDraw();
   }, [
     panelReady,
@@ -10464,6 +10797,22 @@ export function PcbEditor({
       case 'filterSelection':
         setFilterOpen(true);
         break;
+      case 'boardStatistics':
+        setStatsOpen(true);
+        break;
+      case 'generateBOM': {
+        // `GenBOMFileFromBoard` opens a save dialog first and bails on an empty
+        // board with an info-bar error; ours reports the same refusal.
+        const kb = frameRef.current?.GetBoard();
+
+        if (!kb || kb.Footprints().length === 0) {
+          setInfoBarError('Cannot export BOM: there are no footprints on the PCB.');
+          break;
+        }
+
+        saveReportFile(BuildBomTextFromBoard(kb), `${fileName.replace(/\.kicad_pcb$/, '')}.csv`);
+        break;
+      }
       case 'zoomInCenter':
         zoomStep(1.3);
         break;
@@ -10594,19 +10943,6 @@ export function PcbEditor({
   const fmtCoord = (iu: number): string =>
     messageTextFromValue(iuToMM(iu), unitLabel, PCB_IU_PER_MM);
 
-  // ----- PCB_PROPERTIES_PANEL -------------------------------------------------
-
-  const propRows = useMemo<PcbPropRow[]>(
-    () => (board ? pcbPropertiesFor(board, selection, { layerColor }) : []),
-    [board, selection],
-  );
-
-  // `PROPERTIES_PANEL::rebuildProperties` captions a single selection with
-  // `aSelection.Front()->GetFriendlyName()` — the item's TYPE.
-  const propFriendlyName = useMemo<string | undefined>(() => {
-    if (!board || selection.size !== 1) return undefined;
-    return pcbItemFriendlyName(board, [...selection][0] as string);
-  }, [board, selection]);
   const gridText = gridMsg(fmtCoord(gridIU));
   // TOP_AUX combo formatting (PCB_EDIT_FRAME::ComboBoxUnits): mm at %.3f,
   // mils at %.2f.
@@ -10637,7 +10973,7 @@ export function PcbEditor({
   /**
    * `PCB_CONTROL::UpdateMessagePanel` (pcbnew/tools/pcb_control.cpp:2377) and
    * the `GetMsgPanelInfo` virtuals it dispatches to — all of them in
-   * `pcbnew/src/msg_panel.ts`, because upstream they hang off the board items
+   * `pcbnew/msg_panel.ts`, because upstream they hang off the board items
    * and not off the frame. The footprint editor reaches the same module with
    * `frame: 'footprint_edit'`, which is how a footprint gets Library /
    * Footprint Name / Pads there and Board Side / Rotation / Status here off
@@ -10933,11 +11269,10 @@ export function PcbEditor({
                     own (properties_panel.cpp:196-210), so the panel renders them
                     rather than the frame swapping in a placeholder. */}
                   <PcbPropertiesPanel
-                    rows={propRows}
-                    selectionCount={selection.size}
-                    friendlyName={propFriendlyName}
+                    frame={frameRef.current}
+                    board={board}
+                    selection={selection}
                     units={unitLabel}
-                    onCommand={commitBoard}
                   />
                 </div>
               </div>
@@ -10978,12 +11313,12 @@ export function PcbEditor({
           style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}
         >
           {readOnlyNotice}
-          {routerError !== null && (
+          {infoBarError !== null && (
             <Infobar
-              message={routerError}
+              message={infoBarError}
               closable
               className="ze-router-infobar"
-              key={routerError}
+              key={infoBarError}
             />
           )}
           <div
@@ -11398,7 +11733,11 @@ export function PcbEditor({
             <DialogBarcodeProperties
               units={unitLabel}
               barcode={bc}
-              initial={barcodeValues(bc)}
+              initial={
+                bc.k && frameRef.current
+                  ? new DIALOG_BARCODE_PROPERTIES(frameRef.current, bc.k).TransferDataToWindow()
+                  : barcodeValues(bc)
+              }
               layers={board?.layers.map((l) => l.name) ?? []}
               layerColor={layerColor}
               background={PCB_BACKGROUND}
@@ -11408,11 +11747,14 @@ export function PcbEditor({
                 const dlg = barcodeDialog;
                 setBarcodeDialog(null);
                 if (!brd || !dlg) return;
-                const next = applyBarcodeValues(bc, v);
                 if (dlg.index !== undefined) {
-                  commitBoard(setBoardBarcode(brd, dlg.index, next));
+                  // DIALOG_BARCODE_PROPERTIES on the live PCB_BARCODE: one BOARD_COMMIT.
+                  const k = brd.barcodes[dlg.index]?.k;
+                  if (k && frameRef.current)
+                    new DIALOG_BARCODE_PROPERTIES(frameRef.current, k).TransferDataFromWindow(v);
                   return;
                 }
+                const next = applyBarcodeValues(bc, v);
                 // `m_toolMgr->RunAction<EDA_ITEM*>( ACTIONS::selectItem, barcode )`
                 // (`drawing_tool.cpp:1558`): the new barcode is left selected.
                 const added = addBoardBarcode(brd, next);
@@ -11432,7 +11774,12 @@ export function PcbEditor({
           (load_select_footprint.cpp:190-224). The same frame the schematic's
           footprint field opens; a cancel leaves the tool armed and waiting. */}
       {fpChooserOpen && (
-        <FootprintChooserFrame onOk={onFootprintChosen} onCancel={() => setFpChooserOpen(false)} />
+        <FootprintChooserFrame
+          onOk={onFootprintChosen}
+          onCancel={() => setFpChooserOpen(false)}
+          loadFootprintIndex={loadFootprintIndex}
+          loadFootprint={loadFootprint}
+        />
       )}
 
       {textDialog && (
@@ -11556,13 +11903,7 @@ export function PcbEditor({
         <DialogPcbPlot
           board={board}
           visibleLayers={visible}
-          // The Solder Mask/Paste page, in IU. The ratio is a fraction upstream
-          // and a percent on the panel, hence the /100.
-          maskPaste={{
-            solderMaskExpansion: Math.round(boardSetup.maskPaste.maskExpansionMM * MM),
-            solderPasteMargin: Math.round(boardSetup.maskPaste.pasteClearanceMM * MM),
-            solderPasteMarginRatio: boardSetup.maskPaste.pasteRelativePct / 100,
-          }}
+          units={unitLabel}
           projectFolders={projectFolders}
           onOutputFile={onOutputFile}
           onRunDrc={() => {
@@ -11598,7 +11939,9 @@ export function PcbEditor({
           onCancel={() => setPasteSpecialOpen(false)}
         />
       )}
-      {aboutOpen && <AboutDialog title={ABOUT_TITLES.pcb} onClose={() => setAboutOpen(false)} />}
+      {aboutOpen && (
+        <ShowAboutDialog title={ABOUT_TITLES.pcb} onClose={() => setAboutOpen(false)} />
+      )}
       {prefsOpen && <PreferencesDialog onClose={() => setPrefsOpen(false)} />}
       {/* `WX_PROGRESS_REPORTER( this, _( "Load Footprint Libraries" ), 1, PR_CAN_ABORT )`
           (cvpcb_mainframe.cpp:910), the same reporter the footprint reads use. */}
@@ -11635,9 +11978,12 @@ export function PcbEditor({
           onClose={() => setUpdatePcb(null)}
         />
       )}
-      {textPropsIndex !== null && board?.texts[textPropsIndex] && (
+      {textPropsIndex !== null && board?.texts[textPropsIndex]?.k && frameRef.current && (
         <DialogTextProperties
-          initial={collectTextValues(board.texts[textPropsIndex]!)}
+          initial={new DIALOG_TEXT_PROPERTIES(
+            frameRef.current!,
+            board.texts[textPropsIndex]!.k!,
+          ).TransferDataToWindow()}
           units={unitLabel}
           layers={board.layers.map((l) => l.name)}
           layerColor={layerColor}
@@ -11645,10 +11991,13 @@ export function PcbEditor({
           onClose={() => setTextPropsIndex(null)}
         />
       )}
-      {shapePropsIndex !== null && board?.shapes[shapePropsIndex] && (
+      {shapePropsIndex !== null && board?.shapes[shapePropsIndex]?.k && frameRef.current && (
         <DialogShapeProperties
           units={unitLabel}
-          initial={collectShapeValues(board.shapes[shapePropsIndex]!)}
+          initial={new DIALOG_SHAPE_PROPERTIES(
+            frameRef.current!,
+            board.shapes[shapePropsIndex]!.k!,
+          ).TransferDataToWindow()}
           kind={board.shapes[shapePropsIndex]!.kind}
           layers={board.layers.map((l) => l.name)}
           onApply={applyShapeEdit}
@@ -11694,9 +12043,12 @@ export function PcbEditor({
           onClose={() => setPendingTextBox(null)}
         />
       )}
-      {tablePropsIndex !== null && board?.tables[tablePropsIndex] && (
+      {tablePropsIndex !== null && board?.tables[tablePropsIndex]?.k && frameRef.current && (
         <DialogTableProperties<TableValues>
-          initial={collectTableValues(board.tables[tablePropsIndex]!)}
+          initial={new DIALOG_TABLE_PROPERTIES(
+            frameRef.current!,
+            board.tables[tablePropsIndex]!.k!,
+          ).TransferDataToWindow()}
           iuScale={pcbIUScale}
           columnWidths={board.tables[tablePropsIndex]!.columnWidths}
           header={tableDialogHeader}
@@ -11704,9 +12056,12 @@ export function PcbEditor({
           onCancel={() => setTablePropsIndex(null)}
         />
       )}
-      {textBoxPropsIndex !== null && board?.textBoxes[textBoxPropsIndex] && (
+      {textBoxPropsIndex !== null && board?.textBoxes[textBoxPropsIndex]?.k && frameRef.current && (
         <DialogTextBoxProperties
-          initial={collectTextBoxValues(board.textBoxes[textBoxPropsIndex]!)}
+          initial={new DIALOG_TEXTBOX_PROPERTIES(
+            frameRef.current!,
+            board.textBoxes[textBoxPropsIndex]!.k!,
+          ).TransferDataToWindow()}
           units={unitLabel}
           layers={board.layers.map((l) => l.name)}
           layerColor={layerColor}
@@ -11725,50 +12080,83 @@ export function PcbEditor({
           onClose={() => setImagePropsIndex(null)}
         />
       )}
-      {dimensionPropsIndex !== null && board?.dimensions[dimensionPropsIndex] && (
-        <DialogDimensionProperties
-          units={unitLabel}
-          initial={collectDimensionValues(board.dimensions[dimensionPropsIndex]!)}
-          kind={board.dimensions[dimensionPropsIndex]!.kind}
-          layers={board.layers.map((l) => l.name)}
-          onApply={applyDimensionEdit}
-          onClose={() => setDimensionPropsIndex(null)}
-        />
-      )}
-      {padPropsRef && board?.footprints[padPropsRef.footprint]?.pads[padPropsRef.pad] && (
-        <DialogPadProperties
-          units={unitLabel}
-          initial={collectPadValues(
-            board.footprints[padPropsRef.footprint]!.pads[padPropsRef.pad]!,
-          )}
-          nets={board.nets}
-          layers={board.layers.map((l) => l.name)}
-          onApply={applyPadEdit}
-          onClose={() => setPadPropsRef(null)}
-        />
-      )}
-      {fpPropsIndex !== null && board?.footprints[fpPropsIndex] && (
+      {dimensionPropsIndex !== null &&
+        board?.dimensions[dimensionPropsIndex]?.k &&
+        frameRef.current && (
+          <DialogDimensionProperties
+            units={unitLabel}
+            initial={new DIALOG_DIMENSION_PROPERTIES(
+              frameRef.current!,
+              board.dimensions[dimensionPropsIndex]!.k!,
+            ).TransferDataToWindow()}
+            kind={board.dimensions[dimensionPropsIndex]!.kind}
+            layers={board.layers.map((l) => l.name)}
+            onApply={applyDimensionEdit}
+            onClose={() => setDimensionPropsIndex(null)}
+          />
+        )}
+      {padPropsRef &&
+        board?.footprints[padPropsRef.footprint]?.pads[padPropsRef.pad]?.k &&
+        frameRef.current && (
+          <DialogPadProperties
+            units={unitLabel}
+            initial={new DIALOG_PAD_PROPERTIES(
+              frameRef.current!,
+              board.footprints[padPropsRef.footprint]!.pads[padPropsRef.pad]!.k!,
+            ).TransferDataToWindow()}
+            nets={board.nets}
+            layers={board.layers.map((l) => l.name)}
+            onApply={applyPadEdit}
+            onClose={() => setPadPropsRef(null)}
+          />
+        )}
+      {fpPropsIndex !== null && board?.footprints[fpPropsIndex]?.k && frameRef.current && (
         <DialogFootprintProperties
           units={unitLabel}
-          initial={collectFootprintValues(board.footprints[fpPropsIndex]!)}
+          initial={new DIALOG_FOOTPRINT_PROPERTIES(
+            frameRef.current!,
+            board.footprints[fpPropsIndex]!.k!,
+          ).TransferDataToWindow()}
           libId={board.footprints[fpPropsIndex]!.lib}
           onApply={applyFootprintEdit}
           onClose={() => setFpPropsIndex(null)}
         />
       )}
-      {zonePropsIndex !== null && board?.zones[zonePropsIndex] && (
-        <DialogCopperZones
-          units={unitLabel}
-          initial={collectZoneValues(board.zones[zonePropsIndex]!)}
-          nets={board.nets}
-          layers={copperLayerRows}
-          // "A zone still in creation … can't be edited by the Zone Manager";
-          // this path is a zone that already exists, so the button is shown.
-          existingZone
-          onApply={applyZoneEdit}
-          onClose={() => setZonePropsIndex(null)}
-        />
-      )}
+      {zonePropsIndex !== null &&
+        board?.zones[zonePropsIndex]?.k?.GetIsRuleArea() &&
+        frameRef.current && (
+          <DialogRuleAreaProperties
+            units={unitLabel}
+            initial={new DIALOG_RULE_AREA_PROPERTIES(
+              frameRef.current!,
+              board.zones[zonePropsIndex]!.k!,
+            ).TransferDataToWindow()}
+            layers={ruleAreaLayers}
+            sources={collectPlacementSources(board)}
+            onApply={applyRuleAreaEdit}
+            onClose={() => setZonePropsIndex(null)}
+          />
+        )}
+      {zonePropsIndex !== null &&
+        board?.zones[zonePropsIndex] &&
+        !board.zones[zonePropsIndex]!.k?.GetIsRuleArea() && (
+          <DialogCopperZones
+            units={unitLabel}
+            initial={(() => {
+              const k = board.zones[zonePropsIndex]!.k;
+              return frameRef.current && k && IsCopperLayer(k.GetFirstLayer())
+                ? new DIALOG_COPPER_ZONE(frameRef.current, k).TransferDataToWindow()
+                : collectZoneValues(board.zones[zonePropsIndex]!);
+            })()}
+            nets={board.nets}
+            layers={copperLayerRows}
+            // "A zone still in creation … can't be edited by the Zone Manager";
+            // this path is a zone that already exists, so the button is shown.
+            existingZone
+            onApply={applyZoneEdit}
+            onClose={() => setZonePropsIndex(null)}
+          />
+        )}
       {trackViaOpen && board && (
         <DialogTrackViaProperties
           selection={trackViaSelection(board, selection)}
@@ -11834,31 +12222,48 @@ export function PcbEditor({
           onClose={() => setOutsetOpen(false)}
         />
       )}
-      {lineModOpen && board && (
-        <DialogLineModification
+      {(lineModOpen === 'fillet' || lineModOpen === 'chamfer') && board && (
+        // GetRadiusParams / GetChamferParams (pcbnew/tools/edit_tool.cpp:1485,
+        // :1550): WX_UNIT_ENTRY_DIALOG; Cancel or a value of 0 does nothing.
+        <WX_UNIT_ENTRY_DIALOG
+          caption={lineModOpen === 'fillet' ? 'Fillet Lines' : 'Chamfer Lines'}
+          label={lineModOpen === 'fillet' ? 'Radius:' : 'Chamfer setback:'}
+          defaultValue={lineModOpen === 'fillet' ? filletRadius : chamferSetback}
           units={unitLabel}
-          title={
-            lineModOpen === 'fillet'
-              ? 'Fillet Lines'
-              : lineModOpen === 'chamfer'
-                ? 'Chamfer Lines'
-                : 'Dogbone Corners'
-          }
-          label={lineModOpen === 'chamfer' ? 'Set-back:' : 'Radius:'}
-          value={
-            lineModOpen === 'fillet'
-              ? filletRadius
-              : lineModOpen === 'chamfer'
-                ? chamferSetback
-                : dogboneRadius
-          }
-          onApply={(v: number) => {
-            if (lineModOpen === 'fillet') setFilletRadius(v);
-            else if (lineModOpen === 'chamfer') setChamferSetback(v);
-            else setDogboneRadius(v);
-            applyLineModification(lineModOpen, v);
+          iuScale={pcbIUScale}
+          onResult={(v) => {
+            const op = lineModOpen;
+            setLineModOpen(null);
+            if (v === null || v === 0) return;
+            if (op === 'fillet') setFilletRadius(v);
+            else setChamferSetback(v);
+            applyLineModification(op, v);
           }}
-          onClose={() => setLineModOpen(null)}
+        />
+      )}
+      {lineModOpen === 'dogbone' && board && (
+        // GetDogboneParams (edit_tool.cpp:1498-1530): WX_MULTI_ENTRY_DIALOG.
+        <WX_MULTI_ENTRY_DIALOG
+          caption="Dogbone Corner Settings"
+          entries={[
+            { label: 'Arc radius:', value: { UNIT_BOUND: dogboneRadius } },
+            {
+              label: 'Add slots in acute corners',
+              tooltip: 'Add slots in acute corners to allow access to a cutter of the given radius',
+              value: { CHECKBOX: dogboneSlots },
+            },
+          ]}
+          units={unitLabel}
+          iuScale={pcbIUScale}
+          onResult={(r) => {
+            setLineModOpen(null);
+            if (r === null) return;
+            const radius = r[0] as number;
+            const slots = r[1] as boolean;
+            setDogboneRadius(radius);
+            setDogboneSlots(slots);
+            applyLineModification('dogbone', radius, slots);
+          }}
         />
       )}
       {posRelOpen && board && (
@@ -11884,6 +12289,16 @@ export function PcbEditor({
           onClose={() => setPosRelOpen(false)}
         />
       )}
+      {statsOpen && frameRef.current?.GetBoard() && (
+        <DialogBoardStatistics
+          board={frameRef.current.GetBoard()!}
+          unitsProvider={new UNITS_PROVIDER(pcbIUScale, unitsRef.current)}
+          projectName={projectName ?? ''}
+          boardName={fileName}
+          onGenerateReport={saveReportFile}
+          onClose={() => setStatsOpen(false)}
+        />
+      )}
       {filterOpen && board && (
         <DialogFilterSelection
           filter={filterOpts}
@@ -11896,15 +12311,12 @@ export function PcbEditor({
           onClose={() => setFilterOpen(false)}
         />
       )}
-      {inspectOpen && board && (
-        <DialogInspectConstraints
-          title={selection.size === 2 ? 'Clearance Resolution' : 'Constraints Resolution'}
-          sections={inspectSections}
-          hint={
-            selection.size === 0
-              ? 'Select an item to see what constraints apply to it, or two items to see how their clearance resolves.'
-              : undefined
-          }
+      {inspectOpen && board && inspectReportPages && (
+        // DIALOG_BOOK_REPORTER, as BOARD_INSPECTION_TOOL::InspectClearance /
+        // InspectConstraints fill it (the frame's Get...Dialog()).
+        <DIALOG_BOOK_REPORTER
+          title={inspectReportPages.title}
+          pages={inspectReportPages.pages}
           onClose={() => setInspectOpen(false)}
         />
       )}
@@ -11938,6 +12350,100 @@ export function PcbEditor({
           rootRef={drcDialogRef}
         />
       )}
+      {viewSwitcher && (
+        <EDA_VIEW_SWITCHER
+          items={viewSwitcher === 'presets' ? presetMRU : viewportMRU}
+          heldKey={viewSwitcher === 'presets' ? 'Control' : 'Shift'}
+          onResult={(i) => {
+            const list = viewSwitcher === 'presets' ? presetMRU : viewportMRU;
+            const kind = viewSwitcher;
+            setViewSwitcher(null);
+            if (i === null || i < 0 || i >= list.length) return;
+            if (kind === 'presets') applyPreset(list[i]!);
+            else onViewportChoice(list[i]!);
+          }}
+        />
+      )}
+      {saveNameAsk && (
+        <WxTextEntryDialog
+          caption={saveNameAsk === 'preset' ? 'Save Layer Preset' : 'Save Viewport'}
+          message={saveNameAsk === 'preset' ? 'Layer preset name:' : 'Viewport name:'}
+          onCancel={() => setSaveNameAsk(null)}
+          onConfirm={(name) => {
+            const kind = saveNameAsk;
+            setSaveNameAsk(null);
+            saveNamed(kind, name);
+          }}
+        />
+      )}
+      {netclassNets && board && (
+        <DialogAssignNetclass
+          frame="pcb"
+          netNames={netclassNets}
+          // BOARD::GetNetClassAssignmentCandidates: every non-empty net name.
+          candidateNetNames={[...new Set([...board.nets.values()].filter((n) => n !== ''))].sort()}
+          netClasses={boardSetup.netClasses.classes
+            .map((c) => c.name)
+            .filter((n) => n !== 'Default')
+            .sort()}
+          // The previewer: SelectAllItemsOnNet for each matching net.
+          onPreview={(names) => {
+            const brd = boardRef.current;
+            if (!brd) return;
+            const want = new Set(names);
+            const codes = new Set(
+              [...brd.nets.entries()].filter(([, n]) => want.has(n)).map(([c]) => c),
+            );
+            setSelection(new Set(connectedItemIdsOnNets(brd, codes)));
+          }}
+          onCancel={() => setNetclassNets(null)}
+          onOk={(pattern, netClass) => {
+            setNetclassNets(null);
+            // SetNetclassPatternAssignment, then SynchronizeNetsAndNetClasses
+            // (commitBoardSetup does the sync).
+            commitBoardSetup({
+              ...boardSetupRef.current,
+              netClasses: {
+                ...boardSetupRef.current.netClasses,
+                assignments: addNetclassAssignment(
+                  boardSetupRef.current.netClasses.assignments,
+                  pattern,
+                  netClass,
+                ),
+              },
+            });
+          }}
+        />
+      )}
+      {drcSaveReport && (
+        // DIALOG_DRC::OnSaveReport (dialog_drc.cpp:1154-1156):
+        // wxFileDialog( _( "Save Report File" ), Prj().GetProjectPath(),
+        //   fn.GetFullName(), ReportFileWildcard() | JsonFileWildcard(), wxFD_SAVE ).
+        <SaveAsDialog
+          title="Save Report File"
+          initialName={drcSaveReport.defaultName}
+          filters={[reportFileWildcard(), jsonFileWildcard()]}
+          {...(projectName
+            ? { projectDir: `/${projectName}`, initialPath: `/${projectName}` }
+            : {})}
+          onDone={(path) => {
+            drcSaveReport.resolve(path);
+            setDrcSaveReport(null);
+          }}
+        />
+      )}
+      {drcTextEntry && (
+        <WX_TEXT_ENTRY_DIALOG
+          label=""
+          caption={drcTextEntry.caption}
+          defaultValue={drcTextEntry.initial}
+          extraWidth
+          onResult={(value) => {
+            drcTextEntry.resolve(value);
+            setDrcTextEntry(null);
+          }}
+        />
+      )}
       {drcYesNoCancel && (
         <MessageDialogYesNoCancel
           caption="Delete All Markers"
@@ -11954,6 +12460,7 @@ export function PcbEditor({
       {boardSetupOpen && (
         <DialogBoardSetup
           units={unitLabel}
+          board={frameRef.current?.GetBoard() ?? null}
           value={boardSetup}
           initialPage={boardSetupPage}
           onOk={(next) => {

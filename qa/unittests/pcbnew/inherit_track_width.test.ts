@@ -12,9 +12,9 @@
  * width rule is ported with it.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { inheritTrackWidth } from '@ziroeda/pcbnew/src/inherit_track_width.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { inheritTrackWidth } from '@ziroeda/pcbnew/inherit_track_width.js';
 
 const MM = 1e6;
 

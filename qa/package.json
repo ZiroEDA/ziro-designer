@@ -11,15 +11,22 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@ziroeda/3d-viewer": "workspace:*",
+    "@ziroeda/bitmap2component": "workspace:*",
+    "@ziroeda/bitmaps_png": "workspace:*",
     "@ziroeda/common": "workspace:*",
+    "@ziroeda/cvpcb": "workspace:*",
     "@ziroeda/core": "workspace:*",
     "@ziroeda/designer": "workspace:*",
     "@ziroeda/eeschema": "workspace:*",
     "@ziroeda/gerbview": "workspace:*",
+    "@ziroeda/pagelayout_editor": "workspace:*",
     "@ziroeda/kimath": "workspace:*",
     "@ziroeda/pcb_calculator": "workspace:*",
     "@ziroeda/pcbnew": "workspace:*",
-    "@ziroeda/sexpr": "workspace:*"
+    "@ziroeda/potrace": "workspace:*",
+    "@ziroeda/sexpr": "workspace:*",
+    "@ziroeda/zint": "workspace:*"
   },
   "devDependencies": {
     "@testing-library/dom": "^10.4.1",

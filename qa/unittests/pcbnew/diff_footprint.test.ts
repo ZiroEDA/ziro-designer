@@ -15,16 +15,16 @@
  * one `HasLibrary` call that answers "loaded", not "configured".
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/parser.js';
+import { parse } from '@ziroeda/sexpr/parser.js';
 import {
   diffFootprintAgainstLibrary,
   resolveLibraryFootprint,
   type LibraryFootprintQuery,
-} from '@ziroeda/pcbnew/src/diff_footprint.js';
-import { loadFootprintLibraryTables } from '@ziroeda/pcbnew/src/footprint_library.js';
-import type { FootprintLibraryFs, LibraryDirEntry } from '@ziroeda/pcbnew/src/footprint_library.js';
-import { readBoardFootprint } from '@ziroeda/pcbnew/src/read-board.js';
-import type { PcbFootprint } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/diff_footprint.js';
+import { loadFootprintLibraryTables } from '@ziroeda/pcbnew/footprint_library.js';
+import type { FootprintLibraryFs, LibraryDirEntry } from '@ziroeda/pcbnew/footprint_library.js';
+import { readBoardFootprint } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import type { PcbFootprint } from '@ziroeda/pcbnew/types.js';
 
 /** A filesystem over a flat path -> contents map, directories inferred. */
 function makeFs(files: Record<string, string>): FootprintLibraryFs {

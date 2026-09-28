@@ -25,7 +25,7 @@
  * the same thing.
  */
 import type { JSX } from 'react';
-import { PanelTemplateFieldnames as TemplateFieldnamesPanel } from '../dialogs/panels/panel_template_fieldnames.js';
+import { PanelTemplateFieldnames as TemplateFieldnamesPanel } from '@ziroeda/eeschema/dialogs/panel_template_fieldnames.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
 
 export function PanelTemplateFieldnames({ ctx }: { ctx: PrefsContext }): JSX.Element {

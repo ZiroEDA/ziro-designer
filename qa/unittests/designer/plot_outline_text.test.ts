@@ -8,10 +8,10 @@
  * callback is `PlotPoly` (common/plotters/plotter.cpp:746-756), so every
  * plotter receives an outline glyph as filled polygons — and
  * `qa/data/font/fonttest_kicad_cli.svg` is exactly that output from
- * kicad-cli. These tests plot the same sheet through our SVG and PostScript
- * back-ends and read the ink back in millimetres: a plot that fell back to
- * the stroke font, or filled a glyph's hole, or forgot one of the SCH_TEXT
- * lifts, lands in a different place on the page.
+ * kicad-cli. These tests plot the same sheet through the common SVG,
+ * PostScript and PDF plotters and read the ink back in millimetres: a plot
+ * that fell back to the stroke font, or filled a glyph's hole, or forgot one
+ * of the SCH_TEXT lifts, lands in a different place on the page.
  */
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -30,7 +30,7 @@ import {
   loadOutlineFontsFor,
   resetOutlineFonts,
   setFaceFetcher,
-} from '@ziroeda/designer/src/font/outline_fonts.js';
+} from '@ziroeda/common/font/outline_fonts.js';
 
 const FONTS = fileURLToPath(new URL('../../../designer/public/fonts/', import.meta.url));
 const DATA = fileURLToPath(new URL('../../data/font/', import.meta.url));
@@ -55,25 +55,12 @@ function kicadRow(text: string): { minX: number; maxX: number; minY: number; max
   };
 }
 
-/**
- * A path's points in page mm. `SvgContext` writes a path in the frame it
- * was drawn in and defers the CTM to a `transform="matrix(…)"`, so the
- * matrix is applied here; the viewBox is IU, 10000 per mm.
- */
-function pathPointsMM(d: string, transform: string | undefined): { x: number; y: number }[] {
-  const m = transform
-    ? transform
-        .match(/matrix\(([^)]+)\)/)![1]!
-        .trim()
-        .split(/\s+/)
-        .map(Number)
-    : [1, 0, 0, 1, 0, 0];
-  const [a, b, c, dd, e, f] = m as [number, number, number, number, number, number];
-  return [...d.matchAll(/(-?\d+(?:\.\d+)?)[ ,]+(-?\d+(?:\.\d+)?)/g)].map((n) => {
-    const x = Number(n[1]);
-    const y = Number(n[2]);
-    return { x: (a * x + c * y + e) / 10000, y: (b * x + dd * y + f) / 10000 };
-  });
+/** A path's points: `SVG_PLOTTER` writes device millimetres, `x,y` or `x y`. */
+function pathPoints(d: string): { x: number; y: number }[] {
+  return [...d.matchAll(/(-?\d+(?:\.\d+)?)[ ,]+(-?\d+(?:\.\d+)?)/g)].map((n) => ({
+    x: Number(n[1]),
+    y: Number(n[2]),
+  }));
 }
 
 function extents(pts: { x: number; y: number }[]) {
@@ -85,28 +72,36 @@ function extents(pts: { x: number; y: number }[]) {
   };
 }
 
-/** Our SVG's filled paths, in page mm. */
+/**
+ * Our SVG's filled paths: `SVG_PLOTTER::PlotPoly` of a FILLED_SHAPE, which
+ * carries its own `style` with a fill colour and `stroke:none`.
+ */
 function ourFilledPaths(svg: string) {
   const out = [];
   for (const m of svg.matchAll(
-    /<path d="([^"]+)" fill="[^"]+" stroke="none"(?: transform="([^"]+)")?\/>/g,
+    /<path style="fill:#[0-9A-F]{6};[^"]*stroke:none;[^"]*"\s*d="([^"]+)"/g,
   )) {
-    const pts = pathPointsMM(m[1]!, m[2]);
+    const pts = pathPoints(m[1]!);
     if (pts.length) out.push({ d: m[1]!, ...extents(pts) });
   }
   return out;
 }
 
-/** Our SVG's stroked paths, in page mm. */
+/** Our SVG's stroked paths: PenTo's `<path d="M… L…" />` inside a stroke group. */
 function ourStrokedPaths(svg: string) {
   const out = [];
-  for (const m of svg.matchAll(
-    /<path d="([^"]+)" fill="none" stroke="[^"]+" stroke-width="[^"]+"[^>]*?(?: transform="([^"]+)")?\/>/g,
-  )) {
-    const pts = pathPointsMM(m[1]!, m[2]);
+  for (const m of svg.matchAll(/<path d="(M[^"]+)" \/>/g)) {
+    const pts = pathPoints(m[1]!);
     if (pts.length) out.push({ d: m[1]!, pts, ...extents(pts) });
   }
   return out;
+}
+
+/** The number of `<path>` elements kicad-cli wrote for one text run. */
+function kicadRowPathCount(text: string): number {
+  const svg = readFileSync(`${DATA}fonttest_kicad_cli.svg`, 'utf8');
+  const i = svg.indexOf(`<desc>${text}</desc>`);
+  return (svg.slice(i, svg.indexOf('</g>', i)).match(/<path/g) ?? []).length;
 }
 
 beforeAll(async () => {
@@ -140,7 +135,9 @@ describe('plotting a faced text', () => {
     const paths = ourFilledPaths(svg).filter(
       (p) => p.minY > k.minY - 1 && p.maxY < k.maxY + 1 && p.minX > 20 && p.maxX < 70,
     );
-    expect(paths.length).toBe(1);
+    // One filled path per glyph outline, as CALLBACK_GAL hands PlotPoly them —
+    // the count kicad-cli wrote for the same run.
+    expect(paths.length).toBe(kicadRowPathCount('Arial Hello AVWo 0123'));
     const minX = Math.min(...paths.map((p) => p.minX));
     const maxX = Math.max(...paths.map((p) => p.maxX));
     const minY = Math.min(...paths.map((p) => p.minY));
@@ -172,23 +169,17 @@ describe('plotting a faced text', () => {
     expect(Math.abs(Math.max(...ys) - k.maxY)).toBeLessThan(0.01);
   });
 
-  it('PostScript fills a glyph with every ring in one path, so a hole stays a hole', () => {
+  it('PostScript plots each glyph as one fractured poly1, as many as kicad-cli writes', () => {
     const ps = sheetToPs(doc, KICAD_DEFAULT, opts, 'fonttest');
-    // The Arial row's 'o' and '0's: a `fill` with two subpaths. Count fills
-    // whose path holds more than one `m` (moveto) — those are ringed glyphs.
-    const fills = ps.split('\n').filter((l) => l.endsWith(' fill'));
-    const ringed = fills.filter((l) => (l.match(/ m /g) ?? []).length > 1);
-    expect(ringed.length).toBeGreaterThan(5);
-    // …and every such fill opened exactly one path.
-    for (const l of ringed) expect((l.match(/newpath/g) ?? []).length).toBe(1);
+    // Measured: `kicad-cli sch export ps --black-and-white --exclude-drawing-sheet`
+    // of fonttest.kicad_sch (10.0.5) holds 198 `poly1` fills.
+    const polys = ps.split('newpath\n').filter((p) => p.includes('\npoly1\n'));
+    expect(polys.length).toBe(198);
+    // A fractured outline is one subpath: one moveto per fill, holes bridged in.
+    for (const p of polys) expect((p.match(/ moveto\n/g) ?? []).length).toBe(1);
   });
 
-  it('PDF fills a glyph the way CALLBACK_GAL hands it to PlotPoly: fractured, one outline', () => {
-    // `PDF_PLOTTER::PlotPoly` takes one ring; a glyph with a hole reaches it
-    // `Fracture()`d — the hole bridged into the outline — so the stream holds
-    // one `m … h f` per glyph and never a second `m` inside a fill. Every
-    // ringed glyph on the Arial row ('o', '0') is therefore a filled path
-    // whose corner count exceeds the outline's alone.
+  it('PDF fills the same glyphs PostScript does: fractured, one outline each', () => {
     const bytes = sheetsToPdf([{ sch: doc, opts }], KICAD_DEFAULT, undefined, {
       debugPdfWriter: true,
     });
@@ -196,23 +187,9 @@ describe('plotting a faced text', () => {
     const fills = page.match(/^[\d.]+ [\d.]+ m (?:[\d.]+ [\d.]+ l )+h f$/gm) ?? [];
     // No fill holds a second moveto: PlotPoly writes exactly one.
     for (const f of fills) expect((f.match(/ m /g) ?? []).length).toBe(1);
-    // One fill per glyph. PostScript writes one `fill` per text RUN with a
-    // subpath per ring, so its subpaths count the rings: more rings than PDF
-    // fills means the holes were bridged in rather than filled on their own,
-    // and more PDF fills than runs means a run was not fractured as one lump.
-    const psFills = sheetToPs(doc, KICAD_DEFAULT, opts, 'fonttest')
-      .split('\n')
-      .filter((l) => l.endsWith(' fill'));
-    const rings = psFills.reduce((n, l) => n + (l.match(/ m /g) ?? []).length, 0);
-    expect(fills.length).toBeGreaterThan(psFills.length * 5);
-    expect(rings).toBeGreaterThan(fills.length + 5);
-    // And the holes' points are still there. A hole mistaken for an outline
-    // is unioned away by `Fracture()`'s Simplify — the 'o' comes out solid,
-    // with the same fill count and a quarter of the points fewer (measured:
-    // 5532 against 7175 for the PostScript's 7251; Simplify trims a few
-    // collinear points, the bridges add a couple per hole).
-    const pdfPts = fills.reduce((n, f) => n + (f.match(/ l /g) ?? []).length + 1, 0);
-    const psPts = psFills.reduce((n, l) => n + (l.match(/ [ml] /g) ?? []).length, 0);
-    expect(pdfPts).toBeGreaterThan(psPts * 0.97);
+    const psPolys = sheetToPs(doc, KICAD_DEFAULT, opts, 'fonttest')
+      .split('newpath\n')
+      .filter((p) => p.includes('\npoly1\n'));
+    expect(fills.length).toBe(psPolys.length);
   });
 });

@@ -89,7 +89,7 @@ function spy(): { fills: number; strokes: number; ctx: CanvasRenderingContext2D 
 
 // `drawSelectionShadows` ids a sheet graphic by INDEX, not by uuid:
 // `refId('graphic', undefined, i)` falls through to `${kind}:idx:${index}`
-// (`eeschema/src/tools/hittest.ts:314-316`). Selecting by uuid here would match
+// (`eeschema/tools/hittest.ts:314-316`). Selecting by uuid here would match
 // nothing and the test would pass for the wrong reason.
 const RECT = 'graphic:idx:0';
 const ARC = 'graphic:idx:1';

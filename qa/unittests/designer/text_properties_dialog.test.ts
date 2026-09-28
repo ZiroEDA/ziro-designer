@@ -30,8 +30,8 @@ import { fileURLToPath } from 'node:url';
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(`../../../designer/src/${rel}`, import.meta.url)), 'utf8');
 
-const DIALOG = read('editors/pcb/dialogs/dialog_text_properties.tsx');
-const CSS = read('ui/shell.css');
+const DIALOG = read('../../pcbnew/dialogs/dialog_text_properties_ui.tsx');
+const CSS = read('../../common/widgets/shell.css');
 const EDITOR = read('editors/pcb/PcbEditor.tsx');
 /**
  * The dialog with every comment stripped.
@@ -247,7 +247,7 @@ describe('the Draw Text tool opens this dialog, and opens it on activation', () 
 
 describe('Syntax Help, which the link used to not open', () => {
   const HELP = readFileSync(
-    fileURLToPath(new URL('../../../pcbnew/src/pcb_text_help.ts', import.meta.url)),
+    fileURLToPath(new URL('../../../pcbnew/pcb_text_help.ts', import.meta.url)),
     'utf8',
   );
 
@@ -255,7 +255,7 @@ describe('Syntax Help, which the link used to not open', () => {
     // `m_syntaxHelp->Bind( wxEVT_HYPERLINK, &DIALOG_…::onSyntaxHelp, this )`,
     // and `onSyntaxHelp` is `PCB_TEXT::ShowSyntaxHelp( this )`. The link was
     // rendered and bound to nothing in both.
-    const BOX = read('editors/pcb/dialogs/dialog_textbox_properties.tsx');
+    const BOX = read('../../pcbnew/dialogs/dialog_textbox_properties_ui.tsx');
     for (const src of [code, BOX]) {
       expect(src).toContain('onClick={() => setSyntaxHelp(true)}');
       expect(src).toContain('<HtmlMessageBox');

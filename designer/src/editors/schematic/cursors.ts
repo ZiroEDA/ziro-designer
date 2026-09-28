@@ -19,8 +19,8 @@
  * over is the mapping below — the part that really is eeschema's.
  */
 
-import { kiCursor, type KiCursor } from '../../ui/kicursors.js';
-import { sharedToolCursorName } from '../../ui/tool_cursors.js';
+import { kiCursor, type KiCursor } from '@ziroeda/common/gal/kicursors.js';
+import { sharedToolCursorName } from '@ziroeda/common/tool/tool_cursors.js';
 
 /**
  * Which `KICURSOR` a right-toolbar tool runs with, following the tool that

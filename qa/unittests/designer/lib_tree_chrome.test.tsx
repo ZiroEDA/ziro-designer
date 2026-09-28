@@ -33,17 +33,17 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/react';
 import { SymbolEditor } from '@ziroeda/designer/src/editors/symbol/SymbolEditor.js';
-import { LibTree } from '@ziroeda/designer/src/widgets/lib_tree.js';
+import { LibTree } from '@ziroeda/common/widgets/lib_tree.js';
 import {
   LibTreeModelAdapter,
   LIB_TREE_DEFAULT_COL_WIDTHS,
   LIB_TREE_INDENT,
-} from '@ziroeda/designer/src/widgets/lib_tree_model_adapter.js';
-import { makeItemNode } from '@ziroeda/designer/src/widgets/lib_tree_model.js';
+} from '@ziroeda/common/lib_tree_model_adapter.js';
+import { makeItemNode } from '@ziroeda/common/lib_tree_model.js';
 
 afterEach(cleanup);
 
-const SHELL = readFileSync(resolve(process.cwd(), '../designer/src/ui/shell.css'), 'utf8');
+const SHELL = readFileSync(resolve(process.cwd(), '../common/widgets/shell.css'), 'utf8');
 
 /** One rule's body, by its exact selector text — per rule, never per file. */
 function rule(selector: string): string {

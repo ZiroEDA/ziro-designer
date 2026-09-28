@@ -28,8 +28,8 @@ import {
   GRID_SNAP_CHOICES,
   GRID_STYLE_CHOICES,
   GRID_THICKNESS_CHOICES,
-} from '@ziroeda/designer/src/dialogs/prefs/gal_options.js';
-import { OVERRIDE_ROWS } from '@ziroeda/designer/src/dialogs/prefs/grid_settings_rows.js';
+} from '@ziroeda/common/dialogs/panel_gal_options.js';
+import { OVERRIDE_ROWS } from '@ziroeda/common/dialogs/panel_grid_settings.js';
 import { PL_EDITOR_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
 
 afterEach(() => {

@@ -18,9 +18,9 @@ import {
   extractTailNumber,
   netlistAllegro,
   removeTailDigits,
-} from '@ziroeda/eeschema/src/exporters/netlist_exporter_allegro.js';
-import { netlistFiles } from '@ziroeda/eeschema/src/exporters/netlist.js';
-import type { LibPin, LibSymbol, Schematic } from '@ziroeda/eeschema/src/types.js';
+} from '@ziroeda/eeschema/netlist_exporters/netlist_exporter_allegro.js';
+import { netlistFiles } from '@ziroeda/eeschema/netlist_exporters/netlist.js';
+import type { LibPin, LibSymbol, Schematic } from '@ziroeda/eeschema/types.js';
 
 /** Two resistors on one net plus a capacitor, so grouping has something to do. */
 const SCH = `(kicad_sch (version 20250114) (generator "test") (paper "A4")
@@ -149,7 +149,9 @@ describe('the netlist file', () => {
     // R1 pin 1 and C1 pin 1 share the wire; R2 sits on its own.
     expect(nets).toContain("'NET-(C1-PAD1)'; C1.1,\n\tR1.1");
     // An auto-named net is quoted because of its parentheses and hyphens.
-    expect(nets).toContain("'NET-(R2-PAD1)'; R2.1");
+    // R2 pin 1 alone on its net: unconnected-(R2-Pad1) (connection_graph.cpp:2650),
+    // upper-cased like every Allegro net.
+    expect(nets).toContain("'UNCONNECTED-(R2-PAD1)'; R2.1");
   });
 });
 

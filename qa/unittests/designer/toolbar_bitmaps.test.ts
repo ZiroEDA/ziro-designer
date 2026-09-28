@@ -8,7 +8,7 @@
  *
  *     toolbarIconUrl(b.id) ?? toolbarIconUrl(b.icon)
  *
- * against the vendored SVGs in `designer/src/assets/toolbar/`, and falls back to
+ * against the vendored SVGs in `bitmaps_png/sources/toolbar/`, and falls back to
  * the hand-drawn line glyph in `icons.tsx` when neither name is mapped. That
  * fallback is the problem this file guards: a key that matches no button, or a
  * button whose id was renamed out from under its key, produces no error at all
@@ -23,12 +23,8 @@
  */
 import { describe, it, expect } from 'vitest';
 import { readdirSync } from 'node:fs';
-import { BITMAP } from '@ziroeda/designer/src/ui/toolbar_bitmaps.js';
-import {
-  TOP_TOOLBAR,
-  LEFT_TOOLBAR,
-  RIGHT_TOOLBAR,
-} from '@ziroeda/designer/src/editors/schematic/toolbars_sch_editor.js';
+import { BITMAP } from '@ziroeda/common/bitmap_store_actions.js';
+import { TOP_TOOLBAR, LEFT_TOOLBAR, RIGHT_TOOLBAR } from '@ziroeda/eeschema/toolbars_sch_editor.js';
 import {
   SYM_TOP_TOOLBAR,
   SYM_LEFT_TOOLBAR,
@@ -39,24 +35,24 @@ import {
   PCB_AUX_TOOLBAR,
   PCB_LEFT_TOOLBAR,
   PCB_RIGHT_TOOLBAR,
-} from '@ziroeda/designer/src/editors/pcb/pcbToolbars.js';
+} from '@ziroeda/pcbnew/toolbars_pcb_editor.js';
 import {
   FP_TOP_TOOLBAR,
   FP_LEFT_TOOLBAR,
   FP_RIGHT_TOOLBAR,
-} from '@ziroeda/designer/src/editors/footprint/footprintToolbars.js';
+} from '@ziroeda/pcbnew/toolbars_footprint_editor.js';
 import {
   GBR_TOP_TOOLBAR,
   GBR_TOP_AUX_TOOLBAR,
   GBR_LEFT_TOOLBAR,
-} from '@ziroeda/designer/src/editors/gerbview/gerberToolbars.js';
+} from '@ziroeda/gerbview/toolbars_gerber.js';
 import {
   DS_TOP_TOOLBAR,
   DS_LEFT_TOOLBAR,
   DS_RIGHT_TOOLBAR,
-} from '@ziroeda/designer/src/editors/drawingsheet/drawingSheetToolbars.js';
-import { VIEWER3D_TOP_TOOLBAR } from '@ziroeda/designer/src/editors/pcb/viewer3dToolbars.js';
-import type { ToolButton, ToolEntry } from '@ziroeda/designer/src/ui/toolbar_types.js';
+} from '@ziroeda/pagelayout_editor/toolbars_pl_editor.js';
+import { VIEWER3D_TOP_TOOLBAR } from '@ziroeda/3d-viewer/toolbars_3d.js';
+import type { ToolButton, ToolEntry } from '@ziroeda/common/tool/action_toolbar_types.js';
 
 const buttons = (entries: readonly ToolEntry[]): ToolButton[] =>
   entries.flatMap((e) =>
@@ -103,7 +99,7 @@ const BARS: Readonly<Record<string, readonly ToolEntry[]>> = {
 
 /** The vendored bitmap names, i.e. assets/toolbar/*.svg without the extension. */
 const VENDORED = new Set(
-  readdirSync(new URL('../../../designer/src/assets/toolbar', import.meta.url))
+  readdirSync(new URL('../../../bitmaps_png/sources/toolbar', import.meta.url))
     .filter((f) => f.endsWith('.svg'))
     .map((f) => f.slice(0, -4)),
 );

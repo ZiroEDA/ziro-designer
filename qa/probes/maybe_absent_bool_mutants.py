@@ -22,8 +22,8 @@ import sys
 from dataclasses import dataclass, field
 
 RB = "pcbnew/src/read-board.ts"
-RS = "eeschema/src/sch_io/sexpr/read-schematic.ts"
-QY = "libs/sexpr/src/query.ts"
+RS = "eeschema/sch_io/sexpr/read-schematic.ts"
+QY = "libs/sexpr/query.ts"
 
 PCB_T = "unittests/pcbnew/maybe_absent_bool.test.ts"
 SCH_T = "unittests/eeschema/maybe_absent_bool.test.ts"

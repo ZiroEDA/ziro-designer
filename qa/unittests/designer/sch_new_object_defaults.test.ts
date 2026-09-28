@@ -13,12 +13,12 @@
 import { describe, expect, it } from 'vitest';
 import { parse, serialize } from '@ziroeda/sexpr';
 import { readSchematic, readSymbolLib, writeSchematic } from '@ziroeda/eeschema';
-import { makeSheet } from '@ziroeda/eeschema/src/tools/build-graphics.js';
-import { addItems } from '@ziroeda/eeschema/src/tools/mutate.js';
+import { makeSheet } from '@ziroeda/eeschema/tools/build-graphics.js';
+import { addItems } from '@ziroeda/eeschema/tools/mutate.js';
 import {
   applyNewPowerSymbolType,
   NewPowerSymbols,
-} from '@ziroeda/eeschema/src/tools/new_object_defaults.js';
+} from '@ziroeda/eeschema/tools/new_object_defaults.js';
 
 const MM = 10000;
 const AT = { x: 100 * MM, y: 100 * MM };

@@ -13,22 +13,22 @@
  * checks the port against KiCad's own arithmetic rather than against ours.
  */
 import { describe, expect, it } from 'vitest';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import {
   dimensionSegments,
   hitTestDimension,
   knockOutSegment,
   textKnockoutPoly,
-} from '@ziroeda/pcbnew/src/dimension_geometry.js';
+} from '@ziroeda/pcbnew/dimension_geometry.js';
 import {
   dimensionDisplayText,
   dimensionUnits,
   dimensionValueText,
   updateDimension,
-} from '@ziroeda/pcbnew/src/dimension_text.js';
-import type { PcbDimension, PcbTextItem } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/dimension_text.js';
+import type { PcbDimension, PcbTextItem } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 const P = (x: number, y: number): { x: number; y: number } => ({ x: MM(x), y: MM(y) });

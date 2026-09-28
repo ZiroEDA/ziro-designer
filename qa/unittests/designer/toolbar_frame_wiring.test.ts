@@ -29,7 +29,16 @@ import { join } from 'node:path';
 import type { ToolbarApp } from '@ziroeda/designer/src/prefs/settings.js';
 
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
-const read = (rel: string): string => readFileSync(join(SRC, rel), 'utf8');
+/**
+ * A frame's source. `a+b` reads two files as one: a frame whose window moved
+ * into its KiCad package (gerbview/gerbview_frame_ui.tsx) takes its toolbar
+ * layout from the page that hosts it, so the wiring spans both.
+ */
+const read = (rel: string): string =>
+  rel
+    .split('+')
+    .map((r) => readFileSync(join(SRC, r), 'utf8'))
+    .join('\n');
 
 /**
  * The frames whose app has a Toolbars page, with the number of toolbars that
@@ -55,7 +64,7 @@ const FRAMES: {
 }[] = [
   {
     app: 'pl_editor',
-    file: 'editors/drawingsheet/DrawingSheetEditor.tsx',
+    file: 'editors/drawingsheet/DrawingSheetEditor.tsx+../../pagelayout_editor/pl_editor_frame_ui.tsx',
     bars: 3,
     banned: ['DS_TOP_TOOLBAR', 'DS_LEFT_TOOLBAR', 'DS_RIGHT_TOOLBAR'],
   },
@@ -77,7 +86,7 @@ const FRAMES: {
     // (`gerbview/toolbars_gerber.cpp:46-48`) and has a TOP_AUX, which is the
     // opposite way round from eeschema's and pl_editor's.
     app: 'gerbview',
-    file: 'editors/gerbview/GerberViewer.tsx',
+    file: 'editors/gerbview/GerberViewer.tsx+../../gerbview/gerbview_frame_ui.tsx',
     bars: 3,
     banned: ['GBR_TOP_TOOLBAR', 'GBR_TOP_AUX_TOOLBAR', 'GBR_LEFT_TOOLBAR'],
   },

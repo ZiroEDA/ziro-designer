@@ -10,9 +10,10 @@
       "**",
       "!designer/public",
       "!designer/src/assets",
+      "!bitmaps_png/sources",
       "!qa/data",
       "!**/dist",
-      "!common/src/font/newstroke_glyphs.ts",
+      "!common/newstroke_font.ts",
       "!designer/src/render/gl/vendor",
       "!libs/kimath/src/thirdparty/vendor",
       "!docs/email-templates"
@@ -57,5 +58,17 @@
       },
       "a11y": "off"
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["common/gal/opengl/**"],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "useHookAtTopLevel": "off"
+          }
+        }
+      }
+    }
+  ]
 }

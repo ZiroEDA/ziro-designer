@@ -13,10 +13,15 @@ format-compatibility.
 | `eeschema/`      | `eeschema/`          | Schematic engine: document model, `sch_io/sexpr` reader/writer, `connectivity/` (nets, ERC), `tools/` (interactive editing) |
 | `pcbnew/`        | `pcbnew/`            | Board engine: board/footprint/pad/zone object model, `pcb_io/sexpr` parser + formatter, board and footprint editing |
 | `gerbview/`      | `gerbview/`          | Gerber viewer engine: RS-274X Gerber + Excellon drill readers, `D_CODE` apertures, `APERTURE_MACRO` primitives, `GERBER_DRAW_ITEM` model, `GBR_LAYOUT`, `.gbrjob` job-file parsing |
+| `bitmap2component/` | `bitmap2component/` | Image Converter: `BITMAPCONV_INFO` (trace and write symbol / footprint / PostScript / drawing sheet), `IMAGE_SIZE`, `BITMAP2CMP_PANEL` and its view, `BITMAP2CMP_FRAME`, `BITMAP2CMP_CONTROL`, `BITMAP2CMP_SETTINGS` — see its `STRUCTURE.md` |
+| `pagelayout_editor/` | `pagelayout_editor/` | Drawing Sheet Editor (`pl_editor`): `PL_EDITOR_FRAME`, its layout, settings and undo/redo, the toolbars, the properties and inspector dialogs, `tools/` (the `PL_*` tools); per-unit table in `pagelayout_editor/STRUCTURE.md` |
+| `cvpcb/` | `cvpcb/` | Assign Footprints (CvPcb): `CVPCB_MAINFRAME`'s COMPONENT list and association state, the listboxes, `auto_associate`, `tools/` (association and control), the footprint viewer's toolbars; the windows are still the app's. Per-unit table in `cvpcb/STRUCTURE.md` |
+| `3d-viewer/`     | `3d-viewer/`         | The 3D viewer engine: the three.js scene builder (`3d_canvas`/`3d_rendering`'s counterpart), the OpenCascade STEP/IGES loader (`plugins/3d/occ`'s counterpart), board-outline tessellation, appearance data, the menu bar and toolbars. `EDA_3D_VIEWER_FRAME` itself is still the app's; see `3d-viewer/STRUCTURE.md` |
 | `common/`        | `common/`            | Shared EDA classes: shapes, text, units, placement transforms, stroke `font/` |
 | `pcb_calculator/`| `pcb_calculator/` + `common/transline_calculations/` | Calculator Tools engine: regulators, track/via/fusing current, E-series, electrical spacing (IPC-2221 + IEC 60664), board classes, galvanic corrosion, and the `transline/` models (microstrip, coupled microstrip, coplanar, coax, rectangular waveguide, stripline, twisted pair) |
 | `libs/kimath/`   | `libs/kimath/`       | Math: `math/vector2`, `geometry/eda_angle`, `trigo`                       |
 | `libs/core/`     | `libs/core/`         | Small shared utilities (`mirror`, flip directions)                        |
+| `libs/potrace/`  | `thirdparty/potrace` | potracelib 1.15, the tracer `bitmap2component` links, pinned bit for bit against KiCad's C |
 | `libs/sexpr/`    | `libs/sexpr/`        | Lossless S-expression tokenizer/parser/serializer                         |
 | `qa/`            | `qa/`                | Unit tests (`qa/unittests/<module>/`) and test fixtures (`qa/data/`)      |
 | `tools/`         | *(ours)*             | Offline build pipelines (not workspace packages): `models3d/` converts the upstream STEP 3D library to the hosted `.glb` set |
@@ -45,13 +50,16 @@ Vitest suites for all of them, arranged by the module under test.
   `footprint_preview_widget.tsx`, `footprint_select_widget.tsx`); editor-
   specific widgets sit in `designer/src/editors/<frame>/widgets/` after
   their upstream `<frame>/widgets/` counterparts.
-- **The 3D viewer** (`designer/src/editors/pcb/pcb3d.ts`, `model3d.ts`,
-  `component3d.ts`) stays in the app for now because it shares geometry/theme
-  modules with the 2D board painter; it becomes its own package when split.
+- **The 3D viewer** moved to its own package, `3d-viewer/`, 09-28. Its frame,
+  `Viewer3DFrame.tsx` (`EDA_3D_VIEWER_FRAME`), is still in
+  `designer/src/editors/pcb/` — it calls the Preferences settings store
+  directly at dozens of sites and needs a `VIEWER3D_APP` interface (the
+  `CVPCB_APP` / `PL_EDITOR_APP` pattern) before it can follow; see
+  `3d-viewer/STRUCTURE.md`.
 - **`designer/public/templates/`** holds project templates;
   symbol/footprint/3D-model libraries under `designer/public/` are served as
   static assets.
 - **Future tools get their own engine dirs** following the same upstream
   conventions (gerber viewer → `gerbview/` ✅, drawing-sheet editor →
-  `pagelayout_editor/`, …), with their UI frames in the app. The Gerber
+  `pagelayout_editor/` ✅, …), with their UI frames in the app. The Gerber
   Viewer's UI frame lives in `designer/src/editors/gerbview/`.

@@ -35,8 +35,8 @@ import {
   PropertiesPanel,
   propertiesPanelCaption,
   UNSPECIFIED_GROUP_CAPTION,
-} from '@ziroeda/designer/src/widgets/properties_panel.js';
-import type { PropertyGridRow } from '@ziroeda/designer/src/widgets/properties_panel.js';
+} from '@ziroeda/common/widgets/properties_panel_ui.js';
+import type { PropertyGridRow } from '@ziroeda/common/widgets/properties_panel_ui.js';
 
 afterEach(cleanup);
 
@@ -334,14 +334,14 @@ describe('read-only rows', () => {
 
 describe('the stylesheet states what wxPropertyGrid decides, and nothing else', () => {
   const css = readFileSync(
-    resolve(process.cwd(), '../designer/src/widgets/properties_panel.css'),
+    resolve(process.cwd(), '../common/widgets/properties_panel.css'),
     'utf8',
   );
   /** The rules, with the comments (which quote KiCad and carry hex samples) cut out. */
   const rules = css.replace(/\/\*[\s\S]*?\*\//g, '');
 
   it('lives beside its widget rather than in ui/shell.css', () => {
-    const shell = readFileSync(resolve(process.cwd(), '../designer/src/ui/shell.css'), 'utf8');
+    const shell = readFileSync(resolve(process.cwd(), '../common/widgets/shell.css'), 'utf8');
     expect(shell).not.toContain('.ze-pgrid');
   });
 
@@ -613,7 +613,7 @@ describe('the editing rules every launcher relies on', () => {
 });
 
 describe('the private pcbnew copy of this widget is gone', () => {
-  const shell = readFileSync(resolve(process.cwd(), '../designer/src/ui/shell.css'), 'utf8');
+  const shell = readFileSync(resolve(process.cwd(), '../common/widgets/shell.css'), 'utf8');
 
   it('leaves no .ze-pg* rules behind in ui/shell.css', () => {
     // PcbEditor.tsx drew its own grid with `PgCat`/`PgRow`/`PgEdit` styled by

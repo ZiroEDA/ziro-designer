@@ -29,7 +29,6 @@ import { runTx } from './storageHealth.js';
 import { gunzip, gzip } from './gzip.js';
 import {
   changedAgainst,
-  hashFiles,
   kindOfTitle,
   PRE_RESTORE_TITLE,
   restoredFromTitle,
@@ -37,8 +36,10 @@ import {
   snapshotsToEvict,
   type Snapshot,
   type SnapshotKind,
-} from './local_history.js';
+  type SnapshotFile,
+} from '@ziroeda/common/local_history.js';
 import { loadProject, updateProjectFiles, type StoredFile } from './projectStore.js';
+import { sha256Hex } from '../cloud/blobStore.js';
 import { idbHandle } from './idb_open.js';
 import { openRecord, sealRecord } from './local_vault.js';
 
@@ -395,4 +396,16 @@ export async function restoreSnapshot(
 
   announce(projectId);
   return files;
+}
+
+/** The file list of a project, hashed, ready to be committed as a snapshot. */
+export async function hashFiles(files: readonly StoredFile[]): Promise<SnapshotFile[]> {
+  const out = await Promise.all(
+    files.map(async (f) => ({
+      name: f.name,
+      hash: await sha256Hex(f.bytes),
+      size: f.bytes.length,
+    })),
+  );
+  return out.sort((a, b) => a.name.localeCompare(b.name));
 }

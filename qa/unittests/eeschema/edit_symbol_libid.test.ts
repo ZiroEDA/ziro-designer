@@ -17,8 +17,8 @@ import {
   libNickname,
   orphanCandidates,
   symbolLibIdRows,
-} from '@ziroeda/eeschema/src/tools/edit_symbol_libid.js';
-import type { LibSymbol, Schematic } from '@ziroeda/eeschema/src/types.js';
+} from '@ziroeda/eeschema/tools/edit_symbol_libid.js';
+import type { LibSymbol, Schematic } from '@ziroeda/eeschema/types.js';
 
 /**
  * Two symbols on Device:R, one on Device:C, and one on a library that is not

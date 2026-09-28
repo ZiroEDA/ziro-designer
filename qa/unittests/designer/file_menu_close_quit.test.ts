@@ -40,16 +40,16 @@ import {
   addQuitOrClose,
   UPSTREAM_CLOSE_KEY,
   UPSTREAM_QUIT_KEY,
-} from '@ziroeda/designer/src/ui/action_menu.js';
+} from '@ziroeda/common/tool/action_menu.js';
 import {
   BROWSER_REBINDS,
   browserSafeKey,
   isBrowserReserved,
-} from '@ziroeda/designer/src/ui/browser_reserved.js';
-import { buildViewer3DMenus } from '@ziroeda/designer/src/editors/pcb/viewer3dMenus.js';
-import { buildMenus as buildSchMenus } from '@ziroeda/designer/src/editors/schematic/menubar.js';
+} from '@ziroeda/common/browser_reserved.js';
+import { buildViewer3DMenus } from '@ziroeda/3d-viewer/3d_menubar.js';
+import { buildMenus as buildSchMenus } from '@ziroeda/eeschema/menubar.js';
 import { buildHotkeySections } from '@ziroeda/designer/src/ui/hotkeys_inventory.js';
-import type { Menu, MenuItem } from '@ziroeda/designer/src/ui/menu_types.js';
+import type { Menu, MenuItem } from '@ziroeda/common/tool/action_menu_types.js';
 
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
 const read = (rel: string): string => readFileSync(join(SRC, rel), 'utf8');
@@ -155,9 +155,9 @@ const FRAMES: FrameRow[] = [
     rows: ['close'],
   },
   {
-    // Likewise: `editors/footprint/menubar.ts` is the tree, and the frame keeps
+    // Likewise: `menubar_footprint_editor.ts` is the tree, and the frame keeps
     // only the handlers.
-    file: 'editors/footprint/menubar.ts',
+    file: '../../pcbnew/menubar_footprint_editor.ts',
     upstream: 'pcbnew/menubar_footprint_editor.cpp:92',
     app: 'Footprint Editor',
     rows: ['close'],
@@ -165,19 +165,20 @@ const FRAMES: FrameRow[] = [
   {
     // The bar moved out of the frame into its own data module, the way
     // eeschema's did, so that qa can compile it.
-    file: 'editors/gerbview/menubar.ts',
+    file: '../../gerbview/menubar.ts',
     upstream: 'gerbview/menubar.cpp:159',
     app: 'Gerber Viewer',
     rows: ['quitOrClose'],
   },
   {
-    file: 'editors/schematic/dialogs/dialog_assign_footprints.tsx',
+    file: '../../cvpcb/cvpcb_mainframe_ui.tsx',
     upstream: 'cvpcb/menubar.cpp:51',
     app: 'Assign Footprints',
     rows: ['close'],
   },
   {
-    file: 'editors/drawingsheet/DrawingSheetEditor.tsx',
+    // PL_EDITOR_FRAME::doReCreateMenuBar moved beside KiCad's (09-27).
+    file: '../../pagelayout_editor/menubar.ts',
     upstream: 'pagelayout_editor/menubar.cpp:88-89',
     app: 'Drawing Sheet Editor',
     rows: ['close', 'quit'],
@@ -189,7 +190,7 @@ const FRAMES: FrameRow[] = [
     rows: ['close', 'quit'],
   },
   {
-    file: 'editors/pcb/viewer3dMenus.ts',
+    file: '../../3d-viewer/3d_menubar.ts',
     upstream: '3d-viewer/3d_viewer/3d_menubar.cpp:54',
     app: '3D Viewer',
     rows: ['close'],
@@ -197,19 +198,19 @@ const FRAMES: FrameRow[] = [
   {
     // The bar is a data module now, like the schematic's below and the symbol,
     // footprint and Gerber ones above.
-    file: 'editors/pcb/menubar.ts',
+    file: '../../pcbnew/menubar_pcb_editor.ts',
     upstream: 'pcbnew/menubar_pcb_editor.cpp:165',
     app: 'PCB Editor',
     rows: ['quitOrClose'],
   },
   {
-    file: 'editors/schematic/menubar.ts',
+    file: '../../eeschema/menubar.ts',
     upstream: 'eeschema/menubar.cpp:129',
     app: 'Schematic Editor',
     rows: ['quitOrClose'],
   },
   {
-    file: 'editors/image/ImageConverter.tsx',
+    file: '../../bitmap2component/bitmap2cmp_frame_ui.tsx',
     upstream: 'bitmap2component/bitmap2cmp_frame.cpp:299',
     app: 'Image Converter',
     rows: ['quit'],
@@ -346,6 +347,7 @@ describe('no menu declares a key the browser will not deliver', () => {
     const files: string[] = [];
     const walk = (dir: string): void => {
       for (const name of readdirSync(dir)) {
+        if (name === 'node_modules') continue;
         const path = join(dir, name);
         if (statSync(path).isDirectory()) {
           walk(path);
@@ -365,6 +367,16 @@ describe('no menu declares a key the browser will not deliver', () => {
       }
     };
     walk(SRC);
+    // The editor packages that keep their frame's menubar beside KiCad's
+    // (gerbview/menubar.ts, pagelayout_editor/menubar.ts): a sweep of
+    // designer/ alone would stop seeing a menu the day it moved.
+    walk(join(SRC, '../../gerbview'));
+    walk(join(SRC, '../../pagelayout_editor'));
+    walk(join(SRC, '../../bitmap2component'));
+    walk(join(SRC, '../../cvpcb'));
+    walk(join(SRC, '../../pcbnew'));
+    walk(join(SRC, '../../3d-viewer'));
+    walk(join(SRC, '../../eeschema'));
     return { declared: out, visited: new Set(files) };
   })();
 

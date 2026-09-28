@@ -18,21 +18,21 @@
  * over a millimetre away, far past any click slop.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { boardHitCandidates, boardItemId } from '@ziroeda/pcbnew/src/edit-board.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { boardHitCandidates, boardItemId } from '@ziroeda/pcbnew/edit-board.js';
 import {
   boardEditHandles,
   boardIndicatorLines,
   dragBoardHandle,
-} from '@ziroeda/pcbnew/src/point_editor.js';
-import type { Board } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/tools/pcb_point_editor.js';
+import type { Board } from '@ziroeda/pcbnew/types.js';
 import {
   buildScene,
   buildDrawSteps,
   DEFAULT_DRAW_OPTIONS,
   type ScenePathFactory,
-} from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
+} from '@ziroeda/pcbnew/renderBoard.js';
 
 const MM = 1e6;
 

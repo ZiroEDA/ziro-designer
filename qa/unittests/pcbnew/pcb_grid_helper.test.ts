@@ -17,13 +17,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   align,
-  alignToArc,
-  alignToSegment,
-  computeNearest,
   gridArcFromPoints,
-  PcbGridHelper,
+  PCB_GRID_HELPER,
   type PcbGridState,
-} from '@ziroeda/pcbnew/src/pcb_grid_helper.js';
+} from '@ziroeda/pcbnew/tools/pcb_grid_helper.js';
+import { computeNearest, GRID_HELPER } from '@ziroeda/common/tool/grid_helper.js';
 
 const MM = 1e6;
 
@@ -44,15 +42,17 @@ const TRACK = { a: { x: 0, y: 1_123_000 }, b: { x: 10 * MM, y: 1_123_000 } };
 
 describe('computeNearest (GRID_HELPER::computeNearest)', () => {
   it('rounds about the origin, not toward it', () => {
-    const g = 0.5 * MM;
+    const g = { x: 0.5 * MM, y: 0.5 * MM };
     const o = { x: 1000, y: 1000 };
-    expect(computeNearest({ x: 1000 + g * 0.6, y: 1000 }, g, o).x).toBe(1000 + g);
-    expect(computeNearest({ x: 1000 + g * 0.4, y: 1000 }, g, o).x).toBe(1000);
-    expect(computeNearest({ x: 1000 - g * 0.6, y: 1000 }, g, o).x).toBe(1000 - g);
+    expect(computeNearest({ x: 1000 + g.x * 0.6, y: 1000 }, g, o).x).toBe(1000 + g.x);
+    expect(computeNearest({ x: 1000 + g.x * 0.4, y: 1000 }, g, o).x).toBe(1000);
+    expect(computeNearest({ x: 1000 - g.x * 0.6, y: 1000 }, g, o).x).toBe(1000 - g.x);
   });
 
   it('leaves a point alone rather than dividing by a zero grid', () => {
-    expect(computeNearest({ x: 7, y: 9 }, 0, { x: 0, y: 0 })).toEqual({ x: 7, y: 9 });
+    // Our guard, not upstream's: a GAL grid is never zero. `SetState` reads a
+    // zero grid as grid snapping off.
+    expect(align({ x: 7, y: 9 }, gridState({ size: 0 }))).toEqual({ x: 7, y: 9 });
   });
 });
 
@@ -75,7 +75,10 @@ describe('alignToSegment (PCB_GRID_HELPER::AlignToSegment)', () => {
     // The vertical ray from that grid node crosses the centreline at the node's
     // own x, and is nearer to it than either diagonal. The cursor is on the
     // copper, at a point that still lines up with the grid.
-    expect(alignToSegment(pointer, TRACK, grid)).toEqual({ x: 2.5 * MM, y: 1_123_000 });
+    expect(new PCB_GRID_HELPER(grid).AlignToSegment(pointer, TRACK)).toEqual({
+      x: 2.5 * MM,
+      y: 1_123_000,
+    });
   });
 
   it('offers the diagonal crossings, and takes the nearest of the four', () => {
@@ -87,14 +90,17 @@ describe('alignToSegment (PCB_GRID_HELPER::AlignToSegment)', () => {
     // aligned = (4, 2) mm. The centreline is 0.877 mm above that, so the
     // vertical crossing is 0.877 mm away and each diagonal is 0.877·√2.
     expect(align(pointer, grid)).toEqual({ x: 4 * MM, y: 2 * MM });
-    expect(alignToSegment(pointer, TRACK, grid)).toEqual({ x: 4 * MM, y: 1_123_000 });
+    expect(new PCB_GRID_HELPER(grid).AlignToSegment(pointer, TRACK)).toEqual({
+      x: 4 * MM,
+      y: 1_123_000,
+    });
   });
 
   it('prefers an end when the pointer is near one', () => {
     // Measured from the raw pointer, not the grid node — upstream scores the
     // two ends against `aPoint` and the crossings against `aligned`.
     const pointer = { x: 100_000, y: 1_120_000 };
-    expect(alignToSegment(pointer, TRACK, gridState())).toEqual(TRACK.a);
+    expect(new PCB_GRID_HELPER(gridState()).AlignToSegment(pointer, TRACK)).toEqual(TRACK.a);
   });
 
   it('discards crossings that land beyond the track, and falls back to its end', () => {
@@ -102,19 +108,24 @@ describe('alignToSegment (PCB_GRID_HELPER::AlignToSegment)', () => {
     // each crossing is a millimetre off the segment, so `c_gridSnapEpsilon_sq`
     // throws them all away and the nearest end wins.
     const pointer = { x: 11 * MM, y: 1_123_000 };
-    expect(alignToSegment(pointer, TRACK, gridState())).toEqual(TRACK.b);
+    expect(new PCB_GRID_HELPER(gridState()).AlignToSegment(pointer, TRACK)).toEqual(TRACK.b);
   });
 
   it('is a plain grid align when snapping is off (Shift held)', () => {
     const pointer = { x: 2_600_000, y: 1_100_000 };
     const grid = gridState({ enableSnap: false });
-    expect(alignToSegment(pointer, TRACK, grid)).toEqual({ x: 2.5 * MM, y: 1 * MM });
+    expect(new PCB_GRID_HELPER(grid).AlignToSegment(pointer, TRACK)).toEqual({
+      x: 2.5 * MM,
+      y: 1 * MM,
+    });
   });
 
   it('survives a zero-length track rather than dividing by its direction', () => {
     const degenerate = { a: { x: 3 * MM, y: 3 * MM }, b: { x: 3 * MM, y: 3 * MM } };
     const pointer = { x: 3_100_000, y: 3_100_000 };
-    expect(alignToSegment(pointer, degenerate, gridState())).toEqual(degenerate.a);
+    expect(new PCB_GRID_HELPER(gridState()).AlignToSegment(pointer, degenerate)).toEqual(
+      degenerate.a,
+    );
   });
 });
 
@@ -124,7 +135,7 @@ describe('alignToArc (PCB_GRID_HELPER::AlignToArc)', () => {
 
   it('puts the cursor on the arc', () => {
     const pointer = { x: 700_000, y: 700_000 };
-    const got = alignToArc(pointer, ARC, gridState());
+    const got = new PCB_GRID_HELPER(gridState()).AlignToArc(pointer, ARC);
 
     // The +45° ray from the grid node (0.5, 0.5) mm meets the arc at 45°, which
     // is nearer to that node than any other crossing or either end.
@@ -136,7 +147,7 @@ describe('alignToArc (PCB_GRID_HELPER::AlignToArc)', () => {
 
   it('is a plain grid align when snapping is off', () => {
     const pointer = { x: 700_000, y: 700_000 };
-    expect(alignToArc(pointer, ARC, gridState({ enableSnap: false }))).toEqual({
+    expect(new PCB_GRID_HELPER(gridState({ enableSnap: false })).AlignToArc(pointer, ARC)).toEqual({
       x: 0.5 * MM,
       y: 0.5 * MM,
     });
@@ -170,7 +181,7 @@ describe('gridArcFromPoints (SHAPE_ARC from a curved track)', () => {
   it('produces no crossings from a degenerate arc, leaving only its ends', () => {
     const degenerate = gridArcFromPoints({ x: 0, y: 0 }, { x: 1 * MM, y: 0 }, { x: 2 * MM, y: 0 });
     const pointer = { x: 1_100_000, y: 100_000 };
-    const got = alignToArc(pointer, degenerate!, gridState());
+    const got = new PCB_GRID_HELPER(gridState()).AlignToArc(pointer, degenerate!);
 
     // Every crossing is suppressed, so the nearer end wins — the cursor stays
     // on the copper rather than leaping to the centre clamped at INT_MAX.
@@ -179,31 +190,34 @@ describe('gridArcFromPoints (SHAPE_ARC from a curved track)', () => {
   });
 });
 
-describe('PcbGridHelper (the PnsSnapGridHelper the router asks for)', () => {
-  it('aligns a segment through the shared state', () => {
-    const helper = new PcbGridHelper(gridState());
-    expect(helper.alignToSegment({ x: 2_600_000, y: 1_100_000 }, TRACK)).toEqual({
+describe('PCB_GRID_HELPER (the helper the router asks)', () => {
+  it('is a GRID_HELPER, as upstream derives it', () => {
+    expect(new PCB_GRID_HELPER(gridState())).toBeInstanceOf(GRID_HELPER);
+  });
+
+  it('aligns a segment through the state it was handed', () => {
+    const helper = new PCB_GRID_HELPER(gridState());
+    expect(helper.AlignToSegment({ x: 2_600_000, y: 1_100_000 }, TRACK)).toEqual({
       x: 2.5 * MM,
       y: 1_123_000,
     });
   });
 
-  it('falls back to the grid for a shape that is not an arc', () => {
-    const helper = new PcbGridHelper(gridState());
-    const circle = { kind: 'circle', c: { x: 0, y: 0 }, r: 1 * MM } as const;
-    expect(helper.alignToArc({ x: 700_000, y: 700_000 }, circle)).toEqual({
-      x: 0.5 * MM,
-      y: 0.5 * MM,
-    });
+  it("drops the last gesture's aux axis when SetState is handed none", () => {
+    // The editor holds one helper and re-states it per event; a gesture's
+    // origin must not outlive the gesture.
+    const helper = new PCB_GRID_HELPER(gridState({ auxAxis: { x: 1_234, y: 5_678 } }));
+    expect(helper.Align({ x: 1_300, y: 5_600 })).toEqual({ x: 1_234, y: 5_678 });
+    helper.SetState(gridState());
+    expect(helper.Align({ x: 1_300, y: 5_600 })).toEqual({ x: 0, y: 0 });
   });
 
-  it('tracks a later change to the state it was handed', () => {
+  it('follows SetSnap on a long-lived helper', () => {
     // Upstream's helper is a long-lived member the event handler pokes with
     // SetUseGrid / SetSnap rather than rebuilding per mouse move.
-    const state = gridState();
-    const helper = new PcbGridHelper(state);
-    state.enableSnap = false;
-    expect(helper.alignToSegment({ x: 2_600_000, y: 1_100_000 }, TRACK)).toEqual({
+    const helper = new PCB_GRID_HELPER(gridState());
+    helper.SetSnap(false);
+    expect(helper.AlignToSegment({ x: 2_600_000, y: 1_100_000 }, TRACK)).toEqual({
       x: 2.5 * MM,
       y: 1 * MM,
     });

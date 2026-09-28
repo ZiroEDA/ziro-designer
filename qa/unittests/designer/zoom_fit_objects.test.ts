@@ -12,7 +12,7 @@
  * mapping both to the same call made Ctrl+Home do nothing useful.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic } from '@ziroeda/eeschema';
 import { fitToContent } from '@ziroeda/designer/src/editors/schematic/render/renderer.js';
 

@@ -19,8 +19,8 @@ import {
   sheetBodyBBox,
   sheetDropOffset,
   SHEET_DROP_STEP_IU,
-} from '@ziroeda/eeschema/src/tools/sch_sheet_drop.js';
-import type { LibSymbol } from '@ziroeda/eeschema/src/types.js';
+} from '@ziroeda/eeschema/tools/sch_sheet_drop.js';
+import type { LibSymbol } from '@ziroeda/eeschema/types.js';
 
 const MM = 10000;
 /** DEFAULT_LINE_WIDTH_MILS 6, in IU. */

@@ -35,39 +35,30 @@
  * green while the schematic editor sat lit.
  */
 import { describe, expect, it } from 'vitest';
-import {
-  LEFT_TOOLBAR,
-  RIGHT_TOOLBAR,
-} from '@ziroeda/designer/src/editors/schematic/toolbars_sch_editor.js';
-import { DS_LEFT_TOOLBAR } from '@ziroeda/designer/src/editors/drawingsheet/drawingSheetToolbars.js';
-import {
-  PCB_LEFT_TOOLBAR,
-  PCB_RIGHT_TOOLBAR,
-} from '@ziroeda/designer/src/editors/pcb/pcbToolbars.js';
-import { GBR_LEFT_TOOLBAR } from '@ziroeda/designer/src/editors/gerbview/gerberToolbars.js';
+import { LEFT_TOOLBAR, RIGHT_TOOLBAR } from '@ziroeda/eeschema/toolbars_sch_editor.js';
+import { DS_LEFT_TOOLBAR } from '@ziroeda/pagelayout_editor/toolbars_pl_editor.js';
+import { PCB_LEFT_TOOLBAR, PCB_RIGHT_TOOLBAR } from '@ziroeda/pcbnew/toolbars_pcb_editor.js';
+import { GBR_LEFT_TOOLBAR } from '@ziroeda/gerbview/toolbars_gerber.js';
 import {
   SYM_LEFT_TOOLBAR,
   SYM_RIGHT_TOOLBAR,
 } from '@ziroeda/designer/src/editors/symbol/symbolToolbars.js';
-import {
-  FP_LEFT_TOOLBAR,
-  FP_RIGHT_TOOLBAR,
-} from '@ziroeda/designer/src/editors/footprint/footprintToolbars.js';
+import { FP_LEFT_TOOLBAR, FP_RIGHT_TOOLBAR } from '@ziroeda/pcbnew/toolbars_footprint_editor.js';
 import {
   actionIsToolbarToggle,
   GROUP_ACTION_TOOLBAR_TOGGLE,
-} from '@ziroeda/designer/src/ui/toolbar_action_state.js';
+} from '@ziroeda/common/tool/actions_state.js';
 import {
   groupIsCheckItem,
   type ToolButton,
   type ToolEntry,
   type ToolGroup,
-} from '@ziroeda/designer/src/ui/toolbar_types.js';
+} from '@ziroeda/common/tool/action_toolbar_types.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const TOOLBAR_TSX = readFileSync(
-  fileURLToPath(new URL('../../../designer/src/ui/Toolbar.tsx', import.meta.url)),
+  fileURLToPath(new URL('../../../common/tool/action_toolbar.tsx', import.meta.url)),
   'utf8',
 );
 

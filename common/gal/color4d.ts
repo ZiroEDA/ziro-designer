@@ -1,0 +1,758 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+/**
+ * `COLOR4D` — a colour as four normalised components, KiCad's `common/color4d.h`.
+ *
+ * It lived in the DXF plotter because that was the first thing to need it.
+ * The graphics importers need it too, and they are shared between the board
+ * and the schematic, so it belongs where both can reach it.
+ */
+
+export interface Color4d {
+  r: number;
+  g: number;
+  b: number;
+  a: number;
+}
+
+export const COLOR4D_BLACK: Color4d = { r: 0, g: 0, b: 0, a: 1 };
+export const COLOR4D_WHITE: Color4d = { r: 1, g: 1, b: 1, a: 1 };
+/**
+ * `COLOR4D::UNSPECIFIED` — `COLOR4D( 0, 0, 0, 0 )` (`include/gal/color4d.h`).
+ *
+ * "Local override colors have a default of UNSPECIFIED, which means 'use the
+ * theme color'" (dialog_color_picker.cpp:97-99). It is a transparent black and
+ * is compared by value, so nothing else may reach that quadruple by accident.
+ */
+export const COLOR4D_UNSPECIFIED: Color4d = { r: 0, g: 0, b: 0, a: 0 };
+
+/**
+ * The legacy `EDA_COLOR_T` palette, `colorRefs()` in KiCad's
+ * `common/gal/color4d.cpp`. `COLOR4D( EDA_COLOR_T )` looks a colour up here and
+ * divides each channel by 255, which is how `s_classicTheme` — written almost
+ * entirely in these names — resolves to real colours.
+ *
+ * Beware `StructColors`: its fields are declared `m_Blue, m_Green, m_Red`, so
+ * the C++ initialisers read blue-first. `BLUE` is `{ 132, 0, 0 }` there and
+ * means rgb(0, 0, 132). The values below are already in r, g, b order.
+ */
+const legacyPalette = (r: number, g: number, b: number): Color4d => ({
+  r: r / 255,
+  g: g / 255,
+  b: b / 255,
+  a: 1,
+});
+
+/**
+ * `colorRefs()`, keyed by `EDA_COLOR_T` name, **in the table's own row order**.
+ *
+ * That is not the enum's order — the enum runs `LIGHTYELLOW, DARKBLUE, …` while
+ * the table runs `LIGHTYELLOW, LIGHTERORANGE, DARKBLUE, …` — and the difference
+ * is load-bearing: the Defined Colors page walks this table by INDEX to lay its
+ * swatches out in a 7 × 5 matrix (`initDefinedColors`,
+ * dialog_color_picker.cpp:167-246), so reordering it reshuffles that page.
+ */
+export const LEGACY_COLORS = {
+  BLACK: legacyPalette(0, 0, 0),
+  DARKDARKGRAY: legacyPalette(72, 72, 72),
+  DARKGRAY: legacyPalette(132, 132, 132),
+  LIGHTGRAY: legacyPalette(194, 194, 194),
+  WHITE: legacyPalette(255, 255, 255),
+  LIGHTYELLOW: legacyPalette(255, 255, 194),
+  LIGHTERORANGE: legacyPalette(255, 229, 191),
+  DARKBLUE: legacyPalette(0, 0, 72),
+  DARKGREEN: legacyPalette(0, 72, 0),
+  DARKCYAN: legacyPalette(0, 72, 72),
+  DARKRED: legacyPalette(72, 0, 0),
+  DARKMAGENTA: legacyPalette(72, 0, 72),
+  DARKBROWN: legacyPalette(72, 72, 0),
+  DARKORANGE: legacyPalette(128, 77, 0),
+  BLUE: legacyPalette(0, 0, 132),
+  GREEN: legacyPalette(0, 132, 0),
+  CYAN: legacyPalette(0, 132, 132),
+  RED: legacyPalette(132, 0, 0),
+  MAGENTA: legacyPalette(132, 0, 132),
+  BROWN: legacyPalette(132, 132, 0),
+  ORANGE: legacyPalette(204, 102, 0),
+  LIGHTBLUE: legacyPalette(0, 0, 194),
+  LIGHTGREEN: legacyPalette(0, 194, 0),
+  LIGHTCYAN: legacyPalette(0, 194, 194),
+  LIGHTRED: legacyPalette(194, 0, 0),
+  LIGHTMAGENTA: legacyPalette(194, 0, 194),
+  YELLOW: legacyPalette(194, 194, 0),
+  LIGHTORANGE: legacyPalette(221, 133, 0),
+  PUREBLUE: legacyPalette(0, 0, 255),
+  PUREGREEN: legacyPalette(0, 255, 0),
+  PURECYAN: legacyPalette(0, 255, 255),
+  PURERED: legacyPalette(255, 0, 0),
+  PUREMAGENTA: legacyPalette(255, 0, 255),
+  PUREYELLOW: legacyPalette(255, 255, 0),
+  PUREORANGE: legacyPalette(255, 153, 0),
+} as const satisfies Record<string, Color4d>;
+
+/** A legacy `EDA_COLOR_T` enumerator name. */
+export type EdaColorName = keyof typeof LEGACY_COLORS;
+
+/**
+ * `StructColors::m_ColorName` — the label beside each swatch on the colour
+ * picker's Defined Colors page, and the only place these strings are used.
+ *
+ * They are not the enumerator names: the table calls `DARKDARKGRAY` "Gray 1"
+ * and `PUREBLUE` "Blue 4", because the page reads as four shades of each hue
+ * rather than as an enum. [data] — copied from the `TS(...)` literals in
+ * `colorRefs()`, `common/gal/color4d.cpp:44-78`, and the `Record` keeps them in
+ * step with the palette above by construction.
+ */
+export const LEGACY_COLOR_NAMES: Record<EdaColorName, string> = {
+  BLACK: 'Black',
+  DARKDARKGRAY: 'Gray 1',
+  DARKGRAY: 'Gray 2',
+  LIGHTGRAY: 'Gray 3',
+  WHITE: 'White',
+  LIGHTYELLOW: 'L.Yellow',
+  LIGHTERORANGE: 'L.Orange',
+  DARKBLUE: 'Blue 1',
+  DARKGREEN: 'Green 1',
+  DARKCYAN: 'Cyan 1',
+  DARKRED: 'Red 1',
+  DARKMAGENTA: 'Magenta 1',
+  DARKBROWN: 'Brown 1',
+  DARKORANGE: 'Orange 1',
+  BLUE: 'Blue 2',
+  GREEN: 'Green 2',
+  CYAN: 'Cyan 2',
+  RED: 'Red 2',
+  MAGENTA: 'Magenta 2',
+  BROWN: 'Brown 2',
+  ORANGE: 'Orange 2',
+  LIGHTBLUE: 'Blue 3',
+  LIGHTGREEN: 'Green 3',
+  LIGHTCYAN: 'Cyan 3',
+  LIGHTRED: 'Red 3',
+  LIGHTMAGENTA: 'Magenta 3',
+  YELLOW: 'Yellow 3',
+  LIGHTORANGE: 'Orange 3',
+  PUREBLUE: 'Blue 4',
+  PUREGREEN: 'Green 4',
+  PURECYAN: 'Cyan 4',
+  PURERED: 'Red 4',
+  PUREMAGENTA: 'Magenta 4',
+  PUREYELLOW: 'Yellow 4',
+  PUREORANGE: 'Orange 4',
+};
+
+/** One row of `colorRefs()`. */
+export interface ColorRef {
+  name: EdaColorName;
+  /** `m_ColorName`. */
+  label: string;
+  color: Color4d;
+}
+
+/**
+ * `colorRefs()` as the C++ hands it out: an array, in table order, that a
+ * caller may index.
+ *
+ * `LEGACY_COLORS` is a record because almost everything that reads the palette
+ * wants a colour by name; `initDefinedColors` is the exception, and it wants
+ * row `grid_row + grid_col * 7`.
+ */
+export function colorRefs(): readonly ColorRef[] {
+  return (Object.keys(LEGACY_COLORS) as EdaColorName[]).map((name) => ({
+    name,
+    label: LEGACY_COLOR_NAMES[name],
+    color: LEGACY_COLORS[name],
+  }));
+}
+
+/**
+ * A channel as KiCad renders it, `COLOR4D::ToColour()`:
+ * `static_cast<unsigned char>( c * 255 + 0.5 )` — round half up, then clamp.
+ */
+export const color4dChannel = (c: number): number =>
+  Math.max(0, Math.min(255, Math.floor(c * 255 + 0.5)));
+
+/**
+ * A `Color4d` as a CSS colour string. Fully opaque colours render as `rgb()`,
+ * everything else as `rgba()`, which is what the editors' palettes have always
+ * emitted.
+ *
+ * `separator` exists because the two editors that grew their own copies of this
+ * table spell the same colour differently — pcbnew's is `rgb(0,16,35)` and
+ * eeschema's is `rgb(245, 244, 239)` — and their tests pin the spelling.
+ */
+export const toCssColor = (c: Color4d, separator = ','): string => {
+  const [r, g, b] = [color4dChannel(c.r), color4dChannel(c.g), color4dChannel(c.b)];
+  const rgb = [r, g, b].join(separator);
+  return c.a >= 1 ? `rgb(${rgb})` : `rgba(${rgb}${separator}${c.a})`;
+};
+
+/**
+ * `COLOR4D::ToCSSString()` (`common/gal/color4d.cpp:150-175`), which is what
+ * `to_json( json&, const COLOR4D& )` writes into a settings FILE.
+ *
+ * It is not {@link toCssColor} with a different separator. The alpha term is
+ * `wxString::FromCDouble( c.Alpha() / 255.0, 3 )` — the alpha is quantised to
+ * a byte by `ToColour()` first and then printed to exactly three decimals — so
+ * KiCad writes `rgba(0, 0, 0, 0.502)` where a naive printer writes
+ * `rgba(0,0,0,0.5)`. A theme file has to agree with KiCad character for
+ * character, because KiCad's own `MatchesFile` compares what it would write
+ * against what is there.
+ */
+export const toCssString = (c: Color4d): string => {
+  const [r, g, b] = [color4dChannel(c.r), color4dChannel(c.g), color4dChannel(c.b)];
+  const alpha = color4dChannel(c.a);
+  // `alpha == wxALPHA_OPAQUE` — the byte, not the float, so 0.999 is opaque.
+  if (alpha === 255) return `rgb(${r}, ${g}, ${b})`;
+  return `rgba(${r}, ${g}, ${b}, ${(alpha / 255).toFixed(3)})`;
+};
+
+/** An 8-bit RGB triple, the range `wxColour` works in. */
+export type Rgb8 = readonly [number, number, number];
+
+/**
+ * `wxColourBase::AlphaBlend`, src/common/colourcmn.cpp: the blend is done in
+ * doubles and the result is TRUNCATED by the cast to `unsigned char`, not
+ * rounded. That one detail is why `ChangeLightness( 78 )` of skyblue's green
+ * channel is 160 and not 161 — 206 * 0.78 = 160.68.
+ */
+const alphaBlend = (fg: number, bg: number, alpha: number): number =>
+  Math.trunc(Math.max(0, Math.min(255, bg + alpha * (fg - bg))));
+
+/**
+ * `wxColourBase::ChangeLightness`, src/common/colourcmn.cpp.
+ *
+ * `ialpha` runs 0..200 with 100 meaning "unchanged": below 100 the colour is
+ * blended toward black, above 100 toward white by the COMPLEMENT
+ * (`200 - ialpha`), so 125 lands a quarter of the way to white and 40 keeps
+ * two fifths of the original.
+ *
+ * KiCad leans on this in several places that must agree with each other — the
+ * four BITMAP_BUTTON states are `wxSYS_COLOUR_HIGHLIGHT.ChangeLightness()` at
+ * 40/50/20 (bitmap_button.cpp:270-310), and the E-series display darkens its
+ * seven column colours by 78 and alternates every merged block at 125
+ * (panel_eseries_display.cpp:120-146). It lives here so there is one of it.
+ */
+export const changeLightness = (rgb: Rgb8, ialpha: number): Rgb8 => {
+  if (ialpha === 100) return rgb;
+  const toWhite = ialpha > 100;
+  const bg = toWhite ? 255 : 0;
+  const alpha = (toWhite ? 200 - ialpha : ialpha) / 100;
+  return [
+    alphaBlend(rgb[0], bg, alpha),
+    alphaBlend(rgb[1], bg, alpha),
+    alphaBlend(rgb[2], bg, alpha),
+  ];
+};
+
+/** `wxColour( 0xBBGGRR )` — the byte order the E-series table is written in. */
+export const rgbFromBgrHex = (bgr: number): Rgb8 => [
+  bgr & 0xff,
+  (bgr >> 8) & 0xff,
+  (bgr >> 16) & 0xff,
+];
+
+/** An `Rgb8` as CSS. */
+export const rgb8ToCss = (c: Rgb8): string => `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
+
+// ---------------------------------------------------------------------------
+// COLOR4D's operations
+//
+// Moved here from `designer/src/render/color4d.ts`, which declared a SECOND
+// `Color4d` interface with the same four fields and held the arithmetic half of
+// the same class. Upstream there is one COLOR4D — `include/gal/color4d.h` and
+// `common/gal/color4d.cpp` carry the names, the conversions AND Brightened,
+// Darkened, Inverted, WithAlpha, Distance and GetBrightness together — and a
+// painter in `common/` cannot reach a module in `designer/`, which is what
+// forced the split to be noticed.
+// ---------------------------------------------------------------------------
+const clamp01 = (v: number): number => (v < 0 ? 0 : v > 1 ? 1 : v);
+
+/**
+ * Parse the CSS forms the themes are written in: `#rgb`, `#rrggbb`,
+ * `rgb(r, g, b)` and `rgba(r, g, b, a)`. Anything else comes back opaque black,
+ * which is visible rather than silently invisible.
+ */
+export function parseColor4d(css: string): Color4d {
+  const s = css.trim();
+  const fn = /^rgba?\(([^)]+)\)$/i.exec(s);
+  if (fn) {
+    const parts = fn[1]!.split(/[,/\s]+/).filter((p) => p.length > 0);
+    const chan = (p: string | undefined): number =>
+      p === undefined
+        ? 0
+        : p.endsWith('%')
+          ? clamp01(Number.parseFloat(p) / 100)
+          : clamp01(Number.parseFloat(p) / 255);
+    return {
+      r: chan(parts[0]),
+      g: chan(parts[1]),
+      b: chan(parts[2]),
+      a: parts[3] === undefined ? 1 : clamp01(Number.parseFloat(parts[3])),
+    };
+  }
+  const hex = /^#([0-9a-f]{3,8})$/i.exec(s);
+  if (hex) {
+    const h = hex[1]!;
+    const wide = h.length > 4;
+    const n = wide ? 2 : 1;
+    const at = (i: number): number => {
+      const part = h.slice(i * n, i * n + n);
+      if (part.length === 0) return 1;
+      return clamp01(Number.parseInt(wide ? part : part + part, 16) / 255);
+    };
+    return { r: at(0), g: at(1), b: at(2), a: h.length === 4 || h.length === 8 ? at(3) : 1 };
+  }
+  return { r: 0, g: 0, b: 0, a: 1 };
+}
+
+export function toCss(c: Color4d): string {
+  const ch = (v: number): number => Math.round(clamp01(v) * 255);
+  return c.a >= 1
+    ? `rgb(${ch(c.r)}, ${ch(c.g)}, ${ch(c.b)})`
+    : `rgba(${ch(c.r)}, ${ch(c.g)}, ${ch(c.b)}, ${Math.round(clamp01(c.a) * 1000) / 1000})`;
+}
+
+/** `COLOR4D::Distance`: the *squared* RGB distance, alpha ignored. */
+export const distance = (a: Color4d, b: Color4d): number =>
+  (a.r - b.r) ** 2 + (a.g - b.g) ** 2 + (a.b - b.b) ** 2;
+
+/** `COLOR4D::GetBrightness`: the weighted W3C formula, with KiCad's coefficients. */
+export const brightness = (c: Color4d): number => c.r * 0.299 + c.g * 0.587 + c.b * 0.117;
+
+/** `COLOR4D::Inverted`: alpha is kept. */
+export const inverted = (c: Color4d): Color4d => ({ r: 1 - c.r, g: 1 - c.g, b: 1 - c.b, a: c.a });
+
+/** `COLOR4D::Brightened`: mix towards white by `f`. */
+export const brightened = (c: Color4d, f: number): Color4d => ({
+  r: c.r * (1 - f) + f,
+  g: c.g * (1 - f) + f,
+  b: c.b * (1 - f) + f,
+  a: c.a,
+});
+
+/** `COLOR4D::Darkened`: scale towards black by `f`. */
+export const darkened = (c: Color4d, f: number): Color4d => ({
+  r: c.r * (1 - f),
+  g: c.g * (1 - f),
+  b: c.b * (1 - f),
+  a: c.a,
+});
+
+/**
+ * `COLOR4D::Mix( const COLOR4D& aColor, double aFactor )`
+ * (`include/gal/color4d.h:296-304`).
+ *
+ * Note the direction, which is easy to invert: `aFactor` weights **this**
+ * colour and `1 - aFactor` weights `aColor`, and the alpha of `this` is kept
+ * unchanged rather than blended.
+ */
+export const mix = (c: Color4d, other: Color4d, factor: number): Color4d => {
+  const f = clamp01(factor);
+  return {
+    r: other.r * (1 - f) + c.r * f,
+    g: other.g * (1 - f) + c.g * f,
+    b: other.b * (1 - f) + c.b * f,
+    a: c.a,
+  };
+};
+
+export const withAlpha = (c: Color4d, a: number): Color4d => ({ ...c, a: clamp01(a) });
+
+/**
+ * `LAYER_PRESENTATION::DrawColorSwatch`'s two fills
+ * (`common/widgets/layer_presentation.cpp:36-62`):
+ *
+ *     brush.SetColour( aBackground.WithAlpha( 1.0 ).ToColour() );
+ *     bmpDC.DrawRectangle( … );          // the canvas background, opaque
+ *     brush.SetColour( aColor.ToColour() );
+ *     bmpDC.DrawRectangle( … );          // the layer colour over it
+ *
+ * — plain source-over onto an OPAQUE ground, so the result is opaque whatever
+ * the layer's alpha. That is the whole point of the call: `F.Mask` is
+ * `rgba(216, 100, 255, 0.4)` and its swatch must read against the board's
+ * `#001023`, not against whichever widget happens to be behind the swatch.
+ * Every layer swatch KiCad draws — a layer selector's entries, a grid cell's
+ * renderer, GerbView's list — goes through this one function.
+ */
+export const swatchOverBackground = (color: Color4d, background: Color4d): Color4d => {
+  const a = clamp01(color.a);
+  return {
+    r: background.r * (1 - a) + color.r * a,
+    g: background.g * (1 - a) + color.g * a,
+    b: background.b * (1 - a) + color.b * a,
+    a: 1,
+  };
+};
+
+/** The same, straight from and back to CSS, for callers holding theme strings. */
+export const cssWithAlpha = (css: string, a: number): string =>
+  toCss(withAlpha(parseColor4d(css), a));
+
+/** Whether a CSS colour is fully transparent, i.e. there is nothing to draw. */
+export const isTransparent = (css: string): boolean => parseColor4d(css).a <= 0;
+
+export interface EditPointColors {
+  /** The square's fill (`drawColor`). */
+  fill: string;
+  /** Its border when idle. */
+  border: string;
+  /** Its border while hovered or being dragged. */
+  highlight: string;
+}
+
+/**
+ * `EDIT_POINTS::ViewDraw`'s colour derivation, verbatim:
+ *
+ *     COLOR4D drawColor = settings->GetLayerColor( LAYER_AUX_ITEMS );
+ *     // Don't assume LAYER_AUX_ITEMS is always a good choice.  Compare with background.
+ *     if( aView->GetGAL()->GetClearColor().Distance( drawColor ) < 0.5 )
+ *         drawColor.Invert();
+ *     ...
+ *     if( brightness > 0.5 )       border = drawColor.Darkened( 0.7 ).WithAlpha( 0.8 );
+ *     else if( brightness > 0.2 )  border = drawColor.Brightened( 0.4 ).WithAlpha( 0.8 );
+ *     else                         border = drawColor.Brightened( 0.7 ).WithAlpha( 0.8 );
+ *
+ * `LAYER_SCHEMATIC_AUX_ITEMS` is black in both builtin themes, so on a normal
+ * light sheet this gives a *black* square with a pale grey border. The canvas
+ * had it the other way round — a white square with a dark border — which is
+ * what made the handles read as heavy dark boxes.
+ */
+export function editPointColors(auxItemsCss: string, backgroundCss: string): EditPointColors {
+  const background = parseColor4d(backgroundCss);
+  let draw = parseColor4d(auxItemsCss);
+  if (distance(background, draw) < 0.5) draw = inverted(draw);
+
+  const bright = brightness(draw);
+  const [borderC, highlightC] =
+    bright > 0.5
+      ? [darkened(draw, 0.7), darkened(draw, 0.5)]
+      : bright > 0.2
+        ? [brightened(draw, 0.4), brightened(draw, 0.3)]
+        : [brightened(draw, 0.7), brightened(draw, 0.5)];
+
+  return {
+    fill: toCss(draw),
+    border: toCss(withAlpha(borderC, 0.8)),
+    highlight: toCss(withAlpha(highlightC, 0.8)),
+  };
+}
+
+/**
+ * The alpha a selected item's background fill is *stated* to take.
+ * `getRenderColor`'s `color.WithAlpha( 0.5 )`.
+ */
+export const SELECTED_BACKGROUND_ALPHA = 0.5;
+
+/**
+ * The weight KiCad's canvas actually leaves on whatever is **underneath** a
+ * selected item's background fill.
+ *
+ * **This is a measurement of KiCad's pixels, not a rule KiCad states**, and it
+ * contradicts both `getRenderColor` — which says the fill is simply
+ * `WithAlpha( 0.5 )`, i.e. a destination weight of 0.5 — and KiCad's own
+ * plotter, which emits the flat `#FFFFC2` for the same body. Do not "fix" it
+ * back to `1 - SELECTED_BACKGROUND_ALPHA` on the strength of reading the C++.
+ *
+ * Measured with real eeschema 10.0.5 driven by XTEST, theme `_builtin_default`,
+ * sheet background (245,244,239) — `qa/probes/sch_selected_background/`, which
+ * carries the captures, the nine-colour table and the controls. In short:
+ *
+ * - Nine known fills, selected, fit `clamp( 0.5·c + 0.75·dst )` 9/9 to within
+ *   one LSB. The weights sum to 1.25, so it is not any alpha blend.
+ * - The same fills at explicit alpha 0.25/0.5/0.75 while **un**selected
+ *   composite textbook-correctly, 8/8 — so this is specific to the selected
+ *   path, not to translucency.
+ * - A selected grey (100,100,100) body over an *unselected opaque black* one
+ *   reads (50,50,50), pinning the weight to the real destination rather than to
+ *   the sheet colour: the rival law `0.5·c + 0.5·dst + 0.25·bg` predicts
+ *   (111,111,110), 61 levels away.
+ *
+ * 0.75 is `1 - 0.5²`. A destination weight of `1 - α²` is the signature of a
+ * buffer whose alpha channel is premultiplied twice, and selected items are the
+ * ones drawn into the GAL's overlay target (`SetLayerTarget(
+ * LAYER_SELECT_OVERLAY, KIGFX::TARGET_OVERLAY )`, eeschema/sch_draw_panel.cpp).
+ * That is a hypothesis; no line of KiCad source was found stating it. **If
+ * KiCad changes its compositor, re-run the probe** — this number is the first
+ * thing that goes stale.
+ */
+export const SELECTED_BACKGROUND_DST_WEIGHT = 0.75;
+
+/**
+ * A background-layer fill as it should be *drawn*, given the item's state.
+ *
+ * The selected case cannot be written as a plain alpha, because
+ * `α·c + 0.75·dst` puts 1.25 of weight on the page and no convex blend can.
+ * A single source-over draw reproduces it exactly as
+ *
+ *     colour  c / α        alpha  1 - dstWeight  ( = (2c, 0.25) at α = 0.5 )
+ *
+ * since `0.25·(2c) + 0.75·dst` is the same arithmetic. Both backends take the
+ * one CSS string, so Canvas2D and the WebGL recorder stay identical.
+ *
+ * **Known residual.** `c / α` is a CSS colour, so it clamps at 255, while
+ * KiCad's clamp falls on the *sum*. Where a channel of `c` exceeds 127 and the
+ * destination is bright, KiCad saturates and we stop short: the stock
+ * LAYER_DEVICE_BACKGROUND over the stock sheet is (255,255,255) in KiCad and
+ * (248,247,243) here — 12 levels in blue, against 39 before this existed. To
+ * close it, the source has to survive out of range to the compositor: on
+ * Canvas2D a second `globalCompositeOperation = 'lighter'` pass, and on the GL
+ * path a second triangle bucket drawn with `blendFuncSeparate(SRC_ALPHA,
+ * ONE_MINUS_SRC_ALPHA, SRC_ALPHA, ONE_MINUS_SRC_ALPHA)`, whose `α²` alpha *is*
+ * the measured law. Both are real work in a retained renderer and neither is
+ * done here.
+ *
+ * The brightened arm keeps `WithAlpha( 0.2 )` untouched: it was **not
+ * measured**, and it is unreachable in KiCad anyway, since
+ * `UpdateNetHighlighting` brightens a symbol's pins and a power symbol's
+ * fields, never the symbol, shape or text box itself.
+ */
+export function backgroundLayerFill(
+  css: string,
+  selected: boolean,
+  brightenedItem: boolean,
+): string {
+  const c = parseColor4d(css);
+  if (brightenedItem) return toCss(withAlpha(c, 0.2));
+  // Normalised rather than passed through, so one spelling of a colour reaches
+  // the backends whatever the theme or the file wrote.
+  if (!selected) return toCss(c);
+  const k = 1 / SELECTED_BACKGROUND_ALPHA;
+  // `toCss` owns the clamp — restating it here changed nothing and only made a
+  // mutant look survivable.
+  return toCss({
+    r: c.r * k,
+    g: c.g * k,
+    b: c.b * k,
+    a: 1 - SELECTED_BACKGROUND_DST_WEIGHT,
+  });
+}
+
+/**
+ * `COLOR4D::ToHSL` (`common/gal/color4d.cpp:313-341`).
+ *
+ * Hue in degrees 0..360, saturation and lightness in 0..1. Unlike `toHSV` this
+ * has no `alwaysDefineHue`: upstream returns 0 for a greyscale colour.
+ */
+export function toHSL(c: Color4d): { hue: number; sat: number; lightness: number } {
+  const min = Math.min(c.r, Math.min(c.g, c.b));
+  const max = Math.max(c.r, Math.max(c.g, c.b));
+  const diff = max - min;
+
+  const lightness = (max + min) / 2.0;
+  const sat = lightness >= 1.0 ? 0.0 : diff / (1.0 - Math.abs(2.0 * lightness - 1.0));
+
+  let hue: number;
+
+  if (diff <= 0.0) hue = 0.0;
+  else if (max === c.r) hue = (c.g - c.b) / diff;
+  else if (max === c.g) hue = (c.b - c.r) / diff + 2.0;
+  else hue = (c.r - c.g) / diff + 4.0;
+
+  hue = hue > 0.0 ? hue * 60.0 : hue * 60.0 + 360.0;
+
+  while (hue < 0.0) hue += 360.0;
+
+  return { hue, sat, lightness };
+}
+
+/**
+ * `COLOR4D::FromHSL` (`common/gal/color4d.cpp:344-385`). Alpha is untouched, as
+ * upstream — `FromHSL` writes only r/g/b.
+ */
+export function fromHSL(hue: number, sat: number, lightness: number, a = 1): Color4d {
+  const P = (1.0 - Math.abs(2.0 * lightness - 1.0)) * sat;
+  const scaledHue = hue / 60.0;
+  const Q = P * (1.0 - Math.abs((scaledHue % 2.0) - 1.0));
+
+  const base = lightness - P / 2.0;
+  let r = base;
+  let g = base;
+  let b = base;
+
+  if (scaledHue < 1.0) {
+    r += P;
+    g += Q;
+  } else if (scaledHue < 2.0) {
+    r += Q;
+    g += P;
+  } else if (scaledHue < 3.0) {
+    g += P;
+    b += Q;
+  } else if (scaledHue < 4.0) {
+    g += Q;
+    b += P;
+  } else if (scaledHue < 5.0) {
+    r += Q;
+    b += P;
+  } else {
+    r += P;
+    b += Q;
+  }
+
+  return { r, g, b, a };
+}
+
+/**
+ * `COLOR4D::Desaturate` (`common/gal/color4d.cpp:532-545`).
+ *
+ * Round-trips through HSL with the saturation forced to zero. Upstream returns
+ * `*this` untouched when `r == g == b`, which matters: `ToHSL` of an
+ * already-grey colour is exact, but the guard also spares the round-trip.
+ */
+export const desaturate = (c: Color4d): Color4d => {
+  if (c.r === c.g && c.r === c.b) return c;
+
+  const { hue, lightness } = toHSL(c);
+  return fromHSL(hue, 0.0, lightness, c.a);
+};
+
+/**
+ * `COLOR4D::ToHSV` (`common/gal/color4d.cpp:387-438`).
+ *
+ * Hue in degrees, saturation and value in 0..1. `alwaysDefineHue` is upstream's
+ * second parameter: with it false a greyscale colour reports `NaN` for hue, so
+ * a caller can tell "no hue" from "red"; DIALOG_COLOR_PICKER passes true when
+ * it reads a typed hex back, because a spin control has to show a number.
+ */
+export function toHSV(
+  c: Color4d,
+  alwaysDefineHue = false,
+): { hue: number; sat: number; val: number } {
+  const min = Math.min(c.r, c.g, c.b);
+  const max = Math.max(c.r, c.g, c.b);
+  const delta = max - min;
+  const noHue = alwaysDefineHue ? 0 : Number.NaN;
+
+  // "for black color (r = g = b = 0) saturation is set to 0."
+  if (max <= 0) return { hue: noHue, sat: 0, val: max };
+
+  const sat = delta / max;
+
+  if (delta === 0) return { hue: noHue, sat, val: max };
+
+  let hue: number;
+
+  if (c.r >= max) hue = (c.g - c.b) / delta;
+  else if (c.g >= max) hue = 2.0 + (c.b - c.r) / delta;
+  else hue = 4.0 + (c.r - c.g) / delta;
+
+  hue *= 60.0;
+  if (hue < 0.0) hue += 360.0;
+
+  return { hue, sat, val: max };
+}
+
+/** `COLOR4D::FromHSV` (`color4d.cpp:441-511`). Alpha is untouched, as upstream. */
+export function fromHSV(hue: number, sat: number, val: number, a = 1): Color4d {
+  if (sat <= 0.0) return { r: val, g: val, b: val, a };
+
+  let hh = hue;
+  while (hh >= 360.0) hh -= 360.0;
+  hh /= 60.0;
+
+  const i = Math.trunc(hh);
+  const ff = hh - i;
+
+  const p = val * (1.0 - sat);
+  const q = val * (1.0 - sat * ff);
+  const t = val * (1.0 - sat * (1.0 - ff));
+
+  switch (i) {
+    case 0:
+      return { r: val, g: t, b: p, a };
+    case 1:
+      return { r: q, g: val, b: p, a };
+    case 2:
+      return { r: p, g: val, b: t, a };
+    case 3:
+      return { r: p, g: q, b: val, a };
+    case 4:
+      return { r: t, g: p, b: val, a };
+    default:
+      return { r: val, g: p, b: q, a };
+  }
+}
+
+/**
+ * `COLOR4D::ToHexString` (`color4d.cpp:215-223`) — `#RRGGBBAA`, upper case, and
+ * the alpha byte is ALWAYS written, even when it is `FF`.
+ */
+export function toHexString(c: Color4d): string {
+  const b = (v: number): string =>
+    Math.round(v * 255.0)
+      .toString(16)
+      .toUpperCase()
+      .padStart(2, '0');
+  return `#${b(c.r)}${b(c.g)}${b(c.b)}${b(c.a)}`;
+}
+
+/**
+ * `COLOR4D::SetFromHexString` (`color4d.cpp:180-212`), which returns false for
+ * anything it will not parse rather than throwing — the picker keeps the old
+ * colour while a half-typed string is in the field.
+ *
+ * The length rules are upstream's and are not the same on both sides: under 7
+ * characters is refused outright, 9 or more reads an alpha byte, and anything
+ * between takes alpha 1. So `#ABC` is NOT a colour here, though CSS says it is.
+ */
+export function setFromHexString(text: string): Color4d | null {
+  const str = text.trim();
+
+  if (str.length < 7 || !str.startsWith('#')) return null;
+
+  // `wxSscanf( … "%lx" … )`: hexadecimal, and anything after the digits is
+  // ignored rather than refused.
+  const m = /^[0-9a-f]+/i.exec(str.slice(1));
+  if (!m) return null;
+
+  const tmp = Number.parseInt(m[0], 16);
+
+  if (str.length >= 9) {
+    return {
+      r: ((tmp >>> 24) & 0xff) / 255,
+      g: ((tmp >>> 16) & 0xff) / 255,
+      b: ((tmp >>> 8) & 0xff) / 255,
+      a: (tmp & 0xff) / 255,
+    };
+  }
+
+  return {
+    r: ((tmp >>> 16) & 0xff) / 255,
+    g: ((tmp >>> 8) & 0xff) / 255,
+    b: (tmp & 0xff) / 255,
+    a: 1.0,
+  };
+}
+
+/**
+ * `COLOR4D::LegacyMix`: blend two colours by OR-ing their 8-bit channels, the
+ * alpha the mean of the two.
+ */
+export const legacyMix = (c: Color4d, aColor: Color4d): Color4d => ({
+  r: ((Math.trunc(255.0 * c.r) | Math.trunc(255.0 * aColor.r)) >>> 0) / 255.0,
+  g: ((Math.trunc(255.0 * c.g) | Math.trunc(255.0 * aColor.g)) >>> 0) / 255.0,
+  b: ((Math.trunc(255.0 * c.b) | Math.trunc(255.0 * aColor.b)) >>> 0) / 255.0,
+  a: (aColor.a + c.a) / 2,
+});
+
+/**
+ * `operator==( const COLOR4D&, const COLOR4D& )` (common/gal/color4d.cpp): every channel
+ * equal. (`m_text`, a colour held as an unresolved text variable, is not carried by
+ * `Color4d`.)
+ */
+export function color4dEquals(lhs: Color4d, rhs: Color4d): boolean {
+  return lhs.a === rhs.a && lhs.r === rhs.r && lhs.g === rhs.g && lhs.b === rhs.b;
+}
+
+/** `operator<( const COLOR4D&, const COLOR4D& )`: r, then g, then b, then a. */
+export function color4dLess(lhs: Color4d, rhs: Color4d): boolean {
+  if (lhs.r !== rhs.r) return lhs.r < rhs.r;
+
+  if (lhs.g !== rhs.g) return lhs.g < rhs.g;
+
+  if (lhs.b !== rhs.b) return lhs.b < rhs.b;
+
+  return lhs.a < rhs.a;
+}

@@ -11,12 +11,12 @@
  * spellings that could disagree.
  */
 import { describe, expect, it } from 'vitest';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import {
   DEFAULT_OUTSET_SETTINGS,
   outsetOptionsFrom,
   type OutsetSettings,
-} from '@ziroeda/designer/src/editors/pcb/outset_settings.js';
+} from '@ziroeda/pcbnew/tools/item_modification_routine.js';
 
 const MM = (n: number): number => mmToIU(n);
 

@@ -10,23 +10,20 @@
  * shaders compile there, and that is where the picture is checked.
  */
 import { describe, expect, it } from 'vitest';
-import { GAL_DISPLAY_OPTIONS } from '@ziroeda/common/src/gal/gal_display_options.js';
+import { GAL_DISPLAY_OPTIONS } from '@ziroeda/common/gal/gal_display_options.js';
 import {
   GAL_DRAWING_CONTEXT,
   GAL_UPDATE_CONTEXT,
-} from '@ziroeda/common/src/gal/graphics_abstraction_layer.js';
-import { RENDER_TARGET } from '@ziroeda/common/src/gal/definitions.js';
-import { OPENGL_GAL, type OPENGL_GAL_CANVAS } from '@ziroeda/common/src/gal/opengl/opengl_gal.js';
-import {
-  GL_FIXED_FUNCTION,
-  GL_MATRIX_MODE,
-} from '@ziroeda/common/src/gal/opengl/gl_fixed_function.js';
+} from '@ziroeda/common/gal/graphics_abstraction_layer.js';
+import { RENDER_TARGET } from '@ziroeda/common/gal/definitions.js';
+import { OPENGL_GAL, type OPENGL_GAL_CANVAS } from '@ziroeda/common/gal/opengl/opengl_gal.js';
+import { GL_FIXED_FUNCTION, GL_MATRIX_MODE } from '@ziroeda/common/gal/opengl/gl_fixed_function.js';
 import {
   COLOR_OFFSET,
   SHADER_MODE,
   SHADER_OFFSET,
   VERTEX_SIZE,
-} from '@ziroeda/common/src/gal/opengl/vertex_common.js';
+} from '@ziroeda/common/gal/opengl/vertex_common.js';
 import { MATRIX3x3D } from '@ziroeda/kimath/src/math/matrix3x3.js';
 
 /** The WebGL2 constants the GAL reaches for. */

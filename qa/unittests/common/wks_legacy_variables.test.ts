@@ -36,9 +36,9 @@ import {
   layoutDrawingSheet,
   type DsTextItem,
   type WksText,
-} from '@ziroeda/common/src/drawing_sheet/index.js';
-import { WKS_FILE_VERSION } from '@ziroeda/common/src/drawing_sheet/types.js';
-import { convertToNewOverbarNotation } from '@ziroeda/common/src/string_utils.js';
+} from '@ziroeda/common/drawing_sheet/index.js';
+import { WKS_FILE_VERSION } from '@ziroeda/common/drawing_sheet/types.js';
+import { convertToNewOverbarNotation } from '@ziroeda/common/string_utils.js';
 
 const DATA = join(import.meta.dirname, '../../data');
 const fixture = (name: string): string => readFileSync(join(DATA, name), 'utf8');

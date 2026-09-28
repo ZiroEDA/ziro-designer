@@ -13,9 +13,9 @@ import {
   embeddedLibSymbol,
   saveSymbolToSchematic,
   unitsOfSameSymbol,
-} from '@ziroeda/eeschema/src/tools/save_symbol_to_schematic.js';
-import { refId } from '@ziroeda/eeschema/src/tools/hittest.js';
-import type { LibSymbol, Schematic } from '@ziroeda/eeschema/src/types.js';
+} from '@ziroeda/eeschema/tools/save_symbol_to_schematic.js';
+import { refId } from '@ziroeda/eeschema/tools/hittest.js';
+import type { LibSymbol, Schematic } from '@ziroeda/eeschema/types.js';
 
 /** A two-unit part, placed twice as U1 plus an unrelated U2. */
 const doc = (): Schematic =>

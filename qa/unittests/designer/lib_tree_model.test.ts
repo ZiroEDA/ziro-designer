@@ -7,18 +7,15 @@
  * sorting, group and pinned-library ordering, and unit sub-nodes.
  */
 import { describe, it, expect } from 'vitest';
-import { searchTerm } from '@ziroeda/common/src/eda_pattern_match.js';
-import { strNumCmp } from '@ziroeda/common/src/string_utils.js';
+import { searchTerm } from '@ziroeda/common/eda_pattern_match.js';
+import { strNumCmp } from '@ziroeda/common/string_utils.js';
 import {
   LibTreeNode,
   LibTreeNodeType,
   makeItemNode,
   makeUnitNode,
-} from '@ziroeda/designer/src/widgets/lib_tree_model.js';
-import {
-  LibTreeModelAdapter,
-  SortMode,
-} from '@ziroeda/designer/src/widgets/lib_tree_model_adapter.js';
+} from '@ziroeda/common/lib_tree_model.js';
+import { LibTreeModelAdapter, SortMode } from '@ziroeda/common/lib_tree_model_adapter.js';
 
 function addItem(lib: LibTreeNode, name: string, keywords = '', desc = ''): LibTreeNode {
   const item = makeItemNode(lib, lib.name, name);

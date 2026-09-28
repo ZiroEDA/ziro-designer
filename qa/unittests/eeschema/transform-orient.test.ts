@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -12,10 +12,10 @@ import {
   symbolTransform,
   orientationFromTransform,
   type Orientation,
-} from '@ziroeda/common/src/transform.js';
-import { transformItems } from '@ziroeda/eeschema/src/tools/transform.js';
-import { History } from '@ziroeda/eeschema/src/tools/command.js';
-import { refId } from '@ziroeda/eeschema/src/tools/hittest.js';
+} from '@ziroeda/kimath/src/transform.js';
+import { transformItems } from '@ziroeda/eeschema/tools/transform.js';
+import { History } from '@ziroeda/eeschema/tools/command.js';
+import { refId } from '@ziroeda/eeschema/tools/hittest.js';
 
 describe('orientation algebra (KiCad SetOrientation/GetOrientation)', () => {
   it('four CCW rotations return to the original orientation', () => {

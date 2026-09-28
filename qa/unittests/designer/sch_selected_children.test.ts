@@ -195,7 +195,7 @@ const paint = (
 };
 
 // `refId` returns the BARE uuid when an item has one —
-// `return uuid ?? `${kind}:idx:${index}`` (`eeschema/src/tools/hittest.ts:314-316`)
+// `return uuid ?? `${kind}:idx:${index}`` (`eeschema/tools/hittest.ts:314-316`)
 // — so a selection id is not prefixed. Writing `symbol:<uuid>` matched nothing
 // and every count came out equal, which is what an id typo looks like rather
 // than a bug in the code under test.

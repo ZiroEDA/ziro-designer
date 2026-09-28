@@ -4,14 +4,14 @@
 import type { Entry } from '../fs/filesystem.js';
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { preloadBundle } from '../libraryPreload.js';
-import { MenuBar, type Menu } from '../ui/MenuBar.js';
+import { MenuBar, type Menu } from '@ziroeda/common/tool/action_menu_bar.js';
 import { HomeLink } from '../ui/HomeLink.js';
 import { AccountButton } from '../ui/AccountButton.js';
 import { adoptProjectKey, projectKeyFor } from '../cloud/session_keys.js';
 import { RecoveryKeyDialog } from '../auth/RecoveryKeyDialog.js';
 import { DeleteAccountDialog } from '../auth/DeleteAccountDialog.js';
 import { ShareButton } from './ShareButton.js';
-import { PRODUCT } from '../ui/about_titles.js';
+import { PRODUCT } from '@ziroeda/common/eda_base_frame_about_titles.js';
 import { profilePhotoUrl } from '../auth/profile.js';
 import {
   localIdForCloudUid,
@@ -52,8 +52,8 @@ import {
   redeemPendingInvite,
   type ProjectRole,
 } from '../cloud/invites.js';
-import { ProgressDialog, nextPaint } from '../ui/ProgressDialog.js';
-import type { ProgressSnapshot } from '../ui/progress_reporter.js';
+import { ProgressDialog, nextPaint } from '@ziroeda/common/widgets/wx_progress_reporters.js';
+import type { ProgressSnapshot } from '@ziroeda/common/widgets/progress_reporter_snapshot.js';
 import {
   loadTemplates,
   createFromTemplate,
@@ -68,7 +68,7 @@ import {
   userTemplateFiles,
 } from './user_templates.js';
 import { demoAt, launchDemoFrame, loadDemos, openDemo, type DemoMeta } from './demos.js';
-import '../ui/shell.css';
+import '@ziroeda/common/widgets/shell.css';
 import type { PickedHomeFile } from './files.js';
 import {
   EMPTY_PCB,
@@ -98,11 +98,12 @@ import {
   projectFileContext,
   runActivation,
 } from './file_activation.js';
-import { AboutDialog } from './dialogs/dialog_about.js';
-import { showHotkeyList } from '../ui/hotkey_list_action.js';
+import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
+import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
+import { showHotkeyList } from '@ziroeda/common/hotkeys_basic.js';
 import { TextViewerDialog } from './dialogs/dialog_text_viewer.js';
 import { buildManagerMenus } from './menubar.js';
-import { useMenuHotkeys } from '../ui/useMenuHotkeys.js';
+import { useMenuHotkeys } from '@ziroeda/common/tool/use_menu_hotkeys.js';
 import { PreferencesDialog } from '../dialogs/PreferencesDialog.js';
 import { settings } from '../prefs/settings.js';
 import { useCommonSettings } from '../prefs/useSettings.js';
@@ -110,15 +111,18 @@ import { TemplateSelectorDialog } from './dialogs/dialog_template_selector.js';
 import { type ChooserPlace, FileChooser } from '../fs/FileChooser.js';
 import { listFileSystem } from '../fs/list_fs.js';
 import { projectAt, projectStoreFileSystem } from '../fs/project_store_fs.js';
-import { NEW_PROJECT_FOLDER_FILTERS, OPEN_PROJECT_FILTERS } from '../fs/wildcards.js';
+import {
+  NEW_PROJECT_FOLDER_FILTERS,
+  OPEN_PROJECT_FILTERS,
+} from '@ziroeda/common/wildcards_and_files_ext.js';
 import { normalize as normalizePath, segments } from '../fs/path.js';
-import { EllipsizedField } from '../ui/EllipsizedField.js';
+import { EllipsizedField } from '@ziroeda/common/widgets/wx_ellipsized_static_text_ui.js';
 import { managerTitle, projectStatusText } from './manager_frame.js';
 import { type LauncherId, showPlayerRefusal } from './show_player.js';
-import { MessageDialogOk } from '../ui/dialog_message.js';
-import { INFO_CAPTION } from '../ui/message_dialog.js';
-import { KiStatusBar } from '../ui/KiStatusBar.js';
-import { buttonTooltipFor, tooltipFor } from '../ui/Tooltip.js';
+import { MessageDialogOk } from '@ziroeda/common/dialogs/dialog_message.js';
+import { INFO_CAPTION } from '@ziroeda/common/confirm_types.js';
+import { KiStatusBar } from '@ziroeda/common/widgets/kistatusbar.js';
+import { buttonTooltipFor, tooltipFor } from '@ziroeda/common/widgets/tooltip.js';
 import { ProjectTreePane, mgrUrl } from './project_tree_pane.js';
 import { type MgrAction, MGR_TOOLS, TILES, tileIcon } from './launcher_tiles.js';
 import { LocalHistoryPane } from './LocalHistoryPane.js';
@@ -129,7 +133,7 @@ import {
   recordSnapshot,
   restoreSnapshot,
 } from './local_history_store.js';
-import { RestoreLocalHistoryDialog } from './dialog_restore_local_history.js';
+import { RestoreLocalHistoryDialog } from '@ziroeda/common/dialogs/dialog_restore_local_history.js';
 import {
   RESTORE_CAPTION,
   RESTORE_EXTENDED,
@@ -137,8 +141,8 @@ import {
   RESTORE_YES_LABEL,
   restoreConfirmMessage,
   type Snapshot,
-} from './local_history.js';
-import { MessageDialogYesNo } from '../ui/dialog_message.js';
+} from '@ziroeda/common/local_history.js';
+import { MessageDialogYesNo } from '@ziroeda/common/dialogs/dialog_message.js';
 
 import {
   filesFromFileList,
@@ -376,10 +380,14 @@ export function HomePage({
    * load. Off by default, as an unopened AUI pane is.
    */
   const [historyShown, setHistoryShown] = useState<boolean>(
-    () => localStorage.getItem('ziroeda.localHistoryShown') === '1',
+    () => settings.kicad.m_ShowHistoryPanel,
   );
   useEffect(() => {
-    localStorage.setItem('ziroeda.localHistoryShown', historyShown ? '1' : '0');
+    // `aui.show_history_panel` in kicad.json (KICAD_SETTINGS::m_ShowHistoryPanel).
+    if (settings.kicad.m_ShowHistoryPanel === historyShown) return;
+    settings.updateKicad((s) => {
+      s.m_ShowHistoryPanel = historyShown;
+    });
   }, [historyShown]);
   /** The snapshot "Restore Commit" was asked for, while its confirmation is up. */
   const [restoring, setRestoring] = useState<Snapshot | null>(null);
@@ -501,22 +509,17 @@ export function HomePage({
   const [tplStep, setTplStep] = useState<'none' | 'template' | 'name'>('none');
   const [tplChosen, setTplChosen] = useState<TemplateMeta | null>(null);
   /** settings->m_RecentTemplates: template ids, newest first. */
-  const [recentTemplates, setRecentTemplates] = useState<string[]>(() => {
-    try {
-      const raw = localStorage.getItem('ziro.recentTemplates');
-      const ids: unknown = raw ? JSON.parse(raw) : null;
-      if (Array.isArray(ids)) return ids.filter((x): x is string => typeof x === 'string');
-    } catch {
-      /* storage blocked or the value is not ours */
-    }
-    return [];
-  });
+  const [recentTemplates, setRecentTemplates] = useState<string[]>(() =>
+    settings.kicad.m_RecentTemplates.filter((x): x is string => typeof x === 'string'),
+  );
   useEffect(() => {
-    try {
-      localStorage.setItem('ziro.recentTemplates', JSON.stringify(recentTemplates));
-    } catch {
-      /* storage blocked; recents just won't survive the reload */
-    }
+    // `template.recent_templates` in kicad.json.
+    const cur = settings.kicad.m_RecentTemplates;
+    if (cur.length === recentTemplates.length && cur.every((id, i) => id === recentTemplates[i]))
+      return;
+    settings.updateKicad((s) => {
+      s.m_RecentTemplates = [...recentTemplates];
+    });
   }, [recentTemplates]);
   /**
    * The project names already in use, lowercased.
@@ -763,16 +766,12 @@ export function HomePage({
    * localStorage is this app's KICAD_SETTINGS.
    */
   const [panelWidth, setPanelWidth] = useState(() => {
-    try {
-      // Clamped to the sash's own range, so a hand-edited or stale value can
-      // never leave the pane wider than the window or too narrow to hit. 250 is
-      // the floor because that is the pane's post-layout MinSize upstream, which
-      // is also what a first run renders.
-      const saved = Number(localStorage.getItem('ziro.leftWinWidth'));
-      if (Number.isFinite(saved) && saved >= 250 && saved <= 600) return saved;
-    } catch {
-      /* storage blocked: fall through to the first-run default */
-    }
+    // Clamped to the sash's own range, so a hand-edited or stale value can
+    // never leave the pane wider than the window or too narrow to hit. 250 is
+    // the floor because that is the pane's post-layout MinSize upstream, which
+    // is also what a first run renders (the file's own default is 200).
+    const saved = settings.kicad.m_LeftWinWidth;
+    if (Number.isFinite(saved) && saved >= 250 && saved <= 600) return saved;
     return 250;
   });
   /**
@@ -1458,11 +1457,9 @@ export function HomePage({
       // way out; written on mouse-up rather than every mousemove so a drag is
       // one store write, not a hundred.
       setPanelWidth((w) => {
-        try {
-          localStorage.setItem('ziro.leftWinWidth', String(w));
-        } catch {
-          /* storage blocked (private mode): the drag still works this session */
-        }
+        settings.updateKicad((s) => {
+          s.m_LeftWinWidth = w;
+        });
         return w;
       });
     };
@@ -2274,7 +2271,9 @@ export function HomePage({
       )}
 
       {/* KiCad's "Load Schematic" progress dialog, web-style. */}
-      {aboutOpen && <AboutDialog onClose={() => setAboutOpen(false)} />}
+      {aboutOpen && (
+        <ShowAboutDialog title={ABOUT_TITLES.manager} onClose={() => setAboutOpen(false)} />
+      )}
       {infoMessage !== null && (
         <MessageDialogOk
           caption={INFO_CAPTION}

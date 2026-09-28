@@ -25,10 +25,10 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const PANEL = readFileSync(
-  resolve(process.cwd(), '../designer/src/dialogs/prefs/panels/PanelGitRepos.tsx'),
+  resolve(process.cwd(), '../common/dialogs/git/panel_git_repos.tsx'),
   'utf8',
 );
-const CSS = readFileSync(resolve(process.cwd(), '../designer/src/ui/shell.css'), 'utf8');
+const CSS = readFileSync(resolve(process.cwd(), '../common/widgets/shell.css'), 'utf8');
 const INDEX = readFileSync(
   resolve(process.cwd(), '../designer/src/dialogs/prefs/panels/index.ts'),
   'utf8',

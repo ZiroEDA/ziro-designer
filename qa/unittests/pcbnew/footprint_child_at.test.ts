@@ -34,16 +34,16 @@
  * about the round trip and not about any one command.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import {
   flipBoardItems,
   modificationPoint,
   moveBoardItems,
   rotateBoardItems,
-} from '@ziroeda/pcbnew/src/edit-board.js';
-import type { Board } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/edit-board.js';
+import type { Board } from '@ziroeda/pcbnew/types.js';
 
 const MM = 1e6;
 

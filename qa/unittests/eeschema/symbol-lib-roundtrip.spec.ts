@@ -5,9 +5,9 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readSymbolLib } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
-import { serializeSymbolLib } from '@ziroeda/eeschema/src/sch_io/sexpr/write-symbol-lib.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { readSymbolLib } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
+import { serializeSymbolLib } from '@ziroeda/eeschema/sch_io/sexpr/write-symbol-lib.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const LIB = join(here, '../../../designer/public/symbols/Device.kicad_sym');

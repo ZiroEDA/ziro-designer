@@ -17,15 +17,12 @@
  * a per-launcher defect hides.
  */
 import { describe, expect, it } from 'vitest';
-import {
-  FP_LEFT_TOOLBAR,
-  FP_RIGHT_TOOLBAR,
-} from '@ziroeda/designer/src/editors/footprint/footprintToolbars.js';
+import { FP_LEFT_TOOLBAR, FP_RIGHT_TOOLBAR } from '@ziroeda/pcbnew/toolbars_footprint_editor.js';
 import {
   groupIsCheckItem,
   type ToolEntry,
   type ToolGroup,
-} from '@ziroeda/designer/src/ui/toolbar_types.js';
+} from '@ziroeda/common/tool/action_toolbar_types.js';
 
 const groups = (entries: readonly ToolEntry[]): ToolGroup[] =>
   entries.filter((e): e is ToolGroup => typeof e === 'object' && 'group' in e);

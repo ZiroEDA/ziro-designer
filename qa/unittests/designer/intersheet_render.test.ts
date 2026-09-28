@@ -10,7 +10,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic } from '@ziroeda/eeschema';
 import { sheetToSvg } from '@ziroeda/designer/src/editors/schematic/render/plot.js';
 import type { PlotOpts } from '@ziroeda/designer/src/editors/schematic/render/plot.js';
@@ -62,9 +62,10 @@ describe('inter-sheet references in the render pipeline', () => {
     );
     const added = on.filter((p) => !off.includes(p));
     expect(added.length).toBeGreaterThan(0);
-    // Label anchor x = 100 mm = 1,000,000 IU; a right-reading label's refs sit
-    // beyond the flag, i.e. every added stroke starts right of the anchor.
-    for (const p of added) expect(firstX(p), p).toBeGreaterThan(1_000_000);
+    // Label anchor x = 100 mm (SVG_PLOTTER writes device millimetres); a
+    // right-reading label's refs sit beyond the flag, i.e. every added stroke
+    // starts right of the anchor.
+    for (const p of added) expect(firstX(p), p).toBeGreaterThan(100);
   });
 
   it('honours a custom-placed stored field position', () => {
@@ -80,10 +81,10 @@ describe('inter-sheet references in the render pipeline', () => {
     );
     const added = on.filter((p) => !off.includes(p));
     expect(added.length).toBeGreaterThan(0);
-    // Stored at (50, 50) mm, strokes cluster near x = 500,000 IU, left of the label.
+    // Stored at (50, 50) mm, strokes cluster near x = 50 mm, left of the label.
     for (const p of added) {
-      expect(firstX(p)).toBeGreaterThan(400_000);
-      expect(firstX(p)).toBeLessThan(700_000);
+      expect(firstX(p)).toBeGreaterThan(40);
+      expect(firstX(p)).toBeLessThan(70);
     }
   });
 });

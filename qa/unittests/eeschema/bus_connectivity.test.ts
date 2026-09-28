@@ -7,9 +7,9 @@
  * bus (CONNECTION_GRAPH's bus neighbor propagation).
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic } from '@ziroeda/eeschema';
-import { computeNetlist } from '@ziroeda/eeschema/src/connectivity/nets.js';
+import { computeNetlist } from '@ziroeda/eeschema/connectivity/nets.js';
 
 const doc = (body: string) =>
   readSchematic(parse(`(kicad_sch (version 20230121) (generator eeschema) ${body})`));

@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * `pcbnew/src/drc/drc_geometry.ts` — the geometry our DRC clearance path runs
+ * `pcbnew/drc/drc_geometry.ts` — the geometry our DRC clearance path runs
  * on. Counterparts: `libs/kimath/src/geometry/seg.cpp` (`SEG::Distance`,
  * `SEG::SquaredDistance`) and the `aActual` expression every pair function of
  * `libs/kimath/src/geometry/shape_collisions.cpp` shares.
@@ -20,8 +20,8 @@
  * measurement. None is read off what the implementation prints.
  */
 import { describe, expect, it } from 'vitest';
-import { collideShapes } from '@ziroeda/pcbnew/src/drc/shape_collisions.js';
-import { pointSeg, segSeg, shapeDist, type Shape } from '@ziroeda/pcbnew/src/drc/drc_geometry.js';
+import { collideShapes } from '@ziroeda/pcbnew/drc/shape_collisions.js';
+import { pointSeg, segSeg, shapeDist, type Shape } from '@ziroeda/pcbnew/drc/drc_geometry.js';
 
 const circle = (x: number, y: number, r: number): Shape => ({ kind: 'circle', c: { x, y }, r });
 

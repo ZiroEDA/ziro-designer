@@ -17,17 +17,17 @@
  * rather than naming text boxes, and a new kind is covered the day it is added.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import {
   deleteBoardItems,
   groupBoardItems,
   moveBoardItems,
   setBoardItemsLocked,
   ungroupBoardItems,
-} from '@ziroeda/pcbnew/src/edit-board.js';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import type { Board } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/edit-board.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
+import type { Board } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 

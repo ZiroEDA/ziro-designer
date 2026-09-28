@@ -29,10 +29,10 @@ import {
   footprintEditorMenus,
   type FootprintMenuConditions,
   type FootprintMenuHandlers,
-} from '@ziroeda/designer/src/editors/footprint/menubar.js';
-import { standardHelpMenu } from '@ziroeda/designer/src/ui/help_menu.js';
-import { setLanguageMenuItem } from '@ziroeda/designer/src/ui/language_menu.js';
-import type { Menu, MenuItem } from '@ziroeda/designer/src/ui/menu_types.js';
+} from '@ziroeda/pcbnew/menubar_footprint_editor.js';
+import { standardHelpMenu } from '@ziroeda/common/eda_base_frame_help_menu.js';
+import { setLanguageMenuItem } from '@ziroeda/common/eda_base_frame_language_menu.js';
+import type { Menu, MenuItem } from '@ziroeda/common/tool/action_menu_types.js';
 
 const noop = (): void => {};
 

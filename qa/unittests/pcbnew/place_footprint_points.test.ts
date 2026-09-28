@@ -33,12 +33,12 @@
  * LED landed 120 mm from the rest of its parts.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readFootprintFile } from '@ziroeda/pcbnew/src/read-board.js';
-import { placeFootprint } from '@ziroeda/pcbnew/src/board_exchange_footprint.js';
-import { footprintBBox } from '@ziroeda/pcbnew/src/edit-footprint.js';
-import { pcbMmToIU as MM } from '@ziroeda/common/src/eda_units.js';
-import type { PcbFootprint } from '@ziroeda/pcbnew/src/types.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { readFootprintFile } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { placeFootprint } from '@ziroeda/pcbnew/netlist_reader/pcb_netlist_utils.js';
+import { footprintBBox } from '@ziroeda/pcbnew/edit-footprint.js';
+import { pcbMmToIU as MM } from '@ziroeda/common/eda_units.js';
+import type { PcbFootprint } from '@ziroeda/pcbnew/types.js';
 
 /**
  * A part with one pad and one point, shaped like `LED_D5.0mm`'s: the point at

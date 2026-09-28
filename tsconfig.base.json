@@ -15,9 +15,10 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "verbatimModuleSyntax": true,
-    "baseUrl": ".",
     "paths": {
-      "clipper-lib": ["./types/clipper-lib.d.ts"]
+      "clipper-lib": ["./types/clipper-lib.d.ts"],
+      "occt-import-js": ["./types/occt-import-js.d.ts"],
+      "occt-import-js/dist/occt-import-js.wasm?url": ["./types/occt-import-js.d.ts"]
     }
   }
 }

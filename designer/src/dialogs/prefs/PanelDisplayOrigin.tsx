@@ -33,7 +33,7 @@
  * m_yIncreasesUp->GetValue()`, the button ABOVE the default one.
  */
 import type { JSX } from 'react';
-import { Group, Radio } from './widgets.js';
+import { Group, Radio } from '@ziroeda/common/wx/controls.js';
 
 /**
  * `m_pageOrigin` / `m_drillPlaceOrigin` / `m_gridOrigin`

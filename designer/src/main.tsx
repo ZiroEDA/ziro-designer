@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+import {
+  InstallErrorPresenter,
+  InstallInfoPresenter,
+  InstallQuestionPresenter,
+} from '@ziroeda/common/confirm_ui.js';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App.js';
@@ -10,14 +15,18 @@ import { ChatWidget } from './support/ChatWidget.js';
 import { DesktopGate } from './mobile/DesktopGate.js';
 import { ErrorBoundary } from './ui/ErrorBoundary.js';
 import { StorageBanner } from './ui/StorageBanner.js';
-import { TooltipLayer } from './ui/Tooltip.js';
-import { HotkeyListHost } from './ui/dialog_hotkey_list.js';
-import { initTelemetry } from './telemetry/reporter.js';
-import { sentrySink } from './telemetry/sentrySink.js';
+import { TooltipLayer } from '@ziroeda/common/widgets/tooltip.js';
+import { HotkeyListHost } from './ui/hotkey_list_host.js';
+import { SENTRY, SetSentryBackend, SetSentryBuildInfo } from '@ziroeda/common/app_monitor.js';
+import { GetBuildVersion, GetMajorMinorVersion } from '@ziroeda/common/build_version.js';
+import { SENTRY_RELEASE, sentryBackend } from './telemetry/sentry_backend.js';
 import { installGlobalErrorHandlers } from './telemetry/global_handlers.js';
-import { installOverlayScrollbars } from './ui/overlay_scrollbars.js';
-import { installDialogSizeHints } from './ui/dialog_size_hints.js';
-import { installOutlineFontProvider } from './font/outline_fonts.js';
+import { installOverlayScrollbars } from '@ziroeda/common/widgets/overlay_scrollbars.js';
+import { installDialogSizeHints } from '@ziroeda/common/dialog_shim.js';
+import { SetFileDialog } from '@ziroeda/common/wx/filedlg.js';
+import { InitPgm } from './pgm_app.js';
+import { OpenFileDialog } from './fs/OpenFileDialog.js';
+import { installOutlineFontProvider } from '@ziroeda/common/font/outline_fonts.js';
 import { missingFeatures, unsupportedMessage } from './browser_support.js';
 import { checkStorageHealth, setTemplateSink } from './home/projectStore.js';
 import { updateUserTemplateFiles } from './home/user_templates.js';
@@ -25,10 +34,16 @@ import { authEnabled } from './auth/supabaseClient.js';
 import { setCloudBackend } from './cloud/cloudStore.js';
 import { supabaseBackend } from './cloud/supabaseBackend.js';
 
-// Before rendering, so a crash during the first paint is still reported. No-ops
-// when VITE_SENTRY_DSN is unset or the user has opted out, the same
-// env-gated-degrades-to-offline shape as auth and cloud sync.
-initTelemetry(sentrySink);
+// `APP_MONITOR::SENTRY::Instance()->Init()`, as PGM_BASE::InitPgm starts it:
+// before rendering, so a crash during the first paint is still reported. It
+// does nothing when VITE_SENTRY_DSN is unset or the user has opted out.
+SetSentryBackend(sentryBackend);
+SetSentryBuildInfo({
+  commitHash: SENTRY_RELEASE,
+  majorMinor: GetMajorMinorVersion(),
+  version: GetBuildVersion(),
+});
+SENTRY.Instance().Init();
 // The error boundary only sees render and commit. Nearly everything here is a
 // pointer handler, a key handler or an await — none of which reach a boundary,
 // all of which were going to a console nobody reads.
@@ -45,6 +60,17 @@ installOverlayScrollbars();
 // own text changed. Installed here rather than per dialog because in wx it
 // comes from the dialog base class, not from the dialog.
 installDialogSizeHints();
+// PGM_BASE::InitPgm: the program object exists before any frame does.
+InitPgm();
+// DisplayErrorMessage (common/confirm.cpp): the modal error box common/ code raises.
+InstallErrorPresenter();
+InstallQuestionPresenter();
+InstallInfoPresenter();
+// wxFileDialog, for the dialogs in common/ that open one (common/wx/filedlg.tsx).
+// The chooser's `kind` is its own set of shared folders; common passes a string.
+SetFileDialog((p) => (
+  <OpenFileDialog {...p} kind={p.kind as Parameters<typeof OpenFileDialog>[0]['kind']} />
+));
 // `textWidth` measures an outline face with the glyphs the renderer fills
 // (#154); until a face has loaded both sides fall back to the stroke font.
 installOutlineFontProvider();

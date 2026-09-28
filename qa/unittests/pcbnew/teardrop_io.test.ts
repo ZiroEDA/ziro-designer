@@ -3,20 +3,15 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Teardrops on disk: `(teardrops …)` on pads and vias, `(attr (teardrop (type
- * …)))` on the generated zones, and the round trip through the writer.
+ * …)))` on the generated zones, and the round trip through the writer. What
+ * TEARDROP_MANAGER builds and writes is teardrop_manager.test.ts.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
-import {
-  applyTeardrops,
-  boardHasTeardrops,
-  removeTeardrops,
-  teardropInputsChanged,
-} from '@ziroeda/pcbnew/src/teardrop.js';
-import type { Board } from '@ziroeda/pcbnew/src/types.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import type { Board } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 
@@ -129,122 +124,5 @@ describe('(attr (teardrop (type …))) on a zone', () => {
     )`);
 
     expect(board.zones.map((z) => z.teardropType)).toEqual(['viapad', 'trackend', undefined]);
-  });
-});
-
-describe('applyTeardrops', () => {
-  const board = load(SRC);
-
-  it('appends generated zones marked as teardrops', () => {
-    const out = applyTeardrops(board);
-
-    expect(out.zones.length).toBeGreaterThan(0);
-    expect(out.zones.every((z) => z.teardropType === 'viapad')).toBe(true);
-    // The zone carries its own fill, not an empty one waiting for the filler.
-    expect(out.zones[0]!.fills[0]!.polys[0]!.length).toBeGreaterThanOrEqual(5);
-    expect(out.zones[0]!.netName).toBe('N1');
-  });
-
-  it('is idempotent: a second run replaces rather than accumulates', () => {
-    const once = applyTeardrops(board);
-    const twice = applyTeardrops(once);
-
-    expect(twice.zones).toHaveLength(once.zones.length);
-  });
-
-  it('keeps user zones and drops only the generated ones', () => {
-    const withUserZone: Board = {
-      ...board,
-      zones: [
-        {
-          net: 1,
-          layers: ['F.Cu'],
-          outline: [
-            { x: 0, y: 0 },
-            { x: MM(40), y: 0 },
-            { x: MM(40), y: MM(40) },
-          ],
-          fills: [],
-        },
-      ],
-    };
-
-    const out = applyTeardrops(withUserZone);
-    expect(out.zones.filter((z) => !z.teardropType)).toHaveLength(1);
-
-    const cleared = removeTeardrops(out);
-    expect(cleared.zones).toHaveLength(1);
-    expect(cleared.zones[0]!.teardropType).toBeUndefined();
-  });
-
-  it('writes the generated zones back out, and reads them again', () => {
-    const out = applyTeardrops(board);
-    const text = serializeBoard(out);
-    // The serializer pretty-prints; collapse to one line to assert on tokens.
-    const flat = text.replace(/\s+/g, ' ').replace(/ \)/g, ')');
-
-    expect(flat).toContain('(attr (teardrop (type padvia)))');
-    expect(flat).toContain('(filled_polygon');
-    expect(flat).toContain('(priority 30000)');
-
-    // The written file parses back to the same teardrop zones.
-    const reread = load(text);
-    expect(reread.zones).toHaveLength(out.zones.length);
-    expect(reread.zones[0]!.teardropType).toBe('viapad');
-    expect(reread.zones[0]!.priority).toBe(30000);
-    expect(reread.zones[0]!.fills[0]!.polys[0]).toEqual(out.zones[0]!.fills[0]!.polys[0]);
-  });
-
-  it('honours the via’s own parameters over the board defaults', () => {
-    // The via asks for curved edges, which yields far more than five corners.
-    const out = applyTeardrops(board);
-    expect(out.zones[0]!.outline!.length).toBeGreaterThan(5);
-  });
-});
-
-describe('boardHasTeardrops', () => {
-  const plain = load(`(kicad_pcb (version 20240108)
-    (via (at 0 0) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu") (net 1))
-  )`);
-
-  it('is false for a board that never enabled them', () => {
-    expect(boardHasTeardrops(plain)).toBe(false);
-  });
-
-  it('is true once an item asks for them', () => {
-    expect(boardHasTeardrops(load(SRC))).toBe(true);
-  });
-
-  it('stays true while generated zones are still on the board', () => {
-    // The last enabled item is gone, but its zones are not: the refresh has to
-    // run once more to clear them.
-    const withZones = applyTeardrops(load(SRC));
-    const disabled: Board = {
-      ...withZones,
-      vias: withZones.vias.map((v) => ({
-        ...v,
-        teardrops: { ...v.teardrops!, enabled: false },
-      })),
-    };
-
-    expect(boardHasTeardrops(disabled)).toBe(true);
-    expect(boardHasTeardrops(applyTeardrops(disabled))).toBe(false);
-  });
-});
-
-describe('teardropInputsChanged', () => {
-  const b = load(SRC);
-
-  it('is false when the copper collections are untouched', () => {
-    // A zone edit rebuilds `zones` and nothing else.
-    expect(teardropInputsChanged(b, { ...b, zones: [] })).toBe(false);
-    expect(teardropInputsChanged(b, { ...b })).toBe(false);
-  });
-
-  it('is true when tracks, arcs, vias or footprints are rebuilt', () => {
-    expect(teardropInputsChanged(b, { ...b, tracks: [...b.tracks] })).toBe(true);
-    expect(teardropInputsChanged(b, { ...b, arcs: [...b.arcs] })).toBe(true);
-    expect(teardropInputsChanged(b, { ...b, vias: [...b.vias] })).toBe(true);
-    expect(teardropInputsChanged(b, { ...b, footprints: [...b.footprints] })).toBe(true);
   });
 });

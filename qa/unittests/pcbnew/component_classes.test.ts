@@ -8,17 +8,17 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { EMBEDDED_FILES } from '@ziroeda/common/src/embedded_files.js';
+import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
 import {
   COMPONENT_CLASS_ASSIGNMENT_DATA,
   CONDITION_TYPE,
   CONDITIONS_OPERATOR,
-} from '@ziroeda/common/src/project/component_class_settings.js';
-import type { BOARD } from '@ziroeda/pcbnew/src/board.js';
-import { COMPONENT_CLASS, USAGE } from '@ziroeda/pcbnew/src/component_classes/component_class.js';
-import { COMPONENT_CLASS_MANAGER } from '@ziroeda/pcbnew/src/component_classes/component_class_manager.js';
-import { FormatBoard } from '@ziroeda/pcbnew/src/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { PCB_IO_KICAD_SEXPR_PARSER } from '@ziroeda/pcbnew/src/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_parser.js';
+} from '@ziroeda/common/project/component_class_settings.js';
+import type { BOARD } from '@ziroeda/pcbnew/board.js';
+import { COMPONENT_CLASS, USAGE } from '@ziroeda/pcbnew/component_classes/component_class.js';
+import { COMPONENT_CLASS_MANAGER } from '@ziroeda/pcbnew/component_classes/component_class_manager.js';
+import { FormatBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { PCB_IO_KICAD_SEXPR_PARSER } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_parser.js';
 
 const DATA = fileURLToPath(new URL('../../data/pcbnew/', import.meta.url));
 

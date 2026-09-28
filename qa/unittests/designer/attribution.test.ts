@@ -82,7 +82,7 @@ describe('bundled packages name their real author', () => {
 });
 
 describe('in-app attribution', () => {
-  const about = read('designer/src/home/dialogs/dialog_about.tsx');
+  const about = read('common/dialog_about/AboutDialog_main.tsx');
 
   it('the About dialog credits both KiCad sources and their two licences', () => {
     expect(about).toContain('The KiCad Developers');
@@ -100,7 +100,7 @@ describe('in-app attribution', () => {
       'designer/src/editors/footprint/FootprintEditor.tsx',
       'designer/src/home/HomePage.tsx',
     ]) {
-      expect(read(f)).toContain('AboutDialog');
+      expect(read(f)).toContain('ShowAboutDialog');
     }
   });
 

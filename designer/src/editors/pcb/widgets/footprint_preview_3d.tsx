@@ -16,9 +16,10 @@
 import { useEffect, useRef, useState } from 'react';
 import type { JSX } from 'react';
 import { parse } from '@ziroeda/sexpr';
-import { placeFootprint, readBoard, type Board } from '@ziroeda/pcbnew';
-import { loadFootprint } from '../../../widgets/footprint_list.js';
-import type { Viewer3D } from '../viewer3d_types.js';
+import { placeFootprint, readBoard, type Board, type PcbFootprint } from '@ziroeda/pcbnew';
+import type { Viewer3D } from '@ziroeda/3d-viewer/viewer3d_types.js';
+import { MODELS3D_HOST } from '../../../libraryHosts.js';
+import '../viewer3d_cache_shim.js';
 
 /**
  * The panel's `dummyBoard` as a file: `SetBoardThickness( 1.6 )`, front and
@@ -43,8 +44,16 @@ function holderBoard(): Board {
  * The holder board with the selected footprint loaded into it — what both the
  * in-panel canvas and the "own window" EDA_3D_VIEWER_FRAME render. The bare
  * holder while nothing is selected; null only until the first answer.
+ *
+ * `loadFootprint` is `widgets/footprint_list.ts`'s hosted per-footprint fetch
+ * — an app-level dependency, so it arrives as a parameter (the same seam
+ * `PCBNEW_APP` / `CVPCB_APP` give it a frame through) rather than an import,
+ * which is what keeps this module free of `designer/`.
  */
-export function useFootprintHolderBoard(footprint: string): Board | null {
+export function useFootprintHolderBoard(
+  footprint: string,
+  loadFootprint: (libId: string) => Promise<PcbFootprint | null>,
+): Board | null {
   const [board, setBoard] = useState<Board | null>(null);
 
   // `m_preview3DCanvas->ReloadRequest()` on every selection: load the
@@ -72,7 +81,7 @@ export function useFootprintHolderBoard(footprint: string): Board | null {
     return () => {
       cancelled = true;
     };
-  }, [footprint]);
+  }, [footprint, loadFootprint]);
 
   return board;
 }
@@ -90,10 +99,10 @@ export function FootprintPreview3D({ board }: FootprintPreview3DProps): JSX.Elem
     if (!el || !board) return undefined;
     let viewer: Viewer3D | null = null;
     let cancelled = false;
-    void import('../pcb3d.js').then(({ mount3DViewer }) => {
+    void import('@ziroeda/3d-viewer/pcb3d.js').then(({ mount3DViewer }) => {
       if (cancelled) return;
       try {
-        viewer = mount3DViewer(el, board, [], undefined, { footprintHolder: true });
+        viewer = mount3DViewer(el, board, [], undefined, { footprintHolder: true }, MODELS3D_HOST);
       } catch {
         viewer = null;
       }

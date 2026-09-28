@@ -12,10 +12,10 @@
  * last in LAYER_DRC_HIGHLIGHTED with its collision 'X' (half-length
  * 2.5·MarkerScale(), stroke MarkerScale()/2).
  */
-import { PCB_IU_PER_MM } from '@ziroeda/common/src/eda_units.js';
+import { PCB_IU_PER_MM } from '@ziroeda/common/eda_units.js';
 import { describe, it, expect } from 'vitest';
-import { drawDrcMarkers, GAL_SCREEN_DPI } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
-import { PCB_BACKGROUND, PCB_SPECIAL } from '@ziroeda/designer/src/editors/pcb/pcbTheme.js';
+import { drawDrcMarkers, GAL_SCREEN_DPI } from '@ziroeda/pcbnew/renderBoard.js';
+import { PCB_BACKGROUND, PCB_SPECIAL } from '@ziroeda/pcbnew/pcbTheme.js';
 
 interface Call {
   op: string;

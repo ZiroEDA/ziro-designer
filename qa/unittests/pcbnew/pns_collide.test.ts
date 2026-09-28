@@ -43,13 +43,13 @@ import {
   type NetHandle,
   type PnsConstraint,
   type PnsRuleResolver,
-} from '@ziroeda/pcbnew/src/router/pns_collision.js';
-import { PnsItem, PnsKind, type PnsLineLike } from '@ziroeda/pcbnew/src/router/pns_item.js';
-import { PnsLayerRange } from '@ziroeda/pcbnew/src/router/pns_layerset.js';
-import { PnsHole } from '@ziroeda/pcbnew/src/router/pns_hole.js';
-import { PnsSegment } from '@ziroeda/pcbnew/src/router/pns_segment.js';
-import { PnsVia } from '@ziroeda/pcbnew/src/router/pns_via.js';
-import type { Shape } from '@ziroeda/pcbnew/src/drc/drc_geometry.js';
+} from '@ziroeda/pcbnew/router/pns_collision.js';
+import { PnsItem, PnsKind, type PnsLineLike } from '@ziroeda/pcbnew/router/pns_item.js';
+import { PnsLayerRange } from '@ziroeda/pcbnew/router/pns_layerset.js';
+import { PnsHole } from '@ziroeda/pcbnew/router/pns_hole.js';
+import { PnsSegment } from '@ziroeda/pcbnew/router/pns_segment.js';
+import { PnsVia } from '@ziroeda/pcbnew/router/pns_via.js';
+import type { Shape } from '@ziroeda/pcbnew/drc/drc_geometry.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 // ----- stubs -------------------------------------------------------------------

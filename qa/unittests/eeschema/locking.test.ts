@@ -7,10 +7,10 @@
  * sets/clears/toggles it undoably.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
-import { setSymbolsLockedCommand } from '@ziroeda/eeschema/src/tools/mutate.js';
-import { History } from '@ziroeda/eeschema/src/tools/command.js';
+import { setSymbolsLockedCommand } from '@ziroeda/eeschema/tools/mutate.js';
+import { History } from '@ziroeda/eeschema/tools/command.js';
 
 const sym = (ref: string, uuid: string, locked = false): string =>
   `(symbol (lib_id "Device:R") (at 10 10 0) (unit 1)${locked ? ' (locked yes)' : ''}

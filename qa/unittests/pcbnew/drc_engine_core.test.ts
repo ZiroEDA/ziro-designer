@@ -10,32 +10,29 @@
  * path. The expectations are the C++'s precedence, not the code's output.
  */
 import { describe, expect, it } from 'vitest';
-import { PARSE_ERROR } from '@ziroeda/common/src/dsnlexer.js';
-import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
-import type { OutStr } from '@ziroeda/common/src/font/font.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
+import { PARSE_ERROR } from '@ziroeda/common/dsnlexer.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import type { OutStr } from '@ziroeda/common/font/font.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { SETTINGS_MANAGER } from '@ziroeda/common/pgm_base.js';
 import {
   Reporter,
   RPT_SEVERITY_ERROR,
   RPT_SEVERITY_IGNORE,
   RPT_SEVERITY_WARNING,
-} from '@ziroeda/common/src/reporter.js';
-import { BOARD } from '@ziroeda/pcbnew/src/board.js';
-import { DEFAULT_MINCLEARANCE } from '@ziroeda/pcbnew/src/board_design_settings_defaults.js';
-import { DRC_ENGINE } from '@ziroeda/pcbnew/src/drc/drc_engine.js';
-import { PCB_DRC_CODE } from '@ziroeda/pcbnew/src/drc/drc_item.js';
-import {
-  DRC_CONSTRAINT_T,
-  DRC_DISALLOW_T,
-  type DRC_RULE,
-} from '@ziroeda/pcbnew/src/drc/drc_rule.js';
-import { DRC_RULES_PARSER } from '@ziroeda/pcbnew/src/drc/drc_rule_parser.js';
-import { FOOTPRINT } from '@ziroeda/pcbnew/src/footprint.js';
-import { NETINFO_ITEM } from '@ziroeda/pcbnew/src/netinfo.js';
-import { PAD } from '@ziroeda/pcbnew/src/pad.js';
-import { PAD_ATTRIB } from '@ziroeda/pcbnew/src/padstack.js';
-import { PCB_TRACK } from '@ziroeda/pcbnew/src/pcb_track.js';
-import { ZONE } from '@ziroeda/pcbnew/src/zone.js';
+} from '@ziroeda/common/reporter.js';
+import { BOARD } from '@ziroeda/pcbnew/board.js';
+import { DEFAULT_MINCLEARANCE } from '@ziroeda/pcbnew/board_design_settings_defaults.js';
+import { DRC_ENGINE } from '@ziroeda/pcbnew/drc/drc_engine.js';
+import { PCB_DRC_CODE } from '@ziroeda/pcbnew/drc/drc_item.js';
+import { DRC_CONSTRAINT_T, DRC_DISALLOW_T, type DRC_RULE } from '@ziroeda/pcbnew/drc/drc_rule.js';
+import { DRC_RULES_PARSER } from '@ziroeda/pcbnew/drc/drc_rule_parser.js';
+import { FOOTPRINT } from '@ziroeda/pcbnew/footprint.js';
+import { NETINFO_ITEM } from '@ziroeda/pcbnew/netinfo.js';
+import { PAD } from '@ziroeda/pcbnew/pad.js';
+import { PAD_ATTRIB } from '@ziroeda/pcbnew/padstack.js';
+import { PCB_TRACK } from '@ziroeda/pcbnew/pcb_track.js';
+import { ZONE } from '@ziroeda/pcbnew/zone.js';
 
 const mm = (v: number): number => pcbIUScale.mmToIU(v);
 
@@ -77,13 +74,21 @@ interface Fixture {
  */
 function makeBoard(): Fixture {
   const board = new BOARD();
+
+  // SETTINGS_MANAGER::LoadProject + BOARD::SetProject: the netclasses are the
+  // project file's, and a board without a project never syncs them.
+  const manager = new SETTINGS_MANAGER();
+  manager.LoadProject('/qa/core.kicad_pro', {
+    net_settings: {
+      classes: [DEFAULT_CLASS_JSON, { name: 'HV', clearance: 0.5, priority: 0 }],
+      netclass_patterns: [{ pattern: 'HV*', netclass: 'HV' }],
+    },
+  });
+  board.SetProject(manager.Prj());
+
   const bds = board.GetDesignSettings();
 
   bds.m_MinClearance = mm(0.3);
-  bds.m_NetSettings.LoadFromJson({
-    classes: [DEFAULT_CLASS_JSON, { name: 'HV', clearance: 0.5, priority: 0 }],
-    netclass_patterns: [{ pattern: 'HV*', netclass: 'HV' }],
-  });
 
   const hv = new NETINFO_ITEM(board, 'HV1');
   const sig = new NETINFO_ITEM(board, 'SIG');

@@ -38,8 +38,8 @@ import {
   MeanderedLine,
   basicMeanderPlacer,
   defaultMeanderSettings,
-} from '@ziroeda/pcbnew/src/router/pns_meander.js';
-import type { MeanderSettings, MeanderShape } from '@ziroeda/pcbnew/src/router/pns_meander.js';
+} from '@ziroeda/pcbnew/router/pns_meander.js';
+import type { MeanderSettings, MeanderShape } from '@ziroeda/pcbnew/router/pns_meander.js';
 import {
   LENGTH_TARGET_TOLERANCE,
   PnsMeanderPlacerBase,
@@ -53,19 +53,19 @@ import {
   segNearestPoint,
   segSide,
   tuneLineLength,
-} from '@ziroeda/pcbnew/src/router/pns_meander_placer_base.js';
+} from '@ziroeda/pcbnew/router/pns_meander_placer_base.js';
 import type {
   MeanderPlacerHost,
   MeanderRouterIface,
-} from '@ziroeda/pcbnew/src/router/pns_meander_placer_base.js';
-import { PnsConstraintType } from '@ziroeda/pcbnew/src/router/pns_collision.js';
-import { PnsItemSet } from '@ziroeda/pcbnew/src/router/pns_itemset.js';
-import { PnsLayerRange } from '@ziroeda/pcbnew/src/router/pns_layerset.js';
-import { PnsLineChain } from '@ziroeda/pcbnew/src/router/pns_line_item.js';
-import { PnsNode } from '@ziroeda/pcbnew/src/router/pns_node.js';
-import { PnsSegment } from '@ziroeda/pcbnew/src/router/pns_segment.js';
-import type { NetHandle } from '@ziroeda/pcbnew/src/router/pns_collision.js';
-import type { PnsItem } from '@ziroeda/pcbnew/src/router/pns_item.js';
+} from '@ziroeda/pcbnew/router/pns_meander_placer_base.js';
+import { PnsConstraintType } from '@ziroeda/pcbnew/router/pns_collision.js';
+import { PnsItemSet } from '@ziroeda/pcbnew/router/pns_itemset.js';
+import { PnsLayerRange } from '@ziroeda/pcbnew/router/pns_layerset.js';
+import { PnsLineChain } from '@ziroeda/pcbnew/router/pns_line_item.js';
+import { PnsNode } from '@ziroeda/pcbnew/router/pns_node.js';
+import { PnsSegment } from '@ziroeda/pcbnew/router/pns_segment.js';
+import type { NetHandle } from '@ziroeda/pcbnew/router/pns_collision.js';
+import type { PnsItem } from '@ziroeda/pcbnew/router/pns_item.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 const V = (x: number, y: number): Vec2 => ({ x, y });

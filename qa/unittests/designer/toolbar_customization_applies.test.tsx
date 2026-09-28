@@ -32,19 +32,19 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import type { JSX } from 'react';
-import { Toolbar } from '@ziroeda/designer/src/ui/Toolbar.js';
+import { Toolbar } from '@ziroeda/common/tool/action_toolbar.js';
 import { useToolbarEntries } from '@ziroeda/designer/src/ui/useToolbarEntries.js';
 import { settings } from '@ziroeda/designer/src/prefs/settings.js';
 import {
   configFromEntries,
   setStoredToolbarConfig,
   type ToolbarSettings,
-} from '@ziroeda/designer/src/ui/toolbar_config.js';
+} from '@ziroeda/common/tool/ui/toolbar_configuration.js';
 import {
   DS_DEFAULT_TOOLBARS,
   DS_LEFT_TOOLBAR,
-} from '@ziroeda/designer/src/editors/drawingsheet/drawingSheetToolbars.js';
-import { SCH_DEFAULT_TOOLBARS } from '@ziroeda/designer/src/editors/schematic/toolbars_sch_editor.js';
+} from '@ziroeda/pagelayout_editor/toolbars_pl_editor.js';
+import { SCH_DEFAULT_TOOLBARS } from '@ziroeda/eeschema/toolbars_sch_editor.js';
 
 afterEach(cleanup);
 

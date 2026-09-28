@@ -28,7 +28,7 @@ import {
   acceleratorName,
   hotkeyListKey,
   hotkeyListName,
-} from '@ziroeda/designer/src/ui/key_names.js';
+} from '@ziroeda/common/tool/action_menu_key_names.js';
 import { buildHotkeySections, menuHotkeyName } from '@ziroeda/designer/src/ui/hotkeys_inventory.js';
 import { HOTKEYS } from '@ziroeda/designer/src/editors/schematic/hotkeys.js';
 import { APP_ORDER, APP_REGISTRIES } from '@ziroeda/designer/src/ui/hotkey_apps.js';
@@ -37,9 +37,9 @@ import {
   parseAccelerator,
   matchesAccelerator,
   type HotkeyEvent,
-} from '@ziroeda/designer/src/ui/menu_hotkeys.js';
+} from '@ziroeda/common/tool/action_menu_hotkeys.js';
 import { applyHotkeyOverrides } from '@ziroeda/designer/src/editors/schematic/hotkey_list.js';
-import type { Menu, MenuItem } from '@ziroeda/designer/src/ui/menu_types.js';
+import type { Menu, MenuItem } from '@ziroeda/common/tool/action_menu_types.js';
 
 /**
  * The whole divergent set, transcribed here a second time on purpose.
@@ -198,11 +198,12 @@ describe('the menu rows print the accelerator, character for character', () => {
     'editors/symbol/menubar.ts',
     'editors/pcb/PcbEditor.tsx',
     'editors/footprint/FootprintEditor.tsx',
-    'editors/schematic/dialogs/dialog_assign_footprints.tsx',
-    'editors/schematic/menubar.ts',
+    '../../cvpcb/cvpcb_mainframe_ui.tsx',
+    '../../eeschema/menubar.ts',
     // Already correct before this split, and pinned by
-    // drawing_sheet_palette.test.ts as well.
-    'editors/drawingsheet/DrawingSheetEditor.tsx',
+    // drawing_sheet_palette.test.ts as well. The menu bar moved beside
+    // KiCad's, pagelayout_editor/menubar.ts (09-27).
+    '../../pagelayout_editor/menubar.ts',
   ];
 
   it.each(DELETE_ROWS)('%s says Delete, never Del', (rel) => {
@@ -214,7 +215,7 @@ describe('the menu rows print the accelerator, character for character', () => {
   });
 
   it('the schematic sheet-navigation rows say Page Up / Page Down', () => {
-    const src = SRC('editors/schematic/menubar.ts');
+    const src = SRC('../../eeschema/menubar.ts');
     expect(src).toContain("'Page Up'");
     expect(src).toContain("'Page Down'");
     expect(src).not.toContain("'PgUp'");
@@ -232,7 +233,7 @@ describe('the menu rows print the accelerator, character for character', () => {
     // EDA_3D_ACTIONS::moveLeft is WXK_LEFT; GTK labels it `Left`. A glyph is
     // neither spelling, and is not a KeyboardEvent.key either, so the row was
     // undispatchable as well as wrong.
-    const src = SRC('editors/pcb/viewer3dMenus.ts');
+    const src = SRC('../../3d-viewer/3d_menubar.ts');
     for (const key of ['Left', 'Right', 'Up', 'Down']) {
       expect(src).toContain(`shortcut: '${key}'`);
     }

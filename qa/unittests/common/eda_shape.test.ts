@@ -8,7 +8,7 @@
  * EDA_POLYGON_POINT_EDIT_BEHAVIOR, which arrive with the tools.
  */
 import { describe, expect, it } from 'vitest';
-import { EDA_SHAPE, FILL_T, SHAPE_T } from '@ziroeda/common/src/eda_shape.js';
+import { EDA_SHAPE, FILL_T, SHAPE_T } from '@ziroeda/common/eda_shape.js';
 import { EDA_ANGLE, EDA_ANGLE_T } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { SHAPE_ARC } from '@ziroeda/kimath/src/geometry/shape_arc.js';
 import type { Vec2, VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';

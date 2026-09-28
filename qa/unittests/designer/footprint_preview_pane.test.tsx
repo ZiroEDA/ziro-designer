@@ -27,16 +27,12 @@
  */
 import { afterEach, describe, expect, it } from 'vitest';
 import { act, cleanup, render } from '@testing-library/react';
-import { FootprintPreviewWidget } from '@ziroeda/designer/src/widgets/footprint_preview_widget.js';
-import { parseFootprint } from '@ziroeda/designer/src/editors/footprint/footprintBoard.js';
-import {
-  layerColor,
-  PCB_CURSOR,
-  PCB_GRID,
-  PCB_SPECIAL,
-} from '@ziroeda/designer/src/editors/pcb/pcbTheme.js';
-import { netnameColorFor } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
-import { dimmedCursorColor } from '@ziroeda/designer/src/ui/grid_cursor.js';
+import { FootprintPreviewWidget } from '@ziroeda/common/widgets/footprint_preview_widget.js';
+import { PCB_FOOTPRINT_PREVIEW_PANEL } from '@ziroeda/designer/src/editors/pcb/footprint_preview_panel.js';
+import { parseFootprint } from '@ziroeda/pcbnew/footprint_edit_frame.js';
+import { layerColor, PCB_CURSOR, PCB_GRID, PCB_SPECIAL } from '@ziroeda/pcbnew/pcbTheme.js';
+import { netnameColorFor } from '@ziroeda/pcbnew/renderBoard.js';
+import { dimmedCursorColor } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
 
 afterEach(cleanup);
 
@@ -228,6 +224,7 @@ async function paint(footprintText = DIODE): Promise<{ rec: Recorder; gridFill: 
     await act(async () => {
       render(
         <FootprintPreviewWidget
+          panel={PCB_FOOTPRINT_PREVIEW_PANEL}
           footprint="Diode_THT:D_DO-41_SOD81_P10.16mm_Horizontal"
           statusText=""
           resolve={async () => fp}

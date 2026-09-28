@@ -38,8 +38,8 @@ import {
   RESTORE_YES_LABEL,
   restoreConfirmMessage,
   restoredFromTitle,
-} from '@ziroeda/designer/src/home/local_history.js';
-import { yesNoButtons } from '@ziroeda/designer/src/ui/message_dialog.js';
+} from '@ziroeda/common/local_history.js';
+import { yesNoButtons } from '@ziroeda/common/confirm_types.js';
 import {
   deleteProject,
   loadProject,

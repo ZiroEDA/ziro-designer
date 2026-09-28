@@ -9,8 +9,8 @@
  * loaded before user rules rather than after.
  */
 import { describe, it, expect } from 'vitest';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import { parseDrcRules } from '@ziroeda/pcbnew/src/drc/drc_rule_view.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
+import { parseDrcRules } from '@ziroeda/pcbnew/drc/drc_rule_view.js';
 import {
   boardSetupRules,
   buildDrcRuleEngine,
@@ -18,7 +18,7 @@ import {
   netClassRules,
   ruleMatchesLayer,
   type DrcEvalItem,
-} from '@ziroeda/pcbnew/src/drc/drc_rules_engine.js';
+} from '@ziroeda/pcbnew/drc/drc_rules_engine.js';
 
 const MM = (n: number): number => mmToIU(n);
 

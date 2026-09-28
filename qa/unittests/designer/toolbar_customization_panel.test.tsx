@@ -20,24 +20,28 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { useState, type JSX } from 'react';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { PanelToolbarCustomization } from '@ziroeda/designer/src/dialogs/prefs/PanelToolbarCustomization.js';
-import { resetToolbarsPanel } from '@ziroeda/designer/src/dialogs/prefs/toolbar_reset.js';
+import { PanelToolbarCustomization } from '@ziroeda/common/dialogs/panel_toolbar_customization.js';
+import { resetToolbarsPanel } from '@ziroeda/common/tool/ui/toolbar_configuration.js';
 import {
   configFromEntries,
   storedToolbarConfig,
   TOOLBAR_SETTINGS_DEFAULTS,
   type ToolbarDefaults,
   type ToolbarSettings,
-} from '@ziroeda/designer/src/ui/toolbar_config.js';
+} from '@ziroeda/common/tool/ui/toolbar_configuration.js';
 import {
   DS_DEFAULT_TOOLBARS,
   DS_LEFT_TOOLBAR,
   DS_TOP_TOOLBAR,
-} from '@ziroeda/designer/src/editors/drawingsheet/drawingSheetToolbars.js';
+} from '@ziroeda/pagelayout_editor/toolbars_pl_editor.js';
 import { SYM_DEFAULT_TOOLBARS } from '@ziroeda/designer/src/editors/symbol/symbolToolbars.js';
-import { ACTION_CATALOGUE, ourToolbarId } from '@ziroeda/designer/src/ui/action_catalogue.js';
-import { PCB_DEFAULT_TOOLBARS } from '@ziroeda/designer/src/editors/pcb/pcbToolbars.js';
-import { SCH_DEFAULT_TOOLBARS } from '@ziroeda/designer/src/editors/schematic/toolbars_sch_editor.js';
+import {
+  ACTION_CATALOGUE,
+  catalogueFor,
+  ourToolbarId,
+} from '@ziroeda/designer/src/ui/action_catalogue.js';
+import { PCB_DEFAULT_TOOLBARS } from '@ziroeda/pcbnew/toolbars_pcb_editor.js';
+import { SCH_DEFAULT_TOOLBARS } from '@ziroeda/eeschema/toolbars_sch_editor.js';
 
 afterEach(cleanup);
 
@@ -60,6 +64,8 @@ function Harness({
   return (
     <PanelToolbarCustomization
       app={app}
+      availableTools={catalogueFor(app)}
+      toolbarIdOf={ourToolbarId}
       defaults={defaults}
       custom={custom}
       setCustom={(v) => {
@@ -90,10 +96,7 @@ const isDisabled = (el: HTMLElement): boolean => el.hasAttribute('disabled');
 
 /** The panel's own source, for the one assertion a DOM test cannot make. */
 const panelSource = (): string =>
-  readFileSync(
-    resolve(process.cwd(), '../designer/src/dialogs/prefs/PanelToolbarCustomization.tsx'),
-    'utf8',
-  );
+  readFileSync(resolve(process.cwd(), '../common/dialogs/panel_toolbar_customization.tsx'), 'utf8');
 
 /**
  * `m_tbChoice` is a wxChoice, which is our `Combo`: a BUTTON with a popup, never
@@ -464,7 +467,7 @@ describe('ResetPanel', () => {
  * 30, and no expander column at all, so a group was told apart from a leaf only
  * by its missing icon and nothing lined up with anything.
  */
-const CSS = readFileSync(resolve(process.cwd(), '../designer/src/ui/shell.css'), 'utf8');
+const CSS = readFileSync(resolve(process.cwd(), '../common/widgets/shell.css'), 'utf8');
 /** A rule body by exact selector, comments stripped. */
 const rule = (selector: string): string => {
   const bare = CSS.replace(/\/\*[\s\S]*?\*\//g, '');

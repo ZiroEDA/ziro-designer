@@ -34,12 +34,12 @@ import { schIUScale } from '@ziroeda/common';
 import {
   PanelGridSettings,
   type GridSettingsSlice,
-} from '@ziroeda/designer/src/dialogs/prefs/PanelGridSettings.js';
-import type { GridEntry } from '@ziroeda/designer/src/ui/grid_settings.js';
+} from '@ziroeda/common/dialogs/panel_grid_settings.js';
+import type { GridEntry } from '@ziroeda/common/settings/grid_settings_ui.js';
 
 afterEach(cleanup);
 
-const CSS = readFileSync(resolve(process.cwd(), '../designer/src/ui/shell.css'), 'utf8');
+const CSS = readFileSync(resolve(process.cwd(), '../common/widgets/shell.css'), 'utf8');
 
 /** A rule body by exact selector, comments stripped. */
 function rule(selector: string): string {

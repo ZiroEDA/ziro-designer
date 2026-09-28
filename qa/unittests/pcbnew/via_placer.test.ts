@@ -12,11 +12,11 @@
  */
 import { describe, expect, it } from 'vitest';
 import { U } from './support/written_node.js';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { placeVia, trackUnderVia } from '@ziroeda/pcbnew/src/via_placer.js';
-import type { Board, PcbVia } from '@ziroeda/pcbnew/src/types.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { placeVia, trackUnderVia } from '@ziroeda/pcbnew/tools/drawing_tool.js';
+import type { Board, PcbVia } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 

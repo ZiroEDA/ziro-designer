@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+import { FRAME_T } from '@ziroeda/common/frame_type.js';
+import { MAIL_T } from '@ziroeda/common/mail_type.js';
+import { KIWAY } from '@ziroeda/common/kiway.js';
 import {
   useEffect,
   useMemo,
@@ -15,7 +18,7 @@ import type { LibSymbol } from '@ziroeda/eeschema';
 import { HomePage } from './home/HomePage.js';
 import type { PickedFile } from './editors/schematic/SchematicEditor.js';
 import { EMPTY_PCB } from './home/new_project.js';
-import { ProgressDialog } from './ui/ProgressDialog.js';
+import { ProgressDialog } from '@ziroeda/common/widgets/wx_progress_reporters.js';
 import { ProjectSyncProvider } from './sync/ProjectSyncProvider.js';
 import type { EditorKind } from './sync/ProjectSyncTransport.js';
 import {
@@ -32,7 +35,7 @@ import { saveSession, loadSession } from './home/session.js';
 import { installFlushOnHide } from './home/flush_on_hide.js';
 import { setRecoveryProvider } from './home/recovery.js';
 import { recoverySnapshotFrom } from './home/recovery_source.js';
-import { formatTitle, useDocumentTitle } from './ui/useDocumentTitle.js';
+import { formatTitle, useDocumentTitle } from '@ziroeda/common/use_document_title.js';
 import { pushProject } from './cloud/sync.js';
 import { useRoute } from './nav/useRoute.js';
 import { fileForFrame, type ProjectView, type Route } from './nav/route.js';
@@ -48,11 +51,11 @@ import {
   reportSignedIn,
 } from './home/save_state.js';
 import { SaveIndicator } from './ui/SaveIndicator.js';
-import { ReadOnlyNotice } from './ui/ReadOnlyNotice.js';
+import { ReadOnlyNotice } from '@ziroeda/common/widgets/wx_infobar.js';
 import { installCommonAppearance } from './ui/common_appearance.js';
 import { projectStoreFileSystem } from './fs/project_store_fs.js';
 import { warmLibraryIndexes } from './libraryHosts.js';
-import './ui/shell.css';
+import '@ziroeda/common/widgets/shell.css';
 
 /**
  * The editor frames load on demand, one chunk each.
@@ -556,33 +559,6 @@ export function App(): JSX.Element {
   // Fetch the editors in the background while the launcher is on screen, so
   // opening one is not the first time its code is asked for.
   useEffect(() => prefetchEditors(), []);
-  // The schematic's highlighted net, cross-probed to the PCB editor (KiCad
-  // sends "$NET: <name>" between the frames; here both are mounted together).
-  const [crossProbeNet, setCrossProbeNet] = useState<string | null>(null);
-  // Tools > Update PCB from Schematic (F8) from the schematic editor: switch to
-  // the PCB frame and bump this, which is what runs the dialog there. KiCad's
-  // SCH_EDIT_FRAME::doUpdatePcb hands off to pcbnew the same way.
-  const [updatePcbNonce, setUpdatePcbNonce] = useState<number | null>(null);
-  // Select on PCB from the schematic's context menu: the `$SELECT:` parts go to
-  // the board frame, which resolves them to footprints and pads. The nonce is
-  // what makes selecting the same items twice arrive twice, since the request
-  // is an event and not a state the board should keep re-applying.
-  const [pcbSyncSelection, setPcbSyncSelection] = useState<{
-    parts: readonly string[];
-    nonce: number;
-  } | null>(null);
-  // The same channel pointed the other way: the BOARD's selection, arriving at
-  // the schematic. `PCB_EDIT_FRAME::SendSelectItemsToSch` sends it whenever the
-  // board's selection settles, and the schematic applies it subject to
-  // `eeschema.cross_probing` — which is why that group on Preferences >
-  // Schematic Editor > Display Options was greyed: nothing arrived for it to
-  // govern.
-  const [schSyncSelection, setSchSyncSelection] = useState<{
-    parts: readonly string[];
-    nonce: number;
-  } | null>(null);
-  // ...and the board's highlighted net, arriving at the schematic as `$NET:`.
-  const [schCrossProbeNet, setSchCrossProbeNet] = useState<string | null>(null);
   const [schMounted, setSchMounted] = useState(false);
   const [pcbMounted, setPcbMounted] = useState(false);
   const [symMounted, setSymMounted] = useState(false);
@@ -596,8 +572,27 @@ export function App(): JSX.Element {
   // The file the project manager double-clicked into the footprint / symbol
   // editor (KiCad's MAIL_FP_EDIT / MAIL_LIB_EDIT). Re-sent with a fresh nonce
   // each activation so a resident editor re-opens on the newly-picked file.
-  const [fpRequest, setFpRequest] = useState<{ file: string | null; nonce: number } | null>(null);
-  const [symRequest, setSymRequest] = useState<{ file: string | null; nonce: number } | null>(null);
+  // The library file each editor was last opened on, for the address (`?f=`);
+  // the editor itself is told by mail, below.
+  const [fpFile, setFpFile] = useState<string | null>(null);
+  const [symFile, setSymFile] = useState<string | null>(null);
+  // The program's KIWAY (built further down), for the handlers above it.
+  const kiwayRef = useRef<KIWAY | null>(null);
+  /**
+   * `PROJECT_TREE_ITEM::Activate` for a library file: open the editor, then
+   * `ExpressMail( …, MAIL_LIB_EDIT / MAIL_FP_EDIT, fullFileName )`. KIWAY holds
+   * the mail while an editor that was not running mounts.
+   */
+  const expressLibEdit = useCallback((aKind: 'symbols' | 'footprints', aFile: string) => {
+    const kiway = kiwayRef.current;
+    if (!kiway) return;
+    const frame =
+      aKind === 'symbols' ? FRAME_T.FRAME_SCH_SYMBOL_EDITOR : FRAME_T.FRAME_FOOTPRINT_EDITOR;
+    kiway.Player(frame);
+    kiway.ExpressMail(frame, aKind === 'symbols' ? MAIL_T.MAIL_LIB_EDIT : MAIL_T.MAIL_FP_EDIT, {
+      value: aFile,
+    });
+  }, []);
   // A .kicad_wks the project manager double-clicked into the Drawing Sheet
   // Editor: its name + content, re-sent with a fresh nonce so a resident editor
   // re-opens on the newly-picked file.
@@ -699,8 +694,8 @@ export function App(): JSX.Element {
     // the board's address -- a file pcbnew does not open.
     const file = fileForFrame(pv, {
       schematic: startFile,
-      symbols: symRequest?.file,
-      footprints: fpRequest?.file,
+      symbols: symFile,
+      footprints: fpFile,
     });
     return {
       kind: 'project',
@@ -710,7 +705,7 @@ export function App(): JSX.Element {
       // the 3D viewer over the board editor: `/pcb/3d`
       ...(pv === 'pcb' && pcb3dOpen ? { child: '3d' as const } : {}),
     };
-  }, [view, openUid, startFile, symRequest?.file, fpRequest?.file, demoRoute, pcb3dOpen]);
+  }, [view, openUid, startFile, symFile, fpFile, demoRoute, pcb3dOpen]);
 
   // Restore the last view on reload. The ADDRESS is asked first, and only when
   // it names nothing does this fall back to the old behaviour -- the saved view
@@ -793,20 +788,18 @@ export function App(): JSX.Element {
           const v =
             route.view === 'manager' ? 'home' : (route.view as Extract<typeof view, 'schematic'>);
           // `?f=` goes to the frame the address names, and only to that one.
-          // The symbol and footprint editors take it as an open request -- the
-          // same message the project manager sends on a double-click, KiCad's
-          // MAIL_LIB_EDIT and MAIL_FP_EDIT -- because that is the only way in
-          // to a resident editor; a bare prop would be swallowed as unchanged
-          // when the same library is asked for twice.
+          // The symbol and footprint editors are sent it as the project
+          // manager sends a double-clicked library, KiCad's MAIL_LIB_EDIT and
+          // MAIL_FP_EDIT.
           if (route.file) {
-            if (route.view === 'symbols')
-              setSymRequest((prev) => ({ file: route.file!, nonce: (prev?.nonce ?? 0) + 1 }));
-            else if (route.view === 'footprints')
-              setFpRequest((prev) => ({ file: route.file!, nonce: (prev?.nonce ?? 0) + 1 }));
+            if (route.view === 'symbols') setSymFile(route.file);
+            else if (route.view === 'footprints') setFpFile(route.file);
             else setStartFile(route.file);
           }
           mountFor(v);
           setView(v);
+          if (route.file && (route.view === 'symbols' || route.view === 'footprints'))
+            expressLibEdit(route.view, route.file);
           // `/pcb/3d` raises the 3D viewer over the board; any other address
           // closes it, the way a child frame closes when you leave its parent.
           setPcb3dOpen(route.view === 'pcb' && route.child === '3d');
@@ -894,7 +887,16 @@ export function App(): JSX.Element {
         setRestoring(false);
       }
     })();
-  }, [route, openUid, openByUid, mountFor, openProjectFiles, demoSource?.id, applyDemoFrame]);
+  }, [
+    route,
+    openUid,
+    openByUid,
+    mountFor,
+    openProjectFiles,
+    demoSource?.id,
+    applyDemoFrame,
+    expressLibEdit,
+  ]);
 
   /**
    * And the address mirrors the state.
@@ -1441,6 +1443,39 @@ export function App(): JSX.Element {
     flushSaves(); // persist pending edits before the tree/reopen can read them
     setView('home');
   }, [flushSaves]);
+  /**
+   * The program's KIWAY (`common/kiway.ts`), which frames call through
+   * COMMON_CONTROL: an editor is a view here, and home is the project manager.
+   */
+  const kiway = useMemo<KIWAY>(() => {
+    const PLAYER_VIEW: Partial<Record<FRAME_T, typeof view>> = {
+      [FRAME_T.FRAME_SCH]: 'schematic',
+      [FRAME_T.FRAME_SCH_SYMBOL_EDITOR]: 'symbols',
+      [FRAME_T.FRAME_PCB_EDITOR]: 'pcb',
+      [FRAME_T.FRAME_FOOTPRINT_EDITOR]: 'footprints',
+      [FRAME_T.FRAME_GERBER]: 'gerber',
+      [FRAME_T.FRAME_PL_EDITOR]: 'drawingsheet',
+      [FRAME_T.FRAME_BM2CMP]: 'image',
+      [FRAME_T.FRAME_CALC]: 'calculator',
+    };
+
+    return new KIWAY({
+      OnKiCadExit: goHome,
+      Player: (aFrameType) => {
+        const v = PLAYER_VIEW[aFrameType];
+        if (!v) return false;
+        mountFor(v);
+        setView(v);
+        return true;
+      },
+      HasProjectManager: () => true,
+      ShowProjectManager: goHome,
+      // The library tables and Configure Paths are raised by the editors that
+      // own them, not through a KIWAY here.
+      CreateKiWindow: () => false,
+    });
+  }, [goHome, mountFor]);
+  kiwayRef.current = kiway;
   const showPcb = useCallback(() => {
     setPcbMounted(true);
     setView('pcb');
@@ -1449,16 +1484,6 @@ export function App(): JSX.Element {
     setSchMounted(true);
     setView('schematic');
   }, []);
-  // KiCad raises the board frame as part of handling the packet
-  // (PCB_EDIT_FRAME::KiwayMailIn -> `Raise()`), so the switch belongs here and
-  // not in the schematic's action.
-  const selectOnPcb = useCallback(
-    (parts: readonly string[]) => {
-      showPcb();
-      setPcbSyncSelection((p) => ({ parts, nonce: (p?.nonce ?? 0) + 1 }));
-    },
-    [showPcb],
-  );
   // Edit with Symbol Editor, both legs. The schematic hands a library-shaped
   // symbol over and remembers which placement it came from; the symbol editor
   // hands the edit back and eeschema applies it.
@@ -1628,7 +1653,8 @@ export function App(): JSX.Element {
           }
           setSymMounted(true);
           setView('symbols');
-          setSymRequest((prev) => ({ file: startFile ?? null, nonce: (prev?.nonce ?? 0) + 1 }));
+          setSymFile(startFile ?? null);
+          if (startFile) expressLibEdit('symbols', startFile);
         }}
         onOpenFootprintEditor={(files, startFile) => {
           if (files) {
@@ -1637,7 +1663,8 @@ export function App(): JSX.Element {
           }
           setFpMounted(true);
           setView('footprints');
-          setFpRequest((prev) => ({ file: startFile ?? null, nonce: (prev?.nonce ?? 0) + 1 }));
+          setFpFile(startFile ?? null);
+          if (startFile) expressLibEdit('footprints', startFile);
         }}
         onOpenCalculator={() => {
           setCalcMounted(true);
@@ -1708,14 +1735,7 @@ export function App(): JSX.Element {
                       }
                     : undefined
                 }
-                onUpdatePcb={
-                  pcbFile
-                    ? () => {
-                        showPcb();
-                        setUpdatePcbNonce((n) => (n ?? 0) + 1);
-                      }
-                    : undefined
-                }
+                hasBoard={!!pcbFile}
                 onShowSymbolEditor={showSymbolEditor}
                 onShowFootprintEditor={showFootprintEditor}
                 onShowCalculator={showCalculator}
@@ -1742,10 +1762,7 @@ export function App(): JSX.Element {
                 projectName={projectName}
                 readOnlyNotice={demoNotice}
                 readOnly={!!demoProject}
-                onCrossProbeNet={setCrossProbeNet}
-                syncSelectionFromPcb={schSyncSelection}
-                crossProbeNetFromPcb={schCrossProbeNet}
-                onSelectOnPcb={selectOnPcb}
+                kiway={kiway}
               />
             </Suspense>
           </Frozen>
@@ -1779,11 +1796,7 @@ export function App(): JSX.Element {
                 rootPro={activeBase || undefined}
                 onPersistFiles={persistFilesNow}
                 onOutputFile={onOutputFile}
-                crossProbeNet={crossProbeNet}
-                syncSelection={pcbSyncSelection}
-                onSyncSelectionToSch={setSchSyncSelection}
-                onCrossProbeNetToSch={setSchCrossProbeNet}
-                updateFromSchematic={updatePcbNonce}
+                kiway={kiway}
                 readOnlyNotice={demoNotice}
                 readOnly={!!demoProject}
               />
@@ -1800,7 +1813,7 @@ export function App(): JSX.Element {
                 projectName={projectName}
                 initialProject={projectFiles}
                 onAddSymbolToSchematic={addSymbolToSchematic}
-                openRequest={symRequest}
+                kiway={kiway}
                 schematicSymbol={symFromSchematic}
                 onSaveToSchematic={saveSymbolToSchematic}
                 /* `SYMBOL_EDIT_FRAME::ShowInfoBarMessages` puts up "Library is
@@ -1820,11 +1833,7 @@ export function App(): JSX.Element {
         <div style={frameStyle(view === 'footprints')}>
           <Frozen shown={view === 'footprints'}>
             <Suspense fallback={frameLoading}>
-              <FootprintEditor
-                onExitToHome={goHome}
-                initialProject={projectFiles}
-                openRequest={fpRequest}
-              />
+              <FootprintEditor onExitToHome={goHome} initialProject={projectFiles} kiway={kiway} />
             </Suspense>
           </Frozen>
         </div>
@@ -1844,6 +1853,7 @@ export function App(): JSX.Element {
             <Suspense fallback={frameLoading}>
               <DrawingSheetEditor
                 onExitToHome={goHome}
+                kiway={kiway}
                 projectName={projectName}
                 /* Two cases, because this frame is reachable both ways.
                  WITH a project open, the thing to keep is the project, not the
@@ -1874,7 +1884,7 @@ export function App(): JSX.Element {
         <div style={frameStyle(view === 'image')}>
           <Frozen shown={view === 'image'}>
             <Suspense fallback={frameLoading}>
-              <ImageConverter onExitToHome={goHome} />
+              <ImageConverter onExitToHome={goHome} kiway={kiway} />
             </Suspense>
           </Frozen>
         </div>
@@ -1885,6 +1895,7 @@ export function App(): JSX.Element {
             <Suspense fallback={frameLoading}>
               <GerberViewer
                 onExitToHome={goHome}
+                kiway={kiway}
                 projectName={projectName}
                 openRequest={gbRequest}
               />

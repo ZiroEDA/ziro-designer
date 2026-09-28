@@ -12,14 +12,14 @@
  * like anything else on the board.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { BOARD as KICAD_BOARD } from '@ziroeda/pcbnew/board.js';
 import {
   barcodeGeometry,
   barcodeHullBoxes,
-  symbolRects,
-} from '@ziroeda/pcbnew/src/barcode_geometry.js';
+} from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/board_view.js';
 import {
   addBoardBarcode,
   boardHitCandidates,
@@ -31,21 +31,21 @@ import {
   moveBoardItems,
   rotateBoardItemsBy,
   setBoardItemsLocked,
-} from '@ziroeda/pcbnew/src/edit-board.js';
+} from '@ziroeda/pcbnew/edit-board.js';
 import {
   barcodeAt,
   barcodeCommitError,
   barcodeUiState,
   barcodeValues,
   correctEccForKind,
-} from '@ziroeda/pcbnew/src/barcode_properties.js';
-import { encodeBarcode } from '@ziroeda/pcbnew/src/barcode/zint.js';
-import { bestSnapAnchor } from '@ziroeda/pcbnew/src/pcb_cursor_snap.js';
-import { boardEditHandles, dragBoardHandle } from '@ziroeda/pcbnew/src/point_editor.js';
-import { pcbBarcodeMsgPanelInfo } from '@ziroeda/pcbnew/src/msg_panel.js';
-import { pcbPropertiesFor } from '@ziroeda/pcbnew/src/properties_panel.js';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import type { Board, PcbBarcode } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_barcode_properties.js';
+import { encodeBarcode } from '@ziroeda/zint';
+import { bestSnapAnchor } from '@ziroeda/pcbnew/pcb_cursor_snap.js';
+import { boardEditHandles, dragBoardHandle } from '@ziroeda/pcbnew/tools/pcb_point_editor.js';
+import { pcbBarcodeMsgPanelInfo } from '@ziroeda/pcbnew/msg_panel.js';
+import { livePanel } from './support/live_panel.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
+import type { Board, PcbBarcode } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 
@@ -118,7 +118,8 @@ describe('the encoder’s units never reach the board', () => {
     // per-module version would fill identically; this pins that we take the
     // rectangles rather than re-deriving them.
     const { symbol } = encodeBarcode('code39', 'L', 'ZIRO');
-    const rects = symbolRects(symbol!);
+    // `m_symbolPoly` holds one outline per rectangle Zint's vector stage made.
+    const rects = barcodeGeometry(bc({ kind: 'code39' })).symbolPoly;
     let darkModules = 0;
     for (let i = 0; i < symbol!.width; i++) if (symbol!.encoded[0]?.[i]) darkModules++;
 
@@ -226,8 +227,10 @@ describe('orientation and side', () => {
     //      m_poly.Mirror( m_pos, LEFT_RIGHT )` (`pcb_barcode.cpp:371-372`).
     // Without it a barcode on B.SilkS is a mirror image and no reader will
     // decode it from the back of the board.
-    const front = barcodeGeometry(bc({ layer: 'F.SilkS' }));
-    const back = barcodeGeometry(bc({ layer: 'B.SilkS' }));
+    // `GetBoard()->IsBackLayer` needs a board; a view off `boardFromBOARD`
+    // brings its own through `k`, a literal is given one here.
+    const front = barcodeGeometry(bc({ layer: 'F.SilkS' }), new KICAD_BOARD());
+    const back = barcodeGeometry(bc({ layer: 'B.SilkS' }), new KICAD_BOARD());
 
     expect(front.poly).not.toEqual(back.poly);
     // The bounding box is unchanged — a mirror about the centre.
@@ -470,13 +473,16 @@ describe('the message panel', () => {
 });
 
 describe('the Properties panel', () => {
-  const ctx = { layerColor: () => 'rgb(0, 0, 0)', units: 'mm' as const };
-  const rows = (b = read()): ReturnType<typeof pcbPropertiesFor> =>
-    pcbPropertiesFor(b, ['barcode:0'], ctx);
+  // PCB_PROPERTIES_PANEL on the live BOARD (#636 stage 6).
+  const panel = (src = BOARD) => livePanel(src, (b) => b.Drawings()[0]!);
+  const names = (src = BOARD): string[] =>
+    panel(src)
+      .rows()
+      .map((r) => r.name);
 
   it('offers BOARD_ITEM’s four rows and then the barcode group', () => {
     // `InheritsAfter( PCB_BARCODE, BOARD_ITEM )` (`pcb_barcode.cpp:896`).
-    expect(rows().map((r) => r.name)).toEqual([
+    expect(names()).toEqual([
       'Position X',
       'Position Y',
       'Layer',
@@ -496,18 +502,20 @@ describe('the Properties panel', () => {
   it('drops Error Correction for a symbology that has none', () => {
     // `SetAvailableFunc( isQRCode )`: the row is ABSENT, not greyed. Data
     // Matrix has error correction, but ECC 200 fixes the level per size.
-    const b = read(BOARD.replace('(type qr)', '(type datamatrix)'));
-
-    expect(rows(b).map((r) => r.name)).not.toContain('Error Correction');
+    expect(names(BOARD.replace('(type qr)', '(type datamatrix)'))).not.toContain(
+      'Error Correction',
+    );
   });
 
   it('offers H to a QR code and not to a Micro QR', () => {
     // `SetChoicesFunc`: "Only QR_CODE has High" (`:974-976`).
-    const eccOptions = (b: Board): readonly string[] =>
-      rows(b).find((r) => r.name === 'Error Correction')!.choices!;
+    const eccOptions = (src: string): readonly string[] =>
+      panel(src)
+        .rows()
+        .find((r) => r.name === 'Error Correction')!.choices!;
 
-    expect(eccOptions(read())).toEqual(['L (Low)', 'M (Medium)', 'Q (Quartile)', 'H (High)']);
-    expect(eccOptions(read(BOARD.replace('(type qr)', '(type microqr)')))).toEqual([
+    expect(eccOptions(BOARD)).toEqual(['L (Low)', 'M (Medium)', 'Q (Quartile)', 'H (High)']);
+    expect(eccOptions(BOARD.replace('(type qr)', '(type microqr)'))).toEqual([
       'L (Low)',
       'M (Medium)',
       'Q (Quartile)',
@@ -516,43 +524,34 @@ describe('the Properties panel', () => {
 
   it('shows the two margins only when Knockout is on', () => {
     // `SetAvailableFunc( hasKnockout )`.
-    expect(rows().map((r) => r.name)).not.toContain('Margin X');
+    expect(names()).not.toContain('Margin X');
 
-    const knocked = read(BOARD.replace('(knockout no)', '(knockout yes)'));
-    expect(rows(knocked).map((r) => r.name)).toContain('Margin X');
-    expect(rows(knocked).map((r) => r.name)).toContain('Margin Y');
+    const knocked = BOARD.replace('(knockout no)', '(knockout yes)');
+    expect(names(knocked)).toContain('Margin X');
+    expect(names(knocked)).toContain('Margin Y');
   });
 
-  it('writes an edit back through the source node, keeping the uuid', () => {
-    // The panel patches child by child rather than rebuilding, so the tokens
-    // it does not own survive.
-    const row = rows().find((r) => r.name === 'Text')!;
-    const after = row.set!('CHANGED')!;
-
-    expect(after.barcodes[0]!.text).toBe('CHANGED');
-    expect(serializeBoard(after)).toContain('(text "CHANGED")');
-    expect(serializeBoard(after)).toContain('aaaaaaaa-0000-0000-0000-000000000001');
+  it('writes an edit back, keeping the uuid', () => {
+    const p = panel();
+    expect(p.set('Text', 'CHANGED')).toBe(true);
+    expect(p.written()).toContain('(text "CHANGED")');
+    expect(p.written()).toContain('aaaaaaaa-0000-0000-0000-000000000001');
   });
 
   it('drops `(ecc_level …)` when the kind stops being a QR code', () => {
     // The writer emits it for QR and Micro QR only, so a barcode changed to
     // Code 39 must lose the token rather than carry a stale one.
-    const row = rows().find((r) => r.name === 'Barcode Type')!;
-    const after = row.set!('CODE_39')!;
-
-    expect(after.barcodes[0]!.kind).toBe('code39');
-    expect(serializeBoard(after)).toContain('(type code39)');
-    expect(serializeBoard(after)).not.toContain('ecc_level');
+    const p = panel();
+    expect(p.set('Barcode Type', 'CODE_39')).toBe(true);
+    expect(p.written()).toContain('(type code39)');
+    expect(p.written()).not.toContain('ecc_level');
   });
 
   it('moves off H when the kind becomes Micro QR', () => {
-    // The same correction the dialog makes, because the property grid is the
-    // other way in and `SetBarcodeKind` re-encodes immediately.
-    const b = read(BOARD.replace('(ecc_level L)', '(ecc_level H)'));
-    const row = rows(b).find((r) => r.name === 'Barcode Type')!;
-    const after = row.set!('MICRO_QR_CODE')!;
-
-    expect(after.barcodes[0]!.ecc).toBe('Q');
+    // `SetBarcodeKind` re-encodes immediately, dropping a level Micro QR has not.
+    const p = panel(BOARD.replace('(ecc_level L)', '(ecc_level H)'));
+    expect(p.set('Barcode Type', 'MICRO_QR_CODE')).toBe(true);
+    expect(p.written()).toContain('(ecc_level Q)');
   });
 });
 

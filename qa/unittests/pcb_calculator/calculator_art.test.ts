@@ -4,7 +4,7 @@
 /**
  * The Calculator Tools artwork, and the size it is drawn at.
  *
- * We do not redraw these. Every file under `designer/src/assets/calculator/` is
+ * We do not redraw these. Every file under `bitmaps_png/sources/calculator/` is
  * byte-identical to `resources/bitmaps_png/sources/dark/<name>.svg` — the file
  * KiCad's own build rasterises to make `resources/bitmaps_png/png/<name>_dark.png`,
  * which is what a `wxStaticBitmap` fed by `KiBitmapBundle` draws at 100 % scale.
@@ -30,7 +30,7 @@ import {
   CALC_ART_SIZE,
 } from '@ziroeda/designer/src/editors/calculator/art_sizes.js';
 
-const ASSETS = fileURLToPath(new URL('../../../designer/src/assets/calculator/', import.meta.url));
+const ASSETS = fileURLToPath(new URL('../../../bitmaps_png/sources/calculator/', import.meta.url));
 
 /**
  * The size the document root declares, in pixels.

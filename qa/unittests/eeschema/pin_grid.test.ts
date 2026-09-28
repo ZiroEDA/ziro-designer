@@ -7,16 +7,16 @@
  */
 import { describe, it, expect } from 'vitest';
 import { parse, serialize } from '@ziroeda/sexpr';
-import { readSchematic, readSymbolLib } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
-import { writeSchematic } from '@ziroeda/eeschema/src/sch_io/sexpr/write-schematic.js';
+import { readSchematic, readSymbolLib } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
+import { writeSchematic } from '@ziroeda/eeschema/sch_io/sexpr/write-schematic.js';
 import {
   PIN_GRID_COLUMNS,
   pinGridRows,
   setPinAlternate,
   unitPins,
-} from '@ziroeda/eeschema/src/tools/pin_grid.js';
-import { editSymbolProperties } from '@ziroeda/eeschema/src/tools/properties.js';
-import type { LibSymbol, Schematic, SchSymbol } from '@ziroeda/eeschema/src/types.js';
+} from '@ziroeda/eeschema/tools/pin_grid.js';
+import { editSymbolProperties } from '@ziroeda/eeschema/tools/properties.js';
+import type { LibSymbol, Schematic, SchSymbol } from '@ziroeda/eeschema/types.js';
 
 /**
  * A two-unit part. Pin 1 (unit 1) has no alternates; pin 2 (unit 1) has two;

@@ -28,7 +28,7 @@
  *    the outline stays clear, and the second half of the test is what says so.
  *
  * Which mode a lasso is in comes from its WINDING, not from a modifier — see
- * `lassoIsInside` in `common/src/preview_items/selection_area.ts`.
+ * `lassoIsInside` in `common/preview_items/selection_area.ts`.
  *
  * Kept here rather than beside either editor because both need it: eeschema's
  * `boxselect.ts` had a private copy of the touching half and no contained half

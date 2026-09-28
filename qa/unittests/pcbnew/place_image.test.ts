@@ -11,7 +11,7 @@
  * on the cursor and the opposite thing without one.
  */
 import { describe, expect, it } from 'vitest';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import {
   cancelPlaceImage,
   clickImage,
@@ -19,9 +19,9 @@ import {
   moveImage,
   newReferenceImage,
   startPlaceImage,
-} from '@ziroeda/pcbnew/src/place_image.js';
-import { addBoardImage } from '@ziroeda/pcbnew/src/edit-board.js';
-import type { Board } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/place_image.js';
+import { addBoardImage } from '@ziroeda/pcbnew/edit-board.js';
+import type { Board } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 const P = (x: number, y: number) => ({ x: MM(x), y: MM(y) });

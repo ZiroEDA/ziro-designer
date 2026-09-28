@@ -11,13 +11,13 @@
  * case therefore checks the kind as well as the geometry.
  */
 import { describe, expect, it } from 'vitest';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import {
   outsetItems,
   outsetSegmentRing,
   roundRectOutwards,
-} from '@ziroeda/pcbnew/src/outset_items.js';
-import type { Board, PcbShape } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/tools/item_modification_routine.js';
+import type { Board, PcbShape } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 

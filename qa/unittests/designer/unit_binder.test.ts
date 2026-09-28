@@ -27,16 +27,16 @@ import {
   unitText,
   validateUnitValue,
   valueDescriptionFromLabel,
-} from '@ziroeda/designer/src/ui/unit_binder.js';
+} from '@ziroeda/common/widgets/unit_binder.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
-const PANEL = read('../../../designer/src/editors/drawingsheet/PropertiesFrame.tsx');
-const EDITOR = read('../../../designer/src/editors/drawingsheet/DrawingSheetEditor.tsx');
-const FIELD = read('../../../designer/src/ui/UnitField.tsx');
+const PANEL = read('../../../pagelayout_editor/dialogs/properties_frame_ui.tsx');
+const ENGINE = read('../../../pagelayout_editor/dialogs/properties_frame.ts');
+const FIELD = read('../../../common/widgets/unit_binder_ui.tsx');
 
 /** The five ranges properties_frame.cpp passes to validateMM, in millimetres. */
 const LINE_WIDTH = { min: 0.0, max: 10.0 };
@@ -134,19 +134,17 @@ describe('the panel no longer hardcodes a unit', () => {
     expect(PANEL).not.toMatch(/>\s*mm\s*</);
   });
 
-  it('binds every distance field to the frame’s unit', () => {
-    // Each UnitField tag carries `units={units}`; none may be left behind.
-    const tags = PANEL.split('<UnitField')
-      .slice(1)
-      .map((t) => t.slice(0, t.indexOf('/>')));
-    expect(tags.length).toBe(17);
-    expect(tags.filter((t) => t.includes('units={units}'))).toHaveLength(tags.length);
-    // …and every one names itself, which is what the error message quotes.
-    expect(tags.filter((t) => /\blabel="/.test(t))).toHaveLength(tags.length);
+  it('binds every distance field through a UNIT_BINDER', () => {
+    // PROPERTIES_FRAME's constructor builds nineteen (properties_frame.cpp:57-79),
+    // and the panel draws each one through the shared BinderField.
+    expect([...PANEL.matchAll(/binder\(panel\.m_\w+/g)]).toHaveLength(19);
+    expect(PANEL).not.toContain('<UnitField');
   });
 
   it('takes the unit from the frame, which is the UNITS_PROVIDER', () => {
-    expect(EDITOR).toContain("units={unit === 'inches' ? 'in' : unit}");
+    // `new UNIT_BINDER( aParent, … )` for all nineteen: the binder asks the
+    // frame on every read. Driven in pagelayout_editor/properties_frame.test.ts.
+    expect(ENGINE).toContain('new UNIT_BINDER(aParent, aLabel, error)');
   });
 });
 

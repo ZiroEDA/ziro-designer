@@ -14,8 +14,8 @@ import {
   setFontProvider,
   textWidth,
   type FontProvider,
-} from '@ziroeda/common/src/font/font_provider.js';
-import { measureText } from '@ziroeda/common/src/font/stroke_font.js';
+} from '@ziroeda/common/font/font_provider.js';
+import { measureText } from '@ziroeda/common/font/stroke_font.js';
 
 const SIZE = 10000;
 const install = (measure: FontProvider['measure']): void => setFontProvider({ measure });

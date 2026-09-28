@@ -12,9 +12,9 @@
  * at 5d6a2f40, in prefs/PreferencesDialog.tsx); no behaviour change.
  */
 import type { JSX } from 'react';
-import { Check, Group, Num, Sel } from '../../../dialogs/prefs/widgets.js';
+import { Check, Group, Num, Sel } from '@ziroeda/common/wx/controls.js';
 import { CrossProbingGroup } from '../../../dialogs/prefs/CrossProbingGroup.js';
-import { PanelGalOptions } from '../../../dialogs/prefs/PanelGalOptions.js';
+import { PanelGalOptions } from '@ziroeda/common/dialogs/panel_gal_options.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
 
 export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX.Element {
@@ -57,7 +57,7 @@ export function PanelEeschemaDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX
               and this port draws every string with KiCad's stroke font or its
               MSDF atlas — so choosing a second face would change nothing on
               screen. The measuring half of that already has its seam
-              (`common/src/font/font_provider.ts`, deliberately with no
+              (`common/font/font_provider.ts`, deliberately with no
               provider installed, because a face that measures one way and
               draws another is worse than no outline fonts at all); the drawing
               half is issue #154, and this list becomes the installed faces

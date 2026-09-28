@@ -20,9 +20,9 @@
  *    when the symbol `IsMultiUnit()`.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic } from '@ziroeda/eeschema';
-import { generateAliasInfo } from '@ziroeda/designer/src/editors/schematic/generate_alias_info.js';
+import { generateAliasInfo } from '@ziroeda/eeschema/generate_alias_info.js';
 import type { LibSymbol } from '@ziroeda/eeschema';
 
 /** One unit, no description, no keywords: the 4006 case from the screenshots. */

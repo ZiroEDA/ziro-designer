@@ -26,7 +26,7 @@ import {
 } from '@ziroeda/designer/src/prefs/settings.js';
 
 const PANEL_SRC = readFileSync(
-  resolve(process.cwd(), '../designer/src/dialogs/prefs/panels/PanelCommonSettings.tsx'),
+  resolve(process.cwd(), '../common/dialogs/panel_common_settings.tsx'),
   'utf8',
 );
 import {
@@ -34,14 +34,14 @@ import {
   edgeCutsContrastFactor,
   hiContrastColor,
   hiContrastFactorFor,
-} from '@ziroeda/common/src/render_settings.js';
-import { parseColor4d } from '@ziroeda/common/src/color4d.js';
+} from '@ziroeda/common/render_settings.js';
+import { parseColor4d } from '@ziroeda/common/gal/color4d.js';
 import {
   GAL_SCREEN_DPI,
   scaleForZoomFactor,
   zoomFactorForScale,
-} from '@ziroeda/designer/src/ui/status_format.js';
-import { BASE_SCREEN_DPI } from '@ziroeda/designer/src/widgets/zoom_correction_ctrl.js';
+} from '@ziroeda/common/widgets/kistatusbar_format.js';
+import { BASE_SCREEN_DPI } from '@ziroeda/common/widgets/zoom_correction_ctrl.js';
 
 /** Enough of an element for `applyCommonAppearance`; no DOM needed. */
 function fakeRoot(): HTMLElement {
@@ -130,10 +130,22 @@ describe('appearance.grid_striping', () => {
     // `if( !( row % 2 ) ) return cellAttr.release();` — row 0 is left alone
     // "to allow for the header row" (`wx_grid.cpp:180-183`). Getting this
     // backwards is invisible until you compare against KiCad side by side.
-    const css = readFileSync(resolve(process.cwd(), '../designer/src/ui/shell.css'), 'utf8');
+    const css = readFileSync(resolve(process.cwd(), '../common/widgets/shell.css'), 'utf8');
+    // The rule whose selector list holds the striping selector (a WX_GRID
+    // with the `ze-grid-striped` class shares the same block).
     const rule = css
-      .split('[data-grid-striping="1"] .ze-grid tbody tr:nth-child(even) > td {')[1]
-      ?.split('}')[0];
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .split('}')
+      .find((block) =>
+        block
+          .split('{')[0]!
+          .split(',')
+          .some(
+            (sel) =>
+              sel.trim() === '[data-grid-striping="1"] .ze-grid tbody tr:nth-child(even) > td',
+          ),
+      )
+      ?.split('{')[1];
     expect(rule, 'no striping rule').toBeDefined();
     // The colour is the cell token shifted, never a hex of its own:
     // `aBaseColor.ChangeLightness( 105 )` is 5% of white over it.
@@ -273,10 +285,7 @@ describe('the board painter dims the way pcb_painter does', () => {
    * surviving `globalAlpha = 0.2` would be invisible in a unit test of the
    * colour helper and perfectly visible on a board.
    */
-  const RENDER = readFileSync(
-    resolve(process.cwd(), '../designer/src/editors/pcb/renderBoard.ts'),
-    'utf8',
-  );
+  const RENDER = readFileSync(resolve(process.cwd(), '../pcbnew/renderBoard.ts'), 'utf8');
 
   it('mixes toward the background rather than reducing opacity', () => {
     expect(RENDER).toMatch(/hiContrastColor\(/);
@@ -295,7 +304,9 @@ describe('the board painter dims the way pcb_painter does', () => {
     for (const frame of [
       'designer/src/editors/pcb/PcbEditor.tsx',
       'designer/src/editors/footprint/FootprintEditor.tsx',
-      'designer/src/editors/gerbview/GerberViewer.tsx',
+      // Not GerbView: GERBVIEW_RENDER_SETTINGS never reads
+      // hicontrast_dimming_factor - only pcb_painter.cpp:176 does - so it
+      // dims at RENDER_SETTINGS' own 0.2 (render_settings.cpp:42).
     ]) {
       const src = readFileSync(resolve(process.cwd(), '..', frame), 'utf8');
       expect(src, frame).toMatch(

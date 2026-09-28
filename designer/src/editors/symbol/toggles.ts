@@ -11,11 +11,15 @@
  * every audit this editor has had, because no test could name the value.
  */
 
-import type { LibSymbol } from '@ziroeda/eeschema/src/types.js';
-import { defaultUnitsToggle } from '../../ui/app_settings_units.js';
+import type { LibSymbol } from '@ziroeda/eeschema/types.js';
+import { defaultUnitsToggle } from '@ziroeda/common/settings/app_settings_units.js';
 import { SYMBOL_EDITOR_DEFAULTS, type SymbolEditorSettings } from '../../prefs/settings.js';
 import { unitCount, unitsLocked } from './edits.js';
-import { switchUnits, toggleIdUnits, unitsToggleId } from '../../ui/app_settings_units.js';
+import {
+  switchUnits,
+  toggleIdUnits,
+  unitsToggleId,
+} from '@ziroeda/common/settings/app_settings_units.js';
 
 /**
  * The left toolbar's cycling groups — `AppendGroup( TOOLBAR_GROUP_CONFIG(...) )`

@@ -69,7 +69,7 @@
  * So every control on this page now reads.
  */
 import type { JSX } from 'react';
-import { Check, Group, Num } from '../../../dialogs/prefs/widgets.js';
+import { Check, Group, Num } from '@ziroeda/common/wx/controls.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
 
 /**

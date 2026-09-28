@@ -10,11 +10,11 @@
  * and a text box has an extent where a label has an anchor.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
-import { refId } from '@ziroeda/eeschema/src/tools/hittest.js';
-import { changeTextType, validNetname } from '@ziroeda/eeschema/src/tools/change_text_type.js';
-import { labelFields } from '@ziroeda/eeschema/src/tools/label_properties.js';
+import { refId } from '@ziroeda/eeschema/tools/hittest.js';
+import { changeTextType, validNetname } from '@ziroeda/eeschema/tools/change_text_type.js';
+import { labelFields } from '@ziroeda/eeschema/tools/label_properties.js';
 
 const DOC = `(kicad_sch (version 20250114) (generator "x") (lib_symbols)
   (label "SIG" (at 10 10 0) (uuid "lb1") (effects (font (size 1.27 1.27) (bold yes))))

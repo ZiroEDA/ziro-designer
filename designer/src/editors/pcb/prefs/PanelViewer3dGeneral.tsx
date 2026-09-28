@@ -27,7 +27,7 @@
  * two `Enable` calls on load — so the pair opens disabled for a user who has
  * turned the animation off, not merely on the next click.
  *
- * **What reads each control.** `editors/pcb/pcb3d.ts` is the scene: the
+ * **What reads each control.** `3d-viewer/pcb3d.ts` is the scene: the
  * material mode picks the `MeshStandardMaterial` parameters, Show filled areas
  * in zones is the zone geometry group's visibility, and the Camera group is
  * what `Viewer3DFrame`'s rotate actions and the orbit transition read. The two
@@ -37,8 +37,8 @@
  * for a reader to discover.
  */
 import type { JSX } from 'react';
-import { Check, Group, Num, Sel } from '../../../dialogs/prefs/widgets.js';
-import { Slider } from '../../../ui/Slider.js';
+import { Check, Group, Num, Sel } from '@ziroeda/common/wx/controls.js';
+import { Slider } from '@ziroeda/common/widgets/slider.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
 
 /**

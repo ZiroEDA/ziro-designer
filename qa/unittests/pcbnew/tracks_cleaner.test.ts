@@ -17,16 +17,16 @@
  */
 import { describe, expect, it } from 'vitest';
 import { U } from './support/written_node.js';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { segApproxCollinear } from '@ziroeda/kimath/src/geometry/seg.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
-import { cleanupErrorText } from '@ziroeda/pcbnew/src/cleanup_item.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { cleanupErrorText } from '@ziroeda/pcbnew/cleanup_item.js';
 import {
   cleanupTrackGeometry,
   type TrackGeometryCleanupOptions,
-} from '@ziroeda/pcbnew/src/tracks_cleaner.js';
-import { Reporter } from '@ziroeda/common/src/reporter.js';
+} from '@ziroeda/pcbnew/tracks_cleaner.js';
+import { Reporter } from '@ziroeda/common/reporter.js';
 import type {
   Board,
   PcbArcTrack,
@@ -34,7 +34,7 @@ import type {
   PcbPad,
   PcbTrack,
   PcbVia,
-} from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/types.js';
 
 const P = (x: number, y: number) => ({ x, y });
 

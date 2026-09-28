@@ -22,20 +22,20 @@
  *     (`KiBitmapBundle( …, 24 )`, `panel_setup_constraints.cpp:61-73`).
  *
  * So these assert the structure, per element. The widths themselves are in
- * `designer/src/ui/shell.css` and are measured by
+ * `common/widgets/shell.css` and are measured by
  * `qa/probes/constraints_layout_probe.cpp`; what a DOM test can pin is that
  * the markup those rules are written against is the markup we render.
  */
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { DialogBoardSetup } from '@ziroeda/designer/src/editors/pcb/dialogs/dialog_board_setup.js';
+import { DialogBoardSetup } from '@ziroeda/pcbnew/dialogs/dialog_board_setup.js';
 import {
   clampMaxErrorMM,
   defaultBoardSetup,
   MAX_ERROR_SIZE_MM,
   MIN_ERROR_SIZE_MM,
   type BoardSetupValues,
-} from '@ziroeda/designer/src/editors/pcb/board_settings.js';
+} from '@ziroeda/pcbnew/board_settings.js';
 
 afterEach(cleanup);
 

@@ -16,9 +16,9 @@
  * a +90° rotation maps (x, y) to (y, −x), not read back out of the code.
  */
 import { describe, expect, it } from 'vitest';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import { head, isList } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
+import { head, isList } from '@ziroeda/sexpr/index.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { writtenNode, writtenNodes } from './support/written_node.js';
 import {
   defaultRotationAnchor,
@@ -27,8 +27,8 @@ import {
   moveExact,
   moveKeepsSelectionInBounds,
   polarTranslation,
-} from '@ziroeda/pcbnew/src/move_exact.js';
-import type { Board, PcbShape, PcbTrack } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_move_exact.js';
+import type { Board, PcbShape, PcbTrack } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 

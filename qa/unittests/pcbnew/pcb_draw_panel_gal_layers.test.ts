@@ -10,8 +10,8 @@
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import * as L from '@ziroeda/common/src/layer_ids.js';
-import { GAL_LAYER_ORDER } from '@ziroeda/pcbnew/src/pcb_draw_panel_gal.js';
+import * as L from '@ziroeda/common/layer_id.js';
+import { GAL_LAYER_ORDER } from '@ziroeda/pcbnew/pcb_draw_panel_gal.js';
 
 const CPP = '/home/akshay/kicad-reference/pcbnew/pcb_draw_panel_gal.cpp';
 

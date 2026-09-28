@@ -18,14 +18,14 @@ import {
   gridSubMenu,
   standardSubMenuEntries,
   zoomSubMenu,
-} from '@ziroeda/designer/src/ui/standard_submenus.js';
-import { evaluateConditionalMenu, menuEntry } from '@ziroeda/designer/src/ui/conditional_menu.js';
+} from '@ziroeda/common/eda_draw_frame_submenus.js';
+import { evaluateConditionalMenu, menuEntry } from '@ziroeda/common/tool/conditional_menu.js';
 import {
   GRID_SIZE_LIST,
   gridEntryOf,
   type GridEntry,
-} from '@ziroeda/designer/src/ui/grid_settings.js';
-import { ZOOM_LIST, zoomPresetLabel } from '@ziroeda/designer/src/ui/zoom_settings.js';
+} from '@ziroeda/common/settings/grid_settings_ui.js';
+import { ZOOM_LIST, zoomPresetLabel } from '@ziroeda/common/settings/zoom_settings.js';
 import { PCB_IU_PER_MM, PL_IU_PER_MM } from '@ziroeda/common';
 
 const noop = (): void => {};
@@ -176,7 +176,6 @@ describe('the launchers that install it', () => {
    * and that is exactly what the Drawing Sheet Editor had.
    */
   it.each([
-    ['the drawing sheet', 'editors/drawingsheet/ds_context_menu.ts'],
     ['the PCB editor', 'editors/pcb/PcbEditor.tsx'],
   ])('%s calls the shared one and builds no rows of its own', (_name, rel) => {
     const src = read(rel);
@@ -196,5 +195,20 @@ describe('the launchers that install it', () => {
     // what this file is for.
     expect(code).not.toContain('gridChoiceLabel');
     expect(code).not.toContain('zoomPresetLabel');
+  });
+
+  it('the drawing sheet hangs them off its tool menus through EDA_DRAW_FRAME', () => {
+    // PL_SELECTION_TOOL::Init and PL_DRAWING_TOOLS::Init call the frame's
+    // AddStandardSubMenus( m_menu ), as upstream; the rows a right click
+    // really shows are in unittests/pagelayout_editor/pl_context_menu.test.ts.
+    for (const rel of [
+      '../../pagelayout_editor/tools/pl_selection_tool.ts',
+      '../../pagelayout_editor/tools/pl_drawing_tools.ts',
+    ]) {
+      const code = read(rel);
+      expect(code, rel).toContain('.AddStandardSubMenus(this.m_menu);');
+      expect(code, rel).not.toContain('gridChoiceLabel');
+      expect(code, rel).not.toContain('zoomPresetLabel');
+    }
   });
 });

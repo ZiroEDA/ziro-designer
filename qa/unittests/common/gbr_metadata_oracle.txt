@@ -1,0 +1,160 @@
+# qa/probes/gbr_metadata_probe.cpp: KiCad 10.0.5's common/gbr_metadata.cpp, linked and asked.
+Asia/Kolkata date.x1|G04 #@! TF.CreationDate,2026-09-28T11:35:04+05:30*|
+Asia/Kolkata date.x2|%TF.CreationDate,2026-09-28T11:35:04+05:30*%|
+Asia/Kolkata date.job|2026-09-28T11:35:04+05:30|
+Asia/Kolkata date.drill|; #@! TF.CreationDate,2026-09-28T11:35:04+05:30|
+UTC date.x1|G04 #@! TF.CreationDate,2026-09-28T06:05:04+00:00*|
+UTC date.x2|%TF.CreationDate,2026-09-28T06:05:04+00:00*%|
+UTC date.job|2026-09-28T06:05:04+00:00|
+UTC date.drill|; #@! TF.CreationDate,2026-09-28T06:05:04+00:00|
+America/St_Johns date.x1|G04 #@! TF.CreationDate,2026-09-28T03:35:04-02:30*|
+America/St_Johns date.x2|%TF.CreationDate,2026-09-28T03:35:04-02:30*%|
+America/St_Johns date.job|2026-09-28T03:35:04-02:30|
+America/St_Johns date.drill|; #@! TF.CreationDate,2026-09-28T03:35:04-02:30|
+guid|7069635f-7072-46f6-9772-616d6d65722e|
+guid|612e6b69-6361-4645-9f70-636258585858|
+guid|58585858-5858-4585-9858-585858585858|
+guid|ffe92e6b-6963-4616-945f-706362585858|
+guid|30313233-3435-4363-9738-396162636465|
+ap.x2||
+ap.x1||
+ap.x2|%TA.AperFunction,EtchedComponent*%\n|
+ap.x1|G04 #@! TA.AperFunction,EtchedComponent*\n|
+ap.x2|%TA.AperFunction,Conductor*%\n|
+ap.x1|G04 #@! TA.AperFunction,Conductor*\n|
+ap.x2|%TA.AperFunction,Profile*%\n|
+ap.x1|G04 #@! TA.AperFunction,Profile*\n|
+ap.x2|%TA.AperFunction,NonConductor*%\n|
+ap.x1|G04 #@! TA.AperFunction,NonConductor*\n|
+ap.x2|%TA.AperFunction,ViaPad*%\n|
+ap.x1|G04 #@! TA.AperFunction,ViaPad*\n|
+ap.x2|%TA.AperFunction,ComponentPad*%\n|
+ap.x1|G04 #@! TA.AperFunction,ComponentPad*\n|
+ap.x2|%TA.AperFunction,SMDPad,SMDef*%\n|
+ap.x1|G04 #@! TA.AperFunction,SMDPad,SMDef*\n|
+ap.x2|%TA.AperFunction,SMDPad,CuDef*%\n|
+ap.x1|G04 #@! TA.AperFunction,SMDPad,CuDef*\n|
+ap.x2|%TA.AperFunction,BGAPad,SMDef*%\n|
+ap.x1|G04 #@! TA.AperFunction,BGAPad,SMDef*\n|
+ap.x2|%TA.AperFunction,BGAPad,CuDef*%\n|
+ap.x1|G04 #@! TA.AperFunction,BGAPad,CuDef*\n|
+ap.x2|%TA.AperFunction,ConnectorPad*%\n|
+ap.x1|G04 #@! TA.AperFunction,ConnectorPad*\n|
+ap.x2|%TA.AperFunction,WasherPad*%\n|
+ap.x1|G04 #@! TA.AperFunction,WasherPad*\n|
+ap.x2|%TA.AperFunction,TestPad*%\n|
+ap.x1|G04 #@! TA.AperFunction,TestPad*\n|
+ap.x2|%TA.AperFunction,FiducialPad,Global*%\n|
+ap.x1|G04 #@! TA.AperFunction,FiducialPad,Global*\n|
+ap.x2|%TA.AperFunction,FiducialPad,Local*%\n|
+ap.x1|G04 #@! TA.AperFunction,FiducialPad,Local*\n|
+ap.x2|%TA.AperFunction,HeatsinkPad*%\n|
+ap.x1|G04 #@! TA.AperFunction,HeatsinkPad*\n|
+ap.x2|%TA.AperFunction,CastellatedPad*%\n|
+ap.x1|G04 #@! TA.AperFunction,CastellatedPad*\n|
+ap.x2|%TA.AperFunction,CastellatedDrill*%\n|
+ap.x1|G04 #@! TA.AperFunction,CastellatedDrill*\n|
+ap.x2|%TA.AperFunction,ComponentDrill,PressFit*%\n|
+ap.x1|G04 #@! TA.AperFunction,ComponentDrill,PressFit*\n|
+ap.x2|%TA.AperFunction,ViaDrill*%\n|
+ap.x1|G04 #@! TA.AperFunction,ViaDrill*\n|
+ap.x2|%TA.AperFunction,BackDrill*%\n|
+ap.x1|G04 #@! TA.AperFunction,BackDrill*\n|
+ap.x2|%TA.AperFunction,ComponentDrill*%\n|
+ap.x1|G04 #@! TA.AperFunction,ComponentDrill*\n|
+ap.x2|G04 aperture for slot hole*\n%TA.AperFunction,ComponentDrill*%\n|
+ap.x1|G04 aperture for slot hole*\nG04 #@! TA.AperFunction,ComponentDrill*\n|
+ap.x2|%TA.AperFunction,ComponentMain*%\n|
+ap.x1|G04 #@! TA.AperFunction,ComponentMain*\n|
+ap.x2|%TA.AperFunction,ComponentPin*%\n|
+ap.x1|G04 #@! TA.AperFunction,ComponentPin*\n|
+ap.x2|%TA.AperFunction,ComponentPin*%\n|
+ap.x1|G04 #@! TA.AperFunction,ComponentPin*\n|
+ap.x2|%TA.AperFunction,ComponentOutline,Body*%\n|
+ap.x1|G04 #@! TA.AperFunction,ComponentOutline,Body*\n|
+ap.x2|%TA.AperFunction,ComponentOutline,Lead2Lead*%\n|
+ap.x1|G04 #@! TA.AperFunction,ComponentOutline,Lead2Lead*\n|
+ap.x2|%TA.AperFunction,ComponentOutline,Footprint*%\n|
+ap.x1|G04 #@! TA.AperFunction,ComponentOutline,Footprint*\n|
+ap.x2|%TA.AperFunction,ComponentOutline,Courtyard*%\n|
+ap.x1|G04 #@! TA.AperFunction,ComponentOutline,Courtyard*\n|
+ap.x2|%TA.AperFunction,Other,Custom,1*%\n|
+ap.x1|G04 #@! TA.AperFunction,Other,Custom,1*\n|
+ap.x2||
+ap.x1||
+conv.ff|R1|
+conv.tf|R1|
+conv.ft|"R1"|
+conv.tt|"R1"|
+to|R1|
+conv.ff|a\u002Cb\u002Ac\u0025d\u005Ce|
+conv.tf|a\u002Cb\u002Ac\u0025d\u005Ce|
+conv.ft|"a\u002Cb\u002Ac\u0025d\u005Ce"|
+conv.tt|"a\u002Cb\u002Ac\u0025d\u005Ce"|
+to|a\u002Cb\u002Ac\u0025d\u005Ce|
+conv.ff|q"x|
+conv.tf|q"x|
+conv.ft|"q\u0022x"|
+conv.tt|"q\u0022x"|
+to|q"x|
+conv.ff|\u00B5\u03A9\u20AC|
+conv.tf|µΩ€|
+conv.ft|"\u00B5\u03A9\u20AC"|
+conv.tt|"µΩ€"|
+to|\u00B5\u03A9\u20AC|
+conv.ff|"quoted\u002C\u002A"|
+conv.tf|"quoted\u002C\u002A"|
+conv.ft|"\u0022quoted\u002C\u002A\u0022"|
+conv.tt|"\u0022quoted\u002C\u002A\u0022"|
+to|"quoted,*"|
+conv.ff||
+conv.tf||
+conv.ft|""|
+conv.tt|""|
+to||
+conv.ff|\uF600|
+conv.tf|😀|
+conv.ft|"\uF600"|
+conv.tt|"😀"|
+to|\uF600|
+field.tt|"Ωa\u002C\u0022b"|
+field.ff|\u03A9a\u002C"b|
+n1 ok=1 clear=0 printed|%TO.P,R5,3,"reset"*%\n%TO.N,Clk3*%\n|
+last|%TO.P,R5,3,"reset"*%\n%TO.N,Clk3*%\n|
+n2 ok=1 clear=0 printed|<untouched>|
+last|%TO.P,R5,3,"reset"*%\n%TO.N,Clk3*%\n|
+n3 ok=1 clear=0 printed|%TO.P,R5,4*%\n|
+last|%TO.P,R5,4*%\n%TO.N,Clk3*%\n|
+n4 ok=1 clear=1 printed|%TO.N,GND*%\n|
+last|%TO.N,GND*%\n|
+n5 ok=1 clear=0 printed|%TO.N,N/C*%\n%TO.C,U1*%\n|
+last|%TO.N,N/C*%\n%TO.C,U1*%\n|
+n6 ok=1 clear=0 printed|%TO.N,*%\n|
+last|%TO.N,*%\n%TO.C,U1*%\n|
+n7 ok=1 clear=0 printed|%TO.C*%\n%TO.N,V\u002C\u002A\u0025*%\n|
+last|%TO.N,V\u002C\u002A\u0025*%\n|
+n8 ok=1 clear=0 printed|%TO.P,J1,*%\n%TO.N,A*%\n|
+last|%TO.P,J1,*%\n%TO.N,A*%\n|
+n9 ok=1 clear=0 printed|%TO.N*%\n%TO.P*%\n%TO.C,J1*%\n|
+last|%TO.C,J1*%\n|
+n10 ok=1 clear=0 printed|%TO.C*%\n%TO.N,B*%\n|
+last|%TO.N,B*%\n|
+n11 ok=1 clear=0 printed|G04 #@! TO.N*\nG04 #@! TO.P,J2,1*\n|
+last|G04 #@! TO.P,J2,1*\n|
+n12 ok=0 clear=0 printed|<untouched>|
+last|G04 #@! TO.P,J2,1*\n|
+n13 ok=1 clear=0 printed|%TO.P,R7,2*%\n%TO.N,X*%\n|
+last|%TO.P,R7,2*%\n%TO.N,X*%\n|
+n14 ok=1 clear=0 printed|%TO.N,Y*%\n|
+last|%TO.P,R7,2*%\n%TO.N,Y*%\n|
+n15 ok=1 clear=1 printed|%TO.N,Y*%\n|
+last|%TO.N,Y*%\n|
+n16 ok=1 clear=0 printed|%TO.N*%\n%TO.C,U2*%\n|
+last|%TO.C,U2*%\n|
+n17 ok=1 clear=0 printed|%TO.P,U2,1*%\n|
+last|%TO.P,U2,1*%\n|
+pnp.empty|%TO.CMnt,Other*%\n%TO.CRot,0*%\n|
+pnp.full|%TO.CMfr,TI*%\n%TO.CMPN,LM358*%\n%TO.Cpkg,SOIC-8*%\n%TO.CFtp,SOIC-8_3.9x4.9mm*%\n%TO.CVal,LM358*%\n%TO.CLbN,Package_SO*%\n%TO.CLbD,SOIC, 8 Pin*%\n%TO.CMnt,SMD*%\n%TO.CRot,90*%\n|
+pnp.cleared|%TO.CFtp,SOIC-8_3.9x4.9mm*%\n%TO.CLbN,Package_SO*%\n%TO.CLbD,SOIC, 8 Pin*%\n%TO.CMnt,Other*%\n%TO.CRot,0*%\n|
+pnp.small|%TO.CFtp,SOIC-8_3.9x4.9mm*%\n%TO.CLbN,Package_SO*%\n%TO.CLbD,SOIC, 8 Pin*%\n%TO.CMnt,Other*%\n%TO.CRot,1.23e-05*%\n|
+pnp.round|%TO.CFtp,SOIC-8_3.9x4.9mm*%\n%TO.CLbN,Package_SO*%\n%TO.CLbD,SOIC, 8 Pin*%\n%TO.CMnt,Other*%\n%TO.CRot,180*%\n|

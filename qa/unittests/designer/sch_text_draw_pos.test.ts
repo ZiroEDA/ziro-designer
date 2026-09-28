@@ -18,7 +18,7 @@ import {
   getOutlineFont,
   resetOutlineFonts,
   setFaceFetcher,
-} from '@ziroeda/designer/src/font/outline_fonts.js';
+} from '@ziroeda/common/font/outline_fonts.js';
 
 const FONTS = fileURLToPath(new URL('../../../designer/public/fonts/', import.meta.url));
 

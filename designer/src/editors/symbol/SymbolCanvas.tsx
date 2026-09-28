@@ -21,8 +21,8 @@ import {
   EDIT_POINT_SIZE,
   editPointColors,
 } from '@ziroeda/common';
-import type { EditHandle } from '@ziroeda/eeschema/src/tools/point_editor.js';
-import { ArcEditMode } from '@ziroeda/eeschema/src/tools/arc_edit.js';
+import type { EditHandle } from '@ziroeda/eeschema/tools/point_editor.js';
+import { ArcEditMode } from '@ziroeda/eeschema/tools/arc_edit.js';
 import {
   commonInputPrefs,
   dragGesture,
@@ -31,12 +31,12 @@ import {
   makeMotionPan,
   makeZoomController,
   wheelAction,
-} from '../../ui/view_controls.js';
-import { drawCrosshair } from '../../ui/grid_cursor.js';
+} from '@ziroeda/common/ui/view_controls.js';
+import { drawCrosshair } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
 import { symbolToolCursor } from './cursors.js';
-import { clampViewScale } from '../../ui/zoom_settings.js';
+import { clampViewScale } from '@ziroeda/common/settings/zoom_settings.js';
 import { SCH_IU_PER_MM } from '@ziroeda/common';
-import { zoomAreaTarget, type ZoomArea } from '../../ui/zoom_tool.js';
+import { zoomAreaTarget, type ZoomArea } from '@ziroeda/common/tool/zoom_tool.js';
 import { SYM_SHAPE_TOOLS } from './symbolToolbars.js';
 import { settings } from '../../prefs/settings.js';
 import { useSymbolEditorSettings } from '../../prefs/useSettings.js';

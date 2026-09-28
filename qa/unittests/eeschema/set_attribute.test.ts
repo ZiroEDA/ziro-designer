@@ -10,14 +10,14 @@
  * agree on a mixed selection.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
-import { refId } from '@ziroeda/eeschema/src/tools/hittest.js';
+import { refId } from '@ziroeda/eeschema/tools/hittest.js';
 import {
   setAttribute,
   attributeIsSet,
   canSetAttribute,
-} from '@ziroeda/eeschema/src/tools/set_attribute.js';
+} from '@ziroeda/eeschema/tools/set_attribute.js';
 
 const SYM = (uuid: string, ref: string, unit: number, extra = '') =>
   `(symbol (lib_id "Device:R") (at 10 10 0) (unit ${unit}) ${extra} (uuid "${uuid}")

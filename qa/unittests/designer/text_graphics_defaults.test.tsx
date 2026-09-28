@@ -24,11 +24,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { useState, type JSX } from 'react';
 import { cleanup, fireEvent, render } from '@testing-library/react';
-import { PanelPcbTextGraphics } from '@ziroeda/designer/src/editors/pcb/dialogs/panels/panel_pcb_text_graphics.js';
-import {
-  defaultTextGraphics,
-  type TextGfxDefaults,
-} from '@ziroeda/designer/src/editors/pcb/board_settings.js';
+import { PanelPcbTextGraphics } from '@ziroeda/pcbnew/dialogs/panel_setup_text_and_graphics.js';
+import { defaultTextGraphics, type TextGfxDefaults } from '@ziroeda/pcbnew/board_settings.js';
 
 afterEach(cleanup);
 
@@ -38,7 +35,23 @@ function Harness(): JSX.Element {
 }
 
 const headers = (): string[] =>
-  [...document.querySelectorAll('.ze-grid thead th')].map((t) => t.textContent ?? '');
+  [...document.querySelectorAll('.ze-grid thead th:not(.ze-grid-filler)')].map(
+    (t) => t.textContent ?? '',
+  );
+
+/** The column-label cells, without the row-label corner and the filler. */
+const colHeads = (): HTMLElement[] => [
+  ...document.querySelectorAll<HTMLElement>(
+    '.ze-grid thead th:not(.ze-grid-filler):not(.ze-grid-corner)',
+  ),
+];
+
+/** The size cells: columns 0..3 of every row. */
+const sizeCells = (): HTMLElement[] => [
+  ...document.querySelectorAll<HTMLElement>(
+    '.ze-grid tbody td[data-col="0"], .ze-grid tbody td[data-col="1"], .ze-grid tbody td[data-col="2"], .ze-grid tbody td[data-col="3"]',
+  ),
+];
 
 describe('the column labels', () => {
   it('carry no unit, because the cells do', () => {
@@ -62,10 +75,10 @@ describe('the column labels', () => {
 describe('the column widths', () => {
   it('are upstream’s 140/140/140/140/80/120', () => {
     render(<Harness />);
-    const cols = [...document.querySelectorAll('.ze-grid colgroup col')];
-    // The first <col> is the row-label column, which takes what its labels need.
-    expect(cols).toHaveLength(7);
-    expect(cols.slice(1).map((c) => (c as HTMLElement).style.width)).toEqual([
+    const cols = colHeads();
+    // The row-label column takes what its labels need, so it is not here.
+    expect(cols).toHaveLength(6);
+    expect(cols.map((c) => c.style.width)).toEqual([
       '140px',
       '140px',
       '140px',
@@ -80,9 +93,7 @@ describe('the column widths', () => {
     // Board Setup states 980 and a real one settles near 1070, so 760 fits
     // beside the 220 px tree; the unbounded version did not, which is the bug.
     render(<Harness />);
-    const total = [...document.querySelectorAll('.ze-grid colgroup col')]
-      .slice(1)
-      .reduce((a, c) => a + Number.parseInt((c as HTMLElement).style.width, 10), 0);
+    const total = colHeads().reduce((a, c) => a + Number.parseInt(c.style.width, 10), 0);
     expect(total).toBe(140 * 4 + 80 + 120);
   });
 });
@@ -91,24 +102,35 @@ describe('the cells carry the unit', () => {
   it('shows a thickness as "0.1 mm", not "0.1"', () => {
     // `StringFromValue( …, true )`, the same rule as every other wx value field.
     render(<Harness />);
-    const inputs = [...document.querySelectorAll('.ze-grid tbody input[type="text"]')];
-    expect(inputs.length).toBeGreaterThan(0);
-    for (const i of inputs) expect((i as HTMLInputElement).value).toMatch(/^-?[\d.]+ mm$/);
+    const cells = sizeCells().filter((c) => !c.style.background);
+    // Four rows with text times four columns, plus the two graphics-only rows' line width.
+    expect(cells).toHaveLength(18);
+    for (const c of cells) expect(c.textContent).toMatch(/^-?[\d.]+ mm$/);
   });
 
-  it('reads a typed value back through the unit parser', () => {
+  it('reads a typed value back through the unit parser', async () => {
     render(<Harness />);
-    const first = document.querySelector('.ze-grid tbody input[type="text"]') as HTMLInputElement;
+    const first = (): HTMLElement =>
+      document.querySelector<HTMLElement>('.ze-grid tbody td[data-col="0"]')!;
+    const type = async (text: string): Promise<void> => {
+      fireEvent.mouseDown(first(), { button: 0 });
+      fireEvent.mouseUp(first());
+      const input = first().querySelector('input')!;
+      fireEvent.change(input, { target: { value: text } });
+      fireEvent.blur(input);
+      // `WX_GRID::onCellEditorHidden` re-formats after the edit (`CallAfter`).
+      await new Promise((r) => setTimeout(r, 0));
+    };
     // A wx numeric cell accepts the value with or without its unit.
-    fireEvent.change(first, { target: { value: '0.25 mm' } });
-    expect(first.value).toBe('0.25 mm');
-    fireEvent.change(first, { target: { value: '0.4' } });
-    expect(first.value).toBe('0.4 mm');
+    await type('0.25 mm');
+    expect(first().textContent).toBe('0.25 mm');
+    await type('0.4');
+    expect(first().textContent).toBe('0.4 mm');
   });
 });
 
 describe('a WX_GRID never dictates the dialog width', () => {
-  const css = readFileSync(join(__dirname, '../../../designer/src/ui/shell.css'), 'utf8');
+  const css = readFileSync(join(__dirname, '../../../common/widgets/shell.css'), 'utf8');
   const ruleFor = (selector: string): string => {
     const at = css.indexOf(`\n${selector} {`);
     if (at === -1) throw new Error(`no rule for ${selector}`);

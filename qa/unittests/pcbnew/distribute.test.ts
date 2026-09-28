@@ -15,13 +15,13 @@
  * divergence test caught it.
  */
 import { describe, expect, it } from 'vitest';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import {
   deltasForDistributeByGaps,
   deltasForDistributeByPoints,
 } from '@ziroeda/kimath/src/geometry/distribute.js';
-import { distributeBoardItems } from '@ziroeda/pcbnew/src/distribute_items.js';
-import type { Board, PcbShape } from '@ziroeda/pcbnew/src/types.js';
+import { distributeBoardItems } from '@ziroeda/pcbnew/tools/align_distribute_tool.js';
+import type { Board, PcbShape } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 

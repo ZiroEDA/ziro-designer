@@ -18,19 +18,23 @@
  */
 
 import { electricalPinTypeGetText, pinShapeGetText } from '@ziroeda/eeschema';
-import { altIconBox } from '@ziroeda/eeschema/src/pin_box.js';
-import { drawAltPinModesIcon } from '../../schematic/render/pin_alt_icon.js';
+import { altIconBox } from '@ziroeda/eeschema/pin_layout_cache.js';
+import { drawAltPinModesIcon } from '@ziroeda/eeschema/pin_alt_icon.js';
 import type { Vec2 } from '@ziroeda/kimath';
-import { zoomFitView } from '../../../ui/view_controls.js';
+import { zoomFitView } from '@ziroeda/common/ui/view_controls.js';
 import { iuToMM, mmToIU } from '@ziroeda/common';
 import type { LibGraphic, LibPin, LibSymbol, LibSymbolUnit, SchField } from '@ziroeda/eeschema';
-import { layoutText, measureText } from '@ziroeda/common/src/font/stroke_font.js';
-import { textWidth } from '@ziroeda/common/src/font/font_provider.js';
-import { getOutlineFont } from '../../../font/outline_fonts.js';
-import { drawOutlineText } from '../../../font/draw_outline_text.js';
+import { layoutText, measureText } from '@ziroeda/common/font/stroke_font.js';
+import { textWidth } from '@ziroeda/common/font/font_provider.js';
+import { getOutlineFont } from '@ziroeda/common/font/outline_fonts.js';
+import { drawOutlineText } from '@ziroeda/common/font/draw_outline_text.js';
 import { ITALIC_TILT } from '@ziroeda/eeschema';
 import type { Theme } from '../../schematic/theme.js';
-import { drawGrid, viewFromOffsets, type GridStyle } from '../../../ui/grid_cursor.js';
+import {
+  drawGrid,
+  viewFromOffsets,
+  type GridStyle,
+} from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
 
 export interface Viewport {
   scale: number;

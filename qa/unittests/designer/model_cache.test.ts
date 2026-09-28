@@ -32,7 +32,7 @@ import {
   OCE_LINEAR_DEFLECTION,
   type Tessellation,
   tessellationBytes,
-} from '@ziroeda/designer/src/editors/pcb/occt_types.js';
+} from '@ziroeda/3d-viewer/occt_types.js';
 
 const enc = new TextEncoder();
 

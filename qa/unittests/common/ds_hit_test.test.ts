@@ -16,7 +16,7 @@
  * in the empty middle of the page selected the border.
  */
 import { describe, expect, it } from 'vitest';
-import { itemsInBox, pickDrawItem } from '@ziroeda/common/src/drawing_sheet/edit.js';
+import { itemsInBox, pickDrawItem } from '@ziroeda/common/drawing_sheet/edit.js';
 import type { DsDrawItem } from '@ziroeda/common';
 
 /** The page border: a rect over the whole sheet, as the default stationery has. */

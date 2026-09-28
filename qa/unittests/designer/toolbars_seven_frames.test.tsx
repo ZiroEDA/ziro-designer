@@ -40,18 +40,25 @@ import {
   VIEWER3D_DEFAULTS,
   settings,
 } from '@ziroeda/designer/src/prefs/settings.js';
-import { setStoredToolbarConfig } from '@ziroeda/designer/src/ui/toolbar_config.js';
-import type { ToolbarDefaults, ToolbarItemJson } from '@ziroeda/designer/src/ui/toolbar_config.js';
-import type { ToolButton } from '@ziroeda/designer/src/ui/toolbar_types.js';
+import { setStoredToolbarConfig } from '@ziroeda/common/tool/ui/toolbar_configuration.js';
+import type {
+  ToolbarDefaults,
+  ToolbarItemJson,
+} from '@ziroeda/common/tool/ui/toolbar_configuration.js';
+import type { ToolButton } from '@ziroeda/common/tool/action_toolbar_types.js';
 import { PAGES } from '@ziroeda/designer/src/dialogs/prefs/registry.js';
 import { toolbarEntries } from '@ziroeda/designer/src/ui/useToolbarEntries.js';
-import { FP_DEFAULT_TOOLBARS } from '@ziroeda/designer/src/editors/footprint/footprintToolbars.js';
-import { VIEWER3D_DEFAULT_TOOLBARS } from '@ziroeda/designer/src/editors/pcb/viewer3dToolbars.js';
+import { FP_DEFAULT_TOOLBARS } from '@ziroeda/pcbnew/toolbars_footprint_editor.js';
+import { VIEWER3D_DEFAULT_TOOLBARS } from '@ziroeda/3d-viewer/toolbars_3d.js';
 
 afterEach(cleanup);
 
+/** A frame's source; `a+b` reads a page and the window it hosts as one. */
 const src = (rel: string): string =>
-  readFileSync(resolve(process.cwd(), '../designer/src', rel), 'utf8');
+  rel
+    .split('+')
+    .map((r) => readFileSync(resolve(process.cwd(), '../designer/src', r), 'utf8'))
+    .join('\n');
 
 describe('every frame with the page has a toolbars file', () => {
   it('names all seven, and no more', () => {
@@ -96,8 +103,11 @@ describe('the frame reads the store, not the module constant', () => {
     ['editors/schematic/SchematicEditor.tsx', 'eeschema'],
     ['editors/symbol/SymbolEditor.tsx', 'symbol_editor'],
     ['editors/pcb/PcbEditor.tsx', 'pcbnew'],
-    ['editors/drawingsheet/DrawingSheetEditor.tsx', 'pl_editor'],
-    ['editors/gerbview/GerberViewer.tsx', 'gerbview'],
+    [
+      'editors/drawingsheet/DrawingSheetEditor.tsx+../../pagelayout_editor/pl_editor_frame_ui.tsx',
+      'pl_editor',
+    ],
+    ['editors/gerbview/GerberViewer.tsx+../../gerbview/gerbview_frame_ui.tsx', 'gerbview'],
     ['editors/footprint/FootprintEditor.tsx', 'fpedit'],
     ['editors/pcb/Viewer3DFrame.tsx', '3d_viewer'],
   ];
@@ -127,6 +137,10 @@ describe('the frame reads the store, not the module constant', () => {
       const bound = new Set(
         [...text.matchAll(/const\s+(\w+)\s*=\s*useToolbarEntries\(/g)].map((m) => m[1]),
       );
+      // A window in its KiCad package takes the bars from its page, which
+      // binds them with the hook above: `const { top: x, ... } = app.toolbars`.
+      for (const m of text.matchAll(/const\s*\{([^}]*)\}\s*=\s*app\.toolbars/g))
+        for (const part of (m[1] ?? '').split(',')) bound.add((part.split(':')[1] ?? part).trim());
       const used = [...text.matchAll(/<Toolbar\s[\s\S]{0,200}?entries=\{([^}]+)\}/g)].map((m) =>
         (m[1] ?? '').trim(),
       );

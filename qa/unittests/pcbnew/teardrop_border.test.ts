@@ -6,43 +6,34 @@
  * upstream's writer has no token for, so the reader has to restore it.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
-import { applyTeardrops } from '@ziroeda/pcbnew/src/teardrop.js';
-import type { Board } from '@ziroeda/pcbnew/src/types.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import type { Board } from '@ziroeda/pcbnew/types.js';
 
 const load = (text: string): Board => readBoard(parse(text));
 
-const SRC = `(kicad_pcb (version 20240108) (generator "pcbnew")
+/** A teardrop zone as KiCad writes it: `(hatch none …)` and the attr. */
+const TEARDROP_ZONE = `(kicad_pcb (version 20241229) (generator "pcbnew")
+  (layers (0 "F.Cu" signal) (2 "B.Cu" signal))
   (net 0 "")
   (net 1 "N1")
-  (via (at 10 10) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu") (net 1)
-    (teardrops (enabled yes)) (uuid "v1"))
-  (segment (start 10 10) (end 20 10) (width 0.25) (layer "F.Cu") (net 1) (uuid "t1"))
+  (zone (net 1) (net_name "N1") (layer "F.Cu") (uuid "00000000-0000-4000-8000-000000000001")
+    (hatch none 0) (priority 30000) (attr (teardrop (type padvia)))
+    (connect_pads yes (clearance 0)) (min_thickness 0.0254) (filled_areas_thickness no)
+    (fill yes (thermal_gap 0.5) (thermal_bridge_width 0.5) (island_removal_mode 1))
+    (polygon (pts (xy 10 10) (xy 11 10) (xy 11 11))))
 )`;
 
+// Generation and writing (INVISIBLE_BORDER, `(hatch none …)`) are
+// TEARDROP_MANAGER's, pinned in teardrop_manager.test.ts.
 describe('teardrop zone borders', () => {
-  it('the generator marks them invisible', () => {
-    const out = applyTeardrops(load(SRC));
+  it('the view shows a teardrop zone’s `none` as invisible', () => {
+    // The parser reads NO_HATCH (it has no token for INVISIBLE_BORDER); the
+    // view says 'invisible' for any teardrop area, as the painter draws it.
+    const z = load(TEARDROP_ZONE).zones[0]!;
 
-    expect(out.zones).toHaveLength(1);
-    expect(out.zones[0]!.hatchStyle).toBe('invisible');
-  });
-
-  it('the writer spells it `none`, as upstream’s switch falls through', () => {
-    const text = serializeBoard(applyTeardrops(load(SRC)));
-    const flat = text.replace(/\s+/g, ' ').replace(/ \)/g, ')');
-
-    expect(flat).toContain('(hatch none 0.5)');
-    expect(flat).not.toContain('invisible');
-  });
-
-  it('the reader restores it for teardrop zones', () => {
-    const reread = load(serializeBoard(applyTeardrops(load(SRC))));
-
-    expect(reread.zones[0]!.teardropType).toBe('viapad');
-    expect(reread.zones[0]!.hatchStyle).toBe('invisible');
+    expect(z.teardropType).toBe('viapad');
+    expect(z.hatchStyle).toBe('invisible');
   });
 
   it('leaves a plain zone’s `none` alone', () => {

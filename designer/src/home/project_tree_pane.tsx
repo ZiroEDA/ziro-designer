@@ -24,15 +24,10 @@ import {
 } from './project_tree.js';
 import { treeFileType } from './file_activation.js';
 import { type TreeMenuSelectionItem, projectTreeMenu } from './project_tree_menu.js';
+import { svgUrl } from '@ziroeda/bitmaps_png';
 
 // KiCad's own dark-theme manager icons (GPL), vendored under assets/.
-const MGR_ICONS = import.meta.glob('../assets/manager/*.svg', {
-  query: '?url',
-  import: 'default',
-  eager: true,
-}) as Record<string, string>;
-export const mgrUrl = (name: string): string | undefined =>
-  MGR_ICONS[`../assets/manager/${name}.svg`];
+export const mgrUrl = (name: string): string | undefined => svgUrl('manager', name);
 
 export const TreeIcon = ({ name }: { name: string }): JSX.Element => {
   const url = mgrUrl(name);

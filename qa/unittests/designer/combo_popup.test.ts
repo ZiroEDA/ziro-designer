@@ -22,13 +22,13 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { PAD_Y, ROW_H, popupTop } from '@ziroeda/designer/src/ui/combo_popup.js';
+import { PAD_Y, ROW_H, popupTop } from '@ziroeda/common/widgets/wx_combobox_popup.js';
 
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
-const CSS = read('../../../designer/src/ui/shell.css');
-const TSX = read('../../../designer/src/ui/Combo.tsx');
+const CSS = read('../../../common/widgets/shell.css');
+const TSX = read('../../../common/widgets/wx_combobox.tsx');
 
 /** The body of one CSS rule, comments stripped so they cannot read as code. */
 function rule(selector: string): string {
@@ -216,7 +216,7 @@ describe('Combo: interiors follow GTK, where a button and an entry differ', () =
 });
 
 describe('Combo: the arrow points down, and a local rule cannot outrank it', () => {
-  const IMGC = read('../../../designer/src/editors/image/imageConverter.css');
+  const IMGC = read('../../../bitmap2component/bitmap2cmp_frame.css');
 
   /**
    * A wxChoice's arrow points DOWN and stays down; it is not a disclosure

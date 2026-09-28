@@ -29,8 +29,8 @@
  */
 import { type JSX, useCallback, useEffect, useRef } from 'react';
 import { parse } from '@ziroeda/sexpr';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import type { Board } from '@ziroeda/pcbnew/src/types.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import type { Board } from '@ziroeda/pcbnew/types.js';
 import {
   buildScene,
   drawAnchors,
@@ -38,13 +38,13 @@ import {
   pcbGridOptions,
   DEFAULT_DRAW_OPTIONS,
   type BoardScene,
-} from '../renderBoard.js';
-import { drawGrid } from '../../../ui/grid_cursor.js';
+} from '@ziroeda/pcbnew/renderBoard.js';
+import { drawGrid } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
 import {
   usePreviewViewControls,
   type PreviewView,
 } from '../../../widgets/preview_view_controls.js';
-import { PCB_BACKGROUND, type PcbColorTheme } from '../pcbTheme.js';
+import { PCB_BACKGROUND, type PcbColorTheme } from '@ziroeda/pcbnew/pcbTheme.js';
 import PREVIEW_BOARD_TEXT from '../data/color_preview_board.kicad_pcb?raw';
 
 /**

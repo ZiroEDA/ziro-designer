@@ -23,12 +23,12 @@
  *    refuse the same values with the same words.
  */
 import { useState, type JSX } from 'react';
-import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
-import { PCB_VIA, VIA_PARAMETER_ERROR_FIELD } from '@ziroeda/pcbnew/src/pcb_track.js';
-import type { ViaDimension } from '@ziroeda/pcbnew/src/board_design_settings_sizes.js';
-import { useModalEscape } from '../../../ui/useModalEscape.js';
-import { pcbUnitText, pcbUnitValue, unitLabel } from '../pcb_unit_binder.js';
-import type { StatusUnits } from '../../../ui/status_format.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { PCB_VIA, VIA_PARAMETER_ERROR_FIELD } from '@ziroeda/pcbnew/pcb_track.js';
+import { VIA_DIMENSION } from '@ziroeda/pcbnew/board_design_settings.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { pcbUnitText, pcbUnitValue, unitLabel } from '@ziroeda/pcbnew/pcb_unit_binder.js';
+import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
 
 /** [data] `const int minSize = (int)( 0.01 * pcbIUScale.IU_PER_MM )`, `:35`. */
 const MIN_SIZE = Math.round(0.01 * pcbIUScale.IU_PER_MM);
@@ -37,7 +37,7 @@ export interface CustomTrackViaSize {
   /** `GetCustomTrackWidth()`. */
   trackWidth: number;
   /** `GetCustomViaSize()` / `GetCustomViaDrill()`. */
-  via: ViaDimension;
+  via: VIA_DIMENSION;
 }
 
 interface Props {
@@ -55,8 +55,8 @@ export function DialogTrackViaSize({ value, units, onOk, onClose }: Props): JSX.
   // A `UNIT_BINDER` holds text and parses on commit; driving the model off
   // every keystroke rewrites "0." under the caret.
   const [trackWidth, setTrackWidth] = useState(() => pcbUnitText(value.trackWidth, units));
-  const [viaDiameter, setViaDiameter] = useState(() => pcbUnitText(value.via.diameter, units));
-  const [viaDrill, setViaDrill] = useState(() => pcbUnitText(value.via.drill, units));
+  const [viaDiameter, setViaDiameter] = useState(() => pcbUnitText(value.via.m_Diameter, units));
+  const [viaDrill, setViaDrill] = useState(() => pcbUnitText(value.via.m_Drill, units));
   const [error, setError] = useState<{ message: string; field: 'diameter' | 'drill' } | null>(null);
 
   const row = (
@@ -78,13 +78,13 @@ export function DialogTrackViaSize({ value, units, onOk, onClose }: Props): JSX.
   const apply = (): void => {
     const next: CustomTrackViaSize = {
       trackWidth: Math.max(MIN_SIZE, pcbUnitValue(trackWidth, units)),
-      via: {
-        diameter: Math.max(MIN_SIZE, pcbUnitValue(viaDiameter, units)),
-        drill: Math.max(MIN_SIZE, pcbUnitValue(viaDrill, units)),
-      },
+      via: new VIA_DIMENSION(
+        Math.max(MIN_SIZE, pcbUnitValue(viaDiameter, units)),
+        Math.max(MIN_SIZE, pcbUnitValue(viaDrill, units)),
+      ),
     };
 
-    const bad = PCB_VIA.ValidateViaParameters(next.via.diameter, next.via.drill);
+    const bad = PCB_VIA.ValidateViaParameters(next.via.m_Diameter, next.via.m_Drill);
 
     if (bad) {
       // `DisplayError( … ); m_viaDrillText->SetFocus();`
@@ -116,7 +116,7 @@ export function DialogTrackViaSize({ value, units, onOk, onClose }: Props): JSX.
           )}
           <div className="ze-ctv-grid">
             {row('Track width:', 'ze-ctv-track', trackWidth, setTrackWidth)}
-            {row('Via diameter:', 'ze-ctv-diameter', viaDiameter, setViaDiameter)}
+            {row('Via m_Diameter:', 'ze-ctv-diameter', viaDiameter, setViaDiameter)}
             {row('Via hole:', 'ze-ctv-drill', viaDrill, setViaDrill)}
           </div>
         </div>

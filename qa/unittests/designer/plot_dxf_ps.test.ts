@@ -3,11 +3,11 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Plot to DXF and PostScript (DIALOG_PLOT_SCHEMATIC, DXF / Postscript formats):
- * the same vector plotter that drives SVG runs the schematic renderer through a
- * Canvas2D-shaped adapter, but resolves every point through the CTM so the
- * back-ends get absolute page coordinates. A schematic with a symbol and a wire
- * must produce a well-formed DXF (LWPOLYLINE entities) and PostScript (stroked
- * paths) at the page size.
+ * the schematic renderer's draws reach the common `DXF_PLOTTER` and
+ * `PS_PLOTTER` — the classes `SCH_PLOTTER::plotOneSheetDXF` / `…PS` plot
+ * through — with every point resolved through the CTM to page IU. The
+ * expectations are read off `kicad-cli sch export dxf / ps` of this sheet
+ * (10.0.5).
  */
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
@@ -33,8 +33,7 @@ const SCH = `(kicad_sch (version 20231120) (generator "test") (paper "A4")
 
 describe('plot to DXF', () => {
   const doc = readSchematic(parse(SCH));
-  // "Export units: Millimeters", the dialog's other choice is Inches, which is
-  // KiCad's default selection (m_DXF_plotUnits) and the writer's default too.
+  // "Export units: Millimeters" — what kicad-cli writes, which has no units flag.
   const dxf = sheetToDxf(doc, KICAD_DEFAULT, {
     color: true,
     drawingSheet: true,
@@ -42,108 +41,95 @@ describe('plot to DXF', () => {
     dxfUnits: 'mm',
   });
 
-  it('is a well-formed AC1015 DXF with an ENTITIES section', () => {
-    expect(dxf).toContain('$ACADVER');
-    expect(dxf).toContain('AC1015');
-    expect(dxf).toContain('SECTION');
-    expect(dxf).toContain('ENTITIES');
-    expect(dxf.trimEnd().endsWith('EOF')).toBe(true);
+  it('is the DXF_PLOTTER AC1018 file, header to EOF', () => {
+    expect(dxf.startsWith('  0\nSECTION\n  2\nHEADER\n  9\n$ACADVER\n  1\nAC1018\n')).toBe(true);
+    expect(dxf).toContain('  0\nSECTION\n  2\nENTITIES\n');
+    expect(dxf.endsWith('  0\nENDSEC\n  0\nEOF\n')).toBe(true);
   });
 
-  it('emits LWPOLYLINE geometry for the wire and symbol body', () => {
-    const count = (dxf.match(/LWPOLYLINE/g) ?? []).length;
-    expect(count).toBeGreaterThan(3);
-    // True-colour (code 420) is present for coloured output.
-    expect(dxf).toContain('\n420\n');
-  });
-
-  it('places geometry within the A4 landscape sheet (297 x 210 mm)', () => {
-    // Every vertex X (code 10) / Y (code 20) is in millimetres inside the page.
-    const lines = dxf.split('\n');
-    let sawVertex = false;
-    for (let i = 0; i < lines.length - 1; i++) {
-      if (lines[i] === '10') {
-        const x = Number(lines[i + 1]);
-        expect(x).toBeGreaterThanOrEqual(-1);
-        expect(x).toBeLessThanOrEqual(298);
-        sawVertex = true;
-      }
-      if (lines[i] === '20') {
-        const y = Number(lines[i + 1]);
-        expect(y).toBeGreaterThanOrEqual(-1);
-        expect(y).toBeLessThanOrEqual(211);
-      }
-    }
-    expect(sawVertex).toBe(true);
+  it('plots the wire as the LINE entity kicad-cli writes', () => {
+    // Byte for byte kicad-cli's wire: DXF_PLOTTER has no paper, so y is the
+    // negated page y, and the layer is the ACAD colour nearest the wire's
+    // green (0, 150, 0) — LIGHTGREEN.
+    expect(dxf).toContain(
+      '  8\nLIGHTGREEN\n  6\nCONTINUOUS\n100\nAcDbLine\n' +
+        ' 10\n100.\n 20\n-100.\n 30\n0\n 11\n120.\n 21\n-100.\n 31\n0\n',
+    );
+    expect((dxf.match(/\n {2}0\nLINE\n/g) ?? []).length).toBeGreaterThan(3);
   });
 
   it('honours "Export units: Millimeters" vs Inches ($INSUNITS + coordinates)', () => {
-    expect(dxf).toContain('\n$INSUNITS\n70\n4\n'); // 4 = millimeters
+    expect(dxf).toContain('  9\n$MEASUREMENT\n  70\n1\n  9\n$INSUNITS\n  70\n4\n'); // mm
     const inches = sheetToDxf(doc, KICAD_DEFAULT, {
       color: true,
       drawingSheet: true,
       background: false,
       dxfUnits: 'in',
     });
-    expect(inches).toContain('\n$INSUNITS\n70\n1\n'); // 1 = inches
-    // The A4 sheet is 297 mm ≈ 11.69 in wide, so every X stays under 12.
-    // (The file is a flat code/value stream, so codes sit at even indices.)
-    const lines = inches.split('\n');
-    for (let i = 0; i < lines.length - 1; i += 2) {
-      if (lines[i] === '10') expect(Number(lines[i + 1])).toBeLessThanOrEqual(12);
-    }
+    expect(inches).toContain('  9\n$MEASUREMENT\n  70\n0\n  9\n$INSUNITS\n  70\n1\n'); // in
+    // The wire in inches: 1e6 IU x (1 / 25.4) x 0.0001 per SetViewport and
+    // SetUnits(INCH), printed `{:.16f}` and trimmed — Python's %.16f of the
+    // same double product gives 3.9370078740157481 and 4.7244094488188981.
+    expect(inches).toContain(
+      ' 10\n3.9370078740157481\n 20\n-3.9370078740157481\n 30\n0\n' +
+        ' 11\n4.7244094488188981\n 21\n-3.9370078740157481\n',
+    );
   });
 
-  it('plots onto an A4 page when the page size choice forces one', () => {
-    // "Page size: A4" on an A4 schematic is a no-op scale of 1 (KiCad's
-    // min(scalex, scaley)); the geometry still lands inside the sheet.
-    const a4 = sheetToDxf(doc, KICAD_DEFAULT, {
+  it('plots the schematic page itself whatever the page-size choice', () => {
+    // plotOneSheetDXF is handed the screen's PAGE_INFO and a scale of 1.0
+    // (sch_plotter.cpp:740-741): "Page size: A" does not move a DXF.
+    const a = sheetToDxf(doc, KICAD_DEFAULT, {
       color: true,
       drawingSheet: true,
       background: false,
       dxfUnits: 'mm',
-      pageSizeSelect: 'A4',
+      pageSizeSelect: 'A',
     });
-    expect(a4).toContain('LWPOLYLINE');
-    const lines = a4.split('\n');
-    for (let i = 0; i < lines.length - 1; i += 2) {
-      if (lines[i] === '10') expect(Number(lines[i + 1])).toBeLessThanOrEqual(298);
-    }
+    expect(a).toBe(dxf);
   });
 });
 
 describe('plot to PostScript', () => {
   const doc = readSchematic(parse(SCH));
+  const now = new Date(2026, 8, 27, 21, 29, 36);
   const psText = sheetToPs(
     doc,
     KICAD_DEFAULT,
-    { color: true, drawingSheet: true, background: false },
+    { color: true, drawingSheet: true, background: false, defaultPenIU: 1524 },
     'sheet1',
+    { now },
   );
 
-  it('is a well-formed Adobe PostScript document', () => {
-    expect(psText.startsWith('%!PS-Adobe-3.0')).toBe(true);
-    expect(psText).toContain('%%BoundingBox: 0 0 842 596'); // A4 landscape in points
-    expect(psText).toContain('%%Title: sheet1');
-    expect(psText).toContain('showpage');
-    expect(psText.trimEnd().endsWith('%%EOF')).toBe(true);
+  it('opens with the PS_PLOTTER DSC header, as kicad-cli writes it', () => {
+    expect(
+      psText.startsWith(
+        '%!PS-Adobe-3.0\n%%Creator: Eeschema-PS\n%%CreationDate: Sun Sep 27 21:29:36 2026\n' +
+          '%%Title: ()\n%%Pages: 1\n%%PageOrder: Ascend\n%%BoundingBox: 0 0 596 842\n' +
+          '%%DocumentMedia: A4 595 842 0 () ()\n%%Orientation: Landscape\n%%EndComments\n',
+      ),
+    ).toBe(true);
+    // The landscape rotation and the 6 mil default pen, in decimils.
+    expect(psText).toContain(
+      'linemode1\n82680 0 translate 90 rotate\n60 setlinewidth\n%%EndPageSetup\n',
+    );
+    expect(psText.endsWith('showpage\ngrestore\n%%EOF\n')).toBe(true);
   });
 
-  it('emits stroked vector paths with colour', () => {
-    expect(psText).toContain(' setlinewidth ');
-    expect(psText).toContain('setrgbcolor stroke');
-    expect((psText.match(/ l /g) ?? []).length).toBeGreaterThan(5);
+  it('strokes a pin the way kicad-cli does', () => {
+    expect(psText).toContain(
+      '0.518 0 0 setrgbcolor\n60 setlinewidth\nnewpath\n39370.1 48246.9 moveto\n39370.1 48746.9 lineto\nstroke\n',
+    );
   });
 
-  it('black-and-white output drops the coloured wire, keeping black strokes', () => {
+  it('black-and-white output sets only black', () => {
     const bw = sheetToPs(
       doc,
       KICAD_DEFAULT,
       { color: false, drawingSheet: false, background: false },
       'bw',
     );
-    // Black strokes are present; the green wire colour (0,150,0) is converted.
-    expect(bw).toContain('0.000 0.000 0.000 setrgbcolor');
-    expect(bw).not.toContain('0.000 0.588 0.000 setrgbcolor');
+    // kicad-cli --black-and-white on this sheet: every setrgbcolor is 0 0 0.
+    expect(new Set(bw.match(/.* setrgbcolor/g))).toEqual(new Set(['0 0 0 setrgbcolor']));
   });
 });

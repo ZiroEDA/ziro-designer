@@ -22,16 +22,16 @@ import { describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
-import { COLOR4D_UNSPECIFIED } from '@ziroeda/common/src/color4d.js';
-import {
-  color4dToItemColor,
-  itemColorToColor4d,
-} from '@ziroeda/designer/src/editors/schematic/dialogs/item_color.js';
+import { COLOR4D_UNSPECIFIED } from '@ziroeda/common/gal/color4d.js';
+import { color4dToItemColor, itemColorToColor4d } from '@ziroeda/eeschema/dialogs/item_color.js';
 
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
+/** The Drawing Sheet Editor's screens, beside KiCad's `pagelayout_editor/`. */
+const PAGELAYOUT = fileURLToPath(new URL('../../../pagelayout_editor', import.meta.url));
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
+    if (name === 'node_modules') continue;
     const p = join(dir, name);
     if (statSync(p).isDirectory()) walk(p, out);
     else if (/\.tsx?$/.test(name)) out.push(p);
@@ -53,7 +53,7 @@ function codeLines(file: string): { line: string; n: number }[] {
 describe('no launcher keeps its own colour control', () => {
   it('has no <input type="color"> left anywhere in designer/src', () => {
     const offenders: string[] = [];
-    for (const file of walk(SRC)) {
+    for (const file of [...walk(SRC), ...walk(PAGELAYOUT)]) {
       for (const { line, n } of codeLines(file)) {
         if (/type=["']color["']/.test(line)) offenders.push(`${file.slice(SRC.length + 1)}:${n}`);
       }
@@ -69,19 +69,21 @@ describe('no launcher keeps its own colour control', () => {
     // the drawing sheet's properties frame, whose swatch predates ColorSwatch
     // and is the same button by hand. A third would be a third copy of the
     // open-state-and-conversion boilerplate ColorSwatch exists to hold.
-    const users = walk(SRC).filter((f) =>
+    const users = [...walk(SRC), ...walk(PAGELAYOUT)].filter((f) =>
       codeLines(f).some(({ line }) => line.includes('<DialogColorPicker')),
     );
-    expect(users.map((f) => f.slice(SRC.length + 1)).sort()).toEqual([
-      'editors/drawingsheet/PropertiesFrame.tsx',
-      'ui/ColorSwatch.tsx',
+    // The swatch itself is `common/widgets/color_swatch.tsx` now, outside
+    // this walk of `designer/src`; the one launcher user is the drawing sheet,
+    // whose properties frame is `pagelayout_editor/dialogs/` since 09-27.
+    expect(users.map((f) => f.slice(f.indexOf('/pagelayout_editor/') + 1)).sort()).toEqual([
+      'pagelayout_editor/dialogs/properties_frame_ui.tsx',
     ]);
   });
 
   it('leaves no copy of the hex round trip the native input forced', () => {
     // Six dialogs carried an identical `fromHex` that hardcoded alpha to 1.
     const offenders: string[] = [];
-    for (const file of walk(SRC)) {
+    for (const file of [...walk(SRC), ...walk(PAGELAYOUT)]) {
       for (const { line, n } of codeLines(file)) {
         if (/const fromHex = /.test(line)) offenders.push(`${file.slice(SRC.length + 1)}:${n}`);
       }
@@ -91,7 +93,7 @@ describe('no launcher keeps its own colour control', () => {
 });
 
 describe('the swatch opens the picker the way COLOR_SWATCH does', () => {
-  const WIDGET = readFileSync(join(SRC, 'ui/ColorSwatch.tsx'), 'utf8');
+  const WIDGET = readFileSync(join(SRC, '../../common/widgets/color_swatch.tsx'), 'utf8');
 
   it('changes nothing on a cancel', () => {
     // `if( result == wxID_OK )` (color_swatch.cpp:322) - a cancel does not even
@@ -167,7 +169,7 @@ describe('no dialog keeps a Clear button the picker replaced', () => {
 
   it('has no clear-a-colour control left', () => {
     const offenders: string[] = [];
-    for (const file of walk(SRC)) {
+    for (const file of [...walk(SRC), ...walk(PAGELAYOUT)]) {
       const lines = codeLines(file);
       lines.forEach(({ line, n }, i) => {
         if (!CLEAR.test(line)) return;
@@ -186,8 +188,8 @@ describe('no dialog keeps a Clear button the picker replaced', () => {
   it('keeps m_helpLabel2 where upstream has one, as a label', () => {
     // The two pages in our tree that correspond to a dialog carrying it.
     for (const rel of [
-      'editors/schematic/dialogs/dialog_shape_properties.tsx',
-      'editors/schematic/dialogs/dialog_line_properties.tsx',
+      '../../eeschema/dialogs/dialog_shape_properties.tsx',
+      '../../eeschema/dialogs/dialog_line_properties.tsx',
     ]) {
       const src = readFileSync(join(SRC, rel), 'utf8');
       // The class among any others on the element, not the whole attribute:

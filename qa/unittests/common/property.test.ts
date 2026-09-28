@@ -10,7 +10,7 @@
  * `GetByName( name, type )`, `Set<T>( name, v )` is `SetByName( name, v )`.
  */
 import { describe, expect, it } from 'vitest';
-import { INSPECTABLE } from '@ziroeda/common/src/inspectable.js';
+import { INSPECTABLE } from '@ziroeda/common/inspectable.js';
 import {
   ENUM_MAP,
   enumAnyAsString,
@@ -22,8 +22,8 @@ import {
   TYPE_CAST,
   TYPE_INT,
   TYPE_VECTOR2I,
-} from '@ziroeda/common/src/properties/property.js';
-import { PROPERTY_MANAGER } from '@ziroeda/common/src/properties/property_mgr.js';
+} from '@ziroeda/common/properties/property.js';
+import { PROPERTY_MANAGER } from '@ziroeda/common/properties/property_mgr.js';
 
 interface wxPoint {
   x: number;

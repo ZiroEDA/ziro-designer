@@ -348,6 +348,28 @@ export function labelOf(id: PrefsPageId): string | undefined {
 }
 
 /**
+ * `PAGED_DIALOG::TransferDataToWindow`'s search for the page
+ * `ShowPreferences( aStartPage, aStartParentPage )` names
+ * (`common/widgets/paged_dialog.cpp:226-251`): the first page titled
+ * `aPage`, and when a parent is named, only one under a heading titled
+ * `aParentPage`. Anything else - no match, or a heading, which has no page of
+ * ours - is the first page, the `std::max( 0, lastPageIndex )` of `:250`.
+ */
+export function pageFor(aPage: string, aParentPage: string): PrefsPageId {
+  let heading = '';
+
+  for (const p of PAGES) {
+    if (!p.indent) heading = p.label;
+
+    if (p.label !== aPage || p.id === null) continue;
+
+    if (aParentPage === '' || (p.indent && heading === aParentPage)) return p.id;
+  }
+
+  return FIRST_PAGE;
+}
+
+/**
  * The sub-page labels {@link PAGES} ships under one heading, in tree order.
  * A heading is every row with `id === null`; its sub-pages are the indented
  * rows that follow it, up to the next heading.

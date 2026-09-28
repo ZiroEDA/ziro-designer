@@ -11,7 +11,7 @@
  * ratsnest crosshair leapt onto every pad it passed.
  */
 import { describe, expect, it } from 'vitest';
-import { pickerSnapsToGridOnly } from '@ziroeda/designer/src/editors/pcb/picker_snap.js';
+import { pickerSnapsToGridOnly } from '@ziroeda/pcbnew/tools/pcb_picker_tool.js';
 
 describe('pickers that SetSnapping( false )', () => {
   it.each(['localRatsnestTool', 'deleteTool'])('%s follows the grid only', (tool) => {

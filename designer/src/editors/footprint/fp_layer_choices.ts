@@ -45,15 +45,15 @@ import {
   LayerSelectorUIOrder,
   MAX_CU_LAYERS,
   Margin,
-} from '@ziroeda/pcbnew/src/layer_ids.js';
+} from '@ziroeda/common/layer_ids.js';
 import { fpBackgroundDefault } from './fpColorLayers.js';
-import { layerChoice, type LayerChoice } from '../../widgets/layer_presentation.js';
+import { layerChoice, type LayerChoice } from '@ziroeda/pcbnew/pcb_layer_presentation.js';
 
 /**
  * The footprint editor's row type. It IS `LAYER_PRESENTATION`'s `LayerChoice`
  * — the name/label/swatch triple is not per frame, only the background the
  * swatch is composited over is, so the type is re-exported rather than
- * redeclared (`widgets/layer_presentation.ts`).
+ * redeclared (`editors/pcb/pcb_layer_presentation.ts`).
  */
 export type FpLayerChoice = LayerChoice;
 
@@ -67,7 +67,7 @@ export type FpLayerChoice = LayerChoice;
  * This frame's subclass of the shared builder: it supplies the background and
  * nothing else.
  */
-const choiceOf = (id: number): FpLayerChoice => layerChoice(id, fpBackgroundDefault());
+export const choiceOf = (id: number): FpLayerChoice => layerChoice(id, fpBackgroundDefault());
 
 /**
  * Every layer the selector has — `GRID_CELL_LAYER_SELECTOR( nullptr, {} )`, an

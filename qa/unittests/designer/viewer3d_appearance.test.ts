@@ -6,9 +6,9 @@
  * 3d_canvas/board_adapter.cpp:598-985) — the pane's model.
  */
 import { describe, expect, it } from 'vitest';
-import { BUILTIN_DEFAULT_THEME } from '@ziroeda/common/src/settings/builtin_color_themes.js';
-import { F_Cu, F_Mask, F_SilkS, User_1 } from '@ziroeda/pcbnew/src/layer_ids.js';
-import { pcbLayerIdOf } from '@ziroeda/designer/src/editors/pcb/board_3d_layers.js';
+import { BUILTIN_DEFAULT_THEME } from '@ziroeda/common/settings/builtin_color_themes.js';
+import { F_Cu, F_Mask, F_SilkS, User_1 } from '@ziroeda/common/layer_ids.js';
+import { pcbLayerIdOf } from '@ziroeda/3d-viewer/board_3d_layers.js';
 import {
   APPEARANCE_ROWS_3D,
   FOLLOW_PCB,
@@ -30,7 +30,7 @@ import {
   userFlag,
   viewportComboItems3d,
   visibleLayers3d,
-} from '@ziroeda/designer/src/editors/pcb/viewer3d_appearance.js';
+} from '@ziroeda/3d-viewer/viewer3d_appearance.js';
 
 describe('s_layerSettings — the rows', () => {
   it('is the C++ table in order: 14 named layers, 45 user, spacer, 6 model rows, spacer, 4 text rows, spacer, navigator + 2 backgrounds', () => {

@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /** Which cursor the symbol editor's canvas shows. See `editors/pcb/cursors.ts`. */
-import { toolCursorCss } from '../../ui/tool_cursors.js';
+import { toolCursorCss } from '@ziroeda/common/tool/tool_cursors.js';
 
 /**
  * The symbol editor shares `ACTIONS::deleteTool` with eeschema — literally the

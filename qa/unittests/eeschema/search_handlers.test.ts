@@ -6,19 +6,16 @@
  */
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
-import { readSchematic, readSymbolLib } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
+import { readSchematic, readSymbolLib } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
 import {
   searchSchematic,
   hitsOfKind,
   SEARCH_COLUMNS,
-} from '@ziroeda/eeschema/src/tools/search_handlers.js';
-import {
-  matchesText,
-  defaultSearchData,
-} from '@ziroeda/eeschema/src/tools/sch_find_replace_tool.js';
+} from '@ziroeda/eeschema/tools/search_handlers.js';
+import { matchesText, defaultSearchData } from '@ziroeda/eeschema/tools/sch_find_replace_tool.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import type { LibSymbol, Schematic } from '@ziroeda/eeschema/src/types.js';
+import type { LibSymbol, Schematic } from '@ziroeda/eeschema/types.js';
 
 const rawR = readFileSync(
   fileURLToPath(new URL('../../data/R.kicad_sym', import.meta.url)),

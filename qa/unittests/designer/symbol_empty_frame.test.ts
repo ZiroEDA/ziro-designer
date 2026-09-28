@@ -26,7 +26,7 @@ import {
   defaultUnits,
   defaultUnitsToggle,
   type AppSettingsName,
-} from '@ziroeda/designer/src/ui/app_settings_units.js';
+} from '@ziroeda/common/settings/app_settings_units.js';
 import {
   selectionFilterGrid,
   setAllSelectionFilterCategories,
@@ -47,7 +47,7 @@ import { KICAD_DEFAULT } from '@ziroeda/designer/src/editors/schematic/theme.js'
 import {
   defaultSelectionFilter,
   selectionFilterAll,
-} from '@ziroeda/eeschema/src/tools/sch_selection_filter.js';
+} from '@ziroeda/eeschema/tools/sch_selection_filter.js';
 
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
 const read = (rel: string): string => readFileSync(join(SRC, rel), 'utf8');

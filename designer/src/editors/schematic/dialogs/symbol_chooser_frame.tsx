@@ -47,7 +47,7 @@ import {
   type PanelSymbolChooserHandle,
   type PickedSymbol,
 } from '../widgets/panel_symbol_chooser.js';
-import { useModalEscape } from '../../../ui/useModalEscape.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 export interface SymbolChooserFrameProps {
   /**

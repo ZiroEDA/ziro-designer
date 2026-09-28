@@ -49,13 +49,13 @@
  *  - Refresh 3D view automatically is `Viewer3DFrame`'s live-reload gate.
  */
 import type { JSX } from 'react';
-import { Check, Group, Sel } from '../../../dialogs/prefs/widgets.js';
+import { Check, Group, Sel } from '@ziroeda/common/wx/controls.js';
 import {
   NET_NAMES_CHOICES,
   PadsAndClearanceGroups,
 } from '../../../dialogs/prefs/DisplayOptionsGroups.js';
 import { CrossProbingGroup } from '../../../dialogs/prefs/CrossProbingGroup.js';
-import { PanelGalOptions } from '../../../dialogs/prefs/PanelGalOptions.js';
+import { PanelGalOptions } from '@ziroeda/common/dialogs/panel_gal_options.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
 
 export function PanelPcbDisplayOptions({ ctx }: { ctx: PrefsContext }): JSX.Element {

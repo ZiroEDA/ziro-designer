@@ -24,427 +24,58 @@
  * there. That is that deployment's design, not a degraded hosted one.
  */
 
-import {
-  CROSS_PROBING_DEFAULTS,
-  type CrossProbingSettings,
-} from '@ziroeda/common/src/cross_probing_settings.js';
-import type { EdaUnits } from '@ziroeda/common/src/eda_units.js';
+import { CROSS_PROBING_SETTINGS } from '@ziroeda/common/settings/app_settings.js';
+import type { EdaUnits } from '@ziroeda/common/eda_units.js';
+import { setColorPickerTabStore } from '@ziroeda/common/dialogs/dialog_color_picker_tab.js';
 import type { RegulatorData } from '@ziroeda/pcb_calculator';
-import { defaultUnits } from '../ui/app_settings_units.js';
+import { defaultUnits } from '@ziroeda/common/settings/app_settings_units.js';
 import {
   DEFAULT_GRID_INDEX,
   GRID_SIZE_LIST,
   type GridEntry,
+  type GridOverride,
   gridEntryOf,
-} from '../ui/grid_settings.js';
-import { normalizeToolbarSettings, type ToolbarSettings } from '../ui/toolbar_config.js';
+} from '@ziroeda/common/settings/grid_settings_ui.js';
+import {
+  normalizeToolbarSettings,
+  type ToolbarSettings,
+} from '@ziroeda/common/tool/ui/toolbar_configuration.js';
 import {
   DEFAULT_ROUTING_SETTINGS,
   writeRoutingSettings,
   type RoutingSettingsJson,
-} from '@ziroeda/pcbnew/src/router/pns_routing_settings.js';
+} from '@ziroeda/pcbnew/router/pns_routing_settings.js';
 
 // ----- COMMON_SETTINGS ---------------------------------------------------------
 
-/** MOUSE_DRAG_ACTION (common_settings.h). */
-export type MouseDragAction = 'select' | 'drag_selected' | 'drag_any' | 'pan' | 'zoom' | 'none';
-
-/** Scroll-wheel modifier assignment: which modifier triggers each gesture. */
-export type ScrollModifier = 'none' | 'ctrl' | 'shift' | 'alt';
-
-export interface CommonSettings {
-  appearance: {
-    /** PANEL_COMMON_SETTINGS "Icon theme": light | dark | auto. */
-    icon_theme: 'light' | 'dark' | 'auto';
-    /**
-     * `appearance.toolbar_icon_size` — `PARAM<int>( …, 24, 16, 64 )`
-     * (`common_settings.cpp:115-116`). A PIXEL SIZE, not an enum: the panel's
-     * three radios write 16 / 24 / 32 (`panel_common_settings.cpp:206-211`) and
-     * a hand-edited `common.json` may hold any value in 16..64, in which case
-     * none of the three is selected and the toolbars still honour it.
-     *
-     * This was `'small' | 'normal' | 'large'` here, which made our stored JSON
-     * something KiCad could not read. No migrator: the control was disabled
-     * until now, so no one can have stored anything but the default, and
-     * `deepMerge`'s shape check turns a stray string back into 24 anyway.
-     */
-    toolbar_icon_size: number;
-    show_scrollbars: boolean;
-    use_icons_in_menus: boolean;
-    /**
-     * `appearance.hicontrast_dimming_factor` — `PARAM<double>( …, 0.8f )`
-     * (`common_settings.cpp:109-110`). A FRACTION, not a percentage: the panel
-     * shows `factor * 100` and divides by 100 on the way back
-     * (`panel_common_settings.cpp:224-226`, `:330-331`), so `common.json` holds
-     * 0.8 where the field reads 80.
-     *
-     * This held 80 and bound the control straight to it, which was invisible
-     * while nothing read the setting and is not now:
-     * `m_hiContrastFactor = 1.0 - 80` is -79, and a mix at -79 clamps to zero,
-     * which paints every inactive layer as the bare background.
-     */
-    hicontrast_dimming_factor: number;
-    /** `appearance.grid_striping` — "Use alternating row colors in tables". */
-    grid_striping: boolean;
-    /**
-     * `appearance.use_custom_cursors`. The checkbox is "Disable custom
-     * cursors", so the control is the NEGATION of this — as upstream's
-     * `m_disableCustomCursors->SetValue( !cfg->m_Appearance.use_custom_cursors )`.
-     */
-    use_custom_cursors: boolean;
-    /**
-     * `appearance.zoom_correction_factor`, PARAM<double> default 1.0, range
-     * 0.1..10.0. ZOOM_CORRECTION_CTRL's whole output: the Scaling group asks
-     * the user to measure a drawn ruler so a millimetre on screen is a
-     * millimetre. A browser needs this MORE than a desktop app, since a CSS
-     * pixel has no fixed physical size at all.
-     */
-    zoom_correction_factor: number;
-  };
-  /**
-   * `graphics.antialiasing_mode` — `PARAM<int>( …, 2, 0, 2 )`
-   * (`common_settings.cpp:329-330`): `GAL_ANTIALIASING_MODE`, 0 none, 1 fast,
-   * 2 high quality, which `GAL_DISPLAY_OPTIONS::ReadCommonConfig` copies into
-   * the GAL and `OPENGL_COMPOSITOR::Initialize` maps to a presentor — fast is
-   * SMAA, high quality is 2x supersampling (`opengl_compositor.cpp:104-115`).
-   * The board editor's OPENGL_GAL draws with it (#636 stage 5).
-   */
-  graphics: {
-    antialiasing_mode: 0 | 1 | 2;
-  };
-  /**
-   * `git.*` — COMMON_SETTINGS `m_Git`
-   * (`common/settings/common_settings.cpp:459-472`), the five parameters
-   * `PANEL_GIT_REPOS` edits. `git.repositories`, the sixth, is a
-   * `PARAM_LAMBDA<nlohmann::json>` the page does not touch.
-   *
-   * Nothing reads them here: upstream drives libgit2 against a project checked
-   * out on disk, polling a remote and stamping commits with an author. Ours
-   * live in the cloud store and are versioned by it. The page is still drawn,
-   * disabled, because KiCad has it — and holding the stored values is what
-   * makes "Reset Version Control to Defaults" a real button, as upstream's is.
-   */
-  git: {
-    authorName: string;
-    authorEmail: string;
-    /** `PARAM<bool>( "git.useDefaultAuthor", …, true )`. */
-    useDefaultAuthor: boolean;
-    /** `PARAM<bool>( "git.enableGit", …, true )`. */
-    enableGit: boolean;
-    /**
-     * `PARAM<int>( "git.updatInterval", …, 5 )` — minutes between remote
-     * checks. The missing `e` is upstream's own: the key is spelled that way in
-     * every `common.json` KiCad has written, so it is spelled that way here.
-     */
-    updatInterval: number;
-  };
-  /**
-   * `spacemouse.*` — COMMON_SETTINGS `m_SpaceMouse`
-   * (`include/settings/common_settings.h:124-132`,
-   * `common/settings/common_settings.cpp:308-324`), the six parameters
-   * `PANEL_SPACEMOUSE` edits.
-   *
-   * Nothing reads them here: a SpaceMouse reaches KiCad through 3Dconnexion's
-   * own daemon and the 3dxware SDK, and no browser API exposes the device. The
-   * page is still drawn, disabled, because it is a page KiCad has — and its
-   * controls show STORED values rather than literals, so "Reset SpaceMouse to
-   * Defaults" has something to reset and the page is a `RESETTABLE_PANEL` the
-   * way upstream's is.
-   */
-  spacemouse: {
-    /** `PARAM<int>( "spacemouse.rotate_speed", …, 5, 1, 10 )`. */
-    rotate_speed: number;
-    /** `PARAM<int>( "spacemouse.pan_speed", …, 5, 1, 10 )`. */
-    pan_speed: number;
-    reverse_rotate: boolean;
-    reverse_pan_x: boolean;
-    reverse_pan_y: boolean;
-    reverse_zoom: boolean;
-  };
-  input: {
-    auto_pan: boolean;
-    auto_pan_acceleration: number; // 0..9
-    center_on_zoom: boolean;
-    warp_mouse_on_move: boolean;
-    hotkey_feedback: boolean;
-    /** `input.focus_follow_sch_pcb`, default false. */
-    focus_follow_sch_pcb: boolean;
-    immediate_actions: boolean; // !("First hotkey selects tool")
-    zoom_acceleration: boolean;
-    zoom_speed: number; // 1..10
-    zoom_speed_auto: boolean;
-    horizontal_pan: boolean;
-    /**
-     * `input.motion_pan_modifier`, `PARAM<int>( …, 0 )`
-     * (`common/settings/common_settings.cpp:287`) — "Pan on mouse movement
-     * with key", read by `WX_VIEW_CONTROLS::LoadSettings`
-     * (`wx_view_controls.cpp:193`) and `EDA_DRAW_PANEL_GAL`
-     * (`draw_panel_gal.cpp:832`).
-     *
-     * Upstream stores a `WXK_*` key code and the panel maps it to the four
-     * choices (`panel_mouse_settings.cpp:113-119`); ours stores the choice, as
-     * the other three modifier settings beside it do.
-     */
-    motion_pan_modifier: ScrollModifier;
-    scroll_modifier_zoom: ScrollModifier;
-    scroll_modifier_pan_h: ScrollModifier;
-    scroll_modifier_pan_v: ScrollModifier;
-    reverse_scroll_zoom: boolean;
-    reverse_scroll_pan_h: boolean;
-    mouse_left: MouseDragAction; // select | drag_selected | drag_any
-    mouse_middle: MouseDragAction; // pan | zoom | none
-    mouse_right: MouseDragAction; // pan | zoom | none
-  };
-  system: {
-    file_history_size: number;
-    /**
-     * COMMON_SETTINGS `system.language` (common_settings.cpp:355-356), default
-     * "Default". Upstream stores the LANGUAGE_DESCR::m_Lang_Label rather than a
-     * language code — pgm_base.cpp:592-596 matches the stored string against
-     * m_Lang_Label — so ours holds a label from `ui/language_menu.ts`.
-     */
-    language: string;
-    autosave_interval: number; // seconds; 0 = disabled
-    /**
-     * `system.clear_3d_cache_interval` (`common_settings.cpp:366-367`), days.
-     * `PROJECT_PCB::Cleanup3DCache` (`pcbnew/project_pcb.cpp:97-118`) hands it
-     * to `S3D_CACHE::CleanCacheDir`, which deletes every cached model whose
-     * LAST ACCESS is older than that — and does nothing at all at 0, which is
-     * how the user turns cache clearing off (`:114`).
-     *
-     * Ours is `editors/pcb/model_cache.ts`, an IndexedDB store keyed by the
-     * hash of a model's own bytes with a `usedAt` per row. Upstream reads a
-     * file's access time; ours reads that column, which is the same fact
-     * written down rather than asked of a filesystem we do not have.
-     */
-    clear_3d_cache_interval: number;
-    session: {
-      remember_open_files: boolean;
-      /** Libraries pinned to the top of the chooser tree (SESSION.pinned_symbol_libs). */
-      pinned_symbol_libs: string[];
-      /** The same, for footprint libraries (`session.pinned_fp_libs`,
-       *  common_settings.cpp:405-406). CvPcb's "Footprint Libraries" pane
-       *  lists these first (cvpcb_mainframe.cpp:1017-1046). */
-      pinned_fp_libs: string[];
-    };
-  };
-  /**
-   * `do_not_show_again.*` — `COMMON_SETTINGS::m_DoNotShowAgain`
-   * (`include/settings/common_settings.h:161-169`,
-   * `common/settings/common_settings.cpp:369-386`), six named bools with one
-   * warning each. NOT the same thing as `KIDIALOG`'s memory: that one is a
-   * file-static map that dies with the process (`ui/do_not_show_again.ts`),
-   * while these six survive a restart. Preferences > Maintenance clears both,
-   * which is why `doClearDontShowAgain` has two halves.
-   *
-   * They are stored, and nothing here writes them yet — the six dialogs that do
-   * are Export STEP's scaled-model warning, Configure Paths' restart notice,
-   * the start wizard's two privacy prompts, the 3D model migration prompt and
-   * pcbnew's unfilled-zone infobar, and this port has none of the six. Held
-   * anyway, for the reason `git` and `spacemouse` above are: the page that
-   * clears them is real, and a button that clears a store we did not model
-   * would be a button that clears nothing forever.
-   */
-  do_not_show_again: {
-    /** `PCB_CONTROL::unfilledZoneCheck` (`pcbnew/tools/pcb_control.cpp:284-322`). */
-    zone_fill_warning: boolean;
-    /** `DIALOG_CONFIGURE_PATHS` (`common/dialogs/dialog_configure_paths.cpp:336`). */
-    env_var_overwrite_warning: boolean;
-    /** `DIALOG_EXPORT_STEP` (`pcbnew/dialogs/dialog_export_step.cpp:162`). */
-    scaled_3d_models_warning: boolean;
-    /** `STARTWIZARD_PROVIDER_PRIVACY` (`common/startwizard/…_privacy.cpp:85`). */
-    data_collection_prompt: boolean;
-    /** The same provider's other prompt (`:86`). */
-    update_check_prompt: boolean;
-    /** The 3D model migration prompt. */
-    migrate_wrl_prompt: boolean;
-  };
-  /**
-   * `auto_backup.*`. 10.0.5 reshaped this: `PANEL_COMMON_SETTINGS` now offers
-   * Automatically backup projects, Format, Location and Maximum total backup
-   * size, and `common_settings.cpp:128-138` registers exactly those four.
-   * The count/interval params ours carried — backup_on_autosave,
-   * limit_total_files, limit_daily_files, min_interval — are gone from both.
-   */
-  backup: {
-    enabled: boolean;
-    /**
-     * `PARAM_ENUM<BACKUP_FORMAT>( "auto_backup.format", …, INCREMENTAL )`.
-     * INCREMENTAL = 0 keeps a hidden .history git repository of continuous
-     * changes; ZIP = 1 writes timestamped archives on save.
-     */
-    format: 'incremental' | 'zip';
-    /** `PARAM_ENUM<BACKUP_LOCATION>( "auto_backup.location", …, PROJECT_DIR )`. */
-    location: 'project' | 'user';
-    limit_total_size: number; // bytes
-  };
-  /**
-   * `APP_SETTINGS_BASE::m_ColorPicker`, whose single parameter is
-   * `color_picker.default_tab` (common/settings/app_settings.cpp:137-138).
-   * `DIALOG_COLOR_PICKER` reads it into `m_notebook->SetSelection`
-   * (dialog_color_picker.cpp:89) and writes `m_notebook->GetSelection()` back
-   * in its destructor (`:114`), so the picker reopens on whichever page was
-   * last used. The shipped default is 0 — "Color Picker", the page the base
-   * adds first (dialog_color_picker_base.cpp:140).
-   *
-   * Upstream this lives in each app's OWN settings file, because the dialog
-   * asks `Kiface().KifaceSettings()`. Ours is one shared component with no
-   * kiface to ask and the same dialog wherever it opens, so it is keyed once
-   * here, beside `search_pane` — the other APP_SETTINGS_BASE slice a shared
-   * widget reads.
-   */
-  color_picker: {
-    default_tab: number;
-  };
-  /** APP_SETTINGS_BASE::SEARCH_PANE, the docked Search pane's own options. */
-  search_pane: {
-    /**
-     * What picking a row does to the view (SEARCH_PANE::SELECTION_ZOOM), set
-     * from the pane's "Zoom to Selection" / "Pan to Selection" toggles.
-     * SCH_SEARCH_HANDLER::SelectItems runs ACTIONS::centerSelection for `pan`
-     * and ACTIONS::zoomFitSelection for `zoom`, after selecting the hits.
-     */
-    selection_zoom: 'none' | 'pan' | 'zoom';
-  };
-  /**
-   * `dialog.controls` — every dialog's remembered control values.
-   *
-   * COMMON_SETTINGS registers this as a `PARAM_LAMBDA<nlohmann::json>` named
-   * exactly `"dialog.controls"` (common/settings/common_settings.cpp:478-505),
-   * fed from `COMMON_SETTINGS_INTERNALS::m_dialogControlValues`, a
-   * `map<dialog key, map<control key, json>>`
-   * (include/settings/common_settings_internals.h:29). So this is a *user*
-   * setting living in `common.json`, not session state: it outlives the
-   * process, which is why KiCad's "Place repeated copies" is still ticked after
-   * the placer tool has been closed and reopened.
-   *
-   * Written by `DIALOG_SHIM::SaveControlState` and read back by
-   * `DIALOG_SHIM::LoadControlState` (common/dialog_shim.cpp:654, :765); see
-   * `ui/dialog_control_state.ts` for the port of that half.
-   */
-  dialog: {
-    controls: DialogControls;
-  };
-}
-
-/**
- * One remembered control value.
- *
- * `SaveControlState` stores a `nlohmann::json` per control, and the branches it
- * writes are exhaustively: a UNIT_BINDER's int, a `wxComboBox`'s string, a
- * `wxOwnerDrawnComboBox`/`wxChoice`/`wxRadioBox`'s selection index, a
- * `wxTextEntry`'s string, a `wxCheckBox`/`wxRadioButton`'s bool, a
- * `wxSpinCtrl`'s int, a splitter's sash position, a scrolled window's scroll
- * position, a notebook's *page title*, and a WX_GRID's shown-columns string
- * (dialog_shim.cpp:678-745). Every one of those is a JSON scalar, so this is
- * the whole value domain for a *control*.
- *
- * The one non-scalar upstream writes into the same map is the dialog's own
- * geometry, an `{x,y,w,h}` object under the reserved key `"__geometry"`
- * (dialog_shim.cpp:664-671, read back in `DIALOG_SHIM::Show`, :455-468). That
- * is not ported: a wxDialog is a top-level window the user drags and resizes
- * and ours are centred `.ze-modal` divs, so there is no position to remember.
- * When one becomes movable, geometry belongs here under that same key.
- */
-export type DialogControlValue = boolean | number | string;
-
-/** dialog key -> control key -> value; `m_dialogControlValues`. */
-export type DialogControls = Record<string, Record<string, DialogControlValue>>;
-
-export const COMMON_DEFAULTS: CommonSettings = {
-  appearance: {
-    icon_theme: 'auto',
-    // `PARAM<int>( "appearance.toolbar_icon_size", …, 24, 16, 64 )`.
-    toolbar_icon_size: 24,
-    show_scrollbars: true,
-    use_icons_in_menus: true,
-    // `PARAM<double>( …, 0.8f )` — the FRACTION; the panel shows 80.
-    hicontrast_dimming_factor: 0.8,
-    grid_striping: false,
-    use_custom_cursors: true,
-    zoom_correction_factor: 1.0,
-  },
-  // `m_Git` — the five PARAM defaults.
-  // `PARAM<int>( "graphics.antialiasing_mode", …, 2, 0, 2 )`: high quality.
-  graphics: {
-    antialiasing_mode: 2,
-  },
-  git: {
-    authorName: '',
-    authorEmail: '',
-    useDefaultAuthor: true,
-    enableGit: true,
-    updatInterval: 5,
-  },
-  // `m_SpaceMouse` — the six PARAM defaults (5, 5, and four falses).
-  spacemouse: {
-    rotate_speed: 5,
-    pan_speed: 5,
-    reverse_rotate: false,
-    reverse_pan_x: false,
-    reverse_pan_y: false,
-    reverse_zoom: false,
-  },
-  input: {
-    auto_pan: false,
-    auto_pan_acceleration: 5,
-    center_on_zoom: true,
-    warp_mouse_on_move: true,
-    hotkey_feedback: true,
-    focus_follow_sch_pcb: false,
-    immediate_actions: true,
-    zoom_acceleration: false,
-    zoom_speed: 1,
-    zoom_speed_auto: true,
-    horizontal_pan: false,
-    // `PARAM<int>( "input.motion_pan_modifier", …, 0 )` — 0 is no key.
-    motion_pan_modifier: 'none',
-    scroll_modifier_zoom: 'none',
-    scroll_modifier_pan_h: 'ctrl',
-    scroll_modifier_pan_v: 'shift',
-    reverse_scroll_zoom: false,
-    reverse_scroll_pan_h: false,
-    mouse_left: 'drag_selected',
-    mouse_middle: 'pan',
-    mouse_right: 'pan',
-  },
-  system: {
-    file_history_size: 9,
-    language: 'Default',
-    autosave_interval: 600,
-    // `PARAM<int>( "system.clear_3d_cache_interval", …, 30 )`.
-    clear_3d_cache_interval: 30,
-    session: { remember_open_files: false, pinned_symbol_libs: [], pinned_fp_libs: [] },
-  },
-  // Every one `PARAM<bool>( …, false )` (`common_settings.cpp:369-386`).
-  do_not_show_again: {
-    zone_fill_warning: false,
-    env_var_overwrite_warning: false,
-    scaled_3d_models_warning: false,
-    data_collection_prompt: false,
-    update_check_prompt: false,
-    migrate_wrl_prompt: false,
-  },
-  backup: {
-    enabled: true,
-    format: 'incremental',
-    location: 'project',
-    // `PARAM<unsigned long long>( "auto_backup.limit_total_size", …, 104857600 )`
-    limit_total_size: 104857600,
-  },
-  // `PARAM<int>( "color_picker.default_tab", …, 0 )` — page 0 is "Color
-  // Picker", which is the page the notebook adds first and adds selected.
-  color_picker: { default_tab: 0 },
-  // KiCad's default is PAN (app_settings.cpp: search_pane.selection_zoom).
-  search_pane: {
-    selection_zoom: 'pan',
-  },
-  // `nlohmann::json::object()` is the param's default (common_settings.cpp:505):
-  // no dialog has been opened yet, so every control takes its own default.
-  dialog: { controls: {} },
-};
-
 // ----- EESCHEMA_SETTINGS --------------------------------------------------------
+
+// COMMON_SETTINGS (common/settings/common_settings.cpp) lives in common/ since
+// 09-26, as upstream's does, so the Preferences panels in common/dialogs can
+// read it. Re-exported here for this module's callers.
+export * from '@ziroeda/common/settings/common_settings.js';
+import {
+  COMMON_DEFAULTS,
+  type CommonSettings,
+  type DialogControlValue,
+  type DialogControls,
+  mergeCommon,
+  migrateCommonSettings,
+  normalizeDialogControls,
+} from '@ziroeda/common/settings/common_settings.js';
+export { deepMerge } from '@ziroeda/common/settings/json_settings.js';
+import { deepMerge } from '@ziroeda/common/settings/json_settings.js';
+import type { JsonValue } from '@ziroeda/common/settings/json_settings_internals.js';
+import { KICAD_SETTINGS } from '@ziroeda/common/settings/kicad_settings.js';
+import {
+  SETTINGS_MANAGER,
+  type SETTINGS_FILE,
+  type SETTINGS_STORE,
+} from '@ziroeda/common/settings/settings_manager.js';
+import {
+  BITMAP2CMP_SETTINGS,
+  type BITMAP2CMP_SETTINGS_JSON,
+} from '@ziroeda/bitmap2component/bitmap2cmp_settings.js';
 
 /** LINE_MODE (sch_line.h): 0 = free, 1 = 90°, 2 = 45°. */
 export type LineMode = 0 | 1 | 2;
@@ -455,10 +86,7 @@ export interface TemplateFieldName {
   url: boolean;
 }
 
-export interface GridOverride {
-  enabled: boolean;
-  size: string;
-}
+export type { GridOverride } from '@ziroeda/common/settings/grid_settings_ui.js';
 
 export interface EeschemaSettings {
   appearance: {
@@ -515,7 +143,7 @@ export interface EeschemaSettings {
    * PANEL_EESCHEMA_DISPLAY_OPTIONS. Upstream this copy governs probes that
    * *arrive in* the schematic from the board.
    */
-  cross_probing: CrossProbingSettings;
+  cross_probing: CROSS_PROBING_SETTINGS;
   autoplace_fields: {
     enable: boolean;
     allow_rejustify: boolean;
@@ -758,7 +386,7 @@ export const EESCHEMA_DEFAULTS: EeschemaSettings = {
     footprint_preview: true,
     custom_toolbars: false,
   },
-  cross_probing: { ...CROSS_PROBING_DEFAULTS },
+  cross_probing: { ...new CROSS_PROBING_SETTINGS() },
   autoplace_fields: {
     enable: true,
     allow_rejustify: true,
@@ -995,14 +623,14 @@ export interface PcbnewSettings {
    * governed by, because upstream the *receiving* frame's settings decide what
    * a probe does (pcbnew/cross-probing.cpp:140, :221-247, :734, :776).
    */
-  cross_probing: CrossProbingSettings;
+  cross_probing: CROSS_PROBING_SETTINGS;
   printing: PcbnewPrinting;
   /**
    * Tool settings nested inside pcbnew.json. `pns` is PNS::ROUTING_SETTINGS,
    * which upstream builds as a NESTED_SETTINGS at exactly this path
    * (pns_tool_base.cpp:103), so the sub-keys are KiCad's own spellings; the
    * model, its defaults and the round-trip live in
-   * `@ziroeda/pcbnew/src/router/pns_routing_settings.ts`.
+   * `@ziroeda/pcbnew/router/pns_routing_settings.ts`.
    */
   tools: {
     pns: RoutingSettingsJson;
@@ -1254,7 +882,7 @@ export const PCBNEW_DEFAULTS: PcbnewSettings = {
     color_theme: '_builtin_default',
     custom_toolbars: false,
   },
-  cross_probing: { ...CROSS_PROBING_DEFAULTS },
+  cross_probing: { ...new CROSS_PROBING_SETTINGS() },
   tools: {
     pns: writeRoutingSettings(DEFAULT_ROUTING_SETTINGS),
   },
@@ -1312,212 +940,14 @@ export const PCBNEW_DEFAULTS: PcbnewSettings = {
 
 // ----- PL_EDITOR_SETTINGS ------------------------------------------------------
 
-/**
- * `pl_editor.json` — `PL_EDITOR_SETTINGS`
- * (pagelayout_editor/pl_editor_settings.cpp) over its `APP_SETTINGS_BASE`
- * base (common/settings/app_settings.cpp).
- *
- * Upstream registers 96 parameters on this object. Most of them are base-class
- * slices the Drawing Sheet Editor has no control for — `find_replace.*`,
- * `design_block_chooser.*`, `lib_tree.*`, `printing.*`, `cross_probing.*`,
- * `plugins.actions`, the window geometry, `window.zoom_factors` — and a
- * setting we cannot honour is a setting we should not claim to store, so those
- * are absent rather than invented. What is here is exactly the set the editor
- * puts a control in front of.
- *
- * Two shapes deliberately follow the house spelling rather than KiCad's JSON:
- * `window.grid.last_size_idx` (KiCad's key is `window.grid.last_size`, but the
- * C++ member is `last_size_idx` and `EeschemaSettings` already reads that way)
- * and `window.cursor.crosshair` for `window.cursor.cross_hair_mode`. The seven
- * `PL_EDITOR_SETTINGS`-proper keys are top-level and unprefixed exactly as
- * upstream writes them.
- */
-export interface PlEditorSettings {
-  system: {
-    /**
-     * `system.units` (app_settings.cpp:231-232). **MILS**, not mm: the
-     * conditional at :228-238 names `pl_editor` alongside eeschema and the
-     * symbol editor on the imperial side.
-     */
-    units: EdaUnits;
-    /** `system.last_metric_units` (app_settings.cpp:240-241), EDA_UNITS::MM. */
-    last_metric_units: EdaUnits;
-    /**
-     * `system.last_imperial_units` (app_settings.cpp:243-244),
-     * EDA_UNITS::MILS. This is what Ctrl+U comes back to, and it is a
-     * *setting*, not `COMMON_TOOLS`' `m_imperialUnit( EDA_UNITS::INCH )`
-     * constructor seed — `setupUnits` (eda_draw_frame.cpp:1385) overwrites
-     * that seed with this value before the frame is usable.
-     */
-    last_imperial_units: EdaUnits;
-  };
-  /**
-   * `appearance.color_theme` -> `APP_SETTINGS_BASE::m_ColorTheme`
-   * (app_settings.cpp:282-283), default `COLOR_SETTINGS::COLOR_BUILTIN_DEFAULT`.
-   * The one control on Preferences > Drawing Sheet Editor > Colors, which is
-   * `Color theme:` and nothing else
-   * (pagelayout_editor/dialogs/panel_pl_editor_color_settings_base.cpp:19-27).
-   */
-  appearance: {
-    color_theme: string;
-    /**
-     * `APP_SETTINGS_BASE::m_CustomToolbars` -> `appearance.custom_toolbars`
-     * (`common/settings/app_settings.cpp:285-286`), default false.
-     *
-     * The "Customize toolbars" checkbox at the top of Preferences > Toolbars,
-     * and the `aAllowCustom` argument every `GetToolbarConfig` call passes
-     * (`common/eda_base_frame.cpp:784`, `:800`, `:815`, `:831`): with it off the
-     * frame draws `DefaultToolbarConfig` even when a stored configuration
-     * exists, so switching it off restores the stock toolbars without
-     * discarding the customisation.
-     */
-    custom_toolbars: boolean;
-  };
-  window: {
-    grid: {
-      /**
-       * `window.grid.sizes` -> `GRID_SETTINGS::grids`
-       * (app_settings.cpp:476-477), seeded from `DefaultGridSizeList()`'s
-       * pl_editor row. Stored rather than read straight off the table because
-       * `PANEL_GRID_SETTINGS` edits it: add, edit, remove and reorder all write
-       * `m_grids` back into `gridCfg.grids`
-       * (common/dialogs/panel_grid_settings.cpp:190-192).
-       *
-       * The row is `GRID{ name, x, y }`, as upstream's is: every DEFAULT of
-       * pl_editor's row is square and nameless, but the Grids page can now add
-       * a named, non-square one through `DIALOG_GRID_SETTINGS`, so the stored
-       * shape has to be able to hold it.
-       */
-      sizes: GridEntry[];
-      /**
-       * `window.grid.last_size` -> `GRID_SETTINGS::last_size_idx`
-       * (app_settings.cpp:480-481), default `defaultGridIdx` = 4 for
-       * pl_editor, i.e. `0.50 mm`. Kept as `ui/grid_settings.ts`'
-       * `DEFAULT_GRID_INDEX.pl_editor` rather than restated here.
-       */
-      last_size_idx: number;
-      /**
-       * `window.grid.fast_grid_1` (app_settings.cpp:483-484), default
-       * `defaultGridIdx`, i.e. the same grid `last_size` starts on.
-       */
-      fast_grid_1: number;
-      /**
-       * `window.grid.fast_grid_2` (app_settings.cpp:486-487), default
-       * `defaultGridIdx + 1`.
-       */
-      fast_grid_2: number;
-      /** `window.grid.style` (app_settings.cpp:558-559), 0 = DOTS. */
-      style: 'dots' | 'lines' | 'crosses';
-      /** `window.grid.line_width` (app_settings.cpp:549-550), 1.0 px. */
-      line_width: number;
-      /** `window.grid.min_spacing` (app_settings.cpp:552-553), 10 px. */
-      min_spacing: number;
-      /** `window.grid.snap` (app_settings.cpp:561-562), 0 = ALWAYS. */
-      snap: 0 | 1 | 2;
-      /**
-       * `window.grid.show` (app_settings.cpp:555-556), default true. Not
-       * written by `SaveSettings`: `ACTIONS::toggleGrid` mutates the settings
-       * object in place through `EDA_DRAW_FRAME::SetGridVisibility`
-       * (eda_draw_frame.cpp:593-598), which is why the toggle survives a
-       * restart.
-       */
-      show: boolean;
-      /**
-       * `window.grid.overrides_enabled` (app_settings.cpp:522-523), true for
-       * pl_editor as for everything else — the `else` arm gives it the same
-       * default the eeschema arm does.
-       */
-      overrides_enabled: boolean;
-      /**
-       * The two per-item overrides `PANEL_GRID_SETTINGS` leaves visible for
-       * `FRAME_PL_EDITOR`. Its constructor hides the vias row for every frame
-       * outside pcbnew, and hides the connected and wires rows for every frame
-       * that is not one of the four schematic ones
-       * (common/dialogs/panel_grid_settings.cpp:62-82), which leaves Text and
-       * Graphics. Both default off, at grid indices 18 and 15 of the *pcbnew*
-       * row upstream — indices into a 22-entry list pl_editor does not have, so
-       * ours name the grid by its string instead.
-       */
-      overrides: {
-        text: GridOverride;
-        graphics: GridOverride;
-      };
-    };
-    cursor: {
-      /** `window.cursor.cross_hair_mode` (app_settings.cpp:567-568), SMALL_CROSS. */
-      crosshair: 'small' | 'full' | '45';
-      /** `window.cursor.always_show_cursor` (app_settings.cpp:564-565), true. */
-      always_show_cursor: boolean;
-    };
-  };
-  /** `properties_frame_width` (pl_editor_settings.cpp:45-46), 150. */
-  properties_frame_width: number;
-  /** `corner_origin` (pl_editor_settings.cpp:48), 0 — index into the 5 origins. */
-  corner_origin: number;
-  /** `black_background` (pl_editor_settings.cpp:50), false. */
-  black_background: boolean;
-  /** `last_paper_size` (pl_editor_settings.cpp:52), "A3". */
-  last_paper_size: string;
-  /** `last_custom_width` (pl_editor_settings.cpp:54), 17000 **mils**. */
-  last_custom_width: number;
-  /** `last_custom_height` (pl_editor_settings.cpp:56), 11000 **mils**. */
-  last_custom_height: number;
-  /** `last_was_portrait` (pl_editor_settings.cpp:58), false. */
-  last_was_portrait: boolean;
-}
-
-export const PL_EDITOR_DEFAULTS: PlEditorSettings = {
-  system: {
-    // The `app_settings.cpp:228-238` branch, asked rather than restated: five
-    // editors already read their starting unit from `defaultUnits`, and this
-    // was the last copy of the answer written out by hand.
-    units: defaultUnits('pl_editor'),
-    last_metric_units: 'mm',
-    last_imperial_units: 'mils',
-  },
-  appearance: {
-    color_theme: '_builtin_default',
-    custom_toolbars: false,
-  },
-  window: {
-    grid: {
-      // `DefaultGridSizeList()`'s pl_editor row, asked rather than restated —
-      // the same table the grid selector and the canvas already read. All eight
-      // are square, so the X column says the whole grid.
-      sizes: GRID_SIZE_LIST.pl_editor.map(gridEntryOf),
-      last_size_idx: DEFAULT_GRID_INDEX.pl_editor,
-      // `fast_grid_1 = defaultGridIdx`, `fast_grid_2 = defaultGridIdx + 1`
-      // (app_settings.cpp:483-487) — not two literals.
-      fast_grid_1: DEFAULT_GRID_INDEX.pl_editor,
-      fast_grid_2: DEFAULT_GRID_INDEX.pl_editor + 1,
-      style: 'dots',
-      line_width: 1,
-      min_spacing: 10,
-      snap: 0,
-      show: true,
-      overrides_enabled: true,
-      // The `else` arm of app_settings.cpp:520-546: both off. Upstream's
-      // indices (18, 15) point into pcbnew's grid list; the nearest thing
-      // pl_editor's own row has is its finest grid, which is what a text or
-      // graphics override would be for.
-      overrides: {
-        text: { enabled: false, size: '0.10 mm' },
-        graphics: { enabled: false, size: '0.10 mm' },
-      },
-    },
-    cursor: {
-      crosshair: 'small',
-      always_show_cursor: true,
-    },
-  },
-  properties_frame_width: 150,
-  corner_origin: 0,
-  black_background: false,
-  last_paper_size: 'A3',
-  last_custom_width: 17000,
-  last_custom_height: 11000,
-  last_was_portrait: false,
-};
+export {
+  type PlEditorSettings,
+  PL_EDITOR_DEFAULTS,
+} from '@ziroeda/pagelayout_editor/pl_editor_settings.js';
+import {
+  type PlEditorSettings,
+  PL_EDITOR_DEFAULTS,
+} from '@ziroeda/pagelayout_editor/pl_editor_settings.js';
 
 // ----- SYMBOL_EDITOR_SETTINGS ("symbol_editor.json") ---------------------------
 
@@ -1743,223 +1173,8 @@ export const SYMBOL_EDITOR_DEFAULTS: SymbolEditorSettings = {
 
 // ----- GERBVIEW_SETTINGS ("gerbview.json") -------------------------------------
 
-/**
- * `gerbview.json` — `GERBVIEW_SETTINGS` (`gerbview/gerbview_settings.cpp:39-98`)
- * over its `APP_SETTINGS_BASE` base (`common/settings/app_settings.cpp`).
- *
- * Same rule as `PlEditorSettings` above: only the keys the Gerber Viewer puts a
- * control in front of. The four file histories (`system.drill_file_history`,
- * `system.zip_file_history`, `system.job_file_history`) and
- * `gerber_to_pcb_layers` are omitted — the first three are paths on a disk this
- * app does not have, and the fourth is written by the Map Gerber Layers dialog
- * rather than by Preferences.
- *
- * **One deliberate deviation, and it is the only one.** Three of `Display
- * Options`' checkboxes — Sketch flashed items / lines / polygons — write
- * `GBR_DISPLAY_OPTIONS` members that `GERBVIEW_SETTINGS`' constructor never
- * registers a `PARAM` for (compare `m_Display.m_DisplayPageLimits` at
- * `gerbview_settings.cpp:57-58`, which it does). Upstream they therefore live
- * only in the settings object in memory, shared between the Preferences page
- * and the left toolbar for one run of the program, and are back to
- * `GBR_DISPLAY_OPTIONS`' constructor defaults on the next launch. There is no
- * in-memory-only tier here: a browser tab has no exit hook to decide not to
- * flush at. They are stored, under a `display.` prefix that is ours because
- * upstream has no key to copy, and the visible difference is that a reload
- * remembers them. Chosen over the alternative — a preference that silently
- * forgets itself every time the tab is refreshed, which in a web app reads as a
- * bug rather than as parity.
- */
-export interface GerbviewSettings {
-  system: {
-    /**
-     * `system.units` (`app_settings.cpp:228-238`). **MM**: gerbview's filename
-     * is not on the imperial side of that branch.
-     */
-    units: EdaUnits;
-    /** `system.last_metric_units` (`app_settings.cpp:240-241`). */
-    last_metric_units: EdaUnits;
-    /** `system.last_imperial_units` (`app_settings.cpp:243-244`). */
-    last_imperial_units: EdaUnits;
-  };
-  appearance: {
-    /** `appearance.color_theme` (`app_settings.cpp:282-283`). */
-    color_theme: string;
-    /** `appearance.custom_toolbars` (`app_settings.cpp:285-286`), default false. */
-    custom_toolbars: boolean;
-    /**
-     * `appearance.show_border_and_titleblock` (`gerbview_settings.cpp:44-45`),
-     * default false — LAYER_GERBVIEW_DRAWINGSHEET. A fresh GerbView shows no
-     * drawing sheet.
-     */
-    show_border_and_titleblock: boolean;
-    /** `appearance.show_dcodes` (`gerbview_settings.cpp:47-48`), default false. */
-    show_dcodes: boolean;
-    /**
-     * `appearance.show_negative_objects` (`gerbview_settings.cpp:50-51`),
-     * default false.
-     */
-    show_negative_objects: boolean;
-    /**
-     * `appearance.page_type` (`gerbview_settings.cpp:53-55`), default
-     * `"GERBER"` — the seven Page Size radios, and the `PAGE_INFO` type
-     * `GERBVIEW_FRAME` sets from it (`gerbview_frame.cpp:334`, `:1213`).
-     */
-    page_type: string;
-    /**
-     * `appearance.show_page_limit` -> `m_Display.m_DisplayPageLimits`
-     * (`gerbview_settings.cpp:57-58`), default false. The JSON key is under
-     * `appearance.` even though the C++ member is on `m_Display`, and the file
-     * is what this mirrors.
-     */
-    show_page_limit: boolean;
-    /**
-     * `appearance.mode_opacity_value` -> `m_Display.m_OpacityModeAlphaValue`
-     * (`gerbview_settings.cpp:60-61`), default 0.6 — the alpha a layer is drawn
-     * at while forced-opacity mode is on (`gerbview_painter.cpp:65-66`).
-     */
-    mode_opacity_value: number;
-  };
-  /**
-   * The `GBR_DISPLAY_OPTIONS` members with no `PARAM`. See the deviation note
-   * on {@link GerbviewSettings}; every default here is that class's own
-   * constructor (`gerbview/gbr_display_options.h:57-68`).
-   */
-  display: {
-    /** `m_DisplayFlashedItemsFill`, true — so "Sketch flashed items" is off. */
-    flashed_items_fill: boolean;
-    /** `m_DisplayLinesFill`, true. */
-    lines_fill: boolean;
-    /** `m_DisplayPolygonsFill`, true. */
-    polygons_fill: boolean;
-    /** `m_ForceOpacityMode`, false. */
-    force_opacity_mode: boolean;
-    /** `m_XORMode`, false. */
-    xor_mode: boolean;
-    /** `m_HighContrastMode`, false. */
-    high_contrast_mode: boolean;
-    /** `m_FlipGerberView`, false. */
-    flip_gerber_view: boolean;
-  };
-  window: {
-    grid: {
-      /** `window.grid.sizes` (`app_settings.cpp:476-477`), gerbview's row. */
-      sizes: GridEntry[];
-      /** `window.grid.last_size` (`app_settings.cpp:480-481`), index 15. */
-      last_size_idx: number;
-      /** `window.grid.fast_grid_1` (`app_settings.cpp:483-484`). */
-      fast_grid_1: number;
-      /** `window.grid.fast_grid_2` (`app_settings.cpp:486-487`). */
-      fast_grid_2: number;
-      /** `window.grid.style` (`app_settings.cpp:558-559`), 0 = DOTS. */
-      style: 'dots' | 'lines' | 'crosses';
-      /** `window.grid.line_width` (`app_settings.cpp:549-550`), 1.0 px. */
-      line_width: number;
-      /** `window.grid.min_spacing` (`app_settings.cpp:552-553`), 10 px. */
-      min_spacing: number;
-      /** `window.grid.snap` (`app_settings.cpp:561-562`), 0 = ALWAYS. */
-      snap: 0 | 1 | 2;
-      /** `window.grid.show` (`app_settings.cpp:555-556`), default true. */
-      show: boolean;
-      /** `window.grid.overrides_enabled` (`app_settings.cpp:522-523`), true. */
-      overrides_enabled: boolean;
-      /**
-       * EMPTY, and that is upstream's answer rather than an omission:
-       * `PANEL_GRID_SETTINGS`' constructor hides the heading, the rule and
-       * every row of the Grid Overrides group for `FRAME_GERBER`
-       * (`common/dialogs/panel_grid_settings.cpp:62-90`), so gerbview has no
-       * override control at all. `grid_settings_rows.ts`' `FRAME_GERBER: []`
-       * is the same statement from the panel's side.
-       */
-      overrides: Record<string, GridOverride>;
-    };
-    cursor: {
-      /** `window.cursor.cross_hair_mode` (`app_settings.cpp:567-568`). */
-      crosshair: 'small' | 'full' | '45';
-      /** `window.cursor.always_show_cursor` (`app_settings.cpp:564-565`), true. */
-      always_show_cursor: boolean;
-    };
-  };
-  /**
-   * `EXCELLON_DEFAULTS` — the whole of Preferences > Gerber Viewer > Excellon
-   * Options (`gerbview_settings.cpp:81-97`, defaults
-   * `gerbview/excellon_defaults.h:51-58`). Values a drill file is *supposed* to
-   * state and often does not, used by `EXCELLON_IMAGE::LoadFile` and
-   * `SelectUnits` when the header is silent
-   * (`excellon_read_drill_file.cpp:478-480`, `:1130-1160`).
-   */
-  excellon_defaults: {
-    /** `excellon_defaults.unit_mm`, false — inches. */
-    unit_mm: boolean;
-    /** `excellon_defaults.lz_format`, true — LZ (no trailing zeros). */
-    lz_format: boolean;
-    /** `excellon_defaults.mm_integer_len`, FMT_INTEGER_MM = 3, range 2..6. */
-    mm_integer_len: number;
-    /** `excellon_defaults.mm_mantissa_len`, FMT_MANTISSA_MM = 3, range 2..6. */
-    mm_mantissa_len: number;
-    /** `excellon_defaults.inch_integer_len`, FMT_INTEGER_INCH = 2, range 2..6. */
-    inch_integer_len: number;
-    /** `excellon_defaults.inch_mantissa_len`, FMT_MANTISSA_INCH = 4, range 2..6. */
-    inch_mantissa_len: number;
-  };
-  /** `gerber_to_pcb_copperlayers_count` (`gerbview_settings.cpp:76-77`), 2. */
-  gerber_to_pcb_copperlayers_count: number;
-}
-
-export const GERBVIEW_DEFAULTS: GerbviewSettings = {
-  system: {
-    units: defaultUnits('gerbview'),
-    last_metric_units: 'mm',
-    last_imperial_units: 'mils',
-  },
-  appearance: {
-    color_theme: '_builtin_default',
-    custom_toolbars: false,
-    show_border_and_titleblock: false,
-    show_dcodes: false,
-    show_negative_objects: false,
-    page_type: 'GERBER',
-    show_page_limit: false,
-    mode_opacity_value: 0.6,
-  },
-  display: {
-    flashed_items_fill: true,
-    lines_fill: true,
-    polygons_fill: true,
-    force_opacity_mode: false,
-    xor_mode: false,
-    high_contrast_mode: false,
-    flip_gerber_view: false,
-  },
-  window: {
-    grid: {
-      // `DefaultGridSizeList()`'s gerbview row, asked rather than restated.
-      sizes: GRID_SIZE_LIST.gerbview.map(gridEntryOf),
-      last_size_idx: DEFAULT_GRID_INDEX.gerbview,
-      fast_grid_1: DEFAULT_GRID_INDEX.gerbview,
-      fast_grid_2: DEFAULT_GRID_INDEX.gerbview + 1,
-      style: 'dots',
-      line_width: 1,
-      min_spacing: 10,
-      snap: 0,
-      show: true,
-      overrides_enabled: true,
-      overrides: {},
-    },
-    cursor: {
-      crosshair: 'small',
-      always_show_cursor: true,
-    },
-  },
-  excellon_defaults: {
-    unit_mm: false,
-    lz_format: true,
-    mm_integer_len: 3,
-    mm_mantissa_len: 3,
-    inch_integer_len: 2,
-    inch_mantissa_len: 4,
-  },
-  gerber_to_pcb_copperlayers_count: 2,
-};
+export { type GerbviewSettings, GERBVIEW_DEFAULTS } from '@ziroeda/gerbview/gerbview_settings.js';
+import { type GerbviewSettings, GERBVIEW_DEFAULTS } from '@ziroeda/gerbview/gerbview_settings.js';
 
 // ----- FOOTPRINT_EDITOR_SETTINGS ("fpedit.json") -------------------------------
 
@@ -3169,38 +2384,14 @@ function numberMap(v: unknown): Record<string, number> {
  * KiCad's schema version for this file is 1 and its one migration
  * (:51-68) renumbers `last_mod_layer` for the KiCad 6 layer-order change,
  * reading a KiCad 5 `bitmap2component.json` we have never written. Ours starts
- * at the post-migration numbering — `OUTLINE_LAYERS[0]` is `F.Cu`, matching
- * the comment at :55-56 — so there is nothing for `migrateSlice` to do.
+ * at the post-migration numbering — `LAYER_CHOICES[0]` is `F.Cu`, matching
+ * the comment at :55-56 — so there is nothing for `migrateSlice` to do. The
+ * migration itself is `migrateLastModLayer` in bitmap2cmp_settings.ts.
  */
-export interface Bitmap2CmpSettings {
-  /** `bitmap_file_name` (:42), "". */
-  bitmap_file_name: string;
-  /** `converted_file_name` (:43), "". */
-  converted_file_name: string;
-  /** `units` (:44), 0. Output-size unit choice: 0 mm, 1 inch, 2 DPI. */
-  units: number;
-  /** `threshold` (:45), 50. Black/white threshold, 0..100. */
-  threshold: number;
-  /** `negative` (:46), false. */
-  negative: boolean;
-  /**
-   * `last_format` (:47), 0. `OUTPUT_FMT_ID` (bitmap2component.h:32-39):
-   * 0 symbol, 1 symbol-paste, 2 footprint, 3 postscript, 4 drawing sheet.
-   */
-  last_format: number;
-  /** `last_mod_layer` (:48), 0. Footprint outline layer, PCBNew ordering. */
-  last_mod_layer: number;
-}
+export type Bitmap2CmpSettings = BITMAP2CMP_SETTINGS_JSON;
 
-export const BITMAP2CMP_DEFAULTS: Bitmap2CmpSettings = {
-  bitmap_file_name: '',
-  converted_file_name: '',
-  units: 0,
-  threshold: 50,
-  negative: false,
-  last_format: 0,
-  last_mod_layer: 0,
-};
+/** The seven PARAM defaults, from the settings class itself. */
+export const BITMAP2CMP_DEFAULTS: Bitmap2CmpSettings = new BITMAP2CMP_SETTINGS().ToJson();
 
 // ----- PRIVACY (ZiroEDA-specific) -------------------------------------------------
 
@@ -3219,45 +2410,6 @@ export const PRIVACY_DEFAULTS: PrivacySettings = {
 };
 
 // ----- persistence + store --------------------------------------------------------
-
-/**
- * Whether a stored value can stand in for a default of this shape.
- *
- * Only reached for a default that is an array, null, or a scalar — `deepMerge`
- * recurses into plain objects instead. A scalar default already fails the
- * `typeof` test against an array (`typeof [] === 'object'`), so no separate
- * array guard is needed on that side; a null default accepts anything, since
- * it carries no shape to compare.
- */
-function sameShape(defaults: unknown, stored: unknown): boolean {
-  if (Array.isArray(defaults)) return Array.isArray(stored);
-  if (defaults === null) return true;
-  return typeof defaults === typeof stored;
-}
-
-/**
- * Exported for its own tests: it is the only thing standing between a stale or
- * hand-edited localStorage and the renderer, and it has no other seam.
- */
-export function deepMerge<T>(defaults: T, stored: unknown): T {
-  if (typeof defaults !== 'object' || defaults === null || Array.isArray(defaults)) {
-    // A stored value of the wrong *type* is not a setting, it is damage:
-    // localStorage is editable by hand, survives across versions, and a string
-    // where a number belongs reaches the renderer and throws before React
-    // mounts — a white screen, which is the failure the capability probe
-    // exists to avoid producing. Falling back to the default is always safe;
-    // the worst case is one preference reverting.
-    if (stored === undefined || !sameShape(defaults, stored)) return defaults;
-    return stored as T;
-  }
-  const out: Record<string, unknown> = { ...(defaults as Record<string, unknown>) };
-  if (typeof stored === 'object' && stored !== null) {
-    for (const [k, v] of Object.entries(stored as Record<string, unknown>)) {
-      if (k in out) out[k] = deepMerge(out[k], v);
-    }
-  }
-  return out as T;
-}
 
 /**
  * One-time corrections to already-stored settings. Every settings object is
@@ -3393,7 +2545,10 @@ export type ToolbarApp = (typeof TOOLBAR_APPS)[number];
 export const toolbarSlice = (app: ToolbarApp): SettingsSlice => `${app}-toolbars` as SettingsSlice;
 
 /** Where a slice lives in localStorage. The one place the prefix is written. */
-export const sliceStorageKey = (slice: SettingsSlice): string => `ziroeda.${slice}`;
+export const sliceStorageKey = (slice: SettingsSlice): string => settingsStorageKey(slice);
+
+/** Where any settings file lives in localStorage, synced slice or not. */
+export const settingsStorageKey = (filename: string): string => `ziroeda.${filename}`;
 
 /**
  * Apply every correction newer than `from` to one stored eeschema settings
@@ -3451,47 +2606,6 @@ export function migrateSlice(slice: SettingsSlice, value: unknown, from: number)
   if (slice === 'common') return migrateCommonSettings(value as CommonSettings, from);
   if (slice !== 'eeschema') return false;
   return migrateEeschemaSettings(value as EeschemaSettings, from);
-}
-
-/**
- * `common.json`'s migrations.
- *
- * v5: `appearance.hicontrast_dimming_factor` was stored as a PERCENTAGE here
- * and is a fraction upstream (`PARAM<double>( …, 0.8f )`; the panel is what
- * multiplies by 100). Nothing read it while the control was disabled, so the
- * wrong shape cost nothing; the moment the painters take it,
- * `1.0 - 80` is -79 and every inactive layer is mixed all the way to the
- * background — a board that goes blank in high-contrast mode, for a setting
- * the user never touched.
- *
- * `> 1` is the test rather than `>= 1`: 1.0 is a legal fraction (dim
- * completely) and 100 is the percentage that means the same thing, so the
- * ambiguous value is left alone and the unambiguous ones are converted.
- */
-export function migrateCommonSettings(s: CommonSettings, from: number): boolean {
-  let changed = false;
-  const a = s?.appearance;
-
-  if (from < 5 && typeof a?.hicontrast_dimming_factor === 'number') {
-    if (a.hicontrast_dimming_factor > 1) {
-      a.hicontrast_dimming_factor /= 100;
-      changed = true;
-    }
-  }
-
-  // v5: `appearance.toolbar_icon_size` was `'small' | 'normal' | 'large'` here
-  // and is a pixel int upstream. `deepMerge`'s shape check already turns a
-  // stored string back into the default, so this only preserves a choice that
-  // was made -- which, the control having been disabled, nobody can have made.
-  // It is here because the next person to read the two shapes should not have
-  // to work out whether the gap was handled.
-  if (from < 5 && typeof (a as { toolbar_icon_size?: unknown })?.toolbar_icon_size === 'string') {
-    const legacy: Record<string, number> = { small: 16, normal: 24, large: 32 };
-    a.toolbar_icon_size = legacy[a.toolbar_icon_size as unknown as string] ?? 24;
-    changed = true;
-  }
-
-  return changed;
 }
 
 /** Whether a value stored under the legacy key can be used as a regulator. */
@@ -3592,16 +2706,6 @@ function migrateStored(): void {
   }
 }
 
-function load<T>(key: string, defaults: T): T {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return structuredClone(defaults);
-    return deepMerge(structuredClone(defaults), JSON.parse(raw));
-  } catch {
-    return structuredClone(defaults);
-  }
-}
-
 /**
  * Upgrade a stored grid list to `GRID{ name, x, y }`.
  *
@@ -3691,72 +2795,9 @@ export function normalizeHotkeys(parsed: unknown): Record<string, string | null>
   return out;
 }
 
-/**
- * `dialog.controls` on the way in — the port of the PARAM_LAMBDA *setter* at
- * common_settings.cpp:488-503.
- *
- * Upstream reads it defensively for the same reason ours must: the file is on
- * disk and hand-editable, so it checks `aVal.is_object()` and then
- * `dlgVal.is_object()` per dialog before copying, and silently skips anything
- * else. Ours adds the leaf check upstream gets for free from `nlohmann::json`
- * being able to hold anything: a leaf that is not a scalar is dropped, because
- * {@link DialogControlValue} is the whole domain `SaveControlState` writes.
- *
- * Free-form, so not `deepMerge`d — see the note above `normalizeHotkeys`: the
- * defaults are `{}` and `deepMerge` keeps only keys the defaults already have,
- * so every stored dialog would be dropped on the way back in.
- */
-export function normalizeDialogControls(parsed: unknown): DialogControls {
-  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return {};
-  const out: DialogControls = {};
-  for (const [dlgKey, dlgVal] of Object.entries(parsed as Record<string, unknown>)) {
-    if (typeof dlgVal !== 'object' || dlgVal === null || Array.isArray(dlgVal)) continue;
-    const controls: Record<string, DialogControlValue> = {};
-    for (const [ctrlKey, ctrlVal] of Object.entries(dlgVal as Record<string, unknown>)) {
-      if (
-        typeof ctrlVal === 'boolean' ||
-        typeof ctrlVal === 'number' ||
-        typeof ctrlVal === 'string'
-      )
-        controls[ctrlKey] = ctrlVal;
-    }
-    out[dlgKey] = controls;
-  }
-  return out;
-}
-
-/**
- * `common.json` on the way in: the fixed settings tree merged as usual, with
- * the one free-form subtree inside it normalised instead.
- *
- * One function rather than two because the same value arrives by two routes —
- * localStorage at startup and the account at sign-in — and a subtree repaired
- * on only one of them is the `colors.user` bug again, where every change was
- * written and silently discarded on reload.
- */
-export function mergeCommon(stored: unknown): CommonSettings {
-  const out = deepMerge(structuredClone(COMMON_DEFAULTS), stored);
-  const dialog = (stored as { dialog?: { controls?: unknown } } | undefined)?.dialog;
-  out.dialog = { controls: normalizeDialogControls(dialog?.controls) };
-  return out;
-}
-
-/**
- * One theme the user made with "New Theme..." — a `colors/<name>.json` that is
- * not `user.json`.
- *
- * `AddNewColorSettings( themeName )` names the FILE after the theme
- * (`panel_color_settings.cpp:147-158`), so the key of the map is both the file
- * stem and the theme id, exactly as it is on disk.
- */
-export interface UserColorTheme {
-  /** `meta.name`. */
-  name: string;
-  /** Our painter's `Theme` keys -> CSS, the same shape as `colors.user`. */
-  colors: Record<string, string>;
-  /** `schematic.override_item_colors`. */
-  override: boolean;
-}
+// A user theme file's shape is COLOR_SETTINGS', so it lives in common/settings.
+export type { UserColorTheme } from '@ziroeda/common/settings/color_theme_file.js';
+import type { UserColorTheme } from '@ziroeda/common/settings/color_theme_file.js';
 
 /**
  * `colors.themes`. Free-form for the same reason `colors.user` is: `deepMerge`
@@ -3788,22 +2829,207 @@ export function normalizeUserColors(parsed: unknown): Record<string, string> {
 }
 
 /**
- * Read a free-form map out of localStorage through `normalize`.
+ * `SETTINGS_LOC::USER`'s directory, in a browser: one localStorage key per
+ * settings file, `ziroeda.<basename>`. The {@link SETTINGS_STORE} the
+ * `SETTINGS_MANAGER` reads and writes through.
  *
- * `load()` cannot do this: it goes through `deepMerge`, which keeps only keys
- * the *defaults* already have, so a map whose defaults are `{}` comes back
- * empty every time. `colors.user` was loaded that way, which meant the User
- * colour theme was written on every change and silently discarded on every
- * reload — the exact trap the note above `normalizeHotkeys` describes, in the
- * one other place it applies.
+ * Reads the global `localStorage` on every call rather than capturing it, so a
+ * test that swaps the global gets a fresh device. A blocked or unparsable
+ * entry reads as missing, and the file then loads as its defaults.
  */
-function loadFreeForm<T>(key: string, normalize: (parsed: unknown) => T): T {
+export class BROWSER_SETTINGS_STORE implements SETTINGS_STORE {
+  Read(aFilename: string): unknown {
+    try {
+      const raw = localStorage.getItem(settingsStorageKey(aFilename));
+      if (!raw) return undefined;
+      return JSON.parse(raw);
+    } catch {
+      return undefined;
+    }
+  }
+
+  Write(aFilename: string, aValue: unknown): void {
+    store(settingsStorageKey(aFilename), aValue);
+  }
+}
+
+/**
+ * One slice as a settings file the manager can hold: the plain object the
+ * editors read, and the normaliser that turns whatever was stored (or
+ * nothing) into one. `LoadFromJson` is that normaliser, whether the value came
+ * from the browser or from the account, so the two cannot drift apart.
+ */
+export class SLICE_SETTINGS<T> implements SETTINGS_FILE {
+  value: T;
+
+  constructor(
+    private readonly m_filename: string,
+    private readonly m_normalize: (stored: unknown) => T,
+  ) {
+    this.value = m_normalize(undefined);
+  }
+
+  GetFilename(): string {
+    return this.m_filename;
+  }
+
+  LoadFromJson(aJson: unknown): void {
+    this.value = this.m_normalize(aJson);
+  }
+
+  SaveToJson(): unknown {
+    return this.value;
+  }
+}
+
+/** Every slice's in-memory type, by file. */
+interface SliceValues {
+  common: CommonSettings;
+  eeschema: EeschemaSettings;
+  symbol_editor: SymbolEditorSettings;
+  pcbnew: PcbnewSettings;
+  pl_editor: PlEditorSettings;
+  fpedit: FpEditSettings;
+  pcb_calculator: PcbCalculatorSettings;
+  bitmap2component: Bitmap2CmpSettings;
+  privacy: PrivacySettings;
+  '3d_viewer': Viewer3dSettings;
+  'colors.user': Record<string, string>;
+  'colors.themes': Record<string, UserColorTheme>;
+  hotkeys: Record<string, string | null>;
+  'eeschema-toolbars': ToolbarSettings;
+  'fpedit-toolbars': ToolbarSettings;
+  '3d_viewer-toolbars': ToolbarSettings;
+  'symbol_editor-toolbars': ToolbarSettings;
+  'pcbnew-toolbars': ToolbarSettings;
+  'pl_editor-toolbars': ToolbarSettings;
+  gerbview: GerbviewSettings;
+  'gerbview-toolbars': ToolbarSettings;
+}
+
+/** `deepMerge` over a fresh copy of the defaults: a fixed-shape file. */
+const merged =
+  <T>(defaults: T) =>
+  (stored: unknown): T =>
+    deepMerge(structuredClone(defaults), stored);
+
+/**
+ * `normalizeGrids` as well: a stored `window.grid.sizes` is a LIST, and
+ * `deepMerge` adopts a list whole, so an old or hand-edited shape has to be
+ * upgraded on the way in.
+ */
+const mergedWithGrids =
+  <T extends { window: { grid: { sizes: GridEntry[] } } }>(defaults: T) =>
+  (stored: unknown): T =>
+    normalizeGrids(deepMerge(structuredClone(defaults), stored), defaults.window.grid.sizes);
+
+/**
+ * How each file is read, from the browser or from the account alike.
+ *
+ * Not `deepMerge` for the free-form ones: it keeps only keys the defaults
+ * already have, so a map whose defaults are `{}` would come back empty every
+ * time (see `normalizeHotkeys`). `common.json` carries one free-form subtree
+ * (`mergeCommon`), `fpedit.json` another (`mergeFpEdit`), the calculator its
+ * keyword maps. A stored toolbar *replaces* its default rather than being
+ * merged over it (`normalizeToolbarSettings`).
+ */
+const SLICE_NORMALIZE: { [K in SettingsSlice]: (stored: unknown) => SliceValues[K] } = {
+  common: mergeCommon,
+  eeschema: mergedWithGrids(EESCHEMA_DEFAULTS),
+  symbol_editor: mergedWithGrids(SYMBOL_EDITOR_DEFAULTS),
+  pcbnew: merged(PCBNEW_DEFAULTS),
+  pl_editor: mergedWithGrids(PL_EDITOR_DEFAULTS),
+  fpedit: mergeFpEdit,
+  pcb_calculator: normalizePcbCalculator,
+  bitmap2component: merged(BITMAP2CMP_DEFAULTS),
+  privacy: merged(PRIVACY_DEFAULTS),
+  '3d_viewer': mergeViewer3d,
+  'colors.user': normalizeUserColors,
+  'colors.themes': normalizeUserThemes,
+  hotkeys: normalizeHotkeys,
+  'eeschema-toolbars': normalizeToolbarSettings,
+  'fpedit-toolbars': normalizeToolbarSettings,
+  '3d_viewer-toolbars': normalizeToolbarSettings,
+  'symbol_editor-toolbars': normalizeToolbarSettings,
+  'pcbnew-toolbars': normalizeToolbarSettings,
+  'pl_editor-toolbars': normalizeToolbarSettings,
+  gerbview: mergedWithGrids(GERBVIEW_DEFAULTS),
+  'gerbview-toolbars': normalizeToolbarSettings,
+};
+
+type SliceFiles = { [K in SettingsSlice]: SLICE_SETTINGS<SliceValues[K]> };
+
+/**
+ * The localStorage keys the project manager's settings were kept under before
+ * they were `kicad.json`. Exported so the move can be tested without guessing
+ * the strings.
+ */
+export const LEGACY_KICAD_KEYS = {
+  leftWinWidth: 'ziro.leftWinWidth',
+  historyShown: 'ziroeda.localHistoryShown',
+  recentTemplates: 'ziro.recentTemplates',
+  templateFilter: 'ziro.templateFilterChoice',
+  templateWindowSize: 'ziro.templateWindowSize',
+} as const;
+
+/**
+ * Fold the project manager's loose keys into `kicad.json` — a file rename, the
+ * thing `migrateBitmap2CmpKey` does for the Image Converter.
+ *
+ * Not gated on `SETTINGS_VERSION`: `kicad.json` is not a synced slice, so
+ * there is no version for it to stamp, and bumping the synced version would
+ * make every older deploy read the account as a future format. Instead it is
+ * idempotent: a path already in `kicad.json` wins over a legacy key, and the
+ * legacy keys are removed once folded, so it runs at most once per browser
+ * with anything to do.
+ */
+export function migrateKicadSettingsKeys(): boolean {
   try {
+    const get = (k: string): string | null => localStorage.getItem(k);
+    const width = get(LEGACY_KICAD_KEYS.leftWinWidth);
+    const shown = get(LEGACY_KICAD_KEYS.historyShown);
+    const recent = get(LEGACY_KICAD_KEYS.recentTemplates);
+    const filter = get(LEGACY_KICAD_KEYS.templateFilter);
+    const size = get(LEGACY_KICAD_KEYS.templateWindowSize);
+    if ([width, shown, recent, filter, size].every((v) => v === null)) return false;
+
+    const key = settingsStorageKey('kicad');
     const raw = localStorage.getItem(key);
-    if (!raw) return normalize(undefined);
-    return normalize(JSON.parse(raw));
+    const doc = new KICAD_SETTINGS();
+    doc.LoadFromJson(raw ? (JSON.parse(raw) as JsonValue) : {});
+    const had = (path: string): boolean => doc.Contains(path);
+
+    if (width !== null && !had('appearance.left_frame_width')) {
+      const n = Number(width);
+      if (Number.isFinite(n)) doc.Set('appearance.left_frame_width', n);
+    }
+    if (shown !== null && !had('aui.show_history_panel'))
+      doc.Set('aui.show_history_panel', shown === '1');
+    if (recent !== null && !had('template.recent_templates')) {
+      const ids: unknown = JSON.parse(recent);
+      if (Array.isArray(ids))
+        doc.Set(
+          'template.recent_templates',
+          ids.filter((x): x is string => typeof x === 'string'),
+        );
+    }
+    if (filter !== null && !had('template.filter')) {
+      const n = Number(filter);
+      if (Number.isInteger(n)) doc.Set('template.filter', n);
+    }
+    if (size !== null && !had('template.window.size')) {
+      const s = JSON.parse(size) as { w?: unknown; h?: unknown } | null;
+      if (typeof s?.w === 'number' && typeof s.h === 'number')
+        doc.Set('template.window.size', { width: s.w, height: s.h });
+    }
+
+    // The document as it stands, not a Store(): a Store() would first write
+    // the members over the paths just set.
+    localStorage.setItem(key, JSON.stringify(doc.GetJson('')));
+    for (const k of Object.values(LEGACY_KICAD_KEYS)) localStorage.removeItem(k);
+    return true;
   } catch {
-    return normalize(undefined);
+    return false;
   }
 }
 
@@ -3850,233 +3076,26 @@ function loadStamps(): Record<string, SliceStamp> {
   }
 }
 
-/** Reading and replacing one slice's value, in one table rather than nine. */
-interface SliceIO {
-  read(m: SettingsManager): unknown;
-  /** Replace the in-memory value with one that came from storage or the account. */
-  adopt(m: SettingsManager, value: unknown): void;
-}
-
-const SLICE_IO: Record<SettingsSlice, SliceIO> = {
-  common: {
-    read: (m) => m.common,
-    // Not `deepMerge` alone: `dialog.controls` is free-form. See `mergeCommon`.
-    adopt: (m, v) => {
-      m.common = mergeCommon(v);
-    },
-  },
-  eeschema: {
-    read: (m) => m.eeschema,
-    adopt: (m, v) => {
-      m.eeschema = deepMerge(structuredClone(EESCHEMA_DEFAULTS), v);
-    },
-  },
-  symbol_editor: {
-    read: (m) => m.symbolEditor,
-    adopt: (m, v) => {
-      m.symbolEditor = deepMerge(structuredClone(SYMBOL_EDITOR_DEFAULTS), v);
-    },
-  },
-  pcbnew: {
-    read: (m) => m.pcbnew,
-    adopt: (m, v) => {
-      m.pcbnew = deepMerge(structuredClone(PCBNEW_DEFAULTS), v);
-    },
-  },
-  pl_editor: {
-    read: (m) => m.plEditor,
-    adopt: (m, v) => {
-      m.plEditor = deepMerge(structuredClone(PL_EDITOR_DEFAULTS), v);
-    },
-  },
-  fpedit: {
-    read: (m) => m.fpEdit,
-    // Not `deepMerge` alone: `lib_tree.column_widths` is free-form.
-    adopt: (m, v) => {
-      m.fpEdit = mergeFpEdit(v);
-    },
-  },
-  '3d_viewer': {
-    read: (m) => m.viewer3d,
-    adopt: (m, v) => {
-      m.viewer3d = mergeViewer3d(v);
-    },
-  },
-  pcb_calculator: {
-    read: (m) => m.pcbCalculator,
-    // Not `deepMerge`: the transmission-line keyword maps are free-form.
-    adopt: (m, v) => {
-      m.pcbCalculator = normalizePcbCalculator(v);
-    },
-  },
-  bitmap2component: {
-    read: (m) => m.bitmap2cmp,
-    adopt: (m, v) => {
-      m.bitmap2cmp = deepMerge(structuredClone(BITMAP2CMP_DEFAULTS), v);
-    },
-  },
-  privacy: {
-    read: (m) => m.privacy,
-    adopt: (m, v) => {
-      m.privacy = deepMerge(structuredClone(PRIVACY_DEFAULTS), v);
-    },
-  },
-  'colors.user': {
-    read: (m) => m.userColors,
-    adopt: (m, v) => {
-      m.userColors = normalizeUserColors(v);
-    },
-  },
-  // Every theme "New Theme..." made. One slice rather than a file each, because
-  // a slice is what this app syncs; upstream's directory of `<name>.json` is
-  // the same map with the stems as keys.
-  'colors.themes': {
-    read: (m) => m.userThemes,
-    adopt: (m, v) => {
-      m.userThemes = normalizeUserThemes(v);
-    },
-  },
-  hotkeys: {
-    read: (m) => m.hotkeys,
-    adopt: (m, v) => {
-      m.hotkeys = normalizeHotkeys(v);
-    },
-  },
-  // One entry per `TOOLBAR_SETTINGS` file. Not `deepMerge`: a stored toolbar
-  // *replaces* its default rather than being merged over it, and merging two
-  // item lists would produce a toolbar neither side asked for. See
-  // `normalizeToolbarSettings`.
-  'eeschema-toolbars': {
-    read: (m) => m.toolbars.eeschema,
-    adopt: (m, v) => {
-      m.toolbars = { ...m.toolbars, eeschema: normalizeToolbarSettings(v) };
-    },
-  },
-  'symbol_editor-toolbars': {
-    read: (m) => m.toolbars.symbol_editor,
-    adopt: (m, v) => {
-      m.toolbars = { ...m.toolbars, symbol_editor: normalizeToolbarSettings(v) };
-    },
-  },
-  'pcbnew-toolbars': {
-    read: (m) => m.toolbars.pcbnew,
-    adopt: (m, v) => {
-      m.toolbars = { ...m.toolbars, pcbnew: normalizeToolbarSettings(v) };
-    },
-  },
-  'pl_editor-toolbars': {
-    read: (m) => m.toolbars.pl_editor,
-    adopt: (m, v) => {
-      m.toolbars = { ...m.toolbars, pl_editor: normalizeToolbarSettings(v) };
-    },
-  },
-  gerbview: {
-    read: (m) => m.gerbview,
-    adopt: (m, v) => {
-      m.gerbview = deepMerge(structuredClone(GERBVIEW_DEFAULTS), v);
-    },
-  },
-  'gerbview-toolbars': {
-    read: (m) => m.toolbars.gerbview,
-    adopt: (m, v) => {
-      m.toolbars = { ...m.toolbars, gerbview: normalizeToolbarSettings(v) };
-    },
-  },
-  'fpedit-toolbars': {
-    read: (m) => m.toolbars.fpedit,
-    adopt: (m, v) => {
-      m.toolbars = { ...m.toolbars, fpedit: normalizeToolbarSettings(v) };
-    },
-  },
-  '3d_viewer-toolbars': {
-    read: (m) => m.toolbars['3d_viewer'],
-    adopt: (m, v) => {
-      m.toolbars = { ...m.toolbars, '3d_viewer': normalizeToolbarSettings(v) };
-    },
-  },
-};
+const TOOLBAR_SLICES = new Map<SettingsSlice, ToolbarApp>(
+  TOOLBAR_APPS.map((app) => [toolbarSlice(app), app]),
+);
 
 /**
- * SETTINGS_MANAGER, web edition: owns the common + eeschema settings and the
- * active color theme, persists on every change, and notifies subscribers (the
- * editors re-render through useSyncExternalStore).
+ * The editors' view of the settings: a thin layer over the common
+ * `SETTINGS_MANAGER`, which holds one settings file per slice and loads and
+ * saves them through the browser's store.
+ *
+ * What stays here is what upstream has no counterpart for: the named fields
+ * the editors read (`settings.eeschema`), the per-slice sync stamps and the
+ * `onSliceChanged` hook the account sync hangs off, and the change
+ * notification the editors re-render through (useSyncExternalStore).
  */
 export class SettingsManager {
-  // Not `load()`: `common.json` carries one free-form subtree. See `mergeCommon`.
-  common: CommonSettings = loadFreeForm(sliceStorageKey('common'), mergeCommon);
-  eeschema: EeschemaSettings = normalizeGrids(
-    load(sliceStorageKey('eeschema'), EESCHEMA_DEFAULTS),
-    EESCHEMA_DEFAULTS.window.grid.sizes,
-  );
-  /**
-   * `symbol_editor.json`, the Symbol Editor's own settings file.
-   *
-   * `normalizeGrids` for the same reason eeschema and pl_editor need it: a
-   * stored `window.grid.sizes` is a LIST, and `deepMerge` would merge it
-   * element-wise against the defaults instead of replacing it.
-   */
-  symbolEditor: SymbolEditorSettings = normalizeGrids(
-    load(sliceStorageKey('symbol_editor'), SYMBOL_EDITOR_DEFAULTS),
-    SYMBOL_EDITOR_DEFAULTS.window.grid.sizes,
-  );
-  pcbnew: PcbnewSettings = load(sliceStorageKey('pcbnew'), PCBNEW_DEFAULTS);
-  /** `pl_editor.json`, the Drawing Sheet Editor's own settings file. */
-  plEditor: PlEditorSettings = normalizeGrids(
-    load(sliceStorageKey('pl_editor'), PL_EDITOR_DEFAULTS),
-    PL_EDITOR_DEFAULTS.window.grid.sizes,
-  );
-  /** `gerbview.json`, the Gerber Viewer's own settings file. */
-  gerbview: GerbviewSettings = normalizeGrids(
-    load(sliceStorageKey('gerbview'), GERBVIEW_DEFAULTS),
-    GERBVIEW_DEFAULTS.window.grid.sizes,
-  );
-  /** `fpedit.json`, the Footprint Editor's own settings file. Not `load()`:
-   *  `lib_tree.column_widths` is free-form. See `mergeFpEdit`. */
-  fpEdit: FpEditSettings = loadFreeForm(sliceStorageKey('fpedit'), mergeFpEdit);
-
-  viewer3d: Viewer3dSettings = loadFreeForm(sliceStorageKey('3d_viewer'), mergeViewer3d);
-  /** `pcb_calculator.json` — the Calculator Tools frame's last inputs. */
-  pcbCalculator: PcbCalculatorSettings = loadFreeForm(
-    sliceStorageKey('pcb_calculator'),
-    normalizePcbCalculator,
-  );
-  /** `bitmap2component.json`, the Image Converter's own settings file. */
-  bitmap2cmp: Bitmap2CmpSettings = load(sliceStorageKey('bitmap2component'), BITMAP2CMP_DEFAULTS);
-  privacy: PrivacySettings = load(sliceStorageKey('privacy'), PRIVACY_DEFAULTS);
-  /** The editable "User" colour theme: layer-key -> CSS colour overrides. */
-  userThemes: Record<string, UserColorTheme> = loadFreeForm('colors.themes', normalizeUserThemes);
-
-  userColors: Record<string, string> = loadFreeForm(
-    sliceStorageKey('colors.user'),
-    normalizeUserColors,
-  );
-  /** HOTKEY_STORE's overrides: action name -> combo, or null for "no key". */
-  hotkeys: Record<string, string | null> = loadFreeForm(
-    sliceStorageKey('hotkeys'),
-    normalizeHotkeys,
-  );
-  /**
-   * `<app>-toolbars.json`, one per app with a Preferences > Toolbars page.
-   *
-   * Upstream these are separate `TOOLBAR_SETTINGS` objects the settings manager
-   * hands out by file name, never a member of the app's own settings — a frame
-   * holds `m_toolbarSettings` beside `config()`, and the customisation panel is
-   * given both (`PANEL_TOOLBAR_CUSTOMIZATION`'s `aCfg` and `aTbSettings`). One
-   * field holding all three keeps that separation without three near-identical
-   * members and three near-identical updaters.
-   */
-  toolbars: Record<ToolbarApp, ToolbarSettings> = {
-    eeschema: loadFreeForm(sliceStorageKey('eeschema-toolbars'), normalizeToolbarSettings),
-    symbol_editor: loadFreeForm(
-      sliceStorageKey('symbol_editor-toolbars'),
-      normalizeToolbarSettings,
-    ),
-    pcbnew: loadFreeForm(sliceStorageKey('pcbnew-toolbars'), normalizeToolbarSettings),
-    pl_editor: loadFreeForm(sliceStorageKey('pl_editor-toolbars'), normalizeToolbarSettings),
-    gerbview: loadFreeForm(sliceStorageKey('gerbview-toolbars'), normalizeToolbarSettings),
-    fpedit: loadFreeForm(sliceStorageKey('fpedit-toolbars'), normalizeToolbarSettings),
-    '3d_viewer': loadFreeForm(sliceStorageKey('3d_viewer-toolbars'), normalizeToolbarSettings),
-  };
+  /** The `SETTINGS_MANAGER` the files are registered with; `PGM_BASE` adopts it. */
+  readonly manager: SETTINGS_MANAGER;
+  private readonly files: SliceFiles;
+  /** `kicad.json`, the project manager's own settings. Not a synced slice: see `updateKicad`. */
+  readonly kicad: KICAD_SETTINGS;
   /** Per-slice modification and agreement stamps; see {@link SliceStamp}. */
   stamps: Record<string, SliceStamp> = loadStamps();
   /**
@@ -4093,6 +3112,137 @@ export class SettingsManager {
   private listeners = new Set<Listener>();
   /** Monotonic snapshot id for useSyncExternalStore. */
   version = 0;
+  /**
+   * `<app>-toolbars.json`, one per app with a Preferences > Toolbars page, as
+   * one record so a reader holds a stable object between changes.
+   *
+   * Upstream these are separate `TOOLBAR_SETTINGS` objects the settings manager
+   * hands out by file name, never a member of the app's own settings — a frame
+   * holds `m_toolbarSettings` beside `config()`, and the customisation panel is
+   * given both (`PANEL_TOOLBAR_CUSTOMIZATION`'s `aCfg` and `aTbSettings`).
+   */
+  private m_toolbars: Record<ToolbarApp, ToolbarSettings>;
+
+  constructor(aManager: SETTINGS_MANAGER = new SETTINGS_MANAGER()) {
+    this.manager = aManager;
+    if (!aManager.GetStore()) aManager.SetStore(new BROWSER_SETTINGS_STORE());
+
+    const files: Partial<Record<SettingsSlice, SLICE_SETTINGS<unknown>>> = {};
+    for (const slice of SETTINGS_SLICES)
+      files[slice] = aManager.RegisterSettings(
+        new SLICE_SETTINGS<unknown>(slice, SLICE_NORMALIZE[slice]),
+      );
+    this.files = files as SliceFiles;
+
+    migrateKicadSettingsKeys();
+    this.kicad = aManager.RegisterSettings(new KICAD_SETTINGS());
+
+    this.m_toolbars = this.readToolbars();
+  }
+
+  private readToolbars(): Record<ToolbarApp, ToolbarSettings> {
+    const out: Partial<Record<ToolbarApp, ToolbarSettings>> = {};
+    for (const app of TOOLBAR_APPS)
+      out[app] = this.files[toolbarSlice(app) as `${ToolbarApp}-toolbars`].value;
+    return out as Record<ToolbarApp, ToolbarSettings>;
+  }
+
+  get common(): CommonSettings {
+    return this.files.common.value;
+  }
+  set common(v: CommonSettings) {
+    this.files.common.value = v;
+  }
+  get eeschema(): EeschemaSettings {
+    return this.files.eeschema.value;
+  }
+  set eeschema(v: EeschemaSettings) {
+    this.files.eeschema.value = v;
+  }
+  /** `symbol_editor.json`, the Symbol Editor's own settings file. */
+  get symbolEditor(): SymbolEditorSettings {
+    return this.files.symbol_editor.value;
+  }
+  set symbolEditor(v: SymbolEditorSettings) {
+    this.files.symbol_editor.value = v;
+  }
+  get pcbnew(): PcbnewSettings {
+    return this.files.pcbnew.value;
+  }
+  set pcbnew(v: PcbnewSettings) {
+    this.files.pcbnew.value = v;
+  }
+  /** `pl_editor.json`, the Drawing Sheet Editor's own settings file. */
+  get plEditor(): PlEditorSettings {
+    return this.files.pl_editor.value;
+  }
+  set plEditor(v: PlEditorSettings) {
+    this.files.pl_editor.value = v;
+  }
+  /** `gerbview.json`, the Gerber Viewer's own settings file. */
+  get gerbview(): GerbviewSettings {
+    return this.files.gerbview.value;
+  }
+  set gerbview(v: GerbviewSettings) {
+    this.files.gerbview.value = v;
+  }
+  /** `fpedit.json`, the Footprint Editor's own settings file. */
+  get fpEdit(): FpEditSettings {
+    return this.files.fpedit.value;
+  }
+  set fpEdit(v: FpEditSettings) {
+    this.files.fpedit.value = v;
+  }
+  get viewer3d(): Viewer3dSettings {
+    return this.files['3d_viewer'].value;
+  }
+  set viewer3d(v: Viewer3dSettings) {
+    this.files['3d_viewer'].value = v;
+  }
+  /** `pcb_calculator.json` — the Calculator Tools frame's last inputs. */
+  get pcbCalculator(): PcbCalculatorSettings {
+    return this.files.pcb_calculator.value;
+  }
+  set pcbCalculator(v: PcbCalculatorSettings) {
+    this.files.pcb_calculator.value = v;
+  }
+  /** `bitmap2component.json`, the Image Converter's own settings file. */
+  get bitmap2cmp(): Bitmap2CmpSettings {
+    return this.files.bitmap2component.value;
+  }
+  set bitmap2cmp(v: Bitmap2CmpSettings) {
+    this.files.bitmap2component.value = v;
+  }
+  get privacy(): PrivacySettings {
+    return this.files.privacy.value;
+  }
+  set privacy(v: PrivacySettings) {
+    this.files.privacy.value = v;
+  }
+  /** Every theme "New Theme..." made, by file stem. */
+  get userThemes(): Record<string, UserColorTheme> {
+    return this.files['colors.themes'].value;
+  }
+  set userThemes(v: Record<string, UserColorTheme>) {
+    this.files['colors.themes'].value = v;
+  }
+  /** The editable "User" colour theme: layer-key -> CSS colour overrides. */
+  get userColors(): Record<string, string> {
+    return this.files['colors.user'].value;
+  }
+  set userColors(v: Record<string, string>) {
+    this.files['colors.user'].value = v;
+  }
+  /** HOTKEY_STORE's overrides: action name -> combo, or null for "no key". */
+  get hotkeys(): Record<string, string | null> {
+    return this.files.hotkeys.value;
+  }
+  set hotkeys(v: Record<string, string | null>) {
+    this.files.hotkeys.value = v;
+  }
+  get toolbars(): Record<ToolbarApp, ToolbarSettings> {
+    return this.m_toolbars;
+  }
 
   subscribe = (fn: Listener): (() => void) => {
     this.listeners.add(fn);
@@ -4113,8 +3263,8 @@ export class SettingsManager {
    * member, and putting one there would put it in the JSON a user can read and
    * in `deepMerge`'s way.
    */
-  private commit(slice: SettingsSlice, value: unknown): void {
-    store(sliceStorageKey(slice), value);
+  private commit(slice: SettingsSlice): void {
+    this.manager.Save(this.files[slice]);
     const prev = this.stamps[slice];
     // Strictly increasing, not `Date.now()`. Two edits inside one millisecond
     // would otherwise share a stamp, so the second would satisfy
@@ -4129,7 +3279,7 @@ export class SettingsManager {
 
   /** The slice's current value, for a push. */
   sliceValue(slice: SettingsSlice): unknown {
-    return SLICE_IO[slice].read(this);
+    return this.files[slice].SaveToJson();
   }
 
   /**
@@ -4140,8 +3290,9 @@ export class SettingsManager {
    * (projectStore.ts:893) in the one other place this bookkeeping exists.
    */
   adoptSlice(slice: SettingsSlice, value: unknown, cloudAt: number): void {
-    SLICE_IO[slice].adopt(this, value);
-    store(sliceStorageKey(slice), SLICE_IO[slice].read(this));
+    this.files[slice].LoadFromJson(value);
+    if (TOOLBAR_SLICES.has(slice)) this.m_toolbars = this.readToolbars();
+    this.manager.Save(this.files[slice]);
     const updatedAt = this.stamps[slice]?.updatedAt ?? Date.now();
     this.stamps = { ...this.stamps, [slice]: { updatedAt, syncedAt: updatedAt, cloudAt } };
     store(STAMPS_KEY, this.stamps);
@@ -4166,11 +3317,37 @@ export class SettingsManager {
     store(STAMPS_KEY, this.stamps);
   }
 
-  updateCommon(mutate: (s: CommonSettings) => void): void {
-    const next = structuredClone(this.common);
+  /** Replace one slice's value with a mutated copy, and commit it. */
+  private update<K extends SettingsSlice>(slice: K, mutate: (s: SliceValues[K]) => void): void {
+    const file = this.files[slice] as SLICE_SETTINGS<SliceValues[K]>;
+    const next = structuredClone(file.value);
     mutate(next);
-    this.common = next;
-    this.commit('common', next);
+    file.value = next;
+    this.commit(slice);
+  }
+
+  /** Replace one slice's value outright, and commit it. */
+  private replace<K extends SettingsSlice>(slice: K, value: SliceValues[K]): void {
+    (this.files[slice] as SLICE_SETTINGS<SliceValues[K]>).value = value;
+    this.commit(slice);
+  }
+
+  /**
+   * `KICAD_MANAGER_FRAME::SaveSettings`, one member at a time: `kicad.json`
+   * saved through the manager.
+   *
+   * Not stamped and not handed to `onSliceChanged`: what it holds is pane and
+   * window geometry and this machine's recents, which `cloud/settingsSync.ts`
+   * deliberately keeps per device.
+   */
+  updateKicad(mutate: (s: KICAD_SETTINGS) => void): void {
+    mutate(this.kicad);
+    this.manager.Save(this.kicad);
+    this.notify();
+  }
+
+  updateCommon(mutate: (s: CommonSettings) => void): void {
+    this.update('common', mutate);
   }
 
   /**
@@ -4196,39 +3373,24 @@ export class SettingsManager {
   }
 
   updateEeschema(mutate: (s: EeschemaSettings) => void): void {
-    const next = structuredClone(this.eeschema);
-    mutate(next);
-    this.eeschema = next;
-    this.commit('eeschema', next);
+    this.update('eeschema', mutate);
   }
 
   /** `SYMBOL_EDIT_FRAME::SaveSettings` / the five Symbol Editor Preferences pages. */
   updateSymbolEditor(mutate: (s: SymbolEditorSettings) => void): void {
-    const next = structuredClone(this.symbolEditor);
-    mutate(next);
-    this.symbolEditor = next;
-    this.commit('symbol_editor', next);
+    this.update('symbol_editor', mutate);
   }
 
   updatePcbnew(mutate: (s: PcbnewSettings) => void): void {
-    const next = structuredClone(this.pcbnew);
-    mutate(next);
-    this.pcbnew = next;
-    this.commit('pcbnew', next);
+    this.update('pcbnew', mutate);
   }
 
   updatePlEditor(mutate: (s: PlEditorSettings) => void): void {
-    const next = structuredClone(this.plEditor);
-    mutate(next);
-    this.plEditor = next;
-    this.commit('pl_editor', next);
+    this.update('pl_editor', mutate);
   }
 
   updateGerbview(mutate: (s: GerbviewSettings) => void): void {
-    const next = structuredClone(this.gerbview);
-    mutate(next);
-    this.gerbview = next;
-    this.commit('gerbview', next);
+    this.update('gerbview', mutate);
   }
 
   /**
@@ -4237,25 +3399,21 @@ export class SettingsManager {
    * `SetStoredToolbarConfig` (`panel_toolbar_customization.cpp:352-354`).
    */
   updateToolbars(app: ToolbarApp, mutate: (s: ToolbarSettings) => void): void {
-    const next = structuredClone(this.toolbars[app]);
+    const slice = toolbarSlice(app) as `${ToolbarApp}-toolbars`;
+    const next = structuredClone(this.files[slice].value);
     mutate(next);
-    this.toolbars = { ...this.toolbars, [app]: next };
-    this.commit(toolbarSlice(app), next);
+    this.files[slice].value = next;
+    this.m_toolbars = { ...this.m_toolbars, [app]: next };
+    this.commit(slice);
   }
 
   /** `FOOTPRINT_EDIT_FRAME::SaveSettings` (`footprint_edit_frame.cpp:823-860`). */
   updateViewer3d(mutate: (s: Viewer3dSettings) => void): void {
-    const next = structuredClone(this.viewer3d);
-    mutate(next);
-    this.viewer3d = next;
-    this.commit('3d_viewer', this.viewer3d);
+    this.update('3d_viewer', mutate);
   }
 
   updateFpEdit(mutate: (s: FpEditSettings) => void): void {
-    const next = structuredClone(this.fpEdit);
-    mutate(next);
-    this.fpEdit = next;
-    this.commit('fpedit', next);
+    this.update('fpedit', mutate);
   }
 
   /**
@@ -4266,49 +3424,35 @@ export class SettingsManager {
    * `editors/calculator/calc_settings.ts` for the reason that file gives.
    */
   updatePcbCalculator(mutate: (s: PcbCalculatorSettings) => void): void {
-    const next = structuredClone(this.pcbCalculator);
-    mutate(next);
-    this.pcbCalculator = next;
-    this.commit('pcb_calculator', next);
+    this.update('pcb_calculator', mutate);
   }
 
   updateBitmap2Cmp(mutate: (s: Bitmap2CmpSettings) => void): void {
-    const next = structuredClone(this.bitmap2cmp);
-    mutate(next);
-    this.bitmap2cmp = next;
-    this.commit('bitmap2component', next);
+    this.update('bitmap2component', mutate);
   }
 
   updatePrivacy(mutate: (s: PrivacySettings) => void): void {
-    const next = structuredClone(this.privacy);
-    mutate(next);
-    this.privacy = next;
-    this.commit('privacy', next);
+    this.update('privacy', mutate);
   }
 
   resetCommon(): void {
-    this.common = structuredClone(COMMON_DEFAULTS);
-    this.commit('common', this.common);
+    this.replace('common', structuredClone(COMMON_DEFAULTS));
   }
 
   resetEeschema(): void {
-    this.eeschema = structuredClone(EESCHEMA_DEFAULTS);
-    this.commit('eeschema', this.eeschema);
+    this.replace('eeschema', structuredClone(EESCHEMA_DEFAULTS));
   }
 
   setUserColors(colors: Record<string, string>): void {
-    this.userColors = { ...colors };
-    this.commit('colors.user', this.userColors);
+    this.replace('colors.user', { ...colors });
   }
 
   resetUserColors(): void {
-    this.userColors = {};
-    this.commit('colors.user', this.userColors);
+    this.replace('colors.user', {});
   }
 
   setUserThemes(themes: Record<string, UserColorTheme>): void {
-    this.userThemes = { ...themes };
-    this.commit('colors.themes', this.userThemes);
+    this.replace('colors.themes', { ...themes });
   }
 
   /**
@@ -4322,21 +3466,30 @@ export class SettingsManager {
     const next = { ...this.hotkeys };
     if (keys === undefined) delete next[id];
     else next[id] = keys;
-    this.hotkeys = next;
-    this.commit('hotkeys', next);
+    this.replace('hotkeys', next);
   }
 
   /** Replace the whole override map — the Hotkeys page committing on OK. */
   setHotkeys(overrides: Readonly<Record<string, string | null>>): void {
-    this.hotkeys = { ...overrides };
-    this.commit('hotkeys', this.hotkeys);
+    this.replace('hotkeys', { ...overrides });
   }
 
   resetHotkeys(): void {
-    this.hotkeys = {};
-    this.commit('hotkeys', this.hotkeys);
+    this.replace('hotkeys', {});
   }
 }
 
 migrateStored();
 export const settings = new SettingsManager();
+
+// `PGM_BASE` owns `COMMON_SETTINGS` upstream and the common dialogs reach it
+// through `Pgm()`. Installing the store here, where the settings live, is that
+// hand-over: any dialog in `@ziroeda/common` reads the same file as the app.
+
+setColorPickerTabStore({
+  get: () => settings.common.color_picker.default_tab,
+  set: (i) =>
+    settings.updateCommon((s) => {
+      s.color_picker.default_tab = i;
+    }),
+});

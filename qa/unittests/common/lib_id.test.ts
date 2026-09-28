@@ -5,7 +5,7 @@
  * `qa/tests/common/test_lib_id.cpp` (LibId), transcribed against `LIB_ID`.
  */
 import { describe, expect, it } from 'vitest';
-import { LIB_ID } from '@ziroeda/common/src/lib_id.js';
+import { LIB_ID } from '@ziroeda/common/lib_id.js';
 
 describe('LibId', () => {
   it('ParseFullyQualified', () => {

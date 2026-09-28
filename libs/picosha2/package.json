@@ -1,0 +1,12 @@
+{
+  "name": "@ziroeda/picosha2",
+  "version": "0.0.0",
+  "description": "KiCad's thirdparty/picosha2: hash256_hex_string, a synchronous SHA-256 for the embedded-file checksums.",
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}

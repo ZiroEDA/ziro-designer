@@ -30,9 +30,9 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render } from '@testing-library/react';
-import { LibTree } from '@ziroeda/designer/src/widgets/lib_tree.js';
-import { LibTreeModelAdapter } from '@ziroeda/designer/src/widgets/lib_tree_model_adapter.js';
-import { LibTreeNode, LibTreeNodeType } from '@ziroeda/designer/src/widgets/lib_tree_model.js';
+import { LibTree } from '@ziroeda/common/widgets/lib_tree.js';
+import { LibTreeModelAdapter } from '@ziroeda/common/lib_tree_model_adapter.js';
+import { LibTreeNode, LibTreeNodeType } from '@ziroeda/common/lib_tree_model.js';
 
 afterEach(cleanup);
 
@@ -132,7 +132,7 @@ describe('PANEL_SYMBOL_CHOOSER forwards its preselect to the tree', () => {
   ): Promise<Record<string, unknown>> {
     const captured: Record<string, unknown>[] = [];
     vi.resetModules();
-    vi.doMock('@ziroeda/designer/src/widgets/lib_tree.js', () => ({
+    vi.doMock('@ziroeda/common/widgets/lib_tree.js', () => ({
       LibTree: (props: Record<string, unknown>) => {
         captured.push(props);
         return <div data-testid="libtree-stub" />;
@@ -150,7 +150,7 @@ describe('PANEL_SYMBOL_CHOOSER forwards its preselect to the tree', () => {
         onAccept={() => {}}
       />,
     );
-    vi.doUnmock('@ziroeda/designer/src/widgets/lib_tree.js');
+    vi.doUnmock('@ziroeda/common/widgets/lib_tree.js');
     expect(captured.length).toBeGreaterThan(0);
     return captured[captured.length - 1]!;
   }

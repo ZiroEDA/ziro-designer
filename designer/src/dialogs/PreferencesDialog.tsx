@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+import { MAINTENANCE_OPS } from '../prefs/maintenance.js';
 import { useEffect, useMemo, useState, type JSX } from 'react';
 import {
   settings,
@@ -18,9 +19,9 @@ import {
   type Viewer3dSettings,
 } from '../prefs/settings.js';
 import type { PrefsTransferPrompt } from './prefs/types.js';
-import type { ToolbarSettings } from '../ui/toolbar_config.js';
-import { MessageDialogYesNo } from '../ui/dialog_message.js';
-import { PagedDialogTree } from '../ui/PagedDialogTree.js';
+import type { ToolbarSettings } from '@ziroeda/common/tool/ui/toolbar_configuration.js';
+import { MessageDialogYesNo } from '@ziroeda/common/dialogs/dialog_message.js';
+import { PagedDialogTree } from '@ziroeda/common/widgets/wx_treebook.js';
 import { FIRST_PAGE, PAGES, labelOf, ownerOf } from './prefs/registry.js';
 import { loadPrefsPanel, peekPrefsPanel } from './prefs/lazy_pages.js';
 import {
@@ -31,9 +32,8 @@ import {
   type PrefsPanelModule,
 } from './prefs/types.js';
 import type { HotkeyOverrides } from '../editors/schematic/hotkey_bindings.js';
-import { setReportingEnabled } from '../telemetry/reporter.js';
-import { sentrySink } from '../telemetry/sentrySink.js';
-import { useModalEscape } from '../ui/useModalEscape.js';
+import { SENTRY } from '@ziroeda/common/app_monitor.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 /**
  * The Preferences dialog shell, the web mirror of KiCad's PAGED_DIALOG
@@ -377,10 +377,10 @@ export function PreferencesDialog({
     settings.setUserColors(userColors);
     settings.setUserThemes(userThemes);
     settings.setHotkeys(hotkeys);
-    // Routed through the reporter rather than written directly: switching this
-    // off has to tear the transport down now, not merely record a preference.
+    // `SENTRY::SetSentryOptIn`: switching this off closes the reporter now;
+    // switching it on takes effect at the next start, as upstream's does.
     if (privacy.crash_reports !== settings.privacy.crash_reports)
-      setReportingEnabled(privacy.crash_reports, sentrySink);
+      SENTRY.Instance().SetSentryOptIn(privacy.crash_reports);
     onClose();
   };
 
@@ -424,6 +424,7 @@ export function PreferencesDialog({
     // copy is dropped rather than committed. Which is the whole point of the
     // call site — see `PrefsContext.cancelDialog`.
     cancelDialog: onClose,
+    settingsManager: MAINTENANCE_OPS,
   };
 
   // `AddLazySubPage`: the page is constructed the first time it is opened, and

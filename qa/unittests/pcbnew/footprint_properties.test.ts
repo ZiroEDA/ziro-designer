@@ -8,18 +8,18 @@
  */
 import { describe, it, expect } from 'vitest';
 import { U, writtenItems } from './support/written_node.js';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { serializeBoard } from '@ziroeda/pcbnew/src/write-board.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import {
   applyFootprintValues,
   attributesFor,
   collectFootprintValues,
   footprintAt,
   type FootprintValues,
-} from '@ziroeda/pcbnew/src/footprint_properties.js';
-import type { Board, PcbFootprint } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_footprint_properties.js';
+import type { Board, PcbFootprint } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 const load = (text: string): Board => readBoard(parse(text));

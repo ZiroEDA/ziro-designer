@@ -29,7 +29,7 @@ import {
   foldPcbToggle,
   isStoredPcbToggle,
   pcbTogglesFromSettings,
-} from '@ziroeda/designer/src/editors/pcb/toggles.js';
+} from '@ziroeda/pcbnew/pcb_edit_frame.js';
 
 const SLOW = 60000;
 

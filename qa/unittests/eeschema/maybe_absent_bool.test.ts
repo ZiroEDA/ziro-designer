@@ -14,12 +14,12 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import {
   readEffects,
   readField,
   readSchematic,
-} from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
+} from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
 
 const dataFile = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(`../../data/${rel}`, import.meta.url)), 'utf8');

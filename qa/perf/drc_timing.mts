@@ -12,15 +12,15 @@
  * Add `--cpu-prof --cpu-prof-dir=/tmp/prof` for the flame data.
  */
 import { existsSync, readFileSync } from 'node:fs';
-import { EMBEDDED_FILES } from '@ziroeda/common/src/embedded_files.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { LSET } from '@ziroeda/common/src/lset.js';
-import { ENUM_MAP } from '@ziroeda/common/src/properties/property.js';
-import { PROGRESS_REPORTER_BASE } from '@ziroeda/common/src/widgets/progress_reporter_base.js';
-import { DRC_ENGINE } from '@ziroeda/pcbnew/src/drc/drc_engine.js';
-import '@ziroeda/pcbnew/src/drc/drc_test_providers.js';
-import type { DRC_ITEM } from '@ziroeda/pcbnew/src/drc/drc_item.js';
-import { ParseBoard } from '@ziroeda/pcbnew/src/read-board.js';
+import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import { ENUM_MAP } from '@ziroeda/common/properties/property.js';
+import { PROGRESS_REPORTER_BASE } from '@ziroeda/common/widgets/progress_reporter_base.js';
+import { DRC_ENGINE } from '@ziroeda/pcbnew/drc/drc_engine.js';
+import '@ziroeda/pcbnew/drc/drc_test_providers.js';
+import type { DRC_ITEM } from '@ziroeda/pcbnew/drc/drc_item.js';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
 
 const boardPath = process.argv[2]!;
 const base = boardPath.replace(/\.kicad_pcb$/, '');

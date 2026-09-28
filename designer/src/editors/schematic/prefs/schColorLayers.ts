@@ -13,7 +13,7 @@
  * file at all.
  */
 import type { Theme } from '../theme.js';
-import type { SchLayerId } from '@ziroeda/common/src/settings/color_theme_file.js';
+import type { SchLayerId } from '@ziroeda/common/settings/color_theme_file.js';
 
 /** One row of `m_colorsGridSizer`: a swatch and the layer's name. */
 export interface ColorRowSpec {

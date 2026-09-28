@@ -12,17 +12,17 @@
  * select items that are fully inside", drawn yellow.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { boardItemsInBox, boardItemsInLasso } from '@ziroeda/pcbnew/src/edit-board.js';
-import { lassoIsInside } from '@ziroeda/common/src/preview_items/selection_area.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { boardItemsInBox, boardItemsInLasso } from '@ziroeda/pcbnew/edit-board.js';
+import { lassoIsInside } from '@ziroeda/common/preview_items/selection_area.js';
 import {
   polyHitsBox,
   polyHitsPolygon,
   polyHitsSegment,
   pointInPolygon,
 } from '@ziroeda/kimath/src/geometry/poly_hit_test.js';
-import { pcbMmToIU as MM } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as MM } from '@ziroeda/common/eda_units.js';
 
 const board = () =>
   readBoard(

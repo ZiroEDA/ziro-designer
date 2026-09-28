@@ -17,15 +17,18 @@
  * a settings file of its own — which is why the "Customize toolbars" checkbox
  * writes `3d_viewer.json` and not `pcbnew.json`.
  */
+import { catalogueFor, ourToolbarId } from '../../../ui/action_catalogue.js';
 import type { JSX } from 'react';
-import { PanelToolbarCustomization } from '../../../dialogs/prefs/PanelToolbarCustomization.js';
+import { PanelToolbarCustomization } from '@ziroeda/common/dialogs/panel_toolbar_customization.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
-import { VIEWER3D_DEFAULT_TOOLBARS } from '../viewer3dToolbars.js';
+import { VIEWER3D_DEFAULT_TOOLBARS } from '@ziroeda/3d-viewer/toolbars_3d.js';
 
 export function PanelViewer3dToolbars({ ctx }: { ctx: PrefsContext }): JSX.Element {
   return (
     <PanelToolbarCustomization
       app="3d_viewer"
+      availableTools={catalogueFor('3d_viewer')}
+      toolbarIdOf={ourToolbarId}
       defaults={VIEWER3D_DEFAULT_TOOLBARS}
       custom={ctx.viewer3d.appearance.custom_toolbars}
       setCustom={(v) => {

@@ -17,11 +17,21 @@
  * which every containment check in the file passed straight over.
  */
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import type { JSX } from 'react';
 import { cleanup, fireEvent, render } from '@testing-library/react';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic } from '@ziroeda/eeschema';
-import { DialogAssignFootprints } from '@ziroeda/designer/src/editors/schematic/dialogs/dialog_assign_footprints.js';
-import { BITMAP } from '@ziroeda/designer/src/ui/toolbar_bitmaps.js';
+import { DialogAssignFootprints, type CVPCB_APP } from '@ziroeda/cvpcb/cvpcb_mainframe_ui.js';
+import { useCvpcbApp } from '@ziroeda/designer/src/editors/schematic/cvpcb_app.js';
+import { BITMAP } from '@ziroeda/common/bitmap_store_actions.js';
+
+/** `DialogAssignFootprints` with the real program: `cvpcb` never imports
+ *  `designer`, so the window is handed its `CVPCB_APP` the way
+ *  `SchematicEditor.tsx` does. */
+function Window(props: Omit<Parameters<typeof DialogAssignFootprints>[0], 'app'>): JSX.Element {
+  const app: CVPCB_APP = useCvpcbApp();
+  return <DialogAssignFootprints app={app} {...props} />;
+}
 
 beforeAll(() => {
   vi.stubGlobal('fetch', async () => new Response('', { status: 404 }));
@@ -84,22 +94,19 @@ interface Saved {
 
 function open_(opts: { equFiles?: string[]; equText?: string | null } = {}): {
   root: HTMLElement;
-  applied: { edits: unknown; save: boolean }[];
   saved: Saved[];
 } {
   const docs = new Map([['a.kicad_sch', readSchematic(parse(SHEET))]]);
-  const applied: { edits: unknown; save: boolean }[] = [];
   const saved: Saved[] = [];
   const { container } = render(
-    <DialogAssignFootprints
+    <Window
       docs={docs}
       projectFootprints={projectFiles(opts)}
-      onApply={(edits, o) => applied.push({ edits, save: o.save })}
       onSaveEquFiles={(files, newFiles) => saved.push({ files, newFiles })}
       onClose={() => {}}
     />,
   );
-  return { root: container, applied, saved };
+  return { root: container, saved };
 }
 
 /** Every toolbar button, in order, by the name a screen reader gets — which is
@@ -499,10 +506,9 @@ describe('the equivalence list is sorted before the match (auto_associate.cpp:18
   it('so a duplicate split by another value is still resolved by the filters', () => {
     const docs = new Map([['a.kicad_sch', readSchematic(parse(FILTERED_SHEET))]]);
     const { container } = render(
-      <DialogAssignFootprints
+      <Window
         docs={docs}
         projectFootprints={projectFiles({ equText: SPLIT_EQU })}
-        onApply={() => {}}
         onClose={() => {}}
       />,
     );

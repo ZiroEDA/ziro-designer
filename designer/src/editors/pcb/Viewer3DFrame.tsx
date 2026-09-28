@@ -36,13 +36,13 @@ import {
   useViewer3dSettings,
 } from '../../prefs/useSettings.js';
 import { VIEWER3D_DEFAULTS } from '../../prefs/settings.js';
-import { showHotkeyList } from '../../ui/hotkey_list_action.js';
-import { AboutDialog } from '../../home/dialogs/dialog_about.js';
-import { ABOUT_TITLES } from '../../ui/about_titles.js';
+import { showHotkeyList } from '@ziroeda/common/hotkeys_basic.js';
+import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
+import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
 import type { Board } from '@ziroeda/pcbnew';
-import { MenuBar } from '../../ui/MenuBar.js';
-import { Toolbar } from '../../ui/Toolbar.js';
-import { KiStatusBar } from '../../ui/KiStatusBar.js';
+import { MenuBar } from '@ziroeda/common/tool/action_menu_bar.js';
+import { Toolbar } from '@ziroeda/common/tool/action_toolbar.js';
+import { KiStatusBar } from '@ziroeda/common/widgets/kistatusbar.js';
 // From the types module, NOT from pcb3d.js: naming a type out of that file
 // makes tsc resolve its three.js / occt-import-js chain, which qa has no types
 // for. The runtime import below stays lazy, which is the point — three.js only
@@ -53,20 +53,22 @@ import type {
   Grid3D,
   View3DDir,
   Viewer3dRenderOptions,
-} from './viewer3d_types.js';
-import { VIEWER3D_DEFAULT_TOOLBARS } from './viewer3dToolbars.js';
+} from '@ziroeda/3d-viewer/viewer3d_types.js';
+import { VIEWER3D_DEFAULT_TOOLBARS } from '@ziroeda/3d-viewer/toolbars_3d.js';
 import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
-import { buildViewer3DMenus } from './viewer3dMenus.js';
-import { VIEWER_3D_FRAME_NAME } from './frame_title.js';
-import { stackupColors } from './board_adapter_colors.js';
-import type { BoardFinish, PhysicalStackup } from './board_settings.js';
-import { Appearance3DPanel } from './Appearance3DPanel.js';
-import { DockSash } from '../../ui/DockSash.js';
-import { EdaListDialog } from '../../ui/EdaListDialog.js';
+import { buildViewer3DMenus } from '@ziroeda/3d-viewer/3d_menubar.js';
+import { VIEWER_3D_FRAME_NAME } from '@ziroeda/pcbnew/pcb_edit_frame.js';
+import { stackupColors } from '@ziroeda/3d-viewer/board_adapter_colors.js';
+import type { BoardFinish, PhysicalStackup } from '@ziroeda/3d-viewer/viewer3d_types.js';
+import { MODELS3D_HOST } from '../../libraryHosts.js';
+import './viewer3d_cache_shim.js';
+import { Appearance3DPanel } from '@ziroeda/3d-viewer/dialogs/appearance_controls_3d.js';
+import { DockSash } from '@ziroeda/common/widgets/wx_aui_sash.js';
+import { EdaListDialog } from '@ziroeda/common/dialogs/eda_list_dialog.js';
 import { settings } from '../../prefs/settings.js';
-import { parseColor4d, toCssColor, type Color4d } from '@ziroeda/common/src/color4d.js';
-import { pcbLayerIdOf, plotLayerSelection } from './board_3d_layers.js';
-import { PCB_LAYER_COLORS } from './pcbTheme.js';
+import { parseColor4d, toCssColor, type Color4d } from '@ziroeda/common/gal/color4d.js';
+import { pcbLayerIdOf, plotLayerSelection } from '@ziroeda/3d-viewer/board_3d_layers.js';
+import { PCB_LAYER_COLORS } from '@ziroeda/pcbnew/pcbTheme.js';
 import {
   FOLLOW_PCB,
   FOLLOW_PLOT_SETTINGS,
@@ -85,7 +87,7 @@ import {
   type Layer3dFlag,
   type LayerPreset3d,
   type PcbEditorVisibility,
-} from './viewer3d_appearance.js';
+} from '@ziroeda/3d-viewer/viewer3d_appearance.js';
 
 /**
  * `EDA_PANE().Name( "LayersManager" ).Right()…MinSize( FromDIP( 180 ), -1 )
@@ -476,11 +478,18 @@ export function Viewer3DFrame({
     let cancelled = false;
     setReady(false);
     const el = hostRef.current;
-    void import('./pcb3d.js').then(({ mount3DViewer }) => {
+    void import('@ziroeda/3d-viewer/pcb3d.js').then(({ mount3DViewer }) => {
       if (cancelled) return;
       const opts = sceneOptionsRef.current;
       try {
-        viewer = mount3DViewer(el, board, projectFilesRef.current, stackupColsRef.current, opts);
+        viewer = mount3DViewer(
+          el,
+          board,
+          projectFilesRef.current,
+          stackupColsRef.current,
+          opts,
+          MODELS3D_HOST,
+        );
       } catch {
         viewer = null;
       }
@@ -876,7 +885,7 @@ export function Viewer3DFrame({
         )}
       </div>
       {aboutOpen && (
-        <AboutDialog title={ABOUT_TITLES.viewer3d} onClose={() => setAboutOpen(false)} />
+        <ShowAboutDialog title={ABOUT_TITLES.viewer3d} onClose={() => setAboutOpen(false)} />
       )}
       {deleteChooser === 'presets' && (
         <EdaListDialog

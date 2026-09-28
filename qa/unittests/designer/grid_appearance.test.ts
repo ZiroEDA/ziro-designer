@@ -45,7 +45,7 @@ import {
   PL_EDITOR_DEFAULTS,
   SYMBOL_EDITOR_DEFAULTS,
 } from '@ziroeda/designer/src/prefs/settings.js';
-import { DEFAULT_GRID_APPEARANCE } from '@ziroeda/designer/src/ui/grid_cursor.js';
+import { DEFAULT_GRID_APPEARANCE } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
 
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
 const read = (rel: string): string => readFileSync(join(SRC, rel), 'utf8');
@@ -62,8 +62,6 @@ const read = (rel: string): string => readFileSync(join(SRC, rel), 'utf8');
 const OWNERS: [editor: string, file: string, cfg: string][] = [
   ['schematic', 'editors/schematic/SchematicEditor.tsx', 'es'],
   ['symbol editor', 'editors/symbol/SymbolEditor.tsx', 'symCfg'],
-  ['gerbview', 'editors/gerbview/GerberCanvas.tsx', 'gbrCfg'],
-  ['pl_editor', 'editors/drawingsheet/DrawingSheetCanvas.tsx', 'plCfg'],
 ];
 
 /** The other three apps' settings hooks, for the wrong-object check. */
@@ -97,28 +95,8 @@ describe('Grid Display reaches the canvas', () => {
   });
 });
 
-describe('the two canvases that pass the options straight to drawGrid', () => {
-  // The schematic and the Symbol Editor go through a renderer options object,
-  // so their names are the renderer's; these two call `drawGrid` in the
-  // component and are the pair that was omitting the fields entirely.
-  const DIRECT: [editor: string, file: string][] = [
-    ['gerbview', 'editors/gerbview/GerberCanvas.tsx'],
-    ['pl_editor', 'editors/drawingsheet/DrawingSheetCanvas.tsx'],
-  ];
-
-  it.each(DIRECT)('%s names all three in its drawGrid call', (_name, rel) => {
-    const src = read(rel);
-    // The call spans lines, and `[\s\S]` rather than an indentation-sensitive
-    // pattern: an assertion that fails when biome rewraps the argument list is
-    // not about the behaviour it claims to be.
-    const call = src.match(/drawGrid\([\s\S]*?\n\s*\);/);
-    expect(call, `${rel} has no drawGrid call`).not.toBeNull();
-    const text = call?.[0] ?? '';
-    expect(text).toMatch(/\bstyle:/);
-    expect(text).toMatch(/\blineWidthPx:/);
-    expect(text).toMatch(/\bminSpacingPx:/);
-  });
-});
+// pl_editor and GerbView draw their grids through OPENGL_GAL::DrawGrid now,
+// from GAL_DISPLAY_OPTIONS the frame reads out of its own window settings.
 
 describe('the defaults the omission was hiding behind', () => {
   it('is the same triple in every app, which is why nothing looked wrong', () => {

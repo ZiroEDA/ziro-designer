@@ -18,27 +18,144 @@ importers:
         specifier: ^3.0.5
         version: 3.2.6(@types/node@22.20.0)(happy-dom@20.11.6)(terser@5.51.2)
 
-  common:
+  3d-viewer:
     dependencies:
-      '@bokuweb/zstd-wasm':
-        specifier: ^0.0.27
-        version: 0.0.27
+      '@ziroeda/common':
+        specifier: workspace:*
+        version: link:../common
       '@ziroeda/core':
         specifier: workspace:*
         version: link:../libs/core
       '@ziroeda/kimath':
         specifier: workspace:*
         version: link:../libs/kimath
+      '@ziroeda/pcbnew':
+        specifier: workspace:*
+        version: link:../pcbnew
+      earcut:
+        specifier: ^3.2.3
+        version: 3.2.3
+      occt-import-js:
+        specifier: ^0.0.23
+        version: 0.0.23
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+      three:
+        specifier: ^0.185.1
+        version: 0.185.1
+    devDependencies:
+      '@types/earcut':
+        specifier: ^3.0.0
+        version: 3.0.0
+      '@types/react':
+        specifier: ^18.3.18
+        version: 18.3.31
+      '@types/three':
+        specifier: ^0.185.1
+        version: 0.185.1
+      vite:
+        specifier: ^6.0.7
+        version: 6.4.3(@types/node@22.20.0)(terser@5.51.2)
+
+  bitmap2component:
+    dependencies:
+      '@ziroeda/common':
+        specifier: workspace:*
+        version: link:../common
+      '@ziroeda/kimath':
+        specifier: workspace:*
+        version: link:../libs/kimath
+      '@ziroeda/potrace':
+        specifier: workspace:*
+        version: link:../libs/potrace
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+    devDependencies:
+      '@types/react':
+        specifier: ^18.3.18
+        version: 18.3.31
+      vite:
+        specifier: ^6.0.7
+        version: 6.4.3(@types/node@22.20.0)(terser@5.51.2)
+
+  bitmaps_png:
+    devDependencies:
+      vite:
+        specifier: ^6.0.7
+        version: 6.4.3(@types/node@22.20.0)(terser@5.51.2)
+
+  common:
+    dependencies:
+      '@bokuweb/zstd-wasm':
+        specifier: ^0.0.27
+        version: 0.0.27
+      '@ziroeda/bitmaps_png':
+        specifier: workspace:*
+        version: link:../bitmaps_png
+      '@ziroeda/core':
+        specifier: workspace:*
+        version: link:../libs/core
+      '@ziroeda/kimath':
+        specifier: workspace:*
+        version: link:../libs/kimath
+      '@ziroeda/picosha2':
+        specifier: workspace:*
+        version: link:../libs/picosha2
       '@ziroeda/sexpr':
         specifier: workspace:*
         version: link:../libs/sexpr
       opentype.js:
         specifier: 1.3.4
         version: 1.3.4
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.3.1
+        version: 18.3.1(react@18.3.1)
     devDependencies:
       '@types/opentype.js':
         specifier: ^1.3.10
         version: 1.3.10
+      '@types/react':
+        specifier: ^18.3.18
+        version: 18.3.31
+      '@types/react-dom':
+        specifier: ^18.3.5
+        version: 18.3.7(@types/react@18.3.31)
+      vite:
+        specifier: ^6.0.7
+        version: 6.4.3(@types/node@22.20.0)(terser@5.51.2)
+
+  cvpcb:
+    dependencies:
+      '@ziroeda/common':
+        specifier: workspace:*
+        version: link:../common
+      '@ziroeda/core':
+        specifier: workspace:*
+        version: link:../libs/core
+      '@ziroeda/eeschema':
+        specifier: workspace:*
+        version: link:../eeschema
+      '@ziroeda/kimath':
+        specifier: workspace:*
+        version: link:../libs/kimath
+      '@ziroeda/pcbnew':
+        specifier: workspace:*
+        version: link:../pcbnew
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+    devDependencies:
+      '@types/react':
+        specifier: ^18.3.18
+        version: 18.3.31
+      vite:
+        specifier: ^6.0.7
+        version: 6.4.3(@types/node@22.20.0)(terser@5.51.2)
 
   designer:
     dependencies:
@@ -48,9 +165,21 @@ importers:
       '@supabase/supabase-js':
         specifier: ^2.110.0
         version: 2.110.1
+      '@ziroeda/3d-viewer':
+        specifier: workspace:*
+        version: link:../3d-viewer
+      '@ziroeda/bitmap2component':
+        specifier: workspace:*
+        version: link:../bitmap2component
+      '@ziroeda/bitmaps_png':
+        specifier: workspace:*
+        version: link:../bitmaps_png
       '@ziroeda/common':
         specifier: workspace:*
         version: link:../common
+      '@ziroeda/cvpcb':
+        specifier: workspace:*
+        version: link:../cvpcb
       '@ziroeda/eeschema':
         specifier: workspace:*
         version: link:../eeschema
@@ -60,6 +189,9 @@ importers:
       '@ziroeda/kimath':
         specifier: workspace:*
         version: link:../libs/kimath
+      '@ziroeda/pagelayout_editor':
+        specifier: workspace:*
+        version: link:../pagelayout_editor
       '@ziroeda/pcb_calculator':
         specifier: workspace:*
         version: link:../pcb_calculator
@@ -142,18 +274,56 @@ importers:
       '@ziroeda/common':
         specifier: workspace:*
         version: link:../common
+      '@ziroeda/core':
+        specifier: workspace:*
+        version: link:../libs/core
       '@ziroeda/kimath':
         specifier: workspace:*
         version: link:../libs/kimath
       '@ziroeda/sexpr':
         specifier: workspace:*
         version: link:../libs/sexpr
+      fflate:
+        specifier: ^0.8.3
+        version: 0.8.3
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+    devDependencies:
+      '@types/react':
+        specifier: ^18.3.18
+        version: 18.3.31
+      vite:
+        specifier: ^6.0.7
+        version: 6.4.3(@types/node@22.20.0)(terser@5.51.2)
 
   gerbview:
     dependencies:
+      '@ziroeda/common':
+        specifier: workspace:*
+        version: link:../common
+      '@ziroeda/core':
+        specifier: workspace:*
+        version: link:../libs/core
       '@ziroeda/kimath':
         specifier: workspace:*
         version: link:../libs/kimath
+      '@ziroeda/pcbnew':
+        specifier: workspace:*
+        version: link:../pcbnew
+      fflate:
+        specifier: ^0.8.3
+        version: 0.8.3
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+    devDependencies:
+      '@types/react':
+        specifier: ^18.3.18
+        version: 18.3.31
+      vite:
+        specifier: ^6.0.7
+        version: 6.4.3(@types/node@22.20.0)(terser@5.51.2)
 
   libs/core:
     dependencies:
@@ -167,13 +337,17 @@ importers:
         specifier: ^6.4.2
         version: 6.4.2
 
+  libs/picosha2: {}
+
+  libs/potrace: {}
+
   libs/rectpack2d: {}
 
   libs/sexpr: {}
 
-  pcb_calculator: {}
+  libs/zint: {}
 
-  pcbnew:
+  pagelayout_editor:
     dependencies:
       '@ziroeda/common':
         specifier: workspace:*
@@ -184,27 +358,92 @@ importers:
       '@ziroeda/kimath':
         specifier: workspace:*
         version: link:../libs/kimath
-      '@ziroeda/rectpack2d':
-        specifier: workspace:*
-        version: link:../libs/rectpack2d
-      '@ziroeda/sexpr':
-        specifier: workspace:*
-        version: link:../libs/sexpr
-      clipper-lib:
-        specifier: ^6.4.2
-        version: 6.4.2
-      polygon-clipping:
-        specifier: ^0.15.7
-        version: 0.15.7
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+    devDependencies:
+      '@types/react':
+        specifier: ^18.3.18
+        version: 18.3.31
+      vite:
+        specifier: ^6.0.7
+        version: 6.4.3(@types/node@22.20.0)(terser@5.51.2)
 
-  qa:
+  pcb_calculator:
     dependencies:
+      '@ziroeda/common':
+        specifier: workspace:*
+        version: link:../common
+
+  pcbnew:
+    dependencies:
+      '@ziroeda/3d-viewer':
+        specifier: workspace:*
+        version: link:../3d-viewer
+      '@ziroeda/bitmaps_png':
+        specifier: workspace:*
+        version: link:../bitmaps_png
       '@ziroeda/common':
         specifier: workspace:*
         version: link:../common
       '@ziroeda/core':
         specifier: workspace:*
         version: link:../libs/core
+      '@ziroeda/eeschema':
+        specifier: workspace:*
+        version: link:../eeschema
+      '@ziroeda/kimath':
+        specifier: workspace:*
+        version: link:../libs/kimath
+      '@ziroeda/rectpack2d':
+        specifier: workspace:*
+        version: link:../libs/rectpack2d
+      '@ziroeda/sexpr':
+        specifier: workspace:*
+        version: link:../libs/sexpr
+      '@ziroeda/zint':
+        specifier: workspace:*
+        version: link:../libs/zint
+      clipper-lib:
+        specifier: ^6.4.2
+        version: 6.4.2
+      fflate:
+        specifier: ^0.8.3
+        version: 0.8.3
+      polygon-clipping:
+        specifier: ^0.15.7
+        version: 0.15.7
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+    devDependencies:
+      '@types/react':
+        specifier: ^18.3.18
+        version: 18.3.31
+      vite:
+        specifier: ^6.0.7
+        version: 6.4.3(@types/node@22.20.0)(terser@5.51.2)
+
+  qa:
+    dependencies:
+      '@ziroeda/3d-viewer':
+        specifier: workspace:*
+        version: link:../3d-viewer
+      '@ziroeda/bitmap2component':
+        specifier: workspace:*
+        version: link:../bitmap2component
+      '@ziroeda/bitmaps_png':
+        specifier: workspace:*
+        version: link:../bitmaps_png
+      '@ziroeda/common':
+        specifier: workspace:*
+        version: link:../common
+      '@ziroeda/core':
+        specifier: workspace:*
+        version: link:../libs/core
+      '@ziroeda/cvpcb':
+        specifier: workspace:*
+        version: link:../cvpcb
       '@ziroeda/designer':
         specifier: workspace:*
         version: link:../designer
@@ -217,15 +456,24 @@ importers:
       '@ziroeda/kimath':
         specifier: workspace:*
         version: link:../libs/kimath
+      '@ziroeda/pagelayout_editor':
+        specifier: workspace:*
+        version: link:../pagelayout_editor
       '@ziroeda/pcb_calculator':
         specifier: workspace:*
         version: link:../pcb_calculator
       '@ziroeda/pcbnew':
         specifier: workspace:*
         version: link:../pcbnew
+      '@ziroeda/potrace':
+        specifier: workspace:*
+        version: link:../libs/potrace
       '@ziroeda/sexpr':
         specifier: workspace:*
         version: link:../libs/sexpr
+      '@ziroeda/zint':
+        specifier: workspace:*
+        version: link:../libs/zint
     devDependencies:
       '@testing-library/dom':
         specifier: ^10.4.1
@@ -2596,11 +2844,6 @@ packages:
   ms@2.1.3:
     resolution: {integrity: sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==}
 
-  nanoid@3.3.15:
-    resolution: {integrity: sha512-y7Wygv/7mEOvxTuEQDB8StXdMRBWf1kR/tlhAzBRUFkB2jfcLOAxO/SHmOO2zgz1pVgK29/kyupn059/bCHdjA==}
-    engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
-    hasBin: true
-
   nanoid@3.3.16:
     resolution: {integrity: sha512-bzlKTyNJ7+LdGIIwy8ijFpIqEQIvafahV7eYykJ8Cvh42EdJeODoJ6gUJXpQJvej1BddH8OqTXZNE/KfbWAu8Q==}
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
@@ -2699,10 +2942,6 @@ packages:
   possible-typed-array-names@1.1.0:
     resolution: {integrity: sha512-/+5VFTchJDoVj3bhoqi6UeymcD00DAwb1nJwamzPvHEszJ4FpF6SNNbUbOS8yI56qHzdV8eK0qEfOSiodkTdxg==}
     engines: {node: '>= 0.4'}
-
-  postcss@8.5.16:
-    resolution: {integrity: sha512-vuwillviilfKZsg0VGj5R/YwwcHx4SLsIOI/7K6mQkWx+l5cUHTjj5g0AasTBcyXsbfTgrwsUNmVUb5xVwyPwg==}
-    engines: {node: ^10 || ^12 || >=14}
 
   postcss@8.5.22:
     resolution: {integrity: sha512-KBDEIpLrvpv16pp3K0Fw+UCoZfopFjjgeB+0tA/aaThfEE74kKDLrgg603YvOWJyg3+WYtyq3xYsQWsIyZlPqQ==}
@@ -5853,8 +6092,6 @@ snapshots:
 
   ms@2.1.3: {}
 
-  nanoid@3.3.15: {}
-
   nanoid@3.3.16: {}
 
   node-fetch@2.7.0:
@@ -5935,12 +6172,6 @@ snapshots:
       splaytree: 3.2.3
 
   possible-typed-array-names@1.1.0: {}
-
-  postcss@8.5.16:
-    dependencies:
-      nanoid: 3.3.15
-      picocolors: 1.1.1
-      source-map-js: 1.2.1
 
   postcss@8.5.22:
     dependencies:
@@ -6456,7 +6687,7 @@ snapshots:
   vite@5.4.21(@types/node@22.20.0)(terser@5.51.2):
     dependencies:
       esbuild: 0.21.5
-      postcss: 8.5.16
+      postcss: 8.5.22
       rollup: 4.62.2
     optionalDependencies:
       '@types/node': 22.20.0
@@ -6468,7 +6699,7 @@ snapshots:
       esbuild: 0.25.12
       fdir: 6.5.0(picomatch@4.0.4)
       picomatch: 4.0.4
-      postcss: 8.5.16
+      postcss: 8.5.22
       rollup: 4.62.2
       tinyglobby: 0.2.17
     optionalDependencies:

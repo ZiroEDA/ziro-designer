@@ -26,21 +26,21 @@ import { describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join, relative } from 'node:path';
-import { dispatchMenuHotkey, type HotkeyEvent } from '@ziroeda/designer/src/ui/menu_hotkeys.js';
+import { dispatchMenuHotkey, type HotkeyEvent } from '@ziroeda/common/tool/action_menu_hotkeys.js';
 import { buildManagerMenus } from '@ziroeda/designer/src/home/menubar.js';
-import { buildMenus } from '@ziroeda/designer/src/editors/schematic/menubar.js';
+import { buildMenus } from '@ziroeda/eeschema/menubar.js';
 import { symbolEditorMenus } from '@ziroeda/designer/src/editors/symbol/menubar.js';
-import { footprintEditorMenus } from '@ziroeda/designer/src/editors/footprint/menubar.js';
-import { buildPcbMenus as pcbMenus } from '@ziroeda/designer/src/editors/pcb/menubar.js';
-import { browserSafeKey } from '@ziroeda/designer/src/ui/browser_reserved.js';
+import { footprintEditorMenus } from '@ziroeda/pcbnew/menubar_footprint_editor.js';
+import { buildPcbMenus as pcbMenus } from '@ziroeda/pcbnew/menubar_pcb_editor.js';
+import { browserSafeKey } from '@ziroeda/common/browser_reserved.js';
 import {
   addClose,
   addQuit,
   UPSTREAM_CLOSE_KEY,
   UPSTREAM_QUIT_KEY,
-} from '@ziroeda/designer/src/ui/action_menu.js';
+} from '@ziroeda/common/tool/action_menu.js';
 import { eventFromCombo } from '@ziroeda/designer/src/editors/schematic/hotkey_bindings.js';
-import type { Menu, MenuItem } from '@ziroeda/designer/src/ui/menu_types.js';
+import type { Menu, MenuItem } from '@ziroeda/common/tool/action_menu_types.js';
 
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
 
@@ -53,14 +53,14 @@ const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
  */
 const CONVERTED = [
   'editors/calculator/CalculatorTools.tsx',
-  'editors/drawingsheet/DrawingSheetEditor.tsx',
+  '../../pagelayout_editor/pl_editor_frame_ui.tsx',
   'editors/footprint/FootprintEditor.tsx',
-  'editors/gerbview/GerberViewer.tsx',
-  'editors/image/ImageConverter.tsx',
+  '../../gerbview/gerbview_frame_ui.tsx',
+  '../../bitmap2component/bitmap2cmp_frame_ui.tsx',
   'editors/pcb/PcbEditor.tsx',
   'editors/schematic/SchematicEditor.tsx',
   'editors/schematic/components/SymbolLibraryBrowser.tsx',
-  'editors/schematic/dialogs/dialog_assign_footprints.tsx',
+  '../../cvpcb/cvpcb_mainframe_ui.tsx',
   'editors/symbol/SymbolEditor.tsx',
   'home/HomePage.tsx',
 ];
@@ -97,7 +97,7 @@ const PENDING: readonly string[] = [
  *
  * None of these claims a key.
  *
- * `dialog_assign_footprints.tsx` - the first is `wxListCtrl`'s selection
+ * `cvpcb_mainframe_ui.tsx` - the first is `wxListCtrl`'s selection
  * modifiers on a **mouse** event (Ctrl adds a row, Shift ranges), which is what
  * makes CvPcb's symbols pane multi-select at all (`SYMBOLS_LISTBOX` is built
  * without `wxLC_SINGLE_SEL`, symbols_listbox.cpp:37). The second is the
@@ -112,24 +112,11 @@ const PENDING: readonly string[] = [
  * therefore show up as a line that is not in this list.
  */
 const MODIFIER_EXCEPTIONS: Readonly<Record<string, readonly string[]>> = {
-  'editors/schematic/dialogs/dialog_assign_footprints.tsx': [
+  '../../cvpcb/cvpcb_mainframe_ui.tsx': [
     'if (multi && (e.ctrlKey || e.metaKey)) {',
     'if (e.ctrlKey || e.altKey || e.metaKey) return;',
   ],
-  'editors/drawingsheet/DrawingSheetEditor.tsx': [
-    'const plain = !e.ctrlKey && !e.metaKey && !e.altKey;',
-    // ACTIONS::toggleUnits (Ctrl+U, actions.cpp:1149-1156). pl_editor puts the
-    // units on the LEFT TOOLBAR and gives them no menu row, so there is no
-    // accelerator for the dispatcher to read and this is the command's only
-    // declaration - a context action, like the symbol editor's Ctrl+D below.
-    "if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'u') {",
-  ],
   'editors/footprint/FootprintEditor.tsx': ['const plain = !e.ctrlKey && !e.metaKey && !e.altKey;'],
-  // ACTIONS::zoomIn / zoomOut are F1 / F2 off macOS (actions.cpp:747-764) and
-  // AS_GLOBAL, so they belong to the canvas rather than to a menu row: GerbView's
-  // View > Zoom In / Zoom Out are zoomInCenter / zoomOutCenter, which declare no
-  // hotkey at all. Same `plain` predicate as the two frames above.
-  'editors/gerbview/GerberViewer.tsx': ['const plain = !e.ctrlKey && !e.metaKey && !e.altKey;'],
   'editors/pcb/PcbEditor.tsx': [
     // The chain's own "no Ctrl/Cmd held" predicate - the same guard as the
     // other frames' `plain`, spelled the way this file already spelled it.
@@ -211,6 +198,7 @@ const MODIFIER_EXCEPTIONS: Readonly<Record<string, readonly string[]>> = {
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
+    if (name === 'node_modules') continue;
     const path = join(dir, name);
     if (statSync(path).isDirectory()) walk(path, out);
     else if (name.endsWith('.tsx')) out.push(path);
@@ -218,7 +206,20 @@ function walk(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-const FILES = walk(SRC).map((path) => ({
+/**
+ * The frames' windows live in their KiCad package once they move out of
+ * designer (bitmap2component/bitmap2cmp_frame_ui.tsx), so the sweep walks
+ * those packages too. A walk of designer/src alone would lose every frame that
+ * moved, and pass.
+ */
+const FRAME_PACKAGES = ['bitmap2component', 'gerbview', 'pagelayout_editor', 'cvpcb'].map((p) =>
+  fileURLToPath(new URL(`../../../${p}`, import.meta.url)),
+);
+
+const FILES = [
+  ...walk(SRC),
+  ...FRAME_PACKAGES.flatMap((dir) => walk(dir).filter((p) => !p.includes('node_modules'))),
+].map((path) => ({
   rel: relative(SRC, path).split('\\').join('/'),
   src: readFileSync(path, 'utf8'),
 }));
@@ -233,16 +234,18 @@ const source = (rel: string): string => {
  * Where a frame's menu tree is actually declared.
  *
  * Usually the frame itself. The schematic is the one that has already been
- * pulled apart the way the rest should be - `editors/schematic/menubar.ts` is a
+ * pulled apart the way the rest should be - `eeschema/menubar.ts` is a
  * plain data module, which is why it is the only editor the Hotkey List can
  * collect from (`ui/hotkeys_inventory.ts`) and the only one whose whole
  * accelerator set can be pressed for real down this file.
  */
 const MENU_MODULE: Readonly<Record<string, string>> = {
-  'editors/schematic/SchematicEditor.tsx': 'editors/schematic/menubar.ts',
+  'editors/schematic/SchematicEditor.tsx': '../../eeschema/menubar.ts',
   'editors/symbol/SymbolEditor.tsx': 'editors/symbol/menubar.ts',
-  'editors/footprint/FootprintEditor.tsx': 'editors/footprint/menubar.ts',
-  'editors/pcb/PcbEditor.tsx': 'editors/pcb/menubar.ts',
+  'editors/footprint/FootprintEditor.tsx': '../../pcbnew/menubar_footprint_editor.ts',
+  'editors/pcb/PcbEditor.tsx': '../../pcbnew/menubar_pcb_editor.ts',
+  // pl_editor's bar is its package's menubar.ts, beside KiCad's menubar.cpp.
+  '../../pagelayout_editor/pl_editor_frame_ui.tsx': '../../pagelayout_editor/menubar.ts',
 };
 
 /**
@@ -371,14 +374,15 @@ describe('a converted frame has no listener of its own', () => {
   });
 
   it('keeps only the keys that have no menu row', () => {
-    // What is left in the Gerber Viewer is the canvas: measure, cancel, zoom
-    // in, zoom out - GERBVIEW_ACTIONS / ACTIONS its View menu never lists.
-    const gerb = source('editors/gerbview/GerberViewer.tsx');
-    expect(gerb).toMatch(/setActiveTool\('measure'\)/);
-    // …and neither of the two that do have a row is re-stated beside it.
-    expect(gerb).not.toMatch(/e\.key === 'Home'/);
+    // The Gerber Viewer keeps none: its canvas keys - measure, cancel, zoom
+    // in, zoom out, the ones its View menu never lists - are the
+    // TOOL_DISPATCHER's on GERBVIEW_DRAW_PANEL_GAL, as upstream, so the page
+    // has no key handler of its own left to hold them.
+    const gerb = source('../../gerbview/gerbview_frame_ui.tsx');
+    expect(gerb).not.toMatch(/\be\.key\b/);
+    expect(gerb).not.toMatch(/addEventListener\('keydown'/);
     // CVPCB keeps Enter, which is CVPCB_ACTIONS::associate and has no row.
-    const cvpcb = source('editors/schematic/dialogs/dialog_assign_footprints.tsx');
+    const cvpcb = source('../../cvpcb/cvpcb_mainframe_ui.tsx');
     expect(cvpcb).toMatch(/e\.key === 'Enter'/);
     // …and Delete, which is now in the same position and was not before.
     //
@@ -432,27 +436,9 @@ const CANVAS_KEYS: Readonly<
     }
   >
 > = {
-  'editors/drawingsheet/DrawingSheetEditor.tsx': {
-    moved: [
-      ['Ctrl+S save', /=== 's'/],
-      ['Ctrl+N new', /=== 'n'/],
-      ['Ctrl+O open', /=== 'o'/],
-      ['Ctrl+Z undo', /=== 'z'/],
-      ['Ctrl+Y redo', /=== 'y'/],
-      ['Ctrl+C copy', /=== 'c'/],
-      ['Ctrl+X cut', /=== 'x'/],
-      ['Del delete', /=== 'Delete'/],
-      ['Home zoom to fit', /=== 'Home'/],
-    ],
-    kept: [
-      // PL_ACTIONS::move, pl_actions.cpp:84 - the one hotkey pl_editor
-      // declares for itself, and it has no row anywhere in the frame.
-      ['M move', /e\.key === 'm' \|\| e\.key === 'M'/],
-      // The cancel chain. ACTIONS::cancelInteractive is scoped to the running
-      // tool, so it is a context action too.
-      ['Esc cancel', /e\.key === 'Escape'/],
-    ],
-  },
+  // pl_editor keeps none: M, Escape and Ctrl+U are PL_ACTIONS::move,
+  // ACTIONS::cancelInteractive and ACTIONS::toggleUnits, dispatched by the
+  // TOOL_DISPATCHER on PL_DRAW_PANEL_GAL, as upstream.
   'editors/footprint/FootprintEditor.tsx': {
     moved: [
       ['Ctrl+S save', /e\.key\.toLowerCase\(\) === 's'/],
@@ -979,7 +965,7 @@ describe('the project manager, pressed for real', () => {
  * reason KiCad has them in `common/` at all.
  */
 const DECLARED: Readonly<Record<string, readonly string[]>> = {
-  'editors/drawingsheet/DrawingSheetEditor.tsx': [
+  '../../pagelayout_editor/pl_editor_frame_ui.tsx': [
     // File. Ctrl+N / Ctrl+W / Ctrl+Q are BROWSER_RESERVED and carry the
     // substitution `browserSafeKey` gives them - which is exactly the key that
     // was printed and dead before this branch.
@@ -1077,8 +1063,9 @@ const DECLARED: Readonly<Record<string, readonly string[]>> = {
   ],
   'editors/pcb/PcbEditor.tsx': [
     /*
-     * The MENU BAR's accelerators, read straight off `editors/pcb/menubar.ts`
-     * now that the tree is a module — see MENU_BUILDER above.
+     * The MENU BAR's accelerators, read straight off
+     * `pcbnew/menubar_pcb_editor.ts` now that the tree is a module — see
+     * MENU_BUILDER above.
      *
      * This list used to be scraped out of `PcbEditor.tsx`, which put the canvas
      * CONTEXT menu's keys in it too: one file held both, and a regex cannot
@@ -1259,7 +1246,7 @@ describe('the shared rows every frame ends its File and Help menus with', () => 
 /**
  * The schematic editor's whole menu, pressed for real.
  *
- * `editors/schematic/menubar.ts` is a plain `.ts` data module, so unlike the
+ * `eeschema/menubar.ts` is a plain `.ts` data module, so unlike the
  * other four canvas frames its tree can be built here and actually pressed -
  * which is the only proof that a row's key reaches that row's action rather
  * than merely parsing. It is also the frame with the most to prove: forty-one
@@ -1372,7 +1359,7 @@ describe('the schematic editor, pressed for real', () => {
     //
     // Ctrl+F1 is the exception and not an escape hatch: ACTIONS::listHotKeys is
     // AS_GLOBAL, so `standardHelpMenu` wires the row straight to
-    // `ui/hotkey_list_action.ts`'s emitter rather than through the frame's
+    // `common/hotkeys_basic.ts`'s emitter rather than through the frame's
     // handlers. Nothing reaches the spy because nothing was meant to - the
     // dispatch returning true is the whole assertion there.
     expect(calls, `${combo} ran more or less than one command`).toHaveLength(

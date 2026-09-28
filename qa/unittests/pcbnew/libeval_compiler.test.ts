@@ -7,22 +7,22 @@
  * A.<function>() expressions over two tracks.
  */
 import { describe, expect, it } from 'vitest';
-import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { VALUE, VAR_TYPE_T } from '@ziroeda/common/src/libeval_compiler/libeval_compiler.js';
-import { NETCLASS } from '@ziroeda/common/src/netclass.js';
-import { PROPERTY_MANAGER } from '@ziroeda/common/src/properties/property_mgr.js';
-import { BOARD } from '@ziroeda/pcbnew/src/board.js';
-import type { BOARD_ITEM } from '@ziroeda/pcbnew/src/board_item.js';
-import { DRC_CONSTRAINT_T } from '@ziroeda/pcbnew/src/drc/drc_rule.js';
-import { NETINFO_ITEM } from '@ziroeda/pcbnew/src/netinfo.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { VALUE, VAR_TYPE_T } from '@ziroeda/common/libeval_compiler/libeval_compiler.js';
+import { NETCLASS } from '@ziroeda/common/netclass.js';
+import { PROPERTY_MANAGER } from '@ziroeda/common/properties/property_mgr.js';
+import { BOARD } from '@ziroeda/pcbnew/board.js';
+import type { BOARD_ITEM } from '@ziroeda/pcbnew/board_item.js';
+import { DRC_CONSTRAINT_T } from '@ziroeda/pcbnew/drc/drc_rule.js';
+import { NETINFO_ITEM } from '@ziroeda/pcbnew/netinfo.js';
 import {
   PCBEXPR_COMPILER,
   PCBEXPR_CONTEXT,
   PCBEXPR_UCODE,
   PCBEXPR_UNIT_RESOLVER,
-} from '@ziroeda/pcbnew/src/pcbexpr_evaluator.js';
-import { PCB_TRACK } from '@ziroeda/pcbnew/src/pcb_track.js';
+} from '@ziroeda/pcbnew/pcbexpr_evaluator.js';
+import { PCB_TRACK } from '@ziroeda/pcbnew/pcb_track.js';
 
 interface EXPR_TO_TEST {
   expression: string;

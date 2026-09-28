@@ -22,7 +22,8 @@ import {
   symbolSearchTerms,
   type LibIndexEntry,
 } from '../symbols/index.js';
-import { Toolbar, type ToolEntry } from '../../../ui/Toolbar.js';
+import { GetAssociatedDocument } from '@ziroeda/common/eda_doc.js';
+import { Toolbar, type ToolEntry } from '@ziroeda/common/tool/action_toolbar.js';
 import {
   fitSymbol,
   renderSymbolScene,
@@ -32,22 +33,21 @@ import {
 import { settings } from '../../../prefs/settings.js';
 import { useSchematicTheme } from '../../../prefs/useSettings.js';
 import { LibraryLoadingPanel } from '../../../widgets/library_loading_panel.js';
-import { useModalEscape } from '../../../ui/useModalEscape.js';
-import { MsgPanel } from '../../../ui/MsgPanel.js';
-import { Sash } from '../../../ui/Sash.js';
-import { MenuBar } from '../../../ui/MenuBar.js';
-import type { Menu } from '../../../ui/menu_types.js';
-import { addClose } from '../../../ui/action_menu.js';
-import { dispatchMenuHotkey } from '../../../ui/menu_hotkeys.js';
-import type { FocusLike } from '../../../ui/browser_hotkeys.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { MsgPanel } from '@ziroeda/common/widgets/msgpanel_ui.js';
+import { Sash } from '@ziroeda/common/widgets/wx_splitter_window.js';
+import { MenuBar } from '@ziroeda/common/tool/action_menu_bar.js';
+import type { Menu } from '@ziroeda/common/tool/action_menu_types.js';
+import { addClose } from '@ziroeda/common/tool/action_menu.js';
+import { dispatchMenuHotkey } from '@ziroeda/common/tool/action_menu_hotkeys.js';
+import type { FocusLike } from '@ziroeda/common/browser_hotkeys.js';
+// LIB_TREE_MODEL_ADAPTER::GetPinningSymbol.
+import { PINNING_SYMBOL } from '@ziroeda/common/lib_tree_model_adapter.js';
 
 interface Props {
   onPick: (lib: LibSymbol) => void;
   onClose: () => void;
 }
-
-/** LIB_TREE_MODEL_ADAPTER::GetPinningSymbol. */
-const PINNING_SYMBOL = '☆ ';
 
 /** BODY_STYLE::BASE / DEMORGAN (symbol_edit_frame.h DEMORGAN_STD / DEMORGAN_ALT). */
 const DEMORGAN_STD = 'Standard';
@@ -353,9 +353,11 @@ export function SymbolLibraryBrowser({ onPick, onClose }: Props): JSX.Element {
   );
 
   const showDatasheet = useCallback(() => {
-    const url = previewSym ? symbolProperty(previewSym, 'Datasheet') : '';
-    if (/^https?:\/\//i.test(url)) window.open(url, '_blank', 'noopener');
-    else setStatus(url ? `Datasheet: ${url}` : 'No datasheet defined');
+    // SCH_INSPECTION_TOOL::ShowDatasheet (sch_inspection_tool.cpp:483-519).
+    if (!previewSym) return;
+    const datasheet = symbolProperty(previewSym, 'Datasheet');
+    if (datasheet === '' || datasheet === '~') setStatus('No datasheet defined.');
+    else GetAssociatedDocument(datasheet, null);
   }, [previewSym]);
 
   const addToSchematic = useCallback(() => {

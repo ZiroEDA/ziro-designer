@@ -20,7 +20,7 @@
  * and the pour's knockout hull inherited the error.
  */
 import { describe, it, expect } from 'vitest';
-import { interline, textBlockOffset } from '@ziroeda/common/src/font/stroke_font.js';
+import { interline, textBlockOffset } from '@ziroeda/common/font/stroke_font.js';
 
 const SIZE = 2032000; // 2.032 mm in pcbnew IU
 const PEN = 304800; // 0.3048 mm

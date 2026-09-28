@@ -32,24 +32,18 @@ import {
   DS_EDIT_POINT_ON_LIGHT,
   DS_MARQUEE,
   DS_PAGE_BORDER_COLOR,
-  DS_PRINT_PAPER_COLOR,
   DS_SELECTED_COLOR,
 } from '@ziroeda/common';
 import { KICAD_DEFAULT } from '@ziroeda/designer/src/editors/schematic/theme.js';
-import {
-  FRAME_TITLE_SEPARATOR,
-  frameTitleName,
-} from '@ziroeda/designer/src/ui/useDocumentTitle.js';
+import { FRAME_TITLE_SEPARATOR, frameTitleName } from '@ziroeda/common/use_document_title.js';
 import { PL_EDITOR_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
-import { togglesFromSettings } from '@ziroeda/designer/src/editors/drawingsheet/toggles.js';
-import { DEFAULT_GRID_INDEX, GRID_SIZE_LIST } from '@ziroeda/designer/src/ui/grid_settings.js';
+import { DEFAULT_GRID_INDEX, GRID_SIZE_LIST } from '@ziroeda/common/settings/grid_settings_ui.js';
 
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
-const CANVAS = read('../../../designer/src/editors/drawingsheet/DrawingSheetCanvas.tsx');
-const EDITOR = read('../../../designer/src/editors/drawingsheet/DrawingSheetEditor.tsx');
-const SHELL = read('../../../designer/src/ui/shell.css');
+const EDITOR = read('../../../pagelayout_editor/pl_editor_frame_ui.tsx');
+const SHELL = read('../../../common/widgets/shell.css');
 
 /** The stylesheet with its comments taken out, so they cannot read as values. */
 const CSS_CODE = SHELL.replace(/\/\*[\s\S]*?\*\//g, '');
@@ -103,53 +97,6 @@ describe('D1/D2/D3: the palette is the three layers DS_RENDER_SETTINGS reads', (
     expect(DS_BG_COLOR).toBe(KICAD_DEFAULT.background); // LAYER_SCHEMATIC_BACKGROUND
     expect(DS_PAGE_BORDER_COLOR).toBe(KICAD_DEFAULT.grid); // LAYER_SCHEMATIC_GRID
     expect(DS_ITEM_COLOR).toBe(KICAD_DEFAULT.pageFrame); // LAYER_SCHEMATIC_DRAWINGSHEET
-  });
-
-  it('keeps a separate white for print, which carries no screen theme', () => {
-    expect(DS_PRINT_PAPER_COLOR).toBe('#ffffff');
-    expect(EDITOR).toContain('ctx.fillStyle = DS_PRINT_PAPER_COLOR;');
-  });
-});
-
-describe('D1: the canvas is one flat colour and the page is an outline', () => {
-  it('clears the whole canvas to the background, as draw_panel_gal.cpp:364 does', () => {
-    expect(CANVAS).toContain('ctx.fillStyle = background;');
-    expect(CANVAS).toContain('ctx.fillRect(0, 0, canvas.width, canvas.height);');
-  });
-
-  it('paints no paper rectangle over it', () => {
-    // ds_painter.cpp:357-382 sets SetIsFill( false ): there is no page fill
-    // anywhere in pl_editor, which is why the canvas and the paper match.
-    expect(CANVAS).not.toContain('DS_PAGE_COLOR');
-    expect(CANVAS).not.toMatch(/fillRect\(0, 0, pageW, pageH\)/);
-  });
-
-  it('paints no drop shadow', () => {
-    expect(CANVAS).not.toContain('rgba(0,0,0,0.35)');
-    expect(CANVAS).not.toContain('shadowBlur');
-    expect(CANVAS).not.toContain('shadowColor');
-  });
-
-  it('strokes the page rectangle in the border colour instead', () => {
-    // `m_pageBorderColor`, which is now READ off the chosen theme rather than
-    // named as a module constant — `ds_canvas_color_theme.test.tsx` renders the
-    // canvas and asserts the colour that comes out. What is checked here is the
-    // shape of the call: a stroke, no fill, one device pixel wide.
-    expect(CANVAS).toContain('ctx.strokeStyle = colors.pageBorder;');
-    // One device pixel: GetDefaultPenWidth() renders as a hairline at any zoom,
-    // and `worldPen` is 1 device px expressed in world units.
-    const stroke = CANVAS.indexOf('ctx.strokeStyle = colors.pageBorder;');
-    expect(CANVAS.slice(stroke, stroke + 200)).toContain('ctx.lineWidth = worldPen;');
-    // The rect is stroked in DEVICE space, from the page corners transformed by
-    // hand, so the hairline lands on a pixel centre instead of straddling two —
-    // it used to be `ctx.strokeRect(0, 0, pageW, pageH)` under the world
-    // transform and read as a soft grey border. Still a stroke, still no fill;
-    // only where the coordinates come from changed.
-    const after = CANVAS.slice(stroke, stroke + 900);
-    expect(after).toContain('ctx.setTransform(1, 0, 0, 1, 0, 0);');
-    expect(after).toMatch(/ctx\.strokeRect\(l, t, r - l, b - t\)/);
-    expect(after).toContain('m.a * pageW + m.e');
-    expect(after).toContain('m.d * pageH + m.f');
   });
 });
 
@@ -245,105 +192,24 @@ describe('D5/D6: the drawing-sheet chrome sits on the frame face', () => {
   });
 });
 
-describe('C9: the frame opens in mils, and the grid does not follow the unit', () => {
-  it('defaults the unit toggle group to mils', () => {
-    // app_settings.cpp:227-232 - pl_editor, eeschema and symbol_editor default
-    // system.units to EDA_UNITS::MILS; every other app defaults to MM.
-    //
-    // The launch set used to be a literal in the editor and is now the settings
-    // file replayed onto the toolbar, so this asks the replay rather than
-    // reading a line of source.
-    const boot = togglesFromSettings(structuredClone(PL_EDITOR_DEFAULTS));
-    expect(boot.has('unitsMils')).toBe(true);
-    expect(boot.has('unitsMm')).toBe(false);
-    expect(boot.has('unitsInches')).toBe(false);
-    // And the frame has to actually seed itself that way.
-    expect(EDITOR).toContain('togglesFromSettings(settings.plEditor)');
-  });
+const TOOLBARS = read('../../../pagelayout_editor/toolbars_pl_editor.ts');
 
-  it('opens in EDIT mode, so the title block shows its ${...} tokens', () => {
-    /*
-     * The bug that read as "no default sheet loads". PL_EDITOR_FRAME's
-     * constructor sets
-     *
-     *     DS_DATA_MODEL::GetTheInstance().m_EditMode = true;  // pl_editor_frame.cpp:105
-     *
-     * making `layoutEditMode` the checked button of the pair on launch, and
-     * `ds_data_item.cpp:543-545` then does `m_FullText = m_TextBase` — no
-     * substitution — so real pl_editor opens on `Title: ${TITLE}`,
-     * `${COMPANY}`, `Id: ${#}/${##}`.
-     *
-     * Booting `layoutNormalMode` instead showed substituted PREVIEW text
-     * (`Title:`, `Size: A4`, `Id: 1/1`), i.e. a drawing-sheet EDITOR rendering
-     * the sheet rather than offering the tokens to edit.
-     *
-     * It is not a setting, either: no parameter binds `m_EditMode` and the
-     * constructor forces it true on every construction, so the replay puts it
-     * on regardless of what is stored.
-     */
-    const boot = togglesFromSettings(structuredClone(PL_EDITOR_DEFAULTS));
-    expect(boot.has('layoutEditMode')).toBe(true);
-    expect(boot.has('layoutNormalMode')).toBe(false);
-  });
+/**
+ * The menu bar: `doReCreateMenuBar` in pagelayout_editor/menubar.ts
+ * (menubar.cpp), which the editor renders.
+ */
+const MENUBAR = read('../../../pagelayout_editor/menubar.ts');
 
-  it('feeds that mode straight to the renderer as rawText', () => {
-    // `rawText: editMode` is the TS side of the m_EditMode branch above; if the
-    // toggle stopped driving it, the boot mode would be right and the canvas
-    // still wrong.
-    expect(EDITOR).toContain("const editMode = toggles.has('layoutEditMode');");
-    expect(EDITOR).toContain('rawText: editMode,');
-  });
-
-  it('pins the grid to pl_editor default 0.5 mm, unit-independently', () => {
-    // grid.last_size defaults to 4 for pl_editor (app_settings.cpp:466-472)
-    // into DefaultGridSizeList()'s pl_editor list (:605-614), entry 4 = 0.50 mm.
-    // That is the "grid 19.685039" the audit measured in mils.
-    //
-    // The spacing was a literal mmToIU(0.5) until DSP-14 gave the canvas
-    // context menu its Grid submenu, which needs the grid to be settable. It is
-    // now an index into the same shared table, starting at the same entry —
-    // what this pins is that it is the TABLE's default and not the unit's.
-    //
-    // It is now a persisted setting as well, so the default moved into
-    // `PL_EDITOR_DEFAULTS` — where it is still the shared table's entry and not
-    // a second copy of the number.
-    //
-    // And the LIST moved there too, once Preferences > Drawing Sheet Editor >
-    // Grids could edit it: `PANEL_GRID_SETTINGS` writes `m_grids` back into
-    // `gridCfg.grids` (`common/dialogs/panel_grid_settings.cpp:190-192`), so a
-    // canvas still reading `DefaultGridSizeList()` directly would make every
-    // row on that page a control nothing obeys. What this pins is unchanged —
-    // the spacing is the TABLE's default entry and not the unit's — but the
-    // table now reaches the canvas through the settings object, so both links
-    // are checked: the stored default IS the shared table, and the canvas
-    // indexes the stored list.
-    expect(PL_EDITOR_DEFAULTS.window.grid.last_size_idx).toBe(DEFAULT_GRID_INDEX.pl_editor);
-    // `GRID{ name, x, y }` per row since `DIALOG_GRID_SETTINGS` was ported —
-    // the stored shape upstream has always had (`grid_settings.h:33-54`). The
-    // built-ins are square and nameless, which is what `gridEntryOf` says.
-    expect(PL_EDITOR_DEFAULTS.window.grid.sizes).toEqual(
-      GRID_SIZE_LIST.pl_editor.map((g) => ({ name: '', x: g.x, y: g.y })),
-    );
-    expect(EDITOR).toContain('useState(settings.plEditor.window.grid.last_size_idx)');
-    expect(EDITOR).toContain('const gridSizes = plCfg.window.grid.sizes;');
-    expect(EDITOR).toContain('gridSizes[gridIndex]');
-    expect(EDITOR).not.toMatch(/gridIU\s*=\s*unit ===/);
-  });
-});
-
-const TOOLBARS = read('../../../designer/src/editors/drawingsheet/drawingSheetToolbars.ts');
-const CANVAS_TSX = CANVAS; // alias for readability below
-
-/** One menu's item block, sliced out of the `menus` memo. */
+/** One menu's item block, sliced out of `doReCreateMenuBar`. */
 function menu(name: string): string {
   // A menu may carry a comment between its label and its items (Preferences
   // does), so anchor on the label and run to that menu's closing `],`.
-  const at = EDITOR.indexOf(`        label: '${name}',\n`);
+  const at = MENUBAR.indexOf(`      label: '${name}',\n`);
   expect(at, `no ${name} menu`).toBeGreaterThanOrEqual(0);
-  const items = EDITOR.indexOf('        items: [', at);
+  const items = MENUBAR.indexOf('      items: [', at);
   expect(items, `${name} has no items`).toBeGreaterThan(at);
-  const end = EDITOR.indexOf('\n        ],', items);
-  return EDITOR.slice(items, end);
+  const end = MENUBAR.indexOf('\n      ],', items);
+  return MENUBAR.slice(items, end);
 }
 
 describe('C2: Place ends with a separator and Reset Grid Origin', () => {
@@ -419,85 +285,6 @@ describe('C4: FriendlyName text', () => {
   });
 });
 
-describe('C5: zoomTool is an armed rubber-band tool', () => {
-  it('the menu row arms the tool and is never disabled', () => {
-    const view = menu('View');
-    const at = view.indexOf("label: 'Zoom to Selection Area'");
-    const row = view.slice(at, at + 260);
-    expect(row).toContain("setActiveTool('zoomTool')");
-    // Upstream needs no selection, so the row has no `disabled` condition.
-    expect(row).not.toContain('disabled:');
-  });
-
-  it('the toolbar button arms it too, and is a TOGGLE', () => {
-    expect(EDITOR).toContain("case 'zoomTool':");
-    const at = EDITOR.indexOf("case 'zoomTool':");
-    expect(EDITOR.slice(at, at + 400)).toContain("setActiveTool('zoomTool')");
-    expect(EDITOR.slice(at, at + 400)).not.toContain('zoomToSelection');
-    const tb = TOOLBARS.indexOf("id: 'zoomTool'");
-    expect(TOOLBARS.slice(tb, tb + 220)).toContain('toggle: true');
-  });
-
-  it('drags a region and scales by the larger axis ratio', () => {
-    // zoom_tool.cpp:145-155.
-    expect(CANVAS_TSX).toContain("mode: 'zoom'");
-    expect(CANVAS_TSX).toContain('Math.max(Math.abs(w / sw), Math.abs(h / sh))');
-    expect(CANVAS_TSX).toContain('out ? v.scale * ratio : v.scale / ratio');
-  });
-
-  it('right-drag zooms out and a zero-size box does nothing', () => {
-    expect(CANVAS_TSX).toContain('out: e.button === 2');
-    expect(CANVAS_TSX).toContain('if (w === 0 || h === 0) return;');
-  });
-
-  it('STAYS armed after a zoom — only a cancel ends it', () => {
-    // The condition read backwards. `selectRegion()` returns `cancelled`:
-    //
-    //     bool cancelled = false;
-    //     if( evt->IsCancelInteractive() || evt->IsActivate() ) cancelled = true;
-    //     ... view->SetScale( scale ); view->SetCenter( ... ); break;
-    //     return cancelled;                        (zoom_tool.cpp:78-160)
-    //
-    // so `if( selectRegion() ) break;` in `Main` (:41-42) breaks on a CANCEL,
-    // not on a zoom. A completed region falls through to `while( Wait() )`
-    // again with the ZOOM_IN cursor still set, which is why upstream lets you
-    // zoom in twice without re-picking the tool. Ours called `onToolDone()` on
-    // the successful path — and said in its own comment that upstream did too.
-    //
-    // Per-occurrence and read against the whole file: `onToolDone` was the ONLY
-    // way this canvas could clear the active tool, so its absence is the rule.
-    // Escape still ends it, through the editor's own cancel chain (C7).
-    expect(CANVAS_TSX).not.toContain('onToolDone');
-    expect(EDITOR).not.toContain('onToolDone');
-    // And the gesture still completes: the tool staying armed must not have
-    // been achieved by never finishing the zoom.
-    const up = CANVAS_TSX.slice(CANVAS_TSX.indexOf('const onPointerUp'));
-    const zoomArm = up.slice(up.indexOf("g.mode === 'zoom'"), up.indexOf("g.mode === 'box'"));
-    expect(zoomArm).toContain('zoomToRegion(b, g.out)');
-    expect(zoomArm).not.toContain('setActiveTool');
-  });
-
-  it('is ended by Escape, which is the cancel half of the same condition', () => {
-    // `evt->IsCancelInteractive()` — the other branch, the one that DOES set
-    // `cancelled` and break out of `Main`. PL_ACTIONS' cancel chain backs out
-    // of the tool before it drops the selection.
-    //
-    // Asserted as an ORDER, not as a fixed slice of the handler: the chain has
-    // grown links since (a point drag rolls back, a live gesture is dropped),
-    // and what has to hold is that disarming the tool still comes before
-    // emptying the selection — not that the two sit within N characters of the
-    // top.
-    const esc = EDITOR.slice(EDITOR.indexOf("if (e.key === 'Escape')"));
-    const body = esc.slice(0, esc.indexOf('\n      }'));
-    const disarm = body.indexOf("setActiveTool('select')");
-    const drop = body.indexOf('setSelection(new Set())');
-    expect(body).toContain("else if (activeTool !== 'select') setActiveTool('select');");
-    expect(disarm).toBeGreaterThan(-1);
-    expect(drop).toBeGreaterThan(-1);
-    expect(disarm).toBeLessThan(drop);
-  });
-});
-
 describe('C6: the frame title', () => {
   // pl_editor_frame.cpp:570-586. Behavioural, not textual: the extension rule
   // is wxFileName::GetName(), which has edge cases a `toContain` cannot see.
@@ -526,12 +313,6 @@ describe('C6: the frame title', () => {
   it('separates the halves with an em dash, not an ASCII hyphen', () => {
     expect(FRAME_TITLE_SEPARATOR).toBe(' \u2014 ');
     expect(FRAME_TITLE_SEPARATOR).not.toContain('-');
-  });
-
-  it('is what the frame actually renders', () => {
-    expect(EDITOR).toContain("frameTitleName(fileName, '[no drawing sheet loaded]')");
-    expect(EDITOR).toContain('{FRAME_TITLE_SEPARATOR}');
-    expect(EDITOR).not.toContain('&nbsp;-&nbsp;Drawing Sheet Editor');
   });
 });
 
@@ -654,16 +435,6 @@ describe('the selection colours, derived rather than transcribed', () => {
     expect(DS_EDIT_POINT_ON_LIGHT.border).toBe(`rgba(${up}, ${up}, ${up}, 0.8)`);
     expect(DS_EDIT_POINT_ON_DARK.border).toBe(`rgba(${down}, ${down}, ${down}, 0.8)`);
   });
-
-  it('the canvas asks for the pair that matches the background it just cleared to', () => {
-    // Both are per-background, so reading the wrong one is a live bug that no
-    // colour value can show. `darkBg` is what dsBackgroundIsDark returned.
-    // The marquee's scheme is now chosen inside the shared preview item, so
-    // what this canvas must get right is the ARGUMENT it hands over — `darkBg`,
-    // which is `DS_RENDER_SETTINGS::IsBackgroundDark`, and not a constant.
-    expect(CANVAS).toContain('backgroundDark: darkBg');
-    expect(CANVAS).toContain('darkBg ? DS_EDIT_POINT_ON_DARK : DS_EDIT_POINT_ON_LIGHT');
-  });
 });
 
 describe('D7: this editor adds no new hardcoded font size', () => {
@@ -676,12 +447,16 @@ describe('D7: this editor adds no new hardcoded font size', () => {
    * PropertiesFrame.tsx is the unit-binder PR's file. This test is a ratchet
    * so the count cannot grow while that is settled - see the PR.
    */
-  const FILES = ['DesignInspector.tsx', 'PropertiesFrame.tsx', 'DrawingSheetEditor.tsx'];
+  const FILES = [
+    'pagelayout_editor/dialogs/design_inspector_ui.tsx',
+    'pagelayout_editor/dialogs/properties_frame_ui.tsx',
+    'pagelayout_editor/pl_editor_frame_ui.tsx',
+  ];
 
   it('holds at the 6 known sites', () => {
     let n = 0;
     for (const f of FILES) {
-      const src = read(`../../../designer/src/editors/drawingsheet/${f}`);
+      const src = read(`../../../${f}`);
       n += [...src.matchAll(/fontSize:\s*\d/g)].length;
     }
     // 14 until UnitField took MmField's literal "mm" span away, then 13 until

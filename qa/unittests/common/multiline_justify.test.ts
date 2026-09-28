@@ -20,7 +20,7 @@
  * is the frame a caller positions by.
  */
 import { describe, it, expect } from 'vitest';
-import { layoutText, measureText, interline } from '@ziroeda/common/src/font/stroke_font.js';
+import { layoutText, measureText, interline } from '@ziroeda/common/font/stroke_font.js';
 
 const SIZE = 12700; // 1.27 mm in schematic IU
 const SHORT = 'CHANGE LOG';

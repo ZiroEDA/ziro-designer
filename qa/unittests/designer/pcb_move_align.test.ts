@@ -33,11 +33,15 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readBoard } from '@ziroeda/pcbnew/src/read-board.js';
-import { bestDragOrigin, bestSnapAnchor } from '@ziroeda/pcbnew/src/pcb_cursor_snap.js';
-import { align, type PcbGridState } from '@ziroeda/pcbnew/src/pcb_grid_helper.js';
-import { moveDelta, snapToGridSize } from '@ziroeda/designer/src/editors/pcb/pcb_grid.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { bestDragOrigin, bestSnapAnchor } from '@ziroeda/pcbnew/pcb_cursor_snap.js';
+import { align, type PcbGridState } from '@ziroeda/pcbnew/tools/pcb_grid_helper.js';
+import { moveDelta } from '@ziroeda/pcbnew/pcb_edit_frame.js';
+
+/** `PCB_GRID_HELPER::Align` on a grid of `size` about `origin`, snapping on. */
+const gridAlign = (p: { x: number; y: number }, size: number, origin: { x: number; y: number }) =>
+  align(p, { size, origin, enableGrid: true, enableSnap: true });
 
 const MM = 1e6;
 const GRID = 0.5 * MM;
@@ -109,11 +113,11 @@ describe('the premise: KiCad itself placed these parts off the grid', () => {
     ] as const) {
       const oldDelta = {
         x:
-          snapToGridSize({ x: rx * MM, y: ry * MM }, GRID, { x: 0, y: 0 }).x -
-          snapToGridSize({ x: gx * MM, y: gy * MM }, GRID, { x: 0, y: 0 }).x,
+          gridAlign({ x: rx * MM, y: ry * MM }, GRID, { x: 0, y: 0 }).x -
+          gridAlign({ x: gx * MM, y: gy * MM }, GRID, { x: 0, y: 0 }).x,
         y:
-          snapToGridSize({ x: rx * MM, y: ry * MM }, GRID, { x: 0, y: 0 }).y -
-          snapToGridSize({ x: gx * MM, y: gy * MM }, GRID, { x: 0, y: 0 }).y,
+          gridAlign({ x: rx * MM, y: ry * MM }, GRID, { x: 0, y: 0 }).y -
+          gridAlign({ x: gx * MM, y: gy * MM }, GRID, { x: 0, y: 0 }).y,
       };
       expect((R1.at.x + oldDelta.x) % GRID).toBe(R1.at.x % GRID);
       expect((C2.at.y + oldDelta.y) % GRID).toBe(C2.at.y % GRID);
@@ -168,12 +172,8 @@ describe('a mouse drag puts the part on the grid', () => {
       g: { x: number; y: number },
       r: { x: number; y: number },
     ) => ({
-      x:
-        at.x +
-        (snapToGridSize(r, GRID, { x: 0, y: 0 }).x - snapToGridSize(g, GRID, { x: 0, y: 0 }).x),
-      y:
-        at.y +
-        (snapToGridSize(r, GRID, { x: 0, y: 0 }).y - snapToGridSize(g, GRID, { x: 0, y: 0 }).y),
+      x: at.x + (gridAlign(r, GRID, { x: 0, y: 0 }).x - gridAlign(g, GRID, { x: 0, y: 0 }).x),
+      y: at.y + (gridAlign(r, GRID, { x: 0, y: 0 }).y - gridAlign(g, GRID, { x: 0, y: 0 }).y),
     });
     const oldA = oldLanded(R1.at, { x: 136.5 * MM, y: 109 * MM }, { x: 150.2 * MM, y: 118.8 * MM });
     const oldB = oldLanded(
@@ -245,9 +245,7 @@ describe('the editor wires it up', () => {
   );
 
   it('measures the move from the drag origin, not the grab point', () => {
-    expect(text).toContain(
-      'const dragOrigin = bestDragOrigin(brd, sel, origin, { gridSize: gridIURef.current });',
-    );
+    expect(text).toContain('const dragOrigin = gridHelper().BestDragOrigin(brd, sel, origin, {');
     expect(text).toContain('const delta = moveDelta(anchor, origin, cur, moveSnap);');
     // `SetAuxAxes( true, dragOrigin )` — the anchor, not its grid round.
     expect(text).toContain('auxAxisRef.current = dragOrigin;');

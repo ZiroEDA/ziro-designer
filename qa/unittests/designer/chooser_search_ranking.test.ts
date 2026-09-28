@@ -30,8 +30,8 @@
  * "ter" and pays 2 x 4, where "inverter" matches mid-word and pays 4.
  */
 import { describe, it, expect } from 'vitest';
-import { EdaCombinedMatcher, searchTerm } from '@ziroeda/common/src/eda_pattern_match.js';
-import type { SearchTerm } from '@ziroeda/common/src/eda_pattern_match.js';
+import { EdaCombinedMatcher, searchTerm } from '@ziroeda/common/eda_pattern_match.js';
+import type { SearchTerm } from '@ziroeda/common/eda_pattern_match.js';
 
 /** `LIB_SYMBOL::cacheSearchTerms`, in its documented order and weights. */
 function cacheSearchTerms(

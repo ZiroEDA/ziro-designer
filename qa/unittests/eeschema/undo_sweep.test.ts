@@ -36,7 +36,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
-import { refId } from '@ziroeda/eeschema/src/tools/hittest.js';
+import { refId } from '@ziroeda/eeschema/tools/hittest.js';
 import {
   deleteByIds,
   replaceGraphic,
@@ -50,14 +50,14 @@ import {
   replaceSymbol,
   replaceBusEntry,
   replaceDirectiveLabel,
-} from '@ziroeda/eeschema/src/tools/mutate.js';
-import { moveItems } from '@ziroeda/eeschema/src/tools/move.js';
-import { transformItems } from '@ziroeda/eeschema/src/tools/transform.js';
-import { swapItems } from '@ziroeda/eeschema/src/tools/swap_items.js';
-import { tableCellsCommand, rowColCommand } from '@ziroeda/eeschema/src/tools/table_edit.js';
-import { tableCellId } from '@ziroeda/eeschema/src/tools/table_cells.js';
-import type { EditCommand } from '@ziroeda/eeschema/src/tools/command.js';
-import type { LibGraphic, Schematic } from '@ziroeda/eeschema/src/types.js';
+} from '@ziroeda/eeschema/tools/mutate.js';
+import { moveItems } from '@ziroeda/eeschema/tools/move.js';
+import { transformItems } from '@ziroeda/eeschema/tools/transform.js';
+import { swapItems } from '@ziroeda/eeschema/tools/swap_items.js';
+import { tableCellsCommand, rowColCommand } from '@ziroeda/eeschema/tools/table_edit.js';
+import { tableCellId } from '@ziroeda/eeschema/tools/table_cells.js';
+import type { EditCommand } from '@ziroeda/eeschema/tools/command.js';
+import type { LibGraphic, Schematic } from '@ziroeda/eeschema/types.js';
 
 type GraphicRect = Extract<LibGraphic, { kind: 'rectangle' }>;
 
@@ -212,7 +212,7 @@ describe('the registry keeps up with the tools', () => {
   const KNOWN_UNTESTED: Record<string, string> = {};
 
   it('every EditCommand factory is exercised by some test', () => {
-    const toolsDir = fileURLToPath(new URL('../../../eeschema/src/tools/', import.meta.url));
+    const toolsDir = fileURLToPath(new URL('../../../eeschema/tools/', import.meta.url));
     const names = new Set<string>();
     for (const file of readdirSync(toolsDir).filter((f) => f.endsWith('.ts'))) {
       const src = readFileSync(`${toolsDir}${file}`, 'utf8');

@@ -36,7 +36,7 @@
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSymbolLib } from '@ziroeda/eeschema';
-import type { LibSymbol } from '@ziroeda/eeschema/src/types.js';
+import type { LibSymbol } from '@ziroeda/eeschema/types.js';
 import {
   SYMBOL_ACTION_ENABLE,
   symbolActionEnabled,
@@ -56,8 +56,8 @@ import {
   type SymbolMenuConditions,
   type SymbolMenuHandlers,
 } from '@ziroeda/designer/src/editors/symbol/menubar.js';
-import type { Menu, MenuItem } from '@ziroeda/designer/src/ui/menu_types.js';
-import type { ToolEntry } from '@ziroeda/designer/src/ui/toolbar_types.js';
+import type { Menu, MenuItem } from '@ziroeda/common/tool/action_menu_types.js';
+import type { ToolEntry } from '@ziroeda/common/tool/action_toolbar_types.js';
 
 // ---------------------------------------------------------------------------
 // 1. The table's membership

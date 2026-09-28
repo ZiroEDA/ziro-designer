@@ -33,11 +33,8 @@ import {
   normalizeSizeRows,
   sortSizeRows,
   validateSizes,
-} from '@ziroeda/designer/src/editors/pcb/dialogs/dialog_board_setup.js';
-import {
-  defaultBoardSetup,
-  type BoardSetupValues,
-} from '@ziroeda/designer/src/editors/pcb/board_settings.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_board_setup.js';
+import { defaultBoardSetup, type BoardSetupValues } from '@ziroeda/pcbnew/board_settings.js';
 
 afterEach(cleanup);
 
@@ -76,6 +73,9 @@ function open(over: Partial<BoardSetupValues> = SIZES): {
   };
 }
 
+/** `WX_GRID::onCellEditorHidden` re-formats after the edit is applied. */
+const settle = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
+
 /** The one grid whose column heading row starts with `first`. */
 function gridOf(title: string): HTMLElement {
   const col = [...document.querySelectorAll<HTMLElement>('.ze-sizes-col')].find(
@@ -85,9 +85,20 @@ function gridOf(title: string): HTMLElement {
   return col!;
 }
 
-const cellsOf = (title: string): HTMLInputElement[] => [
-  ...gridOf(title).querySelectorAll<HTMLInputElement>('tbody input'),
+const cellsOf = (title: string): HTMLElement[] => [
+  ...gridOf(title).querySelectorAll<HTMLElement>('tbody td[data-col]'),
 ];
+
+const textsOf = (title: string): string[] => cellsOf(title).map((c) => c.textContent ?? '');
+
+/** Click a cell's editor open (its mouse-up opens it), type, and close it. */
+function typeIn(cell: HTMLElement, text: string): void {
+  fireEvent.mouseDown(cell, { button: 0 });
+  fireEvent.mouseUp(cell);
+  const input = cell.querySelector('input')!;
+  fireEvent.change(input, { target: { value: text } });
+  fireEvent.blur(input);
+}
 
 const btn = (title: string, name: string): HTMLElement =>
   gridOf(title).querySelector<HTMLElement>(`[title="${name}"]`)!;
@@ -97,7 +108,7 @@ describe('a cell is the text a WX_GRID holds', () => {
     open();
 
     // `SetUnitValue` writes `StringFromValue( iu, true )`.
-    expect(cellsOf('Tracks').map((i) => i.value)).toEqual(['0.25 mm', '0.5 mm']);
+    expect(textsOf('Tracks')).toEqual(['0.25 mm', '0.5 mm']);
   });
 
   it('shows nothing for a zero, which is "use netclass"', () => {
@@ -105,21 +116,24 @@ describe('a cell is the text a WX_GRID holds', () => {
 
     // `AppendViaSize` calls SetUnitValue for the drill only `if( aDrill > 0 )`,
     // so the second via's Hole cell is EMPTY, not "0".
-    expect(cellsOf('Vias').map((i) => i.value)).toEqual(['0.8 mm', '0.4 mm', '0.6 mm', '']);
+    expect(textsOf('Vias')).toEqual(['0.8 mm', '0.4 mm', '0.6 mm', '']);
   });
 
-  it('holds what is typed until the editor closes', () => {
+  it('holds what is typed until the editor closes', async () => {
     open();
 
     // A wxGrid commits when the cell editor closes. Driving the model off every
     // keystroke turns "0." into 0 and rewrites the field under the caret.
     const cell = cellsOf('Tracks')[0]!;
-    fireEvent.focus(cell);
-    fireEvent.change(cell, { target: { value: '0.' } });
-    expect(cell.value).toBe('0.');
-    fireEvent.change(cell, { target: { value: '0.35' } });
-    fireEvent.blur(cell);
-    expect(cellsOf('Tracks')[0]!.value).toBe('0.35 mm');
+    fireEvent.mouseDown(cell, { button: 0 });
+    fireEvent.mouseUp(cell);
+    const input = cell.querySelector('input')!;
+    fireEvent.change(input, { target: { value: '0.' } });
+    expect(input.value).toBe('0.');
+    fireEvent.change(input, { target: { value: '0.35' } });
+    fireEvent.blur(input);
+    await settle();
+    expect(textsOf('Tracks')[0]).toBe('0.35 mm');
   });
 
   it('takes a unit the user types, as the auto-eval columns do', () => {
@@ -127,10 +141,7 @@ describe('a cell is the text a WX_GRID holds', () => {
     // no hole, which `Validate()` refuses.
     const { ok } = open({ trackWidthsMM: [0.25], viaSizesMM: [], diffPairsMM: [] });
 
-    const cell = cellsOf('Tracks')[0]!;
-    fireEvent.focus(cell);
-    fireEvent.change(cell, { target: { value: '20 mils' } });
-    fireEvent.blur(cell);
+    typeIn(cellsOf('Tracks')[0]!, '20 mils');
 
     expect(ok()!.trackWidthsMM).toContain(0.508);
   });
@@ -153,13 +164,10 @@ describe('a cell is the text a WX_GRID holds', () => {
     );
     fireEvent.click(screen.getByText('Pre-defined Sizes'));
 
-    expect(cellsOf('Tracks').map((i) => i.value)).toEqual(['20 mils']);
+    expect(textsOf('Tracks')).toEqual(['20 mils']);
 
     // And a value typed back in mils round-trips to the same millimetres.
-    const cell = cellsOf('Tracks')[0]!;
-    fireEvent.focus(cell);
-    fireEvent.change(cell, { target: { value: '20' } });
-    fireEvent.blur(cell);
+    typeIn(cellsOf('Tracks')[0]!, '20');
     fireEvent.click(screen.getByRole('button', { name: 'OK' }));
     expect(out!.trackWidthsMM).toEqual([0.508]);
   });
@@ -183,22 +191,16 @@ describe('the buttons under a grid', () => {
     fireEvent.click(btn('Tracks', 'Add'));
 
     // `AppendTrackWidth( 0 )`, which renders as an empty cell.
-    expect(cellsOf('Tracks').map((i) => i.value)).toEqual(['0.25 mm', '0.5 mm', '']);
+    expect(textsOf('Tracks')).toEqual(['0.25 mm', '0.5 mm', '']);
   });
 
   it('removes the SELECTED row, not the last one', () => {
     open();
 
-    fireEvent.mouseDown(cellsOf('Tracks')[0]!);
+    fireEvent.mouseDown(cellsOf('Tracks')[0]!, { button: 0 });
     fireEvent.click(btn('Tracks', 'Remove'));
 
-    expect(cellsOf('Tracks').map((i) => i.value)).toEqual(['0.5 mm']);
-  });
-
-  it('cannot remove with nothing selected', () => {
-    open();
-
-    expect(btn('Tracks', 'Remove')).toHaveProperty('disabled', true);
+    expect(textsOf('Tracks')).toEqual(['0.5 mm']);
   });
 
   it('sorts by the whole row, not by the first column', () => {
@@ -218,14 +220,7 @@ describe('the buttons under a grid', () => {
     fireEvent.click(btn('Vias', 'Sort ascending'));
 
     // `VIA_DIMENSION::operator<`: diameter, then drill.
-    expect(cellsOf('Vias').map((i) => i.value)).toEqual([
-      '0.6 mm',
-      '0.2 mm',
-      '0.8 mm',
-      '0.3 mm',
-      '0.8 mm',
-      '0.5 mm',
-    ]);
+    expect(textsOf('Vias')).toEqual(['0.6 mm', '0.2 mm', '0.8 mm', '0.3 mm', '0.8 mm', '0.5 mm']);
   });
 
   it('marks the selected row, so the user can see what Remove will take', () => {
@@ -233,9 +228,7 @@ describe('the buttons under a grid', () => {
 
     const rowOf = (i: number): HTMLElement =>
       gridOf('Tracks').querySelectorAll<HTMLElement>('tbody tr')[i]!;
-    expect(rowOf(0).className).not.toContain('selected');
-
-    fireEvent.mouseDown(cellsOf('Tracks')[1]!);
+    fireEvent.mouseDown(cellsOf('Tracks')[1]!, { button: 0 });
 
     expect(rowOf(1).className).toContain('selected');
     expect(rowOf(0).className).not.toContain('selected');

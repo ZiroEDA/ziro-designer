@@ -572,7 +572,7 @@ describe('segCollinear', () => {
 // ---------------------------------------------------------------------------
 // SEG::NearestPoint( const SEG& ) and SEG::Collide( const SEG& ).
 //
-// Moved here with their implementations from `pcbnew/src/drc/shape_collisions.ts`,
+// Moved here with their implementations from `pcbnew/drc/shape_collisions.ts`,
 // which carried a second copy of them in doubles. The three assertions that name
 // an integer coordinate, a floored `actual` or a written-on-false `actual` are
 // the ones that copy answered differently.

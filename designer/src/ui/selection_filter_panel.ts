@@ -58,7 +58,7 @@
  * of this table (in the schematic it shares the row with Rule Areas).
  */
 
-import type { SelectionFilterOptions } from '@ziroeda/eeschema/src/tools/sch_selection_filter.js';
+import type { SelectionFilterOptions } from '@ziroeda/eeschema/tools/sch_selection_filter.js';
 
 /** Which frame is asking; `EDA_BASE_FRAME::GetFrameType()`'s two values here. */
 export type SelectionFilterFrame = 'FRAME_SCH' | 'FRAME_SCH_SYMBOL_EDITOR';

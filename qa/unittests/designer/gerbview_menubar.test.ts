@@ -15,21 +15,24 @@
  * language list, no Preferences entry, and its display toggles filed under a
  * "Preferences" menu that upstream does not have.
  */
+import { ACTIONS } from '@ziroeda/common/tool/actions.js';
+import type { TOOL_ACTION } from '@ziroeda/common/tool/tool_action.js';
 import { describe, expect, it } from 'vitest';
-import {
-  GBR_TOP_TOOLBAR,
-  GBR_LEFT_TOOLBAR,
-} from '@ziroeda/designer/src/editors/gerbview/gerberToolbars.js';
-import * as gerberToolbars from '@ziroeda/designer/src/editors/gerbview/gerberToolbars.js';
-import {
-  gerbviewMenus,
-  type GerbviewMenuHandlers,
-} from '@ziroeda/designer/src/editors/gerbview/menubar.js';
-import { standardHelpMenu } from '@ziroeda/designer/src/ui/help_menu.js';
-import type { Menu, MenuItem } from '@ziroeda/designer/src/ui/menu_types.js';
-import type { ToolButton, ToolEntry, ToolGroup } from '@ziroeda/designer/src/ui/toolbar_types.js';
+import { GBR_TOP_TOOLBAR, GBR_LEFT_TOOLBAR } from '@ziroeda/gerbview/toolbars_gerber.js';
+import * as gerberToolbars from '@ziroeda/gerbview/toolbars_gerber.js';
+import { gerbviewMenus, type GerbviewMenuHandlers } from '@ziroeda/gerbview/menubar.js';
+import { standardHelpMenu } from '@ziroeda/common/eda_base_frame_help_menu.js';
+import type { Menu, MenuItem } from '@ziroeda/common/tool/action_menu_types.js';
+import type {
+  ToolButton,
+  ToolEntry,
+  ToolGroup,
+} from '@ziroeda/common/tool/action_toolbar_types.js';
 
 const noop = (): void => {};
+
+/** The actions the rows ran on the frame's tool manager, in order. */
+let ran: TOOL_ACTION[] = [];
 
 function handlers(over: Partial<GerbviewMenuHandlers> = {}): GerbviewMenuHandlers {
   return {
@@ -53,11 +56,9 @@ function handlers(over: Partial<GerbviewMenuHandlers> = {}): GerbviewMenuHandler
     showDCodes: noop,
     measureTool: noop,
     clearLayer: noop,
-    openPreferences: noop,
+    toolManager: { RunAction: (a) => ran.push(a) },
     language: 'Default',
     onSelectLanguage: noop,
-    showHotkeys: noop,
-    showAbout: noop,
     ...over,
   };
 }
@@ -89,6 +90,21 @@ describe('the menu bar', () => {
     expect(menu('Help').label).toBe(shared.label);
     expect(labels(menu('Help'))).toEqual(labels(shared));
   });
+
+  it("runs each Help row's action on the tool manager, where COMMON_CONTROL answers it", () => {
+    // AddStandardHelpMenu builds ACTION_MENU( false, commonControl ): a row is
+    // its action, not a callback of the page's.
+    ran = [];
+    for (const item of menu('Help').items) item.action?.();
+    expect(ran).toEqual([
+      ACTIONS.help,
+      ACTIONS.gettingStarted,
+      ACTIONS.listHotKeys,
+      ACTIONS.getInvolved,
+      ACTIONS.reportBug,
+      ACTIONS.about,
+    ]);
+  });
 });
 
 describe('the Preferences menu', () => {
@@ -109,6 +125,12 @@ describe('the Preferences menu', () => {
     expect(items[0]?.shortcut).toBe('Ctrl+,');
     expect(items[1]?.sep).toBe(true);
     expect(items[2]?.label).toBe('Set Language');
+  });
+
+  it('runs ACTIONS::openPreferences, which COMMON_CONTROL answers', () => {
+    ran = [];
+    menu('Preferences').items[0]?.action?.();
+    expect(ran).toEqual([ACTIONS.openPreferences]);
   });
 
   it('holds no display toggle, because upstream has none here', () => {

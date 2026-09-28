@@ -15,15 +15,28 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { GERBVIEW_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
-import { OVERRIDE_ROWS } from '@ziroeda/designer/src/dialogs/prefs/grid_settings_rows.js';
-import { DEFAULT_GRID_INDEX, GRID_SIZE_LIST } from '@ziroeda/designer/src/ui/grid_settings.js';
+import { OVERRIDE_ROWS } from '@ziroeda/common/dialogs/panel_grid_settings.js';
+import { DEFAULT_GRID_INDEX, GRID_SIZE_LIST } from '@ziroeda/common/settings/grid_settings_ui.js';
 import { gerbIUScale, GERB_IU_PER_MM } from '@ziroeda/common';
+import { FRAME_T } from '@ziroeda/common/frame_type.js';
+import { CreateKiWindow, type GBR_PREFS_CONTEXT } from '@ziroeda/gerbview/gerbview.js';
 
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(`../../../designer/src/${rel}`, import.meta.url)), 'utf8');
 
-const PAGE = read('editors/gerbview/prefs/PanelGerbviewGrids.tsx');
-const FRAME = read('editors/gerbview/GerberViewer.tsx');
+/**
+ * The Grids page `CreateKiWindow( PANEL_GBR_GRIDS )` makes, called with a
+ * working copy in inches: the PANEL_GRID_SETTINGS element and the props it is
+ * built with.
+ */
+function gridsPage(): Record<string, unknown> {
+  const gerbview = structuredClone(GERBVIEW_DEFAULTS);
+  gerbview.system.units = 'in';
+  const page = CreateKiWindow(FRAME_T.PANEL_GBR_GRIDS)!;
+  const element = page.Panel({ ctx: { gerbview } as unknown as GBR_PREFS_CONTEXT });
+  return (element as unknown as { props: Record<string, unknown> }).props;
+}
+const FRAME = read('../../gerbview/gerbview_frame_ui.tsx');
 
 /**
  * The frame with its comments blanked, for the NEGATIVE assertions only.
@@ -45,7 +58,7 @@ describe('what gerbview contributes to PANEL_GRID_SETTINGS', () => {
    */
   it('shows no Grid Overrides row, because gerbview has none', () => {
     expect(OVERRIDE_ROWS.FRAME_GERBER).toEqual([]);
-    expect(PAGE).toContain('frameType="FRAME_GERBER"');
+    expect(gridsPage().frameType).toBe('FRAME_GERBER');
     // …and the settings object carries none either, so the page cannot grow
     // one by accident.
     expect(Object.keys(GERBVIEW_DEFAULTS.window.grid.overrides)).toEqual([]);
@@ -60,8 +73,8 @@ describe('what gerbview contributes to PANEL_GRID_SETTINGS', () => {
   it('reads rows at gerbview’s own IU scale, in the frame’s unit', () => {
     expect(GERB_IU_PER_MM).toBe(1e5);
     expect(gerbIUScale.IU_PER_MM).toBe(GERB_IU_PER_MM);
-    expect(PAGE).toContain('iuScale={gerbIUScale}');
-    expect(PAGE).toContain('toStatusUnits(gerbview.system.units)');
+    expect(gridsPage().iuScale).toBe(gerbIUScale);
+    expect(gridsPage().units).toBe('in');
   });
 
   /** `DefaultGridSizeList()`'s gerbview row, and `defaultGridIdx` = 15. */
@@ -104,20 +117,14 @@ describe('what gerbview contributes to PANEL_GRID_SETTINGS', () => {
  * `.tsx`.
  */
 describe('the frame draws the grids the page edits', () => {
-  it('takes the list and the current row from gerbview.json', () => {
-    expect(FRAME).toContain('const gridSizes = gbrCfg.window.grid.sizes;');
-    expect(FRAME).toContain('const gridIdx = gbrCfg.window.grid.last_size_idx;');
-  });
+  // The list, the current row and the write-back are the settings bridge's
+  // now, run in gerbview_settings_bridge.test.ts.
 
   it('reaches for neither the module table nor a local useState', () => {
     // `GRID_SIZE_LIST.gerbview` was the list, and `useState(DEFAULT_GRID_INDEX
     // .gerbview)` the row. Either one back is the page doing nothing.
     expect(FRAME_CODE).not.toContain('GRID_SIZE_LIST.gerbview');
     expect(FRAME_CODE).not.toContain('useState(DEFAULT_GRID_INDEX');
-  });
-
-  it('writes a grid change back to the store rather than to component state', () => {
-    expect(FRAME).toContain('s.window.grid.last_size_idx = next;');
   });
 
   /**
@@ -127,7 +134,12 @@ describe('the frame draws the grids the page edits', () => {
    * row that swallowed the click.
    */
   it('the Edit Grids... row opens this page', () => {
-    expect(FRAME).toContain("setPrefsOpen('gbr-grids')");
-    expect(FRAME).toContain('frameOwner="gerbview"');
+    // ShowPreferences( _( "Grids" ), _( "Gerber Viewer" ) ) arrives at the
+    // frame's presenter, which looks the page up (prefs_initial_page.test.tsx).
+    expect(FRAME).toContain('setPrefsOpen({ page: aPage, parent: aParentPage })');
+    // The page looks it up: the Preferences dialog is the program's.
+    const PAGE = read('editors/gerbview/GerberViewer.tsx');
+    expect(PAGE).toContain("{...(page === '' ? {} : { initialPage: pageFor(page, parent) })}");
+    expect(PAGE).toContain('frameOwner="gerbview"');
   });
 });

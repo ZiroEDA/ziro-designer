@@ -27,8 +27,13 @@ import {
   unitOf,
   zeroFormatOf,
   zeroIsLeading,
-} from '@ziroeda/designer/src/editors/gerbview/prefs/excellon_options.js';
-import { EXCELLON_STRUCT_DEFAULTS, parseExcellon, type ExcellonDefaults } from '@ziroeda/gerbview';
+} from '@ziroeda/gerbview/dialogs/panel_gerbview_excellon_settings.js';
+import { EXCELLON_DEFAULTS } from '@ziroeda/gerbview';
+import { parseExcellon } from '../gerbview/load_image.js';
+
+/** `EXCELLON_DEFAULTS` with some members changed. */
+const defaultsWith = (patch: Partial<EXCELLON_DEFAULTS>): EXCELLON_DEFAULTS =>
+  Object.assign(new EXCELLON_DEFAULTS(), patch);
 
 describe('the controls, against panel_gerbview_excellon_settings_base.cpp', () => {
   /**
@@ -102,18 +107,26 @@ describe('the controls, against panel_gerbview_excellon_settings_base.cpp', () =
    */
   it('the settings file and the parser agree on the defaults', () => {
     const cfg = GERBVIEW_DEFAULTS.excellon_defaults;
-    expect(EXCELLON_STRUCT_DEFAULTS).toEqual({
-      unit_mm: cfg.unit_mm,
-      lz_format: cfg.lz_format,
+    const d = new EXCELLON_DEFAULTS();
+    expect({
+      m_UnitsMM: d.m_UnitsMM,
+      m_LeadingZero: d.m_LeadingZero,
+      m_MmIntegerLen: d.m_MmIntegerLen,
+      m_MmMantissaLen: d.m_MmMantissaLen,
+      m_InchIntegerLen: d.m_InchIntegerLen,
+      m_InchMantissaLen: d.m_InchMantissaLen,
+    }).toEqual({
+      m_UnitsMM: cfg.unit_mm,
+      m_LeadingZero: cfg.lz_format,
       m_MmIntegerLen: cfg.mm_integer_len,
       m_MmMantissaLen: cfg.mm_mantissa_len,
       m_InchIntegerLen: cfg.inch_integer_len,
       m_InchMantissaLen: cfg.inch_mantissa_len,
     });
     // …and they are `excellon_defaults.h:51-58`'s, not each other's.
-    expect(EXCELLON_STRUCT_DEFAULTS).toEqual({
-      unit_mm: false,
-      lz_format: true,
+    expect({ ...d }).toEqual({
+      m_UnitsMM: false,
+      m_LeadingZero: true,
       m_MmIntegerLen: 3,
       m_MmMantissaLen: 3,
       m_InchIntegerLen: 2,
@@ -138,10 +151,10 @@ describe('the drill reader falls back on them', () => {
   const drill = (unitLine: string): string =>
     ['M48', unitLine, 'T1C0.020', '%', 'T1', 'X010000Y010000', 'M30'].join('\n');
 
-  const xOf = (text: string, defaults?: ExcellonDefaults): number => {
+  const xOf = (text: string, defaults?: EXCELLON_DEFAULTS): number => {
     const img = parseExcellon(text, 'test.drl', defaults);
-    expect(img.items.length).toBeGreaterThan(0);
-    return img.items[0]?.start.x as number;
+    expect(img.GetItemsCount()).toBeGreaterThan(0);
+    return img.GetItems()[0]?.m_Start.x as number;
   };
 
   it('reads an inch file at the inch format, and the mm file at the mm one', () => {
@@ -155,25 +168,26 @@ describe('the drill reader falls back on them', () => {
   it('a different integer:mantissa split moves the same bytes', () => {
     const asIs = xOf(drill('INCH,LZ'));
     // 3:3 instead of 2:4: `010000` becomes 010.000 in rather than 01.0000 in.
-    const shifted = xOf(drill('INCH,LZ'), {
-      ...EXCELLON_STRUCT_DEFAULTS,
-      m_InchIntegerLen: 3,
-      m_InchMantissaLen: 3,
-    });
+    const shifted = xOf(
+      drill('INCH,LZ'),
+      defaultsWith({ m_InchIntegerLen: 3, m_InchMantissaLen: 3 }),
+    );
     expect(shifted / asIs).toBeCloseTo(10, 6);
   });
 
   it('the zero-format default decides how a short coordinate is padded', () => {
-    // `X1` with six digits of format: LZ pads on the left (0.0001 in),
-    // TZ pads on the right (1.0000 in). Four orders of magnitude apart.
+    // `m_NoTrailingZeros = aDefaults->m_LeadingZero;` (LoadFile): LZ keeps the
+    // leading zeros and drops the trailing ones, so `X1` is padded on the
+    // RIGHT to six digits of 2:4 - 10.0000 in; TZ reads it as it stands -
+    // 0.0001 in. Five orders of magnitude apart. (Ours had the two backwards.)
     const short = ['M48', 'INCH', 'T1C0.020', '%', 'T1', 'X1Y1', 'M30'].join('\n');
-    const lz = xOf(short, { ...EXCELLON_STRUCT_DEFAULTS, lz_format: true });
-    const tz = xOf(short, { ...EXCELLON_STRUCT_DEFAULTS, lz_format: false });
-    expect(tz / lz).toBeCloseTo(1e5, 0);
+    const lz = xOf(short, defaultsWith({ m_LeadingZero: true }));
+    const tz = xOf(short, defaultsWith({ m_LeadingZero: false }));
+    expect(lz / tz).toBeCloseTo(1e5, 0);
   });
 
   it('omitting the defaults is the struct’s own values, not a third set', () => {
     const text = drill('INCH,LZ');
-    expect(xOf(text)).toBe(xOf(text, EXCELLON_STRUCT_DEFAULTS));
+    expect(xOf(text)).toBe(xOf(text, new EXCELLON_DEFAULTS()));
   });
 });

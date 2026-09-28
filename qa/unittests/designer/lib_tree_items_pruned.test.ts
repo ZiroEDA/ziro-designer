@@ -11,11 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { readSymbolLib } from '@ziroeda/eeschema';
 import { parse, type SNode } from '@ziroeda/sexpr';
 import { describe, expect, it } from 'vitest';
-import {
-  LIB_TREE_PRUNE,
-  libTreeItem,
-  readLibTreeItems,
-} from '@ziroeda/designer/src/editors/schematic/symbols/lib_tree_item.js';
+import { LIB_TREE_PRUNE, libTreeItem, readLibTreeItems } from '@ziroeda/eeschema/lib_tree_item.js';
 
 const BUNDLED = fileURLToPath(new URL('../../../designer/public/symbols/', import.meta.url));
 const FIXTURE = join(homedir(), 'ziro-perf-fixtures/symbols');

@@ -1,0 +1,109 @@
+%TF.GenerationSoftware,KiCad,Pcbnew,10.0.6-10.0.6~ubuntu24.04.1*%
+%TF.CreationDate,2026-09-28T08:25:52+05:30*%
+%TF.ProjectId,gerber_oracle,67657262-6572-45f6-9f72-61636c652e6b,B*%
+%TF.SameCoordinates,Original*%
+%TF.FileFunction,Copper,L4,Bot*%
+%TF.FilePolarity,Positive*%
+%FSLAX46Y46*%
+G04 Gerber Fmt 4.6, Leading zero omitted, Abs format (unit mm)*
+G04 Created by KiCad (PCBNEW 10.0.6-10.0.6~ubuntu24.04.1) date 2026-09-28 08:25:52*
+%MOMM*%
+%LPD*%
+G01*
+G04 APERTURE LIST*
+G04 Aperture macros list*
+%AMHorizOval*
+0 Thick line with rounded ends*
+0 $1 width*
+0 $2 $3 position (X,Y) of the first rounded end (center of the circle)*
+0 $4 $5 position (X,Y) of the second rounded end (center of the circle)*
+0 Add line between two ends*
+20,1,$1,$2,$3,$4,$5,0*
+0 Add two circle primitives to create the rounded ends*
+1,1,$1,$2,$3*
+1,1,$1,$4,$5*%
+G04 Aperture macros list end*
+%TA.AperFunction,Conductor*%
+%ADD10C,0.300000*%
+%TD*%
+%TA.AperFunction,EtchedComponent*%
+%ADD11C,0.200000*%
+%TD*%
+%TA.AperFunction,ComponentPad*%
+%ADD12R,1.700000X1.700000*%
+%TD*%
+%TA.AperFunction,ComponentPad*%
+%ADD13O,1.200000X1.700000*%
+%TD*%
+%TA.AperFunction,ComponentPad*%
+%ADD14O,2.200000X1.200000*%
+%TD*%
+%TA.AperFunction,ComponentPad*%
+%ADD15HorizOval,1.200000X0.433013X0.250000X-0.433013X-0.250000X0*%
+%TD*%
+%TA.AperFunction,ComponentPad*%
+%ADD16C,1.700000*%
+%TD*%
+%TA.AperFunction,ViaPad*%
+%ADD17C,0.600000*%
+%TD*%
+%TA.AperFunction,ViaPad*%
+%ADD18C,0.800000*%
+%TD*%
+%TA.AperFunction,Conductor*%
+%ADD19C,0.200000*%
+%TD*%
+G04 APERTURE END LIST*
+%TO.N,GND*%
+D10*
+X22000000Y-40000000D02*
+X30000000Y-40000000D01*
+%TD*%
+%TO.C,J1*%
+D11*
+X58000000Y-31000000D02*
+X58000000Y-24000000D01*
+D12*
+%TO.P,J1,1*%
+%TO.N,GND*%
+X60000000Y-30000000D03*
+D13*
+%TO.P,J1,2*%
+%TO.N,VCC*%
+X60000000Y-27460000D03*
+D14*
+%TO.P,J1,4*%
+X60000000Y-22380000D03*
+D15*
+%TO.P,J1,5*%
+X60000000Y-19840000D03*
+D16*
+%TO.P,J1,3*%
+X60000000Y-24920000D03*
+%TD*%
+D17*
+%TO.N,GND*%
+X34000000Y-26000000D03*
+D18*
+X48000000Y-48000000D03*
+%TO.N,VCC*%
+X30000000Y-45000000D03*
+%TD*%
+%TO.N,*%
+D19*
+X50000000Y-48000000D02*
+X55000000Y-48000000D01*
+%TD*%
+%TA.AperFunction,Conductor*%
+%TO.N,GND*%
+G36*
+X22125000Y-23125000D02*
+G01*
+X31875000Y-23125000D01*
+X31875000Y-32875000D01*
+X22125000Y-32875000D01*
+X22125000Y-23125000D01*
+G37*
+%TD.AperFunction*%
+%TD*%
+M02*

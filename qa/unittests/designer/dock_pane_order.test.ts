@@ -69,12 +69,12 @@ const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
 const SRC = '../../../designer/src/';
-const DS = read(`${SRC}editors/drawingsheet/DrawingSheetEditor.tsx`);
+const DS = read(`${SRC}../../pagelayout_editor/pl_editor_frame_ui.tsx`);
 const SCH = read(`${SRC}editors/schematic/SchematicEditor.tsx`);
 const PCB = read(`${SRC}editors/pcb/PcbEditor.tsx`);
 const SYM = read(`${SRC}editors/symbol/SymbolEditor.tsx`);
 const FP = read(`${SRC}editors/footprint/FootprintEditor.tsx`);
-const SHELL = read(`${SRC}ui/shell.css`);
+const SHELL = read(`${SRC}../../common/widgets/shell.css`);
 
 /**
  * `a` appears before `b` in `src`, having first established that both are
@@ -91,9 +91,8 @@ function before(src: string, a: string, b: string, what: string): void {
 
 describe('a vertical toolbar touches the canvas; a palette docks outside it', () => {
   it('pl_editor: canvas, then RightToolbar L2, then Props L3', () => {
-    // `<DrawingSheetCanvas` alone also matches inside
-    // `useRef<DrawingSheetCanvasController>`, so anchor on the JSX open tag.
-    const canvas = '<DrawingSheetCanvas\n';
+    // The canvas element the PL_DRAW_PANEL_GAL adopts.
+    const canvas = 'data-testid="ds-canvas"';
     before(DS, 'entries={dsLeftBar}', canvas, 'pl_editor left');
     before(DS, canvas, 'entries={dsRightBar}', 'pl_editor canvas');
     // The one this branch fixed: Props used to render between the canvas and
@@ -192,7 +191,7 @@ describe('a docked pane is sized by the numbers upstream states, not at the call
     // and the width it opens at is the STORED one, the default only standing in
     // for a profile that has never dragged it. The sash itself is pinned in
     // `ds_origin_and_sash.test.ts`.
-    expect(DS).toContain('useState(settings.plEditor.properties_frame_width)');
+    expect(DS).toContain('() => appRef.current.GetPlEditorSettings().properties_frame_width,');
     expect(DS).toContain('style={{ width: propsWidth, minWidth: propsWidth }}');
     // The number it replaced. 272 is nowhere in pl_editor.
     expect(DS).not.toContain('width: 272');

@@ -9,7 +9,7 @@
  * separators, same submenus.
  *
  * This read the SOURCE of `PcbEditor.tsx` with a regex until the bar moved into
- * `editors/pcb/menubar.ts` — because `qa`'s tsconfig compiles `.ts` only, and a
+ * `pcbnew/menubar_pcb_editor.ts` — because `qa`'s tsconfig compiles `.ts` only, and a
  * menu built inside a `.tsx` cannot be imported at all. A regex over ten
  * thousand lines can read the labels and say nothing about what a row DOES,
  * whether its condition is right, or whether the accelerator it prints reaches
@@ -22,8 +22,8 @@ import {
   buildPcbMenus,
   type PcbMenuChecks,
   type PcbMenuState,
-} from '@ziroeda/designer/src/editors/pcb/menubar.js';
-import type { Menu, MenuItem } from '@ziroeda/designer/src/ui/menu_types.js';
+} from '@ziroeda/pcbnew/menubar_pcb_editor.js';
+import type { Menu, MenuItem } from '@ziroeda/common/tool/action_menu_types.js';
 
 /** A board with nothing selected and both sibling editors reachable. */
 const STATE: PcbMenuState = {
@@ -323,6 +323,9 @@ describe('a row runs the command it names', () => {
     ['View', 'Draw Zone Outlines', 'toggle:zoneDisplayOutline'],
     ['Place', 'Place Vias', 'tool:drawVia'],
     ['Place', 'Draw Leaders', 'tool:drawLeader'],
+    // `PCB_CONTROL::PlaceCharacteristics` / `PlaceStackup`; dead rows until 09-21.
+    ['Place', 'Add Board Characteristics', 'tool:placeCharacteristics'],
+    ['Place', 'Add Stackup Table', 'tool:placeStackup'],
     ['Route', 'Route Single Track', 'tool:routeSingleTrack'],
     ['Route', 'Interactive Router Settings...', 'action:routerSettingsDialog'],
     ['Inspect', 'Design Rules Checker', 'action:runDRC'],

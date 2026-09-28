@@ -18,7 +18,7 @@
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic } from '@ziroeda/eeschema';
-import { busJunctionIds } from '@ziroeda/eeschema/src/connectivity/bus.js';
+import { busJunctionIds } from '@ziroeda/eeschema/connectivity/bus.js';
 
 const doc = (body: string) =>
   readSchematic(

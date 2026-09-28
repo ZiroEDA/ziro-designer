@@ -6,9 +6,9 @@
  * schematic's lossless AST (the zstd data blobs pass through untouched).
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
+import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic, serializeSchematic } from '@ziroeda/eeschema';
-import { listEmbeddedFiles } from '@ziroeda/eeschema/src/tools/embedded.js';
+import { listEmbeddedFiles } from '@ziroeda/eeschema/tools/embedded.js';
 
 const SCH = `(kicad_sch (version 20250114) (generator "eeschema")
   (uuid "00000000-0000-0000-0000-000000000000")
@@ -58,7 +58,7 @@ import {
   removeEmbeddedFile,
   setEmbedFonts,
   EMBEDDED_FILES_SEED,
-} from '@ziroeda/eeschema/src/tools/embedded.js';
+} from '@ziroeda/eeschema/tools/embedded.js';
 import { mmh3HashToStringV1 } from '@ziroeda/kimath';
 
 const BLANK = '(kicad_sch (version 20250114) (generator "eeschema") (uuid "u1"))';

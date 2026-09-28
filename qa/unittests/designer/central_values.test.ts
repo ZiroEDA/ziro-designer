@@ -16,7 +16,7 @@
  * KiCad writes none of those. wxWidgets asks GTK once, GTK answers out of the
  * desktop theme, and that single answer is why its eight launchers look like
  * one program without anybody maintaining eight themes. Ours is the `:root`
- * block in `designer/src/ui/shell.css`.
+ * block in `common/widgets/shell.css`.
  *
  * ---------------------------------------------------------------------------
  * WHAT COUNTS, AND HOW TO MAKE A LITERAL STOP COUNTING
@@ -91,6 +91,21 @@ import { fileURLToPath } from 'node:url';
 import { join, relative } from 'node:path';
 
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
+const COMMON = fileURLToPath(new URL('../../../common', import.meta.url));
+const GERBVIEW = fileURLToPath(new URL('../../../gerbview', import.meta.url));
+const BITMAP2COMPONENT = fileURLToPath(new URL('../../../bitmap2component', import.meta.url));
+const PAGELAYOUT = fileURLToPath(new URL('../../../pagelayout_editor', import.meta.url));
+const CVPCB = fileURLToPath(new URL('../../../cvpcb', import.meta.url));
+/**
+ * The editor packages the file-structure pass moved UI into (09-28). They are
+ * counted under the editor areas their files came from, so a literal that moved
+ * stays on its editor's row instead of leaving the scan - which is what made
+ * editors/schematic read 37 metrics against a baseline of 128 without one
+ * literal having been fixed.
+ */
+const PCBNEW = fileURLToPath(new URL('../../../pcbnew', import.meta.url));
+const EESCHEMA = fileURLToPath(new URL('../../../eeschema', import.meta.url));
+const VIEWER3D = fileURLToPath(new URL('../../../3d-viewer', import.meta.url));
 
 /**
  * Seeded 2026-08-20 from the tree, per area, AFTER the central-values pass took
@@ -144,8 +159,20 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // hint restated (a wxStaticText upstream takes the dialog's ink) and the
   // inline width/gap of the button row; `panel_embedded_files` lost its
   // checkbox's own flex row for `.ze-pref-check`.
-  dialogs: { colours: 4, metrics: 27 },
-  'editors/calculator': { colours: 2, metrics: 18 },
+  // metrics 27 -> 19 on 09-26: dialog_grid_settings, dialog_paste_special and
+  // panel_setup_severities moved to `common/dialogs` (KiCad's directory) and
+  // took their eight with them; see that row.
+  // 4/19 -> 2/15 on 09-26 (stage 2): dialog_page_settings and the three
+  // Setup panels moved to `common/dialogs`, with two colours and four sizes.
+  // colours 2 -> 1 on 09-26 (stage 3b): prefs/widgets.tsx, the wx controls
+  // every panel is built from, moved to `common/wx` with its one colour.
+  // 1/15 -> 0/0 on 09-26 (stage 3d): DIALOG_LIST_HOTKEYS and
+  // PANEL_HOTKEYS_EDITOR moved to `common/dialogs` and took the rest.
+  dialogs: { colours: 0, metrics: 0 },
+  // metrics 18 -> 16 on 09-26: the calculator's own About box went, and its
+  // `margin: '0 0 8px'` and `paddingLeft: 18` with it. Help > About opens
+  // common/dialog_about's DIALOG_ABOUT now, as pcb_calculator's does.
+  'editors/calculator': { colours: 2, metrics: 16 },
   'editors/drawingsheet': { colours: 0, metrics: 0 },
   // 9/20 -> 8/17: the Appearance panel became the shared APPEARANCE_CONTROLS
   // and the hand-rolled layer list went with it. The colour was the swatch's
@@ -163,8 +190,15 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // with the native `<select>` it was on. `UpdateGridSelectBox` builds a
   // wxChoice and the toolbar's own sizer spaces it; a margin typed at the call
   // site was this launcher deciding for itself what the toolbar looks like.
-  'editors/footprint': { colours: 4, metrics: 13 },
-  'editors/gerbview': { colours: 1, metrics: 4 },
+  // 13 -> 5 (pcbnew/pcb_edit_frame_ui stage A+widgets move): FootprintEditor.tsx
+  // no longer states appearance_controls.tsx's metrics inline — the widget (and
+  // its appearance_layers.ts/appearance_objects.ts/appearance_presets.ts
+  // siblings) moved to pcbnew/widgets/, which this scanner does not walk.
+  // RESCANNED from this tree.
+  'editors/footprint': { colours: 4, metrics: 5 },
+  // 1 -> 0 colours: gerberColors.ts, which nothing in the app read, left for
+  // qa as the test-side transcription of s_defaultTheme (09-27).
+  'editors/gerbview': { colours: 0, metrics: 4 },
   // 1 -> 0. Its last metric was the slider's `height: 7px` NOT-PROVEN fudge,
   // and the slider itself moved to ui/Slider.tsx + shell.css when it stopped
   // being this launcher's private copy of a control wx has one of. The number
@@ -245,7 +279,37 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // (10.5 / 12 / 11.5 px fonts, `padding: '0 6px'` and the like). All of it is
   // `.ze-erc-*` now, which is what upstream does: the two dialogs are the same
   // wx widgets on the same DIALOG_SHIM. RESCANNED from this tree.
-  'editors/pcb': { colours: 32, metrics: 187 },
+  // 31/187 -> 30/174 on 09-26: dialog_inspect_constraints.tsx is gone - an
+  // invented floating box of inline styles - for common/dialogs'
+  // DIALOG_BOOK_REPORTER, whose metrics are shell.css's and each marked.
+  // 30/174 -> 29/147 on 09-26: the Print dialog's inline fieldsets, legends,
+  // rows and hand-drawn menu went for common/dialogs' DIALOG_PRINT_GENERIC and
+  // the shared ContextMenu; every length they state now is shell.css's, marked.
+  // 29/147 -> 27/137 on 09-26: dialog_line_modification.tsx, an invented
+  // floating box, went for common/dialogs' WX_UNIT_ENTRY_DIALOG and
+  // WX_MULTI_ENTRY_DIALOG.
+  // metrics 136 -> 133: Create Array's label/entry rows share one row() and
+  // one input style instead of restating them per field kind.
+  // colours 27 -> 26 (pcbnew-file-structure-stage-a, 7128149a): panel_footprint_chooser.tsx
+  // and its two support modules moved out of designer/src/editors/pcb/widgets/
+  // to pcbnew/widgets/, which this scanner does not walk. Its one colour
+  // literal left with it; metrics is unchanged because it had none of the
+  // tracked CHROME_PROPS kind. RESCANNED from this tree.
+  // 26 -> 18 colours, 133 -> 44 metrics (pcbnew/pcb_edit_frame_ui Stage A):
+  // ~50 dialog/panel .tsx modules PcbEditor.tsx and FootprintEditor.tsx named
+  // by relative import, plus the shared appearance_controls.tsx widget and its
+  // appearance_layers/appearance_objects/appearance_presets siblings, moved to
+  // pcbnew/dialogs/, pcbnew/widgets/, pcbnew/board_stackup_manager/ and
+  // pcbnew/length_delay_calculation/ — none of which this scanner walks. Their
+  // literals left with them; RESCANNED from this tree.
+  // 18 -> 17: the pcbnew file-structure move keeps carrying editors/pcb's
+  // dialogs out to pcbnew/ commit by commit; one more colour left with
+  // whichever of them went next. RESCANNED from this tree.
+  // 17/44 -> 24/141 (09-28): the scan now reads pcbnew/ and 3d-viewer/. The
+  // earlier drops (26 -> 17 colours, 1138 -> 1041 metrics) were sites carried
+  // OUT of the scan by the file-structure move, not fixed; 141 is 44 plus
+  // exactly the 97 that move removed from view.
+  'editors/pcb': { colours: 24, metrics: 141 },
   // At zero, and listed rather than absent: `prefs/` is the settings store, and
   // the one literal it had - the 3D viewer's `rgb(0,255,0)` selection colour -
   // is `PARAM<COLOR4D>( "render.opengl_selection_color", …, COLOR4D( 0, 1, 0, 1 ) )`
@@ -325,7 +389,30 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // hand-drawn SVG in SchematicCanvas.tsx with a `#ffffff` halo and a
   // `#000000` ring; it is GDK_TARGET, a stock cursor, so both went with the
   // drawing. RESCANNED from this tree.
-  'editors/schematic': { colours: 30, metrics: 185 },
+  // metrics 185 -> 178 on 09-26: dialog_assign_netclass moved to
+  // `common/dialogs` with its seven.
+  // 30/178 -> 29/177 on 09-26: dialog_image_properties' inline preview canvas
+  // (`#fff`, a 4px radius) went for common/dialogs' PANEL_IMAGE_EDITOR.
+  // 23/163 -> 16/128: Net Chains and Resolve Field Case Conflicts removed
+  // whole (KiCad *master* features ported ahead of the 10.0.5 pin; neither
+  // exists there). Three files went: panel_setup_net_chains.tsx (5 colours -
+  // #000000/#888 x4 - and 14 metrics), dialog_create_net_chain.tsx (0
+  // colours, 8 metrics) and dialog_resolve_field_case_conflicts.tsx (0
+  // colours, 1 metric). RESCANNED against the tree with them gone.
+  // 16 -> 15 (09-28): rescanned with eeschema/ in the scan.
+  'editors/schematic': { colours: 15, metrics: 128 },
+  // 166 -> 163 metrics on `editors/schematic`, moved here whole: cvpcb's
+  // three windows left `editors/schematic/dialogs/` for the root `cvpcb/`
+  // package (cvpcb/STRUCTURE.md's stage two). No colours moved (the five
+  // files carried none, marked or not) and the 3 metrics are
+  // `cvpcb_mainframe_ui.tsx`'s `FRAME_SIZE` (720/400 — its own header calls
+  // both DATA: `EDA_BASE_FRAME::defaultSize`'s `FromDIP( wxSize( 1280, 720 ) )`
+  // and `minSizeLookup`'s 500x400) and the virtual list's
+  // `useState({ height: 400 })`; none is new debt, all three travelled
+  // unmarked from `dialog_assign_footprints.tsx`, where they were already
+  // counted, unmarked, inside the 166. Tagging them `[data]` / `[px]` is owed,
+  // just not by this move.
+  cvpcb: { colours: 0, metrics: 3 },
   // designer/src/sync/, the multiplayer layer. Eight colours, all of them
   // peerColor.ts's palette: one hue per person in a shared project, so two
   // people's cursors and selection boxes are told apart at a glance.
@@ -349,7 +436,15 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // over. None was re-sourced from a token; there is simply no local row to
   // size any more, which is what the shared-widget rule is for.
   'editors/symbol': { colours: 2, metrics: 15 },
-  home: { colours: 7, metrics: 7 },
+  // metrics 7 -> 8 on 09-21: not a new literal. `project_tree_pane.tsx`'s
+  // `height: 18` was always there, hidden from this scanner because the file's
+  // `import.meta.glob('../assets/manager/*.svg')` read as an unterminated
+  // block comment (`/*.svg`) and blanked the rest of the file. The glob is
+  // gone (`@ziroeda/bitmaps_png`), so the literal is visible.
+  // 7/8 -> 6/4 on 09-26: home/dialogs/dialog_about.tsx is gone, and with it
+  // its `#7fb4e6` link colour (--link-fg is HOTLIGHT) and the four inline
+  // sizes of a hand-drawn stub. DIALOG_ABOUT lives in common/dialog_about.
+  home: { colours: 6, metrics: 4 },
   mobile: { colours: 15, metrics: 23 },
   // 33 colours, down from 193: 160 were `defaultRepo.ts`' invented colour
   // themes, gone with the real ones (see `prefs/color_settings_list.ts`). What is
@@ -670,20 +765,42 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // height the control actually has. The 24 and the 22 that replaced them are
   // measurements (`qa/probes/rc_tree_dataview`) and carry [px] each on its
   // own line.
-  // metrics 694 -> 706: the presence badge and the panel under it
-  // (.ze-presence-*), twelve values, all geometry -- where the badge pins
-  // itself to the corner, the panel's padding and gaps, the dot's 8px square
-  // and its 50% radius, two 1px borders.
+  // 185/694 -> 41/35 on 09-21: the shared widgets moved to `common/widgets`
+  // (KiCad's directory) and took 144/658 with them, plus 0/1 to `common/tool`.
+  // Nothing was added or removed: 41+144 = 185, 35+658+1 = 694.
+  ui: { colours: 41, metrics: 35 },
   //
-  // No token was skipped here, and that is the argument for them: this file's
-  // rule is that a value GTK already decided must not be restated, and GTK
-  // decided none of these. KiCad has no badge saying who else is looking at
-  // your board, so there is no wxSYS metric, no Yaru rule and no upstream
-  // widget to source them from. Its font size IS a token
-  // (--ui-font-size-info), because a font size is a thing the theme answers.
-  //
-  // Colours unchanged: the per-peer palette lives in sync/, not here.
-  ui: { colours: 185, metrics: 706 },
+  // common/widgets metrics 658 -> 670: main's presence badge and panel
+  // (.ze-presence-*) landed in shell.css after it moved here - twelve
+  // values, all geometry KiCad has no widget for (see main's 694 -> 706).
+  // 144/672 -> 145/687: WIDGET_HOTKEY_LIST and its HK_PROMPT_DIALOG moved
+  // here out of common/dialogs' PANEL_HOTKEYS_EDITOR, their 1 colour and 15
+  // metrics with them (common/dialogs 2/27 -> 1/12 below).
+  // 145/687 -> 139/684: NUMBER_BADGE is one `.ze-badge` rule set now. The
+  // report panel's copy had invented its six colours and its own pill
+  // geometry; the ERC/DRC copy already carried upstream's table as [data].
+  // metrics 684 -> 692: two findings, not one pass.
+  //   Six are common/widgets/search_pane.tsx and search_pane_tab.tsx
+  //   (SEARCH_PANE + SEARCH_HANDLER, a56bb2cb, 09-27): a brand-new shared
+  //   widget, seeded here unaudited like any other new component - the
+  //   `padding: 6px` / `padding: 8px` / `padding: 2px` of its tab strip.
+  //   Two are lib_tree.tsx's own `height: 200` (PREVIEW_SIZE) and
+  //   `padding: 8` ("No matches") - present in that file already at 4edba88a,
+  //   the commit that set 684, and missed because that pass diffed
+  //   NUMBER_BADGE's change rather than rescanning the whole tree. Found now
+  //   by a full rescan, per the "derived twice" rule above.
+  'common/widgets': { colours: 139, metrics: 692 },
+  'common/tool': { colours: 0, metrics: 1 },
+  // metrics 0 -> 15 on 09-26: the stage-1 moves, 8 from `dialogs` and 7 from
+  // `editors/schematic`. Nothing added or removed: 8 + 7 = 15.
+  // 0/15 -> 2/19 on 09-26 (stage 2): what `dialogs` gave up, 2 + 4.
+  // 2/19 -> 3/34 on 09-26 (stage 3d): what `dialogs` gave up, 1 + 15.
+  // metrics 34 -> 27 on 09-26: the Assign Netclass stub's inline styles went
+  // when DIALOG_ASSIGN_NETCLASS was ported; its sizes are shell.css's, marked.
+  'common/dialogs': { colours: 1, metrics: 12 },
+  // 09-26 (stage 3b): common/wx/controls.tsx, the wx controls the panels'
+  // `_base` files instantiate, with the one colour `dialogs` gave up.
+  'common/wx': { colours: 1, metrics: 0 },
   // colours 6 -> 7: the opacity slider's #55585d track arrived here with
   // APPEARANCE_CONTROLS; it is the same literal `editors/pcb` lost, not a new
   // one. The panel's own stylesheet adds none: every length in
@@ -716,7 +833,19 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // it paints its own track from --chrome-active and --slider-track-bg. The
   // 45th metric that appeared alongside it, the notebook's `margin: 5px 0`,
   // carries [data] and its Add() call, so it is not counted. RESCANNED.
-  widgets: { colours: 6, metrics: 44 },
+  // metrics 44 -> 41 on 09-26: the symbol library table's inline body style
+  // (`padding: '10px 14px'`, `gap: 8`) went for DIALOG_EDIT_LIBRARY_TABLES'
+  // sizer, cited in shell.css.
+  // 6/39 -> 1/6: this row's bulk was appearance_controls.tsx/.css and
+  // panel_selection_filter.tsx, which consumed shared common/ infrastructure
+  // across three commits - WX_COLLAPSIBLE_PANE (70470344), BITMAP_TOGGLE and
+  // INDICATOR_ICON (aca5ff44), and PROPERTIES_PANEL's properties/ split
+  // (924dce78) - plus a1a6ebff, which took the Manage Libraries dialogs' two
+  // invented `boxShadow: rgba(0,0,0,0.4)` popovers for DIALOG_SHIM's own. What
+  // is left is entirely lib_table_panel.tsx, uncited. RESCANNED from this
+  // tree; the exact literal each commit took could not be reconstructed one
+  // for one, the same "two passes met" case the totals above describe.
+  widgets: { colours: 1, metrics: 6 },
 };
 
 /** Properties whose value the GTK theme decides, so a px in one is drift. */
@@ -840,13 +969,103 @@ function scan(): Site[] {
       else if (/\.(css|tsx|ts)$/.test(p)) files.push(p);
     }
   })(SRC);
+  // The shared widgets and dialogs are `common/` since 09-21 (KiCad's
+  // `common/widgets`, `common/dialogs`); the ratchet follows them there.
+  (function walk(dir: string) {
+    for (const entry of readdirSync(dir)) {
+      // node_modules sits beside the sources now that common has no src/.
+      if (entry === 'node_modules') continue;
+      const p = join(dir, entry);
+      if (statSync(p).isDirectory()) walk(p);
+      else if (/\.(css|tsx)$/.test(p)) files.push(p);
+    }
+  })(COMMON);
+  // gerbview/'s screens moved beside KiCad's (widgets/layer_widget.tsx, 09-27);
+  // the launcher's literals are counted wherever its files sit.
+  (function walk(dir: string) {
+    for (const entry of readdirSync(dir)) {
+      if (entry === 'node_modules') continue;
+      const p = join(dir, entry);
+      if (statSync(p).isDirectory()) walk(p);
+      else if (/\.(css|tsx)$/.test(p)) files.push(p);
+    }
+  })(GERBVIEW);
+  // bitmap2component/'s panel moved beside KiCad's (bitmap2cmp_panel_ui.tsx +
+  // its stylesheet, 09-27); it is still the Image Converter's, editors/image.
+  (function walk(dir: string) {
+    for (const entry of readdirSync(dir)) {
+      if (entry === 'node_modules') continue;
+      const p = join(dir, entry);
+      if (statSync(p).isDirectory()) walk(p);
+      else if (/\.(css|tsx)$/.test(p)) files.push(p);
+    }
+  })(BITMAP2COMPONENT);
+  // pagelayout_editor/ likewise (dialogs/properties_frame_ui.tsx, 09-27):
+  // counted as editors/drawingsheet, the launcher it draws.
+  (function walk(dir: string) {
+    for (const entry of readdirSync(dir)) {
+      if (entry === 'node_modules') continue;
+      const p = join(dir, entry);
+      if (statSync(p).isDirectory()) walk(p);
+      else if (/\.(css|tsx)$/.test(p)) files.push(p);
+    }
+  })(PAGELAYOUT);
+  // cvpcb/'s three windows moved beside KiCad's (cvpcb_mainframe_ui.tsx +
+  // display_footprints_frame.tsx + dialogs/dialog_config_equfiles.tsx,
+  // cvpcb/STRUCTURE.md's stage two); counted under its own package name, the
+  // way common/ is, since cvpcb is not one of designer's `editors/`.
+  (function walk(dir: string) {
+    for (const entry of readdirSync(dir)) {
+      if (entry === 'node_modules') continue;
+      const p = join(dir, entry);
+      if (statSync(p).isDirectory()) walk(p);
+      else if (/\.(css|tsx)$/.test(p)) files.push(p);
+    }
+  })(CVPCB);
+  for (const root of [PCBNEW, EESCHEMA, VIEWER3D]) {
+    (function walk(dir: string) {
+      for (const entry of readdirSync(dir)) {
+        if (entry === 'node_modules') continue;
+        const p = join(dir, entry);
+        if (statSync(p).isDirectory()) walk(p);
+        else if (/\.(css|tsx)$/.test(p)) files.push(p);
+      }
+    })(root);
+  }
   files.sort();
 
   const sites: Site[] = [];
   for (const file of files) {
-    const rel = relative(SRC, file);
+    const inCommon = !relative(COMMON, file).startsWith('..');
+    const inGerbview = !relative(GERBVIEW, file).startsWith('..');
+    const inBitmap2component = !relative(BITMAP2COMPONENT, file).startsWith('..');
+    const inPagelayout = !relative(PAGELAYOUT, file).startsWith('..');
+    const inCvpcb = !relative(CVPCB, file).startsWith('..');
+    const inPcbnew = !relative(PCBNEW, file).startsWith('..');
+    const inEeschema = !relative(EESCHEMA, file).startsWith('..');
+    const inViewer3d = !relative(VIEWER3D, file).startsWith('..');
+    const rel = inCommon
+      ? `common/${relative(COMMON, file)}`
+      : inGerbview
+        ? `editors/gerbview/${relative(GERBVIEW, file)}`
+        : inBitmap2component
+          ? `editors/image/${relative(BITMAP2COMPONENT, file)}`
+          : inPagelayout
+            ? `editors/drawingsheet/${relative(PAGELAYOUT, file)}`
+            : inCvpcb
+              ? `cvpcb/${relative(CVPCB, file)}`
+              : inPcbnew || inViewer3d
+                ? `editors/pcb/${relative(inPcbnew ? PCBNEW : VIEWER3D, file)}`
+                : inEeschema
+                  ? relative(EESCHEMA, file).startsWith('symbol_editor')
+                    ? `editors/symbol/${relative(EESCHEMA, file)}`
+                    : `editors/schematic/${relative(EESCHEMA, file)}`
+                  : relative(SRC, file);
     const parts = rel.split('/');
-    const area = parts[0] === 'editors' ? `editors/${parts[1]}` : (parts[0] ?? '');
+    const area =
+      parts[0] === 'editors' || parts[0] === 'common'
+        ? `${parts[0]}/${parts[1]?.includes('.') ? '' : parts[1]}`.replace(/\/$/, '')
+        : (parts[0] ?? '');
     const isCss = file.endsWith('.css');
     const raw = readFileSync(file, 'utf8').split('\n');
     const code = blankComments(raw.join('\n')).split('\n');
@@ -895,7 +1114,7 @@ const examples = (area: string, kind: Site['kind']): string =>
     .join('\n');
 
 const HOWTO =
-  'Either consume the token from designer/src/ui/shell.css (adding it there if ' +
+  'Either consume the token from common/widgets/shell.css (adding it there if ' +
   'it is missing), or mark the literal on its own line with [data] and the C++ ' +
   'that hardcodes it, [css] and the Yaru rule, [px] and the measurement, or ' +
   '[art] and the bitmap KiCad ships instead. Restating the token value locally ' +
@@ -1080,7 +1299,7 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 525 -> 521: the selection band. `PcbEditor` had four invented literals
     // for the rubber-band marquee — a blue and a green, in fill and stroke —
     // where KiCad reads `KIGFX::PREVIEW::SELECTION_AREA`'s own six-colour table
-    // (`selection_area.cpp:44-62`), which `common/src/preview_items/
+    // (`selection_area.cpp:44-62`), which `common/preview_items/
     // selection_area.ts` already held for the schematic. `editors/pcb` is the
     // only row that moves and 525 - 4 agrees with it.
     // 521 -> 517: the Draw Filled Zone tool's own hand-rolled dialog, the same
@@ -1109,7 +1328,33 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 332 -> 331: `.ze-msgdlg-extended`'s #c8c9cb, an invented grey (the probe
     // reads one foreground on both labels). `ui` 187 -> 186; 332 - 1 agrees.
     // 331 -> 326: the DRC dialog's five, see the `editors/pcb` row; 331 - 5.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(333);
+    // 324 -> 332: main's eight (325 -> 333 there), merged 09-25.
+    // 332 -> 331: the About stub's `#7fb4e6`, see the `home` row.
+    // 331 -> 330: the old inspect box's shadow colour, see `editors/pcb`.
+    // 330 -> 329: the image dialog's `#fff`, see `editors/schematic`.
+    // 329 -> 328: the Print dialog's menu shadow, see `editors/pcb`.
+    // 328 -> 326: the line-modification box's two, see `editors/pcb`.
+    // 326 -> 325: gerberColors.ts left the app, see `editors/gerbview`.
+    // 325 -> 321: the bus alias and BOM preset panels moved onto WX_GRID and
+    // their four `#888` placeholder lines (text KiCad never shows) went.
+    // 321 -> 299 (pcbnew-file-structure-stage-a): two rows moved and one grew,
+    // rescanned and reconciled rather than diffed, per the rule above.
+    // `editors/pcb` 27 -> 26 (panel_footprint_chooser.tsx left designer/src
+    // for pcbnew/widgets/, outside this scan); `widgets` 6 -> 1 (its bulk
+    // consumed common/'s WX_COLLAPSIBLE_PANE / BITMAP_TOGGLE / INDICATOR_ICON
+    // / properties/ and DIALOG_SHIM, see that row); `editors/schematic` 16 ->
+    // 18 -> 16 (EE_GRID_HELPER's axis and snap-point colours, landed
+    // uncited by 3b147005, now carry [data] on their own lines against
+    // ee_grid_helper.cpp:58 and :64 - a real grown-then-fixed pair, not a
+    // baseline change). 321 - 1 - 5 agrees with the rescan.
+    // 299 -> 291 (pcbnew/pcb_edit_frame_ui Stage A): `editors/pcb` 26 -> 18,
+    // the ~50-module dialogs/panels/appearance_controls move above; 299 - 8
+    // agrees with the rescan.
+    // 291 -> 290: `editors/pcb` 18 -> 17, one more site carried out to
+    // pcbnew/ by the same still-running move.
+    // 290 -> 296 (09-28): pcbnew/, eeschema/ and 3d-viewer/ joined the scan;
+    // see the editors/pcb and editors/schematic rows (+7, -1).
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(296);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.
@@ -1284,7 +1529,29 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 1293 -> 1284: the message box, `ui` 704 -> 695 — see that row. 1293 - 9
     // agrees, and a rescan of this tree reads 1284.
     // 1284 -> 1271: the DRC dialog's thirteen, see the `editors/pcb` row.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1282);
+    // 1270 -> 1271: the `home` row's hidden literal, see there.
+    // 1271 -> 1283: main's twelve presence-badge values, merged 09-25.
+    // 1283 -> 1277: the About stub's four (`home`) and the calculator's own
+    // About box's two (`editors/calculator`); DIALOG_ABOUT's are all marked.
+    // 1277 -> 1264: the old inspect box's thirteen, see `editors/pcb`.
+    // 1264 -> 1263: the image dialog's canvas radius, see `editors/schematic`.
+    // 1263 -> 1236: the Print dialog's twenty-seven, see `editors/pcb`.
+    // 1236 -> 1226: the line-modification box's ten, see `editors/pcb`.
+    // 1226 -> 1223: the symbol library table's three, see `widgets`.
+    // 1223 -> 1216: the Assign Netclass stub's seven, see `common/dialogs`.
+    // 1216 -> 1205: the bus alias and BOM preset panels' eleven inline px
+    // (margins and paddings stated per dialog); their sizer borders now sit in
+    // shell.css, each marked [data] with its Add().
+    // 1205 -> 1138 (pcbnew-file-structure-stage-a): `common/widgets` 684 ->
+    // 692 (SEARCH_PANE seeded new, plus two lib_tree.tsx sites missed at
+    // 4edba88a - see that row) and `widgets` 39 -> 6 (the same consolidation
+    // as its colours, above). 1205 + 8 - 33 agrees with the rescan; 1138.
+    // 1138 -> 1041 (pcbnew/pcb_edit_frame_ui Stage A): `editors/pcb` 133 -> 44
+    // and `editors/footprint` 13 -> 5, the same dialogs/panels/appearance_controls
+    // move; 1138 - 89 - 8 agrees with the rescan.
+    // 1041 -> 1138 (09-28): back to the pre-move figure with pcbnew/, eeschema/
+    // and 3d-viewer/ in the scan; the 97 had left the scan, not the code.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1138);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {
@@ -1383,9 +1650,9 @@ describe('the three launchers this pass took are actually on the tokens', () => 
     expect(SITES.filter((s) => s.area === 'editors/image' && s.kind === 'metrics')).toStrictEqual(
       [],
     );
-    const css = readFileSync(join(SRC, 'editors/image/imageConverter.css'), 'utf8');
+    const css = readFileSync(join(BITMAP2COMPONENT, 'bitmap2cmp_frame.css'), 'utf8');
     expect(css).not.toContain('NOT PROVEN');
-    const shell = readFileSync(join(SRC, 'ui/shell.css'), 'utf8');
+    const shell = readFileSync(join(COMMON, 'widgets/shell.css'), 'utf8');
     const at = shell.indexOf('NOT PROVEN');
     expect(at, 'the shared slider still admits its fudge').toBeGreaterThan(-1);
     expect(shell.slice(at, at + 400)).toContain('height: calc(var(--slider-thumb-size) + 7px)');
@@ -1399,7 +1666,7 @@ describe('the three launchers this pass took are actually on the tokens', () => 
     expect(
       SITES.filter((s) => s.area === 'editors/drawingsheet' && s.kind === 'metrics'),
     ).toStrictEqual([]);
-    const src = readFileSync(join(SRC, 'editors/drawingsheet/PropertiesFrame.tsx'), 'utf8');
+    const src = readFileSync(join(PAGELAYOUT, 'dialogs/properties_frame_ui.tsx'), 'utf8');
     expect(src).not.toContain('NOT PROVEN');
   });
 
@@ -1441,16 +1708,16 @@ describe('the scanner itself sees what it claims to', () => {
   });
 
   it('ignores a token declaration, and ignores it only there', () => {
-    const shell = readFileSync(join(SRC, 'ui/shell.css'), 'utf8').split('\n');
+    const shell = readFileSync(join(COMMON, 'widgets/shell.css'), 'utf8').split('\n');
     const decl = shell.findIndex((l) => /^\s*--ctl-height:\s*34px/.test(l));
     expect(decl, 'ui/shell.css no longer declares --ctl-height: 34px').toBeGreaterThan(0);
-    expect(SITES.some((s) => s.where === `ui/shell.css:${decl + 1}`)).toBe(false);
+    expect(SITES.some((s) => s.where === `common/widgets/shell.css:${decl + 1}`)).toBe(false);
 
     // ...and ONLY there. shell.css also RESTATES 34px in ordinary rules instead
     // of consuming its own token, and every one of those is still reported -
     // which is what makes the exemption narrow rather than a hole.
     const restated = SITES.filter(
-      (s) => s.what === 'height: 34px' && s.where.startsWith('ui/shell.css'),
+      (s) => s.what === 'height: 34px' && s.where.startsWith('common/widgets/shell.css'),
     );
     expect(restated.length).toBeGreaterThan(0);
     expect(TOKEN_DECL.test('  height: 34px;')).toBe(false);

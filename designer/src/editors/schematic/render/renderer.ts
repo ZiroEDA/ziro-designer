@@ -12,9 +12,13 @@
  */
 
 import { CalcArcCenter, type Vec2 } from '@ziroeda/kimath';
-import { zoomFitView } from '../../../ui/view_controls.js';
-import { drawGrid, viewFromOffsets, type GridOptions } from '../../../ui/grid_cursor.js';
-import { pageSizeMM } from '@ziroeda/common/src/page_info.js';
+import { zoomFitView } from '@ziroeda/common/ui/view_controls.js';
+import {
+  drawGrid,
+  viewFromOffsets,
+  type GridOptions,
+} from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
+import { pageSizeMM } from '@ziroeda/common/page_info.js';
 import {
   symbolTransform,
   localToWorld,
@@ -28,9 +32,9 @@ import {
   type WksSheet,
   type Transform,
 } from '@ziroeda/common';
+import { ResolveShownText, type TextVarResolverFn } from '@ziroeda/common/common.js';
 import {
   buildWireWithHopShape,
-  expandTextVars,
   intersheetRefsAutoplaced,
   intersheetRefsField,
   refId,
@@ -83,17 +87,17 @@ import {
   measureText,
   splitTextLines,
   type TextHAlign,
-} from '@ziroeda/common/src/font/stroke_font.js';
-import type { TextEffects as SchTextEffects } from '@ziroeda/eeschema/src/types.js';
-import { outlineBoundaryLimits } from '@ziroeda/common/src/font/outline_layout.js';
-import { getOutlineFont } from '../../../font/outline_fonts.js';
-import { drawOutlineText } from '../../../font/draw_outline_text.js';
-import { globalLabelShape, isEmpty, textPenWidth } from '@ziroeda/eeschema/src/tools/bbox.js';
-import { contentBBox } from '@ziroeda/eeschema/src/tools/scene_bbox.js';
-import { tableCellId } from '@ziroeda/eeschema/src/tools/table_cells.js';
+} from '@ziroeda/common/font/stroke_font.js';
+import type { TextEffects as SchTextEffects } from '@ziroeda/eeschema/types.js';
+import { outlineBoundaryLimits } from '@ziroeda/common/font/outline_layout.js';
+import { getOutlineFont } from '@ziroeda/common/font/outline_fonts.js';
+import { drawOutlineText } from '@ziroeda/common/font/draw_outline_text.js';
+import { globalLabelShape, isEmpty, textPenWidth } from '@ziroeda/eeschema/tools/bbox.js';
+import { contentBBox } from '@ziroeda/eeschema/tools/scene_bbox.js';
+import { tableCellId } from '@ziroeda/eeschema/tools/table_cells.js';
 import { schSymbolLibraryName } from '@ziroeda/eeschema';
-import { imageDataUrl } from '@ziroeda/eeschema/src/import_gfx/image_format.js';
-import { libPreviewFields } from '@ziroeda/eeschema/src/tools/autoplace_fields.js';
+import { imageDataUrl } from '@ziroeda/eeschema/import_gfx/image_format.js';
+import { libPreviewFields } from '@ziroeda/eeschema/autoplace_fields.js';
 import { drawField } from '../../symbol/render/symbolRenderer.js';
 import {
   DNP_MARKER_STROKE_WIDTH,
@@ -101,10 +105,10 @@ import {
   SIM_EXCLUSION_STROKE_WIDTH,
   dnpMarkerSegments,
   simExclusionMarker,
-} from './symbol_markers.js';
-import { dimmedColor } from './render_color.js';
-import { altIconBox } from '@ziroeda/eeschema/src/pin_box.js';
-import { drawAltPinModesIcon } from './pin_alt_icon.js';
+} from '@ziroeda/eeschema/symbol_markers.js';
+import { dimmedColor } from '@ziroeda/eeschema/render_color.js';
+import { altIconBox } from '@ziroeda/eeschema/pin_layout_cache.js';
+import { drawAltPinModesIcon } from '@ziroeda/eeschema/pin_alt_icon.js';
 
 /**
  * Which items this render is allowed to draw (`hiddenItems` / `onlyItems`).
@@ -557,6 +561,12 @@ export interface RenderOpts {
   /** Custom drawing sheet (a loaded `.kicad_wks`), like KiCad's project
    *  `m_DrawingSheetFileName`. Unset = the built-in default stationery. */
   drawingSheet?: WksSheet;
+  /**
+   * A plot draws the drawing sheet itself (`PlotDrawingSheet`, straight into
+   * the plotter) at the point the frame would be painted, after the page
+   * background and before the items. Unset = paint it here.
+   */
+  plotDrawingSheet?: () => void;
   /** Pen width (IU) for zero-width strokes, the plot dialog's "Minimum line
    *  width" (default pen thickness). Unset = KiCad's 6-mil default. */
   defaultPenIU?: number;
@@ -603,10 +613,6 @@ export interface RenderOpts {
    *  label text (SCH_GLOBALLABEL::ResolveTextVar `INTERSHEET_REFS` branch).
    *  Unset = the layer is hidden, like SetLayerVisible(LAYER_INTERSHEET_REFS). */
   intersheetRefs?: { text: (resolvedLabel: string) => string };
-  /** The highlighted net chain's member wires + its colour override
-   *  (SCHEMATIC::GetHighlightedNetChain + SCH_NETCHAIN::GetColor, the painter
-   *  tints chain wires while that chain is highlighted). */
-  chainHighlight?: { lineIds: ReadonlySet<string>; color: string };
   /** Per-item netclass fallbacks (SCH_LINE::GetLineColor/GetPenWidth/
    *  GetEffectiveLineStyle, SCH_JUNCTION::getEffectiveShape): applied only
    *  where the item carries no stroke of its own. */
@@ -617,7 +623,7 @@ export interface RenderOpts {
   /** Text-variable resolver (PROJECT/TITLE_BLOCK/SCHEMATIC TextVarResolver):
    *  when set, `${VAR}` in labels, text, text boxes, tables and fields renders
    *  expanded (GetShownText). Unset = text draws verbatim. */
-  resolveTextVar?: (token: string) => string | undefined;
+  resolveTextVar?: TextVarResolverFn;
   /** Unit-notation inputs for multi-unit references
    *  (SCHEMATIC_SETTINGS::SubReference: m_SubpartIdSeparator char code, 0 =
    *  none, and m_SubpartFirstId 'A'/'1'). Unset = plain letters (U1A). */
@@ -888,15 +894,13 @@ function itemColour(
 function itemOwnCss(own: string | undefined | false): string | undefined {
   return g_overrideItemColors || !own ? undefined : own;
 }
-// Highlighted-chain wire tint for the current render (unset = none).
-let g_chainHighlight: RenderOpts['chainHighlight'];
 // Netclass fallbacks for the current render (unset = no netclass visuals).
 let g_netOverrides: RenderOpts['netOverrides'];
 // Text-variable resolver for the current render (unset = draw verbatim).
 let g_resolveText: RenderOpts['resolveTextVar'];
-/** GetShownText: expand `${VAR}` when a resolver is active. */
+/** GetShownText: resolve `${VAR}` when a resolver is active. */
 function shownText(text: string): string {
-  return g_resolveText && text.includes('${') ? expandTextVars(text, g_resolveText) : text;
+  return g_resolveText && text.includes('${') ? ResolveShownText(text, g_resolveText) : text;
 }
 const _GRID = 1.27 * MM; // 50 mil
 
@@ -1016,7 +1020,6 @@ export function renderSchematic(
   g_intersheetRefs = opts.intersheetRefs;
   g_overrideItemColors = opts.overrideItemColors ?? false;
   g_devicePixelRatio = opts.devicePixelRatio ?? 1;
-  g_chainHighlight = opts.chainHighlight;
   g_netOverrides = opts.netOverrides;
   g_resolveText = opts.resolveTextVar;
   g_subpart = opts.subpart;
@@ -1089,8 +1092,10 @@ export function renderSchematic(
   // *only* the items named: including the frame would repaint it on every
   // pointer move of a drag, and draw it twice over the background that already
   // has it.
-  if (opts.showDrawingSheet !== false && !overlayPass)
-    drawDrawingSheet(ctx, sch, theme, opts.drawingSheet, opts);
+  if (opts.showDrawingSheet !== false && !overlayPass) {
+    if (opts.plotDrawingSheet) opts.plotDrawingSheet();
+    else drawDrawingSheet(ctx, sch, theme, opts.drawingSheet, opts);
+  }
 
   const hl = (id: string): boolean => highlight?.has(id) ?? false;
 
@@ -1272,24 +1277,16 @@ export function renderSchematic(
         : (nc?.widthIU ?? lineDefaultWidth(line.kind));
     // An explicit stroke colour overrides the layer colour for wires and buses
     // too (SCH_PAINTER::getRenderColor honours SCH_LINE::GetLineColor()).
-    // A highlighted chain with a colour override tints its member wires
-    // (sch_painter.cpp draw(SCH_LINE): GetNetChainForNet + chain colour).
-    const chainTint =
-      line.kind === 'wire' && g_chainHighlight?.lineIds.has(refId('line', line.uuid, i))
-        ? g_chainHighlight.color
-        : undefined;
-    ctx.strokeStyle =
-      chainTint ??
-      (on
-        ? theme.netHighlight
-        : (itemOwnCss(line.stroke?.color && cssColor(line.stroke.color)) ??
-          (nc?.color
-            ? nc.color
-            : line.kind === 'bus'
-              ? theme.bus
-              : line.kind === 'wire'
-                ? theme.wire
-                : theme.noteLine)));
+    ctx.strokeStyle = on
+      ? theme.netHighlight
+      : (itemOwnCss(line.stroke?.color && cssColor(line.stroke.color)) ??
+        (nc?.color
+          ? nc.color
+          : line.kind === 'bus'
+            ? theme.bus
+            : line.kind === 'wire'
+              ? theme.wire
+              : theme.noteLine));
     ctx.lineWidth = penWidth(width);
     const dashType =
       line.stroke?.type && line.stroke.type !== 'default'
@@ -4650,7 +4647,7 @@ function strokeGlyphs(
 
 /**
  * Page size for a `(paper …)` token in **eeschema's** IU, or null when the name
- * is unknown. The table is `common/src/page_info.ts`, which is where KiCad
+ * is unknown. The table is `common/page_info.ts`, which is where KiCad
  * keeps it too — this file used to carry its own copy, and `renderBoard.ts`
  * carried a second that had already drifted.
  */

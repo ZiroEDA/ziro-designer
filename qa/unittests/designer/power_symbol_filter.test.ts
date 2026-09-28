@@ -16,8 +16,8 @@ import {
   powerSymbolTest,
   type LibIndexEntry,
 } from '@ziroeda/designer/src/editors/schematic/symbols/index.js';
-import { LibTreeModelAdapter } from '@ziroeda/designer/src/widgets/lib_tree_model_adapter.js';
-import { LibTreeNode, LibTreeNodeType } from '@ziroeda/designer/src/widgets/lib_tree_model.js';
+import { LibTreeModelAdapter } from '@ziroeda/common/lib_tree_model_adapter.js';
+import { LibTreeNode, LibTreeNodeType } from '@ziroeda/common/lib_tree_model.js';
 
 const entry = (over: Partial<LibIndexEntry> = {}): LibIndexEntry => ({
   name: 'Device',

@@ -15,15 +15,15 @@
  * straight items — so each of the four is pinned separately.
  */
 import { describe, expect, it } from 'vitest';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import {
   ARC_BOW_RATIO,
   bowedMidpoint,
   convertToLines,
   itemRings,
   segmentToArc,
-} from '@ziroeda/pcbnew/src/convert_lines.js';
-import type { Board, PcbShape, PcbTrack } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/convert_lines.js';
+import type { Board, PcbShape, PcbTrack } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 

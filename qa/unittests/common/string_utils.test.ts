@@ -16,7 +16,7 @@ import {
   strNumCmp,
   valueStringCompare,
   wildCompareString,
-} from '@ziroeda/common/src/string_utils.js';
+} from '@ziroeda/common/string_utils.js';
 
 describe('wildCompareString', () => {
   it('matches case-insensitively when the caller asks for it', () => {

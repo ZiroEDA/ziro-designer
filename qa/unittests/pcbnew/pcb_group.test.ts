@@ -9,13 +9,13 @@
  * derived from our port.
  */
 import { describe, expect, it } from 'vitest';
-import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { FLIP_DIRECTION } from '@ziroeda/core/src/mirror.js';
-import { KICAD_T } from '@ziroeda/core/src/typeinfo.js';
-import { BOARD } from '@ziroeda/pcbnew/src/board.js';
-import { FOOTPRINT } from '@ziroeda/pcbnew/src/footprint.js';
-import { PCB_GROUP } from '@ziroeda/pcbnew/src/pcb_group.js';
-import { PCB_TRACK, PCB_VIA } from '@ziroeda/pcbnew/src/pcb_track.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { FLIP_DIRECTION } from '@ziroeda/core/mirror.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { BOARD } from '@ziroeda/pcbnew/board.js';
+import { FOOTPRINT } from '@ziroeda/pcbnew/footprint.js';
+import { PCB_GROUP } from '@ziroeda/pcbnew/pcb_group.js';
+import { PCB_TRACK, PCB_VIA } from '@ziroeda/pcbnew/pcb_track.js';
 
 const box = (g: PCB_GROUP): [number, number, number, number] => {
   const r = g.GetBoundingBox();

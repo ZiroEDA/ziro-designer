@@ -1,6 +1,6 @@
 # Bundled outline fonts
 
-Unmodified files from Ubuntu's `fonts-liberation`, `fonts-dejavu-core` and `fonts-noto-core` packages, served under `/fonts/` so that a schematic or board text with a `(font (face …))` draws with the face KiCad's fontconfig would substitute on a Linux desktop. Which name maps to which file is `common/src/font/fontconfig.ts`. The texts below are the Debian copyright files of those packages.
+Unmodified files from Ubuntu's `fonts-liberation`, `fonts-dejavu-core` and `fonts-noto-core` packages, served under `/fonts/` so that a schematic or board text with a `(font (face …))` draws with the face KiCad's fontconfig would substitute on a Linux desktop. Which name maps to which file is `common/font/fontconfig.ts`. The texts below are the Debian copyright files of those packages.
 
 ## Liberation (fonts-liberation)
 

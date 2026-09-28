@@ -19,7 +19,7 @@ import {
   getOutlineFont,
   resetOutlineFonts,
   setFaceFetcher,
-} from '@ziroeda/designer/src/font/outline_fonts.js';
+} from '@ziroeda/common/font/outline_fonts.js';
 import type { SchField } from '@ziroeda/eeschema';
 
 const FONTS = fileURLToPath(new URL('../../../designer/public/fonts/', import.meta.url));

@@ -11,13 +11,56 @@
  * each becomes a decision with a name, which is the only kind a test can check.
  */
 import { describe, expect, it } from 'vitest';
-import {
-  gerbviewLayerDisplayName,
-  gerbviewStatusField0,
-  layersPaneWidth,
-  shortenLayerFileName,
-} from '@ziroeda/designer/src/editors/gerbview/gerberAuxControls.js';
-import { parseGerber } from '@ziroeda/gerbview';
+import { PGM_BASE, SetPgm } from '@ziroeda/common/pgm_base.js';
+import { layersPaneWidth } from '@ziroeda/gerbview/widgets/layer_widget.js';
+import { GERBER_FILE_IMAGE } from '@ziroeda/gerbview/gerber_file_image.js';
+import { GERBER_FILE_IMAGE_LIST } from '@ziroeda/gerbview/gerber_file_image_list.js';
+import { GERBVIEW_FRAME } from '@ziroeda/gerbview/gerbview_frame.js';
+import { GERBVIEW_SETTINGS } from '@ziroeda/gerbview/gerbview_settings.js';
+import { parseGerber } from '../gerbview/load_image.js';
+
+/**
+ * Status field 0 as GERBVIEW_FRAME::UpdateTitleAndInfo writes it
+ * (`gerbview_frame.cpp:668,696`), for `aImage` on the active layer.
+ */
+function gerbviewStatusField0(aImage: GERBER_FILE_IMAGE | null): string {
+  SetPgm(new PGM_BASE());
+  const frame = new GERBVIEW_FRAME(new GERBVIEW_SETTINGS());
+  frame.GetImagesList().DeleteAllImages();
+
+  if (aImage) frame.GetImagesList().AddGbrImage(aImage, 0);
+
+  frame.SetActiveLayer(0);
+  frame.UpdateTitleAndInfo();
+
+  return frame.GetStatusText(0);
+}
+
+/**
+ * `GERBER_FILE_IMAGE_LIST::GetDisplayName( aIdx, aNameOnly, aFullName )`
+ * (`gerber_file_image_list.cpp:140-200`) on a list holding `aImage` at
+ * `aIndex` under `aFileName`.
+ */
+function gerbviewLayerDisplayName(
+  aImage: GERBER_FILE_IMAGE | null,
+  aFileName: string,
+  aIndex: number,
+  aOpts: { nameOnly?: boolean; fullName?: boolean } = {},
+): string {
+  const list = new GERBER_FILE_IMAGE_LIST();
+
+  if (aImage) {
+    aImage.m_FileName = aFileName;
+    list.AddGbrImage(aImage, aIndex);
+  }
+
+  return list.GetDisplayName(aIndex, aOpts.nameOnly === true, aOpts.fullName === true);
+}
+
+/** GetDisplayName's 30-character cap alone: a plain image, name only (:146-151). */
+function shortenLayerFileName(aFileName: string): string {
+  return gerbviewLayerDisplayName(new GERBER_FILE_IMAGE(0), aFileName, 0, { nameOnly: true });
+}
 
 const image = (extra = ''): ReturnType<typeof parseGerber> =>
   parseGerber(
@@ -36,8 +79,8 @@ describe('status bar field 0', () => {
   it('is the image and layer names, two spaces apart, each quoted', () => {
     // status.Printf( _( "Image name: '%s'  Layer name: '%s'" ), ... )  :696
     const img = image();
-    img.imageName = 'MyImage';
-    img.layerName = 'TopCopper';
+    img.m_ImageName = 'MyImage';
+    img.GetLayerParams().m_LayerName = 'TopCopper';
     expect(gerbviewStatusField0(img)).toBe("Image name: 'MyImage'  Layer name: 'TopCopper'");
   });
 
@@ -48,14 +91,14 @@ describe('status bar field 0', () => {
   // `Layer name: 'no name'` on every file. Ours defaulted it to the empty
   // string and then filled it from %LN, so the line read `Layer name: ''`.
   it("says 'no name' for a file with no %LN, which is every file", () => {
-    expect(image().layerName).toBe('no name');
+    expect(image().GetLayerParams().m_LayerName).toBe('no name');
     expect(gerbviewStatusField0(image())).toBe("Image name: ''  Layer name: 'no name'");
   });
 
   it('ignores %LN, which upstream skips as a comment', () => {
     // case LOAD_NAME: "%LN is a (deprecated) equivalentto G04: a comment",
     // rs274x.cpp:676-681 — it advances past the text and stores nothing.
-    expect(image('%LNTopCopper*%').layerName).toBe('no name');
+    expect(image('%LNTopCopper*%').GetLayerParams().m_LayerName).toBe('no name');
     expect(gerbviewStatusField0(image('%LNTopCopper*%'))).toBe(
       "Image name: ''  Layer name: 'no name'",
     );
@@ -65,7 +108,7 @@ describe('status bar field 0', () => {
     // case IMAGE_NAME: m_ImageName.Empty(); then append to '*'  rs274x.cpp:668
     // This is the control for the test above: if %LN stopped working because
     // the parameter parser broke, this would fail too.
-    expect(image('%INMyBoard*%').imageName).toBe('MyBoard');
+    expect(image('%INMyBoard*%').m_ImageName).toBe('MyBoard');
   });
 });
 
@@ -95,14 +138,20 @@ describe('GetDisplayName', () => {
     // row reads "(Copper, L1)" in KiCad, never "(Copper, L1, Top)". Reproduced
     // deliberately; "fixing" it would print something KiCad never shows.
     const img = image('%TF.FileFunction,Copper,L1,Top,Signal*%');
-    expect(img.fileFunction).not.toBeNull();
+    expect(img.m_FileFunction).not.toBeNull();
     expect(gerbviewLayerDisplayName(img, 'a.gbr', 0)).toBe('1 a.gbr (Copper, L1)');
   });
 
   it('gives a drill file its own four-field suffix', () => {
     // IsDrillFile() is "Plated" or "NonPlated"  X2_gerber_attributes.cpp:229
+    // "%s (%s,%s,%s,%s)" with GetFileType(), GetDrillLayerPair() ("1,4"),
+    // GetLPType() and GetRouteType(): the attribute has no route type, and the
+    // constructor pads the parameters to seven with empty strings, so the
+    // fourth field prints empty and the comma before it stays.
     const img = image('%TF.FileFunction,Plated,1,4,PTH*%');
-    expect(gerbviewLayerDisplayName(img, 'd.gbr', 0)).toBe('1 d.gbr (Plated,1,4,PTH)');
+    expect(gerbviewLayerDisplayName(img, 'd.gbr', 0)).toBe('1 d.gbr (Plated,1,4,PTH,)');
+    const routed = image('%TF.FileFunction,Plated,1,4,PTH,Drill*%');
+    expect(gerbviewLayerDisplayName(routed, 'd.gbr', 0)).toBe('1 d.gbr (Plated,1,4,PTH,Drill)');
   });
 
   it('caps the file name at 30 by default, and not at all for aFullName', () => {

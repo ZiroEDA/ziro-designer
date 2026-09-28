@@ -42,7 +42,14 @@ import {
   ALWAYS_SHOW_CROSSHAIRS_LABEL,
   CROSSHAIR_MODE_CHOICES,
   crosshairSegments,
-} from '@ziroeda/designer/src/ui/grid_cursor.js';
+} from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
+import { LEGACY_COLORS } from '@ziroeda/common/gal/color4d.js';
+import { DS_DATA_MODEL } from '@ziroeda/common/drawing_sheet/ds_data_model.js';
+import { PGM_BASE, SetPgm } from '@ziroeda/common/pgm_base.js';
+import { EDA_UNITS_INT } from '@ziroeda/common/settings/app_settings.js';
+import { ACTIONS } from '@ziroeda/common/tool/actions.js';
+import { pageFor } from '@ziroeda/designer/src/dialogs/prefs/registry.js';
+import { makeHarness, settle } from '../pagelayout_editor/pl_editor_fixture.js';
 
 describe('PANEL_GAL_OPTIONS’ Cursor group', () => {
   it('offers three shapes, in KiCad’s order with KiCad’s labels', () => {
@@ -80,9 +87,9 @@ describe('PANEL_GAL_OPTIONS’ Cursor group', () => {
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
 const read = (rel: string): string => readFileSync(join(SRC, rel), 'utf8');
 
-const EDITOR = read('editors/drawingsheet/DrawingSheetEditor.tsx');
-const GAL_PANEL = read('dialogs/prefs/PanelGalOptions.tsx');
-const DS_DISPLAY = read('editors/drawingsheet/prefs/PanelPlEditorDisplayOptions.tsx');
+const EDITOR = read('../../pagelayout_editor/pl_editor_frame_ui.tsx');
+const GAL_PANEL = read('../../common/dialogs/panel_gal_options.tsx');
+const DS_DISPLAY = read('../../pagelayout_editor/dialogs/panel_pl_editor_display_options_ui.tsx');
 const SHELL = read('dialogs/PreferencesDialog.tsx');
 
 /** Statements only: a commented-out line must not satisfy any of these. */
@@ -115,7 +122,7 @@ describe('the Cursor group’s two controls, where they now live', () => {
     // `PANEL_GAL_OPTIONS` is `common/` code precisely so there is one of it.
     for (const rel of [
       'editors/schematic/prefs/PanelEeschemaDisplayOptions.tsx',
-      'editors/drawingsheet/prefs/PanelPlEditorDisplayOptions.tsx',
+      '../../pagelayout_editor/dialogs/panel_pl_editor_display_options_ui.tsx',
     ])
       expect(statements(read(rel), '<PanelGalOptions'), rel).toHaveLength(1);
   });
@@ -146,10 +153,10 @@ describe('the black background is still read and never written', () => {
     for (const [name, src] of [
       ['DrawingSheetEditor.tsx', EDITOR],
       ['PanelPlEditorDisplayOptions.tsx', DS_DISPLAY],
-      ['PanelPlEditorGrids.tsx', read('editors/drawingsheet/prefs/PanelPlEditorGrids.tsx')],
+      ['pl_editor.ts', read('../../pagelayout_editor/pl_editor.ts')],
       [
         'PanelPlEditorColorSettings.tsx',
-        read('editors/drawingsheet/prefs/PanelPlEditorColorSettings.tsx'),
+        read('../../pagelayout_editor/dialogs/panel_pl_editor_color_settings_ui.tsx'),
       ],
       ['PanelGalOptions.tsx', GAL_PANEL],
     ] as const) {
@@ -161,30 +168,65 @@ describe('the black background is still read and never written', () => {
 
   it('still reads the setting at load, as LoadSettings does', () => {
     // Removing the control must not remove the value: `SetDrawBgColor(
-    // cfg->m_BlackBackground ? BLACK : WHITE )` still runs.
-    expect(statements(EDITOR, 'plCfg.black_background')).toHaveLength(1);
-    expect(statements(EDITOR, 'blackBackground={blackBackground}')).toHaveLength(1);
+    // cfg->m_BlackBackground ? BLACK : WHITE )` still runs in the frame, and
+    // the page hands the same setting to DIALOG_PAGES_SETTINGS' preview.
+    expect(statements(EDITOR, 'blackBackground={plCfg.black_background}')).toHaveLength(1);
+    SetPgm(new PGM_BASE());
+    DS_DATA_MODEL.SetAltInstance(new DS_DATA_MODEL());
+    try {
+      const h = makeHarness(EDA_UNITS_INT.MM, 0, (c) => {
+        c.m_BlackBackground = true;
+      });
+      expect(h.frame.GetDrawBgColor()).toEqual(LEGACY_COLORS.BLACK);
+    } finally {
+      DS_DATA_MODEL.SetAltInstance(null);
+      SetPgm(null);
+    }
   });
 });
 
 describe('the editor opens the shared dialog, not one of its own', () => {
   it('imports the shell every other launcher imports', () => {
-    expect(statements(EDITOR, "from '../../dialogs/PreferencesDialog.js'")).toHaveLength(1);
-    expect(statements(EDITOR, '<PreferencesDialog')).toHaveLength(1);
+    // The dialog is the program's: the page hands it to the window.
+    const PAGE = read('editors/drawingsheet/DrawingSheetEditor.tsx');
+    expect(statements(PAGE, "from '../../dialogs/PreferencesDialog.js'")).toHaveLength(1);
+    expect(statements(PAGE, '<PreferencesDialog')).toHaveLength(1);
   });
 
-  it('lands ACTIONS::gridProperties on the Grids page, not on the book’s first', () => {
+  it('lands ACTIONS::gridProperties on the Grids page, not on the book’s first', async () => {
     // `COMMON_TOOLS::GridProperties` for FRAME_PL_EDITOR is nothing but
     // `ShowPreferences( _( "Grids" ), _( "Drawing Sheet Editor" ) )`
     // (`common/tool/common_tools.cpp:609-634`), so an Edit Grids... that opened
     // the book at Common would not be the action at all.
-    expect(statements(EDITOR, "setShowPrefs('ds-grids')")).toHaveLength(1);
-    // …while the menu item passes no page, as upstream passes wxEmptyString.
-    expect(statements(EDITOR, "setShowPrefs('default')")).toHaveLength(1);
-  });
+    SetPgm(new PGM_BASE());
+    DS_DATA_MODEL.SetAltInstance(new DS_DATA_MODEL());
+    try {
+      const h = makeHarness(EDA_UNITS_INT.MM);
+      const asked: [string, string][] = [];
+      h.frame.SetPreferencesPresenter((aPage, aParent) => asked.push([aPage, aParent]));
 
-  it('passes the mode through to the canvas instead of a boolean', () => {
-    expect(statements(EDITOR, 'crosshairMode={plCfg.window.cursor.crosshair}')).toHaveLength(1);
-    expect(statements(EDITOR, 'fullCrosshair')).toHaveLength(0);
+      h.mgr.RunAction(ACTIONS.gridProperties);
+      // `CallAfter( [&]() { ShowPreferences( … ); } )` (common_tools.cpp:612).
+      await settle();
+
+      expect(asked).toEqual([['Grids', 'Drawing Sheet Editor']]);
+      expect(pageFor('Grids', 'Drawing Sheet Editor')).toBe('ds-grids');
+    } finally {
+      DS_DATA_MODEL.SetAltInstance(null);
+      SetPgm(null);
+    }
+    // The page's presenter looks the named page up; the menu item passes none.
+    expect(statements(EDITOR, 'setPrefsOpen({ page: aPage, parent: aParentPage }),')).toHaveLength(
+      1,
+    );
+    expect(
+      statements(
+        read('editors/drawingsheet/DrawingSheetEditor.tsx'),
+        "{...(page === '' ? {} : { initialPage: pageFor(page, parent) })}",
+      ),
+    ).toHaveLength(1);
+    // The menu row runs ACTIONS::openPreferences, which COMMON_CONTROL answers
+    // with ShowPreferences( "", "" ) - into the presenter above.
+    expect(statements(EDITOR, 'toolManager: { RunAction: (a) => runAction(a) },')).toHaveLength(1);
   });
 });

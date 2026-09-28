@@ -8,19 +8,19 @@
  * derived from our port.
  */
 import { describe, expect, it } from 'vitest';
-import { SHAPE_T } from '@ziroeda/common/src/eda_shape.js';
-import { pcbIUScale } from '@ziroeda/common/src/eda_units.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { LIB_ID } from '@ziroeda/common/src/lib_id.js';
-import { UNITS_PROVIDER } from '@ziroeda/common/src/units_provider.js';
-import { FLIP_DIRECTION } from '@ziroeda/core/src/mirror.js';
-import { BOARD } from '@ziroeda/pcbnew/src/board.js';
-import { FOOTPRINT, FP_SMD } from '@ziroeda/pcbnew/src/footprint.js';
-import { PAD } from '@ziroeda/pcbnew/src/pad.js';
-import { PAD_ATTRIB, PAD_SHAPE } from '@ziroeda/pcbnew/src/padstack.js';
-import { PCB_SHAPE } from '@ziroeda/pcbnew/src/pcb_shape.js';
-import { PCB_TEXT } from '@ziroeda/pcbnew/src/pcb_text.js';
-import { PCB_TEXTBOX } from '@ziroeda/pcbnew/src/pcb_textbox.js';
+import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { LIB_ID } from '@ziroeda/common/lib_id.js';
+import { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
+import { FLIP_DIRECTION } from '@ziroeda/core/mirror.js';
+import { BOARD } from '@ziroeda/pcbnew/board.js';
+import { FOOTPRINT, FP_SMD } from '@ziroeda/pcbnew/footprint.js';
+import { PAD } from '@ziroeda/pcbnew/pad.js';
+import { PAD_ATTRIB, PAD_SHAPE } from '@ziroeda/pcbnew/padstack.js';
+import { PCB_SHAPE } from '@ziroeda/pcbnew/pcb_shape.js';
+import { PCB_TEXT } from '@ziroeda/pcbnew/pcb_text.js';
+import { PCB_TEXTBOX } from '@ziroeda/pcbnew/pcb_textbox.js';
 import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 

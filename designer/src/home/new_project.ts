@@ -8,7 +8,7 @@
  * anywhere.
  */
 
-import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/src/generator.js';
+import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/generator.js';
 import { isReservedRootName } from '../fs/chooser_places.js';
 import { basename } from '../fs/path.js';
 import type { PickedHomeFile } from './files.js';

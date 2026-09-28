@@ -52,7 +52,21 @@ import { fileURLToPath } from 'node:url';
 import { join, relative } from 'node:path';
 
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
-const SHELL_CSS = readFileSync(join(SRC, 'ui/shell.css'), 'utf8');
+/**
+ * The editor packages the file-structure pass moved UI into (09-28), counted
+ * under the editor area each file came from, so a font size that moved stays
+ * on its editor's row instead of leaving the scan (editors/schematic read 9
+ * against a baseline of 35 without one size having been removed).
+ */
+const MOVED_ROOTS: [string, (rel: string) => string][] = [
+  [fileURLToPath(new URL('../../../pcbnew', import.meta.url)), () => 'editors/pcb'],
+  [fileURLToPath(new URL('../../../3d-viewer', import.meta.url)), () => 'editors/pcb'],
+  [
+    fileURLToPath(new URL('../../../eeschema', import.meta.url)),
+    (rel) => (rel.startsWith('symbol_editor') ? 'editors/symbol' : 'editors/schematic'),
+  ],
+];
+const SHELL_CSS = readFileSync(join(SRC, '../../common/widgets/shell.css'), 'utf8');
 
 /** CSS defines `pt` against 96 dpi exactly, which is also this desktop's dpi. */
 const PT = 96 / 72;
@@ -221,7 +235,9 @@ const BASELINE: Record<string, number> = {
   // 12.5 on its checkbox; all four are Board Setup pages, and none of
   // `common/dialogs/panel_setup_netclasses.cpp` or `panel_embedded_files.cpp`
   // calls SetFont.
-  dialogs: 1,
+  // 1 -> 0 on 09-26: its one left for `common/dialogs` with the stage-1
+  // moves; this scan walks `designer/src` only, so `central_values` counts it.
+  dialogs: 0,
   // `editors/calculator` is absent because it is at ZERO: the calculator's
   // parity pass consumed the tokens and its own test pins the zero directly.
   // 14 before the unit-binder pass. MmField's literal "mm" span carried one
@@ -273,7 +289,20 @@ const BASELINE: Record<string, number> = {
   // board's real `DialogCopperZones` now, which states no size at all.
   // 61 -> 54: the DRC dialog rebuilt over the ERC dialog's chrome; its
   // predecessor's seven inline sizes (12 / 10.5 / 11.5 / 12.5 px) went with it.
-  'editors/pcb': 54,
+  // 54 -> 49 on 09-26: dialog_inspect_constraints.tsx's five inline sizes,
+  // gone with it for common/dialogs' DIALOG_BOOK_REPORTER.
+  // 49 -> 44 on 09-26: the Print dialog's five inline sizes, gone with it.
+  // 44 -> 41 on 09-26: the line-modification box's three.
+  // 41 -> 39: Create Array's rows share one row() and one input style, so
+  // the field and the count row no longer each state `fontSize: 12` twice.
+  // 39 -> 8 (pcbnew-file-structure-stage-a): the same pcbnew file-structure
+  // move central_values.test.ts's editors/pcb row describes — ~50 dialogs,
+  // panels and the appearance_controls widget carried their fontSize sites
+  // out to pcbnew/, which this scanner (designer/src only) does not walk.
+  // RESCANNED from this tree.
+  // 8 -> 39 (09-28): the scan now reads pcbnew/ and 3d-viewer/. The drop to 8
+  // was the file-structure move carrying sites out of view, not removing them.
+  'editors/pcb': 39,
   // 55 -> 50: the COLOR_SWATCH sweep's second half. Seven Clear buttons and
   // one `(using Schematic Editor colors)` hint each carried an inline
   // `fontSize: 11`, and none of them exists upstream - the swatch clears
@@ -295,12 +324,22 @@ const BASELINE: Record<string, number> = {
   // 46 -> 45: the Field Name Templates page's `fontSize: 12.5`, which went with
   // the duplicate table it was on — the shared panel states no size at all.
   // RESCANNED.
-  'editors/schematic': 45,
+  // 41 -> 35 (pcbnew-file-structure-stage-a): six literals left, in three
+  // already-landed passes this row was never lowered for. `1610f039`
+  // (Net Chains removed) took panel_setup_net_chains.tsx's four — 12.5, 12
+  // twice and 11.5 — and `dialog_create_net_chain.tsx`'s one 12.5.
+  // `1f0ebb2b` (Resolve Field Case Conflicts removed) took none: that dialog
+  // never stated a font size. `a56bb2cb` (SEARCH_PANE) took SearchPanel.tsx's
+  // `fontSize: '0.9em'` when the hand-rolled search bar it was on went. Five
+  // plus one is six; 41 - 6. RESCANNED from this tree.
+  'editors/schematic': 35,
   // 2 until the Symbol Editor parity pass deleted the invented
   // "Double-click a symbol..." hint that an empty SYMBOL_EDIT_FRAME does not
   // have; it carried an inline `fontSize: 14` and a `color: '#888'`.
   'editors/symbol': 1,
-  home: 5,
+  // 5 -> 1 on 09-26: the old About stub's 16/12/12/12, gone with it. The
+  // real dialog's one size is DIALOG_ABOUT_BASE's own `wxFont( 14, ... )`.
+  home: 1,
   mobile: 6,
   pcm: 10,
   // 157 until the Appearance panel pass. KIUI::GetInfoFont is one font for the
@@ -386,8 +425,18 @@ const BASELINE: Record<string, number> = {
   // ×3, 13 ×4, 14 ×3, 16, 18 and 22 — replaced by `--ui-font-size`,
   // `--ui-font-size-info` and a `calc()` off the former when the card became
   // the docked sign-in panel.
-  ui: 65,
-  widgets: 6,
+  // 65 -> 5 on 09-21: the shared widgets moved to `common/widgets`
+  // (KiCad's directory) and took their 60 with them; this scan walks
+  // `designer/src` only, so those are ratcheted by `central_values` from now on.
+  ui: 5,
+  // 6 -> 2: `a1a6ebff` (Manage Symbol / Footprint Libraries on the lib-table
+  // units) took six `fontSize` literals off dialog_fp_lib_table.tsx and
+  // dialog_sym_lib_table.tsx's "Available path substitutions" rows when they
+  // moved onto the shared lib-table unit, but this row was never lowered for
+  // it — it had sat at 6 unchanged since the ratchet's own seed
+  // (6cd2df62), so it was already stale before this pass touched it. What is
+  // left is entirely lib_table_panel.tsx, uncited. RESCANNED from this tree.
+  widgets: 2,
 };
 
 /**
@@ -444,12 +493,27 @@ function scan(): Site[] {
       else if (/\.(css|tsx|ts)$/.test(p)) files.push(p);
     }
   })(SRC);
+  for (const [root] of MOVED_ROOTS) {
+    (function walk(dir: string) {
+      for (const entry of readdirSync(dir)) {
+        if (entry === 'node_modules') continue;
+        const p = join(dir, entry);
+        if (statSync(p).isDirectory()) walk(p);
+        else if (/\.(css|tsx)$/.test(p)) files.push(p);
+      }
+    })(root);
+  }
 
   const sites: Site[] = [];
   for (const file of files) {
-    const rel = relative(SRC, file);
+    const moved = MOVED_ROOTS.find(([root]) => !relative(root, file).startsWith('..'));
+    const rel = moved ? relative(moved[0], file) : relative(SRC, file);
     const parts = rel.split('/');
-    const area = parts[0] === 'editors' ? `editors/${parts[1]}` : (parts[0] ?? '');
+    const area = moved
+      ? moved[1](rel)
+      : parts[0] === 'editors'
+        ? `editors/${parts[1]}`
+        : (parts[0] ?? '');
     const isCss = file.endsWith('.css');
     readFileSync(file, 'utf8')
       .split('\n')
@@ -649,7 +713,24 @@ describe('hardcoded font sizes do not grow', () => {
     // moves and 204 - 3 agrees with it.
     // 201 -> 194: the DRC dialog's seven; `editors/pcb` 61 -> 54 is the only
     // row that moves and 201 - 7 agrees with it.
-    expect(sites.length).toBe(194);
+    // 194 -> 134: the 60 that left with `ui`, see that row.
+    // 134 -> 130: the About stub's four; `home` 5 -> 1 is the only row that
+    // moves and 134 - 4 agrees with it.
+    // 130 -> 129: the `dialogs` one that moved out of this scan's reach.
+    // 129 -> 124: the old inspect box's five, see `editors/pcb`.
+    // 124 -> 119: the Print dialog's five, see `editors/pcb`.
+    // 119 -> 116: the line-modification box's three, see `editors/pcb`.
+    // 116 -> 112: the bus alias and BOM preset panels' 12.5px / 12px labels,
+    // now plain labels in the panel font as their wxStaticTexts are.
+    // 112 -> 100 (pcbnew-file-structure-stage-a): `editors/schematic` 41 -> 35
+    // and `widgets` 6 -> 2, both stale rather than new — see the two rows.
+    // 112 - 6 - 6 agrees with the rescan.
+    // 100 -> 69: `editors/pcb` 39 -> 8, see that row - the file-structure
+    // move is still running and keeps carrying this scanner's sites out to
+    // pcbnew/.
+    // 69 -> 100 (09-28): back to the pre-move figure, now that the scan reads
+    // the packages the move carried sites into. Nothing was removed.
+    expect(sites.length).toBe(100);
   });
 });
 
@@ -670,7 +751,7 @@ describe('hardcoded font sizes do not grow', () => {
  */
 describe('the shell root uses the font tokens, not a literal', () => {
   const shell = readFileSync(
-    fileURLToPath(new URL('../../../designer/src/ui/shell.css', import.meta.url)),
+    fileURLToPath(new URL('../../../common/widgets/shell.css', import.meta.url)),
     'utf8',
   );
 

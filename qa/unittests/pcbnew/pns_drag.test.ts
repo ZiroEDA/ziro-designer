@@ -17,15 +17,15 @@ import {
   dragSegment45,
   simplify,
   segmentCount,
-} from '@ziroeda/pcbnew/src/router/pns_line.js';
+} from '@ziroeda/pcbnew/router/pns_line.js';
 import {
   assembleLine,
   startTrackDrag,
   updateTrackDrag,
   applyTrackDrag,
   trackDragSegments,
-} from '@ziroeda/pcbnew/src/router/pns_drag.js';
-import type { Board, PcbTrack, PcbPad, PcbFootprint } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/router/pns_drag.js';
+import type { Board, PcbTrack, PcbPad, PcbFootprint } from '@ziroeda/pcbnew/types.js';
 
 const track = (
   start: { x: number; y: number },

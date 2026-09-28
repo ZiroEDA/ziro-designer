@@ -12,11 +12,11 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/src/index.js';
-import { readSchematic } from '@ziroeda/eeschema/src/sch_io/sexpr/read-schematic.js';
-import { autoplacedFields } from '@ziroeda/eeschema/src/tools/autoplace_fields.js';
-import type { Schematic, SchSymbol, LibSymbol } from '@ziroeda/eeschema/src/types.js';
-import { mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { parse } from '@ziroeda/sexpr/index.js';
+import { readSchematic } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
+import { autoplacedFields } from '@ziroeda/eeschema/autoplace_fields.js';
+import type { Schematic, SchSymbol, LibSymbol } from '@ziroeda/eeschema/types.js';
+import { mmToIU } from '@ziroeda/common/eda_units.js';
 import {
   symbolOrientation,
   SYM_MIRROR_X,
@@ -25,7 +25,7 @@ import {
   SYM_ORIENT_90,
   SYM_ORIENT_180,
   SYM_ORIENT_270,
-} from '@ziroeda/common/src/transform.js';
+} from '@ziroeda/kimath/src/transform.js';
 
 const OPTS = { allowRejustify: true, alignToGrid: true };
 

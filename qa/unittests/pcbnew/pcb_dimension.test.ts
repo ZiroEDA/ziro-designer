@@ -8,14 +8,14 @@
  * 0.2 mm line), not derived from our port.
  */
 import { describe, expect, it } from 'vitest';
-import { PCB_LAYER_ID } from '@ziroeda/common/src/layer_ids.js';
-import { FLIP_DIRECTION } from '@ziroeda/core/src/mirror.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { FLIP_DIRECTION } from '@ziroeda/core/mirror.js';
 import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import { EDA_ANGLE, EDA_ANGLE_T } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import type { SHAPE_CIRCLE } from '@ziroeda/kimath/src/geometry/shape_circle.js';
 import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import { SHAPE_SEGMENT } from '@ziroeda/kimath/src/geometry/shape_segment.js';
-import { BOARD } from '@ziroeda/pcbnew/src/board.js';
+import { BOARD } from '@ziroeda/pcbnew/board.js';
 import {
   PCB_DIM_ALIGNED,
   PCB_DIM_CENTER,
@@ -23,7 +23,7 @@ import {
   PCB_DIM_ORTHOGONAL,
   PCB_DIM_RADIAL,
   type PCB_DIMENSION_BASE,
-} from '@ziroeda/pcbnew/src/pcb_dimension.js';
+} from '@ziroeda/pcbnew/pcb_dimension.js';
 import {
   DIM_ARROW_DIRECTION,
   DIM_PRECISION,
@@ -31,7 +31,7 @@ import {
   DIM_TEXT_POSITION,
   DIM_UNITS_FORMAT,
   DIM_UNITS_MODE,
-} from '@ziroeda/pcbnew/src/pcb_dimension_types.js';
+} from '@ziroeda/pcbnew/pcb_dimension_types.js';
 
 const deg = (d: number) => new EDA_ANGLE(d, EDA_ANGLE_T.DEGREES_T);
 

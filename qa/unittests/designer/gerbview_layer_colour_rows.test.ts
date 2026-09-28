@@ -25,12 +25,17 @@ import {
   GERBER_LAYER_COLORS,
   defaultLayerColor,
   layerColorAt,
-} from '@ziroeda/designer/src/editors/gerbview/gerberColors.js';
+} from '../gerbview/builtin_theme_oracle.js';
 
-const FRAME = readFileSync(
+const PAGE = readFileSync(
   fileURLToPath(
     new URL('../../../designer/src/editors/gerbview/GerberViewer.tsx', import.meta.url),
   ),
+  'utf8',
+);
+
+const FRAME = readFileSync(
+  fileURLToPath(new URL('../../../gerbview/gerbview_frame_ui.tsx', import.meta.url)),
   'utf8',
 );
 
@@ -103,18 +108,20 @@ describe('the frame does not put a colour back on the file', () => {
   });
 
   it('every reader asks by row', () => {
-    // The three places a colour is read: the GL view, the layers manager rows
-    // and the active-layer combo.
-    expect(FRAME.match(/colorAt\(i\)|colorAt\(row\)/g)?.length).toBeGreaterThanOrEqual(2);
-    expect(FRAME).toContain('layerColorAt(row, layerColors)');
+    // The frame's COLOR_SETTINGS is keyed by GERBER_DRAW_LAYER( row ): the GAL
+    // reads it through the painter, the layers manager rows and the
+    // active-layer combo through GetLayerColor (GBR_LAYER_PRESENTATION).
+    expect(FRAME).toContain('toCss(frame.GetLayerColor(GERBER_DRAW_LAYER(i)))');
+    expect(FRAME).toContain('swatch: toCss(r.color)');
   });
 
   it('an override is stored by row, not on the layer', () => {
-    // setColor used to map over `layers` and rewrite the matching one. It is
-    // keyed by ROW — `graphicLayerKey( index )`, our spelling of
-    // `GERBER_DRAW_LAYER( aLayer )` (`gerbview_layer_widget.cpp:343`) — so the
-    // colour stays on the row when the layers are re-sorted.
-    expect(FRAME).toContain('graphicLayerKey(index)');
+    // GERBER_LAYER_WIDGET::OnLayerColorChange: SetLayerColor on
+    // GERBER_DRAW_LAYER( aLayer ) (`gerbview_layer_widget.cpp:343`), and the
+    // store keyed by `graphicLayerKey( row )`, so the colour stays on the row
+    // when the layers are re-sorted.
+    expect(FRAME).toContain('frame.SetLayerColor(GERBER_DRAW_LAYER(i), parseColor4d(color));');
+    expect(FRAME).toContain('[graphicLayerKey(i)]: color');
     expect(FRAME).not.toMatch(/setColor[\s\S]{0,200}layers\.map/);
   });
 
@@ -133,7 +140,10 @@ describe('the frame does not put a colour back on the file', () => {
    * manager had set, and the manager's colours died on reload.
    */
   it('the manager and Preferences write one store, not two', () => {
-    expect(FRAME).toContain('settings.setUserColors(');
+    // The window writes through GERBVIEW_APP; the page's SetUserColors is the
+    // settings manager's, the store Preferences > Colors writes too.
+    expect(FRAME).toContain('appRef.current.SetUserColors({');
+    expect(PAGE).toContain('SetUserColors: (c) => settings.setUserColors(c),');
     // Derived from that store rather than kept beside it: a second useState
     // would be the two-store bug again, one render later.
     expect(FRAME).not.toMatch(/useState<Record<number, string>>/);

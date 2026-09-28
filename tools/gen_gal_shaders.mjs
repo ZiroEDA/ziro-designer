@@ -5,8 +5,8 @@
  * Copy the OpenGL GAL's data shaders and lookup textures out of a KiCad
  * checkout, verbatim:
  *
- *   common/gal/shaders/smaa_base.glsl        -> common/src/gal/opengl/shaders/smaa_base.ts
- *   common/gal/opengl/SmaaAreaTex.h          -> common/src/gal/opengl/smaa_textures.ts
+ *   common/gal/shaders/smaa_base.glsl        -> common/gal/opengl/shaders/smaa_base.ts
+ *   common/gal/opengl/SmaaAreaTex.h          -> common/gal/opengl/smaa_textures.ts
  *   common/gal/opengl/SmaaSearchTex.h        -> (same file)
  *
  * smaa_base.glsl is the reference SMAA implementation (Jimenez et al.), which
@@ -22,7 +22,7 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const KICAD = resolve(process.argv[2] ?? '/home/akshay/kicad-reference');
-const OUT = join(HERE, '..', 'common/src/gal/opengl');
+const OUT = join(HERE, '..', 'common/gal/opengl');
 
 const HEADER = `// SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.

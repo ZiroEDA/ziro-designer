@@ -34,7 +34,7 @@
 import { idbHandle } from '../../home/idb_open.js';
 import { openRecord, sealRecord } from '../../home/local_vault.js';
 import { sha256Hex } from '../../cloud/blobStore.js';
-import { type Tessellation, tessellationBytes } from './occt_types.js';
+import { type Tessellation, tessellationBytes } from '@ziroeda/3d-viewer/occt_types.js';
 
 const DB_NAME = 'ziroeda-3dcache';
 const VERSION = 1;

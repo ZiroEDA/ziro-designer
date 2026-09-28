@@ -37,7 +37,7 @@ import {
   type InputPrefs,
   type WheelAction,
   type WheelInput,
-} from '@ziroeda/designer/src/ui/view_controls.js';
+} from '@ziroeda/common/ui/view_controls.js';
 
 /** A 1000x800 device-pixel canvas, big enough that the <768 margin rule is off. */
 const VIEWPORT = { width: 1000, height: 800 };

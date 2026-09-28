@@ -12,13 +12,13 @@
  * courtyard and on a rule area that disallows footprints.
  */
 import { describe, expect, it } from 'vitest';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/src/eda_units.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import {
   beginCourtyardConflicts,
   conflictShadowRings,
   courtyardConflictsAt,
-} from '@ziroeda/pcbnew/src/courtyard_collision.js';
-import type { Board, PcbFootprint, PcbPad, PcbShape, PcbZone } from '@ziroeda/pcbnew/src/types.js';
+} from '@ziroeda/pcbnew/courtyard_collision.js';
+import type { Board, PcbFootprint, PcbPad, PcbShape, PcbZone } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 

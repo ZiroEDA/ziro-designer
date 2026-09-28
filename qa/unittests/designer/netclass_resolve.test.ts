@@ -6,10 +6,7 @@
  * NETCLASS::ContainsNetclassWithName searches.
  */
 import { describe, it, expect } from 'vitest';
-import {
-  netClassFor,
-  netclassesForNet,
-} from '@ziroeda/designer/src/editors/pcb/netclass_resolve.js';
+import { netClassFor, netclassesForNet } from '@ziroeda/pcbnew/netclass_resolve.js';
 
 const ASSIGNMENTS = [
   { pattern: 'VBUS', netClass: 'Power' },

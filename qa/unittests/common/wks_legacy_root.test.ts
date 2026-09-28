@@ -28,8 +28,8 @@ import {
   serializeDrawingSheet,
   type WksText,
   type WksSheet,
-} from '@ziroeda/common/src/drawing_sheet/index.js';
-import { WKS_FILE_VERSION } from '@ziroeda/common/src/drawing_sheet/types.js';
+} from '@ziroeda/common/drawing_sheet/index.js';
+import { WKS_FILE_VERSION } from '@ziroeda/common/drawing_sheet/types.js';
 
 const LEGACY = readFileSync(
   join(import.meta.dirname, '../../data/pagelayout_logo.kicad_wks'),

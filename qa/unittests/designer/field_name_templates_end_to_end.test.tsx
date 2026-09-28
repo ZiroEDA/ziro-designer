@@ -34,13 +34,13 @@ import type { EeschemaSettings } from '@ziroeda/designer/src/prefs/settings.js';
 import type { PrefsContext } from '@ziroeda/designer/src/dialogs/prefs/types.js';
 import { transferTemplateFieldnamesPage } from '@ziroeda/designer/src/editors/schematic/prefs/resets.js';
 import { resolveTemplateFieldnames } from '@ziroeda/designer/src/editors/schematic/template_fieldnames.js';
-import { rowsFromSymbol } from '@ziroeda/designer/src/editors/schematic/symbol_props_rows.js';
+import { rowsFromSymbol } from '@ziroeda/eeschema/fields_grid_table.js';
 import {
   buildFieldsReferences,
   FieldsDataModel,
   loadFieldNames,
   symbolTextVarResolver,
-} from '@ziroeda/eeschema/src/tools/fields_data_model.js';
+} from '@ziroeda/eeschema/fields_data_model.js';
 import { readSchematic } from '@ziroeda/eeschema';
 import { parse } from '@ziroeda/sexpr';
 
@@ -66,7 +66,7 @@ describe('the page edits the GLOBAL list, which is eeschema.json’s', () => {
         ctx={ctxFor(settingsWith([{ name: 'MPN', visible: true, url: false }]))}
       />,
     );
-    expect(screen.getByDisplayValue('MPN')).toBeTruthy();
+    expect(screen.getByText('MPN')).toBeTruthy();
   });
 
   /** `m_title->SetLabel( _( "Global Field Name Templates" ) )` (`:50`). */
@@ -78,7 +78,12 @@ describe('the page edits the GLOBAL list, which is eeschema.json’s', () => {
   it('writes an edit back into drawing.field_names and nowhere else', () => {
     const s = settingsWith([{ name: 'MPN', visible: false, url: false }]);
     render(<PanelTemplateFieldnames ctx={ctxFor(s)} />);
-    fireEvent.change(screen.getByDisplayValue('MPN'), { target: { value: 'Manufacturer' } });
+    const td = screen.getByText('MPN').closest('td') as HTMLElement;
+    fireEvent.mouseDown(td, { button: 0 });
+    fireEvent.mouseUp(td);
+    const input = td.querySelector('input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'Manufacturer' } });
+    fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' });
     expect(s.drawing.field_names).toEqual([{ name: 'Manufacturer', visible: false, url: false }]);
   });
 });
@@ -162,8 +167,10 @@ describe('a ${TEMPLATE} token on a symbol that has no such field is empty', () =
    * not been given that field yet, which is every symbol the moment a template
    * is added.
    */
-  const resolve = (token: string, templates: readonly { name: string }[]): string | undefined =>
-    symbolTextVarResolver(REFS[0]!, undefined, templates)(token);
+  const resolve = (token: string, templates: readonly { name: string }[]): string | undefined => {
+    const t = { value: token };
+    return symbolTextVarResolver(REFS[0]!, undefined, templates)(t) ? t.value : undefined;
+  };
 
   it('answers empty for a template name', () => {
     expect(resolve('MPN', resolveTemplateFieldnames(PROJECT, GLOBAL))).toBe('');

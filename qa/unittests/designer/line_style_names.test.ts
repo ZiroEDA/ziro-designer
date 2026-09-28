@@ -37,7 +37,7 @@ import {
   WIRE_STYLE_NAMES,
   lineStyleComboValue,
   lineStyleLabel,
-} from '@ziroeda/common/src/stroke_params.js';
+} from '@ziroeda/common/stroke_params.js';
 
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
@@ -47,36 +47,36 @@ const D = '../../../designer/src/editors/';
 /** Every place that used to carry its own copy of the list. */
 const CALL_SITES: Record<string, string> = {
   'schematic/dialogs/dialog_shape_properties.tsx': read(
-    `${D}schematic/dialogs/dialog_shape_properties.tsx`,
+    `../../../eeschema/dialogs/dialog_shape_properties.tsx`,
   ),
   'schematic/dialogs/dialog_line_properties.tsx': read(
-    `${D}schematic/dialogs/dialog_line_properties.tsx`,
+    `../../../eeschema/dialogs/dialog_line_properties.tsx`,
   ),
   'schematic/dialogs/dialog_text_properties.tsx': read(
-    `${D}schematic/dialogs/dialog_text_properties.tsx`,
+    `../../../eeschema/dialogs/dialog_text_properties.tsx`,
   ),
   'schematic/dialogs/dialog_global_edit_text_and_graphics.tsx': read(
-    `${D}schematic/dialogs/dialog_global_edit_text_and_graphics.tsx`,
+    `../../../eeschema/dialogs/dialog_global_edit_text_and_graphics.tsx`,
   ),
   'schematic/net_overrides.ts': read(`${D}schematic/net_overrides.ts`),
-  'schematic/schematic_settings.ts': read(`${D}schematic/schematic_settings.ts`),
+  'eeschema/schematic_settings.ts': read('../../../eeschema/schematic_settings.ts'),
   'pcb/dialogs/dialog_graphic_properties.tsx': read(
-    `${D}pcb/dialogs/dialog_graphic_properties.tsx`,
+    `../../../pcbnew/dialogs/dialog_graphic_properties.tsx`,
   ),
   'pcb/dialogs/dialog_textbox_properties.tsx': read(
-    `${D}pcb/dialogs/dialog_textbox_properties.tsx`,
+    `../../../pcbnew/dialogs/dialog_textbox_properties_ui.tsx`,
   ),
   // Was `schematic/dialogs/dialog_table_properties.tsx` AND
   // `pcb/dialogs/dialog_table_properties.tsx`. DIALOG_TABLE_PROPERTIES is one
   // dialog upstream, opened by both editors, so the two copies became
   // `ui/DialogTableProperties.tsx` and the Line Style combo with them — one
   // call site now, which is what this rule is for.
-  'ui/DialogTableProperties.tsx': read('../../../designer/src/ui/DialogTableProperties.tsx'),
-  // Was `pcb/PcbEditor.tsx`. The Line Style row moved with the rest of the PCB
-  // property grid when pcbnew stopped keeping a private copy of
-  // PROPERTIES_PANEL: the rows are built in the pcbnew package now, so that is
-  // where the list is consumed and that is where this rule has to hold.
-  'pcbnew/src/properties_panel.ts': read('../../../pcbnew/src/properties_panel.ts'),
+  'common/dialogs/dialog_table_properties.tsx': read(
+    '../../../common/dialogs/dialog_table_properties.tsx',
+  ),
+  // `pcbnew/properties_panel.ts` left this list with the view-row panel: the
+  // live PCB_PROPERTIES_PANEL offers ENUM_MAP<LINE_STYLE>'s own choices, as
+  // upstream's property grid does, and holds no copy of lineTypeNames.
   'symbol/components/dialogs.tsx': read(`${D}symbol/components/dialogs.tsx`),
 };
 
@@ -156,7 +156,8 @@ describe('the properties manager choices', () => {
 describe('every dialog that lists line styles', () => {
   it('takes them from the shared table', () => {
     for (const [name, src] of Object.entries(CALL_SITES)) {
-      expect(src, name).toMatch(/from '@ziroeda\/common\/src\/stroke_params\.js'/);
+      // The shared dialog lives in common and imports the table relatively.
+      expect(src, name).toMatch(/from '(?:@ziroeda\/common\/|\.\.\/)stroke_params\.js'/);
       expect(src, name).toMatch(/LINE_STYLE_NAMES|WIRE_STYLE_NAMES|LINE_STYLE_CHOICES/);
     }
   });

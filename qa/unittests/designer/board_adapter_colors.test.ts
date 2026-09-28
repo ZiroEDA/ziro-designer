@@ -22,12 +22,12 @@ import {
   findColor,
   mix,
   stackupColors,
-} from '@ziroeda/designer/src/editors/pcb/board_adapter_colors.js';
+} from '@ziroeda/3d-viewer/board_adapter_colors.js';
 import {
   defaultBoardFinish,
   defaultPhysicalStackup,
   type PhysicalStackup,
-} from '@ziroeda/designer/src/editors/pcb/board_settings.js';
+} from '@ziroeda/pcbnew/board_settings.js';
 
 const ch = (v: number): number => v / 255;
 
