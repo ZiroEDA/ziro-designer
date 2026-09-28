@@ -25,6 +25,15 @@
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import type { Board, PcbZone } from '../types.js';
 import type { ZoneBorderStyle, ZoneValueError } from './dialog_rule_area_properties.js';
+import { LSET_Name } from '@ziroeda/common/layer_ids.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import type { PCB_BASE_EDIT_FRAME } from '../pcb_base_edit_frame.js';
+import { layerSetOfTokens, layerTokens } from '../pcb_io/kicad_sexpr/board_view.js';
+import type { ZONE } from '../zone.js';
+import { ZONE_BORDER_DISPLAY_STYLE, ZONE_FILL_MODE, ZONE_SETTINGS } from '../zone_settings.js';
+import type { TransferResult } from './dialog_text_properties.js';
+import { editZoneParamsCommit } from './panel_zone_properties.js';
 
 /** ZONE_BORDER_HATCH_{DIST,MINDIST,MAXDIST}_MM (pcbnew/zones.h:34-36). */
 const BORDER_HATCH_DEFAULT = mmToIU(0.5);
@@ -158,4 +167,112 @@ export function applyNonCopperZoneValues(
   };
 
   return { ...board, zones: board.zones.map((z, i) => (i === index ? next : z)) };
+}
+
+// ---------------------------------------------------------------------------
+// The live dialog: DIALOG_NON_COPPER_ZONES_EDITOR on a ZONE (#636 stage 6)
+// ---------------------------------------------------------------------------
+
+const OUTLINE_DISPLAY: readonly [ZoneBorderStyle, ZONE_BORDER_DISPLAY_STYLE][] = [
+  ['none', ZONE_BORDER_DISPLAY_STYLE.NO_HATCH],
+  ['edge', ZONE_BORDER_DISPLAY_STYLE.DIAGONAL_EDGE],
+  ['full', ZONE_BORDER_DISPLAY_STYLE.DIAGONAL_FULL],
+];
+
+const SMOOTHING: readonly NonCopperZoneValues['cornerSmoothing'][] = ['none', 'chamfer', 'fillet'];
+
+/**
+ * `DIALOG_NON_COPPER_ZONES_EDITOR` (dialog_non_copper_zones_properties.cpp)
+ * on a live non-copper ZONE, as `PCB_EDIT_FRAME::Edit_Zone_Params` drives it
+ * (edit_zone_helpers.cpp:54-58): the board's default zone settings with the
+ * zone read over them, TransferDataToWindow (:188-250) and
+ * TransferDataFromWindow (:287-373), then the shared commit tail
+ * ({@link editZoneParamsCommit}), "Edit Zone Properties".
+ */
+export class DIALOG_NON_COPPER_ZONES_EDITOR {
+  private readonly m_frame: PCB_BASE_EDIT_FRAME;
+  private readonly m_zone: ZONE;
+  private readonly m_settings: ZONE_SETTINGS;
+
+  constructor(aFrame: PCB_BASE_EDIT_FRAME, aZone: ZONE) {
+    this.m_frame = aFrame;
+    this.m_zone = aZone;
+    this.m_settings = aFrame.GetDesignSettings().GetDefaultZoneSettings().clone();
+    this.m_settings.importFrom(aZone);
+  }
+
+  TransferDataToWindow(): NonCopperZoneValues {
+    const s = this.m_settings;
+    const layers = s.m_Layers;
+    const copperLayerCount = this.m_zone.GetBoard()?.GetCopperLayerCount() ?? 2;
+
+    // Gives a reasonable value to grid style parameters, if currently there are no defined
+    // parameters for grid pattern thickness and gap (if the value is 0)
+    let hatchWidth = s.m_HatchThickness;
+
+    if (hatchWidth <= 0) hatchWidth = Math.max(s.m_ZoneMinThickness * 4, mmToIU(1.0));
+
+    let hatchGap = s.m_HatchGap;
+
+    if (hatchGap <= 0) hatchGap = Math.max(s.m_ZoneMinThickness * 6, mmToIU(1.5));
+
+    return {
+      layers:
+        layers.count() > 1
+          ? layerTokens(layers, copperLayerCount, true, layers.and(LSET.AllCuMask()).any())
+          : layers.Seq().map((l) => LSET_Name(l)),
+      locked: s.m_Locked,
+      // INVISIBLE_BORDER is "not used for standard zones": the choice stays on its first row.
+      hatchStyle: OUTLINE_DISPLAY.find(([, d]) => d === s.m_ZoneBorderDisplayStyle)?.[0] ?? 'none',
+      hatchPitch: s.m_BorderHatchPitch,
+      cornerSmoothing: SMOOTHING[s.GetCornerSmoothingType()] ?? 'none',
+      cornerRadius: s.GetCornerRadius(),
+      minThickness: s.m_ZoneMinThickness,
+      fillMode: s.m_FillMode === ZONE_FILL_MODE.HATCH_PATTERN ? 'hatch' : 'solid',
+      hatchThickness: Math.max(hatchWidth, s.m_ZoneMinThickness),
+      hatchGap: Math.max(hatchGap, s.m_ZoneMinThickness),
+      hatchOrientation: s.m_HatchOrientation.AsDegrees(),
+      hatchSmoothingLevel: s.m_HatchSmoothingLevel,
+      hatchSmoothingValue: s.m_HatchSmoothingValue,
+    };
+  }
+
+  TransferDataFromWindow(v: NonCopperZoneValues): TransferResult {
+    const s = this.m_settings;
+
+    s.SetCornerSmoothingType(Math.max(0, SMOOTHING.indexOf(v.cornerSmoothing)));
+    s.SetCornerRadius(
+      s.GetCornerSmoothingType() === ZONE_SETTINGS.SMOOTHING_NONE ? 0 : v.cornerRadius,
+    );
+    s.m_ZoneMinThickness = v.minThickness;
+
+    const outline = OUTLINE_DISPLAY.find(([name]) => name === v.hatchStyle);
+    if (outline) s.m_ZoneBorderDisplayStyle = outline[1];
+
+    if (v.hatchPitch < BORDER_HATCH_MIN || v.hatchPitch > BORDER_HATCH_MAX) return { ok: false };
+
+    s.m_BorderHatchPitch = v.hatchPitch;
+    s.m_FillMode = v.fillMode === 'hatch' ? ZONE_FILL_MODE.HATCH_PATTERN : ZONE_FILL_MODE.POLYGONS;
+
+    if (s.m_FillMode === ZONE_FILL_MODE.HATCH_PATTERN) {
+      if (v.hatchThickness < v.minThickness) return { ok: false };
+      if (v.hatchGap < v.minThickness) return { ok: false };
+    }
+
+    s.m_HatchOrientation = new EDA_ANGLE(v.hatchOrientation);
+    s.m_HatchThickness = v.hatchThickness;
+    s.m_HatchGap = v.hatchGap;
+    s.m_HatchSmoothingLevel = v.hatchSmoothingLevel;
+    s.m_HatchSmoothingValue = v.hatchSmoothingValue;
+    s.m_Locked = v.locked;
+
+    // Get the layer selection for this zone
+    s.m_Layers = layerSetOfTokens(v.layers);
+
+    if (s.m_Layers.none()) return { ok: false, message: NO_LAYER_SELECTED };
+
+    editZoneParamsCommit(this.m_frame, this.m_zone, s);
+
+    return { ok: true };
+  }
 }
