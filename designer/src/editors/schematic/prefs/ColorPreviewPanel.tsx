@@ -22,7 +22,7 @@ import { DEFAULT_RENDER_OPTS, renderSchematic, paperSizeIU } from '../render/ren
 import type { RenderOpts, Viewport } from '../render/renderer.js';
 import { commonInputPrefs, wheelAction } from '@ziroeda/common/ui/view_controls.js';
 import { COLOR_PREVIEW_SCHEMATIC, COLOR_PREVIEW_SELECTION } from './color_preview_schematic.js';
-import type { Theme } from '../theme.js';
+import type { Theme } from '@ziroeda/eeschema/sch_render_settings.js';
 
 /**
  * `zoomFitPreview` (`panel_eeschema_color_settings.cpp:507-526`):

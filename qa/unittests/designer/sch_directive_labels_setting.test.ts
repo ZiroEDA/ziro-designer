@@ -25,7 +25,7 @@ import {
   renderSchematic,
   setVectorText,
 } from '@ziroeda/designer/src/editors/schematic/render/renderer.js';
-import { KICAD_DEFAULT } from '@ziroeda/designer/src/editors/schematic/theme.js';
+import { KICAD_DEFAULT } from '@ziroeda/eeschema/sch_render_settings.js';
 import { EESCHEMA_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
 
 /** Records every colour that reached the canvas. */

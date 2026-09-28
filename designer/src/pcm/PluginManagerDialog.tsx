@@ -19,7 +19,7 @@
 import { useMemo, useState, type JSX } from 'react';
 import { settings } from '../prefs/settings.js';
 import { isRuntimeKind, latestVersion, pcm, pcmThemeId, usePcmVersion } from './pcmStore.js';
-import { themeFromLayerCss } from '../editors/schematic/theme.js';
+import { themeFromLayerCss } from '@ziroeda/eeschema/sch_render_settings.js';
 import type { PackageKind, PackageState, RepoPackage, Repository } from './types.js';
 import './pcm.css';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';

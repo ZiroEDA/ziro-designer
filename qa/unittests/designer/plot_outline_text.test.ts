@@ -23,7 +23,7 @@ import {
   sheetToPs,
   sheetToSvg,
 } from '@ziroeda/designer/src/editors/schematic/render/plot.js';
-import { KICAD_DEFAULT } from '@ziroeda/designer/src/editors/schematic/theme.js';
+import { KICAD_DEFAULT } from '@ziroeda/eeschema/sch_render_settings.js';
 import {
   getOutlineFont,
   installOutlineFontProvider,

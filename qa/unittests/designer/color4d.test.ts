@@ -24,7 +24,7 @@ import {
   parseColor4d,
   toCss,
 } from '@ziroeda/common';
-import { KICAD_CLASSIC, KICAD_DEFAULT } from '@ziroeda/designer/src/editors/schematic/theme.js';
+import { KICAD_CLASSIC, KICAD_DEFAULT } from '@ziroeda/eeschema/sch_render_settings.js';
 
 describe('parsing the forms the themes are written in', () => {
   it('reads rgb() and rgba()', () => {

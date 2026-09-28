@@ -70,7 +70,7 @@ import {
   imagePPI,
   iuPerPixel,
 } from '@ziroeda/eeschema';
-import type { Theme } from '../theme.js';
+import type { Theme } from '@ziroeda/eeschema/sch_render_settings.js';
 import {
   backgroundLayerFill,
   brightened,

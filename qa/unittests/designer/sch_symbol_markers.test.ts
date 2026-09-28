@@ -23,7 +23,7 @@ import {
   renderSchematic,
   setVectorText,
 } from '@ziroeda/designer/src/editors/schematic/render/renderer.js';
-import { KICAD_DEFAULT } from '@ziroeda/designer/src/editors/schematic/theme.js';
+import { KICAD_DEFAULT } from '@ziroeda/eeschema/sch_render_settings.js';
 import {
   DNP_MARKER_STROKE_WIDTH,
   SIM_EXCLUSION_STROKE_WIDTH,

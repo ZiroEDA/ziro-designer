@@ -16,7 +16,7 @@
  * file (`COLOR_BUILTIN_DEFAULT`, `color_settings.cpp:34-35`).
  */
 import { pcm } from '../pcm/pcmStore.js';
-import { KICAD_DEFAULT, type Theme } from '../editors/schematic/theme.js';
+import { KICAD_DEFAULT, type Theme } from '@ziroeda/eeschema/sch_render_settings.js';
 import { themeByLayer } from '../editors/schematic/prefs/schColorLayers.js';
 import type { ThemeFile } from '@ziroeda/common/launch_ext.js';
 import { BOARD_COLOR_KEYS, type ThemeLayerId } from '@ziroeda/common/settings/color_theme_file.js';

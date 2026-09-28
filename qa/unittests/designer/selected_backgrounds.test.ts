@@ -59,9 +59,9 @@ import {
 import { Scene } from '@ziroeda/designer/src/render/gl/scene.js';
 import { sheetToSvg } from '@ziroeda/designer/src/editors/schematic/render/plot.js';
 import type { PlotOpts } from '@ziroeda/designer/src/editors/schematic/render/plot.js';
-import { KICAD_DEFAULT } from '@ziroeda/designer/src/editors/schematic/theme.js';
+import { KICAD_DEFAULT } from '@ziroeda/eeschema/sch_render_settings.js';
 import type { Schematic } from '@ziroeda/eeschema/types.js';
-import type { Theme } from '@ziroeda/designer/src/editors/schematic/theme.js';
+import type { Theme } from '@ziroeda/eeschema/sch_render_settings.js';
 
 /** Records every fill colour used, in order, and every filled rectangle. */
 function spy(): {

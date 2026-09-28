@@ -31,7 +31,7 @@ import { readSchematic } from '@ziroeda/eeschema';
 import { DEFAULT_RENDER_OPTS } from '@ziroeda/designer/src/editors/schematic/render/renderer.js';
 import { recordSchematicScene } from '@ziroeda/designer/src/render/gl/schematic_gl.js';
 import { Scene } from '@ziroeda/designer/src/render/gl/scene.js';
-import type { Theme } from '@ziroeda/designer/src/editors/schematic/theme.js';
+import type { Theme } from '@ziroeda/eeschema/sch_render_settings.js';
 
 /** Every colour the renderer asks for; only the background needs to differ. */
 const theme = new Proxy(

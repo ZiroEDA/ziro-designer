@@ -34,7 +34,7 @@ import {
   DS_PAGE_BORDER_COLOR,
   DS_SELECTED_COLOR,
 } from '@ziroeda/common';
-import { KICAD_DEFAULT } from '@ziroeda/designer/src/editors/schematic/theme.js';
+import { KICAD_DEFAULT } from '@ziroeda/eeschema/sch_render_settings.js';
 import { FRAME_TITLE_SEPARATOR, frameTitleName } from '@ziroeda/common/use_document_title.js';
 import { PL_EDITOR_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
 import { DEFAULT_GRID_INDEX, GRID_SIZE_LIST } from '@ziroeda/common/settings/grid_settings_ui.js';

@@ -13,7 +13,7 @@ import {
 } from 'react';
 import type { LibGraphic, LibPin, LibSymbol } from '@ziroeda/eeschema';
 import { EMPTY_SOURCE } from '@ziroeda/eeschema';
-import { KICAD_DEFAULT, type Theme } from '../schematic/theme.js';
+import { KICAD_DEFAULT, type Theme } from '@ziroeda/eeschema/sch_render_settings.js';
 import { drawSelectionArea, isBackgroundDark, selectionAreaColors } from '@ziroeda/common';
 import {
   EDIT_POINT_BORDER_SIZE,

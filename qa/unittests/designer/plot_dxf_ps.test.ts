@@ -13,7 +13,7 @@ import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic } from '@ziroeda/eeschema';
 import { sheetToDxf, sheetToPs } from '@ziroeda/designer/src/editors/schematic/render/plot.js';
-import { KICAD_DEFAULT } from '@ziroeda/designer/src/editors/schematic/theme.js';
+import { KICAD_DEFAULT } from '@ziroeda/eeschema/sch_render_settings.js';
 
 const SCH = `(kicad_sch (version 20231120) (generator "test") (paper "A4")
   (lib_symbols

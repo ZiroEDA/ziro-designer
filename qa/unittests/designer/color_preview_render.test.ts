@@ -24,11 +24,7 @@ import {
   setVectorText,
   type RenderOpts,
 } from '@ziroeda/designer/src/editors/schematic/render/renderer.js';
-import {
-  KICAD_CLASSIC,
-  KICAD_DEFAULT,
-  type Theme,
-} from '@ziroeda/designer/src/editors/schematic/theme.js';
+import { KICAD_CLASSIC, KICAD_DEFAULT, type Theme } from '@ziroeda/eeschema/sch_render_settings.js';
 import {
   COLOR_PREVIEW_SCHEMATIC,
   COLOR_PREVIEW_SELECTION,

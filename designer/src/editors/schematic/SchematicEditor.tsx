@@ -524,7 +524,7 @@ import {
   type PlotSink,
 } from './render/plot.js';
 import { DEFAULT_SETUP } from '@ziroeda/common/drawing_sheet/types.js';
-import { BUILTIN_THEMES } from './theme.js';
+import { BUILTIN_THEMES } from '@ziroeda/eeschema/sch_render_settings.js';
 import { ProgressDialog, nextPaint } from '@ziroeda/common/widgets/wx_progress_reporters.js';
 import type { ProgressSnapshot } from '@ziroeda/common/widgets/progress_reporter_snapshot.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';

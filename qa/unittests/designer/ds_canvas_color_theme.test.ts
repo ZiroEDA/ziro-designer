@@ -25,7 +25,7 @@ import { PGM_BASE, SetPgm } from '@ziroeda/common/pgm_base.js';
 import { EDA_UNITS_INT } from '@ziroeda/common/settings/app_settings.js';
 import { loadPlEditorColors } from '@ziroeda/pagelayout_editor/pl_editor_settings_bridge.js';
 import { colorSettingsFor } from '@ziroeda/designer/src/editors/drawingsheet/DrawingSheetEditor.js';
-import { KICAD_CLASSIC, KICAD_DEFAULT } from '@ziroeda/designer/src/editors/schematic/theme.js';
+import { KICAD_CLASSIC, KICAD_DEFAULT } from '@ziroeda/eeschema/sch_render_settings.js';
 import { settings } from '@ziroeda/designer/src/prefs/settings.js';
 import { type Harness, makeHarness } from '../pagelayout_editor/pl_editor_fixture.js';
 

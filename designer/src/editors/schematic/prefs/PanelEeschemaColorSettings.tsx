@@ -30,7 +30,12 @@ import {
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
 import { usePcmVersion } from '../../../pcm/pcmStore.js';
 import { colorSettingsById } from '../../../prefs/color_settings_list.js';
-import { BUILTIN_THEMES, KICAD_DEFAULT, type Theme, themeFromLayerCss } from '../theme.js';
+import {
+  BUILTIN_THEMES,
+  KICAD_DEFAULT,
+  type Theme,
+  themeFromLayerCss,
+} from '@ziroeda/eeschema/sch_render_settings.js';
 import { ColorPreviewPanel } from './ColorPreviewPanel.js';
 import { BUILTIN_CLASSIC_THEME, BUILTIN_DEFAULT_THEME, type Color4d } from '@ziroeda/common';
 import { COLOR4D_UNSPECIFIED, parseColor4d, toCssColor } from '@ziroeda/common/gal/color4d.js';

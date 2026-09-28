@@ -31,7 +31,7 @@ import {
 } from '@ziroeda/designer/src/editors/schematic/render/renderer.js';
 import { recordSchematicScene } from '@ziroeda/designer/src/render/gl/schematic_gl.js';
 import { Scene } from '@ziroeda/designer/src/render/gl/scene.js';
-import type { Theme } from '@ziroeda/designer/src/editors/schematic/theme.js';
+import type { Theme } from '@ziroeda/eeschema/sch_render_settings.js';
 import { movingIds } from '@ziroeda/designer/src/editors/schematic/moving_ids.js';
 
 const SCALE = 0.00002;

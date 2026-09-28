@@ -43,7 +43,7 @@ import {
   renderSymbolScene,
   type SymbolViewOptions,
 } from '@ziroeda/designer/src/editors/symbol/render/symbolRenderer.js';
-import { KICAD_DEFAULT } from '@ziroeda/designer/src/editors/schematic/theme.js';
+import { KICAD_DEFAULT } from '@ziroeda/eeschema/sch_render_settings.js';
 import {
   defaultSelectionFilter,
   selectionFilterAll,

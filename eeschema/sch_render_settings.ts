@@ -2,7 +2,9 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * The schematic's view of KiCad's built-in colour themes.
+ * SCH_RENDER_SETTINGS (`eeschema/sch_render_settings.{h,cpp}`): the
+ * schematic's view of KiCad's built-in colour themes. (Was
+ * `designer/src/editors/schematic/theme.ts`.)
  *
  * The colours themselves are NOT defined here. They live once, for every
  * editor, in `@ziroeda/common/settings/builtin_color_themes.ts` — a

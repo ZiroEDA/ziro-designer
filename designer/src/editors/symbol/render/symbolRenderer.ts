@@ -29,7 +29,7 @@ import { textWidth } from '@ziroeda/common/font/font_provider.js';
 import { getOutlineFont } from '@ziroeda/common/font/outline_fonts.js';
 import { drawOutlineText } from '@ziroeda/common/font/draw_outline_text.js';
 import { ITALIC_TILT } from '@ziroeda/eeschema';
-import type { Theme } from '../../schematic/theme.js';
+import type { Theme } from '@ziroeda/eeschema/sch_render_settings.js';
 import {
   drawGrid,
   viewFromOffsets,
@@ -53,7 +53,7 @@ export const TARGET_PIN_RADIUS = 15 * MIL;
 // `SYMBOL_EDITOR_COLORS` used to live here: four RGB literals for
 // LAYER_SCHEMATIC_ANCHOR / LAYER_HIDDEN / LAYER_PRIVATE_NOTES / LAYER_FIELDS,
 // transcribed from the KiCad Default theme. All four are already named in
-// `editors/schematic/theme.ts` and resolved from the shared
+// `eeschema/sch_render_settings.ts` and resolved from the shared
 // `builtin_color_themes.ts`, so the copies bought nothing on Default and were
 // WRONG on Classic — where `LAYER_FIELDS` is `MAGENTA`, not (132, 0, 132).
 // They are `theme.anchor` / `theme.hidden` / `theme.privateNote` /

@@ -12,7 +12,7 @@
  * is how the footprint editor's Colors page ended up unable to write a theme
  * file at all.
  */
-import type { Theme } from '../theme.js';
+import type { Theme } from '@ziroeda/eeschema/sch_render_settings.js';
 import type { SchLayerId } from '@ziroeda/common/settings/color_theme_file.js';
 
 /** One row of `m_colorsGridSizer`: a swatch and the layer's name. */

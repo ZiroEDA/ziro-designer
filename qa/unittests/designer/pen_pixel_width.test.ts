@@ -40,7 +40,7 @@ import {
   renderSchematic,
   setVectorText,
 } from '@ziroeda/designer/src/editors/schematic/render/renderer.js';
-import { KICAD_DEFAULT } from '@ziroeda/designer/src/editors/schematic/theme.js';
+import { KICAD_DEFAULT } from '@ziroeda/eeschema/sch_render_settings.js';
 import {
   COLOR_PREVIEW_SCHEMATIC,
   COLOR_PREVIEW_SELECTION,

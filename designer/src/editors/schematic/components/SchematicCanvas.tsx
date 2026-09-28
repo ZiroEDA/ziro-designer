@@ -248,7 +248,7 @@ function notePaint(branch: 'preview' | 'ghostFull' | 'blit' | 'full' | 'gl', t0:
  * A stub wire added by the move exists only in the moved document, so it is
  * drawn by the preview and has nothing to hide from the background.
  */
-import { KICAD_DEFAULT, type Theme } from '../theme.js';
+import { KICAD_DEFAULT, type Theme } from '@ziroeda/eeschema/sch_render_settings.js';
 import { editPointColors } from '@ziroeda/common';
 import {
   EDIT_POINT_BORDER_SIZE,
