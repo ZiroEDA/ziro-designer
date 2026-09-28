@@ -33,9 +33,9 @@
  * saved.
  */
 import type { EdaUnits } from '@ziroeda/common/eda_units.js';
-import { parseBoardItemId } from './edit-board.js';
-import { updateDimension } from './dimension_text.js';
-import { isAlignedKind } from './types.js';
+import { parseBoardItemId } from '../edit-board.js';
+import { updateDimension } from '../dimension_text.js';
+import { isAlignedKind } from '../types.js';
 import type {
   Board,
   DimPrecision,
@@ -44,7 +44,7 @@ import type {
   DimUnitsFormat,
   DimUnitsMode,
   PcbDimension,
-} from './types.js';
+} from '../types.js';
 
 /** Every control on the dialog, flattened. */
 export interface DimensionValues {

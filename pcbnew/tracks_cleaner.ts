@@ -91,7 +91,7 @@ import { makeCleanupItem, type CleanupRcItem } from './cleanup_item.js';
 import { arcShape, viaLayers } from './drc/drc_engine_view.js';
 import { shapeDist, type Shape } from './drc/drc_geometry.js';
 import { boardItemId, deleteBoardItems } from './edit-board.js';
-import { groupLockedUuids } from './global_deletion.js';
+import { groupLockedUuids } from './dialogs/dialog_global_deletion.js';
 import { enabledCopperLayers } from './swap_layers.js';
 import type { Board, PcbTrack } from './types.js';
 

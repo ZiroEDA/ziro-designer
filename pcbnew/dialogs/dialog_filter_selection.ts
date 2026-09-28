@@ -13,8 +13,8 @@
  * "keep only what I ticked" rather than "remove what I unticked".
  */
 
-import { parseBoardItemId } from './edit-board.js';
-import type { Board } from './types.js';
+import { parseBoardItemId } from '../edit-board.js';
+import type { Board } from '../types.js';
 
 /** DIALOG_FILTER_SELECTION::OPTIONS. All default to true but locked footprints. */
 export interface SelectionFilter {

@@ -36,9 +36,9 @@
  * pixels, for an effect a user can get before importing. Left out rather than
  * half-done.
  */
-import { parseBoardItemId } from './edit-board.js';
-import { imageSizeIU } from './image_geometry.js';
-import type { Board, PcbImage } from './types.js';
+import { parseBoardItemId } from '../edit-board.js';
+import { imageSizeIU } from '../image_geometry.js';
+import type { Board, PcbImage } from '../types.js';
 
 /** Every control on the dialog, flattened. */
 export interface ImageValues {

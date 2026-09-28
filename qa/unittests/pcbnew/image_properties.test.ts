@@ -23,7 +23,7 @@ import {
   scaleForHeight,
   scaleForWidth,
   sizeForScale,
-} from '@ziroeda/pcbnew/image_properties.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_reference_image_properties.js';
 import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
 import type { Board, PcbImage } from '@ziroeda/pcbnew/types.js';

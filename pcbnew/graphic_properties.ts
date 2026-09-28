@@ -16,7 +16,7 @@
 
 import { parseBoardItemId } from './edit-board.js';
 import type { PcbFillMode } from './shape_fill.js';
-import { effectiveTextPenWidth, isAutoThickness } from './global_edit_text_and_graphics.js';
+import { effectiveTextPenWidth, isAutoThickness } from './dialogs/dialog_global_edit_text_and_graphics.js';
 import type { Board, PcbShape, PcbTextItem, StrokeType } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 

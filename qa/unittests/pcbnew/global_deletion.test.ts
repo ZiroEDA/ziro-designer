@@ -23,7 +23,7 @@ import {
   layerMatchesDrawingFilter,
   layerMatchesFilter,
   type GlobalDeletionOptions,
-} from '@ziroeda/pcbnew/global_deletion.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_global_deletion.js';
 import type {
   Board,
   PcbArcTrack,

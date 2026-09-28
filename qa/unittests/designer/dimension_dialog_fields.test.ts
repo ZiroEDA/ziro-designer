@@ -18,7 +18,7 @@ import { describe, expect, it } from 'vitest';
 import {
   applyDimensionValues,
   collectDimensionValues,
-} from '@ziroeda/pcbnew/dimension_properties.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_dimension_properties.js';
 import { startDimension } from '@ziroeda/pcbnew';
 import type { DimensionKind } from '@ziroeda/pcbnew/types.js';
 import { dimensionDialogFields } from '@ziroeda/designer/src/editors/pcb/dimension_tools.js';

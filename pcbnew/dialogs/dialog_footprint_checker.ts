@@ -76,7 +76,7 @@ import {
   type Polygon,
 } from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-import { allowsMissingCourtyard, buildCourtyard } from './courtyard.js';
+import { allowsMissingCourtyard, buildCourtyard } from '../courtyard.js';
 import {
   graphicShapes,
   likelyFootprintAttribute,
@@ -84,10 +84,10 @@ import {
   primitiveShapes,
   type DrcItemRef,
   type DrcViolation,
-} from './drc/drc_engine_view.js';
-import { segSeg, shapeBBox, shapeDist, type Shape } from './drc/drc_geometry.js';
-import { segmentsForRadius, shapeToPolygon } from './zone_filler.js';
-import type { PadPrimitive, PcbFootprint, PcbPad, PcbShape } from './types.js';
+} from '../drc/drc_engine_view.js';
+import { segSeg, shapeBBox, shapeDist, type Shape } from '../drc/drc_geometry.js';
+import { segmentsForRadius, shapeToPolygon } from '../zone_filler.js';
+import type { PadPrimitive, PcbFootprint, PcbPad, PcbShape } from '../types.js';
 
 /** `GetMaxError()`: the board's `m_MaxError`, whose default is ARC_HIGH_DEF. */
 const MAX_ERROR = mmToIU(0.005);

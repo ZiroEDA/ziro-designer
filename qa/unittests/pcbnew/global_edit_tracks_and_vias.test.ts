@@ -17,7 +17,7 @@ import {
   applyGlobalTrackViaEdit,
   countGlobalTrackViaTargets,
   passesGlobalTrackViaFilters,
-} from '@ziroeda/pcbnew/global_edit_tracks_and_vias.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_global_edit_tracks_and_vias.js';
 import type { Board, PcbVia } from '@ziroeda/pcbnew/types.js';
 
 const P = (x: number, y: number) => ({ x, y });

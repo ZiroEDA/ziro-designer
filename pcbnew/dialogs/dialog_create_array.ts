@@ -27,9 +27,9 @@ import {
   duplicateBoardItems,
   moveBoardItems,
   rotateBoardItemsBy,
-} from './edit-board.js';
+} from '../edit-board.js';
 import type { ARRAY_OPTIONS } from '@ziroeda/common/array_options.js';
-import type { Board } from './types.js';
+import type { Board } from '../types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 /** `const ARRAY_OPTIONS&`: a grid or a circular array. */

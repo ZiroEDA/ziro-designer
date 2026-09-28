@@ -50,7 +50,7 @@ import {
   applyFootprintValues,
   collectFootprintValues,
   type FootprintValues,
-} from './footprint_properties.js';
+} from './dialogs/dialog_footprint_properties.js';
 import { ZONE_CONNECTION_CHOICES } from './zone_connection.js';
 import { GetLayerName } from '@ziroeda/common/layer_ids.js';
 import { GetArcAngle } from '@ziroeda/common/eda_shape.js';
@@ -102,7 +102,7 @@ import {
   applyDimensionValues,
   collectDimensionValues,
   type DimensionValues,
-} from './dimension_properties.js';
+} from './dialogs/dialog_dimension_properties.js';
 import {
   applyImageValues,
   collectImageValues,
@@ -110,7 +110,7 @@ import {
   scaleForWidth,
   sizeForScale,
   type ImageValues,
-} from './image_properties.js';
+} from './dialogs/dialog_reference_image_properties.js';
 import { pcbMmToIU, type EdaUnits } from '@ziroeda/common/eda_units.js';
 import {
   RESERVED_FOOTPRINT_PROPERTIES,

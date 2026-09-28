@@ -27,7 +27,7 @@ import {
   moveExact,
   moveKeepsSelectionInBounds,
   polarTranslation,
-} from '@ziroeda/pcbnew/move_exact.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_move_exact.js';
 import type { Board, PcbShape, PcbTrack } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);

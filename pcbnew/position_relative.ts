@@ -18,7 +18,7 @@
  */
 
 import { moveBoardItems, parseBoardItemId } from './edit-board.js';
-import { itemAnchorPoint } from './move_exact.js';
+import { itemAnchorPoint } from './dialogs/dialog_move_exact.js';
 import type { Board } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 

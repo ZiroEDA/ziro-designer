@@ -360,7 +360,7 @@ export {
   FOOTPRINT_ATTRIBUTES,
   type FootprintValues,
   type FootprintAttribute,
-} from './footprint_properties.js';
+} from './dialogs/dialog_footprint_properties.js';
 export {
   padAt,
   collectPadValues,
@@ -442,7 +442,7 @@ export {
   arrayTransform,
   type ArraySpec,
   type CreateArrayResult,
-} from './create_array.js';
+} from './dialogs/dialog_create_array.js';
 
 export {
   outsetItems,
@@ -518,7 +518,7 @@ export {
   polarTranslation,
   type MoveExactOptions,
   type RotationAnchor,
-} from './move_exact.js';
+} from './dialogs/dialog_move_exact.js';
 
 export {
   allItemsState,
@@ -527,7 +527,7 @@ export {
   itemPassesFilter,
   setAllFilterItems,
   type SelectionFilter,
-} from './filter_selection.js';
+} from './dialogs/dialog_filter_selection.js';
 
 export {
   buildClearanceReport,
@@ -585,7 +585,7 @@ export {
   collectDimensionValues,
   applyDimensionValues,
   type DimensionValues,
-} from './dimension_properties.js';
+} from './dialogs/dialog_dimension_properties.js';
 
 export { textBoxCorners, textBoxBBox } from './textbox_geometry.js';
 
@@ -666,7 +666,7 @@ export {
   scaleForHeight,
   sizeForScale,
   type ImageValues,
-} from './image_properties.js';
+} from './dialogs/dialog_reference_image_properties.js';
 
 export {
   octagonalHull,
@@ -728,7 +728,7 @@ export {
   countGlobalTrackViaTargets,
   type GlobalTrackViaEditOptions,
   type GlobalTrackViaEditContext,
-} from './global_edit_tracks_and_vias.js';
+} from './dialogs/dialog_global_edit_tracks_and_vias.js';
 
 export {
   exportD356,
@@ -780,7 +780,7 @@ export {
   countGlobalDeletionTargets,
   DEFAULT_GLOBAL_DELETION_OPTIONS,
   type GlobalDeletionOptions,
-} from './global_deletion.js';
+} from './dialogs/dialog_global_deletion.js';
 
 export {
   padEnumerationNumber,
@@ -811,7 +811,7 @@ export {
   mapPadNumbersToNetTieGroups,
   getNetTiePads,
   type PadFinding,
-} from './footprint_checker.js';
+} from './dialogs/dialog_footprint_checker.js';
 
 export {
   textGfxLayerClass,
@@ -831,7 +831,7 @@ export {
   type DimensionDefaultsIU,
   type GlobalTextGfxOptions,
   type GlobalTextGfxContext,
-} from './global_edit_text_and_graphics.js';
+} from './dialogs/dialog_global_edit_text_and_graphics.js';
 
 export {
   isExternalCopperLayer,

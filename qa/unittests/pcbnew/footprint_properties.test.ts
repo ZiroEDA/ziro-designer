@@ -18,7 +18,7 @@ import {
   collectFootprintValues,
   footprintAt,
   type FootprintValues,
-} from '@ziroeda/pcbnew/footprint_properties.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_footprint_properties.js';
 import type { Board, PcbFootprint } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);

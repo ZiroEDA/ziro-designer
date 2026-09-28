@@ -20,8 +20,8 @@ import {
   parseBoardItemId,
   setFootprintField,
   setFootprintOrientation,
-} from './edit-board.js';
-import type { Board, PcbFootprint } from './types.js';
+} from '../edit-board.js';
+import type { Board, PcbFootprint } from '../types.js';
 
 /** FOOTPRINT_ATTR_T, in the order PCB_IO_KICAD_SEXPR writes them. */
 export const FOOTPRINT_ATTRIBUTES = [

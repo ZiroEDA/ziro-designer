@@ -12,7 +12,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
-import { arraySize, createArray } from '@ziroeda/pcbnew/create_array.js';
+import { arraySize, createArray } from '@ziroeda/pcbnew/dialogs/dialog_create_array.js';
 import { ARRAY_CIRCULAR_OPTIONS, ARRAY_GRID_OPTIONS } from '@ziroeda/common/array_options.js';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';

@@ -19,7 +19,7 @@ import {
   getNetTiePads,
   isNetTie,
   mapPadNumbersToNetTieGroups,
-} from '@ziroeda/pcbnew/footprint_checker.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_footprint_checker.js';
 import { readBoard } from '@ziroeda/pcbnew/read-board.js';
 import { parse } from '@ziroeda/sexpr/index.js';
 import type { PcbFootprint, PcbPad, PcbShape } from '@ziroeda/pcbnew/types.js';

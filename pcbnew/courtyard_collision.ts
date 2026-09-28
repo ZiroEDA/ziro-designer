@@ -35,7 +35,7 @@ import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { buildCourtyard } from './courtyard.js';
 import { shapeDist } from './drc/drc_geometry.js';
 import { footprintBBox } from './edit-footprint.js';
-import { padHoleSegment } from './footprint_checker.js';
+import { padHoleSegment } from './dialogs/dialog_footprint_checker.js';
 import type { Board, PcbFootprint } from './types.js';
 
 interface Box {

@@ -33,7 +33,7 @@
  * box would select nothing. The scope options below therefore expose no buried
  * flag rather than one that silently does nothing.
  */
-import type { Board, PcbArcTrack, PcbTrack, PcbVia } from './types.js';
+import type { Board, PcbArcTrack, PcbTrack, PcbVia } from '../types.js';
 
 /** Which items the dialog's Scope box lets through. */
 export interface GlobalTrackViaEditOptions {

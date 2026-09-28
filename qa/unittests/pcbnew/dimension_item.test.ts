@@ -33,8 +33,8 @@ import {
   isBoardItemLocked,
   moveBoardItems,
 } from '@ziroeda/pcbnew/edit-board.js';
-import { itemAnchorPoint } from '@ziroeda/pcbnew/move_exact.js';
-import { DEFAULT_SELECTION_FILTER, itemPassesFilter } from '@ziroeda/pcbnew/filter_selection.js';
+import { itemAnchorPoint } from '@ziroeda/pcbnew/dialogs/dialog_move_exact.js';
+import { DEFAULT_SELECTION_FILTER, itemPassesFilter } from '@ziroeda/pcbnew/dialogs/dialog_filter_selection.js';
 import { dimensionSegments } from '@ziroeda/pcbnew/dimension_geometry.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import type { Board } from '@ziroeda/pcbnew/types.js';

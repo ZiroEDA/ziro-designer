@@ -46,10 +46,10 @@
  * layer table are untouched, and an emptied group survives.
  */
 
-import { boardItemId, deleteBoardItems } from './edit-board.js';
-import { viaIsTented } from './exporters/export_d356.js';
-import { enabledCopperLayers, isCopperLayerName } from './swap_layers.js';
-import type { Board, PcbArcTrack, PcbShape, PcbTrack, PcbVia, PcbZone } from './types.js';
+import { boardItemId, deleteBoardItems } from '../edit-board.js';
+import { viaIsTented } from '../exporters/export_d356.js';
+import { enabledCopperLayers, isCopperLayerName } from '../swap_layers.js';
+import type { Board, PcbArcTrack, PcbShape, PcbTrack, PcbVia, PcbZone } from '../types.js';
 
 /**
  * One field per wxWidgets control, named after it, so the dialog↔engine mapping

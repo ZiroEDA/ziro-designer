@@ -27,9 +27,9 @@ import {
   moveBoardItems,
   parseBoardItemId,
   rotateBoardItemsBy,
-} from './edit-board.js';
-import { arcCenter } from './read-board.js';
-import type { Board, PcbShape } from './types.js';
+} from '../edit-board.js';
+import { arcCenter } from '../read-board.js';
+import type { Board, PcbShape } from '../types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 /** `ROTATION_ANCHOR` (dialog_move_exact.h). */

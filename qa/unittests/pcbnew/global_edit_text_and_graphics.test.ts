@@ -38,7 +38,7 @@ import {
   type GlobalTextGfxContext,
   type GlobalTextGfxOptions,
   type TextGfxDefaultsIU,
-} from '@ziroeda/pcbnew/global_edit_text_and_graphics.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_global_edit_text_and_graphics.js';
 import type { Board, PcbTextItem } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);

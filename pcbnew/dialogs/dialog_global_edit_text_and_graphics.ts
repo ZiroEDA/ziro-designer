@@ -78,8 +78,8 @@
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import { wildCompareString } from '@ziroeda/common/string_utils.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
-import { boardItemId } from './edit-board.js';
-import { isCopperLayerName } from './swap_layers.js';
+import { boardItemId } from '../edit-board.js';
+import { isCopperLayerName } from '../swap_layers.js';
 import type {
   PcbBarcode,
   Board,
@@ -93,7 +93,7 @@ import type {
   PcbTableCell,
   PcbTextBox,
   PcbTextItem,
-} from './types.js';
+} from '../types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 // ---------------------------------------------------------------------------

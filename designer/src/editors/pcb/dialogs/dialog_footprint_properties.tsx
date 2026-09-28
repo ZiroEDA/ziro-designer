@@ -10,12 +10,12 @@
  * One thing upstream has that is not here: the Fields grid, which edits each
  * field's text properties — that is DIALOG_TEXT_PROPERTIES work.
  *
- * The decision logic lives in `pcbnew/footprint_properties.ts`.
+ * The decision logic lives in `pcbnew/dialogs/dialog_footprint_properties.ts`.
  */
 
 import { useState, type JSX } from 'react';
 import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/eda_units.js';
-import type { FootprintValues } from '@ziroeda/pcbnew/footprint_properties.js';
+import type { FootprintValues } from '@ziroeda/pcbnew/dialogs/dialog_footprint_properties.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { pcbUnitText, pcbUnitValue, unitLabel } from '../pcb_unit_binder.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';

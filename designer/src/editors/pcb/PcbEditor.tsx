@@ -307,7 +307,7 @@ import {
   collectDimensionValues,
   dimensionAt,
   type DimensionValues,
-} from '@ziroeda/pcbnew/dimension_properties.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_dimension_properties.js';
 import { Reporter, type ReportLine } from '@ziroeda/common';
 import { netClassClearanceMM } from '@ziroeda/common';
 import {
@@ -436,7 +436,7 @@ import {
   collectFootprintValues,
   footprintAt,
   type FootprintValues,
-} from '@ziroeda/pcbnew/footprint_properties.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_footprint_properties.js';
 import { flipBoardItems, modificationPoint } from '@ziroeda/pcbnew/edit-board.js';
 import { zoneItemDescription } from '@ziroeda/pcbnew/item_description.js';
 import { DialogPadProperties } from './dialogs/dialog_pad_properties.js';
