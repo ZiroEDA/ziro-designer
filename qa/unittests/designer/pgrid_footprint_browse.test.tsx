@@ -26,8 +26,8 @@
  */
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, fireEvent, render } from '@testing-library/react';
-import { PropertiesPanel } from '@ziroeda/designer/src/widgets/properties_panel.js';
-import type { PropertyGridRow } from '@ziroeda/designer/src/widgets/properties_panel.js';
+import { PropertiesPanel } from '@ziroeda/common/widgets/properties_panel_ui.js';
+import type { PropertyGridRow } from '@ziroeda/common/widgets/properties_panel_ui.js';
 
 afterEach(cleanup);
 
