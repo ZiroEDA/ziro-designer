@@ -279,7 +279,7 @@ import { buildPcbMenus } from '@ziroeda/pcbnew/menubar_pcb_editor.js';
 import { Viewer3DFrame } from './Viewer3DFrame.js';
 import { dimensionDefaultsFrom, dimensionToolKind } from '@ziroeda/pcbnew/tools/drawing_tool.js';
 import { DialogDimensionProperties } from '@ziroeda/pcbnew/dialogs/dialog_dimension_properties_ui.js';
-import { DialogTextBoxProperties } from './dialogs/dialog_textbox_properties.js';
+import { DialogTextBoxProperties } from '@ziroeda/pcbnew/dialogs/dialog_textbox_properties_ui.js';
 import { DialogReferenceImageProperties } from '@ziroeda/pcbnew/dialogs/dialog_reference_image_properties_ui.js';
 import { DialogTableProperties } from '@ziroeda/common/dialogs/dialog_table_properties.js';
 import {
@@ -470,7 +470,7 @@ import { flipBoardItems, modificationPoint } from '@ziroeda/pcbnew/edit-board.js
 import { zoneItemDescription } from '@ziroeda/pcbnew/item_description.js';
 import { DialogPadProperties } from '@ziroeda/pcbnew/dialogs/dialog_pad_properties_ui.js';
 import { DialogShapeProperties } from '@ziroeda/pcbnew/dialogs/dialog_graphic_properties.js';
-import { DialogTextProperties } from './dialogs/dialog_text_properties.js';
+import { DialogTextProperties } from '@ziroeda/pcbnew/dialogs/dialog_text_properties_ui.js';
 import {
   applyTextValues,
   DIALOG_TEXT_PROPERTIES,
