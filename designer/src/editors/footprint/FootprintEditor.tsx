@@ -94,7 +94,10 @@ import {
 } from '@ziroeda/pcbnew/toolbars_footprint_editor.js';
 import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
 import { applyToggle, DEFAULT_TOGGLES } from '@ziroeda/pcbnew/footprint_edit_frame.js';
-import { FootprintCanvas, type FootprintCanvasController } from './FootprintCanvas.js';
+import {
+  FootprintCanvas,
+  type FootprintCanvasController,
+} from '@ziroeda/pcbnew/pcb_draw_panel_gal_ui.js';
 import { FootprintLibraryManager, fpNameOf, footprintsBase } from './libraryManager.js';
 import { projectFpLibTable, projectLibraryNickname } from '@ziroeda/common/fp_lib_table.js';
 import {

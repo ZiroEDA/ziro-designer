@@ -42,7 +42,7 @@ const count = (src: string, re: RegExp): number => (src.match(re) ?? []).length;
  * replaces its row here.
  */
 const GRID_OWNERS: [canvas: string, file: string][] = [
-  ['schematic', '../../eeschema/sch_painter.ts'],
+  ['schematic', 'editors/schematic/render/renderer.ts'],
   ['symbol editor', '../../eeschema/symbol_editor/symbol_renderer.ts'],
   ['footprint editor', '../../pcbnew/pcb_draw_panel_gal_ui.tsx'],
 ];

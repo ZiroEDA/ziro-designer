@@ -8,6 +8,11 @@
  * BOARD (footprintToBoard), exactly as pcbnew edits a footprint on an internal
  * board. Same crisp off-screen raster + delta-blit strategy as PcbEditor, and a
  * controller (zoomToFit/zoomIn/zoomOut/redraw) exposed via ref like SymbolCanvas.
+ *
+ * Moved from `designer/src/editors/footprint/FootprintCanvas.tsx`: it had no
+ * `designer/` import, and `footprint_edit_frame_ui.tsx` needs it from inside
+ * this package. The `_ui` suffix is the `cvpcb_mainframe.ts` / `_ui.tsx` split,
+ * beside the `PCB_DRAW_PANEL_GAL` logic port in `pcb_draw_panel_gal.ts`.
  */
 
 import type { Vec2 } from '@ziroeda/kimath';
@@ -38,7 +43,7 @@ import {
   drawGrid,
   type GridStyle,
 } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
-import { footprintToolCursor } from '@ziroeda/pcbnew/footprint_cursors.js';
+import { footprintToolCursor } from './footprint_cursors.js';
 import { clampViewScale } from '@ziroeda/common/settings/zoom_settings.js';
 import { zoomAreaTarget, type ZoomArea } from '@ziroeda/common/tool/zoom_tool.js';
 import {
@@ -47,8 +52,7 @@ import {
   type RulerPoint,
   type RulerUnits,
 } from '@ziroeda/common/preview_items/ruler_item.js';
-import { hitTestFootprint } from '@ziroeda/pcbnew';
-import { itemsInBox, fpItemBBox, type PcbFootprint } from '@ziroeda/pcbnew';
+import { hitTestFootprint, itemsInBox, fpItemBBox, type PcbFootprint } from './index.js';
 import {
   buildScene,
   buildDrawSteps,
@@ -57,18 +61,13 @@ import {
   DEFAULT_DRAW_OPTIONS,
   type BoardScene,
   type PcbDrawOptions,
-} from '@ziroeda/pcbnew/renderBoard.js';
-import {
-  PCB_BACKGROUND,
-  PCB_CURSOR,
-  PCB_GRID_AXES,
-  PCB_SPECIAL,
-} from '@ziroeda/pcbnew/pcbTheme.js';
+} from './renderBoard.js';
+import { PCB_BACKGROUND, PCB_CURSOR, PCB_GRID_AXES, PCB_SPECIAL } from './pcbTheme.js';
 import { drawSelectionArea, isBackgroundDark, selectionAreaColors } from '@ziroeda/common';
-import { FOOTPRINT_LAYERS, footprintToBoard } from '@ziroeda/pcbnew/footprint_edit_frame.js';
-import type { PcbLayerDef } from '@ziroeda/pcbnew/types.js';
-import { pcbGridOptions, PCB_DEFAULT_GRID_IU } from '@ziroeda/pcbnew/renderBoard.js';
-import { PCB_GRID_HELPER } from '@ziroeda/pcbnew/tools/pcb_grid_helper.js';
+import { FOOTPRINT_LAYERS, footprintToBoard } from './footprint_edit_frame.js';
+import type { PcbLayerDef } from './types.js';
+import { pcbGridOptions, PCB_DEFAULT_GRID_IU } from './renderBoard.js';
+import { PCB_GRID_HELPER } from './tools/pcb_grid_helper.js';
 
 export interface FootprintCanvasController {
   zoomToFit: () => void;

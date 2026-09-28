@@ -178,7 +178,7 @@ describe('drawRulerItem', () => {
 });
 
 describe('one ruler, three canvases', () => {
-  const CANVASES = ['editors/pcb/PcbEditor.tsx', 'editors/footprint/FootprintCanvas.tsx'];
+  const CANVASES = ['editors/pcb/PcbEditor.tsx', '../../pcbnew/pcb_draw_panel_gal_ui.tsx'];
 
   const read = (rel: string): string =>
     readFileSync(fileURLToPath(new URL(`../../../designer/src/${rel}`, import.meta.url)), 'utf8');

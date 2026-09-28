@@ -37,7 +37,7 @@ const CANVASES = [
 
 /** Where Zoom to Fit's maths lives for each editor. */
 const FITTERS = [
-  '../../eeschema/sch_painter.ts',
+  'editors/schematic/render/renderer.ts',
   '../../eeschema/symbol_editor/symbol_renderer.ts',
   'editors/pcb/PcbEditor.tsx',
   '../../pcbnew/pcb_draw_panel_gal_ui.tsx',
@@ -74,7 +74,7 @@ describe('shared view controls', () => {
 
   /** Which FRAME_T each editor fits as, i.e. which margin row it lands on. */
   const FRAMES: [string, string][] = [
-    ['../../eeschema/sch_painter.ts', "'sch'"],
+    ['editors/schematic/render/renderer.ts', "'sch'"],
     ['../../eeschema/symbol_editor/symbol_renderer.ts', "'symbol_editor'"],
     ['editors/pcb/PcbEditor.tsx', "'pcb'"],
     ['../../pcbnew/pcb_draw_panel_gal_ui.tsx', "'footprint_editor'"],
@@ -222,8 +222,8 @@ describe('shared view controls', () => {
       // fitToContent / fitToBBox / fitSymbol each inflated their box by 8 mm
       // before scaling. (renderer.ts keeps an unrelated `pad` for a draw-cull
       // test on sheet fields, which is why these match the inflation itself.)
-      ['../../eeschema/sch_painter.ts', /minX -= pad;/],
-      ['../../eeschema/sch_painter.ts', /box\.minX - pad/],
+      ['editors/schematic/render/renderer.ts', /minX -= pad;/],
+      ['editors/schematic/render/renderer.ts', /box\.minX - pad/],
       ['../../eeschema/symbol_editor/symbol_renderer.ts', /b\.minX - pad/],
     ];
     for (const [rel, re] of OLD) expect(read(rel), `${rel} ${re}`).not.toMatch(re);

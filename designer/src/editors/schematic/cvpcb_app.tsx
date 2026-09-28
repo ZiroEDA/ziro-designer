@@ -11,7 +11,7 @@
  */
 import { useMemo, type JSX } from 'react';
 import type { CVPCB_APP } from '@ziroeda/cvpcb/cvpcb_mainframe_ui.js';
-import { FootprintCanvas } from '../footprint/FootprintCanvas.js';
+import { FootprintCanvas } from '@ziroeda/pcbnew/pcb_draw_panel_gal_ui.js';
 import { footprintToBoard, parseFootprint } from '@ziroeda/pcbnew/footprint_edit_frame.js';
 import { DEFAULT_DRAW_OPTIONS } from '@ziroeda/pcbnew/renderBoard.js';
 import { Viewer3DFrame } from '../pcb/Viewer3DFrame.js';
