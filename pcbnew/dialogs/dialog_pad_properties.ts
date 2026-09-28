@@ -17,12 +17,13 @@
 
 import { parseBoardItemId, rotatePcb } from '../edit-board.js';
 import type { Board, PadShape, PadType, PcbFootprint, PcbPad } from '../types.js';
-import { defaultTeardropParameters } from '../teardrop.js';
+import { teardropParamsView } from '../pcb_io/kicad_sexpr/board_view.js';
+import { TEARDROP_PARAMETERS } from '../teardrop/teardrop_parameters.js';
 import type { TeardropParams } from '../types.js';
 
 /** `BOARD_CONNECTED_ITEM::GetTeardropParams()`: the item's own, or the defaults. */
 const teardropParamsOf = (pad: PcbPad): TeardropParams =>
-  pad.teardrops ?? defaultTeardropParameters();
+  pad.teardrops ?? teardropParamsView(new TEARDROP_PARAMETERS());
 import { unconnectedLayerModeOf } from '../unused_pad_layers.js';
 import type { UnconnectedLayerMode } from '../types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';

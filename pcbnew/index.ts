@@ -275,35 +275,12 @@ export {
   type DragMode,
 } from './router/pns_drag.js';
 
-// Teardrops (pcbnew/teardrop: TEARDROP_MANAGER).
-export {
-  updateTeardrops,
-  applyTeardrops,
-  removeTeardrops,
-  boardHasTeardrops,
-  teardropInputsChanged,
-  teardropZones,
-  addTeardropsOnTracks,
-  setTeardropPriorities,
-  computeTeardropPolygon,
-  defaultTeardropParameters,
-  defaultTeardropParametersList,
-  MAGIC_TEARDROP_ZONE_ID,
-  TargetTd,
-  type Teardrop,
-  type TeardropType,
-  type TeardropParameters,
-  type TeardropParametersList,
-  type UpdateTeardropsOptions,
-} from './teardrop.js';
-
 // Edit Teardrops (pcbnew/dialogs/dialog_global_edit_teardrops.cpp).
 export {
   applyGlobalTeardropEdit,
-  countGlobalTeardropTargets,
   DEFAULT_GLOBAL_TEARDROP_EDIT,
   type GlobalTeardropEditOptions,
-  type GlobalTeardropEditContext,
+  type SpecifiedTeardropValues,
   type TeardropEditAction,
 } from './dialogs/dialog_global_edit_teardrops.js';
 

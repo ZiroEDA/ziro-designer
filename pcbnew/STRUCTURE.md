@@ -16,7 +16,7 @@ you find one; keep the reason to a line.
 | `python/` | SWIG bindings. No interpreter here. |
 | `git/` | libgit2 merge driver for local project files. |
 | `navlib/` | 3Dconnexion SpaceMouse driver. |
-| `dialogs/` | Exists since 09-21; 21 modules now (09-28 added 19: `create_array`, `dimension_properties`, `filter_selection`, `footprint_checker`, `footprint_properties`, `global_deletion`, `global_edit_text_and_graphics`, `global_edit_tracks_and_vias`, `image_properties` → `dialog_reference_image_properties`, `move_exact`, `non_copper_zone_properties` → `dialog_non_copper_zones_properties`, `pad_properties`, `rule_area_properties`, `swap_layers`, `table_properties`, `textbox_properties`, `track_via_properties`, `teardrop_global_edit` → `dialog_global_edit_teardrops`, `pad_enumerate` → `dialog_enum_pads`). Still at root, unclear (no single KiCad counterpart): `position_relative.ts` (both `DIALOG_POSITION_RELATIVE` and `POSITION_RELATIVE_TOOL` in one file), `graphic_properties.ts` (merges `dialog_text_properties.cpp` + `dialog_shape_properties.cpp`), `zone_properties.ts` (ambiguous between `dialog_copper_zones.cpp` the frame and `panel_zone_properties.cpp` the fields), `via_placer.ts` (no dedicated file — part of `DRAWING_TOOL::DrawVia`), `distribute_items.ts` (shared with align in `ALIGN_DISTRIBUTE_TOOL`, no distribute-only file). (`teardrop.ts` at root is the old view-side copy from line 81-84 above, a #636 deletion candidate, not a move target.) |
+| `dialogs/` | Exists since 09-21; 21 modules now (09-28 added 19: `create_array`, `dimension_properties`, `filter_selection`, `footprint_checker`, `footprint_properties`, `global_deletion`, `global_edit_text_and_graphics`, `global_edit_tracks_and_vias`, `image_properties` → `dialog_reference_image_properties`, `move_exact`, `non_copper_zone_properties` → `dialog_non_copper_zones_properties`, `pad_properties`, `rule_area_properties`, `swap_layers`, `table_properties`, `textbox_properties`, `track_via_properties`, `teardrop_global_edit` → `dialog_global_edit_teardrops`, `pad_enumerate` → `dialog_enum_pads`). Still at root, unclear (no single KiCad counterpart): `position_relative.ts` (both `DIALOG_POSITION_RELATIVE` and `POSITION_RELATIVE_TOOL` in one file), `graphic_properties.ts` (merges `dialog_text_properties.cpp` + `dialog_shape_properties.cpp`), `zone_properties.ts` (ambiguous between `dialog_copper_zones.cpp` the frame and `panel_zone_properties.cpp` the fields), `via_placer.ts` (no dedicated file — part of `DRAWING_TOOL::DrawVia`), `distribute_items.ts` (shared with align in `ALIGN_DISTRIBUTE_TOOL`, no distribute-only file). (`teardrop.ts` at root, the old view-side copy, is **deleted** (09-28): Edit Teardrops runs `DIALOG_GLOBAL_EDIT_TEARDROPS` on the live BOARD through `TEARDROP_MANAGER`.) |
 | `widgets/` | 9 453 lines upstream. Unfrozen 09-28: `pcb_net_inspector_panel.ts` (`PCB_NET_INSPECTOR_PANEL`), and, from `designer/src/editors/pcb/widgets/`, `panel_footprint_chooser.tsx` (`PANEL_FOOTPRINT_CHOOSER`) with its two support modules `footprint_history.ts` and `generate_footprint_info.ts` (both "extra" — no single upstream file). `panel_footprint_chooser.tsx`'s footprint-preview panel and 3D canvas arrive as props (`panel`, `preview3D`) rather than imports, since both reach the app's hosted-storage / settings seams; see the props' doc comments. `footprint_chooser_frame.cpp`'s window (`dialogs/footprint_chooser_frame.tsx`) stays in `designer/` — it still renders `Viewer3DFrame` directly, which is its own pass. The rest of `widgets/` (`appearance_controls`, `pcb_properties_panel`, `panel_selection_filter`, the design-block / search-pane pair) is unaudited, not "frozen" — nothing says it can't move, nobody has checked each one's designer/ imports yet. |
 | `zone_manager/` | 1 595 lines, the Zone Manager dialog. Surface, frozen. |
 | `microwave/` | 1 341 lines, gap/stub/inductor generators. Unbuilt. |
@@ -78,8 +78,8 @@ Walking `pcbnew/*` one letter at a time. Only gaps are noted.
 
 ## Files in the wrong place
 
-`teardrop.ts`, `connectivity.ts`, `ratsnest.ts`, `drc/drc_engine_view.ts` are
-the **old view-side copies**; the BOARD-side port already occupies KiCad's
+`connectivity.ts`, `ratsnest.ts`, `drc/drc_engine_view.ts` are
+the **old view-side copies** (`teardrop.ts` was one; deleted 09-28); the BOARD-side port already occupies KiCad's
 path. These are #636 deletions, not renames — where a move collides, the file
 is already ported.
 
@@ -128,6 +128,15 @@ explicitly pending "#636 stages 3 and 5" already), `dimension_geometry.ts`
 `PCB_VIA::FlashLayer` half). This is a #636 dependency, not a #stage-5 gap;
 resolving it means finishing the consumer migration, then deleting the POJO
 side, the way `teardrop.ts` itself is already noted above.
+
+**`teardrop.ts` resolved 09-28.** Its one production consumer was Edit
+Teardrops; `dialogs/dialog_global_edit_teardrops.ts` is now
+`DIALOG_GLOBAL_EDIT_TEARDROPS` over the frame's BOARD (BOARD_COMMIT +
+`TEARDROP_MANAGER`, one undo step). The view's per-item default is
+`teardropParamsView(new TEARDROP_PARAMETERS())`. The editor no longer copies
+Board Setup onto `m_TeardropParamsList` on every commit with `m_Enabled`
+forced on: Board Setup's OK writes the list, and `TARGET_TRACK`'s `m_Enabled`
+is set only by Edit Teardrops, as upstream.
 
 **Not blocked, not yet done:** `modify_lines.ts` + `outset_items.ts` +
 `polygon_booleans.ts` all cite `pcbnew/tools/item_modification_routine.cpp`,

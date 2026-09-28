@@ -964,20 +964,25 @@ function isDefaultTeardropParameters(td: TEARDROP_PARAMETERS): boolean {
   return td.equals(new TEARDROP_PARAMETERS());
 }
 
+/**
+ * A TEARDROP_PARAMETERS as the view's `teardrops` field. A view item whose
+ * `teardrops` is absent carries the defaults: `teardropParamsView(new
+ * TEARDROP_PARAMETERS())` is what it means.
+ */
+export const teardropParamsView = (td: TEARDROP_PARAMETERS): TeardropParams => ({
+  enabled: td.m_Enabled,
+  allowUseTwoTracks: td.m_AllowUseTwoTracks,
+  tdOnPadsInZones: td.m_TdOnPadsInZones,
+  bestLengthRatio: td.m_BestLengthRatio,
+  tdMaxLen: td.m_TdMaxLen,
+  bestWidthRatio: td.m_BestWidthRatio,
+  tdMaxWidth: td.m_TdMaxWidth,
+  curvedEdges: td.m_CurvedEdges,
+  widthtoSizeFilterRatio: td.m_WidthtoSizeFilterRatio,
+});
+
 const teardropsView = (td: TEARDROP_PARAMETERS): TeardropParams | undefined =>
-  isDefaultTeardropParameters(td)
-    ? undefined
-    : {
-        enabled: td.m_Enabled,
-        allowUseTwoTracks: td.m_AllowUseTwoTracks,
-        tdOnPadsInZones: td.m_TdOnPadsInZones,
-        bestLengthRatio: td.m_BestLengthRatio,
-        tdMaxLen: td.m_TdMaxLen,
-        bestWidthRatio: td.m_BestWidthRatio,
-        tdMaxWidth: td.m_TdMaxWidth,
-        curvedEdges: td.m_CurvedEdges,
-        widthtoSizeFilterRatio: td.m_WidthtoSizeFilterRatio,
-      };
+  isDefaultTeardropParameters(td) ? undefined : teardropParamsView(td);
 
 function applyTeardrops(td: TEARDROP_PARAMETERS, v: TeardropParams | undefined): void {
   if (!v) {

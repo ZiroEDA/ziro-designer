@@ -24,14 +24,6 @@ import type { BOARD } from '../../board.js';
 import { BOARD_COMMIT } from '../../board_commit.js';
 import type { BOARD_ITEM } from '../../board_item.js';
 import type { PCB_BASE_EDIT_FRAME } from '../../pcb_base_edit_frame.js';
-import type { TeardropParameters, TeardropParametersList } from '../../teardrop.js';
-import {
-  TARGET_RECT,
-  TARGET_ROUND,
-  TARGET_TRACK,
-  type TEARDROP_PARAMETERS,
-  type TEARDROP_PARAMETERS_LIST,
-} from '../../teardrop/teardrop_parameters.js';
 import type { Board } from '../../types.js';
 import { boardToBOARD } from './board_view.js';
 
@@ -71,38 +63,6 @@ function boardItems(kb: BOARD): Set<BOARD_ITEM> {
   for (const g of kb.Groups()) out.add(g);
   for (const g of kb.Generators()) out.add(g);
   return out;
-}
-
-/** The view's TEARDROP_PARAMETERS onto the class. */
-function applyTeardropParameters(k: TEARDROP_PARAMETERS, v: TeardropParameters): void {
-  k.m_TdMaxLen = v.tdMaxLen;
-  k.m_TdMaxWidth = v.tdMaxWidth;
-  k.m_BestLengthRatio = v.bestLengthRatio;
-  k.m_BestWidthRatio = v.bestWidthRatio;
-  k.m_WidthtoSizeFilterRatio = v.widthtoSizeFilterRatio;
-  k.m_CurvedEdges = v.curvedEdges;
-  k.m_Enabled = v.enabled;
-  k.m_AllowUseTwoTracks = v.allowUseTwoTracks;
-  k.m_TdOnPadsInZones = v.tdOnPadsInZones;
-}
-
-/**
- * The project's teardrop settings (the .kicad_pro's `teardrop_options` and
- * `teardrop_parameters`, which the designer holds in its board setup) onto
- * `BOARD_DESIGN_SETTINGS::m_TeardropParamsList`, which TEARDROP_MANAGER reads.
- */
-export function applyTeardropParametersList(
-  k: TEARDROP_PARAMETERS_LIST,
-  v: TeardropParametersList,
-): void {
-  applyTeardropParameters(k.GetParameters(TARGET_ROUND), v.round);
-  applyTeardropParameters(k.GetParameters(TARGET_RECT), v.rect);
-  applyTeardropParameters(k.GetParameters(TARGET_TRACK), v.track);
-  k.m_TargetVias = v.targetVias;
-  k.m_TargetPTHPads = v.targetPTHPads;
-  k.m_TargetSMDPads = v.targetSMDPads;
-  k.m_TargetTrack2Track = v.targetTrack2Track;
-  k.m_UseRoundShapesOnly = v.useRoundShapesOnly;
 }
 
 /**

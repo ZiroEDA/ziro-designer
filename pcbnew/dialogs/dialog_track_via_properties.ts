@@ -16,7 +16,8 @@
  */
 
 import { parseBoardItemId } from '../edit-board.js';
-import { defaultTeardropParameters } from '../teardrop.js';
+import { teardropParamsView } from '../pcb_io/kicad_sexpr/board_view.js';
+import { TEARDROP_PARAMETERS } from '../teardrop/teardrop_parameters.js';
 import type {
   Board,
   FrontBackOptBool,
@@ -148,7 +149,7 @@ class Folder<T> {
   }
 }
 
-const paramsOf = (via: PcbVia): TeardropParams => via.teardrops ?? defaultTeardropParameters();
+const paramsOf = (via: PcbVia): TeardropParams => via.teardrops ?? teardropParamsView(new TEARDROP_PARAMETERS());
 
 /**
  * DIALOG_TRACK_VIA_PROPERTIES::TransferDataToWindow: seed the form from the
