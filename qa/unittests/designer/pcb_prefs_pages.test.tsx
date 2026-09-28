@@ -41,7 +41,7 @@ import {
   isStoredPcbToggle,
   lineModeToggleId,
   pcbTogglesFromSettings,
-} from '@ziroeda/designer/src/editors/pcb/toggles.js';
+} from '@ziroeda/pcbnew/toggles.js';
 
 const SLOW = 60000;
 
