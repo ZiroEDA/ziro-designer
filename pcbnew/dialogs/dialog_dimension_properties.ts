@@ -33,6 +33,21 @@
  * saved.
  */
 import type { EdaUnits } from '@ziroeda/common/eda_units.js';
+import { IN_EDIT } from '@ziroeda/common/eda_item_flags.js';
+import { LSET_Name, LSET_NameToLayer } from '@ziroeda/common/layer_ids.js';
+import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import { BOARD_COMMIT } from '../board_commit.js';
+import type { PCB_BASE_EDIT_FRAME } from '../pcb_base_edit_frame.js';
+import { type PCB_DIMENSION_BASE, PCB_DIM_ALIGNED, PCB_DIM_LEADER } from '../pcb_dimension.js';
+import {
+  DIM_ARROW_DIRECTION,
+  type DIM_PRECISION,
+  type DIM_TEXT_BORDER,
+  type DIM_TEXT_POSITION,
+  type DIM_UNITS_FORMAT,
+  type DIM_UNITS_MODE,
+} from '../pcb_dimension_types.js';
+import type { TransferResult } from './dialog_text_properties.js';
 import { parseBoardItemId } from '../edit-board.js';
 import { updateDimension } from '../dimension_text.js';
 import { isAlignedKind } from '../types.js';
@@ -266,4 +281,137 @@ export function dimensionDialogFields(kind: DimensionKind): DimensionDialogField
     arrowDirection: aligned,
     textFrame: leader,
   };
+}
+
+// ---------------------------------------------------------------------------
+// DIALOG_DIMENSION_PROPERTIES over the live PCB_DIMENSION_BASE (#636 stage 6)
+
+/**
+ * `DIALOG_DIMENSION_PROPERTIES` (dialog_dimension_properties.cpp) on a live
+ * dimension: `TransferDataToWindow` reads it, `TransferDataFromWindow` is
+ * `updateDimensionFromDialog` inside one BOARD_COMMIT, "Edit Dimension
+ * Properties", ending in `Update()`.
+ *
+ * The React dialog has no font or horizontal-justification controls, so
+ * those two are left as the item has them (upstream writes whatever its
+ * controls hold).
+ */
+export class DIALOG_DIMENSION_PROPERTIES {
+  private readonly m_frame: PCB_BASE_EDIT_FRAME;
+  private readonly m_dimension: PCB_DIMENSION_BASE;
+
+  constructor(aFrame: PCB_BASE_EDIT_FRAME, aDimension: PCB_DIMENSION_BASE) {
+    this.m_frame = aFrame;
+    this.m_dimension = aDimension;
+  }
+
+  TransferDataToWindow(): DimensionValues {
+    const board = this.m_frame.GetBoard()!;
+    const d = this.m_dimension;
+
+    return {
+      layer: LSET_Name(d.GetLayer()),
+      prefix: board.ConvertKIIDsToCrossReferences(d.GetPrefix()),
+      suffix: board.ConvertKIIDsToCrossReferences(d.GetSuffix()),
+      // m_cbOverrideValue with the override in m_txtValueActual
+      overrideValue: d.GetOverrideTextEnabled()
+        ? board.ConvertKIIDsToCrossReferences(d.GetOverrideText())
+        : undefined,
+      units: d.GetUnitsMode() as number as DimUnitsMode,
+      unitsFormat: d.GetUnitsFormat() as number as DimUnitsFormat,
+      precision: d.GetPrecision() as number as DimPrecision,
+      suppressZeroes: d.GetSuppressZeroes(),
+      textPositionMode: d.GetTextPositionMode() as number as DimTextPosition,
+      keepTextAligned: d.GetKeepTextAligned(),
+      arrowDirection: d.GetArrowDirection() === DIM_ARROW_DIRECTION.INWARD ? 'inward' : 'outward',
+      lineThickness: d.GetLineThickness(),
+      arrowLength: d.GetArrowLength(),
+      extensionOffset: d.GetExtensionOffset(),
+      extensionOvershoot: d instanceof PCB_DIM_ALIGNED ? d.GetExtensionHeight() : 0,
+      textFrame: d instanceof PCB_DIM_LEADER ? (d.GetTextBorder() as number as DimTextBorder) : 0,
+      textWidth: d.GetTextSize().x,
+      textHeight: d.GetTextSize().y,
+      textThickness: d.GetTextThickness(),
+      textOrientation: new EDA_ANGLE(d.GetTextAngle().AsDegrees()).Normalize180().AsDegrees(),
+      bold: d.IsBold(),
+      italic: d.IsItalic(),
+      mirrored: d.IsMirrored(),
+      textX: d.GetTextPos().x,
+      textY: d.GetTextPos().y,
+      locked: d.IsLocked(),
+    };
+  }
+
+  /** `updateDimensionFromDialog( aTarget )`. */
+  private updateDimensionFromDialog(aTarget: PCB_DIMENSION_BASE, v: DimensionValues): void {
+    const board = this.m_frame.GetBoard()!;
+
+    aTarget.SetOverrideTextEnabled(v.overrideValue !== undefined);
+
+    if (v.overrideValue !== undefined)
+      aTarget.SetOverrideText(board.ConvertCrossReferencesToKIIDs(v.overrideValue));
+
+    aTarget.SetPrefix(board.ConvertCrossReferencesToKIIDs(v.prefix));
+    aTarget.SetSuffix(board.ConvertCrossReferencesToKIIDs(v.suffix));
+    aTarget.SetLayer(LSET_NameToLayer(v.layer));
+
+    aTarget.SetArrowDirection(
+      v.arrowDirection === 'inward' ? DIM_ARROW_DIRECTION.INWARD : DIM_ARROW_DIRECTION.OUTWARD,
+    );
+
+    aTarget.SetUnitsMode(v.units as number as DIM_UNITS_MODE);
+    aTarget.SetUnitsFormat(v.unitsFormat as number as DIM_UNITS_FORMAT);
+    aTarget.SetPrecision(v.precision as number as DIM_PRECISION);
+    aTarget.SetSuppressZeroes(v.suppressZeroes);
+
+    const tpm = v.textPositionMode as number as DIM_TEXT_POSITION;
+    aTarget.SetTextPositionMode(tpm);
+
+    // DIM_TEXT_POSITION::MANUAL
+    if (v.textPositionMode === 2) aTarget.SetTextPos({ x: v.textX, y: v.textY });
+
+    aTarget.SetKeepTextAligned(v.keepTextAligned);
+
+    aTarget.SetTextAngle(new EDA_ANGLE(v.textOrientation).Normalize());
+    aTarget.SetTextWidth(v.textWidth);
+    aTarget.SetTextHeight(v.textHeight);
+    aTarget.SetTextThickness(v.textThickness);
+
+    // Must come after SetTextWidth/Height()
+    aTarget.SetBold(v.bold);
+    aTarget.SetItalic(v.italic);
+
+    aTarget.SetMirrored(v.mirrored);
+
+    aTarget.SetLineThickness(v.lineThickness);
+    aTarget.SetArrowLength(v.arrowLength);
+    aTarget.SetExtensionOffset(v.extensionOffset);
+
+    if (aTarget instanceof PCB_DIM_ALIGNED) aTarget.SetExtensionHeight(v.extensionOvershoot);
+
+    if (aTarget instanceof PCB_DIM_LEADER)
+      aTarget.SetTextBorder(v.textFrame as number as DIM_TEXT_BORDER);
+
+    aTarget.Update();
+  }
+
+  TransferDataFromWindow(v: DimensionValues): TransferResult {
+    const d = this.m_dimension;
+    const commit = new BOARD_COMMIT(this.m_frame);
+    commit.Modify(d);
+
+    // If no other command in progress, prepare undo command
+    const pushCommit = d.GetEditFlags() === 0;
+
+    if (!pushCommit) d.SetFlags(IN_EDIT);
+
+    this.updateDimensionFromDialog(d, v);
+
+    // DIALOG_DIMENSION_PROPERTIES_BASE has no Locked control, so the lock is
+    // not the dialog's to write.
+
+    if (pushCommit) commit.Push('Edit Dimension Properties');
+
+    return { ok: true };
+  }
 }

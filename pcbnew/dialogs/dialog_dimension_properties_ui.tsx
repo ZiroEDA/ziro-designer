@@ -163,7 +163,6 @@ export function DialogDimensionProperties({
                 ))}
               </select>
             </label>
-            {check('Locked', 'locked')}
           </fieldset>
 
           {show.format && (
