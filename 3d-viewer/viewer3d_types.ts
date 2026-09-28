@@ -211,3 +211,26 @@ export interface Viewer3dCameraOptions {
   /** `camera.moving_speed_multiplier`, the 1..5 slider. */
   movingSpeedMultiplier: number;
 }
+
+/**
+ * The stackup fields `board_adapter_colors.ts`'s `stackupColors` reads —
+ * structurally the same shape as `designer/`'s real `PhysicalStackup` /
+ * `BoardFinish` (`editors/pcb/board_settings.ts`, the Board Setup dialog's
+ * data model), which this package never imports. The app passes its real
+ * board settings object straight through `Viewer3DFrame`'s `stackup` /
+ * `boardFinish` props; TypeScript's structural typing accepts it here because
+ * every field this package reads is present on the real type too.
+ */
+export interface StackupLayer3D {
+  name: string;
+  type: string;
+  color: string;
+}
+
+export interface PhysicalStackup {
+  layers: readonly StackupLayer3D[];
+}
+
+export interface BoardFinish {
+  copperFinish: string;
+}

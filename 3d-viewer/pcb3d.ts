@@ -87,7 +87,6 @@ import {
   plasticMaterial,
   type SMaterial,
 } from './gl_fixed_function.js';
-import { MODELS3D_HOST } from '../../libraryHosts.js';
 import { allBoardItemIds, boardItemBBox } from '@ziroeda/pcbnew/edit-board.js';
 import type {
   Grid3D,
@@ -101,7 +100,6 @@ import type {
 } from './viewer3d_types.js';
 
 const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
-const MODELS3D_BASE = MODELS3D_HOST;
 
 // The plain data types live in viewer3d_types.ts so the menu inventory can
 // reach them without resolving this module's three.js / occt-import-js chain.
@@ -521,6 +519,13 @@ export function mount3DViewer(
    * own defaults, which is what a viewer with no settings object gets upstream.
    */
   renderIn: Viewer3dRenderOptions = {},
+  /**
+   * Where the hosted `packages3D` bucket serves `<Library>.3dshapes/<Model>.glb`
+   * from (`designer/src/libraryHosts.ts`'s `MODELS3D_HOST`) — app-level (it
+   * names the account's hosted bundle), so it arrives as a parameter rather
+   * than an import, the same seam `PCBNEW_APP` / `CVPCB_APP` give a frame.
+   */
+  modelsBase = '',
 ): Viewer3D | null {
   // The appearance pane hands the whole `GetVisibleLayers()` set; it is the
   // same information as the `show_*` booleans below, so expand it into them
@@ -1146,7 +1151,7 @@ export function mount3DViewer(
         // modelunit_to_3d_units_factor = BiuTo3dUnits · IU_PER_MM
         modelUnitToWorld: s * MM,
       },
-      MODELS3D_BASE,
+      modelsBase,
       projectFiles,
       () => {
         needsRender = true; // a model arrived: Request_refresh()

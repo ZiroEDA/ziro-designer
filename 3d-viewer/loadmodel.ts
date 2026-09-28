@@ -29,7 +29,32 @@ import * as THREE from 'three';
 import type { CadKind, Tessellation } from './occt_types.js';
 import { tessellate } from './occt_tessellate.js';
 import type { OcctRequest, OcctResponse } from './occt_worker.js';
-import { cacheGet, cachePut, modelKey } from './model_cache.js';
+
+/**
+ * The tessellation cache's three operations (`designer/src/editors/pcb/model_cache.ts`,
+ * KiCad's `.3dc` cache in IndexedDB) — app-level storage, so it arrives
+ * through this settable seam rather than an import, the same one
+ * `PCBNEW_APP` / `CVPCB_APP` give a frame. Unconfigured (a package test, say)
+ * every model tessellates uncached rather than failing to load.
+ */
+export interface ModelCache {
+  modelKey(bytes: Uint8Array): Promise<string>;
+  cacheGet(hash: string): Promise<{ tess: Tessellation | null } | undefined>;
+  cachePut(hash: string, tess: Tessellation | null): Promise<void>;
+}
+
+const noCache: ModelCache = {
+  modelKey: () => Promise.reject(new Error('no model cache configured')),
+  cacheGet: () => Promise.resolve(undefined),
+  cachePut: () => Promise.resolve(),
+};
+
+let cache: ModelCache = noCache;
+
+/** The app wires the real tessellation cache in once, at startup. */
+export function setModelCache(ops: ModelCache): void {
+  cache = ops;
+}
 
 function toObject3D(tess: Tessellation): THREE.Object3D | null {
   if (tess.meshes.length === 0) return null;
@@ -164,7 +189,7 @@ export async function loadCadModel(
 ): Promise<THREE.Object3D | null> {
   let hash: string | null = null;
   try {
-    hash = await modelKey(bytes);
+    hash = await cache.modelKey(bytes);
   } catch {
     // No SubtleCrypto (an insecure origin, say). Tessellate uncached rather
     // than refuse to draw the model.
@@ -172,7 +197,7 @@ export async function loadCadModel(
   }
 
   if (hash) {
-    const hit = await cacheGet(hash);
+    const hit = await cache.cacheGet(hash);
     // A row with `tess: null` is a remembered failure: the kernel already
     // could not read these bytes, and re-running it would cost seconds to
     // reach the same answer.
@@ -180,6 +205,6 @@ export async function loadCadModel(
   }
 
   const tess = await runTessellation(bytes, kind);
-  if (hash) await cachePut(hash, tess);
+  if (hash) await cache.cachePut(hash, tess);
   return tess ? toObject3D(tess) : null;
 }
