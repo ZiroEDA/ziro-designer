@@ -23,15 +23,8 @@ import {
 
 const MM = (mm: number) => pcbIUScale.mmToIU(mm);
 const units = new UNITS_PROVIDER(pcbIUScale, 'mm');
-const {
-  PFC_NAME,
-  PFC_VALUE,
-  PFC_SHOWN,
-  PFC_LAYER,
-  PFC_XOFFSET,
-  PFC_YOFFSET,
-  PFC_UPRIGHT,
-} = PCB_FIELDS_COL_ORDER;
+const { PFC_NAME, PFC_VALUE, PFC_SHOWN, PFC_LAYER, PFC_XOFFSET, PFC_YOFFSET, PFC_UPRIGHT } =
+  PCB_FIELDS_COL_ORDER;
 
 function mkFootprint(): FOOTPRINT {
   const board = new BOARD();

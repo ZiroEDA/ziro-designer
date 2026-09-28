@@ -8,10 +8,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import {
-  CONFIRMATION_CAPTION,
-  revertPromptMessage,
-} from '@ziroeda/eeschema/files-io.js';
+import { CONFIRMATION_CAPTION, revertPromptMessage } from '@ziroeda/eeschema/files-io.js';
 
 const SRC = join(__dirname, '../../../designer/src');
 const SCH = readFileSync(join(SRC, 'editors/schematic/SchematicEditor.tsx'), 'utf8');

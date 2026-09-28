@@ -24,11 +24,7 @@
 import { describe, it, expect } from 'vitest';
 import { readdirSync } from 'node:fs';
 import { BITMAP } from '@ziroeda/common/bitmap_store_actions.js';
-import {
-  TOP_TOOLBAR,
-  LEFT_TOOLBAR,
-  RIGHT_TOOLBAR,
-} from '@ziroeda/eeschema/toolbars_sch_editor.js';
+import { TOP_TOOLBAR, LEFT_TOOLBAR, RIGHT_TOOLBAR } from '@ziroeda/eeschema/toolbars_sch_editor.js';
 import {
   SYM_TOP_TOOLBAR,
   SYM_LEFT_TOOLBAR,

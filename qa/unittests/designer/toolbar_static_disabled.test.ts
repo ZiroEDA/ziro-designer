@@ -31,11 +31,7 @@
  * it back.
  */
 import { describe, expect, it } from 'vitest';
-import {
-  TOP_TOOLBAR,
-  LEFT_TOOLBAR,
-  RIGHT_TOOLBAR,
-} from '@ziroeda/eeschema/toolbars_sch_editor.js';
+import { TOP_TOOLBAR, LEFT_TOOLBAR, RIGHT_TOOLBAR } from '@ziroeda/eeschema/toolbars_sch_editor.js';
 import {
   SYM_TOP_TOOLBAR,
   SYM_LEFT_TOOLBAR,

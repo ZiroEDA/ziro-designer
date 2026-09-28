@@ -975,7 +975,6 @@ export function findProjectDru(files: readonly RawFile[], proBase?: string): Raw
   return files.find((f) => f.name.toLowerCase() === want);
 }
 
-
 /** Local alias so code merged in from toggles.ts is unchanged. */
 type PcbnewSettings = PCBNEW_JSON_SETTINGS_LIKE;
 

@@ -50,10 +50,7 @@ import { fileURLToPath } from 'node:url';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic, readSymbolLib, serializeSchematic } from '@ziroeda/eeschema';
 import { transformItems, type TransformAutoplace } from '@ziroeda/eeschema/tools/transform.js';
-import {
-  autoplaceFields,
-  autoplacePlacedSymbol,
-} from '@ziroeda/eeschema/autoplace_fields.js';
+import { autoplaceFields, autoplacePlacedSymbol } from '@ziroeda/eeschema/autoplace_fields.js';
 import { refId } from '@ziroeda/eeschema/tools/hittest.js';
 import { fieldDrawRotation } from '@ziroeda/eeschema/fieldbox.js';
 import type { LibSymbol, SchSymbol, Schematic } from '@ziroeda/eeschema/types.js';

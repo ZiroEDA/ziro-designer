@@ -370,7 +370,10 @@ import { Toolbar } from '@ziroeda/common/tool/action_toolbar.js';
 import { OpenFileDialog } from '../../fs/OpenFileDialog.js';
 import { SaveAsDialog } from '../../fs/SaveAsDialog.js';
 import { kicadSchematicWildcard } from '@ziroeda/common/wildcards_and_files_ext.js';
-import { RIGHT_TOOLBAR_COMMANDS, SCH_DEFAULT_TOOLBARS } from '@ziroeda/eeschema/toolbars_sch_editor.js';
+import {
+  RIGHT_TOOLBAR_COMMANDS,
+  SCH_DEFAULT_TOOLBARS,
+} from '@ziroeda/eeschema/toolbars_sch_editor.js';
 import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
 import {
   MenuBar,
@@ -417,10 +420,16 @@ import {
   DialogGlobalEditTextAndGraphics,
   type GlobalEditResult,
 } from '@ziroeda/eeschema/dialogs/dialog_global_edit_text_and_graphics.js';
-import { DialogChangeSymbols, type ChangeSymbolsSubject } from '@ziroeda/eeschema/dialogs/dialog_change_symbols.js';
+import {
+  DialogChangeSymbols,
+  type ChangeSymbolsSubject,
+} from '@ziroeda/eeschema/dialogs/dialog_change_symbols.js';
 import { DialogEditSymbolsLibId } from '@ziroeda/eeschema/dialogs/dialog_edit_symbols_libid.js';
 import { DialogAnnotate, type AnnotateRun } from './dialogs/dialog_annotate.js';
-import { DialogLineProperties, type ItemColor } from '@ziroeda/eeschema/dialogs/dialog_line_properties.js';
+import {
+  DialogLineProperties,
+  type ItemColor,
+} from '@ziroeda/eeschema/dialogs/dialog_line_properties.js';
 import { DialogEeschemaPageSettings } from '../../dialogs/dialog_eeschema_page_settings.js';
 import {
   pageSettingsValue,
@@ -436,9 +445,18 @@ import {
   DialogPasteSpecial,
   type PasteSpecialMode,
 } from '@ziroeda/common/dialogs/dialog_paste_special.js';
-import { DialogSheetProperties, type SheetPropsResult } from '@ziroeda/eeschema/dialogs/dialog_sheet_properties.js';
-import { DialogShapeProperties, type ShapePropsResult } from '@ziroeda/eeschema/dialogs/dialog_shape_properties.js';
-import { DialogImageProperties, type ImagePropsResult } from '@ziroeda/eeschema/dialogs/dialog_image_properties.js';
+import {
+  DialogSheetProperties,
+  type SheetPropsResult,
+} from '@ziroeda/eeschema/dialogs/dialog_sheet_properties.js';
+import {
+  DialogShapeProperties,
+  type ShapePropsResult,
+} from '@ziroeda/eeschema/dialogs/dialog_shape_properties.js';
+import {
+  DialogImageProperties,
+  type ImagePropsResult,
+} from '@ziroeda/eeschema/dialogs/dialog_image_properties.js';
 import { DialogFieldProperties, type FieldPropsResult } from './dialogs/dialog_field_properties.js';
 import {
   DialogSheetPinProperties,
@@ -485,7 +503,10 @@ import {
 import { schematicTextVarResolver } from '@ziroeda/eeschema/schematic.js';
 import { ResolveShownText, type TextVarResolverFn } from '@ziroeda/common/common.js';
 import { DialogExportNetlist } from '@ziroeda/eeschema/dialogs/dialog_export_netlist.js';
-import { DialogSymbolFieldsTable, type FieldsEdits } from '@ziroeda/eeschema/dialogs/dialog_symbol_fields_table.js';
+import {
+  DialogSymbolFieldsTable,
+  type FieldsEdits,
+} from '@ziroeda/eeschema/dialogs/dialog_symbol_fields_table.js';
 import { DialogAssignFootprints } from '@ziroeda/cvpcb/cvpcb_mainframe_ui.js';
 import { useCvpcbApp } from './cvpcb_app.js';
 import { DialogPrint } from './dialogs/dialog_print.js';
@@ -536,7 +557,10 @@ import { FootprintChooserFrame } from '../pcb/dialogs/footprint_chooser_frame.js
 import { SearchPanel } from './components/SearchPanel.js';
 import { NetNavigatorPanel } from './components/NetNavigatorPanel.js';
 import { DialogUpdateFromPcb } from '@ziroeda/eeschema/dialogs/dialog_update_from_pcb.js';
-import { DialogSyncSheetPins, type SyncSheetEntry } from '@ziroeda/eeschema/dialogs/dialog_sync_sheet_pins.js';
+import {
+  DialogSyncSheetPins,
+  type SyncSheetEntry,
+} from '@ziroeda/eeschema/dialogs/dialog_sync_sheet_pins.js';
 import {
   applySchTableValues,
   collectSchTableValues,

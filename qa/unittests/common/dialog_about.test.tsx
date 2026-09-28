@@ -302,9 +302,7 @@ describe('every frame opens it', () => {
 
   it('the schematic answers the About action its Help menu sends', () => {
     const src = read('designer/src/editors/schematic/SchematicEditor.tsx');
-    expect(read('eeschema/menubar.ts')).toContain(
-      "showAbout: () => h.action('about')",
-    );
+    expect(read('eeschema/menubar.ts')).toContain("showAbout: () => h.action('about')");
     expect(src).toMatch(/if \(id === 'about'\) \{\s*setAboutOpen\(true\);/);
   });
 });

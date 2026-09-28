@@ -12,7 +12,11 @@ import {
   GRID_LIST_SEPARATOR,
   gridChoiceLabel,
 } from '@ziroeda/common/settings/grid_settings_ui.js';
-import { footprintGridForTool, footprintGridIU, footprintSnappingEnabled } from '@ziroeda/pcbnew/footprint_edit_frame.js';
+import {
+  footprintGridForTool,
+  footprintGridIU,
+  footprintSnappingEnabled,
+} from '@ziroeda/pcbnew/footprint_edit_frame.js';
 import { newFootprint } from '@ziroeda/pcbnew/footprint_editor_utils.js';
 import { fpLineThicknessMM } from '@ziroeda/pcbnew/footprint_editor_settings.js';
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
@@ -104,7 +108,10 @@ import { appearanceLayerRows } from '@ziroeda/pcbnew/widgets/appearance_layers.j
 // pcbnew docks; FOOTPRINT_EDIT_FRAME passes `aFpEditor = true` and its own
 // board's data, and that is the whole of the difference
 // (footprint_edit_frame.cpp:177-178).
-import { AppearanceControls, type AppearanceTab } from '@ziroeda/pcbnew/widgets/appearance_controls.js';
+import {
+  AppearanceControls,
+  type AppearanceTab,
+} from '@ziroeda/pcbnew/widgets/appearance_controls.js';
 import {
   DEFAULT_OBJECTS,
   DEFAULT_OPACITY,

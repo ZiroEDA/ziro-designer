@@ -80,7 +80,7 @@ import {
   zoomFitScale,
 } from '../../ui/view_controls.js';
 import { DockSash } from '@ziroeda/common/widgets/wx_aui_sash.js';
-import { onOutlineFontsChanged } from '../../font/outline_fonts.js';
+import { onOutlineFontsChanged } from '@ziroeda/common/font/outline_fonts.js';
 import {
   applyCanvasSize,
   canvasBackingSize,
@@ -348,7 +348,11 @@ import {
   zoomFactorForScale,
   zoomMsg,
 } from '@ziroeda/common/widgets/kistatusbar_format.js';
-import { DialogPcbFind, DEFAULT_PCB_FIND, type PcbFindOptions } from '@ziroeda/pcbnew/dialogs/dialog_find.js';
+import {
+  DialogPcbFind,
+  DEFAULT_PCB_FIND,
+  type PcbFindOptions,
+} from '@ziroeda/pcbnew/dialogs/dialog_find.js';
 import { DialogPageSettings } from '@ziroeda/common/dialogs/dialog_page_settings.js';
 import { pageSettingsValue, toPaperToken } from '@ziroeda/common/dialogs/dialog_page_settings.js';
 import { type ExtentsBox, pcbZoomFitBox } from '@ziroeda/pcbnew/pcb_base_frame.js';
@@ -360,7 +364,12 @@ import {
   type BoardSetupValues,
   type PageId as BoardSetupPageId,
 } from './dialogs/dialog_board_setup.js';
-import { druFileName, findProjectDru, findProjectPrl, findProjectPro } from '@ziroeda/pcbnew/pcb_edit_frame.js';
+import {
+  druFileName,
+  findProjectDru,
+  findProjectPrl,
+  findProjectPro,
+} from '@ziroeda/pcbnew/pcb_edit_frame.js';
 import { clampMaxErrorMM } from '@ziroeda/pcbnew/board_settings.js';
 import type { TextGfxRow } from '@ziroeda/pcbnew/board_settings.js';
 import { BoardSetupFromWindow, BoardSetupToWindow } from './dialogs/board_setup_transfer.js';

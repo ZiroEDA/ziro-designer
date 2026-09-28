@@ -6,10 +6,7 @@
  * (APPEARANCE_CONTROLS::onObjectVisibilityChanged).
  */
 import { describe, expect, it } from 'vitest';
-import {
-  toggleObject,
-  type ObjectState,
-} from '@ziroeda/pcbnew/widgets/appearance_objects.js';
+import { toggleObject, type ObjectState } from '@ziroeda/pcbnew/widgets/appearance_objects.js';
 import { netnameColorFor } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
 import { PCB_SPECIAL } from '@ziroeda/pcbnew/pcbTheme.js';
 

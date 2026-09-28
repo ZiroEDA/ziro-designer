@@ -48,10 +48,7 @@ import {
   presetComboItems,
   viewportComboItems,
 } from '@ziroeda/pcbnew/widgets/appearance_presets.js';
-import {
-  FOOTPRINT_COPPER_STACK,
-  FOOTPRINT_LAYERS,
-} from '@ziroeda/pcbnew/footprint_edit_frame.js';
+import { FOOTPRINT_COPPER_STACK, FOOTPRINT_LAYERS } from '@ziroeda/pcbnew/footprint_edit_frame.js';
 import { GetLayerName } from '@ziroeda/common/layer_ids.js';
 
 afterEach(cleanup);

@@ -35,10 +35,7 @@
  * green while the schematic editor sat lit.
  */
 import { describe, expect, it } from 'vitest';
-import {
-  LEFT_TOOLBAR,
-  RIGHT_TOOLBAR,
-} from '@ziroeda/eeschema/toolbars_sch_editor.js';
+import { LEFT_TOOLBAR, RIGHT_TOOLBAR } from '@ziroeda/eeschema/toolbars_sch_editor.js';
 import { DS_LEFT_TOOLBAR } from '@ziroeda/pagelayout_editor/toolbars_pl_editor.js';
 import { PCB_LEFT_TOOLBAR, PCB_RIGHT_TOOLBAR } from '@ziroeda/pcbnew/toolbars_pcb_editor.js';
 import { GBR_LEFT_TOOLBAR } from '@ziroeda/gerbview/toolbars_gerber.js';

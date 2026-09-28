@@ -22,10 +22,7 @@ import { PAD } from '@ziroeda/pcbnew/pad.js';
 
 describe('LAYER_UTILS.AccumulateNames', () => {
   it('joins with ", " and uses the stock name with no board', () => {
-    const names = LAYER_UTILS.AccumulateNames(
-      [PCB_LAYER_ID.F_Cu, PCB_LAYER_ID.B_Cu],
-      null,
-    );
+    const names = LAYER_UTILS.AccumulateNames([PCB_LAYER_ID.F_Cu, PCB_LAYER_ID.B_Cu], null);
     expect(names).toBe('F.Cu, B.Cu');
   });
 
