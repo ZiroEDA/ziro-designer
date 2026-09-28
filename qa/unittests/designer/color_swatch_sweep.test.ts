@@ -23,10 +23,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { COLOR4D_UNSPECIFIED } from '@ziroeda/common/gal/color4d.js';
-import {
-  color4dToItemColor,
-  itemColorToColor4d,
-} from '@ziroeda/eeschema/dialogs/item_color.js';
+import { color4dToItemColor, itemColorToColor4d } from '@ziroeda/eeschema/dialogs/item_color.js';
 
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
 /** The Drawing Sheet Editor's screens, beside KiCad's `pagelayout_editor/`. */

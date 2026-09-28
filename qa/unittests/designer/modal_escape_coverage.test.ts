@@ -82,7 +82,12 @@ function walkCommon(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-const FILES = [...walk(SRC), ...walkCommon(COMMON), ...walkCommon(CVPCB), ...walkCommon(EESCHEMA)].map((path) => ({
+const FILES = [
+  ...walk(SRC),
+  ...walkCommon(COMMON),
+  ...walkCommon(CVPCB),
+  ...walkCommon(EESCHEMA),
+].map((path) => ({
   rel: relative(SRC, path),
   src: readFileSync(path, 'utf8'),
 }));
