@@ -79,7 +79,9 @@ describe('the editor asks it', () => {
   );
 
   it('routes the right-click through contextMenuPick', () => {
-    expect(text).toContain("import { contextMenuPick } from './pcb_context_selection.js';");
+    expect(text).toContain(
+      "import { contextMenuPick } from '@ziroeda/pcbnew/tools/pcb_selection_tool.js';",
+    );
     expect(text).toContain(
       'const pick = contextMenuPick(selForDrawRef.current, hitCandidates(w)[0] ?? null);',
     );

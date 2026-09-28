@@ -257,7 +257,7 @@ describe('the PCB frame asks for that box', () => {
   );
 
   it('routes Zoom to Fit through pcbZoomFitBox', () => {
-    expect(src).toContain("from './document_extents.js'");
+    expect(src).toContain("from '@ziroeda/pcbnew/document_extents.js'");
     expect(src).toContain('pcbZoomFitBox(');
   });
 

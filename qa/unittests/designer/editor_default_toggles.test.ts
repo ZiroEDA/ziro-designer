@@ -242,11 +242,17 @@ const src = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(`../../../designer/src/${rel}`, import.meta.url)), 'utf8');
 
 describe.each([
-  ['editors/schematic/SchematicEditor.tsx'],
-  ['editors/footprint/FootprintEditor.tsx'],
-])('%s seeds its toolbar from its toggles module', (rel) => {
-  it('takes DEFAULT_TOGGLES from ./toggles.js', () => {
-    expect(src(rel)).toMatch(/import \{[^}]*\bDEFAULT_TOGGLES\b[^}]*\} from '\.\/toggles\.js'/);
+  ['editors/schematic/SchematicEditor.tsx', './toggles.js'],
+  // toggles.ts moved to pcbnew/footprint_editor_toggles.ts (Stage A of the
+  // pcbnew/ file-structure move) with a footprint_ prefix, since the PCB
+  // editor's own toggles.ts was already headed there under the bare name.
+  ['editors/footprint/FootprintEditor.tsx', '@ziroeda/pcbnew/footprint_editor_toggles.js'],
+])('%s seeds its toolbar from its toggles module', (rel, specifier) => {
+  it('takes DEFAULT_TOGGLES from its toggles module', () => {
+    const pattern = new RegExp(
+      `import \\{[^}]*\\bDEFAULT_TOGGLES\\b[^}]*\\} from '${specifier.replace(/[/.]/g, '\\$&')}'`,
+    );
+    expect(src(rel)).toMatch(pattern);
   });
 
   it('seeds the state with it and not with a literal of its own', () => {
