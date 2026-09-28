@@ -481,7 +481,7 @@ import {
 import { netClassHumanReadableName } from '@ziroeda/common/project/net_settings.js';
 import type { PdfNetInfo } from '@ziroeda/eeschema/pdf_annotations.js';
 import type { Netlist } from '@ziroeda/eeschema/connectivity/nets.js';
-import { DEFAULT_WIRE_WIDTH } from './render/renderer.js';
+import { DEFAULT_WIRE_WIDTH } from '@ziroeda/eeschema/sch_painter.js';
 import { computeNetClassOverrides } from './net_overrides.js';
 import {
   RefDesTracker,

@@ -42,9 +42,9 @@ const count = (src: string, re: RegExp): number => (src.match(re) ?? []).length;
  * replaces its row here.
  */
 const GRID_OWNERS: [canvas: string, file: string][] = [
-  ['schematic', 'editors/schematic/render/renderer.ts'],
+  ['schematic', '../../eeschema/sch_painter.ts'],
   ['symbol editor', '../../eeschema/symbol_editor/symbol_renderer.ts'],
-  ['footprint editor', 'editors/footprint/FootprintCanvas.tsx'],
+  ['footprint editor', '../../pcbnew/pcb_draw_panel_gal_ui.tsx'],
 ];
 
 /** Where each canvas' crosshair (GAL::blitCursor) is drawn. */
@@ -52,7 +52,7 @@ const CROSSHAIR_OWNERS: [canvas: string, file: string][] = [
   ['schematic', 'editors/schematic/components/SchematicCanvas.tsx'],
   ['symbol editor', 'editors/symbol/SymbolCanvas.tsx'],
   ['pcb', 'editors/pcb/PcbEditor.tsx'],
-  ['footprint editor', 'editors/footprint/FootprintCanvas.tsx'],
+  ['footprint editor', '../../pcbnew/pcb_draw_panel_gal_ui.tsx'],
 ];
 
 /** Everything that draws a grid or a crosshair, for the no-local-copy sweep. */
@@ -141,7 +141,7 @@ describe('shared grid + crosshair', () => {
     // The whole point of the change. FootprintCanvas.tsx had zero occurrences
     // of the string "grid"; symbolRenderer.ts had a private painter that no
     // toggle could switch off.
-    const fp = read('editors/footprint/FootprintCanvas.tsx');
+    const fp = read('../../pcbnew/pcb_draw_panel_gal_ui.tsx');
     expect(fp).toMatch(/\bdrawGrid\(/);
     expect(fp).toMatch(/showGrid/);
     const sym = read('../../eeschema/symbol_editor/symbol_renderer.ts');

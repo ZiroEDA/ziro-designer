@@ -161,7 +161,7 @@ import {
   DEFAULT_WIRE_WIDTH,
   DEFAULT_BUS_WIDTH,
   shadowWidthIU,
-} from '../render/renderer.js';
+} from '@ziroeda/eeschema/sch_painter.js';
 import {
   DEFAULT_RENDER_OPTS,
   type RenderOpts,

@@ -22,10 +22,7 @@
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic } from '@ziroeda/eeschema';
-import {
-  renderSchematic,
-  setVectorText,
-} from '@ziroeda/designer/src/editors/schematic/render/renderer.js';
+import { renderSchematic, setVectorText } from '@ziroeda/eeschema/sch_painter.js';
 import { DEFAULT_RENDER_OPTS } from '@ziroeda/eeschema/sch_render_settings.js';
 import { KICAD_DEFAULT } from '@ziroeda/eeschema/sch_render_settings.js';
 import { iuToMM, mmToIU } from '@ziroeda/common/eda_units.js';

@@ -93,10 +93,7 @@ describe('which junctions the graph puts on the bus layer', () => {
  * bus-junction colour that happened to match from one that was looked up.
  */
 describe('the painter reads that answer rather than the geometry', () => {
-  const RENDERER = new URL(
-    '../../../designer/src/editors/schematic/render/renderer.ts',
-    import.meta.url,
-  );
+  const RENDERER = new URL('../../../eeschema/sch_painter.ts', import.meta.url);
 
   it('picks the layer colour from the set it is handed', async () => {
     const src = await import('node:fs').then((fs) => fs.readFileSync(RENDERER, 'utf8'));

@@ -14,7 +14,7 @@
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic } from '@ziroeda/eeschema';
-import { fitToContent } from '@ziroeda/designer/src/editors/schematic/render/renderer.js';
+import { fitToContent } from '@ziroeda/eeschema/sch_painter.js';
 
 // One small symbol in the top-left of an A4 page: the page is far bigger than
 // the content, so the two fits must disagree.

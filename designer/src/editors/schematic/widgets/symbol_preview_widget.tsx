@@ -10,7 +10,7 @@
  */
 import { useCallback, useEffect, useRef } from 'react';
 import type { LibSymbol } from '@ziroeda/eeschema';
-import { renderSymbolPreview } from '../render/renderer.js';
+import { renderSymbolPreview } from '@ziroeda/eeschema/sch_painter.js';
 import { useSchematicTheme } from '../../../prefs/useSettings.js';
 import {
   usePreviewViewControls,

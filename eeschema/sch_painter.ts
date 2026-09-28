@@ -2,7 +2,8 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * Canvas2D renderer for a ZiroEDA schematic model.
+ * SCH_PAINTER (`eeschema/sch_painter.{h,cpp}`): the Canvas2D renderer for a
+ * ZiroEDA schematic model. (Was `designer/src/editors/schematic/render/renderer.ts`.)
  *
  * Framework-agnostic: it takes a 2D context, the typed Schematic, a viewport, and
  * a theme, and draws in world (internal-unit) space via a single canvas transform.
@@ -69,13 +70,13 @@ import {
   imageSizeIU,
   imagePPI,
   iuPerPixel,
-} from '@ziroeda/eeschema';
+} from './index.js';
 import {
   DEFAULT_RENDER_OPTS,
   type RenderOpts,
   type Theme,
   type Viewport,
-} from '@ziroeda/eeschema/sch_render_settings.js';
+} from './sch_render_settings.js';
 import {
   backgroundLayerFill,
   brightened,
@@ -93,27 +94,27 @@ import {
   splitTextLines,
   type TextHAlign,
 } from '@ziroeda/common/font/stroke_font.js';
-import type { TextEffects as SchTextEffects } from '@ziroeda/eeschema/types.js';
+import type { TextEffects as SchTextEffects } from './types.js';
 import { outlineBoundaryLimits } from '@ziroeda/common/font/outline_layout.js';
 import { getOutlineFont } from '@ziroeda/common/font/outline_fonts.js';
 import { drawOutlineText } from '@ziroeda/common/font/draw_outline_text.js';
-import { globalLabelShape, isEmpty, textPenWidth } from '@ziroeda/eeschema/tools/bbox.js';
-import { contentBBox } from '@ziroeda/eeschema/tools/scene_bbox.js';
-import { tableCellId } from '@ziroeda/eeschema/tools/table_cells.js';
-import { schSymbolLibraryName } from '@ziroeda/eeschema';
-import { imageDataUrl } from '@ziroeda/eeschema/import_gfx/image_format.js';
-import { libPreviewFields } from '@ziroeda/eeschema/autoplace_fields.js';
-import { drawField } from '@ziroeda/eeschema/symbol_editor/symbol_renderer.js';
+import { globalLabelShape, isEmpty, textPenWidth } from './tools/bbox.js';
+import { contentBBox } from './tools/scene_bbox.js';
+import { tableCellId } from './tools/table_cells.js';
+import { schSymbolLibraryName } from './index.js';
+import { imageDataUrl } from './import_gfx/image_format.js';
+import { libPreviewFields } from './autoplace_fields.js';
+import { drawField } from './symbol_editor/symbol_renderer.js';
 import {
   DNP_MARKER_STROKE_WIDTH,
   SIM_EXCLUSION_BADGE_ALPHA,
   SIM_EXCLUSION_STROKE_WIDTH,
   dnpMarkerSegments,
   simExclusionMarker,
-} from '@ziroeda/eeschema/symbol_markers.js';
-import { dimmedColor } from '@ziroeda/eeschema/render_color.js';
-import { altIconBox } from '@ziroeda/eeschema/pin_layout_cache.js';
-import { drawAltPinModesIcon } from '@ziroeda/eeschema/pin_alt_icon.js';
+} from './symbol_markers.js';
+import { dimmedColor } from './render_color.js';
+import { altIconBox } from './pin_layout_cache.js';
+import { drawAltPinModesIcon } from './pin_alt_icon.js';
 
 /**
  * Which items this render is allowed to draw (`hiddenItems` / `onlyItems`).

@@ -24,10 +24,7 @@ import { fileURLToPath } from 'node:url';
 import { readSymbolLib } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
 import { fieldId } from '@ziroeda/eeschema/tools/hittest.js';
 import { placeSymbol } from '@ziroeda/eeschema/tools/index.js';
-import {
-  renderSchematic,
-  setVectorText,
-} from '@ziroeda/designer/src/editors/schematic/render/renderer.js';
+import { renderSchematic, setVectorText } from '@ziroeda/eeschema/sch_painter.js';
 import { DEFAULT_RENDER_OPTS } from '@ziroeda/eeschema/sch_render_settings.js';
 import { KICAD_DEFAULT } from '@ziroeda/eeschema/sch_render_settings.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';

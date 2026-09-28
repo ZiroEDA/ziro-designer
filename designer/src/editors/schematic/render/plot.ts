@@ -21,7 +21,7 @@ import { busJunctionIds } from '@ziroeda/eeschema/connectivity/bus.js';
 import type { WksSheet } from '@ziroeda/common';
 import type { Theme } from '@ziroeda/eeschema/sch_render_settings.js';
 import { KICAD_CLASSIC } from '@ziroeda/eeschema/sch_render_settings.js';
-import { renderSchematic, paperSizeIU, setVectorText } from './renderer.js';
+import { renderSchematic, paperSizeIU, setVectorText } from '@ziroeda/eeschema/sch_painter.js';
 import type { RenderOpts } from '@ziroeda/eeschema/sch_render_settings.js';
 import { zlibSync } from 'fflate';
 import type { LibSymbol } from '@ziroeda/eeschema';
