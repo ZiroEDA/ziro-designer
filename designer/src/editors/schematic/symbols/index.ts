@@ -21,7 +21,11 @@ import { loadLibraryItemsPooled } from './preload_pool.js';
 
 export type { LibTreeItem } from '@ziroeda/eeschema/lib_tree_item.js';
 /** Re-exported so callers keep one import site for symbol access. */
-export { symbolProperty, libSymbolPinCount, libSymbolUnitCount } from '@ziroeda/eeschema/lib_tree_item.js';
+export {
+  symbolProperty,
+  libSymbolPinCount,
+  libSymbolUnitCount,
+} from '@ziroeda/eeschema/lib_tree_item.js';
 
 /**
  * Read a library, saying so when a derived symbol's parent is not in the file.

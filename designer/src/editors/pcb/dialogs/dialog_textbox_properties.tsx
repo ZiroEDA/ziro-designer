@@ -71,7 +71,11 @@ import { LINE_STYLE_NAMES } from '@ziroeda/common/stroke_params.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
 import { FontChoice } from '@ziroeda/common/widgets/font_choice.js';
-import { TextFormatBar, type HAlign, type VAlign } from '@ziroeda/common/widgets/text_format_bar.js';
+import {
+  TextFormatBar,
+  type HAlign,
+  type VAlign,
+} from '@ziroeda/common/widgets/text_format_bar.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { HtmlMessageBox } from '@ziroeda/common/dialogs/html_message_box.js';
 import { PCB_TEXT_SYNTAX_HELP } from '@ziroeda/pcbnew/pcb_text_help.js';

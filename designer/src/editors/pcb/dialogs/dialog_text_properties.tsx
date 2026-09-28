@@ -52,7 +52,11 @@ import type { TextValues } from '@ziroeda/pcbnew/dialogs/dialog_text_properties.
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
 import { FontChoice } from '@ziroeda/common/widgets/font_choice.js';
-import { TextFormatBar, type HAlign, type VAlign } from '@ziroeda/common/widgets/text_format_bar.js';
+import {
+  TextFormatBar,
+  type HAlign,
+  type VAlign,
+} from '@ziroeda/common/widgets/text_format_bar.js';
 import { parseUnitValue, stringFromValue, unitLabel } from '@ziroeda/common/widgets/unit_binder.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';

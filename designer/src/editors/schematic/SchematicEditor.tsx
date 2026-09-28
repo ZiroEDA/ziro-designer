@@ -420,10 +420,7 @@ import {
   DialogGlobalEditTextAndGraphics,
   type GlobalEditResult,
 } from '@ziroeda/eeschema/dialogs/dialog_global_edit_text_and_graphics.js';
-import {
-  DialogChangeSymbols,
-  type ChangeSymbolsSubject,
-} from './dialogs/dialog_change_symbols.js';
+import { DialogChangeSymbols, type ChangeSymbolsSubject } from './dialogs/dialog_change_symbols.js';
 import { DialogEditSymbolsLibId } from '@ziroeda/eeschema/dialogs/dialog_edit_symbols_libid.js';
 import { DialogAnnotate, type AnnotateRun } from './dialogs/dialog_annotate.js';
 import {

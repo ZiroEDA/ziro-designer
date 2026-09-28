@@ -94,9 +94,7 @@ describe('disclosure arrows are the project tree chevron', () => {
     // Only the expander glyphs. A column's ▲/▼ sort indicator stays a triangle:
     // that is what wxGrid's ShowSortIndicator draws, and it is not a disclosure
     // control.
-    const FIELDS = read(
-      '../../../eeschema/dialogs/dialog_symbol_fields_table.tsx',
-    );
+    const FIELDS = read('../../../eeschema/dialogs/dialog_symbol_fields_table.tsx');
     for (const [name, src] of [
       ['net navigator', PANEL],
       ['fields table', FIELDS],
@@ -111,9 +109,9 @@ describe('disclosure arrows are the project tree chevron', () => {
 
   it('both use the twisty markup', () => {
     expect(PANEL).toContain('twisty expandable');
-    expect(
-      read('../../../eeschema/dialogs/dialog_symbol_fields_table.tsx'),
-    ).toContain('twisty expandable');
+    expect(read('../../../eeschema/dialogs/dialog_symbol_fields_table.tsx')).toContain(
+      'twisty expandable',
+    );
   });
 });
 
