@@ -90,10 +90,19 @@ anyway. (09-28: 19 root dialog bodies moved to `dialogs/`, `point_editor.ts` to
 `widgets/pcb_net_inspector_panel.ts` — see the `dialogs/` and `widgets/` rows
 above.)
 
-These belong outside pcbnew entirely (central-value rule): `lset.ts`,
-`properties_panel.ts` → `common/` (`board_project_settings.ts` moved 09-19,
-`layer_ids.ts` moved 09-28); `convert_basic_shapes_to_polygon.ts`, 
-`drc/shape_collisions.ts` → `libs/kimath/src/`.
+These belong outside pcbnew entirely (central-value rule):
+`convert_basic_shapes_to_polygon.ts`, `drc/shape_collisions.ts` →
+`libs/kimath/src/` (`board_project_settings.ts` moved 09-19, `layer_ids.ts`
+moved 09-28). **`lset.ts` resolved 09-28:** it was already only a
+`@deprecated` re-export of `common/lset.ts` + `common/layer_range.ts`; its one
+remaining importer (`board_view.ts`) now imports those directly, and the shim
+is deleted. **`properties_panel.ts` checked 09-28, stays:** its own header
+already argues the split correctly — `PROPERTIES_PANEL`
+(`common/widgets/properties_panel.cpp`) is the shared widget, ported to
+`designer/src/widgets/properties_panel.tsx`; `PCB_PROPERTIES_PANEL`
+(`pcbnew/widgets/pcb_properties_panel.cpp`) only overrides which *rows* a
+board shows, and that data has no editor-independent home. Not a central-value
+gap: the widget already reads from the shared place.
 
 ### The teardrop pattern: two architectures, one concept, both live
 
@@ -138,17 +147,43 @@ Board Setup onto `m_TeardropParamsList` on every commit with `m_Enabled`
 forced on: Board Setup's OK writes the list, and `TARGET_TRACK`'s `m_Enabled`
 is set only by Edit Teardrops, as upstream.
 
-**Not blocked, not yet done:** `modify_lines.ts` + `outset_items.ts` +
-`polygon_booleans.ts` all cite `pcbnew/tools/item_modification_routine.cpp`,
-which has no port at all yet (no class to collide with) — a genuine 3-into-1
-merge, exports don't collide, left for the next pass. `image_geometry.ts`
-spans three upstream classes (`BITMAP_BASE`, `REFERENCE_IMAGE`,
-`PCB_REFERENCE_IMAGE`) and needs a real three-way read before splitting.
+**`modify_lines.ts` + `outset_items.ts` + `polygon_booleans.ts` resolved
+09-28:** merged into `tools/item_modification_routine.ts`, matching
+`pcbnew/tools/item_modification_routine.cpp` (`PAIRWISE_LINE_ROUTINE`,
+`OUTSET_ROUTINE`, `POLYGON_BOOLEAN_ROUTINE`) — a genuine 3-into-1 merge, no
+class to collide with, no export collisions.
+
+**`image_geometry.ts` resolved 09-28, one-way not three:** its own header
+already named the three upstream counterparts (`BITMAP_BASE::GetSize`,
+`REFERENCE_IMAGE::GetBoundingBox`, the board's `pcbIUScale` binding of
+`REFERENCE_IMAGE`), but every function takes or produces `PcbImage`
+(pcbnew-only) or hardcodes `pcbIUScale` — splitting `imageSizeIU`/`imageBBox`
+into `common/bitmap_base.ts` / `common/reference_image.ts` would need either a
+`common` → `pcbnew` type import (wrong direction) or a signature change
+(behaviour risk for a moves-only pass). All four (`FALLBACK_PIXELS`,
+`iuPerPixel`, `imageSizeIU`, `imageBBox`) merged into `pcb_reference_image.ts`
+instead — the same per-editor specialisation eeschema already keeps to itself
+in `eeschema/tools/image_size.ts`, rather than common/.
+
 `item_description.ts` and `msg_panel.ts` each aggregate many item classes'
 `GetItemDescription`/`GetMsgPanelInfo` in one file on purpose (one dispatch
 site upstream reaches many overrides); splitting them apart would be the
 wrong direction. `pcb_text_help.ts`'s counterpart is a CMake-generated
 header with no hand-authored `.cpp` — nothing to fold into.
+
+**`types.ts`, `fp_lib_table.ts`, `footprint_library.ts` checked 09-28, stay:**
+`types.ts` is the plain `Board` record the whole file format is read into —
+every KiCad class in one synthetic view, not a port of any single header, so
+it has no narrower home than the package root (like `index.ts`). `fp_lib_table.ts`
+is deliberately the pcbnew half only: its own header already splits it from
+`common/libraries/library_table.ts` (the shared `LIBRARY_TABLE` parser/grammar,
+KiCad 10's rearchitected `LIBRARY_TABLE`/`LIBRARY_TABLE_PARSER` over
+`include/libraries/library_table_grammar.h`) and keeps only the
+footprint-nickname resolution. `footprint_library.ts` is a deliberate
+consolidation of `LIBRARY_MANAGER::loadTables`, the file constructor of
+`LIBRARY_TABLE`, and `FP_CACHE::Load` / `PCB_IO_KICAD_SEXPR::FootprintEnumerate`
+— three upstream files behind one filesystem seam (`FootprintLibraryFs`), by
+design so pcbnew itself stays pure.
 
 ## Frame chrome, moving in from `designer/`
 
