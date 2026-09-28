@@ -68,9 +68,10 @@ from ours): `back_annotate.ts` → `backannotate.ts`.
 
 **`eeschema/exporters/` → `eeschema/netlist_exporters/`** (KiCad has no
 `exporters/`, only `netlist_exporters/`): `netlist_exporter_allegro.ts`,
-`netlist_exporter_kicad.ts`, `netlist.ts` (fuses `netlist_exporter_xml.cpp` +
-`netlist_exporter_orcadpcb2.cpp`, kept under our own name — see below), and
-`spice.ts` → `netlist_exporter_spice.ts` (KiCad: `netlist_exporter_spice.cpp`).
+`netlist_exporter_kicad.ts`, and `spice.ts` → `netlist_exporter_spice.ts`
+(KiCad: `netlist_exporter_spice.cpp`). `netlist.ts` (which fused
+`netlist_exporter_xml.cpp` + `netlist_exporter_orcadpcb2.cpp` under our own
+name) was itself split in stage F — see below; it no longer exists.
 
 **`designer/src/editors/schematic/` → `eeschema/`** (plain `.ts`, zero
 `designer/` imports, one clean KiCad counterpart apiece):
@@ -673,3 +674,71 @@ sessions' concurrent SCH_* ports).
   command (`DS_PROXY_UNDO_ITEM`) and every view call (no live view).
   `SCH_COMMIT`'s frame constructor takes an `EDA_BASE_FRAME`, since the live
   `SCH_EDIT_FRAME` is not a draw frame yet.
+
+## Stage F (subfolders, 2026-09-29): `netlist_exporters/` closed, `erc_report.cpp` blocked
+
+**`netlist_exporters/` is now 9/10 filename-matched** (up from 3/10 at this
+stage's start): `netlist.ts` — the fused xml+orcadpcb2 file noted above —
+split into `netlist_exporter_xml.ts` (`NETLIST_EXPORTER_XML`),
+`netlist_exporter_orcadpcb2.ts` (`NETLIST_EXPORTER_ORCADPCB2`), and
+`netlist_generator.ts` (`SCH_EDIT_FRAME::WriteNetListFile`'s counterpart file
+— the format → exporter dispatch). `netlistCadstar`/`netlistPads`, already
+written inside the old `netlist.ts` but never checked against `kicad-cli`,
+moved to their own `netlist_exporter_cadstar.ts` / `netlist_exporter_pads.ts`
+and picked up real fixes the oracle found: the `*ADD_COM*`/`*PART*` symbol
+list was reference-ordered and un-deduped where upstream sorts by **uuid**
+and skips a multi-unit reference's later units (`findNextSymbol`), and PADS
+was missing the blank line between `*PART*` and `*NET*`. Shared plumbing
+(`symbolField`, `boardSymbols`, the new `sheetOrderedBoardSymbols`,
+`netPinsByName`, `NetlistMeta`) now lives in a real `netlist_exporter_base.ts`
+(`NETLIST_EXPORTER_BASE`), which `resolvePadNumbers` also moved onto (out of
+`sch_pin.ts` — it is exporter infrastructure, not a `SCH_PIN` method).
+`netlist_exporter_base.cpp`'s actual `CreatePinList`/`eraseDuplicatePins`/
+`findAllUnitsOfSymbol` (the stacked-pin, user-net-over-auto-generated-net
+dedup that only `OrcadPCB2::WriteNetlist` calls) is still unported — it
+would change `netlistOrcadPcb2`'s behavior, out of scope for a stage whose
+own rule was "stays byte-identical" for that file.
+
+Byte-exact `kicad-cli sch export netlist --format cadstar/pads` oracle
+coverage: `qa/unittests/eeschema/netlist_exporter_cadstar_oracle.test.ts` /
+`_pads_oracle.test.ts`, over the single-sheet designs in
+`qa/data/eeschema/netlist_oracle/` (both formats belong to the Export
+Netlist dialog, which — like `netlist_exporter_xml`/`orcadpcb2` — exports the
+open sheet only; the CLI always exports the whole project, so a hierarchical
+design there is not comparable). `test_multiunit_reannotate_2`/`_3` are
+excluded: `kicad-cli` gives a reference shared by two different, both
+blank-`Value`, library symbols a *third* symbol's value by some resolution
+this port does not reproduce — investigated, not explained, left open rather
+than guessed at. `netlist.test.ts` gained a synthetic multi-unit dedup
+regression test since none of the three oracle designs exercise one — a
+mutant of the dedup rule survived the oracle set but was caught by it.
+
+**`erc/erc_report.cpp` (`ERC_REPORT`): investigated, not written.** The
+pieces it needs are already ported and ready: `RC_ITEM::ShowReport` /
+`GetJsonViolation` (`common/rc_item.ts`), `ERC_ITEM` as a full `RC_ITEM`
+subclass with `GetMainItemSheetPath`/`MainItemHasSheetPath`
+(`erc/erc_item.ts`), and the JSON shape (`RC_JSON.ERC_REPORT`/`ERC_SHEET`,
+`common/rc_json_schema.ts`). `pcbnew/drc/drc_report.ts` is the exact model to
+follow once it is unblocked — same header/severity-counter/ignored-checks
+shape, `ShowReport`/`GetJsonViolation` called the same way.
+
+The blocker: `ShowReport`/`GetJsonViolation` need real `EDA_ITEM` objects (an
+`itemMap: Map<KIID, EDA_ITEM>`, `GetItemDescription()` per item) — which only
+the live `SCH_PIN`/`SCH_SYMBOL`/etc. classes at the eeschema root provide
+(`sch_pin.ts`'s `SCH_PIN.GetItemDescription`, for one). `erc/erc.ts`'s
+`runErc()` runs against the plain-record `Schematic`/`SchSymbol` model
+(`types.ts`) instead, and returns a lightweight `ErcViolation[]`
+(code/severity/message/position/**ref-id strings**, not item references) —
+the same record-vs-live-class split already flagged for `sch_io/sexpr` vs
+`sch_io/kicad_sexpr` in the previous stage. `runErc` is also single-sheet
+only (`erc_item.ts`'s own comment: "the ERC dialog is not on the live model
+yet"), where a faithful report needs the whole hierarchy. Writing a
+parallel, ad-hoc item-description generator inside `erc_report.ts` to dodge
+this would duplicate `GetItemDescription` against the central-value rule and
+drift from it; the concurrent eeschema live-model migration (this session
+alone landed `connection_graph.ts`, `sch_commit.ts`,
+`schematic_undo_redo.ts`, and — mid-session — a
+`netlist_exporters/netlist_exporter_live_wip.ts` porting
+`NETLIST_EXPORTER_BASE`/`XML`/`KICAD` onto the live `SCHEMATIC` — is already
+closing this gap from the other side. `erc_report.ts` is a small, mechanical
+port once ERC's engine (or a wrapper) hands it real item references.
