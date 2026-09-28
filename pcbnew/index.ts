@@ -1550,4 +1550,3 @@ export {
   type PnsBoardNet,
   type PnsPendingChange,
 } from './router/pns_board_iface.js';
-
