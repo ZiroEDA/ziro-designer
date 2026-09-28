@@ -141,15 +141,66 @@ still needs, import it back) with the same tests re-run green:
   ordinary `loadSymbol`/`repairSourceLibs` path, no separate cached adapter)
   are not ported.
 
+## Root files ported since the table above (2026-09-28/29)
+
+`sch_validators.ts`, `multiline_pin_text.ts`, `gfx_import_utils.ts`,
+`symbol_checker.ts`, `symbol_import_manager.ts`, `eeschema_helpers.ts` and
+`lib_fields_data_model.ts` now exist at KiCad's own root paths. Each is a
+real, tested port, but most have no live caller yet (documented in the
+file's own doc comment) — that's a UI-wiring gap, not a missing port:
+
+- `sch_validators.ts` (`SCH_NETNAME_VALIDATOR`): ported onto
+  `common/validators.ts`'s new `NETNAME_VALIDATOR`. Still no text field
+  calls it for live bus-name feedback.
+- `multiline_pin_text.ts` (`ComputeMultiLinePinNumberLayout`): ported
+  whole. Still nothing produces the brace-wrapped multi-line pin-number
+  string it lays out.
+- `gfx_import_utils.ts` (`ConvertImageToPolygons`/`ConvertImageToLibShapes`):
+  ported against a minimal structural `ImportRasterImage` interface, not
+  `bitmap2component/wx.ts`'s `wxImage`. `ConvertSVGToLibShapes` is not
+  ported — undeclared in the upstream header and callerless there too.
+- `symbol_checker.ts` (`CheckLibSymbol`/`CheckDuplicatePins`/
+  `CheckLibSymbolGraphics`): ported whole, reusing `LIB_SYMBOL.GetLogicalPins`
+  instead of re-walking `GetStackedPinNumbers`. The Symbol Editor's live
+  checker dialog (`designer/src/editors/symbol/components/dialogs.tsx`'s
+  `checkLibSymbol`) is a separate, already-working port of the same C++
+  against that editor's own UI-side `LibSymbol` shape — not merged in,
+  since rewriting the live dialog onto `LIB_SYMBOL` is a larger, separate
+  change.
+- `symbol_import_manager.ts` (`SYMBOL_IMPORT_MANAGER`): ported whole —
+  upstream's own header calls it "designed to be UI-independent for
+  testability", and it is here too (no `LIB_SYMBOL` method is called, only
+  stored).
+- `eeschema_helpers.ts` (`EESCHEMA_HELPERS`): only the two pure pieces of
+  `LoadSchematic` — `chooseSchFileFormat` (format-by-extension dispatch) and
+  `resolveRootSheetName` (root-sheet display name from
+  `top_level_sheets`). The headless load pipeline itself (`SETTINGS_MANAGER`/
+  `PROJECT` resolution, the `SCH_IO` parse, `SCH_SHEET_LIST`/`SCH_SCREENS`
+  migration, `TOOL_MANAGER`/`SCH_COMMIT` wiring for
+  `RecalculateConnections`) is still not built — see the row below.
+- `lib_fields_data_model.ts` (`LIB_FIELDS_EDITOR_GRID_DATA_MODEL`): the
+  column model, data store, cell read/write, grouping, sorting and the
+  checkbox attribute getters/setters — the pure data-model half
+  `fields_data_model.ts`/`FieldsDataModel` already draws the same line at.
+  Not ported: the `WX_GRID` notifications (view-only), `ExpandRow`/
+  `CollapseRow`/`CollapseForSort`/`ExpandAfterSort` (UI row-visibility
+  bookkeeping), `ApplyData` (writes the store back onto the library's
+  `LIB_SYMBOL`s) and `CreateDerivedSymbol`/`createActualDerivedSymbol`
+  (creates a new derived `LIB_SYMBOL` in the library) — all four need a
+  live library-mode Symbol Fields Table window, which does not exist here
+  (only the schematic-mode dialog does).
+
+Root/`SAME` counts above predate this batch and were not regenerated
+(`qa/probes/struct_diff_eeschema.sh`) — read them as of 2026-09-28, not
+current.
+
 ## Not ported — no file to move
 
 | KiCad file | status |
 |---|---|
-| `lib_fields_data_model.cpp`/`.h` (`LIB_FIELDS_EDITOR_GRID_DATA_MODEL`) | Not built. `fields_data_model.ts` covers only the schematic-level `FIELDS_EDITOR_GRID_DATA_MODEL`, not the library-editor grid. |
-| `multiline_pin_text.cpp` (`ComputeMultiLinePinNumberLayout`) | Not built — no reference anywhere in the tree. |
-| `eeschema_settings.cpp` (`EESCHEMA_SETTINGS`, `eeschema.json`) | Not a standalone module. App-level eeschema settings are spread across the app's central prefs store (`designer/src/prefs/settings.ts`) plus per-panel readers — the app's own architecture (one settings slice store, not KiCad's per-frame `<frame>.json`), not a gap to fill by moving a file. |
-| `sch_validators.cpp` (`SCH_NETNAME_VALIDATOR`) | Not built. No text-control validator calls `NET_SETTINGS::ParseBusGroup`/`ParseBusVector` for live "is this a valid bus name" feedback the way this class does; `bus.ts`/`sch_bus_entry.ts` call those same `NET_SETTINGS` methods for parsing, not validation. |
-| `eeschema_helpers.cpp` (`EESCHEMA_HELPERS`) | Not built. It is the headless/IPC/API loader (`LoadSchematic` outside the GUI, for `kicad-cli`/Python scripting) — we have no CLI or process boundary for it to serve. |
+| `eeschema_settings.cpp` (`EESCHEMA_SETTINGS`, `eeschema.json`) | The type+defaults half moved to `eeschema/eeschema_settings.ts` (`EeschemaSettings`/`EESCHEMA_DEFAULTS`, out of `designer/src/prefs/settings.ts`) 2026-09-28. No `EESCHEMA_SETTINGS extends JSON_SETTINGS` class exists, and none is planned: the precedent this tree already set for a per-app settings file (`pagelayout_editor/pl_editor_settings.ts`'s `PL_EDITOR_SETTINGS`) only wraps the handful of fields genuinely unique to that C++ class in a small `FromJson`/`ToJson` pair; upstream `EESCHEMA_SETTINGS` has no such small "own fields" set (it's struct-of-structs, `APPEARANCE`/`AUI_PANELS`/`AUTOPLACE_FIELDS`/…, all inherited-looking groups), and the app's actual runtime store is `designer/src/prefs/settings.ts`'s one combined JSON, not a per-frame file a `JSON_SETTINGS` subclass would load/save on its own — building one nothing calls would duplicate `EeschemaSettings`, not replace it. |
+| `eeschema_helpers.cpp` (`EESCHEMA_HELPERS`) | The headless load pipeline itself — `SETTINGS_MANAGER`/`PROJECT` resolution, the `SCH_IO` plugin parse, `SCH_SHEET_LIST`/`SCH_SCREENS` migration, `TOOL_MANAGER`/`SCH_COMMIT` wiring for `RecalculateConnections` — is not built: no CLI or process boundary for it to serve, and it would reach into `SCHEMATIC`/`connection_graph`/`sch_io/kicad_sexpr`, mid-port elsewhere in this tree as of 2026-09-29. Its two pure pieces are ported; see the table above. |
+| `lib_fields_data_model.cpp`/`.h` (`LIB_FIELDS_EDITOR_GRID_DATA_MODEL`) | The pure data-model half is ported (see the table above); the wxGrid/library-write-back/derived-symbol-creation half needs a live library-mode Symbol Fields Table window, which does not exist here. |
 
 ## Own-named root files: fold audit (2026-09-28)
 
