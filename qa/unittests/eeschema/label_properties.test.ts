@@ -17,12 +17,12 @@ import {
   cleanLabelFields,
   labelFields,
   labelOrientationForPoint,
-  pinSpinStyle,
   setLabelFields,
   setNodeFields,
   spinOfAngle,
   wireLabelDriverName,
 } from '@ziroeda/eeschema/tools/label_properties.js';
+import { pinSpinStyle } from '@ziroeda/eeschema/symb_transforms_utils.js';
 import { computeNetlist } from '@ziroeda/eeschema/connectivity/nets.js';
 import { makeLabel as buildLabel } from '@ziroeda/eeschema/tools/build.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
