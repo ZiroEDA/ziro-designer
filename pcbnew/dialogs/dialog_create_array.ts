@@ -152,6 +152,17 @@ export interface ArraySettings {
   angleOffset: number;
   clockwise: boolean;
   rotateItems: boolean;
+
+  /**
+   * "Arrange selection" rather than "Create copies"
+   * (`m_radioBtnArrangeSelection`, :570). Absent is upstream's default, off.
+   */
+  arrangeSelection?: boolean;
+  /**
+   * "Assign unique reference designators" (`m_radioBtnUniqueRefs`, :571).
+   * Absent is upstream's default, on (`m_FootprintReannotate = true`, :90).
+   */
+  reannotateFootprints?: boolean;
 }
 
 export const DEFAULT_ARRAY_SETTINGS: ArraySettings = {
@@ -194,6 +205,14 @@ export function arraySettingsValid(s: ArraySettings): boolean {
 
 /** `TransferDataFromWindow`: the settings as the engine wants them. */
 export function arraySpecFrom(s: ArraySettings): ArraySpec {
+  const spec = arrayGeometryFrom(s);
+  spec.SetShouldArrangeSelection(s.arrangeSelection ?? false);
+  spec.SetSShouldReannotateFootprints(s.reannotateFootprints ?? true);
+  return spec;
+}
+
+/** The grid or circle half of `TransferDataFromWindow`. */
+function arrayGeometryFrom(s: ArraySettings): ArraySpec {
   if (s.mode === 'grid') {
     const grid = new ARRAY_GRID_OPTIONS();
     grid.m_nx = s.nx;
