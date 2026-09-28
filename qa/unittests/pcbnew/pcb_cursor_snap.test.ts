@@ -535,6 +535,20 @@ describe('PCB_GRID_HELPER::BestSnapAnchor, held (pcb_grid_helper.cpp:593-930)', 
     });
   });
 
+  it('prefers an anchor inside snapIn over the snap line', () => {
+    // Snap to via A, then come near via B, which sits just off A's
+    // horizontal snap line: the anchor wins over the line.
+    const b = boardOf(`
+      (via (at 10.3 10.3) (size 0.6) (drill 0.3) (layers "F.Cu" "B.Cu") (net 1))
+      (via (at 15.2 10.45) (size 0.6) (drill 0.3) (layers "F.Cu" "B.Cu") (net 1))`);
+    const h = new PCB_GRID_HELPER(grid({ size: 1 * MM }));
+    h.BestSnapAnchor(b, { x: 10.3 * MM, y: 10.4 * MM }, opts);
+    expect(h.BestSnapAnchor(b, { x: 15.2 * MM, y: 10.35 * MM }, opts)).toEqual({
+      x: 15.2 * MM,
+      y: 10.45 * MM,
+    });
+  });
+
   it('snaps to the crossing of two tracks only once both are activated', () => {
     vi.useFakeTimers();
     // Two tracks crossing at (15.3, 15.3), off the 1 mm grid.
