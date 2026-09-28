@@ -19,11 +19,11 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { useState, type JSX } from 'react';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { PanelPcbZoneHatchOffsets } from '@ziroeda/designer/src/editors/pcb/dialogs/panels/panel_pcb_zone_hatch_offsets.js';
+import { PanelPcbZoneHatchOffsets } from '@ziroeda/pcbnew/dialogs/panels/panel_pcb_zone_hatch_offsets.js';
 import {
   ZONE_LAYER_GRID_COLUMNS,
   ZoneLayerPropertiesGrid,
-} from '@ziroeda/designer/src/widgets/zone_layer_properties_grid.js';
+} from '@ziroeda/pcbnew/widgets/zone_layer_properties_grid.js';
 import {
   copperStackNames,
   defaultBoardSetup,

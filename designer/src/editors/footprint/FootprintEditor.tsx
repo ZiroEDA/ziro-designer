@@ -133,7 +133,7 @@ import {
   type SelectionFilterItem,
 } from '../../widgets/panel_selection_filter.js';
 import { GetLayerName } from '@ziroeda/common/layer_ids.js';
-import { DEFAULT_DRAW_OPTIONS, type PcbDrawOptions } from '../pcb/renderBoard.js';
+import { DEFAULT_DRAW_OPTIONS, type PcbDrawOptions } from '@ziroeda/pcbnew/renderBoard.js';
 import '@ziroeda/common/widgets/shell.css';
 import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';

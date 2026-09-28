@@ -24,7 +24,7 @@ import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import type { KIWAY } from '@ziroeda/common/kiway.js';
 import { SCH_EDIT_FRAME } from '@ziroeda/eeschema/sch_edit_frame.js';
 import { assignFootprintsCommands } from '@ziroeda/eeschema/tools/assign_footprints.js';
-import { fetchNetlistFromSchematic } from '../pcb/netlist_from_schematic.js';
+import { fetchNetlistFromSchematic } from '@ziroeda/pcbnew/netlist_from_schematic.js';
 import { parse } from '@ziroeda/sexpr';
 import { useProjectSync } from '../../sync/ProjectSyncProvider.js';
 import {

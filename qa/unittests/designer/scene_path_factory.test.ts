@@ -29,7 +29,7 @@ import {
   buildScene,
   DOM_PATH_FACTORY,
   type ScenePathFactory,
-} from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
+} from '@ziroeda/pcbnew/renderBoard.js';
 
 /** A path that keeps its ops, standing in for the GL recorder's vertex sink. */
 class CountingPath {

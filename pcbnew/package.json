@@ -10,9 +10,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@ziroeda/3d-viewer": "workspace:*",
     "@ziroeda/bitmaps_png": "workspace:*",
     "@ziroeda/common": "workspace:*",
     "@ziroeda/core": "workspace:*",
+    "@ziroeda/eeschema": "workspace:*",
     "@ziroeda/kimath": "workspace:*",
     "@ziroeda/rectpack2d": "workspace:*",
     "@ziroeda/zint": "workspace:*",

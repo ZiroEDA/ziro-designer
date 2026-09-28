@@ -31,7 +31,7 @@ import { FootprintPreviewWidget } from '@ziroeda/common/widgets/footprint_previe
 import { PCB_FOOTPRINT_PREVIEW_PANEL } from '@ziroeda/designer/src/editors/pcb/footprint_preview_panel.js';
 import { parseFootprint } from '@ziroeda/pcbnew/footprint_edit_frame.js';
 import { layerColor, PCB_CURSOR, PCB_GRID, PCB_SPECIAL } from '@ziroeda/pcbnew/pcbTheme.js';
-import { netnameColorFor } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
+import { netnameColorFor } from '@ziroeda/pcbnew/renderBoard.js';
 import { dimmedCursorColor } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
 
 afterEach(cleanup);

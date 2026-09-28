@@ -50,7 +50,7 @@ import {
   type Emphasis,
   type PcbDrawOptions,
   type PcbViewTransform,
-} from '../../editors/pcb/renderBoard.js';
+} from '@ziroeda/pcbnew/renderBoard.js';
 import { createGlDevice, type GlDevice } from './device.js';
 import { Scene } from './scene.js';
 import { GlRecorder } from './recorder.js';

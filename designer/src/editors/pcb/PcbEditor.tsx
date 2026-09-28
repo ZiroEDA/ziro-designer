@@ -363,7 +363,7 @@ import {
   defaultBoardSetup,
   type BoardSetupValues,
   type PageId as BoardSetupPageId,
-} from './dialogs/dialog_board_setup.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_board_setup.js';
 import {
   druFileName,
   findProjectDru,
@@ -372,7 +372,10 @@ import {
 } from '@ziroeda/pcbnew/pcb_edit_frame.js';
 import { clampMaxErrorMM } from '@ziroeda/pcbnew/board_settings.js';
 import type { TextGfxRow } from '@ziroeda/pcbnew/board_settings.js';
-import { BoardSetupFromWindow, BoardSetupToWindow } from './dialogs/board_setup_transfer.js';
+import {
+  BoardSetupFromWindow,
+  BoardSetupToWindow,
+} from '@ziroeda/pcbnew/dialogs/board_setup_transfer.js';
 import { DumpJson } from '@ziroeda/common/settings/json_dump.js';
 import type { BOARD } from '@ziroeda/pcbnew/board.js';
 import { DialogDrc } from '@ziroeda/pcbnew/dialogs/dialog_drc.js';
@@ -526,7 +529,7 @@ import {
   REACT_BOARD_LISTENER,
   pcbnewSettingsOf,
 } from '@ziroeda/pcbnew/pcb_edit_frame.js';
-import { FetchNetlistFromSchematic } from './netlist_from_schematic.js';
+import { FetchNetlistFromSchematic } from '@ziroeda/pcbnew/netlist_from_schematic.js';
 import { loadFootprint, loadFootprintIndex } from '../../widgets/footprint_list.js';
 import { FootprintChooserFrame } from './dialogs/footprint_chooser_frame.js';
 import { addFootprintToHistory } from '@ziroeda/pcbnew/widgets/footprint_history.js';
@@ -546,7 +549,7 @@ import {
   type PcbDrawOptions,
   type ScenePathFactory,
   type SceneFilter,
-} from './renderBoard.js';
+} from '@ziroeda/pcbnew/renderBoard.js';
 import {
   applyDisplayState,
   attachBoardToPanel,
@@ -591,7 +594,7 @@ import {
   PCB_OBJECT_COLORS,
   PCB_SPECIAL,
 } from '@ziroeda/pcbnew/pcbTheme.js';
-import { PcbPropertiesPanel } from './PcbPropertiesPanel.js';
+import { PcbPropertiesPanel } from '@ziroeda/pcbnew/widgets/pcb_properties_panel_ui.js';
 import {
   drawGrid,
   drawCrosshair,

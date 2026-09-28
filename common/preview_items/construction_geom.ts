@@ -14,7 +14,7 @@
  * item's draw call. `snap_indicator.ts` and `origin_viewitem.ts` are the
  * opposite case (a fixed on-screen marker size at every zoom) and so they
  * reset the canvas transform and take a `toPx` callback; this file keeps
- * upstream's transform instead, matching `designer/src/editors/pcb/renderBoard.ts`'s
+ * upstream's transform instead, matching `pcbnew/renderBoard.ts`'s
  * own convention of setting `ctx.setTransform( view.scale, 0, 0, view.scale,
  * view.tx, view.ty )` once and then drawing every world item in raw IU. The
  * one thing that still needs converting is a size or pen width that upstream

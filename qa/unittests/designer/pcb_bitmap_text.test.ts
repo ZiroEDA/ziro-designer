@@ -32,7 +32,7 @@ import {
   GLYPH_STRIDE,
   LAST_CODEPOINT,
 } from '@ziroeda/common/gal/opengl/bitmap_font.js';
-import { buildScene, drawNetNames } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
+import { buildScene, drawNetNames } from '@ziroeda/pcbnew/renderBoard.js';
 import { GL_PATH_FACTORY } from '@ziroeda/designer/src/render/gl/gl_path.js';
 import { GlRecorder } from '@ziroeda/designer/src/render/gl/recorder.js';
 import { Scene } from '@ziroeda/designer/src/render/gl/scene.js';

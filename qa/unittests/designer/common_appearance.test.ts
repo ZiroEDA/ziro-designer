@@ -285,10 +285,7 @@ describe('the board painter dims the way pcb_painter does', () => {
    * surviving `globalAlpha = 0.2` would be invisible in a unit test of the
    * colour helper and perfectly visible on a board.
    */
-  const RENDER = readFileSync(
-    resolve(process.cwd(), '../designer/src/editors/pcb/renderBoard.ts'),
-    'utf8',
-  );
+  const RENDER = readFileSync(resolve(process.cwd(), '../pcbnew/renderBoard.ts'), 'utf8');
 
   it('mixes toward the background rather than reducing opacity', () => {
     expect(RENDER).toMatch(/hiContrastColor\(/);

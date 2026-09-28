@@ -13,7 +13,7 @@ import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import { KIWAY } from '@ziroeda/common/kiway.js';
 import { MAIL_T } from '@ziroeda/common/mail_type.js';
 import { SCH_EDIT_FRAME } from '@ziroeda/eeschema/sch_edit_frame.js';
-import { FetchNetlistFromSchematic } from '@ziroeda/designer/src/editors/pcb/netlist_from_schematic.js';
+import { FetchNetlistFromSchematic } from '@ziroeda/pcbnew/netlist_from_schematic.js';
 
 const NET = readFileSync(
   new URL(

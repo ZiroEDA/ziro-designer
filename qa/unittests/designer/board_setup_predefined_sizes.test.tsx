@@ -33,7 +33,7 @@ import {
   normalizeSizeRows,
   sortSizeRows,
   validateSizes,
-} from '@ziroeda/designer/src/editors/pcb/dialogs/dialog_board_setup.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_board_setup.js';
 import { defaultBoardSetup, type BoardSetupValues } from '@ziroeda/pcbnew/board_settings.js';
 
 afterEach(cleanup);

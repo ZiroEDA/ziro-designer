@@ -57,7 +57,7 @@ import {
   DEFAULT_DRAW_OPTIONS,
   type BoardScene,
   type PcbDrawOptions,
-} from '../pcb/renderBoard.js';
+} from '@ziroeda/pcbnew/renderBoard.js';
 import {
   PCB_BACKGROUND,
   PCB_CURSOR,
@@ -67,7 +67,7 @@ import {
 import { drawSelectionArea, isBackgroundDark, selectionAreaColors } from '@ziroeda/common';
 import { FOOTPRINT_LAYERS, footprintToBoard } from '@ziroeda/pcbnew/footprint_edit_frame.js';
 import type { PcbLayerDef } from '@ziroeda/pcbnew/types.js';
-import { pcbGridOptions, PCB_DEFAULT_GRID_IU } from '../pcb/renderBoard.js';
+import { pcbGridOptions, PCB_DEFAULT_GRID_IU } from '@ziroeda/pcbnew/renderBoard.js';
 import { PCB_GRID_HELPER } from '@ziroeda/pcbnew/tools/pcb_grid_helper.js';
 
 export interface FootprintCanvasController {

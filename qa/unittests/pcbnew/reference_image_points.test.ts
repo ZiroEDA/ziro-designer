@@ -182,7 +182,7 @@ describe('and the canvas draws what a selected or half-placed image needs', () =
     'utf8',
   );
   const RENDER = readFileSync(
-    fileURLToPath(new URL('../../../designer/src/editors/pcb/renderBoard.ts', import.meta.url)),
+    fileURLToPath(new URL('../../../pcbnew/renderBoard.ts', import.meta.url)),
     'utf8',
   );
 

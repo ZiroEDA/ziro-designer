@@ -14,7 +14,7 @@
  */
 import { PCB_IU_PER_MM } from '@ziroeda/common/eda_units.js';
 import { describe, it, expect } from 'vitest';
-import { drawDrcMarkers, GAL_SCREEN_DPI } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
+import { drawDrcMarkers, GAL_SCREEN_DPI } from '@ziroeda/pcbnew/renderBoard.js';
 import { PCB_BACKGROUND, PCB_SPECIAL } from '@ziroeda/pcbnew/pcbTheme.js';
 
 interface Call {

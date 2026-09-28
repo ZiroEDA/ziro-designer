@@ -26,7 +26,7 @@ import {
   serializeBoard,
 } from '@ziroeda/pcbnew';
 import type { PcbFootprint } from '@ziroeda/pcbnew';
-import { fetchNetlistFromSchematic } from '@ziroeda/designer/src/editors/pcb/netlist_from_schematic.js';
+import { fetchNetlistFromSchematic } from '@ziroeda/pcbnew/netlist_from_schematic.js';
 
 /**
  * A KiCad 6-era copy of the Arduino_Uno template, held here rather than read out

@@ -29,7 +29,7 @@ import {
   defaultTeardrops,
   type TeardropsSetup,
 } from '@ziroeda/pcbnew/dialogs/panel_setup_teardrops.js';
-import { BoardSetupFromWindow } from '@ziroeda/designer/src/editors/pcb/dialogs/board_setup_transfer.js';
+import { BoardSetupFromWindow } from '@ziroeda/pcbnew/dialogs/board_setup_transfer.js';
 import { EMPTY_PCB } from '@ziroeda/designer/src/home/new_project.js';
 import { TARGET_TD } from '@ziroeda/pcbnew/teardrop/teardrop_parameters.js';
 import { readSetup } from './board_setup_test_utils.js';
@@ -115,7 +115,7 @@ describe('the dialog is big enough to show them', () => {
     // [px] 1227 x 786, off a live Board Setup on the Teardrops page: the window
     // spans x 330..1556 and y 256..1041 in a 1920 x 1200 screenshot.
     const src = readFileSync(
-      resolve(process.cwd(), '../designer/src/editors/pcb/dialogs/dialog_board_setup.tsx'),
+      resolve(process.cwd(), '../pcbnew/dialogs/dialog_board_setup.tsx'),
       'utf8',
     );
     expect(src).toMatch(/initialSize=\{\{ width: 1227, height: 786 \}\}/);

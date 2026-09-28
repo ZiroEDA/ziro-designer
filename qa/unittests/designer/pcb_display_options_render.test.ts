@@ -26,7 +26,7 @@ import {
   drawBoard,
   DEFAULT_DRAW_OPTIONS,
   type PcbDrawOptions,
-} from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
+} from '@ziroeda/pcbnew/renderBoard.js';
 import { PCB_SPECIAL } from '@ziroeda/pcbnew/pcbTheme.js';
 import { DEFAULT_OBJECTS } from '@ziroeda/pcbnew/widgets/appearance_objects.js';
 

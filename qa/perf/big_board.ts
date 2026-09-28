@@ -5,7 +5,7 @@
 //       ~/kicad-reference/demos/jetson-agx-thor-baseboard/jetson-agx-thor-baseboard.kicad_pcb
 import { readFileSync } from 'node:fs';
 import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { buildScene, DEFAULT_DRAW_OPTIONS } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
+import { buildScene, DEFAULT_DRAW_OPTIONS } from '@ziroeda/pcbnew/renderBoard.js';
 import { GL_PATH_FACTORY } from '@ziroeda/designer/src/render/gl/gl_path.js';
 import { Scene } from '@ziroeda/designer/src/render/gl/scene.js';
 import { recordBoardScene } from '@ziroeda/designer/src/render/gl/pcb_gl.js';

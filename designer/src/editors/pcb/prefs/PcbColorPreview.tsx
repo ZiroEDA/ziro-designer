@@ -38,7 +38,7 @@ import {
   pcbGridOptions,
   DEFAULT_DRAW_OPTIONS,
   type BoardScene,
-} from '../renderBoard.js';
+} from '@ziroeda/pcbnew/renderBoard.js';
 import { drawGrid } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
 import {
   usePreviewViewControls,

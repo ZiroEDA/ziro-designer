@@ -24,7 +24,7 @@ import {
   selectedColor,
   showsNetName,
   type TrackNetLabel,
-} from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
+} from '@ziroeda/pcbnew/renderBoard.js';
 
 describe('pcb color themes', () => {
   it('registers the two KiCad built-ins under their COLOR_SETTINGS filenames', () => {

@@ -47,7 +47,7 @@ import {
   Margin,
 } from '@ziroeda/common/layer_ids.js';
 import { fpBackgroundDefault } from './fpColorLayers.js';
-import { layerChoice, type LayerChoice } from '../pcb/pcb_layer_presentation.js';
+import { layerChoice, type LayerChoice } from '@ziroeda/pcbnew/pcb_layer_presentation.js';
 
 /**
  * The footprint editor's row type. It IS `LAYER_PRESENTATION`'s `LayerChoice`

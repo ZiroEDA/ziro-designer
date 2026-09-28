@@ -21,7 +21,7 @@ import { describe, expect, it } from 'vitest';
 import { ResolveShownText, type TextVarResolverFn } from '@ziroeda/common/common.js';
 import { parse } from '@ziroeda/sexpr';
 import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { buildScene } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
+import { buildScene } from '@ziroeda/pcbnew/renderBoard.js';
 
 const BOARD_TEXT = `(kicad_pcb (version 20241229) (generator "test")
   (general (thickness 1.6))

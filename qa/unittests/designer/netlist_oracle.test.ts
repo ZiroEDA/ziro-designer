@@ -14,7 +14,7 @@
  * matches.
  */
 import { readdirSync, readFileSync } from 'node:fs';
-import { fetchNetlistFromSchematic } from '@ziroeda/designer/src/editors/pcb/netlist_from_schematic.js';
+import { fetchNetlistFromSchematic } from '@ziroeda/pcbnew/netlist_from_schematic.js';
 import { describe, expect, it } from 'vitest';
 
 const ORACLE = new URL('../../data/eeschema/netlist_oracle/', import.meta.url).pathname;

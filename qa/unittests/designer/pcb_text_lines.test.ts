@@ -19,7 +19,7 @@ import {
   DEFAULT_DRAW_OPTIONS,
   drawAnchors,
   drawNetNames,
-} from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
+} from '@ziroeda/pcbnew/renderBoard.js';
 import { GL_PATH_FACTORY } from '@ziroeda/designer/src/render/gl/gl_path.js';
 
 const MM = 1e6;

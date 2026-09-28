@@ -22,7 +22,7 @@ import { parse } from '@ziroeda/sexpr/index.js';
 import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { boardGridOrigin } from '@ziroeda/pcbnew/board_design_settings.js';
 import { align } from '@ziroeda/pcbnew/tools/pcb_grid_helper.js';
-import { pcbGridOptions } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
+import { pcbGridOptions } from '@ziroeda/pcbnew/renderBoard.js';
 import { drawGrid, visibleGridStep } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
 
 /** `PCB_GRID_HELPER::Align` on a grid of `size` about `origin`, snapping on. */

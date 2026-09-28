@@ -22,7 +22,7 @@ import {
   drawNetNames,
   showsNetName,
   showsViaNetName,
-} from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
+} from '@ziroeda/pcbnew/renderBoard.js';
 import { GL_PATH_FACTORY } from '@ziroeda/designer/src/render/gl/gl_path.js';
 import { BITMAP_MINPX_FLAG, Scene, SEGMENT_STRIDE } from '@ziroeda/designer/src/render/gl/scene.js';
 import { recordBoardScene } from '@ziroeda/designer/src/render/gl/pcb_gl.js';

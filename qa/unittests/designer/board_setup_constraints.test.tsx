@@ -28,7 +28,7 @@
  */
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { DialogBoardSetup } from '@ziroeda/designer/src/editors/pcb/dialogs/dialog_board_setup.js';
+import { DialogBoardSetup } from '@ziroeda/pcbnew/dialogs/dialog_board_setup.js';
 import {
   clampMaxErrorMM,
   defaultBoardSetup,

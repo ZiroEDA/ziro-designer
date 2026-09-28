@@ -21,7 +21,7 @@ import {
   PCB_IU_PER_MM,
   type WksResolveContext,
 } from '@ziroeda/common';
-import { drawDrawingSheet, drawPageLimits } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
+import { drawDrawingSheet, drawPageLimits } from '@ziroeda/pcbnew/renderBoard.js';
 
 const A4 = { widthMM: 297, heightMM: 210 };
 

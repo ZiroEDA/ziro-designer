@@ -45,7 +45,7 @@ import { MessageDialogError, MessageDialogOk } from '@ziroeda/common/dialogs/dia
 import { PCB_IU_PER_MM } from '@ziroeda/common/eda_units.js';
 import { useState, type JSX } from 'react';
 import type { Board } from '@ziroeda/pcbnew';
-import { buildScene, drawBoard, type PcbDrawOptions } from '../renderBoard.js';
+import { buildScene, drawBoard, type PcbDrawOptions } from '@ziroeda/pcbnew/renderBoard.js';
 import { PCB_BW_PRINT_THEME, PCB_THEMES, themeByFilename } from '@ziroeda/pcbnew/pcbTheme.js';
 import { settings } from '../../../prefs/settings.js';
 

@@ -34,7 +34,7 @@ import { parse } from '@ziroeda/sexpr/index.js';
 import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import type { Board } from '@ziroeda/pcbnew/types.js';
-import { buildScene } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
+import { buildScene } from '@ziroeda/pcbnew/renderBoard.js';
 
 class RecordingPath2D {
   moveTo(): void {}

@@ -21,7 +21,7 @@ import {
   pcbGridOptions,
   DEFAULT_DRAW_OPTIONS,
   PCB_DEFAULT_GRID_IU,
-} from './renderBoard.js';
+} from '@ziroeda/pcbnew/renderBoard.js';
 import { drawCrosshair, drawGrid } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
 import { PCB_BACKGROUND, PCB_CURSOR } from '@ziroeda/pcbnew/pcbTheme.js';
 import { settings } from '../../prefs/settings.js';

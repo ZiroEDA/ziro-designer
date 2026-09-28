@@ -29,7 +29,7 @@ import {
   boardDrawingSheetItems,
   DS_IU_TO_PCB,
   hitTestBoardDrawingSheet,
-} from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
+} from '@ziroeda/pcbnew/renderBoard.js';
 
 const MM = 1e6;
 /** An A4 board, the size KiCad gives a new one. */

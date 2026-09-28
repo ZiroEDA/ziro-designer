@@ -28,7 +28,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { parse } from '@ziroeda/sexpr/index.js';
 import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { buildScene } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
+import { buildScene } from '@ziroeda/pcbnew/renderBoard.js';
 import { GL_PATH_FACTORY, GlPath, asGlPath } from '@ziroeda/designer/src/render/gl/gl_path.js';
 
 const MM = 1e6;

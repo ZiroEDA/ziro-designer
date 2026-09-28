@@ -25,7 +25,7 @@ import {
   PanelPcbStackup,
   defaultPhysicalStackup,
   type PhysicalStackup,
-} from '@ziroeda/designer/src/editors/pcb/dialogs/panels/panel_pcb_stackup.js';
+} from '@ziroeda/pcbnew/dialogs/panels/panel_pcb_stackup.js';
 import { readSetup, writeSetup } from './board_setup_test_utils.js';
 import { defaultBoardSetup } from '@ziroeda/pcbnew/board_settings.js';
 

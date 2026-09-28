@@ -32,7 +32,7 @@ import { pcbColorRows } from '@ziroeda/designer/src/editors/pcb/pcbColorLayers.j
 import { fpColorRows } from '@ziroeda/designer/src/editors/footprint/fpColorLayers.js';
 import { parse } from '@ziroeda/sexpr';
 import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { DEFAULT_DRAW_OPTIONS as PCB_DEFAULT_DRAW_OPTIONS } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
+import { DEFAULT_DRAW_OPTIONS as PCB_DEFAULT_DRAW_OPTIONS } from '@ziroeda/pcbnew/renderBoard.js';
 import { pageSizeMM } from '@ziroeda/common';
 import PREVIEW_BOARD_TEXT from '@ziroeda/designer/src/editors/pcb/data/color_preview_board.kicad_pcb?raw';
 import { DISPLAY_ORIGIN_CHOICES } from '@ziroeda/designer/src/dialogs/prefs/PanelDisplayOrigin.js';
@@ -418,7 +418,7 @@ describe('PCB Editor > Colors', () => {
     // and ours showed none. `board.anchor` is a swatch on this very page.
     expect(src).toContain('drawAnchors(ctx, built.scene, view, layers, w, h, drawOpts');
     // …and it is the SHARED pass, not a cross drawn here.
-    expect(src).toContain("from '../renderBoard.js'");
+    expect(src).toContain("from '@ziroeda/pcbnew/renderBoard.js'");
   });
 
   it('previews KiCad’s own `g_previewBoard`, through the central renderer', () => {

@@ -13,7 +13,7 @@ import type { JsonValue } from '@ziroeda/common/settings/json_settings.js';
 import {
   BoardSetupFromWindow,
   BoardSetupToWindow,
-} from '@ziroeda/designer/src/editors/pcb/dialogs/board_setup_transfer.js';
+} from '@ziroeda/pcbnew/dialogs/board_setup_transfer.js';
 import type { BoardSetupValues } from '@ziroeda/pcbnew/board_settings.js';
 import type { BOARD } from '@ziroeda/pcbnew/board.js';
 import { FormatBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';

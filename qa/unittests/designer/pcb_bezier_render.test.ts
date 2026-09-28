@@ -32,7 +32,7 @@ import {
   buildDrawSteps,
   DEFAULT_DRAW_OPTIONS,
   type ScenePathFactory,
-} from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
+} from '@ziroeda/pcbnew/renderBoard.js';
 
 const MM = 1e6;
 
