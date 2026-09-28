@@ -20,7 +20,7 @@
 import { describe, expect, it } from 'vitest';
 import { ResolveShownText, type TextVarResolverFn } from '@ziroeda/common/common.js';
 import { parse } from '@ziroeda/sexpr';
-import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
 import { buildScene } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
 
 const BOARD_TEXT = `(kicad_pcb (version 20241229) (generator "test")

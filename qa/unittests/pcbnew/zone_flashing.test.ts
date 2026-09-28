@@ -64,7 +64,7 @@ import { ZONE_LAYER_OVERRIDE } from '@ziroeda/pcbnew/board_item.js';
 import { NETINFO_ITEM } from '@ziroeda/pcbnew/netinfo.js';
 import type { PAD } from '@ziroeda/pcbnew/pad.js';
 import { PCB_VIA } from '@ziroeda/pcbnew/pcb_track.js';
-import { ParseBoard } from '@ziroeda/pcbnew/read-board.js';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
 import { ZONE } from '@ziroeda/pcbnew/zone.js';
 import { ZONE_FILLER } from '@ziroeda/pcbnew/zone_filler.js';
 

@@ -26,7 +26,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/index.js';
-import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
 import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
 import { emptyBoard, flatText, writtenNode } from './support/written_node.js';
 import { head, isList, type SList } from '@ziroeda/sexpr/types.js';

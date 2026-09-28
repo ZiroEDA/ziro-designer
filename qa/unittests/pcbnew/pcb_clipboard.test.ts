@@ -11,7 +11,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
-import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
 import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
 import { SEXPR_BOARD_FILE_VERSION } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_parser.js';
 import {

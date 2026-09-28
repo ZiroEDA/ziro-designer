@@ -24,7 +24,7 @@ import {
   scaleForWidth,
   sizeForScale,
 } from '@ziroeda/pcbnew/dialogs/dialog_reference_image_properties.js';
-import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
 import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
 import type { Board, PcbImage } from '@ziroeda/pcbnew/types.js';
 

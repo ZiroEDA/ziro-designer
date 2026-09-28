@@ -4,7 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
 import { parse } from '@ziroeda/sexpr/index.js';
-import { readBoard, rotatePcb, arcCenter } from '@ziroeda/pcbnew/read-board.js';
+import { readBoard, rotatePcb, arcCenter } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 
 // Local KiCad source clone (gitignored); the suite is skipped when absent.

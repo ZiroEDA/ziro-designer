@@ -67,7 +67,7 @@ import {
   type WithBackdrills,
 } from './padstack_drill.js';
 import { defaultTeardropParameters } from './teardrop.js';
-import { arcCenter } from './read-board.js';
+import { arcCenter } from './pcb_io/kicad_sexpr/read_board.js';
 import { ELECTRICAL_PINTYPES, type ElectricalPinType } from '@ziroeda/common/pin_type.js';
 import {
   applyTrackViaValues,

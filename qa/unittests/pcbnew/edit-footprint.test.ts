@@ -3,7 +3,7 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr/index.js';
-import { readFootprintFile } from '@ziroeda/pcbnew/read-board.js';
+import { readFootprintFile } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
 import { serializeFootprint } from '@ziroeda/pcbnew/write-footprint.js';
 import {
   fpItemId,

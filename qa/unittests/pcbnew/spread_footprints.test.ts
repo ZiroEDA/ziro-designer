@@ -21,7 +21,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr/index.js';
-import { readFootprintFile } from '@ziroeda/pcbnew/read-board.js';
+import { readFootprintFile } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
 import { footprintBBox } from '@ziroeda/pcbnew/edit-footprint.js';
 import { spreadFootprints } from '@ziroeda/pcbnew/autorouter/spread_footprints.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';

@@ -19,7 +19,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/index.js';
-import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
 import { boardHitCandidates, boardItemId } from '@ziroeda/pcbnew/edit-board.js';
 import {
   boardEditHandles,

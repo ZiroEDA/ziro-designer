@@ -20,7 +20,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr/index.js';
-import { readBoardFootprint, readFootprintFile } from '@ziroeda/pcbnew/read-board.js';
+import { readBoardFootprint, readFootprintFile } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
 import {
   footprintTextRaw,
   resolveFootprintTextVars,

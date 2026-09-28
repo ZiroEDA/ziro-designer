@@ -64,7 +64,7 @@
  */
 
 import { strNumCmp } from '@ziroeda/common/string_utils.js';
-import { rotatePcb } from './read-board.js';
+import { rotatePcb } from './pcb_io/kicad_sexpr/read_board.js';
 import { isCopperLayerName } from './dialogs/dialog_swap_layers.js';
 import type { PcbFootprint, PcbPad, PcbShape } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';

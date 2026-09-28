@@ -17,7 +17,7 @@
  * Coordinates are internal units (+Y down), matching the reader/writer.
  */
 import { textItemBBox, textItemHitTest } from './text_metrics.js';
-import { rotatePcb } from './read-board.js';
+import { rotatePcb } from './pcb_io/kicad_sexpr/read_board.js';
 import { shapePoints as shapeOutline } from './courtyard.js';
 import { ARC_LOW_DEF, pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import { buildConvexHull } from '@ziroeda/kimath/src/geometry/convex_hull.js';

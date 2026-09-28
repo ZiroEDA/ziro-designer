@@ -5,7 +5,7 @@ import { describe, it, expect } from 'vitest';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { parse } from '@ziroeda/sexpr/index.js';
-import { readBoard, readFootprintFile } from '@ziroeda/pcbnew/read-board.js';
+import { readBoard, readFootprintFile } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
 import { serializeFootprint } from '@ziroeda/pcbnew/write-footprint.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import type { PcbFootprint } from '@ziroeda/pcbnew/types.js';

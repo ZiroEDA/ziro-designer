@@ -32,7 +32,7 @@ import {
   isBoardItemLocked,
 } from '@ziroeda/pcbnew/edit-board.js';
 import { parse } from '@ziroeda/sexpr/index.js';
-import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
 import { U } from './support/written_node.js';
 import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';

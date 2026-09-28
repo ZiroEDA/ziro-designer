@@ -32,7 +32,7 @@ export {
   tessellateArc,
   arcCenter,
   DEFAULT_POINT_SIZE,
-} from './read-board.js';
+} from './pcb_io/kicad_sexpr/read_board.js';
 export { arcSweepDegrees } from './autorouter/ar_matrix.js';
 export {
   serializeFootprint,

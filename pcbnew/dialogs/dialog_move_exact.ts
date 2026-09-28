@@ -28,7 +28,7 @@ import {
   parseBoardItemId,
   rotateBoardItemsBy,
 } from '../edit-board.js';
-import { arcCenter } from '../read-board.js';
+import { arcCenter } from '../pcb_io/kicad_sexpr/read_board.js';
 import type { Board, PcbShape } from '../types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 

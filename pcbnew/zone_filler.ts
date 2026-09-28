@@ -58,7 +58,7 @@ import {
   shapeArcCenter,
 } from './router/shape_arc_ops.js';
 import { shapeBBox, shapeDist, type Shape } from './drc/drc_geometry.js';
-import { tessellateArc } from './read-board.js';
+import { tessellateArc } from './pcb_io/kicad_sexpr/read_board.js';
 import { padShapePos } from './padstack.js';
 import { viaIsOnLayer } from './via_layers.js';
 import { type FillOutline, isolatedIslands } from './zone_islands.js';

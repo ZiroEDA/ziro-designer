@@ -34,7 +34,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/index.js';
-import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
 import { bestDragOrigin, bestSnapAnchor } from '@ziroeda/pcbnew/pcb_cursor_snap.js';
 import { align, type PcbGridState } from '@ziroeda/pcbnew/tools/pcb_grid_helper.js';
 import { moveDelta } from '@ziroeda/designer/src/editors/pcb/pcb_grid.js';

@@ -15,7 +15,7 @@
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
-import { ParseBoard } from '@ziroeda/pcbnew/read-board.js';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
 import { GENERATOR } from '@ziroeda/common/generator.js';
 import {
   CTL_ENUMERATE_LAYERS,

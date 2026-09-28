@@ -84,7 +84,7 @@ import {
   deleteBoardItems,
   type BoardItemKind,
 } from './edit-board.js';
-import { readBoard, readFootprintFile } from './read-board.js';
+import { readBoard, readFootprintFile } from './pcb_io/kicad_sexpr/read_board.js';
 import { uniqueZoneName } from './dialogs/dialog_rule_area_properties.js';
 import { expandLayerWildcards } from './dialogs/dialog_swap_layers.js';
 import { reannotateDuplicates } from './dialogs/dialog_board_reannotate.js';

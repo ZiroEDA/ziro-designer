@@ -18,7 +18,7 @@
  */
 
 import { parseBoardItemId } from './edit-board.js';
-import { tessellateArc } from './read-board.js';
+import { tessellateArc } from './pcb_io/kicad_sexpr/read_board.js';
 import {
   booleanAdd,
   booleanIntersection,

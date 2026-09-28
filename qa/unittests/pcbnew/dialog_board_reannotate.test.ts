@@ -25,7 +25,7 @@ import {
   reannotateSortCodes,
   roundToReannotateGrid,
 } from '@ziroeda/pcbnew/dialogs/dialog_board_reannotate.js';
-import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
 import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
 import { parse } from '@ziroeda/sexpr/index.js';
 import type { Board, PcbFootprint, PcbTextItem } from '@ziroeda/pcbnew/types.js';

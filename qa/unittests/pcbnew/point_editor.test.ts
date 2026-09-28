@@ -25,7 +25,7 @@ import {
   hasEditPoints,
 } from '@ziroeda/pcbnew/tools/pcb_point_editor.js';
 import type { Board, PcbShape, PcbTrack } from '@ziroeda/pcbnew/types.js';
-import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
 import { flatText, writtenNode } from './support/written_node.js';
 
 const MM = (n: number): number => mmToIU(n);
@@ -89,10 +89,12 @@ describe('which items carry handles', () => {
     expect(hasEditPoints(b, 'via:0')).toBe(false);
   });
 
-  it('offers two for a track', () => {
+  it('offers none for a track', () => {
+    // PCB_TRACE_T has no case in PCB_POINT_EDITOR::makePoints: `default:
+    // points.reset()` (pcb_point_editor.cpp:2118-2120).
     const b = board({ tracks: [track(0, 0, 10, 0)] });
 
-    expect(boardEditHandles(b, 'track:0')).toHaveLength(2);
+    expect(boardEditHandles(b, 'track:0')).toHaveLength(0);
   });
 
   it('offers none for an id that resolves to nothing', () => {
@@ -103,7 +105,7 @@ describe('which items carry handles', () => {
   it('lists every editable item on the board', () => {
     const b = board({ tracks: [track(0, 0, 10, 0)], shapes: [rect(0, 0, 5, 5)] });
 
-    expect(editablePointItems(b)).toEqual(['track:0', 'shape:0']);
+    expect(editablePointItems(b)).toEqual(['shape:0']);
   });
 });
 
@@ -287,9 +289,10 @@ describe('a circle', () => {
     expect(out.shapes[0]!.center).toEqual({ x: 0, y: 0 });
   });
 
-  it('keeps its radius when the centre is dragged', () => {
-    // The radius point has to travel with the centre, or the circle would
-    // resize as it was moved.
+  it('keeps its end, not its radius, when the centre is dragged', () => {
+    // EDA_CIRCLE_POINT_EDIT_BEHAVIOR::UpdateItem calls SetCenter, which for a
+    // circle sets m_start only (eda_shape.cpp:1104-1107): the end stays at
+    // (5, 0), hypot(15, 20) = 25 mm from the new centre.
     const b = circleBoard();
     const out = dragBoardHandle(b, 'shape:0', handle(b, 'shape:0', 'point', 0), {
       x: MM(20),
@@ -299,7 +302,8 @@ describe('a circle', () => {
     const radius = Math.hypot(s.end!.x - s.center!.x, s.end!.y - s.center!.y);
 
     expect(s.center).toEqual({ x: MM(20), y: MM(20) });
-    expect(radius).toBe(MM(5));
+    expect(s.end).toEqual({ x: MM(5), y: 0 });
+    expect(radius).toBe(MM(25));
   });
 });
 
@@ -349,7 +353,7 @@ describe('a polygon', () => {
     expect(out.shapes[0]!.pts![0]).toEqual({ x: 0, y: 0 });
   });
 
-  it('carries both ends from an edge handle', () => {
+  it('slides an edge along its neighbours (EC_CONVERGING)', () => {
     const b = polyBoard();
     const out = dragBoardHandle(b, 'shape:0', handle(b, 'shape:0', 'line', 0), {
       x: MM(5),
@@ -357,27 +361,19 @@ describe('a polygon', () => {
     });
     const pts = out.shapes[0]!.pts!;
 
-    // The edge's midpoint was (5,0); moving it to (5,-4) shifts both ends by -4.
-    expect(pts[0]).toEqual({ x: 0, y: MM(-4) });
+    // The edge moves to y = -4 and its ends ride the other two sides: the
+    // diagonal (10,10)-(0,0) meets it at x = -4, the upright x = 10 at x = 10.
+    expect(pts[0]).toEqual({ x: MM(-4), y: MM(-4) });
     expect(pts[1]).toEqual({ x: MM(10), y: MM(-4) });
     expect(pts[2]).toEqual({ x: MM(10), y: MM(10) });
   });
 });
 
 describe('tracks and arcs', () => {
-  it('moves a track end', () => {
-    const b = board({ tracks: [track(0, 0, 10, 0)] });
-    const out = dragBoardHandle(b, 'track:0', handle(b, 'track:0', 'point', 1), {
-      x: MM(10),
-      y: MM(5),
-    });
-
-    expect(out.tracks[0]!.end).toEqual({ x: MM(10), y: MM(5) });
-    expect(out.tracks[0]!.start).toEqual({ x: 0, y: 0 });
-  });
-
-  it('offers start, mid and end on a track arc', () => {
+  it('offer no edit points: the router reshapes them', () => {
+    // PCB_TRACE_T and PCB_ARC_T fall to makePoints' `default:`.
     const b = board({
+      tracks: [track(0, 0, 10, 0)],
       arcs: [
         {
           start: { x: 0, y: 0 },
@@ -390,31 +386,9 @@ describe('tracks and arcs', () => {
       ],
     });
 
-    expect(boardEditHandles(b, 'arc:0')).toHaveLength(3);
-  });
-
-  it('reshapes a track arc from its midpoint', () => {
-    const b = board({
-      arcs: [
-        {
-          start: { x: 0, y: 0 },
-          mid: { x: MM(5), y: MM(-2) },
-          end: { x: MM(10), y: 0 },
-          width: MM(0.25),
-          layer: 'F.Cu',
-          net: 0,
-        },
-      ],
-    });
-    const out = dragBoardHandle(b, 'arc:0', handle(b, 'arc:0', 'point', 1), {
-      x: MM(5),
-      y: MM(-6),
-    });
-
-    expect(out.arcs[0]!.mid).toEqual({ x: MM(5), y: MM(-6) });
-    // The ends stay put: only the bulge changed.
-    expect(out.arcs[0]!.start).toEqual({ x: 0, y: 0 });
-    expect(out.arcs[0]!.end).toEqual({ x: MM(10), y: 0 });
+    expect(boardEditHandles(b, 'track:0')).toEqual([]);
+    expect(boardEditHandles(b, 'arc:0')).toEqual([]);
+    expect(hasEditPoints(b, 'arc:0')).toBe(false);
   });
 });
 

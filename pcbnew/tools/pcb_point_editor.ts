@@ -44,7 +44,7 @@ import {
   moveZoneEdge,
   zoneHandles,
 } from '../edit-board.js';
-import { arcCenter } from '../read-board.js';
+import { arcCenter } from '../pcb_io/kicad_sexpr/read_board.js';
 import { dimensionCrossbar, radialKnee } from '../dimension_geometry.js';
 import { updateDimension } from '../dimension_text.js';
 import { segLineProject } from '@ziroeda/kimath/src/geometry/seg.js';
@@ -53,11 +53,16 @@ import type { Board, PcbBarcode, PcbDimension, PcbShape } from '../types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { imageBBox } from '../image_geometry.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
-import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { ARC_HIGH_DEF, pcbIUScale } from '@ziroeda/common/eda_units.js';
 import { ARC_EDIT_MODE } from '@ziroeda/common/frame_type.js';
 import {
   ArcEditPointPositions,
   DragArcEditPoint,
+  DragBezierEditPoint,
+  DragCircleEditPoint,
+  DragPolygonEditPoint,
+  DragSegmentEditPoint,
+  PolygonEditHandles,
 } from '@ziroeda/common/tool/point_editor_behavior.js';
 import type { PcbImage } from '../types.js';
 
@@ -196,17 +201,10 @@ export function boardEditHandles(board: Board, id: string): BoardEditHandle[] {
     );
   }
 
-  if (r.kind === 'track') {
-    const t = board.tracks[r.index];
-    return t ? [pt('point', SEG_START, t.start), pt('point', SEG_END, t.end)] : [];
-  }
-
-  if (r.kind === 'arc') {
-    const a = board.arcs[r.index];
-    return a
-      ? [pt('point', ARC_START, a.start), pt('point', ARC_MID, a.mid), pt('point', ARC_END, a.end)]
-      : [];
-  }
+  // A track and a track arc (PCB_TRACE_T, PCB_ARC_T) have no case in
+  // `PCB_POINT_EDITOR::makePoints` (pcb_point_editor.cpp:1965-2121): they fall
+  // to `default: points.reset()`, so they carry no edit points - they are
+  // reshaped by the router's drag instead.
 
   if (r.kind === 'barcode') return barcodeHandles(board, r.index);
 
@@ -221,6 +219,7 @@ export function boardEditHandles(board: Board, id: string): BoardEditHandle[] {
   if (!s) return [];
 
   if (s.kind === 'line' && s.start && s.end) {
+    // `EDA_SEGMENT_POINT_EDIT_BEHAVIOR::MakePoints`: start, end.
     return [pt('point', SEG_START, s.start), pt('point', SEG_END, s.end)];
   }
 
@@ -272,13 +271,10 @@ export function boardEditHandles(board: Board, id: string): BoardEditHandle[] {
   }
 
   if (s.kind === 'poly' && s.pts && s.pts.length >= 2) {
-    const pts = s.pts;
-    const out = pts.map((p, i) => pt('point', i, p));
-    // An edge handle per side, the last one closing the ring.
-    for (let i = 0; i < pts.length; i++) {
-      out.push(pt('line', i, mid(pts[i]!, pts[(i + 1) % pts.length]!)));
-    }
-    return out;
+    // `EDA_POLYGON_POINT_EDIT_BEHAVIOR::MakePoints` -> `BuildForPolyOutline`:
+    // a point per corner, then a line per side, the last one closing the ring.
+    const { points, lines } = PolygonEditHandles(s.pts);
+    return [...points.map((p, i) => pt('point', i, p)), ...lines.map((p, i) => pt('line', i, p))];
   }
 
   return [];
@@ -604,35 +600,6 @@ export function dragBoardHandle(
     return write({ scale: (img.scale ?? 1) * ratio });
   }
 
-  if (r.kind === 'track') {
-    const t = board.tracks[r.index];
-    if (!t) return board;
-    const next = handle.index === SEG_START ? { start: pos } : { end: pos };
-    return {
-      ...board,
-      tracks: board.tracks.map((x, i) =>
-        i === r.index ? { ...x, ...next, source: { kind: 'list', items: [] } } : x,
-      ),
-    };
-  }
-
-  if (r.kind === 'arc') {
-    const a = board.arcs[r.index];
-    if (!a) return board;
-    const next =
-      handle.index === ARC_START
-        ? { start: pos }
-        : handle.index === ARC_MID
-          ? { mid: pos }
-          : { end: pos };
-    return {
-      ...board,
-      arcs: board.arcs.map((x, i) =>
-        i === r.index ? { ...x, ...next, source: { kind: 'list', items: [] } } : x,
-      ),
-    };
-  }
-
   if (r.kind === 'barcode') return dragBarcodeHandle(board, r.index, handle, pos);
 
   if (r.kind === 'dimension') {
@@ -653,7 +620,8 @@ export function dragBoardHandle(
   if (!s) return board;
 
   if (s.kind === 'line' && s.start && s.end) {
-    return withShape(board, r.index, handle.index === SEG_START ? { start: pos } : { end: pos });
+    if (handle.kind !== 'point') return board;
+    return withShape(board, r.index, DragSegmentEditPoint(s.start, s.end, handle.index, pos));
   }
 
   if (s.kind === 'rect' && s.start && s.end) {
@@ -690,16 +658,12 @@ export function dragBoardHandle(
 
   if (s.kind === 'circle') {
     const centre = s.center ?? s.start;
-    if (!centre || !s.end) return board;
+    if (!centre || !s.end || handle.kind !== 'point') return board;
 
-    if (handle.index === CIRC_CENTER) {
-      // Moving the centre carries the radius point, or the circle would resize
-      // as it was dragged.
-      const d = { x: pos.x - centre.x, y: pos.y - centre.y };
-      return withShape(board, r.index, { center: pos, start: pos, end: add(s.end, d) });
-    }
-
-    return withShape(board, r.index, { end: pos });
+    // `EDA_CIRCLE_POINT_EDIT_BEHAVIOR::UpdateItem`: the centre is `SetCenter`,
+    // which leaves the end - and so the rim - where it was.
+    const c = DragCircleEditPoint(centre, s.end, handle.index, pos);
+    return withShape(board, r.index, { center: c.center, start: c.center, end: c.end });
   }
 
   if (s.kind === 'arc' && s.start && s.mid && s.end) {
@@ -721,32 +685,23 @@ export function dragBoardHandle(
   }
 
   if (s.kind === 'curve' && s.pts && s.pts.length >= 4) {
-    // `UpdateItem` writes back exactly the one point that moved: unlike a
-    // rectangle, no bezier point constrains any other.
     if (handle.kind !== 'point' || handle.index < 0 || handle.index > BEZIER_END) return board;
-    const pts = [...s.pts];
-    pts[handle.index] = pos;
-    return withShape(board, r.index, { pts });
+    const [p0, p1, p2, p3] = s.pts as [Vec2, Vec2, Vec2, Vec2];
+    // `EDA_BEZIER_POINT_EDIT_BEHAVIOR`, with the board's `m_MaxError`
+    // (pcb_point_editor.cpp:2012-2013), ARC_HIGH_DEF by default.
+    const pts = DragBezierEditPoint([p0, p1, p2, p3], handle.index, pos, ARC_HIGH_DEF);
+    return withShape(board, r.index, { pts: [...pts, ...s.pts.slice(4)] });
   }
 
   if (s.kind === 'poly' && s.pts && s.pts.length >= 2) {
-    const pts = [...s.pts];
+    const pts = s.pts;
+    if (handle.index < 0 || handle.index >= pts.length) return board;
 
-    if (handle.kind === 'point') {
-      if (handle.index < 0 || handle.index >= pts.length) return board;
-      pts[handle.index] = pos;
-      return withShape(board, r.index, { pts });
-    }
-
-    // The edge carries both of its ends by the shift of its midpoint.
-    const i = handle.index;
-    const j = (i + 1) % pts.length;
-    if (i < 0 || i >= pts.length) return board;
-    const before = mid(pts[i]!, pts[j]!);
-    const d = { x: pos.x - before.x, y: pos.y - before.y };
-    pts[i] = add(pts[i]!, d);
-    pts[j] = add(pts[j]!, d);
-    return withShape(board, r.index, { pts });
+    // `EDA_POLYGON_POINT_EDIT_BEHAVIOR::UpdateItem`; an edge through its
+    // `EC_CONVERGING`.
+    return withShape(board, r.index, {
+      pts: DragPolygonEditPoint(pts, handle.kind === 'line', handle.index, pos),
+    });
   }
 
   return board;
@@ -972,10 +927,6 @@ function dragCrossbar(d: PcbDimension, index: number, pos: Vec2): PcbDimension {
 /** The arc's centre, for drawing the radius while an arc handle is dragged. */
 export function arcHandleCentre(board: Board, id: string): Vec2 | null {
   const r = parseBoardItemId(id);
-  if (r?.kind === 'arc') {
-    const a = board.arcs[r.index];
-    return a ? arcCenter(a.start, a.mid, a.end) : null;
-  }
   if (r?.kind === 'shape') {
     const s = board.shapes[r.index];
     if (s?.kind === 'arc' && s.start && s.mid && s.end) return arcCenter(s.start, s.mid, s.end);
@@ -992,8 +943,6 @@ export function editablePointItems(board: Board): string[] {
       if (boardEditHandles(board, id).length > 0) out.push(id);
     }
   };
-  push('track', board.tracks.length);
-  push('arc', board.arcs.length);
   push('shape', board.shapes.length);
   push('zone', board.zones.length);
   push('dimension', board.dimensions.length);

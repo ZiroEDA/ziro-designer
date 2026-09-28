@@ -28,7 +28,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { head, parse, serialize, type SList } from '@ziroeda/sexpr/index.js';
-import { readBoard, readFootprintFile, DEFAULT_POINT_SIZE } from '@ziroeda/pcbnew/read-board.js';
+import { readBoard, readFootprintFile, DEFAULT_POINT_SIZE } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
 import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
 import { serializeFootprint } from '@ziroeda/pcbnew/write-footprint.js';
 import {

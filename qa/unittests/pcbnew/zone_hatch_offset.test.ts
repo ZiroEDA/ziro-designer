@@ -22,7 +22,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
-import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
 import { fillZones, hatchingOffsetFor } from '@ziroeda/pcbnew/zone_filler.js';
 // NOT the bare `mmToIU`, which is the DRAWING SHEET scale (1e3 IU/mm). A board
 // is 1e6, so `mmToIU(1)` here would be a thousandth of what is meant and every offset below would be

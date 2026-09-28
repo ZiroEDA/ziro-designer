@@ -41,7 +41,7 @@ import type { BOARD } from '../board.js';
 import { loadKicadNetlist } from '../netlist_reader/kicad_netlist_reader.js';
 import { PCB_MARKER } from '../pcb_marker.js';
 import { PCB_SHAPE } from '../pcb_shape.js';
-import { ParseBoard } from '../read-board.js';
+import { ParseBoard } from '../pcb_io/kicad_sexpr/read_board.js';
 import { DRC_ENGINE } from './drc_engine.js';
 import type { DRC_ITEM } from './drc_item.js';
 // The providers register themselves at import, as linking pcbnew does in C++.

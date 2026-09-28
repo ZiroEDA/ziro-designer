@@ -16,7 +16,7 @@
  * code.
  */
 import { describe, expect, it } from 'vitest';
-import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
 import {
   boardTentVias,
   computePadAccessCode,

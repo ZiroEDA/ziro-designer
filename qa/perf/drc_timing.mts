@@ -20,7 +20,7 @@ import { PROGRESS_REPORTER_BASE } from '@ziroeda/common/widgets/progress_reporte
 import { DRC_ENGINE } from '@ziroeda/pcbnew/drc/drc_engine.js';
 import '@ziroeda/pcbnew/drc/drc_test_providers.js';
 import type { DRC_ITEM } from '@ziroeda/pcbnew/drc/drc_item.js';
-import { ParseBoard } from '@ziroeda/pcbnew/read-board.js';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
 
 const boardPath = process.argv[2]!;
 const base = boardPath.replace(/\.kicad_pcb$/, '');

@@ -16,7 +16,7 @@
  */
 
 import { parseBoardItemId } from '../edit-board.js';
-import { rotatePcb } from '../read-board.js';
+import { rotatePcb } from '../pcb_io/kicad_sexpr/read_board.js';
 import type { Board, PadShape, PadType, PcbFootprint, PcbPad } from '../types.js';
 import { defaultTeardropParameters } from '../teardrop.js';
 import type { TeardropParams } from '../types.js';

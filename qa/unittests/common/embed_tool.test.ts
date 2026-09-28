@@ -18,7 +18,7 @@ import { wxGetTempDir, wxWriteFileSync } from '@ziroeda/common/wx/filefn.js';
 import { installPgm } from '@ziroeda/designer/src/editors/pcb/pcb_canvas.js';
 import { PCB_EDIT_FRAME } from '@ziroeda/designer/src/editors/pcb/pcb_edit_frame.js';
 import { PCBNEW_SETTINGS } from '@ziroeda/pcbnew/pcbnew_settings.js';
-import { ParseBoard } from '@ziroeda/pcbnew/read-board.js';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
 
 const enc = (s: string): Uint8Array => new TextEncoder().encode(s);
 const dir = `${wxGetTempDir()}/embed_tool_test`;

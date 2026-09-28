@@ -19,7 +19,7 @@
  */
 
 import { boardItemBBox, parseBoardItemId } from './edit-board.js';
-import { tessellateArc } from './read-board.js';
+import { tessellateArc } from './pcb_io/kicad_sexpr/read_board.js';
 import type { Board, PcbShape } from './types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 

@@ -13,7 +13,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/index.js';
-import { readFootprintFile } from '@ziroeda/pcbnew/read-board.js';
+import { readFootprintFile } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
 import { serializeFootprint } from '@ziroeda/pcbnew/write-footprint.js';
 import { EuclideanNormI, divideI } from '@ziroeda/kimath/src/math/vector2.js';
 import {

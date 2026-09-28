@@ -29,7 +29,7 @@
 import { pcbIuToMM as iuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import { barcodeBBox, barcodeGeometry, barcodeHullBoxes } from './pcb_io/kicad_sexpr/board_view.js';
 import { textItemBBox } from './text_metrics.js';
-import { arcCenter, rotatePcb } from './read-board.js';
+import { arcCenter, rotatePcb } from './pcb_io/kicad_sexpr/read_board.js';
 import { connectedTrackEnds } from './connectivity.js';
 import {
   footprintBBox,

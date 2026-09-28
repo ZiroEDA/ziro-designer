@@ -26,7 +26,7 @@
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/index.js';
 import { WX_IMAGE } from '@ziroeda/common/wx/wx_image.js';
-import { readBoard } from '@ziroeda/pcbnew/read-board.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
 import { serializeBoard } from '@ziroeda/pcbnew/write-board.js';
 import type { SList } from '@ziroeda/sexpr/types.js';
 import { childNode, emptyBoard, flatText, writtenNode } from './support/written_node.js';
