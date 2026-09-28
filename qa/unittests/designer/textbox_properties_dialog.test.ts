@@ -28,7 +28,7 @@ import { fileURLToPath } from 'node:url';
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(`../../../designer/src/${rel}`, import.meta.url)), 'utf8');
 
-const DIALOG = read('editors/pcb/dialogs/dialog_textbox_properties.tsx');
+const DIALOG = read('../../pcbnew/dialogs/dialog_textbox_properties_ui.tsx');
 const CSS = read('../../common/widgets/shell.css');
 /** The file's own header names the invented controls to explain them. */
 const code = DIALOG.slice(DIALOG.indexOf('*/') + 2);

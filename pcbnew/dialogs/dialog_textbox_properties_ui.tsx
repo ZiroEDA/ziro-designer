@@ -65,20 +65,16 @@ import { useState, type JSX } from 'react';
 import { pcbIuToMM, pcbIUScale, pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import { parseUnitValue, stringFromValue, unitLabel } from '@ziroeda/common/widgets/unit_binder.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
-import type { TextBoxValues } from '@ziroeda/pcbnew/dialogs/dialog_textbox_properties.js';
-import type { StrokeType } from '@ziroeda/pcbnew/types.js';
+import type { TextBoxValues } from './dialog_textbox_properties.js';
+import type { StrokeType } from '../types.js';
 import { LINE_STYLE_NAMES } from '@ziroeda/common/stroke_params.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { StdDialogButtons } from '@ziroeda/common/dialog_shim.js';
 import { FontChoice } from '@ziroeda/common/widgets/font_choice.js';
-import {
-  TextFormatBar,
-  type HAlign,
-  type VAlign,
-} from '@ziroeda/common/widgets/text_format_bar.js';
+import { TextFormatBar, type HAlign, type VAlign } from '@ziroeda/common/widgets/text_format_bar.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { HtmlMessageBox } from '@ziroeda/common/dialogs/html_message_box.js';
-import { PCB_TEXT_SYNTAX_HELP } from '@ziroeda/pcbnew/pcb_text_help.js';
+import { PCB_TEXT_SYNTAX_HELP } from '../pcb_text_help.js';
 
 type MmKey = 'width' | 'height' | 'thickness' | 'borderWidth';
 
