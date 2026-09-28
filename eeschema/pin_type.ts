@@ -19,7 +19,12 @@
  * The strings are KiCad's own, verbatim and in its order.
  */
 
-import type { ElectricalPinType } from '@ziroeda/common/pin_type.js';
+import {
+  ELECTRICAL_PINTYPE,
+  type ElectricalPinType,
+  GetCanonicalElectricalTypeName,
+  GRAPHIC_PINSHAPE,
+} from '@ziroeda/common/pin_type.js';
 
 /**
  * `g_pinElectricalTypes` (pin_type.cpp), in ELECTRICAL_PINTYPE order.
@@ -85,3 +90,30 @@ export const PIN_TYPE_ENTRIES: readonly (readonly [string, string])[] =
 /** `g_shapeNames`. */
 export const PIN_SHAPE_ENTRIES: readonly (readonly [string, string])[] =
   Object.entries(PIN_SHAPE_NAMES);
+
+// The same tables keyed by the live model's numeric enums (common/pin_type.ts).
+
+/** The file tokens of `GRAPHIC_PINSHAPE`, in enum order (getPinShapeToken). */
+const PIN_SHAPE_TOKENS: readonly string[] = [
+  'line',
+  'inverted',
+  'clock',
+  'inverted_clock',
+  'input_low',
+  'clock_low',
+  'output_low',
+  'edge_clock_high',
+  'non_logic',
+];
+
+/** `ElectricalPinTypeGetText( ELECTRICAL_PINTYPE )`. */
+export function ElectricalPinTypeGetText(aType: ELECTRICAL_PINTYPE): string {
+  if (aType === ELECTRICAL_PINTYPE.PT_INHERIT) return '';
+
+  return electricalPinTypeGetText(GetCanonicalElectricalTypeName(aType));
+}
+
+/** `PinShapeGetText( GRAPHIC_PINSHAPE )`. */
+export function PinShapeGetText(aShape: GRAPHIC_PINSHAPE): string {
+  return pinShapeGetText(PIN_SHAPE_TOKENS[aShape] ?? '');
+}

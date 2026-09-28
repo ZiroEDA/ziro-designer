@@ -110,6 +110,7 @@ export interface SCHEMATIC_SETTINGS_LIKE {
   m_TextOffsetRatio: number;
   m_LabelSizeRatio: number;
   m_MaxError: number;
+  m_PinSymbolSize: number;
   m_FontMetrics: METRICS;
   m_IntersheetRefsListOwnPage: boolean;
   m_IntersheetRefsFormatShort: boolean;
