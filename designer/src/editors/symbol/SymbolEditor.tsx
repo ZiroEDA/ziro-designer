@@ -5,7 +5,7 @@ import { iuToMM, SCH_IU_PER_MM } from '@ziroeda/common';
 import { parse } from '@ziroeda/sexpr';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import type { KIWAY } from '@ziroeda/common/kiway.js';
-import { SYMBOL_EDIT_FRAME } from './symbol_edit_frame.js';
+import { SYMBOL_EDIT_FRAME } from '@ziroeda/eeschema/symbol_editor/symbol_edit_frame.js';
 import type { Vec2 } from '@ziroeda/kimath';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -35,7 +35,7 @@ import { LibraryLoadingPanel } from '../../widgets/library_loading_panel.js';
 // The ONE tree widget, as `SYMBOL_TREE_PANE` mounts the ONE `LIB_TREE`.
 import { LibTree } from '@ziroeda/common/widgets/lib_tree.js';
 import { LibTreeNode, LibTreeNodeType } from '@ziroeda/common/lib_tree_model.js';
-import { SymbolTreeSynchronizingAdapter } from './symbol_tree_synchronizing_adapter.js';
+import { SymbolTreeSynchronizingAdapter } from '@ziroeda/eeschema/symbol_tree_synchronizing_adapter.js';
 import { KiStatusBar } from '@ziroeda/common/widgets/kistatusbar.js';
 import { MsgPanel, type MsgPanelItem } from '@ziroeda/common/widgets/msgpanel_ui.js';
 import {
@@ -54,7 +54,7 @@ import {
   SYM_LEFT_TOOLBAR,
   SYM_RIGHT_TOOLBAR,
   SYM_DEFAULT_TOOLBARS,
-} from './symbolToolbars.js';
+} from '@ziroeda/eeschema/symbol_editor/toolbars_symbol_editor.js';
 import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
 import { SymbolCanvas, type SymbolCanvasController } from './SymbolCanvas.js';
 import { SymbolLibraryManager, type ManagedLibrary } from './libraryManager.js';
@@ -63,7 +63,7 @@ import {
   resolvedProjectSymLibs,
 } from '@ziroeda/eeschema/project_sym_lib_table.js';
 import { unescapeString } from '@ziroeda/common/string_utils.js';
-import { SYM_FRAME_NAME, symFrameTitle } from './frame_title.js';
+import { SYM_FRAME_NAME, symFrameTitle } from '@ziroeda/eeschema/symbol_editor/frame_title.js';
 import { loadIndex } from '../schematic/symbols/index.js';
 import {
   useCommonSettings,
@@ -90,7 +90,11 @@ import {
   setUnitCount,
   unitCount,
 } from './edits.js';
-import { MM, symItemId, type SymbolViewOptions } from './render/symbolRenderer.js';
+import {
+  MM,
+  symItemId,
+  type SymbolViewOptions,
+} from '@ziroeda/eeschema/symbol_editor/symbol_renderer.js';
 import { symbolGridIU } from './grid.js';
 import { symbolItemDefaults } from './defaults.js';
 import {
@@ -143,7 +147,7 @@ import {
   symbolTogglesFromSettings,
   withSyncPinEdit,
 } from './toggles.js';
-import { deleteSymbolPrompts } from './delete_symbol_prompt.js';
+import { deleteSymbolPrompts } from '@ziroeda/eeschema/symbol_editor/delete_symbol_prompt.js';
 import { SelectionFilterPanel } from '../../ui/SelectionFilterPanel.js';
 import { symSelectionFilterShown } from '../../ui/selection_filter_panel.js';
 import {

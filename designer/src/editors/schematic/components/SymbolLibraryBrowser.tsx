@@ -29,7 +29,7 @@ import {
   renderSymbolScene,
   type SymbolViewOptions,
   type Viewport,
-} from '../../symbol/render/symbolRenderer.js';
+} from '@ziroeda/eeschema/symbol_editor/symbol_renderer.js';
 import { settings } from '../../../prefs/settings.js';
 import { useSchematicTheme } from '../../../prefs/useSettings.js';
 import { LibraryLoadingPanel } from '../../../widgets/library_loading_panel.js';

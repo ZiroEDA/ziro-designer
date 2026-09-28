@@ -28,7 +28,7 @@
 
 import { useState, type JSX } from 'react';
 import type { PlotOpts } from '../render/plot.js';
-import { BUILTIN_THEMES } from '../theme.js';
+import { BUILTIN_THEMES } from '@ziroeda/eeschema/sch_render_settings.js';
 import { settings } from '../../../prefs/settings.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 

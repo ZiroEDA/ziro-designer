@@ -17,11 +17,9 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
 import { refId } from '@ziroeda/eeschema/tools/hittest.js';
-import {
-  renderSchematic,
-  DEFAULT_RENDER_OPTS,
-} from '@ziroeda/designer/src/editors/schematic/render/renderer.js';
-import { KICAD_DEFAULT } from '@ziroeda/designer/src/editors/schematic/theme.js';
+import { renderSchematic } from '@ziroeda/designer/src/editors/schematic/render/renderer.js';
+import { DEFAULT_RENDER_OPTS } from '@ziroeda/eeschema/sch_render_settings.js';
+import { KICAD_DEFAULT } from '@ziroeda/eeschema/sch_render_settings.js';
 import type { Schematic } from '@ziroeda/eeschema/types.js';
 
 interface Call {

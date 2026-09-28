@@ -27,11 +27,11 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import {
-  DEFAULT_RENDER_OPTS,
   renderSchematic,
   setVectorText,
 } from '@ziroeda/designer/src/editors/schematic/render/renderer.js';
-import { KICAD_DEFAULT } from '@ziroeda/designer/src/editors/schematic/theme.js';
+import { DEFAULT_RENDER_OPTS } from '@ziroeda/eeschema/sch_render_settings.js';
+import { KICAD_DEFAULT } from '@ziroeda/eeschema/sch_render_settings.js';
 import { PanelEeschemaColorSettings } from '@ziroeda/designer/src/editors/schematic/prefs/PanelEeschemaColorSettings.js';
 import { EESCHEMA_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
 import type { EeschemaSettings } from '@ziroeda/designer/src/prefs/settings.js';

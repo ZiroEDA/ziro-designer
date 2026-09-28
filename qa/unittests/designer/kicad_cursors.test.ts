@@ -198,7 +198,7 @@ describe('one CURSOR_STORE, like KiCad', () => {
    */
   const DECIDERS = [
     'designer/src/editors/schematic/cursors.ts',
-    'designer/src/editors/symbol/cursors.ts',
+    'eeschema/symbol_editor/cursors.ts',
     'pcbnew/footprint_cursors.ts',
     'pcbnew/cursors.ts',
     'common/tool/tool_cursors.ts',

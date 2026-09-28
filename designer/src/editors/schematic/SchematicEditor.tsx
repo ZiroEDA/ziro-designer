@@ -348,6 +348,7 @@ import {
   legacyCacheFileNames,
   readLegacySymbolLibrary,
 } from '@ziroeda/eeschema/sch_io/legacy/read-lib.js';
+import { legacySchLibs } from '@ziroeda/eeschema/project_sch.js';
 import {
   legacyLibrarySymbols,
   legacyRootFile,
@@ -523,7 +524,7 @@ import {
   type PlotSink,
 } from './render/plot.js';
 import { DEFAULT_SETUP } from '@ziroeda/common/drawing_sheet/types.js';
-import { BUILTIN_THEMES } from './theme.js';
+import { BUILTIN_THEMES } from '@ziroeda/eeschema/sch_render_settings.js';
 import { ProgressDialog, nextPaint } from '@ziroeda/common/widgets/wx_progress_reporters.js';
 import type { ProgressSnapshot } from '@ziroeda/common/widgets/progress_reporter_snapshot.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
@@ -547,7 +548,7 @@ import {
   overrideItemColorsFor,
 } from '../../prefs/useSettings.js';
 import { resolveTemplateFieldnames } from './template_fieldnames.js';
-import type { RenderOpts } from './render/renderer.js';
+import type { RenderOpts } from '@ziroeda/eeschema/sch_render_settings.js';
 import type { InputPrefs } from '@ziroeda/common/ui/view_controls.js';
 import { SchPropertiesPanel } from './components/SchPropertiesPanel.js';
 import { FootprintChooserFrame } from '../pcb/dialogs/footprint_chooser_frame.js';
@@ -3831,7 +3832,8 @@ export function SchematicEditor({
   const pendingRescuePrompt = useRef(false);
 
   /**
-   * The project's `<project>-cache.lib`, read — `PROJECT_SCH::LegacySchLibs`.
+   * The project's `<project>-cache.lib`, read — `PROJECT_SCH::LegacySchLibs`
+   * (`@ziroeda/eeschema/project_sch.ts`'s `legacySchLibs`).
    *
    * `LoadAllLibraries` adds it whatever the schematic's format
    * (`legacy_symbol_library.cpp:589-600`, "add the special cache library"), and
@@ -3843,24 +3845,10 @@ export function SchematicEditor({
    * throws, `LoadAllLibraries` catches it, logs "Symbol library '%s' failed to
    * load." and carries on with the libraries it did get.
    */
-  const legacyCache = useCallback((): Map<string, LibSymbol> => {
-    const names = legacyCacheFileNames(
-      rawFiles.find((f) => /\.kicad_pro$/i.test(f.name))?.name ?? project.current.root,
-    );
-    const file = names
-      .map((n) => rawFiles.find((f) => f.name.replace(/\\/g, '/').split('/').pop() === n))
-      .find(Boolean);
-    if (!file) return new Map();
-    try {
-      // Keyed by the name the cache files each symbol under, which is what
-      // `LEGACY_SYMBOL_LIB::FindSymbol` looks up — aliases included, because
-      // `loadAliases` puts each one in the map under its own name.
-      return new Map(readLegacySymbolLibrary(file.text).map((sym) => [sym.libId, sym]));
-    } catch (e) {
-      console.warn(`Symbol library '${file.name}' failed to load.`, e);
-      return new Map();
-    }
-  }, [rawFiles]);
+  const legacyCache = useCallback(
+    (): Map<string, LibSymbol> => legacySchLibs(rawFiles, project.current.root),
+    [rawFiles],
+  );
 
   const runRescueSymbols = useCallback(
     async (onDemand = true) => {

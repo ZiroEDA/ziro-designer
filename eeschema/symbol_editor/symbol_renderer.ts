@@ -17,19 +17,19 @@
  * Geometry is the typed model's +Y-down space (the same space sch_painter draws in).
  */
 
-import { electricalPinTypeGetText, pinShapeGetText } from '@ziroeda/eeschema';
-import { altIconBox } from '@ziroeda/eeschema/pin_layout_cache.js';
-import { drawAltPinModesIcon } from '@ziroeda/eeschema/pin_alt_icon.js';
+import { electricalPinTypeGetText, pinShapeGetText } from '../pin_type.js';
+import { altIconBox } from '../pin_layout_cache.js';
+import { drawAltPinModesIcon } from '../pin_alt_icon.js';
 import type { Vec2 } from '@ziroeda/kimath';
 import { zoomFitView } from '@ziroeda/common/ui/view_controls.js';
 import { iuToMM, mmToIU } from '@ziroeda/common';
-import type { LibGraphic, LibPin, LibSymbol, LibSymbolUnit, SchField } from '@ziroeda/eeschema';
+import type { LibGraphic, LibPin, LibSymbol, LibSymbolUnit, SchField } from '../types.js';
 import { layoutText, measureText } from '@ziroeda/common/font/stroke_font.js';
 import { textWidth } from '@ziroeda/common/font/font_provider.js';
 import { getOutlineFont } from '@ziroeda/common/font/outline_fonts.js';
 import { drawOutlineText } from '@ziroeda/common/font/draw_outline_text.js';
-import { ITALIC_TILT } from '@ziroeda/eeschema';
-import type { Theme } from '../../schematic/theme.js';
+import { ITALIC_TILT } from '@ziroeda/common/font/font_metrics.js';
+import type { Theme } from '../sch_render_settings.js';
 import {
   drawGrid,
   viewFromOffsets,
@@ -53,7 +53,7 @@ export const TARGET_PIN_RADIUS = 15 * MIL;
 // `SYMBOL_EDITOR_COLORS` used to live here: four RGB literals for
 // LAYER_SCHEMATIC_ANCHOR / LAYER_HIDDEN / LAYER_PRIVATE_NOTES / LAYER_FIELDS,
 // transcribed from the KiCad Default theme. All four are already named in
-// `editors/schematic/theme.ts` and resolved from the shared
+// `eeschema/sch_render_settings.ts` and resolved from the shared
 // `builtin_color_themes.ts`, so the copies bought nothing on Default and were
 // WRONG on Classic — where `LAYER_FIELDS` is `MAGENTA`, not (132, 0, 132).
 // They are `theme.anchor` / `theme.hidden` / `theme.privateNote` /

@@ -286,3 +286,298 @@ export function isExplicitJunctionNeeded(
     !info.hasExplicitJunctionDot
   );
 }
+
+// ---------------------------------------------------------------------------
+// `JUNCTION_HELPERS::AnalyzePoint` and `PreviewJunctions` on the live item classes
+// (eeschema stage E3). Everything above is the record model's; this half merges the
+// overlapping lines first, as upstream does.
+// ---------------------------------------------------------------------------
+
+import {
+  SKIP_STRUCT as SKIP_STRUCT_E3,
+  STRUCT_DELETED as STRUCT_DELETED_E3,
+} from '@ziroeda/common/eda_item_flags.js';
+import { SCH_LAYER_ID as SCH_LAYER_ID_E3 } from '@ziroeda/common/layer_id.js';
+import { KICAD_T as KICAD_T_E3 } from '@ziroeda/core/typeinfo.js';
+import type { VECTOR2I as VECTOR2I_E3 } from '@ziroeda/kimath/src/math/vector2.js';
+import { IsPointOnSegment as IsPointOnSegmentE3 } from '@ziroeda/kimath/src/trigo.js';
+import { IsBusLabel as IsBusLabelE3 } from './sch_bus_entry.js';
+import type { SCH_ITEM as SCH_ITEM_E3 } from './sch_item.js';
+import { SCH_JUNCTION as SCH_JUNCTION_E3 } from './sch_junction.js';
+import type { SCH_LABEL_BASE as SCH_LABEL_BASE_E3 } from './sch_label.js';
+import { SCH_LINE as SCH_LINE_E3 } from './sch_line.js';
+import { EE_RTREE as EE_RTREE_E3 } from './sch_rtree.js';
+import type { SCH_SCREEN as SCH_SCREEN_E3 } from './sch_screen.js';
+
+/** `JUNCTION_HELPERS::POINT_INFO`: a description of what is at a point. */
+export interface POINT_INFO {
+  /// True if the point has 3+ wires and/or 3+ buses meeting there
+  isJunction: boolean;
+  /// True if there is already junction dot at the point
+  hasExplicitJunctionDot: boolean;
+  /// True if there is a bus entry at the point (either end)
+  hasBusEntry: boolean;
+  /// True if there is a bus entry at the point and it connects to more than one wire
+  hasBusEntryToMultipleWires: boolean;
+  /// True if there is a bus at the point
+  hasBusAtPoint: boolean;
+}
+
+/**
+ * Check a tree of items for a confluence at a given point and work out what kind of
+ * junction it is, if any.
+ */
+export function AnalyzePoint(
+  aItems: EE_RTREE_E3,
+  aPosition: VECTOR2I_E3,
+  aBreakCrossings: boolean,
+): POINT_INFO {
+  const WIRES = 0;
+  const BUSES = 1;
+
+  const info: POINT_INFO = {
+    isJunction: false,
+    hasExplicitJunctionDot: false,
+    hasBusEntry: false,
+    hasBusEntryToMultipleWires: false,
+    hasBusAtPoint: false,
+  };
+
+  const breakLines = [false, false];
+  const exitAngles = [new Set<number>(), new Set<number>()];
+  const midPointLines: SCH_LINE_E3[][] = [[], []];
+
+  // A pair of lines is considered connected if they share an endpoint.  This is the list
+  // of the other items that can connect.
+  const filtered = new EE_RTREE_E3();
+  let mergedLines: SCH_LINE_E3[] = [];
+
+  for (const item of aItems.Overlapping(aPosition)) {
+    if (item.GetEditFlags() & (SKIP_STRUCT_E3 | STRUCT_DELETED_E3)) continue;
+
+    switch (item.Type()) {
+      case KICAD_T_E3.SCH_LINE_T: {
+        const line = item as SCH_LINE_E3;
+
+        if (line.IsConnectable()) mergedLines.push(SCH_LINE_E3.copyOf(line));
+
+        break;
+      }
+
+      case KICAD_T_E3.SCH_JUNCTION_T:
+        if (item.HitTest(aPosition, -1)) info.hasExplicitJunctionDot = true;
+
+        filtered.insert(item);
+        break;
+
+      case KICAD_T_E3.SCH_BUS_WIRE_ENTRY_T:
+        info.hasBusEntry = true;
+        filtered.insert(item);
+        break;
+
+      case KICAD_T_E3.SCH_SHEET_T:
+      case KICAD_T_E3.SCH_SYMBOL_T:
+      case KICAD_T_E3.SCH_LABEL_T:
+      case KICAD_T_E3.SCH_HIER_LABEL_T:
+      case KICAD_T_E3.SCH_GLOBAL_LABEL_T:
+        filtered.insert(item);
+        break;
+
+      default:
+        break;
+    }
+  }
+
+  if (mergedLines.length + filtered.size() < 2) return info;
+
+  // Merge any overlapping lines to ensure that we are only counting unique lines
+  let merged = false;
+
+  do {
+    if (info.hasExplicitJunctionDot || aBreakCrossings) break;
+
+    merged = false;
+
+    for (let i = 0; i < mergedLines.length && !merged; ++i) {
+      for (let j = i + 1; j < mergedLines.length; ++j) {
+        const line = mergedLines[i]!.MergeOverlap(null, mergedLines[j]!, false);
+
+        if (line) {
+          mergedLines[i] = line;
+          mergedLines = mergedLines.filter((_, k) => k !== j);
+          merged = true;
+          break;
+        }
+      }
+    }
+  } while (merged);
+
+  for (const line of mergedLines) filtered.insert(line);
+
+  // A pin or a bus entry each get their own unique exit direction.
+  let uniqueAngle = 10000;
+
+  for (const item of filtered) {
+    if (item.GetEditFlags() & STRUCT_DELETED_E3) continue;
+
+    switch (item.Type()) {
+      case KICAD_T_E3.SCH_JUNCTION_T:
+        if (item.HitTest(aPosition, -1)) info.hasExplicitJunctionDot = true;
+
+        break;
+
+      case KICAD_T_E3.SCH_LINE_T: {
+        const line = item as SCH_LINE_E3;
+        let layer: number;
+
+        const s = line.GetStartPoint();
+        const e = line.GetEndPoint();
+
+        if (s.x === e.x && s.y === e.y) break;
+        else if (line.GetLayer() === SCH_LAYER_ID_E3.LAYER_WIRE) layer = WIRES;
+        else if (line.GetLayer() === SCH_LAYER_ID_E3.LAYER_BUS) layer = BUSES;
+        else break;
+
+        if (line.IsConnected(aPosition)) {
+          breakLines[layer] = true;
+          exitAngles[layer]!.add(line.GetAngleFrom(aPosition));
+        } else if (line.HitTest(aPosition, -1)) {
+          if (aBreakCrossings) breakLines[layer] = true;
+
+          // Defer any line midpoints until we know whether or not we're breaking them
+          midPointLines[layer]!.push(line);
+        }
+
+        if (layer === BUSES && line.HitTest(aPosition, -1)) info.hasBusAtPoint = true;
+
+        break;
+      }
+
+      case KICAD_T_E3.SCH_BUS_WIRE_ENTRY_T:
+        if (item.IsConnected(aPosition)) {
+          breakLines[BUSES] = true;
+          exitAngles[BUSES]!.add(uniqueAngle++);
+          breakLines[WIRES] = true;
+          exitAngles[WIRES]!.add(uniqueAngle++);
+          info.hasBusEntry = true;
+        }
+
+        break;
+
+      case KICAD_T_E3.SCH_SYMBOL_T:
+      case KICAD_T_E3.SCH_SHEET_T:
+        if (item.IsConnected(aPosition)) {
+          breakLines[WIRES] = true;
+          exitAngles[WIRES]!.add(uniqueAngle++);
+        }
+
+        break;
+
+      case KICAD_T_E3.SCH_LABEL_T:
+        if (item.IsConnected(aPosition)) {
+          if (IsBusLabelE3((item as SCH_LABEL_BASE_E3).GetText())) breakLines[BUSES] = true;
+          else breakLines[WIRES] = true;
+        }
+
+        break;
+
+      case KICAD_T_E3.SCH_HIER_LABEL_T:
+      case KICAD_T_E3.SCH_GLOBAL_LABEL_T:
+        if (item.IsConnected(aPosition)) breakLines[WIRES] = true;
+
+        break;
+
+      default:
+        break;
+    }
+  }
+
+  for (const layer of [WIRES, BUSES]) {
+    if (breakLines[layer]) {
+      for (const line of midPointLines[layer]!) {
+        exitAngles[layer]!.add(line.GetAngleFrom(aPosition));
+        exitAngles[layer]!.add(line.GetReverseAngleFrom(aPosition));
+      }
+    }
+  }
+
+  if (info.hasBusEntry) {
+    // The bus entry and one wire is 2 wires, and the one entry is exactly one bus
+    // Any more wires must be multiple wires, but any more buses means a wire
+    // crossing at the bus entry root.
+    info.hasBusEntryToMultipleWires = exitAngles[WIRES]!.size > 2 && exitAngles[BUSES]!.size === 1;
+  }
+
+  // Any three things of the same type is a junction of some sort
+  info.isJunction = exitAngles[WIRES]!.size >= 3 || exitAngles[BUSES]!.size >= 3;
+
+  return info;
+}
+
+/**
+ * Determine the points where explicit junctions would be required if the given
+ * temporary items were committed to the schematic.
+ */
+export function PreviewJunctions(
+  aScreen: SCH_SCREEN_E3,
+  aItems: readonly SCH_ITEM_E3[],
+): SCH_JUNCTION_E3[] {
+  const combined = new EE_RTREE_E3();
+
+  // Existing items, except the ones being previewed (they are added below)
+  const previewSet = new Set<SCH_ITEM_E3>(aItems);
+
+  for (const item of aScreen.Items()) {
+    if (!item.IsConnectable()) continue;
+
+    if (previewSet.has(item)) continue;
+
+    combined.insert(item);
+  }
+
+  for (const item of aItems) {
+    if (!item || !item.IsConnectable()) continue;
+
+    combined.insert(item);
+  }
+
+  const connections = aScreen.GetConnections();
+  let pts: VECTOR2I_E3[] = [];
+
+  for (const item of aItems) {
+    if (!item || !item.IsConnectable()) continue;
+
+    pts.push(...item.GetConnectionPoints());
+
+    // If the item is a line, we also want any midpoints of other items that the line
+    // passes through.
+    if (item.Type() === KICAD_T_E3.SCH_LINE_T) {
+      const line = item as SCH_LINE_E3;
+
+      for (const pt of connections) {
+        if (IsPointOnSegmentE3(line.GetStartPoint(), line.GetEndPoint(), pt)) pts.push(pt);
+      }
+    }
+  }
+
+  pts.sort((a, b) =>
+    a.x < b.x || (a.x === b.x && a.y < b.y) ? -1 : a.x === b.x && a.y === b.y ? 0 : 1,
+  );
+  pts = pts.filter((p, i) => i === 0 || p.x !== pts[i - 1]!.x || p.y !== pts[i - 1]!.y);
+
+  const jcts: SCH_JUNCTION_E3[] = [];
+
+  for (const pt of pts) {
+    const info = AnalyzePoint(combined, pt, false);
+
+    if (info.isJunction && (!info.hasBusEntry || info.hasBusEntryToMultipleWires)) {
+      const junction = new SCH_JUNCTION_E3(pt);
+
+      if (info.hasBusAtPoint) junction.SetLayer(SCH_LAYER_ID_E3.LAYER_BUS_JUNCTION);
+
+      jcts.push(junction);
+    }
+  }
+
+  return jcts;
+}

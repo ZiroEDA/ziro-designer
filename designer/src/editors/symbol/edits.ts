@@ -30,7 +30,7 @@ import {
   pinNumberInfo,
   symItemId,
   type SymItemKind,
-} from './render/symbolRenderer.js';
+} from '@ziroeda/eeschema/symbol_editor/symbol_renderer.js';
 import { symbolGridIU } from './grid.js';
 import { IncrementString } from '@ziroeda/common/increment.js';
 import { schIUScale } from '@ziroeda/common/eda_units.js';

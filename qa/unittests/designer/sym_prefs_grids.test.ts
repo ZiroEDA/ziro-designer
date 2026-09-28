@@ -234,7 +234,7 @@ describe('the page is the shared panel, constructed for this frame', () => {
     // The whole point. `sizeIU: GRID` in the renderer is what made the page
     // decorative; it is now `opts.gridSizeIU ?? GRID`, and the frame supplies
     // it. Checked as source text because there is no canvas here to render on.
-    const renderer = read('editors/symbol/render/symbolRenderer.ts');
+    const renderer = read('../../eeschema/symbol_editor/symbol_renderer.ts');
     expect(renderer).toContain('sizeIU: opts.gridSizeIU ?? GRID');
     const frame = read('editors/symbol/SymbolEditor.tsx');
     expect(frame).toContain('gridSizeIU: symbolGridIU(symCfg)');

@@ -14,7 +14,7 @@ import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic } from '@ziroeda/eeschema';
 import { sheetToSvg } from '@ziroeda/designer/src/editors/schematic/render/plot.js';
 import type { PlotOpts } from '@ziroeda/designer/src/editors/schematic/render/plot.js';
-import { KICAD_CLASSIC } from '@ziroeda/designer/src/editors/schematic/theme.js';
+import { KICAD_CLASSIC } from '@ziroeda/eeschema/sch_render_settings.js';
 
 const sch = (body: string) =>
   readSchematic(parse(`(kicad_sch (version 20230121) (generator eeschema) ${body})`));

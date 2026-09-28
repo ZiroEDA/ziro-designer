@@ -59,7 +59,7 @@ import { brightness, parseColor4d } from '../index.js';
  * The values are `s_defaultTheme`, the "KiCad Default" theme every frame gets
  * when no other is chosen (common/settings/builtin_color_themes.h:32, :46,
  * :78). They are transcribed here in the same `rgb(r, g, b)` form
- * `editors/schematic/theme.ts` uses for the same three entries; see the PR for
+ * `eeschema/sch_render_settings.ts` uses for the same three entries; see the PR for
  * why that table has not been promoted to a shared module yet.
  */
 

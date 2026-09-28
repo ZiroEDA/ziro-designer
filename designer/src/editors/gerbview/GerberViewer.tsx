@@ -23,7 +23,7 @@ import { acceptAttribute, openFileDialog } from '../../fs/open_file_dialog.js';
 import { InitPgm } from '../../pgm_app.js';
 import { settings } from '../../prefs/settings.js';
 import { useCommonSettings, useGerbviewSettings, useUserColors } from '../../prefs/useSettings.js';
-import { drawPanelWindow, loadBitmapFontImage } from '../../render/gal_window.js';
+import { drawPanelWindow, loadBitmapFontImage } from '@ziroeda/common/gal/gal_window.js';
 import { HomeLink } from '../../ui/HomeLink.js';
 import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
 

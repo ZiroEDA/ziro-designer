@@ -36,7 +36,7 @@ import {
   SYM_TOP_TOOLBAR,
   SYM_LEFT_TOOLBAR,
   SYM_RIGHT_TOOLBAR,
-} from '@ziroeda/designer/src/editors/symbol/symbolToolbars.js';
+} from '@ziroeda/eeschema/symbol_editor/toolbars_symbol_editor.js';
 import {
   PCB_TOP_TOOLBAR,
   PCB_AUX_TOOLBAR,

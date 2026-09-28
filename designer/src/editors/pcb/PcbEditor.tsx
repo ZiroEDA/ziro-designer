@@ -183,10 +183,8 @@ import {
   type PcbShape,
   type PcbPad,
   DEFAULT_SELECTION_FILTER,
-  filterSelection,
   distributeBoardItems,
   type DistributeAction,
-  moveExact,
   defaultRotationAnchor,
   boardSelectionBBox,
   itemAnchorPoint,
@@ -201,7 +199,6 @@ import {
   booleanableShapeCount,
   type PolygonBoolean,
   outsetItems,
-  createArray,
   convertToLines,
   segmentToArc,
   type SelectionFilter,
@@ -233,8 +230,6 @@ import {
   type PcbTable,
   type PcbTextBox,
   addBoardImage,
-  applyImageValues,
-  collectImageValues,
   imageAt,
   type ImageValues,
   cancelPlaceImage,
@@ -304,6 +299,19 @@ import { newTable, type TableDefaults } from '@ziroeda/pcbnew/draw_table.js';
 
 /** Stable empty/`toggleOrtho`-only sets for the 3D toolbar's `toggled` prop. */
 const EMPTY_IDS: ReadonlySet<string> = new Set();
+
+/**
+ * The editor's selection (view ids) as the live PCB_SELECTION the tools take,
+ * in selection order; an id that resolves to nothing is skipped.
+ */
+function liveSelection(aBoard: Board, aIds: Iterable<string>): PCB_SELECTION {
+  const selection = new PCB_SELECTION();
+  for (const id of aIds) {
+    const item = boardItemOfViewId(aBoard, id);
+    if (item) selection.Add(item);
+  }
+  return selection;
+}
 const ORTHO_ON: ReadonlySet<string> = new Set(['toggleOrtho']);
 import {
   DIALOG_DIMENSION_PROPERTIES,
@@ -511,9 +519,17 @@ import {
 import { SKIP_TEARDROPS } from '@ziroeda/pcbnew/board_commit.js';
 import {
   boardFromBOARD,
+  boardItemOfViewId,
   tableView,
   viewIdOfBoardItem,
 } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/board_view.js';
+import { IsOK } from '@ziroeda/common/confirm.js';
+import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import { DIALOG_REFERENCE_IMAGE_PROPERTIES } from '@ziroeda/pcbnew/dialogs/dialog_reference_image_properties.js';
+import { moveExactOnSelection } from '@ziroeda/pcbnew/dialogs/dialog_move_exact.js';
+import { ARRAY_TOOL } from '@ziroeda/pcbnew/tools/array_tool.js';
+import { filterSelectionItems } from '@ziroeda/pcbnew/tools/pcb_selection_tool.js';
+import { PCB_SELECTION } from '@ziroeda/pcbnew/tools/pcb_selection.js';
 import { Build_Board_Characteristics_Table } from '@ziroeda/pcbnew/board_tables/board_characteristics_table.js';
 import { Build_Board_Stackup_Table } from '@ziroeda/pcbnew/board_tables/board_stackup_table.js';
 import { PCB_ACTIONS } from '@ziroeda/pcbnew/tools/pcb_actions.js';
@@ -4858,27 +4874,23 @@ export function PcbEditor({
   );
 
   /** EDIT_TOOL::MoveExact, once the dialog has the numbers. */
-  const applyMoveExact = useCallback(
-    (v: MoveExactValues) => {
-      const brd = boardRef.current;
-      const sel = [...selForDrawRef.current];
-      if (!brd || sel.length === 0) return;
+  const applyMoveExact = useCallback((v: MoveExactValues) => {
+    const brd = boardRef.current;
+    const frame = frameRef.current;
+    const sel = [...selForDrawRef.current];
+    setMoveExactOpen(false);
+    if (!brd || !frame || sel.length === 0) return;
 
-      const next = moveExact(brd, sel, {
-        translation: v.translation,
-        rotation: v.rotation,
-        anchor: v.anchor,
-        // Both origins are the board origin here: we have no user-settable
-        // local or drill/place origin yet, so those two anchors turn about
-        // (0,0) rather than silently doing nothing.
-        userOrigin: { x: 0, y: 0 },
-        auxOrigin: { x: 0, y: 0 },
-      });
-      if (next !== brd) commitBoard(next);
-      setMoveExactOpen(false);
-    },
-    [commitBoard],
-  );
+    // EDIT_TOOL::MoveExact's OK branch on the live items: one BOARD_COMMIT,
+    // the local and aux origins now the real ones.
+    moveExactOnSelection(
+      frame,
+      liveSelection(brd, sel),
+      v.translation,
+      new EDA_ANGLE(v.rotation),
+      v.anchor,
+    );
+  }, []);
 
   /** POSITION_RELATIVE_TOOL::RelativeItemSelectionMove, once the dialog has
    *  the reference and the offset. */
@@ -4979,20 +4991,18 @@ export function PcbEditor({
   );
 
   /** ARRAY_TOOL::CreateArray. */
-  const applyArray = useCallback(
-    (settings: ArraySettings) => {
-      setArraySettings(settings);
-      setArrayOpen(false);
+  const applyArray = useCallback((settings: ArraySettings) => {
+    setArraySettings(settings);
+    setArrayOpen(false);
 
-      const brd = boardRef.current;
-      const sel = [...selForDrawRef.current];
-      if (!brd || sel.length === 0) return;
+    const brd = boardRef.current;
+    const frame = frameRef.current;
+    const sel = [...selForDrawRef.current];
+    if (!brd || !frame || sel.length === 0) return;
 
-      const res = createArray(brd, sel, arraySpecFrom(settings));
-      if (res.board !== brd) commitBoard(res.board);
-    },
-    [commitBoard],
-  );
+    // ARRAY_TOOL::onDialogClosed on the live selection: one BOARD_COMMIT.
+    new ARRAY_TOOL(frame).onDialogClosed(liveSelection(brd, sel), arraySpecFrom(settings));
+  }, []);
 
   /** ALIGN_DISTRIBUTE_TOOL::DistributeItems. */
   const distributeSelection = useCallback(
@@ -8529,11 +8539,32 @@ export function PcbEditor({
       const brd = boardRef.current;
       const index = imagePropsIndex;
       setImagePropsIndex(null);
-      if (!brd || index === null) return;
-      const next = applyImageValues(brd, index, values);
-      if (next !== brd) commitBoard(next);
+      const frame = frameRef.current;
+      const k = index === null ? undefined : brd?.images[index]?.k;
+      const kb = frame?.GetBoard();
+      if (!frame || !k || !kb) return;
+
+      // ShowReferenceImagePropertiesDialog: the dialog files its own undo
+      // entry (SaveCopyInUndoList) and no listener hears it, so the view is
+      // re-derived here, as upstream refreshes the canvas.
+      const refresh = () =>
+        setBoardModel({
+          ...boardFromBOARD(kb, fileNameRef.current),
+          fileName: fileNameRef.current,
+        });
+      const dlg = new DIALOG_REFERENCE_IMAGE_PROPERTIES(frame, k);
+      let question: string | null = null;
+      const r = dlg.TransferDataFromWindow(values, (m) => {
+        question = m;
+        return false;
+      });
+      if (r.ok) refresh();
+      else if (question !== null)
+        void IsOK(question).then((yes) => {
+          if (yes && dlg.TransferDataFromWindow(values).ok) refresh();
+        });
     },
-    [commitBoard, imagePropsIndex],
+    [imagePropsIndex, setBoardModel],
   );
 
   /** DIALOG_DIMENSION_PROPERTIES::TransferDataFromWindow. */
@@ -12069,10 +12100,13 @@ export function PcbEditor({
           onClose={() => setTextBoxPropsIndex(null)}
         />
       )}
-      {imagePropsIndex !== null && board?.images[imagePropsIndex] && (
+      {imagePropsIndex !== null && board?.images[imagePropsIndex]?.k && frameRef.current && (
         <DialogReferenceImageProperties
           image={board.images[imagePropsIndex]!}
-          initial={collectImageValues(board.images[imagePropsIndex]!)}
+          initial={new DIALOG_REFERENCE_IMAGE_PROPERTIES(
+            frameRef.current!,
+            board.images[imagePropsIndex]!.k!,
+          ).TransferDataToWindow()}
           units={unitLabel}
           layers={board.layers.map((l) => l.name)}
           layerColor={layerColor}
@@ -12303,9 +12337,17 @@ export function PcbEditor({
         <DialogFilterSelection
           filter={filterOpts}
           onChange={setFilterOpts}
-          matchCount={filterSelection(board, selection, filterOpts).length}
+          matchCount={filterSelectionItems(liveSelection(board, selection), filterOpts).length}
           onApply={() => {
-            setSelection(new Set(filterSelection(board, selection, filterOpts)));
+            // PCB_SELECTION_TOOL::filterSelection: clear, then re-select what passes.
+            const kept = filterSelectionItems(liveSelection(board, selection), filterOpts);
+            setSelection(
+              new Set(
+                kept
+                  .map((item) => viewIdOfBoardItem(board, item))
+                  .filter((id): id is string => id !== null),
+              ),
+            );
             setFilterOpen(false);
           }}
           onClose={() => setFilterOpen(false)}

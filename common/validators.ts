@@ -42,3 +42,30 @@ export class FOOTPRINT_NAME_VALIDATOR extends wxTextValidator {
     this.SetCharExcludes('%$<>\t\n\r"\\/:');
   }
 }
+
+/**
+ * `NETNAME_VALIDATOR` (validators.cpp:168-221): validates a whole net/signal
+ * name on submit rather than filtering characters as they are typed — unlike
+ * `FOOTPRINT_NAME_VALIDATOR` this carries no char-exclude list, so it does not
+ * extend `wxTextValidator`'s `Filter`. `Validate()` (which upstream focuses the
+ * control and pops a message box) is left to the caller; a DOM field has no
+ * separate validator object to invoke it.
+ */
+export class NETNAME_VALIDATOR {
+  protected m_allowSpaces: boolean;
+
+  constructor(aAllowSpaces = true) {
+    this.m_allowSpaces = aAllowSpaces;
+  }
+
+  /** @returns the error message if `aVal` is invalid, or '' if it is valid. */
+  IsValid(aVal: string): string {
+    if (aVal.includes('\r') || aVal.includes('\n'))
+      return 'Signal names cannot contain CR or LF characters';
+
+    if (!this.m_allowSpaces && (aVal.includes(' ') || aVal.includes('\t')))
+      return 'Signal names cannot contain spaces';
+
+    return '';
+  }
+}

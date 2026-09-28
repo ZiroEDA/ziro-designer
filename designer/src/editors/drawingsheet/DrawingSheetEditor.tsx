@@ -32,7 +32,7 @@ import {
   usePlEditorSettings,
   useUserColors,
 } from '../../prefs/useSettings.js';
-import { drawPanelWindow, loadBitmapFontImage } from '../../render/gal_window.js';
+import { drawPanelWindow, loadBitmapFontImage } from '@ziroeda/common/gal/gal_window.js';
 import { HomeLink } from '../../ui/HomeLink.js';
 import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
 import { themeByLayer } from '../schematic/prefs/schColorLayers.js';

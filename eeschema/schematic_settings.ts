@@ -364,3 +364,131 @@ export function defaultSchematicSetup(): SchematicSetup {
     usedDesignators: '',
   };
 }
+
+// ---------------------------------------------------------------------------
+// `SCHEMATIC_SETTINGS`, the live-model class (eeschema stage E3): the constructor's
+// defaults, with no EESCHEMA_SETTINGS app config (KiCad's answer when there is none).
+// Everything above is the record model's settings, untouched.
+//
+// Pending: the JSON parameter table (NESTED_SETTINGS / PARAM), the BOM presets, NGSPICE
+// settings, the refdes tracker, and TEMPLATES (the field name templates are kept as a
+// list here, read through `m_TemplateFieldNames.GetTemplateFieldNames()`).
+// ---------------------------------------------------------------------------
+
+import { schIUScale as schIUScaleE3 } from '@ziroeda/common/eda_units.js';
+import { METRICS as METRICS_E3 } from '@ziroeda/common/font/font_metrics.js';
+import {
+  DEFAULT_IREF_PREFIX as DEFAULT_IREF_PREFIX_E3,
+  DEFAULT_IREF_SUFFIX as DEFAULT_IREF_SUFFIX_E3,
+  DEFAULT_LABEL_SIZE_RATIO as DEFAULT_LABEL_SIZE_RATIO_E3,
+  DEFAULT_LINE_WIDTH_MILS as DEFAULT_LINE_WIDTH_MILS_E3,
+  DEFAULT_TEXT_OFFSET_RATIO as DEFAULT_TEXT_OFFSET_RATIO_E3,
+  DEFAULT_TEXT_SIZE as DEFAULT_TEXT_SIZE_E3,
+} from './default_values.js';
+import { LIB_SYMBOL as LIB_SYMBOL_E3 } from './lib_symbol.js';
+
+/** `DEFAULT_CONNECTION_GRID_MILS` (schematic_settings.h). */
+export const DEFAULT_CONNECTION_GRID_MILS = 50;
+
+/** `ARC_LOW_DEF_MM` (include/base_units.h). */
+const ARC_LOW_DEF_MM_E3 = 0.02;
+
+/** A field name template: `TEMPLATE_FIELDNAME`. */
+export interface TEMPLATE_FIELDNAME {
+  m_Name: string;
+  m_Visible: boolean;
+  m_URL: boolean;
+}
+
+/**
+ * These are loaded from Eeschema settings but then overwritten by the project settings.
+ * All of the values are stored in IU, but the backing file stores in mils.
+ */
+export class SCHEMATIC_SETTINGS {
+  m_DefaultLineWidth = Math.trunc(DEFAULT_LINE_WIDTH_MILS_E3 * schIUScaleE3.IU_PER_MILS);
+  m_DefaultTextSize = Math.trunc(DEFAULT_TEXT_SIZE_E3 * schIUScaleE3.IU_PER_MILS);
+  m_LabelSizeRatio = DEFAULT_LABEL_SIZE_RATIO_E3;
+  m_TextOffsetRatio = DEFAULT_TEXT_OFFSET_RATIO_E3;
+  m_PinSymbolSize = Math.trunc((DEFAULT_TEXT_SIZE_E3 * schIUScaleE3.IU_PER_MILS) / 2);
+
+  m_JunctionSizeChoice = 3; // none = 0, smallest = 1, small = 2, etc.
+  m_HopOverSizeChoice = 0; // none = 0, smallest = 1, etc.
+
+  m_ConnectionGridSize = Math.trunc(DEFAULT_CONNECTION_GRID_MILS * schIUScaleE3.IU_PER_MILS);
+
+  m_AnnotateStartNum = 0; // Starting value for annotation
+  m_AnnotateSortOrder = 0; // Annotation sort order
+  m_AnnotateMethod = 0; // Annotation numbering method (linear, sheet * 100, etc)
+
+  m_SubpartIdSeparator = 0; // the separator char between the subpart id and the reference
+  // 0 (no separator) or '.' or some other character
+  m_SubpartFirstId = 'A'.charCodeAt(0); // the ASCII char value to calculate the subpart symbol
+  // id from the symbol number: 'A', 'a' or '1' usually
+
+  m_IntersheetRefsShow = false;
+  m_IntersheetRefsListOwnPage = true;
+  m_IntersheetRefsFormatShort = false;
+  m_IntersheetRefsPrefix = DEFAULT_IREF_PREFIX_E3;
+  m_IntersheetRefsSuffix = DEFAULT_IREF_SUFFIX_E3;
+
+  m_DashedLineDashRatio = 12.0; // Dash length as ratio of the lineWidth
+  m_DashedLineGapRatio = 3.0; // Gap length as ratio of the lineWidth
+
+  m_OPO_VPrecision = 3; // Operating-point overlay voltage significant digits
+  m_OPO_VRange = '~V'; // Operating-point overlay voltage range
+  m_OPO_IPrecision = 3; // Operating-point overlay current significant digits
+  m_OPO_IRange = '~A'; // Operating-point overlay current range
+
+  m_SchDrawingSheetFileName = '';
+  m_PlotDirectoryName = '';
+
+  private m_templateFieldNames: TEMPLATE_FIELDNAME[] = [];
+  m_TemplateFieldNames = {
+    GetTemplateFieldNames: (): readonly TEMPLATE_FIELDNAME[] => this.m_templateFieldNames,
+  };
+
+  m_BomExportFileName = '';
+
+  m_FontMetrics = METRICS_E3.Default();
+
+  m_MaxError = Math.trunc(ARC_LOW_DEF_MM_E3 * schIUScaleE3.IU_PER_MM);
+
+  m_VariantDescriptions = new Map<string, string>();
+
+  /**
+   * Return the sub-reference of a unit: the separator (when set and asked for) and the
+   * unit as a number or a letter sequence.
+   */
+  SubReference(aUnit: number, aAddSeparator = true): string {
+    let subRef = '';
+
+    if (aUnit < 1) return subRef;
+
+    if (this.m_SubpartIdSeparator !== 0 && aAddSeparator)
+      subRef += String.fromCharCode(this.m_SubpartIdSeparator);
+
+    if (this.m_SubpartFirstId >= '0'.charCodeAt(0) && this.m_SubpartFirstId <= '9'.charCodeAt(0))
+      subRef += String(aUnit);
+    else
+      subRef += LIB_SYMBOL_E3.LetterSubReference(aUnit, String.fromCharCode(this.m_SubpartFirstId));
+
+    return subRef;
+  }
+
+  /**
+   * `GetJunctionSize`: the default netclass wire width times the size choice's
+   * multiplier, never below 1.  The project's default netclass is pending, so its
+   * default wire width (6 mils) stands.
+   */
+  GetJunctionSize(): number {
+    const multiplier = JUNCTION_SIZE_MULT[this.m_JunctionSizeChoice] ?? 0;
+    const wireWidth = DEFAULT_WIRE_WIDTH_MILS * IU_PER_MILS;
+    const dotSize = Math.round(wireWidth * multiplier);
+
+    return Math.max(dotSize, 1);
+  }
+
+  GetHopOverScale(): number {
+    return HOP_OVER_SIZE_MULT[this.m_HopOverSizeChoice] ?? 0;
+  }
+}

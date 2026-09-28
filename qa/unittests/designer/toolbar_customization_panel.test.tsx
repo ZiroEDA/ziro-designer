@@ -34,7 +34,7 @@ import {
   DS_LEFT_TOOLBAR,
   DS_TOP_TOOLBAR,
 } from '@ziroeda/pagelayout_editor/toolbars_pl_editor.js';
-import { SYM_DEFAULT_TOOLBARS } from '@ziroeda/designer/src/editors/symbol/symbolToolbars.js';
+import { SYM_DEFAULT_TOOLBARS } from '@ziroeda/eeschema/symbol_editor/toolbars_symbol_editor.js';
 import {
   ACTION_CATALOGUE,
   catalogueFor,

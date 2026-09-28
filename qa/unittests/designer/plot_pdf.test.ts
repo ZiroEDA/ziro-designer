@@ -25,7 +25,7 @@ import {
   sheetsToPdf,
   type PlotOpts,
 } from '@ziroeda/designer/src/editors/schematic/render/plot.js';
-import { KICAD_DEFAULT } from '@ziroeda/designer/src/editors/schematic/theme.js';
+import { KICAD_DEFAULT } from '@ziroeda/eeschema/sch_render_settings.js';
 import type { Schematic } from '@ziroeda/eeschema/types.js';
 
 /** A tiny canvas stand-in: the renderer draws into it, we only need its bytes. */

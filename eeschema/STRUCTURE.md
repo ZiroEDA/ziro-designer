@@ -35,6 +35,14 @@ count is 72 (up from 42), `DIALOG` is down to 5 and `MOVED` to 2 — most of
 what it used to flag as a `designer/`-only dialog now lives at KiCad's own
 `dialogs/` path.
 
+After E1 pt 2 (fused-file splits, same day, six moves — see below): eeschema
+root is 67 files, 49 of which are 1:1 KiCad root-name matches — this stage's
+own contribution is 6 (`bus-wire-junction.ts`, `sch_reference_list.ts`,
+`sch_item_alignment.ts`, `pin_layout_cache.ts`, `symb_transforms_utils.ts`,
+`project_sch.ts`); the rest of the root's growth since E2 pt 1 is concurrent
+work in this same checkout (other agents' SCH_* item-class ports), not this
+stage's. The probe's `SAME` count is 95 (up from 72).
+
 ## What moved
 
 Twenty-five renames/moves, each verified against the C++ doc comment already
@@ -93,21 +101,45 @@ test files and three source doc comments — see the commits for the list; the
 case where missing this would have silently dropped a pinned exception rather
 than fail loudly.
 
-## Kept under our own name — fused with something else, not a clean split
+## Stage E1 pt 2 (2026-09-28): the fused files split out
 
-These are the harder named targets from the E1 task list. Each has a real
-KiCad counterpart file, but our code for it is inseparably merged into
-another module's own doc-commented "Counterpart:" — splitting it out would be
-a refactor with behaviour risk, which this stage (renames and moves only)
-does not do.
+Six of the E1 task list's "kept fused" targets got their own file this
+stage, each a plain move (export the shared private helper the other side
+still needs, import it back) with the same tests re-run green:
 
-| KiCad file | lives fused into | why |
-|---|---|---|
-| `sch_reference_list.cpp` (`SCH_REFERENCE_LIST`) | `annotate.ts` | `annotate.ts`'s own doc comment: "the numbering core in `eeschema/sch_reference_list.cpp`" — `SCH_REFERENCE_LIST::Annotate`/`AnnotateByOptions`/`CheckAnnotation` are the same pass as `SCH_EDIT_FRAME::AnnotateSymbols`, one function each side of a call that we made one function. |
-| `bus-wire-junction.cpp` (`SCH_EDIT_FRAME::TrimWire`/`DeleteJunction`) | `tools/post_move_cleanup.ts` (`trimWire`) and `tools/cleanup.ts` (junction deletion) | Two of the four upstream functions split across two of our files by what triggers them (a move vs. a delete), not by source file. `TestDanglingEnds`/`UpdateHopOveredWires` are view-side and stay in `designer/.../render/renderer.ts` for E2. |
-| `sch_item_alignment.cpp` (`AlignSchematicItemsToGrid`) | `tools/align_to_grid.ts` | Its own doc comment: fused with `SCH_MOVE_TOOL::AlignToGrid` (`sch_move_tool.cpp`) into one action, because upstream's "align" is one tool call spanning both files. |
-| `symb_transforms_utils.cpp` (`GetPinSpinStyle`/`OrientAndMirrorSymbolItems`/`RotateAndMirrorPin`) | `tools/label_properties.ts` (partial — `GetPinSpinStyle` only) | `OrientAndMirrorSymbolItems`/`RotateAndMirrorPin` are not ported at all yet (nothing calls them). |
-| `pin_layout_cache.cpp` (`PIN_LAYOUT_CACHE`) | `pin_box.ts`, `tools/bbox.ts`, `tools/autoplace_fields.ts`, plus render-side code | No standalone module; the cache's job (pin-number/name box geometry) is folded into whichever caller needs it. |
+- `bus-wire-junction.ts`: `SCH_EDIT_FRAME::TrimWire` (out of
+  `tools/post_move_cleanup.ts`) and `DeleteJunction`, as `dissolveJunctionsAt`
+  (out of `tools/cleanup.ts`, which now exports `mergeOverlap`/`mergedLine`/
+  `sameLayer` for it to share). `TestDanglingEnds`/`UpdateHopOveredWires`
+  stay view-side in `designer/.../render/renderer.ts`, unmoved.
+- `sch_reference_list.ts`: the numbering core — `splitReference`,
+  `annotateSymbols`/`annotateHierarchy`, `checkAnnotation`, and the
+  `ANNOTATE_ORDER_T`/`ALGO_T`/`SCOPE_T` enums the header declares — out of
+  `annotate.ts`, which keeps the `SCH_EDIT_FRAME` side (the undoable
+  commands, Increment Annotations, the two report loops) and imports the
+  core back.
+- `sch_item_alignment.ts`: the pure grid-snap geometry
+  (`EE_GRID_HELPER::AlignGrid`, the shifts histogram) out of
+  `tools/align_to_grid.ts`, which keeps the per-item-type dispatch and the
+  `SCH_MOVE_TOOL::AlignToGrid` commit/drag loop — still one call spanning
+  both upstream files, so that half stays fused by design. `MoveSchematicItem`
+  has no separate port (`tools/move.ts`/`tools/connect.ts` already do that
+  dispatch).
+- `pin_layout_cache.ts` (`move_ts.py` rename from `pin_box.ts`):
+  `libPinBoundingBox`/`altIconBox` are `GetPinBoundingBox`/`GetAltIconBBox`.
+  The render-time text-layout half (`GetPinNameInfo`/`GetPinNumberInfo`/
+  `SetRenderParameters`/the caches) still has no port and stays out.
+- `symb_transforms_utils.ts`: `pinSpinStyle` (`GetPinSpinStyle`) out of
+  `tools/label_properties.ts`. `OrientAndMirrorSymbolItems`/
+  `RotateAndMirrorPin` are still not ported — nothing calls them.
+- `project_sch.ts`: `legacySchLibs` (`PROJECT_SCH::LegacySchLibs`) out of
+  `SchematicEditor.tsx`'s `legacyCache` `useCallback`, as a pure function
+  taking the file list and project root name as plain arguments (a
+  structural `SchLibFile` shape, not designer's `PickedFile`, so the
+  function has no UI-layer dependency). `SchSearchS` (no filesystem search
+  path in a browser) and `SymbolLibAdapter` (library ids resolve through the
+  ordinary `loadSymbol`/`repairSourceLibs` path, no separate cached adapter)
+  are not ported.
 
 ## Not ported — no file to move
 
@@ -116,6 +148,28 @@ does not do.
 | `lib_fields_data_model.cpp`/`.h` (`LIB_FIELDS_EDITOR_GRID_DATA_MODEL`) | Not built. `fields_data_model.ts` covers only the schematic-level `FIELDS_EDITOR_GRID_DATA_MODEL`, not the library-editor grid. |
 | `multiline_pin_text.cpp` (`ComputeMultiLinePinNumberLayout`) | Not built — no reference anywhere in the tree. |
 | `eeschema_settings.cpp` (`EESCHEMA_SETTINGS`, `eeschema.json`) | Not a standalone module. App-level eeschema settings are spread across the app's central prefs store (`designer/src/prefs/settings.ts`) plus per-panel readers — the app's own architecture (one settings slice store, not KiCad's per-frame `<frame>.json`), not a gap to fill by moving a file. |
+| `sch_validators.cpp` (`SCH_NETNAME_VALIDATOR`) | Not built. No text-control validator calls `NET_SETTINGS::ParseBusGroup`/`ParseBusVector` for live "is this a valid bus name" feedback the way this class does; `bus.ts`/`sch_bus_entry.ts` call those same `NET_SETTINGS` methods for parsing, not validation. |
+| `eeschema_helpers.cpp` (`EESCHEMA_HELPERS`) | Not built. It is the headless/IPC/API loader (`LoadSchematic` outside the GUI, for `kicad-cli`/Python scripting) — we have no CLI or process boundary for it to serve. |
+
+## Own-named root files: fold audit (2026-09-28)
+
+Checked each against its cited C++ counterpart for a clean rename/merge
+target. Only `pin_box.ts` had one (above, → `pin_layout_cache.ts`); the rest
+have no safe fold:
+
+| ours | cited counterpart | why it stays |
+|---|---|---|
+| `project_settings.ts` | 4 different files (`schematic_settings.cpp`, `erc/erc_settings.cpp`, `common/project/net_settings.cpp`, `common/project/project_file.cpp`) | No single KiCad file to fold into — it is our own project-file-persistence aggregate over four namespaces. |
+| `render_color.ts`, `symbol_markers.ts`, `pin_alt_icon.ts` | `SCH_PAINTER` methods (`eeschema/sch_painter.cpp`) | No `eeschema/sch_painter.ts` exists to fold into — rendering lives split across `designer/.../render/*.ts` per this codebase's own architecture, not as one ported painter class. |
+| `pdf_annotations.ts` | `SCH_SHEET::Plot`/`SCH_SYMBOL::Plot` (the item classes E3 owns) via `sch_plotter.cpp` | No `sch_plotter.ts` exists either; the two `Plot()` methods it mirrors live inside the busy SCH_* item files this stage does not touch. |
+| `global_sym_lib_table.ts` | `template/sym-lib-table` (an installed data file, no `.cpp`) | Data, not code — nothing to fold into. |
+| `project_sym_lib_table.ts` | cites `eeschema/symbol_lib_table.cpp` | That file does not exist in this 10.0.5 tree at all — `SYMBOL_LIB_TABLE` appears to have been superseded by `SYMBOL_LIBRARY_ADAPTER` (`eeschema/libraries/symbol_library_adapter.cpp`, see `project_sch.h`'s `PROJECT_SCH::SymbolLibAdapter`). Renaming without verifying behavioural equivalence against the new class is out of scope for a moves-only stage; flagged here instead. |
+| `repair_source.ts` | `DIALOG_CHANGE_SYMBOLS::processSymbols` | Supports a dialog already ported as `tools/change_symbols.ts` (see the dialog-adjacent-logic table below); it is not itself a `.cpp` file to fold into. |
+| `lib_tree_item.ts` | `include/lib_tree_item.h` | Already matches (the header itself is not under `eeschema/` upstream either). No move. |
+| `default_values.ts` | `eeschema/default_values.h` | Already matches. No move. |
+| `fieldbox.ts` | inline in `SCH_PAINTER::draw(SCH_FIELD)` (`sch_painter.cpp`) | No dedicated KiCad file — there never was one to fold into. |
+| `symbol_search_terms.ts` | `LIB_SYMBOL::cacheSearchTerms`/`cacheChooserFields` (`lib_symbol.cpp`) | `lib_symbol.ts` exists and is the right home, but this split was deliberate (own doc comment: "for testability") and has only 3 importers either way — folding it in was considered and declined rather than undoing a stated design choice mid-stage. |
+| `lib_symbol_compare.ts` | `LIB_SYMBOL::Compare` (`lib_symbol.cpp`) | Same target file, but 30+ importers across `tools/`, `connectivity/`, `erc/`, `netlist_exporters/` — physically merging it into `lib_symbol.ts` is a large-blast-radius rename across files several of which are mid-edit by other agents in this checkout. Declined for this stage on risk, not on the merits. |
 
 ## Directories KiCad has that we don't
 
@@ -304,3 +358,114 @@ attempted in this pass; the dependency list above is the resume point.
 The symbol editor (`designer/src/editors/symbol/*` → `eeschema/symbol_editor/`,
 `SymbolEditor.tsx` → `eeschema/symbol_editor/symbol_edit_frame_ui.tsx`) was
 not started this pass either, for the same budget reason.
+
+### Stage E2 pt 2, attempt (2026-09-28): EESCHEMA_APP not attempted, symbol
+### editor's six clean files moved
+
+**`EESCHEMA_APP` + the `SchematicEditor.tsx` move: not done, two reasons.**
+First, the size gap from `CVPCB_APP`'s precedent is real, not just larger —
+`CVPCB_APP` is 63 members covering three windows totalling ~1.7k lines;
+`SchematicEditor.tsx` alone is 11.5k lines with ~19 `designer/`-only imports
+reached from call sites scattered across the whole file (`settings.*`,
+`useAuth()`, `<HomeLink/>`, `<PreferencesDialog/>`, `<SchematicCanvas/>`,
+`<FootprintChooserFrame/>`, …), not concentrated the way `FootprintCanvas`/
+`Viewer3DFrame` are cvpcb's only two JSX-returning interface members. Turning
+every one of those call sites into `app.X` is a refactor across thousands of
+lines, not a `sed` over import lines — the "moves and seams only, small
+commits" method this whole file otherwise uses does not cover it safely in
+one pass. Second, and decisive for *this* pass specifically:
+`designer/src/editors/schematic/SchematicEditor.tsx` had another agent's
+uncommitted changes in the working tree the whole time (a live, shared
+checkout — see `CLAUDE.md`'s "Concurrent session branch hazard"), so touching
+it at all this pass would have been the one thing the commit rules
+categorically forbid, independent of the size question.
+
+The task's second instruction — split `sch_base_frame`, `sch_draw_panel`,
+`sch_view`, `sch_painter`, `sch_preview_panel`, `sch_plotter`,
+`sch_render_settings`, `eeschema_config`, `picksymbol`, `sheet` out "where
+clearly separable" — turned up nothing to move: none of the ten exists as a
+file anywhere in the tree yet (checked by name), and inside
+`SchematicEditor.tsx` each is only a comment naming the C++ counterpart of
+code woven through the surrounding JSX (e.g. `sch_render_settings`/
+`sch_painter`/`eeschema_config` are three or four sentences apiece inside
+`applyRenderSettings`-style blocks, not standalone functions). Pulling one
+out clean would be new module-boundary design, not a move — the render-path
+half of this (`sch_painter`/`sch_view`/`sch_preview_panel`) is the same
+`render/renderer.ts`+`render/plot.ts`+`theme.ts` cluster the previous pass
+already flagged "genuinely `designer/`-coupled ... not attempted this pass".
+
+**The exact `designer/`-only surface `EESCHEMA_APP` would need to cover**,
+read off `SchematicEditor.tsx`'s own imports (supersedes the prose list two
+sections up): `auth/AuthProvider.js` (`useAuth`), `dialogs/
+dialog_eeschema_page_settings.js` (`DialogEeschemaPageSettings`), `dialogs/
+PreferencesDialog.js`, `dialogs/prefs/types.js` (`PrefsPageId`), `fs/
+OpenFileDialog.js`, `fs/SaveAsDialog.js`, `prefs/settings.js` (`settings`,
+`gridSizeToIU`), `prefs/useSettings.js`, `sync/ProjectSyncProvider.js`
+(`useProjectSync`), `sync/ProjectSyncTransport.js`, `sync/sch_diff.js`, `ui/
+HomeLink.js`, `ui/PresencePanel.js`, `ui/SelectionFilterPanel.js`, `ui/
+useToolbarEntries.js`, `widgets/dialog_sch_find.js`, `widgets/
+dialog_sym_lib_table.js`, `widgets/footprint_list.js`, and one cross-editor
+one, `../pcb/dialogs/footprint_chooser_frame.js`. Plus, from inside
+`editors/schematic/` itself, the modules already known to be transitively
+`designer/`-coupled and therefore also `EESCHEMA_APP` candidates rather than
+plain moves: `components/SchematicCanvas.tsx` (own JSX member, the
+`FootprintCanvas` pattern), `dialogs/dialog_change_symbols.tsx`, `render/
+plot.ts`, `render/renderer.ts`, `symbols/preload_pool.ts`,
+`widgets/panel_symbol_chooser.tsx`. This is the resume point; still nobody's
+built it, for either frame.
+
+**Symbol editor (task step 3): six of ~20 files moved, the rest blocked the
+same way.** Read as a fresh check rather than trusting the prior pass's
+one-hop scan, every file in `designer/src/editors/symbol/` was checked for
+`designer/`-only imports transitively (not just one relative-import hop —
+the same miss this file's own E2 pt 1 note warns about). Six had none, ever,
+at any hop, and moved: `symbol_edit_frame.ts` (unchanged name — `SYMBOL_
+EDIT_FRAME`'s KIWAY half, same shape as `eeschema/sch_edit_frame.ts`),
+`frame_title.ts` and `delete_symbol_prompt.ts` (kept under their own names,
+both fragments of `symbol_editor.cpp`, same "kept under our own name" reason
+as the fused-file table above), `symbolToolbars.ts` → `symbol_editor/
+toolbars_symbol_editor.ts` (KiCad's own name), `cursors.ts` (own name, no
+KiCad file, same as `pcbnew/footprint_cursors.ts`'s reasoning) — all four
+to `eeschema/symbol_editor/`, matching `symbol_edit_frame.{cpp,h}` etc.
+sitting under that directory upstream — and `symbol_tree_synchronizing_
+adapter.ts` to the **eeschema root**, because KiCad's own
+`symbol_tree_synchronizing_adapter.cpp` lives at `eeschema/`, not
+`eeschema/symbol_editor/`.
+
+The rest of the directory is more interconnected than the "no `designer/`
+import" grep alone shows, three chains deep:
+
+- `libraryManager.ts` reaches `designer/src/libraryHosts.ts` directly (the
+  same seam `CVPCB_APP.footprintsBase()` abstracts for the footprint
+  editor's own `libraryManager.ts` — nothing wires the equivalent for symbols
+  yet).
+- `edits.ts` reaches `./grid.js` (`symbolGridIU`), and `grid.ts` reaches
+  `prefs/settings.js` for `SymbolEditorSettings`/`gridSizeToIU` — a central
+  store that stays in `designer/` permanently by design (same reasoning as
+  `eeschema_settings.cpp` in the "Not ported" table above), so `edits.ts`
+  cannot move without a seam either. `conditions.ts` and `menubar.ts` both
+  import `edits.ts` (directly or via `conditions.ts`), so the same block
+  reaches them too.
+- `render/symbolRenderer.ts` and `components/dialogs.tsx` both reach
+  `editors/schematic/theme.ts` — itself `designer/`-import-clean and a
+  plausible eeschema-root move on its own, but moving it does not unblock
+  either file, since both also reach the `edits.ts`→`grid.ts` chain above
+  through other imports.
+
+None of `SymbolCanvas.tsx`, `SymbolEditor.tsx`, `grid.ts`, `defaults.ts`,
+`toggles.ts` (same `prefs/settings.js` coupling as `grid.ts`), or
+`prefs/*.tsx` (the six Preferences-dialog panels — `PrefsContext`, `ui/
+action_catalogue.js`, `pcm/pcmStore.js`, all central-dialog plumbing, the
+same category `pcbnew/STRUCTURE.md` and this file both leave for stage E2's
+app-interface work rather than move) went anywhere this pass. A
+`SYMBOL_EDIT_FRAME_APP` covering `libraryHosts`, `prefs/settings`'s symbol
+slice, and `SchematicCanvas`-style theme access is the resume point for the
+rest of this directory — the same shape of gap `EESCHEMA_APP` has for the
+schematic editor above, one size class smaller.
+
+`qa/probes/struct_diff_eeschema.sh`'s root-name-match count after this stage:
+48 of 66 eeschema-root `.ts`/`.tsx` files are 1:1 KiCad root-name matches (up
+from 45/28 before this stage; most of the delta is concurrent work from
+other agents on this branch, not this pass — this pass's own contribution is
+`symbol_tree_synchronizing_adapter.ts`, +1/+1). `SAME` in the regenerated
+probe output is 94 (up from 72).

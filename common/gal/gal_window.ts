@@ -8,9 +8,9 @@
  * editor and GerbView need exactly the same window.
  */
 
-import type { DRAW_PANEL_GAL_WINDOW } from '@ziroeda/common/draw_panel_gal.js';
-import { KICURSOR } from '@ziroeda/common/gal/cursors.js';
-import { type KiCursor, kiCursor } from '@ziroeda/common/gal/kicursors.js';
+import type { DRAW_PANEL_GAL_WINDOW } from '../draw_panel_gal.js';
+import { KICURSOR } from './cursors.js';
+import { type KiCursor, kiCursor } from './kicursors.js';
 
 /** `KICURSOR` -> the designer's `CURSOR_STORE` name. */
 export function cursorName(aCursor: KICURSOR): KiCursor {

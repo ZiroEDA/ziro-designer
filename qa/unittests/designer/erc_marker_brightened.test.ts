@@ -31,7 +31,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { drawErcMarkers } from '@ziroeda/designer/src/editors/schematic/render/renderer.js';
-import { KICAD_CLASSIC, KICAD_DEFAULT } from '@ziroeda/designer/src/editors/schematic/theme.js';
+import { KICAD_CLASSIC, KICAD_DEFAULT } from '@ziroeda/eeschema/sch_render_settings.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
 
 interface Op {

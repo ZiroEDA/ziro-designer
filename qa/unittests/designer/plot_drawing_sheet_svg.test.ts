@@ -15,7 +15,7 @@ import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic } from '@ziroeda/eeschema';
 import { sheetToSvg } from '@ziroeda/designer/src/editors/schematic/render/plot.js';
-import { KICAD_DEFAULT } from '@ziroeda/designer/src/editors/schematic/theme.js';
+import { KICAD_DEFAULT } from '@ziroeda/eeschema/sch_render_settings.js';
 
 const DIR = resolve(__dirname, '../../data/eeschema/plot_sheet');
 

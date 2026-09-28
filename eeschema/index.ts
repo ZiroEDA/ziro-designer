@@ -26,6 +26,8 @@ export * from './fieldbox.js';
 export * from './bus-wire-junction.js';
 export * from './sch_reference_list.js';
 export * from './sch_item_alignment.js';
+export * from './symb_transforms_utils.js';
+export * from './project_sch.js';
 export * from './lib_symbol.js';
 export * from './lib_symbol_compare.js';
 export * from './sim/sim_model.js';

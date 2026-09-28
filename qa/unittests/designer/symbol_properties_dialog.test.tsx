@@ -42,7 +42,7 @@ import {
   PIN_SHAPE_BITMAPS,
   PIN_TYPE_BITMAPS,
 } from '@ziroeda/designer/src/editors/schematic/pin_icons.js';
-import {} from '@ziroeda/designer/src/editors/symbol/render/symbolRenderer.js';
+import {} from '@ziroeda/eeschema/symbol_editor/symbol_renderer.js';
 
 /**
  * One declaration of one rule in `shell.css`, by exact selector.

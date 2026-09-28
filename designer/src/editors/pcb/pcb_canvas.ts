@@ -35,7 +35,7 @@ import { PCB_SCREEN } from '@ziroeda/pcbnew/pcb_screen.js';
 import { pcbnewSettingsOf, type PCB_EDIT_FRAME } from '@ziroeda/pcbnew/pcb_edit_frame.js';
 import { type KiCursor, kiCursor } from '@ziroeda/common/gal/kicursors.js';
 import { settings } from '../../prefs/settings.js';
-import { drawPanelWindow } from '../../render/gal_window.js';
+import { drawPanelWindow } from '@ziroeda/common/gal/gal_window.js';
 
 // The program object's common half is designer/src/pgm_app.ts (09-26).
 
@@ -85,7 +85,7 @@ export function reloadUserColorSettings(): void {
 // The wxWindow the panel adopts
 // ---------------------------------------------------------------------------
 
-export { loadBitmapFontImage } from '../../render/gal_window.js';
+export { loadBitmapFontImage } from '@ziroeda/common/gal/gal_window.js';
 
 /**
  * `PCB_EDIT_FRAME::PCB_EDIT_FRAME`'s canvas construction: the panel on the

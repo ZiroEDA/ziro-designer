@@ -34,13 +34,13 @@ import {
   PCB_THEMES,
   themeByFilename,
 } from '@ziroeda/pcbnew/pcbTheme.js';
-import { KICAD_CLASSIC, KICAD_DEFAULT } from '@ziroeda/designer/src/editors/schematic/theme.js';
+import { KICAD_CLASSIC, KICAD_DEFAULT } from '@ziroeda/eeschema/sch_render_settings.js';
 
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
 const PCB_SRC = read('../../../pcbnew/pcbTheme.ts');
-const SCH_SRC = read('../../../designer/src/editors/schematic/theme.ts');
+const SCH_SRC = read('../../../eeschema/sch_render_settings.ts');
 
 /** Comments stripped, so a documented value cannot read as a live one. */
 const code = (src: string): string =>

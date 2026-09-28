@@ -68,7 +68,7 @@ import {
   SYM_TOP_TOOLBAR,
   SYM_LEFT_TOOLBAR,
   SYM_RIGHT_TOOLBAR,
-} from '../editors/symbol/symbolToolbars.js';
+} from '@ziroeda/eeschema/symbol_editor/toolbars_symbol_editor.js';
 import {
   FP_TOP_TOOLBAR,
   FP_LEFT_TOOLBAR,

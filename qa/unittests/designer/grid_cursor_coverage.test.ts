@@ -43,7 +43,7 @@ const count = (src: string, re: RegExp): number => (src.match(re) ?? []).length;
  */
 const GRID_OWNERS: [canvas: string, file: string][] = [
   ['schematic', 'editors/schematic/render/renderer.ts'],
-  ['symbol editor', 'editors/symbol/render/symbolRenderer.ts'],
+  ['symbol editor', '../../eeschema/symbol_editor/symbol_renderer.ts'],
   ['footprint editor', 'editors/footprint/FootprintCanvas.tsx'],
 ];
 
@@ -144,7 +144,7 @@ describe('shared grid + crosshair', () => {
     const fp = read('editors/footprint/FootprintCanvas.tsx');
     expect(fp).toMatch(/\bdrawGrid\(/);
     expect(fp).toMatch(/showGrid/);
-    const sym = read('editors/symbol/render/symbolRenderer.ts');
+    const sym = read('../../eeschema/symbol_editor/symbol_renderer.ts');
     expect(sym).toMatch(/\bdrawGrid\(/);
     // ...and the symbol editor actually hands the toggle down, rather than the
     // renderer deciding for itself.

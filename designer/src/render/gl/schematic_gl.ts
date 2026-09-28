@@ -45,13 +45,10 @@
  * zoom lag.
  */
 
-import {
-  renderSchematic,
-  setVectorText,
-  type RenderOpts,
-} from '../../editors/schematic/render/renderer.js';
+import { renderSchematic, setVectorText } from '../../editors/schematic/render/renderer.js';
+import type { RenderOpts } from '@ziroeda/eeschema/sch_render_settings.js';
 import type { Schematic } from '@ziroeda/eeschema/types.js';
-import type { Theme } from '../../editors/schematic/theme.js';
+import type { Theme } from '@ziroeda/eeschema/sch_render_settings.js';
 import { createGlDevice, type GlDevice } from './device.js';
 import { Scene } from './scene.js';
 import { GlRecorder } from './recorder.js';

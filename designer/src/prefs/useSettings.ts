@@ -12,7 +12,7 @@ import {
   KICAD_DEFAULT,
   type Theme,
   themeFromLayerCss,
-} from '../editors/schematic/theme.js';
+} from '@ziroeda/eeschema/sch_render_settings.js';
 import { dsLoadColors, type DsRenderColors } from '@ziroeda/common';
 import { colorSettingsById } from './color_settings_list.js';
 
