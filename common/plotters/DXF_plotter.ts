@@ -34,18 +34,22 @@
  * all; PenTo('Z') returns before updating the pen position; and arc angles are
  * written unnormalised, negative zero included.
  *
- * One genuine ambiguity: upstream calls nextHandle() twice inside a single
- * fmt::print argument list for each BLOCK/ENDBLK pair, and C++ leaves that
- * evaluation order unspecified. This port allocates left to right (BLOCK gets
- * the lower handle). A byte-diff against a KiCad binary that evaluates right
- * to left will show those six handles swapped; that is the compiler, not a
- * port defect.
+ * One ambiguity settled by measurement: upstream calls nextHandle() twice
+ * inside a single fmt::print argument list for each BLOCK/ENDBLK pair, and C++
+ * leaves that evaluation order unspecified. The installed kicad-cli (GCC)
+ * evaluates right to left, so ENDBLK gets the lower handle; this port
+ * allocates in that order (qa/data/pcbnew/plot/fmt_oracle pins it).
  */
 
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { ANGLE_90, EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
+import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
+import {
+  SHAPE_POLY_SET,
+  TransformRoundChamferedRectToPolygon,
+} from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '../eda_text.js';
 import { COLOR4D_BLACK, COLOR4D_WHITE, type Color4d } from '../gal/color4d.js';
 import type { PlotterRenderSettings } from '../render_settings.js';
@@ -84,11 +88,10 @@ const colorEquals = (a: Color4d, b: Color4d): boolean =>
 
 /**
  * `RENDER_SETTINGS` plus the one accessor only DXF reaches for: the layer
- * colour GetCurrentLayerName names a layer after. Layers are pcbnew's layer
- * names here, which common cannot import, hence `string`.
+ * colour GetCurrentLayerName names a layer after, by PCB_LAYER_ID.
  */
 export interface DxfRenderSettings extends PlotterRenderSettings {
-  GetLayerColor(aLayer: string): Color4d;
+  GetLayerColor(aLayer: number): Color4d;
 }
 
 /**
@@ -101,7 +104,7 @@ export interface DxfPlotParams {
 }
 
 /** One `m_layersToExport` entry: the board layer and the DXF layer name for it. */
-export type DxfLayerExport = readonly [layer: string, name: string];
+export type DxfLayerExport = readonly [layer: number, name: string];
 
 interface DxfLayout {
   name: string;
@@ -724,8 +727,11 @@ export function acadColorName(aIndex: number): string {
  * unless the CCW swap fired. The loop bound is strictly `<`, which is why the
  * penultimate sample never lands on the end point.
  *
- * Its only upstream caller is the SHAPE_LINE_CHAIN PlotPoly overload, which the
- * repo cannot express yet; it is exported here because it is pure and testable.
+ * Its only upstream caller is the SHAPE_LINE_CHAIN PlotPoly overload, which
+ * is deliberately NOT ported: the installed kicad-cli writes a rounded
+ * rectangle's corners at the chain's own points, not at arcPts' five-degree
+ * steps (qa/data/pcbnew/plot/fmt_oracle dxfsingle pins it), so the inherited
+ * PLOTTER::PlotPolyLineChain is what matches.
  */
 export function arcPts(
   aCenter: Vec2,
@@ -994,7 +1000,7 @@ export class DXF_PLOTTER extends PLOTTER {
    * Current_Layer_Color_Name ignores the layer id it was handed in favour of
    * the current layer. `int( c * 255 )` truncates towards zero, so 0.5 is 127.
    */
-  GetCurrentLayerName(aMode: DXF_LAYER_OUTPUT_MODE, aLayerId?: string): string {
+  GetCurrentLayerName(aMode: DXF_LAYER_OUTPUT_MODE, aLayerId?: number): string {
     const actualLayerId = aLayerId !== undefined ? aLayerId : this.m_layer;
 
     switch (aMode) {
@@ -1387,9 +1393,9 @@ export class DXF_PLOTTER extends PLOTTER {
 
     for (const l of this.m_dxfLayouts) {
       // The BLOCK and ENDBLK handles are two nextHandle() calls in one C++
-      // argument list; allocated left to right here (see the file docblock).
-      const blockHandle = this.nextHandle();
+      // argument list, evaluated right to left by GCC (see the file docblock).
       const endblkHandle = this.nextHandle();
+      const blockHandle = this.nextHandle();
       const ps = l.isPaperSpace ? ` 67\n1\n` : '';
 
       this.emit(
@@ -1898,26 +1904,60 @@ export class DXF_PLOTTER extends PLOTTER {
     this.FinishTo(start);
   }
 
+  /** `FlashPadRoundRect`: the outline walked as lines. */
+  FlashPadRoundRect(
+    aPadPos: Vec2,
+    aSize: Vec2,
+    aCornerRadius: number,
+    aOrient: EDA_ANGLE,
+    _aData?: unknown,
+  ): void {
+    const outline = new SHAPE_POLY_SET();
+    TransformRoundChamferedRectToPolygon(
+      outline,
+      aPadPos,
+      aSize,
+      aOrient,
+      aCornerRadius,
+      0.0,
+      0,
+      0,
+      this.GetPlotterArcHighDef(),
+      ERROR_LOC.ERROR_INSIDE,
+    );
+
+    // TransformRoundRectToPolygon creates only one convex polygon
+    const poly = outline.Outline(0);
+
+    this.MoveTo({ x: poly.CPoint(0).x, y: poly.CPoint(0).y });
+
+    for (let ii = 1; ii < poly.PointCount(); ++ii)
+      this.LineTo({ x: poly.CPoint(ii).x, y: poly.CPoint(ii).y });
+
+    this.FinishTo({ x: poly.CPoint(0).x, y: poly.CPoint(0).y });
+  }
+
   /**
    * `FlashPadCustom`. Position, size and orientation are all ignored: the
-   * polygons arrive already placed. Holes are plotted too, one outline at a
-   * time, because upstream walks Outline(cnt) for every outline index.
+   * polygons arrive already placed. Holes are not plotted: upstream walks
+   * Outline(cnt) for every outline index.
    */
   FlashPadCustom(
     _aPadPos: Vec2,
     _aSize: Vec2,
     _aOrient: EDA_ANGLE,
-    aPolygons: readonly (readonly Vec2[][])[],
+    aPolygons: SHAPE_POLY_SET,
     _aData?: unknown,
   ): void {
-    for (let cnt = 0; cnt < aPolygons.length; ++cnt) {
-      const poly = aPolygons[cnt]![0]!;
+    for (let cnt = 0; cnt < aPolygons.OutlineCount(); ++cnt) {
+      const poly = aPolygons.Outline(cnt);
 
-      this.MoveTo(poly[0]!);
+      this.MoveTo({ x: poly.CPoint(0).x, y: poly.CPoint(0).y });
 
-      for (let ii = 1; ii < poly.length; ++ii) this.LineTo(poly[ii]!);
+      for (let ii = 1; ii < poly.PointCount(); ++ii)
+        this.LineTo({ x: poly.CPoint(ii).x, y: poly.CPoint(ii).y });
 
-      this.FinishTo(poly[0]!);
+      this.FinishTo({ x: poly.CPoint(0).x, y: poly.CPoint(0).y });
     }
   }
 

@@ -433,9 +433,9 @@ export abstract class PLOTTER {
   /** A set of string to print in header file. */
   protected m_headerExtraLines: string[] = [];
   protected m_renderSettings: PlotterRenderSettings | null = null;
-  protected m_layersToExport: readonly (readonly [layer: string, name: string])[] = [];
-  /** `PCB_LAYER_ID::UNDEFINED_LAYER`; pcbnew names its layers here. */
-  protected m_layer = '';
+  protected m_layersToExport: readonly (readonly [layer: number, name: string])[] = [];
+  /** The PCB_LAYER_ID being plotted; `UNDEFINED_LAYER` (-1) until pcbnew sets one. */
+  protected m_layer = -1;
 
   abstract GetPlotterType(): PLOT_FORMAT;
 
@@ -554,15 +554,15 @@ export abstract class PLOTTER {
   ): void;
 
   /** Set the list of layers to export to the specified vector. */
-  SetLayersToExport(aLayersToExport: readonly (readonly [layer: string, name: string])[]): void {
+  SetLayersToExport(aLayersToExport: readonly (readonly [layer: number, name: string])[]): void {
     this.m_layersToExport = aLayersToExport;
   }
 
-  GetLayer(): string {
+  GetLayer(): number {
     return this.m_layer;
   }
 
-  SetLayer(aLayer: string): void {
+  SetLayer(aLayer: number): void {
     this.m_layer = aLayer;
   }
 
@@ -928,6 +928,22 @@ export abstract class PLOTTER {
   abstract FlashPadOval(aPadPos: Vec2, aSize: Vec2, aPadOrient: EDA_ANGLE, aData?: unknown): void;
 
   abstract FlashPadRect(aPadPos: Vec2, aSize: Vec2, aPadOrient: EDA_ANGLE, aData?: unknown): void;
+
+  abstract FlashPadRoundRect(
+    aPadPos: Vec2,
+    aSize: Vec2,
+    aCornerRadius: number,
+    aOrient: EDA_ANGLE,
+    aData?: unknown,
+  ): void;
+
+  abstract FlashPadCustom(
+    aPadPos: Vec2,
+    aSize: Vec2,
+    aPadOrient: EDA_ANGLE,
+    aPolygons: SHAPE_POLY_SET,
+    aData?: unknown,
+  ): void;
 
   abstract FlashPadTrapez(
     aPadPos: Vec2,

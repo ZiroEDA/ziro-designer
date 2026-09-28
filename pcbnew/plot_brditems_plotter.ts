@@ -6,11 +6,6 @@
  * `pcbplot.h`: plots one board item at a time through a PLOTTER, attaching
  * the Gerber X2 aperture and object attributes (`GBR_METADATA`) each item
  * carries.
- *
- * Divergence: `COLOR_SETTINGS` is not ported into the plot params
- * (pcb_plot_params.ts), so {@link BRDITEMS_PLOTTER.getColor} answers black.
- * Every colour it feeds reaches `SetColor`, which the Gerber back-end ignores;
- * the colour back-ends will need the real table.
  */
 
 import {
@@ -154,9 +149,8 @@ export class BRDITEMS_PLOTTER extends PCB_PLOT_PARAMS {
       : null;
   }
 
-  getColor(_aLayer: number): Color4d {
-    // `ColorSettings()->GetColor( aLayer )`; see the file comment.
-    let color = COLOR4D_BLACK;
+  getColor(aLayer: number): Color4d {
+    let color = this.ColorSettings().GetColor(aLayer);
 
     // A hack to avoid plotting a white item in white color on white paper
     if (colorEquals(color, WHITE)) color = LIGHTGRAY;
@@ -425,7 +419,7 @@ export class BRDITEMS_PLOTTER extends PCB_PLOT_PARAMS {
         break;
 
       case PAD_SHAPE.ROUNDRECT:
-        this.flashPadRoundRect(
+        this.m_plotter.FlashPadRoundRect(
           shape_pos,
           aPad.GetSize(aLayer),
           aPad.GetRoundRectCornerRadius(aLayer),
@@ -475,49 +469,16 @@ export class BRDITEMS_PLOTTER extends PCB_PLOT_PARAMS {
         const polygons = aPad.GetEffectivePolygon(aLayer, ERROR_LOC.ERROR_INSIDE);
 
         if (polygons.OutlineCount())
-          this.flashPadCustom(aPad, aLayer, shape_pos, polygons, metadata);
+          this.m_plotter.FlashPadCustom(
+            shape_pos,
+            aPad.GetSize(aLayer),
+            aPad.GetOrientation(),
+            polygons,
+            metadata,
+          );
         break;
       }
     }
-  }
-
-  /** `m_plotter->FlashPadRoundRect(…)`: declared on PLOTTER upstream, not yet on ours. */
-  private flashPadRoundRect(
-    aPos: VECTOR2I,
-    aSize: VECTOR2I,
-    aRadius: number,
-    aOrient: EDA_ANGLE,
-    aData: GBR_METADATA,
-  ): void {
-    const plotter = this.m_plotter as PLOTTER & {
-      FlashPadRoundRect?(p: VECTOR2I, s: VECTOR2I, r: number, o: EDA_ANGLE, d?: unknown): void;
-    };
-
-    if (!plotter.FlashPadRoundRect)
-      throw new Error('this plotter has no FlashPadRoundRect (PS_plotter.ts file comment)');
-
-    plotter.FlashPadRoundRect(aPos, aSize, aRadius, aOrient, aData);
-  }
-
-  /** `m_plotter->FlashPadCustom(…)`: declared on PLOTTER upstream, not yet on ours. */
-  private flashPadCustom(
-    aPad: PAD,
-    aLayer: PCB_LAYER_ID,
-    aPos: VECTOR2I,
-    aPolygons: SHAPE_POLY_SET,
-    aData: GBR_METADATA,
-  ): void {
-    const gerberPlotter = this.gerber();
-
-    if (!gerberPlotter) throw new Error('FlashPadCustom is only wired for the Gerber plotter here');
-
-    gerberPlotter.FlashPadCustom(
-      aPos,
-      aPad.GetSize(aLayer),
-      aPad.GetOrientation(),
-      aPolygons,
-      aData,
-    );
   }
 
   PlotFootprintTextItems(aFootprint: FOOTPRINT): void {

@@ -68,8 +68,9 @@ function plot(aText: string, aLayer: PCB_LAYER_ID, aOpts: Opts = {}): string {
     [aLayer],
     [],
     true,
-    (_path, bytes) => {
-      text = new TextDecoder().decode(bytes);
+    (path, bytes) => {
+      // PCB_PLOTTER::Plot also writes the Gerber job file (gerber_jobfile_oracle.test.ts).
+      if (!path.endsWith('.gbrjob')) text = new TextDecoder().decode(bytes);
     },
     aOpts.date,
   );

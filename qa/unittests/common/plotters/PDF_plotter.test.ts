@@ -792,15 +792,22 @@ describe('PDF_PLOTTER entities', () => {
     expect(body).toBe(`1 w\n116930 ${PAGE_TOP} -100 -50 re S\n`);
   });
 
-  it('refuses a rounded rectangle rather than inventing a corner', () => {
-    // SHAPE_RECT::SetRadius and the SHAPE_LINE_CHAIN PlotPoly overload have no
-    // counterpart in this repo; approximating the corner would be a different
-    // shape, not a port.
-    expect(() =>
-      draw(plotter(), (p) =>
-        p.Rect({ x: 0, y: 0 }, { x: 100, y: 100 }, FILL_T.FILLED_SHAPE, 10, 5),
-      ),
-    ).toThrow(/corner radius is not ported/);
+  it('plots a rounded rectangle through the SHAPE_LINE_CHAIN PlotPoly', () => {
+    const body = draw(plotter(), (p) =>
+      p.Rect({ x: 0, y: 0 }, { x: 100, y: 100 }, FILL_T.FILLED_SHAPE, 10, 5),
+    );
+    // Rect with a radius hands SHAPE_RECT::Outline to PlotPoly( SHAPE_LINE_CHAIN ):
+    // it starts at ( r, 0 ) = 5 IU, and every straight segment writes both its
+    // ends, so each corner shows up twice (5 and 95 IU, 0.0019685 and 0.0374016
+    // user units). The 5 IU corners are below the arc error, so each arc is a
+    // single segment. Filled with a width, the path closes with `b`.
+    expect(body).toBe(
+      '0.00393701 w\n' +
+        '0.0019685 82680 m 0.0374016 82680 l 0.0374016 82680 l 0.0393701 82680 l ' +
+        '0.0393701 82680 l 0.0393701 82680 l 0.0393701 82680 l 0.0374016 82680 l ' +
+        '0.0374016 82680 l 0.0019685 82680 l 0.0019685 82680 l 0 82680 l 0 82680 l ' +
+        '0 82680 l 0 82680 l 0.0019685 82680 l b\n',
+    );
   });
 });
 

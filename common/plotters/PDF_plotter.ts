@@ -65,7 +65,10 @@
  * same situation.
  */
 
+import type { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_chain.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
+import { SHAPE_RECT } from '@ziroeda/kimath/src/geometry/shape_rect.js';
 import { ANGLE_0, EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
@@ -737,8 +740,12 @@ export class PDF_PLOTTER extends PSLIKE_PLOTTER {
     this.SetCurrentLineWidth(width);
 
     if (aCornerRadius > 0) {
-      // Needs SHAPE_RECT with a corner radius and the SHAPE_LINE_CHAIN PlotPoly.
-      throw new Error('PDF Rect with a corner radius is not ported (needs SHAPE_RECT::SetRadius)');
+      const box = new BOX2I(p1, { x: p2.x - p1.x, y: p2.y - p1.y });
+      box.Normalize();
+      const rect = new SHAPE_RECT(box);
+      rect.SetRadius(aCornerRadius);
+      this.PlotPolyLineChain(rect.Outline(), fill, width, null);
+      return;
     }
 
     const size = { x: p2.x - p1.x, y: p2.y - p1.y };
@@ -827,6 +834,61 @@ export class PDF_PLOTTER extends PSLIKE_PLOTTER {
         `${e(pos_dev.x - radius)} ${e(pos_dev.y)} c ` +
         `${fill === FILL_T.NO_FILL ? 's' : 'b'}\n`,
     );
+  }
+
+  /**
+   * `PDF_PLOTTER::PlotPoly( const SHAPE_LINE_CHAIN&, … )`: every straight
+   * segment contributes both ends (so interior corners are written twice), an
+   * arc its flattened `arcPath` reversed, and the numbers go out through
+   * `encodeDoubleForPlotter` rather than the `{:f}` of the corner-list overload.
+   */
+  override PlotPolyLineChain(
+    aLineChain: SHAPE_LINE_CHAIN,
+    aFill: FILL_T,
+    aWidth: number,
+    _aData?: unknown,
+  ): void {
+    this.SetCurrentLineWidth(aWidth);
+
+    const handledArcs = new Set<number>();
+    const path: Vec2[] = [];
+
+    for (let ii = 0; ii < aLineChain.SegmentCount(); ++ii) {
+      if (aLineChain.IsArcSegment(ii)) {
+        const arcIndex = aLineChain.ArcIndex(ii);
+
+        if (!handledArcs.has(arcIndex)) {
+          handledArcs.add(arcIndex);
+          const arc = aLineChain.Arc(arcIndex);
+          const arc_path = this.arcPath(
+            arc.GetCenter(),
+            arc.GetStartAngle(),
+            arc.GetCentralAngle(),
+            arc.GetRadius(),
+          );
+
+          for (let k = arc_path.length - 1; k >= 0; --k) path.push(arc_path[k]!);
+        }
+      } else {
+        const seg = aLineChain.Segment(ii);
+        path.push(this.userToDeviceCoordinates(seg.A));
+        path.push(this.userToDeviceCoordinates(seg.B));
+      }
+    }
+
+    if (path.length <= 1) return;
+
+    const e = (aValue: number): string => this.encodeDoubleForPlotter(aValue);
+    let out = `${e(path[0]!.x)} ${e(path[0]!.y)} m `;
+
+    for (let ii = 1; ii < path.length; ++ii) out += `${e(path[ii]!.x)} ${e(path[ii]!.y)} l `;
+
+    // Close path and stroke and/or fill
+    if (aFill === FILL_T.NO_FILL) out += 'S\n';
+    else if (aWidth === 0) out += 'h f\n';
+    else out += 'b\n';
+
+    this.work(out);
   }
 
   /**

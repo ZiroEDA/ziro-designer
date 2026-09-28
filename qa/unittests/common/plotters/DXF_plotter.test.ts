@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+import { LSET } from '@ziroeda/common/lset.js';
 import { describe, it, expect } from 'vitest';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/eda_text.js';
 import type { Color4d } from '@ziroeda/common/gal/color4d.js';
 import { plotterRenderSettings } from '@ziroeda/common/render_settings.js';
@@ -28,6 +30,9 @@ import {
   getDXFLineType,
 } from '@ziroeda/common/plotters/DXF_plotter.js';
 
+/** A board layer by name, as the export list carries it. */
+const L = (aName: string): number => LSET.NameToLayer(aName);
+
 /** A colour from 0..255 components, the way a render-settings theme would supply it. */
 const rgb = (r: number, g: number, b: number): Color4d => ({
   r: r / 255,
@@ -36,7 +41,7 @@ const rgb = (r: number, g: number, b: number): Color4d => ({
   a: 1,
 });
 
-const settings = (colors: Record<string, Color4d> = {}): DxfRenderSettings => ({
+const settings = (colors: Record<number, Color4d> = {}): DxfRenderSettings => ({
   // DXF never asks for a pen or a dash; the stub's answers are never read.
   GetDefaultPenWidth: () => plotterRenderSettings().GetDefaultPenWidth(),
   GetDashLength: (w) => plotterRenderSettings().GetDashLength(w),
@@ -54,7 +59,7 @@ const settings = (colors: Record<string, Color4d> = {}): DxfRenderSettings => ({
 function plotter(
   opts: {
     layers?: readonly DxfLayerExport[];
-    colors?: Record<string, Color4d>;
+    colors?: Record<number, Color4d>;
     colorMode?: boolean;
     iusPerDecimil?: number;
     units?: DXF_UNITS;
@@ -64,9 +69,9 @@ function plotter(
   p.SetUnits(opts.units ?? DXF_UNITS.INCH);
   p.SetViewport({ x: 0, y: 0 }, opts.iusPerDecimil ?? 2540, 1, false);
   p.SetColorMode(opts.colorMode ?? true);
-  p.SetLayersToExport(opts.layers ?? [['F.Cu', 'F.Cu']]);
+  p.SetLayersToExport(opts.layers ?? [[L('F.Cu'), 'F.Cu']]);
   p.StartPlot();
-  p.SetLayer('F.Cu');
+  p.SetLayer(L('F.Cu'));
   return p;
 }
 
@@ -172,8 +177,8 @@ describe('DXF legacy colour tables (FindNearestLegacyColor)', () => {
     // A Map keyed by name would keep the last value (229) and silently recolour
     // the layer in AutoCAD.
     const p = plotter({
-      layers: [['Edge.Cuts', 'Edge.Cuts']],
-      colors: { 'Edge.Cuts': rgb(63, 0, 127) },
+      layers: [[L('Edge.Cuts'), 'Edge.Cuts']],
+      colors: { [L('Edge.Cuts')]: rgb(63, 0, 127) },
     });
 
     expect(p.text()).toContain(
@@ -285,13 +290,15 @@ describe('DXF file skeleton (StartPlot / EndPlot)', () => {
   it('backs the three block records with three BLOCK/ENDBLK pairs on layer 0', () => {
     // The paperspace pair carries 67/1 inside AcDbEntity and the model one does
     // not; a reader that finds model space flagged as paperspace shows nothing.
+    // ENDBLK takes the lower handle: GCC evaluates the two nextHandle() calls
+    // in the one argument list right to left, as the kicad-cli oracle shows.
     expect(plotter().text()).toContain(
       '  0\nSECTION\n  2\nBLOCKS\n' +
-        '  0\nBLOCK\n  5\n22\n330\n1A\n100\nAcDbEntity\n  8\n0\n' +
+        '  0\nBLOCK\n  5\n23\n330\n1A\n100\nAcDbEntity\n  8\n0\n' +
         '100\nAcDbBlockBegin\n  2\n*Model_Space\n 70\n0\n' +
         ' 10\n0.0\n 20\n0.0\n 30\n0.0\n  3\n*Model_Space\n  1\n\n' +
-        '  0\nENDBLK\n  5\n23\n330\n1A\n100\nAcDbEntity\n  8\n0\n100\nAcDbBlockEnd\n' +
-        '  0\nBLOCK\n  5\n24\n330\n1B\n100\nAcDbEntity\n 67\n1\n  8\n0\n',
+        '  0\nENDBLK\n  5\n22\n330\n1A\n100\nAcDbEntity\n  8\n0\n100\nAcDbBlockEnd\n' +
+        '  0\nBLOCK\n  5\n25\n330\n1B\n100\nAcDbEntity\n 67\n1\n  8\n0\n',
     );
   });
 
@@ -360,15 +367,15 @@ describe('DXF layer naming (GetCurrentLayerName)', () => {
   it('names layers after board layers when pcbnew supplies an export list', () => {
     const p = plotter({
       layers: [
-        ['F.Cu', 'F.Cu'],
-        ['Edge.Cuts', 'Edge.Cuts'],
+        [L('F.Cu'), 'F.Cu'],
+        [L('Edge.Cuts'), 'Edge.Cuts'],
       ],
     });
-    p.SetLayer('Edge.Cuts');
+    p.SetLayer(L('Edge.Cuts'));
 
     expect(p.GetCurrentLayerName(DXF_LAYER_OUTPUT_MODE.Current_Layer_Name)).toBe('Edge.Cuts');
     // A layer that is not in the export list falls back to "BLACK".
-    p.SetLayer('B.SilkS');
+    p.SetLayer(L('B.SilkS'));
     expect(p.GetCurrentLayerName(DXF_LAYER_OUTPUT_MODE.Current_Layer_Name)).toBe('BLACK');
   });
 
@@ -392,10 +399,10 @@ describe('DXF layer naming (GetCurrentLayerName)', () => {
   it('takes Current_Layer_Name from the last SetColor, not from render settings', () => {
     // Layer_Name reads the render settings and Current_Layer_Name reads the
     // stored colour; conflating the two would rename every text entity's layer.
-    const p = new DXF_PLOTTER(settings({ 'F.Cu': rgb(255, 255, 255) }));
+    const p = new DXF_PLOTTER(settings({ [L('F.Cu')]: rgb(255, 255, 255) }));
     p.SetViewport({ x: 0, y: 0 }, 2540, 1, false);
     p.SetColorMode(true);
-    p.SetLayer('F.Cu');
+    p.SetLayer(L('F.Cu'));
     p.SetColor(rgb(127, 0, 0));
 
     expect(p.GetCurrentLayerName(DXF_LAYER_OUTPUT_MODE.Current_Layer_Name)).toBe('RED');
@@ -420,11 +427,13 @@ describe('DXF layer naming (GetCurrentLayerName)', () => {
   });
 
   it('ignores the layer argument in Current_Layer_Color_Name', () => {
-    const p = new DXF_PLOTTER(settings({ 'F.Cu': rgb(127, 0, 0), 'B.Cu': rgb(255, 255, 255) }));
-    p.SetLayer('F.Cu');
+    const p = new DXF_PLOTTER(
+      settings({ [L('F.Cu')]: rgb(127, 0, 0), [L('B.Cu')]: rgb(255, 255, 255) }),
+    );
+    p.SetLayer(L('F.Cu'));
 
-    expect(p.GetCurrentLayerName(DXF_LAYER_OUTPUT_MODE.Layer_Color_Name, 'B.Cu')).toBe('WHITE');
-    expect(p.GetCurrentLayerName(DXF_LAYER_OUTPUT_MODE.Current_Layer_Color_Name, 'B.Cu')).toBe(
+    expect(p.GetCurrentLayerName(DXF_LAYER_OUTPUT_MODE.Layer_Color_Name, L('B.Cu'))).toBe('WHITE');
+    expect(p.GetCurrentLayerName(DXF_LAYER_OUTPUT_MODE.Current_Layer_Color_Name, L('B.Cu'))).toBe(
       'RED',
     );
   });
@@ -432,8 +441,8 @@ describe('DXF layer naming (GetCurrentLayerName)', () => {
   it('truncates colour components rather than rounding them', () => {
     // int( 0.5 * 255 ) is 127, not 128; rounding would land on a different
     // palette entry and rename the layer.
-    const p = new DXF_PLOTTER(settings({ 'F.Cu': { r: 0.5, g: 0, b: 0, a: 1 } }));
-    p.SetLayer('F.Cu');
+    const p = new DXF_PLOTTER(settings({ [L('F.Cu')]: { r: 0.5, g: 0, b: 0, a: 1 } }));
+    p.SetLayer(L('F.Cu'));
 
     expect(p.GetCurrentLayerName(DXF_LAYER_OUTPUT_MODE.Layer_Color_Name)).toBe('RED');
   });
@@ -776,15 +785,12 @@ describe('DXF pad flashes', () => {
 
   it('plots every outline of a custom pad, ignoring position and orientation', () => {
     const p = plotter({ iusPerDecimil: 1 });
-    p.FlashPadCustom({ x: 999, y: 999 }, { x: 1, y: 1 }, new EDA_ANGLE(45), [
-      [
-        [
-          { x: 0, y: 0 },
-          { x: 10000, y: 0 },
-          { x: 10000, y: 10000 },
-        ],
-      ],
-    ]);
+    const polys = new SHAPE_POLY_SET();
+    polys.NewOutline();
+    polys.Append({ x: 0, y: 0 });
+    polys.Append({ x: 10000, y: 0 });
+    polys.Append({ x: 10000, y: 10000 });
+    p.FlashPadCustom({ x: 999, y: 999 }, { x: 1, y: 1 }, new EDA_ANGLE(45), polys);
 
     // Three corners walked and closed: three LINE entities, starting at the
     // untranslated first point.
@@ -912,7 +918,7 @@ describe('DXF native text (PlotText / plotOneLineOfText)', () => {
     // Same file, two encodings. A string-based implementation that encoded once
     // at the end would emit C2 B5 for the glyph and break every CAD importer
     // that trusts the DXF Latin-1 convention.
-    const p = plotter({ iusPerDecimil: 1, layers: [['F.Cu', 'Cµ']] });
+    const p = plotter({ iusPerDecimil: 1, layers: [[L('F.Cu'), 'Cµ']] });
     p.SetTextMode(PLOT_TEXT_MODE.NATIVE);
     p.PlotText({ x: 0, y: 0 }, rgb(0, 0, 0), 'µm', attrs());
 

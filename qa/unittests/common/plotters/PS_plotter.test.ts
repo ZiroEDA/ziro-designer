@@ -557,13 +557,16 @@ describe('Rect, Circle and PlotPoly', () => {
     expect(body()).toBe(`0 setlinewidth\n0 ${PAGE_TOP} 10 -10 rect1\n`);
   });
 
-  it('has no corner-radius path to fall back on', () => {
-    const { plotter } = drawingPlotter();
-
-    // SHAPE_RECT::SetRadius and the SHAPE_LINE_CHAIN PlotPoly are not in this
-    // repo. Approximating the rounding would produce a plot KiCad never makes.
-    expect(() => plotter.Rect({ x: 0, y: 0 }, { x: 10, y: 10 }, FILL_T.NO_FILL, 5, 2)).toThrow(
-      /corner radius is not ported/,
+  it('plots a rounded rectangle as its SHAPE_RECT outline', () => {
+    const { plotter, body } = drawingPlotter();
+    plotter.Rect({ x: 0, y: 0 }, { x: 10, y: 10 }, FILL_T.NO_FILL, 5, 2);
+    // PS_PLOTTER::PlotPoly( SHAPE_LINE_CHAIN ) is the chain's own points,
+    // closed back to the first: ( r, 0 ) = 0.2, the top edge to w - r = 0.8,
+    // and so round the corners.
+    expect(body()).toBe(
+      '0.5 setlinewidth\nnewpath\n0.2 116930 moveto\n0.8 116930 lineto\n' +
+        '1 116930 lineto\n1 116929 lineto\n0.8 116929 lineto\n0.2 116929 lineto\n' +
+        '0 116929 lineto\n0 116930 lineto\n0.2 116930 lineto\npoly0\n',
     );
   });
 });

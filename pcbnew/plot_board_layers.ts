@@ -6,15 +6,23 @@
  * them) through a PLOTTER, and `StartPlotBoard`, which makes the plotter and
  * prepares its page and header.
  *
- * Divergences, each an absence rather than an approximation:
- * - `StartPlotBoard` makes the Gerber plotter only; the plot dialog offers
- *   no other format yet, and the colour back-ends need `COLOR_SETTINGS` in
- *   the plot params first (plot_brditems_plotter.ts).
- * - `PlotInteractiveLayer` (PDF property popups and bookmarks) is PDF-only,
- *   so it waits on the same thing.
+ * Divergences, for want of a filesystem, a clock and a zlib:
+ * - "Now" (the Gerber header dates) comes in as `aDate`.
+ * - PDF_PLOTTER takes its compressor injected (`aPdfDeflate`); without one the
+ *   page streams are written uncompressed, a valid PDF.
  */
 
-import { COLOR4D_BLACK, COLOR4D_WHITE } from '@ziroeda/common/gal/color4d.js';
+import {
+  COLOR4D_BLACK,
+  COLOR4D_UNSPECIFIED,
+  COLOR4D_WHITE,
+  type Color4d,
+  LEGACY_COLORS,
+  legacyMix,
+} from '@ziroeda/common/gal/color4d.js';
+
+const colorEq = (a: Color4d, b: Color4d): boolean =>
+  a.r === b.r && a.g === b.g && a.b === b.b && a.a === b.a;
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import { ADVANCED_CFG } from '@ziroeda/common/advanced_config.js';
 import { IsCopperLayer, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
@@ -22,8 +30,14 @@ import { LSET } from '@ziroeda/common/lset.js';
 import type { LSEQ } from '@ziroeda/common/lseq.js';
 import { PAGE_INFO, PAGE_SIZE_TYPE } from '@ziroeda/common/page_info.js';
 import { GERBER_PLOTTER } from '@ziroeda/common/plotters/GERBER_plotter.js';
+import { DXF_PLOTTER } from '@ziroeda/common/plotters/DXF_plotter.js';
+import { type PdfDeflate, PDF_PLOTTER } from '@ziroeda/common/plotters/PDF_plotter.js';
+import { PS_PLOTTER } from '@ziroeda/common/plotters/PS_plotter.js';
+import { SVG_PLOTTER } from '@ziroeda/common/plotters/SVG_plotter.js';
+import type { RENDER_SETTINGS } from '@ziroeda/common/render_settings.js';
+import { ResolveUriByEnvVars } from '@ziroeda/common/eda_doc.js';
 import { PlotDrawingSheet } from '@ziroeda/common/plotters/common_plot_functions.js';
-import { GAL_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { GAL_LAYER_ID, SCH_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { FILL_T, PLOT_FORMAT, PLOTTER } from '@ziroeda/common/plotters/plotter.js';
 import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import { DISABLE_ARC_RADIUS_CORRECTION } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
@@ -339,8 +353,25 @@ export function PlotStandardLayer(
 
       // TODO(JE) padstacks - different behavior for single layer or multilayer
 
-      // `aPlotOpt.ColorSettings()->GetColor( … )`: see plot_brditems_plotter.ts.
-      const color = itemplotter.getColor(aLayerMask.Seq()[0] ?? PCB_LAYER_ID.F_Cu);
+      let color = COLOR4D_BLACK;
+      const colors = aPlotOpt.ColorSettings();
+
+      // If we're plotting a single layer, the color for that layer can be used directly.
+      if (aLayerMask.count() === 1) {
+        color = colors.GetColor(aLayerMask.Seq()[0]!);
+      } else {
+        const onMask = pad.GetLayerSet().and(aLayerMask);
+
+        if (onMask.test(PCB_LAYER_ID.B_Cu)) color = colors.GetColor(PCB_LAYER_ID.B_Cu);
+
+        if (onMask.test(PCB_LAYER_ID.F_Cu))
+          color = legacyMix(color, colors.GetColor(PCB_LAYER_ID.F_Cu));
+
+        if (sketchPads && aLayerMask.test(PCB_LAYER_ID.F_Fab))
+          color = colors.GetColor(PCB_LAYER_ID.F_Fab);
+        else if (sketchPads && aLayerMask.test(PCB_LAYER_ID.B_Fab))
+          color = colors.GetColor(PCB_LAYER_ID.B_Fab);
+      }
 
       if (
         sketchPads &&
@@ -597,7 +628,7 @@ export function PlotStandardLayer(
       ((onFrontFab && footprint.GetLayer() === PCB_LAYER_ID.F_Cu) ||
         (onBackFab && footprint.GetLayer() === PCB_LAYER_ID.B_Cu))
     ) {
-      plotDnpCrossout(aBoard, aPlotter, footprint);
+      plotDnpCrossout(aBoard, aPlotter, footprint, aPlotOpt, onFrontFab);
     }
 
     aPlotter.EndBlock(null);
@@ -657,8 +688,18 @@ export function PlotStandardLayer(
 
     gbr_metadata.SetNetName(via.GetNetname());
 
-    // (the via's colour: see plot_brditems_plotter.ts)
-    aPlotter.SetColor(itemplotter.getColor(aLayerMask.Seq()[0] ?? PCB_LAYER_ID.F_Cu));
+    let color: Color4d;
+
+    // If we're plotting a single layer, the color for that layer can be used directly.
+    if (aLayerMask.count() === 1) color = aPlotOpt.ColorSettings().GetColor(aLayerMask.Seq()[0]!);
+    else color = aPlotOpt.ColorSettings().GetColor(GAL_LAYER_ID.LAYER_VIAS + via.GetViaType());
+
+    // Change UNSPECIFIED or WHITE to LIGHTGRAY because the white items are not seen on a
+    // white paper or screen
+    if (colorEq(color, COLOR4D_UNSPECIFIED) || colorEq(color, COLOR4D_WHITE))
+      color = LEGACY_COLORS.LIGHTGRAY;
+
+    aPlotter.SetColor(color);
     aPlotter.FlashPadCircle(via.GetStart(), diameter, getMetadata());
   }
 
@@ -754,7 +795,13 @@ export function PlotStandardLayer(
 }
 
 /** The DNP cross-out on a fab layer: `PlotStandardLayer`'s inline block. */
-function plotDnpCrossout(aBoard: BOARD, aPlotter: PLOTTER, footprint: FOOTPRINT): void {
+function plotDnpCrossout(
+  aBoard: BOARD,
+  aPlotter: PLOTTER,
+  footprint: FOOTPRINT,
+  aPlotOpt: PCB_PLOT_PARAMS,
+  onFrontFab: boolean,
+): void {
   const courtyard = footprint.GetCourtyard(footprint.GetLayer());
   const center = footprint.GetPosition();
   const orient = footprint.GetOrientation();
@@ -785,8 +832,14 @@ function plotDnpCrossout(aBoard: BOARD, aPlotter: PLOTTER, footprint: FOOTPRINT)
 
   const width = aBoard.GetDesignSettings().m_LineThickness[LAYER_CLASS_FAB]!;
 
-  // DNP cross colour: `LAYER_DNP_MARKER` from the colour scheme (not ported).
-  aPlotter.SetColor(COLOR4D_BLACK);
+  // Use DNP cross color from color scheme
+  const dnpMarkerColor = aPlotOpt.ColorSettings().GetColor(SCH_LAYER_ID.LAYER_DNP_MARKER);
+
+  if (!colorEq(dnpMarkerColor, COLOR4D_UNSPECIFIED)) aPlotter.SetColor(dnpMarkerColor);
+  else
+    aPlotter.SetColor(
+      aPlotOpt.ColorSettings().GetColor(onFrontFab ? PCB_LAYER_ID.F_Fab : PCB_LAYER_ID.B_Fab),
+    );
 
   aPlotter.ThickSegment(corner1, corner3, width, null);
   aPlotter.ThickSegment(corner2, corner4, width, null);
@@ -1151,11 +1204,91 @@ function FillNegativeKnockout(aPlotter: PLOTTER, aBbbox: BOX2I): void {
   aPlotter.SetColor(COLOR4D_BLACK);
 }
 
+/** `plotPdfBackground`: fill the page with the PDF background colour, when one is set. */
+function plotPdfBackground(_aBoard: BOARD, aPlotOpts: PCB_PLOT_PARAMS, aPlotter: PLOTTER): void {
+  const pageInfo = aPlotter.PageSettings();
+  const plotOffset = aPlotter.GetPlotOffsetUserUnits();
+  const pageSizeIU = {
+    x: Math.trunc(pageInfo.GetWidthMils() * pcbIUScale.IU_PER_MILS),
+    y: Math.trunc(pageInfo.GetHeightMils() * pcbIUScale.IU_PER_MILS),
+  };
+
+  if (aPlotter.GetColorMode() && !colorEq(aPlotOpts.GetPDFBackgroundColor(), COLOR4D_UNSPECIFIED)) {
+    aPlotter.SetColor(aPlotOpts.GetPDFBackgroundColor());
+
+    // Use plotter page size and offset so background matches the plotted output.
+    const end = { x: plotOffset.x + pageSizeIU.x, y: plotOffset.y + pageSizeIU.y };
+
+    aPlotter.Rect(plotOffset, end, FILL_T.FILLED_SHAPE, 1.0);
+  }
+}
+
+/**
+ * `PlotInteractiveLayer`: the PDF footprint property popups (a hyperlink menu
+ * over each footprint) and the "Footprints" bookmarks. NOP for plotters with
+ * no links.
+ */
+export function PlotInteractiveLayer(
+  aBoard: BOARD,
+  aPlotter: PLOTTER,
+  aPlotOpt: PCB_PLOT_PARAMS,
+): void {
+  for (const fp of aBoard.Footprints()) {
+    if (fp.GetLayer() === PCB_LAYER_ID.F_Cu && !aPlotOpt.m_PDFFrontFPPropertyPopups) continue;
+
+    if (fp.GetLayer() === PCB_LAYER_ID.B_Cu && !aPlotOpt.m_PDFBackFPPropertyPopups) continue;
+
+    const properties: string[] = [];
+
+    properties.push(`!Reference designator = ${fp.Reference().GetShownText(false)}`);
+
+    properties.push(`!Value = ${fp.Value().GetShownText(false)}`);
+
+    properties.push(`!Footprint = ${fp.GetFPID().GetUniStringLibItemName()}`);
+
+    for (const field of fp.GetFields()) {
+      if (!field) continue;
+
+      if (field.IsReference() || field.IsValue()) continue;
+
+      if (field.GetText() === '') continue;
+
+      properties.push(`!${field.GetName()} = ${field.GetText()}`);
+    }
+
+    // (Library Description and Keywords are behind `#if 0` upstream: "not very
+    // useful in a plot file".)
+
+    // Draw items are plotted with a position offset. So we need to move
+    // our boxes (which are not plotted) by the same offset.
+    const plotOffset = aPlotter.GetPlotOffsetUserUnits();
+    const offset = { x: -plotOffset.x, y: -plotOffset.y };
+
+    // Use a footprint bbox without texts to create the hyperlink area
+    let bbox = fp.GetBoundingBox(false).Clone();
+    bbox.Move(offset);
+    aPlotter.HyperlinkMenu({ pos: bbox.GetPosition(), size: bbox.GetSize() }, properties);
+
+    // Use a footprint bbox with visible texts only to create the bookmark area
+    // which is the area to zoom on ft selection
+    // However the bbox need to be inflated for a better look.
+    bbox = fp.GetBoundingBox(true).Clone();
+    bbox.Move(offset);
+    bbox.Inflate(Math.trunc(bbox.GetWidth() / 2), Math.trunc(bbox.GetHeight() / 2));
+    aPlotter.Bookmark(
+      { pos: bbox.GetPosition(), size: bbox.GetSize() },
+      fp.GetReference(),
+      'Footprints',
+    );
+  }
+}
+
 /**
  * Open a new plotfile using the options (and especially the format) specified in the options
  * and prepare the page for plotting.
  *
  * @param aDate is "now" for the Gerber header's date attributes; upstream reads the clock.
+ * @param aPdfDeflate is the PDF page-stream compressor (see the file comment).
  * @return the plotter object if OK, null if the file is not created (or has a problem).
  */
 export function StartPlotBoard(
@@ -1170,11 +1303,52 @@ export function StartPlotBoard(
   aPageNumber = '',
   aPageCount = 1,
   aDate: Date = new Date(),
+  aPdfDeflate: PdfDeflate | null = null,
 ): PLOTTER | null {
+  const renderSettings = new PCB_RENDER_SETTINGS();
+
   // Create the plotter driver and set the few plotter specific options
   let plotter: PLOTTER;
 
   switch (aPlotOpts.GetFormat()) {
+    case PLOT_FORMAT.DXF: {
+      const DXF_plotter = new DXF_PLOTTER(renderSettings);
+      DXF_plotter.SetUnits(aPlotOpts.GetDXFPlotUnits());
+
+      plotter = DXF_plotter;
+
+      if (aPlotOpts.GetLayersToExport().length > 0)
+        plotter.SetLayersToExport(aPlotOpts.GetLayersToExport());
+      break;
+    }
+
+    case PLOT_FORMAT.POST: {
+      const PS_plotter = new PS_PLOTTER(renderSettings);
+      PS_plotter.SetScaleAdjust(aPlotOpts.GetFineScaleAdjustX(), aPlotOpts.GetFineScaleAdjustY());
+      plotter = PS_plotter;
+      break;
+    }
+
+    case PLOT_FORMAT.PDF: {
+      const project = aBoard.GetProject();
+      plotter = new PDF_PLOTTER(renderSettings, aPdfDeflate ?? ((b) => b), {
+        debugPdfWriter: aPdfDeflate === null,
+        ...(project
+          ? {
+              project: {
+                ResolveUriByEnvVars: (aUri: string) =>
+                  ResolveUriByEnvVars(aUri, (token) => project.TextVarResolver(token)),
+              },
+            }
+          : {}),
+      });
+      break;
+    }
+
+    case PLOT_FORMAT.HPGL:
+      console.error('HPGL plotting is no longer supported as of KiCad 10.0');
+      return null;
+
     case PLOT_FORMAT.GERBER:
       // For Gerber plotter, a valid board layer must be set, in order to create a valid
       // Gerber header, especially the TF.FileFunction and .FilePolarity data
@@ -1185,13 +1359,15 @@ export function StartPlotBoard(
       (plotter as GERBER_PLOTTER).SetDate(aDate);
       break;
 
+    case PLOT_FORMAT.SVG:
+      plotter = new SVG_PLOTTER(renderSettings);
+      break;
+
     default:
-      // DXF, POST, PDF and SVG: see the file comment. HPGL: "HPGL plotting is no
-      // longer supported as of KiCad 10.0".
       return null;
   }
 
-  const renderSettings = new PCB_RENDER_SETTINGS();
+  renderSettings.LoadColors(aPlotOpts.ColorSettings());
   renderSettings.SetDefaultPenWidth(pcbIUScale.mmToIU(0.0212)); // Hairline at 1200dpi
   renderSettings.SetLayerName(aLayerName);
   renderSettings.SetDashLengthRatio(aPlotOpts.GetDashedLineDashRatio());
@@ -1232,36 +1408,24 @@ export function StartPlotBoard(
     let startPlotSuccess = false;
 
     try {
-      startPlotSuccess = plotter.StartPlot(aPageName);
-    } catch {
+      if (plotter.GetPlotterType() === PLOT_FORMAT.PDF)
+        startPlotSuccess = (plotter as PDF_PLOTTER).StartPlot(aPageNumber, aPageName);
+      else if (plotter.GetPlotterType() === PLOT_FORMAT.SVG)
+        startPlotSuccess = (plotter as SVG_PLOTTER).StartPlot(aPageName, aDate);
+      else if (plotter.GetPlotterType() === PLOT_FORMAT.POST)
+        startPlotSuccess = (plotter as PS_PLOTTER).StartPlot(aPageName, aDate);
+      else startPlotSuccess = plotter.StartPlot(aPageName);
+    } catch (e) {
+      console.error(e);
       startPlotSuccess = false;
     }
 
     if (startPlotSuccess) {
-      // (plotPdfBackground: PDF only, see the file comment)
+      if (aPlotOpts.GetFormat() === PLOT_FORMAT.PDF) plotPdfBackground(aBoard, aPlotOpts, plotter);
 
       // Plot the frame reference if requested
       if (aPlotOpts.GetPlotFrameRef()) {
-        const variantName = aBoard.GetCurrentVariant();
-        const variantDesc = aBoard.GetVariantDescription(variantName);
-        const project = aBoard.GetProject();
-
-        PlotDrawingSheet(
-          plotter,
-          project ? { TextVarResolver: (token) => project.TextVarResolver(token) } : null,
-          aBoard.GetTitleBlock(),
-          aBoard.GetPageSettings(),
-          aBoard.GetProperties(),
-          aPageNumber,
-          aPageCount,
-          aSheetName,
-          aSheetPath,
-          aBoard.GetFileName(),
-          renderSettings.GetLayerColor(GAL_LAYER_ID.LAYER_DRAWINGSHEET),
-          true,
-          variantName,
-          variantDesc,
-        );
+        plotFrame(plotter, aBoard, renderSettings, aPageNumber, aPageCount, aSheetName, aSheetPath);
 
         if (aPlotOpts.GetMirror() || aPlotOpts.GetScale() !== 1.0 || aPlotOpts.GetAutoScale())
           initializePlotter(plotter, aBoard, aPlotOpts);
@@ -1280,4 +1444,82 @@ export function StartPlotBoard(
   }
 
   return null;
+}
+
+/** `PlotDrawingSheet( … )` as StartPlotBoard and setupPlotterNewPDFPage call it. */
+function plotFrame(
+  aPlotter: PLOTTER,
+  aBoard: BOARD,
+  aRenderSettings: RENDER_SETTINGS,
+  aPageNumber: string,
+  aPageCount: number,
+  aSheetName: string,
+  aSheetPath: string,
+): void {
+  const variantName = aBoard.GetCurrentVariant();
+  const variantDesc = aBoard.GetVariantDescription(variantName);
+  const project = aBoard.GetProject();
+
+  PlotDrawingSheet(
+    aPlotter,
+    project ? { TextVarResolver: (token) => project.TextVarResolver(token) } : null,
+    aBoard.GetTitleBlock(),
+    aBoard.GetPageSettings(),
+    aBoard.GetProperties(),
+    aPageNumber,
+    aPageCount,
+    aSheetName,
+    aSheetPath,
+    aBoard.GetFileName(),
+    aRenderSettings.GetLayerColor(GAL_LAYER_ID.LAYER_DRAWINGSHEET),
+    true,
+    variantName,
+    variantDesc,
+  );
+}
+
+/**
+ * `setupPlotterNewPDFPage`: a new page of a single-document PDF, with its
+ * background and, when asked, its drawing sheet (never mirrored or scaled).
+ */
+export function setupPlotterNewPDFPage(
+  aPlotter: PLOTTER,
+  aBoard: BOARD,
+  aPlotOpts: PCB_PLOT_PARAMS,
+  aLayerName: string,
+  aSheetName: string,
+  aSheetPath: string,
+  aPageNumber: string,
+  aPageCount: number,
+): void {
+  plotPdfBackground(aBoard, aPlotOpts, aPlotter);
+
+  const renderSettings = aPlotter.RenderSettings() as RENDER_SETTINGS;
+  renderSettings.SetLayerName(aLayerName);
+
+  // Plot the frame reference if requested
+  if (aPlotOpts.GetPlotFrameRef()) {
+    // Mirror and scale shouldn't be applied to the drawing sheet
+    let revertOps = false;
+    const oldMirror = aPlotOpts.GetMirror();
+    const oldAutoScale = aPlotOpts.GetAutoScale();
+    const oldScale = aPlotOpts.GetScale();
+
+    if (oldMirror || oldAutoScale || oldScale !== 1.0) {
+      aPlotOpts.SetMirror(false);
+      aPlotOpts.SetScale(1.0);
+      aPlotOpts.SetAutoScale(false);
+      initializePlotter(aPlotter, aBoard, aPlotOpts);
+      revertOps = true;
+    }
+
+    plotFrame(aPlotter, aBoard, renderSettings, aPageNumber, aPageCount, aSheetName, aSheetPath);
+
+    if (revertOps) {
+      aPlotOpts.SetMirror(oldMirror);
+      aPlotOpts.SetScale(oldScale);
+      aPlotOpts.SetAutoScale(oldAutoScale);
+      initializePlotter(aPlotter, aBoard, aPlotOpts);
+    }
+  }
 }

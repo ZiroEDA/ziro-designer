@@ -213,8 +213,9 @@ describe('end to end: the page changes the exported gerber', () => {
     params.SetDrillMarksType(DRILL_MARKS.NO_DRILL_SHAPE);
 
     let text = '';
-    new PCB_PLOTTER(board, null, params).Plot('', [layer], [], false, (_path, bytes) => {
-      text = new TextDecoder().decode(bytes);
+    new PCB_PLOTTER(board, null, params).Plot('', [layer], [], false, (path, bytes) => {
+      // PCB_PLOTTER::Plot writes the Gerber job file after the layer.
+      if (!path.endsWith('.gbrjob')) text = new TextDecoder().decode(bytes);
     });
     return text;
   };

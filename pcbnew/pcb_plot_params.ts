@@ -11,9 +11,6 @@
  * The C++ parser is its own `DSNLEXER` subclass synchronised onto the board
  * reader (`SyncLineReaderWith`); here it drives the board file's lexer
  * directly, which is the same token stream.
- *
- * `m_colors` / `m_default_colors` (`COLOR_SETTINGS`) are not ported: the
- * plotters take their colours from the render settings they are handed.
  */
 
 import { type Color4d, COLOR4D_UNSPECIFIED } from '@ziroeda/common/gal/color4d.js';
@@ -58,6 +55,7 @@ import {
 import type { OUTPUTFORMATTER } from '@ziroeda/common/richio.js';
 import { FormatDouble2Str } from '@ziroeda/common/string_utils.js';
 import { BASE_SET } from '@ziroeda/common/base_set.js';
+import { COLOR_SETTINGS } from '@ziroeda/common/settings/color_settings.js';
 
 /** `DRILL_MARKS` (pcbnew/plotprint_opts.h). */
 export enum DRILL_MARKS {
@@ -155,6 +153,10 @@ export class PCB_PLOT_PARAMS extends PLOT_PARAMS {
   m_DXFExportAsMultiLayeredFile: boolean;
   m_layersToExport: [PCB_LAYER_ID, string][] = [];
   m_layer: PCB_LAYER_ID = F_Cu as PCB_LAYER_ID; // uninitialised in the C++
+  /// Pointer to color settings to be used for plotting
+  m_colors: COLOR_SETTINGS;
+  /// Pointer used to store a default color settings object
+  m_default_colors: COLOR_SETTINGS;
 
   constructor() {
     super();
@@ -220,7 +222,8 @@ export class PCB_PLOT_PARAMS extends PLOT_PARAMS {
     // line width to plot items in outline mode.
     this.m_sketchPadLineWidth = pcbIUScale.mmToIU(0.1);
 
-    // m_default_colors / m_colors: COLOR_SETTINGS not ported
+    this.m_default_colors = new COLOR_SETTINGS();
+    this.m_colors = this.m_default_colors;
 
     this.m_blackAndWhite = true;
 
@@ -287,7 +290,18 @@ export class PCB_PLOT_PARAMS extends PLOT_PARAMS {
     this.m_DXFExportAsMultiLayeredFile = aOther.m_DXFExportAsMultiLayeredFile;
     this.m_layersToExport = aOther.m_layersToExport.map(([l, n]) => [l, n]);
     this.m_layer = aOther.m_layer;
+    // The pointer and the shared_ptr are copied, not what they point at.
+    this.m_colors = aOther.m_colors;
+    this.m_default_colors = aOther.m_default_colors;
     return this;
+  }
+
+  SetColorSettings(aSettings: COLOR_SETTINGS): void {
+    this.m_colors = aSettings;
+  }
+
+  ColorSettings(): COLOR_SETTINGS {
+    return this.m_colors;
   }
 
   SetSkipPlotNPTH_Pads(aSkip: boolean): void {

@@ -60,16 +60,20 @@
  * Deliberate gaps, each an injected dependency rather than an approximation:
  * the raster image (`PsImage`, standing in for wxImage, with the per-pixel
  * accessors upstream actually calls) and the font (PLOTTER's `PLOTTER_FONT`,
- * standing in for KIFONT::FONT). `Rect` with a corner radius,
- * the SHAPE_LINE_CHAIN `PlotPoly` overload, `FlashPadRoundRect` and
- * `FlashPadCustom` all need geometry classes this repo does not have yet and
- * are absent rather than approximated.
+ * standing in for KIFONT::FONT).
  */
 
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
+import { SHAPE_RECT } from '@ziroeda/kimath/src/geometry/shape_rect.js';
 import { EDA_ANGLE, ANGLE_0, ANGLE_90 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
+import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
+import {
+  SHAPE_POLY_SET,
+  TransformRoundChamferedRectToPolygon,
+} from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '../eda_text.js';
 import { COLOR4D_WHITE, type Color4d } from '../gal/color4d.js';
 import type { PlotterRenderSettings } from '../render_settings.js';
@@ -441,6 +445,68 @@ export abstract class PSLIKE_PLOTTER extends PLOTTER {
 
     this.PlotPoly(cornerList, FILL_T.FILLED_SHAPE, 0, aData);
   }
+  /** `PSLIKE_PLOTTER::FlashPadRoundRect`: the outline as one filled polygon. */
+  FlashPadRoundRect(
+    aPadPos: Vec2,
+    aSize: Vec2,
+    aCornerRadius: number,
+    aOrient: EDA_ANGLE,
+    aData?: unknown,
+  ): void {
+    const outline = new SHAPE_POLY_SET();
+    TransformRoundChamferedRectToPolygon(
+      outline,
+      aPadPos,
+      aSize,
+      aOrient,
+      aCornerRadius,
+      0.0,
+      0,
+      0,
+      this.GetPlotterArcHighDef(),
+      ERROR_LOC.ERROR_INSIDE,
+    );
+
+    const cornerList: Vec2[] = [];
+
+    // TransformRoundRectToPolygon creates only one convex polygon
+    const poly = outline.Outline(0);
+
+    for (let ii = 0; ii < poly.PointCount(); ++ii) {
+      const p = poly.CPoint(ii);
+      cornerList.push({ x: p.x, y: p.y });
+    }
+
+    // Close polygon
+    cornerList.push(cornerList[0]!);
+
+    this.PlotPoly(cornerList, FILL_T.FILLED_SHAPE, 0, aData);
+  }
+
+  /** `PSLIKE_PLOTTER::FlashPadCustom`: each outline a filled polygon; holes too. */
+  FlashPadCustom(
+    _aPadPos: Vec2,
+    _aSize: Vec2,
+    _aOrient: EDA_ANGLE,
+    aPolygons: SHAPE_POLY_SET,
+    aData?: unknown,
+  ): void {
+    for (let cnt = 0; cnt < aPolygons.OutlineCount(); ++cnt) {
+      const poly = aPolygons.Outline(cnt);
+      const cornerList: Vec2[] = [];
+
+      for (let ii = 0; ii < poly.PointCount(); ++ii) {
+        const p = poly.CPoint(ii);
+        cornerList.push({ x: p.x, y: p.y });
+      }
+
+      // Close polygon
+      cornerList.push(cornerList[0]!);
+
+      this.PlotPoly(cornerList, FILL_T.FILLED_SHAPE, 0, aData);
+    }
+  }
+
   /**
    * `PSLIKE_PLOTTER::FlashPadTrapez`. The corners rotate about the *origin* and
    * only then translate by the pad position, so they arrive relative to the pad.
@@ -839,8 +905,12 @@ export class PS_PLOTTER extends PSLIKE_PLOTTER {
     if (fill === FILL_T.NO_FILL && this.GetCurrentLineWidth() <= 0) return;
 
     if (aCornerRadius > 0) {
-      // Needs SHAPE_RECT with a corner radius and the SHAPE_LINE_CHAIN PlotPoly.
-      throw new Error('PS Rect with a corner radius is not ported (needs SHAPE_RECT::SetRadius)');
+      const box = new BOX2I(p1, { x: p2.x - p1.x, y: p2.y - p1.y });
+      box.Normalize();
+      const rect = new SHAPE_RECT(box);
+      rect.SetRadius(aCornerRadius);
+      this.PlotPolyLineChain(rect.Outline(), fill, width, null);
+      return;
     }
 
     const p1_dev = this.userToDeviceCoordinates(p1);

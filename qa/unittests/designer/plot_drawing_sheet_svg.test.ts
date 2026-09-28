@@ -46,8 +46,7 @@ function normalise(aSvg: string): string[] {
 describe('the schematic plot frames the page with PlotDrawingSheet', () => {
   it('matches kicad-cli for an empty sheet with a title block', () => {
     const text = readFileSync(resolve(DIR, 'sheet.kicad_sch'), 'utf8');
-    const sch = readSchematic(parse(text));
-    sch.fileName = 'sheet.kicad_sch';
+    const sch = { ...readSchematic(parse(text)), fileName: 'sheet.kicad_sch' };
 
     const svg = sheetToSvg(
       sch,

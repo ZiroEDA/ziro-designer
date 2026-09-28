@@ -725,3 +725,14 @@ export function setFromHexString(text: string): Color4d | null {
     a: 1.0,
   };
 }
+
+/**
+ * `COLOR4D::LegacyMix`: blend two colours by OR-ing their 8-bit channels, the
+ * alpha the mean of the two.
+ */
+export const legacyMix = (c: Color4d, aColor: Color4d): Color4d => ({
+  r: ((Math.trunc(255.0 * c.r) | Math.trunc(255.0 * aColor.r)) >>> 0) / 255.0,
+  g: ((Math.trunc(255.0 * c.g) | Math.trunc(255.0 * aColor.g)) >>> 0) / 255.0,
+  b: ((Math.trunc(255.0 * c.b) | Math.trunc(255.0 * aColor.b)) >>> 0) / 255.0,
+  a: (aColor.a + c.a) / 2,
+});

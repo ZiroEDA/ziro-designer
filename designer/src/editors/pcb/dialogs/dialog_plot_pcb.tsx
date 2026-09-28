@@ -9,14 +9,14 @@
  * Messages report panel, and the button row Run DRC... / Generate Drill
  * Files... / Close / Plot.
  *
- * Gerber is the format this editor writes, so the dialog shows Gerber's world:
- * upstream's SetPlotFormat( GERBER ) disables drill marks, scaling, mirrored
- * and negative plot outright, options that could never do anything here, so
- * they are left out instead of shown dead, along with the General Options not
- * offered here yet (soldermask subtraction, DNP marking, sketch pads / pad
- * numbers; PlotOneBoardLayer has them). What remains is live: drawing the checked layers,
- * the drill/place file origin, Protel extensions, the Gerber job file, the
- * coordinate format and the X2/X1 attribute style.
+ * The plot format choice (Gerber, Postscript, SVG, DXF, PDF) shows that
+ * format's option group and greys the General Options SetPlotFormat greys for
+ * it; every format goes through PCB_PLOTTER::Plot with the COLOR_SETTINGS of
+ * the PCB editor's colour theme, as DIALOG_PLOT::Plot sets them. General
+ * Options not offered here yet (soldermask subtraction, DNP marking, sketch
+ * pads / pad numbers; PlotOneBoardLayer has them) are left out rather than
+ * shown dead, as are the Postscript "Force A4 output" (PCB_PLOT_PARAMS has no
+ * A4 flag yet) and the PDF background colour swatch.
  *
  * Web delta, there is no local filesystem, so "Output directory:" is a folder
  * inside the *project* (our cloud file manager), where each .gbr/.gbrjob/.drl
@@ -24,15 +24,20 @@
  * computer" additionally streams the set out as a zip.
  */
 import { useMemo, useRef, useState, type JSX } from 'react';
-import { zipSync, strToU8 } from 'fflate';
+import { zipSync, zlibSync, strToU8 } from 'fflate';
 import { boardAuxOrigin, PCB_PLOTTER, type Board } from '@ziroeda/pcbnew';
 import { DRILL_MARKS, PCB_PLOT_PARAMS } from '@ziroeda/pcbnew/pcb_plot_params.js';
 import { EXCELLON_WRITER } from '@ziroeda/pcbnew/exporters/gendrill_excellon_writer.js';
 import { ZEROS_FMT } from '@ziroeda/pcbnew/exporters/gendrill_writer_base.js';
-import { GERBER_JOBFILE_WRITER } from '@ziroeda/pcbnew/exporters/gerber_jobfile_writer.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import type { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
-import { PLOT_FORMAT } from '@ziroeda/common/plotters/plotter.js';
+import { DXF_OUTLINE_MODE, DXF_UNITS, PLOT_FORMAT } from '@ziroeda/common/plotters/plotter.js';
+import { PCB_LAYER_ID as LAYER } from '@ziroeda/common/layer_id.js';
+import { COLOR_SETTINGS } from '@ziroeda/common/settings/color_settings.js';
+import { DEFAULT_THEME, PgmOrNull } from '@ziroeda/common/pgm_base.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
+import { SpinCtrl } from '@ziroeda/common/widgets/spin_ctrl.js';
 import { Reporter } from '@ziroeda/common/reporter.js';
 import {
   RPT_SEVERITY_ACTION,
@@ -56,6 +61,35 @@ interface Props {
   onRunDrc?: () => void;
   onClose: () => void;
 }
+
+/** `m_plotFormatOpt`'s choices, in `DIALOG_PLOT::getPlotFormat`'s order. */
+const PLOT_FORMATS: readonly { value: string; label: string; format: PLOT_FORMAT; mime: string }[] =
+  [
+    { value: '0', label: 'Gerber', format: PLOT_FORMAT.GERBER, mime: 'application/vnd.gerber' },
+    { value: '1', label: 'Postscript', format: PLOT_FORMAT.POST, mime: 'application/postscript' },
+    { value: '2', label: 'SVG', format: PLOT_FORMAT.SVG, mime: 'image/svg+xml' },
+    { value: '3', label: 'DXF', format: PLOT_FORMAT.DXF, mime: 'image/vnd.dxf' },
+    { value: '4', label: 'PDF', format: PLOT_FORMAT.PDF, mime: 'application/pdf' },
+  ];
+
+/** `m_drillShapeOpt`, `m_scaleOpt` and the two colour choices (dialog_plot_base.cpp). */
+const DRILL_CHOICES = ['None', 'Small', 'Actual size'].map((l, i) => ({
+  value: String(i),
+  label: l,
+}));
+const SCALE_CHOICES = ['Auto', '1:1', '3:2', '2:1', '3:1'].map((l, i) => ({
+  value: String(i),
+  label: l,
+}));
+const COLOR_CHOICES = ['Color', 'Black and white'].map((l, i) => ({ value: String(i), label: l }));
+const DXF_UNIT_CHOICES = ['Inches', 'Millimeters'].map((l, i) => ({ value: String(i), label: l }));
+const COORD_CHOICES = [
+  { value: '5', label: '4.5, unit mm' },
+  { value: '6', label: '4.6, unit mm' },
+];
+
+/** `selectionToScale` / DIALOG_PLOT::Plot's scale switch. */
+const SCALES = [0, 1, 1.5, 2, 3];
 
 const download = (name: string, data: Uint8Array | string): void => {
   const blob = new Blob([typeof data === 'string' ? data : (data as BlobPart)], {
@@ -91,6 +125,36 @@ export function DialogPcbPlot({
   const [coordDigits, setCoordDigits] = useState<5 | 6>(6);
   const [useX2, setUseX2] = useState(true);
   const [useAuxOrigin, setUseAuxOrigin] = useState(false);
+  // The rest of DIALOG_PLOT::init_Dialog: the board's own plot settings.
+  const [initial] = useState(() => board.k?.GetPlotOptions() ?? new PCB_PLOT_PARAMS());
+  const [formatSel, setFormatSel] = useState(() => {
+    const i = PLOT_FORMATS.findIndex((f) => f.format === initial.GetFormat());
+    return String(Math.max(0, i));
+  });
+  const format = PLOT_FORMATS[Number(formatSel)]!.format;
+  const [plotSheet, setPlotSheet] = useState(() => initial.GetPlotFrameRef());
+  const [drillSel, setDrillSel] = useState(() => String(initial.GetDrillMarksType()));
+  const [scaleSel, setScaleSel] = useState(() => String(initial.GetScaleSelection()));
+  const [mirror, setMirror] = useState(() => initial.GetMirror());
+  const [negative, setNegative] = useState(() => initial.GetNegative());
+  const [fineX, setFineX] = useState(() => String(initial.GetFineScaleAdjustX()));
+  const [fineY, setFineY] = useState(() => String(initial.GetFineScaleAdjustY()));
+  const [widthAdjust, setWidthAdjust] = useState(() =>
+    String(pcbIUScale.iuToMM(initial.GetWidthAdjust())),
+  );
+  const [dxfContours, setDxfContours] = useState(() => initial.GetDXFPlotPolygonMode());
+  const [dxfUnits, setDxfUnits] = useState(() =>
+    initial.GetDXFPlotUnits() === DXF_UNITS.INCH ? '0' : '1',
+  );
+  const [dxfSingle, setDxfSingle] = useState(() => initial.GetDXFMultiLayeredExportOption());
+  const [svgPrecision, setSvgPrecision] = useState(() => initial.GetSvgPrecision());
+  const [svgBw, setSvgBw] = useState(() => (initial.GetBlackAndWhite() ? '1' : '0'));
+  const [svgFit, setSvgFit] = useState(() => initial.GetSvgFitPagetoBoard());
+  const [pdfBw, setPdfBw] = useState(() => (initial.GetBlackAndWhite() ? '1' : '0'));
+  const [pdfFront, setPdfFront] = useState(() => initial.m_PDFFrontFPPropertyPopups);
+  const [pdfBack, setPdfBack] = useState(() => initial.m_PDFBackFPPropertyPopups);
+  const [pdfMetadata, setPdfMetadata] = useState(() => initial.m_PDFMetadata);
+  const [pdfSingle, setPdfSingle] = useState(() => initial.m_PDFSingle);
   const [outputDir, setOutputDir] = useState('gerbers');
   const [browseOpen, setBrowseOpen] = useState(false);
   const [downloadCopy, setDownloadCopy] = useState(false);
@@ -134,10 +198,11 @@ export function DialogPcbPlot({
   };
 
   /**
-   * DIALOG_PLOT::Plot for Gerber: the options onto a PCB_PLOT_PARAMS, then
-   * PCB_PLOTTER::Plot, which runs StartPlotBoard / PlotBoardLayers /
-   * GERBER_PLOTTER for each checked layer. Board Setup's Solder Mask/Paste
-   * values reach the pads through the board's own design settings.
+   * DIALOG_PLOT::Plot: applyPlotSettings onto a PCB_PLOT_PARAMS, the editor's
+   * colour theme, then PCB_PLOTTER::Plot, which runs StartPlotBoard /
+   * PlotBoardLayers for each checked layer and, for Gerber, the job file.
+   * Board Setup's Solder Mask/Paste values reach the pads through the board's
+   * own design settings.
    */
   const plot = (): void => {
     const k = board.k;
@@ -162,26 +227,71 @@ export function DialogPcbPlot({
 
     const params = new PCB_PLOT_PARAMS();
     params.assign(k.GetPlotOptions());
-    params.SetFormat(PLOT_FORMAT.GERBER);
+    params.SetFormat(format);
+    params.SetPlotFrameRef(plotSheet);
+    params.SetUseAuxOrigin(format !== PLOT_FORMAT.POST && useAuxOrigin);
+    params.SetScaleSelection(Number(scaleSel));
+    params.SetDrillMarksType(
+      format === PLOT_FORMAT.GERBER
+        ? DRILL_MARKS.NO_DRILL_SHAPE // SetPlotFormat( GERBER ) disables the drill marks
+        : (Number(drillSel) as DRILL_MARKS),
+    );
+    params.SetMirror(format !== PLOT_FORMAT.GERBER && format !== PLOT_FORMAT.DXF && mirror);
+    params.SetNegative(format !== PLOT_FORMAT.GERBER && format !== PLOT_FORMAT.DXF && negative);
+    params.SetDXFPlotPolygonMode(dxfContours);
+    params.SetDXFPlotUnits(dxfUnits === '0' ? DXF_UNITS.INCH : DXF_UNITS.MM);
+    params.SetDXFMultiLayeredExportOption(dxfSingle);
+
+    if (format === PLOT_FORMAT.SVG) params.SetBlackAndWhite(svgBw === '1');
+    else if (format === PLOT_FORMAT.PDF) {
+      params.SetBlackAndWhite(pdfBw === '1');
+      params.m_PDFFrontFPPropertyPopups = pdfFront;
+      params.m_PDFBackFPPropertyPopups = pdfBack;
+      params.m_PDFMetadata = pdfMetadata;
+      params.m_PDFSingle = pdfSingle;
+    } else params.SetBlackAndWhite(true);
+
+    if (format === PLOT_FORMAT.POST) {
+      params.SetFineScaleAdjustX(Number(fineX) || 1);
+      params.SetFineScaleAdjustY(Number(fineY) || 1);
+      params.SetWidthAdjust(Math.round((Number(widthAdjust) || 0) * pcbIUScale.IU_PER_MM));
+    }
+
     params.SetUseGerberProtelExtensions(protel);
+    params.SetUseGerberX2format(useX2);
     params.SetCreateGerberJobFile(jobFile);
     params.SetGerberPrecision(coordDigits);
-    params.SetUseGerberX2format(useX2);
-    params.SetUseAuxOrigin(useAuxOrigin);
-    // DIALOG_PLOT::SetPlotFormat( GERBER ) disables the drill marks.
-    params.SetDrillMarksType(DRILL_MARKS.NO_DRILL_SHAPE);
+    params.SetSvgPrecision(svgPrecision);
+    params.SetSvgFitPageToBoard(svgFit);
+    params.SetLayerSelection(new LSET(layers));
+
+    // DIALOG_PLOT::Plot: the scale, the theme and the sketch pad width.
+    const scale = SCALES[Number(scaleSel)] ?? 1;
+    params.SetAutoScale(format !== PLOT_FORMAT.GERBER && scale === 0);
+    params.SetScale(format === PLOT_FORMAT.GERBER || scale === 0 ? 1 : scale);
+
+    const mgr = PgmOrNull()?.GetSettingsManager();
+    const cfg = mgr?.GetAppSettings<{ m_ColorTheme: string }>('pcbnew');
+    params.SetColorSettings(
+      mgr ? mgr.GetColorSettings(cfg ? cfg.m_ColorTheme : DEFAULT_THEME) : new COLOR_SETTINGS(),
+    );
+    params.SetSketchPadLineWidth(k.GetDesignSettings().GetLineThickness(LAYER.F_Fab));
 
     const reporter = new Reporter();
     const files: Record<string, Uint8Array> = {};
-    const mime = 'application/vnd.gerber';
+    const plotter = new PCB_PLOTTER(k, reporter, params);
+    plotter.SetPdfDeflate((bytes) => zlibSync(bytes));
 
-    const { files: plotted } = new PCB_PLOTTER(k, reporter, params).Plot(
+    plotter.Plot(
       '',
       layers,
       [],
       protel,
       (name, bytes) => {
         files[name] = bytes;
+        const mime = name.endsWith('.gbrjob')
+          ? 'application/json'
+          : PLOT_FORMATS[Number(formatSel)]!.mime;
         const path = dir ? `${dir}/${name}` : name;
         if (onOutputFile) onOutputFile(path, bytes, mime);
         else download(name, bytes);
@@ -198,19 +308,9 @@ export function DialogPcbPlot({
       );
     }
 
-    if (jobFile) {
-      // PCB_PLOTTER::Plot: the GERBER_JOBFILE_WRITER fed each plotted file.
-      const jobName = `${base}-job.gbrjob`;
-      const jobfile_writer = new GERBER_JOBFILE_WRITER(k, reporter);
-      for (const f of plotted) jobfile_writer.AddGbrFile(f.layer, f.fullName);
-      jobfile_writer.CreateJobFile(jobName);
-      const text = new TextDecoder().decode(jobfile_writer.GetWrittenFile()!.bytes);
-      emit(jobName, text, 'application/json');
-      files[jobName] = strToU8(text);
-    }
     if (downloadCopy) {
-      download(`${base}-gerbers.zip`, zipSync(files));
-      report(`Downloaded ${base}-gerbers.zip.`, RPT_SEVERITY_INFO);
+      download(`${base}-plots.zip`, zipSync(files));
+      report(`Downloaded ${base}-plots.zip.`, RPT_SEVERITY_INFO);
     }
   };
 
@@ -282,9 +382,7 @@ export function DialogPcbPlot({
           {/* Plot format + output directory (upstream's top rows). */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
             <span style={lab}>Plot format:</span>
-            <select className="ze-select" value="gerber" onChange={() => {}}>
-              <option value="gerber">Gerber</option>
-            </select>
+            <Combo value={formatSel} options={PLOT_FORMATS} onChange={setFormatSel} />
           </div>
           <div
             style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}
@@ -366,16 +464,65 @@ export function DialogPcbPlot({
             <div style={{ flex: 1, minWidth: 0 }}>
               <fieldset style={box}>
                 <legend style={legend}>General Options</legend>
+                {format !== PLOT_FORMAT.GERBER && (
+                  <label style={check}>
+                    <input
+                      type="checkbox"
+                      checked={plotSheet}
+                      onChange={(e) => setPlotSheet(e.target.checked)}
+                    />
+                    Plot drawing sheet
+                  </label>
+                )}
+                <div style={fieldRow}>
+                  <span>Drill marks:</span>
+                  <Combo
+                    value={format === PLOT_FORMAT.GERBER ? '0' : drillSel}
+                    options={DRILL_CHOICES}
+                    onChange={setDrillSel}
+                    disabled={format === PLOT_FORMAT.GERBER}
+                  />
+                </div>
+                <div style={fieldRow}>
+                  <span>Scaling:</span>
+                  <Combo
+                    value={format === PLOT_FORMAT.GERBER ? '1' : scaleSel}
+                    options={SCALE_CHOICES}
+                    onChange={setScaleSel}
+                    disabled={format === PLOT_FORMAT.GERBER}
+                  />
+                </div>
                 <label
                   style={check}
                   title="Use the drill/place file origin as the coordinate origin for plotted files"
                 >
                   <input
                     type="checkbox"
-                    checked={useAuxOrigin}
+                    checked={format !== PLOT_FORMAT.POST && useAuxOrigin}
+                    disabled={format === PLOT_FORMAT.POST}
                     onChange={(e) => setUseAuxOrigin(e.target.checked)}
                   />
                   Use drill/place file origin
+                </label>
+                <label style={check}>
+                  <input
+                    type="checkbox"
+                    checked={format !== PLOT_FORMAT.GERBER && format !== PLOT_FORMAT.DXF && mirror}
+                    disabled={format === PLOT_FORMAT.GERBER || format === PLOT_FORMAT.DXF}
+                    onChange={(e) => setMirror(e.target.checked)}
+                  />
+                  Mirrored plot
+                </label>
+                <label style={check}>
+                  <input
+                    type="checkbox"
+                    checked={
+                      format !== PLOT_FORMAT.GERBER && format !== PLOT_FORMAT.DXF && negative
+                    }
+                    disabled={format === PLOT_FORMAT.GERBER || format === PLOT_FORMAT.DXF}
+                    onChange={(e) => setNegative(e.target.checked)}
+                  />
+                  Negative plot
                 </label>
                 <label
                   style={check}
@@ -390,66 +537,186 @@ export function DialogPcbPlot({
                 </label>
               </fieldset>
 
-              <fieldset style={box}>
-                <legend style={legend}>Gerber Options</legend>
-                <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <label
-                      style={check}
-                      title={
-                        'Use Protel Gerber extensions (.GBL, .GTL, etc...)\nNo longer recommended. The official extension is .gbr'
-                      }
-                    >
-                      <input
-                        type="checkbox"
-                        checked={protel}
-                        onChange={(e) => setProtel(e.target.checked)}
-                      />
-                      Use Protel filename extensions
-                    </label>
-                    <label
-                      style={check}
-                      title={
-                        'Generate a Gerber job file that contains info about the board,\nand the list of generated Gerber plot files'
-                      }
-                    >
-                      <input
-                        type="checkbox"
-                        checked={jobFile}
-                        onChange={(e) => setJobFile(e.target.checked)}
-                      />
-                      Generate Gerber job file
-                    </label>
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={fieldRow}>
-                      <span>Coordinate format:</span>
-                      <select
-                        className="ze-select"
-                        style={{ flex: 1 }}
-                        value={coordDigits}
-                        onChange={(e) => setCoordDigits(Number(e.target.value) as 5 | 6)}
+              {format === PLOT_FORMAT.GERBER && (
+                <fieldset style={box}>
+                  <legend style={legend}>Gerber Options</legend>
+                  <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <label
+                        style={check}
+                        title={
+                          'Use Protel Gerber extensions (.GBL, .GTL, etc...)\nNo longer recommended. The official extension is .gbr'
+                        }
                       >
-                        <option value={5}>4.5, unit mm</option>
-                        <option value={6}>4.6, unit mm</option>
-                      </select>
+                        <input
+                          type="checkbox"
+                          checked={protel}
+                          onChange={(e) => setProtel(e.target.checked)}
+                        />
+                        Use Protel filename extensions
+                      </label>
+                      <label
+                        style={check}
+                        title={
+                          'Generate a Gerber job file that contains info about the board,\nand the list of generated Gerber plot files'
+                        }
+                      >
+                        <input
+                          type="checkbox"
+                          checked={jobFile}
+                          onChange={(e) => setJobFile(e.target.checked)}
+                        />
+                        Generate Gerber job file
+                      </label>
                     </div>
-                    <label
-                      style={check}
-                      title={
-                        'Use X2 Gerber file format.\nInclude mainly X2 attributes in Gerber headers.\nIf not checked, use X1 format.\nIn X1 format, these attributes are included as comments in files.'
-                      }
-                    >
-                      <input
-                        type="checkbox"
-                        checked={useX2}
-                        onChange={(e) => setUseX2(e.target.checked)}
-                      />
-                      Use extended X2 format (recommended)
-                    </label>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={fieldRow}>
+                        <span>Coordinate format:</span>
+                        <Combo
+                          style={{ flex: 1 }}
+                          value={String(coordDigits)}
+                          options={COORD_CHOICES}
+                          onChange={(v) => setCoordDigits(Number(v) as 5 | 6)}
+                        />
+                      </div>
+                      <label
+                        style={check}
+                        title={
+                          'Use X2 Gerber file format.\nInclude mainly X2 attributes in Gerber headers.\nIf not checked, use X1 format.\nIn X1 format, these attributes are included as comments in files.'
+                        }
+                      >
+                        <input
+                          type="checkbox"
+                          checked={useX2}
+                          onChange={(e) => setUseX2(e.target.checked)}
+                        />
+                        Use extended X2 format (recommended)
+                      </label>
+                    </div>
                   </div>
-                </div>
-              </fieldset>
+                </fieldset>
+              )}
+
+              {format === PLOT_FORMAT.POST && (
+                <fieldset style={box}>
+                  <legend style={legend}>Postscript Options</legend>
+                  <div style={fieldRow}>
+                    <span>X scale factor:</span>
+                    <input
+                      className="ze-search"
+                      value={fineX}
+                      onChange={(e) => setFineX(e.target.value)}
+                    />
+                  </div>
+                  <div style={fieldRow}>
+                    <span>Y scale factor:</span>
+                    <input
+                      className="ze-search"
+                      value={fineY}
+                      onChange={(e) => setFineY(e.target.value)}
+                    />
+                  </div>
+                  <div style={fieldRow}>
+                    <span>Track width correction:</span>
+                    <input
+                      className="ze-search"
+                      value={widthAdjust}
+                      onChange={(e) => setWidthAdjust(e.target.value)}
+                    />
+                    <span>mm</span>
+                  </div>
+                </fieldset>
+              )}
+
+              {format === PLOT_FORMAT.DXF && (
+                <fieldset style={box}>
+                  <legend style={legend}>DXF Options</legend>
+                  <label style={check}>
+                    <input
+                      type="checkbox"
+                      checked={dxfContours}
+                      onChange={(e) => setDxfContours(e.target.checked)}
+                    />
+                    Plot graphic items using their contours
+                  </label>
+                  <div style={fieldRow}>
+                    <span>Export units:</span>
+                    <Combo value={dxfUnits} options={DXF_UNIT_CHOICES} onChange={setDxfUnits} />
+                  </div>
+                  <label style={check}>
+                    <input
+                      type="checkbox"
+                      checked={dxfSingle}
+                      onChange={(e) => setDxfSingle(e.target.checked)}
+                    />
+                    Single document
+                  </label>
+                </fieldset>
+              )}
+
+              {format === PLOT_FORMAT.SVG && (
+                <fieldset style={box}>
+                  <legend style={legend}>SVG Options</legend>
+                  <div style={fieldRow}>
+                    <span>Precision:</span>
+                    <SpinCtrl value={svgPrecision} min={3} max={6} onChange={setSvgPrecision} />
+                  </div>
+                  <div style={fieldRow}>
+                    <span>Output mode:</span>
+                    <Combo value={svgBw} options={COLOR_CHOICES} onChange={setSvgBw} />
+                  </div>
+                  <label style={check}>
+                    <input
+                      type="checkbox"
+                      checked={svgFit}
+                      onChange={(e) => setSvgFit(e.target.checked)}
+                    />
+                    Fit page to board
+                  </label>
+                </fieldset>
+              )}
+
+              {format === PLOT_FORMAT.PDF && (
+                <fieldset style={box}>
+                  <legend style={legend}>PDF Options</legend>
+                  <div style={fieldRow}>
+                    <span>Output mode:</span>
+                    <Combo value={pdfBw} options={COLOR_CHOICES} onChange={setPdfBw} />
+                  </div>
+                  <label style={check}>
+                    <input
+                      type="checkbox"
+                      checked={pdfFront}
+                      onChange={(e) => setPdfFront(e.target.checked)}
+                    />
+                    Generate property popups for front footprints
+                  </label>
+                  <label style={check}>
+                    <input
+                      type="checkbox"
+                      checked={pdfBack}
+                      onChange={(e) => setPdfBack(e.target.checked)}
+                    />
+                    Generate property popups for back footprints
+                  </label>
+                  <label style={check}>
+                    <input
+                      type="checkbox"
+                      checked={pdfMetadata}
+                      onChange={(e) => setPdfMetadata(e.target.checked)}
+                    />
+                    Generate metadata from AUTHOR &amp; SUBJECT variables
+                  </label>
+                  <label style={check}>
+                    <input
+                      type="checkbox"
+                      checked={pdfSingle}
+                      onChange={(e) => setPdfSingle(e.target.checked)}
+                    />
+                    Single document
+                  </label>
+                </fieldset>
+              )}
             </div>
           </div>
 
