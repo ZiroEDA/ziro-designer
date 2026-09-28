@@ -534,7 +534,7 @@ import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
 import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
 import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
 import type { PrefsPageId } from '../../dialogs/prefs/types.js';
-import { settings, gridSizeToIU } from '../../prefs/settings.js';
+import { useEeschemaApp } from './eeschema_app.js';
 import {
   fastGridActionForKey,
   fastGridIndex,
@@ -543,13 +543,6 @@ import {
   type FastGridAction,
 } from '@ziroeda/common/settings/grid_settings_ui.js';
 import { useHotkeyCyclePopup } from '@ziroeda/common/dialogs/hotkey_cycle_popup_ui.js';
-import {
-  useCommonSettings,
-  useEeschemaSettings,
-  useHotkeyOverrides,
-  useSchematicTheme,
-  overrideItemColorsFor,
-} from '../../prefs/useSettings.js';
 import { resolveTemplateFieldnames } from '@ziroeda/common/template_fieldnames.js';
 import type { RenderOpts } from '@ziroeda/eeschema/sch_render_settings.js';
 import type { InputPrefs } from '@ziroeda/common/ui/view_controls.js';
@@ -935,6 +928,7 @@ export function SchematicEditor({
    */
   kiway?: KIWAY;
 }): JSX.Element {
+  const app = useEeschemaApp();
   const [error, setError] = useState<string | null>(null);
   const initial = useMemo<Schematic | null>(() => {
     try {
@@ -1508,7 +1502,7 @@ export function SchematicEditor({
   // It starts from the stored perspective, not from the `Position()` table:
   // `RestoreAuiLayout()` runs before any pane is shown, so upstream's column
   // resumes wherever the last session left it. See `schDockPosFrom`.
-  const dockPosRef = useRef<SchDockPos>(schDockPosFrom(settings.eeschema.window.left_dock_pos));
+  const dockPosRef = useRef<SchDockPos>(schDockPosFrom(app.settings.eeschema.window.left_dock_pos));
   // The numbers the last laid-out render produced, persisted after it.
   const dockPosSaveRef = useRef<SchDockPos>(dockPosRef.current);
   // `SCH_EDIT_FRAME::SaveSettings` writes `m_auimgr.SavePerspective()`, which
@@ -1521,9 +1515,9 @@ export function SchematicEditor({
   // did not move.
   useEffect(() => {
     const next = dockPosSaveRef.current;
-    const stored = settings.eeschema.window.left_dock_pos;
+    const stored = app.settings.eeschema.window.left_dock_pos;
     if (SCH_LEFT_PANE_ADD_ORDER.every((pane) => stored[pane] === next[pane])) return;
-    settings.updateEeschema((s) => {
+    app.settings.updateEeschema((s) => {
       s.window.left_dock_pos = { ...next };
     });
   });
@@ -1591,8 +1585,8 @@ export function SchematicEditor({
     setPrefsPage(page);
     setPrefsOpen(true);
   }, []);
-  const common = useCommonSettings();
-  const es = useEeschemaSettings();
+  const common = app.useCommonSettings();
+  const es = app.useEeschemaSettings();
   /**
    * `EDA_BASE_FRAME::RecreateToolbars` (`common/eda_base_frame.cpp:1728-1843`):
    * the frame asks `GetToolbarConfig( loc, m_CustomToolbars )` for each bar and
@@ -1602,7 +1596,7 @@ export function SchematicEditor({
   const schTopBar = useToolbarEntries('eeschema', 'TOP_MAIN', SCH_DEFAULT_TOOLBARS);
   const schLeftBar = useToolbarEntries('eeschema', 'LEFT', SCH_DEFAULT_TOOLBARS);
   const schRightBar = useToolbarEntries('eeschema', 'RIGHT', SCH_DEFAULT_TOOLBARS);
-  const theme = useSchematicTheme();
+  const theme = app.useSchematicTheme();
 
   // The displayed toggle set: local toggles plus the settings-derived ones
   // (Preferences and the left toolbar drive the same EESCHEMA_SETTINGS keys).
@@ -1679,9 +1673,9 @@ export function SchematicEditor({
     // because this runs immediately after `updateEeschema` has moved the index
     // and must see the grid the keystroke just chose - as upstream does, where
     // `OnGridChanged` assigns `last_size_idx` before posting the event.
-    const grid = settings.eeschema.window.grid;
+    const grid = app.settings.eeschema.window.grid;
     gridFeedback(hotkeyPopup, {
-      hotkeyFeedback: settings.common.input.hotkey_feedback,
+      hotkeyFeedback: app.settings.common.input.hotkey_feedback,
       grids: grid.sizes,
       lastSizeIdx: grid.last_size_idx,
       units,
@@ -1873,7 +1867,7 @@ export function SchematicEditor({
   const assignPendingRef = useRef(false);
   if (!schFrameRef.current) {
     schFrameRef.current = new SCH_EDIT_FRAME({
-      crossProbingSettings: () => settings.eeschema.cross_probing,
+      crossProbingSettings: () => app.settings.eeschema.cross_probing,
       highlightNet: (aNetName) => setProbedNet(aNetName === '' ? null : aNetName),
       syncSelection: (aParts) => applyPcbSelectionRef.current(aParts),
       assignFootprints: (aPayload) => assignFootprintsRef.current(aPayload),
@@ -1969,7 +1963,7 @@ export function SchematicEditor({
     // Forced: `SCH_EDIT_FRAME::KiwayMailIn` has already refused a MAIL_SELECTION
     // with `on_selection` off, before touching the selection.
     const ids = crossProbeSchSelection(
-      settings.eeschema.cross_probing,
+      app.settings.eeschema.cross_probing,
       doc,
       parts,
       currentPath,
@@ -1988,7 +1982,7 @@ export function SchematicEditor({
     setSelection(new Set(ids));
     if (ids.length === 0) return;
 
-    const cfg = settings.eeschema.cross_probing;
+    const cfg = app.settings.eeschema.cross_probing;
     const box = selectionBBox(doc, new Set(ids), libByIdRef.current);
     // `if( bbox.GetWidth() != 0 && bbox.GetHeight() != 0 )` — nothing to aim at.
     const degenerate = box.maxX <= box.minX || box.maxY <= box.minY;
@@ -4898,7 +4892,7 @@ export function SchematicEditor({
             const cacheExists = files.some((f) =>
               cacheNames.includes(f.name.replace(/\\/g, '/').split('/').pop() ?? ''),
             );
-            if (!settings.eeschema.system.never_show_rescue_dialog && !cacheExists) {
+            if (!app.settings.eeschema.system.never_show_rescue_dialog && !cacheExists) {
               pendingRescuePrompt.current = true;
             }
           }
@@ -4951,7 +4945,7 @@ export function SchematicEditor({
         setLoading(null);
       }
     },
-    [resetTransient, resetErc, rootPro],
+    [resetTransient, resetErc, rootPro, app],
   );
 
   /**
@@ -5811,7 +5805,7 @@ export function SchematicEditor({
             (f) => f.name === path || f.name.endsWith(`/${wanted}`) || f.name === wanted,
           )?.text;
         },
-        showAllErrors: settings.eeschema.erc_dialog.show_all_errors,
+        showAllErrors: app.settings.eeschema.erc_dialog.show_all_errors,
         // TestMissingNetclasses: a "Netclass" field may only name a class the
         // project defines (NET_SETTINGS::HasNetclass), or the default one.
         netclasses: {
@@ -5827,7 +5821,7 @@ export function SchematicEditor({
           : {}),
       };
     },
-    [liveDocs, currentFile, busAliases, resolveTextVar],
+    [liveDocs, currentFile, busAliases, resolveTextVar, app],
   );
 
   /**
@@ -5861,7 +5855,7 @@ export function SchematicEditor({
       //
       // Every one of those defaults to false, so out of the box a new sheet
       // gets its own empty title block, exactly as upstream does.
-      const ex = settings.eeschema.page_settings;
+      const ex = app.settings.eeschema.page_settings;
       const parent = liveDocs().get(currentFile);
       const tb = parent?.titleBlock;
       project.current.docs.set(name, {
@@ -5880,7 +5874,7 @@ export function SchematicEditor({
           : {}),
       });
     },
-    [currentFile, liveDocs],
+    [currentFile, liveDocs, app],
   );
 
   /** One synchronous ERC pass (used when a severity change re-runs the list). */
@@ -6383,7 +6377,7 @@ export function SchematicEditor({
       // (`sch_render_settings.cpp:75`); the painter then ignores every item's
       // own colour. The flag belongs to the THEME, so it comes from whichever
       // one is selected — see `overrideItemColorsFor`.
-      overrideItemColors: overrideItemColorsFor(es.appearance.color_theme),
+      overrideItemColors: app.overrideItemColorsFor(es.appearance.color_theme),
       showPageLimits: es.appearance.show_page_limits,
       // `eeconfig()->m_Appearance.show_directive_labels` — read per label by
       // the painter (sch_painter.cpp:3266), so the flags disappear the moment
@@ -6444,7 +6438,7 @@ export function SchematicEditor({
       highlightThicknessMils: es.selection.highlight_thickness,
       grid: {
         show: es.window.grid.show,
-        sizeIU: gridSizeToIU(es.window.grid.sizes[es.window.grid.last_size_idx]?.x ?? '50 mil'),
+        sizeIU: app.gridSizeToIU(es.window.grid.sizes[es.window.grid.last_size_idx]?.x ?? '50 mil'),
         style: es.window.grid.style,
         lineWidthPx: es.window.grid.line_width,
         minSpacingPx: es.window.grid.min_spacing,
@@ -6452,16 +6446,16 @@ export function SchematicEditor({
         overrides: {
           enabled: es.window.grid.overrides_enabled,
           ...(es.window.grid.overrides.connected.enabled
-            ? { connected: gridSizeToIU(es.window.grid.overrides.connected.size) }
+            ? { connected: app.gridSizeToIU(es.window.grid.overrides.connected.size) }
             : {}),
           ...(es.window.grid.overrides.wires.enabled
-            ? { wires: gridSizeToIU(es.window.grid.overrides.wires.size) }
+            ? { wires: app.gridSizeToIU(es.window.grid.overrides.wires.size) }
             : {}),
           ...(es.window.grid.overrides.text.enabled
-            ? { text: gridSizeToIU(es.window.grid.overrides.text.size) }
+            ? { text: app.gridSizeToIU(es.window.grid.overrides.text.size) }
             : {}),
           ...(es.window.grid.overrides.graphics.enabled
-            ? { graphics: gridSizeToIU(es.window.grid.overrides.graphics.size) }
+            ? { graphics: app.gridSizeToIU(es.window.grid.overrides.graphics.size) }
             : {}),
         },
       },
@@ -6479,6 +6473,7 @@ export function SchematicEditor({
       currentPath,
       pageNumberOf,
       dpr,
+      app,
     ],
   );
 
@@ -6648,8 +6643,8 @@ export function SchematicEditor({
 
   /** The active grid step, which the table's cell size is snapped to. */
   const gridSizeIU = useMemo(
-    () => gridSizeToIU(es.window.grid.sizes[es.window.grid.last_size_idx]?.x ?? '50 mil'),
-    [es.window.grid.sizes, es.window.grid.last_size_idx],
+    () => app.gridSizeToIU(es.window.grid.sizes[es.window.grid.last_size_idx]?.x ?? '50 mil'),
+    [es.window.grid.sizes, es.window.grid.last_size_idx, app],
   );
   gridSizeIURef.current = gridSizeIU;
 
@@ -8344,7 +8339,7 @@ export function SchematicEditor({
         add(150.6, {
           label: 'Align Items to Grid',
           action: () => {
-            const grid = gridSizeToIU(
+            const grid = app.gridSizeToIU(
               es.window.grid.sizes[es.window.grid.last_size_idx]?.x ?? '50 mil',
             );
             const cmd = alignToGridCommand(doc, selection, libById, grid);
@@ -8362,7 +8357,7 @@ export function SchematicEditor({
               label: ALIGN_LABELS[mode],
               action: () => {
                 if (!doc) return;
-                const grid = gridSizeToIU(
+                const grid = app.gridSizeToIU(
                   es.window.grid.sizes[es.window.grid.last_size_idx]?.x ?? '50 mil',
                 );
                 const cmd = alignItems(
@@ -8606,7 +8601,7 @@ export function SchematicEditor({
             label: gridChoiceLabel(size, units, SCH_IU_PER_MM, size.name),
             checked: es.window.grid.last_size_idx === i,
             action: () =>
-              settings.updateEeschema((st) => {
+              app.settings.updateEeschema((st) => {
                 st.window.grid.last_size_idx = i;
               }),
           })),
@@ -8665,7 +8660,7 @@ export function SchematicEditor({
         return;
       }
       if (SETTINGS_TOGGLES.has(id)) {
-        settings.updateEeschema((s) => {
+        app.settings.updateEeschema((s) => {
           if (id === 'toggleGrid') s.window.grid.show = !s.window.grid.show;
           else if (id === 'toggleGridOverrides')
             s.window.grid.overrides_enabled = !s.window.grid.overrides_enabled;
@@ -8686,12 +8681,12 @@ export function SchematicEditor({
       setLocalToggles((prev) => applyToggle(prev, id));
       // eslint-disable-next-line react-hooks/exhaustive-deps
     },
-    [doc, selection, runCommand, openPrefs],
+    [doc, selection, runCommand, openPrefs, app],
   );
 
   // Menus carry their shortcut as literal text, so a rebinding has to be
   // painted back over them (see applyHotkeyOverrides).
-  const hotkeyOverrides = useHotkeyOverrides();
+  const hotkeyOverrides = app.useHotkeyOverrides();
   /**
    * The tree as the actions *declare* it, before any rebinding is painted on.
    *
@@ -8714,9 +8709,9 @@ export function SchematicEditor({
           // Preferences > Set Language (menubar.cpp:347-348). The setting is
           // COMMON_SETTINGS', shared by every frame, so it is read and written
           // through the common store exactly as the other five launchers do.
-          language: settings.common.system.language,
+          language: app.settings.common.system.language,
           onSelectLanguage: (label: string) =>
-            settings.updateCommon((c) => {
+            app.settings.updateCommon((c) => {
               c.system.language = label;
             }),
         },
@@ -8750,6 +8745,7 @@ export function SchematicEditor({
       activeTool,
       doc,
       selection,
+      app,
     ],
   );
   const menus = useMemo(
@@ -8796,7 +8792,7 @@ export function SchematicEditor({
       // re-bound on a long dependency list already, and the map has to be the
       // live one the moment the key is pressed, not the one this closure was
       // built with.
-      const e = remapEvent(raw, settings.hotkeys);
+      const e = remapEvent(raw, app.settings.hotkeys);
       if (!e) return;
       // While a modal properties dialog is open, only Escape acts on the editor.
       if (propsTarget !== null && e.key !== 'Escape') return;
@@ -8830,7 +8826,7 @@ export function SchematicEditor({
         // of editing arcs. The point editor reads the same preference, so this
         // changes what dragging an arc's points does from the next drag on.
         e.preventDefault();
-        settings.updateEeschema((s) => {
+        app.settings.updateEeschema((s) => {
           s.drawing.arc_edit_mode = incrementArcEditMode(s.drawing.arc_edit_mode as ArcEditMode);
         });
       } else if (e.key === 'F5' && !e.altKey && !e.shiftKey) {
@@ -8940,7 +8936,7 @@ export function SchematicEditor({
         // instead of 25. See `fastGridIndex`.
         const action = fastGridActionForKey(e.key);
         e.preventDefault();
-        settings.updateEeschema((st) => {
+        app.settings.updateEeschema((st) => {
           const idx = fastGridIndex(st.window.grid, action as FastGridAction);
           if (idx !== null) st.window.grid.last_size_idx = idx;
         });
@@ -8955,9 +8951,9 @@ export function SchematicEditor({
         if (doc && cursorRef.current) {
           // GetNode's widest threshold is max(HITTEST_THRESHOLD, grid size);
           // with no pointer scale to hand here the grid is the threshold.
-          const grid = gridSizeToIU(
-            settings.eeschema.window.grid.sizes[settings.eeschema.window.grid.last_size_idx]?.x ??
-              '50 mil',
+          const grid = app.gridSizeToIU(
+            app.settings.eeschema.window.grid.sizes[app.settings.eeschema.window.grid.last_size_idx]
+              ?.x ?? '50 mil',
           );
           const node = getNode(doc, libById, cursorRef.current, grid);
           if (node) setSelection(new Set(promote(filterIds(new Set([node.id])))));
@@ -9038,7 +9034,7 @@ export function SchematicEditor({
           // Escape fall through to the net highlight.
           if (selection.size > 0) setSelection(new Set());
           // "<ESC> clears net highlighting" (eeschema input.esc_clears_net_highlight).
-          else if (settings.eeschema.input.esc_clears_net_highlight) clearHighlight();
+          else if (app.settings.eeschema.input.esc_clears_net_highlight) clearHighlight();
         }
       } else if (!e.ctrlKey && !e.metaKey && !e.altKey) {
         // KiCad single-key tool hotkeys (A=symbol, W=wire, …). Skip while
@@ -9111,7 +9107,7 @@ export function SchematicEditor({
         // (SCH_ACTIONS::lineModeNext; SCH_EDITOR_CONTROL::NextLineMode).
         if (e.key === ' ' && e.shiftKey) {
           e.preventDefault();
-          settings.updateEeschema((s) => {
+          app.settings.updateEeschema((s) => {
             s.drawing.line_mode = s.drawing.line_mode === 0 ? 1 : s.drawing.line_mode === 1 ? 2 : 0;
           });
           return;
@@ -9119,7 +9115,7 @@ export function SchematicEditor({
         // N / Shift+N, next/previous grid (ACTIONS::gridNext/gridPrev).
         if (e.key.toLowerCase() === 'n') {
           e.preventDefault();
-          settings.updateEeschema((s) => {
+          app.settings.updateEeschema((s) => {
             const n = s.window.grid.sizes.length;
             if (n > 0)
               s.window.grid.last_size_idx =
@@ -9290,6 +9286,7 @@ export function SchematicEditor({
     requestTarget,
     withSelection,
     finishCommand,
+    app,
   ]);
 
   const fmt = (iu: number): string => {
@@ -10178,7 +10175,7 @@ export function SchematicEditor({
                 }}
                 onNeverShowAgain={() => {
                   setRescueCandidates(null);
-                  settings.updateEeschema((st) => {
+                  app.settings.updateEeschema((st) => {
                     st.system.never_show_rescue_dialog = true;
                   });
                 }}
@@ -10216,7 +10213,7 @@ export function SchematicEditor({
                   showAllErrors: es.erc_dialog.show_all_errors,
                 }}
                 onOptionsChange={(o) =>
-                  settings.updateEeschema((s) => {
+                  app.settings.updateEeschema((s) => {
                     s.erc_dialog.crossprobe = o.crossprobe;
                     s.erc_dialog.scroll_on_crossprobe = o.scrollOnCrossprobe;
                     s.erc_dialog.show_all_errors = o.showAllErrors;
@@ -10425,7 +10422,7 @@ export function SchematicEditor({
                   comments: es.page_settings.export_comments,
                 }}
                 onStoreExports={(next) =>
-                  settings.updateEeschema((cfg) => {
+                  app.settings.updateEeschema((cfg) => {
                     cfg.page_settings.export_paper = next.paper;
                     cfg.page_settings.export_revision = next.rev;
                     cfg.page_settings.export_date = next.date;
@@ -10642,12 +10639,12 @@ export function SchematicEditor({
                       libById={libById}
                       fmt={fmt}
                       menuState={{
-                        selectionZoom: settings.common.search_pane.selection_zoom,
-                        searchHiddenFields: settings.common.search_pane.search_hidden_fields,
-                        searchMetadata: settings.common.search_pane.search_metadata,
+                        selectionZoom: app.settings.common.search_pane.selection_zoom,
+                        searchHiddenFields: app.settings.common.search_pane.search_hidden_fields,
+                        searchMetadata: app.settings.common.search_pane.search_metadata,
                       }}
                       onMenuStateChange={(next) =>
-                        settings.updateCommon((c) => {
+                        app.settings.updateCommon((c) => {
                           c.search_pane.selection_zoom = next.selectionZoom;
                           c.search_pane.search_hidden_fields = next.searchHiddenFields;
                           c.search_pane.search_metadata = next.searchMetadata;

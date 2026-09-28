@@ -383,7 +383,7 @@ describe('the editor renders the dock through that order', () => {
    */
   it('starts the column from the stored perspective', () => {
     expect(text()).toMatch(
-      /^\s*const dockPosRef = useRef<SchDockPos>\(\s*schDockPosFrom\(settings\.eeschema\.window\.left_dock_pos\),?\s*\);$/m,
+      /^\s*const dockPosRef = useRef<SchDockPos>\(\s*schDockPosFrom\(app\.settings\.eeschema\.window\.left_dock_pos\),?\s*\);$/m,
     );
   });
 
