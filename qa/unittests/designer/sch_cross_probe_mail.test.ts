@@ -14,7 +14,7 @@ import { STRTOK } from '@ziroeda/common/libc/string.js';
 import { MAIL_T } from '@ziroeda/common/mail_type.js';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import { CROSS_PROBING_SETTINGS } from '@ziroeda/common/settings/app_settings.js';
-import { SCH_EDIT_FRAME } from '@ziroeda/designer/src/editors/schematic/sch_edit_frame.js';
+import { SCH_EDIT_FRAME } from '@ziroeda/eeschema/sch_edit_frame.js';
 
 class PCB_STUB extends KIWAY_PLAYER {
   readonly received: [MAIL_T, string][] = [];

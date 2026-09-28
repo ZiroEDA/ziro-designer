@@ -1,6 +1,6 @@
 import { it } from 'vitest';
 import { schIUScale } from '@ziroeda/common';
-import { IU_PER_MILS } from '@ziroeda/designer/src/editors/schematic/schematic_settings.js';
+import { IU_PER_MILS } from '@ziroeda/eeschema/schematic_settings.js';
 it('scale', () => {
   console.log('schIUScale.IU_PER_MILS =', schIUScale.IU_PER_MILS);
   console.log('local IU_PER_MILS      =', IU_PER_MILS);

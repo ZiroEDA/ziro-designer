@@ -17,7 +17,7 @@ import { catalogueFor, ourToolbarId } from '../../../ui/action_catalogue.js';
 import type { JSX } from 'react';
 import { PanelToolbarCustomization } from '@ziroeda/common/dialogs/panel_toolbar_customization.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
-import { SCH_DEFAULT_TOOLBARS } from '../toolbars_sch_editor.js';
+import { SCH_DEFAULT_TOOLBARS } from '@ziroeda/eeschema/toolbars_sch_editor.js';
 
 export function PanelEeschemaToolbars({ ctx }: { ctx: PrefsContext }): JSX.Element {
   return (

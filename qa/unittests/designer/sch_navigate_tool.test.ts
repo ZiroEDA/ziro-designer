@@ -12,7 +12,7 @@ import {
   SchNavigateTool,
   flattenHierarchy,
   parentPath,
-} from '@ziroeda/designer/src/editors/schematic/sch_navigate_tool.js';
+} from '@ziroeda/eeschema/tools/sch_navigate_tool.js';
 import type { SheetTreeNode } from '@ziroeda/eeschema';
 
 // Page numbers are the ones SetInitialPageNumbers would seed: a depth-first

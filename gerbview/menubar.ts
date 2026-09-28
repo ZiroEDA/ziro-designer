@@ -5,7 +5,7 @@
  * `GERBVIEW_FRAME::doReCreateMenuBar` (`gerbview/menubar.cpp:40-240`).
  *
  * A data module rather than JSX inside the frame, for the reason
- * `editors/schematic/menubar.ts` is one: `qa`'s tsconfig compiles `.ts` only,
+ * `eeschema/menubar.ts` is one: `qa`'s tsconfig compiles `.ts` only,
  * so a menu built inside a `.tsx` cannot be pinned by a test.
  *
  * ---------------------------------------------------------------------------

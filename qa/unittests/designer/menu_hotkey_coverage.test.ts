@@ -28,7 +28,7 @@ import { fileURLToPath } from 'node:url';
 import { join, relative } from 'node:path';
 import { dispatchMenuHotkey, type HotkeyEvent } from '@ziroeda/common/tool/action_menu_hotkeys.js';
 import { buildManagerMenus } from '@ziroeda/designer/src/home/menubar.js';
-import { buildMenus } from '@ziroeda/designer/src/editors/schematic/menubar.js';
+import { buildMenus } from '@ziroeda/eeschema/menubar.js';
 import { symbolEditorMenus } from '@ziroeda/designer/src/editors/symbol/menubar.js';
 import { footprintEditorMenus } from '@ziroeda/pcbnew/menubar_footprint_editor.js';
 import { buildPcbMenus as pcbMenus } from '@ziroeda/pcbnew/menubar_pcb_editor.js';
@@ -234,13 +234,13 @@ const source = (rel: string): string => {
  * Where a frame's menu tree is actually declared.
  *
  * Usually the frame itself. The schematic is the one that has already been
- * pulled apart the way the rest should be - `editors/schematic/menubar.ts` is a
+ * pulled apart the way the rest should be - `eeschema/menubar.ts` is a
  * plain data module, which is why it is the only editor the Hotkey List can
  * collect from (`ui/hotkeys_inventory.ts`) and the only one whose whole
  * accelerator set can be pressed for real down this file.
  */
 const MENU_MODULE: Readonly<Record<string, string>> = {
-  'editors/schematic/SchematicEditor.tsx': 'editors/schematic/menubar.ts',
+  'editors/schematic/SchematicEditor.tsx': '../../eeschema/menubar.ts',
   'editors/symbol/SymbolEditor.tsx': 'editors/symbol/menubar.ts',
   'editors/footprint/FootprintEditor.tsx': '../../pcbnew/menubar_footprint_editor.ts',
   'editors/pcb/PcbEditor.tsx': '../../pcbnew/menubar_pcb_editor.ts',
@@ -1246,7 +1246,7 @@ describe('the shared rows every frame ends its File and Help menus with', () => 
 /**
  * The schematic editor's whole menu, pressed for real.
  *
- * `editors/schematic/menubar.ts` is a plain `.ts` data module, so unlike the
+ * `eeschema/menubar.ts` is a plain `.ts` data module, so unlike the
  * other four canvas frames its tree can be built here and actually pressed -
  * which is the only proof that a row's key reaches that row's action rather
  * than merely parsing. It is also the frame with the most to prove: forty-one

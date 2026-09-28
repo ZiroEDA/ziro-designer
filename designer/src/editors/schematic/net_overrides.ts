@@ -26,7 +26,7 @@ import {
   junctionDotDiameterIU,
   resolveEffectiveNetClass,
   type SchematicSetup,
-} from './schematic_settings.js';
+} from '@ziroeda/eeschema/schematic_settings.js';
 
 export interface NetClassOverrides {
   /** Line refId -> stroke fallback (wires get wire width, buses bus width). */

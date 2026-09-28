@@ -4,7 +4,7 @@
 /**
  * Schematic settings derived drawing defaults: junction-dot sizing
  * (SCHEMATIC_SETTINGS::GetJunctionSize counterpart in
- * designer/src/editors/schematic/schematic_settings.ts).
+ * eeschema/schematic_settings.ts).
  */
 import { describe, it, expect } from 'vitest';
 import {
@@ -14,7 +14,7 @@ import {
   junctionDotDiameterIU,
   resolveEffectiveNetClass,
   type NetClassesData,
-} from '@ziroeda/designer/src/editors/schematic/schematic_settings.js';
+} from '@ziroeda/eeschema/schematic_settings.js';
 
 describe('junctionDotDiameterIU', () => {
   it('matches DEFAULT_JUNCTION_DIAM for the default setup', () => {

@@ -14,7 +14,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { HOTKEYS } from '@ziroeda/designer/src/editors/schematic/hotkeys.js';
-import { buildMenus } from '@ziroeda/designer/src/editors/schematic/menubar.js';
+import { buildMenus } from '@ziroeda/eeschema/menubar.js';
 import { eventFromCombo } from '@ziroeda/designer/src/editors/schematic/hotkey_bindings.js';
 import { dispatchMenuHotkey } from '@ziroeda/common/tool/action_menu_hotkeys.js';
 

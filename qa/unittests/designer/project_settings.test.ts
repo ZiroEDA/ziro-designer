@@ -17,7 +17,7 @@ import {
   blankNetClass,
   defaultSchematicSetup,
   type SchematicSetup,
-} from '@ziroeda/designer/src/editors/schematic/schematic_settings.js';
+} from '@ziroeda/eeschema/schematic_settings.js';
 import { projectJson } from '@ziroeda/designer/src/home/new_project.js';
 
 const TEMPLATE = projectJson('proj', '00000000-0000-0000-0000-000000000000');

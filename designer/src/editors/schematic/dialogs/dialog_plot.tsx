@@ -29,7 +29,7 @@
 import { useMemo, useRef, useState, type JSX } from 'react';
 import { mmToIU, iuToMM, type ReportLine } from '@ziroeda/common';
 import type { PlotOpts, PlotPageSize } from '../render/plot.js';
-import { IU_PER_MILS } from '../schematic_settings.js';
+import { IU_PER_MILS } from '@ziroeda/eeschema/schematic_settings.js';
 import { BUILTIN_THEMES } from '../theme.js';
 import { settings } from '../../../prefs/settings.js';
 import { HtmlReportPanel, RPT_SEVERITY_ALL } from '@ziroeda/common/widgets/wx_html_report_panel.js';

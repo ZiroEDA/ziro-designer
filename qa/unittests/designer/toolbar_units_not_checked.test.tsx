@@ -36,7 +36,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import { Toolbar } from '@ziroeda/common/tool/action_toolbar.js';
-import { LEFT_TOOLBAR } from '@ziroeda/designer/src/editors/schematic/toolbars_sch_editor.js';
+import { LEFT_TOOLBAR } from '@ziroeda/eeschema/toolbars_sch_editor.js';
 import { SYM_LEFT_TOOLBAR } from '@ziroeda/designer/src/editors/symbol/symbolToolbars.js';
 import { DS_LEFT_TOOLBAR } from '@ziroeda/pagelayout_editor/toolbars_pl_editor.js';
 import { PCB_LEFT_TOOLBAR } from '@ziroeda/pcbnew/toolbars_pcb_editor.js';

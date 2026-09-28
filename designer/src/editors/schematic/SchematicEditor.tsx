@@ -22,7 +22,7 @@ import { resolveActiveSheet, readSheetRef, writeSheetRefText } from '@ziroeda/co
 import { Fragment, useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import type { KIWAY } from '@ziroeda/common/kiway.js';
-import { SCH_EDIT_FRAME } from './sch_edit_frame.js';
+import { SCH_EDIT_FRAME } from '@ziroeda/eeschema/sch_edit_frame.js';
 import { assignFootprintsCommands } from '@ziroeda/eeschema/tools/assign_footprints.js';
 import { fetchNetlistFromSchematic } from '../pcb/netlist_from_schematic.js';
 import { parse } from '@ziroeda/sexpr';
@@ -342,7 +342,7 @@ import {
   rescueLibraryNickname,
   rescuedDefinition,
   type RescueCandidate,
-} from '@ziroeda/eeschema/tools/project_rescue.js';
+} from '@ziroeda/eeschema/project_rescue.js';
 import { DialogRescueEach, type RescueInstance } from './dialogs/dialog_rescue_each.js';
 import {
   legacyCacheFileNames,
@@ -370,7 +370,7 @@ import { Toolbar } from '@ziroeda/common/tool/action_toolbar.js';
 import { OpenFileDialog } from '../../fs/OpenFileDialog.js';
 import { SaveAsDialog } from '../../fs/SaveAsDialog.js';
 import { kicadSchematicWildcard } from '@ziroeda/common/wildcards_and_files_ext.js';
-import { RIGHT_TOOLBAR_COMMANDS, SCH_DEFAULT_TOOLBARS } from './toolbars_sch_editor.js';
+import { RIGHT_TOOLBAR_COMMANDS, SCH_DEFAULT_TOOLBARS } from '@ziroeda/eeschema/toolbars_sch_editor.js';
 import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
 import {
   MenuBar,
@@ -386,13 +386,13 @@ import {
   rightClickSelection,
   type HoverSelection,
 } from './hover_selection.js';
-import { buildMenus } from './menubar.js';
+import { buildMenus } from '@ziroeda/eeschema/menubar.js';
 import {
   CONFIRMATION_CAPTION,
   LOAD_REPAIRED_MESSAGE,
   revertPromptMessage,
   savedFileMessage,
-} from './files_io.js';
+} from '@ziroeda/eeschema/files-io.js';
 import { MessageDialogOk, MessageDialogYesNo } from '@ziroeda/common/dialogs/dialog_message.js';
 import { INFO_CAPTION } from '@ziroeda/common/confirm_types.js';
 import { dispatchMenuHotkey, focusBlocksHotkey } from '@ziroeda/common/tool/action_menu_hotkeys.js';
@@ -407,7 +407,7 @@ import {
   flattenHierarchy,
   parentPath,
   type SheetRef,
-} from './sch_navigate_tool.js';
+} from '@ziroeda/eeschema/tools/sch_navigate_tool.js';
 import { DialogSchFind } from '../../widgets/dialog_sch_find.js';
 import {
   DialogIncrementAnnotations,
@@ -461,7 +461,7 @@ import {
   junctionDotDiameterIU,
   resolveEffectiveNetClass,
   subpartSettings,
-} from './schematic_settings.js';
+} from '@ziroeda/eeschema/schematic_settings.js';
 import { netClassHumanReadableName } from '@ziroeda/common/project/net_settings.js';
 import type { PdfNetInfo } from './render/pdf_annotations.js';
 import type { Netlist } from '@ziroeda/eeschema/connectivity/nets.js';

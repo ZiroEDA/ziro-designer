@@ -9,7 +9,7 @@ import {
 } from '@ziroeda/eeschema';
 import { iuToMM, schIUScale } from '@ziroeda/common';
 import { mmToIU, symbolTransform, composeMirror, orientationFromTransform } from '@ziroeda/common';
-import type { FieldTemplate } from '../schematic_settings.js';
+import type { FieldTemplate } from '@ziroeda/eeschema/schematic_settings.js';
 import {
   canDeleteRow,
   canMoveRowDown,
@@ -26,7 +26,7 @@ import {
   rowsFromSymbol,
   validateRows,
   type FieldRow,
-} from '../symbol_props_rows.js';
+} from '@ziroeda/eeschema/fields_grid_table.js';
 import { useMemo, useState, type JSX } from 'react';
 import {
   effectiveHorizJustify,

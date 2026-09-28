@@ -35,7 +35,7 @@ import {
   TOP_TOOLBAR,
   LEFT_TOOLBAR,
   RIGHT_TOOLBAR,
-} from '@ziroeda/designer/src/editors/schematic/toolbars_sch_editor.js';
+} from '@ziroeda/eeschema/toolbars_sch_editor.js';
 import {
   SYM_TOP_TOOLBAR,
   SYM_LEFT_TOOLBAR,

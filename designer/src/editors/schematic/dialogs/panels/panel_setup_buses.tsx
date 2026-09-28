@@ -28,11 +28,11 @@ import {
   wxGridStringTable,
 } from '@ziroeda/common/wx/grid.js';
 import { WxGridView } from '@ziroeda/common/wx/grid_ui.js';
-import type { BusAlias } from '../../schematic_settings.js';
+import type { BusAlias } from '@ziroeda/eeschema/schematic_settings.js';
 
 // The data model lives in schematic_settings.ts (KiCad's data/UI split);
 // re-exported here so the panel stays the import site for its slice.
-export { defaultBusAliases, type BusAlias } from '../../schematic_settings.js';
+export { defaultBusAliases, type BusAlias } from '@ziroeda/eeschema/schematic_settings.js';
 
 interface Props {
   aliases: BusAlias[];

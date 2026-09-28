@@ -15,7 +15,7 @@
 
 import { netclassPatternMatches } from '@ziroeda/common/eda_pattern_match.js';
 import { LINE_STYLE_NAMES } from '@ziroeda/common/stroke_params.js';
-import { defaultErcSettings, type ErcSettings } from '@ziroeda/eeschema';
+import { defaultErcSettings, type ErcSettings } from './erc/erc_settings.js';
 
 // ---------------------------------------------------------------------------
 // Formatting (PANEL_SETUP_FORMATTING / SCHEMATIC_SETTINGS drawing defaults).

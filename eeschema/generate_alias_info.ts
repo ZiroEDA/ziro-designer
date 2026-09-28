@@ -9,8 +9,8 @@
  * rendered as a truncated link, and a derived symbol's inherited parent fields
  * appended after its own.
  */
-import type { LibSymbol } from '@ziroeda/eeschema';
-import { letterSubReference } from '@ziroeda/eeschema/fieldbox.js';
+import type { LibSymbol } from './types.js';
+import { letterSubReference } from './fieldbox.js';
 
 function escapeHtml(text: string): string {
   return text

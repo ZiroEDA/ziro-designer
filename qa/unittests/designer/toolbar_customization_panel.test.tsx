@@ -41,7 +41,7 @@ import {
   ourToolbarId,
 } from '@ziroeda/designer/src/ui/action_catalogue.js';
 import { PCB_DEFAULT_TOOLBARS } from '@ziroeda/pcbnew/toolbars_pcb_editor.js';
-import { SCH_DEFAULT_TOOLBARS } from '@ziroeda/designer/src/editors/schematic/toolbars_sch_editor.js';
+import { SCH_DEFAULT_TOOLBARS } from '@ziroeda/eeschema/toolbars_sch_editor.js';
 
 afterEach(cleanup);
 

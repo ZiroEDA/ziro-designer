@@ -24,7 +24,7 @@ import {
   defaultFormatting,
   defaultNetClasses,
   type SchematicSetup,
-} from '../schematic_settings.js';
+} from '@ziroeda/eeschema/schematic_settings.js';
 import { readSchematicSetupText } from '../project_settings.js';
 import { DialogSchImportSettings, type SchImportOptions } from './dialog_sch_import_settings.js';
 import { PanelSetupSeverities } from './panels/panel_setup_severities.js';
@@ -43,7 +43,7 @@ import {
 
 // The dialog's data model lives in schematic_settings.ts (KiCad's
 // SCHEMATIC_SETTINGS data/UI split); re-exported for existing importers.
-export { defaultSchematicSetup, type SchematicSetup } from '../schematic_settings.js';
+export { defaultSchematicSetup, type SchematicSetup } from '@ziroeda/eeschema/schematic_settings.js';
 
 type PageId =
   | 'formatting'

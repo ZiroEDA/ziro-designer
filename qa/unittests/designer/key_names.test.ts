@@ -199,7 +199,7 @@ describe('the menu rows print the accelerator, character for character', () => {
     'editors/pcb/PcbEditor.tsx',
     'editors/footprint/FootprintEditor.tsx',
     '../../cvpcb/cvpcb_mainframe_ui.tsx',
-    'editors/schematic/menubar.ts',
+    '../../eeschema/menubar.ts',
     // Already correct before this split, and pinned by
     // drawing_sheet_palette.test.ts as well. The menu bar moved beside
     // KiCad's, pagelayout_editor/menubar.ts (09-27).
@@ -215,7 +215,7 @@ describe('the menu rows print the accelerator, character for character', () => {
   });
 
   it('the schematic sheet-navigation rows say Page Up / Page Down', () => {
-    const src = SRC('editors/schematic/menubar.ts');
+    const src = SRC('../../eeschema/menubar.ts');
     expect(src).toContain("'Page Up'");
     expect(src).toContain("'Page Down'");
     expect(src).not.toContain("'PgUp'");

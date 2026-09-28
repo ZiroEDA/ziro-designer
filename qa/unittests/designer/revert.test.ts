@@ -11,12 +11,12 @@ import { join } from 'node:path';
 import {
   CONFIRMATION_CAPTION,
   revertPromptMessage,
-} from '@ziroeda/designer/src/editors/schematic/files_io.js';
+} from '@ziroeda/eeschema/files-io.js';
 
 const SRC = join(__dirname, '../../../designer/src');
 const SCH = readFileSync(join(SRC, 'editors/schematic/SchematicEditor.tsx'), 'utf8');
 const APP = readFileSync(join(SRC, 'App.tsx'), 'utf8');
-const MENUBAR = readFileSync(join(SRC, 'editors/schematic/menubar.ts'), 'utf8');
+const MENUBAR = readFileSync(join(SRC, '../../eeschema/menubar.ts'), 'utf8');
 
 function body(src: string, name: string): string {
   const start = src.indexOf(`const ${name} =`);

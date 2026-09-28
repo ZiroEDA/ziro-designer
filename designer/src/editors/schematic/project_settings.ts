@@ -40,7 +40,7 @@ import {
   type NetClassAssignment,
   type SchematicSetup,
   type TextVar,
-} from './schematic_settings.js';
+} from '@ziroeda/eeschema/schematic_settings.js';
 
 const PRO_RE = /\.kicad_pro$/i;
 

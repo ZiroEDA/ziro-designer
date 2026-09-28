@@ -71,7 +71,7 @@ import {
   type SymbolFrameState,
 } from '@ziroeda/designer/src/editors/symbol/conditions.js';
 import { SYM_TOP_TOOLBAR } from '@ziroeda/designer/src/editors/symbol/symbolToolbars.js';
-import { TOP_TOOLBAR } from '@ziroeda/designer/src/editors/schematic/toolbars_sch_editor.js';
+import { TOP_TOOLBAR } from '@ziroeda/eeschema/toolbars_sch_editor.js';
 import {
   toolbarButtonDisabled,
   toolbarEnabledIds,

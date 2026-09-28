@@ -30,7 +30,7 @@ import {
   MessageDialogYesNo,
 } from '@ziroeda/common/dialogs/dialog_message.js';
 import { UnsavedChangesDialog } from '@ziroeda/common/dialogs/dialog_unsaved_changes.js';
-import { LOAD_REPAIRED_MESSAGE } from '@ziroeda/designer/src/editors/schematic/files_io.js';
+import { LOAD_REPAIRED_MESSAGE } from '@ziroeda/eeschema/files-io.js';
 import { INFO_CAPTION } from '@ziroeda/common/confirm_types.js';
 
 afterEach(cleanup);

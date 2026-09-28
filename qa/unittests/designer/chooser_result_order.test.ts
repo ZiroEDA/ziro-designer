@@ -20,7 +20,7 @@ import type { LibSymbol } from '@ziroeda/eeschema';
 import {
   symbolChooserFields,
   symbolSearchTerms,
-} from '@ziroeda/designer/src/editors/schematic/symbol_search_terms.js';
+} from '@ziroeda/eeschema/symbol_search_terms.js';
 import { LibTreeNode, LibTreeNodeType } from '@ziroeda/common/lib_tree_model.js';
 import { LibTreeModelAdapter } from '@ziroeda/common/lib_tree_model_adapter.js';
 

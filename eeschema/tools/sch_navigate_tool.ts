@@ -8,7 +8,7 @@
  * order (SCH_SHEET_LIST virtual page numbers) for Previous/Next Sheet.
  */
 
-import type { SheetTreeNode } from '@ziroeda/eeschema';
+import type { SheetTreeNode } from '../project.js';
 
 export interface SheetRef {
   path: string;

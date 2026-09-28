@@ -18,16 +18,13 @@
  * and pressing OK is enough to lose a setting the user never touched.
  */
 
+import type { LibSymbol, SchField, SchSymbol, TextEffects } from './types.js';
 import {
   fieldNamesAreDuplicates,
   isMandatoryField,
   MANDATORY_FIELDS,
-  type LibSymbol,
-  type SchField,
-  type SchSymbol,
-  type TextEffects,
-} from '@ziroeda/eeschema';
-import type { EditedField } from '@ziroeda/eeschema';
+  type EditedField,
+} from './tools/properties.js';
 import type { FieldTemplate } from './schematic_settings.js';
 
 /** One grid row: a field in the dialog's symbol-relative convention. */

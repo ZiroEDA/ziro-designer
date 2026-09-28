@@ -27,7 +27,7 @@
  * qa/probes/chooser_score.
  */
 import { searchTerm, type SearchTerm } from '@ziroeda/common';
-import type { LibSymbol } from '@ziroeda/eeschema';
+import type { LibSymbol } from './types.js';
 
 /**
  * The property names `SCH_IO_KICAD_SEXPR_PARSER::parseProperty` consumes into a

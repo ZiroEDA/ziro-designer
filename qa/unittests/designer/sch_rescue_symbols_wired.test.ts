@@ -17,7 +17,7 @@ const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
 const EDITOR = read('../../../designer/src/editors/schematic/SchematicEditor.tsx');
-const MENUBAR = read('../../../designer/src/editors/schematic/menubar.ts');
+const MENUBAR = read('../../../eeschema/menubar.ts');
 const DIALOG = read('../../../designer/src/editors/schematic/dialogs/dialog_rescue_each.tsx');
 const PANEL = read('../../../designer/src/editors/schematic/prefs/PanelEeschemaEditingOptions.tsx');
 const ICONS = read('../../../common/widgets/icons.tsx');

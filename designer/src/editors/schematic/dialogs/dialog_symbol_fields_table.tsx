@@ -43,7 +43,7 @@ import {
   type BomFmtPreset,
   type BomPreset,
   type BomPresets,
-} from '../schematic_settings.js';
+} from '@ziroeda/eeschema/schematic_settings.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 /** Changed cells, grouped by sheet file then symbol refId. */

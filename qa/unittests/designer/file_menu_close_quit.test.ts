@@ -47,7 +47,7 @@ import {
   isBrowserReserved,
 } from '@ziroeda/common/browser_reserved.js';
 import { buildViewer3DMenus } from '@ziroeda/3d-viewer/3d_menubar.js';
-import { buildMenus as buildSchMenus } from '@ziroeda/designer/src/editors/schematic/menubar.js';
+import { buildMenus as buildSchMenus } from '@ziroeda/eeschema/menubar.js';
 import { buildHotkeySections } from '@ziroeda/designer/src/ui/hotkeys_inventory.js';
 import type { Menu, MenuItem } from '@ziroeda/common/tool/action_menu_types.js';
 
@@ -204,7 +204,7 @@ const FRAMES: FrameRow[] = [
     rows: ['quitOrClose'],
   },
   {
-    file: 'editors/schematic/menubar.ts',
+    file: '../../eeschema/menubar.ts',
     upstream: 'eeschema/menubar.cpp:129',
     app: 'Schematic Editor',
     rows: ['quitOrClose'],

@@ -35,8 +35,8 @@ import { FootprintSelectWidget } from '@ziroeda/common/widgets/footprint_select_
 import { loadFootprintIndex } from '../../../widgets/footprint_list.js';
 import { filterFootprints } from '@ziroeda/pcbnew/pcbnew.js';
 import { SymbolPreviewWidget } from './symbol_preview_widget.js';
-import { generateAliasInfo } from '../generate_alias_info.js';
-import { symbolChooserFields, symbolSearchTerms } from '../symbol_search_terms.js';
+import { generateAliasInfo } from '@ziroeda/eeschema/generate_alias_info.js';
+import { symbolChooserFields, symbolSearchTerms } from '@ziroeda/eeschema/symbol_search_terms.js';
 import {
   powerSymbolTest,
   loadIndex,

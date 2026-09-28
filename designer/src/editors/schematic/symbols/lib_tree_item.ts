@@ -29,7 +29,7 @@
  */
 import { readSymbolLib, type LibSymbol } from '@ziroeda/eeschema';
 import { parse, type PruneOptions } from '@ziroeda/sexpr';
-import { symbolChooserFields } from '../symbol_search_terms.js';
+import { symbolChooserFields } from '@ziroeda/eeschema/symbol_search_terms.js';
 
 /** One symbol, reduced to what `LIB_TREE_ITEM` exposes. */
 export interface LibTreeItem {

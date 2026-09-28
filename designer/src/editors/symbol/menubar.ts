@@ -41,7 +41,7 @@
  * THE THREE HANDLERS
  * ---------------------------------------------------------------------------
  *
- * Same shape as `editors/schematic/menubar.ts`, because it is the same idea:
+ * Same shape as `eeschema/menubar.ts`, because it is the same idea:
  *
  *   - `tool(id)`   arms a placement/drawing tool (the RIGHT_TOOLBAR ids);
  *   - `action(id)` runs a one-shot command (save / undo / zoom …);

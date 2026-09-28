@@ -28,7 +28,7 @@ const src = (rel: string): string =>
 
 /** Every frame that builds a Preferences menu, and where it does it. */
 const FRAMES: [string, string][] = [
-  ['schematic', 'editors/schematic/menubar.ts'],
+  ['schematic', '../../eeschema/menubar.ts'],
   ['symbol editor', 'editors/symbol/menubar.ts'],
   ['footprint editor', '../../pcbnew/menubar_footprint_editor.ts'],
   // The board editor's bar is a data module, like the three above it. The frame

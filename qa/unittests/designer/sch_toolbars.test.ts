@@ -16,8 +16,8 @@ import {
   LEFT_TOOLBAR,
   RIGHT_TOOLBAR,
   RIGHT_TOOLBAR_COMMANDS,
-} from '@ziroeda/designer/src/editors/schematic/toolbars_sch_editor.js';
-import { TOOL_HOTKEYS } from '@ziroeda/designer/src/editors/schematic/menubar.js';
+} from '@ziroeda/eeschema/toolbars_sch_editor.js';
+import { TOOL_HOTKEYS } from '@ziroeda/eeschema/menubar.js';
 import { nextInGroup } from '@ziroeda/common/tool/action_toolbar_types.js';
 import {
   EESCHEMA_TOOLBAR_ACTIONS,

@@ -17,7 +17,7 @@
  * hand-maintained.
  */
 import { describe, it, expect } from 'vitest';
-import { buildMenus, TOOL_HOTKEYS } from '@ziroeda/designer/src/editors/schematic/menubar.js';
+import { buildMenus, TOOL_HOTKEYS } from '@ziroeda/eeschema/menubar.js';
 import type { Menu, MenuItem } from '@ziroeda/common/tool/action_menu_types.js';
 
 /** Every handler is a no-op; we are inspecting structure, not behaviour. */
