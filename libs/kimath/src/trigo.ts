@@ -439,3 +439,26 @@ export function CalcArcCenterFromAngle(aStart: Vec2, aEnd: Vec2, aAngle: EDA_ANG
 
   return { x: start.x + vc.x + vec2.x, y: start.y + vc.y + vec2.y };
 }
+
+/**
+ * `IsPointOnSegment` (trigo.cpp): test if \a aTestPoint is on line defined by \a aSegStart
+ * and \a aSegEnd. This function is faster than #TestSegmentHit.
+ *
+ * The products are `long long` upstream; BigInt keeps them exact past 2^53.
+ */
+export function IsPointOnSegment(
+  aSegStart: VECTOR2I,
+  aSegEnd: VECTOR2I,
+  aTestPoint: VECTOR2I,
+): boolean {
+  const sx = BigInt(aSegEnd.x - aSegStart.x); // Vector from S1 to S2
+  const sy = BigInt(aSegEnd.y - aSegStart.y);
+  const px = BigInt(aTestPoint.x - aSegStart.x); // Vector from S1 to P
+  const py = BigInt(aTestPoint.y - aSegStart.y);
+
+  if (sx * py - sy * px !== 0n) return false; /* Cross product non-zero, vectors not parallel */
+
+  if (sx * px + sy * py < px * px + py * py) return false; /* Point not on segment */
+
+  return true;
+}

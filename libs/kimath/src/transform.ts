@@ -17,7 +17,9 @@
  * convention KiCad's schematic format uses, so no extra Y-flip is introduced here.
  */
 
-import type { Vec2 } from './math/vector2.js';
+import { ANGLE_0, ANGLE_360, EDA_ANGLE, EDA_ANGLE_T } from './geometry/eda_angle.js';
+import { BOX2I } from './math/box2.js';
+import type { Vec2, VECTOR2I } from './math/vector2.js';
 
 /** A 2x2 integer transform, matching KiCad's `TRANSFORM { x1, y1, x2, y2 }`. */
 export interface Transform {
@@ -251,3 +253,128 @@ export function symbolOrientation(angleDeg: number, mirror?: 'x' | 'y'): number 
   for (const c of ORIENTATION_CANDIDATES) if (sameTransform(c.t, t)) return c.code;
   return 0;
 }
+
+/**
+ * `TRANSFORM` (libs/kimath/include/transform.h, src/transform.cpp): KiCad's class, for the
+ * item classes that hold one (`SCH_SYMBOL::m_transform`). A 2x2 integer matrix for the
+ * orientations and mirrors a symbol can take.
+ *
+ *     x' = x1 * x + y1 * y
+ *     y' = x2 * x + y2 * y
+ *
+ * The plain-object helpers above serve the record model; this is the class the live
+ * schematic model uses.
+ */
+export class TRANSFORM {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+
+  /** `TRANSFORM()` is the identity; `TRANSFORM( ax1, ay1, ax2, ay2 )`. */
+  constructor(ax1 = 1, ay1 = 0, ax2 = 0, ay2 = 1) {
+    this.x1 = ax1;
+    this.y1 = ay1;
+    this.x2 = ax2;
+    this.y2 = ay2;
+  }
+
+  Clone(): TRANSFORM {
+    return new TRANSFORM(this.x1, this.y1, this.x2, this.y2);
+  }
+
+  /** `operator==`. */
+  equals(aTransform: TRANSFORM): boolean {
+    return (
+      this.x1 === aTransform.x1 &&
+      this.y1 === aTransform.y1 &&
+      this.x2 === aTransform.x2 &&
+      this.y2 === aTransform.y2
+    );
+  }
+
+  /** Calculate a new coordinate according to the mirror/rotation transform. */
+  TransformCoordinate(aPoint: Vec2): VECTOR2I;
+  /** Calculate a new rect according to the mirror/rotation transform. */
+  TransformCoordinate(aRect: BOX2I): BOX2I;
+  TransformCoordinate(a: Vec2 | BOX2I): VECTOR2I | BOX2I {
+    if (a instanceof BOX2I) {
+      const rect = new BOX2I();
+      rect.SetOrigin(this.TransformCoordinate(a.GetOrigin()));
+      rect.SetEnd(this.TransformCoordinate(a.GetEnd()));
+      return rect;
+    }
+
+    return {
+      x: this.x1 * a.x + this.y1 * a.y + 0,
+      y: this.x2 * a.x + this.y2 * a.y + 0,
+    };
+  }
+
+  /**
+   * Calculate the Inverse mirror/rotation transform.
+   *
+   * @return The inverse transform.
+   */
+  InverseTransform(): TRANSFORM {
+    const det = this.x1 * this.y2 - this.x2 * this.y1; // Is never null, because the inverse matrix exists
+
+    // int division truncates toward zero
+    const invx1 = Math.trunc(this.y2 / det) + 0;
+    const invx2 = Math.trunc(-this.x2 / det) + 0;
+    const invy1 = Math.trunc(-this.y1 / det) + 0;
+    const invy2 = Math.trunc(this.x1 / det) + 0;
+
+    return new TRANSFORM(invx1, invy1, invx2, invy2);
+  }
+
+  /**
+   * Calculate new angles according to the transform.
+   *
+   * @param aAngle1 = The first angle to transform (in/out)
+   * @param aAngle2 = The second angle to transform (in/out)
+   * @return True if the angles were swapped during the transform.
+   */
+  MapAngles(aAngle1: { value: EDA_ANGLE }, aAngle2: { value: EDA_ANGLE }): boolean {
+    const epsilon = new EDA_ANGLE(0.1, EDA_ANGLE_T.DEGREES_T);
+
+    let x: number;
+    let y: number;
+    let swap = false;
+
+    const delta = aAngle2.value.sub(aAngle1.value);
+
+    x = aAngle1.value.Cos();
+    y = aAngle1.value.Sin();
+    aAngle1.value = EDA_ANGLE.fromVector({
+      x: x * this.x1 + y * this.y1,
+      y: x * this.x2 + y * this.y2,
+    });
+
+    x = aAngle2.value.Cos();
+    y = aAngle2.value.Sin();
+    aAngle2.value = EDA_ANGLE.fromVector({
+      x: x * this.x1 + y * this.y1,
+      y: x * this.x2 + y * this.y2,
+    });
+
+    const deltaTransformed = aAngle2.value.sub(aAngle1.value);
+    const residualError = deltaTransformed.sub(delta);
+    residualError.Normalize();
+
+    if (residualError.gt(epsilon) || residualError.lt(epsilon.Invert().Normalize())) {
+      [aAngle1.value, aAngle2.value] = [aAngle2.value, aAngle1.value];
+      swap = true;
+    }
+
+    if (aAngle2.value.lt(aAngle1.value)) {
+      if (aAngle2.value.lt(ANGLE_0)) aAngle2.value.Normalize();
+      else aAngle1.value = aAngle1.value.Normalize().sub(ANGLE_360);
+    }
+
+    return swap;
+  }
+}
+
+/** `DefaultTransform`: the identity. */
+export const DefaultTransform = new TRANSFORM(1, 0, 0, 1);

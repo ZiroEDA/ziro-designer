@@ -12,6 +12,7 @@
   "dependencies": {
     "@bokuweb/zstd-wasm": "^0.0.27",
     "@ziroeda/common": "workspace:*",
+    "@ziroeda/core": "workspace:*",
     "@ziroeda/kimath": "workspace:*",
     "@ziroeda/sexpr": "workspace:*",
     "fflate": "^0.8.3",

@@ -736,3 +736,23 @@ export const legacyMix = (c: Color4d, aColor: Color4d): Color4d => ({
   b: ((Math.trunc(255.0 * c.b) | Math.trunc(255.0 * aColor.b)) >>> 0) / 255.0,
   a: (aColor.a + c.a) / 2,
 });
+
+/**
+ * `operator==( const COLOR4D&, const COLOR4D& )` (common/gal/color4d.cpp): every channel
+ * equal. (`m_text`, a colour held as an unresolved text variable, is not carried by
+ * `Color4d`.)
+ */
+export function color4dEquals(lhs: Color4d, rhs: Color4d): boolean {
+  return lhs.a === rhs.a && lhs.r === rhs.r && lhs.g === rhs.g && lhs.b === rhs.b;
+}
+
+/** `operator<( const COLOR4D&, const COLOR4D& )`: r, then g, then b, then a. */
+export function color4dLess(lhs: Color4d, rhs: Color4d): boolean {
+  if (lhs.r !== rhs.r) return lhs.r < rhs.r;
+
+  if (lhs.g !== rhs.g) return lhs.g < rhs.g;
+
+  if (lhs.b !== rhs.b) return lhs.b < rhs.b;
+
+  return lhs.a < rhs.a;
+}
