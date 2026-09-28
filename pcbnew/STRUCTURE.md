@@ -153,6 +153,10 @@ viewer's `addPads`; it now asks the live `PAD::GetSolderMaskExpansion` /
 left out. The paste margin's per-axis split is still applied as its x there
 (a pre-existing `addPads` divergence, noted at `padMargin`).
 
+**`eda_text_format.ts` resolved 09-28.** `fontNode` had no production caller
+left: every writer goes through `EDA_TEXT::Format`. `font_face.test.ts` pins
+the token order and the auto-thickness rule on the board writer instead.
+
 **`modify_lines.ts` + `outset_items.ts` + `polygon_booleans.ts` resolved
 09-28:** merged into `tools/item_modification_routine.ts`, matching
 `pcbnew/tools/item_modification_routine.cpp` (`PAIRWISE_LINE_ROUTINE`,
