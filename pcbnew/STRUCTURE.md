@@ -128,8 +128,7 @@ stage. **Verified blocked this way, 09-28:** `teardrop.ts`, `zone_connection.ts`
 (→ `zones.ts`'s own `ZONE_CONNECTION`), `padstack_drill.ts` (→ `padstack.ts`'s
 own `PADSTACK_DRILL_PROPS`), `eda_text_format.ts` (→ `common/eda_text.ts`'s own
 `EDA_TEXT::Format`), and by the same architecture (POJO source importing
-`./types.js`, class target already `export class`): `text_geometry.ts`,
-`table_geometry.ts`, `textbox_geometry.ts` (all three marked `@deprecated`,
+`./types.js`, class target already `export class`): `table_geometry.ts`, `textbox_geometry.ts` (all three marked `@deprecated`,
 explicitly pending "#636 stages 3 and 5" already), `dimension_geometry.ts`
 (same), `text_metrics.ts`, `zone_islands.ts`, `courtyard.ts`,
 `courtyard_collision.ts`, `footprint_utils.ts`,
@@ -156,6 +155,11 @@ left out. The paste margin's per-axis split is still applied as its x there
 **`eda_text_format.ts` resolved 09-28.** `fontNode` had no production caller
 left: every writer goes through `EDA_TEXT::Format`. `font_face.test.ts` pins
 the token order and the auto-thickness rule on the board writer instead.
+
+**`text_geometry.ts` resolved 09-28.** Only its own test read it; the
+KiCad-python oracle in `text_knockout_hull.test.ts` now runs on the live
+`PCB_TEXT::TransformShapeToPolygon` (vertex-for-vertex to 0.5 µm). The
+hidden-text rule is the pour's (`addKnockout`), not the text's.
 
 **`modify_lines.ts` + `outset_items.ts` + `polygon_booleans.ts` resolved
 09-28:** merged into `tools/item_modification_routine.ts`, matching
