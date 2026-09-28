@@ -75,7 +75,7 @@ import {
   UNDEFINED_LAYER,
   User_1,
 } from '@ziroeda/common/layer_ids.js';
-import { LSET } from '../../lset.js';
+import { LSET } from '@ziroeda/common/lset.js';
 import { NETINFO_ITEM, NETINFO_LIST } from '../../netinfo.js';
 import { PAD } from '../../pad.js';
 import type { PcbDrillSlot, PcbPostMachining } from '../../padstack_drill.js';
