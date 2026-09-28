@@ -27,11 +27,12 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { JSX } from 'react';
-import { PanelFootprintChooser } from '../widgets/panel_footprint_chooser.js';
+import { PanelFootprintChooser } from '@ziroeda/pcbnew/widgets/panel_footprint_chooser.js';
 import type { FootprintTreeFilter } from '@ziroeda/pcbnew/fp_tree_model_adapter.js';
-import { footprintHistory } from '../widgets/footprint_history.js';
+import { footprintHistory } from '@ziroeda/pcbnew/widgets/footprint_history.js';
 import { FootprintPreview3D, useFootprintHolderBoard } from '../widgets/footprint_preview_3d.js';
 import { Viewer3DFrame } from '../Viewer3DFrame.js';
+import { PCB_FOOTPRINT_PREVIEW_PANEL } from '../footprint_preview_panel.js';
 import type { FootprintIndexLibrary } from '@ziroeda/pcbnew/footprint_info_impl.js';
 import type { PcbFootprint } from '@ziroeda/pcbnew';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
@@ -225,6 +226,7 @@ export function FootprintChooserFrame({
             preselect={preselect}
             history={footprintHistory()}
             showFpView={showFp}
+            panel={PCB_FOOTPRINT_PREVIEW_PANEL}
             preview3D={show3D ? <FootprintPreview3D board={holderBoard} /> : undefined}
             showDetails={showDescription}
             onSelect={setSelected}

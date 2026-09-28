@@ -41,7 +41,7 @@ import { drawPolygonItem } from '@ziroeda/common/preview_items/polygon_item.js';
 import { DialogRuleAreaProperties } from './dialogs/dialog_rule_area_properties.js';
 import type { PROGRESS_REPORTER_LIKE } from '@ziroeda/pcbnew/connectivity/connectivity_algo.js';
 import { PROF_TIMER, traceAllegroPerf, wxLogTrace } from '@ziroeda/common/trace_helpers.js';
-import { placeVia } from '@ziroeda/pcbnew/via_placer.js';
+import { placeVia } from '@ziroeda/pcbnew/tools/drawing_tool.js';
 import { DEFAULT_RULE_AREA_KEEPOUT } from '@ziroeda/pcbnew/convert_shapes.js';
 import {
   collectPlacementSources,
@@ -505,7 +505,7 @@ import { PCB_EDIT_FRAME, REACT_BOARD_LISTENER, pcbnewSettingsOf } from './pcb_ed
 import { FetchNetlistFromSchematic } from './netlist_from_schematic.js';
 import { loadFootprint, loadFootprintIndex } from '../../widgets/footprint_list.js';
 import { FootprintChooserFrame } from './dialogs/footprint_chooser_frame.js';
-import { addFootprintToHistory } from './widgets/footprint_history.js';
+import { addFootprintToHistory } from '@ziroeda/pcbnew/widgets/footprint_history.js';
 import { preloadBoardLibraries } from './preload.js';
 import { parseFootprint } from '../footprint/footprintBoard.js';
 import {
