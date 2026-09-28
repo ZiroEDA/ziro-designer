@@ -34,7 +34,7 @@ import {
   applyToggle as fpApplyToggle,
   DEFAULT_TOGGLES as FP_TOGGLES,
   RADIO_GROUPS as FP_GROUPS,
-} from '@ziroeda/pcbnew/footprint_editor_toggles.js';
+} from '@ziroeda/pcbnew/footprint_edit_frame.js';
 import {
   applyToggle as schApplyToggle,
   DEFAULT_TOGGLES as SCH_TOGGLES,
@@ -243,10 +243,11 @@ const src = (rel: string): string =>
 
 describe.each([
   ['editors/schematic/SchematicEditor.tsx', './toggles.js'],
-  // toggles.ts moved to pcbnew/footprint_editor_toggles.ts (Stage A of the
-  // pcbnew/ file-structure move) with a footprint_ prefix, since the PCB
-  // editor's own toggles.ts was already headed there under the bare name.
-  ['editors/footprint/FootprintEditor.tsx', '@ziroeda/pcbnew/footprint_editor_toggles.js'],
+  // footprint_editor_toggles.ts merged into footprint_edit_frame.ts (Stage A
+  // of the pcbnew/ file-structure move): FOOTPRINT_EDIT_FRAME's toolbar
+  // groups sit beside the rest of that class's ported state now, the same
+  // file `UpdateTitle`, the grid and `footprintToBoard` moved into.
+  ['editors/footprint/FootprintEditor.tsx', '@ziroeda/pcbnew/footprint_edit_frame.js'],
 ])('%s seeds its toolbar from its toggles module', (rel, specifier) => {
   it('takes DEFAULT_TOGGLES from its toggles module', () => {
     const pattern = new RegExp(

@@ -72,7 +72,7 @@ import {
   wxGridStringTable,
 } from '@ziroeda/common/wx/grid.js';
 import { WxGridView } from '@ziroeda/common/wx/grid_ui.js';
-import { GRAPHICS_ROWS, checkFpGraphicsRow } from '@ziroeda/pcbnew/graphics_defaults.js';
+import { GRAPHICS_ROWS, checkFpGraphicsRow } from '@ziroeda/pcbnew/footprint_editor_settings.js';
 import type { FpGraphicsTextClass } from '../../../prefs/settings.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
 

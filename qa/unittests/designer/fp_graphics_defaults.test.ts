@@ -18,7 +18,7 @@ import {
   TEXT_MAX_SIZE_MM,
   TEXT_MIN_SIZE_MM,
   checkFpGraphicsRow,
-} from '@ziroeda/pcbnew/graphics_defaults.js';
+} from '@ziroeda/pcbnew/footprint_editor_settings.js';
 import { stringFromValue } from '@ziroeda/common/widgets/unit_binder.js';
 import { pcbIUScale } from '@ziroeda/common';
 

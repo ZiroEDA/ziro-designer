@@ -60,7 +60,7 @@ import {
 } from '../pcb/renderBoard.js';
 import { PCB_BACKGROUND, PCB_CURSOR, PCB_GRID_AXES, PCB_SPECIAL } from '../pcb/pcbTheme.js';
 import { drawSelectionArea, isBackgroundDark, selectionAreaColors } from '@ziroeda/common';
-import { FOOTPRINT_LAYERS, footprintToBoard } from '@ziroeda/pcbnew/footprintBoard.js';
+import { FOOTPRINT_LAYERS, footprintToBoard } from '@ziroeda/pcbnew/footprint_edit_frame.js';
 import type { PcbLayerDef } from '@ziroeda/pcbnew/types.js';
 import { pcbGridOptions, PCB_DEFAULT_GRID_IU } from '../pcb/renderBoard.js';
 import { PCB_GRID_HELPER } from '@ziroeda/pcbnew/tools/pcb_grid_helper.js';

@@ -12,9 +12,9 @@ import {
   GRID_LIST_SEPARATOR,
   gridChoiceLabel,
 } from '@ziroeda/common/settings/grid_settings_ui.js';
-import { footprintGridForTool, footprintGridIU, footprintSnappingEnabled } from '@ziroeda/pcbnew/fp_grid.js';
-import { newFootprint } from '@ziroeda/pcbnew/new_footprint.js';
-import { fpLineThicknessMM } from '@ziroeda/pcbnew/graphics_defaults.js';
+import { footprintGridForTool, footprintGridIU, footprintSnappingEnabled } from '@ziroeda/pcbnew/footprint_edit_frame.js';
+import { newFootprint } from '@ziroeda/pcbnew/footprint_editor_utils.js';
+import { fpLineThicknessMM } from '@ziroeda/pcbnew/footprint_editor_settings.js';
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import {
   applyBarcodeValues,
@@ -57,7 +57,7 @@ import { MenuBar, ContextMenu, type Menu } from '@ziroeda/common/tool/action_men
 import {
   footprintTreeContextMenu,
   fpTreeSelectedNodes,
-} from '@ziroeda/pcbnew/footprint_tree_context_menu.js';
+} from '@ziroeda/pcbnew/tools/footprint_editor_control.js';
 import { LibrariesToRepin } from '@ziroeda/common/tool/library_editor_control.js';
 import { Toolbar } from '@ziroeda/common/tool/action_toolbar.js';
 import { useStatusReadout } from '@ziroeda/common/use_status_readout.js';
@@ -66,7 +66,7 @@ import { useStatusReadout } from '@ziroeda/common/use_status_readout.js';
 const FP_LOCAL_ORIGIN = { x: 0, y: 0 };
 import { ProgressDialog } from '@ziroeda/common/widgets/wx_progress_reporters.js';
 import { formatTitle, useDocumentTitle } from '@ziroeda/common/use_document_title.js';
-import { FP_FRAME_NAME, fpFrameTitle } from '@ziroeda/pcbnew/footprint_edit_frame_title.js';
+import { FP_FRAME_NAME, fpFrameTitle } from '@ziroeda/pcbnew/footprint_edit_frame.js';
 import { useUnsavedGuard } from '@ziroeda/common/use_unsaved_guard.js';
 import { LibraryLoadingPanel } from '../../widgets/library_loading_panel.js';
 import { LibTree } from '@ziroeda/common/widgets/lib_tree.js';
@@ -89,7 +89,7 @@ import {
   footprintToolMsg,
 } from '@ziroeda/pcbnew/toolbars_footprint_editor.js';
 import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
-import { applyToggle, DEFAULT_TOGGLES } from '@ziroeda/pcbnew/footprint_editor_toggles.js';
+import { applyToggle, DEFAULT_TOGGLES } from '@ziroeda/pcbnew/footprint_edit_frame.js';
 import { FootprintCanvas, type FootprintCanvasController } from './FootprintCanvas.js';
 import { FootprintLibraryManager, fpNameOf, footprintsBase } from './libraryManager.js';
 import { projectFpLibTable, projectLibraryNickname } from '@ziroeda/common/fp_lib_table.js';
@@ -97,7 +97,7 @@ import {
   FOOTPRINT_COPPER_STACK,
   footprintLayers,
   FP_DEFAULT_ACTIVE_LAYER,
-} from '@ziroeda/pcbnew/footprintBoard.js';
+} from '@ziroeda/pcbnew/footprint_edit_frame.js';
 import { layerColor, PCB_BACKGROUND, PCB_OBJECT_COLORS } from '../pcb/pcbTheme.js';
 import { appearanceLayerRows } from '@ziroeda/pcbnew/widgets/appearance_layers.js';
 // APPEARANCE_CONTROLS and PANEL_SELECTION_FILTER are the same two widgets
