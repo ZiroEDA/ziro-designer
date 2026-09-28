@@ -46,6 +46,12 @@
  * (no `--jsx`), and a rule with no test is a rule that drifts back — this one
  * already had.
  */
+import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import type { BOARD_ITEM } from '../board_item.js';
+import type { SelectionFilter } from '../dialogs/dialog_filter_selection.js';
+import type { FOOTPRINT } from '../footprint.js';
 
 /**
  * The item a right-click should pick up before the menu opens, or `null` for
@@ -58,4 +64,76 @@
  */
 export function contextMenuPick(selection: ReadonlySet<string>, hit: string | null): string | null {
   return selection.size > 0 ? null : hit;
+}
+
+/**
+ * `itemIsIncludedByFilter` (pcb_selection_tool.cpp:3227-3274): whether a live
+ * item survives Filter Selection. Inclusive - a type the dialog has no box
+ * for (a pad, a group, a reference image, a point) is dropped.
+ */
+export function itemIsIncludedByFilter(
+  aItem: BOARD_ITEM,
+  aFilterOptions: SelectionFilter,
+): boolean {
+  switch (aItem.Type()) {
+    case KICAD_T.PCB_FOOTPRINT_T:
+      return (
+        aFilterOptions.footprints &&
+        (aFilterOptions.lockedFootprints || !(aItem as FOOTPRINT).IsLocked())
+      );
+
+    case KICAD_T.PCB_TRACE_T:
+    case KICAD_T.PCB_ARC_T:
+      return aFilterOptions.tracks;
+
+    case KICAD_T.PCB_VIA_T:
+      return aFilterOptions.vias;
+
+    case KICAD_T.PCB_ZONE_T:
+      return aFilterOptions.zones;
+
+    case KICAD_T.PCB_SHAPE_T:
+    case KICAD_T.PCB_TARGET_T:
+    case KICAD_T.PCB_DIM_ALIGNED_T:
+    case KICAD_T.PCB_DIM_CENTER_T:
+    case KICAD_T.PCB_DIM_RADIAL_T:
+    case KICAD_T.PCB_DIM_ORTHOGONAL_T:
+    case KICAD_T.PCB_DIM_LEADER_T:
+      if (aItem.GetLayer() === PCB_LAYER_ID.Edge_Cuts) return aFilterOptions.boardOutline;
+      else return aFilterOptions.techLayers;
+
+    case KICAD_T.PCB_FIELD_T:
+    case KICAD_T.PCB_TEXT_T:
+    case KICAD_T.PCB_TEXTBOX_T:
+    case KICAD_T.PCB_TABLE_T:
+    case KICAD_T.PCB_TABLECELL_T:
+      return aFilterOptions.text;
+
+    default:
+      // Filter dialog is inclusive, not exclusive.  If it's not included, then it doesn't
+      // get selected.
+      return false;
+  }
+}
+
+/**
+ * `PCB_SELECTION_TOOL::filterSelection`'s OK branch (:3277-3311): the
+ * selection's board items that pass, in selection order - what it
+ * re-selects after clearing the selection.
+ */
+export function filterSelectionItems(
+  aSelection: Iterable<EDA_ITEM>,
+  aFilterOptions: SelectionFilter,
+): BOARD_ITEM[] {
+  const out: BOARD_ITEM[] = [];
+
+  for (const i of aSelection) {
+    if (!i.IsBOARD_ITEM()) continue;
+
+    const item = i as BOARD_ITEM;
+
+    if (itemIsIncludedByFilter(item, aFilterOptions)) out.push(item);
+  }
+
+  return out;
 }
