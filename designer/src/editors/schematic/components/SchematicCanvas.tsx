@@ -2866,6 +2866,8 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
           toPx,
           style: 'cross',
           size: 20000 * dpr(),
+          // [data] EE_GRID_HELPER's m_viewAxis: COLOR4D( 0.0, 0.1, 0.4, 0.8 )
+          // (ee_grid_helper.cpp:58), fixed regardless of colour theme.
           color: 'rgba(0, 26, 102, 0.8)',
           drawAtZero: true,
           lineWidth: Math.max(1, dpr()),
@@ -2877,6 +2879,8 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
           toPx,
           style: 'circle_cross',
           size: SNAP_INDICATOR_DEFAULT_SIZE * dpr(),
+          // [data] EE_GRID_HELPER's m_viewSnapPoint: COLOR4D( 0.0, 0.1, 0.4, 1.0 )
+          // (ee_grid_helper.cpp:64), fixed regardless of colour theme.
           color: 'rgb(0, 26, 102)',
           drawAtZero: true,
           snapTypes: sp.snapTypes,

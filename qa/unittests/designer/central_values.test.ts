@@ -275,7 +275,12 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // WX_MULTI_ENTRY_DIALOG.
   // metrics 136 -> 133: Create Array's label/entry rows share one row() and
   // one input style instead of restating them per field kind.
-  'editors/pcb': { colours: 27, metrics: 133 },
+  // colours 27 -> 26 (pcbnew-file-structure-stage-a, 7128149a): panel_footprint_chooser.tsx
+  // and its two support modules moved out of designer/src/editors/pcb/widgets/
+  // to pcbnew/widgets/, which this scanner does not walk. Its one colour
+  // literal left with it; metrics is unchanged because it had none of the
+  // tracked CHROME_PROPS kind. RESCANNED from this tree.
+  'editors/pcb': { colours: 26, metrics: 133 },
   // At zero, and listed rather than absent: `prefs/` is the settings store, and
   // the one literal it had - the 3D viewer's `rgb(0,255,0)` selection colour -
   // is `PARAM<COLOR4D>( "render.opengl_selection_color", …, COLOR4D( 0, 1, 0, 1 ) )`
@@ -744,7 +749,17 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // 145/687 -> 139/684: NUMBER_BADGE is one `.ze-badge` rule set now. The
   // report panel's copy had invented its six colours and its own pill
   // geometry; the ERC/DRC copy already carried upstream's table as [data].
-  'common/widgets': { colours: 139, metrics: 684 },
+  // metrics 684 -> 692: two findings, not one pass.
+  //   Six are common/widgets/search_pane.tsx and search_pane_tab.tsx
+  //   (SEARCH_PANE + SEARCH_HANDLER, a56bb2cb, 09-27): a brand-new shared
+  //   widget, seeded here unaudited like any other new component - the
+  //   `padding: 6px` / `padding: 8px` / `padding: 2px` of its tab strip.
+  //   Two are lib_tree.tsx's own `height: 200` (PREVIEW_SIZE) and
+  //   `padding: 8` ("No matches") - present in that file already at 4edba88a,
+  //   the commit that set 684, and missed because that pass diffed
+  //   NUMBER_BADGE's change rather than rescanning the whole tree. Found now
+  //   by a full rescan, per the "derived twice" rule above.
+  'common/widgets': { colours: 139, metrics: 692 },
   'common/tool': { colours: 0, metrics: 1 },
   // metrics 0 -> 15 on 09-26: the stage-1 moves, 8 from `dialogs` and 7 from
   // `editors/schematic`. Nothing added or removed: 8 + 7 = 15.
@@ -791,7 +806,16 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // metrics 44 -> 41 on 09-26: the symbol library table's inline body style
   // (`padding: '10px 14px'`, `gap: 8`) went for DIALOG_EDIT_LIBRARY_TABLES'
   // sizer, cited in shell.css.
-  widgets: { colours: 6, metrics: 39 },
+  // 6/39 -> 1/6: this row's bulk was appearance_controls.tsx/.css and
+  // panel_selection_filter.tsx, which consumed shared common/ infrastructure
+  // across three commits - WX_COLLAPSIBLE_PANE (70470344), BITMAP_TOGGLE and
+  // INDICATOR_ICON (aca5ff44), and PROPERTIES_PANEL's properties/ split
+  // (924dce78) - plus a1a6ebff, which took the Manage Libraries dialogs' two
+  // invented `boxShadow: rgba(0,0,0,0.4)` popovers for DIALOG_SHIM's own. What
+  // is left is entirely lib_table_panel.tsx, uncited. RESCANNED from this
+  // tree; the exact literal each commit took could not be reconstructed one
+  // for one, the same "two passes met" case the totals above describe.
+  widgets: { colours: 1, metrics: 6 },
 };
 
 /** Properties whose value the GTK theme decides, so a px in one is drift. */
@@ -1264,7 +1288,17 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 326 -> 325: gerberColors.ts left the app, see `editors/gerbview`.
     // 325 -> 321: the bus alias and BOM preset panels moved onto WX_GRID and
     // their four `#888` placeholder lines (text KiCad never shows) went.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(321);
+    // 321 -> 299 (pcbnew-file-structure-stage-a): two rows moved and one grew,
+    // rescanned and reconciled rather than diffed, per the rule above.
+    // `editors/pcb` 27 -> 26 (panel_footprint_chooser.tsx left designer/src
+    // for pcbnew/widgets/, outside this scan); `widgets` 6 -> 1 (its bulk
+    // consumed common/'s WX_COLLAPSIBLE_PANE / BITMAP_TOGGLE / INDICATOR_ICON
+    // / properties/ and DIALOG_SHIM, see that row); `editors/schematic` 16 ->
+    // 18 -> 16 (EE_GRID_HELPER's axis and snap-point colours, landed
+    // uncited by 3b147005, now carry [data] on their own lines against
+    // ee_grid_helper.cpp:58 and :64 - a real grown-then-fixed pair, not a
+    // baseline change). 321 - 1 - 5 agrees with the rescan.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(299);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.
@@ -1452,7 +1486,11 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 1216 -> 1205: the bus alias and BOM preset panels' eleven inline px
     // (margins and paddings stated per dialog); their sizer borders now sit in
     // shell.css, each marked [data] with its Add().
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1205);
+    // 1205 -> 1138 (pcbnew-file-structure-stage-a): `common/widgets` 684 ->
+    // 692 (SEARCH_PANE seeded new, plus two lib_tree.tsx sites missed at
+    // 4edba88a - see that row) and `widgets` 39 -> 6 (the same consolidation
+    // as its colours, above). 1205 + 8 - 33 agrees with the rescan; 1138.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1138);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

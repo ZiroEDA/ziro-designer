@@ -303,7 +303,15 @@ const BASELINE: Record<string, number> = {
   // 46 -> 45: the Field Name Templates page's `fontSize: 12.5`, which went with
   // the duplicate table it was on — the shared panel states no size at all.
   // RESCANNED.
-  'editors/schematic': 41,
+  // 41 -> 35 (pcbnew-file-structure-stage-a): six literals left, in three
+  // already-landed passes this row was never lowered for. `1610f039`
+  // (Net Chains removed) took panel_setup_net_chains.tsx's four — 12.5, 12
+  // twice and 11.5 — and `dialog_create_net_chain.tsx`'s one 12.5.
+  // `1f0ebb2b` (Resolve Field Case Conflicts removed) took none: that dialog
+  // never stated a font size. `a56bb2cb` (SEARCH_PANE) took SearchPanel.tsx's
+  // `fontSize: '0.9em'` when the hand-rolled search bar it was on went. Five
+  // plus one is six; 41 - 6. RESCANNED from this tree.
+  'editors/schematic': 35,
   // 2 until the Symbol Editor parity pass deleted the invented
   // "Double-click a symbol..." hint that an empty SYMBOL_EDIT_FRAME does not
   // have; it carried an inline `fontSize: 14` and a `color: '#888'`.
@@ -400,7 +408,14 @@ const BASELINE: Record<string, number> = {
   // (KiCad's directory) and took their 60 with them; this scan walks
   // `designer/src` only, so those are ratcheted by `central_values` from now on.
   ui: 5,
-  widgets: 6,
+  // 6 -> 2: `a1a6ebff` (Manage Symbol / Footprint Libraries on the lib-table
+  // units) took six `fontSize` literals off dialog_fp_lib_table.tsx and
+  // dialog_sym_lib_table.tsx's "Available path substitutions" rows when they
+  // moved onto the shared lib-table unit, but this row was never lowered for
+  // it — it had sat at 6 unchanged since the ratchet's own seed
+  // (6cd2df62), so it was already stale before this pass touched it. What is
+  // left is entirely lib_table_panel.tsx, uncited. RESCANNED from this tree.
+  widgets: 2,
 };
 
 /**
@@ -671,7 +686,10 @@ describe('hardcoded font sizes do not grow', () => {
     // 119 -> 116: the line-modification box's three, see `editors/pcb`.
     // 116 -> 112: the bus alias and BOM preset panels' 12.5px / 12px labels,
     // now plain labels in the panel font as their wxStaticTexts are.
-    expect(sites.length).toBe(112);
+    // 112 -> 100 (pcbnew-file-structure-stage-a): `editors/schematic` 41 -> 35
+    // and `widgets` 6 -> 2, both stale rather than new — see the two rows.
+    // 112 - 6 - 6 agrees with the rescan.
+    expect(sites.length).toBe(100);
   });
 });
 
