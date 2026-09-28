@@ -16,27 +16,98 @@
  */
 import { describe, expect, it } from 'vitest';
 import { head, isList, parse, serialize } from '@ziroeda/sexpr/index.js';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
-import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { type EDA_ITEM, RECURSE_MODE } from '@ziroeda/common/eda_item.js';
+import { pcbIUScale, pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
+import { LSET_Name, LSET_NameToLayer } from '@ziroeda/common/layer_ids.js';
+import type { BOARD } from '@ziroeda/pcbnew/board.js';
+import type { BOARD_ITEM } from '@ziroeda/pcbnew/board_item.js';
+import { PAD_DRILL_POST_MACHINING_MODE } from '@ziroeda/pcbnew/padstack.js';
 import {
-  pcbItemFriendlyName,
-  pcbPropertiesFor,
-  type PcbPropRow,
-} from '@ziroeda/pcbnew/properties_panel.js';
+  boardFromBOARD,
+  boardItemOfViewId,
+} from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/board_view.js';
+import {
+  FormatBoard,
+  ParseBoard,
+  readBoard,
+  serializeBoard,
+} from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import type { Board } from '@ziroeda/pcbnew/types.js';
+import {
+  PCB_PROPERTIES_PANEL,
+  type PCB_GRID_ROW,
+} from '@ziroeda/pcbnew/widgets/pcb_properties_panel.js';
+import { TEST_PCB_FRAME } from '../support/test_pcb_frame.js';
+
+/**
+ * The live panel behind the view ids these tests speak: each view carries the
+ * BOARD and frame it was derived from.
+ */
+interface LIVE {
+  kb: BOARD;
+  frame: TEST_PCB_FRAME;
+  /** The text the BOARD was read from, so an edit can run on a fresh copy. */
+  text: string;
+}
+const LIVE_OF = new WeakMap<Board, LIVE>();
+
+function viewOf(ctx: LIVE): Board {
+  const view = boardFromBOARD(ctx.kb, 'test.kicad_pcb');
+  LIVE_OF.set(view, ctx);
+  return view;
+}
+
+/** An item of the board, children included, by uuid. */
+function findByUuid(kb: BOARD, uuid: string): EDA_ITEM | null {
+  let found: EDA_ITEM | null = null;
+  const visit = (item: BOARD_ITEM): void => {
+    if (found) return;
+    if (item.m_Uuid === uuid) found = item;
+    else item.RunOnChildren((c) => visit(c), RECURSE_MODE.RECURSE);
+  };
+  for (const list of [
+    kb.Footprints(),
+    kb.Drawings(),
+    kb.Tracks(),
+    kb.Zones(),
+    kb.Groups(),
+    kb.Points(),
+  ])
+    for (const item of list as BOARD_ITEM[]) visit(item);
+  return found;
+}
+
+/** The row type these tests read: a grid cell whose edit returns the next view. */
+type PcbPropRow = Omit<PCB_GRID_ROW, 'set'> & {
+  set?: (v: string | number | boolean) => Board | null;
+};
+
+/** The colour each layer's swatch is painted in: the frame's colour settings. */
+const swatchOf = (board: Board, layer: string): string => {
+  const ctx = LIVE_OF.get(board)!;
+  const c = ctx.frame.GetColorSettings().GetColor(ctx.kb.GetLayerID(layer));
+  return `rgba(${Math.round(c.r * 255)}, ${Math.round(c.g * 255)}, ${Math.round(c.b * 255)}, ${c.a})`;
+};
+
+/** `EDA_ITEM::GetFriendlyName()` of the item a view id names. */
+const pcbItemFriendlyName = (board: Board, id: string): string | undefined =>
+  boardItemOfViewId(board, id)?.GetFriendlyName();
 
 const MM = (n: number): number => mmToIU(n);
-const load = (text: string): Board => readBoard(parse(text));
+const load = (text: string): Board => {
+  const kb = ParseBoard(text);
+  return viewOf({ kb, frame: new TEST_PCB_FRAME(kb), text });
+};
 /** What the board WRITES — `serializeBoard`, KiCad's own formatter over the model. */
-const written = (board: Board): string => serializeBoard(board);
+const written = (board: Board): string =>
+  LIVE_OF.has(board) ? FormatBoard(LIVE_OF.get(board)!.kb) : serializeBoard(board);
 /** The written board with the pretty-printer's newlines squeezed out. */
 const flat = (board: Board): string =>
-  serializeBoard(board).replace(/\s+/g, ' ').replace(/\( /g, '(').replace(/ \)/g, ')');
+  written(board).replace(/\s+/g, ' ').replace(/\( /g, '(').replace(/ \)/g, ')');
 
 /** The nth top-level node of that head in the written board, flattened. */
 const flatNode = (board: Board, headName: string, nth = 0): string => {
-  const root = parse(serializeBoard(board));
+  const root = parse(written(board));
   const nodes = root.items.filter((i) => isList(i) && head(i) === headName);
   const node = nodes[nth];
   if (!node) throw new Error(`no (${headName} …) #${nth} in the written board`);
@@ -51,20 +122,10 @@ const writtenText = (board: Board): string => flatNode(board, 'gr_text');
 
 /** The head of every DIRECT child of the first footprint node as written. */
 const fpChildren = (board: Board): string[] => {
-  const root = parse(serializeBoard(board));
+  const root = parse(written(board));
   const fp = root.items.find((i) => isList(i) && head(i) === 'footprint');
   return (fp && isList(fp) ? fp.items : []).filter(isList).map((i) => head(i) ?? '');
 };
-
-/** A distinct colour per layer, so a swatch cannot pass by accident. */
-const COLOURS: Record<string, string> = {
-  'F.Cu': '#c83434',
-  'B.Cu': '#4d7fc4',
-  'In1.Cu': '#f2eda1',
-  'F.SilkS': '#f2eda1',
-  'Edge.Cuts': '#d0d2cd',
-};
-const CTX = { layerColor: (l: string): string => COLOURS[l] ?? '#000000' };
 
 /**
  * The fixture's uuids, real ones: `KIID( string )` turns anything that is not a
@@ -183,7 +244,44 @@ const SRC = `(kicad_pcb (version 20240108) (generator "pcbnew")
 )`;
 
 const B = load(SRC);
-const rowsFor = (id: string, board: Board = B): PcbPropRow[] => pcbPropertiesFor(board, [id], CTX);
+/**
+ * PCB_PROPERTIES_PANEL's rows for one view id (`UpdateData` then the grid).
+ * An edit runs on a FRESH read of the same board — the item found again by
+ * uuid — and returns that board's view, so each test's rows stay what they
+ * read, as the old view-returning rows did.
+ */
+const rowsFor = (id: string, board: Board = B): PcbPropRow[] => {
+  const ctx = LIVE_OF.get(board)!;
+  const item = boardItemOfViewId(board, id);
+  const gridRows = (c: LIVE, it: EDA_ITEM | null) => {
+    const panel = new PCB_PROPERTIES_PANEL(c.frame);
+    panel.SetSelectionProvider(() => (it ? [it] : []));
+    panel.UpdateData();
+    return panel.GridRows({
+      units: 'mm',
+      iuScale: pcbIUScale,
+      originTransforms: c.frame.GetOriginTransforms(),
+    });
+  };
+  return gridRows(ctx, item).map((r) => {
+    if (!r.set) return { ...r, set: undefined };
+    return {
+      ...r,
+      set: (v: string | number | boolean) => {
+        const kb = ParseBoard(ctx.text);
+        const next: LIVE = { kb, frame: new TEST_PCB_FRAME(kb), text: ctx.text };
+        const target = item ? findByUuid(kb, item.m_Uuid) : null;
+        const edit = gridRows(next, target)
+          .find((x) => x.name === r.name)
+          ?.set?.(v);
+        if (!edit) return null;
+        edit();
+        next.text = FormatBoard(kb);
+        return viewOf(next);
+      },
+    };
+  });
+};
 const names = (rows: PcbPropRow[]): string[] => rows.map((r) => r.name);
 const groupOrder = (rows: PcbPropRow[]): string[] => {
   const seen: string[] = [];
@@ -306,14 +404,17 @@ describe('FOOTPRINT rows', () => {
     // side flips the footprint, and the row is NOT read-only.
     const layer = row(rows, 'Layer');
     expect(layer.value).toBe('F.Cu');
-    expect(layer.swatch).toBe('#c83434');
+    expect(layer.swatch).toBe(swatchOf(B, 'F.Cu'));
     expect(layer.choices).toEqual(['F.Cu', 'B.Cu']);
 
     const flipped = layer.set?.('B.Cu');
     expect(flipped?.footprints[0]?.layer).toBe('B.Cu');
-    // A flip, not a layer assignment: the children move with it. The first pad
-    // is at (10, 21) on the front, mirrored about the anchor's x on the back.
-    expect(flipped?.footprints[0]?.pads[0]?.at).toEqual({ x: MM(10), y: MM(19) });
+    // A flip, not a layer assignment: the children move with it.
+    // FOOTPRINT::SetLayerAndFlip is Flip( GetPosition(), LEFT_RIGHT )
+    // (footprint.cpp:2923-2929): the first pad, at (10, 21) on the front,
+    // mirrors about the anchor's x — which it sits on — so it stays at (10, 21).
+    // (The view panel mirrored top-bottom and put it at (10, 19).)
+    expect(flipped?.footprints[0]?.pads[0]?.at).toEqual({ x: MM(10), y: MM(21) });
     expect(flipped?.footprints[0]?.pads[0]?.layers).toContain('B.Cu');
   });
 
@@ -497,7 +598,8 @@ describe("FOOTPRINT rows: the footprint's own fields", () => {
     // added by hand ahead of the loop, and the loop walks `m_currentFieldNames`,
     // a std::set<wxString>, so the rest are alphabetical and NOT in file order.
     // The file writes Datasheet, Description, MPN, KiLib_Generator in that
-    // order; sorted, KiLib_Generator comes third.
+    // order; sorted, KiLib_Generator comes third. Sheetname is one of the
+    // footprint's fields in a 20230620+ file, so it is a row too (below).
     expect(fieldRows()).toEqual([
       'Reference',
       'Value',
@@ -505,6 +607,7 @@ describe("FOOTPRINT rows: the footprint's own fields", () => {
       'Description',
       'KiLib_Generator',
       'MPN',
+      'Sheetname',
     ]);
   });
 
@@ -518,13 +621,14 @@ describe("FOOTPRINT rows: the footprint's own fields", () => {
       expect(row(rows, n).set).toBeTypeOf('function');
   });
 
-  it('leaves a reserved property out: it is not a PCB_FIELD', () => {
+  it('shows a Sheetname property as the user field it is in a new file', () => {
     // `parseFOOTPRINT` consumes Sheetname into `FOOTPRINT::SetSheetname`
-    // (pcb_io_kicad_sexpr_parser.cpp:5176-5180) rather than adding a field —
-    // but only for a file older than 20230620, the PCB fields format. This
-    // fixture is newer, so in KiCad the property is an ordinary user field;
-    // the panel's reserved-name filter still keeps it off the rows.
-    expect(fieldRows()).not.toContain('Sheetname');
+    // (pcb_io_kicad_sexpr_parser.cpp:5176-5180) only for a file older than
+    // 20230620. This fixture is newer, so it is an ordinary field, and
+    // PCB_PROPERTIES_PANEL::rebuildProperties adds a row for every field name
+    // (:405-431) — there is no reserved-name filter. The view panel had one.
+    expect(fieldRows()).toContain('Sheetname');
+    expect(row(rows, 'Sheetname').value).toBe('/');
     expect(F.footprints[0]?.sheetname).toBeUndefined();
   });
 
@@ -550,6 +654,7 @@ describe("FOOTPRINT rows: the footprint's own fields", () => {
   });
 
   it('rejects an edit that changes nothing, the way every other row does', () => {
+    // wxPropertyGrid raises no EVT_PG_CHANGED for an unchanged value.
     expect(row(rows, 'MPN').set?.('RC0805')).toBeNull();
   });
 });
@@ -574,9 +679,13 @@ describe('PAD rows', () => {
     ]);
   });
 
-  it('drops Size Y for a circle and the hole rows for an SMD pad', () => {
+  it('drops Size Y for a circle, and greys the hole rows on an SMD pad', () => {
     expect(names(smd)).toContain('Size Y');
-    expect(names(smd)).not.toContain('Hole Size X');
+    // pad.cpp:3527-3540: the hole rows are WRITEABLE only where
+    // padCanHaveHole; they stay available, greyed, on an SMD pad. (The view
+    // panel dropped them.)
+    expect(row(smd, 'Hole Size X').set).toBeUndefined();
+    expect(row(pth, 'Hole Size X').set).toBeTypeOf('function');
     expect(names(pth)).not.toContain('Size Y');
     expect(names(pth)).toContain('Hole Shape');
     expect(names(pth)).toContain('Hole Size X');
@@ -601,9 +710,9 @@ describe('PAD rows', () => {
       // on save. The combo is the enum, not the file format.
       'Start and end layers only',
     ]);
-    // An SMD pad carries no such tokens — upstream's writer emits them for
-    // PAD_ATTRIB::PTH alone — so there is nothing to commit.
-    expect(row(smd, 'Copper Layers').set).toBeUndefined();
+    // pad.cpp:3757-3759 gives the property no writeable function: KiCad lets
+    // an SMD pad take the value too (its writer then emits nothing for it).
+    expect(row(smd, 'Copper Layers').set).toBeTypeOf('function');
   });
 
   it('commits Copper Layers as the two booleans a PTH pad stores', () => {
@@ -674,7 +783,8 @@ describe('PAD rows', () => {
   it('offers the board’s nets as the Net choices, sorted by name', () => {
     // PCB_PROPERTIES_PANEL::updateLists sorts CmpNoCase; the file lists VCC
     // before GND, so an unsorted builder would fail here.
-    expect(row(smd, 'Net').choices).toEqual(['<no net>', 'GND', 'VCC']);
+    // Net 0 is listed by its name, which is empty (updateLists, :603-612).
+    expect(row(smd, 'Net').choices).toEqual(['', 'GND', 'VCC']);
     expect(row(smd, 'Net').value).toBe('GND');
     // The file declares `(net 2 "VCC")` before `(net 1 "GND")`, and
     // `NETINFO_LIST::AppendNet` renumbers a code that is not the next
@@ -684,12 +794,14 @@ describe('PAD rows', () => {
 
   it('offers the pad type and shape as labels, and commits the token', () => {
     expect(row(smd, 'Pad Shape').value).toBe('Rectangle');
+    // ENUM_MAP<PAD_SHAPE> in its registration order (pad.cpp:3328-3335).
     expect(row(smd, 'Pad Shape').choices).toEqual([
       'Circle',
       'Rectangle',
-      'Rounded rectangle',
       'Oval',
-      'Trapezoidal',
+      'Trapezoid',
+      'Rounded rectangle',
+      'Chamfered rectangle',
       'Custom',
     ]);
     expect(row(smd, 'Pad Shape').set?.('Oval')?.footprints[0]?.pads[0]?.shape).toBe('oval');
@@ -710,19 +822,22 @@ describe('TRACK and ARC rows', () => {
   it("lists them in the property manager's order, base class first", () => {
     // `collectPropsRecur` (property_mgr.cpp:349-370) inserts a class's own
     // properties EARLIER than anything a subclass already put in the list, so
-    // walking derived-to-base leaves the base's first: BOARD_ITEM's four (with
-    // Position X/Y replaced in place by Start X/Y, pcb_track.cpp:3134-3148),
-    // then BOARD_CONNECTED_ITEM's Net, then PCB_TRACK's Width, End X, End Y.
+    // walking derived-to-base leaves the base's first: BOARD_ITEM's Locked,
+    // then BOARD_CONNECTED_ITEM's Layer (its ReplaceProperty) and Net, then
+    // PCB_TRACK's own in registration order — Width, then Start X/Y (its
+    // ReplaceProperty of Position X/Y, which `ReplaceProperty` ADDS to the
+    // replacing class's own list, property_mgr.cpp; it does not take the
+    // replaced one's place), then End X/Y.
     //
     // And they are all in Basic Properties: there is no "Track Properties" group
-    // upstream — PCB_TRACK passes no group for any of the three.
+    // upstream — PCB_TRACK passes no group for any of them.
     expect(names(track)).toEqual([
-      'Start X',
-      'Start Y',
-      'Layer',
       'Locked',
+      'Layer',
       'Net',
       'Width',
+      'Start X',
+      'Start Y',
       'End X',
       'End Y',
       // PCB_TRACK's own group, after its ungrouped properties.
@@ -764,10 +879,12 @@ describe('TRACK and ARC rows', () => {
     expect(row(track, 'Soldermask Margin Override').optional).toBe(true);
   });
 
-  it('makes an arc’s endpoints read-only, because its mid point drives them', () => {
+  it('leaves an arc’s endpoints writeable, as PCB_ARC overrides nothing', () => {
+    // pcb_track.cpp:3169-3170 registers PCB_ARC with no writeability override;
+    // the view panel greyed the four.
     for (const n of ['Start X', 'Start Y', 'End X', 'End Y']) {
       expect(row(track, n).set, `track ${n}`).toBeTypeOf('function');
-      expect(row(arc, n).set, `arc ${n}`).toBeUndefined();
+      expect(row(arc, n).set, `arc ${n}`).toBeTypeOf('function');
     }
     // Everything else stays writeable on an arc.
     expect(row(arc, 'Width').set).toBeTypeOf('function');
@@ -778,7 +895,7 @@ describe('TRACK and ARC rows', () => {
     // F.SilkS and Edge.Cuts are enabled on this board and must not be here.
     const layer = row(track, 'Layer');
     expect(layer.choices).toEqual(['F.Cu', 'In1.Cu', 'In2.Cu', 'B.Cu']);
-    expect(layer.swatch).toBe('#c83434');
+    expect(layer.swatch).toBe(swatchOf(B, 'F.Cu'));
     expect(layer.set?.('B.Cu')?.tracks[0]?.layer).toBe('B.Cu');
   });
 
@@ -790,18 +907,19 @@ describe('TRACK and ARC rows', () => {
 describe('VIA rows', () => {
   const rows = rowsFor('via:0');
 
-  it('puts Via Properties BEFORE Basic Properties, as the group order does', () => {
+  it('orders the groups own-first, after Basic Properties', () => {
     // `collectGroupsRecursive` (property_mgr.cpp:319-345) collects the class's
     // OWN groups first and its bases' after — the opposite of the property order
-    // inside a group. Every property PCB_VIA registers carries a group, so ''
-    // only arrives from BOARD_ITEM, after "Via Properties"; "Teardrops" comes
-    // from BOARD_CONNECTED_ITEM and is last.
+    // inside a group.
+    // Except that every CLASS_DESC starts its own group list with '' (its
+    // constructor, property_mgr.h:278-283), so the unnamed group — Basic
+    // Properties — leads for every item. Then PCB_VIA's own three
+    // (pcb_track.cpp:3179-3180), then BOARD_CONNECTED_ITEM's Teardrops.
     expect(groupOrder(rows)).toEqual([
+      '',
       'Via Properties',
-      // pcb_track.cpp:3179-3180 names these two, after groupVia.
       'Backdrill',
       'Post-machining',
-      '',
       'Teardrops',
     ]);
   });
@@ -815,9 +933,9 @@ describe('VIA rows', () => {
 
   it('gives Layer Top and Layer Bottom their own swatches', () => {
     expect(row(rows, 'Layer Top').value).toBe('F.Cu');
-    expect(row(rows, 'Layer Top').swatch).toBe('#c83434');
+    expect(row(rows, 'Layer Top').swatch).toBe(swatchOf(B, 'F.Cu'));
     expect(row(rows, 'Layer Bottom').value).toBe('B.Cu');
-    expect(row(rows, 'Layer Bottom').swatch).toBe('#4d7fc4');
+    expect(row(rows, 'Layer Bottom').swatch).toBe(swatchOf(B, 'B.Cu'));
   });
 
   it('lists the Via Properties group in registration order', () => {
@@ -864,9 +982,14 @@ describe('VIA rows', () => {
     // the empty optional is spelled.
     expect(flatNode(tented!, 'via')).toContain('(tenting (front yes) (back none))');
 
-    const capped = row(rows, 'Capping').set?.('Not capped');
-    expect(capped?.vias[0]?.capping).toBe(false);
-    expect(flatNode(capped!, 'via')).toContain('(capping no)');
+    // A pre-10.0 via reads capping as OFF, not "from board" (the parser's
+    // legacy branch, pcb_io_kicad_sexpr_parser.cpp:7420-7430), so the cell
+    // already says Not capped and choosing it again is no edit at all.
+    expect(row(rows, 'Capping').value).toBe('Not capped');
+    expect(row(rows, 'Capping').set?.('Not capped')).toBeNull();
+    const capped = row(rows, 'Capping').set?.('Capped');
+    expect(capped?.vias[0]?.capping).toBe(true);
+    expect(flatNode(capped!, 'via')).toContain('(capping yes)');
 
     // Back to the board: the token goes away rather than reading `(capping none)`,
     // because the writer emits it only `if( …is_capped.has_value() )`.
@@ -975,17 +1098,28 @@ describe('the padstack drill groups, on the pad and the via', () => {
     ),
   );
   const via = rowsFor('via:0', drilled);
+  /** The live PADSTACK of the first via / the PTH pad on a view's BOARD. */
+  const viaStack = (b: Board) =>
+    (
+      LIVE_OF.get(b)!
+        .kb.Tracks()
+        .find((t) => 'GetDrill' in t) as unknown as {
+        Padstack(): import('@ziroeda/pcbnew/padstack.js').PADSTACK;
+      }
+    ).Padstack();
+  const layerName = (l: number) => LSET_Name(l);
 
   it('reads a backdrill by its START layer, which is the side', () => {
     // `findBackdrillDrill( aTop )` (padstack.cpp:523-536): the slot number means
     // nothing and the start layer means everything — B.Cu is the bottom side.
     // That is why KiCad 10.0 files, which used the tertiary slot for the top
     // backdrill, still read correctly.
-    expect(drilled.vias[0]?.backdrill).toEqual({
-      size: MM(0.6),
-      start: 'B.Cu',
-      end: 'In1.Cu',
-    });
+    const slot = viaStack(drilled).SecondaryDrill();
+    expect([slot.size.x, layerName(slot.start), layerName(slot.end)]).toEqual([
+      MM(0.6),
+      'B.Cu',
+      'In1.Cu',
+    ]);
     expect(row(via, 'Backdrill Mode').value).toBe('Backdrill bottom');
     expect(row(via, 'Bottom Backdrill Size').value).toBe(MM(0.6));
     expect(row(via, 'Bottom Backdrill Must-Cut').value).toBe('In1.Cu');
@@ -1010,65 +1144,50 @@ describe('the padstack drill groups, on the pad and the via', () => {
     expect(flat(none!)).not.toContain('backdrill');
   });
 
-  it('builds no drill node for a slot with no size, as the writer does not', () => {
+  it('writes no drill node for a slot with no size, as the writer does not', () => {
     // `if( …SecondaryDrill().size.x > 0 )` (pcb_io_kicad_sexpr.cpp:2657): an
-    // empty slot is not a backdrill, and the BUILDER — the path a newly placed
-    // via takes — must not write one either.
-    const withVia = (v: Board['vias'][number]): Board => ({ ...load(SRC), vias: [v] });
-    const built = flat(
-      withVia({
-        at: { x: 0, y: 0 },
-        size: MM(0.8),
-        drill: MM(0.4),
-        layers: ['F.Cu', 'B.Cu'],
-        kind: 'through',
-        net: 0,
-        backdrill: { size: 0, start: 'B.Cu', end: 'In1.Cu' },
-      }),
-    );
-    expect(built).not.toContain('backdrill');
+    // empty slot is not a backdrill.
+    const b = load(SRC);
+    const stack = viaStack(b);
+    stack.SecondaryDrill().size = { x: 0, y: 0 };
+    stack.SecondaryDrill().start = LSET_NameToLayer('B.Cu');
+    stack.SecondaryDrill().end = LSET_NameToLayer('In1.Cu');
+    expect(flat(b)).not.toContain('backdrill');
 
-    const real = flat(
-      withVia({
-        at: { x: 0, y: 0 },
-        size: MM(0.8),
-        drill: MM(0.4),
-        layers: ['F.Cu', 'B.Cu'],
-        kind: 'through',
-        net: 0,
-        backdrill: { size: MM(0.6), start: 'B.Cu', end: 'In1.Cu' },
-      }),
-    );
-    expect(real).toContain('(backdrill (size 0.6) (layers "B.Cu" "In1.Cu"))');
+    stack.SecondaryDrill().size = { x: MM(0.6), y: MM(0.6) };
+    expect(flat(b)).toContain('(backdrill (size 0.6) (layers "B.Cu" "In1.Cu"))');
   });
 
   it('shows a post-machining measurement only for the mode that has it', () => {
     // Size for either mode, Depth for a counterbore, Angle for a countersink
-    // (pad.cpp:3564-3614) — and the via says Front and Back where a pad says
-    // Top and Bottom for the same two sides.
+    // (pad.cpp:3564-3614). A via names them "Front/Back Post-machining
+    // Depth/Angle" (pcb_track.cpp:3307-3367); only a pad says "Counterbore
+    // Depth" / "Countersink Angle", under Top and Bottom.
     expect(row(via, 'Front Post-machining').value).toBe('Counterbore');
-    expect(names(via)).toContain('Front Counterbore Depth');
-    expect(names(via)).not.toContain('Front Countersink Angle');
+    expect(names(via)).toContain('Front Post-machining Depth');
+    expect(names(via)).not.toContain('Front Post-machining Angle');
 
     expect(row(via, 'Back Post-machining').value).toBe('Countersink');
-    expect(names(via)).toContain('Back Countersink Angle');
-    expect(names(via)).not.toContain('Back Counterbore Depth');
+    expect(names(via)).toContain('Back Post-machining Angle');
+    expect(names(via)).not.toContain('Back Post-machining Depth');
   });
 
   it('keeps the countersink angle in TENTHS of a degree, and writes degrees', () => {
     // `PT_DECIDEGREE`, and the parser's `KiROUND( parseDouble( … ) * 10.0 )`
     // against the writer's `FormatDouble2Str( angle / 10.0 )`.
-    expect(drilled.vias[0]?.backPostMachining?.angle).toBe(900);
-    expect(row(via, 'Back Countersink Angle').value).toBe('90°');
+    expect(viaStack(drilled).BackPostMachining().angle).toBe(900);
+    expect(row(via, 'Back Post-machining Angle').value).toBe('90°');
 
-    const wider = row(via, 'Back Countersink Angle').set?.('120');
-    expect(wider?.vias[0]?.backPostMachining?.angle).toBe(1200);
+    const wider = row(via, 'Back Post-machining Angle').set?.('120');
+    expect(viaStack(wider!).BackPostMachining().angle).toBe(1200);
     expect(flat(wider!)).toContain('(angle 120)');
   });
 
   it('turns post-machining off by dropping the whole token', () => {
     const off = row(via, 'Front Post-machining').set?.('Not post-machined');
-    expect(off?.vias[0]?.frontPostMachining).toBeUndefined();
+    expect(viaStack(off!).FrontPostMachining().mode).toBe(
+      PAD_DRILL_POST_MACHINING_MODE.NOT_POST_MACHINED,
+    );
     expect(flat(off!)).not.toContain('front_post_machining');
     expect(flat(off!)).toContain('back_post_machining');
   });
@@ -1083,7 +1202,10 @@ describe('the padstack drill groups, on the pad and the via', () => {
     expect(names(pad)).not.toContain('Front Post-machining');
 
     const bored = row(pad, 'Top Post-machining').set?.('Counterbore');
-    expect(bored?.footprints[0]?.pads[1]?.frontPostMachining?.mode).toBe('counterbore');
+    const pad1 = LIVE_OF.get(bored!)!.kb.Footprints()[0]!.Pads()[1]!;
+    expect(pad1.Padstack().FrontPostMachining().mode).toBe(
+      PAD_DRILL_POST_MACHINING_MODE.COUNTERBORE,
+    );
     expect(flat(bored!)).toContain('(front_post_machining counterbore)');
   });
 
@@ -1288,7 +1410,10 @@ describe('ZONE rows', () => {
 
   it('offers the two ZONE_FILL_MODEs, and the five pad connections', () => {
     expect(row(rows, 'Fill Mode').choices).toEqual(['Solid fill', 'Hatch pattern']);
+    // ENUM_MAP<ZONE_CONNECTION> whole, Inherited included (zone.cpp:1927-1938):
+    // "Pad Connections" takes no choices function (:2175-2177).
     expect(row(rows, 'Pad Connections').choices).toEqual([
+      'Inherited',
       'None',
       'Thermal reliefs',
       'Solid',
@@ -1394,7 +1519,7 @@ describe('TEXT rows', () => {
       'F.Courtyard',
       'B.Courtyard',
     ]);
-    expect(row(rows, 'Layer').swatch).toBe('#f2eda1');
+    expect(row(rows, 'Layer').swatch).toBe(swatchOf(B, 'F.SilkS'));
   });
 
   it("lists every row in the property manager's order, inherited first", () => {
@@ -1410,6 +1535,9 @@ describe('TEXT rows', () => {
       'Locked',
       'Orientation',
       'Text',
+      // EDA_TEXT's Font (eda_text.cpp:1353-1356): no availability function,
+      // so a board text shows it; the view panel left it out.
+      'Font',
       'Auto Thickness',
       'Thickness',
       'Italic',
@@ -1519,9 +1647,12 @@ describe('SHAPE rows', () => {
     // rewrites four of EDA_SHAPE's conditions with OverrideAvailability
     // (pcb_shape.cpp:1130-1143): Start/End for anything but a circle, Center and
     // Radius for a circle alone.
+    // Locked before Layer: PCB_SHAPE's Layer is its own ReplaceProperty of
+    // BOARD_CONNECTED_ITEM's (pcb_shape.cpp:979), which the property manager
+    // adds to PCB_SHAPE's own list, after the inherited Locked.
     expect(names(line)).toEqual([
-      'Layer',
       'Locked',
+      'Layer',
       // EDA_SHAPE's first row, and the one that changes what the rest are.
       'Shape',
       'Start X',
@@ -1532,8 +1663,8 @@ describe('SHAPE rows', () => {
       'Line Style',
     ]);
     expect(names(circle)).toEqual([
-      'Layer',
       'Locked',
+      'Layer',
       'Shape',
       'Center X',
       'Center Y',
@@ -1609,11 +1740,11 @@ describe('SHAPE rows', () => {
     expect(wider?.shapes[4]?.end).toEqual({ x: MM(30), y: MM(10) });
   });
 
-  it("changes the SHAPE_T, which is the node's head token", () => {
-    // `SetShape` assigns the type and moves no point (eda_shape.cpp:2809-2812),
-    // so a segment becomes a rectangle on the same two corners. The head token
-    // has to be rewritten for it, which is the one edit that goes through the
-    // BUILDER rather than the stored source.
+  it('shows the SHAPE_T, read-only', () => {
+    // `PROPERTY_ENUM<EDA_SHAPE, SHAPE_T>( "Shape", NO_SETTER( EDA_SHAPE,
+    // SHAPE_T ), &EDA_SHAPE::GetShape )` (eda_shape.cpp:2886-2887): no setter,
+    // so the cell is read-only. The view panel rewrote a segment as a
+    // rectangle from here; KiCad cannot.
     expect(row(line, 'Shape').value).toBe('Segment');
     expect(row(line, 'Shape').choices).toEqual([
       'Segment',
@@ -1623,18 +1754,7 @@ describe('SHAPE rows', () => {
       'Polygon',
       'Bezier',
     ]);
-
-    const asRect = row(line, 'Shape').set?.('Rectangle');
-    expect(asRect?.shapes[0]?.kind).toBe('rect');
-    expect(asRect?.shapes[0]?.start).toEqual({ x: MM(0), y: MM(0) });
-    expect(asRect?.shapes[0]?.end).toEqual({ x: MM(5), y: MM(0) });
-    const written = flat(asRect as Board);
-    expect(written).toContain('(gr_rect (start 0 0) (end 5 0)');
-    expect(written).not.toContain('(gr_line (start 0 0) (end 5 0)');
-    // The builder has to carry what the source did: this shape's dash type, its
-    // uuid and its layer all survive the rewrite.
-    expect(written).toContain('(type dash)');
-    expect(written).toContain(`"${U.gl1}"`);
+    expect(row(line, 'Shape').set).toBeUndefined();
   });
 
   it('gives a rectangle a Corner Radius, and refuses one past half the short side', () => {
@@ -1762,18 +1882,26 @@ describe('TABLE rows', () => {
   const rows = rowsFor('table:0');
 
   it('lists the border and separator properties in one group', () => {
+    // PCB_TABLE_DESC (pcb_table.cpp:884-935) masks nothing it inherits, so
+    // BOARD_ITEM's Position X/Y and Layer stay beside its own Start X/Y, and it
+    // registers a colour for each stroke. The view panel had trimmed all five.
     expect(names(rows)).toEqual([
+      'Position X',
+      'Position Y',
+      'Layer',
+      'Locked',
       'Start X',
       'Start Y',
-      'Locked',
       'External Border',
       'Header Border',
       'Border Width',
       'Border Style',
+      'Border Color',
       'Row Separators',
       'Cell Separators',
       'Separators Width',
       'Separators Style',
+      'Separators Color',
     ]);
     expect(groupOrder(rows)).toEqual(['', 'Table Properties']);
   });
@@ -1792,9 +1920,11 @@ describe('TABLE rows', () => {
     expect(width?.tables[0]?.separatorWidth).toBe(MM(0.3));
   });
 
-  it('shows Start X/Y read-only: a table moves by moving its cells', () => {
+  it('moves the table from Start X/Y, which have a setter', () => {
+    // `&PCB_TABLE::SetPositionX` (pcb_table.cpp:887-892) — writeable.
     expect(row(rows, 'Start X').value).toBe(MM(0));
-    expect(row(rows, 'Start X').set).toBeUndefined();
+    const moved = row(rows, 'Start X').set?.(MM(2));
+    expect(moved?.tables[0]?.cells[0]?.start?.x).toBe(MM(2));
   });
 });
 
@@ -1816,17 +1946,19 @@ describe('REFERENCE IMAGE rows', () => {
     // associated with one.
     expect(names(rows)).toContain('Associated Layer');
     expect(names(rows)).not.toContain('Layer');
-    expect(row(rows, 'Associated Layer').swatch).toBe('#f2eda1');
+    expect(row(rows, 'Associated Layer').swatch).toBe(swatchOf(B, 'F.SilkS'));
   });
 
   it('lists the Image Properties group, with no Greyscale rows', () => {
     // Upstream declares a `Greyscale` group and never adds a property to it, so
     // it draws nothing there either.
+    // Associated Layer after Locked: it is PCB_REFERENCE_IMAGE's own
+    // ReplaceProperty of BOARD_ITEM's Layer (pcb_reference_image.cpp:436).
     expect(names(rows)).toEqual([
       'Position X',
       'Position Y',
-      'Associated Layer',
       'Locked',
+      'Associated Layer',
       'Scale',
       'Transform Offset X',
       'Transform Offset Y',
@@ -1857,7 +1989,13 @@ describe('REFERENCE IMAGE rows', () => {
     // `format( const PCB_REFERENCE_IMAGE* )` writes (at), the layer, (scale),
     // (locked) and the data — upstream loses this on save too.
     const moved = row(rows, 'Transform Offset X').set?.(MM(3));
-    expect(moved?.images[0]?.transformOffset).toEqual({ x: MM(3), y: 0 });
+    const image = LIVE_OF.get(moved!)!
+      .kb.Drawings()
+      .find((d) => 'GetTransformOriginOffsetX' in d) as
+      | { GetTransformOriginOffsetX(): number; GetTransformOriginOffsetY(): number }
+      | undefined;
+    expect(image?.GetTransformOriginOffsetX()).toBe(MM(3));
+    expect(image?.GetTransformOriginOffsetY()).toBe(0);
     expect(flat(moved!)).not.toContain('transform');
   });
 });
@@ -1891,11 +2029,12 @@ describe('DIMENSION rows', () => {
   const ortho = rowsFor('dimension:0');
   const leader = rowsFor('dimension:1');
 
-  it('opens on Dimension Properties and reaches Basic Properties last', () => {
-    // Groups are collected derived-first (property_mgr.cpp:319-345), and every
-    // property a dimension registers carries a group, so '' arrives from
-    // BOARD_ITEM at the end.
-    expect(groupOrder(ortho)).toEqual(['Dimension Properties', 'Text Properties', '']);
+  it('opens on Basic Properties, then the groups in registration order', () => {
+    // Groups are collected derived-first (property_mgr.cpp:319-345), but every
+    // CLASS_DESC opens its own list with '' (property_mgr.h:278-283), so Basic
+    // Properties leads; then the text group, which the dimension classes reach
+    // before their own Dimension Properties.
+    expect(groupOrder(ortho)).toEqual(['', 'Text Properties', 'Dimension Properties']);
   });
 
   it('gives a measured dimension the format rows and an arrow direction', () => {
@@ -1917,12 +2056,12 @@ describe('DIMENSION rows', () => {
       expect(names(leader), n).not.toContain(n);
   });
 
-  it("calls a leader's override text 'Text', because that is all it has", () => {
-    // Same setter as the others' Override Text — `ChangeOverrideText`
-    // (:1929-1932) — under a different name and the opposite availability.
-    expect(names(leader)).toContain('Text');
+  it('gives a leader no Override Text, and a measured dimension no Text', () => {
+    // PCB_DIMENSION_BASE registers a second "Text" (isLeader, :1929-1932) beside
+    // EDA_TEXT's, which PCB_DIM_LEADER overrides to unavailable (:2122-2124).
+    // Which of the two same-named properties the panel meets first is the
+    // property manager's POINTER order upstream — not pinned here.
     expect(names(leader)).not.toContain('Override Text');
-    expect(row(leader, 'Text').value).toBe('0.3mm Thickness');
     expect(names(ortho)).toContain('Override Text');
     expect(names(ortho)).not.toContain('Text');
 
@@ -1965,17 +2104,28 @@ describe('DIMENSION rows', () => {
 });
 
 describe('the selection rule', () => {
-  it('builds rows for exactly one selected item', () => {
-    // PROPERTIES_PANEL shows the properties common to a multi-selection; we
-    // build none, and the caption still counts them. An empty selection has
-    // no rows because `reset()` clears the grid.
-    expect(pcbPropertiesFor(B, [], CTX)).toEqual([]);
-    expect(pcbPropertiesFor(B, ['track:0', 'via:0'], CTX)).toEqual([]);
-    expect(pcbPropertiesFor(B, ['track:0'], CTX).length).toBeGreaterThan(0);
+  const panelRows = (ids: string[]) => {
+    const ctx = LIVE_OF.get(B)!;
+    const panel = new PCB_PROPERTIES_PANEL(ctx.frame);
+    const items = ids.map((id) => boardItemOfViewId(B, id)).filter((i) => i !== null);
+    panel.SetSelectionProvider(() => items);
+    panel.UpdateData();
+    return panel.GridRows({ units: 'mm', iuScale: pcbIUScale });
+  };
+
+  it('shows the properties a selection has in common', () => {
+    // An empty selection has no rows because `reset()` clears the grid; a
+    // mixed one keeps what every type offers (properties_panel.cpp:230-262) —
+    // the view panel built none for more than one item.
+    expect(panelRows([])).toEqual([]);
+    const both = names(panelRows(['track:0', 'via:0']) as PcbPropRow[]);
+    expect(both).toContain('Net');
+    expect(both).not.toContain('Width');
+    expect(panelRows(['track:0']).length).toBeGreaterThan(0);
   });
 
   it('has no rows for an id it cannot resolve, and does not throw', () => {
-    expect(pcbPropertiesFor(B, ['nonsense'], CTX)).toEqual([]);
-    expect(pcbPropertiesFor(B, ['footprint:99'], CTX)).toEqual([]);
+    expect(panelRows(['nonsense'])).toEqual([]);
+    expect(panelRows(['footprint:99'])).toEqual([]);
   });
 });

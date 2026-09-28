@@ -50,7 +50,7 @@ import {
 } from '@ziroeda/pcbnew/edit-board.js';
 import { footprintBBox } from '@ziroeda/pcbnew/edit-footprint.js';
 import { isBoardItemLocked, setBoardItemsLocked } from '@ziroeda/pcbnew/edit-board.js';
-import { pcbPropertiesFor } from '@ziroeda/pcbnew/properties_panel.js';
+import { livePanel } from './support/live_panel.js';
 import { bestSnapAnchor } from '@ziroeda/pcbnew/pcb_cursor_snap.js';
 import { pcbPointMsgPanelInfo } from '@ziroeda/pcbnew/msg_panel.js';
 import { boardIsEmpty } from '@ziroeda/pcbnew/tools/pcb_selection_conditions.js';
@@ -471,68 +471,52 @@ describe('the Properties panel', () => {
   // `PCB_POINT_DESC` (`pcb_point.cpp:236-252`) registers one property of its
   // own, Size, and `InheritsAfter( PCB_POINT, BOARD_ITEM )` brings Position X,
   // Position Y, Layer and Locked from `BOARD_ITEM_DESC` (`board_item.cpp:449-459`)
-  // — which is why Size comes last. Selecting a point used to fall through the
-  // dispatcher's `default` and show an empty panel.
-  const ctx = { layerColor: () => 'rgb(0, 0, 0)', units: 'mm' as const };
-  const rows = (b = read()): ReturnType<typeof pcbPropertiesFor> =>
-    pcbPropertiesFor(b, ['point:0'], ctx);
+  // — which is why Size comes last. This is PCB_PROPERTIES_PANEL on the live
+  // BOARD (#636 stage 6).
+  const panel = (src = BOARD) => livePanel(src, (b) => b.Points()[0]!);
 
   it('offers BOARD_ITEM’s four rows and PCB_POINT’s Size, in that order', () => {
-    expect(rows().map((r) => r.name)).toEqual([
-      'Position X',
-      'Position Y',
-      'Layer',
-      'Locked',
-      'Size',
-    ]);
+    expect(
+      panel()
+        .rows()
+        .map((r) => r.name),
+    ).toEqual(['Position X', 'Position Y', 'Layer', 'Locked', 'Size']);
   });
 
   it('reads the point’s own values', () => {
-    const r = rows();
+    const r = panel().rows();
     expect(r.find((x) => x.name === 'Position X')!.value).toBe(MM(10));
     expect(r.find((x) => x.name === 'Size')!.value).toBe(MM(1.5));
-    // `BOARD::GetLayerName()`, which for a layer the board did not rename is
-    // `GetStandardLayerName` -> `LayerName()` -> "F.Silkscreen"
-    // (`common/layer_id.cpp:48`), NOT the file token "F.SilkS".
-    //
-    // Both names are in play and the ORDER settles it: `updateLists`
-    // (pcb_properties_panel.cpp:645-660) fills every PCB_LAYER_ID property's
-    // choices with `LSET::Name( layer )`, the canonical token — and then
-    // `createPGProperty` (:437-461) throws those labels away, rebuilding the
-    // wxPGChoices from `m_frame->GetBoard()->GetLayerName()` (:451) before the
-    // cell is ever drawn. The canonical list survives only as the layer IDs and
-    // their UIOrder. So the cell reads what the Appearance panel reads.
+    // `createPGProperty` (:437-461) rebuilds the PCB_LAYER_ID cell's choices
+    // from `m_frame->GetBoard()->GetLayerName()` (:451), which for a layer the
+    // board did not rename is "F.Silkscreen", NOT the file token "F.SilkS".
     expect(r.find((x) => x.name === 'Layer')!.value).toBe('F.Silkscreen');
   });
 
   it('commits Size, and the edit reaches the file', () => {
-    // A row whose `set` updated the model but not the source node would show
-    // the new size and save the old one.
-    const next = rows().find((x) => x.name === 'Size')!.set!(MM(3))!;
-
-    expect(next.points[0]!.size).toBe(MM(3));
-    expect(readBoard(parse(serializeBoard(next))).points[0]!.size).toBe(MM(3));
+    const p = panel();
+    expect(p.set('Size', MM(3))).toBe(true);
+    expect(p.board.Points()[0]!.GetSize()).toBe(MM(3));
+    expect(readBoard(parse(p.written())).points[0]!.size).toBe(MM(3));
   });
 
   it('commits a position, and that reaches the file too', () => {
-    const next = rows().find((x) => x.name === 'Position X')!.set!(MM(42))!;
-
-    expect(readBoard(parse(serializeBoard(next))).points[0]!.at.x).toBe(MM(42));
+    const p = panel();
+    expect(p.set('Position X', MM(42))).toBe(true);
+    expect(readBoard(parse(p.written())).points[0]!.at.x).toBe(MM(42));
   });
 
   it('locks in memory and writes no token, because the parser rejects one', () => {
     // `SetLocked` works on a `PCB_POINT` — it is a `BOARD_ITEM` — and the panel
     // offers the row. But `format( const PCB_POINT* )` has no `(locked …)` and
     // `parsePCB_POINT` `Expecting( "at, size, layer or uuid" )`, so emitting one
-    // would hand KiCad a `(point …)` its own parser throws on. Upstream's lock
-    // is equally unsaveable.
-    const next = rows().find((x) => x.name === 'Locked')!.set!(true)!;
-
-    expect(next.points[0]!.locked).toBe(true);
-    expect(isBoardItemLocked(next, 'point:0')).toBe(true);
-    expect(serializeBoard(next)).not.toContain('locked');
+    // would hand KiCad a `(point …)` its own parser throws on.
+    const p = panel();
+    expect(p.set('Locked', true)).toBe(true);
+    expect(p.board.Points()[0]!.IsLocked()).toBe(true);
+    expect(p.written()).not.toContain('locked');
     // And it is gone after a round trip, which is what upstream does too.
-    expect(readBoard(parse(serializeBoard(next))).points[0]!.locked).toBe(false);
+    expect(readBoard(parse(p.written())).points[0]!.locked).toBe(false);
   });
 
   it('Lock/Unlock reaches a point at all, which is the shared command', () => {

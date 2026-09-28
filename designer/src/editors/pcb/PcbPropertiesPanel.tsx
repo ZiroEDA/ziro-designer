@@ -13,9 +13,9 @@
  * properties_panel.cpp` does. eeschema's subclass sits beside this one and
  * differs only in which rows it hands over.
  *
- * The rows come from `pcbPropertiesFor` in the pcbnew package, which mirrors
- * the PROPERTY_MANAGER registrations at the bottom of each board item's .cpp;
- * the caption comes from `pcbItemFriendlyName`, which mirrors
+ * The rows come from `PCB_PROPERTIES_PANEL` in the pcbnew package
+ * (`pcbnew/widgets/pcb_properties_panel.ts`): the live items' own
+ * PROPERTY_MANAGER registrations, an edit one BOARD_COMMIT; the caption is
  * `EDA_ITEM::GetFriendlyName()`.
  *
  * This file replaces ~1200 lines that were written inline in `PcbEditor.tsx`:
@@ -30,7 +30,6 @@
 
 import { type JSX, useMemo, useRef } from 'react';
 import type { Board } from '@ziroeda/pcbnew';
-import type { PcbPropRow } from '@ziroeda/pcbnew/properties_panel.js';
 import { pcbIUScale } from '@ziroeda/common';
 import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
@@ -55,21 +54,8 @@ interface LiveProps {
   units: StatusUnits;
 }
 
-/** The old view-row form, until PcbEditor's call site moves to {@link LiveProps}. */
-interface ViewRowProps {
-  rows: readonly PcbPropRow[];
-  /** `SELECTION::Size()`; the caption counts anything but one. */
-  selectionCount: number;
-  /** `GetFriendlyName()` of the single selected item, when there is one. */
-  friendlyName?: string;
-  /** The frame's display units, `EDA_DRAW_FRAME::GetUserUnits()`. */
-  units: StatusUnits;
-  /** `BOARD_COMMIT::Push( "Edit Properties" )` — our command is the next board. */
-  onCommand: (board: Board) => void;
-}
-
-export function PcbPropertiesPanel(props: LiveProps | ViewRowProps): JSX.Element {
-  return 'frame' in props ? <LivePcbPropertiesPanel {...props} /> : <ViewRowPanel {...props} />;
+export function PcbPropertiesPanel(props: LiveProps): JSX.Element {
+  return <LivePcbPropertiesPanel {...props} />;
 }
 
 function LivePcbPropertiesPanel({ frame, board, selection, units }: LiveProps): JSX.Element {
@@ -111,30 +97,6 @@ function LivePcbPropertiesPanel({ frame, board, selection, units }: LiveProps): 
       fmt={(iu) => new PGPROPERTY_DISTANCE(pgFrame).DistanceToString(iu)}
       parse={(text) => PG_UNIT_EDITOR.GetValueFromControl(text, false, pgFrame) ?? null}
       onCommand={(edit) => edit()}
-    />
-  );
-}
-
-function ViewRowPanel({
-  rows,
-  selectionCount,
-  friendlyName,
-  units,
-  onCommand,
-}: ViewRowProps): JSX.Element {
-  // The frame a property asks: its user units and its EDA_IU_SCALE.
-  const frame: PG_FRAME = { units, iuScale: pcbIUScale };
-
-  return (
-    <PropertiesPanel<Board>
-      selectionCount={selectionCount}
-      friendlyName={friendlyName}
-      rows={rows}
-      /* The same PGPROPERTY_DISTANCE the schematic panel uses, at THIS frame's
-         EDA_IU_SCALE — the one thing the two subclasses may differ about. */
-      fmt={(iu) => new PGPROPERTY_DISTANCE(frame).DistanceToString(iu)}
-      parse={(text) => PG_UNIT_EDITOR.GetValueFromControl(text, false, frame) ?? null}
-      onCommand={onCommand}
     />
   );
 }

@@ -36,7 +36,11 @@ import { PROPERTY_MANAGER } from '@ziroeda/common/properties/property_mgr.js';
 import { unescapeString } from '@ziroeda/common/string_utils.js';
 import { FIELD_T, GetCanonicalFieldName } from '@ziroeda/common/template_fieldnames.js';
 import { EVENTS } from '@ziroeda/common/tool/tool_event.js';
-import { type PG_CELL, PROPERTIES_PANEL } from '@ziroeda/common/widgets/properties_panel.js';
+import {
+  type PG_CELL,
+  PROPERTIES_PANEL,
+  variantEquals,
+} from '@ziroeda/common/widgets/properties_panel.js';
 import { ENUM_MAP } from '@ziroeda/common/properties/property.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import {
@@ -158,6 +162,11 @@ export interface PCB_GRID_ROW {
   readonly optional?: boolean;
   readonly browse?: 'footprint';
   readonly set?: (v: string | number | boolean) => (() => void) | null;
+}
+
+/** Millimetres per user unit, for an area's side. */
+function userUnitMM(aUnits: string): number {
+  return aUnits === 'in' ? 25.4 : aUnits === 'mils' ? 0.0254 : 1;
 }
 
 /** A number from a cell's text (`wxString::ToDouble` over the whole text). */
@@ -440,8 +449,13 @@ export class PCB_PROPERTIES_PANEL extends PROPERTIES_PANEL {
     const type = aProperty.TypeHash();
     const optional = type === TYPE_OPT_INT || type === TYPE_OPT_DOUBLE;
 
-    /** EVT_PG_CHANGING then EVT_PG_CHANGED. */
+    /**
+     * EVT_PG_CHANGING then EVT_PG_CHANGED. wxPropertyGrid raises neither when
+     * the committed value equals the cell's, so an unchanged edit is no edit.
+     */
     const edit = (value: unknown): (() => void) | null => {
+      if (aValue !== null && variantEquals(value, aValue)) return null;
+      if (value === undefined && aValue === null && optional) return null;
       if (this.valueChanging(name, value)) return null;
       return () => this.valueChanged(name, value);
     };
@@ -542,12 +556,18 @@ export class PCB_PROPERTIES_PANEL extends PROPERTIES_PANEL {
         });
       }
 
-      case PROPERTY_DISPLAY.PT_AREA:
-        return {
-          ...base,
-          kind: 'string',
-          value: typeof aValue === 'number' ? formatG(aValue) : '',
-        };
+      case PROPERTY_DISPLAY.PT_AREA: {
+        // PGPROPERTY_AREA: StringFromValue( area, true, AREA ), and the unit
+        // editor reads the text back in the frame's units squared.
+        const units = this.m_frame.GetUnitsProvider();
+        const shown = typeof aValue === 'number' ? units.StringFromValue(aValue, true, 'area') : '';
+        return withSet({ ...base, kind: 'string', value: shown }, (v) => {
+          const n = textToDouble(String(v).replace(/\s*[a-z²]+$/i, ''));
+          if (n === null) return null;
+          const side = units.GetIuScale().mmToIU(userUnitMM(aPgFrame.units));
+          return edit(Math.round(n * side * side));
+        });
+      }
 
       case PROPERTY_DISPLAY.PT_NET:
         break;

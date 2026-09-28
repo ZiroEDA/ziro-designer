@@ -78,17 +78,13 @@ import {
 import { LSET } from '@ziroeda/common/lset.js';
 import { NETINFO_ITEM, NETINFO_LIST } from '../../netinfo.js';
 import { PAD } from '../../pad.js';
-import type { PcbDrillSlot, PcbPostMachining } from '../../padstack_drill.js';
 import {
   defaultThermalSpokeAngle,
   PAD_ATTRIB,
-  PAD_DRILL_POST_MACHINING_MODE,
   PAD_DRILL_SHAPE,
   PAD_PROP,
   PAD_SHAPE,
   PADSTACK,
-  type PADSTACK_DRILL_PROPS,
-  type PADSTACK_POST_MACHINING_PROPS,
   UNCONNECTED_LAYER_MODE,
 } from '../../padstack.js';
 import { BARCODE_ECC_T, BARCODE_T, PCB_BARCODE } from '../../pcb_barcode.js';
@@ -920,46 +916,6 @@ const UNCONNECTED_MODE_OF_VIEW: Record<UnconnectedLayerMode, UNCONNECTED_LAYER_M
   start_end_only: UNCONNECTED_LAYER_MODE.START_END_ONLY,
 };
 
-const drillSlotView = (d: PADSTACK_DRILL_PROPS): PcbDrillSlot | undefined =>
-  d.size.x > 0 ? { size: d.size.x, start: layerName(d.start), end: layerName(d.end) } : undefined;
-
-function applyDrillSlot(d: PADSTACK_DRILL_PROPS, v: PcbDrillSlot | undefined): void {
-  if (!v) {
-    d.size = { x: 0, y: 0 };
-    return;
-  }
-  d.size = { x: v.size, y: v.size };
-  d.start = layerId(v.start);
-  d.end = layerId(v.end);
-}
-
-const postMachiningView = (p: PADSTACK_POST_MACHINING_PROPS): PcbPostMachining | undefined =>
-  p.mode === undefined || p.mode === PAD_DRILL_POST_MACHINING_MODE.NOT_POST_MACHINED
-    ? undefined
-    : {
-        mode: p.mode === PAD_DRILL_POST_MACHINING_MODE.COUNTERBORE ? 'counterbore' : 'countersink',
-        ...(p.size > 0 ? { size: p.size } : {}),
-        ...(p.depth > 0 ? { depth: p.depth } : {}),
-        ...(p.angle > 0 ? { angle: p.angle } : {}),
-      };
-
-function applyPostMachining(
-  p: PADSTACK_POST_MACHINING_PROPS,
-  v: PcbPostMachining | undefined,
-): void {
-  if (!v) {
-    p.mode = PAD_DRILL_POST_MACHINING_MODE.NOT_POST_MACHINED;
-    return;
-  }
-  p.mode =
-    v.mode === 'counterbore'
-      ? PAD_DRILL_POST_MACHINING_MODE.COUNTERBORE
-      : PAD_DRILL_POST_MACHINING_MODE.COUNTERSINK;
-  p.size = v.size ?? 0;
-  p.depth = v.depth ?? 0;
-  p.angle = v.angle ?? 0;
-}
-
 /** `isDefaultTeardropParameters( tdParams )` (pcb_io_kicad_sexpr.cpp:766). */
 function isDefaultTeardropParameters(td: TEARDROP_PARAMETERS): boolean {
   return td.equals(new TEARDROP_PARAMETERS());
@@ -1155,10 +1111,6 @@ function padView(k: PAD, copperLayerCount: number): PcbPad {
           : 'circle'
         : undefined,
     padToDieLength: k.GetPadToDieLength() !== 0 ? k.GetPadToDieLength() : undefined,
-    backdrill: drillSlotView(ps.SecondaryDrill()),
-    tertiaryDrill: drillSlotView(ps.TertiaryDrill()),
-    frontPostMachining: postMachiningView(ps.FrontPostMachining()),
-    backPostMachining: postMachiningView(ps.BackPostMachining()),
     teardrops: teardropsView(k.GetTeardropParams()),
     unconnectedLayerMode:
       k.GetUnconnectedLayerMode() === UNCONNECTED_LAYER_MODE.KEEP_ALL
@@ -1242,10 +1194,6 @@ function applyPad(
   if (k.GetThermalSpokeAngle().AsDegrees() !== spokeAngle)
     k.SetThermalSpokeAngle(new EDA_ANGLE(spokeAngle));
   k.SetPadToDieLength(v.padToDieLength ?? 0);
-  applyDrillSlot(ps.SecondaryDrill(), v.backdrill);
-  applyDrillSlot(ps.TertiaryDrill(), v.tertiaryDrill);
-  applyPostMachining(ps.FrontPostMachining(), v.frontPostMachining);
-  applyPostMachining(ps.BackPostMachining(), v.backPostMachining);
   applyTeardrops(k.GetTeardropParams(), v.teardrops);
   k.SetUnconnectedLayerMode(UNCONNECTED_MODE_OF_VIEW[v.unconnectedLayerMode ?? 'keep_all']);
   if (v.uuid) setUuid(k, v.uuid);
@@ -1326,10 +1274,6 @@ function viaView(k: PCB_VIA): PcbVia {
     plugging: viaOptView(ps.FrontOuterLayers().has_plugging, ps.BackOuterLayers().has_plugging),
     capping: ps.Drill().is_capped,
     filling: ps.Drill().is_filled,
-    backdrill: drillSlotView(ps.SecondaryDrill()),
-    tertiaryDrill: drillSlotView(ps.TertiaryDrill()),
-    frontPostMachining: postMachiningView(ps.FrontPostMachining()),
-    backPostMachining: postMachiningView(ps.BackPostMachining()),
     unconnectedLayerMode:
       ps.UnconnectedLayerMode() === UNCONNECTED_LAYER_MODE.KEEP_ALL
         ? undefined
@@ -1365,10 +1309,6 @@ function applyVia(k: PCB_VIA, v: PcbVia, board: BOARD, codes: NetCodes): void {
   ps.BackOuterLayers().has_plugging = v.plugging?.back;
   ps.Drill().is_capped = v.capping;
   ps.Drill().is_filled = v.filling;
-  applyDrillSlot(ps.SecondaryDrill(), v.backdrill);
-  applyDrillSlot(ps.TertiaryDrill(), v.tertiaryDrill);
-  applyPostMachining(ps.FrontPostMachining(), v.frontPostMachining);
-  applyPostMachining(ps.BackPostMachining(), v.backPostMachining);
   ps.SetUnconnectedLayerMode(UNCONNECTED_MODE_OF_VIEW[v.unconnectedLayerMode ?? 'keep_all']);
   k.SetLocked(v.locked ?? false);
   if (v.uuid) setUuid(k, v.uuid);

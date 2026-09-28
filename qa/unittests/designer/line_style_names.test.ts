@@ -74,11 +74,9 @@ const CALL_SITES: Record<string, string> = {
   'common/dialogs/dialog_table_properties.tsx': read(
     '../../../common/dialogs/dialog_table_properties.tsx',
   ),
-  // Was `pcb/PcbEditor.tsx`. The Line Style row moved with the rest of the PCB
-  // property grid when pcbnew stopped keeping a private copy of
-  // PROPERTIES_PANEL: the rows are built in the pcbnew package now, so that is
-  // where the list is consumed and that is where this rule has to hold.
-  'pcbnew/properties_panel.ts': read('../../../pcbnew/properties_panel.ts'),
+  // `pcbnew/properties_panel.ts` left this list with the view-row panel: the
+  // live PCB_PROPERTIES_PANEL offers ENUM_MAP<LINE_STYLE>'s own choices, as
+  // upstream's property grid does, and holds no copy of lineTypeNames.
   'symbol/components/dialogs.tsx': read(`${D}symbol/components/dialogs.tsx`),
 };
 

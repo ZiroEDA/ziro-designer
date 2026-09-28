@@ -183,7 +183,18 @@ hidden-text rule is the pour's (`addKnockout`), not the text's.
   `via_layers`, `convert_shape_list_to_polygon_legacy`, and this package's own
   `convert_basic_shapes_to_polygon.ts` (also read by the 3D viewer's
   `text_to_polyset` / `transform_shape_to_polygon`).
-- stage 6 (dialogs/properties panel on the classes): `padstack_drill.ts`.
+- stage 6 (dialogs/properties panel on the classes): `padstack_drill.ts` —
+  resolved 09-28 with the panel (below).
+
+**The Properties panel is `widgets/pcb_properties_panel.ts` (09-28, #636 stage
+6).** `PCB_PROPERTIES_PANEL` over `common/widgets/properties_panel.ts`
+(PROPERTIES_PANEL's model half): the rows are the live items' PROPERTY_MANAGER
+registrations, an edit is one BOARD_COMMIT. `pcbnew/properties_panel.ts` (the
+2.8k-line view-row copy) and `padstack_drill.ts` are gone, with the four view
+fields `backdrill`/`tertiaryDrill`/`front`/`backPostMachining` that only it
+edited. Where its tests had drifted from the C++ (row and group order, a
+Sheetname field, arc endpoints, table positions, pad shape order, the SHAPE_T
+row) the new tests follow the C++; the commit lists each.
 
 **`modify_lines.ts` + `outset_items.ts` + `polygon_booleans.ts` resolved
 09-28:** merged into `tools/item_modification_routine.ts`, matching

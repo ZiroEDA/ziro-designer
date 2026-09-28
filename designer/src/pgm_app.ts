@@ -31,7 +31,6 @@ import { WINDOW_SETTINGS } from '@ziroeda/common/settings/app_settings.js';
 import { colorSettingsById } from './prefs/color_settings_list.js';
 import { type MouseDragAction, type ScrollModifier, settings } from './prefs/settings.js';
 import { setCustomCursorsEnabledProvider } from '@ziroeda/common/gal/kicursors.js';
-import { setColorSettingsByIdProvider } from './editors/pcb/pcbTheme.js';
 
 /** `panel_mouse_settings.cpp:113-119`: the four choices are `WXK_*` codes. */
 const MODIFIER_CODES: Readonly<Record<ScrollModifier, number>> = {
@@ -145,10 +144,6 @@ export function InitPgm(): PGM_BASE {
     // the one place every editor's `InitPgm` runs through, so it is the one
     // place this needs saying.
     setCustomCursorsEnabledProvider(() => settings.common.appearance.use_custom_cursors);
-    // pcbTheme.ts's PCM lookup, the same shape for the same reason: PCB_APP
-    // will route pcbnew's own use through it once pcbTheme.ts moves there,
-    // but every caller — pcbnew's included — shares this one registration.
-    setColorSettingsByIdProvider(colorSettingsById);
     SetPgm(pgm);
   }
   return pgm;

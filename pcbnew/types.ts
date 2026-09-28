@@ -16,7 +16,6 @@
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import type { ZoneConnection } from './zone_connection.js';
 import type { PcbFillMode } from './shape_fill.js';
-import type { PcbDrillSlot, PcbPostMachining } from './padstack_drill.js';
 import type { BOARD } from './board.js';
 import type { FOOTPRINT } from './footprint.js';
 import type { PAD } from './pad.js';
@@ -125,17 +124,6 @@ export interface PcbPad {
   anchorShape?: PadShape;
   /** `(die_length …)`, PAD::GetPadToDieLength, IU. */
   padToDieLength?: number;
-  /**
-   * The PADSTACK's two secondary drill slots and its post-machining
-   * (`(backdrill …)`, `(tertiary_drill …)`, `(front_post_machining …)`,
-   * `(back_post_machining …)` — pcb_io_kicad_sexpr.cpp:1744-1784). A backdrill's
-   * SIDE is its start layer, not its slot, so read them through
-   * `padstack_drill.ts` rather than by position.
-   */
-  backdrill?: PcbDrillSlot;
-  tertiaryDrill?: PcbDrillSlot;
-  frontPostMachining?: PcbPostMachining;
-  backPostMachining?: PcbPostMachining;
   /** `(teardrops …)`, PAD::GetTeardropParams. Absent means upstream's defaults. */
   teardrops?: TeardropParams;
   /**
@@ -486,12 +474,6 @@ export interface PcbVia {
   plugging?: FrontBackOptBool;
   capping?: boolean;
   filling?: boolean;
-  /** The same two backdrill slots and post-machining a pad carries
-   *  (pcb_io_kicad_sexpr.cpp:2657-2694). */
-  backdrill?: PcbDrillSlot;
-  tertiaryDrill?: PcbDrillSlot;
-  frontPostMachining?: PcbPostMachining;
-  backPostMachining?: PcbPostMachining;
   /**
    * `(remove_unused_layers …)` / `(keep_end_layers …)` / `(start_end_only …)`,
    * PADSTACK's UNCONNECTED_LAYER_MODE. Absent means the file said nothing,
