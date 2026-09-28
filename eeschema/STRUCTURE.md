@@ -483,6 +483,16 @@ adapter.ts` to the **eeschema root**, because KiCad's own
 `symbol_tree_synchronizing_adapter.cpp` lives at `eeschema/`, not
 `eeschema/symbol_editor/`.
 
+**Stage F (subfolders, 2026-09-29): `frame_title.ts` and
+`delete_symbol_prompt.ts` merged into `symbol_editor.ts`.** Both were fragments
+split out of `SYMBOL_EDIT_FRAME::UpdateTitle` and
+`SYMBOL_EDIT_FRAME::DeleteSymbolFromLibrary`, and KiCad's own
+`symbol_editor.cpp` is the one file that holds both — so "kept under their own
+names" above is superseded; they now live at
+`eeschema/symbol_editor/symbol_editor.ts` (the two sections kept separate,
+each with its own doc comment). `SymbolEditor.tsx` and the two qa tests that
+imported the old paths were updated in the same commit.
+
 The rest of the directory is more interconnected than the "no `designer/`
 import" grep alone shows, three chains deep:
 
