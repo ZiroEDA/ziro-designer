@@ -12,8 +12,8 @@
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic } from '@ziroeda/eeschema';
-import { sheetToSvg } from '@ziroeda/designer/src/editors/schematic/render/plot.js';
-import type { PlotOpts } from '@ziroeda/designer/src/editors/schematic/render/plot.js';
+import { sheetToSvg } from '@ziroeda/eeschema/sch_plotter.js';
+import type { PlotOpts } from '@ziroeda/eeschema/sch_plotter.js';
 import { KICAD_CLASSIC } from '@ziroeda/eeschema/sch_render_settings.js';
 
 const sch = (body: string) =>

@@ -18,11 +18,7 @@ import { fileURLToPath } from 'node:url';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic } from '@ziroeda/eeschema';
-import {
-  sheetsToPdf,
-  sheetToPs,
-  sheetToSvg,
-} from '@ziroeda/designer/src/editors/schematic/render/plot.js';
+import { sheetsToPdf, sheetToPs, sheetToSvg } from '@ziroeda/eeschema/sch_plotter.js';
 import { KICAD_DEFAULT } from '@ziroeda/eeschema/sch_render_settings.js';
 import {
   getOutlineFont,

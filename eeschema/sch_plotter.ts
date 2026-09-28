@@ -2,7 +2,8 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * Schematic print/plot output. Counterparts: `eeschema/sch_plotter.cpp`
+ * SCH_PLOTTER: schematic print/plot output (was `designer/src/editors/schematic/
+ * render/plot.ts`). Counterparts: `eeschema/sch_plotter.cpp`
  * (SCH_PLOTTER, the Plot dialog's file writers) and `eeschema/printing/
  * sch_printout.cpp` (SCH_PRINTOUT, the Print dialog's page rendering).
  *
@@ -16,16 +17,16 @@
  */
 
 import { ExpandTextVars } from '@ziroeda/common/common.js';
-import type { Schematic } from '@ziroeda/eeschema';
-import { busJunctionIds } from '@ziroeda/eeschema/connectivity/bus.js';
+import type { Schematic } from './index.js';
+import { busJunctionIds } from './connectivity/bus.js';
 import type { WksSheet } from '@ziroeda/common';
-import type { Theme } from '@ziroeda/eeschema/sch_render_settings.js';
-import { KICAD_CLASSIC } from '@ziroeda/eeschema/sch_render_settings.js';
-import { renderSchematic, paperSizeIU, setVectorText } from '@ziroeda/eeschema/sch_painter.js';
-import type { RenderOpts } from '@ziroeda/eeschema/sch_render_settings.js';
+import type { Theme } from './sch_render_settings.js';
+import { KICAD_CLASSIC } from './sch_render_settings.js';
+import { renderSchematic, paperSizeIU, setVectorText } from './sch_painter.js';
+import type { RenderOpts } from './sch_render_settings.js';
 import { zlibSync } from 'fflate';
-import type { LibSymbol } from '@ziroeda/eeschema';
-import { plotPdfAnnotations, type PdfNetInfo } from '@ziroeda/eeschema/pdf_annotations.js';
+import type { LibSymbol } from './index.js';
+import { plotPdfAnnotations, type PdfNetInfo } from './pdf_annotations.js';
 import { schIUScale } from '@ziroeda/common/eda_units.js';
 import { fracture, type Polygon } from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
@@ -52,7 +53,7 @@ import {
   PAGE_SIZE_TYPE,
 } from '@ziroeda/common/page_info.js';
 import { TITLE_BLOCK } from '@ziroeda/common/title_block.js';
-import { getPageSettings } from '@ziroeda/eeschema/tools/page_settings.js';
+import { getPageSettings } from './tools/page_settings.js';
 
 const MM = 10000; // IU per mm (matches the renderer)
 

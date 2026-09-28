@@ -54,8 +54,8 @@ import {
   type ContentKey,
 } from '@ziroeda/designer/src/render/gl/schematic_gl.js';
 import { Scene } from '@ziroeda/designer/src/render/gl/scene.js';
-import { sheetToSvg } from '@ziroeda/designer/src/editors/schematic/render/plot.js';
-import type { PlotOpts } from '@ziroeda/designer/src/editors/schematic/render/plot.js';
+import { sheetToSvg } from '@ziroeda/eeschema/sch_plotter.js';
+import type { PlotOpts } from '@ziroeda/eeschema/sch_plotter.js';
 import { KICAD_DEFAULT } from '@ziroeda/eeschema/sch_render_settings.js';
 import type { Schematic } from '@ziroeda/eeschema/types.js';
 import type { Theme } from '@ziroeda/eeschema/sch_render_settings.js';

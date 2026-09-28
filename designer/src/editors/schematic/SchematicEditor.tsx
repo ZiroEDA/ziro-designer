@@ -522,7 +522,7 @@ import {
   pageIU,
   type PlotOpts,
   type PlotSink,
-} from './render/plot.js';
+} from '@ziroeda/eeschema/sch_plotter.js';
 import { DEFAULT_SETUP } from '@ziroeda/common/drawing_sheet/types.js';
 import { BUILTIN_THEMES } from '@ziroeda/eeschema/sch_render_settings.js';
 import { ProgressDialog, nextPaint } from '@ziroeda/common/widgets/wx_progress_reporters.js';

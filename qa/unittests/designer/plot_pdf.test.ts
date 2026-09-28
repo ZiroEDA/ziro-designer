@@ -24,7 +24,7 @@ import {
   plotPdfSheets,
   sheetsToPdf,
   type PlotOpts,
-} from '@ziroeda/designer/src/editors/schematic/render/plot.js';
+} from '@ziroeda/eeschema/sch_plotter.js';
 import { KICAD_DEFAULT } from '@ziroeda/eeschema/sch_render_settings.js';
 import type { Schematic } from '@ziroeda/eeschema/types.js';
 

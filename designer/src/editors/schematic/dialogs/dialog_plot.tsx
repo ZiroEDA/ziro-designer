@@ -28,7 +28,7 @@
 
 import { useMemo, useRef, useState, type JSX } from 'react';
 import { mmToIU, iuToMM, type ReportLine } from '@ziroeda/common';
-import type { PlotOpts, PlotPageSize } from '../render/plot.js';
+import type { PlotOpts, PlotPageSize } from '@ziroeda/eeschema/sch_plotter.js';
 import { IU_PER_MILS } from '@ziroeda/eeschema/schematic_settings.js';
 import { BUILTIN_THEMES } from '@ziroeda/eeschema/sch_render_settings.js';
 import { settings } from '../../../prefs/settings.js';
