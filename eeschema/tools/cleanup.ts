@@ -24,6 +24,7 @@ import type { EditCommand } from './command.js';
 import { isExplicitJunction, isExplicitJunctionNeeded } from '../junction_helpers.js';
 import { deleteByIds } from './mutate.js';
 import { refId } from './hittest.js';
+import { dissolveJunctionsAt } from '../bus-wire-junction.js';
 
 const eq = (a: Vec2, b: Vec2): boolean => a.x === b.x && a.y === b.y;
 
@@ -39,7 +40,7 @@ function junctionAt(junctions: readonly SchJunction[], p: Vec2): boolean {
 }
 
 /** Two lines share a layer if they are the same kind (wire vs bus). */
-function sameLayer(a: SchLine, b: SchLine): boolean {
+export function sameLayer(a: SchLine, b: SchLine): boolean {
   return a.kind === b.kind;
 }
 
@@ -58,7 +59,7 @@ function strokeEquivalent(a: SchLine, b: SchLine): boolean {
  * and overlap (or touch end-to-end with no junction at the touch point), return
  * the merged span [start,end]; otherwise null. `aCheckJunctions` mirrors KiCad.
  */
-function mergeOverlap(
+export function mergeOverlap(
   first: SchLine,
   second: SchLine,
   junctions: readonly SchJunction[],
@@ -125,7 +126,7 @@ function mergeOverlap(
 }
 
 /** Build a merged wire/bus over `span`, preserving `template`'s kind, with a fresh uuid. */
-function mergedLine(template: SchLine, span: { start: Vec2; end: Vec2 }): SchLine {
+export function mergedLine(template: SchLine, span: { start: Vec2; end: Vec2 }): SchLine {
   return template.kind === 'bus'
     ? makeBus(span.start, span.end)
     : makeWireWithUuid(span.start, span.end, newKiid());
@@ -276,81 +277,6 @@ export function mergeColinearWires(
   }
 
   return any ? { ...sch, lines, junctions } : sch;
-}
-
-/**
- * `SCH_EDIT_FRAME::DeleteJunction`: take a junction dot out *and* fuse the
- * colinear wires that met on it.
- *
- * Removing the dot on its own does nothing lasting, because the tee it sat on
- * is still a tee — `CleanUp` looks at the point, finds a junction is needed
- * again, and puts one straight back. Upstream never hits that, because deleting
- * the dot dissolves the tee first:
- *
- *     alg::for_all_pairs( lines.begin(), lines.end(),
- *             [&]( SCH_LINE* firstLine, SCH_LINE* secondLine )
- *             {
- *                 ...
- *                 if( SCH_LINE* new_line = secondLine->MergeOverlap( screen, firstLine, false ) )
- *
- * Note the `false`: `aCheckJunctions` is off, so the merge is allowed to bridge
- * the very point the junction was on — which is the whole manoeuvre. Two
- * segments that met end to end there become one wire running through, the third
- * wire now ends in the middle of it, and no junction is needed any more.
- *
- * Identical duplicate wires at the point are dropped rather than merged, as
- * upstream's first arm does.
- */
-export function dissolveJunctionsAt(sch: Schematic, points: readonly Vec2[]): Schematic {
-  if (points.length === 0) return sch;
-  let lines = sch.lines.slice();
-  let changed = false;
-
-  for (const point of points) {
-    // "line->IsEndPoint( aJunction->GetPosition() )": only wires and buses that
-    // actually *end* on the point take part; one merely passing through does not.
-    const dead = new Set<SchLine>();
-    const born: SchLine[] = [];
-    const at = lines.filter(
-      (l) => (l.kind === 'wire' || l.kind === 'bus') && (eq(l.start, point) || eq(l.end, point)),
-    );
-
-    for (let a = 0; a < at.length; a++) {
-      const first = at[a]!;
-      if (dead.has(first)) continue;
-      for (let b = a + 1; b < at.length; b++) {
-        const second = at[b]!;
-        if (dead.has(second) || !sameLayer(first, second)) continue;
-
-        // "Remove identical lines".
-        if (
-          (eq(first.start, second.start) && eq(first.end, second.end)) ||
-          (eq(first.start, second.end) && eq(first.end, second.start))
-        ) {
-          dead.add(first);
-          changed = true;
-          break;
-        }
-
-        // The junction is gone, so it may not hold the merge apart: `false`.
-        const span = mergeOverlap(first, second, [], false);
-        if (span) {
-          dead.add(first);
-          dead.add(second);
-          born.push(mergedLine(first, span));
-          changed = true;
-          break;
-        }
-      }
-    }
-
-    if (dead.size || born.length) {
-      lines = lines.filter((l) => !dead.has(l));
-      lines.push(...born);
-    }
-  }
-
-  return changed ? { ...sch, lines } : sch;
 }
 
 /**

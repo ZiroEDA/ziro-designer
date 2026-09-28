@@ -15,7 +15,6 @@ import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic, readSymbolLib } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
 import {
-  trimWire,
   trimOverlappingWires,
   neededJunctions,
   addJunctionsIfNeeded,
@@ -24,6 +23,7 @@ import {
   dragSetFromMove,
   withPostMoveCleanup,
 } from '@ziroeda/eeschema/tools/post_move_cleanup.js';
+import { trimWire } from '@ziroeda/eeschema/bus-wire-junction.js';
 import { planMove } from '@ziroeda/eeschema/tools/connect.js';
 import { orthoMove } from '@ziroeda/eeschema/tools/ortho.js';
 import { moveItems } from '@ziroeda/eeschema/tools/move.js';

@@ -44,54 +44,10 @@ import type { EditCommand } from './command.js';
 import { isExplicitJunctionNeeded } from '../junction_helpers.js';
 import { makeJunction } from './build.js';
 import { refId } from './hittest.js';
+import { trimWire } from '../bus-wire-junction.js';
 
 const eq = (a: Vec2, b: Vec2): boolean => a.x === b.x && a.y === b.y;
 const key = (p: Vec2): string => `${p.x},${p.y}`;
-
-/**
- * `SCH_EDIT_FRAME::TrimWire`: delete the run of wire between two points that
- * both lie on one wire.
- *
- * A symbol dropped so that two of its pins land on the same wire has bridged
- * that span itself; leaving the wire under it makes a redundant parallel
- * connection. The wire is broken at both points and the middle piece removed,
- * so what is left are the two outer stubs.
- *
- * A wire is left alone when the two points are exactly its own ends — that
- * would delete the wire outright rather than trim it.
- */
-export function trimWire(doc: Schematic, start: Vec2, end: Vec2): Schematic {
-  if (eq(start, end)) return doc;
-
-  for (const line of doc.lines) {
-    // Only wires; TrimWire filters on LAYER_WIRE.
-    if (line.kind !== 'wire') continue;
-    if (!onSegment(start, line.start, line.end) || !onSegment(end, line.start, line.end)) continue;
-    // Don't remove entire wires.
-    if (
-      (eq(line.start, start) && eq(line.end, end)) ||
-      (eq(line.start, end) && eq(line.end, start))
-    )
-      continue;
-
-    // Break at both points and drop the piece between them; the outer stubs
-    // survive, and a zero-length stub is cleaned up by SCHEMATIC::CleanUp.
-    const [a, b] = onSegment(start, line.start, end) ? [start, end] : [end, start];
-    const first = { ...line, end: a };
-    const last = { ...line, start: b };
-    const kept: SchLine[] = [];
-    for (const l of doc.lines) {
-      if (l !== line) {
-        kept.push(l);
-        continue;
-      }
-      if (!eq(first.start, first.end)) kept.push(first);
-      if (!eq(last.start, last.end)) kept.push(last);
-    }
-    return { ...doc, lines: kept };
-  }
-  return doc;
-}
 
 /**
  * `SCH_LINE_WIRE_BUS_TOOL::TrimOverLappingWires`: for each moved *non-line*
