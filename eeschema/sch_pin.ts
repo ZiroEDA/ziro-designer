@@ -11,9 +11,13 @@
  * footprint association that selects one, and per-instance sparse edits can all
  * remap it, and the resolved pad may itself use stacked-pin notation (`[1,2]`) and
  * so stand for several pads.
+ *
+ * `resolvePadNumbers` — the netlist-exporter-facing wrapper that expands a
+ * resolved pad through stacked-pin notation — lives in
+ * `netlist_exporters/netlist_exporter_base.ts` now: it is exporter
+ * infrastructure built on this function, not this file's own.
  */
 
-import { expandStackedPinNotation } from '@ziroeda/common/string_utils.js';
 import type { LibSymbol, SchSymbol } from './types.js';
 import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import { EDA_ITEM as EDA_ITEM_CLASS } from '@ziroeda/common/eda_item.js';
@@ -107,30 +111,6 @@ export function getEffectivePadNumber(
   return footprintPads
     ? { padNumber: '', state: 'unmapped' }
     : { padNumber: pinNumber, state: 'identity' };
-}
-
-/**
- * NETLIST_EXPORTER_BASE::resolvePadNumbers, the pad numbers one pin contributes
- * to a netlist: the resolved pad expanded through stacked-pin notation, or nothing
- * at all when the pin maps to no pad on its footprint (an UNMAPPED pin must not
- * open a net entry).
- */
-export function resolvePadNumbers(
-  pinNumber: string,
-  symbol: SchSymbol,
-  lib: LibSymbol | undefined,
-  footprintLibId: string,
-  footprintPads: ReadonlySet<string> | undefined,
-): string[] {
-  const { padNumber, state } = getEffectivePadNumber(
-    pinNumber,
-    symbol,
-    lib,
-    footprintLibId,
-    footprintPads,
-  );
-  if (state === 'unmapped') return [];
-  return expandStackedPinNotation(padNumber).numbers;
 }
 
 // ---------------------------------------------------------------------------

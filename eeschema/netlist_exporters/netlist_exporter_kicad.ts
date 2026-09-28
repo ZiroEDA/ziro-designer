@@ -16,7 +16,7 @@
  * file format rather than a shared object graph, the board never has to reach into
  * the schematic model, exactly the separation upstream gets from kiway mail.
  *
- * Unlike {@link netlistKicadXml} in ./netlist.ts (the generic XML netlist for
+ * Unlike {@link netlistKicadXml} in ./netlist_exporter_xml.ts (the generic XML netlist for
  * external tools, still single-sheet), this exporter walks the whole hierarchy:
  * one `(comp …)` per board-bound symbol instance of every sheet instance, and nets
  * named by the hierarchy-wide connection graph.
@@ -36,7 +36,7 @@ import { XNODE, wxXmlNodeType } from '@ziroeda/common/xnode.js';
 import { arg, childNamed, childrenNamed } from '@ziroeda/sexpr/query.js';
 import { computeHierarchyNetlist, type HierSheet } from '../connectivity/hierarchy.js';
 import { enumeratePins, type Netlist, type PinNode } from '../connectivity/nets.js';
-import { resolvePadNumbers } from '../sch_pin.js';
+import { resolvePadNumbers } from './netlist_exporter_base.js';
 import { refId } from '../tools/hittest.js';
 import type { LibSymbol, Schematic, SchSymbol } from '../types.js';
 import { schSymbolLibraryName } from '../lib_symbol_compare.js';

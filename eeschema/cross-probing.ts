@@ -25,9 +25,8 @@
  * the packet apart.
  */
 import { escapeIpc } from '@ziroeda/common/string_utils.js';
-import { symbolField } from './netlist_exporters/netlist.js';
+import { resolvePadNumbers, symbolField } from './netlist_exporters/netlist_exporter_base.js';
 import { schSymbolLibraryName } from './lib_symbol_compare.js';
-import { resolvePadNumbers } from './sch_pin.js';
 import { refId } from './tools/hittest.js';
 import type { LibSymbol, Schematic, SchSymbol } from './types.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
