@@ -307,6 +307,29 @@ describe('a circle', () => {
   });
 });
 
+describe('a graphic line (EDA_SEGMENT_POINT_EDIT_BEHAVIOR)', () => {
+  it('moves only the end that was grabbed', () => {
+    const b = board({
+      shapes: [
+        {
+          kind: 'line',
+          start: { x: 0, y: 0 },
+          end: { x: MM(10), y: 0 },
+          width: MM(0.15),
+          fillMode: 'none',
+          layer: 'F.SilkS',
+        },
+      ],
+    });
+    const out = dragBoardHandle(b, 'shape:0', handle(b, 'shape:0', 'point', 1), {
+      x: MM(12),
+      y: MM(3),
+    });
+    expect(out.shapes[0]!.start).toEqual({ x: 0, y: 0 });
+    expect(out.shapes[0]!.end).toEqual({ x: MM(12), y: MM(3) });
+  });
+});
+
 describe('a polygon', () => {
   const polyBoard = () =>
     board({
