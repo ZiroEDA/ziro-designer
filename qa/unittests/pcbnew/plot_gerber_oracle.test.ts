@@ -15,7 +15,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { PLOT_FORMAT } from '@ziroeda/common/plotters/plotter.js';
-import { ParseBoard } from '@ziroeda/pcbnew/read-board.js';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
 import { DRILL_MARKS, PCB_PLOT_PARAMS } from '@ziroeda/pcbnew/pcb_plot_params.js';
 import { PCB_PLOTTER } from '@ziroeda/pcbnew/pcb_plotter.js';
 import { PlotBoardLayers, StartPlotBoard } from '@ziroeda/pcbnew/plot_board_layers.js';
@@ -116,7 +116,9 @@ describe('Gerber output matches kicad-cli byte for byte', () => {
   for (const variant of readdirSync(resolve(DIR, 'gerber_oracle'))) {
     if (variant.includes('.')) continue; // README.md, regen.sh
 
-    const expectedFiles = readdirSync(resolve(DIR, 'gerber_oracle', variant)).sort();
+    const expectedFiles = readdirSync(resolve(DIR, 'gerber_oracle', variant))
+      .filter((f) => !f.endsWith('.gbrjob'))
+      .sort();
     const layers = expectedFiles.map((f) => {
       const key = f.replace(/^gerber_oracle-/, '').replace(/\.[^.]+$/, '');
       const layer = LAYERS[key];

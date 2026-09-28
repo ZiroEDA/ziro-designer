@@ -171,8 +171,9 @@ export {
   type CrossProbeView,
 } from './cross-probing.js';
 export { boardAuxOrigin, boardGridOrigin } from './board_design_settings.js';
-export { plotExcellonDrill } from './exporters/gendrill_excellon_writer.js';
-export { plotGerberJob } from './exporters/gerber_jobfile_writer.js';
+export { EXCELLON_WRITER } from './exporters/gendrill_excellon_writer.js';
+export { GENDRILL_WRITER_BASE, ZEROS_FMT } from './exporters/gendrill_writer_base.js';
+export { GERBER_JOBFILE_WRITER } from './exporters/gerber_jobfile_writer.js';
 export {
   AddGerberX2Attribute,
   AddGerberX2Header,

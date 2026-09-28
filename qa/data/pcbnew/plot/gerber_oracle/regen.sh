@@ -11,4 +11,4 @@ kicad-cli pcb export gerbers --precision 5 -o prec5 -l F.Cu $B
 kicad-cli pcb export gerbers --use-drill-file-origin -o auxorigin -l F.Cu $B
 kicad-cli pcb export gerbers --no-netlist -o nonetlist -l F.Cu $B
 kicad-cli pcb export gerbers --include-border-title -o frame -l F.SilkS,Edge.Cuts $B
-rm -f */*.gbrjob
+find . -name "*.gbrjob" ! -path "./default/*" -delete

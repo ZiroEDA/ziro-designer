@@ -25,14 +25,11 @@
  */
 import { useMemo, useRef, useState, type JSX } from 'react';
 import { zipSync, strToU8 } from 'fflate';
-import {
-  plotExcellonDrill,
-  plotGerberJob,
-  boardAuxOrigin,
-  PCB_PLOTTER,
-  type Board,
-} from '@ziroeda/pcbnew';
+import { boardAuxOrigin, PCB_PLOTTER, type Board } from '@ziroeda/pcbnew';
 import { DRILL_MARKS, PCB_PLOT_PARAMS } from '@ziroeda/pcbnew/pcb_plot_params.js';
+import { EXCELLON_WRITER } from '@ziroeda/pcbnew/exporters/gendrill_excellon_writer.js';
+import { ZEROS_FMT } from '@ziroeda/pcbnew/exporters/gendrill_writer_base.js';
+import { GERBER_JOBFILE_WRITER } from '@ziroeda/pcbnew/exporters/gerber_jobfile_writer.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import type { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { PLOT_FORMAT } from '@ziroeda/common/plotters/plotter.js';
@@ -202,11 +199,12 @@ export function DialogPcbPlot({
     }
 
     if (jobFile) {
+      // PCB_PLOTTER::Plot: the GERBER_JOBFILE_WRITER fed each plotted file.
       const jobName = `${base}-job.gbrjob`;
-      const text = plotGerberJob(
-        k,
-        plotted.map((f) => ({ layer: f.layer, name: f.fullName })),
-      );
+      const jobfile_writer = new GERBER_JOBFILE_WRITER(k, reporter);
+      for (const f of plotted) jobfile_writer.AddGbrFile(f.layer, f.fullName);
+      jobfile_writer.CreateJobFile(jobName);
+      const text = new TextDecoder().decode(jobfile_writer.GetWrittenFile()!.bytes);
       emit(jobName, text, 'application/json');
       files[jobName] = strToU8(text);
     }
@@ -216,11 +214,33 @@ export function DialogPcbPlot({
     }
   };
 
+  /**
+   * Generate Drill Files...: EXCELLON_WRITER with DIALOG_GENDRILL's defaults
+   * (metric, decimal, PTH and NPTH merged, oval holes as G85 slots) and the
+   * drill/place origin when "Use drill/place file origin" is checked.
+   */
   const drill = (): void => {
-    const origin = useAuxOrigin ? boardAuxOrigin(board) : undefined;
-    const text = plotExcellonDrill(board, { creationDate: new Date().toISOString(), origin });
-    emit(`${base}.drl`, text, 'text/plain');
-    if (downloadCopy) download(`${base}.drl`, text);
+    const k = board.k;
+
+    if (!k) {
+      report('The board model is not loaded, nothing to drill.', RPT_SEVERITY_WARNING);
+      return;
+    }
+
+    if (!k.GetFileName()) k.SetFileName(board.fileName ?? 'board.kicad_pcb');
+
+    const writer = new EXCELLON_WRITER(k);
+    const origin = useAuxOrigin ? k.GetDesignSettings().GetAuxOrigin() : { x: 0, y: 0 };
+    // dialog_gendrill.cpp: precisionListForMetric( 3, 3 )
+    writer.SetFormat(true, ZEROS_FMT.DECIMAL_FORMAT, 3, 3);
+    writer.SetOptions(false, false, origin, true);
+    writer.SetRouteModeForOvalHoles(false);
+    writer.SetFileSink((name, bytes) => {
+      const text = new TextDecoder().decode(bytes);
+      emit(name, text, 'text/plain');
+      if (downloadCopy) download(name, text);
+    });
+    writer.CreateDrillandMapFilesSet('', true, false);
   };
 
   const box: React.CSSProperties = {
