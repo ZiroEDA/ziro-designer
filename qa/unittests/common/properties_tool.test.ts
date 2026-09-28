@@ -27,7 +27,7 @@ class TEST_FRAME extends (EDA_DRAW_FRAME as unknown as new (
   t: FRAME_T,
   s: typeof pcbIUScale,
   u: string,
-) => EDA_DRAW_FRAME) {
+) => { [K in keyof EDA_DRAW_FRAME]: EDA_DRAW_FRAME[K] }) {
   closing(v: boolean): void {
     (this as unknown as { m_isClosing: boolean }).m_isClosing = v;
   }
@@ -44,7 +44,7 @@ function setup(shown = true) {
   };
   frame.SetPropertiesPanel(panel);
   const mgr = new TOOL_MANAGER();
-  mgr.SetEnvironment(null, null, null, null, frame);
+  mgr.SetEnvironment(null, null, null, null, frame as never);
   mgr.RegisterTool(new PROPERTIES_TOOL());
   mgr.InitTools();
   return { frame, mgr, updates: () => updates };

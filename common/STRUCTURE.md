@@ -426,6 +426,18 @@ panel yet (`PcbPropertiesPanel.tsx` / `SchPropertiesPanel.tsx` re-render from
 React state), and no selection tool posts the events it listens for until
 pcbnew's stage 3.
 
+`tool/group_tool` (09-28): GROUP_TOOL and GROUP_CONTEXT_MENU, whole, as the
+abstract base upstream's is (`Group`, `PickNewMember`, `canGroupItem`,
+`getGroupFromItem`, `createCommit` are the editors'). The submenu's enable
+rule is also `GroupMenuState`. `DIALOG_GROUP_PROPERTIES` comes from
+`SetGroupPropertiesDialogFactory`; `ShowInfoBarWarning` is asked of the frame
+structurally. **No subclass yet**: `eeschema/tools/sch_group_tool.ts` and
+`pcbnew/edit-board.ts`' group functions work on the editors' own document
+models with a members-expanded selection (clicking a member selects the whole
+group and its members, not the group item), so neither can take the C++ shape
+until the editors have a TOOL_MANAGER, a selection tool and EDA_ITEM models.
+The schematic's Grouping submenu keeps its own enable rule for that reason.
+
 The wxDC print path (09-27): `gr_basic` (here, whole), `gr_text`'s
 `GRTextWidth` / `GRPrintText`, `EDA_TEXT::Print`, `BITMAP_BASE::DrawBitmap`,
 `RENDER_SETTINGS`' print DC, the drawing sheet's `PrintWsItem`s and
