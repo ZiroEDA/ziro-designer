@@ -21,7 +21,13 @@
  * not encode is refused with `m_lastError` in a message box, rather than being
  * committed as an empty symbol.
  */
+import { LSET_Name, LSET_NameToLayer } from '@ziroeda/common/layer_ids.js';
+import { EDA_ANGLE, EDA_ANGLE_T } from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import { BOARD_COMMIT } from '../board_commit.js';
+import type { PCB_BASE_FRAME } from '../pcb_base_frame.js';
+import { BARCODE_ECC_T, BARCODE_T, PCB_BARCODE } from '../pcb_barcode.js';
 import { barcodeGeometry } from '../pcb_io/kicad_sexpr/board_view.js';
+import type { TransferResult } from './dialog_text_properties.js';
 import { parseBoardItemId } from '../edit-board.js';
 import type { BarcodeEcc, BarcodeKind, Board, PcbBarcode } from '../types.js';
 
@@ -172,4 +178,113 @@ export function barcodeCommitError(b: PcbBarcode, v: BarcodeValues): string {
 
   const g = barcodeGeometry(applyBarcodeValues(b, v));
   return g.symbolPoly.length === 0 ? g.error || 'Barcode Error' : '';
+}
+
+// ---------------------------------------------------------------------------
+// DIALOG_BARCODE_PROPERTIES over the live PCB_BARCODE (#636 stage 6)
+
+/** `m_barcode`'s radio order (`:208-215`, `:291-299`). */
+const KINDS: readonly BarcodeKind[] = ['code39', 'code128', 'datamatrix', 'qr', 'microqr'];
+const KIND_T: readonly BARCODE_T[] = [
+  BARCODE_T.CODE_39,
+  BARCODE_T.CODE_128,
+  BARCODE_T.DATA_MATRIX,
+  BARCODE_T.QR_CODE,
+  BARCODE_T.MICRO_QR_CODE,
+];
+/** `m_errorCorrection`'s order. */
+const ECCS: readonly BarcodeEcc[] = ['L', 'M', 'Q', 'H'];
+const ECC_T: readonly BARCODE_ECC_T[] = [
+  BARCODE_ECC_T.L,
+  BARCODE_ECC_T.M,
+  BARCODE_ECC_T.Q,
+  BARCODE_ECC_T.H,
+];
+
+/**
+ * `DIALOG_BARCODE_PROPERTIES` (dialog_barcode_properties.cpp) on a live
+ * PCB_BARCODE. OK first assembles the values on a dummy barcode and refuses
+ * a text that yields no symbol (the Zint error), then applies them to the
+ * item in one BOARD_COMMIT, "Modify barcode". A changed orientation is a
+ * `Rotate` about the position, as `transferDataToBarcode` does.
+ */
+export class DIALOG_BARCODE_PROPERTIES {
+  private readonly m_parent: PCB_BASE_FRAME;
+  private readonly m_currentBarcode: PCB_BARCODE;
+
+  constructor(aParent: PCB_BASE_FRAME, aBarcode: PCB_BARCODE) {
+    this.m_parent = aParent;
+    this.m_currentBarcode = aBarcode;
+  }
+
+  TransferDataToWindow(): BarcodeValues {
+    const b = this.m_currentBarcode;
+    const kind = KIND_T.indexOf(b.GetKind());
+    const ecc = ECC_T.indexOf(b.GetErrorCorrection());
+
+    return {
+      text: b.GetText(),
+      locked: b.IsLocked(),
+      layer: LSET_Name(b.GetLayer()),
+      at: b.GetPosition(),
+      width: b.GetWidth(),
+      height: b.GetHeight(),
+      textHeight: b.GetTextSize(),
+      angle: b.GetAngle().AsDegrees(),
+      knockout: b.IsKnockout(),
+      margin: b.GetMargin(),
+      showText: b.Text().IsVisible(),
+      kind: KINDS[kind >= 0 ? kind : 0]!,
+      ecc: ECCS[ecc >= 0 ? ecc : 0]!,
+    };
+  }
+
+  /** `transferDataToBarcode( aBarcode )`. */
+  private transferDataToBarcode(aBarcode: PCB_BARCODE, v: BarcodeValues): void {
+    aBarcode.SetText(v.text);
+    aBarcode.SetLocked(v.locked);
+    aBarcode.SetLayer(LSET_NameToLayer(v.layer));
+
+    aBarcode.SetPosition({ x: v.at.x, y: v.at.y });
+
+    aBarcode.SetWidth(v.width);
+    aBarcode.SetHeight(v.height);
+    aBarcode.SetTextSize(v.textHeight);
+
+    const oldAngle = aBarcode.GetAngle();
+    const newAngle = new EDA_ANGLE(v.angle, EDA_ANGLE_T.DEGREES_T);
+
+    if (!newAngle.equals(oldAngle)) aBarcode.Rotate(aBarcode.GetPosition(), newAngle.sub(oldAngle));
+
+    aBarcode.SetIsKnockout(v.knockout);
+    aBarcode.SetMargin({ x: v.margin.x, y: v.margin.y });
+
+    aBarcode.Text().SetVisible(v.showText);
+
+    const kind = KINDS.indexOf(v.kind);
+    aBarcode.SetKind(kind >= 0 ? KIND_T[kind]! : BARCODE_T.QR_CODE);
+
+    const ecc = ECCS.indexOf(v.ecc);
+    aBarcode.SetErrorCorrection(ecc >= 0 ? ECC_T[ecc]! : BARCODE_ECC_T.L);
+
+    aBarcode.AssembleBarcode();
+  }
+
+  TransferDataFromWindow(v: BarcodeValues): TransferResult {
+    const dummy = new PCB_BARCODE(this.m_parent.GetBoard());
+    dummy.assignBarcode(this.m_currentBarcode);
+    this.transferDataToBarcode(dummy, v);
+
+    if (dummy.GetText() !== '' && dummy.GetSymbolPoly().OutlineCount() === 0)
+      return { ok: false, message: dummy.GetLastError() };
+
+    const commit = new BOARD_COMMIT(this.m_parent);
+    commit.Modify(this.m_currentBarcode);
+
+    this.transferDataToBarcode(this.m_currentBarcode, v);
+
+    commit.Push('Modify barcode');
+
+    return { ok: true };
+  }
 }
