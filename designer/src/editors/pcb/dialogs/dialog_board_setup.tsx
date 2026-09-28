@@ -204,7 +204,11 @@ import { PanelPcbTextGraphics } from '@ziroeda/pcbnew/dialogs/panel_setup_text_a
 import { PanelPcbFormatting } from '@ziroeda/pcbnew/dialogs/panel_setup_formatting.js';
 import { PanelPcbMaskPaste } from '@ziroeda/pcbnew/dialogs/panel_setup_mask_and_paste.js';
 import { PanelPcbZones } from '@ziroeda/pcbnew/dialogs/panel_setup_zones.js';
-import { PanelPcbLayers, layerNameInputId, testLayerNames } from '@ziroeda/pcbnew/dialogs/panel_setup_layers.js';
+import {
+  PanelPcbLayers,
+  layerNameInputId,
+  testLayerNames,
+} from '@ziroeda/pcbnew/dialogs/panel_setup_layers.js';
 import { PanelPcbZoneHatchOffsets } from './panels/panel_pcb_zone_hatch_offsets.js';
 import { PanelPcbTeardrops } from '@ziroeda/pcbnew/dialogs/panel_setup_teardrops.js';
 import { PanelPcbTuning } from '@ziroeda/pcbnew/dialogs/panel_setup_tuning_patterns.js';
@@ -213,7 +217,11 @@ import { PanelPcbBoardFinish } from '@ziroeda/pcbnew/board_stackup_manager/panel
 import { PanelPcbStackup } from './panels/panel_pcb_stackup.js';
 import { PanelPcbComponentClasses } from '@ziroeda/pcbnew/dialogs/panel_pcb_component_classes.js';
 import { PanelPcbCustomRules } from '@ziroeda/pcbnew/dialogs/panel_setup_rules.js';
-import { clampMaxErrorMM, copperStackNames, syncCopperLayers } from '@ziroeda/pcbnew/board_settings.js';
+import {
+  clampMaxErrorMM,
+  copperStackNames,
+  syncCopperLayers,
+} from '@ziroeda/pcbnew/board_settings.js';
 import type {
   BoardConstraints,
   BoardSetupValues,
@@ -221,14 +229,20 @@ import type {
   ViaSize,
 } from '@ziroeda/pcbnew/board_settings.js';
 import { BoardSetupToWindow } from './board_setup_transfer.js';
-import { delayProfileNames, validateTuningProfiles } from '@ziroeda/pcbnew/dialogs/panel_setup_tuning_profiles.js';
+import {
+  delayProfileNames,
+  validateTuningProfiles,
+} from '@ziroeda/pcbnew/dialogs/panel_setup_tuning_profiles.js';
 import type { BOARD } from '@ziroeda/pcbnew/board.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import type { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { SETTINGS_MANAGER } from '@ziroeda/common/pgm_base.js';
 import type { JsonValue } from '@ziroeda/common/settings/json_settings.js';
 import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { DialogImportSettings, type ImportSettingsOpts } from '@ziroeda/pcbnew/dialogs/dialog_import_settings.js';
+import {
+  DialogImportSettings,
+  type ImportSettingsOpts,
+} from '@ziroeda/pcbnew/dialogs/dialog_import_settings.js';
 import { pcbUnitTextMM, pcbUnitValueMM, unitLabel } from '@ziroeda/pcbnew/pcb_unit_binder.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
 import { svgUrl } from '@ziroeda/bitmaps_png';

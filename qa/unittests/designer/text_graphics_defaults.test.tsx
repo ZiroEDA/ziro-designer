@@ -25,10 +25,7 @@ import { join } from 'node:path';
 import { useState, type JSX } from 'react';
 import { cleanup, fireEvent, render } from '@testing-library/react';
 import { PanelPcbTextGraphics } from '@ziroeda/pcbnew/dialogs/panel_setup_text_and_graphics.js';
-import {
-  defaultTextGraphics,
-  type TextGfxDefaults,
-} from '@ziroeda/pcbnew/board_settings.js';
+import { defaultTextGraphics, type TextGfxDefaults } from '@ziroeda/pcbnew/board_settings.js';
 
 afterEach(cleanup);
 

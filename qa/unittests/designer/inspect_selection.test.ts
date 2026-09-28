@@ -14,10 +14,7 @@ import { describe, expect, it } from 'vitest';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import { parseDrcRules } from '@ziroeda/pcbnew';
 import type { Board } from '@ziroeda/pcbnew';
-import {
-  describeSelected,
-  inspectSelection,
-} from '@ziroeda/pcbnew/tools/board_inspection_tool.js';
+import { describeSelected, inspectSelection } from '@ziroeda/pcbnew/tools/board_inspection_tool.js';
 
 const MM = (n: number): number => mmToIU(n);
 

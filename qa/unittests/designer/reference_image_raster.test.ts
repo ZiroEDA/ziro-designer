@@ -18,10 +18,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import { buildScene } from '@ziroeda/designer/src/editors/pcb/renderBoard.js';
-import {
-  ReferenceImageCache,
-  base64ToBytes,
-} from '@ziroeda/pcbnew/image_cache.js';
+import { ReferenceImageCache, base64ToBytes } from '@ziroeda/pcbnew/image_cache.js';
 import type { Board, PcbImage } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);

@@ -54,7 +54,10 @@ import type {
   TuningProfileTrackEntry,
   TuningProfileViaOverride,
 } from '../board_settings.js';
-import { CalculationType, calculateTrackParameters } from '../length_delay_calculation/tuning_profile_calc.js';
+import {
+  CalculationType,
+  calculateTrackParameters,
+} from '../length_delay_calculation/tuning_profile_calc.js';
 
 // The aggregate model lives in board_settings.ts (KiCad's data/UI split);
 // re-exported so panel users keep importing from the panel module.

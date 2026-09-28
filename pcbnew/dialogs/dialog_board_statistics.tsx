@@ -33,10 +33,7 @@ import {
   FormatBoardStatisticsReport,
 } from '../index.js';
 import type { BOARD } from '../board.js';
-import {
-  DRILL_LINE_ITEM_COL_ID,
-  DRILL_LINE_ITEM_COMPARE,
-} from '../board_statistics.js';
+import { DRILL_LINE_ITEM_COL_ID, DRILL_LINE_ITEM_COMPARE } from '../board_statistics.js';
 import { PAD_DRILL_SHAPE } from '../padstack.js';
 import { WX_GRID } from '@ziroeda/common/widgets/wx_grid.js';
 import {

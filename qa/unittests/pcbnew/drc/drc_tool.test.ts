@@ -15,10 +15,7 @@ import {
 import { RC_TREE_NODE_TYPE } from '@ziroeda/common/rc_item.js';
 import type { BOX2D } from '@ziroeda/kimath/src/math/box2.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-import {
-  DIALOG_DRC,
-  type DIALOG_DRC_WINDOW,
-} from '@ziroeda/pcbnew/dialogs/dialog_drc_model.js';
+import { DIALOG_DRC, type DIALOG_DRC_WINDOW } from '@ziroeda/pcbnew/dialogs/dialog_drc_model.js';
 import { PCB_EDIT_FRAME } from '@ziroeda/pcbnew/pcb_edit_frame.js';
 import { PGM_BASE, SetPgm } from '@ziroeda/common/pgm_base.js';
 import { PCBNEW_SETTINGS } from '@ziroeda/pcbnew/pcbnew_settings.js';

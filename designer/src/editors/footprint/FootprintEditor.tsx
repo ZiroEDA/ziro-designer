@@ -49,9 +49,15 @@ import {
   type PcbShape,
   type PcbTextItem,
 } from '@ziroeda/pcbnew';
-import { FootprintPropertiesDialog, PadPropertiesDialog } from '@ziroeda/pcbnew/dialogs/dialog_footprint_properties_fp_editor.js';
+import {
+  FootprintPropertiesDialog,
+  PadPropertiesDialog,
+} from '@ziroeda/pcbnew/dialogs/dialog_footprint_properties_fp_editor.js';
 import { MenuBar, ContextMenu, type Menu } from '@ziroeda/common/tool/action_menu_bar.js';
-import { footprintTreeContextMenu, fpTreeSelectedNodes } from '@ziroeda/pcbnew/footprint_tree_context_menu.js';
+import {
+  footprintTreeContextMenu,
+  fpTreeSelectedNodes,
+} from '@ziroeda/pcbnew/footprint_tree_context_menu.js';
 import { LibrariesToRepin } from '@ziroeda/common/tool/library_editor_control.js';
 import { Toolbar } from '@ziroeda/common/tool/action_toolbar.js';
 import { useStatusReadout } from '@ziroeda/common/use_status_readout.js';
