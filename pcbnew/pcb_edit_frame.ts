@@ -49,6 +49,7 @@ import { RPT_SEVERITY_EXCLUSION } from '@ziroeda/common/reporter.js';
 import type { BOX2D } from '@ziroeda/kimath/src/math/box2.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import type { CROSS_PROBING_SETTINGS } from '@ziroeda/common/settings/app_settings.js';
+import type { GridEntry } from '@ziroeda/common/settings/grid_settings_ui.js';
 
 /**
  * The slice of the designer's `PcbnewSettings` (`prefs/settings.ts`)
@@ -100,6 +101,23 @@ export interface PCBNEW_JSON_SETTINGS_LIKE {
     show_courtyard_collisions: boolean;
     ctrl_click_highlight: boolean;
     polar_coords: boolean;
+  };
+  /**
+   * `APP_SETTINGS_BASE::m_Window.grid` / `.cursor` — the slice the window's
+   * grid/crosshair toggles and grid-size list read. Added for
+   * `pcbTogglesFromSettings` (`toggles.ts`) and the window's own
+   * `pcbGridSizesIU`/`storedPcbGridIU`, both narrower readers of the same
+   * `PcbnewSettings.window` than `windowSettingsOf` (`pgm_app.ts`) is.
+   */
+  window: {
+    grid: {
+      sizes: GridEntry[];
+      last_size_idx: number;
+      show: boolean;
+    };
+    cursor: {
+      crosshair: 'small' | 'full' | '45';
+    };
   };
 }
 
