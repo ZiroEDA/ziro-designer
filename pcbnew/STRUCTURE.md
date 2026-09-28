@@ -157,6 +157,7 @@ imports (no `PCBNEW_APP` needed yet — none of them touch the program):
 | `toolbars_footprint_editor` | `toolbars_footprint_editor.ts` |
 | `fp_tree_synchronizing_adapter` | `fp_tree_synchronizing_adapter.ts` |
 | `footprint_edit_frame` | `footprint_edit_frame.ts` — the `KIWAY_PLAYER` mail half only; the window (`FootprintEditor.tsx`) stays in `designer/` for now, see below |
+| `pcb_edit_frame` | `pcb_edit_frame.ts` (09-28) — moved once its only `designer/` coupling (`prefs/settings.ts`'s `PcbnewSettings`) was replaced by the structural `PCBNEW_JSON_SETTINGS_LIKE`, the same pattern `FOOTPRINT_EDITOR_SETTINGS_LIKE` (`pcb_base_frame.ts`) already used — `PCB_EDIT_FRAME_HOOKS` already carried everything else. Brought `drc_runner.ts` (the worker launcher) and `drc_worker.ts` (the worker entry) with it: neither had a `designer/` import, they were just sitting next to the window that used them. `PcbEditor.tsx` (its window, 12.5k lines) is unblocked by this but not yet moved — see below. |
 
 `tsconfig.json` gained `jsx: "react-jsx"` and `DOM.Iterable` here:
 `pcb_layer_box_selector.ts` reaches `common/tool/action_menu_hotkeys.ts` →
@@ -165,10 +166,26 @@ type-check a `.tsx` transitively.
 
 Still in `designer/`, and why:
 
-- `pcb_edit_frame.ts` — another agent has it uncommitted mid-edit
-  (`PcbEditor`/pcb-tools work); moving it now would carry their unsaved hunks.
-  `PcbEditor.tsx` (its window, 12.5k lines) is blocked with it — moving the
-  `.tsx` alone would leave it importing the `.ts` half out of `designer/`.
+- `PcbEditor.tsx` (the window, 12.5k lines) — its `.ts` half moved (above), but
+  the window itself names 61 distinct sibling modules by relative import.
+  About half are designer app plumbing that belongs behind a `PCBNEW_APP`
+  (`PreferencesDialog`, `HomeLink`, `SaveAsDialog`, `new_project`, `pgm_app`,
+  `prefs/settings`, `render/gl/scene`, `font/outline_fonts`,
+  `widgets/appearance_controls`/`appearance_layers`/`footprint_list`,
+  `ui/useToolbarEntries`, `ui/view_controls`, `Viewer3DFrame`); the rest —
+  `appearance_nets.ts`, `array_settings.ts`, `board_settings.ts`, `cursors.ts`,
+  ~25 files under `dialogs/`, `dimension_tools.ts`, `document_extents.ts`,
+  `image_cache.ts`, `inspect_selection.ts`, `model_cache.ts`,
+  `netclass_resolve.ts`, `netlist_from_schematic.ts`, `pcb_context_selection.ts`,
+  `pcb_grid.ts`, `PcbPropertiesPanel.tsx`, `picker_snap.ts`,
+  `point_edit_canvas.ts`, `preload.ts`, `project_settings.ts` — are pcbnew
+  domain code with no app dependency of their own, and would need to move into
+  `pcbnew/` alongside the window for the package boundary to hold (a package
+  here may not import `designer/`, even transitively through a sibling that
+  stayed behind). That is one `PCBNEW_APP` interface plus ~25 file moves, each
+  wanting its own typecheck + test pass — the `CVPCB_APP` / `PL_EDITOR_APP`
+  design task, sized up. Left for a dedicated multi-stage pass; this stage only
+  freed the `.ts` half that was blocking it.
 - `FootprintEditor.tsx` — clean, but its window pulls in `prefs/settings.ts`,
   `dialogs/PreferencesDialog.tsx`, `ui/HomeLink.tsx`, `fs/OpenFileDialog.ts`
   and three more app-level `designer/` modules. Moving it is the `PCBNEW_APP`
