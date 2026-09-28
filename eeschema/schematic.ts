@@ -113,7 +113,7 @@ import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
 import { type KIID, KIID_PATH, niluuid } from '@ziroeda/common/kiid.js';
 import { KICAD_T as KICAD_T_E3 } from '@ziroeda/core/typeinfo.js';
 import { applyMixins } from '@ziroeda/core/mixins.js';
-import type { BUS_ALIAS } from './bus_alias.js';
+import { BUS_ALIAS } from './bus_alias.js';
 import { ERC_SETTINGS } from './erc/erc_settings.js';
 import type { SCH_ITEM } from './sch_item.js';
 import { SCH_SCREEN, SCH_SCREENS } from './sch_screen.js';
@@ -252,6 +252,7 @@ export class SCHEMATIC extends EDA_ITEM_E3 {
 
     this.ensureVirtualRoot();
     this.ensureDefaultTopLevelSheet();
+    this.loadBusAliasesFromProject();
   }
 
   /** Return a reference to the project this schematic is part of. */
@@ -259,8 +260,35 @@ export class SCHEMATIC extends EDA_ITEM_E3 {
     return this.m_project!;
   }
 
+  /**
+   * `SetProject`: the project's bus aliases are loaded.  The ERC and schematic settings
+   * upstream hangs on the project file are schematic-owned here (see the header note).
+   */
   SetProject(aPrj: PROJECT | null): void {
     this.m_project = aPrj;
+
+    if (this.m_project) this.loadBusAliasesFromProject();
+  }
+
+  /** `loadBusAliasesFromProject`: the project file's `schematic.bus_aliases`. */
+  private loadBusAliasesFromProject(): void {
+    this.m_busAliases = [];
+
+    if (!this.m_project) return;
+
+    // A PROJECT with no file (a bare `new PROJECT()`) has no aliases to give.
+    const projectFile = this.m_project.GetProjectFile() as PROJECT_FILE | null;
+
+    if (!projectFile) return;
+
+    for (const [name, members] of projectFile.m_BusAliases) {
+      const busAlias = new BUS_ALIAS();
+
+      busAlias.SetName(name);
+      busAlias.SetMembers(members);
+
+      this.m_busAliases.push(busAlias);
+    }
   }
 
   GetProperties(): Map<string, string> {

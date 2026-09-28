@@ -882,7 +882,9 @@ export class SCH_SCREEN extends BASE_SCREEN {
     // an accuracy of 0 had problems with rounding errors; use at least 1
     aAccuracy = Math.max(aAccuracy, 1);
 
-    for (const item of this.Items().Overlapping(aPosition, aAccuracy)) {
+    // Upstream walks Overlapping( aPosition ) and skips non-lines; asking the tree for lines
+    // only is the same answer in the same order, without boxing every symbol per query.
+    for (const item of this.Items().Overlapping(KICAD_T.SCH_LINE_T, aPosition, aAccuracy)) {
       if (item.Type() !== KICAD_T.SCH_LINE_T) continue;
 
       if (item.GetLayer() !== aLayer) continue;

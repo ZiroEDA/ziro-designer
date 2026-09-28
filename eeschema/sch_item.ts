@@ -951,6 +951,15 @@ export abstract class SCH_ITEM extends EDA_ITEM {
     return this.m_connection_map.get(aSheet.PathAsString()) ?? null;
   }
 
+  /**
+   * The per-sheet connections, keyed by `SCH_SHEET_PATH::PathAsString()` (`m_connection_map`,
+   * which `CONNECTION_GRAPH` reads as a friend upstream).  Each connection's `LocalSheet()`
+   * is the sheet it is keyed by.
+   */
+  ConnectionMap(): ReadonlyMap<string, SCH_CONNECTION> {
+    return this.m_connection_map;
+  }
+
   /** Update the connection graph for all connections in this item. */
   SetConnectionGraph(aGraph: SCH_CONNECTION_GRAPH | null): void {
     for (const conn of this.m_connection_map.values()) {

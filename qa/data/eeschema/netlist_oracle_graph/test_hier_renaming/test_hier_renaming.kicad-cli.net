@@ -1,0 +1,1026 @@
+(export
+	(version "E")
+	(design
+		(source "/home/akshay/ziro-designer-1/qa/data/eeschema/netlist_oracle_graph/test_hier_renaming/test_hier_renaming.kicad_sch")
+		(date "2026-09-29T01:30:24")
+		(tool "Eeschema 10.0.6-10.0.6~ubuntu24.04.1")
+		(sheet
+			(number "1")
+			(name "/")
+			(tstamps "/")
+			(title_block
+				(title)
+				(company)
+				(rev)
+				(date)
+				(source "test_hier_renaming.kicad_sch")
+				(comment
+					(number "1")
+					(value "")
+				)
+				(comment
+					(number "2")
+					(value "")
+				)
+				(comment
+					(number "3")
+					(value "")
+				)
+				(comment
+					(number "4")
+					(value "")
+				)
+				(comment
+					(number "5")
+					(value "")
+				)
+				(comment
+					(number "6")
+					(value "")
+				)
+				(comment
+					(number "7")
+					(value "")
+				)
+				(comment
+					(number "8")
+					(value "")
+				)
+				(comment
+					(number "9")
+					(value "")
+				)
+			)
+		)
+		(sheet
+			(number "2")
+			(name "/matrixes2/")
+			(tstamps "/8fe7e2b2-e224-440a-ae87-ac0912bb533a/")
+			(title_block
+				(title)
+				(company)
+				(rev)
+				(date)
+				(source "LED_matrix_x6.kicad_sch")
+				(comment
+					(number "1")
+					(value "")
+				)
+				(comment
+					(number "2")
+					(value "")
+				)
+				(comment
+					(number "3")
+					(value "")
+				)
+				(comment
+					(number "4")
+					(value "")
+				)
+				(comment
+					(number "5")
+					(value "")
+				)
+				(comment
+					(number "6")
+					(value "")
+				)
+				(comment
+					(number "7")
+					(value "")
+				)
+				(comment
+					(number "8")
+					(value "")
+				)
+				(comment
+					(number "9")
+					(value "")
+				)
+			)
+		)
+		(sheet
+			(number "3")
+			(name "/matrixes1/")
+			(tstamps "/0c777b0f-2f12-4510-99ee-a28b103b057a/")
+			(title_block
+				(title)
+				(company)
+				(rev)
+				(date)
+				(source "LED_matrix_x6.kicad_sch")
+				(comment
+					(number "1")
+					(value "")
+				)
+				(comment
+					(number "2")
+					(value "")
+				)
+				(comment
+					(number "3")
+					(value "")
+				)
+				(comment
+					(number "4")
+					(value "")
+				)
+				(comment
+					(number "5")
+					(value "")
+				)
+				(comment
+					(number "6")
+					(value "")
+				)
+				(comment
+					(number "7")
+					(value "")
+				)
+				(comment
+					(number "8")
+					(value "")
+				)
+				(comment
+					(number "9")
+					(value "")
+				)
+			)
+		)
+	)
+	(components
+		(comp
+			(ref "DS2")
+			(value "788xHG")
+			(footprint "Display:788xHG")
+			(fields
+				(field
+					(name "Footprint") "Display:788xHG")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description")
+				)
+			)
+			(libsource
+				(lib "Display_Graphic")
+				(part "788xHG")
+				(description "Bi-color red and green 8x8 LED matrix 20x20 mm")
+			)
+			(property
+				(name "Sheetname")
+				(value "matrixes2")
+			)
+			(property
+				(name "Sheetfile")
+				(value "LED_matrix_x6.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "led matrix bi-color red green")
+			)
+			(sheetpath
+				(names "/matrixes2/")
+				(tstamps "/8fe7e2b2-e224-440a-ae87-ac0912bb533a/")
+			)
+			(tstamps "e63356eb-7345-434d-8464-3fa9dc47789a")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "16")
+						)
+						(pin
+							(num "15")
+						)
+						(pin
+							(num "14")
+						)
+						(pin
+							(num "13")
+						)
+						(pin
+							(num "12")
+						)
+						(pin
+							(num "11")
+						)
+						(pin
+							(num "10")
+						)
+						(pin
+							(num "9")
+						)
+						(pin
+							(num "17")
+						)
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "18")
+						)
+						(pin
+							(num "2")
+						)
+						(pin
+							(num "19")
+						)
+						(pin
+							(num "3")
+						)
+						(pin
+							(num "20")
+						)
+						(pin
+							(num "4")
+						)
+						(pin
+							(num "21")
+						)
+						(pin
+							(num "5")
+						)
+						(pin
+							(num "22")
+						)
+						(pin
+							(num "6")
+						)
+						(pin
+							(num "23")
+						)
+						(pin
+							(num "7")
+						)
+						(pin
+							(num "24")
+						)
+						(pin
+							(num "8")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "DS1")
+			(value "788xHG")
+			(footprint "Display:788xHG")
+			(fields
+				(field
+					(name "Footprint") "Display:788xHG")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description")
+				)
+			)
+			(libsource
+				(lib "Display_Graphic")
+				(part "788xHG")
+				(description "Bi-color red and green 8x8 LED matrix 20x20 mm")
+			)
+			(property
+				(name "Sheetname")
+				(value "matrixes1")
+			)
+			(property
+				(name "Sheetfile")
+				(value "LED_matrix_x6.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "led matrix bi-color red green")
+			)
+			(sheetpath
+				(names "/matrixes1/")
+				(tstamps "/0c777b0f-2f12-4510-99ee-a28b103b057a/")
+			)
+			(tstamps "e63356eb-7345-434d-8464-3fa9dc47789a")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "16")
+						)
+						(pin
+							(num "15")
+						)
+						(pin
+							(num "14")
+						)
+						(pin
+							(num "13")
+						)
+						(pin
+							(num "12")
+						)
+						(pin
+							(num "11")
+						)
+						(pin
+							(num "10")
+						)
+						(pin
+							(num "9")
+						)
+						(pin
+							(num "17")
+						)
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "18")
+						)
+						(pin
+							(num "2")
+						)
+						(pin
+							(num "19")
+						)
+						(pin
+							(num "3")
+						)
+						(pin
+							(num "20")
+						)
+						(pin
+							(num "4")
+						)
+						(pin
+							(num "21")
+						)
+						(pin
+							(num "5")
+						)
+						(pin
+							(num "22")
+						)
+						(pin
+							(num "6")
+						)
+						(pin
+							(num "23")
+						)
+						(pin
+							(num "7")
+						)
+						(pin
+							(num "24")
+						)
+						(pin
+							(num "8")
+						)
+					)
+				)
+			)
+		)
+	)
+	(groups)
+	(variants)
+	(libparts
+		(libpart
+			(lib "Display_Graphic")
+			(part "788xHG")
+			(description "Bi-color red and green 8x8 LED matrix 20x20 mm")
+			(fields
+				(field
+					(name "Reference") "DS")
+				(field
+					(name "Value") "788xHG")
+				(field
+					(name "Footprint") "Display:788xHG")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Bi-color red and green 8x8 LED matrix 20x20 mm")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "COL1G")
+					(type "passive")
+				)
+				(pin
+					(num "2")
+					(name "COL2G")
+					(type "passive")
+				)
+				(pin
+					(num "3")
+					(name "COL3G")
+					(type "passive")
+				)
+				(pin
+					(num "4")
+					(name "COL4G")
+					(type "passive")
+				)
+				(pin
+					(num "5")
+					(name "COL5G")
+					(type "passive")
+				)
+				(pin
+					(num "6")
+					(name "COL6G")
+					(type "passive")
+				)
+				(pin
+					(num "7")
+					(name "COL7G")
+					(type "passive")
+				)
+				(pin
+					(num "8")
+					(name "COL8G")
+					(type "passive")
+				)
+				(pin
+					(num "9")
+					(name "ROW8")
+					(type "passive")
+				)
+				(pin
+					(num "10")
+					(name "ROW7")
+					(type "passive")
+				)
+				(pin
+					(num "11")
+					(name "ROW6")
+					(type "passive")
+				)
+				(pin
+					(num "12")
+					(name "ROW5")
+					(type "passive")
+				)
+				(pin
+					(num "13")
+					(name "ROW4")
+					(type "passive")
+				)
+				(pin
+					(num "14")
+					(name "ROW3")
+					(type "passive")
+				)
+				(pin
+					(num "15")
+					(name "ROW2")
+					(type "passive")
+				)
+				(pin
+					(num "16")
+					(name "ROW1")
+					(type "passive")
+				)
+				(pin
+					(num "17")
+					(name "COL1R")
+					(type "passive")
+				)
+				(pin
+					(num "18")
+					(name "COL2R")
+					(type "passive")
+				)
+				(pin
+					(num "19")
+					(name "COL3R")
+					(type "passive")
+				)
+				(pin
+					(num "20")
+					(name "COL4R")
+					(type "passive")
+				)
+				(pin
+					(num "21")
+					(name "COL5R")
+					(type "passive")
+				)
+				(pin
+					(num "22")
+					(name "COL6R")
+					(type "passive")
+				)
+				(pin
+					(num "23")
+					(name "COL7R")
+					(type "passive")
+				)
+				(pin
+					(num "24")
+					(name "COL8R")
+					(type "passive")
+				)
+			)
+		)
+	)
+	(libraries
+		(library
+			(logical "Display_Graphic")
+			(uri "${KICAD10_SYMBOL_DIR}/Display_Graphic.kicad_sym")
+		)
+	)
+	(nets
+		(net
+			(code "1")
+			(name "/ROW0")
+			(class "Default")
+			(node
+				(ref "DS1")
+				(pin "16")
+				(pinfunction "ROW1_16")
+				(pintype "passive")
+			)
+			(node
+				(ref "DS2")
+				(pin "16")
+				(pinfunction "ROW1_16")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "2")
+			(name "/ROW1")
+			(class "Default")
+			(node
+				(ref "DS1")
+				(pin "15")
+				(pinfunction "ROW2_15")
+				(pintype "passive")
+			)
+			(node
+				(ref "DS2")
+				(pin "15")
+				(pinfunction "ROW2_15")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "3")
+			(name "/ROW2")
+			(class "Default")
+			(node
+				(ref "DS1")
+				(pin "14")
+				(pinfunction "ROW3_14")
+				(pintype "passive")
+			)
+			(node
+				(ref "DS2")
+				(pin "14")
+				(pinfunction "ROW3_14")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "4")
+			(name "/ROW3")
+			(class "Default")
+			(node
+				(ref "DS1")
+				(pin "13")
+				(pinfunction "ROW4_13")
+				(pintype "passive")
+			)
+			(node
+				(ref "DS2")
+				(pin "13")
+				(pinfunction "ROW4_13")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "5")
+			(name "/ROW4")
+			(class "Default")
+			(node
+				(ref "DS1")
+				(pin "12")
+				(pinfunction "ROW5_12")
+				(pintype "passive")
+			)
+			(node
+				(ref "DS2")
+				(pin "12")
+				(pinfunction "ROW5_12")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "6")
+			(name "/ROW5")
+			(class "Default")
+			(node
+				(ref "DS1")
+				(pin "11")
+				(pinfunction "ROW6_11")
+				(pintype "passive")
+			)
+			(node
+				(ref "DS2")
+				(pin "11")
+				(pinfunction "ROW6_11")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "7")
+			(name "/ROW6")
+			(class "Default")
+			(node
+				(ref "DS1")
+				(pin "10")
+				(pinfunction "ROW7_10")
+				(pintype "passive")
+			)
+			(node
+				(ref "DS2")
+				(pin "10")
+				(pinfunction "ROW7_10")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "8")
+			(name "/ROW7")
+			(class "Default")
+			(node
+				(ref "DS1")
+				(pin "9")
+				(pinfunction "ROW8_9")
+				(pintype "passive")
+			)
+			(node
+				(ref "DS2")
+				(pin "9")
+				(pinfunction "ROW8_9")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "12")
+			(name "unconnected-(DS1-COL1G-Pad1)")
+			(class "Default")
+			(node
+				(ref "DS1")
+				(pin "1")
+				(pinfunction "COL1G_1")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "13")
+			(name "unconnected-(DS1-COL1R-Pad17)")
+			(class "Default")
+			(node
+				(ref "DS1")
+				(pin "17")
+				(pinfunction "COL1R_17")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "14")
+			(name "unconnected-(DS1-COL2G-Pad2)")
+			(class "Default")
+			(node
+				(ref "DS1")
+				(pin "2")
+				(pinfunction "COL2G_2")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "15")
+			(name "unconnected-(DS1-COL2R-Pad18)")
+			(class "Default")
+			(node
+				(ref "DS1")
+				(pin "18")
+				(pinfunction "COL2R_18")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "16")
+			(name "unconnected-(DS1-COL3G-Pad3)")
+			(class "Default")
+			(node
+				(ref "DS1")
+				(pin "3")
+				(pinfunction "COL3G_3")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "17")
+			(name "unconnected-(DS1-COL3R-Pad19)")
+			(class "Default")
+			(node
+				(ref "DS1")
+				(pin "19")
+				(pinfunction "COL3R_19")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "18")
+			(name "unconnected-(DS1-COL4G-Pad4)")
+			(class "Default")
+			(node
+				(ref "DS1")
+				(pin "4")
+				(pinfunction "COL4G_4")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "19")
+			(name "unconnected-(DS1-COL4R-Pad20)")
+			(class "Default")
+			(node
+				(ref "DS1")
+				(pin "20")
+				(pinfunction "COL4R_20")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "20")
+			(name "unconnected-(DS1-COL5G-Pad5)")
+			(class "Default")
+			(node
+				(ref "DS1")
+				(pin "5")
+				(pinfunction "COL5G_5")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "21")
+			(name "unconnected-(DS1-COL5R-Pad21)")
+			(class "Default")
+			(node
+				(ref "DS1")
+				(pin "21")
+				(pinfunction "COL5R_21")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "22")
+			(name "unconnected-(DS1-COL6G-Pad6)")
+			(class "Default")
+			(node
+				(ref "DS1")
+				(pin "6")
+				(pinfunction "COL6G_6")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "23")
+			(name "unconnected-(DS1-COL6R-Pad22)")
+			(class "Default")
+			(node
+				(ref "DS1")
+				(pin "22")
+				(pinfunction "COL6R_22")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "24")
+			(name "unconnected-(DS1-COL7G-Pad7)")
+			(class "Default")
+			(node
+				(ref "DS1")
+				(pin "7")
+				(pinfunction "COL7G_7")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "25")
+			(name "unconnected-(DS1-COL7R-Pad23)")
+			(class "Default")
+			(node
+				(ref "DS1")
+				(pin "23")
+				(pinfunction "COL7R_23")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "26")
+			(name "unconnected-(DS1-COL8G-Pad8)")
+			(class "Default")
+			(node
+				(ref "DS1")
+				(pin "8")
+				(pinfunction "COL8G_8")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "27")
+			(name "unconnected-(DS1-COL8R-Pad24)")
+			(class "Default")
+			(node
+				(ref "DS1")
+				(pin "24")
+				(pinfunction "COL8R_24")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "28")
+			(name "unconnected-(DS2-COL1G-Pad1)")
+			(class "Default")
+			(node
+				(ref "DS2")
+				(pin "1")
+				(pinfunction "COL1G_1")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "29")
+			(name "unconnected-(DS2-COL1R-Pad17)")
+			(class "Default")
+			(node
+				(ref "DS2")
+				(pin "17")
+				(pinfunction "COL1R_17")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "30")
+			(name "unconnected-(DS2-COL2G-Pad2)")
+			(class "Default")
+			(node
+				(ref "DS2")
+				(pin "2")
+				(pinfunction "COL2G_2")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "31")
+			(name "unconnected-(DS2-COL2R-Pad18)")
+			(class "Default")
+			(node
+				(ref "DS2")
+				(pin "18")
+				(pinfunction "COL2R_18")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "32")
+			(name "unconnected-(DS2-COL3G-Pad3)")
+			(class "Default")
+			(node
+				(ref "DS2")
+				(pin "3")
+				(pinfunction "COL3G_3")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "33")
+			(name "unconnected-(DS2-COL3R-Pad19)")
+			(class "Default")
+			(node
+				(ref "DS2")
+				(pin "19")
+				(pinfunction "COL3R_19")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "34")
+			(name "unconnected-(DS2-COL4G-Pad4)")
+			(class "Default")
+			(node
+				(ref "DS2")
+				(pin "4")
+				(pinfunction "COL4G_4")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "35")
+			(name "unconnected-(DS2-COL4R-Pad20)")
+			(class "Default")
+			(node
+				(ref "DS2")
+				(pin "20")
+				(pinfunction "COL4R_20")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "36")
+			(name "unconnected-(DS2-COL5G-Pad5)")
+			(class "Default")
+			(node
+				(ref "DS2")
+				(pin "5")
+				(pinfunction "COL5G_5")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "37")
+			(name "unconnected-(DS2-COL5R-Pad21)")
+			(class "Default")
+			(node
+				(ref "DS2")
+				(pin "21")
+				(pinfunction "COL5R_21")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "38")
+			(name "unconnected-(DS2-COL6G-Pad6)")
+			(class "Default")
+			(node
+				(ref "DS2")
+				(pin "6")
+				(pinfunction "COL6G_6")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "39")
+			(name "unconnected-(DS2-COL6R-Pad22)")
+			(class "Default")
+			(node
+				(ref "DS2")
+				(pin "22")
+				(pinfunction "COL6R_22")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "40")
+			(name "unconnected-(DS2-COL7G-Pad7)")
+			(class "Default")
+			(node
+				(ref "DS2")
+				(pin "7")
+				(pinfunction "COL7G_7")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "41")
+			(name "unconnected-(DS2-COL7R-Pad23)")
+			(class "Default")
+			(node
+				(ref "DS2")
+				(pin "23")
+				(pinfunction "COL7R_23")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "42")
+			(name "unconnected-(DS2-COL8G-Pad8)")
+			(class "Default")
+			(node
+				(ref "DS2")
+				(pin "8")
+				(pinfunction "COL8G_8")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "43")
+			(name "unconnected-(DS2-COL8R-Pad24)")
+			(class "Default")
+			(node
+				(ref "DS2")
+				(pin "24")
+				(pinfunction "COL8R_24")
+				(pintype "passive")
+			)
+		)
+	)
+)

@@ -1,0 +1,1497 @@
+(export
+	(version "E")
+	(design
+		(source "/home/akshay/ziro-designer-1/qa/data/eeschema/netlist_oracle_graph/issue24220/issue24220.kicad_sch")
+		(date "2026-09-29T01:30:20")
+		(tool "Eeschema 10.0.6-10.0.6~ubuntu24.04.1")
+		(textvar
+			(name "APPROVER") "Approvatore")
+		(textvar
+			(name "CODE_DIAGRAM") "codice_schema")
+		(textvar
+			(name "CODE_PRODUCT") "codice_prodotto")
+		(textvar
+			(name "CODE_PROJECT") "codice_progetto")
+		(textvar
+			(name "DATE") "GG/MM/AAAA")
+		(textvar
+			(name "DESCRIPTION") "Descrizione")
+		(textvar
+			(name "DESIGNER") "Disegnatore")
+		(textvar
+			(name "NOTE")
+		)
+		(textvar
+			(name "PATH_BOM") "C:\\Users\\Tote\\Documents\\Work\\_Prj\\_Comuni\\kicad\\script\\BOM\\D_BOM.${CODE_PRODUCT}_v.${REVISION}")
+		(textvar
+			(name "PATH_PDF") "C:\\Users\\Tote\\Documents\\Work\\_Prj\\_Comuni\\kicad\\script\\pdf\\${CODE_PRODUCT}_v.${REVISION}")
+		(textvar
+			(name "PATH_PURCHASE") "C:\\Users\\Tote\\Documents\\Work\\_Prj\\_Comuni\\kicad\\script\\purchase\\D_PU.${CODE_PRODUCT}_v.${REVISION}")
+		(textvar
+			(name "PATH_WL") "C:\\Users\\Tote\\Documents\\Work\\_Prj\\_Comuni\\kicad\\script\\wiring_list\\D_WL.${CODE_PRODUCT}_v.${REVISION}")
+		(textvar
+			(name "REVISION") "00.00.0001")
+		(textvar
+			(name "SCALE") "1:1")
+		(sheet
+			(number "1")
+			(name "/")
+			(tstamps "/")
+			(title_block
+				(title "Descrizione")
+				(company)
+				(rev "00.00.0001")
+				(date "GG/MM/AAAA")
+				(source "issue24220.kicad_sch")
+				(comment
+					(number "1")
+					(value "Disegnatore")
+				)
+				(comment
+					(number "2")
+					(value "codice_prodotto")
+				)
+				(comment
+					(number "3")
+					(value "codice_schema")
+				)
+				(comment
+					(number "4")
+					(value "")
+				)
+				(comment
+					(number "5")
+					(value "1:1")
+				)
+				(comment
+					(number "6")
+					(value "Approvatore")
+				)
+				(comment
+					(number "7")
+					(value "")
+				)
+				(comment
+					(number "8")
+					(value "")
+				)
+				(comment
+					(number "9")
+					(value "")
+				)
+			)
+		)
+		(sheet
+			(number "2")
+			(name "/Foglio 1/")
+			(tstamps "/c74ee8e4-f220-4f04-b45b-c2b80f1d1758/")
+			(title_block
+				(title "Descrizione")
+				(company)
+				(rev "00.00.0001")
+				(date "GG/MM/AAAA")
+				(source "untitled.kicad_sch")
+				(comment
+					(number "1")
+					(value "Disegnatore")
+				)
+				(comment
+					(number "2")
+					(value "codice_prodotto")
+				)
+				(comment
+					(number "3")
+					(value "codice_schema")
+				)
+				(comment
+					(number "4")
+					(value "")
+				)
+				(comment
+					(number "5")
+					(value "1:1")
+				)
+				(comment
+					(number "6")
+					(value "Approvatore")
+				)
+				(comment
+					(number "7")
+					(value "")
+				)
+				(comment
+					(number "8")
+					(value "")
+				)
+				(comment
+					(number "9")
+					(value "")
+				)
+			)
+		)
+		(sheet
+			(number "3")
+			(name "/Foglio2/")
+			(tstamps "/0fbb1b5b-5613-44db-a3fa-c9c5919f1b49/")
+			(title_block
+				(title "Descrizione")
+				(company)
+				(rev "00.00.0001")
+				(date "GG/MM/AAAA")
+				(source "Foglio2.kicad_sch")
+				(comment
+					(number "1")
+					(value "Disegnatore")
+				)
+				(comment
+					(number "2")
+					(value "codice_prodotto")
+				)
+				(comment
+					(number "3")
+					(value "codice_schema")
+				)
+				(comment
+					(number "4")
+					(value "")
+				)
+				(comment
+					(number "5")
+					(value "1:1")
+				)
+				(comment
+					(number "6")
+					(value "Approvatore")
+				)
+				(comment
+					(number "7")
+					(value "")
+				)
+				(comment
+					(number "8")
+					(value "")
+				)
+				(comment
+					(number "9")
+					(value "")
+				)
+			)
+		)
+	)
+	(components
+		(comp
+			(ref "CABLES1")
+			(value "~")
+			(description "Default")
+			(fields
+				(field
+					(name "Color") "Green")
+				(field
+					(name "Size") "0.5 mmq")
+				(field
+					(name "Notes") "Single-core cable")
+				(field
+					(name "Type") "Metadata")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Default")
+			)
+			(libsource
+				(lib "IPSES_others")
+				(part "cables")
+				(description "Name")
+			)
+			(property
+				(name "Color")
+				(value "Green")
+			)
+			(property
+				(name "Size")
+				(value "0.5 mmq")
+			)
+			(property
+				(name "Notes")
+				(value "Single-core cable")
+			)
+			(property
+				(name "Type")
+				(value "Metadata")
+			)
+			(property
+				(name "Sheetname")
+				(value "issue24220")
+			)
+			(property
+				(name "Sheetfile")
+				(value "issue24220.kicad_sch")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "152d87b2-52a8-450d-99d1-dd49b920d0c2")
+			(units
+				(unit
+					(name "A")
+					(pins)
+				)
+			)
+		)
+		(comp
+			(ref "CABLES2")
+			(value "~")
+			(description "Power")
+			(fields
+				(field
+					(name "Color") "Red")
+				(field
+					(name "Size") "1 mmq")
+				(field
+					(name "Notes") "Single-core cable")
+				(field
+					(name "Type") "Metadata")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Power")
+			)
+			(libsource
+				(lib "IPSES_others")
+				(part "cables")
+				(description "Name")
+			)
+			(property
+				(name "Color")
+				(value "Red")
+			)
+			(property
+				(name "Size")
+				(value "1 mmq")
+			)
+			(property
+				(name "Notes")
+				(value "Single-core cable")
+			)
+			(property
+				(name "Type")
+				(value "Metadata")
+			)
+			(property
+				(name "Sheetname")
+				(value "issue24220")
+			)
+			(property
+				(name "Sheetfile")
+				(value "issue24220.kicad_sch")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "66647c9e-6626-4931-9d2a-bd948e0bbea8")
+			(units
+				(unit
+					(name "A")
+					(pins)
+				)
+			)
+		)
+		(comp
+			(ref "CABLES3")
+			(value "~")
+			(description "GND")
+			(fields
+				(field
+					(name "Color") "Black (Blu in Sche.)")
+				(field
+					(name "Size") "1 mmq")
+				(field
+					(name "Notes") "Single-core cable")
+				(field
+					(name "Type") "Metadata")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "GND")
+			)
+			(libsource
+				(lib "IPSES_others")
+				(part "cables")
+				(description "Name")
+			)
+			(property
+				(name "Color")
+				(value "Black (Blu in Sche.)")
+			)
+			(property
+				(name "Size")
+				(value "1 mmq")
+			)
+			(property
+				(name "Notes")
+				(value "Single-core cable")
+			)
+			(property
+				(name "Type")
+				(value "Metadata")
+			)
+			(property
+				(name "Sheetname")
+				(value "issue24220")
+			)
+			(property
+				(name "Sheetfile")
+				(value "issue24220.kicad_sch")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "4c657c16-1dad-40f5-835a-87e4eabfa017")
+			(units
+				(unit
+					(name "A")
+					(pins)
+				)
+			)
+		)
+		(comp
+			(ref "CABLES4")
+			(value "~")
+			(description "RJ45")
+			(fields
+				(field
+					(name "Color") "N.A.")
+				(field
+					(name "Size") "N.A.")
+				(field
+					(name "Notes") "Ethernet cable Cat 5 or higher")
+				(field
+					(name "Type") "Metadata")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "RJ45")
+			)
+			(libsource
+				(lib "IPSES_others")
+				(part "cables")
+				(description "Name")
+			)
+			(property
+				(name "Color")
+				(value "N.A.")
+			)
+			(property
+				(name "Size")
+				(value "N.A.")
+			)
+			(property
+				(name "Notes")
+				(value "Ethernet cable Cat 5 or higher")
+			)
+			(property
+				(name "Type")
+				(value "Metadata")
+			)
+			(property
+				(name "Sheetname")
+				(value "issue24220")
+			)
+			(property
+				(name "Sheetfile")
+				(value "issue24220.kicad_sch")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "94b0d2a3-acd1-497d-b508-a5570b234cae")
+			(units
+				(unit
+					(name "A")
+					(pins)
+				)
+			)
+		)
+		(comp
+			(ref "J1")
+			(value "ST_02")
+			(footprint "IPSES_connectors:TerminalBlock_Weidmuller-2_P5.08mm")
+			(datasheet "https://asset.conrad.com/media10/add/160267/c1/-/it/000357725DS01/scheda-tecnica-357725-weidmueller-1760510000-morsetto-a-vite-25-mm-numero-poli-num-2-nero-500-pz.pdf")
+			(description "Screw terminal, pitch 5.08 mm, number pin: 2, 90°")
+			(fields
+				(field
+					(name "Type") "Board PTH")
+				(field
+					(name "Pins") "2")
+				(field
+					(name "Pitch") "5.08")
+				(field
+					(name "Current") "15")
+				(field
+					(name "Manufacturer") "Weidmuller")
+				(field
+					(name "Manufacturer Code") "1760510000")
+				(field
+					(name "Manufacturer short name") "WE")
+				(field
+					(name "Supplier") "RS Components")
+				(field
+					(name "Supplier short name") "RS")
+				(field
+					(name "Supplier Code") "425-8720")
+				(field
+					(name "Id") "1")
+				(field
+					(name "Family") "Hardware")
+				(field
+					(name "Price") "0.994")
+				(field
+					(name "Footprint") "IPSES_connectors:TerminalBlock_Weidmuller-2_P5.08mm")
+				(field
+					(name "Datasheet") "https://asset.conrad.com/media10/add/160267/c1/-/it/000357725DS01/scheda-tecnica-357725-weidmueller-1760510000-morsetto-a-vite-25-mm-numero-poli-num-2-nero-500-pz.pdf")
+				(field
+					(name "Description") "Screw terminal, pitch 5.08 mm, number pin: 2, 90°")
+			)
+			(libsource
+				(lib "IPSES_components")
+				(part "Connectors/1")
+				(description "Screw terminal, pitch 5.08 mm, number pin: 2, 90°")
+			)
+			(property
+				(name "Type")
+				(value "Board PTH")
+			)
+			(property
+				(name "Pins")
+				(value "2")
+			)
+			(property
+				(name "Pitch")
+				(value "5.08")
+			)
+			(property
+				(name "Current")
+				(value "15")
+			)
+			(property
+				(name "Manufacturer")
+				(value "Weidmuller")
+			)
+			(property
+				(name "Manufacturer Code")
+				(value "1760510000")
+			)
+			(property
+				(name "Manufacturer short name")
+				(value "WE")
+			)
+			(property
+				(name "Supplier")
+				(value "RS Components")
+			)
+			(property
+				(name "Supplier short name")
+				(value "RS")
+			)
+			(property
+				(name "Supplier Code")
+				(value "425-8720")
+			)
+			(property
+				(name "Id")
+				(value "1")
+			)
+			(property
+				(name "Family")
+				(value "Hardware")
+			)
+			(property
+				(name "Price")
+				(value "0.994")
+			)
+			(property
+				(name "Sheetname")
+				(value "issue24220")
+			)
+			(property
+				(name "Sheetfile")
+				(value "issue24220.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "screw terminal")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "IPSES_connectors:TerminalBlock_Weidmuller-2_P5.08mm")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "355e5aca-3a42-4e5c-aee3-d3f25ca1d627")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "J2")
+			(value "ST_02")
+			(footprint "IPSES_connectors:TerminalBlock_Weidmuller-2_P5.08mm")
+			(datasheet "https://asset.conrad.com/media10/add/160267/c1/-/it/000357725DS01/scheda-tecnica-357725-weidmueller-1760510000-morsetto-a-vite-25-mm-numero-poli-num-2-nero-500-pz.pdf")
+			(description "Screw terminal, pitch 5.08 mm, number pin: 2, 90°")
+			(fields
+				(field
+					(name "Type") "Board PTH")
+				(field
+					(name "Pins") "2")
+				(field
+					(name "Pitch") "5.08")
+				(field
+					(name "Current") "15")
+				(field
+					(name "Manufacturer") "Weidmuller")
+				(field
+					(name "Manufacturer Code") "1760510000")
+				(field
+					(name "Manufacturer short name") "WE")
+				(field
+					(name "Supplier") "RS Components")
+				(field
+					(name "Supplier short name") "RS")
+				(field
+					(name "Supplier Code") "425-8720")
+				(field
+					(name "Id") "1")
+				(field
+					(name "Family") "Hardware")
+				(field
+					(name "Price") "0.994")
+				(field
+					(name "Footprint") "IPSES_connectors:TerminalBlock_Weidmuller-2_P5.08mm")
+				(field
+					(name "Datasheet") "https://asset.conrad.com/media10/add/160267/c1/-/it/000357725DS01/scheda-tecnica-357725-weidmueller-1760510000-morsetto-a-vite-25-mm-numero-poli-num-2-nero-500-pz.pdf")
+				(field
+					(name "Description") "Screw terminal, pitch 5.08 mm, number pin: 2, 90°")
+			)
+			(libsource
+				(lib "IPSES_components")
+				(part "Connectors/1")
+				(description "Screw terminal, pitch 5.08 mm, number pin: 2, 90°")
+			)
+			(property
+				(name "Type")
+				(value "Board PTH")
+			)
+			(property
+				(name "Pins")
+				(value "2")
+			)
+			(property
+				(name "Pitch")
+				(value "5.08")
+			)
+			(property
+				(name "Current")
+				(value "15")
+			)
+			(property
+				(name "Manufacturer")
+				(value "Weidmuller")
+			)
+			(property
+				(name "Manufacturer Code")
+				(value "1760510000")
+			)
+			(property
+				(name "Manufacturer short name")
+				(value "WE")
+			)
+			(property
+				(name "Supplier")
+				(value "RS Components")
+			)
+			(property
+				(name "Supplier short name")
+				(value "RS")
+			)
+			(property
+				(name "Supplier Code")
+				(value "425-8720")
+			)
+			(property
+				(name "Id")
+				(value "1")
+			)
+			(property
+				(name "Family")
+				(value "Hardware")
+			)
+			(property
+				(name "Price")
+				(value "0.994")
+			)
+			(property
+				(name "Sheetname")
+				(value "issue24220")
+			)
+			(property
+				(name "Sheetfile")
+				(value "issue24220.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "screw terminal")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "IPSES_connectors:TerminalBlock_Weidmuller-2_P5.08mm")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "2db68f2e-34a8-41b6-96b4-0af9dcdc1f8c")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "OthersComponents2")
+			(value "1520EU")
+			(datasheet "https://www.peli.com/it/it/product/cases/protector/1520eu/?sku=1520-021-110E")
+			(description "1520EU Protector Suitcase")
+			(fields
+				(field
+					(name "N") "1")
+				(field
+					(name "Type") "Mechanics")
+				(field
+					(name "Manufacturer") "Peli")
+				(field
+					(name "Manufacturer Short Name") "PEL")
+				(field
+					(name "Manufacturer Code") "1520-021-110E")
+				(field
+					(name "Family") "Mechanic")
+				(field
+					(name "Id") "45")
+				(field
+					(name "Supplier") "Technopartner")
+				(field
+					(name "Supplier Short Name") "TEH")
+				(field
+					(name "Supplier Code") "PELI 1520-021-110E")
+				(field
+					(name "Quantity") "N")
+				(field
+					(name "Price") "296.310")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet") "https://www.peli.com/it/it/product/cases/protector/1520eu/?sku=1520-021-110E")
+				(field
+					(name "Description") "1520EU Protector Suitcase")
+			)
+			(libsource
+				(lib "IPSES_components")
+				(part "Others/45")
+				(description "1520EU Protector Suitcase")
+			)
+			(property
+				(name "N")
+				(value "1")
+			)
+			(property
+				(name "Type")
+				(value "Mechanics")
+			)
+			(property
+				(name "Manufacturer")
+				(value "Peli")
+			)
+			(property
+				(name "Manufacturer Short Name")
+				(value "PEL")
+			)
+			(property
+				(name "Manufacturer Code")
+				(value "1520-021-110E")
+			)
+			(property
+				(name "Family")
+				(value "Mechanic")
+			)
+			(property
+				(name "Id")
+				(value "45")
+			)
+			(property
+				(name "Supplier")
+				(value "Technopartner")
+			)
+			(property
+				(name "Supplier Short Name")
+				(value "TEH")
+			)
+			(property
+				(name "Supplier Code")
+				(value "PELI 1520-021-110E")
+			)
+			(property
+				(name "Quantity")
+				(value "N")
+			)
+			(property
+				(name "Price")
+				(value "296.310")
+			)
+			(property
+				(name "Sheetname")
+				(value "issue24220")
+			)
+			(property
+				(name "Sheetfile")
+				(value "issue24220.kicad_sch")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "8b14ca25-e3f0-4657-96b1-8dc08fd6d316")
+			(units
+				(unit
+					(name "A")
+					(pins)
+				)
+			)
+		)
+		(comp
+			(ref "REVISION1")
+			(value "~")
+			(description "First release")
+			(fields
+				(field
+					(name "Descrizione1")
+				)
+				(field
+					(name "Date") "GG/MM/AAAA")
+				(field
+					(name "Version") "00.00.0001")
+				(field
+					(name "Author") "Pizzocolo G.")
+				(field
+					(name "Approved") "Pizzocolo G.")
+				(field
+					(name "Type") "Metadata")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "First release")
+			)
+			(libsource
+				(lib "IPSES_others")
+				(part "revision_history")
+				(description "Descrizione")
+			)
+			(property
+				(name "Descrizione1")
+				(value "")
+			)
+			(property
+				(name "Date")
+				(value "GG/MM/AAAA")
+			)
+			(property
+				(name "Version")
+				(value "00.00.0001")
+			)
+			(property
+				(name "Author")
+				(value "Pizzocolo G.")
+			)
+			(property
+				(name "Approved")
+				(value "Pizzocolo G.")
+			)
+			(property
+				(name "Type")
+				(value "Metadata")
+			)
+			(property
+				(name "Sheetname")
+				(value "issue24220")
+			)
+			(property
+				(name "Sheetfile")
+				(value "issue24220.kicad_sch")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "a87fb5aa-b793-4859-accd-98ad3d6e522c")
+			(units
+				(unit
+					(name "A")
+					(pins)
+				)
+			)
+		)
+		(comp
+			(ref "SERIAL_NUMBER1")
+			(value "~")
+			(description "2026/01")
+			(fields
+				(field
+					(name "Type") "Metadata")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "2026/01")
+			)
+			(libsource
+				(lib "IPSES_others")
+				(part "SerialNumber")
+				(description "AAAA/NN")
+			)
+			(property
+				(name "Type")
+				(value "Metadata")
+			)
+			(property
+				(name "Sheetname")
+				(value "issue24220")
+			)
+			(property
+				(name "Sheetfile")
+				(value "issue24220.kicad_sch")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "1fd7eda6-ec9c-48ee-b9f2-0cbbdf1f5986")
+			(units
+				(unit
+					(name "A")
+					(pins)
+				)
+			)
+		)
+		(comp
+			(ref "SERIAL_NUMBER2")
+			(value "~")
+			(description "2026/02")
+			(fields
+				(field
+					(name "Type") "Metadata")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "2026/02")
+			)
+			(libsource
+				(lib "IPSES_others")
+				(part "SerialNumber")
+				(description "AAAA/NN")
+			)
+			(property
+				(name "Type")
+				(value "Metadata")
+			)
+			(property
+				(name "Sheetname")
+				(value "issue24220")
+			)
+			(property
+				(name "Sheetfile")
+				(value "issue24220.kicad_sch")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "f0fae5cb-a373-4c9a-be9b-6ff4021d6aa8")
+			(units
+				(unit
+					(name "A")
+					(pins)
+				)
+			)
+		)
+		(comp
+			(ref "J9")
+			(value "ST_02")
+			(footprint "IPSES_connectors:TerminalBlock_Weidmuller-2_P5.08mm")
+			(datasheet "https://asset.conrad.com/media10/add/160267/c1/-/it/000357725DS01/scheda-tecnica-357725-weidmueller-1760510000-morsetto-a-vite-25-mm-numero-poli-num-2-nero-500-pz.pdf")
+			(description "Screw terminal, pitch 5.08 mm, number pin: 2, 90°")
+			(fields
+				(field
+					(name "Type") "Board PTH")
+				(field
+					(name "Pins") "2")
+				(field
+					(name "Pitch") "5.08")
+				(field
+					(name "Current") "15")
+				(field
+					(name "Manufacturer") "Weidmuller")
+				(field
+					(name "Manufacturer Code") "1760510000")
+				(field
+					(name "Manufacturer short name") "WE")
+				(field
+					(name "Supplier") "RS Components")
+				(field
+					(name "Supplier short name") "RS")
+				(field
+					(name "Supplier Code") "425-8720")
+				(field
+					(name "Id") "1")
+				(field
+					(name "Family") "Hardware")
+				(field
+					(name "Price") "0.994")
+				(field
+					(name "Footprint") "IPSES_connectors:TerminalBlock_Weidmuller-2_P5.08mm")
+				(field
+					(name "Datasheet") "https://asset.conrad.com/media10/add/160267/c1/-/it/000357725DS01/scheda-tecnica-357725-weidmueller-1760510000-morsetto-a-vite-25-mm-numero-poli-num-2-nero-500-pz.pdf")
+				(field
+					(name "Description") "Screw terminal, pitch 5.08 mm, number pin: 2, 90°")
+			)
+			(libsource
+				(lib "IPSES_components")
+				(part "Connectors/1")
+				(description "Screw terminal, pitch 5.08 mm, number pin: 2, 90°")
+			)
+			(property
+				(name "Type")
+				(value "Board PTH")
+			)
+			(property
+				(name "Pins")
+				(value "2")
+			)
+			(property
+				(name "Pitch")
+				(value "5.08")
+			)
+			(property
+				(name "Current")
+				(value "15")
+			)
+			(property
+				(name "Manufacturer")
+				(value "Weidmuller")
+			)
+			(property
+				(name "Manufacturer Code")
+				(value "1760510000")
+			)
+			(property
+				(name "Manufacturer short name")
+				(value "WE")
+			)
+			(property
+				(name "Supplier")
+				(value "RS Components")
+			)
+			(property
+				(name "Supplier short name")
+				(value "RS")
+			)
+			(property
+				(name "Supplier Code")
+				(value "425-8720")
+			)
+			(property
+				(name "Id")
+				(value "1")
+			)
+			(property
+				(name "Family")
+				(value "Hardware")
+			)
+			(property
+				(name "Price")
+				(value "0.994")
+			)
+			(property
+				(name "Sheetname")
+				(value "Foglio 1")
+			)
+			(property
+				(name "Sheetfile")
+				(value "untitled.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "screw terminal")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "IPSES_connectors:TerminalBlock_Weidmuller-2_P5.08mm")
+			)
+			(sheetpath
+				(names "/Foglio 1/")
+				(tstamps "/c74ee8e4-f220-4f04-b45b-c2b80f1d1758/")
+			)
+			(tstamps "4ce8d797-0e9c-4560-9508-68d6da8359f2")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "J7")
+			(value "ST_02")
+			(footprint "IPSES_connectors:TerminalBlock_Weidmuller-2_P5.08mm")
+			(datasheet "https://asset.conrad.com/media10/add/160267/c1/-/it/000357725DS01/scheda-tecnica-357725-weidmueller-1760510000-morsetto-a-vite-25-mm-numero-poli-num-2-nero-500-pz.pdf")
+			(description "Screw terminal, pitch 5.08 mm, number pin: 2, 90°")
+			(fields
+				(field
+					(name "Type") "Board PTH")
+				(field
+					(name "Pins") "2")
+				(field
+					(name "Pitch") "5.08")
+				(field
+					(name "Current") "15")
+				(field
+					(name "Manufacturer") "Weidmuller")
+				(field
+					(name "Manufacturer Code") "1760510000")
+				(field
+					(name "Manufacturer short name") "WE")
+				(field
+					(name "Supplier") "RS Components")
+				(field
+					(name "Supplier short name") "RS")
+				(field
+					(name "Supplier Code") "425-8720")
+				(field
+					(name "Id") "1")
+				(field
+					(name "Family") "Hardware")
+				(field
+					(name "Price") "0.994")
+				(field
+					(name "Footprint") "IPSES_connectors:TerminalBlock_Weidmuller-2_P5.08mm")
+				(field
+					(name "Datasheet") "https://asset.conrad.com/media10/add/160267/c1/-/it/000357725DS01/scheda-tecnica-357725-weidmueller-1760510000-morsetto-a-vite-25-mm-numero-poli-num-2-nero-500-pz.pdf")
+				(field
+					(name "Description") "Screw terminal, pitch 5.08 mm, number pin: 2, 90°")
+			)
+			(libsource
+				(lib "IPSES_components")
+				(part "Connectors/1")
+				(description "Screw terminal, pitch 5.08 mm, number pin: 2, 90°")
+			)
+			(property
+				(name "Type")
+				(value "Board PTH")
+			)
+			(property
+				(name "Pins")
+				(value "2")
+			)
+			(property
+				(name "Pitch")
+				(value "5.08")
+			)
+			(property
+				(name "Current")
+				(value "15")
+			)
+			(property
+				(name "Manufacturer")
+				(value "Weidmuller")
+			)
+			(property
+				(name "Manufacturer Code")
+				(value "1760510000")
+			)
+			(property
+				(name "Manufacturer short name")
+				(value "WE")
+			)
+			(property
+				(name "Supplier")
+				(value "RS Components")
+			)
+			(property
+				(name "Supplier short name")
+				(value "RS")
+			)
+			(property
+				(name "Supplier Code")
+				(value "425-8720")
+			)
+			(property
+				(name "Id")
+				(value "1")
+			)
+			(property
+				(name "Family")
+				(value "Hardware")
+			)
+			(property
+				(name "Price")
+				(value "0.994")
+			)
+			(property
+				(name "Sheetname")
+				(value "Foglio2")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Foglio2.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "screw terminal")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "IPSES_connectors:TerminalBlock_Weidmuller-2_P5.08mm")
+			)
+			(sheetpath
+				(names "/Foglio2/")
+				(tstamps "/0fbb1b5b-5613-44db-a3fa-c9c5919f1b49/")
+			)
+			(tstamps "a6d3646b-3a52-436f-b017-302bebe39038")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+	)
+	(groups)
+	(variants)
+	(libparts
+		(libpart
+			(lib "IPSES_components")
+			(part "Connectors/1")
+			(description "Screw terminal, pitch 5.08 mm, number pin: 2, 90°")
+			(docs "https://asset.conrad.com/media10/add/160267/c1/-/it/000357725DS01/scheda-tecnica-357725-weidmueller-1760510000-morsetto-a-vite-25-mm-numero-poli-num-2-nero-500-pz.pdf")
+			(footprints
+				(fp "IPSES_connectors:TerminalBlock_Weidmuller-2_P5.08mm")
+			)
+			(fields
+				(field
+					(name "Reference") "J")
+				(field
+					(name "Value") "ST_02")
+				(field
+					(name "Footprint") "IPSES_connectors:TerminalBlock_Weidmuller-2_P5.08mm")
+				(field
+					(name "Datasheet") "https://asset.conrad.com/media10/add/160267/c1/-/it/000357725DS01/scheda-tecnica-357725-weidmueller-1760510000-morsetto-a-vite-25-mm-numero-poli-num-2-nero-500-pz.pdf")
+				(field
+					(name "Description") "Screw terminal, pitch 5.08 mm, number pin: 2, 90°")
+				(field
+					(name "Type") "Board PTH")
+				(field
+					(name "Pins") "2")
+				(field
+					(name "Pitch") "5.08")
+				(field
+					(name "Current") "15")
+				(field
+					(name "Manufacturer") "Weidmuller")
+				(field
+					(name "Manufacturer Code") "1760510000")
+				(field
+					(name "Manufacturer short name") "WE")
+				(field
+					(name "Supplier") "RS Components")
+				(field
+					(name "Supplier short name") "RS")
+				(field
+					(name "Supplier Code") "425-8720")
+				(field
+					(name "Id") "1")
+				(field
+					(name "Family") "Hardware")
+				(field
+					(name "Price") "0.994")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "Pin_1")
+					(type "passive")
+				)
+				(pin
+					(num "2")
+					(name "Pin_2")
+					(type "passive")
+				)
+			)
+		)
+		(libpart
+			(lib "IPSES_components")
+			(part "Others/45")
+			(description "1520EU Protector Suitcase")
+			(docs "https://www.peli.com/it/it/product/cases/protector/1520eu/?sku=1520-021-110E")
+			(fields
+				(field
+					(name "Reference") "OthersComponents")
+				(field
+					(name "Value") "1520EU")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet") "https://www.peli.com/it/it/product/cases/protector/1520eu/?sku=1520-021-110E")
+				(field
+					(name "Description") "1520EU Protector Suitcase")
+				(field
+					(name "Quantity") "N")
+				(field
+					(name "Type") "Mechanics")
+				(field
+					(name "Manufacturer") "Peli")
+				(field
+					(name "Manufacturer Code") "1520-021-110E")
+				(field
+					(name "Family") "Mechanic")
+				(field
+					(name "Supplier") "Technopartner")
+				(field
+					(name "Supplier Code") "PELI 1520-021-110E")
+				(field
+					(name "Price") "296.310")
+				(field
+					(name "Manufacturer Short Name") "PEL")
+				(field
+					(name "Id") "45")
+				(field
+					(name "Supplier Short Name") "TEH")
+			)
+		)
+		(libpart
+			(lib "IPSES_others")
+			(part "SerialNumber")
+			(description "AAAA/NN")
+			(fields
+				(field
+					(name "Reference") "SERIAL_NUMBER")
+				(field
+					(name "Value")
+				)
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "AAAA/NN")
+				(field
+					(name "Type") "Metadata")
+			)
+		)
+		(libpart
+			(lib "IPSES_others")
+			(part "cables")
+			(description "Name")
+			(fields
+				(field
+					(name "Reference") "cables")
+				(field
+					(name "Value")
+				)
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Name")
+				(field
+					(name "Color") "Color")
+				(field
+					(name "Size") "Size")
+				(field
+					(name "Notes") "Notes")
+				(field
+					(name "Type") "Metadata")
+			)
+		)
+		(libpart
+			(lib "IPSES_others")
+			(part "revision_history")
+			(description "Descrizione")
+			(fields
+				(field
+					(name "Reference") "REVISION")
+				(field
+					(name "Value")
+				)
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Descrizione")
+				(field
+					(name "Descrizione1") "Desceizione1")
+				(field
+					(name "Date") "22/88/2025")
+				(field
+					(name "Version") "00.00.0001")
+				(field
+					(name "Author") "Pizzocolo G.")
+				(field
+					(name "Approved") "Pizzocolo G.")
+				(field
+					(name "Type") "Metadata")
+			)
+		)
+	)
+	(libraries)
+	(nets
+		(net
+			(code "3")
+			(name "/AD.1")
+			(class "ADI,Default")
+			(node
+				(ref "J7")
+				(pin "2")
+				(pinfunction "Pin_2_2")
+				(pintype "passive")
+			)
+			(node
+				(ref "J9")
+				(pin "2")
+				(pinfunction "Pin_2_2")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "4")
+			(name "/AD.2")
+			(class "ADI,Default")
+			(node
+				(ref "J7")
+				(pin "1")
+				(pinfunction "Pin_1_1")
+				(pintype "passive")
+			)
+			(node
+				(ref "J9")
+				(pin "1")
+				(pinfunction "Pin_1_1")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "6")
+			(name "Net-(J1-Pin_1)")
+			(class "Default")
+			(node
+				(ref "J1")
+				(pin "1")
+				(pinfunction "Pin_1_1")
+				(pintype "passive")
+			)
+			(node
+				(ref "J2")
+				(pin "2")
+				(pinfunction "Pin_2_2")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "7")
+			(name "Net-(J1-Pin_2)")
+			(class "Power,Default")
+			(node
+				(ref "J1")
+				(pin "2")
+				(pinfunction "Pin_2_2")
+				(pintype "passive")
+			)
+			(node
+				(ref "J2")
+				(pin "1")
+				(pinfunction "Pin_1_1")
+				(pintype "passive")
+			)
+		)
+	)
+)

@@ -47,6 +47,7 @@ import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import type { TRANSFORM } from '@ziroeda/kimath/src/transform.js';
 import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
 import { DEFAULT_PIN_LENGTH, DEFAULT_PINNAME_SIZE, DEFAULT_PINNUM_SIZE } from './default_values.js';
+import { PIN_LAYOUT_CACHE } from './pin_layout_cache.js';
 import { ElectricalPinTypeGetText, PinShapeGetText } from './pin_type.js';
 import { SCH_ITEM } from './sch_item.js';
 import type { SCH_SHEET_PATH } from './sch_sheet_path.js';
@@ -786,16 +787,37 @@ export class SCH_PIN extends SCH_ITEM {
    * aIncludeElectricalType )`: `GetLayoutCache().GetPinBoundingBox( … )`.
    *
    * With no arguments: `( false, true, m_flags & SHOW_ELEC_TYPE )`.
-   *
-   * -- PIN_LAYOUT_CACHE pending (E3): pin_layout_cache.cpp is not ported yet.
    */
   override GetBoundingBox(
-    _aIncludeLabelsOnInvisiblePins = false,
-    _aIncludeNameAndNumber = true,
-    _aIncludeElectricalType = (this.m_flags & SHOW_ELEC_TYPE) !== 0,
+    aIncludeLabelsOnInvisiblePins = false,
+    aIncludeNameAndNumber = true,
+    aIncludeElectricalType = (this.m_flags & SHOW_ELEC_TYPE) !== 0,
   ): BOX2I {
-    throw new Error('SCH_PIN::GetBoundingBox: PIN_LAYOUT_CACHE is not ported yet');
+    return this.GetLayoutCache().GetPinBoundingBox(
+      aIncludeLabelsOnInvisiblePins,
+      aIncludeNameAndNumber,
+      aIncludeElectricalType,
+    );
   }
+
+  /**
+   * Get the layout cache associated with this pin, made on first use.  The owner is
+   * checked because a copy made field-by-field would otherwise share its source's cache
+   * (upstream's copy constructor leaves `m_layoutCache` empty).
+   */
+  GetLayoutCache(): PIN_LAYOUT_CACHE {
+    if (!this.m_layoutCache || this.m_layoutCacheOwner !== this) {
+      this.m_layoutCache = new PIN_LAYOUT_CACHE(
+        this as unknown as ConstructorParameters<typeof PIN_LAYOUT_CACHE>[0],
+      );
+      this.m_layoutCacheOwner = this;
+    }
+
+    return this.m_layoutCache;
+  }
+
+  private m_layoutCache: PIN_LAYOUT_CACHE | null = null;
+  private m_layoutCacheOwner: SCH_PIN | null = null;
 
   IsGlobalPower(): boolean {
     if (this.GetType() !== ELECTRICAL_PINTYPE.PT_POWER_IN) return false;

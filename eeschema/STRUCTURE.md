@@ -623,3 +623,22 @@ sessions' concurrent SCH_* ports).
   record model's `IsBusLabel` copies (`junction_helpers.ts`,
   `sch_bus_entry.ts`) are left for the caller switch. Root match after:
   55/83.
+- `connection_graph.ts` (`CONNECTION_SUBGRAPH`, `CONNECTION_GRAPH`, `NET_MAP`),
+  the whole of `connection_graph.cpp` including `RunERC` and its checks, on
+  the live items. It is its own port rather than a wrapper over
+  `connectivity/` — the record-model engine is a union-find over plain
+  records, a different algorithm from upstream's subgraph walk, so nothing
+  there was the same code to reuse. Pinned by
+  `qa/unittests/eeschema/connection_graph_oracle.test.ts`: the `(nets …)`
+  section, written as `makeListOfNets` writes it, matches kicad-cli line for
+  line on 45 designs — the 13 of `qa/data/eeschema/netlist_oracle/` plus 32
+  more in `netlist_oracle_graph/` (the rest of KiCad's `netlists/` and the
+  designs its own connectivity regressions load). Containers keyed by pointer
+  upstream are insertion-ordered `Map`/`Set` here; the connection map is
+  walked in `std::less<VECTOR2I>` order. Needed on the way: the live
+  `PIN_LAYOUT_CACHE` bounding-box half (`pin_layout_cache.ts`, below the
+  record model's copy; `SCH_PIN::GetBoundingBox` used to throw), and
+  `SCHEMATIC` loading the project's bus aliases. `SCH_SCREEN::GetLine` asks
+  the tree for lines only (same answer; `EE_RTREE` boxes every item per query,
+  which made the 40-second `video` design take 3). Root match after: 62/83
+  (the root grew with other stages in between).

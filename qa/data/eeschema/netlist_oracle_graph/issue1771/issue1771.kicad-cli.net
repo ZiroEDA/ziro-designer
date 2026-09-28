@@ -1,0 +1,607 @@
+(export
+	(version "E")
+	(design
+		(source "/home/akshay/ziro-designer-1/qa/data/eeschema/netlist_oracle_graph/issue1771/issue1771.kicad_sch")
+		(date "2026-09-29T01:37:10")
+		(tool "Eeschema 10.0.6-10.0.6~ubuntu24.04.1")
+		(sheet
+			(number "1")
+			(name "/")
+			(tstamps "/")
+			(title_block
+				(title)
+				(company)
+				(rev)
+				(date)
+				(source "issue1771.kicad_sch")
+				(comment
+					(number "1")
+					(value "")
+				)
+				(comment
+					(number "2")
+					(value "")
+				)
+				(comment
+					(number "3")
+					(value "")
+				)
+				(comment
+					(number "4")
+					(value "")
+				)
+				(comment
+					(number "5")
+					(value "")
+				)
+				(comment
+					(number "6")
+					(value "")
+				)
+				(comment
+					(number "7")
+					(value "")
+				)
+				(comment
+					(number "8")
+					(value "")
+				)
+				(comment
+					(number "9")
+					(value "")
+				)
+			)
+		)
+		(sheet
+			(number "2")
+			(name "/sub/")
+			(tstamps "/646c9f9f-0bca-47c1-b111-bccee7653836/")
+			(title_block
+				(title)
+				(company)
+				(rev)
+				(date)
+				(source "sub.kicad_sch")
+				(comment
+					(number "1")
+					(value "")
+				)
+				(comment
+					(number "2")
+					(value "")
+				)
+				(comment
+					(number "3")
+					(value "")
+				)
+				(comment
+					(number "4")
+					(value "")
+				)
+				(comment
+					(number "5")
+					(value "")
+				)
+				(comment
+					(number "6")
+					(value "")
+				)
+				(comment
+					(number "7")
+					(value "")
+				)
+				(comment
+					(number "8")
+					(value "")
+				)
+				(comment
+					(number "9")
+					(value "")
+				)
+			)
+		)
+		(sheet
+			(number "3")
+			(name "/sub/sub2/")
+			(tstamps "/646c9f9f-0bca-47c1-b111-bccee7653836/4fea18b4-6b3d-4acc-a71b-7ee31c8961ac/")
+			(title_block
+				(title)
+				(company)
+				(rev)
+				(date)
+				(source "sub2.kicad_sch")
+				(comment
+					(number "1")
+					(value "")
+				)
+				(comment
+					(number "2")
+					(value "")
+				)
+				(comment
+					(number "3")
+					(value "")
+				)
+				(comment
+					(number "4")
+					(value "")
+				)
+				(comment
+					(number "5")
+					(value "")
+				)
+				(comment
+					(number "6")
+					(value "")
+				)
+				(comment
+					(number "7")
+					(value "")
+				)
+				(comment
+					(number "8")
+					(value "")
+				)
+				(comment
+					(number "9")
+					(value "")
+				)
+			)
+		)
+		(sheet
+			(number "4")
+			(name "/sub/sub2/sub3/")
+			(tstamps "/646c9f9f-0bca-47c1-b111-bccee7653836/4fea18b4-6b3d-4acc-a71b-7ee31c8961ac/38a5c293-46d2-4c74-939b-43575208aa56/")
+			(title_block
+				(title)
+				(company)
+				(rev)
+				(date)
+				(source "sub3.kicad_sch")
+				(comment
+					(number "1")
+					(value "")
+				)
+				(comment
+					(number "2")
+					(value "")
+				)
+				(comment
+					(number "3")
+					(value "")
+				)
+				(comment
+					(number "4")
+					(value "")
+				)
+				(comment
+					(number "5")
+					(value "")
+				)
+				(comment
+					(number "6")
+					(value "")
+				)
+				(comment
+					(number "7")
+					(value "")
+				)
+				(comment
+					(number "8")
+					(value "")
+				)
+				(comment
+					(number "9")
+					(value "")
+				)
+			)
+		)
+	)
+	(components
+		(comp
+			(ref "TP101")
+			(value "TST-01025")
+			(description "Test point, 25mils")
+			(fields
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Test point, 25mils")
+			)
+			(libsource
+				(lib "Mechanical")
+				(part "TST-01025")
+				(description "Test point, 25mils")
+			)
+			(property
+				(name "Sheetname")
+				(value "issue1771")
+			)
+			(property
+				(name "Sheetfile")
+				(value "issue1771.kicad_sch")
+			)
+			(property
+				(name "exclude_from_bom")
+			)
+			(property
+				(name "ki_keywords")
+				(value "tp")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "TP_25")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "a1e81ea4-2857-40cb-bf19-e3ded3e64c52")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "TP102")
+			(value "TST-01025")
+			(description "Test point, 25mils")
+			(fields
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Test point, 25mils")
+			)
+			(libsource
+				(lib "Mechanical")
+				(part "TST-01025")
+				(description "Test point, 25mils")
+			)
+			(property
+				(name "Sheetname")
+				(value "issue1771")
+			)
+			(property
+				(name "Sheetfile")
+				(value "issue1771.kicad_sch")
+			)
+			(property
+				(name "exclude_from_bom")
+			)
+			(property
+				(name "ki_keywords")
+				(value "tp")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "TP_25")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "8921adc2-e282-4af4-a07a-a1b585fcfece")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "TP301")
+			(value "TST-01025")
+			(description "Test point, 25mils")
+			(fields
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Test point, 25mils")
+			)
+			(libsource
+				(lib "Mechanical")
+				(part "TST-01025")
+				(description "Test point, 25mils")
+			)
+			(property
+				(name "Sheetname")
+				(value "sub2")
+			)
+			(property
+				(name "Sheetfile")
+				(value "sub2.kicad_sch")
+			)
+			(property
+				(name "exclude_from_bom")
+			)
+			(property
+				(name "ki_keywords")
+				(value "tp")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "TP_25")
+			)
+			(sheetpath
+				(names "/sub/sub2/")
+				(tstamps "/646c9f9f-0bca-47c1-b111-bccee7653836/4fea18b4-6b3d-4acc-a71b-7ee31c8961ac/")
+			)
+			(tstamps "559c442d-219d-4fe6-8996-24c1a2d9cdcb")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "TP302")
+			(value "TST-01025")
+			(description "Test point, 25mils")
+			(fields
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Test point, 25mils")
+			)
+			(libsource
+				(lib "Mechanical")
+				(part "TST-01025")
+				(description "Test point, 25mils")
+			)
+			(property
+				(name "Sheetname")
+				(value "sub2")
+			)
+			(property
+				(name "Sheetfile")
+				(value "sub2.kicad_sch")
+			)
+			(property
+				(name "exclude_from_bom")
+			)
+			(property
+				(name "ki_keywords")
+				(value "tp")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "TP_25")
+			)
+			(sheetpath
+				(names "/sub/sub2/")
+				(tstamps "/646c9f9f-0bca-47c1-b111-bccee7653836/4fea18b4-6b3d-4acc-a71b-7ee31c8961ac/")
+			)
+			(tstamps "50034e64-5ec3-4269-9ead-698c864f9807")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "TP401")
+			(value "TST-01025")
+			(description "Test point, 25mils")
+			(fields
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Test point, 25mils")
+			)
+			(libsource
+				(lib "Mechanical")
+				(part "TST-01025")
+				(description "Test point, 25mils")
+			)
+			(property
+				(name "Sheetname")
+				(value "sub3")
+			)
+			(property
+				(name "Sheetfile")
+				(value "sub3.kicad_sch")
+			)
+			(property
+				(name "exclude_from_bom")
+			)
+			(property
+				(name "ki_keywords")
+				(value "tp")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "TP_25")
+			)
+			(sheetpath
+				(names "/sub/sub2/sub3/")
+				(tstamps "/646c9f9f-0bca-47c1-b111-bccee7653836/4fea18b4-6b3d-4acc-a71b-7ee31c8961ac/38a5c293-46d2-4c74-939b-43575208aa56/")
+			)
+			(tstamps "8c0ecef8-6b64-41c6-9d38-6d54bc92d084")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "TP402")
+			(value "TST-01025")
+			(description "Test point, 25mils")
+			(fields
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Test point, 25mils")
+			)
+			(libsource
+				(lib "Mechanical")
+				(part "TST-01025")
+				(description "Test point, 25mils")
+			)
+			(property
+				(name "Sheetname")
+				(value "sub3")
+			)
+			(property
+				(name "Sheetfile")
+				(value "sub3.kicad_sch")
+			)
+			(property
+				(name "exclude_from_bom")
+			)
+			(property
+				(name "ki_keywords")
+				(value "tp")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "TP_25")
+			)
+			(sheetpath
+				(names "/sub/sub2/sub3/")
+				(tstamps "/646c9f9f-0bca-47c1-b111-bccee7653836/4fea18b4-6b3d-4acc-a71b-7ee31c8961ac/38a5c293-46d2-4c74-939b-43575208aa56/")
+			)
+			(tstamps "47056232-84ee-4e08-b29b-2834eeadd92b")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+					)
+				)
+			)
+		)
+	)
+	(groups)
+	(variants)
+	(libparts
+		(libpart
+			(lib "Mechanical")
+			(part "TST-01025")
+			(description "Test point, 25mils")
+			(footprints
+				(fp "TP_25")
+			)
+			(fields
+				(field
+					(name "Reference") "TP")
+				(field
+					(name "Value") "TST-01025")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Test point, 25mils")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "")
+					(type "passive")
+				)
+			)
+		)
+	)
+	(libraries
+		(library
+			(logical "Mechanical")
+			(uri "${KICAD10_SYMBOL_DIR}/Mechanical.kicad_sym")
+		)
+	)
+	(nets
+		(net
+			(code "2")
+			(name "/m.X.Y.Z1")
+			(class "Default")
+			(node
+				(ref "TP101")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "TP301")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "TP401")
+				(pin "1")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "3")
+			(name "/m.X.Y.Z2")
+			(class "Default")
+			(node
+				(ref "TP102")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "TP302")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "TP402")
+				(pin "1")
+				(pintype "passive")
+			)
+		)
+	)
+)
