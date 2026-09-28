@@ -4,12 +4,12 @@ Generated 2026-09-28 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 
 | status | count | meaning |
 |---|---:|---|
-| SAME | 211 | same relative path and name as KiCad's `.cpp` |
+| SAME | 226 | same relative path and name as KiCad's `.cpp` |
 | MOVED | 0 | KiCad has this name, in a different directory |
 | DIALOG | 1 | KiCad has it as `dialogs/dialog_<name>.cpp` |
 | HEADER | 14 | KiCad declares it in a `.h` with no matching `.cpp` |
 | ELSEWHERE | 3 | KiCad puts it outside `pcbnew/` |
-| OURS | 82 | no KiCad file of this name anywhere |
+| OURS | 88 | no KiCad file of this name anywhere |
 
 ## MOVED
 
@@ -27,8 +27,8 @@ Generated 2026-09-28 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 | ours (`pcbnew/`) | KiCad (`pcbnew/` unless noted) |
 |---|---|
 | `convert_basic_shapes_to_polygon.ts` | `libs/kimath/src/convert_basic_shapes_to_polygon.cpp` |
+| `cursors.ts` | `common/gal/cursors.cpp` |
 | `drc/shape_collisions.ts` | `libs/kimath/src/geometry/shape_collisions.cpp` |
-| `properties_panel.ts` | `common/widgets/properties_panel.h` |
 
 ## HEADER
 
@@ -53,8 +53,8 @@ Generated 2026-09-28 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 
 | ours (`pcbnew/`) | KiCad (`pcbnew/` unless noted) |
 |---|---|
-| `appearance_nets.ts` | `-` |
 | `board_design_settings_defaults.ts` | `-` |
+| `board_settings.ts` | `-` |
 | `board_types.ts` | `-` |
 | `cleanup_connectivity.ts` | `-` |
 | `connectivity.ts` | `-` |
@@ -63,6 +63,7 @@ Generated 2026-09-28 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 | `convert_shapes.ts` | `-` |
 | `courtyard_collision.ts` | `-` |
 | `courtyard.ts` | `-` |
+| `dialogs/dialog_drc_model.ts` | `-` |
 | `diff_footprint.ts` | `-` |
 | `dimension_geometry.ts` | `-` |
 | `dimension_text.ts` | `-` |
@@ -82,29 +83,31 @@ Generated 2026-09-28 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 | `drc/ptr_order.ts` | `-` |
 | `drc_runner.ts` | `-` |
 | `drc_worker.ts` | `-` |
-| `eda_text_format.ts` | `-` |
 | `edit-board.ts` | `-` |
 | `edit-footprint.ts` | `-` |
 | `find_by_query.ts` | `-` |
+| `footprint_cursors.ts` | `-` |
 | `footprint_diff.ts` | `-` |
 | `footprint_library.ts` | `-` |
 | `footprint_needs_update.ts` | `-` |
 | `footprint_utils.ts` | `-` |
 | `fp_lib_table.ts` | `-` |
+| `group_box.ts` | `-` |
 | `index.ts` | `-` |
 | `inherit_track_width.ts` | `-` |
 | `item_description.ts` | `-` |
+| `length_delay_calculation/tuning_profile_calc.ts` | `-` |
 | `local_ratsnest.ts` | `-` |
 | `msg_panel.ts` | `-` |
+| `netclass_resolve.ts` | `-` |
 | `netlist_reader/pcb_netlist_utils.ts` | `-` |
-| `pad_margins.ts` | `-` |
-| `padstack_drill.ts` | `-` |
 | `pcb_cursor_snap.ts` | `-` |
 | `pcb_dimension_types.ts` | `-` |
 | `pcb_io/kicad_sexpr/board_view_commit.ts` | `-` |
 | `pcb_io/kicad_sexpr/board_view.ts` | `-` |
 | `pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_items.ts` | `-` |
 | `pcb_text_help.ts` | `-` |
+| `pcb_unit_binder.ts` | `-` |
 | `place_image.ts` | `-` |
 | `router/pns_board_iface.ts` | `-` |
 | `router/pns_chain.ts` | `-` |
@@ -126,19 +129,22 @@ Generated 2026-09-28 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 | `shape_fill.ts` | `-` |
 | `table_geometry.ts` | `-` |
 | `textbox_geometry.ts` | `-` |
-| `text_geometry.ts` | `-` |
 | `text_metrics.ts` | `-` |
 | `text_to_polyset.ts` | `-` |
+| `tools/pcb_point_editor_canvas.ts` | `-` |
 | `transform_shape_to_polygon.ts` | `-` |
 | `types.ts` | `-` |
 | `via_layers.ts` | `-` |
+| `widgets/appearance_layers.ts` | `-` |
+| `widgets/appearance_objects.ts` | `-` |
+| `widgets/appearance_presets.ts` | `-` |
 | `widgets/footprint_history.ts` | `-` |
 | `zone_connection.ts` | `-` |
 | `zone_islands.ts` | `-` |
 
 ## SAME
 
-<details><summary>211 files already at KiCad's own path</summary>
+<details><summary>226 files already at KiCad's own path</summary>
 
 - `array_pad_number_provider.ts`
 - `autorouter/ar_autoplacer.ts`
@@ -198,6 +204,7 @@ Generated 2026-09-28 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 - `drc/drc_cache_generator.ts`
 - `drc/drc_creepage_utils.ts`
 - `drc/drc_engine.ts`
+- `drc/drc_interactive_courtyard_clearance.ts`
 - `drc/drc_item.ts`
 - `drc/drc_report.ts`
 - `drc/drc_rule_condition.ts`
@@ -231,12 +238,16 @@ Generated 2026-09-28 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 - `drc/drc_test_provider.ts`
 - `drc/drc_test_provider_via_diameter.ts`
 - `drc/drc_test_provider_zone_connections.ts`
+- `edit_track_width.ts`
 - `exporters/export_d356.ts`
 - `exporters/gendrill_excellon_writer.ts`
 - `exporters/gendrill_writer_base.ts`
 - `exporters/gerber_jobfile_writer.ts`
 - `exporters/place_file_exporter.ts`
+- `fix_board_shape.ts`
 - `footprint_edit_frame.ts`
+- `footprint_editor_settings.ts`
+- `footprint_editor_utils.ts`
 - `footprint_info_impl.ts`
 - `footprint_library_adapter.ts`
 - `footprint.ts`
@@ -249,6 +260,8 @@ Generated 2026-09-28 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 - `grid_layer_box_helpers.ts`
 - `import_gfx/graphics_importer_pcbnew.ts`
 - `kicad_clipboard.ts`
+- `layer_pairs.ts`
+- `layer_utils.ts`
 - `length_delay_calculation/length_delay_calculation_item.ts`
 - `length_delay_calculation/length_delay_calculation.ts`
 - `length_delay_calculation/tuning_profile_parameters_user_defined.ts`
@@ -290,6 +303,7 @@ Generated 2026-09-28 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 - `pcb_reference_image.ts`
 - `pcb_screen.ts`
 - `pcb_shape.ts`
+- `pcb_tablecell.ts`
 - `pcb_table.ts`
 - `pcb_target.ts`
 - `pcb_textbox.ts`
@@ -336,20 +350,27 @@ Generated 2026-09-28 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 - `toolbars_pcb_editor.ts`
 - `tools/align_distribute_tool.ts`
 - `tools/board_editor_control.ts`
+- `tools/board_inspection_tool.ts`
 - `tools/drawing_tool.ts`
 - `tools/drc_tool.ts`
+- `tools/footprint_editor_control.ts`
 - `tools/item_modification_routine.ts`
 - `tools/pcb_actions.ts`
 - `tools/pcb_grid_helper.ts`
+- `tools/pcb_picker_tool.ts`
 - `tools/pcb_point_editor.ts`
 - `tools/pcb_selection_conditions.ts`
+- `tools/pcb_selection_tool.ts`
 - `tools/pcb_selection.ts`
 - `tools/pcb_tool_base.ts`
 - `tools/position_relative_tool.ts`
 - `tracks_cleaner.ts`
+- `widgets/appearance_controls.ts`
 - `widgets/pcb_net_inspector_panel.ts`
+- `widgets/pcb_properties_panel.ts`
 - `zone_filler.ts`
 - `zone_settings.ts`
 - `zone.ts`
+- `zone_utils.ts`
 
 </details>

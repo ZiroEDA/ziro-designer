@@ -265,11 +265,47 @@ but actually defined in `common/` already (`TextVar` in
 `common/project/project_file.ts`, `EmbeddedFilesData`/`defaultEmbeddedFiles`
 in `common/embedded_files.ts`); reading `common/` directly unblocked it and,
 with it, all 11 Board Setup panels that import types from it.
-`appearance_nets.ts`, `array_settings.ts`, `frame_title.ts`, `group_box.ts`,
-`image_cache.ts`, `netclass_resolve.ts`, `pcb_grid.ts`, `pcb_unit_binder.ts`,
-`picker_snap.ts`, `project_settings.ts`, `document_extents.ts`,
-`dimension_tools.ts`, `outset_settings.ts` have no KiCad file of their own;
-kept our name. `pcbnew/package.json` gained `@ziroeda/bitmaps_png` (three
+**Update (09-28, later still): the stage-A root leftovers resolved.** Most of
+the baker's-dozen just above DID have a KiCad file — stage A had simply landed
+them at the package root under our own names rather than at that file's path.
+Sorted out one commit at a time:
+
+| root file | where it went | why |
+|---|---|---|
+| `appearance_nets.ts` | `widgets/appearance_controls.ts` | `NET_GRID_TABLE::Rebuild` is in `widgets/appearance_controls.cpp`; no `.ts` port of that file existed yet. |
+| `picker_snap.ts` | `tools/pcb_picker_tool.ts` | `PCB_PICKER_TOOL::Main`'s `if( m_snap )` is the module's own primary citation; `BOARD_INSPECTION_TOOL`/`PCB_CONTROL::DeleteItemCursor` forcing snap off are context, not a competing file. |
+| `array_settings.ts` | merged into `dialogs/dialog_create_array.ts` | `DIALOG_CREATE_ARRAY::TransferDataFromWindow`'s settings shape, beside `ARRAY_TOOL::CreateArray`/`ARRAY_CREATOR` already there. Its `ArraySpec` import from `./index.js` was a round-trip back to this same file. |
+| `outset_settings.ts` | merged into `tools/item_modification_routine.ts` | `DIALOG_OUTSET_ITEMS::TransferDataFromWindow`, beside `OUTSET_ROUTINE`; same round-trip-import shape as `array_settings.ts`. |
+| `dimension_tools.ts` | split: `DIMENSION_TOOLS`/`dimensionToolKind`/`isDimensionTool`/`dimensionDefaultsFrom` → `tools/drawing_tool.ts`; `DimensionDialogFields`/`dimensionDialogFields` → `dialogs/dialog_dimension_properties.ts` | one root file mirrored two different `.cpp`s: the five `Go( &DRAWING_TOOL::DrawDimension, … )` registrations, and separately `DIALOG_DIMENSION_PROPERTIES`'s constructor field-visibility switch. |
+| `document_extents.ts` | merged into `pcb_base_frame.ts` | `PCB_BASE_FRAME::GetBoardBoundingBox`/`GetDocumentExtents`, plus the `COMMON_TOOLS::doZoomFit` box built from them. |
+| `image_cache.ts` | merged into `pcb_reference_image.ts` | `BITMAP_BASE::m_bitmap`/`ImgToBitmap`'s decode cache, beside the image-geometry helpers already consolidated there for the same reason (`PcbImage` is pcbnew-only). |
+| `pcb_grid.ts`, `frame_title.ts`, `project_settings.ts`, `toggles.ts` | merged into `pcb_edit_frame.ts` | all four are `PCB_EDIT_FRAME`'s own state (grid/snap, `UpdateTitle`, the project-file finders `GetDesignRulesPath` works over, the left-toolbar toggle table) — the same file that already holds the rest of that class's ported members. `toggles.ts` already imported `PCBNEW_JSON_SETTINGS_LIKE` from here, so this removes an import cycle. |
+| `footprint_edit_frame_title.ts`, `fp_grid.ts`, `footprintBoard.ts`, `footprint_editor_toggles.ts` | merged into `footprint_edit_frame.ts` | the same shape, one class down: `FOOTPRINT_EDIT_FRAME::UpdateTitle`, its grid state, its one-footprint `BOARD` wrapper, its toolbar toggle table. |
+| `graphics_defaults.ts` | merged into `footprint_editor_settings.ts` | the `BOARD_DESIGN_SETTINGS::GetLineThickness` lookup operates on `FP_EDIT_JSON_SETTINGS_LIKE`, declared there. |
+| `new_footprint.ts` | renamed `footprint_editor_utils.ts` | `FOOTPRINT_EDIT_FRAME::CreateNewFootprint` lives in `footprint_editor_utils.cpp` upstream — a file this package had no port of at all. |
+| `footprint_tree_context_menu.ts` | `tools/footprint_editor_control.ts` | `FOOTPRINT_EDITOR_CONTROL::Init`'s tree context menu. |
+
+Three of the thirteen genuinely have no KiCad file and keep our name, all
+already argued above in the "teardrop pattern" section or nearby:
+`group_box.ts` (`PCB_PAINTER::draw( PCB_GROUP* )` is already ported inline
+into `pcb_painter.ts`'s own `drawGroup`; this is the parallel POJO copy the
+OLD Path2D renderer inside `PcbEditor.tsx` still draws groups with — a
+teardrop, not a gap), `netclass_resolve.ts` (a third copy of
+`NET_SETTINGS::GetEffectiveNetClass`/`NETCLASS::ContainsNetclassWithName`
+pattern-matching, next to the real one on `common/project/net_settings.ts`'s
+`NET_SETTINGS` class and that same file's own inline POJO helper — same
+teardrop shape, blocked on the Appearance Nets panel moving onto the live
+class) and `pcb_unit_binder.ts` (binds `ui/unit_binder.ts`'s `UNIT_BINDER`
+port to the board's `pcbIUScale`; upstream constructs one inline per dialog,
+so there is no single `.cpp` to be — this is glue two dozen pcbnew dialogs
+share). `board_settings.ts` stays too, for the same teardrop reason as
+`group_box.ts`: it is the dialog-facing POJO mirror of
+`BOARD_DESIGN_SETTINGS` (and the stackup/net-settings/component-class slices
+around it) that all eleven Board Setup panels read and write; folding it into
+`board_design_settings.ts`'s live class would be the consumer migration
+stage 6 hasn't reached, not a file move.
+
+`pcbnew/package.json` gained `@ziroeda/bitmaps_png` (three
 moved panels use its icons; nothing in the package had needed it before).
 
 **Also moved since (09-28), same reasoning:**
@@ -375,11 +411,13 @@ Not moved, and why:
 - `dialogs/footprint_chooser_frame.tsx` (`footprint_chooser_frame`) — chains
   into `widgets/panel_footprint_chooser.tsx`, `widgets/footprint_preview_3d.tsx`,
   `Viewer3DFrame.tsx` and `designer/src/widgets/footprint_list.ts`; same story.
-- No separate `footprint_viewer_frame`, `footprint_editor_settings`,
-  `pcbnew_printout`, `load_select_footprint`, `footprint_editor_utils` or
-  `footprint_libraries_utils` module exists yet under either name — that logic
-  is still folded into `FootprintEditor.tsx` / `libraryManager.ts` /
-  `FootprintCanvas.tsx`, so there is nothing standalone to move.
+- No separate `footprint_viewer_frame`, `pcbnew_printout`,
+  `load_select_footprint` or `footprint_libraries_utils` module exists yet
+  under either name — that logic is still folded into `FootprintEditor.tsx` /
+  `libraryManager.ts` / `FootprintCanvas.tsx`, so there is nothing standalone
+  to move. (`footprint_editor_settings.ts` and, since 09-28,
+  `footprint_editor_utils.ts` — `FOOTPRINT_EDIT_FRAME::CreateNewFootprint` —
+  both exist now.)
 
 ## Gotchas this layout creates
 
