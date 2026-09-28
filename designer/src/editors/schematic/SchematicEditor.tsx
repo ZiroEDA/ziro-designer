@@ -302,13 +302,12 @@ import {
   type MsgPanelItem,
   nextFreeUnit,
 } from '@ziroeda/eeschema';
-import {
-  SchematicCanvas,
-  type CanvasController,
-  type LineMode,
-  type PendingLabel,
-  type PendingDirective,
-} from './components/SchematicCanvas.js';
+import type {
+  CanvasController,
+  LineMode,
+  PendingLabel,
+  PendingDirective,
+} from '@ziroeda/eeschema/sch_draw_panel.js';
 import {
   DialogLabelProperties,
   type LabelPropsKind,
@@ -931,6 +930,7 @@ export function SchematicEditor({
     crossProbeFlashSelection,
     CROSS_PROBE_FLASH_INTERVAL_MS,
     CROSS_PROBE_FLASH_LAST_PHASE,
+    SchematicCanvas,
   } = app;
   const [error, setError] = useState<string | null>(null);
   const initial = useMemo<Schematic | null>(() => {

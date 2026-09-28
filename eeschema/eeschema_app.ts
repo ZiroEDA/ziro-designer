@@ -12,7 +12,7 @@
  * (`designer/src/editors/schematic/eeschema_app.tsx`) is the one file that
  * wires this interface back to what designer actually has.
  */
-import type { ReactNode } from 'react';
+import type { ForwardRefExoticComponent, ReactNode, RefAttributes } from 'react';
 import type { CommonSettings } from '@ziroeda/common/settings/common_settings.js';
 import type { FpLibRow } from '@ziroeda/common/fp_lib_table.js';
 import type { PrefsPageId } from '@ziroeda/common/frame_type.js';
@@ -27,6 +27,7 @@ import type { CROSS_PROBING_SETTINGS } from '@ziroeda/common/settings/app_settin
 import type { KIWAY } from '@ziroeda/common/kiway.js';
 import type { ProjectFile } from '@ziroeda/common/project_paths.js';
 import type { RawFile } from '@ziroeda/common';
+import type { CanvasController, SchematicCanvasProps } from './sch_draw_panel.js';
 import type { PeerRole, PresenceInfo, ProjectSyncTransport } from './project_sync_transport.js';
 import type { EeschemaSettings } from './eeschema_settings.js';
 import type { Theme } from './sch_render_settings.js';
@@ -82,6 +83,10 @@ export interface EeschemaFootprintPads {
 
 export interface EESCHEMA_APP {
   // ----- windows/dialogs (component-shaped, called as JSX) ----------------
+  /** SCH_DRAW_PANEL: the canvas (its contract is `sch_draw_panel.ts`). */
+  SchematicCanvas: ForwardRefExoticComponent<
+    SchematicCanvasProps & RefAttributes<CanvasController>
+  >;
   /** `EDA_BASE_FRAME::ShowPreferences()`, opened on a page. */
   PreferencesDialog: (props: { initialPage?: PrefsPageId; onClose: () => void }) => ReactNode;
   /** The home link in the menu bar's left slot. */

@@ -28,6 +28,7 @@ import { useAuth } from '../../auth/AuthProvider.js';
 import { PresencePanel } from '../../ui/PresencePanel.js';
 import { DialogAssignFootprints } from '@ziroeda/cvpcb/cvpcb_mainframe_ui.js';
 import { useCvpcbApp } from './cvpcb_app.js';
+import { SchematicCanvas } from './components/SchematicCanvas.js';
 import { fetchNetlistFromSchematic } from '@ziroeda/pcbnew/netlist_from_schematic.js';
 import {
   CROSS_PROBE_FLASH_INTERVAL_MS,
@@ -66,6 +67,7 @@ export function useEeschemaApp(): EESCHEMA_APP {
       overrideItemColorsFor,
       gridSizeToIU,
 
+      SchematicCanvas,
       PreferencesDialog: (props) => <PreferencesDialog {...props} />,
       HomeLink: (props) => <HomeLink {...props} />,
       OpenFileDialog: (props) => <OpenFileDialog {...props} />,
