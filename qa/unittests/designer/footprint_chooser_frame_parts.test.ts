@@ -17,7 +17,7 @@ import {
 import {
   addFootprintHistory,
   addFootprintLibraries,
-} from '@ziroeda/designer/src/editors/pcb/widgets/fp_tree_model_adapter.js';
+} from '@ziroeda/pcbnew/fp_tree_model_adapter.js';
 import {
   footprintLibraryDescription,
   symbolLibraryDescription,

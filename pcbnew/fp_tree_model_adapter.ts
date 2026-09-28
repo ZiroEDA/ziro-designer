@@ -23,7 +23,7 @@ import { EDA_PATTERN_MATCH_WILDCARD_ANCHORED } from '@ziroeda/common/eda_pattern
 import {
   FOOTPRINT_INFO_IMPL,
   type FootprintIndexLibrary,
-} from '@ziroeda/pcbnew/footprint_info_impl.js';
+} from './footprint_info_impl.js';
 import { footprintLibraryDescription } from '@ziroeda/common/lib_table_descriptions.js';
 
 /**

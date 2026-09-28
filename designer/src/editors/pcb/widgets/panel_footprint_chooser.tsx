@@ -43,7 +43,7 @@ import {
   addFootprintHistory,
   addFootprintLibraries,
   type FootprintTreeFilter,
-} from './fp_tree_model_adapter.js';
+} from '@ziroeda/pcbnew/fp_tree_model_adapter.js';
 import { generateFootprintInfo } from './generate_footprint_info.js';
 
 /** `m_vsplitter->SetSashGravity( 0.5 )` — tree+preview over details. [data] */

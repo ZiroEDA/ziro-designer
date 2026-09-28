@@ -28,7 +28,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { JSX } from 'react';
 import { PanelFootprintChooser } from '../widgets/panel_footprint_chooser.js';
-import type { FootprintTreeFilter } from '../widgets/fp_tree_model_adapter.js';
+import type { FootprintTreeFilter } from '@ziroeda/pcbnew/fp_tree_model_adapter.js';
 import { footprintHistory } from '../widgets/footprint_history.js';
 import { FootprintPreview3D, useFootprintHolderBoard } from '../widgets/footprint_preview_3d.js';
 import { Viewer3DFrame } from '../Viewer3DFrame.js';

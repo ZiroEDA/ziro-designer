@@ -25,7 +25,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import {
   addFootprintLibraries,
   footprintPassesFilter,
-} from '@ziroeda/designer/src/editors/pcb/widgets/fp_tree_model_adapter.js';
+} from '@ziroeda/pcbnew/fp_tree_model_adapter.js';
 import { generateFootprintInfo } from '@ziroeda/designer/src/editors/pcb/widgets/generate_footprint_info.js';
 import { LibTreeModelAdapter } from '@ziroeda/common/lib_tree_model_adapter.js';
 import { FootprintChooserFrame } from '@ziroeda/designer/src/editors/pcb/dialogs/footprint_chooser_frame.js';
