@@ -89,7 +89,11 @@ import { Direction45, AngleType } from '@ziroeda/kimath/src/geometry/direction45
 import { type Vec2, EuclideanNormI } from '@ziroeda/kimath/src/math/vector2.js';
 import { LineMarker, PnsKind, PnsLinkHolder, type PnsItem } from './pns_item.js';
 import { segContains, segReflectPoint, segSquaredDistanceToPointExact } from './pns_seg_ops.js';
-import { segDistanceToPoint, segIntersectLines, segLineProject } from '@ziroeda/kimath/src/geometry/seg.js';
+import {
+  segDistanceToPoint,
+  segIntersectLines,
+  segLineProject,
+} from '@ziroeda/kimath/src/geometry/seg.js';
 import { arcLength, convertArcToPolyline, reversedArc, type ShapeArc } from './pns_arc.js';
 import { arcShape } from '../drc/drc_engine_view.js';
 import { arcIsClockwise, constructArcFromStartEndCenter, shapeArcCenter } from './shape_arc_ops.js';
@@ -99,7 +103,11 @@ import type { PnsVia } from './pns_via.js';
 import { circleNearestPoint, constructFromTanTanPt } from '@ziroeda/kimath/src/geometry/circle.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import { CalcArcMid } from '@ziroeda/kimath/src/trigo.js';
-import { PNS_IU_PER_MM, PNS_MAX_TANGENT_ANGLE_DEVIATION_DEG, PNS_MAX_TRACK_LENGTH_TO_KEEP_MM } from './pns_drag_algo.js';
+import {
+  PNS_IU_PER_MM,
+  PNS_MAX_TANGENT_ANGLE_DEVIATION_DEG,
+  PNS_MAX_TRACK_LENGTH_TO_KEEP_MM,
+} from './pns_drag_algo.js';
 import { segNearestPoint, segSide } from './pns_meander_placer_base.js';
 
 // ---------------------------------------------------------------------------
