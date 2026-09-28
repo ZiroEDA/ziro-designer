@@ -18,8 +18,8 @@
  */
 import { readFileSync } from 'node:fs';
 import { toolCursorCss } from '@ziroeda/common/tool/tool_cursors.js';
-import { boardToolCursor } from '@ziroeda/designer/src/editors/pcb/cursors.js';
-import { footprintToolCursor } from '@ziroeda/designer/src/editors/footprint/cursors.js';
+import { boardToolCursor } from '@ziroeda/pcbnew/cursors.js';
+import { footprintToolCursor } from '@ziroeda/pcbnew/footprint_cursors.js';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {

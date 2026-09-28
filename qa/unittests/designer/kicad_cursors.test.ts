@@ -18,7 +18,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { kiCursor } from '@ziroeda/common/gal/kicursors.js';
 import { settings } from '@ziroeda/designer/src/prefs/settings.js';
-import { boardToolCursor } from '@ziroeda/designer/src/editors/pcb/cursors.js';
+import { boardToolCursor } from '@ziroeda/pcbnew/cursors.js';
 import { toolCursor as schToolCursor } from '@ziroeda/designer/src/editors/schematic/cursors.js';
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
@@ -199,8 +199,8 @@ describe('one CURSOR_STORE, like KiCad', () => {
   const DECIDERS = [
     'designer/src/editors/schematic/cursors.ts',
     'designer/src/editors/symbol/cursors.ts',
-    'designer/src/editors/footprint/cursors.ts',
-    'designer/src/editors/pcb/cursors.ts',
+    'pcbnew/footprint_cursors.ts',
+    'pcbnew/cursors.ts',
     'common/tool/tool_cursors.ts',
   ];
 

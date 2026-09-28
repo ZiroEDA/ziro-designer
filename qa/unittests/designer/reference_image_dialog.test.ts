@@ -20,10 +20,10 @@ import { fileURLToPath } from 'node:url';
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(`../../../designer/src/${rel}`, import.meta.url)), 'utf8');
 
-const DIALOG = read('editors/pcb/dialogs/dialog_reference_image_properties.tsx');
+const DIALOG = read('../../pcbnew/dialogs/dialog_reference_image_properties_ui.tsx');
 const CSS = read('../../common/widgets/shell.css');
 const EDITOR = read('editors/pcb/PcbEditor.tsx');
-const CURSORS = read('editors/pcb/cursors.ts');
+const CURSORS = read('../../pcbnew/cursors.ts');
 /** Comments are prose, and this file's name the controls it does NOT have. */
 const code = DIALOG.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 // PANEL_IMAGE_EDITOR is common/dialogs' since 09-26, shared with the schematic.

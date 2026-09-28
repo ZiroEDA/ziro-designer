@@ -27,8 +27,8 @@
 import { describe, expect, it } from 'vitest';
 import { sharedToolCursorName, toolCursorCss } from '@ziroeda/common/tool/tool_cursors.js';
 import { kiCursor } from '@ziroeda/common/gal/kicursors.js';
-import { boardToolCursor } from '@ziroeda/designer/src/editors/pcb/cursors.js';
-import { footprintToolCursor } from '@ziroeda/designer/src/editors/footprint/cursors.js';
+import { boardToolCursor } from '@ziroeda/pcbnew/cursors.js';
+import { footprintToolCursor } from '@ziroeda/pcbnew/footprint_cursors.js';
 import { symbolToolCursor } from '@ziroeda/designer/src/editors/symbol/cursors.js';
 import { toolCursorName } from '@ziroeda/designer/src/editors/schematic/cursors.js';
 
