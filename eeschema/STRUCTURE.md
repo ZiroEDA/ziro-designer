@@ -29,6 +29,12 @@ KiCad counterpart (see below). 42 files total now sit at KiCad's own path, up
 from 18 before this stage (`qa/probes/struct_diff_eeschema.sh`'s `SAME`
 count).
 
+After E2 pt 1 (dialogs/widgets/render/symbols, same day): eeschema root has
+45 files, 28 of which are 1:1 KiCad root-name matches. The probe's `SAME`
+count is 72 (up from 42), `DIALOG` is down to 5 and `MOVED` to 2 — most of
+what it used to flag as a `designer/`-only dialog now lives at KiCad's own
+`dialogs/` path.
+
 ## What moved
 
 Twenty-five renames/moves, each verified against the C++ doc comment already
@@ -191,15 +197,110 @@ half of `BACK_ANNOTATE`, complementing `tools/backannotate.ts`) and
 `sch_edit_frame.ts` already claims) are the two closest to moving, but
 splitting either out from its class further is the same refactor risk as the
 "kept under our own name" table above. `net_overrides.ts`
-(`SCH_LINE`/`SCH_JUNCTION` methods, fused into those item classes),
-`project_settings.ts` (glue across four settings files' `.kicad_pro`
-persistence, no single file), and `template_fieldnames.ts`
-(`common/template_fieldnames.cpp` — a `common/` candidate, out of scope for
-an eeschema-only stage) round out the list.
+(`SCH_LINE`/`SCH_JUNCTION` methods, fused into those item classes), and
+`template_fieldnames.ts` (`common/template_fieldnames.cpp` — a `common/`
+candidate, out of scope for an eeschema-only stage) round out the list.
+(`project_settings.ts` moved in stage E2 pt 1 below — it turned out to have
+no `designer/` imports of its own, just no single KiCad file.)
 
 ## UI windows (stage E2)
 
-Everything under `designer/src/editors/schematic/dialogs/`,
-`designer/src/editors/schematic/widgets/*.tsx`,
-`designer/src/editors/schematic/components/`, `SchematicEditor.tsx`, and the
-rest of the `.tsx` surface stays for the next stage.
+### Stage A-style siblings, pt 1: dialogs, widgets, render/symbol fragments (2026-09-28)
+
+Same method as `pcbnew/STRUCTURE.md`'s "Frame chrome" stage A: every
+`designer/src/editors/schematic/{dialogs,components,render,symbols}` module
+`SchematicEditor.tsx` names by relative import, that itself has zero
+`designer/` imports (checked transitively, not just one hop — two modules
+that looked clean on a same-tree-prefix check turned out to reach a
+genuinely `designer/`-coupled sibling one import further in, see below),
+moved to `eeschema/` under KiCad's own path where one exists.
+
+**`dialogs/*.tsx` → `eeschema/dialogs/`** (KiCad's own name, matching a real
+`dialog_*.cpp`): `dialog_edit_symbols_libid`, `dialog_export_netlist`,
+`dialog_global_edit_text_and_graphics`, `dialog_image_properties`,
+`dialog_increment_annotations`, `dialog_label_properties`,
+`dialog_line_properties`, `dialog_sch_import_settings`,
+`dialog_schematic_setup`, `dialog_shape_properties`,
+`dialog_sheet_pin_properties`, `dialog_sheet_properties`,
+`dialog_symbol_fields_table`, `dialog_sync_sheet_pins`,
+`dialog_table_properties`, `dialog_tablecell_properties`,
+`dialog_text_properties`, `dialog_update_from_pcb`, and the six
+`dialogs/panels/panel_*.tsx` (flattened into `dialogs/`, no `panels/`
+subdirectory — KiCad's own `dialogs/` has none either): `panel_bom_presets`,
+`panel_eeschema_annotation_options`, `panel_setup_buses`,
+`panel_setup_formatting`, `panel_setup_pinmap`, `panel_setup_severities`,
+`panel_template_fieldnames`. `dialog_import_gfx.tsx` →
+`eeschema/import_gfx/dialog_import_gfx_sch.tsx` (KiCad's actual path: the
+schematic importer, as opposed to the footprint-editor one). `ErcDialog.tsx`
+→ `eeschema/dialogs/dialog_erc.tsx` (`DIALOG_ERC`).
+
+**Widgets with a KiCad name**: `SearchPanel.tsx` →
+`eeschema/widgets/sch_search_pane.tsx` (`SCH_SEARCH_PANE`,
+`widgets/sch_search_pane.cpp`).
+
+**Kept our own name, moved to the eeschema root anyway** (no single KiCad
+translation unit, same as `pcbnew/STRUCTURE.md`'s stage-A leftovers table):
+`item_color.ts` (colour-control glue every moved dialog needs — `dialogs/`),
+`NetNavigatorPanel.tsx` → `eeschema/widgets/net_navigator_panel.tsx`
+(`net_navigator.cpp`'s UI half is inline in `SCH_EDIT_FRAME`, no standalone
+widget file to match), `pdf_annotations.ts`, `pin_alt_icon.ts`,
+`render_color.ts`, `symbol_markers.ts` (all three fragments of
+`sch_painter.cpp`, which has no whole `.ts` port yet to land beside — flat
+at the eeschema root, since KiCad's `eeschema/` has no `render/` directory),
+`global_sym_lib_table.ts`, `lib_tree_item.ts`, `project_sym_lib_table.ts`,
+`repair_source.ts` (same reasoning, no `symbols/` directory in KiCad's tree
+either). `project_settings.ts` moves too, for the same reason.
+
+`panel_setup_severities.tsx` duplicates `common/dialogs/panel_setup_severities.tsx`
+(the real shared panel) — moved alongside `dialog_schematic_setup.tsx`
+because it had to (severing that relative import was the only alternative),
+but the duplication itself is not fixed here, same as `pcbnew/STRUCTURE.md`'s
+identical finding for its own `panel_pcb_severities.tsx`.
+
+**Not moved, transitively `designer/`-coupled** (surfaced by `tsc`, not by
+the first relative-import scan, which only checked one hop):
+
+- `dialog_change_symbols.tsx` and `symbol_chooser_frame.tsx` — both reach
+  `widgets/panel_symbol_chooser.tsx`, which needs
+  `editors/pcb/footprint_preview_panel.tsx` / `widgets/footprint_list.ts` /
+  `prefs/settings.ts`. Same shape as `pcbnew/STRUCTURE.md`'s
+  `footprint_chooser_frame.tsx` finding.
+- `render/plot.ts` (`SCH_PLOTTER`/`SCH_PRINTOUT`) — needs `theme.ts` and
+  `render/renderer.ts`, both genuinely `designer/`-coupled (`renderer.ts`
+  needs `ui/view_controls.ts`, `font/outline_fonts.ts`,
+  `font/draw_outline_text.ts`). Same "not attempted this pass" verdict
+  `pcbnew/STRUCTURE.md` gives `pcbTheme.ts`/`renderBoard.ts`.
+- `symbols/preload_pool.ts` — needs `symbols/preload_worker.ts`, which needs
+  `libraryBundleStore.ts` (real cloud/library plumbing).
+
+`eeschema/tsconfig.json` gained `jsx: "react-jsx"` and `DOM`/`DOM.Iterable`
+here, the same shape `pcbnew/tsconfig.json` picked up for its own first
+`.tsx` move; `package.json` gained `react`, `@types/react`, `vite` and
+`fflate` (the last for `dialog_export_netlist.tsx`'s zip export).
+
+### What's still in `designer/`, and why stage E2 pt 2 (`EESCHEMA_APP`) has no precedent to copy yet
+
+`SchematicEditor.tsx` itself (11.5k lines) and `SymbolEditor.tsx` (2.9k
+lines) — the windows — are unmoved. What is left of `SchematicEditor.tsx`'s
+app plumbing after pt 1 is the same shape `pcbnew/STRUCTURE.md` lists for
+`PcbEditor.tsx`: `PreferencesDialog`, `HomeLink`, `OpenFileDialog`/
+`SaveAsDialog`, `useToolbarEntries`, `PresencePanel`, `useAuth`
+(`AuthProvider`), `useProjectSync`, `settings`/`gridSizeToIU`
+(`prefs/settings.ts`), `DialogEeschemaPageSettings`,
+`fetchNetlistFromSchematic` (`editors/pcb/netlist_from_schematic.ts`) — all
+real app-level plumbing an `EESCHEMA_APP` interface would need to abstract,
+the same way `CVPCB_APP` (`cvpcb/cvpcb_mainframe_ui.tsx`) already does for
+`cvpcb/`.
+
+**Worth flagging before building one**: `pcbnew/STRUCTURE.md`'s own "Not
+moved, and why" section says `PcbEditor.tsx` is *also* still unmoved,
+waiting on a `PCBNEW_APP` that "none of which is written yet" — the pattern
+this task was asked to copy has not itself finished the app-interface half
+for its own, larger frame. `CVPCB_APP` is the only complete worked example
+in the tree (small program, three windows). An `EESCHEMA_APP` for an
+11.5k-line frame is a bigger interface than either precedent and was not
+attempted in this pass; the dependency list above is the resume point.
+
+The symbol editor (`designer/src/editors/symbol/*` → `eeschema/symbol_editor/`,
+`SymbolEditor.tsx` → `eeschema/symbol_editor/symbol_edit_frame_ui.tsx`) was
+not started this pass either, for the same budget reason.
