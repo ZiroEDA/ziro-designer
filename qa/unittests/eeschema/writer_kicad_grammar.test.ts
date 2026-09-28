@@ -35,7 +35,8 @@ import { fileURLToPath } from 'node:url';
 import { parse, serialize, isList, head, type SNode } from '@ziroeda/sexpr';
 import { readSchematic, writeSchematic } from '@ziroeda/eeschema';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
-import { annotateSymbols, defaultAnnotateOptions } from '@ziroeda/eeschema/annotate.js';
+import { defaultAnnotateOptions } from '@ziroeda/eeschema/annotate.js';
+import { annotateSymbols } from '@ziroeda/eeschema/sch_reference_list.js';
 import type { Schematic } from '@ziroeda/eeschema/types.js';
 import {
   copySelectionText,
