@@ -28,7 +28,6 @@
  */
 
 import { bitmapUrl as kicadBitmapUrl } from '@ziroeda/bitmaps_png';
-import { settings } from '../prefs/settings.js';
 
 /**
  * `wxCURSOR_ARROW` in CSS — the platform's plain arrow.
@@ -191,9 +190,24 @@ function stockCursor(name: KiCursor): string | null {
  *
  * Preferences > Common > "Disable custom cursors" is its negation
  * (`panel_common_settings.cpp:220`, `:326`).
+ *
+ * This module lives in `common/`, which may not import an app's live
+ * settings singleton, so the read is a swappable hook rather than a direct
+ * import — {@link setCustomCursorsEnabledProvider} — the same shape
+ * `PCBNEW_APP`'s theme hook and `pcbTheme.ts`'s `themeByFilename` use for a
+ * live, app-owned answer behind an unchanged call site. The default matches
+ * `APP_SETTINGS_BASE`'s own: `use_custom_cursors` is true
+ * (`common/settings/app_settings.cpp`) until an app says otherwise.
  */
+let customCursorsEnabledProvider: () => boolean = () => true;
+
+/** Every app that owns a live settings store calls this once, at startup. */
+export function setCustomCursorsEnabledProvider(fn: () => boolean): void {
+  customCursorsEnabledProvider = fn;
+}
+
 export function customCursorsEnabled(): boolean {
-  return settings.common.appearance.use_custom_cursors;
+  return customCursorsEnabledProvider();
 }
 
 /** The candidate we know every engine draws: the 32x32 art at its own hotspot. */

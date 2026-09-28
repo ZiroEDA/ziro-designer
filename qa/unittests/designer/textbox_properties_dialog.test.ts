@@ -215,7 +215,7 @@ describe('the tool that opens it wears the right cursor', () => {
   it('is the pencil, like every other graphic-drawing tool', () => {
     // `DRAWING_TOOL::drawShape`'s setCursor is one unconditional line, and the
     // text box is `DrawRectangle`'s `isTextBox` arm, so it goes through it.
-    const cursors = read('ui/tool_cursors.ts');
+    const cursors = read('../../common/tool/tool_cursors.ts');
     for (const tool of [
       'drawTextBox',
       'drawLine',

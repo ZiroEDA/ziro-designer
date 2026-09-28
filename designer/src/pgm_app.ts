@@ -30,6 +30,7 @@ import { CROSS_HAIR_MODE } from '@ziroeda/common/gal/gal_display_options.js';
 import { WINDOW_SETTINGS } from '@ziroeda/common/settings/app_settings.js';
 import { colorSettingsById } from './prefs/color_settings_list.js';
 import { type MouseDragAction, type ScrollModifier, settings } from './prefs/settings.js';
+import { setCustomCursorsEnabledProvider } from '@ziroeda/common/gal/kicursors.js';
 
 /** `panel_mouse_settings.cpp:113-119`: the four choices are `WXK_*` codes. */
 const MODIFIER_CODES: Readonly<Record<ScrollModifier, number>> = {
@@ -138,6 +139,11 @@ export function InitPgm(): PGM_BASE {
     pgm.loadCommonSettings();
 
     pgm.GetSettingsManager().SetColorSettingsLoader(loadColorSettingsByName);
+    // `common/`'s cursor store cannot read this app's live settings singleton
+    // itself (see `setCustomCursorsEnabledProvider`'s own doc comment); this is
+    // the one place every editor's `InitPgm` runs through, so it is the one
+    // place this needs saying.
+    setCustomCursorsEnabledProvider(() => settings.common.appearance.use_custom_cursors);
     SetPgm(pgm);
   }
   return pgm;

@@ -264,7 +264,7 @@ import {
 } from '@ziroeda/common';
 import { toolCursor as kiToolCursor } from '../cursors.js';
 import { applyCanvasSize, backingSizeFor } from '@ziroeda/common/widgets/canvas_size.js';
-import { kiCursor } from '../../../ui/kicursors.js';
+import { kiCursor } from '@ziroeda/common/gal/kicursors.js';
 import { remapEvent } from '../hotkey_bindings.js';
 import { settings } from '../../../prefs/settings.js';
 import { peerColor } from '../../../sync/peerColor.js';

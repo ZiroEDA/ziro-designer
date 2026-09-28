@@ -8,8 +8,8 @@
  * only be checked by rendering it, so in practice it was not checked at all.
  * The board editor lost the delete tool's eraser that way.
  */
-import { kiCursor } from '../../ui/kicursors.js';
-import { toolCursorCss } from '../../ui/tool_cursors.js';
+import { kiCursor } from '@ziroeda/common/gal/kicursors.js';
+import { toolCursorCss } from '@ziroeda/common/tool/tool_cursors.js';
 
 /** What the board canvas needs to know beyond the tool id. */
 export interface BoardCursorState {

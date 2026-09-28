@@ -230,7 +230,9 @@ describe('a row is enabled exactly when something reads its setting', () => {
       'hotkey_feedback',
       'common/dialogs/hotkey_cycle_popup.ts',
     ],
-    ['Disable custom cursors', 'use_custom_cursors', 'designer/src/ui/kicursors.ts'],
+    // The read moved with InitPgm's provider registration when kicursors.ts
+    // moved to common/gal/ (common/ may not read the app's live settings).
+    ['Disable custom cursors', 'use_custom_cursors', 'designer/src/pgm_app.ts'],
     [
       'Use alternating row colors in tables',
       'grid_striping',

@@ -16,7 +16,7 @@
  * the pencil tip is, and no screenshot comparison would show it.
  */
 import { afterEach, describe, expect, it } from 'vitest';
-import { kiCursor } from '@ziroeda/designer/src/ui/kicursors.js';
+import { kiCursor } from '@ziroeda/common/gal/kicursors.js';
 import { settings } from '@ziroeda/designer/src/prefs/settings.js';
 import { boardToolCursor } from '@ziroeda/designer/src/editors/pcb/cursors.js';
 import { toolCursor as schToolCursor } from '@ziroeda/designer/src/editors/schematic/cursors.js';
@@ -25,7 +25,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const path = (rel: string): string => fileURLToPath(new URL(rel, import.meta.url));
-const SRC = readFileSync(path('../../../designer/src/ui/kicursors.ts'), 'utf8');
+const SRC = readFileSync(path('../../../common/gal/kicursors.ts'), 'utf8');
 
 /**
  * `cursors_defs`, quoted from `common/gal/cursors.cpp:114-322`. [data]
@@ -165,9 +165,12 @@ describe('the value the browser is given', () => {
  *
  * Walked as text, the way `view_controls_coverage.test.ts` walks the wheel.
  */
-/** Every .ts/.tsx under designer/src. */
+/** Every .ts/.tsx under a directory. */
 function walk(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
+    // node_modules sits beside the sources now that pcbnew (and common) have
+    // no src/ of their own.
+    if (name === 'node_modules' || name === 'dist') continue;
     const p = join(dir, name);
     if (statSync(p).isDirectory()) walk(p, out);
     else if (p.endsWith('.ts') || p.endsWith('.tsx')) out.push(p);
@@ -176,52 +179,63 @@ function walk(dir: string, out: string[] = []): string[] {
 }
 
 describe('one CURSOR_STORE, like KiCad', () => {
-  const SRCDIR = fileURLToPath(new URL('../../../designer/src', import.meta.url));
+  const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
+  // The store and the shared tool-cursor table live in common/ now (a package
+  // no editor's own designer/src may be the only reader of); each editor's
+  // own decider is still beside that editor.
+  const SOURCE_DIRS = ['designer/src', 'common', 'pcbnew'];
 
   /**
    * Every module that decides a canvas cursor. Each editor now has a
    * `cursors.ts` of its own — one function, so a test can CALL it — and the
-   * shared answers come from `ui/tool_cursors.ts` behind them.
+   * shared answers come from `common/tool/tool_cursors.ts` behind them.
    *
    * This used to list the CANVASES, and went stale the moment their ternaries
    * moved into those modules: the rule ("one store") still held while the
-   * check ("this file imports it") did not.
+   * check ("this file imports it") did not. Paths are repo-root relative,
+   * since the store's move to common/gal/ means they no longer share one
+   * parent directory.
    */
   const DECIDERS = [
-    'editors/schematic/cursors.ts',
-    'editors/symbol/cursors.ts',
-    'editors/footprint/cursors.ts',
-    'editors/pcb/cursors.ts',
-    'ui/tool_cursors.ts',
+    'designer/src/editors/schematic/cursors.ts',
+    'designer/src/editors/symbol/cursors.ts',
+    'designer/src/editors/footprint/cursors.ts',
+    'designer/src/editors/pcb/cursors.ts',
+    'common/tool/tool_cursors.ts',
   ];
 
   /** Files that still name a cursor at the point of use. */
-  const CALLERS = [...DECIDERS, 'editors/schematic/components/SchematicCanvas.tsx'];
+  const CALLERS = [...DECIDERS, 'designer/src/editors/schematic/components/SchematicCanvas.tsx'];
 
   it.each(DECIDERS)('%s exists, so its editor has one place to decide', (rel) => {
-    expect(existsSync(join(SRCDIR, rel)), `${rel} is missing`).toBe(true);
+    expect(existsSync(join(ROOT, rel)), `${rel} is missing`).toBe(true);
   });
 
   it('the store is the only source of KiCad art, tree-wide', () => {
     // Per-occurrence, and over the WHOLE tree rather than a list that can go
-    // stale: any file naming a `KICURSOR` has to reach `ui/kicursors.ts`,
+    // stale: any file naming a `KICURSOR` has to reach `common/gal/kicursors.ts`,
     // directly or through the one shared table that does.
     const offenders: string[] = [];
 
-    for (const file of walk(SRCDIR)) {
-      const src = readFileSync(file, 'utf8');
-      if (!/\bkiCursor\(/.test(src)) continue;
+    for (const dir of SOURCE_DIRS) {
+      for (const file of walk(join(ROOT, dir))) {
+        const src = readFileSync(file, 'utf8');
+        if (!/\bkiCursor\(/.test(src)) continue;
 
-      const rel = file.slice(SRCDIR.length + 1);
-      if (rel === 'ui/kicursors.ts') continue;
-      if (!/from '[./]+(ui\/)?kicursors\.js'/.test(src)) offenders.push(rel);
+        const rel = file.slice(ROOT.length);
+        if (rel === 'common/gal/kicursors.ts') continue;
+        // A relative import from beside the store, or the cross-package spec
+        // every other package reaches it by.
+        if (!/from '([./]+(gal\/)?kicursors\.js|@ziroeda\/common\/gal\/kicursors\.js)'/.test(src))
+          offenders.push(rel);
+      }
     }
 
     expect(offenders).toEqual([]);
   });
 
   it('the deleted second table has not come back', () => {
-    expect(existsSync(join(SRCDIR, 'editors/schematic/cursors_data.ts'))).toBe(false);
+    expect(existsSync(join(ROOT, 'designer/src/editors/schematic/cursors_data.ts'))).toBe(false);
   });
 
   it('nothing paints a cursor bitmap at run time any more', () => {
@@ -230,7 +244,7 @@ describe('one CURSOR_STORE, like KiCad', () => {
     // preference. An XPM converts to a PNG exactly; there is no reason to
     // rasterise one in a browser.
     for (const rel of CALLERS) {
-      const src = readFileSync(join(SRCDIR, rel), 'utf8');
+      const src = readFileSync(join(ROOT, rel), 'utf8');
       expect(src, rel).not.toMatch(/toDataURL\(/);
     }
   });

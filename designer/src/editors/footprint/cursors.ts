@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /** Which cursor the footprint canvas shows. See `editors/pcb/cursors.ts`. */
-import { toolCursorCss } from '../../ui/tool_cursors.js';
+import { toolCursorCss } from '@ziroeda/common/tool/tool_cursors.js';
 
 /**
  * The shared actions answer in `ui/tool_cursors.ts`; this frame's own fallback

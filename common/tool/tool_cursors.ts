@@ -28,7 +28,7 @@
  * set where two editors would otherwise have to agree by hand.
  */
 
-import { kiCursor, type KiCursor } from './kicursors.js';
+import { kiCursor, type KiCursor } from '../gal/kicursors.js';
 
 /**
  * Our tool ids are not all spelled alike: the one delete action is `delete` in

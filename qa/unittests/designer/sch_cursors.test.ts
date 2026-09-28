@@ -108,7 +108,7 @@ describe('the interactive delete tool', () => {
  */
 describe('the schematic draws from CURSOR_STORE, not from a table of its own', () => {
   it('resolves a tool to exactly what the shared store returns', async () => {
-    const { kiCursor } = await import('@ziroeda/designer/src/ui/kicursors.js');
+    const { kiCursor } = await import('@ziroeda/common/gal/kicursors.js');
     for (const tool of ['drawWire', 'placeSymbol', 'delete', 'placeText', 'select']) {
       expect(toolCursor(tool), tool).toBe(kiCursor(toolCursorName(tool)));
     }

@@ -46,12 +46,19 @@
  * more, so it is exercised here alongside the store itself.
  */
 import { afterEach, describe, expect, it } from 'vitest';
-import { kiCursor } from '@ziroeda/designer/src/ui/kicursors.js';
+import { kiCursor, setCustomCursorsEnabledProvider } from '@ziroeda/common/gal/kicursors.js';
 import { toolCursor } from '@ziroeda/designer/src/editors/schematic/cursors.js';
 import { settings } from '@ziroeda/designer/src/prefs/settings.js';
 
 /** `wxCURSOR_ARROW`, in CSS. [data] */
 const ARROW = 'default';
+
+// common/ cannot read the live settings singleton itself (see
+// setCustomCursorsEnabledProvider's own doc comment); registering this once,
+// pointed at the live field, is what `pgm_app.ts`'s InitPgm does in the app —
+// a live getter, not a snapshot, so useCustomCursors below still works by
+// mutating the same field it closes over.
+setCustomCursorsEnabledProvider(() => settings.common.appearance.use_custom_cursors);
 
 function useCustomCursors(on: boolean): void {
   settings.common.appearance.use_custom_cursors = on;

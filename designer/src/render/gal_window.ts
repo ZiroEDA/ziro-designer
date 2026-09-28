@@ -10,7 +10,7 @@
 
 import type { DRAW_PANEL_GAL_WINDOW } from '@ziroeda/common/draw_panel_gal.js';
 import { KICURSOR } from '@ziroeda/common/gal/cursors.js';
-import { type KiCursor, kiCursor } from '../ui/kicursors.js';
+import { type KiCursor, kiCursor } from '@ziroeda/common/gal/kicursors.js';
 
 /** `KICURSOR` -> the designer's `CURSOR_STORE` name. */
 export function cursorName(aCursor: KICURSOR): KiCursor {

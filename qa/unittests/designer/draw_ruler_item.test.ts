@@ -17,7 +17,7 @@
  * too, which is what makes "three canvases, one ruler" checkable.
  */
 import { readFileSync } from 'node:fs';
-import { toolCursorCss } from '@ziroeda/designer/src/ui/tool_cursors.js';
+import { toolCursorCss } from '@ziroeda/common/tool/tool_cursors.js';
 import { boardToolCursor } from '@ziroeda/designer/src/editors/pcb/cursors.js';
 import { footprintToolCursor } from '@ziroeda/designer/src/editors/footprint/cursors.js';
 import { fileURLToPath } from 'node:url';
