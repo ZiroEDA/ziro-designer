@@ -91,3 +91,42 @@ export function schematicTextVarResolver(ctx: TextVarContext): TextVarResolverFn
     return false;
   };
 }
+
+// ---------------------------------------------------------------------------
+// `SCHEMATIC` and `SCHEMATIC_SETTINGS`, forward declarations (eeschema stage E3, part 1):
+// the members the live item classes already call. The classes land with SCH_SCREEN;
+// everything above is the record model's resolver, untouched.
+// ---------------------------------------------------------------------------
+
+import type { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
+import type { OutStr as OutStrE3 } from '@ziroeda/common/eda_item.js';
+import type { METRICS } from '@ziroeda/common/font/font_metrics.js';
+import type { SCH_SHEET_PATH } from './sch_sheet_path.js';
+
+/** The `SCHEMATIC_SETTINGS` members the items read. */
+export interface SCHEMATIC_SETTINGS_LIKE {
+  m_DefaultLineWidth: number;
+  m_DefaultTextSize: number;
+  m_TextOffsetRatio: number;
+  m_LabelSizeRatio: number;
+  m_MaxError: number;
+  m_FontMetrics: METRICS;
+  m_IntersheetRefsListOwnPage: boolean;
+  m_IntersheetRefsFormatShort: boolean;
+  m_IntersheetRefsPrefix: string;
+  m_IntersheetRefsSuffix: string;
+  GetJunctionSize(): number;
+}
+
+export interface SCHEMATIC {
+  Settings(): SCHEMATIC_SETTINGS_LIKE;
+  Project(): PROJECT;
+  CurrentSheet(): SCH_SHEET_PATH;
+  GetCurrentVariant(): string;
+  ResolveTextVar(aSheetPath: SCH_SHEET_PATH | null, token: OutStrE3, aDepth: number): boolean;
+  ResolveCrossReference(token: OutStrE3, aDepth: number): boolean;
+  GetPageRefsMap(): Map<string, Set<number>>;
+  GetVirtualPageToSheetPagesMap(): Map<number, string>;
+  GetVirtualPageToSheetNamesMap(): Map<number, string>;
+  GetEmbeddedFiles(): EMBEDDED_FILES;
+}

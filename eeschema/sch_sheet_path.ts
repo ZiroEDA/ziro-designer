@@ -234,3 +234,21 @@ export function SheetInstanceView(doc: Schematic, aInstancePath: string): Schema
   });
   return changed ? { ...doc, symbols } : doc;
 }
+
+// ---------------------------------------------------------------------------
+// `SCH_SHEET_PATH`, forward declaration (eeschema stage E3, part 1): the members the
+// live item classes already call. The class itself lands with SCH_SHEET; everything
+// above is the record model's helpers, untouched.
+// ---------------------------------------------------------------------------
+
+import type { SCH_SHEET } from './sch_sheet.js';
+
+export interface SCH_SHEET_PATH {
+  Clone(): SCH_SHEET_PATH;
+  push_back(aSheet: SCH_SHEET): void;
+  Last(): SCH_SHEET | null;
+  empty(): boolean;
+  /** `Path().AsString()`: the key the per-sheet maps use. */
+  PathAsString(): string;
+  GetVirtualPageNumber(): number;
+}
