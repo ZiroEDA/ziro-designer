@@ -17,7 +17,7 @@ import {
   footprintGridIU,
   footprintSnappingEnabled,
 } from './footprint_edit_frame.js';
-import { newFootprint } from './footprint_editor_utils.js';
+import { fpTargetOf, newFootprint } from './footprint_editor_utils.js';
 import { fpLineThicknessMM, type FP_EDIT_JSON_SETTINGS_LIKE } from './footprint_editor_settings.js';
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX, type ReactNode } from 'react';
 import { applyBarcodeValues, barcodeValues } from './dialogs/dialog_barcode_properties.js';
@@ -309,23 +309,6 @@ const VIEWPORT_ITEMS = viewportComboItems();
 // `toggles.ts` rather than here, because `qa`'s tsconfig compiles `.ts` only:
 // a default written in a `.tsx` is one no test can read, and the line mode had
 // been wrong since the toolbar landed.
-
-/**
- * Resolve a project `.kicad_mod` path (the file the project manager
- * double-clicked, KiCad's MAIL_FP_EDIT packet) to the library nickname and
- * footprint name the manager keys it under. Mirrors the bootstrap grouping:
- * a footprint's library is its `.pretty` directory, its name the file basename.
- */
-function fpTargetOf(path: string): { lib: string; name: string } {
-  const norm = path.replace(/\\/g, '/');
-  const m = /([^/]+)\.pretty\//i.exec(norm);
-  const dir = m ? `${m[1]}.pretty` : norm.split('/').slice(0, -1).join('/') || 'Project';
-  const lib = dir
-    .replace(/\.pretty$/i, '')
-    .split('/')
-    .pop()!;
-  return { lib, name: fpNameOf(norm) };
-}
 
 /**
  * `ACTIONS::gridOrigin` — the second row of the Show Grid button's right-click

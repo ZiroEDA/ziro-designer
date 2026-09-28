@@ -32,6 +32,7 @@ import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import type { PcbFootprint, PcbTextItem } from './types.js';
 import type { FP_EDIT_JSON_SETTINGS_LIKE as FpEditSettings } from './footprint_editor_settings.js';
 import { fpTextDefaults } from './footprint_editor_settings.js';
+import { fpNameOf } from './footprint_libraries_utils.js';
 
 /**
  * `${REFERENCE}` and friends, resolved the way a new footprint resolves them.
@@ -119,4 +120,26 @@ export function newFootprint(name: string, cfg: FpEditSettings): PcbFootprint {
     barcodes: [],
     models: [],
   };
+}
+
+/**
+ * `FOOTPRINT_EDIT_FRAME::KiwayMailIn`'s `MAIL_FP_EDIT` branch
+ * (`footprint_editor_utils.cpp:336-375`), its `LIB_ID( libNickname,
+ * fpFileName.GetName() )` half: resolve a project `.kicad_mod` path (the file
+ * the project manager double-clicked) to the library nickname and footprint
+ * name the manager keys it under. Mirrors the bootstrap grouping: a
+ * footprint's library is its `.pretty` directory, its name the file basename.
+ *
+ * Moved here from `footprint_edit_frame_ui.tsx`, where it sat as a private
+ * helper of the window.
+ */
+export function fpTargetOf(path: string): { lib: string; name: string } {
+  const norm = path.replace(/\\/g, '/');
+  const m = /([^/]+)\.pretty\//i.exec(norm);
+  const dir = m ? `${m[1]}.pretty` : norm.split('/').slice(0, -1).join('/') || 'Project';
+  const lib = dir
+    .replace(/\.pretty$/i, '')
+    .split('/')
+    .pop()!;
+  return { lib, name: fpNameOf(norm) };
 }
