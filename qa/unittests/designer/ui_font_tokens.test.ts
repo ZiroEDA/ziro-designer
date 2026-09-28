@@ -261,7 +261,7 @@ const BASELINE: Record<string, number> = {
   // not vacuous — the scanner still walks the directory, so the next literal
   // added anywhere under it fails `no area gains one`.
   'editors/drawingsheet': 0,
-  'editors/footprint': 1,
+  'editors/footprint': 0,
   'editors/gerbview': 0,
   // 124 until the Appearance panel took the tab strip's inline `fontSize: 12`
   // out: those tabs are the shared .ze-nb-tabs wxNotebook and state nothing.
@@ -302,7 +302,7 @@ const BASELINE: Record<string, number> = {
   // RESCANNED from this tree.
   // 8 -> 39 (09-28): the scan now reads pcbnew/ and 3d-viewer/. The drop to 8
   // was the file-structure move carrying sites out of view, not removing them.
-  'editors/pcb': 39,
+  'editors/pcb': 40, // +1: the Footprint Editor window moved into pcbnew/
   // 55 -> 50: the COLOR_SWATCH sweep's second half. Seven Clear buttons and
   // one `(using Schematic Editor colors)` hint each carried an inline
   // `fontSize: 11`, and none of them exists upstream - the swatch clears

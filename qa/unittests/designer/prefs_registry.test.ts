@@ -118,7 +118,8 @@ describe('pages are constructed lazily', () => {
     // registry.ts is the module `qa` imports; if it grew an edge to a panel it
     // would stop compiling here, but it would also stop the book being data.
     const src = read(BOOK);
-    expect(staticImports(src)).toEqual(['./types.js']);
+    // frame_type.js is common/'s PrefsPageId enum (98be3806), a type, not a panel.
+    expect(staticImports(src)).toEqual(['./types.js', '@ziroeda/common/frame_type.js']);
     expect(dynamicImports(src)).toEqual([]);
   });
 
