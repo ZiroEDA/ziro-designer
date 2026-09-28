@@ -16,7 +16,7 @@ import {
   DEFAULT_OUTSET_SETTINGS,
   outsetOptionsFrom,
   type OutsetSettings,
-} from '@ziroeda/pcbnew/outset_settings.js';
+} from '@ziroeda/pcbnew/tools/item_modification_routine.js';
 
 const MM = (n: number): number => mmToIU(n);
 

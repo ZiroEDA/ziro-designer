@@ -22,7 +22,7 @@ import {
   pcbPageSizeIU,
   pcbZoomFitBox,
   type ExtentsBox,
-} from '@ziroeda/pcbnew/document_extents.js';
+} from '@ziroeda/pcbnew/pcb_base_frame.js';
 
 /** A4 landscape, as `PAGE_INFO` stores it: mils, then x 25400 nm per mil. */
 const A4_W = 11693 * 25400;
@@ -257,7 +257,7 @@ describe('the PCB frame asks for that box', () => {
   );
 
   it('routes Zoom to Fit through pcbZoomFitBox', () => {
-    expect(src).toContain("from '@ziroeda/pcbnew/document_extents.js'");
+    expect(src).toContain("from '@ziroeda/pcbnew/pcb_base_frame.js'");
     expect(src).toContain('pcbZoomFitBox(');
   });
 

@@ -10,6 +10,8 @@
  * the designer's stores supply them.
  */
 import { EDA_DRAW_FRAME } from '@ziroeda/common/eda_draw_frame.js';
+import { pcbMmToIU as mmToIU } from '@ziroeda/common';
+import { fromPaperToken, pageSizeMM } from '@ziroeda/common/dialogs/dialog_page_settings.js';
 import type { EdaUnits } from '@ziroeda/common/eda_units.js';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import type { FRAME_T } from '@ziroeda/common/frame_type.js';
@@ -578,4 +580,113 @@ export abstract class PCB_BASE_FRAME extends EDA_DRAW_FRAME {
     this.UpdateStatusBar();
     this.UpdateMsgPanel();
   }
+}
+
+// --- PCB_BASE_FRAME::GetBoardBoundingBox / GetDocumentExtents + COMMON_TOOLS::doZoomFit's box (was document_extents.ts) ---
+
+/** A `BOX2I` in pcbnew internal units (1 nm). */
+export interface ExtentsBox {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}
+
+/**
+ * `PCB_BASE_FRAME::GetPageSizeIU()` — `GetPageSettings().GetSizeIU(
+ * pcbIUScale.IU_PER_MILS )` — for a stored `(paper …)` token.
+ *
+ * The token is split by the one splitter this tree has (`fromPaperToken`), so
+ * `(paper "A4" portrait)` and `(paper "User" 431.8 279.4)` resolve the way the
+ * Page Settings dialog resolves them rather than by a second reading of the
+ * string. The table behind it is `PAGE_INFO::standardPageSizes` in
+ * `common/page_info.ts`; there is no size table in this file on purpose.
+ */
+export function pcbPageSizeIU(paperToken: string): { x: number; y: number } {
+  const [widthMM, heightMM] = pageSizeMM(fromPaperToken(paperToken));
+  return { x: mmToIU(widthMM), y: mmToIU(heightMM) };
+}
+
+/**
+ * The rectangle `GetBoardBoundingBox` substitutes for an empty board.
+ *
+ * `m_showBorderAndTitleBlock` decides where it sits: at the origin while the
+ * drawing sheet is drawn — the board's (0,0) is the page's top-left corner —
+ * and centred on the origin when it is not, because then there is no page on
+ * screen for the box to line up with.
+ */
+export function pcbPageBox(paperToken: string, showBorderAndTitleBlock: boolean): ExtentsBox {
+  const { x, y } = pcbPageSizeIU(paperToken);
+
+  if (showBorderAndTitleBlock) return { minX: 0, minY: 0, maxX: x, maxY: y };
+
+  // `-pageSize.x / 2` on a VECTOR2I is C++ integer division, which truncates
+  // toward zero rather than flooring.
+  const halfX = Math.trunc(x / 2);
+  const halfY = Math.trunc(y / 2);
+  return { minX: -halfX, minY: -halfY, maxX: halfX, maxY: halfY };
+}
+
+/** Whether a box would give doZoomFit a finite scale to work with. */
+function isDegenerate(box: ExtentsBox): boolean {
+  // doZoomFit's own test, `GetWidth() == 0 || GetHeight() == 0`.
+  return box.maxX - box.minX === 0 || box.maxY - box.minY === 0;
+}
+
+/**
+ * `BOARD::BOARD() : … m_paper( PAGE_SIZE_TYPE::A4 )` (`pcbnew/board.cpp:98`) —
+ * a board that never wrote a `(paper …)` token still has a page, and it is A4.
+ */
+export const DEFAULT_BOARD_PAPER = 'A4';
+
+export interface ZoomFitOptions {
+  /** The board's `(paper …)` token; absent on a board that never wrote one. */
+  paper: string | undefined;
+  /** `m_showBorderAndTitleBlock` — the drawing sheet's own visibility. */
+  drawingSheetVisible: boolean;
+  /**
+   * `ZOOM_FIT_ALL` for `zoomFitScreen` (Home, and the fit after a board
+   * loads), `ZOOM_FIT_OBJECTS` for `zoomFitObjects` (Ctrl+Home).
+   */
+  fitType: 'all' | 'objects';
+  /** `m_pcb->IsLayerVisible( Edge_Cuts )`. */
+  edgeCutsVisible: boolean;
+  /**
+   * `BOARD::GetBoardEdgesBoundingBox()`: the box over the Edge.Cuts items
+   * alone, null when the board is empty (`ComputeBoundingBox`'s empty box).
+   */
+  edgesBox: ExtentsBox | null;
+}
+
+/**
+ * The box Zoom to Fit scales the view to, or null when there is nothing at all
+ * to measure (a board with neither items nor a page).
+ *
+ * @param itemsBox the scene's bounding box over the board items, null when the
+ *                 board is empty — `BOARD::ComputeBoundingBox`'s empty `BOX2I`.
+ */
+export function pcbZoomFitBox(
+  itemsBox: ExtentsBox | null,
+  opts: ZoomFitOptions,
+): ExtentsBox | null {
+  const page = pcbPageBox(opts.paper || DEFAULT_BOARD_PAPER, opts.drawingSheetVisible);
+
+  // `COMMON_TOOLS::doZoomFit` (common/tool/common_tools.cpp:322-406): the box
+  // is `GetDocumentExtents()` -- every item -- and for ZOOM_FIT_ALL in the
+  // board editor `GetDocumentExtents( false )`: the board edges alone while
+  // Edge.Cuts is visible (`pcb_base_frame.cpp:619-637`), so Home frames the
+  // board and not the fabrication text around it. The drawing sheet is never
+  // part of it on a board with anything on it; it is only what the two
+  // fallbacks below land on.
+  let box = itemsBox;
+
+  if (opts.fitType === 'all' && opts.edgeCutsVisible) box = opts.edgesBox;
+
+  // GetBoardBoundingBox's fallback, then doZoomFit's. Both land on the page:
+  // it is what PCB_DRAW_PANEL_GAL::GetDefaultViewBBox returns too, the drawing
+  // sheet's ViewBBox while LAYER_DRAWINGSHEET is visible
+  // (pcb_draw_panel_gal.cpp:822-828).
+  if (!box || isDegenerate(box)) box = page;
+
+  return isDegenerate(box) ? null : box;
 }

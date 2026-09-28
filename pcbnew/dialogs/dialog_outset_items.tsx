@@ -13,7 +13,7 @@
  * while layers are being copied from the source.
  */
 import { useState, type JSX, type Ref } from 'react';
-import type { OutsetSettings } from '../outset_settings.js';
+import type { OutsetSettings } from '../tools/item_modification_routine.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { pcbUnitText, pcbUnitValue, unitLabel } from '../pcb_unit_binder.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
