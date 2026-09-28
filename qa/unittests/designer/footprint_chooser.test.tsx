@@ -26,7 +26,7 @@ import {
   addFootprintLibraries,
   footprintPassesFilter,
 } from '@ziroeda/pcbnew/fp_tree_model_adapter.js';
-import { generateFootprintInfo } from '@ziroeda/pcbnew/widgets/generate_footprint_info.js';
+import { generateFootprintInfo } from '@ziroeda/pcbnew/generate_footprint_info.js';
 import { LibTreeModelAdapter } from '@ziroeda/common/lib_tree_model_adapter.js';
 import { FootprintChooserFrame } from '@ziroeda/designer/src/editors/pcb/dialogs/footprint_chooser_frame.js';
 import { PanelFootprintChooser } from '@ziroeda/pcbnew/widgets/panel_footprint_chooser.js';
