@@ -24,6 +24,7 @@ import { EuclideanNorm, equal, sub, type VECTOR2I } from '@ziroeda/kimath/src/ma
 import type { BOARD } from './board.js';
 import { BOARD_ITEM } from './board_item.js';
 import { FOOTPRINT, FOOTPRINT_ATTR_T, FOOTPRINT_STACKUP } from './footprint.js';
+import { LAYER_UTILS } from './layer_utils.js';
 import type { PAD } from './pad.js';
 import { PAD_SHAPE } from './padstack.js';
 import type { PCB_BARCODE } from './pcb_barcode.js';
@@ -73,19 +74,6 @@ class DIFF {
   report(msg: string): void {
     if (this.aReporter) this.aReporter.report(msg);
   }
-}
-
-/** `LAYER_UTILS::AccumulateNames` (layer_utils.cpp:27). */
-function AccumulateNames(aLayers: Iterable<PCB_LAYER_ID>, aBoard: BOARD | null): string {
-  let result = '';
-
-  for (const layer of aLayers) {
-    if (result !== '') result += ', ';
-
-    result += aBoard ? aBoard.GetLayerName(layer) : LayerName(layer);
-  }
-
-  return result;
 }
 
 function getBoardNormalizedLayerSet(aLibItem: BOARD_ITEM, aBoard: BOARD | null): LSET {
@@ -877,7 +865,7 @@ function footprintVsBoardStackup(
     mismatch = true;
     if (aReporter) {
       aReporter.report(
-        `Footprint has ${onlyInFp.count()} layers not on board: ${AccumulateNames(onlyInFp.Seq(), aBoard)}`,
+        `Footprint has ${onlyInFp.count()} layers not on board: ${LAYER_UTILS.AccumulateNames(onlyInFp.Seq(), aBoard)}`,
       );
     }
   }
@@ -889,7 +877,7 @@ function footprintVsBoardStackup(
     mismatch = true;
     if (aReporter) {
       aReporter.report(
-        `Board has ${cuOnlyInBoard.count()} copper layers not in footprint: ${AccumulateNames(cuOnlyInBoard.Seq(), aBoard)}`,
+        `Board has ${cuOnlyInBoard.count()} copper layers not in footprint: ${LAYER_UTILS.AccumulateNames(cuOnlyInBoard.Seq(), aBoard)}`,
       );
     }
   }
