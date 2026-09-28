@@ -4407,25 +4407,6 @@ export function PcbEditor({
   }, [boardK]);
 
   /**
-   * Does anything on the board ask for teardrops?
-   *
-   * The refresh below is a full rebuild, so it is worth one cheap scan to skip
-   * it entirely — which is what happens on every board that has never opened
-   * the Edit Teardrops dialog.
-   */
-  // teardropParamsList is defined further down (it needs boardSetup); commitBoard
-  // reaches it through a ref so its own identity stays stable.
-  const teardropListRef = useRef<() => TeardropParametersList>(defaultTeardropParametersList);
-  // BOARD_DESIGN_SETTINGS::m_SolderMaskExpansion, for the mask zone a teardrop
-  // grows when its track opens the mask.
-  const teardropMaskExpansionRef = useRef(0);
-
-  const boardWantsTeardrops = (b: Board): boolean =>
-    b.vias.some((v) => v.teardrops?.enabled) ||
-    b.footprints.some((f) => f.pads.some((p) => p.teardrops?.enabled)) ||
-    b.zones.some((z) => z.teardropType !== undefined);
-
-  /**
    * Commit an edit: the view the tool produced becomes one BOARD_COMMIT on
    * the live BOARD (`commitViewToBoard`), which files the undo entry, keeps
    * the connectivity, and — as `BOARD_COMMIT::Push` does on every commit that
@@ -4448,12 +4429,6 @@ export function PcbEditor({
         setBoardModel(next);
         return;
       }
-
-      // The project's teardrop settings, onto the BOARD_DESIGN_SETTINGS the manager reads.
-      applyTeardropParametersList(
-        kb.GetDesignSettings().GetTeadropParamsList(),
-        teardropListRef.current(),
-      );
 
       const listener = listenerRef.current!;
       commitViewToBoard(
@@ -8413,41 +8388,6 @@ export function PcbEditor({
   fillAllZonesRef.current = fillAllZones;
 
   /**
-   * The board's TEARDROP_PARAMETERS_LIST, built from the Board Setup panel's
-   * millimetre/percentage values. The scope and enable flags live in the
-   * project file's `teardrop_options`, which Board Setup preserves but does not
-   * model, so the dialog owns them for the length of the edit.
-   */
-  const teardropParamsList = useCallback((): TeardropParametersList => {
-    const base = defaultTeardropParametersList();
-    const targets = boardSetup.teardrops.targets;
-    const shape = (s: (typeof boardSetup)['teardrops']['round']) => ({
-      enabled: true,
-      allowUseTwoTracks: s.allowSpanTwoSegments,
-      tdOnPadsInZones: !s.preferZoneConnection,
-      bestLengthRatio: s.bestLengthPct / 100,
-      tdMaxLen: Math.round(s.maxLengthMM * MM),
-      bestWidthRatio: s.bestWidthPct / 100,
-      tdMaxWidth: Math.round(s.maxWidthMM * MM),
-      curvedEdges: s.curvedEdges,
-      widthtoSizeFilterRatio: s.trackWidthLimitPct / 100,
-    });
-    return {
-      ...base,
-      round: shape(boardSetup.teardrops.round),
-      rect: shape(boardSetup.teardrops.rect),
-      track: shape(boardSetup.teardrops.trackToTrack),
-      targetVias: targets.vias,
-      targetPTHPads: targets.pthPads,
-      targetSMDPads: targets.smdPads,
-      targetTrack2Track: targets.trackToTrack,
-      useRoundShapesOnly: targets.roundShapesOnly,
-    };
-  }, [boardSetup]);
-  teardropListRef.current = teardropParamsList;
-  teardropMaskExpansionRef.current = Math.round(boardSetup.maskPaste.maskExpansionMM * MM);
-
-  /**
    * EDIT_TOOL::Properties: open Track & Via Properties on the selection.
    * Upstream refuses when the selection has nothing it can edit.
    */
@@ -8663,53 +8603,66 @@ export function PcbEditor({
     [commitBoard, zonePropsIndex, zoneFillOptions],
   );
 
-  /** DIALOG_GLOBAL_EDIT_TEARDROPS::TransferDataFromWindow. */
+  /**
+   * DIALOG_GLOBAL_EDIT_TEARDROPS::TransferDataFromWindow, on the live BOARD:
+   * the items' parameters are staged on a BOARD_COMMIT and TEARDROP_MANAGER
+   * rebuilds the zones, as upstream does; the listener re-derives the view.
+   */
   const applyTeardropEdit = useCallback(
     (options: GlobalTeardropEditOptions) => {
       const brd = boardRef.current;
+      const frame = frameRef.current;
+      const kb = frame?.GetBoard();
       setTeardropsOpen(false);
-      if (!brd) return;
+      if (!brd || !frame || !kb) return;
 
-      const selected = selection;
-      const next = applyGlobalTeardropEdit(brd, options, {
-        list: teardropParamsList(),
-        solderMaskExpansion: teardropMaskExpansionRef.current,
-        // NETCLASS::ContainsNetclassWithName searches every constituent, so a
-        // net in two classes has to answer to a filter on either.
-        netclassOf: (net) =>
-          netclassesForNet(brd.nets.get(net) ?? '', boardSetupRef.current.netClasses.assignments),
-        isSelected: (item) => {
-          // Pads are selected as `pad:<footprint>:<index>`, vias as `via:<index>`.
-          for (let fi = 0; fi < brd.footprints.length; fi++) {
-            const pads = brd.footprints[fi]!.pads;
-            for (let pi = 0; pi < pads.length; pi++) {
-              if (pads[pi] === item) return selected.has(`pad:${fi}:${pi}`);
-            }
-          }
-          const vi = brd.vias.indexOf(item as (typeof brd.vias)[number]);
-          return vi >= 0 && selected.has(`via:${vi}`);
-        },
-      });
+      // EDA_ITEM::IsSelected: the editor's selection speaks view ids
+      // (`pad:<fp>:<i>`, `via:<i>`, `group:<i>`), not the items' SELECTED flag
+      // (PCB_SELECTION_TOOL is stage 3 of #636).
+      const selectedItems = new Set<unknown>();
+      if (options.selectedOnly) {
+        brd.footprints.forEach((fp, fi) =>
+          fp.pads.forEach((pad, pi) => {
+            if (selection.has(boardItemId('pad', fi, pi))) selectedItems.add(pad.k);
+          }),
+        );
+        brd.vias.forEach((via, vi) => {
+          if (selection.has(boardItemId('via', vi))) selectedItems.add(via.k);
+        });
+        brd.groups.forEach((group, gi) => {
+          if (selection.has(boardItemId('group', gi))) selectedItems.add(group.k);
+        });
+      }
 
-      commitBoard(next.board, { skipTeardrops: true });
+      const listener = listenerRef.current!;
+      applyGlobalTeardropEdit(frame, options, (item) => selectedItems.has(item));
 
-      // The scope checkboxes are project state (`teardrop_options`), so they
-      // survive the dialog closing and the next reload.
+      // A run that changed no item (every filter missed) raises no listener
+      // call; the view is re-derived here instead.
+      if (!listener.IsPending())
+        setBoardModel({
+          ...boardFromBOARD(kb, fileNameRef.current),
+          fileName: fileNameRef.current,
+        });
+
+      // The scope checkboxes are project state (`teardrop_options`), which the
+      // dialog wrote onto BOARD_DESIGN_SETTINGS; persist them with the project.
+      const tdl = kb.GetDesignSettings().GetTeadropParamsList();
       commitBoardSetup({
         ...boardSetupRef.current,
         teardrops: {
           ...boardSetupRef.current.teardrops,
           targets: {
-            vias: next.list.targetVias,
-            pthPads: next.list.targetPTHPads,
-            smdPads: next.list.targetSMDPads,
-            trackToTrack: next.list.targetTrack2Track,
-            roundShapesOnly: next.list.useRoundShapesOnly,
+            vias: tdl.m_TargetVias,
+            pthPads: tdl.m_TargetPTHPads,
+            smdPads: tdl.m_TargetSMDPads,
+            trackToTrack: tdl.m_TargetTrack2Track,
+            roundShapesOnly: tdl.m_UseRoundShapesOnly,
           },
         },
       });
     },
-    [commitBoard, commitBoardSetup, selection, teardropParamsList],
+    [commitBoardSetup, selection, setBoardModel],
   );
 
   /** Put the net highlight back the way a track drag found it. */
