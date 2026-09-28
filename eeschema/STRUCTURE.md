@@ -661,3 +661,15 @@ sessions' concurrent SCH_* ports).
   and `RecalculateConnections()` - always the whole-graph rebuild (upstream's
   incremental arm is an optimisation of the same answer; `CleanUp` is not on
   the live model yet) - and `SCH_ITEM::Destroy` now leaves the graph.
+- `schematic_undo_redo.ts` (`SCH_EDIT_FRAME`'s `SaveCopyInUndoList` ×2,
+  `PutDataInPreviousState`, `RollbackSchematicFromUndo`,
+  `ClearUndoORRedoList`), as `SCH_UNDO_REDO_MIXIN` mixed into
+  `sch_edit_frame.ts`'s `SCH_EDIT_FRAME` — `pcbnew/undo_redo.ts`' pattern for
+  one C++ class split over several `.cpp` files. The frame gained the
+  live-model half those need (`SetSchematic`, `GetScreen`,
+  `GetCurrentSheet`, `AddToScreen`/`RemoveFromScreen`,
+  `RecalculateConnections`, the repeat-items list); the window still edits
+  the record model and calls none of it. Not ported: the `PAGESETTINGS`
+  command (`DS_PROXY_UNDO_ITEM`) and every view call (no live view).
+  `SCH_COMMIT`'s frame constructor takes an `EDA_BASE_FRAME`, since the live
+  `SCH_EDIT_FRAME` is not a draw frame yet.

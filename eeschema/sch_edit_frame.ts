@@ -7,6 +7,10 @@
  * cross-probe packets it sends (eeschema/cross-probing.cpp).
  * `SchematicEditor.tsx` is the window, and owns the state each command
  * changes, so the frame reaches it through {@link SCH_EDIT_FRAME_HOOKS}.
+ *
+ * Its live-model half (stage E3b) holds a `SCHEMATIC` and the undo/redo lists over the
+ * live items: the frame methods `SCH_COMMIT` and `schematic_undo_redo.ts`
+ * (`SCH_UNDO_REDO_MIXIN`, mixed in below) need.
  */
 import { schIUScale } from '@ziroeda/common/eda_units.js';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
@@ -15,6 +19,16 @@ import { KIWAY_PLAYER } from '@ziroeda/common/kiway_player.js';
 import { STRTOK, strncpyLine } from '@ziroeda/common/libc/string.js';
 import { MAIL_T } from '@ziroeda/common/mail_type.js';
 import type { CROSS_PROBING_SETTINGS } from '@ziroeda/common/settings/app_settings.js';
+import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
+import { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
+import { applyMixins } from '@ziroeda/core/mixins.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import type { SCH_COMMIT } from './sch_commit.js';
+import type { SCH_ITEM } from './sch_item.js';
+import type { SCH_SCREEN } from './sch_screen.js';
+import type { SCH_SHEET_PATH } from './sch_sheet_path.js';
+import type { SCH_CLEANUP_FLAGS, SCHEMATIC } from './schematic.js';
+import { SCH_UNDO_REDO_MIXIN } from './schematic_undo_redo.js';
 
 export interface SCH_EDIT_FRAME_HOOKS {
   /** `eeconfig()->m_CrossProbing`, read on every probe so a changed preference is seen. */
@@ -46,12 +60,133 @@ export interface SCH_EDIT_FRAME_HOOKS {
   getNetlist(aAnnotateMessage: string): string | null;
 }
 
+// biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (SCH_UNDO_REDO_MIXIN, see libs/core/mixins.ts)
+export interface SCH_EDIT_FRAME extends SCH_UNDO_REDO_MIXIN {}
+
+// biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (SCH_UNDO_REDO_MIXIN, see libs/core/mixins.ts)
 export class SCH_EDIT_FRAME extends KIWAY_PLAYER {
   private readonly hooks: SCH_EDIT_FRAME_HOOKS;
+
+  /// The live-model schematic this frame edits (null until one is set).
+  private m_schematic: SCHEMATIC | null = null;
+
+  /// Set when an undo/redo or recalculation may have changed the highlighted net.
+  m_highlightedConnChanged = false;
+
+  /// The list of items for the repeat-last-item command.
+  private m_items_to_repeat: SCH_ITEM[] = [];
 
   constructor(hooks: SCH_EDIT_FRAME_HOOKS) {
     super(FRAME_T.FRAME_SCH, schIUScale, 'mm');
     this.hooks = hooks;
+  }
+
+  // -------------------------------------------------------------------------------------
+  // The live-model half (eeschema stage E3b): what the undo/redo mixin and SCH_COMMIT ask
+  // of the frame.  The window (SchematicEditor.tsx) still edits the record model; nothing
+  // here is called by it yet.  The view calls upstream makes (`GetCanvas()->GetView()`)
+  // have no live view to reach and are left out.
+  // -------------------------------------------------------------------------------------
+
+  /**
+   * Point the frame at \a aSchematic, and give it the TOOL_MANAGER its commits go
+   * through (upstream's frame builds one in its constructor).
+   */
+  SetSchematic(aSchematic: SCHEMATIC | null): void {
+    this.m_schematic = aSchematic;
+
+    if (!this.m_toolManager) this.m_toolManager = new TOOL_MANAGER();
+
+    this.m_toolManager.SetEnvironment(aSchematic, null, null, null, this);
+  }
+
+  Schematic(): SCHEMATIC {
+    return this.m_schematic!;
+  }
+
+  /** The current sheet's screen (`SCH_BASE_FRAME::GetScreen`). */
+  GetScreen(): SCH_SCREEN | null {
+    return this.m_schematic ? this.m_schematic.CurrentSheet().LastScreen() : null;
+  }
+
+  GetCurrentSheet(): SCH_SHEET_PATH {
+    return this.m_schematic!.CurrentSheet();
+  }
+
+  /** `SCH_BASE_FRAME::AddToScreen`, without the view. */
+  AddToScreen(aItem: EDA_ITEM, aScreen: SCH_SCREEN | null = null): void {
+    if (!aItem) return; // wxCHECK
+
+    const screen = aScreen ?? this.GetScreen()!;
+
+    if (aItem.Type() !== KICAD_T.SCH_TABLECELL_T) screen.Append(aItem as SCH_ITEM);
+
+    if (screen === this.GetScreen()) this.UpdateItem(aItem, true); // handle any additional parent semantics
+  }
+
+  /** `SCH_BASE_FRAME::RemoveFromScreen`, without the view. */
+  RemoveFromScreen(aItem: EDA_ITEM, aScreen: SCH_SCREEN | null = null): void {
+    const screen = aScreen ?? this.GetScreen()!;
+
+    if (aItem.Type() !== KICAD_T.SCH_TABLECELL_T) screen.Remove(aItem as SCH_ITEM);
+
+    if (screen === this.GetScreen()) this.UpdateItem(aItem, true); // handle any additional parent semantics
+  }
+
+  /**
+   * `SCH_BASE_FRAME::UpdateItem`: mark the item's screen stale and repaint it.  With no
+   * view there is nothing to repaint.
+   */
+  UpdateItem(_aItem: EDA_ITEM, _isAddOrDelete = false, _aUpdateRtree = false): void {}
+
+  /**
+   * `SCH_EDIT_FRAME::RecalculateConnections`: the schematic's, with the change handler that
+   * flags a changed highlighted net.  The view refresh upstream does after is left out.
+   */
+  RecalculateConnections(aCommit: SCH_COMMIT | null, aCleanupFlags: SCH_CLEANUP_FLAGS): void {
+    this.m_schematic!.RecalculateConnections(aCommit, aCleanupFlags, () => {
+      this.m_highlightedConnChanged = true;
+    });
+  }
+
+  SetSheetNumberAndCount(): void {
+    this.m_schematic!.SetSheetNumberAndCount();
+  }
+
+  /** The window's hierarchy navigator: not on the live model. */
+  UpdateHierarchyNavigator(): void {}
+
+  /** The window's variant chooser: not on the live model. */
+  UpdateVariantSelectionCtrl(_aVariantNames: readonly string[]): void {}
+
+  /** `SCH_EDIT_FRAME::UpdateHopOveredWires`: the hop-over shapes are view-side, not here. */
+  UpdateHopOveredWires(_aItem: SCH_ITEM): void {}
+
+  /** Return the items which are to be repeated with the insert key. */
+  GetRepeatItems(): readonly SCH_ITEM[] {
+    return this.m_items_to_repeat;
+  }
+
+  /** Clear the list of items which are to be repeated with the insert key. */
+  ClearRepeatItemsList(): void {
+    this.m_items_to_repeat = [];
+  }
+
+  /** Clone \a aItem and add it to the list of repeatable items. */
+  AddCopyForRepeatItem(aItem: SCH_ITEM | null): void {
+    // we cannot store a pointer to an item in the display list here since
+    // that item may be deleted, such as part of a line concatenation or other.
+    // So simply always keep a copy of the object which is to be repeated.
+
+    if (aItem) {
+      const repeatItem = aItem.Duplicate(false /* IGNORE_PARENT_GROUP */) as SCH_ITEM;
+
+      // Clone() preserves the flags & parent, we want 'em cleared.
+      repeatItem.ClearFlags();
+      repeatItem.SetParent(null);
+
+      this.m_items_to_repeat.push(repeatItem);
+    }
   }
 
   /** `SCH_EDIT_FRAME::KiwayMailIn` (eeschema/cross-probing.cpp). */
@@ -212,3 +347,5 @@ export class SCH_EDIT_FRAME extends KIWAY_PLAYER {
     );
   }
 }
+
+applyMixins(SCH_EDIT_FRAME, [SCH_UNDO_REDO_MIXIN]);

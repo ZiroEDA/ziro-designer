@@ -17,7 +17,7 @@
  */
 
 import { CHANGE_TYPE, COMMIT } from '@ziroeda/common/commit.js';
-import type { EDA_DRAW_FRAME } from '@ziroeda/common/eda_draw_frame.js';
+import type { EDA_BASE_FRAME } from '@ziroeda/common/eda_base_frame.js';
 import { type EDA_ITEM, RECURSE_MODE } from '@ziroeda/common/eda_item.js';
 import {
   EDA_ITEM_ALL_FLAGS,
@@ -119,17 +119,21 @@ export class SCH_COMMIT extends COMMIT {
 
   constructor(aToolMgr: TOOL_MANAGER);
   constructor(aTool: TOOL_BASE);
-  constructor(aFrame: EDA_DRAW_FRAME);
-  constructor(a: TOOL_MANAGER | TOOL_BASE | EDA_DRAW_FRAME) {
+  /**
+   * `SCH_COMMIT( EDA_DRAW_FRAME* )`, widened to `EDA_BASE_FRAME`: the live `SCH_EDIT_FRAME`
+   * is not a draw frame yet, and all the constructor asks is the tool manager and the type.
+   */
+  constructor(aFrame: EDA_BASE_FRAME);
+  constructor(a: TOOL_MANAGER | TOOL_BASE | EDA_BASE_FRAME) {
     super();
 
     if (isSchToolBase(a)) {
       // SCH_COMMIT( SCH_TOOL_BASE<SCH_BASE_FRAME>* aTool )
       this.m_toolMgr = a.GetManager()!;
       this.m_isLibEditor = a.IsSymbolEditor();
-    } else if (typeof (a as EDA_DRAW_FRAME).GetToolManager === 'function') {
+    } else if (typeof (a as EDA_BASE_FRAME).GetToolManager === 'function') {
       // SCH_COMMIT( EDA_DRAW_FRAME* aFrame )
-      const frame = a as EDA_DRAW_FRAME;
+      const frame = a as EDA_BASE_FRAME;
       this.m_toolMgr = frame.GetToolManager()!;
       this.m_isLibEditor = frame.IsType(FRAME_T.FRAME_SCH_SYMBOL_EDITOR);
     } else {
