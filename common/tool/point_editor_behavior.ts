@@ -48,6 +48,7 @@ import {
 } from '@ziroeda/kimath/src/math/vector2.js';
 import { EC_CONVERGING } from './edit_constraints.js';
 import { type EDIT_POINT, EDIT_POINTS } from './edit_points.js';
+import type { GRID_HELPER } from './grid_helper.js';
 
 /**
  * `CHECK_POINT_COUNT( aPoints, aExpected )`: `wxCHECK( aPoints.PointsSize() ==
@@ -1124,4 +1125,149 @@ export function DragArcEditPoint(
     end: arc.GetEnd(),
     center: arc.getCenter(),
   };
+}
+
+/** A bare `EDA_SHAPE` host of any shape, for the drivers below. */
+class SCRATCH_SHAPE extends EDA_SHAPE {
+  constructor(aShape: SHAPE_T) {
+    super();
+    this.initEdaShape(aShape, 0, FILL_T.NO_FILL);
+  }
+}
+
+/** The commit argument none of the `EDA_*` behaviours read. */
+const NO_COMMIT = null as unknown as COMMIT;
+
+/**
+ * `EDA_SEGMENT_POINT_EDIT_BEHAVIOR::UpdateItem` for a segment given as
+ * (start, end): edit point `aPointIndex` (0 start, 1 end) moved to `aCursor`.
+ */
+export function DragSegmentEditPoint(
+  aStart: VECTOR2I,
+  aEnd: VECTOR2I,
+  aPointIndex: number,
+  aCursor: VECTOR2I,
+): { start: VECTOR2I; end: VECTOR2I } {
+  const seg = new SCRATCH_SHAPE(SHAPE_T.SEGMENT);
+  seg.SetStart(aStart);
+  seg.SetEnd(aEnd);
+
+  const behavior = new EDA_SEGMENT_POINT_EDIT_BEHAVIOR(seg);
+  const points = new EDIT_POINTS(null);
+  behavior.MakePoints(points);
+  const edited = points.Point(aPointIndex);
+  edited.SetPosition(aCursor);
+  behavior.UpdateItem(edited, points, NO_COMMIT, []);
+
+  return { start: seg.GetStart(), end: seg.GetEnd() };
+}
+
+/**
+ * `EDA_CIRCLE_POINT_EDIT_BEHAVIOR::UpdateItem` for a circle given as (centre,
+ * end): edit point `aPointIndex` (0 centre, 1 end) moved to `aCursor`. Moving
+ * the centre is `EDA_SHAPE::SetCenter`, which leaves the end where it is - so
+ * the radius follows, as upstream.
+ */
+export function DragCircleEditPoint(
+  aCenter: VECTOR2I,
+  aEnd: VECTOR2I,
+  aPointIndex: number,
+  aCursor: VECTOR2I,
+): { center: VECTOR2I; end: VECTOR2I; radius: number } {
+  const circle = new SCRATCH_SHAPE(SHAPE_T.CIRCLE);
+  circle.SetStart(aCenter);
+  circle.SetEnd(aEnd);
+
+  const behavior = new EDA_CIRCLE_POINT_EDIT_BEHAVIOR(circle);
+  const points = new EDIT_POINTS(null);
+  behavior.MakePoints(points);
+  const edited = points.Point(aPointIndex);
+  edited.SetPosition(aCursor);
+  behavior.UpdateItem(edited, points, NO_COMMIT, []);
+
+  return { center: circle.getCenter(), end: circle.GetEnd(), radius: circle.GetRadius() };
+}
+
+/**
+ * `EDA_BEZIER_POINT_EDIT_BEHAVIOR::UpdateItem` for a bezier given as its four
+ * control points: point `aPointIndex` (start, C1, C2, end) moved to `aCursor`.
+ */
+export function DragBezierEditPoint(
+  aPoints: readonly [VECTOR2I, VECTOR2I, VECTOR2I, VECTOR2I],
+  aPointIndex: number,
+  aCursor: VECTOR2I,
+  aMaxError: number,
+): [VECTOR2I, VECTOR2I, VECTOR2I, VECTOR2I] {
+  const bezier = new SCRATCH_SHAPE(SHAPE_T.BEZIER);
+  bezier.SetStart(aPoints[0]);
+  bezier.SetBezierC1(aPoints[1]);
+  bezier.SetBezierC2(aPoints[2]);
+  bezier.SetEnd(aPoints[3]);
+
+  const behavior = new EDA_BEZIER_POINT_EDIT_BEHAVIOR(bezier, aMaxError);
+  const points = new EDIT_POINTS(null);
+  behavior.MakePoints(points);
+  const edited = points.Point(aPointIndex);
+  edited.SetPosition(aCursor);
+  behavior.UpdateItem(edited, points, NO_COMMIT, []);
+
+  return [bezier.GetStart(), bezier.GetBezierC1(), bezier.GetBezierC2(), bezier.GetEnd()];
+}
+
+/**
+ * `EDA_POLYGON_POINT_EDIT_BEHAVIOR` for an outline given as its vertices:
+ * `BuildForPolyOutline`'s handles - a point per vertex, a line per edge
+ * including the closing one, each line carrying `EC_CONVERGING`.
+ */
+export function PolygonEditHandles(aVertices: readonly VECTOR2I[]): {
+  points: VECTOR2I[];
+  lines: VECTOR2I[];
+} {
+  const shape = new SCRATCH_SHAPE(SHAPE_T.POLY);
+  shape.SetPolyPoints(aVertices);
+
+  const points = new EDIT_POINTS(null);
+  new EDA_POLYGON_POINT_EDIT_BEHAVIOR(shape).MakePoints(points);
+
+  const out = { points: [] as VECTOR2I[], lines: [] as VECTOR2I[] };
+  for (let i = 0; i < points.PointsSize(); i++) out.points.push(points.Point(i).GetPosition());
+  for (let i = 0; i < points.LinesSize(); i++) out.lines.push(points.Line(i).GetPosition());
+
+  return out;
+}
+
+/**
+ * `EDA_POLYGON_POINT_EDIT_BEHAVIOR::UpdateItem` for an outline given as its
+ * vertices: vertex `aIndex` (or, with `aIsLine`, edge `aIndex`) moved to
+ * `aCursor`. An edge is moved by its `EDIT_LINE` - both ends by the shift of
+ * its midpoint - and then `ApplyConstraint`, whose `EC_CONVERGING` slides it
+ * perpendicular to itself and keeps its neighbours on their own lines
+ * (pcb_point_editor.cpp:2606-2608), before the outline is read back.
+ */
+export function DragPolygonEditPoint(
+  aVertices: readonly VECTOR2I[],
+  aIsLine: boolean,
+  aIndex: number,
+  aCursor: VECTOR2I,
+): VECTOR2I[] {
+  const shape = new SCRATCH_SHAPE(SHAPE_T.POLY);
+  shape.SetPolyPoints(aVertices);
+
+  const behavior = new EDA_POLYGON_POINT_EDIT_BEHAVIOR(shape);
+  const points = new EDIT_POINTS(null);
+  behavior.MakePoints(points);
+
+  const edited = aIsLine ? points.Line(aIndex) : points.Point(aIndex);
+  edited.SetPosition(aCursor);
+
+  // The constraints ignore the grid; the cursor arrives already snapped.
+  if (edited.IsConstrained()) edited.ApplyConstraint(null as unknown as GRID_HELPER);
+
+  behavior.UpdateItem(edited, points, NO_COMMIT, []);
+
+  const poly = shape.GetPolyShape();
+  const out: VECTOR2I[] = [];
+  for (let i = 0; i < poly.TotalVertices(); i++) out.push(poly.CVertex(i));
+
+  return out;
 }

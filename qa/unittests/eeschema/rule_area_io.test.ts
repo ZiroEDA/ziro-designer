@@ -272,8 +272,10 @@ describe('the handles a finished rule area shows', () => {
   const handlesOf = (d: Schematic) => editHandles(d, { kind: 'graphic', index: 0 });
 
   it('a square handle on every vertex', () => {
+    // Five stored points, the last repeating the first: parseSchRuleArea's
+    // SetClosed( true ) merges it, so the outline - and its handles - are four.
     const hs = handlesOf(square());
-    expect(hs.filter((h) => h.kind === 'point')).toHaveLength(5);
+    expect(hs.filter((h) => h.kind === 'point')).toHaveLength(4);
   });
 
   it('and a circle between each adjacent pair', () => {

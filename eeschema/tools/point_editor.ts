@@ -45,12 +45,16 @@ import { resolveCell } from './table_cells.js';
 import { resizeCellEdge } from './table_layout.js';
 import { sheetPinBBox } from './bbox.js';
 import { imageSizeIU } from './image_size.js';
-import { mmToIU, schIUScale } from '@ziroeda/common/eda_units.js';
+import { ARC_LOW_DEF_MM, mmToIU, schIUScale } from '@ziroeda/common/eda_units.js';
 import type { EditCommand } from './command.js';
 import type { ARC_EDIT_MODE } from '@ziroeda/common/frame_type.js';
 import {
   ArcEditPointPositions,
   DragArcEditPoint,
+  DragBezierEditPoint,
+  DragCircleEditPoint,
+  DragPolygonEditPoint,
+  PolygonEditHandles,
 } from '@ziroeda/common/tool/point_editor_behavior.js';
 import { ArcEditMode } from './arc_edit.js';
 
@@ -109,6 +113,20 @@ export const MIN_SHEET_HEIGHT = mmToIU(150 * 0.0254);
 const ONE_MIL = mmToIU(0.0254);
 
 const pt = (kind: HandleKind, index: number, at: Vec2): EditHandle => ({ kind, index, at });
+/**
+ * A rule area whose last vertex repeats its first. `parseSchRuleArea` calls
+ * `Outline( 0 ).SetClosed( true )`, which merges that repeat away
+ * (sch_io_kicad_sexpr_parser.cpp:4497); a plain polyline keeps every vertex.
+ */
+const mergesClosingVertex = (g: { points: readonly Vec2[]; ruleArea?: boolean }): boolean => {
+  const p = g.points;
+  return (
+    !!g.ruleArea && p.length > 2 && p[0]!.x === p[p.length - 1]!.x && p[0]!.y === p[p.length - 1]!.y
+  );
+};
+/** The outline as the SHAPE_POLY_SET holds it. */
+const polyOutline = (g: { points: readonly Vec2[]; ruleArea?: boolean }): Vec2[] =>
+  mergesClosingVertex(g) ? g.points.slice(0, -1) : [...g.points];
 const mid = (a: Vec2, b: Vec2): Vec2 => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
 
 /**
@@ -542,23 +560,12 @@ export function graphicHandles(g: LibGraphic): EditHandle[] {
       // put a handle on every one of those points.
       return g.points.map((p, i) => pt('point', i, p));
     case 'polyline': {
-      // `EDA_POLYGON_POINT_EDIT_BEHAVIOR` -> `BuildForPolyOutline`, which adds a
-      // handle per corner *and* an EDIT_LINE per edge:
-      //
-      //     for( auto iterator = aOutline.CIterateWithHoles(); iterator; iterator++ )
-      //         aPoints.AddPoint( *iterator );
-      //     ...
-      //     for( int i = 0; i < cornersCount - 1; ++i )
-      //         aPoints.AddLine( aPoints.Point( i ), aPoints.Point( i + 1 ) );
-      //
-      // and `EDIT_POINTS::ViewDraw` draws a point as a square and a line as a
-      // circle at its midpoint, so a polygon shows both. Ours emitted the
-      // corners only, which is why a rule area came up with squares and nothing
-      // in between.
-      const out = g.points.map((p, i) => pt('point', i, p));
-      for (let i = 0; i + 1 < g.points.length; i++)
-        out.push(pt('line', i, mid(g.points[i]!, g.points[i + 1]!)));
-      return out;
+      // `EDA_POLYGON_POINT_EDIT_BEHAVIOR::MakePoints` -> `BuildForPolyOutline`:
+      // a point per corner and an EDIT_LINE per edge, the closing edge
+      // included, and `EDIT_POINTS::ViewDraw` draws a point as a square and a
+      // line as a circle at its midpoint.
+      const { points, lines } = PolygonEditHandles(polyOutline(g));
+      return [...points.map((p, i) => pt('point', i, p)), ...lines.map((p, i) => pt('line', i, p))];
     }
     case 'text':
       return [];
@@ -618,11 +625,14 @@ export function dragGraphic(
       const box = reshapedBox(g.start, g.end, h, pos, { x: 0, y: 0 });
       return { ...g, start: box.start, end: box.end };
     }
-    case 'circle':
-      // Dragging the centre moves the circle; dragging the end sets the radius
-      // from the distance to the centre (EDA_SHAPE::SetEnd on a circle).
-      if (h.index === CIRC_CENTER) return { ...g, center: { ...pos } };
-      return { ...g, radius: Math.round(Math.hypot(pos.x - g.center.x, pos.y - g.center.y)) };
+    case 'circle': {
+      // `EDA_CIRCLE_POINT_EDIT_BEHAVIOR::UpdateItem`: the centre is
+      // `SetCenter`, which leaves the end - one radius to +x - where it was,
+      // and the end is `SetEnd`; either way the radius is `GetRadius()`.
+      const end = { x: g.center.x + g.radius, y: g.center.y };
+      const c = DragCircleEditPoint(g.center, end, h.index, pos);
+      return { ...g, center: c.center, radius: c.radius };
+    }
     case 'ellipse':
     case 'ellipse_arc': {
       if (h.index === CIRC_CENTER) return { ...g, center: { ...pos } };
@@ -633,35 +643,24 @@ export function dragGraphic(
         ? { ...g, majorRadius: Math.max(1, r) }
         : { ...g, minorRadius: Math.max(1, r) };
     }
-    case 'bezier':
-      return { ...g, points: g.points.map((p, i) => (i === h.index ? { ...pos } : p)) };
+    case 'bezier': {
+      if (g.points.length !== 4) return g;
+      const pts = DragBezierEditPoint(
+        g.points as unknown as [Vec2, Vec2, Vec2, Vec2],
+        h.index,
+        pos,
+        // `schIUScale.mmToIU( ARC_LOW_DEF_MM )` (sch_point_editor.cpp:964).
+        schIUScale.mmToIU(ARC_LOW_DEF_MM),
+      );
+      return { ...g, points: pts };
+    }
     case 'polyline': {
-      if (h.kind === 'point')
-        return { ...g, points: g.points.map((p, i) => (i === h.index ? { ...pos } : p)) };
-      // `EDIT_LINE::SetPosition` moves both ends so the midpoint lands on the
-      // cursor, i.e. the edge slides as a unit. (Upstream then re-applies an
-      // `EC_CONVERGING` constraint to the neighbouring edges; that refinement is
-      // not ported, so the two adjacent edges simply stretch to follow.)
-      const a = g.points[h.index];
-      const b = g.points[h.index + 1];
-      if (!a || !b) return g;
-      const m = mid(a, b);
-      const d = { x: pos.x - m.x, y: pos.y - m.y };
-      const first = g.points[0];
-      const last = g.points[g.points.length - 1];
-      // A closed outline repeats its first vertex, so moving one must move both
-      // or the polygon springs open.
-      const closed =
-        !!first && !!last && g.points.length > 2 && first.x === last.x && first.y === last.y;
-      const moves = new Set([h.index, h.index + 1]);
-      if (closed && (moves.has(0) || moves.has(g.points.length - 1))) {
-        moves.add(0);
-        moves.add(g.points.length - 1);
-      }
-      return {
-        ...g,
-        points: g.points.map((p, i) => (moves.has(i) ? { x: p.x + d.x, y: p.y + d.y } : p)),
-      };
+      // `EDA_POLYGON_POINT_EDIT_BEHAVIOR::UpdateItem`, an edge through its
+      // `EC_CONVERGING`. A rule area's repeated closing vertex is merged away
+      // as its parser does, and put back for the file afterwards.
+      const closed = mergesClosingVertex(g);
+      const moved = DragPolygonEditPoint(polyOutline(g), h.kind === 'line', h.index, pos);
+      return { ...g, points: closed ? [...moved, { ...moved[0]! }] : moved };
     }
     case 'text':
       return g;
@@ -694,9 +693,10 @@ function dragLine(doc: Schematic, index: number, h: EditHandle, pos: Vec2): Sche
   const l = doc.lines[index];
   if (!l) return doc;
 
-  // A multi-point polyline has a handle per vertex and no separate start/end.
+  // A multi-point polyline is an SCH_SHAPE POLY: `EDA_POLYGON_POINT_EDIT_BEHAVIOR`,
+  // an edge dragged through its `EC_CONVERGING`.
   if (l.points && l.points.length > 2) {
-    const points = l.points.map((p, i) => (i === h.index ? { ...pos } : p));
+    const points = DragPolygonEditPoint(l.points, h.kind === 'line', h.index, pos);
     const moved: SchLine = {
       ...l,
       points,
@@ -842,7 +842,15 @@ export function editHandles(doc: Schematic, t: PointEditTarget): EditHandle[] {
     case 'line': {
       const l = doc.lines[t.index];
       if (!l) return [];
-      if (l.points && l.points.length > 2) return l.points.map((p, i) => pt('point', i, p));
+      // A multi-point polyline is an SCH_SHAPE POLY upstream, on
+      // `EDA_POLYGON_POINT_EDIT_BEHAVIOR` (sch_point_editor.cpp:959-960).
+      if (l.points && l.points.length > 2) {
+        const { points, lines } = PolygonEditHandles(l.points);
+        return [
+          ...points.map((p, i) => pt('point', i, p)),
+          ...lines.map((p, i) => pt('line', i, p)),
+        ];
+      }
       return [pt('point', LINE_START, l.start), pt('point', LINE_END, l.end)];
     }
     case 'image': {
