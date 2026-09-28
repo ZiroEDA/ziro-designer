@@ -23,7 +23,7 @@ import {
   useState,
 } from 'react';
 import { letterSubReference, type LibSymbol } from '@ziroeda/eeschema';
-import { symbolLibraryDescription } from '../../../widgets/lib_table_descriptions.js';
+import { symbolLibraryDescription } from '@ziroeda/common/lib_table_descriptions.js';
 import { atom, list, str } from '@ziroeda/sexpr/types.js';
 import { searchTerm } from '@ziroeda/common';
 import { LibTree } from '@ziroeda/common/widgets/lib_tree.js';

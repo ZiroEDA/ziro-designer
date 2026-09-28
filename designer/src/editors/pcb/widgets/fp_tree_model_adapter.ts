@@ -24,7 +24,7 @@ import {
   FOOTPRINT_INFO_IMPL,
   type FootprintIndexLibrary,
 } from '@ziroeda/pcbnew/footprint_info_impl.js';
-import { footprintLibraryDescription } from '../../../widgets/lib_table_descriptions.js';
+import { footprintLibraryDescription } from '@ziroeda/common/lib_table_descriptions.js';
 
 /**
  * The filter `FOOTPRINT_CHOOSER_FRAME` installs on the adapter

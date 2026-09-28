@@ -21,7 +21,7 @@ import {
 import {
   footprintLibraryDescription,
   symbolLibraryDescription,
-} from '@ziroeda/designer/src/widgets/lib_table_descriptions.js';
+} from '@ziroeda/common/lib_table_descriptions.js';
 import { LibTreeModelAdapter } from '@ziroeda/common/lib_tree_model_adapter.js';
 import type { FootprintIndexLibrary } from '@ziroeda/pcbnew/footprint_info_impl.js';
 
@@ -100,7 +100,7 @@ describe('the library rows’ descriptions', () => {
     expect(existsSync(script)).toBe(true);
     const out = readFileSync(
       fileURLToPath(
-        new URL('../../../designer/src/widgets/lib_table_descriptions.ts', import.meta.url),
+        new URL('../../../common/lib_table_descriptions.ts', import.meta.url),
       ),
       'utf8',
     );

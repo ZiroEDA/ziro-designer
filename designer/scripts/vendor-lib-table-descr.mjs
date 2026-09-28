@@ -25,7 +25,7 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const TEMPLATE = process.argv[2] ?? '/usr/share/kicad/template';
-const OUT = join(HERE, '../src/widgets/lib_table_descriptions.ts');
+const OUT = join(HERE, '../../common/lib_table_descriptions.ts');
 
 /** `(lib (name "X") … (descr "Y"))` rows, as [name, descr]. */
 function rows(file) {
