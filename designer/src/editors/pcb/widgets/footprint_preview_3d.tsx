@@ -102,14 +102,7 @@ export function FootprintPreview3D({ board }: FootprintPreview3DProps): JSX.Elem
     void import('@ziroeda/3d-viewer/pcb3d.js').then(({ mount3DViewer }) => {
       if (cancelled) return;
       try {
-        viewer = mount3DViewer(
-          el,
-          board,
-          [],
-          undefined,
-          { footprintHolder: true },
-          MODELS3D_HOST,
-        );
+        viewer = mount3DViewer(el, board, [], undefined, { footprintHolder: true }, MODELS3D_HOST);
       } catch {
         viewer = null;
       }
