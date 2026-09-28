@@ -25,7 +25,7 @@ import {
 import { drawCrosshair, drawGrid } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
 import { PCB_BACKGROUND, PCB_CURSOR } from './pcbTheme.js';
 import { settings } from '../../prefs/settings.js';
-import { footprintToBoard, FOOTPRINT_LAYERS } from '../footprint/footprintBoard.js';
+import { footprintToBoard, FOOTPRINT_LAYERS } from '@ziroeda/pcbnew/footprintBoard.js';
 import { loadFootprint } from '../../widgets/footprint_list.js';
 
 const ALL_LAYERS: ReadonlySet<string> = new Set(FOOTPRINT_LAYERS.map((l) => l.name));

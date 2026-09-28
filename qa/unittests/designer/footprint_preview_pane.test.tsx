@@ -29,7 +29,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { act, cleanup, render } from '@testing-library/react';
 import { FootprintPreviewWidget } from '@ziroeda/common/widgets/footprint_preview_widget.js';
 import { PCB_FOOTPRINT_PREVIEW_PANEL } from '@ziroeda/designer/src/editors/pcb/footprint_preview_panel.js';
-import { parseFootprint } from '@ziroeda/designer/src/editors/footprint/footprintBoard.js';
+import { parseFootprint } from '@ziroeda/pcbnew/footprintBoard.js';
 import {
   layerColor,
   PCB_CURSOR,

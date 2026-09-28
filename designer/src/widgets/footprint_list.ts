@@ -16,7 +16,7 @@ import type { FootprintIndexLibrary } from '@ziroeda/pcbnew/footprint_info_impl.
 import { footprintText } from '../libraryBundleStore.js';
 import { fetchLibraryIndex, libraryBase } from '../libraryHosts.js';
 import { trackLibraryLoad } from './library_loading.js';
-import { parseFootprint } from '../editors/footprint/footprintBoard.js';
+import { parseFootprint } from '@ziroeda/pcbnew/footprintBoard.js';
 
 let indexPromise: Promise<FootprintIndexLibrary[]> | null = null;
 

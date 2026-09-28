@@ -12,7 +12,7 @@
 import { useMemo, type JSX } from 'react';
 import type { CVPCB_APP } from '@ziroeda/cvpcb/cvpcb_mainframe_ui.js';
 import { FootprintCanvas } from '../footprint/FootprintCanvas.js';
-import { footprintToBoard, parseFootprint } from '../footprint/footprintBoard.js';
+import { footprintToBoard, parseFootprint } from '@ziroeda/pcbnew/footprintBoard.js';
 import { DEFAULT_DRAW_OPTIONS } from '../pcb/renderBoard.js';
 import { Viewer3DFrame } from '../pcb/Viewer3DFrame.js';
 import { loadFootprint, loadFootprintIndex } from '../../widgets/footprint_list.js';

@@ -32,7 +32,7 @@ import {
   FOOTPRINT_COPPER_STACK,
   FOOTPRINT_LAYERS,
   FP_DEFAULT_ACTIVE_LAYER,
-} from '@ziroeda/designer/src/editors/footprint/footprintBoard.js';
+} from '@ziroeda/pcbnew/footprintBoard.js';
 import { footprintToolMsg } from '@ziroeda/pcbnew/toolbars_footprint_editor.js';
 // The frame's opening toolbar state moved to `footprint/toggles.ts`, beside the
 // radio groups and the reducer that were still stranded in `FootprintEditor.tsx`.

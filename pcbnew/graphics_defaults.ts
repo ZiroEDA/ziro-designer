@@ -20,7 +20,7 @@ import { PCB_IU_PER_MM } from '@ziroeda/common';
 import type {
   FP_EDIT_JSON_SETTINGS_LIKE as FpEditSettings,
   FP_GRAPHICS_TEXT_CLASS_LIKE as FpGraphicsTextClass,
-} from '@ziroeda/pcbnew/footprint_editor_settings.js';
+} from './footprint_editor_settings.js';
 
 /** The six `LAYER_CLASS_*` buckets, as the keys `design_settings` stores. */
 export type FpGraphicsRowKey = 'silk' | 'copper' | 'edges' | 'courtyard' | 'fab' | 'others';

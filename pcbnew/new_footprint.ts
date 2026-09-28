@@ -29,8 +29,8 @@
  * footprint origin, as literals in that function. [data]
  */
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
-import type { PcbFootprint, PcbTextItem } from '@ziroeda/pcbnew/types.js';
-import type { FP_EDIT_JSON_SETTINGS_LIKE as FpEditSettings } from '@ziroeda/pcbnew/footprint_editor_settings.js';
+import type { PcbFootprint, PcbTextItem } from './types.js';
+import type { FP_EDIT_JSON_SETTINGS_LIKE as FpEditSettings } from './footprint_editor_settings.js';
 import { fpTextDefaults } from './graphics_defaults.js';
 
 /**

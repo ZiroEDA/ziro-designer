@@ -23,7 +23,7 @@
  * the `defaultGridIdx` of 15 that `common/settings/app_settings.cpp:463-481`
  * gives every file the switch does not name, which is `0.5 mm`.
  */
-import type { FP_EDIT_JSON_SETTINGS_LIKE as FpEditSettings } from '@ziroeda/pcbnew/footprint_editor_settings.js';
+import type { FP_EDIT_JSON_SETTINGS_LIKE as FpEditSettings } from './footprint_editor_settings.js';
 import { PCB_IU_PER_MM } from '@ziroeda/common/eda_units.js';
 import { gridSizeToIU } from '@ziroeda/common/settings/grid_settings_ui.js';
 import { gridSnappingEnabled } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';

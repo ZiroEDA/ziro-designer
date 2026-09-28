@@ -51,7 +51,7 @@ import {
 import {
   FOOTPRINT_COPPER_STACK,
   FOOTPRINT_LAYERS,
-} from '@ziroeda/designer/src/editors/footprint/footprintBoard.js';
+} from '@ziroeda/pcbnew/footprintBoard.js';
 import { GetLayerName } from '@ziroeda/common/layer_ids.js';
 
 afterEach(cleanup);

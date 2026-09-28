@@ -13,13 +13,13 @@
  */
 
 import { parse } from '@ziroeda/sexpr';
-import type { FP_EDIT_JSON_SETTINGS_LIKE as FpEditSettings } from '@ziroeda/pcbnew/footprint_editor_settings.js';
+import type { FP_EDIT_JSON_SETTINGS_LIKE as FpEditSettings } from './footprint_editor_settings.js';
 import {
   readFootprintFile,
   type Board,
   type PcbFootprint,
   type PcbLayerDef,
-} from '@ziroeda/pcbnew';
+} from './index.js';
 
 /**
  * The footprint-editor layer table — `FOOTPRINT_EDIT_FRAME::updateEnabledLayers`

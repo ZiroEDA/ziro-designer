@@ -16,7 +16,7 @@ import {
   type FootprintIndexLibrary,
 } from '@ziroeda/pcbnew/footprint_info_impl.js';
 import { filterFootprints as pcbnewFilterFootprints } from '@ziroeda/pcbnew/pcbnew.js';
-import { parseFootprint } from '@ziroeda/designer/src/editors/footprint/footprintBoard.js';
+import { parseFootprint } from '@ziroeda/pcbnew/footprintBoard.js';
 import { footprintIndexInfo } from '../../../tools/libraries/fp_index.mjs';
 import type { SearchTerm } from '@ziroeda/common';
 
