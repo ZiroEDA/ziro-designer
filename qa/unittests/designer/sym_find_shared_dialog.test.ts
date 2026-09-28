@@ -262,12 +262,12 @@ describe('Edit > Find and Edit > Find and Replace', () => {
 // 3. One dialog, two editors
 // ---------------------------------------------------------------------------
 
-/** Every `.ts`/`.tsx` under `designer/src`. */
-function designerSources(): string[] {
-  const root = new URL('../../../designer/src/', import.meta.url).pathname;
+/** Every `.ts`/`.tsx` under `root`, recursively. */
+function sourcesUnder(root: string): string[] {
   const out: string[] = [];
   const walk = (dir: string): void => {
     for (const name of readdirSync(dir)) {
+      if (name === 'node_modules') continue;
       const p = join(dir, name);
       if (statSync(p).isDirectory()) walk(p);
       else if (/\.tsx?$/.test(name)) out.push(p);
@@ -275,6 +275,26 @@ function designerSources(): string[] {
   };
   walk(root);
   return out;
+}
+
+/** Every `.ts`/`.tsx` under `designer/src`. */
+function designerSources(): string[] {
+  return sourcesUnder(new URL('../../../designer/src/', import.meta.url).pathname);
+}
+
+/**
+ * `designer/src` plus `pcbnew` — where the board editor's own dialogs live
+ * since the pcbnew file-structure moves (dialog_find.tsx included). The stray
+ * scan below has to follow them: its whole point, stated in its own comment,
+ * is catching a second SCH find dialog "appearing ANYWHERE", and a scan that
+ * stopped covering `pcbnew/` the day a dialog moved there would miss exactly
+ * that.
+ */
+function appSources(): string[] {
+  return [
+    ...designerSources(),
+    ...sourcesUnder(new URL('../../../pcbnew/', import.meta.url).pathname),
+  ];
 }
 
 describe('DIALOG_SCH_FIND is a SCH_BASE_FRAME facility', () => {
@@ -314,16 +334,22 @@ describe('DIALOG_SCH_FIND is a SCH_BASE_FRAME facility', () => {
    * import but a second component with a slightly different name.
    */
   it('leaves no per-editor find dialog behind', () => {
-    const strays = designerSources()
+    const strays = appSources()
       .filter((f) => !f.endsWith('/widgets/dialog_sch_find.tsx'))
       .filter((f) => /(function|const)\s+Dialog\w*Find\w*\s*[=(]/.test(readFileSync(f, 'utf8')))
-      .map((f) => f.slice(f.indexOf('/designer/src/')));
+      .map((f) =>
+        f.slice(
+          f.indexOf('/designer/src/') >= 0 ? f.indexOf('/designer/src/') : f.indexOf('/pcbnew/'),
+        ),
+      )
+      .sort();
     // Named, not filtered by directory: `pcbnew/dialogs/dialog_find.cpp`'s
     // DIALOG_FIND is a different upstream class on a different base frame
     // (PCB_BASE_FRAME), with its own search-history and marker options. Listing
     // it here rather than scoping the sweep to eeschema's folders means a
-    // second sch find dialog appearing ANYWHERE — including under editors/pcb
-    // — still fails.
-    expect(strays).toEqual(['/designer/src/editors/pcb/dialogs/dialog_find.tsx']);
+    // second sch find dialog appearing ANYWHERE — including under pcbnew/ (it
+    // moved there from designer/src/editors/pcb/dialogs/ in this session's
+    // file-structure pass) — still fails.
+    expect(strays).toEqual(['/pcbnew/dialogs/dialog_find.tsx']);
   });
 });
