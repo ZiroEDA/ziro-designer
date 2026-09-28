@@ -14,8 +14,8 @@ import {
   deltasForDistributeByGaps,
   deltasForDistributeByPoints,
 } from '@ziroeda/kimath/src/geometry/distribute.js';
-import { boardItemBBox, moveBoardItems } from './edit-board.js';
-import type { Board } from './types.js';
+import { boardItemBBox, moveBoardItems } from '../edit-board.js';
+import type { Board } from '../types.js';
 
 export type DistributeAction =
   | 'horizontallyCenters'

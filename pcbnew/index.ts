@@ -508,7 +508,7 @@ export { type PositionAnchorType } from './dialogs/dialog_position_relative.js';
 export {
   distributeBoardItems,
   type DistributeAction,
-} from './distribute_items.js';
+} from './tools/align_distribute_tool.js';
 
 export {
   defaultRotationAnchor,
