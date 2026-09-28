@@ -18,6 +18,7 @@ import { CalcArcCenter } from '@ziroeda/kimath/src/trigo.js';
 import { ArcEditMode, incrementArcEditMode } from '@ziroeda/eeschema/tools/arc_edit.js';
 import {
   pointEditTarget,
+  graphicHandles,
   canAddCorner,
   canRemoveCorner,
   addCorner,
@@ -28,6 +29,7 @@ import {
   reshapeCommand,
   type EditHandle,
 } from '@ziroeda/eeschema/tools/point_editor.js';
+import type { LibGraphic } from '@ziroeda/eeschema/types.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
 
 type P = { x: number; y: number };
@@ -745,6 +747,21 @@ describe('a polyline edge drag (EC_CONVERGING)', () => {
     expect(g.points[0]).toEqual({ x: mm(-5), y: mm(-10) });
     expect(g.points[1]).toEqual({ x: mm(45), y: mm(-10) });
     expect(g.points[2]).toEqual({ x: mm(30), y: mm(20) });
+  });
+});
+
+describe('a closed symbol polyline keeps its repeated vertex', () => {
+  it('shows a handle on every stored point, unlike a rule area', () => {
+    // Only parseSchRuleArea calls SetClosed( true ); a plain POLY keeps all five.
+    const sq = [
+      { x: 0, y: 0 },
+      { x: mm(10), y: 0 },
+      { x: mm(10), y: mm(10) },
+      { x: 0, y: mm(10) },
+      { x: 0, y: 0 },
+    ];
+    const hs = graphicHandles({ kind: 'polyline', points: sq } as unknown as LibGraphic);
+    expect(hs.filter((h) => h.kind === 'point')).toHaveLength(5);
   });
 });
 
