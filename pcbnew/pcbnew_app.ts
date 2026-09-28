@@ -66,11 +66,11 @@ export interface WindowGridCursorPrefsLike {
 }
 
 export interface PCBNEW_APP {
-  // ----- windows/dialogs --------------------------------------------------
+  // ----- windows/dialogs (component-shaped, called as JSX) ----------------
   /** `EDA_BASE_FRAME::ShowPreferences()`. */
-  PreferencesDialog(onClose: () => void): ReactNode;
+  PreferencesDialog: (props: { onClose: () => void }) => ReactNode;
   /** The home link in the menu bar's left slot. */
-  HomeLink: ReactNode;
+  HomeLink: (props: { onClick?: () => void }) => ReactNode;
   SaveAsDialog: (props: PcbnewSaveAsDialogProps) => ReactNode;
   /** `DIALOG_FOOTPRINT_CHOOSER`, with the two library reads baked in. */
   FootprintChooserFrame: (props: PcbnewFootprintChooserFrameProps) => ReactNode;
