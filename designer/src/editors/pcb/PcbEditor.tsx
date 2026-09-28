@@ -429,7 +429,7 @@ import {
 } from '@ziroeda/pcbnew/dialogs/dialog_position_relative_ui.js';
 import { DIALOG_BOOK_REPORTER } from '@ziroeda/common/dialogs/dialog_book_reporter.js';
 import { inspectReport, describeSelected } from '@ziroeda/pcbnew/tools/board_inspection_tool.js';
-import { netClassFor, netclassesForNet } from '@ziroeda/pcbnew/netclass_resolve.js';
+import { netClassFor, netclassesForNet } from '@ziroeda/common/netclass_resolve.js';
 // APPEARANCE_CONTROLS is ONE widget that PCB_EDIT_FRAME and
 // FOOTPRINT_EDIT_FRAME both construct, so the panel, its Objects table and its
 // presets live in `widgets/` and this frame supplies only its own data.
