@@ -14,16 +14,27 @@
  * let a menu that did not exist read as present.
  */
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { useState } from 'react';
+import { useState, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
 import { cleanup, fireEvent, render } from '@testing-library/react';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic } from '@ziroeda/eeschema';
 import { DialogAssignFootprints, type CVPCB_APP } from '@ziroeda/cvpcb/cvpcb_mainframe_ui.js';
+import type { CvpcbFootprintCanvasController } from '@ziroeda/cvpcb/display_footprints_frame.js';
 import {
   cvpcbFootprintsContextMenu,
   cvpcbSymbolsContextMenu,
   type CvpcbContextMenuActions,
 } from '@ziroeda/cvpcb/cvpcb_mainframe.js';
+
+/** Mirrors `CvpcbWidened` (`cvpcb_mainframe_ui.tsx`), which is not exported:
+ *  the stub below has to widen its `useState` the same way the real
+ *  `useDialogControl` does, or a `false` / `0` / `''` default would narrow
+ *  the setter to that one literal. */
+type CvpcbWidened<T extends boolean | number | string> = T extends boolean
+  ? boolean
+  : T extends number
+    ? number
+    : string;
 
 /**
  * A minimal `CVPCB_APP`: this test lives beside cvpcb's own unit tests and
@@ -52,6 +63,9 @@ function makeCvpcbApp(): CVPCB_APP {
       tables: [],
       images: [],
       dimensions: [],
+      points: [],
+      barcodes: [],
+      groups: [],
     }),
     footprintsBase: () => '',
     pinnedFpLibs: [],
@@ -59,7 +73,11 @@ function makeCvpcbApp(): CVPCB_APP {
     SetLanguage: () => {},
     // Called unconditionally, in the same order, every render — the same
     // guarantee DIALOG_SHIM persistence needs, just without a store.
-    useDialogControl: (_title, _key, defaultValue) => useState(defaultValue),
+    useDialogControl: (_title, _key, defaultValue) =>
+      useState(defaultValue) as unknown as [
+        CvpcbWidened<typeof defaultValue>,
+        Dispatch<SetStateAction<CvpcbWidened<typeof defaultValue>>>,
+      ],
     readEquivalenceFiles: () => [],
     LibraryLoadingPanel: () => null,
     DialogFpLibTable: () => null,
@@ -70,7 +88,7 @@ function makeCvpcbApp(): CVPCB_APP {
         data-testid="cvpcb-footprint-canvas"
         ref={(el) => {
           if (!ref || typeof ref === 'function') return;
-          ref.current = el
+          (ref as MutableRefObject<CvpcbFootprintCanvasController | null>).current = el
             ? {
                 zoomToFit: () => {},
                 zoomIn: () => {},

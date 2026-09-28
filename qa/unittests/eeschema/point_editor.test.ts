@@ -741,12 +741,12 @@ describe('a polyline edge drag (EC_CONVERGING)', () => {
   it('slides the edge perpendicular to itself, its ends riding the sides', () => {
     const edge = hs().find((h) => h.kind === 'line' && h.index === 0)!;
     const out = dragHandle(trap, target, edge, { x: mm(20), y: mm(-10) });
-    const g = out.lines[0] as { points: { x: number; y: number }[] };
+    const g = out.lines[0]!;
     // The side (10,20)-(0,0) extended meets y = -10 at x = -5, and (30,20)-(40,0)
     // at x = 45 - not both ends shifted by the drag, which would give 0 and 40.
-    expect(g.points[0]).toEqual({ x: mm(-5), y: mm(-10) });
-    expect(g.points[1]).toEqual({ x: mm(45), y: mm(-10) });
-    expect(g.points[2]).toEqual({ x: mm(30), y: mm(20) });
+    expect(g.points?.[0]).toEqual({ x: mm(-5), y: mm(-10) });
+    expect(g.points?.[1]).toEqual({ x: mm(45), y: mm(-10) });
+    expect(g.points?.[2]).toEqual({ x: mm(30), y: mm(20) });
   });
 });
 
