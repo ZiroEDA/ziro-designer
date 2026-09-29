@@ -575,7 +575,10 @@ export class CONNECTION_GRAPH {
       for (const p of c.Pins()) {
         if (p.GetNetCode() > 0) {
           let l = nets.get(p.GetNetCode());
-          if (!l) nets.set(p.GetNetCode(), (l = []));
+          if (!l) {
+            l = [];
+            nets.set(p.GetNetCode(), l);
+          }
           l.push(p);
         }
       }
