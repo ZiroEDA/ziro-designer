@@ -41,6 +41,7 @@ import {
 } from '@ziroeda/common/tool/action_menu.js';
 import { eventFromCombo } from '@ziroeda/designer/src/editors/schematic/hotkey_bindings.js';
 import type { Menu, MenuItem } from '@ziroeda/common/tool/action_menu_types.js';
+import { footprintViewerMenus } from '@ziroeda/pcbnew/toolbars_footprint_viewer.js';
 
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
 
@@ -55,6 +56,7 @@ const CONVERTED = [
   'editors/calculator/CalculatorTools.tsx',
   '../../pagelayout_editor/pl_editor_frame_ui.tsx',
   '../../pcbnew/footprint_edit_frame_ui.tsx',
+  '../../pcbnew/footprint_viewer_frame_ui.tsx',
   '../../gerbview/gerbview_frame_ui.tsx',
   '../../bitmap2component/bitmap2cmp_frame_ui.tsx',
   '../../pcbnew/pcb_edit_frame_ui.tsx',
@@ -251,6 +253,8 @@ const MENU_MODULE: Readonly<Record<string, string>> = {
   'editors/symbol/SymbolEditor.tsx': '../../eeschema/symbol_editor/menubar_symbol_editor.ts',
   '../../pcbnew/footprint_edit_frame_ui.tsx': '../../pcbnew/menubar_footprint_editor.ts',
   '../../pcbnew/pcb_edit_frame_ui.tsx': '../../pcbnew/menubar_pcb_editor.ts',
+  // FOOTPRINT_VIEWER_FRAME::doReCreateMenuBar lives in toolbars_footprint_viewer.cpp.
+  '../../pcbnew/footprint_viewer_frame_ui.tsx': '../../pcbnew/toolbars_footprint_viewer.ts',
   // pl_editor's bar is its package's menubar.ts, beside KiCad's menubar.cpp.
   '../../pagelayout_editor/pl_editor_frame_ui.tsx': '../../pagelayout_editor/menubar.ts',
 };
@@ -689,6 +693,8 @@ const noop = (): void => {};
  * prints one, and upstream still attaches the `wxAcceleratorEntry`.
  */
 const MENU_BUILDER: Readonly<Record<string, () => Menu[]>> = {
+  '../../pcbnew/footprint_viewer_frame_ui.tsx': () =>
+    footprintViewerMenus({ close: noop, action: noop, showHotkeys: noop, showAbout: noop }),
   'editors/symbol/SymbolEditor.tsx': () =>
     symbolEditorMenus(
       {

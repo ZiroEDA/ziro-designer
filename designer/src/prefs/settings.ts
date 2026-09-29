@@ -69,6 +69,10 @@ import type { JsonValue } from '@ziroeda/common/settings/json_settings_internals
 import { KICAD_SETTINGS } from '@ziroeda/common/settings/kicad_settings.js';
 import { EESCHEMA_DEFAULTS, type EeschemaSettings } from '@ziroeda/eeschema/eeschema_settings.js';
 import {
+  FOOTPRINT_VIEWER_JSON_DEFAULTS,
+  type FOOTPRINT_VIEWER_JSON_SETTINGS,
+} from '@ziroeda/pcbnew/pcbnew_settings.js';
+import {
   SYMBOL_EDITOR_DEFAULTS,
   setSymbolEditorSettingsProvider,
   type SymbolEditorSettings,
@@ -241,6 +245,13 @@ export interface PcbnewSettings {
    * different settings objects.
    */
   editing: PcbEditingSettings;
+  /**
+   * `footprint_viewer.*` — the Footprint Library Browser's slice of
+   * `PCBNEW_SETTINGS` (`pcbnew_settings.cpp:328-340`). The shape and its
+   * defaults are pcbnew's (`FOOTPRINT_VIEWER_JSON_SETTINGS`), because the frame
+   * that reads it lives there.
+   */
+  footprint_viewer: FOOTPRINT_VIEWER_JSON_SETTINGS;
 }
 
 /**
@@ -466,6 +477,7 @@ export const PCBNEW_DEFAULTS: PcbnewSettings = {
   },
   pcb_display: { ...PCB_DISPLAY_DEFAULTS },
   editing: { ...PCB_EDITING_DEFAULTS },
+  footprint_viewer: structuredClone(FOOTPRINT_VIEWER_JSON_DEFAULTS),
 };
 
 // ----- PL_EDITOR_SETTINGS ------------------------------------------------------
