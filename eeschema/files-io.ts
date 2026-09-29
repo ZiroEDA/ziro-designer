@@ -9,6 +9,13 @@
  * tsconfig has no `--jsx` and cannot import a `.tsx` at all — a rule only the
  * component knows is untestable by construction.
  */
+import { IMPORT_PROJ_PROPS } from '@ziroeda/common/import_proj_properties.js';
+import type { Reporter } from '@ziroeda/common/reporter.js';
+import {
+  SCH_FOOTPRINT_FIELD_RECONCILER,
+  type SCH_FP_FIELD_RECONCILE_RESULT,
+} from './sch_footprint_field_reconciler.js';
+import type { SCHEMATIC } from './schematic.js';
 
 /**
  * `SCH_EDIT_FRAME::saveSchematicFile`'s success message
@@ -70,3 +77,29 @@ export function revertPromptMessage(rootFileName: string): string {
  * of its own: every IsOK in KiCad puts this one word in the title bar.
  */
 export const CONFIRMATION_CAPTION = 'Confirmation';
+
+/**
+ * `SCH_EDIT_FRAME::importFile`'s non-KiCad arm, once `LoadSchematicFile` has
+ * produced the top-level sheet (files-io.cpp:1571-1581): "re-link footprint
+ * fields to the project lib so update-from-schematic works" — the cache
+ * nickname and source libraries the project import manager put in the
+ * properties, handed to `SCH_FOOTPRINT_FIELD_RECONCILER`.
+ *
+ * Its caller is the import arm itself, which runs only for an Altium, CADSTAR,
+ * Eagle, LTspice, EasyEDA, EasyEDA Pro, PADS or gEDA schematic; none of those
+ * `SCH_IO` plugins is ported yet, so nothing calls this in the app until one is.
+ */
+export function ReconcileImportedFootprintFields(
+  aSchematic: SCHEMATIC,
+  aProperties: ReadonlyMap<string, string> | null,
+  aLoadReporter: Reporter | null,
+): SCH_FP_FIELD_RECONCILE_RESULT {
+  const { cacheNickname, sourceFpLibs } = IMPORT_PROJ_PROPS.ReadFootprintProps(aProperties);
+
+  const fpReconciler = new SCH_FOOTPRINT_FIELD_RECONCILER(
+    cacheNickname,
+    sourceFpLibs,
+    aLoadReporter,
+  );
+  return fpReconciler.Reconcile(aSchematic);
+}
