@@ -253,7 +253,7 @@ in `eeschema/tools/image_size.ts`, rather than common/.
 `item_description.ts` and `msg_panel.ts` each aggregate many item classes'
 `GetItemDescription`/`GetMsgPanelInfo` in one file on purpose (one dispatch
 site upstream reaches many overrides); splitting them apart would be the
-wrong direction. `pcb_text_help.ts`'s counterpart is a CMake-generated
+wrong direction. `pcb_text_help_md.ts` (renamed 09-29 to match the header)'s counterpart is a CMake-generated
 header with no hand-authored `.cpp` — nothing to fold into.
 
 **`types.ts`, `fp_lib_table.ts`, `footprint_library.ts` checked 09-28, stay:**

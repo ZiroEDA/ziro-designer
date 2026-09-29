@@ -41,10 +41,10 @@ import {
   wxGridTableRequest,
 } from '@ziroeda/common/wx/grid.js';
 import { WxGridView } from '@ziroeda/common/wx/grid_ui.js';
-import type { ZoneLayerPropertiesMap } from '../board_settings.js';
-import { PCB_BACKGROUND } from '../pcbTheme.js';
+import type { ZoneLayerPropertiesMap } from './board_settings.js';
+import { PCB_BACKGROUND } from './pcbTheme.js';
 import { LSET_NameToLayer } from '@ziroeda/common/layer_ids.js';
-import { layerChoice } from '../pcb_layer_presentation.js';
+import { layerChoice } from './pcb_layer_presentation.js';
 
 /**
  * `GetColLabelValue()` (`zone_layer_properties_grid.h:48-57`). The base's
