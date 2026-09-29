@@ -41,7 +41,6 @@ import {
 } from '@ziroeda/common/tool/action_menu.js';
 import { eventFromCombo } from '@ziroeda/designer/src/editors/schematic/hotkey_bindings.js';
 import type { Menu, MenuItem } from '@ziroeda/common/tool/action_menu_types.js';
-import { footprintViewerMenus } from '@ziroeda/pcbnew/toolbars_footprint_viewer.js';
 
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
 
@@ -56,14 +55,13 @@ const CONVERTED = [
   'editors/calculator/CalculatorTools.tsx',
   '../../pagelayout_editor/pl_editor_frame_ui.tsx',
   '../../pcbnew/footprint_edit_frame_ui.tsx',
-  '../../pcbnew/footprint_viewer_frame_ui.tsx',
   '../../gerbview/gerbview_frame_ui.tsx',
   '../../bitmap2component/bitmap2cmp_frame_ui.tsx',
   '../../pcbnew/pcb_edit_frame_ui.tsx',
   '../../eeschema/sch_edit_frame_ui.tsx',
   'editors/schematic/components/SymbolLibraryBrowser.tsx',
   '../../cvpcb/cvpcb_mainframe_ui.tsx',
-  'editors/symbol/SymbolEditor.tsx',
+  '../../eeschema/symbol_editor/symbol_edit_frame_ui.tsx',
   'home/HomePage.tsx',
 ];
 
@@ -144,7 +142,7 @@ const MODIFIER_EXCEPTIONS: Readonly<Record<string, readonly string[]>> = {
     // holding one textarea, and the board's real DialogTextProperties opens for
     // both paths now. A shared dialog's keys are the shared dialog's business.)
   ],
-  'editors/symbol/SymbolEditor.tsx': [
+  '../../eeschema/symbol_editor/symbol_edit_frame_ui.tsx': [
     'const plain = !e.ctrlKey && !e.metaKey && !e.altKey;',
     // The library tree's Ctrl+D. `SCH_ACTIONS::duplicateSymbol`
     // (sch_actions.cpp:208-212) declares no hotkey and has no row in this
@@ -250,11 +248,9 @@ const source = (rel: string): string => {
  */
 const MENU_MODULE: Readonly<Record<string, string>> = {
   '../../eeschema/sch_edit_frame_ui.tsx': '../../eeschema/menubar.ts',
-  'editors/symbol/SymbolEditor.tsx': '../../eeschema/symbol_editor/menubar_symbol_editor.ts',
+  '../../eeschema/symbol_editor/symbol_edit_frame_ui.tsx': '../../eeschema/symbol_editor/menubar_symbol_editor.ts',
   '../../pcbnew/footprint_edit_frame_ui.tsx': '../../pcbnew/menubar_footprint_editor.ts',
   '../../pcbnew/pcb_edit_frame_ui.tsx': '../../pcbnew/menubar_pcb_editor.ts',
-  // FOOTPRINT_VIEWER_FRAME::doReCreateMenuBar lives in toolbars_footprint_viewer.cpp.
-  '../../pcbnew/footprint_viewer_frame_ui.tsx': '../../pcbnew/toolbars_footprint_viewer.ts',
   // pl_editor's bar is its package's menubar.ts, beside KiCad's menubar.cpp.
   '../../pagelayout_editor/pl_editor_frame_ui.tsx': '../../pagelayout_editor/menubar.ts',
 };
@@ -475,7 +471,7 @@ const CANVAS_KEYS: Readonly<
       ['tree Del declines to the canvas', /if \(canvasSelection\) return;/],
     ],
   },
-  'editors/symbol/SymbolEditor.tsx': {
+  '../../eeschema/symbol_editor/symbol_edit_frame_ui.tsx': {
     moved: [
       ['Ctrl+S save', /e\.key\.toLowerCase\(\) === 's'/],
       ['Ctrl+Z undo', /e\.key\.toLowerCase\(\) === 'z'/],
@@ -693,9 +689,7 @@ const noop = (): void => {};
  * prints one, and upstream still attaches the `wxAcceleratorEntry`.
  */
 const MENU_BUILDER: Readonly<Record<string, () => Menu[]>> = {
-  '../../pcbnew/footprint_viewer_frame_ui.tsx': () =>
-    footprintViewerMenus({ close: noop, action: noop, showHotkeys: noop, showAbout: noop }),
-  'editors/symbol/SymbolEditor.tsx': () =>
+  '../../eeschema/symbol_editor/symbol_edit_frame_ui.tsx': () =>
     symbolEditorMenus(
       {
         action: noop,
@@ -1136,7 +1130,7 @@ const DECLARED: Readonly<Record<string, readonly string[]>> = {
     'Ctrl+F1',
   ],
 
-  'editors/symbol/SymbolEditor.tsx': [
+  '../../eeschema/symbol_editor/symbol_edit_frame_ui.tsx': [
     // As above: every combo is a `DefaultHotkey` out of `common/tool/actions
     // .cpp` or `eeschema/tools/sch_actions.cpp`, plus the two shared builders'.
     'Ctrl+Alt+W',

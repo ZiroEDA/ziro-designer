@@ -133,7 +133,7 @@ describe('the fourth checkbox is live, and reaches the canvas by its own route',
     expect(renderer).toContain('altIconBox');
     expect(renderer).toMatch(/if \(sym\.showPinAltIcons\)/);
     // And the editor feeds it from symbol_editor.json, not eeschema's.
-    const editor = read('editors/symbol/SymbolEditor.tsx');
+    const editor = read('../../eeschema/symbol_editor/symbol_edit_frame_ui.tsx');
     expect(editor).toContain('showPinAltIcons: symCfg.show_pin_alt_icons');
   });
 });
@@ -227,7 +227,7 @@ describe('mergeSymbolToggles: OK in Preferences moves the buttons', () => {
   });
 
   it('the frame draws the merged set, not the raw React state', () => {
-    const src = read('editors/symbol/SymbolEditor.tsx');
+    const src = read('../../eeschema/symbol_editor/symbol_edit_frame_ui.tsx');
     expect(src).toContain('mergeSymbolToggles(sessionToggles, symCfg)');
     // The state itself must not be read directly anywhere but the merge, or
     // that call site is the one that goes stale.

@@ -20,7 +20,7 @@ import type { PickedFile } from '@ziroeda/eeschema/sch_edit_frame_ui.js';
 import { EMPTY_PCB } from './home/new_project.js';
 import { ProgressDialog } from '@ziroeda/common/widgets/wx_progress_reporters.js';
 import { ProjectSyncProvider } from './sync/ProjectSyncProvider.js';
-import type { EditorKind } from '@ziroeda/eeschema/browser/project_sync_transport.js';
+import type { EditorKind } from '@ziroeda/eeschema/project_sync_transport.js';
 import {
   storageAvailable,
   cloudIdentityOf,
@@ -94,7 +94,9 @@ const PcbEditorMount = lazy(() =>
   import('./editors/pcb/pcbnew_app.js').then((m) => ({ default: m.PcbEditorMount })),
 );
 const SymbolEditor = lazy(() =>
-  import('./editors/symbol/SymbolEditor.js').then((m) => ({ default: m.SymbolEditor })),
+  import('./editors/symbol/symbol_edit_frame_app.js').then((m) => ({
+    default: m.SymbolEditorMount,
+  })),
 );
 const FootprintEditor = lazy(() =>
   import('./editors/footprint/footprint_edit_frame_app.js').then((m) => ({
@@ -146,7 +148,7 @@ function prefetchEditors(): () => void {
     () => warmLibraryIndexes(),
     () => import('./editors/schematic/eeschema_app.js'),
     () => import('@ziroeda/pcbnew/pcb_edit_frame_ui.js'),
-    () => import('./editors/symbol/SymbolEditor.js'),
+    () => import('./editors/symbol/symbol_edit_frame_app.js'),
     () => import('./editors/footprint/footprint_edit_frame_app.js'),
   ];
   let cancelled = false;

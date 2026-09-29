@@ -255,7 +255,7 @@ describe('the one call site this port has', () => {
    * carries, not what the editor renders.
    */
   const FRAME = readFileSync(
-    resolve(process.cwd(), '../designer/src/editors/symbol/SymbolEditor.tsx'),
+    resolve(process.cwd(), '../eeschema/symbol_editor/symbol_edit_frame_ui.tsx'),
     'utf8',
   )
     .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')

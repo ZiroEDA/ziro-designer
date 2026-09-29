@@ -62,7 +62,7 @@ describe('the reader is GetColorSettings, not a second theme id', () => {
   });
 
   it('and the frame calls it instead of the schematic’s', () => {
-    const frame = read('editors/symbol/SymbolEditor.tsx');
+    const frame = read('../../eeschema/symbol_editor/symbol_edit_frame_ui.tsx');
     expect(frame).toContain('const theme = useSymbolEditorTheme();');
     // The bug this replaces: `useSchematicTheme()` is the first branch taken
     // unconditionally, so both controls on the page would be dead. Checked on

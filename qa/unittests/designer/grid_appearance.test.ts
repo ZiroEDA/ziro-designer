@@ -58,7 +58,7 @@ const read = (rel: string): string => readFileSync(join(SRC, rel), 'utf8');
  */
 const OWNERS: [editor: string, file: string, cfg: string][] = [
   ['schematic', '../../eeschema/sch_edit_frame_ui.tsx', 'es'],
-  ['symbol editor', 'editors/symbol/SymbolEditor.tsx', 'symCfg'],
+  ['symbol editor', '../../eeschema/symbol_editor/symbol_edit_frame_ui.tsx', 'symCfg'],
 ];
 
 /** The other three apps' settings hooks, for the wrong-object check. */

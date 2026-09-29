@@ -90,7 +90,7 @@ describe('symbol_editor.json', () => {
     const canvas = read('editors/symbol/SymbolCanvas.tsx');
     expect(canvas).not.toContain('settings.eeschema');
     expect(canvas).toContain('settings.symbolEditor.window.cursor');
-    const frame = read('editors/symbol/SymbolEditor.tsx');
+    const frame = read('../../eeschema/symbol_editor/symbol_edit_frame_ui.tsx');
     expect(frame).not.toContain('settings.eeschema');
   });
 });
@@ -236,7 +236,7 @@ describe('the page is the shared panel, constructed for this frame', () => {
     // it. Checked as source text because there is no canvas here to render on.
     const renderer = read('../../eeschema/symbol_editor/symbol_renderer.ts');
     expect(renderer).toContain('sizeIU: opts.gridSizeIU ?? GRID');
-    const frame = read('editors/symbol/SymbolEditor.tsx');
+    const frame = read('../../eeschema/symbol_editor/symbol_edit_frame_ui.tsx');
     expect(frame).toContain('gridSizeIU: symbolGridIU(symCfg)');
     // and the status bar's grid pane, which is EDA_DRAW_FRAME::DisplayGridMsg
     expect(frame).toContain('gridMsg(fmt(symbolGridIU(symCfg)))');

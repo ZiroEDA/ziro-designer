@@ -175,7 +175,7 @@ describe('the draw frames', () => {
     '../../eeschema/sch_edit_frame_ui.tsx',
     '../../pcbnew/pcb_edit_frame_ui.tsx',
     '../../pcbnew/footprint_edit_frame_ui.tsx',
-    'editors/symbol/SymbolEditor.tsx',
+    '../../eeschema/symbol_editor/symbol_edit_frame_ui.tsx',
     // GerbView left the hook when it moved onto GERBVIEW_FRAME: its status
     // bar is EDA_DRAW_FRAME::UpdateStatusBar's, as upstream.
   ];

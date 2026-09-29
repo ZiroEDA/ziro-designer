@@ -167,7 +167,7 @@ describe('every other docked pane keeps the default proportion', () => {
    */
   it('the symbol editor Properties pane grows', () => {
     const cls = paneClassOf(
-      'designer/src/editors/symbol/SymbolEditor.tsx',
+      'eeschema/symbol_editor/symbol_edit_frame_ui.tsx',
       // The caption gained its `.CloseButton( true )` box, so the title is a
       // `<span>` beside the button rather than the caption's only content —
       // the same shape the schematic's captions already have.

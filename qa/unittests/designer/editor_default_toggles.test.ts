@@ -342,7 +342,7 @@ describe('pcbnew/pcb_edit_frame_ui.tsx seeds its toolbar from the settings file'
  * for the same reason.
  */
 describe('editors/symbol/SymbolEditor.tsx seeds its toolbar from the settings file', () => {
-  const SYM = 'editors/symbol/SymbolEditor.tsx';
+  const SYM = '../../eeschema/symbol_editor/symbol_edit_frame_ui.tsx';
 
   it('seeds from symbolTogglesFromSettings, not from a constant set', () => {
     const s = src(SYM);
@@ -355,9 +355,7 @@ describe('editors/symbol/SymbolEditor.tsx seeds its toolbar from the settings fi
 
   it('writes the two settings toggles back, and only those two', () => {
     const s = src(SYM);
-    expect(s).toMatch(
-      /import \{[^}]*\bpersistSymbolToggle\b[^}]*\} from '@ziroeda\/eeschema\/symbol_editor\/toggles\.js'/,
-    );
+    expect(s).toMatch(/import \{[^}]*\bpersistSymbolToggle\b[^}]*\} from '\.\/toggles\.js'/);
     // Guarded by SYMBOL_SETTING_TOGGLES: `updateSymbolEditor` persists and
     // wakes the account sync, so calling it for a pane toggle would push
     // `symbol_editor.json` on every click of the left toolbar.

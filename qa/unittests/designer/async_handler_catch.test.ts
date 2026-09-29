@@ -29,7 +29,7 @@ const OPENERS: [file: string, fn: string][] = [
   ['designer/src/home/HomePage.tsx', 'const openStored'],
   ['eeschema/sch_edit_frame_ui.tsx', 'const loadProject'],
   ['eeschema/sch_edit_frame_ui.tsx', 'const loadText'],
-  ['designer/src/editors/symbol/SymbolEditor.tsx', 'const loadSymbol'],
+  ['eeschema/symbol_editor/symbol_edit_frame_ui.tsx', 'const loadSymbol'],
 ];
 
 /**

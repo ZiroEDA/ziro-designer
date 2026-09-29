@@ -40,7 +40,10 @@ const SRC = join(__dirname, '../../../designer/src');
 const APP = readFileSync(join(SRC, 'App.tsx'), 'utf8');
 const SCH = readFileSync(join(SRC, '../../eeschema/sch_edit_frame_ui.tsx'), 'utf8');
 const PCB = readFileSync(join(SRC, '../../pcbnew/pcb_edit_frame_ui.tsx'), 'utf8');
-const SYM = readFileSync(join(SRC, 'editors/symbol/SymbolEditor.tsx'), 'utf8');
+const SYM = readFileSync(
+  join(SRC, '../../eeschema/symbol_editor/symbol_edit_frame_ui.tsx'),
+  'utf8',
+);
 const FP = readFileSync(join(SRC, '../../pcbnew/footprint_edit_frame_ui.tsx'), 'utf8');
 
 /** The body of a `const <name> = useCallback(…)`, up to its dependency array. */

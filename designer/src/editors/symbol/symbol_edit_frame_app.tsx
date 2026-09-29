@@ -8,7 +8,7 @@
  * `EESCHEMA_APP`. `eeschema` never imports `designer`; this is the one file
  * that answers its interface.
  */
-import { useMemo, type JSX } from 'react';
+import { useMemo, type ComponentProps, type JSX } from 'react';
 import type { SYMBOL_EDIT_FRAME_APP } from '@ziroeda/eeschema/symbol_editor/symbol_edit_frame_app.js';
 import { settings } from '../../prefs/settings.js';
 import {
@@ -24,6 +24,7 @@ import { OpenFileDialog } from '../../fs/OpenFileDialog.js';
 import { HomeLink } from '../../ui/HomeLink.js';
 import { LibraryLoadingPanel } from '../../widgets/library_loading_panel.js';
 import { SymbolCanvas } from './SymbolCanvas.js';
+import { SymbolEditor } from '@ziroeda/eeschema/symbol_editor/symbol_edit_frame_ui.js';
 
 /** One object per mount; every member is stable across renders. */
 export function useSymbolEditFrameApp(): SYMBOL_EDIT_FRAME_APP {
@@ -50,4 +51,15 @@ export function useSymbolEditFrameApp(): SYMBOL_EDIT_FRAME_APP {
     }),
     [],
   );
+}
+
+/**
+ * The Symbol Editor's window with the program's own `SYMBOL_EDIT_FRAME_APP` —
+ * what `App.tsx` mounts, as it mounts `SchematicEditorMount`.
+ */
+export function SymbolEditorMount(
+  props: Omit<ComponentProps<typeof SymbolEditor>, 'app'>,
+): JSX.Element {
+  const app = useSymbolEditFrameApp();
+  return <SymbolEditor app={app} {...props} />;
 }

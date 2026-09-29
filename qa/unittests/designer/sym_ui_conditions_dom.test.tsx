@@ -29,7 +29,7 @@ import { fireEvent, render, waitFor } from '@testing-library/react';
 import { parse } from '@ziroeda/sexpr';
 import { readSymbolLib } from '@ziroeda/eeschema';
 import type { LibSymbol } from '@ziroeda/eeschema/types.js';
-import { SymbolEditor } from '@ziroeda/designer/src/editors/symbol/SymbolEditor.js';
+import { SymbolEditorMount as SymbolEditor } from '@ziroeda/designer/src/editors/symbol/symbol_edit_frame_app.js';
 
 /**
  * `R` is a root symbol with an EMPTY Datasheet field; `R_Small` extends it and

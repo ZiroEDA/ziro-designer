@@ -86,7 +86,7 @@ describe('the way in', () => {
   });
 
   it('the editor answers the action, commits under "Import Graphic", and drops at the cursor', () => {
-    const editor = read('../../../designer/src/editors/symbol/SymbolEditor.tsx');
+    const editor = read('../../../eeschema/symbol_editor/symbol_edit_frame_ui.tsx');
     expect(editor).toContain("case 'importGraphics':");
     expect(editor).toContain("commit(sym, 'Import Graphic')");
     // `item->Move( delta )` with delta = cursorPos: the origin rides the cursor.

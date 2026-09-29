@@ -44,7 +44,11 @@ describe('the document editors use the chooser, not the OS picker', () => {
   const wired: [string, string, string | null][] = [
     // file,                                        kind it asks for,  and why
     ['editors/drawingsheet/DrawingSheetEditor.tsx', 'templates', 'GetUserTemplatesPath'],
-    ['editors/symbol/SymbolEditor.tsx', 'symbols', 'GetDefaultUserSymbolsPath'],
+    [
+      '../../eeschema/symbol_editor/symbol_edit_frame_ui.tsx',
+      'symbols',
+      'GetDefaultUserSymbolsPath',
+    ],
     [
       'editors/footprint/footprint_edit_frame_app.tsx',
       'footprints',

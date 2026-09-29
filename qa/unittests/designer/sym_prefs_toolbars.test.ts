@@ -118,7 +118,7 @@ describe('the frame draws the stored configuration', () => {
     // Source text, because there is no frame to mount here. The three bars
     // used to be `entries={SYM_TOP_TOOLBAR}` and friends, which no page could
     // reach.
-    const src = read('editors/symbol/SymbolEditor.tsx');
+    const src = read('../../eeschema/symbol_editor/symbol_edit_frame_ui.tsx');
     for (const loc of ['TOP_MAIN', 'LEFT', 'RIGHT'])
       expect(src, loc).toContain(
         `useToolbarEntries('symbol_editor', '${loc}', SYM_DEFAULT_TOOLBARS)`,

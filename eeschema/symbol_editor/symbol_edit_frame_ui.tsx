@@ -5,7 +5,7 @@ import { iuToMM, SCH_IU_PER_MM } from '@ziroeda/common';
 import { parse } from '@ziroeda/sexpr';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import type { KIWAY } from '@ziroeda/common/kiway.js';
-import { SYMBOL_EDIT_FRAME } from '@ziroeda/eeschema/symbol_editor/symbol_edit_frame.js';
+import { SYMBOL_EDIT_FRAME } from './symbol_edit_frame.js';
 import type { Vec2 } from '@ziroeda/kimath';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -17,7 +17,7 @@ import {
   type LibPin,
   type LibSymbol,
   type SchField,
-} from '@ziroeda/eeschema';
+} from '../index.js';
 import * as sexpr from '@ziroeda/sexpr';
 import { GetAssociatedDocument } from '@ziroeda/common/eda_doc.js';
 import { MenuBar, type Menu } from '@ziroeda/common/tool/action_menu_bar.js';
@@ -34,7 +34,7 @@ import { useUnsavedGuard } from '@ziroeda/common/use_unsaved_guard.js';
 // The ONE tree widget, as `SYMBOL_TREE_PANE` mounts the ONE `LIB_TREE`.
 import { LibTree } from '@ziroeda/common/widgets/lib_tree.js';
 import { LibTreeNode, LibTreeNodeType } from '@ziroeda/common/lib_tree_model.js';
-import { SymbolTreeSynchronizingAdapter } from '@ziroeda/eeschema/symbol_tree_synchronizing_adapter.js';
+import { SymbolTreeSynchronizingAdapter } from '../symbol_tree_synchronizing_adapter.js';
 import { KiStatusBar } from '@ziroeda/common/widgets/kistatusbar.js';
 import { MsgPanel, type MsgPanelItem } from '@ziroeda/common/widgets/msgpanel_ui.js';
 import {
@@ -53,22 +53,12 @@ import {
   SYM_LEFT_TOOLBAR,
   SYM_RIGHT_TOOLBAR,
   SYM_DEFAULT_TOOLBARS,
-} from '@ziroeda/eeschema/symbol_editor/toolbars_symbol_editor.js';
-import { type SymbolCanvasController } from '@ziroeda/eeschema/sch_draw_panel.js';
-import {
-  SymbolLibraryManager,
-  type ManagedLibrary,
-} from '@ziroeda/eeschema/symbol_library_manager.js';
-import {
-  findSymLibRowByUri,
-  resolvedProjectSymLibs,
-} from '@ziroeda/eeschema/project_sym_lib_table.js';
+} from './toolbars_symbol_editor.js';
+import { type SymbolCanvasController } from '../sch_draw_panel.js';
+import { SymbolLibraryManager, type ManagedLibrary } from '../symbol_library_manager.js';
+import { findSymLibRowByUri, resolvedProjectSymLibs } from '../project_sym_lib_table.js';
 import { unescapeString } from '@ziroeda/common/string_utils.js';
-import {
-  SYM_FRAME_NAME,
-  symFrameTitle,
-  deleteSymbolPrompts,
-} from '@ziroeda/eeschema/symbol_editor/symbol_editor.js';
+import { SYM_FRAME_NAME, symFrameTitle, deleteSymbolPrompts } from './symbol_editor.js';
 import {
   addGraphicToSymbol,
   moveGraphic,
@@ -87,20 +77,16 @@ import {
   rotateSymbolItems,
   setUnitCount,
   unitCount,
-} from '@ziroeda/eeschema/symbol_editor/edits.js';
-import {
-  MM,
-  symItemId,
-  type SymbolViewOptions,
-} from '@ziroeda/eeschema/symbol_editor/symbol_renderer.js';
-import { symbolGridIU } from '@ziroeda/eeschema/symbol_editor/grid.js';
-import { symbolItemDefaults } from '@ziroeda/eeschema/symbol_editor/defaults.js';
+} from './edits.js';
+import { MM, symItemId, type SymbolViewOptions } from './symbol_renderer.js';
+import { symbolGridIU } from './grid.js';
+import { symbolItemDefaults } from './defaults.js';
 import {
   fastGridActionForKey,
   fastGridIndex,
   type FastGridAction,
 } from '@ziroeda/common/settings/grid_settings_ui.js';
-import type { SymbolHit } from '@ziroeda/eeschema/symbol_editor/edits.js';
+import type { SymbolHit } from './edits.js';
 import {
   LibSymbolPropertiesDialog,
   NewSymbolDialog,
@@ -111,16 +97,16 @@ import {
   SymbolTextDialog,
   type NewSymbolResult,
   type PinDialogResult,
-} from '@ziroeda/eeschema/symbol_editor/symbol_editor_dialogs.js';
-import { DialogImportGfx } from '@ziroeda/eeschema/import_gfx/dialog_import_gfx_sch.js';
+} from './symbol_editor_dialogs.js';
+import { DialogImportGfx } from '../import_gfx/dialog_import_gfx_sch.js';
 import { MessageDialogOk } from '@ziroeda/common/dialogs/dialog_message.js';
 import '@ziroeda/common/widgets/shell.css';
 import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
 import type { PrefsPageId } from '@ziroeda/common/frame_type.js';
-import { useSymbolEditFrameApp } from './symbol_edit_frame_app.js';
-import { symbolEditorMenus } from '@ziroeda/eeschema/symbol_editor/menubar_symbol_editor.js';
-import { currentSymbolEditorSettings } from '@ziroeda/eeschema/symbol_editor/symbol_editor_settings.js';
-import { DialogSchFind } from '@ziroeda/eeschema/dialogs/dialog_sch_find.js';
+import type { SYMBOL_EDIT_FRAME_APP } from './symbol_edit_frame_app.js';
+import { symbolEditorMenus } from './menubar_symbol_editor.js';
+import { currentSymbolEditorSettings } from './symbol_editor_settings.js';
+import { DialogSchFind } from '../dialogs/dialog_sch_find.js';
 import {
   defaultSearchData,
   findMatchesInSymbol,
@@ -128,12 +114,8 @@ import {
   type SchSearchData,
   type SymbolFindMatch,
   type SymbolItemRef,
-} from '@ziroeda/eeschema/tools/sch_find_replace_tool.js';
-import {
-  type SymbolConditions,
-  symbolConditions,
-  symbolToolbarDisabledIds,
-} from '@ziroeda/eeschema/symbol_editor/conditions.js';
+} from '../tools/sch_find_replace_tool.js';
+import { type SymbolConditions, symbolConditions, symbolToolbarDisabledIds } from './conditions.js';
 import { showHotkeyList } from '@ziroeda/common/hotkeys_basic.js';
 import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
@@ -147,13 +129,13 @@ import {
   SYMBOL_SETTING_TOGGLES,
   symbolTogglesFromSettings,
   withSyncPinEdit,
-} from '@ziroeda/eeschema/symbol_editor/toggles.js';
-import { SelectionFilterPanel } from '@ziroeda/eeschema/widgets/panel_sch_selection_filter_ui.js';
-import { symSelectionFilterShown } from '@ziroeda/eeschema/widgets/panel_sch_selection_filter.js';
+} from './toggles.js';
+import { SelectionFilterPanel } from '../widgets/panel_sch_selection_filter_ui.js';
+import { symSelectionFilterShown } from '../widgets/panel_sch_selection_filter.js';
 import {
   defaultSelectionFilter,
   type SelectionFilterOptions,
-} from '@ziroeda/eeschema/tools/sch_selection_filter.js';
+} from '../tools/sch_selection_filter.js';
 
 /**
  * The Symbol Editor frame, the web mirror of KiCad's SYMBOL_EDIT_FRAME
@@ -244,6 +226,7 @@ function flattenAgainst(sym: LibSymbol, lib: ManagedLibrary, depth = 0): LibSymb
 const SCHEMATIC_LIB = 'Schematic';
 
 export function SymbolEditor({
+  app,
   onExitToHome,
   projectName,
   initialProject,
@@ -253,6 +236,9 @@ export function SymbolEditor({
   onSaveToSchematic,
   readOnlyNotice,
 }: {
+  /** What the program gives this window (`SYMBOL_EDIT_FRAME_APP`,
+   *  `symbol_edit_frame_app.ts`). Built by designer's `useSymbolEditFrameApp()`. */
+  app: SYMBOL_EDIT_FRAME_APP;
   onExitToHome: () => void;
   /** The open project's folder name, for the chooser's Save/Open places. */
   projectName?: string;
@@ -295,7 +281,6 @@ export function SymbolEditor({
    */
   readOnlyNotice?: ReactNode;
 }): JSX.Element {
-  const app = useSymbolEditFrameApp();
   const {
     settings,
     useSymbolEditorSettings,

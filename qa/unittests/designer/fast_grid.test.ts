@@ -120,7 +120,7 @@ describe('every app’s stored defaults land where the page says', () => {
 /** Every frame `COMMON_TOOLS` gives these three actions, and where it binds them. */
 const FRAME: Record<string, string> = {
   eeschema: '../../eeschema/sch_edit_frame_ui.tsx',
-  symbol_editor: 'editors/symbol/SymbolEditor.tsx',
+  symbol_editor: '../../eeschema/symbol_editor/symbol_edit_frame_ui.tsx',
   // pl_editor binds them as upstream does, COMMON_TOOLS on PL_EDITOR_FRAME,
   // pinned in unittests/pagelayout_editor/pl_editor_chrome.test.ts.
   // gerbview binds them as upstream does, COMMON_TOOLS on GERBVIEW_FRAME,

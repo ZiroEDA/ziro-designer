@@ -148,7 +148,7 @@ describe('shared grid + crosshair', () => {
     expect(sym).toMatch(/\bdrawGrid\(/);
     // ...and the symbol editor actually hands the toggle down, rather than the
     // renderer deciding for itself.
-    expect(read('editors/symbol/SymbolEditor.tsx')).toMatch(
+    expect(read('../../eeschema/symbol_editor/symbol_edit_frame_ui.tsx')).toMatch(
       /showGrid: toggles\.has\('toggleGrid'\)/,
     );
     // The footprint editor's grid has TWO gates, as pcbnew's does, because it

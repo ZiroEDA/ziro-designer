@@ -101,7 +101,7 @@ describe('symbolItemDefaults: mils out of the file, IU into the item', () => {
 // -------------------------------------------------------------- the three readers
 
 describe('the frame reads the five live fields', () => {
-  const FRAME = 'editors/symbol/SymbolEditor.tsx';
+  const FRAME = '../../eeschema/symbol_editor/symbol_edit_frame_ui.tsx';
 
   it('seeds the last-pin defaults from the file, not from a literal', () => {
     // `GetLastPinLength()` and its two siblings, whose `-1` sentinels are
@@ -182,8 +182,12 @@ describe('every control on the page reads', () => {
     // Both are `SYMBOL_EDITOR_PIN_TOOL::RepeatPin`'s
     // (`symbol_editor_pin_tool.cpp:427-445`), reached by Insert.
     expect(read('../../eeschema/symbol_editor/edits.ts')).toContain('pinStepMils');
-    expect(read('editors/symbol/SymbolEditor.tsx')).toContain('cfg.repeat.pin_step');
-    expect(read('editors/symbol/SymbolEditor.tsx')).toContain('cfg.repeat.label_delta');
+    expect(read('../../eeschema/symbol_editor/symbol_edit_frame_ui.tsx')).toContain(
+      'cfg.repeat.pin_step',
+    );
+    expect(read('../../eeschema/symbol_editor/symbol_edit_frame_ui.tsx')).toContain(
+      'cfg.repeat.label_delta',
+    );
   });
 
   it('the last one is read by the canvas, through the shared point editor', () => {

@@ -96,7 +96,7 @@ describe('in-app attribution', () => {
     // be no-op stubs while the dialog existed only on the home screen.
     for (const f of [
       'pcbnew/pcb_edit_frame_ui.tsx',
-      'designer/src/editors/symbol/SymbolEditor.tsx',
+      'eeschema/symbol_editor/symbol_edit_frame_ui.tsx',
       'pcbnew/footprint_edit_frame_ui.tsx',
       'designer/src/home/HomePage.tsx',
     ]) {
@@ -107,7 +107,7 @@ describe('in-app attribution', () => {
   it('leaves no dead About menu entries behind', () => {
     for (const f of [
       'pcbnew/pcb_edit_frame_ui.tsx',
-      'designer/src/editors/symbol/SymbolEditor.tsx',
+      'eeschema/symbol_editor/symbol_edit_frame_ui.tsx',
       'pcbnew/footprint_edit_frame_ui.tsx',
     ]) {
       expect(read(f)).not.toMatch(/About [^']*', action: \(\) => \{\}/);

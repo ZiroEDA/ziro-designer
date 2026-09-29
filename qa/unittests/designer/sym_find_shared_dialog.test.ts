@@ -328,8 +328,8 @@ describe('DIALOG_SCH_FIND is a SCH_BASE_FRAME facility', () => {
       .map(repoPath)
       .sort();
     expect(importers).toEqual([
-      '/designer/src/editors/symbol/SymbolEditor.tsx',
       '/eeschema/sch_edit_frame_ui.tsx',
+      '/eeschema/symbol_editor/symbol_edit_frame_ui.tsx',
     ]);
   });
 

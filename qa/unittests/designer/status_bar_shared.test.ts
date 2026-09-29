@@ -321,7 +321,7 @@ describe('the status bar and the message panel exist once', () => {
   const CONSUMERS: [string, ('KiStatusBar' | 'MsgPanel')[]][] = [
     ['../../eeschema/sch_edit_frame_ui.tsx', ['KiStatusBar', 'MsgPanel']],
     ['../../pcbnew/pcb_edit_frame_ui.tsx', ['KiStatusBar', 'MsgPanel']],
-    ['editors/symbol/SymbolEditor.tsx', ['KiStatusBar', 'MsgPanel']],
+    ['../../eeschema/symbol_editor/symbol_edit_frame_ui.tsx', ['KiStatusBar', 'MsgPanel']],
     ['../../pcbnew/footprint_edit_frame_ui.tsx', ['KiStatusBar', 'MsgPanel']],
     ['../../pagelayout_editor/pl_editor_frame_ui.tsx', ['KiStatusBar', 'MsgPanel']],
     ['../../gerbview/gerbview_frame_ui.tsx', ['KiStatusBar', 'MsgPanel']],

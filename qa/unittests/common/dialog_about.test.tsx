@@ -253,7 +253,7 @@ describe('every frame opens it', () => {
     'designer/src/home/HomePage.tsx': 'manager',
     'eeschema/sch_edit_frame_ui.tsx': 'schematic',
     'pcbnew/pcb_edit_frame_ui.tsx': 'pcb',
-    'designer/src/editors/symbol/SymbolEditor.tsx': 'symbol',
+    'eeschema/symbol_editor/symbol_edit_frame_ui.tsx': 'symbol',
     'pcbnew/footprint_edit_frame_ui.tsx': 'footprint',
     'designer/src/editors/pcb/Viewer3DFrame.tsx': 'viewer3d',
     'cvpcb/cvpcb_mainframe_ui.tsx': 'cvpcb',

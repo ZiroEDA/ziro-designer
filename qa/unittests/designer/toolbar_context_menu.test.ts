@@ -150,7 +150,7 @@ const read = (rel: string): string => readFileSync(join(SRC, rel), 'utf8');
 const CALL_SITES: [app: string, file: string][] = [
   ['pl_editor', '../../pagelayout_editor/pl_editor_frame_ui.tsx'],
   ['eeschema', '../../eeschema/sch_edit_frame_ui.tsx'],
-  ['symbol_editor', 'editors/symbol/SymbolEditor.tsx'],
+  ['symbol_editor', '../../eeschema/symbol_editor/symbol_edit_frame_ui.tsx'],
   ['pcbnew', '../../pcbnew/pcb_edit_frame_ui.tsx'],
   ['footprint_editor', '../../pcbnew/footprint_edit_frame_ui.tsx'],
 ];

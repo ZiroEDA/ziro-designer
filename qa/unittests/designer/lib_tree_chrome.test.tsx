@@ -32,7 +32,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/react';
-import { SymbolEditor } from '@ziroeda/designer/src/editors/symbol/SymbolEditor.js';
+import { SymbolEditorMount as SymbolEditor } from '@ziroeda/designer/src/editors/symbol/symbol_edit_frame_app.js';
 import { LibTree } from '@ziroeda/common/widgets/lib_tree.js';
 import {
   LibTreeModelAdapter,
