@@ -51,6 +51,8 @@ export const ABOUT_TITLES = {
   imageConverter: `${PRODUCT} Image Converter`,
   calculator: `${PRODUCT} Calculator Tools`,
   viewer3d: `${PRODUCT} 3D Viewer`,
+  /** footprint_viewer_frame.cpp:111, `_HKI( "KiCad Footprint Library Browser" )`. */
+  footprintViewer: `${PRODUCT} Footprint Library Browser`,
   /** cvpcb_mainframe.cpp:88 is the one frame that does NOT put the product in
    *  front: `m_aboutTitle = _( "Assign Footprints" )`, so its About window is
    *  titled "About Assign Footprints". Mirrored rather than regularised - the
