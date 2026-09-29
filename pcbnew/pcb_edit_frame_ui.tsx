@@ -505,6 +505,7 @@ import { SKIP_TEARDROPS } from './board_commit.js';
 import {
   boardFromBOARD,
   boardItemOfViewId,
+  footprintViewOfBoard,
   tableView,
   viewIdOfBoardItem,
 } from './pcb_io/kicad_sexpr/board_view.js';
@@ -526,7 +527,8 @@ import { MessageDialogYesNoCancel } from '@ziroeda/common/dialogs/dialog_message
 import { commitViewToBoard } from './pcb_io/kicad_sexpr/board_view_commit.js';
 import { PCB_EDIT_FRAME, REACT_BOARD_LISTENER, pcbnewSettingsOf } from './pcb_edit_frame.js';
 import { FetchNetlistFromSchematic } from './netlist_from_schematic.js';
-import { addFootprintToHistory } from './widgets/footprint_history.js';
+import type { LIB_ID } from '@ziroeda/common/lib_id.js';
+import type { FOOTPRINT } from './footprint.js';
 import { parseFootprint } from './footprint_edit_frame.js';
 import {
   buildScene,
@@ -1958,6 +1960,8 @@ export function PcbEditor({
     editZoneParams: (zoneIndex: number) => void;
     selectCopperLayerPair: () => void;
     showInfoBarError: (aMsg: string) => void;
+    selectFootprintFromChooser: (aPreselect: string) => Promise<string | null>;
+    loadFootprintFromLibrary: (aId: LIB_ID, aKeepUUID: boolean) => Promise<FOOTPRINT | null>;
     findDialogRects: () => BOX2D[];
     setViewCenter: (aPos: KVec2, aRects: readonly BOX2D[]) => void;
   } | null>(null);
@@ -1985,6 +1989,10 @@ export function PcbEditor({
       editZoneParams: (zoneIndex) => drcWindowRef.current!.editZoneParams(zoneIndex),
       selectCopperLayerPair: () => drcWindowRef.current!.selectCopperLayerPair(),
       showInfoBarError: (aMsg) => drcWindowRef.current?.showInfoBarError(aMsg),
+      selectFootprintFromChooser: (aPreselect) =>
+        drcWindowRef.current!.selectFootprintFromChooser(aPreselect),
+      loadFootprintFromLibrary: (aId, aKeepUUID) =>
+        drcWindowRef.current!.loadFootprintFromLibrary(aId, aKeepUUID),
       showExchangeFootprintsDialog: () => {
         // DIALOG_EXCHANGE_FOOTPRINTS is not built (Edit > Change Footprints... is
         // greyed in the menu for the same reason).
@@ -2478,6 +2486,10 @@ export function PcbEditor({
   const placeFpSceneRef = useRef<{ at: { x: number; y: number }; scene: BoardScene } | null>(null);
   /** `SelectFootprintFromLibrary`'s FOOTPRINT_CHOOSER_FRAME is open. */
   const [fpChooserOpen, setFpChooserOpen] = useState(false);
+  /** The `LIB_ID` text the chooser opens on (`SelectFootprintFromLibrary`'s `aPreselect`). */
+  const [fpChooserPreselect, setFpChooserPreselect] = useState('');
+  /** What the open chooser answers, `SelectFootprintFromLibrary` being `await`ing it. */
+  const fpChooserResolveRef = useRef<((aLibId: string | null) => void) | null>(null);
   /**
    * `ROUTER_TOOL`'s router: the PNS session that owns the route in flight,
    * single track or differential pair by `PNS::ROUTER_MODE`, from the click
@@ -2530,6 +2542,8 @@ export function PcbEditor({
     // dropped, never committed (board_editor_control.cpp:1447-1461).
     placeFpRef.current = null;
     placeFpSceneRef.current = null;
+    fpChooserResolveRef.current?.(null);
+    fpChooserResolveRef.current = null;
     setFpChooserOpen(false);
   }, [activeTool]);
   const sceneRef = useRef<BoardScene | null>(null);
@@ -5486,6 +5500,31 @@ export function PcbEditor({
     selectCopperLayerPair: (): void => setLayerPairDialogOpen(true),
     /** `EDA_BASE_FRAME::ShowInfoBarError`: this window's infobar. */
     showInfoBarError: (aMsg: string): void => setInfoBarError(aMsg),
+    /**
+     * `Kiway().Player( FRAME_FOOTPRINT_CHOOSER )->ShowModal( &footprintName )`
+     * (`SelectFootprintFromLibrary`): the chooser opens, and the answer is what
+     * `onFootprintChosen` / `onFootprintChooserCancel` resolve.
+     */
+    selectFootprintFromChooser: (aPreselect: string): Promise<string | null> =>
+      new Promise((resolve) => {
+        fpChooserResolveRef.current?.(null);
+        fpChooserResolveRef.current = resolve;
+        setFpChooserPreselect(aPreselect);
+        setFpChooserOpen(true);
+      }),
+    /**
+     * `FOOTPRINT_LIBRARY_ADAPTER::LoadFootprintWithOptionalNickname`: the hosted
+     * library's footprint, a copy the frame owns. A frame that does not keep the
+     * library's UUIDs gets `Duplicate`'s fresh ones (`FootprintLoad`).
+     */
+    loadFootprintFromLibrary: async (
+      aId: LIB_ID,
+      aKeepUUID: boolean,
+    ): Promise<FOOTPRINT | null> => {
+      const lib = await loadFootprint(aId.Format());
+      if (!lib?.k) return null;
+      return aKeepUUID ? (lib.k.Clone() as FOOTPRINT) : (lib.k.Duplicate(false) as FOOTPRINT);
+    },
     // findDialogs(): the DRC dialog is the one modeless dialog of this frame; its
     // rect in canvas client pixels, as ScreenToClient( dialog->GetScreenPosition() ).
     findDialogRects: (): BOX2D[] => {
@@ -7660,7 +7699,7 @@ export function PcbEditor({
     const pf = placeFpRef.current;
     const brd = boardRef.current;
     if (!pf) {
-      setFpChooserOpen(true);
+      selectFootprintFromLibrary();
       return;
     }
     if (!brd) return;
@@ -7682,19 +7721,32 @@ export function PcbEditor({
    * orientation 0, reference as the library wrote it (REF**): upstream
    * annotates nothing here.
    */
-  const onFootprintChosen = (libId: string): void => {
-    setFpChooserOpen(false);
-    void loadFootprint(libId).then((lib) => {
-      if (!lib) return;
-      // `AddFootprintToHistory( footprintName )` (load_select_footprint.cpp:221)
-      // — on a successful load, and this is the only caller that adds.
-      addFootprintToHistory(libId);
+  const selectFootprintFromLibrary = (): void => {
+    void frameRef.current!.SelectFootprintFromLibrary().then((footprint) => {
+      if (!footprint) return;
       // The tool may have been switched away while the chooser was open.
       if (activeToolRef.current !== 'placeFootprint') return;
-      placeFpRef.current = { lib, fpid: libId };
+      placeFpRef.current = {
+        lib: footprintViewOfBoard(footprint),
+        fpid: footprint.GetFPIDAsString(),
+      };
       updatePlaceFpPreview(snapToGrid(cursorRef.current ?? { x: 0, y: 0 }));
       requestDraw();
     });
+  };
+
+  /** The chooser answered: `ShowModal` returned, `footprintName` set. */
+  const onFootprintChosen = (libId: string): void => {
+    setFpChooserOpen(false);
+    fpChooserResolveRef.current?.(libId);
+    fpChooserResolveRef.current = null;
+  };
+
+  /** The chooser was cancelled: `ShowModal` returned 0. */
+  const onFootprintChooserCancel = (): void => {
+    setFpChooserOpen(false);
+    fpChooserResolveRef.current?.(null);
+    fpChooserResolveRef.current = null;
   };
 
   /**
@@ -7717,7 +7769,7 @@ export function PcbEditor({
       requestDraw();
       return;
     }
-    if (commonInputImmediateActionsLive()) setFpChooserOpen(true);
+    if (commonInputImmediateActionsLive()) selectFootprintFromLibrary();
   }, [activeTool]);
 
   /**
@@ -12002,7 +12054,8 @@ export function PcbEditor({
       {fpChooserOpen && (
         <FootprintChooserFrame
           onOk={onFootprintChosen}
-          onCancel={() => setFpChooserOpen(false)}
+          onCancel={onFootprintChooserCancel}
+          {...(fpChooserPreselect ? { preselect: fpChooserPreselect } : {})}
           loadFootprintIndex={loadFootprintIndex}
           loadFootprint={loadFootprint}
         />

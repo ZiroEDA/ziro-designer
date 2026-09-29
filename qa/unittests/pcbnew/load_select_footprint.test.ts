@@ -159,7 +159,7 @@ describe('PCB_BASE_FRAME::SelectFootprintFromLibrary', () => {
     expect(asked).toEqual(['']);
   });
 
-  it('a cancelled chooser loads nothing and records nothing', async () => {
+  it('a cancelled chooser loads nothing and records nothing, even with a footprint preselected', async () => {
     let loads = 0;
     const { frame } = setup({
       selectFootprintFromChooser: async () => null,
@@ -168,7 +168,7 @@ describe('PCB_BASE_FRAME::SelectFootprintFromLibrary', () => {
         return libraryFootprint();
       },
     });
-    expect(await frame.SelectFootprintFromLibrary()).toBeNull();
+    expect(await frame.SelectFootprintFromLibrary(new LIB_ID('Resistor_SMD', 'R_0805'))).toBeNull();
     expect(loads).toBe(0);
     expect([...footprintHistory()]).toEqual([]);
   });
@@ -237,7 +237,20 @@ describe('PCB_BASE_FRAME::loadFootprint / LoadFootprint', () => {
   const nets = (fp: FOOTPRINT): number[] => fp.Pads().map((p) => p.GetNetCode());
 
   it('clears every net on the loaded footprint', async () => {
-    const { frame } = setup({ loadFootprintFromLibrary: async () => libraryFootprint() });
+    const b = board();
+    const { frame } = setup(
+      {
+        loadFootprintFromLibrary: async () => {
+          // a library footprint whose pads carry nets of some board
+          const fp = libraryFootprint();
+          fp.Pads()[0]!.SetNet(b.FindNet('GND')!);
+          fp.Pads()[1]!.SetNet(b.FindNet('VCC')!);
+          expect(nets(fp)).toEqual([1, 2]);
+          return fp;
+        },
+      },
+      b,
+    );
     const fp = (await frame.LoadFootprint(new LIB_ID('L', 'R_0805')))!;
     expect(nets(fp)).toEqual([0, 0]);
   });
