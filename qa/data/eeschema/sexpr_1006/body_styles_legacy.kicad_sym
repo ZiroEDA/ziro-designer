@@ -1,0 +1,29 @@
+(kicad_symbol_lib (version 20241209) (generator "kicad_symbol_editor") (generator_version "9.0")
+  (symbol "NAMED3"
+    (body_styles "A" "B" "C")
+    (in_bom yes) (on_board yes)
+    (property "Reference" "U" (at 0 5 0) (effects (font (size 1.27 1.27))))
+    (property "Value" "NAMED3" (at 0 -5 0) (effects (font (size 1.27 1.27))))
+    (symbol "NAMED3_1_1"
+      (rectangle (start -1 -1) (end 1 1) (stroke (width 0.254) (type default)) (fill (type none)))
+    )
+    (symbol "NAMED3_1_2"
+      (rectangle (start -2 -2) (end 2 2) (stroke (width 0.254) (type default)) (fill (type none)))
+    )
+    (symbol "NAMED3_1_3"
+      (rectangle (start -3 -3) (end 3 3) (stroke (width 0.254) (type default)) (fill (type none)))
+    )
+  )
+  (symbol "LEGACY"
+    
+    (in_bom yes) (on_board yes)
+    (property "Reference" "U" (at 0 5 0) (effects (font (size 1.27 1.27))))
+    (property "Value" "LEGACY" (at 0 -5 0) (effects (font (size 1.27 1.27))))
+    (symbol "LEGACY_1_1"
+      (rectangle (start -1 -1) (end 1 1) (stroke (width 0.254) (type default)) (fill (type none)))
+    )
+    (symbol "LEGACY_1_2"
+      (rectangle (start -2 -2) (end 2 2) (stroke (width 0.254) (type default)) (fill (type none)))
+    )
+  )
+)

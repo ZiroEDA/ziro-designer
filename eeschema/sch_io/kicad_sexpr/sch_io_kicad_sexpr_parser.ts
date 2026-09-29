@@ -562,9 +562,6 @@ export class SCH_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
 
           this.m_bodyStyle = bodyStyle;
 
-          if (this.m_bodyStyle > symbol.GetBodyStyleCount())
-            symbol.SetBodyStyleCount(this.m_bodyStyle, false, false);
-
           if (this.m_unit > symbol.GetUnitCount()) symbol.SetUnitCount(this.m_unit, false);
 
           for (token = this.NextTok(); token !== T.RIGHT; token = this.NextTok()) {
@@ -662,10 +659,15 @@ export class SCH_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
     // The fontconfig cache is not ported: UpdateFontFiles() answers no embedded fonts.
     resolveChildFonts(symbol);
 
-    // Before V10 we didn't store the number of body styles in a symbol, we just looked
-    // for any secondary body style items.
-    if (this.m_requiredVersion < 20250827)
+    // Before V10 we didn't store the number of body styles in a symbol, we just looked at all its
+    // drawings each time we wanted to know.  Symbol libraries kept their old version for a while
+    // after custom body styles landed, so only infer De Morgan when nothing was declared.
+    if (this.m_requiredVersion < 20250827 && !symbol.IsMultiBodyStyle())
       symbol.SetHasDeMorganBodyStyles(symbol.HasLegacyAlternateBodyStyle());
+
+    // The declaration wins over the drawings, which lets libraries written by a version that
+    // failed to delete a body style load without its leftovers
+    symbol.PruneBodyStyleDrawItems(symbol.GetBodyStyleCount());
 
     symbol.RefreshLibraryTreeCaches();
 
@@ -3079,6 +3081,21 @@ export class SCH_IO_KICAD_SEXPR_PARSER extends DSNLEXER {
 
           if (field.IsMandatory()) existing = symbol.GetField(field.GetId());
           else existing = symbol.GetField(field.GetName());
+
+          if (existing && !field.IsMandatory()) {
+            // If there are other fields with the same name, for whatever reason,
+            // try renameing instead of silently discarding them right away.
+            const base_name = field.GetName();
+
+            // Arbitrary number of attempts to find a new name (oldname_x)
+            for (let ii = 1; ii < 10 && existing; ii++) {
+              const newname = `${base_name}_${ii}`;
+
+              existing = symbol.GetField(newname);
+
+              if (!existing) field.SetName(newname);
+            }
+          }
 
           if (existing) existing.assignField(field);
           else symbol.AddField(field);

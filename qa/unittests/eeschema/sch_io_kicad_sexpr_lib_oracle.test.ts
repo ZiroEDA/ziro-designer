@@ -23,6 +23,10 @@ const LIBS: readonly [string, string][] = [
   ['kicad_square24_300dpi', 'bitmap2component/kicad_square24_300dpi.kicad_sym'],
   ['complex_hierarchy-cache', 'eeschema/legacy/complex_hierarchy-cache.kicad_sym'],
   ['legacy_all', 'eeschema/legacy/legacy_all.kicad_sym'],
+  // 10.0.6: a pre-20250827 library infers De Morgan only when no body style was declared, and
+  // the declared count prunes the draw items of any body style beyond it.
+  ['body_styles_legacy', 'eeschema/sexpr_1006/body_styles_legacy.kicad_sym'],
+  ['body_styles_leftover', 'eeschema/sexpr_1006/body_styles_leftover.kicad_sym'],
 ];
 
 function upgrade(aText: string, aName: string): string {

@@ -1885,39 +1885,54 @@ export class LIB_SYMBOL extends SYMBOL {
    * body style is not set and asConvert is true, than the base draw items are duplicated
    * and added to the symbol.
    */
+  /**
+   * Set the number of body styles for the symbol.
+   *
+   * Draw items belonging to body styles beyond \a aCount are always deleted.  Draw items for
+   * the new body styles are duplicated from the standard body style when the symbol gains
+   * body styles and the caller asks for it.
+   */
   SetBodyStyleCount(aCount: number, aDuplicateDrawItems: boolean, aDuplicatePins: boolean): void {
+    // wxCHECK_RET: an invalid count is ignored.
+    if (aCount < 1) return;
+
     const prevCount = this.GetBodyStyleCount();
 
-    if (prevCount === aCount) return;
+    // Populate the new body styles from the standard one
+    if (prevCount < aCount && (aDuplicateDrawItems || aDuplicatePins)) {
+      const tmp: SCH_ITEM[] = []; // Adding to m_drawings while iterating it invalidates the iterator
 
-    // Duplicate items to create the converted shape
-    if (prevCount < aCount) {
-      if (aDuplicateDrawItems || aDuplicatePins) {
-        const tmp: SCH_ITEM[] = []; // Temporarily store the duplicated pins here.
+      for (const item of this.m_drawings) {
+        if (item.Type() !== KICAD_T.SCH_PIN_T && !aDuplicateDrawItems) continue;
 
-        for (const item of this.m_drawings) {
-          if (item.Type() !== KICAD_T.SCH_PIN_T && !aDuplicateDrawItems) continue;
-
-          if (item.GetBodyStyle() === 1) {
-            for (let j = prevCount + 1; j <= aCount; j++) {
-              const newItem = item.Duplicate(IGNORE_PARENT_GROUP);
-              newItem.SetBodyStyle(j);
-              tmp.push(newItem);
-            }
+        if (item.GetBodyStyle() === 1) {
+          for (let j = prevCount + 1; j <= aCount; j++) {
+            const newItem = item.Duplicate(IGNORE_PARENT_GROUP);
+            newItem.SetBodyStyle(j);
+            tmp.push(newItem);
           }
         }
+      }
 
-        // Transfer the new pins to the LIB_SYMBOL.
-        for (const item of tmp) this.m_drawings.push_back(item);
-      }
-    } else {
-      // Delete converted shape items because the converted shape does not exist
-      for (const item of this.m_drawings) {
-        if (item.GetBodyStyle() > aCount) this.m_drawings.erase(item);
-      }
+      for (const item of tmp) this.m_drawings.push_back(item);
+
+      this.m_drawings.sort(drawItemLess);
     }
 
-    this.m_drawings.sort(drawItemLess);
+    // A caller that already cleared the De Morgan flag or the body style names reports a
+    // previous count of 1, so the deletion cannot be conditional on the count dropping
+    this.PruneBodyStyleDrawItems(aCount);
+  }
+
+  /** Delete the draw items belonging to a body style beyond \a aBodyStyleCount. */
+  PruneBodyStyleDrawItems(aBodyStyleCount: number): void {
+    const doomed: SCH_ITEM[] = [];
+
+    for (const item of this.m_drawings) {
+      if (item.GetBodyStyle() > aBodyStyleCount) doomed.push(item);
+    }
+
+    for (const item of doomed) this.m_drawings.erase(item);
   }
 
   /**

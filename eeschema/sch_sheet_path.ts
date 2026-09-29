@@ -324,6 +324,21 @@ export class SCH_SYMBOL_VARIANT extends VARIANT {
     this.m_ExcludedFromPosFiles = aSymbol.GetExcludedFromPosFiles?.() ?? false;
   }
 
+  /**
+   * True if the variant carries any differential against the base symbol values; a variant
+   * without differentials resolves identically to no variant at all.
+   */
+  HasDifferentials(aSymbol: VARIANT_SOURCE): boolean {
+    return (
+      this.m_DNP !== aSymbol.GetDNP() ||
+      this.m_ExcludedFromBOM !== aSymbol.GetExcludedFromBOM() ||
+      this.m_ExcludedFromSim !== aSymbol.GetExcludedFromSim() ||
+      this.m_ExcludedFromBoard !== aSymbol.GetExcludedFromBoard() ||
+      this.m_ExcludedFromPosFiles !== (aSymbol.GetExcludedFromPosFiles?.() ?? false) ||
+      this.m_Fields.size > 0
+    );
+  }
+
   Clone(): SCH_SYMBOL_VARIANT {
     return new SCH_SYMBOL_VARIANT().copyVariantFrom(this);
   }
@@ -336,6 +351,16 @@ export class SCH_SHEET_VARIANT extends VARIANT {
     this.m_ExcludedFromSim = aSheet.GetExcludedFromSim();
     this.m_ExcludedFromBoard = aSheet.GetExcludedFromBoard();
     this.m_ExcludedFromPosFiles = false; // Sheets don't have position files exclusion
+  }
+
+  /** True if the variant carries any differential against the base sheet values. */
+  HasDifferentials(aSheet: VARIANT_SOURCE): boolean {
+    return (
+      this.m_DNP !== aSheet.GetDNP() ||
+      this.m_ExcludedFromBOM !== aSheet.GetExcludedFromBOM() ||
+      this.m_ExcludedFromSim !== aSheet.GetExcludedFromSim() ||
+      this.m_Fields.size > 0
+    );
   }
 
   Clone(): SCH_SHEET_VARIANT {
@@ -1387,10 +1412,9 @@ export class SCH_SHEET_LIST extends Array<SCH_SHEET_PATH> {
         while (common_len < min_len && x.at(common_len).m_Uuid === y.at(common_len).m_Uuid)
           common_len++;
 
-        // If one path is a prefix of the other, the shorter (parent) path comes first
-        if (common_len === x.size()) return true; // a is a prefix of b - a is the parent
-
-        if (common_len === y.size()) return false; // b is a prefix of a - b is the parent
+        // If one path is a prefix of the other, the shorter (parent) path comes first. Equal
+        // paths are not less than each other (10.0.6: the old test returned true for a == a).
+        if (common_len === min_len) return x.size() < y.size();
 
         // Paths diverge at common_len; compare the sheets at the divergence point
         const sheet_a = x.at(common_len);
