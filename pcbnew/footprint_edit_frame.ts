@@ -12,7 +12,9 @@ import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import type { KIWAY_MAIL_EVENT } from '@ziroeda/common/kiway_mail.js';
 import { KIWAY_PLAYER } from '@ziroeda/common/kiway_player.js';
 import { MAIL_T } from '@ziroeda/common/mail_type.js';
+import { applyMixins } from '@ziroeda/core/mixins.js';
 import { parse } from '@ziroeda/sexpr';
+import { FOOTPRINT_EDIT_FRAME_LOAD_SELECT_MIXIN } from './load_select_footprint.js';
 import {
   frameTitle,
   type FrameTitleParts,
@@ -31,10 +33,23 @@ export interface FOOTPRINT_EDIT_FRAME_HOOKS {
    * footprint in the tree and load it.
    */
   fpEdit(aFile: string): void;
+  /**
+   * `EDA_LIST_DIALOG::ShowModal()` (`SelectFootprintFromBoard`): a one-column
+   * list dialog over the window. Answers the text of the row chosen, or null
+   * when cancelled. Optional: a frame with no window chooses nothing.
+   */
+  selectFromList?(
+    aMessage: string,
+    aHeaders: readonly string[],
+    aItems: readonly (readonly string[])[],
+  ): Promise<string | null>;
 }
 
+export interface FOOTPRINT_EDIT_FRAME extends FOOTPRINT_EDIT_FRAME_LOAD_SELECT_MIXIN {}
+
+// biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (FOOTPRINT_EDIT_FRAME_LOAD_SELECT_MIXIN, see libs/core/mixins.ts)
 export class FOOTPRINT_EDIT_FRAME extends KIWAY_PLAYER {
-  private readonly hooks: FOOTPRINT_EDIT_FRAME_HOOKS;
+  protected readonly hooks: FOOTPRINT_EDIT_FRAME_HOOKS;
 
   constructor(hooks: FOOTPRINT_EDIT_FRAME_HOOKS) {
     super(FRAME_T.FRAME_FOOTPRINT_EDITOR, pcbIUScale, 'mm');
@@ -56,6 +71,8 @@ export class FOOTPRINT_EDIT_FRAME extends KIWAY_PLAYER {
     }
   }
 }
+
+applyMixins(FOOTPRINT_EDIT_FRAME, [FOOTPRINT_EDIT_FRAME_LOAD_SELECT_MIXIN]);
 
 // --- FOOTPRINT_EDIT_FRAME::UpdateTitle (was footprint_edit_frame_title.ts) ---
 

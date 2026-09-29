@@ -65,6 +65,8 @@ import { EDIT_MIXIN } from './edit.js';
 import { FILES_MIXIN } from './files.js';
 import { EDIT_ZONE_HELPERS_MIXIN } from './edit_zone_helpers.js';
 import { PCBNEW_CONFIG_MIXIN } from './pcbnew_config.js';
+import { LOAD_SELECT_FOOTPRINT_MIXIN } from './load_select_footprint.js';
+import type { LIB_ID } from '@ziroeda/common/lib_id.js';
 import { PCB_SELECTION_FILTER_OPTIONS } from '@ziroeda/common/project/board_project_settings.js';
 import {
   LAYER_PAIR_SETTINGS,
@@ -288,6 +290,22 @@ export interface PCB_EDIT_FRAME_HOOKS {
    * a frame with no window shows nothing.
    */
   addStatusBarWarnings?(aKey: string, aMessages: string): void;
+  /**
+   * `Kiway().Player( FRAME_FOOTPRINT_CHOOSER )->ShowModal( &footprintName, this )`
+   * (`PCB_BASE_FRAME::SelectFootprintFromLibrary`): the footprint chooser, over
+   * the window. Answers the chosen `LIB_ID` text, or null when cancelled.
+   * `aPreselect` is the `LIB_ID` the chooser opens on. Optional: a frame with no
+   * window has no chooser, and nothing is chosen.
+   */
+  selectFootprintFromChooser?(aPreselect: string): Promise<string | null>;
+  /**
+   * `FOOTPRINT_LIBRARY_ADAPTER::LoadFootprintWithOptionalNickname( aFootprintId,
+   * aKeepUUID )`, which `PCB_BASE_FRAME::loadFootprint` asks: the footprint out of
+   * the hosted libraries, a fresh copy the frame owns. Async because a hosted
+   * library is fetched, not read off a disk. Without it the board's
+   * `FOOTPRINT_LIBRARY_ADAPTER` is asked.
+   */
+  loadFootprintFromLibrary?(aFootprintId: LIB_ID, aKeepUUID: boolean): Promise<FOOTPRINT | null>;
 }
 
 export interface PCB_EDIT_FRAME
@@ -295,7 +313,8 @@ export interface PCB_EDIT_FRAME
     EDIT_MIXIN,
     FILES_MIXIN,
     EDIT_ZONE_HELPERS_MIXIN,
-    PCBNEW_CONFIG_MIXIN {}
+    PCBNEW_CONFIG_MIXIN,
+    LOAD_SELECT_FOOTPRINT_MIXIN {}
 
 // biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (INITPCB_MIXIN mixin, see libs/core/mixins.ts)
 export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
@@ -853,6 +872,7 @@ applyMixins(PCB_EDIT_FRAME, [
   FILES_MIXIN,
   EDIT_ZONE_HELPERS_MIXIN,
   PCBNEW_CONFIG_MIXIN,
+  LOAD_SELECT_FOOTPRINT_MIXIN,
 ]);
 
 /**
