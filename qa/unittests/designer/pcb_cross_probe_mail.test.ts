@@ -78,6 +78,7 @@ function setup(): Env {
     setViewCenter: () => {},
     setHighlightNets: (codes) => highlights.push([...codes].sort((a, b) => a - b)),
     syncSelection: (parts, conn) => synced.push([[...parts], conn]),
+    editZoneParams: () => {},
     updatePcbFromSchematic: () => {
       updates += 1;
     },

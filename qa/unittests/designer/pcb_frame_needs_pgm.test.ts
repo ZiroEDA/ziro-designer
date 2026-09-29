@@ -37,6 +37,7 @@ const makeFrame = () =>
     setViewCenter: () => {},
     setHighlightNets: () => {},
     syncSelection: () => {},
+    editZoneParams: () => {},
     updatePcbFromSchematic: () => {},
   });
 
