@@ -127,7 +127,7 @@ import {
   VIATYPE,
 } from '../../pcb_track.js';
 import { TEARDROP_PARAMETERS } from '../../teardrop/teardrop_parameters.js';
-import { TEARDROP_TYPE } from '../../teardrop/teardrop_types.js';
+import { TEARDROP_TYPE } from '../../teardrop/teardrop_parameters.js';
 import type { ZONE } from '../../zone.js';
 import {
   ISLAND_REMOVAL_MODE,

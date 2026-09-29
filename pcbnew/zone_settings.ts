@@ -14,7 +14,7 @@ import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { ANGLE_0, type EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { type VECTOR2I, equal } from '@ziroeda/kimath/src/math/vector2.js';
-import { TEARDROP_TYPE } from './teardrop/teardrop_types.js';
+import { TEARDROP_TYPE } from './teardrop/teardrop_parameters.js';
 import type { ZONE } from './zone.js';
 import {
   ZONE_BORDER_HATCH_DIST_MM,
