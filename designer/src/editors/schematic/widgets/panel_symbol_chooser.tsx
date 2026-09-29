@@ -36,7 +36,7 @@ import { loadFootprintIndex } from '../../../widgets/footprint_list.js';
 import { filterFootprints } from '@ziroeda/pcbnew/pcbnew.js';
 import { SymbolPreviewWidget } from './symbol_preview_widget.js';
 import { generateAliasInfo } from '@ziroeda/eeschema/generate_alias_info.js';
-import { symbolChooserFields, symbolSearchTerms } from '@ziroeda/eeschema/symbol_search_terms.js';
+import { symbolChooserFields, symbolSearchTerms } from '@ziroeda/eeschema/lib_symbol.js';
 import {
   powerSymbolTest,
   loadIndex,
