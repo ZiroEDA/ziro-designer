@@ -1,0 +1,30 @@
+### Footprint positions - created on 2026-09-29T06:44:21 ###
+### Printed by KiCad version 10.0.6-10.0.6~ubuntu24.04.1
+## Unit = inches, Angle = deg.
+## Side : All
+# Ref     Val          Package                                                                                            PosX       PosY       Rot  Side
+BUS1      BUSPC        BUS_PC                                                                                           5.1750    -5.4500    0.0000  top
+C1        47uF         CP_Axial_L10.0mm_D4.5mm_P15.00mm_Horizontal                                                      3.2750    -3.3000    0.0000  top
+C2        47pF         C_Disc_D3.0mm_W2.0mm_P2.50mm                                                                     4.7758    -3.6000    0.0000  top
+C3        47pF         C_Disc_D3.0mm_W2.0mm_P2.50mm                                                                     4.7758    -3.9000    0.0000  top
+C4        47uF         CP_Axial_L10.0mm_D4.5mm_P15.00mm_Horizontal                                                      6.7200    -2.0550  180.0000  top
+C5        47uF         CP_Axial_L10.0mm_D4.5mm_P15.00mm_Horizontal                                                      3.4250    -4.4500  -90.0000  top
+C6        47uF         CP_Axial_L10.0mm_D4.5mm_P15.00mm_Horizontal                                                      6.2750    -4.4000    0.0000  top
+D1        LED          LED_D5.0mm                                                                                       6.1252    -1.4984    0.0000  top
+D2        LED          LED_D5.0mm                                                                                       6.5240    -1.4992    0.0000  top
+JP1       CONN_8X2     PinHeader_2x08_P2.54mm_Vertical                                                                  4.5750    -4.1500  -90.0000  top
+P1        DB25FEMELLE  DSUB-25_Female_Horizontal_P2.77x2.84mm_EdgePinOffset9.90mm_Housed_MountingHolesOffset11.32mm     7.1693    -2.8504   90.0000  top
+R1        100K         R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal                                                 4.6250    -3.9000   90.0000  top
+R2        1K           R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal                                                 5.0250    -3.6000  -90.0000  top
+R3        10K          R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal                                                 3.6250    -2.2500  180.0000  top
+R4        330          R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal                                                 5.9750    -1.6500  180.0000  top
+R5        330          R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal                                                 6.7700    -1.6550    0.0000  top
+RR1       9x1K         R_Array_SIP10                                                                                    3.7750    -4.4500    0.0000  top
+U1        74LS245      DIP-20_W7.62mm                                                                                   5.9750    -4.9000   90.0000  top
+U2        74LS688      DIP-20_W7.62mm                                                                                   3.7750    -4.9000   90.0000  top
+U3        74LS541      DIP-20_W7.62mm                                                                                   4.8750    -4.9000   90.0000  top
+U5        628128       DIP-32_W15.24mm                                                                                  3.4250    -3.0000   90.0000  top
+U8        EP600        DIP-24_W7.62mm                                                                                   4.8750    -4.4450   90.0000  top
+U9        4003APG120   PGA120                                                                                           6.2250    -3.2500  180.0000  top
+X1        8MHz         Crystal_HC18-U_Horizontal                                                                        4.4750    -3.6500  -90.0000  top
+## End
