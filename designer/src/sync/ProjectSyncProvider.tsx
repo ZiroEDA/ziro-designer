@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useAuth } from '../auth/AuthProvider.js';
 import { createProjectSyncTransport } from './createProjectSyncTransport.js';
-import type { EditorKind, ProjectSyncTransport } from './ProjectSyncTransport.js';
+import type { EditorKind, ProjectSyncTransport } from '@ziroeda/eeschema/project_sync_transport.js';
 
 const Ctx = createContext<ProjectSyncTransport | null>(null);
 

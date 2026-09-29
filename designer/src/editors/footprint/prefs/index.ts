@@ -33,11 +33,8 @@ import {
   resetFpToolbars,
   resetFpUserLayerNames,
 } from './resets.js';
-import type {
-  PrefsPageId,
-  PrefsPanelFactory,
-  PrefsPanelModule,
-} from '../../../dialogs/prefs/types.js';
+import type { PrefsPanelFactory, PrefsPanelModule } from '../../../dialogs/prefs/types.js';
+import type { PrefsPageId } from '@ziroeda/common/frame_type.js';
 
 export const createPrefsPanel: PrefsPanelFactory = (id: PrefsPageId): PrefsPanelModule | null => {
   switch (id) {

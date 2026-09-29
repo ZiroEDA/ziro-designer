@@ -10,12 +10,12 @@
  */
 import { useCallback, useEffect, useRef } from 'react';
 import type { LibSymbol } from '@ziroeda/eeschema';
-import { renderSymbolPreview } from '../render/renderer.js';
+import { renderSymbolPreview } from '@ziroeda/eeschema/sch_painter.js';
 import { useSchematicTheme } from '../../../prefs/useSettings.js';
 import {
   usePreviewViewControls,
   type PreviewView,
-} from '../../../widgets/preview_view_controls.js';
+} from '@ziroeda/common/widgets/preview_view_controls.js';
 import type { InputPrefs } from '@ziroeda/common/ui/view_controls.js';
 
 export interface SymbolPreviewWidgetProps {

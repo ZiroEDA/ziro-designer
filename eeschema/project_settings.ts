@@ -27,7 +27,10 @@
  */
 
 import type { ErcCode, ErcSeverityLevel, PinError } from './index.js';
-import { ERC_ITEMS, PIN_TYPES } from './index.js';
+// Straight from the declaring module, not ./index.js: cross-probing.ts imports
+// this file, and through the barrel's cycle ERC_ITEMS was still undefined when
+// SEVERITY_KEYS read it at load time.
+import { ERC_ITEMS, PIN_TYPES } from './erc/erc_settings.js';
 import type { RawFile } from '@ziroeda/common';
 import {
   LINE_STYLES,

@@ -23,7 +23,8 @@
  * may be imported by an editor, and no editor's prefs module may import
  * another's. Enforced by `qa/unittests/designer/prefs_registry.test.ts`.
  */
-import type { PrefsPageId, PrefsPageOwner } from './types.js';
+import type { PrefsPageOwner } from './types.js';
+import type { PrefsPageId } from '@ziroeda/common/frame_type.js';
 
 /** A row in the page tree. `id === null` is a heading — upstream's empty `wxPanel`. */
 export interface PrefsPageEntry {

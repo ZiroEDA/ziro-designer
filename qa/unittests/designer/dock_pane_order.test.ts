@@ -71,9 +71,10 @@ const read = (rel: string): string =>
 const SRC = '../../../designer/src/';
 const DS = read(`${SRC}../../pagelayout_editor/pl_editor_frame_ui.tsx`);
 const SCH = read(`${SRC}editors/schematic/SchematicEditor.tsx`);
-const PCB = read(`${SRC}editors/pcb/PcbEditor.tsx`);
+const PCB = read(`${SRC}../../pcbnew/pcb_edit_frame_ui.tsx`);
 const SYM = read(`${SRC}editors/symbol/SymbolEditor.tsx`);
-const FP = read(`${SRC}editors/footprint/FootprintEditor.tsx`);
+const FP = read(`${SRC}../../pcbnew/footprint_edit_frame_ui.tsx`);
+const FP_TREE_PANE = read(`${SRC}../../pcbnew/footprint_tree_pane.tsx`);
 const SHELL = read(`${SRC}../../common/widgets/shell.css`);
 
 /**
@@ -101,11 +102,10 @@ describe('a vertical toolbar touches the canvas; a palette docks outside it', ()
   });
 
   it('footprint editor: Footprints tree L4 and Properties L3 outside LeftToolbar L2', () => {
-    before(
-      FP,
-      'className="ze-leftdock" style={{ width: panelWidth',
-      'entries={fpLeftBar}',
-      'fp left',
+    before(FP, '<FootprintTreePane', 'entries={fpLeftBar}', 'fp left');
+    // The pane is the left dock itself (footprint_tree_pane.tsx).
+    expect(FP_TREE_PANE).toContain(
+      '<div className="ze-leftdock" style={{ width, minWidth: width }}>',
     );
   });
 
@@ -211,7 +211,7 @@ describe('a docked pane is sized by the numbers upstream states, not at the call
     // pl_editor Props pane above took, and the 250 is still upstream's, stated
     // once in the settings defaults.
     expect(FPEDIT_DEFAULTS.window.lib_width).toBe(250);
-    expect(FP).toContain('settings.fpEdit.window.lib_width || LIBRARY_TREE_WIDTH');
+    expect(FP).toContain('app.fpEdit().window.lib_width || LIBRARY_TREE_WIDTH');
     // Both were 260, which is neither frame's number.
     expect(SYM).not.toContain('useState(260)');
     expect(FP).not.toContain('useState(260)');

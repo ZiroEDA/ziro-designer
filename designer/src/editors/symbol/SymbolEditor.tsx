@@ -63,7 +63,11 @@ import {
   resolvedProjectSymLibs,
 } from '@ziroeda/eeschema/project_sym_lib_table.js';
 import { unescapeString } from '@ziroeda/common/string_utils.js';
-import { SYM_FRAME_NAME, symFrameTitle } from '@ziroeda/eeschema/symbol_editor/frame_title.js';
+import {
+  SYM_FRAME_NAME,
+  symFrameTitle,
+  deleteSymbolPrompts,
+} from '@ziroeda/eeschema/symbol_editor/symbol_editor.js';
 import { loadIndex } from '../schematic/symbols/index.js';
 import {
   useCommonSettings,
@@ -120,9 +124,9 @@ import { MessageDialogOk } from '@ziroeda/common/dialogs/dialog_message.js';
 import '@ziroeda/common/widgets/shell.css';
 import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
-import type { PrefsPageId } from '../../dialogs/prefs/types.js';
+import type { PrefsPageId } from '@ziroeda/common/frame_type.js';
 import { symbolEditorMenus } from './menubar.js';
-import { DialogSchFind } from '../../widgets/dialog_sch_find.js';
+import { DialogSchFind } from '@ziroeda/eeschema/dialogs/dialog_sch_find.js';
 import {
   defaultSearchData,
   findMatchesInSymbol,
@@ -147,7 +151,6 @@ import {
   symbolTogglesFromSettings,
   withSyncPinEdit,
 } from './toggles.js';
-import { deleteSymbolPrompts } from '@ziroeda/eeschema/symbol_editor/delete_symbol_prompt.js';
 import { SelectionFilterPanel } from '../../ui/SelectionFilterPanel.js';
 import { symSelectionFilterShown } from '../../ui/selection_filter_panel.js';
 import {
@@ -941,7 +944,7 @@ export function SymbolEditor({
     (libName: string, symName: string) => {
       // `DeleteSymbolFromLibrary` (symbol_editor.cpp:1252-1301). An unmodified
       // leaf symbol is deleted with NO prompt at all; the two that exist are
-      // built in `delete_symbol_prompt.ts`. What was here asked always, with a
+      // built in `symbol_editor.ts`. What was here asked always, with a
       // string of our own, and never warned that a base takes its children.
       for (const prompt of deleteSymbolPrompts({
         symName,

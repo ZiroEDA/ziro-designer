@@ -43,7 +43,12 @@
 import { strNumCmp } from '@ziroeda/common/string_utils.js';
 import { GENERATOR_APPLICATION } from '@ziroeda/common/generator.js';
 import type { LibPin, LibSymbol, Schematic, SchSymbol } from '../types.js';
-import { boardSymbols, netPinsByName, symbolField, type NetlistMeta } from './netlist.js';
+import {
+  boardSymbols,
+  netPinsByName,
+  symbolField,
+  type NetlistMeta,
+} from './netlist_exporter_base.js';
 import { schSymbolLibraryName } from '../lib_symbol_compare.js';
 
 /** One file the export produces. `path` is relative to the netlist's folder. */

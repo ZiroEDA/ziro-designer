@@ -30,7 +30,6 @@ import type { Dispatch, SetStateAction } from 'react';
 import type { HotkeyOverrides } from '../../editors/schematic/hotkey_bindings.js';
 import type {
   CommonSettings,
-  EeschemaSettings,
   GerbviewSettings,
   PcbnewSettings,
   PlEditorSettings,
@@ -41,75 +40,10 @@ import type {
   UserColorTheme,
   Viewer3dSettings,
 } from '../../prefs/settings.js';
+import type { EeschemaSettings } from '@ziroeda/eeschema/eeschema_settings.js';
 import type { ToolbarSettings } from '@ziroeda/common/tool/ui/toolbar_configuration.js';
 import type { MAINTENANCE_SETTINGS_MANAGER } from '@ziroeda/common/settings/common_settings.js';
-
-/** One page in the book. The web mirror of KiCad's `PANEL_*` ids. */
-export type PrefsPageId =
-  | 'common'
-  | 'mouse'
-  // Upstream this one is `#if defined(__linux__) || defined(__FreeBSD__)`
-  // (`common/eda_base_frame.cpp:1590`). The parity target is a Linux build, so
-  // it is in the tree.
-  | 'spacemouse'
-  | 'hotkeys'
-  | 'version-control'
-  // `PANEL_SYM_DISP_OPTIONS`, `PANEL_SYM_EDIT_GRIDS`, `PANEL_SYM_EDIT_OPTIONS`,
-  // `PANEL_SYM_COLORS`, `PANEL_SYM_TOOLBARS` (`include/frame_type.h:72-76`),
-  // added in that order at `common/eda_base_frame.cpp:1633-1637`.
-  | 'sym-display'
-  | 'sym-grids'
-  | 'sym-editing'
-  | 'sym-colors'
-  | 'sym-toolbars'
-  | 'sch-display'
-  | 'sch-grids'
-  | 'sch-editing'
-  | 'sch-colors'
-  | 'sch-toolbars'
-  | 'sch-fields'
-  | 'sch-datasources'
-  | 'sch-simulator'
-  // The Footprint Editor's nine, added at `common/eda_base_frame.cpp:1667-1675`
-  // in this order. Upstream's ids are `PANEL_FP_DISPLAY_OPTIONS`,
-  // `PANEL_FP_GRIDS`, `PANEL_FP_ORIGINS_AXES`, `PANEL_FP_EDIT_OPTIONS`,
-  // `PANEL_FP_COLORS`, `PANEL_FP_TOOLBARS`, `PANEL_FP_DEFAULT_FIELDS`,
-  // `PANEL_FP_DEFAULT_GRAPHICS_VALUES` and `PANEL_FP_USER_LAYER_NAMES`.
-  | 'fp-display'
-  | 'fp-grids'
-  | 'fp-origins'
-  | 'fp-editing'
-  | 'fp-colors'
-  | 'fp-toolbars'
-  | 'fp-defaults'
-  | 'fp-graphics'
-  | 'fp-userlayers'
-  | 'pcb-display'
-  | 'pcb-origins'
-  | 'pcb-editing'
-  | 'pcb-colors'
-  | 'pcb-grids'
-  | 'pcb-toolbars'
-  // `PANEL_3DV_TOOLBARS`, the second row under the 3D Viewer heading (`:1694`).
-  | '3dv-general'
-  | '3dv-opengl'
-  | '3dv-toolbars'
-  // gerbview's KIFACE is consulted after pcbnew's and before pl_editor's, and
-  // its five ids are `PANEL_GBR_DISPLAY_OPTIONS`, `PANEL_GBR_COLORS`,
-  // `PANEL_GBR_TOOLBARS`, `PANEL_GBR_GRIDS`, `PANEL_GBR_EXCELLON_OPTIONS`
-  // (`common/eda_base_frame.cpp:1714-1718`). `frame_type.h:111` declares a
-  // sixth, `PANEL_GBR_EDIT_OPTIONS`, that `ShowPreferences` never adds and
-  // `gerbview.cpp`'s switch never constructs: a dead enumerator, not a page.
-  | 'gbr-display'
-  | 'gbr-colors'
-  | 'gbr-toolbars'
-  | 'gbr-grids'
-  | 'gbr-excellon'
-  | 'ds-display'
-  | 'ds-grids'
-  | 'ds-colors'
-  | 'ds-toolbars'
-  | 'maintenance';
+import type { PrefsPageId } from '@ziroeda/common/frame_type.js';
 
 /** Which module owns a page, and therefore which bundle it is lazily pulled from. */
 export type PrefsPageOwner =

@@ -48,6 +48,7 @@ import type { Board } from '../index.js';
 import { buildScene, drawBoard, type PcbDrawOptions } from '../renderBoard.js';
 import { PCB_BW_PRINT_THEME, PCB_THEMES, themeByFilename } from '../pcbTheme.js';
 import { pcbnewLiveSettings, updatePcbnewLiveSettings } from '../pcbnew_live_settings.js';
+import { printoutDrawOptions, printoutPageLayerSets } from '../pcbnew_printout.js';
 
 const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
 const DPI = 300;
@@ -60,8 +61,6 @@ const PAPER_MM: Record<string, [number, number]> = {
   A1: [841, 594],
   A0: [1189, 841],
 };
-
-const DRILL_MARKS = ['none', 'small', 'real'] as const;
 
 interface Props {
   board: Board;
@@ -244,45 +243,16 @@ export function DialogPcbPrint({ board, drawOpts, onClose }: Props): JSX.Element
       ? PCB_BW_PRINT_THEME
       : themeByFilename(useTheme ? themeFile : pcbnewLiveSettings().appearance.color_theme);
 
-    const opts: PcbDrawOptions = {
-      ...drawOpts,
-      // Unless "Print according to objects tab" is set, every item class
-      // prints, solid and at full opacity (PCBNEW_PRINTOUT honors the view
-      // visibilities only when m_AsItemCheckboxes).
-      ...(useObjectsTab
-        ? {}
-        : {
-            tracks: true,
-            vias: true,
-            pads: true,
-            zones: true,
-            fpValues: true,
-            fpReferences: true,
-            fpText: true,
-            trackOpacity: 1,
-            viaOpacity: 1,
-            padOpacity: 1,
-            zoneOpacity: 1,
-            imageOpacity: 1,
-            filledShapeOpacity: 1,
-            trackFill: true,
-            viaFill: true,
-            padFill: true,
-            zoneOutline: false,
-          }),
-      drawingSheet: sheet,
-      contrastMode: 'normal',
-      drillMarks: DRILL_MARKS[drillMarks] ?? 'small',
+    const opts = printoutDrawOptions(drawOpts, {
+      asItemCheckboxes: useObjectsTab,
+      titleBlock: sheet,
+      drillMarks,
       theme,
-    };
+    });
 
     // One canvas per page: a single page, or one per checked layer.
     const pages: string[] = [];
-    const layerSets: ReadonlySet<string>[] = onePerLayer
-      ? [...checked].map((l) =>
-          edgesAllPages && l !== 'Edge.Cuts' ? new Set([l, 'Edge.Cuts']) : new Set([l]),
-        )
-      : [checked];
+    const layerSets = printoutPageLayerSets(checked, onePerLayer, edgesAllPages);
     for (const layers of layerSets) {
       const canvas = document.createElement('canvas');
       canvas.width = pxW;

@@ -35,7 +35,7 @@ interface PnsSegmentLike {
 
 /**
  * `const LINE&`, structurally: what the two cloning overloads need of it.
- * Written this way so that `pns_line_item.ts` — which is far heavier than this
+ * Written this way so that `pns_line.ts` — which is far heavier than this
  * file — does not have to be imported for its value.
  */
 interface PnsLineLike {

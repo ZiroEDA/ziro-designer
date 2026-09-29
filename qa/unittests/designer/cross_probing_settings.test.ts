@@ -30,11 +30,8 @@ import {
 } from '@ziroeda/pcbnew';
 import { pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import { CROSS_PROBING_SETTINGS } from '@ziroeda/common/settings/app_settings.js';
-import {
-  EESCHEMA_DEFAULTS,
-  PCBNEW_DEFAULTS,
-  deepMerge,
-} from '@ziroeda/designer/src/prefs/settings.js';
+import { PCBNEW_DEFAULTS, deepMerge } from '@ziroeda/designer/src/prefs/settings.js';
+import { EESCHEMA_DEFAULTS } from '@ziroeda/eeschema/eeschema_settings.js';
 import { pcbnewSettingsOf } from '@ziroeda/pcbnew/pcb_edit_frame.js';
 
 const BOARD = `(kicad_pcb (version 20241229) (generator "pcbnew")
@@ -245,7 +242,7 @@ describe('flash_selection blinks the new selection three times', () => {
  * four disabled checkboxes in the first place.
  */
 const PCB_EDITOR = readFileSync(
-  fileURLToPath(new URL('../../../designer/src/editors/pcb/PcbEditor.tsx', import.meta.url)),
+  fileURLToPath(new URL('../../../pcbnew/pcb_edit_frame_ui.tsx', import.meta.url)),
   'utf8',
 );
 
@@ -254,7 +251,7 @@ describe('PcbEditor routes its cross-probes through the settings', () => {
     // Upstream the frame that RECEIVES the probe owns the settings that decide
     // what it does (pcbnew/cross-probing.cpp:734 `GetPcbNewSettings()`), and
     // Select on PCB is received here.
-    expect(PCB_EDITOR).toContain('settings.pcbnew.cross_probing');
+    expect(PCB_EDITOR).toContain('pcbCfg.cross_probing');
     expect(PCB_EDITOR).not.toContain('settings.eeschema.cross_probing');
   });
 

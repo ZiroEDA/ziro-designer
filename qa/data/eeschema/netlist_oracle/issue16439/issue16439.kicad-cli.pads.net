@@ -1,0 +1,21 @@
+*PADS-PCB*
+*PART*
+TP5              TestPoint
+TP6              TestPoint
+TP2              TestPoint
+TP3              TestPoint
+TP8              TestPoint
+TP4              TestPoint
+TP1              TestPoint
+TP7              TestPoint
+
+*NET*
+*SIGNAL* /demo_bus.A0
+TP1.1 TP5.1 
+*SIGNAL* /demo_bus.A1
+TP2.1 TP6.1 
+*SIGNAL* /demo_bus.B0
+TP3.1 TP7.1 
+*SIGNAL* /demo_bus.B1
+TP4.1 TP8.1 
+*END*

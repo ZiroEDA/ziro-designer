@@ -1,0 +1,2133 @@
+(export
+	(version "E")
+	(design
+		(source "/home/akshay/ziro-designer-1/qa/data/eeschema/netlist_oracle_graph/issue22938/issue22938.kicad_sch")
+		(date "2026-09-29T01:37:06")
+		(tool "Eeschema 10.0.6-10.0.6~ubuntu24.04.1")
+		(sheet
+			(number "1")
+			(name "/")
+			(tstamps "/")
+			(title_block
+				(title "Pumpenmodul v06")
+				(company)
+				(rev "v0.01")
+				(date "2021-08-13")
+				(source "issue22938.kicad_sch")
+				(comment
+					(number "1")
+					(value "")
+				)
+				(comment
+					(number "2")
+					(value "")
+				)
+				(comment
+					(number "3")
+					(value "")
+				)
+				(comment
+					(number "4")
+					(value "")
+				)
+				(comment
+					(number "5")
+					(value "")
+				)
+				(comment
+					(number "6")
+					(value "")
+				)
+				(comment
+					(number "7")
+					(value "")
+				)
+				(comment
+					(number "8")
+					(value "")
+				)
+				(comment
+					(number "9")
+					(value "")
+				)
+			)
+		)
+		(sheet
+			(number "2")
+			(name "/Spannungsversorgung/")
+			(tstamps "/91851cc4-7b7c-43c1-a5a8-9a31f107ad77/")
+			(title_block
+				(title "Pumpenmodul v06")
+				(company)
+				(rev)
+				(date "2021-08-13")
+				(source "Spannungsversorgung.kicad_sch")
+				(comment
+					(number "1")
+					(value "")
+				)
+				(comment
+					(number "2")
+					(value "")
+				)
+				(comment
+					(number "3")
+					(value "")
+				)
+				(comment
+					(number "4")
+					(value "")
+				)
+				(comment
+					(number "5")
+					(value "")
+				)
+				(comment
+					(number "6")
+					(value "")
+				)
+				(comment
+					(number "7")
+					(value "")
+				)
+				(comment
+					(number "8")
+					(value "")
+				)
+				(comment
+					(number "9")
+					(value "")
+				)
+			)
+		)
+		(sheet
+			(number "3")
+			(name "/Anschluss/")
+			(tstamps "/c9b5e774-ed78-42b5-be4b-c3889903b1f5/")
+			(title_block
+				(title "Pumpenmodul v06")
+				(company)
+				(rev)
+				(date "2021-08-13")
+				(source "Anschluss.kicad_sch")
+				(comment
+					(number "1")
+					(value "")
+				)
+				(comment
+					(number "2")
+					(value "")
+				)
+				(comment
+					(number "3")
+					(value "")
+				)
+				(comment
+					(number "4")
+					(value "")
+				)
+				(comment
+					(number "5")
+					(value "")
+				)
+				(comment
+					(number "6")
+					(value "")
+				)
+				(comment
+					(number "7")
+					(value "")
+				)
+				(comment
+					(number "8")
+					(value "")
+				)
+				(comment
+					(number "9")
+					(value "")
+				)
+			)
+		)
+		(sheet
+			(number "4")
+			(name "/Schrittmotor/")
+			(tstamps "/a62e3d03-34ce-461e-8d2b-2ba79b2267b9/")
+			(title_block
+				(title "Pumpenmodul v06")
+				(company)
+				(rev)
+				(date "2021-08-13")
+				(source "Schrittmotor.kicad_sch")
+				(comment
+					(number "1")
+					(value "")
+				)
+				(comment
+					(number "2")
+					(value "")
+				)
+				(comment
+					(number "3")
+					(value "")
+				)
+				(comment
+					(number "4")
+					(value "")
+				)
+				(comment
+					(number "5")
+					(value "")
+				)
+				(comment
+					(number "6")
+					(value "")
+				)
+				(comment
+					(number "7")
+					(value "")
+				)
+				(comment
+					(number "8")
+					(value "")
+				)
+				(comment
+					(number "9")
+					(value "")
+				)
+			)
+		)
+		(sheet
+			(number "5")
+			(name "/Kompressor/")
+			(tstamps "/4ab6e11e-228d-45a1-bcba-28f180c62e88/")
+			(title_block
+				(title "Pumpenmodul v06")
+				(company)
+				(rev)
+				(date "2021-08-13")
+				(source "Kompressor.kicad_sch")
+				(comment
+					(number "1")
+					(value "")
+				)
+				(comment
+					(number "2")
+					(value "")
+				)
+				(comment
+					(number "3")
+					(value "")
+				)
+				(comment
+					(number "4")
+					(value "")
+				)
+				(comment
+					(number "5")
+					(value "")
+				)
+				(comment
+					(number "6")
+					(value "")
+				)
+				(comment
+					(number "7")
+					(value "")
+				)
+				(comment
+					(number "8")
+					(value "")
+				)
+				(comment
+					(number "9")
+					(value "")
+				)
+			)
+		)
+	)
+	(components
+		(comp
+			(ref "C7")
+			(value "C")
+			(footprint "Capacitor_SMD:C_1206_3216Metric")
+			(description "Unpolarized capacitor")
+			(fields
+				(field
+					(name "Footprint") "Capacitor_SMD:C_1206_3216Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Unpolarized capacitor")
+			)
+			(libsource
+				(lib "Device")
+				(part "C")
+				(description "Unpolarized capacitor")
+			)
+			(property
+				(name "Sheetname")
+				(value "issue22938")
+			)
+			(property
+				(name "Sheetfile")
+				(value "issue22938.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "cap capacitor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "C_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "ec811eb7-fe5a-4d68-926c-dfad5cfbcc67")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "C8")
+			(value "C")
+			(footprint "Capacitor_SMD:C_1206_3216Metric")
+			(description "Unpolarized capacitor")
+			(fields
+				(field
+					(name "Footprint") "Capacitor_SMD:C_1206_3216Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Unpolarized capacitor")
+			)
+			(libsource
+				(lib "Device")
+				(part "C")
+				(description "Unpolarized capacitor")
+			)
+			(property
+				(name "Sheetname")
+				(value "issue22938")
+			)
+			(property
+				(name "Sheetfile")
+				(value "issue22938.kicad_sch")
+			)
+			(variants
+				(variant
+					(name "var1")
+					(property
+						(name "dnp")
+						(value "1")
+					)
+				)
+			)
+			(property
+				(name "ki_keywords")
+				(value "cap capacitor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "C_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "819a6022-e8e2-44ed-9e33-365ecb0fcac6")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "C13")
+			(value "C")
+			(footprint "Capacitor_SMD:C_1206_3216Metric")
+			(description "Unpolarized capacitor")
+			(fields
+				(field
+					(name "Footprint") "Capacitor_SMD:C_1206_3216Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Unpolarized capacitor")
+			)
+			(libsource
+				(lib "Device")
+				(part "C")
+				(description "Unpolarized capacitor")
+			)
+			(property
+				(name "Sheetname")
+				(value "issue22938")
+			)
+			(property
+				(name "Sheetfile")
+				(value "issue22938.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "cap capacitor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "C_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "191bd8a3-3158-4a45-9861-e8565bc63d4c")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "C14")
+			(value "C")
+			(footprint "Capacitor_SMD:C_1206_3216Metric")
+			(description "Unpolarized capacitor")
+			(fields
+				(field
+					(name "Footprint") "Capacitor_SMD:C_1206_3216Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Unpolarized capacitor")
+			)
+			(libsource
+				(lib "Device")
+				(part "C")
+				(description "Unpolarized capacitor")
+			)
+			(property
+				(name "Sheetname")
+				(value "issue22938")
+			)
+			(property
+				(name "Sheetfile")
+				(value "issue22938.kicad_sch")
+			)
+			(variants
+				(variant
+					(name "var1")
+					(property
+						(name "dnp")
+						(value "1")
+					)
+				)
+			)
+			(property
+				(name "ki_keywords")
+				(value "cap capacitor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "C_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "497dcf38-324a-4af8-b06c-6acd85e304fb")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "C37")
+			(value "100nF")
+			(footprint "0IBF_RCL:C_1206_3216Metric")
+			(fields
+				(field
+					(name "Bemerkung")
+				)
+				(field
+					(name "MF")
+				)
+				(field
+					(name "MPN")
+				)
+				(field
+					(name "RS")
+				)
+				(field
+					(name "Farnell")
+				)
+				(field
+					(name "mouser")
+				)
+				(field
+					(name "digikey")
+				)
+				(field
+					(name "Alternative")
+				)
+				(field
+					(name "Footprint") "0IBF_RCL:C_1206_3216Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description")
+				)
+			)
+			(libsource
+				(lib "0IBF_RCL")
+				(part "_C")
+				(description "Capacitor generic Kondensator")
+			)
+			(property
+				(name "Bemerkung")
+				(value "")
+			)
+			(property
+				(name "MF")
+				(value "")
+			)
+			(property
+				(name "MPN")
+				(value "")
+			)
+			(property
+				(name "RS")
+				(value "")
+			)
+			(property
+				(name "Farnell")
+				(value "")
+			)
+			(property
+				(name "mouser")
+				(value "")
+			)
+			(property
+				(name "digikey")
+				(value "")
+			)
+			(property
+				(name "Alternative")
+				(value "")
+			)
+			(property
+				(name "Sheetname")
+				(value "issue22938")
+			)
+			(property
+				(name "Sheetfile")
+				(value "issue22938.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "Capacitor  generic")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "0IBF_RCL:C* Capacitor_THT:C_Rect_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "bcefbf3f-7741-4735-83dc-02da2ba9efc9")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "H7")
+			(value "MountingHole")
+			(footprint "0IBF_Mechanik:MountingHole_3.2mm_M3_4mm-iso")
+			(fields
+				(field
+					(name "Footprint") "0IBF_Mechanik:MountingHole_3.2mm_M3_4mm-iso")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description")
+				)
+			)
+			(libsource
+				(lib "0IBF_Mechanik")
+				(part "MountingHole")
+				(description "Mounting Hole")
+			)
+			(property
+				(name "Sheetname")
+				(value "issue22938")
+			)
+			(property
+				(name "Sheetfile")
+				(value "issue22938.kicad_sch")
+			)
+			(property
+				(name "exclude_from_bom")
+			)
+			(variants
+				(variant
+					(name "var2")
+					(property
+						(name "exclude_from_bom")
+						(value "0")
+					)
+				)
+			)
+			(property
+				(name "ki_keywords")
+				(value "mounting hole")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "MountingHole*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "5c09d325-5819-4492-a5ab-a2d3b8c19b95")
+			(units
+				(unit
+					(name "A")
+					(pins)
+				)
+			)
+		)
+		(comp
+			(ref "H8")
+			(value "MountingHole")
+			(footprint "0IBF_Mechanik:MountingHole_3.2mm_M3_4mm-iso")
+			(fields
+				(field
+					(name "Footprint") "0IBF_Mechanik:MountingHole_3.2mm_M3_4mm-iso")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description")
+				)
+			)
+			(libsource
+				(lib "0IBF_Mechanik")
+				(part "MountingHole")
+				(description "Mounting Hole")
+			)
+			(property
+				(name "Sheetname")
+				(value "issue22938")
+			)
+			(property
+				(name "Sheetfile")
+				(value "issue22938.kicad_sch")
+			)
+			(property
+				(name "exclude_from_bom")
+			)
+			(variants
+				(variant
+					(name "var2")
+					(property
+						(name "exclude_from_bom")
+						(value "0")
+					)
+				)
+			)
+			(property
+				(name "ki_keywords")
+				(value "mounting hole")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "MountingHole*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "ff30941b-b1db-4f03-953e-8e99575ace64")
+			(units
+				(unit
+					(name "A")
+					(pins)
+				)
+			)
+		)
+		(comp
+			(ref "H9")
+			(value "MountingHole")
+			(footprint "0IBF_Mechanik:MountingHole_3.2mm_M3_4mm-iso")
+			(fields
+				(field
+					(name "Footprint") "0IBF_Mechanik:MountingHole_3.2mm_M3_4mm-iso")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description")
+				)
+			)
+			(libsource
+				(lib "0IBF_Mechanik")
+				(part "MountingHole")
+				(description "Mounting Hole")
+			)
+			(property
+				(name "Sheetname")
+				(value "issue22938")
+			)
+			(property
+				(name "Sheetfile")
+				(value "issue22938.kicad_sch")
+			)
+			(property
+				(name "exclude_from_bom")
+			)
+			(variants
+				(variant
+					(name "var2")
+					(property
+						(name "exclude_from_bom")
+						(value "0")
+					)
+				)
+			)
+			(property
+				(name "ki_keywords")
+				(value "mounting hole")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "MountingHole*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "9f0a11db-1ccf-4d3e-8af9-87ca9a745007")
+			(units
+				(unit
+					(name "A")
+					(pins)
+				)
+			)
+		)
+		(comp
+			(ref "H10")
+			(value "MountingHole")
+			(footprint "0IBF_Mechanik:MountingHole_3.2mm_M3_4mm-iso")
+			(fields
+				(field
+					(name "Footprint") "0IBF_Mechanik:MountingHole_3.2mm_M3_4mm-iso")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description")
+				)
+			)
+			(libsource
+				(lib "0IBF_Mechanik")
+				(part "MountingHole")
+				(description "Mounting Hole")
+			)
+			(property
+				(name "Sheetname")
+				(value "issue22938")
+			)
+			(property
+				(name "Sheetfile")
+				(value "issue22938.kicad_sch")
+			)
+			(property
+				(name "exclude_from_bom")
+			)
+			(variants
+				(variant
+					(name "var2")
+					(property
+						(name "exclude_from_bom")
+						(value "0")
+					)
+				)
+			)
+			(property
+				(name "ki_keywords")
+				(value "mounting hole")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "MountingHole*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "02875f25-5266-4e52-88b8-b2f4169487b9")
+			(units
+				(unit
+					(name "A")
+					(pins)
+				)
+			)
+		)
+		(comp
+			(ref "H11")
+			(value "MountingHole")
+			(footprint "0IBF_Mechanik:MountingHole_3.2mm_M3_4mm-iso")
+			(fields
+				(field
+					(name "Footprint") "0IBF_Mechanik:MountingHole_3.2mm_M3_4mm-iso")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description")
+				)
+			)
+			(libsource
+				(lib "0IBF_Mechanik")
+				(part "MountingHole")
+				(description "Mounting Hole")
+			)
+			(property
+				(name "Sheetname")
+				(value "issue22938")
+			)
+			(property
+				(name "Sheetfile")
+				(value "issue22938.kicad_sch")
+			)
+			(property
+				(name "exclude_from_bom")
+			)
+			(variants
+				(variant
+					(name "var2")
+					(property
+						(name "exclude_from_bom")
+						(value "0")
+					)
+				)
+			)
+			(property
+				(name "ki_keywords")
+				(value "mounting hole")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "MountingHole*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "29ea35d1-2a52-4c53-a9f1-75e5be4b8199")
+			(units
+				(unit
+					(name "A")
+					(pins)
+				)
+			)
+		)
+		(comp
+			(ref "H12")
+			(value "MountingHole")
+			(footprint "0IBF_Mechanik:MountingHole_3.2mm_M3_4mm-iso")
+			(fields
+				(field
+					(name "Footprint") "0IBF_Mechanik:MountingHole_3.2mm_M3_4mm-iso")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description")
+				)
+			)
+			(libsource
+				(lib "0IBF_Mechanik")
+				(part "MountingHole")
+				(description "Mounting Hole")
+			)
+			(property
+				(name "Sheetname")
+				(value "issue22938")
+			)
+			(property
+				(name "Sheetfile")
+				(value "issue22938.kicad_sch")
+			)
+			(property
+				(name "exclude_from_bom")
+			)
+			(variants
+				(variant
+					(name "var2")
+					(property
+						(name "exclude_from_bom")
+						(value "0")
+					)
+				)
+			)
+			(property
+				(name "ki_keywords")
+				(value "mounting hole")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "MountingHole*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "0a5c2d71-ed1f-41d5-8d9c-0301edd0e77c")
+			(units
+				(unit
+					(name "A")
+					(pins)
+				)
+			)
+		)
+		(comp
+			(ref "J4")
+			(value "Conn_01x06")
+			(footprint "0IBF_Connector_PinHeader_2.54:PinHeader_1x06_P2.54mm_Vertical")
+			(fields
+				(field
+					(name "Footprint") "0IBF_Connector_PinHeader_2.54:PinHeader_1x06_P2.54mm_Vertical")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description")
+				)
+			)
+			(libsource
+				(lib "Connector_Generic")
+				(part "Conn_01x06")
+				(description "Generic connector, single row, 01x06, script generated (kicad-library-utils/schlib/autogen/connector/)")
+			)
+			(property
+				(name "Sheetname")
+				(value "issue22938")
+			)
+			(property
+				(name "Sheetfile")
+				(value "issue22938.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "connector")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "Connector*:*_1x??_*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "ab9b3555-60ec-40b4-92a5-6769e3cb64e7")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+						(pin
+							(num "3")
+						)
+						(pin
+							(num "4")
+						)
+						(pin
+							(num "5")
+						)
+						(pin
+							(num "6")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "C9")
+			(value "C")
+			(footprint "Capacitor_SMD:C_1206_3216Metric")
+			(description "Unpolarized capacitor")
+			(fields
+				(field
+					(name "Footprint") "Capacitor_SMD:C_1206_3216Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Unpolarized capacitor")
+			)
+			(libsource
+				(lib "Device")
+				(part "C")
+				(description "Unpolarized capacitor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Spannungsversorgung")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Spannungsversorgung.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "cap capacitor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "C_*")
+			)
+			(sheetpath
+				(names "/Spannungsversorgung/")
+				(tstamps "/91851cc4-7b7c-43c1-a5a8-9a31f107ad77/")
+			)
+			(tstamps "6922e6f5-e0a8-41e4-886c-ca397122b68f")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "C10")
+			(value "C")
+			(footprint "Capacitor_SMD:C_1206_3216Metric")
+			(description "Unpolarized capacitor")
+			(fields
+				(field
+					(name "Footprint") "Capacitor_SMD:C_1206_3216Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Unpolarized capacitor")
+			)
+			(libsource
+				(lib "Device")
+				(part "C")
+				(description "Unpolarized capacitor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Spannungsversorgung")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Spannungsversorgung.kicad_sch")
+			)
+			(variants
+				(variant
+					(name "var1")
+					(property
+						(name "dnp")
+						(value "1")
+					)
+				)
+			)
+			(property
+				(name "ki_keywords")
+				(value "cap capacitor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "C_*")
+			)
+			(sheetpath
+				(names "/Spannungsversorgung/")
+				(tstamps "/91851cc4-7b7c-43c1-a5a8-9a31f107ad77/")
+			)
+			(tstamps "bd759ae9-7be3-4c93-9066-02fca3c127cf")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "C11")
+			(value "C")
+			(footprint "Capacitor_SMD:C_1206_3216Metric")
+			(description "Unpolarized capacitor")
+			(fields
+				(field
+					(name "Footprint") "Capacitor_SMD:C_1206_3216Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Unpolarized capacitor")
+			)
+			(libsource
+				(lib "Device")
+				(part "C")
+				(description "Unpolarized capacitor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Spannungsversorgung")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Spannungsversorgung.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "cap capacitor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "C_*")
+			)
+			(sheetpath
+				(names "/Spannungsversorgung/")
+				(tstamps "/91851cc4-7b7c-43c1-a5a8-9a31f107ad77/")
+			)
+			(tstamps "61606bd6-9971-4815-a3c9-57c3fba7dde8")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "C12")
+			(value "C")
+			(footprint "Capacitor_SMD:C_1206_3216Metric")
+			(description "Unpolarized capacitor")
+			(fields
+				(field
+					(name "Footprint") "Capacitor_SMD:C_1206_3216Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Unpolarized capacitor")
+			)
+			(libsource
+				(lib "Device")
+				(part "C")
+				(description "Unpolarized capacitor")
+			)
+			(property
+				(name "Sheetname")
+				(value "Spannungsversorgung")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Spannungsversorgung.kicad_sch")
+			)
+			(variants
+				(variant
+					(name "var1")
+					(property
+						(name "dnp")
+						(value "1")
+					)
+				)
+			)
+			(property
+				(name "ki_keywords")
+				(value "cap capacitor")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "C_*")
+			)
+			(sheetpath
+				(names "/Spannungsversorgung/")
+				(tstamps "/91851cc4-7b7c-43c1-a5a8-9a31f107ad77/")
+			)
+			(tstamps "6de1a2c8-2268-4aad-a398-7e9b6aa28584")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "C34")
+			(value "100nF")
+			(footprint "0IBF_RCL:C_1206_3216Metric")
+			(fields
+				(field
+					(name "Bemerkung")
+				)
+				(field
+					(name "MF")
+				)
+				(field
+					(name "MPN")
+				)
+				(field
+					(name "RS")
+				)
+				(field
+					(name "Farnell")
+				)
+				(field
+					(name "mouser")
+				)
+				(field
+					(name "digikey")
+				)
+				(field
+					(name "Alternative")
+				)
+				(field
+					(name "Footprint") "0IBF_RCL:C_1206_3216Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description")
+				)
+			)
+			(libsource
+				(lib "0IBF_RCL")
+				(part "_C")
+				(description "Capacitor generic Kondensator")
+			)
+			(property
+				(name "Bemerkung")
+				(value "")
+			)
+			(property
+				(name "MF")
+				(value "")
+			)
+			(property
+				(name "MPN")
+				(value "")
+			)
+			(property
+				(name "RS")
+				(value "")
+			)
+			(property
+				(name "Farnell")
+				(value "")
+			)
+			(property
+				(name "mouser")
+				(value "")
+			)
+			(property
+				(name "digikey")
+				(value "")
+			)
+			(property
+				(name "Alternative")
+				(value "")
+			)
+			(property
+				(name "Sheetname")
+				(value "Spannungsversorgung")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Spannungsversorgung.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "Capacitor  generic")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "0IBF_RCL:C* Capacitor_THT:C_Rect_*")
+			)
+			(sheetpath
+				(names "/Spannungsversorgung/")
+				(tstamps "/91851cc4-7b7c-43c1-a5a8-9a31f107ad77/")
+			)
+			(tstamps "6a3634de-6dce-41e8-b3b2-cf93df102087")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "C38")
+			(value "100nF")
+			(footprint "0IBF_RCL:C_1206_3216Metric")
+			(fields
+				(field
+					(name "Bemerkung")
+				)
+				(field
+					(name "MF")
+				)
+				(field
+					(name "MPN")
+				)
+				(field
+					(name "RS")
+				)
+				(field
+					(name "Farnell")
+				)
+				(field
+					(name "mouser")
+				)
+				(field
+					(name "digikey")
+				)
+				(field
+					(name "Alternative")
+				)
+				(field
+					(name "Footprint") "0IBF_RCL:C_1206_3216Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description")
+				)
+			)
+			(libsource
+				(lib "0IBF_RCL")
+				(part "_C")
+				(description "Capacitor generic Kondensator")
+			)
+			(property
+				(name "Bemerkung")
+				(value "")
+			)
+			(property
+				(name "MF")
+				(value "")
+			)
+			(property
+				(name "MPN")
+				(value "")
+			)
+			(property
+				(name "RS")
+				(value "")
+			)
+			(property
+				(name "Farnell")
+				(value "")
+			)
+			(property
+				(name "mouser")
+				(value "")
+			)
+			(property
+				(name "digikey")
+				(value "")
+			)
+			(property
+				(name "Alternative")
+				(value "")
+			)
+			(property
+				(name "Sheetname")
+				(value "Spannungsversorgung")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Spannungsversorgung.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "Capacitor  generic")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "0IBF_RCL:C* Capacitor_THT:C_Rect_*")
+			)
+			(sheetpath
+				(names "/Spannungsversorgung/")
+				(tstamps "/91851cc4-7b7c-43c1-a5a8-9a31f107ad77/")
+			)
+			(tstamps "cbf252d6-2a18-4fd8-ae0c-2fa864a3435c")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "J5")
+			(value "Conn_01x06")
+			(footprint "0IBF_Connector_PinHeader_2.54:PinHeader_1x06_P2.54mm_Vertical")
+			(fields
+				(field
+					(name "Footprint") "0IBF_Connector_PinHeader_2.54:PinHeader_1x06_P2.54mm_Vertical")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description")
+				)
+			)
+			(libsource
+				(lib "Connector_Generic")
+				(part "Conn_01x06")
+				(description "Generic connector, single row, 01x06, script generated (kicad-library-utils/schlib/autogen/connector/)")
+			)
+			(property
+				(name "Sheetname")
+				(value "Spannungsversorgung")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Spannungsversorgung.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "connector")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "Connector*:*_1x??_*")
+			)
+			(sheetpath
+				(names "/Spannungsversorgung/")
+				(tstamps "/91851cc4-7b7c-43c1-a5a8-9a31f107ad77/")
+			)
+			(tstamps "d8ae7d05-511d-4791-93eb-efb7310c0762")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+						(pin
+							(num "3")
+						)
+						(pin
+							(num "4")
+						)
+						(pin
+							(num "5")
+						)
+						(pin
+							(num "6")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "J66")
+			(value "Conn_01x06")
+			(footprint "0IBF_Connector_PinHeader_2.54:PinHeader_1x06_P2.54mm_Vertical")
+			(fields
+				(field
+					(name "Footprint") "0IBF_Connector_PinHeader_2.54:PinHeader_1x06_P2.54mm_Vertical")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description")
+				)
+			)
+			(libsource
+				(lib "Connector_Generic")
+				(part "Conn_01x06")
+				(description "Generic connector, single row, 01x06, script generated (kicad-library-utils/schlib/autogen/connector/)")
+			)
+			(property
+				(name "Sheetname")
+				(value "Spannungsversorgung")
+			)
+			(property
+				(name "Sheetfile")
+				(value "Spannungsversorgung.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "connector")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "Connector*:*_1x??_*")
+			)
+			(sheetpath
+				(names "/Spannungsversorgung/")
+				(tstamps "/91851cc4-7b7c-43c1-a5a8-9a31f107ad77/")
+			)
+			(tstamps "457d158c-cbce-4104-a988-68c305945ae1")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+						(pin
+							(num "3")
+						)
+						(pin
+							(num "4")
+						)
+						(pin
+							(num "5")
+						)
+						(pin
+							(num "6")
+						)
+					)
+				)
+			)
+		)
+	)
+	(groups)
+	(variants
+		(variant
+			(name "var1")
+		)
+		(variant
+			(name "var2")
+		)
+	)
+	(libparts
+		(libpart
+			(lib "0IBF_Mechanik")
+			(part "MountingHole")
+			(description "Mounting Hole")
+			(footprints
+				(fp "MountingHole*")
+			)
+			(fields
+				(field
+					(name "Reference") "H")
+				(field
+					(name "Value") "MountingHole")
+				(field
+					(name "Footprint") "0IBF_Mechanik:MountingHole_3.2mm_M3_4mm-iso")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Mounting Hole")
+			)
+		)
+		(libpart
+			(lib "0IBF_RCL")
+			(part "_C")
+			(description "Capacitor generic Kondensator")
+			(footprints
+				(fp "0IBF_RCL:C*")
+				(fp "Capacitor_THT:C_Rect_*")
+			)
+			(fields
+				(field
+					(name "Reference") "C")
+				(field
+					(name "Value") "_C")
+				(field
+					(name "Footprint") "0IBF_RCL:C_1206_3216Metric")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Capacitor generic Kondensator")
+				(field
+					(name "Alternative")
+				)
+				(field
+					(name "Bemerkung")
+				)
+				(field
+					(name "Farnell")
+				)
+				(field
+					(name "MF")
+				)
+				(field
+					(name "MPN")
+				)
+				(field
+					(name "RS")
+				)
+				(field
+					(name "digikey")
+				)
+				(field
+					(name "mouser")
+				)
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "")
+					(type "passive")
+				)
+				(pin
+					(num "2")
+					(name "")
+					(type "passive")
+				)
+			)
+		)
+		(libpart
+			(lib "Connector_Generic")
+			(part "Conn_01x06")
+			(description "Generic connector, single row, 01x06, script generated (kicad-library-utils/schlib/autogen/connector/)")
+			(footprints
+				(fp "Connector*:*_1x??_*")
+			)
+			(fields
+				(field
+					(name "Reference") "J")
+				(field
+					(name "Value") "Conn_01x06")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Generic connector, single row, 01x06, script generated (kicad-library-utils/schlib/autogen/connector/)")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "Pin_1")
+					(type "passive")
+				)
+				(pin
+					(num "2")
+					(name "Pin_2")
+					(type "passive")
+				)
+				(pin
+					(num "3")
+					(name "Pin_3")
+					(type "passive")
+				)
+				(pin
+					(num "4")
+					(name "Pin_4")
+					(type "passive")
+				)
+				(pin
+					(num "5")
+					(name "Pin_5")
+					(type "passive")
+				)
+				(pin
+					(num "6")
+					(name "Pin_6")
+					(type "passive")
+				)
+			)
+		)
+		(libpart
+			(lib "Device")
+			(part "C")
+			(description "Unpolarized capacitor")
+			(footprints
+				(fp "C_*")
+			)
+			(fields
+				(field
+					(name "Reference") "C")
+				(field
+					(name "Value") "C")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Unpolarized capacitor")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "")
+					(type "passive")
+				)
+				(pin
+					(num "2")
+					(name "")
+					(type "passive")
+				)
+			)
+		)
+	)
+	(libraries
+		(library
+			(logical "Connector_Generic")
+			(uri "${KICAD10_SYMBOL_DIR}/Connector_Generic.kicad_sym")
+		)
+		(library
+			(logical "Device")
+			(uri "${KICAD10_SYMBOL_DIR}/Device.kicad_sym")
+		)
+	)
+	(nets
+		(net
+			(code "1")
+			(name "+12V")
+			(class "Default")
+			(node
+				(ref "C10")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "C7")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "C8")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "C9")
+				(pin "1")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "2")
+			(name "/+7V")
+			(class "Default")
+			(node
+				(ref "C13")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "C14")
+				(pin "1")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "3")
+			(name "/+48V")
+			(class "Default")
+			(node
+				(ref "C37")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "J4")
+				(pin "1")
+				(pinfunction "Pin_1_1")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "4")
+			(name "/Spannungsversorgung/+7V")
+			(class "Default")
+			(node
+				(ref "C11")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "C12")
+				(pin "1")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "5")
+			(name "/Spannungsversorgung/+48V")
+			(class "Default")
+			(node
+				(ref "C34")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "C38")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "J5")
+				(pin "1")
+				(pinfunction "Pin_1_1")
+				(pintype "passive")
+			)
+			(node
+				(ref "J66")
+				(pin "1")
+				(pinfunction "Pin_1_1")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "6")
+			(name "GND")
+			(class "Default")
+			(node
+				(ref "C34")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "C37")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "C38")
+				(pin "2")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "7")
+			(name "Net-(C7-Pad2)")
+			(class "Default")
+			(node
+				(ref "C7")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "C8")
+				(pin "2")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "8")
+			(name "Net-(C10-Pad2)")
+			(class "Default")
+			(node
+				(ref "C10")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "C9")
+				(pin "2")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "9")
+			(name "Net-(C11-Pad2)")
+			(class "Default")
+			(node
+				(ref "C11")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "C12")
+				(pin "2")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "10")
+			(name "Net-(C13-Pad2)")
+			(class "Default")
+			(node
+				(ref "C13")
+				(pin "2")
+				(pintype "passive")
+			)
+			(node
+				(ref "C14")
+				(pin "2")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "11")
+			(name "unconnected-(J4-Pin_2-Pad2)")
+			(class "Default")
+			(node
+				(ref "J4")
+				(pin "2")
+				(pinfunction "Pin_2_2")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "12")
+			(name "unconnected-(J4-Pin_3-Pad3)")
+			(class "Default")
+			(node
+				(ref "J4")
+				(pin "3")
+				(pinfunction "Pin_3_3")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "13")
+			(name "unconnected-(J4-Pin_4-Pad4)")
+			(class "Default")
+			(node
+				(ref "J4")
+				(pin "4")
+				(pinfunction "Pin_4_4")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "14")
+			(name "unconnected-(J4-Pin_5-Pad5)")
+			(class "Default")
+			(node
+				(ref "J4")
+				(pin "5")
+				(pinfunction "Pin_5_5")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "15")
+			(name "unconnected-(J4-Pin_6-Pad6)")
+			(class "Default")
+			(node
+				(ref "J4")
+				(pin "6")
+				(pinfunction "Pin_6_6")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "16")
+			(name "unconnected-(J5-Pin_2-Pad2)")
+			(class "Default")
+			(node
+				(ref "J5")
+				(pin "2")
+				(pinfunction "Pin_2_2")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "17")
+			(name "unconnected-(J5-Pin_3-Pad3)")
+			(class "Default")
+			(node
+				(ref "J5")
+				(pin "3")
+				(pinfunction "Pin_3_3")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "18")
+			(name "unconnected-(J5-Pin_4-Pad4)")
+			(class "Default")
+			(node
+				(ref "J5")
+				(pin "4")
+				(pinfunction "Pin_4_4")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "19")
+			(name "unconnected-(J5-Pin_5-Pad5)")
+			(class "Default")
+			(node
+				(ref "J5")
+				(pin "5")
+				(pinfunction "Pin_5_5")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "20")
+			(name "unconnected-(J5-Pin_6-Pad6)")
+			(class "Default")
+			(node
+				(ref "J5")
+				(pin "6")
+				(pinfunction "Pin_6_6")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "21")
+			(name "unconnected-(J66-Pin_2-Pad2)")
+			(class "Default")
+			(node
+				(ref "J66")
+				(pin "2")
+				(pinfunction "Pin_2_2")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "22")
+			(name "unconnected-(J66-Pin_3-Pad3)")
+			(class "Default")
+			(node
+				(ref "J66")
+				(pin "3")
+				(pinfunction "Pin_3_3")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "23")
+			(name "unconnected-(J66-Pin_4-Pad4)")
+			(class "Default")
+			(node
+				(ref "J66")
+				(pin "4")
+				(pinfunction "Pin_4_4")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "24")
+			(name "unconnected-(J66-Pin_5-Pad5)")
+			(class "Default")
+			(node
+				(ref "J66")
+				(pin "5")
+				(pinfunction "Pin_5_5")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "25")
+			(name "unconnected-(J66-Pin_6-Pad6)")
+			(class "Default")
+			(node
+				(ref "J66")
+				(pin "6")
+				(pinfunction "Pin_6_6")
+				(pintype "passive")
+			)
+		)
+	)
+)

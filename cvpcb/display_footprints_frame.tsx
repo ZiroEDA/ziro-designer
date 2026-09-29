@@ -84,7 +84,7 @@ import {
 
 /**
  * The controller a `ref` into {@link CvpcbDisplayFootprintsApp.FootprintCanvas}
- * gets back — `FootprintCanvasController` (`editors/footprint/FootprintCanvas.tsx`),
+ * gets back — `FootprintCanvasController` (`pcbnew/pcb_draw_panel_gal_ui.tsx`),
  * narrowed to what this frame calls.
  */
 export interface CvpcbFootprintCanvasController {
@@ -98,7 +98,7 @@ export interface CvpcbFootprintCanvasController {
 
 /**
  * What this frame draws with and cannot own itself: the footprint editor's
- * canvas (`editors/footprint/FootprintCanvas.tsx`, over `renderBoard.ts`'s
+ * canvas (`pcbnew/pcb_draw_panel_gal_ui.tsx`, over `renderBoard.ts`'s
  * `PCB_PAINTER` port), one footprint wrapped as a board (`footprintToBoard`,
  * `editors/footprint/footprintBoard.ts`), and the 3D viewer
  * (`editors/pcb/Viewer3DFrame.tsx`). `cvpcb` never imports `designer`, so

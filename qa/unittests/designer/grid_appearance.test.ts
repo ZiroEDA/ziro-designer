@@ -40,11 +40,11 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import {
-  EESCHEMA_DEFAULTS,
   GERBVIEW_DEFAULTS,
   PL_EDITOR_DEFAULTS,
   SYMBOL_EDITOR_DEFAULTS,
 } from '@ziroeda/designer/src/prefs/settings.js';
+import { EESCHEMA_DEFAULTS } from '@ziroeda/eeschema/eeschema_settings.js';
 import { DEFAULT_GRID_APPEARANCE } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
 
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));

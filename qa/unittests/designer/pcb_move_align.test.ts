@@ -240,7 +240,7 @@ describe('the editor wires it up', () => {
    * the old formula would keep every test in this file passing.
    */
   const text = readFileSync(
-    fileURLToPath(new URL('../../../designer/src/editors/pcb/PcbEditor.tsx', import.meta.url)),
+    fileURLToPath(new URL('../../../pcbnew/pcb_edit_frame_ui.tsx', import.meta.url)),
     'utf8',
   );
 

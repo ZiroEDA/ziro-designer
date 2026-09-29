@@ -226,8 +226,12 @@ export class SCH_FIELD extends SCH_ITEM {
 
     if (aParent === undefined) return; // SCH_FIELD(): for std::map::operator[]
 
+    // A text mixes EDA_TEXT in, so it is not an `instanceof EDA_TEXT`: an object argument
+    // is the SCH_TEXT overload.
     const fromText =
-      aFieldId instanceof EDA_TEXT ? (aFieldId as unknown as SCH_ITEM & EDA_TEXT) : null;
+      typeof aFieldId === 'object' && aFieldId !== null
+        ? (aFieldId as unknown as SCH_ITEM & EDA_TEXT)
+        : null;
     const fieldId = fromText ? FIELD_T.USER : ((aFieldId as FIELD_T | undefined) ?? FIELD_T.USER);
     const name = fromText ? '' : aName;
 

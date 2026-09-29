@@ -159,7 +159,9 @@ describe('the dialog', () => {
 describe('the load-time prompt', () => {
   it('is raised only for a legacy project, and only without a cache library', () => {
     expect(EDITOR).toContain('const cacheNames = legacyCacheFileNames(proName ?? rootSch)');
-    expect(EDITOR).toContain('!settings.eeschema.system.never_show_rescue_dialog && !cacheExists');
+    expect(EDITOR).toContain(
+      '!app.settings.eeschema.system.never_show_rescue_dialog && !cacheExists',
+    );
     expect(EDITOR).toContain('pendingRescuePrompt.current = true');
   });
 

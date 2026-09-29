@@ -19,7 +19,7 @@ import {
   SCH_FRAME_NAME,
   SCH_NO_DOCUMENT,
   schFrameTitle,
-} from '@ziroeda/designer/src/editors/schematic/frame_title.js';
+} from '@ziroeda/eeschema/frame_title.js';
 
 describe('pathHumanReadable', () => {
   /**

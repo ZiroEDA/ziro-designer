@@ -28,19 +28,19 @@ const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
 const CANVASES = [
   'editors/schematic/components/SchematicCanvas.tsx',
   'editors/symbol/SymbolCanvas.tsx',
-  'editors/pcb/PcbEditor.tsx',
-  'editors/footprint/FootprintCanvas.tsx',
+  '../../pcbnew/pcb_edit_frame_ui.tsx',
+  '../../pcbnew/pcb_draw_panel_gal_ui.tsx',
   // The preview panes are EDA_DRAW_PANEL_GALs upstream too, so they get
   // WX_VIEW_CONTROLS on the same terms.
-  'widgets/preview_view_controls.ts',
+  '../../common/widgets/preview_view_controls.ts',
 ];
 
 /** Where Zoom to Fit's maths lives for each editor. */
 const FITTERS = [
-  'editors/schematic/render/renderer.ts',
+  '../../eeschema/sch_painter.ts',
   '../../eeschema/symbol_editor/symbol_renderer.ts',
-  'editors/pcb/PcbEditor.tsx',
-  'editors/footprint/FootprintCanvas.tsx',
+  '../../pcbnew/pcb_edit_frame_ui.tsx',
+  '../../pcbnew/pcb_draw_panel_gal_ui.tsx',
 ];
 
 const read = (rel: string): string => readFileSync(join(SRC, rel), 'utf8');
@@ -74,10 +74,10 @@ describe('shared view controls', () => {
 
   /** Which FRAME_T each editor fits as, i.e. which margin row it lands on. */
   const FRAMES: [string, string][] = [
-    ['editors/schematic/render/renderer.ts', "'sch'"],
+    ['../../eeschema/sch_painter.ts', "'sch'"],
     ['../../eeschema/symbol_editor/symbol_renderer.ts', "'symbol_editor'"],
-    ['editors/pcb/PcbEditor.tsx', "'pcb'"],
-    ['editors/footprint/FootprintCanvas.tsx', "'footprint_editor'"],
+    ['../../pcbnew/pcb_edit_frame_ui.tsx', "'pcb'"],
+    ['../../pcbnew/pcb_draw_panel_gal_ui.tsx', "'footprint_editor'"],
   ];
 
   /** Every FitFrame in the union, so a file can be checked for foreign ones. */
@@ -179,7 +179,9 @@ describe('shared view controls', () => {
    * filtered, so that adding a seventh canvas fails instead of inheriting an
    * exemption it did not earn.
    */
-  const AUTOPAN_CANVASES = CANVASES.filter((c) => c !== 'widgets/preview_view_controls.ts');
+  const AUTOPAN_CANVASES = CANVASES.filter(
+    (c) => c !== '../../common/widgets/preview_view_controls.ts',
+  );
 
   it('every editing canvas holds its own m_panTimer', () => {
     // Four, and the preview panes are the fifth CANVAS. If that count moves,
@@ -217,13 +219,13 @@ describe('shared view controls', () => {
     // absolute world padding, which is what made the framing depend on the
     // document's size; doZoomFit's is a multiplier on the viewport.
     const OLD: [string, RegExp][] = [
-      ['editors/footprint/FootprintCanvas.tsx', /const margin = 2 \* MM/],
-      ['editors/pcb/PcbEditor.tsx', /fitWorldBox\([^)]*5 \* MM/],
+      ['../../pcbnew/pcb_draw_panel_gal_ui.tsx', /const margin = 2 \* MM/],
+      ['../../pcbnew/pcb_edit_frame_ui.tsx', /fitWorldBox\([^)]*5 \* MM/],
       // fitToContent / fitToBBox / fitSymbol each inflated their box by 8 mm
       // before scaling. (renderer.ts keeps an unrelated `pad` for a draw-cull
       // test on sheet fields, which is why these match the inflation itself.)
-      ['editors/schematic/render/renderer.ts', /minX -= pad;/],
-      ['editors/schematic/render/renderer.ts', /box\.minX - pad/],
+      ['../../eeschema/sch_painter.ts', /minX -= pad;/],
+      ['../../eeschema/sch_painter.ts', /box\.minX - pad/],
       ['../../eeschema/symbol_editor/symbol_renderer.ts', /b\.minX - pad/],
     ];
     for (const [rel, re] of OLD) expect(read(rel), `${rel} ${re}`).not.toMatch(re);
@@ -239,7 +241,7 @@ describe('shared view controls', () => {
   });
 
   it('nothing imports view controls sideways out of another editor', () => {
-    for (const rel of [...CANVASES, ...FITTERS, 'editors/pcb/footprint_preview_panel.tsx']) {
+    for (const rel of [...CANVASES, ...FITTERS, '../../pcbnew/footprint_preview_panel.tsx']) {
       expect(read(rel), rel).not.toMatch(/import[^;]*InputPrefs[^;]*SchematicCanvas\.js/);
     }
   });

@@ -195,7 +195,12 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // its appearance_layers.ts/appearance_objects.ts/appearance_presets.ts
   // siblings) moved to pcbnew/widgets/, which this scanner does not walk.
   // RESCANNED from this tree.
-  'editors/footprint': { colours: 4, metrics: 5 },
+  // 4/5 -> 0/0 (pcbnew stage C): FootprintEditor.tsx itself moved to
+  // pcbnew/footprint_edit_frame_ui.tsx, and pcbnew/ is counted under
+  // `editors/pcb`, so its four colours and five metrics are on that row now.
+  // What is left here is the thin app wrapper, footprint_edit_frame_app.tsx,
+  // which states none.
+  'editors/footprint': { colours: 0, metrics: 0 },
   // 1 -> 0 colours: gerberColors.ts, which nothing in the app read, left for
   // qa as the test-side transcription of s_defaultTheme (09-27).
   'editors/gerbview': { colours: 0, metrics: 4 },
@@ -309,7 +314,9 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // earlier drops (26 -> 17 colours, 1138 -> 1041 metrics) were sites carried
   // OUT of the scan by the file-structure move, not fixed; 141 is 44 plus
   // exactly the 97 that move removed from view.
-  'editors/pcb': { colours: 24, metrics: 141 },
+  // 24/141 -> 28/146 (pcbnew stage C): the Footprint Editor window's 4/5,
+  // moved in from `editors/footprint` (see that row) - moved, not added.
+  'editors/pcb': { colours: 28, metrics: 146 },
   // At zero, and listed rather than absent: `prefs/` is the settings store, and
   // the one literal it had - the 3D viewer's `rgb(0,255,0)` selection colour -
   // is `PARAM<COLOR4D>( "render.opengl_selection_color", …, COLOR4D( 0, 1, 0, 1 ) )`
@@ -400,7 +407,11 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // colours, 8 metrics) and dialog_resolve_field_case_conflicts.tsx (0
   // colours, 1 metric). RESCANNED against the tree with them gone.
   // 16 -> 15 (09-28): rescanned with eeschema/ in the scan.
-  'editors/schematic': { colours: 15, metrics: 128 },
+  // 15 -> 16 (09-28): eeschema/'s .ts files joined the scan. The four
+  // sch_painter.ts sites (821, 3962, 3966, 4526) were already counted while
+  // it was designer's render/renderer.ts, so they are no change; the +1 is
+  // eeschema/project_settings.ts:131, an rgba() that sat there uncounted.
+  'editors/schematic': { colours: 16, metrics: 128 },
   // 166 -> 163 metrics on `editors/schematic`, moved here whole: cvpcb's
   // three windows left `editors/schematic/dialogs/` for the root `cvpcb/`
   // package (cvpcb/STRUCTURE.md's stage two). No colours moved (the five
@@ -1028,7 +1039,13 @@ function scan(): Site[] {
         if (entry === 'node_modules') continue;
         const p = join(dir, entry);
         if (statSync(p).isDirectory()) walk(p);
-        else if (/\.(css|tsx)$/.test(p)) files.push(p);
+        // eeschema/ reads .ts too, as SRC does: SCH_PAINTER (eeschema/
+        // sch_painter.ts, was designer's render/renderer.ts) carried four
+        // colour sites out of the scan when it moved, a drop nothing fixed.
+        // pcbnew/ and 3d-viewer/ still read .css/.tsx only - at this commit
+        // their .ts files hold five uncounted sites (pcb3d.ts:1111,
+        // pcbTheme.ts:139, pcb_base_edit_frame.ts:623/628, renderBoard.ts:2489).
+        else if ((root === EESCHEMA ? /\.(css|tsx|ts)$/ : /\.(css|tsx)$/).test(p)) files.push(p);
       }
     })(root);
   }
@@ -1354,7 +1371,9 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // pcbnew/ by the same still-running move.
     // 290 -> 296 (09-28): pcbnew/, eeschema/ and 3d-viewer/ joined the scan;
     // see the editors/pcb and editors/schematic rows (+7, -1).
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(296);
+    // 296 -> 297 (09-28): eeschema/'s .ts files joined the scan; see the
+    // editors/schematic row (+1, project_settings.ts:131).
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(297);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.

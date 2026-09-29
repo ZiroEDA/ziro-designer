@@ -16,10 +16,10 @@ import {
 } from '@ziroeda/pagelayout_editor/pl_editor.js';
 import type {
   PrefsContext,
-  PrefsPageId,
   PrefsPanelFactory,
   PrefsPanelModule,
 } from '../../../dialogs/prefs/types.js';
+import type { PrefsPageId } from '@ziroeda/common/frame_type.js';
 import { usePcmVersion } from '../../../pcm/pcmStore.js';
 import { colorSettingsList } from '../../../prefs/color_settings_list.js';
 import { catalogueFor, ourToolbarId } from '../../../ui/action_catalogue.js';

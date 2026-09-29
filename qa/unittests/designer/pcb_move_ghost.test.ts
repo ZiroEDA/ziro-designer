@@ -40,7 +40,7 @@ const MM = 1e6;
  * is read the way view_controls_coverage.test.ts reads its call sites.
  */
 const text = readFileSync(
-  fileURLToPath(new URL('../../../designer/src/editors/pcb/PcbEditor.tsx', import.meta.url)),
+  fileURLToPath(new URL('../../../pcbnew/pcb_edit_frame_ui.tsx', import.meta.url)),
   'utf8',
 );
 

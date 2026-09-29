@@ -23,10 +23,10 @@ import { colorSettingsList } from '../../../prefs/color_settings_list.js';
 import { catalogueFor, ourToolbarId } from '../../../ui/action_catalogue.js';
 import type {
   PrefsContext,
-  PrefsPageId,
   PrefsPanelFactory,
   PrefsPanelModule,
 } from '../../../dialogs/prefs/types.js';
+import type { PrefsPageId } from '@ziroeda/common/frame_type.js';
 
 /** The dialog's page ids, as the KIFACE knows them. */
 const CLASS_ID: Partial<Record<PrefsPageId, FRAME_T>> = {

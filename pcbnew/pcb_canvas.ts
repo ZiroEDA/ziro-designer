@@ -1,0 +1,474 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+/**
+ * The board editor's canvas, as `PCB_EDIT_FRAME`'s constructor builds it:
+ * the `PCB_DRAW_PANEL_GAL` over the `<canvas>` React mounts, and the bridge
+ * from the editor's React state (view transform, layer visibility, display
+ * options, the highlighted net) into the frame, the view and the render
+ * settings — the calls the toolbar handlers and the appearance panel make
+ * upstream.
+ *
+ * `installPgm`/`reloadUserColorSettings` — installing the process-wide
+ * `PGM_BASE` and reloading its colour themes — stay with the designer app
+ * (`designer/src/editors/pcb/pcb_canvas.ts`): `pcbnew/` cannot read the
+ * app's live settings singleton itself, and `PcbEditor.tsx` reaches them
+ * through `PCBNEW_APP`.
+ */
+
+import type { DRAW_PANEL_GAL_WINDOW, EDA_DRAW_PANEL_GAL } from '@ziroeda/common/draw_panel_gal.js';
+import { DS_PROXY_VIEW_ITEM } from '@ziroeda/common/drawing_sheet/ds_proxy_view_item.js';
+import { VIEW_UPDATE_FLAGS } from '@ziroeda/common/view/view_item.js';
+import type { WksSheet } from '@ziroeda/common/drawing_sheet/types.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { KICURSOR } from '@ziroeda/common/gal/cursors.js';
+import type { GAL_LAYER_ID, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import type { BOARD } from './board.js';
+import { parseBoardItemId } from './edit-board.js';
+import type { Board } from './types.js';
+import type { BOARD_ITEM } from './board_item.js';
+import { PCB_SELECTION } from './tools/pcb_selection.js';
+import { RECURSE_MODE } from '@ziroeda/common/eda_item.js';
+import type { VIEW } from '@ziroeda/common/view/view.js';
+import { PCB_DRAW_PANEL_GAL } from './pcb_draw_panel_gal.js';
+import type { PCB_DISPLAY_OPTIONS } from './pcb_painter.js';
+import { PCB_SCREEN } from './pcb_screen.js';
+import type { PCB_EDIT_FRAME } from './pcb_edit_frame.js';
+import { type KiCursor, kiCursor } from '@ziroeda/common/gal/kicursors.js';
+import { drawPanelWindow } from '@ziroeda/common/gal/gal_window.js';
+
+// ---------------------------------------------------------------------------
+// The wxWindow the panel adopts
+// ---------------------------------------------------------------------------
+
+export { loadBitmapFontImage } from '@ziroeda/common/gal/gal_window.js';
+
+/**
+ * `PCB_EDIT_FRAME::PCB_EDIT_FRAME`'s canvas construction: the panel on the
+ * element, the frame's screen and canvas, the drawing sheet proxy item.
+ *
+ * @return the panel, or null when WebGL2 is unavailable (there is no Cairo
+ *         here; the editor keeps its raster path for that).
+ */
+export function createPcbDrawPanel(
+  aFrame: PCB_EDIT_FRAME,
+  aCanvas: HTMLCanvasElement,
+  aFontImage: ImageBitmap,
+): PCB_DRAW_PANEL_GAL | null {
+  const window: DRAW_PANEL_GAL_WINDOW = drawPanelWindow(aCanvas, aFontImage);
+
+  let panel: PCB_DRAW_PANEL_GAL;
+
+  try {
+    panel = new PCB_DRAW_PANEL_GAL(aFrame, window, aFrame.GetGalDisplayOptions());
+  } catch (err) {
+    console.warn(`Could not use OpenGL: ${(err as Error).message}`);
+    return null;
+  }
+
+  if (panel.GetBackend() !== 1 /* GAL_TYPE_OPENGL */) {
+    panel.Destroy();
+    return null;
+  }
+
+  aFrame.SetCanvas(panel);
+
+  // `PCB_BASE_FRAME::LoadSettings` (pcb_base_frame.cpp:850): the painter's
+  // highlight and select factors come from the app settings' graphics
+  // section - select_factor is 0.75 there, not RENDER_SETTINGS' own 0.5.
+  {
+    const cfg = aFrame.GetPcbNewSettings();
+    const rs = panel.GetView().GetPainter().GetSettings();
+
+    rs.SetHighlightFactor(cfg.m_Graphics.highlight_factor);
+    rs.SetSelectFactor(cfg.m_Graphics.select_factor);
+  }
+
+  // SetScreen( new PCB_SCREEN( GetPageSettings().GetSizeIU( pcbIUScale.IU_PER_MILS ) ) ):
+  // the A4 the frame starts with; attachBoardToPanel re-sizes it for the board
+  aFrame.SetScreen(new PCB_SCREEN({ x: pcbIUScale.milsToIU(11693), y: pcbIUScale.milsToIU(8268) }));
+
+  // Must be set after calling SetScreen()
+  panel.GetGAL().SetAxesEnabled(false);
+
+  return panel;
+}
+
+/**
+ * The parts of the frame's construction and `OpenProjectFiles` that read the
+ * board: the screen's page size and the drawing sheet proxy item
+ * (`new DS_PROXY_VIEW_ITEM( pcbIUScale, &m_pcb->GetPageSettings(),
+ * m_pcb->GetProject(), &m_pcb->GetTitleBlock(), m_pcb->GetProperties() )`).
+ * The board draws KiCad's default sheet until PROJECT carries the
+ * project's own.
+ */
+export function attachBoardToPanel(
+  aFrame: PCB_EDIT_FRAME,
+  aPanel: PCB_DRAW_PANEL_GAL,
+  aBoard: BOARD,
+): void {
+  const screen = aFrame.GetScreen();
+
+  if (screen) screen.InitDataPoints(aBoard.GetPageSettings().GetSizeIU(pcbIUScale.IU_PER_MILS));
+
+  const drawingSheet = new DS_PROXY_VIEW_ITEM(
+    pcbIUScale,
+    aBoard.GetPageSettings(),
+    { GetDrawingSheet: (): WksSheet | null => null },
+    aBoard.GetTitleBlock(),
+    aBoard.GetProperties(),
+  );
+  drawingSheet.SetSheetName(aBoard.GetFileName());
+  drawingSheet.SetFileName(aBoard.GetFileName());
+  aPanel.SetDrawingSheet(drawingSheet);
+}
+
+/** The BOARD_ITEMs behind the editor's item ids (`kind:index[:sub]`). */
+export function kItemsForIds(aBoard: Board, aIds: Iterable<string>): BOARD_ITEM[] {
+  const out: BOARD_ITEM[] = [];
+
+  for (const id of aIds) {
+    const r = parseBoardItemId(id);
+
+    if (!r) continue;
+
+    let k: BOARD_ITEM | undefined;
+
+    switch (r.kind) {
+      case 'track':
+        k = aBoard.tracks[r.index]?.k;
+        break;
+      case 'arc':
+        k = aBoard.arcs[r.index]?.k;
+        break;
+      case 'via':
+        k = aBoard.vias[r.index]?.k;
+        break;
+      case 'footprint':
+        k = aBoard.footprints[r.index]?.k;
+        break;
+      case 'zone':
+        k = aBoard.zones[r.index]?.k;
+        break;
+      case 'shape':
+        k = aBoard.shapes[r.index]?.k;
+        break;
+      case 'text':
+        k = aBoard.texts[r.index]?.k;
+        break;
+      case 'textbox':
+        k = aBoard.textBoxes[r.index]?.k;
+        break;
+      case 'table':
+        k = aBoard.tables[r.index]?.k;
+        break;
+      case 'image':
+        k = aBoard.images[r.index]?.k;
+        break;
+      case 'dimension':
+        k = aBoard.dimensions[r.index]?.k;
+        break;
+      case 'point':
+        k = aBoard.points[r.index]?.k;
+        break;
+      case 'barcode':
+        k = aBoard.barcodes[r.index]?.k;
+        break;
+      case 'group':
+        k = aBoard.groups[r.index]?.k;
+        break;
+      case 'fptext':
+        k = aBoard.footprints[r.index]?.texts[r.sub ?? 0]?.k;
+        break;
+      case 'pad':
+        k = aBoard.footprints[r.index]?.pads[r.sub ?? 0]?.k;
+        break;
+    }
+
+    if (k) out.push(k);
+  }
+
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// The editor's state, into the frame
+// ---------------------------------------------------------------------------
+
+/** The editor's view: device pixels per IU, the device-pixel translation, the flip. */
+export interface EditorView {
+  scale: number;
+  tx: number;
+  ty: number;
+  flipX: boolean;
+}
+
+/**
+ * The editor's view transform into the VIEW: `VIEW::SetScale` / `SetCenter`
+ * / `SetMirror`. The VIEW's scale is the GAL zoom factor, whose world scale
+ * is `zoom * worldUnitLength * screenDPI` logical pixels per IU; the
+ * editor's is device pixels per IU.
+ */
+export function syncViewTransform(
+  aPanel: EDA_DRAW_PANEL_GAL,
+  aView: EditorView,
+  aDevicePixelRatio: number,
+): void {
+  const view = aPanel.GetView();
+  const gal = aPanel.GetGAL();
+  const screen = gal.GetScreenPixelSize();
+
+  if (screen.x <= 0 || screen.y <= 0) return;
+
+  // gal.GetWorldScale() / zoom is worldUnitLength * DPI, the factor between the two scales
+  const zoomNow = view.GetScale();
+  const unitScale = zoomNow > 0 ? gal.GetWorldScale() / zoomNow : 0;
+
+  if (!(unitScale > 0)) return;
+
+  const zoom = aView.scale / aDevicePixelRatio / unitScale;
+
+  if (view.IsMirroredX() !== aView.flipX) view.SetMirror(aView.flipX, view.IsMirroredY());
+
+  if (Math.abs(view.GetScale() - zoom) > zoom * 1e-9) view.SetScale(zoom);
+
+  // The world point under the screen centre — `ComputeWorldScreenMatrix`'s
+  // integer half of the screen size — in the editor's device-pixel transform
+  const cx = Math.trunc(screen.x / 2) * aDevicePixelRatio;
+  const cy = Math.trunc(screen.y / 2) * aDevicePixelRatio;
+  const sx = aView.flipX ? -aView.scale : aView.scale;
+  const center = { x: (cx - aView.tx) / sx, y: (cy - aView.ty) / aView.scale };
+  const now = view.GetCenter();
+
+  if (Math.abs(now.x - center.x) > 1e-6 || Math.abs(now.y - center.y) > 1e-6)
+    view.SetCenter(center);
+}
+
+/** The editor's Appearance state, as `BOARD` and the render settings take it. */
+export interface EditorDisplayState {
+  /** The visible board layers, by name (`LAYER_*`, "F.Cu"...). */
+  visibleLayers: ReadonlySet<PCB_LAYER_ID>;
+  /** The Objects tab: each GAL layer's visibility. */
+  visibleElements: ReadonlyMap<GAL_LAYER_ID, boolean>;
+  displayOptions: PCB_DISPLAY_OPTIONS;
+  activeLayer: PCB_LAYER_ID;
+  /** The highlighted nets (BOARD_INSPECTION_TOOL::HighlightNet), empty for none. */
+  highlightNets: ReadonlySet<number>;
+  /** `COLOR_SETTINGS::GetFilename()` of the theme the frame paints with. */
+  colorTheme: string;
+}
+
+/**
+ * Push the editor's Appearance state into the board, the view and the render
+ * settings, as the layer widget, the toolbar and the inspection tool would.
+ */
+export function applyDisplayState(
+  aFrame: PCB_EDIT_FRAME,
+  aPanel: PCB_DRAW_PANEL_GAL,
+  aBoard: BOARD,
+  aState: EditorDisplayState,
+  aPrev: EditorDisplayState | null,
+): void {
+  const view = aPanel.GetView();
+  const settings = view.GetPainter().GetSettings();
+
+  // Layer visibility: BOARD::SetVisibleLayers + PCB_DRAW_PANEL_GAL::SyncLayersVisibility
+  const visibilityChanged =
+    !aPrev ||
+    !setsEqual(aPrev.visibleLayers, aState.visibleLayers) ||
+    !mapsEqual(aPrev.visibleElements, aState.visibleElements);
+
+  if (visibilityChanged) {
+    const visible = new LSET();
+
+    for (const layer of aState.visibleLayers) visible.set(layer);
+
+    aBoard.SetVisibleLayers(visible);
+
+    for (const [layer, on] of aState.visibleElements) aBoard.SetElementVisibility(layer, on);
+
+    aPanel.SyncLayersVisibility(aBoard);
+  }
+
+  // The theme: PCB_DRAW_PANEL_GAL::UpdateColors reads the frame's COLOR_SETTINGS
+  if (!aPrev || aPrev.colorTheme !== aState.colorTheme) {
+    aPanel.UpdateColors();
+    view.UpdateAllLayersColor();
+  }
+
+  // The active layer: PCB_EDIT_FRAME::SetActiveLayer -- SetHighContrastLayer,
+  // and the clearance layer of the active copper layer shown, every other
+  // hidden. Forced after a SyncLayersVisibility as the open does
+  // (`SetActiveLayer( ..., true )` follows it, pcb_edit_frame.cpp:2023-2037),
+  // because Sync hides every clearance layer, the active one's included.
+  if (visibilityChanged || aFrame.GetActiveLayer() !== aState.activeLayer)
+    aFrame.SetActiveLayer(aState.activeLayer, true);
+
+  // Display options: PCB_BASE_FRAME::SetDisplayOptions (no refresh: the frame's own repaint).
+  // It recaches every item, so only when they differ from what the frame holds.
+  const held = aPrev ? aPrev.displayOptions : aFrame.GetDisplayOptions();
+
+  if (!displayOptionsEqual(held, aState.displayOptions))
+    aFrame.SetDisplayOptions(aState.displayOptions, false);
+
+  // Net highlight: BOARD_INSPECTION_TOOL::HighlightNet -> SetHighlight + UpdateAllLayersColor
+  if (!aPrev || !setsEqual(aPrev.highlightNets, aState.highlightNets)) {
+    settings.SetHighlight(new Set(aState.highlightNets), aState.highlightNets.size > 0);
+    view.UpdateAllLayersColor();
+  }
+
+  // The first sync of a board is the tail of PCB_EDIT_FRAME::OnBoardLoaded
+  // (pcb_edit_frame.cpp:2035-2055): after `SetActiveLayer( ..., true )`,
+  // "Invalidate painting as loading the DRC engine will cause clearances to
+  // become valid" - every item is re-recorded, so a pad or track cached by a
+  // frame that slipped in before the engine had its rules draws its clearance
+  // ring, and in the colour the painter gives it rather than the one
+  // UpdateAllLayersColor just wrote over the cache.
+  if (!aPrev) view.UpdateAllItems(VIEW_UPDATE_FLAGS.ALL);
+}
+
+function setsEqual<T>(a: ReadonlySet<T>, b: ReadonlySet<T>): boolean {
+  if (a.size !== b.size) return false;
+
+  for (const v of a) if (!b.has(v)) return false;
+
+  return true;
+}
+
+function mapsEqual<K, V>(a: ReadonlyMap<K, V>, b: ReadonlyMap<K, V>): boolean {
+  if (a.size !== b.size) return false;
+
+  for (const [k, v] of a) if (b.get(k) !== v) return false;
+
+  return true;
+}
+
+function displayOptionsEqual(a: PCB_DISPLAY_OPTIONS, b: PCB_DISPLAY_OPTIONS): boolean {
+  return (
+    a.m_ZoneDisplayMode === b.m_ZoneDisplayMode &&
+    a.m_ContrastModeDisplay === b.m_ContrastModeDisplay &&
+    a.m_NetColorMode === b.m_NetColorMode &&
+    a.m_TrackOpacity === b.m_TrackOpacity &&
+    a.m_ViaOpacity === b.m_ViaOpacity &&
+    a.m_PadOpacity === b.m_PadOpacity &&
+    a.m_ZoneOpacity === b.m_ZoneOpacity &&
+    a.m_ImageOpacity === b.m_ImageOpacity &&
+    a.m_FilledShapeOpacity === b.m_FilledShapeOpacity &&
+    a.m_FlipBoardView === b.m_FlipBoardView
+  );
+}
+
+/**
+ * Hide (or show again) items in the view: what a move in flight does with
+ * the items it is dragging while the editor draws their moving copies on
+ * its overlay (`VIEW::Hide`, as the selection tool uses it).
+ */
+export function setItemsHidden(
+  aPanel: PCB_DRAW_PANEL_GAL,
+  aItems: Iterable<BOARD_ITEM>,
+  aHide: boolean,
+): void {
+  const view = aPanel.GetView();
+
+  for (const item of aItems) {
+    // A selected item is hidden by the selection itself (drawn on its
+    // overlay group), so the end of a move leaves it hidden.
+    if (!aHide && item.IsSelected()) continue;
+
+    if (view.HasItem(item)) view.Hide(item, aHide);
+  }
+}
+
+/**
+ * The selection tool's half that draws: `PCB_SELECTION_TOOL`'s `m_selection`
+ * on the VIEW (pcb_selection_tool.cpp:3961-4028). `highlight( item, SELECTED,
+ * &m_selection )` adds the item to the group, flags it and its children
+ * SELECTED, hides the original ("so it is shown only on overlay") and
+ * repaints; the group, on LAYER_SELECT_OVERLAY, then draws the items in their
+ * brightened colours through the painter. `unhighlight` undoes it. `Reset()`
+ * puts the group in the view.
+ *
+ * The editor's selection state is the source; `Set` diffs it against the
+ * group, so a click that keeps an item selected does not re-record it.
+ */
+export class GL_SELECTION {
+  readonly m_selection = new PCB_SELECTION();
+  private m_view: VIEW | null = null;
+
+  /** `PCB_SELECTION_TOOL::Reset`: `getView()->Remove( &m_selection ); getView()->Add( &m_selection );` */
+  Reset(aView: VIEW): void {
+    if (this.m_view) this.m_view.Remove(this.m_selection);
+
+    this.m_view = aView;
+    aView.Add(this.m_selection);
+  }
+
+  Items(): readonly BOARD_ITEM[] {
+    return this.m_selection.Items() as BOARD_ITEM[];
+  }
+
+  /** The selection becomes exactly `aItems`. */
+  Set(aItems: Iterable<BOARD_ITEM>): void {
+    const view = this.m_view;
+
+    if (!view) return;
+
+    const wanted = new Set(aItems);
+    const current = new Set(this.Items());
+
+    for (const item of current) {
+      if (!wanted.has(item)) this.unhighlight(item);
+    }
+
+    for (const item of wanted) {
+      if (!current.has(item) && view.HasItem(item)) this.highlight(item);
+    }
+  }
+
+  Clear(): void {
+    for (const item of [...this.Items()]) this.unhighlight(item);
+  }
+
+  /** The group itself hidden or shown: a move in flight draws its own copies. */
+  SetGroupHidden(aHide: boolean): void {
+    if (this.m_view) this.m_view.Hide(this.m_selection, aHide);
+  }
+
+  private highlight(aItem: BOARD_ITEM): void {
+    this.m_selection.Add(aItem);
+
+    this.highlightInternal(aItem);
+    this.m_view!.Update(aItem, VIEW_UPDATE_FLAGS.REPAINT);
+  }
+
+  private highlightInternal(aItem: BOARD_ITEM): void {
+    aItem.SetSelected();
+
+    this.m_view!.Hide(aItem, true); // Hide the original item, so it is shown only on overlay
+
+    aItem.RunOnChildren(
+      (aChild: BOARD_ITEM) => this.highlightInternal(aChild),
+      RECURSE_MODE.RECURSE,
+    );
+  }
+
+  private unhighlight(aItem: BOARD_ITEM): void {
+    this.m_selection.Remove(aItem);
+
+    this.unhighlightInternal(aItem);
+    this.m_view!.Update(aItem, VIEW_UPDATE_FLAGS.REPAINT);
+  }
+
+  private unhighlightInternal(aItem: BOARD_ITEM): void {
+    aItem.ClearSelected();
+
+    this.m_view!.Hide(aItem, false); // Restore original item visibility...
+    this.m_view!.Update(aItem); // ... and make sure it's redrawn un-selected
+
+    aItem.RunOnChildren(
+      (aChild: BOARD_ITEM) => this.unhighlightInternal(aChild),
+      RECURSE_MODE.RECURSE,
+    );
+  }
+}

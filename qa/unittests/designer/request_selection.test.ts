@@ -64,7 +64,7 @@ import {
   isHoverSelection,
   requestSelection,
   type HoverSelection,
-} from '@ziroeda/designer/src/editors/schematic/hover_selection.js';
+} from '@ziroeda/eeschema/hover_selection.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
 import type { LibSymbol, Schematic, Vec2 } from '@ziroeda/eeschema/types.js';
 

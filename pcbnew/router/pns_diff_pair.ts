@@ -89,7 +89,7 @@ import {
   segSquaredDistanceToSeg,
 } from '@ziroeda/kimath/src/geometry/seg.js';
 import { PnsKind, PnsLinkHolder, type PnsItem } from './pns_item.js';
-import { PnsLine, PnsLineChain } from './pns_line_item.js';
+import { PnsLine, PnsLineChain } from './pns_line.js';
 import { appendChain, csegment, reverse, segmentCount, type Chain, type Seg } from './pns_line.js';
 import { segApproxParallel, segContains, segLineProject } from './pns_seg_ops.js';
 import { PnsSegment } from './pns_segment.js';

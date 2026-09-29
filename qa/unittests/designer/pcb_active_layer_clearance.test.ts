@@ -36,6 +36,7 @@ function makeFrame() {
     setViewCenter: () => {},
     setHighlightNets: () => {},
     syncSelection: () => {},
+    editZoneParams: () => {},
     updatePcbFromSchematic: () => {},
   });
   // `createPcbDrawPanel`'s screen, whose m_Active_Layer the frame reads.

@@ -40,6 +40,8 @@ import {
   setPcbnewLiveSettingsProvider,
   setUpdatePcbnewLiveSettingsProvider,
 } from '@ziroeda/pcbnew/pcbnew_live_settings.js';
+import { setHeadlessNetlistProvider } from '@ziroeda/pcbnew/netlist_from_schematic.js';
+import { formatSchematicNetlist } from '@ziroeda/eeschema/cross-probing.js';
 
 /** `panel_mouse_settings.cpp:113-119`: the four choices are `WXK_*` codes. */
 const MODIFIER_CODES: Readonly<Record<ScrollModifier, number>> = {
@@ -162,6 +164,9 @@ export function InitPgm(): PGM_BASE {
     // DIALOG_PNS_SETTINGS, the same shape for the same reason.
     setPcbnewLiveSettingsProvider(() => settings.pcbnew);
     setUpdatePcbnewLiveSettingsProvider((mutate) => settings.updatePcbnew(mutate));
+    // netlist_from_schematic.ts's headless MAIL_SCH_GET_NETLIST answer: pcbnew
+    // may not import eeschema, so the app wires the handler through instead.
+    setHeadlessNetlistProvider(formatSchematicNetlist);
     SetPgm(pgm);
   }
   return pgm;

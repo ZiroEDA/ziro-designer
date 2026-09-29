@@ -252,12 +252,12 @@ describe('the PCB frame asks for that box', () => {
   // qa's tsconfig cannot compile .tsx, so the wiring is read as text the way
   // view_controls_coverage.test.ts reads it.
   const src = readFileSync(
-    fileURLToPath(new URL('../../../designer/src/editors/pcb/PcbEditor.tsx', import.meta.url)),
+    fileURLToPath(new URL('../../../pcbnew/pcb_edit_frame_ui.tsx', import.meta.url)),
     'utf8',
   );
 
   it('routes Zoom to Fit through pcbZoomFitBox', () => {
-    expect(src).toContain("from '@ziroeda/pcbnew/pcb_base_frame.js'");
+    expect(src).toContain("from './pcb_base_frame.js'");
     expect(src).toContain('pcbZoomFitBox(');
   });
 

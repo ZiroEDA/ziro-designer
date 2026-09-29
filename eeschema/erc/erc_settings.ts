@@ -9,6 +9,14 @@
  * defaults, so overriding a severity or a matrix cell changes the check.
  */
 
+import {
+  RPT_SEVERITY_ERROR,
+  RPT_SEVERITY_IGNORE,
+  RPT_SEVERITY_UNDEFINED,
+  RPT_SEVERITY_WARNING,
+  type Severity,
+} from '@ziroeda/common/reporter.js';
+
 /** ELECTRICAL_PINTYPE order, the ERC matrix rows/columns and the pin-map grid. */
 export const PIN_TYPES = [
   'input',
@@ -413,4 +421,146 @@ export function defaultErcSettings(): ErcSettings {
     severities: { ...DEFAULT_SEVERITIES },
     pinMap: DEFAULT_PIN_MAP.map((row) => [...row]),
   };
+}
+
+/** `ERCE_T` (erc/erc_settings.h): the ERC error codes. */
+export enum ERCE_T {
+  ERCE_UNSPECIFIED = 0,
+  ERCE_FIRST,
+  ERCE_DUPLICATE_SHEET_NAME = ERCE_FIRST, ///< Duplicate sheet names within a given sheet.
+  ERCE_ENDPOINT_OFF_GRID, ///< Pin or wire-end off grid.
+  ERCE_PIN_NOT_CONNECTED, ///< Pin not connected and not no connect symbol.
+  ERCE_PIN_NOT_DRIVEN, ///< Pin connected to some others pins but no pin to drive it.
+  ERCE_POWERPIN_NOT_DRIVEN, ///< Power input pin connected to some others pins but no power out pin.
+  ERCE_HIERACHICAL_LABEL, ///< Mismatch between hierarchical labels and pins sheets.
+  ERCE_NOCONNECT_CONNECTED, ///< A no connect symbol is connected to more than 1 pin.
+  ERCE_NOCONNECT_NOT_CONNECTED, ///< A no connect symbol is not connected to anything.
+  ERCE_LABEL_NOT_CONNECTED, ///< Label not connected to any pins.
+  ERCE_SIMILAR_LABELS, ///< 2 labels are equal for case insensitive comparisons.
+  ERCE_SIMILAR_POWER, ///< 2 power pins are equal for case insensitive comparisons.
+  ERCE_SIMILAR_LABEL_AND_POWER, ///< label and pin are equal for case insensitive comparisons.
+  ERCE_SINGLE_GLOBAL_LABEL, ///< A label only exists once in the schematic.
+  ERCE_SAME_LOCAL_GLOBAL_LABEL, ///< 2 labels are equal for case insensitive comparisons.
+  ERCE_DIFFERENT_UNIT_FP, ///< Different units of the same symbol have different footprints.
+  ERCE_MISSING_POWER_INPUT_PIN, ///< Symbol has power input pins that are not placed.
+  ERCE_MISSING_INPUT_PIN, ///< Symbol has input pins that are not placed
+  ERCE_MISSING_BIDI_PIN, ///< Symbol has bi-directional pins that are not placed
+  ERCE_MISSING_UNIT, ///< Symbol has units that are not placed on the schematic
+  ERCE_DIFFERENT_UNIT_NET, ///< Shared pin in a multi-unit symbol is connected to more than one net.
+  ERCE_BUS_ALIAS_CONFLICT, ///< Conflicting bus alias definitions across sheets.
+  ERCE_DRIVER_CONFLICT, ///< Conflicting drivers (labels, etc) on a subgraph.
+  ERCE_BUS_ENTRY_CONFLICT, ///< A wire connected to a bus doesn't match the bus.
+  ERCE_BUS_TO_BUS_CONFLICT, ///< A connection between bus objects doesn't share at least one net.
+  ERCE_BUS_TO_NET_CONFLICT, ///< A bus wire is graphically connected to a net port/pin.
+  ERCE_GROUND_PIN_NOT_GROUND, ///< A ground-labeled pin is not on a ground net.
+  ERCE_LABEL_SINGLE_PIN, ///< A label is connected only to a single pin
+  ERCE_UNRESOLVED_VARIABLE, ///< A text variable could not be resolved.
+  ERCE_UNDEFINED_NETCLASS, ///< A netclass was referenced but not defined.
+  ERCE_SIMULATION_MODEL, ///< An error was found in the simulation model.
+  ERCE_WIRE_DANGLING, ///< Some wires are not connected to anything else.
+  ERCE_LIB_SYMBOL_ISSUES, ///< Symbol not found in active libraries.
+  ERCE_LIB_SYMBOL_MISMATCH, ///< Symbol doesn't match copy in library.
+  ERCE_FOOTPRINT_LINK_ISSUES, ///< The footprint link is invalid.
+  ERCE_FOOTPRINT_FILTERS, ///< The assigned footprint doesn't match the footprint filters
+  ERCE_UNANNOTATED, ///< Symbol has not been annotated.
+  ERCE_EXTRA_UNITS, ///< Symbol has more units than are defined.
+  ERCE_DIFFERENT_UNIT_VALUE, ///< Units of same symbol have different values.
+  ERCE_DUPLICATE_REFERENCE, ///< More than one symbol with the same reference.
+  ERCE_BUS_ENTRY_NEEDED, ///< Importer failed to auto-place a bus entry.
+  ERCE_FOUR_WAY_JUNCTION, ///< A four-way junction was found.
+  ERCE_LABEL_MULTIPLE_WIRES, ///< A label is connected to more than one wire.
+  ERCE_UNCONNECTED_WIRE_ENDPOINT, ///< A label is connected to more than one wire.
+  ERCE_STACKED_PIN_SYNTAX, ///< Pin name resembles stacked pin notation.
+  ERCE_FIELD_NAME_WHITESPACE, ///< Field name has leading or trailing whitespace.
+
+  ERCE_LAST = ERCE_FIELD_NAME_WHITESPACE,
+
+  ERCE_DUPLICATE_PIN_ERROR,
+  ERCE_PIN_TO_PIN_WARNING, // pin connected to an other pin: warning level
+  ERCE_PIN_TO_PIN_ERROR, // pin connected to an other pin: error level
+  ERCE_ANNOTATION_ACTION, // Not actually an error; just an action performed during annotation
+  ERCE_GENERIC_WARNING,
+  ERCE_GENERIC_ERROR,
+}
+
+/**
+ * `ERC_SETTINGS` (erc_settings.cpp), the live-model class: the per-error-code severity map
+ * and its `GetSeverity` special cases. The `.kicad_pro` JSON params (`m_ERCSeverities`'
+ * `rule_severities`, the pin map, exclusions) are the record model's `ErcSettings` above
+ * until the project file is on the live model.
+ */
+export class ERC_SETTINGS {
+  m_ERCSeverities: Map<number, Severity>;
+
+  constructor() {
+    this.m_ERCSeverities = new Map();
+
+    for (let i: number = ERCE_T.ERCE_FIRST; i <= ERCE_T.ERCE_LAST; ++i)
+      this.m_ERCSeverities.set(i, RPT_SEVERITY_ERROR);
+
+    // Error is the default setting so set non-error priorities here.
+    const s = this.m_ERCSeverities;
+    s.set(ERCE_T.ERCE_UNSPECIFIED, RPT_SEVERITY_UNDEFINED);
+    s.set(ERCE_T.ERCE_ENDPOINT_OFF_GRID, RPT_SEVERITY_WARNING);
+    s.set(ERCE_T.ERCE_PIN_TO_PIN_WARNING, RPT_SEVERITY_WARNING);
+    s.set(ERCE_T.ERCE_SIMILAR_LABELS, RPT_SEVERITY_WARNING);
+    s.set(ERCE_T.ERCE_SIMILAR_POWER, RPT_SEVERITY_WARNING);
+    s.set(ERCE_T.ERCE_SIMILAR_LABEL_AND_POWER, RPT_SEVERITY_WARNING);
+    s.set(ERCE_T.ERCE_SINGLE_GLOBAL_LABEL, RPT_SEVERITY_IGNORE);
+    s.set(ERCE_T.ERCE_SAME_LOCAL_GLOBAL_LABEL, RPT_SEVERITY_WARNING);
+    s.set(ERCE_T.ERCE_GROUND_PIN_NOT_GROUND, RPT_SEVERITY_WARNING);
+    s.set(ERCE_T.ERCE_LABEL_SINGLE_PIN, RPT_SEVERITY_WARNING);
+    s.set(ERCE_T.ERCE_DRIVER_CONFLICT, RPT_SEVERITY_WARNING);
+    s.set(ERCE_T.ERCE_BUS_ENTRY_CONFLICT, RPT_SEVERITY_WARNING);
+    s.set(ERCE_T.ERCE_LIB_SYMBOL_ISSUES, RPT_SEVERITY_WARNING);
+    s.set(ERCE_T.ERCE_LIB_SYMBOL_MISMATCH, RPT_SEVERITY_WARNING);
+    s.set(ERCE_T.ERCE_FOOTPRINT_LINK_ISSUES, RPT_SEVERITY_WARNING);
+    s.set(ERCE_T.ERCE_FOOTPRINT_FILTERS, RPT_SEVERITY_IGNORE);
+    s.set(ERCE_T.ERCE_NOCONNECT_CONNECTED, RPT_SEVERITY_WARNING);
+    s.set(ERCE_T.ERCE_NOCONNECT_NOT_CONNECTED, RPT_SEVERITY_WARNING);
+    s.set(ERCE_T.ERCE_MISSING_UNIT, RPT_SEVERITY_WARNING);
+    s.set(ERCE_T.ERCE_MISSING_INPUT_PIN, RPT_SEVERITY_WARNING);
+    s.set(ERCE_T.ERCE_MISSING_BIDI_PIN, RPT_SEVERITY_WARNING);
+    s.set(ERCE_T.ERCE_SIMULATION_MODEL, RPT_SEVERITY_IGNORE);
+    s.set(ERCE_T.ERCE_FOUR_WAY_JUNCTION, RPT_SEVERITY_IGNORE);
+    s.set(ERCE_T.ERCE_LABEL_MULTIPLE_WIRES, RPT_SEVERITY_WARNING);
+    s.set(ERCE_T.ERCE_UNCONNECTED_WIRE_ENDPOINT, RPT_SEVERITY_WARNING);
+    s.set(ERCE_T.ERCE_STACKED_PIN_SYNTAX, RPT_SEVERITY_WARNING);
+    s.set(ERCE_T.ERCE_FIELD_NAME_WHITESPACE, RPT_SEVERITY_WARNING);
+  }
+
+  IsTestEnabled(aErrorCode: number): boolean {
+    return this.GetSeverity(aErrorCode) !== RPT_SEVERITY_IGNORE;
+  }
+
+  GetSeverity(aErrorCode: number): Severity {
+    // Special-case duplicate pin error. Multiple pins with the same number are allowed
+    // if they share the same net, but having them on different nets is always an error.
+    if (aErrorCode === ERCE_T.ERCE_DUPLICATE_PIN_ERROR) {
+      return RPT_SEVERITY_ERROR;
+    }
+    // Special-case pin-to-pin errors:
+    // Ignore-or-not is controlled by ERCE_PIN_TO_PIN_WARNING (for both)
+    // Warning-or-error is controlled by which errorCode it is
+    else if (aErrorCode === ERCE_T.ERCE_PIN_TO_PIN_ERROR) {
+      if (this.m_ERCSeverities.get(ERCE_T.ERCE_PIN_TO_PIN_WARNING) === RPT_SEVERITY_IGNORE)
+        return RPT_SEVERITY_IGNORE;
+      else return RPT_SEVERITY_ERROR;
+    } else if (aErrorCode === ERCE_T.ERCE_PIN_TO_PIN_WARNING) {
+      if (this.m_ERCSeverities.get(ERCE_T.ERCE_PIN_TO_PIN_WARNING) === RPT_SEVERITY_IGNORE)
+        return RPT_SEVERITY_IGNORE;
+      else return RPT_SEVERITY_WARNING;
+    } else if (aErrorCode === ERCE_T.ERCE_GENERIC_WARNING) {
+      return RPT_SEVERITY_WARNING;
+    } else if (aErrorCode === ERCE_T.ERCE_GENERIC_ERROR) {
+      return RPT_SEVERITY_ERROR;
+    }
+
+    // wxCHECK_MSG( m_ERCSeverities.count( aErrorCode ), RPT_SEVERITY_IGNORE, ... )
+    return this.m_ERCSeverities.get(aErrorCode) ?? RPT_SEVERITY_IGNORE;
+  }
+
+  SetSeverity(aErrorCode: number, aSeverity: Severity): void {
+    this.m_ERCSeverities.set(aErrorCode, aSeverity);
+  }
 }

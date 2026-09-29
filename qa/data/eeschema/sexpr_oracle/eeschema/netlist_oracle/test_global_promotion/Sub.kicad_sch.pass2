@@ -1,0 +1,50 @@
+(kicad_sch
+	(version 20260306)
+	(generator "eeschema")
+	(generator_version "10.0")
+	(uuid "b637c592-0414-4749-b89e-83757c908c6a")
+	(paper "A4")
+	(lib_symbols)
+	(wire
+		(pts
+			(xy 72.39 50.8) (xy 102.87 50.8)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "063bdbc6-2240-48c1-a715-fc3efa930c42")
+	)
+	(label "5V"
+		(at 102.87 50.8 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "167c8378-8df3-40ef-97a0-46602d969af1")
+	)
+	(global_label "5Vanalog"
+		(shape input)
+		(at 72.39 50.8 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "47e65081-ad02-49d6-a0aa-b185d11b4214")
+		(property "Intersheetrefs" "${INTERSHEET_REFS}"
+			(at 72.39 50.8 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+	)
+)

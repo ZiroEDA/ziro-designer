@@ -12,7 +12,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import { PreferencesDialog } from '@ziroeda/designer/src/dialogs/PreferencesDialog.js';
-import type { PrefsPageId } from '@ziroeda/designer/src/dialogs/prefs/types.js';
+import type { PrefsPageId } from '@ziroeda/common/frame_type.js';
 
 afterEach(cleanup);
 

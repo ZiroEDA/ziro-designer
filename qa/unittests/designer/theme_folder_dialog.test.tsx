@@ -33,8 +33,8 @@ import {
   readThemeFolder,
 } from '@ziroeda/common/launch_ext.js';
 import type { ThemeDirHandle } from '@ziroeda/common/launch_ext.js';
-import { EESCHEMA_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
-import type { EeschemaSettings } from '@ziroeda/designer/src/prefs/settings.js';
+import { EESCHEMA_DEFAULTS } from '@ziroeda/eeschema/eeschema_settings.js';
+import type { EeschemaSettings } from '@ziroeda/eeschema/eeschema_settings.js';
 import type { PrefsContext } from '@ziroeda/designer/src/dialogs/prefs/types.js';
 
 afterEach(cleanup);

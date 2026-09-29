@@ -31,7 +31,7 @@ import { PnsSegment } from '@ziroeda/pcbnew/router/pns_segment.js';
 import { PnsSolid } from '@ziroeda/pcbnew/router/pns_solid.js';
 import { PnsVia } from '@ziroeda/pcbnew/router/pns_via.js';
 import { LineMarker } from '@ziroeda/pcbnew/router/pns_item.js';
-import type { PnsLine } from '@ziroeda/pcbnew/router/pns_line_item.js';
+import type { PnsLine } from '@ziroeda/pcbnew/router/pns_line.js';
 import type { NetHandle } from '@ziroeda/pcbnew/router/pns_collision.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 

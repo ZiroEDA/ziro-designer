@@ -22,7 +22,7 @@ const read = (rel: string): string =>
 
 const DIALOG = read('../../pcbnew/dialogs/dialog_reference_image_properties_ui.tsx');
 const CSS = read('../../common/widgets/shell.css');
-const EDITOR = read('editors/pcb/PcbEditor.tsx');
+const EDITOR = read('../../pcbnew/pcb_edit_frame_ui.tsx');
 const CURSORS = read('../../pcbnew/cursors.ts');
 /** Comments are prose, and this file's name the controls it does NOT have. */
 const code = DIALOG.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');

@@ -7,7 +7,6 @@ import {
   settings,
   TOOLBAR_APPS,
   type CommonSettings,
-  type EeschemaSettings,
   type GerbviewSettings,
   type PcbnewSettings,
   type PlEditorSettings,
@@ -18,6 +17,7 @@ import {
   type UserColorTheme,
   type Viewer3dSettings,
 } from '../prefs/settings.js';
+import { type EeschemaSettings } from '@ziroeda/eeschema/eeschema_settings.js';
 import type { PrefsTransferPrompt } from './prefs/types.js';
 import type { ToolbarSettings } from '@ziroeda/common/tool/ui/toolbar_configuration.js';
 import { MessageDialogYesNo } from '@ziroeda/common/dialogs/dialog_message.js';
@@ -27,10 +27,10 @@ import { loadPrefsPanel, peekPrefsPanel } from './prefs/lazy_pages.js';
 import {
   DEFAULT_RESET_TOOLTIP,
   type PrefsContext,
-  type PrefsPageId,
   type PrefsPageOwner,
   type PrefsPanelModule,
 } from './prefs/types.js';
+import { type PrefsPageId } from '@ziroeda/common/frame_type.js';
 import type { HotkeyOverrides } from '../editors/schematic/hotkey_bindings.js';
 import { SENTRY } from '@ziroeda/common/app_monitor.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';

@@ -76,7 +76,7 @@ const FRAMES: {
   },
   {
     app: 'pcbnew',
-    file: 'editors/pcb/PcbEditor.tsx',
+    file: '../../pcbnew/pcb_edit_frame_ui.tsx',
     bars: 4,
     banned: ['PCB_TOP_TOOLBAR', 'PCB_AUX_TOOLBAR', 'PCB_LEFT_TOOLBAR', 'PCB_RIGHT_TOOLBAR'],
   },

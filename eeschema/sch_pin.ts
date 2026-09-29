@@ -11,9 +11,13 @@
  * footprint association that selects one, and per-instance sparse edits can all
  * remap it, and the resolved pad may itself use stacked-pin notation (`[1,2]`) and
  * so stand for several pads.
+ *
+ * `resolvePadNumbers` — the netlist-exporter-facing wrapper that expands a
+ * resolved pad through stacked-pin notation — lives in
+ * `netlist_exporters/netlist_exporter_base.ts` now: it is exporter
+ * infrastructure built on this function, not this file's own.
  */
 
-import { expandStackedPinNotation } from '@ziroeda/common/string_utils.js';
 import type { LibSymbol, SchSymbol } from './types.js';
 import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import { EDA_ITEM as EDA_ITEM_CLASS } from '@ziroeda/common/eda_item.js';
@@ -47,6 +51,7 @@ import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import type { TRANSFORM } from '@ziroeda/kimath/src/transform.js';
 import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
 import { DEFAULT_PIN_LENGTH, DEFAULT_PINNAME_SIZE, DEFAULT_PINNUM_SIZE } from './default_values.js';
+import { PIN_LAYOUT_CACHE } from './pin_layout_cache.js';
 import { ElectricalPinTypeGetText, PinShapeGetText } from './pin_type.js';
 import { SCH_ITEM } from './sch_item.js';
 import type { SCH_SHEET_PATH } from './sch_sheet_path.js';
@@ -106,30 +111,6 @@ export function getEffectivePadNumber(
   return footprintPads
     ? { padNumber: '', state: 'unmapped' }
     : { padNumber: pinNumber, state: 'identity' };
-}
-
-/**
- * NETLIST_EXPORTER_BASE::resolvePadNumbers, the pad numbers one pin contributes
- * to a netlist: the resolved pad expanded through stacked-pin notation, or nothing
- * at all when the pin maps to no pad on its footprint (an UNMAPPED pin must not
- * open a net entry).
- */
-export function resolvePadNumbers(
-  pinNumber: string,
-  symbol: SchSymbol,
-  lib: LibSymbol | undefined,
-  footprintLibId: string,
-  footprintPads: ReadonlySet<string> | undefined,
-): string[] {
-  const { padNumber, state } = getEffectivePadNumber(
-    pinNumber,
-    symbol,
-    lib,
-    footprintLibId,
-    footprintPads,
-  );
-  if (state === 'unmapped') return [];
-  return expandStackedPinNotation(padNumber).numbers;
 }
 
 // ---------------------------------------------------------------------------
@@ -786,16 +767,37 @@ export class SCH_PIN extends SCH_ITEM {
    * aIncludeElectricalType )`: `GetLayoutCache().GetPinBoundingBox( … )`.
    *
    * With no arguments: `( false, true, m_flags & SHOW_ELEC_TYPE )`.
-   *
-   * -- PIN_LAYOUT_CACHE pending (E3): pin_layout_cache.cpp is not ported yet.
    */
   override GetBoundingBox(
-    _aIncludeLabelsOnInvisiblePins = false,
-    _aIncludeNameAndNumber = true,
-    _aIncludeElectricalType = (this.m_flags & SHOW_ELEC_TYPE) !== 0,
+    aIncludeLabelsOnInvisiblePins = false,
+    aIncludeNameAndNumber = true,
+    aIncludeElectricalType = (this.m_flags & SHOW_ELEC_TYPE) !== 0,
   ): BOX2I {
-    throw new Error('SCH_PIN::GetBoundingBox: PIN_LAYOUT_CACHE is not ported yet');
+    return this.GetLayoutCache().GetPinBoundingBox(
+      aIncludeLabelsOnInvisiblePins,
+      aIncludeNameAndNumber,
+      aIncludeElectricalType,
+    );
   }
+
+  /**
+   * Get the layout cache associated with this pin, made on first use.  The owner is
+   * checked because a copy made field-by-field would otherwise share its source's cache
+   * (upstream's copy constructor leaves `m_layoutCache` empty).
+   */
+  GetLayoutCache(): PIN_LAYOUT_CACHE {
+    if (!this.m_layoutCache || this.m_layoutCacheOwner !== this) {
+      this.m_layoutCache = new PIN_LAYOUT_CACHE(
+        this as unknown as ConstructorParameters<typeof PIN_LAYOUT_CACHE>[0],
+      );
+      this.m_layoutCacheOwner = this;
+    }
+
+    return this.m_layoutCache;
+  }
+
+  private m_layoutCache: PIN_LAYOUT_CACHE | null = null;
+  private m_layoutCacheOwner: SCH_PIN | null = null;
 
   IsGlobalPower(): boolean {
     if (this.GetType() !== ELECTRICAL_PINTYPE.PT_POWER_IN) return false;

@@ -9,10 +9,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { jsonFileWildcard, reportFileWildcard } from '@ziroeda/common/wildcards_and_files_ext.js';
 
-const src = readFileSync(
-  resolve(process.cwd(), '../designer/src/editors/pcb/PcbEditor.tsx'),
-  'utf8',
-);
+const src = readFileSync(resolve(process.cwd(), '../pcbnew/pcb_edit_frame_ui.tsx'), 'utf8');
 
 describe('Save Report File', () => {
   it('is the file chooser in save mode, on the report and JSON wildcards', () => {

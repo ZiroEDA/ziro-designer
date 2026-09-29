@@ -18,7 +18,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 const text = readFileSync(
-  fileURLToPath(new URL('../../../designer/src/editors/pcb/PcbEditor.tsx', import.meta.url)),
+  fileURLToPath(new URL('../../../pcbnew/pcb_edit_frame_ui.tsx', import.meta.url)),
   'utf8',
 );
 
@@ -44,9 +44,7 @@ describe('EDIT_TOOL::Rotate and ::Mirror both take the modification point', () =
   });
 
   it('and it comes from the ported function, snapped for the multi-item branch', () => {
-    expect(text).toContain(
-      "import { flipBoardItems, modificationPoint } from '@ziroeda/pcbnew/edit-board.js';",
-    );
+    expect(text).toContain("import { flipBoardItems, modificationPoint } from './edit-board.js';");
     expect(text).toContain('modificationPoint(brd, items, (p) =>');
   });
 

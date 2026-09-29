@@ -15,7 +15,8 @@
  * whose tsconfig sets no `--jsx` and therefore cannot follow a `.tsx`.
  */
 import { ownerOf } from './registry.js';
-import type { PrefsPageId, PrefsPageOwner, PrefsPanelFactory, PrefsPanelModule } from './types.js';
+import type { PrefsPageOwner, PrefsPanelFactory, PrefsPanelModule } from './types.js';
+import type { PrefsPageId } from '@ziroeda/common/frame_type.js';
 
 /**
  * Where each owner's `CreateKiWindow` lives. Dynamic on purpose: this is the

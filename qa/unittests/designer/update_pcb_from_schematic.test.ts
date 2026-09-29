@@ -19,6 +19,8 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { Reporter, RPT_SEVERITY_ACTION } from '@ziroeda/common';
+import { formatSchematicNetlist } from '@ziroeda/eeschema/cross-probing.js';
+import { setHeadlessNetlistProvider } from '@ziroeda/pcbnew/netlist_from_schematic.js';
 import {
   BOARD_NETLIST_UPDATER,
   readBoard,
@@ -27,6 +29,12 @@ import {
 } from '@ziroeda/pcbnew';
 import type { PcbFootprint } from '@ziroeda/pcbnew';
 import { fetchNetlistFromSchematic } from '@ziroeda/pcbnew/netlist_from_schematic.js';
+
+// The app registers the headless MAIL_SCH_GET_NETLIST answer at startup
+// (pgm_app.ts: `setHeadlessNetlistProvider(formatSchematicNetlist)`), since
+// pcbnew/ may not import eeschema/. A test that never starts the app does
+// the same, before the module-level fetch below runs.
+setHeadlessNetlistProvider(formatSchematicNetlist);
 
 /**
  * A KiCad 6-era copy of the Arduino_Uno template, held here rather than read out

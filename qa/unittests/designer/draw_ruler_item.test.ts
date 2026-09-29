@@ -178,7 +178,7 @@ describe('drawRulerItem', () => {
 });
 
 describe('one ruler, three canvases', () => {
-  const CANVASES = ['editors/pcb/PcbEditor.tsx', 'editors/footprint/FootprintCanvas.tsx'];
+  const CANVASES = ['../../pcbnew/pcb_edit_frame_ui.tsx', '../../pcbnew/pcb_draw_panel_gal_ui.tsx'];
 
   const read = (rel: string): string =>
     readFileSync(fileURLToPath(new URL(`../../../designer/src/${rel}`, import.meta.url)), 'utf8');
@@ -236,7 +236,7 @@ describe('one ruler, three canvases', () => {
     // viewer passed this and the editor did not, so the same canvas measured
     // in mm there whatever its Units radio said.
     for (const rel of [
-      'editors/footprint/FootprintEditor.tsx',
+      '../../pcbnew/footprint_edit_frame_ui.tsx',
       // `display_footprints_frame.tsx` moved to `cvpcb/` (cvpcb/STRUCTURE.md's
       // stage two) and hands `measureUnits` through `CVPCB_APP.FootprintCanvas`
       // as a plain object field; the actual `<FootprintCanvas measureUnits=.../>`

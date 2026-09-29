@@ -13,12 +13,9 @@
  * to see it, let alone change it.
  */
 import { describe, it, expect } from 'vitest';
-import {
-  EESCHEMA_DEFAULTS,
-  SETTINGS_VERSION,
-  migrateEeschemaSettings,
-} from '@ziroeda/designer/src/prefs/settings.js';
-import type { EeschemaSettings } from '@ziroeda/designer/src/prefs/settings.js';
+import { SETTINGS_VERSION, migrateEeschemaSettings } from '@ziroeda/designer/src/prefs/settings.js';
+import { EESCHEMA_DEFAULTS } from '@ziroeda/eeschema/eeschema_settings.js';
+import type { EeschemaSettings } from '@ziroeda/eeschema/eeschema_settings.js';
 
 /** A stored settings object with the cursor block the given version shipped. */
 const stored = (crosshair: 'small' | 'full' | '45', always: boolean): EeschemaSettings =>

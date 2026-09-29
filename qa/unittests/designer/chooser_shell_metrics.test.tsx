@@ -37,7 +37,7 @@ import { resolve } from 'node:path';
 import { cleanup, fireEvent, render } from '@testing-library/react';
 import { LibTree } from '@ziroeda/common/widgets/lib_tree.js';
 import { LibTreeModelAdapter } from '@ziroeda/common/lib_tree_model_adapter.js';
-import { EESCHEMA_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
+import { EESCHEMA_DEFAULTS } from '@ziroeda/eeschema/eeschema_settings.js';
 
 afterEach(cleanup);
 

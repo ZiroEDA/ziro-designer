@@ -53,8 +53,8 @@ import {
 import { LineMarker, PnsKind, type PnsItem, type PnsLinkedItem } from './pns_item.js';
 import { itemHull } from './pns_item_hull.js';
 import { PnsItemSet } from './pns_itemset.js';
-import { PnsLine, PnsLineChain } from './pns_line_item.js';
-import { chainSplit, lineDragCorner, lineDragSegment } from './pns_line_drag.js';
+import { PnsLine, PnsLineChain } from './pns_line.js';
+import { chainSplit, lineDragCorner, lineDragSegment } from './pns_line.js';
 import { mergeColinear, mergeFull } from './pns_optimizer.js';
 import type { PnsNode } from './pns_node.js';
 import { PnsMode } from './pns_routing_settings.js';

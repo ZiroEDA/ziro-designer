@@ -42,17 +42,17 @@ const count = (src: string, re: RegExp): number => (src.match(re) ?? []).length;
  * replaces its row here.
  */
 const GRID_OWNERS: [canvas: string, file: string][] = [
-  ['schematic', 'editors/schematic/render/renderer.ts'],
+  ['schematic', '../../eeschema/sch_painter.ts'],
   ['symbol editor', '../../eeschema/symbol_editor/symbol_renderer.ts'],
-  ['footprint editor', 'editors/footprint/FootprintCanvas.tsx'],
+  ['footprint editor', '../../pcbnew/pcb_draw_panel_gal_ui.tsx'],
 ];
 
 /** Where each canvas' crosshair (GAL::blitCursor) is drawn. */
 const CROSSHAIR_OWNERS: [canvas: string, file: string][] = [
   ['schematic', 'editors/schematic/components/SchematicCanvas.tsx'],
   ['symbol editor', 'editors/symbol/SymbolCanvas.tsx'],
-  ['pcb', 'editors/pcb/PcbEditor.tsx'],
-  ['footprint editor', 'editors/footprint/FootprintCanvas.tsx'],
+  ['pcb', '../../pcbnew/pcb_edit_frame_ui.tsx'],
+  ['footprint editor', '../../pcbnew/pcb_draw_panel_gal_ui.tsx'],
 ];
 
 /** Everything that draws a grid or a crosshair, for the no-local-copy sweep. */
@@ -79,7 +79,7 @@ describe('shared grid + crosshair', () => {
     // WebGL2 is on the browser-support gate, so there is one renderer and the
     // grid comes from `GAL::DrawGrid` through the VIEW. A `drawGrid(` back in
     // this file is the 2D fallback growing back.
-    expect(read('editors/pcb/PcbEditor.tsx')).not.toMatch(/\bdrawGrid\(/);
+    expect(read('../../pcbnew/pcb_edit_frame_ui.tsx')).not.toMatch(/\bdrawGrid\(/);
   });
 
   it('nobody keeps a local grid or crosshair painter any more', () => {
@@ -132,7 +132,7 @@ describe('shared grid + crosshair', () => {
       const src = read(rel);
       expect(src, `${rel} does not pass show:`).toMatch(/show:/);
     }
-    expect(read('editors/pcb/PcbEditor.tsx')).not.toMatch(
+    expect(read('../../pcbnew/pcb_edit_frame_ui.tsx')).not.toMatch(
       /if \([^)]*toggles\.has\('toggleGrid'\)[^)]*\) \{\s*drawGrid/,
     );
   });
@@ -141,7 +141,7 @@ describe('shared grid + crosshair', () => {
     // The whole point of the change. FootprintCanvas.tsx had zero occurrences
     // of the string "grid"; symbolRenderer.ts had a private painter that no
     // toggle could switch off.
-    const fp = read('editors/footprint/FootprintCanvas.tsx');
+    const fp = read('../../pcbnew/pcb_draw_panel_gal_ui.tsx');
     expect(fp).toMatch(/\bdrawGrid\(/);
     expect(fp).toMatch(/showGrid/);
     const sym = read('../../eeschema/symbol_editor/symbol_renderer.ts');
@@ -159,13 +159,13 @@ describe('shared grid + crosshair', () => {
     // `view->SetLayerVisible( LAYER_GRID, … )` (:1420-1432). Unchecking Grid
     // there hides it in the footprint editor exactly as in the PCB editor,
     // where `objects.grid && toggles.has('toggleGrid')` was already the rule.
-    expect(read('editors/footprint/FootprintEditor.tsx')).toMatch(
+    expect(read('../../pcbnew/footprint_edit_frame_ui.tsx')).toMatch(
       /showGrid=\{objects\.grid && toggles\.has\('toggleGrid'\)\}/,
     );
   });
 
   it('the footprint grid combo is live and reads the STORED grid list', () => {
-    const src = read('editors/footprint/FootprintEditor.tsx');
+    const src = read('../../pcbnew/footprint_edit_frame_ui.tsx');
     // It used to be `<select className="ze-select" disabled title="Grid">` with
     // one hardcoded `Grid: 0.635 mm (25 mils)` option.
     expect(src).not.toMatch(/disabled title="Grid"/);
@@ -185,7 +185,7 @@ describe('shared grid + crosshair', () => {
 
   it('nobody keeps a private copy of DefaultGridSizeList', () => {
     // pcbnew built the same 22 entries by hand from two arrays.
-    const pcb = read('editors/pcb/PcbEditor.tsx');
+    const pcb = read('../../pcbnew/pcb_edit_frame_ui.tsx');
     expect(pcb).toMatch(/gridSizesIU\('pcbnew'/);
     expect(pcb).not.toMatch(/\[1000, 500, 250, 200, 100, 50, 25, 20, 10, 5, 2, 1\]/);
   });

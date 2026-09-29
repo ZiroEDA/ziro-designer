@@ -97,8 +97,9 @@ export function schematicTextVarResolver(ctx: TextVarContext): TextVarResolverFn
 // the top-level sheets, the current sheet, the hierarchy, bus aliases, variants and the
 // schematic's embedded files. Everything above is the record model's resolver, untouched.
 //
-// Pending, marked in place: CONNECTION_GRAPH (ConnectionGraph, GetNetClassAssignmentCandidates,
-// RecalculateConnections, CleanUp), ERC_SETTINGS and the ERC exclusions, the project
+// Pending, marked in place: CleanUp and RecalculateConnections' incremental path (the
+// connection graph is always rebuilt whole; see RecalculateConnections), the ERC exclusions (ErcSettings() is a schematic-owned
+// ERC_SETTINGS, as Settings() below), the project
 // settings file (Settings() is a schematic-owned SCHEMATIC_SETTINGS, KiCad's no-project
 // answer), the PROPERTY_MANAGER listener that syncs other units' fields, SCH_REFERENCE_LIST
 // uses (CacheExistingAnnotation, Contains, the refdes fallback of ResolveCrossReference,
@@ -112,8 +113,11 @@ import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
 import { type KIID, KIID_PATH, niluuid } from '@ziroeda/common/kiid.js';
 import { KICAD_T as KICAD_T_E3 } from '@ziroeda/core/typeinfo.js';
 import { applyMixins } from '@ziroeda/core/mixins.js';
-import type { BUS_ALIAS } from './bus_alias.js';
+import { BUS_ALIAS } from './bus_alias.js';
+import { CONNECTION_GRAPH, CONNECTION_SUBGRAPH } from './connection_graph.js';
+import { ERC_SETTINGS } from './erc/erc_settings.js';
 import type { SCH_ITEM } from './sch_item.js';
+import { SCH_RULE_AREA } from './sch_rule_area.js';
 import { SCH_SCREEN, SCH_SCREENS } from './sch_screen.js';
 import { SCH_SHEET } from './sch_sheet.js';
 import { SCH_SHEET_LIST, SCH_SHEET_PATH } from './sch_sheet_path.js';
@@ -200,6 +204,12 @@ export class SCHEMATIC extends EDA_ITEM_E3 {
   /// The project settings file's SCHEMATIC_SETTINGS stand-in (see the header note).
   private m_settings: SCHEMATIC_SETTINGS;
 
+  /// The project file's ERC_SETTINGS stand-in, same reasoning as m_settings.
+  private m_ercSettings: ERC_SETTINGS;
+
+  /// Holds and calculates connectivity information of this schematic.
+  private m_connectionGraph: CONNECTION_GRAPH;
+
   constructor(aPrj: PROJECT | null) {
     super(null, KICAD_T_E3.SCHEMATIC_T);
     this.initEmbeddedFiles();
@@ -218,6 +228,8 @@ export class SCHEMATIC extends EDA_ITEM_E3 {
     this.m_variantNames = new Set();
     this.m_settingTopLevelSheets = false;
     this.m_settings = new SCHEMATIC_SETTINGS();
+    this.m_ercSettings = new ERC_SETTINGS();
+    this.m_connectionGraph = new CONNECTION_GRAPH(this);
 
     SCHEMATIC.m_IsSchematicExists = true;
 
@@ -240,12 +252,14 @@ export class SCHEMATIC extends EDA_ITEM_E3 {
     this.m_topLevelSheets = [];
     this.m_hierarchy = new SCH_SHEET_LIST();
 
+    this.m_connectionGraph.Reset();
     this.m_currentSheet.clear();
 
     this.m_busAliases = [];
 
     this.ensureVirtualRoot();
     this.ensureDefaultTopLevelSheet();
+    this.loadBusAliasesFromProject();
   }
 
   /** Return a reference to the project this schematic is part of. */
@@ -253,8 +267,35 @@ export class SCHEMATIC extends EDA_ITEM_E3 {
     return this.m_project!;
   }
 
+  /**
+   * `SetProject`: the project's bus aliases are loaded.  The ERC and schematic settings
+   * upstream hangs on the project file are schematic-owned here (see the header note).
+   */
   SetProject(aPrj: PROJECT | null): void {
     this.m_project = aPrj;
+
+    if (this.m_project) this.loadBusAliasesFromProject();
+  }
+
+  /** `loadBusAliasesFromProject`: the project file's `schematic.bus_aliases`. */
+  private loadBusAliasesFromProject(): void {
+    this.m_busAliases = [];
+
+    if (!this.m_project) return;
+
+    // A PROJECT with no file (a bare `new PROJECT()`) has no aliases to give.
+    const projectFile = this.m_project.GetProjectFile() as PROJECT_FILE | null;
+
+    if (!projectFile) return;
+
+    for (const [name, members] of projectFile.m_BusAliases) {
+      const busAlias = new BUS_ALIAS();
+
+      busAlias.SetName(name);
+      busAlias.SetMembers(members);
+
+      this.m_busAliases.push(busAlias);
+    }
   }
 
   GetProperties(): Map<string, string> {
@@ -548,6 +589,69 @@ export class SCHEMATIC extends EDA_ITEM_E3 {
 
   Settings(): SCHEMATIC_SETTINGS {
     return this.m_settings;
+  }
+
+  ConnectionGraph(): CONNECTION_GRAPH {
+    return this.m_connectionGraph;
+  }
+
+  /**
+   * Return the set of netname candidates for netclass assignment.  The list will include
+   * a netname for each subgraph which is not a bus and has a pin or better driver.
+   */
+  GetNetClassAssignmentCandidates(): Set<string> {
+    const names = new Set<string>();
+
+    for (const [key, subgraphList] of this.m_connectionGraph.GetNetMap()) {
+      const firstSubgraph = subgraphList[0]!;
+
+      if (
+        !firstSubgraph.GetDriverConnection()!.IsBus() &&
+        firstSubgraph.GetOwnDriverPriority() >= CONNECTION_SUBGRAPH.PRIORITY.PIN
+      ) {
+        names.add(key.Name);
+      }
+    }
+
+    return names;
+  }
+
+  /**
+   * Generate the connection data for the entire schematic hierarchy.
+   *
+   * Upstream first runs `CleanUp` (not on the live model yet: nothing is merged, split or
+   * given a junction here) and, when `ADVANCED_CFG::m_IncrementalConnectivity` is set and
+   * the change list is small, recalculates only the damaged part of the graph.  Here the
+   * graph is always rebuilt whole - upstream's GLOBAL_CLEANUP arm, the same answer as the
+   * incremental one, more slowly.
+   */
+  RecalculateConnections(
+    _aCommit: unknown,
+    _aCleanupFlags: SCH_CLEANUP_FLAGS,
+    aChangedItemHandler: ((aItem: SCH_ITEM) => void) | null = null,
+  ): void {
+    this.RefreshHierarchy();
+    const list = this.Hierarchy();
+
+    // if( Settings().m_IntersheetRefsShow ) RecomputeIntersheetRefs(): pending on the live model.
+
+    // Clear all resolved netclass caches in case labels have changed
+    this.m_project?.GetProjectFile().NetSettings().ClearAllCaches();
+
+    // Update all rule areas so we can cascade implied connectivity changes
+    const all_screens = new Set<SCH_SCREEN>();
+
+    for (const path of list) all_screens.add(path.LastScreen()!);
+
+    SCH_RULE_AREA.UpdateRuleAreasInScreens(all_screens);
+
+    // Recalculate all connectivity
+    this.m_connectionGraph.Recalculate(list, true, aChangedItemHandler);
+  }
+
+  /** `ErcSettings()`: the project file's `m_ErcSettings` upstream; schematic-owned here. */
+  ErcSettings(): ERC_SETTINGS {
+    return this.m_ercSettings;
   }
 
   override GetEmbeddedFiles(): EMBEDDED_FILES {
@@ -1204,10 +1308,10 @@ export class SCHEMATIC extends EDA_ITEM_E3 {
     }
   }
 
-  private rebuildHierarchyState(_aResetConnectionGraph: boolean): void {
+  private rebuildHierarchyState(aResetConnectionGraph: boolean): void {
     this.RefreshHierarchy();
 
-    // CONNECTION_GRAPH::Reset is pending (no connection graph yet).
+    if (aResetConnectionGraph && this.m_project) this.m_connectionGraph.Reset();
 
     this.m_variantNames.clear();
 

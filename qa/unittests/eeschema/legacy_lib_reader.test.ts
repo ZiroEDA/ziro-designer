@@ -49,7 +49,7 @@ import { readSymbolLib } from '@ziroeda/eeschema';
 import {
   legacyCacheFileNames,
   readLegacySymbolLibrary,
-} from '@ziroeda/eeschema/sch_io/legacy/read-lib.js';
+} from '@ziroeda/eeschema/sch_io/kicad_legacy/sch_io_kicad_legacy_lib_cache.js';
 import type { LibSymbol } from '@ziroeda/eeschema/types.js';
 
 const data = (name: string): string =>

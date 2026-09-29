@@ -21,7 +21,7 @@
  * - `CompareGeometry` runs `Simplify` first, so re-vertexing is not a change.
  */
 import { describe, expect, it } from 'vitest';
-import { PnsLine, PnsLineChain } from '@ziroeda/pcbnew/router/pns_line_item.js';
+import { PnsLine, PnsLineChain } from '@ziroeda/pcbnew/router/pns_line.js';
 import { PnsSegment } from '@ziroeda/pcbnew/router/pns_segment.js';
 import { PnsVia } from '@ziroeda/pcbnew/router/pns_via.js';
 import { PnsLayerRange } from '@ziroeda/pcbnew/router/pns_layerset.js';

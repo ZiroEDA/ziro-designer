@@ -62,7 +62,7 @@ import {
 } from './pns_meander.js';
 import { PnsItemSet } from './pns_itemset.js';
 import { PnsKind } from './pns_item.js';
-import { PnsLine, PnsLineChain } from './pns_line_item.js';
+import { PnsLine, PnsLineChain } from './pns_line.js';
 import {
   PnsMeanderPlacerBase,
   PnsTuningStatus,

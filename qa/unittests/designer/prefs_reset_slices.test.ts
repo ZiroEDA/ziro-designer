@@ -41,21 +41,21 @@ import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import {
   COMMON_DEFAULTS,
-  EESCHEMA_DEFAULTS,
   GERBVIEW_DEFAULTS,
   PCBNEW_DEFAULTS,
   PL_EDITOR_DEFAULTS,
   PRIVACY_DEFAULTS,
   SYMBOL_EDITOR_DEFAULTS,
   type CommonSettings,
-  type EeschemaSettings,
   type GerbviewSettings,
   type PcbnewSettings,
   type PlEditorSettings,
   type PrivacySettings,
   type SymbolEditorSettings,
 } from '@ziroeda/designer/src/prefs/settings.js';
-import type { PrefsContext, PrefsPageId } from '@ziroeda/designer/src/dialogs/prefs/types.js';
+import { EESCHEMA_DEFAULTS, type EeschemaSettings } from '@ziroeda/eeschema/eeschema_settings.js';
+import type { PrefsContext } from '@ziroeda/designer/src/dialogs/prefs/types.js';
+import type { PrefsPageId } from '@ziroeda/common/frame_type.js';
 import { TOOLBAR_APPS, type ToolbarApp } from '@ziroeda/designer/src/prefs/settings.js';
 import {
   TOOLBAR_SETTINGS_DEFAULTS,

@@ -33,16 +33,10 @@ import { FOOTPRINT_NAME_VALIDATOR } from '@ziroeda/common/validators.js';
 import { PanelEeschemaColorSettings } from '@ziroeda/designer/src/editors/schematic/prefs/PanelEeschemaColorSettings.js';
 import { PanelFpColorSettings } from '@ziroeda/designer/src/editors/footprint/prefs/PanelFpColorSettings.js';
 import { pcbThemeWithOverrides } from '@ziroeda/pcbnew/pcbTheme.js';
-import {
-  normalizeUserThemes,
-  EESCHEMA_DEFAULTS,
-  FPEDIT_DEFAULTS,
-} from '@ziroeda/designer/src/prefs/settings.js';
-import type {
-  EeschemaSettings,
-  FpEditSettings,
-  UserColorTheme,
-} from '@ziroeda/designer/src/prefs/settings.js';
+import { normalizeUserThemes, FPEDIT_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
+import { EESCHEMA_DEFAULTS } from '@ziroeda/eeschema/eeschema_settings.js';
+import type { FpEditSettings, UserColorTheme } from '@ziroeda/designer/src/prefs/settings.js';
+import type { EeschemaSettings } from '@ziroeda/eeschema/eeschema_settings.js';
 import type { PrefsContext } from '@ziroeda/designer/src/dialogs/prefs/types.js';
 
 // FOOTPRINT_NAME_VALIDATOR's excludes (validators.cpp:51), which the "New

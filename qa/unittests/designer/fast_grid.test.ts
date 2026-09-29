@@ -31,11 +31,11 @@ import {
   type FastGridSlice,
 } from '@ziroeda/common/settings/grid_settings_ui.js';
 import {
-  EESCHEMA_DEFAULTS,
   GERBVIEW_DEFAULTS,
   PL_EDITOR_DEFAULTS,
   SYMBOL_EDITOR_DEFAULTS,
 } from '@ziroeda/designer/src/prefs/settings.js';
+import { EESCHEMA_DEFAULTS } from '@ziroeda/eeschema/eeschema_settings.js';
 
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
 const read = (rel: string): string => readFileSync(join(SRC, rel), 'utf8');

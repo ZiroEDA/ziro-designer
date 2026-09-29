@@ -20,7 +20,7 @@ import type { PickedFile } from './editors/schematic/SchematicEditor.js';
 import { EMPTY_PCB } from './home/new_project.js';
 import { ProgressDialog } from '@ziroeda/common/widgets/wx_progress_reporters.js';
 import { ProjectSyncProvider } from './sync/ProjectSyncProvider.js';
-import type { EditorKind } from './sync/ProjectSyncTransport.js';
+import type { EditorKind } from '@ziroeda/eeschema/project_sync_transport.js';
 import {
   storageAvailable,
   cloudIdentityOf,
@@ -80,14 +80,22 @@ import '@ziroeda/common/widgets/shell.css';
 const SchematicEditor = lazy(() =>
   import('./editors/schematic/SchematicEditor.js').then((m) => ({ default: m.SchematicEditor })),
 );
-const PcbEditor = lazy(() =>
-  import('./editors/pcb/PcbEditor.js').then((m) => ({ default: m.PcbEditor })),
+/**
+ * `PcbEditor` takes `PCBNEW_APP` as a prop, built by `usePcbnewApp`, and both
+ * load together: `pcbnew_app.tsx` pulls in the 3D viewer, the PCB canvas and
+ * Preferences, so a static import of it here put all of that in the entry
+ * chunk (5.5 MB, past the service worker's 2 MiB precache limit).
+ */
+const PcbEditorMount = lazy(() =>
+  import('./editors/pcb/pcbnew_app.js').then((m) => ({ default: m.PcbEditorMount })),
 );
 const SymbolEditor = lazy(() =>
   import('./editors/symbol/SymbolEditor.js').then((m) => ({ default: m.SymbolEditor })),
 );
 const FootprintEditor = lazy(() =>
-  import('./editors/footprint/FootprintEditor.js').then((m) => ({ default: m.FootprintEditor })),
+  import('./editors/footprint/footprint_edit_frame_app.js').then((m) => ({
+    default: m.FootprintEditor,
+  })),
 );
 const CalculatorTools = lazy(() =>
   import('./editors/calculator/CalculatorTools.js').then((m) => ({ default: m.CalculatorTools })),
@@ -133,9 +141,9 @@ function prefetchEditors(): () => void {
     // put the session on the bundled subset. See its own note.
     () => warmLibraryIndexes(),
     () => import('./editors/schematic/SchematicEditor.js'),
-    () => import('./editors/pcb/PcbEditor.js'),
+    () => import('@ziroeda/pcbnew/pcb_edit_frame_ui.js'),
     () => import('./editors/symbol/SymbolEditor.js'),
-    () => import('./editors/footprint/FootprintEditor.js'),
+    () => import('./editors/footprint/footprint_edit_frame_app.js'),
   ];
   let cancelled = false;
   let i = 0;
@@ -1772,7 +1780,7 @@ export function App(): JSX.Element {
         <div style={frameStyle(view === 'pcb')}>
           <Frozen shown={view === 'pcb'}>
             <Suspense fallback={frameLoading}>
-              <PcbEditor
+              <PcbEditorMount
                 fileName={pcbBasename(boardFile.name)}
                 text={boardFile.text}
                 onExit={goHome}

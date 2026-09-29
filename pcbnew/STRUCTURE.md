@@ -80,9 +80,9 @@ Walking `pcbnew/*` one letter at a time. Only gaps are noted.
 | `f` | `fix_board_shape.cpp` **ported** (`fix_board_shape.ts`, 09-28): `ConnectBoardShapes` onto the live `PCB_SHAPE`. No existing counterpart under our own name (`convert_shape_list_to_polygon.ts`'s own chaining walk is a different algorithm — polygon assembly, not in-place welding). Its C++ callers (`graphics_cleaner.cpp`, `edit_tool.cpp`'s Heal Shapes, the EasyEDA importers) are either still on this repo's older plain-data model or unwired here, so nothing calls it yet. Rest of `f` unaudited. |
 | `i` | `initpcb.cpp`: the window-independent half of `PCB_EDIT_FRAME::Clear_Pcb` (`ClearUndoRedoList`) already lived on `pcb_edit_frame.ts` as `Clear_Pcb()` before this session. The rest of that function (swap in a fresh `BOARD`, reset layer/visibility state, refresh the frame chrome) and all of `FOOTPRINT_EDIT_FRAME::Clear_Pcb` (a fresh `BOARD`, `SetBoardUse(FPHOLDER)`, the footprint checker's default `DRCSeverities`) are frame/window construction with no caller in `pcbnew/` to wire into — `footprint_edit_frame.ts` is a 46-line `KIWAY_PLAYER` shell; the real footprint-editor state lives in `designer/src/editors/footprint/FootprintEditor.tsx`. Left unported. Rest of `i` unaudited. |
 | `l` | `layer_pairs.cpp` **ported** (`layer_pairs.ts`, 09-28): `LAYER_PAIR_SETTINGS`, the management class over a board's layer-pair presets, plus its two `wxCommandEvent`s. `LAYER_PAIR`/`LAYER_PAIR_INFO` themselves already lived in `common/project/board_project_settings.ts` (ported from the same-named structs in `board_project_settings.h`) — reused, not duplicated. No caller: nothing builds a via-stitching/diff-pair layer cycler yet. `layer_utils.cpp` **ported** (`layer_utils.ts`, 09-28): `LAYER_UTILS.AccumulateNames`/`GetAllFootprintLayers`/`GetOrphanedFootprintLayers`. `AccumulateNames` had a private duplicate inside `footprint_needs_update.ts` (whose own doc comment cited this very file) — deduplicated onto this one, its two call sites repointed. Rest of `l` unaudited. |
-| `p` | `pcb_tablecell.cpp` **split out** (09-28, second session): was whole inside `pcb_table.ts` alongside `PCB_TABLE`; now its own `pcb_tablecell.ts`, file-for-file with KiCad, taking `isBoardItem()` (its only user) with it. `pcb_fields_grid_table.cpp` **ported** (`pcb_fields_grid_table.ts`, 09-28 second session): `PCB_FIELDS_GRID_TABLE` on the ported `WX_GRID_TABLE_BASE` — one row per `PCB_FIELD`, the 14-column layout, value/bool/long getters+setters, `GetAttr`'s read-only/boolean reporting. No caller: neither Footprint Properties dialog has a Fields tab yet (both say so in their own doc comments). `project_pcb.cpp` **n/a — both halves already superseded**: `FootprintLibAdapter` by `footprint_library_adapter.ts`'s `FOOTPRINT_LIBRARY_ADAPTER` interface, which the host implements directly instead of going through a `PROJECT`-keyed lazy singleton (documented in that file's own doc comment); `Get3DCacheManager`/`Get3DFilenameResolver`/`Cleanup3DCache` by the content-hash IndexedDB cache (`designer/.../model_cache.ts` + `viewer3d_cache_shim.ts`) — a deliberate architecture replacement, not a gap (see `step-tessellation-cache` memory). `PROJECT_ELEM.S3DCACHE` still exists on `common/project.ts` for shape parity but nothing writes to that slot. Rest of `p` unaudited. |
+| `p` | `pcb_tablecell.cpp` **split out** (09-28, second session): was whole inside `pcb_table.ts` alongside `PCB_TABLE`; now its own `pcb_tablecell.ts`, file-for-file with KiCad, taking `isBoardItem()` (its only user) with it. `pcb_fields_grid_table.cpp` **ported** (`pcb_fields_grid_table.ts`, 09-28 second session): `PCB_FIELDS_GRID_TABLE` on the ported `WX_GRID_TABLE_BASE` — one row per `PCB_FIELD`, the 14-column layout, value/bool/long getters+setters, `GetAttr`'s read-only/boolean reporting. No caller: neither Footprint Properties dialog has a Fields tab yet (both say so in their own doc comments). `project_pcb.cpp` **ported in part** (`project_pcb.ts`, 2026-09-29): `PROJECT_PCB.Get3DFilenameResolver`, moved out of `3d-viewer/component3d.ts`'s local `make3dResolver` (that file's own caller, which had no KiCad-named home before). The other three statics are still `n/a`, each superseded rather than missing: `FootprintLibAdapter` by `footprint_library_adapter.ts`'s `FOOTPRINT_LIBRARY_ADAPTER` interface, which the host implements directly instead of going through a `PROJECT`-keyed lazy singleton (documented in that file's own doc comment); `Get3DCacheManager`/`Cleanup3DCache` by the content-hash IndexedDB cache (`designer/.../model_cache.ts`'s `cleanup3dCache` + `viewer3d_cache_shim.ts`) — a deliberate architecture replacement, not a gap (see `step-tessellation-cache` memory), kept in `designer/` rather than moved here because it needs browser-only IndexedDB storage `pcbnew` (used by `qa` and other non-browser callers) must not depend on. `PROJECT_ELEM.S3DCACHE` still exists on `common/project.ts` for shape parity but nothing writes to that slot. Rest of `p` unaudited. |
 | `s` | `sel_layer.cpp` — window side, not ported. 791 lines: `PCB_LAYER_PRESENTATION` (needs a `PCB_BASE_FRAME` or the app's colour-settings singleton) and the `DIALOG_LAYER_SELECTION`/`DIALOG_COPPER_LAYER_PAIR_SELECTOR` dialog classes (`wxGrid`-based layer pickers). No model-only piece to extract, and nothing here calls into either dialog yet. Left unported. Rest of `s` unaudited. |
-| `u` | `undo_redo.cpp` **n/a — already whole**: every `PCB_BASE_EDIT_FRAME::*` method in it (`saveCopyInUndoList`, `SaveCopyInUndoList`, `AppendCopyToUndoList`, `RestoreCopyFromUndoList`/`FromRedoList`, `PutDataInPreviousState`, `ClearUndoORRedoList`, `ClearListAndDeleteItems`, `RollbackFromUndo`) already lived on `pcb_base_edit_frame.ts` before this session — it is a frame class's own methods, not free functions, so there is nowhere else for them to be. `PutDataInPreviousState`'s `DRILLORIGIN`/`GRIDORIGIN`/`PAGESETTINGS` branches are deliberately still stubs there (`throw ... pending #636 stage 3/6`), tracked separately. Rest of `u` unaudited. |
+| `u` | `undo_redo.cpp` **split out** (`undo_redo.ts`, 2026-09-29): every `PCB_BASE_EDIT_FRAME::*` method in it (`saveCopyInUndoList`, `SaveCopyInUndoList`, `AppendCopyToUndoList`, `RestoreCopyFromUndoList`/`FromRedoList`, `PutDataInPreviousState`, `ClearUndoORRedoList`, `ClearListAndDeleteItems`, `RollbackFromUndo`) had been fused whole into `pcb_base_edit_frame.ts` (that file's own doc comment used to say so) because a TypeScript class can't be split into two `class` declarations across files the way one C++ class has its methods defined across translation units. Now a real `undo_redo.ts`, mixed back into `PCB_BASE_EDIT_FRAME` with `libs/core/mixins.ts`'s `applyMixins` pattern (same as `pcb_group.ts`'s `EDA_GROUP` mixin) and an explicit `this: PCB_BASE_EDIT_FRAME` parameter on every method, which type-checks with full access to the class's (and its ancestors', including `protected` ones) members. `pcb_base_edit_frame.ts` itself is now just `SetBoard`/`OnBoardChanging`/`GetColorSettings`/`pcbView`/`m_undoRedoBlocked`/`UndoRedoBlock(ed)` — the genuine `pcb_base_edit_frame.cpp` content plus the one piece of undo state trivial enough to leave with its accessors. `PutDataInPreviousState`'s `DRILLORIGIN`/`GRIDORIGIN`/`PAGESETTINGS` branches are still stubs (`throw ... pending #636 stage 3/6`), tracked separately. Rest of `u` unaudited. |
 | `z` | `zone_utils.cpp` **ported** (`zone_utils.ts`, 09-28): `MergeZonesWithSameOutline` and `AutoAssignZonePriorities` onto the live `ZONE`/`BOARD`. `GetKiCadThreadPool()`'s per-pair parallelism becomes a plain synchronous loop (no thread pool in a browser tab; the collected edge set is order-independent). `zone_settings_bag.cpp` **ported** (`zone_settings_bag.ts`, 09-28 second session): `ZONE_SETTINGS_BAG`, the working copy a zone-priority editor mutates — a `Clone()` per eligible zone plus its `ZONE_SETTINGS` (reusing `ZONE_SETTINGS.clone()`, not duplicating it), and the (initial, current) priority pair `UpdateClonedZones` uses to avoid churn. No caller (`dialog_copper_zones.tsx` does not build one yet; the Zone Manager dialog that also uses it is out of scope, "Surface, frozen" above). `zones_functions_for_undo_redo.cpp` **n/a** — dead in KiCad: absent from every `CMakeLists.txt`, and its own `#include "zones_functions_for_undo_redo.h"` names a header that does not exist anywhere in the tree; `ZONE::IsSame` is not even declared in `zone.h`. Same shape as `board_bounding_box.cpp` above. Rest of `z` unaudited. |
 
 ## Files in the wrong place
@@ -250,7 +250,7 @@ imports (no `PCBNEW_APP` needed yet — none of them touch the program):
 | `menubar_footprint_editor` | `menubar_footprint_editor.ts` |
 | `toolbars_footprint_editor` | `toolbars_footprint_editor.ts` |
 | `fp_tree_synchronizing_adapter` | `fp_tree_synchronizing_adapter.ts` |
-| `footprint_edit_frame` | `footprint_edit_frame.ts` — the `KIWAY_PLAYER` mail half only; the window (`FootprintEditor.tsx`) stays in `designer/` for now, see below |
+| `footprint_edit_frame` | `footprint_edit_frame.ts` — the `KIWAY_PLAYER` mail half — and, since stage C (09-29), `footprint_edit_frame_ui.tsx`, the window, see "Stage C" below |
 | `pcb_edit_frame` | `pcb_edit_frame.ts` (09-28) — moved once its only `designer/` coupling (`prefs/settings.ts`'s `PcbnewSettings`) was replaced by the structural `PCBNEW_JSON_SETTINGS_LIKE`, the same pattern `FOOTPRINT_EDITOR_SETTINGS_LIKE` (`pcb_base_frame.ts`) already used — `PCB_EDIT_FRAME_HOOKS` already carried everything else. Brought `drc_runner.ts` (the worker launcher) and `drc_worker.ts` (the worker entry) with it: neither had a `designer/` import, they were just sitting next to the window that used them. `PcbEditor.tsx` (its window, 12.5k lines) is unblocked by this but not yet moved — see below. |
 
 `tsconfig.json` gained `jsx: "react-jsx"` and `DOM.Iterable` here:
@@ -454,23 +454,38 @@ Not moved, and why:
   `designer/src/widgets/lib_table_descriptions.ts`, which the symbol chooser
   also imports; that data table belongs in `common/` first (central-value
   rule), out of scope here.
-- `dialogs/footprint_chooser_frame.tsx` (`footprint_chooser_frame`) — chains
-  into `widgets/panel_footprint_chooser.tsx`, `widgets/footprint_preview_3d.tsx`,
-  `Viewer3DFrame.tsx` and `designer/src/widgets/footprint_list.ts`; same story.
-- `widgets/fp_tree_model_adapter.ts` (`fp_tree_model_adapter`) — needs
-  `designer/src/widgets/lib_table_descriptions.ts`, which the symbol chooser
-  also imports; that data table belongs in `common/` first (central-value
-  rule), out of scope here.
-- `dialogs/footprint_chooser_frame.tsx` (`footprint_chooser_frame`) — chains
-  into `widgets/panel_footprint_chooser.tsx`, `widgets/footprint_preview_3d.tsx`,
-  `Viewer3DFrame.tsx` and `designer/src/widgets/footprint_list.ts`; same story.
-- No separate `footprint_viewer_frame`, `pcbnew_printout`,
-  `load_select_footprint` or `footprint_libraries_utils` module exists yet
-  under either name — that logic is still folded into `FootprintEditor.tsx` /
-  `libraryManager.ts` / `FootprintCanvas.tsx`, so there is nothing standalone
-  to move. (`footprint_editor_settings.ts` and, since 09-28,
-  `footprint_editor_utils.ts` — `FOOTPRINT_EDIT_FRAME::CreateNewFootprint` —
-  both exist now.)
+- `footprint_chooser_frame`, `footprint_preview_panel`,
+  `footprint_libraries_utils`, `pcbnew_printout` — moved in stage C, below.
+
+### Stage C (09-29): the Footprint Editor window and its KiCad files
+
+The window moved the way `cvpcb_mainframe_ui.tsx` did: a prop-based app
+interface in `pcbnew/`, answered by one thin file in `designer/`.
+
+| KiCad | here | was |
+|---|---|---|
+| `footprint_edit_frame` (the window) | `footprint_edit_frame_ui.tsx` — `FootprintEditFrame`, behind `FOOTPRINT_EDIT_FRAME_APP` (settings reads/writes, toolbars, library IO/host, Preferences, Open dialog, loading panel, `HomeLink` — the last typed as `PCBNEW_APP['HomeLink']`, the one member both interfaces mean identically). `designer/src/editors/footprint/footprint_edit_frame_app.tsx` builds the app and keeps the `FootprintEditor` component `App.tsx` loads. | `designer/.../footprint/FootprintEditor.tsx` |
+| `pcb_draw_panel_gal` (footprint frames' canvas) | `pcb_draw_panel_gal_ui.tsx` (`FootprintCanvas`), beside the logic port `pcb_draw_panel_gal.ts` | `designer/.../footprint/FootprintCanvas.tsx` |
+| `footprint_libraries_utils` | `footprint_libraries_utils.ts` — `FootprintLibraryManager` (its designer reads behind `FOOTPRINT_LIBRARY_IO`), `fpNameOf`, and `ImportFootprint` out of the window's Import handler | `designer/.../footprint/libraryManager.ts` |
+| `footprint_editor_utils` | + `fpTargetOf`, `KiwayMailIn`'s `MAIL_FP_EDIT` `LIB_ID` | a private helper of the window |
+| `footprint_tree_pane` | `footprint_tree_pane.tsx` — the dock and `onComponentSelected` | inline JSX in the window |
+| `footprint_preview_panel` | `footprint_preview_panel.tsx`; `FOOTPRINT_PREVIEW_PANEL_New( { resolve, cursorPrefs } )` stands for upstream's `::New( aKiway, … )`. designer's file of the same name is now only that call. `preview_view_controls.ts` went to `common/widgets/` with it (common-only imports; the symbol and colour previews share it). | `designer/.../pcb/footprint_preview_panel.tsx` |
+| `footprint_chooser_frame` | `footprint_chooser_frame.tsx`, its preview panel / 3D preview / 3D viewer behind `FOOTPRINT_CHOOSER_FRAME_APP`; designer's file keeps the old props as wiring | `designer/.../pcb/dialogs/footprint_chooser_frame.tsx` |
+| `pcbnew_printout` | `pcbnew_printout.ts` — `OnPrintPage`'s per-page layer set and `setupViewLayers`/`setupPainter`'s draw options | inline in `dialogs/dialog_print_pcbnew.tsx` |
+
+Not split, and why:
+
+- `footprint_viewer_frame`, `toolbars_footprint_viewer` — there is no
+  `FOOTPRINT_VIEWER_FRAME` in this port at all (only `FPVIEWER_CONSTANTS` in
+  `tools/pcb_actions.ts`); nothing to move.
+- `load_select_footprint` — `AddFootprintToHistory` is already
+  `widgets/footprint_history.ts`; the rest (`SelectFootprintFromLibrary`,
+  `PlaceFootprint`) is inside the PCB editor's window, another pass's file.
+- `pcbnew_config` — `LoadProjectSettings` & co. live in the PCB editor's
+  window too; same reason.
+- `pcbnew_printout.ts` carries one divergence, noted in the file and left
+  alone: upstream adds Edge.Cuts to a single-page print as well when "Print
+  board edges on all pages" is stored.
 
 ## Gotchas this layout creates
 
@@ -487,3 +502,119 @@ Not moved, and why:
 
 `qa/probes/struct_diff.sh` regenerates the raw table into
 `docs/pcbnew-structure-diff.md`.
+
+## Subfolder audit (09-29): `drc/`, `router/`, `connectivity/`, `netlist_reader/`,
+## `teardrop/`, `length_delay_calculation/`, `board_stackup_manager/`,
+## `import_gfx/`, `autorouter/`
+
+File-for-file against KiCad's own `.cpp`s in each folder. Seven of the nine
+needed **no moves**: every extra file already cites its true KiCad source in
+its own header comment, and it is either a header-only counterpart (no
+`.cpp`), content that belongs in a root/`tools/`/`dialogs/`/`libs/kimath`
+file this pass does not own, or genuinely browser-only (no KiCad file at
+all).
+
+- `connectivity/`: `connectivity_algo/data/items`, `from_to_cache` match by
+  name; `connectivity_rtree.ts` matches `connectivity_rtree.h` (header-only,
+  no `.cpp`). **`topo_match.cpp` (1303 lines) is not ported** — no
+  `TOPO_MATCH`/`TopoMatch` anywhere in the tree.
+- `netlist_reader/`: `board_netlist_updater`, `kicad_netlist_reader`,
+  `netlist_reader`, `pcb_netlist` match by name (the last two are re-exports
+  of `common/netlist_reader/*.ts`, itself matching KiCad's *own* duplicate
+  `common/netlist_reader/` tree). `pcb_netlist_utils.ts` is extra: its real
+  counterpart is `PCB_EDIT_FRAME::ExchangeFootprint` (`pcbnew/pcb_edit_frame.cpp`,
+  package root, off-limits this pass — already recorded above under "Stage A
+  done"). **Not ported:** `pcb_component.cpp` (`PCB_COMPONENT`, footprint
+  caching on `COMPONENT` — `pcb_netlist.ts`'s own header already says our
+  board model reconciles footprints separately) and the `PCB_EDIT_FRAME`
+  netlist-import glue in KiCad's `netlist_reader/netlist.cpp` (`ReadNetlistFromFile`,
+  `OnNetlistChanged`, `LoadFootprints` — these live in `pcb_edit_frame_ui.tsx`
+  at the package root, another agent's file this pass, not a netlist_reader/ gap).
+- `teardrop/`: **complete, no extras.** `teardrop.ts` (2088 lines) already
+  merges `teardrop.cpp` + `teardrop_utils.cpp` (`TEARDROP_MANAGER` is one
+  class split across both upstream); `teardrop_parameters.ts` matches;
+  `teardrop_types.ts` matches `teardrop_types.h` (header-only).
+- `length_delay_calculation/`: `length_delay_calculation(_item)`,
+  `tuning_profile_parameters_user_defined` match by name;
+  `tuning_profile_parameters_iface.ts` matches the header-only
+  `tuning_profile_parameters_iface.h`. `tuning_profile_calc.ts` is extra: its
+  real counterpart is `pcbnew/dialogs/panel_setup_tuning_profile_info.cpp`,
+  deliberately placed here in Stage A (dialogs/ off-limits this pass; already
+  recorded above).
+- `board_stackup_manager/`: **complete.** `board_stackup`,
+  `board_stackup_reporter`, `dielectric_material`, `stackup_predefined_prms`,
+  `panel_board_finish.tsx` all match. The three remaining KiCad files
+  (`panel_board_stackup(_base)`, `dialog_dielectric_list_manager(_base)`) are
+  dialog/panel UI at `pcbnew/dialogs/panels/panel_pcb_stackup.tsx` (dialogs/,
+  off-limits) and genuinely unported (no dielectric-material-list dialog
+  anywhere in the tree).
+- `import_gfx/`: `graphics_importer_pcbnew.ts` matches. **Not ported:**
+  `dialog_import_graphics(_base).cpp` — no Import Graphics dialog exists
+  anywhere in the tree.
+- `autorouter/`: `ar_autoplacer`, `ar_matrix`, `spread_footprints` match (see
+  Content divergences above). **Not wired:** `autoplace_tool.cpp` — already
+  recorded above, lands with #636 stage 3.
+- `drc/`: **complete, no extras despite 51 files against KiCad's 37.** Every
+  one of the 14 apparently-extra files already names its real counterpart in
+  its own header, and none of them is a drc/-local split of a drc/ file:
+  `drc_length_report.ts`/`drc_rtree.ts` match header-only `.h`s;
+  `drc_areas.ts`/`drc_expr.ts`/`drc_inspect.ts` cite root (`pcbexpr_*.cpp`) or
+  `tools/` (`board_inspection_tool.cpp`) files, off-limits this pass;
+  `drc_geometry.ts`/`shape_collisions.ts` cite `libs/kimath` (already flagged
+  above under "belong outside pcbnew entirely"); `drc_job.ts`/`ptr_order.ts`/
+  `drc_test_providers.ts` are genuinely browser-only, no KiCad file at all;
+  `drc_diff_pair.ts` is upstream's *own* verbatim duplication between
+  `drc_test_provider_diff_pair_coupling.cpp:66` and `pns_diff_pair.cpp:786`
+  (see `router/pns_diff_pair.ts`'s own doc comment), so hosting it once in
+  `drc/` and importing it from `router/` is structurally exact, not a
+  misplacement. `drc_engine_view.ts`, `drc_rules_engine.ts` and
+  `drc_rule_view.ts` are the **view-side POJO architecture** (a plain-`Board`
+  rule/constraint engine and `.kicad_dru` parser, parallel to the live-BOARD
+  `drc_engine.ts`/`drc_rule.ts`/`drc_rule_parser.ts`), the same "teardrop
+  pattern" already documented above — both `router/` and `drc/` still read
+  the view-side engine, so folding it in is a #636 consumer migration, not a
+  file move.
+- `router/`: **one merge done, the rest audited and left.** KiCad's
+  `pns_optimizer.cpp` (1539 lines, one file) had been split into
+  `pns_optimizer.ts` (the pure single-line merge passes),
+  `pns_smart_pads.ts` (`SMART_PADS`/`FANOUT_CLEANUP` + the breakout
+  machinery, plus `pns_utils.cpp`'s `ApproximateSegmentAsRect`) and
+  `pns_optimizer_diff_pair.ts` (`Optimize( DIFF_PAIR* )` and its passes,
+  `pns_optimizer.cpp:1157-1374`) — merged back into one `pns_optimizer.ts`
+  09-29 (the split files' own stated reason — "callable with no world, which
+  is how `route_tool.ts` uses them today" — was stale: `route_tool.ts` was
+  deleted 09-12, see `pns-router-wiring.md`). `pcbnew/index.ts`'s three
+  separate export blocks merged into one. 680 router tests green after.
+  Every other apparent gap was audited and is a deliberate, already-documented
+  split or a folded simplification, left alone as too central/high-blast-radius
+  for a moves-only pass without a matching upstream restructure:
+  `pns_kicad_iface.cpp` → `pns_board_iface.ts` is a **rename we cannot make**
+  (no "kicad" in a filename, trademark — `designer-keeps-its-name`);
+  `pns_utils.cpp` is split across `pns_hull.ts` (`OctagonalHull`/`SegmentHull`),
+  `pns_item_hull.ts` (`ArcHull`/`ConvexHull`/`MoveDiagonal`/
+  `BuildHullForPrimitiveShape`, plus the five per-kind `Hull()` overrides —
+  `SEGMENT::Hull`, `ARC::Hull`, `VIA::Hull`, `SOLID::Hull`, `HOLE::Hull` —
+  consolidated as one `itemHull()` switch rather than a method per item class)
+  and `pns_chain.ts` (mostly `shape_line_chain.cpp`, one function,
+  `HullIntersection`, from `pns_utils.cpp`) — each split is separately argued
+  in its own header and touches the router's hottest geometry path, not
+  attempted;
+  `pns_line.cpp`/`.h` (`LINE`) is split across `pns_line.ts` (pure drag
+  geometry), `pns_line_item.ts` (2395 lines, the actual `LINE` class — the
+  file that would need the KiCad-matching name) and `pns_line_drag.ts`
+  (`DragCorner`/`DragSegment`/`DragArc` bound to `PnsLine`) — same reasoning,
+  not attempted (2395+840 lines, the router's most central file);
+  `pns_algo_base.cpp` (`Router()`/`Settings()` accessors) is folded inline
+  per consumer rather than a shared base, and its logger/debug-decorator
+  half is intentionally not ported (compiled out of a release build
+  upstream too); **`pns_logger.cpp` is not ported** (debug event sink, no
+  browser use); `router_tool.cpp` is split between `pns_session.ts` (the
+  `ROUTER_TOOL` equivalent, headless — see `pns-router-wiring.md`) and
+  `router_size_menus.ts` (its two size menus), with the wx-level click
+  wiring in `pcb_edit_frame_ui.tsx` (root, off-limits this pass);
+  **`router_preview_item.cpp`/`router_status_view_item.cpp` are not ported
+  as classes** — the preview draws through a callback dep
+  (`session.preview`/`onDisplayItem`) instead of a ported `VIEW_ITEM`
+  hierarchy; `time_limit.cpp` (`TIME_LIMIT`) is folded inline as a
+  `Date.now() + shoveTimeLimit` deadline in `pns_shove.ts` rather than
+  ported as a class.

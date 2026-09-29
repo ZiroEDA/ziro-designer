@@ -146,7 +146,7 @@ describe('the two editors now share one implementation', () => {
       readFileSync(resolve(process.cwd(), `../designer/src/${rel}`), 'utf8');
 
     for (const rel of [
-      'editors/pcb/PcbEditor.tsx',
+      '../../pcbnew/pcb_edit_frame_ui.tsx',
       'editors/schematic/components/SchematicCanvas.tsx',
     ]) {
       const src = read(rel);

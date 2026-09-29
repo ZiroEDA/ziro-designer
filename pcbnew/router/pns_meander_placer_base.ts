@@ -73,7 +73,7 @@
  */
 import { PnsConstraintType } from './pns_collision.js';
 import { PnsKind } from './pns_item.js';
-import type { PnsLineChain } from './pns_line_item.js';
+import type { PnsLineChain } from './pns_line.js';
 import { MeanderType, copyMeanderSettings, defaultMeanderSettings } from './pns_meander.js';
 import { segDistanceToPoint, segNearestPoint } from '@ziroeda/kimath/src/geometry/seg.js';
 import type { MeanderPlacer, MeanderSettings, MeanderShape, MeanderedLine } from './pns_meander.js';
@@ -271,7 +271,7 @@ export function getSnappedStartPoint(aStartItem: PnsLinkedItem, aStartPoint: Vec
  * The arc arm calls `splitArc`, which this tree ports now that
  * `SHAPE_ARC::ConstructFromStartEndCenter` is ported. It goes through
  * `PnsLineChain.insertPointOnArcSegment`, the single shared copy of that arm —
- * `chainSplit` in `pns_line_drag.ts`, this tree's other port of `Split`, calls
+ * `chainSplit` in `pns_line.ts`, this tree's other port of `Split`, calls
  * the same method.
  */
 export function chainSplitAt(aChain: PnsLineChain, aP: Vec2, aExact = false): number {

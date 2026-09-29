@@ -40,8 +40,8 @@ const BACKDROPS = ['ze-modal-backdrop', 'calc-modal-backdrop', 'imgc-modal-backd
  */
 const OWNS_A_CANVAS = [
   '../../pagelayout_editor/pl_editor_frame_ui.tsx',
-  'editors/footprint/FootprintEditor.tsx',
-  'editors/pcb/PcbEditor.tsx',
+  '../../pcbnew/footprint_edit_frame_ui.tsx',
+  '../../pcbnew/pcb_edit_frame_ui.tsx',
   'editors/schematic/SchematicEditor.tsx',
   'editors/symbol/SymbolEditor.tsx',
   '../../common/widgets/widget_hotkey_list.tsx',
@@ -155,7 +155,7 @@ describe('what the registered cancel means', () => {
       'onCancel',
     ]);
     // DIALOG_PRINT's Close stores the print options on the way out.
-    expect(registered('editors/schematic/dialogs/dialog_print.tsx')).toEqual(['saveAndClose']);
+    expect(registered('../../eeschema/printing/dialog_print.tsx')).toEqual(['saveAndClose']);
     // The board's is DIALOG_PRINT_PCBNEW on the common DIALOG_PRINT_GENERIC:
     // the base registers its Close, and the board hands it saveAndClose.
     expect(registered('../../common/dialogs/dialog_print_generic_ui.tsx')).toEqual(['onClose']);

@@ -151,8 +151,8 @@ const CALL_SITES: [app: string, file: string][] = [
   ['pl_editor', '../../pagelayout_editor/pl_editor_frame_ui.tsx'],
   ['eeschema', 'editors/schematic/SchematicEditor.tsx'],
   ['symbol_editor', 'editors/symbol/SymbolEditor.tsx'],
-  ['pcbnew', 'editors/pcb/PcbEditor.tsx'],
-  ['footprint_editor', 'editors/footprint/FootprintEditor.tsx'],
+  ['pcbnew', '../../pcbnew/pcb_edit_frame_ui.tsx'],
+  ['footprint_editor', '../../pcbnew/footprint_edit_frame_ui.tsx'],
 ];
 
 describe('every frame with a registered menu is wired to receive it', () => {

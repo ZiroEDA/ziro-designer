@@ -8,11 +8,11 @@
  *
  * See docs/proposals/multiplayer-architecture.md ("Who is allowed to do
  * what") for the design this is the UI half of, and
- * designer/src/sync/ProjectSyncTransport.ts for `PeerRole` itself: `owner`
+ * eeschema/project_sync_transport.ts for `PeerRole` itself: `owner`
  * is never assigned here, only decided by the transport on connect.
  */
 import { useEffect, useRef, type JSX } from 'react';
-import type { PeerRole, PresenceInfo } from '../sync/ProjectSyncTransport.js';
+import type { PeerRole, PresenceInfo } from '@ziroeda/eeschema/project_sync_transport.js';
 import { peerColor } from '../sync/peerColor.js';
 
 const ROLE_LABEL: Record<PeerRole, string> = {

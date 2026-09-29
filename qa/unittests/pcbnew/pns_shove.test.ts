@@ -43,7 +43,7 @@ import {
   viaChangedArea,
 } from '@ziroeda/pcbnew/router/pns_shove.js';
 import { PnsNode } from '@ziroeda/pcbnew/router/pns_node.js';
-import { PnsLine, PnsLineChain } from '@ziroeda/pcbnew/router/pns_line_item.js';
+import { PnsLine, PnsLineChain } from '@ziroeda/pcbnew/router/pns_line.js';
 import { PnsSegment } from '@ziroeda/pcbnew/router/pns_segment.js';
 import { PnsSolid } from '@ziroeda/pcbnew/router/pns_solid.js';
 import { PnsVia } from '@ziroeda/pcbnew/router/pns_via.js';

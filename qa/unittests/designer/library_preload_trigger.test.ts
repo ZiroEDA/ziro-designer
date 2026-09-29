@@ -63,7 +63,7 @@ describe('the schematic fires it from the two loaders, not from a tool', () => {
 });
 
 describe('the board fires it from its load path', () => {
-  const src = read('editors/pcb/PcbEditor.tsx');
+  const src = read('../../pcbnew/pcb_edit_frame_ui.tsx');
 
   it('inside the effect that parses the board text', () => {
     const calls = [...src.matchAll(/preloadBoardLibraries\(/g)].map((m) => m.index ?? -1);

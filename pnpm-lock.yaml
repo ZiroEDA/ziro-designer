@@ -389,9 +389,6 @@ importers:
       '@ziroeda/core':
         specifier: workspace:*
         version: link:../libs/core
-      '@ziroeda/eeschema':
-        specifier: workspace:*
-        version: link:../eeschema
       '@ziroeda/kimath':
         specifier: workspace:*
         version: link:../libs/kimath

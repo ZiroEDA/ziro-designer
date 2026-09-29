@@ -36,7 +36,7 @@ import {
   type PnsRouterHost,
 } from '@ziroeda/pcbnew/router/pns_drag_algo.js';
 import { PnsNode } from '@ziroeda/pcbnew/router/pns_node.js';
-import { type PnsLine, PnsLineChain } from '@ziroeda/pcbnew/router/pns_line_item.js';
+import { type PnsLine, PnsLineChain } from '@ziroeda/pcbnew/router/pns_line.js';
 import { PnsSegment } from '@ziroeda/pcbnew/router/pns_segment.js';
 import { PnsArc } from '@ziroeda/pcbnew/router/pns_arc.js';
 import { PnsSolid } from '@ziroeda/pcbnew/router/pns_solid.js';

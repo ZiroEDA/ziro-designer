@@ -173,8 +173,8 @@ describe('the draw frames', () => {
 
   const ON_THE_HOOK = [
     'editors/schematic/SchematicEditor.tsx',
-    'editors/pcb/PcbEditor.tsx',
-    'editors/footprint/FootprintEditor.tsx',
+    '../../pcbnew/pcb_edit_frame_ui.tsx',
+    '../../pcbnew/footprint_edit_frame_ui.tsx',
     'editors/symbol/SymbolEditor.tsx',
     // GerbView left the hook when it moved onto GERBVIEW_FRAME: its status
     // bar is EDA_DRAW_FRAME::UpdateStatusBar's, as upstream.

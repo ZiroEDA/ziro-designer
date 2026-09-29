@@ -39,7 +39,7 @@ import {
 import { PnsItemSet } from '@ziroeda/pcbnew/router/pns_itemset.js';
 import { PnsKind } from '@ziroeda/pcbnew/router/pns_item.js';
 import { PnsLayerRange } from '@ziroeda/pcbnew/router/pns_layerset.js';
-import { PnsLine, PnsLineChain } from '@ziroeda/pcbnew/router/pns_line_item.js';
+import { PnsLine, PnsLineChain } from '@ziroeda/pcbnew/router/pns_line.js';
 import { PnsNode } from '@ziroeda/pcbnew/router/pns_node.js';
 import { PnsSegment } from '@ziroeda/pcbnew/router/pns_segment.js';
 import { PnsSolid } from '@ziroeda/pcbnew/router/pns_solid.js';

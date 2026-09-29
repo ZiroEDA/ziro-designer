@@ -32,7 +32,7 @@ const read = (rel: string): string =>
 
 const DIALOG = read('../../pcbnew/dialogs/dialog_text_properties_ui.tsx');
 const CSS = read('../../common/widgets/shell.css');
-const EDITOR = read('editors/pcb/PcbEditor.tsx');
+const EDITOR = read('../../pcbnew/pcb_edit_frame_ui.tsx');
 /**
  * The dialog with every comment stripped.
  *

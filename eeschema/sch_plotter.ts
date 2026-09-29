@@ -1,0 +1,1143 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+/**
+ * SCH_PLOTTER: schematic print/plot output (was `designer/src/editors/schematic/
+ * render/plot.ts`). Counterparts: `eeschema/sch_plotter.cpp`
+ * (SCH_PLOTTER, the Plot dialog's file writers) and `eeschema/printing/
+ * sch_printout.cpp` (SCH_PRINTOUT, the Print dialog's page rendering).
+ *
+ * Both reuse the on-screen schematic renderer: a sheet is drawn at page size
+ * with the grid/cursor off and the drawing sheet + colours chosen by the
+ * dialog. Raster outputs (PNG, and Print) go through a real `<canvas>`; the
+ * vector ones go through a Canvas2D-shaped adapter that records the same
+ * draw calls — SVG as `<path>` markup, DXF and PostScript as their entities,
+ * and PDF as calls on the ported `PDF_PLOTTER`, the one class KiCad plots
+ * every PDF through.
+ */
+
+import { ExpandTextVars } from '@ziroeda/common/common.js';
+import type { Schematic } from './index.js';
+import { busJunctionIds } from './connectivity/bus.js';
+import type { WksSheet } from '@ziroeda/common';
+import type { Theme } from './sch_render_settings.js';
+import { KICAD_CLASSIC } from './sch_render_settings.js';
+import { renderSchematic, paperSizeIU, setVectorText } from './sch_painter.js';
+import type { RenderOpts } from './sch_render_settings.js';
+import { zlibSync } from 'fflate';
+import type { LibSymbol } from './index.js';
+import { plotPdfAnnotations, type PdfNetInfo } from './pdf_annotations.js';
+import { schIUScale } from '@ziroeda/common/eda_units.js';
+import { fracture, type Polygon } from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';
+import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
+import { COLOR4D_BLACK, type Color4d } from '@ziroeda/common/gal/color4d.js';
+import { plotterRenderSettings } from '@ziroeda/common/render_settings.js';
+import {
+  DXF_UNITS,
+  FILL_T,
+  type PLOTTER,
+  plotterPageInfo,
+} from '@ziroeda/common/plotters/plotter.js';
+import { DXF_PLOTTER } from '@ziroeda/common/plotters/DXF_plotter.js';
+import { PDF_PLOTTER, pdfRenderSettings } from '@ziroeda/common/plotters/PDF_plotter.js';
+import { PS_PLOTTER } from '@ziroeda/common/plotters/PS_plotter.js';
+import { SVG_PLOTTER } from '@ziroeda/common/plotters/SVG_plotter.js';
+import { PlotDrawingSheet } from '@ziroeda/common/plotters/common_plot_functions.js';
+import { DS_DATA_MODEL } from '@ziroeda/common/drawing_sheet/ds_data_model.js';
+import { serializeDrawingSheet } from '@ziroeda/common/drawing_sheet/write.js';
+import {
+  MAX_PAGE_SIZE_EESCHEMA_MM,
+  MIN_PAGE_SIZE_MM,
+  PAGE_INFO,
+  PAGE_SIZE_TYPE,
+} from '@ziroeda/common/page_info.js';
+import { TITLE_BLOCK } from '@ziroeda/common/title_block.js';
+import { getPageSettings } from './tools/page_settings.js';
+
+const MM = 10000; // IU per mm (matches the renderer)
+
+/** Print/Plot options shared by the dialogs (SCH_PLOT_OPTS subset). */
+export interface PlotOpts {
+  /** Colour output (false = black and white, KiCad's m_blackAndWhite). */
+  color: boolean;
+  /** Draw the page border + title block (m_plotDrawingSheet). */
+  drawingSheet: boolean;
+  /** Custom drawing sheet to plot (a loaded `.kicad_wks`); unset = default. */
+  sheet?: WksSheet;
+  /** Fill the page with the theme background colour (m_useBackgroundColor). */
+  background: boolean;
+  /** Raster resolution for PNG output (the PNG Options DPI; default 300). */
+  dpi?: number;
+  /** Title-block page context of this sheet instance (SCH_SHEET_PATH):
+   *  page-number string (${#}), sheet ordinal (page1only visibility), sheet
+   *  count (${##}), sheet name and human path. Unset = standalone sheet. */
+  pageNumber?: string;
+  sheetNumber?: number;
+  sheetCount?: number;
+  sheetName?: string;
+  sheetPath?: string;
+  /** Pen width (IU) for zero-width strokes ("Minimum line width"). */
+  defaultPenIU?: number;
+  /** Effective junction-dot diameter (IU) from the schematic settings
+   *  (SCHEMATIC_SETTINGS::GetJunctionSize()), so plots match the screen. */
+  junctionDiameterIU?: number;
+  /** Dashed-line dash / gap ratios and the label/pin text lift ratio from the
+   *  schematic settings (m_DashedLine*Ratio, m_TextOffsetRatio). */
+  dashLengthRatio?: number;
+  gapLengthRatio?: number;
+  textOffsetRatio?: number;
+  /** Global-label box margin + overbar offset ratios (m_LabelSizeRatio,
+   *  FONT_METRICS m_OverbarHeight), so plots match the screen. */
+  labelSizeRatio?: number;
+  overbarHeightRatio?: number;
+  /** Pin decoration size in IU (m_PinSymbolSize; 0 = per-pin fallback). */
+  pinSymbolSizeIU?: number;
+  /** Wire hop-over arc radius in IU (0/unset = hop-overs off). */
+  hopOverRadiusIU?: number;
+  /** Inter-sheet references resolver (RenderOpts shape; unset = hidden). */
+  intersheetRefs?: RenderOpts['intersheetRefs'];
+  /** Per-item netclass fallbacks for the plotted sheet (RenderOpts shape). */
+  netOverrides?: RenderOpts['netOverrides'];
+  /** Text-variable resolver, so `${VAR}` plots expanded like the screen. */
+  resolveTextVar?: RenderOpts['resolveTextVar'];
+  /** Unit-notation inputs for multi-unit references (SubReference). */
+  subpart?: RenderOpts['subpart'];
+  /** Plot page override (SCH_PLOT_OPTS::m_pageSizeSelect): the schematic's own
+   *  page, or the drawing scaled onto an A4 / A sheet. */
+  pageSizeSelect?: PlotPageSize;
+  /** DXF export units (SCH_PLOT_OPTS::m_DXF_File_Unit). */
+  dxfUnits?: 'in' | 'mm';
+  /** PDF document properties from the AUTHOR / SUBJECT text variables
+   *  (m_PDFMetadata); unset = no /Info dictionary. */
+  pdfMetadata?: { title?: string; author?: string; subject?: string };
+  /** `m_PDFPropertyPopups`: a popup of an item's properties on the plotted page. */
+  pdfPropertyPopups?: boolean;
+  /** `m_PDFHierarchicalLinks`: sheets, sheet pins and hierarchical labels link to their pages. */
+  pdfHierarchicalLinks?: boolean;
+  /**
+   * What the connectivity knows about a wire, bus, label or sheet pin (by
+   * refId), for the PDF popups; the plotter has no connection graph of its
+   * own, so the editor answers.
+   */
+  netOf?: (itemId: string) => PdfNetInfo | undefined;
+  /** The symbols the sheet's symbols come from, for their bookmarks and popups. */
+  libById?: Map<string, LibSymbol>;
+}
+
+/** PAGE_SIZE_AUTO / PAGE_SIZE_A4 / PAGE_SIZE_A (the "Page size:" choice). */
+export type PlotPageSize = 'auto' | 'A4' | 'A';
+
+/** Page dimensions of the sheet in mm, long edge first. */
+const PLOT_PAGE_MM: Record<Exclude<PlotPageSize, 'auto'>, [number, number]> = {
+  A4: [297, 210],
+  A: [11 * 25.4, 8.5 * 25.4],
+};
+
+/**
+ * The page actually plotted and the scale the drawing gets (SCH_PLOTTER::
+ * plotOneSheetPDF/PS): "Schematic size" plots 1:1 on the sheet's own page;
+ * A4 / A keep the sheet's orientation and scale by min(scalex, scaley).
+ */
+export function plotPageIU(
+  sch: Schematic,
+  opts: PlotOpts,
+): { w: number; h: number; scale: number } {
+  const actual = pageIU(sch);
+  const sel = opts.pageSizeSelect ?? 'auto';
+  if (sel === 'auto') return { w: actual.w, h: actual.h, scale: 1 };
+  const [long, short] = PLOT_PAGE_MM[sel];
+  const portrait = actual.h > actual.w;
+  const w = (portrait ? short : long) * MM;
+  const h = (portrait ? long : short) * MM;
+  return { w, h, scale: Math.min(w / actual.w, h / actual.h) };
+}
+
+/** An all-black-on-white theme for monochrome output (KiCad's B&W plot). */
+function monochromeTheme(): Theme {
+  const black = 'rgb(0, 0, 0)';
+  const none = 'rgba(0, 0, 0, 0)';
+  return {
+    background: 'rgb(255, 255, 255)',
+    grid: black,
+    gridAxes: black,
+    wire: black,
+    bus: black,
+    busJunction: black,
+    junction: black,
+    symbolOutline: black,
+    symbolFill: none,
+    pin: black,
+    pinName: black,
+    pinNumber: black,
+    reference: black,
+    value: black,
+    fields: black,
+    label: black,
+    globalLabel: black,
+    hierLabel: black,
+    netclassFlag: black,
+    // Never reached on a plot either: the collision markers live on a
+    // VIEW_OVERLAY that only exists while a drag is in flight.
+    dragNetCollision: black,
+    netHighlight: black,
+    selectionShadow: none,
+    noteLine: black,
+    noText: black,
+    privateNote: black,
+    noConnect: black,
+    // `SCH_SYMBOL::PlotDNP` takes `GetLayerColor( LAYER_DNP_MARKER )` from the
+    // render settings, which a monochrome plot has already blacked out.
+    dnpMarker: black,
+    // Never reached on a plot: `SCH_SYMBOL::Plot` emits `PlotDNP` and no
+    // simulation marker, and `RenderOpts.markSimExclusions` is off here.
+    excludedFromSim: black,
+    ercError: black,
+    ercWarning: black,
+    ercExclusion: black,
+    sheetBorder: black,
+    sheetBackground: none,
+    sheetName: black,
+    sheetFile: black,
+    sheetLabel: black,
+    sheetFields: black,
+    pageFrame: black,
+    pageLimits: black,
+    anchor: black,
+    hidden: black,
+    cursor: black,
+    auxItems: black,
+    // Nothing is ever brightened on a plot — `IsPrinting()` skips the shadow
+    // pass — but the field is required, and black keeps a monochrome plot
+    // monochrome if anything ever does reach it.
+    brightened: black,
+    ruleArea: black,
+  };
+}
+
+/** The theme to plot/print with, given the base editor theme and options. */
+function outputTheme(base: Theme, opts: PlotOpts): Theme {
+  if (!opts.color) return monochromeTheme();
+  // Colour output on a white page unless "background colour" is requested.
+  const bg = opts.background ? base.background : 'rgb(255, 255, 255)';
+  return { ...base, background: bg };
+}
+
+/** Render options for output: no grid, no page-limit outline, drawing sheet per option. */
+function outputRenderOpts(opts: PlotOpts, sch: Schematic): RenderOpts {
+  return {
+    showHiddenPins: false,
+    showHiddenFields: false,
+    showPageLimits: false,
+    // No `Plot()` draws a dangling mark; they are the painter's alone.
+    showDanglingIndicators: false,
+    // `if( aPlotOpts.m_useBackgroundColor && aPlotter->GetColorMode() )`
+    // fill the page; otherwise the page is left as it is.
+    paintBackground: opts.background && opts.color,
+    // Directive labels are ordinary schematic content, not a "hidden item"
+    // like the two above, so a plot carries them. Upstream the painter reads
+    // the LIVE `eeconfig()` here as it does on screen, which we cannot from a
+    // plotter that is handed no settings — so this is the PARAM's own default
+    // (`eeschema_settings.cpp:210-211`), and a plot made with the flags turned
+    // off on screen still shows them. Stated rather than silent.
+    showDirectiveLabels: true,
+    // A plot has no selection, so the selection shadow never runs and this
+    // cannot show. Present because RenderOpts requires it, at the PARAM's own
+    // default.
+    // A plot has no selection; the alt icon is not a selection thing and a
+    // plotted sheet shows it exactly as the canvas does.
+    showPinAltIcons: true,
+    // `if( m_schSettings.m_OverrideItemColors && drawingNetColorHighlights ) return;`
+    // — a plot is not that flag, but it is also not the canvas: KiCad plots the
+    // highlight layer only if the plotter asks for it, and ours does not offer
+    // the layer at all, so it stays off here rather than inventing a plotted
+    // band the user never asked to print.
+    highlightNetclassColors: false,
+    netclassHighlightThicknessMils: 15,
+    netclassHighlightAlpha: 0.6,
+    fillSelectedShapes: false,
+    // A plot has no selection, so neither shadow-pass flag can fire; both are
+    // here because RenderOpts requires them.
+    drawSelectedChildren: true,
+    showDrawingSheet: opts.drawingSheet,
+    ...(opts.sheet ? { drawingSheet: opts.sheet } : {}),
+    pageNumber: opts.pageNumber,
+    sheetNumber: opts.sheetNumber,
+    sheetCount: opts.sheetCount,
+    sheetName: opts.sheetName,
+    sheetPath: opts.sheetPath,
+    defaultPenIU: opts.defaultPenIU,
+    junctionDiameterIU: opts.junctionDiameterIU,
+    // A plot paints the same layers the screen does, so a junction on a bus
+    // has to plot in the bus-junction colour too. Derived here rather than
+    // threaded in: a plot has no live connection graph to ask.
+    busJunctionIds: busJunctionIds(sch),
+    dashLengthRatio: opts.dashLengthRatio,
+    gapLengthRatio: opts.gapLengthRatio,
+    textOffsetRatio: opts.textOffsetRatio,
+    labelSizeRatio: opts.labelSizeRatio,
+    overbarHeightRatio: opts.overbarHeightRatio,
+    pinSymbolSizeIU: opts.pinSymbolSizeIU,
+    hopOverRadiusIU: opts.hopOverRadiusIU,
+    intersheetRefs: opts.intersheetRefs,
+    netOverrides: opts.netOverrides,
+    resolveTextVar: opts.resolveTextVar,
+    subpart: opts.subpart,
+    selectionThicknessMils: 0,
+    highlightThicknessMils: 0,
+    grid: { show: false, sizeIU: 12700, style: 'dots', lineWidthPx: 1, minSpacingPx: 10 },
+  };
+}
+
+/** Page size in IU for a sheet (falls back to A4 landscape if unknown). */
+export function pageIU(sch: Schematic): { w: number; h: number } {
+  return paperSizeIU(sch.paper) ?? { w: 297 * MM, h: 210 * MM };
+}
+
+/**
+ * Render a sheet to a fresh canvas at `dpi`, fit to the page rectangle
+ * (0,0)-(pageW,pageH). Returns the canvas so callers can print, download a
+ * PNG, or embed it in a PDF.
+ */
+export function renderSheetToCanvas(
+  sch: Schematic,
+  base: Theme,
+  opts: PlotOpts,
+  dpi = 300,
+): HTMLCanvasElement {
+  const page = plotPageIU(sch, opts);
+  const pxPerIU = dpi / 25.4 / MM; // dpi → px per mm → px per IU
+  const cw = Math.max(1, Math.round(page.w * pxPerIU));
+  const ch = Math.max(1, Math.round(page.h * pxPerIU));
+  const canvas = document.createElement('canvas');
+  canvas.width = cw;
+  canvas.height = ch;
+  const ctx = canvas.getContext('2d')!;
+  const theme = outputTheme(base, opts);
+  renderSchematic(
+    ctx,
+    sch,
+    { scale: pxPerIU * page.scale, offsetX: 0, offsetY: 0 },
+    theme,
+    cw,
+    ch,
+    undefined,
+    undefined,
+    outputRenderOpts(opts, sch),
+  );
+  return canvas;
+}
+
+/** Trigger a browser download of a Blob under `filename`. */
+export function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/** Where a plotted file goes. Defaults to a browser download; the editor passes
+ *  a sink that writes into the project file manager instead. */
+export type PlotSink = (blob: Blob, filename: string) => void;
+
+/** Plot to PNG (raster) at the requested DPI (default 300). */
+export async function plotPng(
+  sch: Schematic,
+  base: Theme,
+  opts: PlotOpts,
+  name: string,
+  sink: PlotSink = downloadBlob,
+): Promise<void> {
+  const canvas = renderSheetToCanvas(sch, base, opts, opts.dpi ?? 300);
+  const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, 'image/png'));
+  if (blob) sink(blob, `${name}.png`);
+}
+
+/** One sheet of a PDF plot job. */
+export interface PdfPlotSheet {
+  sch: Schematic;
+  opts: PlotOpts;
+  /**
+   * `StartPage`'s parent — the sheet path with its last entry popped
+   * (sch_plotter.cpp:194-207): the parent's page number and Sheetname, which
+   * hang this page's outline entry under the parent's. Unset for a root.
+   */
+  parent?: { pageNumber: string; sheetName: string };
+  /** The page each sheet symbol on this page opens, by the sheet's uuid. */
+  childPages?: ReadonlyMap<string, string>;
+}
+
+/**
+ * `SCH_PLOTTER::createPDFFile`, over the ported `PDF_PLOTTER`: one document,
+ * one page per sheet, every page a compressed content stream of the same
+ * paths the screen draws — `PDF_PLOTTER` is the one KiCad class both editors
+ * plot PDF through, which is why this reaches for `common/plotters/PDF_plotter.ts`
+ * rather than writing a second file format.
+ *
+ * `setupPlotPagePDF` (:276-310) sizes the page and sets the viewport in
+ * decimils; the A4 / A choice's `min( scalex, scaley )` is `plotPageIU`'s
+ * scale, folded into the render walk's CTM here rather than into the
+ * plotter's, so every back-end scales the one way.
+ */
+export function sheetsToPdf(
+  sheets: readonly PdfPlotSheet[],
+  base: Theme,
+  metadata?: PlotOpts['pdfMetadata'],
+  options: { debugPdfWriter?: boolean; now?: Date } = {},
+): Uint8Array {
+  const first = sheets[0];
+  if (!first) return new Uint8Array();
+  const bw = !first.opts.color;
+  const plotter = new PDF_PLOTTER(
+    // SCH_RENDER_SETTINGS' default pen: the schematic's "Minimum line width",
+    // which the renderer strokes zero-width items with.
+    pdfRenderSettings({ defaultPenWidth: first.opts.defaultPenIU ?? 0 }),
+    // wxZlibOutputStream( wxZ_BEST_COMPRESSION, wxZLIB_ZLIB ): a zlib stream.
+    (bytes) => zlibSync(bytes, { level: 9 }),
+    { debugPdfWriter: options.debugPdfWriter ?? false },
+  );
+  plotter.SetColorMode(!bw);
+  plotter.SetCreator('Eeschema-PDF');
+  // `SetTitle( ExpandTextVars( RootScreen()->GetTitleBlock().GetTitle() ) )`.
+  const rootTitle = first.sch.titleBlock?.title ?? '';
+  plotter.SetTitle(
+    metadata?.title ?? (first.opts.resolveTextVar ? expandVars(rootTitle, first) : rootTitle),
+  );
+  sheets.forEach((s, i) => {
+    const page = plotPageIU(s.sch, s.opts);
+    if (metadata) {
+      // The AUTHOR / SUBJECT text variables, resolved per sheet (:139-151).
+      if (metadata.author !== undefined) plotter.SetAuthor(metadata.author);
+      if (metadata.subject !== undefined) plotter.SetSubject(metadata.subject);
+    }
+    // "For the following pages you need to close the (finished) page,
+    // reconfigure, and then start a new one" — and in that order: ClosePage
+    // writes the finished page's /MediaBox from the size still in force.
+    if (i > 0) plotter.ClosePage();
+    // setupPlotPagePDF: the page in mils, the viewport in decimils.
+    const mils = schIUScale.IU_PER_MILS;
+    plotter.SetPageSettings(plotterPageInfo({ sizeMils: { x: page.w / mils, y: page.h / mils } }));
+    plotter.SetViewport({ x: 0, y: 0 }, mils / 10, 1, false);
+    const pageNumber = s.opts.pageNumber ?? String(i + 1);
+    const sheetName = s.opts.sheetName ?? '';
+    if (i === 0) {
+      plotter.OpenFile('');
+      plotter.StartPlot(pageNumber, sheetName);
+    } else {
+      plotter.StartPage(
+        pageNumber,
+        sheetName,
+        s.parent?.pageNumber ?? '',
+        s.parent?.sheetName ?? '',
+      );
+    }
+    renderToVector(s.sch, base, s.opts, new PlotterContext(plotter, page.w, page.h));
+    // Then what each item's Plot() adds beside its geometry: the links, the
+    // popups and the bookmarks, which ClosePage writes as the page's /Annots
+    // and EndPlot as the outline.
+    plotPdfAnnotations(plotter, s.sch, s.opts.libById ?? new Map(), {
+      hierarchicalLinks: s.opts.pdfHierarchicalLinks ?? false,
+      propertyPopups: s.opts.pdfPropertyPopups ?? false,
+      parentPageNumber: s.parent?.pageNumber,
+      childPageNumber: (uuid) => s.childPages?.get(uuid),
+      netOf: s.opts.netOf,
+      resolve: s.opts.resolveTextVar,
+      scale: page.scale,
+    });
+  });
+  plotter.EndPlot(options.now);
+  return plotter.bytes();
+}
+
+/** `ExpandTextVars( aText, &textResolver )` over the sheet's own resolver. */
+function expandVars(text: string, s: PdfPlotSheet): string {
+  const resolve = s.opts.resolveTextVar;
+  if (!resolve) return text;
+  return ExpandTextVars(text, resolve);
+}
+
+/** Plot one sheet to a single-page PDF. */
+export async function plotPdf(
+  sch: Schematic,
+  base: Theme,
+  opts: PlotOpts,
+  name: string,
+  sink: PlotSink = downloadBlob,
+): Promise<void> {
+  await plotPdfSheets([{ sch, opts }], base, name, sink, opts.pdfMetadata);
+}
+
+/**
+ * Plot a whole hierarchy to **one** multi-page PDF, as
+ * `SCH_PLOTTER::createPDFFile` does — it opens the file once and pages through
+ * the sheet list rather than writing a file per sheet. Every other format is
+ * one file per sheet because those formats have no notion of a page after the
+ * first; PDF does, and a twelve-sheet design should be one document you can
+ * page through and send.
+ *
+ * Each page keeps its own size: sheets in one project can use different paper.
+ */
+export async function plotPdfSheets(
+  sheets: readonly PdfPlotSheet[],
+  base: Theme,
+  name: string,
+  sink: PlotSink = downloadBlob,
+  metadata?: PlotOpts['pdfMetadata'],
+): Promise<void> {
+  if (sheets.length === 0) return;
+  const bytes = sheetsToPdf(sheets, base, metadata ?? sheets[0]!.opts.pdfMetadata);
+  sink(new Blob([bytes as BlobPart], { type: 'application/pdf' }), `${name}.pdf`);
+}
+
+/** Plot to a true-vector SVG. */
+export function plotSvg(
+  sch: Schematic,
+  base: Theme,
+  opts: PlotOpts,
+  name: string,
+  sink: PlotSink = downloadBlob,
+): void {
+  const svg = sheetToSvg(sch, base, opts);
+  sink(new Blob([svg], { type: 'image/svg+xml' }), `${name}.svg`);
+}
+
+// ----- SVG output (vector) ---------------------------------------------------
+
+/**
+ * `SCH_PLOTTER::plotOneSheetSVG` (sch_plotter.cpp:587) over the common
+ * `SVG_PLOTTER`: the page in mils, the viewport in decimils, creator
+ * "Eeschema-SVG". The A4 / A choice's `min( scalex, scaley )` is
+ * `plotPageIU`'s scale, folded into the render walk's CTM, so the plotter's
+ * own scale stays 1.
+ */
+export function sheetToSvg(
+  sch: Schematic,
+  base: Theme,
+  opts: PlotOpts,
+  options: { now?: Date; fileName?: string } = {},
+): string {
+  const page = plotPageIU(sch, opts);
+  const plotter = new SVG_PLOTTER(
+    plotterRenderSettings({ defaultPenWidth: opts.defaultPenIU ?? 0 }),
+  );
+  plotter.SetPageSettings(plotPageInfo(sch, page));
+  plotter.SetColorMode(opts.color);
+  plotter.SetViewport({ x: 0, y: 0 }, schIUScale.IU_PER_MILS / 10, 1, false);
+  plotter.SetCreator('Eeschema-SVG');
+  plotter.OpenFile(options.fileName ?? '');
+  plotter.StartPlot(opts.pageNumber ?? '1', options.now);
+  renderToVector(sch, base, opts, new PlotterContext(plotter, page.w, page.h));
+  plotter.EndPlot();
+  return plotter.text();
+}
+
+/**
+ * The plotted page as `PAGE_INFO`: its size in mils (the IU size over
+ * `IU_PER_MILS`), the paper name for PostScript's `%%DocumentMedia`, and the
+ * orientation PostScript un-swaps for its bounding box.
+ */
+function plotPageInfo(
+  sch: Schematic,
+  page: { w: number; h: number },
+): ReturnType<typeof plotterPageInfo> {
+  const mils = schIUScale.IU_PER_MILS;
+  const type = (sch.paper ?? 'A4').split(/\s+/)[0] ?? 'A4';
+  return plotterPageInfo({
+    sizeMils: { x: page.w / mils, y: page.h / mils },
+    type,
+    portrait: page.h > page.w,
+  });
+}
+
+type Mat = [number, number, number, number, number, number];
+const IDENT: Mat = [1, 0, 0, 1, 0, 0];
+
+function mul(m: Mat, t: Mat): Mat {
+  return [
+    m[0] * t[0] + m[2] * t[1],
+    m[1] * t[0] + m[3] * t[1],
+    m[0] * t[2] + m[2] * t[3],
+    m[1] * t[2] + m[3] * t[3],
+    m[0] * t[4] + m[2] * t[5] + m[4],
+    m[1] * t[4] + m[3] * t[5] + m[5],
+  ];
+}
+
+/** CSS colour (#rgb / #rrggbb / rgb(...)) -> [r,g,b] in 0..255. */
+function parseColor(s: string): [number, number, number] {
+  const t = (s || '').trim();
+  if (t[0] === '#') {
+    if (t.length === 4)
+      return [
+        parseInt(t[1]! + t[1]!, 16),
+        parseInt(t[2]! + t[2]!, 16),
+        parseInt(t[3]! + t[3]!, 16),
+      ];
+    return [parseInt(t.slice(1, 3), 16), parseInt(t.slice(3, 5), 16), parseInt(t.slice(5, 7), 16)];
+  }
+  const m = t.match(/rgba?\(([^)]+)\)/);
+  if (m) {
+    const [r, g, b] = m[1]!.split(',').map((v) => parseInt(v, 10) || 0);
+    return [r ?? 0, g ?? 0, b ?? 0];
+  }
+  return [0, 0, 0];
+}
+
+type Pt = [number, number];
+interface SubPath {
+  pts: Pt[];
+  closed: boolean;
+}
+
+/**
+ * Shared CTM + path accumulation for the vector back-ends: the
+ * CanvasRenderingContext2D subset the schematic renderer uses, with every path
+ * point resolved through the CTM to absolute page coordinates (IU) before it
+ * reaches a plotter. Glyphs arrive as stroked segments (setVectorText), so only
+ * geometry is needed.
+ */
+abstract class VectorContext {
+  protected ctm: Mat = IDENT;
+  private stack: { ctm: Mat; lw: number; stroke: string; fill: string }[] = [];
+  private subs: SubPath[] = [];
+  private cur: SubPath | null = null;
+
+  fillStyle = '#000';
+  strokeStyle = '#000';
+  lineWidth = 1;
+  lineCap = 'butt';
+  lineJoin = 'miter';
+  font = '';
+  textAlign = '';
+
+  constructor(
+    protected pw: number,
+    protected ph: number,
+  ) {}
+
+  setTransform(a: number, b: number, c: number, d: number, e: number, f: number): void {
+    this.ctm = [a, b, c, d, e, f];
+  }
+  translate(x: number, y: number): void {
+    this.ctm = mul(this.ctm, [1, 0, 0, 1, x, y]);
+  }
+  rotate(t: number): void {
+    this.ctm = mul(this.ctm, [Math.cos(t), Math.sin(t), -Math.sin(t), Math.cos(t), 0, 0]);
+  }
+  save(): void {
+    this.stack.push({
+      ctm: this.ctm,
+      lw: this.lineWidth,
+      stroke: this.strokeStyle,
+      fill: this.fillStyle,
+    });
+  }
+  restore(): void {
+    const s = this.stack.pop();
+    if (!s) return;
+    this.ctm = s.ctm;
+    this.lineWidth = s.lw;
+    this.strokeStyle = s.stroke;
+    this.fillStyle = s.fill;
+  }
+  setLineDash(_d: number[]): void {
+    // Dashes are dropped (solid strokes), schematic dashes are cosmetic and a
+    // sketch-style plot is the DXF/PS convention.
+  }
+
+  beginPath(): void {
+    this.subs = [];
+    this.cur = null;
+  }
+  moveTo(x: number, y: number): void {
+    this.cur = { pts: [[x, y]], closed: false };
+    this.subs.push(this.cur);
+  }
+  lineTo(x: number, y: number): void {
+    if (!this.cur) {
+      this.moveTo(x, y);
+      return;
+    }
+    this.cur.pts.push([x, y]);
+  }
+  closePath(): void {
+    if (this.cur) this.cur.closed = true;
+  }
+  rect(x: number, y: number, w: number, h: number): void {
+    this.subs.push({
+      pts: [
+        [x, y],
+        [x + w, y],
+        [x + w, y + h],
+        [x, y + h],
+      ],
+      closed: true,
+    });
+    this.cur = null;
+  }
+  arc(cx: number, cy: number, r: number, a0: number, a1: number, ccw = false): void {
+    let span = a1 - a0;
+    if (ccw) {
+      if (span > 0) span -= 2 * Math.PI;
+    } else if (span < 0) span += 2 * Math.PI;
+    const s0: Pt = [cx + r * Math.cos(a0), cy + r * Math.sin(a0)];
+    if (this.cur) this.cur.pts.push(s0);
+    else this.moveTo(s0[0], s0[1]);
+    const steps = Math.max(6, Math.ceil(Math.abs(span) / (Math.PI / 24)));
+    for (let i = 1; i <= steps; i++) {
+      const a = a0 + span * (i / steps);
+      this.cur!.pts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
+    }
+  }
+
+  private apply(p: Pt): Pt {
+    const m = this.ctm;
+    return [m[0] * p[0] + m[2] * p[1] + m[4], m[1] * p[0] + m[3] * p[1] + m[5]];
+  }
+  private ctmScale(): number {
+    return Math.hypot(this.ctm[0], this.ctm[1]) || 1;
+  }
+
+  stroke(): void {
+    const w = this.lineWidth * this.ctmScale();
+    for (const s of this.subs) {
+      if (s.pts.length < 2) continue;
+      this.emitPolyline(
+        s.pts.map((p) => this.apply(p)),
+        w,
+        this.strokeStyle,
+        s.closed,
+      );
+    }
+  }
+  fill(): void {
+    // One `fill` is one shape, however many subpaths it holds: an outline
+    // glyph's rings — an 'O' is its outer ring and its hole — arrive in one
+    // path and cancel under non-zero winding. `CALLBACK_GAL::DrawGlyph`
+    // (common/callback_gal.cpp:70-78) hands a plotter the same thing after
+    // `Fracture()`, one outline per glyph with the holes bridged in; passing
+    // the rings together lets each back-end keep that. Emitting them one by
+    // one, which this did, painted every hole solid on the PostScript plot.
+    const rings = this.subs
+      .filter((s) => s.pts.length >= 3)
+      .map((s) => s.pts.map((p) => this.apply(p)));
+    if (rings.length) this.emitPolygonSet(rings, this.fillStyle);
+  }
+  /**
+   * A filled shape of one or more rings. The default draws each ring as its
+   * own polygon, which is right where "filled" means "a closed outline" —
+   * DXF, whose `PlotPoly` "Plot[s] outlines with lines (thickness = 0) to
+   * define the polygon" (DXF_plotter.cpp:1484-1487) — and wrong wherever
+   * the back-end really fills, which overrides it.
+   */
+  protected emitPolygonSet(rings: Pt[][], color: string): void {
+    for (const r of rings) this.emitPolygon(r, color);
+  }
+  strokeRect(x: number, y: number, w: number, h: number): void {
+    const box: Pt[] = [
+      [x, y],
+      [x + w, y],
+      [x + w, y + h],
+      [x, y + h],
+    ];
+    this.emitPolyline(
+      box.map((p) => this.apply(p)),
+      this.lineWidth * this.ctmScale(),
+      this.strokeStyle,
+      true,
+    );
+  }
+  fillRect(x: number, y: number, w: number, h: number): void {
+    const box: Pt[] = [
+      [x, y],
+      [x + w, y],
+      [x + w, y + h],
+      [x, y + h],
+    ];
+    this.emitPolygon(
+      box.map((p) => this.apply(p)),
+      this.fillStyle,
+    );
+  }
+  fillText(): void {
+    // Unreachable while plotting: setVectorText strokes every glyph.
+  }
+  drawImage(): void {
+    // Raster images have no vector representation in DXF / PostScript.
+  }
+
+  protected abstract emitPolyline(pts: Pt[], width: number, color: string, closed: boolean): void;
+  protected abstract emitPolygon(pts: Pt[], color: string): void;
+}
+
+/**
+ * Every vector back-end: the render walk's paths handed to a common `PLOTTER`
+ * as the primitives `SCH_SCREEN::Plot` would call — a stroke is
+ * `MoveTo`/`LineTo`/`FinishTo` (a closed one `PlotPoly( NO_FILL )`), a fill is
+ * `PlotPoly( FILLED_SHAPE, 0 )`, colour and pen through `SetColor` and
+ * `SetCurrentLineWidth`. The plotter writes the file; nothing about any file
+ * format lives here. PDF, SVG, PostScript and DXF all come through this one
+ * class, as they all come through `PLOTTER` in eeschema.
+ *
+ * A multi-ring fill — an outline glyph's rings — goes the way
+ * `CALLBACK_GAL::DrawGlyph` sends one to every plotter
+ * (callback_gal.cpp:70-78): the `SHAPE_POLY_SET` is `Fracture()`d into one
+ * simple outline per glyph, holes bridged in, and each outline is one
+ * `PlotPoly`.
+ */
+class PlotterContext extends VectorContext {
+  constructor(
+    private readonly plotter: PLOTTER,
+    pw: number,
+    ph: number,
+  ) {
+    super(pw, ph);
+  }
+  /** The plotter this context draws into. */
+  Plotter(): PLOTTER {
+    return this.plotter;
+  }
+  private static colour(color: string): Color4d {
+    const [r, g, b] = parseColor(color);
+    return { r: r / 255, g: g / 255, b: b / 255, a: 1 };
+  }
+  private static vec(pts: Pt[]): Vec2[] {
+    return pts.map(([x, y]) => ({ x, y }));
+  }
+  protected emitPolyline(pts: Pt[], width: number, color: string, closed: boolean): void {
+    if (pts.length < 2) return;
+    this.plotter.SetColor(PlotterContext.colour(color));
+    if (closed) {
+      this.plotter.PlotPoly(PlotterContext.vec(pts), FILL_T.NO_FILL, width);
+      return;
+    }
+    this.plotter.SetCurrentLineWidth(width);
+    this.plotter.MoveTo({ x: pts[0]![0], y: pts[0]![1] });
+    for (let i = 1; i < pts.length - 1; i++) this.plotter.LineTo({ x: pts[i]![0], y: pts[i]![1] });
+    const last = pts[pts.length - 1]!;
+    this.plotter.FinishTo({ x: last[0], y: last[1] });
+  }
+  protected emitPolygon(pts: Pt[], color: string): void {
+    if (pts.length < 3) return;
+    this.plotter.SetColor(PlotterContext.colour(color));
+    this.plotter.PlotPoly(PlotterContext.vec(pts), FILL_T.FILLED_SHAPE, 0);
+  }
+  protected override emitPolygonSet(rings: Pt[][], color: string): void {
+    if (rings.length === 1) {
+      this.emitPolygon(rings[0]!, color);
+      return;
+    }
+    this.plotter.SetColor(PlotterContext.colour(color));
+    // An OUTLINE_GLYPH is a SHAPE_POLY_SET of VECTOR2I: whole IU before the
+    // fracture, as `KiROUND` fills one.
+    const whole = rings.map((r) => r.map(([x, y]) => ({ x: KiROUND(x), y: KiROUND(y) })));
+    for (const outline of fracture(nestRings(whole)))
+      this.plotter.PlotPoly(outline, FILL_T.FILLED_SHAPE, 0);
+  }
+}
+
+/**
+ * Rings from one non-zero fill, sorted into `SHAPE_POLY_SET` polygons — an
+ * outline and the holes directly inside it — by containment depth, the way
+ * `OUTLINE_FONT` builds a glyph (`AddOutline` for a filled contour,
+ * `AddHole` for the one it sits in). Even depth is an outline, odd a hole of
+ * the innermost ring around it.
+ */
+function nestRings(rings: Vec2[][]): Polygon[] {
+  const inside = (p: Vec2, ring: Vec2[]): boolean => {
+    let c = false;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const a = ring[i]!;
+      const b = ring[j]!;
+      if (a.y > p.y !== b.y > p.y && p.x < ((b.x - a.x) * (p.y - a.y)) / (b.y - a.y) + a.x) c = !c;
+    }
+    return c;
+  };
+  const containers = rings.map((r, i) =>
+    rings.map((_, j) => j).filter((j) => j !== i && inside(r[0]!, rings[j]!)),
+  );
+  const polygons: Polygon[] = [];
+  const outlineOf = new Map<number, Polygon>();
+  rings.forEach((r, i) => {
+    if (containers[i]!.length % 2 === 0) {
+      const poly: Polygon = [r];
+      outlineOf.set(i, poly);
+      polygons.push(poly);
+    }
+  });
+  rings.forEach((r, i) => {
+    const around = containers[i]!;
+    if (around.length % 2 === 0) return;
+    // The innermost ring around a hole is the one with the most containers.
+    const owner = around.reduce((best, j) =>
+      containers[j]!.length > containers[best]!.length ? j : best,
+    );
+    outlineOf.get(owner)?.push(r);
+  });
+  return polygons;
+}
+
+/**
+ * `SCH_PLOTTER::plotOneSheetDXF` (sch_plotter.cpp:768) over the common
+ * `DXF_PLOTTER`: the "Export units:" choice, a zero default pen, the
+ * schematic's own page at scale 1 (upstream passes 1.0 whatever the page-size
+ * choice), creator "Eeschema-DXF". With no layers to export, every entity
+ * lands on the ACAD colour layer named after its colour.
+ */
+export function sheetToDxf(sch: Schematic, base: Theme, opts: PlotOpts): string {
+  const page = pageIU(sch);
+  const plotter = new DXF_PLOTTER({
+    ...plotterRenderSettingsFns(0),
+    // LAYER_SCHEMATIC_* colours are only read on the Layer_Name path, which an
+    // empty export list never takes for an entity.
+    GetLayerColor: () => ({ r: 0, g: 0, b: 0, a: 1 }),
+  });
+  plotter.SetUnits((opts.dxfUnits ?? 'in') === 'mm' ? DXF_UNITS.MM : DXF_UNITS.INCH);
+  plotter.SetPageSettings(plotPageInfo(sch, page));
+  plotter.SetColorMode(opts.color);
+  plotter.SetViewport({ x: 0, y: 0 }, schIUScale.IU_PER_MILS / 10, 1, false);
+  plotter.SetCreator('Eeschema-DXF');
+  plotter.OpenFile('');
+  plotter.StartPlot(opts.pageNumber ?? '1');
+  renderToVector(
+    sch,
+    base,
+    { ...opts, pageSizeSelect: 'auto' },
+    new PlotterContext(plotter, page.w, page.h),
+  );
+  plotter.EndPlot();
+  return plotter.text();
+}
+
+/** `RENDER_SETTINGS`' pen and dash accessors, as plain functions. */
+function plotterRenderSettingsFns(aDefaultPenWidth: number) {
+  const rs = plotterRenderSettings({ defaultPenWidth: aDefaultPenWidth });
+  return {
+    GetDefaultPenWidth: () => rs.GetDefaultPenWidth(),
+    GetDashLength: (w: number) => rs.GetDashLength(w),
+    GetDotLength: (w: number) => rs.GetDotLength(w),
+    GetGapLength: (w: number) => rs.GetGapLength(w),
+  };
+}
+
+/**
+ * `SCH_PLOTTER::plotOneSheetPS` (sch_plotter.cpp:434) over the common
+ * `PS_PLOTTER`: creator "Eeschema-PS", the viewport in decimils. The
+ * document's `%%Title` is the plotter's title, which eeschema never sets.
+ */
+export function sheetToPs(
+  sch: Schematic,
+  base: Theme,
+  opts: PlotOpts,
+  title: string,
+  options: { now?: Date } = {},
+): string {
+  const page = plotPageIU(sch, opts);
+  const plotter = new PS_PLOTTER(
+    plotterRenderSettings({ defaultPenWidth: opts.defaultPenIU ?? 0 }),
+  );
+  plotter.SetPageSettings(plotPageInfo(sch, page));
+  plotter.SetColorMode(opts.color);
+  plotter.SetViewport({ x: 0, y: 0 }, schIUScale.IU_PER_MILS / 10, 1, false);
+  plotter.SetCreator('Eeschema-PS');
+  plotter.OpenFile(title);
+  plotter.StartPlot(opts.pageNumber ?? '1', options.now);
+  renderToVector(sch, base, opts, new PlotterContext(plotter, page.w, page.h));
+  plotter.EndPlot();
+  return plotter.text();
+}
+
+/**
+ * The schematic's page as `PAGE_INFO`: `SCH_IO_KICAD_SEXPR_PARSER::parsePAGE_INFO`
+ * over the `(paper …)` token, eeschema's size limits.
+ */
+function schPageInfo(sch: Schematic): PAGE_INFO {
+  const parts = (sch.paper ?? 'A4').trim().split(/\s+/);
+  const pageInfo = new PAGE_INFO();
+
+  if (!pageInfo.SetType(parts[0] ?? 'A4')) pageInfo.SetType(PAGE_SIZE_TYPE.A4);
+
+  if (pageInfo.GetType() === PAGE_SIZE_TYPE.User) {
+    const clamp = (v: number): number =>
+      Math.min(Math.max(v, MIN_PAGE_SIZE_MM), MAX_PAGE_SIZE_EESCHEMA_MM);
+    const width = Number(parts[1]);
+    const height = Number(parts[2]);
+
+    if (Number.isFinite(width) && Number.isFinite(height)) {
+      pageInfo.SetWidthMils((clamp(width) * 1000.0) / 25.4);
+      pageInfo.SetHeightMils((clamp(height) * 1000.0) / 25.4);
+    }
+  }
+
+  if (parts.includes('portrait')) pageInfo.SetPortrait(true);
+
+  return pageInfo;
+}
+
+/**
+ * `SCH_PLOTTER::plotOneSheet*`'s `PlotDrawingSheet` call: the page frame and
+ * title block through the plotter itself, in LAYER_SCHEMATIC_DRAWINGSHEET's
+ * colour (black when the plotter is not in colour mode). The A4 / A page
+ * choice is the plotter's scale for the sheet, as upstream's viewport is.
+ */
+function plotDrawingSheetHook(
+  plotter: PLOTTER,
+  sch: Schematic,
+  opts: PlotOpts,
+  theme: Theme,
+  scale: number,
+): () => void {
+  return () => {
+    const model = DS_DATA_MODEL.GetTheInstance();
+
+    if (opts.sheet) model.SetPageLayout(serializeDrawingSheet(opts.sheet));
+    else model.SetDefaultLayout();
+
+    const ps = getPageSettings(sch);
+    const titleBlock = new TITLE_BLOCK();
+    titleBlock.SetTitle(ps.title);
+    titleBlock.SetDate(ps.date);
+    titleBlock.SetRevision(ps.rev);
+    titleBlock.SetCompany(ps.company);
+    ps.comments.forEach((c, i) => titleBlock.SetComment(i, c));
+
+    const mils = schIUScale.IU_PER_MILS;
+
+    if (scale !== 1) plotter.SetViewport({ x: 0, y: 0 }, mils / 10, scale, false);
+
+    const [r, g, b] = parseColor(theme.pageFrame);
+    const resolve = opts.resolveTextVar;
+
+    PlotDrawingSheet(
+      plotter,
+      resolve ? { TextVarResolver: resolve } : null,
+      titleBlock,
+      schPageInfo(sch),
+      null,
+      opts.pageNumber ?? '1',
+      opts.sheetCount ?? 1,
+      opts.sheetName ?? '',
+      opts.sheetPath ?? '/',
+      sch.fileName ?? '',
+      plotter.GetColorMode() ? { r: r / 255, g: g / 255, b: b / 255, a: 1 } : COLOR4D_BLACK,
+      (opts.sheetNumber ?? 1) === 1,
+    );
+
+    if (scale !== 1) plotter.SetViewport({ x: 0, y: 0 }, mils / 10, 1, false);
+  };
+}
+
+/** Run the shared render walk into a plotter context. */
+function renderToVector(sch: Schematic, base: Theme, opts: PlotOpts, ctx: VectorContext): void {
+  const page = plotPageIU(sch, opts);
+  const theme = outputTheme(base, opts);
+  const plotter = ctx instanceof PlotterContext ? ctx.Plotter() : null;
+  setVectorText(true);
+  try {
+    renderSchematic(
+      ctx as unknown as CanvasRenderingContext2D,
+      sch,
+      { scale: page.scale, offsetX: 0, offsetY: 0 },
+      theme,
+      page.w,
+      page.h,
+      undefined,
+      undefined,
+      {
+        ...outputRenderOpts(opts, sch),
+        ...(plotter
+          ? { plotDrawingSheet: plotDrawingSheetHook(plotter, sch, opts, theme, page.scale) }
+          : {}),
+      },
+    );
+  } finally {
+    setVectorText(false);
+  }
+}
+
+/** Plot to DXF. */
+export function plotDxf(
+  sch: Schematic,
+  base: Theme,
+  opts: PlotOpts,
+  name: string,
+  sink: PlotSink = downloadBlob,
+): void {
+  sink(new Blob([sheetToDxf(sch, base, opts)], { type: 'application/dxf' }), `${name}.dxf`);
+}
+/** Plot to PostScript. */
+export function plotPs(
+  sch: Schematic,
+  base: Theme,
+  opts: PlotOpts,
+  name: string,
+  sink: PlotSink = downloadBlob,
+): void {
+  sink(
+    new Blob([sheetToPs(sch, base, opts, name)], { type: 'application/postscript' }),
+    `${name}.ps`,
+  );
+}
+function escText(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// ----- minimal single-image PDF ---------------------------------------------
+
+// ----- Print (browser) -------------------------------------------------------
+
+/** One page of a print job: a sheet document and its render options. */
+export interface PrintPage {
+  sch: Schematic;
+  opts: PlotOpts;
+}
+
+/**
+ * Open the browser print flow for a multi-page job, SCH_PRINTOUT prints the
+ * whole hierarchy, one page per sheet instance in SCH_SHEET_LIST order.
+ * Colour output prints as-is; B&W forces the monochrome theme (outputTheme).
+ * "Print" auto-opens the browser print flow once the last page has loaded;
+ * "Print Preview" (KiCad's Apply) just shows the rendered pages. The page
+ * orientation follows the first sheet (CSS `@page` is per-document, unlike
+ * wxPrintout's per-page setup).
+ */
+export function printSheets(
+  pages: readonly PrintPage[],
+  base: Theme,
+  title: string,
+  preview = false,
+): void {
+  if (pages.length === 0) return;
+  const dataUrls = pages.map(({ sch, opts }) =>
+    renderSheetToCanvas(sch, opts.color ? base : KICAD_CLASSIC, opts, 300).toDataURL('image/png'),
+  );
+  const first = pageIU(pages[0]!.sch);
+  const landscape = first.w >= first.h;
+  const win = window.open('', '_blank');
+  if (!win) return;
+  const onload = preview ? 'window.focus();' : 'window.focus();window.print();';
+  win.document.write(
+    `<!doctype html><html><head><title>${escText(title)}</title>` +
+      `<style>@page { size: ${landscape ? 'landscape' : 'portrait'}; margin: 0; }` +
+      `html,body { margin: 0; padding: 0; }` +
+      `img { display: block; width: 100%; height: auto; page-break-after: always; }` +
+      `img:last-child { page-break-after: auto; }</style></head>` +
+      `<body>${dataUrls
+        .map((u, i) => `<img src="${u}"${i === dataUrls.length - 1 ? ` onload="${onload}"` : ''}/>`)
+        .join('')}</body></html>`,
+  );
+  win.document.close();
+}
+
+/** Single-sheet convenience wrapper over printSheets. */
+export function printSheet(
+  sch: Schematic,
+  base: Theme,
+  opts: PlotOpts,
+  title: string,
+  preview = false,
+): void {
+  printSheets([{ sch, opts }], base, title, preview);
+}

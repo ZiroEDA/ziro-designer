@@ -24,11 +24,11 @@ import {
   TRACKPAD_DEFAULTS,
   VERTICAL_ACTIONS,
 } from '@ziroeda/designer/src/editors/schematic/prefs/PanelSimulatorPreferences.js';
-import type { EeschemaSettings } from '@ziroeda/designer/src/prefs/settings.js';
+import type { EeschemaSettings } from '@ziroeda/eeschema/eeschema_settings.js';
 import type { PrefsContext } from '@ziroeda/designer/src/dialogs/prefs/types.js';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { EESCHEMA_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
+import { EESCHEMA_DEFAULTS } from '@ziroeda/eeschema/eeschema_settings.js';
 import { OMITTED_PAGES, PAGES } from '@ziroeda/designer/src/dialogs/prefs/registry.js';
 import { pcm } from '@ziroeda/designer/src/pcm/pcmStore.js';
 import type { RepoPackage } from '@ziroeda/designer/src/pcm/types.js';

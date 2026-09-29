@@ -6,7 +6,7 @@
  * is centred and scaled to fit the canvas.
  */
 import { describe, it, expect } from 'vitest';
-import { fitToBBox } from '@ziroeda/designer/src/editors/schematic/render/renderer.js';
+import { fitToBBox } from '@ziroeda/eeschema/sch_painter.js';
 
 describe('fitToBBox', () => {
   it('centres the box in the canvas', () => {

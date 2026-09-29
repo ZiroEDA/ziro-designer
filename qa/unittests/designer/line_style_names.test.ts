@@ -58,7 +58,7 @@ const CALL_SITES: Record<string, string> = {
   'schematic/dialogs/dialog_global_edit_text_and_graphics.tsx': read(
     `../../../eeschema/dialogs/dialog_global_edit_text_and_graphics.tsx`,
   ),
-  'schematic/net_overrides.ts': read(`${D}schematic/net_overrides.ts`),
+  'schematic/net_overrides.ts': read('../../../eeschema/net_overrides.ts'),
   'eeschema/schematic_settings.ts': read('../../../eeschema/schematic_settings.ts'),
   'pcb/dialogs/dialog_graphic_properties.tsx': read(
     `../../../pcbnew/dialogs/dialog_graphic_properties.tsx`,

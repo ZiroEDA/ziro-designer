@@ -16,13 +16,13 @@
  */
 import { describe, expect, it } from 'vitest';
 import { PnsLayerRange } from '@ziroeda/pcbnew/router/pns_layerset.js';
-import { PnsLineChain } from '@ziroeda/pcbnew/router/pns_line_item.js';
+import { PnsLineChain } from '@ziroeda/pcbnew/router/pns_line.js';
 import { PnsSegment } from '@ziroeda/pcbnew/router/pns_segment.js';
 import { PnsSolid } from '@ziroeda/pcbnew/router/pns_solid.js';
 import { PnsVia } from '@ziroeda/pcbnew/router/pns_via.js';
 import { PnsArc } from '@ziroeda/pcbnew/router/pns_arc.js';
 import { PnsHole } from '@ziroeda/pcbnew/router/pns_hole.js';
-import { PnsLine } from '@ziroeda/pcbnew/router/pns_line_item.js';
+import { PnsLine } from '@ziroeda/pcbnew/router/pns_line.js';
 import { arcHull, convexHull, itemHull } from '@ziroeda/pcbnew/router/pns_item_hull.js';
 import { segmentHull } from '@ziroeda/pcbnew/router/pns_hull.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';

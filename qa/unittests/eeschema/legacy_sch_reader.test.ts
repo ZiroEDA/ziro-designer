@@ -38,7 +38,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { parse } from '@ziroeda/sexpr/index.js';
 import { computeNetlist, readSchematic } from '@ziroeda/eeschema';
-import { readLegacySymbolLibrary } from '@ziroeda/eeschema/sch_io/legacy/read-lib.js';
+import { readLegacySymbolLibrary } from '@ziroeda/eeschema/sch_io/kicad_legacy/sch_io_kicad_legacy_lib_cache.js';
 import {
   legacyLibrarySymbols,
   legacyRootFile,
@@ -46,7 +46,7 @@ import {
   modernSheetFile,
   readLegacyProject,
   transformToOrientation,
-} from '@ziroeda/eeschema/sch_io/legacy/read-schematic.js';
+} from '@ziroeda/eeschema/sch_io/kicad_legacy/sch_io_kicad_legacy.js';
 import type { Schematic } from '@ziroeda/eeschema/types.js';
 
 const data = (name: string): string =>

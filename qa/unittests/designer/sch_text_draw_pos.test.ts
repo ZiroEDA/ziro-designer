@@ -13,7 +13,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
-import { schTextDrawPos } from '@ziroeda/designer/src/editors/schematic/render/renderer.js';
+import { schTextDrawPos } from '@ziroeda/eeschema/sch_painter.js';
 import {
   getOutlineFont,
   resetOutlineFonts,

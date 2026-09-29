@@ -297,6 +297,11 @@ export class KIID_PATH {
     this.m_steps = [];
   }
 
+  /** `insert( begin(), aKiid )`. */
+  insertFirst(aKiid: KIID): void {
+    this.m_steps.unshift(aKiid);
+  }
+
   /** `erase( begin() )`. */
   eraseFirst(): void {
     this.m_steps.shift();

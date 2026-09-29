@@ -1,0 +1,17 @@
+*PADS-PCB*
+*PART*
+R4               R
+R2               R
+R1               R
+R3               R
+
+*NET*
+*SIGNAL* /D0
+R1.1 R3.1 
+*SIGNAL* /D1
+R2.1 R4.1 
+*SIGNAL* Net-(R1-Pad2)
+R1.2 R2.2 
+*SIGNAL* Net-(R3-Pad2)
+R3.2 R4.2 
+*END*

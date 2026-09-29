@@ -44,7 +44,7 @@ import { PnsDpMeanderPlacer } from '@ziroeda/pcbnew/router/pns_dp_meander_placer
 import { PnsItemSet } from '@ziroeda/pcbnew/router/pns_itemset.js';
 import { PnsKind } from '@ziroeda/pcbnew/router/pns_item.js';
 import { PnsLayerRange } from '@ziroeda/pcbnew/router/pns_layerset.js';
-import { PnsLine, PnsLineChain } from '@ziroeda/pcbnew/router/pns_line_item.js';
+import { PnsLine, PnsLineChain } from '@ziroeda/pcbnew/router/pns_line.js';
 import { PnsMeanderPlacer } from '@ziroeda/pcbnew/router/pns_meander_placer.js';
 import { PnsMeanderSkewPlacer } from '@ziroeda/pcbnew/router/pns_meander_skew_placer.js';
 import { PnsNode } from '@ziroeda/pcbnew/router/pns_node.js';

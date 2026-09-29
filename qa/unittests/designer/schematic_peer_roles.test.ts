@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 /**
- * PeerRole wiring in the schematic editor (designer/src/sync/ProjectSyncTransport.ts):
+ * PeerRole wiring in the schematic editor (eeschema/project_sync_transport.ts):
  * the same shape of work pcb_peer_roles.test.ts pins for PcbEditor.tsx, applied
  * to SchematicEditor.tsx's own choke point. Unlike PCB's commitBoard, this
  * editor funnels every edit — the open sheet's own runCommand, a batched

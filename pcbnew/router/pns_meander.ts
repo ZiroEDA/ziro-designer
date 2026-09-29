@@ -77,7 +77,7 @@
 import { ENUM_MAP } from '@ziroeda/common/properties/property.js';
 import { ANGLE_90 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { PCB_IU_PER_MM } from '@ziroeda/common/eda_units.js';
-import { PnsLineChain } from './pns_line_item.js';
+import { PnsLineChain } from './pns_line.js';
 import { RotatePointD } from '@ziroeda/kimath/src/trigo.js';
 import { segSquaredDistanceToSeg } from '@ziroeda/kimath/src/geometry/seg.js';
 import {

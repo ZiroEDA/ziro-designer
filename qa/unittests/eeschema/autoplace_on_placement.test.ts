@@ -269,9 +269,7 @@ const CANVAS = readFileSync(
 );
 
 const RENDERER = readFileSync(
-  fileURLToPath(
-    new URL('../../../designer/src/editors/schematic/render/renderer.ts', import.meta.url),
-  ),
+  fileURLToPath(new URL('../../../eeschema/sch_painter.ts', import.meta.url)),
   'utf8',
 );
 

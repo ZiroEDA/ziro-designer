@@ -72,10 +72,7 @@ describe('WX_TEXT_ENTRY_DIALOG', () => {
 describe('the Exclusion Comment callers', () => {
   const read = (rel: string): string => readFileSync(resolve(process.cwd(), '..', rel), 'utf8');
 
-  for (const file of [
-    'eeschema/dialogs/dialog_erc.tsx',
-    'designer/src/editors/pcb/PcbEditor.tsx',
-  ]) {
+  for (const file of ['eeschema/dialogs/dialog_erc.tsx', 'pcbnew/pcb_edit_frame_ui.tsx']) {
     it(`${file.split('/').pop()} asks with WX_TEXT_ENTRY_DIALOG, never prompt()`, () => {
       const src = read(file);
       expect(src).toContain('<WX_TEXT_ENTRY_DIALOG');

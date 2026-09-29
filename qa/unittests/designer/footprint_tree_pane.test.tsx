@@ -31,7 +31,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/react';
-import { FootprintEditor } from '@ziroeda/designer/src/editors/footprint/FootprintEditor.js';
+import { FootprintEditor } from '@ziroeda/designer/src/editors/footprint/footprint_edit_frame_app.js';
 import { mergeFpEdit, settings, SETTINGS_SLICES } from '@ziroeda/designer/src/prefs/settings.js';
 
 afterEach(cleanup);

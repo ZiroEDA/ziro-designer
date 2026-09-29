@@ -28,7 +28,7 @@
  * build.
  */
 import { AngleType, Direction45, Directions } from '@ziroeda/kimath/src/geometry/direction45.js';
-import { PnsLineChain } from './pns_line_item.js';
+import { PnsLineChain } from './pns_line.js';
 import { segSquaredDistanceToSeg } from '@ziroeda/kimath/src/geometry/seg.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 

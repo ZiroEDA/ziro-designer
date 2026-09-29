@@ -99,10 +99,7 @@ describe('the board editor runs BOARD_EDITOR_CONTROL::AssignNetclass', () => {
   });
 
   it('is wired, with upstream’s refusal', () => {
-    const src = readFileSync(
-      resolve(process.cwd(), '../designer/src/editors/pcb/PcbEditor.tsx'),
-      'utf8',
-    );
+    const src = readFileSync(resolve(process.cwd(), '../pcbnew/pcb_edit_frame_ui.tsx'), 'utf8');
     expect(src).toContain("{ label: 'Assign Netclass...', action: () => assignNetclass() }");
     expect(src).toContain("setInfoBarError('Selection contains no items with labeled nets.')");
     expect(src).toContain('<DialogAssignNetclass');

@@ -48,7 +48,7 @@ import {
   type PnsPendingChange,
 } from './pns_board_iface.js';
 import { PnsKind } from './pns_item.js';
-import type { PnsLine } from './pns_line_item.js';
+import type { PnsLine } from './pns_line.js';
 import type { PnsSegment } from './pns_segment.js';
 import { PnsVia } from './pns_via.js';
 import { PnsLinePlacer, type PnsRouterLike } from './pns_line_placer.js';

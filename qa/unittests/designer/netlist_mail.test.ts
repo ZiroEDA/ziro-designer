@@ -7,13 +7,23 @@
  * kicad-cli 10.0.5 wrote.
  */
 import { readFileSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { CROSS_PROBING_SETTINGS } from '@ziroeda/common/settings/app_settings.js';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import { KIWAY } from '@ziroeda/common/kiway.js';
 import { MAIL_T } from '@ziroeda/common/mail_type.js';
 import { SCH_EDIT_FRAME } from '@ziroeda/eeschema/sch_edit_frame.js';
-import { FetchNetlistFromSchematic } from '@ziroeda/pcbnew/netlist_from_schematic.js';
+import { formatSchematicNetlist } from '@ziroeda/eeschema/cross-probing.js';
+import {
+  FetchNetlistFromSchematic,
+  setHeadlessNetlistProvider,
+} from '@ziroeda/pcbnew/netlist_from_schematic.js';
+
+// The app registers the headless MAIL_SCH_GET_NETLIST answer at startup
+// (pgm_app.ts: `setHeadlessNetlistProvider(formatSchematicNetlist)`), since
+// pcbnew/ may not import eeschema/. A test that never starts the app does
+// the same, or TestStandalone's fallback always refuses.
+beforeAll(() => setHeadlessNetlistProvider(formatSchematicNetlist));
 
 const NET = readFileSync(
   new URL(

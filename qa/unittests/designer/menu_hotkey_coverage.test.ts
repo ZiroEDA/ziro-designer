@@ -54,10 +54,10 @@ const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
 const CONVERTED = [
   'editors/calculator/CalculatorTools.tsx',
   '../../pagelayout_editor/pl_editor_frame_ui.tsx',
-  'editors/footprint/FootprintEditor.tsx',
+  '../../pcbnew/footprint_edit_frame_ui.tsx',
   '../../gerbview/gerbview_frame_ui.tsx',
   '../../bitmap2component/bitmap2cmp_frame_ui.tsx',
-  'editors/pcb/PcbEditor.tsx',
+  '../../pcbnew/pcb_edit_frame_ui.tsx',
   'editors/schematic/SchematicEditor.tsx',
   'editors/schematic/components/SymbolLibraryBrowser.tsx',
   '../../cvpcb/cvpcb_mainframe_ui.tsx',
@@ -116,8 +116,10 @@ const MODIFIER_EXCEPTIONS: Readonly<Record<string, readonly string[]>> = {
     'if (multi && (e.ctrlKey || e.metaKey)) {',
     'if (e.ctrlKey || e.altKey || e.metaKey) return;',
   ],
-  'editors/footprint/FootprintEditor.tsx': ['const plain = !e.ctrlKey && !e.metaKey && !e.altKey;'],
-  'editors/pcb/PcbEditor.tsx': [
+  '../../pcbnew/footprint_edit_frame_ui.tsx': [
+    'const plain = !e.ctrlKey && !e.metaKey && !e.altKey;',
+  ],
+  '../../pcbnew/pcb_edit_frame_ui.tsx': [
     // The chain's own "no Ctrl/Cmd held" predicate - the same guard as the
     // other frames' `plain`, spelled the way this file already spelled it.
     'const mod = e.ctrlKey || e.metaKey;',
@@ -212,8 +214,8 @@ function walk(dir: string, out: string[] = []): string[] {
  * those packages too. A walk of designer/src alone would lose every frame that
  * moved, and pass.
  */
-const FRAME_PACKAGES = ['bitmap2component', 'gerbview', 'pagelayout_editor', 'cvpcb'].map((p) =>
-  fileURLToPath(new URL(`../../../${p}`, import.meta.url)),
+const FRAME_PACKAGES = ['bitmap2component', 'gerbview', 'pagelayout_editor', 'cvpcb', 'pcbnew'].map(
+  (p) => fileURLToPath(new URL(`../../../${p}`, import.meta.url)),
 );
 
 const FILES = [
@@ -242,8 +244,8 @@ const source = (rel: string): string => {
 const MENU_MODULE: Readonly<Record<string, string>> = {
   'editors/schematic/SchematicEditor.tsx': '../../eeschema/menubar.ts',
   'editors/symbol/SymbolEditor.tsx': 'editors/symbol/menubar.ts',
-  'editors/footprint/FootprintEditor.tsx': '../../pcbnew/menubar_footprint_editor.ts',
-  'editors/pcb/PcbEditor.tsx': '../../pcbnew/menubar_pcb_editor.ts',
+  '../../pcbnew/footprint_edit_frame_ui.tsx': '../../pcbnew/menubar_footprint_editor.ts',
+  '../../pcbnew/pcb_edit_frame_ui.tsx': '../../pcbnew/menubar_pcb_editor.ts',
   // pl_editor's bar is its package's menubar.ts, beside KiCad's menubar.cpp.
   '../../pagelayout_editor/pl_editor_frame_ui.tsx': '../../pagelayout_editor/menubar.ts',
 };
@@ -439,7 +441,7 @@ const CANVAS_KEYS: Readonly<
   // pl_editor keeps none: M, Escape and Ctrl+U are PL_ACTIONS::move,
   // ACTIONS::cancelInteractive and ACTIONS::toggleUnits, dispatched by the
   // TOOL_DISPATCHER on PL_DRAW_PANEL_GAL, as upstream.
-  'editors/footprint/FootprintEditor.tsx': {
+  '../../pcbnew/footprint_edit_frame_ui.tsx': {
     moved: [
       ['Ctrl+S save', /e\.key\.toLowerCase\(\) === 's'/],
       ['Ctrl+Z undo', /e\.key\.toLowerCase\(\) === 'z'/],
@@ -563,7 +565,7 @@ const CANVAS_KEYS: Readonly<
       ['Esc cancel', /e\.key === 'Escape'/],
     ],
   },
-  'editors/pcb/PcbEditor.tsx': {
+  '../../pcbnew/pcb_edit_frame_ui.tsx': {
     moved: [
       // Anchored on `if (mod` rather than `mod`, because `!mod && (e.key ===
       // 'd'` - the drag45 grab, which stays - contains the shorter pattern.
@@ -716,7 +718,7 @@ const MENU_BUILDER: Readonly<Record<string, () => Menu[]>> = {
         haveDatasheet: true,
       },
     ),
-  'editors/footprint/FootprintEditor.tsx': () =>
+  '../../pcbnew/footprint_edit_frame_ui.tsx': () =>
     footprintEditorMenus(
       {
         action: noop,
@@ -739,7 +741,7 @@ const MENU_BUILDER: Readonly<Record<string, () => Menu[]>> = {
         redoAvailable: true,
       },
     ),
-  'editors/pcb/PcbEditor.tsx': () =>
+  '../../pcbnew/pcb_edit_frame_ui.tsx': () =>
     pcbMenus(
       {
         action: noop,
@@ -998,7 +1000,7 @@ const DECLARED: Readonly<Record<string, readonly string[]>> = {
     'F5',
     'Shift+Ctrl+S',
   ],
-  'editors/footprint/FootprintEditor.tsx': [
+  '../../pcbnew/footprint_edit_frame_ui.tsx': [
     // Every combo below is a `DefaultHotkey` in `common/tool/actions.cpp` or
     // `pcbnew/tools/pcb_actions.cpp`, read off the action its row is built
     // from - plus the two the shared builders add. Nothing here was baselined
@@ -1061,7 +1063,7 @@ const DECLARED: Readonly<Record<string, readonly string[]>> = {
     // Preferences: openPreferences Ctrl+,.
     'Ctrl+,',
   ],
-  'editors/pcb/PcbEditor.tsx': [
+  '../../pcbnew/pcb_edit_frame_ui.tsx': [
     /*
      * The MENU BAR's accelerators, read straight off
      * `pcbnew/menubar_pcb_editor.ts` now that the tree is a module — see
@@ -1468,7 +1470,7 @@ function rowsWithShortcut(
  * nothing because the row has no `action` for `invocable` to find.
  */
 const UNPRESSABLE: Readonly<Record<string, readonly string[]>> = {
-  'editors/pcb/PcbEditor.tsx': [
+  '../../pcbnew/pcb_edit_frame_ui.tsx': [
     // Canvas context-menu rows for commands that are not built. The row is
     // KiCad's and prints KiCad's key; there is nothing yet to run.
     'Get and Move Footprint',

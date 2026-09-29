@@ -34,11 +34,7 @@
  * draws the Colors preview, the items under a drag, and the halo pass.
  */
 import { describe, expect, it } from 'vitest';
-import {
-  paperSizeIU,
-  renderSchematic,
-  setVectorText,
-} from '@ziroeda/designer/src/editors/schematic/render/renderer.js';
+import { paperSizeIU, renderSchematic, setVectorText } from '@ziroeda/eeschema/sch_painter.js';
 import { DEFAULT_RENDER_OPTS } from '@ziroeda/eeschema/sch_render_settings.js';
 import { KICAD_DEFAULT } from '@ziroeda/eeschema/sch_render_settings.js';
 import {

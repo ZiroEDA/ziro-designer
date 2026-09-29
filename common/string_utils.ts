@@ -1108,3 +1108,25 @@ export function EscapeString(aSource: string, aContext: ESCAPE_CONTEXT): string 
 
   return converted;
 }
+
+/**
+ * `EscapedUTF8( const wxString& aString )` (common/string_utils.cpp): the string in double
+ * quotes with `"` and `\` backslash-escaped, compatible with ReadDelimitedText().
+ *
+ * Upstream replaces newlines on a copy it then does not use, so a newline passes through;
+ * kept.
+ */
+export function EscapedUTF8(aString: string): string {
+  let ret = '"';
+
+  for (const ch of aString) {
+    // this escaping strategy is designed to be compatible with ReadDelimitedText():
+    if (ch === '"') ret += '\\"';
+    else if (ch === '\\') ret += '\\\\';
+    else ret += ch;
+  }
+
+  ret += '"';
+
+  return ret;
+}

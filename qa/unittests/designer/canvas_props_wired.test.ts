@@ -36,11 +36,14 @@ const read = (rel: string): string =>
 const CANVAS_EDITOR = read('../../../designer/src/editors/schematic/SchematicEditor.tsx');
 const CANVAS = read('../../../designer/src/editors/schematic/components/SchematicCanvas.tsx');
 const EDITOR = read('../../../designer/src/editors/schematic/SchematicEditor.tsx');
+/** SCH_DRAW_PANEL's contract, where the canvas's props interface lives since
+ *  stage E2 pt 3 (the canvas imports it as `Props`). */
+const PANEL = read('../../../eeschema/sch_draw_panel.ts');
 
-/** The prop names declared in the canvas's `interface Props { … }`. */
+/** The prop names declared in `interface SchematicCanvasProps { … }`. */
 function declaredProps(src: string): string[] {
-  const start = src.indexOf('interface Props {');
-  expect(start, 'SchematicCanvas must declare an interface Props').toBeGreaterThan(-1);
+  const start = src.indexOf('interface SchematicCanvasProps {');
+  expect(start, 'sch_draw_panel.ts must declare SchematicCanvasProps').toBeGreaterThan(-1);
   const end = src.indexOf('\n}\n', start);
   const body = src.slice(start, end);
   // Two-space indented `name?:` / `name:` entries are the props themselves;
@@ -59,7 +62,7 @@ function usedProps(src: string): Set<string> {
 }
 
 describe('SchematicCanvas props are all wired up', () => {
-  const declared = declaredProps(CANVAS);
+  const declared = declaredProps(PANEL);
 
   it('the canvas declares a substantial prop list, so this test has teeth', () => {
     expect(declared.length).toBeGreaterThan(20);

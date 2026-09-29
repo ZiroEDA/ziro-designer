@@ -58,6 +58,11 @@ import {
 import { defaultUnitsToggle } from '@ziroeda/common/settings/app_settings_units.js';
 import type { CrosshairMode } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
 import type { RawFile } from '@ziroeda/common';
+import { applyMixins } from '@ziroeda/core/mixins.js';
+import { INITPCB_MIXIN } from './initpcb.js';
+import { EDIT_MIXIN } from './edit.js';
+import { FILES_MIXIN } from './files.js';
+import { EDIT_ZONE_HELPERS_MIXIN } from './edit_zone_helpers.js';
 
 /**
  * The slice of the designer's `PcbnewSettings` (`prefs/settings.ts`)
@@ -116,15 +121,25 @@ export interface PCBNEW_JSON_SETTINGS_LIKE {
    * `pcbTogglesFromSettings` (`toggles.ts`) and the window's own
    * `pcbGridSizesIU`/`storedPcbGridIU`, both narrower readers of the same
    * `PcbnewSettings.window` than `windowSettingsOf` (`pgm_app.ts`) is.
+   * `style`/`line_width`/`min_spacing`/`snap`/`always_show_cursor` are the
+   * rest of `PANEL_GAL_OPTIONS`' two groups (`common/dialogs/
+   * panel_gal_options.cpp:110-124`), which `PcbEditor.tsx`'s `galRef`
+   * spreads together with `pcb_display` into a `windowSettingsOf`-shaped
+   * object.
    */
   window: {
     grid: {
       sizes: GridEntry[];
       last_size_idx: number;
       show: boolean;
+      style: 'dots' | 'lines' | 'crosses';
+      line_width: number;
+      min_spacing: number;
+      snap: 0 | 1 | 2;
     };
     cursor: {
       crosshair: 'small' | 'full' | '45';
+      always_show_cursor: boolean;
     };
   };
 }
@@ -199,6 +214,13 @@ export interface PCB_EDIT_FRAME_HOOKS {
   projectText(): string | null;
   /** `PCB_EDIT_FRAME::OnEditItemRequest`: the item's properties dialog. */
   onEditItemRequest(aItem: BOARD_ITEM | null): void;
+  /**
+   * `PCB_EDIT_FRAME::Edit_Zone_Params` (`edit_zone_helpers.cpp`), the part
+   * `OnEditItemRequest`'s `PCB_ZONE_T` case delegates to: open the zone's
+   * properties dialog (rule area / copper / non-copper is the component's
+   * own render choice, from the zone's own `GetIsRuleArea()`/layer).
+   */
+  editZoneParams(zoneIndex: number): void;
   /** `DIALOG_EXCHANGE_FOOTPRINTS( frame, footprint, updateMode, true ).ShowQuasiModal()`. */
   showExchangeFootprintsDialog(aFootprint: FOOTPRINT, aUpdateMode: boolean): void;
   /** `findDialogs()`: the open modeless dialogs' rectangles, in canvas client pixels. */
@@ -226,8 +248,15 @@ export interface PCB_EDIT_FRAME_HOOKS {
   updatePcbFromSchematic(): void;
 }
 
+export interface PCB_EDIT_FRAME
+  extends INITPCB_MIXIN,
+    EDIT_MIXIN,
+    FILES_MIXIN,
+    EDIT_ZONE_HELPERS_MIXIN {}
+
+// biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (INITPCB_MIXIN mixin, see libs/core/mixins.ts)
 export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
-  private readonly hooks: PCB_EDIT_FRAME_HOOKS;
+  protected readonly hooks: PCB_EDIT_FRAME_HOOKS;
   /** The project's .kicad_dru as last given to OnBoardLoaded: `GetDesignRulesPath()` and its text. */
   private m_designRulesText: string | null = null;
   private m_designRulesPath = '';
@@ -457,10 +486,6 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     return this.hooks.fetchNetlistFromSchematic(aNetlist, aAnnotateMessage);
   }
 
-  OnEditItemRequest(aItem: BOARD_ITEM | null): void {
-    this.hooks.onEditItemRequest(aItem);
-  }
-
   ShowExchangeFootprintsDialog(aFootprint: FOOTPRINT, aUpdateMode: boolean): void {
     this.hooks.showExchangeFootprintsDialog(aFootprint, aUpdateMode);
   }
@@ -556,15 +581,6 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     }
 
     this.GetBoard()!.InitializeClearanceCache();
-  }
-
-  /**
-   * `PCB_EDIT_FRAME::Clear_Pcb`, the part that outlives the window: the undo
-   * and redo lists go because the board is about to be replaced whole.
-   */
-  Clear_Pcb(): void {
-    // Clear undo and redo lists because we want a full deletion
-    this.ClearUndoRedoList();
   }
 
   /**
@@ -707,6 +723,8 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     this.hooks.onUndoRedoIncomplete();
   }
 }
+
+applyMixins(PCB_EDIT_FRAME, [INITPCB_MIXIN, EDIT_MIXIN, FILES_MIXIN, EDIT_ZONE_HELPERS_MIXIN]);
 
 /**
  * The React side's BOARD_LISTENER: whatever the board reports, the view is

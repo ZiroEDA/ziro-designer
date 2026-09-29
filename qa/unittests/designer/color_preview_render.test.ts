@@ -17,11 +17,7 @@
  * here.
  */
 import { describe, it, expect } from 'vitest';
-import {
-  fitToContent,
-  renderSchematic,
-  setVectorText,
-} from '@ziroeda/designer/src/editors/schematic/render/renderer.js';
+import { fitToContent, renderSchematic, setVectorText } from '@ziroeda/eeschema/sch_painter.js';
 import { DEFAULT_RENDER_OPTS, type RenderOpts } from '@ziroeda/eeschema/sch_render_settings.js';
 import { KICAD_CLASSIC, KICAD_DEFAULT, type Theme } from '@ziroeda/eeschema/sch_render_settings.js';
 import {

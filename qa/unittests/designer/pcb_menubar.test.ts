@@ -447,10 +447,7 @@ describe('the seam between the module and the frame', () => {
    * is dropped. That is precisely the failure this whole menu pass was fixing,
    * re-introduced by the fix.
    */
-  const FRAME = readFileSync(
-    resolve(process.cwd(), '../designer/src/editors/pcb/PcbEditor.tsx'),
-    'utf8',
-  );
+  const FRAME = readFileSync(resolve(process.cwd(), '../pcbnew/pcb_edit_frame_ui.tsx'), 'utf8');
 
   /**
    * Every id the module hands to `action`, by pressing every row of the eight
