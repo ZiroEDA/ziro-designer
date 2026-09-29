@@ -767,3 +767,29 @@ Every hook dependency list that reads an app member lists it
 (`qa/probes/add_hook_dep.mjs`); useExhaustiveDependencies stayed at 103
 warnings throughout. Root match after step 2: 66/83 (probe `SAME` 134;
 both include other sessions' concurrent ports).
+
+**Step 3 — frame files out of `sch_edit_frame_ui.tsx`.** Checked against
+each `.cpp`'s own method list. What moved is code that is the C++ file's
+and reads none of the component's state:
+
+| KiCad file | ours | what |
+|---|---|---|
+| `sch_draw_panel.{h,cpp}` | `sch_draw_panel.ts` | the canvas contract (props, controller, pending placements) — step 2 |
+| `picksymbol.cpp` | `picksymbol.ts` | `PICKED_SYMBOL` and `DIALOG_SYMBOL_CHOOSER`'s props/result — step 2 |
+| `sheet.cpp` | `sheet.ts` | `InitSheet`'s new screen |
+| `eeschema_config.cpp` | `eeschema_config.ts` | `LoadProjectSettings`' render-settings seed |
+
+Not moved, and why: `sch_base_frame.cpp` (`GetLibSymbol`/`SchGetLibSymbol`,
+`SyncView`, `UpdateItem`, `HighlightSelectionFilter`, `RefreshZoomDependentItems`)
+has no counterpart function in the frame — its behaviour is spread through
+React state and effects (and `UpdateItem` already lives on
+`sch_edit_frame.ts`/`sch_commit.ts`). `sch_view.cpp` and
+`sch_preview_panel.cpp` are the GAL view and the preview canvas; ours are
+designer's `SchematicCanvas.tsx` and `widgets/symbol_preview_widget.tsx`,
+reached through `EESCHEMA_APP`, not code inside the frame. `picksymbol.cpp`'s
+`SelectUnit` / `SelectBodyStyle` / `SetAltPinFunction` and the rest of
+`sheet.cpp` (`LoadSheetFromFile`, `CheckSheetForRecursion`,
+`EditSheetProperties`) are closures over the component's state; pulling them
+out is a refactor, not a move. `sheet_and_config.test.ts` pins the two moved
+functions (neither was pinned before). Root match after step 3: see the
+regenerated struct_diff.

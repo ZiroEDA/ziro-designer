@@ -4,7 +4,7 @@ Generated 2026-09-29 against `/home/akshay/kicad-reference/eeschema`. Regenerate
 
 | status | count | meaning |
 |---|---:|---|
-| SAME | 134 | same relative path and name as KiCad's `.cpp` |
+| SAME | 136 | same relative path and name as KiCad's `.cpp` |
 | MOVED | 2 | KiCad has this name, in a different directory |
 | DIALOG | 5 | KiCad has it as `dialogs/dialog_<name>.cpp` |
 | HEADER | 4 | KiCad declares it in a `.h` with no matching `.cpp` |
@@ -168,7 +168,7 @@ Generated 2026-09-29 against `/home/akshay/kicad-reference/eeschema`. Regenerate
 
 ## SAME
 
-<details><summary>134 files already at KiCad's own path</summary>
+<details><summary>136 files already at KiCad's own path</summary>
 
 - `annotate.ts`
 - `autoplace_fields.ts`
@@ -204,6 +204,7 @@ Generated 2026-09-29 against `/home/akshay/kicad-reference/eeschema`. Regenerate
 - `dialogs/panel_setup_formatting.tsx`
 - `dialogs/panel_setup_pinmap.tsx`
 - `dialogs/panel_template_fieldnames.tsx`
+- `eeschema_config.ts`
 - `eeschema_helpers.ts`
 - `eeschema_settings.ts`
 - `erc/erc_item.ts`
@@ -282,6 +283,7 @@ Generated 2026-09-29 against `/home/akshay/kicad-reference/eeschema`. Regenerate
 - `sch_textbox.ts`
 - `sch_text.ts`
 - `sch_validators.ts`
+- `sheet.ts`
 - `sim/sim_model.ts`
 - `symbol_checker.ts`
 - `symbol_editor/symbol_edit_frame.ts`
