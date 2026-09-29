@@ -50,12 +50,15 @@ import {
 } from '../../board_stackup_manager/dielectric_material.js';
 import { GetStandardColors } from '../../board_stackup_manager/stackup_predefined_prms.js';
 import { BuildStackupReport } from '../../board_stackup_manager/board_stackup_reporter.js';
+import {
+  DialogDielectricMaterial,
+  type Substrate,
+} from '../../board_stackup_manager/dialog_dielectric_list_manager.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
 import { stackupFromView } from '../board_setup_transfer.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { stringFromValue } from '@ziroeda/common/widgets/unit_binder.js';
 import { EdaListDialog } from '@ziroeda/common/dialogs/eda_list_dialog.js';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 // The data model lives in board_settings.ts (KiCad's data/UI split);
 // re-exported so panel users keep importing from the panel module.
@@ -178,9 +181,6 @@ const iconColorOf = (l: StackupLayer): string => {
   return swatchOf(l.type, l.color);
 };
 
-/** One row of the material list, as `DIALOG_DIELECTRIC_MATERIAL`'s wxListCtrl shows it. */
-type Substrate = { name: string; epsilonR: string; lossTan: string };
-
 /** Which of the panel's three `DIELECTRIC_SUBSTRATE_LIST`s a row's type draws from. */
 const matListTypeOf = (type: string): DL_MATERIAL_LIST_TYPE | null => {
   switch (itemTypeOf(type)) {
@@ -193,16 +193,6 @@ const matListTypeOf = (type: string): DL_MATERIAL_LIST_TYPE | null => {
     default:
       return null;
   }
-};
-
-/** `initMaterialList`: the list's rows, `FormatEpsilonR` / `FormatLossTangent` as the text. */
-const substrateRows = (list: DIELECTRIC_SUBSTRATE_LIST): Substrate[] => {
-  const out: Substrate[] = [];
-  for (let i = 0; i < list.GetCount(); i++) {
-    const m = list.GetSubstrateAt(i)!;
-    out.push({ name: m.m_Name, epsilonR: m.FormatEpsilonR(), lossTan: m.FormatLossTangent() });
-  }
-  return out;
 };
 
 const trimNum = (v: number): string => {
@@ -275,9 +265,6 @@ export function PanelPcbStackup({ value, onChange, finish, units }: Props): JSX.
   // ----- list-picker + material dialogs ------------------------------------
   const [listPick, setListPick] = useState<ListPick | null>(null);
   const [matTarget, setMatTarget] = useState<MaterialTarget | null>(null);
-  const [matDraft, setMatDraft] = useState<Substrate>({ name: '', epsilonR: '1', lossTan: '0' });
-  const [matRows, setMatRows] = useState<Substrate[]>([]);
-  const [matSel, setMatSel] = useState(-1);
   // `m_delectricMatList` / `m_solderMaskMatList` / `m_silkscreenMatList`: the
   // panel's own lists, seeded from the predefined tables and grown by whatever
   // the board uses or the user types; they live as long as the panel does.
@@ -298,11 +285,9 @@ export function PanelPcbStackup({ value, onChange, finish, units }: Props): JSX.
     return matListsRef.current;
   };
 
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts. Registered only while the material dialog is up, so it
-  // does not take the key meant for the Board Setup dialog behind it. The
-  // dielectric picker is an `EdaListDialog`, which asks for itself.
-  useModalEscape(() => setMatTarget(null), matTarget !== null);
+  // Esc-to-cancel for the material dialog is `DialogDielectricMaterial`'s own
+  // `useModalEscape` now. The dielectric picker is an `EdaListDialog`, which
+  // asks for itself.
 
   // onAddDielectricLayer: every dielectric sublayer is an insert position.
   const onAddDielectric = (): void => {
@@ -494,63 +479,26 @@ export function PanelPcbStackup({ value, onChange, finish, units }: Props): JSX.
           list.AppendSubstrate(new DIELECTRIC_SUBSTRATE(p.material, eps, tan));
       }
     }
-    const lt = matListTypeOf(value.layers[layer]!.type);
-    if (lt === null) return;
-    setMatRows(substrateRows(lists[lt]));
-    setMatSel(-1);
-    setMatDraft({ name: '', epsilonR: '1', lossTan: '0' });
+    if (matListTypeOf(value.layers[layer]!.type) === null) return;
     setMatTarget({ layer, sub });
   };
-  // `onListItemSelected`: the row's values into the three text controls.
-  const selectMaterial = (idx: number): void => {
-    const row = matRows[idx];
-    if (!row) return;
-    setMatSel(idx);
-    setMatDraft({ ...row });
-  };
-  // `onListKeyDown( WXK_DELETE )`: drop the row from the panel's list and
-  // select the next (or last). `DeleteSubstrate` keeps index 0.
-  const deleteMaterial = (): void => {
-    if (!matTarget || matSel < 0) return;
-    const lt = matListTypeOf(value.layers[matTarget.layer]!.type);
-    if (lt === null) return;
-    const list = matLists()[lt];
-    list.DeleteSubstrate(matSel);
-    const rows = substrateRows(list);
-    setMatRows(rows);
-    const next = matSel < list.GetCount() ? matSel : matSel - 1;
-    setMatSel(next);
-    if (rows[next]) setMatDraft({ ...rows[next] });
-  };
-  // `TransferDataFromWindow` (the two `wxMessageBox`es), then the panel's
-  // "No substrate specified" early return, then SetMaterial/SetEpsilonR/SetLossTangent.
-  const commitMaterial = (): void => {
+  // `DialogDielectricMaterial`'s `onSubmit`: `null` on Cancel/close/an empty
+  // name ("No substrate specified"); otherwise `TransferDataFromWindow` has
+  // already validated, and this is `SetMaterial`/`SetEpsilonR`/`SetLossTangent`.
+  const onMaterialSubmit = (substrate: Substrate | null): void => {
     if (!matTarget) return;
-    const eps = matDraft.epsilonR.trim() === '' ? Number.NaN : Number(matDraft.epsilonR);
-    if (!Number.isFinite(eps) || eps < 0.0) {
-      window.alert('Incorrect value for Epsilon R');
-      return;
-    }
-    const tan = matDraft.lossTan.trim() === '' ? Number.NaN : Number(matDraft.lossTan);
-    if (!Number.isFinite(tan) || tan < 0.0) {
-      window.alert('Incorrect value for Loss Tangent');
-      return;
-    }
-    if (matDraft.name === '') {
-      // No substrate specified
-      setMatTarget(null);
-      return;
-    }
+    const target = matTarget;
+    setMatTarget(null);
+    if (!substrate) return;
     const patch = {
-      material: matDraft.name,
+      material: substrate.name,
       // Silk rows carry no epsilon field in the grid, but the value still
       // rides along in the model, like the C++ item.
-      epsilonR: eps,
-      lossTan: tan,
+      epsilonR: Number(substrate.epsilonR),
+      lossTan: Number(substrate.lossTan),
     };
-    if (matTarget.sub === 0) setLayer(matTarget.layer, patch);
-    else setSub(matTarget.layer, matTarget.sub - 1, patch);
-    setMatTarget(null);
+    if (target.sub === 0) setLayer(target.layer, patch);
+    else setSub(target.layer, target.sub - 1, patch);
   };
 
   const txt = (
@@ -778,85 +726,14 @@ export function PanelPcbStackup({ value, onChange, finish, units }: Props): JSX.
       )}
 
       {/* DIALOG_DIELECTRIC_MATERIAL */}
-      {matTarget && (
-        <div
-          className="ze-modal-backdrop"
-          onMouseDown={() => setMatTarget(null)}
-          style={{ zIndex: 60 }}
-        >
-          <div className="ze-modal" onMouseDown={(e) => e.stopPropagation()}>
-            <div className="ze-modal-header">
-              Dielectric Material Characteristics
-              <span className="x" title="Close" onClick={() => setMatTarget(null)}>
-                ✕
-              </span>
-            </div>
-            <div className="ze-modal-body ze-dielmat-body">
-              <div className="ze-dielmat-grid">
-                <span>Material:</span>
-                <input
-                  className="ze-search"
-                  value={matDraft.name}
-                  onChange={(e) => setMatDraft({ ...matDraft, name: e.target.value })}
-                />
-                <span>Epsilon R:</span>
-                <input
-                  className="ze-search"
-                  value={matDraft.epsilonR}
-                  onChange={(e) => setMatDraft({ ...matDraft, epsilonR: e.target.value })}
-                />
-                <span>Loss Tan:</span>
-                <input
-                  className="ze-search"
-                  value={matDraft.lossTan}
-                  onChange={(e) => setMatDraft({ ...matDraft, lossTan: e.target.value })}
-                />
-              </div>
-              <div
-                className="ze-grid-pane ze-dielmat-list"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === 'Delete') {
-                    e.preventDefault();
-                    deleteMaterial();
-                  }
-                }}
-              >
-                <table className="ze-grid">
-                  <thead>
-                    <tr>
-                      <th>Material</th>
-                      <th>Epsilon R</th>
-                      <th>Loss Tan</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {matRows.map((m, idx) => (
-                      <tr
-                        key={`${idx}:${m.name}`}
-                        className={idx === matSel ? 'selected' : undefined}
-                        onClick={() => selectMaterial(idx)}
-                      >
-                        <td>{m.name}</td>
-                        <td>{m.epsilonR}</td>
-                        <td>{m.lossTan}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-            <div className="ze-modal-footer">
-              <button type="button" className="ze-btn" onClick={() => setMatTarget(null)}>
-                Cancel
-              </button>
-              <button type="button" className="ze-btn primary" onClick={commitMaterial}>
-                OK
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {matTarget &&
+        (() => {
+          const lt = matListTypeOf(value.layers[matTarget.layer]!.type);
+          if (lt === null) return null;
+          return (
+            <DialogDielectricMaterial materialList={matLists()[lt]} onSubmit={onMaterialSubmit} />
+          );
+        })()}
     </div>
   );
 }
