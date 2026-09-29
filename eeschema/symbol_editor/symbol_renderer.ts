@@ -19,7 +19,7 @@
 
 import { electricalPinTypeGetText, pinShapeGetText } from '../pin_type.js';
 import { altIconBox } from '../pin_layout_cache.js';
-import { drawAltPinModesIcon } from '../pin_alt_icon.js';
+import { drawAltPinModesIcon } from '../sch_painter.js';
 import type { Vec2 } from '@ziroeda/kimath';
 import { zoomFitView } from '@ziroeda/common/ui/view_controls.js';
 import { iuToMM, mmToIU } from '@ziroeda/common';

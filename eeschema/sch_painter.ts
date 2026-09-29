@@ -81,12 +81,15 @@ import {
   backgroundLayerFill,
   brightened,
   cssWithAlpha,
+  desaturate,
+  drawDrawingSheetItems,
   inverted,
   isTransparent,
+  mix,
   parseColor4d,
   toCss,
+  toCssColor,
 } from '@ziroeda/common';
-import { drawDrawingSheetItems } from '@ziroeda/common';
 import {
   interline,
   layoutText,
@@ -105,16 +108,8 @@ import { schSymbolLibraryName } from './index.js';
 import { imageDataUrl } from './import_gfx/image_format.js';
 import { libPreviewFields } from './autoplace_fields.js';
 import { drawField } from './symbol_editor/symbol_renderer.js';
-import {
-  DNP_MARKER_STROKE_WIDTH,
-  SIM_EXCLUSION_BADGE_ALPHA,
-  SIM_EXCLUSION_STROKE_WIDTH,
-  dnpMarkerSegments,
-  simExclusionMarker,
-} from './symbol_markers.js';
-import { dimmedColor } from './render_color.js';
+import { schIUScale } from '@ziroeda/common/eda_units.js';
 import { altIconBox } from './pin_layout_cache.js';
-import { drawAltPinModesIcon } from './pin_alt_icon.js';
 
 /**
  * Which items this render is allowed to draw (`hiddenItems` / `onlyItems`).
@@ -4668,3 +4663,290 @@ export function fitToBBox(
 }
 
 export { iuToMM };
+
+/**
+ * The dimming tail of `SCH_PAINTER::getRenderColor`
+ * (`eeschema/sch_painter.cpp:482-486`).
+ *
+ * It is the last thing that happens to a colour, after the brightened /
+ * selected / disabled branches have chosen one:
+ *
+ *     if( aDimmed && !( aItem->IsSelected() && aDrawingShadows ) )
+ *     {
+ *         COLOR4D sheetColour = m_schSettings.GetLayerColor( LAYER_SCHEMATIC_BACKGROUND );
+ *         color.Desaturate();
+ *         color = color.Mix( sheetColour, 0.5f );
+ *     }
+ *
+ * `aDimmed` has exactly one source in eeschema: the symbol's (or sheet's) DNP
+ * flag. `draw( SCH_SYMBOL )` computes `DNP` at `sch_painter.cpp:2695` and hands
+ * it to every field (`:2705`) and to the body (`:2790`) as that argument. The
+ * excluded-from-simulation flag is computed on the very next line (`:2696`) and
+ * is NOT passed anywhere — it only gates the marker at `:2837`. So a symbol
+ * that is excluded from simulation but populated keeps its full colours, and it
+ * is DNP alone that greys a symbol out.
+ *
+ * The arithmetic itself is `COLOR4D`'s and lives in `common/color4d.ts`
+ * with the rest of it; this module only states the order and the 0.5.
+ */
+
+/**
+ * [data] `color.Mix( sheetColour, 0.5f )` — the fraction upstream writes into
+ * the call, not a value the theme decides.
+ */
+const DIM_MIX_FACTOR = 0.5;
+
+/**
+ * `aDimmed`'s effect on one already-resolved colour.
+ *
+ * `background` is `GetLayerColor( LAYER_SCHEMATIC_BACKGROUND )`, i.e. the
+ * theme's sheet colour — which is why a DNP symbol fades toward beige under
+ * "KiCad Default" and toward white under "KiCad Classic", rather than toward a
+ * fixed grey.
+ */
+export function dimmedColor(color: string, background: string): string {
+  const desaturated = desaturate(parseColor4d(color));
+  return toCssColor(mix(desaturated, parseColor4d(background), DIM_MIX_FACTOR), ', ');
+}
+
+/**
+ * The two markers `SCH_PAINTER::draw( SCH_SYMBOL )` paints over a symbol's
+ * body — the DNP cross (`eeschema/sch_painter.cpp:2809-2835`) and the
+ * excluded-from-simulation box with its badge (`:2837-2870`).
+ *
+ * They are here as pure geometry rather than inline in the renderer because
+ * every number in them comes off the C++ and can therefore be checked against
+ * it without a canvas. The renderer strokes what these return.
+ *
+ * Both are guarded upstream by `aLayer == LAYER_DEVICE`, "so draw them only
+ * when the LAYER_DEVICE is drawn (to avoid draw artifacts)" — that is, once
+ * per symbol and not once per unit.
+ */
+
+/** One `GAL::DrawSegment( pt1, pt2, width )`. */
+interface MarkerSegment {
+  readonly a: Vec2;
+  readonly b: Vec2;
+}
+
+/**
+ * `KiROUND` (`include/math/util.h`): round half away from zero, which is what
+ * `std::lround` does and what `Math.round` does NOT for a negative half.
+ */
+const kiRound = (v: number): number => (v < 0 ? -Math.round(-v) : Math.round(v));
+
+/**
+ * `int strokeWidth = 3 * schIUScale.MilsToIU( DEFAULT_LINE_WIDTH_MILS )`
+ * (`sch_painter.cpp:2816`). [data] `DEFAULT_LINE_WIDTH_MILS` is 6
+ * (`eeschema/default_values.h:51`) — a number KiCad hardcodes, not one the
+ * theme decides.
+ */
+export const DNP_MARKER_STROKE_WIDTH = 3 * schIUScale.milsToIU(6);
+
+/**
+ * `int strokeWidth = schIUScale.MilsToIU( ADVANCED_CFG::GetCfg()
+ * .m_ExcludeFromSimulationLineWidth )` (`sch_painter.cpp:2841`).
+ *
+ * [data] the advanced-config default is 25 mils
+ * (`common/advanced_config.cpp:326`), clamped to 1..100 by the PARAM_CFG_INT
+ * that reads it (`:629-631`). We expose no advanced config, so the default is
+ * the value.
+ */
+export const SIM_EXCLUSION_STROKE_WIDTH = schIUScale.milsToIU(25);
+
+/**
+ * The DNP cross, `sch_painter.cpp:2809-2835` (and `SCH_SYMBOL::PlotDNP`,
+ * `sch_symbol.cpp:3384-3403`, which repeats it verbatim for the plotters).
+ *
+ * `body` is `GetBodyBoundingBox()` and `bodyAndPins` is
+ * `GetBodyAndPinsBoundingBox()`; the difference between them on each side is
+ * how much pin sticks out, and the cross is grown into that space so it covers
+ * the body generously without reaching the pin ends.
+ *
+ *     VECTOR2D margins( std::max( bbox.GetX() - pins.GetX(),
+ *                                 pins.GetEnd().x - bbox.GetEnd().x ),
+ *                       std::max( bbox.GetY() - pins.GetY(),
+ *                                 pins.GetEnd().y - bbox.GetEnd().y ) );
+ *
+ *     margins.x = std::max( margins.x * 0.6, margins.y * 0.3 );
+ *     margins.y = std::max( margins.y * 0.6, margins.x * 0.3 );
+ *
+ * The second line reads the margins.x the FIRST line just wrote, not the
+ * original. The order is load-bearing and is kept: swap the two statements and
+ * a symbol with unequal pin margins gets a differently sized cross.
+ */
+export function dnpMarkerSegments(body: BBox, bodyAndPins: BBox): MarkerSegment[] {
+  let mx = Math.max(body.minX - bodyAndPins.minX, bodyAndPins.maxX - body.maxX);
+  let my = Math.max(body.minY - bodyAndPins.minY, bodyAndPins.maxY - body.maxY);
+
+  mx = Math.max(mx * 0.6, my * 0.3);
+  my = Math.max(my * 0.6, mx * 0.3);
+
+  // `bbox.Inflate( KiROUND( margins.x ), KiROUND( margins.y ) )`: the rounding
+  // happens on each axis separately, before the inflation, not on the result.
+  const dx = kiRound(mx);
+  const dy = kiRound(my);
+  const minX = body.minX - dx;
+  const minY = body.minY - dy;
+  const maxX = body.maxX + dx;
+  const maxY = body.maxY + dy;
+
+  // `pt1 = bbox.GetOrigin(); pt2 = bbox.GetEnd();` … `std::swap( pt1.x, pt2.x )`.
+  return [
+    { a: { x: minX, y: minY }, b: { x: maxX, y: maxY } },
+    { a: { x: maxX, y: minY }, b: { x: minX, y: maxY } },
+  ];
+}
+
+/**
+ * The excluded-from-simulation marker, `sch_painter.cpp:2837-2870`: a box round
+ * the body and, off its bottom-right corner, a circled tilde.
+ *
+ * The badge's four points keep upstream's names even though `top` is the one
+ * with the LARGER y — schematic coordinates run downward, and renaming them
+ * here would only make the comparison with the C++ harder.
+ */
+interface SimExclusionMarker {
+  /** The four sides of the inflated body box, in upstream's order. */
+  readonly box: MarkerSegment[];
+  /** `DrawCircle( center, offset )`, filled at `marker_color.WithAlpha( 0.1 )`. */
+  readonly circle: { readonly center: Vec2; readonly radius: number };
+  /** `DrawCurve( left, top, bottom, right, 1 )` — a cubic bezier. */
+  readonly curve: {
+    readonly start: Vec2;
+    readonly control1: Vec2;
+    readonly control2: Vec2;
+    readonly end: Vec2;
+  };
+}
+
+/** [data] `marker_color.WithAlpha( 0.1 )` for the badge disc (`:2867`). */
+const SIM_EXCLUSION_BADGE_ALPHA = 0.1;
+
+export function simExclusionMarker(body: BBox): SimExclusionMarker {
+  const strokeWidth = SIM_EXCLUSION_STROKE_WIDTH;
+  // `bbox.Inflate( KiROUND( strokeWidth * 0.5 ) )` — the one-argument Inflate,
+  // so the same amount on both axes.
+  const d = kiRound(strokeWidth * 0.5);
+  const minX = body.minX - d;
+  const minY = body.minY - d;
+  const maxX = body.maxX + d;
+  const maxY = body.maxY + d;
+
+  const box: MarkerSegment[] = [
+    { a: { x: minX, y: minY }, b: { x: maxX, y: minY } },
+    { a: { x: maxX, y: minY }, b: { x: maxX, y: maxY } },
+    { a: { x: maxX, y: maxY }, b: { x: minX, y: maxY } },
+    { a: { x: minX, y: maxY }, b: { x: minX, y: minY } },
+  ];
+
+  //     int offset = 2 * strokeWidth;
+  //     VECTOR2D center = bbox.GetEnd() + VECTOR2D( offset + strokeWidth, -offset );
+  const offset = 2 * strokeWidth;
+  const center = { x: maxX + offset + strokeWidth, y: maxY - offset };
+  const left = { x: center.x - offset, y: center.y };
+  const right = { x: center.x + offset, y: center.y };
+  const top = { x: center.x, y: center.y + offset };
+  const bottom = { x: center.x, y: center.y - offset };
+
+  return {
+    box,
+    circle: { center, radius: offset },
+    // The tilde: the endpoints are left/right and the CONTROLS are top/bottom,
+    // which is what bends it into an S rather than a bow.
+    curve: { start: left, control1: top, control2: bottom, end: right },
+  };
+}
+
+/**
+ * The alternate-pin-mode indicator, drawn by ONE painter for both editors.
+ *
+ * `drawAltPinModesIcon` is a static in `eeschema/sch_painter.cpp`, and
+ * `SCH_PAINTER` is the painter `SCH_EDIT_FRAME` and `SYMBOL_EDIT_FRAME` both
+ * use — the same relationship as `SCH_POINT_EDITOR`, one class registered by
+ * two frames. The symbol editor's own renderer imports it from here rather
+ * than carrying a copy of the geometry.
+ *
+ * It is placed from `PIN_LAYOUT_CACHE::getUntransformedAltIconBox`, which is
+ * `altIconBox` in `eeschema/pin_layout_cache.ts`.
+ */
+
+/**
+ * `drawAltPinModesIcon` (`sch_painter.cpp:838-906`) — the two-arrow glyph that
+ * marks a pin as having alternate modes, drawn beside its name.
+ *
+ * Upstream's own diagram of the two states:
+ *
+ *      ----------->            -----  ---->
+ *          + <--center            \
+ *         \------->                \------>
+ *
+ *      aBaseSelected = true      aBaseSelected = false
+ *
+ * The call site passes `true` unconditionally, with its reason in a comment —
+ * "Icon style doesn't work due to the tempPin having no alt but maybe it's
+ * better with just one style anyway" (`:1674-1676`) — so the gapped variant is
+ * unreachable in KiCad today. It is ported anyway because the branch is the
+ * upstream code and a caller may one day pass false; passing `true` here is
+ * matching the call site, not dropping half the function.
+ *
+ * `aRotate` turns the glyph 270 degrees for a vertical pin name.
+ */
+export function drawAltPinModesIcon(
+  ctx: CanvasRenderingContext2D,
+  at: Vec2,
+  size: number,
+  baseSelected: boolean,
+  rotate: boolean,
+  extraLineWidth: number,
+  color: string,
+): void {
+  ctx.save();
+  ctx.translate(at.x, at.y);
+  // `aGal.Rotate( ANGLE_270.AsRadians() )`.
+  if (rotate) ctx.rotate((270 * Math.PI) / 180);
+
+  ctx.strokeStyle = color;
+  ctx.lineWidth = size / 10 + extraLineWidth;
+
+  const lineYOffset = size / 4;
+  const arrowHead = size / 8;
+  const topX = size / 2;
+  const topY = -lineYOffset;
+  const btmY = lineYOffset;
+
+  const line = (x1: number, y1: number, x2: number, y2: number): void => {
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+  };
+
+  // Top line and arrowhead.
+  if (baseSelected) {
+    line(topX, topY, topX - size, topY);
+  } else {
+    line(topX, topY, topX - size / 2, topY);
+    line(topX - size, topY, topX - size * 0.7, topY);
+  }
+  line(topX, topY, topX - arrowHead * 1.2, topY - arrowHead);
+  line(topX, topY, topX - arrowHead * 1.2, topY + arrowHead);
+
+  // Bottom line and arrowhead.
+  line(topX, btmY, topX - size / 2, btmY);
+  line(topX, btmY, topX - arrowHead * 1.2, btmY - arrowHead);
+  line(topX, btmY, topX - arrowHead * 1.2, btmY + arrowHead);
+
+  // The 'S' arcs. `DrawArc( centre, r, ANGLE_0, -ANGLE_90 )` sweeps NEGATIVE,
+  // which is anticlockwise in KiCad's y-down world, so canvas takes
+  // `anticlockwise = true` for the same visual sweep.
+  const arc = (cx: number, cy: number, r: number, from: number, to: number): void => {
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, (from * Math.PI) / 180, (to * Math.PI) / 180, true);
+    ctx.stroke();
+  };
+  if (!baseSelected) arc(topX - size, topY + lineYOffset, lineYOffset, 0, -90);
+  arc(topX - (size - lineYOffset * 2), topY + lineYOffset, lineYOffset, 180, 90);
+
+  ctx.restore();
+}
