@@ -127,7 +127,7 @@ Generated 2026-09-29 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 | `router/pns_seg_ops.ts` | `-` |
 | `router/pns_session.ts` | `-` |
 | `router/pns_shape_collider.ts` | `-` |
-| `router/router_size_menus.ts` | `-` |
+| `router/router_tool.ts` | `router_tool.cpp` |
 | `router/shape_arc_ops.ts` | `-` |
 | `shape_fill.ts` | `-` |
 | `table_geometry.ts` | `-` |

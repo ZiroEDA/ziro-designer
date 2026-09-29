@@ -9,7 +9,7 @@
 import { describe, expect, it } from 'vitest';
 import { GAL } from '@ziroeda/common/gal/graphics_abstraction_layer.js';
 import { GAL_DISPLAY_OPTIONS } from '@ziroeda/common/gal/gal_display_options.js';
-import { type Color4d } from '@ziroeda/common/gal/color4d.js';
+import type { Color4d } from '@ziroeda/common/gal/color4d.js';
 import { GAL_LAYER_ID, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { NET_COLOR_MODE } from '@ziroeda/common/project/board_project_settings.js';
 import type { VIEW } from '@ziroeda/common/view/view.js';

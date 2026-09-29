@@ -691,14 +691,16 @@ all).
   `pns_board_iface.ts`: KiCad's exact names, "kicad" included, are wanted —
   `PNS_KICAD_IFACE` holds `PNS_KICAD_IFACE_BASE` folded in, and
   `PNS_PCBNEW_RULE_RESOLVER` is the class in `pns_rule_resolver.ts`);
-  `router_tool.cpp` is split between `pns_session.ts` (the `ROUTER_TOOL`
-  equivalent, headless — see `pns-router-wiring.md`) and
-  `router_size_menus.ts` (its two size menus), with the wx-level click
-  wiring in `pcb_edit_frame_ui.tsx` (root, off-limits this pass);
-  **`router_preview_item.cpp`/`router_status_view_item.cpp` are not ported
-  as classes** — the preview draws through a callback dep
-  (`session.preview`/`onDisplayItem`) instead of a ported `VIEW_ITEM`
-  hierarchy.
+  `router_tool.cpp` → `router_tool.ts` holds the size menus
+  (`TRACK_WIDTH_MENU`, `DIFF_PAIR_MENU`, renamed 09-29 from `router_size_menus.ts`); the
+  rest of `ROUTER_TOOL` is `pns_session.ts` (headless, see `pns-router-wiring.md`)
+  plus the wx-level click wiring in `pcb_edit_frame_ui.tsx` (root). Merging the
+  session into `router_tool.ts` is a redesign (the session is the router's
+  headless driver, tested as such), not a move, and is left;
+  **`router_preview_item.ts` / `router_status_view_item.ts`** (09-29) are
+  ported as `VIEW_ITEM`s with tests; the router's preview still draws through
+  the `session.preview` records (`pnsPreviewItems`), so switching it onto them
+  is the follow-up.
 
   **`pns_logger.cpp` → `pns_logger.ts` (2026-09-29): ported, `PNS::LOGGER`
   whole.** `PnsAlgoBase`'s `logger()`/`setLogger()` had carried it as an

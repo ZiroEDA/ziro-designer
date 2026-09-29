@@ -25,10 +25,7 @@ import {
   NextTrackWidthIndex,
   UseNetclassTrackAndVia,
 } from '@ziroeda/pcbnew/tools/board_editor_control.js';
-import {
-  diffPairMenuItems,
-  trackWidthMenuItems,
-} from '@ziroeda/pcbnew/router/router_size_menus.js';
+import { diffPairMenuItems, trackWidthMenuItems } from '@ziroeda/pcbnew/router/router_tool.js';
 
 const MM = (n: number): number => mmToIU(n);
 
