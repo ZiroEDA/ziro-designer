@@ -247,14 +247,16 @@ describe('BOARD_NETLIST_UPDATER over the Arduino_Uno template', () => {
       expect(actions).toContain(`Update ${ref} footprint filters to 'Connector*:*_1x??_*'.`);
     }
 
-    // Net names agree with the board KiCad wrote, so nothing is re-connected, the
-    // one exception being the power net, which KiCad 6 named after the power symbol
-    // (+3V3) and KiCad 7+ names after its Value field (+3.3V).
+    // Net names agree with the board KiCad wrote, so nothing is re-connected. That
+    // includes the power net: KiCad 7+ names a power net after its Value field (here
+    // +3.3V), but a pre-20230221 file is loaded through FixLegacyPowerSymbolMismatches
+    // (sch_screen.cpp:1560), which sets an invisible-pin power symbol's Value back to
+    // its pin name, +3V3 - the name `kicad-cli sch export netlist` writes for this file.
     const netActions = actions.filter(
       (m) =>
         m.startsWith('Add net ') || m.includes('connect ') || m.startsWith('Removed unused net'),
     );
-    expect(netActions).toEqual(['Add net +3.3V.', 'Reconnect J1 pin 4 from +3V3 to +3.3V.']);
+    expect(netActions).toEqual([]);
 
     // In particular: every local label ("/IOREF", "/SDA{slash}A4"), the auto-named
     // no-connect pin ("unconnected-(J1-Pin_1-Pad1)") and the global power nets all

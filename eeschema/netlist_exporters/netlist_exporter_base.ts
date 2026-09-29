@@ -39,6 +39,11 @@
  *    the pad-map resolution it is built on, stays in `sch_pin.ts` since that one
  *    really is the pin's own.
  *
+ * Live model: {@link NETLIST_EXPORTER_BASE} is the class itself, over a `SCHEMATIC` and
+ * its `CONNECTION_GRAPH` (`m_schematic`, `m_libParts`, `m_referencesAlreadyFound`,
+ * `findNextSymbol`), which `NETLIST_EXPORTER_XML`/`_KICAD` derive from. The record-model
+ * helpers below remain for the exporters not yet moved onto it.
+ *
  * Not ported: `CreatePinList` / `eraseDuplicatePins` / `findAllUnitsOfSymbol`
  * (the single-symbol pin list with stacked-pin expansion and the
  * user-net-over-auto-generated-net dedup rule) — OrcadPCB2 is the only exporter
@@ -55,6 +60,105 @@ import { refId } from '../tools/hittest.js';
 import { compareRefs } from '../exporters/bom.js';
 import { getEffectivePadNumber } from '../sch_pin.js';
 import { expandStackedPinNotation } from '@ziroeda/common/string_utils.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import type { LIB_SYMBOL } from '../lib_symbol.js';
+import type { SCH_SHEET_PATH } from '../sch_sheet_path.js';
+import type { SCH_SYMBOL } from '../sch_symbol.js';
+import type { SCHEMATIC } from '../schematic.js';
+
+/** `UNIQUE_STRINGS`: Lookup() answers whether the string was already there. */
+export class UNIQUE_STRINGS {
+  m_set = new Set<string>();
+
+  Clear(): void {
+    this.m_set.clear();
+  }
+
+  Lookup(aString: string): boolean {
+    if (this.m_set.has(aString)) return true;
+    this.m_set.add(aString);
+    return false;
+  }
+}
+
+/** `std::set<LIB_SYMBOL*, LIB_SYMBOL_LESS_THAN>`: unique by LIB_ID, iterated in LIB_ID order. */
+export class LIB_PART_SET {
+  private m_items: LIB_SYMBOL[] = [];
+
+  clear(): void {
+    this.m_items = [];
+  }
+
+  insert(aSymbol: LIB_SYMBOL): void {
+    const id = aSymbol.GetLibId();
+    let lo = 0;
+    let hi = this.m_items.length;
+
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+
+      if (this.m_items[mid]!.GetLibId().lt(id)) lo = mid + 1;
+      else hi = mid;
+    }
+
+    if (lo < this.m_items.length && !id.lt(this.m_items[lo]!.GetLibId())) return;
+
+    this.m_items.splice(lo, 0, aSymbol);
+  }
+
+  [Symbol.iterator](): Iterator<LIB_SYMBOL> {
+    return this.m_items[Symbol.iterator]();
+  }
+}
+
+/** `PIN_INFO`. */
+export interface PIN_INFO {
+  num: string;
+  netName: string;
+  pinName: string;
+}
+
+export class NETLIST_EXPORTER_BASE {
+  protected m_referencesAlreadyFound = new UNIQUE_STRINGS();
+  protected m_libParts = new LIB_PART_SET();
+  protected m_schematic: SCHEMATIC;
+
+  constructor(aSchematic: SCHEMATIC) {
+    this.m_schematic = aSchematic;
+  }
+
+  /** `findNextSymbol`. */
+  protected findNextSymbol(aItem: SCH_SYMBOL, aSheetPath: SCH_SHEET_PATH): SCH_SYMBOL | null {
+    if (aItem.Type() !== KICAD_T.SCH_SYMBOL_T) return null;
+
+    const symbol = aItem;
+
+    // Power symbols and other symbols which have the reference starting with "#" are not
+    // included in netlist (pseudo or virtual symbols)
+    const ref = symbol.GetRef(aSheetPath);
+
+    if (ref[0] === '#') return null;
+
+    const screen = aSheetPath.LastScreen();
+
+    if (!screen) return null;
+
+    const libSymbol = screen.GetLibSymbols().get(symbol.GetSchSymbolLibraryName());
+
+    if (!libSymbol) return null;
+
+    // If symbol is a "multi parts per package" type
+    if (libSymbol.GetUnitCount() > 1) {
+      // test if this reference has already been processed, and if so skip
+      if (this.m_referencesAlreadyFound.Lookup(ref)) return null;
+    }
+
+    // record the usage of this library symbol entry.
+    this.m_libParts.insert(libSymbol);
+
+    return symbol;
+  }
+}
 
 export const symbolField = (s: SchSymbol, key: string): string =>
   s.fields.find((f) => f.key === key)?.value ?? '';

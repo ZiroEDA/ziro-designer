@@ -42,6 +42,13 @@
 import type { TOP_LEVEL_SHEET_INFO } from '@ziroeda/common/project/project_file.js';
 import { KICAD_SCHEMATIC_FILE_EXTENSION } from '@ziroeda/common/common.js';
 import { wxNormalizePath } from '@ziroeda/common/wx/filefn.js';
+import type { PROJECT } from '@ziroeda/common/project.js';
+import { SCH_CLEANUP_FLAGS, SCHEMATIC } from './schematic.js';
+import { SCH_SCREENS } from './sch_screen.js';
+import {
+  SCH_IO_KICAD_SEXPR,
+  type SCH_FILE_READER,
+} from './sch_io/kicad_sexpr/sch_io_kicad_sexpr.js';
 
 /** `SCH_IO_MGR::SCH_FILE_T`, as far as `LoadSchematic`'s dispatch needs it. */
 export enum SCH_FILE_T {
@@ -98,4 +105,124 @@ export function resolveRootSheetName(
   }
 
   return 'Root';
+}
+
+/**
+ * `EESCHEMA_HELPERS::LoadSchematic( aFileName, SCH_KICAD, aSetActive, aForceDefaultProject,
+ * aProject, aCalculateConnectivity )` (eeschema_helpers.cpp:68-222): read a `.kicad_sch`
+ * and its hierarchy into a new `SCHEMATIC` the way `kicad-cli` does, migrate the loaded
+ * sheets, and (when asked) build its `CONNECTION_GRAPH`.
+ *
+ * The project is the caller's (`aProject`): there is no settings manager to resolve one
+ * from the file name, so a caller hands the `PROJECT` it loaded from the `.kicad_pro`
+ * beside the file. Files are read through `aReadFile` (absolute path -> text), since
+ * there is no disk.
+ *
+ * Not run, because the live model has no counterpart yet: `MigrateSimModels`,
+ * `AnnotatePowerSymbols`, `ResolveERCExclusionsPostUpdate`, `RecomputeIntersheetRefs`.
+ * None of them changes connectivity.
+ *
+ * @return the schematic, or null when the root file will not load.
+ */
+export function LoadSchematic(
+  aFileName: string,
+  aProject: PROJECT,
+  aReadFile: SCH_FILE_READER,
+  aCalculateConnectivity = true,
+): SCHEMATIC | null {
+  const project = aProject;
+  const pi = new SCH_IO_KICAD_SEXPR('eeschema');
+
+  const schematic = new SCHEMATIC(project);
+  schematic.CreateDefaultScreens();
+
+  const schFile = aFileName;
+
+  try {
+    const rootSheet = pi.LoadSchematicFile(schFile, schematic, project.GetProjectPath(), aReadFile);
+
+    schematic.SetTopLevelSheets([rootSheet]);
+
+    // Make ${SHEETNAME} work on the root sheet until we properly support naming the root
+    // sheet.  Prefer the display name from the matching schematic.top_level_sheets entry in
+    // the project file so CLI/API exports show the same name the GUI does.
+    if (rootSheet.GetName() === '')
+      rootSheet.SetName(
+        resolveRootSheetName(
+          project.GetProjectFile().GetTopLevelSheets(),
+          project.GetProjectPath(),
+          schFile,
+        ),
+      );
+  } catch {
+    return null;
+  }
+
+  const sheetList = schematic.BuildSheetListSortedByPageNumbers();
+  const screens = new SCH_SCREENS(schematic.Root());
+
+  for (let screen = screens.GetFirst(); screen; screen = screens.GetNext())
+    screen.UpdateLocalLibSymbolLinks();
+
+  const rootScreen = schematic.RootScreen()!;
+
+  if (rootScreen.GetFileFormatVersionAtLoad() < 20221002)
+    sheetList.UpdateSymbolInstanceData(rootScreen.GetSymbolInstances());
+
+  sheetList.UpdateSheetInstanceData(rootScreen.GetSheetInstances());
+
+  if (rootScreen.GetFileFormatVersionAtLoad() < 20230221) screens.FixLegacyPowerSymbolMismatches();
+
+  // SCHEMATIC_SETTINGS is the project file's nested "schematic" settings upstream; here it
+  // is still the schematic's own, so the one value this load reads from the project -
+  // m_VariantDescriptions, the `schematic.variants` list (schematic_settings.cpp) - is
+  // copied across before LoadVariants() merges it.
+  const variants = project.GetProjectFile().GetJson('schematic.variants');
+
+  if (Array.isArray(variants)) {
+    for (const v of variants as { name?: unknown; description?: unknown }[]) {
+      if (v && typeof v.name === 'string' && v.name !== '')
+        schematic
+          .Settings()
+          .m_VariantDescriptions.set(
+            v.name,
+            typeof v.description === 'string' ? v.description : '',
+          );
+    }
+  }
+
+  schematic.LoadVariants();
+
+  let projectName = project.GetProjectName();
+
+  if (projectName === '') {
+    const base = schFile.slice(schFile.lastIndexOf('/') + 1);
+    projectName = base.includes('.') ? base.slice(0, base.lastIndexOf('.')) : base;
+  }
+
+  // Check must run before pruning so variant data on a stale instance path is migrated
+  // onto the new instance before the orphan is removed.
+  sheetList.CheckForMissingSymbolInstances(projectName);
+  screens.PruneOrphanedSymbolInstances(projectName, sheetList);
+  screens.PruneOrphanedSheetInstances(projectName, sheetList);
+
+  if (sheetList.AllSheetPageNumbersEmpty()) sheetList.SetInitialPageNumbers();
+  else sheetList.RepairPageNumbers();
+
+  schematic.SetCurrentSheet(sheetList[0]!);
+  schematic.ConnectionGraph().Reset();
+
+  if (aCalculateConnectivity)
+    schematic.RecalculateConnections(null, SCH_CLEANUP_FLAGS.GLOBAL_CLEANUP);
+
+  schematic.SetSheetNumberAndCount();
+
+  for (const sheet of sheetList) {
+    sheet.UpdateAllScreenReferences();
+    sheet.LastScreen()!.TestDanglingEnds(null, null);
+  }
+
+  if (aCalculateConnectivity) schematic.ConnectionGraph().Recalculate(sheetList, true);
+
+  return schematic;
 }

@@ -32,20 +32,24 @@ import type { LibSymbol, Schematic, SchSymbol } from './types.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
 import type { RawFile } from '@ziroeda/common';
 import { RPT_SEVERITY_ERROR } from '@ziroeda/common';
-import { netClassFor } from '@ziroeda/common/netclass_resolve.js';
 import { ENV_VAR } from '@ziroeda/common/env_vars.js';
 import { niluuid } from '@ziroeda/common/kiid.js';
-import { PgmOrNull, SETTINGS_MANAGER } from '@ziroeda/common/pgm_base.js';
+import { PgmOrNull } from '@ziroeda/common/pgm_base.js';
 import type { JsonValue } from '@ziroeda/common/settings/json_settings.js';
 import type { NetlistTextResult } from '@ziroeda/common/mail_sch_get_netlist.js';
 import { parse } from '@ziroeda/sexpr';
 import { buildSheetTree, findRootFile, type SheetTreeNode } from './project.js';
-import { findProjectPro, readSchematicSetup } from './project_settings.js';
+import { findProjectPro } from './project_settings.js';
 import { projectSymLibTable } from './project_sym_lib_table.js';
 import { GLOBAL_SYM_LIB_NICKNAMES } from './global_sym_lib_table.js';
 import { SheetInstanceView, UpdateSymbolInstanceData, sheetKiidPath } from './sch_sheet_path.js';
 import { readSchematic } from './sch_io/sexpr/read-schematic.js';
-import { netlistKicad, type NetlistSheet } from './netlist_exporters/netlist_exporter_kicad.js';
+import { GNL_ALL, GNL_T } from './netlist_exporters/netlist_exporter_xml.js';
+import { NETLIST_EXPORTER_KICAD } from './netlist_exporters/netlist_exporter_kicad.js';
+import { LoadSchematic } from './eeschema_helpers.js';
+import type { SCHEMATIC } from './schematic.js';
+import { PROJECT } from '@ziroeda/common/project.js';
+import { PROJECT_FILE } from '@ziroeda/common/project/project_file.js';
 import { checkAnnotation } from './sch_reference_list.js';
 
 /** `<symbolRefId>:pin<k>` -> its two halves; null for anything else. */
@@ -334,68 +338,25 @@ export function schCrossProbeZoomScale(
 // directly (KiCad's pcbnew never links eeschema either — only through KIWAY).
 // ---------------------------------------------------------------------------
 
-/**
- * SCH_SHEET_LIST order: the hierarchy flattened depth-first, one entry per sheet
- * *instance*, each with the instance path and the human-readable path the netlist
- * writes as a footprint's sheet name.
- */
-function flattenSheets(root: SheetTreeNode, docs: ReadonlyMap<string, Schematic>): NetlistSheet[] {
-  const out: NetlistSheet[] = [];
-  const walk = (node: SheetTreeNode, parentNames: string): void => {
-    const namePath = node.path === '/' ? '/' : `${parentNames}${node.name}/`;
+/** One sheet instance of the record-model hierarchy, for the annotation check. */
+interface AnnotationSheet {
+  path: string;
+  file: string;
+  doc: Schematic;
+}
+
+/** SCH_SHEET_LIST order: the hierarchy flattened depth-first, one entry per sheet instance. */
+function flattenSheets(
+  root: SheetTreeNode,
+  docs: ReadonlyMap<string, Schematic>,
+): AnnotationSheet[] {
+  const out: AnnotationSheet[] = [];
+  const walk = (node: SheetTreeNode): void => {
     const doc = docs.get(node.file);
-    if (doc) out.push({ path: node.path, namePath, file: node.file, doc });
-    for (const child of node.children) walk(child, namePath);
+    if (doc) out.push({ path: node.path, file: node.file, doc });
+    for (const child of node.children) walk(child);
   };
-  walk(root, '/');
-  return out;
-}
-
-/**
- * The root sheet's name, as a load gives it: the loaded project's
- * `schematic.top_level_sheets` entry for this file (PROJECT_FILE::LoadFromFile
- * gives a project that predates the list one entry named after the project),
- * else `_( "Root" )` (eeschema_helpers.cpp:131-147).
- */
-function rootSheetNameOf(files: readonly RawFile[], rootFile: string, rootPro?: string): string {
-  const pro = findProjectPro(files, rootPro);
-  if (pro) {
-    let json: JsonValue | null = null;
-    try {
-      json = JSON.parse(pro.text) as JsonValue;
-    } catch {
-      json = null;
-    }
-    const manager = new SETTINGS_MANAGER();
-    manager.LoadProject(pro.name, json, null, false);
-    const base = rootFile.split('/').pop();
-    for (const info of manager.GetProject(pro.name)?.GetProjectFile().GetTopLevelSheets() ?? []) {
-      // candidate.SameAs( schFile ): the entry's file is relative to the project.
-      if (info.filename.split('/').pop() === base && info.name !== '') return info.name;
-    }
-  }
-  return 'Root';
-}
-
-/**
- * `SCHEMATIC_SETTINGS::m_VariantDescriptions`: the project's
- * `schematic.variants`, `[{ name, description }]` (schematic_settings.cpp:286-300).
- */
-function variantDescriptionsOf(files: readonly RawFile[], rootPro?: string): Map<string, string> {
-  const out = new Map<string, string>();
-  const pro = findProjectPro(files, rootPro);
-  if (!pro) return out;
-  let variants: unknown;
-  try {
-    variants = (JSON.parse(pro.text) as { schematic?: { variants?: unknown } }).schematic?.variants;
-  } catch {
-    return out;
-  }
-  if (!Array.isArray(variants)) return out;
-  for (const v of variants as { name?: unknown; description?: unknown }[]) {
-    if (typeof v.name === 'string' && v.name !== '')
-      out.set(v.name, typeof v.description === 'string' ? v.description : '');
-  }
+  walk(root);
   return out;
 }
 
@@ -493,7 +454,7 @@ export function formatSchematicNetlist(
       : sheet,
   );
 
-  const libsFor = (sheet: NetlistSheet): Map<string, LibSymbol> =>
+  const libsFor = (sheet: AnnotationSheet): Map<string, LibSymbol> =>
     new Map(sheet.doc.libSymbols.map((l) => [l.libId, l]));
 
   // ReadyToNetlist: the symbols must be annotated. Duplicate and unannotated
@@ -511,25 +472,70 @@ export function formatSchematicNetlist(
     };
   }
 
-  // Bus aliases and netclasses come from the project file, so bus members expand
-  // and `(net … (class …))` reads the same as in the schematic editor.
-  const setup = readSchematicSetup(files, rootPro);
-  const busAliases = new Map(
-    setup.busAliases.filter((a) => a.name).map((a) => [a.name, a.members] as const),
+  return exportKicadNetlist(files, rootFile, rootPro);
+}
+
+/**
+ * The KiCad netlist of a project, the way `kicad-cli sch export netlist` writes it
+ * (`EESCHEMA_JOBS_HANDLER::JobExportNetlist`): `EESCHEMA_HELPERS::LoadSchematic`, then
+ * `NETLIST_EXPORTER_KICAD` over its `CONNECTION_GRAPH`. Annotation is not checked here:
+ * the CLI only warns, and the Update PCB path ({@link formatSchematicNetlist}) refuses
+ * before it gets this far.
+ */
+export function exportKicadNetlist(
+  files: readonly RawFile[],
+  rootFile: string,
+  rootPro?: string,
+): NetlistTextResult {
+  const schematic = loadProjectSchematic(files, rootFile, rootPro);
+
+  if (!schematic) {
+    return {
+      ok: false,
+      error: 'Received an error while reading the schematic.',
+      details: rootFile,
+    };
+  }
+
+  const exporter = new NETLIST_EXPORTER_KICAD(schematic);
+  exporter.m_libraryUri = symbolLibraryUri(files);
+
+  return { ok: true, netlistText: exporter.Format(GNL_ALL | GNL_T.GNL_OPT_KICAD) };
+}
+
+/**
+ * The project's root schematic as a live `SCHEMATIC` with its connection graph built:
+ * the `.kicad_pro` beside it (or an empty project), every sheet read from `files`.
+ * Files are found by base name: a project's sheets sit in one folder here.
+ */
+export function loadProjectSchematic(
+  files: readonly RawFile[],
+  rootFile: string,
+  rootPro?: string,
+): SCHEMATIC | null {
+  // SCHEMATIC::GetFileName(): the full path, the project's directory before it.
+  const dir = PgmOrNull()?.GetSettingsManager().Prj().GetProjectPath() || '/';
+  const pro = findProjectPro(files, rootPro);
+  const proPath = `${dir}${pro ? basename(pro.name) : rootFile.replace(/\.kicad_sch$/i, '.kicad_pro')}`;
+
+  const project = new PROJECT();
+  project.setProjectFullName(proPath);
+  const projectFile = new PROJECT_FILE(proPath);
+  project.setProjectFile(projectFile);
+
+  if (pro) {
+    try {
+      projectFile.LoadFromFile(JSON.parse(pro.text) as JsonValue);
+    } catch {
+      // An unreadable project file is a default project, as a missing one is.
+    }
+  }
+
+  const byName = new Map(files.map((f) => [basename(f.name), f.text]));
+
+  return LoadSchematic(
+    `${dir}${rootFile}`,
+    project,
+    (aPath) => byName.get(basename(aPath)) ?? null,
   );
-  const assignments = setup.netClasses.assignments.filter((a) => a.pattern && a.netClass);
-
-  const netlistText = netlistKicad({
-    sheets,
-    libsFor,
-    // SCHEMATIC::GetFileName(): the full path, the project's directory before it.
-    source: `${PgmOrNull()?.GetSettingsManager().Prj().GetProjectPath() ?? ''}${rootFile}`,
-    rootSheetName: rootSheetNameOf(files, rootFile, rootPro),
-    variantDescriptions: variantDescriptionsOf(files, rootPro),
-    libraryUri: symbolLibraryUri(files),
-    busAliases,
-    netClassFor: (netName) => netClassFor(netName, assignments),
-  });
-
-  return { ok: true, netlistText };
 }

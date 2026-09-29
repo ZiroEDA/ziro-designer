@@ -121,7 +121,9 @@ const PosixPath = {
   makeRelativeTo: (p: string, aBase: string): string => {
     const base = aBase.replace(/\/+$/, '');
 
-    if (base !== '' && p.startsWith(`${base}/`)) return p.substring(base.length + 1);
+    // The filesystem root is a base too: "/" strips to "", which every absolute path is under.
+    if ((base !== '' || aBase.startsWith('/')) && p.startsWith(`${base}/`))
+      return p.substring(base.length + 1);
 
     return p;
   },

@@ -39,6 +39,7 @@ import { MULTIVECTOR } from '@ziroeda/core/multivector.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+import { stdSort } from '@ziroeda/kimath/src/clipper2/clipper.core.js';
 import { DEFAULT_PIN_NAME_OFFSET } from './default_values.js';
 import { SCH_FIELD } from './sch_field.js';
 import { AUTOPLACE_ALGO, BODY_STYLE, SCH_ITEM } from './sch_item.js';
@@ -1437,13 +1438,13 @@ export class LIB_SYMBOL extends SYMBOL {
 
     const unitCount = Math.max(this.GetUnitCount(), 1);
 
-    const compareByPosition = (a: SCH_PIN, b: SCH_PIN): number => {
+    const compareByPosition = (a: SCH_PIN, b: SCH_PIN): boolean => {
       const positionA = a.GetPosition();
       const positionB = b.GetPosition();
 
-      if (positionA.x !== positionB.x) return positionA.x - positionB.x;
+      if (positionA.x !== positionB.x) return positionA.x < positionB.x;
 
-      return positionA.y - positionB.y;
+      return positionA.y < positionB.y;
     };
 
     for (let unitIdx = 1; unitIdx <= unitCount; ++unitIdx) {
@@ -1454,7 +1455,9 @@ export class LIB_SYMBOL extends SYMBOL {
 
       const pinList = this.GetGraphicalPins(unitIdx, 0);
 
-      pinList.sort(compareByPosition);
+      // std::sort, not a stable sort: pins stacked on one position come out in the order
+      // libstdc++'s introsort leaves them, and that order is the netlist's.
+      stdSort(pinList, compareByPosition);
 
       const seenNumbers = new Set<string>();
 
