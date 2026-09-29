@@ -64,6 +64,11 @@ import { INITPCB_MIXIN } from './initpcb.js';
 import { EDIT_MIXIN } from './edit.js';
 import { FILES_MIXIN } from './files.js';
 import { EDIT_ZONE_HELPERS_MIXIN } from './edit_zone_helpers.js';
+import {
+  LAYER_PAIR_SETTINGS,
+  PCB_CURRENT_LAYER_PAIR_CHANGED,
+  PCB_LAYER_PAIR_PRESETS_CHANGED,
+} from './layer_pairs.js';
 
 /**
  * The slice of the designer's `PcbnewSettings` (`prefs/settings.ts`)
@@ -260,6 +265,15 @@ export interface PCB_EDIT_FRAME_HOOKS {
   syncSelection(aParts: readonly string[], aSelectConnections: boolean): void;
   /** `m_toolManager->RunAction( ACTIONS::updatePcbFromSchematic )`: the editor's dialog. */
   updatePcbFromSchematic(): void;
+  /**
+   * `ROUTER_TOOL::SelectCopperLayerPair` (`sel_layer.cpp:765-789`): open
+   * `SELECT_COPPER_LAYERS_PAIR_DIALOG`. Not `PCB_EDIT_FRAME`'s own method
+   * upstream — there is no `ROUTER_TOOL` class in this port (routing runs on
+   * `PnsSession`), and `sel_layer.cpp` is the file that method's body lives
+   * in regardless of which class declares it, so this is that same seam,
+   * named for what it does rather than for a class this port doesn't have.
+   */
+  selectCopperLayerPair(): void;
 }
 
 export interface PCB_EDIT_FRAME
@@ -274,11 +288,49 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   /** The project's .kicad_dru as last given to OnBoardLoaded: `GetDesignRulesPath()` and its text. */
   private m_designRulesText: string | null = null;
   private m_designRulesPath = '';
+  /**
+   * `PCB_BASE_EDIT_FRAME::m_layerPairSettings` (`pcb_base_edit_frame.h:283`),
+   * constructed only here (`pcb_edit_frame.cpp:470`) — `FOOTPRINT_EDIT_FRAME`
+   * has no via-layer pair, so upstream leaves its copy null. This port has no
+   * `FOOTPRINT_EDIT_FRAME` sharing this class, so the field lives directly on
+   * `PCB_EDIT_FRAME` rather than on the shared base, and is never null.
+   */
+  private readonly m_layerPairSettings = new LAYER_PAIR_SETTINGS();
 
   constructor(hooks: PCB_EDIT_FRAME_HOOKS) {
     super(FRAME_T.FRAME_PCB_EDITOR);
     this.hooks = hooks;
     this.setupTools();
+
+    // `pcb_edit_frame.cpp:479-489`. Not ported: `PrepareLayerIndicator()`'s
+    // toolbar-icon refresh on the `PCB_CURRENT_LAYER_PAIR_CHANGED` binding —
+    // the aux toolbar's layer-pair icon isn't rendered from this frame yet.
+    this.m_layerPairSettings.Connect(PCB_LAYER_PAIR_PRESETS_CHANGED, () => {
+      this.Prj().GetProjectFile().m_LayerPairInfos = [...this.m_layerPairSettings.GetLayerPairs()];
+    });
+    this.m_layerPairSettings.Connect(PCB_CURRENT_LAYER_PAIR_CHANGED, () => {
+      const pair = this.m_layerPairSettings.GetCurrentLayerPair();
+      const screen = this.GetScreen()!;
+      screen.m_Route_Layer_TOP = pair.GetLayerA();
+      screen.m_Route_Layer_BOTTOM = pair.GetLayerB();
+    });
+  }
+
+  /** `PCB_BASE_EDIT_FRAME::GetLayerPairSettings()` (`pcb_base_edit_frame.h:249`). */
+  GetLayerPairSettings(): LAYER_PAIR_SETTINGS {
+    return this.m_layerPairSettings;
+  }
+
+  /**
+   * `ROUTER_TOOL::SelectCopperLayerPair` (`sel_layer.cpp:765-789`), minus the
+   * `ShowModal()`/`wxID_OK` blocking read-back: our dialog is modeless, so it
+   * commits (or doesn't) through `GetLayerPairSettings()` itself on OK, and
+   * the "top and bottom layers are the same" warning is the dialog's own
+   * concern (it can show the message the moment the pick is made, rather
+   * than waiting for a close this port has no equivalent event for).
+   */
+  SelectCopperLayerPair(): void {
+    this.hooks.selectCopperLayerPair();
   }
 
   /**

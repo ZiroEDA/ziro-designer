@@ -697,7 +697,7 @@ export function buildPcbMenus(
       // `menubar_pcb_editor.cpp:352-368`. The labels are the FriendlyNames:
       // "Route Single Track", not "Single Track".
       items: [
-        { label: 'Set Layer Pair...', disabled: dis },
+        { label: 'Set Layer Pair...', action: () => h.action('selectLayerPair') },
         { sep: true },
         // Live in the toolbar and greyed here, which is the state this whole
         // pass exists to end.

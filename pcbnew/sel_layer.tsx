@@ -43,7 +43,7 @@
  * a real click always fires `OnLeftGridCellClick`/`OnRightGridCellClick`
  * regardless, so hover never changes what a click selects.
  */
-import { type JSX, useEffect, useMemo, useState } from 'react';
+import { type CSSProperties, type JSX, useEffect, useMemo, useState } from 'react';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { hotkeyListKey } from '@ziroeda/common/tool/action_menu_key_names.js';
 import { GRID_TRICKS } from '@ziroeda/common/grid_tricks.js';
@@ -52,11 +52,19 @@ import { LSET_Name } from '@ziroeda/common/layer_ids.js';
 import { IsCopperLayer, type PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { parseColor4d, swatchOverBackground, toCssColor } from '@ziroeda/common/gal/color4d.js';
 import { WX_GRID, WX_GRID_TABLE_BASE } from '@ziroeda/common/widgets/wx_grid.js';
-import { wxEVT_GRID_CELL_LEFT_CLICK, type wxGridEvent } from '@ziroeda/common/wx/grid.js';
+import {
+  wxEVT_GRID_CELL_LEFT_CLICK,
+  type wxGridEvent,
+  wxGridTableRequest,
+} from '@ziroeda/common/wx/grid.js';
 import { WxGridView } from '@ziroeda/common/wx/grid_ui.js';
+import { Icon } from '@ziroeda/common/widgets/icons.js';
+import { DisplayInfoMessage } from '@ziroeda/common/confirm.js';
+import { LAYER_PAIR, LAYER_PAIR_INFO } from '@ziroeda/common/project/board_project_settings.js';
 import type { BOARD } from './board.js';
 import { PCB_LAYER_HOTKEYS, layerForHotkey } from './pcb_layer_box_selector.js';
 import type { PcbColorTheme } from './pcbTheme.js';
+import { LAYER_PAIR_SETTINGS } from './layer_pairs.js';
 
 /** One row of either grid: `buildList()`'s per-layer locals, kept as data. */
 export interface LayerSelectorRow {
@@ -315,3 +323,373 @@ export function PcbOneLayerSelector({
 // (no `SetGridCursor` in `buildList()`), it only feeds
 // `SetCellValue( …, SELECT_COLNUM, "1" )` on the hidden checkbox column - so
 // it is not a prop of this component.
+
+// ---------------------------------------------------------------------------
+// `SELECT_COPPER_LAYERS_PAIR_DIALOG` (`sel_layer.cpp:646-789`), its
+// `COPPER_LAYERS_PAIR_SELECTION_UI` (the two copper grids) and
+// `COPPER_LAYERS_PAIR_PRESETS_UI` (the presets grid), and
+// `ROUTER_TOOL::SelectCopperLayerPair`, the entry point. Opened by
+// `PCB_ACTIONS::selectLayerPair` ("Set Layer Pair..."), Edit > Route and the
+// aux toolbar (`pcb_edit_frame.ts`'s `SelectCopperLayerPair`).
+//
+// `DIALOG_COPPER_LAYER_PAIR_SELECTION_BASE`'s sizer
+// (`dialog_layer_selection_base.cpp:107-262`): a vertical `bSizerMain`
+// holding a horizontal `bSizerUpper` (top/bottom layer grids, each in its own
+// labelled column, then the add-to-presets arrow, then the presets
+// `wxStaticBoxSizer`) and the OK/Cancel row below it — unlike
+// `PCB_ONE_LAYER_SELECTOR`, this dialog DOES have buttons, because a pair
+// pick does not close it on its own (`onLeftGridRowSelected` only updates the
+// selection; only OK commits).
+//
+// `TransferDataToWindow`/`TransferDataFromWindow` become a local draft
+// (`LAYER_PAIR_SETTINGS.copyOf`) committed onto the frame's real settings on
+// OK; Cancel/Escape/the backdrop just discard it, so nothing needs the
+// `Bind( PCB_CURRENT_LAYER_PAIR_CHANGED, … )` upstream uses to keep the two
+// grids and the presets grid in sync with a settings object other code could
+// also be mutating — the draft is private to this dialog, so the one React
+// state update every pair-changing call site here already makes has nothing
+// else to race with.
+
+/** `getLayerPairName` (`sel_layer.cpp:90-94`): "F.Cu / B.Cu". */
+function layerPairName(pair: LAYER_PAIR, board: BOARD): string {
+  return `${board.GetLayerName(pair.GetLayerA())} / ${board.GetLayerName(pair.GetLayerB())}`;
+}
+
+/**
+ * `createLayerPairBitmapAtSize` (`common/widgets/layer_presentation.cpp:70-
+ * 103`): a square split on the diagonal, top colour upper-left, bottom colour
+ * lower-right, a stroked separator (there: white outline, black centre; here,
+ * one seam — a decorative simplification, not a data value).
+ */
+function layerPairIconStyle(topCss: string, bottomCss: string): CSSProperties {
+  return {
+    background: `linear-gradient(135deg, ${topCss} 0%, ${topCss} 47%, var(--chrome-fg) 47%, var(--chrome-fg) 53%, ${bottomCss} 53%, ${bottomCss} 100%)`,
+  };
+}
+
+/** `CU_LAYER_COLNUMS` (`sel_layer.cpp:527-532`): select / colour / name. */
+const CU_PAIR_COL_WIDTHS = [24, 20, 72] as const;
+
+/**
+ * One copper-layer picker grid (`COPPER_LAYERS_PAIR_SELECTION_UI`'s left or
+ * right half): every copper layer the board enables, in UI order — no
+ * `aNotAllowedLayersMask` here, unlike `PCB_ONE_LAYER_SELECTOR`.
+ */
+class COPPER_PAIR_GRID_TABLE extends WX_GRID_TABLE_BASE {
+  constructor(
+    private m_layers: readonly PCB_LAYER_ID[],
+    private readonly m_board: BOARD,
+  ) {
+    super();
+  }
+  SetLayers(layers: readonly PCB_LAYER_ID[]): void {
+    this.m_layers = layers;
+  }
+  GetLayers(): readonly PCB_LAYER_ID[] {
+    return this.m_layers;
+  }
+  GetNumberRows(): number {
+    return this.m_layers.length;
+  }
+  GetNumberCols(): number {
+    return 3;
+  }
+  GetValue(aRow: number, aCol: number): string {
+    const layer = this.m_layers[aRow];
+    if (layer === undefined) return '';
+    if (aCol === 2) return ` ${this.m_board.GetLayerName(layer)}`;
+    return '';
+  }
+  SetValue(): void {}
+}
+
+function orderedCopperLayers(board: BOARD): PCB_LAYER_ID[] {
+  return [...board.GetEnabledLayers().UIOrder()].filter((l) => IsCopperLayer(l));
+}
+
+/**
+ * `PRESETS_COLNUMS` (`sel_layer.cpp:427-433`): Enabled / (swatch, no label) /
+ * Layers / Label. `USERNAME` is `SetupColumnAutosizer`'s column — `flexCol`.
+ */
+const PRESETS_COLUMNS = ['Enabled', '', 'Layers', 'Label'] as const;
+const PRESETS_COL_WIDTHS = [48, 24, 80, 120] as const;
+const PRESETS_USERNAME_COL = 3;
+
+/**
+ * `COPPER_LAYERS_PAIR_PRESETS_UI` folded into one `WX_GRID_TABLE_BASE`: a
+ * live view over the dialog's draft `LAYER_PAIR_SETTINGS`, never a copied
+ * array, so `AddLayerPair`/`RemoveLayerPair`'s own de-dup and "was this the
+ * last manual pair" bookkeeping stays the one copy of that logic.
+ */
+class PRESETS_GRID_TABLE extends WX_GRID_TABLE_BASE {
+  constructor(
+    private readonly m_settings: LAYER_PAIR_SETTINGS,
+    private readonly m_board: BOARD,
+  ) {
+    super();
+  }
+  GetNumberRows(): number {
+    return this.m_settings.GetLayerPairs().length;
+  }
+  GetNumberCols(): number {
+    return 4;
+  }
+  override GetColLabelValue(aCol: number): string {
+    return PRESETS_COLUMNS[aCol] ?? '';
+  }
+  GetValue(aRow: number, aCol: number): string {
+    const info = this.m_settings.GetLayerPairs()[aRow];
+    if (!info) return '';
+    switch (aCol) {
+      case 0:
+        return info.IsEnabled() ? '1' : '0';
+      case 2:
+        return layerPairName(info.GetLayerPair(), this.m_board);
+      case 3:
+        return info.GetName() ?? '';
+      default:
+        return '';
+    }
+  }
+  SetValue(aRow: number, aCol: number, aValue: string): void {
+    const info = this.m_settings.GetLayerPairs()[aRow];
+    if (!info) return;
+    if (aCol === 0) info.SetEnabled(aValue === '1');
+    else if (aCol === 3) info.SetName(aValue);
+  }
+  /** `OnLayerPairAdded` (`sel_layer.cpp:415-410`): add, then tell the view. */
+  AddCurrentPair(aPair: LAYER_PAIR): void {
+    const added = this.m_settings.AddLayerPair(new LAYER_PAIR_INFO(aPair, true, undefined));
+    if (added) this.notify(wxGridTableRequest.wxGRIDTABLE_NOTIFY_ROWS_APPENDED, 1);
+  }
+  /** One row of `OnDeleteSelectedLayerPairs` (`sel_layer.cpp:427-436`). */
+  DeletePresetRow(aRow: number): void {
+    const info = this.m_settings.GetLayerPairs()[aRow];
+    if (info && this.m_settings.RemoveLayerPair(info.GetLayerPair())) {
+      this.notify(wxGridTableRequest.wxGRIDTABLE_NOTIFY_ROWS_DELETED, aRow, 1);
+    }
+  }
+}
+
+export interface SelectCopperLayerPairDialogProps {
+  board: BOARD;
+  theme: PcbColorTheme;
+  /** `m_boardPairSettings` — the frame's real, live `LAYER_PAIR_SETTINGS`. */
+  layerPairSettings: LAYER_PAIR_SETTINGS;
+  onClose: () => void;
+}
+
+/** `SELECT_COPPER_LAYERS_PAIR_DIALOG`. */
+export function SelectCopperLayerPairDialog({
+  board,
+  theme,
+  layerPairSettings,
+  onClose,
+}: SelectCopperLayerPairDialogProps): JSX.Element {
+  useModalEscape(onClose);
+
+  // `m_dialogPairSettings( aBoardSettings )` + `TransferDataToWindow`: one
+  // draft, seeded once from the frame's real settings.
+  const [dialogSettings] = useState(() => LAYER_PAIR_SETTINGS.copyOf(layerPairSettings));
+  const [currentPair, setCurrentPairState] = useState<LAYER_PAIR>(() =>
+    dialogSettings.GetCurrentLayerPair(),
+  );
+
+  const setCurrentPair = (pair: LAYER_PAIR): void => {
+    dialogSettings.SetCurrentLayerPair(pair);
+    setCurrentPairState(pair);
+  };
+
+  const layers = useMemo(() => orderedCopperLayers(board), [board]);
+
+  const [{ leftGrid, leftTable, leftTricks }] = useState(() => {
+    const table = new COPPER_PAIR_GRID_TABLE(layers, board);
+    const grid = new WX_GRID();
+    grid.SetTable(table, true);
+    grid.EnableEditing(false);
+    return { leftGrid: grid, leftTable: table, leftTricks: new GRID_TRICKS(grid) };
+  });
+  const [{ rightGrid, rightTable, rightTricks }] = useState(() => {
+    const table = new COPPER_PAIR_GRID_TABLE(layers, board);
+    const grid = new WX_GRID();
+    grid.SetTable(table, true);
+    grid.EnableEditing(false);
+    return { rightGrid: grid, rightTable: table, rightTricks: new GRID_TRICKS(grid) };
+  });
+  leftTable.SetLayers(layers);
+  rightTable.SetLayers(layers);
+
+  useEffect(() => {
+    const onLeft = (e: wxGridEvent): void => {
+      const layer = leftTable.GetLayers()[e.GetRow()];
+      if (layer !== undefined) setCurrentPair(new LAYER_PAIR(layer, currentPair.GetLayerB()));
+    };
+    leftGrid.Connect(wxEVT_GRID_CELL_LEFT_CLICK, onLeft);
+    return () => leftGrid.Disconnect(wxEVT_GRID_CELL_LEFT_CLICK, onLeft);
+    // biome-ignore lint/correctness/useExhaustiveDependencies: currentPair is read fresh via the closure rebuilt each render; the effect re-subscribes whenever it changes so the handler never sees a stale "other side"
+  }, [leftGrid, leftTable, currentPair]);
+
+  useEffect(() => {
+    const onRight = (e: wxGridEvent): void => {
+      const layer = rightTable.GetLayers()[e.GetRow()];
+      if (layer !== undefined) setCurrentPair(new LAYER_PAIR(currentPair.GetLayerA(), layer));
+    };
+    rightGrid.Connect(wxEVT_GRID_CELL_LEFT_CLICK, onRight);
+    return () => rightGrid.Disconnect(wxEVT_GRID_CELL_LEFT_CLICK, onRight);
+    // biome-ignore lint/correctness/useExhaustiveDependencies: see onLeft above
+  }, [rightGrid, rightTable, currentPair]);
+
+  const [{ presetsGrid, presetsTable, presetsTricks }] = useState(() => {
+    const table = new PRESETS_GRID_TABLE(dialogSettings, board);
+    const grid = new WX_GRID();
+    grid.SetTable(table, true);
+    return { presetsGrid: grid, presetsTable: table, presetsTricks: new GRID_TRICKS(grid) };
+  });
+
+  const renderCopperCell =
+    (table: COPPER_PAIR_GRID_TABLE, isCurrentRow: (aRow: number) => boolean) =>
+    (aRow: number, aCol: number): JSX.Element | null => {
+      const layer = table.GetLayers()[aRow];
+      if (layer === undefined) return null;
+      if (aCol === 0)
+        return (
+          <input type="checkbox" tabIndex={-1} readOnly checked={isCurrentRow(aRow)} aria-hidden />
+        );
+      if (aCol === 1) {
+        const swatch = layerSwatch(layer, theme);
+        return <span className="ze-combo-swatch" style={{ background: swatch }} />;
+      }
+      return null;
+    };
+
+  const onAddToPresets = (): void => presetsTable.AddCurrentPair(currentPair);
+  const onDeleteSelectedPresets = (): void =>
+    presetsGrid.OnDeleteRows((row) => presetsTable.DeletePresetRow(row));
+
+  const onOK = (): void => {
+    layerPairSettings.SetLayerPairs(dialogSettings.GetLayerPairs());
+    layerPairSettings.SetCurrentLayerPair(dialogSettings.GetCurrentLayerPair());
+    onClose();
+
+    // `ROUTER_TOOL::SelectCopperLayerPair`'s post-`ShowModal` check
+    // (`sel_layer.cpp:781-787`).
+    if (
+      dialogSettings.GetCurrentLayerPair().GetLayerA() ===
+      dialogSettings.GetCurrentLayerPair().GetLayerB()
+    )
+      void DisplayInfoMessage('Warning: top and bottom layers are same.');
+  };
+
+  return (
+    <div className="ze-modal-backdrop" onMouseDown={onClose}>
+      <div className="ze-modal ze-copper-layer-pair" onMouseDown={(e) => e.stopPropagation()}>
+        <div className="ze-modal-header">
+          Select Copper Layer Pair
+          <span className="x" title="Cancel" onClick={onClose}>
+            ✕
+          </span>
+        </div>
+        <div className="ze-modal-body ze-copper-layer-pair-body">
+          <div className="ze-copper-layer-pair-col">
+            <div className="ze-copper-layer-pair-label">Top/Front layer:</div>
+            <div className="ze-grid-pane">
+              <WxGridView
+                grid={leftGrid}
+                tricks={leftTricks}
+                colLabels={false}
+                className="ze-grid-no-lines"
+                ariaLabel="Top layer"
+                columns={CU_PAIR_COL_WIDTHS.map((width) => ({ width }))}
+                renderCell={renderCopperCell(
+                  leftTable,
+                  (r) => leftTable.GetLayers()[r] === currentPair.GetLayerA(),
+                )}
+              />
+            </div>
+          </div>
+          <div className="ze-copper-layer-pair-col">
+            <div className="ze-copper-layer-pair-label">Bottom/Back layer:</div>
+            <div className="ze-grid-pane">
+              <WxGridView
+                grid={rightGrid}
+                tricks={rightTricks}
+                colLabels={false}
+                className="ze-grid-no-lines"
+                ariaLabel="Bottom layer"
+                columns={CU_PAIR_COL_WIDTHS.map((width) => ({ width }))}
+                renderCell={renderCopperCell(
+                  rightTable,
+                  (r) => rightTable.GetLayers()[r] === currentPair.GetLayerB(),
+                )}
+              />
+            </div>
+          </div>
+          <button
+            type="button"
+            className="ze-gridbtn ze-copper-layer-pair-add"
+            title="Add current pair to presets"
+            onClick={onAddToPresets}
+          >
+            <Icon name="arrowRight" />
+          </button>
+          <fieldset className="ze-copper-layer-pair-presets">
+            <legend>Copper Layer Pair Presets</legend>
+            <div className="ze-grid-pane">
+              <WxGridView
+                grid={presetsGrid}
+                tricks={presetsTricks}
+                flexCol={PRESETS_USERNAME_COL}
+                columns={PRESETS_COL_WIDTHS.map((width) => ({ width }))}
+                ariaLabel="Copper layer pair presets"
+                renderCell={(aRow, aCol, aValue) => {
+                  if (aCol === 0)
+                    return (
+                      <input
+                        type="checkbox"
+                        checked={aValue === '1'}
+                        onChange={(e) => {
+                          presetsTable.SetValue(aRow, 0, e.target.checked ? '1' : '0');
+                          presetsGrid.ForceRefresh();
+                        }}
+                      />
+                    );
+                  if (aCol === 1) {
+                    const info = dialogSettings.GetLayerPairs()[aRow];
+                    if (!info) return null;
+                    const pair = info.GetLayerPair();
+                    return (
+                      <span
+                        className="ze-copper-layer-pair-icon"
+                        style={layerPairIconStyle(
+                          layerSwatch(pair.GetLayerA(), theme),
+                          layerSwatch(pair.GetLayerB(), theme),
+                        )}
+                      />
+                    );
+                  }
+                  return null;
+                }}
+              />
+            </div>
+            <button
+              type="button"
+              className="ze-gridbtn ze-copper-layer-pair-delete"
+              title="Delete selected presets"
+              onClick={onDeleteSelectedPresets}
+            >
+              <Icon name="delete" />
+            </button>
+          </fieldset>
+        </div>
+        <div className="ze-modal-footer">
+          <button type="button" className="ze-btn" onClick={onClose}>
+            Cancel
+          </button>
+          <button type="button" className="ze-btn primary" onClick={onOK}>
+            OK
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

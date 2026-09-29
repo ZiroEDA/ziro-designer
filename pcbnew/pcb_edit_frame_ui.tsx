@@ -449,6 +449,7 @@ import { contextMenuPick } from './tools/pcb_selection_tool.js';
 import { parseDrcRules } from './drc/drc_rule_view.js';
 import { DialogTrackViaProperties } from './dialogs/dialog_track_via_properties_ui.js';
 import { DialogCopperZones } from './dialogs/dialog_copper_zones.js';
+import { SelectCopperLayerPairDialog } from './sel_layer.js';
 import { DialogFootprintProperties } from './dialogs/dialog_footprint_properties_ui.js';
 import {
   DIALOG_FOOTPRINT_PROPERTIES,
@@ -1953,6 +1954,7 @@ export function PcbEditor({
     projectText: () => string | null;
     onEditItemRequest: (aItem: BOARD_ITEM | null) => void;
     editZoneParams: (zoneIndex: number) => void;
+    selectCopperLayerPair: () => void;
     findDialogRects: () => BOX2D[];
     setViewCenter: (aPos: KVec2, aRects: readonly BOX2D[]) => void;
   } | null>(null);
@@ -1978,6 +1980,7 @@ export function PcbEditor({
       projectText: () => drcWindowRef.current!.projectText(),
       onEditItemRequest: (aItem) => drcWindowRef.current!.onEditItemRequest(aItem),
       editZoneParams: (zoneIndex) => drcWindowRef.current!.editZoneParams(zoneIndex),
+      selectCopperLayerPair: () => drcWindowRef.current!.selectCopperLayerPair(),
       showExchangeFootprintsDialog: () => {
         // DIALOG_EXCHANGE_FOOTPRINTS is not built (Edit > Change Footprints... is
         // greyed in the menu for the same reason).
@@ -2189,6 +2192,8 @@ export function PcbEditor({
   // Track & Via Properties (DIALOG_TRACK_VIA_PROPERTIES), opened by E or a
   // double-click on a copper item.
   const [trackViaOpen, setTrackViaOpen] = useState(false);
+  // Set Layer Pair... (SELECT_COPPER_LAYERS_PAIR_DIALOG), Edit > Route.
+  const [layerPairDialogOpen, setLayerPairDialogOpen] = useState(false);
   // The KIDIALOGs its OK asks (confirmShortingNets, confirmPadChange).
   const { ask: askKiDialog, node: kiDialogNode } = useKiDialog();
   // Copper Zone Properties (DIALOG_COPPER_ZONE), on the selected zone.
@@ -5426,6 +5431,8 @@ export function PcbEditor({
     },
     /** `PCB_EDIT_FRAME::Edit_Zone_Params`'s actual open: the rendering trigger. */
     editZoneParams: (zoneIndex: number): void => setZonePropsIndex(zoneIndex),
+    /** `ROUTER_TOOL::SelectCopperLayerPair`'s actual open: the rendering trigger. */
+    selectCopperLayerPair: (): void => setLayerPairDialogOpen(true),
     // findDialogs(): the DRC dialog is the one modeless dialog of this frame; its
     // rect in canvas client pixels, as ScreenToClient( dialog->GetScreenPosition() ).
     findDialogRects: (): BOX2D[] => {
@@ -10884,6 +10891,10 @@ export function PcbEditor({
       case 'routerSettingsDialog':
         setPnsSettingsOpen(true);
         break;
+      case 'selectLayerPair':
+        // `PCB_ACTIONS::selectLayerPair` -> `ROUTER_TOOL::SelectCopperLayerPair`.
+        frameRef.current?.SelectCopperLayerPair();
+        break;
       // Both resolution rows open the same DIALOG_BOARD_INSPECTOR; which report
       // it shows is decided by the selection, which is also what gates the rows.
       case 'inspectResolution':
@@ -12231,6 +12242,14 @@ export function PcbEditor({
             />
           );
         })()}
+      {layerPairDialogOpen && frameRef.current && frameRef.current.GetBoard() && (
+        <SelectCopperLayerPairDialog
+          board={frameRef.current.GetBoard()!}
+          theme={theme}
+          layerPairSettings={frameRef.current.GetLayerPairSettings()}
+          onClose={() => setLayerPairDialogOpen(false)}
+        />
+      )}
       {kiDialogNode}
       {moveExactOpen && board && (
         <DialogMoveExact

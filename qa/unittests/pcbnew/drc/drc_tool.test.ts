@@ -120,6 +120,7 @@ function makeHarness(): Harness {
     setHighlightNets: () => {},
     syncSelection: () => {},
     editZoneParams: () => {},
+    selectCopperLayerPair: () => {},
     updatePcbFromSchematic: () => {},
   });
 
