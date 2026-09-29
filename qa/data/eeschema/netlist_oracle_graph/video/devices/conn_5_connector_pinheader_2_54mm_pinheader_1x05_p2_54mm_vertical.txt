@@ -1,0 +1,17 @@
+PACKAGE 'pinheader_1x05_p2_54mm_vertical'
+CLASS IC
+PINCOUNT 5
+PINORDER MAIN ,
+	__1,
+	__2,
+	__3,
+	__4,
+	__5
+FUNCTION MAIN MAIN ,
+	1,
+	2,
+	3,
+	4,
+	5
+PACKAGEPROP VALUE CONN_5
+END

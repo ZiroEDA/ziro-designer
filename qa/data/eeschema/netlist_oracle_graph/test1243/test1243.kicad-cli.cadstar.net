@@ -1,0 +1,33 @@
+.HEA
+.TIM 2026-09-29T06:58:14
+.APP "Eeschema 10.0.6-10.0.6~ubuntu24.04.1"
+.TYP FULL
+
+.ADD_COM     U1     "A3P060-xVQx100"     "Package_QFP:TQFP-100_14x14mm_P0.5mm"
+
+
+.ADD_TER   U1   1     "unconnected-(U1-GND-Pad1)"
+.TER       U1   38
+            U1   51
+            U1   67
+            U1   88
+            U1   9
+
+.ADD_TER   U1   25     "unconnected-(U1-GNDQ-Pad25)"
+.TER       U1   75
+
+.ADD_TER   U1   17     "unconnected-(U1-VCC-Pad17)"
+.TER       U1   37
+            U1   68
+            U1   89
+
+.ADD_TER   U1   66     "unconnected-(U1-VCCIB0-Pad66)"
+.TER       U1   87
+
+.ADD_TER   U1   18     "unconnected-(U1-VCCIB1-Pad18)"
+.TER       U1   39
+
+.ADD_TER   U1   24     "unconnected-(U1-VMV1-Pad24)"
+.TER       U1   50
+
+.END

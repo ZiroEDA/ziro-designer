@@ -1,0 +1,32 @@
+.HEA
+.TIM 2026-09-29T06:57:52
+.APP "Eeschema 10.0.6-10.0.6~ubuntu24.04.1"
+.TYP FULL
+
+.ADD_COM     CABLES1     ""     "$noname"
+.ADD_COM     SERIAL_NUMBER1     ""     "$noname"
+.ADD_COM     J2     "ST_02"     "IPSES_connectors:TerminalBlock_Weidmuller-2_P5.08mm"
+.ADD_COM     J1     "ST_02"     "IPSES_connectors:TerminalBlock_Weidmuller-2_P5.08mm"
+.ADD_COM     CABLES3     ""     "$noname"
+.ADD_COM     CABLES2     ""     "$noname"
+.ADD_COM     OthersComponents2     "1520EU"     "$noname"
+.ADD_COM     CABLES4     ""     "$noname"
+.ADD_COM     REVISION1     ""     "$noname"
+.ADD_COM     SERIAL_NUMBER2     ""     "$noname"
+.ADD_COM     J9     "ST_02"     "IPSES_connectors:TerminalBlock_Weidmuller-2_P5.08mm"
+.ADD_COM     J7     "ST_02"     "IPSES_connectors:TerminalBlock_Weidmuller-2_P5.08mm"
+
+
+.ADD_TER   J7   2     "/AD.1"
+.TER       J9   2
+
+.ADD_TER   J7   1     "/AD.2"
+.TER       J9   1
+
+.ADD_TER   J1   1     "Net-(J1-Pin_1)"
+.TER       J2   2
+
+.ADD_TER   J1   2     "Net-(J1-Pin_2)"
+.TER       J2   1
+
+.END

@@ -1,0 +1,16 @@
+*PADS-PCB*
+*PART*
+J2               Connector_PinHeader_2.54mm:PinHeader_1x01_P2.54mm_Horizontal
+R1               Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal
+J1               Connector_PinHeader_2.54mm:PinHeader_1x01_P2.54mm_Horizontal
+J3               Connector_PinHeader_2.54mm:PinHeader_1x01_P2.54mm_Horizontal
+J4               Connector_PinHeader_2.54mm:PinHeader_1x01_P2.54mm_Horizontal
+
+*NET*
+*SIGNAL* /BUS0
+J3.1 R1.1 
+*SIGNAL* GND
+J2.1 J4.1 
+*SIGNAL* VCC
+J1.1 R1.2 
+*END*

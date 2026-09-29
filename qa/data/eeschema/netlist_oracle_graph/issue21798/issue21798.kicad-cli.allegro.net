@@ -1,0 +1,15 @@
+(NETLIST)
+(Source: /home/akshay/ziro-designer-1/qa/data/eeschema/netlist_oracle_graph/issue21798/issue21798.kicad_sch)
+(Date: 2026-09-29T06:57:29)
+$PACKAGES
+! 'conn_01x02' ! 'Conn_01x02' ; J1,
+	J2
+$A_PROPERTIES
+'ROOM' 'issue21798' ; J1,
+	J2
+$NETS
+/SHEET1/D0; J1.1,
+	J2.1
+'UNCONNECTED-(J1-PIN_2-PAD2)'; J1.2
+'UNCONNECTED-(J2-PIN_2-PAD2)'; J2.2
+$END

@@ -1,0 +1,23 @@
+(NETLIST)
+(Source: /home/akshay/ziro-designer-1/qa/data/eeschema/netlist_oracle_graph/hierarchy_aliases/hierarchy_aliases.kicad_sch)
+(Date: 2026-09-29T06:57:01)
+$PACKAGES
+! 'r' ! 'R' ; R1,
+	R2,
+	R3,
+	R4
+$A_PROPERTIES
+'ROOM' 'First_Subsheet-Sub2' ; R1,
+	R2
+'ROOM' 'Second_Subsheet-Sub2' ; R3,
+	R4
+$NETS
+'/S0.BOOT.SCL'; R2.2
+'/S0.BOOT.SDA'; R1.2
+'/S1.BOOT.SCL'; R4.2
+'/S1.BOOT.SDA'; R3.2
+GND; R1.1,
+	R2.1,
+	R3.1,
+	R4.1
+$END

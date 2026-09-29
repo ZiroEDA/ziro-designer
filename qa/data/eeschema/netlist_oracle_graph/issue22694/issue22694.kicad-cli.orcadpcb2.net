@@ -1,0 +1,23 @@
+( { EESchema Netlist Version 1.1 created  2026-09-29T06:57:30 }
+ ( /5f507089-e358-470c-9943-96a68327be1c/39510c17-6a3c-4cb1-b5e1-c4838757e94d Connector_PinHeader_2.54mm:PinHeader_1x08_P2.54mm_Vertical  J2 Conn_01x08
+  (    1 /Subsheet_1/HL1 )
+  (    2 Global_Label )
+  (    3 Global_Label )
+  (    4 Global_Label )
+  (    5 Global_Label )
+  (    6 Global_Label )
+  (    7 unconnected-(J2-Pin_7-Pad7) )
+  (    8 unconnected-(J2-Pin_8-Pad8) )
+ )
+ ( /1df962ec-4622-4193-b2fd-a15e7eb70a3b/aceaf9e1-5826-4310-a14b-75bf5bfd38c6 Connector_PinHeader_2.54mm:PinHeader_1x08_P2.54mm_Vertical  J3 Conn_01x08
+  (    1 Global_Label )
+  (    2 unconnected-(J3-Pin_2-Pad2) )
+  (    3 unconnected-(J3-Pin_3-Pad3) )
+  (    4 unconnected-(J3-Pin_4-Pad4) )
+  (    5 unconnected-(J3-Pin_5-Pad5) )
+  (    6 unconnected-(J3-Pin_6-Pad6) )
+  (    7 unconnected-(J3-Pin_7-Pad7) )
+  (    8 unconnected-(J3-Pin_8-Pad8) )
+ )
+)
+*

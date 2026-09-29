@@ -1,0 +1,12 @@
+PACKAGE 'terminalblock_weidmuller-2_p5_08mm'
+CLASS IC
+PINCOUNT 2
+PINORDER MAIN ,
+	Pin_1__1,
+	Pin_2__2
+FUNCTION MAIN MAIN ,
+	1,
+	2
+PACKAGEPROP VALUE ST_02
+PACKAGEPROP ALT_SYMBOLS '(TerminalBlock_Weidmuller-2_P5.08mm)'
+END

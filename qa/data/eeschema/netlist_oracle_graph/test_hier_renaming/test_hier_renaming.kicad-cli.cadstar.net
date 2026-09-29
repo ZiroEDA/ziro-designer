@@ -1,0 +1,34 @@
+.HEA
+.TIM 2026-09-29T06:58:18
+.APP "Eeschema 10.0.6-10.0.6~ubuntu24.04.1"
+.TYP FULL
+
+.ADD_COM     DS2     "788xHG"     "Display:788xHG"
+.ADD_COM     DS1     "788xHG"     "Display:788xHG"
+
+
+.ADD_TER   DS1   16     "/ROW0"
+.TER       DS2   16
+
+.ADD_TER   DS1   15     "/ROW1"
+.TER       DS2   15
+
+.ADD_TER   DS1   14     "/ROW2"
+.TER       DS2   14
+
+.ADD_TER   DS1   13     "/ROW3"
+.TER       DS2   13
+
+.ADD_TER   DS1   12     "/ROW4"
+.TER       DS2   12
+
+.ADD_TER   DS1   11     "/ROW5"
+.TER       DS2   11
+
+.ADD_TER   DS1   10     "/ROW6"
+.TER       DS2   10
+
+.ADD_TER   DS1   9     "/ROW7"
+.TER       DS2   9
+
+.END

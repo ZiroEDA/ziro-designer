@@ -1,0 +1,23 @@
+(NETLIST)
+(Source: /home/akshay/ziro-designer-1/qa/data/eeschema/netlist_oracle_graph/issue24220/issue24220.kicad_sch)
+(Date: 2026-09-29T06:57:54)
+$PACKAGES
+! 'st_02_ipses_connectors_terminalblock_weidmuller-2_p5_08mm' ! 'ST_02' ; J1,
+	J2,
+	J7,
+	J9
+$A_PROPERTIES
+'ROOM' 'Foglio2' ; J7
+'ROOM' 'Foglio_1' ; J9
+'ROOM' 'issue24220' ; J1,
+	J2
+$NETS
+'/AD.1'; J7.2,
+	J9.2
+'/AD.2'; J7.1,
+	J9.1
+'NET-(J1-PIN_1)'; J1.1,
+	J2.2
+'NET-(J1-PIN_2)'; J1.2,
+	J2.1
+$END

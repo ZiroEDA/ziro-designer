@@ -1,0 +1,15 @@
+(NETLIST)
+(Source: /home/akshay/ziro-designer-1/qa/data/eeschema/netlist_oracle/top_level_hier_pins/top_level_hier_pins.kicad_sch)
+(Date: 2026-09-29T06:56:31)
+$PACKAGES
+! 'r' ! 'R' ; R1,
+	R2
+$A_PROPERTIES
+'ROOM' 'Subsheet1-SubSubSheet' ; R1,
+	R2
+$NETS
+/INPUT; R1.1
+/SUBSHEET1/SUB_OUTPUT; R2.1
+GND; R1.2,
+	R2.2
+$END

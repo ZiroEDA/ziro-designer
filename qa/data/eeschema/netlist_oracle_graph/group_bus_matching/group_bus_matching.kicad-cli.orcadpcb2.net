@@ -1,0 +1,19 @@
+( { EESchema Netlist Version 1.1 created  2026-09-29T06:56:50 }
+ ( /04eb80a5-3d22-464b-8fb7-e70e01da2cf4/04ecd82e-109a-4cfb-8016-ccfdc48c1549 $noname  R2 R
+  (    1 /SDA )
+  (    2 GND )
+ )
+ ( /04eb80a5-3d22-464b-8fb7-e70e01da2cf4/7e7dc5ce-6b00-48d2-9c9b-9cc678b3783a $noname  R1 R
+  (    1 /SCL )
+  (    2 GND )
+ )
+ ( /8903cf94-5bbd-4df7-9bc9-ca711b28d97a/081a37f8-0ee2-4efb-9b8b-aa87b2ffa46b $noname  R3 R
+  (    1 /SCL )
+  (    2 GND )
+ )
+ ( /8903cf94-5bbd-4df7-9bc9-ca711b28d97a/788e5e39-7eb5-4dc0-9e5b-9eac30779d04 $noname  R4 R
+  (    1 /SDA )
+  (    2 GND )
+ )
+)
+*

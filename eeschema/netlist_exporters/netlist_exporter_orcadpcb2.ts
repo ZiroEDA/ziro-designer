@@ -2,57 +2,64 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * The OrcadPCB2 netlist (`eeschema/netlist_exporters/netlist_exporter_orcadpcb2.cpp`,
- * `NETLIST_EXPORTER_ORCADPCB2::WriteNetlist`): a footprints section listing
- * each symbol's uuid, footprint, ref and value, then its per-pin nets.
+ * `eeschema/netlist_exporters/netlist_exporter_orcadpcb2.cpp`
+ * (`NETLIST_EXPORTER_ORCADPCB2`): the legacy OrcadPCB2 netlist. One `( /<path><uuid>
+ * <footprint>  <ref> <value>` block per board-bound symbol of every sheet, in UUID
+ * order, each with its `CreatePinList` pins (number right-aligned in four columns, then
+ * the net name, spaces turned to underscores).
  *
- * Single sheet, like the KiCad-XML exporter beside it — see that file's header.
+ * Held to `kicad-cli sch export netlist --format orcadpcb2` by
+ * `designer/netlist_formats_oracle.test.ts`.
  */
 
-import type { Schematic, LibSymbol } from '../types.js';
-import { computeNetlist, enumeratePins } from '../connectivity/nets.js';
-import { refId } from '../tools/hittest.js';
-import { GENERATOR_APPLICATION } from '@ziroeda/common/generator.js';
-import { boardSymbols, symbolField, type NetlistMeta } from './netlist_exporter_base.js';
+import { GetISO8601CurrentDateTime } from '@ziroeda/common/string_utils.js';
+import { NETLIST_EXPORTER_BASE } from './netlist_exporter_base.js';
 
-const NETLIST_HEAD = GENERATOR_APPLICATION;
+/** `NETLIST_HEAD_STRING` (netlist.h:54). */
+export const NETLIST_HEAD_STRING = 'EESchema Netlist Version 1.1';
 
-export function netlistOrcadPcb2(
-  sch: Schematic,
-  libById: Map<string, LibSymbol>,
-  meta: NetlistMeta,
-): string {
-  const netlist = computeNetlist(sch, libById);
-  const pins = enumeratePins(sch, libById);
-  // pin id -> net name (unconnected pins get "?").
-  const netNameByPin = new Map<string, string>();
-  for (const net of netlist.nets) for (const id of net.items) netNameByPin.set(id, net.name);
+/** `NETLIST_EXPORTER_ORCADPCB2`, over the live model. */
+export class NETLIST_EXPORTER_ORCADPCB2 extends NETLIST_EXPORTER_BASE {
+  /** `GetISO8601CurrentDateTime()`, settable so a test can pin it. */
+  m_date: () => string = GetISO8601CurrentDateTime;
 
-  // Pins grouped by their parent symbol's node id (the id enumeratePins emits).
-  const bySym = new Map<string, typeof pins>();
-  for (const p of pins) {
-    const arr = bySym.get(p.symId) ?? [];
-    arr.push(p);
-    bySym.set(p.symId, arr);
-  }
+  /** `WriteNetlist`'s text. */
+  Format(): string {
+    let out = `( { ${NETLIST_HEAD_STRING} created  ${this.m_date()} }\n`;
 
-  const out: string[] = [];
-  out.push(`( { ${NETLIST_HEAD} netlist created ${new Date().toISOString()} }`);
+    // Create netlist footprints section
+    this.m_referencesAlreadyFound.Clear();
 
-  for (const { sym, ref, index } of boardSymbols(sch)) {
-    const symId = refId('symbol', sym.uuid, index);
-    let footprint = symbolField(sym, 'Footprint').replace(/ /g, '_');
-    if (!footprint) footprint = '$noname';
-    const value = (symbolField(sym, 'Value') || '~').replace(/ /g, '_');
-    out.push(` ( ${sym.uuid ?? symId} ${footprint}  ${ref} ${value}`);
-    for (const pin of bySym.get(symId) ?? []) {
-      if (!pin.number) continue;
-      const netName = (netNameByPin.get(pin.id) ?? '?').replace(/ /g, '_');
-      out.push(`  ( ${pin.number.padStart(4)} ${netName} )`);
+    for (const sheet of this.m_schematic.Hierarchy()) {
+      // Process symbol attributes
+      for (const symbol of this.sheetSymbolsByUuid(sheet)) {
+        const pins = this.CreatePinList(symbol, sheet, true);
+
+        let footprint = symbol.GetFootprintFieldText(true, sheet, false).replaceAll(' ', '_');
+
+        if (footprint === '') footprint = '$noname';
+
+        out += ` ( ${sheet.PathAsString() + symbol.m_Uuid} ${footprint}`;
+        out += `  ${symbol.GetRef(sheet)}`;
+        out += ` ${symbol.GetValue(true, sheet, false).replaceAll(' ', '_')}`;
+        out += '\n';
+
+        // Write pin list:
+        for (const pin of pins) {
+          if (pin.num === '') continue; // Erased pin in list
+
+          const netName = pin.netName.replaceAll(' ', '_');
+
+          // Legacy OrcadPCB2 right-aligns the pin number in a 4-column field.
+          out += `  ( ${pin.num.padStart(4)} ${netName} )\n`;
+        }
+
+        out += ' )\n';
+      }
     }
-    out.push(' )');
-  }
 
-  out.push(')\n*');
-  return out.join('\n');
+    out += ')\n*\n';
+
+    return out;
+  }
 }

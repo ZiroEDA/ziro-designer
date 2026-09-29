@@ -1,0 +1,2384 @@
+.HEA
+.TIM 2026-09-29T06:58:34
+.APP "Eeschema 10.0.6-10.0.6~ubuntu24.04.1"
+.TYP FULL
+
+.ADD_COM     P8     "BNC"     "Discret:SUBCLICK"
+.ADD_COM     P1     "BNC"     "Discret:SUBCLICK"
+.ADD_COM     P2     "BNC"     "Discret:SUBCLICK"
+.ADD_COM     P3     "BNC"     "Discret:SUBCLICK"
+.ADD_COM     J4     "DB9FEM"     "Connector_Dsub:DSUB-9_Female_Horizontal_P2.77x2.84mm_EdgePinOffset14.56mm_Housed_MountingHolesOffset15.98mm"
+.ADD_COM     U11     "S5933_PQ160"     "Package_QFP:PQFP-160_28x28mm_P0.65mm"
+.ADD_COM     W4     "TEST"     "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical"
+.ADD_COM     W5     "TEST"     "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical"
+.ADD_COM     BUS1     "BUSPCI_5V"     "Connectors:BUSPCI"
+.ADD_COM     R5     "10K"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     W1     "16/32"     "Connectors:GS2"
+.ADD_COM     W2     "FLOAT#"     "Connectors:GS2"
+.ADD_COM     R6     "10K"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     R7     "10K"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     W3     "SERNV"     "Connectors:GS2"
+.ADD_COM     R28     "2,2K"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     R29     "2,2K"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     C24     "100nF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     C25     "100nF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     C26     "100nF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     C27     "100nF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     C28     "100nF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     C29     "100nF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     C30     "100nF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     C31     "100nF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     C38     "4,7uF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     U1     "24C16"     "Package_DIP:DIP-8_W7.62mm"
+.ADD_COM     C67     "4,7uF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     C69     "4,7uF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     C68     "4,7uF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     RR2     "8x10K"     "Resistor_THT:R_Array_SIP9"
+.ADD_COM     RR5     "8x10K"     "Resistor_THT:R_Array_SIP9"
+.ADD_COM     RR7     "8x10K"     "Resistor_THT:R_Array_SIP9"
+.ADD_COM     RR6     "8x10K"     "Resistor_THT:R_Array_SIP9"
+.ADD_COM     RR8     "8x10K"     "Resistor_THT:R_Array_SIP9"
+.ADD_COM     RR3     "8x10K"     "Resistor_THT:R_Array_SIP9"
+.ADD_COM     RR4     "8x10K"     "Resistor_THT:R_Array_SIP9"
+.ADD_COM     RR1     "8x10K"     "Resistor_THT:R_Array_SIP9"
+.ADD_COM     C63     "47uF"     "Resistor_SMD:R_1210_3225Metric_Pad1.24x2.70mm_HandSolder"
+.ADD_COM     U7     "AV9173"     "Package_SO:SSOP-8_3.95x5.21x3.27mm_P1.27mm"
+.ADD_COM     C21     "100nF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     C22     "100nF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     R13     "1K"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     D6     "LED"     "Discret:LEDV"
+.ADD_COM     U24     "XC4005-PQ160"     "Package_QFP:PQFP-160_28x28mm_P0.65mm"
+.ADD_COM     C23     "100nF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     R1     "10"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     U21     "XC1736APD8"     "Package_DIP:DIP-8_W7.62mm"
+.ADD_COM     P5     "CONN_5"     "Connector_PinHeader_2.54mm:PinHeader_1x05_P2.54mm_Vertical"
+.ADD_COM     R48     "10K"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     P4     "CONN_2"     "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical"
+.ADD_COM     U2     "4C4001"     "Package_SO:SOIC-28W_7.5x17.9mm_P1.27mm"
+.ADD_COM     C70     "100nF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     C71     "100nF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     C72     "100nF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     C73     "100nF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     U23     "XC4003/PQ100"     "Package_QFP:PQFP-100_14x20mm_P0.65mm"
+.ADD_COM     P9     "CONN_1"     "Connector_PinHeader_2.54mm:PinHeader_1x01_P2.54mm_Vertical"
+.ADD_COM     P12     "CONN_1"     "Connector_PinHeader_2.54mm:PinHeader_1x01_P2.54mm_Vertical"
+.ADD_COM     P10     "CONN_1"     "Connector_PinHeader_2.54mm:PinHeader_1x01_P2.54mm_Vertical"
+.ADD_COM     P11     "CONN_1"     "Connector_PinHeader_2.54mm:PinHeader_1x01_P2.54mm_Vertical"
+.ADD_COM     R21     "220"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     C17     "100nF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     R26     "220K"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     C18     "100nF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     X1     "10MHz"     "Crystal:Crystal_HC18-U_Vertical"
+.ADD_COM     C57     "4.7uF"     "Capacitor_Tantalum_SMD:CP_EIA-3528-21_Kemet-B_Pad1.63x2.40mm_HandSolder"
+.ADD_COM     C19     "100nF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     C56     "4.7uF"     "Capacitor_Tantalum_SMD:CP_EIA-3528-21_Kemet-B_Pad1.63x2.40mm_HandSolder"
+.ADD_COM     C20     "100nF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     C49     "22pF"     "Capacitor_THT:C_Disc_D3.0mm_W2.0mm_P2.50mm"
+.ADD_COM     C50     "22pF"     "Capacitor_THT:C_Disc_D3.0mm_W2.0mm_P2.50mm"
+.ADD_COM     C51     "22uF"     "Resistor_SMD:R_1210_3225Metric_Pad1.24x2.70mm_HandSolder"
+.ADD_COM     U8     "BT253"     "footprints:PLCC84"
+.ADD_COM     U9     "BT473"     "footprints:PLCC68"
+.ADD_COM     C32     "100nF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     R37     "510"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     C42     "2.2uF"     "Resistor_SMD:R_1210_3225Metric_Pad1.24x2.70mm_HandSolder"
+.ADD_COM     R36     "470"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     R47     "75"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     C36     "100nF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     R24     "220"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     R44     "75"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     C34     "100nF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     C33     "100nF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     C35     "100nF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     C40     "1uF"     "Resistor_SMD:R_1210_3225Metric_Pad1.24x2.70mm_HandSolder"
+.ADD_COM     R8     "150"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     R43     "75"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     R38     "510"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     L5     "22uH"     "Resistor_SMD:R_1812_4532Metric_Pad1.24x3.50mm_HandSolder"
+.ADD_COM     C41     "1uF"     "Resistor_SMD:R_1210_3225Metric_Pad1.24x2.70mm_HandSolder"
+.ADD_COM     R46     "75"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     R22     "220"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     C37     "100pF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     C52     "22uF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     R45     "75"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     R15     "1M"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     R42     "75"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     R23     "220"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     C39     "1uF"     "Resistor_SMD:R_1210_3225Metric_Pad1.24x2.70mm_HandSolder"
+.ADD_COM     C15     "100nF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     C16     "100nF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     C47     "220pF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     C7     "100nF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     C65     "22pF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     D4     "BAT46"     "Diode_THT:D_DO-34_SOD68_P7.62mm_Horizontal"
+.ADD_COM     C62     "47uF"     "Resistor_SMD:R_1210_3225Metric_Pad1.24x2.70mm_HandSolder"
+.ADD_COM     C10     "100nF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     L4     "22uF"     "Resistor_SMD:R_1812_4532Metric_Pad1.24x3.50mm_HandSolder"
+.ADD_COM     C11     "100nF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     C5     "100nF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     R35     "470"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     C9     "100nF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     D1     "BAT46"     "Diode_THT:D_DO-34_SOD68_P7.62mm_Horizontal"
+.ADD_COM     C2     "100nF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     R25     "220K"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     R20     "220"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     R27     "27K"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     C14     "100nF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     D3     "BAT46"     "Diode_THT:D_DO-34_SOD68_P7.62mm_Horizontal"
+.ADD_COM     R19     "220"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     C6     "100nF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     R14     "1M"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     R12     "1K"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     X2     "30MHz"     "Crystal:Crystal_HC18-U_Vertical"
+.ADD_COM     R2     "100"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     U10     "BT812"     "Package_QFP:PQFP-160_28x28mm_P0.65mm"
+.ADD_COM     R3     "100"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     C1     "100nF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     C66     "22pF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     C8     "100nF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     C4     "100nF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     D2     "BAT46"     "Diode_THT:D_DO-34_SOD68_P7.62mm_Horizontal"
+.ADD_COM     C3     "100nF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     C12     "100nF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     C13     "100nF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     U13     "SIM4X32"     "footprints:sim72"
+.ADD_COM     U12     "SIM4X32"     "footprints:sim72"
+.ADD_COM     U14     "SIM4X32"     "footprints:sim72"
+.ADD_COM     U16     "SIM4X32"     "footprints:sim72"
+.ADD_COM     U15     "SIM4X32"     "footprints:sim72"
+.ADD_COM     U17     "SIM4X32"     "footprints:sim72"
+.ADD_COM     U18     "SIM4X32"     "footprints:sim72"
+.ADD_COM     U19     "SIM4X32"     "footprints:sim72"
+.ADD_COM     U22     "XC4003-VQ100"     "Package_QFP:TQFP-100_14x14mm_P0.5mm"
+.ADD_COM     U3     "74LS245"     "Package_SO:SOIC-20W_7.5x12.8mm_P1.27mm"
+.ADD_COM     U6     "74LS245"     "Package_SO:SOIC-20W_7.5x12.8mm_P1.27mm"
+.ADD_COM     U5     "74LS245"     "Package_SO:SOIC-20W_7.5x12.8mm_P1.27mm"
+.ADD_COM     U4     "74LS245"     "Package_SO:SOIC-20W_7.5x12.8mm_P1.27mm"
+.ADD_COM     U20     "TDA8501"     "Package_SO:SOIC-24W_7.5x15.4mm_P1.27mm"
+.ADD_COM     C58     "47nF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     C59     "47nF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     C60     "47nF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     L2     "22uH"     "Resistor_SMD:R_1812_4532Metric_Pad1.24x3.50mm_HandSolder"
+.ADD_COM     C54     "4.7uF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     R10     "1K"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     C61     "47nF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     C43     "220nF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     C44     "220nF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     X3     "4.433618MHz"     "Crystal:Crystal_HC18-U_Horizontal"
+.ADD_COM     CV1     "5/30pF"     "Discret:CV3-30PF"
+.ADD_COM     R11     "1K"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     C64     "6,8uF"     "Resistor_SMD:R_1210_3225Metric_Pad1.24x2.70mm_HandSolder"
+.ADD_COM     C48     "22nF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     C45     "220nF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     R31     "470"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     R30     "3,3K"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     L1     "2,2uH"     "Resistor_SMD:R_1812_4532Metric_Pad1.24x3.50mm_HandSolder"
+.ADD_COM     C53     "330pF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     C46     "220pF"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     Q1     "BC848"     "lib_smd:SOT23EBC"
+.ADD_COM     R16     "220"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     R32     "470"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     R39     "68"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     L3     "22uH"     "Resistor_SMD:R_1812_4532Metric_Pad1.24x3.50mm_HandSolder"
+.ADD_COM     C55     "4.7uF"     "Resistor_SMD:R_1210_3225Metric_Pad1.24x2.70mm_HandSolder"
+.ADD_COM     Q2     "BC848"     "lib_smd:SOT23EBC"
+.ADD_COM     R33     "470"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     R40     "68"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     R17     "220"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     Q3     "BC848"     "lib_smd:SOT23EBC"
+.ADD_COM     R34     "470"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     R41     "68"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     R18     "220"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     R9     "150K"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     POT1     "100K"     "lib_smd:POT_CMS"
+.ADD_COM     R4     "10K"     "Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder"
+.ADD_COM     L6     "470ns"     "footprints:LRTDK"
+
+
+.ADD_TER   BUS1   A21     "+3.3V"
+.TER       BUS1   A27
+            BUS1   A33
+            BUS1   A39
+            BUS1   A45
+            BUS1   A53
+            BUS1   B25
+            BUS1   B31
+            BUS1   B36
+            BUS1   B41
+            BUS1   B43
+            BUS1   B54
+            C68   1
+            C69   1
+
+.ADD_TER   C55   1     "+5F"
+.TER       L3   2
+            Q1   3
+            Q2   3
+            Q3   3
+
+.ADD_TER   BUS1   A10     "+5V"
+.TER       BUS1   A16
+            BUS1   A5
+            BUS1   A59
+            BUS1   A61
+            BUS1   A62
+            BUS1   A8
+            BUS1   B19
+            BUS1   B5
+            BUS1   B59
+            BUS1   B6
+            BUS1   B61
+            BUS1   B62
+            C10   1
+            C11   1
+            C15   1
+            C17   1
+            C18   1
+            C19   1
+            C20   1
+            C21   1
+            C22   1
+            C24   1
+            C25   1
+            C26   1
+            C27   1
+            C28   1
+            C29   1
+            C30   1
+            C31   1
+            C38   1
+            C56   1
+            C57   1
+            C67   1
+            C70   1
+            C71   1
+            C72   1
+            C73   1
+            C9   1
+            D2   2
+            D4   2
+            L2   1
+            L3   1
+            L4   1
+            L5   1
+            R1   2
+            R13   1
+            R28   1
+            R29   1
+            R4   2
+            R48   1
+            R5   2
+            R6   2
+            R7   2
+            RR1   1
+            RR2   1
+            RR3   1
+            RR4   1
+            RR5   1
+            RR6   1
+            RR7   1
+            RR8   1
+            U1   7
+            U1   8
+            U10   102
+            U10   112
+            U10   31
+            U10   45
+            U10   57
+            U10   76
+            U10   91
+            U11   11
+            U11   111
+            U11   131
+            U11   151
+            U11   31
+            U11   51
+            U11   71
+            U11   91
+            U12   10
+            U12   30
+            U12   59
+            U13   10
+            U13   30
+            U13   59
+            U14   10
+            U14   30
+            U14   59
+            U15   10
+            U15   30
+            U15   59
+            U16   10
+            U16   30
+            U16   59
+            U17   10
+            U17   30
+            U17   59
+            U18   10
+            U18   30
+            U18   59
+            U19   10
+            U19   30
+            U19   59
+            U2   10
+            U21   7
+            U21   8
+            U22   100
+            U22   12
+            U22   22
+            U22   24
+            U22   25
+            U22   26
+            U22   37
+            U22   51
+            U22   63
+            U22   75
+            U22   89
+            U23   15
+            U23   28
+            U23   3
+            U23   40
+            U23   54
+            U23   66
+            U23   78
+            U23   92
+            U24   100
+            U24   120
+            U24   142
+            U24   160
+            U24   20
+            U24   38
+            U24   40
+            U24   41
+            U24   42
+            U24   60
+            U24   81
+            U3   20
+            U4   20
+            U5   20
+            U6   20
+
+.ADD_TER   U22   21     "/ACCES_RAM-"
+.TER       U24   56
+            U3   19
+            U4   19
+            U5   19
+            U6   19
+
+.ADD_TER   U22   13     "/ACQ_ON"
+.TER       U24   48
+
+.ADD_TER   U11   68     "/ADR2"
+.TER       U23   48
+            U24   137
+
+.ADD_TER   U11   67     "/ADR3"
+.TER       U23   44
+            U24   138
+
+.ADD_TER   U11   66     "/ADR4"
+.TER       U23   43
+            U24   139
+
+.ADD_TER   U11   64     "/ADR5"
+.TER       U23   42
+            U24   140
+
+.ADD_TER   U11   132     "/ADR6"
+.TER       U23   39
+            U24   143
+
+.ADD_TER   U11   87     "/BE-0"
+.TER       U23   38
+            U24   144
+
+.ADD_TER   U11   63     "/BE-1"
+.TER       U23   37
+            U24   145
+
+.ADD_TER   U11   62     "/BE-2"
+.TER       U23   36
+            U24   146
+
+.ADD_TER   U11   60     "/BE-3"
+.TER       U23   35
+            U24   147
+
+.ADD_TER   U22   8     "/BLANK-"
+.TER       U24   53
+            U9   7
+
+.ADD_TER   P3   1     "/BLUE_IN"
+.TER       R22   1
+            R46   1
+
+.ADD_TER   C60   2     "/BLUE_OUT"
+.TER       J4   3
+            R44   2
+            U9   39
+
+.ADD_TER   U11   140     "/BPCLK"
+.TER       U23   30
+
+.ADD_TER   U10   86     "/BT812_RD-"
+.TER       U23   71
+
+.ADD_TER   U10   83     "/BT812_WR-"
+.TER       U23   70
+
+.ADD_TER   U12   40     "/CAS0-"
+.TER       U13   40
+            U14   40
+            U15   40
+            U16   40
+            U17   40
+            U18   40
+            U19   40
+            U24   57
+
+.ADD_TER   U12   41     "/CAS1-"
+.TER       U13   41
+            U14   41
+            U15   41
+            U16   41
+            U17   41
+            U18   41
+            U19   41
+            U24   58
+
+.ADD_TER   U12   42     "/CAS2-"
+.TER       U13   42
+            U14   42
+            U15   42
+            U16   42
+            U17   42
+            U18   42
+            U19   42
+            U24   59
+
+.ADD_TER   U12   43     "/CAS3-"
+.TER       U13   43
+            U14   43
+            U15   43
+            U16   43
+            U17   43
+            U18   43
+            U19   43
+            U24   62
+
+.ADD_TER   U22   7     "/CLAMP"
+.TER       U24   75
+            U8   37
+            U8   59
+
+.ADD_TER   U22   2     "/CLKCAD"
+.TER       U24   77
+            U8   38
+            U8   39
+            U8   40
+
+.ADD_TER   U22   79     "/CLKCDA"
+.TER       U24   76
+            U9   9
+
+.ADD_TER   R30   2     "/CSYNC-OUT"
+.TER       U22   9
+            U24   13
+            U9   8
+
+.ADD_TER   U24   54     "/CSYNCIN-"
+.TER       U8   8
+
+.ADD_TER   J4   8     "/C_OUT"
+.TER       R39   1
+
+.ADD_TER   RR7   2     "/DQ0"
+.TER       U10   92
+            U11   100
+            U23   13
+            U24   21
+            U3   2
+            U8   16
+            U9   14
+
+.ADD_TER   RR7   3     "/DQ1"
+.TER       U10   93
+            U11   99
+            U23   12
+            U24   22
+            U3   3
+            U8   15
+            U9   15
+
+.ADD_TER   RR8   7     "/DQ10"
+.TER       U11   83
+            U23   95
+            U24   34
+            U4   4
+
+.ADD_TER   RR8   6     "/DQ11"
+.TER       U11   82
+            U23   94
+            U24   35
+            U4   5
+
+.ADD_TER   RR8   5     "/DQ12"
+.TER       U11   80
+            U23   93
+            U24   36
+            U4   6
+
+.ADD_TER   RR8   4     "/DQ13"
+.TER       U11   79
+            U23   90
+            U24   45
+            U4   7
+
+.ADD_TER   RR8   3     "/DQ14"
+.TER       U11   78
+            U23   88
+            U24   46
+            U4   8
+
+.ADD_TER   RR8   2     "/DQ15"
+.TER       U11   76
+            U23   89
+            U24   47
+            U4   9
+
+.ADD_TER   RR4   7     "/DQ16"
+.TER       U11   157
+            U5   2
+
+.ADD_TER   RR4   9     "/DQ17"
+.TER       U11   145
+            U5   3
+
+.ADD_TER   RR6   6     "/DQ18"
+.TER       U11   133
+            U5   4
+
+.ADD_TER   RR6   8     "/DQ19"
+.TER       U11   125
+            U5   5
+
+.ADD_TER   RR7   4     "/DQ2"
+.TER       U10   94
+            U11   98
+            U23   11
+            U24   23
+            U3   4
+            U8   14
+            U9   16
+
+.ADD_TER   RR6   3     "/DQ20"
+.TER       U11   117
+            U5   6
+
+.ADD_TER   RR5   6     "/DQ21"
+.TER       U11   105
+            U5   7
+
+.ADD_TER   RR4   3     "/DQ22"
+.TER       U11   93
+            U5   8
+
+.ADD_TER   RR4   5     "/DQ23"
+.TER       U11   85
+            U5   9
+
+.ADD_TER   RR3   3     "/DQ24"
+.TER       U11   77
+            U6   2
+
+.ADD_TER   RR3   9     "/DQ25"
+.TER       U11   65
+            U6   3
+
+.ADD_TER   RR2   8     "/DQ26"
+.TER       U11   53
+            U6   4
+
+.ADD_TER   RR2   5     "/DQ27"
+.TER       U11   45
+            U6   5
+
+.ADD_TER   RR2   3     "/DQ28"
+.TER       U11   37
+            U6   6
+
+.ADD_TER   RR1   8     "/DQ29"
+.TER       U11   25
+            U6   7
+
+.ADD_TER   RR7   5     "/DQ3"
+.TER       U10   95
+            U11   96
+            U23   7
+            U24   24
+            U3   5
+            U8   13
+            U9   17
+
+.ADD_TER   RR1   5     "/DQ30"
+.TER       U11   13
+            U6   8
+
+.ADD_TER   RR1   3     "/DQ31"
+.TER       U11   5
+            U6   9
+
+.ADD_TER   RR7   6     "/DQ4"
+.TER       U10   96
+            U11   95
+            U23   9
+            U24   25
+            U3   6
+            U8   12
+            U9   18
+
+.ADD_TER   RR7   7     "/DQ5"
+.TER       U10   97
+            U11   94
+            U23   8
+            U24   26
+            U3   7
+            U8   11
+            U9   19
+
+.ADD_TER   RR7   8     "/DQ6"
+.TER       U10   99
+            U11   92
+            U23   6
+            U24   27
+            U3   8
+            U8   10
+            U9   20
+
+.ADD_TER   RR7   9     "/DQ7"
+.TER       U10   100
+            U11   88
+            U23   5
+            U24   28
+            U3   9
+            U8   9
+            U9   21
+
+.ADD_TER   RR8   9     "/DQ8"
+.TER       U11   86
+            U23   97
+            U24   32
+            U4   2
+
+.ADD_TER   RR8   8     "/DQ9"
+.TER       U11   84
+            U23   96
+            U24   33
+            U4   3
+
+.ADD_TER   U8   57     "/ESVIDEO-RVB/OE_RVB-"
+.TER       U9   29
+
+.ADD_TER   R37   2     "/ESVIDEO-RVB/REF+"
+.TER       U8   64
+            U8   65
+            U8   66
+            U8   71
+            U8   73
+            U8   76
+            U8   78
+            U8   80
+            U8   82
+
+.ADD_TER   C33   1     "/ESVIDEO-RVB/VAA"
+.TER       C34   1
+            C35   1
+            C42   1
+            C51   1
+            C52   1
+            L5   2
+            U8   1
+            U8   43
+            U8   44
+            U8   84
+            U9   1
+            U9   2
+            U9   33
+            U9   34
+            U9   35
+            U9   36
+
+.ADD_TER   U10   104     "/F_PALIN"
+.TER       U24   43
+
+.ADD_TER   C3   2     "/GREEN_IN"
+.TER       P2   1
+            R23   1
+            R45   1
+
+.ADD_TER   C59   2     "/GREEN_OUT"
+.TER       J4   2
+            R43   2
+            U9   38
+
+.ADD_TER   U10   36     "/HD_PAL-"
+.TER       U24   52
+
+.ADD_TER   U11   124     "/IRQ-"
+.TER       U24   149
+
+.ADD_TER   RR2   7     "/IRQ_SRL"
+.TER       U11   57
+            U24   134
+
+.ADD_TER   U12   12     "/MXA0"
+.TER       U13   12
+            U14   12
+            U15   12
+            U16   12
+            U17   12
+            U18   12
+            U19   12
+            U24   128
+
+.ADD_TER   U12   13     "/MXA1"
+.TER       U13   13
+            U14   13
+            U15   13
+            U16   13
+            U17   13
+            U18   13
+            U19   13
+            U24   127
+
+.ADD_TER   U12   19     "/MXA10"
+.TER       U13   19
+            U14   19
+            U15   19
+            U16   19
+            U17   19
+            U18   19
+            U19   19
+            U24   109
+
+.ADD_TER   U12   14     "/MXA2"
+.TER       U13   14
+            U14   14
+            U15   14
+            U16   14
+            U17   14
+            U18   14
+            U19   14
+            U24   126
+
+.ADD_TER   U12   15     "/MXA3"
+.TER       U13   15
+            U14   15
+            U15   15
+            U16   15
+            U17   15
+            U18   15
+            U19   15
+            U24   125
+
+.ADD_TER   U12   16     "/MXA4"
+.TER       U13   16
+            U14   16
+            U15   16
+            U16   16
+            U17   16
+            U18   16
+            U19   16
+            U24   124
+
+.ADD_TER   U12   17     "/MXA5"
+.TER       U13   17
+            U14   17
+            U15   17
+            U16   17
+            U17   17
+            U18   17
+            U19   17
+            U24   123
+
+.ADD_TER   U12   18     "/MXA6"
+.TER       U13   18
+            U14   18
+            U15   18
+            U16   18
+            U17   18
+            U18   18
+            U19   18
+            U24   116
+
+.ADD_TER   U12   28     "/MXA7"
+.TER       U13   28
+            U14   28
+            U15   28
+            U16   28
+            U17   28
+            U18   28
+            U19   28
+            U24   115
+
+.ADD_TER   U12   31     "/MXA8"
+.TER       U13   31
+            U14   31
+            U15   31
+            U16   31
+            U17   31
+            U18   31
+            U19   31
+            U24   114
+
+.ADD_TER   U12   32     "/MXA9"
+.TER       U13   32
+            U14   32
+            U15   32
+            U16   32
+            U17   32
+            U18   32
+            U19   32
+            U24   113
+
+.ADD_TER   U10   46     "/OE_PAL-"
+.TER       U10   47
+            U9   28
+
+.ADD_TER   U10   84     "/PCA0"
+.TER       U23   65
+            U8   17
+            U9   24
+
+.ADD_TER   U10   85     "/PCA1"
+.TER       U23   64
+            U8   18
+            U9   25
+
+.ADD_TER   U23   63     "/PCA2"
+.TER       U8   19
+            U9   26
+
+.ADD_TER   RR5   5     "/PTADR-"
+.TER       U11   107
+            U23   24
+            U24   14
+
+.ADD_TER   RR5   2     "/PTATN-"
+.TER       U11   114
+            U23   18
+            U24   4
+
+.ADD_TER   U11   116     "/PTBE-0"
+.TER       U23   20
+            U24   158
+
+.ADD_TER   U11   118     "/PTBE-1"
+.TER       U23   21
+            U24   157
+
+.ADD_TER   U11   119     "/PTBE-2"
+.TER       U23   22
+            U24   156
+
+.ADD_TER   U11   120     "/PTBE-3"
+.TER       U23   23
+            U24   155
+
+.ADD_TER   U11   112     "/PTBURST"
+.TER       U23   17
+            U24   5
+
+.ADD_TER   U11   123     "/PTNUM0"
+.TER       U23   34
+            U24   150
+
+.ADD_TER   U11   122     "/PTNUM1"
+.TER       U23   32
+            U24   154
+
+.ADD_TER   RR6   2     "/PTRDY-"
+.TER       U11   115
+            U23   19
+            U24   3
+
+.ADD_TER   U11   108     "/PTWR"
+.TER       U23   16
+            U24   12
+
+.ADD_TER   U19   34     "/RAS0-"
+.TER       U19   44
+            U24   74
+
+.ADD_TER   U18   34     "/RAS1-"
+.TER       U18   44
+            U24   73
+
+.ADD_TER   U17   34     "/RAS2-"
+.TER       U17   44
+            U24   69
+
+.ADD_TER   U15   34     "/RAS3-"
+.TER       U15   44
+            U24   68
+
+.ADD_TER   U16   34     "/RAS4-"
+.TER       U16   44
+            U24   67
+
+.ADD_TER   U12   34     "/RAS5-"
+.TER       U12   44
+            U24   66
+
+.ADD_TER   U14   34     "/RAS6-"
+.TER       U14   44
+            U24   65
+
+.ADD_TER   U13   34     "/RAS7-"
+.TER       U13   44
+            U24   64
+
+.ADD_TER   U23   74     "/RDCAD-"
+.TER       U8   20
+
+.ADD_TER   U23   72     "/RDCDA-"
+.TER       U9   22
+
+.ADD_TER   U11   106     "/RDEMPTY"
+.TER       U24   15
+
+.ADD_TER   RR5   7     "/RDFIFO-"
+.TER       U11   104
+            U24   16
+
+.ADD_TER   C4   2     "/RED_IN"
+.TER       P1   1
+            R24   1
+            R47   1
+
+.ADD_TER   C58   2     "/RED_OUT"
+.TER       J4   1
+            R42   2
+            U9   37
+
+.ADD_TER   RR3   4     "/SELECT-"
+.TER       U11   75
+            U23   45
+            U24   135
+
+.ADD_TER   U10   87     "/SYSRST-"
+.TER       U11   126
+            U23   1
+            U24   148
+
+.ADD_TER   U10   55     "/TVB0"
+.TER       U22   92
+            U8   32
+            U9   61
+
+.ADD_TER   U10   54     "/TVB1"
+.TER       U22   93
+            U8   31
+            U9   62
+
+.ADD_TER   U10   53     "/TVB2"
+.TER       U22   94
+            U8   30
+            U9   63
+
+.ADD_TER   U10   52     "/TVB3"
+.TER       U22   95
+            U8   29
+            U9   64
+
+.ADD_TER   U10   51     "/TVB4"
+.TER       U22   96
+            U8   28
+            U9   65
+
+.ADD_TER   U10   50     "/TVB5"
+.TER       U22   97
+            U8   27
+            U9   66
+
+.ADD_TER   U10   49     "/TVB6"
+.TER       U22   98
+            U8   26
+            U9   67
+
+.ADD_TER   U10   48     "/TVB7"
+.TER       U22   99
+            U8   25
+            U9   68
+
+.ADD_TER   U10   74     "/TVG0"
+.TER       U22   67
+            U8   48
+            U9   53
+
+.ADD_TER   U10   73     "/TVG1"
+.TER       U22   68
+            U8   47
+            U9   54
+
+.ADD_TER   U10   72     "/TVG2"
+.TER       U22   69
+            U8   46
+            U9   55
+
+.ADD_TER   U10   71     "/TVG3"
+.TER       U22   70
+            U8   45
+            U9   56
+
+.ADD_TER   U10   70     "/TVG4"
+.TER       U22   71
+            U8   36
+            U9   57
+
+.ADD_TER   U10   69     "/TVG5"
+.TER       U22   78
+            U8   35
+            U9   58
+
+.ADD_TER   U10   68     "/TVG6"
+.TER       U22   80
+            U8   34
+            U9   59
+
+.ADD_TER   U10   67     "/TVG7"
+.TER       U22   81
+            U8   33
+            U9   60
+
+.ADD_TER   U24   108     "/TVI0"
+.TER       U9   10
+
+.ADD_TER   U24   107     "/TVI1"
+.TER       U9   11
+
+.ADD_TER   U10   65     "/TVR0"
+.TER       U22   82
+            U8   56
+            U9   45
+
+.ADD_TER   U10   64     "/TVR1"
+.TER       U22   83
+            U8   55
+            U9   46
+
+.ADD_TER   U10   63     "/TVR2"
+.TER       U22   84
+            U8   54
+            U9   47
+
+.ADD_TER   U10   62     "/TVR3"
+.TER       U22   85
+            U8   53
+            U9   48
+
+.ADD_TER   U10   61     "/TVR4"
+.TER       U22   86
+            U8   52
+            U9   49
+
+.ADD_TER   U10   60     "/TVR5"
+.TER       U22   87
+            U8   51
+            U9   50
+
+.ADD_TER   U10   59     "/TVR6"
+.TER       U22   90
+            U8   50
+            U9   51
+
+.ADD_TER   U10   58     "/TVR7"
+.TER       U22   91
+            U8   49
+            U9   52
+
+.ADD_TER   U12   2     "/TVRAM0"
+.TER       U13   2
+            U14   2
+            U15   2
+            U16   2
+            U17   2
+            U18   2
+            U19   2
+            U22   17
+            U3   18
+
+.ADD_TER   U12   4     "/TVRAM1"
+.TER       U13   4
+            U14   4
+            U15   4
+            U16   4
+            U17   4
+            U18   4
+            U19   4
+            U22   19
+            U3   17
+
+.ADD_TER   U12   53     "/TVRAM10"
+.TER       U13   53
+            U14   53
+            U15   53
+            U16   53
+            U17   53
+            U18   53
+            U19   53
+            U22   35
+            U4   16
+
+.ADD_TER   U12   55     "/TVRAM11"
+.TER       U13   55
+            U14   55
+            U15   55
+            U16   55
+            U17   55
+            U18   55
+            U19   55
+            U22   36
+            U4   15
+
+.ADD_TER   U12   57     "/TVRAM12"
+.TER       U13   57
+            U14   57
+            U15   57
+            U16   57
+            U17   57
+            U18   57
+            U19   57
+            U22   39
+            U4   14
+
+.ADD_TER   U12   61     "/TVRAM13"
+.TER       U13   61
+            U14   61
+            U15   61
+            U16   61
+            U17   61
+            U18   61
+            U19   61
+            U22   40
+            U4   13
+
+.ADD_TER   U12   63     "/TVRAM14"
+.TER       U13   63
+            U14   63
+            U15   63
+            U16   63
+            U17   63
+            U18   63
+            U19   63
+            U22   41
+            U4   12
+
+.ADD_TER   U12   65     "/TVRAM15"
+.TER       U13   65
+            U14   65
+            U15   65
+            U16   65
+            U17   65
+            U18   65
+            U19   65
+            U22   42
+            U4   11
+
+.ADD_TER   U12   3     "/TVRAM16"
+.TER       U13   3
+            U14   3
+            U15   3
+            U16   3
+            U17   3
+            U18   3
+            U19   3
+            U22   43
+            U5   18
+
+.ADD_TER   U12   5     "/TVRAM17"
+.TER       U13   5
+            U14   5
+            U15   5
+            U16   5
+            U17   5
+            U18   5
+            U19   5
+            U22   44
+            U5   17
+
+.ADD_TER   U12   7     "/TVRAM18"
+.TER       U13   7
+            U14   7
+            U15   7
+            U16   7
+            U17   7
+            U18   7
+            U19   7
+            U22   45
+            U5   16
+
+.ADD_TER   U12   9     "/TVRAM19"
+.TER       U13   9
+            U14   9
+            U15   9
+            U16   9
+            U17   9
+            U18   9
+            U19   9
+            U22   46
+            U5   15
+
+.ADD_TER   U12   6     "/TVRAM2"
+.TER       U13   6
+            U14   6
+            U15   6
+            U16   6
+            U17   6
+            U18   6
+            U19   6
+            U22   20
+            U3   16
+
+.ADD_TER   U12   21     "/TVRAM20"
+.TER       U13   21
+            U14   21
+            U15   21
+            U16   21
+            U17   21
+            U18   21
+            U19   21
+            U22   47
+            U5   14
+
+.ADD_TER   U12   23     "/TVRAM21"
+.TER       U13   23
+            U14   23
+            U15   23
+            U16   23
+            U17   23
+            U18   23
+            U19   23
+            U22   48
+            U5   13
+
+.ADD_TER   U12   25     "/TVRAM22"
+.TER       U13   25
+            U14   25
+            U15   25
+            U16   25
+            U17   25
+            U18   25
+            U19   25
+            U22   53
+            U5   12
+
+.ADD_TER   U12   27     "/TVRAM23"
+.TER       U13   27
+            U14   27
+            U15   27
+            U16   27
+            U17   27
+            U18   27
+            U19   27
+            U22   54
+            U5   11
+
+.ADD_TER   U12   50     "/TVRAM24"
+.TER       U13   50
+            U14   50
+            U15   50
+            U16   50
+            U17   50
+            U18   50
+            U19   50
+            U22   55
+            U6   18
+
+.ADD_TER   U12   52     "/TVRAM25"
+.TER       U13   52
+            U14   52
+            U15   52
+            U16   52
+            U17   52
+            U18   52
+            U19   52
+            U22   56
+            U6   17
+
+.ADD_TER   U12   54     "/TVRAM26"
+.TER       U13   54
+            U14   54
+            U15   54
+            U16   54
+            U17   54
+            U18   54
+            U19   54
+            U22   57
+            U6   16
+
+.ADD_TER   U12   56     "/TVRAM27"
+.TER       U13   56
+            U14   56
+            U15   56
+            U16   56
+            U17   56
+            U18   56
+            U19   56
+            U22   58
+            U6   15
+
+.ADD_TER   U12   58     "/TVRAM28"
+.TER       U13   58
+            U14   58
+            U15   58
+            U16   58
+            U17   58
+            U18   58
+            U19   58
+            U22   59
+            U6   14
+
+.ADD_TER   U12   60     "/TVRAM29"
+.TER       U13   60
+            U14   60
+            U15   60
+            U16   60
+            U17   60
+            U18   60
+            U19   60
+            U22   60
+            U6   13
+
+.ADD_TER   U12   8     "/TVRAM3"
+.TER       U13   8
+            U14   8
+            U15   8
+            U16   8
+            U17   8
+            U18   8
+            U19   8
+            U22   18
+            U3   15
+
+.ADD_TER   U12   62     "/TVRAM30"
+.TER       U13   62
+            U14   62
+            U15   62
+            U16   62
+            U17   62
+            U18   62
+            U19   62
+            U22   61
+            U6   12
+
+.ADD_TER   U12   64     "/TVRAM31"
+.TER       U13   64
+            U14   64
+            U15   64
+            U16   64
+            U17   64
+            U18   64
+            U19   64
+            U22   62
+            U6   11
+
+.ADD_TER   U12   20     "/TVRAM4"
+.TER       U13   20
+            U14   20
+            U15   20
+            U16   20
+            U17   20
+            U18   20
+            U19   20
+            U22   28
+            U3   14
+
+.ADD_TER   U12   22     "/TVRAM5"
+.TER       U13   22
+            U14   22
+            U15   22
+            U16   22
+            U17   22
+            U18   22
+            U19   22
+            U22   29
+            U3   13
+
+.ADD_TER   U12   24     "/TVRAM6"
+.TER       U13   24
+            U14   24
+            U15   24
+            U16   24
+            U17   24
+            U18   24
+            U19   24
+            U22   31
+            U3   12
+
+.ADD_TER   U12   26     "/TVRAM7"
+.TER       U13   26
+            U14   26
+            U15   26
+            U16   26
+            U17   26
+            U18   26
+            U19   26
+            U22   32
+            U3   11
+
+.ADD_TER   U12   49     "/TVRAM8"
+.TER       U13   49
+            U14   49
+            U15   49
+            U16   49
+            U17   49
+            U18   49
+            U19   49
+            U22   33
+            U4   18
+
+.ADD_TER   U12   51     "/TVRAM9"
+.TER       U13   51
+            U14   51
+            U15   51
+            U16   51
+            U17   51
+            U18   51
+            U19   51
+            U22   34
+            U4   17
+
+.ADD_TER   U10   34     "/VD_PAL-"
+.TER       U24   37
+
+.ADD_TER   U12   47     "/WRAM-"
+.TER       U13   47
+            U14   47
+            U15   47
+            U16   47
+            U17   47
+            U18   47
+            U19   47
+            U24   63
+
+.ADD_TER   U23   69     "/WRCAD-"
+.TER       U8   24
+
+.ADD_TER   U23   73     "/WRCDA-"
+.TER       U9   23
+
+.ADD_TER   RR5   8     "/WRFIFDO-"
+.TER       U11   102
+            U24   18
+
+.ADD_TER   U11   103     "/WRFULL"
+.TER       U24   17
+
+.ADD_TER   U24   55     "/WRITE_RAM"
+.TER       U3   1
+            U4   1
+            U5   1
+            U6   1
+
+.ADD_TER   U22   74     "/X_CLK"
+.TER       U23   86
+            U24   119
+
+.ADD_TER   U22   72     "/X_DATA"
+.TER       U24   118
+
+.ADD_TER   U22   50     "/X_DONE"
+.TER       U23   83
+            U24   80
+
+.ADD_TER   RR5   4     "/X_IRQ"
+.TER       U11   109
+            U24   11
+
+.ADD_TER   U22   52     "/X_PROG-"
+.TER       U23   84
+            U24   82
+
+.ADD_TER   J4   9     "/Y_OUT"
+.TER       R40   2
+
+.ADD_TER   RR2   6     "/buspci.sch/EA1"
+.TER       U11   61
+
+.ADD_TER   RR6   9     "/buspci.sch/EA10"
+.TER       U11   121
+
+.ADD_TER   RR6   7     "/buspci.sch/EA11"
+.TER       U11   129
+
+.ADD_TER   RR6   5     "/buspci.sch/EA12"
+.TER       U11   137
+
+.ADD_TER   RR6   4     "/buspci.sch/EA13"
+.TER       U11   141
+
+.ADD_TER   RR4   8     "/buspci.sch/EA14"
+.TER       U11   149
+
+.ADD_TER   RR4   6     "/buspci.sch/EA15"
+.TER       U11   153
+
+.ADD_TER   RR3   8     "/buspci.sch/EA2"
+.TER       U11   69
+
+.ADD_TER   RR3   6     "/buspci.sch/EA3"
+.TER       U11   73
+
+.ADD_TER   RR3   2     "/buspci.sch/EA4"
+.TER       U11   81
+
+.ADD_TER   RR4   4     "/buspci.sch/EA5"
+.TER       U11   89
+
+.ADD_TER   RR4   2     "/buspci.sch/EA6"
+.TER       U11   97
+
+.ADD_TER   RR5   9     "/buspci.sch/EA7"
+.TER       U11   101
+
+.ADD_TER   RR5   3     "/buspci.sch/EA9"
+.TER       U11   113
+
+.ADD_TER   RR1   2     "/buspci.sch/EQ0"
+.TER       U11   1
+
+.ADD_TER   RR1   4     "/buspci.sch/EQ1"
+.TER       U11   9
+
+.ADD_TER   RR1   6     "/buspci.sch/EQ2"
+.TER       U11   17
+
+.ADD_TER   RR1   7     "/buspci.sch/EQ3"
+.TER       U11   21
+
+.ADD_TER   RR1   9     "/buspci.sch/EQ4"
+.TER       U11   29
+
+.ADD_TER   RR2   4     "/buspci.sch/EQ5"
+.TER       U11   33
+
+.ADD_TER   RR2   2     "/buspci.sch/EQ6"
+.TER       U11   41
+
+.ADD_TER   RR2   9     "/buspci.sch/EQ7"
+.TER       U11   49
+
+.ADD_TER   BUS1   A58     "/buspci.sch/P_AD0"
+.TER       U11   56
+
+.ADD_TER   BUS1   B58     "/buspci.sch/P_AD1"
+.TER       U11   55
+
+.ADD_TER   BUS1   B48     "/buspci.sch/P_AD10"
+.TER       U11   39
+
+.ADD_TER   BUS1   A47     "/buspci.sch/P_AD11"
+.TER       U11   38
+
+.ADD_TER   BUS1   B47     "/buspci.sch/P_AD12"
+.TER       U11   36
+
+.ADD_TER   BUS1   A46     "/buspci.sch/P_AD13"
+.TER       U11   35
+
+.ADD_TER   BUS1   B45     "/buspci.sch/P_AD14"
+.TER       U11   34
+
+.ADD_TER   BUS1   A44     "/buspci.sch/P_AD15"
+.TER       U11   32
+
+.ADD_TER   BUS1   A32     "/buspci.sch/P_AD16"
+.TER       U11   14
+
+.ADD_TER   BUS1   B32     "/buspci.sch/P_AD17"
+.TER       U11   12
+
+.ADD_TER   BUS1   A31     "/buspci.sch/P_AD18"
+.TER       U11   8
+
+.ADD_TER   BUS1   B30     "/buspci.sch/P_AD19"
+.TER       U11   7
+
+.ADD_TER   BUS1   A57     "/buspci.sch/P_AD2"
+.TER       U11   54
+
+.ADD_TER   BUS1   A29     "/buspci.sch/P_AD20"
+.TER       U11   6
+
+.ADD_TER   BUS1   B29     "/buspci.sch/P_AD21"
+.TER       U11   4
+
+.ADD_TER   BUS1   A28     "/buspci.sch/P_AD22"
+.TER       U11   3
+
+.ADD_TER   BUS1   B27     "/buspci.sch/P_AD23"
+.TER       U11   2
+
+.ADD_TER   BUS1   A25     "/buspci.sch/P_AD24"
+.TER       U11   158
+
+.ADD_TER   BUS1   B24     "/buspci.sch/P_AD25"
+.TER       U11   156
+
+.ADD_TER   BUS1   A23     "/buspci.sch/P_AD26"
+.TER       U11   155
+
+.ADD_TER   BUS1   B23     "/buspci.sch/P_AD27"
+.TER       U11   154
+
+.ADD_TER   BUS1   A22     "/buspci.sch/P_AD28"
+.TER       U11   152
+
+.ADD_TER   BUS1   B21     "/buspci.sch/P_AD29"
+.TER       U11   148
+
+.ADD_TER   BUS1   B56     "/buspci.sch/P_AD3"
+.TER       U11   52
+
+.ADD_TER   BUS1   A20     "/buspci.sch/P_AD30"
+.TER       U11   147
+
+.ADD_TER   BUS1   B20     "/buspci.sch/P_AD31"
+.TER       U11   146
+
+.ADD_TER   BUS1   A55     "/buspci.sch/P_AD4"
+.TER       U11   48
+
+.ADD_TER   BUS1   B55     "/buspci.sch/P_AD5"
+.TER       U11   47
+
+.ADD_TER   BUS1   A54     "/buspci.sch/P_AD6"
+.TER       U11   46
+
+.ADD_TER   BUS1   B53     "/buspci.sch/P_AD7"
+.TER       U11   44
+
+.ADD_TER   BUS1   B52     "/buspci.sch/P_AD8"
+.TER       U11   42
+
+.ADD_TER   BUS1   A49     "/buspci.sch/P_AD9"
+.TER       U11   40
+
+.ADD_TER   BUS1   B16     "/buspci.sch/P_CLK"
+.TER       U11   142
+
+.ADD_TER   BUS1   A52     "/buspci.sch/P_C{slash}BE0#"
+.TER       U11   43
+
+.ADD_TER   BUS1   B44     "/buspci.sch/P_C{slash}BE1#"
+.TER       U11   28
+
+.ADD_TER   BUS1   B33     "/buspci.sch/P_C{slash}BE2#"
+.TER       U11   15
+
+.ADD_TER   BUS1   B26     "/buspci.sch/P_C{slash}BE3#"
+.TER       U11   159
+
+.ADD_TER   BUS1   B37     "/buspci.sch/P_DEVSEL#"
+.TER       U11   20
+
+.ADD_TER   BUS1   A34     "/buspci.sch/P_FRAME#"
+.TER       U11   16
+
+.ADD_TER   BUS1   A17     "/buspci.sch/P_GNT#"
+.TER       U11   143
+
+.ADD_TER   BUS1   A26     "/buspci.sch/P_IDSEL"
+.TER       U11   160
+
+.ADD_TER   BUS1   A6     "/buspci.sch/P_INTA#"
+.TER       U11   58
+
+.ADD_TER   BUS1   B35     "/buspci.sch/P_IRDY#"
+.TER       U11   18
+
+.ADD_TER   BUS1   B39     "/buspci.sch/P_LOCK#"
+.TER       U11   23
+
+.ADD_TER   BUS1   A43     "/buspci.sch/P_PAR"
+.TER       U11   27
+
+.ADD_TER   BUS1   B40     "/buspci.sch/P_PERR#"
+.TER       U11   24
+
+.ADD_TER   BUS1   B18     "/buspci.sch/P_REQ#"
+.TER       U11   144
+
+.ADD_TER   BUS1   A15     "/buspci.sch/P_RST#"
+.TER       U11   139
+
+.ADD_TER   BUS1   B42     "/buspci.sch/P_SERR#"
+.TER       U11   26
+
+.ADD_TER   BUS1   A38     "/buspci.sch/P_STOP#"
+.TER       U11   22
+
+.ADD_TER   BUS1   A36     "/buspci.sch/P_TRDY#"
+.TER       U11   19
+
+.ADD_TER   U24   95     "/graphic/14MHZOUT"
+.TER       U7   6
+
+.ADD_TER   P5   2     "/graphic/CCLK"
+.TER       U21   2
+            U23   77
+
+.ADD_TER   R21   2     "/graphic/CLK10MHz"
+.TER       U23   57
+            U24   2
+
+.ADD_TER   U23   61     "/graphic/CSIO-"
+.TER       U24   159
+
+.ADD_TER   P5   3     "/graphic/DIN"
+.TER       U21   1
+            U23   75
+
+.ADD_TER   P5   4     "/graphic/DONE"
+.TER       U23   53
+
+.ADD_TER   U24   7     "/graphic/HDOUT"
+.TER       U7   1
+
+.ADD_TER   U24   6     "/graphic/HDREFOUT"
+.TER       U7   2
+
+.ADD_TER   U2   6     "/graphic/IA0"
+.TER       U24   94
+
+.ADD_TER   U2   7     "/graphic/IA1"
+.TER       U24   92
+
+.ADD_TER   U2   8     "/graphic/IA2"
+.TER       U24   88
+
+.ADD_TER   U2   9     "/graphic/IA3"
+.TER       U24   87
+
+.ADD_TER   U2   11     "/graphic/IA4"
+.TER       U24   86
+
+.ADD_TER   U2   12     "/graphic/IA5"
+.TER       U24   85
+
+.ADD_TER   U2   13     "/graphic/IA6"
+.TER       U24   83
+
+.ADD_TER   U2   14     "/graphic/IA7"
+.TER       U24   78
+
+.ADD_TER   U2   15     "/graphic/IA8"
+.TER       U24   93
+
+.ADD_TER   U2   5     "/graphic/IA9"
+.TER       U24   96
+
+.ADD_TER   U2   17     "/graphic/ICAS-"
+.TER       U24   104
+
+.ADD_TER   U2   1     "/graphic/ID0"
+.TER       U24   102
+
+.ADD_TER   U2   2     "/graphic/ID1"
+.TER       U24   99
+
+.ADD_TER   U2   18     "/graphic/ID2"
+.TER       U24   105
+
+.ADD_TER   U2   19     "/graphic/ID3"
+.TER       U24   106
+
+.ADD_TER   U2   16     "/graphic/IOE-"
+.TER       U24   103
+
+.ADD_TER   U2   4     "/graphic/IRAS-"
+.TER       U24   97
+
+.ADD_TER   U2   3     "/graphic/IWR-"
+.TER       U24   98
+
+.ADD_TER   D6   2     "/graphic/LED"
+.TER       U23   81
+
+.ADD_TER   P5   5     "/graphic/PROG*"
+.TER       U21   3
+            U21   4
+            U23   55
+
+.ADD_TER   U23   59     "/graphic/RESERV1"
+.TER       U24   44
+
+.ADD_TER   C23   1     "/graphic/VOSC"
+.TER       C63   1
+            R1   1
+            U7   4
+            U7   5
+            U7   7
+
+.ADD_TER   C50   1     "/graphic/XTAL_I"
+.TER       R26   1
+            U23   56
+            X1   2
+
+.ADD_TER   U23   85     "/graphic/X_DIN"
+.TER       U24   117
+
+.ADD_TER   R16   2     "/modul/CHROM"
+.TER       U20   14
+
+.ADD_TER   R18   2     "/modul/CVBS"
+.TER       U20   16
+
+.ADD_TER   P8   1     "/modul/CVBSOUT"
+.TER       R41   1
+
+.ADD_TER   R17   2     "/modul/LUM"
+.TER       U20   19
+
+.ADD_TER   D3   2     "/pal-ntsc.sch/C-VIDEO"
+.TER       D4   1
+            R2   1
+            U10   125
+
+.ADD_TER   C12   1     "/pal-ntsc.sch/VAF"
+.TER       C13   1
+            C14   1
+            C2   1
+            C62   1
+            L4   2
+            R12   2
+            U10   1
+            U10   119
+            U10   120
+            U10   121
+            U10   122
+            U10   123
+            U10   132
+            U10   141
+            U10   142
+            U10   149
+            U10   158
+            U10   159
+            U10   160
+            U10   2
+            U10   39
+            U10   40
+            U10   41
+            U10   42
+            U10   43
+            U10   78
+            U10   79
+            U10   80
+            U10   81
+            U10   82
+
+.ADD_TER   D1   2     "/pal-ntsc.sch/Y-VIDEO"
+.TER       D2   1
+            R3   1
+            U10   156
+
+.ADD_TER   R20   2     "/pal-ntsc.sch/Y_SYNC"
+.TER       R35   2
+            U10   6
+
+.ADD_TER   RR3   7     "/{slash}PCRD"
+.TER       U11   72
+            U23   46
+            U24   133
+
+.ADD_TER   RR3   5     "/{slash}PCWR"
+.TER       U11   74
+            U23   47
+            U24   132
+
+.ADD_TER   BUS1   A18     "GND"
+.TER       BUS1   A24
+            BUS1   A30
+            BUS1   A35
+            BUS1   A37
+            BUS1   A42
+            BUS1   A48
+            BUS1   A56
+            BUS1   B15
+            BUS1   B17
+            BUS1   B22
+            BUS1   B28
+            BUS1   B3
+            BUS1   B34
+            BUS1   B38
+            BUS1   B46
+            BUS1   B49
+            BUS1   B57
+            C10   2
+            C11   2
+            C12   2
+            C13   2
+            C14   2
+            C15   2
+            C16   2
+            C17   2
+            C18   2
+            C19   2
+            C2   2
+            C20   2
+            C21   2
+            C22   2
+            C23   2
+            C24   2
+            C25   2
+            C26   2
+            C27   2
+            C28   2
+            C29   2
+            C30   2
+            C31   2
+            C32   1
+            C33   2
+            C37   1
+            C38   2
+            C43   2
+            C44   2
+            C45   2
+            C46   2
+            C47   2
+            C48   1
+            C49   2
+            C50   2
+            C51   2
+            C52   2
+            C53   2
+            C54   2
+            C55   2
+            C56   2
+            C57   2
+            C6   2
+            C62   2
+            C63   2
+            C64   2
+            C65   1
+            C66   1
+            C67   2
+            C68   2
+            C69   2
+            C7   2
+            C70   2
+            C71   2
+            C72   2
+            C73   2
+            C9   2
+            CV1   2
+            D1   1
+            D3   1
+            J4   4
+            J4   5
+            J4   6
+            J4   7
+            L6   3
+            P1   2
+            P12   1
+            P2   2
+            P3   2
+            P4   2
+            P5   1
+            P8   2
+            POT1   2
+            POT1   3
+            R14   2
+            R15   1
+            R31   1
+            R32   2
+            R33   2
+            R34   2
+            R37   1
+            R38   2
+            R42   1
+            R43   1
+            R44   1
+            R45   2
+            R46   2
+            R47   2
+            R8   2
+            U1   1
+            U1   2
+            U1   3
+            U1   4
+            U10   103
+            U10   111
+            U10   116
+            U10   118
+            U10   124
+            U10   126
+            U10   128
+            U10   130
+            U10   134
+            U10   136
+            U10   138
+            U10   139
+            U10   143
+            U10   145
+            U10   147
+            U10   151
+            U10   153
+            U10   155
+            U10   157
+            U10   16
+            U10   3
+            U10   30
+            U10   44
+            U10   5
+            U10   56
+            U10   66
+            U10   7
+            U10   75
+            U10   88
+            U10   89
+            U10   90
+            U10   98
+            U11   10
+            U11   110
+            U11   130
+            U11   150
+            U11   30
+            U11   50
+            U11   70
+            U11   90
+            U12   1
+            U12   39
+            U12   72
+            U13   1
+            U13   39
+            U13   72
+            U14   1
+            U14   39
+            U14   72
+            U15   1
+            U15   39
+            U15   72
+            U16   1
+            U16   39
+            U16   72
+            U17   1
+            U17   39
+            U17   72
+            U18   1
+            U18   39
+            U18   72
+            U19   1
+            U19   39
+            U19   72
+            U2   20
+            U20   10
+            U20   17
+            U21   5
+            U22   1
+            U22   11
+            U22   23
+            U22   38
+            U22   49
+            U22   64
+            U22   77
+            U22   88
+            U23   14
+            U23   26
+            U23   4
+            U23   41
+            U23   52
+            U23   67
+            U23   80
+            U23   91
+            U24   1
+            U24   10
+            U24   101
+            U24   110
+            U24   122
+            U24   131
+            U24   141
+            U24   151
+            U24   19
+            U24   29
+            U24   39
+            U24   51
+            U24   61
+            U24   70
+            U24   79
+            U24   91
+            U3   10
+            U4   10
+            U5   10
+            U6   10
+            U7   3
+            U8   2
+            U8   21
+            U8   22
+            U8   23
+            U8   3
+            U8   41
+            U8   42
+            U8   61
+            U8   63
+            U8   67
+            U9   12
+            U9   13
+            U9   3
+            U9   31
+            U9   32
+            U9   4
+            W1   1
+            W2   1
+            W3   1
+            W4   1
+            W5   1
+
+.ADD_TER   BUS1   B9     "Net-(BUS1-PRSNT1#)"
+.TER       W5   2
+
+.ADD_TER   BUS1   B11     "Net-(BUS1-PRSNT2#)"
+.TER       W4   2
+
+.ADD_TER   BUS1   A4     "Net-(BUS1-TDI)"
+.TER       BUS1   B4
+
+.ADD_TER   C1   1     "Net-(C1-Pad1)"
+.TER       C47   1
+            R35   1
+
+.ADD_TER   C3   1     "Net-(C3-Pad1)"
+.TER       R3   2
+
+.ADD_TER   C36   2     "Net-(C36-Pad2)"
+.TER       C37   2
+            R36   1
+
+.ADD_TER   C39   2     "Net-(C39-Pad2)"
+.TER       R24   2
+
+.ADD_TER   C4   1     "Net-(C4-Pad1)"
+.TER       R2   2
+
+.ADD_TER   C40   2     "Net-(C40-Pad2)"
+.TER       R23   2
+
+.ADD_TER   C41   2     "Net-(C41-Pad2)"
+.TER       R22   2
+
+.ADD_TER   C46   1     "Net-(C46-Pad1)"
+.TER       C53   1
+            L1   2
+
+.ADD_TER   C49   1     "Net-(C49-Pad1)"
+.TER       R21   1
+            R26   2
+            X1   1
+
+.ADD_TER   C5   2     "Net-(C5-Pad2)"
+.TER       R19   1
+
+.ADD_TER   C61   1     "Net-(C61-Pad1)"
+.TER       R30   1
+            R31   2
+
+.ADD_TER   C8   2     "Net-(C8-Pad2)"
+.TER       R20   1
+
+.ADD_TER   CV1   1     "Net-(CV1-Pad1)"
+.TER       X3   1
+
+.ADD_TER   D6   1     "Net-(D6-A)"
+.TER       R13   2
+
+.ADD_TER   L6   1     "Net-(L6-Pad1)"
+.TER       R10   1
+
+.ADD_TER   P4   1     "Net-(P4-P1)"
+.TER       R48   2
+            U23   25
+            U23   27
+            U23   29
+
+.ADD_TER   POT1   1     "Net-(POT1-Pad1)"
+.TER       R9   1
+
+.ADD_TER   Q1   2     "Net-(Q1-B)"
+.TER       R16   1
+
+.ADD_TER   Q1   1     "Net-(Q1-E)"
+.TER       R32   1
+            R39   2
+
+.ADD_TER   Q2   2     "Net-(Q2-B)"
+.TER       R17   1
+
+.ADD_TER   Q2   1     "Net-(Q2-E)"
+.TER       R33   1
+            R40   1
+
+.ADD_TER   Q3   2     "Net-(Q3-B)"
+.TER       R18   1
+
+.ADD_TER   Q3   1     "Net-(Q3-E)"
+.TER       R34   1
+            R41   2
+
+.ADD_TER   R28   2     "Net-(U1-SCL)"
+.TER       U1   6
+            U11   128
+
+.ADD_TER   R29   2     "Net-(U1-SDA)"
+.TER       U1   5
+            U11   127
+
+.ADD_TER   C7   1     "Net-(U10-CLEVEL)"
+.TER       R27   2
+            U10   114
+
+.ADD_TER   C6   1     "Net-(U10-CREF+)"
+.TER       R12   1
+            U10   113
+            U10   137
+            U10   144
+
+.ADD_TER   C16   1     "Net-(U10-N{slash}C)"
+.TER       U10   110
+
+.ADD_TER   R19   2     "Net-(U10-OUT_C)"
+.TER       U10   115
+
+.ADD_TER   R27   1     "Net-(U10-R{slash}2)"
+.TER       U10   135
+
+.ADD_TER   C1   2     "Net-(U10-SYNC_DET)"
+.TER       R14   1
+            U10   140
+
+.ADD_TER   C5   1     "Net-(U10-VIN_C)"
+.TER       U10   117
+
+.ADD_TER   C8   1     "Net-(U10-VIN_Y{slash}COMP.)"
+.TER       U10   4
+
+.ADD_TER   C66   2     "Net-(U10-XTAL1_IN)"
+.TER       R25   1
+            U10   108
+            X2   2
+
+.ADD_TER   C65   2     "Net-(U10-XTAL1_OUT)"
+.TER       R25   2
+            U10   109
+            X2   1
+
+.ADD_TER   R6   1     "Net-(U11-FLT#)"
+.TER       U11   138
+            W2   2
+
+.ADD_TER   R5   1     "Net-(U11-MODE_16{slash}32)"
+.TER       U11   59
+            W1   2
+
+.ADD_TER   R7   1     "Net-(U11-SNV)"
+.TER       U11   135
+            W3   2
+
+.ADD_TER   C58   1     "Net-(U20-B)"
+.TER       U20   11
+
+.ADD_TER   R9   2     "Net-(U20-B{slash}ADJ)"
+.TER       U20   21
+
+.ADD_TER   C61   2     "Net-(U20-CS)"
+.TER       U20   24
+
+.ADD_TER   C45   1     "Net-(U20-FLT)"
+.TER       U20   15
+
+.ADD_TER   C59   1     "Net-(U20-G)"
+.TER       U20   9
+
+.ADD_TER   R4   1     "Net-(U20-MCTR)"
+.TER       U20   2
+
+.ADD_TER   L1   1     "Net-(U20-NOTCH)"
+.TER       U20   18
+
+.ADD_TER   U20   23     "Net-(U20-OSC)"
+.TER       X3   2
+
+.ADD_TER   C60   1     "Net-(U20-R)"
+.TER       U20   7
+
+.ADD_TER   C44   1     "Net-(U20-UOFF)"
+.TER       U20   6
+
+.ADD_TER   C54   1     "Net-(U20-VCC)"
+.TER       L2   2
+            U20   8
+
+.ADD_TER   C43   1     "Net-(U20-VOFF)"
+.TER       U20   12
+
+.ADD_TER   C48   2     "Net-(U20-VREF)"
+.TER       C64   1
+            R11   2
+            U20   13
+
+.ADD_TER   L6   2     "Net-(U20-Y+SIN)"
+.TER       R11   1
+            U20   20
+
+.ADD_TER   R10   2     "Net-(U20-Y+SOUT)"
+.TER       U20   22
+
+.ADD_TER   P10   1     "Net-(U23-P87)"
+.TER       U23   87
+
+.ADD_TER   P11   1     "Net-(U23-PGCK4)"
+.TER       U23   82
+
+.ADD_TER   P9   1     "Net-(U23-SGCK3)"
+.TER       U23   51
+
+.ADD_TER   U8   58     "Net-(U8-BIN)"
+.TER       U8   68
+
+.ADD_TER   C41   1     "Net-(U8-BVID0)"
+.TER       U8   75
+
+.ADD_TER   R36   2     "Net-(U8-CEXT1)"
+.TER       U8   6
+
+.ADD_TER   C36   1     "Net-(U8-CEXT2)"
+.TER       R15   2
+            U8   7
+
+.ADD_TER   U8   60     "Net-(U8-GIN)"
+.TER       U8   70
+
+.ADD_TER   C40   1     "Net-(U8-GVID0)"
+.TER       U8   79
+
+.ADD_TER   U8   62     "Net-(U8-RIN)"
+.TER       U8   72
+
+.ADD_TER   R38   1     "Net-(U8-RSET)"
+.TER       U8   69
+
+.ADD_TER   C39   1     "Net-(U8-RVID0)"
+.TER       U8   83
+
+.ADD_TER   C35   2     "Net-(U9-COMP)"
+.TER       U9   41
+            U9   42
+
+.ADD_TER   C34   2     "Net-(U9-IREF)"
+.TER       C42   2
+            R8   1
+            U9   40
+
+.ADD_TER   C32   2     "Net-(U9-VREF)"
+.TER       U9   43
+            U9   44
+
+.END

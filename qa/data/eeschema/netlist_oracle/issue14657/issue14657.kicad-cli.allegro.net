@@ -1,0 +1,11 @@
+(NETLIST)
+(Source: /home/akshay/ziro-designer-1/qa/data/eeschema/netlist_oracle/issue14657/issue14657.kicad_sch)
+(Date: 2026-09-29T06:55:54)
+$PACKAGES
+! 'r' ! 'R' ; R1
+$A_PROPERTIES
+'ROOM' 'subsheet2' ; R1
+$NETS
+GPIO1_14__46; R1.1,
+	R1.2
+$END

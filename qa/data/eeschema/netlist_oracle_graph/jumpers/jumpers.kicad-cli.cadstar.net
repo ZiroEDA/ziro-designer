@@ -1,0 +1,25 @@
+.HEA
+.TIM 2026-09-29T06:57:57
+.APP "Eeschema 10.0.6-10.0.6~ubuntu24.04.1"
+.TYP FULL
+
+.ADD_COM     TB1     ""     "Button_Switch_SMD:Panasonic_EVQPUK_EVQPUB"
+.ADD_COM     R1     "22"     "Resistor_SMD:R_0603_1608Metric"
+.ADD_COM     U1     ""     "Package_TO_SOT_SMD:SC-82AA"
+.ADD_COM     R2     "22"     "Resistor_SMD:R_0603_1608Metric"
+
+
+.ADD_TER   R1   1     "+2V5"
+.TER       TB1   1
+
+.ADD_TER   R2   2     "+3.3V"
+.TER       U1   1
+            U1   3
+
+.ADD_TER   R1   2     "GND"
+.TER       R2   1
+            TB1   2
+            U1   2
+            U1   4
+
+.END

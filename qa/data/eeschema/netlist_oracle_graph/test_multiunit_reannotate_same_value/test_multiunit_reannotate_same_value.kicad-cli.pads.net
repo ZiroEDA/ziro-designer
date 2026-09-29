@@ -1,0 +1,7 @@
+*PADS-PCB*
+*PART*
+U1               LM2903
+U2               LM2903
+
+*NET*
+*END*

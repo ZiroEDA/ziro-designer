@@ -1,0 +1,39 @@
+(NETLIST)
+(Source: /home/akshay/ziro-designer-1/qa/data/eeschema/netlist_oracle_graph/hierarchical_component_classes/hierarchical_component_classes.kicad_sch)
+(Date: 2026-09-29T06:56:57)
+$PACKAGES
+! 'r_resistor_smd_r_0603_1608metric' ! 'R' ; R1,
+	R2,
+	R3,
+	R4,
+	R5,
+	R6,
+	R7,
+	R8
+$A_PROPERTIES
+'ROOM' 'SHEET_1' ; R1
+'ROOM' 'SHEET_1-SHEET_3' ; R3
+'ROOM' 'SHEET_1-SHEET_3-Another_Sheet' ; R6
+'ROOM' 'SHEET_2' ; R2
+'ROOM' 'SHEET_2-SHEET_3' ; R4
+'ROOM' 'SHEET_2-SHEET_3-Another_Sheet' ; R5
+'ROOM' 'hierarchical_component_classes' ; R7,
+	R8
+$NETS
+'UNCONNECTED-(R1-PAD1)'; R1.1
+'UNCONNECTED-(R1-PAD2)'; R1.2
+'UNCONNECTED-(R2-PAD1)'; R2.1
+'UNCONNECTED-(R2-PAD2)'; R2.2
+'UNCONNECTED-(R3-PAD1)'; R3.1
+'UNCONNECTED-(R3-PAD2)'; R3.2
+'UNCONNECTED-(R4-PAD1)'; R4.1
+'UNCONNECTED-(R4-PAD2)'; R4.2
+'UNCONNECTED-(R5-PAD1)'; R5.1
+'UNCONNECTED-(R5-PAD2)'; R5.2
+'UNCONNECTED-(R6-PAD1)'; R6.1
+'UNCONNECTED-(R6-PAD2)'; R6.2
+'UNCONNECTED-(R7-PAD1)'; R7.1
+'UNCONNECTED-(R7-PAD2)'; R7.2
+'UNCONNECTED-(R8-PAD1)'; R8.1
+'UNCONNECTED-(R8-PAD2)'; R8.2
+$END

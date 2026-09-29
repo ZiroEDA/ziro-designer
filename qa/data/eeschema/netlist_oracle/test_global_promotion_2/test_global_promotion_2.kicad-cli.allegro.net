@@ -1,0 +1,33 @@
+(NETLIST)
+(Source: /home/akshay/ziro-designer-1/qa/data/eeschema/netlist_oracle/test_global_promotion_2/test_global_promotion_2.kicad_sch)
+(Date: 2026-09-29T06:56:16)
+$PACKAGES
+! 'conn_01x03_male_connector_pinheader_2_54mm_pinheader_1x03_p2_54mm_vertical' ! 'Conn_01x03_Male' ; J1,
+	J2
+! 'r_resistor_smd_r_0603_1608metric' ! 'R' ; R1,
+	R2,
+	R3,
+	R4
+$A_PROPERTIES
+'ROOM' 'Sheet5CC15EF8' ; R1,
+	R2
+'ROOM' 'sheet5CC165F1' ; R3,
+	R4
+'ROOM' 'test_global_promotion_2' ; J1,
+	J2
+$NETS
+/LIVE_2; J2.2,
+	R3.1,
+	R4.1
+/SHEET5CC15EF8/LIVE; J2.1,
+	R1.1,
+	R2.1
+/SHEET5CC15EF8/NEUTRAL; J2.3,
+	R1.2,
+	R3.2
+/SHEET5CC165F1/LIVE_1; J1.2,
+	R4.2
+LIVE; J1.1,
+	R2.2
+'UNCONNECTED-(J1-PIN_3-PAD3)'; J1.3
+$END

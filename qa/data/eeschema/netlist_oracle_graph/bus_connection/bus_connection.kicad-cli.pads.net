@@ -1,0 +1,13 @@
+*PADS-PCB*
+*PART*
+J1               Conn_01x03
+J2               Conn_01x03
+
+*NET*
+*SIGNAL* /top.x
+J1.1 J2.1 
+*SIGNAL* /top.y
+J1.2 J2.2 
+*SIGNAL* /top.z
+J1.3 J2.3 
+*END*

@@ -1,0 +1,13 @@
+PACKAGE 'pinheader_1x03_p2_54mm_vertical'
+CLASS IC
+PINCOUNT 3
+PINORDER MAIN ,
+	Pin_1__1,
+	Pin_2__2,
+	Pin_3__3
+FUNCTION MAIN MAIN ,
+	1,
+	2,
+	3
+PACKAGEPROP VALUE Conn_01x03_Male
+END

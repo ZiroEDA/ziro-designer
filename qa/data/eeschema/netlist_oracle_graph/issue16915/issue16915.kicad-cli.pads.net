@@ -1,0 +1,40 @@
+*PADS-PCB*
+*PART*
+J?               Conn_01x08
+U?               74LS573
+J?               Conn_01x08
+
+*NET*
+*SIGNAL* /IN0
+J?.8 U?.2 
+*SIGNAL* /IN1
+J?.7 U?.3 
+*SIGNAL* /IN2
+J?.6 U?.4 
+*SIGNAL* /IN3
+J?.5 U?.5 
+*SIGNAL* /IN4
+J?.4 U?.6 
+*SIGNAL* /IN5
+J?.3 U?.7 
+*SIGNAL* /IN6
+J?.2 U?.8 
+*SIGNAL* /IN7
+J?.1 U?.9 
+*SIGNAL* /OUT0
+J?.1 U?.19 
+*SIGNAL* /OUT1
+J?.2 U?.18 
+*SIGNAL* /OUT2
+J?.3 U?.17 
+*SIGNAL* /OUT3
+J?.4 U?.16 
+*SIGNAL* /OUT4
+J?.5 U?.15 
+*SIGNAL* /OUT5
+J?.6 U?.14 
+*SIGNAL* /OUT6
+J?.7 U?.13 
+*SIGNAL* /OUT7
+J?.8 U?.12 
+*END*

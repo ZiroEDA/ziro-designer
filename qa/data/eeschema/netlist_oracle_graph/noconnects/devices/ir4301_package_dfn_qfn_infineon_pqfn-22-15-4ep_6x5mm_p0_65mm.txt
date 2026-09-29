@@ -1,0 +1,39 @@
+PACKAGE 'infineon_pqfn-22-15-4ep_6x5mm_p0_65mm'
+CLASS IC
+PINCOUNT 16
+PINORDER MAIN ,
+	VAA__1,
+	GND__2,
+	IN+__3,
+	IN-__4,
+	COMP__5,
+	CSD__6,
+	VSS__7,
+	VCC__8,
+	COM__9,
+	VN__10,
+	VS__11,
+	VP__12,
+	VB__13,
+	CSH__14,
+	COM__15,
+	PTNC__16
+FUNCTION MAIN MAIN ,
+	1,
+	2,
+	3,
+	4,
+	5,
+	6,
+	7,
+	8,
+	9,
+	10,
+	11,
+	12,
+	13,
+	14,
+	15,
+	16
+PACKAGEPROP VALUE IR4301
+END

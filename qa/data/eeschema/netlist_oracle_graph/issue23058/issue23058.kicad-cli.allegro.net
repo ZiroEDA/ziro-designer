@@ -1,0 +1,11 @@
+(NETLIST)
+(Source: /home/akshay/ziro-designer-1/qa/data/eeschema/netlist_oracle_graph/issue23058/issue23058.kicad_sch)
+(Date: 2026-09-29T06:57:41)
+$PACKAGES
+! 'sw_spst_button_switch_smd_panasonic_evqpuj_evqpua' ! 'SW_SPST' ; SW1
+$A_PROPERTIES
+'ROOM' 'issue23058' ; SW1
+$NETS
+'UNCONNECTED-(SW1-A-PAD1)'; SW1.1
+'UNCONNECTED-(SW1-B-PAD2)'; SW1.2
+$END

@@ -1,0 +1,15 @@
+PACKAGE 'phoenixcontact_mcv_1_5_4-g-3_5_1x04_p3_50mm_vertical'
+CLASS IC
+PINCOUNT 4
+PINORDER MAIN ,
+	Pin_1__1,
+	Pin_2__2,
+	Pin_3__3,
+	Pin_4__4
+FUNCTION MAIN MAIN ,
+	1,
+	2,
+	3,
+	4
+PACKAGEPROP VALUE Conn_01x04_Socket
+END

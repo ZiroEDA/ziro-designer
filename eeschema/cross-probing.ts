@@ -367,7 +367,9 @@ function flattenSheets(
  * `${KICAD10_SYMBOL_DIR}/<nickname>.kicad_sym`. A nickname in neither table
  * has no URI, and makeLibraries leaves it out.
  */
-function symbolLibraryUri(files: readonly RawFile[]): (aNickname: string) => string | undefined {
+export function symbolLibraryUri(
+  files: readonly RawFile[],
+): (aNickname: string) => string | undefined {
   const projectRows = projectSymLibTable(files);
   const symbolDir = ENV_VAR.GetVersionedEnvVarName('SYMBOL_DIR');
   return (aNickname) => {

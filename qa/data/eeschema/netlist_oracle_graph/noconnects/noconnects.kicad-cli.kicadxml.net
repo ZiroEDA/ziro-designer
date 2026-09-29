@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<export version="E">
+  <design>
+    <source>/home/akshay/ziro-designer-1/qa/data/eeschema/netlist_oracle_graph/noconnects/noconnects.kicad_sch</source>
+    <date>2026-09-29T06:58:09</date>
+    <tool>Eeschema 10.0.6-10.0.6~ubuntu24.04.1</tool>
+    <sheet number="1" name="/" tstamps="/">
+      <title_block>
+        <title/>
+        <company/>
+        <rev/>
+        <date/>
+        <source>noconnects.kicad_sch</source>
+        <comment number="1" value=""/>
+        <comment number="2" value=""/>
+        <comment number="3" value=""/>
+        <comment number="4" value=""/>
+        <comment number="5" value=""/>
+        <comment number="6" value=""/>
+        <comment number="7" value=""/>
+        <comment number="8" value=""/>
+        <comment number="9" value=""/>
+      </title_block>
+    </sheet>
+  </design>
+  <components>
+    <comp ref="U1">
+      <value>IR4301</value>
+      <footprint>Package_DFN_QFN:Infineon_PQFN-22-15-4EP_6x5mm_P0.65mm</footprint>
+      <datasheet>https://www.infineon.com/dgdl/ir4301.pdf?fileId=5546d462533600a4015355d5fc691819</datasheet>
+      <fields>
+        <field name="Footprint">Package_DFN_QFN:Infineon_PQFN-22-15-4EP_6x5mm_P0.65mm</field>
+        <field name="Datasheet">https://www.infineon.com/dgdl/ir4301.pdf?fileId=5546d462533600a4015355d5fc691819</field>
+        <field name="Description"/>
+      </fields>
+      <libsource lib="Amplifier_Audio" part="IR4301" description="PowIRaudio Integrated Analog Input Class D Audio Amplifier, 160W/4ohm, 80V, PQFN-22"/>
+      <property name="Sheetname" value="noconnects"/>
+      <property name="Sheetfile" value="noconnects.kicad_sch"/>
+      <property name="ki_keywords" value="integrated class d amplifier"/>
+      <property name="ki_fp_filters" value="Infineon*PQFN*4EP*6x5mm*P0.65mm*"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamps>af06e391-97a5-4828-9343-f3162acaa60a</tstamps>
+      <units>
+        <unit name="A">
+          <pins>
+            <pin num="1"/>
+            <pin num="3"/>
+            <pin num="4"/>
+            <pin num="5"/>
+            <pin num="2"/>
+            <pin num="6"/>
+            <pin num="7"/>
+            <pin num="15"/>
+            <pin num="9"/>
+            <pin num="12"/>
+            <pin num="10"/>
+            <pin num="14"/>
+            <pin num="13"/>
+            <pin num="11"/>
+            <pin num="16"/>
+            <pin num="8"/>
+          </pins>
+        </unit>
+      </units>
+    </comp>
+  </components>
+  <libparts>
+    <libpart lib="Amplifier_Audio" part="IR4301">
+      <description>PowIRaudio Integrated Analog Input Class D Audio Amplifier, 160W/4ohm, 80V, PQFN-22</description>
+      <docs>https://www.infineon.com/dgdl/ir4301.pdf?fileId=5546d462533600a4015355d5fc691819</docs>
+      <footprints>
+        <fp>Infineon*PQFN*4EP*6x5mm*P0.65mm*</fp>
+      </footprints>
+      <fields>
+        <field name="Reference">U</field>
+        <field name="Value">IR4301</field>
+        <field name="Footprint">Package_DFN_QFN:Infineon_PQFN-22-15-4EP_6x5mm_P0.65mm</field>
+        <field name="Datasheet">https://www.infineon.com/dgdl/ir4301.pdf?fileId=5546d462533600a4015355d5fc691819</field>
+        <field name="Description">PowIRaudio Integrated Analog Input Class D Audio Amplifier, 160W/4ohm, 80V, PQFN-22</field>
+      </fields>
+      <pins>
+        <pin num="1" name="VAA" type="power_in"/>
+        <pin num="2" name="GND" type="power_in"/>
+        <pin num="3" name="IN+" type="input"/>
+        <pin num="4" name="IN-" type="input"/>
+        <pin num="5" name="COMP" type="output"/>
+        <pin num="6" name="CSD" type="passive"/>
+        <pin num="7" name="VSS" type="power_in"/>
+        <pin num="8" name="VCC" type="power_in"/>
+        <pin num="9" name="COM" type="power_in"/>
+        <pin num="10" name="VN" type="power_in"/>
+        <pin num="11" name="VS" type="output"/>
+        <pin num="12" name="VP" type="power_in"/>
+        <pin num="13" name="VB" type="power_in"/>
+        <pin num="14" name="CSH" type="passive"/>
+        <pin num="15" name="COM" type="no_connect"/>
+        <pin num="16" name="PTNC" type="no_connect"/>
+      </pins>
+    </libpart>
+  </libparts>
+  <libraries>
+    <library logical="Amplifier_Audio">
+      <uri>${KICAD10_SYMBOL_DIR}/Amplifier_Audio.kicad_sym</uri>
+    </library>
+  </libraries>
+  <nets>
+    <net code="1" name="/VS" class="Default">
+      <node ref="U1" pin="11" pinfunction="VS_11" pintype="output+no_connect"/>
+    </net>
+    <net code="2" name="Net-(U1-COM)" class="Default">
+      <node ref="U1" pin="7" pinfunction="VSS_7" pintype="power_in"/>
+      <node ref="U1" pin="9" pinfunction="COM_9" pintype="power_in"/>
+    </net>
+    <net code="3" name="unconnected-(U1-COM-Pad15)" class="Default">
+      <node ref="U1" pin="15" pinfunction="COM_15" pintype="no_connect"/>
+    </net>
+    <net code="4" name="unconnected-(U1-COMP-Pad5)" class="Default">
+      <node ref="U1" pin="5" pinfunction="COMP_5" pintype="output"/>
+    </net>
+    <net code="5" name="unconnected-(U1-CSD-Pad6)" class="Default">
+      <node ref="U1" pin="6" pinfunction="CSD_6" pintype="passive+no_connect"/>
+    </net>
+    <net code="6" name="unconnected-(U1-CSH-Pad14)" class="Default">
+      <node ref="U1" pin="14" pinfunction="CSH_14" pintype="passive"/>
+    </net>
+    <net code="7" name="unconnected-(U1-GND-Pad2)" class="Default">
+      <node ref="U1" pin="2" pinfunction="GND_2" pintype="power_in"/>
+    </net>
+    <net code="8" name="unconnected-(U1-IN+-Pad3)" class="Default">
+      <node ref="U1" pin="3" pinfunction="IN+_3" pintype="input"/>
+    </net>
+    <net code="9" name="unconnected-(U1-IN--Pad4)" class="Default">
+      <node ref="U1" pin="4" pinfunction="IN-_4" pintype="input"/>
+    </net>
+    <net code="10" name="unconnected-(U1-PTNC-Pad16)" class="Default">
+      <node ref="U1" pin="16" pinfunction="PTNC_16" pintype="no_connect"/>
+    </net>
+    <net code="11" name="unconnected-(U1-VAA-Pad1)" class="Default">
+      <node ref="U1" pin="1" pinfunction="VAA_1" pintype="power_in"/>
+    </net>
+    <net code="12" name="unconnected-(U1-VB-Pad13)" class="Default">
+      <node ref="U1" pin="13" pinfunction="VB_13" pintype="power_in"/>
+    </net>
+    <net code="13" name="unconnected-(U1-VCC-Pad8)" class="Default">
+      <node ref="U1" pin="8" pinfunction="VCC_8" pintype="power_in"/>
+    </net>
+    <net code="14" name="unconnected-(U1-VN-Pad10)" class="Default">
+      <node ref="U1" pin="10" pinfunction="VN_10" pintype="power_in"/>
+    </net>
+    <net code="15" name="unconnected-(U1-VP-Pad12)" class="Default">
+      <node ref="U1" pin="12" pinfunction="VP_12" pintype="power_in"/>
+    </net>
+  </nets>
+</export>

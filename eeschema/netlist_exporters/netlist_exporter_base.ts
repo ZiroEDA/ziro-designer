@@ -3,64 +3,29 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * `eeschema/netlist_exporters/netlist_exporter_base.cpp` (`NETLIST_EXPORTER_BASE`):
- * the pieces every netlist exporter shares, rather than a per-format copy.
+ * the class every netlist exporter derives from, over a live `SCHEMATIC` and its
+ * `CONNECTION_GRAPH` - `m_schematic`, `m_libParts`, `m_referencesAlreadyFound`,
+ * `findNextSymbol`, `CreatePinList` (with `eraseDuplicatePins` and
+ * `findAllUnitsOfSymbol`).
  *
- * Ported:
- *  - {@link symbolField} / {@link boardSymbols}: read one field off a placed
- *    symbol, and the board-bound subset of a schematic's symbols in *reference*
- *    order — the ordering `NETLIST_EXPORTER_XML::makeSymbols` and
- *    `netlist_exporter_kicad.ts`'s `orderedSymbols` use (a `std::set` keyed by
- *    `StrNumCmp` on the reference, lowest uuid picked as the primary unit of a
- *    multi-unit part). Kept for the KiCad-XML and OrcadPCB2 exporters, which
- *    already read this way; not re-ordered this stage (their kicad-cli oracle
- *    coverage is still hand-written unit tests, not a byte-exact fixture, so
- *    "stays byte-identical" cuts the other way here — changing it now would be
- *    an unverified behavior change, not a move).
- *  - {@link sheetOrderedBoardSymbols}: `findNextSymbol`, applied across the whole
- *    symbol list. Upstream's OrcadPCB2/PADS/CadStar `WriteNetlist` each sort
- *    `SCH_SCREEN::Items()` by **uuid** (not reference — "the rtree returns items
- *    in a non-deterministic order … we need to sort them … to ensure file
- *    stability"), then call `findNextSymbol` per item, which skips a symbol
- *    whose reference was already seen (`m_referencesAlreadyFound.Lookup`) — so a
- *    multi-unit part's later units never get a second `.ADD_COM`/`*PART*` line.
- *    Used by {@link netlistCadstar} and {@link netlistPads}; confirmed against
- *    `kicad-cli sch export netlist --format cadstar/pads` (both bugs — reference
- *    order instead of uuid order, and no multi-unit dedup — were real before
- *    this, caught by `test_multiunit_reannotate_2/3` and `complex_hierarchy`).
- *  - {@link netPinsByName}: the net-by-net pin list `writeListOfNets` builds from
- *    `ConnectionGraph()->GetNetMap()` (sorted by net name, then by reference then
- *    pin number inside a net, cross-subgraph duplicates for a multi-unit part's
- *    shared pins removed) — shared by PADS and CadStar, which both build it this
- *    way rather than through `CreatePinList`.
- *  - {@link resolvePadNumbers}: the pad numbers one schematic pin contributes to
- *    the PCB-sync (KiCad-format) netlist, moved here from `sch_pin.ts` — it is
- *    exporter infrastructure (only `netlist_exporter_kicad.ts` and cross-probing
- *    call it), not a `SCH_PIN` method; `SCH_PIN::GetEffectivePadNumber` itself,
- *    the pad-map resolution it is built on, stays in `sch_pin.ts` since that one
- *    really is the pin's own.
+ * Two helpers the OrcadPCB2, PADS and CadStar writers each spell out inline upstream are
+ * written once here: {@link NETLIST_EXPORTER_BASE.sheetSymbolsByUuid} (their
+ * "sort Items() by UUID, then findNextSymbol" opening) and
+ * {@link NETLIST_EXPORTER_BASE.netsByName} (PADS/CadStar `writeListOfNets`' net list).
  *
- * Live model: {@link NETLIST_EXPORTER_BASE} is the class itself, over a `SCHEMATIC` and
- * its `CONNECTION_GRAPH` (`m_schematic`, `m_libParts`, `m_referencesAlreadyFound`,
- * `findNextSymbol`), which `NETLIST_EXPORTER_XML`/`_KICAD` derive from. The record-model
- * helpers below remain for the exporters not yet moved onto it.
+ * Also here, for cross-probing's record-model selection: {@link symbolField} and
+ * {@link resolvePadNumbers} (the pad numbers one schematic pin stands for, through
+ * `SCH_PIN::GetEffectivePadNumber`'s pad map and stacked-pin notation).
  *
- * Not ported: `CreatePinList` / `eraseDuplicatePins` / `findAllUnitsOfSymbol`
- * (the single-symbol pin list with stacked-pin expansion and the
- * user-net-over-auto-generated-net dedup rule) — OrcadPCB2 is the only exporter
- * that calls `CreatePinList`, and it is out of scope this stage (see above); a
- * PADS/CadStar port would need it only if they grew that call, which upstream's
- * versions do not. `MakeCommandLine` (external command-line netlist generators)
- * is a desktop-only feature, already noted omitted in
- * `dialog_export_netlist.tsx`.
+ * Not ported: `MakeCommandLine` (external command-line netlist generators), a
+ * desktop-only feature, noted omitted in `dialog_export_netlist.tsx`.
  */
 
-import type { LibSymbol, Schematic, SchSymbol } from '../types.js';
-import { computeNetlist, enumeratePins } from '../connectivity/nets.js';
-import { refId } from '../tools/hittest.js';
-import { compareRefs } from '../exporters/bom.js';
-import { getEffectivePadNumber } from '../sch_pin.js';
-import { expandStackedPinNotation } from '@ziroeda/common/string_utils.js';
+import type { LibSymbol, SchSymbol } from '../types.js';
+import { getEffectivePadNumber, type SCH_PIN } from '../sch_pin.js';
+import { expandStackedPinNotation, strNumCmp } from '@ziroeda/common/string_utils.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { stdSort } from '@ziroeda/kimath/src/clipper2/clipper.core.js';
 import type { LIB_SYMBOL } from '../lib_symbol.js';
 import type { SCH_SHEET_PATH } from '../sch_sheet_path.js';
 import type { SCH_SYMBOL } from '../sch_symbol.js';
@@ -158,100 +123,210 @@ export class NETLIST_EXPORTER_BASE {
 
     return symbol;
   }
+
+  /** `CreatePinList`: one symbol's pins with their nets, sorted by number, duplicates erased. */
+  protected CreatePinList(
+    aSymbol: SCH_SYMBOL | null,
+    aSheetPath: SCH_SHEET_PATH,
+    aKeepUnconnectedPins: boolean,
+  ): PIN_INFO[] {
+    const pins: PIN_INFO[] = [];
+
+    if (!aSymbol) return pins;
+
+    const ref = aSymbol.GetRef(aSheetPath);
+
+    // Power symbols and other symbols which have the reference starting with "#" are not
+    // included in netlist (pseudo or virtual symbols)
+    if (ref[0] === '#' || aSymbol.IsPower()) return pins;
+
+    if (!aSymbol.GetLibSymbolRef()) return pins;
+
+    // If symbol is a "multi parts per package" type
+    if (aSymbol.GetLibSymbolRef()!.GetUnitCount() > 1) {
+      // Collect all pins for this reference designator by searching the entire design for
+      // other parts with the same reference designator.
+      this.findAllUnitsOfSymbol(aSymbol, aSheetPath, pins, aKeepUnconnectedPins);
+    } else {
+      // GetUnitCount() <= 1 means one part per package
+      this.collectPins(aSymbol, aSheetPath, pins, aKeepUnconnectedPins);
+    }
+
+    // Sort pins in m_SortedSymbolPinList by pin number
+    stdSort(pins, (lhs, rhs) => strNumCmp(lhs.num, rhs.num, true) < 0);
+
+    // Remove duplicate Pins in m_SortedSymbolPinList
+    this.eraseDuplicatePins(pins);
+
+    // record the usage of this library symbol
+    this.m_libParts.insert(aSymbol.GetLibSymbolRef()!);
+
+    return pins;
+  }
+
+  /** The per-pin body both `CreatePinList` arms share. */
+  private collectPins(
+    aSymbol: SCH_SYMBOL,
+    aSheet: SCH_SHEET_PATH,
+    aPins: PIN_INFO[],
+    aKeepUnconnectedPins: boolean,
+  ): void {
+    const graph = this.m_schematic.ConnectionGraph();
+
+    for (const pin of aSymbol.GetPins(aSheet)) {
+      const conn = pin.Connection(aSheet);
+
+      if (!conn) continue;
+
+      const netName = conn.Name();
+
+      if (!aKeepUnconnectedPins) {
+        // Skip unconnected pins if requested
+        const sg = graph.FindSubgraphByName(netName, aSheet);
+
+        if (!sg || sg.GetNoConnect() || sg.GetItems().size < 2) continue;
+      }
+
+      const numbers = pin.GetStackedPinNumbers({ value: false });
+      const baseName = pin.GetShownName();
+
+      for (const num of numbers) {
+        const pinName = baseName === '' ? num : `${baseName}_${num}`;
+        aPins.push({ num, netName, pinName });
+      }
+    }
+  }
+
+  /** `eraseDuplicatePins`: keep one pin per number, preferring a user-named net. */
+  protected eraseDuplicatePins(aPins: PIN_INFO[]): void {
+    // Auto-generated nets start with "unconnected-(" for NC pins or "Net-(" for unnamed nets.
+    const isAutoGeneratedNet = (aNetName: string): boolean =>
+      aNetName.startsWith('unconnected-(') || aNetName.startsWith('Net-(');
+
+    for (let ii = 0; ii < aPins.length; ii++) {
+      if (aPins[ii]!.num === '') continue;
+
+      // Because the pin list is sorted by pin number, duplicates are consecutive.
+      let idxBest = ii;
+
+      for (let jj = ii + 1; jj < aPins.length; jj++) {
+        if (aPins[jj]!.num === '') continue;
+
+        if (aPins[idxBest]!.num !== aPins[jj]!.num) break;
+
+        // Prefer user-assigned nets over auto-generated "unconnected-(" or "Net-(" nets.
+        const bestIsAuto = isAutoGeneratedNet(aPins[idxBest]!.netName);
+        const jjIsAuto = isAutoGeneratedNet(aPins[jj]!.netName);
+
+        if (bestIsAuto && !jjIsAuto) {
+          // jj has a user-assigned net while best has auto-generated; switch to jj
+          aPins[idxBest]!.num = '';
+          idxBest = jj;
+        } else {
+          aPins[jj]!.num = '';
+        }
+      }
+    }
+  }
+
+  /** `findAllUnitsOfSymbol`: the pins of every unit carrying this reference. */
+  protected findAllUnitsOfSymbol(
+    aSchSymbol: SCH_SYMBOL,
+    aSheetPath: SCH_SHEET_PATH,
+    aPins: PIN_INFO[],
+    aKeepUnconnectedPins: boolean,
+  ): void {
+    const ref = aSchSymbol.GetRef(aSheetPath);
+
+    for (const sheet of this.m_schematic.Hierarchy()) {
+      for (const item of sheet.LastScreen()?.Items().OfType(KICAD_T.SCH_SYMBOL_T) ?? []) {
+        const comp2 = item as unknown as SCH_SYMBOL;
+        const ref2 = comp2.GetRef(sheet);
+
+        if (ref2.toLowerCase() !== ref.toLowerCase()) continue;
+
+        this.collectPins(comp2, sheet, aPins, aKeepUnconnectedPins);
+      }
+    }
+  }
+
+  /**
+   * The board-bound symbols of one sheet, in `WriteNetlist`'s order: `Items()` sorted by
+   * UUID ("to ensure file stability"), each through `findNextSymbol`, excluded-from-board
+   * ones dropped. The OrcadPCB2, CadStar and PADS writers all open this way.
+   */
+  protected sheetSymbolsByUuid(aSheet: SCH_SHEET_PATH): SCH_SYMBOL[] {
+    const sheetItems = [
+      ...((aSheet.LastScreen()?.Items().OfType(KICAD_T.SCH_SYMBOL_T) ??
+        []) as unknown as SCH_SYMBOL[]),
+    ];
+
+    stdSort(sheetItems, (a, b) => a.m_Uuid < b.m_Uuid);
+
+    const out: SCH_SYMBOL[] = [];
+
+    for (const item of sheetItems) {
+      const symbol = this.findNextSymbol(item, aSheet);
+
+      if (!symbol) continue;
+
+      if (symbol.GetExcludedFromBoard()) continue;
+
+      out.push(symbol);
+    }
+
+    return out;
+  }
+
+  /**
+   * The net-by-net pin list PADS and CadStar's `writeListOfNets` build from `GetNetMap()`:
+   * each net's pins sorted by reference then pin number, cross-subgraph duplicates of a
+   * multi-unit part removed, the nets sorted by name. (`#` references are left for the
+   * writer to skip, as upstream does.)
+   */
+  protected netsByName(
+    aNetName: (aKeyName: string) => string,
+  ): { name: string; pins: { ref: string; pin: string }[] }[] {
+    const allNets: { name: string; pins: { ref: string; pin: string }[] }[] = [];
+
+    for (const [key, subgraphs] of this.m_schematic.ConnectionGraph().GetNetMap()) {
+      const sortedItems: { ref: string; pin: string }[] = [];
+
+      for (const subgraph of subgraphs) {
+        const sheet = subgraph.GetSheet();
+
+        for (const item of subgraph.GetItems()) {
+          if (item.Type() === KICAD_T.SCH_PIN_T) {
+            const pin = item as SCH_PIN;
+            sortedItems.push({
+              ref: pin.GetParentSymbol()!.GetRef(sheet),
+              pin: pin.GetShownNumber(),
+            });
+          }
+        }
+      }
+
+      // Netlist ordering: Net name, then ref des, then pin name (intra-net)
+      stdSort(sortedItems, (a, b) => (a.ref === b.ref ? a.pin < b.pin : a.ref < b.ref));
+
+      // Remove duplicates across subgraphs for multi-unit parts (std::unique)
+      const unique = sortedItems.filter(
+        (p, k) =>
+          k === 0 || !(sortedItems[k - 1]!.ref === p.ref && sortedItems[k - 1]!.pin === p.pin),
+      );
+
+      allNets.push({ name: aNetName(key.Name), pins: unique });
+    }
+
+    // Sort nets by name (inter-net ordering) for deterministic output
+    stdSort(allNets, (a, b) => a.name < b.name);
+
+    return allNets;
+  }
 }
 
 export const symbolField = (s: SchSymbol, key: string): string =>
   s.fields.find((f) => f.key === key)?.value ?? '';
-
-/** A symbol that belongs on the board (excludes power/virtual and off-board parts). */
-export function boardSymbols(sch: Schematic): { sym: SchSymbol; ref: string; index: number }[] {
-  const out: { sym: SchSymbol; ref: string; index: number }[] = [];
-  sch.symbols.forEach((sym, index) => {
-    const ref = symbolField(sym, 'Reference');
-    if (!ref || ref.startsWith('#') || !sym.onBoard) return;
-    out.push({ sym, ref, index });
-  });
-  // Stable ordering by reference (KiCad sorts for file stability).
-  return out.sort((a, b) => compareRefs(a.ref, b.ref));
-}
-
-/**
- * `findNextSymbol`, applied across the whole schematic: board-bound symbols in
- * **uuid** order (the order `SCH_SCREEN::Items()` yields once sorted for file
- * stability), with only the first-seen unit of a multi-unit reference kept.
- */
-export function sheetOrderedBoardSymbols(
-  sch: Schematic,
-): { sym: SchSymbol; ref: string; index: number }[] {
-  const candidates: { sym: SchSymbol; ref: string; index: number }[] = [];
-  sch.symbols.forEach((sym, index) => {
-    const ref = symbolField(sym, 'Reference');
-    if (!ref || ref.startsWith('#') || !sym.onBoard) return;
-    candidates.push({ sym, ref, index });
-  });
-  candidates.sort((a, b) => (a.sym.uuid ?? '').localeCompare(b.sym.uuid ?? ''));
-
-  const seen = new Set<string>();
-  const out: { sym: SchSymbol; ref: string; index: number }[] = [];
-  for (const c of candidates) {
-    if (seen.has(c.ref)) continue;
-    seen.add(c.ref);
-    out.push(c);
-  }
-  return out;
-}
-
-/**
- * The pins of every net, as `REF.PIN` pairs, ordered the way both the PADS and
- * CadStar exporters order them.
- *
- * Both sort nets by name and, inside a net, by reference then pin number, "to
- * ensure file stability for version control and QA comparisons". Both also drop
- * duplicates, which a multi-unit part produces when its repeated pins are
- * connected on more than one unit and so land in separate subgraphs. And both
- * skip a reference beginning with `#`, the power/virtual symbols.
- */
-export function netPinsByName(
-  sch: Schematic,
-  libById: Map<string, LibSymbol>,
-): { name: string; pins: { ref: string; pin: string }[] }[] {
-  const netlist = computeNetlist(sch, libById);
-  const pinById = new Map(enumeratePins(sch, libById).map((p) => [p.id, p]));
-  const refByIndex = new Map(
-    sch.symbols.map((sym, i) => [refId('symbol', sym.uuid, i), symbolField(sym, 'Reference')]),
-  );
-
-  const out: { name: string; pins: { ref: string; pin: string }[] }[] = [];
-  for (const net of netlist.nets) {
-    const seen = new Set<string>();
-    const pins: { ref: string; pin: string }[] = [];
-    for (const id of net.items) {
-      const pin = pinById.get(id);
-      if (!pin || !pin.number) continue;
-      const ref = refByIndex.get(pin.symId) ?? '';
-      if (!ref || ref.startsWith('#')) continue;
-      const k = `${ref}\u0000${pin.number}`;
-      if (seen.has(k)) continue;
-      seen.add(k);
-      pins.push({ ref, pin: pin.number });
-    }
-    pins.sort((a, b) =>
-      a.ref === b.ref ? (a.pin < b.pin ? -1 : a.pin > b.pin ? 1 : 0) : a.ref < b.ref ? -1 : 1,
-    );
-    out.push({ name: net.name, pins });
-  }
-  return out.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
-}
-
-export interface NetlistMeta {
-  /** Source schematic file name (design header `source`). */
-  source: string;
-  /**
-   * Timestamp for the formats that stamp one (CadStar's `.TIM`). Left to the
-   * caller so an export is reproducible in a test; defaults to now.
-   */
-  date?: string;
-}
 
 /**
  * `NETLIST_EXPORTER_BASE::resolvePadNumbers` (not a literal upstream name — the

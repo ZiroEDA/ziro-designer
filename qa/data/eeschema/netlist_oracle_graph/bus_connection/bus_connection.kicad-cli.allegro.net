@@ -1,0 +1,17 @@
+(NETLIST)
+(Source: /home/akshay/ziro-designer-1/qa/data/eeschema/netlist_oracle_graph/bus_connection/bus_connection.kicad_sch)
+(Date: 2026-09-29T06:56:40)
+$PACKAGES
+! 'conn_01x03' ! 'Conn_01x03' ; J1,
+	J2
+$A_PROPERTIES
+'ROOM' 'a' ; J1
+'ROOM' 'a2-b' ; J2
+$NETS
+'/TOP.X'; J1.1,
+	J2.1
+'/TOP.Y'; J1.2,
+	J2.2
+'/TOP.Z'; J1.3,
+	J2.3
+$END

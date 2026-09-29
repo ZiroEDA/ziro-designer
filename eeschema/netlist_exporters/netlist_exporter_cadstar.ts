@@ -2,74 +2,95 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * The CadStar netlist (`eeschema/netlist_exporters/netlist_exporter_cadstar.cpp`,
- * `NETLIST_EXPORTER_CADSTAR::WriteNetlist`). Every directive begins with `.`: a
- * `.HEA` header, one `.ADD_COM` per board-bound symbol (uuid order, deduped to
- * one line per reference — {@link sheetOrderedBoardSymbols}), then the nets.
+ * `eeschema/netlist_exporters/netlist_exporter_cadstar.cpp` (`NETLIST_EXPORTER_CADSTAR`):
+ * the CadStar netlist. Every directive begins with `.`: a `.HEA` header, one `.ADD_COM`
+ * per board-bound symbol (UUID order, one line per reference), then the nets.
  *
- * A net's first pin is held back and printed on the `.ADD_TER` line *with the
- * net name* once a second pin turns up — so a one-pin net emits nothing at all,
- * which is how upstream drops them without testing for it. The third pin
- * onwards are bare indented lines under the `.TER`.
+ * A net's first pin is held back and printed on the `.ADD_TER` line with the net name
+ * once a second pin turns up - so a one-pin net emits nothing at all, which is how
+ * upstream drops them without testing for it. The third pin onwards are bare indented
+ * lines under the `.TER`.
  *
- * Single sheet, like the other Export Netlist dialog formats — see
- * `netlist_exporter_xml.ts`'s header. Verified against
- * `kicad-cli sch export netlist --format cadstar` for every single-sheet design
- * in `qa/data/eeschema/netlist_oracle/` (`qa/unittests/eeschema/
- * netlist_exporter_cadstar_oracle.test.ts`); a hierarchical design there is out
- * of scope the same way (the CLI always exports the whole project, this dialog
- * only the open sheet).
+ * Held to `kicad-cli sch export netlist --format cadstar` by
+ * `designer/netlist_formats_oracle.test.ts`.
  */
 
-import type { Schematic, LibSymbol } from '../types.js';
-import { GENERATOR_APPLICATION } from '@ziroeda/common/generator.js';
-import {
-  netPinsByName,
-  sheetOrderedBoardSymbols,
-  symbolField,
-  type NetlistMeta,
-} from './netlist_exporter_base.js';
+import { GetBuildVersion } from '@ziroeda/common/build_version.js';
+import { GetISO8601CurrentDateTime } from '@ziroeda/common/string_utils.js';
+import { NETLIST_EXPORTER_BASE } from './netlist_exporter_base.js';
 
-const NETLIST_HEAD = GENERATOR_APPLICATION;
+/** `NETLIST_EXPORTER_CADSTAR`, over the live model. */
+export class NETLIST_EXPORTER_CADSTAR extends NETLIST_EXPORTER_BASE {
+  /** `GetISO8601CurrentDateTime()`, settable so a test can pin it. */
+  m_date: () => string = GetISO8601CurrentDateTime;
 
-export function netlistCadstar(
-  sch: Schematic,
-  libById: Map<string, LibSymbol>,
-  meta: NetlistMeta,
-): string {
-  const S = '.';
-  const out: string[] = [];
-  out.push(`${S}HEA`);
-  out.push(`${S}TIM ${meta.date ?? new Date().toISOString()}`);
-  out.push(`${S}APP "${NETLIST_HEAD}"`);
-  out.push('.TYP FULL');
-  out.push('');
+  /** `WriteNetlist`'s text. */
+  Format(): string {
+    const StartLine = '.';
+    const StartCmpDesc = `${StartLine}ADD_COM`;
+    const title = `Eeschema ${GetBuildVersion()}`;
 
-  for (const { sym, ref } of sheetOrderedBoardSymbols(sch)) {
-    const footprint = symbolField(sym, 'Footprint') || '$noname';
-    const value = symbolField(sym, 'Value').replace(/ /g, '_');
-    out.push(`${S}ADD_COM     ${ref}     "${value}"     "${footprint}"`);
-  }
-  out.push('');
+    let out = `${StartLine}HEA\n`;
+    out += `${StartLine}TIM ${this.m_date()}\n`;
+    out += `${StartLine}APP "${title}"\n`;
+    out += '.TYP FULL\n\n';
 
-  for (const { name, pins } of netPinsByName(sch, libById)) {
-    let held = '';
-    let count = 0;
-    for (const { ref, pin } of pins) {
-      if (count === 0) {
-        held = `\n${S}ADD_TER   ${ref}   ${pin}     "${name}"`;
-        count++;
-      } else if (count === 1) {
-        out.push(held);
-        out.push(`${S}TER       ${ref}   ${pin}`);
-        count++;
-      } else {
-        out.push(`            ${ref}   ${pin}`);
+    // Create netlist footprints section
+    this.m_referencesAlreadyFound.Clear();
+
+    for (const sheet of this.m_schematic.Hierarchy()) {
+      // Process symbol attributes
+      for (const symbol of this.sheetSymbolsByUuid(sheet)) {
+        let footprint = symbol.GetFootprintFieldText(true, sheet, false);
+
+        if (footprint === '') footprint = '$noname';
+
+        out += `${StartCmpDesc}     ${symbol.GetRef(sheet)}`;
+        out += `     "${symbol.GetValue(true, sheet, false).replaceAll(' ', '_')}"`;
+        out += `     "${footprint}"\n`;
       }
     }
+
+    out += '\n';
+    out += this.writeListOfNets(StartLine);
+    out += `\n${StartLine}END\n`;
+
+    return out;
   }
 
-  out.push('');
-  out.push(`${S}END`);
-  return `${out.join('\n')}\n`;
+  /** `writeListOfNets`. */
+  private writeListOfNets(StartLine: string): string {
+    const InitNetDesc = `${StartLine}ADD_TER`;
+    const StartNetDesc = `${StartLine}TER`;
+    let InitNetDescLine = '';
+    let out = '';
+
+    for (const { name, pins } of this.netsByName((aName) => `"${aName}"`)) {
+      let print_ter = 0;
+
+      for (const { ref: refText, pin: pinText } of pins) {
+        // Skip power symbols and virtual symbols
+        if (refText[0] === '#') continue;
+
+        switch (print_ter) {
+          case 0:
+            InitNetDescLine = `\n${InitNetDesc}   ${refText}   ${pinText}     ${name}`;
+            print_ter++;
+            break;
+
+          case 1:
+            out += `${InitNetDescLine}\n`;
+            out += `${StartNetDesc}       ${refText}   ${pinText}\n`;
+            print_ter++;
+            break;
+
+          default:
+            out += `            ${refText}   ${pinText}\n`;
+            break;
+        }
+      }
+    }
+
+    return out;
+  }
 }

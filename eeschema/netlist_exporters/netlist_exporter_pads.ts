@@ -2,61 +2,75 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * The PADS-PCB netlist (`eeschema/netlist_exporters/netlist_exporter_pads.cpp`,
- * `NETLIST_EXPORTER_PADS::WriteNetlist` / `writeListOfNets`): a `*PART*` section
- * of `REF  FOOTPRINT` (uuid order, deduped to one line per reference —
- * {@link sheetOrderedBoardSymbols}), a blank line, then a `*SIGNAL*` per net
- * listing its pins.
+ * `eeschema/netlist_exporters/netlist_exporter_pads.cpp` (`NETLIST_EXPORTER_PADS`): the
+ * PADS-PCB netlist. `*PART*` lists each board-bound symbol (reference padded to 16
+ * columns, then the footprint - the value when there is none); `*NET*` lists each net
+ * of two or more pins as `*SIGNAL*` with its `REF.PIN`s, a line break after the seventh
+ * and every sixth after that.
  *
- * A symbol with no footprint falls back to its *value*, not to a placeholder,
- * and either way spaces become underscores. Only nets with more than one pin
- * are written — a single-pin net connects nothing on the board.
- *
- * Single sheet, like the other Export Netlist dialog formats — see
- * `netlist_exporter_xml.ts`'s header. Verified against
- * `kicad-cli sch export netlist --format pads` for every single-sheet design in
- * `qa/data/eeschema/netlist_oracle/` (`qa/unittests/eeschema/
- * netlist_exporter_pads_oracle.test.ts`); a hierarchical design there is out of
- * scope the same way (the CLI always exports the whole project, this dialog
- * only the open sheet).
+ * Held to `kicad-cli sch export netlist --format pads` by
+ * `designer/netlist_formats_oracle.test.ts`.
  */
 
-import type { Schematic, LibSymbol } from '../types.js';
-import { netPinsByName, sheetOrderedBoardSymbols, symbolField } from './netlist_exporter_base.js';
+import { NETLIST_EXPORTER_BASE } from './netlist_exporter_base.js';
 
-export function netlistPads(sch: Schematic, libById: Map<string, LibSymbol>): string {
-  const out: string[] = ['*PADS-PCB*', '*PART*'];
+/** `NETLIST_EXPORTER_PADS`, over the live model. */
+export class NETLIST_EXPORTER_PADS extends NETLIST_EXPORTER_BASE {
+  /** `WriteNetlist`'s text. */
+  Format(): string {
+    let out = '*PADS-PCB*\n*PART*\n';
 
-  for (const { sym, ref } of sheetOrderedBoardSymbols(sch)) {
-    let footprint = symbolField(sym, 'Footprint').trim().replace(/ /g, '_');
-    if (!footprint) footprint = symbolField(sym, 'Value').trim().replace(/ /g, '_');
-    // "{:<16} {}": the reference is padded to 16 columns.
-    out.push(`${ref.padEnd(16)} ${footprint}`);
-  }
+    // Create netlist footprints section
+    this.m_referencesAlreadyFound.Clear();
 
-  // WriteNetlist prints a blank line after the *PART* section before
-  // writeListOfNets's own "*NET*\n".
-  out.push('');
-  out.push('*NET*');
-  for (const { name, pins } of netPinsByName(sch, libById)) {
-    if (pins.length <= 1) continue;
-    out.push(`*SIGNAL* ${name}`);
-    // Six connections to a line, "which seems to be the standard everyone
-    // follows" — the break lands *after* the seventh and every sixth beyond it,
-    // since the counter starts at zero.
-    let line = '';
-    pins.forEach(({ ref, pin }, i) => {
-      line += `${ref}.${pin}`;
-      if (i !== 0 && i % 6 === 0) {
-        out.push(line);
-        line = '';
-      } else {
-        line += ' ';
+    for (const sheet of this.m_schematic.Hierarchy()) {
+      for (const symbol of this.sheetSymbolsByUuid(sheet)) {
+        let footprint = symbol
+          .GetFootprintFieldText(true, sheet, false)
+          .trim()
+          .replaceAll(' ', '_');
+
+        if (footprint === '') {
+          // fall back to value field
+          footprint = symbol.GetValue(true, sheet, false).replaceAll(' ', '_').trim();
+        }
+
+        out += `${symbol.GetRef(sheet).padEnd(16)} ${footprint}\n`;
       }
-    });
-    out.push(line);
+    }
+
+    out += '\n';
+    out += this.writeListOfNets();
+
+    return out;
   }
 
-  out.push('*END*');
-  return `${out.join('\n')}\n`;
+  /** `writeListOfNets`. */
+  private writeListOfNets(): string {
+    let out = '*NET*\n';
+
+    for (const { name, pins } of this.netsByName((aName) => aName)) {
+      // Skip power symbols and virtual symbols
+      const netConns = pins.filter((p) => p.ref[0] !== '#').map((p) => `${p.ref}.${p.pin}`);
+
+      // format it such that there are 6 net connections per line
+      // which seems to be the standard everyone follows
+      if (netConns.length > 1) {
+        out += `*SIGNAL* ${name}\n`;
+        let cnt = 0;
+
+        for (const netConn of netConns) {
+          out += netConn;
+          out += cnt !== 0 && cnt % 6 === 0 ? '\n' : ' ';
+          cnt++;
+        }
+
+        out += '\n';
+      }
+    }
+
+    out += '*END*\n';
+
+    return out;
+  }
 }

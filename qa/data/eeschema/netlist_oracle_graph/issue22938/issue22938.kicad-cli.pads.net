@@ -1,0 +1,45 @@
+*PADS-PCB*
+*PART*
+H10              0IBF_Mechanik:MountingHole_3.2mm_M3_4mm-iso
+H12              0IBF_Mechanik:MountingHole_3.2mm_M3_4mm-iso
+C13              Capacitor_SMD:C_1206_3216Metric
+H11              0IBF_Mechanik:MountingHole_3.2mm_M3_4mm-iso
+C14              Capacitor_SMD:C_1206_3216Metric
+H7               0IBF_Mechanik:MountingHole_3.2mm_M3_4mm-iso
+C8               Capacitor_SMD:C_1206_3216Metric
+H9               0IBF_Mechanik:MountingHole_3.2mm_M3_4mm-iso
+J4               0IBF_Connector_PinHeader_2.54:PinHeader_1x06_P2.54mm_Vertical
+C37              0IBF_RCL:C_1206_3216Metric
+C7               Capacitor_SMD:C_1206_3216Metric
+H8               0IBF_Mechanik:MountingHole_3.2mm_M3_4mm-iso
+J66              0IBF_Connector_PinHeader_2.54:PinHeader_1x06_P2.54mm_Vertical
+C11              Capacitor_SMD:C_1206_3216Metric
+C9               Capacitor_SMD:C_1206_3216Metric
+C34              0IBF_RCL:C_1206_3216Metric
+C12              Capacitor_SMD:C_1206_3216Metric
+C10              Capacitor_SMD:C_1206_3216Metric
+C38              0IBF_RCL:C_1206_3216Metric
+J5               0IBF_Connector_PinHeader_2.54:PinHeader_1x06_P2.54mm_Vertical
+
+*NET*
+*SIGNAL* +12V
+C10.1 C7.1 C8.1 C9.1 
+*SIGNAL* /+48V
+C37.1 J4.1 
+*SIGNAL* /+7V
+C13.1 C14.1 
+*SIGNAL* /Spannungsversorgung/+48V
+C34.1 C38.1 J5.1 J66.1 
+*SIGNAL* /Spannungsversorgung/+7V
+C11.1 C12.1 
+*SIGNAL* GND
+C34.2 C37.2 C38.2 
+*SIGNAL* Net-(C10-Pad2)
+C10.2 C9.2 
+*SIGNAL* Net-(C11-Pad2)
+C11.2 C12.2 
+*SIGNAL* Net-(C13-Pad2)
+C13.2 C14.2 
+*SIGNAL* Net-(C7-Pad2)
+C7.2 C8.2 
+*END*

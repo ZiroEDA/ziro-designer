@@ -1,0 +1,15 @@
+(NETLIST)
+(Source: /home/akshay/ziro-designer-1/qa/data/eeschema/netlist_oracle/test_global_promotion/test_global_promotion.kicad_sch)
+(Date: 2026-09-29T06:56:12)
+$PACKAGES
+! 'c_capacitor_tht_cp_axial_l18_0mm_d8_0mm_p25_00mm_horizontal' ! 'C' ; C1
+! 'r_resistor_tht_r_axial_power_l25_0mm_w6_4mm_p30_48mm' ! 'R' ; R1
+$A_PROPERTIES
+'ROOM' 'test_global_promotion' ; C1,
+	R1
+$NETS
+5V; R1.1
+5VANALOG; C1.1,
+	R1.2
+GND; C1.2
+$END

@@ -1,0 +1,11 @@
+( { EESchema Netlist Version 1.1 created  2026-09-29T06:56:10 }
+ ( /00000000-0000-0000-0000-00005e68b6bd Resistor_THT:R_Axial_Power_L25.0mm_W6.4mm_P30.48mm  R1 R
+  (    1 5V )
+  (    2 5Vanalog )
+ )
+ ( /00000000-0000-0000-0000-00005e68c688 Capacitor_THT:CP_Axial_L18.0mm_D8.0mm_P25.00mm_Horizontal  C1 C
+  (    1 5Vanalog )
+  (    2 GND )
+ )
+)
+*

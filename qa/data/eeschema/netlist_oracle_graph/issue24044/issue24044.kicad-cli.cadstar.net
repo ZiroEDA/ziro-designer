@@ -1,0 +1,30 @@
+.HEA
+.TIM 2026-09-29T06:57:48
+.APP "Eeschema 10.0.6-10.0.6~ubuntu24.04.1"
+.TYP FULL
+
+.ADD_COM     J1     "Conn_01x04_Socket"     "Connector_Phoenix_MC:PhoenixContact_MCV_1,5_4-G-3.5_1x04_P3.50mm_Vertical"
+.ADD_COM     R1     "R"     "Resistor_SMD:R_0603_1608Metric"
+.ADD_COM     R2     "R"     "Resistor_SMD:R_0603_1608Metric"
+.ADD_COM     R3     "R"     "Resistor_SMD:R_0603_1608Metric"
+.ADD_COM     R4     "R"     "Resistor_SMD:R_0603_1608Metric"
+
+
+.ADD_TER   J1   1     "/Channels 0-1/Ch0"
+.TER       R1   1
+
+.ADD_TER   J1   2     "/Channels 0-1/Ch1"
+.TER       R2   1
+
+.ADD_TER   J1   3     "/Channels 2-3/Ch2"
+.TER       R3   1
+
+.ADD_TER   J1   4     "/Channels 2-3/Ch3"
+.TER       R4   1
+
+.ADD_TER   R1   2     "GND"
+.TER       R2   2
+            R3   2
+            R4   2
+
+.END

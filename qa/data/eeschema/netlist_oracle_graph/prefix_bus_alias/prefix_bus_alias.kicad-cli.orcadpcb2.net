@@ -1,0 +1,27 @@
+( { EESchema Netlist Version 1.1 created  2026-09-29T06:58:10 }
+ ( /f0fa0db3-6edc-40e8-bad3-f5b79017ea91/3931f39c-8ab8-4fed-bea5-f51ad460910c Connector_PinHeader_2.54mm:PinHeader_2x05_P2.54mm_Vertical  J1 Conn_02x05_Odd_Even
+  (    1 /Subsheet_1/Foo.D0 )
+  (    2 /Subsheet_1/Foo.D5 )
+  (    3 /Subsheet_1/Foo.D1 )
+  (    4 /Subsheet_1/Foo.D6 )
+  (    5 /Subsheet_1/Foo.D2 )
+  (    6 /Subsheet_1/Foo.D7 )
+  (    7 /Subsheet_1/Foo.D3 )
+  (    8 /Subsheet_1/Foo.CTL1 )
+  (    9 /Subsheet_1/Foo.D4 )
+  (   10 /Subsheet_1/Foo.CTL2 )
+ )
+ ( /febe4196-6574-438a-acc7-f0fe3ed4f05c/4657f001-6170-44af-b9d7-533b2cbe84db Connector_PinHeader_2.54mm:PinHeader_2x05_P2.54mm_Vertical  J2 Conn_02x05_Odd_Even
+  (    1 /Subsheet_1/Foo.D0 )
+  (    2 /Subsheet_1/Foo.D5 )
+  (    3 /Subsheet_1/Foo.D1 )
+  (    4 /Subsheet_1/Foo.D6 )
+  (    5 /Subsheet_1/Foo.D2 )
+  (    6 /Subsheet_1/Foo.D7 )
+  (    7 /Subsheet_1/Foo.D3 )
+  (    8 /Subsheet_1/Foo.CTL1 )
+  (    9 /Subsheet_1/Foo.D4 )
+  (   10 /Subsheet_1/Foo.CTL2 )
+ )
+)
+*

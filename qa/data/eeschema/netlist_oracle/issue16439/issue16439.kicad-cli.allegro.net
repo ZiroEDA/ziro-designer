@@ -1,0 +1,31 @@
+(NETLIST)
+(Source: /home/akshay/ziro-designer-1/qa/data/eeschema/netlist_oracle/issue16439/issue16439.kicad_sch)
+(Date: 2026-09-29T06:56:05)
+$PACKAGES
+! 'testpoint' ! 'TestPoint' ; TP1,
+	TP2,
+	TP3,
+	TP4,
+	TP5,
+	TP6,
+	TP7,
+	TP8
+$A_PROPERTIES
+'ROOM' 'issue16439' ; TP1,
+	TP2,
+	TP3,
+	TP4,
+	TP5,
+	TP6,
+	TP7,
+	TP8
+$NETS
+'/DEMO_BUS.A0'; TP1.1,
+	TP5.1
+'/DEMO_BUS.A1'; TP2.1,
+	TP6.1
+'/DEMO_BUS.B0'; TP3.1,
+	TP7.1
+'/DEMO_BUS.B1'; TP4.1,
+	TP8.1
+$END

@@ -1,0 +1,10 @@
+PACKAGE 'panasonic_evqpuk_evqpub'
+CLASS IC
+PINCOUNT 2
+PINORDER MAIN ,
+	__1,
+	__2
+FUNCTION MAIN MAIN ,
+	1,
+	2
+END

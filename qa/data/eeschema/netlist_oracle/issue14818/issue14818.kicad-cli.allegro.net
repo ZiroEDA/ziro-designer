@@ -1,0 +1,10 @@
+(NETLIST)
+(Source: /home/akshay/ziro-designer-1/qa/data/eeschema/netlist_oracle/issue14818/issue14818.kicad_sch)
+(Date: 2026-09-29T06:55:58)
+$PACKAGES
+! 'testpoint' ! 'TestPoint' ; TP1
+$A_PROPERTIES
+'ROOM' 'issue14818' ; TP1
+$NETS
+GND; TP1.1
+$END

@@ -1,0 +1,303 @@
+( { EESchema Netlist Version 1.1 created  2026-09-29T06:55:47 }
+ ( /00000000-0000-0000-0000-00004ad71b06 TerminalBlock_Altech:Altech_AK300_1x02_P5.00mm_45-Degree  P2 CONN_2
+  (    1 /12Vext )
+  (    2 GND )
+ )
+ ( /00000000-0000-0000-0000-00004ae172f4 Diode_THT:D_DO-41_SOD81_P12.70mm_Horizontal  D1 1N4007
+  (    1 +12C )
+  (    2 /12Vext )
+ )
+ ( /00000000-0000-0000-0000-00004ae173cf Capacitor_THT:CP_Axial_L10.0mm_D4.5mm_P15.00mm_Horizontal  C2 47uF/20V
+  (    1 +12C )
+  (    2 GND )
+ )
+ ( /00000000-0000-0000-0000-00004b03cec2 Capacitor_THT:CP_Axial_L10.0mm_D4.5mm_P15.00mm_Horizontal  C1 47uF
+  (    1 VCC )
+  (    2 GND )
+ )
+ ( /00000000-0000-0000-0000-00004b3a12f4 TerminalBlock_Altech:Altech_AK300_1x02_P5.00mm_45-Degree  P1 CONN_2
+  (    1 HT )
+  (    2 GND )
+ )
+ ( /00000000-0000-0000-0000-00004b3a1558 Capacitor_THT:CP_Axial_L11.0mm_D6.0mm_P18.00mm_Horizontal  C9 47uF/63V
+  (    1 HT )
+  (    2 GND )
+ )
+ ( /00000000-0000-0000-0000-00004b4b1230 Package_DIP:DIP-8_W7.62mm_LongPads  U1 ICL7660
+  (    2 Net-(U1-CAP+) )
+  (    3 GND )
+  (    4 Net-(U1-CAP-) )
+  (    5 -VAA )
+  (    6 unconnected-(U1-LV-Pad6) )
+  (    7 unconnected-(U1-OSC-Pad7) )
+  (    8 VCC )
+ )
+ ( /00000000-0000-0000-0000-00004b4b1532 Package_TO_SOT_THT:TO-92_HandSolder  U2 78L05
+  (    1 VCC )
+  (    2 GND )
+  (    3 +12C )
+ )
+ ( /00000000-0000-0000-0000-00004b4b15d9 Capacitor_THT:CP_Axial_L10.0mm_D4.5mm_P15.00mm_Horizontal  C11 10uF
+  (    1 GND )
+  (    2 -VAA )
+ )
+ ( /00000000-0000-0000-0000-00004b4b15e7 Capacitor_THT:CP_Axial_L10.0mm_D4.5mm_P15.00mm_Horizontal  C10 10uF
+  (    1 Net-(U1-CAP+) )
+  (    2 Net-(U1-CAP-) )
+ )
+ ( /00000000-0000-0000-0000-00004b3a1333/00000000-0000-0000-0000-00004b3a1357 Potentiometer_THT:Potentiometer_Bourns_3266W_Vertical  RV1 4,7K
+  (    1 Net-(R11-Pad1) )
+  (    2 Net-(U3A--) )
+  (    3 /ampli_ht_vertical/S_OUT+ )
+ )
+ ( /00000000-0000-0000-0000-00004b3a1333/00000000-0000-0000-0000-00004b3a1358 Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm  C3 15nF
+  (    1 /ampli_ht_vertical/Vpil_0_3,3V )
+  (    2 Net-(C3-Pad2) )
+ )
+ ( /00000000-0000-0000-0000-00004b3a1333/00000000-0000-0000-0000-00004b3a1359 Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal  R7 22K
+  (    1 Net-(U3B-+) )
+  (    2 Net-(C3-Pad2) )
+ )
+ ( /00000000-0000-0000-0000-00004b3a1333/00000000-0000-0000-0000-00004b3a135c Package_DIP:DIP-8_W7.62mm_LongPads  U3 LM358N
+  (    1 Net-(R9-Pad2) )
+  (    2 Net-(U3A--) )
+  (    3 /ampli_ht_vertical/Vpil_0_3,3V )
+  (    4 -VAA )
+  (    5 Net-(U3B-+) )
+  (    6 /ampli_ht_vertical/Vpil_0_3,3V )
+  (    7 /ampli_ht_vertical/Vpil_0_3,3V )
+  (    8 +12C )
+ )
+ ( /00000000-0000-0000-0000-00004b3a1333/00000000-0000-0000-0000-00004b3a1360 Package_TO_SOT_THT:TO-92_HandSolder  Q1 MPSA92
+  (    1 Net-(Q1-E) )
+  (    2 Net-(D3-K) )
+  (    3 Net-(D8-A) )
+ )
+ ( /00000000-0000-0000-0000-00004b3a1333/00000000-0000-0000-0000-00004b3a1362 Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal  R11 4,7K
+  (    1 Net-(R11-Pad1) )
+  (    2 GND )
+ )
+ ( /00000000-0000-0000-0000-00004b3a1333/00000000-0000-0000-0000-00004b3a1364 Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal  R5 47
+  (    1 /ampli_ht_vertical/PIEZO_OUT )
+  (    2 Net-(Q2-E) )
+ )
+ ( /00000000-0000-0000-0000-00004b3a1333/00000000-0000-0000-0000-00004b3a1365 Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm  C5 820pF
+  (    1 Net-(C5-Pad1) )
+  (    2 GND )
+ )
+ ( /00000000-0000-0000-0000-00004b3a1333/00000000-0000-0000-0000-00004b3a1366 Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm  C4 4.7nF
+  (    1 Net-(U3B-+) )
+  (    2 GND )
+ )
+ ( /00000000-0000-0000-0000-00004b3a1333/00000000-0000-0000-0000-00004b3a1367 TerminalBlock_Altech:Altech_AK300_1x02_P5.00mm_45-Degree  P4 CONN_2
+  (    1 /ampli_ht_vertical/PIEZO_IN )
+  (    2 GND )
+ )
+ ( /00000000-0000-0000-0000-00004b3a1333/00000000-0000-0000-0000-00004b3a136b Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal  R6 22K
+  (    1 Net-(C3-Pad2) )
+  (    2 Net-(C12-Pad1) )
+ )
+ ( /00000000-0000-0000-0000-00004b3a1333/00000000-0000-0000-0000-00004b3a136c TerminalBlock_Altech:Altech_AK300_1x02_P5.00mm_45-Degree  P3 CONN_2
+  (    1 /ampli_ht_vertical/PIEZO_OUT )
+  (    2 GND )
+ )
+ ( /00000000-0000-0000-0000-00004b3a1333/00000000-0000-0000-0000-00004b3a136d Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal  R9 1K
+  (    1 Net-(Q4-E) )
+  (    2 Net-(R9-Pad2) )
+ )
+ ( /00000000-0000-0000-0000-00004b3a1333/00000000-0000-0000-0000-00004b3a1370 Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal  R12 220K
+  (    1 /ampli_ht_vertical/S_OUT+ )
+  (    2 Net-(Q3-E) )
+ )
+ ( /00000000-0000-0000-0000-00004b3a1333/00000000-0000-0000-0000-00004b3a1371 Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal  R8 1K
+  (    1 Net-(Q4-B) )
+  (    2 GND )
+ )
+ ( /00000000-0000-0000-0000-00004b3a1333/00000000-0000-0000-0000-00004b3a1374 Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal  R4 220K
+  (    1 Net-(D3-K) )
+  (    2 GND )
+ )
+ ( /00000000-0000-0000-0000-00004b3a1333/00000000-0000-0000-0000-00004b3a1375 Diode_THT:D_DO-35_SOD27_P7.62mm_Horizontal  D2 1N4148
+  (    1 Net-(D2-K) )
+  (    2 HT )
+ )
+ ( /00000000-0000-0000-0000-00004b3a1333/00000000-0000-0000-0000-00004b3a1376 Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal  R3 470
+  (    1 HT )
+  (    2 Net-(Q1-E) )
+ )
+ ( /00000000-0000-0000-0000-00004b3a1333/00000000-0000-0000-0000-00004b3a1377 Diode_THT:D_DO-35_SOD27_P7.62mm_Horizontal  D3 1N4148
+  (    1 Net-(D3-K) )
+  (    2 Net-(D2-K) )
+ )
+ ( /00000000-0000-0000-0000-00004b3a1333/00000000-0000-0000-0000-00004b3a1379 Package_TO_SOT_THT:TO-92_HandSolder  Q4 MPSA42
+  (    1 Net-(Q4-E) )
+  (    2 Net-(Q4-B) )
+  (    3 Net-(D4-K) )
+ )
+ ( /00000000-0000-0000-0000-00004b3a1333/00000000-0000-0000-0000-00004b3a137b Diode_THT:D_DO-35_SOD27_P7.62mm_Horizontal  D4 1N4148
+  (    1 Net-(D4-K) )
+  (    2 Net-(D4-A) )
+ )
+ ( /00000000-0000-0000-0000-00004b3a1333/00000000-0000-0000-0000-00004b3a137c Package_TO_SOT_THT:TO-92_HandSolder  Q3 MPSA92
+  (    1 Net-(Q3-E) )
+  (    2 Net-(D4-K) )
+  (    3 GND )
+ )
+ ( /00000000-0000-0000-0000-00004b3a1333/00000000-0000-0000-0000-00004b3a137d Package_TO_SOT_THT:TO-92_HandSolder  Q2 MPSA42
+  (    1 Net-(Q2-E) )
+  (    2 Net-(D8-A) )
+  (    3 HT )
+ )
+ ( /00000000-0000-0000-0000-00004b3a1333/00000000-0000-0000-0000-00004b4f363e Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal  R23 1K
+  (    1 Net-(C12-Pad1) )
+  (    2 /ampli_ht_vertical/PIEZO_IN )
+ )
+ ( /00000000-0000-0000-0000-00004b3a1333/00000000-0000-0000-0000-00004b4f3641 Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm  C12 150nF
+  (    1 Net-(C12-Pad1) )
+  (    2 GND )
+ )
+ ( /00000000-0000-0000-0000-00004b3a1333/00000000-0000-0000-0000-00004b61688c Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal  R10 5,6K
+  (    1 Net-(D4-K) )
+  (    2 Net-(C5-Pad1) )
+ )
+ ( /00000000-0000-0000-0000-00004b3a1333/00000000-0000-0000-0000-00004b616afa Diode_THT:D_DO-35_SOD27_P7.62mm_Horizontal  D8 1N4148
+  (    1 Net-(D4-A) )
+  (    2 Net-(D8-A) )
+ )
+ ( /00000000-0000-0000-0000-00004b3a1333/00000000-0000-0000-0000-00004b616b96 Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal  R25 47
+  (    1 /ampli_ht_vertical/PIEZO_OUT )
+  (    2 Net-(Q3-E) )
+ )
+ ( /00000000-0000-0000-0000-00004b3a1333/00000000-0000-0000-0000-00004b617b88 Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal  R26 220K
+  (    1 /ampli_ht_vertical/S_OUT+ )
+  (    2 Net-(Q2-E) )
+ )
+ ( /00000000-0000-0000-0000-00004b3a13a4/00000000-0000-0000-0000-00004b3a1357 Potentiometer_THT:Potentiometer_Bourns_3266W_Vertical  RV2 4,7K
+  (    1 Net-(R21-Pad1) )
+  (    2 Net-(U4A--) )
+  (    3 /ampli_ht_horizontal/S_OUT+ )
+ )
+ ( /00000000-0000-0000-0000-00004b3a13a4/00000000-0000-0000-0000-00004b3a1358 Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm  C6 15nF
+  (    1 /ampli_ht_horizontal/Vpil_0_3,3V )
+  (    2 Net-(C6-Pad2) )
+ )
+ ( /00000000-0000-0000-0000-00004b3a13a4/00000000-0000-0000-0000-00004b3a1359 Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal  R17 22K
+  (    1 Net-(U4B-+) )
+  (    2 Net-(C6-Pad2) )
+ )
+ ( /00000000-0000-0000-0000-00004b3a13a4/00000000-0000-0000-0000-00004b3a135c Package_DIP:DIP-8_W7.62mm_LongPads  U4 LM358N
+  (    1 Net-(R19-Pad2) )
+  (    2 Net-(U4A--) )
+  (    3 /ampli_ht_horizontal/Vpil_0_3,3V )
+  (    4 -VAA )
+  (    5 Net-(U4B-+) )
+  (    6 /ampli_ht_horizontal/Vpil_0_3,3V )
+  (    7 /ampli_ht_horizontal/Vpil_0_3,3V )
+  (    8 +12C )
+ )
+ ( /00000000-0000-0000-0000-00004b3a13a4/00000000-0000-0000-0000-00004b3a1360 Package_TO_SOT_THT:TO-92_HandSolder  Q5 MPSA92
+  (    1 Net-(Q5-E) )
+  (    2 Net-(D6-K) )
+  (    3 Net-(D9-A) )
+ )
+ ( /00000000-0000-0000-0000-00004b3a13a4/00000000-0000-0000-0000-00004b3a1362 Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal  R21 4,7K
+  (    1 Net-(R21-Pad1) )
+  (    2 GND )
+ )
+ ( /00000000-0000-0000-0000-00004b3a13a4/00000000-0000-0000-0000-00004b3a1364 Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal  R15 47
+  (    1 /ampli_ht_horizontal/PIEZO_OUT )
+  (    2 Net-(Q6-E) )
+ )
+ ( /00000000-0000-0000-0000-00004b3a13a4/00000000-0000-0000-0000-00004b3a1365 Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm  C8 820pF
+  (    1 Net-(C8-Pad1) )
+  (    2 GND )
+ )
+ ( /00000000-0000-0000-0000-00004b3a13a4/00000000-0000-0000-0000-00004b3a1366 Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm  C7 4.7nF
+  (    1 Net-(U4B-+) )
+  (    2 GND )
+ )
+ ( /00000000-0000-0000-0000-00004b3a13a4/00000000-0000-0000-0000-00004b3a1367 TerminalBlock_Altech:Altech_AK300_1x02_P5.00mm_45-Degree  P6 CONN_2
+  (    1 /ampli_ht_horizontal/PIEZO_IN )
+  (    2 GND )
+ )
+ ( /00000000-0000-0000-0000-00004b3a13a4/00000000-0000-0000-0000-00004b3a136b Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal  R16 22K
+  (    1 Net-(C6-Pad2) )
+  (    2 Net-(C14-Pad1) )
+ )
+ ( /00000000-0000-0000-0000-00004b3a13a4/00000000-0000-0000-0000-00004b3a136c TerminalBlock_Altech:Altech_AK300_1x02_P5.00mm_45-Degree  P5 CONN_2
+  (    1 /ampli_ht_horizontal/PIEZO_OUT )
+  (    2 GND )
+ )
+ ( /00000000-0000-0000-0000-00004b3a13a4/00000000-0000-0000-0000-00004b3a136d Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal  R19 1K
+  (    1 Net-(Q8-E) )
+  (    2 Net-(R19-Pad2) )
+ )
+ ( /00000000-0000-0000-0000-00004b3a13a4/00000000-0000-0000-0000-00004b3a1370 Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal  R22 220K
+  (    1 /ampli_ht_horizontal/S_OUT+ )
+  (    2 Net-(Q7-E) )
+ )
+ ( /00000000-0000-0000-0000-00004b3a13a4/00000000-0000-0000-0000-00004b3a1371 Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal  R18 1K
+  (    1 Net-(Q8-B) )
+  (    2 GND )
+ )
+ ( /00000000-0000-0000-0000-00004b3a13a4/00000000-0000-0000-0000-00004b3a1374 Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal  R14 220K
+  (    1 Net-(D6-K) )
+  (    2 GND )
+ )
+ ( /00000000-0000-0000-0000-00004b3a13a4/00000000-0000-0000-0000-00004b3a1375 Diode_THT:D_DO-35_SOD27_P7.62mm_Horizontal  D5 1N4148
+  (    1 Net-(D5-K) )
+  (    2 HT )
+ )
+ ( /00000000-0000-0000-0000-00004b3a13a4/00000000-0000-0000-0000-00004b3a1376 Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal  R13 470
+  (    1 HT )
+  (    2 Net-(Q5-E) )
+ )
+ ( /00000000-0000-0000-0000-00004b3a13a4/00000000-0000-0000-0000-00004b3a1377 Diode_THT:D_DO-35_SOD27_P7.62mm_Horizontal  D6 1N4148
+  (    1 Net-(D6-K) )
+  (    2 Net-(D5-K) )
+ )
+ ( /00000000-0000-0000-0000-00004b3a13a4/00000000-0000-0000-0000-00004b3a1379 Package_TO_SOT_THT:TO-92_HandSolder  Q8 MPSA42
+  (    1 Net-(Q8-E) )
+  (    2 Net-(Q8-B) )
+  (    3 Net-(D7-K) )
+ )
+ ( /00000000-0000-0000-0000-00004b3a13a4/00000000-0000-0000-0000-00004b3a137b Diode_THT:D_DO-35_SOD27_P7.62mm_Horizontal  D7 1N4148
+  (    1 Net-(D7-K) )
+  (    2 Net-(D7-A) )
+ )
+ ( /00000000-0000-0000-0000-00004b3a13a4/00000000-0000-0000-0000-00004b3a137c Package_TO_SOT_THT:TO-92_HandSolder  Q7 MPSA92
+  (    1 Net-(Q7-E) )
+  (    2 Net-(D7-K) )
+  (    3 GND )
+ )
+ ( /00000000-0000-0000-0000-00004b3a13a4/00000000-0000-0000-0000-00004b3a137d Package_TO_SOT_THT:TO-92_HandSolder  Q6 MPSA42
+  (    1 Net-(Q6-E) )
+  (    2 Net-(D9-A) )
+  (    3 HT )
+ )
+ ( /00000000-0000-0000-0000-00004b3a13a4/00000000-0000-0000-0000-00004b4f363e Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal  R24 1K
+  (    1 Net-(C14-Pad1) )
+  (    2 /ampli_ht_horizontal/PIEZO_IN )
+ )
+ ( /00000000-0000-0000-0000-00004b3a13a4/00000000-0000-0000-0000-00004b4f3641 Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm  C14 150nF
+  (    1 Net-(C14-Pad1) )
+  (    2 GND )
+ )
+ ( /00000000-0000-0000-0000-00004b3a13a4/00000000-0000-0000-0000-00004b61688c Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal  R20 5,6K
+  (    1 Net-(D7-K) )
+  (    2 Net-(C8-Pad1) )
+ )
+ ( /00000000-0000-0000-0000-00004b3a13a4/00000000-0000-0000-0000-00004b616afa Diode_THT:D_DO-35_SOD27_P7.62mm_Horizontal  D9 1N4148
+  (    1 Net-(D7-A) )
+  (    2 Net-(D9-A) )
+ )
+ ( /00000000-0000-0000-0000-00004b3a13a4/00000000-0000-0000-0000-00004b616b96 Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal  R27 47
+  (    1 /ampli_ht_horizontal/PIEZO_OUT )
+  (    2 Net-(Q7-E) )
+ )
+ ( /00000000-0000-0000-0000-00004b3a13a4/00000000-0000-0000-0000-00004b617b88 Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal  R28 220K
+  (    1 /ampli_ht_horizontal/S_OUT+ )
+  (    2 Net-(Q6-E) )
+ )
+)
+*

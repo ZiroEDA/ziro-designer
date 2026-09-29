@@ -1,0 +1,63 @@
+.HEA
+.TIM 2026-09-29T06:57:35
+.APP "Eeschema 10.0.6-10.0.6~ubuntu24.04.1"
+.TYP FULL
+
+.ADD_COM     H10     "MountingHole"     "0IBF_Mechanik:MountingHole_3.2mm_M3_4mm-iso"
+.ADD_COM     H12     "MountingHole"     "0IBF_Mechanik:MountingHole_3.2mm_M3_4mm-iso"
+.ADD_COM     C13     "C"     "Capacitor_SMD:C_1206_3216Metric"
+.ADD_COM     H11     "MountingHole"     "0IBF_Mechanik:MountingHole_3.2mm_M3_4mm-iso"
+.ADD_COM     C14     "C"     "Capacitor_SMD:C_1206_3216Metric"
+.ADD_COM     H7     "MountingHole"     "0IBF_Mechanik:MountingHole_3.2mm_M3_4mm-iso"
+.ADD_COM     C8     "C"     "Capacitor_SMD:C_1206_3216Metric"
+.ADD_COM     H9     "MountingHole"     "0IBF_Mechanik:MountingHole_3.2mm_M3_4mm-iso"
+.ADD_COM     J4     "Conn_01x06"     "0IBF_Connector_PinHeader_2.54:PinHeader_1x06_P2.54mm_Vertical"
+.ADD_COM     C37     "100nF"     "0IBF_RCL:C_1206_3216Metric"
+.ADD_COM     C7     "C"     "Capacitor_SMD:C_1206_3216Metric"
+.ADD_COM     H8     "MountingHole"     "0IBF_Mechanik:MountingHole_3.2mm_M3_4mm-iso"
+.ADD_COM     J66     "Conn_01x06"     "0IBF_Connector_PinHeader_2.54:PinHeader_1x06_P2.54mm_Vertical"
+.ADD_COM     C11     "C"     "Capacitor_SMD:C_1206_3216Metric"
+.ADD_COM     C9     "C"     "Capacitor_SMD:C_1206_3216Metric"
+.ADD_COM     C34     "100nF"     "0IBF_RCL:C_1206_3216Metric"
+.ADD_COM     C12     "C"     "Capacitor_SMD:C_1206_3216Metric"
+.ADD_COM     C10     "C"     "Capacitor_SMD:C_1206_3216Metric"
+.ADD_COM     C38     "100nF"     "0IBF_RCL:C_1206_3216Metric"
+.ADD_COM     J5     "Conn_01x06"     "0IBF_Connector_PinHeader_2.54:PinHeader_1x06_P2.54mm_Vertical"
+
+
+.ADD_TER   C10   1     "+12V"
+.TER       C7   1
+            C8   1
+            C9   1
+
+.ADD_TER   C37   1     "/+48V"
+.TER       J4   1
+
+.ADD_TER   C13   1     "/+7V"
+.TER       C14   1
+
+.ADD_TER   C34   1     "/Spannungsversorgung/+48V"
+.TER       C38   1
+            J5   1
+            J66   1
+
+.ADD_TER   C11   1     "/Spannungsversorgung/+7V"
+.TER       C12   1
+
+.ADD_TER   C34   2     "GND"
+.TER       C37   2
+            C38   2
+
+.ADD_TER   C10   2     "Net-(C10-Pad2)"
+.TER       C9   2
+
+.ADD_TER   C11   2     "Net-(C11-Pad2)"
+.TER       C12   2
+
+.ADD_TER   C13   2     "Net-(C13-Pad2)"
+.TER       C14   2
+
+.ADD_TER   C7   2     "Net-(C7-Pad2)"
+.TER       C8   2
+
+.END

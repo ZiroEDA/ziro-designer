@@ -1,0 +1,11 @@
+( { EESchema Netlist Version 1.1 created  2026-09-29T06:56:00 }
+ ( /ce23ea76-7ff9-468b-89b3-236e2b89d068/f3a13820-ca5a-4b6d-979c-c54ca93fbc20 $noname  R1 R
+  (    1 aaa )
+  (    2 bbb )
+ )
+ ( /d85d11bb-751a-4c5d-8162-7fc237e76b69/b558b517-2fa0-4aca-bb82-bdb2b8ee6894 $noname  R2 R
+  (    1 aaa )
+  (    2 bbb )
+ )
+)
+*

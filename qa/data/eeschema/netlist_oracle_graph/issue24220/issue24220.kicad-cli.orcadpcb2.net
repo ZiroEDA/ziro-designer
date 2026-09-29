@@ -1,0 +1,35 @@
+( { EESchema Netlist Version 1.1 created  2026-09-29T06:57:51 }
+ ( /152d87b2-52a8-450d-99d1-dd49b920d0c2 $noname  CABLES1 
+ )
+ ( /1fd7eda6-ec9c-48ee-b9f2-0cbbdf1f5986 $noname  SERIAL_NUMBER1 
+ )
+ ( /2db68f2e-34a8-41b6-96b4-0af9dcdc1f8c IPSES_connectors:TerminalBlock_Weidmuller-2_P5.08mm  J2 ST_02
+  (    1 Net-(J1-Pin_2) )
+  (    2 Net-(J1-Pin_1) )
+ )
+ ( /355e5aca-3a42-4e5c-aee3-d3f25ca1d627 IPSES_connectors:TerminalBlock_Weidmuller-2_P5.08mm  J1 ST_02
+  (    1 Net-(J1-Pin_1) )
+  (    2 Net-(J1-Pin_2) )
+ )
+ ( /4c657c16-1dad-40f5-835a-87e4eabfa017 $noname  CABLES3 
+ )
+ ( /66647c9e-6626-4931-9d2a-bd948e0bbea8 $noname  CABLES2 
+ )
+ ( /8b14ca25-e3f0-4657-96b1-8dc08fd6d316 $noname  OthersComponents2 1520EU
+ )
+ ( /94b0d2a3-acd1-497d-b508-a5570b234cae $noname  CABLES4 
+ )
+ ( /a87fb5aa-b793-4859-accd-98ad3d6e522c $noname  REVISION1 
+ )
+ ( /f0fae5cb-a373-4c9a-be9b-6ff4021d6aa8 $noname  SERIAL_NUMBER2 
+ )
+ ( /c74ee8e4-f220-4f04-b45b-c2b80f1d1758/4ce8d797-0e9c-4560-9508-68d6da8359f2 IPSES_connectors:TerminalBlock_Weidmuller-2_P5.08mm  J9 ST_02
+  (    1 /AD.2 )
+  (    2 /AD.1 )
+ )
+ ( /0fbb1b5b-5613-44db-a3fa-c9c5919f1b49/a6d3646b-3a52-436f-b017-302bebe39038 IPSES_connectors:TerminalBlock_Weidmuller-2_P5.08mm  J7 ST_02
+  (    1 /AD.2 )
+  (    2 /AD.1 )
+ )
+)
+*

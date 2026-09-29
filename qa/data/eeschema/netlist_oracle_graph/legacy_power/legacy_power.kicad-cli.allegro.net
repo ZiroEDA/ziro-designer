@@ -1,0 +1,18 @@
+(NETLIST)
+(Source: /home/akshay/ziro-designer-1/qa/data/eeschema/netlist_oracle_graph/legacy_power/legacy_power.kicad_sch)
+(Date: 2026-09-29T06:58:02)
+$PACKAGES
+! '74ahc1g00' ! '74AHC1G00' ; U1001
+! 'led' ! 'LED' ; D1001
+$A_PROPERTIES
+'ROOM' 'legacy_power' ; D1001,
+	U1001
+$NETS
+'+3.3V'; U1001.2
+GND; D1001.1,
+	U1001.3
+'NET-(D1001-A)'; D1001.2,
+	U1001.4
+VCC; U1001.1,
+	U1001.5
+$END

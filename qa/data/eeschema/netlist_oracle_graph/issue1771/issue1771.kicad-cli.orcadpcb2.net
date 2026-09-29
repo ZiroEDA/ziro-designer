@@ -1,0 +1,21 @@
+( { EESchema Netlist Version 1.1 created  2026-09-29T06:57:13 }
+ ( /8921adc2-e282-4af4-a07a-a1b585fcfece $noname  TP102 TST-01025
+  (    1 /m.X.Y.Z2 )
+ )
+ ( /a1e81ea4-2857-40cb-bf19-e3ded3e64c52 $noname  TP101 TST-01025
+  (    1 /m.X.Y.Z1 )
+ )
+ ( /646c9f9f-0bca-47c1-b111-bccee7653836/4fea18b4-6b3d-4acc-a71b-7ee31c8961ac/50034e64-5ec3-4269-9ead-698c864f9807 $noname  TP302 TST-01025
+  (    1 /m.X.Y.Z2 )
+ )
+ ( /646c9f9f-0bca-47c1-b111-bccee7653836/4fea18b4-6b3d-4acc-a71b-7ee31c8961ac/559c442d-219d-4fe6-8996-24c1a2d9cdcb $noname  TP301 TST-01025
+  (    1 /m.X.Y.Z1 )
+ )
+ ( /646c9f9f-0bca-47c1-b111-bccee7653836/4fea18b4-6b3d-4acc-a71b-7ee31c8961ac/38a5c293-46d2-4c74-939b-43575208aa56/47056232-84ee-4e08-b29b-2834eeadd92b $noname  TP402 TST-01025
+  (    1 /m.X.Y.Z2 )
+ )
+ ( /646c9f9f-0bca-47c1-b111-bccee7653836/4fea18b4-6b3d-4acc-a71b-7ee31c8961ac/38a5c293-46d2-4c74-939b-43575208aa56/8c0ecef8-6b64-41c6-9d38-6d54bc92d084 $noname  TP401 TST-01025
+  (    1 /m.X.Y.Z1 )
+ )
+)
+*

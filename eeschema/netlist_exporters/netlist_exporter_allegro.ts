@@ -2,367 +2,609 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * The Cadence Allegro / Telesis netlist. Counterpart:
- * `eeschema/netlist_exporters/netlist_exporter_allegro.cpp`.
+ * `eeschema/netlist_exporters/netlist_exporter_allegro.cpp` (`NETLIST_EXPORTER_ALLEGRO`):
+ * the Cadence Allegro / Telesis netlist. Unlike every other format this is **not a single
+ * file**: the netlist plus a `devices/` directory holding one `<device>.txt` package
+ * definition per device type, so {@link NETLIST_EXPORTER_ALLEGRO.WriteFiles} returns the
+ * set and the caller decides where they land.
  *
- * Unlike every other netlist we export, this one is **not a single file**. It
- * writes the netlist plus a `devices/` directory holding one `<device>.txt` per
- * *device type* — a package definition Allegro reads alongside the netlist. So
- * `netlistAllegro` returns the set of files rather than a string, and the
- * caller decides where they land.
+ * The netlist is three sections between `(NETLIST)` and `$END`: `$PACKAGES` (one line per
+ * device type, then its references), `$A_PROPERTIES` (a `ROOM` per sheet path, then its
+ * references) and `$NETS` (each net upper-cased, then its `REF.PIN`s). Symbols are grouped
+ * first - same Value, same Footprint, same reference prefix - and a group is one device
+ * type, named `value_footprint` sanitised.
  *
- * The shape of the netlist is three sections between `(NETLIST)` and `$END`:
+ * Upstream quirks kept, because a diff against a KiCad-written file is the point:
+ *  - two groups can collapse to one `$PACKAGES` entry (`std::map::insert` keeps the
+ *    first), while the later group's device file overwrites the earlier one's;
+ *  - the device type is trimmed of trailing underscores before it is sanitised;
+ *  - a quoted value is unquoted again in `$PACKAGES`;
+ *  - the sanitising regexes run over UTF-8 bytes, so a non-ASCII character becomes one
+ *    replacement per byte.
  *
- *  - `$PACKAGES` — one line per device type, then the references that use it;
- *  - `$A_PROPERTIES` — a `ROOM` property per sheet path, then its references;
- *  - `$NETS` — the net name, then every `REF.PIN` on it.
+ * Ported from 10.0.6, the installed kicad-cli, where it differs from 10.0.5: the `ROOM`
+ * names (`formatRoom`) and the grouping loop's iterator fix.
  *
- * Symbols are collected into *groups* first: same Value, same Footprint and the
- * same reference prefix (`R1` and `R2` group, `R1` and `C1` do not). A group is
- * one device type, and the type's name is `value_footprint` sanitised.
- *
- * Three upstream behaviours are reproduced deliberately, because a diff against
- * an Allegro-written file is the point:
- *
- *  - **two groups can collapse to one `$PACKAGES` entry.** `compPackageMap` is a
- *    `std::map` and the code `insert`s into it, which does *not* overwrite an
- *    existing key — so a second group whose value and footprint sanitise to the
- *    same device type is silently dropped from `$PACKAGES` while its device file
- *    is still written over the first one's. Faithful, and not obviously intended;
- *  - **the device-type name is trimmed before it is sanitised.** `value + "_" +
- *    footprint` has its trailing underscores removed and *then* goes through
- *    `formatDevice`, so a symbol with no footprint gives `value`, not `value_`;
- *  - **a quoted value is unquoted again in `$PACKAGES`.** `formatText` adds the
- *    quotes and the `$PACKAGES` writer strips them straight back off, because
- *    its format string supplies its own.
- *
- * Like our other netlist exporters this works on the open sheet, so there is a
- * single sheet path and `$A_PROPERTIES` has one `ROOM` group.
+ * Held to `kicad-cli sch export netlist --format allegro` (devices included) by
+ * `designer/netlist_formats_oracle.test.ts`.
  */
 
-import { strNumCmp } from '@ziroeda/common/string_utils.js';
-import { GENERATOR_APPLICATION } from '@ziroeda/common/generator.js';
-import type { LibPin, LibSymbol, Schematic, SchSymbol } from '../types.js';
-import {
-  boardSymbols,
-  netPinsByName,
-  symbolField,
-  type NetlistMeta,
-} from './netlist_exporter_base.js';
-import { schSymbolLibraryName } from '../lib_symbol_compare.js';
+import { GetISO8601CurrentDateTime, strNumCmp } from '@ziroeda/common/string_utils.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { stdSort } from '@ziroeda/kimath/src/clipper2/clipper.core.js';
+import type { SCH_PIN } from '../sch_pin.js';
+import type { SCH_SHEET_PATH } from '../sch_sheet_path.js';
+import type { SCH_SYMBOL } from '../sch_symbol.js';
+import { NETLIST_EXPORTER_BASE } from './netlist_exporter_base.js';
 
-/** One file the export produces. `path` is relative to the netlist's folder. */
-export interface AllegroFile {
+/** `wxString` `operator<`: code-point order. */
+function wxStringLess(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+const symbolsOn = (aSheet: SCH_SHEET_PATH): SCH_SYMBOL[] =>
+  (aSheet.LastScreen()?.Items().OfType(KICAD_T.SCH_SYMBOL_T) ?? []) as unknown as SCH_SYMBOL[];
+
+/** `std::regex_replace` over the UTF-8 bytes of `aText`, as upstream runs it on a std::string. */
+function replaceBytes(aText: string, aKeep: (aByte: number) => boolean, aWith: string): string {
+  let out = '';
+
+  for (const byte of new TextEncoder().encode(aText))
+    out += aKeep(byte) ? String.fromCharCode(byte) : aWith;
+
+  return out;
+}
+
+const isDigit = (c: string | undefined): boolean => c !== undefined && c >= '0' && c <= '9';
+
+/** `removeTailDigits`. */
+export function removeTailDigits(aString: string): string {
+  let s = aString;
+
+  while (isDigit(s[s.length - 1])) s = s.slice(0, -1);
+
+  return s;
+}
+
+/** `extractTailNumber`: the trailing digits as a number (0 when there are none). */
+export function extractTailNumber(aString: string): number {
+  let numString = '';
+  let s = aString;
+
+  while (isDigit(s[s.length - 1])) {
+    numString = s[s.length - 1]! + numString;
+    s = s.slice(0, -1);
+  }
+
+  return numString === '' ? 0 : Number(numString) >>> 0;
+}
+
+/** `wxString::ToULong`: the whole string a base-10 unsigned number, or undefined. */
+function toULong(aString: string): number | undefined {
+  return /^\s*\+?\d+$/.test(aString) ? Number(aString) : undefined;
+}
+
+/** `CompareSymbolRef`. */
+export function CompareSymbolRef(aRefText1: string, aRefText2: string): boolean {
+  if (removeTailDigits(aRefText1) === removeTailDigits(aRefText2))
+    return extractTailNumber(aRefText1) < extractTailNumber(aRefText2);
+
+  return aRefText1 < aRefText2;
+}
+
+/** `CompareLibPin`. */
+function CompareLibPin(aPin1: SCH_PIN, aPin2: SCH_PIN): boolean {
+  // return "lhs < rhs"
+  return strNumCmp(aPin1.GetShownNumber(), aPin2.GetShownNumber(), true) < 0;
+}
+
+/** `std::stable_sort` with a "less". */
+function stableSortLess<T>(a: T[], less: (x: T, y: T) => boolean): void {
+  a.sort((x, y) => (less(x, y) ? -1 : less(y, x) ? 1 : 0));
+}
+
+interface ALLEGRO_NET_NODE {
+  m_Pin: SCH_PIN;
+  m_Sheet: SCH_SHEET_PATH;
+  m_NoConnect: boolean;
+}
+
+interface SYMBOL_SHEETPATH {
+  symbol: SCH_SYMBOL;
+  sheet: SCH_SHEET_PATH;
+}
+
+/** One file an export writes, named relative to the netlist's folder. */
+export interface NETLIST_OUTPUT_FILE {
   path: string;
   text: string;
 }
 
-export interface AllegroNetlist {
-  /** The netlist file itself. */
-  netlist: string;
-  /** `devices/<type>.txt`, one per device type, in device-type order. */
-  devices: AllegroFile[];
-}
+/** `NETLIST_EXPORTER_ALLEGRO`: the Telesis netlist plus a `devices/` file per package. */
+export class NETLIST_EXPORTER_ALLEGRO extends NETLIST_EXPORTER_BASE {
+  /** `GetISO8601CurrentDateTime()`, settable so a test can pin it. */
+  m_date: () => string = GetISO8601CurrentDateTime;
 
-/** The reference with its trailing digits removed: `R12` -> `R`. */
-export function removeTailDigits(s: string): string {
-  let end = s.length;
-  while (end > 0 && s[end - 1]! >= '0' && s[end - 1]! <= '9') end--;
-  return s.slice(0, end);
-}
+  private m_out = '';
+  private m_devices = new Map<string, string>();
+  /** `std::multimap<wxString, wxString>`: sheet path -> reference. */
+  private m_packageProperties: [string, string][] = [];
+  /** `std::multimap<int, …>`: group index -> symbol, in insertion order within a group. */
+  private m_componentGroups = new Map<number, SYMBOL_SHEETPATH[]>();
+  private m_orderedSymbolsSheetpath: SYMBOL_SHEETPATH[] = [];
+  /** `std::multimap<wxString, NET_NODE>`: net name -> node. */
+  private m_netNameNodes: [string, ALLEGRO_NET_NODE][] = [];
 
-/** The trailing digits as a number; no digits at all reads as 0, as ToULong does. */
-export function extractTailNumber(s: string): number {
-  const digits = s.slice(removeTailDigits(s).length);
-  return digits === '' ? 0 : Number(digits);
-}
+  /**
+   * `WriteNetlist`: the netlist (`aFileName`) first, then each `devices/<type>.txt`,
+   * in the order upstream last wrote them.
+   */
+  WriteFiles(aFileName: string): NETLIST_OUTPUT_FILE[] {
+    this.m_out = '(NETLIST)\n';
+    this.m_out += `(Source: ${this.m_schematic.GetFileName()})\n`;
+    this.m_out += `(Date: ${this.m_date()})\n`;
 
-/**
- * `CompareSymbolRef`: same prefix compares by trailing number, otherwise plain
- * lexicographic — *not* natural order, so `R10` really does sort before `R9`
- * only when the prefixes match.
- */
-export function compareSymbolRef(a: string, b: string): number {
-  if (removeTailDigits(a) === removeTailDigits(b)) {
-    return extractTailNumber(a) - extractTailNumber(b);
+    this.m_packageProperties = [];
+    this.m_componentGroups.clear();
+    this.m_orderedSymbolsSheetpath = [];
+    this.m_netNameNodes = [];
+    this.m_devices.clear();
+
+    this.extractComponentsInfo();
+
+    // Start with package definitions, which we create from component groups.
+    this.toAllegroPackages();
+
+    // Write out package properties. NOTE: Allegro doesn't recognize much...
+    this.toAllegroPackageProperties();
+
+    // Write out nets
+    this.toAllegroNets();
+
+    this.m_out += '$END\n';
+
+    return [
+      { path: aFileName, text: this.m_out },
+      ...[...this.m_devices].map(([name, text]) => ({ path: `devices/${name}.txt`, text })),
+    ];
   }
-  return a < b ? -1 : a > b ? 1 : 0;
-}
 
-const UTF8 = new TextEncoder();
+  /** `CompareSymbolSheetpath`. */
+  private static CompareSymbolSheetpath(
+    aItem1: SYMBOL_SHEETPATH,
+    aItem2: SYMBOL_SHEETPATH,
+  ): boolean {
+    const refText1 = aItem1.symbol.GetRef(aItem1.sheet);
+    const refText2 = aItem2.symbol.GetRef(aItem2.sheet);
 
-/**
- * Substitute every byte outside `keep` — a class over single ASCII characters —
- * with `sub`.
- *
- * Byte-wise, not character-wise, and that is the point: upstream runs
- * `std::regex_replace` over `std::string( aString )`, the UTF-8 encoding, so a
- * two-byte character becomes **two** replacement characters. Doing this per
- * JavaScript code unit would emit one, and every sanitised name holding
- * non-ASCII would differ from an Allegro-written file by a character.
- */
-function substituteBytes(s: string, keep: (b: number) => boolean, sub: string): string {
-  let out = '';
-  for (const b of UTF8.encode(s)) out += keep(b) ? String.fromCharCode(b) : sub;
-  return out;
-}
+    if (refText1 === refText2)
+      return aItem1.sheet.PathHumanReadable() < aItem2.sheet.PathHumanReadable();
 
-const isAsciiPrintable = (b: number): boolean => b >= 0x20 && b <= 0x7e;
-const inRange = (b: number, lo: string, hi: string): boolean =>
-  b >= lo.charCodeAt(0) && b <= hi.charCodeAt(0);
-const isDigit = (b: number): boolean => inRange(b, '0', '9');
-const isLower = (b: number): boolean => inRange(b, 'a', 'z');
-const isUpper = (b: number): boolean => inRange(b, 'A', 'Z');
-const ch = (c: string): number => c.charCodeAt(0);
+    return CompareSymbolRef(refText1, refText2);
+  }
 
-/**
- * `formatText`: micro sign to `u`, then anything outside printable ASCII — plus
- * `!` and `'` themselves — to `?`. The result is single-quoted when it holds
- * anything beyond `[a-zA-Z0-9_/]`.
- */
-export function allegroFormatText(s: string): string {
-  if (!s) return '';
-  // Both the micro sign and the Greek mu, as upstream replaces each in turn.
-  const folded = s.replace(/µ/g, 'u').replace(/μ/g, 'u');
-  const ascii = substituteBytes(
-    folded,
-    (b) => isAsciiPrintable(b) && b !== ch('!') && b !== ch("'"),
-    '?',
-  );
-  return /[^a-zA-Z0-9_/]/.test(ascii) ? `'${ascii}'` : ascii;
-}
+  /** `NET_NODE::operator<`. */
+  private static netNodeLess(a: ALLEGRO_NET_NODE, b: ALLEGRO_NET_NODE): boolean {
+    const refText1 = a.m_Pin.GetParentSymbol()!.GetRef(a.m_Sheet);
+    const refText2 = b.m_Pin.GetParentSymbol()!.GetRef(b.m_Sheet);
 
-/** `formatDevice`: lower-cased, and anything outside `[a-z0-9_-]` becomes `_`. */
-export const allegroFormatDevice = (s: string): string =>
-  substituteBytes(
-    s.toLowerCase(),
-    (b) => isLower(b) || isDigit(b) || b === ch('_') || b === ch('-'),
-    '_',
-  );
+    if (refText1 === refText2) {
+      const val1 = toULong(a.m_Pin.GetShownNumber());
+      const val2 = toULong(b.m_Pin.GetShownNumber());
 
-/** `formatPin`: the Telesis pin name, `<name>__<number>`, sanitised. */
-export const allegroFormatPin = (pin: LibPin): string =>
-  substituteBytes(
-    `${pin.name}__${pin.number}`,
-    (b) =>
-      isUpper(b) ||
-      isLower(b) ||
-      isDigit(b) ||
-      b === ch('_') ||
-      b === ch('+') ||
-      b === ch('?') ||
-      b === ch('/') ||
-      b === ch('-'),
-    '?',
-  );
+      if (val1 !== undefined && val2 !== undefined) return val1 < val2;
 
-/** The library symbol's pins, deduped by number as upstream's pass does. */
-function packagePins(lib: LibSymbol | undefined): LibPin[] {
-  if (!lib) return [];
-  const pins = lib.units.flatMap((u) => u.pins).sort((a, b) => strNumCmp(a.number, b.number, true));
-  // "We must erase redundant Pins references": multi-unit parts and DeMorgan
-  // conversions list the same pin more than once.
-  return pins.filter((p, i) => i === 0 || p.number !== pins[i - 1]!.number);
-}
-
-/** `formatFunction( "main", pins )` — the PINORDER and FUNCTION pair. */
-function formatFunction(name: string, pins: readonly LibPin[]): string {
-  const upper = name.toUpperCase();
-  const order = pins.map((p) => `,\n\t${allegroFormatPin(p)}`).join('');
-  const numbers = pins.map((p) => `,\n\t${p.number}`).join('');
-  return `PINORDER ${upper} ${order}\nFUNCTION ${upper} ${upper} ${numbers}\n`;
-}
-
-interface Group {
-  refs: string[];
-  symbols: SchSymbol[];
-  deviceType: string;
-  value: string;
-  tolerance: string;
-  /** The group's first symbol, which supplies the footprint and the pin list. */
-  head: SchSymbol;
-}
-
-/**
- * `getGroupField`: the first non-empty value among `names` across the group's
- * placed symbols, then the same search across the library symbol's fields.
- * Field names match case-insensitively.
- */
-function groupField(
-  group: { symbols: readonly SchSymbol[] },
-  libById: Map<string, LibSymbol>,
-  names: readonly string[],
-  sanitize = true,
-): string {
-  const pick = (v: string): string => (sanitize ? allegroFormatText(v) : v);
-  for (const sym of group.symbols) {
-    for (const name of names) {
-      const f = sym.fields.find((x) => x.key.toLowerCase() === name.toLowerCase());
-      if (f?.value) return pick(f.value);
+      return a.m_Pin.GetShownNumber() < b.m_Pin.GetShownNumber();
     }
-  }
-  for (const sym of group.symbols) {
-    const lib = libById.get(schSymbolLibraryName(sym));
-    for (const name of names) {
-      const f = lib?.properties.find((x) => x.key.toLowerCase() === name.toLowerCase());
-      if (f?.value) return pick(f.value);
-    }
-  }
-  return '';
-}
 
-/**
- * Collect the board symbols into device groups: taken from the front, a symbol
- * joins the current group when its Value, its Footprint and its reference
- * *prefix* all match the group's first member.
- */
-function componentGroups(sch: Schematic, libById: Map<string, LibSymbol>): Group[] {
-  const pending = boardSymbols(sch).filter(
-    ({ sym }) => packagePins(libById.get(schSymbolLibraryName(sym))).length,
-  );
-  const groups: Group[] = [];
+    return CompareSymbolRef(refText1, refText2);
+  }
 
-  while (pending.length) {
-    const first = pending.shift()!;
-    const members = [first];
-    const valueText = (s: SchSymbol): string => symbolField(s, 'Value');
-    const fpOf = (s: SchSymbol): string => symbolField(s, 'Footprint');
-    for (let i = 0; i < pending.length; ) {
-      const cand = pending[i]!;
-      if (
-        valueText(cand.sym) === valueText(first.sym) &&
-        fpOf(cand.sym) === fpOf(first.sym) &&
-        removeTailDigits(cand.ref) === removeTailDigits(first.ref)
-      ) {
-        members.push(cand);
-        pending.splice(i, 1);
-      } else {
-        i++;
+  /** `extractComponentsInfo`. */
+  private extractComponentsInfo(): void {
+    this.m_referencesAlreadyFound.Clear();
+    this.m_libParts.clear();
+
+    for (const sheet of this.m_schematic.Hierarchy()) {
+      this.m_schematic.SetCurrentSheet(sheet);
+
+      // std::set keyed by StrNumCmp on the reference: one symbol per reference, the
+      // lowest UUID (the extra units are not written here).
+      const keyOf = (s: SCH_SYMBOL): string => s.GetRef(sheet, false);
+      const ordered_symbols: SCH_SYMBOL[] = [];
+
+      for (const symbol of symbolsOn(sheet)) {
+        const existing = ordered_symbols.findIndex(
+          (s) => strNumCmp(keyOf(s), keyOf(symbol), true) === 0,
+        );
+
+        if (existing < 0) ordered_symbols.push(symbol);
+        else if (ordered_symbols[existing]!.m_Uuid > symbol.m_Uuid)
+          ordered_symbols[existing] = symbol;
+      }
+
+      stdSort(ordered_symbols, (a, b) => strNumCmp(keyOf(a), keyOf(b), true) < 0);
+
+      for (const item of ordered_symbols) {
+        const symbol = this.findNextSymbol(item, sheet);
+
+        if (!symbol || symbol.GetExcludedFromBoard()) continue;
+
+        if (symbol.GetLibPins().length === 0) continue;
+
+        this.m_packageProperties.push([formatRoom(sheet), symbol.GetRef(sheet)]);
+        this.m_orderedSymbolsSheetpath.push({ symbol, sheet });
       }
     }
 
-    // The device type is trimmed of trailing underscores *before* sanitising,
-    // so an empty footprint gives "value" rather than "value_".
-    let deviceType = `${valueText(first.sym)}_${fpOf(first.sym)}`;
-    while (deviceType.endsWith('_')) deviceType = deviceType.slice(0, -1);
+    interface NET_RECORD {
+      m_Name: string;
+      m_Nodes: ALLEGRO_NET_NODE[];
+    }
 
-    const symbols = members.map((m) => m.sym);
-    groups.push({
-      refs: members.map((m) => m.ref).sort(compareSymbolRef),
-      symbols,
-      deviceType: allegroFormatDevice(deviceType),
-      value: groupField({ symbols }, libById, ['Spice_Model', 'VALUE']),
-      tolerance: groupField({ symbols }, libById, ['TOLERANCE', 'TOL']),
-      head: first.sym,
-    });
-  }
-  return groups;
-}
+    const nets: NET_RECORD[] = [];
 
-/** One `devices/<type>.txt`. */
-function deviceFile(group: Group, libById: Map<string, LibSymbol>): AllegroFile {
-  const lib = libById.get(schSymbolLibraryName(group.head));
-  // The footprint's bare name; "Lib:Foot" keeps only "Foot".
-  let footprint = symbolField(group.head, 'Footprint').split(':').pop() ?? '';
-  // Wildcard filters are not footprint names, so they are not candidates.
-  const alt = (lib?.properties.find((p) => p.key === 'ki_fp_filters')?.value ?? '')
-    .split(/\s+/)
-    .filter(Boolean)
-    .filter((f) => !f.includes('*') && !f.includes('?'))
-    .map((f) => f.split(':').pop() ?? '');
-  if (!footprint) {
-    footprint = alt.length ? alt.shift()! : group.deviceType;
-  }
+    for (const [key, subgraphs] of this.m_schematic.ConnectionGraph().GetNetMap()) {
+      if (subgraphs.length === 0) continue;
 
-  const pins = packagePins(lib);
-  const out: string[] = [];
-  out.push(`PACKAGE '${allegroFormatDevice(footprint)}'`);
-  out.push('CLASS IC');
-  out.push(`PINCOUNT ${pins.length}`);
-  let text = `${out.join('\n')}\n`;
-  if (pins.length) text += formatFunction('main', pins);
-  if (group.value) text += `PACKAGEPROP VALUE ${group.value}\n`;
-  if (group.tolerance) text += `PACKAGEPROP TOL ${group.tolerance}\n`;
-  if (alt.length) text += `PACKAGEPROP ALT_SYMBOLS '(${alt.join(',')})'\n`;
+      const net_record: NET_RECORD = { m_Name: key.Name, m_Nodes: [] };
+      nets.push(net_record);
 
-  const partNumber = groupField(group, libById, ['PART_NUMBER', 'mpn', 'mfr_pn']);
-  if (partNumber) text += `PACKAGEPROP PART_NUMBER ${partNumber}\n`;
-  const height = groupField(group, libById, ['HEIGHT']);
-  if (height) text += `PACKAGEPROP HEIGHT ${height}\n`;
+      for (const subgraph of subgraphs) {
+        const noConnect = subgraph.GetNoConnect();
+        const nc = noConnect !== null && noConnect.Type() === KICAD_T.SCH_NO_CONNECT_T;
+        const sheet = subgraph.GetSheet();
 
-  text += 'END\n';
-  return { path: `devices/${group.deviceType}.txt`, text };
-}
+        for (const item of subgraph.GetItems()) {
+          if (item.Type() === KICAD_T.SCH_PIN_T) {
+            const pin = item as SCH_PIN;
+            const symbol = pin.GetParentSymbol();
 
-/** The sheet path every symbol on the open sheet belongs to. */
-const ROOT_SHEET_PATH = '/';
+            if (!symbol || symbol.GetExcludedFromBoard()) continue;
 
-export function netlistAllegro(
-  sch: Schematic,
-  libById: Map<string, LibSymbol>,
-  meta: NetlistMeta,
-): AllegroNetlist {
-  const groups = componentGroups(sch, libById);
-
-  // std::map<wxString, COMP_PACKAGE_STRUCT>::insert keeps the *first* entry for
-  // a key. Two groups that sanitise to one device type therefore yield one
-  // $PACKAGES line — while both still write their device file.
-  const byDevice = new Map<string, Group>();
-  for (const g of groups) if (!byDevice.has(g.deviceType)) byDevice.set(g.deviceType, g);
-
-  const out: string[] = [];
-  out.push('(NETLIST)');
-  out.push(`(Source: ${meta.source})`);
-  out.push(`(Date: ${meta.date ?? new Date().toISOString()})`);
-  out.push('$PACKAGES');
-
-  for (const deviceType of [...byDevice.keys()].sort()) {
-    const g = byDevice.get(deviceType)!;
-    // formatText already quoted the value; the format string quotes it again,
-    // so the writer takes the inner pair off.
-    const value = g.value.startsWith("'") && g.value.endsWith("'") ? g.value.slice(1, -1) : g.value;
-    const head =
-      !value && !g.tolerance
-        ? `! '${deviceType}' ; `
-        : !g.tolerance
-          ? `! '${deviceType}' ! '${value}' ; `
-          : `! '${deviceType}' ! '${value}' ! ${g.tolerance} ; `;
-    out.push(head + g.refs.join(',\n\t'));
-  }
-
-  out.push('$A_PROPERTIES');
-  const rooms = groups.flatMap((g) => g.refs).sort(compareSymbolRef);
-  if (rooms.length) {
-    out.push(`'ROOM' '${ROOT_SHEET_PATH}' ; ${rooms.join(',\n\t')}`);
-  }
-
-  out.push('$NETS');
-  for (const { name, pins } of netPinsByName(sch, libById)) {
-    // NET_NODE::operator<: by reference, then by pin *number* when both parse,
-    // otherwise by the pin string.
-    const nodes = [...pins].sort((a, b) => {
-      if (a.ref === b.ref) {
-        const na = Number(a.pin);
-        const nb = Number(b.pin);
-        if (Number.isInteger(na) && Number.isInteger(nb) && a.pin !== '' && b.pin !== '') {
-          return na - nb;
+            net_record.m_Nodes.push({ m_Pin: pin, m_Sheet: sheet, m_NoConnect: nc });
+          }
         }
-        return a.pin < b.pin ? -1 : a.pin > b.pin ? 1 : 0;
       }
-      return compareSymbolRef(a.ref, b.ref);
-    });
-    if (!nodes.length) continue;
-    const netName = allegroFormatText(name).toUpperCase();
-    out.push(`${netName}; ${nodes.map((n) => `${n.ref}.${n.pin}`).join(',\n\t')}`);
+    }
+
+    // Netlist ordering: Net name, then ref des, then pin name
+    stdSort(nets, (a, b) => strNumCmp(a.m_Name, b.m_Name) < 0);
+
+    const refOf = (n: ALLEGRO_NET_NODE): string => n.m_Pin.GetParentSymbol()!.GetRef(n.m_Sheet);
+
+    for (const net_record of nets) {
+      stdSort(net_record.m_Nodes, (a, b) => {
+        const refA = refOf(a);
+        const refB = refOf(b);
+
+        if (refA === refB) return a.m_Pin.GetShownNumber() < b.m_Pin.GetShownNumber();
+
+        return refA < refB;
+      });
+
+      // Some duplicates can exist, for example on multi-unit parts with duplicated pins across
+      // units.  If the user connects the pins on each unit, they will appear on separate
+      // subgraphs.  Remove those here:
+      net_record.m_Nodes = net_record.m_Nodes.filter(
+        (n, k, all) =>
+          k === 0 ||
+          !(
+            refOf(all[k - 1]!) === refOf(n) &&
+            all[k - 1]!.m_Pin.GetShownNumber() === n.m_Pin.GetShownNumber()
+          ),
+      );
+
+      for (const netNode of net_record.m_Nodes) {
+        // Skip power symbols and virtual symbols
+        if (refOf(netNode)[0] === '#') continue;
+
+        this.m_netNameNodes.push([net_record.m_Name, netNode]);
+      }
+    }
   }
 
-  out.push('$END');
+  /** `toAllegroPackages`. */
+  private toAllegroPackages(): void {
+    let groupCount = 1;
 
-  return {
-    netlist: `${out.join('\n')}\n`,
-    devices: groups.map((g) => deviceFile(g, libById)),
-  };
+    //Group the components......
+    while (this.m_orderedSymbolsSheetpath.length > 0) {
+      const first_ele = this.m_orderedSymbolsSheetpath.shift()!;
+      const group: SYMBOL_SHEETPATH[] = [first_ele];
+      this.m_componentGroups.set(groupCount, group);
+
+      const value = first_ele.symbol.GetValue(false, first_ele.sheet, false);
+      const footprint = first_ele.symbol.GetFootprintFieldText(false, first_ele.sheet, false);
+      const ref2 = first_ele.symbol.GetRef(first_ele.sheet);
+
+      this.m_orderedSymbolsSheetpath = this.m_orderedSymbolsSheetpath.filter((it) => {
+        if (it.symbol.GetValue(false, it.sheet, false) !== value) return true;
+
+        if (it.symbol.GetFootprintFieldText(false, it.sheet, false) !== footprint) return true;
+
+        if (removeTailDigits(it.symbol.GetRef(it.sheet)) === removeTailDigits(ref2)) {
+          group.push(it);
+          return false;
+        }
+
+        return true;
+      });
+
+      groupCount++;
+    }
+
+    interface COMP_PACKAGE_STRUCT {
+      m_value: string;
+      m_tolerance: string;
+      m_symbolSheetpaths: SYMBOL_SHEETPATH[];
+    }
+
+    // std::map<wxString, …>: ordered by key, and insert() keeps the first entry for a key.
+    const compPackageMap = new Map<string, COMP_PACKAGE_STRUCT>();
+
+    for (let groupIndex = 1; groupIndex < groupCount; groupIndex++) {
+      const members = this.m_componentGroups.get(groupIndex)!;
+      const { symbol: sym, sheet: sheetPath } = members[0]!;
+
+      const valueText = sym.GetValue(false, sheetPath, false);
+      let footprintText = sym.GetFootprintFieldText(false, sheetPath, false);
+      let deviceType = `${valueText}_${footprintText}`;
+
+      while (deviceType[deviceType.length - 1] === '_') deviceType = deviceType.slice(0, -1);
+
+      deviceType = formatDevice(deviceType);
+
+      const value = this.getGroupField(groupIndex, ['Spice_Model', 'VALUE']);
+      const tol = this.getGroupField(groupIndex, ['TOLERANCE', 'TOL']);
+
+      const symbolSheetpaths = [...members];
+
+      stableSortLess(symbolSheetpaths, NETLIST_EXPORTER_ALLEGRO.CompareSymbolSheetpath);
+
+      if (!compPackageMap.has(deviceType))
+        compPackageMap.set(deviceType, {
+          m_value: value,
+          m_tolerance: tol,
+          m_symbolSheetpaths: symbolSheetpaths,
+        });
+
+      // Write out the corresponding device file
+      footprintText = footprintText.slice(footprintText.lastIndexOf(':') + 1);
+
+      const footprintAlt: string[] = [];
+
+      for (const fp of sym.GetLibSymbolRef()!.GetFPFilters()) {
+        if (fp.includes('*') || fp.includes('?')) continue;
+
+        footprintAlt.push(fp.slice(fp.lastIndexOf(':') + 1));
+      }
+
+      if (footprintText === '') {
+        if (footprintAlt.length > 0) footprintText = footprintAlt.shift()!;
+        else footprintText = deviceType;
+      }
+
+      let d = `PACKAGE '${formatDevice(footprintText)}'\n`;
+      d += 'CLASS IC\n';
+
+      const pinList = sym.GetLibSymbolRef()!.GetPins();
+
+      // We must erase redundant Pins references in pinList (multiple units, DeMorgan).
+      stdSort(pinList, CompareLibPin);
+
+      for (let ii = 0; ii < pinList.length - 1; ii++) {
+        if (pinList[ii]!.GetNumber() === pinList[ii + 1]!.GetNumber()) {
+          // 2 pins have the same number, remove the redundant pin at index i+1
+          pinList.splice(ii + 1, 1);
+          ii--;
+        }
+      }
+
+      const pinCount = pinList.length;
+      d += `PINCOUNT ${pinCount}\n`;
+
+      if (pinCount > 0) d += formatFunction('main', pinList);
+
+      if (value !== '') d += `PACKAGEPROP VALUE ${value}\n`;
+
+      if (tol !== '') d += `PACKAGEPROP TOL ${tol}\n`;
+
+      if (footprintAlt.length > 0) d += `PACKAGEPROP ALT_SYMBOLS '(${footprintAlt.join(',')})'\n`;
+
+      const partNumber = this.getGroupField(groupIndex, ['PART_NUMBER', 'mpn', 'mfr_pn']);
+
+      if (partNumber !== '') d += `PACKAGEPROP PART_NUMBER ${partNumber}\n`;
+
+      const height = this.getGroupField(groupIndex, ['HEIGHT']);
+
+      if (height !== '') d += `PACKAGEPROP HEIGHT ${height}\n`;
+
+      d += 'END\n';
+
+      // A later group of the same device type writes the same file again.
+      this.m_devices.delete(deviceType);
+      this.m_devices.set(deviceType, d);
+    }
+
+    this.m_out += '$PACKAGES\n';
+
+    for (const deviceType of [...compPackageMap.keys()].sort(wxStringLess)) {
+      const pkg = compPackageMap.get(deviceType)!;
+      let value = pkg.m_value;
+      const tolerance = pkg.m_tolerance;
+
+      // Remove quotes in value (can be added by formatText), if any.
+      // (they are already in print format string)
+      if (value.startsWith("'") && value.endsWith("'")) value = value.slice(1, -1);
+
+      if (value === '' && tolerance === '') this.m_out += `! '${deviceType}' ; `;
+      else if (tolerance === '') this.m_out += `! '${deviceType}' ! '${value}' ; `;
+      else this.m_out += `! '${deviceType}' ! '${value}' ! ${tolerance} ; `;
+
+      this.m_out += pkg.m_symbolSheetpaths.map((s) => s.symbol.GetRef(s.sheet)).join(',\n\t');
+      this.m_out += '\n';
+    }
+  }
+
+  /** `getGroupField`: the first non-empty field of the group, placed symbols first. */
+  private getGroupField(
+    aGroupIndex: number,
+    aFieldArray: readonly string[],
+    aSanitize = true,
+  ): string {
+    const members = this.m_componentGroups.get(aGroupIndex) ?? [];
+
+    for (const { symbol: sym, sheet: sheetPath } of members) {
+      for (const field of aFieldArray) {
+        const fld = sym.FindFieldCaseInsensitive(field);
+
+        if (fld) {
+          const fieldText = fld.GetShownText(sheetPath, true);
+
+          if (fieldText !== '') return aSanitize ? formatText(fieldText) : fieldText;
+        }
+      }
+    }
+
+    for (const { symbol: sym } of members) {
+      for (const field of aFieldArray) {
+        const fld = sym.GetLibSymbolRef()!.FindFieldCaseInsensitive(field);
+
+        if (fld) {
+          const fieldText = fld.GetShownText(false, 0);
+
+          if (fieldText !== '') return aSanitize ? formatText(fieldText) : fieldText;
+        }
+      }
+    }
+
+    return '';
+  }
+
+  /** `toAllegroPackageProperties` (10.0.6: keyed by {@link formatRoom}). */
+  private toAllegroPackageProperties(): void {
+    this.m_out += '$A_PROPERTIES\n';
+
+    // std::multimap: by key, then insertion order.
+    const keys = [...new Set(this.m_packageProperties.map(([k]) => k))].sort(wxStringLess);
+
+    for (const roomName of keys) {
+      const refTexts = this.m_packageProperties.filter(([k]) => k === roomName).map(([, r]) => r);
+
+      // Nothing to name the room after (a schematic with no file name yet); leave these
+      // symbols without a ROOM rather than writing out an empty property.
+      if (roomName === '') continue;
+
+      // formatRoom() already restricted this to characters that need no quoting or escaping.
+      this.m_out += `'ROOM' '${roomName}' ; `;
+
+      stableSortLess(refTexts, CompareSymbolRef);
+
+      this.m_out += refTexts.join(',\n\t');
+      this.m_out += '\n';
+    }
+  }
+
+  /** `toAllegroNets`. */
+  private toAllegroNets(): void {
+    this.m_out += '$NETS\n';
+
+    const keys = [...new Set(this.m_netNameNodes.map(([k]) => k))].sort(wxStringLess);
+
+    for (const netName of keys) {
+      this.m_out += `${formatText(netName).toUpperCase()}; `;
+
+      const netNodes = this.m_netNameNodes.filter(([k]) => k === netName).map(([, n]) => n);
+
+      stableSortLess(netNodes, NETLIST_EXPORTER_ALLEGRO.netNodeLess);
+
+      this.m_out += netNodes
+        .map((n) => `${n.m_Pin.GetParentSymbol()!.GetRef(n.m_Sheet)}.${n.m_Pin.GetShownNumber()}`)
+        .join(',\n\t');
+      this.m_out += '\n';
+    }
+  }
 }
 
-/** The header line other exporters stamp; kept so the module owns its constant. */
-export const ALLEGRO_GENERATOR = GENERATOR_APPLICATION;
+/**
+ * `formatRoom` (10.0.6): a sheet's `ROOM` name - its human-readable path (the root file's
+ * name for the root), outer separators dropped, inner ones dashes, anything outside
+ * `[A-Za-z0-9_-]` an underscore.
+ */
+export function formatRoom(aSheetPath: SCH_SHEET_PATH): string {
+  let path = aSheetPath.PathHumanReadable();
+
+  // Use root schematic file name for root
+  if (path === '/') path = aSheetPath.PathHumanReadable(false);
+
+  // The leading and trailing separators carry no information; the ones in between become
+  // dashes below.
+  while (path.startsWith('/')) path = path.slice(1);
+
+  while (path.endsWith('/')) path = path.slice(0, -1);
+
+  let roomName = '';
+
+  for (const c of path) {
+    if (/^[a-zA-Z0-9_-]$/.test(c)) roomName += c;
+    // Use dash to represent our hierarchy breaks
+    else if (c === '/') roomName += '-';
+    else roomName += '_';
+  }
+
+  return roomName;
+}
+
+/** `formatText`: ASCII-7, quoted when anything beyond `[a-zA-Z0-9_/]` is left. */
+export function formatText(aString: string): string {
+  if (aString === '') return '';
+
+  // Replace 'µ' ("µ") by 'u' to keep ASCII7 constraint, and the Greek mu too.
+  const s = aString.replaceAll('µ', 'u').replaceAll('μ', 'u');
+
+  // std::regex "[!']|[^ -~]" over the UTF-8 bytes: each byte of a non-ASCII character
+  // becomes its own "?".
+  const processedString = replaceBytes(
+    s,
+    (b) => b >= 0x20 && b <= 0x7e && b !== 0x21 && b !== 0x27,
+    '?',
+  );
+
+  if (/[^a-zA-Z0-9_/]/.test(processedString)) return `'${processedString}'`;
+
+  return processedString;
+}
+
+/** `formatPin`: `<name>__<number>`, anything outside `[A-Za-z0-9_+?/-]` a "?". */
+export function formatPin(aPin: SCH_PIN): string {
+  const pinName4Telesis = `${aPin.GetName()}__${aPin.GetNumber()}`;
+  return replaceBytes(pinName4Telesis, (b) => /[A-Za-z0-9_+?/-]/.test(String.fromCharCode(b)), '?');
+}
+
+/** `formatFunction`. */
+function formatFunction(aName: string, aPinList: SCH_PIN[]): string {
+  const name = aName.toUpperCase();
+  const pins = [...aPinList];
+
+  stableSortLess(pins, CompareLibPin);
+
+  let out_str = `PINORDER ${name} `;
+
+  for (const pin of pins) out_str += `,\n\t${formatPin(pin)}`;
+
+  out_str += '\n';
+  out_str += `FUNCTION ${name} ${name} `;
+
+  // (upstream walks aPinList, which the stable_sort above sorted in place)
+  for (const pin of pins) out_str += `,\n\t${pin.GetNumber()}`;
+
+  out_str += '\n';
+
+  return out_str;
+}
+
+/** `formatDevice`: lower case, anything outside `[a-z0-9_-]` an underscore (per byte). */
+export function formatDevice(aString: string): string {
+  return replaceBytes(aString.toLowerCase(), (b) => /[a-z0-9_-]/.test(String.fromCharCode(b)), '_');
+}

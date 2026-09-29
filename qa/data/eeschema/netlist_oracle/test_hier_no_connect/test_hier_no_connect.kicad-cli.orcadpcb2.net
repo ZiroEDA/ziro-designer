@@ -1,0 +1,29 @@
+( { EESchema Netlist Version 1.1 created  2026-09-29T06:56:17 }
+ ( /9aac22d0-4d93-4d78-b01c-00c820843aee $noname  U5 
+  (    1 unconnected-(U5-PIN1-Pad1) )
+  (    2 unconnected-(U5-PIN1-Pad1) )
+ )
+ ( /c27d8823-b16a-4039-8b30-60b56b1d2929 $noname  U6 
+  (    1 unconnected-(U6-PIN-Pad1) )
+  (    2 unconnected-(U6-PIN-Pad1) )
+  (    3 unconnected-(U6-NC-Pad3) )
+ )
+ ( /e925c8ad-ec08-437c-834b-98d5bc471e84 $noname  U2 
+  (    1 unconnected-(U2-PIN-Pad1) )
+  (    2 unconnected-(U2-PIN-Pad1) )
+  (    3 unconnected-(U2-NC-Pad3) )
+ )
+ ( /fa05dc48-d19c-4e83-a3cd-8e95fa1e59b1/a7ece548-fdfc-4869-9739-000253755521 $noname  U3 
+  (    1 /sub1/PIN )
+  (    2 /sub1/PIN )
+  (    3 unconnected-(U3-NC-Pad3) )
+ )
+ ( /ac073b00-33b3-4c40-9adc-0d2ac39cf8ef/4de6e629-b0b3-4928-9859-b3e6bfe3cfc6 $noname  U1 
+  (    1 /sub2/PIN )
+ )
+ ( /701adb8c-f139-4a93-a927-02c9f06ca5b2/e7a02164-c941-4fff-917a-609c220ed064 $noname  U4 
+  (    1 /sub3/PIN )
+  (    2 /sub3/PIN )
+ )
+)
+*

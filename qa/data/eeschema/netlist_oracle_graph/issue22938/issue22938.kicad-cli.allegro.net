@@ -1,0 +1,75 @@
+(NETLIST)
+(Source: /home/akshay/ziro-designer-1/qa/data/eeschema/netlist_oracle_graph/issue22938/issue22938.kicad_sch)
+(Date: 2026-09-29T06:57:37)
+$PACKAGES
+! '100nf_0ibf_rcl_c_1206_3216metric' ! '100nF' ; C34,
+	C37,
+	C38
+! 'c_capacitor_smd_c_1206_3216metric' ! 'C' ; C7,
+	C8,
+	C9,
+	C10,
+	C11,
+	C12,
+	C13,
+	C14
+! 'conn_01x06_0ibf_connector_pinheader_2_54_pinheader_1x06_p2_54mm_vertical' ! 'Conn_01x06' ; J4,
+	J5,
+	J66
+$A_PROPERTIES
+'ROOM' 'Spannungsversorgung' ; C9,
+	C10,
+	C11,
+	C12,
+	C34,
+	C38,
+	J5,
+	J66
+'ROOM' 'issue22938' ; C7,
+	C8,
+	C13,
+	C14,
+	C37,
+	J4
+$NETS
+'+12V'; C7.1,
+	C8.1,
+	C9.1,
+	C10.1
+'/+48V'; C37.1,
+	J4.1
+'/+7V'; C13.1,
+	C14.1
+'/SPANNUNGSVERSORGUNG/+48V'; C34.1,
+	C38.1,
+	J5.1,
+	J66.1
+'/SPANNUNGSVERSORGUNG/+7V'; C11.1,
+	C12.1
+GND; C34.2,
+	C37.2,
+	C38.2
+'NET-(C10-PAD2)'; C9.2,
+	C10.2
+'NET-(C11-PAD2)'; C11.2,
+	C12.2
+'NET-(C13-PAD2)'; C13.2,
+	C14.2
+'NET-(C7-PAD2)'; C7.2,
+	C8.2
+'UNCONNECTED-(J4-PIN_2-PAD2)'; J4.2
+'UNCONNECTED-(J4-PIN_3-PAD3)'; J4.3
+'UNCONNECTED-(J4-PIN_4-PAD4)'; J4.4
+'UNCONNECTED-(J4-PIN_5-PAD5)'; J4.5
+'UNCONNECTED-(J4-PIN_6-PAD6)'; J4.6
+'UNCONNECTED-(J5-PIN_2-PAD2)'; J5.2
+'UNCONNECTED-(J5-PIN_3-PAD3)'; J5.3
+'UNCONNECTED-(J5-PIN_4-PAD4)'; J5.4
+'UNCONNECTED-(J5-PIN_5-PAD5)'; J5.5
+'UNCONNECTED-(J5-PIN_6-PAD6)'; J5.6
+'UNCONNECTED-(J66-PIN_2-PAD2)'; J66.2
+'UNCONNECTED-(J66-PIN_3-PAD3)'; J66.3
+'UNCONNECTED-(J66-PIN_4-PAD4)'; J66.4
+'UNCONNECTED-(J66-PIN_5-PAD5)'; J66.5
+'UNCONNECTED-(J66-PIN_6-PAD6)'; J66.6
+$END

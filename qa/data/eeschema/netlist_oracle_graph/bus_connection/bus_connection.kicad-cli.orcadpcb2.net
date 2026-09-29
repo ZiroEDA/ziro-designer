@@ -1,0 +1,13 @@
+( { EESchema Netlist Version 1.1 created  2026-09-29T06:56:37 }
+ ( /409e30f5-e026-4121-aa4f-ead0fa3cc75d/b606574e-10df-4dfe-9667-bc4a052fb03b $noname  J1 Conn_01x03
+  (    1 /top.x )
+  (    2 /top.y )
+  (    3 /top.z )
+ )
+ ( /8e047953-57e8-499d-89c7-aaeb7ad61c51/2866a517-6cac-46c4-af83-6d16fab5045c/7237f2f6-7a70-470a-83e2-356d7d23087b $noname  J2 Conn_01x03
+  (    1 /top.x )
+  (    2 /top.y )
+  (    3 /top.z )
+ )
+)
+*

@@ -1,0 +1,21 @@
+*PADS-PCB*
+*PART*
+U5               
+U6               
+U2               
+U3               
+U1               
+U4               
+
+*NET*
+*SIGNAL* /sub1/PIN
+U3.1 U3.2 
+*SIGNAL* /sub3/PIN
+U4.1 U4.2 
+*SIGNAL* unconnected-(U2-PIN-Pad1)
+U2.1 U2.2 
+*SIGNAL* unconnected-(U5-PIN1-Pad1)
+U5.1 U5.2 
+*SIGNAL* unconnected-(U6-PIN-Pad1)
+U6.1 U6.2 
+*END*

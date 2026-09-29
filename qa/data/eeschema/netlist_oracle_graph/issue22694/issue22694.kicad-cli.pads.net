@@ -1,0 +1,9 @@
+*PADS-PCB*
+*PART*
+J2               Connector_PinHeader_2.54mm:PinHeader_1x08_P2.54mm_Vertical
+J3               Connector_PinHeader_2.54mm:PinHeader_1x08_P2.54mm_Vertical
+
+*NET*
+*SIGNAL* Global Label
+J2.2 J2.3 J2.4 J2.5 J2.6 J3.1 
+*END*

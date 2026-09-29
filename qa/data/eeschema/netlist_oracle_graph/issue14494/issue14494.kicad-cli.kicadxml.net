@@ -1,0 +1,250 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<export version="E">
+  <design>
+    <source>/home/akshay/ziro-designer-1/qa/data/eeschema/netlist_oracle_graph/issue14494/issue14494.kicad_sch</source>
+    <date>2026-09-29T06:57:07</date>
+    <tool>Eeschema 10.0.6-10.0.6~ubuntu24.04.1</tool>
+    <sheet number="1" name="/" tstamps="/">
+      <title_block>
+        <title/>
+        <company/>
+        <rev/>
+        <date>2021-08-13</date>
+        <source>issue14494.kicad_sch</source>
+        <comment number="1" value=""/>
+        <comment number="2" value=""/>
+        <comment number="3" value=""/>
+        <comment number="4" value=""/>
+        <comment number="5" value=""/>
+        <comment number="6" value=""/>
+        <comment number="7" value=""/>
+        <comment number="8" value=""/>
+        <comment number="9" value=""/>
+      </title_block>
+    </sheet>
+    <sheet number="2" name="/subsheet_01/" tstamps="/6b22bc55-3b0d-4d96-9827-112a2df8c14e/">
+      <title_block>
+        <title/>
+        <company/>
+        <rev/>
+        <date/>
+        <source>issue14494_subsheet1.kicad_sch</source>
+        <comment number="1" value=""/>
+        <comment number="2" value=""/>
+        <comment number="3" value=""/>
+        <comment number="4" value=""/>
+        <comment number="5" value=""/>
+        <comment number="6" value=""/>
+        <comment number="7" value=""/>
+        <comment number="8" value=""/>
+        <comment number="9" value=""/>
+      </title_block>
+    </sheet>
+  </design>
+  <components>
+    <comp ref="R2">
+      <value>_R</value>
+      <footprint>0IBF_RCL:R_1206_3216Metric</footprint>
+      <fields>
+        <field name="Bemerkung"/>
+        <field name="MF"/>
+        <field name="MPN"/>
+        <field name="RS"/>
+        <field name="Farnell"/>
+        <field name="mouser"/>
+        <field name="digikey"/>
+        <field name="Alternative"/>
+        <field name="Footprint">0IBF_RCL:R_1206_3216Metric</field>
+        <field name="Datasheet"/>
+        <field name="Description"/>
+      </fields>
+      <libsource lib="Device" part="R" description="Resistor"/>
+      <property name="Bemerkung" value=""/>
+      <property name="MF" value=""/>
+      <property name="MPN" value=""/>
+      <property name="RS" value=""/>
+      <property name="Farnell" value=""/>
+      <property name="mouser" value=""/>
+      <property name="digikey" value=""/>
+      <property name="Alternative" value=""/>
+      <property name="Sheetname" value="issue14494"/>
+      <property name="Sheetfile" value="issue14494.kicad_sch"/>
+      <property name="ki_keywords" value="R res resistor"/>
+      <property name="ki_fp_filters" value="R_*"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamps>1dd3c410-9299-41f8-a85a-cbefc6359e42</tstamps>
+      <units>
+        <unit name="A">
+          <pins>
+            <pin num="1"/>
+            <pin num="2"/>
+          </pins>
+        </unit>
+      </units>
+    </comp>
+    <comp ref="R4">
+      <value>_R</value>
+      <footprint>0IBF_RCL:R_1206_3216Metric</footprint>
+      <fields>
+        <field name="Bemerkung"/>
+        <field name="MF"/>
+        <field name="MPN"/>
+        <field name="RS"/>
+        <field name="Farnell"/>
+        <field name="mouser"/>
+        <field name="digikey"/>
+        <field name="Alternative"/>
+        <field name="Footprint">0IBF_RCL:R_1206_3216Metric</field>
+        <field name="Datasheet"/>
+        <field name="Description"/>
+      </fields>
+      <libsource lib="Device" part="R" description="Resistor"/>
+      <property name="Bemerkung" value=""/>
+      <property name="MF" value=""/>
+      <property name="MPN" value=""/>
+      <property name="RS" value=""/>
+      <property name="Farnell" value=""/>
+      <property name="mouser" value=""/>
+      <property name="digikey" value=""/>
+      <property name="Alternative" value=""/>
+      <property name="Sheetname" value="issue14494"/>
+      <property name="Sheetfile" value="issue14494.kicad_sch"/>
+      <property name="ki_keywords" value="R res resistor"/>
+      <property name="ki_fp_filters" value="R_*"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamps>ffa8d79a-2371-411f-8da8-c03e956d0004</tstamps>
+      <units>
+        <unit name="A">
+          <pins>
+            <pin num="1"/>
+            <pin num="2"/>
+          </pins>
+        </unit>
+      </units>
+    </comp>
+    <comp ref="R1">
+      <value>_R</value>
+      <footprint>Resistor_SMD:R_0201_0603Metric</footprint>
+      <fields>
+        <field name="Bemerkung"/>
+        <field name="MF"/>
+        <field name="MPN"/>
+        <field name="RS"/>
+        <field name="Farnell"/>
+        <field name="mouser"/>
+        <field name="digikey"/>
+        <field name="Alternative"/>
+        <field name="Footprint">Resistor_SMD:R_0201_0603Metric</field>
+        <field name="Datasheet"/>
+        <field name="Description"/>
+      </fields>
+      <libsource lib="Device" part="R" description="Resistor"/>
+      <property name="Bemerkung" value=""/>
+      <property name="MF" value=""/>
+      <property name="MPN" value=""/>
+      <property name="RS" value=""/>
+      <property name="Farnell" value=""/>
+      <property name="mouser" value=""/>
+      <property name="digikey" value=""/>
+      <property name="Alternative" value=""/>
+      <property name="Sheetname" value="subsheet_01"/>
+      <property name="Sheetfile" value="issue14494_subsheet1.kicad_sch"/>
+      <property name="Field2" value=""/>
+      <property name="ki_keywords" value="R res resistor"/>
+      <property name="ki_fp_filters" value="R_*"/>
+      <sheetpath names="/subsheet_01/" tstamps="/6b22bc55-3b0d-4d96-9827-112a2df8c14e/"/>
+      <tstamps>535011c7-ca1e-472f-9595-f078df164b8f</tstamps>
+      <units>
+        <unit name="A">
+          <pins>
+            <pin num="1"/>
+            <pin num="2"/>
+          </pins>
+        </unit>
+      </units>
+    </comp>
+    <comp ref="R3">
+      <value>_R</value>
+      <footprint>0IBF_RCL:R_1206_3216Metric</footprint>
+      <fields>
+        <field name="Bemerkung"/>
+        <field name="MF"/>
+        <field name="MPN"/>
+        <field name="RS"/>
+        <field name="Farnell"/>
+        <field name="mouser"/>
+        <field name="digikey"/>
+        <field name="Alternative"/>
+        <field name="Footprint">0IBF_RCL:R_1206_3216Metric</field>
+        <field name="Datasheet"/>
+        <field name="Description"/>
+      </fields>
+      <libsource lib="Device" part="R" description="Resistor"/>
+      <property name="Bemerkung" value=""/>
+      <property name="MF" value=""/>
+      <property name="MPN" value=""/>
+      <property name="RS" value=""/>
+      <property name="Farnell" value=""/>
+      <property name="mouser" value=""/>
+      <property name="digikey" value=""/>
+      <property name="Alternative" value=""/>
+      <property name="Sheetname" value="subsheet_01"/>
+      <property name="Sheetfile" value="issue14494_subsheet1.kicad_sch"/>
+      <property name="Field2" value=""/>
+      <property name="ki_keywords" value="R res resistor"/>
+      <property name="ki_fp_filters" value="R_*"/>
+      <sheetpath names="/subsheet_01/" tstamps="/6b22bc55-3b0d-4d96-9827-112a2df8c14e/"/>
+      <tstamps>0663dc95-1d72-4e0a-ad4b-87388dcd2ed9</tstamps>
+      <units>
+        <unit name="A">
+          <pins>
+            <pin num="1"/>
+            <pin num="2"/>
+          </pins>
+        </unit>
+      </units>
+    </comp>
+  </components>
+  <libparts>
+    <libpart lib="Device" part="R">
+      <description>Resistor</description>
+      <footprints>
+        <fp>R_*</fp>
+      </footprints>
+      <fields>
+        <field name="Reference">R</field>
+        <field name="Value">R</field>
+        <field name="Footprint"/>
+        <field name="Datasheet"/>
+        <field name="Description">Resistor</field>
+      </fields>
+      <pins>
+        <pin num="1" name="" type="passive"/>
+        <pin num="2" name="" type="passive"/>
+      </pins>
+    </libpart>
+  </libparts>
+  <libraries>
+    <library logical="Device">
+      <uri>${KICAD10_SYMBOL_DIR}/Device.kicad_sym</uri>
+    </library>
+  </libraries>
+  <nets>
+    <net code="1" name="/X" class="net_02">
+      <node ref="R1" pin="2" pintype="passive"/>
+      <node ref="R2" pin="2" pintype="passive"/>
+    </net>
+    <net code="2" name="/Y" class="net_01">
+      <node ref="R1" pin="1" pintype="passive"/>
+      <node ref="R2" pin="1" pintype="passive"/>
+    </net>
+    <net code="3" name="/subsheet_01/C" class="net_01">
+      <node ref="R3" pin="1" pintype="passive"/>
+      <node ref="R4" pin="1" pintype="passive"/>
+    </net>
+    <net code="4" name="/subsheet_01/D" class="net_02">
+      <node ref="R3" pin="2" pintype="passive"/>
+      <node ref="R4" pin="2" pintype="passive"/>
+    </net>
+  </nets>
+</export>

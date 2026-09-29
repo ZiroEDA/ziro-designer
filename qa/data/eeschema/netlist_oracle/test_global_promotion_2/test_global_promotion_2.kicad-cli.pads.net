@@ -1,0 +1,21 @@
+*PADS-PCB*
+*PART*
+J2               Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical
+J1               Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical
+R1               Resistor_SMD:R_0603_1608Metric
+R2               Resistor_SMD:R_0603_1608Metric
+R3               Resistor_SMD:R_0603_1608Metric
+R4               Resistor_SMD:R_0603_1608Metric
+
+*NET*
+*SIGNAL* /LIVE_2
+J2.2 R3.1 R4.1 
+*SIGNAL* /Sheet5CC15EF8/LIVE
+J2.1 R1.1 R2.1 
+*SIGNAL* /Sheet5CC15EF8/NEUTRAL
+J2.3 R1.2 R3.2 
+*SIGNAL* /sheet5CC165F1/LIVE_1
+J1.2 R4.2 
+*SIGNAL* LIVE
+J1.1 R2.2 
+*END*

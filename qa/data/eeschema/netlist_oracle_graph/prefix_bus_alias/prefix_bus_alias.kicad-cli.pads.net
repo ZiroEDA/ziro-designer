@@ -1,0 +1,27 @@
+*PADS-PCB*
+*PART*
+J1               Connector_PinHeader_2.54mm:PinHeader_2x05_P2.54mm_Vertical
+J2               Connector_PinHeader_2.54mm:PinHeader_2x05_P2.54mm_Vertical
+
+*NET*
+*SIGNAL* /Subsheet 1/Foo.CTL1
+J1.8 J2.8 
+*SIGNAL* /Subsheet 1/Foo.CTL2
+J1.10 J2.10 
+*SIGNAL* /Subsheet 1/Foo.D0
+J1.1 J2.1 
+*SIGNAL* /Subsheet 1/Foo.D1
+J1.3 J2.3 
+*SIGNAL* /Subsheet 1/Foo.D2
+J1.5 J2.5 
+*SIGNAL* /Subsheet 1/Foo.D3
+J1.7 J2.7 
+*SIGNAL* /Subsheet 1/Foo.D4
+J1.9 J2.9 
+*SIGNAL* /Subsheet 1/Foo.D5
+J1.2 J2.2 
+*SIGNAL* /Subsheet 1/Foo.D6
+J1.4 J2.4 
+*SIGNAL* /Subsheet 1/Foo.D7
+J1.6 J2.6 
+*END*

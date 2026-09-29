@@ -1,0 +1,9 @@
+.HEA
+.TIM 2026-09-29T06:57:23
+.APP "Eeschema 10.0.6-10.0.6~ubuntu24.04.1"
+.TYP FULL
+
+.ADD_COM     R201     "RES"     "$noname"
+
+
+.END

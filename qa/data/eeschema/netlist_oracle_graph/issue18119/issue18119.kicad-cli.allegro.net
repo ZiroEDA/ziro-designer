@@ -1,0 +1,23 @@
+(NETLIST)
+(Source: /home/akshay/ziro-designer-1/qa/data/eeschema/netlist_oracle_graph/issue18119/issue18119.kicad_sch)
+(Date: 2026-09-29T06:57:20)
+$PACKAGES
+! 'conn_01x01_connector_pinheader_2_54mm_pinheader_1x01_p2_54mm_horizontal' ! 'Conn_01x01' ; J1,
+	J2,
+	J3,
+	J4
+! 'r_resistor_tht_r_axial_din0207_l6_3mm_d2_5mm_p7_62mm_horizontal' ! 'R' ; R1
+$A_PROPERTIES
+'ROOM' 'issue18119' ; J1,
+	J2,
+	J3,
+	J4,
+	R1
+$NETS
+/BUS0; J3.1,
+	R1.1
+GND; J2.1,
+	J4.1
+VCC; J1.1,
+	R1.2
+$END

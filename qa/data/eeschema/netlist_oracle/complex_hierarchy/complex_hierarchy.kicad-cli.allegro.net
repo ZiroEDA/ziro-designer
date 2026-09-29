@@ -1,0 +1,307 @@
+(NETLIST)
+(Source: /home/akshay/ziro-designer-1/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy.kicad_sch)
+(Date: 2026-09-29T06:55:50)
+$PACKAGES
+! '10uf_capacitor_tht_cp_axial_l10_0mm_d4_5mm_p15_00mm_horizontal' ! '10uF' ; C10,
+	C11
+! '150nf_capacitor_tht_c_disc_d5_0mm_w2_5mm_p5_00mm' ! '150nF' ; C12,
+	C14
+! '15nf_capacitor_tht_c_disc_d5_0mm_w2_5mm_p5_00mm' ! '15nF' ; C3,
+	C6
+! '1k_resistor_tht_r_axial_din0204_l3_6mm_d1_6mm_p7_62mm_horizontal' ! '1K' ; R8,
+	R9,
+	R18,
+	R19,
+	R23,
+	R24
+! '1n4007_diode_tht_d_do-41_sod81_p12_70mm_horizontal' ! '1N4007' ; D1
+! '1n4148_diode_tht_d_do-35_sod27_p7_62mm_horizontal' ! '1N4148' ; D2,
+	D3,
+	D4,
+	D5,
+	D6,
+	D7,
+	D8,
+	D9
+! '220k_resistor_tht_r_axial_din0204_l3_6mm_d1_6mm_p7_62mm_horizontal' ! '220K' ; R4,
+	R12,
+	R14,
+	R22,
+	R26,
+	R28
+! '22k_resistor_tht_r_axial_din0204_l3_6mm_d1_6mm_p7_62mm_horizontal' ! '22K' ; R6,
+	R7,
+	R16,
+	R17
+! '470_resistor_tht_r_axial_din0204_l3_6mm_d1_6mm_p7_62mm_horizontal' ! '470' ; R3,
+	R13
+! '47_resistor_tht_r_axial_din0204_l3_6mm_d1_6mm_p7_62mm_horizontal' ! '47' ; R5,
+	R15,
+	R25,
+	R27
+! '47uf_20v_capacitor_tht_cp_axial_l10_0mm_d4_5mm_p15_00mm_horizontal' ! '47uF/20V' ; C2
+! '47uf_63v_capacitor_tht_cp_axial_l11_0mm_d6_0mm_p18_00mm_horizontal' ! '47uF/63V' ; C9
+! '47uf_capacitor_tht_cp_axial_l10_0mm_d4_5mm_p15_00mm_horizontal' ! '47uF' ; C1
+! '4_7k_potentiometer_tht_potentiometer_bourns_3266w_vertical' ! '4,7K' ; RV1,
+	RV2
+! '4_7k_resistor_tht_r_axial_din0204_l3_6mm_d1_6mm_p7_62mm_horizontal' ! '4,7K' ; R11,
+	R21
+! '4_7nf_capacitor_tht_c_disc_d5_0mm_w2_5mm_p5_00mm' ! '4.7nF' ; C4,
+	C7
+! '5_6k_resistor_tht_r_axial_din0204_l3_6mm_d1_6mm_p7_62mm_horizontal' ! '5,6K' ; R10,
+	R20
+! '78l05_package_to_sot_tht_to-92_handsolder' ! '78L05' ; U2
+! '820pf_capacitor_tht_c_disc_d5_0mm_w2_5mm_p5_00mm' ! '820pF' ; C5,
+	C8
+! 'conn_2_terminalblock_altech_altech_ak300_1x02_p5_00mm_45-degree' ! 'CONN_2' ; P1,
+	P2,
+	P3,
+	P4,
+	P5,
+	P6
+! 'icl7660_package_dip_dip-8_w7_62mm_longpads' ! 'ICL7660' ; U1
+! 'lm358n_package_dip_dip-8_w7_62mm_longpads' ! 'LM358N' ; U3,
+	U4
+! 'mpsa42_package_to_sot_tht_to-92_handsolder' ! 'MPSA42' ; Q2,
+	Q4,
+	Q6,
+	Q8
+! 'mpsa92_package_to_sot_tht_to-92_handsolder' ! 'MPSA92' ; Q1,
+	Q3,
+	Q5,
+	Q7
+$A_PROPERTIES
+'ROOM' 'ampli_ht_horizontal' ; C6,
+	C7,
+	C8,
+	C14,
+	D5,
+	D6,
+	D7,
+	D9,
+	P5,
+	P6,
+	Q5,
+	Q6,
+	Q7,
+	Q8,
+	R13,
+	R14,
+	R15,
+	R16,
+	R17,
+	R18,
+	R19,
+	R20,
+	R21,
+	R22,
+	R24,
+	R27,
+	R28,
+	RV2,
+	U4
+'ROOM' 'ampli_ht_vertical' ; C3,
+	C4,
+	C5,
+	C12,
+	D2,
+	D3,
+	D4,
+	D8,
+	P3,
+	P4,
+	Q1,
+	Q2,
+	Q3,
+	Q4,
+	R3,
+	R4,
+	R5,
+	R6,
+	R7,
+	R8,
+	R9,
+	R10,
+	R11,
+	R12,
+	R23,
+	R25,
+	R26,
+	RV1,
+	U3
+'ROOM' 'complex_hierarchy' ; C1,
+	C2,
+	C9,
+	C10,
+	C11,
+	D1,
+	P1,
+	P2,
+	U1,
+	U2
+$NETS
+'+12C'; C2.1,
+	D1.1,
+	U2.3,
+	U3.8,
+	U4.8
+'-VAA'; C11.2,
+	U1.5,
+	U3.4,
+	U4.4
+/12VEXT; D1.2,
+	P2.1
+/AMPLI_HT_HORIZONTAL/PIEZO_IN; P6.1,
+	R24.2
+/AMPLI_HT_HORIZONTAL/PIEZO_OUT; P5.1,
+	R15.1,
+	R27.1
+'/AMPLI_HT_HORIZONTAL/S_OUT+'; R22.1,
+	R28.1,
+	RV2.3
+'/AMPLI_HT_HORIZONTAL/VPIL_0_3,3V'; C6.1,
+	U4.3,
+	U4.6,
+	U4.7
+/AMPLI_HT_VERTICAL/PIEZO_IN; P4.1,
+	R23.2
+/AMPLI_HT_VERTICAL/PIEZO_OUT; P3.1,
+	R5.1,
+	R25.1
+'/AMPLI_HT_VERTICAL/S_OUT+'; R12.1,
+	R26.1,
+	RV1.3
+'/AMPLI_HT_VERTICAL/VPIL_0_3,3V'; C3.1,
+	U3.3,
+	U3.6,
+	U3.7
+GND; C1.2,
+	C2.2,
+	C4.2,
+	C5.2,
+	C7.2,
+	C8.2,
+	C9.2,
+	C11.1,
+	C12.2,
+	C14.2,
+	P1.2,
+	P2.2,
+	P3.2,
+	P4.2,
+	P5.2,
+	P6.2,
+	Q3.3,
+	Q7.3,
+	R4.2,
+	R8.2,
+	R11.2,
+	R14.2,
+	R18.2,
+	R21.2,
+	U1.3,
+	U2.2
+HT; C9.1,
+	D2.2,
+	D5.2,
+	P1.1,
+	Q2.3,
+	Q6.3,
+	R3.1,
+	R13.1
+'NET-(C12-PAD1)'; C12.1,
+	R6.2,
+	R23.1
+'NET-(C14-PAD1)'; C14.1,
+	R16.2,
+	R24.1
+'NET-(C3-PAD2)'; C3.2,
+	R6.1,
+	R7.2
+'NET-(C5-PAD1)'; C5.1,
+	R10.2
+'NET-(C6-PAD2)'; C6.2,
+	R16.1,
+	R17.2
+'NET-(C8-PAD1)'; C8.1,
+	R20.2
+'NET-(D2-K)'; D2.1,
+	D3.2
+'NET-(D3-K)'; D3.1,
+	Q1.2,
+	R4.1
+'NET-(D4-A)'; D4.2,
+	D8.1
+'NET-(D4-K)'; D4.1,
+	Q3.2,
+	Q4.3,
+	R10.1
+'NET-(D5-K)'; D5.1,
+	D6.2
+'NET-(D6-K)'; D6.1,
+	Q5.2,
+	R14.1
+'NET-(D7-A)'; D7.2,
+	D9.1
+'NET-(D7-K)'; D7.1,
+	Q7.2,
+	Q8.3,
+	R20.1
+'NET-(D8-A)'; D8.2,
+	Q1.3,
+	Q2.2
+'NET-(D9-A)'; D9.2,
+	Q5.3,
+	Q6.2
+'NET-(Q1-E)'; Q1.1,
+	R3.2
+'NET-(Q2-E)'; Q2.1,
+	R5.2,
+	R26.2
+'NET-(Q3-E)'; Q3.1,
+	R12.2,
+	R25.2
+'NET-(Q4-B)'; Q4.2,
+	R8.1
+'NET-(Q4-E)'; Q4.1,
+	R9.1
+'NET-(Q5-E)'; Q5.1,
+	R13.2
+'NET-(Q6-E)'; Q6.1,
+	R15.2,
+	R28.2
+'NET-(Q7-E)'; Q7.1,
+	R22.2,
+	R27.2
+'NET-(Q8-B)'; Q8.2,
+	R18.1
+'NET-(Q8-E)'; Q8.1,
+	R19.1
+'NET-(R11-PAD1)'; R11.1,
+	RV1.1
+'NET-(R19-PAD2)'; R19.2,
+	U4.1
+'NET-(R21-PAD1)'; R21.1,
+	RV2.1
+'NET-(R9-PAD2)'; R9.2,
+	U3.1
+'NET-(U1-CAP+)'; C10.1,
+	U1.2
+'NET-(U1-CAP-)'; C10.2,
+	U1.4
+'NET-(U3A--)'; RV1.2,
+	U3.2
+'NET-(U3B-+)'; C4.1,
+	R7.1,
+	U3.5
+'NET-(U4A--)'; RV2.2,
+	U4.2
+'NET-(U4B-+)'; C7.1,
+	R17.1,
+	U4.5
+VCC; C1.1,
+	U1.8,
+	U2.1
+'UNCONNECTED-(U1-LV-PAD6)'; U1.6
+'UNCONNECTED-(U1-OSC-PAD7)'; U1.7
+$END

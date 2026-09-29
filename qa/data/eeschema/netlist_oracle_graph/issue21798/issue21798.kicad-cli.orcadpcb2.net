@@ -1,0 +1,11 @@
+( { EESchema Netlist Version 1.1 created  2026-09-29T06:57:26 }
+ ( /11111111-0001-2222-3333-444444444444 $noname  J1 Conn_01x02
+  (    1 /Sheet1/D0 )
+  (    2 unconnected-(J1-Pin_2-Pad2) )
+ )
+ ( /11111111-0002-2222-3333-444444444444 $noname  J2 Conn_01x02
+  (    1 /Sheet1/D0 )
+  (    2 unconnected-(J2-Pin_2-Pad2) )
+ )
+)
+*

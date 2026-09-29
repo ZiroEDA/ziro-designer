@@ -1,0 +1,11 @@
+PACKAGE 'cp_axial_l11_0mm_d6_0mm_p18_00mm_horizontal'
+CLASS IC
+PINCOUNT 2
+PINORDER MAIN ,
+	__1,
+	__2
+FUNCTION MAIN MAIN ,
+	1,
+	2
+PACKAGEPROP VALUE 47uF/63V
+END

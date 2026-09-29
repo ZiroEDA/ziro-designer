@@ -1,0 +1,12 @@
+.HEA
+.TIM 2026-09-29T06:58:07
+.APP "Eeschema 10.0.6-10.0.6~ubuntu24.04.1"
+.TYP FULL
+
+.ADD_COM     U1     "IR4301"     "Package_DFN_QFN:Infineon_PQFN-22-15-4EP_6x5mm_P0.65mm"
+
+
+.ADD_TER   U1   7     "Net-(U1-COM)"
+.TER       U1   9
+
+.END

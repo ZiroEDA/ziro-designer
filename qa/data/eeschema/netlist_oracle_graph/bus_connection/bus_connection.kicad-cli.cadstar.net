@@ -1,0 +1,19 @@
+.HEA
+.TIM 2026-09-29T06:56:38
+.APP "Eeschema 10.0.6-10.0.6~ubuntu24.04.1"
+.TYP FULL
+
+.ADD_COM     J1     "Conn_01x03"     "$noname"
+.ADD_COM     J2     "Conn_01x03"     "$noname"
+
+
+.ADD_TER   J1   1     "/top.x"
+.TER       J2   1
+
+.ADD_TER   J1   2     "/top.y"
+.TER       J2   2
+
+.ADD_TER   J1   3     "/top.z"
+.TER       J2   3
+
+.END

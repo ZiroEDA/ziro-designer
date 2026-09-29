@@ -1,0 +1,11 @@
+(NETLIST)
+(Source: /home/akshay/ziro-designer-1/qa/data/eeschema/netlist_oracle_graph/issue18606/issue18606.kicad_sch)
+(Date: 2026-09-29T06:57:25)
+$PACKAGES
+! 'res' ! 'RES' ; R201
+$A_PROPERTIES
+'ROOM' 'test' ; R201
+$NETS
+/A0; R201.1
+'UNCONNECTED-(R201-PAD2)'; R201.2
+$END

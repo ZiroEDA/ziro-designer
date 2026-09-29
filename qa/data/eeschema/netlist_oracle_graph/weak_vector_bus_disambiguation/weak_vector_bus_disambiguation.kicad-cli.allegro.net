@@ -1,0 +1,23 @@
+(NETLIST)
+(Source: /home/akshay/ziro-designer-1/qa/data/eeschema/netlist_oracle_graph/weak_vector_bus_disambiguation/weak_vector_bus_disambiguation.kicad_sch)
+(Date: 2026-09-29T06:58:41)
+$PACKAGES
+! 'r' ! 'R' ; R1,
+	R2,
+	R3,
+	R4
+$A_PROPERTIES
+'ROOM' 'Merge' ; R3,
+	R4
+'ROOM' 'Sub1' ; R1
+'ROOM' 'Sub2' ; R2
+$NETS
+/MERGE/A1; R1.1,
+	R3.1
+/MERGE/A2; R1.2,
+	R3.2
+/MERGE/D1; R2.1,
+	R4.1
+/MERGE/D2; R2.2,
+	R4.2
+$END

@@ -1,0 +1,12 @@
+( { EESchema Netlist Version 1.1 created  2026-09-29T06:57:43 }
+ ( /9522d47d-258a-4aef-9e52-17c524e99187/ff5d1735-71c9-4af6-b011-5e3b871ca53b Connector:FanPinHeader_1x04_P2.54mm_Vertical  J1 Conn_01x04_Socket
+  (    1 P4 )
+  (    2 P4 )
+  (    3 unconnected-(J1-Pin_3-Pad3) )
+  (    4 unconnected-(J1-Pin_4-Pad4) )
+ )
+ ( /bb562c27-0eeb-40a3-8dc7-ffe47e8977cd/b8b5e1ec-b280-456e-b772-84269749ede4 Connector_Pin:Pin_D1.0mm_L10.0mm  TP1 TestPoint
+  (    1 P4 )
+ )
+)
+*

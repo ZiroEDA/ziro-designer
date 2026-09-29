@@ -2,19 +2,31 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * Netlist export (NETLIST_EXPORTER_XML version "E" and NETLIST_EXPORTER_ORCADPCB2):
- * two output pins wired together must land on one net with both nodes, and the
- * component/footprint sections must reflect the placed symbols.
+ * Netlist export (NETLIST_EXPORTER_XML version "E", _ORCADPCB2, _PADS, _CADSTAR) over
+ * the live SCHEMATIC loaded from the text below: two pins wired together must land on
+ * one net with both nodes, and the component/footprint sections must reflect the placed
+ * symbols. `designer/netlist_formats_oracle.test.ts` holds each format to kicad-cli
+ * whole; these pin the quirks one at a time.
  */
-import { GENERATOR, GENERATOR_APPLICATION, GENERATOR_VERSION } from '@ziroeda/common/generator.js';
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/index.js';
-import { readSchematic } from '@ziroeda/eeschema';
-import { netlistKicadXml } from '@ziroeda/eeschema/netlist_exporters/netlist_exporter_xml.js';
-import { netlistOrcadPcb2 } from '@ziroeda/eeschema/netlist_exporters/netlist_exporter_orcadpcb2.js';
-import { netlistPads } from '@ziroeda/eeschema/netlist_exporters/netlist_exporter_pads.js';
-import { netlistCadstar } from '@ziroeda/eeschema/netlist_exporters/netlist_exporter_cadstar.js';
-import { generateNetlist } from '@ziroeda/eeschema/netlist_exporters/netlist_generator.js';
+import { loadProjectSchematic } from '@ziroeda/eeschema/cross-probing.js';
+import {
+  WriteNetListText,
+  type NetlistFormat,
+} from '@ziroeda/eeschema/netlist_exporters/netlist_generator.js';
+
+/** Load `aText` as a one-sheet project and export it in `aFormat`. */
+function exportText(aFormat: NetlistFormat, aText: string): string {
+  const schematic = loadProjectSchematic(
+    [{ name: 'test.kicad_sch', text: aText }],
+    'test.kicad_sch',
+  );
+  if (!schematic) throw new Error('test.kicad_sch did not load');
+  return WriteNetListText(aFormat, schematic, 'test.net')[0]!.text;
+}
+
+/** A valid KIID from a short tag, so the loader keeps it. */
+const kiid = (n: number): string => `aaaaaaaa-0000-4000-8000-${String(n).padStart(12, '0')}`;
 
 // A 2-pin resistor-like part and a wire joining R1 pin 2 to R2 pin 1.
 const LIB = `(symbol "Device:R" (pin_names (offset 0))
@@ -35,15 +47,12 @@ const place = (ref: string, x: number, y: number, uuid: string): string =>
 // After the library +Y-up→down inversion, R1's pin 2 connection point sits at
 // y=103.81 and R2's pin 1 at y=106.19. A wire whose endpoints land exactly on
 // those pins joins them onto one net (a pin only connects at a wire endpoint).
-const doc = readSchematic(
-  parse(`(kicad_sch (version 20230121) (generator eeschema) (lib_symbols ${LIB})
-    ${place('R1', 100, 100, 'r1')} ${place('R2', 100, 110, 'r2')}
-    (wire (pts (xy 100 103.81) (xy 100 106.19)) (uuid "w1")))`),
-);
-const libById = new Map(doc.libSymbols.map((l) => [l.libId, l]));
+const doc = `(kicad_sch (version 20230121) (generator eeschema) (lib_symbols ${LIB})
+    ${place('R1', 100, 100, kiid(1))} ${place('R2', 100, 110, kiid(2))}
+    (wire (pts (xy 100 103.81) (xy 100 106.19)) (uuid "${kiid(3)}")))`;
 
-describe('netlistKicadXml', () => {
-  const xml = netlistKicadXml(doc, libById, { source: 'test.kicad_sch' });
+describe('NETLIST_EXPORTER_XML', () => {
+  const xml = exportText('kicadxml', doc);
 
   it('emits the export root, components, and both refs', () => {
     expect(xml).toContain('<export version="E">');
@@ -69,11 +78,12 @@ describe('netlistKicadXml', () => {
   });
 });
 
-describe('netlistOrcadPcb2', () => {
-  const net = netlistOrcadPcb2(doc, libById, { source: 'test.kicad_sch' });
+describe('NETLIST_EXPORTER_ORCADPCB2', () => {
+  const net = exportText('orcadpcb2', doc);
 
   it('writes each symbol with its footprint, ref and value', () => {
-    expect(net.startsWith(`( { ${GENERATOR_APPLICATION} netlist created`)).toBe(true);
+    // NETLIST_HEAD_STRING (netlist.h:54), then two spaces and the date.
+    expect(net.startsWith('( { EESchema Netlist Version 1.1 created  ')).toBe(true);
     expect(net).toContain('Resistor_SMD:R_0603  R1 1k');
     expect(net).toContain('Resistor_SMD:R_0603  R2 1k');
     expect(net.trimEnd().endsWith('*')).toBe(true);
@@ -93,7 +103,7 @@ describe('netlistOrcadPcb2', () => {
  * A pin connects only where a wire *ends*, not where one passes through, so the
  * pins are joined by a chain of segments rather than one long wire.
  */
-function pinRow(n: number): { doc: ReturnType<typeof readSchematic>; libById: Map<string, any> } {
+function pinRow(n: number): string {
   const pins = Array.from({ length: n }, (_v, i) => {
     const y = 3.81 - i * 2.54;
     return `(pin passive line (at 0 ${y} 270) (length 0) (name "~") (number "${i + 1}"))`;
@@ -107,25 +117,22 @@ function pinRow(n: number): { doc: ReturnType<typeof readSchematic>; libById: Ma
   const yOf = (i: number): number => 100 - 3.81 + i * 2.54;
   const wires = Array.from(
     { length: n - 1 },
-    (_v, i) => `(wire (pts (xy 0 ${yOf(i)}) (xy 0 ${yOf(i + 1)})) (uuid "wn${i}"))`,
+    (_v, i) => `(wire (pts (xy 0 ${yOf(i)}) (xy 0 ${yOf(i + 1)})) (uuid "${kiid(100 + i)}"))`,
   ).join('\n      ');
-  const doc = readSchematic(
-    parse(`(kicad_sch (version 20230121) (generator eeschema) (lib_symbols ${lib})
+  return `(kicad_sch (version 20230121) (generator eeschema) (lib_symbols ${lib})
       (symbol (lib_id "Device:U") (at 0 100 0) (unit 1)
         (property "Reference" "U1" (at 0 100 0))
         (property "Value" "U" (at 0 100 0))
         (property "Footprint" "F" (at 0 100 0))
-        (uuid "u1"))
-      ${wires})`),
-  );
-  return { doc, libById: new Map(doc.libSymbols.map((l) => [l.libId, l])) };
+        (uuid "${kiid(50)}"))
+      ${wires})`;
 }
 
 /**
  * A 2-unit part ("Device:DUAL") placed as two separate SCH_SYMBOL instances
  * sharing one reference ("U1"), for the `findNextSymbol` dedup rule: PADS and
  * CadStar's `*PART*`/`.ADD_COM` sections must carry exactly one line for it,
- * not one per unit (`netlist_exporter_base.ts`'s `sheetOrderedBoardSymbols`).
+ * not one per unit (`NETLIST_EXPORTER_BASE::findNextSymbol`).
  */
 const multiUnit = (() => {
   const lib = `(symbol "Device:DUAL" (pin_names (offset 0))
@@ -135,8 +142,7 @@ const multiUnit = (() => {
       (pin passive line (at 0 0 0) (length 1) (name "~") (number "1")))
     (symbol "DUAL_2_1"
       (pin passive line (at 0 0 0) (length 1) (name "~") (number "2"))))`;
-  const doc = readSchematic(
-    parse(`(kicad_sch (version 20230121) (generator eeschema) (lib_symbols ${lib})
+  return `(kicad_sch (version 20230121) (generator eeschema) (lib_symbols ${lib})
       (symbol (lib_id "Device:DUAL") (at 0 0 0) (unit 1)
         (property "Reference" "U1" (at 0 0 0))
         (property "Value" "DUAL" (at 0 0 0))
@@ -146,13 +152,11 @@ const multiUnit = (() => {
         (property "Reference" "U1" (at 0 10 0))
         (property "Value" "DUAL" (at 0 10 0))
         (property "Footprint" "F" (at 0 10 0))
-        (uuid "aaaaaaaa-0000-0000-0000-000000000002")))`),
-  );
-  return { doc, libById: new Map(doc.libSymbols.map((l) => [l.libId, l])) };
+        (uuid "aaaaaaaa-0000-0000-0000-000000000002")))`;
 })();
 
-describe('netlistPads', () => {
-  const pads = netlistPads(doc, libById);
+describe('NETLIST_EXPORTER_PADS', () => {
+  const pads = exportText('pads', doc);
   const lines = pads.split('\n');
 
   it('emits the three sections in order', () => {
@@ -184,7 +188,7 @@ describe('netlistPads', () => {
     // lands exactly on a break. Both are quirks worth keeping: a diff against a
     // KiCad-written file should be empty.
     const many = pinRow(9);
-    const out = netlistPads(many.doc, many.libById).split('\n');
+    const out = exportText('pads', many).split('\n');
     const at = out.findIndex((l) => l.startsWith('*SIGNAL*'));
     expect(out[at + 1]!.split(' ').filter(Boolean)).toHaveLength(7);
     expect(out[at + 2]!).toBe('U1.8 U1.9 ');
@@ -197,14 +201,12 @@ describe('netlistPads', () => {
   });
 
   it('falls back to the value when a symbol has no footprint', () => {
-    const noFp = readSchematic(
-      parse(`(kicad_sch (version 20230121) (generator eeschema) (lib_symbols ${LIB})
+    const noFp = `(kicad_sch (version 20230121) (generator eeschema) (lib_symbols ${LIB})
         (symbol (lib_id "Device:R") (at 10 10 0) (unit 1)
           (property "Reference" "R9" (at 10 10 0))
           (property "Value" "4k7 ohm" (at 10 10 0))
-          (uuid "r9")))`),
-    );
-    const out = netlistPads(noFp, new Map(noFp.libSymbols.map((l) => [l.libId, l])));
+          (uuid "${kiid(9)}")))`;
+    const out = exportText('pads', noFp);
     // The value stands in for the footprint, with spaces turned to underscores.
     expect(out).toContain(`${'R9'.padEnd(16)} 4k7_ohm`);
   });
@@ -212,23 +214,21 @@ describe('netlistPads', () => {
   it('writes one *PART* line per reference, not one per unit', () => {
     // findNextSymbol skips a reference already seen: a 2-unit part placed as
     // two separate SCH_SYMBOL instances must still get exactly one line.
-    const out = netlistPads(multiUnit.doc, multiUnit.libById);
+    const out = exportText('pads', multiUnit);
     const partLines = out.split('\n').filter((l) => l.startsWith('U1'));
     expect(partLines).toHaveLength(1);
   });
 });
 
-describe('netlistCadstar', () => {
-  const cad = netlistCadstar(doc, libById, {
-    source: 'test.kicad_sch',
-    date: '2026-01-01T00:00:00Z',
-  });
+describe('NETLIST_EXPORTER_CADSTAR', () => {
+  const cad = exportText('cadstar', doc);
   const lines = cad.split('\n');
 
   it('emits the header block', () => {
     expect(lines[0]).toBe('.HEA');
-    expect(lines[1]).toBe('.TIM 2026-01-01T00:00:00Z');
-    expect(lines[2]).toMatch(/^\.APP "/);
+    expect(lines[1]).toMatch(/^\.TIM \d{4}-\d\d-\d\dT\d\d:\d\d:\d\d$/);
+    // `"Eeschema " + GetBuildVersion()`, quoted.
+    expect(lines[2]).toMatch(/^\.APP "Eeschema [^"]+"$/);
     expect(lines[3]).toBe('.TYP FULL');
   });
 
@@ -257,32 +257,27 @@ describe('netlistCadstar', () => {
   });
 
   it('uses $noname when a symbol has no footprint', () => {
-    const noFp = readSchematic(
-      parse(`(kicad_sch (version 20230121) (generator eeschema) (lib_symbols ${LIB})
+    const noFp = `(kicad_sch (version 20230121) (generator eeschema) (lib_symbols ${LIB})
         (symbol (lib_id "Device:R") (at 10 10 0) (unit 1)
           (property "Reference" "R9" (at 10 10 0))
           (property "Value" "4k7" (at 10 10 0))
-          (uuid "r9")))`),
-    );
-    const out = netlistCadstar(noFp, new Map(noFp.libSymbols.map((l) => [l.libId, l])), {
-      source: 's',
-    });
+          (uuid "${kiid(9)}")))`;
+    const out = exportText('cadstar', noFp);
     expect(out).toContain('"$noname"');
   });
 
   it('writes one .ADD_COM per reference, not one per unit', () => {
-    const out = netlistCadstar(multiUnit.doc, multiUnit.libById, { source: 's' });
+    const out = exportText('cadstar', multiUnit);
     const addComLines = out.split('\n').filter((l) => l.includes('ADD_COM') && l.includes('U1'));
     expect(addComLines).toHaveLength(1);
   });
 });
 
-describe('generateNetlist dispatch', () => {
+describe('WriteNetListText dispatch', () => {
   it('routes each format to its exporter', () => {
-    const meta = { source: 'test.kicad_sch' };
-    expect(generateNetlist('pads', doc, libById, meta)).toContain('*PADS-PCB*');
-    expect(generateNetlist('cadstar', doc, libById, meta)).toContain('.HEA');
-    expect(generateNetlist('kicadxml', doc, libById, meta)).toContain('<export');
-    expect(generateNetlist('orcadpcb2', doc, libById, meta)).toContain('( {');
+    expect(exportText('pads', doc)).toContain('*PADS-PCB*');
+    expect(exportText('cadstar', doc)).toContain('.HEA');
+    expect(exportText('kicadxml', doc)).toContain('<export');
+    expect(exportText('orcadpcb2', doc)).toContain('( {');
   });
 });

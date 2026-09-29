@@ -1,0 +1,178 @@
+*PADS-PCB*
+*PART*
+P2               TerminalBlock_Altech:Altech_AK300_1x02_P5.00mm_45-Degree
+D1               Diode_THT:D_DO-41_SOD81_P12.70mm_Horizontal
+C2               Capacitor_THT:CP_Axial_L10.0mm_D4.5mm_P15.00mm_Horizontal
+C1               Capacitor_THT:CP_Axial_L10.0mm_D4.5mm_P15.00mm_Horizontal
+P1               TerminalBlock_Altech:Altech_AK300_1x02_P5.00mm_45-Degree
+C9               Capacitor_THT:CP_Axial_L11.0mm_D6.0mm_P18.00mm_Horizontal
+U1               Package_DIP:DIP-8_W7.62mm_LongPads
+U2               Package_TO_SOT_THT:TO-92_HandSolder
+C11              Capacitor_THT:CP_Axial_L10.0mm_D4.5mm_P15.00mm_Horizontal
+C10              Capacitor_THT:CP_Axial_L10.0mm_D4.5mm_P15.00mm_Horizontal
+RV1              Potentiometer_THT:Potentiometer_Bourns_3266W_Vertical
+C3               Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm
+R7               Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal
+U3               Package_DIP:DIP-8_W7.62mm_LongPads
+Q1               Package_TO_SOT_THT:TO-92_HandSolder
+R11              Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal
+R5               Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal
+C5               Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm
+C4               Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm
+P4               TerminalBlock_Altech:Altech_AK300_1x02_P5.00mm_45-Degree
+R6               Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal
+P3               TerminalBlock_Altech:Altech_AK300_1x02_P5.00mm_45-Degree
+R9               Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal
+R12              Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal
+R8               Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal
+R4               Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal
+D2               Diode_THT:D_DO-35_SOD27_P7.62mm_Horizontal
+R3               Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal
+D3               Diode_THT:D_DO-35_SOD27_P7.62mm_Horizontal
+Q4               Package_TO_SOT_THT:TO-92_HandSolder
+D4               Diode_THT:D_DO-35_SOD27_P7.62mm_Horizontal
+Q3               Package_TO_SOT_THT:TO-92_HandSolder
+Q2               Package_TO_SOT_THT:TO-92_HandSolder
+R23              Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal
+C12              Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm
+R10              Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal
+D8               Diode_THT:D_DO-35_SOD27_P7.62mm_Horizontal
+R25              Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal
+R26              Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal
+RV2              Potentiometer_THT:Potentiometer_Bourns_3266W_Vertical
+C6               Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm
+R17              Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal
+U4               Package_DIP:DIP-8_W7.62mm_LongPads
+Q5               Package_TO_SOT_THT:TO-92_HandSolder
+R21              Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal
+R15              Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal
+C8               Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm
+C7               Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm
+P6               TerminalBlock_Altech:Altech_AK300_1x02_P5.00mm_45-Degree
+R16              Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal
+P5               TerminalBlock_Altech:Altech_AK300_1x02_P5.00mm_45-Degree
+R19              Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal
+R22              Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal
+R18              Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal
+R14              Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal
+D5               Diode_THT:D_DO-35_SOD27_P7.62mm_Horizontal
+R13              Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal
+D6               Diode_THT:D_DO-35_SOD27_P7.62mm_Horizontal
+Q8               Package_TO_SOT_THT:TO-92_HandSolder
+D7               Diode_THT:D_DO-35_SOD27_P7.62mm_Horizontal
+Q7               Package_TO_SOT_THT:TO-92_HandSolder
+Q6               Package_TO_SOT_THT:TO-92_HandSolder
+R24              Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal
+C14              Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm
+R20              Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal
+D9               Diode_THT:D_DO-35_SOD27_P7.62mm_Horizontal
+R27              Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal
+R28              Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal
+
+*NET*
+*SIGNAL* +12C
+C2.1 D1.1 U2.3 U3.8 U4.8 
+*SIGNAL* -VAA
+C11.2 U1.5 U3.4 U4.4 
+*SIGNAL* /12Vext
+D1.2 P2.1 
+*SIGNAL* /ampli_ht_horizontal/PIEZO_IN
+P6.1 R24.2 
+*SIGNAL* /ampli_ht_horizontal/PIEZO_OUT
+P5.1 R15.1 R27.1 
+*SIGNAL* /ampli_ht_horizontal/S_OUT+
+R22.1 R28.1 RV2.3 
+*SIGNAL* /ampli_ht_horizontal/Vpil_0_3,3V
+C6.1 U4.3 U4.6 U4.7 
+*SIGNAL* /ampli_ht_vertical/PIEZO_IN
+P4.1 R23.2 
+*SIGNAL* /ampli_ht_vertical/PIEZO_OUT
+P3.1 R25.1 R5.1 
+*SIGNAL* /ampli_ht_vertical/S_OUT+
+R12.1 R26.1 RV1.3 
+*SIGNAL* /ampli_ht_vertical/Vpil_0_3,3V
+C3.1 U3.3 U3.6 U3.7 
+*SIGNAL* GND
+C1.2 C11.1 C12.2 C14.2 C2.2 C4.2 C5.2
+C7.2 C8.2 C9.2 P1.2 P2.2 P3.2
+P4.2 P5.2 P6.2 Q3.3 Q7.3 R11.2
+R14.2 R18.2 R21.2 R4.2 R8.2 U1.3
+U2.2 
+*SIGNAL* HT
+C9.1 D2.2 D5.2 P1.1 Q2.3 Q6.3 R13.1
+R3.1 
+*SIGNAL* Net-(C12-Pad1)
+C12.1 R23.1 R6.2 
+*SIGNAL* Net-(C14-Pad1)
+C14.1 R16.2 R24.1 
+*SIGNAL* Net-(C3-Pad2)
+C3.2 R6.1 R7.2 
+*SIGNAL* Net-(C5-Pad1)
+C5.1 R10.2 
+*SIGNAL* Net-(C6-Pad2)
+C6.2 R16.1 R17.2 
+*SIGNAL* Net-(C8-Pad1)
+C8.1 R20.2 
+*SIGNAL* Net-(D2-K)
+D2.1 D3.2 
+*SIGNAL* Net-(D3-K)
+D3.1 Q1.2 R4.1 
+*SIGNAL* Net-(D4-A)
+D4.2 D8.1 
+*SIGNAL* Net-(D4-K)
+D4.1 Q3.2 Q4.3 R10.1 
+*SIGNAL* Net-(D5-K)
+D5.1 D6.2 
+*SIGNAL* Net-(D6-K)
+D6.1 Q5.2 R14.1 
+*SIGNAL* Net-(D7-A)
+D7.2 D9.1 
+*SIGNAL* Net-(D7-K)
+D7.1 Q7.2 Q8.3 R20.1 
+*SIGNAL* Net-(D8-A)
+D8.2 Q1.3 Q2.2 
+*SIGNAL* Net-(D9-A)
+D9.2 Q5.3 Q6.2 
+*SIGNAL* Net-(Q1-E)
+Q1.1 R3.2 
+*SIGNAL* Net-(Q2-E)
+Q2.1 R26.2 R5.2 
+*SIGNAL* Net-(Q3-E)
+Q3.1 R12.2 R25.2 
+*SIGNAL* Net-(Q4-B)
+Q4.2 R8.1 
+*SIGNAL* Net-(Q4-E)
+Q4.1 R9.1 
+*SIGNAL* Net-(Q5-E)
+Q5.1 R13.2 
+*SIGNAL* Net-(Q6-E)
+Q6.1 R15.2 R28.2 
+*SIGNAL* Net-(Q7-E)
+Q7.1 R22.2 R27.2 
+*SIGNAL* Net-(Q8-B)
+Q8.2 R18.1 
+*SIGNAL* Net-(Q8-E)
+Q8.1 R19.1 
+*SIGNAL* Net-(R11-Pad1)
+R11.1 RV1.1 
+*SIGNAL* Net-(R19-Pad2)
+R19.2 U4.1 
+*SIGNAL* Net-(R21-Pad1)
+R21.1 RV2.1 
+*SIGNAL* Net-(R9-Pad2)
+R9.2 U3.1 
+*SIGNAL* Net-(U1-CAP+)
+C10.1 U1.2 
+*SIGNAL* Net-(U1-CAP-)
+C10.2 U1.4 
+*SIGNAL* Net-(U3A--)
+RV1.2 U3.2 
+*SIGNAL* Net-(U3B-+)
+C4.1 R7.1 U3.5 
+*SIGNAL* Net-(U4A--)
+RV2.2 U4.2 
+*SIGNAL* Net-(U4B-+)
+C7.1 R17.1 U4.5 
+*SIGNAL* VCC
+C1.1 U1.8 U2.1 
+*END*

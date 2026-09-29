@@ -1,0 +1,32 @@
+.HEA
+.TIM 2026-09-29T06:58:04
+.APP "Eeschema 10.0.6-10.0.6~ubuntu24.04.1"
+.TYP FULL
+
+.ADD_COM     R7     "R"     "$noname"
+.ADD_COM     R12     "R"     "$noname"
+.ADD_COM     R10     "R"     "$noname"
+.ADD_COM     R4     "R"     "$noname"
+.ADD_COM     R3     "R"     "$noname"
+.ADD_COM     R2     "R"     "$noname"
+.ADD_COM     R1     "R"     "$noname"
+.ADD_COM     R9     "R"     "$noname"
+.ADD_COM     R11     "R"     "$noname"
+.ADD_COM     R5     "R"     "$noname"
+.ADD_COM     R8     "R"     "$noname"
+.ADD_COM     R6     "R"     "$noname"
+
+
+.ADD_TER   R3   2     "/NET_1"
+.TER       R4   1
+
+.ADD_TER   R7   2     "/NET_2"
+.TER       R8   1
+
+.ADD_TER   R10   1     "/NET_3"
+.TER       R9   2
+
+.ADD_TER   R11   2     "/NET_4"
+.TER       R12   1
+
+.END

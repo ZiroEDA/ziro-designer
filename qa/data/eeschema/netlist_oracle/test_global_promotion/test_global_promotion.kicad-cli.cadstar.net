@@ -1,0 +1,13 @@
+.HEA
+.TIM 2026-09-29T06:56:10
+.APP "Eeschema 10.0.6-10.0.6~ubuntu24.04.1"
+.TYP FULL
+
+.ADD_COM     R1     "R"     "Resistor_THT:R_Axial_Power_L25.0mm_W6.4mm_P30.48mm"
+.ADD_COM     C1     "C"     "Capacitor_THT:CP_Axial_L18.0mm_D8.0mm_P25.00mm_Horizontal"
+
+
+.ADD_TER   C1   1     "5Vanalog"
+.TER       R1   2
+
+.END

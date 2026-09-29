@@ -1,0 +1,14 @@
+PACKAGE 'sc-82aa'
+CLASS IC
+PINCOUNT 4
+PINORDER MAIN ,
+	__1,
+	__2,
+	__3,
+	__4
+FUNCTION MAIN MAIN ,
+	1,
+	2,
+	3,
+	4
+END
