@@ -6,7 +6,7 @@
  *
  * One widget, two frames — `SCH_EDIT_FRAME` and `SYMBOL_EDIT_FRAME` both build
  * the same class and it branches internally on the frame type. The layout and
- * the "All items" rule live in `selection_filter_panel.ts` so a test can run
+ * the "All items" rule live in `panel_sch_selection_filter.ts` so a test can run
  * them; this file is only the markup around them.
  *
  * The pane caption is `_( "Selection Filter" )` — `defaultSchSelectionFilterPaneInfo`
@@ -14,13 +14,13 @@
  * both frames add.
  */
 import type { JSX } from 'react';
-import type { SelectionFilterOptions } from '@ziroeda/eeschema/tools/sch_selection_filter.js';
-import { selectionFilterAll } from '@ziroeda/eeschema/tools/sch_selection_filter.js';
+import type { SelectionFilterOptions } from '../tools/sch_selection_filter.js';
+import { selectionFilterAll } from '../tools/sch_selection_filter.js';
 import {
   selectionFilterGrid,
   setAllSelectionFilterCategories,
   type SelectionFilterFrame,
-} from './selection_filter_panel.js';
+} from './panel_sch_selection_filter.js';
 
 export function SelectionFilterPanel({
   frame,

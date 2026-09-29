@@ -31,7 +31,7 @@ import {
   selectionFilterGrid,
   setAllSelectionFilterCategories,
   symSelectionFilterShown,
-} from '@ziroeda/designer/src/ui/selection_filter_panel.js';
+} from '@ziroeda/eeschema/widgets/panel_sch_selection_filter.js';
 import { LISTBOX_WIDTH } from '@ziroeda/eeschema/symbol_editor/toolbars_symbol_editor.js';
 import {
   applyToggle,

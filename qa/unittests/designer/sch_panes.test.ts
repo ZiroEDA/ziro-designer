@@ -450,7 +450,9 @@ describe('the editor renders the dock through that order', () => {
   /** The shared component carries the caption, and carries it once. */
   it('keeps the caption in the shared component', () => {
     const panel = readFileSync(
-      fileURLToPath(new URL('../../../designer/src/ui/SelectionFilterPanel.tsx', import.meta.url)),
+      fileURLToPath(
+        new URL('../../../eeschema/widgets/panel_sch_selection_filter_ui.tsx', import.meta.url),
+      ),
       'utf8',
     );
     // The caption is `<span>` + close box now: `defaultSchSelectionFilterPaneInfo`

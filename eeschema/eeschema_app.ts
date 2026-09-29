@@ -6,7 +6,7 @@
  * `Pgm()`'s `eeschema.json` / `common.json` slices and the colour theme,
  * and, as the frame's other designer-only reaches are threaded through, the
  * dialogs, libraries and services it asks the app for. The same shape
- * `pcbnew/pcbnew_app.ts`'s `PCBNEW_APP` and `cvpcb/cvpcb_mainframe_ui.tsx`'s
+ * `pcbnew/browser/pcbnew_app.ts`'s `PCBNEW_APP` and `cvpcb/cvpcb_mainframe_ui.tsx`'s
  * `CVPCB_APP` give their windows. `eeschema` never imports `designer`; the
  * designer-side `useEeschemaApp()` hook
  * (`designer/src/editors/schematic/eeschema_app.tsx`) is the one file that
@@ -19,7 +19,6 @@ import type { PrefsPageId } from '@ziroeda/common/frame_type.js';
 import type { ChooserFilter, OpenedFile } from '@ziroeda/common/wx/filedlg.js';
 import type { ToolEntry } from '@ziroeda/common/tool/action_toolbar_types.js';
 import type { ToolbarDefaults, ToolbarLoc } from '@ziroeda/common/tool/ui/toolbar_configuration.js';
-import type { SelectionFilterOptions } from './tools/sch_selection_filter.js';
 import type { KeyLike } from '@ziroeda/common/hotkeys_basic_keys.js';
 import type { Menu } from '@ziroeda/common/tool/action_menu_types.js';
 import type { LibSymbol, Schematic } from './types.js';
@@ -107,13 +106,6 @@ export interface EESCHEMA_APP {
   HomeLink: (props: { onClick?: () => void }) => ReactNode;
   OpenFileDialog: (props: EeschemaOpenFileDialogProps) => ReactNode;
   SaveAsDialog: (props: EeschemaSaveAsDialogProps) => ReactNode;
-  /** `PANEL_SCH_SELECTION_FILTER` (shared with the symbol editor). */
-  SelectionFilterPanel: (props: {
-    frame: 'FRAME_SCH' | 'FRAME_SCH_SYMBOL_EDITOR';
-    filter: SelectionFilterOptions;
-    onChange: (next: SelectionFilterOptions) => void;
-    onClose?: () => void;
-  }) => ReactNode;
   /** Preferences > Manage Symbol Libraries (`PANEL_SYM_LIB_TABLE`). */
   DialogSymLibTable: (props: {
     projectFiles: readonly { name: string; text: string }[];

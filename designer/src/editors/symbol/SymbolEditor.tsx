@@ -57,7 +57,10 @@ import {
 } from '@ziroeda/eeschema/symbol_editor/toolbars_symbol_editor.js';
 import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
 import { SymbolCanvas, type SymbolCanvasController } from './SymbolCanvas.js';
-import { SymbolLibraryManager, type ManagedLibrary } from './libraryManager.js';
+import {
+  SymbolLibraryManager,
+  type ManagedLibrary,
+} from '@ziroeda/eeschema/symbol_library_manager.js';
 import {
   findSymLibRowByUri,
   resolvedProjectSymLibs,
@@ -68,7 +71,7 @@ import {
   symFrameTitle,
   deleteSymbolPrompts,
 } from '@ziroeda/eeschema/symbol_editor/symbol_editor.js';
-import { loadIndex } from '../schematic/symbols/index.js';
+import { loadIndex, symbolsBase } from '../schematic/symbols/index.js';
 import {
   useCommonSettings,
   useSymbolEditorTheme,
@@ -155,8 +158,8 @@ import {
   symbolTogglesFromSettings,
   withSyncPinEdit,
 } from '@ziroeda/eeschema/symbol_editor/toggles.js';
-import { SelectionFilterPanel } from '../../ui/SelectionFilterPanel.js';
-import { symSelectionFilterShown } from '../../ui/selection_filter_panel.js';
+import { SelectionFilterPanel } from '@ziroeda/eeschema/widgets/panel_sch_selection_filter_ui.js';
+import { symSelectionFilterShown } from '@ziroeda/eeschema/widgets/panel_sch_selection_filter.js';
 import {
   defaultSelectionFilter,
   type SelectionFilterOptions,
@@ -303,7 +306,7 @@ export function SymbolEditor({
    */
   readOnlyNotice?: ReactNode;
 }): JSX.Element {
-  const manager = useRef(new SymbolLibraryManager());
+  const manager = useRef(new SymbolLibraryManager(symbolsBase));
   // `SYMBOL_EDIT_FRAME::GetColorSettings` (`symbol_edit_frame.cpp:402-410`),
   // which asks eeschema's settings object or this editor's own depending on
   // `m_UseEeschemaColorSettings` — the two radio buttons on Preferences >

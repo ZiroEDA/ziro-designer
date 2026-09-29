@@ -428,6 +428,7 @@ import {
   type SchematicSetup,
 } from './dialogs/dialog_schematic_setup.js';
 import { LoadProjectSettings } from './eeschema_config.js';
+import { SelectionFilterPanel } from './widgets/panel_sch_selection_filter_ui.js';
 import { gridSizeToIU } from './eeschema_settings.js';
 import { InitSheet } from './sheet.js';
 import {
@@ -871,7 +872,6 @@ export function SchematicEditor({
     HomeLink,
     OpenFileDialog,
     SaveAsDialog,
-    SelectionFilterPanel,
     DialogSymLibTable,
     FootprintChooserFrame,
     useToolbarEntries,
@@ -9736,7 +9736,7 @@ export function SchematicEditor({
                         </>
                       )}
                       {/* `PANEL_SCH_SELECTION_FILTER`, the same widget the Symbol
-                          Editor builds (`ui/SelectionFilterPanel.tsx`). What was
+                          Editor builds (`widgets/panel_sch_selection_filter_ui.tsx`). What was
                           here was a private copy that (a) rendered a visible
                           "Locked items" row — `m_cbLockedItems->Hide()`,
                           `panel_sch_selection_filter_base.cpp:28`, hides it in
