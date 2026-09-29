@@ -439,7 +439,7 @@ import {
 } from './project_settings.js';
 import { IU_PER_MILS, resolveEffectiveNetClass, subpartSettings } from './schematic_settings.js';
 import { netClassHumanReadableName } from '@ziroeda/common/project/net_settings.js';
-import type { PdfNetInfo } from './pdf_annotations.js';
+import type { PdfNetInfo } from './sch_plotter.js';
 import type { Netlist } from './connectivity/nets.js';
 import { DEFAULT_WIRE_WIDTH } from './sch_painter.js';
 import { computeNetClassOverrides } from './net_overrides.js';
