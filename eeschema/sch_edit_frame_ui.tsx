@@ -525,7 +525,12 @@ import {
 import { formatTitle, useDocumentTitle } from '@ziroeda/common/use_document_title.js';
 import { useLiveState } from '@ziroeda/common/use_live_state.js';
 import { withSaveEnablement } from '@ziroeda/common/save_enablement.js';
-import { fileBaseName, pathHumanReadable, SCH_FRAME_NAME, schFrameTitle } from './frame_title.js';
+import {
+  fileBaseName,
+  pathHumanReadable,
+  SCH_FRAME_NAME,
+  schFrameTitle,
+} from './sch_edit_frame.js';
 import {
   SCH_BOTTOM_DOCK,
   SCH_LEFT_PANE_ADD_ORDER,

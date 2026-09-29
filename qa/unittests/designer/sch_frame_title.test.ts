@@ -13,13 +13,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import {
-  fileBaseName,
-  pathHumanReadable,
-  SCH_FRAME_NAME,
-  SCH_NO_DOCUMENT,
-  schFrameTitle,
-} from '@ziroeda/eeschema/frame_title.js';
+import { fileBaseName, pathHumanReadable, SCH_FRAME_NAME, SCH_NO_DOCUMENT, schFrameTitle } from '@ziroeda/eeschema/sch_edit_frame.js';
 
 describe('pathHumanReadable', () => {
   /**
