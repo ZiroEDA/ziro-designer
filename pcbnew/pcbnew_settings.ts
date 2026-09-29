@@ -13,6 +13,7 @@ import { APP_SETTINGS_BASE, WINDOW_SETTINGS } from '@ziroeda/common/settings/app
 import { LeaderMode as LEADER_MODE } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
 import { FLIP_DIRECTION } from '@ziroeda/kimath/src/core/mirror.js';
 import { RATSNEST_MODE } from '@ziroeda/common/project/board_project_settings.js';
+import { DEFAULT_GRID_INDEX } from '@ziroeda/common/settings/grid_settings_ui.js';
 
 // Settings for the CONVERT_TOOL.
 export enum CONVERT_STRATEGY {
@@ -156,6 +157,48 @@ export class DISPLAY_OPTIONS {
 
   m_Live3DRefresh = false;
 }
+
+/**
+ * `footprint_viewer.*` in `pcbnew.json` as the designer's settings store keeps
+ * it: `PCBNEW_SETTINGS`' four `m_FootprintViewer*` PARAMs
+ * (`pcbnew_settings.cpp:328-340`) and the two halves of
+ * `addParamsForWindow( &m_FootprintViewer, "footprint_viewer" )` the
+ * Footprint Library Browser actually changes — the grid choice and the
+ * crosshair mode (`GAL_DISPLAY_OPTIONS::WriteConfig( *window )`).
+ *
+ * The window's size and position are not kept: the frame is the browser tab.
+ * `grid.last_size_idx` and `cursor.crosshair` are spelled as the designer's
+ * own `window.grid` / `window.cursor` spell them, not KiCad's `last_size` /
+ * `cross_hair_mode`, so the viewer reads one vocabulary with the editors.
+ */
+export interface FOOTPRINT_VIEWER_JSON_SETTINGS {
+  /** `footprint_viewer.zoom` -> `m_FootprintViewerZoom`, 1.0. */
+  zoom: number;
+  /** `footprint_viewer.autozoom` -> `m_FootprintViewerAutoZoomOnSelect`, true. */
+  autozoom: boolean;
+  /** `footprint_viewer.lib_list_width` -> `m_FootprintViewerLibListWidth`, 200. */
+  lib_list_width: number;
+  /** `footprint_viewer.fp_list_width` -> `m_FootprintViewerFPListWidth`, 300. */
+  fp_list_width: number;
+  grid: {
+    /** `footprint_viewer.grid.last_size`, `defaultGridIdx` 15 for pcbnew (`app_settings.cpp:462-481`). */
+    last_size_idx: number;
+  };
+  cursor: {
+    /** `footprint_viewer.cursor.cross_hair_mode`, SMALL_CROSS. */
+    crosshair: 'small' | 'full' | '45';
+  };
+}
+
+/** Every default above, from the C++ constructor and PARAM list. */
+export const FOOTPRINT_VIEWER_JSON_DEFAULTS: FOOTPRINT_VIEWER_JSON_SETTINGS = {
+  zoom: 1.0,
+  autozoom: true,
+  lib_list_width: 200,
+  fp_list_width: 300,
+  grid: { last_size_idx: DEFAULT_GRID_INDEX.pcbnew },
+  cursor: { crosshair: 'small' },
+};
 
 ///! Update the schema version whenever a migration is required
 const pcbnewSchemaVersion = 5;
