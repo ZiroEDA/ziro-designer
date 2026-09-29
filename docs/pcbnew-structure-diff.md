@@ -4,12 +4,12 @@ Generated 2026-09-29 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 
 | status | count | meaning |
 |---|---:|---|
-| SAME | 235 | same relative path and name as KiCad's `.cpp` |
+| SAME | 241 | same relative path and name as KiCad's `.cpp` |
 | MOVED | 0 | KiCad has this name, in a different directory |
 | DIALOG | 1 | KiCad has it as `dialogs/dialog_<name>.cpp` |
 | HEADER | 16 | KiCad declares it in a `.h` with no matching `.cpp` |
 | ELSEWHERE | 3 | KiCad puts it outside `pcbnew/` |
-| OURS | 93 | no KiCad file of this name anywhere |
+| OURS | 90 | no KiCad file of this name anywhere |
 
 ## MOVED
 
@@ -121,10 +121,7 @@ Generated 2026-09-29 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 | `router/pns_chain.ts` | `-` |
 | `router/pns_collision.ts` | `-` |
 | `router/pns_drag.ts` | `-` |
-| `router/pns_hull.ts` | `-` |
 | `router/pns_item_hull.ts` | `-` |
-| `router/pns_line_drag.ts` | `-` |
-| `router/pns_line_item.ts` | `-` |
 | `router/pns_obstacles.ts` | `-` |
 | `router/pns_rule_resolver.ts` | `-` |
 | `router/pns_seg_ops.ts` | `-` |
@@ -151,7 +148,7 @@ Generated 2026-09-29 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 
 ## SAME
 
-<details><summary>235 files already at KiCad's own path</summary>
+<details><summary>241 files already at KiCad's own path</summary>
 
 - `array_pad_number_provider.ts`
 - `autorouter/ar_autoplacer.ts`
@@ -247,11 +244,14 @@ Generated 2026-09-29 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 - `drc/drc_test_provider_zone_connections.ts`
 - `edit_track_width.ts`
 - `edit.ts`
+- `edit_zone_helpers.ts`
 - `exporters/export_d356.ts`
+- `exporters/export_gencad_writer.ts`
 - `exporters/gendrill_excellon_writer.ts`
 - `exporters/gendrill_writer_base.ts`
 - `exporters/gerber_jobfile_writer.ts`
 - `exporters/place_file_exporter.ts`
+- `files.ts`
 - `fix_board_shape.ts`
 - `footprint_edit_frame.ts`
 - `footprint_editor_settings.ts`
@@ -328,6 +328,7 @@ Generated 2026-09-29 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 - `ratsnest/ratsnest_data.ts`
 - `ratsnest/ratsnest.ts`
 - `ratsnest/ratsnest_view_item.ts`
+- `router/pns_algo_base.ts`
 - `router/pns_arc.ts`
 - `router/pns_component_dragger.ts`
 - `router/pns_diff_pair_placer.ts`
@@ -355,8 +356,10 @@ Generated 2026-09-29 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 - `router/pns_solid.ts`
 - `router/pns_tool_base.ts`
 - `router/pns_topology.ts`
+- `router/pns_utils.ts`
 - `router/pns_via.ts`
 - `router/pns_walkaround.ts`
+- `router/time_limit.ts`
 - `teardrop/teardrop_parameters.ts`
 - `teardrop/teardrop.ts`
 - `toolbars_footprint_editor.ts`

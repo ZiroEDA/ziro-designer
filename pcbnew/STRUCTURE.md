@@ -543,11 +543,18 @@ all).
   recorded above).
 - `board_stackup_manager/`: **complete.** `board_stackup`,
   `board_stackup_reporter`, `dielectric_material`, `stackup_predefined_prms`,
-  `panel_board_finish.tsx` all match. The three remaining KiCad files
-  (`panel_board_stackup(_base)`, `dialog_dielectric_list_manager(_base)`) are
-  dialog/panel UI at `pcbnew/dialogs/panels/panel_pcb_stackup.tsx` (dialogs/,
-  off-limits) and genuinely unported (no dielectric-material-list dialog
-  anywhere in the tree).
+  `panel_board_finish.tsx` all match. `dialog_dielectric_list_manager(_base)`
+  → `dialog_dielectric_list_manager.tsx` (`DialogDielectricMaterial`, 09-29):
+  extracted from `pcbnew/dialogs/panels/panel_pcb_stackup.tsx`, where the
+  whole dialog had been inlined rather than living in its own file — a
+  moves-only extraction, wired at the same call site
+  (`PanelPcbStackup`'s material "…" button, matching `onMaterialChange`,
+  `panel_board_stackup.cpp:1417-1490`). 15 new tests
+  (`dialog_dielectric_list_manager.test.tsx`); the panel's own existing
+  19-test suite (`physical_stackup_rows.test.tsx`) still green. Only
+  `panel_board_stackup(_base)` itself remains — the panel's own `.tsx`, at
+  `pcbnew/dialogs/panels/panel_pcb_stackup.tsx`, dialogs/, off-limits this
+  pass.
 - `import_gfx/`: `graphics_importer_pcbnew.ts` matches. **Not ported:**
   `dialog_import_graphics(_base).cpp` — no Import Graphics dialog exists
   anywhere in the tree.
@@ -574,47 +581,78 @@ all).
   pattern" already documented above — both `router/` and `drc/` still read
   the view-side engine, so folding it in is a #636 consumer migration, not a
   file move.
-- `router/`: **one merge done, the rest audited and left.** KiCad's
-  `pns_optimizer.cpp` (1539 lines, one file) had been split into
-  `pns_optimizer.ts` (the pure single-line merge passes),
-  `pns_smart_pads.ts` (`SMART_PADS`/`FANOUT_CLEANUP` + the breakout
-  machinery, plus `pns_utils.cpp`'s `ApproximateSegmentAsRect`) and
-  `pns_optimizer_diff_pair.ts` (`Optimize( DIFF_PAIR* )` and its passes,
-  `pns_optimizer.cpp:1157-1374`) — merged back into one `pns_optimizer.ts`
-  09-29 (the split files' own stated reason — "callable with no world, which
-  is how `route_tool.ts` uses them today" — was stale: `route_tool.ts` was
-  deleted 09-12, see `pns-router-wiring.md`). `pcbnew/index.ts`'s three
-  separate export blocks merged into one. 680 router tests green after.
-  Every other apparent gap was audited and is a deliberate, already-documented
-  split or a folded simplification, left alone as too central/high-blast-radius
-  for a moves-only pass without a matching upstream restructure:
+- `router/`: **four merges/ports done (09-29), the rest audited and left.**
+  1. KiCad's `pns_optimizer.cpp` (1539 lines, one file) had been split into
+     `pns_optimizer.ts` (the pure single-line merge passes),
+     `pns_smart_pads.ts` (`SMART_PADS`/`FANOUT_CLEANUP` + the breakout
+     machinery, plus `pns_utils.cpp`'s `ApproximateSegmentAsRect`) and
+     `pns_optimizer_diff_pair.ts` (`Optimize( DIFF_PAIR* )` and its passes,
+     `pns_optimizer.cpp:1157-1374`) — merged into one `pns_optimizer.ts` (the
+     split files' own stated reason — "callable with no world, which is how
+     `route_tool.ts` uses them today" — was stale: `route_tool.ts` was
+     deleted 09-12, see `pns-router-wiring.md`).
+  2. `pns_line.cpp`/`.h` (`LINE`) was split across `pns_line.ts` (pure drag
+     geometry), `pns_line_item.ts` (2395 lines, the actual `LINE` class) and
+     `pns_line_drag.ts` (`DragCorner`/`DragSegment`/`DragArc` bound to
+     `PnsLine`) — merged into one `pns_line.ts` (~3270 lines), the file that
+     needed the KiCad-matching name. 43 importers across `pcbnew/router` and
+     `qa/unittests/pcbnew` repointed.
+  3. `pns_utils.cpp` was split across `pns_hull.ts` (`OctagonalHull`/
+     `SegmentHull`), `pns_item_hull.ts` (`ArcHull`/`ConvexHull`/
+     `MoveDiagonal`/`BuildHullForPrimitiveShape`) and one function
+     (`HullIntersection`) inside `pns_chain.ts` — merged into one
+     `pns_utils.ts` (`pns_chain.ts` keeps `libs/kimath`'s
+     `SHAPE_LINE_CHAIN` operations, out of scope for this pass, and
+     `pns_utils.ts` imports `pointInside`/`pointOnEdge` back from it — the
+     one direction that avoids a cycle). `itemHull()`'s five-way `PnsKind`
+     switch (`ITEM::Hull`'s virtual-dispatch substitute) stays in
+     `pns_item_hull.ts`, now genuinely just that dispatcher, because
+     upstream's own per-kind `Hull()` bodies (`ARC::Hull`, `VIA::Hull`,
+     `SOLID::Hull`, `HOLE::Hull`, `SEGMENT::Hull` — the last in
+     `pns_line.cpp`, no `pns_segment.cpp` exists) were assessed for moving
+     onto their own item classes and found to need a real import cycle
+     (the wrapper needs `pns_utils.ts`'s value exports; `pns_utils.ts` needs
+     `PnsArc`'s `ShapeArc` type back) that the current one-way graph avoids;
+     documented in both files' headers, not attempted.
+  4. `pns_algo_base.cpp` (`ALGO_BASE`) had no port; `PnsDragAlgo`
+     (`pns_drag_algo.ts`) had reimplemented `router()`/`settings()`/
+     `setDebugDecorator()`/`dbg()` inline instead. New `pns_algo_base.ts`
+     ports `ALGO_BASE` whole (generic over the host type, so it has no
+     dependency on `PnsRouterHost` and cannot cycle with it); `PnsDragAlgo`
+     now `extends PnsAlgoBase<PnsRouterHost>`, matching upstream's own
+     `class DRAG_ALGO : public ALGO_BASE`. Not applied to `PnsShove` (its
+     constructor takes a `PnsNode` + its own `PnsShoveSettings`, no router
+     field at all — extending would mean inventing fields nothing reads) or
+     `WALKAROUND` (no class in this port, free functions only), nor is
+     `PLACEMENT_ALGO` itself ported (the abstract base `LINE_PLACER`/
+     `DIFF_PAIR_PLACER`/`MEANDER_PLACER_BASE` extend, a separate gap).
+  5. `time_limit.cpp` (`TIME_LIMIT`) had no port; `pns_shove.ts`'s
+     `shoveMainLoop` computed its deadline inline as
+     `Date.now() + shoveTimeLimit`, compared `>` (strictly). New
+     `time_limit.ts` ports the class whole and corrects the comparison to
+     `>=`, matching `TIME_LIMIT::Expired` exactly (verified against
+     `pns_shove.cpp:1911`); the two differ only in the single millisecond
+     where elapsed exactly equals the limit.
+
+  `pcbnew/index.ts`'s export blocks for all of the above merged one-per-module.
+  Each landed as its own commit with the full router test batch (240-241
+  files, 7030-7038 tests) green after; items 3-4 also got new dedicated test
+  files (`time_limit.test.ts`, `pns_algo_base.test.ts`), each verified by
+  mutating the implementation and confirming specific tests fail.
+
+  Everything else was audited and is a deliberate, already-documented split
+  or a folded simplification, left alone as too central/high-blast-radius for
+  a moves-only pass without a matching upstream restructure:
   `pns_kicad_iface.cpp` → `pns_board_iface.ts` is a **rename we cannot make**
   (no "kicad" in a filename, trademark — `designer-keeps-its-name`);
-  `pns_utils.cpp` is split across `pns_hull.ts` (`OctagonalHull`/`SegmentHull`),
-  `pns_item_hull.ts` (`ArcHull`/`ConvexHull`/`MoveDiagonal`/
-  `BuildHullForPrimitiveShape`, plus the five per-kind `Hull()` overrides —
-  `SEGMENT::Hull`, `ARC::Hull`, `VIA::Hull`, `SOLID::Hull`, `HOLE::Hull` —
-  consolidated as one `itemHull()` switch rather than a method per item class)
-  and `pns_chain.ts` (mostly `shape_line_chain.cpp`, one function,
-  `HullIntersection`, from `pns_utils.cpp`) — each split is separately argued
-  in its own header and touches the router's hottest geometry path, not
-  attempted;
-  `pns_line.cpp`/`.h` (`LINE`) is split across `pns_line.ts` (pure drag
-  geometry), `pns_line_item.ts` (2395 lines, the actual `LINE` class — the
-  file that would need the KiCad-matching name) and `pns_line_drag.ts`
-  (`DragCorner`/`DragSegment`/`DragArc` bound to `PnsLine`) — same reasoning,
-  not attempted (2395+840 lines, the router's most central file);
-  `pns_algo_base.cpp` (`Router()`/`Settings()` accessors) is folded inline
-  per consumer rather than a shared base, and its logger/debug-decorator
-  half is intentionally not ported (compiled out of a release build
-  upstream too); **`pns_logger.cpp` is not ported** (debug event sink, no
-  browser use); `router_tool.cpp` is split between `pns_session.ts` (the
-  `ROUTER_TOOL` equivalent, headless — see `pns-router-wiring.md`) and
+  **`pns_logger.cpp` is not ported** (debug event sink, no browser use, and
+  now that `pns_algo_base.ts` exists, `logger()`/`setLogger()` carry it as an
+  opaque value the same way `dbg()`/`setDebugDecorator()` already did);
+  `router_tool.cpp` is split between `pns_session.ts` (the `ROUTER_TOOL`
+  equivalent, headless — see `pns-router-wiring.md`) and
   `router_size_menus.ts` (its two size menus), with the wx-level click
   wiring in `pcb_edit_frame_ui.tsx` (root, off-limits this pass);
   **`router_preview_item.cpp`/`router_status_view_item.cpp` are not ported
   as classes** — the preview draws through a callback dep
   (`session.preview`/`onDisplayItem`) instead of a ported `VIEW_ITEM`
-  hierarchy; `time_limit.cpp` (`TIME_LIMIT`) is folded inline as a
-  `Date.now() + shoveTimeLimit` deadline in `pns_shove.ts` rather than
-  ported as a class.
+  hierarchy.
