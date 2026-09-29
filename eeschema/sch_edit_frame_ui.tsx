@@ -530,7 +530,7 @@ import {
   schSelectionFilterShown,
   type SchDockPos,
   type SchLeftPane,
-} from './panes.js';
+} from './sch_edit_frame.js';
 import { DockSash } from '@ziroeda/common/widgets/wx_aui_sash.js';
 import { loadOutlineFontsFor } from '@ziroeda/common/font/outline_fonts.js';
 import { useStatusReadout } from '@ziroeda/common/use_status_readout.js';
