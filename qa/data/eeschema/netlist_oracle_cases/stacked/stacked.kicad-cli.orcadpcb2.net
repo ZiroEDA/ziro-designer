@@ -1,0 +1,13 @@
+( { EESchema Netlist Version 1.1 created  2026-09-29T07:21:20 }
+ ( /aaaaaaaa-0000-4000-8000-000000000001 F  S1 S
+  (    1 unconnected-(S1-Pad1) )
+  (    2 unconnected-(S1-Pad1) )
+  (    3 unconnected-(S1-Pad1) )
+  (    4 Net-(R2-Pad1) )
+ )
+ ( /aaaaaaaa-0000-4000-8000-000000000002 Resistor_SMD:R_0805  R2 10k
+  (    1 Net-(R2-Pad1) )
+  (    2 unconnected-(R2-Pad2) )
+ )
+)
+*

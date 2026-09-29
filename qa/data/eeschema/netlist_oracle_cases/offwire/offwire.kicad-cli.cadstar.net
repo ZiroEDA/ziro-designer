@@ -1,0 +1,12 @@
+.HEA
+.TIM 2026-09-29T07:21:17
+.APP "Eeschema 10.0.6-10.0.6~ubuntu24.04.1"
+.TYP FULL
+
+.ADD_COM     R2     "10k"     "Resistor_SMD:R_0805"
+
+
+.ADD_TER   R1   2     "Net-(R2-Pad1)"
+.TER       R2   1
+
+.END

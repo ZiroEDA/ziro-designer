@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<export version="E">
+  <design>
+    <source>/home/akshay/ziro-designer-1/qa/data/eeschema/netlist_oracle_cases/multi/multi.kicad_sch</source>
+    <date>2026-09-29T07:21:26</date>
+    <tool>Eeschema 10.0.6-10.0.6~ubuntu24.04.1</tool>
+    <sheet number="1" name="/" tstamps="/">
+      <title_block>
+        <title/>
+        <company/>
+        <rev/>
+        <date/>
+        <source>multi.kicad_sch</source>
+        <comment number="1" value=""/>
+        <comment number="2" value=""/>
+        <comment number="3" value=""/>
+        <comment number="4" value=""/>
+        <comment number="5" value=""/>
+        <comment number="6" value=""/>
+        <comment number="7" value=""/>
+        <comment number="8" value=""/>
+        <comment number="9" value=""/>
+      </title_block>
+    </sheet>
+    <sheet number="2" name="/Sub/" tstamps="/cccccccc-0000-4000-8000-000000000001/">
+      <title_block>
+        <title/>
+        <company/>
+        <rev/>
+        <date/>
+        <source>sub.kicad_sch</source>
+        <comment number="1" value=""/>
+        <comment number="2" value=""/>
+        <comment number="3" value=""/>
+        <comment number="4" value=""/>
+        <comment number="5" value=""/>
+        <comment number="6" value=""/>
+        <comment number="7" value=""/>
+        <comment number="8" value=""/>
+        <comment number="9" value=""/>
+      </title_block>
+    </sheet>
+  </design>
+  <components>
+    <comp ref="U1">
+      <value>DUAL</value>
+      <footprint>F</footprint>
+      <fields>
+        <field name="Footprint">F</field>
+        <field name="Datasheet"/>
+        <field name="Description"/>
+      </fields>
+      <libsource lib="Device" part="DUAL" description=""/>
+      <property name="Sheetname" value="Root"/>
+      <property name="Sheetfile" value="multi.kicad_sch"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamps>aaaaaaaa-0000-4000-8000-000000000001</tstamps>
+      <units>
+        <unit name="A">
+          <pins>
+            <pin num="1"/>
+          </pins>
+        </unit>
+        <unit name="B">
+          <pins>
+            <pin num="2"/>
+          </pins>
+        </unit>
+      </units>
+    </comp>
+  </components>
+  <libparts>
+    <libpart lib="Device" part="DUAL">
+      <fields>
+        <field name="Reference">U</field>
+        <field name="Value">DUAL</field>
+        <field name="Footprint"/>
+        <field name="Datasheet"/>
+        <field name="Description"/>
+      </fields>
+      <pins>
+        <pin num="1" name="" type="passive"/>
+        <pin num="2" name="" type="passive"/>
+      </pins>
+    </libpart>
+  </libparts>
+  <libraries>
+    <library logical="Device">
+      <uri>${KICAD10_SYMBOL_DIR}/Device.kicad_sym</uri>
+    </library>
+  </libraries>
+  <nets>
+    <net code="1" name="unconnected-(U1-Pad1)" class="Default">
+      <node ref="U1" pin="1" pintype="passive"/>
+    </net>
+    <net code="2" name="unconnected-(U1-Pad2)" class="Default">
+      <node ref="U1" pin="2" pintype="passive"/>
+    </net>
+  </nets>
+</export>

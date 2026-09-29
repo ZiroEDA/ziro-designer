@@ -1,0 +1,8 @@
+*PADS-PCB*
+*PART*
+R2               Resistor_SMD:R_0805
+
+*NET*
+*SIGNAL* Net-(R2-Pad1)
+R1.2 R2.1 
+*END*

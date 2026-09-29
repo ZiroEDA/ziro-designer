@@ -33,6 +33,8 @@ beforeAll(() => setHeadlessNetlistProvider(formatSchematicNetlist));
 
 const DATA = new URL('../../data/eeschema/', import.meta.url).pathname;
 const ORACLES = [`${DATA}netlist_oracle/`, `${DATA}netlist_oracle_graph/`];
+/** Hand-made designs, one rule each, that KiCad's own do not reach (see its README). */
+const CASES = `${DATA}netlist_oracle_cases/`;
 
 /** The three lines that name the machine and the moment. */
 const normalise = (text: string): string =>
@@ -67,7 +69,7 @@ describe('the KiCad netlist, against kicad-cli', () => {
   });
 
   // One folder per design; each passes whole or not at all.
-  for (const oracle of ORACLES) {
+  for (const oracle of [...ORACLES, CASES]) {
     for (const name of readdirSync(oracle).filter((n) => !n.includes('.'))) {
       it(`${name} matches line for line`, { timeout: 60000 }, () => {
         const dir = `${oracle}${name}/`;

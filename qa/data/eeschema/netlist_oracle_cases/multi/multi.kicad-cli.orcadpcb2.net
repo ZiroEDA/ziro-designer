@@ -1,0 +1,7 @@
+( { EESchema Netlist Version 1.1 created  2026-09-29T07:21:24 }
+ ( /aaaaaaaa-0000-4000-8000-000000000001 F  U1 DUAL
+  (    1 unconnected-(U1-Pad1) )
+  (    2 unconnected-(U1-Pad2) )
+ )
+)
+*
