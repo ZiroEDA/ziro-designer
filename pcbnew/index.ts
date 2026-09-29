@@ -320,6 +320,23 @@ export {
   type ZoneBorderStyle,
   type ZoneValueError,
 } from './dialogs/dialog_rule_area_properties.js';
+// Length Tuning Settings (pcbnew/dialogs/dialog_tuning_pattern_properties.cpp).
+export {
+  NULL_TUNING_CONSTRAINT,
+  initialTuningPatternValues,
+  tuningPatternEnableState,
+  tuningPatternSourceInfoText,
+  tuningPatternOverrideToggled,
+  tuningPatternRadioLengthSelected,
+  tuningPatternRadioDelaySelected,
+  tuningPatternTransferFromWindow,
+  psText,
+  psValue,
+  type TuningConstraintInput,
+  type TuningPatternFormValues,
+  type TuningPatternMode,
+  type TuningPatternEnableState,
+} from './dialogs/dialog_tuning_pattern_properties.js';
 // Non-Copper Zone Properties (pcbnew/dialogs/dialog_non_copper_zones_properties.cpp).
 export {
   collectNonCopperZoneValues,
