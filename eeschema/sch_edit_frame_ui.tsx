@@ -427,19 +427,15 @@ import {
   defaultSchematicSetup,
   type SchematicSetup,
 } from './dialogs/dialog_schematic_setup.js';
+import { LoadProjectSettings } from './eeschema_config.js';
+import { InitSheet } from './sheet.js';
 import {
   findProjectPro,
   readSchematicSetup,
   writeEquivalenceFilesText,
   writeSchematicSetupText,
 } from './project_settings.js';
-import {
-  IU_PER_MILS,
-  hopOverArcRadiusIU,
-  junctionDotDiameterIU,
-  resolveEffectiveNetClass,
-  subpartSettings,
-} from './schematic_settings.js';
+import { IU_PER_MILS, resolveEffectiveNetClass, subpartSettings } from './schematic_settings.js';
 import { netClassHumanReadableName } from '@ziroeda/common/project/net_settings.js';
 import type { PdfNetInfo } from './pdf_annotations.js';
 import type { Netlist } from './connectivity/nets.js';
@@ -4279,25 +4275,7 @@ export function SchematicEditor({
    */
   const busJunctionIds = useMemo(() => (doc ? busJunctionIdsOf(doc) : new Set<string>()), [doc]);
 
-  const drawingDefaults = useMemo(
-    () => ({
-      junctionDiameterIU: junctionDotDiameterIU(setup),
-      dashLengthRatio: setup.formatting.dashLengthRatio,
-      gapLengthRatio: setup.formatting.gapLengthRatio,
-      // The panel stores percent (KiCad UI convention); the ratio is /100.
-      textOffsetRatio: setup.formatting.labelOffsetRatio / 100,
-      labelSizeRatio: setup.formatting.labelSizeRatio / 100,
-      // Overbar offset is stored as the raw ratio (1.23), not percent.
-      overbarHeightRatio: setup.formatting.overbarOffsetRatio,
-      // 0 mils is meaningful: KiCad's per-pin text-size fallback.
-      pinSymbolSizeIU: setup.formatting.pinSymbolSizeMils * IU_PER_MILS,
-      // Wire hop-over arc radius (default line width × GetHopOverScale).
-      hopOverRadiusIU: hopOverArcRadiusIU(setup),
-      // Multi-unit reference notation (SCHEMATIC_SETTINGS::SubReference).
-      subpart: subpartSettings(setup.annotation),
-    }),
-    [setup],
-  );
+  const drawingDefaults = useMemo(() => LoadProjectSettings(setup), [setup]);
 
   // Inter-sheet references (SCHEMATIC::RecomputeIntersheetRefs): resolved
   // global-label text -> virtual pages across the hierarchy, plus each virtual
@@ -5816,33 +5794,10 @@ export function SchematicEditor({
       const name = file.trim();
       if (!name || project.current.docs.has(name)) return;
       const blank: Schematic = { ...readSchematic(parse(EMPTY_SCH)), fileName: name };
-      // Only what the "Export to other sheets" ticks ask for follows the parent:
-      //
-      //     if( cfg->m_PageSettings.export_paper )
-      //         newScreen->SetPageSettings( GetScreen()->GetPageSettings() );
-      //     if( cfg->m_PageSettings.export_title )
-      //         tb2.SetTitle( tb1.GetTitle() );
-      //
-      // Every one of those defaults to false, so out of the box a new sheet
-      // gets its own empty title block, exactly as upstream does.
-      const ex = app.settings.eeschema.page_settings;
-      const parent = liveDocs().get(currentFile);
-      const tb = parent?.titleBlock;
-      project.current.docs.set(name, {
-        ...blank,
-        ...(ex.export_paper && parent?.paper ? { paper: parent.paper } : {}),
-        ...(tb && blank.titleBlock
-          ? {
-              titleBlock: {
-                ...blank.titleBlock,
-                ...(ex.export_title && tb.title ? { title: tb.title } : {}),
-                ...(ex.export_date && tb.date ? { date: tb.date } : {}),
-                ...(ex.export_revision && tb.rev ? { rev: tb.rev } : {}),
-                ...(ex.export_company && tb.company ? { company: tb.company } : {}),
-              },
-            }
-          : {}),
-      });
+      project.current.docs.set(
+        name,
+        InitSheet(blank, liveDocs().get(currentFile), app.settings.eeschema.page_settings),
+      );
     },
     [currentFile, liveDocs, app],
   );
