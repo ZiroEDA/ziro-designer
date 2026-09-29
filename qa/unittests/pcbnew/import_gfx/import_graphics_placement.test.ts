@@ -8,10 +8,7 @@
  * and turning the importer's plain records into board-ready ones.
  */
 import { describe, expect, it } from 'vitest';
-import {
-  placeImportedItems,
-  weldImportedShapes,
-} from '@ziroeda/pcbnew/tools/drawing_tool.js';
+import { placeImportedItems, weldImportedShapes } from '@ziroeda/pcbnew/tools/drawing_tool.js';
 import type { IMPORTED_ITEM } from '@ziroeda/pcbnew/import_gfx/graphics_importer_pcbnew.js';
 import type { PcbShape } from '@ziroeda/pcbnew/types.js';
 
