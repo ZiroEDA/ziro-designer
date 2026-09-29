@@ -1990,6 +1990,11 @@ export function PcbEditor({
       // so the parts are applied as a forced probe.
       syncSelection: (aParts) => applySyncSelectionRef.current(aParts, true),
       updatePcbFromSchematic: () => void openUpdatePcbRef.current(),
+      // The Footprint Library Browser's Insert: `PlacingFootprint()` and the
+      // placement it posts. Both read the placement state declared below.
+      placingFootprint: () => placeFpRef.current !== null,
+      placeFootprintFromLibrary: (aFpid, aFootprint) =>
+        placeFromBrowserRef.current(aFpid, aFootprint),
       setHighlightNets: (aNetCodes) =>
         setHighlightNets((prev) =>
           prev.size === aNetCodes.size && [...aNetCodes].every((c) => prev.has(c))
@@ -7639,10 +7644,51 @@ export function PcbEditor({
    * footprint on the real pointer afterwards. With it off, the first click
    * opens it. The image tool takes the same arm.
    */
+  // biome-ignore lint/correctness/useExhaustiveDependencies: arming the tool is the trigger; the rest are read at that moment
   useEffect(() => {
     if (activeTool !== 'placeFootprint') return;
+    // `if( fp ) { … }` comes before the prime (:1408-1414): a footprint
+    // handed in by another command rides the cursor at once, no chooser.
+    const handed = browserFpRef.current;
+    if (handed) {
+      browserFpRef.current = null;
+      placeFpRef.current = handed;
+      updatePlaceFpPreview(snapToGrid(cursorRef.current ?? { x: 0, y: 0 }));
+      requestDraw();
+      return;
+    }
     if (commonInputImmediateActionsLive()) setFpChooserOpen(true);
   }, [activeTool]);
+
+  /**
+   * `FOOTPRINT_VIEWER_FRAME::AddFootprintToPCB`'s board half
+   * (`footprint_viewer_frame.cpp:735-779`): `selectionClear`, then
+   * `PostAction( PCB_ACTIONS::placeFootprint, newFootprint )` — the tool runs
+   * with the footprint as its parameter, so it is on the cursor at once and
+   * the next click commits it. `placeLibraryFootprint` is the copy: it
+   * clears the library's orphaned pad nets and places on the front.
+   *
+   * Arming the tool clears whatever was in flight (the `[activeTool]` effect
+   * above), so the footprint waits in `browserFpRef` for the prime effect to
+   * pick it up — unless the tool is already the placement tool, where no
+   * effect will run and it is placed on the cursor directly.
+   */
+  const browserFpRef = useRef<{ lib: PcbFootprint; fpid: string } | null>(null);
+  const placeFromBrowser = (aFpid: string, aFootprint: PcbFootprint): void => {
+    setSelection(new Set());
+    setFpChooserOpen(false);
+    if (activeToolRef.current === 'placeFootprint') {
+      placeFpRef.current = { lib: aFootprint, fpid: aFpid };
+      placeFpSceneRef.current = null;
+      updatePlaceFpPreview(snapToGrid(cursorRef.current ?? { x: 0, y: 0 }));
+      requestDraw();
+      return;
+    }
+    browserFpRef.current = { lib: aFootprint, fpid: aFpid };
+    setActiveTool('placeFootprint');
+  };
+  const placeFromBrowserRef = useRef(placeFromBrowser);
+  placeFromBrowserRef.current = placeFromBrowser;
 
   /**
    * `BOARD_DESIGN_SETTINGS` as `PNS_KICAD_IFACE_BASE::ImportSizes` reads it:

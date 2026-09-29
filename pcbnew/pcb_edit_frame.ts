@@ -39,6 +39,7 @@ import type { FOOTPRINT_EDITOR_SETTINGS_LIKE } from './pcb_base_frame.js';
 import { PCBNEW_SETTINGS } from './pcbnew_settings.js';
 import { BOARD_COMMIT, SKIP_SET_DIRTY, SKIP_UNDO } from './board_commit.js';
 import type { FOOTPRINT } from './footprint.js';
+import type { PcbFootprint } from './types.js';
 import type { NETLIST } from './netlist_reader/pcb_netlist.js';
 import { type DIALOG_DRC_LIKE, DRC_TOOL } from './tools/drc_tool.js';
 import type { DRC_JOB_HOOKS, DRC_JOB_REQUEST } from './drc/drc_job.js';
@@ -223,6 +224,19 @@ export interface PCB_EDIT_FRAME_HOOKS {
   editZoneParams(zoneIndex: number): void;
   /** `DIALOG_EXCHANGE_FOOTPRINTS( frame, footprint, updateMode, true ).ShowQuasiModal()`. */
   showExchangeFootprintsDialog(aFootprint: FOOTPRINT, aUpdateMode: boolean): void;
+  /**
+   * `BOARD_EDITOR_CONTROL::PlacingFootprint()`: a footprint is riding the
+   * cursor. The editor owns the placement, so it answers. Optional so a frame
+   * built for a test need not name it; absent is "not placing".
+   */
+  placingFootprint?(): boolean;
+  /**
+   * The board half of `FOOTPRINT_VIEWER_FRAME::AddFootprintToPCB`
+   * (`footprint_viewer_frame.cpp:735-779`): `selectionClear`, then
+   * `PostAction( PCB_ACTIONS::placeFootprint, newFootprint )` with a copy of
+   * the library footprint, so it rides the cursor until a click drops it.
+   */
+  placeFootprintFromLibrary?(aFpid: string, aFootprint: PcbFootprint): void;
   /** `findDialogs()`: the open modeless dialogs' rectangles, in canvas client pixels. */
   findDialogRects(): BOX2D[];
   /**
@@ -488,6 +502,23 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
 
   ShowExchangeFootprintsDialog(aFootprint: FOOTPRINT, aUpdateMode: boolean): void {
     this.hooks.showExchangeFootprintsDialog(aFootprint, aUpdateMode);
+  }
+
+  /**
+   * `toolMgr->GetTool<BOARD_EDITOR_CONTROL>()->PlacingFootprint()`, which the
+   * Footprint Library Browser asks before handing a footprint over.
+   */
+  PlacingFootprint(): boolean {
+    return this.hooks.placingFootprint?.() ?? false;
+  }
+
+  /**
+   * What `FOOTPRINT_VIEWER_FRAME::AddFootprintToPCB` does to this frame once
+   * it has passed its two checks (`footprint_viewer_frame.cpp:735-779`). See
+   * `footprint_viewer_frame.ts`'s `FOOTPRINT_VIEWER_PCB_TARGET`.
+   */
+  PlaceFootprintFromLibraryBrowser(aFpid: string, aFootprint: PcbFootprint): void {
+    this.hooks.placeFootprintFromLibrary?.(aFpid, aFootprint);
   }
 
   override findDialogRects(): BOX2D[] {
