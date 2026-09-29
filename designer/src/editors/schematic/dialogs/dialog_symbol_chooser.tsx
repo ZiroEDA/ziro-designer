@@ -12,7 +12,8 @@ import { useCallback, useRef, useState } from 'react';
 import {
   PanelSymbolChooser,
   type PanelSymbolChooserHandle,
-} from '../widgets/panel_symbol_chooser.js';
+} from '@ziroeda/eeschema/widgets/panel_symbol_chooser.js';
+import { SYMBOL_CHOOSER_APP } from '../symbol_chooser_app.js';
 import type { DialogSymbolChooserProps } from '@ziroeda/eeschema/picksymbol.js';
 import { useDialogControl } from '../../../ui/useDialogControl.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
@@ -72,6 +73,7 @@ export function DialogSymbolChooser({
         </div>
         <div className="ze-modal-body">
           <PanelSymbolChooser
+            app={SYMBOL_CHOOSER_APP}
             ref={panelRef}
             powerFilter={powerFilter}
             showFootprints={showFootprints}

@@ -44,12 +44,15 @@
 import { useCallback, useRef, useState } from 'react';
 import {
   PanelSymbolChooser,
+  type PANEL_SYMBOL_CHOOSER_APP,
   type PanelSymbolChooserHandle,
-} from '../widgets/panel_symbol_chooser.js';
-import { type PickedSymbol } from '@ziroeda/eeschema/picksymbol.js';
+} from './widgets/panel_symbol_chooser.js';
+import { type PickedSymbol } from './picksymbol.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 export interface SymbolChooserFrameProps {
+  /** What the panel reaches in the app (`PANEL_SYMBOL_CHOOSER_APP`). */
+  app: PANEL_SYMBOL_CHOOSER_APP;
   /**
    * The caller's current text, parsed as a LIB_ID and preselected when valid.
    * `ShowModal( wxString* aSymbol, … )`: `if( aSymbol && !aSymbol->IsEmpty() )
@@ -69,6 +72,7 @@ export interface SymbolChooserFrameProps {
 }
 
 export function SymbolChooserFrame({
+  app,
   preselect,
   historyList = [],
   onOk,
@@ -99,6 +103,7 @@ export function SymbolChooserFrame({
         </div>
         <div className="ze-modal-body">
           <PanelSymbolChooser
+            app={app}
             ref={panelRef}
             // `false` for aShowFootprints, hardcoded at the call site (:87) —
             // NOT the Preferences value. This is the whole difference in the

@@ -202,11 +202,11 @@ describe('enriching one library is one request', () => {
   // `import.meta.url` is not a file: URL under happy-dom, so the path is
   // resolved from vitest's root (`qa/`) instead.
   const src = readFileSync(
-    resolve(process.cwd(), '../designer/src/editors/schematic/widgets/panel_symbol_chooser.tsx'),
+    resolve(process.cwd(), '../eeschema/widgets/panel_symbol_chooser.tsx'),
     'utf8',
   );
   const start = src.indexOf('const ensureLibraryLoaded = useCallback(');
-  const end = src.indexOf('[adapter, onItemCountChanged],', start);
+  const end = src.indexOf('[adapter, onItemCountChanged, app],', start);
   const body = src.slice(start, end);
 
   it('is found at all, so a rename fails here rather than silently passing', () => {

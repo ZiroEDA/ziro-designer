@@ -139,10 +139,14 @@ describe('PANEL_SYMBOL_CHOOSER forwards its preselect to the tree', () => {
       },
     }));
     const { PanelSymbolChooser } = await import(
-      '@ziroeda/designer/src/editors/schematic/widgets/panel_symbol_chooser.js'
+      '@ziroeda/eeschema/widgets/panel_symbol_chooser.js'
+    );
+    const { SYMBOL_CHOOSER_APP } = await import(
+      '@ziroeda/designer/src/editors/schematic/symbol_chooser_app.js'
     );
     render(
       <PanelSymbolChooser
+        app={SYMBOL_CHOOSER_APP}
         showFootprints={false}
         historyList={historyList}
         alreadyPlaced={[]}

@@ -44,7 +44,8 @@ import { RPT_SEVERITY_ACTION, RPT_SEVERITY_ERROR, type ReportLine } from '@ziroe
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { HtmlReportPanel, RPT_SEVERITY_ALL } from '@ziroeda/common/widgets/wx_html_report_panel.js';
 import { Icon } from '@ziroeda/common/widgets/icons.js';
-import { SymbolChooserFrame } from './symbol_chooser_frame.js';
+import { SymbolChooserFrame } from '@ziroeda/eeschema/symbol_chooser_frame.js';
+import { SYMBOL_CHOOSER_APP } from '../symbol_chooser_app.js';
 import type { DialogChangeSymbolsProps } from '@ziroeda/eeschema/tools/change_symbols.js';
 
 /** The five match rows, in `_base.cpp` order. `needs` names the entry beside
@@ -472,6 +473,7 @@ export function DialogChangeSymbols({
           appeared. */}
       {browsing !== null && (
         <SymbolChooserFrame
+          app={SYMBOL_CHOOSER_APP}
           preselect={browserSeed}
           historyList={chooserHistory}
           onOk={acceptBrowsed}

@@ -45,7 +45,7 @@ FPLIST = "designer/src/widgets/footprint_list.ts"
 SCHPRE = "designer/src/editors/schematic/preload.ts"
 PCBPRE = "designer/src/editors/pcb/preload.ts"
 SCHED = "designer/src/editors/schematic/SchematicEditor.tsx"
-CHOOSER = "designer/src/editors/schematic/widgets/panel_symbol_chooser.tsx"
+CHOOSER = "eeschema/widgets/panel_symbol_chooser.tsx"
 
 T_PRELOAD = "unittests/designer/library_preload.test.ts"
 T_WORK = "unittests/designer/library_preload_work.test.ts"
