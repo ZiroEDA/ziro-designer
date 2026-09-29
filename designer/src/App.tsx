@@ -20,7 +20,7 @@ import type { PickedFile } from '@ziroeda/eeschema/sch_edit_frame_ui.js';
 import { EMPTY_PCB } from './home/new_project.js';
 import { ProgressDialog } from '@ziroeda/common/widgets/wx_progress_reporters.js';
 import { ProjectSyncProvider } from './sync/ProjectSyncProvider.js';
-import type { EditorKind } from '@ziroeda/eeschema/project_sync_transport.js';
+import type { EditorKind } from '@ziroeda/eeschema/browser/project_sync_transport.js';
 import {
   storageAvailable,
   cloudIdentityOf,
