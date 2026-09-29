@@ -742,3 +742,28 @@ alone landed `connection_graph.ts`, `sch_commit.ts`,
 `NETLIST_EXPORTER_BASE`/`XML`/`KICAD` onto the live `SCHEMATIC` — is already
 closing this gap from the other side. `erc_report.ts` is a small, mechanical
 port once ERC's engine (or a wrapper) hands it real item references.
+
+**Step 2 — `EESCHEMA_APP` and the window.** `eeschema/eeschema_app.ts` states
+what the Schematic Editor's window asks of the program, member by member,
+each family its own commit; `designer/src/editors/schematic/eeschema_app.tsx`
+(`useEeschemaApp()` + `SchematicEditorMount`) is the only file that answers
+it. `SchematicEditor.tsx` then moved whole to `eeschema/sch_edit_frame_ui.tsx`
+and takes `app` as a prop (App.tsx mounts `SchematicEditorMount`, the
+`PcbEditorMount` shape). How each designer/-only reach was resolved:
+
+| reach | resolution |
+|---|---|
+| `prefs/settings` + `useSettings` hooks | `app.settings` (`EESCHEMA_SETTINGS_STORE`) + the four hooks; the `eeschema.json` shape moved to `eeschema_settings.ts` |
+| Preferences, Open/Save As, HomeLink, selection filter, sym-lib table, footprint chooser, toolbars | app members (component-shaped); `PrefsPageId` moved to `common/frame_type.ts` |
+| hosted symbol/footprint libraries, preload, hotkey remap | app members, stated structurally (no pcbnew type) |
+| live sync, auth, presence | `sch_diff.ts` + `project_sync_transport.ts` moved to eeschema/, `collection_diff.ts` to common/; hooks + panel are app members |
+| CvPcb window, pcbnew netlist + cross-probe helpers | app members (cvpcb imports eeschema: a direct import back is a package cycle). The cross-probe decision/flash belongs in common/; `pcbnew/cross-probing.ts` was busy |
+| canvas | contract moved to `sch_draw_panel.ts`; component is `app.SchematicCanvas` |
+| symbol chooser, library browser, rescue, change symbols | contracts moved (`picksymbol.ts`, `project_rescue.ts`, `tools/change_symbols.ts`); components are app members |
+| annotate / print / plot dialogs | moved to `dialogs/dialog_annotate.tsx`, `printing/dialog_print.tsx`, `dialogs/dialog_plot_schematic.tsx`, taking `settings` as a prop |
+| pure helpers | moved: `hover_selection`, `net_overrides`, `panes`, `toggles`, `frame_title`; TEMPLATES appended to `common/template_fieldnames.ts`; the field/symbol-properties/find/page-settings dialogs and the properties panel to `dialogs/`, `widgets/` |
+
+Every hook dependency list that reads an app member lists it
+(`qa/probes/add_hook_dep.mjs`); useExhaustiveDependencies stayed at 103
+warnings throughout. Root match after step 2: 66/83 (probe `SAME` 134;
+both include other sessions' concurrent ports).
