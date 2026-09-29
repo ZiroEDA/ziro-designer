@@ -212,28 +212,6 @@ export function DialogGendrill({
     if (!writer.GenDrillReportFile(name)) appendMsg(`Failed to create file '${name}'.`);
   };
 
-  const box: React.CSSProperties = {
-    border: '1px solid var(--chrome-border)',
-    borderRadius: 4,
-    padding: '6px 10px 8px',
-  };
-  const legend: React.CSSProperties = { fontSize: 11.5, padding: '0 4px', fontWeight: 600 };
-  const lab: React.CSSProperties = { fontSize: 12 };
-  const check: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 6,
-    margin: '4px 0',
-    fontSize: 12.5,
-  };
-  const fieldRow: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    margin: '5px 0',
-    fontSize: 12.5,
-  };
-
   return (
     <div className="ze-modal-backdrop" onMouseDown={onClose}>
       <div className="ze-modal" onMouseDown={(e) => e.stopPropagation()}>
@@ -243,15 +221,9 @@ export function DialogGendrill({
             ✕
           </span>
         </div>
-        <div
-          className="ze-modal-body"
-          style={{ display: 'block', padding: '10px 14px', overflow: 'auto' }}
-        >
-          <div
-            style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}
-            onMouseDown={() => setBrowseOpen(false)}
-          >
-            <span style={lab}>Output folder:</span>
+        <div className="ze-modal-body" style={{ display: 'block', overflow: 'auto' }}>
+          <div className="ze-gendrill-upper" onMouseDown={() => setBrowseOpen(false)}>
+            <span>Output folder:</span>
             <input
               className="ze-search"
               style={{ flex: 1 }}
@@ -273,22 +245,7 @@ export function DialogGendrill({
                 <Icon name="folder" size={14} />
               </button>
               {browseOpen && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '100%',
-                    right: 0,
-                    zIndex: 20,
-                    minWidth: 180,
-                    marginTop: 2,
-                    background: 'var(--chrome-bg2)',
-                    border: '1px solid var(--chrome-border)',
-                    borderRadius: 3,
-                    fontSize: 12,
-                    boxShadow: '0 6px 20px rgba(0,0,0,0.4)',
-                  }}
-                  onMouseDown={(e) => e.stopPropagation()}
-                >
+                <div className="ze-folder-browse-popup" onMouseDown={(e) => e.stopPropagation()}>
                   {[
                     '',
                     ...[...new Set(projectFolders.filter(Boolean))].sort((a, b) =>
@@ -297,8 +254,7 @@ export function DialogGendrill({
                   ].map((f) => (
                     <div
                       key={f || '.'}
-                      className="ze-menu-item"
-                      style={{ padding: '4px 12px', cursor: 'default' }}
+                      className="ze-menu-item ze-folder-browse-item"
                       onClick={() => {
                         setOutputDir(f);
                         setBrowseOpen(false);
@@ -312,17 +268,21 @@ export function DialogGendrill({
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: 18, alignItems: 'flex-start' }}>
-            {/* Format */}
-            <fieldset style={{ ...box, flex: 1 }}>
-              <legend style={legend}>Format</legend>
-              <label style={check}>
+          <div
+            className="ze-gendrill-columns"
+            style={{ display: 'flex', alignItems: 'flex-start' }}
+          >
+            {/* bLeftCol: "Format" is a wxStaticText + wxStaticLine, not a box. */}
+            <div className="ze-gendrill-col" style={{ flex: 1 }}>
+              <div className="ze-gendrill-headline">Format</div>
+              <hr className="ze-gendrill-rule" />
+              <label className="ze-check">
                 <input type="radio" name="ze-gendrill-fmt" checked readOnly />
                 Excellon
               </label>
-              <div style={{ marginLeft: 20 }}>
+              <div className="ze-gendrill-suboptions">
                 <label
-                  style={check}
+                  className="ze-check"
                   title={'Not recommended.\nUsed mostly by users who make the boards themselves.'}
                 >
                   <input
@@ -333,7 +293,7 @@ export function DialogGendrill({
                   Mirror Y axis
                 </label>
                 <label
-                  style={check}
+                  className="ze-check"
                   title={
                     'Not recommended.\nOnly use it for board houses which do not accept fully featured headers.'
                   }
@@ -346,7 +306,7 @@ export function DialogGendrill({
                   Minimal header
                 </label>
                 <label
-                  style={check}
+                  className="ze-check"
                   title={
                     'Not recommended.\nOnly use for board houses which ask for merged PTH and NPTH into a single file.'
                   }
@@ -358,7 +318,7 @@ export function DialogGendrill({
                   />
                   PTH and NPTH in single file
                 </label>
-                <label style={check}>
+                <label className="ze-check">
                   <input
                     type="checkbox"
                     checked={altDrillMode}
@@ -368,20 +328,20 @@ export function DialogGendrill({
                 </label>
               </div>
               <label
-                style={{ ...check, marginTop: 4 }}
+                className="ze-check"
                 title="Not ported: GERBER_WRITER (Gerber drill files) is not built here yet."
               >
                 <input type="radio" name="ze-gendrill-fmt" disabled />
                 Gerber X2
               </label>
-              <div style={{ marginLeft: 20 }}>
-                <label style={check}>
+              <div className="ze-gendrill-suboptions">
+                <label className="ze-check">
                   <input type="checkbox" disabled />
                   Generate tenting layers
                 </label>
               </div>
-              <div style={{ ...fieldRow, marginTop: 4 }}>
-                <label style={{ ...check, margin: 0 }}>
+              <div className="ze-gendrill-genmap">
+                <label className="ze-check">
                   <input
                     type="checkbox"
                     checked={generateMap}
@@ -397,13 +357,14 @@ export function DialogGendrill({
                   ariaLabel="Generate map format"
                 />
               </div>
-            </fieldset>
+            </div>
 
-            {/* Options */}
-            <fieldset style={{ ...box, flex: '0 0 240px' }}>
-              <legend style={legend}>Options</legend>
-              <div style={fieldRow}>
-                <span style={{ minWidth: 60 }}>Origin:</span>
+            {/* bRightCol: "Options" is a wxStaticText + wxStaticLine too. */}
+            <div className="ze-gendrill-col" style={{ flex: '0 0 240px' }}>
+              <div className="ze-gendrill-headline">Options</div>
+              <hr className="ze-gendrill-rule" />
+              <div className="ze-gendrill-optrow">
+                <span className="ze-gendrill-optlabel">Origin:</span>
                 <Combo
                   value={origin}
                   options={ORIGIN_CHOICES}
@@ -412,8 +373,8 @@ export function DialogGendrill({
                   ariaLabel="Origin"
                 />
               </div>
-              <div style={fieldRow}>
-                <span style={{ minWidth: 60 }}>Units:</span>
+              <div className="ze-gendrill-optrow">
+                <span className="ze-gendrill-optlabel">Units:</span>
                 <Combo
                   value={units}
                   options={UNITS_CHOICES}
@@ -423,8 +384,8 @@ export function DialogGendrill({
                   ariaLabel="Units"
                 />
               </div>
-              <div style={fieldRow}>
-                <span style={{ minWidth: 60 }}>Zeros:</span>
+              <div className="ze-gendrill-optrow">
+                <span className="ze-gendrill-optlabel">Zeros:</span>
                 <Combo
                   value={zeros}
                   options={ZEROS_CHOICES}
@@ -434,42 +395,21 @@ export function DialogGendrill({
                   ariaLabel="Zeros"
                 />
               </div>
-              <div style={{ ...fieldRow, opacity: precisionEnabled ? 1 : 0.5 }}>
-                <span style={{ minWidth: 60 }}>Precision:</span>
+              <div className="ze-gendrill-optrow" style={{ opacity: precisionEnabled ? 1 : 0.5 }}>
+                <span className="ze-gendrill-optlabel">Precision:</span>
                 <span>{precisionStr}</span>
               </div>
-            </fieldset>
+            </div>
           </div>
 
-          <fieldset style={{ ...box, marginTop: 10 }}>
-            <legend style={legend}>Messages</legend>
-            <textarea
-              readOnly
-              value={messages.join('\n')}
-              style={{
-                width: '100%',
-                minHeight: 90,
-                resize: 'vertical',
-                fontFamily: 'inherit',
-                fontSize: 12,
-                background: 'var(--chrome-bg2)',
-                color: 'var(--chrome-fg)',
-                border: '1px solid var(--chrome-border)',
-                borderRadius: 3,
-                padding: 4,
-                boxSizing: 'border-box',
-              }}
-            />
+          <fieldset className="ze-sbox ze-gendrill-messages">
+            <legend>Messages</legend>
+            <textarea readOnly value={messages.join('\n')} />
           </fieldset>
         </div>
 
         <div className="ze-modal-footer">
-          <button
-            type="button"
-            className="ze-btn"
-            style={{ marginRight: 'auto' }}
-            onClick={generateReport}
-          >
+          <button type="button" className="ze-btn ze-gendrill-report-btn" onClick={generateReport}>
             Generate Report File...
           </button>
           <button type="button" className="ze-btn" onClick={onClose}>

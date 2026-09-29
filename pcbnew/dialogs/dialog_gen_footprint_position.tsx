@@ -208,22 +208,6 @@ export function DialogGenFootprintPosition({
     report('Done.', RPT_SEVERITY_INFO);
   };
 
-  const lab: React.CSSProperties = { fontSize: 12 };
-  const check: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 6,
-    margin: '5px 0',
-    fontSize: 12.5,
-  };
-  const fieldRow: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    margin: '5px 0',
-    fontSize: 12.5,
-  };
-
   return (
     <div className="ze-modal-backdrop" onMouseDown={onClose}>
       <div className="ze-modal" onMouseDown={(e) => e.stopPropagation()}>
@@ -233,15 +217,12 @@ export function DialogGenFootprintPosition({
             ✕
           </span>
         </div>
-        <div
-          className="ze-modal-body"
-          style={{ display: 'block', padding: '10px 14px', overflow: 'auto' }}
-        >
+        <div className="ze-modal-body" style={{ display: 'block', overflow: 'auto' }}>
           <div
-            style={fieldRow}
+            className="ze-genpos-field"
             title="Not wired: place_file_exporter.ts does not filter by variant yet."
           >
-            <span style={{ ...lab, minWidth: 100 }}>Design variant:</span>
+            <span className="ze-genpos-label">Design variant:</span>
             <Combo
               value={String(variant)}
               options={variantNames.map((n, i) => ({ value: String(i), label: n }))}
@@ -251,11 +232,8 @@ export function DialogGenFootprintPosition({
               ariaLabel="Design variant"
             />
           </div>
-          <div
-            style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}
-            onMouseDown={() => setBrowseOpen(false)}
-          >
-            <span style={{ ...lab, minWidth: 100 }}>Output directory:</span>
+          <div className="ze-genpos-row" onMouseDown={() => setBrowseOpen(false)}>
+            <span className="ze-genpos-label">Output directory:</span>
             <input
               className="ze-search"
               style={{ flex: 1 }}
@@ -277,22 +255,7 @@ export function DialogGenFootprintPosition({
                 <Icon name="folder" size={14} />
               </button>
               {browseOpen && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '100%',
-                    right: 0,
-                    zIndex: 20,
-                    minWidth: 180,
-                    marginTop: 2,
-                    background: 'var(--chrome-bg2)',
-                    border: '1px solid var(--chrome-border)',
-                    borderRadius: 3,
-                    fontSize: 12,
-                    boxShadow: '0 6px 20px rgba(0,0,0,0.4)',
-                  }}
-                  onMouseDown={(e) => e.stopPropagation()}
-                >
+                <div className="ze-folder-browse-popup" onMouseDown={(e) => e.stopPropagation()}>
                   {[
                     '',
                     ...[...new Set(projectFolders.filter(Boolean))].sort((a, b) =>
@@ -301,8 +264,7 @@ export function DialogGenFootprintPosition({
                   ].map((f) => (
                     <div
                       key={f || '.'}
-                      className="ze-menu-item"
-                      style={{ padding: '4px 12px', cursor: 'default' }}
+                      className="ze-menu-item ze-folder-browse-item"
                       onClick={() => {
                         setOutputDir(f);
                         setBrowseOpen(false);
@@ -316,9 +278,9 @@ export function DialogGenFootprintPosition({
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: 24, marginBottom: 8 }}>
-            <div style={fieldRow}>
-              <span style={lab}>Format:</span>
+          <div className="ze-genpos-formatrow">
+            <div className="ze-genpos-field">
+              <span>Format:</span>
               <Combo
                 value={format}
                 options={FORMAT_CHOICES}
@@ -326,77 +288,79 @@ export function DialogGenFootprintPosition({
                 ariaLabel="Format"
               />
             </div>
-            <div style={fieldRow}>
-              <span style={lab}>Units:</span>
+            <div className="ze-genpos-field">
+              <span>Units:</span>
               <Combo value={units} options={UNITS_CHOICES} onChange={setUnits} ariaLabel="Units" />
             </div>
           </div>
 
-          <label style={check}>
-            <input
-              type="checkbox"
-              checked={onlySMD}
-              onChange={(e) => setOnlySMD(e.target.checked)}
-            />
-            Include only SMD footprints
-          </label>
-          <label style={check}>
-            <input
-              type="checkbox"
-              checked={excludeTH}
-              onChange={(e) => setExcludeTH(e.target.checked)}
-            />
-            Exclude all footprints with through hole pads
-          </label>
-          <label style={check}>
-            <input
-              type="checkbox"
-              checked={excludeDNP}
-              onChange={(e) => setExcludeDNP(e.target.checked)}
-            />
-            Exclude all footprints with the Do Not Populate flag set
-          </label>
-          <label style={check}>
-            <input
-              type="checkbox"
-              checked={excludeBOM}
-              onChange={(e) => setExcludeBOM(e.target.checked)}
-            />
-            Exclude all footprints with the Exclude from BOM flag set
-          </label>
-          <label
-            style={check}
-            title="Not ported: PLACEFILE_GERBER_WRITER (Gerber X3 placement files) is not built here yet."
-          >
-            <input type="checkbox" checked={includeBoardEdge} disabled onChange={() => {}} />
-            Include board edge layer
-          </label>
-          <label style={check}>
-            <input
-              type="checkbox"
-              checked={useDrillPlaceOrigin}
-              onChange={(e) => setUseDrillPlaceOrigin(e.target.checked)}
-            />
-            Use drill/place file origin
-          </label>
-          <label style={check}>
-            <input
-              type="checkbox"
-              checked={negateX}
-              onChange={(e) => setNegateX(e.target.checked)}
-            />
-            Use negative X coordinates for footprints on bottom layer
-          </label>
-          <label style={check}>
-            <input
-              type="checkbox"
-              checked={singleFile}
-              onChange={(e) => setSingleFile(e.target.checked)}
-            />
-            Generate single file with both front and back positions
-          </label>
+          <div className="ze-genpos-checks">
+            <label className="ze-check">
+              <input
+                type="checkbox"
+                checked={onlySMD}
+                onChange={(e) => setOnlySMD(e.target.checked)}
+              />
+              Include only SMD footprints
+            </label>
+            <label className="ze-check">
+              <input
+                type="checkbox"
+                checked={excludeTH}
+                onChange={(e) => setExcludeTH(e.target.checked)}
+              />
+              Exclude all footprints with through hole pads
+            </label>
+            <label className="ze-check">
+              <input
+                type="checkbox"
+                checked={excludeDNP}
+                onChange={(e) => setExcludeDNP(e.target.checked)}
+              />
+              Exclude all footprints with the Do Not Populate flag set
+            </label>
+            <label className="ze-check">
+              <input
+                type="checkbox"
+                checked={excludeBOM}
+                onChange={(e) => setExcludeBOM(e.target.checked)}
+              />
+              Exclude all footprints with the Exclude from BOM flag set
+            </label>
+            <label
+              className="ze-check"
+              title="Not ported: PLACEFILE_GERBER_WRITER (Gerber X3 placement files) is not built here yet."
+            >
+              <input type="checkbox" checked={includeBoardEdge} disabled onChange={() => {}} />
+              Include board edge layer
+            </label>
+            <label className="ze-check">
+              <input
+                type="checkbox"
+                checked={useDrillPlaceOrigin}
+                onChange={(e) => setUseDrillPlaceOrigin(e.target.checked)}
+              />
+              Use drill/place file origin
+            </label>
+            <label className="ze-check">
+              <input
+                type="checkbox"
+                checked={negateX}
+                onChange={(e) => setNegateX(e.target.checked)}
+              />
+              Use negative X coordinates for footprints on bottom layer
+            </label>
+            <label className="ze-check">
+              <input
+                type="checkbox"
+                checked={singleFile}
+                onChange={(e) => setSingleFile(e.target.checked)}
+              />
+              Generate single file with both front and back positions
+            </label>
+          </div>
 
-          <div style={{ marginTop: 10 }}>
+          <div className="ze-genpos-report">
             <HtmlReportPanel
               lines={messages}
               fileName="report.txt"
