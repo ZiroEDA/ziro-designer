@@ -22,7 +22,7 @@ import {
   SYMBOL_EDITOR_DEFAULTS,
   type SymbolEditorSettings,
 } from '@ziroeda/eeschema/symbol_editor/symbol_editor_settings.js';
-import { symbolItemDefaults } from '@ziroeda/designer/src/editors/symbol/defaults.js';
+import { symbolItemDefaults } from '@ziroeda/eeschema/symbol_editor/defaults.js';
 
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
 const read = (rel: string): string => readFileSync(join(SRC, rel), 'utf8');
@@ -123,7 +123,7 @@ describe('the frame reads the five live fields', () => {
     // `DIALOG_TEXT_PROPERTIES dlg( m_frame, text )`
     // (`symbol_editor_drawing_tools.cpp:238-246`).
     expect(read(FRAME)).toContain('defaultFontSize={symbolItemDefaults(symCfg).textSizeIU}');
-    const dlg = read('editors/symbol/components/dialogs.tsx');
+    const dlg = read('../../eeschema/symbol_editor/symbol_editor_dialogs.tsx');
     expect(dlg).toContain('initial?.fontSize ?? defaultFontSize ?? 1.27 * MM');
   });
 
@@ -181,7 +181,7 @@ describe('every control on the page reads', () => {
   it('the Repeated Items pair really is read now', () => {
     // Both are `SYMBOL_EDITOR_PIN_TOOL::RepeatPin`'s
     // (`symbol_editor_pin_tool.cpp:427-445`), reached by Insert.
-    expect(read('editors/symbol/edits.ts')).toContain('pinStepMils');
+    expect(read('../../eeschema/symbol_editor/edits.ts')).toContain('pinStepMils');
     expect(read('editors/symbol/SymbolEditor.tsx')).toContain('cfg.repeat.pin_step');
     expect(read('editors/symbol/SymbolEditor.tsx')).toContain('cfg.repeat.label_delta');
   });
@@ -192,8 +192,8 @@ describe('every control on the page reads', () => {
     // by both frames — so the symbol canvas reads the setting and the geometry
     // comes from the shared module rather than a symbol-side copy.
     expect(read('editors/symbol/SymbolCanvas.tsx')).toContain('symCfg.drag_pins_along_with_edges');
-    expect(read('editors/symbol/edits.ts')).toContain(
-      "from '@ziroeda/eeschema/tools/point_editor.js'",
+    expect(read('../../eeschema/symbol_editor/edits.ts')).toContain(
+      "from '../tools/point_editor.js'",
     );
   });
 });

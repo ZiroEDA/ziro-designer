@@ -44,7 +44,7 @@ import {
   persistSymbolToggle,
   SYMBOL_SETTING_TOGGLES,
   symbolTogglesFromSettings,
-} from '@ziroeda/designer/src/editors/symbol/toggles.js';
+} from '@ziroeda/eeschema/symbol_editor/toggles.js';
 import { SYMBOL_EDITOR_DEFAULTS } from '@ziroeda/eeschema/symbol_editor/symbol_editor_settings.js';
 
 const sorted = (s: Iterable<string>): string[] => [...s].sort();
@@ -355,7 +355,9 @@ describe('editors/symbol/SymbolEditor.tsx seeds its toolbar from the settings fi
 
   it('writes the two settings toggles back, and only those two', () => {
     const s = src(SYM);
-    expect(s).toMatch(/import \{[^}]*\bpersistSymbolToggle\b[^}]*\} from '\.\/toggles\.js'/);
+    expect(s).toMatch(
+      /import \{[^}]*\bpersistSymbolToggle\b[^}]*\} from '@ziroeda\/eeschema\/symbol_editor\/toggles\.js'/,
+    );
     // Guarded by SYMBOL_SETTING_TOGGLES: `updateSymbolEditor` persists and
     // wakes the account sync, so calling it for a pane toggle would push
     // `symbol_editor.json` on every click of the left toolbar.
@@ -416,7 +418,7 @@ describe('editors/symbol/SymbolEditor.tsx seeds its toolbar from the settings fi
     // Membership above is only half the rule: an id that folds but has no
     // control at all is a setting the user cannot reach. This is the other
     // half, and it is why `togglePinAltIcons` is allowed to have no button.
-    const menubar = src('editors/symbol/menubar.ts');
+    const menubar = src('../../eeschema/symbol_editor/menubar_symbol_editor.ts');
     expect(menubar).toContain("chk('Show Pin Alternate Icons', 'togglePinAltIcons')");
   });
 

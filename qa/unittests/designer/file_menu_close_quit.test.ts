@@ -149,7 +149,7 @@ const FRAMES: FrameRow[] = [
   {
     // The bar moved out of the frame into its own data module, the way
     // eeschema's and gerbview's did, so that qa can compile it.
-    file: 'editors/symbol/menubar.ts',
+    file: '../../eeschema/symbol_editor/menubar_symbol_editor.ts',
     upstream: 'eeschema/symbol_editor/menubar_symbol_editor.cpp:88',
     app: 'Library Editor',
     rows: ['close'],

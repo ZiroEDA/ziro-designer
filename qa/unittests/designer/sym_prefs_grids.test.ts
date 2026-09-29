@@ -33,7 +33,7 @@ import {
   SYMBOL_EDITOR_DEFAULTS,
   type SymbolEditorSettings,
 } from '@ziroeda/eeschema/symbol_editor/symbol_editor_settings.js';
-import { symbolGridForTool, symbolGridIU } from '@ziroeda/designer/src/editors/symbol/grid.js';
+import { symbolGridForTool, symbolGridIU } from '@ziroeda/eeschema/symbol_editor/grid.js';
 import { DEFAULT_GRID_INDEX, GRID_SIZE_LIST } from '@ziroeda/common/settings/grid_settings_ui.js';
 import { OVERRIDE_ROWS } from '@ziroeda/common/dialogs/panel_grid_settings.js';
 

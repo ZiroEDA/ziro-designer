@@ -45,7 +45,7 @@ import {
   targetLibId,
   type SymbolConditions,
   type SymbolFrameState,
-} from '@ziroeda/designer/src/editors/symbol/conditions.js';
+} from '@ziroeda/eeschema/symbol_editor/conditions.js';
 import {
   SYM_TOP_TOOLBAR,
   SYM_LEFT_TOOLBAR,
@@ -55,7 +55,7 @@ import {
   symbolEditorMenus,
   type SymbolMenuConditions,
   type SymbolMenuHandlers,
-} from '@ziroeda/designer/src/editors/symbol/menubar.js';
+} from '@ziroeda/eeschema/symbol_editor/menubar_symbol_editor.js';
 import type { Menu, MenuItem } from '@ziroeda/common/tool/action_menu_types.js';
 import type { ToolEntry } from '@ziroeda/common/tool/action_toolbar_types.js';
 

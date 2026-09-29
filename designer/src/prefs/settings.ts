@@ -70,6 +70,7 @@ import { KICAD_SETTINGS } from '@ziroeda/common/settings/kicad_settings.js';
 import { EESCHEMA_DEFAULTS, type EeschemaSettings } from '@ziroeda/eeschema/eeschema_settings.js';
 import {
   SYMBOL_EDITOR_DEFAULTS,
+  setSymbolEditorSettingsProvider,
   type SymbolEditorSettings,
 } from '@ziroeda/eeschema/symbol_editor/symbol_editor_settings.js';
 import {
@@ -2790,3 +2791,7 @@ setColorPickerTabStore({
       s.color_picker.default_tab = i;
     }),
 });
+
+// The symbol editor's modules read the live `symbol_editor.json` through
+// eeschema's hook (its grid and item defaults): the same hand-over.
+setSymbolEditorSettingsProvider(() => settings.symbolEditor);

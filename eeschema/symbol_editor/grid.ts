@@ -22,10 +22,12 @@
  * `defaultGridIdx` of 1 that `common/settings/app_settings.cpp:463-466` gives
  * the file by name — 50 mil, which is exactly what `GRID` was.
  */
-import { settings } from '../../prefs/settings.js';
-import { gridSizeToIU } from '@ziroeda/eeschema/eeschema_settings.js';
-import { type SymbolEditorSettings } from '@ziroeda/eeschema/symbol_editor/symbol_editor_settings.js';
-import { SYM_SHAPE_TOOLS } from '@ziroeda/eeschema/symbol_editor/toolbars_symbol_editor.js';
+import { gridSizeToIU } from '../eeschema_settings.js';
+import {
+  currentSymbolEditorSettings,
+  type SymbolEditorSettings,
+} from './symbol_editor_settings.js';
+import { SYM_SHAPE_TOOLS } from './toolbars_symbol_editor.js';
 import { gridSnappingEnabled } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
 
 /**
@@ -37,7 +39,7 @@ import { gridSnappingEnabled } from '@ziroeda/common/draw_panel_gal_grid_cursor.
  * points past the end — and a frame that read `undefined` there would snap to
  * nothing at all.
  */
-export function symbolGridIU(cfg: SymbolEditorSettings = settings.symbolEditor): number {
+export function symbolGridIU(cfg: SymbolEditorSettings = currentSymbolEditorSettings()): number {
   const { sizes, last_size_idx } = cfg.window.grid;
   const idx = Math.max(0, Math.min(last_size_idx, sizes.length - 1));
   // `gridSizeToIU` falls back to 50 mil for a string it cannot parse, which is

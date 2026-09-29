@@ -24,7 +24,7 @@ import {
   symbolEditorMenus,
   type SymbolMenuConditions,
   type SymbolMenuHandlers,
-} from '@ziroeda/designer/src/editors/symbol/menubar.js';
+} from '@ziroeda/eeschema/symbol_editor/menubar_symbol_editor.js';
 import {
   footprintEditorMenus,
   type FootprintMenuConditions,

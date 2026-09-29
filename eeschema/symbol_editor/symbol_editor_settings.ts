@@ -235,3 +235,23 @@ export const SYMBOL_EDITOR_DEFAULTS: SymbolEditorSettings = {
     },
   },
 };
+
+/**
+ * `Pgm().GetSettingsManager().GetAppSettings<SYMBOL_EDITOR_SETTINGS>( "symbol_editor" )`:
+ * the live `symbol_editor.json`, for the code that reads the frame's settings
+ * rather than being handed them (the grid every snap uses, the item defaults).
+ * The store is designer's, so it arrives as a swappable hook - the shape
+ * `pcbnew/pcbTheme.ts`'s `setColorSettingsByIdProvider` uses. No app registered
+ * (a package test, say) answers the defaults.
+ */
+let symbolEditorSettingsProvider: () => SymbolEditorSettings = () => SYMBOL_EDITOR_DEFAULTS;
+
+/** The settings store installs this once (`designer/src/prefs/settings.ts`). */
+export function setSymbolEditorSettingsProvider(fn: () => SymbolEditorSettings): void {
+  symbolEditorSettingsProvider = fn;
+}
+
+/** The live `symbol_editor.json`. */
+export function currentSymbolEditorSettings(): SymbolEditorSettings {
+  return symbolEditorSettingsProvider();
+}

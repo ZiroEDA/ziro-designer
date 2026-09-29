@@ -60,8 +60,8 @@ import {
   dragSymbolHandle,
   moveSymbolOrigin,
   type SymbolHit,
-} from './edits.js';
-import { symbolGridForTool, symbolSnappingEnabled } from './grid.js';
+} from '@ziroeda/eeschema/symbol_editor/edits.js';
+import { symbolGridForTool, symbolSnappingEnabled } from '@ziroeda/eeschema/symbol_editor/grid.js';
 
 /**
  * The symbol editor's drawing canvas: pan/zoom, selection/move (SCH_SELECTION /

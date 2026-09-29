@@ -32,8 +32,8 @@ import {
   SESSION_TOGGLES,
   SYMBOL_SETTING_TOGGLES,
   symbolTogglesFromSettings,
-} from '@ziroeda/designer/src/editors/symbol/toggles.js';
-import { symbolSnappingEnabled } from '@ziroeda/designer/src/editors/symbol/grid.js';
+} from '@ziroeda/eeschema/symbol_editor/toggles.js';
+import { symbolSnappingEnabled } from '@ziroeda/eeschema/symbol_editor/grid.js';
 
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
 const read = (rel: string): string => readFileSync(join(SRC, rel), 'utf8');
@@ -102,7 +102,7 @@ describe('the fourth checkbox is live, and reaches the canvas by its own route',
     // a `chk` rather than a `stub`.
     expect(SYMBOL_SETTING_TOGGLES.has('togglePinAltIcons')).toBe(true);
     expect(persistSymbolToggle(cfg(), 'togglePinAltIcons')).toBe(true);
-    const menubar = read('editors/symbol/menubar.ts');
+    const menubar = read('../../eeschema/symbol_editor/menubar_symbol_editor.ts');
     expect(menubar).toContain("chk('Show Pin Alternate Icons', 'togglePinAltIcons')");
     expect(menubar).not.toContain("stub('Show Pin Alternate Icons'");
   });

@@ -23,8 +23,10 @@
  * which happened to equal the defaults and could not be changed by anything.
  */
 import { schIUScale } from '@ziroeda/common';
-import { settings } from '../../prefs/settings.js';
-import { type SymbolEditorSettings } from '@ziroeda/eeschema/symbol_editor/symbol_editor_settings.js';
+import {
+  currentSymbolEditorSettings,
+  type SymbolEditorSettings,
+} from './symbol_editor_settings.js';
 
 /** The five `defaults.*` values, converted once. */
 export interface SymbolItemDefaults {
@@ -41,7 +43,7 @@ export interface SymbolItemDefaults {
 }
 
 export function symbolItemDefaults(
-  cfg: SymbolEditorSettings = settings.symbolEditor,
+  cfg: SymbolEditorSettings = currentSymbolEditorSettings(),
 ): SymbolItemDefaults {
   const iu = (mils: number): number => schIUScale.milsToIU(mils);
   return {

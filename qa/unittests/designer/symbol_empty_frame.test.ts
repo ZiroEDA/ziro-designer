@@ -38,7 +38,7 @@ import {
   DEFAULT_TOGGLES,
   RADIO_GROUPS,
   syncPinEditOnLoad,
-} from '@ziroeda/designer/src/editors/symbol/toggles.js';
+} from '@ziroeda/eeschema/symbol_editor/toggles.js';
 import {
   renderSymbolScene,
   type SymbolViewOptions,
@@ -146,7 +146,7 @@ describe("SYMBOL_EDIT_FRAME's opening toggle state", () => {
     // The distinction the list above turns on, asserted rather than left to
     // the comment: a lit toolbar button for an action upstream does not draw
     // would be the defect, so this pins WHERE it is shown.
-    const menubar = read('editors/symbol/menubar.ts');
+    const menubar = read('../../eeschema/symbol_editor/menubar_symbol_editor.ts');
     expect(menubar).toContain("chk('Show Pin Alternate Icons', 'togglePinAltIcons')");
     const toolbars = readEeschema('symbol_editor/toolbars_symbol_editor.ts');
     expect(toolbars, 'upstream leaves this button commented out').not.toContain(

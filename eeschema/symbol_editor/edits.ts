@@ -12,14 +12,14 @@
  */
 
 import type { Vec2 } from '@ziroeda/kimath';
+import { EMPTY_SOURCE } from '../sch_io/sexpr/write-symbol-lib.js';
 import {
-  EMPTY_SOURCE,
   type LibGraphic,
   type LibPin,
   type LibSymbol,
   type LibSymbolUnit,
   type SchField,
-} from '@ziroeda/eeschema';
+} from '../types.js';
 import { nearestGridPosition, nearestHalfGridPosition } from '@ziroeda/common/eda_draw_frame.js';
 import { textWidth } from '@ziroeda/common/font/font_provider.js';
 import { measureText } from '@ziroeda/common/font/stroke_font.js';
@@ -30,7 +30,7 @@ import {
   pinNumberInfo,
   symItemId,
   type SymItemKind,
-} from '@ziroeda/eeschema/symbol_editor/symbol_renderer.js';
+} from './symbol_renderer.js';
 import { symbolGridIU } from './grid.js';
 import { IncrementString } from '@ziroeda/common/increment.js';
 import { schIUScale } from '@ziroeda/common/eda_units.js';
@@ -42,8 +42,8 @@ import {
   graphicIndicatorLines,
   pinRoot,
   pinRootOnSeg,
-} from '@ziroeda/eeschema/tools/point_editor.js';
-import type { ArcEditMode } from '@ziroeda/eeschema/tools/arc_edit.js';
+} from '../tools/point_editor.js';
+import type { ArcEditMode } from '../tools/arc_edit.js';
 
 export interface SymItemRef {
   kind: SymItemKind;

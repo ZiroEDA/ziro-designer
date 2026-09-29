@@ -29,7 +29,7 @@ import { join, relative } from 'node:path';
 import { dispatchMenuHotkey, type HotkeyEvent } from '@ziroeda/common/tool/action_menu_hotkeys.js';
 import { buildManagerMenus } from '@ziroeda/designer/src/home/menubar.js';
 import { buildMenus } from '@ziroeda/eeschema/menubar.js';
-import { symbolEditorMenus } from '@ziroeda/designer/src/editors/symbol/menubar.js';
+import { symbolEditorMenus } from '@ziroeda/eeschema/symbol_editor/menubar_symbol_editor.js';
 import { footprintEditorMenus } from '@ziroeda/pcbnew/menubar_footprint_editor.js';
 import { buildPcbMenus as pcbMenus } from '@ziroeda/pcbnew/menubar_pcb_editor.js';
 import { browserSafeKey } from '@ziroeda/common/browser_reserved.js';
@@ -248,7 +248,7 @@ const source = (rel: string): string => {
  */
 const MENU_MODULE: Readonly<Record<string, string>> = {
   '../../eeschema/sch_edit_frame_ui.tsx': '../../eeschema/menubar.ts',
-  'editors/symbol/SymbolEditor.tsx': 'editors/symbol/menubar.ts',
+  'editors/symbol/SymbolEditor.tsx': '../../eeschema/symbol_editor/menubar_symbol_editor.ts',
   '../../pcbnew/footprint_edit_frame_ui.tsx': '../../pcbnew/menubar_footprint_editor.ts',
   '../../pcbnew/pcb_edit_frame_ui.tsx': '../../pcbnew/menubar_pcb_editor.ts',
   // pl_editor's bar is its package's menubar.ts, beside KiCad's menubar.cpp.

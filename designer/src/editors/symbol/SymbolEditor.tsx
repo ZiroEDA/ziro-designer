@@ -93,21 +93,21 @@ import {
   rotateSymbolItems,
   setUnitCount,
   unitCount,
-} from './edits.js';
+} from '@ziroeda/eeschema/symbol_editor/edits.js';
 import {
   MM,
   symItemId,
   type SymbolViewOptions,
 } from '@ziroeda/eeschema/symbol_editor/symbol_renderer.js';
-import { symbolGridIU } from './grid.js';
-import { symbolItemDefaults } from './defaults.js';
+import { symbolGridIU } from '@ziroeda/eeschema/symbol_editor/grid.js';
+import { symbolItemDefaults } from '@ziroeda/eeschema/symbol_editor/defaults.js';
 import {
   fastGridActionForKey,
   fastGridIndex,
   type FastGridAction,
 } from '@ziroeda/common/settings/grid_settings_ui.js';
 import { settings } from '../../prefs/settings.js';
-import type { SymbolHit } from './edits.js';
+import type { SymbolHit } from '@ziroeda/eeschema/symbol_editor/edits.js';
 import {
   LibSymbolPropertiesDialog,
   NewSymbolDialog,
@@ -118,14 +118,14 @@ import {
   SymbolTextDialog,
   type NewSymbolResult,
   type PinDialogResult,
-} from './components/dialogs.js';
+} from '@ziroeda/eeschema/symbol_editor/symbol_editor_dialogs.js';
 import { DialogImportGfx } from '@ziroeda/eeschema/import_gfx/dialog_import_gfx_sch.js';
 import { MessageDialogOk } from '@ziroeda/common/dialogs/dialog_message.js';
 import '@ziroeda/common/widgets/shell.css';
 import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
 import type { PrefsPageId } from '@ziroeda/common/frame_type.js';
-import { symbolEditorMenus } from './menubar.js';
+import { symbolEditorMenus } from '@ziroeda/eeschema/symbol_editor/menubar_symbol_editor.js';
 import { DialogSchFind } from '@ziroeda/eeschema/dialogs/dialog_sch_find.js';
 import {
   defaultSearchData,
@@ -135,7 +135,11 @@ import {
   type SymbolFindMatch,
   type SymbolItemRef,
 } from '@ziroeda/eeschema/tools/sch_find_replace_tool.js';
-import { type SymbolConditions, symbolConditions, symbolToolbarDisabledIds } from './conditions.js';
+import {
+  type SymbolConditions,
+  symbolConditions,
+  symbolToolbarDisabledIds,
+} from '@ziroeda/eeschema/symbol_editor/conditions.js';
 import { showHotkeyList } from '@ziroeda/common/hotkeys_basic.js';
 import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
@@ -150,7 +154,7 @@ import {
   SYMBOL_SETTING_TOGGLES,
   symbolTogglesFromSettings,
   withSyncPinEdit,
-} from './toggles.js';
+} from '@ziroeda/eeschema/symbol_editor/toggles.js';
 import { SelectionFilterPanel } from '../../ui/SelectionFilterPanel.js';
 import { symSelectionFilterShown } from '../../ui/selection_filter_panel.js';
 import {

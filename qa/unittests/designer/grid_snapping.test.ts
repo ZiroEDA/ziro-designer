@@ -103,7 +103,7 @@ describe('every app defaults to ALWAYS, so the sweep changed no default', () => 
 /** Where each editor snaps, and which settings object is the right one there. */
 const CANVAS: Record<string, string> = {
   eeschema: 'editors/schematic/components/SchematicCanvas.tsx',
-  symbol_editor: 'editors/symbol/grid.ts',
+  symbol_editor: '../../eeschema/symbol_editor/grid.ts',
 };
 
 /** The settings-object expression each canvas must reach for. */

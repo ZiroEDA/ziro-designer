@@ -195,7 +195,7 @@ describe('the menu rows print the accelerator, character for character', () => {
     // schematic's below: the frame used to carry a second `e.key === 'Delete'`
     // binding beside the row, and `menu_hotkey_coverage.test.ts` rejects that
     // restatement -- upstream a menu accelerator IS the binding.
-    'editors/symbol/menubar.ts',
+    '../../eeschema/symbol_editor/menubar_symbol_editor.ts',
     '../../pcbnew/pcb_edit_frame_ui.tsx',
     '../../pcbnew/footprint_edit_frame_ui.tsx',
     '../../cvpcb/cvpcb_mainframe_ui.tsx',

@@ -32,7 +32,7 @@ import {
   defaultUnitsToggle,
 } from '@ziroeda/common/settings/app_settings_units.js';
 import { DEFAULT_TOGGLES as SCH_TOGGLES } from '@ziroeda/eeschema/toggles.js';
-import { DEFAULT_TOGGLES as SYM_TOGGLES } from '@ziroeda/designer/src/editors/symbol/toggles.js';
+import { DEFAULT_TOGGLES as SYM_TOGGLES } from '@ziroeda/eeschema/symbol_editor/toggles.js';
 import {
   ACTION_FOR_ID,
   loadPlEditorSettings,

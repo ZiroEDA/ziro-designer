@@ -69,7 +69,7 @@ import {
   symbolConditions,
   symbolToolbarDisabledIds,
   type SymbolFrameState,
-} from '@ziroeda/designer/src/editors/symbol/conditions.js';
+} from '@ziroeda/eeschema/symbol_editor/conditions.js';
 import { SYM_TOP_TOOLBAR } from '@ziroeda/eeschema/symbol_editor/toolbars_symbol_editor.js';
 import { TOP_TOOLBAR } from '@ziroeda/eeschema/toolbars_sch_editor.js';
 import {
@@ -81,7 +81,7 @@ import {
 import {
   symbolEditorMenus,
   type SymbolMenuHandlers,
-} from '@ziroeda/designer/src/editors/symbol/menubar.js';
+} from '@ziroeda/eeschema/symbol_editor/menubar_symbol_editor.js';
 import type { Menu, MenuItem } from '@ziroeda/common/tool/action_menu_types.js';
 
 /** A SYMBOL_EDIT_FRAME the moment it opens: no symbol, no library row, empty
