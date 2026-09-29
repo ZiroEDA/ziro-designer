@@ -112,7 +112,7 @@ describe('placeImportedItems: splitting IMPORTED_ITEM and stamping KIIDs', () =>
         layer: 'Dwgs.User',
         size: { x: 1_000_000, y: 1_000_000 },
         thickness: 100_000,
-        justify: 'left,center,normal',
+        justify: ['left', 'center'],
       },
     },
   ];
