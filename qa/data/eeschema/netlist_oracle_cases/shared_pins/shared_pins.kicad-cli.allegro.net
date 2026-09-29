@@ -1,0 +1,17 @@
+(NETLIST)
+(Source: /tmp/claude-1000/-home-akshay-ziro-designer-1/03aabb1f-e351-4acd-9d08-11047a065930/scratchpad/nlcases/shared_pins/shared_pins.kicad_sch)
+(Date: 2026-09-29T13:47:51)
+$PACKAGES
+! '4k7__1_____up_resistor_smd_r_0805' ! '4k7 <1%> & up' ; R1
+! 'tri8_f' ! 'TRI8' ; U1
+$A_PROPERTIES
+'ROOM' 'shared_pins' ; R1,
+	U1
+$NETS
+/VCC; R1.2,
+	U1.8
+'UNCONNECTED-(R1-PAD1)'; R1.1
+'UNCONNECTED-(U1-PAD1)'; U1.1
+'UNCONNECTED-(U1-PAD2)'; U1.2
+'UNCONNECTED-(U1B-V-PAD8)'; U1.8
+$END

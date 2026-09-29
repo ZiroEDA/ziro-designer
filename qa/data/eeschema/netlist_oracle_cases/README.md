@@ -12,6 +12,11 @@ Small designs written for one exporter rule each that none of KiCad's own
   `pinfunction` per expanded number.
 - `multi`: a two-unit part with its units on different sheets: one `(comp …)`
   (findNextSymbol's `m_referencesAlreadyFound`).
+- `shared_pins`: a three-unit part whose units each carry pin 8, placed so the
+  first unit read leaves its pin 8 unconnected and the second puts it on /VCC
+  (eraseDuplicatePins keeps the user-named net; Allegro's device file drops
+  the repeated 8s); and a resistor whose value and footprint hold spaces and
+  `< % > &` (the per-format space rules and XML escaping).
 
 The `.kicad_pro` and `.kicad_prl` kicad-cli made are left out: each design
 runs with the default project.
