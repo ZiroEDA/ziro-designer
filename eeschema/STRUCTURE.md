@@ -825,3 +825,24 @@ reached through `EESCHEMA_APP`, not code inside the frame. `picksymbol.cpp`'s
 out is a refactor, not a move. `sheet_and_config.test.ts` pins the two moved
 functions (neither was pinned before). Root match after step 3: see the
 regenerated struct_diff.
+
+**Step 4 — the Symbol Editor window.** Same method as step 2:
+
+| was | now |
+|---|---|
+| `prefs/settings.ts`'s `SymbolEditorSettings` + defaults | `symbol_editor/symbol_editor_settings.ts`, with `setSymbolEditorSettingsProvider` / `currentSymbolEditorSettings` (the live file, for the grid and item defaults) |
+| `gridSizeToIU` (schematic IU) | `eeschema_settings.ts` (common's two-argument one is the board editors') |
+| `editors/symbol/{grid,defaults,edits,conditions,toggles}.ts` | `symbol_editor/` (own names) |
+| `editors/symbol/menubar.ts` | `symbol_editor/menubar_symbol_editor.ts` |
+| `editors/symbol/components/dialogs.tsx` | `symbol_editor/symbol_editor_dialogs.tsx` |
+| `ui/selection_filter_panel.ts` + `ui/SelectionFilterPanel.tsx` | `widgets/panel_sch_selection_filter.ts` + `_ui.tsx` |
+| `editors/symbol/libraryManager.ts` | `symbol_library_manager.ts` (symbols base is a constructor argument) |
+| `SymbolCanvas`'s contract | `sch_draw_panel.ts` |
+| `editors/symbol/SymbolEditor.tsx` | `symbol_editor/symbol_edit_frame_ui.tsx`, taking `SYMBOL_EDIT_FRAME_APP` (`symbol_editor/symbol_edit_frame_app.ts`); designer's `symbol_edit_frame_app.tsx` builds it (`SymbolEditorMount`) |
+
+Still in designer/, each needing its own app seam: `SymbolLibraryBrowser.tsx`
+(SYMBOL_VIEWER_FRAME + `toolbars_symbol_viewer`), `dialogs/symbol_chooser_frame.tsx`
+and `widgets/panel_symbol_chooser.tsx` (SYMBOL_CHOOSER_FRAME /
+PANEL_SYMBOL_CHOOSER, with SYMBOL_TREE_MODEL_ADAPTER fused inside), and
+`symbols/index.ts` (the hosted library loader). Root match after step 4:
+69/84 (the 10.0.6 tree has 84 root `.cpp`s).
