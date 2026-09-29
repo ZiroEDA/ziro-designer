@@ -17,4 +17,13 @@ compare the whole file. The `.pos` (ASCII) file's "created on"/date line and
 the CSV and D356 files, matches byte for byte, unmasked: neither format has
 a machine- or time-identifying line of its own.
 
+`ecc83-pp-unique.gencad` is:
+
+    kicad-cli pcb export gencad -o ecc83-pp-unique.gencad --unique-footprints ecc83-pp.kicad_pcb
+
+`--unique-footprints` (`UseIndividualShapes`) only, and `ecc83-pp` only — see
+`qa/unittests/pcbnew/export_gencad_writer_oracle.test.ts`'s header for both
+restrictions and the two open discrepancies it documents (`$ROUTES`'
+tie-break order, and `interf_u`'s pad-shape dedup).
+
 Regenerate with `./regen.sh` from this directory.

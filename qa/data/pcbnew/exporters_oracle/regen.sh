@@ -7,4 +7,7 @@ for B in ecc83-pp interf_u; do
   kicad-cli pcb export pos -o $B-pos.csv --format csv --side both --units in $SRC
   kicad-cli pcb export ipcd356 -o $B.d356 $SRC
 done
+# GenCAD: --unique-footprints (UseIndividualShapes) only, and ecc83-pp only --
+# see the oracle test's own header for why.
+kicad-cli pcb export gencad -o ecc83-pp-unique.gencad --unique-footprints ../resave/ecc83-pp.kicad_pcb
 rm -f ../resave/*.kicad_prl
