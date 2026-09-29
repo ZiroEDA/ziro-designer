@@ -73,6 +73,7 @@ import { type PROJECT, PROJECT_ELEM } from '@ziroeda/common/project.js';
 import { NET_SETTINGS } from '@ziroeda/common/project/net_settings.js';
 import { TUNING_PROFILES } from '@ziroeda/common/project/tuning_profiles.js';
 import type { FOOTPRINT_LIBRARY_ADAPTER } from './footprint_library_adapter.js';
+import { FOOTPRINT_COURTYARD_INDEX } from './footprint_courtyard_index.js';
 import {
   LENGTH_DELAY_CALCULATION,
   LENGTH_DELAY_DOMAIN_OPT,
@@ -314,6 +315,8 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
   /** `m_ZoneBBoxCache`: the zone bounding boxes, written by `ZONE::GetBoundingBox` (`friend class ZONE`). */
   m_ZoneBBoxCache = new Map<ZONE, BOX2I>();
   m_maxClearanceValue: number | undefined = undefined;
+  /** `m_footprintCourtyardIndex` (board.h:1658): built on first use, dropped by `IncrementTimeStamp`. */
+  private m_footprintCourtyardIndex: FOOTPRINT_COURTYARD_INDEX | null = null;
 
   m_ItemNetclassCache = new Map<BOARD_ITEM, string>();
 
@@ -1338,8 +1341,24 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
     }
   }
 
+  /**
+   * `BOARD::GetFootprintCourtyardIndex` (board.cpp:315-336, new in 10.0.6): the
+   * spatial index over footprint courtyards the `intersectsCourtyard()` family
+   * of rule predicates searches, built on the first courtyard predicate after
+   * a change and kept until `IncrementTimeStamp` drops it. The C++'s locks and
+   * shared_ptr guard concurrent DRC workers; one thread owns a board here.
+   */
+  GetFootprintCourtyardIndex(): FOOTPRINT_COURTYARD_INDEX {
+    if (!this.m_footprintCourtyardIndex)
+      this.m_footprintCourtyardIndex = new FOOTPRINT_COURTYARD_INDEX(this);
+
+    return this.m_footprintCourtyardIndex;
+  }
+
   IncrementTimeStamp(): void {
     this.m_timeStamp++;
+
+    this.m_footprintCourtyardIndex = null;
 
     if (
       this.m_IntersectsAreaCache.size > 0 ||

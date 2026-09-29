@@ -274,28 +274,47 @@ function testFootprintSelector(aFp: FOOTPRINT, aSelector: string): boolean {
   return false;
 }
 
-function searchFootprints(
+/*
+ * Find footprints relevant to a courtyard-intersection predicate.  "A"/"B" resolve to the items
+ * under test; any other selector is matched against the footprints whose courtyard can actually
+ * reach aItem, found via the spatial index rather than a full-board scan.  A footprint the index
+ * skips would fail the same bbox test collidesWithCourtyard() applies, so the result matches a
+ * linear scan.
+ */
+function searchFootprintsNearItem(
   aBoard: BOARD,
   aArg: string,
   aCtx: PCBEXPR_CONTEXT,
+  aItem: BOARD_ITEM,
   aFunc: (fp: FOOTPRINT) => boolean,
 ): boolean {
   if (aArg === 'A') {
     const item = aCtx.GetItem(0);
     const fp = item && item.Type() === KICAD_T.PCB_FOOTPRINT_T ? (item as FOOTPRINT) : null;
 
-    if (fp && aFunc(fp)) return true;
+    return fp !== null && aFunc(fp);
   } else if (aArg === 'B') {
     const item = aCtx.GetItem(1);
     const fp = item && item.Type() === KICAD_T.PCB_FOOTPRINT_T ? (item as FOOTPRINT) : null;
 
-    if (fp && aFunc(fp)) return true;
-  } else
-    for (const fp of aBoard.Footprints()) {
-      if (testFootprintSelector(fp, aArg) && aFunc(fp)) return true;
+    return fp !== null && aFunc(fp);
+  }
+
+  let found = false;
+
+  // The index is held for the whole query: the visitor may not change the board.
+  const index = aBoard.GetFootprintCourtyardIndex();
+
+  index.QueryOverlapping(aItem.GetBoundingBox(), (fp: FOOTPRINT): boolean => {
+    if (testFootprintSelector(fp, aArg) && aFunc(fp)) {
+      found = true;
+      return false;
     }
 
-  return false;
+    return true;
+  });
+
+  return found;
 }
 
 const MISSING_FP_ARG = (f: string): string =>
@@ -325,7 +344,7 @@ function intersectsCourtyardFunc(aCtx: CONTEXT, self: VAR_REF | null): void {
     const itemShape: { shape: SHAPE | null } = { shape: null };
 
     if (
-      searchFootprints(board, arg.AsString(), context, (fp: FOOTPRINT): boolean => {
+      searchFootprintsNearItem(board, arg.AsString(), context, item, (fp: FOOTPRINT): boolean => {
         if ((item.GetFlags() & ROUTER_TRANSIENT) === 0) {
           const i = cacheGet2(board.m_IntersectsCourtyardCache, fp, item);
 
@@ -374,7 +393,7 @@ function intersectsFrontCourtyardFunc(aCtx: CONTEXT, self: VAR_REF | null): void
     const itemShape: { shape: SHAPE | null } = { shape: null };
 
     if (
-      searchFootprints(board, arg.AsString(), context, (fp: FOOTPRINT): boolean => {
+      searchFootprintsNearItem(board, arg.AsString(), context, item, (fp: FOOTPRINT): boolean => {
         if ((item.GetFlags() & ROUTER_TRANSIENT) === 0) {
           const i = cacheGet2(board.m_IntersectsFCourtyardCache, fp, item);
 
@@ -422,7 +441,7 @@ function intersectsBackCourtyardFunc(aCtx: CONTEXT, self: VAR_REF | null): void 
     const itemShape: { shape: SHAPE | null } = { shape: null };
 
     if (
-      searchFootprints(board, arg.AsString(), context, (fp: FOOTPRINT): boolean => {
+      searchFootprintsNearItem(board, arg.AsString(), context, item, (fp: FOOTPRINT): boolean => {
         if ((item.GetFlags() & ROUTER_TRANSIENT) === 0) {
           const i = cacheGet2(board.m_IntersectsBCourtyardCache, fp, item);
 
