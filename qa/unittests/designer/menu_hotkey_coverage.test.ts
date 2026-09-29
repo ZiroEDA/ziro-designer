@@ -250,7 +250,8 @@ const source = (rel: string): string => {
  */
 const MENU_MODULE: Readonly<Record<string, string>> = {
   '../../eeschema/sch_edit_frame_ui.tsx': '../../eeschema/menubar.ts',
-  '../../eeschema/symbol_editor/symbol_edit_frame_ui.tsx': '../../eeschema/symbol_editor/menubar_symbol_editor.ts',
+  '../../eeschema/symbol_editor/symbol_edit_frame_ui.tsx':
+    '../../eeschema/symbol_editor/menubar_symbol_editor.ts',
   '../../pcbnew/footprint_edit_frame_ui.tsx': '../../pcbnew/menubar_footprint_editor.ts',
   '../../pcbnew/pcb_edit_frame_ui.tsx': '../../pcbnew/menubar_pcb_editor.ts',
   // FOOTPRINT_VIEWER_FRAME::doReCreateMenuBar lives in toolbars_footprint_viewer.cpp.
