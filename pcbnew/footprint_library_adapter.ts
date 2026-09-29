@@ -9,6 +9,7 @@
  * test) implements this interface over its own library store and hands it to
  * the BOARD in place of `PROJECT_PCB::FootprintLibAdapter( GetProject() )`.
  */
+import type { LIBRARY_TABLE } from '@ziroeda/common/libraries/library_table.js';
 import type { FOOTPRINT } from './footprint.js';
 
 /** The `LIBRARY_TABLE_ROW` fields the callers read. */
@@ -17,6 +18,8 @@ export interface LIBRARY_TABLE_ROW {
   readonly uri: string;
   readonly type: string;
   readonly enabled: boolean;
+  /** `LIBRARY_TABLE_ROW::GetOptionsMap()`: the row's options column, parsed. */
+  GetOptionsMap(): ReadonlyMap<string, string>;
 }
 
 export interface FOOTPRINT_LIBRARY_ADAPTER {
@@ -44,6 +47,22 @@ export interface FOOTPRINT_LIBRARY_ADAPTER {
    * @throw IO_ERROR if the library cannot be found or read.
    */
   LoadFootprint(aNickname: string, aName: string, aKeepUUID: boolean): FOOTPRINT | null;
+
+  /**
+   * `FOOTPRINT_LIBRARY_ADAPTER::FootprintExists( aNickname, aName )`
+   * (footprint_library_adapter.h:94): whether the loaded library holds a
+   * footprint of that name.
+   */
+  FootprintExists(aNickname: string, aName: string): boolean;
+
+  /** `FOOTPRINT_LIBRARY_ADAPTER::LoadOne( aNickname )` (:55): load one library by nickname. */
+  LoadOne(aNickname: string): void;
+
+  /**
+   * `LIBRARY_MANAGER_ADAPTER::ProjectTable()`: the project's footprint-library
+   * table, null when the project has none.
+   */
+  ProjectTable(): LIBRARY_TABLE | null;
 
   /** `LIBRARY_MANAGER::GetFullURI( aRow, aSubstituted )`: the row's URI, expanded when asked. */
   GetFullURI(aRow: LIBRARY_TABLE_ROW, aSubstituted?: boolean): string;

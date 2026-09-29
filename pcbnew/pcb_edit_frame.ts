@@ -282,6 +282,12 @@ export interface PCB_EDIT_FRAME_HOOKS {
    * (tests, headless callers) shows nothing.
    */
   showInfoBarError?(aErrorMsg: string, aShowCloseButton: boolean): void;
+  /**
+   * `KISTATUSBAR::AddWarningMessages( aKey, aMessages )`: the status bar's
+   * warning icon, which `reconcileImportedFootprintLibraries` fills. Optional:
+   * a frame with no window shows nothing.
+   */
+  addStatusBarWarnings?(aKey: string, aMessages: string): void;
 }
 
 export interface PCB_EDIT_FRAME
@@ -294,6 +300,13 @@ export interface PCB_EDIT_FRAME
 // biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (INITPCB_MIXIN mixin, see libs/core/mixins.ts)
 export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   protected readonly hooks: PCB_EDIT_FRAME_HOOKS;
+
+  /**
+   * `m_importProperties` (pcb_edit_frame.h): the `std::map<std::string, UTF8>`
+   * an import was started with, set for the length of `importFile`
+   * (`IMPORT_PROJ_PROPS` reads the footprint-library ones out of it).
+   */
+  m_importProperties: ReadonlyMap<string, string> | null = null;
   /** The project's .kicad_dru as last given to OnBoardLoaded: `GetDesignRulesPath()` and its text. */
   private m_designRulesText: string | null = null;
   private m_designRulesPath = '';

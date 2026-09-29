@@ -157,6 +157,50 @@ export class MEMORY_FILESYSTEM implements wxFileSystemMount {
   Remove(aRelPath: string): boolean {
     return this.m_files.delete(aRelPath);
   }
+
+  /** `wxRemoveDir` and everything under it (`wxFileName::Rmdir( wxPATH_RMDIR_RECURSIVE )`). */
+  RemoveTree(aRelPath: string): boolean {
+    const dir = `${aRelPath.replace(/\/+$/, '')}/`;
+    let removed = false;
+
+    for (const k of [...this.m_files.keys()]) {
+      if (k.startsWith(dir)) {
+        this.m_files.delete(k);
+        removed = true;
+      }
+    }
+
+    return removed;
+  }
+
+  /**
+   * `wxRenameFile` inside one mount: a file, or a directory with everything
+   * under it. False when there is nothing at `aFrom`, or `aTo` is taken and
+   * `aOverwrite` is not set.
+   */
+  Rename(aFrom: string, aTo: string, aOverwrite: boolean): boolean {
+    const fromDir = `${aFrom.replace(/\/+$/, '')}/`;
+    const toDir = `${aTo.replace(/\/+$/, '')}/`;
+    const moves: [string, string][] = [];
+
+    if (this.m_files.has(aFrom)) moves.push([aFrom, aTo]);
+
+    for (const k of this.m_files.keys()) {
+      if (k.startsWith(fromDir)) moves.push([k, toDir + k.slice(fromDir.length)]);
+    }
+
+    if (moves.length === 0) return false;
+
+    if (!aOverwrite && moves.some(([, to]) => this.m_files.has(to))) return false;
+
+    for (const [from, to] of moves) {
+      const data = this.m_files.get(from)!;
+      this.m_files.delete(from);
+      this.m_files.set(to, data);
+    }
+
+    return true;
+  }
 }
 
 /** `wxFileName::GetTempDir()`. */
@@ -197,4 +241,29 @@ export function wxRemoveFile(aPath: string): boolean {
   if (!hit || !(hit.mount instanceof MEMORY_FILESYSTEM)) return false;
 
   return hit.mount.Remove(hit.rel);
+}
+
+/** `wxRemoveDir` recursively: a `.pretty` and its footprints. False when there was nothing to remove. */
+export function wxRemoveDirTree(aPath: string): boolean {
+  const hit = wxFindMount(trimDir(wxNormalizePath(aPath)));
+
+  if (!hit || !(hit.mount instanceof MEMORY_FILESYSTEM) || hit.rel === '') return false;
+
+  return hit.mount.RemoveTree(hit.rel);
+}
+
+/**
+ * `wxRenameFile( aOld, aNew, aOverwrite )`: a file or a directory, inside one
+ * in-memory mount. False when the two paths are on different mounts.
+ */
+export function wxRenameFile(aOld: string, aNew: string, aOverwrite = true): boolean {
+  const from = wxFindMount(trimDir(wxNormalizePath(aOld)));
+  const to = wxFindMount(trimDir(wxNormalizePath(aNew)));
+
+  if (!from || !to || from.mount !== to.mount || !(from.mount instanceof MEMORY_FILESYSTEM))
+    return false;
+
+  if (from.rel === '' || to.rel === '') return false;
+
+  return from.mount.Rename(from.rel, to.rel, aOverwrite);
 }

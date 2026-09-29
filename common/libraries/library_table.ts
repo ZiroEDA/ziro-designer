@@ -23,6 +23,7 @@
  */
 import { FORMAT_MODE } from '../io/kicad/kicad_io_utils.js';
 import { type OUTPUTFORMATTER, PRETTIFIED_STRING_FORMATTER } from '../richio.js';
+import { wxWriteFileSync } from '../wx/filefn.js';
 import { XNODE, wxXmlNodeType } from '../xnode.js';
 import {
   LIBRARY_TABLE_PARSER,
@@ -424,6 +425,21 @@ export class LIBRARY_TABLE {
     const formatter = new PRETTIFIED_STRING_FORMATTER(FORMAT_MODE.LIBRARY_TABLE);
     this.Format(formatter);
     return formatter.Finish();
+  }
+
+  /**
+   * `LIBRARY_TABLE::Save` (library_table.cpp:297-322): `Format` prettified into
+   * the table's file. A read-only table refuses; a path no mount can write
+   * (the host has not given the page that directory) is the write error.
+   */
+  Save(): LIBRARY_RESULT<void> {
+    if (this.IsReadOnly())
+      return { ok: false, error: new LIBRARY_ERROR(`Library table '${this.Path()}' is read-only`) };
+
+    if (!wxWriteFileSync(this.Path(), new TextEncoder().encode(this.FormatForSave())))
+      return { ok: false, error: new LIBRARY_ERROR(`Could not write '${this.Path()}'`) };
+
+    return { ok: true, value: undefined };
   }
 
   HasRow(aNickname: string): boolean {
