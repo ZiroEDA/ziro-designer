@@ -61,7 +61,7 @@ const CONVERTED = [
   '../../bitmap2component/bitmap2cmp_frame_ui.tsx',
   '../../pcbnew/pcb_edit_frame_ui.tsx',
   '../../eeschema/sch_edit_frame_ui.tsx',
-  'editors/schematic/components/SymbolLibraryBrowser.tsx',
+  '../../eeschema/symbol_viewer_frame_ui.tsx',
   '../../cvpcb/cvpcb_mainframe_ui.tsx',
   '../../eeschema/symbol_editor/symbol_edit_frame_ui.tsx',
   'home/HomePage.tsx',

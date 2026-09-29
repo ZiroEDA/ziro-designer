@@ -18,7 +18,13 @@ import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
 import { DialogSymLibTable } from '../../widgets/dialog_sym_lib_table.js';
 import { loadFootprint, loadFootprintIndex } from '../../widgets/footprint_list.js';
 import { FootprintChooserFrame } from '../pcb/dialogs/footprint_chooser_frame.js';
-import { libraryUri, loadIndex, loadSymbol, symbolsBase } from './symbols/index.js';
+import {
+  libraryUri,
+  loadIndex,
+  loadLibrarySymbols,
+  loadSymbol,
+  symbolsBase,
+} from './symbols/index.js';
 import { preloadSchematicLibraries } from './preload.js';
 import { remapEvent } from './hotkey_bindings.js';
 import { applyHotkeyOverrides } from './hotkey_list.js';
@@ -29,7 +35,9 @@ import { DialogAssignFootprints } from '@ziroeda/cvpcb/cvpcb_mainframe_ui.js';
 import { useCvpcbApp } from './cvpcb_app.js';
 import { SchematicCanvas } from './components/SchematicCanvas.js';
 import { DialogSymbolChooser } from './dialogs/dialog_symbol_chooser.js';
-import { SymbolLibraryBrowser } from './components/SymbolLibraryBrowser.js';
+import { SymbolLibraryBrowser } from '@ziroeda/eeschema/symbol_viewer_frame_ui.js';
+import type { SYMBOL_VIEWER_FRAME_APP } from '@ziroeda/eeschema/symbol_viewer_frame.js';
+import { LibraryLoadingPanel } from '../../widgets/library_loading_panel.js';
 import { DialogRescueEach } from './dialogs/dialog_rescue_each.js';
 import { DialogChangeSymbols } from './dialogs/dialog_change_symbols.js';
 import { fetchNetlistFromSchematic } from '@ziroeda/pcbnew/netlist_from_schematic.js';
@@ -59,8 +67,26 @@ import {
   useSchematicTheme,
 } from '../../prefs/useSettings.js';
 
+/** `SYMBOL_VIEWER_FRAME_APP`, the Symbol Library Browser's seam. */
+function useSymbolViewerFrameApp(): SYMBOL_VIEWER_FRAME_APP {
+  return useMemo<SYMBOL_VIEWER_FRAME_APP>(
+    () => ({
+      settings,
+      useSchematicTheme,
+      loadIndex,
+      loadLibrarySymbols,
+      libraryUri,
+      LibraryLoadingPanel: ({ fallback, ...props }) => (
+        <LibraryLoadingPanel {...props} fallback={fallback as JSX.Element | null | undefined} />
+      ),
+    }),
+    [],
+  );
+}
+
 /** One object per mount; every member is stable across renders. */
 export function useEeschemaApp(): EESCHEMA_APP {
+  const symbolViewerApp = useSymbolViewerFrameApp();
   return useMemo<EESCHEMA_APP>(
     () => ({
       settings,
@@ -72,7 +98,7 @@ export function useEeschemaApp(): EESCHEMA_APP {
 
       SchematicCanvas,
       DialogSymbolChooser: (props) => <DialogSymbolChooser {...props} />,
-      SymbolLibraryBrowser: (props) => <SymbolLibraryBrowser {...props} />,
+      SymbolLibraryBrowser: (props) => <SymbolLibraryBrowser app={symbolViewerApp} {...props} />,
       DialogRescueEach: (props) => <DialogRescueEach {...props} />,
       DialogChangeSymbols: (props) => <DialogChangeSymbols {...props} />,
       PreferencesDialog: (props) => <PreferencesDialog {...props} />,
@@ -117,7 +143,7 @@ export function useEeschemaApp(): EESCHEMA_APP {
       CROSS_PROBE_FLASH_INTERVAL_MS,
       CROSS_PROBE_FLASH_LAST_PHASE,
     }),
-    [],
+    [symbolViewerApp],
   );
 }
 

@@ -216,7 +216,7 @@ const FRAMES: FrameRow[] = [
     rows: ['quit'],
   },
   {
-    file: 'editors/schematic/components/SymbolLibraryBrowser.tsx',
+    file: '../../eeschema/toolbars_symbol_viewer.ts',
     upstream: 'eeschema/toolbars_symbol_viewer.cpp:139',
     app: 'Symbol Viewer',
     rows: ['close'],

@@ -3,109 +3,61 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * Symbol Library Browser. Counterpart: `eeschema/symbol_viewer_frame.cpp`
- * (SYMBOL_VIEWER_FRAME) and `eeschema/toolbars_symbol_viewer.cpp`, the
- * browse-first companion to the Choose Symbol dialog. The frame's AUI panes
- * become panes of one modal: the "Libraries" palette, the "Symbols" palette and
- * the canvas, with the top toolbar above and the message panel below.
+ * (SYMBOL_VIEWER_FRAME), the browse-first companion to the Choose Symbol
+ * dialog. The frame's AUI panes become panes of one modal: the "Libraries"
+ * palette, the "Symbols" palette and the canvas, with the top toolbar above
+ * and the message panel below. The logic (filtering) is
+ * `symbol_viewer_frame.ts`; the toolbar and menu are `toolbars_symbol_viewer.ts`.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX, type ReactNode } from 'react';
-import type { LibSymbol } from '@ziroeda/eeschema';
-import { letterSubReference } from '@ziroeda/eeschema';
-import { EdaCombinedMatcher } from '@ziroeda/common';
+import type { LibSymbol } from './types.js';
 import {
-  libraryUri,
-  loadIndex,
-  loadLibrarySymbols,
-  symbolPinCount,
-  symbolProperty,
-  symbolSearchTerms,
-  type LibIndexEntry,
-} from '../symbols/index.js';
+  filterLibraries,
+  filterSymbols,
+  hasDeMorgan,
+  symbolName,
+  unitCount,
+  type SYMBOL_VIEWER_FRAME_APP,
+} from './symbol_viewer_frame.js';
+import {
+  DEMORGAN_ALT,
+  DEMORGAN_STD,
+  TOP_TOOLBAR,
+  buildSymbolViewerMenus,
+  unitDisplayName,
+} from './toolbars_symbol_viewer.js';
+import { symbolProperty, type LibIndexEntry } from './libraries/symbol_library_adapter.js';
 import { GetAssociatedDocument } from '@ziroeda/common/eda_doc.js';
-import { Toolbar, type ToolEntry } from '@ziroeda/common/tool/action_toolbar.js';
+import { Toolbar } from '@ziroeda/common/tool/action_toolbar.js';
 import {
   fitSymbol,
   renderSymbolScene,
   type SymbolViewOptions,
   type Viewport,
-} from '@ziroeda/eeschema/symbol_editor/symbol_renderer.js';
-import { settings } from '../../../prefs/settings.js';
-import { useSchematicTheme } from '../../../prefs/useSettings.js';
-import { LibraryLoadingPanel } from '../../../widgets/library_loading_panel.js';
+} from './symbol_editor/symbol_renderer.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { MsgPanel } from '@ziroeda/common/widgets/msgpanel_ui.js';
 import { Sash } from '@ziroeda/common/widgets/wx_splitter_window.js';
 import { MenuBar } from '@ziroeda/common/tool/action_menu_bar.js';
-import type { Menu } from '@ziroeda/common/tool/action_menu_types.js';
-import { addClose } from '@ziroeda/common/tool/action_menu.js';
 import { dispatchMenuHotkey } from '@ziroeda/common/tool/action_menu_hotkeys.js';
 import type { FocusLike } from '@ziroeda/common/browser_hotkeys.js';
 // LIB_TREE_MODEL_ADAPTER::GetPinningSymbol.
 import { PINNING_SYMBOL } from '@ziroeda/common/lib_tree_model_adapter.js';
 
 interface Props {
+  app: SYMBOL_VIEWER_FRAME_APP;
   onPick: (lib: LibSymbol) => void;
   onClose: () => void;
 }
 
-/** BODY_STYLE::BASE / DEMORGAN (symbol_edit_frame.h DEMORGAN_STD / DEMORGAN_ALT). */
-const DEMORGAN_STD = 'Standard';
-const DEMORGAN_ALT = 'Alternate';
-
-/** SYMBOL_VIEWER_TOOLBAR_SETTINGS::DefaultToolbarConfig( TOOLBAR_LOC::TOP_MAIN ). */
-const TOP_TOOLBAR: ToolEntry[] = [
-  { id: 'previousSymbol', icon: 'previousSymbol', title: 'Display previous symbol' },
-  { id: 'nextSymbol', icon: 'nextSymbol', title: 'Display next symbol' },
-  'sep',
-  { id: 'zoomRedraw', icon: 'zoomRedraw', title: 'Refresh' },
-  { id: 'zoomInCenter', icon: 'zoomIn', title: 'Zoom In' },
-  { id: 'zoomOutCenter', icon: 'zoomOut', title: 'Zoom Out' },
-  { id: 'zoomFitScreen', icon: 'zoomFit', title: 'Zoom to Fit' },
-  'sep',
-  {
-    id: 'showElectricalTypes',
-    icon: 'showElectricalTypes',
-    title: 'Show Pin Electrical Types',
-    toggle: true,
-  },
-  { id: 'showPinNumbers', icon: 'showPinNumbers', title: 'Show Pin Numbers', toggle: true },
-  'sep',
-  { control: 'bodyStyleSelector' },
-  'sep',
-  { control: 'unitSelector' },
-  'sep',
-  { id: 'showDatasheet', icon: 'showDatasheet', title: 'Show Datasheet' },
-  'sep',
-  { id: 'addSymbolToSchematic', icon: 'addSymbolToSchematic', title: 'Add Symbol to Schematic' },
-];
-
-/** LIB_SYMBOL::GetUnitCount, the highest unit number the symbol defines. */
-function unitCount(sym: LibSymbol): number {
-  return Math.max(1, ...sym.units.map((u) => u.unit));
-}
-
-/** LIB_SYMBOL::HasDeMorganBodyStyles, a body style 2 (`_1_2`, `_2_2`, …) exists. */
-function hasDeMorgan(sym: LibSymbol): boolean {
-  return sym.units.some((u) => u.bodyStyle === 2);
-}
-
-/** LIB_SYMBOL::GetUnitDisplayName( aUnit, true ), no per-unit names in the file format yet. */
-const unitDisplayName = (unit: number): string => `Unit ${letterSubReference(unit)}`;
-
-/** The tokenizer both filters use: whitespace-separated terms (wxTOKEN_STRTOK). */
-const filterTerms = (filter: string): string[] => filter.split(/[ \t\r\n]+/).filter(Boolean);
-
-/** LIB_ID::GetLibItemName, the list shows names, not full ids. */
-const symbolName = (sym: LibSymbol): string => sym.libId.split(':').pop() ?? sym.libId;
-
-export function SymbolLibraryBrowser({ onPick, onClose }: Props): JSX.Element {
+export function SymbolLibraryBrowser({ app, onPick, onClose }: Props): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
   useModalEscape(onClose);
 
-  const theme = useSchematicTheme();
-  const cfg = settings.eeschema.lib_view;
+  const theme = app.useSchematicTheme();
+  const cfg = app.settings.eeschema.lib_view;
 
   const [index, setIndex] = useState<LibIndexEntry[]>([]);
   const [libFilter, setLibFilter] = useState('');
@@ -134,38 +86,17 @@ export function SymbolLibraryBrowser({ onPick, onClose }: Props): JSX.Element {
   const symFilterRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    loadIndex()
-      .then(setIndex)
+    app
+      .loadIndex()
+      .then((entries) => setIndex([...entries]))
       .catch(() => setIndex([]));
-  }, []);
+    // Once per mount, as the constructor's ReCreateLibList did: `app` is stable.
+  }, [app]);
 
-  // ReCreateLibList: every library the filter admits, pinned ones first. A
-  // filter is a set of terms, each matched against every library name, a
-  // library that any term matches is listed (upstream's per-term sweep).
-  const libs = useMemo(() => {
-    const pinned = settings.common.system.session.pinned_symbol_libs;
-    const terms = filterTerms(libFilter);
-    let matches: LibIndexEntry[];
-    if (terms.length === 0) {
-      matches = index;
-    } else {
-      const seen = new Set<string>();
-      matches = [];
-      for (const term of terms) {
-        const matcher = new EdaCombinedMatcher(term.toLowerCase());
-        for (const lib of index) {
-          if (matcher.find(lib.name.toLowerCase()) >= 0 && !seen.has(lib.name)) {
-            seen.add(lib.name);
-            matches.push(lib);
-          }
-        }
-      }
-    }
-    return [
-      ...matches.filter((l) => pinned.includes(l.name)),
-      ...matches.filter((l) => !pinned.includes(l.name)),
-    ];
-  }, [index, libFilter]);
+  const libs = useMemo(
+    () => filterLibraries(index, libFilter, app.settings.common.system.session.pinned_symbol_libs),
+    [index, libFilter, app.settings.common.system.session.pinned_symbol_libs],
+  );
 
   // Load the selected library (SYMBOL_LIBRARY_ADAPTER::GetSymbols).
   useEffect(() => {
@@ -175,7 +106,8 @@ export function SymbolLibraryBrowser({ onPick, onClose }: Props): JSX.Element {
     }
     let cancelled = false;
     setFetching(true);
-    loadLibrarySymbols(curLib)
+    app
+      .loadLibrarySymbols(curLib)
       .then((syms) => {
         if (!cancelled) setLibSymbols(syms);
       })
@@ -188,27 +120,9 @@ export function SymbolLibraryBrowser({ onPick, onClose }: Props): JSX.Element {
     return () => {
       cancelled = true;
     };
-  }, [curLib]);
+  }, [curLib, app]);
 
-  // ReCreateSymbolList: each filter term must score against the symbol's search
-  // terms (a term which is a number also matches the pin count); a term that
-  // scores nothing excludes the symbol.
-  const symbols = useMemo(() => {
-    const terms = filterTerms(symFilter);
-    if (terms.length === 0) return libSymbols;
-    const excludes = new Set<string>();
-    for (const term of terms) {
-      const lower = term.toLowerCase();
-      const matcher = new EdaCombinedMatcher(lower);
-      const asNumber = /^-?\d+$/.test(term) ? Number(term) : null;
-      for (const sym of libSymbols) {
-        let matched = matcher.scoreTerms(symbolSearchTerms(sym)).score;
-        if (asNumber !== null && asNumber === symbolPinCount(sym)) matched++;
-        if (!matched) excludes.add(sym.libId);
-      }
-    }
-    return libSymbols.filter((s) => !excludes.has(s.libId));
-  }, [libSymbols, symFilter]);
+  const symbols = useMemo(() => filterSymbols(libSymbols, symFilter), [libSymbols, symFilter]);
 
   const previewSym = useMemo(
     () => symbols.find((s) => symbolName(s) === curSym) ?? null,
@@ -392,7 +306,7 @@ export function SymbolLibraryBrowser({ onPick, onClose }: Props): JSX.Element {
         case 'showElectricalTypes': {
           const next = !showElectricalTypes;
           setShowElectricalTypes(next);
-          settings.updateEeschema((s) => (s.lib_view.show_pin_electrical_type = next));
+          app.settings.updateEeschema((s) => (s.lib_view.show_pin_electrical_type = next));
           break;
         }
         case 'showPinNumbers':
@@ -406,7 +320,7 @@ export function SymbolLibraryBrowser({ onPick, onClose }: Props): JSX.Element {
           break;
       }
     },
-    [stepSymbol, draw, zoomAbout, zoomFit, showDatasheet, addToSchematic, showElectricalTypes],
+    [stepSymbol, draw, zoomAbout, zoomFit, showDatasheet, addToSchematic, showElectricalTypes, app],
   );
 
   const toggled = useMemo(() => {
@@ -428,53 +342,10 @@ export function SymbolLibraryBrowser({ onPick, onClose }: Props): JSX.Element {
     return off;
   }, [previewSym, symbols.length]);
 
-  // ----- menus (SYMBOL_VIEWER_FRAME::doReCreateMenuBar) --------------------
+  // ----- menus (toolbars_symbol_viewer.ts's buildSymbolViewerMenus) --------
 
-  /**
-   * `eeschema/toolbars_symbol_viewer.cpp:128-165`, transcribed. The frame had
-   * no menu bar here at all, so the one row upstream's File menu carries -
-   * `fileMenu->AddClose( _( "Symbol Viewer" ) )` - was missing along with the
-   * whole View menu.
-   *
-   * Not `AddStandardHelpMenu`, which upstream appends third: its About row
-   * opens a dialog that is still hand-rolled once per frame here, and adding a
-   * ninth copy of it to reach one menu row is the duplication this repo is
-   * trying to remove. Recorded rather than quietly dropped.
-   */
-  const menus: Menu[] = useMemo(
-    () => [
-      { label: 'File', items: [addClose('Symbol Viewer', onClose)] },
-      {
-        label: 'View',
-        items: [
-          { label: 'Zoom In', icon: 'zoomIn', action: () => onAction('zoomInCenter') },
-          { label: 'Zoom Out', icon: 'zoomOut', action: () => onAction('zoomOutCenter') },
-          {
-            label: 'Zoom to Fit',
-            icon: 'zoomFit',
-            shortcut: 'Home',
-            action: () => onAction('zoomFitScreen'),
-          },
-          {
-            label: 'Refresh',
-            icon: 'zoomRedraw',
-            shortcut: 'F5',
-            action: () => onAction('zoomRedraw'),
-          },
-          { sep: true },
-          {
-            label: 'Show Pin Electrical Types',
-            checked: showElectricalTypes,
-            action: () => onAction('showElectricalTypes'),
-          },
-          {
-            label: 'Show Pin Numbers',
-            checked: showPinNumbers,
-            action: () => onAction('showPinNumbers'),
-          },
-        ],
-      },
-    ],
+  const menus = useMemo(
+    () => buildSymbolViewerMenus({ onClose, onAction, showElectricalTypes, showPinNumbers }),
     [onClose, onAction, showElectricalTypes, showPinNumbers],
   );
 
@@ -527,11 +398,11 @@ export function SymbolLibraryBrowser({ onPick, onClose }: Props): JSX.Element {
   const bodyBox = (): DOMRect | undefined => bodyRef.current?.getBoundingClientRect();
   const setLibSash = (w: number): void => {
     setLibWidth(w);
-    settings.updateEeschema((s) => (s.lib_view.lib_list_width = w));
+    app.settings.updateEeschema((s) => (s.lib_view.lib_list_width = w));
   };
   const setSymSash = (w: number): void => {
     setSymWidth(w);
-    settings.updateEeschema((s) => (s.lib_view.cmp_list_width = w));
+    app.settings.updateEeschema((s) => (s.lib_view.cmp_list_width = w));
   };
 
   // ----- toolbar controls (unit / body style choices) ----------------------
@@ -576,7 +447,9 @@ export function SymbolLibraryBrowser({ onPick, onClose }: Props): JSX.Element {
   };
 
   // DisplayLibInfos: the frame title carries the selected library's full URI.
-  const title = curLib ? `${libraryUri(curLib)}, Symbol Library Browser` : 'Symbol Library Browser';
+  const title = curLib
+    ? `${app.libraryUri(curLib)}, Symbol Library Browser`
+    : 'Symbol Library Browser';
 
   const description = previewSym ? symbolProperty(previewSym, 'Description') : '';
   const keywords = previewSym ? symbolProperty(previewSym, 'ki_keywords') : '';
@@ -625,7 +498,7 @@ export function SymbolLibraryBrowser({ onPick, onClose }: Props): JSX.Element {
             />
             <div className="ze-lib-viewer-list" onMouseDown={() => (libPaneFocused.current = true)}>
               {index.length === 0 && (
-                <LibraryLoadingPanel
+                <app.LibraryLoadingPanel
                   kind="symbols"
                   fallback={
                     <div className="ze-muted" style={{ padding: '4px 10px' }}>
@@ -641,7 +514,7 @@ export function SymbolLibraryBrowser({ onPick, onClose }: Props): JSX.Element {
                   className={`ze-tree-item${curLib === l.name ? ' active' : ''}`}
                   onClick={() => selectLibrary(l.name)}
                 >
-                  {settings.common.system.session.pinned_symbol_libs.includes(l.name)
+                  {app.settings.common.system.session.pinned_symbol_libs.includes(l.name)
                     ? PINNING_SYMBOL
                     : ''}
                   {l.name}
