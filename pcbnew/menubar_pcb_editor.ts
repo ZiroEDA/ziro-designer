@@ -149,7 +149,11 @@ export function buildPcbMenus(
           submenu: [
             { label: 'Netlist...', disabled: dis },
             { label: 'Specctra Session...', disabled: dis },
-            { label: 'Graphics...', disabled: dis },
+            // `PCB_ACTIONS::placeImportedGraphics`, run non-interactively:
+            // `DRAWING_TOOL::PlaceImportedGraphics` is the same handler the
+            // Place toolbar button arms; from the menu it opens straight into
+            // the dialog with no drawing tool to cancel out of first.
+            { label: 'Graphics...', action: () => h.action('importGraphics') },
             { label: 'Non-KiCad Board File...', disabled: dis },
           ],
         },

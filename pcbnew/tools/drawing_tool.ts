@@ -46,11 +46,16 @@
  */
 
 import { BezierGeomManager, BezierStep } from '@ziroeda/common/index.js';
+import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
+import { pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import { newKiid } from '@ziroeda/common/kiid.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { segNearestPoint } from '@ziroeda/kimath/src/geometry/seg.js';
 import { TestSegmentHit } from '@ziroeda/kimath/src/trigo.js';
-import type { Board, PcbTrack, PcbVia } from '../types.js';
+import { ConnectBoardShapes } from '../fix_board_shape.js';
+import type { IMPORTED_ITEM } from '../import_gfx/graphics_importer_pcbnew.js';
+import { PCB_SHAPE } from '../pcb_shape.js';
+import type { Board, PcbShape, PcbTextItem, PcbTrack, PcbVia } from '../types.js';
 import {
   DEFAULT_DIMENSION_DEFAULTS,
   type DimensionDefaults as EngineDimensionDefaults,
@@ -396,3 +401,110 @@ const DIM_PRECISION = ['0', '0.0', '0.00', '0.000', '0.0000', '0.00000'] as cons
 // DIM_TEXT_POSITION also has MANUAL, which the panel does not offer: it is set
 // by dragging the text, not chosen up front.
 const DIM_POSITION = ['Outside', 'Inline'] as const;
+
+/*
+ * The model half of `DRAWING_TOOL::PlaceImportedGraphics`
+ * (`drawing_tool.cpp:2044-2230`): turning the plain records
+ * `DialogImportGraphics.onOk` hands back into board items, welding them if
+ * asked, and reporting which ids to select. The interactive half (the cluster
+ * following the cursor) reuses the netlist updater's post-update move gesture;
+ * Escape leaves the items at the import origin rather than deleting them.
+ */
+
+/**
+ * `shapeList` in `PlaceImportedGraphics` (`:2098-2106`) is every imported
+ * `PCB_SHAPE`, unfiltered by its `SHAPE_T` — `ConnectBoardShapes` itself is
+ * what restricts which of them may START a walk (`fix_board_shape.cpp:401-410`,
+ * SEGMENT/ARC/BEZIER only). Only those three kinds have a start/mid/end this
+ * port can read back afterwards, so only those three are welded; a circle,
+ * rect or polygon among the imported shapes is left untouched — the same
+ * shapes `AddCircle`/`AddPolygon` in `graphics_importer_pcbnew.ts` produce are
+ * exactly the ones a DXF/SVG outline needs connected in the first place.
+ */
+const WELDABLE: ReadonlySet<PcbShape['kind']> = new Set(['line', 'arc', 'curve']);
+
+/** One imported shape, as a live `PCB_SHAPE` for `ConnectBoardShapes` to mutate. */
+function shapeToWeldItem(s: PcbShape): PCB_SHAPE {
+  const k = new PCB_SHAPE(null);
+  switch (s.kind) {
+    case 'line':
+      k.SetShape(SHAPE_T.SEGMENT);
+      k.SetStart(s.start!);
+      k.SetEnd(s.end!);
+      break;
+    case 'arc':
+      k.SetShape(SHAPE_T.ARC);
+      k.SetArcGeometry(s.start!, s.mid!, s.end!);
+      break;
+    case 'curve':
+      k.SetShape(SHAPE_T.BEZIER);
+      k.SetStart(s.pts![0]!);
+      k.SetBezierC1(s.pts![1]!);
+      k.SetBezierC2(s.pts![2]!);
+      k.SetEnd(s.pts![3]!);
+      break;
+    default:
+      // Unreachable: callers only build this for a WELDABLE kind.
+      break;
+  }
+  return k;
+}
+
+/** Read a welded `PCB_SHAPE`'s geometry back into the record it came from. */
+function weldItemToShape(s: PcbShape, k: PCB_SHAPE): PcbShape {
+  switch (s.kind) {
+    case 'line':
+      return { ...s, start: k.GetStart(), end: k.GetEnd() };
+    case 'arc':
+      return { ...s, start: k.GetStart(), mid: k.GetArcMid(), end: k.GetEnd() };
+    case 'curve':
+      return { ...s, pts: [k.GetStart(), k.GetBezierC1(), k.GetBezierC2(), k.GetEnd()] };
+    default:
+      return s;
+  }
+}
+
+/**
+ * `ConnectBoardShapes( shapeList, dlg.GetTolerance() )` (`:2099`): weld the
+ * open (line/arc/curve) shapes' endpoints in place, at `aToleranceIU`.
+ */
+export function weldImportedShapes(shapes: readonly PcbShape[], aToleranceIU: number): PcbShape[] {
+  const weldable = shapes.map((s, i) => ({ s, i })).filter(({ s }) => WELDABLE.has(s.kind));
+
+  if (weldable.length === 0) return [...shapes];
+
+  const items = weldable.map(({ s }) => shapeToWeldItem(s));
+  ConnectBoardShapes(items, aToleranceIU);
+
+  const out = [...shapes];
+  weldable.forEach(({ i, s }, n) => {
+    out[i] = weldItemToShape(s, items[n]!);
+  });
+  return out;
+}
+
+export interface PlacedImport {
+  shapes: PcbShape[];
+  texts: PcbTextItem[];
+}
+
+/**
+ * Split the importer's `IMPORTED_ITEM[]`, stamp a fresh KIID on each — every
+ * `EDA_ITEM` constructor does this upstream, and `groupBoardItems` below
+ * skips an item with none — and weld if asked.
+ */
+export function placeImportedItems(
+  items: readonly IMPORTED_ITEM[],
+  opts: { fixDiscontinuities: boolean; toleranceMM: number },
+): PlacedImport {
+  let shapes = items
+    .filter((i): i is { type: 'shape'; shape: Omit<PcbShape, 'source'> } => i.type === 'shape')
+    .map((i) => ({ ...i.shape, uuid: newKiid() }) as PcbShape);
+  const texts = items
+    .filter((i): i is { type: 'text'; text: Omit<PcbTextItem, 'source'> } => i.type === 'text')
+    .map((i) => ({ ...i.text, uuid: newKiid() }) as PcbTextItem);
+
+  if (opts.fixDiscontinuities) shapes = weldImportedShapes(shapes, pcbMmToIU(opts.toleranceMM));
+
+  return { shapes, texts };
+}

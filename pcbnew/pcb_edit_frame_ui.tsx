@@ -38,7 +38,7 @@ import { drawPolygonItem } from '@ziroeda/common/preview_items/polygon_item.js';
 import { DialogRuleAreaProperties } from './dialogs/dialog_rule_area_properties_ui.js';
 import type { PROGRESS_REPORTER_LIKE } from './connectivity/connectivity_algo.js';
 import { PROF_TIMER, traceAllegroPerf, wxLogTrace } from '@ziroeda/common/trace_helpers.js';
-import { placeVia } from './tools/drawing_tool.js';
+import { placeImportedItems, placeVia } from './tools/drawing_tool.js';
 import { DEFAULT_RULE_AREA_KEEPOUT } from './convert_shapes.js';
 import {
   collectPlacementSources,
@@ -255,6 +255,7 @@ import {
   DIALOG_BARCODE_PROPERTIES,
 } from './dialogs/dialog_barcode_properties.js';
 import { DialogBarcodeProperties } from './dialogs/dialog_barcode_properties_ui.js';
+import { DialogImportGraphics } from './import_gfx/dialog_import_graphics.js';
 import { GetLayerName, IsCopperLayer } from '@ziroeda/common/layer_ids.js';
 import {
   boardIsEmpty,
@@ -2431,6 +2432,8 @@ export function PcbEditor({
     at: { x: number; y: number };
     index?: number;
   } | null>(null);
+  // `DRAWING_TOOL::PlaceImportedGraphics`'s dialog (File > Import > Graphics).
+  const [importGraphicsOpen, setImportGraphicsOpen] = useState(false);
   // Pending "Copper Zone Properties" dialog: the zone's first corner.
   const [zoneDialog, setZoneDialog] = useState<{
     at: { x: number; y: number };
@@ -10907,6 +10910,9 @@ export function PcbEditor({
       case 'editTeardrops':
         setTeardropsOpen(true);
         break;
+      case 'importGraphics':
+        setImportGraphicsOpen(true);
+        break;
       case 'zoneFillAll':
         fillAllZones();
         break;
@@ -11910,6 +11916,59 @@ export function PcbEditor({
             />
           );
         })()}
+
+      {/* File > Import > Graphics. `DRAWING_TOOL::PlaceImportedGraphics`
+          (`drawing_tool.cpp:2044-2230`): the dialog runs the import live and
+          reports it, then this commits what it produced and — for
+          interactive placement — hands the new selection to the same move
+          gesture `startPostUpdateMoveRef` uses for a netlist update's spread
+          footprints, per `placeImportedItems`'s doc comment on why
+          that is the reused mechanism rather than an uncommitted preview. */}
+      {importGraphicsOpen && (
+        <DialogImportGraphics
+          units={unitLabel}
+          layers={board?.layers.map((l) => l.name) ?? []}
+          layerColor={layerColor}
+          activeLayer={activeLayer}
+          invertX={frameRef.current?.GetPcbNewSettings().m_Display.m_DisplayInvertXAxis ?? false}
+          invertY={frameRef.current?.GetPcbNewSettings().m_Display.m_DisplayInvertYAxis ?? false}
+          onCancel={() => setImportGraphicsOpen(false)}
+          onOk={(items, opts) => {
+            setImportGraphicsOpen(false);
+            const brd = boardRef.current;
+            if (!brd || items.length === 0) return;
+
+            const placed = placeImportedItems(items, opts);
+            let next = brd;
+            const ids: string[] = [];
+            for (const s of placed.shapes) {
+              const r = addBoardShape(next, s);
+              next = r.board;
+              ids.push(r.id);
+            }
+            for (const t of placed.texts) {
+              const r = addBoardText(next, t);
+              next = r.board;
+              ids.push(r.id);
+            }
+
+            // `boardItemCount >= 2` (`drawing_tool.cpp:2087`): a group is only
+            // worth making for two items or more.
+            let selectIds = new Set(ids);
+            if (opts.group && ids.length >= 2) {
+              const g = groupBoardItems(next, new Set(ids));
+              if (g.id) {
+                next = g.board;
+                selectIds = new Set([g.id]);
+              }
+            }
+
+            commitBoard(next);
+            setSelection(selectIds);
+            if (opts.interactive) beginMove(selectIds, 'move', { x: 0, y: 0 });
+          }}
+        />
+      )}
 
       {/* `DRAWING_TOOL::PlaceText` builds the PCB_TEXT and opens the SAME
           dialog an existing text opens (`drawing_tool.cpp:144`), so this is
