@@ -25,7 +25,7 @@ import {
   routeAround,
   routeShortest,
 } from '@ziroeda/pcbnew/router/pns_walkaround.js';
-import { viaHull } from '@ziroeda/pcbnew/router/pns_hull.js';
+import { viaHull } from '@ziroeda/pcbnew/router/pns_utils.js';
 import { pointInside, pointOnEdge } from '@ziroeda/pcbnew/router/pns_chain.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 

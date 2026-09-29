@@ -24,12 +24,11 @@ import { describe, expect, it } from 'vitest';
 import {
   edgeContainingPoint,
   findPoint,
-  hullIntersection,
   pointInside,
   pointOnEdge,
-  rawIntersections,
   splitAt,
 } from '@ziroeda/pcbnew/router/pns_chain.js';
+import { hullIntersection, rawIntersections } from '@ziroeda/pcbnew/router/pns_utils.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 const P = (x: number, y: number): Vec2 => ({ x, y });

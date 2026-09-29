@@ -54,7 +54,7 @@ import { PnsKind } from './pns_item.js';
 import { PnsLayerRange } from './pns_layerset.js';
 import type { DrcEvalItem, DrcRuleEngine } from '../drc/drc_rules_engine.js';
 import type { DrcConstraintType } from '../drc/drc_rule_view.js';
-import type { Hull } from './pns_hull.js';
+import type { Hull } from './pns_utils.js';
 import type { PnsItem } from './pns_item.js';
 import type { DpNetPair, KeepoutResult, NetHandle, PnsConstraint } from './pns_collision.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';

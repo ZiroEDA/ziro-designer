@@ -80,7 +80,7 @@ import {
   ObstacleSet,
   resolveCollisionSearchOptions,
 } from './pns_collision.js';
-import { hullIntersection } from './pns_chain.js';
+import { hullIntersection } from './pns_utils.js';
 import { itemHull } from './pns_item_hull.js';
 import { PnsIndex, type IndexVisitor } from './pns_index.js';
 import { PnsJoint, type JointTag } from './pns_joint.js';

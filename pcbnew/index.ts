@@ -647,8 +647,15 @@ export {
   circleHull,
   rectHull,
   isSegment45Degree,
+  ARC_LOW_DEF,
+  arcHull,
+  buildHullForPrimitiveShape,
+  convexHull,
+  hullIntersection,
+  rawIntersections,
   type Hull,
-} from './router/pns_hull.js';
+  type HullIntersect,
+} from './router/pns_utils.js';
 
 export {
   pointInside,
@@ -656,9 +663,6 @@ export {
   edgeContainingPoint,
   findPoint,
   splitAt,
-  rawIntersections,
-  hullIntersection,
-  type HullIntersect,
 } from './router/pns_chain.js';
 
 export {
@@ -1236,13 +1240,9 @@ export {
   getRouterCornerMode,
   setRouterCornerMode,
 } from './router/pns_node.js';
-export {
-  ARC_LOW_DEF,
-  arcHull,
-  buildHullForPrimitiveShape,
-  convexHull,
-  itemHull,
-} from './router/pns_item_hull.js';
+// `ARC_LOW_DEF`/`arcHull`/`buildHullForPrimitiveShape`/`convexHull` are already
+// exported above, from the `pns_utils.js` block.
+export { itemHull } from './router/pns_item_hull.js';
 export { PnsBoardRuleResolver, type PnsResolverHost } from './router/pns_rule_resolver.js';
 
 export {

@@ -62,14 +62,8 @@
  * wrong trade — and the pair that mask each other are each doing real work on
  * some input, just not one this file can reach.
  */
-import {
-  findPoint,
-  hullIntersection,
-  pointInside,
-  pointOnEdge,
-  splitAt,
-  type Chain,
-} from './pns_chain.js';
+import { findPoint, pointInside, pointOnEdge, splitAt, type Chain } from './pns_chain.js';
+import { hullIntersection } from './pns_utils.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 /** How a point stands relative to the hull. */
