@@ -2,17 +2,19 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * `PNS::DRAG_ALGO` and the half of `PNS::ALGO_BASE` the draggers use.
- * Counterparts: `pcbnew/router/pns_drag_algo.h`, `pcbnew/router/pns_algo_base.h`,
- * and the `DRAG_MODE` enum from `pcbnew/router/pns_router.h:75-84`.
+ * `PNS::DRAG_ALGO`, extending `PNS::ALGO_BASE` (`pns_algo_base.ts`) the way
+ * upstream's own `class DRAG_ALGO : public ALGO_BASE` does.
+ * Counterparts: `pcbnew/router/pns_drag_algo.h` and the `DRAG_MODE` enum from
+ * `pcbnew/router/pns_router.h:75-84`.
  *
- * `ALGO_BASE` holds four things: the `ROUTER*`, a `LOGGER*`, a
- * `DEBUG_DECORATOR*` and the `Settings()` accessor that forwards to the router.
- * Only the router and the settings do any work — the logger and the decorator
- * exist to feed `PNS_DBG`, which is compiled out of a release build and is
- * side-effect free in every dragger call site. They are not ported; the
- * accessors that would return them are not stubbed either, so nothing reads as
- * available-but-broken.
+ * `router()`/`settings()`/`logger()`/`setLogger()`/`dbg()`/`setDebugDecorator()`
+ * and the `mRouter`/`mDebugDecorator`/`mLogger` fields all come from
+ * `PnsAlgoBase` now (2026-09-29, the router file-structure parity pass; they
+ * used to be reimplemented inline here, before that file existed).
+ * `SetDebugDecorator`/`Dbg` are on the shared base upstream too, not on
+ * `DRAG_ALGO` itself, but every dragger inherits it and
+ * `ROUTER::StartDragging` calls it on whichever one it just built
+ * (`pns_router.cpp:196`).
  */
 
 import type { NetHandle } from './pns_collision.js';
@@ -25,6 +27,7 @@ import { lineDragArc } from './pns_line.js';
 import { DEFAULT_ROUTING_SETTINGS, type RoutingSettings } from './pns_routing_settings.js';
 import type { PnsShoveSettings } from './pns_shove.js';
 import { CornerMode } from '@ziroeda/kimath/src/geometry/direction45.js';
+import { PnsAlgoBase } from './pns_algo_base.js';
 
 /**
  * `PNS::DRAG_MODE` (`pns_router.h:75-84`), a bit mask.
@@ -134,23 +137,8 @@ export function toShoveSettings(aSettings: RoutingSettings): PnsShoveSettings {
  * `MULTI_DRAGGER` relies on that and overrides it with another empty body.
  * `GetLastCommittedLeaderSegments` likewise defaults to an empty vector.
  */
-export abstract class PnsDragAlgo {
+export abstract class PnsDragAlgo extends PnsAlgoBase<PnsRouterHost> {
   protected mWorld: PnsNode | null = null;
-
-  /** `ALGO_BASE::m_debugDecorator`. */
-  protected mDebugDecorator: unknown = null;
-
-  constructor(protected readonly mRouter: PnsRouterHost) {}
-
-  /** `ALGO_BASE::Router()`. */
-  router(): PnsRouterHost {
-    return this.mRouter;
-  }
-
-  /** `ALGO_BASE::Settings()`, which forwards to `Router()->Settings()`. */
-  settings(): RoutingSettings {
-    return this.mRouter.settings();
-  }
 
   /** `DRAG_ALGO::SetWorld( NODE* )`. */
   setWorld(aWorld: PnsNode | null): void {
@@ -192,26 +180,5 @@ export abstract class PnsDragAlgo {
   /** Upstream returns an empty vector; only `MULTI_DRAGGER` overrides it. */
   getLastCommittedLeaderSegments(): PnsItem[] {
     return [];
-  }
-
-  /**
-   * `ALGO_BASE::SetDebugDecorator( DEBUG_DECORATOR* )` — `pns_algo_base.h`.
-   *
-   * On the shared base, not on `DRAG_ALGO` itself, but every dragger inherits
-   * it and `ROUTER::StartDragging` calls it on whichever one it just built
-   * (`pns_router.cpp:196`). Added when `PNS::ROUTER` landed and needed to make
-   * that call; it is part of the surface upstream already had, not a widening.
-   *
-   * `DEBUG_DECORATOR` is a pure drawing sink for the router's visual debugger
-   * and is not ported, so the decorator is carried as an opaque value: stored,
-   * handed back by {@link dbg}, and never interpreted.
-   */
-  setDebugDecorator(aDecorator: unknown): void {
-    this.mDebugDecorator = aDecorator;
-  }
-
-  /** `ALGO_BASE::Dbg()`. */
-  dbg(): unknown {
-    return this.mDebugDecorator;
   }
 }
