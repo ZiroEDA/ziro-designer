@@ -11,12 +11,12 @@ import {
   type PcbnewSettings,
   type PlEditorSettings,
   type PrivacySettings,
-  type SymbolEditorSettings,
   type FpEditSettings,
   type ToolbarApp,
   type UserColorTheme,
   type Viewer3dSettings,
 } from '../prefs/settings.js';
+import { type SymbolEditorSettings } from '@ziroeda/eeschema/symbol_editor/symbol_editor_settings.js';
 import { type EeschemaSettings } from '@ziroeda/eeschema/eeschema_settings.js';
 import type { PrefsTransferPrompt } from './prefs/types.js';
 import type { ToolbarSettings } from '@ziroeda/common/tool/ui/toolbar_configuration.js';

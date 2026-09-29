@@ -21,7 +21,7 @@ import { schIUScale } from '@ziroeda/common';
 import {
   SYMBOL_EDITOR_DEFAULTS,
   type SymbolEditorSettings,
-} from '@ziroeda/designer/src/prefs/settings.js';
+} from '@ziroeda/eeschema/symbol_editor/symbol_editor_settings.js';
 import { symbolItemDefaults } from '@ziroeda/designer/src/editors/symbol/defaults.js';
 
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));

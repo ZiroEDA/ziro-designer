@@ -22,11 +22,8 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
-import {
-  SYMBOL_EDITOR_DEFAULTS,
-  TOOLBAR_APPS,
-  toolbarSlice,
-} from '@ziroeda/designer/src/prefs/settings.js';
+import { TOOLBAR_APPS, toolbarSlice } from '@ziroeda/designer/src/prefs/settings.js';
+import { SYMBOL_EDITOR_DEFAULTS } from '@ziroeda/eeschema/symbol_editor/symbol_editor_settings.js';
 import {
   SYM_DEFAULT_TOOLBARS,
   SYM_LEFT_TOOLBAR,

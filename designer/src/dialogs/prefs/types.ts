@@ -35,11 +35,11 @@ import type {
   PlEditorSettings,
   PrivacySettings,
   FpEditSettings,
-  SymbolEditorSettings,
   ToolbarApp,
   UserColorTheme,
   Viewer3dSettings,
 } from '../../prefs/settings.js';
+import type { SymbolEditorSettings } from '@ziroeda/eeschema/symbol_editor/symbol_editor_settings.js';
 import type { EeschemaSettings } from '@ziroeda/eeschema/eeschema_settings.js';
 import type { ToolbarSettings } from '@ziroeda/common/tool/ui/toolbar_configuration.js';
 import type { MAINTENANCE_SETTINGS_MANAGER } from '@ziroeda/common/settings/common_settings.js';

@@ -30,11 +30,8 @@ import {
   fastGridIndex,
   type FastGridSlice,
 } from '@ziroeda/common/settings/grid_settings_ui.js';
-import {
-  GERBVIEW_DEFAULTS,
-  PL_EDITOR_DEFAULTS,
-  SYMBOL_EDITOR_DEFAULTS,
-} from '@ziroeda/designer/src/prefs/settings.js';
+import { GERBVIEW_DEFAULTS, PL_EDITOR_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
+import { SYMBOL_EDITOR_DEFAULTS } from '@ziroeda/eeschema/symbol_editor/symbol_editor_settings.js';
 import { EESCHEMA_DEFAULTS } from '@ziroeda/eeschema/eeschema_settings.js';
 
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));

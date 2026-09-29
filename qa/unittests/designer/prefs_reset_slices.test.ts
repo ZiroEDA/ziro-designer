@@ -45,14 +45,16 @@ import {
   PCBNEW_DEFAULTS,
   PL_EDITOR_DEFAULTS,
   PRIVACY_DEFAULTS,
-  SYMBOL_EDITOR_DEFAULTS,
   type CommonSettings,
   type GerbviewSettings,
   type PcbnewSettings,
   type PlEditorSettings,
   type PrivacySettings,
-  type SymbolEditorSettings,
 } from '@ziroeda/designer/src/prefs/settings.js';
+import {
+  SYMBOL_EDITOR_DEFAULTS,
+  type SymbolEditorSettings,
+} from '@ziroeda/eeschema/symbol_editor/symbol_editor_settings.js';
 import { EESCHEMA_DEFAULTS, type EeschemaSettings } from '@ziroeda/eeschema/eeschema_settings.js';
 import type { PrefsContext } from '@ziroeda/designer/src/dialogs/prefs/types.js';
 import type { PrefsPageId } from '@ziroeda/common/frame_type.js';

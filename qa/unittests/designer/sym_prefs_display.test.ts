@@ -22,7 +22,7 @@ import { join } from 'node:path';
 import {
   SYMBOL_EDITOR_DEFAULTS,
   type SymbolEditorSettings,
-} from '@ziroeda/designer/src/prefs/settings.js';
+} from '@ziroeda/eeschema/symbol_editor/symbol_editor_settings.js';
 import {
   crosshairToggleId,
   crosshairToggleMode,

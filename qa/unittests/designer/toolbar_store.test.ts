@@ -44,10 +44,10 @@ import type { ToolEntry } from '@ziroeda/common/tool/action_toolbar_types.js';
 import {
   PCBNEW_DEFAULTS,
   PL_EDITOR_DEFAULTS,
-  SYMBOL_EDITOR_DEFAULTS,
   TOOLBAR_APPS,
   toolbarSlice,
 } from '@ziroeda/designer/src/prefs/settings.js';
+import { SYMBOL_EDITOR_DEFAULTS } from '@ziroeda/eeschema/symbol_editor/symbol_editor_settings.js';
 import { EESCHEMA_DEFAULTS } from '@ziroeda/eeschema/eeschema_settings.js';
 
 // ----------------------------------------------------------- where it is stored

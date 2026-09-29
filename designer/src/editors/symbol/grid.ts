@@ -22,7 +22,8 @@
  * `defaultGridIdx` of 1 that `common/settings/app_settings.cpp:463-466` gives
  * the file by name — 50 mil, which is exactly what `GRID` was.
  */
-import { gridSizeToIU, settings, type SymbolEditorSettings } from '../../prefs/settings.js';
+import { gridSizeToIU, settings } from '../../prefs/settings.js';
+import { type SymbolEditorSettings } from '@ziroeda/eeschema/symbol_editor/symbol_editor_settings.js';
 import { SYM_SHAPE_TOOLS } from '@ziroeda/eeschema/symbol_editor/toolbars_symbol_editor.js';
 import { gridSnappingEnabled } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
 

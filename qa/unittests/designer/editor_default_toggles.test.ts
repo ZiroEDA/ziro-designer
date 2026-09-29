@@ -45,7 +45,7 @@ import {
   SYMBOL_SETTING_TOGGLES,
   symbolTogglesFromSettings,
 } from '@ziroeda/designer/src/editors/symbol/toggles.js';
-import { SYMBOL_EDITOR_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
+import { SYMBOL_EDITOR_DEFAULTS } from '@ziroeda/eeschema/symbol_editor/symbol_editor_settings.js';
 
 const sorted = (s: Iterable<string>): string[] => [...s].sort();
 

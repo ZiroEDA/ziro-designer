@@ -14,7 +14,7 @@
  * own controls, so `TransferDataFromWindow` writes back only those. We have no
  * widget tree, so the slice is stated; see `dialogs/prefs/reset.ts`.
  */
-import { SYMBOL_EDITOR_DEFAULTS } from '../../../prefs/settings.js';
+import { SYMBOL_EDITOR_DEFAULTS } from '@ziroeda/eeschema/symbol_editor/symbol_editor_settings.js';
 import { resetKeys } from '@ziroeda/common/settings/json_settings.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
 import { resetToolbarsPanel } from '@ziroeda/common/tool/ui/toolbar_configuration.js';
