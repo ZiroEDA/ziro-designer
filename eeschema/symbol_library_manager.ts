@@ -17,8 +17,9 @@
  */
 
 import { parse } from '@ziroeda/sexpr';
-import { readSymbolLib, serializeSymbolLib, type LibSymbol } from '@ziroeda/eeschema';
-import { libraryBase } from '../../libraryHosts.js';
+import { readSymbolLib } from './sch_io/sexpr/read-schematic.js';
+import { serializeSymbolLib } from './sch_io/sexpr/write-symbol-lib.js';
+import { type LibSymbol } from './types.js';
 import { unescapeString } from '@ziroeda/common/string_utils.js';
 
 export interface ManagedLibrary {
@@ -40,10 +41,14 @@ export interface ManagedLibrary {
   libModified: boolean;
 }
 
-// The hosted symbol library set, or the bundled subset when it is unreachable.
-const symbolsBase = (): string => libraryBase.symbols;
-
 export class SymbolLibraryManager {
+  /**
+   * @param symbolsBase Where the hosted symbol libraries are served from - the
+   * program's (`SYMBOL_EDIT_FRAME_APP.symbolsBase`): the hosted set, or the
+   * bundled subset when it is unreachable.
+   */
+  constructor(private readonly symbolsBase: () => string) {}
+
   private libs = new Map<string, ManagedLibrary>();
   /** Bumped on every mutation so React can subscribe cheaply. */
   revision = 0;
@@ -160,7 +165,7 @@ export class SymbolLibraryManager {
   async ensureLoaded(name: string): Promise<ManagedLibrary | undefined> {
     const lib = this.libs.get(name);
     if (!lib || lib.loaded) return lib;
-    const text = await fetch(`${symbolsBase()}/${name}.kicad_sym`).then((r) => r.text());
+    const text = await fetch(`${this.symbolsBase()}/${name}.kicad_sym`).then((r) => r.text());
     for (const sym of readSymbolLib(parse(text))) {
       lib.symbols.set(sym.libId, sym);
       lib.original.set(sym.libId, sym);

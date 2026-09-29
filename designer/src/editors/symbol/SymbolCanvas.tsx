@@ -62,6 +62,10 @@ import {
   type SymbolHit,
 } from '@ziroeda/eeschema/symbol_editor/edits.js';
 import { symbolGridForTool, symbolSnappingEnabled } from '@ziroeda/eeschema/symbol_editor/grid.js';
+import type {
+  SymbolCanvasController,
+  SymbolCanvasProps as Props,
+} from '@ziroeda/eeschema/sch_draw_panel.js';
 
 /**
  * The symbol editor's drawing canvas: pan/zoom, selection/move (SCH_SELECTION /
@@ -70,63 +74,12 @@ import { symbolGridForTool, symbolSnappingEnabled } from '@ziroeda/eeschema/symb
  * exact 2-click arc construction (radius = chord × √½, quarter-circle bulge).
  */
 
-export interface SymbolCanvasController {
-  zoomToFit: () => void;
-  zoomIn: () => void;
-  zoomOut: () => void;
-  /**
-   * `EDA_DRAW_FRAME::FocusOnLocation` (`common/eda_draw_frame.cpp`), which is
-   * `GetCanvas()->GetView()->SetCenter( aPos )` once the point is off-screen:
-   * the scale is kept and the world point goes to the middle of the canvas.
-   * `SCH_FIND_REPLACE_TOOL::FindNext` ends on it for every hit.
-   */
-  centerOn: (pos: Vec2) => void;
-}
-
 /** In-progress shape state, mirroring EDA_SHAPE::m_editState. */
 interface DrawState {
   tool: 'rectangle' | 'circle' | 'arc' | 'lines' | 'polygon';
   start: Vec2;
   points: Vec2[]; // poly points placed so far (lines/polygon)
   cursor: Vec2;
-}
-
-interface Props {
-  symbol: LibSymbol | null;
-  /** Active colour theme (Preferences > Colors). */
-  theme?: Theme;
-  opts: SymbolViewOptions;
-  selection: ReadonlySet<string>;
-  activeTool: string;
-  /** A pin configured in the dialog, now following the cursor (two-click place). */
-  pendingPin: LibPin | null;
-  /** A text item configured in the dialog, following the cursor. */
-  pendingText: { text: string; fontSize?: number } | null;
-  /**
-   * Imported graphics riding the cursor (`SYMBOL_EDITOR_DRAWING_TOOLS::
-   * ImportGraphics`' preview): the drawing's origin sits on the cursor —
-   * `item->Move( cursorPos )` — and a left click drops it.
-   */
-  pendingImport?: readonly LibGraphic[] | null;
-  /** The imported drawing was dropped with its origin at pos. */
-  onPlacePendingImport?: (pos: Vec2) => void;
-  onSelect: (id: string | null, additive: boolean) => void;
-  onSelectBox: (ids: ReadonlySet<string>, additive: boolean, subtractive: boolean) => void;
-  /** Commit an edited symbol as one undoable step. */
-  onCommit: (next: LibSymbol, description: string) => void;
-  /** First click of the pin tool: open the pin dialog for this position. */
-  onPinToolClick: (pos: Vec2) => void;
-  /** The pending pin was dropped at pos: place it (PlacePin + image pins). */
-  onPlacePendingPin: (pos: Vec2) => void;
-  /** First click of the text tool: open the text dialog. */
-  onTextToolClick: (pos: Vec2) => void;
-  /** The pending text was dropped. */
-  onPlacePendingText: (pos: Vec2) => void;
-  /** A finished shape from the drawing tools. */
-  onPlaceShape: (g: LibGraphic) => void;
-  onEditItem: (hit: SymbolHit) => void;
-  onCursorMove?: (world: Vec2 | null) => void;
-  onScaleChange?: (scale: number) => void;
 }
 
 type Mode = 'idle' | 'pan' | 'dragzoom' | 'move' | 'box' | 'zoom' | 'point';

@@ -31,7 +31,6 @@ const SYM_LOCAL_ORIGIN = { x: 0, y: 0 };
 import { ProgressDialog } from '@ziroeda/common/widgets/wx_progress_reporters.js';
 import { formatTitle, useDocumentTitle } from '@ziroeda/common/use_document_title.js';
 import { useUnsavedGuard } from '@ziroeda/common/use_unsaved_guard.js';
-import { LibraryLoadingPanel } from '../../widgets/library_loading_panel.js';
 // The ONE tree widget, as `SYMBOL_TREE_PANE` mounts the ONE `LIB_TREE`.
 import { LibTree } from '@ziroeda/common/widgets/lib_tree.js';
 import { LibTreeNode, LibTreeNodeType } from '@ziroeda/common/lib_tree_model.js';
@@ -55,8 +54,7 @@ import {
   SYM_RIGHT_TOOLBAR,
   SYM_DEFAULT_TOOLBARS,
 } from '@ziroeda/eeschema/symbol_editor/toolbars_symbol_editor.js';
-import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
-import { SymbolCanvas, type SymbolCanvasController } from './SymbolCanvas.js';
+import { type SymbolCanvasController } from '@ziroeda/eeschema/sch_draw_panel.js';
 import {
   SymbolLibraryManager,
   type ManagedLibrary,
@@ -71,13 +69,6 @@ import {
   symFrameTitle,
   deleteSymbolPrompts,
 } from '@ziroeda/eeschema/symbol_editor/symbol_editor.js';
-import { loadIndex, symbolsBase } from '../schematic/symbols/index.js';
-import {
-  useCommonSettings,
-  useSymbolEditorTheme,
-  useSymbolEditorSettings,
-} from '../../prefs/useSettings.js';
-import { pcm } from '../../pcm/pcmStore.js';
 import {
   addGraphicToSymbol,
   moveGraphic,
@@ -109,7 +100,6 @@ import {
   fastGridIndex,
   type FastGridAction,
 } from '@ziroeda/common/settings/grid_settings_ui.js';
-import { settings } from '../../prefs/settings.js';
 import type { SymbolHit } from '@ziroeda/eeschema/symbol_editor/edits.js';
 import {
   LibSymbolPropertiesDialog,
@@ -126,9 +116,10 @@ import { DialogImportGfx } from '@ziroeda/eeschema/import_gfx/dialog_import_gfx_
 import { MessageDialogOk } from '@ziroeda/common/dialogs/dialog_message.js';
 import '@ziroeda/common/widgets/shell.css';
 import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
-import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
 import type { PrefsPageId } from '@ziroeda/common/frame_type.js';
+import { useSymbolEditFrameApp } from './symbol_edit_frame_app.js';
 import { symbolEditorMenus } from '@ziroeda/eeschema/symbol_editor/menubar_symbol_editor.js';
+import { currentSymbolEditorSettings } from '@ziroeda/eeschema/symbol_editor/symbol_editor_settings.js';
 import { DialogSchFind } from '@ziroeda/eeschema/dialogs/dialog_sch_find.js';
 import {
   defaultSearchData,
@@ -148,7 +139,6 @@ import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { dispatchMenuHotkey, focusBlocksHotkey } from '@ziroeda/common/tool/action_menu_hotkeys.js';
 import { wasBrowserSuppressed, type FocusLike } from '@ziroeda/common/browser_hotkeys.js';
-import { OpenFileDialog } from '../../fs/OpenFileDialog.js';
 import { kicadSymbolLibWildcard } from '@ziroeda/common/wildcards_and_files_ext.js';
 import {
   applyToggle,
@@ -164,7 +154,6 @@ import {
   defaultSelectionFilter,
   type SelectionFilterOptions,
 } from '@ziroeda/eeschema/tools/sch_selection_filter.js';
-import { HomeLink } from '../../ui/HomeLink.js';
 
 /**
  * The Symbol Editor frame, the web mirror of KiCad's SYMBOL_EDIT_FRAME
@@ -214,7 +203,7 @@ const LIBRARY_TREE_WIDTH = 250;
  * `2.54 * MM` and `1.27 * MM` here, i.e. the defaults hardcoded past the page
  * that sets them.
  */
-const lastPinDefaults = (cfg = settings.symbolEditor): LastPinState => {
+const lastPinDefaults = (cfg = currentSymbolEditorSettings()): LastPinState => {
   const d = symbolItemDefaults(cfg);
   return {
     electricalType: 'input',
@@ -306,6 +295,22 @@ export function SymbolEditor({
    */
   readOnlyNotice?: ReactNode;
 }): JSX.Element {
+  const app = useSymbolEditFrameApp();
+  const {
+    settings,
+    useSymbolEditorSettings,
+    useCommonSettings,
+    useSymbolEditorTheme,
+    loadIndex,
+    symbolsBase,
+    installedLibraries,
+    useToolbarEntries,
+    SymbolCanvas,
+    PreferencesDialog,
+    HomeLink,
+    OpenFileDialog,
+    LibraryLoadingPanel,
+  } = app;
   const manager = useRef(new SymbolLibraryManager(symbolsBase));
   // `SYMBOL_EDIT_FRAME::GetColorSettings` (`symbol_edit_frame.cpp:402-410`),
   // which asks eeschema's settings object or this editor's own depending on
@@ -545,8 +550,7 @@ export function SymbolEditor({
   useEffect(() => {
     // Libraries installed through the Plugin and Content Manager (loaded eagerly
     // from their stored `.kicad_sym` text).
-    for (const lib of pcm.installedLibraries())
-      manager.current.addInstalledLibrary(lib.name, lib.text);
+    for (const lib of installedLibraries()) manager.current.addInstalledLibrary(lib.name, lib.text);
     // Bundled global libraries: names first (like KiCad's lazy library loads).
     loadIndex()
       .then((idx) => {
@@ -558,7 +562,7 @@ export function SymbolEditor({
       })
       .catch(() => bump());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [loadIndex, installedLibraries]);
 
   // ----- helpers -----------------------------------------------------------------
   // `IsMultiBodyStyle()` / `HasDeMorganBodyStyles()` — what decides whether
@@ -1293,36 +1297,39 @@ export function SymbolEditor({
 
   // `applyToggle` is `editors/symbol/toggles.ts`' — the radio/flip rule and the
   // groups it reads are both there, where a test can call them.
-  const onLeftToggle = useCallback((id: string) => {
-    // The Show Grid button's right-click menu, whose one row is
-    // `ACTIONS::gridProperties`
-    // (`eeschema/symbol_editor/toolbars_symbol_editor.cpp:62-70`). Upstream
-    // runs it through the same TOOL_MANAGER the button goes through, so it
-    // arrives here rather than through a menu of its own.
-    // `COMMON_TOOLS::GridProperties` for FRAME_SCH_SYMBOL_EDITOR is
-    // `ShowPreferences( _( "Grids" ), _( "Symbol Editor" ) )`
-    // (`common/tool/common_tools.cpp:624`) — the action is nothing BUT those
-    // two arguments. It used to open the book at Common, because the Symbol
-    // Editor heading did not exist here.
-    if (id === 'gridProperties') {
-      setPrefsOpen('sym-grids');
-      return;
-    }
-    // Showing or hiding either of the other two left-dock panes is exactly when
-    // `updateSelectionFilterVisbility` runs, so a filter pane the user closed
-    // comes back with the next one of those.
-    if (id === 'showLibraryTree' || id === 'showProperties') setSelFilterClosed(false);
-    // The two that are settings rather than session state go to the file as
-    // well, which is what `ACTIONS::toggleGrid` and
-    // `ACTIONS::toggleGridOverrides` do upstream. The probe first: `commit`
-    // stamps the slice dirty and wakes the account sync, so calling it for a
-    // pane toggle would push `symbol_editor.json` on every click.
-    if (SYMBOL_SETTING_TOGGLES.has(id))
-      settings.updateSymbolEditor((s) => {
-        persistSymbolToggle(s, id);
-      });
-    setToggles((prev) => applyToggle(prev, id));
-  }, []);
+  const onLeftToggle = useCallback(
+    (id: string) => {
+      // The Show Grid button's right-click menu, whose one row is
+      // `ACTIONS::gridProperties`
+      // (`eeschema/symbol_editor/toolbars_symbol_editor.cpp:62-70`). Upstream
+      // runs it through the same TOOL_MANAGER the button goes through, so it
+      // arrives here rather than through a menu of its own.
+      // `COMMON_TOOLS::GridProperties` for FRAME_SCH_SYMBOL_EDITOR is
+      // `ShowPreferences( _( "Grids" ), _( "Symbol Editor" ) )`
+      // (`common/tool/common_tools.cpp:624`) — the action is nothing BUT those
+      // two arguments. It used to open the book at Common, because the Symbol
+      // Editor heading did not exist here.
+      if (id === 'gridProperties') {
+        setPrefsOpen('sym-grids');
+        return;
+      }
+      // Showing or hiding either of the other two left-dock panes is exactly when
+      // `updateSelectionFilterVisbility` runs, so a filter pane the user closed
+      // comes back with the next one of those.
+      if (id === 'showLibraryTree' || id === 'showProperties') setSelFilterClosed(false);
+      // The two that are settings rather than session state go to the file as
+      // well, which is what `ACTIONS::toggleGrid` and
+      // `ACTIONS::toggleGridOverrides` do upstream. The probe first: `commit`
+      // stamps the slice dirty and wakes the account sync, so calling it for a
+      // pane toggle would push `symbol_editor.json` on every click.
+      if (SYMBOL_SETTING_TOGGLES.has(id))
+        settings.updateSymbolEditor((s) => {
+          persistSymbolToggle(s, id);
+        });
+      setToggles((prev) => applyToggle(prev, id));
+    },
+    [settings],
+  );
 
   // ----- pin placement (SYMBOL_EDITOR_PIN_TOOL) ---------------------------------------
   const onPinToolClick = useCallback(
@@ -1526,7 +1533,7 @@ export function SymbolEditor({
     commit(r.sym, 'Repeat Pin');
     // `RunAction( selectionClear )` then `RunAction( selectItem, pin )`.
     setSelection(new Set([r.id]));
-  }, [workSymbol, isAlias, synced, units, unit, bodyStyle, commit]);
+  }, [workSymbol, isAlias, synced, units, unit, bodyStyle, commit, settings]);
 
   // ----- text / shapes ------------------------------------------------------------------
   const onTextToolClick = useCallback(() => {
@@ -1899,6 +1906,7 @@ export function SymbolEditor({
     pendingPin,
     pendingText,
     pendingImport,
+    settings,
   ]);
 
   // ----- selection ---------------------------------------------------------------------
@@ -2328,7 +2336,7 @@ export function SymbolEditor({
         },
         conds,
       ),
-    [onMenuAction, onToolSelect, onLeftToggle, toggles, conds, common.system.language],
+    [onMenuAction, onToolSelect, onLeftToggle, toggles, conds, common.system.language, settings],
   );
 
   // The chain above reads the tree through this ref; see `menusRef`.

@@ -32,6 +32,9 @@ import type {
   SchSymbol,
 } from './index.js';
 import type { RenderOpts, Theme } from './sch_render_settings.js';
+import type { LibGraphic, LibPin } from './types.js';
+import type { SymbolViewOptions } from './symbol_editor/symbol_renderer.js';
+import type { SymbolHit } from './symbol_editor/edits.js';
 
 export type LineMode = 'free' | '90' | '45';
 
@@ -318,4 +321,59 @@ export interface SchematicCanvasProps {
   /** The current selection is one a right-click made for its menu
    *  (`SELECTION::IsHover`), which gets no point-editor handles. */
   isHoverSelection?: boolean;
+}
+
+// ---- The Symbol Editor's canvas. Upstream both frames draw on SCH_DRAW_PANEL;
+// ours are two components (designer's SymbolCanvas.tsx implements this one,
+// reached through SYMBOL_EDIT_FRAME_APP.SymbolCanvas). ----
+
+export interface SymbolCanvasController {
+  zoomToFit: () => void;
+  zoomIn: () => void;
+  zoomOut: () => void;
+  /**
+   * `EDA_DRAW_FRAME::FocusOnLocation` (`common/eda_draw_frame.cpp`), which is
+   * `GetCanvas()->GetView()->SetCenter( aPos )` once the point is off-screen:
+   * the scale is kept and the world point goes to the middle of the canvas.
+   * `SCH_FIND_REPLACE_TOOL::FindNext` ends on it for every hit.
+   */
+  centerOn: (pos: Vec2) => void;
+}
+
+export interface SymbolCanvasProps {
+  symbol: LibSymbol | null;
+  /** Active colour theme (Preferences > Colors). */
+  theme?: Theme;
+  opts: SymbolViewOptions;
+  selection: ReadonlySet<string>;
+  activeTool: string;
+  /** A pin configured in the dialog, now following the cursor (two-click place). */
+  pendingPin: LibPin | null;
+  /** A text item configured in the dialog, following the cursor. */
+  pendingText: { text: string; fontSize?: number } | null;
+  /**
+   * Imported graphics riding the cursor (`SYMBOL_EDITOR_DRAWING_TOOLS::
+   * ImportGraphics`' preview): the drawing's origin sits on the cursor —
+   * `item->Move( cursorPos )` — and a left click drops it.
+   */
+  pendingImport?: readonly LibGraphic[] | null;
+  /** The imported drawing was dropped with its origin at pos. */
+  onPlacePendingImport?: (pos: Vec2) => void;
+  onSelect: (id: string | null, additive: boolean) => void;
+  onSelectBox: (ids: ReadonlySet<string>, additive: boolean, subtractive: boolean) => void;
+  /** Commit an edited symbol as one undoable step. */
+  onCommit: (next: LibSymbol, description: string) => void;
+  /** First click of the pin tool: open the pin dialog for this position. */
+  onPinToolClick: (pos: Vec2) => void;
+  /** The pending pin was dropped at pos: place it (PlacePin + image pins). */
+  onPlacePendingPin: (pos: Vec2) => void;
+  /** First click of the text tool: open the text dialog. */
+  onTextToolClick: (pos: Vec2) => void;
+  /** The pending text was dropped. */
+  onPlacePendingText: (pos: Vec2) => void;
+  /** A finished shape from the drawing tools. */
+  onPlaceShape: (g: LibGraphic) => void;
+  onEditItem: (hit: SymbolHit) => void;
+  onCursorMove?: (world: Vec2 | null) => void;
+  onScaleChange?: (scale: number) => void;
 }
