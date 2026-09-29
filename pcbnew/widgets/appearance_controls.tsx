@@ -57,12 +57,6 @@ import { BITMAPS } from '@ziroeda/common/bitmaps/bitmaps_list.js';
 import { BitmapToggle } from '@ziroeda/common/widgets/bitmap_toggle.js';
 import { IndicatorIcon, ROW_ICON_STATE } from '@ziroeda/common/widgets/indicator_icon.js';
 import { WxCollapsiblePane } from '@ziroeda/common/widgets/wx_collapsible_pane.js';
-import { layerTooltip } from './appearance_layers.js';
-import {
-  appearanceObjectRows,
-  type ObjectOpacity,
-  type ObjectState,
-} from './appearance_objects.js';
 import './appearance_controls.css';
 
 /**
@@ -688,3 +682,600 @@ const NETS_SASH_POS = 300;
 
 /** [data] `m_netsTabSplitter->SetMinimumPaneSize( 80 )` (:52). */
 const NETS_MIN_PANE = 80;
+
+// ============================================================================
+// Folded in from appearance_layers.ts (the KiCad file that holds this code is this one; see STRUCTURE.md).
+// ============================================================================
+
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+/**
+ * The order the Appearance panel's Layers tab lists layers in, and the tooltip
+ * each one carries. Counterpart: `APPEARANCE_CONTROLS::rebuildLayers`
+ * (`pcbnew/widgets/appearance_controls.cpp:1750-1935`).
+ *
+ * **One widget, two frames.** `APPEARANCE_CONTROLS` is constructed by both
+ * `PCB_EDIT_FRAME` and `FOOTPRINT_EDIT_FRAME` — the only difference is the
+ * `aFpEditorMode` flag, which removes the Nets page and changes where the
+ * labels come from (:584, :1902). `rebuildLayers` itself is shared, so the row
+ * order is one table in one file. Ours had two: `NON_CU_SEQ` inside
+ * `PcbEditor.tsx`, and, in the footprint editor, `PCB_PAINT_ORDER` reversed —
+ * a paint order, not a UI order, and an invention. It listed
+ * `Dwgs.User, Cmts.User, Eco1.User, Eco2.User, Edge.Cuts, Margin, F.Mask,
+ * F.SilkS, …` where KiCad lists `F.Adhesive, B.Adhesive, F.Paste, …`.
+ *
+ * A `.ts` and not part of either `.tsx`, because `qa`'s tsconfig compiles `.ts`
+ * only: a table living in a `.tsx` cannot be read by any test, which is how the
+ * footprint editor's ordering went unnoticed.
+ */
+
+/**
+ * [data] The named half of `non_cu_seq` (:1756-1773), in its order, with its
+ * tooltips verbatim. KiCad hardcodes this table; it is not a theme value.
+ */
+const NAMED_NON_CU: readonly (readonly [string, string])[] = [
+  ['F.Adhes', "Adhesive on board's front"],
+  ['B.Adhes', "Adhesive on board's back"],
+  ['F.Paste', "Solder paste on board's front"],
+  ['B.Paste', "Solder paste on board's back"],
+  ['F.SilkS', "Silkscreen on board's front"],
+  ['B.SilkS', "Silkscreen on board's back"],
+  ['F.Mask', "Solder mask on board's front"],
+  ['B.Mask', "Solder mask on board's back"],
+  ['Dwgs.User', 'Explanatory drawings'],
+  ['Cmts.User', 'Explanatory comments'],
+  ['Eco1.User', 'User defined meaning'],
+  ['Eco2.User', 'User defined meaning'],
+  ['Edge.Cuts', "Board's perimeter definition"],
+  ['Margin', "Board's edge setback outline"],
+  ['F.CrtYd', "Footprint courtyards on board's front"],
+  ['B.CrtYd', "Footprint courtyards on board's back"],
+  ['F.Fab', "Footprint assembly on board's front"],
+  ['B.Fab', "Footprint assembly on board's back"],
+];
+
+/**
+ * [data] `non_cu_seq` continues `{ User_1, _HKI( "User defined layer 1" ) }`
+ * through `User_45` (:1774-1819) — 45 rows that differ only in their number.
+ * Generated rather than transcribed: forty-five hand-typed lines is forty-five
+ * chances to fat-finger one, and the rule is mechanical in the source too.
+ */
+export const USER_DEFINED_LAYER_COUNT = 45;
+
+/** `non_cu_seq`, whole: the eighteen named rows then `User.1 … User.45`. */
+export const NON_CU_SEQ: readonly (readonly [string, string])[] = [
+  ...NAMED_NON_CU,
+  ...Array.from(
+    { length: USER_DEFINED_LAYER_COUNT },
+    (_, i) => [`User.${i + 1}`, `User defined layer ${i + 1}`] as const,
+  ),
+];
+
+/** Just the names, in `non_cu_seq` order. */
+export const NON_CU_ORDER: readonly string[] = NON_CU_SEQ.map(([name]) => name);
+
+/**
+ * The tooltip `rebuildLayers` gives one row: the copper `dsc` switch
+ * (:1863-1870) for a `.Cu` layer, the `non_cu_seq` entry otherwise.
+ */
+export function layerTooltip(name: string): string {
+  const entry = NON_CU_SEQ.find(([n]) => n === name);
+  if (entry) return entry[1];
+  if (name === 'F.Cu') return 'Front copper layer';
+  if (name === 'B.Cu') return 'Back copper layer';
+  if (/\.Cu$/.test(name)) return 'Inner copper layer';
+  return '';
+}
+
+/**
+ * The Layers tab's rows, in order: "show all coppers first, with front on top,
+ * back on bottom, then technical layers" (:1859) — `enabled.CuStack()` and then
+ * `non_cu_seq` filtered by `enabled[layer]` (:1860-1893).
+ *
+ * `aCopperStack` is already in stack order (front → back); this does not sort
+ * it, because the board's own order is the stack.
+ *
+ * Upstream can drop nothing, since `non_cu_seq` names every non-copper layer
+ * that exists. Ours can, if a board carries a layer name this table has never
+ * heard of, so anything enabled and unplaced is appended rather than silently
+ * lost — a layer missing from the Appearance panel is invisible *and*
+ * unswitchable.
+ */
+export function appearanceLayerRows(
+  aCopperStack: readonly string[],
+  aEnabled: readonly string[],
+): string[] {
+  const enabled = new Set(aEnabled);
+  const rows = [...aCopperStack, ...NON_CU_ORDER.filter((n) => enabled.has(n))];
+  const placed = new Set(rows);
+  return [...rows, ...aEnabled.filter((n) => !placed.has(n))];
+}
+
+// ============================================================================
+// Folded in from appearance_nets.ts (the KiCad file that holds this code is this one; see STRUCTURE.md).
+// ============================================================================
+
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+/**
+ * Which nets APPEARANCE_CONTROLS' Nets tab lists, and in what order.
+ *
+ * `NET_GRID_TABLE::Rebuild` (pcbnew/widgets/appearance_controls.cpp:246-266):
+ *
+ *     for( const std::pair<const wxString, NETINFO_ITEM*>& pair : nets )
+ *     {
+ *         int netCode = pair.second->GetNetCode();
+ *
+ *         if( netCode > 0 && !pair.first.StartsWith( wxT( "unconnected-(" ) ) )
+ *             m_nets.emplace_back( ... );
+ *     }
+ *
+ *     std::sort( m_nets.begin(), m_nets.end(),
+ *                []( const NET_GRID_ENTRY& a, const NET_GRID_ENTRY& b )
+ *                { return a.name < b.name; } );
+ *
+ * Two decisions, and we had both wrong. It was written inline in
+ * `PcbEditor.tsx`, which qa cannot import, so neither could be pinned; here it
+ * can be.
+ */
+
+/**
+ * The Nets tab's rows, as `[code, name]` pairs.
+ *
+ * `nets` is `BOARD::GetNetInfo().NetsByName()` — our board's own net map.
+ *
+ * The sort is a plain `<`, which on a wxString is codepoint order. Reaching
+ * for `localeCompare` instead reads perfectly plausibly and is wrong: a
+ * collation treats punctuation as a tie-breaker rather than as a character, so
+ * `+3V3_PI` sorted in among the `/CM5/...` names where '+' (0x2B) belongs
+ * ahead of '/' (0x2F), and the four power nets vanished from the top of a
+ * 220-net board's list.
+ *
+ * The filter drops net 0 — the unconnected pseudo-net — AND every
+ * `unconnected-(...)` name, which is what a pad with no net is given
+ * automatically. Skipping only code 0 left every one of those in the list.
+ */
+export function appearanceNetRows(
+  nets: ReadonlyMap<number, string>,
+): readonly (readonly [number, string])[] {
+  return [...nets.entries()]
+    .filter(([code, name]) => code !== 0 && !name.startsWith('unconnected-('))
+    .sort(([, a], [, b]) => (a < b ? -1 : a > b ? 1 : 0));
+}
+
+// ============================================================================
+// Folded in from appearance_objects.ts (the KiCad file that holds this code is this one; see STRUCTURE.md).
+// ============================================================================
+
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+/**
+ * The Appearance panel's Objects tab: what each row means, which rows each
+ * frame gets, and how flipping one affects the others.
+ *
+ * Counterpart: `APPEARANCE_CONTROLS::s_objectSettings` and
+ * `s_allowedInFpEditor` (`pcbnew/widgets/appearance_controls.cpp:329-379`),
+ * read by the one `rebuildObjects` (`:2434-2470`) that both PCB_EDIT_FRAME and
+ * FOOTPRINT_EDIT_FRAME's APPEARANCE_CONTROLS runs.
+ *
+ * It sits in `widgets/` beside `appearance_controls.tsx` rather than under
+ * `editors/pcb/`, because the widget that reads it is shared: a table under one
+ * launcher's directory is a table the other launcher copies.
+ */
+
+export interface ObjectState {
+  tracks: boolean;
+  vias: boolean;
+  pads: boolean;
+  zones: boolean;
+  filledShapes: boolean;
+  images: boolean;
+  footprintsFront: boolean;
+  footprintsBack: boolean;
+  fpValues: boolean;
+  fpReferences: boolean;
+  fpText: boolean;
+  ratsnest: boolean;
+  drcWarnings: boolean;
+  drcErrors: boolean;
+  drcExclusions: boolean;
+  anchors: boolean;
+  points: boolean;
+  lockedShadow: boolean;
+  collidingCourtyards: boolean;
+  boardAreaShadow: boolean;
+  drawingSheet: boolean;
+  grid: boolean;
+}
+
+/**
+ * Flip one Objects row, with the Footprint Text meta-control
+ * (appearance_controls.cpp onObjectVisibilityChanged).
+ *
+ * "Because Footprint Text is a meta-control that also can disable
+ * values/references, drag them along here so that the user is less likely to
+ * be confused" — and the other way, turning a value or reference back *on*
+ * restores the meta-control, "in case that user changes Footprint
+ * Value/References when the Footprint Text meta-control is disabled". Turning
+ * one of them off deliberately does not, which is what leaves you free to show
+ * references alone.
+ */
+export function toggleObject(prev: ObjectState, key: keyof ObjectState): ObjectState {
+  const on = !prev[key];
+  const next: ObjectState = { ...prev, [key]: on };
+  if (key === 'fpText') {
+    next.fpReferences = on;
+    next.fpValues = on;
+  } else if ((key === 'fpReferences' || key === 'fpValues') && on) {
+    next.fpText = true;
+  }
+  return next;
+}
+
+/**
+ * One row of the Objects tab, or the spacer `RR()` emits between groups.
+ *
+ * `slider` is APPEARANCE_SETTING::can_control_opacity and `noVisibility` is
+ * `!can_control_visibility` — the two optional trailing arguments of the `RR`
+ * macro.
+ */
+export type ObjectRow =
+  | 'sep'
+  | {
+      key: keyof ObjectState;
+      label: string;
+      tooltip: string;
+      slider?: boolean;
+      noVisibility?: boolean;
+    };
+
+/**
+ * The Objects tab, row for row: appearance_controls.cpp's `s_objectSettings`
+ * (`:330-363`), in its order, with its labels and its tooltips.
+ *
+ * [data] KiCad hardcodes this table, so it is mirrored rather than derived —
+ * but mirrored is the whole contract. There is no "Constrained Item Shadow"
+ * row here because there is none upstream: grepping the whole 10.0.5 tree for
+ * that label, for `LAYER_CONSTRAINTS_SHADOW` and for `constrainedShadow`
+ * returns nothing at all — not in the source and not in any of the 44
+ * translation catalogues, which carry every user-visible string KiCad has.
+ * Its three neighbours ("Colliding Courtyards", "Board Area Shadow", "Locked
+ * Item Shadow") are each in appearance_controls.cpp and in all 44, which is
+ * how we know the search works.
+ *
+ * Nor is there a `disabled` flag. Upstream draws all 23 rows live; greying is
+ * a claim to the user that a control is unavailable, and we were making it
+ * about nine rows KiCad shows normally.
+ */
+export const OBJECT_ROWS: readonly ObjectRow[] = [
+  { key: 'tracks', label: 'Tracks', tooltip: 'Show tracks', slider: true },
+  { key: 'vias', label: 'Vias', tooltip: 'Show all vias', slider: true },
+  { key: 'pads', label: 'Pads', tooltip: 'Show all pads', slider: true },
+  { key: 'zones', label: 'Zones', tooltip: 'Show copper zones', slider: true },
+  {
+    key: 'filledShapes',
+    label: 'Filled Shapes',
+    tooltip: 'Opacity of filled shapes',
+    slider: true,
+    noVisibility: true,
+  },
+  { key: 'images', label: 'Images', tooltip: 'Show user images', slider: true },
+  'sep',
+  {
+    key: 'footprintsFront',
+    label: 'Footprints Front',
+    tooltip: "Show footprints that are on board's front",
+  },
+  {
+    key: 'footprintsBack',
+    label: 'Footprints Back',
+    tooltip: "Show footprints that are on board's back",
+  },
+  { key: 'fpValues', label: 'Values', tooltip: 'Show footprint values' },
+  { key: 'fpReferences', label: 'References', tooltip: 'Show footprint references' },
+  { key: 'fpText', label: 'Footprint Text', tooltip: 'Show all footprint text' },
+  'sep',
+  'sep',
+  { key: 'ratsnest', label: 'Ratsnest', tooltip: 'Show unconnected nets as a ratsnest' },
+  {
+    key: 'drcWarnings',
+    label: 'DRC Warnings',
+    tooltip: 'DRC violations with a Warning severity',
+  },
+  { key: 'drcErrors', label: 'DRC Errors', tooltip: 'DRC violations with an Error severity' },
+  {
+    key: 'drcExclusions',
+    label: 'DRC Exclusions',
+    tooltip: 'DRC violations which have been individually excluded',
+  },
+  { key: 'anchors', label: 'Anchors', tooltip: 'Show footprint and text origins as a cross' },
+  { key: 'points', label: 'Points', tooltip: 'Show explicit snap points as crosses' },
+  { key: 'lockedShadow', label: 'Locked Item Shadow', tooltip: 'Show a shadow on locked items' },
+  {
+    key: 'collidingCourtyards',
+    label: 'Colliding Courtyards',
+    tooltip: 'Show colliding footprint courtyards',
+  },
+  { key: 'boardAreaShadow', label: 'Board Area Shadow', tooltip: 'Show board area shadow' },
+  {
+    key: 'drawingSheet',
+    label: 'Drawing Sheet',
+    tooltip: 'Show drawing sheet borders and title block',
+  },
+  { key: 'grid', label: 'Grid', tooltip: 'Show the (x,y) grid dots' },
+];
+
+/**
+ * The GAL layers the **footprint editor** shows on this tab:
+ * `s_allowedInFpEditor` (`appearance_controls.cpp:365-379`), keyed by our
+ * `ObjectState` name for each `LAYER_*` id.
+ *
+ * [data] Upstream's set is `{ LAYER_TRACKS, LAYER_VIAS, LAYER_PADS,
+ * LAYER_ZONES, LAYER_FILLED_SHAPES, LAYER_FP_VALUES, LAYER_FP_REFERENCES,
+ * LAYER_FP_TEXT, LAYER_DRAW_BITMAPS, LAYER_GRID, LAYER_POINTS }` — eleven ids,
+ * eleven keys here.
+ *
+ * This is the whole of the per-frame variation on this tab. It is DATA the
+ * frame supplies, not a second widget: `rebuildObjects` walks the one
+ * `s_objectSettings` table and skips what this set does not name.
+ */
+export const FP_EDITOR_OBJECT_KEYS: ReadonlySet<keyof ObjectState> = new Set<keyof ObjectState>([
+  'tracks',
+  'vias',
+  'pads',
+  'zones',
+  'filledShapes',
+  'images',
+  'fpValues',
+  'fpReferences',
+  'fpText',
+  'points',
+  'grid',
+]);
+
+/**
+ * The Objects rows one frame shows, in `s_objectSettings` order.
+ *
+ * The filter upstream is `if( m_isFpEditor && !s_allowedInFpEditor.count(
+ * s_setting.id ) ) continue;` (`:2436`). A spacer row is `RR()`, whose default
+ * constructor sets `id( -1 )` (`appearance_controls.h:172`), and -1 is not in
+ * `s_allowedInFpEditor` — so the footprint editor drops the group separators
+ * too, and its eleven rows run in one unbroken column.
+ */
+export function appearanceObjectRows(aFpEditor: boolean): readonly ObjectRow[] {
+  if (!aFpEditor) return OBJECT_ROWS;
+  return OBJECT_ROWS.filter((r) => r !== 'sep' && FP_EDITOR_OBJECT_KEYS.has(r.key));
+}
+
+/**
+ * Every Objects row's opening visibility.
+ *
+ * [data] `PROJECT_LOCAL_SETTINGS`' `board.visible_items`
+ * (`common/project/project_local_settings.cpp:69-122`). A board opens with what
+ * its `.kicad_prl` saved; a project that has never written one takes the
+ * parameter's `{}` default, which is not an array, so the setter runs
+ *
+ *     m_VisibleItems |= UserVisbilityLayers();
+ *
+ * — every row this tab lists (`common/settings/layer_settings_utils.cpp:28-52`).
+ * All of them open ON, the board area shadow and DRC exclusions included.
+ *
+ * **`GAL_SET::DefaultVisible()` is not that set.** It has
+ * `// LAYER_DRC_EXCLUSION` and `// LAYER_BOARD_OUTLINE_AREA` commented out
+ * (`common/lset.cpp:794, 825`), and reading it as the editor's opening state is
+ * how those two rows came to default off here. `BOARD::GetVisibleElements()`
+ * falls back to it only for a board with no project (`pcbnew/board.cpp:1040`) —
+ * the footprint editor and the preview panels. The board editor is handed one
+ * (`pcbnew/pcb_edit_frame.cpp:823`) and so never sees that fallback.
+ *
+ * Corroborated by a `.kicad_prl` KiCad 10.0.5 wrote on this machine: both
+ * `board_outline_area` and `drc_exclusions` are in its `visible_items`.
+ */
+export const DEFAULT_OBJECTS: ObjectState = {
+  tracks: true,
+  vias: true,
+  pads: true,
+  zones: true,
+  filledShapes: true,
+  images: true,
+  footprintsFront: true,
+  footprintsBack: true,
+  fpValues: true,
+  fpReferences: true,
+  fpText: true,
+  ratsnest: true,
+  drcWarnings: true,
+  drcErrors: true,
+  // In `UserVisbilityLayers()`, so a project without a saved set opens it on.
+  drcExclusions: true,
+  anchors: true,
+  points: true,
+  lockedShadow: true,
+  collidingCourtyards: true,
+  // Likewise — KiCad's board editor opens with the area shadow drawn.
+  boardAreaShadow: true,
+  drawingSheet: true,
+  grid: true,
+};
+
+/** The six rows that carry an opacity slider, and where their sliders open. */
+export interface ObjectOpacity {
+  tracks: number;
+  vias: number;
+  pads: number;
+  zones: number;
+  filledShapes: number;
+  images: number;
+}
+
+/**
+ * [data] `PROJECT_LOCAL_SETTINGS`' opacity defaults
+ * (`pcbnew/project/project_local_settings.cpp`): tracks/vias/pads/filled
+ * shapes open opaque, zones and images at 0.6.
+ */
+export const DEFAULT_OPACITY: ObjectOpacity = {
+  tracks: 1.0,
+  vias: 1.0,
+  pads: 1.0,
+  zones: 0.6,
+  filledShapes: 1.0,
+  images: 0.6,
+};
+
+// ============================================================================
+// Folded in from appearance_presets.ts (the KiCad file that holds this code is this one; see STRUCTURE.md).
+// ============================================================================
+
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+/**
+ * The Appearance panel's layer presets: the eight built-ins, the order the
+ * combo lists them in, and which one the combo is showing.
+ *
+ * Split out of `PcbEditor.tsx` because qa's tsconfig sets no `--jsx`, so
+ * nothing inside a `.tsx` can be tested — and the ordering rule below is
+ * exactly the kind of thing that drifts when nothing is watching it.
+ */
+
+/** One built-in preset (appearance_controls.cpp:382-403). */
+export interface LayerPreset {
+  name: string;
+  /** LSET of visible layers, resolved against this board's layer list. */
+  layers: (all: string[], copper: string[]) => string[];
+  /** LAYER_PRESET::flipBoard — the two Back presets view the board flipped. */
+  flipBoard: boolean;
+  /** LAYER_PRESET::activeLayer, UNSELECTED_LAYER for all but the two assemblies. */
+  activeLayer?: string;
+}
+
+const FRONT_TECH = ['F.SilkS', 'F.Mask', 'F.Adhes', 'F.Paste', 'F.CrtYd', 'F.Fab'];
+const BACK_TECH = ['B.SilkS', 'B.Mask', 'B.Adhes', 'B.Paste', 'B.CrtYd', 'B.Fab'];
+
+/**
+ * [data] The eight built-ins, in the order appearance_controls.cpp declares
+ * them (`:382-403`) with the masks from common/lset.cpp. Declaration order is
+ * NOT display order — see `presetComboItems`.
+ */
+export const BUILTIN_PRESETS: readonly LayerPreset[] = [
+  { name: 'All Layers', layers: (all) => all, flipBoard: false },
+  { name: 'No Layers', layers: () => [], flipBoard: false },
+  { name: 'All Copper Layers', layers: (_a, cu) => [...cu, 'Edge.Cuts'], flipBoard: false },
+  {
+    name: 'Inner Copper Layers',
+    layers: (_a, cu) => [...cu.filter((c) => /^In/.test(c)), 'Edge.Cuts'],
+    flipBoard: false,
+  },
+  { name: 'Front Layers', layers: () => ['F.Cu', ...FRONT_TECH, 'Edge.Cuts'], flipBoard: false },
+  {
+    name: 'Front Assembly View',
+    layers: () => ['F.SilkS', 'F.Mask', 'F.Fab', 'F.CrtYd', 'Edge.Cuts'],
+    flipBoard: false,
+    activeLayer: 'F.SilkS',
+  },
+  // presetBack and presetBackAssembly pass aFlipBoard = true.
+  { name: 'Back Layers', layers: () => ['B.Cu', ...BACK_TECH, 'Edge.Cuts'], flipBoard: true },
+  {
+    name: 'Back Assembly View',
+    layers: () => ['B.SilkS', 'B.Mask', 'B.Fab', 'B.CrtYd', 'Edge.Cuts'],
+    flipBoard: true,
+    activeLayer: 'B.SilkS',
+  },
+];
+
+/** The separator wxChoice entry, and the selection when nothing matches. */
+export const PRESET_SEPARATOR = '---';
+
+/**
+ * The combo's entries, in order (`rebuildLayerPresetsWidget`, `:2725-2771`).
+ *
+ * The built-ins come out **alphabetical**, not in declaration order, because
+ * upstream holds them in a `std::map<wxString, LAYER_PRESET>`
+ * (appearance_controls.h:426) and iterates it — so the list opens on "All
+ * Copper Layers", not "All Layers". User presets follow after a separator of
+ * their own, alphabetically for the same reason, and only if there are any.
+ *
+ * There is no "(unsaved)" entry. It exists in the wxFormBuilder stub
+ * (appearance_controls_base.cpp:163) and `Clear()` deletes it before the combo
+ * is ever shown.
+ */
+export function presetComboItems(userPresetNames: readonly string[] = []): string[] {
+  const cmp = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
+  const builtins = BUILTIN_PRESETS.map((p) => p.name).sort(cmp);
+  const users = [...userPresetNames].sort(cmp);
+  return [
+    ...builtins,
+    ...(users.length > 0 ? [PRESET_SEPARATOR, ...users] : []),
+    PRESET_SEPARATOR,
+    'Save preset...',
+    'Delete preset...',
+  ];
+}
+
+/** What `syncLayerPresetSelection` needs to compare against a preset. */
+export interface PresetMatchInput {
+  visibleLayers: ReadonlySet<string>;
+  /** True when every Objects row is at its default visibility. */
+  objectsAtDefault: boolean;
+  flipBoard: boolean;
+  allLayers: readonly string[];
+  copperLayers: readonly string[];
+  userPresets?: readonly { name: string; layers: readonly string[] }[];
+}
+
+const sameSet = (a: ReadonlySet<string>, b: readonly string[]): boolean =>
+  a.size === new Set(b).size && b.every((l) => a.has(l));
+
+/**
+ * Which entry the combo shows, `APPEARANCE_CONTROLS::syncLayerPresetSelection`
+ * (`:2785-2815`).
+ *
+ * It is derived, never stored: upstream searches m_layerPresets for one whose
+ * layers, renderLayers AND flipBoard all equal the current view, and when
+ * none does it selects `m_cbLayerPresets->GetCount() - 3` — the separator.
+ * Every built-in carries `renderLayers = GAL_SET::DefaultVisible()`
+ * (board_project_settings.h:159-187), so "renderLayers match" is "the Objects
+ * tab is untouched".
+ */
+export function matchPresetName(input: PresetMatchInput): string {
+  const { visibleLayers, objectsAtDefault, flipBoard, allLayers, copperLayers } = input;
+
+  for (const name of presetComboItems((input.userPresets ?? []).map((u) => u.name))) {
+    if (name === PRESET_SEPARATOR) continue;
+    const user = (input.userPresets ?? []).find((u) => u.name === name);
+    if (user) {
+      if (sameSet(visibleLayers, [...user.layers])) return name;
+      continue;
+    }
+    const preset = BUILTIN_PRESETS.find((p) => p.name === name);
+    if (preset === undefined) continue;
+    if (!objectsAtDefault || preset.flipBoard !== flipBoard) continue;
+    const want = preset
+      .layers([...allLayers], [...copperLayers])
+      .filter((l) => allLayers.includes(l));
+    if (sameSet(visibleLayers, want)) return name;
+  }
+  return PRESET_SEPARATOR;
+}
+
+/**
+ * The viewports combo's entries, in order
+ * (`APPEARANCE_CONTROLS::rebuildViewportsWidget`).
+ *
+ * The user's viewports first — `m_viewports` is a `std::map<wxString,
+ * VIEWPORT>`, so alphabetical for the same reason the presets are — then the
+ * separator and the two commands. `SetSelection( GetCount() - 3 )` puts the
+ * opening selection on the separator, which is why a fresh frame shows "---".
+ */
+export function viewportComboItems(userViewportNames: readonly string[] = []): string[] {
+  const cmp = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
+  return [
+    ...[...userViewportNames].sort(cmp),
+    PRESET_SEPARATOR,
+    'Save viewport...',
+    'Delete viewport...',
+  ];
+}

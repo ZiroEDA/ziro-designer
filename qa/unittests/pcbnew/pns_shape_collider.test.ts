@@ -24,7 +24,7 @@ import {
   type PnsConstraint,
   type PnsRuleResolver,
 } from '@ziroeda/pcbnew/router/pns_collision.js';
-import { installLocatingShapeCollider } from '@ziroeda/pcbnew/router/pns_shape_collider.js';
+import { installLocatingShapeCollider } from '@ziroeda/pcbnew/router/pns_collision.js';
 import type { PnsItem } from '@ziroeda/pcbnew/router/pns_item.js';
 import { PnsLayerRange } from '@ziroeda/pcbnew/router/pns_layerset.js';
 import { PnsSegment } from '@ziroeda/pcbnew/router/pns_segment.js';

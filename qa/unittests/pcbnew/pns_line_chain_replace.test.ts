@@ -15,7 +15,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { PnsLineChain } from '@ziroeda/pcbnew/router/pns_line.js';
-import { constructArcFromStartEndAngle } from '@ziroeda/pcbnew/router/shape_arc_ops.js';
+import { constructArcFromStartEndAngle } from '@ziroeda/kimath/src/geometry/shape_arc.js';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 

@@ -14,7 +14,7 @@ import {
   matchPresetName,
   presetComboItems,
   PRESET_SEPARATOR,
-} from '@ziroeda/pcbnew/widgets/appearance_presets.js';
+} from '@ziroeda/pcbnew/widgets/appearance_controls.js';
 
 const ALL = ['F.Cu', 'In1.Cu', 'B.Cu', 'F.SilkS', 'B.SilkS', 'F.Mask', 'B.Mask', 'Edge.Cuts'];
 const CU = ['F.Cu', 'In1.Cu', 'B.Cu'];

@@ -27,7 +27,7 @@ import {
   appearanceLayerRows,
   layerTooltip,
   NON_CU_ORDER,
-} from '@ziroeda/pcbnew/widgets/appearance_layers.js';
+} from '@ziroeda/pcbnew/widgets/appearance_controls.js';
 import {
   FOOTPRINT_COPPER_STACK,
   FOOTPRINT_LAYERS,

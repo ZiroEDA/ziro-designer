@@ -44,7 +44,7 @@ import { PnsNode } from '@ziroeda/pcbnew/router/pns_node.js';
 import { PnsSegment } from '@ziroeda/pcbnew/router/pns_segment.js';
 import { PnsSolid } from '@ziroeda/pcbnew/router/pns_solid.js';
 import { PnsVVia, PnsVia } from '@ziroeda/pcbnew/router/pns_via.js';
-import { itemHull } from '@ziroeda/pcbnew/router/pns_item_hull.js';
+import { itemHull } from '@ziroeda/pcbnew/router/pns_utils.js';
 import type { PnsItem } from '@ziroeda/pcbnew/router/pns_item.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 

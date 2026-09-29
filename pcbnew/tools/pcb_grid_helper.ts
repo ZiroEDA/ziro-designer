@@ -92,7 +92,7 @@ import { footprintBBox, padBBox } from '../edit-footprint.js';
 import { barcodeGeometry, type BarcodeGeometry } from '../pcb_io/kicad_sexpr/board_view.js';
 import { PnsMagneticOption } from '../router/pns_tool_base.js';
 import { arcSliceContainsPoint } from '../drc/shape_collisions.js';
-import { arcCenterI } from '../router/shape_arc_ops.js';
+import { arcCenterI } from '@ziroeda/kimath/src/geometry/shape_arc.js';
 
 /** `SEG`, and the shape every segment type in this tree already has. */
 export interface GridSeg {

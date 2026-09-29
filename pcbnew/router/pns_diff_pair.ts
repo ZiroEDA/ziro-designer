@@ -52,7 +52,7 @@
  * Every `SEG` member used here — `LineProject`, `Contains`, `ApproxParallel`,
  * `Collinear`, `Intersect`, `IntersectLines`, `Distance`, `SquaredDistance` —
  * comes from `libs/kimath`, which is where upstream keeps them too. Only
- * `segLength` is deliberately *not* taken from `pns_seg_ops.ts`, and the note on
+ * `segLength` is deliberately *not* taken from `libs/kimath/src/geometry/seg.ts`, and the note on
  * this module's own `segLength` says why in full.
  *
  * One reused piece is *not* bit-exact and is reused anyway, because forking it
@@ -91,7 +91,11 @@ import {
 import { PnsKind, PnsLinkHolder, type PnsItem } from './pns_item.js';
 import { PnsLine, PnsLineChain } from './pns_line.js';
 import { appendChain, csegment, reverse, segmentCount, type Chain, type Seg } from './pns_line.js';
-import { segApproxParallel, segContains, segLineProject } from './pns_seg_ops.js';
+import {
+  segApproxParallel,
+  segContains,
+  segLineProject,
+} from '@ziroeda/kimath/src/geometry/seg.js';
 import { PnsSegment } from './pns_segment.js';
 import { PnsVia } from './pns_via.js';
 import { RangedNum } from './ranged_num.js';
@@ -123,10 +127,10 @@ const midpoint = (a: Vec2, b: Vec2): Vec2 => divideI(add(a, b), 2);
 /**
  * `SEG::Length()` = `(A - B).EuclideanNorm()`.
  *
- * NOT `segLength` from `pns_seg_ops.ts`, and the difference is a real one.
+ * NOT `segLength` from `libs/kimath/src/geometry/seg.ts`, and the difference is a real one.
  * `VECTOR2<int>::EuclideanNorm()` (vector2d.h:279) **rounds** — its return type
  * is already `T = int` and the body is `KiROUND( std::hypot( x, y ) )` — and it
- * short-cuts the 45° case as `KiROUND( |x| * √2 )`. `pns_seg_ops.ts` truncates
+ * short-cuts the 45° case as `KiROUND( |x| * √2 )`. `libs/kimath/src/geometry/seg.ts` truncates
  * instead, on the reading that `int Length()` truncates the double; there is no
  * double left to truncate by then. The two disagree by one unit whenever the
  * hypotenuse's fraction reaches 0.5 — a (2,3) segment is 4 upstream and 3 there.

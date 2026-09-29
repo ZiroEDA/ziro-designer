@@ -24,7 +24,7 @@ import {
   updateTrackDrag,
   applyTrackDrag,
   trackDragSegments,
-} from '@ziroeda/pcbnew/router/pns_drag.js';
+} from '@ziroeda/pcbnew/router/pns_dragger.js';
 import type { Board, PcbTrack, PcbPad, PcbFootprint } from '@ziroeda/pcbnew/types.js';
 
 const track = (

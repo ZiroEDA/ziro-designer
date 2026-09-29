@@ -84,7 +84,7 @@ import {
   canvasBackingSize,
   isMeasured,
 } from '@ziroeda/common/widgets/canvas_size.js';
-import { appearanceNetRows } from './widgets/appearance_nets.js';
+import { appearanceNetRows } from './widgets/appearance_controls.js';
 import { useStatusReadout } from '@ziroeda/common/use_status_readout.js';
 
 /**
@@ -101,7 +101,7 @@ import {
   groupLabelFits,
   groupLabelTextSize,
 } from './group_box.js';
-import { appearanceLayerRows, layerTooltip } from './widgets/appearance_layers.js';
+import { appearanceLayerRows, layerTooltip } from './widgets/appearance_controls.js';
 import {
   ZOOM_AUTO_LABEL,
   ZOOM_LIST,
@@ -426,14 +426,14 @@ import {
   toggleObject,
   type ObjectOpacity,
   type ObjectState,
-} from './widgets/appearance_objects.js';
+} from './widgets/appearance_controls.js';
 import {
   BUILTIN_PRESETS,
   matchPresetName,
   presetComboItems,
   PRESET_SEPARATOR,
   viewportComboItems,
-} from './widgets/appearance_presets.js';
+} from './widgets/appearance_controls.js';
 import {
   DEFAULT_SELECTION_FILTER_OPTIONS,
   SelectionFilterOnlyMenu,

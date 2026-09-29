@@ -37,14 +37,9 @@ import type { PnsLine } from './pns_line.js';
 import type { Shape } from '../drc/drc_geometry.js';
 import type { NetHandle } from './pns_collision.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+import type { ShapeArc } from '@ziroeda/kimath/src/geometry/shape_arc.js';
 
-/** `SHAPE_ARC`: three points on the curve, plus the width it is stroked with. */
-export interface ShapeArc {
-  p0: Vec2;
-  arcMid: Vec2;
-  p1: Vec2;
-  width: number;
-}
+export type { ShapeArc };
 
 const copyArc = (a: ShapeArc): ShapeArc => ({
   p0: { ...a.p0 },

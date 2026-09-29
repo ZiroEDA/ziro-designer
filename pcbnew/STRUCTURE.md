@@ -35,6 +35,7 @@ created. Every other KiCad directory exists here by name. `zone_manager/` and `m
 Notes that used to sit in this table, kept because they still apply:
 
 - `dialogs/`: Exists since 09-21; 21 modules now (09-28 added 19: `create_array`, `dimension_properties`, `filter_selection`, `footprint_checker`, `footprint_properties`, `global_deletion`, `global_edit_text_and_graphics`, `global_edit_tracks_and_vias`, `image_properties` → `dialog_reference_image_properties`, `move_exact`, `non_copper_zone_properties` → `dialog_non_copper_zones_properties`, `pad_properties`, `rule_area_properties`, `swap_layers`, `table_properties`, `textbox_properties`, `track_via_properties`, `teardrop_global_edit` → `dialog_global_edit_teardrops`, `pad_enumerate` → `dialog_enum_pads`). Still at root, unclear (no single KiCad counterpart): `position_relative.ts` (both `DIALOG_POSITION_RELATIVE` and `POSITION_RELATIVE_TOOL` in one file), `graphic_properties.ts` (merges `dialog_text_properties.cpp` + `dialog_shape_properties.cpp`), `zone_properties.ts` (ambiguous between `dialog_copper_zones.cpp` the frame and `panel_zone_properties.cpp` the fields), `via_placer.ts` (no dedicated file — part of `DRAWING_TOOL::DrawVia`), `distribute_items.ts` (shared with align in `ALIGN_DISTRIBUTE_TOOL`, no distribute-only file). (`teardrop.ts` at root, the old view-side copy, is **deleted** (09-28): Edit Teardrops runs `DIALOG_GLOBAL_EDIT_TEARDROPS` on the live BOARD through `TEARDROP_MANAGER`.)
+- `widgets/` (09-29 fold): `appearance_layers`/`_nets`/`_objects`/`_presets` are inside `appearance_controls.tsx` (KiCad keeps one `appearance_controls.cpp`); `footprint_history.ts` is inside `load_select_footprint.ts` (`s_FootprintHistoryList` is a file-static of `load_select_footprint.cpp`).
 - `widgets/`: 9 453 lines upstream. Unfrozen 09-28: `pcb_net_inspector_panel.ts` (`PCB_NET_INSPECTOR_PANEL`), and, from `designer/src/editors/pcb/widgets/`, `panel_footprint_chooser.tsx` (`PANEL_FOOTPRINT_CHOOSER`) with its two support modules `footprint_history.ts` and `generate_footprint_info.ts` (both "extra" — no single upstream file). `panel_footprint_chooser.tsx`'s footprint-preview panel and 3D canvas arrive as props (`panel`, `preview3D`) rather than imports, since both reach the app's hosted-storage / settings seams; see the props' doc comments. `footprint_chooser_frame.cpp`'s window (`dialogs/footprint_chooser_frame.tsx`) stays in `designer/` — it still renders `Viewer3DFrame` directly, which is its own pass. The rest of `widgets/` (`appearance_controls`, `pcb_properties_panel`, `panel_selection_filter`, the design-block / search-pane pair) is unaudited, not "frozen" — nothing says it can't move, nobody has checked each one's designer/ imports yet.
 
 ## Directories we have that KiCad doesn't
@@ -747,6 +748,33 @@ all).
   ported as `VIEW_ITEM`s with tests; the router's preview still draws through
   the `session.preview` records (`pnsPreviewItems`), so switching it onto them
   is the follow-up.
+
+  **Second fold pass (2026-09-29): 10 extras in, `router/` = KiCad's 37 .cpp + its header-only names.**
+  Where each one's code lives in 10.0.6, and so where it went:
+  `pns_rule_resolver.ts` → `pns_kicad_iface.ts` (`PNS_PCBNEW_RULE_RESOLVER` is defined in
+  `pns_kicad_iface.cpp`, ahead of `PNS_KICAD_IFACE`); `pns_item_hull.ts` → `pns_utils.ts`
+  (`ITEM::Hull` dispatch beside the hull builders it calls; the cycle the first pass feared was
+  the per-kind overrides, which stay put); `pns_obstacles.ts` → `pns_walkaround.ts` (the
+  board-to-hulls query is the walkaround driver's input); `pns_drag.ts` → `pns_dragger.ts`
+  (free-space `DRAGGER` geometry over the flat `Board`, test-only today); `pns_shape_collider.ts`
+  → `pns_collision.ts` (the seam it closes lives there); `pns_seg_ops.ts` →
+  `libs/kimath/src/geometry/seg.ts` (`SEG::Length`/`SquaredLength`/`ReflectPoint` record adapters,
+  next to the ones already there); `pns_chain.ts` → `libs/kimath/src/geometry/shape_line_chain.ts`
+  (`PointInside`/`EdgeContainingPoint`/`Find`/`Split` are `SHAPE_LINE_CHAIN` members);
+  `shape_arc_ops.ts` → `libs/kimath/src/geometry/shape_arc.ts` (the `SHAPE_ARC` record operations
+  plus the two `trigo.cpp`/`vector2d.h` helpers they need, `arcCenterFromStartEndAngle` and
+  `resizeD`; the `ShapeArc` record type now lives there and `pns_arc.ts` re-exports it).
+  **Kept, with the reason:** `pns_collision.ts` is `pns_node.h`'s `OBSTACLE`/`RULE_RESOLVER`/
+  `CONSTRAINT`/`COLLISION_SEARCH_*` declarations. `pns_item.ts` reads them at load and `pns_node.ts`
+  imports every item class, so folding them into `pns_node.ts` closes an ESM cycle that throws on
+  whichever side loads first (the `board_types.ts` case). `pns_session.ts` is `ROUTER_TOOL`'s body
+  minus wx and stays: it carries the `PnsPreviewItem` records another pass is moving onto
+  `router_preview_item.ts`, so folding it into `router_tool.ts` now would be a redesign in a file
+  two passes are editing. Header-only upstream, so they keep their own files: `pns_joint`
+  (`pns_joint.h`), `pns_layerset` (`pns_layerset.h`), `pns_segment` (`pns_segment.h`),
+  `pns_drag_algo` (`pns_drag_algo.h`), `ranged_num` (`ranged_num.h`). Not ported because upstream
+  is a header of declarations only: `pns_debug_decorator.h`, `pns_linked_item.h`,
+  `pns_link_holder.h` (both live in `pns_item.ts`), `pns_placement_algo.h`, `range.h`.
 
   **`pns_logger.cpp` → `pns_logger.ts` (2026-09-29): ported, `PNS::LOGGER`
   whole.** `PnsAlgoBase`'s `logger()`/`setLogger()` had carried it as an

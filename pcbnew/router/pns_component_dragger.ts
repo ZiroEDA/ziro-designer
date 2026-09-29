@@ -36,7 +36,7 @@ import type { NetHandle } from './pns_collision.js';
 import type { PnsArc } from './pns_arc.js';
 import { PNS_UNDEFINED_LAYER, PnsDragAlgo, PnsDragMode } from './pns_drag_algo.js';
 import { PnsKind, type PnsItem, type PnsLinkedItem } from './pns_item.js';
-import { itemHull } from './pns_item_hull.js';
+import { itemHull } from './pns_utils.js';
 import { PnsItemSet } from './pns_itemset.js';
 import type { PnsJoint } from './pns_joint.js';
 import type { PnsLine } from './pns_line.js';
