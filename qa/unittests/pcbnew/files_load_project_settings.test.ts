@@ -9,6 +9,8 @@
  * re-reads local settings then.
  */
 import { afterEach, describe, expect, it } from 'vitest';
+import { DS_DATA_MODEL } from '@ziroeda/common/drawing_sheet/ds_data_model.js';
+import { MEMORY_FILESYSTEM, wxMountFileSystem } from '@ziroeda/common/wx/filefn.js';
 import { PGM_BASE, SETTINGS_MANAGER, SetPgm } from '@ziroeda/common/pgm_base.js';
 import { HIGH_CONTRAST_MODE } from '@ziroeda/common/project/board_project_settings.js';
 import { PCB_EDIT_FRAME } from '@ziroeda/pcbnew/pcb_edit_frame.js';
@@ -104,5 +106,31 @@ describe('PCB_EDIT_FRAME::SyncProjectSettingsIntoBoard, the open path', () => {
     frame.SyncProjectSettingsIntoBoard(FILES, 'x', true, '/p');
     expect(frame.GetDisplayOptions().m_TrackOpacity).toBe(1);
     expect(render.GetHiddenNets().size).toBe(0);
+  });
+
+  it("reads the project's drawing sheet from the project files", () => {
+    const { frame } = frameOnBoard();
+    const wks = `(kicad_wks (version 20220228) (generator "pl_editor")
+  (setup (textsize 1.5 1.5) (linewidth 0.15) (textlinewidth 0.15)
+    (left_margin 37) (right_margin 11) (top_margin 12) (bottom_margin 13)))`;
+    const fs = new MEMORY_FILESYSTEM();
+    fs.Write('mine.kicad_wks', new Uint8Array());
+    const unmount = wxMountFileSystem('/p', fs);
+    try {
+      const pro = JSON.stringify({ pcbnew: { page_layout_descr_file: 'mine.kicad_wks' } });
+      frame.SyncProjectSettingsIntoBoard(
+        [
+          { name: 'x.kicad_pro', text: pro },
+          { name: 'mine.kicad_wks', text: wks },
+        ],
+        'x',
+        false,
+        '/p',
+      );
+      expect(DS_DATA_MODEL.GetTheInstance().GetLeftMargin()).toBe(37);
+    } finally {
+      unmount();
+      DS_DATA_MODEL.GetTheInstance().SetDefaultLayout();
+    }
   });
 });
