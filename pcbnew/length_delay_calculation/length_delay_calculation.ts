@@ -37,8 +37,8 @@ import {
 import {
   TUNING_PROFILE_GEOMETRY_CONTEXT,
   type TUNING_PROFILE_PARAMETERS_IFACE,
-} from './tuning_profile_parameters_iface.js';
-import { TUNING_PROFILE_PARAMETERS_USER_DEFINED } from './tuning_profile_parameters_user_defined.js';
+  TUNING_PROFILE_PARAMETERS_USER_DEFINED,
+} from './tuning_profile_parameters_user_defined.js';
 
 /**
  * Holds length measurement result details and statistics

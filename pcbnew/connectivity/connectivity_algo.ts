@@ -34,7 +34,7 @@ import {
   CN_LIST,
   CN_ZONE_LAYER,
 } from './connectivity_items.js';
-import { INT_MAX } from './connectivity_rtree.js';
+import { INT_MAX } from './connectivity_items.js';
 
 /** The slice of PROGRESS_REPORTER the search reports to (pending with the class, #636 stage 6). */
 export interface PROGRESS_REPORTER_LIKE {
