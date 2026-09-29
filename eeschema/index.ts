@@ -41,6 +41,7 @@ export * from './netlist_exporters/netlist_generator.js';
 export * from './pin_type.js';
 export * from './netlist_exporters/netlist_exporter_kicad.js';
 export * from './netlist_exporters/netlist_exporter_spice.js';
+export * from './netlist_exporters/netlist_exporter_spice_model.js';
 
 import { writeSchematic as _writeSchematic } from './sch_io/sexpr/write-schematic.js';
 import { serialize as _serialize } from '@ziroeda/sexpr/serializer.js';

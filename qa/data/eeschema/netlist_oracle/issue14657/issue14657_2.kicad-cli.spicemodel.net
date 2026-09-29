@@ -1,0 +1,10 @@
+*
+
+.subckt 
++       DEV_CLRn ; input
++       DEV_OE ; input
+
+
+R1 DEV_OE DEV_CLRn R
+
+.ends

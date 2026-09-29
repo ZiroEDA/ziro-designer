@@ -1,0 +1,8 @@
+*
+
+.subckt 
+
+
+R1 aaa bbb R
+
+.ends

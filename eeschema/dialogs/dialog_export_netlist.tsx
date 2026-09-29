@@ -29,6 +29,7 @@ import {
 import type { RawFile } from '@ziroeda/common/drawing_sheet/project_sheet.js';
 import { loadProjectSchematic, symbolLibraryUri } from '../cross-probing.js';
 import { WriteNetListText } from '../netlist_exporters/netlist_generator.js';
+import { generateSpiceModelNetlist } from '../netlist_exporters/netlist_exporter_spice_model.js';
 import type { SCHEMATIC } from '../schematic.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
@@ -193,14 +194,14 @@ export function DialogExportNetlist({
     if (tab === 'spice' || tab === 'spicemodel') {
       // NET_TYPE_SPICE_MODEL carries none of the save options (:523-526):
       // only the exporter changes, to NETLIST_EXPORTER_SPICE_MODEL.
-      const out = generateSpiceNetlist(
-        doc,
-        libById,
-        null,
+      const out =
         tab === 'spice'
-          ? { saveAllVoltages, saveAllCurrents, saveAllDissipations }
-          : { subcktName: projectName },
-      );
+          ? generateSpiceNetlist(doc, libById, null, {
+              saveAllVoltages,
+              saveAllCurrents,
+              saveAllDissipations,
+            })
+          : generateSpiceModelNetlist(doc, libById, projectName, null);
       errors = out.errors;
       setSpiceErrors(errors);
       text = out.text;

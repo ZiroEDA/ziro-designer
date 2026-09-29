@@ -713,6 +713,38 @@ than guessed at. `netlist.test.ts` gained a synthetic multi-unit dedup
 regression test since none of the three oracle designs exercise one — a
 mutant of the dedup rule survived the oracle set but was caught by it.
 
+**`netlist_exporters/` is now 10/10 filename-matched (2026-09-29, later same
+day): `netlist_exporter_spice_model.cpp` (`NETLIST_EXPORTER_SPICE_MODEL`) has
+its own file.** Its four overrides of `NETLIST_EXPORTER_SPICE`
+(`WriteHead`/`WriteTail`/`ReadSchematicAndLibraries`/`GenerateItemPinNetName`)
+had already been folded into `netlist_exporter_spice.ts`'s
+`generateSpiceNetlist` as its `subcktName` branch, in an earlier session —
+there is no exporter *class* here to subclass, so the override split
+naturally became one function's own conditional rather than a second file.
+That branch stays there (moving it here would duplicate the private
+`readPorts`/port-direction table the central-value rule forbids two copies
+of). What `netlist_exporter_spice_model.ts` *does* hold is what upstream's
+constructor and `InstallPageSpiceModel` give the page as its own identity: a
+named entry point, `generateSpiceModelNetlist(sch, libById, aProjectName,
+netlist?, opts?)`, taking the project name rather than a raw options bag,
+and refusing the plain-SPICE `.save`/`.probe` checkboxes that
+`NET_TYPE_SPICE_MODEL` has no case for in `createNetlist`
+(dialog_export_netlist.cpp:523-526) — `dialog_export_netlist.tsx`'s
+"SPICE Model" tab now calls it instead of `generateSpiceNetlist` with a raw
+`subcktName`. Byte-exact against `kicad-cli sch export netlist --format
+spicemodel`: `qa/unittests/eeschema/netlist_exporter_spice_model.test.ts`,
+three single-Device:R single-sheet designs
+(`netlist_oracle/issue16003/untitled{,2}.kicad_sch`,
+`netlist_oracle/issue14657/issue14657_2.kicad_sch`). Multi-item designs and
+bus-vector hierarchical-label ports are deliberately not in that fixture
+set: `NETLIST_EXPORTER_SPICE::writeItems`'s item order for 2+ symbols (not
+declaration order) and vector-label expansion before `readPorts` sees them
+are both `netlist_exporter_spice.ts`'s territory — confirmed by running
+`kicad-cli --format spice` on the same design and seeing the same order,
+i.e. a base-class quirk this file's four overrides do not touch — not
+something to fix from this file, which owns only the `.subckt` head/tail and
+the port-name substitution.
+
 **`erc/erc_report.cpp` (`ERC_REPORT`): investigated, not written.** The
 pieces it needs are already ported and ready: `RC_ITEM::ShowReport` /
 `GetJsonViolation` (`common/rc_item.ts`), `ERC_ITEM` as a full `RC_ITEM`
