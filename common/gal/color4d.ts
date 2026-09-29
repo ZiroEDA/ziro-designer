@@ -756,3 +756,15 @@ export function color4dLess(lhs: Color4d, rhs: Color4d): boolean {
 
   return lhs.a < rhs.a;
 }
+
+/**
+ * `COLOR4D::Saturate` (`common/gal/color4d.cpp:517-528`): saturation forced to
+ * `aFactor` at full value, hue and alpha kept. A grey (r == g == b) has no hue
+ * to saturate and comes back untouched.
+ */
+export const saturate = (c: Color4d, aFactor: number): Color4d => {
+  if (c.r === c.g && c.r === c.b) return c;
+
+  const { hue } = toHSV(c, true);
+  return fromHSV(hue, aFactor, 1.0, c.a);
+};
