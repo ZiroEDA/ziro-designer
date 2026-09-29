@@ -36,7 +36,7 @@ import {
   writeRoutingSettings,
   type RoutingSettings,
 } from '../router/pns_routing_settings.js';
-import { pcbnewLiveSettings, updatePcbnewLiveSettings } from '../pcbnew_live_settings.js';
+import { pcbnewLiveSettings, updatePcbnewLiveSettings } from '../browser/pcbnew_live_settings.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 interface Props {

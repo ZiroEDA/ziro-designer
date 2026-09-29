@@ -14,14 +14,14 @@
  * the same way `cvpcb_app.tsx` does for `CVPCB_APP`.
  */
 import type { ReactNode } from 'react';
-import type { PCBNEW_JSON_SETTINGS_LIKE } from './pcb_edit_frame.js';
+import type { PCBNEW_JSON_SETTINGS_LIKE } from '../pcb_edit_frame.js';
 import type { COMMON_SETTINGS_LIKE } from '@ziroeda/common/pgm_base.js';
 import type { WINDOW_SETTINGS } from '@ziroeda/common/settings/app_settings.js';
 import type { ChooserFilter } from '@ziroeda/common/wx/filedlg.js';
 import type { ToolbarDefaults, ToolbarLoc } from '@ziroeda/common/tool/ui/toolbar_configuration.js';
 import type { ToolEntry } from '@ziroeda/common/tool/action_toolbar_types.js';
-import type { FootprintIndexLibrary } from './footprint_info_impl.js';
-import type { PcbFootprint, Board } from './types.js';
+import type { FootprintIndexLibrary } from '../footprint_info_impl.js';
+import type { PcbFootprint, Board } from '../types.js';
 import type { NetClassAssignmentLike } from '@ziroeda/common/netclass_resolve.js';
 
 /** `SaveAsDialog`'s props, the slice `PcbEditor` actually passes. */

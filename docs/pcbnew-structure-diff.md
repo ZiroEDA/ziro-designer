@@ -4,7 +4,7 @@ Generated 2026-09-29 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 
 | status | count | meaning |
 |---|---:|---|
-| SAME | 241 | same relative path and name as KiCad's `.cpp` |
+| SAME | 243 | same relative path and name as KiCad's `.cpp` |
 | MOVED | 0 | KiCad has this name, in a different directory |
 | DIALOG | 1 | KiCad has it as `dialogs/dialog_<name>.cpp` |
 | HEADER | 16 | KiCad declares it in a `.h` with no matching `.cpp` |
@@ -58,6 +58,8 @@ Generated 2026-09-29 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 | `board_design_settings_defaults.ts` | `-` |
 | `board_settings.ts` | `-` |
 | `board_types.ts` | `-` |
+| `browser/pcbnew_app.ts` | `-` |
+| `browser/pcbnew_live_settings.ts` | `-` |
 | `cleanup_connectivity.ts` | `-` |
 | `connectivity.ts` | `-` |
 | `convert_lines.ts` | `-` |
@@ -110,8 +112,6 @@ Generated 2026-09-29 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 | `pcb_io/kicad_sexpr/board_view_commit.ts` | `-` |
 | `pcb_io/kicad_sexpr/board_view.ts` | `-` |
 | `pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_items.ts` | `-` |
-| `pcbnew_app.ts` | `-` |
-| `pcbnew_live_settings.ts` | `-` |
 | `pcb_text_help.ts` | `-` |
 | `pcbTheme.ts` | `-` |
 | `pcb_unit_binder.ts` | `-` |
@@ -148,7 +148,7 @@ Generated 2026-09-29 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 
 ## SAME
 
-<details><summary>241 files already at KiCad's own path</summary>
+<details><summary>243 files already at KiCad's own path</summary>
 
 - `array_pad_number_provider.ts`
 - `autorouter/ar_autoplacer.ts`
@@ -260,6 +260,7 @@ Generated 2026-09-29 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 - `footprint_libraries_utils.ts`
 - `footprint_library_adapter.ts`
 - `footprint.ts`
+- `footprint_viewer_frame.ts`
 - `fp_tree_model_adapter.ts`
 - `fp_tree_synchronizing_adapter.ts`
 - `generate_footprint_info.ts`
@@ -363,6 +364,7 @@ Generated 2026-09-29 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 - `teardrop/teardrop_parameters.ts`
 - `teardrop/teardrop.ts`
 - `toolbars_footprint_editor.ts`
+- `toolbars_footprint_viewer.ts`
 - `toolbars_pcb_editor.ts`
 - `tools/align_distribute_tool.ts`
 - `tools/array_tool.ts`

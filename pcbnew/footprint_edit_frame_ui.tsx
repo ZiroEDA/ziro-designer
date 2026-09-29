@@ -137,7 +137,7 @@ import { kicadFootprintLibWildcard } from '@ziroeda/common/wildcards_and_files_e
 import { CONFIRM_REVERT_EXTENDED, confirmRevertMessage } from '@ziroeda/common/confirm.js';
 import type { ChooserFilter, OpenedFile } from '@ziroeda/common/wx/filedlg.js';
 import type { ToolEntry } from '@ziroeda/common/tool/action_toolbar_types.js';
-import type { PCBNEW_APP } from './pcbnew_app.js';
+import type { PCBNEW_APP } from './browser/pcbnew_app.js';
 import type { ToolbarDefaults, ToolbarLoc } from '@ziroeda/common/tool/ui/toolbar_configuration.js';
 import type { CrosshairMode, GridStyle } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
 
@@ -199,7 +199,7 @@ export interface FOOTPRINT_EDIT_FRAME_COMMON_SETTINGS {
  * dialog, the account's Open dialog, the library-loading panel and the home
  * link. One object per mount; everything on it is stable across renders.
  *
- * `PCBNEW_APP` (`pcbnew_app.ts`) landed after this was written and is shaped
+ * `PCBNEW_APP` (`browser/pcbnew_app.ts`) landed after this was written and is shaped
  * per render rather than per mount; where a member means the same thing in
  * both (`HomeLink`) this one takes that type rather than restating it.
  */

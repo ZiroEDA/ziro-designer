@@ -13,7 +13,7 @@
 import type { OutStr } from '@ziroeda/common/eda_item.js';
 import { type ARC_EDIT_MODE, FRAME_T } from '@ziroeda/common/frame_type.js';
 import type { KIWAY } from '@ziroeda/common/kiway.js';
-import type { PCBNEW_APP } from './pcbnew_app.js';
+import type { PCBNEW_APP } from './browser/pcbnew_app.js';
 import { jsonFileWildcard, reportFileWildcard } from '@ziroeda/common/wildcards_and_files_ext.js';
 import { DialogAssignNetclass } from '@ziroeda/common/dialogs/dialog_assign_netclass.js';
 import { connectedItemIdsOnNets } from './edit-board.js';
@@ -1100,7 +1100,7 @@ export function PcbEditor({
   /** What the program gives this window — PreferencesDialog, HomeLink,
    *  SaveAsDialog, the 3D viewer, the footprint chooser, the settings
    *  triad — the same seam `cvpcb`'s `CVPCB_APP` and `pagelayout_editor`'s
-   *  `PL_EDITOR_APP` already give theirs. See `pcbnew/pcbnew_app.ts`. */
+   *  `PL_EDITOR_APP` already give theirs. See `pcbnew/browser/pcbnew_app.ts`. */
   app: PCBNEW_APP;
   fileName: string;
   text: string;
@@ -1187,7 +1187,7 @@ export function PcbEditor({
    */
   readOnly?: boolean;
 }): JSX.Element {
-  // What the program gives this window (pcbnew/pcbnew_app.ts's PCBNEW_APP);
+  // What the program gives this window (pcbnew/browser/pcbnew_app.ts's PCBNEW_APP);
   // destructured once so the rest of this file's calls and JSX are
   // unchanged from when each of these was its own designer/ import.
   const {
