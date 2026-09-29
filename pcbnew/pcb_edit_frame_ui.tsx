@@ -255,6 +255,7 @@ import {
   DIALOG_BARCODE_PROPERTIES,
 } from './dialogs/dialog_barcode_properties.js';
 import { DialogBarcodeProperties } from './dialogs/dialog_barcode_properties_ui.js';
+import { AUTOPLACE_TOOL } from './autorouter/autoplace_tool.js';
 import { DialogImportGraphics } from './import_gfx/dialog_import_graphics.js';
 import { GetLayerName, IsCopperLayer } from '@ziroeda/common/layer_ids.js';
 import {
@@ -10913,6 +10914,26 @@ export function PcbEditor({
       case 'importGraphics':
         setImportGraphicsOpen(true);
         break;
+      // `AUTOPLACE_TOOL::autoplaceSelected` / `autoplaceOffboard`: Place > Auto-Place Footprints.
+      case 'autoplaceSelected':
+      case 'autoplaceOffboard': {
+        const brd = boardRef.current;
+        if (!brd) break;
+        const tool = new AUTOPLACE_TOOL(false, {
+          // `PAD::GetOwnClearance( pad->GetLayer() )`
+          padClearance: (pad) =>
+            pad.k
+              ? pad.k.GetOwnClearance(pad.k.GetLayer())
+              : (brd.k?.GetDesignSettings().m_MinClearance ?? 0),
+        });
+        const r =
+          id === 'autoplaceSelected'
+            ? tool.autoplaceSelected(brd, selection)
+            : tool.autoplaceOffboard(brd);
+        if (r.error) setInfoBarError(r.error);
+        else if (r.pushed) commitBoard(r.board, { message: 'Autoplace Footprints' });
+        break;
+      }
       case 'zoneFillAll':
         fillAllZones();
         break;

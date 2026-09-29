@@ -103,7 +103,6 @@ one that wires the rest up. Check who calls a file before calling it covered.
 
 | missing | consequence |
 |---|---|
-| `autorouter/autoplace_tool.cpp` | `AUTOPLACE_TOOL::setTransitions()` is what binds `autoplaceSelectedComponents` / `autoplaceOffboardComponents` to handlers. Without it `autoplaceFootprints()` is called by nothing but its own test, both `TOOL_ACTION`s are bound to nothing, and the whole autoplacer — `ar_matrix` + `ar_autoplacer`, 1 885 lines — is unreachable. Lands with stage 3 of #636 (`PCB_TOOL_BASE` already exists). |
 
 ## Root files, alphabetically
 
@@ -557,9 +556,10 @@ file this pass does not own, or genuinely browser-only (no KiCad file at
 all).
 
 - `connectivity/`: `connectivity_algo/data/items`, `from_to_cache` match by
-  name; `connectivity_rtree.ts` matches `connectivity_rtree.h` (header-only,
-  no `.cpp`). **`topo_match.cpp` (1303 lines) is not ported** — no
-  `TOPO_MATCH`/`TopoMatch` anywhere in the tree.
+  name (5 KiCad, 5 ours, 0 extra). The header-only `connectivity_rtree.h`
+  (`CN_RTREE`) is folded into `connectivity_items.ts`. `topo_match.ts` ports
+  `topo_match.cpp` (`TMATCH`, the thread pool is a plain loop); nothing calls
+  it yet — multichannel / repeat-layout does not exist here.
 - `netlist_reader/` (7 KiCad, 7 ours, 0 extra, 09-29): all seven files exist by name.
   `kicad_netlist_reader` and `netlist_reader` re-export the shared
   `common/netlist_reader/*` ports (KiCad keeps its own duplicate tree there).
@@ -574,17 +574,16 @@ all).
   folded into `board_netlist_updater.ts`: `placeFootprint` /
   `exchangeFootprint` are `LoadFootprintFromProject` +
   `PCB_EDIT_FRAME::ExchangeFootprint`, whose only upstream caller is the updater.
-- `teardrop/`: **complete, no extras.** `teardrop.ts` (2088 lines) already
-  merges `teardrop.cpp` + `teardrop_utils.cpp` (`TEARDROP_MANAGER` is one
-  class split across both upstream); `teardrop_parameters.ts` matches;
-  `teardrop_types.ts` matches `teardrop_types.h` (header-only).
-- `length_delay_calculation/`: `length_delay_calculation(_item)`,
-  `tuning_profile_parameters_user_defined` match by name;
-  `tuning_profile_parameters_iface.ts` matches the header-only
-  `tuning_profile_parameters_iface.h`. `tuning_profile_calc.ts` is extra: its
-  real counterpart is `pcbnew/dialogs/panel_setup_tuning_profile_info.cpp`,
-  deliberately placed here in Stage A (dialogs/ off-limits this pass; already
-  recorded above).
+- `teardrop/`: **complete, no extras.** `teardrop_utils.ts` holds
+  `teardrop_utils.cpp` (`TRACK_BUFFER`, the helpers and the geometry methods)
+  as `TEARDROP_UTILS`, the base class `TEARDROP_MANAGER` (`teardrop.ts`)
+  extends — a TS class cannot span two files. The header-only
+  `teardrop_types.h` (`TEARDROP_TYPE`) is folded into `teardrop_parameters.ts`.
+- `length_delay_calculation/` (3 KiCad, 3 ours, 0 extra): the header-only
+  `tuning_profile_parameters_iface.h` is folded into
+  `tuning_profile_parameters_user_defined.ts`. The Tuning Profiles calculator
+  (`tuning_profile_calc.ts`) moved to `dialogs/panel_setup_tuning_profile_info.ts`,
+  its real counterpart.
 - `board_stackup_manager/`: **complete.** `board_stackup`,
   `board_stackup_reporter`, `dielectric_material`, `stackup_predefined_prms`,
   `panel_board_finish.tsx` all match. `dialog_dielectric_list_manager(_base)`
@@ -599,12 +598,16 @@ all).
   panel itself moved in (09-29) from `dialogs/panels/panel_pcb_stackup.tsx` to
   `panel_board_stackup.tsx` (`PanelPcbStackup` keeps its name); it had no
   designer/ imports, so no seam was needed. 7 KiCad, 7 ours, 0 extra.
-- `import_gfx/`: `graphics_importer_pcbnew.ts` matches. **Not ported:**
-  `dialog_import_graphics(_base).cpp` — no Import Graphics dialog exists
-  anywhere in the tree.
-- `autorouter/`: `ar_autoplacer`, `ar_matrix`, `spread_footprints` match (see
-  Content divergences above). **Not wired:** `autoplace_tool.cpp` — already
-  recorded above, lands with #636 stage 3.
+- `import_gfx/` (3 KiCad, 3 ours, 0 extra): `dialog_import_graphics.tsx` (state)
+  and `dialog_import_graphics_ui.tsx` (`_base`, the widget tree), wired to
+  File > Import > Graphics. The model half of `DRAWING_TOOL::PlaceImportedGraphics`
+  (`placeImportedItems`) lives in `tools/drawing_tool.ts`.
+- `autorouter/` (4 KiCad, 4 ours, 0 extra): `autoplace_tool.ts` is
+  `AUTOPLACE_TOOL` over the value-typed board (returns the board the commit
+  would push, or the input where KiCad reverts). Wired to Place > Auto-Place
+  Footprints (Off-Board, Selected). Not ported: the view-refresh callback,
+  overlay and progress reporter (the call is synchronous); "Override locks"
+  is still a disabled stub, so locked footprints are always skipped.
 - `drc/`: **complete, no extras despite 51 files against KiCad's 37.** Every
   one of the 14 apparently-extra files already names its real counterpart in
   its own header, and none of them is a drc/-local split of a drc/ file:

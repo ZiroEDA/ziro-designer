@@ -690,8 +690,8 @@ export function buildPcbMenus(
         {
           label: 'Auto-Place Footprints',
           submenu: [
-            { label: 'Place Off-Board Footprints', disabled: dis },
-            { label: 'Place Selected Footprints', disabled: dis },
+            { label: 'Place Off-Board Footprints', action: () => h.action('autoplaceOffboard') },
+            { label: 'Place Selected Footprints', action: () => h.action('autoplaceSelected') },
           ],
         },
       ],
