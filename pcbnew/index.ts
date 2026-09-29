@@ -1311,6 +1311,7 @@ export {
   type PnsShoveSettings,
 } from './router/pns_shove.js';
 export { RangedNum } from './router/ranged_num.js';
+export { TimeLimit } from './router/time_limit.js';
 
 // `segLength`, `segLineProject`, `segContains`, `segApproxParallel` and
 // `rescale64` are NOT re-exported here: `pns_seg_ops.js` already exports those
