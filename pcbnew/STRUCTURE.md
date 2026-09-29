@@ -17,9 +17,9 @@ you find one; keep the reason to a line.
 
 KiCad 10.0.6's pcbnew/ has 25 subdirectories; ours has 22 (21 of theirs plus
 `browser/`). The 4 below are **not applicable** in a browser and will not be
-created. Every other KiCad directory exists here by name. `zone_manager/`,
-`microwave/` (ported 09-29) and `specctra_import_export/` were created empty (a `.gitkeep`)
-on 09-29 and are **to port**: 1 595, 1 341 and 6 532 lines upstream.
+created. Every other KiCad directory exists here by name. `zone_manager/` and `microwave/` (both ported 09-29, see below) and
+`specctra_import_export/` were created empty (a `.gitkeep`) on 09-29;
+`specctra_import_export/` is **to port**: 6 532 lines upstream.
 
 | not applicable | why |
 |---|---|
@@ -30,7 +30,6 @@ on 09-29 and are **to port**: 1 595, 1 341 and 6 532 lines upstream.
 
 | to port (empty) | upstream |
 |---|---|
-| `zone_manager/` | 6 .cpp: the Zone Manager dialog, its grid model and preview. |
 | `specctra_import_export/` | 4 .cpp: DSN export and SES import for external autorouters. |
 
 Notes that used to sit in this table, kept because they still apply:
@@ -577,6 +576,18 @@ all).
   (`CN_RTREE`) is folded into `connectivity_items.ts`. `topo_match.ts` ports
   `topo_match.cpp` (`TMATCH`, the thread pool is a plain loop); nothing calls
   it yet — multichannel / repeat-layout does not exist here.
+- `zone_manager/` (5 KiCad, 5 ours, 0 extra, 09-29): `board_edges_bounding_item`,
+  `model_zones_overview` (headless over a view interface; a `wxDataViewItem` is a
+  row index, `null` invalid), `zone_preview_canvas` (`ZONE_PREVIEW_CANVAS extends
+  PCB_DRAW_PANEL_GAL`, `ZONE_PAINTER`), `zone_preview_notebook` (the page/zoom
+  logic; the tab strip is the dialog's) and `dialog_zone_manager.ts` (the
+  dialog's logic, over `DIALOG_ZONE_MANAGER_UI`). **Not wired**: the Place >
+  Zone Manager... row stays greyed. Missing: `dialog_zone_manager_ui.tsx` (the
+  `_base` layout, the data view and drag and drop) and `PANEL_ZONE_PROPERTIES`
+  as a component of its own (its fields are inside `dialogs/dialog_copper_zones.tsx`,
+  over `ZoneValues`; the manager needs them over `ZONE_SETTINGS`). `ZONE_PREVIEW_CANVAS`'s
+  constructor is not exercised by a test (needs a WebGL/2D window); its zoom and
+  painter are, through a bare instance.
 - `microwave/` (4 KiCad, 4 ours, 0 extra, 09-29): `microwave_footprint`
   (Gap / Stub / Arc Stub), `microwave_inductor` (`BuildCornersList_S_Shape`,
   checked point for point against an independent Python transcription,
