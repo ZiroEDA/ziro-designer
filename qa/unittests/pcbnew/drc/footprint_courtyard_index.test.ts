@@ -242,4 +242,31 @@ describe('intersectsCourtyard() and its side variants use the index', () => {
     b.IncrementTimeStamp();
     expect(holds(b, 1, "A.intersectsCourtyard('U2')")).toBe(true);
   });
+
+  it('"A" and "B" name the items of the pair, not a board-wide search', () => {
+    const b = board();
+    const u1 = b.Footprints().find((f) => f.GetReference() === 'U1')!;
+    const u2 = b.Footprints().find((f) => f.GetReference() === 'U2')!;
+    const onU1 = b.Tracks()[0]!;
+    const evalPair = (
+      aExpr: string,
+      aA: typeof onU1 | typeof u1,
+      aB: typeof u1 | null,
+    ): boolean => {
+      const cond = new DRC_RULE_CONDITION(aExpr);
+      expect(cond.Compile(null)).toBe(true);
+      // one order only: DRC_RULE_CONDITION also tries (B, A), so ask with a null B to pin A
+      return cond.EvaluateFor(aA, aB, DRC_CONSTRAINT_T.CLEARANCE_CONSTRAINT, PCB_LAYER_ID.F_Cu);
+    };
+
+    // B = U1: the track collides with it
+    expect(evalPair("A.intersectsCourtyard('B')", onU1, u1)).toBe(true);
+    // B = U2: it does not
+    expect(evalPair("A.intersectsCourtyard('B')", onU1, u2)).toBe(false);
+    // 'A' is the first item of the pair: a track is no footprint, a footprint is its own
+    expect(evalPair("A.intersectsCourtyard('A')", onU1, null)).toBe(false);
+    expect(evalPair("A.intersectsCourtyard('A')", u1, null)).toBe(true);
+    // A missing B is no footprint at all
+    expect(evalPair("A.intersectsCourtyard('B')", onU1, null)).toBe(false);
+  });
 });
