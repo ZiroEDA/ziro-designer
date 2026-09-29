@@ -18,10 +18,7 @@ const BOARDS = new URL('../../data/pcbnew/resave/', import.meta.url).pathname;
 describe('the IPC-D-356 netlist, against kicad-cli', () => {
   for (const name of ['ecc83-pp', 'interf_u']) {
     it(`${name}.d356 matches byte for byte`, () => {
-      const board = readBoard(
-        readFileSync(`${BOARDS}${name}.kicad_pcb`, 'utf8'),
-        `${name}.kicad_pcb`,
-      );
+      const board = readBoard(readFileSync(`${BOARDS}${name}.kicad_pcb`, 'utf8'));
       const got = exportD356(board);
 
       const want = readFileSync(`${DIR}${name}.d356`, 'utf8');

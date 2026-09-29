@@ -27,10 +27,7 @@ const normaliseAscii = (text: string): string =>
 describe('the footprint position file, against kicad-cli', () => {
   for (const name of ['ecc83-pp', 'interf_u']) {
     it(`${name}.pos (ASCII) matches line for line`, () => {
-      const board = readBoard(
-        readFileSync(`${BOARDS}${name}.kicad_pcb`, 'utf8'),
-        `${name}.kicad_pcb`,
-      );
+      const board = readBoard(readFileSync(`${BOARDS}${name}.kicad_pcb`, 'utf8'));
       const { data } = genPositionData(board, {
         unitsMM: false,
         frontSide: true,
@@ -44,10 +41,7 @@ describe('the footprint position file, against kicad-cli', () => {
     });
 
     it(`${name}-pos.csv matches byte for byte`, () => {
-      const board = readBoard(
-        readFileSync(`${BOARDS}${name}.kicad_pcb`, 'utf8'),
-        `${name}.kicad_pcb`,
-      );
+      const board = readBoard(readFileSync(`${BOARDS}${name}.kicad_pcb`, 'utf8'));
       const { data } = genPositionData(board, {
         unitsMM: false,
         frontSide: true,
