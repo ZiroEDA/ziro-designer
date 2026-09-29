@@ -51,7 +51,7 @@ function AssignFootprintsWithApp(
   const cvpcbApp = useCvpcbApp();
   return <DialogAssignFootprints app={cvpcbApp} {...props} />;
 }
-import { gridSizeToIU, settings } from '../../prefs/settings.js';
+import { settings } from '../../prefs/settings.js';
 import {
   overrideItemColorsFor,
   useCommonSettings,
@@ -70,7 +70,6 @@ export function useEeschemaApp(): EESCHEMA_APP {
       useHotkeyOverrides,
       useSchematicTheme,
       overrideItemColorsFor,
-      gridSizeToIU,
 
       SchematicCanvas,
       DialogSymbolChooser: (props) => <DialogSymbolChooser {...props} />,

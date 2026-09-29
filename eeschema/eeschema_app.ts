@@ -150,8 +150,6 @@ export interface EESCHEMA_APP {
   useSchematicTheme(): Theme;
   /** Whether a colour theme overrides item colours (a user theme's own flag). */
   overrideItemColorsFor(themeId: string): boolean;
-  /** A grid size as the preferences store it ("50 mil", "1.27 mm") in schematic IU. */
-  gridSizeToIU(size: string): number;
 
   // ----- symbol libraries -------------------------------------------------
   /** The hosted symbol library index (names and their symbols). */

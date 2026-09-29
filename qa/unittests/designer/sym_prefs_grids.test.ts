@@ -28,7 +28,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
-import { gridSizeToIU } from '@ziroeda/designer/src/prefs/settings.js';
+import { gridSizeToIU } from '@ziroeda/eeschema/eeschema_settings.js';
 import {
   SYMBOL_EDITOR_DEFAULTS,
   type SymbolEditorSettings,

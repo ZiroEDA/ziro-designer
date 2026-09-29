@@ -428,6 +428,7 @@ import {
   type SchematicSetup,
 } from './dialogs/dialog_schematic_setup.js';
 import { LoadProjectSettings } from './eeschema_config.js';
+import { gridSizeToIU } from './eeschema_settings.js';
 import { InitSheet } from './sheet.js';
 import {
   findProjectPro,
@@ -6377,7 +6378,7 @@ export function SchematicEditor({
       highlightThicknessMils: es.selection.highlight_thickness,
       grid: {
         show: es.window.grid.show,
-        sizeIU: app.gridSizeToIU(es.window.grid.sizes[es.window.grid.last_size_idx]?.x ?? '50 mil'),
+        sizeIU: gridSizeToIU(es.window.grid.sizes[es.window.grid.last_size_idx]?.x ?? '50 mil'),
         style: es.window.grid.style,
         lineWidthPx: es.window.grid.line_width,
         minSpacingPx: es.window.grid.min_spacing,
@@ -6385,16 +6386,16 @@ export function SchematicEditor({
         overrides: {
           enabled: es.window.grid.overrides_enabled,
           ...(es.window.grid.overrides.connected.enabled
-            ? { connected: app.gridSizeToIU(es.window.grid.overrides.connected.size) }
+            ? { connected: gridSizeToIU(es.window.grid.overrides.connected.size) }
             : {}),
           ...(es.window.grid.overrides.wires.enabled
-            ? { wires: app.gridSizeToIU(es.window.grid.overrides.wires.size) }
+            ? { wires: gridSizeToIU(es.window.grid.overrides.wires.size) }
             : {}),
           ...(es.window.grid.overrides.text.enabled
-            ? { text: app.gridSizeToIU(es.window.grid.overrides.text.size) }
+            ? { text: gridSizeToIU(es.window.grid.overrides.text.size) }
             : {}),
           ...(es.window.grid.overrides.graphics.enabled
-            ? { graphics: app.gridSizeToIU(es.window.grid.overrides.graphics.size) }
+            ? { graphics: gridSizeToIU(es.window.grid.overrides.graphics.size) }
             : {}),
         },
       },
@@ -6582,8 +6583,8 @@ export function SchematicEditor({
 
   /** The active grid step, which the table's cell size is snapped to. */
   const gridSizeIU = useMemo(
-    () => app.gridSizeToIU(es.window.grid.sizes[es.window.grid.last_size_idx]?.x ?? '50 mil'),
-    [es.window.grid.sizes, es.window.grid.last_size_idx, app],
+    () => gridSizeToIU(es.window.grid.sizes[es.window.grid.last_size_idx]?.x ?? '50 mil'),
+    [es.window.grid.sizes, es.window.grid.last_size_idx],
   );
   gridSizeIURef.current = gridSizeIU;
 
@@ -8278,7 +8279,7 @@ export function SchematicEditor({
         add(150.6, {
           label: 'Align Items to Grid',
           action: () => {
-            const grid = app.gridSizeToIU(
+            const grid = gridSizeToIU(
               es.window.grid.sizes[es.window.grid.last_size_idx]?.x ?? '50 mil',
             );
             const cmd = alignToGridCommand(doc, selection, libById, grid);
@@ -8296,7 +8297,7 @@ export function SchematicEditor({
               label: ALIGN_LABELS[mode],
               action: () => {
                 if (!doc) return;
-                const grid = app.gridSizeToIU(
+                const grid = gridSizeToIU(
                   es.window.grid.sizes[es.window.grid.last_size_idx]?.x ?? '50 mil',
                 );
                 const cmd = alignItems(
@@ -8890,7 +8891,7 @@ export function SchematicEditor({
         if (doc && cursorRef.current) {
           // GetNode's widest threshold is max(HITTEST_THRESHOLD, grid size);
           // with no pointer scale to hand here the grid is the threshold.
-          const grid = app.gridSizeToIU(
+          const grid = gridSizeToIU(
             app.settings.eeschema.window.grid.sizes[app.settings.eeschema.window.grid.last_size_idx]
               ?.x ?? '50 mil',
           );

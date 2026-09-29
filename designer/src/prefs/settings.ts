@@ -1292,18 +1292,6 @@ export function normalizeFpTextItems(parsed: unknown): FpTextItem[] {
     : structuredClone(FPEDIT_DEFAULTS.design_settings.default_footprint_text_items);
 }
 
-/** Parse a grid size string ("50 mil", "1.27 mm") into IU (100 nm). */
-export function gridSizeToIU(size: string): number {
-  const m = /^\s*([\d.]+)\s*(mil|mils|mm|in|inch)?\s*$/i.exec(size);
-  if (!m) return 12700; // 50 mil fallback
-  const v = Number(m[1]);
-  const unit = (m[2] ?? 'mil').toLowerCase();
-  if (!Number.isFinite(v) || v <= 0) return 12700;
-  if (unit.startsWith('mm')) return Math.round(v * 10000);
-  if (unit.startsWith('in')) return Math.round(v * 254000);
-  return Math.round(v * 254); // mils
-}
-
 // ----- PCB_CALCULATOR_SETTINGS ----------------------------------------------------
 
 /**

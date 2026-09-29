@@ -493,3 +493,18 @@ export const EESCHEMA_DEFAULTS: EeschemaSettings = {
     export_comments: [false, false, false, false, false, false, false, false, false],
   },
 };
+
+/** Parse a grid size string ("50 mil", "1.27 mm") into schematic IU (100 nm) —
+ *  the text `GRID_SETTINGS` stores its sizes as. Both eeschema frames use it.
+ *  (Moved from designer's prefs/settings.ts; common/settings/grid_settings_ui.ts
+ *  has the scale-taking, null-on-failure variant the board editors use.) */
+export function gridSizeToIU(size: string): number {
+  const m = /^\s*([\d.]+)\s*(mil|mils|mm|in|inch)?\s*$/i.exec(size);
+  if (!m) return 12700; // 50 mil fallback
+  const v = Number(m[1]);
+  const unit = (m[2] ?? 'mil').toLowerCase();
+  if (!Number.isFinite(v) || v <= 0) return 12700;
+  if (unit.startsWith('mm')) return Math.round(v * 10000);
+  if (unit.startsWith('in')) return Math.round(v * 254000);
+  return Math.round(v * 254); // mils
+}
