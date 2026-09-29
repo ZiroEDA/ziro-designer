@@ -49,6 +49,7 @@ import {
   type PnsRouterSizes,
 } from '@ziroeda/pcbnew/router/pns_router.js';
 import { DEFAULT_ROUTING_SETTINGS } from '@ziroeda/pcbnew/router/pns_routing_settings.js';
+import { PnsLoggerEventType } from '@ziroeda/pcbnew/router/pns_logger.js';
 import {
   PnsDragAlgo,
   PnsDragMode,
@@ -1233,6 +1234,147 @@ describe('PnsRouter — getNearestRatnestAnchor', () => {
     expect(h.router.continueFromEnd()).toBeNull();
     expect(h.placer.log).not.toContain('commitPlacement');
     expect(h.router.getState()).toBe(PnsRouterState.ROUTE_TRACK);
+  });
+});
+
+describe('PnsRouter — PNS::LOGGER wiring', () => {
+  /** A harness whose router opts into `m_logger`, unlike `makeHarness()`'s. */
+  function makeLoggedHarness(): Harness & { router: PnsRouter } {
+    const log: IfaceLog = [];
+    const placer = makePlacer();
+    const dragger = makeDragger();
+    const factory: PnsRouterAlgoFactory = {
+      linePlacer: () => placer,
+      componentDragger: () => dragger,
+      multiDragger: () => dragger,
+      dragger: () => dragger,
+    };
+    const router = new PnsRouter({ factory, enableRouterDump: true });
+    const iface = makeIface(log);
+    const settings: RoutingSettings = { ...DEFAULT_ROUTING_SETTINGS, allowDrcViolations: true };
+
+    router.setInterface(iface);
+    router.loadSettings(settings);
+    router.updateSizes({ ...DEFAULT_ROUTER_SIZES });
+    router.syncWorld();
+
+    return { router, iface, log, settings, placer, dragger, factory, built: [] };
+  }
+
+  it('constructs no logger by default — every wired call site is then a no-op', () => {
+    const h = makeHarness();
+
+    expect(h.router.logger()).toBeNull();
+
+    h.settings.allowDrcViolations = true;
+    h.router.startRouting({ x: 0, y: 0 }, null, 0);
+    h.router.move({ x: 1, y: 1 }, null);
+    h.router.fixRoute({ x: 1, y: 1 }, null, false, false);
+    h.router.toggleViaPlacement();
+
+    expect(h.router.logger()).toBeNull();
+  });
+
+  it("startRouting: a successful Start clears the log and logs EVT_START_ROUTE at the PLACER's CurrentLayer, read AFTER Start() (not the aLayer argument)", () => {
+    const h = makeLoggedHarness();
+    // Start() itself moves the placer to layer 9 — CurrentLayer() must be
+    // read after that, not echo the `aLayer` startRouting was called with.
+    h.placer.start = (aP) => {
+      h.placer.log.push(`start:${aP.x},${aP.y}`);
+      h.placer.layer = 9;
+
+      return true;
+    };
+
+    h.router.logger()!.log(PnsLoggerEventType.EVT_ABORT); // a stale event Clear() must drop
+    h.router.startRouting({ x: 5, y: 6 }, null, 2);
+
+    const events = h.router.logger()!.getEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0]!.type).toBe(PnsLoggerEventType.EVT_START_ROUTE);
+    expect(events[0]!.p).toEqual({ x: 5, y: 6 });
+    expect(events[0]!.layer).toBe(9);
+  });
+
+  it('startRouting: a failed Start logs nothing (the Clear/Log pair is inside the success branch)', () => {
+    const h = makeLoggedHarness();
+    h.placer.startResult = false;
+
+    h.router.startRouting({ x: 0, y: 0 }, null, 0);
+
+    expect(h.router.logger()!.getEvents()).toHaveLength(0);
+  });
+
+  it('move logs EVT_MOVE unconditionally, even when IDLE', () => {
+    const h = makeLoggedHarness();
+
+    h.router.move({ x: 3, y: 4 }, null);
+
+    const events = h.router.logger()!.getEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0]!.type).toBe(PnsLoggerEventType.EVT_MOVE);
+    expect(events[0]!.p).toEqual({ x: 3, y: 4 });
+  });
+
+  it('fixRoute logs EVT_FIX unconditionally, even when IDLE', () => {
+    const h = makeLoggedHarness();
+
+    h.router.fixRoute({ x: 7, y: 8 }, null, false, false);
+
+    const events = h.router.logger()!.getEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0]!.type).toBe(PnsLoggerEventType.EVT_FIX);
+  });
+
+  it('undoLastSegment logs EVT_UNFIX only when routing is in progress', () => {
+    const h = makeLoggedHarness();
+
+    h.router.undoLastSegment(); // IDLE: RoutingInProgress() is false
+    expect(h.router.logger()!.getEvents()).toHaveLength(0);
+
+    h.router.startRouting({ x: 0, y: 0 }, null, 0);
+    h.router.logger()!.clear();
+    h.router.undoLastSegment();
+
+    const events = h.router.logger()!.getEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0]!.type).toBe(PnsLoggerEventType.EVT_UNFIX);
+  });
+
+  it('toggleViaPlacement logs EVT_TOGGLE_VIA only in ROUTE_TRACK, carrying the sizes but no item', () => {
+    const h = makeLoggedHarness();
+
+    h.router.toggleViaPlacement(); // IDLE: the whole body is skipped
+    expect(h.router.logger()!.getEvents()).toHaveLength(0);
+
+    h.router.startRouting({ x: 0, y: 0 }, null, 0);
+    h.router.logger()!.clear();
+    h.router.updateSizes({ ...DEFAULT_ROUTER_SIZES, trackWidth: 12345 });
+    h.router.toggleViaPlacement();
+
+    const events = h.router.logger()!.getEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0]!.type).toBe(PnsLoggerEventType.EVT_TOGGLE_VIA);
+    expect(events[0]!.uuids).toEqual([]);
+  });
+
+  it('startDragging a single item logs EVT_START_DRAG; more than one logs EVT_START_MULTIDRAG', () => {
+    const h = makeLoggedHarness();
+    const one = makeSolid({ x: 0, y: 0 });
+    const two = makeSegment({ x: 0, y: 0 }, { x: 1, y: 1 });
+
+    h.router.startDragging({ x: 1, y: 2 }, new PnsItemSet(one));
+    let events = h.router.logger()!.getEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0]!.type).toBe(PnsLoggerEventType.EVT_START_DRAG);
+
+    h.router.logger()!.clear();
+    const twoItems = new PnsItemSet(one);
+    twoItems.add(two);
+    h.router.startDragging({ x: 3, y: 4 }, twoItems);
+    events = h.router.logger()!.getEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0]!.type).toBe(PnsLoggerEventType.EVT_START_MULTIDRAG);
   });
 });
 

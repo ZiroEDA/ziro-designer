@@ -1408,6 +1408,11 @@ export {
   type PnsRouterHost,
 } from './router/pns_drag_algo.js';
 export { PnsAlgoBase } from './router/pns_algo_base.js';
+export {
+  PnsLogger,
+  PnsLoggerEventType,
+  type PnsLoggerEventEntry,
+} from './router/pns_logger.js';
 export { PnsMouseTrailTracer } from './router/pns_mouse_trail_tracer.js';
 // `chainSplit`/`lineDragArc`/`lineDragCorner`/`lineDragSegment`/`LineDragArcFn`
 // are already exported above, from the `pns_line.js` block (that module now

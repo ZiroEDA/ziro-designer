@@ -666,9 +666,6 @@ all).
   a moves-only pass without a matching upstream restructure:
   `pns_kicad_iface.cpp` → `pns_board_iface.ts` is a **rename we cannot make**
   (no "kicad" in a filename, trademark — `designer-keeps-its-name`);
-  **`pns_logger.cpp` is not ported** (debug event sink, no browser use, and
-  now that `pns_algo_base.ts` exists, `logger()`/`setLogger()` carry it as an
-  opaque value the same way `dbg()`/`setDebugDecorator()` already did);
   `router_tool.cpp` is split between `pns_session.ts` (the `ROUTER_TOOL`
   equivalent, headless — see `pns-router-wiring.md`) and
   `router_size_menus.ts` (its two size menus), with the wx-level click
@@ -677,3 +674,24 @@ all).
   as classes** — the preview draws through a callback dep
   (`session.preview`/`onDisplayItem`) instead of a ported `VIEW_ITEM`
   hierarchy.
+
+  **`pns_logger.cpp` → `pns_logger.ts` (2026-09-29): ported, `PNS::LOGGER`
+  whole.** `PnsAlgoBase`'s `logger()`/`setLogger()` had carried it as an
+  opaque value since that file's own session; they now carry a real
+  `PnsLogger`. `pns_router.ts` wires the six call sites the C++ has
+  (`StartDragging`'s `ITEM_SET` overload, `StartRouting`, `Move`, `FixRoute`,
+  `UndoLastSegment`, `ToggleViaPlacement`), gated on a new
+  `PnsRouterDeps.enableRouterDump` flag that mirrors
+  `ADVANCED_CFG::GetCfg().m_EnableRouterDump` — off by default, so a caller
+  that does not ask for it sees no behaviour change, matching why the class
+  was skipped in the first place. Two adaptations, documented in the file's
+  own header: `LogM`'s per-item UUID read comes from a `uuid?: string` this
+  session added to `PnsBoardItem` (nothing yet writes it —
+  `pns_board_iface.ts` does not stamp a UUID onto the items it wraps), and
+  `FormatLogFileAsString` takes its added/head lines pre-formatted rather
+  than calling `ITEM::Format()` (not ported anywhere in this repo — the same
+  gap `router_preview_item.ts`'s doc comment notes for that method's only
+  other caller). `qa/unittests/pcbnew/pns_logger.test.ts` (the class, byte-
+  exact `FormatEvent`/`ParseEvent`) and a `PnsRouter — PNS::LOGGER wiring`
+  block in `pns_router.test.ts` (the six call sites, and that nothing logs
+  when `enableRouterDump` is unset).
