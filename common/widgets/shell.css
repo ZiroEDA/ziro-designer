@@ -7123,6 +7123,14 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   border: 1px solid var(--grid-line);
   padding: 0;
 }
+/* `wxGrid::EnableGridLines( false )` — the rules between cells, not the
+   dialog's own outer border. `sel_layer.cpp`'s `PCB_ONE_LAYER_SELECTOR` is
+   the first caller; any future grid that turns lines off gets this instead
+   of its own copy. */
+.ze-grid.ze-grid-no-lines td,
+.ze-grid.ze-grid-no-lines th {
+  border: none;
+}
 /* `WX_GRID::EnableAlternateRowColors`, which the constructor installs from
    `appearance.grid_striping` (`common/widgets/wx_grid.cpp:329`):
 
@@ -7388,6 +7396,21 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   border-radius: 3px;
   background: var(--chrome-bg2);
   overflow: auto;
+}
+/* `PCB_ONE_LAYER_SELECTOR` (`dialog_layer_selection_base.cpp:14-92`):
+   `bSizerMain`, `wxALL, 10` around one `bSizerUpper`, `wxHORIZONTAL`, each of
+   whose two grids is `Add( grid, 1, wxALL|wxEXPAND, 5 )` — proportion 1, so
+   both stretch and divide the width evenly, unlike Zone Hatch Offsets' single
+   content-sized pane above. The 5px item border sits on each pane rather than
+   as a row `gap`, so the two borders between the panes total 10px, matching
+   two adjacent `wxALL, 5` items. */
+.ze-one-layer-selector-body {
+  padding: 10px;
+}
+.ze-one-layer-selector-body .ze-grid-pane {
+  flex: 1;
+  margin: 5px;
+  contain: inline-size;
 }
 /* Text & Graphics > Defaults' grid pane: stretched to the page width, scrolls,
    and states its own column widths, so its contents must not reach the dialog.
