@@ -29,6 +29,10 @@ import { PresencePanel } from '../../ui/PresencePanel.js';
 import { DialogAssignFootprints } from '@ziroeda/cvpcb/cvpcb_mainframe_ui.js';
 import { useCvpcbApp } from './cvpcb_app.js';
 import { SchematicCanvas } from './components/SchematicCanvas.js';
+import { DialogSymbolChooser } from './dialogs/dialog_symbol_chooser.js';
+import { SymbolLibraryBrowser } from './components/SymbolLibraryBrowser.js';
+import { DialogRescueEach } from './dialogs/dialog_rescue_each.js';
+import { DialogChangeSymbols } from './dialogs/dialog_change_symbols.js';
 import { fetchNetlistFromSchematic } from '@ziroeda/pcbnew/netlist_from_schematic.js';
 import {
   CROSS_PROBE_FLASH_INTERVAL_MS,
@@ -68,6 +72,10 @@ export function useEeschemaApp(): EESCHEMA_APP {
       gridSizeToIU,
 
       SchematicCanvas,
+      DialogSymbolChooser: (props) => <DialogSymbolChooser {...props} />,
+      SymbolLibraryBrowser: (props) => <SymbolLibraryBrowser {...props} />,
+      DialogRescueEach: (props) => <DialogRescueEach {...props} />,
+      DialogChangeSymbols: (props) => <DialogChangeSymbols {...props} />,
       PreferencesDialog: (props) => <PreferencesDialog {...props} />,
       HomeLink: (props) => <HomeLink {...props} />,
       OpenFileDialog: (props) => <OpenFileDialog {...props} />,

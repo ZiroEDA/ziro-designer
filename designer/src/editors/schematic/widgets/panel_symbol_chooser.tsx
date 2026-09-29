@@ -49,13 +49,7 @@ import {
 import { libTreeItem, type LibTreeItem } from '@ziroeda/eeschema/lib_tree_item.js';
 import { settings } from '../../../prefs/settings.js';
 import { Sash } from '@ziroeda/common/widgets/wx_splitter_window.js';
-
-/** Upstream PICKED_SYMBOL (sch_screen.h): LIB_ID + unit + edited fields. */
-export interface PickedSymbol {
-  libId: string;
-  unit: number;
-  fields: [string, string][];
-}
+import type { PickedSymbol } from '@ziroeda/eeschema/picksymbol.js';
 
 export interface PanelSymbolChooserProps {
   /** SYMBOL_LIBRARY_FILTER::GetFilterPowerSymbols, power ports only. */

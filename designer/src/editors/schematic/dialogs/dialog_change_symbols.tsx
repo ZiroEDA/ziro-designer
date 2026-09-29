@@ -37,10 +37,7 @@
 import { Fragment, useState, type JSX } from 'react';
 import {
   defaultChangeSymbolsOptions,
-  type ChangeSymbolsMessage,
-  type ChangeSymbolsMode,
   type ChangeSymbolsOptions,
-  type SymbolMatch,
   type SymbolMatchMode,
 } from '@ziroeda/eeschema';
 import { RPT_SEVERITY_ACTION, RPT_SEVERITY_ERROR, type ReportLine } from '@ziroeda/common';
@@ -48,54 +45,7 @@ import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { HtmlReportPanel, RPT_SEVERITY_ALL } from '@ziroeda/common/widgets/wx_html_report_panel.js';
 import { Icon } from '@ziroeda/common/widgets/icons.js';
 import { SymbolChooserFrame } from './symbol_chooser_frame.js';
-import type { PickedSymbol } from '../widgets/panel_symbol_chooser.js';
-
-/**
- * The symbol the dialog was opened ON, when it was opened from one — Symbol
- * Properties' "Update Symbol from Library..." passes the symbol it is editing.
- * `DIALOG_CHANGE_SYMBOLS` takes it as its second constructor argument and seeds
- * all three entries from it (`TransferDataToWindow`, :146-152).
- */
-export interface ChangeSymbolsSubject {
-  /** `m_symbol->GetRef( currentSheet )`. */
-  reference: string;
-  /** `UnescapeString( m_symbol->GetField( FIELD_T::VALUE )->GetText() )`. */
-  value: string;
-  /** `UnescapeString( m_symbol->GetLibId().Format() )`. */
-  libId: string;
-  /** `m_symbol->IsSelected()`, which decides the opening radio. */
-  isSelected: boolean;
-}
-
-interface Props {
-  mode: ChangeSymbolsMode;
-  /**
-   * The checklist's contents FOR A GIVEN MATCH. `updateFieldsList()` is re-run
-   * from every match handler upstream (`onMatchByAll`, `onMatchBySelected`, …),
-   * because the list is built from the symbols the match selects — choosing a
-   * different scope offers a different set of fields.
-   */
-  fieldNamesFor: (match: SymbolMatch) => readonly string[];
-  hasSelection: boolean;
-  /**
-   * The symbol this was opened on, if any. Absent when the dialog is opened
-   * from the Tools menu rather than from a symbol — and then upstream HIDES the
-   * "selected symbol(s)" radio outright:
-   *   `if( !m_symbol ) m_matchSizer->FindItem( m_matchBySelection )->Show( false )`.
-   */
-  subject?: ChangeSymbolsSubject;
-  /** Report lines from the last run; the dialog stays open to show them. */
-  messages: readonly ChangeSymbolsMessage[];
-  onApply: (o: ChangeSymbolsOptions) => void;
-  onClose: () => void;
-  /**
-   * `s_SymbolHistoryList`, for the chooser the two browse buttons open.
-   * SYMBOL_CHOOSER_FRAME passes the same global list the Place Symbol chooser
-   * uses (symbol_chooser_frame.cpp:86), so a symbol placed a moment ago is
-   * under "Recently Used" here too.
-   */
-  chooserHistory?: readonly PickedSymbol[];
-}
+import type { DialogChangeSymbolsProps } from '@ziroeda/eeschema/tools/change_symbols.js';
 
 /** The five match rows, in `_base.cpp` order. `needs` names the entry beside
  *  the radio — upstream has THREE separate controls, not one shared box. */
@@ -128,7 +78,7 @@ export function DialogChangeSymbols({
   onApply,
   onClose,
   chooserHistory = [],
-}: Props): JSX.Element {
+}: DialogChangeSymbolsProps): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
   useModalEscape(onClose);

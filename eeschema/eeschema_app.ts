@@ -28,6 +28,9 @@ import type { KIWAY } from '@ziroeda/common/kiway.js';
 import type { ProjectFile } from '@ziroeda/common/project_paths.js';
 import type { RawFile } from '@ziroeda/common';
 import type { CanvasController, SchematicCanvasProps } from './sch_draw_panel.js';
+import type { DialogSymbolChooserProps } from './picksymbol.js';
+import type { DialogRescueEachProps } from './project_rescue.js';
+import type { DialogChangeSymbolsProps } from './tools/change_symbols.js';
 import type { PeerRole, PresenceInfo, ProjectSyncTransport } from './project_sync_transport.js';
 import type { EeschemaSettings } from './eeschema_settings.js';
 import type { Theme } from './sch_render_settings.js';
@@ -87,6 +90,17 @@ export interface EESCHEMA_APP {
   SchematicCanvas: ForwardRefExoticComponent<
     SchematicCanvasProps & RefAttributes<CanvasController>
   >;
+  /** `DIALOG_SYMBOL_CHOOSER`, `PickSymbolFromLibrary`'s dialog (`picksymbol.ts`). */
+  DialogSymbolChooser: (props: DialogSymbolChooserProps) => ReactNode;
+  /** `SYMBOL_VIEWER_FRAME`, the Symbol Library Browser. */
+  SymbolLibraryBrowser: (props: {
+    onPick: (lib: LibSymbol) => void;
+    onClose: () => void;
+  }) => ReactNode;
+  /** `DIALOG_RESCUE_EACH` (`project_rescue.ts` holds its contract). */
+  DialogRescueEach: (props: DialogRescueEachProps) => ReactNode;
+  /** `DIALOG_CHANGE_SYMBOLS` (`tools/change_symbols.ts` holds its contract). */
+  DialogChangeSymbols: (props: DialogChangeSymbolsProps) => ReactNode;
   /** `EDA_BASE_FRAME::ShowPreferences()`, opened on a page. */
   PreferencesDialog: (props: { initialPage?: PrefsPageId; onClose: () => void }) => ReactNode;
   /** The home link in the menu bar's left slot. */

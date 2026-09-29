@@ -9,43 +9,13 @@
  * (DIALOG_SYMBOL_CHOOSER).
  */
 import { useCallback, useRef, useState } from 'react';
-import type { LibSymbol } from '@ziroeda/eeschema';
 import {
   PanelSymbolChooser,
   type PanelSymbolChooserHandle,
-  type PickedSymbol,
 } from '../widgets/panel_symbol_chooser.js';
+import type { DialogSymbolChooserProps } from '@ziroeda/eeschema/picksymbol.js';
 import { useDialogControl } from '../../../ui/useDialogControl.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
-
-export type { PickedSymbol } from '../widgets/panel_symbol_chooser.js';
-
-/** What the dialog hands back on OK (PICKED_SYMBOL + the checkbox states). */
-export interface SymbolChooserResult {
-  symbol: LibSymbol;
-  /** Selected unit; 0 when the symbol itself was picked (default to 1). */
-  unit: number;
-  /** Field edits, currently just a footprint override: [name, value]. */
-  fields: [string, string][];
-  /** "Place repeated copies", keep the symbol selected for subsequent clicks. */
-  keepSymbol: boolean;
-  /** "Place all units", sequentially place all units of the symbol. */
-  placeAllUnits: boolean;
-}
-
-export interface DialogSymbolChooserProps {
-  /** Restrict to power symbols (SYMBOL_LIBRARY_FILTER::FilterPowerSymbols). */
-  powerFilter?: boolean;
-  /** "Show footprint previews in Symbol Chooser" (Preferences > Editing Options). */
-  showFootprints?: boolean;
-  historyList?: readonly PickedSymbol[];
-  alreadyPlaced?: readonly PickedSymbol[];
-  getPlacedLibSymbol?: (libId: string) => LibSymbol | undefined;
-  /** wxID_OK, null when OK was pressed with nothing selected (invalid LIB_ID). */
-  onOk: (result: SymbolChooserResult | null) => void;
-  /** wxID_CANCEL. */
-  onCancel: () => void;
-}
 
 export function DialogSymbolChooser({
   powerFilter = false,

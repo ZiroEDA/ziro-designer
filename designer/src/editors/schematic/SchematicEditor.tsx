@@ -321,12 +321,7 @@ import {
 } from '@ziroeda/eeschema/dialogs/dialog_text_properties.js';
 import { SymbolPropertiesDialog } from '@ziroeda/eeschema/dialogs/dialog_symbol_properties.js';
 import { ErcDialog, type ErcDialogNav } from '@ziroeda/eeschema/dialogs/dialog_erc.js';
-import {
-  DialogSymbolChooser,
-  type PickedSymbol,
-  type SymbolChooserResult,
-} from './dialogs/dialog_symbol_chooser.js';
-import { SymbolLibraryBrowser } from './components/SymbolLibraryBrowser.js';
+import type { PickedSymbol, SymbolChooserResult } from '@ziroeda/eeschema/picksymbol.js';
 import { repairSourceLibs } from '@ziroeda/eeschema/repair_source.js';
 import {
   findRescues,
@@ -336,7 +331,7 @@ import {
   rescuedDefinition,
   type RescueCandidate,
 } from '@ziroeda/eeschema/project_rescue.js';
-import { DialogRescueEach, type RescueInstance } from './dialogs/dialog_rescue_each.js';
+import type { RescueInstance } from '@ziroeda/eeschema/project_rescue.js';
 import {
   legacyCacheFileNames,
   readLegacySymbolLibrary,
@@ -407,7 +402,7 @@ import {
   DialogGlobalEditTextAndGraphics,
   type GlobalEditResult,
 } from '@ziroeda/eeschema/dialogs/dialog_global_edit_text_and_graphics.js';
-import { DialogChangeSymbols, type ChangeSymbolsSubject } from './dialogs/dialog_change_symbols.js';
+import type { ChangeSymbolsSubject } from '@ziroeda/eeschema/tools/change_symbols.js';
 import { DialogEditSymbolsLibId } from '@ziroeda/eeschema/dialogs/dialog_edit_symbols_libid.js';
 import { DialogAnnotate, type AnnotateRun } from '@ziroeda/eeschema/dialogs/dialog_annotate.js';
 import {
@@ -931,6 +926,10 @@ export function SchematicEditor({
     CROSS_PROBE_FLASH_INTERVAL_MS,
     CROSS_PROBE_FLASH_LAST_PHASE,
     SchematicCanvas,
+    DialogSymbolChooser,
+    SymbolLibraryBrowser,
+    DialogRescueEach,
+    DialogChangeSymbols,
   } = app;
   const [error, setError] = useState<string | null>(null);
   const initial = useMemo<Schematic | null>(() => {

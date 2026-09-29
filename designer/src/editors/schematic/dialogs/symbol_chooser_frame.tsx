@@ -45,8 +45,8 @@ import { useCallback, useRef, useState } from 'react';
 import {
   PanelSymbolChooser,
   type PanelSymbolChooserHandle,
-  type PickedSymbol,
 } from '../widgets/panel_symbol_chooser.js';
+import { type PickedSymbol } from '@ziroeda/eeschema/picksymbol.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 export interface SymbolChooserFrameProps {
