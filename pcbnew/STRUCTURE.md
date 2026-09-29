@@ -17,7 +17,7 @@ you find one; keep the reason to a line.
 KiCad 10.0.6's pcbnew/ has 25 subdirectories; ours has 22 (21 of theirs plus
 `browser/`). The 4 below are **not applicable** in a browser and will not be
 created. Every other KiCad directory exists here by name. `zone_manager/`,
-`microwave/` and `specctra_import_export/` were created empty (a `.gitkeep`)
+`microwave/` (ported 09-29) and `specctra_import_export/` were created empty (a `.gitkeep`)
 on 09-29 and are **to port**: 1 595, 1 341 and 6 532 lines upstream.
 
 | not applicable | why |
@@ -30,7 +30,6 @@ on 09-29 and are **to port**: 1 595, 1 341 and 6 532 lines upstream.
 | to port (empty) | upstream |
 |---|---|
 | `zone_manager/` | 6 .cpp: the Zone Manager dialog, its grid model and preview. |
-| `microwave/` | 4 .cpp: the gap/stub/inductor generators and their dialogs. |
 | `specctra_import_export/` | 4 .cpp: DSN export and SES import for external autorouters. |
 
 Notes that used to sit in this table, kept because they still apply:
@@ -560,6 +559,21 @@ all).
   (`CN_RTREE`) is folded into `connectivity_items.ts`. `topo_match.ts` ports
   `topo_match.cpp` (`TMATCH`, the thread pool is a plain loop); nothing calls
   it yet — multichannel / repeat-layout does not exist here.
+- `microwave/` (4 KiCad, 4 ours, 0 extra, 09-29): `microwave_footprint`
+  (Gap / Stub / Arc Stub), `microwave_inductor` (`BuildCornersList_S_Shape`,
+  checked point for point against an independent Python transcription,
+  `qa/data/pcbnew/microwave/inductor_oracle.py`), `microwave_polygon` (the shape
+  description file reader and `createPolygonShape`) and `microwave_tool`
+  (`MICROWAVE_TOOL` over a `MICROWAVE_HOST`; the C++'s one class is spread over
+  the four files as functions). **Not wired**, and the five Place > Draw
+  Microwave Shapes rows stay greyed: the host needs `PCB_BASE_FRAME::
+  CreateNewFootprint` on the live `FOOTPRINT` (`footprint_libraries_utils.cpp`,
+  package root; only the view-model form exists), a text-entry and the
+  `MWAVE_POLYGONAL_SHAPE_DLG` dialog (which will make `microwave_polygon` a
+  `.tsx`, the dialog being inside that `.cpp`), the placement hand-off
+  (`PlaceFootprintFromLibraryBrowser` takes a `PcbFootprint`) and, for Lines,
+  the two-click `CENTRELINE_RECT_ITEM` preview. `MICROWAVE_TOOL` is not yet a
+  `PCB_TOOL_BASE` with `setTransitions`.
 - `netlist_reader/` (7 KiCad, 7 ours, 0 extra, 09-29): all seven files exist by name.
   `kicad_netlist_reader` and `netlist_reader` re-export the shared
   `common/netlist_reader/*` ports (KiCad keeps its own duplicate tree there).
