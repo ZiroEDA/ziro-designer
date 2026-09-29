@@ -508,3 +508,22 @@ export function gridSizeToIU(size: string): number {
   if (unit.startsWith('in')) return Math.round(v * 254000);
   return Math.round(v * 254); // mils
 }
+
+/**
+ * `Pgm().GetSettingsManager().GetAppSettings<EESCHEMA_SETTINGS>( "eeschema" )`:
+ * the live `eeschema.json`, for the frame code that reads it rather than being
+ * handed it (`SCH_BASE_FRAME::GetColorSettings`). The store is designer's, so it
+ * arrives as a swappable hook, the shape `symbol_editor_settings.ts`'s
+ * `setSymbolEditorSettingsProvider` uses. No app registered answers the defaults.
+ */
+let eeschemaSettingsProvider: () => EeschemaSettings = () => EESCHEMA_DEFAULTS;
+
+/** The settings store installs this once (`designer/src/prefs/settings.ts`). */
+export function setEeschemaSettingsProvider(fn: () => EeschemaSettings): void {
+  eeschemaSettingsProvider = fn;
+}
+
+/** The live `eeschema.json`. */
+export function currentEeschemaSettings(): EeschemaSettings {
+  return eeschemaSettingsProvider();
+}

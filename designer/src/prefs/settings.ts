@@ -68,13 +68,13 @@ import { deepMerge } from '@ziroeda/common/settings/json_settings.js';
 import type { JsonValue } from '@ziroeda/common/settings/json_settings_internals.js';
 import { KICAD_SETTINGS } from '@ziroeda/common/settings/kicad_settings.js';
 import { EESCHEMA_DEFAULTS, type EeschemaSettings } from '@ziroeda/eeschema/eeschema_settings.js';
+import { OnKifaceStart as eeschemaOnKifaceStart } from '@ziroeda/eeschema/eeschema.js';
 import {
   FOOTPRINT_VIEWER_JSON_DEFAULTS,
   type FOOTPRINT_VIEWER_JSON_SETTINGS,
 } from '@ziroeda/pcbnew/pcbnew_settings.js';
 import {
   SYMBOL_EDITOR_DEFAULTS,
-  setSymbolEditorSettingsProvider,
   type SymbolEditorSettings,
 } from '@ziroeda/eeschema/symbol_editor/symbol_editor_settings.js';
 import {
@@ -2804,6 +2804,10 @@ setColorPickerTabStore({
     }),
 });
 
-// The symbol editor's modules read the live `symbol_editor.json` through
-// eeschema's hook (its grid and item defaults): the same hand-over.
-setSymbolEditorSettingsProvider(() => settings.symbolEditor);
+// eeschema's kiface registers the two settings objects its frames read (the
+// symbol editor's grid and item defaults, the frames' colour theme): the
+// same hand-over, through `IFACE::OnKifaceStart`.
+eeschemaOnKifaceStart(
+  () => settings.eeschema,
+  () => settings.symbolEditor,
+);

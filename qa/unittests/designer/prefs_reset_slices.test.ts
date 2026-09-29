@@ -821,21 +821,28 @@ describe('the other pages survive, page by page', () => {
   });
 });
 
+/**
+ * One entry of a `PAGES` table (`EESCHEMA_PAGES`): from `<key>: {` to the next
+ * top-level `PANEL_` key or the table's end. Fails when the key is missing, so
+ * a rename cannot leave the assertions reading nothing.
+ */
+function pageEntry(src: string, key: string): string {
+  const from = src.indexOf(`\n  ${key}: {`);
+  expect(from, `no page ${key}`).toBeGreaterThan(-1);
+  const next = src.indexOf('\n  PANEL_', from + 1);
+  const end = src.indexOf('\n};', from);
+  return src.slice(from, next === -1 || next > end ? end : next);
+}
+
 describe('a page that is not resettable has no reset', () => {
   it('the schematic factory gives Field Name Templates no reset arm', () => {
     // Read as text: the factory reaches its panels, which are .tsx, and qa's
     // tsconfig sets no --jsx.
     const src = read('editors/schematic/prefs/index.ts');
-    // To the NEXT case, not to `default:` — this arm is no longer the last one,
-    // and a slice that runs past it reads the following arm's `reset:` as this
-    // arm's. `sch-datasources` and `sch-simulator` come after it now.
-    const from = src.indexOf("case 'sch-fields':");
-    // `case '` WITH the quote: an arm's own comment can say "case variants of a
-    // mandatory field name", and `'case '` alone cut this slice off at that
-    // word — leaving an arm that held neither its panel nor its reset, so both
-    // assertions below passed on nothing at all.
-    const to = src.indexOf("case '", from + 1);
-    const arm = src.slice(from, to === -1 ? src.indexOf('default:') : to);
+    // The page table eeschema's CreateKiWindow picks from, keyed by the class
+    // upstream constructs. To the NEXT entry, not to the table's end: a slice
+    // that runs past it reads the following entry's `reset:` as this one's.
+    const arm = pageEntry(src, 'PANEL_TEMPLATE_FIELDNAMES');
     expect(arm).toContain('PanelTemplateFieldnames');
     expect(arm).not.toMatch(/\breset:/);
     for (const id of NOT_RESETTABLE) expect(RESETS[id]).toBeUndefined();
@@ -848,14 +855,7 @@ describe('a page that is not resettable has no reset', () => {
     // under this heading that is not a RESETTABLE_PANEL, so a `reset:` here
     // would light a button a real KiCad greys.
     const src = read('editors/symbol/prefs/index.ts');
-    const from = src.indexOf("case 'sym-colors':");
-    expect(from, 'no arm for sym-colors').toBeGreaterThan(-1);
-    // `case '` WITH the quote: an arm's own comment can say "case variants of a
-    // mandatory field name", and `'case '` alone cut this slice off at that
-    // word — leaving an arm that held neither its panel nor its reset, so both
-    // assertions below passed on nothing at all.
-    const to = src.indexOf("case '", from + 1);
-    const arm = src.slice(from, to === -1 ? src.indexOf('default:') : to);
+    const arm = pageEntry(src, 'PANEL_SYM_COLOR_SETTINGS');
     expect(arm).toContain('PanelSymbolEditorColorSettings');
     expect(arm).not.toMatch(/\breset:/);
     // The four that ARE resettable still are, so this is not "the whole
@@ -888,12 +888,33 @@ describe('every resettable page is wired to its own reset', () => {
       'dialogs/prefs/panels/index.ts',
       ['common', 'mouse', 'hotkeys', 'spacemouse', 'version-control', 'maintenance'],
     ],
-    ['editors/schematic/prefs/index.ts', ['sch-display', 'sch-grids', 'sch-editing', 'sch-colors']],
+    [
+      'editors/schematic/prefs/index.ts',
+      [
+        'PANEL_EESCHEMA_DISPLAY_OPTIONS',
+        'PANEL_SCH_GRID_SETTINGS',
+        'PANEL_EESCHEMA_EDITING_OPTIONS',
+        'PANEL_EESCHEMA_COLOR_SETTINGS',
+      ],
+    ],
     ['editors/pcb/prefs/index.ts', ['pcb-display']],
-    ['editors/symbol/prefs/index.ts', ['sym-display', 'sym-editing', 'sym-grids', 'sym-toolbars']],
+    [
+      'editors/symbol/prefs/index.ts',
+      [
+        'PANEL_SYM_DISPLAY_OPTIONS',
+        'PANEL_SYM_EDITING_OPTIONS',
+        'PANEL_SYM_GRID_SETTINGS',
+        'PANEL_SYM_TOOLBAR_CUSTOMIZATION',
+      ],
+    ],
   ] as [string, string[]][])('%s', (rel, ids) => {
     const src = read(rel);
     for (const id of ids) {
+      if (id.startsWith('PANEL_')) {
+        // eeschema's pages are a table its CreateKiWindow picks from.
+        expect(pageEntry(src, id), `${id} has no reset`).toMatch(/\breset:/);
+        continue;
+      }
       const start = src.indexOf(`case '${id}':`);
       expect(start, `${rel} has no arm for ${id}`).toBeGreaterThan(-1);
       const next = src.indexOf('case ', start + 6);

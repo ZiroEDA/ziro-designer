@@ -132,6 +132,7 @@ export interface PROPERTIES_PANEL {
   UpdateData(): void;
 }
 
+export const LIB_EDIT_FRAME_NAME = 'LibeditFrame';
 export const SCH_EDIT_FRAME_NAME = 'SchematicFrame';
 export const SYMBOL_CHOOSER_FRAME_NAME = 'SymbolChooserFrame';
 export const PL_EDITOR_FRAME_NAME = 'PlEditorFrame';

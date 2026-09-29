@@ -2,7 +2,8 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * `SCH_EDIT_FRAME` (eeschema/sch_edit_frame.h) — so far only its KIWAY half:
+ * `SCH_EDIT_FRAME` (eeschema/sch_edit_frame.h), on `SCH_BASE_FRAME`
+ * (`sch_base_frame.ts`, which holds the screen bookkeeping) — its KIWAY half:
  * the mail it takes in (`KiwayMailIn`, `ExecuteRemoteCommand`) and the
  * cross-probe packets it sends (eeschema/cross-probing.cpp).
  * `SchematicEditor.tsx` is the window, and owns the state each command
@@ -17,17 +18,14 @@ import {
   type FrameTitleParts,
   READ_ONLY_SUFFIX,
 } from '@ziroeda/common/use_document_title.js';
-import { schIUScale } from '@ziroeda/common/eda_units.js';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import type { KIWAY_MAIL_EVENT } from '@ziroeda/common/kiway_mail.js';
-import { KIWAY_PLAYER } from '@ziroeda/common/kiway_player.js';
 import { STRTOK, strncpyLine } from '@ziroeda/common/libc/string.js';
 import { MAIL_T } from '@ziroeda/common/mail_type.js';
 import type { CROSS_PROBING_SETTINGS } from '@ziroeda/common/settings/app_settings.js';
-import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
 import { applyMixins } from '@ziroeda/core/mixins.js';
-import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { SCH_BASE_FRAME } from './sch_base_frame.js';
 import type { SCH_COMMIT } from './sch_commit.js';
 import type { SCH_ITEM } from './sch_item.js';
 import type { SCH_SCREEN } from './sch_screen.js';
@@ -69,7 +67,7 @@ export interface SCH_EDIT_FRAME_HOOKS {
 export interface SCH_EDIT_FRAME extends SCH_UNDO_REDO_MIXIN {}
 
 // biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (SCH_UNDO_REDO_MIXIN, see libs/core/mixins.ts)
-export class SCH_EDIT_FRAME extends KIWAY_PLAYER {
+export class SCH_EDIT_FRAME extends SCH_BASE_FRAME {
   private readonly hooks: SCH_EDIT_FRAME_HOOKS;
 
   /// The live-model schematic this frame edits (null until one is set).
@@ -82,7 +80,7 @@ export class SCH_EDIT_FRAME extends KIWAY_PLAYER {
   private m_items_to_repeat: SCH_ITEM[] = [];
 
   constructor(hooks: SCH_EDIT_FRAME_HOOKS) {
-    super(FRAME_T.FRAME_SCH, schIUScale, 'mm');
+    super(FRAME_T.FRAME_SCH);
     this.hooks = hooks;
   }
 
@@ -109,40 +107,18 @@ export class SCH_EDIT_FRAME extends KIWAY_PLAYER {
     return this.m_schematic!;
   }
 
-  /** The current sheet's screen (`SCH_BASE_FRAME::GetScreen`). */
-  GetScreen(): SCH_SCREEN | null {
+  /**
+   * The current sheet's screen. Upstream `SCH_BASE_FRAME::GetScreen` returns
+   * `m_currentScreen`, which `SCH_EDIT_FRAME` keeps pointed at the current
+   * sheet's; here it is read off the sheet path directly.
+   */
+  override GetScreen(): SCH_SCREEN | null {
     return this.m_schematic ? this.m_schematic.CurrentSheet().LastScreen() : null;
   }
 
   GetCurrentSheet(): SCH_SHEET_PATH {
     return this.m_schematic!.CurrentSheet();
   }
-
-  /** `SCH_BASE_FRAME::AddToScreen`, without the view. */
-  AddToScreen(aItem: EDA_ITEM, aScreen: SCH_SCREEN | null = null): void {
-    if (!aItem) return; // wxCHECK
-
-    const screen = aScreen ?? this.GetScreen()!;
-
-    if (aItem.Type() !== KICAD_T.SCH_TABLECELL_T) screen.Append(aItem as SCH_ITEM);
-
-    if (screen === this.GetScreen()) this.UpdateItem(aItem, true); // handle any additional parent semantics
-  }
-
-  /** `SCH_BASE_FRAME::RemoveFromScreen`, without the view. */
-  RemoveFromScreen(aItem: EDA_ITEM, aScreen: SCH_SCREEN | null = null): void {
-    const screen = aScreen ?? this.GetScreen()!;
-
-    if (aItem.Type() !== KICAD_T.SCH_TABLECELL_T) screen.Remove(aItem as SCH_ITEM);
-
-    if (screen === this.GetScreen()) this.UpdateItem(aItem, true); // handle any additional parent semantics
-  }
-
-  /**
-   * `SCH_BASE_FRAME::UpdateItem`: mark the item's screen stale and repaint it.  With no
-   * view there is nothing to repaint.
-   */
-  UpdateItem(_aItem: EDA_ITEM, _isAddOrDelete = false, _aUpdateRtree = false): void {}
 
   /**
    * `SCH_EDIT_FRAME::RecalculateConnections`: the schematic's, with the change handler that

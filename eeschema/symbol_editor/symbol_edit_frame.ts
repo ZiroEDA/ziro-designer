@@ -2,16 +2,16 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * `SYMBOL_EDIT_FRAME` (eeschema/symbol_editor/symbol_edit_frame.h) — so far
- * only its KIWAY half: the mail it takes in. `SymbolEditor.tsx` is the window
+ * `SYMBOL_EDIT_FRAME` (eeschema/symbol_editor/symbol_edit_frame.h), on
+ * `SCH_BASE_FRAME` — so far its KIWAY half: the mail it takes in. `SymbolEditor.tsx` is the window
  * and owns the library tree and canvas each command changes, so the frame
  * reaches them through {@link SYMBOL_EDIT_FRAME_HOOKS}.
  */
-import { schIUScale } from '@ziroeda/common/eda_units.js';
+import { LIB_EDIT_FRAME_NAME } from '@ziroeda/common/eda_draw_frame.js';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import type { KIWAY_MAIL_EVENT } from '@ziroeda/common/kiway_mail.js';
-import { KIWAY_PLAYER } from '@ziroeda/common/kiway_player.js';
 import { MAIL_T } from '@ziroeda/common/mail_type.js';
+import { SCH_BASE_FRAME } from '../sch_base_frame.js';
 
 export interface SYMBOL_EDIT_FRAME_HOOKS {
   /**
@@ -22,12 +22,17 @@ export interface SYMBOL_EDIT_FRAME_HOOKS {
   libEdit(aUri: string): void;
 }
 
-export class SYMBOL_EDIT_FRAME extends KIWAY_PLAYER {
+export class SYMBOL_EDIT_FRAME extends SCH_BASE_FRAME {
   private readonly hooks: SYMBOL_EDIT_FRAME_HOOKS;
 
   constructor(hooks: SYMBOL_EDIT_FRAME_HOOKS) {
-    super(FRAME_T.FRAME_SCH_SYMBOL_EDITOR, schIUScale, 'mm');
+    super(FRAME_T.FRAME_SCH_SYMBOL_EDITOR);
     this.hooks = hooks;
+  }
+
+  /** `LIB_EDIT_FRAME_NAME`, the name wx gives this frame. */
+  override GetName(): string {
+    return LIB_EDIT_FRAME_NAME;
   }
 
   /** `SYMBOL_EDIT_FRAME::KiwayMailIn` (symbol_edit_frame.cpp:1753). */
