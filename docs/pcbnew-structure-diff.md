@@ -4,7 +4,7 @@ Generated 2026-09-29 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 
 | status | count | meaning |
 |---|---:|---|
-| SAME | 264 | same relative path and name as KiCad's `.cpp` |
+| SAME | 270 | same relative path and name as KiCad's `.cpp` |
 | MOVED | 0 | KiCad has this name, in a different directory |
 | DIALOG | 1 | KiCad has it as `dialogs/dialog_<name>.cpp` |
 | HEADER | 13 | KiCad declares it in a `.h` with no matching `.cpp` |
@@ -141,7 +141,7 @@ Generated 2026-09-29 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 
 ## SAME
 
-<details><summary>264 files already at KiCad's own path</summary>
+<details><summary>270 files already at KiCad's own path</summary>
 
 - `array_pad_number_provider.ts`
 - `autorouter/ar_autoplacer.ts`
@@ -279,6 +279,10 @@ Generated 2026-09-29 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 - `load_select_footprint.ts`
 - `menubar_footprint_editor.ts`
 - `menubar_pcb_editor.ts`
+- `microwave/microwave_footprint.ts`
+- `microwave/microwave_inductor.ts`
+- `microwave/microwave_polygon.ts`
+- `microwave/microwave_tool.ts`
 - `netinfo_item.ts`
 - `netinfo_list.ts`
 - `netlist_reader/board_netlist_updater.ts`
@@ -403,6 +407,8 @@ Generated 2026-09-29 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 - `widgets/pcb_net_inspector_panel.ts`
 - `widgets/pcb_properties_panel.ts`
 - `zone_filler.ts`
+- `zone_manager/board_edges_bounding_item.ts`
+- `zone_manager/model_zones_overview.ts`
 - `zone_settings_bag.ts`
 - `zone_settings.ts`
 - `zone.ts`
