@@ -22,7 +22,7 @@ import { buildPropertyNode, patchProperty } from '../sch_io/sexpr/write-schemati
 import type { LibSymbol, SchField, SchLabel, SchSymbol, Schematic, Vec2 } from '../types.js';
 import { symbolPinPositions } from './connect.js';
 import { refId } from './hittest.js';
-import { schSymbolLibraryName } from '../lib_symbol_compare.js';
+import { schSymbolLibraryName } from '../lib_symbol.js';
 import { pinSpinStyle } from '../symb_transforms_utils.js';
 
 /**

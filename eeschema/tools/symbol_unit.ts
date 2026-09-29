@@ -30,7 +30,7 @@ import type { EditCommand } from './command.js';
 import { symbolNodeWithFreshUuids } from './build.js';
 import { childNamed } from '@ziroeda/sexpr/query.js';
 import { isList, type SList } from '@ziroeda/sexpr';
-import { schSymbolLibraryName } from '../lib_symbol_compare.js';
+import { schSymbolLibraryName } from '../lib_symbol.js';
 
 /** How many distinct units the library part has (SCH_SYMBOL::GetUnitCount). */
 export function symbolUnitCount(lib: LibSymbol | undefined): number {

@@ -8,7 +8,7 @@
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/index.js';
 import { readSymbolLib } from '@ziroeda/eeschema';
-import { compareLibSymbolsForErc } from '@ziroeda/eeschema/lib_symbol_compare.js';
+import { compareLibSymbolsForErc } from '@ziroeda/eeschema/lib_symbol.js';
 
 const symbol = (body: string) =>
   readSymbolLib(

@@ -41,7 +41,7 @@
  */
 
 import { refId } from './hittest.js';
-import { schSymbolLibraryName } from '../lib_symbol_compare.js';
+import { schSymbolLibraryName } from '../lib_symbol.js';
 import type { EditCommand } from './command.js';
 import type { LibPin, LibSymbol, SchSymbol, Schematic } from '../types.js';
 

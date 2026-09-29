@@ -24,7 +24,7 @@ import type { LibSymbol, Schematic, SchField, SchSymbol } from '../types.js';
 import { flattenLibSymbol } from '../lib_symbol.js';
 import type { EditCommand } from './command.js';
 import { refId } from './hittest.js';
-import { schSymbolLibraryName } from '../lib_symbol_compare.js';
+import { schSymbolLibraryName } from '../lib_symbol.js';
 
 /**
  * The characters `LIB_ID::isLegalChar` (common/lib_id.cpp) answers false for:

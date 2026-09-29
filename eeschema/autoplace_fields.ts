@@ -62,7 +62,7 @@ import { mmToIU } from '@ziroeda/common/eda_units.js';
 import { refId } from './tools/hittest.js';
 import type { Schematic } from './types.js';
 import type { EditCommand } from './tools/command.js';
-import { schSymbolLibraryName } from './lib_symbol_compare.js';
+import { schSymbolLibraryName } from './lib_symbol.js';
 import { buildPropertyNode } from './sch_io/sexpr/write-schematic.js';
 
 /** The paddings, all "arbitrarily chosen for aesthetics" upstream. */

@@ -27,7 +27,7 @@ import { directiveBox } from './directive_label.js';
 import { imageSizeIU } from './image_size.js';
 import { moveItems } from './move.js';
 import { composeCommands, type EditCommand } from './command.js';
-import { schSymbolLibraryName } from '../lib_symbol_compare.js';
+import { schSymbolLibraryName } from '../lib_symbol.js';
 
 /** The six alignments, named as SCH_ACTIONS names them. */
 export type AlignMode = 'top' | 'bottom' | 'left' | 'right' | 'centerX' | 'centerY';

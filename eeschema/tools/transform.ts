@@ -61,7 +61,7 @@ import {
   type AutoplaceOptions,
   type AutoplaceSheet,
 } from '../autoplace_fields.js';
-import { schSymbolLibraryName } from '../lib_symbol_compare.js';
+import { schSymbolLibraryName } from '../lib_symbol.js';
 import type { BBox } from './bbox.js';
 import { composeCommands, type EditCommand } from './command.js';
 

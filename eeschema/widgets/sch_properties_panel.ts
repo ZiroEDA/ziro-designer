@@ -45,7 +45,7 @@ import { parseSheetPinId } from '../tools/sch_sheet_pin_tool.js';
 import { transformItems } from '../tools/transform.js';
 import { bulkEditFieldsCommand } from '../tools/properties.js';
 import { IsGeneratedField } from '@ziroeda/common/common.js';
-import { schSymbolLibraryName } from '../lib_symbol_compare.js';
+import { schSymbolLibraryName } from '../lib_symbol.js';
 
 /** One grid row: `coord`/`dist` are IU numbers the panel renders in the
  *  current units; `choice` renders a dropdown over `choices`. A row without

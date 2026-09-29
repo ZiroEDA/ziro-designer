@@ -54,7 +54,7 @@
 import type { LibSymbol, LibPin, SchSymbol, Schematic } from './types.js';
 import type { EditCommand } from './tools/command.js';
 import { flattenLibSymbol } from './lib_symbol.js';
-import { schSymbolLibraryName } from './lib_symbol_compare.js';
+import { schSymbolLibraryName } from './lib_symbol.js';
 import {
   libItemName,
   libNickname,

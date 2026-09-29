@@ -29,7 +29,6 @@ export * from './sch_item_alignment.js';
 export * from './symb_transforms_utils.js';
 export * from './project_sch.js';
 export * from './lib_symbol.js';
-export * from './lib_symbol_compare.js';
 export * from './sim/sim_model.js';
 export * from './sim/sim_model_types.js';
 export * from './sch_pin.js';

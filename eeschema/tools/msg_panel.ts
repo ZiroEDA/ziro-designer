@@ -15,7 +15,7 @@ import { refId, type ItemRef } from './hittest.js';
 import { resolveCell } from './table_cells.js';
 import { parseSheetPinId } from './sch_sheet_pin_tool.js';
 import { imagePPI, imageSizeIU } from './image_size.js';
-import { schSymbolLibraryName } from '../lib_symbol_compare.js';
+import { schSymbolLibraryName } from '../lib_symbol.js';
 
 /** `EDA_SHAPE::getFriendlyName`, for the kinds a schematic can hold. */
 const SHAPE_NAMES: Record<string, string> = {

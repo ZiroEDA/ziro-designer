@@ -26,7 +26,7 @@ import type {
   Vec2,
 } from './types.js';
 import { symbolPinPositions } from './tools/connect.js';
-import { schSymbolLibraryName } from './lib_symbol_compare.js';
+import { schSymbolLibraryName } from './lib_symbol.js';
 
 export interface PointInfo {
   /** 3+ same-layer exit directions meet here (wires or buses). */

@@ -18,7 +18,7 @@
 import type { Schematic, SchSymbol, SchSymbolPin, SchField, LibSymbol } from '../types.js';
 import { buildPropertyNode } from '../sch_io/sexpr/write-schematic.js';
 import { refId } from './hittest.js';
-import { schSymbolLibraryName } from '../lib_symbol_compare.js';
+import { schSymbolLibraryName } from '../lib_symbol.js';
 import type { EditCommand } from './command.js';
 
 /** KiCad SCH_FIELD::IsMandatory, by canonical name (we have no FIELD_T ids). */

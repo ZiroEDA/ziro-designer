@@ -45,7 +45,7 @@ import {
 import { newKiid } from '@ziroeda/common/kiid.js';
 import type { EditCommand } from './command.js';
 import type { ItemsBatch } from './mutate.js';
-import { schSymbolLibraryName } from '../lib_symbol_compare.js';
+import { schSymbolLibraryName } from '../lib_symbol.js';
 import {
   annotateHierarchy,
   splitReference,

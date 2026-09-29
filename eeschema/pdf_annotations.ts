@@ -31,7 +31,7 @@
 import { ResolveShownText, type TextVarResolverFn } from '@ziroeda/common/common.js';
 import type { LibSymbol, SchField, SchLabel, SchSymbol, Schematic } from './index.js';
 import { refId } from './tools/hittest.js';
-import { schSymbolLibraryName } from './lib_symbol_compare.js';
+import { schSymbolLibraryName } from './lib_symbol.js';
 import { fieldShownText, fieldTextBox } from './fieldbox.js';
 import {
   emptyBBox,
