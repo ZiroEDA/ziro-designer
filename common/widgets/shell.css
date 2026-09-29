@@ -17870,7 +17870,7 @@ td.ze-grid-bool {
 .ze-tuning-pattern-legend {
   /* [px] the mode bitmap's own intrinsic size; no bundled per-mode asset here. */
   width: 120px;
-  height: 90px;
+  height: 90px; /* [px] same bitmap, 120 x 90 */
   flex: 0 0 auto;
   background: var(--field-bg);
   border: 1px solid var(--ctl-border);
@@ -18018,17 +18018,17 @@ td.ze-grid-bool {
   padding: 0;
 }
 .ze-footprint-associations .assoc-label:first-child {
-  /* m_libraryAssociationLabel: wxTOP|wxRIGHT|wxLEFT, 10. */
+  /* [data] m_libraryAssociationLabel: wxTOP|wxRIGHT|wxLEFT, 10. */
   margin: 10px 10px 0 10px;
 }
 .ze-footprint-associations .assoc-label {
-  /* m_symbolAssociationLabel: the 5px spacer (prop 1) before it, plus its own
+  /* [data] m_symbolAssociationLabel: the 5px spacer (prop 1) before it, plus its own
      wxTOP|wxRIGHT|wxLEFT, 10 -- 15 total above; a first-child has no spacer
      before it so its own rule above states 10, not 15. */
   margin: 15px 10px 0 10px;
 }
 .ze-footprint-associations .assoc-label + table.ze-grid {
-  /* The 5px spacer between a label and its grid (neither label nor grid
+  /* [data] The 5px spacer between a label and its grid (neither label nor grid
      states a border on that shared edge), plus m_gridLibrary / m_gridSymbol's
      own wxBOTTOM|wxEXPAND|wxLEFT|wxRIGHT, 10. */
   margin: 5px 10px 10px 10px;

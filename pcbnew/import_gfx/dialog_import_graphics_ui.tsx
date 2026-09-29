@@ -110,6 +110,7 @@ export function DialogImportGraphicsBase({
 
         <div
           className="ze-label-dialog-body"
+          // [data] gap 10: bSizerMain's file row / bSizerGroupOpt / bSizer11 borders (dialog_import_graphics_base.cpp:41,191 wx 10)
           style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
         >
           {/* `bSizerFile` (`:23-40`): file row plus browse button — the
@@ -191,7 +192,13 @@ export function DialogImportGraphicsBase({
               />
               <span>Place at:</span>
             </label>
-            <div style={{ display: 'flex', gap: 16 }}>
+            <div
+              style={{
+                display: 'flex',
+                // [data] gbSizer2->Add( m_yLabel, ..., wxLEFT, 18 ) (dialog_import_graphics_base.cpp:121)
+                gap: 18,
+              }}
+            >
               {num(
                 'X:',
                 'x',
