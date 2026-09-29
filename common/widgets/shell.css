@@ -7405,10 +7405,12 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
    as a row `gap`, so the two borders between the panes total 10px, matching
    two adjacent `wxALL, 5` items. */
 .ze-one-layer-selector-body {
+  /* [px] `bSizerMain->Add( bSizerUpper, 1, wxEXPAND|wxALL, 10 )`. */
   padding: 10px;
 }
 .ze-one-layer-selector-body .ze-grid-pane {
   flex: 1;
+  /* [px] `bSizerUpper->Add( grid, 1, wxALL|wxEXPAND, 5 )`, each grid. */
   margin: 5px;
   contain: inline-size;
 }
