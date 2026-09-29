@@ -234,7 +234,7 @@ export {
   exchangeFootprint,
   placeFootprint,
   type PlaceFootprintOptions,
-} from './netlist_reader/pcb_netlist_utils.js';
+} from './netlist_reader/board_netlist_updater.js';
 // A new board item's UUID is `KIID::KIID()`, which upstream has once for the
 // whole application; re-exported from common so the board barrel still offers it.
 export { newKiid as newBoardUuid } from '@ziroeda/common/kiid.js';

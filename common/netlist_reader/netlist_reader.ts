@@ -190,7 +190,12 @@ function legacyKiidPath(text: string): string {
  * `$noname` is the exporter's placeholder for "no footprint yet" and becomes an
  * empty FPID, to be filled in later from the `.cmp` file.
  */
-function loadLegacyComponent(netlist: NETLIST, text: string, lineNumber: number): COMPONENT {
+function loadLegacyComponent(
+  netlist: NETLIST,
+  text: string,
+  lineNumber: number,
+  makeComponent: ComponentFactory,
+): COMPONENT {
   // strncpy into char[1024]; a longer line is silently truncated.
   const words = strTok(text.slice(0, 1023));
 
@@ -214,7 +219,7 @@ function loadLegacyComponent(netlist: NETLIST, text: string, lineNumber: number)
   const name = nameWord === undefined ? '' : beforeLast(afterFirst(nameWord, '='), '}');
 
   // LIB_ID::SetLibItemName only: the legacy format has no library nickname.
-  const component = new COMPONENT(footprintName, reference, value, path, []);
+  const component = makeComponent(footprintName, reference, value, path, []);
   component.SetName(name);
   netlist.AddComponent(component);
 
@@ -319,7 +324,21 @@ function loadFootprintFilters(netlist: NETLIST, lines: string[], from: number): 
 }
 
 /** Options mirroring NETLIST_READER's m_loadFootprintFilters flag. */
+export type ComponentFactory = (
+  fpid: string,
+  reference: string,
+  value: string,
+  path: string,
+  kiids: readonly string[],
+) => COMPONENT;
+
 export interface LegacyNetlistOptions {
+  /**
+   * What the reader instantiates per symbol. Common's reader makes a COMPONENT;
+   * pcbnew's own copy (`pcbnew/netlist_reader/legacy_netlist_reader.cpp`) makes
+   * a PCB_COMPONENT, which is the only difference between the two C++ files.
+   */
+  makeComponent?: ComponentFactory;
   /** Read the `{ Allowed footprints …` block. NETLIST_READER sets this true. */
   loadFootprintFilters?: boolean;
 }
@@ -340,6 +359,8 @@ export function loadLegacyNetlist(
   options: LegacyNetlistOptions = {},
 ): void {
   const loadFilters = options.loadFootprintFilters ?? true;
+  const makeComponent: ComponentFactory =
+    options.makeComponent ?? ((f, r, v, p, k) => new COMPONENT(f, r, v, p, k));
   const lines = readLines(text);
 
   let state = 0;
@@ -381,7 +402,7 @@ export function loadLegacyNetlist(
     if (line.startsWith(')')) state--;
 
     if (state === 2) {
-      component = loadLegacyComponent(netlist, line, i + 1);
+      component = loadLegacyComponent(netlist, line, i + 1, makeComponent);
       continue;
     }
 

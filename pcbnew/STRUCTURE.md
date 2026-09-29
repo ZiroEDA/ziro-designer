@@ -5,6 +5,10 @@ module sits at the path KiCad keeps its counterpart at**, and there is no
 `src/` — KiCad's `pcbnew/` holds its subdirectories and loose `.cpp` files
 together, so ours does too.
 
+**Counting rule (09-29):** KiCad's `X_base.cpp` (the wxFormBuilder layout) is covered
+by our `X.tsx`. We never create `_base` files; the sizer tree from `_base.cpp`
+lives inside `X.tsx`, and `_base` is excluded from KiCad's side when counting.
+
 Only *divergences* are listed. Anything not mentioned matches. Add a row when
 you find one; keep the reason to a line.
 
@@ -556,18 +560,20 @@ all).
   name; `connectivity_rtree.ts` matches `connectivity_rtree.h` (header-only,
   no `.cpp`). **`topo_match.cpp` (1303 lines) is not ported** — no
   `TOPO_MATCH`/`TopoMatch` anywhere in the tree.
-- `netlist_reader/`: `board_netlist_updater`, `kicad_netlist_reader`,
-  `netlist_reader`, `pcb_netlist` match by name (the last two are re-exports
-  of `common/netlist_reader/*.ts`, itself matching KiCad's *own* duplicate
-  `common/netlist_reader/` tree). `pcb_netlist_utils.ts` is extra: its real
-  counterpart is `PCB_EDIT_FRAME::ExchangeFootprint` (`pcbnew/pcb_edit_frame.cpp`,
-  package root, off-limits this pass — already recorded above under "Stage A
-  done"). **Not ported:** `pcb_component.cpp` (`PCB_COMPONENT`, footprint
-  caching on `COMPONENT` — `pcb_netlist.ts`'s own header already says our
-  board model reconciles footprints separately) and the `PCB_EDIT_FRAME`
-  netlist-import glue in KiCad's `netlist_reader/netlist.cpp` (`ReadNetlistFromFile`,
-  `OnNetlistChanged`, `LoadFootprints` — these live in `pcb_edit_frame_ui.tsx`
-  at the package root, another agent's file this pass, not a netlist_reader/ gap).
+- `netlist_reader/` (7 KiCad, 7 ours, 0 extra, 09-29): all seven files exist by name.
+  `kicad_netlist_reader` and `netlist_reader` re-export the shared
+  `common/netlist_reader/*` ports (KiCad keeps its own duplicate tree there).
+  `legacy_netlist_reader.ts` is `LEGACY_NETLIST_READER`, pcbnew's copy of the
+  common reader; the two C++ files differ only in the COMPONENT they make, so
+  it drives `loadLegacyNetlist` with a PCB_COMPONENT factory. `pcb_component.ts`
+  is `PCB_COMPONENT` (the footprint holder). `netlist.ts` is the three
+  `PCB_EDIT_FRAME` methods of `netlist.cpp` (`ReadNetlistFromFile`,
+  `LoadFootprints`, `OnNetlistChanged`) as functions over a host interface; the
+  frame does not call them yet (`pcb_edit_frame_ui.tsx` drives
+  `BOARD_NETLIST_UPDATER` directly). `pcb_netlist_utils.ts` (no KiCad file) is
+  folded into `board_netlist_updater.ts`: `placeFootprint` /
+  `exchangeFootprint` are `LoadFootprintFromProject` +
+  `PCB_EDIT_FRAME::ExchangeFootprint`, whose only upstream caller is the updater.
 - `teardrop/`: **complete, no extras.** `teardrop.ts` (2088 lines) already
   merges `teardrop.cpp` + `teardrop_utils.cpp` (`TEARDROP_MANAGER` is one
   class split across both upstream); `teardrop_parameters.ts` matches;
