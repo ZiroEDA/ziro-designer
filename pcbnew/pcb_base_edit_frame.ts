@@ -27,17 +27,51 @@ import './drc/drc_test_providers.js';
 import { RESET_REASON } from '@ziroeda/common/tool/tool_base.js';
 import { DEFAULT_THEME, GetColorSettings } from '@ziroeda/common/pgm_base.js';
 import type { COLOR_SETTINGS } from '@ziroeda/common/settings/color_settings.js';
+import type {
+  LAYER_PRESET,
+  PCB_SELECTION_FILTER_OPTIONS,
+  VIEWPORT,
+} from '@ziroeda/common/project/board_project_settings.js';
 import type { BOARD } from './board.js';
 import type { PCB_VIEW } from './pcb_view.js';
 import { PCB_BASE_FRAME } from './pcb_base_frame.js';
 import type { PROGRESS_REPORTER_LIKE } from './connectivity/connectivity_algo.js';
 import { UNDO_REDO_MIXIN } from './undo_redo.js';
 
+/**
+ * `APPEARANCE_CONTROLS` as the frame calls it (`pcbnew/widgets/appearance_controls.h`):
+ * the user's layer presets and viewports, and the preset in force. The widget is
+ * the window's (`widgets/appearance_controls.tsx`); the window sets
+ * `m_appearancePanel` to its answer.
+ */
+export interface APPEARANCE_CONTROLS_LIKE {
+  GetUserLayerPresets(): LAYER_PRESET[];
+  SetUserLayerPresets(aPresetList: LAYER_PRESET[]): void;
+  GetActiveLayerPreset(): string;
+  GetUserViewports(): VIEWPORT[];
+  SetUserViewports(aPresetList: VIEWPORT[]): void;
+}
+
+/** `PANEL_SELECTION_FILTER` as the frame calls it (`pcbnew/widgets/panel_selection_filter.h`). */
+export interface PANEL_SELECTION_FILTER_LIKE {
+  SetCheckboxesFromFilter(aOptions: PCB_SELECTION_FILTER_OPTIONS): void;
+}
+
 export interface PCB_BASE_EDIT_FRAME extends UNDO_REDO_MIXIN {}
 
 // biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (UNDO_REDO_MIXIN mixin, see libs/core/mixins.ts)
 export abstract class PCB_BASE_EDIT_FRAME extends PCB_BASE_FRAME {
   protected m_undoRedoBlocked = false;
+
+  /** `m_selectionFilterPanel` (pcb_base_edit_frame.h:281): set by the window that docks it. */
+  m_selectionFilterPanel: PANEL_SELECTION_FILTER_LIKE | null = null;
+  /** `m_appearancePanel` (pcb_base_edit_frame.h:282): set by the window that docks it. */
+  m_appearancePanel: APPEARANCE_CONTROLS_LIKE | null = null;
+
+  /** `APPEARANCE_CONTROLS* GetAppearancePanel()` (pcb_base_edit_frame.h:244). */
+  GetAppearancePanel(): APPEARANCE_CONTROLS_LIKE | null {
+    return this.m_appearancePanel;
+  }
 
   /** The canvas's view, as the undo code needs it (`KIGFX::PCB_VIEW`). */
   protected pcbView(): PCB_VIEW | null {

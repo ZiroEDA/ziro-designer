@@ -502,8 +502,13 @@ Not split, and why:
 - `load_select_footprint` — `AddFootprintToHistory` is already
   `widgets/footprint_history.ts`; the rest (`SelectFootprintFromLibrary`,
   `PlaceFootprint`) is inside the PCB editor's window, another pass's file.
-- `pcbnew_config` — `LoadProjectSettings` & co. live in the PCB editor's
-  window too; same reason.
+- `pcbnew_config` — **ported** (2026-09-29): `pcbnew_config.ts`,
+  `PCBNEW_CONFIG_MIXIN` (`LoadDrawingSheet`, `LoadProjectSettings`,
+  `SaveProjectLocalSettings`, `saveProjectSettings`) mixed into
+  `PCB_EDIT_FRAME`, with `m_appearancePanel` / `m_selectionFilterPanel` on
+  `PCB_BASE_EDIT_FRAME` for the window to set. `LoadWindowState` is the host's
+  (no window geometry in a tab); `SaveProject()` returns the two JSON files
+  for the window to persist instead of writing them.
 - `pcbnew_printout.ts` carries one divergence, noted in the file and left
   alone: upstream adds Edge.Cuts to a single-page print as well when "Print
   board edges on all pages" is stored.

@@ -64,6 +64,8 @@ import { INITPCB_MIXIN } from './initpcb.js';
 import { EDIT_MIXIN } from './edit.js';
 import { FILES_MIXIN } from './files.js';
 import { EDIT_ZONE_HELPERS_MIXIN } from './edit_zone_helpers.js';
+import { PCBNEW_CONFIG_MIXIN } from './pcbnew_config.js';
+import { PCB_SELECTION_FILTER_OPTIONS } from '@ziroeda/common/project/board_project_settings.js';
 import {
   LAYER_PAIR_SETTINGS,
   PCB_CURRENT_LAYER_PAIR_CHANGED,
@@ -274,13 +276,20 @@ export interface PCB_EDIT_FRAME_HOOKS {
    * named for what it does rather than for a class this port doesn't have.
    */
   selectCopperLayerPair(): void;
+  /**
+   * `EDA_BASE_FRAME::ShowInfoBarError( aErrorMsg, aShowCloseButton )`: the
+   * window's infobar, error icon, 8 s. Optional: a frame with no window
+   * (tests, headless callers) shows nothing.
+   */
+  showInfoBarError?(aErrorMsg: string, aShowCloseButton: boolean): void;
 }
 
 export interface PCB_EDIT_FRAME
   extends INITPCB_MIXIN,
     EDIT_MIXIN,
     FILES_MIXIN,
-    EDIT_ZONE_HELPERS_MIXIN {}
+    EDIT_ZONE_HELPERS_MIXIN,
+    PCBNEW_CONFIG_MIXIN {}
 
 // biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (INITPCB_MIXIN mixin, see libs/core/mixins.ts)
 export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
@@ -314,6 +323,24 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
       screen.m_Route_Layer_TOP = pair.GetLayerA();
       screen.m_Route_Layer_BOTTOM = pair.GetLayerB();
     });
+  }
+
+  /**
+   * `PCB_SELECTION_TOOL::m_filter`, which `GetFilter()` hands out
+   * (`pcb_selection_tool.h`). This port's selection tool is functions over
+   * the window's state, not a `TOOL_INTERACTIVE` holding a filter, so the
+   * filter lives on the frame the tool would be registered with.
+   */
+  private readonly m_selectionFilter = new PCB_SELECTION_FILTER_OPTIONS();
+
+  /** `GetToolManager()->GetTool<PCB_SELECTION_TOOL>()->GetFilter()`. */
+  GetSelectionFilter(): PCB_SELECTION_FILTER_OPTIONS {
+    return this.m_selectionFilter;
+  }
+
+  /** `EDA_BASE_FRAME::ShowInfoBarError( aErrorMsg, aShowCloseButton )` (eda_base_frame.cpp). */
+  ShowInfoBarError(aErrorMsg: string, aShowCloseButton = false): void {
+    this.hooks.showInfoBarError?.(aErrorMsg, aShowCloseButton);
   }
 
   /** `PCB_BASE_EDIT_FRAME::GetLayerPairSettings()` (`pcb_base_edit_frame.h:249`). */
@@ -807,7 +834,13 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   }
 }
 
-applyMixins(PCB_EDIT_FRAME, [INITPCB_MIXIN, EDIT_MIXIN, FILES_MIXIN, EDIT_ZONE_HELPERS_MIXIN]);
+applyMixins(PCB_EDIT_FRAME, [
+  INITPCB_MIXIN,
+  EDIT_MIXIN,
+  FILES_MIXIN,
+  EDIT_ZONE_HELPERS_MIXIN,
+  PCBNEW_CONFIG_MIXIN,
+]);
 
 /**
  * The React side's BOARD_LISTENER: whatever the board reports, the view is
