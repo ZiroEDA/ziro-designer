@@ -10,6 +10,7 @@ import type { Dispatch, JSX, SetStateAction } from 'react';
 import type { DXF_IMPORT_UNITS } from '@ziroeda/common/import_gfx/dxf_import_plugin.js';
 import type { PCB_LAYER_NAME } from '@ziroeda/common/layer_ids.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
+import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { pcbUnitTextMM, pcbUnitValueMM, unitLabel } from '../pcb_unit_binder.js';
 import type { Imported, Params } from './dialog_import_graphics.js';
@@ -52,6 +53,8 @@ export function DialogImportGraphicsBase({
   onOk,
   onCancel,
 }: DialogImportGraphicsBaseProps): JSX.Element {
+  // wxDialog's Esc is the Cancel button, registered where the backdrop renders.
+  useModalEscape(onCancel);
   const shown = (key: string, text: string): string => typed[key] ?? text;
 
   const num = (

@@ -44,7 +44,6 @@ import {
   DXF_IMPORT_PLUGIN,
   DXF_IMPORT_UNITS,
 } from '@ziroeda/common/import_gfx/dxf_import_plugin.js';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { DialogImportGraphicsBase } from './dialog_import_graphics_ui.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
 import type { PCB_LAYER_NAME } from '@ziroeda/common/layer_ids.js';
@@ -222,7 +221,6 @@ export function DialogImportGraphics({
   onCancel,
 }: Props): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask.
-  useModalEscape(onCancel);
 
   const [file, setFile] = useState<{ name: string; text: string } | null>(null);
   const [params, setParams] = useState<Params>(DEFAULT_PARAMS);

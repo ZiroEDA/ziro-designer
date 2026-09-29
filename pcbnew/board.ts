@@ -4001,6 +4001,10 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
 
     this.m_connectivity.Remove(aBoardItem);
 
+    // BOARD::Remove (board.cpp, 10.0.6) bumps the timestamp, which drops the
+    // courtyard index and the other timestamp-keyed caches.
+    this.IncrementTimeStamp();
+
     if (aRemoveMode !== REMOVE_MODE.BULK)
       this.InvokeListeners((l) => l.OnBoardItemRemoved(this, aBoardItem));
   }
