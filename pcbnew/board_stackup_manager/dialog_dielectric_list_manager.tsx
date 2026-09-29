@@ -7,7 +7,7 @@
  * tree — `DIALOG_DIELECTRIC_MATERIAL_BASE`: Material / Epsilon R / Loss Tan
  * fields over a two-column-plus-name `wxListCtrl`, OK/Cancel) and
  * `dialog_dielectric_list_manager.h`/`.cpp` (`DIALOG_DIELECTRIC_MATERIAL`,
- * the behaviour on top of it). Extracted 2026-09-29 from `panel_pcb_stackup.tsx`,
+ * the behaviour on top of it). Extracted 2026-09-29 from `panel_board_stackup.tsx`,
  * where the whole dialog had been inlined — a moves-only extraction (the
  * router file-structure parity pass): same state shape, same handlers, same
  * validation, now behind a props boundary matching upstream's constructor
@@ -34,7 +34,7 @@
  * ("No substrate specified") before applying anything. Folded into one
  * `onSubmit(substrate | null)` here: Cancel, the "✕", and OK-with-an-empty
  * name all call it with `null` (nothing to apply, close); OK with a name
- * calls it with the substrate. The caller (`panel_pcb_stackup.tsx`) is the
+ * calls it with the substrate. The caller (`panel_board_stackup.tsx`) is the
  * one place that knows what "apply" means for a given row, so it stays the
  * one place that decides; this component only ever closes.
  */

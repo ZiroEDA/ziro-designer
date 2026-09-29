@@ -589,16 +589,16 @@ all).
   `board_stackup_reporter`, `dielectric_material`, `stackup_predefined_prms`,
   `panel_board_finish.tsx` all match. `dialog_dielectric_list_manager(_base)`
   → `dialog_dielectric_list_manager.tsx` (`DialogDielectricMaterial`, 09-29):
-  extracted from `pcbnew/dialogs/panels/panel_pcb_stackup.tsx`, where the
+  extracted from `panel_board_stackup.tsx` (then `dialogs/panels/panel_pcb_stackup.tsx`), where the
   whole dialog had been inlined rather than living in its own file — a
   moves-only extraction, wired at the same call site
   (`PanelPcbStackup`'s material "…" button, matching `onMaterialChange`,
   `panel_board_stackup.cpp:1417-1490`). 15 new tests
   (`dialog_dielectric_list_manager.test.tsx`); the panel's own existing
-  19-test suite (`physical_stackup_rows.test.tsx`) still green. Only
-  `panel_board_stackup(_base)` itself remains — the panel's own `.tsx`, at
-  `pcbnew/dialogs/panels/panel_pcb_stackup.tsx`, dialogs/, off-limits this
-  pass.
+  19-test suite (`physical_stackup_rows.test.tsx`) still green. The
+  panel itself moved in (09-29) from `dialogs/panels/panel_pcb_stackup.tsx` to
+  `panel_board_stackup.tsx` (`PanelPcbStackup` keeps its name); it had no
+  designer/ imports, so no seam was needed. 7 KiCad, 7 ours, 0 extra.
 - `import_gfx/`: `graphics_importer_pcbnew.ts` matches. **Not ported:**
   `dialog_import_graphics(_base).cpp` — no Import Graphics dialog exists
   anywhere in the tree.

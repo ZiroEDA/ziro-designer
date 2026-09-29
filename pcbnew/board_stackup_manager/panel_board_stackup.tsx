@@ -39,23 +39,20 @@ import {
   type DielectricSublayer,
   type PhysicalStackup,
   type StackupLayer,
-} from '../../board_settings.js';
+} from '../board_settings.js';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import type { Color4d } from '@ziroeda/common/gal/color4d.js';
-import { BOARD_STACKUP_ITEM_TYPE } from '../../board_stackup_manager/board_stackup.js';
+import { BOARD_STACKUP_ITEM_TYPE } from './board_stackup.js';
 import {
   DIELECTRIC_SUBSTRATE,
   DIELECTRIC_SUBSTRATE_LIST,
   DL_MATERIAL_LIST_TYPE,
-} from '../../board_stackup_manager/dielectric_material.js';
-import { GetStandardColors } from '../../board_stackup_manager/stackup_predefined_prms.js';
-import { BuildStackupReport } from '../../board_stackup_manager/board_stackup_reporter.js';
-import {
-  DialogDielectricMaterial,
-  type Substrate,
-} from '../../board_stackup_manager/dialog_dielectric_list_manager.js';
+} from './dielectric_material.js';
+import { GetStandardColors } from './stackup_predefined_prms.js';
+import { BuildStackupReport } from './board_stackup_reporter.js';
+import { DialogDielectricMaterial, type Substrate } from './dialog_dielectric_list_manager.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
-import { stackupFromView } from '../board_setup_transfer.js';
+import { stackupFromView } from '../dialogs/board_setup_transfer.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { stringFromValue } from '@ziroeda/common/widgets/unit_binder.js';
 import { EdaListDialog } from '@ziroeda/common/dialogs/eda_list_dialog.js';
@@ -68,7 +65,7 @@ export {
   type DielectricSublayer,
   type PhysicalStackup,
   type StackupLayer,
-} from '../../board_settings.js';
+} from '../board_settings.js';
 
 const COPPER_COUNTS = [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32];
 

@@ -210,7 +210,7 @@ import { PanelPcbTeardrops } from './panel_setup_teardrops.js';
 import { PanelPcbTuning } from './panel_setup_tuning_patterns.js';
 import { PanelPcbTuningProfiles } from './panel_setup_tuning_profiles.js';
 import { PanelPcbBoardFinish } from '../board_stackup_manager/panel_board_finish.js';
-import { PanelPcbStackup } from './panels/panel_pcb_stackup.js';
+import { PanelPcbStackup } from '../board_stackup_manager/panel_board_stackup.js';
 import { PanelPcbComponentClasses } from './panel_pcb_component_classes.js';
 import { PanelPcbCustomRules } from './panel_setup_rules.js';
 import { clampMaxErrorMM, copperStackNames, syncCopperLayers } from '../board_settings.js';
