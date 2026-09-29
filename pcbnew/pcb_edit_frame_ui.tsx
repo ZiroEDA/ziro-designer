@@ -10895,6 +10895,11 @@ export function PcbEditor({
       case 'showFootprintEditor':
         onShowFootprintEditor?.();
         break;
+      // `ACTIONS::showFootprintBrowser` -> `COMMON_CONTROL::ShowPlayer`:
+      // `Kiway().Player( FRAME_FOOTPRINT_VIEWER, true )`, then raise it.
+      case 'footprintBrowser':
+        kiway?.Player(FRAME_T.FRAME_FOOTPRINT_VIEWER);
+        break;
       case 'showProjectManager':
       case 'close':
         closeFrame();

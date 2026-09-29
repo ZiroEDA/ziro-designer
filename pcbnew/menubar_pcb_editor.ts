@@ -375,7 +375,14 @@ export function buildPcbMenus(
           ],
         },
         { sep: true },
-        { label: 'Footprint Library Browser', disabled: dis },
+        // `ACTIONS::showFootprintBrowser` (actions.cpp:1291-1297), which
+        // COMMON_CONTROL runs as `ShowPlayer( FRAME_FOOTPRINT_VIEWER )`. No
+        // hotkey; the icon is `library_browser`, the toolbar button's.
+        {
+          label: 'Footprint Library Browser',
+          icon: 'footprintBrowser',
+          action: () => h.action('footprintBrowser'),
+        },
         {
           label: '3D Viewer',
           icon: 'threeDViewer',

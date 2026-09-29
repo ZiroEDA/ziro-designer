@@ -1604,9 +1604,15 @@ export function FootprintEditFrame({
         case 'openPreferences':
           setPrefsOpen(true);
           break;
+        // `ACTIONS::showFootprintBrowser` -> `COMMON_CONTROL::ShowPlayer`:
+        // `Kiway().Player( FRAME_FOOTPRINT_VIEWER, true )` and raise it.
+        case 'showFootprintBrowser':
+          kiway?.Player(FRAME_T.FRAME_FOOTPRINT_VIEWER);
+          break;
       }
     },
     [
+      kiway,
       save,
       saveAll,
       revert,
