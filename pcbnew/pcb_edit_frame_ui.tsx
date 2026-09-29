@@ -13,7 +13,7 @@
 import type { OutStr } from '@ziroeda/common/eda_item.js';
 import { type ARC_EDIT_MODE, FRAME_T } from '@ziroeda/common/frame_type.js';
 import type { KIWAY } from '@ziroeda/common/kiway.js';
-import type { PCBNEW_APP } from './pcbnew_app.js';
+import type { PCBNEW_APP } from './browser/pcbnew_app.js';
 import { jsonFileWildcard, reportFileWildcard } from '@ziroeda/common/wildcards_and_files_ext.js';
 import { DialogAssignNetclass } from '@ziroeda/common/dialogs/dialog_assign_netclass.js';
 import { connectedItemIdsOnNets } from './edit-board.js';
@@ -38,7 +38,7 @@ import { drawPolygonItem } from '@ziroeda/common/preview_items/polygon_item.js';
 import { DialogRuleAreaProperties } from './dialogs/dialog_rule_area_properties_ui.js';
 import type { PROGRESS_REPORTER_LIKE } from './connectivity/connectivity_algo.js';
 import { PROF_TIMER, traceAllegroPerf, wxLogTrace } from '@ziroeda/common/trace_helpers.js';
-import { placeVia } from './tools/drawing_tool.js';
+import { placeImportedItems, placeVia } from './tools/drawing_tool.js';
 import { DEFAULT_RULE_AREA_KEEPOUT } from './convert_shapes.js';
 import {
   collectPlacementSources,
@@ -255,6 +255,8 @@ import {
   DIALOG_BARCODE_PROPERTIES,
 } from './dialogs/dialog_barcode_properties.js';
 import { DialogBarcodeProperties } from './dialogs/dialog_barcode_properties_ui.js';
+import { AUTOPLACE_TOOL } from './autorouter/autoplace_tool.js';
+import { DialogImportGraphics } from './import_gfx/dialog_import_graphics.js';
 import { GetLayerName, IsCopperLayer } from '@ziroeda/common/layer_ids.js';
 import {
   boardIsEmpty,
@@ -264,7 +266,7 @@ import {
 import { Icon } from '@ziroeda/common/widgets/icons.js';
 import { applyPnsChanges, PnsSession } from './router/pns_session.js';
 import { PnsRouterMode } from './router/pns_router.js';
-import type { PnsDesignSettings } from './router/pns_board_iface.js';
+import type { PnsDesignSettings } from './router/pns_kicad_iface.js';
 import { Infobar } from '@ziroeda/common/widgets/wx_infobar.js';
 import { ReferenceImageCache } from './pcb_reference_image.js';
 import { buildPcbMenus } from './menubar_pcb_editor.js';
@@ -449,6 +451,7 @@ import { contextMenuPick } from './tools/pcb_selection_tool.js';
 import { parseDrcRules } from './drc/drc_rule_view.js';
 import { DialogTrackViaProperties } from './dialogs/dialog_track_via_properties_ui.js';
 import { DialogCopperZones } from './dialogs/dialog_copper_zones.js';
+import { SelectCopperLayerPairDialog } from './sel_layer.js';
 import { DialogFootprintProperties } from './dialogs/dialog_footprint_properties_ui.js';
 import {
   DIALOG_FOOTPRINT_PROPERTIES,
@@ -502,6 +505,7 @@ import { SKIP_TEARDROPS } from './board_commit.js';
 import {
   boardFromBOARD,
   boardItemOfViewId,
+  footprintViewOfBoard,
   tableView,
   viewIdOfBoardItem,
 } from './pcb_io/kicad_sexpr/board_view.js';
@@ -523,7 +527,8 @@ import { MessageDialogYesNoCancel } from '@ziroeda/common/dialogs/dialog_message
 import { commitViewToBoard } from './pcb_io/kicad_sexpr/board_view_commit.js';
 import { PCB_EDIT_FRAME, REACT_BOARD_LISTENER, pcbnewSettingsOf } from './pcb_edit_frame.js';
 import { FetchNetlistFromSchematic } from './netlist_from_schematic.js';
-import { addFootprintToHistory } from './widgets/footprint_history.js';
+import type { LIB_ID } from '@ziroeda/common/lib_id.js';
+import type { FOOTPRINT } from './footprint.js';
 import { parseFootprint } from './footprint_edit_frame.js';
 import {
   buildScene,
@@ -1100,7 +1105,7 @@ export function PcbEditor({
   /** What the program gives this window — PreferencesDialog, HomeLink,
    *  SaveAsDialog, the 3D viewer, the footprint chooser, the settings
    *  triad — the same seam `cvpcb`'s `CVPCB_APP` and `pagelayout_editor`'s
-   *  `PL_EDITOR_APP` already give theirs. See `pcbnew/pcbnew_app.ts`. */
+   *  `PL_EDITOR_APP` already give theirs. See `pcbnew/browser/pcbnew_app.ts`. */
   app: PCBNEW_APP;
   fileName: string;
   text: string;
@@ -1187,7 +1192,7 @@ export function PcbEditor({
    */
   readOnly?: boolean;
 }): JSX.Element {
-  // What the program gives this window (pcbnew/pcbnew_app.ts's PCBNEW_APP);
+  // What the program gives this window (pcbnew/browser/pcbnew_app.ts's PCBNEW_APP);
   // destructured once so the rest of this file's calls and JSX are
   // unchanged from when each of these was its own designer/ import.
   const {
@@ -1953,6 +1958,10 @@ export function PcbEditor({
     projectText: () => string | null;
     onEditItemRequest: (aItem: BOARD_ITEM | null) => void;
     editZoneParams: (zoneIndex: number) => void;
+    selectCopperLayerPair: () => void;
+    showInfoBarError: (aMsg: string) => void;
+    selectFootprintFromChooser: (aPreselect: string) => Promise<string | null>;
+    loadFootprintFromLibrary: (aId: LIB_ID, aKeepUUID: boolean) => Promise<FOOTPRINT | null>;
     findDialogRects: () => BOX2D[];
     setViewCenter: (aPos: KVec2, aRects: readonly BOX2D[]) => void;
   } | null>(null);
@@ -1978,6 +1987,12 @@ export function PcbEditor({
       projectText: () => drcWindowRef.current!.projectText(),
       onEditItemRequest: (aItem) => drcWindowRef.current!.onEditItemRequest(aItem),
       editZoneParams: (zoneIndex) => drcWindowRef.current!.editZoneParams(zoneIndex),
+      selectCopperLayerPair: () => drcWindowRef.current!.selectCopperLayerPair(),
+      showInfoBarError: (aMsg) => drcWindowRef.current?.showInfoBarError(aMsg),
+      selectFootprintFromChooser: (aPreselect) =>
+        drcWindowRef.current!.selectFootprintFromChooser(aPreselect),
+      loadFootprintFromLibrary: (aId, aKeepUUID) =>
+        drcWindowRef.current!.loadFootprintFromLibrary(aId, aKeepUUID),
       showExchangeFootprintsDialog: () => {
         // DIALOG_EXCHANGE_FOOTPRINTS is not built (Edit > Change Footprints... is
         // greyed in the menu for the same reason).
@@ -1990,6 +2005,11 @@ export function PcbEditor({
       // so the parts are applied as a forced probe.
       syncSelection: (aParts) => applySyncSelectionRef.current(aParts, true),
       updatePcbFromSchematic: () => void openUpdatePcbRef.current(),
+      // The Footprint Library Browser's Insert: `PlacingFootprint()` and the
+      // placement it posts. Both read the placement state declared below.
+      placingFootprint: () => placeFpRef.current !== null,
+      placeFootprintFromLibrary: (aFpid, aFootprint) =>
+        placeFromBrowserRef.current(aFpid, aFootprint),
       setHighlightNets: (aNetCodes) =>
         setHighlightNets((prev) =>
           prev.size === aNetCodes.size && [...aNetCodes].every((c) => prev.has(c))
@@ -2184,6 +2204,8 @@ export function PcbEditor({
   // Track & Via Properties (DIALOG_TRACK_VIA_PROPERTIES), opened by E or a
   // double-click on a copper item.
   const [trackViaOpen, setTrackViaOpen] = useState(false);
+  // Set Layer Pair... (SELECT_COPPER_LAYERS_PAIR_DIALOG), Edit > Route.
+  const [layerPairDialogOpen, setLayerPairDialogOpen] = useState(false);
   // The KIDIALOGs its OK asks (confirmShortingNets, confirmPadChange).
   const { ask: askKiDialog, node: kiDialogNode } = useKiDialog();
   // Copper Zone Properties (DIALOG_COPPER_ZONE), on the selected zone.
@@ -2419,6 +2441,8 @@ export function PcbEditor({
     at: { x: number; y: number };
     index?: number;
   } | null>(null);
+  // `DRAWING_TOOL::PlaceImportedGraphics`'s dialog (File > Import > Graphics).
+  const [importGraphicsOpen, setImportGraphicsOpen] = useState(false);
   // Pending "Copper Zone Properties" dialog: the zone's first corner.
   const [zoneDialog, setZoneDialog] = useState<{
     at: { x: number; y: number };
@@ -2462,6 +2486,10 @@ export function PcbEditor({
   const placeFpSceneRef = useRef<{ at: { x: number; y: number }; scene: BoardScene } | null>(null);
   /** `SelectFootprintFromLibrary`'s FOOTPRINT_CHOOSER_FRAME is open. */
   const [fpChooserOpen, setFpChooserOpen] = useState(false);
+  /** The `LIB_ID` text the chooser opens on (`SelectFootprintFromLibrary`'s `aPreselect`). */
+  const [fpChooserPreselect, setFpChooserPreselect] = useState('');
+  /** What the open chooser answers, `SelectFootprintFromLibrary` being `await`ing it. */
+  const fpChooserResolveRef = useRef<((aLibId: string | null) => void) | null>(null);
   /**
    * `ROUTER_TOOL`'s router: the PNS session that owns the route in flight,
    * single track or differential pair by `PNS::ROUTER_MODE`, from the click
@@ -2514,6 +2542,8 @@ export function PcbEditor({
     // dropped, never committed (board_editor_control.cpp:1447-1461).
     placeFpRef.current = null;
     placeFpSceneRef.current = null;
+    fpChooserResolveRef.current?.(null);
+    fpChooserResolveRef.current = null;
     setFpChooserOpen(false);
   }, [activeTool]);
   const sceneRef = useRef<BoardScene | null>(null);
@@ -2961,6 +2991,51 @@ export function PcbEditor({
             false,
             projectDirRef.current,
           );
+          // `LoadProjectSettings` (files.cpp:907) filled the frame's display
+          // options, the painter's hidden nets and the selection filter from
+          // the .kicad_prl; this window's Appearance state starts from them.
+          if (frame.GetCanvas()) {
+            const o = frame.GetDisplayOptions();
+            setOpacity({
+              tracks: o.m_TrackOpacity,
+              vias: o.m_ViaOpacity,
+              pads: o.m_PadOpacity,
+              zones: o.m_ZoneOpacity,
+              images: o.m_ImageOpacity,
+              filledShapes: o.m_FilledShapeOpacity,
+            });
+            setContrast(
+              o.m_ContrastModeDisplay === HIGH_CONTRAST_MODE.HIDDEN
+                ? 'hide'
+                : o.m_ContrastModeDisplay === HIGH_CONTRAST_MODE.DIMMED
+                  ? 'dim'
+                  : 'normal',
+            );
+            setNetColorMode(
+              o.m_NetColorMode === NET_COLOR_MODE.ALL
+                ? 'all'
+                : o.m_NetColorMode === NET_COLOR_MODE.OFF
+                  ? 'off'
+                  : 'ratsnest',
+            );
+            setToggles((prev) =>
+              applyToggle(
+                prev,
+                o.m_ZoneDisplayMode === ZONE_DISPLAY_MODE.SHOW_ZONE_OUTLINE
+                  ? 'zoneDisplayOutline'
+                  : 'zoneDisplayFilled',
+              ),
+            );
+            const loadedPanel = panelRef.current;
+            if (loadedPanel) {
+              const render = (loadedPanel.GetView().GetPainter() as PCB_PAINTER).GetSettings();
+              setHiddenNets(new Set(render.GetHiddenNets()));
+            }
+            const loadedFilter = frame.GetSelectionFilter() as unknown as Record<string, unknown>;
+            setSelFilter(
+              new Set(Object.keys(loadedFilter).filter((k) => loadedFilter[k] === true)),
+            );
+          }
           wxLogTrace(
             traceAllegroPerf,
             () => `Post-load DRC engine: ${postLoadTimer.msecs(true).toFixed(3)} ms`,
@@ -5421,6 +5496,35 @@ export function PcbEditor({
     },
     /** `PCB_EDIT_FRAME::Edit_Zone_Params`'s actual open: the rendering trigger. */
     editZoneParams: (zoneIndex: number): void => setZonePropsIndex(zoneIndex),
+    /** `ROUTER_TOOL::SelectCopperLayerPair`'s actual open: the rendering trigger. */
+    selectCopperLayerPair: (): void => setLayerPairDialogOpen(true),
+    /** `EDA_BASE_FRAME::ShowInfoBarError`: this window's infobar. */
+    showInfoBarError: (aMsg: string): void => setInfoBarError(aMsg),
+    /**
+     * `Kiway().Player( FRAME_FOOTPRINT_CHOOSER )->ShowModal( &footprintName )`
+     * (`SelectFootprintFromLibrary`): the chooser opens, and the answer is what
+     * `onFootprintChosen` / `onFootprintChooserCancel` resolve.
+     */
+    selectFootprintFromChooser: (aPreselect: string): Promise<string | null> =>
+      new Promise((resolve) => {
+        fpChooserResolveRef.current?.(null);
+        fpChooserResolveRef.current = resolve;
+        setFpChooserPreselect(aPreselect);
+        setFpChooserOpen(true);
+      }),
+    /**
+     * `FOOTPRINT_LIBRARY_ADAPTER::LoadFootprintWithOptionalNickname`: the hosted
+     * library's footprint, a copy the frame owns. A frame that does not keep the
+     * library's UUIDs gets `Duplicate`'s fresh ones (`FootprintLoad`).
+     */
+    loadFootprintFromLibrary: async (
+      aId: LIB_ID,
+      aKeepUUID: boolean,
+    ): Promise<FOOTPRINT | null> => {
+      const lib = await loadFootprint(aId.Format());
+      if (!lib?.k) return null;
+      return aKeepUUID ? (lib.k.Clone() as FOOTPRINT) : (lib.k.Duplicate(false) as FOOTPRINT);
+    },
     // findDialogs(): the DRC dialog is the one modeless dialog of this frame; its
     // rect in canvas client pixels, as ScreenToClient( dialog->GetScreenPosition() ).
     findDialogRects: (): BOX2D[] => {
@@ -7595,7 +7699,7 @@ export function PcbEditor({
     const pf = placeFpRef.current;
     const brd = boardRef.current;
     if (!pf) {
-      setFpChooserOpen(true);
+      selectFootprintFromLibrary();
       return;
     }
     if (!brd) return;
@@ -7617,19 +7721,32 @@ export function PcbEditor({
    * orientation 0, reference as the library wrote it (REF**): upstream
    * annotates nothing here.
    */
-  const onFootprintChosen = (libId: string): void => {
-    setFpChooserOpen(false);
-    void loadFootprint(libId).then((lib) => {
-      if (!lib) return;
-      // `AddFootprintToHistory( footprintName )` (load_select_footprint.cpp:221)
-      // — on a successful load, and this is the only caller that adds.
-      addFootprintToHistory(libId);
+  const selectFootprintFromLibrary = (): void => {
+    void frameRef.current!.SelectFootprintFromLibrary().then((footprint) => {
+      if (!footprint) return;
       // The tool may have been switched away while the chooser was open.
       if (activeToolRef.current !== 'placeFootprint') return;
-      placeFpRef.current = { lib, fpid: libId };
+      placeFpRef.current = {
+        lib: footprintViewOfBoard(footprint),
+        fpid: footprint.GetFPIDAsString(),
+      };
       updatePlaceFpPreview(snapToGrid(cursorRef.current ?? { x: 0, y: 0 }));
       requestDraw();
     });
+  };
+
+  /** The chooser answered: `ShowModal` returned, `footprintName` set. */
+  const onFootprintChosen = (libId: string): void => {
+    setFpChooserOpen(false);
+    fpChooserResolveRef.current?.(libId);
+    fpChooserResolveRef.current = null;
+  };
+
+  /** The chooser was cancelled: `ShowModal` returned 0. */
+  const onFootprintChooserCancel = (): void => {
+    setFpChooserOpen(false);
+    fpChooserResolveRef.current?.(null);
+    fpChooserResolveRef.current = null;
   };
 
   /**
@@ -7639,10 +7756,51 @@ export function PcbEditor({
    * footprint on the real pointer afterwards. With it off, the first click
    * opens it. The image tool takes the same arm.
    */
+  // biome-ignore lint/correctness/useExhaustiveDependencies: arming the tool is the trigger; the rest are read at that moment
   useEffect(() => {
     if (activeTool !== 'placeFootprint') return;
-    if (commonInputImmediateActionsLive()) setFpChooserOpen(true);
+    // `if( fp ) { … }` comes before the prime (:1408-1414): a footprint
+    // handed in by another command rides the cursor at once, no chooser.
+    const handed = browserFpRef.current;
+    if (handed) {
+      browserFpRef.current = null;
+      placeFpRef.current = handed;
+      updatePlaceFpPreview(snapToGrid(cursorRef.current ?? { x: 0, y: 0 }));
+      requestDraw();
+      return;
+    }
+    if (commonInputImmediateActionsLive()) selectFootprintFromLibrary();
   }, [activeTool]);
+
+  /**
+   * `FOOTPRINT_VIEWER_FRAME::AddFootprintToPCB`'s board half
+   * (`footprint_viewer_frame.cpp:735-779`): `selectionClear`, then
+   * `PostAction( PCB_ACTIONS::placeFootprint, newFootprint )` — the tool runs
+   * with the footprint as its parameter, so it is on the cursor at once and
+   * the next click commits it. `placeLibraryFootprint` is the copy: it
+   * clears the library's orphaned pad nets and places on the front.
+   *
+   * Arming the tool clears whatever was in flight (the `[activeTool]` effect
+   * above), so the footprint waits in `browserFpRef` for the prime effect to
+   * pick it up — unless the tool is already the placement tool, where no
+   * effect will run and it is placed on the cursor directly.
+   */
+  const browserFpRef = useRef<{ lib: PcbFootprint; fpid: string } | null>(null);
+  const placeFromBrowser = (aFpid: string, aFootprint: PcbFootprint): void => {
+    setSelection(new Set());
+    setFpChooserOpen(false);
+    if (activeToolRef.current === 'placeFootprint') {
+      placeFpRef.current = { lib: aFootprint, fpid: aFpid };
+      placeFpSceneRef.current = null;
+      updatePlaceFpPreview(snapToGrid(cursorRef.current ?? { x: 0, y: 0 }));
+      requestDraw();
+      return;
+    }
+    browserFpRef.current = { lib: aFootprint, fpid: aFpid };
+    setActiveTool('placeFootprint');
+  };
+  const placeFromBrowserRef = useRef(placeFromBrowser);
+  placeFromBrowserRef.current = placeFromBrowser;
 
   /**
    * `BOARD_DESIGN_SETTINGS` as `PNS_KICAD_IFACE_BASE::ImportSizes` reads it:
@@ -10602,6 +10760,42 @@ export function PcbEditor({
     URL.revokeObjectURL(a.href);
   }, [text, fileName]);
 
+  /**
+   * `PCB_EDIT_FRAME::SaveProjectLocalSettings` (`SavePcbFile` calls it once the
+   * board is written, files.cpp:1125): this window's Appearance state into the
+   * frame, the frame's into PROJECT_LOCAL_SETTINGS, and the two files
+   * `SETTINGS_MANAGER::SaveProject()` returns out to the project's file store.
+   */
+  const saveProjectLocalSettings = (): void => {
+    const frame = frameRef.current;
+    const savePanel = panelRef.current;
+    if (!frame || !savePanel || !frame.GetBoard()) return;
+    const hidden = (savePanel.GetView().GetPainter() as PCB_PAINTER).GetSettings().GetHiddenNets();
+    hidden.clear();
+    for (const code of hiddenNets) hidden.add(code);
+    const filter = frame.GetSelectionFilter() as unknown as Record<string, unknown>;
+    for (const key of Object.keys(filter))
+      if (typeof filter[key] === 'boolean') filter[key] = selFilter.has(key);
+    const saved = frame.SaveProjectLocalSettings();
+    if (!saved) return;
+    const files = projectFilesNow();
+    const pro = findProjectPro(files, rootPro);
+    if (!pro) return;
+    const baseOf = (name: string): string =>
+      (projectFiles ?? []).find((f) => f.name === name)?.text ?? '';
+    const persist: { name: string; text: string }[] = [];
+    const proText = DumpJson(saved.pro);
+    if (proText !== pro.text) persist.push({ name: pro.name, text: proText });
+    const prlName = pro.name.replace(/\.kicad_pro$/i, '.kicad_prl');
+    const prlText = DumpJson(saved.prl);
+    if (prlText !== files.find((f) => f.name === prlName)?.text)
+      persist.push({ name: prlName, text: prlText });
+    if (persist.length === 0) return;
+    for (const f of persist)
+      projectFileEditsRef.current.set(f.name, { base: baseOf(f.name), text: f.text });
+    onPersistFiles?.(persist);
+  };
+
   const onTopAction = (id: string): void => {
     switch (id) {
       case 'save':
@@ -10610,6 +10804,7 @@ export function PcbEditor({
         if (onSaveBoard) onSaveBoard(boardRef.current ? serializeBoard(boardRef.current) : text);
         else saveCopy();
         setDirty(false);
+        saveProjectLocalSettings();
         break;
       case 'undo':
         undo();
@@ -10768,6 +10963,29 @@ export function PcbEditor({
       case 'editTeardrops':
         setTeardropsOpen(true);
         break;
+      case 'importGraphics':
+        setImportGraphicsOpen(true);
+        break;
+      // `AUTOPLACE_TOOL::autoplaceSelected` / `autoplaceOffboard`: Place > Auto-Place Footprints.
+      case 'autoplaceSelected':
+      case 'autoplaceOffboard': {
+        const brd = boardRef.current;
+        if (!brd) break;
+        const tool = new AUTOPLACE_TOOL(false, {
+          // `PAD::GetOwnClearance( pad->GetLayer() )`
+          padClearance: (pad) =>
+            pad.k
+              ? pad.k.GetOwnClearance(pad.k.GetLayer())
+              : (brd.k?.GetDesignSettings().m_MinClearance ?? 0),
+        });
+        const r =
+          id === 'autoplaceSelected'
+            ? tool.autoplaceSelected(brd, selection)
+            : tool.autoplaceOffboard(brd);
+        if (r.error) setInfoBarError(r.error);
+        else if (r.pushed) commitBoard(r.board, { message: 'Autoplace Footprints' });
+        break;
+      }
       case 'zoneFillAll':
         fillAllZones();
         break;
@@ -10838,6 +11056,10 @@ export function PcbEditor({
       case 'routerSettingsDialog':
         setPnsSettingsOpen(true);
         break;
+      case 'selectLayerPair':
+        // `PCB_ACTIONS::selectLayerPair` -> `ROUTER_TOOL::SelectCopperLayerPair`.
+        frameRef.current?.SelectCopperLayerPair();
+        break;
       // Both resolution rows open the same DIALOG_BOARD_INSPECTOR; which report
       // it shows is decided by the selection, which is also what gates the rows.
       case 'inspectResolution':
@@ -10848,6 +11070,11 @@ export function PcbEditor({
         break;
       case 'showFootprintEditor':
         onShowFootprintEditor?.();
+        break;
+      // `ACTIONS::showFootprintBrowser` -> `COMMON_CONTROL::ShowPlayer`:
+      // `Kiway().Player( FRAME_FOOTPRINT_VIEWER, true )`, then raise it.
+      case 'footprintBrowser':
+        kiway?.Player(FRAME_T.FRAME_FOOTPRINT_VIEWER);
         break;
       case 'showProjectManager':
       case 'close':
@@ -11763,6 +11990,59 @@ export function PcbEditor({
           );
         })()}
 
+      {/* File > Import > Graphics. `DRAWING_TOOL::PlaceImportedGraphics`
+          (`drawing_tool.cpp:2044-2230`): the dialog runs the import live and
+          reports it, then this commits what it produced and — for
+          interactive placement — hands the new selection to the same move
+          gesture `startPostUpdateMoveRef` uses for a netlist update's spread
+          footprints, per `placeImportedItems`'s doc comment on why
+          that is the reused mechanism rather than an uncommitted preview. */}
+      {importGraphicsOpen && (
+        <DialogImportGraphics
+          units={unitLabel}
+          layers={board?.layers.map((l) => l.name) ?? []}
+          layerColor={layerColor}
+          activeLayer={activeLayer}
+          invertX={frameRef.current?.GetPcbNewSettings().m_Display.m_DisplayInvertXAxis ?? false}
+          invertY={frameRef.current?.GetPcbNewSettings().m_Display.m_DisplayInvertYAxis ?? false}
+          onCancel={() => setImportGraphicsOpen(false)}
+          onOk={(items, opts) => {
+            setImportGraphicsOpen(false);
+            const brd = boardRef.current;
+            if (!brd || items.length === 0) return;
+
+            const placed = placeImportedItems(items, opts);
+            let next = brd;
+            const ids: string[] = [];
+            for (const s of placed.shapes) {
+              const r = addBoardShape(next, s);
+              next = r.board;
+              ids.push(r.id);
+            }
+            for (const t of placed.texts) {
+              const r = addBoardText(next, t);
+              next = r.board;
+              ids.push(r.id);
+            }
+
+            // `boardItemCount >= 2` (`drawing_tool.cpp:2087`): a group is only
+            // worth making for two items or more.
+            let selectIds = new Set(ids);
+            if (opts.group && ids.length >= 2) {
+              const g = groupBoardItems(next, new Set(ids));
+              if (g.id) {
+                next = g.board;
+                selectIds = new Set([g.id]);
+              }
+            }
+
+            commitBoard(next);
+            setSelection(selectIds);
+            if (opts.interactive) beginMove(selectIds, 'move', { x: 0, y: 0 });
+          }}
+        />
+      )}
+
       {/* `DRAWING_TOOL::PlaceText` builds the PCB_TEXT and opens the SAME
           dialog an existing text opens (`drawing_tool.cpp:144`), so this is
           `DialogTextProperties` and not a second, smaller one. It was a
@@ -11774,7 +12054,8 @@ export function PcbEditor({
       {fpChooserOpen && (
         <FootprintChooserFrame
           onOk={onFootprintChosen}
-          onCancel={() => setFpChooserOpen(false)}
+          onCancel={onFootprintChooserCancel}
+          {...(fpChooserPreselect ? { preselect: fpChooserPreselect } : {})}
           loadFootprintIndex={loadFootprintIndex}
           loadFootprint={loadFootprint}
         />
@@ -12180,6 +12461,14 @@ export function PcbEditor({
             />
           );
         })()}
+      {layerPairDialogOpen && frameRef.current && frameRef.current.GetBoard() && (
+        <SelectCopperLayerPairDialog
+          board={frameRef.current.GetBoard()!}
+          theme={theme}
+          layerPairSettings={frameRef.current.GetLayerPairSettings()}
+          onClose={() => setLayerPairDialogOpen(false)}
+        />
+      )}
       {kiDialogNode}
       {moveExactOpen && board && (
         <DialogMoveExact

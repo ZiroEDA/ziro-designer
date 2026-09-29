@@ -26,7 +26,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
-import { SYMBOL_EDITOR_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
+import { SYMBOL_EDITOR_DEFAULTS } from '@ziroeda/eeschema/symbol_editor/symbol_editor_settings.js';
 import { colorThemeOptions } from '@ziroeda/common/dialogs/panel_color_settings.js';
 import { UPSTREAM_BOOK, shippedUnder } from '@ziroeda/designer/src/dialogs/prefs/registry.js';
 
@@ -62,7 +62,7 @@ describe('the reader is GetColorSettings, not a second theme id', () => {
   });
 
   it('and the frame calls it instead of the schematic’s', () => {
-    const frame = read('editors/symbol/SymbolEditor.tsx');
+    const frame = read('../../eeschema/symbol_editor/symbol_edit_frame_ui.tsx');
     expect(frame).toContain('const theme = useSymbolEditorTheme();');
     // The bug this replaces: `useSchematicTheme()` is the first branch taken
     // unconditionally, so both controls on the page would be dead. Checked on

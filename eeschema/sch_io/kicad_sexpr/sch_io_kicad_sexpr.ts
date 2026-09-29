@@ -121,7 +121,9 @@ const PosixPath = {
   makeRelativeTo: (p: string, aBase: string): string => {
     const base = aBase.replace(/\/+$/, '');
 
-    if (base !== '' && p.startsWith(`${base}/`)) return p.substring(base.length + 1);
+    // The filesystem root is a base too: "/" strips to "", which every absolute path is under.
+    if ((base !== '' || aBase.startsWith('/')) && p.startsWith(`${base}/`))
+      return p.substring(base.length + 1);
 
     return p;
   },
@@ -737,6 +739,10 @@ export class SCH_IO_KICAD_SEXPR {
             for (const name of [...instance.m_Variants.keys()].sort(cpCmp)) {
               const variant = instance.m_Variants.get(name)!;
 
+              // A variant without differentials resolves identically to no variant,
+              // writing it only keeps deleted variants alive across sessions.
+              if (!variant.HasDifferentials(aSymbol)) continue;
+
               out.Print(`(variant (name ${out.Quotew(name)})`);
 
               if (variant.m_DNP !== aSymbol.GetDNP()) FormatBool(out, 'dnp', variant.m_DNP);
@@ -940,6 +946,10 @@ export class SCH_IO_KICAD_SEXPR {
         if (inst.m_Variants.size > 0) {
           for (const name of [...inst.m_Variants.keys()].sort(cpCmp)) {
             const variant = inst.m_Variants.get(name)!;
+
+            // A variant without differentials resolves identically to no variant,
+            // writing it only keeps deleted variants alive across sessions.
+            if (!variant.HasDifferentials(aSheet)) continue;
 
             out.Print(`(variant (name ${out.Quotew(name)})`);
 

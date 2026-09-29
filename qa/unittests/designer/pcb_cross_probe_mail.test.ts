@@ -79,6 +79,7 @@ function setup(): Env {
     setHighlightNets: (codes) => highlights.push([...codes].sort((a, b) => a - b)),
     syncSelection: (parts, conn) => synced.push([[...parts], conn]),
     editZoneParams: () => {},
+    selectCopperLayerPair: () => {},
     updatePcbFromSchematic: () => {
       updates += 1;
     },

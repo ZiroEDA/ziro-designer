@@ -1,0 +1,12 @@
+Ref,Val,Package,PosX,PosY,Rot,Side
+"C1","10uF","CP_Radial_D10.0mm_P5.00mm",5.575000,-3.925000,90.000000,top
+"C2","680nF","C_Disc_D4.7mm_W2.5mm_P5.00mm",5.400000,-4.925000,90.000000,top
+"P1","IN","Altech_AK300_1x02_P5.00mm_45-Degree",6.550000,-4.150000,90.000000,top
+"P2","OUT","Altech_AK300_1x02_P5.00mm_45-Degree",5.050000,-4.440000,-90.000000,top
+"P3","POWER","Altech_AK300_1x02_P5.00mm_45-Degree",5.050000,-3.965000,-90.000000,top
+"P4","CONN_2","Altech_AK300_1x02_P5.00mm_45-Degree",5.730000,-5.165000,0.000000,top
+"R1","1.5K","R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal",5.365000,-4.250000,-90.000000,top
+"R2","1.5K","R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal",6.150000,-3.775000,180.000000,top
+"R3","100K","R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal",5.275000,-4.925000,180.000000,top
+"R4","47K","R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal",6.475000,-4.625000,-90.000000,top
+"U1","ECC83","Valve_ECC-83-1",5.875000,-4.475000,0.000000,top

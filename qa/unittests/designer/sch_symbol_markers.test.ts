@@ -18,16 +18,17 @@
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic } from '@ziroeda/eeschema';
-import { renderSchematic, setVectorText } from '@ziroeda/eeschema/sch_painter.js';
-import { DEFAULT_RENDER_OPTS } from '@ziroeda/eeschema/sch_render_settings.js';
-import { KICAD_DEFAULT } from '@ziroeda/eeschema/sch_render_settings.js';
 import {
   DNP_MARKER_STROKE_WIDTH,
   SIM_EXCLUSION_STROKE_WIDTH,
+  dimmedColor,
   dnpMarkerSegments,
+  renderSchematic,
+  setVectorText,
   simExclusionMarker,
-} from '@ziroeda/eeschema/symbol_markers.js';
-import { dimmedColor } from '@ziroeda/eeschema/render_color.js';
+} from '@ziroeda/eeschema/sch_painter.js';
+import { DEFAULT_RENDER_OPTS } from '@ziroeda/eeschema/sch_render_settings.js';
+import { KICAD_DEFAULT } from '@ziroeda/eeschema/sch_render_settings.js';
 import { BUILTIN_DEFAULT_THEME } from '@ziroeda/common/settings/builtin_color_themes.js';
 import { toCssColor } from '@ziroeda/common';
 import { symbolBodyBBox, type BBox } from '@ziroeda/eeschema/tools/bbox.js';

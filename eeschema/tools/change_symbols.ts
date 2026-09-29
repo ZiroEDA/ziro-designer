@@ -32,6 +32,7 @@ import { flattenLibSymbol } from '../lib_symbol.js';
 import type { EditCommand } from './command.js';
 import { refId } from './hittest.js';
 import { clearAlternates } from './pin_alternates.js';
+import type { PickedSymbol } from '../picksymbol.js';
 
 export type ChangeSymbolsMode = 'change' | 'update';
 
@@ -461,4 +462,54 @@ export function changeSymbolsCommand(
     invert: (before: Schematic) => make(before),
   });
   return { command: make(after), messages, processed };
+}
+
+// ---- DIALOG_CHANGE_SYMBOLS's contract (the dialog is designer's, reached
+// through EESCHEMA_APP.DialogChangeSymbols) ----
+
+/**
+ * The symbol the dialog was opened ON, when it was opened from one — Symbol
+ * Properties' "Update Symbol from Library..." passes the symbol it is editing.
+ * `DIALOG_CHANGE_SYMBOLS` takes it as its second constructor argument and seeds
+ * all three entries from it (`TransferDataToWindow`, :146-152).
+ */
+export interface ChangeSymbolsSubject {
+  /** `m_symbol->GetRef( currentSheet )`. */
+  reference: string;
+  /** `UnescapeString( m_symbol->GetField( FIELD_T::VALUE )->GetText() )`. */
+  value: string;
+  /** `UnescapeString( m_symbol->GetLibId().Format() )`. */
+  libId: string;
+  /** `m_symbol->IsSelected()`, which decides the opening radio. */
+  isSelected: boolean;
+}
+
+export interface DialogChangeSymbolsProps {
+  mode: ChangeSymbolsMode;
+  /**
+   * The checklist's contents FOR A GIVEN MATCH. `updateFieldsList()` is re-run
+   * from every match handler upstream (`onMatchByAll`, `onMatchBySelected`, …),
+   * because the list is built from the symbols the match selects — choosing a
+   * different scope offers a different set of fields.
+   */
+  fieldNamesFor: (match: SymbolMatch) => readonly string[];
+  hasSelection: boolean;
+  /**
+   * The symbol this was opened on, if any. Absent when the dialog is opened
+   * from the Tools menu rather than from a symbol — and then upstream HIDES the
+   * "selected symbol(s)" radio outright:
+   *   `if( !m_symbol ) m_matchSizer->FindItem( m_matchBySelection )->Show( false )`.
+   */
+  subject?: ChangeSymbolsSubject;
+  /** Report lines from the last run; the dialog stays open to show them. */
+  messages: readonly ChangeSymbolsMessage[];
+  onApply: (o: ChangeSymbolsOptions) => void;
+  onClose: () => void;
+  /**
+   * `s_SymbolHistoryList`, for the chooser the two browse buttons open.
+   * SYMBOL_CHOOSER_FRAME passes the same global list the Place Symbol chooser
+   * uses (symbol_chooser_frame.cpp:86), so a symbol placed a moment ago is
+   * under "Recently Used" here too.
+   */
+  chooserHistory?: readonly PickedSymbol[];
 }

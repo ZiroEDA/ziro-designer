@@ -19,9 +19,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const text = readFileSync(
-  fileURLToPath(
-    new URL('../../../designer/src/editors/schematic/SchematicEditor.tsx', import.meta.url),
-  ),
+  fileURLToPath(new URL('../../../eeschema/sch_edit_frame_ui.tsx', import.meta.url)),
   'utf8',
 );
 

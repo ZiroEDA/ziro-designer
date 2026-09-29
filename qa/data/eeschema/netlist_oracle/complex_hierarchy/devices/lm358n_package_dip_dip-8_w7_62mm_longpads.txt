@@ -1,0 +1,23 @@
+PACKAGE 'dip-8_w7_62mm_longpads'
+CLASS IC
+PINCOUNT 8
+PINORDER MAIN ,
+	__1,
+	-__2,
+	+__3,
+	V-__4,
+	+__5,
+	-__6,
+	__7,
+	V+__8
+FUNCTION MAIN MAIN ,
+	1,
+	2,
+	3,
+	4,
+	5,
+	6,
+	7,
+	8
+PACKAGEPROP VALUE LM358N
+END

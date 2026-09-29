@@ -1,0 +1,11 @@
+(NETLIST)
+(Source: /home/akshay/ziro-designer-1/qa/data/eeschema/netlist_oracle_cases/multi/multi.kicad_sch)
+(Date: 2026-09-29T07:21:26)
+$PACKAGES
+! 'dual_f' ! 'DUAL' ; U1
+$A_PROPERTIES
+'ROOM' 'multi' ; U1
+$NETS
+'UNCONNECTED-(U1-PAD1)'; U1.1
+'UNCONNECTED-(U1-PAD2)'; U1.2
+$END

@@ -293,9 +293,7 @@ describe('the schematic editor hands the rotate command the preference', () => {
   // fix found the code in. Comments are stripped so a commented-out call
   // cannot satisfy it.
   const src = readFileSync(
-    fileURLToPath(
-      new URL('../../../designer/src/editors/schematic/SchematicEditor.tsx', import.meta.url),
-    ),
+    fileURLToPath(new URL('../../../eeschema/sch_edit_frame_ui.tsx', import.meta.url)),
     'utf8',
   )
     .split('\n')

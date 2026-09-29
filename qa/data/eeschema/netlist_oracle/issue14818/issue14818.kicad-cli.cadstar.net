@@ -1,0 +1,9 @@
+.HEA
+.TIM 2026-09-29T06:55:56
+.APP "Eeschema 10.0.6-10.0.6~ubuntu24.04.1"
+.TYP FULL
+
+.ADD_COM     TP1     "TestPoint"     "$noname"
+
+
+.END

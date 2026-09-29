@@ -16,7 +16,7 @@
  *
  * and the grid is the SHARED `LAYER_PROPERTIES_GRID_TABLE`, not one built here
  * — `panel_zone_properties.cpp` puts the same table in the per-zone dialog, so
- * it lives in `widgets/zone_layer_properties_grid.tsx`.
+ * it lives in `zone_layer_properties_grid.tsx` (pcbnew root, as KiCad's .h).
  *
  * Which rows exist is `TransferDataToWindow()` (`:63-78`):
  *
@@ -32,7 +32,7 @@
 
 import type { JSX } from 'react';
 import type { ZoneLayerPropertiesMap } from '../../board_settings.js';
-import { ZoneLayerPropertiesGrid } from '../../widgets/zone_layer_properties_grid.js';
+import { ZoneLayerPropertiesGrid } from '../../zone_layer_properties_grid.js';
 
 // The data model lives in board_settings.ts (KiCad's data/UI split);
 // re-exported so panel users keep importing from the panel module.

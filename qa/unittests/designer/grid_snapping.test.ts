@@ -39,11 +39,8 @@ import {
   type GridSnapping,
 } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
 import { GRID_SNAP_CHOICES } from '@ziroeda/common/dialogs/panel_gal_options.js';
-import {
-  GERBVIEW_DEFAULTS,
-  PL_EDITOR_DEFAULTS,
-  SYMBOL_EDITOR_DEFAULTS,
-} from '@ziroeda/designer/src/prefs/settings.js';
+import { GERBVIEW_DEFAULTS, PL_EDITOR_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
+import { SYMBOL_EDITOR_DEFAULTS } from '@ziroeda/eeschema/symbol_editor/symbol_editor_settings.js';
 import { EESCHEMA_DEFAULTS } from '@ziroeda/eeschema/eeschema_settings.js';
 
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
@@ -106,7 +103,7 @@ describe('every app defaults to ALWAYS, so the sweep changed no default', () => 
 /** Where each editor snaps, and which settings object is the right one there. */
 const CANVAS: Record<string, string> = {
   eeschema: 'editors/schematic/components/SchematicCanvas.tsx',
-  symbol_editor: 'editors/symbol/grid.ts',
+  symbol_editor: '../../eeschema/symbol_editor/grid.ts',
 };
 
 /** The settings-object expression each canvas must reach for. */

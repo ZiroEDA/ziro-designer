@@ -1,0 +1,19 @@
+( { EESchema Netlist Version 1.1 created  2026-09-29T06:57:18 }
+ ( /0a068f9d-bedb-426f-8bda-df77e39cd3a5 Connector_PinHeader_2.54mm:PinHeader_1x01_P2.54mm_Horizontal  J2 Conn_01x01
+  (    1 GND )
+ )
+ ( /2a8487d1-972d-497b-a0ac-ce2771338bd8 Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal  R1 R
+  (    1 /BUS0 )
+  (    2 VCC )
+ )
+ ( /9d46e1ca-9fc8-4a0b-8b6e-3630bb2b801f Connector_PinHeader_2.54mm:PinHeader_1x01_P2.54mm_Horizontal  J1 Conn_01x01
+  (    1 VCC )
+ )
+ ( /addb47ac-3873-4e34-96e4-65e351bf70db Connector_PinHeader_2.54mm:PinHeader_1x01_P2.54mm_Horizontal  J3 Conn_01x01
+  (    1 /BUS0 )
+ )
+ ( /ed8fb964-b5bc-4c61-b835-f3515c56b667 Connector_PinHeader_2.54mm:PinHeader_1x01_P2.54mm_Horizontal  J4 Conn_01x01
+  (    1 GND )
+ )
+)
+*

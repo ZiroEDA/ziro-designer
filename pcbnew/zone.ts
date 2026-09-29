@@ -69,7 +69,7 @@ import { BOARD_ITEM, type BOARD_COMMIT_LIKE } from './board_item.js';
 import type { BOARD_ITEM_CONTAINER } from './board_item_container.js';
 import type { PAD } from './pad.js';
 import type { PCB_VIEW_FOR_LOD } from './pcb_shape.js';
-import { TEARDROP_TYPE } from './teardrop/teardrop_types.js';
+import { TEARDROP_TYPE } from './teardrop/teardrop_parameters.js';
 import {
   ISLAND_REMOVAL_MODE,
   PLACEMENT_SOURCE_T,
@@ -97,7 +97,7 @@ export {
   ZONE_LAYER_PROPERTIES,
   ZONE_SETTINGS,
 } from './zone_settings.js';
-export { TEARDROP_TYPE } from './teardrop/teardrop_types.js';
+export { TEARDROP_TYPE } from './teardrop/teardrop_parameters.js';
 
 /**
  * A struct recording the isolated and single-pad islands within a zone.  Each array holds

@@ -1,0 +1,25 @@
+(NETLIST)
+(Source: /home/akshay/ziro-designer-1/qa/data/eeschema/netlist_oracle_graph/jumpers/jumpers.kicad_sch)
+(Date: 2026-09-29T06:57:58)
+$PACKAGES
+! '22_resistor_smd_r_0603_1608metric' ! '22' ; R1,
+	R2
+! '_button_switch_smd_panasonic_evqpuk_evqpub' ; TB1
+! '_package_to_sot_smd_sc-82aa' ; U1
+$A_PROPERTIES
+'ROOM' 'jumpers' ; R1,
+	R2,
+	TB1,
+	U1
+$NETS
+'+2V5'; R1.1,
+	TB1.1
+'+3.3V'; R2.2,
+	U1.1,
+	U1.3
+GND; R1.2,
+	R2.1,
+	TB1.2,
+	U1.2,
+	U1.4
+$END

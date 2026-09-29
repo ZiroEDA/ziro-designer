@@ -1,0 +1,13 @@
+PACKAGE 'potentiometer_bourns_3266w_vertical'
+CLASS IC
+PINCOUNT 3
+PINORDER MAIN ,
+	1__1,
+	2__2,
+	3__3
+FUNCTION MAIN MAIN ,
+	1,
+	2,
+	3
+PACKAGEPROP VALUE '4,7K'
+END

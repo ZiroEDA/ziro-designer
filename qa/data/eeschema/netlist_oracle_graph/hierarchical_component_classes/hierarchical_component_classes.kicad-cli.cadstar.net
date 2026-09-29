@@ -1,0 +1,16 @@
+.HEA
+.TIM 2026-09-29T06:56:55
+.APP "Eeschema 10.0.6-10.0.6~ubuntu24.04.1"
+.TYP FULL
+
+.ADD_COM     R8     "R"     "Resistor_SMD:R_0603_1608Metric"
+.ADD_COM     R7     "R"     "Resistor_SMD:R_0603_1608Metric"
+.ADD_COM     R1     "R"     "Resistor_SMD:R_0603_1608Metric"
+.ADD_COM     R2     "R"     "Resistor_SMD:R_0603_1608Metric"
+.ADD_COM     R3     "R"     "Resistor_SMD:R_0603_1608Metric"
+.ADD_COM     R5     "R"     "Resistor_SMD:R_0603_1608Metric"
+.ADD_COM     R6     "R"     "Resistor_SMD:R_0603_1608Metric"
+.ADD_COM     R4     "R"     "Resistor_SMD:R_0603_1608Metric"
+
+
+.END

@@ -21,7 +21,7 @@ import { TEARDROP_MANAGER } from '@ziroeda/pcbnew/teardrop/teardrop.js';
 import type { ZONE } from '@ziroeda/pcbnew/zone.js';
 import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { FormatBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { TEARDROP_TYPE } from '@ziroeda/pcbnew/teardrop/teardrop_types.js';
+import { TEARDROP_TYPE } from '@ziroeda/pcbnew/teardrop/teardrop_parameters.js';
 import { ZONE_BORDER_DISPLAY_STYLE } from '@ziroeda/pcbnew/zone_settings.js';
 
 const DATA = fileURLToPath(new URL('../../data/pcbnew/', import.meta.url));

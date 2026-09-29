@@ -44,7 +44,7 @@ import { refId } from '../tools/hittest.js';
 import { subReference } from '../fieldbox.js';
 import { expandBusLabel, isBusLabel } from './bus.js';
 import { SegmentIndex, onSegment as segmentContains } from './segment_index.js';
-import { schSymbolLibraryName } from '../lib_symbol_compare.js';
+import { schSymbolLibraryName } from '../lib_symbol.js';
 
 /** KiCad CONNECTION_SUBGRAPH::PRIORITY (higher wins when naming a net). */
 export enum Priority {

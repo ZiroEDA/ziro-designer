@@ -22,11 +22,8 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
-import {
-  SYMBOL_EDITOR_DEFAULTS,
-  TOOLBAR_APPS,
-  toolbarSlice,
-} from '@ziroeda/designer/src/prefs/settings.js';
+import { TOOLBAR_APPS, toolbarSlice } from '@ziroeda/designer/src/prefs/settings.js';
+import { SYMBOL_EDITOR_DEFAULTS } from '@ziroeda/eeschema/symbol_editor/symbol_editor_settings.js';
 import {
   SYM_DEFAULT_TOOLBARS,
   SYM_LEFT_TOOLBAR,
@@ -121,7 +118,7 @@ describe('the frame draws the stored configuration', () => {
     // Source text, because there is no frame to mount here. The three bars
     // used to be `entries={SYM_TOP_TOOLBAR}` and friends, which no page could
     // reach.
-    const src = read('editors/symbol/SymbolEditor.tsx');
+    const src = read('../../eeschema/symbol_editor/symbol_edit_frame_ui.tsx');
     for (const loc of ['TOP_MAIN', 'LEFT', 'RIGHT'])
       expect(src, loc).toContain(
         `useToolbarEntries('symbol_editor', '${loc}', SYM_DEFAULT_TOOLBARS)`,

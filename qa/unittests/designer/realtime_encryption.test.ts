@@ -17,7 +17,7 @@
  * transports genuinely talk to each other.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ProjectSyncPayload } from '@ziroeda/eeschema/project_sync_transport.js';
+import type { ProjectSyncPayload } from '@ziroeda/eeschema/browser/project_sync_transport.js';
 
 /** The project key both peers hold, unless a test says otherwise. */
 const KEY = new Uint8Array(32).fill(7);

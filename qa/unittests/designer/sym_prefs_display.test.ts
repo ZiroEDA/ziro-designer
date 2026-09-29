@@ -22,7 +22,7 @@ import { join } from 'node:path';
 import {
   SYMBOL_EDITOR_DEFAULTS,
   type SymbolEditorSettings,
-} from '@ziroeda/designer/src/prefs/settings.js';
+} from '@ziroeda/eeschema/symbol_editor/symbol_editor_settings.js';
 import {
   crosshairToggleId,
   crosshairToggleMode,
@@ -32,8 +32,8 @@ import {
   SESSION_TOGGLES,
   SYMBOL_SETTING_TOGGLES,
   symbolTogglesFromSettings,
-} from '@ziroeda/designer/src/editors/symbol/toggles.js';
-import { symbolSnappingEnabled } from '@ziroeda/designer/src/editors/symbol/grid.js';
+} from '@ziroeda/eeschema/symbol_editor/toggles.js';
+import { symbolSnappingEnabled } from '@ziroeda/eeschema/symbol_editor/grid.js';
 
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
 const read = (rel: string): string => readFileSync(join(SRC, rel), 'utf8');
@@ -102,7 +102,7 @@ describe('the fourth checkbox is live, and reaches the canvas by its own route',
     // a `chk` rather than a `stub`.
     expect(SYMBOL_SETTING_TOGGLES.has('togglePinAltIcons')).toBe(true);
     expect(persistSymbolToggle(cfg(), 'togglePinAltIcons')).toBe(true);
-    const menubar = read('editors/symbol/menubar.ts');
+    const menubar = read('../../eeschema/symbol_editor/menubar_symbol_editor.ts');
     expect(menubar).toContain("chk('Show Pin Alternate Icons', 'togglePinAltIcons')");
     expect(menubar).not.toContain("stub('Show Pin Alternate Icons'");
   });
@@ -133,7 +133,7 @@ describe('the fourth checkbox is live, and reaches the canvas by its own route',
     expect(renderer).toContain('altIconBox');
     expect(renderer).toMatch(/if \(sym\.showPinAltIcons\)/);
     // And the editor feeds it from symbol_editor.json, not eeschema's.
-    const editor = read('editors/symbol/SymbolEditor.tsx');
+    const editor = read('../../eeschema/symbol_editor/symbol_edit_frame_ui.tsx');
     expect(editor).toContain('showPinAltIcons: symCfg.show_pin_alt_icons');
   });
 });
@@ -227,7 +227,7 @@ describe('mergeSymbolToggles: OK in Preferences moves the buttons', () => {
   });
 
   it('the frame draws the merged set, not the raw React state', () => {
-    const src = read('editors/symbol/SymbolEditor.tsx');
+    const src = read('../../eeschema/symbol_editor/symbol_edit_frame_ui.tsx');
     expect(src).toContain('mergeSymbolToggles(sessionToggles, symCfg)');
     // The state itself must not be read directly anywhere but the merge, or
     // that call site is the one that goes stale.

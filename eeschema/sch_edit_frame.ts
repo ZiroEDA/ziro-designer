@@ -2,7 +2,8 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * `SCH_EDIT_FRAME` (eeschema/sch_edit_frame.h) — so far only its KIWAY half:
+ * `SCH_EDIT_FRAME` (eeschema/sch_edit_frame.h), on `SCH_BASE_FRAME`
+ * (`sch_base_frame.ts`, which holds the screen bookkeeping) — its KIWAY half:
  * the mail it takes in (`KiwayMailIn`, `ExecuteRemoteCommand`) and the
  * cross-probe packets it sends (eeschema/cross-probing.cpp).
  * `SchematicEditor.tsx` is the window, and owns the state each command
@@ -12,17 +13,19 @@
  * live items: the frame methods `SCH_COMMIT` and `schematic_undo_redo.ts`
  * (`SCH_UNDO_REDO_MIXIN`, mixed in below) need.
  */
-import { schIUScale } from '@ziroeda/common/eda_units.js';
+import {
+  frameTitle,
+  type FrameTitleParts,
+  READ_ONLY_SUFFIX,
+} from '@ziroeda/common/use_document_title.js';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import type { KIWAY_MAIL_EVENT } from '@ziroeda/common/kiway_mail.js';
-import { KIWAY_PLAYER } from '@ziroeda/common/kiway_player.js';
 import { STRTOK, strncpyLine } from '@ziroeda/common/libc/string.js';
 import { MAIL_T } from '@ziroeda/common/mail_type.js';
 import type { CROSS_PROBING_SETTINGS } from '@ziroeda/common/settings/app_settings.js';
-import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
 import { applyMixins } from '@ziroeda/core/mixins.js';
-import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { SCH_BASE_FRAME } from './sch_base_frame.js';
 import type { SCH_COMMIT } from './sch_commit.js';
 import type { SCH_ITEM } from './sch_item.js';
 import type { SCH_SCREEN } from './sch_screen.js';
@@ -64,7 +67,7 @@ export interface SCH_EDIT_FRAME_HOOKS {
 export interface SCH_EDIT_FRAME extends SCH_UNDO_REDO_MIXIN {}
 
 // biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (SCH_UNDO_REDO_MIXIN, see libs/core/mixins.ts)
-export class SCH_EDIT_FRAME extends KIWAY_PLAYER {
+export class SCH_EDIT_FRAME extends SCH_BASE_FRAME {
   private readonly hooks: SCH_EDIT_FRAME_HOOKS;
 
   /// The live-model schematic this frame edits (null until one is set).
@@ -77,7 +80,7 @@ export class SCH_EDIT_FRAME extends KIWAY_PLAYER {
   private m_items_to_repeat: SCH_ITEM[] = [];
 
   constructor(hooks: SCH_EDIT_FRAME_HOOKS) {
-    super(FRAME_T.FRAME_SCH, schIUScale, 'mm');
+    super(FRAME_T.FRAME_SCH);
     this.hooks = hooks;
   }
 
@@ -104,40 +107,18 @@ export class SCH_EDIT_FRAME extends KIWAY_PLAYER {
     return this.m_schematic!;
   }
 
-  /** The current sheet's screen (`SCH_BASE_FRAME::GetScreen`). */
-  GetScreen(): SCH_SCREEN | null {
+  /**
+   * The current sheet's screen. Upstream `SCH_BASE_FRAME::GetScreen` returns
+   * `m_currentScreen`, which `SCH_EDIT_FRAME` keeps pointed at the current
+   * sheet's; here it is read off the sheet path directly.
+   */
+  override GetScreen(): SCH_SCREEN | null {
     return this.m_schematic ? this.m_schematic.CurrentSheet().LastScreen() : null;
   }
 
   GetCurrentSheet(): SCH_SHEET_PATH {
     return this.m_schematic!.CurrentSheet();
   }
-
-  /** `SCH_BASE_FRAME::AddToScreen`, without the view. */
-  AddToScreen(aItem: EDA_ITEM, aScreen: SCH_SCREEN | null = null): void {
-    if (!aItem) return; // wxCHECK
-
-    const screen = aScreen ?? this.GetScreen()!;
-
-    if (aItem.Type() !== KICAD_T.SCH_TABLECELL_T) screen.Append(aItem as SCH_ITEM);
-
-    if (screen === this.GetScreen()) this.UpdateItem(aItem, true); // handle any additional parent semantics
-  }
-
-  /** `SCH_BASE_FRAME::RemoveFromScreen`, without the view. */
-  RemoveFromScreen(aItem: EDA_ITEM, aScreen: SCH_SCREEN | null = null): void {
-    const screen = aScreen ?? this.GetScreen()!;
-
-    if (aItem.Type() !== KICAD_T.SCH_TABLECELL_T) screen.Remove(aItem as SCH_ITEM);
-
-    if (screen === this.GetScreen()) this.UpdateItem(aItem, true); // handle any additional parent semantics
-  }
-
-  /**
-   * `SCH_BASE_FRAME::UpdateItem`: mark the item's screen stale and repaint it.  With no
-   * view there is nothing to repaint.
-   */
-  UpdateItem(_aItem: EDA_ITEM, _isAddOrDelete = false, _aUpdateRtree = false): void {}
 
   /**
    * `SCH_EDIT_FRAME::RecalculateConnections`: the schematic's, with the change handler that
@@ -348,4 +329,414 @@ export class SCH_EDIT_FRAME extends KIWAY_PLAYER {
   }
 }
 
+/**
+ * The order of the docked panes in the Schematic Editor's left column.
+ *
+ * eeschema sets each pane's `Position()` in two places — the pane infos in
+ * `eeschema/eeschema_settings.cpp` and the one inline `AddPane` in
+ * `eeschema/sch_edit_frame.cpp` — kept together here, rather than split across
+ * `eeschema_settings.ts`/`sch_edit_frame.ts` by data source, because
+ * {@link schLeftDockLayout} and the tables below read both as one dock; see
+ * the per-symbol doc comments for exactly which upstream file each number
+ * comes from:
+ *
+ *   | pane                | Position | AddPane | where                     |
+ *   |---------------------|----------|---------|---------------------------|
+ *   | Net Navigator       |    0     |    4th  | eeschema_settings.cpp:74  |
+ *   | Schematic Hierarchy |    1     |    1st  | sch_edit_frame.cpp:262    |
+ *   | Properties          |    2     |    2nd  | eeschema_settings.cpp:95  |
+ *   | Selection Filter    |    4     |    3rd  | eeschema_settings.cpp:117 |
+ *
+ * All four are `.Left().Layer( 3 )`, so this is one column. Position 3 is
+ * deliberately unused upstream — the numbers are sparse, which is why this
+ * table mirrors them rather than renumbering 0..3.
+ *
+ * **`Position()` is not the order.** It is only the STARTING `dock_pos`, and
+ * wxAuiManager rewrites `dock_pos` on every `Update()`. `qa/probes/aui_dock_pos_probe.cpp`
+ * builds these four panes with wx 3.2.4 and toggles them the way
+ * `SCH_EDIT_FRAME::ToggleSchematicHierarchy` (sch_edit_frame.cpp:2910) and
+ * `ToggleProperties` (:2886) do — both of which only call `.Show()` and never
+ * touch Position — and measures each pane's on-screen y. Two rules explain
+ * every line of its output:
+ *
+ *   1. Each `Update()` renumbers the SHOWN panes of the dock: it sorts them by
+ *      their current `dock_pos` and writes back 0, 1, 2 ... in that order. A
+ *      HIDDEN pane is not touched and keeps the number it had.
+ *   2. Ties are broken by `AddPane` order, the third column above.
+ *
+ * So the pane opened FIRST is alone in the dock and is compacted to 0, while
+ * the one opened next still carries its original `Position()` — 1, 2 or 4,
+ * all greater — and lands BELOW it. Open the hierarchy first and it is on
+ * top; open Properties first and IT is on top. That is what the user sees,
+ * and it is why a fixed order table was the wrong model, not merely a wrong
+ * pair of numbers. The table still decides one case: panes that become
+ * visible in the SAME `Update()`, which is a frame restoring its layout.
+ *
+ * {@link schLeftDockLayout} is those two rules; the editor keeps the resulting
+ * `dock_pos` and feeds it back in, exactly as the pane infos do upstream.
+ *
+ * This is a data module and not a comment in the JSX because a JSX block's
+ * order cannot be asserted from a Node test, and the order is exactly the
+ * thing that was wrong: ours rendered Properties above the hierarchy, and
+ * then — after that was "fixed" — rigidly the other way round.
+ *
+ * The Search pane is NOT in this list. Upstream docks it at the BOTTOM —
+ * `EDA_PANE().Name( SearchPaneName() ).Bottom()` (sch_edit_frame.cpp:290-292)
+ * — under the canvas rather than in this column. See {@link SCH_BOTTOM_DOCK}.
+ */
+
+/** A docked pane of the left column, named as `wxAuiPaneInfo::Name()` names it. */
+export type SchLeftPane = 'netNavigator' | 'hierarchy' | 'properties' | 'selectionFilter';
+
+/**
+ * `Position()` for each pane of the left dock, verbatim from the two files
+ * above. Sparse on purpose: upstream skips 3.
+ *
+ * This is the value `AddPane` leaves in `dock_pos`, i.e. the state the column
+ * starts in — not the order it stays in. See {@link schLeftDockLayout}.
+ */
+export const SCH_LEFT_PANE_POSITION: Readonly<Record<SchLeftPane, number>> = {
+  netNavigator: 0,
+  hierarchy: 1,
+  properties: 2,
+  selectionFilter: 4,
+};
+
+/**
+ * The order the four `AddPane` calls run in: the hierarchy inline at
+ * `sch_edit_frame.cpp:260`, then Properties (:272), the Selection Filter
+ * (:273) and the Net Navigator (:279). Note the Net Navigator is added LAST
+ * despite being `Position( 0 )`.
+ *
+ * It is here because it breaks ties: two panes can hold the same `dock_pos`
+ * once one of them has been compacted, and then this decides. Measured in the
+ * probe's "re-open Properties" scenario, where Properties ties the hierarchy
+ * at 0 and the hierarchy — added first — keeps the top slot.
+ */
+export const SCH_LEFT_PANE_ADD_ORDER: readonly SchLeftPane[] = [
+  'hierarchy',
+  'properties',
+  'selectionFilter',
+  'netNavigator',
+];
+
+/** `dock_pos` for every pane of the column, the state wxAUI carries forward. */
+export type SchDockPos = Readonly<Record<SchLeftPane, number>>;
+
+/**
+ * The column's starting `dock_pos`, from a stored perspective or from
+ * `AddPane`.
+ *
+ * `RestoreAuiLayout()` (sch_edit_frame.cpp:304) loads `window.perspective`
+ * before a single pane is shown, so the numbers a previous session was left
+ * with — not {@link SCH_LEFT_PANE_POSITION} — are what the next one starts
+ * from. That matters because wxAUI's renumbering pass is not reversible: it
+ * compacts whatever was shown, and a pane hidden at that moment keeps the
+ * number it had. Measured with `qa/probes/aui_dock_pos_probe.cpp` on this
+ * machine's own saved perspective (Properties `pos=0`, hierarchy `pos=1`),
+ * closing both palettes and re-opening Properties and then the hierarchy leaves
+ * **Properties on top**; run from `AddPane`'s numbers the very same sequence
+ * leaves the **hierarchy** on top, because the two tie at 0 and `AddPane` order
+ * breaks the tie. So an editor that forgets the numbers between sessions
+ * answers a question KiCad answers from memory.
+ *
+ * A missing or non-numeric entry falls back to `AddPane`'s value, which is what
+ * a pane absent from the perspective string gets upstream.
+ */
+export function schDockPosFrom(stored: Readonly<Record<string, number>> | undefined): SchDockPos {
+  const out = { ...SCH_LEFT_PANE_POSITION } as Record<SchLeftPane, number>;
+  for (const pane of SCH_LEFT_PANE_ADD_ORDER) {
+    const v = stored?.[pane];
+    if (typeof v === 'number' && Number.isFinite(v)) out[pane] = v;
+  }
+  return out;
+}
+
+/** What one `wxAuiManager::Update()` leaves behind. */
+export interface SchLeftDockLayout {
+  /** The panes on screen, TOP TO BOTTOM. */
+  readonly order: readonly SchLeftPane[];
+  /** `dock_pos` after the renumbering pass, to be fed into the next Update. */
+  readonly dockPos: SchDockPos;
+}
+
+/**
+ * One `Update()` of the left dock: sort, draw, renumber.
+ *
+ * Both rules are the probe's, measured rather than read (there is no wx source
+ * on this machine): the shown panes are ordered by `dock_pos` with `AddPane`
+ * order breaking ties, and then the shown ones — only those — are renumbered
+ * 0, 1, 2 ... A hidden pane keeps its number, which is what makes closing and
+ * re-opening a pane put it back where it was instead of at the bottom.
+ *
+ * Idempotent: running it again with the same `shown` set returns the same
+ * order and the same numbers, because compacting an already-compacted dock
+ * changes nothing. That is what lets the editor call it once per render.
+ */
+export function schLeftDockLayout(
+  dockPos: SchDockPos,
+  shown: Readonly<Record<SchLeftPane, boolean>>,
+): SchLeftDockLayout {
+  // The comparator states the tie-break instead of leaning on Array.sort being
+  // stable over an array that happens to be in AddPane order: the tie is a
+  // measured rule and deserves to be written down.
+  const bySlot = (a: SchLeftPane, b: SchLeftPane): number =>
+    dockPos[a] - dockPos[b] ||
+    SCH_LEFT_PANE_ADD_ORDER.indexOf(a) - SCH_LEFT_PANE_ADD_ORDER.indexOf(b);
+
+  // The Selection Filter is not one of the panes that contend for a slot. It is
+  // the LAST row of the column, always, and the three facts that say so all
+  // agree: `Position( 4 )` where the others are 0, 1 and 2 and 3 is deliberately
+  // skipped; `dock_proportion = 0`, so it alone never grows; and no visibility
+  // control of its own. Read back out of a real eeschema's saved perspective on
+  // this machine (`~/.config/kicad/10.0/eeschema.json`):
+  //
+  //     PropertiesManager    pos=0 prop=100000
+  //     SchematicHierarchy   pos=1 prop=100000
+  //     SelectionFilter      pos=2 prop=0
+  //
+  // -- highest position of the three, and the only one with no proportion, which
+  // is why it sits flush against the message panel as part of the same band
+  // rather than floating between two palettes.
+  const CONTENDERS = SCH_LEFT_PANE_ADD_ORDER.filter((p) => p !== 'selectionFilter');
+
+  const shownContenders = CONTENDERS.filter((p) => shown[p]).sort(bySlot);
+  const next: Record<SchLeftPane, number> = { ...dockPos };
+  shownContenders.forEach((pane, i) => {
+    next[pane] = i;
+  });
+
+  // A HIDDEN contender is left alone, which is what wxAUI does and what
+  // `qa/probes/aui_dock_pos_probe.cpp` measures -- including the tie that
+  // follows when a shown pane later compacts onto the number a hidden one still
+  // holds. The probe drives the same path the frame does, `Show()` then
+  // `SetAuiPaneSize`'s MinSize/Fixed/Update/Resizable/Update (its lines
+  // 406-422), so that tie is real and is deliberately NOT smoothed away here.
+
+  // The filter goes immediately after the SHOWN panes, so nothing can renumber
+  // it into the middle of the column. `shownContenders.length` and not
+  // `CONTENDERS.length`, because that is the number a real perspective holds:
+  // with Properties and the hierarchy shown and the Net Navigator hidden, this
+  // machine's eeschema.json has `SelectionFilter … pos=2`, one past the two
+  // panes above it — not one past every pane that could exist.
+  // Only when it is on screen: a hidden pane keeps the number it had, which is
+  // the rule the probe measured for every other pane and there is no reason the
+  // filter should differ. It also keeps an empty column a no-op.
+  if (shown.selectionFilter) next.selectionFilter = shownContenders.length;
+
+  const order: SchLeftPane[] = shown.selectionFilter
+    ? [...shownContenders, 'selectionFilter']
+    : shownContenders;
+
+  return { order, dockPos: next };
+}
+
+/**
+ * Whether a pane can GROW to fill the column.
+ *
+ * Only the Selection Filter cannot: `selectionFilterPane.dock_proportion = 0`
+ * (sch_edit_frame.cpp:325), with the comment "The selection filter doesn't need
+ * to grow in the vertical direction when docked", and its pane info asks for a
+ * `-1` height (eeschema_settings.cpp:123-125). Every other pane in the column
+ * takes a share of the leftover height, so only those get a drag sash.
+ *
+ * This is a per-pane predicate and no longer a list, because a list would have
+ * to carry an order, and the order is {@link schLeftDockLayout}'s answer now.
+ */
+export function schPaneGrows(pane: SchLeftPane): boolean {
+  return pane !== 'selectionFilter';
+}
+
+/**
+ * Whether the Selection Filter is on screen.
+ *
+ * It has no visibility control of its own. `SCH_EDIT_FRAME::updateSelectionFilterVisbility`
+ * (sch_edit_frame.cpp:2817-2831) decides for it, with the comment
+ *
+ *   // Don't give the selection filter its own visibility controls; instead show it if
+ *   // anything else is visible
+ *
+ * and the condition
+ *
+ *   bool showFilter = ( hierarchyPane.IsShown() && hierarchyPane.IsDocked() )
+ *                     || ( netNavigatorPane.IsShown() && netNavigatorPane.IsDocked() )
+ *                     || ( propertiesPane.IsShown() && propertiesPane.IsDocked() );
+ *
+ * Ours keyed on Properties alone, so closing Properties with the hierarchy open
+ * took the filter away with it.
+ *
+ * The `IsDocked()` half has no counterpart here: we have no floating panes, so
+ * a shown pane is always a docked one. It is written out above rather than
+ * dropped silently, because if panes ever float this predicate is where the
+ * other half belongs.
+ *
+ * The Search pane is deliberately not a term — it is `.Bottom()`, not part of
+ * this column, and upstream does not consult it.
+ */
+export function schSelectionFilterShown(
+  shown: Readonly<Record<Exclude<SchLeftPane, 'selectionFilter'>, boolean>>,
+): boolean {
+  return shown.hierarchy || shown.netNavigator || shown.properties;
+}
+
+/**
+ * The Search pane, which is docked at the BOTTOM and not in the column above.
+ *
+ * `sch_edit_frame.cpp:290-300`:
+ *
+ *   m_auimgr.AddPane( m_searchPane, EDA_PANE()
+ *                     .Name( SearchPaneName() )
+ *                     .Bottom()
+ *                     .Caption( _( "Search" ) )
+ *                     .PaneBorder( false )
+ *                     .MinSize( FromDIP( wxSize( 180, 60 ) ) )
+ *                     .BestSize( FromDIP( wxSize( 180, 100 ) ) )
+ *                     ...
+ *
+ * **It does not span the window.** There is no `.Layer()` call, so it takes the
+ * default layer 0, and wxAUI nests docks outward by layer: layer 0 is the
+ * innermost ring around the centre pane, and layers 1-3 then 4-6 wrap it. The
+ * panes it has to clear are all outside it —
+ *
+ *   | pane        | dock   | layer | where                   |
+ *   |-------------|--------|-------|-------------------------|
+ *   | Search      | Bottom |   0   | sch_edit_frame.cpp:292  |
+ *   | LeftToolbar | Left   |   2   | sch_edit_frame.cpp:281  |
+ *   | left panes  | Left   |   3   | eeschema_settings.cpp   |
+ *   | MsgPanel    | Bottom |   6   | sch_edit_frame.cpp:257  |
+ *
+ * — so the Search pane is as wide as the CANVAS COLUMN, with the left dock and
+ * both toolbars running full height past it, and the message panel below all of
+ * them at the full width of the frame.
+ *
+ * Ours rendered it as the first pane of the left column instead.
+ */
+export const SCH_BOTTOM_DOCK = {
+  /* [data] `.BestSize( FromDIP( wxSize( 180, 100 ) ) )`, sch_edit_frame.cpp:297
+     — the height the dock opens at. KiCad hardcodes the pair itself. */
+  bestHeight: 100,
+  /* [data] `.MinSize( FromDIP( wxSize( 180, 60 ) ) )`, sch_edit_frame.cpp:296
+     — how far the sash above it can be dragged down. */
+  minHeight: 60,
+} as const;
+
 applyMixins(SCH_EDIT_FRAME, [SCH_UNDO_REDO_MIXIN]);
+
+/**
+ * `SCH_EDIT_FRAME::updateTitle` (eeschema/sch_edit_frame.cpp:1819-1862).
+ *
+ * The frame title is per-frame upstream — each editor has its own
+ * `updateTitle()` — but the SHAPE of it is not: star, document, suffixes, em
+ * dash, frame name is `docs/frame-titles.md`'s twelve-of-thirteen rule, and
+ * `frameTitle()` in `ui/useDocumentTitle.ts` is where that shape lives. This
+ * is only the schematic's own three decisions on top of it, and it states
+ * nothing the shared function already states.
+ *
+ * The C++, in full:
+ *
+ *     wxFileName fn( Prj().AbsolutePath( screen->GetFileName() ) );
+ *     if( IsContentModified() ) title = wxT( "*" );
+ *     title += fn.GetName();
+ *     wxString sheetPath = GetCurrentSheet().PathHumanReadable( false, true );
+ *     if( sheetPath != fn.GetName() )
+ *         title += wxString::Format( wxT( " [%s]" ), sheetPath );
+ *     if( readOnly ) title += wxS( " " ) + _( "[Read Only]" );
+ *     if( unsaved )  title += wxS( " " ) + _( "[Unsaved]" );
+ *     ...
+ *     title = _( "[no schematic loaded]" );      // the else branch
+ *     title += wxT( " — " ) + _( "Schematic Editor" );
+ *
+ * Three things that are easy to get wrong and were each wrong here:
+ *
+ *  - The document half is **the current SCREEN's file name**, not the project
+ *    name. Descend into a sub-sheet and the title names the sub-sheet's file.
+ *  - `wxFileName::GetName()` drops the extension, so it is `ecc83`, never
+ *    `ecc83.kicad_sch`.
+ *  - The sheet-path bracket is **suppressed at the root**, because
+ *    `PathHumanReadable( false, ... )` seeds the path with the root screen's
+ *    own `GetName()` — so on the root sheet the two strings are equal and the
+ *    comparison at `:1846` fails. A bracket that showed `[ecc83]` on the root
+ *    sheet would be wrong in the one place the title is seen most.
+ */
+
+/** `_( "Schematic Editor" )`, the half after the dash. */
+export const SCH_FRAME_NAME = 'Schematic Editor';
+
+/** `_( "[no schematic loaded]" )` — sch_edit_frame.cpp:1856. */
+export const SCH_NO_DOCUMENT = '[no schematic loaded]';
+
+/**
+ * `SCH_SHEET_PATH::PathHumanReadable( false, true )`
+ * (eeschema/sch_sheet_path.cpp), for the two arguments `updateTitle` passes.
+ *
+ * `aUseShortRootName = false` seeds the string with the ROOT screen's file name
+ * without its extension rather than with a bare `"/"`; every sheet below the
+ * root then contributes its **sheet name** (not its file name) and a `"/"`; and
+ * `aStripTrailingSeparator = true` removes the final separator.
+ *
+ * So the root sheet of `ecc83.kicad_sch` is `"ecc83"`, and a sheet named
+ * `Power` beneath it is `"ecc83/Power"`.
+ *
+ * @param rootFileBase the root screen's file name with the extension already
+ *   dropped — `wxFileName( … ).GetName()` of `at( 0 )->GetScreen()`.
+ * @param sheetNames the sheet names from the root's child down to the current
+ *   sheet, in order. Empty at the root.
+ */
+export function pathHumanReadable(rootFileBase: string, sheetNames: readonly string[]): string {
+  const parts = [rootFileBase, ...sheetNames];
+  // `s << sheetName << "/"` for each, then strip the one trailing separator —
+  // which is the same string as joining on "/".
+  return parts.join('/');
+}
+
+export interface SchFrameTitleSpec {
+  /**
+   * The CURRENT sheet's file name, extension included or not — this function
+   * drops it, the way `wxFileName::GetName()` does. Null/empty is the
+   * `[no schematic loaded]` branch.
+   */
+  fileName?: string | null;
+  /** `PathHumanReadable( false, true )` for the current sheet. */
+  sheetPath?: string;
+  /** `IsContentModified()`. */
+  modified?: boolean;
+  /**
+   * `screen->IsReadOnly()`. There is no `[Unsaved]` counterpart here: upstream
+   * sets it from `!screen->FileExists()`, and a document in this app exists in
+   * the store from the moment it is opened, so the flag would never be true.
+   */
+  readOnly?: boolean;
+}
+
+/** `wxFileName::GetName()` — the base name without its last extension. */
+export function fileBaseName(fileName: string): string {
+  // A leading dot is not an extension and neither is a dot in a directory
+  // component, the same two cases `frameTitleName` handles.
+  return fileName.replace(/(?!^)\.[^./\\]*$/, '');
+}
+
+export function schFrameTitle(spec: SchFrameTitleSpec): FrameTitleParts {
+  const raw = spec.fileName?.trim() ?? '';
+
+  if (raw === '') {
+    return frameTitle({
+      frameName: SCH_FRAME_NAME,
+      document: null,
+      placeholder: SCH_NO_DOCUMENT,
+      modified: spec.modified,
+    });
+  }
+
+  const base = fileBaseName(raw);
+  // `if( sheetPath != fn.GetName() ) title += " [" + sheetPath + "]"` — equal
+  // on the root sheet, so the root carries no bracket.
+  const path = spec.sheetPath?.trim() ?? '';
+  const document = path !== '' && path !== base ? `${base} [${path}]` : base;
+
+  return frameTitle({
+    frameName: SCH_FRAME_NAME,
+    document,
+    modified: spec.modified,
+    suffixes: spec.readOnly ? [READ_ONLY_SUFFIX] : [],
+  });
+}

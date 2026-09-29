@@ -3,13 +3,15 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * The KiCad (s-expression) netlist NETLIST_EXPORTER_KICAD writes and pcbnew reads,
- * the schematic half of "Update PCB from Schematic". The round trip through
+ * the schematic half of "Update PCB from Schematic", over the live SCHEMATIC loaded
+ * from the text below. The round trip through
  * loadKicadNetlist is the real assertion: whatever the exporter emits, the board's
  * parser has to see the same components, pads and nets.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/index.js';
-import { readSchematic, netlistKicad, type NetlistSheet } from '@ziroeda/eeschema';
+import { loadProjectSchematic } from '@ziroeda/eeschema/cross-probing.js';
+import { NETLIST_EXPORTER_KICAD } from '@ziroeda/eeschema/netlist_exporters/netlist_exporter_kicad.js';
+import { GNL_ALL, GNL_T } from '@ziroeda/eeschema/netlist_exporters/netlist_exporter_xml.js';
 import { loadKicadNetlist } from '@ziroeda/pcbnew';
 
 /** A 2-pin resistor and a 2-pin capacitor, both with named pins. */
@@ -49,38 +51,46 @@ const capacitor = (ref: string, x: number, y: number, uuid: string): string =>
 // points joins them, and a local label at the wire's end names the result. (A label
 // in the middle of a single wire does not attach, upstream only enforces that when
 // two or more lines overlap the label position, see updateItemConnectivity.)
-const doc = readSchematic(
-  parse(`(kicad_sch (version 20230121) (generator eeschema)
-    (uuid "00000000-0000-4000-8000-00000000root")
+const DIVIDER = `(kicad_sch (version 20230121) (generator eeschema)
+    (uuid "00000000-0000-4000-8000-000000000000")
     (lib_symbols ${LIB})
     ${resistor('R1', 100, 100, 'aaaaaaaa-0000-4000-8000-000000000001')}
     ${resistor('R2', 100, 110, 'aaaaaaaa-0000-4000-8000-000000000002')}
     ${capacitor('C1', 120, 110, 'aaaaaaaa-0000-4000-8000-000000000003')}
-    (wire (pts (xy 100 103.81) (xy 100 106.19)) (uuid "w1"))
-    (label "VOUT" (at 100 103.81 0) (uuid "l1"))
-    (title_block (title "Divider") (rev "A") (comment 1 "first")))`),
-);
+    (wire (pts (xy 100 103.81) (xy 100 106.19)) (uuid "bbbbbbbb-0000-4000-8000-000000000001"))
+    (label "VOUT" (at 100 103.81 0) (uuid "bbbbbbbb-0000-4000-8000-000000000002"))
+    (title_block (title "Divider") (rev "A") (comment 1 "first")))`;
 
-const SHEETS: NetlistSheet[] = [{ path: '/', namePath: '/', file: 'divider.kicad_sch', doc }];
+/** kicad-cli ran with KiCad's global sym-lib-table, which has Device. */
+const GLOBAL_URI = (nick: string): string => `\${KICAD10_SYMBOL_DIR}/${nick}.kicad_sym`;
 
-const netlistText = netlistKicad({
-  sheets: SHEETS,
-  libsFor: (s) => new Map(s.doc.libSymbols.map((l) => [l.libId, l])),
-  source: 'divider.kicad_sch',
-  date: '2026-07-25T00:00:00.000Z',
-  netClassFor: () => 'Default',
-  // kicad-cli ran with KiCad's global sym-lib-table, which has Device.
-  libraryUri: (nick) => `\${KICAD10_SYMBOL_DIR}/${nick}.kicad_sym`,
-});
+/** Load `aText` as `<aName>.kicad_sch` (with an optional project file) and export it. */
+function exportText(
+  aName: string,
+  aText: string,
+  aOptions: { pro?: string; libraryUri?: (nick: string) => string | undefined } = {},
+): string {
+  const files = [{ name: `${aName}.kicad_sch`, text: aText }];
+  if (aOptions.pro) files.push({ name: `${aName}.kicad_pro`, text: aOptions.pro });
+  const schematic = loadProjectSchematic(files, `${aName}.kicad_sch`, aName);
+  if (!schematic) throw new Error(`${aName} did not load`);
+  const exporter = new NETLIST_EXPORTER_KICAD(schematic);
+  exporter.m_libraryUri = aOptions.libraryUri ?? GLOBAL_URI;
+  exporter.m_date = () => '2026-07-25T00:00:00.000Z';
+  return exporter.Format(GNL_ALL | GNL_T.GNL_OPT_KICAD);
+}
 
-describe('netlistKicad', () => {
+const netlistText = exportText('divider', DIVIDER);
+
+describe('NETLIST_EXPORTER_KICAD', () => {
   it('emits the export root and the design header', () => {
     // The formatter pretty-prints, so match tokens rather than whole lines.
     expect(netlistText.startsWith('(export')).toBe(true);
     expect(netlistText).toContain('(version "E")');
-    expect(netlistText).toContain('(source "divider.kicad_sch")');
+    // SCHEMATIC::GetFileName(), the project folder before it ("/" with no project open).
+    expect(netlistText).toContain('(source "/divider.kicad_sch")');
     expect(netlistText).toContain('(date "2026-07-25T00:00:00.000Z")');
-    expect(netlistText).toContain('(tool "Eeschema")');
+    expect(netlistText).toMatch(/\(tool "Eeschema [^"]+"\)/);
     expect(netlistText).toContain('(title "Divider")');
     expect(netlistText).toContain('(rev "A")');
     expect(netlistText).toContain('(value "first")');
@@ -165,25 +175,20 @@ describe('netlistKicad', () => {
   });
 
   it('leaves out a library no table knows, as makeLibraries does', () => {
-    const text = netlistKicad({
-      sheets: SHEETS,
-      libsFor: (s) => new Map(s.doc.libSymbols.map((l) => [l.libId, l])),
-      source: 'divider.kicad_sch',
-      libraryUri: () => undefined,
-    });
+    const text = exportText('divider', DIVIDER, { libraryUri: () => undefined });
     expect(text).not.toContain('(library\n');
   });
 
   it('lists variants by name in std::set order, with the project description', () => {
-    const text = netlistKicad({
-      sheets: SHEETS,
-      libsFor: (s) => new Map(s.doc.libSymbols.map((l) => [l.libId, l])),
-      source: 'divider.kicad_sch',
-      variantDescriptions: new Map([
-        ['Variant2', 'Test of variant 2 desc'],
-        ['Variant 1', ''],
-      ]),
+    const pro = JSON.stringify({
+      schematic: {
+        variants: [
+          { name: 'Variant2', description: 'Test of variant 2 desc' },
+          { name: 'Variant 1', description: '' },
+        ],
+      },
     });
+    const text = exportText('divider', DIVIDER, { pro });
     expect(text).toContain(
       '\t(variants\n\t\t(variant\n\t\t\t(name "Variant 1")\n\t\t)\n\t\t(variant\n\t\t\t(name "Variant2")\n\t\t\t(description "Test of variant 2 desc")\n\t\t)\n\t)',
     );
@@ -224,7 +229,7 @@ describe('netlistKicad', () => {
   });
 });
 
-describe('netlistKicad -> loadKicadNetlist', () => {
+describe('NETLIST_EXPORTER_KICAD -> loadKicadNetlist', () => {
   const netlist = loadKicadNetlist(netlistText);
 
   it('round-trips every board-bound symbol, in reference order', () => {
@@ -280,39 +285,25 @@ describe('netlistKicad -> loadKicadNetlist', () => {
   });
 
   it('leaves a symbol excluded from the board out of the netlist', () => {
-    const offBoard = readSchematic(
-      parse(`(kicad_sch (version 20230121) (generator eeschema) (lib_symbols ${LIB})
+    const offBoard = `(kicad_sch (version 20230121) (generator eeschema) (lib_symbols ${LIB})
         ${resistor('R1', 100, 100, 'aaaaaaaa-0000-4000-8000-000000000001').replace(
           '(uuid "aaaaaaaa-0000-4000-8000-000000000001"))',
           '(on_board no) (uuid "aaaaaaaa-0000-4000-8000-000000000001"))',
         )}
-        ${resistor('R2', 100, 110, 'aaaaaaaa-0000-4000-8000-000000000002')})`),
-    );
-    const text = netlistKicad({
-      sheets: [{ path: '/', namePath: '/', file: 'off.kicad_sch', doc: offBoard }],
-      libsFor: (s) => new Map(s.doc.libSymbols.map((l) => [l.libId, l])),
-      source: 'off.kicad_sch',
-    });
+        ${resistor('R2', 100, 110, 'aaaaaaaa-0000-4000-8000-000000000002')})`;
+    const text = exportText('off', offBoard);
     const parsed = loadKicadNetlist(text);
     expect(parsed.GetCount()).toBe(1);
     expect(parsed.GetComponent(0)!.GetReference()).toBe('R2');
   });
 
   it('marks a DNP symbol with the dnp property', () => {
-    const dnpDoc = readSchematic(
-      parse(`(kicad_sch (version 20230121) (generator eeschema) (lib_symbols ${LIB})
+    const dnpDoc = `(kicad_sch (version 20230121) (generator eeschema) (lib_symbols ${LIB})
         ${resistor('R1', 100, 100, 'aaaaaaaa-0000-4000-8000-000000000001').replace(
           '(uuid "aaaaaaaa-0000-4000-8000-000000000001"))',
           '(dnp yes) (in_bom no) (uuid "aaaaaaaa-0000-4000-8000-000000000001"))',
-        )})`),
-    );
-    const parsed = loadKicadNetlist(
-      netlistKicad({
-        sheets: [{ path: '/', namePath: '/', file: 'dnp.kicad_sch', doc: dnpDoc }],
-        libsFor: (s) => new Map(s.doc.libSymbols.map((l) => [l.libId, l])),
-        source: 'dnp.kicad_sch',
-      }),
-    );
+        )})`;
+    const parsed = loadKicadNetlist(exportText('dnp', dnpDoc));
     const r1 = parsed.GetComponentByReference('R1')!;
     expect(r1.GetProperties().has('dnp')).toBe(true);
     expect(r1.GetProperties().has('exclude_from_bom')).toBe(true);

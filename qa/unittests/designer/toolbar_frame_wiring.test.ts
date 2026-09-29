@@ -70,7 +70,7 @@ const FRAMES: {
   },
   {
     app: 'eeschema',
-    file: 'editors/schematic/SchematicEditor.tsx',
+    file: '../../eeschema/sch_edit_frame_ui.tsx',
     bars: 3,
     banned: ['TOP_TOOLBAR', 'LEFT_TOOLBAR', 'RIGHT_TOOLBAR'],
   },

@@ -1,0 +1,27 @@
+(NETLIST)
+(Source: /home/akshay/ziro-designer-1/qa/data/eeschema/netlist_oracle_graph/issue22694/issue22694.kicad_sch)
+(Date: 2026-09-29T06:57:33)
+$PACKAGES
+! 'conn_01x08_connector_pinheader_2_54mm_pinheader_1x08_p2_54mm_vertical' ! 'Conn_01x08' ; J2,
+	J3
+$A_PROPERTIES
+'ROOM' 'Subsheet_1' ; J2
+'ROOM' 'Untitled_Sheet' ; J3
+$NETS
+'/SUBSHEET 1/HL1'; J2.1
+'GLOBAL LABEL'; J2.2,
+	J2.3,
+	J2.4,
+	J2.5,
+	J2.6,
+	J3.1
+'UNCONNECTED-(J2-PIN_7-PAD7)'; J2.7
+'UNCONNECTED-(J2-PIN_8-PAD8)'; J2.8
+'UNCONNECTED-(J3-PIN_2-PAD2)'; J3.2
+'UNCONNECTED-(J3-PIN_3-PAD3)'; J3.3
+'UNCONNECTED-(J3-PIN_4-PAD4)'; J3.4
+'UNCONNECTED-(J3-PIN_5-PAD5)'; J3.5
+'UNCONNECTED-(J3-PIN_6-PAD6)'; J3.6
+'UNCONNECTED-(J3-PIN_7-PAD7)'; J3.7
+'UNCONNECTED-(J3-PIN_8-PAD8)'; J3.8
+$END

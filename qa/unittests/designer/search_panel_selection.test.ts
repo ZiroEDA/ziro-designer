@@ -35,7 +35,7 @@ import type { LibSymbol, Schematic } from '@ziroeda/eeschema/types.js';
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
-const EDITOR = read('../../../designer/src/editors/schematic/SchematicEditor.tsx');
+const EDITOR = read('../../../eeschema/sch_edit_frame_ui.tsx');
 
 const SCH = `(kicad_sch (version 20250114) (generator "test") (paper "A4")
   (lib_symbols

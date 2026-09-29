@@ -275,7 +275,8 @@ export function footprintEditorMenus(
           ],
         },
         SEP,
-        stub('Footprint Library Browser', 'showFootprintBrowser'),
+        // `ACTIONS::showFootprintBrowser` (menubar_footprint_editor.cpp:140).
+        act('Footprint Library Browser', 'showFootprintBrowser'),
         stub('3D Viewer', 'show3DViewer', { shortcut: 'Alt+3' }),
         SEP,
         act('Zoom In', 'zoomInCenter'),

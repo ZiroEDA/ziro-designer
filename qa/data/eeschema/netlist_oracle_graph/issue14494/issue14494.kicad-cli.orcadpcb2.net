@@ -1,0 +1,19 @@
+( { EESchema Netlist Version 1.1 created  2026-09-29T06:57:03 }
+ ( /1dd3c410-9299-41f8-a85a-cbefc6359e42 0IBF_RCL:R_1206_3216Metric  R2 _R
+  (    1 /Y )
+  (    2 /X )
+ )
+ ( /ffa8d79a-2371-411f-8da8-c03e956d0004 0IBF_RCL:R_1206_3216Metric  R4 _R
+  (    1 /subsheet_01/C )
+  (    2 /subsheet_01/D )
+ )
+ ( /6b22bc55-3b0d-4d96-9827-112a2df8c14e/0663dc95-1d72-4e0a-ad4b-87388dcd2ed9 0IBF_RCL:R_1206_3216Metric  R3 _R
+  (    1 /subsheet_01/C )
+  (    2 /subsheet_01/D )
+ )
+ ( /6b22bc55-3b0d-4d96-9827-112a2df8c14e/535011c7-ca1e-472f-9595-f078df164b8f Resistor_SMD:R_0201_0603Metric  R1 _R
+  (    1 /Y )
+  (    2 /X )
+ )
+)
+*

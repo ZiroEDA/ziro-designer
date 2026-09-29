@@ -45,7 +45,7 @@ import {
   strNumCmp,
   unescapeString,
 } from '@ziroeda/common/string_utils.js';
-import { compareLibSymbolsForErc } from '../lib_symbol_compare.js';
+import { compareLibSymbolsForErc } from '../lib_symbol.js';
 import { flattenLibSymbol } from '../lib_symbol.js';
 import { checkSimModel } from '../sim/sim_model.js';
 import { isNetclassFieldName } from '../sch_field.js';
@@ -64,7 +64,7 @@ import {
   type ErcSeverity,
   type ErcSettings,
 } from './erc_settings.js';
-import { schSymbolLibraryName } from '../lib_symbol_compare.js';
+import { schSymbolLibraryName } from '../lib_symbol.js';
 
 // Re-export the ERC settings surface so `@ziroeda/eeschema` consumers keep
 // importing these names from the ERC module (the Schematic Setup panels do).

@@ -1,0 +1,17 @@
+*PADS-PCB*
+*PART*
+R2               0IBF_RCL:R_1206_3216Metric
+R4               0IBF_RCL:R_1206_3216Metric
+R3               0IBF_RCL:R_1206_3216Metric
+R1               Resistor_SMD:R_0201_0603Metric
+
+*NET*
+*SIGNAL* /X
+R1.2 R2.2 
+*SIGNAL* /Y
+R1.1 R2.1 
+*SIGNAL* /subsheet_01/C
+R3.1 R4.1 
+*SIGNAL* /subsheet_01/D
+R3.2 R4.2 
+*END*

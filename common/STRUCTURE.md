@@ -280,6 +280,7 @@ Ported 09-27 (branch `common-gal-cairo`), under KiCad's names:
 | `gal/cairo/cairo_compositor.{h,cpp}` | `gal/cairo/cairo_compositor.ts`: `CAIRO_COMPOSITOR`; `cairo_t**` is a get/set pair |
 | `gal/cairo/cairo_print.{h,cpp}` | `gal/cairo/cairo_print.ts`: `CAIRO_PRINT_CTX`, `CAIRO_PRINT_GAL` |
 | `include/gal/gal_print.h` | `gal/gal_print.ts`: `PRINT_CONTEXT`, `GAL_PRINT` (+ `GAL_PRINT.Create`, and `wxDC`, the page canvas stand-in) |
+| `include/import_proj_properties.h` | `import_proj_properties.ts`: `IMPORT_PROJ_PROPS`, the property keys and list codec a non-KiCad project import threads through `MAIL_IMPORT_FILE` (new in 10.0.6; `pcbnew`'s `reconcileImportedFootprintLibraries` reads it, eeschema's importer will) |
 
 **Ours, no KiCad file:** `gal/cairo/cairo_api.ts` is `<cairo.h>` - the
 `cairo_*` calls the three units make, on a Canvas 2D context, so their bodies

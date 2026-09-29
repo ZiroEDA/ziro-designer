@@ -30,6 +30,7 @@ import { useModalEscape } from '../dialog_shim.js';
 import { KiBitmapBundle } from '../bitmap.js';
 import { BITMAPS } from '../bitmaps/bitmaps_list.js';
 import { GetNextItem, GetPrevItem, type WX_DATAVIEW_MODEL } from './wx_dataviewctrl.js';
+import { EditClearSymbolic, EditFindSymbolic } from './wx_search_ctrl.js';
 
 /**
  * `wxDataViewItemAttr` as CSS. `SetColour( wxSYS_COLOUR_GRAYTEXT )` becomes
@@ -101,51 +102,6 @@ const PREVIEW_SIZE = { width: 240, height: 200 };
 /** g_recentSearches, keyed like upstream by the tree's "recent searches key"
  *  ("symbols" / "power" / "footprints"), and equally long-lived. */
 const gRecentSearches = new Map<string, string[]>();
-
-/**
- * The two icons a `wxSearchCtrl` shows.
- *
- * KiCad draws NEITHER of them. `LIB_TREE` asks for a `wxSearchCtrl` and calls
- * `ShowCancelButton( true )` (common/widgets/lib_tree.cpp:79-81); on GTK3 that
- * is a `GtkSearchEntry`, and the two glyphs it puts in its primary and
- * secondary icon slots come from the ICON THEME - `edit-find-symbolic` and
- * `edit-clear-symbolic`. `qa/probes/chooser_shell_probe.cpp` asks a real one:
- *
- *   primary   edit-find-symbolic    16x16 at x 9   of a 34px-tall entry
- *   secondary edit-clear-symbolic   16x16 at x 385 of a 410px-wide entry
- *
- * so both are 16x16 inset 9px from their end. The active theme here is
- * Yaru-dark, whose icons live in /usr/share/icons/Yaru/scalable/actions/; the
- * path data below is those two files verbatim, with the theme's own `gray` /
- * `#808080` fill replaced by `currentColor` because GTK recolours a symbolic
- * icon to the style's colour (--entry-icon-fg).
- *
- * A generic magnifier and a bare "✕" are what we had, and the clear glyph in
- * particular is not an ✕ at all: it is a backspace-shaped tag with the ✕ inside
- * it, which is the single most recognisable thing in that row.
- */
-function EditFindSymbolic(): JSX.Element {
-  return (
-    <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
-      <path
-        fill="currentColor"
-        d="M7 1C3.69 1 1 3.69 1 7s2.69 6 6 6a5.948 5.948 0 0 0 3.664-1.273l2.863 2.863 1.063-1.063-2.863-2.863A5.949 5.949 0 0 0 13 7c0-3.31-2.69-6-6-6zm0 1a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5z"
-      />
-    </svg>
-  );
-}
-
-function EditClearSymbolic(): JSX.Element {
-  return (
-    <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
-      <path
-        fill="currentColor"
-        fillRule="evenodd"
-        d="m4.9336 3-4.2227 4.2227-0.0039062-0.0039062-0.70703 0.70703 0.0039063 0.0039063-0.0039063 0.0039063 0.70703 0.70703 0.0039062-0.0039062 3.0469 3.0488 1.2422 1.2402v2e-3l0.072266 0.072219h10.928v-10h-11zm0.41406 1h9.6523v8h-9.5117l-4.0703-4.0703zm2.3594 1-0.70703 0.70703 2.2969 2.2969-2.2969 2.2988 0.70703 0.70703 2.2969-2.2988 2.2988 2.2988 0.70703-0.70703-2.2988-2.2988 2.2988-2.2969-0.70703-0.70703-2.2988 2.2969z"
-      />
-    </svg>
-  );
-}
 
 export interface LibTreeProps {
   adapter: LibTreeModelAdapter;

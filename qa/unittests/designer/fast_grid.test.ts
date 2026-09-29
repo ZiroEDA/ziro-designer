@@ -30,11 +30,8 @@ import {
   fastGridIndex,
   type FastGridSlice,
 } from '@ziroeda/common/settings/grid_settings_ui.js';
-import {
-  GERBVIEW_DEFAULTS,
-  PL_EDITOR_DEFAULTS,
-  SYMBOL_EDITOR_DEFAULTS,
-} from '@ziroeda/designer/src/prefs/settings.js';
+import { GERBVIEW_DEFAULTS, PL_EDITOR_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
+import { SYMBOL_EDITOR_DEFAULTS } from '@ziroeda/eeschema/symbol_editor/symbol_editor_settings.js';
 import { EESCHEMA_DEFAULTS } from '@ziroeda/eeschema/eeschema_settings.js';
 
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
@@ -122,8 +119,8 @@ describe('every app’s stored defaults land where the page says', () => {
 
 /** Every frame `COMMON_TOOLS` gives these three actions, and where it binds them. */
 const FRAME: Record<string, string> = {
-  eeschema: 'editors/schematic/SchematicEditor.tsx',
-  symbol_editor: 'editors/symbol/SymbolEditor.tsx',
+  eeschema: '../../eeschema/sch_edit_frame_ui.tsx',
+  symbol_editor: '../../eeschema/symbol_editor/symbol_edit_frame_ui.tsx',
   // pl_editor binds them as upstream does, COMMON_TOOLS on PL_EDITOR_FRAME,
   // pinned in unittests/pagelayout_editor/pl_editor_chrome.test.ts.
   // gerbview binds them as upstream does, COMMON_TOOLS on GERBVIEW_FRAME,

@@ -1,0 +1,20 @@
+*PADS-PCB*
+*PART*
+J1               Connector_Phoenix_MC:PhoenixContact_MCV_1,5_4-G-3.5_1x04_P3.50mm_Vertical
+R1               Resistor_SMD:R_0603_1608Metric
+R2               Resistor_SMD:R_0603_1608Metric
+R3               Resistor_SMD:R_0603_1608Metric
+R4               Resistor_SMD:R_0603_1608Metric
+
+*NET*
+*SIGNAL* /Channels 0-1/Ch0
+J1.1 R1.1 
+*SIGNAL* /Channels 0-1/Ch1
+J1.2 R2.1 
+*SIGNAL* /Channels 2-3/Ch2
+J1.3 R3.1 
+*SIGNAL* /Channels 2-3/Ch3
+J1.4 R4.1 
+*SIGNAL* GND
+R1.2 R2.2 R3.2 R4.2 
+*END*

@@ -234,7 +234,7 @@ export {
   exchangeFootprint,
   placeFootprint,
   type PlaceFootprintOptions,
-} from './netlist_reader/pcb_netlist_utils.js';
+} from './netlist_reader/board_netlist_updater.js';
 // A new board item's UUID is `KIID::KIID()`, which upstream has once for the
 // whole application; re-exported from common so the board barrel still offers it.
 export { newKiid as newBoardUuid } from '@ziroeda/common/kiid.js';
@@ -320,6 +320,23 @@ export {
   type ZoneBorderStyle,
   type ZoneValueError,
 } from './dialogs/dialog_rule_area_properties.js';
+// Length Tuning Settings (pcbnew/dialogs/dialog_tuning_pattern_properties.cpp).
+export {
+  NULL_TUNING_CONSTRAINT,
+  initialTuningPatternValues,
+  tuningPatternEnableState,
+  tuningPatternSourceInfoText,
+  tuningPatternOverrideToggled,
+  tuningPatternRadioLengthSelected,
+  tuningPatternRadioDelaySelected,
+  tuningPatternTransferFromWindow,
+  psText,
+  psValue,
+  type TuningConstraintInput,
+  type TuningPatternFormValues,
+  type TuningPatternMode,
+  type TuningPatternEnableState,
+} from './dialogs/dialog_tuning_pattern_properties.js';
 // Non-Copper Zone Properties (pcbnew/dialogs/dialog_non_copper_zones_properties.cpp).
 export {
   collectNonCopperZoneValues,
@@ -647,8 +664,15 @@ export {
   circleHull,
   rectHull,
   isSegment45Degree,
+  ARC_LOW_DEF,
+  arcHull,
+  buildHullForPrimitiveShape,
+  convexHull,
+  hullIntersection,
+  rawIntersections,
   type Hull,
-} from './router/pns_hull.js';
+  type HullIntersect,
+} from './router/pns_utils.js';
 
 export {
   pointInside,
@@ -656,9 +680,6 @@ export {
   edgeContainingPoint,
   findPoint,
   splitAt,
-  rawIntersections,
-  hullIntersection,
-  type HullIntersect,
 } from './router/pns_chain.js';
 
 export {
@@ -1236,14 +1257,10 @@ export {
   getRouterCornerMode,
   setRouterCornerMode,
 } from './router/pns_node.js';
-export {
-  ARC_LOW_DEF,
-  arcHull,
-  buildHullForPrimitiveShape,
-  convexHull,
-  itemHull,
-} from './router/pns_item_hull.js';
-export { PnsBoardRuleResolver, type PnsResolverHost } from './router/pns_rule_resolver.js';
+// `ARC_LOW_DEF`/`arcHull`/`buildHullForPrimitiveShape`/`convexHull` are already
+// exported above, from the `pns_utils.js` block.
+export { itemHull } from './router/pns_item_hull.js';
+export { PNS_PCBNEW_RULE_RESOLVER, type PnsResolverHost } from './router/pns_rule_resolver.js';
 
 export {
   DEFAULT_ROUTING_SETTINGS,
@@ -1311,6 +1328,7 @@ export {
   type PnsShoveSettings,
 } from './router/pns_shove.js';
 export { RangedNum } from './router/ranged_num.js';
+export { TimeLimit } from './router/time_limit.js';
 
 // `segLength`, `segLineProject`, `segContains`, `segApproxParallel` and
 // `rescale64` are NOT re-exported here: `pns_seg_ops.js` already exports those
@@ -1406,6 +1424,12 @@ export {
   toShoveSettings,
   type PnsRouterHost,
 } from './router/pns_drag_algo.js';
+export { PnsAlgoBase } from './router/pns_algo_base.js';
+export {
+  PnsLogger,
+  PnsLoggerEventType,
+  type PnsLoggerEventEntry,
+} from './router/pns_logger.js';
 export { PnsMouseTrailTracer } from './router/pns_mouse_trail_tracer.js';
 // `chainSplit`/`lineDragArc`/`lineDragCorner`/`lineDragSegment`/`LineDragArcFn`
 // are already exported above, from the `pns_line.js` block (that module now
@@ -1536,14 +1560,14 @@ export { PnsSizesSettings, type PnsViaTypeSetting } from './router/pns_sizes_set
 // imported from `./router/pns_router.js` directly for the same reason
 // `DpPlacerHost` is.
 export {
-  PnsBoardIface,
+  PNS_KICAD_IFACE,
   PNS_ORPHANED_NET,
   asBoardItem,
   boardLayerFromPnsLayer,
   padHoleShape,
   pnsLayerFromBoardLayer,
   solidShapeForPad,
-  type PnsBoardIfaceDeps,
+  type PNS_KICAD_IFACE_DEPS,
   type PnsBoardNet,
   type PnsPendingChange,
-} from './router/pns_board_iface.js';
+} from './router/pns_kicad_iface.js';

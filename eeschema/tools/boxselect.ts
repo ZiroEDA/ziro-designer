@@ -27,7 +27,7 @@ import type { Schematic, LibSymbol, Vec2 } from '../types.js';
 import { refId, type ItemRef } from './hittest.js';
 import { symbolBodyBBox, labelBox, type BBox } from './bbox.js';
 import { alignBoxes } from './sch_align_tool.js';
-import { schSymbolLibraryName } from '../lib_symbol_compare.js';
+import { schSymbolLibraryName } from '../lib_symbol.js';
 import {
   polyHitsBox,
   polyHitsPoint,

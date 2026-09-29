@@ -1,0 +1,32 @@
+.HEA
+.TIM 2026-09-29T06:56:14
+.APP "Eeschema 10.0.6-10.0.6~ubuntu24.04.1"
+.TYP FULL
+
+.ADD_COM     J2     "Conn_01x03_Male"     "Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical"
+.ADD_COM     J1     "Conn_01x03_Male"     "Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical"
+.ADD_COM     R1     "R"     "Resistor_SMD:R_0603_1608Metric"
+.ADD_COM     R2     "R"     "Resistor_SMD:R_0603_1608Metric"
+.ADD_COM     R3     "R"     "Resistor_SMD:R_0603_1608Metric"
+.ADD_COM     R4     "R"     "Resistor_SMD:R_0603_1608Metric"
+
+
+.ADD_TER   J2   2     "/LIVE_2"
+.TER       R3   1
+            R4   1
+
+.ADD_TER   J2   1     "/Sheet5CC15EF8/LIVE"
+.TER       R1   1
+            R2   1
+
+.ADD_TER   J2   3     "/Sheet5CC15EF8/NEUTRAL"
+.TER       R1   2
+            R3   2
+
+.ADD_TER   J1   2     "/sheet5CC165F1/LIVE_1"
+.TER       R4   2
+
+.ADD_TER   J1   1     "LIVE"
+.TER       R2   2
+
+.END

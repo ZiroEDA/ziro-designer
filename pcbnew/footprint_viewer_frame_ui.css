@@ -1,0 +1,51 @@
+/* FOOTPRINT_VIEWER_FRAME (pcbnew/footprint_viewer_frame_ui.tsx). The sizer
+   and AUI tree is written out at the head of that file; every value here is
+   one of its data or a shared token.
+
+   Nothing here restates a colour, a font, a control height or a row pitch:
+   the entry is `.ze-search`, the list `.ze-gridlist`, the toolbars, sashes,
+   message panel and status bar their own shared widgets. */
+
+/* A Palette pane: `EDA_PANE().Palette()` is `PaneBorder( true )`
+   (eda_base_frame.h:965-970), so wxAUI draws its 1px border round the pane.
+   The top edge is the top toolbar's own bottom rule and the libraries pane's
+   left edge is the left toolbar's right rule (`.ze-toolbar.vertical.left`),
+   so those two are not drawn twice. */
+.ze-fpviewer-pane {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  box-sizing: border-box;
+  /* [data] `.MinSize( 100, -1 )` on both palettes (footprint_viewer_frame.cpp:283-286). */
+  min-width: 100px;
+  min-height: 0;
+  border-right: var(--aui-pane-border-size) solid var(--aui-pane-border);
+  border-bottom: var(--aui-pane-border-size) solid var(--aui-pane-border);
+}
+/* The footprints pane sits after a sash, not against a toolbar. */
+.ze-fpviewer-pane.ze-fpviewer-fps {
+  border-left: var(--aui-pane-border-size) solid var(--aui-pane-border);
+}
+/* `libSizer->Add( m_libFilter, 0, wxEXPAND, 5 )`: proportion 0 — its own
+   height, not a share of the column. [data] */
+.ze-fpviewer-pane > .ze-libtree-entry {
+  flex: 0 0 auto;
+}
+/* `libSizer->Add( m_libList, 1, wxEXPAND, 5 )`: proportion 1 — everything
+   left. [data] */
+.ze-fpviewer-pane > .ze-listbox {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+/* The centre pane. The canvas inside brings its own `.ze-canvas-wrap`, which
+   states the pane border's bottom edge (`EDA_PANE().Canvas()` is
+   `PaneBorder( true )`); here its left edge meets a sash rather than a
+   toolbar, so that edge is stated as well. */
+.ze-fpviewer-canvas {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  border-left: var(--aui-pane-border-size) solid var(--aui-pane-border);
+}

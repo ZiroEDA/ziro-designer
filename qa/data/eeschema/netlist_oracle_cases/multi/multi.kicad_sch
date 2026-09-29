@@ -1,0 +1,18 @@
+(kicad_sch (version 20231120) (generator "eeschema") (uuid "cccccccc-0000-4000-8000-000000000000") (paper "A4") (lib_symbols (symbol "Device:DUAL" (pin_names (offset 0))
+    (property "Reference" "U" (at 0 0 0))
+    (property "Value" "DUAL" (at 0 0 0))
+    (symbol "DUAL_1_1"
+      (pin passive line (at 0 0 0) (length 1.27) (name "~") (number "1")))
+    (symbol "DUAL_2_1"
+      (pin passive line (at 0 0 0) (length 1.27) (name "~") (number "2")))))
+    (symbol (lib_id "Device:DUAL") (at 100 100 0) (unit 1)
+      (property "Reference" "U1" (at 100 100 0))
+      (property "Value" "DUAL" (at 100 100 0))
+      (property "Footprint" "F" (at 100 100 0))
+      (uuid "aaaaaaaa-0000-4000-8000-000000000001")
+      (instances (project "multi" (path "/cccccccc-0000-4000-8000-000000000000" (reference "U1") (unit 1)))))
+    (sheet (at 150 80) (size 20 20) (uuid "cccccccc-0000-4000-8000-000000000001")
+      (property "Sheetname" "Sub" (at 150 79 0))
+      (property "Sheetfile" "sub.kicad_sch" (at 150 101 0))
+      (instances (project "multi" (path "/cccccccc-0000-4000-8000-000000000000" (page "2")))))
+    (sheet_instances (path "/" (page "1"))))

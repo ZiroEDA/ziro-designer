@@ -1,0 +1,23 @@
+(NETLIST)
+(Source: /home/akshay/ziro-designer-1/qa/data/eeschema/netlist_oracle_graph/issue14494/issue14494.kicad_sch)
+(Date: 2026-09-29T06:57:06)
+$PACKAGES
+! '_r_0ibf_rcl_r_1206_3216metric' ! '_R' ; R2,
+	R3,
+	R4
+! '_r_resistor_smd_r_0201_0603metric' ! '_R' ; R1
+$A_PROPERTIES
+'ROOM' 'issue14494' ; R2,
+	R4
+'ROOM' 'subsheet_01' ; R1,
+	R3
+$NETS
+/X; R1.2,
+	R2.2
+/Y; R1.1,
+	R2.1
+/SUBSHEET_01/C; R3.1,
+	R4.1
+/SUBSHEET_01/D; R3.2,
+	R4.2
+$END

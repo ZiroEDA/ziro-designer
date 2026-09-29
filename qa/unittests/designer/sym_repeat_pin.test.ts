@@ -28,7 +28,7 @@ import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSymbolLib } from '@ziroeda/eeschema';
 import type { LibPin, LibSymbol } from '@ziroeda/eeschema';
-import { repeatPin } from '@ziroeda/designer/src/editors/symbol/edits.js';
+import { repeatPin } from '@ziroeda/eeschema/symbol_editor/edits.js';
 import { schIUScale } from '@ziroeda/common';
 
 /** One symbol, one pin, built from the caller's tokens. */

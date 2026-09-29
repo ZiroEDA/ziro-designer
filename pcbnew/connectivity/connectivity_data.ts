@@ -42,7 +42,7 @@ import {
   type PROGRESS_REPORTER_LIKE,
 } from './connectivity_algo.js';
 import { type CN_ANCHOR, type CN_CLUSTER, CN_ZONE_LAYER } from './connectivity_items.js';
-import { INT_MAX } from './connectivity_rtree.js';
+import { INT_MAX } from './connectivity_items.js';
 import { FROM_TO_CACHE } from './from_to_cache.js';
 
 export interface CN_DISJOINT_NET_ENTRY {

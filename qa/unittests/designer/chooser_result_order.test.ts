@@ -17,7 +17,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import type { LibSymbol } from '@ziroeda/eeschema';
-import { symbolChooserFields, symbolSearchTerms } from '@ziroeda/eeschema/symbol_search_terms.js';
+import { symbolChooserFields, symbolSearchTerms } from '@ziroeda/eeschema/lib_symbol.js';
 import { LibTreeNode, LibTreeNodeType } from '@ziroeda/common/lib_tree_model.js';
 import { LibTreeModelAdapter } from '@ziroeda/common/lib_tree_model_adapter.js';
 

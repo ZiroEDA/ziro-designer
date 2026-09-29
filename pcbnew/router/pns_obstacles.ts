@@ -31,7 +31,7 @@
  * silently ruined — which is the right way round for a tool that only suggests
  * geometry.
  */
-import { circleHull, rectHull, segmentHull, viaHull, type Hull } from './pns_hull.js';
+import { circleHull, rectHull, segmentHull, viaHull, type Hull } from './pns_utils.js';
 import type { Board, PcbPad } from '../types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 

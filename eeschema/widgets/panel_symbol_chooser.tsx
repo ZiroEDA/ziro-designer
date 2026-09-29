@@ -1,0 +1,696 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+/**
+ * The working panel of the Choose Symbol dialog: library tree on the left of
+ * a draggable sash; symbol preview, footprint selector and footprint preview
+ * on the right. Mirrors kicad/eeschema/widgets/panel_symbol_chooser.cpp
+ * (PANEL_SYMBOL_CHOOSER), including the alternate no-footprints layout where
+ * a details pane spans the bottom of the window.
+ *
+ * Libraries load lazily (SYMBOL_TREE_MODEL_ADAPTER's lazy loader, in
+ * `symbol_tree_model_adapter.ts`): the index provides every symbol name up
+ * front; expanding or selecting into a library fetches its .kicad_sym, filling
+ * descriptions, keywords, footprints and multi-unit sub-rows, and bumping the
+ * dialog's "(N items loaded)" title.
+ *
+ * What the panel reaches in the app — the settings store, the hosted library
+ * layer, the footprint index, and the two preview widgets — comes through
+ * {@link PANEL_SYMBOL_CHOOSER_APP}; `eeschema` never imports `designer`.
+ */
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import type { ReactNode } from 'react';
+import type { LibSymbol } from '../types.js';
+import { symbolLibraryDescription } from '@ziroeda/common/lib_table_descriptions.js';
+import { atom, list, str } from '@ziroeda/sexpr/types.js';
+import { LibTree } from '@ziroeda/common/widgets/lib_tree.js';
+import type { SortMode } from '@ziroeda/common/lib_tree_model_adapter.js';
+import { LibTreeNode, LibTreeNodeType } from '@ziroeda/common/lib_tree_model.js';
+import { FootprintSelectWidget } from '@ziroeda/common/widgets/footprint_select_widget.js';
+import { generateAliasInfo } from '../generate_alias_info.js';
+import type { LibIndexEntry } from '../libraries/symbol_library_adapter.js';
+import type { LibTreeItem } from '../lib_tree_item.js';
+import { Sash } from '@ziroeda/common/widgets/wx_splitter_window.js';
+import type { PickedSymbol } from '../picksymbol.js';
+import type { EESCHEMA_SETTINGS_STORE } from '../eeschema_app.js';
+import {
+  SYMBOL_TREE_MODEL_ADAPTER,
+  populateFromSymbol,
+  populateItemNode,
+} from '../symbol_tree_model_adapter.js';
+
+/**
+ * What `PANEL_SYMBOL_CHOOSER` reaches in the app: the settings store, the
+ * hosted symbol library layer (`SYMBOL_LIBRARY_ADAPTER` as designer configures
+ * it), the footprint index `FOOTPRINT_SELECT_WIDGET` filters, and the two
+ * preview widgets. designer's `symbol_chooser_app.tsx` is the one answer.
+ */
+export interface PANEL_SYMBOL_CHOOSER_APP {
+  settings: EESCHEMA_SETTINGS_STORE;
+  loadIndex(): Promise<readonly LibIndexEntry[]>;
+  preloadLibraryItems(library: string): Promise<readonly LibTreeItem[]>;
+  loadSymbol(library: string, name: string): Promise<LibSymbol | undefined>;
+  libraryLoaded(library: string): boolean;
+  loadedLibraryItems(library: string): readonly LibTreeItem[] | undefined;
+  powerSymbolTest(
+    index: readonly LibIndexEntry[],
+  ): (entry: LibIndexEntry, symbolName: string) => boolean;
+  /**
+   * `FOOTPRINT_SELECT_WIDGET::UpdateList`'s request to pcbnew's KIFACE
+   * (`filterFootprints`, pcbnew.cpp:106) over the preloaded footprints: the
+   * LIB_ID texts that pass. Across the kiway, as upstream, because eeschema
+   * does not link pcbnew.
+   */
+  filterFootprints(request: {
+    pin_count: number;
+    filters: readonly string[];
+    zero_filters: boolean;
+    max_results: number;
+  }): Promise<string[]>;
+  /**
+   * `FOOTPRINT_PREVIEW_WIDGET` over pcbnew's `FRAME_FOOTPRINT_PREVIEW` panel
+   * (`Kiway().KiFACE( FACE_PCB )->CreateKiWindow(…)`).
+   */
+  FootprintPreviewWidget(props: { footprint: string; statusText: string }): ReactNode;
+  /** `SYMBOL_PREVIEW_WIDGET`. */
+  SymbolPreviewWidget(props: {
+    symbol: LibSymbol | null;
+    unit?: number;
+    statusText?: string;
+  }): ReactNode;
+}
+
+export interface PanelSymbolChooserProps {
+  app: PANEL_SYMBOL_CHOOSER_APP;
+  /** SYMBOL_LIBRARY_FILTER::GetFilterPowerSymbols, power ports only. */
+  powerFilter?: boolean;
+  /** "Show footprint previews in Symbol Chooser" (Preferences > Editing Options). */
+  showFootprints: boolean;
+  /** Most-recently-placed symbols, newest first (s_SymbolHistoryList). */
+  historyList: readonly PickedSymbol[];
+  /** Symbols already placed anywhere in the design. */
+  alreadyPlaced: readonly PickedSymbol[];
+  /** Resolves a LIB_ID from the schematic's embedded library cache. */
+  getPlacedLibSymbol?: (libId: string) => LibSymbol | undefined;
+  /** Accept handler, double-click/Enter chose a symbol. */
+  onAccept: () => void;
+  /** Lazy-load handler: item count changed (updates the dialog title). */
+  onItemCountChanged?: (count: number) => void;
+  /**
+   * `PANEL_SYMBOL_CHOOSER::SetPreselect( const LIB_ID& )` (:486), the LIB_ID to
+   * open sitting on. SYMBOL_CHOOSER_FRAME::ShowModal calls it with whatever the
+   * caller's entry already held, so browsing from a filled-in field starts at
+   * that symbol rather than at the top of the tree. Upstream does
+   * `m_adapter->SetPreselectNode( aPreselect, 0 )` — unit 0, the symbol itself.
+   */
+  preselect?: string;
+}
+
+export interface PanelSymbolChooserHandle {
+  /** GetSelectedLibId + GetFields, resolved to the loaded symbol. */
+  getSelected(): { symbol: LibSymbol; unit: number; fields: [string, string][] } | null;
+}
+
+// The search string is preserved between openings of the dialog
+// (g_symbolSearchString / g_powerSearchString).
+let gSymbolSearchString = '';
+let gPowerSearchString = '';
+
+const symProp = (sym: LibSymbol, key: string): string =>
+  sym.properties.find((p) => p.key === key)?.value ?? '';
+
+const itemNameOf = (libId: string): string => libId.slice(libId.indexOf(':') + 1);
+
+/** The PICKED_SYMBOL's field edits applied to a copy of the symbol, as
+ *  processList does before handing it to the tree. */
+function withFields(sym: LibSymbol, fields: readonly [string, string][]): LibSymbol {
+  const properties = sym.properties.map((p) => {
+    const edit = fields.find(([key]) => key === p.key);
+    return edit ? { ...p, value: edit[1] } : p;
+  });
+  for (const [key, value] of fields) {
+    if (!properties.some((p) => p.key === key))
+      properties.push({
+        key,
+        value,
+        angle: 0,
+        source: list(atom('property'), str(key), str(value)),
+      });
+  }
+  return { ...sym, properties };
+}
+
+/** LIB_SYMBOL::GetPinCount over the unit-1 (or common) graphical pins. */
+const pinCountOf = (sym: LibSymbol): number =>
+  sym.units.reduce((n, u) => n + (u.unit === 0 || u.unit === 1 ? u.pins.length : 0), 0);
+
+export const PanelSymbolChooser = forwardRef<PanelSymbolChooserHandle, PanelSymbolChooserProps>(
+  function PanelSymbolChooser(
+    {
+      app,
+      powerFilter = false,
+      showFootprints,
+      historyList,
+      alreadyPlaced,
+      getPlacedLibSymbol,
+      onAccept,
+      onItemCountChanged,
+      preselect,
+    },
+    ref,
+  ): JSX.Element {
+    // aFilter && GetFilterPowerSymbols() forces the footprint panes off.
+    const showFp = showFootprints && !powerFilter;
+
+    /* The node the tree opens on. The adapter is given a preselect from TWO
+       places upstream and the tree shows whichever it holds:
+
+         - the constructor, from the history list —
+           `if( !aHistoryList.empty() ) adapter->SetPreselectNode( aHistoryList[0].LibId, … )`
+           (panel_symbol_chooser.cpp:176-177), and SYMBOL_CHOOSER_FRAME::OnOK
+           calls AddSymbolToHistory before dismissing (:183), so browsing once
+           puts that symbol at the head for the next opening;
+         - `SetPreselect` (:486), from the caller's own field.
+
+       The explicit one wins, matching the call order: the constructor runs
+       first and SetPreselect is a later call on the built panel. Passing only
+       the explicit one left the New-library-identifier browser — whose field
+       starts empty — opening on nothing at all. */
+    const effectivePreselect = preselect ?? historyList[0]?.libId;
+
+    const [regenerateNonce, setRegenerateNonce] = useState(0);
+    const [selectedNode, setSelectedNode] = useState<LibTreeNode | null>(null);
+    const [previewSymbol, setPreviewSymbol] = useState<LibSymbol | null>(null);
+    // A derived symbol's parent (LIB_SYMBOL::GetParent), needed for the details
+    // pane's "Derived from" line and its inherited field rows.
+    const [parentSymbol, setParentSymbol] = useState<LibSymbol | undefined>(undefined);
+    const [fpOverride, setFpOverride] = useState('');
+    const fieldEdits = useRef<[string, string][]>([]);
+    const loadedLibs = useRef(new Set<string>());
+    // The history/already-placed group entries' symbols, with their picked
+    // field edits already applied (upstream's history_list_storage).
+    const groupSymbols = useRef(new Map<LibTreeNode, LibSymbol>()).current;
+
+    // Sash positions (EESCHEMA_SETTINGS m_SymChooserPanel.sash_pos_h/_v).
+    const [sashH, setSashH] = useState(app.settings.eeschema.sym_chooser.sash_pos_h);
+    const [sashV, setSashV] = useState(app.settings.eeschema.sym_chooser.sash_pos_v);
+
+    // biome-ignore lint/correctness/useExhaustiveDependencies: the adapter is built once per dialog opening
+    const adapter = useMemo(() => {
+      const a = new SYMBOL_TREE_MODEL_ADAPTER({
+        sortMode: app.settings.eeschema.sym_chooser.sort_mode as SortMode,
+        columns: app.settings.eeschema.lib_tree.columns,
+      });
+      a.generateInfo = (node) => {
+        if (node === selectedNodeRef.current && previewSymbolRef.current)
+          return generateAliasInfo(previewSymbolRef.current, node.unit, parentSymbolRef.current);
+        const placed = groupSymbols.get(node) ?? getPlacedLibSymbol?.(node.libId);
+        return placed ? generateAliasInfo(placed, node.unit) : `<b>${node.name}</b>`;
+      };
+
+      if (powerFilter) {
+        // isPower is now exact whenever the index carries power flags, so the
+        // library-name guess is not layered on top of it — that second test
+        // used to re-admit every symbol in a "power"-named library after the
+        // per-symbol flag had already rejected it.
+        a.setFilter((node) => node.isPower);
+      }
+
+      // processList: an entry whose symbol can't be resolved is dropped, and
+      // the picked field values are applied to the copy that feeds the node,
+      // so an edited footprint/value shows in the tree and the details pane.
+      const processList = (list: readonly PickedSymbol[], group: LibTreeNode) => {
+        for (const picked of list) {
+          const sym = getPlacedLibSymbol?.(picked.libId);
+          if (!sym) continue;
+          const [nick = '', itemName = ''] = picked.libId.split(':');
+          const item = new LibTreeNode();
+          item.type = LibTreeNodeType.ITEM;
+          item.parent = group;
+          item.name = itemName;
+          item.libNickname = nick;
+          item.libItemName = itemName;
+          const edited = picked.fields.length ? withFields(sym, picked.fields) : sym;
+          groupSymbols.set(item, edited);
+          populateFromSymbol(item, edited, a);
+          group.children.push(item);
+        }
+      };
+
+      // Sort the already placed list since it is potentially from multiple
+      // sessions, but not the most recent list since we want this listed by
+      // most recent usage.
+      const recent = a.addGroup('-- Recently Used --');
+      recent.isRecentlyUsedGroup = true;
+      processList(historyList, recent);
+      a.finishLibrary(recent, true);
+
+      if (historyList.length > 0) a.setPreselectNode(historyList[0]!.libId, historyList[0]!.unit);
+
+      // ...and an explicit preselect wins over the history's, which is the
+      // order upstream gets for free: the constructor sets the history node
+      // (:177) and SetPreselect is a later call on the built panel (:486).
+      if (preselect) a.setPreselectNode(preselect, 0);
+
+      const placedGroup = a.addGroup('-- Already Placed --');
+      placedGroup.isAlreadyPlacedGroup = true;
+      processList(
+        // Upstream sorts on the item name, not the whole LIB_ID.
+        [...alreadyPlaced].sort((x, y) => itemNameOf(x.libId).localeCompare(itemNameOf(y.libId))),
+        placedGroup,
+      );
+      a.finishLibrary(placedGroup);
+
+      return a;
+    }, []);
+
+    // generateInfo closes over these through refs so the memoised adapter
+    // always sees the current selection.
+    const selectedNodeRef = useRef<LibTreeNode | null>(null);
+    const previewSymbolRef = useRef<LibSymbol | null>(null);
+    const parentSymbolRef = useRef<LibSymbol | undefined>(undefined);
+    selectedNodeRef.current = selectedNode;
+    previewSymbolRef.current = previewSymbol;
+    parentSymbolRef.current = parentSymbol;
+
+    /**
+     * `adapter->AddLibraries( aFrame )` (panel_symbol_chooser.cpp), once the
+     * index is in: `SYMBOL_TREE_MODEL_ADAPTER::AddLibraries` builds the rows of
+     * every LOADED library and retries the rest on its own timer; each pass
+     * regenerates the tree and the dialog's "(N items loaded)" title.
+     */
+    // biome-ignore lint/correctness/useExhaustiveDependencies: the tree is built once per adapter; `app` is stable and the count callback is read when a pass lands
+    useEffect(() => {
+      let cancelled = false;
+      adapter.SetLazyLoadHandler(() => {
+        if (cancelled) return;
+        setRegenerateNonce((n) => n + 1);
+        onItemCountChanged?.(adapter.getItemCount());
+      });
+      app
+        .loadIndex()
+        .then((index) => {
+          if (cancelled) return;
+          adapter.AddLibraries(index, {
+            libraryLoaded: app.libraryLoaded,
+            loadedLibraryItems: app.loadedLibraryItems,
+            // `row->GetDescr()` of the library table — shipped in
+            // `template/sym-lib-table`, not in the index.
+            libraryDescription: (lib) => lib.descr ?? symbolLibraryDescription(lib.name),
+            pinnedLibraries: () => app.settings.common.system.session.pinned_symbol_libs,
+            powerSymbolTest: app.powerSymbolTest,
+          });
+        })
+        .catch(() => {});
+      return () => {
+        cancelled = true;
+        adapter.SetLazyLoadHandler(null);
+        adapter.StopPendingTimer();
+      };
+    }, [adapter]);
+
+    /**
+     * Fetch a library and enrich its item nodes — `SYMBOL_TREE_MODEL_ADAPTER::
+     * AddLibraries`' `m_adapter->GetSymbols( lib )`
+     * (eeschema/symbol_tree_model_adapter.cpp:148), which is a whole library at
+     * a time because upstream has it resident.
+     *
+     * ONE request, for the library file. It used to be one request per symbol,
+     * and the cost of that is not marginal: expanding `Device` is 536 symbols,
+     * and measured against the bucket that is
+     *
+     *     536 per-symbol files   2,486,139 B   94.2 s at 6 in flight
+     *                                          21.7 s at 24
+     *     1 Device.kicad_sym     2,414,640 B    1.9 s
+     *
+     * — the same bytes, 536x the round trips, and between 10x and 50x the wall
+     * clock. `loadSymbol` is still per-symbol for PLACING one part, which is
+     * where the split pays; enriching a whole library's rows is the case it
+     * loses, badly.
+     *
+     * Two things it must NOT do. It must not run when the library is already
+     * LOADED — the preload covers every row of the table now, so `AddLibraries`
+     * has already built these nodes from real items and re-reading the library
+     * would be for nothing. And it must not read one on this thread: it used to
+     * call `loadLibrarySymbols`, so selecting a row in MCU_ST_STM32H7 parsed
+     * 15.5 MB inline, a 2 030 ms task (qa/perf/parse_all.bench.ts) — a click
+     * that froze the dialog. Both paths now go through the same pool the
+     * preload uses.
+     */
+    const ensureLibraryLoaded = useCallback(
+      async (libNickname: string): Promise<void> => {
+        if (loadedLibs.current.has(libNickname)) return;
+        loadedLibs.current.add(libNickname);
+        const libNode = adapter.tree.children.find((n) => !n.isGroup && n.name === libNickname);
+        if (!libNode) return;
+        const items = await app.preloadLibraryItems(libNickname).catch(() => []);
+        const byName = new Map(items.map((item) => [item.name, item]));
+        for (const item of libNode.children) {
+          const loaded = byName.get(item.libItemName);
+          if (loaded) populateItemNode(item, loaded, adapter);
+        }
+        setRegenerateNonce((n) => n + 1);
+        onItemCountChanged?.(adapter.getItemCount());
+      },
+      [adapter, onItemCountChanged, app],
+    );
+
+    /** onSymbolSelected: update previews, footprint select and details pane. */
+    const onSelect = useCallback(
+      (node: LibTreeNode | null) => {
+        setSelectedNode(node);
+        fieldEdits.current = [];
+        setFpOverride('');
+
+        if (node && node.libId && node.type !== LibTreeNodeType.LIBRARY) {
+          // A group entry keeps the copy its picked field edits were applied to;
+          // otherwise resolve from the schematic's embedded cache (GetLibSymbol)
+          // before falling back to the hosted library.
+          const stored = groupSymbols.get(node) ?? getPlacedLibSymbol?.(node.libId);
+          if (stored) {
+            populateFromSymbol(node, stored, adapter);
+            setPreviewSymbol(stored);
+            return;
+          }
+          // No "fetching" state: `SYMBOL_PREVIEW_WIDGET` has none, because
+          // `IFACE::PreloadLibraries` (eeschema.cpp:487) has already made the
+          // design's symbols resident by the time the chooser opens. What is
+          // left is one hosted fetch for a symbol nothing has touched yet, and
+          // covering it with a spinner made every browse of the tree look like
+          // a load. The previous preview stays until the new one arrives,
+          // which is what upstream shows while a repaint is pending.
+          void app
+            .loadSymbol(node.libNickname, node.libItemName)
+            .catch(() => undefined)
+            .then((sym) => {
+              setPreviewSymbol(sym ?? null);
+              if (sym) {
+                populateFromSymbol(node, sym, adapter);
+                void ensureLibraryLoaded(node.libNickname);
+              }
+            });
+        } else {
+          setPreviewSymbol(null);
+        }
+      },
+      [ensureLibraryLoaded, app],
+    );
+
+    const onChoose = useCallback(
+      (node: LibTreeNode) => {
+        if (node.libId) onAccept();
+      },
+      [onAccept],
+    );
+
+    /** onFootprintSelected: stash the override in the field-edit list. */
+    const onFootprintSelected = useCallback((fp: string) => {
+      setFpOverride(fp);
+      fieldEdits.current = fieldEdits.current.filter(([key]) => key !== 'Footprint');
+      if (fp) fieldEdits.current.push(['Footprint', fp]);
+    }, []);
+
+    useImperativeHandle(
+      ref,
+      () => ({
+        getSelected() {
+          const node = selectedNode;
+          if (!node || !node.libId || !previewSymbol) return null;
+          return {
+            symbol: previewSymbol,
+            unit: node.unit, // 0 = the symbol itself; caller defaults to 1
+            fields: [...fieldEdits.current],
+          };
+        },
+      }),
+      [selectedNode, previewSymbol],
+    );
+
+    const onPinLibrary = useCallback(
+      (node: LibTreeNode, pinned: boolean) => {
+        node.pinned = pinned;
+        app.settings.updateCommon((s) => {
+          const list = s.system.session.pinned_symbol_libs.filter((n) => n !== node.name);
+          if (pinned) list.push(node.name);
+          s.system.session.pinned_symbol_libs = list;
+        });
+      },
+      [app],
+    );
+
+    const onToggleLibrary = useCallback(
+      (node: LibTreeNode, open: boolean) => {
+        if (open) void ensureLibraryLoaded(node.name);
+        app.settings.updateEeschema((s) => {
+          const list = s.lib_tree.open_libs.filter((n) => n !== node.name);
+          if (open) list.push(node.name);
+          s.lib_tree.open_libs = list;
+        });
+      },
+      [ensureLibraryLoaded, app],
+    );
+
+    const onSearchChanged = useCallback(
+      (search: string) => {
+        if (powerFilter) gPowerSearchString = search;
+        else gSymbolSearchString = search;
+      },
+      [powerFilter],
+    );
+
+    // Both splitters are `ui/Sash`, the shared wxSplitterWindow sash: the bar,
+    // the pointer capture and the clamp are one implementation, and what stays
+    // here is only what upstream states per splitter — the minimum pane size
+    // and where the position is persisted.
+    const bodyRef = useRef<HTMLDivElement>(null);
+    const bodyBox = (): DOMRect | undefined => bodyRef.current?.getBoundingClientRect();
+    const setSashHPos = (w: number): void => {
+      setSashH(w);
+      app.settings.updateEeschema((s) => (s.sym_chooser.sash_pos_h = w));
+    };
+    const setSashVPos = (h: number): void => {
+      setSashV(h);
+      app.settings.updateEeschema((s) => (s.sym_chooser.sash_pos_v = h));
+    };
+
+    const validSelection = !!(selectedNode && selectedNode.libId);
+    const defaultFootprint = previewSymbol ? symProp(previewSymbol, 'Footprint') : '';
+    const fpFilters = useMemo(
+      () =>
+        previewSymbol ? symProp(previewSymbol, 'ki_fp_filters').split(/\s+/).filter(Boolean) : [],
+      [previewSymbol],
+    );
+    // onSymbolSelected: a node carrying its own footprint (a history entry with
+    // an edited Footprint field) is previewed with that, else showFootprintFor
+    // falls back to the symbol's own Footprint field.
+    const shownFootprint = fpOverride || selectedNode?.footprint || defaultFootprint;
+    // showFootprint: an unparsable LIB_ID reports itself rather than drawing.
+    const fpStatus = !validSelection
+      ? ''
+      : !shownFootprint
+        ? 'No footprint specified'
+        : /^[^:]+:[^:]+$/.test(shownFootprint)
+          ? ''
+          : 'Invalid footprint specified';
+
+    // AddAlwaysIncludedFootprint: explicitly associated footprints (issue #2282)
+    // head the list in written order and bypass the filters.
+    const alwaysIncluded = useMemo(() => {
+      const out: string[] = [];
+      for (const a of previewSymbol?.associatedFootprints ?? []) {
+        if (a.footprintLibId && !out.includes(a.footprintLibId)) out.push(a.footprintLibId);
+      }
+      return out;
+    }, [previewSymbol]);
+
+    // FOOTPRINT_SELECT_WIDGET::UpdateList: the always-included footprints, then
+    // the hosted list narrowed by the symbol's fp_filters and by its pin count.
+    //
+    // The two filters are independent, and upstream offers pin-count matches to
+    // a symbol with **no** fp_filters at all — so an empty glob list is not
+    // "show nothing" as long as the pin count can speak for itself.
+    const fpPinCount = previewSymbol ? pinCountOf(previewSymbol) : 0;
+    const [fpItems, setFpItems] = useState<string[]>([]);
+    useEffect(() => {
+      if (!showFp) {
+        setFpItems([]);
+        return;
+      }
+      const canNarrow = fpFilters.length > 0 || fpPinCount > 0;
+      if (!canNarrow) {
+        setFpItems(alwaysIncluded);
+        return;
+      }
+      let cancelled = false;
+      // FOOTPRINT_SELECT_WIDGET::UpdateList -> pcbnew's filterFootprints:
+      // FilterByFootprintFilters( filters, true ), max 400.
+      void app
+        .filterFootprints({
+          pin_count: fpPinCount,
+          filters: fpFilters,
+          zero_filters: true,
+          max_results: 400,
+        })
+        .then((found) => {
+          if (cancelled) return;
+          const matched = found.filter((fp) => !alwaysIncluded.includes(fp));
+          setFpItems([...alwaysIncluded, ...matched]);
+        });
+      return () => {
+        cancelled = true;
+      };
+    }, [showFp, fpFilters, alwaysIncluded, fpPinCount, app]);
+
+    // Resolve the selected symbol's parent so the details pane can name it and
+    // inherit its fields; parents live in the same library upstream.
+    useEffect(() => {
+      const ext = previewSymbol?.extends;
+      if (!previewSymbol || !ext) {
+        setParentSymbol(undefined);
+        return;
+      }
+      let cancelled = false;
+      const nick = previewSymbol.libId.split(':')[0] ?? '';
+      void app
+        .loadSymbol(nick, ext)
+        .catch(() => undefined)
+        .then((sym) => {
+          if (!cancelled) setParentSymbol(sym ?? undefined);
+        });
+      return () => {
+        cancelled = true;
+      };
+    }, [previewSymbol, app]);
+
+    // No hover preview here: LIB_TREE_MODEL_ADAPTER::HasPreview is false unless
+    // an adapter overrides it, and only the *synchronizing* adapters (the Symbol
+    // and Footprint Editors' trees) do. The chooser has a preview pane instead.
+
+    const tree = (
+      <div className="ze-chooser-treepane">
+        <LibTree
+          adapter={adapter}
+          recentSearchesKey={powerFilter ? 'power' : 'symbols'}
+          regenerateNonce={regenerateNonce}
+          initialSearch={powerFilter ? gPowerSearchString : gSymbolSearchString}
+          onSearchChanged={onSearchChanged}
+          onSelect={onSelect}
+          onChoose={onChoose}
+          onToggleLibrary={onToggleLibrary}
+          onPinLibrary={onPinLibrary}
+          onSortModeChanged={(mode) =>
+            app.settings.updateEeschema((s) => (s.sym_chooser.sort_mode = mode as 0 | 1))
+          }
+          onShownColumnsChanged={(columns) =>
+            app.settings.updateEeschema((s) => (s.lib_tree.columns = [...columns]))
+          }
+          hasExternalDetails={!showFp}
+          openLibs={app.settings.eeschema.lib_tree.open_libs}
+          /* The other half of `PANEL_SYMBOL_CHOOSER::SetPreselect` (:486):
+               m_adapter->SetPreselectNode( aPreselect, 0 );
+               if( m_tree && aPreselect.IsValid() ) m_tree->SelectLibId( … );
+             The adapter call above only decides what to SHOW when a search
+             finds nothing; it never selects a row. Without this the chooser
+             opened at the top of the tree with nothing selected and an empty
+             preview, where KiCad opens on the symbol itself.
+             `selectLibId` re-runs on regenerateNonce too, which this needs:
+             the libraries load lazily, so the row usually does not exist yet
+             at first mount and only appears once the tree regenerates. */
+          {...(effectivePreselect ? { selectLibId: effectivePreselect } : {})}
+        />
+      </div>
+    );
+
+    const symbolPreview = (
+      <app.SymbolPreviewWidget
+        symbol={validSelection ? previewSymbol : null}
+        unit={selectedNode?.unit ?? 0}
+        statusText="No symbol selected"
+      />
+    );
+
+    if (showFp) {
+      // Footprints layout: tree | sash | symbol preview over fp select + preview.
+      return (
+        <div className="ze-chooser-panel" ref={bodyRef}>
+          {tree}
+          <Sash
+            edge="left"
+            size={sashH}
+            min={180}
+            max={(bodyBox()?.width ?? 0) - 220}
+            onResize={setSashHPos}
+          />
+          <div className="ze-chooser-right" style={{ width: sashH, flex: 'none' }}>
+            {/* constructRightPanel's proportions: 11 for the symbol preview, 10
+                for the footprint preview, 0 for the selector between them
+                (panel_symbol_chooser.cpp:378-392). The margins are the sizer's
+                and live in .ze-chooser-right. */}
+            <div className="ze-chooser-preview">{symbolPreview}</div>
+            <FootprintSelectWidget
+              defaultFootprint={defaultFootprint}
+              items={fpItems}
+              value={fpOverride}
+              disabled={!validSelection}
+              onFootprintSelected={onFootprintSelected}
+            />
+            <div className="ze-chooser-fppreview">
+              <app.FootprintPreviewWidget
+                footprint={validSelection && !fpStatus ? shownFootprint : ''}
+                statusText={fpStatus}
+              />
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // No-footprints layout: details pane spans the whole bottom of the window.
+    return (
+      <div className="ze-chooser-panel column" ref={bodyRef}>
+        <div className="ze-chooser-upper">
+          {tree}
+          <Sash
+            edge="left"
+            size={sashH}
+            min={180}
+            max={(bodyBox()?.width ?? 0) - 220}
+            onResize={setSashHPos}
+          />
+          <div className="ze-chooser-right" style={{ width: sashH, flex: 'none' }}>
+            {/* The no-footprints branch adds the preview alone, wxALL 5. */}
+            <div className="ze-chooser-preview" style={{ flex: 1, marginBottom: 0 }}>
+              {symbolPreview}
+            </div>
+          </div>
+        </div>
+        <Sash
+          edge="top"
+          size={sashV}
+          min={60}
+          max={(bodyBox()?.height ?? 0) - 120}
+          onResize={setSashVPos}
+        />
+        <div
+          className="ze-libtree-details external"
+          style={{ height: sashV, flex: 'none' }}
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: generateAliasInfo HTML-escapes all library data
+          dangerouslySetInnerHTML={{
+            __html:
+              validSelection && previewSymbol
+                ? generateAliasInfo(previewSymbol, selectedNode?.unit ?? 0, parentSymbol)
+                : '',
+          }}
+        />
+      </div>
+    );
+  },
+);

@@ -1,0 +1,19 @@
+.HEA
+.TIM 2026-09-29T06:58:00
+.APP "Eeschema 10.0.6-10.0.6~ubuntu24.04.1"
+.TYP FULL
+
+.ADD_COM     U1001     "74AHC1G00"     "$noname"
+.ADD_COM     D1001     "LED"     "$noname"
+
+
+.ADD_TER   D1001   1     "GND"
+.TER       U1001   3
+
+.ADD_TER   D1001   2     "Net-(D1001-A)"
+.TER       U1001   4
+
+.ADD_TER   U1001   1     "VCC"
+.TER       U1001   5
+
+.END

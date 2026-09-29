@@ -1,0 +1,33 @@
+(NETLIST)
+(Source: /home/akshay/ziro-designer-1/qa/data/eeschema/netlist_oracle/test_hier_no_connect/test_hier_no_connect.kicad_sch)
+(Date: 2026-09-29T06:56:20)
+$PACKAGES
+! '' ; U1,
+	U2,
+	U3,
+	U4,
+	U5,
+	U6
+$A_PROPERTIES
+'ROOM' 'sub1' ; U3
+'ROOM' 'sub2' ; U1
+'ROOM' 'sub3' ; U4
+'ROOM' 'test_hier_no_connect' ; U2,
+	U5,
+	U6
+$NETS
+/SUB1/PIN; U3.1,
+	U3.2
+/SUB2/PIN; U1.1
+/SUB3/PIN; U4.1,
+	U4.2
+'UNCONNECTED-(U2-NC-PAD3)'; U2.3
+'UNCONNECTED-(U2-PIN-PAD1)'; U2.1,
+	U2.2
+'UNCONNECTED-(U3-NC-PAD3)'; U3.3
+'UNCONNECTED-(U5-PIN1-PAD1)'; U5.1,
+	U5.2
+'UNCONNECTED-(U6-NC-PAD3)'; U6.3
+'UNCONNECTED-(U6-PIN-PAD1)'; U6.1,
+	U6.2
+$END

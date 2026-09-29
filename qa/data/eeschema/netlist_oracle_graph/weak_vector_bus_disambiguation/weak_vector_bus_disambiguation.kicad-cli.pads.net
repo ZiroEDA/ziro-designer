@@ -1,0 +1,17 @@
+*PADS-PCB*
+*PART*
+R1               R
+R2               R
+R4               R
+R3               R
+
+*NET*
+*SIGNAL* /Merge/A1
+R1.1 R3.1 
+*SIGNAL* /Merge/A2
+R1.2 R3.2 
+*SIGNAL* /Merge/D1
+R2.1 R4.1 
+*SIGNAL* /Merge/D2
+R2.2 R4.2 
+*END*

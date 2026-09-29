@@ -1,0 +1,13 @@
+.HEA
+.TIM 2026-09-29T13:47:49
+.APP "Eeschema 10.0.6-10.0.6~ubuntu24.04.1"
+.TYP FULL
+
+.ADD_COM     U1     "TRI8"     "F"
+.ADD_COM     R1     "4k7_<1%>_&_up"     "Resistor SMD:R 0805"
+
+
+.ADD_TER   R1   2     "/VCC"
+.TER       U1   8
+
+.END

@@ -42,8 +42,8 @@ const OWNS_A_CANVAS = [
   '../../pagelayout_editor/pl_editor_frame_ui.tsx',
   '../../pcbnew/footprint_edit_frame_ui.tsx',
   '../../pcbnew/pcb_edit_frame_ui.tsx',
-  'editors/schematic/SchematicEditor.tsx',
-  'editors/symbol/SymbolEditor.tsx',
+  '../../eeschema/sch_edit_frame_ui.tsx',
+  '../../eeschema/symbol_editor/symbol_edit_frame_ui.tsx',
   '../../common/widgets/widget_hotkey_list.tsx',
 ];
 

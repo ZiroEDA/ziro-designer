@@ -19,7 +19,7 @@ import {
   SCH_FRAME_NAME,
   SCH_NO_DOCUMENT,
   schFrameTitle,
-} from '@ziroeda/eeschema/frame_title.js';
+} from '@ziroeda/eeschema/sch_edit_frame.js';
 
 describe('pathHumanReadable', () => {
   /**
@@ -147,9 +147,7 @@ describe('schFrameTitle', () => {
  * component — so this reads the source.
  */
 describe('the editor builds its title through the shared rule', () => {
-  const SRC = fileURLToPath(
-    new URL('../../../designer/src/editors/schematic/SchematicEditor.tsx', import.meta.url),
-  );
+  const SRC = fileURLToPath(new URL('../../../eeschema/sch_edit_frame_ui.tsx', import.meta.url));
   const text = (): string => readFileSync(SRC, 'utf8');
 
   it('renders the parts schFrameTitle returns', () => {

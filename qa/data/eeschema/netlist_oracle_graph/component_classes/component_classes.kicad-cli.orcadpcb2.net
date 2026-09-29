@@ -1,0 +1,13 @@
+( { EESchema Netlist Version 1.1 created  2026-09-29T06:56:46 }
+ ( /521c74f6-a90a-4165-ba5b-74e4986fbfb5 Package_SO:SO-8_5.3x6.2mm_P1.27mm  U1 TL072
+  (    1 unconnected-(U1-Pad1) )
+  (    2 unconnected-(U1A---Pad2) )
+  (    3 unconnected-(U1A-+-Pad3) )
+  (    4 unconnected-(U1C-V--Pad4) )
+  (    5 unconnected-(U1B-+-Pad5) )
+  (    6 unconnected-(U1B---Pad6) )
+  (    7 unconnected-(U1-Pad7) )
+  (    8 unconnected-(U1C-V+-Pad8) )
+ )
+)
+*

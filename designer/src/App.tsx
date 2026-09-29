@@ -16,11 +16,11 @@ import {
 } from 'react';
 import type { LibSymbol } from '@ziroeda/eeschema';
 import { HomePage } from './home/HomePage.js';
-import type { PickedFile } from './editors/schematic/SchematicEditor.js';
+import type { PickedFile } from '@ziroeda/eeschema/sch_edit_frame_ui.js';
 import { EMPTY_PCB } from './home/new_project.js';
 import { ProgressDialog } from '@ziroeda/common/widgets/wx_progress_reporters.js';
 import { ProjectSyncProvider } from './sync/ProjectSyncProvider.js';
-import type { EditorKind } from '@ziroeda/eeschema/project_sync_transport.js';
+import type { EditorKind } from '@ziroeda/eeschema/browser/project_sync_transport.js';
 import {
   storageAvailable,
   cloudIdentityOf,
@@ -77,8 +77,12 @@ import '@ziroeda/common/widgets/shell.css';
  * `PickedFile` is imported as a type above, which erases at build time and so
  * does not pull the schematic editor back into the entry chunk.
  */
+/**
+ * The window is `eeschema/sch_edit_frame_ui.tsx`; `SchematicEditorMount`
+ * (`eeschema_app.tsx`) builds its `EESCHEMA_APP` and mounts it.
+ */
 const SchematicEditor = lazy(() =>
-  import('./editors/schematic/SchematicEditor.js').then((m) => ({ default: m.SchematicEditor })),
+  import('./editors/schematic/eeschema_app.js').then((m) => ({ default: m.SchematicEditorMount })),
 );
 /**
  * `PcbEditor` takes `PCBNEW_APP` as a prop, built by `usePcbnewApp`, and both
@@ -90,7 +94,9 @@ const PcbEditorMount = lazy(() =>
   import('./editors/pcb/pcbnew_app.js').then((m) => ({ default: m.PcbEditorMount })),
 );
 const SymbolEditor = lazy(() =>
-  import('./editors/symbol/SymbolEditor.js').then((m) => ({ default: m.SymbolEditor })),
+  import('./editors/symbol/symbol_edit_frame_app.js').then((m) => ({
+    default: m.SymbolEditorMount,
+  })),
 );
 const FootprintEditor = lazy(() =>
   import('./editors/footprint/footprint_edit_frame_app.js').then((m) => ({
@@ -110,6 +116,16 @@ const ImageConverter = lazy(() =>
 );
 const GerberViewer = lazy(() =>
   import('./editors/gerbview/GerberViewer.js').then((m) => ({ default: m.GerberViewer })),
+);
+/**
+ * `FOOTPRINT_VIEWER_FRAME`, the Footprint Library Browser: a KIWAY player of
+ * its own (`FRAME_FOOTPRINT_VIEWER`), raised by `ACTIONS::showFootprintBrowser`
+ * from the board and footprint editors.
+ */
+const FootprintViewer = lazy(() =>
+  import('./editors/pcb/footprint_viewer_frame_app.js').then((m) => ({
+    default: m.FootprintViewer,
+  })),
 );
 
 /**
@@ -140,9 +156,9 @@ function prefetchEditors(): () => void {
     // `libraryBase`, so a blip in the first seconds after load cannot silently
     // put the session on the bundled subset. See its own note.
     () => warmLibraryIndexes(),
-    () => import('./editors/schematic/SchematicEditor.js'),
+    () => import('./editors/schematic/eeschema_app.js'),
     () => import('@ziroeda/pcbnew/pcb_edit_frame_ui.js'),
-    () => import('./editors/symbol/SymbolEditor.js'),
+    () => import('./editors/symbol/symbol_edit_frame_app.js'),
     () => import('./editors/footprint/footprint_edit_frame_app.js'),
   ];
   let cancelled = false;
@@ -400,6 +416,7 @@ export function App(): JSX.Element {
     | 'drawingsheet'
     | 'image'
     | 'gerber'
+    | 'fpviewer'
   >('home');
   /**
    * The address bar, and the open project's identity -- the two halves of
@@ -575,6 +592,14 @@ export function App(): JSX.Element {
   const [dsMounted, setDsMounted] = useState(false);
   const [imgMounted, setImgMounted] = useState(false);
   const [gbMounted, setGbMounted] = useState(false);
+  const [fpvMounted, setFpvMounted] = useState(false);
+  /**
+   * The frame that raised the Footprint Library Browser. Upstream it is a
+   * top-level window over whichever frame opened it, so closing it shows that
+   * frame again; here one frame is on screen at a time, so Close goes back to
+   * the view it came from.
+   */
+  const fpvOpenerRef = useRef<typeof view>('home');
   // "Add symbol to schematic": the symbol editor hands eeschema a symbol to place.
   const [placeRequest, setPlaceRequest] = useState<{ lib: LibSymbol; nonce: number } | null>(null);
   // The file the project manager double-clicked into the footprint / symbol
@@ -639,6 +664,7 @@ export function App(): JSX.Element {
     else if (v === 'drawingsheet') setDsMounted(true);
     else if (v === 'image') setImgMounted(true);
     else if (v === 'gerber') setGbMounted(true);
+    else if (v === 'fpviewer') setFpvMounted(true);
   }, []);
   // The two big frames, built while the manager is up. See `warmFrames`.
   useEffect(() => (view === 'home' ? warmFrames(mountFor) : undefined), [view, mountFor]);
@@ -939,7 +965,11 @@ export function App(): JSX.Element {
   // Remember the current view (+ open sheet) so a reload can restore it.
   useEffect(() => {
     if (restoring) return;
-    saveSession({ view, startFile });
+    // The browser is a child window, not a place to reopen into: a reload
+    // comes back to the frame that raised it.
+    const opener = fpvOpenerRef.current;
+    const restorable = view !== 'fpviewer' ? view : opener === 'fpviewer' ? 'home' : opener;
+    saveSession({ view: restorable, startFile });
   }, [view, startFile, restoring]);
 
   // Autosave: the schematic editor hands us its updated sheets (by basename).
@@ -1465,6 +1495,7 @@ export function App(): JSX.Element {
       [FRAME_T.FRAME_PL_EDITOR]: 'drawingsheet',
       [FRAME_T.FRAME_BM2CMP]: 'image',
       [FRAME_T.FRAME_CALC]: 'calculator',
+      [FRAME_T.FRAME_FOOTPRINT_VIEWER]: 'fpviewer',
     };
 
     return new KIWAY({
@@ -1473,7 +1504,10 @@ export function App(): JSX.Element {
         const v = PLAYER_VIEW[aFrameType];
         if (!v) return false;
         mountFor(v);
-        setView(v);
+        setView((prev) => {
+          if (v === 'fpviewer' && prev !== 'fpviewer') fpvOpenerRef.current = prev;
+          return v;
+        });
         return true;
       },
       HasProjectManager: () => true,
@@ -1893,6 +1927,24 @@ export function App(): JSX.Element {
           <Frozen shown={view === 'image'}>
             <Suspense fallback={frameLoading}>
               <ImageConverter onExitToHome={goHome} kiway={kiway} />
+            </Suspense>
+          </Frozen>
+        </div>
+      )}
+      {fpvMounted && (
+        <div style={frameStyle(view === 'fpviewer')}>
+          <Frozen shown={view === 'fpviewer'}>
+            <Suspense fallback={frameLoading}>
+              <FootprintViewer
+                kiway={kiway}
+                onExitToHome={goHome}
+                // `FOOTPRINT_VIEWER_FRAME::doCloseWindow` destroys the frame,
+                // so the next open is a fresh one (and KIWAY hears it close).
+                onClose={() => {
+                  setFpvMounted(false);
+                  setView(fpvOpenerRef.current === 'fpviewer' ? 'home' : fpvOpenerRef.current);
+                }}
+              />
             </Suspense>
           </Frozen>
         </div>

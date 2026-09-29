@@ -1,0 +1,15 @@
+*PADS-PCB*
+*PART*
+TP102            TST-01025
+TP101            TST-01025
+TP302            TST-01025
+TP301            TST-01025
+TP402            TST-01025
+TP401            TST-01025
+
+*NET*
+*SIGNAL* /m.X.Y.Z1
+TP101.1 TP301.1 TP401.1 
+*SIGNAL* /m.X.Y.Z2
+TP102.1 TP302.1 TP402.1 
+*END*

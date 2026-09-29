@@ -14,7 +14,7 @@
 import type { Schematic, LibSymbol, SchSymbol, Vec2 } from '../types.js';
 import { symbolTransform, localToWorld } from '@ziroeda/kimath/src/transform.js';
 import { SegmentIndex, onSegment } from './segment_index.js';
-import { schSymbolLibraryName } from '../lib_symbol_compare.js';
+import { schSymbolLibraryName } from '../lib_symbol.js';
 
 const key = (p: Vec2): string => `${p.x},${p.y}`;
 

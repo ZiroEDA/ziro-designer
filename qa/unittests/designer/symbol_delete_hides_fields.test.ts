@@ -18,10 +18,7 @@
  * were gone from the file.
  */
 import { describe, expect, it } from 'vitest';
-import {
-  deleteSymbolItems,
-  symbolDeleteOutcome,
-} from '@ziroeda/designer/src/editors/symbol/edits.js';
+import { deleteSymbolItems, symbolDeleteOutcome } from '@ziroeda/eeschema/symbol_editor/edits.js';
 import type { LibSymbol } from '@ziroeda/eeschema';
 
 const field = (key: string, hidden = false) => ({

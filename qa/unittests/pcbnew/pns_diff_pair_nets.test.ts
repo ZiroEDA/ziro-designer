@@ -3,7 +3,7 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * `BOARD::DpCoupledNet` and `PNS_PCBNEW_RULE_RESOLVER::DpNetPair`
- * (`pcbnew/board.cpp`, `pns_kicad_iface.cpp:2790-2823`) on `PnsBoardIface`.
+ * (`pcbnew/board.cpp`, `pns_kicad_iface.cpp:2790-2823`) on `PNS_KICAD_IFACE`.
  *
  * These two were the reason differential-pair routing could not start. The
  * placer was ported, `ROUTER::SetMode` reached it, and
@@ -19,7 +19,7 @@
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/index.js';
 import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { PnsBoardIface } from '@ziroeda/pcbnew/router/pns_board_iface.js';
+import { PNS_KICAD_IFACE } from '@ziroeda/pcbnew/router/pns_kicad_iface.js';
 import { PnsSession } from '@ziroeda/pcbnew/router/pns_session.js';
 import { PnsRouterMode } from '@ziroeda/pcbnew/router/pns_router.js';
 import { PnsSegment } from '@ziroeda/pcbnew/router/pns_segment.js';
@@ -43,14 +43,14 @@ const DP_BOARD = `(kicad_pcb (version 20240108) (generator "t")
 const board = (): Board => readBoard(parse(DP_BOARD));
 
 /** A segment on `aNet`, which is all `dpNetPair` reads off an item. */
-function itemOnNet(iface: PnsBoardIface, aNetCode: number): PnsSegment {
+function itemOnNet(iface: PNS_KICAD_IFACE, aNetCode: number): PnsSegment {
   const seg = new PnsSegment({ a: { x: 0, y: 0 }, b: { x: MM, y: 0 } }, iface.netHandle(aNetCode));
   seg.setLayer(0);
   return seg;
 }
 
 describe('dpCoupledNet', () => {
-  const iface = new PnsBoardIface(board());
+  const iface = new PNS_KICAD_IFACE(board());
   const nameOf = (code: number): string =>
     iface.getNetName(iface.dpCoupledNet(iface.netHandle(code)));
 
@@ -81,7 +81,7 @@ describe('dpCoupledNet', () => {
 });
 
 describe('dpNetPair', () => {
-  const iface = new PnsBoardIface(board());
+  const iface = new PNS_KICAD_IFACE(board());
 
   it('orients the pair so netP is the positive half, whichever half is held', () => {
     // `else { netNameN = netNameP; netNameP = netNameCoupled; }` — the r == -1
@@ -111,7 +111,7 @@ describe('dpNetPair', () => {
 });
 
 describe('dpNetPolarity', () => {
-  const iface = new PnsBoardIface(board());
+  const iface = new PNS_KICAD_IFACE(board());
 
   it('is MatchDpSuffix’s own +1 / -1 / 0', () => {
     expect(iface.dpNetPolarity(iface.netHandle(1))).toBe(1);

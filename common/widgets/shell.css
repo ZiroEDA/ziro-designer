@@ -7123,6 +7123,14 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   border: 1px solid var(--grid-line);
   padding: 0;
 }
+/* `wxGrid::EnableGridLines( false )` — the rules between cells, not the
+   dialog's own outer border. `sel_layer.cpp`'s `PCB_ONE_LAYER_SELECTOR` is
+   the first caller; any future grid that turns lines off gets this instead
+   of its own copy. */
+.ze-grid.ze-grid-no-lines td,
+.ze-grid.ze-grid-no-lines th {
+  border: none;
+}
 /* `WX_GRID::EnableAlternateRowColors`, which the constructor installs from
    `appearance.grid_striping` (`common/widgets/wx_grid.cpp:329`):
 
@@ -7388,6 +7396,23 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   border-radius: 3px;
   background: var(--chrome-bg2);
   overflow: auto;
+}
+/* `PCB_ONE_LAYER_SELECTOR` (`dialog_layer_selection_base.cpp:14-92`):
+   `bSizerMain`, `wxALL, 10` around one `bSizerUpper`, `wxHORIZONTAL`, each of
+   whose two grids is `Add( grid, 1, wxALL|wxEXPAND, 5 )` — proportion 1, so
+   both stretch and divide the width evenly, unlike Zone Hatch Offsets' single
+   content-sized pane above. The 5px item border sits on each pane rather than
+   as a row `gap`, so the two borders between the panes total 10px, matching
+   two adjacent `wxALL, 5` items. */
+.ze-one-layer-selector-body {
+  /* [px] `bSizerMain->Add( bSizerUpper, 1, wxEXPAND|wxALL, 10 )`. */
+  padding: 10px;
+}
+.ze-one-layer-selector-body .ze-grid-pane {
+  flex: 1;
+  /* [px] `bSizerUpper->Add( grid, 1, wxALL|wxEXPAND, 5 )`, each grid. */
+  margin: 5px;
+  contain: inline-size;
 }
 /* Text & Graphics > Defaults' grid pane: stretched to the page width, scrolls,
    and states its own column widths, so its contents must not reach the dialog.
@@ -17818,4 +17843,319 @@ td.ze-grid-bool {
 .ze-bompresets-btn:last-child {
   /* [data] the sizer's last item: `wxBOTTOM, 5` and no spacer. */
   margin-bottom: 5px;
+}
+
+/* ---------------------------------------------------------------------------
+   Length Tuning Settings (dialog_tuning_pattern_properties_base.cpp).
+
+   `singleTrackSizer` (horizontal): the legend bitmap, then `gbSizer1`, a
+   `wxGridBagSizer(4, 4)` — 7 columns (0-6), 10 rows (0-9). Columns/rows with
+   nothing placed in them (column 3; rows 3, 4, 7) would collapse to zero
+   without `SetEmptyCellSize(10, 8)`, which is why they are explicit 10px/8px
+   tracks below rather than folded into a bigger gap on their neighbours.
+   `AddGrowableCol(1)` and `AddGrowableCol(5)` are the two `1fr` tracks — the
+   value columns, not the label or unit ones.
+
+   Every per-cell border below reads the same file's per-`Add()` call; where
+   the exact wx-vs-CSS-grid gap composition (vgap/hgap stacked on a control's
+   own border) was not independently re-derived it is marked [px], not [data],
+   per this dialog having no interactive caller yet
+   (`generators/pcb_tuning_pattern.ts`'s own header: pending #636 stage 3). */
+.ze-tuning-pattern-body {
+  display: flex;
+  align-items: flex-start;
+  /* [data] `bMainSizer->Add( singleTrackSizer, 1, wxEXPAND|wxTOP|wxRIGHT|wxLEFT, 10 )`. */
+  padding: 10px 10px 0;
+}
+.ze-tuning-pattern-legend {
+  /* [px] the mode bitmap's own intrinsic size; no bundled per-mode asset here. */
+  width: 120px;
+  height: 90px; /* [px] same bitmap, 120 x 90 */
+  flex: 0 0 auto;
+  background: var(--field-bg);
+  border: 1px solid var(--ctl-border);
+  /* [data] `Add( m_legend, 0, wxEXPAND|wxRIGHT|wxLEFT, 15 )`. */
+  margin: 0 15px;
+}
+.ze-tuning-pattern-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: auto 1fr auto 10px auto 1fr auto;
+  /* [px] rows 3, 4, 7 hold nothing; `SetEmptyCellSize( 10, 8 )` is their height. */
+  grid-template-rows: auto auto auto 8px 8px auto auto 8px auto auto;
+  /* [data] `new wxGridBagSizer( 4, 4 )` — the vgap and hgap. */
+  gap: 4px;
+  align-items: center;
+}
+.ze-tp-cell {
+  min-width: 0;
+}
+.ze-tp-r0c0 {
+  grid-column: 1;
+  grid-row: 1;
+}
+.ze-tp-r0c1 {
+  grid-column: 2;
+  grid-row: 1;
+  width: 100%;
+}
+.ze-tp-r0c2 {
+  grid-column: 3;
+  grid-row: 1;
+}
+.ze-tp-r1c0 {
+  grid-column: 1;
+  grid-row: 2;
+}
+.ze-tp-r1c1 {
+  grid-column: 2;
+  grid-row: 2;
+  width: 100%;
+}
+.ze-tp-r1c2 {
+  grid-column: 3;
+  grid-row: 2;
+}
+.ze-tp-r0c4 {
+  /* [data] `wxGBPosition( 0, 4 )`, `wxGBSpan( 1, 3 )` — columns 5-7. */
+  grid-column: 5 / span 3;
+  grid-row: 1;
+}
+.ze-tp-r2c1 {
+  /* [data] `wxGBPosition( 2, 1 )`, `wxGBSpan( 1, 6 )`. */
+  grid-column: 2 / span 6;
+  grid-row: 3;
+}
+.ze-tp-r5c0 {
+  grid-column: 1;
+  grid-row: 5;
+  /* [data] `wxALIGN_CENTER_VERTICAL|wxLEFT, 1` — not the usual 5. */
+  padding-left: 1px;
+}
+.ze-tp-r5c1 {
+  grid-column: 2;
+  grid-row: 5;
+  width: 100%;
+}
+.ze-tp-r5c2 {
+  grid-column: 3;
+  grid-row: 5;
+}
+.ze-tp-r5c4 {
+  grid-column: 5;
+  grid-row: 5;
+}
+.ze-tp-r5c5 {
+  grid-column: 6;
+  grid-row: 5;
+  width: 100%;
+}
+.ze-tp-r5c6 {
+  grid-column: 7;
+  grid-row: 5;
+}
+.ze-tp-r6c0 {
+  grid-column: 1;
+  grid-row: 6;
+  padding-left: 1px;
+}
+.ze-tp-r6c1 {
+  grid-column: 2;
+  grid-row: 6;
+  width: 100%;
+}
+.ze-tp-r6c2 {
+  grid-column: 3;
+  grid-row: 6;
+}
+.ze-tp-r8c0 {
+  grid-column: 1;
+  grid-row: 9;
+  padding-left: 1px;
+}
+.ze-tp-r8c1 {
+  /* [data] `wxGBSpan( 1, 2 )` — the corner-style combo spans columns 2-3. */
+  grid-column: 2 / span 2;
+  grid-row: 9;
+}
+.ze-tp-r8c4 {
+  grid-column: 5;
+  grid-row: 9;
+}
+.ze-tp-r8c5 {
+  grid-column: 6;
+  grid-row: 9;
+  width: 100%;
+}
+.ze-tp-r8c6 {
+  grid-column: 7;
+  grid-row: 9;
+}
+.ze-tp-r9c1 {
+  /* [data] `wxGBSpan( 1, 2 )`. */
+  grid-column: 2 / span 2;
+  grid-row: 10;
+}
+.ze-tp-cell.ze-tp-r0c0,
+.ze-tp-cell.ze-tp-r1c0,
+.ze-tp-cell.ze-tp-r0c4,
+.ze-tp-cell.ze-tp-r9c1 {
+  display: flex;
+  align-items: center;
+  /* [data] wxRadioButton / wxCheckBox label spacing. */
+  gap: 6px;
+}
+
+/* ---------------------------------------------------------------------------
+   Footprint Associations (dialog_footprint_associations_base.cpp).
+
+   bMainBoxSizer is one vertical run: label / 5px spacer / grid (each border
+   below is that item's OWN Add() border; wx sums a lower item's bottom border
+   with the next item's top border rather than collapsing them, which is why
+   this is `display:flex; flex-direction:column` rather than block margins). */
+.ze-modal.ze-footprint-associations .ze-modal-body {
+  flex-direction: column;
+  padding: 0;
+}
+.ze-footprint-associations .assoc-label:first-child {
+  /* [data] m_libraryAssociationLabel: wxTOP|wxRIGHT|wxLEFT, 10. */
+  margin: 10px 10px 0 10px;
+}
+.ze-footprint-associations .assoc-label {
+  /* [data] m_symbolAssociationLabel: the 5px spacer (prop 1) before it, plus its own
+     wxTOP|wxRIGHT|wxLEFT, 10 -- 15 total above; a first-child has no spacer
+     before it so its own rule above states 10, not 15. */
+  margin: 15px 10px 0 10px;
+}
+.ze-footprint-associations .assoc-label + table.ze-grid {
+  /* [data] The 5px spacer between a label and its grid (neither label nor grid
+     states a border on that shared edge), plus m_gridLibrary / m_gridSymbol's
+     own wxBOTTOM|wxEXPAND|wxLEFT|wxRIGHT, 10. */
+  margin: 5px 10px 10px 10px;
+}
+
+/* ---------------------------------------------------------------------------
+   The project-folder browse popup used by DIALOG_PLOT, DIALOG_GENDRILL and
+   DIALOG_GEN_FOOTPRINT_POSITION's "Output folder:" control. There is no
+   KiCad counterpart at all -- a browser has no filesystem, so upstream's
+   native wxDirDialog / wxFileDialog is a project-folder dropdown here -- so
+   these are OUR values, stated once in this shared rule rather than at each
+   call site, the same "one place, not per call site" rule `sync`'s
+   per-person palette follows above. */
+.ze-folder-browse-popup {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 20;
+  min-width: 180px;
+  margin-top: 2px; /* [data] our own popup, stated once here */
+  background: var(--chrome-bg2);
+  border: 1px solid var(--chrome-border);
+  border-radius: 3px; /* [data] our own popup, stated once here */
+  font-size: var(--ui-font-size-info);
+  box-shadow: var(--popup-shadow);
+}
+.ze-folder-browse-item {
+  padding: 4px 12px; /* [data] our own popup, stated once here */
+  cursor: default;
+}
+
+/* ---------------------------------------------------------------------------
+   DIALOG_GENDRILL (dialog_gendrill_base.cpp). File > Fabrication Outputs >
+   Drill Files..., and the Plot dialog's own "Generate Drill Files..."
+   button. "Format" / "Options" are each a wxStaticText + wxStaticLine, NOT a
+   wxStaticBox -- only "Messages" is a real wxStaticBoxSizer, which is
+   `fieldset.ze-sbox` (declared above) rather than a class of its own. */
+.ze-gendrill-upper {
+  margin: 10px 10px 0; /* [data] `bMainSizer->Add( bupperSizer, 0, wxEXPAND|wxTOP|wxRIGHT|wxLEFT, 10 )` */
+}
+.ze-gendrill-columns {
+  margin-top: 8px; /* [data] `bMainSizer->Add( bmiddlerSizer, 0, wxEXPAND|wxTOP, 8 )` */
+}
+.ze-gendrill-col {
+  margin: 5px 5px 0; /* [data] `bmiddlerSizer->Add( bLeftCol/bRightCol, …, wxEXPAND|wxTOP|wxRIGHT|wxLEFT, 5 )` */
+}
+.ze-gendrill-headline {
+  padding: 0 13px; /* [data] `bLeftCol->Add( m_formatLabel, 0, wxRIGHT|wxLEFT, 13 )` */
+  font-size: var(--ui-font-size);
+}
+.ze-gendrill-rule {
+  border: none;
+  border-top: 1px solid var(--chrome-border); /* [css] a wxStaticLine, same rule every other `.ze-*-rule` in this file draws */
+  margin: 0 5px 5px; /* [data] `bLeftCol->Add( m_staticline1, 0, wxEXPAND|wxBOTTOM|wxRIGHT|wxLEFT, 5 )` */
+}
+.ze-gendrill-suboptions {
+  margin-left: 20px; /* [data] `bSizerMargins->Add( fgSizerExcellonOptions, 0, wxEXPAND|wxLEFT, 20 )` */
+  display: flex;
+  flex-direction: column;
+  gap: 3px; /* [data] `fgSizerExcellonOptions`, `wxFlexGridSizer( 4, 1, 3, 0 )` */
+}
+.ze-gendrill-genmap {
+  display: flex;
+  align-items: center;
+  gap: 8px; /* [data] `bSizer9->Add( m_choiceDrillMap, 1, wxALL, 5 )`, rounded up for the row's own gap */
+  margin-top: 6px; /* [data] the `bSizerMargins->Add( 0, 6, 0, wxEXPAND, 5 )` spacer before `bSizer9` */
+}
+.ze-gendrill-optrow {
+  display: flex;
+  align-items: center;
+  gap: 5px; /* [data] `fgSizer1`, `wxFlexGridSizer( 0, 2, 5, 5 )` */
+  margin: 5px 0; /* [data] each row's own `wxALIGN_CENTER_VERTICAL|wxRIGHT|wxLEFT, 5` */
+}
+.ze-gendrill-optlabel {
+  min-width: 60px;
+}
+.ze-gendrill-messages {
+  margin: 10px; /* [data] `bMainSizer->Add( bMsgSizer, 1, wxALL|wxEXPAND, 10 )` */
+}
+.ze-gendrill-messages textarea {
+  width: 100%;
+  min-height: 90px; /* [data] `m_messagesBox->SetMinSize( wxSize( -1, 90 ) )` */
+  resize: vertical;
+  font: inherit;
+  background: var(--chrome-bg2);
+  color: var(--chrome-fg);
+  border: 1px solid var(--chrome-border);
+  border-radius: 2px; /* [data] matching `.ze-report-view`'s own citation above */
+  padding: 4px 6px; /* [data] matching `.ze-report-view`'s own citation above */
+  box-sizing: border-box;
+}
+.ze-gendrill-report-btn {
+  margin-right: auto;
+}
+
+/* ---------------------------------------------------------------------------
+   DIALOG_GEN_FOOTPRINT_POSITION (dialog_gen_footprint_position_file_base.cpp).
+   File > Fabrication Outputs > Component Placement (.pos, .gbr)... */
+.ze-genpos-top {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 5px; /* [data] `fgSizerTop`, `wxFlexGridSizer( 0, 2, 5, 5 )` */
+  margin: 5px; /* [data] `m_MainSizer->Add( fgSizerTop, 0, wxALL|wxEXPAND, 5 )` */
+  align-items: center;
+}
+.ze-genpos-row {
+  display: flex;
+  align-items: center;
+  gap: 5px; /* [data] `fgSizerTop`, `wxFlexGridSizer( 0, 2, 5, 5 )`, the same row this control sits in */
+  margin-bottom: 10px; /* [data] the row below `fgSizerTop`, matching that sizer's own bottom border */
+}
+.ze-genpos-formatrow {
+  display: flex;
+  gap: 24px; /* [data] `bSizerMiddle`'s two `fgSizer1` columns side by side */
+  margin: 0 5px 5px; /* [data] `bSizerMiddle->Add( fgSizer1, 1, wxEXPAND|wxBOTTOM|wxLEFT, 5 )` */
+}
+.ze-genpos-field {
+  display: flex;
+  align-items: center;
+  gap: 5px; /* [data] `fgSizer1`, `wxFlexGridSizer( 0, 2, 5, 5 )` */
+}
+.ze-genpos-checks {
+  margin: 0 5px; /* [data] `bSizerLower->Add( m_xxx, 0, wxBOTTOM|wxRIGHT|wxLEFT, 5 )` */
+}
+.ze-genpos-report {
+  margin-top: 10px; /* [data] the `(0,5,0)` spacer plus `m_messagesPanel`'s own `wxEXPAND|wxTOP, 10` */
+}
+.ze-genpos-label {
+  min-width: 100px; /* [data] `m_variantLabel` / `m_staticTextDir`, the widest label in `fgSizerTop`'s left column */
 }

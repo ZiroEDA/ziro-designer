@@ -1,0 +1,25 @@
+*PADS-PCB*
+*PART*
+CABLES1          
+SERIAL_NUMBER1   
+J2               IPSES_connectors:TerminalBlock_Weidmuller-2_P5.08mm
+J1               IPSES_connectors:TerminalBlock_Weidmuller-2_P5.08mm
+CABLES3          
+CABLES2          
+OthersComponents2 1520EU
+CABLES4          
+REVISION1        
+SERIAL_NUMBER2   
+J9               IPSES_connectors:TerminalBlock_Weidmuller-2_P5.08mm
+J7               IPSES_connectors:TerminalBlock_Weidmuller-2_P5.08mm
+
+*NET*
+*SIGNAL* /AD.1
+J7.2 J9.2 
+*SIGNAL* /AD.2
+J7.1 J9.1 
+*SIGNAL* Net-(J1-Pin_1)
+J1.1 J2.2 
+*SIGNAL* Net-(J1-Pin_2)
+J1.2 J2.1 
+*END*

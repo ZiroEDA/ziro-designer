@@ -1,0 +1,13 @@
+*PADS-PCB*
+*PART*
+R8               Resistor_SMD:R_0603_1608Metric
+R7               Resistor_SMD:R_0603_1608Metric
+R1               Resistor_SMD:R_0603_1608Metric
+R2               Resistor_SMD:R_0603_1608Metric
+R3               Resistor_SMD:R_0603_1608Metric
+R5               Resistor_SMD:R_0603_1608Metric
+R6               Resistor_SMD:R_0603_1608Metric
+R4               Resistor_SMD:R_0603_1608Metric
+
+*NET*
+*END*

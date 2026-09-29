@@ -1,0 +1,17 @@
+### Footprint positions - created on 2026-09-29T06:44:19 ###
+### Printed by KiCad version 10.0.6-10.0.6~ubuntu24.04.1
+## Unit = inches, Angle = deg.
+## Side : All
+# Ref     Val       Package                                                PosX       PosY       Rot  Side
+C1        10uF      CP_Radial_D10.0mm_P5.00mm                            5.5750    -3.9250   90.0000  top
+C2        680nF     C_Disc_D4.7mm_W2.5mm_P5.00mm                         5.4000    -4.9250   90.0000  top
+P1        IN        Altech_AK300_1x02_P5.00mm_45-Degree                  6.5500    -4.1500   90.0000  top
+P2        OUT       Altech_AK300_1x02_P5.00mm_45-Degree                  5.0500    -4.4400  -90.0000  top
+P3        POWER     Altech_AK300_1x02_P5.00mm_45-Degree                  5.0500    -3.9650  -90.0000  top
+P4        CONN_2    Altech_AK300_1x02_P5.00mm_45-Degree                  5.7300    -5.1650    0.0000  top
+R1        1.5K      R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal     5.3650    -4.2500  -90.0000  top
+R2        1.5K      R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal     6.1500    -3.7750  180.0000  top
+R3        100K      R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal     5.2750    -4.9250  180.0000  top
+R4        47K       R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal     6.4750    -4.6250  -90.0000  top
+U1        ECC83     Valve_ECC-83-1                                       5.8750    -4.4750    0.0000  top
+## End

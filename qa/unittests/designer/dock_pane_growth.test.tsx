@@ -46,7 +46,7 @@ import { resolve } from 'node:path';
 import { render } from '@testing-library/react';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { ProjectTreePane } from '@ziroeda/designer/src/home/project_tree_pane.js';
-import { SelectionFilterPanel } from '@ziroeda/designer/src/ui/SelectionFilterPanel.js';
+import { SelectionFilterPanel } from '@ziroeda/eeschema/widgets/panel_sch_selection_filter_ui.js';
 import { defaultSelectionFilter } from '@ziroeda/eeschema/tools/sch_selection_filter.js';
 
 // `import.meta.url` is not a file: URL under happy-dom, so paths go through
@@ -167,7 +167,7 @@ describe('every other docked pane keeps the default proportion', () => {
    */
   it('the symbol editor Properties pane grows', () => {
     const cls = paneClassOf(
-      'designer/src/editors/symbol/SymbolEditor.tsx',
+      'eeschema/symbol_editor/symbol_edit_frame_ui.tsx',
       // The caption gained its `.CloseButton( true )` box, so the title is a
       // `<span>` beside the button rather than the caption's only content —
       // the same shape the schematic's captions already have.
@@ -179,10 +179,7 @@ describe('every other docked pane keeps the default proportion', () => {
   });
 
   it('the schematic hierarchy pane grows, floored at its MinSize height', () => {
-    const cls = paneClassOf(
-      'designer/src/editors/schematic/SchematicEditor.tsx',
-      '<span>Schematic Hierarchy</span>',
-    );
+    const cls = paneClassOf('eeschema/sch_edit_frame_ui.tsx', '<span>Schematic Hierarchy</span>');
     const flex = flexOf('ze-leftdock sch-leftdock', cls);
     expect(flex.flexGrow).toBe('1');
     expect(flex.minHeight).toBe('60px');

@@ -1,0 +1,17 @@
+.HEA
+.TIM 2026-09-29T06:57:31
+.APP "Eeschema 10.0.6-10.0.6~ubuntu24.04.1"
+.TYP FULL
+
+.ADD_COM     J2     "Conn_01x08"     "Connector_PinHeader_2.54mm:PinHeader_1x08_P2.54mm_Vertical"
+.ADD_COM     J3     "Conn_01x08"     "Connector_PinHeader_2.54mm:PinHeader_1x08_P2.54mm_Vertical"
+
+
+.ADD_TER   J2   2     "Global Label"
+.TER       J2   3
+            J2   4
+            J2   5
+            J2   6
+            J3   1
+
+.END

@@ -1,0 +1,11 @@
+PACKAGE 'cp_eia-3528-21_kemet-b_pad1_63x2_40mm_handsolder'
+CLASS IC
+PINCOUNT 2
+PINORDER MAIN ,
+	__1,
+	__2
+FUNCTION MAIN MAIN ,
+	1,
+	2
+PACKAGEPROP VALUE '4.7uF'
+END

@@ -1,0 +1,8 @@
+*PADS-PCB*
+*PART*
+U1               Package_DFN_QFN:Infineon_PQFN-22-15-4EP_6x5mm_P0.65mm
+
+*NET*
+*SIGNAL* Net-(U1-COM)
+U1.7 U1.9 
+*END*

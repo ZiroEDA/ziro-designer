@@ -1,0 +1,25 @@
+(NETLIST)
+(Source: /home/akshay/ziro-designer-1/qa/data/eeschema/netlist_oracle_graph/issue1771/issue1771.kicad_sch)
+(Date: 2026-09-29T06:57:16)
+$PACKAGES
+! 'tst-01025' ! 'TST-01025' ; TP101,
+	TP102,
+	TP301,
+	TP302,
+	TP401,
+	TP402
+$A_PROPERTIES
+'ROOM' 'issue1771' ; TP101,
+	TP102
+'ROOM' 'sub-sub2' ; TP301,
+	TP302
+'ROOM' 'sub-sub2-sub3' ; TP401,
+	TP402
+$NETS
+'/M.X.Y.Z1'; TP101.1,
+	TP301.1,
+	TP401.1
+'/M.X.Y.Z2'; TP102.1,
+	TP302.1,
+	TP402.1
+$END

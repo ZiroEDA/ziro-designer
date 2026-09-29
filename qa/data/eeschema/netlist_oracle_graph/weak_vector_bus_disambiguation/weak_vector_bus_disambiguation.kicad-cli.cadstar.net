@@ -1,0 +1,24 @@
+.HEA
+.TIM 2026-09-29T06:58:40
+.APP "Eeschema 10.0.6-10.0.6~ubuntu24.04.1"
+.TYP FULL
+
+.ADD_COM     R1     "R"     "$noname"
+.ADD_COM     R2     "R"     "$noname"
+.ADD_COM     R4     "R"     "$noname"
+.ADD_COM     R3     "R"     "$noname"
+
+
+.ADD_TER   R1   1     "/Merge/A1"
+.TER       R3   1
+
+.ADD_TER   R1   2     "/Merge/A2"
+.TER       R3   2
+
+.ADD_TER   R2   1     "/Merge/D1"
+.TER       R4   1
+
+.ADD_TER   R2   2     "/Merge/D2"
+.TER       R4   2
+
+.END

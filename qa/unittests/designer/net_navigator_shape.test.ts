@@ -24,7 +24,7 @@ const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
 const PANEL = read('../../../eeschema/widgets/net_navigator_panel.tsx');
-const EDITOR = read('../../../designer/src/editors/schematic/SchematicEditor.tsx');
+const EDITOR = read('../../../eeschema/sch_edit_frame_ui.tsx');
 const CSS = read('../../../common/widgets/shell.css');
 
 describe('the Net Navigator matches upstream', () => {

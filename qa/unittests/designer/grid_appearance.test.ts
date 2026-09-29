@@ -39,11 +39,8 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
-import {
-  GERBVIEW_DEFAULTS,
-  PL_EDITOR_DEFAULTS,
-  SYMBOL_EDITOR_DEFAULTS,
-} from '@ziroeda/designer/src/prefs/settings.js';
+import { GERBVIEW_DEFAULTS, PL_EDITOR_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
+import { SYMBOL_EDITOR_DEFAULTS } from '@ziroeda/eeschema/symbol_editor/symbol_editor_settings.js';
 import { EESCHEMA_DEFAULTS } from '@ziroeda/eeschema/eeschema_settings.js';
 import { DEFAULT_GRID_APPEARANCE } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
 
@@ -60,8 +57,8 @@ const read = (rel: string): string => readFileSync(join(SRC, rel), 'utf8');
  * with no page to disagree with cannot drift.
  */
 const OWNERS: [editor: string, file: string, cfg: string][] = [
-  ['schematic', 'editors/schematic/SchematicEditor.tsx', 'es'],
-  ['symbol editor', 'editors/symbol/SymbolEditor.tsx', 'symCfg'],
+  ['schematic', '../../eeschema/sch_edit_frame_ui.tsx', 'es'],
+  ['symbol editor', '../../eeschema/symbol_editor/symbol_edit_frame_ui.tsx', 'symCfg'],
 ];
 
 /** The other three apps' settings hooks, for the wrong-object check. */

@@ -1,0 +1,25 @@
+( { EESchema Netlist Version 1.1 created  2026-09-29T06:57:47 }
+ ( /269eec37-c65e-4a6e-bbd7-4428de485145 Connector_Phoenix_MC:PhoenixContact_MCV_1,5_4-G-3.5_1x04_P3.50mm_Vertical  J1 Conn_01x04_Socket
+  (    1 /Channels_0-1/Ch0 )
+  (    2 /Channels_0-1/Ch1 )
+  (    3 /Channels_2-3/Ch2 )
+  (    4 /Channels_2-3/Ch3 )
+ )
+ ( /b30ffb0d-9c4d-4308-a7a1-3c4ea039ebd9/106e0740-bb91-4466-86df-43d787399c07 Resistor_SMD:R_0603_1608Metric  R1 R
+  (    1 /Channels_0-1/Ch0 )
+  (    2 GND )
+ )
+ ( /b30ffb0d-9c4d-4308-a7a1-3c4ea039ebd9/97ecaf85-c6c2-4f60-8f56-32ec0e6c2cc9 Resistor_SMD:R_0603_1608Metric  R2 R
+  (    1 /Channels_0-1/Ch1 )
+  (    2 GND )
+ )
+ ( /1b0e244c-843d-4683-83c0-f3d4695847cb/106e0740-bb91-4466-86df-43d787399c07 Resistor_SMD:R_0603_1608Metric  R3 R
+  (    1 /Channels_2-3/Ch2 )
+  (    2 GND )
+ )
+ ( /1b0e244c-843d-4683-83c0-f3d4695847cb/97ecaf85-c6c2-4f60-8f56-32ec0e6c2cc9 Resistor_SMD:R_0603_1608Metric  R4 R
+  (    1 /Channels_2-3/Ch3 )
+  (    2 GND )
+ )
+)
+*

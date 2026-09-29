@@ -20,7 +20,7 @@ import type { EditCommand } from './command.js';
 import { EdaCombinedMatcher } from '@ziroeda/common/eda_pattern_match.js';
 import { unescapeString } from '@ziroeda/common/string_utils.js';
 import { refId } from './hittest.js';
-import { schSymbolLibraryName } from '../lib_symbol_compare.js';
+import { schSymbolLibraryName } from '../lib_symbol.js';
 
 /**
  * EDA_SEARCH_MATCH_MODE. `permissive` is the Search panel's mode — upstream's

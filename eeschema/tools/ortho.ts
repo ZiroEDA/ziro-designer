@@ -40,7 +40,7 @@ import { symbolPinPositions } from './connect.js';
 import { moveSymbolOrFields, moveRigidItems } from './move.js';
 import type { MoveSpec } from './connect.js';
 import type { EditCommand } from './command.js';
-import { schSymbolLibraryName } from '../lib_symbol_compare.js';
+import { schSymbolLibraryName } from '../lib_symbol.js';
 
 const add = (p: Vec2, d: Vec2): Vec2 => ({ x: p.x + d.x, y: p.y + d.y });
 

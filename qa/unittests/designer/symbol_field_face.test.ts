@@ -9,7 +9,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSymbolLib } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
-import { hitTestSymbol } from '@ziroeda/designer/src/editors/symbol/edits.js';
+import { hitTestSymbol } from '@ziroeda/eeschema/symbol_editor/edits.js';
 import { setFontProvider } from '@ziroeda/common/font/font_provider.js';
 import type { LibSymbol } from '@ziroeda/eeschema/types.js';
 

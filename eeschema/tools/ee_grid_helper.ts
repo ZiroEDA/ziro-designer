@@ -41,7 +41,7 @@ import { PT_NONE, TYPED_POINT2I } from '@ziroeda/kimath/src/geometry/point_types
 import { TestSegmentHit } from '@ziroeda/kimath/src/trigo.js';
 import { localToWorld, symbolTransform } from '@ziroeda/kimath/src/transform.js';
 import type { LibSymbol, SchSymbol, Schematic, Vec2 } from '../types.js';
-import { schSymbolLibraryName } from '../lib_symbol_compare.js';
+import { schSymbolLibraryName } from '../lib_symbol.js';
 import { refId, type ItemRef } from './hittest.js';
 import type { BBox } from './bbox.js';
 import { alignBoxes } from './sch_align_tool.js';

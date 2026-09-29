@@ -1,15 +1,19 @@
 # Working on ZiroEDA
 
-ZiroEDA is a port of KiCad 10.0.5 to the browser. The reference source is
-pinned at `/home/akshay/kicad-reference` — read that, never KiCad master, because
-the parity target is the installed build.
+ZiroEDA is a port of KiCad 10.0.6 to the browser. The reference source is
+pinned at `/home/akshay/kicad-reference` (checked out at tag `10.0.6`) — read
+that, never KiCad master, because the parity target is the installed build.
+When Ubuntu updates the `kicad` package, move the reference tag with it:
+`kicad-cli version` and `git -C /home/akshay/kicad-reference describe --tags`
+must agree, or every kicad-cli oracle is checking against a different version
+than the source we port.
 
 **The manual is on disk too**, at the same version, and it is the second half of
 the answer whenever the source is ambiguous about *intent*:
 
 | | |
 |---|---|
-| `/home/akshay/kicad-docs` | the installed `kicad-doc-en` 10.0.5 HTML, images included |
+| `/home/akshay/kicad-docs` | the installed `kicad-doc-en` HTML (a symlink, so it tracks the package), images included |
 | `/home/akshay/kicad-docs-text` | the same, tags stripped, for `grep` |
 
 `eeschema.txt` and `pcbnew.txt` are ~500 kB and ~660 kB of prose. Reach for them

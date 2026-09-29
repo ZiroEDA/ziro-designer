@@ -1,0 +1,40 @@
+.HEA
+.TIM 2026-09-29T06:58:11
+.APP "Eeschema 10.0.6-10.0.6~ubuntu24.04.1"
+.TYP FULL
+
+.ADD_COM     J1     "Conn_02x05_Odd_Even"     "Connector_PinHeader_2.54mm:PinHeader_2x05_P2.54mm_Vertical"
+.ADD_COM     J2     "Conn_02x05_Odd_Even"     "Connector_PinHeader_2.54mm:PinHeader_2x05_P2.54mm_Vertical"
+
+
+.ADD_TER   J1   8     "/Subsheet 1/Foo.CTL1"
+.TER       J2   8
+
+.ADD_TER   J1   10     "/Subsheet 1/Foo.CTL2"
+.TER       J2   10
+
+.ADD_TER   J1   1     "/Subsheet 1/Foo.D0"
+.TER       J2   1
+
+.ADD_TER   J1   3     "/Subsheet 1/Foo.D1"
+.TER       J2   3
+
+.ADD_TER   J1   5     "/Subsheet 1/Foo.D2"
+.TER       J2   5
+
+.ADD_TER   J1   7     "/Subsheet 1/Foo.D3"
+.TER       J2   7
+
+.ADD_TER   J1   9     "/Subsheet 1/Foo.D4"
+.TER       J2   9
+
+.ADD_TER   J1   2     "/Subsheet 1/Foo.D5"
+.TER       J2   2
+
+.ADD_TER   J1   4     "/Subsheet 1/Foo.D6"
+.TER       J2   4
+
+.ADD_TER   J1   6     "/Subsheet 1/Foo.D7"
+.TER       J2   6
+
+.END

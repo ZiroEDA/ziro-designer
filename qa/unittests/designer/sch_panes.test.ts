@@ -30,7 +30,7 @@ import {
   schSelectionFilterShown,
   type SchDockPos,
   type SchLeftPane,
-} from '@ziroeda/eeschema/panes.js';
+} from '@ziroeda/eeschema/sch_edit_frame.js';
 
 describe('the Position() each pane is docked at', () => {
   /**
@@ -342,9 +342,7 @@ describe('which panes grow', () => {
  * that listed the panes in its own order would satisfy every case above.
  */
 describe('the editor renders the dock through that order', () => {
-  const SRC = fileURLToPath(
-    new URL('../../../designer/src/editors/schematic/SchematicEditor.tsx', import.meta.url),
-  );
+  const SRC = fileURLToPath(new URL('../../../eeschema/sch_edit_frame_ui.tsx', import.meta.url));
   const text = (): string => readFileSync(SRC, 'utf8');
 
   /**
@@ -452,7 +450,9 @@ describe('the editor renders the dock through that order', () => {
   /** The shared component carries the caption, and carries it once. */
   it('keeps the caption in the shared component', () => {
     const panel = readFileSync(
-      fileURLToPath(new URL('../../../designer/src/ui/SelectionFilterPanel.tsx', import.meta.url)),
+      fileURLToPath(
+        new URL('../../../eeschema/widgets/panel_sch_selection_filter_ui.tsx', import.meta.url),
+      ),
       'utf8',
     );
     // The caption is `<span>` + close box now: `defaultSchSelectionFilterPaneInfo`
@@ -518,9 +518,7 @@ describe('the Search pane', () => {
  * which is exactly the bug.
  */
 describe('the editor docks Search at the bottom of the canvas column', () => {
-  const SRC = fileURLToPath(
-    new URL('../../../designer/src/editors/schematic/SchematicEditor.tsx', import.meta.url),
-  );
+  const SRC = fileURLToPath(new URL('../../../eeschema/sch_edit_frame_ui.tsx', import.meta.url));
   const text = (): string => readFileSync(SRC, 'utf8');
 
   /** The canvas and the layer-0 dock below it share a column. */

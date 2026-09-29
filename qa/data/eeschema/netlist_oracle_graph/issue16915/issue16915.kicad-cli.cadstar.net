@@ -1,0 +1,59 @@
+.HEA
+.TIM 2026-09-29T06:57:09
+.APP "Eeschema 10.0.6-10.0.6~ubuntu24.04.1"
+.TYP FULL
+
+.ADD_COM     J?     "Conn_01x08"     "$noname"
+.ADD_COM     U?     "74LS573"     "$noname"
+.ADD_COM     J?     "Conn_01x08"     "$noname"
+
+
+.ADD_TER   J?   8     "/IN0"
+.TER       U?   2
+
+.ADD_TER   J?   7     "/IN1"
+.TER       U?   3
+
+.ADD_TER   J?   6     "/IN2"
+.TER       U?   4
+
+.ADD_TER   J?   5     "/IN3"
+.TER       U?   5
+
+.ADD_TER   J?   4     "/IN4"
+.TER       U?   6
+
+.ADD_TER   J?   3     "/IN5"
+.TER       U?   7
+
+.ADD_TER   J?   2     "/IN6"
+.TER       U?   8
+
+.ADD_TER   J?   1     "/IN7"
+.TER       U?   9
+
+.ADD_TER   J?   1     "/OUT0"
+.TER       U?   19
+
+.ADD_TER   J?   2     "/OUT1"
+.TER       U?   18
+
+.ADD_TER   J?   3     "/OUT2"
+.TER       U?   17
+
+.ADD_TER   J?   4     "/OUT3"
+.TER       U?   16
+
+.ADD_TER   J?   5     "/OUT4"
+.TER       U?   15
+
+.ADD_TER   J?   6     "/OUT5"
+.TER       U?   14
+
+.ADD_TER   J?   7     "/OUT6"
+.TER       U?   13
+
+.ADD_TER   J?   8     "/OUT7"
+.TER       U?   12
+
+.END

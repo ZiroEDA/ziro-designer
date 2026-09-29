@@ -54,13 +54,14 @@
 import type { LibSymbol, LibPin, SchSymbol, Schematic } from './types.js';
 import type { EditCommand } from './tools/command.js';
 import { flattenLibSymbol } from './lib_symbol.js';
-import { schSymbolLibraryName } from './lib_symbol_compare.js';
+import { schSymbolLibraryName } from './lib_symbol.js';
 import {
   libItemName,
   libNickname,
   libItemNameIllegalCharOffset,
 } from './tools/edit_symbol_libid.js';
 import { escapeLibId, unescapeString } from '@ziroeda/common';
+import type { InputPrefs } from '@ziroeda/common/ui/view_controls.js';
 
 /**
  * One row of the rescue dialog — `RESCUE_SYMBOL_LIB_TABLE_CANDIDATE`.
@@ -424,4 +425,31 @@ export function rescueDocumentCommand(chosen: readonly RescueCandidate[]): EditC
       };
     },
   };
+}
+
+// ---- DIALOG_RESCUE_EACH's contract (the dialog is designer's, reached through
+// EESCHEMA_APP.DialogRescueEach) ----
+
+/** One row of "Instances of this symbol" — `PopulateInstanceList`. */
+export interface RescueInstance {
+  readonly reference: string;
+  readonly value: string;
+}
+
+export interface DialogRescueEachProps {
+  candidates: readonly RescueCandidate[];
+  /** The placements of one library id, in hierarchy order. */
+  instancesOf: (requestedId: string) => readonly RescueInstance[];
+  /**
+   * Whether the "Never Show Again" button is shown — `aAskShowAgain`, which is
+   * `!aRunningOnDemand`. Running it yourself from the Tools menu offers no way
+   * to stop it being offered, because you asked for it.
+   */
+  askShowAgain: boolean;
+  inputPrefs?: InputPrefs;
+  /** OK: the candidates still ticked, in list order. */
+  onOk: (chosen: readonly RescueCandidate[]) => void;
+  /** Cancel, and the Never Show Again answer, which also rescues nothing. */
+  onCancel: () => void;
+  onNeverShowAgain: () => void;
 }

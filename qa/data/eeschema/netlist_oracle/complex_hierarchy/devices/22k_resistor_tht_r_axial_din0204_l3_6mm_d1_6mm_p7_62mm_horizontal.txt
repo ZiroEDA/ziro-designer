@@ -1,0 +1,11 @@
+PACKAGE 'r_axial_din0204_l3_6mm_d1_6mm_p7_62mm_horizontal'
+CLASS IC
+PINCOUNT 2
+PINORDER MAIN ,
+	__1,
+	__2
+FUNCTION MAIN MAIN ,
+	1,
+	2
+PACKAGEPROP VALUE 22K
+END

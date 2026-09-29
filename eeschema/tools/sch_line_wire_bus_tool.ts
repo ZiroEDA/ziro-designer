@@ -18,7 +18,7 @@ import { addItems } from './mutate.js';
 import { needsJunction } from './mutate.js';
 import { makeWire, makeBus, makeJunction } from './build.js';
 import type { EditCommand } from './command.js';
-import { schSymbolLibraryName } from '../lib_symbol_compare.js';
+import { schSymbolLibraryName } from '../lib_symbol.js';
 
 /** EESCHEMA_SETTINGS m_Drawing.line_mode (sch_line.h LINE_MODE). */
 export type WireLineMode = 'free' | '90' | '45';

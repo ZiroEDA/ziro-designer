@@ -29,7 +29,7 @@ const src = (rel: string): string =>
 /** Every frame that builds a Preferences menu, and where it does it. */
 const FRAMES: [string, string][] = [
   ['schematic', '../../eeschema/menubar.ts'],
-  ['symbol editor', 'editors/symbol/menubar.ts'],
+  ['symbol editor', '../../eeschema/symbol_editor/menubar_symbol_editor.ts'],
   ['footprint editor', '../../pcbnew/menubar_footprint_editor.ts'],
   // The board editor's bar is a data module, like the three above it. The frame
   // still exists; it just no longer holds the rows.
@@ -92,7 +92,7 @@ describe('the library tables stay', () => {
   });
 
   it('and the schematic actually opens the symbol one', () => {
-    const sch = src('editors/schematic/SchematicEditor.tsx');
+    const sch = src('../../eeschema/sch_edit_frame_ui.tsx');
     expect(sch).toContain('DialogSymLibTable');
     expect(sch).toMatch(/id === 'manageSymbolLibraries'/);
   });

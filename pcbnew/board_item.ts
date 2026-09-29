@@ -128,6 +128,19 @@ export abstract class BOARD_ITEM extends EDA_ITEM {
     this.assignBoardItem(aOther);
   }
 
+  /**
+   * Raw UUID assignment (`BOARD_ITEM::SetUuidDirect`, board_item.h:256).  No board index
+   * maintenance; for detached/load-time items only.
+   */
+  SetUuidDirect(aUuid: KIID): void {
+    (this as { m_Uuid: KIID }).m_Uuid = aUuid;
+  }
+
+  /** `ResetUuidDirect() { SetUuidDirect( KIID() ); }` (board_item.h:258). */
+  ResetUuidDirect(): void {
+    this.SetUuidDirect(newKiid());
+  }
+
   IsGroupableType(): boolean {
     switch (this.Type()) {
       case KICAD_T.PCB_FOOTPRINT_T:

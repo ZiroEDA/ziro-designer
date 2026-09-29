@@ -1,0 +1,16 @@
+.HEA
+.TIM 2026-09-29T06:56:01
+.APP "Eeschema 10.0.6-10.0.6~ubuntu24.04.1"
+.TYP FULL
+
+.ADD_COM     R1     "R"     "$noname"
+.ADD_COM     R2     "R"     "$noname"
+
+
+.ADD_TER   R1   1     "aaa"
+.TER       R2   1
+
+.ADD_TER   R1   2     "bbb"
+.TER       R2   2
+
+.END

@@ -35,7 +35,7 @@
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/index.js';
 import { readFootprintFile } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { placeFootprint } from '@ziroeda/pcbnew/netlist_reader/pcb_netlist_utils.js';
+import { placeFootprint } from '@ziroeda/pcbnew/netlist_reader/board_netlist_updater.js';
 import { footprintBBox } from '@ziroeda/pcbnew/edit-footprint.js';
 import { pcbMmToIU as MM } from '@ziroeda/common/eda_units.js';
 import type { PcbFootprint } from '@ziroeda/pcbnew/types.js';

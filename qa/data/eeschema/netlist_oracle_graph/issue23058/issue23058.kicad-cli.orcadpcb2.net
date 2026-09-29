@@ -1,0 +1,7 @@
+( { EESchema Netlist Version 1.1 created  2026-09-29T06:57:39 }
+ ( /aae2f044-814d-4e83-b1b1-c5e07aa61ebd Button_Switch_SMD:Panasonic_EVQPUJ_EVQPUA  SW1 SW_SPST
+  (    1 unconnected-(SW1-A-Pad1) )
+  (    2 unconnected-(SW1-B-Pad2) )
+ )
+)
+*

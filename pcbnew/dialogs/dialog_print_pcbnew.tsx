@@ -47,7 +47,7 @@ import { useState, type JSX } from 'react';
 import type { Board } from '../index.js';
 import { buildScene, drawBoard, type PcbDrawOptions } from '../renderBoard.js';
 import { PCB_BW_PRINT_THEME, PCB_THEMES, themeByFilename } from '../pcbTheme.js';
-import { pcbnewLiveSettings, updatePcbnewLiveSettings } from '../pcbnew_live_settings.js';
+import { pcbnewLiveSettings, updatePcbnewLiveSettings } from '../browser/pcbnew_live_settings.js';
 import { printoutDrawOptions, printoutPageLayerSets } from '../pcbnew_printout.js';
 
 const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)

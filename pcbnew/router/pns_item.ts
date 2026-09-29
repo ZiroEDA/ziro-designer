@@ -95,9 +95,15 @@ export type PnsItemOwner = object;
  * back to the interface layer and to compare for identity — with a single
  * exception, the layer read in the castellation check, which is why the layer
  * is the one field named here.
+ *
+ * `uuid` is `BOARD_ITEM::m_Uuid`, read by `PNS::LOGGER::LogM`
+ * (`pns_logger.ts`) to build an event's item-UUID list. Optional because
+ * nothing in this port currently stamps one on here (`pns_kicad_iface.ts`
+ * does not carry a UUID through when it wraps a board item).
  */
 export interface PnsBoardItem {
   layer?: string;
+  uuid?: string;
 }
 
 /** `OWNABLE_ITEM`. */

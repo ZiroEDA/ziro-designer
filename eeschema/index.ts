@@ -29,7 +29,6 @@ export * from './sch_item_alignment.js';
 export * from './symb_transforms_utils.js';
 export * from './project_sch.js';
 export * from './lib_symbol.js';
-export * from './lib_symbol_compare.js';
 export * from './sim/sim_model.js';
 export * from './sim/sim_model_types.js';
 export * from './sch_pin.js';
@@ -42,6 +41,7 @@ export * from './netlist_exporters/netlist_generator.js';
 export * from './pin_type.js';
 export * from './netlist_exporters/netlist_exporter_kicad.js';
 export * from './netlist_exporters/netlist_exporter_spice.js';
+export * from './netlist_exporters/netlist_exporter_spice_model.js';
 
 import { writeSchematic as _writeSchematic } from './sch_io/sexpr/write-schematic.js';
 import { serialize as _serialize } from '@ziroeda/sexpr/serializer.js';

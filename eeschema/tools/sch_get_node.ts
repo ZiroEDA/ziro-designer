@@ -27,7 +27,7 @@ import type { LibSymbol, Schematic, Vec2 } from '../types.js';
 import { localToWorld, symbolTransform } from '@ziroeda/kimath/src/transform.js';
 import { refId } from './hittest.js';
 import { contains, inflate, labelBox, type BBox } from './bbox.js';
-import { schSymbolLibraryName } from '../lib_symbol_compare.js';
+import { schSymbolLibraryName } from '../lib_symbol.js';
 
 export type NodeHitKind =
   | 'pin'

@@ -18,7 +18,7 @@
 import type { LibSymbol, Schematic, SchSymbol } from '../types.js';
 import { refId } from './hittest.js';
 import type { EditCommand } from './command.js';
-import { schSymbolLibraryName } from '../lib_symbol_compare.js';
+import { schSymbolLibraryName } from '../lib_symbol.js';
 
 /**
  * `LIB_SYMBOL::GetBodyStyleCount`: the highest body style any unit declares, or

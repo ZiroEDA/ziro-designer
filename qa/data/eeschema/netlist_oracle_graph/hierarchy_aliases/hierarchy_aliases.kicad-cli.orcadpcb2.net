@@ -1,0 +1,19 @@
+( { EESchema Netlist Version 1.1 created  2026-09-29T06:56:58 }
+ ( /3a86a621-3e65-4c1c-be9d-3981f7bcf11c/5d358b80-b2c6-4077-a589-f28265c82400/6ecef390-54af-4762-b224-dc085a38636b $noname  R1 R
+  (    1 GND )
+  (    2 /S0.BOOT.SDA )
+ )
+ ( /3a86a621-3e65-4c1c-be9d-3981f7bcf11c/5d358b80-b2c6-4077-a589-f28265c82400/f20a508d-5fd9-4ac7-a515-81c670b3db74 $noname  R2 R
+  (    1 GND )
+  (    2 /S0.BOOT.SCL )
+ )
+ ( /ec16d119-285d-4e27-ba80-c46f40ad7d3d/5d358b80-b2c6-4077-a589-f28265c82400/6ecef390-54af-4762-b224-dc085a38636b $noname  R3 R
+  (    1 GND )
+  (    2 /S1.BOOT.SDA )
+ )
+ ( /ec16d119-285d-4e27-ba80-c46f40ad7d3d/5d358b80-b2c6-4077-a589-f28265c82400/f20a508d-5fd9-4ac7-a515-81c670b3db74 $noname  R4 R
+  (    1 GND )
+  (    2 /S1.BOOT.SCL )
+ )
+)
+*

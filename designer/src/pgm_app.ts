@@ -39,7 +39,7 @@ import {
 import {
   setPcbnewLiveSettingsProvider,
   setUpdatePcbnewLiveSettingsProvider,
-} from '@ziroeda/pcbnew/pcbnew_live_settings.js';
+} from '@ziroeda/pcbnew/browser/pcbnew_live_settings.js';
 import { setHeadlessNetlistProvider } from '@ziroeda/pcbnew/netlist_from_schematic.js';
 import { formatSchematicNetlist } from '@ziroeda/eeschema/cross-probing.js';
 
@@ -160,7 +160,7 @@ export function InitPgm(): PGM_BASE {
     // but every caller — pcbnew's included — shares this one registration.
     setColorSettingsByIdProvider(colorSettingsById);
     setCommonInputPrefsProvider(() => commonInputPrefsFromSettings(settings.common.input));
-    // pcbnew_live_settings.ts's read/write pair for DIALOG_PRINT_PCB and
+    // pcbnew/browser/pcbnew_live_settings.ts's read/write pair for DIALOG_PRINT_PCB and
     // DIALOG_PNS_SETTINGS, the same shape for the same reason.
     setPcbnewLiveSettingsProvider(() => settings.pcbnew);
     setUpdatePcbnewLiveSettingsProvider((mutate) => settings.updatePcbnew(mutate));

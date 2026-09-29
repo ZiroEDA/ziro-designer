@@ -24,7 +24,12 @@
  */
 import type { RawFile } from '@ziroeda/common';
 import type { JsonValue } from '@ziroeda/common/settings/json_settings.js';
+import { IO_ERROR } from '@ziroeda/common/exceptions.js';
+import { IMPORT_PROJ_PROPS } from '@ziroeda/common/import_proj_properties.js';
 import { Pgm } from '@ziroeda/common/pgm_base.js';
+import { RPT_SEVERITY_ERROR, WX_STRING_REPORTER } from '@ziroeda/common/reporter.js';
+import type { FOOTPRINT } from './footprint.js';
+import { FOOTPRINT_IMPORT_RECONCILER } from './footprint_import_reconciler.js';
 import { findProjectDru, findProjectPrl, findProjectPro } from './pcb_edit_frame.js';
 import type { PCB_EDIT_FRAME } from './pcb_edit_frame.js';
 
@@ -96,9 +101,77 @@ export class FILES_MIXIN {
     // "Initialise time domain tuning caches" (files.cpp:986), after the
     // project's profiles are in and before anything asks for a length.
     kb.SynchronizeTuningProfileProperties();
+    // "Load project settings after setting up board; some of them depend on
+    // the nets list" (files.cpp:906-908): only when a board is opened, not
+    // when Board Setup or another session rewrote the project's files, and
+    // only once the window has a canvas for them to land on.
+    if (!aFromBoardSetup && this.GetCanvas()) {
+      this.LoadProjectSettings();
+      this.LoadDrawingSheet((aFullPath) => {
+        const hit = files.find(
+          (f) => aFullPath === f.name || aFullPath === `${aProjectDir}/${f.name}`,
+        );
+
+        return hit ? hit.text : null;
+      });
+    }
     const dru = findProjectDru(files, rootPro);
     this.OnBoardLoaded(dru?.text ?? null, dru?.name ?? '');
     // The load stops here: OnBoardLoaded's own tail (SetActiveLayer + a full
     // UpdateAllItems) is the first display sync of the board, in pcb_canvas.
+  }
+
+  /**
+   * `PCB_EDIT_FRAME::reconcileImportedFootprintLibraries` (files.cpp:1208-1245,
+   * new in 10.0.6): after a non-KiCad board is imported, extract a project
+   * footprint library and re-link the board's FPIDs, so Update PCB from
+   * Schematic works. The manager pre-commits the cache nickname and the source
+   * libraries in `m_importProperties`; a standalone import derives the nickname
+   * from the board's file name.
+   *
+   * `aDefinitions` are the importer's `GetImportedCachedLibraryFootprints()`.
+   * `PROJECT_PCB::FootprintLibAdapter( &Prj() )` is the adapter the host hung
+   * on the board (`project_pcb.ts`). The C++ reports to
+   * `KISTATUSBAR::AddWarningMessages( "load", ... )`; here that is the window's
+   * `addStatusBarWarnings` hook.
+   */
+  reconcileImportedFootprintLibraries(
+    this: PCB_EDIT_FRAME,
+    aDefinitions: readonly FOOTPRINT[],
+    aBoardPath: string,
+  ): void {
+    const adapter = this.GetBoard()?.GetFootprintLibAdapter();
+
+    if (!adapter) return;
+
+    // manager pre-commits the cache nickname + source libs; standalone import derives from filename
+    const props = IMPORT_PROJ_PROPS.ReadFootprintProps(this.m_importProperties);
+    let cacheNick = props.cacheNickname;
+
+    if (cacheNick === '') {
+      const fileName = aBoardPath.split(/[\\/]/).pop() ?? '';
+      cacheNick = IMPORT_PROJ_PROPS.MakeCacheNickname(fileName.replace(/\.[^.]*$/, ''));
+    }
+
+    const reporter = new WX_STRING_REPORTER();
+    const reconciler = new FOOTPRINT_IMPORT_RECONCILER(
+      adapter,
+      this.Prj().GetProjectPath(),
+      reporter,
+    );
+
+    // reconciliation failure must not abort the import
+    try {
+      reconciler.Reconcile(this.GetBoard(), aDefinitions, cacheNick, props.sourceFpLibs);
+    } catch (e) {
+      if (!(e instanceof IO_ERROR)) throw e;
+
+      reporter.Report(
+        `Could not reconcile imported footprint libraries: ${e.message}`,
+        RPT_SEVERITY_ERROR,
+      );
+    }
+
+    if (reporter.HasMessage()) this.hooks.addStatusBarWarnings?.('load', reporter.GetMessages());
   }
 }

@@ -1,0 +1,12 @@
+.HEA
+.TIM 2026-09-29T06:55:52
+.APP "Eeschema 10.0.6-10.0.6~ubuntu24.04.1"
+.TYP FULL
+
+.ADD_COM     R1     "R"     "$noname"
+
+
+.ADD_TER   R1   1     "GPIO1_14__46"
+.TER       R1   2
+
+.END

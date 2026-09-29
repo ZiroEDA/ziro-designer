@@ -1,0 +1,9 @@
+*PADS-PCB*
+*PART*
+U1               F
+R1               Resistor_SMD:R_0805
+
+*NET*
+*SIGNAL* /VCC
+R1.2 U1.8 
+*END*

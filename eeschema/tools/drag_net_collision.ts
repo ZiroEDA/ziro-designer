@@ -29,7 +29,7 @@
 
 import { refId } from './hittest.js';
 import { computeNetlist } from '../connectivity/nets.js';
-import { schSymbolLibraryName } from '../lib_symbol_compare.js';
+import { schSymbolLibraryName } from '../lib_symbol.js';
 import { symbolPinPositions } from './connect.js';
 import { isExplicitJunction } from '../junction_helpers.js';
 import type { LibSymbol, Schematic, Vec2 } from '../types.js';

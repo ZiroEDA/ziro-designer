@@ -1,0 +1,12 @@
+( { EESchema Netlist Version 1.1 created  2026-09-29T13:47:49 }
+ ( /aaaaaaaa-0000-4000-8000-000000000001 F  U1 TRI8
+  (    1 unconnected-(U1-Pad1) )
+  (    2 unconnected-(U1-Pad2) )
+  (    8 /VCC )
+ )
+ ( /aaaaaaaa-0000-4000-8000-000000000003 Resistor_SMD:R_0805  R1 4k7_<1%>_&_up
+  (    1 unconnected-(R1-Pad1) )
+  (    2 /VCC )
+ )
+)
+*

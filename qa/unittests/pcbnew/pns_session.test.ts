@@ -17,7 +17,7 @@
  *    upstream) promise an `ITEM_SET` — `current.citems is not a function`.
  * 3. The placer asks its router to build a shove engine, and `PnsRouter` has no
  *    way to do that without importing `PnsShove` and closing an import cycle.
- * 4. `PnsBoardIface.commit()` *dropped* the changes the router had decided on.
+ * 4. `PNS_KICAD_IFACE.commit()` *dropped* the changes the router had decided on.
  *    The port stopped exactly at the transaction boundary.
  *
  * None of the four is reachable from a unit test of the piece that contains it,
@@ -43,7 +43,7 @@ import {
   DIFF_PAIR_DIMENSION,
   VIA_DIMENSION,
 } from '@ziroeda/pcbnew/board_design_settings.js';
-import type { PnsDesignSettings } from '@ziroeda/pcbnew/router/pns_board_iface.js';
+import type { PnsDesignSettings } from '@ziroeda/pcbnew/router/pns_kicad_iface.js';
 
 const MM = 1e6;
 const W = 0.25 * MM;

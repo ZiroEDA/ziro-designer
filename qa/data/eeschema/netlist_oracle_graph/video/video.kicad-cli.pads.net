@@ -1,0 +1,1064 @@
+*PADS-PCB*
+*PART*
+P8               Discret:SUBCLICK
+P1               Discret:SUBCLICK
+P2               Discret:SUBCLICK
+P3               Discret:SUBCLICK
+J4               Connector_Dsub:DSUB-9_Female_Horizontal_P2.77x2.84mm_EdgePinOffset14.56mm_Housed_MountingHolesOffset15.98mm
+U11              Package_QFP:PQFP-160_28x28mm_P0.65mm
+W4               Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical
+W5               Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical
+BUS1             Connectors:BUSPCI
+R5               Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+W1               Connectors:GS2
+W2               Connectors:GS2
+R6               Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+R7               Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+W3               Connectors:GS2
+R28              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+R29              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+C24              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+C25              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+C26              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+C27              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+C28              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+C29              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+C30              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+C31              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+C38              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+U1               Package_DIP:DIP-8_W7.62mm
+C67              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+C69              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+C68              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+RR2              Resistor_THT:R_Array_SIP9
+RR5              Resistor_THT:R_Array_SIP9
+RR7              Resistor_THT:R_Array_SIP9
+RR6              Resistor_THT:R_Array_SIP9
+RR8              Resistor_THT:R_Array_SIP9
+RR3              Resistor_THT:R_Array_SIP9
+RR4              Resistor_THT:R_Array_SIP9
+RR1              Resistor_THT:R_Array_SIP9
+C63              Resistor_SMD:R_1210_3225Metric_Pad1.24x2.70mm_HandSolder
+U7               Package_SO:SSOP-8_3.95x5.21x3.27mm_P1.27mm
+C21              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+C22              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+R13              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+D6               Discret:LEDV
+U24              Package_QFP:PQFP-160_28x28mm_P0.65mm
+C23              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+R1               Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+U21              Package_DIP:DIP-8_W7.62mm
+P5               Connector_PinHeader_2.54mm:PinHeader_1x05_P2.54mm_Vertical
+R48              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+P4               Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical
+U2               Package_SO:SOIC-28W_7.5x17.9mm_P1.27mm
+C70              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+C71              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+C72              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+C73              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+U23              Package_QFP:PQFP-100_14x20mm_P0.65mm
+P9               Connector_PinHeader_2.54mm:PinHeader_1x01_P2.54mm_Vertical
+P12              Connector_PinHeader_2.54mm:PinHeader_1x01_P2.54mm_Vertical
+P10              Connector_PinHeader_2.54mm:PinHeader_1x01_P2.54mm_Vertical
+P11              Connector_PinHeader_2.54mm:PinHeader_1x01_P2.54mm_Vertical
+R21              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+C17              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+R26              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+C18              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+X1               Crystal:Crystal_HC18-U_Vertical
+C57              Capacitor_Tantalum_SMD:CP_EIA-3528-21_Kemet-B_Pad1.63x2.40mm_HandSolder
+C19              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+C56              Capacitor_Tantalum_SMD:CP_EIA-3528-21_Kemet-B_Pad1.63x2.40mm_HandSolder
+C20              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+C49              Capacitor_THT:C_Disc_D3.0mm_W2.0mm_P2.50mm
+C50              Capacitor_THT:C_Disc_D3.0mm_W2.0mm_P2.50mm
+C51              Resistor_SMD:R_1210_3225Metric_Pad1.24x2.70mm_HandSolder
+U8               footprints:PLCC84
+U9               footprints:PLCC68
+C32              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+R37              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+C42              Resistor_SMD:R_1210_3225Metric_Pad1.24x2.70mm_HandSolder
+R36              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+R47              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+C36              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+R24              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+R44              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+C34              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+C33              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+C35              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+C40              Resistor_SMD:R_1210_3225Metric_Pad1.24x2.70mm_HandSolder
+R8               Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+R43              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+R38              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+L5               Resistor_SMD:R_1812_4532Metric_Pad1.24x3.50mm_HandSolder
+C41              Resistor_SMD:R_1210_3225Metric_Pad1.24x2.70mm_HandSolder
+R46              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+R22              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+C37              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+C52              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+R45              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+R15              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+R42              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+R23              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+C39              Resistor_SMD:R_1210_3225Metric_Pad1.24x2.70mm_HandSolder
+C15              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+C16              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+C47              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+C7               Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+C65              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+D4               Diode_THT:D_DO-34_SOD68_P7.62mm_Horizontal
+C62              Resistor_SMD:R_1210_3225Metric_Pad1.24x2.70mm_HandSolder
+C10              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+L4               Resistor_SMD:R_1812_4532Metric_Pad1.24x3.50mm_HandSolder
+C11              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+C5               Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+R35              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+C9               Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+D1               Diode_THT:D_DO-34_SOD68_P7.62mm_Horizontal
+C2               Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+R25              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+R20              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+R27              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+C14              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+D3               Diode_THT:D_DO-34_SOD68_P7.62mm_Horizontal
+R19              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+C6               Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+R14              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+R12              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+X2               Crystal:Crystal_HC18-U_Vertical
+R2               Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+U10              Package_QFP:PQFP-160_28x28mm_P0.65mm
+R3               Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+C1               Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+C66              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+C8               Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+C4               Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+D2               Diode_THT:D_DO-34_SOD68_P7.62mm_Horizontal
+C3               Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+C12              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+C13              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+U13              footprints:sim72
+U12              footprints:sim72
+U14              footprints:sim72
+U16              footprints:sim72
+U15              footprints:sim72
+U17              footprints:sim72
+U18              footprints:sim72
+U19              footprints:sim72
+U22              Package_QFP:TQFP-100_14x14mm_P0.5mm
+U3               Package_SO:SOIC-20W_7.5x12.8mm_P1.27mm
+U6               Package_SO:SOIC-20W_7.5x12.8mm_P1.27mm
+U5               Package_SO:SOIC-20W_7.5x12.8mm_P1.27mm
+U4               Package_SO:SOIC-20W_7.5x12.8mm_P1.27mm
+U20              Package_SO:SOIC-24W_7.5x15.4mm_P1.27mm
+C58              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+C59              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+C60              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+L2               Resistor_SMD:R_1812_4532Metric_Pad1.24x3.50mm_HandSolder
+C54              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+R10              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+C61              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+C43              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+C44              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+X3               Crystal:Crystal_HC18-U_Horizontal
+CV1              Discret:CV3-30PF
+R11              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+C64              Resistor_SMD:R_1210_3225Metric_Pad1.24x2.70mm_HandSolder
+C48              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+C45              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+R31              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+R30              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+L1               Resistor_SMD:R_1812_4532Metric_Pad1.24x3.50mm_HandSolder
+C53              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+C46              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+Q1               lib_smd:SOT23EBC
+R16              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+R32              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+R39              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+L3               Resistor_SMD:R_1812_4532Metric_Pad1.24x3.50mm_HandSolder
+C55              Resistor_SMD:R_1210_3225Metric_Pad1.24x2.70mm_HandSolder
+Q2               lib_smd:SOT23EBC
+R33              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+R40              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+R17              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+Q3               lib_smd:SOT23EBC
+R34              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+R41              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+R18              Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+R9               Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+POT1             lib_smd:POT_CMS
+R4               Resistor_SMD:R_1206_3216Metric_Pad1.24x1.80mm_HandSolder
+L6               footprints:LRTDK
+
+*NET*
+*SIGNAL* +3.3V
+BUS1.A21 BUS1.A27 BUS1.A33 BUS1.A39 BUS1.A45 BUS1.A53 BUS1.B25
+BUS1.B31 BUS1.B36 BUS1.B41 BUS1.B43 BUS1.B54 C68.1
+C69.1 
+*SIGNAL* +5F
+C55.1 L3.2 Q1.3 Q2.3 Q3.3 
+*SIGNAL* +5V
+BUS1.A10 BUS1.A16 BUS1.A5 BUS1.A59 BUS1.A61 BUS1.A62 BUS1.A8
+BUS1.B19 BUS1.B5 BUS1.B59 BUS1.B6 BUS1.B61 BUS1.B62
+C10.1 C11.1 C15.1 C17.1 C18.1 C19.1
+C20.1 C21.1 C22.1 C24.1 C25.1 C26.1
+C27.1 C28.1 C29.1 C30.1 C31.1 C38.1
+C56.1 C57.1 C67.1 C70.1 C71.1 C72.1
+C73.1 C9.1 D2.2 D4.2 L2.1 L3.1
+L4.1 L5.1 R1.2 R13.1 R28.1 R29.1
+R4.2 R48.1 R5.2 R6.2 R7.2 RR1.1
+RR2.1 RR3.1 RR4.1 RR5.1 RR6.1 RR7.1
+RR8.1 U1.7 U1.8 U10.102 U10.112 U10.31
+U10.45 U10.57 U10.76 U10.91 U11.11 U11.111
+U11.131 U11.151 U11.31 U11.51 U11.71 U11.91
+U12.10 U12.30 U12.59 U13.10 U13.30 U13.59
+U14.10 U14.30 U14.59 U15.10 U15.30 U15.59
+U16.10 U16.30 U16.59 U17.10 U17.30 U17.59
+U18.10 U18.30 U18.59 U19.10 U19.30 U19.59
+U2.10 U21.7 U21.8 U22.100 U22.12 U22.22
+U22.24 U22.25 U22.26 U22.37 U22.51 U22.63
+U22.75 U22.89 U23.15 U23.28 U23.3 U23.40
+U23.54 U23.66 U23.78 U23.92 U24.100 U24.120
+U24.142 U24.160 U24.20 U24.38 U24.40 U24.41
+U24.42 U24.60 U24.81 U3.20 U4.20 U5.20
+U6.20 
+*SIGNAL* /ACCES_RAM-
+U22.21 U24.56 U3.19 U4.19 U5.19 U6.19 
+*SIGNAL* /ACQ_ON
+U22.13 U24.48 
+*SIGNAL* /ADR2
+U11.68 U23.48 U24.137 
+*SIGNAL* /ADR3
+U11.67 U23.44 U24.138 
+*SIGNAL* /ADR4
+U11.66 U23.43 U24.139 
+*SIGNAL* /ADR5
+U11.64 U23.42 U24.140 
+*SIGNAL* /ADR6
+U11.132 U23.39 U24.143 
+*SIGNAL* /BE-0
+U11.87 U23.38 U24.144 
+*SIGNAL* /BE-1
+U11.63 U23.37 U24.145 
+*SIGNAL* /BE-2
+U11.62 U23.36 U24.146 
+*SIGNAL* /BE-3
+U11.60 U23.35 U24.147 
+*SIGNAL* /BLANK-
+U22.8 U24.53 U9.7 
+*SIGNAL* /BLUE_IN
+P3.1 R22.1 R46.1 
+*SIGNAL* /BLUE_OUT
+C60.2 J4.3 R44.2 U9.39 
+*SIGNAL* /BPCLK
+U11.140 U23.30 
+*SIGNAL* /BT812_RD-
+U10.86 U23.71 
+*SIGNAL* /BT812_WR-
+U10.83 U23.70 
+*SIGNAL* /CAS0-
+U12.40 U13.40 U14.40 U15.40 U16.40 U17.40 U18.40
+U19.40 U24.57 
+*SIGNAL* /CAS1-
+U12.41 U13.41 U14.41 U15.41 U16.41 U17.41 U18.41
+U19.41 U24.58 
+*SIGNAL* /CAS2-
+U12.42 U13.42 U14.42 U15.42 U16.42 U17.42 U18.42
+U19.42 U24.59 
+*SIGNAL* /CAS3-
+U12.43 U13.43 U14.43 U15.43 U16.43 U17.43 U18.43
+U19.43 U24.62 
+*SIGNAL* /CLAMP
+U22.7 U24.75 U8.37 U8.59 
+*SIGNAL* /CLKCAD
+U22.2 U24.77 U8.38 U8.39 U8.40 
+*SIGNAL* /CLKCDA
+U22.79 U24.76 U9.9 
+*SIGNAL* /CSYNC-OUT
+R30.2 U22.9 U24.13 U9.8 
+*SIGNAL* /CSYNCIN-
+U24.54 U8.8 
+*SIGNAL* /C_OUT
+J4.8 R39.1 
+*SIGNAL* /DQ0
+RR7.2 U10.92 U11.100 U23.13 U24.21 U3.2 U8.16
+U9.14 
+*SIGNAL* /DQ1
+RR7.3 U10.93 U11.99 U23.12 U24.22 U3.3 U8.15
+U9.15 
+*SIGNAL* /DQ10
+RR8.7 U11.83 U23.95 U24.34 U4.4 
+*SIGNAL* /DQ11
+RR8.6 U11.82 U23.94 U24.35 U4.5 
+*SIGNAL* /DQ12
+RR8.5 U11.80 U23.93 U24.36 U4.6 
+*SIGNAL* /DQ13
+RR8.4 U11.79 U23.90 U24.45 U4.7 
+*SIGNAL* /DQ14
+RR8.3 U11.78 U23.88 U24.46 U4.8 
+*SIGNAL* /DQ15
+RR8.2 U11.76 U23.89 U24.47 U4.9 
+*SIGNAL* /DQ16
+RR4.7 U11.157 U5.2 
+*SIGNAL* /DQ17
+RR4.9 U11.145 U5.3 
+*SIGNAL* /DQ18
+RR6.6 U11.133 U5.4 
+*SIGNAL* /DQ19
+RR6.8 U11.125 U5.5 
+*SIGNAL* /DQ2
+RR7.4 U10.94 U11.98 U23.11 U24.23 U3.4 U8.14
+U9.16 
+*SIGNAL* /DQ20
+RR6.3 U11.117 U5.6 
+*SIGNAL* /DQ21
+RR5.6 U11.105 U5.7 
+*SIGNAL* /DQ22
+RR4.3 U11.93 U5.8 
+*SIGNAL* /DQ23
+RR4.5 U11.85 U5.9 
+*SIGNAL* /DQ24
+RR3.3 U11.77 U6.2 
+*SIGNAL* /DQ25
+RR3.9 U11.65 U6.3 
+*SIGNAL* /DQ26
+RR2.8 U11.53 U6.4 
+*SIGNAL* /DQ27
+RR2.5 U11.45 U6.5 
+*SIGNAL* /DQ28
+RR2.3 U11.37 U6.6 
+*SIGNAL* /DQ29
+RR1.8 U11.25 U6.7 
+*SIGNAL* /DQ3
+RR7.5 U10.95 U11.96 U23.7 U24.24 U3.5 U8.13
+U9.17 
+*SIGNAL* /DQ30
+RR1.5 U11.13 U6.8 
+*SIGNAL* /DQ31
+RR1.3 U11.5 U6.9 
+*SIGNAL* /DQ4
+RR7.6 U10.96 U11.95 U23.9 U24.25 U3.6 U8.12
+U9.18 
+*SIGNAL* /DQ5
+RR7.7 U10.97 U11.94 U23.8 U24.26 U3.7 U8.11
+U9.19 
+*SIGNAL* /DQ6
+RR7.8 U10.99 U11.92 U23.6 U24.27 U3.8 U8.10
+U9.20 
+*SIGNAL* /DQ7
+RR7.9 U10.100 U11.88 U23.5 U24.28 U3.9 U8.9
+U9.21 
+*SIGNAL* /DQ8
+RR8.9 U11.86 U23.97 U24.32 U4.2 
+*SIGNAL* /DQ9
+RR8.8 U11.84 U23.96 U24.33 U4.3 
+*SIGNAL* /ESVIDEO-RVB/OE_RVB-
+U8.57 U9.29 
+*SIGNAL* /ESVIDEO-RVB/REF+
+R37.2 U8.64 U8.65 U8.66 U8.71 U8.73 U8.76
+U8.78 U8.80 U8.82 
+*SIGNAL* /ESVIDEO-RVB/VAA
+C33.1 C34.1 C35.1 C42.1 C51.1 C52.1 L5.2
+U8.1 U8.43 U8.44 U8.84 U9.1 U9.2
+U9.33 U9.34 U9.35 U9.36 
+*SIGNAL* /F_PALIN
+U10.104 U24.43 
+*SIGNAL* /GREEN_IN
+C3.2 P2.1 R23.1 R45.1 
+*SIGNAL* /GREEN_OUT
+C59.2 J4.2 R43.2 U9.38 
+*SIGNAL* /HD_PAL-
+U10.36 U24.52 
+*SIGNAL* /IRQ-
+U11.124 U24.149 
+*SIGNAL* /IRQ_SRL
+RR2.7 U11.57 U24.134 
+*SIGNAL* /MXA0
+U12.12 U13.12 U14.12 U15.12 U16.12 U17.12 U18.12
+U19.12 U24.128 
+*SIGNAL* /MXA1
+U12.13 U13.13 U14.13 U15.13 U16.13 U17.13 U18.13
+U19.13 U24.127 
+*SIGNAL* /MXA10
+U12.19 U13.19 U14.19 U15.19 U16.19 U17.19 U18.19
+U19.19 U24.109 
+*SIGNAL* /MXA2
+U12.14 U13.14 U14.14 U15.14 U16.14 U17.14 U18.14
+U19.14 U24.126 
+*SIGNAL* /MXA3
+U12.15 U13.15 U14.15 U15.15 U16.15 U17.15 U18.15
+U19.15 U24.125 
+*SIGNAL* /MXA4
+U12.16 U13.16 U14.16 U15.16 U16.16 U17.16 U18.16
+U19.16 U24.124 
+*SIGNAL* /MXA5
+U12.17 U13.17 U14.17 U15.17 U16.17 U17.17 U18.17
+U19.17 U24.123 
+*SIGNAL* /MXA6
+U12.18 U13.18 U14.18 U15.18 U16.18 U17.18 U18.18
+U19.18 U24.116 
+*SIGNAL* /MXA7
+U12.28 U13.28 U14.28 U15.28 U16.28 U17.28 U18.28
+U19.28 U24.115 
+*SIGNAL* /MXA8
+U12.31 U13.31 U14.31 U15.31 U16.31 U17.31 U18.31
+U19.31 U24.114 
+*SIGNAL* /MXA9
+U12.32 U13.32 U14.32 U15.32 U16.32 U17.32 U18.32
+U19.32 U24.113 
+*SIGNAL* /OE_PAL-
+U10.46 U10.47 U9.28 
+*SIGNAL* /PCA0
+U10.84 U23.65 U8.17 U9.24 
+*SIGNAL* /PCA1
+U10.85 U23.64 U8.18 U9.25 
+*SIGNAL* /PCA2
+U23.63 U8.19 U9.26 
+*SIGNAL* /PTADR-
+RR5.5 U11.107 U23.24 U24.14 
+*SIGNAL* /PTATN-
+RR5.2 U11.114 U23.18 U24.4 
+*SIGNAL* /PTBE-0
+U11.116 U23.20 U24.158 
+*SIGNAL* /PTBE-1
+U11.118 U23.21 U24.157 
+*SIGNAL* /PTBE-2
+U11.119 U23.22 U24.156 
+*SIGNAL* /PTBE-3
+U11.120 U23.23 U24.155 
+*SIGNAL* /PTBURST
+U11.112 U23.17 U24.5 
+*SIGNAL* /PTNUM0
+U11.123 U23.34 U24.150 
+*SIGNAL* /PTNUM1
+U11.122 U23.32 U24.154 
+*SIGNAL* /PTRDY-
+RR6.2 U11.115 U23.19 U24.3 
+*SIGNAL* /PTWR
+U11.108 U23.16 U24.12 
+*SIGNAL* /RAS0-
+U19.34 U19.44 U24.74 
+*SIGNAL* /RAS1-
+U18.34 U18.44 U24.73 
+*SIGNAL* /RAS2-
+U17.34 U17.44 U24.69 
+*SIGNAL* /RAS3-
+U15.34 U15.44 U24.68 
+*SIGNAL* /RAS4-
+U16.34 U16.44 U24.67 
+*SIGNAL* /RAS5-
+U12.34 U12.44 U24.66 
+*SIGNAL* /RAS6-
+U14.34 U14.44 U24.65 
+*SIGNAL* /RAS7-
+U13.34 U13.44 U24.64 
+*SIGNAL* /RDCAD-
+U23.74 U8.20 
+*SIGNAL* /RDCDA-
+U23.72 U9.22 
+*SIGNAL* /RDEMPTY
+U11.106 U24.15 
+*SIGNAL* /RDFIFO-
+RR5.7 U11.104 U24.16 
+*SIGNAL* /RED_IN
+C4.2 P1.1 R24.1 R47.1 
+*SIGNAL* /RED_OUT
+C58.2 J4.1 R42.2 U9.37 
+*SIGNAL* /SELECT-
+RR3.4 U11.75 U23.45 U24.135 
+*SIGNAL* /SYSRST-
+U10.87 U11.126 U23.1 U24.148 
+*SIGNAL* /TVB0
+U10.55 U22.92 U8.32 U9.61 
+*SIGNAL* /TVB1
+U10.54 U22.93 U8.31 U9.62 
+*SIGNAL* /TVB2
+U10.53 U22.94 U8.30 U9.63 
+*SIGNAL* /TVB3
+U10.52 U22.95 U8.29 U9.64 
+*SIGNAL* /TVB4
+U10.51 U22.96 U8.28 U9.65 
+*SIGNAL* /TVB5
+U10.50 U22.97 U8.27 U9.66 
+*SIGNAL* /TVB6
+U10.49 U22.98 U8.26 U9.67 
+*SIGNAL* /TVB7
+U10.48 U22.99 U8.25 U9.68 
+*SIGNAL* /TVG0
+U10.74 U22.67 U8.48 U9.53 
+*SIGNAL* /TVG1
+U10.73 U22.68 U8.47 U9.54 
+*SIGNAL* /TVG2
+U10.72 U22.69 U8.46 U9.55 
+*SIGNAL* /TVG3
+U10.71 U22.70 U8.45 U9.56 
+*SIGNAL* /TVG4
+U10.70 U22.71 U8.36 U9.57 
+*SIGNAL* /TVG5
+U10.69 U22.78 U8.35 U9.58 
+*SIGNAL* /TVG6
+U10.68 U22.80 U8.34 U9.59 
+*SIGNAL* /TVG7
+U10.67 U22.81 U8.33 U9.60 
+*SIGNAL* /TVI0
+U24.108 U9.10 
+*SIGNAL* /TVI1
+U24.107 U9.11 
+*SIGNAL* /TVR0
+U10.65 U22.82 U8.56 U9.45 
+*SIGNAL* /TVR1
+U10.64 U22.83 U8.55 U9.46 
+*SIGNAL* /TVR2
+U10.63 U22.84 U8.54 U9.47 
+*SIGNAL* /TVR3
+U10.62 U22.85 U8.53 U9.48 
+*SIGNAL* /TVR4
+U10.61 U22.86 U8.52 U9.49 
+*SIGNAL* /TVR5
+U10.60 U22.87 U8.51 U9.50 
+*SIGNAL* /TVR6
+U10.59 U22.90 U8.50 U9.51 
+*SIGNAL* /TVR7
+U10.58 U22.91 U8.49 U9.52 
+*SIGNAL* /TVRAM0
+U12.2 U13.2 U14.2 U15.2 U16.2 U17.2 U18.2
+U19.2 U22.17 U3.18 
+*SIGNAL* /TVRAM1
+U12.4 U13.4 U14.4 U15.4 U16.4 U17.4 U18.4
+U19.4 U22.19 U3.17 
+*SIGNAL* /TVRAM10
+U12.53 U13.53 U14.53 U15.53 U16.53 U17.53 U18.53
+U19.53 U22.35 U4.16 
+*SIGNAL* /TVRAM11
+U12.55 U13.55 U14.55 U15.55 U16.55 U17.55 U18.55
+U19.55 U22.36 U4.15 
+*SIGNAL* /TVRAM12
+U12.57 U13.57 U14.57 U15.57 U16.57 U17.57 U18.57
+U19.57 U22.39 U4.14 
+*SIGNAL* /TVRAM13
+U12.61 U13.61 U14.61 U15.61 U16.61 U17.61 U18.61
+U19.61 U22.40 U4.13 
+*SIGNAL* /TVRAM14
+U12.63 U13.63 U14.63 U15.63 U16.63 U17.63 U18.63
+U19.63 U22.41 U4.12 
+*SIGNAL* /TVRAM15
+U12.65 U13.65 U14.65 U15.65 U16.65 U17.65 U18.65
+U19.65 U22.42 U4.11 
+*SIGNAL* /TVRAM16
+U12.3 U13.3 U14.3 U15.3 U16.3 U17.3 U18.3
+U19.3 U22.43 U5.18 
+*SIGNAL* /TVRAM17
+U12.5 U13.5 U14.5 U15.5 U16.5 U17.5 U18.5
+U19.5 U22.44 U5.17 
+*SIGNAL* /TVRAM18
+U12.7 U13.7 U14.7 U15.7 U16.7 U17.7 U18.7
+U19.7 U22.45 U5.16 
+*SIGNAL* /TVRAM19
+U12.9 U13.9 U14.9 U15.9 U16.9 U17.9 U18.9
+U19.9 U22.46 U5.15 
+*SIGNAL* /TVRAM2
+U12.6 U13.6 U14.6 U15.6 U16.6 U17.6 U18.6
+U19.6 U22.20 U3.16 
+*SIGNAL* /TVRAM20
+U12.21 U13.21 U14.21 U15.21 U16.21 U17.21 U18.21
+U19.21 U22.47 U5.14 
+*SIGNAL* /TVRAM21
+U12.23 U13.23 U14.23 U15.23 U16.23 U17.23 U18.23
+U19.23 U22.48 U5.13 
+*SIGNAL* /TVRAM22
+U12.25 U13.25 U14.25 U15.25 U16.25 U17.25 U18.25
+U19.25 U22.53 U5.12 
+*SIGNAL* /TVRAM23
+U12.27 U13.27 U14.27 U15.27 U16.27 U17.27 U18.27
+U19.27 U22.54 U5.11 
+*SIGNAL* /TVRAM24
+U12.50 U13.50 U14.50 U15.50 U16.50 U17.50 U18.50
+U19.50 U22.55 U6.18 
+*SIGNAL* /TVRAM25
+U12.52 U13.52 U14.52 U15.52 U16.52 U17.52 U18.52
+U19.52 U22.56 U6.17 
+*SIGNAL* /TVRAM26
+U12.54 U13.54 U14.54 U15.54 U16.54 U17.54 U18.54
+U19.54 U22.57 U6.16 
+*SIGNAL* /TVRAM27
+U12.56 U13.56 U14.56 U15.56 U16.56 U17.56 U18.56
+U19.56 U22.58 U6.15 
+*SIGNAL* /TVRAM28
+U12.58 U13.58 U14.58 U15.58 U16.58 U17.58 U18.58
+U19.58 U22.59 U6.14 
+*SIGNAL* /TVRAM29
+U12.60 U13.60 U14.60 U15.60 U16.60 U17.60 U18.60
+U19.60 U22.60 U6.13 
+*SIGNAL* /TVRAM3
+U12.8 U13.8 U14.8 U15.8 U16.8 U17.8 U18.8
+U19.8 U22.18 U3.15 
+*SIGNAL* /TVRAM30
+U12.62 U13.62 U14.62 U15.62 U16.62 U17.62 U18.62
+U19.62 U22.61 U6.12 
+*SIGNAL* /TVRAM31
+U12.64 U13.64 U14.64 U15.64 U16.64 U17.64 U18.64
+U19.64 U22.62 U6.11 
+*SIGNAL* /TVRAM4
+U12.20 U13.20 U14.20 U15.20 U16.20 U17.20 U18.20
+U19.20 U22.28 U3.14 
+*SIGNAL* /TVRAM5
+U12.22 U13.22 U14.22 U15.22 U16.22 U17.22 U18.22
+U19.22 U22.29 U3.13 
+*SIGNAL* /TVRAM6
+U12.24 U13.24 U14.24 U15.24 U16.24 U17.24 U18.24
+U19.24 U22.31 U3.12 
+*SIGNAL* /TVRAM7
+U12.26 U13.26 U14.26 U15.26 U16.26 U17.26 U18.26
+U19.26 U22.32 U3.11 
+*SIGNAL* /TVRAM8
+U12.49 U13.49 U14.49 U15.49 U16.49 U17.49 U18.49
+U19.49 U22.33 U4.18 
+*SIGNAL* /TVRAM9
+U12.51 U13.51 U14.51 U15.51 U16.51 U17.51 U18.51
+U19.51 U22.34 U4.17 
+*SIGNAL* /VD_PAL-
+U10.34 U24.37 
+*SIGNAL* /WRAM-
+U12.47 U13.47 U14.47 U15.47 U16.47 U17.47 U18.47
+U19.47 U24.63 
+*SIGNAL* /WRCAD-
+U23.69 U8.24 
+*SIGNAL* /WRCDA-
+U23.73 U9.23 
+*SIGNAL* /WRFIFDO-
+RR5.8 U11.102 U24.18 
+*SIGNAL* /WRFULL
+U11.103 U24.17 
+*SIGNAL* /WRITE_RAM
+U24.55 U3.1 U4.1 U5.1 U6.1 
+*SIGNAL* /X_CLK
+U22.74 U23.86 U24.119 
+*SIGNAL* /X_DATA
+U22.72 U24.118 
+*SIGNAL* /X_DONE
+U22.50 U23.83 U24.80 
+*SIGNAL* /X_IRQ
+RR5.4 U11.109 U24.11 
+*SIGNAL* /X_PROG-
+U22.52 U23.84 U24.82 
+*SIGNAL* /Y_OUT
+J4.9 R40.2 
+*SIGNAL* /buspci.sch/EA1
+RR2.6 U11.61 
+*SIGNAL* /buspci.sch/EA10
+RR6.9 U11.121 
+*SIGNAL* /buspci.sch/EA11
+RR6.7 U11.129 
+*SIGNAL* /buspci.sch/EA12
+RR6.5 U11.137 
+*SIGNAL* /buspci.sch/EA13
+RR6.4 U11.141 
+*SIGNAL* /buspci.sch/EA14
+RR4.8 U11.149 
+*SIGNAL* /buspci.sch/EA15
+RR4.6 U11.153 
+*SIGNAL* /buspci.sch/EA2
+RR3.8 U11.69 
+*SIGNAL* /buspci.sch/EA3
+RR3.6 U11.73 
+*SIGNAL* /buspci.sch/EA4
+RR3.2 U11.81 
+*SIGNAL* /buspci.sch/EA5
+RR4.4 U11.89 
+*SIGNAL* /buspci.sch/EA6
+RR4.2 U11.97 
+*SIGNAL* /buspci.sch/EA7
+RR5.9 U11.101 
+*SIGNAL* /buspci.sch/EA9
+RR5.3 U11.113 
+*SIGNAL* /buspci.sch/EQ0
+RR1.2 U11.1 
+*SIGNAL* /buspci.sch/EQ1
+RR1.4 U11.9 
+*SIGNAL* /buspci.sch/EQ2
+RR1.6 U11.17 
+*SIGNAL* /buspci.sch/EQ3
+RR1.7 U11.21 
+*SIGNAL* /buspci.sch/EQ4
+RR1.9 U11.29 
+*SIGNAL* /buspci.sch/EQ5
+RR2.4 U11.33 
+*SIGNAL* /buspci.sch/EQ6
+RR2.2 U11.41 
+*SIGNAL* /buspci.sch/EQ7
+RR2.9 U11.49 
+*SIGNAL* /buspci.sch/P_AD0
+BUS1.A58 U11.56 
+*SIGNAL* /buspci.sch/P_AD1
+BUS1.B58 U11.55 
+*SIGNAL* /buspci.sch/P_AD10
+BUS1.B48 U11.39 
+*SIGNAL* /buspci.sch/P_AD11
+BUS1.A47 U11.38 
+*SIGNAL* /buspci.sch/P_AD12
+BUS1.B47 U11.36 
+*SIGNAL* /buspci.sch/P_AD13
+BUS1.A46 U11.35 
+*SIGNAL* /buspci.sch/P_AD14
+BUS1.B45 U11.34 
+*SIGNAL* /buspci.sch/P_AD15
+BUS1.A44 U11.32 
+*SIGNAL* /buspci.sch/P_AD16
+BUS1.A32 U11.14 
+*SIGNAL* /buspci.sch/P_AD17
+BUS1.B32 U11.12 
+*SIGNAL* /buspci.sch/P_AD18
+BUS1.A31 U11.8 
+*SIGNAL* /buspci.sch/P_AD19
+BUS1.B30 U11.7 
+*SIGNAL* /buspci.sch/P_AD2
+BUS1.A57 U11.54 
+*SIGNAL* /buspci.sch/P_AD20
+BUS1.A29 U11.6 
+*SIGNAL* /buspci.sch/P_AD21
+BUS1.B29 U11.4 
+*SIGNAL* /buspci.sch/P_AD22
+BUS1.A28 U11.3 
+*SIGNAL* /buspci.sch/P_AD23
+BUS1.B27 U11.2 
+*SIGNAL* /buspci.sch/P_AD24
+BUS1.A25 U11.158 
+*SIGNAL* /buspci.sch/P_AD25
+BUS1.B24 U11.156 
+*SIGNAL* /buspci.sch/P_AD26
+BUS1.A23 U11.155 
+*SIGNAL* /buspci.sch/P_AD27
+BUS1.B23 U11.154 
+*SIGNAL* /buspci.sch/P_AD28
+BUS1.A22 U11.152 
+*SIGNAL* /buspci.sch/P_AD29
+BUS1.B21 U11.148 
+*SIGNAL* /buspci.sch/P_AD3
+BUS1.B56 U11.52 
+*SIGNAL* /buspci.sch/P_AD30
+BUS1.A20 U11.147 
+*SIGNAL* /buspci.sch/P_AD31
+BUS1.B20 U11.146 
+*SIGNAL* /buspci.sch/P_AD4
+BUS1.A55 U11.48 
+*SIGNAL* /buspci.sch/P_AD5
+BUS1.B55 U11.47 
+*SIGNAL* /buspci.sch/P_AD6
+BUS1.A54 U11.46 
+*SIGNAL* /buspci.sch/P_AD7
+BUS1.B53 U11.44 
+*SIGNAL* /buspci.sch/P_AD8
+BUS1.B52 U11.42 
+*SIGNAL* /buspci.sch/P_AD9
+BUS1.A49 U11.40 
+*SIGNAL* /buspci.sch/P_CLK
+BUS1.B16 U11.142 
+*SIGNAL* /buspci.sch/P_C{slash}BE0#
+BUS1.A52 U11.43 
+*SIGNAL* /buspci.sch/P_C{slash}BE1#
+BUS1.B44 U11.28 
+*SIGNAL* /buspci.sch/P_C{slash}BE2#
+BUS1.B33 U11.15 
+*SIGNAL* /buspci.sch/P_C{slash}BE3#
+BUS1.B26 U11.159 
+*SIGNAL* /buspci.sch/P_DEVSEL#
+BUS1.B37 U11.20 
+*SIGNAL* /buspci.sch/P_FRAME#
+BUS1.A34 U11.16 
+*SIGNAL* /buspci.sch/P_GNT#
+BUS1.A17 U11.143 
+*SIGNAL* /buspci.sch/P_IDSEL
+BUS1.A26 U11.160 
+*SIGNAL* /buspci.sch/P_INTA#
+BUS1.A6 U11.58 
+*SIGNAL* /buspci.sch/P_IRDY#
+BUS1.B35 U11.18 
+*SIGNAL* /buspci.sch/P_LOCK#
+BUS1.B39 U11.23 
+*SIGNAL* /buspci.sch/P_PAR
+BUS1.A43 U11.27 
+*SIGNAL* /buspci.sch/P_PERR#
+BUS1.B40 U11.24 
+*SIGNAL* /buspci.sch/P_REQ#
+BUS1.B18 U11.144 
+*SIGNAL* /buspci.sch/P_RST#
+BUS1.A15 U11.139 
+*SIGNAL* /buspci.sch/P_SERR#
+BUS1.B42 U11.26 
+*SIGNAL* /buspci.sch/P_STOP#
+BUS1.A38 U11.22 
+*SIGNAL* /buspci.sch/P_TRDY#
+BUS1.A36 U11.19 
+*SIGNAL* /graphic/14MHZOUT
+U24.95 U7.6 
+*SIGNAL* /graphic/CCLK
+P5.2 U21.2 U23.77 
+*SIGNAL* /graphic/CLK10MHz
+R21.2 U23.57 U24.2 
+*SIGNAL* /graphic/CSIO-
+U23.61 U24.159 
+*SIGNAL* /graphic/DIN
+P5.3 U21.1 U23.75 
+*SIGNAL* /graphic/DONE
+P5.4 U23.53 
+*SIGNAL* /graphic/HDOUT
+U24.7 U7.1 
+*SIGNAL* /graphic/HDREFOUT
+U24.6 U7.2 
+*SIGNAL* /graphic/IA0
+U2.6 U24.94 
+*SIGNAL* /graphic/IA1
+U2.7 U24.92 
+*SIGNAL* /graphic/IA2
+U2.8 U24.88 
+*SIGNAL* /graphic/IA3
+U2.9 U24.87 
+*SIGNAL* /graphic/IA4
+U2.11 U24.86 
+*SIGNAL* /graphic/IA5
+U2.12 U24.85 
+*SIGNAL* /graphic/IA6
+U2.13 U24.83 
+*SIGNAL* /graphic/IA7
+U2.14 U24.78 
+*SIGNAL* /graphic/IA8
+U2.15 U24.93 
+*SIGNAL* /graphic/IA9
+U2.5 U24.96 
+*SIGNAL* /graphic/ICAS-
+U2.17 U24.104 
+*SIGNAL* /graphic/ID0
+U2.1 U24.102 
+*SIGNAL* /graphic/ID1
+U2.2 U24.99 
+*SIGNAL* /graphic/ID2
+U2.18 U24.105 
+*SIGNAL* /graphic/ID3
+U2.19 U24.106 
+*SIGNAL* /graphic/IOE-
+U2.16 U24.103 
+*SIGNAL* /graphic/IRAS-
+U2.4 U24.97 
+*SIGNAL* /graphic/IWR-
+U2.3 U24.98 
+*SIGNAL* /graphic/LED
+D6.2 U23.81 
+*SIGNAL* /graphic/PROG*
+P5.5 U21.3 U21.4 U23.55 
+*SIGNAL* /graphic/RESERV1
+U23.59 U24.44 
+*SIGNAL* /graphic/VOSC
+C23.1 C63.1 R1.1 U7.4 U7.5 U7.7 
+*SIGNAL* /graphic/XTAL_I
+C50.1 R26.1 U23.56 X1.2 
+*SIGNAL* /graphic/X_DIN
+U23.85 U24.117 
+*SIGNAL* /modul/CHROM
+R16.2 U20.14 
+*SIGNAL* /modul/CVBS
+R18.2 U20.16 
+*SIGNAL* /modul/CVBSOUT
+P8.1 R41.1 
+*SIGNAL* /modul/LUM
+R17.2 U20.19 
+*SIGNAL* /pal-ntsc.sch/C-VIDEO
+D3.2 D4.1 R2.1 U10.125 
+*SIGNAL* /pal-ntsc.sch/VAF
+C12.1 C13.1 C14.1 C2.1 C62.1 L4.2 R12.2
+U10.1 U10.119 U10.120 U10.121 U10.122 U10.123
+U10.132 U10.141 U10.142 U10.149 U10.158 U10.159
+U10.160 U10.2 U10.39 U10.40 U10.41 U10.42
+U10.43 U10.78 U10.79 U10.80 U10.81 U10.82
+
+*SIGNAL* /pal-ntsc.sch/Y-VIDEO
+D1.2 D2.1 R3.1 U10.156 
+*SIGNAL* /pal-ntsc.sch/Y_SYNC
+R20.2 R35.2 U10.6 
+*SIGNAL* /{slash}PCRD
+RR3.7 U11.72 U23.46 U24.133 
+*SIGNAL* /{slash}PCWR
+RR3.5 U11.74 U23.47 U24.132 
+*SIGNAL* GND
+BUS1.A18 BUS1.A24 BUS1.A30 BUS1.A35 BUS1.A37 BUS1.A42 BUS1.A48
+BUS1.A56 BUS1.B15 BUS1.B17 BUS1.B22 BUS1.B28 BUS1.B3
+BUS1.B34 BUS1.B38 BUS1.B46 BUS1.B49 BUS1.B57 C10.2
+C11.2 C12.2 C13.2 C14.2 C15.2 C16.2
+C17.2 C18.2 C19.2 C2.2 C20.2 C21.2
+C22.2 C23.2 C24.2 C25.2 C26.2 C27.2
+C28.2 C29.2 C30.2 C31.2 C32.1 C33.2
+C37.1 C38.2 C43.2 C44.2 C45.2 C46.2
+C47.2 C48.1 C49.2 C50.2 C51.2 C52.2
+C53.2 C54.2 C55.2 C56.2 C57.2 C6.2
+C62.2 C63.2 C64.2 C65.1 C66.1 C67.2
+C68.2 C69.2 C7.2 C70.2 C71.2 C72.2
+C73.2 C9.2 CV1.2 D1.1 D3.1 J4.4
+J4.5 J4.6 J4.7 L6.3 P1.2 P12.1
+P2.2 P3.2 P4.2 P5.1 P8.2 POT1.2
+POT1.3 R14.2 R15.1 R31.1 R32.2 R33.2
+R34.2 R37.1 R38.2 R42.1 R43.1 R44.1
+R45.2 R46.2 R47.2 R8.2 U1.1 U1.2
+U1.3 U1.4 U10.103 U10.111 U10.116 U10.118
+U10.124 U10.126 U10.128 U10.130 U10.134 U10.136
+U10.138 U10.139 U10.143 U10.145 U10.147 U10.151
+U10.153 U10.155 U10.157 U10.16 U10.3 U10.30
+U10.44 U10.5 U10.56 U10.66 U10.7 U10.75
+U10.88 U10.89 U10.90 U10.98 U11.10 U11.110
+U11.130 U11.150 U11.30 U11.50 U11.70 U11.90
+U12.1 U12.39 U12.72 U13.1 U13.39 U13.72
+U14.1 U14.39 U14.72 U15.1 U15.39 U15.72
+U16.1 U16.39 U16.72 U17.1 U17.39 U17.72
+U18.1 U18.39 U18.72 U19.1 U19.39 U19.72
+U2.20 U20.10 U20.17 U21.5 U22.1 U22.11
+U22.23 U22.38 U22.49 U22.64 U22.77 U22.88
+U23.14 U23.26 U23.4 U23.41 U23.52 U23.67
+U23.80 U23.91 U24.1 U24.10 U24.101 U24.110
+U24.122 U24.131 U24.141 U24.151 U24.19 U24.29
+U24.39 U24.51 U24.61 U24.70 U24.79 U24.91
+U3.10 U4.10 U5.10 U6.10 U7.3 U8.2
+U8.21 U8.22 U8.23 U8.3 U8.41 U8.42
+U8.61 U8.63 U8.67 U9.12 U9.13 U9.3
+U9.31 U9.32 U9.4 W1.1 W2.1 W3.1
+W4.1 W5.1 
+*SIGNAL* Net-(BUS1-PRSNT1#)
+BUS1.B9 W5.2 
+*SIGNAL* Net-(BUS1-PRSNT2#)
+BUS1.B11 W4.2 
+*SIGNAL* Net-(BUS1-TDI)
+BUS1.A4 BUS1.B4 
+*SIGNAL* Net-(C1-Pad1)
+C1.1 C47.1 R35.1 
+*SIGNAL* Net-(C3-Pad1)
+C3.1 R3.2 
+*SIGNAL* Net-(C36-Pad2)
+C36.2 C37.2 R36.1 
+*SIGNAL* Net-(C39-Pad2)
+C39.2 R24.2 
+*SIGNAL* Net-(C4-Pad1)
+C4.1 R2.2 
+*SIGNAL* Net-(C40-Pad2)
+C40.2 R23.2 
+*SIGNAL* Net-(C41-Pad2)
+C41.2 R22.2 
+*SIGNAL* Net-(C46-Pad1)
+C46.1 C53.1 L1.2 
+*SIGNAL* Net-(C49-Pad1)
+C49.1 R21.1 R26.2 X1.1 
+*SIGNAL* Net-(C5-Pad2)
+C5.2 R19.1 
+*SIGNAL* Net-(C61-Pad1)
+C61.1 R30.1 R31.2 
+*SIGNAL* Net-(C8-Pad2)
+C8.2 R20.1 
+*SIGNAL* Net-(CV1-Pad1)
+CV1.1 X3.1 
+*SIGNAL* Net-(D6-A)
+D6.1 R13.2 
+*SIGNAL* Net-(L6-Pad1)
+L6.1 R10.1 
+*SIGNAL* Net-(P4-P1)
+P4.1 R48.2 U23.25 U23.27 U23.29 
+*SIGNAL* Net-(POT1-Pad1)
+POT1.1 R9.1 
+*SIGNAL* Net-(Q1-B)
+Q1.2 R16.1 
+*SIGNAL* Net-(Q1-E)
+Q1.1 R32.1 R39.2 
+*SIGNAL* Net-(Q2-B)
+Q2.2 R17.1 
+*SIGNAL* Net-(Q2-E)
+Q2.1 R33.1 R40.1 
+*SIGNAL* Net-(Q3-B)
+Q3.2 R18.1 
+*SIGNAL* Net-(Q3-E)
+Q3.1 R34.1 R41.2 
+*SIGNAL* Net-(U1-SCL)
+R28.2 U1.6 U11.128 
+*SIGNAL* Net-(U1-SDA)
+R29.2 U1.5 U11.127 
+*SIGNAL* Net-(U10-CLEVEL)
+C7.1 R27.2 U10.114 
+*SIGNAL* Net-(U10-CREF+)
+C6.1 R12.1 U10.113 U10.137 U10.144 
+*SIGNAL* Net-(U10-N{slash}C)
+C16.1 U10.110 
+*SIGNAL* Net-(U10-OUT_C)
+R19.2 U10.115 
+*SIGNAL* Net-(U10-R{slash}2)
+R27.1 U10.135 
+*SIGNAL* Net-(U10-SYNC_DET)
+C1.2 R14.1 U10.140 
+*SIGNAL* Net-(U10-VIN_C)
+C5.1 U10.117 
+*SIGNAL* Net-(U10-VIN_Y{slash}COMP.)
+C8.1 U10.4 
+*SIGNAL* Net-(U10-XTAL1_IN)
+C66.2 R25.1 U10.108 X2.2 
+*SIGNAL* Net-(U10-XTAL1_OUT)
+C65.2 R25.2 U10.109 X2.1 
+*SIGNAL* Net-(U11-FLT#)
+R6.1 U11.138 W2.2 
+*SIGNAL* Net-(U11-MODE_16{slash}32)
+R5.1 U11.59 W1.2 
+*SIGNAL* Net-(U11-SNV)
+R7.1 U11.135 W3.2 
+*SIGNAL* Net-(U20-B)
+C58.1 U20.11 
+*SIGNAL* Net-(U20-B{slash}ADJ)
+R9.2 U20.21 
+*SIGNAL* Net-(U20-CS)
+C61.2 U20.24 
+*SIGNAL* Net-(U20-FLT)
+C45.1 U20.15 
+*SIGNAL* Net-(U20-G)
+C59.1 U20.9 
+*SIGNAL* Net-(U20-MCTR)
+R4.1 U20.2 
+*SIGNAL* Net-(U20-NOTCH)
+L1.1 U20.18 
+*SIGNAL* Net-(U20-OSC)
+U20.23 X3.2 
+*SIGNAL* Net-(U20-R)
+C60.1 U20.7 
+*SIGNAL* Net-(U20-UOFF)
+C44.1 U20.6 
+*SIGNAL* Net-(U20-VCC)
+C54.1 L2.2 U20.8 
+*SIGNAL* Net-(U20-VOFF)
+C43.1 U20.12 
+*SIGNAL* Net-(U20-VREF)
+C48.2 C64.1 R11.2 U20.13 
+*SIGNAL* Net-(U20-Y+SIN)
+L6.2 R11.1 U20.20 
+*SIGNAL* Net-(U20-Y+SOUT)
+R10.2 U20.22 
+*SIGNAL* Net-(U23-P87)
+P10.1 U23.87 
+*SIGNAL* Net-(U23-PGCK4)
+P11.1 U23.82 
+*SIGNAL* Net-(U23-SGCK3)
+P9.1 U23.51 
+*SIGNAL* Net-(U8-BIN)
+U8.58 U8.68 
+*SIGNAL* Net-(U8-BVID0)
+C41.1 U8.75 
+*SIGNAL* Net-(U8-CEXT1)
+R36.2 U8.6 
+*SIGNAL* Net-(U8-CEXT2)
+C36.1 R15.2 U8.7 
+*SIGNAL* Net-(U8-GIN)
+U8.60 U8.70 
+*SIGNAL* Net-(U8-GVID0)
+C40.1 U8.79 
+*SIGNAL* Net-(U8-RIN)
+U8.62 U8.72 
+*SIGNAL* Net-(U8-RSET)
+R38.1 U8.69 
+*SIGNAL* Net-(U8-RVID0)
+C39.1 U8.83 
+*SIGNAL* Net-(U9-COMP)
+C35.2 U9.41 U9.42 
+*SIGNAL* Net-(U9-IREF)
+C34.2 C42.2 R8.1 U9.40 
+*SIGNAL* Net-(U9-VREF)
+C32.2 U9.43 U9.44 
+*END*

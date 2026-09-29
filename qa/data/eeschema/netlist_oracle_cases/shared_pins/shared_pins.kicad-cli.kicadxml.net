@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<export version="E">
+  <design>
+    <source>/tmp/claude-1000/-home-akshay-ziro-designer-1/03aabb1f-e351-4acd-9d08-11047a065930/scratchpad/nlcases/shared_pins/shared_pins.kicad_sch</source>
+    <date>2026-09-29T13:47:52</date>
+    <tool>Eeschema 10.0.6-10.0.6~ubuntu24.04.1</tool>
+    <sheet number="1" name="/" tstamps="/">
+      <title_block>
+        <title/>
+        <company/>
+        <rev/>
+        <date/>
+        <source>shared_pins.kicad_sch</source>
+        <comment number="1" value=""/>
+        <comment number="2" value=""/>
+        <comment number="3" value=""/>
+        <comment number="4" value=""/>
+        <comment number="5" value=""/>
+        <comment number="6" value=""/>
+        <comment number="7" value=""/>
+        <comment number="8" value=""/>
+        <comment number="9" value=""/>
+      </title_block>
+    </sheet>
+  </design>
+  <components>
+    <comp ref="R1">
+      <value>4k7 &lt;1%&gt; &amp; up</value>
+      <footprint>Resistor SMD:R 0805</footprint>
+      <fields>
+        <field name="Footprint">Resistor SMD:R 0805</field>
+        <field name="Datasheet"/>
+        <field name="Description"/>
+      </fields>
+      <libsource lib="Device" part="R" description=""/>
+      <property name="Sheetname" value="Root"/>
+      <property name="Sheetfile" value="shared_pins.kicad_sch"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamps>aaaaaaaa-0000-4000-8000-000000000003</tstamps>
+      <units>
+        <unit name="A">
+          <pins>
+            <pin num="1"/>
+            <pin num="2"/>
+          </pins>
+        </unit>
+      </units>
+    </comp>
+    <comp ref="U1">
+      <value>TRI8</value>
+      <footprint>F</footprint>
+      <fields>
+        <field name="Footprint">F</field>
+        <field name="Datasheet"/>
+        <field name="Description"/>
+      </fields>
+      <libsource lib="Device" part="TRI8" description=""/>
+      <property name="Sheetname" value="Root"/>
+      <property name="Sheetfile" value="shared_pins.kicad_sch"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamps>aaaaaaaa-0000-4000-8000-000000000002 aaaaaaaa-0000-4000-8000-000000000001</tstamps>
+      <units>
+        <unit name="A">
+          <pins>
+            <pin num="1"/>
+            <pin num="8"/>
+          </pins>
+        </unit>
+        <unit name="B">
+          <pins>
+            <pin num="2"/>
+            <pin num="8"/>
+          </pins>
+        </unit>
+        <unit name="C">
+          <pins>
+            <pin num="3"/>
+            <pin num="8"/>
+          </pins>
+        </unit>
+      </units>
+    </comp>
+  </components>
+  <libparts>
+    <libpart lib="Device" part="R">
+      <fields>
+        <field name="Reference">R</field>
+        <field name="Value">R</field>
+        <field name="Footprint"/>
+        <field name="Datasheet"/>
+        <field name="Description"/>
+      </fields>
+      <pins>
+        <pin num="1" name="" type="passive"/>
+        <pin num="2" name="" type="passive"/>
+      </pins>
+    </libpart>
+    <libpart lib="Device" part="TRI8">
+      <fields>
+        <field name="Reference">U</field>
+        <field name="Value">TRI8</field>
+        <field name="Footprint"/>
+        <field name="Datasheet"/>
+        <field name="Description"/>
+      </fields>
+      <pins>
+        <pin num="1" name="" type="passive"/>
+        <pin num="2" name="" type="passive"/>
+        <pin num="3" name="" type="passive"/>
+        <pin num="8" name="V" type="power_in"/>
+      </pins>
+    </libpart>
+  </libparts>
+  <libraries>
+    <library logical="Device">
+      <uri>${KICAD10_SYMBOL_DIR}/Device.kicad_sym</uri>
+    </library>
+  </libraries>
+  <nets>
+    <net code="1" name="/VCC" class="Default">
+      <node ref="R1" pin="2" pintype="passive"/>
+      <node ref="U1" pin="8" pinfunction="V_8" pintype="power_in"/>
+    </net>
+    <net code="2" name="unconnected-(R1-Pad1)" class="Default">
+      <node ref="R1" pin="1" pintype="passive"/>
+    </net>
+    <net code="3" name="unconnected-(U1-Pad1)" class="Default">
+      <node ref="U1" pin="1" pintype="passive"/>
+    </net>
+    <net code="4" name="unconnected-(U1-Pad2)" class="Default">
+      <node ref="U1" pin="2" pintype="passive"/>
+    </net>
+    <net code="5" name="unconnected-(U1B-V-Pad8)" class="Default">
+      <node ref="U1" pin="8" pinfunction="V_8" pintype="power_in"/>
+    </net>
+  </nets>
+</export>

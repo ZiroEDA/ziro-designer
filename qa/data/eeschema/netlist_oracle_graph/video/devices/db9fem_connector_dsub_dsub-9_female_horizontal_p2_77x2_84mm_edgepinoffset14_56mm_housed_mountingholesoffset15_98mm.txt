@@ -1,0 +1,25 @@
+PACKAGE 'dsub-9_female_horizontal_p2_77x2_84mm_edgepinoffset14_56mm_housed_mountingholesoffset15_98mm'
+CLASS IC
+PINCOUNT 9
+PINORDER MAIN ,
+	1__1,
+	2__2,
+	3__3,
+	4__4,
+	5__5,
+	P6__6,
+	P7__7,
+	P8__8,
+	P9__9
+FUNCTION MAIN MAIN ,
+	1,
+	2,
+	3,
+	4,
+	5,
+	6,
+	7,
+	8,
+	9
+PACKAGEPROP VALUE DB9FEM
+END

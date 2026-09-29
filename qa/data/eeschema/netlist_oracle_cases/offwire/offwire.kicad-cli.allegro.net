@@ -1,0 +1,11 @@
+(NETLIST)
+(Source: /home/akshay/ziro-designer-1/qa/data/eeschema/netlist_oracle_cases/offwire/offwire.kicad_sch)
+(Date: 2026-09-29T07:21:18)
+$PACKAGES
+! '10k_resistor_smd_r_0805' ! '10k' ; R2
+$A_PROPERTIES
+'ROOM' 'offwire' ; R2
+$NETS
+'NET-(R2-PAD1)'; R2.1
+'UNCONNECTED-(R2-PAD2)'; R2.2
+$END

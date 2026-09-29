@@ -8,7 +8,7 @@
 
 import { type Reporter, RPT_SEVERITY_ERROR } from '@ziroeda/common/reporter.js';
 import { isList, head, str, atom, type SList } from '@ziroeda/sexpr/types.js';
-import type { LibSymbol, LibSymbolUnit, SchField } from './types.js';
+import type { LibGraphic, LibPin, LibSymbol, LibSymbolUnit, SchField, Vec2 } from './types.js';
 import { writeLibSymbolNode } from './sch_io/sexpr/write-symbol-lib.js';
 import { MANDATORY_FIELDS } from './tools/properties.js';
 import { symbolUnitCount, unitDisplayName } from './tools/symbol_unit.js';
@@ -39,6 +39,7 @@ import { MULTIVECTOR } from '@ziroeda/core/multivector.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+import { stdSort } from '@ziroeda/kimath/src/clipper2/clipper.core.js';
 import { DEFAULT_PIN_NAME_OFFSET } from './default_values.js';
 import { SCH_FIELD } from './sch_field.js';
 import { AUTOPLACE_ALGO, BODY_STYLE, SCH_ITEM } from './sch_item.js';
@@ -1437,13 +1438,13 @@ export class LIB_SYMBOL extends SYMBOL {
 
     const unitCount = Math.max(this.GetUnitCount(), 1);
 
-    const compareByPosition = (a: SCH_PIN, b: SCH_PIN): number => {
+    const compareByPosition = (a: SCH_PIN, b: SCH_PIN): boolean => {
       const positionA = a.GetPosition();
       const positionB = b.GetPosition();
 
-      if (positionA.x !== positionB.x) return positionA.x - positionB.x;
+      if (positionA.x !== positionB.x) return positionA.x < positionB.x;
 
-      return positionA.y - positionB.y;
+      return positionA.y < positionB.y;
     };
 
     for (let unitIdx = 1; unitIdx <= unitCount; ++unitIdx) {
@@ -1454,7 +1455,9 @@ export class LIB_SYMBOL extends SYMBOL {
 
       const pinList = this.GetGraphicalPins(unitIdx, 0);
 
-      pinList.sort(compareByPosition);
+      // std::sort, not a stable sort: pins stacked on one position come out in the order
+      // libstdc++'s introsort leaves them, and that order is the netlist's.
+      stdSort(pinList, compareByPosition);
 
       const seenNumbers = new Set<string>();
 
@@ -1882,39 +1885,54 @@ export class LIB_SYMBOL extends SYMBOL {
    * body style is not set and asConvert is true, than the base draw items are duplicated
    * and added to the symbol.
    */
+  /**
+   * Set the number of body styles for the symbol.
+   *
+   * Draw items belonging to body styles beyond \a aCount are always deleted.  Draw items for
+   * the new body styles are duplicated from the standard body style when the symbol gains
+   * body styles and the caller asks for it.
+   */
   SetBodyStyleCount(aCount: number, aDuplicateDrawItems: boolean, aDuplicatePins: boolean): void {
+    // wxCHECK_RET: an invalid count is ignored.
+    if (aCount < 1) return;
+
     const prevCount = this.GetBodyStyleCount();
 
-    if (prevCount === aCount) return;
+    // Populate the new body styles from the standard one
+    if (prevCount < aCount && (aDuplicateDrawItems || aDuplicatePins)) {
+      const tmp: SCH_ITEM[] = []; // Adding to m_drawings while iterating it invalidates the iterator
 
-    // Duplicate items to create the converted shape
-    if (prevCount < aCount) {
-      if (aDuplicateDrawItems || aDuplicatePins) {
-        const tmp: SCH_ITEM[] = []; // Temporarily store the duplicated pins here.
+      for (const item of this.m_drawings) {
+        if (item.Type() !== KICAD_T.SCH_PIN_T && !aDuplicateDrawItems) continue;
 
-        for (const item of this.m_drawings) {
-          if (item.Type() !== KICAD_T.SCH_PIN_T && !aDuplicateDrawItems) continue;
-
-          if (item.GetBodyStyle() === 1) {
-            for (let j = prevCount + 1; j <= aCount; j++) {
-              const newItem = item.Duplicate(IGNORE_PARENT_GROUP);
-              newItem.SetBodyStyle(j);
-              tmp.push(newItem);
-            }
+        if (item.GetBodyStyle() === 1) {
+          for (let j = prevCount + 1; j <= aCount; j++) {
+            const newItem = item.Duplicate(IGNORE_PARENT_GROUP);
+            newItem.SetBodyStyle(j);
+            tmp.push(newItem);
           }
         }
+      }
 
-        // Transfer the new pins to the LIB_SYMBOL.
-        for (const item of tmp) this.m_drawings.push_back(item);
-      }
-    } else {
-      // Delete converted shape items because the converted shape does not exist
-      for (const item of this.m_drawings) {
-        if (item.GetBodyStyle() > aCount) this.m_drawings.erase(item);
-      }
+      for (const item of tmp) this.m_drawings.push_back(item);
+
+      this.m_drawings.sort(drawItemLess);
     }
 
-    this.m_drawings.sort(drawItemLess);
+    // A caller that already cleared the De Morgan flag or the body style names reports a
+    // previous count of 1, so the deletion cannot be conditional on the count dropping
+    this.PruneBodyStyleDrawItems(aCount);
+  }
+
+  /** Delete the draw items belonging to a body style beyond \a aBodyStyleCount. */
+  PruneBodyStyleDrawItems(aBodyStyleCount: number): void {
+    const doomed: SCH_ITEM[] = [];
+
+    for (const item of this.m_drawings) {
+      if (item.GetBodyStyle() > aBodyStyleCount) doomed.push(item);
+    }
+
+    for (const item of doomed) this.m_drawings.erase(item);
   }
 
   /**
@@ -2377,4 +2395,325 @@ export function LibSymbolLess(aItem1: LIB_SYMBOL, aItem2: LIB_SYMBOL): boolean {
 /** `field->EDA_TEXT::GetShownText( false )`: the unresolved shown text. */
 function EDA_TEXT_GetShownText(aField: SCH_FIELD): string {
   return EDA_TEXT.prototype.GetShownText.call(aField as unknown as EDA_TEXT, false);
+}
+
+/**
+ * Library symbol comparison. Counterpart: `eeschema/lib_symbol.cpp`
+ * (`LIB_SYMBOL::Compare`) under the flags ERC uses,
+ * `COMPARE_FLAGS::EQUALITY | COMPARE_FLAGS::ERC`, which is what
+ * TestLibSymbolIssues runs to decide whether a schematic's cached symbol still
+ * matches the library copy (ERCE_LIB_SYMBOL_MISMATCH).
+ *
+ * Under those flags `SCH_ITEM::compare` stops after type, unit, body style, the
+ * private flag and the position, so the comparison is: the power flag, the unit
+ * count, the graphic items (count, then each one's geometry), the pins (matched
+ * by number + unit + body style, then position), the fields (matched by
+ * mandatory id or name, then text, position skipped, since Compare adds
+ * SKIP_TST_POS for fields under ERC), the footprint filters, the keywords and
+ * the pin-name offset. The show-pin-names / exclude-from-* settings are
+ * deliberately *not* compared under ERC (upstream guards them with
+ * `( aCompareFlags & ERC ) == 0`).
+ *
+ * Not compared here because this model does not carry them: pin maps,
+ * associated footprints, unit display names and body-style names.
+ *
+ * This operates on the plain-record `LibSymbol` (`types.ts`), not the live
+ * `LIB_SYMBOL` class above — kept in this file because it is the cited
+ * counterpart, not because the two share a representation.
+ */
+
+/** Why two symbols differ, the message Compare would have reported. */
+export type LibSymbolDifference =
+  | 'power flag'
+  | 'unit count'
+  | 'graphic item count'
+  | 'graphic item'
+  | 'extra pin'
+  | 'missing pin'
+  | 'pin'
+  | 'extra field'
+  | 'missing field'
+  | 'field'
+  | 'footprint filters'
+  | 'keywords'
+  | 'pin name offset';
+
+const samePoint = (a: Vec2, b: Vec2): boolean => a.x === b.x && a.y === b.y;
+
+const samePoints = (a: readonly Vec2[], b: readonly Vec2[]): boolean =>
+  a.length === b.length && a.every((p, i) => samePoint(p, b[i]!));
+
+/** EDA_SHAPE::compare, the geometry of one graphic item. */
+function sameGraphic(a: LibGraphic, b: LibGraphic): boolean {
+  if (a.kind !== b.kind) return false;
+  switch (a.kind) {
+    case 'rectangle':
+      return b.kind === 'rectangle' && samePoint(a.start, b.start) && samePoint(a.end, b.end);
+    case 'circle':
+      return b.kind === 'circle' && samePoint(a.center, b.center) && a.radius === b.radius;
+    case 'arc':
+      return (
+        b.kind === 'arc' &&
+        samePoint(a.start, b.start) &&
+        samePoint(a.mid, b.mid) &&
+        samePoint(a.end, b.end)
+      );
+    case 'polyline':
+    case 'bezier':
+      return (b.kind === 'polyline' || b.kind === 'bezier') && samePoints(a.points, b.points);
+    default:
+      // Text and any other body item: position and content.
+      return (
+        'at' in a &&
+        'at' in b &&
+        samePoint(a.at as Vec2, b.at as Vec2) &&
+        ('text' in a && 'text' in b ? a.text === b.text : true)
+      );
+  }
+}
+
+/** cmp_items: shapes are compared in a stable order, not as written. */
+function sortedGraphics(units: readonly LibSymbolUnit[]): LibGraphic[] {
+  const all = units.flatMap((u) => [...u.graphics]);
+  return all.sort((a, b) => (keyOfGraphic(a) < keyOfGraphic(b) ? -1 : 1));
+}
+
+function keyOfGraphic(g: LibGraphic): string {
+  switch (g.kind) {
+    case 'rectangle':
+      return `rect|${g.start.x},${g.start.y}|${g.end.x},${g.end.y}`;
+    case 'circle':
+      return `circle|${g.center.x},${g.center.y}|${g.radius}`;
+    case 'arc':
+      return `arc|${g.start.x},${g.start.y}|${g.mid.x},${g.mid.y}|${g.end.x},${g.end.y}`;
+    case 'polyline':
+    case 'bezier':
+      return `${g.kind}|${g.points.map((p) => `${p.x},${p.y}`).join(';')}`;
+    default:
+      return `${(g as { kind: string }).kind}|${JSON.stringify(g)}`;
+  }
+}
+
+/** GetPin( number, unit, bodyStyle ). */
+function findPin(units: readonly LibSymbolUnit[], number: string, unit: number, body: number) {
+  for (const u of units) {
+    if (u.unit !== unit || u.bodyStyle !== body) continue;
+    const pin = u.pins.find((p) => p.number === number);
+    if (pin) return pin;
+  }
+  return undefined;
+}
+
+interface UnitPin {
+  pin: LibPin;
+  unit: number;
+  bodyStyle: number;
+}
+
+const allPins = (units: readonly LibSymbolUnit[]): UnitPin[] =>
+  units.flatMap((u) => u.pins.map((pin) => ({ pin, unit: u.unit, bodyStyle: u.bodyStyle })));
+
+const property = (sym: LibSymbol, key: string): SchField | undefined =>
+  sym.properties.find((f) => f.key === key);
+
+/** LIB_SYMBOL::GetUnitCount. */
+const unitCountOfRecord = (sym: LibSymbol): number => Math.max(1, ...sym.units.map((u) => u.unit));
+
+/**
+ * Compare a schematic's cached symbol with the library's copy. Returns the
+ * first difference found, or null when they match, Compare's `retv != 0`.
+ */
+export function compareLibSymbolsForErc(
+  cached: LibSymbol,
+  library: LibSymbol,
+): LibSymbolDifference | null {
+  if (cached.isPower !== library.isPower) return 'power flag';
+  if (unitCountOfRecord(cached) !== unitCountOfRecord(library)) return 'unit count';
+
+  // Graphic items: count first, then each one in sorted order.
+  const aShapes = sortedGraphics(cached.units);
+  const bShapes = sortedGraphics(library.units);
+  if (aShapes.length !== bShapes.length) return 'graphic item count';
+  for (let i = 0; i < aShapes.length; i++) {
+    if (!sameGraphic(aShapes[i]!, bShapes[i]!)) return 'graphic item';
+  }
+
+  // Pins, matched by number within the same unit and body style. (Upstream's
+  // reverse loop looks the pin up in aRhs again, plainly a typo, since that
+  // can never fail; the intent, mirrored here, is to catch a pin the library
+  // has and the schematic copy lacks.)
+  for (const { pin, unit, bodyStyle } of allPins(cached.units)) {
+    const other = findPin(library.units, pin.number, unit, bodyStyle);
+    if (!other) return 'extra pin';
+    if (!samePoint(pin.at, other.at)) return 'pin';
+  }
+  for (const { pin, unit, bodyStyle } of allPins(library.units)) {
+    if (!findPin(cached.units, pin.number, unit, bodyStyle)) return 'missing pin';
+  }
+
+  // Fields, matched by name; the text is compared (EQUALITY) but not the
+  // position (Compare adds SKIP_TST_POS for fields under ERC).
+  for (const field of cached.properties) {
+    const other = property(library, field.key);
+    if (!other) return 'extra field';
+    if (field.value !== other.value) return 'field';
+  }
+  for (const field of library.properties) {
+    if (!property(cached, field.key)) return 'missing field';
+  }
+
+  const filters = (sym: LibSymbol): string[] =>
+    (property(sym, 'ki_fp_filters')?.value ?? '').split(/\s+/).filter(Boolean);
+  const aFilters = filters(cached);
+  const bFilters = filters(library);
+  if (aFilters.length !== bFilters.length) return 'footprint filters';
+  for (let i = 0; i < aFilters.length; i++) {
+    if (aFilters[i] !== bFilters[i]) return 'footprint filters';
+  }
+
+  if (
+    (property(cached, 'ki_keywords')?.value ?? '') !==
+    (property(library, 'ki_keywords')?.value ?? '')
+  )
+    return 'keywords';
+
+  if (cached.pinNameOffset !== library.pinNameOffset) return 'pin name offset';
+
+  return null;
+}
+
+/**
+ * The key a placement's definition is filed under in the sheet's `lib_symbols`.
+ *
+ * `SCH_SYMBOL::GetSchSymbolLibraryName`: the `(lib_name …)` when the placement
+ * carries one, otherwise the `lib_id`. Every lookup into `lib_symbols` has to go
+ * through this rather than reading `libId` directly.
+ *
+ * The failure it prevents is quiet. A sheet can file a symbol under a name that
+ * is not its library id (KiCad writes one when the cached definition has
+ * diverged from the library, so one id can have two definitions in a sheet), and
+ * a lookup by id then finds nothing. The placement is left with no body and no
+ * pins: it vanishes from the canvas, and it stops contributing to the netlist,
+ * with nothing reported anywhere. One symbol in KiCad's own multichannel mixer
+ * demo is stored exactly that way.
+ */
+export function schSymbolLibraryName(sym: { libId: string; libName?: string }): string {
+  return sym.libName || sym.libId;
+}
+
+/**
+ * What the Choose Symbol tree ranks a symbol on. Mirrors
+ * kicad/eeschema/lib_symbol.cpp — `LIB_SYMBOL::cacheSearchTerms` (:159-183) and
+ * `LIB_SYMBOL::cacheChooserFields` (:191-209).
+ *
+ * These two are separate on purpose and both feed the scorer: the search terms
+ * are the symbol's own, and `LIB_TREE_NODE::RebuildSearchTerms`
+ * (common/lib_tree_model.cpp:34-43) then appends the value of every chooser
+ * field that is currently a SHOWN COLUMN, at weight 4. A column you can see is
+ * a column you can search, and it is weighted like a keyword rather than like
+ * the incidental description.
+ *
+ * That last part is what our ranking was missing, and it is not a rounding
+ * error. Searching "ter" in Connector, KiCad ranks
+ *
+ *     DIN-5_180degree (11)  above  Samtec_ASP-134486-01 (10)
+ *
+ * even though Samtec's keyword "Terminal" matches at position 0 and doubles to
+ * 8 where DIN-5's "stereo" matches mid-word for 4. The five points that turn it
+ * over are DIN-5's description — one point as the `cacheSearchTerms` term, four
+ * more as the shown "Description" column — and Samtec's description has no
+ * "ter" in it at all. With only the seven `cacheSearchTerms` terms the two land
+ * 10 against 7 the other way up. Measured against KiCad's own scorer in
+ * qa/probes/chooser_score.
+ *
+ * This operates on the plain-record `LibSymbol` (`types.ts`), same as
+ * `compareLibSymbolsForErc` above — kept here because it is `lib_symbol.cpp`'s
+ * cited counterpart, not because it shares the live `LIB_SYMBOL` class's
+ * representation. Split out of this file originally "for testability"; folded
+ * back in now that the fold no longer crosses a busy multi-agent file (only 3
+ * importers).
+ */
+
+/**
+ * The property names `SCH_IO_KICAD_SEXPR_PARSER::parseProperty` consumes into a
+ * LIB_SYMBOL member instead of building a SCH_FIELD for
+ * (eeschema/sch_io/kicad_sexpr/sch_io_kicad_sexpr_parser.cpp:1170-1200).
+ *
+ * We keep them as plain properties on `LibSymbol` — that is how `ki_keywords`
+ * is read back below — so the chooser has to filter them out itself. Upstream
+ * never sees them as fields, so they are neither chooser columns nor weight-4
+ * search terms; `ki_description` is the pre-v8 spelling of the Description
+ * field and would otherwise be counted twice.
+ */
+export const LIB_SYMBOL_MEMBER_PROPERTIES: readonly string[] = [
+  'ki_keywords',
+  'ki_description',
+  'ki_fp_filters',
+  'ki_locked',
+];
+
+/** The name of the keyword column upstream offers, `_( "Keywords" )`. */
+export const KEYWORDS_COLUMN = 'Keywords';
+
+const propValueOf = (sym: LibSymbol, key: string): string =>
+  sym.properties.find((p) => p.key === key)?.value ?? '';
+
+/**
+ * `LIB_SYMBOL::cacheChooserFields`: the values the optional extra columns show,
+ * keyed by column (field) name.
+ *
+ * EVERY field is a chooser field. `SCH_FIELD::m_showInChooser` is initialised
+ * to true (eeschema/sch_field.cpp:130) and nothing in KiCad 10.0.5 ever clears
+ * it — `SetShowInChooser` has no callers and `show_in_chooser` is not a token
+ * this file format has. So this must NOT gate on our parsed `showInChooser`
+ * flag, which we keep only to round-trip a token a later KiCad may write:
+ * gating on it left this map holding nothing but the "Keywords" fallback, the
+ * shown Description column contributed no term, and the ranking drifted.
+ *
+ * "If the user has a field named Keywords, then prefer that. Otherwise add the
+ * KiCad keywords."
+ */
+export function symbolChooserFields(sym: LibSymbol): Map<string, string> {
+  const fields = new Map<string, string>();
+
+  for (const f of sym.properties) {
+    if (!LIB_SYMBOL_MEMBER_PROPERTIES.includes(f.key)) fields.set(f.key, f.value);
+  }
+
+  if (!fields.has(KEYWORDS_COLUMN)) fields.set(KEYWORDS_COLUMN, propValueOf(sym, 'ki_keywords'));
+
+  return fields;
+}
+
+/**
+ * `LIB_SYMBOL::cacheSearchTerms`: the nickname at 4, the name at 8, the LIB_ID
+ * at 16, then EACH keyword token at 4, the whole keyword string at 1, the
+ * description at 1 and — only when it is set — the footprint at 1.
+ *
+ * The name and the LIB_ID are the only `IsName` terms: an incidental keyword
+ * equalling the query must not tie with an item whose actual name is the query
+ * (SEARCH_TERM::IsName, include/eda_pattern_match.h).
+ *
+ * The keyword tokenizer is `wxStringTokenizer( …, " \t\r\n", wxTOKEN_STRTOK )`,
+ * which drops empty tokens — hence the filter.
+ */
+export function symbolSearchTerms(libNickname: string, name: string, sym: LibSymbol): SearchTerm[] {
+  const keywords = propValueOf(sym, 'ki_keywords');
+  const footprint = propValueOf(sym, 'Footprint');
+
+  const terms: SearchTerm[] = [
+    searchTerm(libNickname, 4),
+    searchTerm(name, 8, true),
+    searchTerm(`${libNickname}:${name}`, 16, true),
+    ...keywords
+      .split(/[ \t\r\n]+/)
+      .filter(Boolean)
+      .map((kw) => searchTerm(kw, 4)),
+    searchTerm(keywords, 1),
+    searchTerm(propValueOf(sym, 'Description'), 1),
+  ];
+
+  if (footprint) terms.push(searchTerm(footprint, 1));
+
+  return terms;
 }

@@ -36,7 +36,7 @@ import { readSymbolLib } from '@ziroeda/eeschema';
 import type { LibPin, LibSymbol } from '@ziroeda/eeschema';
 import { ArcEditMode } from '@ziroeda/eeschema/tools/arc_edit.js';
 import { graphicHandles, pinRoot, pinRootOnSeg } from '@ziroeda/eeschema/tools/point_editor.js';
-import { dragSymbolHandle, symbolEditHandles } from '@ziroeda/designer/src/editors/symbol/edits.js';
+import { dragSymbolHandle, symbolEditHandles } from '@ziroeda/eeschema/symbol_editor/edits.js';
 import { mmToIU } from '@ziroeda/common';
 
 /**
@@ -232,8 +232,8 @@ describe('one tool, both frames — the coupling upstream has', () => {
     // `SCH_POINT_EDITOR` is ONE class registered by both frames. A symbol-side
     // reimplementation of the handle geometry is the thing this asserts against
     // — it would be two answers to "where are a rectangle's handles".
-    const edits = read('designer/src/editors/symbol/edits.ts');
-    expect(edits).toContain("from '@ziroeda/eeschema/tools/point_editor.js'");
+    const edits = read('eeschema/symbol_editor/edits.ts');
+    expect(edits).toContain("from '../tools/point_editor.js'");
     expect(edits).toContain('graphicHandles(');
     expect(edits).toContain('dragGraphic(');
     // Nothing symbol-side may compute a handle position of its own.

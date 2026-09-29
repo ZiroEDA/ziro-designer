@@ -1,0 +1,7 @@
+( { EESchema Netlist Version 1.1 created  2026-09-29T06:55:51 }
+ ( /00000000-0000-0000-0000-000062a0fb2f/84d2640b-f140-48be-abf4-329ee34189c1 $noname  R1 R
+  (    1 GPIO1_14__46 )
+  (    2 GPIO1_14__46 )
+ )
+)
+*

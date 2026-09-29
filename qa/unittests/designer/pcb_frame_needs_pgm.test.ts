@@ -38,6 +38,7 @@ const makeFrame = () =>
     setHighlightNets: () => {},
     syncSelection: () => {},
     editZoneParams: () => {},
+    selectCopperLayerPair: () => {},
     updatePcbFromSchematic: () => {},
   });
 

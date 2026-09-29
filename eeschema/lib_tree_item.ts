@@ -29,7 +29,7 @@
  */
 import { readSymbolLib, type LibSymbol } from './index.js';
 import { parse, type PruneOptions } from '@ziroeda/sexpr';
-import { symbolChooserFields } from './symbol_search_terms.js';
+import { symbolChooserFields } from './lib_symbol.js';
 
 /** One symbol, reduced to what `LIB_TREE_ITEM` exposes. */
 export interface LibTreeItem {
@@ -81,8 +81,8 @@ export function libTreeItem(sym: LibSymbol): LibTreeItem {
   // KiCad 10.0.5 at all - so `cacheChooserFields` takes every field, and the
   // shown columns each contribute a weight-4 term through
   // `RebuildSearchTerms`. Gating here emptied that list and cost the chooser
-  // its ranking; the reasoning lives in ../symbol_search_terms.ts, which is
-  // where the rule is written once.
+  // its ranking; the reasoning lives beside `symbolChooserFields` in
+  // ./lib_symbol.ts, which is where the rule is written once.
   const chooserFields: [string, string][] = [...symbolChooserFields(sym)];
   return {
     name: sym.libId.includes(':') ? sym.libId.slice(sym.libId.indexOf(':') + 1) : sym.libId,

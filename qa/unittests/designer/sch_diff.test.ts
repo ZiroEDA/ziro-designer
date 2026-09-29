@@ -19,7 +19,7 @@ import {
   applySchematicPatch,
   diffSchematic,
   schematicPatchIsEmpty,
-} from '@ziroeda/eeschema/sch_diff.js';
+} from '@ziroeda/eeschema/browser/sch_diff.js';
 
 const FIXTURE = join(__dirname, '../../data/complex_hierarchy.kicad_sch');
 

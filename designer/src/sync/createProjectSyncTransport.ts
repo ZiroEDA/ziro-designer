@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 import { supabase } from '../auth/supabaseClient.js';
-import type { ProjectSyncTransport } from '@ziroeda/eeschema/project_sync_transport.js';
+import type { ProjectSyncTransport } from '@ziroeda/eeschema/browser/project_sync_transport.js';
 import { BroadcastChannelTransport } from './BroadcastChannelTransport.js';
 import { SupabaseRealtimeTransport } from './SupabaseRealtimeTransport.js';
 

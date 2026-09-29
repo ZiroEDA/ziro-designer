@@ -71,6 +71,8 @@ import type {
 import type { PnsItem } from './pns_item.js';
 import type { RoutingSettings } from './pns_routing_settings.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+import { PnsLogger, PnsLoggerEventType } from './pns_logger.js';
+import { PnsSizesSettings } from './pns_sizes_settings.js';
 
 /** `router_preview_item.h:50` — the flag `movePlacing` tags the head with. */
 export const PNS_HEAD_TRACE = 1;
@@ -428,6 +430,9 @@ export interface PnsPlacementAlgo {
 
   /** `ALGO_BASE::SetDebugDecorator`. */
   setDebugDecorator?(aDecorator: unknown): void;
+
+  /** `ALGO_BASE::SetLogger( LOGGER* )`. */
+  setLogger?(aLogger: PnsLogger | null): void;
 }
 
 /**
@@ -473,6 +478,13 @@ export interface PnsRouterAlgoFactory {
 /** Optional constructor dependencies. */
 export interface PnsRouterDeps {
   factory?: PnsRouterAlgoFactory;
+  /**
+   * `ADVANCED_CFG::GetCfg().m_EnableRouterDump`: upstream only ever
+   * constructs `m_logger` under this flag, so it is null (and every one of
+   * its call sites a no-op) in every shipping build. Off by default here for
+   * the same reason.
+   */
+  enableRouterDump?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -510,6 +522,7 @@ export class PnsRouter {
   private mSizes: PnsRouterSizes;
   private mMode: PnsRouterMode;
   private mFailureReason = '';
+  private mLogger: PnsLogger | null = null;
 
   private readonly mFactory: PnsRouterAlgoFactory;
 
@@ -519,10 +532,9 @@ export class PnsRouter {
    * `m_visibleViewArea.SetMaximum()` is `BOX2I`'s "everything", which upstream
    * spells as the full `int` range with the origin at the minimum.
    *
-   * `m_logger` is not ported: it is only ever constructed under
-   * `ADVANCED_CFG::GetCfg().m_EnableRouterDump`, so it is null in every
-   * shipping build, and every one of its uses in this file is guarded by
-   * `if( m_logger )`. Carrying it would add a dozen dead branches.
+   * `m_logger` is only constructed when `aDeps.enableRouterDump` is set,
+   * matching `ADVANCED_CFG::GetCfg().m_EnableRouterDump` — null (and every
+   * `if( m_logger )` site below a no-op) otherwise, the default.
    *
    * `m_lastNode`, `m_shove` and `m_toolStatusbarName` are declared in the
    * header and never read anywhere in `pns_router.cpp`. Not ported either.
@@ -544,7 +556,14 @@ export class PnsRouter {
       height: 0xffff_ffff,
     };
 
+    if (aDeps.enableRouterDump) this.mLogger = new PnsLogger();
+
     this.mFactory = aDeps.factory ?? {};
+  }
+
+  /** `ROUTER::Logger()` — pns_router.cpp:1031-1034. */
+  logger(): PnsLogger | null {
+    return this.mLogger;
   }
 
   /** `ROUTER::GetInstance()` — pns_router.cpp:81-84. */
@@ -806,6 +825,12 @@ export class PnsRouter {
    * The state is set **before** `Start()` is attempted, so a dragger that fails
    * to start leaves the router transiently in a drag state before the
    * `IDLE` reset. Observable only from inside `Start()`.
+   *
+   * `SetLogger`/`Clear`/`Log`/`LogM` (cpp:193-204) run after the dragger's
+   * three other setters and before `Start()`, gated on `m_logger` (see the
+   * constructor). A single start item logs `EVT_START_DRAG`; more than one
+   * logs `EVT_START_MULTIDRAG` with the whole set. Upstream's comment on the
+   * `LogM` call — `// fixme default args` — is its own, not this port's.
    */
   startDragging(
     aP: Vec2,
@@ -845,7 +870,18 @@ export class PnsRouter {
 
     dragger.setMode(aDragMode as PnsDragMode);
     dragger.setWorld(this.mWorld);
+    dragger.setLogger(this.mLogger);
     dragger.setDebugDecorator(this.mIface?.getDebugDecorator?.());
+
+    if (this.mLogger) this.mLogger.clear();
+
+    if (this.mLogger) {
+      if (aStartItems.size() === 1) {
+        this.mLogger.log(PnsLoggerEventType.EVT_START_DRAG, aP, aStartItems.at(0) ?? null);
+      } else if (aStartItems.size() > 1) {
+        this.mLogger.logM(PnsLoggerEventType.EVT_START_MULTIDRAG, aP, aStartItems.items());
+      }
+    }
 
     if (dragger.start(aP, aStartItems)) {
       return true;
@@ -1050,8 +1086,12 @@ export class PnsRouter {
    * returns without touching `m_placer`, so a stale placer from a previous
    * session survives an unknown mode — reproduced.
    *
-   * The four setters run before `Start()`; the order matters because
-   * `UpdateSizes` seeds the widths `Start()` then uses.
+   * The five setters run before `Start()`; the order matters because
+   * `UpdateSizes` seeds the widths `Start()` then uses. `SetLogger` is last
+   * of the five (cpp:450), and the resulting `Clear`/`Log( EVT_START_ROUTE )`
+   * only run on a *successful* `Start()`, using `m_placer->CurrentLayer()`
+   * — the placer's own answer, not the `aLayer` argument `startRouting` was
+   * called with.
    */
   startRouting(aP: Vec2, aStartItem: PnsItem | null, aLayer: number): boolean {
     this.getRuleResolver()?.clearCaches?.();
@@ -1095,9 +1135,21 @@ export class PnsRouter {
     placer.updateSizes?.(this.mSizes);
     placer.setLayer?.(aLayer);
     placer.setDebugDecorator?.(this.mIface?.getDebugDecorator?.());
+    placer.setLogger?.(this.mLogger);
 
     if (placer.start(aP, aStartItem)) {
       this.mState = PnsRouterState.ROUTE_TRACK;
+
+      if (this.mLogger) {
+        this.mLogger.clear();
+        this.mLogger.log(
+          PnsLoggerEventType.EVT_START_ROUTE,
+          aP,
+          aStartItem,
+          PnsSizesSettings.from(this.mSizes),
+          placer.currentLayer(),
+        );
+      }
 
       return true;
     }
@@ -1122,8 +1174,14 @@ export class PnsRouter {
    * It reads exactly like a `break` that should have been a `return`, which is
    * why it is called out here and pinned by a test: writing this "sensibly"
    * silently changes clearance-cache lifetime for every move.
+   *
+   * `Log( EVT_MOVE )` (cpp:496-497) runs first, unconditionally — before the
+   * state switch, so every call logs regardless of which branch (or none)
+   * runs.
    */
   move(aP: Vec2, aEndItem: PnsItem | null): boolean {
+    if (this.mLogger) this.mLogger.log(PnsLoggerEventType.EVT_MOVE, aP, aEndItem);
+
     switch (this.mState) {
       case PnsRouterState.ROUTE_TRACK:
         return this.movePlacing(aP, aEndItem);
@@ -1474,6 +1532,9 @@ export class PnsRouter {
    * `aForceCommit` only the dragger. And note what is *absent* — no state
    * change. Fixing a corner mid-track keeps the session in `ROUTE_TRACK`;
    * ending it is `CommitRouting()`'s job.
+   *
+   * `Log( EVT_FIX )` (cpp:896-897) runs first, unconditionally, exactly as
+   * `Move`'s `EVT_MOVE` log does.
    */
   fixRoute(
     aP: Vec2,
@@ -1481,6 +1542,8 @@ export class PnsRouter {
     aForceFinish: boolean,
     aForceCommit: boolean,
   ): boolean {
+    if (this.mLogger) this.mLogger.log(PnsLoggerEventType.EVT_FIX, aP, aEndItem);
+
     let rv = false;
 
     switch (this.mState) {
@@ -1508,9 +1571,14 @@ export class PnsRouter {
    * undefined behaviour, not a behaviour, so there is nothing to be faithful
    * to; this returns null instead of throwing. Pinned by a test so the
    * divergence is deliberate and visible.
+   *
+   * `Log( EVT_UNFIX )` (cpp:928-929) runs after the early return, so an idle
+   * router never logs.
    */
   undoLastSegment(): Vec2 | null {
     if (!this.routingInProgress()) return null;
+
+    if (this.mLogger) this.mLogger.log(PnsLoggerEventType.EVT_UNFIX);
 
     return this.mPlacer?.unfixRoute?.() ?? null;
   }
@@ -1578,12 +1646,23 @@ export class PnsRouter {
    * `ROUTER::ToggleViaPlacement()` — cpp:1016-1026.
    *
    * Reads the placer's current answer and pushes the negation back — so the
-   * placer, not the router, owns the flag.
+   * placer, not the router, owns the flag. `Log( EVT_TOGGLE_VIA )` (cpp:1024)
+   * runs last, inside the same `ROUTE_TRACK` guard, at the origin with no
+   * item — only `m_sizes` is carried.
    */
   toggleViaPlacement(): void {
     if (this.mState === PnsRouterState.ROUTE_TRACK) {
       const toggle = !this.mPlacer?.isPlacingVia?.();
       this.mPlacer?.toggleVia?.(toggle);
+
+      if (this.mLogger) {
+        this.mLogger.log(
+          PnsLoggerEventType.EVT_TOGGLE_VIA,
+          { x: 0, y: 0 },
+          null,
+          PnsSizesSettings.from(this.mSizes),
+        );
+      }
     }
   }
 
@@ -1856,7 +1935,7 @@ const vecEqual = (a: Vec2, b: Vec2): boolean => a.x === b.x && a.y === b.y;
  * :806, :810.
  *
  * `PnsRuleResolver.clearance` declares its second parameter non-nullable even
- * though `PnsBoardRuleResolver` already accepts null and every upstream call
+ * though `PNS_PCBNEW_RULE_RESOLVER` already accepts null and every upstream call
  * site in this file passes `nullptr`. Widening that shared interface is not
  * this port's to do, so the null is cast in exactly one place.
  */

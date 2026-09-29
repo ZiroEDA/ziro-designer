@@ -195,7 +195,7 @@ describe('the menu rows print the accelerator, character for character', () => {
     // schematic's below: the frame used to carry a second `e.key === 'Delete'`
     // binding beside the row, and `menu_hotkey_coverage.test.ts` rejects that
     // restatement -- upstream a menu accelerator IS the binding.
-    'editors/symbol/menubar.ts',
+    '../../eeschema/symbol_editor/menubar_symbol_editor.ts',
     '../../pcbnew/pcb_edit_frame_ui.tsx',
     '../../pcbnew/footprint_edit_frame_ui.tsx',
     '../../cvpcb/cvpcb_mainframe_ui.tsx',
@@ -224,7 +224,7 @@ describe('the menu rows print the accelerator, character for character', () => {
 
   it('Leave Sheet says Alt+BackSpace', () => {
     // SCH_ACTIONS::leaveSheet is MD_ALT + WXK_BACK (sch_actions.cpp:1421).
-    const src = SRC('editors/schematic/SchematicEditor.tsx');
+    const src = SRC('../../eeschema/sch_edit_frame_ui.tsx');
     expect(src).toContain("shortcut: 'Alt+BackSpace'");
     expect(src).not.toContain("shortcut: 'Alt+Backspace'");
   });

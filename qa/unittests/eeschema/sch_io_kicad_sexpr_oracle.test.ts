@@ -140,7 +140,10 @@ const files = existsSync(ORACLE) ? findOracleFiles(ORACLE) : [];
 
 describe('SCH_IO_KICAD_SEXPR against kicad-cli sch upgrade', () => {
   it('has the oracle fixtures', () => {
-    expect(files.length).toBe(34);
+    // 34, plus the two 10.0.6 fixtures 623de73d added — eeschema/sexpr_1006/
+    // v1006.kicad_sch and its sub-sheet sub.kicad_sch — whose .pass1/.pass2 are
+    // kicad-cli 10.0.6 `sch upgrade` output, re-generated and byte-identical.
+    expect(files.length).toBe(36);
   });
 
   for (const oracleFile of files) {

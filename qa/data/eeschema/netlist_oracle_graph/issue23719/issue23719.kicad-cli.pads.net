@@ -1,0 +1,9 @@
+*PADS-PCB*
+*PART*
+J1               Connector:FanPinHeader_1x04_P2.54mm_Vertical
+TP1              Connector_Pin:Pin_D1.0mm_L10.0mm
+
+*NET*
+*SIGNAL* P4
+J1.1 J1.2 TP1.1 
+*END*

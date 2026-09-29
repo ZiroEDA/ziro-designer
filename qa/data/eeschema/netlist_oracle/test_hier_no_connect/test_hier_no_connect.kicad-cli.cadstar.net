@@ -1,0 +1,29 @@
+.HEA
+.TIM 2026-09-29T06:56:18
+.APP "Eeschema 10.0.6-10.0.6~ubuntu24.04.1"
+.TYP FULL
+
+.ADD_COM     U5     ""     "$noname"
+.ADD_COM     U6     ""     "$noname"
+.ADD_COM     U2     ""     "$noname"
+.ADD_COM     U3     ""     "$noname"
+.ADD_COM     U1     ""     "$noname"
+.ADD_COM     U4     ""     "$noname"
+
+
+.ADD_TER   U3   1     "/sub1/PIN"
+.TER       U3   2
+
+.ADD_TER   U4   1     "/sub3/PIN"
+.TER       U4   2
+
+.ADD_TER   U2   1     "unconnected-(U2-PIN-Pad1)"
+.TER       U2   2
+
+.ADD_TER   U5   1     "unconnected-(U5-PIN1-Pad1)"
+.TER       U5   2
+
+.ADD_TER   U6   1     "unconnected-(U6-PIN-Pad1)"
+.TER       U6   2
+
+.END

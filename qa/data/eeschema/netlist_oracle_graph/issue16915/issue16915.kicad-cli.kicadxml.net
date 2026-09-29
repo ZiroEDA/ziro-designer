@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<export version="E">
+  <design>
+    <source>/home/akshay/ziro-designer-1/qa/data/eeschema/netlist_oracle_graph/issue16915/issue16915.kicad_sch</source>
+    <date>2026-09-29T06:57:12</date>
+    <tool>Eeschema 10.0.6-10.0.6~ubuntu24.04.1</tool>
+    <sheet number="1" name="/" tstamps="/">
+      <title_block>
+        <title/>
+        <company/>
+        <rev/>
+        <date/>
+        <source>issue16915.kicad_sch</source>
+        <comment number="1" value=""/>
+        <comment number="2" value=""/>
+        <comment number="3" value=""/>
+        <comment number="4" value=""/>
+        <comment number="5" value=""/>
+        <comment number="6" value=""/>
+        <comment number="7" value=""/>
+        <comment number="8" value=""/>
+        <comment number="9" value=""/>
+      </title_block>
+    </sheet>
+  </design>
+  <components>
+    <comp ref="J?">
+      <value>Conn_01x08</value>
+      <description>Generic connector, single row, 01x08, script generated (kicad-library-utils/schlib/autogen/connector/)</description>
+      <fields>
+        <field name="Footprint"/>
+        <field name="Datasheet"/>
+        <field name="Description">Generic connector, single row, 01x08, script generated (kicad-library-utils/schlib/autogen/connector/)</field>
+      </fields>
+      <libsource lib="Connector_Generic" part="Conn_01x08" description="Generic connector, single row, 01x08, script generated (kicad-library-utils/schlib/autogen/connector/)"/>
+      <property name="Sheetname" value="issue16915"/>
+      <property name="Sheetfile" value="issue16915.kicad_sch"/>
+      <property name="ki_keywords" value="connector"/>
+      <property name="ki_fp_filters" value="Connector*:*_1x??_*"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamps>b039abd7-8614-406e-bbc6-f7699078b57f 94003ec6-e6de-408d-8f2b-a545511e7e71</tstamps>
+      <units>
+        <unit name="A">
+          <pins>
+            <pin num="1"/>
+            <pin num="2"/>
+            <pin num="3"/>
+            <pin num="4"/>
+            <pin num="5"/>
+            <pin num="6"/>
+            <pin num="7"/>
+            <pin num="8"/>
+          </pins>
+        </unit>
+      </units>
+    </comp>
+    <comp ref="U?">
+      <value>74LS573</value>
+      <datasheet>74xx/74hc573.pdf</datasheet>
+      <description>8-bit Latch 3-state outputs</description>
+      <fields>
+        <field name="Footprint"/>
+        <field name="Datasheet">74xx/74hc573.pdf</field>
+        <field name="Description">8-bit Latch 3-state outputs</field>
+      </fields>
+      <libsource lib="74xx" part="74LS573" description="8-bit Latch 3-state outputs"/>
+      <property name="Sheetname" value="issue16915"/>
+      <property name="Sheetfile" value="issue16915.kicad_sch"/>
+      <property name="ki_keywords" value="TTL DFF DFF8 LATCH 3State"/>
+      <property name="ki_fp_filters" value="DIP?20*"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamps>a26e2059-d797-44bd-8e43-602a1c2fada4</tstamps>
+      <units>
+        <unit name="A">
+          <pins>
+            <pin num="2"/>
+            <pin num="3"/>
+            <pin num="4"/>
+            <pin num="5"/>
+            <pin num="6"/>
+            <pin num="7"/>
+            <pin num="8"/>
+            <pin num="9"/>
+            <pin num="11"/>
+            <pin num="1"/>
+            <pin num="20"/>
+            <pin num="10"/>
+            <pin num="19"/>
+            <pin num="18"/>
+            <pin num="17"/>
+            <pin num="16"/>
+            <pin num="15"/>
+            <pin num="14"/>
+            <pin num="13"/>
+            <pin num="12"/>
+          </pins>
+        </unit>
+      </units>
+    </comp>
+  </components>
+  <libparts>
+    <libpart lib="74xx" part="74LS573">
+      <description>8-bit Latch 3-state outputs</description>
+      <docs>74xx/74hc573.pdf</docs>
+      <footprints>
+        <fp>DIP?20*</fp>
+      </footprints>
+      <fields>
+        <field name="Reference">U</field>
+        <field name="Value">74LS573</field>
+        <field name="Footprint"/>
+        <field name="Datasheet">74xx/74hc573.pdf</field>
+        <field name="Description">8-bit Latch 3-state outputs</field>
+      </fields>
+      <pins>
+        <pin num="1" name="OE" type="input"/>
+        <pin num="2" name="D0" type="input"/>
+        <pin num="3" name="D1" type="input"/>
+        <pin num="4" name="D2" type="input"/>
+        <pin num="5" name="D3" type="input"/>
+        <pin num="6" name="D4" type="input"/>
+        <pin num="7" name="D5" type="input"/>
+        <pin num="8" name="D6" type="input"/>
+        <pin num="9" name="D7" type="input"/>
+        <pin num="10" name="GND" type="power_in"/>
+        <pin num="11" name="Load" type="input"/>
+        <pin num="12" name="Q7" type="tri_state"/>
+        <pin num="13" name="Q6" type="tri_state"/>
+        <pin num="14" name="Q5" type="tri_state"/>
+        <pin num="15" name="Q4" type="tri_state"/>
+        <pin num="16" name="Q3" type="tri_state"/>
+        <pin num="17" name="Q2" type="tri_state"/>
+        <pin num="18" name="Q1" type="tri_state"/>
+        <pin num="19" name="Q0" type="tri_state"/>
+        <pin num="20" name="VCC" type="power_in"/>
+      </pins>
+    </libpart>
+    <libpart lib="Connector_Generic" part="Conn_01x08">
+      <description>Generic connector, single row, 01x08, script generated (kicad-library-utils/schlib/autogen/connector/)</description>
+      <footprints>
+        <fp>Connector*:*_1x??_*</fp>
+      </footprints>
+      <fields>
+        <field name="Reference">J</field>
+        <field name="Value">Conn_01x08</field>
+        <field name="Footprint"/>
+        <field name="Datasheet"/>
+        <field name="Description">Generic connector, single row, 01x08, script generated (kicad-library-utils/schlib/autogen/connector/)</field>
+      </fields>
+      <pins>
+        <pin num="1" name="Pin_1" type="passive"/>
+        <pin num="2" name="Pin_2" type="passive"/>
+        <pin num="3" name="Pin_3" type="passive"/>
+        <pin num="4" name="Pin_4" type="passive"/>
+        <pin num="5" name="Pin_5" type="passive"/>
+        <pin num="6" name="Pin_6" type="passive"/>
+        <pin num="7" name="Pin_7" type="passive"/>
+        <pin num="8" name="Pin_8" type="passive"/>
+      </pins>
+    </libpart>
+  </libparts>
+  <libraries>
+    <library logical="74xx">
+      <uri>${KICAD10_SYMBOL_DIR}/74xx.kicad_sym</uri>
+    </library>
+    <library logical="Connector_Generic">
+      <uri>${KICAD10_SYMBOL_DIR}/Connector_Generic.kicad_sym</uri>
+    </library>
+  </libraries>
+  <nets>
+    <net code="1" name="/IN0" class="Input">
+      <node ref="J?" pin="8" pinfunction="Pin_8_8" pintype="passive"/>
+      <node ref="U?" pin="2" pinfunction="D0_2" pintype="input"/>
+    </net>
+    <net code="2" name="/IN1" class="Input">
+      <node ref="J?" pin="7" pinfunction="Pin_7_7" pintype="passive"/>
+      <node ref="U?" pin="3" pinfunction="D1_3" pintype="input"/>
+    </net>
+    <net code="3" name="/IN2" class="Input">
+      <node ref="J?" pin="6" pinfunction="Pin_6_6" pintype="passive"/>
+      <node ref="U?" pin="4" pinfunction="D2_4" pintype="input"/>
+    </net>
+    <net code="4" name="/IN3" class="Input">
+      <node ref="J?" pin="5" pinfunction="Pin_5_5" pintype="passive"/>
+      <node ref="U?" pin="5" pinfunction="D3_5" pintype="input"/>
+    </net>
+    <net code="5" name="/IN4" class="Input">
+      <node ref="J?" pin="4" pinfunction="Pin_4_4" pintype="passive"/>
+      <node ref="U?" pin="6" pinfunction="D4_6" pintype="input"/>
+    </net>
+    <net code="6" name="/IN5" class="Input">
+      <node ref="J?" pin="3" pinfunction="Pin_3_3" pintype="passive"/>
+      <node ref="U?" pin="7" pinfunction="D5_7" pintype="input"/>
+    </net>
+    <net code="7" name="/IN6" class="Input">
+      <node ref="J?" pin="2" pinfunction="Pin_2_2" pintype="passive"/>
+      <node ref="U?" pin="8" pinfunction="D6_8" pintype="input"/>
+    </net>
+    <net code="8" name="/IN7" class="Input">
+      <node ref="J?" pin="1" pinfunction="Pin_1_1" pintype="passive"/>
+      <node ref="U?" pin="9" pinfunction="D7_9" pintype="input"/>
+    </net>
+    <net code="10" name="/OUT0" class="Output">
+      <node ref="J?" pin="1" pinfunction="Pin_1_1" pintype="passive"/>
+      <node ref="U?" pin="19" pinfunction="Q0_19" pintype="tri_state"/>
+    </net>
+    <net code="11" name="/OUT1" class="Output">
+      <node ref="J?" pin="2" pinfunction="Pin_2_2" pintype="passive"/>
+      <node ref="U?" pin="18" pinfunction="Q1_18" pintype="tri_state"/>
+    </net>
+    <net code="12" name="/OUT2" class="Output">
+      <node ref="J?" pin="3" pinfunction="Pin_3_3" pintype="passive"/>
+      <node ref="U?" pin="17" pinfunction="Q2_17" pintype="tri_state"/>
+    </net>
+    <net code="13" name="/OUT3" class="Output">
+      <node ref="J?" pin="4" pinfunction="Pin_4_4" pintype="passive"/>
+      <node ref="U?" pin="16" pinfunction="Q3_16" pintype="tri_state"/>
+    </net>
+    <net code="14" name="/OUT4" class="Output">
+      <node ref="J?" pin="5" pinfunction="Pin_5_5" pintype="passive"/>
+      <node ref="U?" pin="15" pinfunction="Q4_15" pintype="tri_state"/>
+    </net>
+    <net code="15" name="/OUT5" class="Output">
+      <node ref="J?" pin="6" pinfunction="Pin_6_6" pintype="passive"/>
+      <node ref="U?" pin="14" pinfunction="Q5_14" pintype="tri_state"/>
+    </net>
+    <net code="16" name="/OUT6" class="Output">
+      <node ref="J?" pin="7" pinfunction="Pin_7_7" pintype="passive"/>
+      <node ref="U?" pin="13" pinfunction="Q6_13" pintype="tri_state"/>
+    </net>
+    <net code="17" name="/OUT7" class="Output">
+      <node ref="J?" pin="8" pinfunction="Pin_8_8" pintype="passive"/>
+      <node ref="U?" pin="12" pinfunction="Q7_12" pintype="tri_state"/>
+    </net>
+  </nets>
+</export>

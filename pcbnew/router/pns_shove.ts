@@ -124,6 +124,7 @@ export enum PnsShovePolicy {
 // Re-exported here so shove's callers can reach it from either module without
 // a second enum carrying the same three values.
 import { PnsOptimizationEffort } from './pns_routing_settings.js';
+import { TimeLimit } from './time_limit.js';
 
 export { PnsOptimizationEffort };
 
@@ -2435,9 +2436,11 @@ export class PnsShove {
     this.mAffectedArea = null;
 
     const iterLimit = this.mSettings.shoveIterationLimit;
-    const deadline = Date.now() + this.mSettings.shoveTimeLimit;
+    const timeLimit = new TimeLimit(this.mSettings.shoveTimeLimit);
 
     this.mIter = 0;
+
+    timeLimit.restart();
 
     if (this.mLineStack.length === 0 && this.mDraggedVia) {
       const proxy = new PnsLine();
@@ -2450,7 +2453,7 @@ export class PnsShove {
 
       this.mIter++;
 
-      if (st === PnsShoveStatus.SH_INCOMPLETE || Date.now() > deadline || this.mIter >= iterLimit) {
+      if (st === PnsShoveStatus.SH_INCOMPLETE || timeLimit.expired() || this.mIter >= iterLimit) {
         st = PnsShoveStatus.SH_INCOMPLETE;
         break;
       }

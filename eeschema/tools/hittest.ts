@@ -20,7 +20,7 @@ import { cellAt, tableCellId } from './table_cells.js';
 import { symbolFieldBoxes, type Box } from '../fieldbox.js';
 import { symbolTransform, localToWorld } from '@ziroeda/kimath/src/transform.js';
 import { measureText } from '@ziroeda/common/font/stroke_font.js';
-import { schSymbolLibraryName } from '../lib_symbol_compare.js';
+import { schSymbolLibraryName } from '../lib_symbol.js';
 
 /** The id of a placed symbol's field: `<symbolRefId>:field<k>`, as sheet pins
  *  are `<sheetRefId>:sheetpin<k>`. */

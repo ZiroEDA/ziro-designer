@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<export version="E">
+  <design>
+    <source>/home/akshay/ziro-designer-1/qa/data/eeschema/netlist_oracle_graph/issue18606/issue18606.kicad_sch</source>
+    <date>2026-09-29T06:57:25</date>
+    <tool>Eeschema 10.0.6-10.0.6~ubuntu24.04.1</tool>
+    <sheet number="1" name="/" tstamps="/">
+      <title_block>
+        <title/>
+        <company/>
+        <rev/>
+        <date/>
+        <source>issue18606.kicad_sch</source>
+        <comment number="1" value=""/>
+        <comment number="2" value=""/>
+        <comment number="3" value=""/>
+        <comment number="4" value=""/>
+        <comment number="5" value=""/>
+        <comment number="6" value=""/>
+        <comment number="7" value=""/>
+        <comment number="8" value=""/>
+        <comment number="9" value=""/>
+      </title_block>
+    </sheet>
+    <sheet number="2" name="/test/" tstamps="/3a95e766-3c8c-4bb3-9c77-13854beaa270/">
+      <title_block>
+        <title/>
+        <company/>
+        <rev/>
+        <date/>
+        <source>test.kicad_sch</source>
+        <comment number="1" value=""/>
+        <comment number="2" value=""/>
+        <comment number="3" value=""/>
+        <comment number="4" value=""/>
+        <comment number="5" value=""/>
+        <comment number="6" value=""/>
+        <comment number="7" value=""/>
+        <comment number="8" value=""/>
+        <comment number="9" value=""/>
+      </title_block>
+    </sheet>
+  </design>
+  <components>
+    <comp ref="R201">
+      <value>RES</value>
+      <fields>
+        <field name="val">Ω</field>
+        <field name="tol"/>
+        <field name="pkg"/>
+        <field name="pwr"/>
+        <field name="height"/>
+        <field name="Sim.Device">R</field>
+        <field name="Sim.Pins">1=+ 2=-</field>
+        <field name="Sim.Params">r="Ω"</field>
+        <field name="Footprint"/>
+        <field name="Datasheet"/>
+        <field name="Description"/>
+      </fields>
+      <libsource lib="Resistors" part="RES" description=""/>
+      <property name="val" value="Ω"/>
+      <property name="tol" value=""/>
+      <property name="pkg" value=""/>
+      <property name="pwr" value=""/>
+      <property name="height" value=""/>
+      <property name="Sim.Device" value="R"/>
+      <property name="Sim.Pins" value="1=+ 2=-"/>
+      <property name="Sim.Params" value="r=&quot;Ω&quot;"/>
+      <property name="Sheetname" value="test"/>
+      <property name="Sheetfile" value="test.kicad_sch"/>
+      <sheetpath names="/test/" tstamps="/3a95e766-3c8c-4bb3-9c77-13854beaa270/"/>
+      <tstamps>fb6e0d17-fd1a-411c-83f5-fb843a5a08f1</tstamps>
+      <units>
+        <unit name="A">
+          <pins>
+            <pin num="1"/>
+            <pin num="2"/>
+          </pins>
+        </unit>
+      </units>
+    </comp>
+  </components>
+  <libparts>
+    <libpart lib="Resistors" part="RES">
+      <fields>
+        <field name="Reference">R</field>
+        <field name="Value">RES</field>
+        <field name="Footprint"/>
+        <field name="Datasheet"/>
+        <field name="Description"/>
+        <field name="val">Ω</field>
+        <field name="tol"/>
+        <field name="pkg"/>
+        <field name="pwr"/>
+        <field name="height"/>
+        <field name="Sim.Device">R</field>
+        <field name="Sim.Pins">1=+ 2=-</field>
+        <field name="Sim.Params">r="${val}"</field>
+      </fields>
+      <pins>
+        <pin num="1" name="" type="passive"/>
+        <pin num="2" name="" type="passive"/>
+      </pins>
+    </libpart>
+  </libparts>
+  <libraries/>
+  <nets>
+    <net code="5" name="/A0" class="Default">
+      <node ref="R201" pin="1" pintype="passive"/>
+    </net>
+    <net code="7" name="unconnected-(R201-Pad2)" class="Default">
+      <node ref="R201" pin="2" pintype="passive"/>
+    </net>
+  </nets>
+</export>

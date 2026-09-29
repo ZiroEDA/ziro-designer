@@ -1,0 +1,14 @@
+.HEA
+.TIM 2026-09-29T06:57:43
+.APP "Eeschema 10.0.6-10.0.6~ubuntu24.04.1"
+.TYP FULL
+
+.ADD_COM     J1     "Conn_01x04_Socket"     "Connector:FanPinHeader_1x04_P2.54mm_Vertical"
+.ADD_COM     TP1     "TestPoint"     "Connector_Pin:Pin_D1.0mm_L10.0mm"
+
+
+.ADD_TER   J1   1     "P4"
+.TER       J1   2
+            TP1   1
+
+.END

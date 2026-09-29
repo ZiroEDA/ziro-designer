@@ -1,0 +1,13 @@
+( { EESchema Netlist Version 1.1 created  2026-09-29T06:56:07 }
+ ( /af06e391-97a5-4828-9343-f3162acaa60a $noname  U1 BGA_TEST
+  ( AAB10 /NET_TOP )
+  ( AAB11 /NET_MID )
+  ( AAB12 /NET_BOT )
+ )
+ ( /bf06e391-97a5-4828-9343-f3162acaa60b $noname  U2 BGA_TEST
+  ( AAB10 /NET_TOP )
+  ( AAB11 /NET_MID )
+  ( AAB12 /NET_BOT )
+ )
+)
+*

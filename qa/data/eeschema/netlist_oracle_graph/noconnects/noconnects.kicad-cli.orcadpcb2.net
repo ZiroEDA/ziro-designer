@@ -1,0 +1,21 @@
+( { EESchema Netlist Version 1.1 created  2026-09-29T06:58:07 }
+ ( /af06e391-97a5-4828-9343-f3162acaa60a Package_DFN_QFN:Infineon_PQFN-22-15-4EP_6x5mm_P0.65mm  U1 IR4301
+  (    1 unconnected-(U1-VAA-Pad1) )
+  (    2 unconnected-(U1-GND-Pad2) )
+  (    3 unconnected-(U1-IN+-Pad3) )
+  (    4 unconnected-(U1-IN--Pad4) )
+  (    5 unconnected-(U1-COMP-Pad5) )
+  (    6 unconnected-(U1-CSD-Pad6) )
+  (    7 Net-(U1-COM) )
+  (    8 unconnected-(U1-VCC-Pad8) )
+  (    9 Net-(U1-COM) )
+  (   10 unconnected-(U1-VN-Pad10) )
+  (   11 /VS )
+  (   12 unconnected-(U1-VP-Pad12) )
+  (   13 unconnected-(U1-VB-Pad13) )
+  (   14 unconnected-(U1-CSH-Pad14) )
+  (   15 unconnected-(U1-COM-Pad15) )
+  (   16 unconnected-(U1-PTNC-Pad16) )
+ )
+)
+*

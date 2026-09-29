@@ -1,0 +1,11 @@
+.HEA
+.TIM 2026-09-29T06:58:21
+.APP "Eeschema 10.0.6-10.0.6~ubuntu24.04.1"
+.TYP FULL
+
+.ADD_COM     U2     "LM2903"     "$noname"
+.ADD_COM     U1     "LM2903"     "$noname"
+.ADD_COM     U99     "LM2903"     "$noname"
+
+
+.END

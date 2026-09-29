@@ -1,0 +1,27 @@
+( { EESchema Netlist Version 1.1 created  2026-09-29T06:56:05 }
+ ( /14c4399a-ebdd-4981-90af-83d7f164e8a6 $noname  TP5 TestPoint
+  (    1 /demo_bus.A0 )
+ )
+ ( /1eda2f02-eb82-4ef1-8d5b-b2c8ec178ee0 $noname  TP6 TestPoint
+  (    1 /demo_bus.A1 )
+ )
+ ( /3b7f5c58-4f10-4191-baac-35e1103379be $noname  TP2 TestPoint
+  (    1 /demo_bus.A1 )
+ )
+ ( /6b3cfa96-91c4-4e66-bdde-45ccf39d8e73 $noname  TP3 TestPoint
+  (    1 /demo_bus.B0 )
+ )
+ ( /ad20a64d-3eb5-409e-9ad0-0893125e985f $noname  TP8 TestPoint
+  (    1 /demo_bus.B1 )
+ )
+ ( /c1ca0707-68dd-4ad1-9f82-bfcf8e993e07 $noname  TP4 TestPoint
+  (    1 /demo_bus.B1 )
+ )
+ ( /d9c88d01-d1e7-4826-af61-75398396f4c0 $noname  TP1 TestPoint
+  (    1 /demo_bus.A0 )
+ )
+ ( /ef1253e1-680c-4ae8-af9d-df3335e9d564 $noname  TP7 TestPoint
+  (    1 /demo_bus.B0 )
+ )
+)
+*

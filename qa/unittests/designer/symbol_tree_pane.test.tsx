@@ -32,7 +32,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, waitFor } from '@testing-library/react';
 import { parse } from '@ziroeda/sexpr';
 import { readSymbolLib } from '@ziroeda/eeschema';
-import { SymbolEditor } from '@ziroeda/designer/src/editors/symbol/SymbolEditor.js';
+import { SymbolEditorMount as SymbolEditor } from '@ziroeda/designer/src/editors/symbol/symbol_edit_frame_app.js';
 
 const LIB = `(kicad_symbol_lib (version 20241209) (generator "qa")
   (symbol "R" (pin_numbers (hide yes)) (pin_names (offset 0))

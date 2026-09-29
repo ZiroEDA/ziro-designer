@@ -1,0 +1,553 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<export version="E">
+  <design>
+    <source>/home/akshay/ziro-designer-1/qa/data/eeschema/netlist_oracle_graph/test1243/test1243.kicad_sch</source>
+    <date>2026-09-29T06:58:16</date>
+    <tool>Eeschema 10.0.6-10.0.6~ubuntu24.04.1</tool>
+    <sheet number="1" name="/" tstamps="/">
+      <title_block>
+        <title/>
+        <company/>
+        <rev/>
+        <date/>
+        <source>test1243.kicad_sch</source>
+        <comment number="1" value=""/>
+        <comment number="2" value=""/>
+        <comment number="3" value=""/>
+        <comment number="4" value=""/>
+        <comment number="5" value=""/>
+        <comment number="6" value=""/>
+        <comment number="7" value=""/>
+        <comment number="8" value=""/>
+        <comment number="9" value=""/>
+      </title_block>
+    </sheet>
+  </design>
+  <components>
+    <comp ref="U1">
+      <value>A3P060-xVQx100</value>
+      <footprint>Package_QFP:TQFP-100_14x14mm_P0.5mm</footprint>
+      <datasheet>https://www.mouser.com/datasheet/2/268/ProASIC_c2_ae3_Flash_Family_FPGAs_with_Optimal_Sof-3082432.pdf</datasheet>
+      <description>ProASIC3 Flash Family FPGAs, 512 MCLB / macrocells, TQFP-100 (VQ100)</description>
+      <fields>
+        <field name="Footprint">Package_QFP:TQFP-100_14x14mm_P0.5mm</field>
+        <field name="Datasheet">https://www.mouser.com/datasheet/2/268/ProASIC_c2_ae3_Flash_Family_FPGAs_with_Optimal_Sof-3082432.pdf</field>
+        <field name="Description">ProASIC3 Flash Family FPGAs, 512 MCLB / macrocells, TQFP-100 (VQ100)</field>
+      </fields>
+      <libsource lib="FPGA_Microsemi" part="A3P060-xVQx100" description="ProASIC3 Flash Family FPGAs, 512 MCLB / macrocells, TQFP-100 (VQ100)"/>
+      <property name="Sheetname" value="test1243"/>
+      <property name="Sheetfile" value="test1243.kicad_sch"/>
+      <property name="ki_keywords" value="ProASIC3 ACTEL FLASH A3P060-VQ100 A3P060-VQG100 A3P060-2VQG100"/>
+      <property name="ki_fp_filters" value="*TQFP*14x14mm*P0.5mm*"/>
+      <sheetpath names="/" tstamps="/"/>
+      <tstamps>9b5f762a-9275-4953-92d7-ff3f5ee180c1</tstamps>
+      <units>
+        <unit name="A">
+          <pins>
+            <pin num="47"/>
+            <pin num="48"/>
+            <pin num="54"/>
+            <pin num="49"/>
+            <pin num="55"/>
+            <pin num="5"/>
+            <pin num="6"/>
+            <pin num="7"/>
+            <pin num="8"/>
+            <pin num="10"/>
+            <pin num="11"/>
+            <pin num="13"/>
+            <pin num="15"/>
+            <pin num="16"/>
+            <pin num="19"/>
+            <pin num="21"/>
+            <pin num="20"/>
+            <pin num="22"/>
+            <pin num="23"/>
+            <pin num="26"/>
+            <pin num="27"/>
+            <pin num="28"/>
+            <pin num="29"/>
+            <pin num="30"/>
+            <pin num="31"/>
+            <pin num="32"/>
+            <pin num="33"/>
+            <pin num="34"/>
+            <pin num="35"/>
+            <pin num="36"/>
+            <pin num="40"/>
+            <pin num="41"/>
+            <pin num="42"/>
+            <pin num="43"/>
+            <pin num="44"/>
+            <pin num="45"/>
+            <pin num="46"/>
+            <pin num="4"/>
+            <pin num="3"/>
+            <pin num="2"/>
+            <pin num="56"/>
+            <pin num="52"/>
+            <pin num="14"/>
+            <pin num="12"/>
+            <pin num="37"/>
+            <pin num="68"/>
+            <pin num="17"/>
+            <pin num="89"/>
+            <pin num="67"/>
+            <pin num="88"/>
+            <pin num="51"/>
+            <pin num="38"/>
+            <pin num="1"/>
+            <pin num="9"/>
+            <pin num="75"/>
+            <pin num="25"/>
+            <pin num="39"/>
+            <pin num="18"/>
+            <pin num="50"/>
+            <pin num="24"/>
+            <pin num="87"/>
+            <pin num="66"/>
+            <pin num="74"/>
+            <pin num="53"/>
+            <pin num="100"/>
+            <pin num="99"/>
+            <pin num="98"/>
+            <pin num="97"/>
+            <pin num="92"/>
+            <pin num="96"/>
+            <pin num="91"/>
+            <pin num="95"/>
+            <pin num="90"/>
+            <pin num="94"/>
+            <pin num="93"/>
+            <pin num="85"/>
+            <pin num="86"/>
+            <pin num="84"/>
+            <pin num="83"/>
+            <pin num="82"/>
+            <pin num="81"/>
+            <pin num="80"/>
+            <pin num="79"/>
+            <pin num="78"/>
+            <pin num="77"/>
+            <pin num="76"/>
+            <pin num="73"/>
+            <pin num="72"/>
+            <pin num="71"/>
+            <pin num="70"/>
+            <pin num="69"/>
+            <pin num="65"/>
+            <pin num="64"/>
+            <pin num="63"/>
+            <pin num="62"/>
+            <pin num="61"/>
+            <pin num="60"/>
+            <pin num="59"/>
+            <pin num="58"/>
+            <pin num="57"/>
+          </pins>
+        </unit>
+      </units>
+    </comp>
+  </components>
+  <libparts>
+    <libpart lib="FPGA_Microsemi" part="A3P060-xVQx100">
+      <description>ProASIC3 Flash Family FPGAs, 512 MCLB / macrocells, TQFP-100 (VQ100)</description>
+      <docs>https://www.mouser.com/datasheet/2/268/ProASIC_c2_ae3_Flash_Family_FPGAs_with_Optimal_Sof-3082432.pdf</docs>
+      <footprints>
+        <fp>*TQFP*14x14mm*P0.5mm*</fp>
+      </footprints>
+      <fields>
+        <field name="Reference">U1</field>
+        <field name="Value">A3P060-xVQx100</field>
+        <field name="Footprint">Package_QFP:TQFP-100_14x14mm_P0.5mm</field>
+        <field name="Datasheet">https://www.mouser.com/datasheet/2/268/ProASIC_c2_ae3_Flash_Family_FPGAs_with_Optimal_Sof-3082432.pdf</field>
+        <field name="Description">ProASIC3 Flash Family FPGAs, 512 MCLB / macrocells, TQFP-100 (VQ100)</field>
+      </fields>
+      <pins>
+        <pin num="1" name="GND" type="power_in"/>
+        <pin num="2" name="IO51RSB1/GAA2" type="bidirectional"/>
+        <pin num="3" name="IO52RSB1" type="bidirectional"/>
+        <pin num="4" name="IO53RSB1/GAB2" type="bidirectional"/>
+        <pin num="5" name="IO95RSB1" type="bidirectional"/>
+        <pin num="6" name="IO94RSB1/GAC2" type="bidirectional"/>
+        <pin num="7" name="IO93RSB1" type="bidirectional"/>
+        <pin num="8" name="IO92RSB1" type="bidirectional"/>
+        <pin num="9" name="GND" type="passive"/>
+        <pin num="10" name="IO87RSB1/GFB1" type="bidirectional"/>
+        <pin num="11" name="IO86RSB1/GFB0" type="bidirectional"/>
+        <pin num="12" name="VCOMPLF" type="power_in"/>
+        <pin num="13" name="IO85RSB1/GFA0" type="bidirectional"/>
+        <pin num="14" name="VCCPLF" type="power_in"/>
+        <pin num="15" name="IO84RSB1/GFA1" type="bidirectional"/>
+        <pin num="16" name="IO83RSB1/GFA2" type="bidirectional"/>
+        <pin num="17" name="VCC" type="power_in"/>
+        <pin num="18" name="VCCIB1" type="power_in"/>
+        <pin num="19" name="IO77RSB1/GEC1" type="bidirectional"/>
+        <pin num="20" name="IO75RSB1/GEB1" type="bidirectional"/>
+        <pin num="21" name="IO74RSB1/GEB0" type="bidirectional"/>
+        <pin num="22" name="IO73RSB1/GEA1" type="bidirectional"/>
+        <pin num="23" name="IO72RSB1/GEA0" type="bidirectional"/>
+        <pin num="24" name="VMV1" type="power_in"/>
+        <pin num="25" name="GNDQ" type="power_in"/>
+        <pin num="26" name="IO71RSB1/GEA2" type="bidirectional"/>
+        <pin num="27" name="IO70RSB1/GEB2" type="bidirectional"/>
+        <pin num="28" name="IO69RSB1/GEC2" type="bidirectional"/>
+        <pin num="29" name="IO68RSB1" type="bidirectional"/>
+        <pin num="30" name="IO67RSB1" type="bidirectional"/>
+        <pin num="31" name="IO66RSB1" type="bidirectional"/>
+        <pin num="32" name="IO65RSB1" type="bidirectional"/>
+        <pin num="33" name="IO64RSB1" type="bidirectional"/>
+        <pin num="34" name="IO63RSB1" type="bidirectional"/>
+        <pin num="35" name="IO62RSB1" type="bidirectional"/>
+        <pin num="36" name="IO61RSB1" type="bidirectional"/>
+        <pin num="37" name="VCC" type="passive"/>
+        <pin num="38" name="GND" type="passive"/>
+        <pin num="39" name="VCCIB1" type="passive"/>
+        <pin num="40" name="IO60RSB1" type="bidirectional"/>
+        <pin num="41" name="IO59RSB1" type="bidirectional"/>
+        <pin num="42" name="IO58RSB1" type="bidirectional"/>
+        <pin num="43" name="IO57RSB1" type="bidirectional"/>
+        <pin num="44" name="IO56RSB1/GDC2" type="bidirectional"/>
+        <pin num="45" name="IO55RSB1/GDB2" type="bidirectional"/>
+        <pin num="46" name="IO54RSB1/GDA2" type="bidirectional"/>
+        <pin num="47" name="TCK" type="input"/>
+        <pin num="48" name="TDI" type="input"/>
+        <pin num="49" name="TMS" type="input"/>
+        <pin num="50" name="VMV1" type="passive"/>
+        <pin num="51" name="GND" type="passive"/>
+        <pin num="52" name="VPUMP" type="power_in"/>
+        <pin num="53" name="NC" type="no_connect"/>
+        <pin num="54" name="TDO" type="output"/>
+        <pin num="55" name="TRST" type="input"/>
+        <pin num="56" name="VJTAG" type="power_in"/>
+        <pin num="57" name="GDA1/IO49RSB0" type="bidirectional"/>
+        <pin num="58" name="GDC0/IO46RSB0" type="bidirectional"/>
+        <pin num="59" name="GDC1/IO45RSB0" type="bidirectional"/>
+        <pin num="60" name="GCC2/IO43RSB0" type="bidirectional"/>
+        <pin num="61" name="GCB2/IO42RSB0" type="bidirectional"/>
+        <pin num="62" name="GCA0/IO40RSB0" type="bidirectional"/>
+        <pin num="63" name="GCA1/IO39RSB0" type="bidirectional"/>
+        <pin num="64" name="GCC0/IO36RSB0" type="bidirectional"/>
+        <pin num="65" name="GCC1/IO35RSB0" type="bidirectional"/>
+        <pin num="66" name="VCCIB0" type="power_in"/>
+        <pin num="67" name="GND" type="passive"/>
+        <pin num="68" name="VCC" type="passive"/>
+        <pin num="69" name="IO31RSB0" type="bidirectional"/>
+        <pin num="70" name="GBC2/IO29RSB0" type="bidirectional"/>
+        <pin num="71" name="GBB2/IO27RSB0" type="bidirectional"/>
+        <pin num="72" name="IO26RSB0" type="bidirectional"/>
+        <pin num="73" name="GBA2/IO25RSB0" type="bidirectional"/>
+        <pin num="74" name="VMV0" type="power_in"/>
+        <pin num="75" name="GNDQ" type="passive"/>
+        <pin num="76" name="GBA1/IO24RSB0" type="bidirectional"/>
+        <pin num="77" name="GBA0/IO23RSB0" type="bidirectional"/>
+        <pin num="78" name="GBB1/IO22RSB0" type="bidirectional"/>
+        <pin num="79" name="GBB0/IO21RSB0" type="bidirectional"/>
+        <pin num="80" name="GBC1/IO20RSB0" type="bidirectional"/>
+        <pin num="81" name="GBC0/IO19RSB0" type="bidirectional"/>
+        <pin num="82" name="IO18RSB0" type="bidirectional"/>
+        <pin num="83" name="IO17RSB0" type="bidirectional"/>
+        <pin num="84" name="IO15RSB0" type="bidirectional"/>
+        <pin num="85" name="IO13RSB0" type="no_connect"/>
+        <pin num="86" name="IO11RSB0" type="no_connect"/>
+        <pin num="87" name="VCCIB0" type="passive"/>
+        <pin num="88" name="GND" type="passive"/>
+        <pin num="89" name="VCC" type="passive"/>
+        <pin num="90" name="IO10RSB0" type="no_connect"/>
+        <pin num="91" name="IO09RSB0" type="no_connect"/>
+        <pin num="92" name="IO08RSB0" type="no_connect"/>
+        <pin num="93" name="GAC1/IO07RSB0" type="no_connect"/>
+        <pin num="94" name="GAC1/IO06RSB0" type="no_connect"/>
+        <pin num="95" name="GAB1/IO05RSB0" type="no_connect"/>
+        <pin num="96" name="GAB0/IO04RSB0" type="no_connect"/>
+        <pin num="97" name="GAA1/IO03RSB0" type="no_connect"/>
+        <pin num="98" name="GAA0/IO02RSB0" type="no_connect"/>
+        <pin num="99" name="IO01RSB0" type="no_connect"/>
+        <pin num="100" name="IO00RSB0" type="bidirectional"/>
+      </pins>
+    </libpart>
+  </libparts>
+  <libraries>
+    <library logical="FPGA_Microsemi">
+      <uri>${KICAD10_SYMBOL_DIR}/FPGA_Microsemi.kicad_sym</uri>
+    </library>
+  </libraries>
+  <nets>
+    <net code="1" name="unconnected-(U1-GAA0/IO02RSB0-Pad98)" class="Default">
+      <node ref="U1" pin="98" pinfunction="GAA0/IO02RSB0_98" pintype="no_connect"/>
+    </net>
+    <net code="2" name="unconnected-(U1-GAA1/IO03RSB0-Pad97)" class="Default">
+      <node ref="U1" pin="97" pinfunction="GAA1/IO03RSB0_97" pintype="no_connect"/>
+    </net>
+    <net code="3" name="unconnected-(U1-GAB0/IO04RSB0-Pad96)" class="Default">
+      <node ref="U1" pin="96" pinfunction="GAB0/IO04RSB0_96" pintype="no_connect"/>
+    </net>
+    <net code="4" name="unconnected-(U1-GAB1/IO05RSB0-Pad95)" class="Default">
+      <node ref="U1" pin="95" pinfunction="GAB1/IO05RSB0_95" pintype="no_connect"/>
+    </net>
+    <net code="5" name="unconnected-(U1-GAC1/IO06RSB0-Pad94)" class="Default">
+      <node ref="U1" pin="94" pinfunction="GAC1/IO06RSB0_94" pintype="no_connect"/>
+    </net>
+    <net code="6" name="unconnected-(U1-GAC1/IO07RSB0-Pad93)" class="Default">
+      <node ref="U1" pin="93" pinfunction="GAC1/IO07RSB0_93" pintype="no_connect"/>
+    </net>
+    <net code="7" name="unconnected-(U1-GBA0/IO23RSB0-Pad77)" class="Default">
+      <node ref="U1" pin="77" pinfunction="GBA0/IO23RSB0_77" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="8" name="unconnected-(U1-GBA1/IO24RSB0-Pad76)" class="Default">
+      <node ref="U1" pin="76" pinfunction="GBA1/IO24RSB0_76" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="9" name="unconnected-(U1-GBA2/IO25RSB0-Pad73)" class="Default">
+      <node ref="U1" pin="73" pinfunction="GBA2/IO25RSB0_73" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="10" name="unconnected-(U1-GBB0/IO21RSB0-Pad79)" class="Default">
+      <node ref="U1" pin="79" pinfunction="GBB0/IO21RSB0_79" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="11" name="unconnected-(U1-GBB1/IO22RSB0-Pad78)" class="Default">
+      <node ref="U1" pin="78" pinfunction="GBB1/IO22RSB0_78" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="12" name="unconnected-(U1-GBB2/IO27RSB0-Pad71)" class="Default">
+      <node ref="U1" pin="71" pinfunction="GBB2/IO27RSB0_71" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="13" name="unconnected-(U1-GBC0/IO19RSB0-Pad81)" class="Default">
+      <node ref="U1" pin="81" pinfunction="GBC0/IO19RSB0_81" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="14" name="unconnected-(U1-GBC1/IO20RSB0-Pad80)" class="Default">
+      <node ref="U1" pin="80" pinfunction="GBC1/IO20RSB0_80" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="15" name="unconnected-(U1-GBC2/IO29RSB0-Pad70)" class="Default">
+      <node ref="U1" pin="70" pinfunction="GBC2/IO29RSB0_70" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="16" name="unconnected-(U1-GCA0/IO40RSB0-Pad62)" class="Default">
+      <node ref="U1" pin="62" pinfunction="GCA0/IO40RSB0_62" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="17" name="unconnected-(U1-GCA1/IO39RSB0-Pad63)" class="Default">
+      <node ref="U1" pin="63" pinfunction="GCA1/IO39RSB0_63" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="18" name="unconnected-(U1-GCB2/IO42RSB0-Pad61)" class="Default">
+      <node ref="U1" pin="61" pinfunction="GCB2/IO42RSB0_61" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="19" name="unconnected-(U1-GCC0/IO36RSB0-Pad64)" class="Default">
+      <node ref="U1" pin="64" pinfunction="GCC0/IO36RSB0_64" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="20" name="unconnected-(U1-GCC1/IO35RSB0-Pad65)" class="Default">
+      <node ref="U1" pin="65" pinfunction="GCC1/IO35RSB0_65" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="21" name="unconnected-(U1-GCC2/IO43RSB0-Pad60)" class="Default">
+      <node ref="U1" pin="60" pinfunction="GCC2/IO43RSB0_60" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="22" name="unconnected-(U1-GDA1/IO49RSB0-Pad57)" class="Default">
+      <node ref="U1" pin="57" pinfunction="GDA1/IO49RSB0_57" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="23" name="unconnected-(U1-GDC0/IO46RSB0-Pad58)" class="Default">
+      <node ref="U1" pin="58" pinfunction="GDC0/IO46RSB0_58" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="24" name="unconnected-(U1-GDC1/IO45RSB0-Pad59)" class="Default">
+      <node ref="U1" pin="59" pinfunction="GDC1/IO45RSB0_59" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="25" name="unconnected-(U1-GND-Pad1)" class="Default">
+      <node ref="U1" pin="1" pinfunction="GND_1" pintype="power_in+no_connect"/>
+      <node ref="U1" pin="38" pinfunction="GND_38" pintype="passive+no_connect"/>
+      <node ref="U1" pin="51" pinfunction="GND_51" pintype="passive+no_connect"/>
+      <node ref="U1" pin="67" pinfunction="GND_67" pintype="passive+no_connect"/>
+      <node ref="U1" pin="88" pinfunction="GND_88" pintype="passive+no_connect"/>
+      <node ref="U1" pin="9" pinfunction="GND_9" pintype="passive+no_connect"/>
+    </net>
+    <net code="26" name="unconnected-(U1-GNDQ-Pad25)" class="Default">
+      <node ref="U1" pin="25" pinfunction="GNDQ_25" pintype="power_in+no_connect"/>
+      <node ref="U1" pin="75" pinfunction="GNDQ_75" pintype="passive+no_connect"/>
+    </net>
+    <net code="27" name="unconnected-(U1-IO00RSB0-Pad100)" class="Default">
+      <node ref="U1" pin="100" pinfunction="IO00RSB0_100" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="28" name="unconnected-(U1-IO01RSB0-Pad99)" class="Default">
+      <node ref="U1" pin="99" pinfunction="IO01RSB0_99" pintype="no_connect"/>
+    </net>
+    <net code="29" name="unconnected-(U1-IO08RSB0-Pad92)" class="Default">
+      <node ref="U1" pin="92" pinfunction="IO08RSB0_92" pintype="no_connect"/>
+    </net>
+    <net code="30" name="unconnected-(U1-IO09RSB0-Pad91)" class="Default">
+      <node ref="U1" pin="91" pinfunction="IO09RSB0_91" pintype="no_connect"/>
+    </net>
+    <net code="31" name="unconnected-(U1-IO10RSB0-Pad90)" class="Default">
+      <node ref="U1" pin="90" pinfunction="IO10RSB0_90" pintype="no_connect"/>
+    </net>
+    <net code="32" name="unconnected-(U1-IO11RSB0-Pad86)" class="Default">
+      <node ref="U1" pin="86" pinfunction="IO11RSB0_86" pintype="no_connect"/>
+    </net>
+    <net code="33" name="unconnected-(U1-IO13RSB0-Pad85)" class="Default">
+      <node ref="U1" pin="85" pinfunction="IO13RSB0_85" pintype="no_connect"/>
+    </net>
+    <net code="34" name="unconnected-(U1-IO15RSB0-Pad84)" class="Default">
+      <node ref="U1" pin="84" pinfunction="IO15RSB0_84" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="35" name="unconnected-(U1-IO17RSB0-Pad83)" class="Default">
+      <node ref="U1" pin="83" pinfunction="IO17RSB0_83" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="36" name="unconnected-(U1-IO18RSB0-Pad82)" class="Default">
+      <node ref="U1" pin="82" pinfunction="IO18RSB0_82" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="37" name="unconnected-(U1-IO26RSB0-Pad72)" class="Default">
+      <node ref="U1" pin="72" pinfunction="IO26RSB0_72" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="38" name="unconnected-(U1-IO31RSB0-Pad69)" class="Default">
+      <node ref="U1" pin="69" pinfunction="IO31RSB0_69" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="39" name="unconnected-(U1-IO51RSB1/GAA2-Pad2)" class="Default">
+      <node ref="U1" pin="2" pinfunction="IO51RSB1/GAA2_2" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="40" name="unconnected-(U1-IO52RSB1-Pad3)" class="Default">
+      <node ref="U1" pin="3" pinfunction="IO52RSB1_3" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="41" name="unconnected-(U1-IO53RSB1/GAB2-Pad4)" class="Default">
+      <node ref="U1" pin="4" pinfunction="IO53RSB1/GAB2_4" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="42" name="unconnected-(U1-IO54RSB1/GDA2-Pad46)" class="Default">
+      <node ref="U1" pin="46" pinfunction="IO54RSB1/GDA2_46" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="43" name="unconnected-(U1-IO55RSB1/GDB2-Pad45)" class="Default">
+      <node ref="U1" pin="45" pinfunction="IO55RSB1/GDB2_45" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="44" name="unconnected-(U1-IO56RSB1/GDC2-Pad44)" class="Default">
+      <node ref="U1" pin="44" pinfunction="IO56RSB1/GDC2_44" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="45" name="unconnected-(U1-IO57RSB1-Pad43)" class="Default">
+      <node ref="U1" pin="43" pinfunction="IO57RSB1_43" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="46" name="unconnected-(U1-IO58RSB1-Pad42)" class="Default">
+      <node ref="U1" pin="42" pinfunction="IO58RSB1_42" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="47" name="unconnected-(U1-IO59RSB1-Pad41)" class="Default">
+      <node ref="U1" pin="41" pinfunction="IO59RSB1_41" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="48" name="unconnected-(U1-IO60RSB1-Pad40)" class="Default">
+      <node ref="U1" pin="40" pinfunction="IO60RSB1_40" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="49" name="unconnected-(U1-IO61RSB1-Pad36)" class="Default">
+      <node ref="U1" pin="36" pinfunction="IO61RSB1_36" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="50" name="unconnected-(U1-IO62RSB1-Pad35)" class="Default">
+      <node ref="U1" pin="35" pinfunction="IO62RSB1_35" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="51" name="unconnected-(U1-IO63RSB1-Pad34)" class="Default">
+      <node ref="U1" pin="34" pinfunction="IO63RSB1_34" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="52" name="unconnected-(U1-IO64RSB1-Pad33)" class="Default">
+      <node ref="U1" pin="33" pinfunction="IO64RSB1_33" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="53" name="unconnected-(U1-IO65RSB1-Pad32)" class="Default">
+      <node ref="U1" pin="32" pinfunction="IO65RSB1_32" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="54" name="unconnected-(U1-IO66RSB1-Pad31)" class="Default">
+      <node ref="U1" pin="31" pinfunction="IO66RSB1_31" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="55" name="unconnected-(U1-IO67RSB1-Pad30)" class="Default">
+      <node ref="U1" pin="30" pinfunction="IO67RSB1_30" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="56" name="unconnected-(U1-IO68RSB1-Pad29)" class="Default">
+      <node ref="U1" pin="29" pinfunction="IO68RSB1_29" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="57" name="unconnected-(U1-IO69RSB1/GEC2-Pad28)" class="Default">
+      <node ref="U1" pin="28" pinfunction="IO69RSB1/GEC2_28" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="58" name="unconnected-(U1-IO70RSB1/GEB2-Pad27)" class="Default">
+      <node ref="U1" pin="27" pinfunction="IO70RSB1/GEB2_27" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="59" name="unconnected-(U1-IO71RSB1/GEA2-Pad26)" class="Default">
+      <node ref="U1" pin="26" pinfunction="IO71RSB1/GEA2_26" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="60" name="unconnected-(U1-IO72RSB1/GEA0-Pad23)" class="Default">
+      <node ref="U1" pin="23" pinfunction="IO72RSB1/GEA0_23" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="61" name="unconnected-(U1-IO73RSB1/GEA1-Pad22)" class="Default">
+      <node ref="U1" pin="22" pinfunction="IO73RSB1/GEA1_22" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="62" name="unconnected-(U1-IO74RSB1/GEB0-Pad21)" class="Default">
+      <node ref="U1" pin="21" pinfunction="IO74RSB1/GEB0_21" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="63" name="unconnected-(U1-IO75RSB1/GEB1-Pad20)" class="Default">
+      <node ref="U1" pin="20" pinfunction="IO75RSB1/GEB1_20" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="64" name="unconnected-(U1-IO77RSB1/GEC1-Pad19)" class="Default">
+      <node ref="U1" pin="19" pinfunction="IO77RSB1/GEC1_19" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="65" name="unconnected-(U1-IO83RSB1/GFA2-Pad16)" class="Default">
+      <node ref="U1" pin="16" pinfunction="IO83RSB1/GFA2_16" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="66" name="unconnected-(U1-IO84RSB1/GFA1-Pad15)" class="Default">
+      <node ref="U1" pin="15" pinfunction="IO84RSB1/GFA1_15" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="67" name="unconnected-(U1-IO85RSB1/GFA0-Pad13)" class="Default">
+      <node ref="U1" pin="13" pinfunction="IO85RSB1/GFA0_13" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="68" name="unconnected-(U1-IO86RSB1/GFB0-Pad11)" class="Default">
+      <node ref="U1" pin="11" pinfunction="IO86RSB1/GFB0_11" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="69" name="unconnected-(U1-IO87RSB1/GFB1-Pad10)" class="Default">
+      <node ref="U1" pin="10" pinfunction="IO87RSB1/GFB1_10" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="70" name="unconnected-(U1-IO92RSB1-Pad8)" class="Default">
+      <node ref="U1" pin="8" pinfunction="IO92RSB1_8" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="71" name="unconnected-(U1-IO93RSB1-Pad7)" class="Default">
+      <node ref="U1" pin="7" pinfunction="IO93RSB1_7" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="72" name="unconnected-(U1-IO94RSB1/GAC2-Pad6)" class="Default">
+      <node ref="U1" pin="6" pinfunction="IO94RSB1/GAC2_6" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="73" name="unconnected-(U1-IO95RSB1-Pad5)" class="Default">
+      <node ref="U1" pin="5" pinfunction="IO95RSB1_5" pintype="bidirectional+no_connect"/>
+    </net>
+    <net code="74" name="unconnected-(U1-NC-Pad53)" class="Default">
+      <node ref="U1" pin="53" pinfunction="NC_53" pintype="no_connect"/>
+    </net>
+    <net code="75" name="unconnected-(U1-TCK-Pad47)" class="Default">
+      <node ref="U1" pin="47" pinfunction="TCK_47" pintype="input+no_connect"/>
+    </net>
+    <net code="76" name="unconnected-(U1-TDI-Pad48)" class="Default">
+      <node ref="U1" pin="48" pinfunction="TDI_48" pintype="input+no_connect"/>
+    </net>
+    <net code="77" name="unconnected-(U1-TDO-Pad54)" class="Default">
+      <node ref="U1" pin="54" pinfunction="TDO_54" pintype="output+no_connect"/>
+    </net>
+    <net code="78" name="unconnected-(U1-TMS-Pad49)" class="Default">
+      <node ref="U1" pin="49" pinfunction="TMS_49" pintype="input+no_connect"/>
+    </net>
+    <net code="79" name="unconnected-(U1-TRST-Pad55)" class="Default">
+      <node ref="U1" pin="55" pinfunction="TRST_55" pintype="input+no_connect"/>
+    </net>
+    <net code="80" name="unconnected-(U1-VCC-Pad17)" class="Default">
+      <node ref="U1" pin="17" pinfunction="VCC_17" pintype="power_in+no_connect"/>
+      <node ref="U1" pin="37" pinfunction="VCC_37" pintype="passive+no_connect"/>
+      <node ref="U1" pin="68" pinfunction="VCC_68" pintype="passive+no_connect"/>
+      <node ref="U1" pin="89" pinfunction="VCC_89" pintype="passive+no_connect"/>
+    </net>
+    <net code="81" name="unconnected-(U1-VCCIB0-Pad66)" class="Default">
+      <node ref="U1" pin="66" pinfunction="VCCIB0_66" pintype="power_in+no_connect"/>
+      <node ref="U1" pin="87" pinfunction="VCCIB0_87" pintype="passive+no_connect"/>
+    </net>
+    <net code="82" name="unconnected-(U1-VCCIB1-Pad18)" class="Default">
+      <node ref="U1" pin="18" pinfunction="VCCIB1_18" pintype="power_in+no_connect"/>
+      <node ref="U1" pin="39" pinfunction="VCCIB1_39" pintype="passive+no_connect"/>
+    </net>
+    <net code="83" name="unconnected-(U1-VCCPLF-Pad14)" class="Default">
+      <node ref="U1" pin="14" pinfunction="VCCPLF_14" pintype="power_in+no_connect"/>
+    </net>
+    <net code="84" name="unconnected-(U1-VCOMPLF-Pad12)" class="Default">
+      <node ref="U1" pin="12" pinfunction="VCOMPLF_12" pintype="power_in+no_connect"/>
+    </net>
+    <net code="85" name="unconnected-(U1-VJTAG-Pad56)" class="Default">
+      <node ref="U1" pin="56" pinfunction="VJTAG_56" pintype="power_in+no_connect"/>
+    </net>
+    <net code="86" name="unconnected-(U1-VMV0-Pad74)" class="Default">
+      <node ref="U1" pin="74" pinfunction="VMV0_74" pintype="power_in+no_connect"/>
+    </net>
+    <net code="87" name="unconnected-(U1-VMV1-Pad24)" class="Default">
+      <node ref="U1" pin="24" pinfunction="VMV1_24" pintype="power_in+no_connect"/>
+      <node ref="U1" pin="50" pinfunction="VMV1_50" pintype="passive+no_connect"/>
+    </net>
+    <net code="88" name="unconnected-(U1-VPUMP-Pad52)" class="Default">
+      <node ref="U1" pin="52" pinfunction="VPUMP_52" pintype="power_in+no_connect"/>
+    </net>
+  </nets>
+</export>

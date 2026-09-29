@@ -1,16 +1,16 @@
 # eeschema file-structure divergence from KiCad 10.0.5
 
-Generated 2026-09-28 against `/home/akshay/kicad-reference/eeschema`. Regenerate with `qa/probes/struct_diff_eeschema.sh`.
+Generated 2026-09-29 against `/home/akshay/kicad-reference/eeschema`. Regenerate with `qa/probes/struct_diff_eeschema.sh`.
 
 | status | count | meaning |
 |---|---:|---|
-| SAME | 109 | same relative path and name as KiCad's `.cpp` |
+| SAME | 141 | same relative path and name as KiCad's `.cpp` |
 | MOVED | 2 | KiCad has this name, in a different directory |
 | DIALOG | 5 | KiCad has it as `dialogs/dialog_<name>.cpp` |
-| HEADER | 5 | KiCad declares it in a `.h` with no matching `.cpp` |
+| HEADER | 4 | KiCad declares it in a `.h` with no matching `.cpp` |
 | ELSEWHERE | 6 | KiCad puts it outside `eeschema/` |
-| OURS | 95 | no KiCad file of this name anywhere |
-| DESIGNER_CANDIDATE | 9 | in designer/src/editors/schematic but named after a KiCad eeschema file — check for designer/ imports before moving |
+| OURS | 102 | no KiCad file of this name anywhere |
+| DESIGNER_CANDIDATE | 6 | in designer/src/editors/schematic but named after a KiCad eeschema file — check for designer/ imports before moving |
 
 ## MOVED
 
@@ -46,7 +46,6 @@ Generated 2026-09-28 against `/home/akshay/kicad-reference/eeschema`. Regenerate
 |---|---|
 | `bus_alias.ts` | `bus_alias.h` |
 | `default_values.ts` | `default_values.h` |
-| `netlist_exporters/netlist.ts` | `netlist_exporters/netlist.h` |
 | `sch_file_versions.ts` | `sch_file_versions.h` |
 | `sch_rtree.ts` | `sch_rtree.h` |
 
@@ -54,6 +53,9 @@ Generated 2026-09-28 against `/home/akshay/kicad-reference/eeschema`. Regenerate
 
 | ours | KiCad (`eeschema/` unless noted) |
 |---|---|
+| `browser/project_sync_transport.ts` | `-` |
+| `browser/repair_source.ts` | `-` |
+| `browser/sch_diff.ts` | `-` |
 | `connectivity/bus.ts` | `-` |
 | `connectivity/dangling.ts` | `-` |
 | `connectivity/hierarchy.ts` | `-` |
@@ -62,31 +64,33 @@ Generated 2026-09-28 against `/home/akshay/kicad-reference/eeschema`. Regenerate
 | `connectivity/segment_index.ts` | `-` |
 | `dialogs/dialog_increment_annotations.tsx` | `-` |
 | `dialogs/item_color.ts` | `-` |
+| `dialogs/pin_icons.ts` | `-` |
+| `eeschema_app.ts` | `-` |
 | `erc/marker_nav.ts` | `-` |
 | `fieldbox.ts` | `-` |
 | `global_sym_lib_table.ts` | `-` |
+| `hover_selection.ts` | `-` |
 | `import_gfx/graphics_importer_sch_mapping.ts` | `-` |
 | `import_gfx/image_format.ts` | `-` |
 | `index.ts` | `-` |
-| `lib_symbol_compare.ts` | `-` |
-| `pdf_annotations.ts` | `-` |
-| `pin_alt_icon.ts` | `-` |
+| `net_overrides.ts` | `-` |
 | `project_settings.ts` | `-` |
 | `project_sym_lib_table.ts` | `-` |
-| `render_color.ts` | `-` |
-| `repair_source.ts` | `-` |
-| `sch_io/legacy/parse.ts` | `-` |
-| `sch_io/legacy/read-lib.ts` | `-` |
-| `sch_io/legacy/read-schematic.ts` | `-` |
+| `sch_edit_frame_ui.tsx` | `-` |
 | `sch_io/sexpr/read-schematic.ts` | `-` |
 | `sch_io/sexpr/write-schematic.ts` | `-` |
 | `sch_io/sexpr/write-symbol-lib.ts` | `-` |
 | `sim/sim_model_types.ts` | `-` |
-| `symbol_editor/delete_symbol_prompt.ts` | `-` |
-| `symbol_editor/frame_title.ts` | `-` |
+| `symbol_editor/conditions.ts` | `-` |
+| `symbol_editor/defaults.ts` | `-` |
+| `symbol_editor/edits.ts` | `-` |
+| `symbol_editor/grid.ts` | `-` |
+| `symbol_editor/symbol_edit_frame_app.ts` | `-` |
+| `symbol_editor/symbol_edit_frame_ui.tsx` | `-` |
+| `symbol_editor/symbol_editor_dialogs.tsx` | `-` |
 | `symbol_editor/symbol_renderer.ts` | `-` |
-| `symbol_markers.ts` | `-` |
-| `symbol_search_terms.ts` | `-` |
+| `symbol_editor/toggles.ts` | `-` |
+| `toggles.ts` | `-` |
 | `tools/align_to_grid.ts` | `-` |
 | `tools/arc_edit.ts` | `-` |
 | `tools/arrow_nudge.ts` | `-` |
@@ -149,15 +153,14 @@ Generated 2026-09-28 against `/home/akshay/kicad-reference/eeschema`. Regenerate
 | `tools/unfold_bus.ts` | `-` |
 | `types.ts` | `-` |
 | `widgets/net_navigator_panel.tsx` | `-` |
+| `widgets/panel_sch_selection_filter_ui.tsx` | `-` |
+| `widgets/sch_properties_panel_ui.tsx` | `-` |
 
 ## DESIGNER_CANDIDATE
 
 | ours | KiCad (`eeschema/` unless noted) |
 |---|---|
-| `designer/src/editors/schematic/dialogs/dialog_annotate.tsx` | `dialogs/dialog_annotate.cpp` |
 | `designer/src/editors/schematic/dialogs/dialog_change_symbols.tsx` | `dialogs/dialog_change_symbols.cpp` |
-| `designer/src/editors/schematic/dialogs/dialog_field_properties.tsx` | `dialogs/dialog_field_properties.h` |
-| `designer/src/editors/schematic/dialogs/dialog_print.tsx` | `printing/dialog_print.h` |
 | `designer/src/editors/schematic/dialogs/dialog_rescue_each.tsx` | `dialogs/dialog_rescue_each.cpp` |
 | `designer/src/editors/schematic/dialogs/dialog_symbol_chooser.tsx` | `dialogs/dialog_symbol_chooser.cpp` |
 | `designer/src/editors/schematic/dialogs/symbol_chooser_frame.tsx` | `symbol_chooser_frame.h` |
@@ -166,25 +169,32 @@ Generated 2026-09-28 against `/home/akshay/kicad-reference/eeschema`. Regenerate
 
 ## SAME
 
-<details><summary>109 files already at KiCad's own path</summary>
+<details><summary>141 files already at KiCad's own path</summary>
 
 - `annotate.ts`
 - `autoplace_fields.ts`
 - `bus-wire-junction.ts`
+- `connection_graph.ts`
 - `cross-probing.ts`
+- `dialogs/dialog_annotate.tsx`
 - `dialogs/dialog_edit_symbols_libid.tsx`
+- `dialogs/dialog_eeschema_page_settings.tsx`
 - `dialogs/dialog_erc.tsx`
 - `dialogs/dialog_export_netlist.tsx`
+- `dialogs/dialog_field_properties.tsx`
 - `dialogs/dialog_global_edit_text_and_graphics.tsx`
 - `dialogs/dialog_image_properties.tsx`
 - `dialogs/dialog_label_properties.tsx`
 - `dialogs/dialog_line_properties.tsx`
+- `dialogs/dialog_plot_schematic.tsx`
 - `dialogs/dialog_schematic_setup.tsx`
+- `dialogs/dialog_sch_find.tsx`
 - `dialogs/dialog_sch_import_settings.tsx`
 - `dialogs/dialog_shape_properties.tsx`
 - `dialogs/dialog_sheet_pin_properties.tsx`
 - `dialogs/dialog_sheet_properties.tsx`
 - `dialogs/dialog_symbol_fields_table.tsx`
+- `dialogs/dialog_symbol_properties.tsx`
 - `dialogs/dialog_tablecell_properties.tsx`
 - `dialogs/dialog_table_properties.tsx`
 - `dialogs/dialog_text_properties.tsx`
@@ -195,6 +205,9 @@ Generated 2026-09-28 against `/home/akshay/kicad-reference/eeschema`. Regenerate
 - `dialogs/panel_setup_formatting.tsx`
 - `dialogs/panel_setup_pinmap.tsx`
 - `dialogs/panel_template_fieldnames.tsx`
+- `eeschema_config.ts`
+- `eeschema_helpers.ts`
+- `eeschema_settings.ts`
 - `erc/erc_item.ts`
 - `erc/erc_settings.ts`
 - `erc/erc.ts`
@@ -207,27 +220,43 @@ Generated 2026-09-28 against `/home/akshay/kicad-reference/eeschema`. Regenerate
 - `import_gfx/graphics_importer_lib_symbol.ts`
 - `import_gfx/graphics_importer_sch.ts`
 - `junction_helpers.ts`
+- `lib_fields_data_model.ts`
 - `lib_symbol.ts`
 - `menubar.ts`
 - `multiline_pin_text.ts`
 - `netlist_exporters/netlist_exporter_allegro.ts`
+- `netlist_exporters/netlist_exporter_base.ts`
+- `netlist_exporters/netlist_exporter_cadstar.ts`
 - `netlist_exporters/netlist_exporter_kicad.ts`
+- `netlist_exporters/netlist_exporter_orcadpcb2.ts`
+- `netlist_exporters/netlist_exporter_pads.ts`
+- `netlist_exporters/netlist_exporter_spice_model.ts`
 - `netlist_exporters/netlist_exporter_spice.ts`
+- `netlist_exporters/netlist_exporter_xml.ts`
+- `netlist_exporters/netlist_generator.ts`
 - `net_navigator.ts`
+- `picksymbol.ts`
 - `pin_layout_cache.ts`
 - `pin_type.ts`
+- `printing/dialog_print.tsx`
 - `project_rescue.ts`
 - `project_sch.ts`
 - `refdes_tracker.ts`
 - `sch_bitmap.ts`
 - `sch_bus_entry.ts`
 - `sch_collectors.ts`
+- `sch_commit.ts`
 - `sch_connection.ts`
+- `sch_draw_panel.ts`
 - `sch_edit_frame.ts`
 - `schematic_settings.ts`
 - `schematic.ts`
+- `schematic_undo_redo.ts`
 - `sch_field.ts`
 - `sch_group.ts`
+- `sch_io/kicad_legacy/sch_io_kicad_legacy_helpers.ts`
+- `sch_io/kicad_legacy/sch_io_kicad_legacy_lib_cache.ts`
+- `sch_io/kicad_legacy/sch_io_kicad_legacy.ts`
 - `sch_io/kicad_sexpr/sch_io_kicad_sexpr_common.ts`
 - `sch_io/kicad_sexpr/sch_io_kicad_sexpr_lib_cache.ts`
 - `sch_io/kicad_sexpr/sch_io_kicad_sexpr_parser.ts`
@@ -256,11 +285,16 @@ Generated 2026-09-28 against `/home/akshay/kicad-reference/eeschema`. Regenerate
 - `sch_textbox.ts`
 - `sch_text.ts`
 - `sch_validators.ts`
+- `sheet.ts`
 - `sim/sim_model.ts`
 - `symbol_checker.ts`
+- `symbol_editor/menubar_symbol_editor.ts`
 - `symbol_editor/symbol_edit_frame.ts`
+- `symbol_editor/symbol_editor_settings.ts`
+- `symbol_editor/symbol_editor.ts`
 - `symbol_editor/toolbars_symbol_editor.ts`
 - `symbol_import_manager.ts`
+- `symbol_library_manager.ts`
 - `symbol_tree_synchronizing_adapter.ts`
 - `symbol.ts`
 - `symb_transforms_utils.ts`
@@ -274,6 +308,7 @@ Generated 2026-09-28 against `/home/akshay/kicad-reference/eeschema`. Regenerate
 - `tools/sch_line_wire_bus_tool.ts`
 - `tools/sch_navigate_tool.ts`
 - `tools/sch_tool_utils.ts`
+- `widgets/panel_sch_selection_filter.ts`
 - `widgets/sch_properties_panel.ts`
 - `widgets/sch_search_pane.tsx`
 - `widgets/search_handlers.ts`

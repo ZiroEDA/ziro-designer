@@ -1,0 +1,155 @@
+.HEA
+.TIM 2026-09-29T06:56:34
+.APP "Eeschema 10.0.6-10.0.6~ubuntu24.04.1"
+.TYP FULL
+
+.ADD_COM     J1     "Conn_01x08_Pin"     "Connector_PinHeader_1.00mm:PinHeader_1x08_P1.00mm_Horizontal"
+.ADD_COM     J2     "Conn_01x08_Pin"     "Connector_PinHeader_1.00mm:PinHeader_1x08_P1.00mm_Horizontal"
+.ADD_COM     R5     "R"     "Resistor_SMD:R_0805_2012Metric"
+.ADD_COM     R6     "R"     "Resistor_SMD:R_0805_2012Metric"
+.ADD_COM     R4     "R"     "Resistor_SMD:R_0805_2012Metric"
+.ADD_COM     D2     "LED"     "LED_THT:LED_D3.0mm"
+.ADD_COM     D8     "LED"     "LED_THT:LED_D3.0mm"
+.ADD_COM     D1     "LED"     "LED_THT:LED_D3.0mm"
+.ADD_COM     R8     "R"     "Resistor_SMD:R_0805_2012Metric"
+.ADD_COM     D7     "LED"     "LED_THT:LED_D3.0mm"
+.ADD_COM     D6     "LED"     "LED_THT:LED_D3.0mm"
+.ADD_COM     D3     "LED"     "LED_THT:LED_D3.0mm"
+.ADD_COM     D4     "LED"     "LED_THT:LED_D3.0mm"
+.ADD_COM     D5     "LED"     "LED_THT:LED_D3.0mm"
+.ADD_COM     R2     "R"     "Resistor_SMD:R_0805_2012Metric"
+.ADD_COM     R1     "R"     "Resistor_SMD:R_0805_2012Metric"
+.ADD_COM     R3     "R"     "Resistor_SMD:R_0805_2012Metric"
+.ADD_COM     R7     "R"     "Resistor_SMD:R_0805_2012Metric"
+.ADD_COM     R13     "R"     "Resistor_SMD:R_0805_2012Metric"
+.ADD_COM     R14     "R"     "Resistor_SMD:R_0805_2012Metric"
+.ADD_COM     R12     "R"     "Resistor_SMD:R_0805_2012Metric"
+.ADD_COM     D10     "LED"     "LED_THT:LED_D3.0mm"
+.ADD_COM     D16     "LED"     "LED_THT:LED_D3.0mm"
+.ADD_COM     D9     "LED"     "LED_THT:LED_D3.0mm"
+.ADD_COM     R16     "R"     "Resistor_SMD:R_0805_2012Metric"
+.ADD_COM     D15     "LED"     "LED_THT:LED_D3.0mm"
+.ADD_COM     D14     "LED"     "LED_THT:LED_D3.0mm"
+.ADD_COM     D11     "LED"     "LED_THT:LED_D3.0mm"
+.ADD_COM     D12     "LED"     "LED_THT:LED_D3.0mm"
+.ADD_COM     D13     "LED"     "LED_THT:LED_D3.0mm"
+.ADD_COM     R10     "R"     "Resistor_SMD:R_0805_2012Metric"
+.ADD_COM     R9     "R"     "Resistor_SMD:R_0805_2012Metric"
+.ADD_COM     R11     "R"     "Resistor_SMD:R_0805_2012Metric"
+.ADD_COM     R15     "R"     "Resistor_SMD:R_0805_2012Metric"
+
+
+.ADD_TER   J1   1     "CON_A_1"
+.TER       R1   1
+
+.ADD_TER   J1   2     "CON_A_2"
+.TER       R2   1
+
+.ADD_TER   J1   3     "CON_A_3"
+.TER       R3   1
+
+.ADD_TER   J1   4     "CON_A_4"
+.TER       R4   1
+
+.ADD_TER   J1   5     "CON_A_5"
+.TER       R5   1
+
+.ADD_TER   J1   6     "CON_A_6"
+.TER       R6   1
+
+.ADD_TER   J1   7     "CON_A_7"
+.TER       R7   1
+
+.ADD_TER   J1   8     "CON_A_8"
+.TER       R8   1
+
+.ADD_TER   J2   1     "CON_B_1"
+.TER       R11   1
+
+.ADD_TER   J2   2     "CON_B_2"
+.TER       R12   1
+
+.ADD_TER   J2   3     "CON_B_3"
+.TER       R13   1
+
+.ADD_TER   J2   4     "CON_B_4"
+.TER       R14   1
+
+.ADD_TER   J2   5     "CON_B_5"
+.TER       R15   1
+
+.ADD_TER   J2   6     "CON_B_6"
+.TER       R16   1
+
+.ADD_TER   J2   7     "CON_B_7"
+.TER       R9   1
+
+.ADD_TER   J2   8     "CON_B_8"
+.TER       R10   1
+
+.ADD_TER   D1   1     "GND"
+.TER       D10   1
+            D11   1
+            D12   1
+            D13   1
+            D14   1
+            D15   1
+            D16   1
+            D2   1
+            D3   1
+            D4   1
+            D5   1
+            D6   1
+            D7   1
+            D8   1
+            D9   1
+
+.ADD_TER   D1   2     "Net-(D1-A)"
+.TER       R1   2
+
+.ADD_TER   D10   2     "Net-(D10-A)"
+.TER       R10   2
+
+.ADD_TER   D11   2     "Net-(D11-A)"
+.TER       R11   2
+
+.ADD_TER   D12   2     "Net-(D12-A)"
+.TER       R12   2
+
+.ADD_TER   D13   2     "Net-(D13-A)"
+.TER       R13   2
+
+.ADD_TER   D14   2     "Net-(D14-A)"
+.TER       R14   2
+
+.ADD_TER   D15   2     "Net-(D15-A)"
+.TER       R15   2
+
+.ADD_TER   D16   2     "Net-(D16-A)"
+.TER       R16   2
+
+.ADD_TER   D2   2     "Net-(D2-A)"
+.TER       R2   2
+
+.ADD_TER   D3   2     "Net-(D3-A)"
+.TER       R3   2
+
+.ADD_TER   D4   2     "Net-(D4-A)"
+.TER       R4   2
+
+.ADD_TER   D5   2     "Net-(D5-A)"
+.TER       R5   2
+
+.ADD_TER   D6   2     "Net-(D6-A)"
+.TER       R6   2
+
+.ADD_TER   D7   2     "Net-(D7-A)"
+.TER       R7   2
+
+.ADD_TER   D8   2     "Net-(D8-A)"
+.TER       R8   2
+
+.ADD_TER   D9   2     "Net-(D9-A)"
+.TER       R9   2
+
+.END

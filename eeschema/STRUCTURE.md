@@ -1,6 +1,9 @@
 # eeschema — divergences from KiCad
 
-Reference: `/home/akshay/kicad-reference/eeschema` (10.0.5). Layout rule: same
+Reference: `/home/akshay/kicad-reference/eeschema` (10.0.6 as of 2026-09-29;
+was 10.0.5 through most of this file's history — a separate pass ports the
+10.0.5→10.0.6 delta for code already ported, this file's own root-path
+findings below were re-checked against 10.0.6 and did not move). Layout rule: same
 as `pcbnew/STRUCTURE.md` — every module sits at the path KiCad keeps its
 counterpart at, and there is no `src/`.
 
@@ -713,6 +716,38 @@ than guessed at. `netlist.test.ts` gained a synthetic multi-unit dedup
 regression test since none of the three oracle designs exercise one — a
 mutant of the dedup rule survived the oracle set but was caught by it.
 
+**`netlist_exporters/` is now 10/10 filename-matched (2026-09-29, later same
+day): `netlist_exporter_spice_model.cpp` (`NETLIST_EXPORTER_SPICE_MODEL`) has
+its own file.** Its four overrides of `NETLIST_EXPORTER_SPICE`
+(`WriteHead`/`WriteTail`/`ReadSchematicAndLibraries`/`GenerateItemPinNetName`)
+had already been folded into `netlist_exporter_spice.ts`'s
+`generateSpiceNetlist` as its `subcktName` branch, in an earlier session —
+there is no exporter *class* here to subclass, so the override split
+naturally became one function's own conditional rather than a second file.
+That branch stays there (moving it here would duplicate the private
+`readPorts`/port-direction table the central-value rule forbids two copies
+of). What `netlist_exporter_spice_model.ts` *does* hold is what upstream's
+constructor and `InstallPageSpiceModel` give the page as its own identity: a
+named entry point, `generateSpiceModelNetlist(sch, libById, aProjectName,
+netlist?, opts?)`, taking the project name rather than a raw options bag,
+and refusing the plain-SPICE `.save`/`.probe` checkboxes that
+`NET_TYPE_SPICE_MODEL` has no case for in `createNetlist`
+(dialog_export_netlist.cpp:523-526) — `dialog_export_netlist.tsx`'s
+"SPICE Model" tab now calls it instead of `generateSpiceNetlist` with a raw
+`subcktName`. Byte-exact against `kicad-cli sch export netlist --format
+spicemodel`: `qa/unittests/eeschema/netlist_exporter_spice_model.test.ts`,
+three single-Device:R single-sheet designs
+(`netlist_oracle/issue16003/untitled{,2}.kicad_sch`,
+`netlist_oracle/issue14657/issue14657_2.kicad_sch`). Multi-item designs and
+bus-vector hierarchical-label ports are deliberately not in that fixture
+set: `NETLIST_EXPORTER_SPICE::writeItems`'s item order for 2+ symbols (not
+declaration order) and vector-label expansion before `readPorts` sees them
+are both `netlist_exporter_spice.ts`'s territory — confirmed by running
+`kicad-cli --format spice` on the same design and seeing the same order,
+i.e. a base-class quirk this file's four overrides do not touch — not
+something to fix from this file, which owns only the `.subckt` head/tail and
+the port-name substitution.
+
 **`erc/erc_report.cpp` (`ERC_REPORT`): investigated, not written.** The
 pieces it needs are already ported and ready: `RC_ITEM::ShowReport` /
 `GetJsonViolation` (`common/rc_item.ts`), `ERC_ITEM` as a full `RC_ITEM`
@@ -742,3 +777,119 @@ alone landed `connection_graph.ts`, `sch_commit.ts`,
 `NETLIST_EXPORTER_BASE`/`XML`/`KICAD` onto the live `SCHEMATIC` — is already
 closing this gap from the other side. `erc_report.ts` is a small, mechanical
 port once ERC's engine (or a wrapper) hands it real item references.
+
+**Step 2 — `EESCHEMA_APP` and the window.** `eeschema/eeschema_app.ts` states
+what the Schematic Editor's window asks of the program, member by member,
+each family its own commit; `designer/src/editors/schematic/eeschema_app.tsx`
+(`useEeschemaApp()` + `SchematicEditorMount`) is the only file that answers
+it. `SchematicEditor.tsx` then moved whole to `eeschema/sch_edit_frame_ui.tsx`
+and takes `app` as a prop (App.tsx mounts `SchematicEditorMount`, the
+`PcbEditorMount` shape). How each designer/-only reach was resolved:
+
+| reach | resolution |
+|---|---|
+| `prefs/settings` + `useSettings` hooks | `app.settings` (`EESCHEMA_SETTINGS_STORE`) + the four hooks; the `eeschema.json` shape moved to `eeschema_settings.ts` |
+| Preferences, Open/Save As, HomeLink, selection filter, sym-lib table, footprint chooser, toolbars | app members (component-shaped); `PrefsPageId` moved to `common/frame_type.ts` |
+| hosted symbol/footprint libraries, preload, hotkey remap | app members, stated structurally (no pcbnew type) |
+| live sync, auth, presence | `sch_diff.ts` + `project_sync_transport.ts` moved to eeschema/, `collection_diff.ts` to common/; hooks + panel are app members |
+| CvPcb window, pcbnew netlist + cross-probe helpers | app members (cvpcb imports eeschema: a direct import back is a package cycle). The cross-probe decision/flash belongs in common/; `pcbnew/cross-probing.ts` was busy |
+| canvas | contract moved to `sch_draw_panel.ts`; component is `app.SchematicCanvas` |
+| symbol chooser, library browser, rescue, change symbols | contracts moved (`picksymbol.ts`, `project_rescue.ts`, `tools/change_symbols.ts`); components are app members |
+| annotate / print / plot dialogs | moved to `dialogs/dialog_annotate.tsx`, `printing/dialog_print.tsx`, `dialogs/dialog_plot_schematic.tsx`, taking `settings` as a prop |
+| pure helpers | moved: `hover_selection`, `net_overrides`, `panes`, `toggles`, `frame_title`; TEMPLATES appended to `common/template_fieldnames.ts`; the field/symbol-properties/find/page-settings dialogs and the properties panel to `dialogs/`, `widgets/` |
+
+Every hook dependency list that reads an app member lists it
+(`qa/probes/add_hook_dep.mjs`); useExhaustiveDependencies stayed at 103
+warnings throughout. Root match after step 2: 66/83 (probe `SAME` 134;
+both include other sessions' concurrent ports).
+
+**Step 3 — frame files out of `sch_edit_frame_ui.tsx`.** Checked against
+each `.cpp`'s own method list. What moved is code that is the C++ file's
+and reads none of the component's state:
+
+| KiCad file | ours | what |
+|---|---|---|
+| `sch_draw_panel.{h,cpp}` | `sch_draw_panel.ts` | the canvas contract (props, controller, pending placements) — step 2 |
+| `picksymbol.cpp` | `picksymbol.ts` | `PICKED_SYMBOL` and `DIALOG_SYMBOL_CHOOSER`'s props/result — step 2 |
+| `sheet.cpp` | `sheet.ts` | `InitSheet`'s new screen |
+| `eeschema_config.cpp` | `eeschema_config.ts` | `LoadProjectSettings`' render-settings seed |
+
+Not moved, and why: `sch_base_frame.cpp` (`GetLibSymbol`/`SchGetLibSymbol`,
+`SyncView`, `UpdateItem`, `HighlightSelectionFilter`, `RefreshZoomDependentItems`)
+has no counterpart function in the frame — its behaviour is spread through
+React state and effects (and `UpdateItem` already lives on
+`sch_edit_frame.ts`/`sch_commit.ts`). `sch_view.cpp` and
+`sch_preview_panel.cpp` are the GAL view and the preview canvas; ours are
+designer's `SchematicCanvas.tsx` and `widgets/symbol_preview_widget.tsx`,
+reached through `EESCHEMA_APP`, not code inside the frame. `picksymbol.cpp`'s
+`SelectUnit` / `SelectBodyStyle` / `SetAltPinFunction` and the rest of
+`sheet.cpp` (`LoadSheetFromFile`, `CheckSheetForRecursion`,
+`EditSheetProperties`) are closures over the component's state; pulling them
+out is a refactor, not a move. `sheet_and_config.test.ts` pins the two moved
+functions (neither was pinned before). Root match after step 3: see the
+regenerated struct_diff.
+
+**Step 4 — the Symbol Editor window.** Same method as step 2:
+
+| was | now |
+|---|---|
+| `prefs/settings.ts`'s `SymbolEditorSettings` + defaults | `symbol_editor/symbol_editor_settings.ts`, with `setSymbolEditorSettingsProvider` / `currentSymbolEditorSettings` (the live file, for the grid and item defaults) |
+| `gridSizeToIU` (schematic IU) | `eeschema_settings.ts` (common's two-argument one is the board editors') |
+| `editors/symbol/{grid,defaults,edits,conditions,toggles}.ts` | `symbol_editor/` (own names) |
+| `editors/symbol/menubar.ts` | `symbol_editor/menubar_symbol_editor.ts` |
+| `editors/symbol/components/dialogs.tsx` | `symbol_editor/symbol_editor_dialogs.tsx` |
+| `ui/selection_filter_panel.ts` + `ui/SelectionFilterPanel.tsx` | `widgets/panel_sch_selection_filter.ts` + `_ui.tsx` |
+| `editors/symbol/libraryManager.ts` | `symbol_library_manager.ts` (symbols base is a constructor argument) |
+| `SymbolCanvas`'s contract | `sch_draw_panel.ts` |
+| `editors/symbol/SymbolEditor.tsx` | `symbol_editor/symbol_edit_frame_ui.tsx`, taking `SYMBOL_EDIT_FRAME_APP` (`symbol_editor/symbol_edit_frame_app.ts`); designer's `symbol_edit_frame_app.tsx` builds it (`SymbolEditorMount`) |
+
+Still in designer/, each needing its own app seam: `SymbolLibraryBrowser.tsx`
+(SYMBOL_VIEWER_FRAME + `toolbars_symbol_viewer`), `dialogs/symbol_chooser_frame.tsx`
+and `widgets/panel_symbol_chooser.tsx` (SYMBOL_CHOOSER_FRAME /
+PANEL_SYMBOL_CHOOSER, with SYMBOL_TREE_MODEL_ADAPTER fused inside), and
+`symbols/index.ts` (the hosted library loader). Root match after step 4:
+69/84 (the 10.0.6 tree has 84 root `.cpp`s).
+
+## Own-named root files: the fold pass (2026-09-29)
+
+Re-audit of the "fold audit" table above (2026-09-28), now that several of the
+files it declined for lack of a target have one. A KiCad root count here
+includes `.h`-only classes (`bus_alias.h` etc.), so it reads 95, not the
+step-4 count's 84 `.cpp`-only.
+
+**Folded** (content moved bodily into the cited file, old file deleted,
+importers repointed with `qa/probes/relocate_imports.mjs`, one commit each):
+
+| ours | folded into | why now, not before |
+|---|---|---|
+| `lib_symbol_compare.ts` | `lib_symbol.ts` | Same target the audit already named; the "30+ importers, risk" objection was about doing it *concurrently* with other agents' edits, not about the merge itself — done with the private-index split-commit technique so it never touched a file mid-edit. |
+| `symbol_search_terms.ts` | `lib_symbol.ts` | Same target, only 3 importers (not the 30+ of the file above) — the audit's own "considered and declined" note said the split was deliberate but never weighed the risk at this file's actual size. |
+| `render_color.ts`, `symbol_markers.ts`, `pin_alt_icon.ts` | `sch_painter.ts` | The audit's reason for keeping them apart — "no `eeschema/sch_painter.ts` exists to fold into" — is no longer true; stage E2 pt 3 step 1 ported it. All three were already `sch_painter.ts`'s own imports. |
+| `pdf_annotations.ts` | `sch_plotter.ts` | Same shape: the audit's blocker ("no `sch_plotter.ts` exists either") is gone since the same stage. |
+| `panes.ts` | `sch_edit_frame.ts` | Not in the original audit table (it was in the "kept in designer/" list). Cites two files (`eeschema_settings.cpp`'s pane infos, `sch_edit_frame.cpp`'s `AddPane`/`updateSelectionFilterVisbility`) as one dock model — `schLeftDockLayout` reads both tables together, so a split by data source would break the one thing the module states. Folded whole into the frame that owns the AUI manager, with the two-file citation spelled out in the doc comment instead of enforced as a directory split. |
+| `frame_title.ts` | `sch_edit_frame.ts` | The audit called this "closest to moving" and declined only because splitting a class file further was thought too risky mid-task; it is a single whole method (`updateTitle`), no data-source split needed. |
+
+**Moved to `eeschema/browser/`** (no KiCad counterpart at all — same reasoning
+`eeschema_app.ts` and `sch_diff`/`repair_source` already carried, now grouped
+the way `pcbnew/browser/` groups pcbnew's own browser-only root files):
+`project_sync_transport.ts`, `sch_diff.ts`, `repair_source.ts`.
+`eeschema_app.ts` stays at the root — the frames helper's file, in active use
+throughout this stage.
+
+**Still declined, re-checked, no change:**
+
+| ours | why it stays |
+|---|---|
+| `project_settings.ts` | Still no single fold target — `readSchematicSetupText`/`writeSchematicSetupText` are ONE JSON round-trip pass apiece that reads/writes `schematic.*`, `erc.*`, `net_settings.*` and `text_variables` together *in the same function*, merging each back without clobbering keys it doesn't own. Splitting it by upstream file means splitting those two functions' control flow, not just moving text — a real restructure, not a move, and one that reaches into `erc/erc_settings.ts` (the connectivity agent's file) for a two-file split when the actual citation is four files. Declined for this stage on risk, same call the 2026-09-28 audit made, still correct under 10.0.6. |
+| `project_sym_lib_table.ts` | The audit's own finding holds: `eeschema/symbol_lib_table.cpp` does not exist anywhere in the 10.0.6 tree either (checked fresh, `find`-wide). `SYMBOL_LIBRARY_ADAPTER` (`eeschema/libraries/symbol_library_adapter.{h,cpp}`) is architecturally different — an async, sub-library-aware `LIBRARY_MANAGER_ADAPTER`, not a `sym-lib-table` sexpr parser — so renaming to match it would misrepresent the port, not fix the citation. |
+| `fieldbox.ts` | Genuinely multi-file (`common/eda_text.cpp`, `common/gr_text.cpp`, `common/font/font.cpp`, `common/font/stroke_font.cpp`, `eeschema/sch_field.cpp`, `sch_painter.cpp` all cited in its own doc comment) and has 18 importers across `dialogs/`, `tools/`, root and four `qa/` oracle tests — the same shape as `symbol_search_terms.ts` before its fold, except no single target file exists for it the way `lib_symbol.ts` did. |
+| `net_overrides.ts` | Cites `SCH_LINE`/`SCH_JUNCTION` methods, both of which exist as live classes now, but the module itself is a whole-netlist pass (`computeNetClassOverrides` walks every net once) over both item kinds at once, not a per-item method — the same "one coherent computation over two upstream files" shape `panes.ts` was, except here neither `sch_line.ts` nor `sch_junction.ts` is the natural single owner the way `sch_edit_frame.ts` was for the dock. Only 1 importer, so low risk if a later pass wants to split the per-item math out; left alone this stage. |
+| `hover_selection.ts` | Cites `SCH_SELECTION_TOOL::Main` (`sch_selection_tool.cpp`) — that file has no port in `eeschema/tools/` yet (checked: no match), so there is still nothing to fold into. |
+| `toggles.ts`, `global_sym_lib_table.ts`, `lib_tree_item.ts`, `project.ts` | Unchanged from the audit: no upstream file (`toggles.ts`, session-state UI bucket like the symbol/gerbview editors' own), a data file with no `.cpp` (`global_sym_lib_table.ts`), already at its one true match (`lib_tree_item.ts` — `include/lib_tree_item.h`, which is not under `eeschema/` upstream either, so it was never really an "extra" file), or unrelated code sharing a word (`project.ts` vs `common/project.cpp`). |
+| `types.ts` | The old record-model engine. Still not dissolved — E3's live `SCH_*` classes exist alongside it (stage E3b), but nothing has switched callers over yet; forcing a merge here would be inventing a caller-switch this stage never attempted, not a move. |
+
+Root EXTRA count (this file's own `.ts`/`.tsx` root files with no KiCad root
+`.cpp`/`.h` match): 23 → 12. `docs/eeschema-structure-diff.md` regenerated;
+`SAME` 138 → 141 (the small residual delta between "23 fewer EXTRA" and "3
+higher SAME" is other agents' concurrent commits on this branch during the
+same window, not this pass's own miscount).

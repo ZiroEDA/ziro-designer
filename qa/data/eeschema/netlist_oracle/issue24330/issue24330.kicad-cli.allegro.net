@@ -1,0 +1,17 @@
+(NETLIST)
+(Source: /home/akshay/ziro-designer-1/qa/data/eeschema/netlist_oracle/issue24330/issue24330.kicad_sch)
+(Date: 2026-09-29T06:56:08)
+$PACKAGES
+! 'bga_test' ! 'BGA_TEST' ; U1,
+	U2
+$A_PROPERTIES
+'ROOM' 'issue24330' ; U1,
+	U2
+$NETS
+/NET_BOT; U1.AAB12,
+	U2.AAB12
+/NET_MID; U1.AAB11,
+	U2.AAB11
+/NET_TOP; U1.AAB10,
+	U2.AAB10
+$END

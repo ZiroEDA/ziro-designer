@@ -44,8 +44,8 @@ import {
   persistSymbolToggle,
   SYMBOL_SETTING_TOGGLES,
   symbolTogglesFromSettings,
-} from '@ziroeda/designer/src/editors/symbol/toggles.js';
-import { SYMBOL_EDITOR_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
+} from '@ziroeda/eeschema/symbol_editor/toggles.js';
+import { SYMBOL_EDITOR_DEFAULTS } from '@ziroeda/eeschema/symbol_editor/symbol_editor_settings.js';
 
 const sorted = (s: Iterable<string>): string[] => [...s].sort();
 
@@ -242,7 +242,7 @@ const src = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(`../../../designer/src/${rel}`, import.meta.url)), 'utf8');
 
 describe.each([
-  ['editors/schematic/SchematicEditor.tsx', '@ziroeda/eeschema/toggles.js'],
+  ['../../eeschema/sch_edit_frame_ui.tsx', './toggles.js'],
   // footprint_editor_toggles.ts merged into footprint_edit_frame.ts (Stage A
   // of the pcbnew/ file-structure move): FOOTPRINT_EDIT_FRAME's toolbar
   // groups sit beside the rest of that class's ported state now, the same
@@ -342,7 +342,7 @@ describe('pcbnew/pcb_edit_frame_ui.tsx seeds its toolbar from the settings file'
  * for the same reason.
  */
 describe('editors/symbol/SymbolEditor.tsx seeds its toolbar from the settings file', () => {
-  const SYM = 'editors/symbol/SymbolEditor.tsx';
+  const SYM = '../../eeschema/symbol_editor/symbol_edit_frame_ui.tsx';
 
   it('seeds from symbolTogglesFromSettings, not from a constant set', () => {
     const s = src(SYM);
@@ -416,7 +416,7 @@ describe('editors/symbol/SymbolEditor.tsx seeds its toolbar from the settings fi
     // Membership above is only half the rule: an id that folds but has no
     // control at all is a setting the user cannot reach. This is the other
     // half, and it is why `togglePinAltIcons` is allowed to have no button.
-    const menubar = src('editors/symbol/menubar.ts');
+    const menubar = src('../../eeschema/symbol_editor/menubar_symbol_editor.ts');
     expect(menubar).toContain("chk('Show Pin Alternate Icons', 'togglePinAltIcons')");
   });
 

@@ -23,7 +23,7 @@ import { PanelPcbZoneHatchOffsets } from '@ziroeda/pcbnew/dialogs/panels/panel_p
 import {
   ZONE_LAYER_GRID_COLUMNS,
   ZoneLayerPropertiesGrid,
-} from '@ziroeda/pcbnew/widgets/zone_layer_properties_grid.js';
+} from '@ziroeda/pcbnew/zone_layer_properties_grid.js';
 import {
   copperStackNames,
   defaultBoardSetup,

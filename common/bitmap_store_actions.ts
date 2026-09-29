@@ -32,6 +32,9 @@ export const BITMAP: Record<string, string> = {
   // showing both states — so Unlock wore the toggle's icon.
   unlock: 'unlocked',
   footprintBrowser: 'library_browser',
+  // `ACTIONS::showFootprintBrowser`, the same `.Icon( BITMAPS::library_browser )`
+  // under the action's own name, which the footprint editor's View menu uses.
+  showFootprintBrowser: 'library_browser',
   togglePolarCoords: 'polar_coord',
   crosshair45: 'cursor_fullscreen45',
   showRatsnest: 'general_ratsnest',
@@ -223,6 +226,11 @@ export const BITMAP: Record<string, string> = {
   // symbol library browser (toolbars_symbol_viewer.cpp)
   previousSymbol: 'lib_previous',
   nextSymbol: 'lib_next',
+  // footprint library browser (toolbars_footprint_viewer.cpp):
+  // `PCB_ACTIONS::previousFootprint` / `nextFootprint` declare
+  // `.Icon( BITMAPS::lib_previous )` / `lib_next` (pcb_actions.cpp:975-987).
+  previousFootprint: 'lib_previous',
+  nextFootprint: 'lib_next',
   showPinNumbers: 'pin',
   // `SCH_ACTIONS::showHiddenPins` declares `.Icon( BITMAPS::hidden_pin )`
   // (`sch_actions.cpp:352`). The file was already vendored and simply unmapped,
@@ -255,8 +263,12 @@ export const BITMAP: Record<string, string> = {
   defaultPadProperties: 'pad_sketch',
   checkFootprint: 'erc',
   placePad: 'pad_sketch',
-  loadFpFromBoard: 'import',
-  saveFpToBoard: 'export_file',
+  // `PCB_ACTIONS::loadFpFromBoard` / `saveFpToBoard` declare
+  // `.Icon( BITMAPS::load_module_board )` / `insert_module_board`
+  // (pcb_actions.cpp:961-973); both files are vendored, so the stand-ins
+  // (`import`, `export_file`) are retired.
+  loadFpFromBoard: 'load_module_board',
+  saveFpToBoard: 'insert_module_board',
   setAnchor: 'anchor',
   // `PCB_ACTIONS::graphicsOutlines` — `.Icon( BITMAPS::show_mod_edge )`
   // (pcb_actions.cpp:1749-1755). It said `pad_sketch`, which is

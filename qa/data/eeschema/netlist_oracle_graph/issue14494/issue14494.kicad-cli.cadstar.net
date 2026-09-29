@@ -1,0 +1,24 @@
+.HEA
+.TIM 2026-09-29T06:57:04
+.APP "Eeschema 10.0.6-10.0.6~ubuntu24.04.1"
+.TYP FULL
+
+.ADD_COM     R2     "_R"     "0IBF_RCL:R_1206_3216Metric"
+.ADD_COM     R4     "_R"     "0IBF_RCL:R_1206_3216Metric"
+.ADD_COM     R3     "_R"     "0IBF_RCL:R_1206_3216Metric"
+.ADD_COM     R1     "_R"     "Resistor_SMD:R_0201_0603Metric"
+
+
+.ADD_TER   R1   2     "/X"
+.TER       R2   2
+
+.ADD_TER   R1   1     "/Y"
+.TER       R2   1
+
+.ADD_TER   R3   1     "/subsheet_01/C"
+.TER       R4   1
+
+.ADD_TER   R3   2     "/subsheet_01/D"
+.TER       R4   2
+
+.END

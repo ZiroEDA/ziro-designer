@@ -37,6 +37,7 @@ function makeFrame() {
     setHighlightNets: () => {},
     syncSelection: () => {},
     editZoneParams: () => {},
+    selectCopperLayerPair: () => {},
     updatePcbFromSchematic: () => {},
   });
   // `createPcbDrawPanel`'s screen, whose m_Active_Layer the frame reads.

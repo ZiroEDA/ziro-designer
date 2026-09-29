@@ -6,7 +6,7 @@
  * `Pgm()`'s `eeschema.json` / `common.json` slices and the colour theme,
  * and, as the frame's other designer-only reaches are threaded through, the
  * dialogs, libraries and services it asks the app for. The same shape
- * `pcbnew/pcbnew_app.ts`'s `PCBNEW_APP` and `cvpcb/cvpcb_mainframe_ui.tsx`'s
+ * `pcbnew/browser/pcbnew_app.ts`'s `PCBNEW_APP` and `cvpcb/cvpcb_mainframe_ui.tsx`'s
  * `CVPCB_APP` give their windows. `eeschema` never imports `designer`; the
  * designer-side `useEeschemaApp()` hook
  * (`designer/src/editors/schematic/eeschema_app.tsx`) is the one file that
@@ -19,7 +19,6 @@ import type { PrefsPageId } from '@ziroeda/common/frame_type.js';
 import type { ChooserFilter, OpenedFile } from '@ziroeda/common/wx/filedlg.js';
 import type { ToolEntry } from '@ziroeda/common/tool/action_toolbar_types.js';
 import type { ToolbarDefaults, ToolbarLoc } from '@ziroeda/common/tool/ui/toolbar_configuration.js';
-import type { SelectionFilterOptions } from './tools/sch_selection_filter.js';
 import type { KeyLike } from '@ziroeda/common/hotkeys_basic_keys.js';
 import type { Menu } from '@ziroeda/common/tool/action_menu_types.js';
 import type { LibSymbol, Schematic } from './types.js';
@@ -28,7 +27,14 @@ import type { KIWAY } from '@ziroeda/common/kiway.js';
 import type { ProjectFile } from '@ziroeda/common/project_paths.js';
 import type { RawFile } from '@ziroeda/common';
 import type { CanvasController, SchematicCanvasProps } from './sch_draw_panel.js';
-import type { PeerRole, PresenceInfo, ProjectSyncTransport } from './project_sync_transport.js';
+import type { DialogSymbolChooserProps } from './picksymbol.js';
+import type { DialogRescueEachProps } from './project_rescue.js';
+import type { DialogChangeSymbolsProps } from './tools/change_symbols.js';
+import type {
+  PeerRole,
+  PresenceInfo,
+  ProjectSyncTransport,
+} from './browser/project_sync_transport.js';
 import type { EeschemaSettings } from './eeschema_settings.js';
 import type { Theme } from './sch_render_settings.js';
 
@@ -87,19 +93,23 @@ export interface EESCHEMA_APP {
   SchematicCanvas: ForwardRefExoticComponent<
     SchematicCanvasProps & RefAttributes<CanvasController>
   >;
+  /** `DIALOG_SYMBOL_CHOOSER`, `PickSymbolFromLibrary`'s dialog (`picksymbol.ts`). */
+  DialogSymbolChooser: (props: DialogSymbolChooserProps) => ReactNode;
+  /** `SYMBOL_VIEWER_FRAME`, the Symbol Library Browser. */
+  SymbolLibraryBrowser: (props: {
+    onPick: (lib: LibSymbol) => void;
+    onClose: () => void;
+  }) => ReactNode;
+  /** `DIALOG_RESCUE_EACH` (`project_rescue.ts` holds its contract). */
+  DialogRescueEach: (props: DialogRescueEachProps) => ReactNode;
+  /** `DIALOG_CHANGE_SYMBOLS` (`tools/change_symbols.ts` holds its contract). */
+  DialogChangeSymbols: (props: DialogChangeSymbolsProps) => ReactNode;
   /** `EDA_BASE_FRAME::ShowPreferences()`, opened on a page. */
   PreferencesDialog: (props: { initialPage?: PrefsPageId; onClose: () => void }) => ReactNode;
   /** The home link in the menu bar's left slot. */
   HomeLink: (props: { onClick?: () => void }) => ReactNode;
   OpenFileDialog: (props: EeschemaOpenFileDialogProps) => ReactNode;
   SaveAsDialog: (props: EeschemaSaveAsDialogProps) => ReactNode;
-  /** `PANEL_SCH_SELECTION_FILTER` (shared with the symbol editor). */
-  SelectionFilterPanel: (props: {
-    frame: 'FRAME_SCH' | 'FRAME_SCH_SYMBOL_EDITOR';
-    filter: SelectionFilterOptions;
-    onChange: (next: SelectionFilterOptions) => void;
-    onClose?: () => void;
-  }) => ReactNode;
   /** Preferences > Manage Symbol Libraries (`PANEL_SYM_LIB_TABLE`). */
   DialogSymLibTable: (props: {
     projectFiles: readonly { name: string; text: string }[];
@@ -136,8 +146,6 @@ export interface EESCHEMA_APP {
   useSchematicTheme(): Theme;
   /** Whether a colour theme overrides item colours (a user theme's own flag). */
   overrideItemColorsFor(themeId: string): boolean;
-  /** A grid size as the preferences store it ("50 mil", "1.27 mm") in schematic IU. */
-  gridSizeToIU(size: string): number;
 
   // ----- symbol libraries -------------------------------------------------
   /** The hosted symbol library index (names and their symbols). */

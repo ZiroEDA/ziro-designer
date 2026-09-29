@@ -11,7 +11,7 @@ import { join } from 'node:path';
 import { CONFIRMATION_CAPTION, revertPromptMessage } from '@ziroeda/eeschema/files-io.js';
 
 const SRC = join(__dirname, '../../../designer/src');
-const SCH = readFileSync(join(SRC, 'editors/schematic/SchematicEditor.tsx'), 'utf8');
+const SCH = readFileSync(join(SRC, '../../eeschema/sch_edit_frame_ui.tsx'), 'utf8');
 const APP = readFileSync(join(SRC, 'App.tsx'), 'utf8');
 const MENUBAR = readFileSync(join(SRC, '../../eeschema/menubar.ts'), 'utf8');
 

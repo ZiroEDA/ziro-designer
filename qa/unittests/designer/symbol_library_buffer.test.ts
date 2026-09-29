@@ -17,7 +17,7 @@
  * still in the library and under which name — rather than on which branch ran.
  */
 import { describe, expect, it } from 'vitest';
-import { SymbolLibraryManager } from '@ziroeda/designer/src/editors/symbol/libraryManager.js';
+import { SymbolLibraryManager } from '@ziroeda/eeschema/symbol_library_manager.js';
 import { deleteSymbolPrompts } from '@ziroeda/eeschema/symbol_editor/symbol_editor.js';
 
 /**
@@ -45,7 +45,8 @@ const LIB = `(kicad_symbol_lib (version 20231120) (generator "test")
 )`;
 
 const managerWithLib = (): SymbolLibraryManager => {
-  const m = new SymbolLibraryManager();
+  // The hosted base is only read by a lazy global load, which no test here makes.
+  const m = new SymbolLibraryManager(() => '');
   m.addProjectLibrary('Device', 'Device.kicad_sym', LIB);
   return m;
 };

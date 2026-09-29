@@ -34,7 +34,7 @@ function at(source: string, needle: string, from = 0): number {
 }
 
 describe('the schematic fires it from the two loaders, not from a tool', () => {
-  const src = read('editors/schematic/SchematicEditor.tsx');
+  const src = read('../../eeschema/sch_edit_frame_ui.tsx');
 
   it('once inside loadText and once inside loadProject, and nowhere else', () => {
     const calls = [...src.matchAll(/preloadSchematicLibraries\(/g)].map((m) => m.index ?? -1);

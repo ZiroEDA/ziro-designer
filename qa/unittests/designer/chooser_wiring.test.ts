@@ -44,7 +44,11 @@ describe('the document editors use the chooser, not the OS picker', () => {
   const wired: [string, string, string | null][] = [
     // file,                                        kind it asks for,  and why
     ['editors/drawingsheet/DrawingSheetEditor.tsx', 'templates', 'GetUserTemplatesPath'],
-    ['editors/symbol/SymbolEditor.tsx', 'symbols', 'GetDefaultUserSymbolsPath'],
+    [
+      '../../eeschema/symbol_editor/symbol_edit_frame_ui.tsx',
+      'symbols',
+      'GetDefaultUserSymbolsPath',
+    ],
     [
       'editors/footprint/footprint_edit_frame_app.tsx',
       'footprints',
@@ -96,7 +100,7 @@ describe('the document editors use the chooser, not the OS picker', () => {
     // back yet — see the block below. What must not survive is a hidden input
     // that takes a `.kicad_*` file, because that is the account's own document
     // being asked for from the local disk.
-    for (const [file] of [...wired, ['editors/schematic/SchematicEditor.tsx']] as [string][]) {
+    for (const [file] of [...wired, ['../../eeschema/sch_edit_frame_ui.tsx']] as [string][]) {
       const body = code(src(file));
       for (const m of body.matchAll(/<input[\s\S]{0,240}?type="file"[\s\S]{0,240}?\/>/g)) {
         expect(m[0], `${file} picks a KiCad document off the local disk`).not.toMatch(
@@ -300,7 +304,7 @@ describe('a Save As opens where upstream opens it, which is not one answer', () 
    * Upstream appends nothing to that name. There is no "_copy": the word is in
    * the command's FriendlyName (sch_actions.cpp:1623) and nowhere else.
    */
-  const SCH = src('editors/schematic/SchematicEditor.tsx');
+  const SCH = src('../../eeschema/sch_edit_frame_ui.tsx');
   const PL = src('editors/drawingsheet/DrawingSheetEditor.tsx');
 
   it('opens the sheet copy in the folder that sheet already lives in', () => {

@@ -70,9 +70,9 @@ const read = (rel: string): string =>
 
 const SRC = '../../../designer/src/';
 const DS = read(`${SRC}../../pagelayout_editor/pl_editor_frame_ui.tsx`);
-const SCH = read(`${SRC}editors/schematic/SchematicEditor.tsx`);
+const SCH = read(`${SRC}../../eeschema/sch_edit_frame_ui.tsx`);
 const PCB = read(`${SRC}../../pcbnew/pcb_edit_frame_ui.tsx`);
-const SYM = read(`${SRC}editors/symbol/SymbolEditor.tsx`);
+const SYM = read(`${SRC}../../eeschema/symbol_editor/symbol_edit_frame_ui.tsx`);
 const FP = read(`${SRC}../../pcbnew/footprint_edit_frame_ui.tsx`);
 const FP_TREE_PANE = read(`${SRC}../../pcbnew/footprint_tree_pane.tsx`);
 const SHELL = read(`${SRC}../../common/widgets/shell.css`);

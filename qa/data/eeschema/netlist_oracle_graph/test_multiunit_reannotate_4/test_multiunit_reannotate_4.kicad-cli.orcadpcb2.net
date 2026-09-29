@@ -1,0 +1,23 @@
+( { EESchema Netlist Version 1.1 created  2026-09-29T06:58:23 }
+ ( /02fad080-98cd-46ab-9ee4-13a74595ac68 $noname  U2 LM2903
+  (    1 unconnected-(U2-Pad1) )
+  (    2 unconnected-(U2A---Pad2) )
+  (    3 unconnected-(U2A-+-Pad3) )
+ )
+ ( /4beb5b03-60d3-49da-ad35-51f275a031d5 $noname  U1 LM2903
+  (    1 unconnected-(U1-Pad1) )
+  (    2 unconnected-(U1A---Pad2) )
+  (    3 unconnected-(U1A-+-Pad3) )
+  (    4 unconnected-(U1C-V--Pad4) )
+  (    5 unconnected-(U1B-+-Pad5) )
+  (    6 unconnected-(U1B-_-Pad6) )
+  (    7 unconnected-(U1-Pad7) )
+  (    8 unconnected-(U1C-V+-Pad8) )
+ )
+ ( /549455c3-ab6e-454e-94b0-5ca9e521ae0b $noname  U? LM2903
+  (    5 /<NO_NET> )
+  (    6 /<NO_NET> )
+  (    7 /<NO_NET> )
+ )
+)
+*

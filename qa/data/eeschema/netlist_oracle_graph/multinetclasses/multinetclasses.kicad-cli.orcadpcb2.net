@@ -1,0 +1,51 @@
+( { EESchema Netlist Version 1.1 created  2026-09-29T06:58:03 }
+ ( /013297c8-cfd7-409f-b81d-c1d8f671a82f $noname  R7 R
+  (    1 unconnected-(R7-Pad1) )
+  (    2 /NET_2 )
+ )
+ ( /16ce1cd1-068c-44c7-bad3-3830596ae37d $noname  R12 R
+  (    1 /NET_4 )
+  (    2 unconnected-(R12-Pad2) )
+ )
+ ( /17b6ce67-6699-41d5-a096-6714796adaa3 $noname  R10 R
+  (    1 /NET_3 )
+  (    2 unconnected-(R10-Pad2) )
+ )
+ ( /1bad0c73-7972-4d84-814d-f9d67f2ba084 $noname  R4 R
+  (    1 /NET_1 )
+  (    2 unconnected-(R4-Pad2) )
+ )
+ ( /2b597e45-5af9-4ec4-9ed0-8151143d9e97 $noname  R3 R
+  (    1 unconnected-(R3-Pad1) )
+  (    2 /NET_1 )
+ )
+ ( /692791d4-470e-4233-9e70-bfe645704f32 $noname  R2 R
+  (    1 /BUS.A0 )
+  (    2 unconnected-(R2-Pad2) )
+ )
+ ( /84ebbe6f-4f16-4b6e-882a-6dc4a67152da $noname  R1 R
+  (    1 /BUS.SIGNAL )
+  (    2 unconnected-(R1-Pad2) )
+ )
+ ( /8598689f-ce4f-414f-a720-b8fa4ecb6b41 $noname  R9 R
+  (    1 unconnected-(R9-Pad1) )
+  (    2 /NET_3 )
+ )
+ ( /e238dcde-8495-47bf-bfca-aceb29a93079 $noname  R11 R
+  (    1 unconnected-(R11-Pad1) )
+  (    2 /NET_4 )
+ )
+ ( /e49cddf9-077d-4aa7-bdff-e73daae9738c $noname  R5 R
+  (    1 /BUS.A1 )
+  (    2 unconnected-(R5-Pad2) )
+ )
+ ( /f90a3215-ad26-41e7-bf2f-ac1d56dee10c $noname  R8 R
+  (    1 /NET_2 )
+  (    2 unconnected-(R8-Pad2) )
+ )
+ ( /fdcc8b6a-a00d-4f52-864b-51f063eb922e $noname  R6 R
+  (    1 /BUS.A2 )
+  (    2 unconnected-(R6-Pad2) )
+ )
+)
+*

@@ -37,11 +37,8 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
-import {
-  GERBVIEW_DEFAULTS,
-  PL_EDITOR_DEFAULTS,
-  SYMBOL_EDITOR_DEFAULTS,
-} from '@ziroeda/designer/src/prefs/settings.js';
+import { GERBVIEW_DEFAULTS, PL_EDITOR_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
+import { SYMBOL_EDITOR_DEFAULTS } from '@ziroeda/eeschema/symbol_editor/symbol_editor_settings.js';
 import { EESCHEMA_DEFAULTS } from '@ziroeda/eeschema/eeschema_settings.js';
 import {
   isImperialUnits,
@@ -53,7 +50,7 @@ import {
 import {
   persistSymbolToggle,
   symbolTogglesFromSettings,
-} from '@ziroeda/designer/src/editors/symbol/toggles.js';
+} from '@ziroeda/eeschema/symbol_editor/toggles.js';
 
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
 const read = (rel: string): string => readFileSync(join(SRC, rel), 'utf8');
@@ -198,7 +195,7 @@ describe('one copy of the unit actions', () => {
     // unittests/gerbview/gerbview_frame.test.ts.
     // pl_editor's are COMMON_TOOLS' on PL_EDITOR_FRAME now, pinned in
     // unittests/pagelayout_editor/pl_editor_chrome.test.ts.
-    for (const rel of ['editors/symbol/toggles.ts']) {
+    for (const rel of ['../../eeschema/symbol_editor/toggles.ts']) {
       const src = read(rel);
       expect(src, `${rel} declares its own isImperial`).not.toMatch(/function isImperial\b/);
       expect(src, `${rel} does not use the shared module`).toContain(

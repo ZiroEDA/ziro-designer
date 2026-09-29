@@ -1,0 +1,22 @@
+.HEA
+.TIM 2026-09-29T06:57:14
+.APP "Eeschema 10.0.6-10.0.6~ubuntu24.04.1"
+.TYP FULL
+
+.ADD_COM     TP102     "TST-01025"     "$noname"
+.ADD_COM     TP101     "TST-01025"     "$noname"
+.ADD_COM     TP302     "TST-01025"     "$noname"
+.ADD_COM     TP301     "TST-01025"     "$noname"
+.ADD_COM     TP402     "TST-01025"     "$noname"
+.ADD_COM     TP401     "TST-01025"     "$noname"
+
+
+.ADD_TER   TP101   1     "/m.X.Y.Z1"
+.TER       TP301   1
+            TP401   1
+
+.ADD_TER   TP102   1     "/m.X.Y.Z2"
+.TER       TP302   1
+            TP402   1
+
+.END

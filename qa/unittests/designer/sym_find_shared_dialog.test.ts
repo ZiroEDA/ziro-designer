@@ -69,7 +69,7 @@ import {
   symbolConditions,
   symbolToolbarDisabledIds,
   type SymbolFrameState,
-} from '@ziroeda/designer/src/editors/symbol/conditions.js';
+} from '@ziroeda/eeschema/symbol_editor/conditions.js';
 import { SYM_TOP_TOOLBAR } from '@ziroeda/eeschema/symbol_editor/toolbars_symbol_editor.js';
 import { TOP_TOOLBAR } from '@ziroeda/eeschema/toolbars_sch_editor.js';
 import {
@@ -81,7 +81,7 @@ import {
 import {
   symbolEditorMenus,
   type SymbolMenuHandlers,
-} from '@ziroeda/designer/src/editors/symbol/menubar.js';
+} from '@ziroeda/eeschema/symbol_editor/menubar_symbol_editor.js';
 import type { Menu, MenuItem } from '@ziroeda/common/tool/action_menu_types.js';
 
 /** A SYMBOL_EDIT_FRAME the moment it opens: no symbol, no library row, empty
@@ -328,8 +328,8 @@ describe('DIALOG_SCH_FIND is a SCH_BASE_FRAME facility', () => {
       .map(repoPath)
       .sort();
     expect(importers).toEqual([
-      '/designer/src/editors/schematic/SchematicEditor.tsx',
-      '/designer/src/editors/symbol/SymbolEditor.tsx',
+      '/eeschema/sch_edit_frame_ui.tsx',
+      '/eeschema/symbol_editor/symbol_edit_frame_ui.tsx',
     ]);
   });
 

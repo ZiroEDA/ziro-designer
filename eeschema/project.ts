@@ -303,7 +303,8 @@ export function repairPageNumbersOnLoad(
  */
 export function findRootFile(docs: ReadonlyMap<string, Schematic>, proName?: string): string {
   if (proName) {
-    const want = proName.replace(/\.kicad_pro$/i, '.kicad_sch');
+    // The project's base name, with or without its extension: `findProjectPro` takes it bare.
+    const want = `${proName.replace(/\.kicad_pro$/i, '')}.kicad_sch`;
     if (docs.has(want)) return want;
   }
   const referenced = new Set<string>();

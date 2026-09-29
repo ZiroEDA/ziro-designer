@@ -116,7 +116,7 @@ import { PCB_TEXT } from '../../pcb_text.js';
 import { PCB_TEXTBOX } from '../../pcb_textbox.js';
 import { PCB_ARC, PCB_TRACK, PCB_VIA, UNDEFINED_DRILL_DIAMETER, VIATYPE } from '../../pcb_track.js';
 import { TEARDROP_PARAMETERS } from '../../teardrop/teardrop_parameters.js';
-import { TEARDROP_TYPE } from '../../teardrop/teardrop_types.js';
+import { TEARDROP_TYPE } from '../../teardrop/teardrop_parameters.js';
 import { type BoardItemKind, boardItemId, parseBoardItemId } from '../../edit-board.js';
 import type {
   BarcodeEcc,

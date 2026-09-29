@@ -20,18 +20,28 @@ import { strToU8, zipSync } from 'fflate';
 import { RPT_SEVERITY_ACTION, RPT_SEVERITY_ERROR, type ReportLine } from '@ziroeda/common';
 import { HtmlReportPanel, RPT_SEVERITY_ALL } from '@ziroeda/common/widgets/wx_html_report_panel.js';
 import {
-  generateNetlist,
-  netlistFiles,
   generateSpiceNetlist,
+  serializeSchematic,
   type NetlistFormat,
   type Schematic,
   type LibSymbol,
 } from '../index.js';
+import type { RawFile } from '@ziroeda/common/drawing_sheet/project_sheet.js';
+import { loadProjectSchematic, symbolLibraryUri } from '../cross-probing.js';
+import { WriteNetListText } from '../netlist_exporters/netlist_generator.js';
+import { generateSpiceModelNetlist } from '../netlist_exporters/netlist_exporter_spice_model.js';
+import type { SCHEMATIC } from '../schematic.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 interface Props {
   doc: Schematic;
   libById: Map<string, LibSymbol>;
+  /**
+   * The project as files - every sheet, the `.kicad_pro`, the `sym-lib-table` - with the
+   * root schematic's name, so the export covers the whole hierarchy the way
+   * `WriteNetListFile` does. Without it the open sheet is exported on its own.
+   */
+  projectFiles?: () => { files: readonly RawFile[]; rootFile: string; rootPro?: string };
   /** Suggested output base name (sheet/project name, no extension). */
   baseName: string;
   /**
@@ -106,6 +116,7 @@ const TABS: { id: ExportTab; label: string; ext: string; note: string }[] = [
 export function DialogExportNetlist({
   doc,
   libById,
+  projectFiles,
   baseName,
   projectName = baseName,
   projectFolders = [],
@@ -131,6 +142,17 @@ export function DialogExportNetlist({
   const [spiceErrors, setSpiceErrors] = useState<string[]>([]);
   const active = TABS.find((t) => t.id === tab)!;
 
+  /**
+   * The SCHEMATIC the exporters walk: the project loaded the way kicad-cli loads it, or
+   * - with no project to read - the open sheet alone, saved and loaded back.
+   */
+  const liveSchematic = (): SCHEMATIC | null => {
+    const project = projectFiles?.();
+    if (project) return loadProjectSchematic(project.files, project.rootFile, project.rootPro);
+    const file = `${baseName}.kicad_sch`;
+    return loadProjectSchematic([{ name: file, text: serializeSchematic(doc) }], file);
+  };
+
   const doExport = (): void => {
     // Allegro is the one format that is not a single file: a netlist plus a
     // sibling devices/ directory of package definitions. With a project sink
@@ -139,9 +161,12 @@ export function DialogExportNetlist({
     // than as names with the slashes flattened out of them.
     if (tab === 'allegro') {
       const filename = `${baseName}.${active.ext}`;
-      const files = netlistFiles('allegro', filename, doc, libById, {
-        source: `${baseName}.kicad_sch`,
-      });
+      const schematic = liveSchematic();
+      if (!schematic) {
+        report('Received an error while reading the schematic.', RPT_SEVERITY_ERROR);
+        return;
+      }
+      const files = WriteNetListText('allegro', schematic, filename);
       if (onOutputFile) {
         for (const f of files) {
           const path = outputDir ? `${outputDir}/${f.path}` : f.path;
@@ -169,19 +194,25 @@ export function DialogExportNetlist({
     if (tab === 'spice' || tab === 'spicemodel') {
       // NET_TYPE_SPICE_MODEL carries none of the save options (:523-526):
       // only the exporter changes, to NETLIST_EXPORTER_SPICE_MODEL.
-      const out = generateSpiceNetlist(
-        doc,
-        libById,
-        null,
+      const out =
         tab === 'spice'
-          ? { saveAllVoltages, saveAllCurrents, saveAllDissipations }
-          : { subcktName: projectName },
-      );
+          ? generateSpiceNetlist(doc, libById, null, {
+              saveAllVoltages,
+              saveAllCurrents,
+              saveAllDissipations,
+            })
+          : generateSpiceModelNetlist(doc, libById, projectName, null);
       errors = out.errors;
       setSpiceErrors(errors);
       text = out.text;
     } else {
-      text = generateNetlist(tab, doc, libById, { source: `${baseName}.kicad_sch` });
+      const schematic = liveSchematic();
+      if (!schematic) {
+        report('Received an error while reading the schematic.', RPT_SEVERITY_ERROR);
+        return;
+      }
+      const libraryUri = symbolLibraryUri(projectFiles?.().files ?? []);
+      text = WriteNetListText(tab, schematic, baseName, libraryUri)[0]!.text;
     }
     const mime = tab === 'kicadxml' ? 'application/xml' : 'text/plain';
     const filename = active.ext === '' ? baseName : `${baseName}.${active.ext}`;

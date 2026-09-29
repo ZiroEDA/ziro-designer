@@ -1,0 +1,11 @@
+( { EESchema Netlist Version 1.1 created  2026-09-29T06:56:29 }
+ ( /8b055b93-d115-4991-b853-dd747f0957ab/d1e0bb44-07da-4574-92bf-3f9adc5e8751/34621417-dac8-4a11-b54c-b5b5c180b754 $noname  R2 R
+  (    1 /Subsheet1/SUB_OUTPUT )
+  (    2 GND )
+ )
+ ( /8b055b93-d115-4991-b853-dd747f0957ab/d1e0bb44-07da-4574-92bf-3f9adc5e8751/d21dccc4-3b84-4309-8a03-49ef532d46d9 $noname  R1 R
+  (    1 /INPUT )
+  (    2 GND )
+ )
+)
+*

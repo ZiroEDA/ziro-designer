@@ -149,7 +149,11 @@ export function buildPcbMenus(
           submenu: [
             { label: 'Netlist...', disabled: dis },
             { label: 'Specctra Session...', disabled: dis },
-            { label: 'Graphics...', disabled: dis },
+            // `PCB_ACTIONS::placeImportedGraphics`, run non-interactively:
+            // `DRAWING_TOOL::PlaceImportedGraphics` is the same handler the
+            // Place toolbar button arms; from the menu it opens straight into
+            // the dialog with no drawing tool to cancel out of first.
+            { label: 'Graphics...', action: () => h.action('importGraphics') },
             { label: 'Non-KiCad Board File...', disabled: dis },
           ],
         },
@@ -375,7 +379,14 @@ export function buildPcbMenus(
           ],
         },
         { sep: true },
-        { label: 'Footprint Library Browser', disabled: dis },
+        // `ACTIONS::showFootprintBrowser` (actions.cpp:1291-1297), which
+        // COMMON_CONTROL runs as `ShowPlayer( FRAME_FOOTPRINT_VIEWER )`. No
+        // hotkey; the icon is `library_browser`, the toolbar button's.
+        {
+          label: 'Footprint Library Browser',
+          icon: 'footprintBrowser',
+          action: () => h.action('footprintBrowser'),
+        },
         {
           label: '3D Viewer',
           icon: 'threeDViewer',
@@ -679,8 +690,8 @@ export function buildPcbMenus(
         {
           label: 'Auto-Place Footprints',
           submenu: [
-            { label: 'Place Off-Board Footprints', disabled: dis },
-            { label: 'Place Selected Footprints', disabled: dis },
+            { label: 'Place Off-Board Footprints', action: () => h.action('autoplaceOffboard') },
+            { label: 'Place Selected Footprints', action: () => h.action('autoplaceSelected') },
           ],
         },
       ],
@@ -690,7 +701,7 @@ export function buildPcbMenus(
       // `menubar_pcb_editor.cpp:352-368`. The labels are the FriendlyNames:
       // "Route Single Track", not "Single Track".
       items: [
-        { label: 'Set Layer Pair...', disabled: dis },
+        { label: 'Set Layer Pair...', action: () => h.action('selectLayerPair') },
         { sep: true },
         // Live in the toolbar and greyed here, which is the state this whole
         // pass exists to end.

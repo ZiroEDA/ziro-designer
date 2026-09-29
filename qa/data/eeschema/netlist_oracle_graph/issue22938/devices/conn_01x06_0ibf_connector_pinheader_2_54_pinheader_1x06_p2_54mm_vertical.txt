@@ -1,0 +1,19 @@
+PACKAGE 'pinheader_1x06_p2_54mm_vertical'
+CLASS IC
+PINCOUNT 6
+PINORDER MAIN ,
+	Pin_1__1,
+	Pin_2__2,
+	Pin_3__3,
+	Pin_4__4,
+	Pin_5__5,
+	Pin_6__6
+FUNCTION MAIN MAIN ,
+	1,
+	2,
+	3,
+	4,
+	5,
+	6
+PACKAGEPROP VALUE Conn_01x06
+END

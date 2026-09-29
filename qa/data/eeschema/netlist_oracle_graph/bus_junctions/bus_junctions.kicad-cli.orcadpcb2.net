@@ -1,0 +1,11 @@
+( { EESchema Netlist Version 1.1 created  2026-09-29T06:56:41 }
+ ( /1a4870a5-c247-437a-9d15-5fb81804ce85 $noname  R2 R
+  (    1 /D1 )
+  (    2 GND )
+ )
+ ( /4f87bd79-9cd8-49be-8f56-d3edf633bdbc $noname  R1 R
+  (    1 /D0 )
+  (    2 GND )
+ )
+)
+*

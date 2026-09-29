@@ -1,0 +1,11 @@
+PACKAGE 'cp_axial_l18_0mm_d8_0mm_p25_00mm_horizontal'
+CLASS IC
+PINCOUNT 2
+PINORDER MAIN ,
+	__1,
+	__2
+FUNCTION MAIN MAIN ,
+	1,
+	2
+PACKAGEPROP VALUE C
+END

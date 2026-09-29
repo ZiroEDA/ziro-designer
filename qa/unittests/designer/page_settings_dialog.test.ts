@@ -497,7 +497,7 @@ const EDITOR = (rel: string): string =>
 
 describe('the base class and its one subclass', () => {
   it('is eeschema alone that opens the subclass', () => {
-    const sch = EDITOR('editors/schematic/SchematicEditor.tsx');
+    const sch = EDITOR('../../eeschema/sch_edit_frame_ui.tsx');
     expect([...sch.matchAll(/<DialogEeschemaPageSettings\b/g)]).toHaveLength(1);
     // …and it does NOT reach past it to the base class.
     expect([...sch.matchAll(/<DialogPageSettings\b/g)]).toEqual([]);

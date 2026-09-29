@@ -16,7 +16,7 @@
  * The layer columns are `wxGridCellChoiceEditor`s over the copper stack's
  * names (`UpdateLayerNames`); the three numeric track columns carry a
  * `GRID_CELL_RUN_FUNCTION_EDITOR` whose button runs
- * `calculateTrackParametersForCell` — `tuning_profile_calc.ts` here — against
+ * `calculateTrackParametersForCell` — `panel_setup_tuning_profile_info.ts` here — against
  * the board's stackup. Diff Pair Gap is hidden while the type is Single.
  *
  * NO FONT SIZES AND NO COLOURS: the tab strip is `.ze-nb-tabs`, the grids are
@@ -54,10 +54,7 @@ import type {
   TuningProfileTrackEntry,
   TuningProfileViaOverride,
 } from '../board_settings.js';
-import {
-  CalculationType,
-  calculateTrackParameters,
-} from '../length_delay_calculation/tuning_profile_calc.js';
+import { CalculationType, calculateTrackParameters } from './panel_setup_tuning_profile_info.js';
 
 // The aggregate model lives in board_settings.ts (KiCad's data/UI split);
 // re-exported so panel users keep importing from the panel module.

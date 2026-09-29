@@ -28,7 +28,7 @@ import { boardFromBOARD } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/board_view.js
 import { PCB_IO_KICAD_SEXPR_PARSER } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_parser.js';
 import type { PCB_VIA } from '@ziroeda/pcbnew/pcb_track.js';
 import { TARGET_TD } from '@ziroeda/pcbnew/teardrop/teardrop_parameters.js';
-import { TEARDROP_TYPE } from '@ziroeda/pcbnew/teardrop/teardrop_types.js';
+import { TEARDROP_TYPE } from '@ziroeda/pcbnew/teardrop/teardrop_parameters.js';
 import { fillZones } from '@ziroeda/pcbnew/zone_filler.js';
 
 const MM = (n: number): number => pcbIUScale.mmToIU(n);

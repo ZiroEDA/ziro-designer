@@ -1,0 +1,19 @@
+( { EESchema Netlist Version 1.1 created  2026-09-29T06:55:44 }
+ ( /00fe1780-0118-47db-9c5a-2a5739784eed $noname  R4 R
+  (    1 /D1 )
+  (    2 Net-(R3-Pad2) )
+ )
+ ( /11215924-608f-4de9-be0c-99a34efe4e76 $noname  R2 R
+  (    1 /D1 )
+  (    2 Net-(R1-Pad2) )
+ )
+ ( /13cc3ed0-5d6e-432e-a920-2485183a707f $noname  R1 R
+  (    1 /D0 )
+  (    2 Net-(R1-Pad2) )
+ )
+ ( /9421d8ab-ec24-4783-b746-a12fbd00100e $noname  R3 R
+  (    1 /D0 )
+  (    2 Net-(R3-Pad2) )
+ )
+)
+*

@@ -1,0 +1,9 @@
+.HEA
+.TIM 2026-09-29T06:57:39
+.APP "Eeschema 10.0.6-10.0.6~ubuntu24.04.1"
+.TYP FULL
+
+.ADD_COM     SW1     "SW_SPST"     "Button_Switch_SMD:Panasonic_EVQPUJ_EVQPUA"
+
+
+.END

@@ -114,9 +114,10 @@ const UNBUILT: Readonly<Record<string, readonly string[]>> = {
   'pcb top': [],
   // `autoTrackWidth` came off this list when it was built: the toggle is
   // `BOARD_DESIGN_SETTINGS::m_UseConnectedTrackWidth` and the width rule behind
-  // it is `pcbnew/inherit_track_width.ts`. `selectLayerPair` still needs
-  // DIALOG_SET_LAYER_PAIR, so it stays.
-  'pcb aux': ['selectLayerPair'],
+  // it is `pcbnew/inherit_track_width.ts`. `selectLayerPair` came off with
+  // `SelectCopperLayerPairDialog` (`sel_layer.tsx`) and
+  // `PCB_EDIT_FRAME::SelectCopperLayerPair`.
+  'pcb aux': [],
   'pcb left': [],
   'pcb right': [
     // `selectSetLasso` came off this list with the lasso itself: the mode is

@@ -1,0 +1,14 @@
+( { EESchema Netlist Version 1.1 created  2026-09-29T06:58:00 }
+ ( /801334a8-b16d-4581-b41c-57060138b236 $noname  U1001 74AHC1G00
+  (    1 VCC )
+  (    2 +3.3V )
+  (    3 GND )
+  (    4 Net-(D1001-A) )
+  (    5 VCC )
+ )
+ ( /e3eceee5-b863-4693-8411-20a6d0dcce37 $noname  D1001 LED
+  (    1 GND )
+  (    2 Net-(D1001-A) )
+ )
+)
+*

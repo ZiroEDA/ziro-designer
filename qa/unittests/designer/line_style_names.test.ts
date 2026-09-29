@@ -77,7 +77,9 @@ const CALL_SITES: Record<string, string> = {
   // `pcbnew/properties_panel.ts` left this list with the view-row panel: the
   // live PCB_PROPERTIES_PANEL offers ENUM_MAP<LINE_STYLE>'s own choices, as
   // upstream's property grid does, and holds no copy of lineTypeNames.
-  'symbol/components/dialogs.tsx': read(`${D}symbol/components/dialogs.tsx`),
+  'symbol/components/dialogs.tsx': read(
+    '../../../eeschema/symbol_editor/symbol_editor_dialogs.tsx',
+  ),
 };
 
 describe('lineTypeNames (common/stroke_params.cpp:39)', () => {

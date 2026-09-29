@@ -2,14 +2,14 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * `PCBNEW_APP` (`@ziroeda/pcbnew/pcbnew_app.ts`): what the program gives
+ * `PCBNEW_APP` (`@ziroeda/pcbnew/browser/pcbnew_app.ts`): what the program gives
  * `PcbEditor.tsx`, the way `cvpcb/cvpcb_mainframe_ui.tsx`'s `CVPCB_APP` and
  * `pagelayout_editor/pl_editor_frame_ui.tsx`'s `PL_EDITOR_APP` reach theirs.
  * `pcbnew` never imports `designer`; this is the one file that wires its
  * interface back to what designer actually has.
  */
 import { type ComponentProps, useMemo } from 'react';
-import type { PCBNEW_APP } from '@ziroeda/pcbnew/pcbnew_app.js';
+import type { PCBNEW_APP } from '@ziroeda/pcbnew/browser/pcbnew_app.js';
 import { PcbEditor } from '@ziroeda/pcbnew/pcb_edit_frame_ui.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
 import { HomeLink } from '../../ui/HomeLink.js';

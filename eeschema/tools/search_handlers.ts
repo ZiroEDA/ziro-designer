@@ -24,7 +24,7 @@
 import type { LibSymbol, Schematic, Vec2 } from '../types.js';
 import { refId } from './hittest.js';
 import { matchesText, type SchSearchData, defaultSearchData } from './sch_find_replace_tool.js';
-import { schSymbolLibraryName } from '../lib_symbol_compare.js';
+import { schSymbolLibraryName } from '../lib_symbol.js';
 
 /** Which tab a hit belongs to (one handler each). */
 export type SearchKind = 'symbol' | 'power' | 'text' | 'label';

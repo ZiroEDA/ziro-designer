@@ -1,0 +1,151 @@
+( { EESchema Netlist Version 1.1 created  2026-09-29T06:56:33 }
+ ( /524211d6-35d5-42cf-b286-090ad95445d1 Connector_PinHeader_1.00mm:PinHeader_1x08_P1.00mm_Horizontal  J1 Conn_01x08_Pin
+  (    1 CON_A_1 )
+  (    2 CON_A_2 )
+  (    3 CON_A_3 )
+  (    4 CON_A_4 )
+  (    5 CON_A_5 )
+  (    6 CON_A_6 )
+  (    7 CON_A_7 )
+  (    8 CON_A_8 )
+ )
+ ( /b2fcc6b1-0c0b-4d11-9703-ee3b6621e72e Connector_PinHeader_1.00mm:PinHeader_1x08_P1.00mm_Horizontal  J2 Conn_01x08_Pin
+  (    1 CON_B_1 )
+  (    2 CON_B_2 )
+  (    3 CON_B_3 )
+  (    4 CON_B_4 )
+  (    5 CON_B_5 )
+  (    6 CON_B_6 )
+  (    7 CON_B_7 )
+  (    8 CON_B_8 )
+ )
+ ( /0ed71495-8674-4a6e-a1f9-3d74c1903959/1045c5c3-5edf-4f0e-b238-03b0bf89127f Resistor_SMD:R_0805_2012Metric  R5 R
+  (    1 CON_A_5 )
+  (    2 Net-(D5-A) )
+ )
+ ( /0ed71495-8674-4a6e-a1f9-3d74c1903959/297a1b89-1abe-429d-bb1f-4c0eaec34a2e Resistor_SMD:R_0805_2012Metric  R6 R
+  (    1 CON_A_6 )
+  (    2 Net-(D6-A) )
+ )
+ ( /0ed71495-8674-4a6e-a1f9-3d74c1903959/3260dd27-58de-400a-bea7-b36b8f85f228 Resistor_SMD:R_0805_2012Metric  R4 R
+  (    1 CON_A_4 )
+  (    2 Net-(D4-A) )
+ )
+ ( /0ed71495-8674-4a6e-a1f9-3d74c1903959/334f4529-ae5f-495a-8734-00a5f0ae853e LED_THT:LED_D3.0mm  D2 LED
+  (    1 GND )
+  (    2 Net-(D2-A) )
+ )
+ ( /0ed71495-8674-4a6e-a1f9-3d74c1903959/3425a3ce-2a75-43a1-8541-b874c47124b5 LED_THT:LED_D3.0mm  D8 LED
+  (    1 GND )
+  (    2 Net-(D8-A) )
+ )
+ ( /0ed71495-8674-4a6e-a1f9-3d74c1903959/370f153b-0e89-4ca9-9531-c955d6889d56 LED_THT:LED_D3.0mm  D1 LED
+  (    1 GND )
+  (    2 Net-(D1-A) )
+ )
+ ( /0ed71495-8674-4a6e-a1f9-3d74c1903959/3b56a157-77bd-49e5-9b18-c89e80fc8e5f Resistor_SMD:R_0805_2012Metric  R8 R
+  (    1 CON_A_8 )
+  (    2 Net-(D8-A) )
+ )
+ ( /0ed71495-8674-4a6e-a1f9-3d74c1903959/490ebdfa-b273-4ccc-808d-b3d8981aee6e LED_THT:LED_D3.0mm  D7 LED
+  (    1 GND )
+  (    2 Net-(D7-A) )
+ )
+ ( /0ed71495-8674-4a6e-a1f9-3d74c1903959/86b17a6e-f2a0-4f83-b2fd-c2d72b44ac22 LED_THT:LED_D3.0mm  D6 LED
+  (    1 GND )
+  (    2 Net-(D6-A) )
+ )
+ ( /0ed71495-8674-4a6e-a1f9-3d74c1903959/89f57245-fc4c-4e0a-91ef-9650dc95ef9b LED_THT:LED_D3.0mm  D3 LED
+  (    1 GND )
+  (    2 Net-(D3-A) )
+ )
+ ( /0ed71495-8674-4a6e-a1f9-3d74c1903959/8c2c69c6-2c57-4f90-bdc4-eb1824535d72 LED_THT:LED_D3.0mm  D4 LED
+  (    1 GND )
+  (    2 Net-(D4-A) )
+ )
+ ( /0ed71495-8674-4a6e-a1f9-3d74c1903959/b5f51b89-e0c0-4496-b961-3bf078449a84 LED_THT:LED_D3.0mm  D5 LED
+  (    1 GND )
+  (    2 Net-(D5-A) )
+ )
+ ( /0ed71495-8674-4a6e-a1f9-3d74c1903959/c267dff7-c396-4284-8c96-73c56c7ab159 Resistor_SMD:R_0805_2012Metric  R2 R
+  (    1 CON_A_2 )
+  (    2 Net-(D2-A) )
+ )
+ ( /0ed71495-8674-4a6e-a1f9-3d74c1903959/d36a4b33-8210-4fde-89c6-aaad0ce14f8d Resistor_SMD:R_0805_2012Metric  R1 R
+  (    1 CON_A_1 )
+  (    2 Net-(D1-A) )
+ )
+ ( /0ed71495-8674-4a6e-a1f9-3d74c1903959/d4540062-78e2-458f-a96c-36bf33f0dedb Resistor_SMD:R_0805_2012Metric  R3 R
+  (    1 CON_A_3 )
+  (    2 Net-(D3-A) )
+ )
+ ( /0ed71495-8674-4a6e-a1f9-3d74c1903959/de8ec828-caef-4d12-ac0b-e077a67a7451 Resistor_SMD:R_0805_2012Metric  R7 R
+  (    1 CON_A_7 )
+  (    2 Net-(D7-A) )
+ )
+ ( /d76ab7e8-2535-479e-b494-91422b8e90c6/1045c5c3-5edf-4f0e-b238-03b0bf89127f Resistor_SMD:R_0805_2012Metric  R13 R
+  (    1 CON_B_3 )
+  (    2 Net-(D13-A) )
+ )
+ ( /d76ab7e8-2535-479e-b494-91422b8e90c6/297a1b89-1abe-429d-bb1f-4c0eaec34a2e Resistor_SMD:R_0805_2012Metric  R14 R
+  (    1 CON_B_4 )
+  (    2 Net-(D14-A) )
+ )
+ ( /d76ab7e8-2535-479e-b494-91422b8e90c6/3260dd27-58de-400a-bea7-b36b8f85f228 Resistor_SMD:R_0805_2012Metric  R12 R
+  (    1 CON_B_2 )
+  (    2 Net-(D12-A) )
+ )
+ ( /d76ab7e8-2535-479e-b494-91422b8e90c6/334f4529-ae5f-495a-8734-00a5f0ae853e LED_THT:LED_D3.0mm  D10 LED
+  (    1 GND )
+  (    2 Net-(D10-A) )
+ )
+ ( /d76ab7e8-2535-479e-b494-91422b8e90c6/3425a3ce-2a75-43a1-8541-b874c47124b5 LED_THT:LED_D3.0mm  D16 LED
+  (    1 GND )
+  (    2 Net-(D16-A) )
+ )
+ ( /d76ab7e8-2535-479e-b494-91422b8e90c6/370f153b-0e89-4ca9-9531-c955d6889d56 LED_THT:LED_D3.0mm  D9 LED
+  (    1 GND )
+  (    2 Net-(D9-A) )
+ )
+ ( /d76ab7e8-2535-479e-b494-91422b8e90c6/3b56a157-77bd-49e5-9b18-c89e80fc8e5f Resistor_SMD:R_0805_2012Metric  R16 R
+  (    1 CON_B_6 )
+  (    2 Net-(D16-A) )
+ )
+ ( /d76ab7e8-2535-479e-b494-91422b8e90c6/490ebdfa-b273-4ccc-808d-b3d8981aee6e LED_THT:LED_D3.0mm  D15 LED
+  (    1 GND )
+  (    2 Net-(D15-A) )
+ )
+ ( /d76ab7e8-2535-479e-b494-91422b8e90c6/86b17a6e-f2a0-4f83-b2fd-c2d72b44ac22 LED_THT:LED_D3.0mm  D14 LED
+  (    1 GND )
+  (    2 Net-(D14-A) )
+ )
+ ( /d76ab7e8-2535-479e-b494-91422b8e90c6/89f57245-fc4c-4e0a-91ef-9650dc95ef9b LED_THT:LED_D3.0mm  D11 LED
+  (    1 GND )
+  (    2 Net-(D11-A) )
+ )
+ ( /d76ab7e8-2535-479e-b494-91422b8e90c6/8c2c69c6-2c57-4f90-bdc4-eb1824535d72 LED_THT:LED_D3.0mm  D12 LED
+  (    1 GND )
+  (    2 Net-(D12-A) )
+ )
+ ( /d76ab7e8-2535-479e-b494-91422b8e90c6/b5f51b89-e0c0-4496-b961-3bf078449a84 LED_THT:LED_D3.0mm  D13 LED
+  (    1 GND )
+  (    2 Net-(D13-A) )
+ )
+ ( /d76ab7e8-2535-479e-b494-91422b8e90c6/c267dff7-c396-4284-8c96-73c56c7ab159 Resistor_SMD:R_0805_2012Metric  R10 R
+  (    1 CON_B_8 )
+  (    2 Net-(D10-A) )
+ )
+ ( /d76ab7e8-2535-479e-b494-91422b8e90c6/d36a4b33-8210-4fde-89c6-aaad0ce14f8d Resistor_SMD:R_0805_2012Metric  R9 R
+  (    1 CON_B_7 )
+  (    2 Net-(D9-A) )
+ )
+ ( /d76ab7e8-2535-479e-b494-91422b8e90c6/d4540062-78e2-458f-a96c-36bf33f0dedb Resistor_SMD:R_0805_2012Metric  R11 R
+  (    1 CON_B_1 )
+  (    2 Net-(D11-A) )
+ )
+ ( /d76ab7e8-2535-479e-b494-91422b8e90c6/de8ec828-caef-4d12-ac0b-e077a67a7451 Resistor_SMD:R_0805_2012Metric  R15 R
+  (    1 CON_B_5 )
+  (    2 Net-(D15-A) )
+ )
+)
+*

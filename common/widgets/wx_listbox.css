@@ -1,0 +1,18 @@
+/* WX_LISTBOX (common/widgets/wx_listbox.tsx). The list's face, ink, frame and
+   selected row are `.ze-gridlist`'s in shell.css — the same GTK treeview in a
+   scrolled window — and are not restated here.
+
+   `wxNO_BORDER` (footprint_viewer_frame.cpp:145, :168): the scrolled window
+   draws no `.frame`, so the 1px `--ctl-border` rule goes. [data] */
+.ze-gridlist.ze-listbox-noborder {
+  border: none;
+}
+/* `wxLB_HSCROLL`: a row longer than the list scrolls sideways rather than
+   wrapping or clipping. `.ze-gridlist-row` is already nowrap; the rows have to
+   be allowed to be wider than the list for the scroller to have anything to
+   scroll. */
+.ze-listbox > .ze-gridlist-row {
+  width: max-content;
+  min-width: 100%;
+  box-sizing: border-box;
+}

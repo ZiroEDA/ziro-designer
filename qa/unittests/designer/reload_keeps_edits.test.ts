@@ -38,9 +38,12 @@ import { join } from 'node:path';
 
 const SRC = join(__dirname, '../../../designer/src');
 const APP = readFileSync(join(SRC, 'App.tsx'), 'utf8');
-const SCH = readFileSync(join(SRC, 'editors/schematic/SchematicEditor.tsx'), 'utf8');
+const SCH = readFileSync(join(SRC, '../../eeschema/sch_edit_frame_ui.tsx'), 'utf8');
 const PCB = readFileSync(join(SRC, '../../pcbnew/pcb_edit_frame_ui.tsx'), 'utf8');
-const SYM = readFileSync(join(SRC, 'editors/symbol/SymbolEditor.tsx'), 'utf8');
+const SYM = readFileSync(
+  join(SRC, '../../eeschema/symbol_editor/symbol_edit_frame_ui.tsx'),
+  'utf8',
+);
 const FP = readFileSync(join(SRC, '../../pcbnew/footprint_edit_frame_ui.tsx'), 'utf8');
 
 /** The body of a `const <name> = useCallback(…)`, up to its dependency array. */
@@ -252,7 +255,8 @@ describe('the manager raises an open project; it does not re-open it', () => {
     // 240 ms for the board frame on this GPU against 30-50 with this.
     expect(APP).toMatch(/const HIDDEN_FRAME: CSSProperties = \{\s*contentVisibility: 'hidden'/);
     expect(APP).not.toMatch(/display: view === '[a-z]+' \? 'contents' : 'none'/);
-    expect(APP.match(/style=\{frameStyle\(view === '[a-z]+'\)\}/g)?.length).toBe(8);
+    // Nine frames: a427bf56 added FOOTPRINT_VIEWER_FRAME ('fpviewer').
+    expect(APP.match(/style=\{frameStyle\(view === '[a-z]+'\)\}/g)?.length).toBe(9);
   });
 
   it('every frame is built while the manager is up, most-used first', () => {
@@ -283,7 +287,7 @@ describe('the manager raises an open project; it does not re-open it', () => {
     expect(APP).toMatch(
       /function Frozen\(\{ shown, children \}[\s\S]*?if \(shown\) last\.current = children;\s*return last\.current;/,
     );
-    expect(APP.match(/<Frozen shown=\{view === '[a-z]+'\}>/g)?.length).toBe(8);
+    expect(APP.match(/<Frozen shown=\{view === '[a-z]+'\}>/g)?.length).toBe(9);
   });
 
   it('the library editors re-sync the project on the frame that exists, keyed on identity', () => {

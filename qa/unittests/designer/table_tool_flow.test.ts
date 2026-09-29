@@ -28,7 +28,7 @@ const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
 const CANVAS = read('../../../designer/src/editors/schematic/components/SchematicCanvas.tsx');
-const EDITOR = read('../../../designer/src/editors/schematic/SchematicEditor.tsx');
+const EDITOR = read('../../../eeschema/sch_edit_frame_ui.tsx');
 const DIALOG = read('../../../eeschema/dialogs/dialog_table_properties.tsx');
 /**
  * The dialog's body is shared with pcbnew now (`ui/DialogTableProperties.tsx`);

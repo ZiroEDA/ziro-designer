@@ -30,7 +30,13 @@ const DEMO = new URL('../../../../designer/public/demos/ecc83/', import.meta.url
 /** The demo's fp-lib-table: one `KiCad` row, `Footprints`, over `footprints.pretty`. */
 class DemoAdapter implements FOOTPRINT_LIBRARY_ADAPTER {
   private readonly rows: LIBRARY_TABLE_ROW[] = [
-    { nickname: 'Footprints', uri: '${KIPRJMOD}/footprints.pretty', type: 'KiCad', enabled: true },
+    {
+      nickname: 'Footprints',
+      uri: '${KIPRJMOD}/footprints.pretty',
+      type: 'KiCad',
+      enabled: true,
+      GetOptionsMap: () => new Map(),
+    },
   ];
 
   /** A footprint file's text, replaced by a test to fake a library edit. */
@@ -57,6 +63,19 @@ class DemoAdapter implements FOOTPRINT_LIBRARY_ADAPTER {
     if (!existsSync(file)) return null;
 
     return ParseFootprintFile(this.override.get(aName) ?? readFileSync(file, 'utf8'), aName);
+  }
+
+  FootprintExists(aNickname: string, aName: string): boolean {
+    return (
+      aNickname === 'Footprints' &&
+      existsSync(new URL(`footprints.pretty/${aName}.kicad_mod`, DEMO))
+    );
+  }
+
+  LoadOne(): void {}
+
+  ProjectTable(): null {
+    return null;
   }
 
   GetFullURI(aRow: LIBRARY_TABLE_ROW): string {

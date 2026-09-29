@@ -22,7 +22,7 @@ import { symbolTransform, localToWorld } from '@ziroeda/kimath/src/transform.js'
 import type { LibSymbol, SchSymbol, Schematic, Vec2 } from '../types.js';
 import { refId } from './hittest.js';
 import { newKiid } from '@ziroeda/common/kiid.js';
-import { schSymbolLibraryName } from '../lib_symbol_compare.js';
+import { schSymbolLibraryName } from '../lib_symbol.js';
 
 function unitMatches(
   unit: number,

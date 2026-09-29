@@ -52,7 +52,7 @@
  */
 
 import { applyTransform, invertTransform, symbolTransform } from '@ziroeda/kimath/src/transform.js';
-import { schSymbolLibraryName } from '../lib_symbol_compare.js';
+import { schSymbolLibraryName } from '../lib_symbol.js';
 import type { LibSymbol, SchField, SchSymbol } from '../types.js';
 import { refId } from './hittest.js';
 

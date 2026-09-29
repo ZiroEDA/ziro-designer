@@ -1,0 +1,9 @@
+*PADS-PCB*
+*PART*
+J1               Conn_01x02
+J2               Conn_01x02
+
+*NET*
+*SIGNAL* /Sheet1/D0
+J1.1 J2.1 
+*END*

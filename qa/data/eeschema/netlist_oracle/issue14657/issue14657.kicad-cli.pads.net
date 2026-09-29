@@ -1,0 +1,8 @@
+*PADS-PCB*
+*PART*
+R1               R
+
+*NET*
+*SIGNAL* GPIO1_14__46
+R1.1 R1.2 
+*END*

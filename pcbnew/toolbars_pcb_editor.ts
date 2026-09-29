@@ -120,7 +120,6 @@ export const PCB_AUX_TOOLBAR: ToolEntry[] = [
     id: 'selectLayerPair',
     icon: 'selectLayerPair',
     title: 'Set Layer Pair...\nChange active layer pair for routing',
-    ...todo,
   },
   sep,
   { control: PCB_CONTROL.gridSelect },

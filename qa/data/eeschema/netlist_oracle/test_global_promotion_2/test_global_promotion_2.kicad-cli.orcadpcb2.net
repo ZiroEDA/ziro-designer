@@ -1,0 +1,29 @@
+( { EESchema Netlist Version 1.1 created  2026-09-29T06:56:13 }
+ ( /00000000-0000-0000-0000-00005cc1686d Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical  J2 Conn_01x03_Male
+  (    1 /Sheet5CC15EF8/LIVE )
+  (    2 /LIVE_2 )
+  (    3 /Sheet5CC15EF8/NEUTRAL )
+ )
+ ( /00000000-0000-0000-0000-00005ccf482d Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical  J1 Conn_01x03_Male
+  (    1 LIVE )
+  (    2 /sheet5CC165F1/LIVE_1 )
+  (    3 unconnected-(J1-Pin_3-Pad3) )
+ )
+ ( /00000000-0000-0000-0000-00005cc15ef9/00000000-0000-0000-0000-00005cc15f6f Resistor_SMD:R_0603_1608Metric  R1 R
+  (    1 /Sheet5CC15EF8/LIVE )
+  (    2 /Sheet5CC15EF8/NEUTRAL )
+ )
+ ( /00000000-0000-0000-0000-00005cc15ef9/00000000-0000-0000-0000-00005ce0545a Resistor_SMD:R_0603_1608Metric  R2 R
+  (    1 /Sheet5CC15EF8/LIVE )
+  (    2 LIVE )
+ )
+ ( /00000000-0000-0000-0000-00005cc165f1/00000000-0000-0000-0000-00005cc15f6f Resistor_SMD:R_0603_1608Metric  R3 R
+  (    1 /LIVE_2 )
+  (    2 /Sheet5CC15EF8/NEUTRAL )
+ )
+ ( /00000000-0000-0000-0000-00005cc165f1/00000000-0000-0000-0000-00005ce0545a Resistor_SMD:R_0603_1608Metric  R4 R
+  (    1 /LIVE_2 )
+  (    2 /sheet5CC165F1/LIVE_1 )
+ )
+)
+*

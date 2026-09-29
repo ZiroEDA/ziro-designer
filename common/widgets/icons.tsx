@@ -296,6 +296,9 @@ const ICONS: Record<string, JSX.Element> = {
   plus: P('M8 3v10 M3 8h10'),
   arrowUp: P('M8 13V3 M4 7l4-4 4 4'),
   arrowDown: P('M8 3v10 M4 9l4 4 4-4'),
+  // `BITMAPS::right`: `dialog_layer_selection_base.cpp`'s "add to presets"
+  // bitmap button, a plain right-pointing arrow (`m_addToPresetsButton`).
+  arrowRight: P('M3 8h10 M9 4l4 4-4 4'),
   // BITMAPS::list_nets_16 — a ruled sheet with an info badge on its corner,
   // and BITMAPS::options_generic_16 — an open-jawed wrench lying corner to
   // corner. Traced from resources/bitmaps_png/png/{list_nets,options_generic}

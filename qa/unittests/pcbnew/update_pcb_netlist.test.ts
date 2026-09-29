@@ -14,8 +14,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { Reporter } from '@ziroeda/common/reporter.js';
-import { readSchematic } from '@ziroeda/eeschema';
-import { netlistKicad } from '@ziroeda/eeschema/netlist_exporters/netlist_exporter_kicad.js';
+import { exportKicadNetlist } from '@ziroeda/eeschema/cross-probing.js';
 import {
   BOARD_NETLIST_UPDATER,
   buildRatsnest,
@@ -29,13 +28,13 @@ const read = (name: string): string => readFileSync(DEMO + name, 'utf8');
 
 /** The demo's netlist, exported the way PCB_EDIT_FRAME::FetchNetlistFromSchematic does. */
 function demoNetlist(): string {
-  const doc = readSchematic(parse(read('ecc83-pp.kicad_sch')));
-  const sheet = { path: '/', namePath: '/', file: 'ecc83-pp.kicad_sch', doc };
-  return netlistKicad({
-    sheets: [sheet],
-    libsFor: () => new Map(doc.libSymbols.map((l) => [l.libId, l])),
-    source: 'ecc83-pp.kicad_sch',
-  });
+  const files = ['ecc83-pp.kicad_sch', 'ecc83-pp.kicad_pro'].map((name) => ({
+    name,
+    text: read(name),
+  }));
+  const r = exportKicadNetlist(files, 'ecc83-pp.kicad_sch', 'ecc83-pp');
+  if (!r.ok) throw new Error(r.error);
+  return r.netlistText;
 }
 
 describe('update PCB from schematic (ecc83 demo)', () => {

@@ -29,7 +29,7 @@ import { join, relative } from 'node:path';
 import { dispatchMenuHotkey, type HotkeyEvent } from '@ziroeda/common/tool/action_menu_hotkeys.js';
 import { buildManagerMenus } from '@ziroeda/designer/src/home/menubar.js';
 import { buildMenus } from '@ziroeda/eeschema/menubar.js';
-import { symbolEditorMenus } from '@ziroeda/designer/src/editors/symbol/menubar.js';
+import { symbolEditorMenus } from '@ziroeda/eeschema/symbol_editor/menubar_symbol_editor.js';
 import { footprintEditorMenus } from '@ziroeda/pcbnew/menubar_footprint_editor.js';
 import { buildPcbMenus as pcbMenus } from '@ziroeda/pcbnew/menubar_pcb_editor.js';
 import { browserSafeKey } from '@ziroeda/common/browser_reserved.js';
@@ -41,6 +41,7 @@ import {
 } from '@ziroeda/common/tool/action_menu.js';
 import { eventFromCombo } from '@ziroeda/designer/src/editors/schematic/hotkey_bindings.js';
 import type { Menu, MenuItem } from '@ziroeda/common/tool/action_menu_types.js';
+import { footprintViewerMenus } from '@ziroeda/pcbnew/toolbars_footprint_viewer.js';
 
 const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
 
@@ -55,13 +56,14 @@ const CONVERTED = [
   'editors/calculator/CalculatorTools.tsx',
   '../../pagelayout_editor/pl_editor_frame_ui.tsx',
   '../../pcbnew/footprint_edit_frame_ui.tsx',
+  '../../pcbnew/footprint_viewer_frame_ui.tsx',
   '../../gerbview/gerbview_frame_ui.tsx',
   '../../bitmap2component/bitmap2cmp_frame_ui.tsx',
   '../../pcbnew/pcb_edit_frame_ui.tsx',
-  'editors/schematic/SchematicEditor.tsx',
-  'editors/schematic/components/SymbolLibraryBrowser.tsx',
+  '../../eeschema/sch_edit_frame_ui.tsx',
+  '../../eeschema/symbol_viewer_frame_ui.tsx',
   '../../cvpcb/cvpcb_mainframe_ui.tsx',
-  'editors/symbol/SymbolEditor.tsx',
+  '../../eeschema/symbol_editor/symbol_edit_frame_ui.tsx',
   'home/HomePage.tsx',
 ];
 
@@ -142,7 +144,7 @@ const MODIFIER_EXCEPTIONS: Readonly<Record<string, readonly string[]>> = {
     // holding one textarea, and the board's real DialogTextProperties opens for
     // both paths now. A shared dialog's keys are the shared dialog's business.)
   ],
-  'editors/symbol/SymbolEditor.tsx': [
+  '../../eeschema/symbol_editor/symbol_edit_frame_ui.tsx': [
     'const plain = !e.ctrlKey && !e.metaKey && !e.altKey;',
     // The library tree's Ctrl+D. `SCH_ACTIONS::duplicateSymbol`
     // (sch_actions.cpp:208-212) declares no hotkey and has no row in this
@@ -158,7 +160,7 @@ const MODIFIER_EXCEPTIONS: Readonly<Record<string, readonly string[]>> = {
    * action - so it belongs in the chain, and the entry names which registry
    * action each line is.
    */
-  'editors/schematic/SchematicEditor.tsx': [
+  '../../eeschema/sch_edit_frame_ui.tsx': [
     // Under the project manager eeschema's File menu starts at Save, so Open
     // has no row here (menubar.cpp).
     "if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'o') {",
@@ -214,9 +216,14 @@ function walk(dir: string, out: string[] = []): string[] {
  * those packages too. A walk of designer/src alone would lose every frame that
  * moved, and pass.
  */
-const FRAME_PACKAGES = ['bitmap2component', 'gerbview', 'pagelayout_editor', 'cvpcb', 'pcbnew'].map(
-  (p) => fileURLToPath(new URL(`../../../${p}`, import.meta.url)),
-);
+const FRAME_PACKAGES = [
+  'bitmap2component',
+  'gerbview',
+  'pagelayout_editor',
+  'cvpcb',
+  'pcbnew',
+  'eeschema',
+].map((p) => fileURLToPath(new URL(`../../../${p}`, import.meta.url)));
 
 const FILES = [
   ...walk(SRC),
@@ -242,10 +249,13 @@ const source = (rel: string): string => {
  * accelerator set can be pressed for real down this file.
  */
 const MENU_MODULE: Readonly<Record<string, string>> = {
-  'editors/schematic/SchematicEditor.tsx': '../../eeschema/menubar.ts',
-  'editors/symbol/SymbolEditor.tsx': 'editors/symbol/menubar.ts',
+  '../../eeschema/sch_edit_frame_ui.tsx': '../../eeschema/menubar.ts',
+  '../../eeschema/symbol_editor/symbol_edit_frame_ui.tsx':
+    '../../eeschema/symbol_editor/menubar_symbol_editor.ts',
   '../../pcbnew/footprint_edit_frame_ui.tsx': '../../pcbnew/menubar_footprint_editor.ts',
   '../../pcbnew/pcb_edit_frame_ui.tsx': '../../pcbnew/menubar_pcb_editor.ts',
+  // FOOTPRINT_VIEWER_FRAME::doReCreateMenuBar lives in toolbars_footprint_viewer.cpp.
+  '../../pcbnew/footprint_viewer_frame_ui.tsx': '../../pcbnew/toolbars_footprint_viewer.ts',
   // pl_editor's bar is its package's menubar.ts, beside KiCad's menubar.cpp.
   '../../pagelayout_editor/pl_editor_frame_ui.tsx': '../../pagelayout_editor/menubar.ts',
 };
@@ -466,7 +476,7 @@ const CANVAS_KEYS: Readonly<
       ['tree Del declines to the canvas', /if \(canvasSelection\) return;/],
     ],
   },
-  'editors/symbol/SymbolEditor.tsx': {
+  '../../eeschema/symbol_editor/symbol_edit_frame_ui.tsx': {
     moved: [
       ['Ctrl+S save', /e\.key\.toLowerCase\(\) === 's'/],
       ['Ctrl+Z undo', /e\.key\.toLowerCase\(\) === 'z'/],
@@ -489,7 +499,7 @@ const CANVAS_KEYS: Readonly<
       ['tree Ctrl+D', /onDuplicate\(treeSel\.lib, treeSel\.name\)/],
     ],
   },
-  'editors/schematic/SchematicEditor.tsx': {
+  '../../eeschema/sch_edit_frame_ui.tsx': {
     // Matched on each arm's own comment where it had one: the comment names the
     // upstream action, so "the arm is gone" and "that command no longer has a
     // second declaration here" are the same assertion.
@@ -684,7 +694,9 @@ const noop = (): void => {};
  * prints one, and upstream still attaches the `wxAcceleratorEntry`.
  */
 const MENU_BUILDER: Readonly<Record<string, () => Menu[]>> = {
-  'editors/symbol/SymbolEditor.tsx': () =>
+  '../../pcbnew/footprint_viewer_frame_ui.tsx': () =>
+    footprintViewerMenus({ close: noop, action: noop, showHotkeys: noop, showAbout: noop }),
+  '../../eeschema/symbol_editor/symbol_edit_frame_ui.tsx': () =>
     symbolEditorMenus(
       {
         action: noop,
@@ -1125,7 +1137,7 @@ const DECLARED: Readonly<Record<string, readonly string[]>> = {
     'Ctrl+F1',
   ],
 
-  'editors/symbol/SymbolEditor.tsx': [
+  '../../eeschema/symbol_editor/symbol_edit_frame_ui.tsx': [
     // As above: every combo is a `DefaultHotkey` out of `common/tool/actions
     // .cpp` or `eeschema/tools/sch_actions.cpp`, plus the two shared builders'.
     'Ctrl+Alt+W',

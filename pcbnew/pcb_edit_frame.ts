@@ -39,6 +39,7 @@ import type { FOOTPRINT_EDITOR_SETTINGS_LIKE } from './pcb_base_frame.js';
 import { PCBNEW_SETTINGS } from './pcbnew_settings.js';
 import { BOARD_COMMIT, SKIP_SET_DIRTY, SKIP_UNDO } from './board_commit.js';
 import type { FOOTPRINT } from './footprint.js';
+import type { PcbFootprint } from './types.js';
 import type { NETLIST } from './netlist_reader/pcb_netlist.js';
 import { type DIALOG_DRC_LIKE, DRC_TOOL } from './tools/drc_tool.js';
 import type { DRC_JOB_HOOKS, DRC_JOB_REQUEST } from './drc/drc_job.js';
@@ -63,6 +64,15 @@ import { INITPCB_MIXIN } from './initpcb.js';
 import { EDIT_MIXIN } from './edit.js';
 import { FILES_MIXIN } from './files.js';
 import { EDIT_ZONE_HELPERS_MIXIN } from './edit_zone_helpers.js';
+import { PCBNEW_CONFIG_MIXIN } from './pcbnew_config.js';
+import { LOAD_SELECT_FOOTPRINT_MIXIN } from './load_select_footprint.js';
+import type { LIB_ID } from '@ziroeda/common/lib_id.js';
+import { PCB_SELECTION_FILTER_OPTIONS } from '@ziroeda/common/project/board_project_settings.js';
+import {
+  LAYER_PAIR_SETTINGS,
+  PCB_CURRENT_LAYER_PAIR_CHANGED,
+  PCB_LAYER_PAIR_PRESETS_CHANGED,
+} from './layer_pairs.js';
 
 /**
  * The slice of the designer's `PcbnewSettings` (`prefs/settings.ts`)
@@ -223,6 +233,19 @@ export interface PCB_EDIT_FRAME_HOOKS {
   editZoneParams(zoneIndex: number): void;
   /** `DIALOG_EXCHANGE_FOOTPRINTS( frame, footprint, updateMode, true ).ShowQuasiModal()`. */
   showExchangeFootprintsDialog(aFootprint: FOOTPRINT, aUpdateMode: boolean): void;
+  /**
+   * `BOARD_EDITOR_CONTROL::PlacingFootprint()`: a footprint is riding the
+   * cursor. The editor owns the placement, so it answers. Optional so a frame
+   * built for a test need not name it; absent is "not placing".
+   */
+  placingFootprint?(): boolean;
+  /**
+   * The board half of `FOOTPRINT_VIEWER_FRAME::AddFootprintToPCB`
+   * (`footprint_viewer_frame.cpp:735-779`): `selectionClear`, then
+   * `PostAction( PCB_ACTIONS::placeFootprint, newFootprint )` with a copy of
+   * the library footprint, so it rides the cursor until a click drops it.
+   */
+  placeFootprintFromLibrary?(aFpid: string, aFootprint: PcbFootprint): void;
   /** `findDialogs()`: the open modeless dialogs' rectangles, in canvas client pixels. */
   findDialogRects(): BOX2D[];
   /**
@@ -246,25 +269,127 @@ export interface PCB_EDIT_FRAME_HOOKS {
   syncSelection(aParts: readonly string[], aSelectConnections: boolean): void;
   /** `m_toolManager->RunAction( ACTIONS::updatePcbFromSchematic )`: the editor's dialog. */
   updatePcbFromSchematic(): void;
+  /**
+   * `ROUTER_TOOL::SelectCopperLayerPair` (`sel_layer.cpp:765-789`): open
+   * `SELECT_COPPER_LAYERS_PAIR_DIALOG`. Not `PCB_EDIT_FRAME`'s own method
+   * upstream — there is no `ROUTER_TOOL` class in this port (routing runs on
+   * `PnsSession`), and `sel_layer.cpp` is the file that method's body lives
+   * in regardless of which class declares it, so this is that same seam,
+   * named for what it does rather than for a class this port doesn't have.
+   */
+  selectCopperLayerPair(): void;
+  /**
+   * `EDA_BASE_FRAME::ShowInfoBarError( aErrorMsg, aShowCloseButton )`: the
+   * window's infobar, error icon, 8 s. Optional: a frame with no window
+   * (tests, headless callers) shows nothing.
+   */
+  showInfoBarError?(aErrorMsg: string, aShowCloseButton: boolean): void;
+  /**
+   * `KISTATUSBAR::AddWarningMessages( aKey, aMessages )`: the status bar's
+   * warning icon, which `reconcileImportedFootprintLibraries` fills. Optional:
+   * a frame with no window shows nothing.
+   */
+  addStatusBarWarnings?(aKey: string, aMessages: string): void;
+  /**
+   * `Kiway().Player( FRAME_FOOTPRINT_CHOOSER )->ShowModal( &footprintName, this )`
+   * (`PCB_BASE_FRAME::SelectFootprintFromLibrary`): the footprint chooser, over
+   * the window. Answers the chosen `LIB_ID` text, or null when cancelled.
+   * `aPreselect` is the `LIB_ID` the chooser opens on. Optional: a frame with no
+   * window has no chooser, and nothing is chosen.
+   */
+  selectFootprintFromChooser?(aPreselect: string): Promise<string | null>;
+  /**
+   * `FOOTPRINT_LIBRARY_ADAPTER::LoadFootprintWithOptionalNickname( aFootprintId,
+   * aKeepUUID )`, which `PCB_BASE_FRAME::loadFootprint` asks: the footprint out of
+   * the hosted libraries, a fresh copy the frame owns. Async because a hosted
+   * library is fetched, not read off a disk. Without it the board's
+   * `FOOTPRINT_LIBRARY_ADAPTER` is asked.
+   */
+  loadFootprintFromLibrary?(aFootprintId: LIB_ID, aKeepUUID: boolean): Promise<FOOTPRINT | null>;
 }
 
 export interface PCB_EDIT_FRAME
   extends INITPCB_MIXIN,
     EDIT_MIXIN,
     FILES_MIXIN,
-    EDIT_ZONE_HELPERS_MIXIN {}
+    EDIT_ZONE_HELPERS_MIXIN,
+    PCBNEW_CONFIG_MIXIN,
+    LOAD_SELECT_FOOTPRINT_MIXIN {}
 
 // biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (INITPCB_MIXIN mixin, see libs/core/mixins.ts)
 export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   protected readonly hooks: PCB_EDIT_FRAME_HOOKS;
+
+  /**
+   * `m_importProperties` (pcb_edit_frame.h): the `std::map<std::string, UTF8>`
+   * an import was started with, set for the length of `importFile`
+   * (`IMPORT_PROJ_PROPS` reads the footprint-library ones out of it).
+   */
+  m_importProperties: ReadonlyMap<string, string> | null = null;
   /** The project's .kicad_dru as last given to OnBoardLoaded: `GetDesignRulesPath()` and its text. */
   private m_designRulesText: string | null = null;
   private m_designRulesPath = '';
+  /**
+   * `PCB_BASE_EDIT_FRAME::m_layerPairSettings` (`pcb_base_edit_frame.h:283`),
+   * constructed only here (`pcb_edit_frame.cpp:470`) — `FOOTPRINT_EDIT_FRAME`
+   * has no via-layer pair, so upstream leaves its copy null. This port has no
+   * `FOOTPRINT_EDIT_FRAME` sharing this class, so the field lives directly on
+   * `PCB_EDIT_FRAME` rather than on the shared base, and is never null.
+   */
+  private readonly m_layerPairSettings = new LAYER_PAIR_SETTINGS();
 
   constructor(hooks: PCB_EDIT_FRAME_HOOKS) {
     super(FRAME_T.FRAME_PCB_EDITOR);
     this.hooks = hooks;
     this.setupTools();
+
+    // `pcb_edit_frame.cpp:479-489`. Not ported: `PrepareLayerIndicator()`'s
+    // toolbar-icon refresh on the `PCB_CURRENT_LAYER_PAIR_CHANGED` binding —
+    // the aux toolbar's layer-pair icon isn't rendered from this frame yet.
+    this.m_layerPairSettings.Connect(PCB_LAYER_PAIR_PRESETS_CHANGED, () => {
+      this.Prj().GetProjectFile().m_LayerPairInfos = [...this.m_layerPairSettings.GetLayerPairs()];
+    });
+    this.m_layerPairSettings.Connect(PCB_CURRENT_LAYER_PAIR_CHANGED, () => {
+      const pair = this.m_layerPairSettings.GetCurrentLayerPair();
+      const screen = this.GetScreen()!;
+      screen.m_Route_Layer_TOP = pair.GetLayerA();
+      screen.m_Route_Layer_BOTTOM = pair.GetLayerB();
+    });
+  }
+
+  /**
+   * `PCB_SELECTION_TOOL::m_filter`, which `GetFilter()` hands out
+   * (`pcb_selection_tool.h`). This port's selection tool is functions over
+   * the window's state, not a `TOOL_INTERACTIVE` holding a filter, so the
+   * filter lives on the frame the tool would be registered with.
+   */
+  private readonly m_selectionFilter = new PCB_SELECTION_FILTER_OPTIONS();
+
+  /** `GetToolManager()->GetTool<PCB_SELECTION_TOOL>()->GetFilter()`. */
+  GetSelectionFilter(): PCB_SELECTION_FILTER_OPTIONS {
+    return this.m_selectionFilter;
+  }
+
+  /** `EDA_BASE_FRAME::ShowInfoBarError( aErrorMsg, aShowCloseButton )` (eda_base_frame.cpp). */
+  ShowInfoBarError(aErrorMsg: string, aShowCloseButton = false): void {
+    this.hooks.showInfoBarError?.(aErrorMsg, aShowCloseButton);
+  }
+
+  /** `PCB_BASE_EDIT_FRAME::GetLayerPairSettings()` (`pcb_base_edit_frame.h:249`). */
+  GetLayerPairSettings(): LAYER_PAIR_SETTINGS {
+    return this.m_layerPairSettings;
+  }
+
+  /**
+   * `ROUTER_TOOL::SelectCopperLayerPair` (`sel_layer.cpp:765-789`), minus the
+   * `ShowModal()`/`wxID_OK` blocking read-back: our dialog is modeless, so it
+   * commits (or doesn't) through `GetLayerPairSettings()` itself on OK, and
+   * the "top and bottom layers are the same" warning is the dialog's own
+   * concern (it can show the message the moment the pick is made, rather
+   * than waiting for a close this port has no equivalent event for).
+   */
+  SelectCopperLayerPair(): void {
+    this.hooks.selectCopperLayerPair();
   }
 
   /**
@@ -488,6 +613,23 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
 
   ShowExchangeFootprintsDialog(aFootprint: FOOTPRINT, aUpdateMode: boolean): void {
     this.hooks.showExchangeFootprintsDialog(aFootprint, aUpdateMode);
+  }
+
+  /**
+   * `toolMgr->GetTool<BOARD_EDITOR_CONTROL>()->PlacingFootprint()`, which the
+   * Footprint Library Browser asks before handing a footprint over.
+   */
+  PlacingFootprint(): boolean {
+    return this.hooks.placingFootprint?.() ?? false;
+  }
+
+  /**
+   * What `FOOTPRINT_VIEWER_FRAME::AddFootprintToPCB` does to this frame once
+   * it has passed its two checks (`footprint_viewer_frame.cpp:735-779`). See
+   * `footprint_viewer_frame.ts`'s `FOOTPRINT_VIEWER_PCB_TARGET`.
+   */
+  PlaceFootprintFromLibraryBrowser(aFpid: string, aFootprint: PcbFootprint): void {
+    this.hooks.placeFootprintFromLibrary?.(aFpid, aFootprint);
   }
 
   override findDialogRects(): BOX2D[] {
@@ -724,7 +866,14 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   }
 }
 
-applyMixins(PCB_EDIT_FRAME, [INITPCB_MIXIN, EDIT_MIXIN, FILES_MIXIN, EDIT_ZONE_HELPERS_MIXIN]);
+applyMixins(PCB_EDIT_FRAME, [
+  INITPCB_MIXIN,
+  EDIT_MIXIN,
+  FILES_MIXIN,
+  EDIT_ZONE_HELPERS_MIXIN,
+  PCBNEW_CONFIG_MIXIN,
+  LOAD_SELECT_FOOTPRINT_MIXIN,
+]);
 
 /**
  * The React side's BOARD_LISTENER: whatever the board reports, the view is

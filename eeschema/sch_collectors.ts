@@ -27,7 +27,7 @@ import {
   pinAccuracy,
 } from './tools/hittest.js';
 import { contains, inflate, labelBox, symbolBodyBBox, type BBox } from './tools/bbox.js';
-import { schSymbolLibraryName } from './lib_symbol_compare.js';
+import { schSymbolLibraryName } from './lib_symbol.js';
 
 interface Candidate {
   ref: ItemRef;

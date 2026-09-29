@@ -78,7 +78,7 @@ import {
 } from '@ziroeda/common/widgets/text_format_bar.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { HtmlMessageBox } from '@ziroeda/common/dialogs/html_message_box.js';
-import { PCB_TEXT_SYNTAX_HELP } from '../pcb_text_help.js';
+import { PCB_TEXT_SYNTAX_HELP } from '../pcb_text_help_md.js';
 
 type MmKey = 'width' | 'height' | 'thickness' | 'borderWidth';
 

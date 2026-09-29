@@ -1,0 +1,11 @@
+*PADS-PCB*
+*PART*
+R1               R
+R2               R
+R3               R
+R4               R
+
+*NET*
+*SIGNAL* GND
+R1.1 R2.1 R3.1 R4.1 
+*END*
