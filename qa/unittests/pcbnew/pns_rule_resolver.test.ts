@@ -27,7 +27,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { buildDrcRuleEngine } from '@ziroeda/pcbnew/drc/drc_rules_engine.js';
-import { PnsBoardRuleResolver } from '@ziroeda/pcbnew/router/pns_rule_resolver.js';
+import { PNS_PCBNEW_RULE_RESOLVER } from '@ziroeda/pcbnew/router/pns_rule_resolver.js';
 import {
   defaultShapeCollider,
   getShapeCollider,
@@ -113,14 +113,14 @@ function own<T extends PnsItem>(aItem: T): T {
   return aItem;
 }
 
-function resolverWith(aRules: DrcRule[]): { host: TestHost; resolver: PnsBoardRuleResolver } {
+function resolverWith(aRules: DrcRule[]): { host: TestHost; resolver: PNS_PCBNEW_RULE_RESOLVER } {
   const host = new TestHost();
   host.rules = aRules;
-  return { host, resolver: new PnsBoardRuleResolver(host) };
+  return { host, resolver: new PNS_PCBNEW_RULE_RESOLVER(host) };
 }
 
 // ---------------------------------------------------------------------------------
-describe('PnsBoardRuleResolver: clearance', () => {
+describe('PNS_PCBNEW_RULE_RESOLVER: clearance', () => {
   it('reads the clearance straight out of the rule set', () => {
     const { resolver } = resolverWith([rule('board setup', 'clearance', 200)]);
 
@@ -305,7 +305,7 @@ describe('PnsBoardRuleResolver: clearance', () => {
 });
 
 // ---------------------------------------------------------------------------------
-describe('PnsBoardRuleResolver: the caches', () => {
+describe('PNS_PCBNEW_RULE_RESOLVER: the caches', () => {
   it('caches by identity when both items are owned, and is symmetric', () => {
     const { host, resolver } = resolverWith([rule('board setup', 'clearance', 200)]);
     const a = own(seg(V(0, 0), V(1000, 0)));
@@ -431,7 +431,7 @@ describe('PnsBoardRuleResolver: the caches', () => {
         return false;
       },
     };
-    const resolver = new PnsBoardRuleResolver(withMemo);
+    const resolver = new PNS_PCBNEW_RULE_RESOLVER(withMemo);
 
     resolver.hasUserDefinedPhysicalConstraint();
     resolver.hasUserDefinedPhysicalConstraint();

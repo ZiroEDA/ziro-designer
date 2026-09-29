@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * `PNS_KICAD_IFACE_BASE` over Ziro's `Board` — `pns_board_iface.ts`.
+ * `PNS_KICAD_IFACE_BASE` over Ziro's `Board` — `pns_kicad_iface.ts`.
  *
  * The first router test in this tree that fills a `PnsNode` from a **real
  * board**. Every earlier one built its items by hand, which is fine for
@@ -22,19 +22,19 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readBoard } from '@ziroeda/pcbnew';
 import {
-  PnsBoardIface,
+  PNS_KICAD_IFACE,
   PNS_ORPHANED_NET,
   asBoardItem,
   boardLayerFromPnsLayer,
   padHoleShape,
   pnsLayerFromBoardLayer,
   solidShapeForPad,
-} from '@ziroeda/pcbnew/router/pns_board_iface.js';
+} from '@ziroeda/pcbnew/router/pns_kicad_iface.js';
 import { setRouterIface } from '@ziroeda/pcbnew/router/pns_collision.js';
 import { PnsKind } from '@ziroeda/pcbnew/router/pns_item.js';
 import { PnsLayerRange } from '@ziroeda/pcbnew/router/pns_layerset.js';
 import { PnsNode } from '@ziroeda/pcbnew/router/pns_node.js';
-import type { PnsBoardNet } from '@ziroeda/pcbnew/router/pns_board_iface.js';
+import type { PnsBoardNet } from '@ziroeda/pcbnew/router/pns_kicad_iface.js';
 import type { PnsSegment } from '@ziroeda/pcbnew/router/pns_segment.js';
 import type { PnsSolid } from '@ziroeda/pcbnew/router/pns_solid.js';
 import type { PnsVia } from '@ziroeda/pcbnew/router/pns_via.js';
@@ -45,8 +45,8 @@ const ECC83 = new URL('../../../designer/public/demos/ecc83/ecc83-pp.kicad_pcb',
 const readEcc83 = (): Board => readBoard(parse(readFileSync(ECC83, 'utf8')));
 
 /** `ROUTER::SyncWorld` (pns_router.cpp:95-105), which is what a caller does. */
-function syncInto(aBoard: Board): { iface: PnsBoardIface; node: PnsNode } {
-  const iface = new PnsBoardIface(aBoard);
+function syncInto(aBoard: Board): { iface: PNS_KICAD_IFACE; node: PnsNode } {
+  const iface = new PNS_KICAD_IFACE(aBoard);
 
   // `ITEM::collideSimple` reaches `isFlashedOnLayer` through this singleton.
   setRouterIface(iface);
@@ -66,7 +66,7 @@ const allPads = (aBoard: Board): PcbPad[] => aBoard.footprints.flatMap((f) => f.
 
 describe('a real board in a real node: demos/ecc83/ecc83-pp.kicad_pcb', () => {
   let board: Board;
-  let iface: PnsBoardIface;
+  let iface: PNS_KICAD_IFACE;
   let node: PnsNode;
 
   beforeEach(() => {
@@ -361,7 +361,7 @@ describe('layer mapping', () => {
   });
 
   it('is copper exactly where the board-layer conversion produces copper', () => {
-    const iface = new PnsBoardIface(readBoard(parse(MULTILAYER)));
+    const iface = new PNS_KICAD_IFACE(readBoard(parse(MULTILAYER)));
 
     expect([0, 1, 2, 3].map((l) => iface.isPnsCopperLayer(l))).toEqual([true, true, true, true]);
     expect(iface.isPnsCopperLayer(-1)).toBe(false);
@@ -386,7 +386,7 @@ describe('layer mapping', () => {
 
 describe('nets', () => {
   const board = readEcc83();
-  const iface = new PnsBoardIface(board);
+  const iface = new PNS_KICAD_IFACE(board);
 
   it('is -1 and empty for the null handle', () => {
     expect(iface.getNetCode(null)).toBe(-1);
@@ -518,7 +518,7 @@ describe('the parts that are deliberately not implemented', () => {
   });
 
   it('answers zero for the stackup and false for importSizes', () => {
-    const iface = new PnsBoardIface(board);
+    const iface = new PNS_KICAD_IFACE(board);
 
     expect(iface.stackupHeight(0, 1)).toBe(0);
     expect(
@@ -537,7 +537,7 @@ describe('the parts that are deliberately not implemented', () => {
   });
 
   it('honours an injected visibility predicate', () => {
-    const iface = new PnsBoardIface(board, { isLayerVisible: (l) => l === 'F.Cu' });
+    const iface = new PNS_KICAD_IFACE(board, { isLayerVisible: (l) => l === 'F.Cu' });
 
     expect(iface.isAnyLayerVisible(new PnsLayerRange(0, 0))).toBe(true);
     expect(iface.isAnyLayerVisible(new PnsLayerRange(1, 1))).toBe(false);

@@ -161,9 +161,9 @@ const isHole = (aItem: PnsItem | null): boolean => {
  * Construct one per routing session and hand it to
  * {@link PnsNode.setRuleResolver}. It holds caches keyed on live items, so it
  * must not outlive the node tree it was built for — that is what
- * {@link PnsBoardRuleResolver.clearCaches} is for.
+ * {@link PNS_PCBNEW_RULE_RESOLVER.clearCaches} is for.
  */
-export class PnsBoardRuleResolver implements PnsRuleResolver {
+export class PNS_PCBNEW_RULE_RESOLVER implements PnsRuleResolver {
   private readonly mHost: PnsResolverHost;
 
   /** Stable stand-in for `(uintptr_t) pointer`, handed out on first sight. */

@@ -4,7 +4,9 @@
 /**
  * The board bridge: a `Board` seen as a `PNS::NODE`.
  * Counterparts: `pcbnew/router/pns_kicad_iface.h` and `pns_kicad_iface.cpp`
- * (`PNS_KICAD_IFACE_BASE`, `PNS_KICAD_IFACE`).
+ * (`PNS_KICAD_IFACE_BASE`, `PNS_KICAD_IFACE`). One class here, `PNS_KICAD_IFACE`:
+ * the base's board-facing half and the derived class's view-facing half are
+ * not split, because nothing else instantiates the base.
  *
  * `PnsRouterIface` — declared in `pns_router.ts`, which is the specification
  * this file satisfies — is the only thing standing between the router engine
@@ -37,7 +39,7 @@
  *
  * `boardObstacleHulls` is the older, narrower board→router mapping the shipped
  * Route tool uses. The two now disagree in two places that change routes:
- * net 0 (see {@link PnsBoardIface.netHandle}) and non-round pad shapes (see
+ * net 0 (see {@link PNS_KICAD_IFACE.netHandle}) and non-round pad shapes (see
  * {@link solidShapeForPad}). Both are documented at the site. Nothing here
  * touches that file or the tool that calls it.
  */
@@ -58,7 +60,7 @@ import { PnsHole } from './pns_hole.js';
 import { PnsKind, LineMarker } from './pns_item.js';
 import { PnsLayerRange } from './pns_layerset.js';
 import { PNS_UNDEFINED_LAYER } from './pns_drag_algo.js';
-import { PnsBoardRuleResolver } from './pns_rule_resolver.js';
+import { PNS_PCBNEW_RULE_RESOLVER } from './pns_rule_resolver.js';
 import { PnsSegment } from './pns_segment.js';
 import { PnsSolid } from './pns_solid.js';
 import { PnsVia } from './pns_via.js';
@@ -287,7 +289,7 @@ export function padHoleShape(aPad: PcbPad): Shape | null {
 // The interface
 
 /** What a host can tell the bridge that the `Board` itself does not carry. */
-export interface PnsBoardIfaceDeps {
+export interface PNS_KICAD_IFACE_DEPS {
   /** `BOARD_DESIGN_SETTINGS::m_DRCEngine` — the compiled custom rules. */
   ruleEngine?: DrcRuleEngine | null;
   /** Every netclass a net belongs to, for the rule resolver's conditions. */
@@ -297,7 +299,7 @@ export interface PnsBoardIfaceDeps {
   /**
    * `KIGFX::VIEW::IsLayerVisible`. Absent means everything is visible, which is
    * **not** upstream's no-view answer for `IsAnyLayerVisible` — see
-   * {@link PnsBoardIface.isAnyLayerVisible}.
+   * {@link PNS_KICAD_IFACE.isAnyLayerVisible}.
    */
   isLayerVisible?: (aBoardLayer: string) => boolean;
   /** `KIGFX::VIEW::IsVisible( BOARD_ITEM* )`. Absent means visible. */
@@ -306,7 +308,7 @@ export interface PnsBoardIfaceDeps {
    * Called at each end-of-transaction boundary with the batch being closed,
    * just before it is dropped — upstream's `BOARD_COMMIT::Push()`.
    *
-   * A hook rather than a return value because {@link PnsBoardIface.commit} is
+   * A hook rather than a return value because {@link PNS_KICAD_IFACE.commit} is
    * called by `ROUTER::CommitRouting` itself, from inside the placer's own
    * commit, with no caller of ours on the stack to hand anything back to.
    * Without it the changes the router decided on were recorded and then thrown
@@ -316,7 +318,7 @@ export interface PnsBoardIfaceDeps {
   onCommit?: (aChanges: readonly PnsPendingChange[]) => void;
   /**
    * `BOARD_DESIGN_SETTINGS`, as `ImportSizes` reads it. Absent is upstream's
-   * `if( !m_board )` early-out: {@link PnsBoardIface.importSizes} returns false
+   * `if( !m_board )` early-out: {@link PNS_KICAD_IFACE.importSizes} returns false
    * and the caller's sizes are left alone.
    */
   designSettings?: PnsDesignSettings | null;
@@ -395,9 +397,9 @@ export interface PnsPendingChange {
  * the board through the interface for exactly the things this class already
  * knows — layer conversion, net codes, net names.
  */
-export class PnsBoardIface implements PnsRouterIface, PnsResolverHost {
+export class PNS_KICAD_IFACE implements PnsRouterIface, PnsResolverHost {
   private readonly mBoard: Board;
-  private readonly mDeps: PnsBoardIfaceDeps;
+  private readonly mDeps: PNS_KICAD_IFACE_DEPS;
   private readonly mCopperLayers: string[];
   private readonly mNets = new Map<number, PnsBoardNet>();
 
@@ -405,10 +407,10 @@ export class PnsBoardIface implements PnsRouterIface, PnsResolverHost {
   private readonly mPads = new WeakMap<object, PcbPad>();
 
   private mWorld: PnsNode | null = null;
-  private mRuleResolver: PnsBoardRuleResolver | null = null;
+  private mRuleResolver: PNS_PCBNEW_RULE_RESOLVER | null = null;
   private mPending: PnsPendingChange[] = [];
 
-  constructor(aBoard: Board, aDeps: PnsBoardIfaceDeps = {}) {
+  constructor(aBoard: Board, aDeps: PNS_KICAD_IFACE_DEPS = {}) {
     this.mBoard = aBoard;
     this.mDeps = aDeps;
     this.mCopperLayers = enabledCopperLayers(aBoard);
@@ -648,7 +650,7 @@ export class PnsBoardIface implements PnsRouterIface, PnsResolverHost {
    * Note that the resolver is rebuilt on every sync. Upstream's comment at
    * cpp:2442 — *"if this were ever to become a long-lived object we would need
    * to dirty its clearance cache here"* — is the reason, and it holds here too:
-   * `PnsBoardRuleResolver` caches clearances by item identity.
+   * `PNS_PCBNEW_RULE_RESOLVER` caches clearances by item identity.
    */
   syncWorld(aNode: PnsNode): void {
     let worstClearance = this.mDeps.maxClearance ?? 0;
@@ -695,7 +697,7 @@ export class PnsBoardIface implements PnsRouterIface, PnsResolverHost {
       if (item) aNode.addVia(item);
     }
 
-    this.mRuleResolver = new PnsBoardRuleResolver(this);
+    this.mRuleResolver = new PNS_PCBNEW_RULE_RESOLVER(this);
 
     aNode.setRuleResolver(this.mRuleResolver);
     aNode.setMaxClearance(worstClearance + this.mRuleResolver.clearanceEpsilon());
@@ -982,7 +984,7 @@ export class PnsBoardIface implements PnsRouterIface, PnsResolverHost {
    * Returns false with no design settings, which is upstream's `if( !m_board )`
    * early-out: the caller's sizes are left as they were.
    */
-  /** Whether {@link PnsBoardIface.importSizes} has a BOARD_DESIGN_SETTINGS to read. */
+  /** Whether {@link PNS_KICAD_IFACE.importSizes} has a BOARD_DESIGN_SETTINGS to read. */
   get importSizesEnabled(): boolean {
     return this.mDeps.designSettings != null;
   }
@@ -1333,7 +1335,7 @@ export class PnsBoardIface implements PnsRouterIface, PnsResolverHost {
 
   /**
    * `Commit()`: upstream pushes the `BOARD_COMMIT` at the undo stack and opens
-   * a fresh one. Here the batch goes to {@link PnsBoardIfaceDeps.onCommit} and
+   * a fresh one. Here the batch goes to {@link PNS_KICAD_IFACE_DEPS.onCommit} and
    * a fresh one is opened — the same end-of-transaction boundary, with somebody
    * on the other side of it at last.
    *
@@ -1570,7 +1572,7 @@ export class PnsBoardIface implements PnsRouterIface, PnsResolverHost {
  * rather than `layer`. Widening `PnsBoardItem` would make that check useless for
  * every other caller, and the parent really is the board object: identity is
  * what `commitRoutingTo` pairs removes against adds by, and what
- * {@link PnsBoardIface.startPointUnroutableReason} looks up. So the cast is the
+ * {@link PNS_KICAD_IFACE.startPointUnroutableReason} looks up. So the cast is the
  * honest expression of "this interface is a nominal handle, not a shape".
  *
  * Exported because every caller that wants to ask a node for the items made
@@ -1580,7 +1582,7 @@ export class PnsBoardIface implements PnsRouterIface, PnsResolverHost {
 export const asBoardItem = (aItem: object): { layer?: string } => aItem as { layer?: string };
 
 /** Every board layer name a PNS span covers, for a `DrcEvalItem`. */
-function layerNames(aIface: PnsBoardIface, aSpan: PnsLayerRange): string[] {
+function layerNames(aIface: PNS_KICAD_IFACE, aSpan: PnsLayerRange): string[] {
   const out: string[] = [];
 
   for (let i = aSpan.start(); i <= aSpan.end(); i++) {

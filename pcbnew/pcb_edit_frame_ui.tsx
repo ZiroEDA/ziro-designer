@@ -265,7 +265,7 @@ import {
 import { Icon } from '@ziroeda/common/widgets/icons.js';
 import { applyPnsChanges, PnsSession } from './router/pns_session.js';
 import { PnsRouterMode } from './router/pns_router.js';
-import type { PnsDesignSettings } from './router/pns_board_iface.js';
+import type { PnsDesignSettings } from './router/pns_kicad_iface.js';
 import { Infobar } from '@ziroeda/common/widgets/wx_infobar.js';
 import { ReferenceImageCache } from './pcb_reference_image.js';
 import { buildPcbMenus } from './menubar_pcb_editor.js';

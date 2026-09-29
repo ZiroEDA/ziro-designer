@@ -19,7 +19,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
-import { PnsBoardIface } from '@ziroeda/pcbnew/router/pns_board_iface.js';
+import { PNS_KICAD_IFACE } from '@ziroeda/pcbnew/router/pns_kicad_iface.js';
 import { DEFAULT_ROUTER_SIZES } from '@ziroeda/pcbnew/router/pns_router.js';
 import { PnsSegment } from '@ziroeda/pcbnew/router/pns_segment.js';
 import { PnsNode } from '@ziroeda/pcbnew/router/pns_node.js';
@@ -30,7 +30,7 @@ import {
   DIFF_PAIR_DIMENSION,
   VIA_DIMENSION,
 } from '@ziroeda/pcbnew/board_design_settings.js';
-import type { PnsDesignSettings } from '@ziroeda/pcbnew/router/pns_board_iface.js';
+import type { PnsDesignSettings } from '@ziroeda/pcbnew/router/pns_kicad_iface.js';
 import type { PnsRouterSizes } from '@ziroeda/pcbnew/router/pns_router.js';
 import type { Board } from '@ziroeda/pcbnew/types.js';
 
@@ -112,7 +112,7 @@ function imported(ds: PnsDesignSettings | null): {
   ok: boolean;
   sizes: PnsRouterSizes;
 } {
-  const iface = new PnsBoardIface(BOARD, ds ? { designSettings: ds } : {});
+  const iface = new PNS_KICAD_IFACE(BOARD, ds ? { designSettings: ds } : {});
   const sizes: PnsRouterSizes = { ...DEFAULT_ROUTER_SIZES };
   const ok = iface.importSizes(sizes, null, null, { x: 0, y: 0 });
   return { ok, sizes };
@@ -239,7 +239,7 @@ describe('inheriting the width from the track the route starts on', () => {
   };
 
   const withStart = (ds: PnsDesignSettings): PnsRouterSizes => {
-    const iface = new PnsBoardIface(BOARD, { designSettings: ds });
+    const iface = new PNS_KICAD_IFACE(BOARD, { designSettings: ds });
     const sizes: PnsRouterSizes = { ...DEFAULT_ROUTER_SIZES };
     iface.importSizes(sizes, startItem(), null, { x: 0, y: 0 });
     return sizes;
@@ -334,7 +334,7 @@ describe('where each number came from', () => {
   });
 
   it('names the starting track when the width is inherited', () => {
-    const iface = new PnsBoardIface(BOARD, {
+    const iface = new PNS_KICAD_IFACE(BOARD, {
       designSettings: designSettings({
         useConnectedTrackWidth: true,
         inheritTrackWidth: () => MM(0.75),
@@ -369,7 +369,7 @@ describe('the branches that need the rule engine', () => {
    * credit for the width survived on that alone.
    */
   const synced = (dru: string, ds: PnsDesignSettings): PnsRouterSizes => {
-    const iface = new PnsBoardIface(BOARD, {
+    const iface = new PNS_KICAD_IFACE(BOARD, {
       designSettings: ds,
       ruleEngine: buildDrcRuleEngine([], parseDrcRules(dru)),
     });

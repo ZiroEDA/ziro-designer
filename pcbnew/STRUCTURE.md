@@ -687,8 +687,10 @@ all).
   Everything else was audited and is a deliberate, already-documented split
   or a folded simplification, left alone as too central/high-blast-radius for
   a moves-only pass without a matching upstream restructure:
-  `pns_kicad_iface.cpp` → `pns_board_iface.ts` is a **rename we cannot make**
-  (no "kicad" in a filename, trademark — `designer-keeps-its-name`);
+  `pns_kicad_iface.cpp` → `pns_kicad_iface.ts` (renamed 09-29 from
+  `pns_board_iface.ts`: KiCad's exact names, "kicad" included, are wanted —
+  `PNS_KICAD_IFACE` holds `PNS_KICAD_IFACE_BASE` folded in, and
+  `PNS_PCBNEW_RULE_RESOLVER` is the class in `pns_rule_resolver.ts`);
   `router_tool.cpp` is split between `pns_session.ts` (the `ROUTER_TOOL`
   equivalent, headless — see `pns-router-wiring.md`) and
   `router_size_menus.ts` (its two size menus), with the wx-level click

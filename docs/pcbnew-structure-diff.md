@@ -117,7 +117,7 @@ Generated 2026-09-29 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 | `pcb_unit_binder.ts` | `-` |
 | `place_image.ts` | `-` |
 | `renderBoard.ts` | `-` |
-| `router/pns_board_iface.ts` | `-` |
+| `router/pns_kicad_iface.ts` | `pns_kicad_iface.cpp` |
 | `router/pns_chain.ts` | `-` |
 | `router/pns_collision.ts` | `-` |
 | `router/pns_drag.ts` | `-` |

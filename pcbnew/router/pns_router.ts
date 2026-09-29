@@ -1935,7 +1935,7 @@ const vecEqual = (a: Vec2, b: Vec2): boolean => a.x === b.x && a.y === b.y;
  * :806, :810.
  *
  * `PnsRuleResolver.clearance` declares its second parameter non-nullable even
- * though `PnsBoardRuleResolver` already accepts null and every upstream call
+ * though `PNS_PCBNEW_RULE_RESOLVER` already accepts null and every upstream call
  * site in this file passes `nullptr`. Widening that shared interface is not
  * this port's to do, so the null is cast in exactly one place.
  */

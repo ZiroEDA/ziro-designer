@@ -154,7 +154,7 @@ export interface MeanderRouterIface {
  * `RULE_RESOLVER::QueryConstraint`, with the nullable second item upstream
  * passes.
  *
- * `PnsBoardRuleResolver` satisfies this structurally; the `PnsRuleResolver`
+ * `PNS_PCBNEW_RULE_RESOLVER` satisfies this structurally; the `PnsRuleResolver`
  * interface in `pns_collision.ts` declares `itemB` non-null, which
  * {@link PnsMeanderPlacerBase.clearance} needs to be null.
  */

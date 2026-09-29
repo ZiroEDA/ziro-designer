@@ -1260,7 +1260,7 @@ export {
 // `ARC_LOW_DEF`/`arcHull`/`buildHullForPrimitiveShape`/`convexHull` are already
 // exported above, from the `pns_utils.js` block.
 export { itemHull } from './router/pns_item_hull.js';
-export { PnsBoardRuleResolver, type PnsResolverHost } from './router/pns_rule_resolver.js';
+export { PNS_PCBNEW_RULE_RESOLVER, type PnsResolverHost } from './router/pns_rule_resolver.js';
 
 export {
   DEFAULT_ROUTING_SETTINGS,
@@ -1560,14 +1560,14 @@ export { PnsSizesSettings, type PnsViaTypeSetting } from './router/pns_sizes_set
 // imported from `./router/pns_router.js` directly for the same reason
 // `DpPlacerHost` is.
 export {
-  PnsBoardIface,
+  PNS_KICAD_IFACE,
   PNS_ORPHANED_NET,
   asBoardItem,
   boardLayerFromPnsLayer,
   padHoleShape,
   pnsLayerFromBoardLayer,
   solidShapeForPad,
-  type PnsBoardIfaceDeps,
+  type PNS_KICAD_IFACE_DEPS,
   type PnsBoardNet,
   type PnsPendingChange,
-} from './router/pns_board_iface.js';
+} from './router/pns_kicad_iface.js';

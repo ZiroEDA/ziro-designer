@@ -98,7 +98,7 @@ export type PnsItemOwner = object;
  *
  * `uuid` is `BOARD_ITEM::m_Uuid`, read by `PNS::LOGGER::LogM`
  * (`pns_logger.ts`) to build an event's item-UUID list. Optional because
- * nothing in this port currently stamps one on here (`pns_board_iface.ts`
+ * nothing in this port currently stamps one on here (`pns_kicad_iface.ts`
  * does not carry a UUID through when it wraps a board item).
  */
 export interface PnsBoardItem {

@@ -13,14 +13,14 @@
 import { describe, expect, it } from 'vitest';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
-import { PnsBoardIface } from '@ziroeda/pcbnew/router/pns_board_iface.js';
+import { PNS_KICAD_IFACE } from '@ziroeda/pcbnew/router/pns_kicad_iface.js';
 import {
   BOARD_DESIGN_SETTINGS,
   DIFF_PAIR_DIMENSION,
   VIA_DIMENSION,
 } from '@ziroeda/pcbnew/board_design_settings.js';
 import type { BOARD_STACKUP } from '@ziroeda/pcbnew/board_stackup_manager/board_stackup.js';
-import type { PnsDesignSettings } from '@ziroeda/pcbnew/router/pns_board_iface.js';
+import type { PnsDesignSettings } from '@ziroeda/pcbnew/router/pns_kicad_iface.js';
 import type { Board } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
@@ -88,14 +88,14 @@ function designSettings(over: Partial<PnsDesignSettings> = {}): PnsDesignSetting
 
 /** Two board layers as PNS layer numbers, through the interface's own mapping. */
 function heightOf(ds: PnsDesignSettings | null, a = 'F.Cu', b = 'B.Cu'): number {
-  const iface = new PnsBoardIface(BOARD, ds ? { designSettings: ds } : {});
+  const iface = new PNS_KICAD_IFACE(BOARD, ds ? { designSettings: ds } : {});
   return iface.stackupHeight(
     iface.getPnsLayerFromBoardLayer(a),
     iface.getPnsLayerFromBoardLayer(b),
   );
 }
 
-describe('PnsBoardIface.stackupHeight', () => {
+describe('PNS_KICAD_IFACE.stackupHeight', () => {
   it('is GetLayerDistance on the live stackup when the setting is on', () => {
     const stackup = fourLayer();
     const ds = designSettings({ useHeightForLengthCalcs: true, stackup });

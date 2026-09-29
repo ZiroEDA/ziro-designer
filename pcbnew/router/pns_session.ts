@@ -6,7 +6,7 @@
  *
  * Every part of KiCad's push-and-shove router is ported in this directory —
  * `PnsRouter`, `PnsLinePlacer`, `PnsShove`, `PnsWalkaround`, `PnsNode`,
- * `PnsBoardIface` and the rest — and each has a suite of its own. What did not
+ * `PNS_KICAD_IFACE` and the rest — and each has a suite of its own. What did not
  * exist was the thing that *assembles* them, so nothing had ever driven the
  * line placer through the router over a real board. The editor's Route tool
  * used a hand-rolled substitute instead: a two-segment posture path and a
@@ -42,11 +42,11 @@ import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { addBoardTrack, addBoardVia } from '../edit-board.js';
 import { boardCopperLayerCount as copperLayerCount } from '../unused_pad_layers.js';
 import {
-  PnsBoardIface,
+  PNS_KICAD_IFACE,
   boardLayerFromPnsLayer,
   type PnsDesignSettings,
   type PnsPendingChange,
-} from './pns_board_iface.js';
+} from './pns_kicad_iface.js';
 import { PnsKind } from './pns_item.js';
 import type { PnsLine } from './pns_line.js';
 import type { PnsSegment } from './pns_segment.js';
@@ -338,7 +338,7 @@ export interface PnsSessionResult {
  * leaves the board exactly as it was.
  */
 export class PnsSession {
-  private readonly iface: PnsBoardIface;
+  private readonly iface: PNS_KICAD_IFACE;
   private readonly router: PnsRouter;
   private readonly settings: RoutingSettings;
   private readonly maxSlopRadius: number;
@@ -362,7 +362,7 @@ export class PnsSession {
     this.maxSlopRadius = aOptions.maxSlopRadius ?? 250_000;
 
     const copperLayers = copperLayerCount(board);
-    this.iface = new PnsBoardIface(board, {
+    this.iface = new PNS_KICAD_IFACE(board, {
       isLayerVisible: aOptions.isLayerVisible,
       designSettings: aOptions.designSettings ?? null,
       onCommit: (batch) => {

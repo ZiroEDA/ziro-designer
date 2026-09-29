@@ -20,7 +20,7 @@
  *
  *  - `LogM`'s per-item UUID collection (`item->Parent()->m_Uuid`) reads
  *    `PnsBoardItem.uuid`, a field added to that interface by this port
- *    (`pns_item.ts`) — nothing currently *writes* it (`pns_board_iface.ts`
+ *    (`pns_item.ts`) — nothing currently *writes* it (`pns_kicad_iface.ts`
  *    does not stamp a UUID onto the board items it wraps), so it is empty
  *    until that wiring exists. The collection logic itself is exact.
  *  - `FormatLogFileAsString` takes its added/head item lines pre-formatted
