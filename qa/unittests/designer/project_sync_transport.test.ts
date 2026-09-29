@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 import { describe, expect, it } from 'vitest';
 import { BroadcastChannelTransport } from '@ziroeda/designer/src/sync/BroadcastChannelTransport.js';
-import type { ProjectSyncPayload } from '@ziroeda/eeschema/project_sync_transport.js';
+import type { ProjectSyncPayload } from '@ziroeda/eeschema/browser/project_sync_transport.js';
 
 /** Wait for a condition to become true, polling on the microtask/macrotask queue. */
 async function waitFor(check: () => boolean, timeoutMs = 500): Promise<void> {

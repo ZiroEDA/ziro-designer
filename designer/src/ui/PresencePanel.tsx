@@ -12,7 +12,7 @@
  * is never assigned here, only decided by the transport on connect.
  */
 import { useEffect, useRef, type JSX } from 'react';
-import type { PeerRole, PresenceInfo } from '@ziroeda/eeschema/project_sync_transport.js';
+import type { PeerRole, PresenceInfo } from '@ziroeda/eeschema/browser/project_sync_transport.js';
 import { peerColor } from '../sync/peerColor.js';
 
 const ROLE_LABEL: Record<PeerRole, string> = {

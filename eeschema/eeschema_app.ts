@@ -30,7 +30,11 @@ import type { CanvasController, SchematicCanvasProps } from './sch_draw_panel.js
 import type { DialogSymbolChooserProps } from './picksymbol.js';
 import type { DialogRescueEachProps } from './project_rescue.js';
 import type { DialogChangeSymbolsProps } from './tools/change_symbols.js';
-import type { PeerRole, PresenceInfo, ProjectSyncTransport } from './project_sync_transport.js';
+import type {
+  PeerRole,
+  PresenceInfo,
+  ProjectSyncTransport,
+} from './browser/project_sync_transport.js';
 import type { EeschemaSettings } from './eeschema_settings.js';
 import type { Theme } from './sch_render_settings.js';
 

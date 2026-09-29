@@ -30,8 +30,12 @@ import {
   diffSchematic,
   schematicPatchIsEmpty,
   type SchematicPatch,
-} from './sch_diff.js';
-import type { PeerRole, PresenceInfo, ProjectSyncTransport } from './project_sync_transport.js';
+} from './browser/sch_diff.js';
+import type {
+  PeerRole,
+  PresenceInfo,
+  ProjectSyncTransport,
+} from './browser/project_sync_transport.js';
 import { ReadOnlyNotice } from '@ziroeda/common/widgets/wx_infobar.js';
 import {
   type ArcEditMode,
@@ -318,7 +322,7 @@ import {
 import { SymbolPropertiesDialog } from './dialogs/dialog_symbol_properties.js';
 import { ErcDialog, type ErcDialogNav } from './dialogs/dialog_erc.js';
 import type { PickedSymbol, SymbolChooserResult } from './picksymbol.js';
-import { repairSourceLibs } from './repair_source.js';
+import { repairSourceLibs } from './browser/repair_source.js';
 import {
   findRescues,
   rescueDocumentCommand,
