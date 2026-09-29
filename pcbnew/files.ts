@@ -96,6 +96,20 @@ export class FILES_MIXIN {
     // "Initialise time domain tuning caches" (files.cpp:986), after the
     // project's profiles are in and before anything asks for a length.
     kb.SynchronizeTuningProfileProperties();
+    // "Load project settings after setting up board; some of them depend on
+    // the nets list" (files.cpp:906-908): only when a board is opened, not
+    // when Board Setup or another session rewrote the project's files, and
+    // only once the window has a canvas for them to land on.
+    if (!aFromBoardSetup && this.GetCanvas()) {
+      this.LoadProjectSettings();
+      this.LoadDrawingSheet((aFullPath) => {
+        const hit = files.find(
+          (f) => aFullPath === f.name || aFullPath === `${aProjectDir}/${f.name}`,
+        );
+
+        return hit ? hit.text : null;
+      });
+    }
     const dru = findProjectDru(files, rootPro);
     this.OnBoardLoaded(dru?.text ?? null, dru?.name ?? '');
     // The load stops here: OnBoardLoaded's own tail (SetActiveLayer + a full

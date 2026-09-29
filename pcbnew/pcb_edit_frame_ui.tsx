@@ -1955,6 +1955,7 @@ export function PcbEditor({
     onEditItemRequest: (aItem: BOARD_ITEM | null) => void;
     editZoneParams: (zoneIndex: number) => void;
     selectCopperLayerPair: () => void;
+    showInfoBarError: (aMsg: string) => void;
     findDialogRects: () => BOX2D[];
     setViewCenter: (aPos: KVec2, aRects: readonly BOX2D[]) => void;
   } | null>(null);
@@ -1981,6 +1982,7 @@ export function PcbEditor({
       onEditItemRequest: (aItem) => drcWindowRef.current!.onEditItemRequest(aItem),
       editZoneParams: (zoneIndex) => drcWindowRef.current!.editZoneParams(zoneIndex),
       selectCopperLayerPair: () => drcWindowRef.current!.selectCopperLayerPair(),
+      showInfoBarError: (aMsg) => drcWindowRef.current?.showInfoBarError(aMsg),
       showExchangeFootprintsDialog: () => {
         // DIALOG_EXCHANGE_FOOTPRINTS is not built (Edit > Change Footprints... is
         // greyed in the menu for the same reason).
@@ -2971,6 +2973,51 @@ export function PcbEditor({
             false,
             projectDirRef.current,
           );
+          // `LoadProjectSettings` (files.cpp:907) filled the frame's display
+          // options, the painter's hidden nets and the selection filter from
+          // the .kicad_prl; this window's Appearance state starts from them.
+          if (frame.GetCanvas()) {
+            const o = frame.GetDisplayOptions();
+            setOpacity({
+              tracks: o.m_TrackOpacity,
+              vias: o.m_ViaOpacity,
+              pads: o.m_PadOpacity,
+              zones: o.m_ZoneOpacity,
+              images: o.m_ImageOpacity,
+              filledShapes: o.m_FilledShapeOpacity,
+            });
+            setContrast(
+              o.m_ContrastModeDisplay === HIGH_CONTRAST_MODE.HIDDEN
+                ? 'hide'
+                : o.m_ContrastModeDisplay === HIGH_CONTRAST_MODE.DIMMED
+                  ? 'dim'
+                  : 'normal',
+            );
+            setNetColorMode(
+              o.m_NetColorMode === NET_COLOR_MODE.ALL
+                ? 'all'
+                : o.m_NetColorMode === NET_COLOR_MODE.OFF
+                  ? 'off'
+                  : 'ratsnest',
+            );
+            setToggles((prev) =>
+              applyToggle(
+                prev,
+                o.m_ZoneDisplayMode === ZONE_DISPLAY_MODE.SHOW_ZONE_OUTLINE
+                  ? 'zoneDisplayOutline'
+                  : 'zoneDisplayFilled',
+              ),
+            );
+            const loadedPanel = panelRef.current;
+            if (loadedPanel) {
+              const render = (loadedPanel.GetView().GetPainter() as PCB_PAINTER).GetSettings();
+              setHiddenNets(new Set(render.GetHiddenNets()));
+            }
+            const loadedFilter = frame.GetSelectionFilter() as unknown as Record<string, unknown>;
+            setSelFilter(
+              new Set(Object.keys(loadedFilter).filter((k) => loadedFilter[k] === true)),
+            );
+          }
           wxLogTrace(
             traceAllegroPerf,
             () => `Post-load DRC engine: ${postLoadTimer.msecs(true).toFixed(3)} ms`,
@@ -5433,6 +5480,8 @@ export function PcbEditor({
     editZoneParams: (zoneIndex: number): void => setZonePropsIndex(zoneIndex),
     /** `ROUTER_TOOL::SelectCopperLayerPair`'s actual open: the rendering trigger. */
     selectCopperLayerPair: (): void => setLayerPairDialogOpen(true),
+    /** `EDA_BASE_FRAME::ShowInfoBarError`: this window's infobar. */
+    showInfoBarError: (aMsg: string): void => setInfoBarError(aMsg),
     // findDialogs(): the DRC dialog is the one modeless dialog of this frame; its
     // rect in canvas client pixels, as ScreenToClient( dialog->GetScreenPosition() ).
     findDialogRects: (): BOX2D[] => {
@@ -10655,6 +10704,42 @@ export function PcbEditor({
     URL.revokeObjectURL(a.href);
   }, [text, fileName]);
 
+  /**
+   * `PCB_EDIT_FRAME::SaveProjectLocalSettings` (`SavePcbFile` calls it once the
+   * board is written, files.cpp:1125): this window's Appearance state into the
+   * frame, the frame's into PROJECT_LOCAL_SETTINGS, and the two files
+   * `SETTINGS_MANAGER::SaveProject()` returns out to the project's file store.
+   */
+  const saveProjectLocalSettings = (): void => {
+    const frame = frameRef.current;
+    const savePanel = panelRef.current;
+    if (!frame || !savePanel || !frame.GetBoard()) return;
+    const hidden = (savePanel.GetView().GetPainter() as PCB_PAINTER).GetSettings().GetHiddenNets();
+    hidden.clear();
+    for (const code of hiddenNets) hidden.add(code);
+    const filter = frame.GetSelectionFilter() as unknown as Record<string, unknown>;
+    for (const key of Object.keys(filter))
+      if (typeof filter[key] === 'boolean') filter[key] = selFilter.has(key);
+    const saved = frame.SaveProjectLocalSettings();
+    if (!saved) return;
+    const files = projectFilesNow();
+    const pro = findProjectPro(files, rootPro);
+    if (!pro) return;
+    const baseOf = (name: string): string =>
+      (projectFiles ?? []).find((f) => f.name === name)?.text ?? '';
+    const persist: { name: string; text: string }[] = [];
+    const proText = DumpJson(saved.pro);
+    if (proText !== pro.text) persist.push({ name: pro.name, text: proText });
+    const prlName = pro.name.replace(/\.kicad_pro$/i, '.kicad_prl');
+    const prlText = DumpJson(saved.prl);
+    if (prlText !== files.find((f) => f.name === prlName)?.text)
+      persist.push({ name: prlName, text: prlText });
+    if (persist.length === 0) return;
+    for (const f of persist)
+      projectFileEditsRef.current.set(f.name, { base: baseOf(f.name), text: f.text });
+    onPersistFiles?.(persist);
+  };
+
   const onTopAction = (id: string): void => {
     switch (id) {
       case 'save':
@@ -10663,6 +10748,7 @@ export function PcbEditor({
         if (onSaveBoard) onSaveBoard(boardRef.current ? serializeBoard(boardRef.current) : text);
         else saveCopy();
         setDirty(false);
+        saveProjectLocalSettings();
         break;
       case 'undo':
         undo();
