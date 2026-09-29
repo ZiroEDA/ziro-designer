@@ -33,9 +33,9 @@ import { fileURLToPath } from 'node:url';
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
-const CANVAS_EDITOR = read('../../../designer/src/editors/schematic/SchematicEditor.tsx');
+const CANVAS_EDITOR = read('../../../eeschema/sch_edit_frame_ui.tsx');
 const CANVAS = read('../../../designer/src/editors/schematic/components/SchematicCanvas.tsx');
-const EDITOR = read('../../../designer/src/editors/schematic/SchematicEditor.tsx');
+const EDITOR = read('../../../eeschema/sch_edit_frame_ui.tsx');
 /** SCH_DRAW_PANEL's contract, where the canvas's props interface lives since
  *  stage E2 pt 3 (the canvas imports it as `Props`). */
 const PANEL = read('../../../eeschema/sch_draw_panel.ts');

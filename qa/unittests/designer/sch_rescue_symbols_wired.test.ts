@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url';
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
-const EDITOR = read('../../../designer/src/editors/schematic/SchematicEditor.tsx');
+const EDITOR = read('../../../eeschema/sch_edit_frame_ui.tsx');
 const PROJECT_SCH = read('../../../eeschema/project_sch.ts');
 const MENUBAR = read('../../../eeschema/menubar.ts');
 const DIALOG = read('../../../designer/src/editors/schematic/dialogs/dialog_rescue_each.tsx');

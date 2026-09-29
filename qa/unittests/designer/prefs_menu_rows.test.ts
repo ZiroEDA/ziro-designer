@@ -92,7 +92,7 @@ describe('the library tables stay', () => {
   });
 
   it('and the schematic actually opens the symbol one', () => {
-    const sch = src('editors/schematic/SchematicEditor.tsx');
+    const sch = src('../../eeschema/sch_edit_frame_ui.tsx');
     expect(sch).toContain('DialogSymLibTable');
     expect(sch).toMatch(/id === 'manageSymbolLibraries'/);
   });

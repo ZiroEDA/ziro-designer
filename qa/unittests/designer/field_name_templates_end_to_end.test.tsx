@@ -202,10 +202,7 @@ describe('the editor hands the dialogs the resolved list, not the project’s', 
    * is every project, until someone opens the Preferences page.
    */
   it('SchematicEditor passes resolvedFieldTemplates to both', () => {
-    const src = readFileSync(
-      resolve(process.cwd(), '../designer/src/editors/schematic/SchematicEditor.tsx'),
-      'utf8',
-    );
+    const src = readFileSync(resolve(process.cwd(), '../eeschema/sch_edit_frame_ui.tsx'), 'utf8');
     expect(src).not.toContain('fieldTemplates={setup.fieldTemplates}');
     expect([...src.matchAll(/fieldTemplates=\{resolvedFieldTemplates\}/g)]).toHaveLength(2);
     expect(src).toContain(

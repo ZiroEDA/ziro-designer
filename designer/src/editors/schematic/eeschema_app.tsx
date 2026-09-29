@@ -41,6 +41,7 @@ import {
   crossProbeViewChange,
 } from '@ziroeda/pcbnew';
 import type { ComponentProps, JSX } from 'react';
+import { SchematicEditor } from '@ziroeda/eeschema/sch_edit_frame_ui.js';
 
 /** CvPcb's window with the program's own `CVPCB_APP` — a component so the
  *  `useCvpcbApp()` hook runs inside it. */
@@ -121,4 +122,16 @@ export function useEeschemaApp(): EESCHEMA_APP {
     }),
     [],
   );
+}
+
+/**
+ * The Schematic Editor's window with the program's own `EESCHEMA_APP` —
+ * what `App.tsx` mounts, the way it mounts `PcbEditorMount`. Lazily loaded
+ * with the frame, so neither lands in the entry chunk.
+ */
+export function SchematicEditorMount(
+  props: Omit<ComponentProps<typeof SchematicEditor>, 'app'>,
+): JSX.Element {
+  const app = useEeschemaApp();
+  return <SchematicEditor app={app} {...props} />;
 }

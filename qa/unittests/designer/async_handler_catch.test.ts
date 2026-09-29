@@ -27,8 +27,8 @@ const repo = fileURLToPath(new URL('../../../', import.meta.url));
 /** The functions that open something, and the file they live in. */
 const OPENERS: [file: string, fn: string][] = [
   ['designer/src/home/HomePage.tsx', 'const openStored'],
-  ['designer/src/editors/schematic/SchematicEditor.tsx', 'const loadProject'],
-  ['designer/src/editors/schematic/SchematicEditor.tsx', 'const loadText'],
+  ['eeschema/sch_edit_frame_ui.tsx', 'const loadProject'],
+  ['eeschema/sch_edit_frame_ui.tsx', 'const loadText'],
   ['designer/src/editors/symbol/SymbolEditor.tsx', 'const loadSymbol'],
 ];
 
@@ -39,7 +39,7 @@ const OPENERS: [file: string, fn: string][] = [
  * limit, and exceeding it throws.
  */
 describe('the plot back-ends report their failures', () => {
-  const src = readFileSync(`${repo}designer/src/editors/schematic/SchematicEditor.tsx`, 'utf8');
+  const src = readFileSync(`${repo}eeschema/sch_edit_frame_ui.tsx`, 'utf8');
 
   for (const fn of ['plotPng', 'plotPdf', 'plotPdfSheets']) {
     it(fn, () => {

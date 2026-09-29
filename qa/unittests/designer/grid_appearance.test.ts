@@ -60,7 +60,7 @@ const read = (rel: string): string => readFileSync(join(SRC, rel), 'utf8');
  * with no page to disagree with cannot drift.
  */
 const OWNERS: [editor: string, file: string, cfg: string][] = [
-  ['schematic', 'editors/schematic/SchematicEditor.tsx', 'es'],
+  ['schematic', '../../eeschema/sch_edit_frame_ui.tsx', 'es'],
   ['symbol editor', 'editors/symbol/SymbolEditor.tsx', 'symCfg'],
 ];
 

@@ -179,10 +179,7 @@ describe('every other docked pane keeps the default proportion', () => {
   });
 
   it('the schematic hierarchy pane grows, floored at its MinSize height', () => {
-    const cls = paneClassOf(
-      'designer/src/editors/schematic/SchematicEditor.tsx',
-      '<span>Schematic Hierarchy</span>',
-    );
+    const cls = paneClassOf('eeschema/sch_edit_frame_ui.tsx', '<span>Schematic Hierarchy</span>');
     const flex = flexOf('ze-leftdock sch-leftdock', cls);
     expect(flex.flexGrow).toBe('1');
     expect(flex.minHeight).toBe('60px');

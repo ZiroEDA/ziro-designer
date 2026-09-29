@@ -33,7 +33,7 @@ const BASE = {
 const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
-const EDITOR = read('../../../designer/src/editors/schematic/SchematicEditor.tsx');
+const EDITOR = read('../../../eeschema/sch_edit_frame_ui.tsx');
 const MENUBAR = read('../../../eeschema/menubar.ts');
 const DIALOG = read('../../../eeschema/import_gfx/dialog_import_gfx_sch.tsx');
 

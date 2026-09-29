@@ -242,7 +242,7 @@ const src = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(`../../../designer/src/${rel}`, import.meta.url)), 'utf8');
 
 describe.each([
-  ['editors/schematic/SchematicEditor.tsx', '@ziroeda/eeschema/toggles.js'],
+  ['../../eeschema/sch_edit_frame_ui.tsx', './toggles.js'],
   // footprint_editor_toggles.ts merged into footprint_edit_frame.ts (Stage A
   // of the pcbnew/ file-structure move): FOOTPRINT_EDIT_FRAME's toolbar
   // groups sit beside the rest of that class's ported state now, the same

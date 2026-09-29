@@ -224,7 +224,7 @@ describe('the menu rows print the accelerator, character for character', () => {
 
   it('Leave Sheet says Alt+BackSpace', () => {
     // SCH_ACTIONS::leaveSheet is MD_ALT + WXK_BACK (sch_actions.cpp:1421).
-    const src = SRC('editors/schematic/SchematicEditor.tsx');
+    const src = SRC('../../eeschema/sch_edit_frame_ui.tsx');
     expect(src).toContain("shortcut: 'Alt+BackSpace'");
     expect(src).not.toContain("shortcut: 'Alt+Backspace'");
   });

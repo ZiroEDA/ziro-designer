@@ -319,7 +319,7 @@ describe('the status bar and the message panel exist once', () => {
    * BM2CMP_FRAME one), so they take KiStatusBar's children form.
    */
   const CONSUMERS: [string, ('KiStatusBar' | 'MsgPanel')[]][] = [
-    ['editors/schematic/SchematicEditor.tsx', ['KiStatusBar', 'MsgPanel']],
+    ['../../eeschema/sch_edit_frame_ui.tsx', ['KiStatusBar', 'MsgPanel']],
     ['../../pcbnew/pcb_edit_frame_ui.tsx', ['KiStatusBar', 'MsgPanel']],
     ['editors/symbol/SymbolEditor.tsx', ['KiStatusBar', 'MsgPanel']],
     ['../../pcbnew/footprint_edit_frame_ui.tsx', ['KiStatusBar', 'MsgPanel']],

@@ -100,7 +100,7 @@ describe('the frame reads the store, not the module constant', () => {
    * customises it, which is precisely how this shipped unnoticed.
    */
   const FRAMES: [file: string, app: string][] = [
-    ['editors/schematic/SchematicEditor.tsx', 'eeschema'],
+    ['../../eeschema/sch_edit_frame_ui.tsx', 'eeschema'],
     ['editors/symbol/SymbolEditor.tsx', 'symbol_editor'],
     ['../../pcbnew/pcb_edit_frame_ui.tsx', 'pcbnew'],
     [

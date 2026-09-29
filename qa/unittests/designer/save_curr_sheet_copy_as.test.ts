@@ -12,7 +12,7 @@ import { join } from 'node:path';
 import { ensureFileExtension, KICAD_SCHEMATIC_FILE_EXTENSION } from '@ziroeda/common';
 import { savedFileMessage } from '@ziroeda/eeschema/files-io.js';
 
-const EDITOR = join(__dirname, '../../../designer/src/editors/schematic/SchematicEditor.tsx');
+const EDITOR = join(__dirname, '../../../eeschema/sch_edit_frame_ui.tsx');
 const MENUBAR = join(__dirname, '../../../eeschema/menubar.ts');
 
 describe('EnsureFileExtension (common/common.cpp:662-678)', () => {

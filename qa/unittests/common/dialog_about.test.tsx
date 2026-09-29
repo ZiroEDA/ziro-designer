@@ -251,7 +251,7 @@ describe('every frame opens it', () => {
   // would pass with one frame wired.
   const FRAMES: Record<string, string> = {
     'designer/src/home/HomePage.tsx': 'manager',
-    'designer/src/editors/schematic/SchematicEditor.tsx': 'schematic',
+    'eeschema/sch_edit_frame_ui.tsx': 'schematic',
     'pcbnew/pcb_edit_frame_ui.tsx': 'pcb',
     'designer/src/editors/symbol/SymbolEditor.tsx': 'symbol',
     'pcbnew/footprint_edit_frame_ui.tsx': 'footprint',
@@ -301,7 +301,7 @@ describe('every frame opens it', () => {
   });
 
   it('the schematic answers the About action its Help menu sends', () => {
-    const src = read('designer/src/editors/schematic/SchematicEditor.tsx');
+    const src = read('eeschema/sch_edit_frame_ui.tsx');
     expect(read('eeschema/menubar.ts')).toContain("showAbout: () => h.action('about')");
     expect(src).toMatch(/if \(id === 'about'\) \{\s*setAboutOpen\(true\);/);
   });

@@ -342,9 +342,7 @@ describe('which panes grow', () => {
  * that listed the panes in its own order would satisfy every case above.
  */
 describe('the editor renders the dock through that order', () => {
-  const SRC = fileURLToPath(
-    new URL('../../../designer/src/editors/schematic/SchematicEditor.tsx', import.meta.url),
-  );
+  const SRC = fileURLToPath(new URL('../../../eeschema/sch_edit_frame_ui.tsx', import.meta.url));
   const text = (): string => readFileSync(SRC, 'utf8');
 
   /**
@@ -518,9 +516,7 @@ describe('the Search pane', () => {
  * which is exactly the bug.
  */
 describe('the editor docks Search at the bottom of the canvas column', () => {
-  const SRC = fileURLToPath(
-    new URL('../../../designer/src/editors/schematic/SchematicEditor.tsx', import.meta.url),
-  );
+  const SRC = fileURLToPath(new URL('../../../eeschema/sch_edit_frame_ui.tsx', import.meta.url));
   const text = (): string => readFileSync(SRC, 'utf8');
 
   /** The canvas and the layer-0 dock below it share a column. */

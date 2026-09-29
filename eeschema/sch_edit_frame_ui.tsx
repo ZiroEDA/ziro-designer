@@ -4,7 +4,7 @@
 import { GetAssociatedDocument } from '@ziroeda/common/eda_doc.js';
 import * as KIPLATFORM_UI from '@ziroeda/common/kiplatform/ui.js';
 import { STATUS_TEXT_POPUP } from '@ziroeda/common/status_popup.js';
-import { Priority } from '@ziroeda/eeschema/connectivity/nets.js';
+import { Priority } from './connectivity/nets.js';
 import type { Vec2 } from '@ziroeda/kimath';
 import {
   ensureFileExtension,
@@ -22,20 +22,16 @@ import { resolveActiveSheet, readSheetRef, writeSheetRefText } from '@ziroeda/co
 import { Fragment, useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import type { KIWAY } from '@ziroeda/common/kiway.js';
-import { SCH_EDIT_FRAME } from '@ziroeda/eeschema/sch_edit_frame.js';
-import { assignFootprintsCommands } from '@ziroeda/eeschema/tools/assign_footprints.js';
+import { SCH_EDIT_FRAME } from './sch_edit_frame.js';
+import { assignFootprintsCommands } from './tools/assign_footprints.js';
 import { parse } from '@ziroeda/sexpr';
 import {
   applySchematicPatch,
   diffSchematic,
   schematicPatchIsEmpty,
   type SchematicPatch,
-} from '@ziroeda/eeschema/sch_diff.js';
-import type {
-  PeerRole,
-  PresenceInfo,
-  ProjectSyncTransport,
-} from '@ziroeda/eeschema/project_sync_transport.js';
+} from './sch_diff.js';
+import type { PeerRole, PresenceInfo, ProjectSyncTransport } from './project_sync_transport.js';
 import { ReadOnlyNotice } from '@ziroeda/common/widgets/wx_infobar.js';
 import {
   type ArcEditMode,
@@ -301,28 +297,28 @@ import {
   getMsgPanelItems,
   type MsgPanelItem,
   nextFreeUnit,
-} from '@ziroeda/eeschema';
+} from './index.js';
 import type {
   CanvasController,
   LineMode,
   PendingLabel,
   PendingDirective,
-} from '@ziroeda/eeschema/sch_draw_panel.js';
+} from './sch_draw_panel.js';
 import {
   DialogLabelProperties,
   type LabelPropsKind,
   type LabelPropsResult,
-} from '@ziroeda/eeschema/dialogs/dialog_label_properties.js';
+} from './dialogs/dialog_label_properties.js';
 import {
   DialogTextProperties,
   type HAlign,
   type TextPropsResult,
   type VAlign,
-} from '@ziroeda/eeschema/dialogs/dialog_text_properties.js';
-import { SymbolPropertiesDialog } from '@ziroeda/eeschema/dialogs/dialog_symbol_properties.js';
-import { ErcDialog, type ErcDialogNav } from '@ziroeda/eeschema/dialogs/dialog_erc.js';
-import type { PickedSymbol, SymbolChooserResult } from '@ziroeda/eeschema/picksymbol.js';
-import { repairSourceLibs } from '@ziroeda/eeschema/repair_source.js';
+} from './dialogs/dialog_text_properties.js';
+import { SymbolPropertiesDialog } from './dialogs/dialog_symbol_properties.js';
+import { ErcDialog, type ErcDialogNav } from './dialogs/dialog_erc.js';
+import type { PickedSymbol, SymbolChooserResult } from './picksymbol.js';
+import { repairSourceLibs } from './repair_source.js';
 import {
   findRescues,
   rescueDocumentCommand,
@@ -330,24 +326,24 @@ import {
   rescueLibraryNickname,
   rescuedDefinition,
   type RescueCandidate,
-} from '@ziroeda/eeschema/project_rescue.js';
-import type { RescueInstance } from '@ziroeda/eeschema/project_rescue.js';
+} from './project_rescue.js';
+import type { RescueInstance } from './project_rescue.js';
 import {
   legacyCacheFileNames,
   readLegacySymbolLibrary,
-} from '@ziroeda/eeschema/sch_io/kicad_legacy/sch_io_kicad_legacy_lib_cache.js';
-import { legacySchLibs } from '@ziroeda/eeschema/project_sch.js';
+} from './sch_io/kicad_legacy/sch_io_kicad_legacy_lib_cache.js';
+import { legacySchLibs } from './project_sch.js';
 import {
   legacyLibrarySymbols,
   legacyRootFile,
   readLegacyProject,
-} from '@ziroeda/eeschema/sch_io/kicad_legacy/sch_io_kicad_legacy.js';
+} from './sch_io/kicad_legacy/sch_io_kicad_legacy.js';
 import {
   projectSymbolLibraries,
   projectSymLibTable,
   projectSymLibTablePath,
   serializeSymLibTable,
-} from '@ziroeda/eeschema/project_sym_lib_table.js';
+} from './project_sym_lib_table.js';
 import {
   projectFpLibTablePath,
   serializeFpLibTable,
@@ -355,10 +351,7 @@ import {
 } from '@ziroeda/common/fp_lib_table.js';
 import { Toolbar } from '@ziroeda/common/tool/action_toolbar.js';
 import { kicadSchematicWildcard } from '@ziroeda/common/wildcards_and_files_ext.js';
-import {
-  RIGHT_TOOLBAR_COMMANDS,
-  SCH_DEFAULT_TOOLBARS,
-} from '@ziroeda/eeschema/toolbars_sch_editor.js';
+import { RIGHT_TOOLBAR_COMMANDS, SCH_DEFAULT_TOOLBARS } from './toolbars_sch_editor.js';
 import {
   MenuBar,
   ContextMenu,
@@ -372,44 +365,41 @@ import {
   requestSelection,
   rightClickSelection,
   type HoverSelection,
-} from '@ziroeda/eeschema/hover_selection.js';
-import { buildMenus } from '@ziroeda/eeschema/menubar.js';
+} from './hover_selection.js';
+import { buildMenus } from './menubar.js';
 import {
   CONFIRMATION_CAPTION,
   LOAD_REPAIRED_MESSAGE,
   revertPromptMessage,
   savedFileMessage,
-} from '@ziroeda/eeschema/files-io.js';
+} from './files-io.js';
 import { MessageDialogOk, MessageDialogYesNo } from '@ziroeda/common/dialogs/dialog_message.js';
 import { INFO_CAPTION } from '@ziroeda/common/confirm_types.js';
 import { dispatchMenuHotkey, focusBlocksHotkey } from '@ziroeda/common/tool/action_menu_hotkeys.js';
 import { wasBrowserSuppressed, type FocusLike } from '@ziroeda/common/browser_hotkeys.js';
 import { DialogAssignNetclass } from '@ziroeda/common/dialogs/dialog_assign_netclass.js';
 import { showHotkeyList } from '@ziroeda/common/hotkeys_basic.js';
-import { DialogTableCellProperties } from '@ziroeda/eeschema/dialogs/dialog_tablecell_properties.js';
+import { DialogTableCellProperties } from './dialogs/dialog_tablecell_properties.js';
 import {
   SchNavigateTool,
   flattenHierarchy,
   parentPath,
   type SheetRef,
-} from '@ziroeda/eeschema/tools/sch_navigate_tool.js';
-import { DialogSchFind } from '@ziroeda/eeschema/dialogs/dialog_sch_find.js';
+} from './tools/sch_navigate_tool.js';
+import { DialogSchFind } from './dialogs/dialog_sch_find.js';
 import {
   DialogIncrementAnnotations,
   type IncrementAnnotationsResult,
-} from '@ziroeda/eeschema/dialogs/dialog_increment_annotations.js';
+} from './dialogs/dialog_increment_annotations.js';
 import {
   DialogGlobalEditTextAndGraphics,
   type GlobalEditResult,
-} from '@ziroeda/eeschema/dialogs/dialog_global_edit_text_and_graphics.js';
-import type { ChangeSymbolsSubject } from '@ziroeda/eeschema/tools/change_symbols.js';
-import { DialogEditSymbolsLibId } from '@ziroeda/eeschema/dialogs/dialog_edit_symbols_libid.js';
-import { DialogAnnotate, type AnnotateRun } from '@ziroeda/eeschema/dialogs/dialog_annotate.js';
-import {
-  DialogLineProperties,
-  type ItemColor,
-} from '@ziroeda/eeschema/dialogs/dialog_line_properties.js';
-import { DialogEeschemaPageSettings } from '@ziroeda/eeschema/dialogs/dialog_eeschema_page_settings.js';
+} from './dialogs/dialog_global_edit_text_and_graphics.js';
+import type { ChangeSymbolsSubject } from './tools/change_symbols.js';
+import { DialogEditSymbolsLibId } from './dialogs/dialog_edit_symbols_libid.js';
+import { DialogAnnotate, type AnnotateRun } from './dialogs/dialog_annotate.js';
+import { DialogLineProperties, type ItemColor } from './dialogs/dialog_line_properties.js';
+import { DialogEeschemaPageSettings } from './dialogs/dialog_eeschema_page_settings.js';
 import {
   pageSettingsValue,
   toPaperToken,
@@ -424,49 +414,37 @@ import {
   DialogPasteSpecial,
   type PasteSpecialMode,
 } from '@ziroeda/common/dialogs/dialog_paste_special.js';
-import {
-  DialogSheetProperties,
-  type SheetPropsResult,
-} from '@ziroeda/eeschema/dialogs/dialog_sheet_properties.js';
-import {
-  DialogShapeProperties,
-  type ShapePropsResult,
-} from '@ziroeda/eeschema/dialogs/dialog_shape_properties.js';
-import {
-  DialogImageProperties,
-  type ImagePropsResult,
-} from '@ziroeda/eeschema/dialogs/dialog_image_properties.js';
-import {
-  DialogFieldProperties,
-  type FieldPropsResult,
-} from '@ziroeda/eeschema/dialogs/dialog_field_properties.js';
+import { DialogSheetProperties, type SheetPropsResult } from './dialogs/dialog_sheet_properties.js';
+import { DialogShapeProperties, type ShapePropsResult } from './dialogs/dialog_shape_properties.js';
+import { DialogImageProperties, type ImagePropsResult } from './dialogs/dialog_image_properties.js';
+import { DialogFieldProperties, type FieldPropsResult } from './dialogs/dialog_field_properties.js';
 import {
   DialogSheetPinProperties,
   type SheetPinPropsResult,
-} from '@ziroeda/eeschema/dialogs/dialog_sheet_pin_properties.js';
+} from './dialogs/dialog_sheet_pin_properties.js';
 import {
   DialogSchematicSetup,
   defaultSchematicSetup,
   type SchematicSetup,
-} from '@ziroeda/eeschema/dialogs/dialog_schematic_setup.js';
+} from './dialogs/dialog_schematic_setup.js';
 import {
   findProjectPro,
   readSchematicSetup,
   writeEquivalenceFilesText,
   writeSchematicSetupText,
-} from '@ziroeda/eeschema/project_settings.js';
+} from './project_settings.js';
 import {
   IU_PER_MILS,
   hopOverArcRadiusIU,
   junctionDotDiameterIU,
   resolveEffectiveNetClass,
   subpartSettings,
-} from '@ziroeda/eeschema/schematic_settings.js';
+} from './schematic_settings.js';
 import { netClassHumanReadableName } from '@ziroeda/common/project/net_settings.js';
-import type { PdfNetInfo } from '@ziroeda/eeschema/pdf_annotations.js';
-import type { Netlist } from '@ziroeda/eeschema/connectivity/nets.js';
-import { DEFAULT_WIRE_WIDTH } from '@ziroeda/eeschema/sch_painter.js';
-import { computeNetClassOverrides } from '@ziroeda/eeschema/net_overrides.js';
+import type { PdfNetInfo } from './pdf_annotations.js';
+import type { Netlist } from './connectivity/nets.js';
+import { DEFAULT_WIRE_WIDTH } from './sch_painter.js';
+import { computeNetClassOverrides } from './net_overrides.js';
 import {
   RefDesTracker,
   buildPageRefsMap,
@@ -481,16 +459,13 @@ import {
   setEmbedFonts,
   type IntersheetRefsConfig,
   type IntersheetSheet,
-} from '@ziroeda/eeschema';
-import { schematicTextVarResolver } from '@ziroeda/eeschema/schematic.js';
+} from './index.js';
+import { schematicTextVarResolver } from './schematic.js';
 import { ResolveShownText, type TextVarResolverFn } from '@ziroeda/common/common.js';
-import { DialogExportNetlist } from '@ziroeda/eeschema/dialogs/dialog_export_netlist.js';
-import {
-  DialogSymbolFieldsTable,
-  type FieldsEdits,
-} from '@ziroeda/eeschema/dialogs/dialog_symbol_fields_table.js';
-import { DialogPrint } from '@ziroeda/eeschema/printing/dialog_print.js';
-import { DialogPlot, type PlotRequest } from '@ziroeda/eeschema/dialogs/dialog_plot_schematic.js';
+import { DialogExportNetlist } from './dialogs/dialog_export_netlist.js';
+import { DialogSymbolFieldsTable, type FieldsEdits } from './dialogs/dialog_symbol_fields_table.js';
+import { DialogPrint } from './printing/dialog_print.js';
+import { DialogPlot, type PlotRequest } from './dialogs/dialog_plot_schematic.js';
 import {
   downloadBlob,
   printSheets,
@@ -504,15 +479,15 @@ import {
   pageIU,
   type PlotOpts,
   type PlotSink,
-} from '@ziroeda/eeschema/sch_plotter.js';
+} from './sch_plotter.js';
 import { DEFAULT_SETUP } from '@ziroeda/common/drawing_sheet/types.js';
-import { BUILTIN_THEMES } from '@ziroeda/eeschema/sch_render_settings.js';
+import { BUILTIN_THEMES } from './sch_render_settings.js';
 import { ProgressDialog, nextPaint } from '@ziroeda/common/widgets/wx_progress_reporters.js';
 import type { ProgressSnapshot } from '@ziroeda/common/widgets/progress_reporter_snapshot.js';
 import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
 import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
 import type { PrefsPageId } from '@ziroeda/common/frame_type.js';
-import { useEeschemaApp } from './eeschema_app.js';
+import type { EESCHEMA_APP } from './eeschema_app.js';
 import {
   fastGridActionForKey,
   fastGridIndex,
@@ -522,24 +497,21 @@ import {
 } from '@ziroeda/common/settings/grid_settings_ui.js';
 import { useHotkeyCyclePopup } from '@ziroeda/common/dialogs/hotkey_cycle_popup_ui.js';
 import { resolveTemplateFieldnames } from '@ziroeda/common/template_fieldnames.js';
-import type { RenderOpts } from '@ziroeda/eeschema/sch_render_settings.js';
+import type { RenderOpts } from './sch_render_settings.js';
 import type { InputPrefs } from '@ziroeda/common/ui/view_controls.js';
-import { SchPropertiesPanel } from '@ziroeda/eeschema/widgets/sch_properties_panel_ui.js';
-import { SearchPanel } from '@ziroeda/eeschema/widgets/sch_search_pane.js';
-import { NetNavigatorPanel } from '@ziroeda/eeschema/widgets/net_navigator_panel.js';
-import { DialogUpdateFromPcb } from '@ziroeda/eeschema/dialogs/dialog_update_from_pcb.js';
-import {
-  DialogSyncSheetPins,
-  type SyncSheetEntry,
-} from '@ziroeda/eeschema/dialogs/dialog_sync_sheet_pins.js';
+import { SchPropertiesPanel } from './widgets/sch_properties_panel_ui.js';
+import { SearchPanel } from './widgets/sch_search_pane.js';
+import { NetNavigatorPanel } from './widgets/net_navigator_panel.js';
+import { DialogUpdateFromPcb } from './dialogs/dialog_update_from_pcb.js';
+import { DialogSyncSheetPins, type SyncSheetEntry } from './dialogs/dialog_sync_sheet_pins.js';
 import {
   applySchTableValues,
   collectSchTableValues,
   tableWithValues,
   type SchTableValues,
-} from '@ziroeda/eeschema/tools/sch_table_properties.js';
-import { DialogTableProperties } from '@ziroeda/eeschema/dialogs/dialog_table_properties.js';
-import { DialogImportGfx } from '@ziroeda/eeschema/import_gfx/dialog_import_gfx_sch.js';
+} from './tools/sch_table_properties.js';
+import { DialogTableProperties } from './dialogs/dialog_table_properties.js';
+import { DialogImportGfx } from './import_gfx/dialog_import_gfx_sch.js';
 import { KiStatusBar } from '@ziroeda/common/widgets/kistatusbar.js';
 import { MsgPanel } from '@ziroeda/common/widgets/msgpanel_ui.js';
 import {
@@ -551,12 +523,7 @@ import {
 import { formatTitle, useDocumentTitle } from '@ziroeda/common/use_document_title.js';
 import { useLiveState } from '@ziroeda/common/use_live_state.js';
 import { withSaveEnablement } from '@ziroeda/common/save_enablement.js';
-import {
-  fileBaseName,
-  pathHumanReadable,
-  SCH_FRAME_NAME,
-  schFrameTitle,
-} from '@ziroeda/eeschema/frame_title.js';
+import { fileBaseName, pathHumanReadable, SCH_FRAME_NAME, schFrameTitle } from './frame_title.js';
 import {
   SCH_BOTTOM_DOCK,
   SCH_LEFT_PANE_ADD_ORDER,
@@ -566,16 +533,16 @@ import {
   schSelectionFilterShown,
   type SchDockPos,
   type SchLeftPane,
-} from '@ziroeda/eeschema/panes.js';
+} from './panes.js';
 import { DockSash } from '@ziroeda/common/widgets/wx_aui_sash.js';
 import { loadOutlineFontsFor } from '@ziroeda/common/font/outline_fonts.js';
 import { useStatusReadout } from '@ziroeda/common/use_status_readout.js';
 import { useUnsavedGuard } from '@ziroeda/common/use_unsaved_guard.js';
 import '@ziroeda/common/widgets/shell.css';
-import { schSymbolLibraryName } from '@ziroeda/eeschema';
-import { busJunctionIds as busJunctionIdsOf } from '@ziroeda/eeschema/connectivity/bus.js';
+import { schSymbolLibraryName } from './index.js';
+import { busJunctionIds as busJunctionIdsOf } from './connectivity/bus.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
-import { applyToggle, DEFAULT_TOGGLES } from '@ziroeda/eeschema/toggles.js';
+import { applyToggle, DEFAULT_TOGGLES } from './toggles.js';
 
 // What KiCad writes for File > New Schematic: an empty sheet on A4 paper.
 // Launching the editor without a project starts here (no bundled demo).
@@ -759,6 +726,7 @@ function resolveToken(aResolver: TextVarResolverFn | undefined, aName: string): 
 }
 
 export function SchematicEditor({
+  app,
   onExitToHome,
   onShowPcb,
   hasBoard,
@@ -787,6 +755,10 @@ export function SchematicEditor({
   rootPro,
   kiway,
 }: {
+  /** What the program gives this window (`EESCHEMA_APP`, `eeschema_app.ts`):
+   *  settings, the app's dialogs and canvas, the hosted libraries, the other
+   *  KIWAY players. Built by designer's `useEeschemaApp()`. */
+  app: EESCHEMA_APP;
   onExitToHome: () => void;
   onShowPcb?: () => void;
   /** Whether the project has a board, which Tools > Update PCB from Schematic
@@ -897,7 +869,6 @@ export function SchematicEditor({
    */
   kiway?: KIWAY;
 }): JSX.Element {
-  const app = useEeschemaApp();
   const {
     PreferencesDialog,
     HomeLink,

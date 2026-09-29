@@ -329,9 +329,7 @@ describe('a pick the Selection Filter rejects selects nothing', () => {
  *  cannot satisfy any assertion below. */
 const editorSource = ((): string => {
   const raw = readFileSync(
-    fileURLToPath(
-      new URL('../../../designer/src/editors/schematic/SchematicEditor.tsx', import.meta.url),
-    ),
+    fileURLToPath(new URL('../../../eeschema/sch_edit_frame_ui.tsx', import.meta.url)),
     'utf8',
   );
   let inBlock = false;

@@ -58,7 +58,7 @@ const CONVERTED = [
   '../../gerbview/gerbview_frame_ui.tsx',
   '../../bitmap2component/bitmap2cmp_frame_ui.tsx',
   '../../pcbnew/pcb_edit_frame_ui.tsx',
-  'editors/schematic/SchematicEditor.tsx',
+  '../../eeschema/sch_edit_frame_ui.tsx',
   'editors/schematic/components/SymbolLibraryBrowser.tsx',
   '../../cvpcb/cvpcb_mainframe_ui.tsx',
   'editors/symbol/SymbolEditor.tsx',
@@ -158,7 +158,7 @@ const MODIFIER_EXCEPTIONS: Readonly<Record<string, readonly string[]>> = {
    * action - so it belongs in the chain, and the entry names which registry
    * action each line is.
    */
-  'editors/schematic/SchematicEditor.tsx': [
+  '../../eeschema/sch_edit_frame_ui.tsx': [
     // Under the project manager eeschema's File menu starts at Save, so Open
     // has no row here (menubar.cpp).
     "if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'o') {",
@@ -214,9 +214,14 @@ function walk(dir: string, out: string[] = []): string[] {
  * those packages too. A walk of designer/src alone would lose every frame that
  * moved, and pass.
  */
-const FRAME_PACKAGES = ['bitmap2component', 'gerbview', 'pagelayout_editor', 'cvpcb', 'pcbnew'].map(
-  (p) => fileURLToPath(new URL(`../../../${p}`, import.meta.url)),
-);
+const FRAME_PACKAGES = [
+  'bitmap2component',
+  'gerbview',
+  'pagelayout_editor',
+  'cvpcb',
+  'pcbnew',
+  'eeschema',
+].map((p) => fileURLToPath(new URL(`../../../${p}`, import.meta.url)));
 
 const FILES = [
   ...walk(SRC),
@@ -242,7 +247,7 @@ const source = (rel: string): string => {
  * accelerator set can be pressed for real down this file.
  */
 const MENU_MODULE: Readonly<Record<string, string>> = {
-  'editors/schematic/SchematicEditor.tsx': '../../eeschema/menubar.ts',
+  '../../eeschema/sch_edit_frame_ui.tsx': '../../eeschema/menubar.ts',
   'editors/symbol/SymbolEditor.tsx': 'editors/symbol/menubar.ts',
   '../../pcbnew/footprint_edit_frame_ui.tsx': '../../pcbnew/menubar_footprint_editor.ts',
   '../../pcbnew/pcb_edit_frame_ui.tsx': '../../pcbnew/menubar_pcb_editor.ts',
@@ -489,7 +494,7 @@ const CANVAS_KEYS: Readonly<
       ['tree Ctrl+D', /onDuplicate\(treeSel\.lib, treeSel\.name\)/],
     ],
   },
-  'editors/schematic/SchematicEditor.tsx': {
+  '../../eeschema/sch_edit_frame_ui.tsx': {
     // Matched on each arm's own comment where it had one: the comment names the
     // upstream action, so "the arm is gone" and "that command no longer has a
     // second declaration here" are the same assertion.

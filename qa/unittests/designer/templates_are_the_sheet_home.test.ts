@@ -41,7 +41,7 @@ const read = (rel: string): string =>
 // The Open and Save As choosers are the page's: the account's storage is the program's.
 const PL = read('../../../designer/src/editors/drawingsheet/DrawingSheetEditor.tsx');
 const SAVEAS = read('../../../designer/src/fs/SaveAsDialog.tsx');
-const SCH = read('../../../designer/src/editors/schematic/SchematicEditor.tsx');
+const SCH = read('../../../eeschema/sch_edit_frame_ui.tsx');
 
 describe('a written sheet reaches the program', () => {
   // `WriteFile` is the frame's host call; the window keeps the text for

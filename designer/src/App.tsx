@@ -16,7 +16,7 @@ import {
 } from 'react';
 import type { LibSymbol } from '@ziroeda/eeschema';
 import { HomePage } from './home/HomePage.js';
-import type { PickedFile } from './editors/schematic/SchematicEditor.js';
+import type { PickedFile } from '@ziroeda/eeschema/sch_edit_frame_ui.js';
 import { EMPTY_PCB } from './home/new_project.js';
 import { ProgressDialog } from '@ziroeda/common/widgets/wx_progress_reporters.js';
 import { ProjectSyncProvider } from './sync/ProjectSyncProvider.js';
@@ -77,8 +77,12 @@ import '@ziroeda/common/widgets/shell.css';
  * `PickedFile` is imported as a type above, which erases at build time and so
  * does not pull the schematic editor back into the entry chunk.
  */
+/**
+ * The window is `eeschema/sch_edit_frame_ui.tsx`; `SchematicEditorMount`
+ * (`eeschema_app.tsx`) builds its `EESCHEMA_APP` and mounts it.
+ */
 const SchematicEditor = lazy(() =>
-  import('./editors/schematic/SchematicEditor.js').then((m) => ({ default: m.SchematicEditor })),
+  import('./editors/schematic/eeschema_app.js').then((m) => ({ default: m.SchematicEditorMount })),
 );
 /**
  * `PcbEditor` takes `PCBNEW_APP` as a prop, built by `usePcbnewApp`, and both
@@ -140,7 +144,7 @@ function prefetchEditors(): () => void {
     // `libraryBase`, so a blip in the first seconds after load cannot silently
     // put the session on the bundled subset. See its own note.
     () => warmLibraryIndexes(),
-    () => import('./editors/schematic/SchematicEditor.js'),
+    () => import('./editors/schematic/eeschema_app.js'),
     () => import('@ziroeda/pcbnew/pcb_edit_frame_ui.js'),
     () => import('./editors/symbol/SymbolEditor.js'),
     () => import('./editors/footprint/footprint_edit_frame_app.js'),

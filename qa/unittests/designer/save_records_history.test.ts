@@ -18,7 +18,7 @@ const SRC = join(__dirname, '../../../designer/src');
 const APP = readFileSync(join(SRC, 'App.tsx'), 'utf8');
 const STORE = readFileSync(join(SRC, 'home/local_history_store.ts'), 'utf8');
 const HOME = readFileSync(join(SRC, 'home/HomePage.tsx'), 'utf8');
-const SCH = readFileSync(join(SRC, 'editors/schematic/SchematicEditor.tsx'), 'utf8');
+const SCH = readFileSync(join(SRC, '../../eeschema/sch_edit_frame_ui.tsx'), 'utf8');
 
 /** The body of a named `const x = useCallback(` / `= async (` binding. */
 function body(src: string, name: string): string {
