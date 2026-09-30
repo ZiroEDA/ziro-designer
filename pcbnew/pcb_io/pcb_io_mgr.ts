@@ -224,6 +224,14 @@ registry.Register(
   async () => new (await import('./easyedapro/pcb_io_easyedapro.js')).PCB_IO_EASYEDAPRO(),
 );
 
+// Fabmaster and gEDA / Lepton EDA register here upstream.
+
+registry.Register(
+  PCB_FILE_T.PCAD,
+  'P-Cad',
+  async () => new (await import('./pcad/pcb_io_pcad.js')).PCB_IO_PCAD(),
+);
+
 registry.Register(
   PCB_FILE_T.SOLIDWORKS_PCB,
   'Solidworks PCB',

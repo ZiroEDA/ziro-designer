@@ -19,6 +19,8 @@ import { type OUTPUTFORMATTER, STRING_FORMATTER } from './richio.js';
 export enum wxXmlNodeType {
   wxXML_ELEMENT_NODE = 1,
   wxXML_TEXT_NODE = 3,
+  wxXML_CDATA_SECTION_NODE = 4,
+  wxXML_DOCUMENT_NODE = 9,
 }
 
 /**
@@ -131,6 +133,27 @@ export class XNODE {
 
   GetContent(): string {
     return this.m_content;
+  }
+
+  /** `wxXmlNode::SetContent`. */
+  SetContent(aContent: string): void {
+    this.m_content = aContent;
+  }
+
+  /**
+   * `wxXmlNode::GetNodeContent`: the content of the first text or CDATA
+   * child, or empty when there is none.
+   */
+  GetNodeContent(): string {
+    for (let n = this.m_children; n; n = n.m_next) {
+      if (
+        n.m_type === wxXmlNodeType.wxXML_TEXT_NODE ||
+        n.m_type === wxXmlNodeType.wxXML_CDATA_SECTION_NODE
+      )
+        return n.m_content;
+    }
+
+    return '';
   }
 
   GetParent(): XNODE | null {
