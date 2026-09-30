@@ -18,6 +18,7 @@
  * is left in place as a comment with the answer the C++ gives without them.
  */
 
+import { ptrLess } from '@ziroeda/core/kicad_algo.js';
 import { PCB_EDIT_FRAME_NAME } from '@ziroeda/common/eda_draw_frame.js';
 import type { EDA_DRAW_FRAME_LIKE, INSPECTOR } from '@ziroeda/common/eda_item.js';
 import { INSPECT_RESULT } from '@ziroeda/common/eda_item.js';
@@ -858,7 +859,7 @@ export class PCB_TRACK extends BOARD_CONNECTED_ITEM {
 
     if (a.m_Uuid !== b.m_Uuid) return a.m_Uuid < b.m_Uuid;
 
-    return false; // a < b on pointers: no address order for objects
+    return ptrLess(a, b); // a < b on the pointers
   }
 
   protected override swapData(aImage: BOARD_ITEM): void {

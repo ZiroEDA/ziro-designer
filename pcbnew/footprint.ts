@@ -19,6 +19,7 @@
  * `OUTLINE_FONT::GetEmbeddingPermission`.
  */
 
+import { ptrLess } from '@ziroeda/core/kicad_algo.js';
 import { FIELD_T, GetCanonicalFieldName } from '@ziroeda/common/template_fieldnames.js';
 import {
   FOOTPRINT_CHOOSER_FRAME_NAME,
@@ -4758,7 +4759,7 @@ export class FOOTPRINT extends BOARD_ITEM_CONTAINER {
 
     if (itemA.m_Uuid !== itemB.m_Uuid) return itemA.m_Uuid < itemB.m_Uuid;
 
-    return false; // itemA < itemB on pointers: no address order for objects
+    return ptrLess(itemA, itemB); // itemA < itemB on the pointers
   }
 
   /** `struct cmp_pads`. */
@@ -4799,7 +4800,7 @@ export class FOOTPRINT extends BOARD_ITEM_CONTAINER {
 
     if (aFirst.m_Uuid !== aSecond.m_Uuid) return aFirst.m_Uuid < aSecond.m_Uuid;
 
-    return false; // aFirst < aSecond on pointers: no address order for objects
+    return ptrLess(aFirst, aSecond); // aFirst < aSecond on the pointers
   }
 
   /** `struct cmp_zones`. */
@@ -4821,7 +4822,7 @@ export class FOOTPRINT extends BOARD_ITEM_CONTAINER {
 
     if (aFirst.m_Uuid !== aSecond.m_Uuid) return aFirst.m_Uuid < aSecond.m_Uuid;
 
-    return false; // aFirst < aSecond on pointers: no address order for objects
+    return ptrLess(aFirst, aSecond); // aFirst < aSecond on the pointers
   }
 
   protected override swapData(aImage: BOARD_ITEM): void {

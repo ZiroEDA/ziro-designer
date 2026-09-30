@@ -7,6 +7,7 @@
  * providers from. A provider module registers itself at load, as the C++'s
  * `static DRC_REGISTER_TEST_PROVIDER<T> dummy;` does.
  */
+import { ptrGreater, ptrOrdinal } from '@ziroeda/core/kicad_algo.js';
 import { type EdaDataType, type EdaUnits, pcbIUScale } from '@ziroeda/common/eda_units.js';
 import type { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import type { LSET } from '@ziroeda/common/lset.js';
@@ -418,29 +419,9 @@ function wxFormat3(aFormatString: string, a: string, b: string, c: string): stri
   return aFormatString.replace(/%s/g, () => args[i++] ?? '');
 }
 
-// ---------------------------------------------------------------------------
-// Pointer order. `static_cast<void*>( a ) > static_cast<void*>( b )`: several
-// test providers dedup a pair (or build a `PTR_PTR_CACHE_KEY`, `board.h:97`) by
-// pointer order, which only has to be *some* strict order. Objects have no
-// address here, so each one is numbered the first time it is compared. KiCad has
-// no file for this (it is `std::less<void*>`); the providers all extend
-// DRC_TEST_PROVIDER, so it lives beside it.
-// ---------------------------------------------------------------------------
-const s_ptrOrdinal = new WeakMap<object, number>();
-let s_nextOrdinal = 0;
-
-export const ptrOrdinal = (a: object): number => {
-  let n = s_ptrOrdinal.get(a);
-
-  if (n === undefined) {
-    n = s_nextOrdinal++;
-    s_ptrOrdinal.set(a, n);
-  }
-
-  return n;
-};
-
-export const ptrGreater = (a: object, b: object): boolean => ptrOrdinal(a) > ptrOrdinal(b);
+// Pointer order (`std::less<void*>`): one numbering for the whole program, in
+// libs/core, so a DRC pair key and a writer's std::set agree on it.
+export { ptrGreater, ptrOrdinal };
 
 /** `PTR_PTR_CACHE_KEY` in canonical (pointer) order, as a map key. */
 export const ptrPairKey = (a: object, b: object): string => {

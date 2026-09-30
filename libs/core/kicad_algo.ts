@@ -36,3 +36,31 @@ export function longest_common_subset<T>(
 
   return longest;
 }
+
+// ---------------------------------------------------------------------------
+// Pointer order. `a < b` on two pointers, `std::less<void*>`: the tie-break the
+// C++ comparators end with (BOARD_ITEM::ptr_cmp, FOOTPRINT::cmp_drawings, …) and
+// the order `std::set<T*>` iterates in. It only has to be *some* strict order, and
+// it never ties two distinct objects - so a std::set under such a comparator keeps
+// every item, even two that share a UUID (FOOTPRINT::Clone keeps its source's).
+// Objects have no address here, so each is numbered the first time it is compared.
+// ---------------------------------------------------------------------------
+const s_ptrOrdinal = new WeakMap<object, number>();
+let s_nextOrdinal = 0;
+
+export const ptrOrdinal = (a: object): number => {
+  let n = s_ptrOrdinal.get(a);
+
+  if (n === undefined) {
+    n = s_nextOrdinal++;
+    s_ptrOrdinal.set(a, n);
+  }
+
+  return n;
+};
+
+/** `a < b` on the pointers. */
+export const ptrLess = (a: object, b: object): boolean => ptrOrdinal(a) < ptrOrdinal(b);
+
+/** `a > b` on the pointers. */
+export const ptrGreater = (a: object, b: object): boolean => ptrOrdinal(a) > ptrOrdinal(b);
