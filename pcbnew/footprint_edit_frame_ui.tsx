@@ -2278,12 +2278,12 @@ export function FootprintEditFrame({
           onDone: (file) => {
             const { done } = pick3dModel;
             setPick3dModel(null);
+            model3dResolverRef.current ??= PROJECT_PCB.Get3DFilenameResolver();
             // The name KiCad stores is the path shortened against the search paths.
             done(
               file
                 ? {
-                    filename: (model3dResolverRef.current ??=
-                      PROJECT_PCB.Get3DFilenameResolver()).ShortenPath(file.path),
+                    filename: model3dResolverRef.current.ShortenPath(file.path),
                     embedded: false,
                   }
                 : null,
