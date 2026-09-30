@@ -32,7 +32,7 @@ import {
   applyPnsChanges,
   PnsSession,
   shoveSettingsFrom,
-} from '@ziroeda/pcbnew/router/pns_session.js';
+} from '@ziroeda/pcbnew/router/router_tool.js';
 import {
   DEFAULT_ROUTING_SETTINGS,
   type RoutingSettings,

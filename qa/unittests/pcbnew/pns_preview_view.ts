@@ -10,7 +10,7 @@ import { GAL_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { NET_COLOR_MODE } from '@ziroeda/common/project/board_project_settings.js';
 import type { VIEW } from '@ziroeda/common/view/view.js';
 import type { VIEW_ITEM } from '@ziroeda/common/view/view_item.js';
-import type { PnsSession } from '@ziroeda/pcbnew/router/pns_session.js';
+import type { PnsSession } from '@ziroeda/pcbnew/router/router_tool.js';
 import { PNS_HEAD_TRACE, ROUTER_PREVIEW_ITEM } from '@ziroeda/pcbnew/router/router_preview_item.js';
 
 export function fakeView() {

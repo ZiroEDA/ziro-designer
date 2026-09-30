@@ -18,7 +18,7 @@ import { describe, expect, it } from 'vitest';
 import { describePreview, fakeView, previewItems } from './pns_preview_view.js';
 import { parse } from '@ziroeda/sexpr/index.js';
 import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { applyPnsChanges, PnsSession } from '@ziroeda/pcbnew/router/pns_session.js';
+import { applyPnsChanges, PnsSession } from '@ziroeda/pcbnew/router/router_tool.js';
 import { DEFAULT_ROUTER_SIZES, PnsRouterMode } from '@ziroeda/pcbnew/router/pns_router.js';
 import type { Board } from '@ziroeda/pcbnew/types.js';
 

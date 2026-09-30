@@ -758,7 +758,7 @@ all).
   `PNS_PCBNEW_RULE_RESOLVER` is the class in `pns_rule_resolver.ts`);
   `router_tool.cpp` → `router_tool.ts` holds the size menus
   (`TRACK_WIDTH_MENU`, `DIFF_PAIR_MENU`, renamed 09-29 from `router_size_menus.ts`); the
-  rest of `ROUTER_TOOL` is `pns_session.ts` (headless, see `pns-router-wiring.md`)
+  rest of `ROUTER_TOOL` is `PnsSession`, in the same file since 09-30 (headless, see `pns-router-wiring.md`)
   plus the wx-level click wiring in `pcb_edit_frame_ui.tsx` (root). Merging the
   session into `router_tool.ts` is a redesign (the session is the router's
   headless driver, tested as such), not a move, and is left;
@@ -789,9 +789,9 @@ all).
   **Kept, with the reason:** `pns_collision.ts` is `pns_node.h`'s `OBSTACLE`/`RULE_RESOLVER`/
   `CONSTRAINT`/`COLLISION_SEARCH_*` declarations. `pns_item.ts` reads them at load and `pns_node.ts`
   imports every item class, so folding them into `pns_node.ts` closes an ESM cycle that throws on
-  whichever side loads first (the `board_types.ts` case). `pns_session.ts` is `ROUTER_TOOL`'s body
-  minus wx and stays: folding it into `router_tool.ts` would be a redesign in a file
-  two passes are editing. Header-only upstream, so they keep their own files: `pns_joint`
+  whichever side loads first (the `board_types.ts` case). `pns_session.ts` (`ROUTER_TOOL`'s body
+  minus wx) is inside `router_tool.ts` since 09-30, once the preview pass had moved off it:
+  `PnsSession` sits beside the size menus. Header-only upstream, so they keep their own files: `pns_joint`
   (`pns_joint.h`), `pns_layerset` (`pns_layerset.h`), `pns_segment` (`pns_segment.h`),
   `pns_drag_algo` (`pns_drag_algo.h`), `ranged_num` (`ranged_num.h`). Not ported because upstream
   is a header of declarations only: `pns_debug_decorator.h`, `pns_linked_item.h`,

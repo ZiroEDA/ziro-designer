@@ -20,7 +20,7 @@ import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/index.js';
 import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { PNS_KICAD_IFACE } from '@ziroeda/pcbnew/router/pns_kicad_iface.js';
-import { PnsSession } from '@ziroeda/pcbnew/router/pns_session.js';
+import { PnsSession } from '@ziroeda/pcbnew/router/router_tool.js';
 import { PnsRouterMode } from '@ziroeda/pcbnew/router/pns_router.js';
 import { PnsSegment } from '@ziroeda/pcbnew/router/pns_segment.js';
 import type { Board } from '@ziroeda/pcbnew/types.js';

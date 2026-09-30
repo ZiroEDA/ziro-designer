@@ -15,7 +15,7 @@ import type { VIEW } from '@ziroeda/common/view/view.js';
 import type { VIEW_ITEM } from '@ziroeda/common/view/view_item.js';
 import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { fakeView } from './pns_preview_view.js';
-import { PnsSession, updateDragStatus } from '@ziroeda/pcbnew/router/pns_session.js';
+import { PnsSession, updateDragStatus } from '@ziroeda/pcbnew/router/router_tool.js';
 import { ROUTER_PREVIEW_ITEM } from '@ziroeda/pcbnew/router/router_preview_item.js';
 
 const MM = 1e6;

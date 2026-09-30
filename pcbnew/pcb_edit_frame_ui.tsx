@@ -264,7 +264,7 @@ import {
   hasUnlockedItems,
 } from './tools/pcb_selection_conditions.js';
 import { Icon } from '@ziroeda/common/widgets/icons.js';
-import { applyPnsChanges, PnsSession } from './router/pns_session.js';
+import { applyPnsChanges, PnsSession } from './router/router_tool.js';
 import { PnsRouterMode } from './router/pns_router.js';
 import type { PnsDesignSettings } from './router/pns_kicad_iface.js';
 import { Infobar } from '@ziroeda/common/widgets/wx_infobar.js';
