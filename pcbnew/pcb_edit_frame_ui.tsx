@@ -600,6 +600,18 @@ import {
   PCB_SPECIAL,
 } from './pcbTheme.js';
 import { PcbPropertiesPanel } from './widgets/pcb_properties_panel_ui.js';
+import { PcbBottomDock, bottomDockHeight } from './widgets/pcb_bottom_dock_ui.js';
+import { PcbNetInspectorPane } from './widgets/pcb_net_inspector_pane_ui.js';
+import {
+  liveItemOfId,
+  makePcbSearchWiring,
+  makeVertexEditorFrame,
+  selectionHasEditableCorners,
+} from './widgets/pcb_pane_wiring.js';
+import { PcbSearchPane } from './widgets/pcb_search_pane.js';
+import type { PcbSearchWiring } from './widgets/search_handlers.js';
+import { PCB_VERTEX_EDITOR_PANE } from './widgets/vertex_editor_pane.js';
+import { VertexEditorWindow } from './widgets/vertex_editor_window_ui.js';
 import {
   drawGrid,
   drawCrosshair,
@@ -2856,6 +2868,9 @@ export function PcbEditor({
 
   const showAppearance = toggles.has('showLayersManager');
   const showProperties = toggles.has('showProperties');
+  // `PCB_EDIT_FRAME::m_ShowSearch` / `m_ShowNetInspector`.
+  const showSearch = toggles.has('showSearch');
+  const showNetInspector = toggles.has('showNetInspector');
 
   // Draw options derived from the Objects tab + zone display mode.
   /** `PCBNEW_SETTINGS::m_Display` + `m_ViewersDisplay`, this page's slice. */
@@ -6657,6 +6672,18 @@ export function PcbEditor({
       // opposite sides of the band. [px] confirmed against the installed
       // pcbnew, one footprint selected (2026-08-31).
       menuSeparator(100),
+      // EDIT_TOOL's `shapeModificationSubMenu` (`edit_tool.cpp:255-291`), on
+      // `shapeModificationCondition`. Only its Edit Corners... row is ported, and
+      // that row is itself gated on `selectionHasEditableCorners`, so the submenu
+      // exists exactly when it has a row.
+      menuEntry(
+        {
+          label: 'Shape Modification',
+          submenu: [A('Edit Corners...', 'editVertices')],
+        },
+        100,
+        !!brd && selectionHasEditableCorners(brd, selection),
+      ),
       menuEntry(
         {
           label: 'Position',
@@ -10967,6 +10994,173 @@ export function PcbEditor({
   // (`applyEditorDisplayState`). The overlay scenes that used to tint the
   // raster copy went with the raster path.
 
+  // ----- the docked Search and Net Inspector panes, and Edit Vertices ---------
+
+  // `cfg->m_AuiPanels.search_panel_height` (`pcb_edit_frame.cpp:1768`), written
+  // once a drag has settled rather than on every mouse move.
+  const [dockHeight, setDockHeight] = useState(pcbCfg.aui.search_panel_height);
+  const storedDockHeight = pcbCfg.aui.search_panel_height;
+  useEffect(() => {
+    if (dockHeight === storedDockHeight) return;
+
+    const t = window.setTimeout(
+      () =>
+        updatePcbnewSettings((c) => {
+          c.aui.search_panel_height = dockHeight;
+        }),
+      300,
+    );
+
+    return () => window.clearTimeout(t);
+  }, [dockHeight, storedDockHeight, updatePcbnewSettings]);
+
+  /** Frame the box of `ids`: `centerSelection` keeps the zoom, `zoomFitSelection` fits. */
+  const viewSearchHits = (ids: readonly string[], fit: boolean): void => {
+    const brd = boardRef.current;
+    const canvas = canvasRef.current;
+    if (!brd || !canvas) return;
+
+    let box: BoardBBox | null = null;
+    for (const id of ids) {
+      const b = boardItemBBox(brd, id);
+      if (!b) continue;
+      box = box
+        ? {
+            minX: Math.min(box.minX, b.minX),
+            minY: Math.min(box.minY, b.minY),
+            maxX: Math.max(box.maxX, b.maxX),
+            maxY: Math.max(box.maxY, b.maxY),
+          }
+        : b;
+    }
+    if (!box) return;
+
+    if (fit) {
+      fitWorldBox(box.minX, box.minY, box.maxX, box.maxY, 'selection');
+      return;
+    }
+
+    const v = viewRef.current;
+    const cx = (box.minX + box.maxX) / 2;
+    const cy = (box.minY + box.maxY) / 2;
+    viewRef.current = {
+      ...v,
+      tx: canvas.width / 2 - cx * (v.flipX ? -v.scale : v.scale),
+      ty: canvas.height / 2 - cy * v.scale,
+    };
+    requestDraw();
+  };
+
+  /** `PCB_EDIT_FRAME` as the search handlers read it (`PcbSearchFrame`, minus `config`). */
+  const searchFrame = useMemo(
+    () => ({
+      GetBoard: () => frameRef.current?.GetBoard() ?? null,
+      IsClosing: () => frameRef.current?.IsClosing() ?? false,
+      MessageTextFromValue: (
+        v: number,
+        addUnits?: boolean,
+        type?: Parameters<UNITS_PROVIDER['MessageTextFromValue']>[2],
+      ) => frameRef.current!.GetUnitsProvider().MessageTextFromValue(v, addUnits, type),
+      GetOriginTransforms: () => frameRef.current!.GetOriginTransforms(),
+    }),
+    [],
+  );
+
+  const searchActions = useRef({
+    properties: (_id: string) => {},
+    boardSetup: (_page: string) => {},
+  });
+  const viewSearchHitsRef = useRef(viewSearchHits);
+  viewSearchHitsRef.current = viewSearchHits;
+  // What the hitlist rows do, in the tool manager upstream: the selection is our
+  // id set, and `PCB_ACTIONS::properties` is the double-click dispatch.
+  const searchWiring = useMemo<PcbSearchWiring>(
+    () =>
+      makePcbSearchWiring({
+        getBoard: () => boardRef.current,
+        setSelection: (ids) => setSelection(ids),
+        frameView: (ids, fit) => viewSearchHitsRef.current(ids, fit),
+        refresh: () => requestDrawRef.current(),
+        properties: (id) => searchActions.current.properties(id),
+        highlightNets: (codes) => setHighlightNets(new Set(codes)),
+        showBoardSetupDialog: (page) => searchActions.current.boardSetup(page),
+      }),
+    [],
+  );
+  searchActions.current = {
+    // `EDIT_TOOL::Properties` on the one selected item: the same dispatch a double click makes.
+    properties: (id) => {
+      const r = parseBoardItemId(id);
+      if (!r) return;
+
+      if (r.kind === 'track' || r.kind === 'arc' || r.kind === 'via') setTrackViaOpen(true);
+      else if (r.kind === 'zone') frameRef.current?.Edit_Zone_Params(r.index);
+      else if (r.kind === 'text') setTextPropsIndex(r.index);
+      else if (r.kind === 'shape') setShapePropsIndex(r.index);
+      else if (r.kind === 'pad') setPadPropsRef({ footprint: r.index, pad: r.sub ?? 0 });
+      else if (r.kind === 'footprint') setFpPropsIndex(r.index);
+    },
+    // `ShowBoardSetupDialog( _( "Net Classes" ) )`.
+    boardSetup: (page) => {
+      setBoardSetupPage(page === 'Net Classes' ? 'netclasses' : undefined);
+      setBoardSetupOpen(true);
+    },
+  };
+
+  /** The netclass names of a net, for the Net Inspector's Netclass column. */
+  const netClassesOf = useCallback(
+    (name: string): readonly string[] => {
+      const nc = boardK?.FindNet(name)?.GetNetClass();
+      if (!nc) return [];
+
+      const parts = nc.GetConstituentNetclasses();
+      return parts.length > 0 ? parts.map((c) => c.GetName()) : [nc.GetName()];
+    },
+    [boardK],
+  );
+
+  // `PCB_BASE_EDIT_FRAME::m_vertexEditorPane`: the floating Edit Vertices pane.
+  const [vertexPane, setVertexPane] = useState<PCB_VERTEX_EDITOR_PANE | null>(null);
+  const vertexPaneRef = useRef<PCB_VERTEX_EDITOR_PANE | null>(null);
+  vertexPaneRef.current = vertexPane;
+
+  /** `PCB_BASE_EDIT_FRAME::OpenVertexEditor` (`pcb_base_edit_frame.cpp:439-462`). */
+  const openVertexEditor = (): void => {
+    const brd = boardRef.current;
+    const frame = frameRef.current;
+    if (!brd || !frame || !selectionHasEditableCorners(brd, selection)) return;
+
+    const item = liveItemOfId(brd, [...selection][0]!);
+    if (!item) return;
+
+    let pane = vertexPaneRef.current;
+    if (!pane) {
+      pane = new PCB_VERTEX_EDITOR_PANE(
+        makeVertexEditorFrame(
+          frame,
+          () => requestDrawRef.current(),
+          (closed) => {
+            if (vertexPaneRef.current === closed) setVertexPane(null);
+          },
+        ),
+      );
+      setVertexPane(pane);
+    }
+    pane.SetItem(item);
+  };
+
+  // `PCB_CONTROL::UpdateMessagePanel`'s tail (`pcb_control.cpp:2872-2880`): the
+  // pane follows a single selected item, and anything else clears it.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `board` is only the trigger; the ids are re-read through boardRef
+  useEffect(() => {
+    const brd = boardRef.current;
+    if (!vertexPane || !brd) return;
+
+    vertexPane.OnSelectionChanged(
+      selection.size === 1 ? liveItemOfId(brd, [...selection][0]!) : null,
+    );
+  }, [selection, vertexPane, board]);
+
   // ----- toolbar handlers -----------------------------------------------------
 
   const onLeftToggle = (id: string): void => {
@@ -11385,6 +11579,12 @@ export function PcbEditor({
       case 'updatePcbFromSchematic':
         void openUpdatePcb();
         break;
+      // `PCB_ACTIONS::editVertices` -> `EDIT_TOOL::EditVertices`
+      // (`edit_tool.cpp:2195-2224`): one polygon or zone opens the pane, anything
+      // else is `wxBell()`.
+      case 'editVertices':
+        openVertexEditor();
+        break;
       case 'showFootprintEditor':
         onShowFootprintEditor?.();
         break;
@@ -11493,6 +11693,8 @@ export function PcbEditor({
     {
       showProperties: leftToggles.has('showProperties'),
       showLayersManager: leftToggles.has('showLayersManager'),
+      showSearch: leftToggles.has('showSearch'),
+      showNetInspector: leftToggles.has('showNetInspector'),
       zoneDisplayFilled: leftToggles.has('zoneDisplayFilled'),
       zoneDisplayOutline: leftToggles.has('zoneDisplayOutline'),
     },
@@ -11991,6 +12193,48 @@ export function PcbEditor({
               </div>
             )}
           </div>
+          {/* The two `.Bottom()` panes, under the canvas and beside the toolbars
+              (`pcb_edit_frame.cpp:396-412`). */}
+          <PcbBottomDock
+            showSearch={showSearch}
+            showNetInspector={showNetInspector}
+            height={dockHeight}
+            onHeightChange={setDockHeight}
+            onCloseSearch={() => onLeftToggle('showSearch')}
+            onCloseNetInspector={() => onLeftToggle('showNetInspector')}
+            netInspector={
+              board && (
+                <PcbNetInspectorPane
+                  board={board}
+                  netClassesOf={netClassesOf}
+                  onHighlightNets={(codes) => setHighlightNets(new Set(codes))}
+                />
+              )
+            }
+            search={
+              <PcbSearchPane
+                frame={searchFrame}
+                board={boardK}
+                wiring={searchWiring}
+                menuState={{
+                  selectionZoom: commonCfg.search_pane.selection_zoom,
+                  searchHiddenFields: commonCfg.search_pane.search_hidden_fields,
+                  searchMetadata: commonCfg.search_pane.search_metadata,
+                }}
+                onMenuStateChange={(next) =>
+                  updateCommonSettings((c) => {
+                    c.search_pane.selection_zoom = next.selectionZoom;
+                    c.search_pane.search_hidden_fields = next.searchHiddenFields;
+                    c.search_pane.search_metadata = next.searchMetadata;
+                  })
+                }
+                units={unitLabel}
+              />
+            }
+          />
+          {vertexPane && (
+            <VertexEditorWindow pane={vertexPane} onClose={() => vertexPane.Destroy()} />
+          )}
         </div>
 
         <Toolbar
