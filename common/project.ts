@@ -13,6 +13,7 @@
  */
 import type { OutStr } from './font/font.js';
 import type { KIID } from './kiid.js';
+import type { DESIGN_BLOCK_LIBRARY_ADAPTER } from './design_block_library_adapter.js';
 import { type PROJECT_FILE, PROJECT_FILE_EXTENSION } from './project/project_file.js';
 import type { PROJECT_LOCAL_SETTINGS } from './project/project_local_settings.js';
 import { TITLE_BLOCK } from './title_block.js';
@@ -309,6 +310,32 @@ export class PROJECT {
   GetProjectFile(): PROJECT_FILE {
     console.assert(this.m_projectFile !== null);
     return this.m_projectFile!;
+  }
+
+  /** `m_designBlockLibs`: made the first time `DesignBlockLibs()` is asked. */
+  private m_designBlockLibs: DESIGN_BLOCK_LIBRARY_ADAPTER | null = null;
+
+  /**
+   * How `DesignBlockLibs()` makes its adapter. `design_block_library_adapter.ts`
+   * installs it when it loads: a value import from here would be a module cycle
+   * (the adapter reaches `pgm_base`, which reaches this file).
+   */
+  static s_designBlockLibsFactory: ((aProject: PROJECT) => DESIGN_BLOCK_LIBRARY_ADAPTER) | null =
+    null;
+
+  /**
+   * `DesignBlockLibs()` (project.cpp): the project's design block libraries,
+   * over `Pgm().GetLibraryManager()`.
+   */
+  DesignBlockLibs(): DESIGN_BLOCK_LIBRARY_ADAPTER {
+    if (!this.m_designBlockLibs) {
+      if (!PROJECT.s_designBlockLibsFactory)
+        throw new Error('DesignBlockLibs(): design_block_library_adapter.js is not loaded');
+
+      this.m_designBlockLibs = PROJECT.s_designBlockLibsFactory(this);
+    }
+
+    return this.m_designBlockLibs;
   }
 
   GetLocalSettings(): PROJECT_LOCAL_SETTINGS {

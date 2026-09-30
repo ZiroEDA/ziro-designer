@@ -19,6 +19,30 @@ export interface wxFileSystemMount {
   DirExists(aRelPath: string): boolean;
 }
 
+/**
+ * A mount whose bytes can be read and written: the temp RAM disk, and the
+ * open project's files where the app mounts them writable.
+ */
+export interface wxWritableFileSystemMount extends wxFileSystemMount {
+  Read(aRelPath: string): Uint8Array | null;
+  Write(aRelPath: string, aData: Uint8Array): void;
+  Remove(aRelPath: string): boolean;
+  RemoveTree(aRelPath: string): boolean;
+  Rename(aFrom: string, aTo: string, aOverwrite: boolean): boolean;
+  /** `wxDir::GetFirst`/`GetNext` over one directory: its entries, or null when it does not exist. */
+  List(aRelDir: string): { name: string; isDir: boolean }[] | null;
+  /** `wxFileName::Mkdir( wxPATH_MKDIR_FULL )`: an (empty) directory. */
+  Mkdir(aRelDir: string): boolean;
+}
+
+/** Whether a mount keeps bytes: read, written and listed through the helpers below. */
+export function IsWritableMount(aMount: wxFileSystemMount): aMount is wxWritableFileSystemMount {
+  const m = aMount as Partial<wxWritableFileSystemMount>;
+  return (
+    typeof m.Read === 'function' && typeof m.Write === 'function' && typeof m.List === 'function'
+  );
+}
+
 interface MountEntry {
   prefix: string;
   mount: wxFileSystemMount;
@@ -131,19 +155,58 @@ export function wxDirExists(aPath: string): boolean {
 }
 
 /** A writable tree held in memory: the temp directory, and anything else the app needs. */
-export class MEMORY_FILESYSTEM implements wxFileSystemMount {
+export class MEMORY_FILESYSTEM implements wxWritableFileSystemMount {
   private readonly m_files = new Map<string, Uint8Array>();
+  /** Directories made with `Mkdir`, which exist even while empty. */
+  private readonly m_dirs = new Set<string>();
 
   FileExists(aRelPath: string): boolean {
     return this.m_files.has(aRelPath);
   }
 
   DirExists(aRelPath: string): boolean {
-    const dir = `${aRelPath.replace(/\/+$/, '')}/`;
+    const bare = aRelPath.replace(/\/+$/, '');
+    const dir = `${bare}/`;
+
+    if (this.m_dirs.has(bare)) return true;
 
     for (const k of this.m_files.keys()) if (k.startsWith(dir)) return true;
 
+    for (const d of this.m_dirs) if (d.startsWith(dir)) return true;
+
     return false;
+  }
+
+  Mkdir(aRelDir: string): boolean {
+    const bare = aRelDir.replace(/\/+$/, '');
+
+    if (bare !== '') this.m_dirs.add(bare);
+
+    return true;
+  }
+
+  List(aRelDir: string): { name: string; isDir: boolean }[] | null {
+    const bare = aRelDir.replace(/\/+$/, '');
+
+    if (bare !== '' && !this.DirExists(bare)) return null;
+
+    const prefix = bare === '' ? '' : `${bare}/`;
+    const out = new Map<string, boolean>();
+
+    const visit = (aPath: string, aIsDir: boolean): void => {
+      if (!aPath.startsWith(prefix) || aPath === bare) return;
+
+      const rest = aPath.slice(prefix.length);
+      const slash = rest.indexOf('/');
+
+      if (slash < 0) out.set(rest, out.get(rest) || aIsDir);
+      else out.set(rest.slice(0, slash), true);
+    };
+
+    for (const k of this.m_files.keys()) visit(k, false);
+    for (const d of this.m_dirs) visit(d, true);
+
+    return [...out.entries()].map(([name, isDir]) => ({ name, isDir }));
   }
 
   Write(aRelPath: string, aData: Uint8Array): void {
@@ -160,8 +223,16 @@ export class MEMORY_FILESYSTEM implements wxFileSystemMount {
 
   /** `wxRemoveDir` and everything under it (`wxFileName::Rmdir( wxPATH_RMDIR_RECURSIVE )`). */
   RemoveTree(aRelPath: string): boolean {
-    const dir = `${aRelPath.replace(/\/+$/, '')}/`;
+    const bare = aRelPath.replace(/\/+$/, '');
+    const dir = `${bare}/`;
     let removed = false;
+
+    for (const d of [...this.m_dirs]) {
+      if (d === bare || d.startsWith(dir)) {
+        this.m_dirs.delete(d);
+        removed = true;
+      }
+    }
 
     for (const k of [...this.m_files.keys()]) {
       if (k.startsWith(dir)) {
@@ -189,7 +260,7 @@ export class MEMORY_FILESYSTEM implements wxFileSystemMount {
       if (k.startsWith(fromDir)) moves.push([k, toDir + k.slice(fromDir.length)]);
     }
 
-    if (moves.length === 0) return false;
+    if (moves.length === 0 && !this.m_dirs.has(aFrom.replace(/\/+$/, ''))) return false;
 
     if (!aOverwrite && moves.some(([, to]) => this.m_files.has(to))) return false;
 
@@ -197,6 +268,16 @@ export class MEMORY_FILESYSTEM implements wxFileSystemMount {
       const data = this.m_files.get(from)!;
       this.m_files.delete(from);
       this.m_files.set(to, data);
+    }
+
+    const fromBare = aFrom.replace(/\/+$/, '');
+    const toBare = aTo.replace(/\/+$/, '');
+
+    for (const d of [...this.m_dirs]) {
+      if (d === fromBare || d.startsWith(fromDir)) {
+        this.m_dirs.delete(d);
+        this.m_dirs.add(toBare + d.slice(fromBare.length));
+      }
     }
 
     return true;
@@ -216,9 +297,9 @@ wxMountFileSystem(wxGetTempDir(), s_tempFileSystem);
 export function wxReadFileSync(aPath: string): Uint8Array | null {
   const hit = wxFindMount(wxNormalizePath(aPath));
 
-  if (!hit || !(hit.mount instanceof MEMORY_FILESYSTEM)) return null;
+  if (!hit || !IsWritableMount(hit.mount)) return null;
 
-  return hit.mount.Read(hit.rel);
+  return (hit.mount as wxWritableFileSystemMount).Read(hit.rel);
 }
 
 /**
@@ -228,9 +309,9 @@ export function wxReadFileSync(aPath: string): Uint8Array | null {
 export function wxWriteFileSync(aPath: string, aData: Uint8Array): boolean {
   const hit = wxFindMount(wxNormalizePath(aPath));
 
-  if (!hit || !(hit.mount instanceof MEMORY_FILESYSTEM)) return false;
+  if (!hit || !IsWritableMount(hit.mount)) return false;
 
-  hit.mount.Write(hit.rel, aData);
+  (hit.mount as wxWritableFileSystemMount).Write(hit.rel, aData);
   return true;
 }
 
@@ -238,18 +319,18 @@ export function wxWriteFileSync(aPath: string, aData: Uint8Array): boolean {
 export function wxRemoveFile(aPath: string): boolean {
   const hit = wxFindMount(wxNormalizePath(aPath));
 
-  if (!hit || !(hit.mount instanceof MEMORY_FILESYSTEM)) return false;
+  if (!hit || !IsWritableMount(hit.mount)) return false;
 
-  return hit.mount.Remove(hit.rel);
+  return (hit.mount as wxWritableFileSystemMount).Remove(hit.rel);
 }
 
 /** `wxRemoveDir` recursively: a `.pretty` and its footprints. False when there was nothing to remove. */
 export function wxRemoveDirTree(aPath: string): boolean {
   const hit = wxFindMount(trimDir(wxNormalizePath(aPath)));
 
-  if (!hit || !(hit.mount instanceof MEMORY_FILESYSTEM) || hit.rel === '') return false;
+  if (!hit || !IsWritableMount(hit.mount) || hit.rel === '') return false;
 
-  return hit.mount.RemoveTree(hit.rel);
+  return (hit.mount as wxWritableFileSystemMount).RemoveTree(hit.rel);
 }
 
 /**
@@ -260,10 +341,44 @@ export function wxRenameFile(aOld: string, aNew: string, aOverwrite = true): boo
   const from = wxFindMount(trimDir(wxNormalizePath(aOld)));
   const to = wxFindMount(trimDir(wxNormalizePath(aNew)));
 
-  if (!from || !to || from.mount !== to.mount || !(from.mount instanceof MEMORY_FILESYSTEM))
-    return false;
+  if (!from || !to || from.mount !== to.mount || !IsWritableMount(from.mount)) return false;
 
   if (from.rel === '' || to.rel === '') return false;
 
-  return from.mount.Rename(from.rel, to.rel, aOverwrite);
+  return (from.mount as wxWritableFileSystemMount).Rename(from.rel, to.rel, aOverwrite);
+}
+
+/**
+ * `wxDir( aPath )` + `GetFirst` / `GetNext` with no filter: the entries of one
+ * directory, or null when it cannot be opened.
+ */
+export function wxDirEnumerate(aPath: string): { name: string; isDir: boolean }[] | null {
+  const hit = wxFindMount(trimDir(wxNormalizePath(aPath)));
+
+  if (!hit || !IsWritableMount(hit.mount)) return null;
+
+  return hit.mount.List(hit.rel);
+}
+
+/** `wxFileName::Mkdir( aPath, wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL )`: on a writable mount. */
+export function wxMkdir(aPath: string): boolean {
+  const hit = wxFindMount(trimDir(wxNormalizePath(aPath)));
+
+  if (!hit || !IsWritableMount(hit.mount)) return false;
+
+  return hit.rel === '' || hit.mount.Mkdir(hit.rel);
+}
+
+/** `wxFileName::IsDirWritable()`: the directory is on a mount that can be written. */
+export function wxIsDirWritable(aPath: string): boolean {
+  const hit = wxFindMount(trimDir(wxNormalizePath(aPath)));
+
+  return !!hit && IsWritableMount(hit.mount);
+}
+
+/** `wxCopyFile( aSrc, aDest )`: the bytes of one file at another path (either mount). */
+export function wxCopyFile(aSrc: string, aDest: string): boolean {
+  const data = wxReadFileSync(aSrc);
+
+  return data !== null && wxWriteFileSync(aDest, data);
 }

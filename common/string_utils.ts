@@ -1130,3 +1130,16 @@ export function EscapedUTF8(aString: string): string {
 
   return ret;
 }
+
+/**
+ * `LinkifyHTML( aStr )` (common/string_utils.cpp:674-682): every URL in the
+ * (already escaped) text made an anchor. The anchor opens a new tab, which is
+ * what a link in a details pane must do in a page (upstream's HTML window
+ * hands it to the system browser).
+ */
+export function LinkifyHTML(aStr: string): string {
+  return aStr.replace(
+    /\b(https?|ftp|file):\/\/([-\w+&@#/%?=~|!:,.;]*[^.,:;<>()\s\u00b6])/gi,
+    (m) => `<a href="${m}" target="_blank" rel="noreferrer">${m}</a>`,
+  );
+}

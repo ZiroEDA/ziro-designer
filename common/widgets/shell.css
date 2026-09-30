@@ -18365,3 +18365,62 @@ td.ze-grid-bool {
   border: 0;
   padding: 0;
 }
+
+/* DIALOG_DESIGN_BLOCK_PROPERTIES (common/dialogs/dialog_design_block_properties_ui.tsx),
+   each border dialog_design_block_properties_base.cpp's Add(). */
+.ze-dbprops-margins {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  margin: 0 5px; /* [data] Add( bMargins, 1, wxEXPAND|wxRIGHT|wxLEFT, 5 ) */
+}
+.ze-dbprops-fields {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  margin: 5px 5px 0; /* [data] Add( sbFields, 1, wxEXPAND|wxTOP|wxRIGHT|wxLEFT, 5 ) */
+}
+.ze-dbprops-gridpane {
+  flex: 1 1 auto;
+  min-height: 120px; /* [px] the grid's natural height of a few rows */
+  margin: 0 5px 5px; /* [data] Add( m_fieldsGrid, 1, wxEXPAND|wxBOTTOM|wxRIGHT|wxLEFT, 5 ) */
+}
+.ze-dbprops-btns {
+  gap: 0; /* each button carries its own wxRIGHT, 5 */
+  margin: 0 0 5px 5px; /* [data] Add( bButtonSizer, 0, wxEXPAND|wxBOTTOM|wxLEFT, 5 ) */
+}
+.ze-dbprops-btns > * {
+  margin-right: 5px; /* [data] Add( m_bp*, 0, wxALIGN_CENTER_VERTICAL|wxRIGHT, 5 ) */
+}
+.ze-dbprops-btngap {
+  width: 20px; /* [data] bButtonSizer->Add( 20, 0, 0, wxEXPAND, 10 ) */
+}
+.ze-dbprops-props {
+  display: grid;
+  grid-template-columns: max-content 1fr; /* [data] wxFlexGridSizer( 0, 2, 5, 0 ) */
+  row-gap: 5px; /* [data] the flex grid's vgap */
+  align-items: center;
+  margin: 10px; /* [data] Add( fgProperties, 0, wxBOTTOM|wxEXPAND|wxLEFT|wxRIGHT|wxTOP, 10 ) */
+}
+.ze-dbprops-props > label {
+  margin-right: 5px; /* [data] Add( m_staticText*, 0, wxALIGN_CENTER_VERTICAL|wxRIGHT, 5 ) */
+}
+
+/* PANEL_DESIGN_BLOCK_CHOOSER (common/widgets/panel_design_block_chooser_ui.tsx):
+   the tree over the preview, a wxSplitterWindow split horizontally. */
+.ze-dbchooser {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.ze-dbchooser-tree {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 20px; /* [data] m_vsplitter->SetMinimumPaneSize( 20 ) */
+}
+.ze-dbchooser-details {
+  display: flex;
+  min-height: 20px; /* [data] the same minimum pane size */
+}
