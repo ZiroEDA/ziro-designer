@@ -179,6 +179,11 @@ export class DSNLEXER {
     return this.src.slice(a, b);
   }
 
+  /** Where the reader is in the whole input (`ftell` on the file KiCad lexes from). */
+  InputPosition(): number {
+    return this.next;
+  }
+
   /** `CurOffset()`: the byte offset of the current token in its line. */
   CurOffset(): number {
     let a = this.curStart;

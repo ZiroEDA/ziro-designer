@@ -201,6 +201,12 @@ registry.Register(
 );
 
 registry.Register(
+  PCB_FILE_T.CADSTAR_PCB_ARCHIVE,
+  'CADSTAR PCB Archive',
+  async () => new (await import('./cadstar/pcb_io_cadstar_archive.js')).PCB_IO_CADSTAR_ARCHIVE(),
+);
+
+registry.Register(
   PCB_FILE_T.EAGLE,
   'Eagle',
   async () => new (await import('./eagle/pcb_io_eagle.js')).PCB_IO_EAGLE(),

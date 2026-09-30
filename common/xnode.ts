@@ -109,6 +109,8 @@ export class XNODE {
   private m_content: string;
   private readonly m_attributes: XATTR[] = [];
   private m_children: XNODE | null = null;
+  /** The last child, so appending does not walk the list (wx keeps the same). */
+  private m_lastChild: XNODE | null = null;
   private m_next: XNODE | null = null;
   private m_parent: XNODE | null = null;
 
@@ -152,14 +154,27 @@ export class XNODE {
     aChild.m_parent = this;
     aChild.m_next = null;
 
-    if (!this.m_children) {
-      this.m_children = aChild;
-      return;
-    }
+    if (!this.m_children) this.m_children = aChild;
+    else this.m_lastChild!.m_next = aChild;
 
-    let last = this.m_children;
-    while (last.m_next) last = last.m_next;
-    last.m_next = aChild;
+    this.m_lastChild = aChild;
+  }
+
+  /** `wxXmlNode::GetAttribute( name, &value )`: the value, or null when there is none. */
+  GetAttribute(aName: string): string | null {
+    for (const a of this.m_attributes) if (a.GetName() === aName) return a.GetValueText();
+
+    return null;
+  }
+
+  /** `wxXmlNode::DeleteAttribute( name )`: whether one was removed. */
+  DeleteAttribute(aName: string): boolean {
+    const i = this.m_attributes.findIndex((a) => a.GetName() === aName);
+
+    if (i < 0) return false;
+
+    this.m_attributes.splice(i, 1);
+    return true;
   }
 
   AddBool(aKey: string, aValue: boolean): void {
