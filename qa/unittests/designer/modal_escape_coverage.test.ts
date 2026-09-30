@@ -118,7 +118,7 @@ describe('every modal gets wxDialog Esc', () => {
     // dialog_shim.tsx is where the hook is defined (DIALOG_SHIM), not a caller.
     const unimported = FILES.filter((f) => /\buseModalEscape\(/.test(f.src))
       .filter((f) => !/export function useModalEscape\(/.test(f.src))
-      .filter((f) => !/import \{ useModalEscape \} from/.test(f.src))
+      .filter((f) => !/import \{[^}]*\buseModalEscape\b[^}]*\} from/.test(f.src))
       .map((f) => f.rel);
     expect(unimported).toEqual([]);
   });
