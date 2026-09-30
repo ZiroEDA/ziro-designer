@@ -138,6 +138,11 @@ import { CONFIRM_REVERT_EXTENDED, confirmRevertMessage } from '@ziroeda/common/c
 import type { ChooserFilter, OpenedFile } from '@ziroeda/common/wx/filedlg.js';
 import type { ToolEntry } from '@ziroeda/common/tool/action_toolbar_types.js';
 import type { PCBNEW_APP } from './browser/pcbnew_app.js';
+import { FOOTPRINT, type FP_3DMODEL } from './footprint.js';
+import { modelOfView, modelView } from './pcb_io/kicad_sexpr/board_view.js';
+import { PROJECT_PCB } from './project_pcb.js';
+import type { FILENAME_RESOLVER } from '@ziroeda/common/filename_resolver.js';
+import type { SELECTED_3D_MODEL } from './dialogs/panel_fp_properties_3d_model.js';
 import type { ToolbarDefaults, ToolbarLoc } from '@ziroeda/common/tool/ui/toolbar_configuration.js';
 import type { CrosshairMode, GridStyle } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
 
@@ -246,6 +251,8 @@ export interface FOOTPRINT_EDIT_FRAME_APP {
   /** The way back to the project manager, at the left of the menu bar —
    *  `PCBNEW_APP`'s own member, the one piece of chrome both frames share. */
   HomeLink: PCBNEW_APP['HomeLink'];
+  /** The 3D Models page's preview canvas, `PCBNEW_APP`'s own member. */
+  ModelPreview3D: PCBNEW_APP['ModelPreview3D'];
 }
 
 export interface FootprintEditorFile {
@@ -535,6 +542,12 @@ export function FootprintEditFrame({
   const [newLibName, setNewLibName] = useState<string | null>(null);
   const [newFpName, setNewFpName] = useState<string | null>(null);
   const [propsOpen, setPropsOpen] = useState(false);
+  // Footprint Properties > 3D Models > Browse: `DIALOG_SELECT_3DMODEL` is not
+  // ported (a `3d-viewer/` dialog); the account's Open dialog answers in its place.
+  const [pick3dModel, setPick3dModel] = useState<{
+    done: (aChosen: SELECTED_3D_MODEL | null) => void;
+  } | null>(null);
+  const model3dResolverRef = useRef<FILENAME_RESOLVER | null>(null);
   const [aboutOpen, setAboutOpen] = useState(false);
   /**
    * `ShowPreferences( <page>, <heading> )`. `true` is the plain
@@ -850,7 +863,13 @@ export function FootprintEditFrame({
   }, [workFp, selection, commit]);
 
   const applyProps = useCallback(
-    (r: { reference: string; value: string; description: string; keywords: string }) => {
+    (r: {
+      reference: string;
+      value: string;
+      description: string;
+      keywords: string;
+      models?: readonly FP_3DMODEL[];
+    }) => {
       setPropsOpen(false);
       if (!workFp) return;
       let next = workFp;
@@ -858,6 +877,9 @@ export function FootprintEditFrame({
       if (r.value !== (workFp.value ?? '')) next = setFootprintValue(next, r.value);
       next = setFootprintDescription(next, r.description);
       next = setFootprintKeywords(next, r.keywords);
+      // Copy the models from the panel to the footprint
+      // (`dialog_footprint_properties_fp_editor.cpp:879-882`).
+      if (r.models) next = { ...next, models: r.models.map(modelView) };
       commit(next, 'Edit Footprint Properties');
     },
     [workFp, commit],
@@ -2215,8 +2237,59 @@ export function FootprintEditFrame({
           footprint={workFp}
           onOk={applyProps}
           onCancel={() => setPropsOpen(false)}
+          model3d={(() => {
+            // The page edits a FOOTPRINT: this one carries the edited footprint's
+            // models and library id, which is all the page reads of it.
+            const kfp = new FOOTPRINT(null);
+            kfp.SetFPIDAsString(`${curLib ?? ''}:${curName ?? ''}`);
+            kfp.Models().push(...workFp.models.map(modelOfView));
+            return {
+              footprint: kfp,
+              host: {
+                resolver: () =>
+                  (model3dResolverRef.current ??= PROJECT_PCB.Get3DFilenameResolver()),
+                footprintBasePath: () => '',
+                embeddedFilesStack: () => [kfp.GetEmbeddedFiles()],
+                // No Embedded Files page in this dialog yet, so nothing embeds here.
+                addEmbeddedFile: () => null,
+                removeEmbeddedFile: () => {},
+                onModify: () => {},
+              },
+              renderPreview: (models, _selected, version) =>
+                app.ModelPreview3D({ footprint: kfp, models, version }),
+              pickModel: () =>
+                new Promise<SELECTED_3D_MODEL | null>((resolve) =>
+                  setPick3dModel({ done: resolve }),
+                ),
+            };
+          })()}
         />
       )}
+      {pick3dModel &&
+        app.OpenFileDialog({
+          title: 'Select 3D Model',
+          accept: 'Open',
+          filters: [
+            {
+              label: 'All 3D models (*.wrl, *.wrz, *.step, *.stp, *.stpz, *.iges, *.igs)',
+              extensions: ['wrl', 'wrz', 'step', 'stp', 'stpz', 'iges', 'igs'],
+            },
+          ],
+          onDone: (file) => {
+            const { done } = pick3dModel;
+            setPick3dModel(null);
+            // The name KiCad stores is the path shortened against the search paths.
+            done(
+              file
+                ? {
+                    filename: (model3dResolverRef.current ??=
+                      PROJECT_PCB.Get3DFilenameResolver()).ShortenPath(file.path),
+                    embedded: false,
+                  }
+                : null,
+            );
+          },
+        })}
       {padForDialog && (
         <PadPropertiesDialog
           pad={padForDialog}

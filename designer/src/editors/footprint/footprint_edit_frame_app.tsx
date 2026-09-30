@@ -7,6 +7,7 @@
  * `pcbnew` never imports `designer`; this is the one file that answers it,
  * the way `editors/schematic/cvpcb_app.tsx` answers `CVPCB_APP`.
  */
+import { FootprintModelPreview3D } from '../pcb/widgets/footprint_model_preview_3d.js';
 import { useMemo, type JSX } from 'react';
 import type { KIWAY } from '@ziroeda/common/kiway.js';
 import type { FOOTPRINT_LIBRARY_IO } from '@ziroeda/pcbnew/footprint_libraries_utils.js';
@@ -98,6 +99,7 @@ export function useFootprintEditFrameApp(): FOOTPRINT_EDIT_FRAME_APP {
       // `PATHS::GetDefaultUserFootprintsPath()` (paths.cpp:93).
       OpenFileDialog: (props) => <OpenFileDialog {...props} kind="footprints" />,
       HomeLink: ({ onClick }) => <HomeLink onClick={onClick} />,
+      ModelPreview3D: (props) => <FootprintModelPreview3D {...props} />,
     }),
     [],
   );

@@ -2066,7 +2066,8 @@ function applyGroup(k: PCB_GROUP, v: PcbGroup): void {
   if (v.uuid) setUuid(k, v.uuid);
 }
 
-function modelView(m: FP_3DMODEL): Model3D {
+/** `FP_3DMODEL` as the view carries it. */
+export function modelView(m: FP_3DMODEL): Model3D {
   return {
     path: m.m_Filename,
     offset: { ...m.m_Offset },
@@ -2077,7 +2078,8 @@ function modelView(m: FP_3DMODEL): Model3D {
   };
 }
 
-function modelOfView(v: Model3D): FP_3DMODEL {
+/** The `FP_3DMODEL` a view model stands for. */
+export function modelOfView(v: Model3D): FP_3DMODEL {
   const m = new FP_3DMODEL();
   m.m_Filename = v.path;
   m.m_Show = !v.hide;
