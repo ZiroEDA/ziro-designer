@@ -76,6 +76,11 @@ describe('the PCB selection menu @100 band, in KiCad registration order', () => 
   it('reads Position | Locking, Net Inspection Tools, Align/Distribute, Create from Selection, Grouping', () => {
     expect(ROWS).toEqual([
       '----', // EDIT_TOOL, edit_tool.cpp:812
+      // EDIT_TOOL's shapeModificationSubMenu, edit_tool.cpp:813, between the rule
+      // and Position. Only its Edit Corners... row (edit_tool.cpp:291) is ported,
+      // so the entry is conditioned on `selectionHasEditableCorners` and is absent
+      // from a footprint's menu, which is what the [px] capture above shows.
+      'Shape Modification',
       'Position', // EDIT_TOOL, edit_tool.cpp:814
       '----', // PCB_EDIT_TABLE_TOOL, edit_table_tool_base.h:94
       'Locking', // BOARD_EDITOR_CONTROL, board_editor_control.cpp:437

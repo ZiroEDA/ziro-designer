@@ -36,7 +36,7 @@ import { STRTOK, strncpyLine } from '@ziroeda/common/libc/string.js';
 import type { KIWAY_MAIL_EVENT } from '@ziroeda/common/kiway_mail.js';
 import { MAIL_T } from '@ziroeda/common/mail_type.js';
 import type { FOOTPRINT_EDITOR_SETTINGS_LIKE } from './pcb_base_frame.js';
-import { PCBNEW_SETTINGS } from './pcbnew_settings.js';
+import { type AUI_PANELS, PCBNEW_SETTINGS } from './pcbnew_settings.js';
 import { BOARD_COMMIT, SKIP_SET_DIRTY, SKIP_UNDO } from './board_commit.js';
 import type { FOOTPRINT } from './footprint.js';
 import type { ZONE } from './zone.js';
@@ -97,6 +97,8 @@ export interface PCBNEW_JSON_SETTINGS_LIKE {
     color_theme: string;
   };
   cross_probing: CROSS_PROBING_SETTINGS;
+  /** `m_AuiPanels`, the keys the Search and Net Inspector panes persist. */
+  aui: Pick<AUI_PANELS, 'show_search' | 'show_net_inspector' | 'search_panel_height'>;
   pcb_display: {
     net_names_mode: 0 | 1 | 2 | 3;
     pad_numbers: boolean;
@@ -1390,6 +1392,16 @@ export function pcbTogglesFromSettings(cfg: PcbnewSettings): Set<string> {
   for (const id of ['crosshairSmall', 'crosshairFull', 'crosshair45']) out.delete(id);
   out.add(crosshairToggleId(cfg.window.cursor.crosshair));
 
+  // `PCB_EDIT_FRAME::LoadSettings` (`pcb_edit_frame.cpp:1739-1740`):
+  // `m_ShowSearch = cfg->m_AuiPanels.show_search` and
+  // `m_ShowNetInspector = cfg->m_AuiPanels.show_net_inspector`, which the
+  // constructor's `.Show( m_ShowSearch )` / `.Show( m_ShowNetInspector )`
+  // (:419-420) then applies. Data: neither is in DEFAULT_TOGGLES because both
+  // default to false in `AUI_PANELS`.
+  for (const id of ['showSearch', 'showNetInspector']) out.delete(id);
+  if (cfg.aui.show_search) out.add('showSearch');
+  if (cfg.aui.show_net_inspector) out.add('showNetInspector');
+
   // `curvedRatsnestCond` reads `m_Display.m_DisplayRatsnestLinesCurved`
   // (`pcbnew/pcb_edit_frame.cpp:1150-1155`), which Preferences > PCB Editor >
   // Editing Options is the other control over.
@@ -1472,6 +1484,19 @@ export function foldPcbToggle(cfg: PcbnewSettings, id: string): boolean {
     return true;
   }
 
+  // `PCB_EDIT_FRAME::ToggleSearch` / `ToggleNetInspector`
+  // (`toolbars_pcb_editor.cpp:774-850`) and `SaveSettings` (`pcb_edit_frame.cpp:
+  // 1765-1776`), which writes the pane's shown state to `m_AuiPanels`.
+  if (id === 'showSearch') {
+    cfg.aui.show_search = !cfg.aui.show_search;
+    return true;
+  }
+
+  if (id === 'showNetInspector') {
+    cfg.aui.show_net_inspector = !cfg.aui.show_net_inspector;
+    return true;
+  }
+
   return false;
 }
 
@@ -1482,6 +1507,8 @@ export function isStoredPcbToggle(id: string): boolean {
     lineModeOf(id) !== null ||
     id === 'toggleGrid' ||
     id === 'ratsnestLineMode' ||
-    id === 'togglePolarCoords'
+    id === 'togglePolarCoords' ||
+    id === 'showSearch' ||
+    id === 'showNetInspector'
   );
 }

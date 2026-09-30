@@ -57,6 +57,12 @@ export interface PcbnewCommonSettingsLike {
   input: { immediate_actions: boolean };
   system: { clear_3d_cache_interval: number; language: string };
   graphics: { antialiasing_mode: number };
+  /** `APP_SETTINGS_BASE::m_SearchPane`, the docked Search pane's menu. */
+  search_pane: {
+    selection_zoom: 'none' | 'pan' | 'zoom';
+    search_hidden_fields: boolean;
+    search_metadata: boolean;
+  };
 }
 
 /** The designer's grid and cursor preferences, the half of `m_Window` the GAL reads. */

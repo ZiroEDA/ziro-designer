@@ -25,6 +25,7 @@
  */
 
 import { CROSS_PROBING_SETTINGS } from '@ziroeda/common/settings/app_settings.js';
+import { AUI_PANELS } from '@ziroeda/pcbnew/pcbnew_settings.js';
 import type { EdaUnits } from '@ziroeda/common/eda_units.js';
 import { setColorPickerTabStore } from '@ziroeda/common/dialogs/dialog_color_picker_tab.js';
 import type { RegulatorData } from '@ziroeda/pcb_calculator';
@@ -124,6 +125,12 @@ export interface PcbnewPrinting {
   as_item_checkboxes: boolean;
 }
 
+/** The `AUI_PANELS` keys the Search and Net Inspector panes persist (the Bottom dock only: width and direction are AUI's own). */
+export type PcbAuiPanels = Pick<
+  AUI_PANELS,
+  'show_search' | 'show_net_inspector' | 'search_panel_height'
+>;
+
 export interface PcbnewSettings {
   /**
    * `PCBNEW_SETTINGS::m_DRCDialog` -> `DRC.*` (pcbnew_settings.cpp:350-357):
@@ -158,6 +165,13 @@ export interface PcbnewSettings {
    * a probe does (pcbnew/cross-probing.cpp:140, :221-247, :734, :776).
    */
   cross_probing: CROSS_PROBING_SETTINGS;
+  /**
+   * `PCBNEW_SETTINGS::m_AuiPanels` -> `aui.*` (`pcbnew_settings.cpp:74-133`),
+   * the slice the docked Search and Net Inspector panes read and write:
+   * `PCB_EDIT_FRAME::LoadSettings` / `SaveSettings` (`pcb_edit_frame.cpp:1739-1776`)
+   * and `ToggleSearch` / `ToggleNetInspector` (`toolbars_pcb_editor.cpp:774-850`).
+   */
+  aui: PcbAuiPanels;
   printing: PcbnewPrinting;
   /**
    * Tool settings nested inside pcbnew.json. `pns` is PNS::ROUTING_SETTINGS,
@@ -424,6 +438,12 @@ export const PCBNEW_DEFAULTS: PcbnewSettings = {
     custom_toolbars: false,
   },
   cross_probing: { ...new CROSS_PROBING_SETTINGS() },
+  // The defaults are `AUI_PANELS`' own, not a second copy of them.
+  aui: (({ show_search, show_net_inspector, search_panel_height }) => ({
+    show_search,
+    show_net_inspector,
+    search_panel_height,
+  }))(new AUI_PANELS()),
   tools: {
     pns: writeRoutingSettings(DEFAULT_ROUTING_SETTINGS),
   },

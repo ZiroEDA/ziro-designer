@@ -1103,6 +1103,9 @@ const DECLARED: Readonly<Record<string, readonly string[]>> = {
     'Ctrl+A',
     'Ctrl+Shift+A',
     'Ctrl+F',
+    // View > Panels > Search: `ACTIONS::showSearch`, `.DefaultHotkey( MD_CTRL + 'G' )`
+    // (`actions.cpp`), printed on the row by `menubar_pcb_editor.cpp:220`.
+    'Ctrl+G',
     // `PCB_ACTIONS::zoneFillAll`.
     'B',
     // View.

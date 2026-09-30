@@ -20,7 +20,7 @@
  *    `sch_search_pane.tsx` uses it.
  */
 
-import { type JSX, useEffect, useMemo, useState } from 'react';
+import { type JSX, useEffect, useMemo, useRef, useState } from 'react';
 import type { APP_SETTINGS_BASE } from '@ziroeda/common/settings/app_settings.js';
 import { SEARCH_PANE, SEARCH_PANE_SELECTION_ZOOM } from '@ziroeda/common/settings/app_settings.js';
 import { SearchPane } from '@ziroeda/common/widgets/search_pane.js';
@@ -191,9 +191,14 @@ export function PcbSearchPane({
   // `~PCB_SEARCH_PANE` / a new board: the listener leaves the old one.
   useEffect(() => () => listener.Detach(), [listener]);
 
-  // `onUnitsChanged`: the units label is only the trigger.
+  // `onUnitsChanged`: the units label is only the trigger, and the pane opening
+  // is not a units change (`EDA_EVT_UNITS_CHANGED` is posted when they change).
+  const lastUnits = useRef(units);
   // biome-ignore lint/correctness/useExhaustiveDependencies: `units` is the event, not an input
   useEffect(() => {
+    if (lastUnits.current === units) return;
+
+    lastUnits.current = units;
     listener.onUnitsChanged();
   }, [listener, units]);
 
