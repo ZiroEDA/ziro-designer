@@ -106,7 +106,7 @@ class TEST_FRAME extends EDA_BASE_FRAME {
   override OnModify(): void {
     this.modified++;
   }
-  ShowInfoBarWarning(m: string): void {
+  override ShowInfoBarWarning(m: string): void {
     this.warnings.push(m);
   }
 }
