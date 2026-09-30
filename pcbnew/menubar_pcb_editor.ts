@@ -148,7 +148,7 @@ export function buildPcbMenus(
           icon: 'import',
           submenu: [
             { label: 'Netlist...', disabled: dis },
-            { label: 'Specctra Session...', disabled: dis },
+            { label: 'Specctra Session...', action: () => h.action('importSpecctraSession') },
             // `PCB_ACTIONS::placeImportedGraphics`, run non-interactively:
             // `DRAWING_TOOL::PlaceImportedGraphics` is the same handler the
             // Place toolbar button arms; from the menu it opens straight into
@@ -161,7 +161,7 @@ export function buildPcbMenus(
           label: 'Export',
           icon: 'export',
           submenu: [
-            { label: 'Specctra DSN...', disabled: dis },
+            { label: 'Specctra DSN...', action: () => h.action('exportSpecctraDSN') },
             { label: 'GenCAD...', disabled: dis },
             { label: 'VRML...', disabled: dis },
             { label: 'IDFv3...', disabled: dis },
@@ -515,16 +515,36 @@ export function buildPcbMenus(
           shortcut: 'Ctrl+Shift+K',
           action: () => h.tool('drawRuleArea'),
         },
-        // `muwaveSubmenu` (`:296-304`) — MICROWAVE_TOOL's five shapes. Not
-        // browser-impossible, just unbuilt.
+        // `muwaveSubmenu` (`:296-304`) — MICROWAVE_TOOL's five shapes. None of
+        // the five `PCB_ACTIONS::microwaveCreate*` declares a hotkey.
         {
           label: 'Draw Microwave Shapes',
           submenu: [
-            { label: 'Draw Microwave Lines', disabled: dis },
-            { label: 'Draw Microwave Gaps', disabled: dis },
-            { label: 'Draw Microwave Stubs', disabled: dis },
-            { label: 'Draw Microwave Arc Stubs', disabled: dis },
-            { label: 'Draw Microwave Polygonal Shapes', disabled: dis },
+            {
+              label: 'Draw Microwave Lines',
+              icon: 'microwaveCreateLine',
+              action: () => h.tool('microwaveCreateLine'),
+            },
+            {
+              label: 'Draw Microwave Gaps',
+              icon: 'microwaveCreateGap',
+              action: () => h.tool('microwaveCreateGap'),
+            },
+            {
+              label: 'Draw Microwave Stubs',
+              icon: 'microwaveCreateStub',
+              action: () => h.tool('microwaveCreateStub'),
+            },
+            {
+              label: 'Draw Microwave Arc Stubs',
+              icon: 'microwaveCreateStubArc',
+              action: () => h.tool('microwaveCreateStubArc'),
+            },
+            {
+              label: 'Draw Microwave Polygonal Shapes',
+              icon: 'microwaveCreateFunctionShape',
+              action: () => h.tool('microwaveCreateFunctionShape'),
+            },
           ],
         },
         { sep: true },
@@ -804,7 +824,7 @@ export function buildPcbMenus(
         { label: 'Update Footprints from Library...', disabled: dis },
         { label: 'Migrate 3D Models...', disabled: dis },
         { sep: true },
-        { label: 'Zone Manager...', disabled: dis },
+        { label: 'Zone Manager...', icon: 'zonesManager', action: () => h.action('zonesManager') },
         { sep: true },
         { label: 'Cleanup Tracks & Vias...', disabled: dis },
         { label: 'Remove Unused Pads...', disabled: dis },

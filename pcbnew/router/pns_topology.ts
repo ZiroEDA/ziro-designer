@@ -67,8 +67,8 @@ import { LineMarker, PnsKind, PnsLinkedItem, type PnsItem } from './pns_item.js'
 import { ObstacleSet, getShapeCollider } from './pns_collision.js';
 import { DiffPair } from './pns_diff_pair.js';
 import type { PnsLineChain } from './pns_line.js';
-import { segApproxParallel } from './pns_seg_ops.js';
-import { arcRadius, shapeArcCenter } from './shape_arc_ops.js';
+import { segApproxParallel } from '@ziroeda/kimath/src/geometry/seg.js';
+import { arcRadius, shapeArcCenter } from '@ziroeda/kimath/src/geometry/shape_arc.js';
 import { commonParallelProjection } from '../drc/drc_diff_pair.js';
 import { shapeBBox, shapeDist } from '../drc/drc_geometry.js';
 import { segSquaredDistanceToSeg } from '@ziroeda/kimath/src/geometry/seg.js';

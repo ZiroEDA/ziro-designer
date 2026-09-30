@@ -280,6 +280,9 @@ importers:
       '@ziroeda/kimath':
         specifier: workspace:*
         version: link:../libs/kimath
+      '@ziroeda/picosha2':
+        specifier: workspace:*
+        version: link:../libs/picosha2
       '@ziroeda/sexpr':
         specifier: workspace:*
         version: link:../libs/sexpr

@@ -44,7 +44,7 @@ import { PnsVVia, PnsVia } from '@ziroeda/pcbnew/router/pns_via.js';
 import { PnsItemSet } from '@ziroeda/pcbnew/router/pns_itemset.js';
 import { PnsLayerRange } from '@ziroeda/pcbnew/router/pns_layerset.js';
 import { PnsKind } from '@ziroeda/pcbnew/router/pns_item.js';
-import { itemHull } from '@ziroeda/pcbnew/router/pns_item_hull.js';
+import { itemHull } from '@ziroeda/pcbnew/router/pns_utils.js';
 import {
   DEFAULT_ROUTING_SETTINGS,
   PnsMode,

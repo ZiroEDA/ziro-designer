@@ -162,6 +162,7 @@ describe('the tool, which asks for the file before any click', () => {
     // entry in the shared table.
     expect(CURSORS).toContain("if (tool === 'placeReferenceImage' && state.imagePlacing)");
     expect(CURSORS).toContain('imagePlacing?: boolean;');
-    expect(EDITOR).toContain('{ tableDragging, imagePlacing }');
+    // The frame passes both flags to boardToolCursor (4a6addfc added the microwave one).
+    expect(EDITOR).toMatch(/boardToolCursor\(activeTool, \{\s*tableDragging,\s*imagePlacing,/);
   });
 });

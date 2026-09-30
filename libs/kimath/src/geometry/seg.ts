@@ -1239,6 +1239,15 @@ function squaredDistance(p: Vec2, q: Vec2): number {
 
 const S = (s: Seg): SEG => new SEG(s.a, s.b);
 
+/** `SEG::SquaredLength`, over a record. */
+export const segSquaredLength = (aSeg: Seg): number => S(aSeg).SquaredLength();
+
+/** `SEG::Length`, over a record. */
+export const segLength = (aSeg: Seg): number => S(aSeg).Length();
+
+/** `SEG::ReflectPoint`, over a record. */
+export const segReflectPoint = (aSeg: Seg, aP: Vec2): Vec2 => S(aSeg).ReflectPoint(aP);
+
 /** @deprecated use `SEG.ApproxCollinear` */
 export function segApproxCollinear(
   aA: VECTOR2I,

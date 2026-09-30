@@ -56,7 +56,7 @@ import {
   arcRadius,
   arcStartAngle,
   shapeArcCenter,
-} from './router/shape_arc_ops.js';
+} from '@ziroeda/kimath/src/geometry/shape_arc.js';
 import { shapeBBox, shapeDist, type Shape } from './drc/drc_geometry.js';
 import { tessellateArc } from './edit-board.js';
 import { padShapePos } from './padstack.js';

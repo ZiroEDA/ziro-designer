@@ -53,7 +53,7 @@ import { PnsSegment } from '@ziroeda/pcbnew/router/pns_segment.js';
 import { PnsSolid } from '@ziroeda/pcbnew/router/pns_solid.js';
 import { PnsLayerRange } from '@ziroeda/pcbnew/router/pns_layerset.js';
 import { PnsKind } from '@ziroeda/pcbnew/router/pns_item.js';
-import { itemHull } from '@ziroeda/pcbnew/router/pns_item_hull.js';
+import { itemHull } from '@ziroeda/pcbnew/router/pns_utils.js';
 import { CornerMode, Direction45, Directions } from '@ziroeda/kimath/src/geometry/direction45.js';
 import type { NetHandle, PnsRuleResolver } from '@ziroeda/pcbnew/router/pns_collision.js';
 import type { PnsItem } from '@ziroeda/pcbnew/router/pns_item.js';

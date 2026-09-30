@@ -125,7 +125,7 @@ import { PNS_HULL_MARGIN, PnsLine, PnsLineChain } from '@ziroeda/pcbnew/router/p
 import { PnsSegment } from '@ziroeda/pcbnew/router/pns_segment.js';
 import { PnsSolid } from '@ziroeda/pcbnew/router/pns_solid.js';
 import { PnsVia } from '@ziroeda/pcbnew/router/pns_via.js';
-import { itemHull } from '@ziroeda/pcbnew/router/pns_item_hull.js';
+import { itemHull } from '@ziroeda/pcbnew/router/pns_utils.js';
 import { segmentCount } from '@ziroeda/pcbnew/router/pns_line.js';
 import {
   DEFAULT_ROUTING_SETTINGS,

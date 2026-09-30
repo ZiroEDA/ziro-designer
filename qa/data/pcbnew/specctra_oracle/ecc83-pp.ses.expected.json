@@ -1,0 +1,266 @@
+{
+ "footprints": [
+  {
+   "deg": 0.0,
+   "layer": "top_cu",
+   "pos": [
+    141605000,
+    99695000
+   ],
+   "ref": "C1"
+  },
+  {
+   "deg": 90.0,
+   "layer": "top_cu",
+   "pos": [
+    137160000,
+    125095000
+   ],
+   "ref": "C2"
+  },
+  {
+   "deg": 0.0,
+   "layer": "top_cu",
+   "pos": [
+    125095000,
+    93980000
+   ],
+   "ref": "P5"
+  },
+  {
+   "deg": 0.0,
+   "layer": "top_cu",
+   "pos": [
+    169545000,
+    93980000
+   ],
+   "ref": "P6"
+  },
+  {
+   "deg": 0.0,
+   "layer": "top_cu",
+   "pos": [
+    169545000,
+    132715000
+   ],
+   "ref": "P7"
+  },
+  {
+   "deg": 90.0,
+   "layer": "top_cu",
+   "pos": [
+    140000000,
+    110000000
+   ],
+   "ref": "R1"
+  },
+  {
+   "deg": 180.0,
+   "layer": "top_cu",
+   "pos": [
+    156210000,
+    95885000
+   ],
+   "ref": "R2"
+  },
+  {
+   "deg": -150.0,
+   "layer": "bottom_cu",
+   "pos": [
+    165000000,
+    118000000
+   ],
+   "ref": "R4"
+  },
+  {
+   "deg": -90.0,
+   "layer": "top_cu",
+   "pos": [
+    128270000,
+    112776000
+   ],
+   "ref": "P2"
+  },
+  {
+   "deg": -90.0,
+   "layer": "top_cu",
+   "pos": [
+    128270000,
+    100711000
+   ],
+   "ref": "P3"
+  },
+  {
+   "deg": 0.0,
+   "layer": "top_cu",
+   "pos": [
+    145542000,
+    131191000
+   ],
+   "ref": "P4"
+  },
+  {
+   "deg": 180.0,
+   "layer": "top_cu",
+   "pos": [
+    133985000,
+    125095000
+   ],
+   "ref": "R3"
+  },
+  {
+   "deg": 0.0,
+   "layer": "top_cu",
+   "pos": [
+    149225000,
+    113665000
+   ],
+   "ref": "U1"
+  },
+  {
+   "deg": 90.0,
+   "layer": "top_cu",
+   "pos": [
+    166370000,
+    105410000
+   ],
+   "ref": "P1"
+  },
+  {
+   "deg": 0.0,
+   "layer": "top_cu",
+   "pos": [
+    125095000,
+    132715000
+   ],
+   "ref": "P8"
+  }
+ ],
+ "ok": true,
+ "tracks": [
+  {
+   "bottom": "bottom_cu",
+   "drill": 300000,
+   "layer": "top_cu",
+   "locked": false,
+   "net": "Net-(P2-P1)",
+   "pos": [
+    130000000,
+    112776000
+   ],
+   "top": "top_cu",
+   "type": "PCB_VIA",
+   "viatype": 4,
+   "width": 600000
+  },
+  {
+   "end": [
+    130000000,
+    112776000
+   ],
+   "layer": "top_cu",
+   "locked": false,
+   "net": "Net-(P2-P1)",
+   "start": [
+    128270000,
+    112776000
+   ],
+   "type": "PCB_TRACK",
+   "width": 200000
+  },
+  {
+   "bottom": "bottom_cu",
+   "drill": 300000,
+   "layer": "top_cu",
+   "locked": true,
+   "net": "GND",
+   "pos": [
+    135000000,
+    104000000
+   ],
+   "top": "top_cu",
+   "type": "PCB_VIA",
+   "viatype": 4,
+   "width": 600000
+  },
+  {
+   "bottom": "bottom_cu",
+   "drill": 300000,
+   "layer": "top_cu",
+   "locked": false,
+   "net": "GND",
+   "pos": [
+    133000000,
+    104000000
+   ],
+   "top": "top_cu",
+   "type": "PCB_VIA",
+   "viatype": 4,
+   "width": 600000
+  },
+  {
+   "end": [
+    141000000,
+    101000000
+   ],
+   "layer": "top_cu",
+   "locked": false,
+   "mid": [
+    140707107,
+    100292893
+   ],
+   "net": "Net-(P3-P1)",
+   "start": [
+    140000000,
+    100000000
+   ],
+   "type": "PCB_ARC",
+   "width": 250000
+  },
+  {
+   "end": [
+    133000000,
+    104000000
+   ],
+   "layer": "bottom_cu",
+   "locked": true,
+   "net": "GND",
+   "start": [
+    133000000,
+    101000000
+   ],
+   "type": "PCB_TRACK",
+   "width": 400000
+  },
+  {
+   "end": [
+    133000000,
+    101000000
+   ],
+   "layer": "top_cu",
+   "locked": false,
+   "net": "GND",
+   "start": [
+    131000000,
+    101000000
+   ],
+   "type": "PCB_TRACK",
+   "width": 250000
+  },
+  {
+   "end": [
+    131000000,
+    101000000
+   ],
+   "layer": "top_cu",
+   "locked": false,
+   "net": "GND",
+   "start": [
+    130000000,
+    100000000
+   ],
+   "type": "PCB_TRACK",
+   "width": 250000
+  }
+ ]
+}

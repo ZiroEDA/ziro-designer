@@ -19,7 +19,7 @@ KiCad 10.0.6's pcbnew/ has 25 subdirectories; ours has 22 (21 of theirs plus
 `browser/`). The 4 below are **not applicable** in a browser and will not be
 created. Every other KiCad directory exists here by name. `zone_manager/` and `microwave/` (both ported 09-29, see below) and
 `specctra_import_export/` were created empty (a `.gitkeep`) on 09-29;
-`specctra_import_export/` is **to port**: 6 532 lines upstream.
+`specctra_import_export/` was ported 09-30 (see below).
 
 | not applicable | why |
 |---|---|
@@ -28,13 +28,13 @@ created. Every other KiCad directory exists here by name. `zone_manager/` and `m
 | `git/` | libgit2 merge driver for local project files. |
 | `navlib/` | 3Dconnexion SpaceMouse driver. |
 
-| to port (empty) | upstream |
-|---|---|
-| `specctra_import_export/` | 4 .cpp: DSN export and SES import for external autorouters. |
 
 Notes that used to sit in this table, kept because they still apply:
 
 - `dialogs/`: Exists since 09-21; 21 modules now (09-28 added 19: `create_array`, `dimension_properties`, `filter_selection`, `footprint_checker`, `footprint_properties`, `global_deletion`, `global_edit_text_and_graphics`, `global_edit_tracks_and_vias`, `image_properties` → `dialog_reference_image_properties`, `move_exact`, `non_copper_zone_properties` → `dialog_non_copper_zones_properties`, `pad_properties`, `rule_area_properties`, `swap_layers`, `table_properties`, `textbox_properties`, `track_via_properties`, `teardrop_global_edit` → `dialog_global_edit_teardrops`, `pad_enumerate` → `dialog_enum_pads`). Still at root, unclear (no single KiCad counterpart): `position_relative.ts` (both `DIALOG_POSITION_RELATIVE` and `POSITION_RELATIVE_TOOL` in one file), `graphic_properties.ts` (merges `dialog_text_properties.cpp` + `dialog_shape_properties.cpp`), `zone_properties.ts` (ambiguous between `dialog_copper_zones.cpp` the frame and `panel_zone_properties.cpp` the fields), `via_placer.ts` (no dedicated file — part of `DRAWING_TOOL::DrawVia`), `distribute_items.ts` (shared with align in `ALIGN_DISTRIBUTE_TOOL`, no distribute-only file). (`teardrop.ts` at root, the old view-side copy, is **deleted** (09-28): Edit Teardrops runs `DIALOG_GLOBAL_EDIT_TEARDROPS` on the live BOARD through `TEARDROP_MANAGER`.)
+- `specctra_import_export/` (09-30): `specctra.ts` (`specctra.h` + `specctra.cpp`: the ~60 element classes with their `Format()`, the `.keywords` table and `SPECCTRA_DB`'s reader for DSN and SES), `specctra_export.ts` (`FromBOARD`, `makePADSTACK`/`makeIMAGE`/`makeVia`, `ExportBoardToSpecctraFile`) and `specctra_import.ts` (`FromSESSION`, `makeTRACK`/`makeARC`/`makeVIA`, `ImportSpecctraSession`). The C++ `SPECCTRA_DB` is one class over three files; here `SPECCTRA_DB` (reader, `MakePCB`, `ExportPCB`/`ExportSESSION` as text) is extended by `SPECCTRA_EXPORT_DB` and that by `SPECCTRA_IMPORT_DB`. `DSN_T` is the keyword's text (the lexer hands an unquoted word back as itself), so `T_NONE` is `''`; `common/dsnlexer.ts` gained the Specctra mode (`string_quote`, the pin-reference dash, spaces inside quotes) and an optional case-insensitive keyword table. **Verified against KiCad 10.0.6**: `qa/data/pcbnew/specctra_oracle/` holds `pcbnew.ExportSpecctraDSN` output for 8 boards (all 8 match line for line but for the file path and build string) and `pcbnew.ImportSpecctraSES` results for a hand-written session; the reader parses and re-formats every one of the DSNs byte for byte. **Known differences:** `One-Air-Max`'s DSN differs on 16 outline lines (0.1 um) because `BuildBoardPolygonOutlines` polygonizes arcs slightly differently, so that board is checked by the reader only; the non-default netclasses are exported in first-use order where KiCad's `unordered_map` iterates in hash order; `common/string_utils.ts`'s `formatG` rounds exact decimal ties up where glibc rounds to even (the exporter uses `plotters/fmt.ts`'s, which is exact). **Wired:** File > Export > Specctra DSN... downloads the `.dsn`; File > Import > Specctra Session... reads a `.ses`, applies it to the live BOARD, clears the undo list and re-derives the view.
+- `widgets/` (09-30 ports): `search_handlers.ts` (`PCB_SEARCH_HANDLER` + the seven handlers over the live BOARD), `pcb_search_pane.tsx` (`PCB_SEARCH_PANE` as a `BOARD_LISTENER` plus the `common/widgets/search_pane.tsx` view), `vertex_editor_pane.tsx` (`PCB_VERTEX_EDITOR_PANE`, one `BOARD_COMMIT` per edit) and `net_inspector_panel.tsx` (the `NET_INSPECTOR_PANEL` base; `pcb_net_inspector_panel.ts` is still the flat row helper, the derived panel is not ported). **Not wired** into `pcb_edit_frame_ui.tsx` yet (View > Panels > Search / Net Inspector rows stay greyed; the Vertex Editor has no menu row): the frame file is under concurrent edits, and each needs a dock host plus the selection/tool-manager callbacks the `PcbSearchWiring` / `VertexEditorFrame` seams name. `pcb_design_block_pane` and `pcb_design_block_preview_widget` are **skipped**: the shared `common/` design-block pieces are not at HEAD yet.
+- `widgets/` (09-29 fold): `appearance_layers`/`_nets`/`_objects`/`_presets` are inside `appearance_controls.tsx` (KiCad keeps one `appearance_controls.cpp`); `footprint_history.ts` is inside `load_select_footprint.ts` (`s_FootprintHistoryList` is a file-static of `load_select_footprint.cpp`).
 - `widgets/`: 9 453 lines upstream. Unfrozen 09-28: `pcb_net_inspector_panel.ts` (`PCB_NET_INSPECTOR_PANEL`), and, from `designer/src/editors/pcb/widgets/`, `panel_footprint_chooser.tsx` (`PANEL_FOOTPRINT_CHOOSER`) with its two support modules `footprint_history.ts` and `generate_footprint_info.ts` (both "extra" — no single upstream file). `panel_footprint_chooser.tsx`'s footprint-preview panel and 3D canvas arrive as props (`panel`, `preview3D`) rather than imports, since both reach the app's hosted-storage / settings seams; see the props' doc comments. `footprint_chooser_frame.cpp`'s window (`dialogs/footprint_chooser_frame.tsx`) stays in `designer/` — it still renders `Viewer3DFrame` directly, which is its own pass. The rest of `widgets/` (`appearance_controls`, `pcb_properties_panel`, `panel_selection_filter`, the design-block / search-pane pair) is unaudited, not "frozen" — nothing says it can't move, nobody has checked each one's designer/ imports yet.
 
 ## Directories we have that KiCad doesn't
@@ -576,33 +576,52 @@ all).
   (`CN_RTREE`) is folded into `connectivity_items.ts`. `topo_match.ts` ports
   `topo_match.cpp` (`TMATCH`, the thread pool is a plain loop); nothing calls
   it yet — multichannel / repeat-layout does not exist here.
-- `zone_manager/` (5 KiCad, 5 ours, 0 extra, 09-29): `board_edges_bounding_item`,
+- `zone_manager/` (5 KiCad, 5 ours + `dialog_zone_manager_ui.tsx`, 09-29): `board_edges_bounding_item`,
   `model_zones_overview` (headless over a view interface; a `wxDataViewItem` is a
   row index, `null` invalid), `zone_preview_canvas` (`ZONE_PREVIEW_CANVAS extends
   PCB_DRAW_PANEL_GAL`, `ZONE_PAINTER`), `zone_preview_notebook` (the page/zoom
-  logic; the tab strip is the dialog's) and `dialog_zone_manager.ts` (the
-  dialog's logic, over `DIALOG_ZONE_MANAGER_UI`). **Not wired**: the Place >
-  Zone Manager... row stays greyed. Missing: `dialog_zone_manager_ui.tsx` (the
-  `_base` layout, the data view and drag and drop) and `PANEL_ZONE_PROPERTIES`
-  as a component of its own (its fields are inside `dialogs/dialog_copper_zones.tsx`,
-  over `ZoneValues`; the manager needs them over `ZONE_SETTINGS`). `ZONE_PREVIEW_CANVAS`'s
-  constructor is not exercised by a test (needs a WebGL/2D window); its zoom and
-  painter are, through a bare instance.
-- `microwave/` (4 KiCad, 4 ours, 0 extra, 09-29): `microwave_footprint`
+  logic) and `dialog_zone_manager.ts` (the dialog's logic, over
+  `DIALOG_ZONE_MANAGER_UI`). **Wired**: Tools > Zone Manager..., the toolbar zone
+  menu's row and the Copper Zones dialog's "Open Zone Manager..." run
+  `PCB_EDIT_FRAME.ZonesManager()` (`GLOBAL_EDIT_TOOL::ZonesManager`; upstream's
+  `BOARD_COMMIT` is never pushed, so no undo entry). `dialog_zone_manager_ui.tsx`
+  is the `_base` tree: search, Name/Net boxes, layer choice, the zone table (a
+  `ze-grid` table, the data view's read-only rows), the four priority buttons and
+  Auto-assign, `PanelZoneProperties` over `PANEL_ZONE_PROPERTIES`
+  (`dialogs/panel_zone_properties.ts` logic, `panel_zone_properties_ui.tsx` window,
+  shared with the Copper Zones dialog), the preview notebook (one WebGL
+  `ZONE_PREVIEW_CANVAS` per layer, the frame's `createZonePreviewCanvas`),
+  Refill zones, Update Displayed Zones (the view-based pour run on the clones with
+  the board's zone list swapped, `fillZoneClonesRef`) and OK/Cancel. No size is
+  stated anywhere in `_base` (`SetSizeHints( -1, -1 )`, every fbp size -1), so the
+  dialog fits its content. Not exercised: the WebGL canvases (a fake factory
+  stands in) and drag and drop of rows (the buttons do the same swap).
+- `microwave/` (4 KiCad, 4 ours + `microwave_polygon_ui.tsx`, 09-29): `microwave_footprint`
   (Gap / Stub / Arc Stub), `microwave_inductor` (`BuildCornersList_S_Shape`,
   checked point for point against an independent Python transcription,
   `qa/data/pcbnew/microwave/inductor_oracle.py`), `microwave_polygon` (the shape
-  description file reader and `createPolygonShape`) and `microwave_tool`
-  (`MICROWAVE_TOOL` over a `MICROWAVE_HOST`; the C++'s one class is spread over
-  the four files as functions). **Not wired**, and the five Place > Draw
-  Microwave Shapes rows stay greyed: the host needs `PCB_BASE_FRAME::
-  CreateNewFootprint` on the live `FOOTPRINT` (`footprint_libraries_utils.cpp`,
-  package root; only the view-model form exists), a text-entry and the
-  `MWAVE_POLYGONAL_SHAPE_DLG` dialog (which will make `microwave_polygon` a
-  `.tsx`, the dialog being inside that `.cpp`), the placement hand-off
-  (`PlaceFootprintFromLibraryBrowser` takes a `PcbFootprint`) and, for Lines,
-  the two-click `CENTRELINE_RECT_ITEM` preview. `MICROWAVE_TOOL` is not yet a
-  `PCB_TOOL_BASE` with `setTransitions`.
+  description file reader, `createPolygonShape` and the logic of
+  `MWAVE_POLYGONAL_SHAPE_DLG`, which is defined inside that `.cpp`; its window is
+  `microwave_polygon_ui.tsx`, the `_ui` half every dialog here has) and
+  `microwave_tool` (`MICROWAVE_TOOL` over a `MICROWAVE_HOST`; the C++'s one class
+  is spread over the four files as functions). **Wired**: the five Place > Draw
+  Microwave Shapes rows (no hotkeys upstream) arm `microwaveCreate{Line, Gap,
+  Stub, StubArc, FunctionShape}` in `pcb_edit_frame_ui.tsx`. `PCB_EDIT_FRAME.
+  MicrowaveTool()` builds the tool over the frame as its host:
+  `PCB_BASE_FRAME::CreateNewFootprint` is now on the live `FOOTPRINT`
+  (`pcb_base_frame.ts`, from `m_DefaultFPTextItems`), the length and value prompts
+  are `WX_TEXT_ENTRY_DIALOG` (the `textEntry` hook), the polygon dialog is
+  `MwavePolygonalShapeDlg`. The four footprint tools are
+  `doInteractiveItemPlacement` with `IPO_REPEAT | IPO_ROTATE | IPO_FLIP`: the
+  first click makes the item (its dialogs open), it rides the cursor (R,
+  Shift+R and F turn it), the next click is `PlaceInteractiveItem` (`commit.Add`
+  and `Push( "Place microwave feature" )` on the live BOARD), Esc drops the item
+  and a second Esc leaves the tool. Lines is the two-click rectangle
+  (`CENTRELINE_RECT_ITEM`, `common/preview_items/centreline_rect_item.ts`, painted
+  on the overlay the way `POLYGON_ITEM` is); its second click runs
+  `createInductorBetween`, which commits "Add Microwave Inductor" and selects the
+  coil. `MICROWAVE_TOOL` is still not a `PCB_TOOL_BASE` with `setTransitions`: the
+  frame arms the tools by id, as it does every drawing tool.
 - `netlist_reader/` (7 KiCad, 7 ours, 0 extra, 09-29): all seven files exist by name.
   `kicad_netlist_reader` and `netlist_reader` re-export the shared
   `common/netlist_reader/*` ports (KiCad keeps its own duplicate tree there).
@@ -739,14 +758,44 @@ all).
   `PNS_PCBNEW_RULE_RESOLVER` is the class in `pns_rule_resolver.ts`);
   `router_tool.cpp` → `router_tool.ts` holds the size menus
   (`TRACK_WIDTH_MENU`, `DIFF_PAIR_MENU`, renamed 09-29 from `router_size_menus.ts`); the
-  rest of `ROUTER_TOOL` is `pns_session.ts` (headless, see `pns-router-wiring.md`)
+  rest of `ROUTER_TOOL` is `PnsSession`, in the same file since 09-30 (headless, see `pns-router-wiring.md`)
   plus the wx-level click wiring in `pcb_edit_frame_ui.tsx` (root). Merging the
   session into `router_tool.ts` is a redesign (the session is the router's
   headless driver, tested as such), not a move, and is left;
   **`router_preview_item.ts` / `router_status_view_item.ts`** (09-29) are
-  ported as `VIEW_ITEM`s with tests; the router's preview still draws through
-  the `session.preview` records (`pnsPreviewItems`), so switching it onto them
-  is the follow-up.
+  ported as `VIEW_ITEM`s and are now the router's only preview:
+  `PNS_KICAD_IFACE::SetView` gives it a `VIEW_GROUP` on the canvas's VIEW,
+  `DisplayItem` / `EraseView` / `HideItem` work on it as the C++'s do, the
+  frame passes `panel.GetView()` (there is no 2D preview path; `session.preview`,
+  `pnsPreviewItems` and the frame's head drawing are gone), and
+  `updateDragStatus` puts the `ROUTER_STATUS_VIEW_ITEM` on a colliding drag
+  (the frame does not run a router drag yet).
+
+  **Second fold pass (2026-09-29): 10 extras in, `router/` = KiCad's 37 .cpp + its header-only names.**
+  Where each one's code lives in 10.0.6, and so where it went:
+  `pns_rule_resolver.ts` → `pns_kicad_iface.ts` (`PNS_PCBNEW_RULE_RESOLVER` is defined in
+  `pns_kicad_iface.cpp`, ahead of `PNS_KICAD_IFACE`); `pns_item_hull.ts` → `pns_utils.ts`
+  (`ITEM::Hull` dispatch beside the hull builders it calls; the cycle the first pass feared was
+  the per-kind overrides, which stay put); `pns_obstacles.ts` → `pns_walkaround.ts` (the
+  board-to-hulls query is the walkaround driver's input); `pns_drag.ts` → `pns_dragger.ts`
+  (free-space `DRAGGER` geometry over the flat `Board`, test-only today); `pns_shape_collider.ts`
+  → `pns_collision.ts` (the seam it closes lives there); `pns_seg_ops.ts` →
+  `libs/kimath/src/geometry/seg.ts` (`SEG::Length`/`SquaredLength`/`ReflectPoint` record adapters,
+  next to the ones already there); `pns_chain.ts` → `libs/kimath/src/geometry/shape_line_chain.ts`
+  (`PointInside`/`EdgeContainingPoint`/`Find`/`Split` are `SHAPE_LINE_CHAIN` members);
+  `shape_arc_ops.ts` → `libs/kimath/src/geometry/shape_arc.ts` (the `SHAPE_ARC` record operations
+  plus the two `trigo.cpp`/`vector2d.h` helpers they need, `arcCenterFromStartEndAngle` and
+  `resizeD`; the `ShapeArc` record type now lives there and `pns_arc.ts` re-exports it).
+  **Kept, with the reason:** `pns_collision.ts` is `pns_node.h`'s `OBSTACLE`/`RULE_RESOLVER`/
+  `CONSTRAINT`/`COLLISION_SEARCH_*` declarations. `pns_item.ts` reads them at load and `pns_node.ts`
+  imports every item class, so folding them into `pns_node.ts` closes an ESM cycle that throws on
+  whichever side loads first (the `board_types.ts` case). `pns_session.ts` (`ROUTER_TOOL`'s body
+  minus wx) is inside `router_tool.ts` since 09-30, once the preview pass had moved off it:
+  `PnsSession` sits beside the size menus. Header-only upstream, so they keep their own files: `pns_joint`
+  (`pns_joint.h`), `pns_layerset` (`pns_layerset.h`), `pns_segment` (`pns_segment.h`),
+  `pns_drag_algo` (`pns_drag_algo.h`), `ranged_num` (`ranged_num.h`). Not ported because upstream
+  is a header of declarations only: `pns_debug_decorator.h`, `pns_linked_item.h`,
+  `pns_link_holder.h` (both live in `pns_item.ts`), `pns_placement_algo.h`, `range.h`.
 
   **`pns_logger.cpp` → `pns_logger.ts` (2026-09-29): ported, `PNS::LOGGER`
   whole.** `PnsAlgoBase`'s `logger()`/`setLogger()` had carried it as an

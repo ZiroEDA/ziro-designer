@@ -273,7 +273,7 @@ export {
   type AssembledLine,
   type TrackDrag,
   type DragMode,
-} from './router/pns_drag.js';
+} from './router/pns_dragger.js';
 
 // Edit Teardrops (pcbnew/dialogs/dialog_global_edit_teardrops.cpp).
 export {
@@ -680,7 +680,7 @@ export {
   edgeContainingPoint,
   findPoint,
   splitAt,
-} from './router/pns_chain.js';
+} from '@ziroeda/kimath/src/geometry/shape_line_chain.js';
 
 export {
   walkaround,
@@ -692,7 +692,7 @@ export {
   type WalkResult,
 } from './router/pns_walkaround.js';
 
-export { boardObstacleHulls, type ObstacleQuery } from './router/pns_obstacles.js';
+export { boardObstacleHulls, type ObstacleQuery } from './router/pns_walkaround.js';
 
 // The whole of OPTIMIZER: the single-line merge passes, SMART_PADS /
 // FANOUT_CLEANUP and the pad-aware breakout machinery underneath them, and
@@ -1117,18 +1117,18 @@ export {
 export {
   installLocatingShapeCollider,
   locatingShapeCollider,
-} from './router/pns_shape_collider.js';
+} from './router/pns_collision.js';
 
+export { rescale64 } from '@ziroeda/kimath/src/math/util.js';
 export {
-  rescale64,
   segApproxParallel,
   segContains,
   segLength,
   segLineProject,
   segReflectPoint,
-  segSquaredDistanceToPointExact,
+  segSquaredDistanceToPoint as segSquaredDistanceToPointExact,
   segSquaredLength,
-} from './router/pns_seg_ops.js';
+} from '@ziroeda/kimath/src/geometry/seg.js';
 
 export {
   ARC_POLYGONIZATION_MAX_ERROR,
@@ -1149,7 +1149,7 @@ export {
   resizeD,
   truncToInt,
   truncVec,
-} from './router/shape_arc_ops.js';
+} from '@ziroeda/kimath/src/geometry/shape_arc.js';
 
 export {
   IU_PER_PS,
@@ -1259,8 +1259,8 @@ export {
 } from './router/pns_node.js';
 // `ARC_LOW_DEF`/`arcHull`/`buildHullForPrimitiveShape`/`convexHull` are already
 // exported above, from the `pns_utils.js` block.
-export { itemHull } from './router/pns_item_hull.js';
-export { PNS_PCBNEW_RULE_RESOLVER, type PnsResolverHost } from './router/pns_rule_resolver.js';
+export { itemHull } from './router/pns_utils.js';
+export { PNS_PCBNEW_RULE_RESOLVER, type PnsResolverHost } from './router/pns_kicad_iface.js';
 
 export {
   DEFAULT_ROUTING_SETTINGS,
@@ -1331,7 +1331,7 @@ export { RangedNum } from './router/ranged_num.js';
 export { TimeLimit } from './router/time_limit.js';
 
 // `segLength`, `segLineProject`, `segContains`, `segApproxParallel` and
-// `rescale64` are NOT re-exported here: `pns_seg_ops.js` already exports those
+// `rescale64` are NOT re-exported here: kimath's seg.js already exports those
 // names. This module imports them from there rather than defining rivals — with
 // one documented exception, its own private `segLength`, which rounds where
 // that one truncates.

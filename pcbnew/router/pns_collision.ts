@@ -39,6 +39,7 @@ import type { MinOptMax } from '../drc/drc_rule_view.js';
 import type { PnsItem } from './pns_item.js';
 import type { PnsLayerRange } from './pns_layerset.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+import { collideShapes } from '../drc/shape_collisions.js';
 
 // ----- nets --------------------------------------------------------------------
 
@@ -439,4 +440,39 @@ export function collideShapeLists(
   }
 
   return { collides, actual, location };
+}
+
+// ============================================================================
+// Folded in from pns_shape_collider.ts (the KiCad file that holds this code is this one; see STRUCTURE.md).
+// ============================================================================
+/**
+ * The adapter that hands `PNS::ITEM` the real `SHAPE::Collide`.
+ *
+ * Upstream has no counterpart, because upstream has no seam here: `ITEM` calls
+ * `SHAPE::Collide` directly and `shape_collisions.cpp` is linked in. The seam
+ * exists in this repo because the item model landed before the collision table
+ * did, with a stand-in collider that reproduces the verdict but reports
+ * `location: null`. This file closes it.
+ *
+ * Nothing here changes {@link defaultShapeCollider}: a collider that cannot say
+ * *where* two shapes met is still the honest default for a caller that has not
+ * installed one, and `ITEM::collideSimple`'s throw is what makes that honesty
+ * audible rather than silent. Installing this one is what makes the castellation
+ * and net-tie paths work.
+ */
+
+/**
+ * `SHAPE::Collide`, in the shape the item model asks for.
+ *
+ * The argument order is preserved, not normalised: several of upstream's pairs
+ * report a location that lies on the *first* shape, so `collideSimple`'s
+ * `collider( shapeH, shapeI, … )` — head first — is what puts the obstacle's
+ * location on the head.
+ */
+export const locatingShapeCollider: ShapeCollider = (aA, aB, aClearance) =>
+  collideShapes(aA, aB, aClearance);
+
+/** Install {@link locatingShapeCollider} as the process-wide shape collider. */
+export function installLocatingShapeCollider(): void {
+  setShapeCollider(locatingShapeCollider);
 }

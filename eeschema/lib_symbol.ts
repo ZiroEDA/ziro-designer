@@ -660,6 +660,16 @@ export class LIB_SYMBOL extends SYMBOL {
     return this.GetShownDescription();
   }
 
+  /** `GetFootprintProp()` (lib_symbol.h:438): the Footprint field's raw text. */
+  GetFootprintProp(): string {
+    return this.GetFootprintField().GetText();
+  }
+
+  /** `SetFootprintProp( aFootprint )` (lib_symbol.h:443). */
+  SetFootprintProp(aFootprint: string): void {
+    this.GetFootprintField().SetText(aFootprint);
+  }
+
   GetFootprint(): string {
     if (!this.GetField(FIELD_T.FOOTPRINT)) return '';
 

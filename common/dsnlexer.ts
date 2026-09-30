@@ -114,7 +114,12 @@ export class DSNLEXER {
   private commentsAreTokens = false;
   /** `m_knowsBar`: whether `|` is a token of its own (files from 20240706 on). */
   private knowsBar = false;
-  private readonly stringDelimiter = 34; // '"'
+  private stringDelimiter = 34; // '"'
+  private keywords: ReadonlySet<string> | null = null;
+  /** `specctraMode`: the Specctra DSN dialect (`SetSpecctraMode`). */
+  private specctraMode = false;
+  /** `space_in_quoted_tokens`: a space does not end a quoted string (Specctra mode only). */
+  private spaceInQuotedTokens = false;
 
   constructor(
     text: string,
@@ -186,6 +191,44 @@ export class DSNLEXER {
     const old = this.knowsBar;
     this.knowsBar = value;
     return old;
+  }
+
+  /**
+   * `SetSpecctraMode( aMode )`: quoted strings use the DSN `string_quote`
+   * delimiter (no escapes), a dash after a non-space is `T.DASH`, and spaces
+   * are allowed inside quotes.
+   */
+  SetSpecctraMode(aMode: boolean): void {
+    this.specctraMode = aMode;
+
+    if (aMode) {
+      // specctra mode defaults, some of which can still be changed in this mode.
+      this.spaceInQuotedTokens = true;
+    } else {
+      this.spaceInQuotedTokens = false;
+      this.stringDelimiter = 34;
+    }
+  }
+
+  /**
+   * The parser's keyword table (`aKeywordTable`/`aKeywordMap`), looked up
+   * case-insensitively (`KEYWORD_MAP` is `iequal_to`): a matching word becomes the
+   * keyword's own (lower-case) text as its token; any other word keeps its text.
+   */
+  SetKeywords(aKeywords: ReadonlySet<string> | null): void {
+    this.keywords = aKeywords;
+  }
+
+  /** `SetStringDelimiter( aStringDelimiter )`: Specctra mode only; returns the old one. */
+  SetStringDelimiter(aDelimiter: string): string {
+    const old = String.fromCharCode(this.stringDelimiter);
+    this.stringDelimiter = aDelimiter.charCodeAt(0);
+    return old;
+  }
+
+  /** `SetSpaceInQuotedTokens( val )`: Specctra mode only. */
+  SetSpaceInQuotedTokens(aVal: boolean): void {
+    this.spaceInQuotedTokens = aVal;
   }
 
   SetCommentsAreTokens(value: boolean): boolean {
@@ -288,6 +331,24 @@ export class DSNLEXER {
     return v;
   }
 
+  private lineStartOf(cp: number): number {
+    let a = cp;
+    while (a > 0 && this.src.charCodeAt(a - 1) !== 10) a--;
+    return a;
+  }
+
+  /** `isSep`: an s-expression separator character. */
+  private isSep(cc: number): boolean {
+    return isSpace(cc) || cc === 40 || cc === 41 || (this.knowsBar && cc === 124);
+  }
+
+  /** `isStringTerminator`. */
+  private isStringTerminator(cc: number): boolean {
+    if (!this.spaceInQuotedTokens && cc === 32) return true;
+
+    return cc === this.stringDelimiter;
+  }
+
   /** `NextTok()`: advance, and return the token. */
   NextTok(): Tok {
     const src = this.src;
@@ -368,7 +429,7 @@ export class DSNLEXER {
 
     // A quoted string, will return T.STRING. Understands and deciphers escaped
     // \, \r, \n, \" and the rest of the C escapes; strips the quotes.
-    if (c === this.stringDelimiter) {
+    if (!this.specctraMode && c === this.stringDelimiter) {
       ++cur; // skip over the leading delimiter
       let head = cur;
       let text = '';
@@ -446,6 +507,48 @@ export class DSNLEXER {
       this.throwError('Unterminated delimited string', cur - 1);
     }
 
+    if (this.specctraMode) {
+      // get the dash out of a <pin_reference> which is embedded for example
+      // like:  U2-14 or "U2"-"14"; detectable by a non-space immediately preceding it.
+      if (c === 45 /* - */ && cur > this.lineStartOf(cur) && !isSpace(src.charCodeAt(cur - 1))) {
+        this.curText = '-';
+        this.next = cur + 1;
+        this.curTok = T.DASH;
+        return T.DASH;
+      }
+
+      // switching the string_quote character
+      if (this.prevTok === T.STRING_QUOTE) {
+        const errtxt = `String delimiter must be a single character of ', ", or $`;
+
+        if (c !== 39 && c !== 36 && c !== 34) this.throwError(errtxt);
+
+        this.curText = src[cur]!;
+        const h = cur + 1;
+
+        if (h < limit && !this.isSep(src.charCodeAt(h))) this.throwError(errtxt);
+
+        this.next = h;
+        this.curTok = T.QUOTE_DEF;
+        return T.QUOTE_DEF;
+      }
+
+      // specctraMode T.STRING
+      if (c === this.stringDelimiter) {
+        ++cur; // skip over the leading delimiter: ",', or $
+        let h = cur;
+
+        while (h < limit && !this.isStringTerminator(src.charCodeAt(h))) ++h;
+
+        if (h >= limit) this.throwError('Un-terminated delimited string');
+
+        this.curText = src.slice(cur, h);
+        this.next = h + 1; // skip over the trailing delimiter
+        this.curTok = T.STRING;
+        return T.STRING;
+      }
+    }
+
     // non-quoted token, read it into curText.
     let head = cur;
     const bar = this.knowsBar;
@@ -460,8 +563,15 @@ export class DSNLEXER {
       this.curTok = T.NUMBER;
       return T.NUMBER;
     }
-    // A keyword is its own text; nothing here knows the parser's table.
-    this.curTok = this.curText;
+    if (this.specctraMode && this.curText === 'string_quote') {
+      this.curTok = T.STRING_QUOTE;
+      return T.STRING_QUOTE;
+    }
+    // A keyword is its own text (folded to the table's case when one is set).
+    if (this.keywords) {
+      const lower = this.curText.toLowerCase();
+      this.curTok = this.keywords.has(lower) ? lower : this.curText;
+    } else this.curTok = this.curText;
     return this.curTok;
   }
 }

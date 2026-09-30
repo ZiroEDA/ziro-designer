@@ -34,7 +34,7 @@ import {
   DEFAULT_OPACITY,
   FP_EDITOR_OBJECT_KEYS,
   OBJECT_ROWS,
-} from '@ziroeda/pcbnew/widgets/appearance_objects.js';
+} from '@ziroeda/pcbnew/widgets/appearance_controls.js';
 import {
   DEFAULT_SELECTION_FILTER_OPTIONS,
   SELECTION_FILTER_ALL_KEYS,
@@ -43,11 +43,11 @@ import {
   selectionFilterAll,
   toggleSelectionFilterAll,
 } from '@ziroeda/pcbnew/widgets/panel_selection_filter.js';
-import { appearanceLayerRows } from '@ziroeda/pcbnew/widgets/appearance_layers.js';
+import { appearanceLayerRows } from '@ziroeda/pcbnew/widgets/appearance_controls.js';
 import {
   presetComboItems,
   viewportComboItems,
-} from '@ziroeda/pcbnew/widgets/appearance_presets.js';
+} from '@ziroeda/pcbnew/widgets/appearance_controls.js';
 import { FOOTPRINT_COPPER_STACK, FOOTPRINT_LAYERS } from '@ziroeda/pcbnew/footprint_edit_frame.js';
 import { GetLayerName } from '@ziroeda/common/layer_ids.js';
 

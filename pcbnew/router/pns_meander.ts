@@ -17,7 +17,7 @@
  *
  * The rest of this directory's geometry is plain data plus pure functions
  * (`Chain = Vec2[]`), and where that fits it is followed: {@link chainLength},
- * {@link lineChainCollideSeg} and everything in `pns_seg_ops.ts` /
+ * {@link lineChainCollideSeg} and everything in `libs/kimath/src/geometry/seg.ts` /
  * `shape_arc_ops.ts` are free functions over existing types.
  *
  * `MEANDER_SHAPE` and `MEANDERED_LINE` are classes because upstream's are
@@ -88,8 +88,13 @@ import {
   perpendicular,
   resizeD,
   truncVec,
-} from './shape_arc_ops.js';
-import { segApproxParallel, segContains, segLength, segLineProject } from './pns_seg_ops.js';
+} from '@ziroeda/kimath/src/geometry/shape_arc.js';
+import {
+  segApproxParallel,
+  segContains,
+  segLength,
+  segLineProject,
+} from '@ziroeda/kimath/src/geometry/seg.js';
 import type { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import type { MinOptMax } from '../drc/drc_rule_view.js';
 import type { Seg } from './pns_line.js';

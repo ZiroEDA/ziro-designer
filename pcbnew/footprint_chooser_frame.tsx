@@ -33,7 +33,7 @@
 import { useCallback, useEffect, useMemo, useState, type JSX, type ReactNode } from 'react';
 import { PanelFootprintChooser } from './widgets/panel_footprint_chooser.js';
 import type { FootprintTreeFilter } from './fp_tree_model_adapter.js';
-import { footprintHistory } from './widgets/footprint_history.js';
+import { footprintHistory } from './load_select_footprint.js';
 import type { FootprintIndexLibrary } from './footprint_info_impl.js';
 import type { Board, PcbFootprint } from './index.js';
 import type { FOOTPRINT_PREVIEW_PANEL_BASE } from '@ziroeda/common/widgets/footprint_preview_widget.js';

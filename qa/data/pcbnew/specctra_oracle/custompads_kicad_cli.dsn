@@ -1,0 +1,158 @@
+(pcb "/home/akshay/ziro-designer-1/qa/data/pcbnew/specctra_oracle/custompads_kicad_cli.dsn"
+  (parser
+    (string_quote ")
+    (space_in_quoted_tokens on)
+    (host_cad "KiCad's Pcbnew")
+    (host_version "10.0.6-10.0.6~ubuntu24.04.1")
+  )
+  (resolution um 10)
+  (unit um)
+  (structure
+    (layer F.Cu
+      (type signal)
+      (property
+        (index 0)
+      )
+    )
+    (layer B.Cu
+      (type signal)
+      (property
+        (index 1)
+      )
+    )
+    (boundary
+      (path pcb 0  140000 -140000  100000 -140000  100000 -100000  140000 -100000
+            140000 -140000)
+    )
+    (plane GND (polygon F.Cu 0  100000 -100000  140000 -100000  140000 -140000  100000 -140000
+            100000 -100000))
+    (via "Via[0-1]_600:300_um" "Via[0-1]_800:400_um" "Via[0-1]_1000:500_um" "Via[0-1]_1200:600_um")
+    (rule
+      (width 200)
+      (clearance 200)
+      (clearance 50 (type smd_smd))
+    )
+  )
+  (placement
+    (component T:pads
+      (place U1 120000 -120000 front 0 (PN pads))
+    )
+  )
+  (library
+    (image T:pads
+      (pin Round[A]Pad_2000.000000_um 1 -8000 6000)
+      (pin Rect[A]Pad_2000.000000x2600.000000_um 2 -8000 -6000)
+      (pin Oval[A]Pad_1600.000000x3000.000000_um (rotate 30) 3 8000 6000)
+      (pin Rect[T]Pad_1500.000000x1500.000000_um 4 8000 -6000)
+      (pin RoundRect[T]Pad_2000.000000x1200.000000_301.142000_um_0.000000_0 5 0 0)
+      (pin Round[A]Pad_1800.000000_um 6 0 6000)
+      (pin Cust[T]Pad_1000.000000x1000.000000_3200.000000x1200.000000_6_um_D53A0D67B5DDC124E89900440C1752BB 7 -4000 0)
+      (pin Cust[T]Pad_1000.000000x1000.000000_3161.098000x2537.170000_7_um_CFB563F85669CCC29E349209A399C992 (rotate 20) 8 4000 0)
+      (pin Cust[T]Pad_800.000000x800.000000_2000.000000x1300.000000_5_um_DD23FEFC55911918616CBEFE9D816876 9 -4000 3000)
+      (pin Cust[T]Pad_1000.000000x1000.000000_3900.000000x3500.000000_14_um_EC1E144A4F6C77F5CADBB698E6EFFF87 10 4000 -4000)
+      (pin Cust[T]Pad_1000.000000x1000.000000_3000.000000x2000.000000_5_um_AB48E87348001E6AA73C04AD76DE27B4 11 -4000 -4000)
+    )
+    (padstack Round[A]Pad_1800.000000_um
+      (shape (circle F.Cu 1800))
+      (shape (circle B.Cu 1800))
+      (attach off)
+    )
+    (padstack Round[A]Pad_2000.000000_um
+      (shape (circle F.Cu 2000))
+      (shape (circle B.Cu 2000))
+      (attach off)
+    )
+    (padstack Oval[A]Pad_1600.000000x3000.000000_um
+      (shape (path F.Cu 1600  0 -700  0 700))
+      (shape (path B.Cu 1600  0 -700  0 700))
+      (attach off)
+    )
+    (padstack Cust[T]Pad_800.000000x800.000000_2000.000000x1300.000000_5_um_DD23FEFC55911918616CBEFE9D816876
+      (shape (polygon F.Cu 0  -1000 400  1000 400  300 -900  -300 -900  -1000 400))
+      (attach off)
+    )
+    (padstack Cust[T]Pad_1000.000000x1000.000000_3200.000000x1200.000000_6_um_D53A0D67B5DDC124E89900440C1752BB
+      (shape (polygon F.Cu 0  -1000 600  1800 600  2200 0  1800 -600  -1000 -600  -1000 600))
+      (attach off)
+    )
+    (padstack RoundRect[T]Pad_2000.000000x1200.000000_301.142000_um_0.000000_0
+      (shape (polygon F.Cu 0  -1001.14 300  -993.143 368.947  -948.441 470.186  -870.186 548.441
+            -768.947 593.143  -700 601.142  700 601.142  768.947 593.143
+            870.186 548.441  948.441 470.186  993.143 368.947  1001.14 300
+            1001.14 -300  993.143 -368.947  948.441 -470.186  870.186 -548.441
+            768.947 -593.143  700 -601.142  -700 -601.142  -768.947 -593.143
+            -870.186 -548.441  -948.441 -470.186  -993.143 -368.947  -1001.14 -300
+            -1001.14 300))
+      (attach off)
+    )
+    (padstack Cust[T]Pad_1000.000000x1000.000000_3900.000000x3500.000000_14_um_EC1E144A4F6C77F5CADBB698E6EFFF87
+      (shape (polygon F.Cu 0  -1200 800  -166.294 2611.11  -111.114 2666.29  -39.018 2696.16
+            39.018 2696.16  111.114 2666.29  2666.29 111.114  2696.16 39.018
+            2696.16 -39.018  2666.29 -111.114  2611.11 -166.294  1200 -800
+            -1200 -800  -1200 800))
+      (attach off)
+    )
+    (padstack Cust[T]Pad_1000.000000x1000.000000_3000.000000x2000.000000_5_um_AB48E87348001E6AA73C04AD76DE27B4
+      (shape (polygon F.Cu 0  -1500 1000  1500 1000  1500 -1000  -1500 -1000  -1500 1000))
+      (attach off)
+    )
+    (padstack Cust[T]Pad_1000.000000x1000.000000_3161.098000x2537.170000_7_um_CFB563F85669CCC29E349209A399C992
+      (shape (polygon F.Cu 0  -1500 500  0 1500  1500 500  1500 -500  0 -1200  -1500 -500
+            -1500 500))
+      (attach off)
+    )
+    (padstack Rect[A]Pad_2000.000000x2600.000000_um
+      (shape (rect F.Cu -1000 -1300 1000 1300))
+      (shape (rect B.Cu -1000 -1300 1000 1300))
+      (attach off)
+    )
+    (padstack Rect[T]Pad_1500.000000x1500.000000_um
+      (shape (rect F.Cu -750 -750 750 750))
+      (attach off)
+    )
+    (padstack "Via[0-1]_600:300_um"
+      (shape (circle F.Cu 600))
+      (shape (circle B.Cu 600))
+      (attach off)
+    )
+    (padstack "Via[0-1]_800:400_um"
+      (shape (circle F.Cu 800))
+      (shape (circle B.Cu 800))
+      (attach off)
+    )
+    (padstack "Via[0-1]_1000:500_um"
+      (shape (circle F.Cu 1000))
+      (shape (circle B.Cu 1000))
+      (attach off)
+    )
+    (padstack "Via[0-1]_1200:600_um"
+      (shape (circle F.Cu 1200))
+      (shape (circle B.Cu 1200))
+      (attach off)
+    )
+  )
+  (network
+    (net GND
+      (pins U1-1 U1-2 U1-3 U1-5 U1-6 U1-7 U1-8 U1-10 U1-11)
+    )
+    (net SIG
+      (pins U1-4 U1-9)
+    )
+    (class kicad_default GND SIG
+      (circuit
+        (use_via "Via[0-1]_600:300_um")
+      )
+      (rule
+        (width 200)
+        (clearance 200)
+      )
+    )
+  )
+  (wiring
+    (wire (path B.Cu 300  105000 -105000  112000 -128000)(net GND)(type route))
+    (wire (path B.Cu 300  135000 -135000  128000 -126000)(net SIG)(type route))
+    (via "Via[0-1]_800:400_um"  105000 -105000 (net GND)(type route))
+    (via "Via[0-1]_1000:500_um"  112000 -128000 (net GND)(type route))
+    (via "Via[0-1]_1200:600_um"  135000 -135000 (net SIG)(type route))
+  )
+)

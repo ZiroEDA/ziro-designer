@@ -94,7 +94,7 @@ import {
   FP_DEFAULT_ACTIVE_LAYER,
 } from './footprint_edit_frame.js';
 import { layerColor, PCB_BACKGROUND, PCB_OBJECT_COLORS } from './pcbTheme.js';
-import { appearanceLayerRows } from './widgets/appearance_layers.js';
+import { appearanceLayerRows } from './widgets/appearance_controls.js';
 // APPEARANCE_CONTROLS and PANEL_SELECTION_FILTER are the same two widgets
 // pcbnew docks; FOOTPRINT_EDIT_FRAME passes `aFpEditor = true` and its own
 // board's data, and that is the whole of the difference
@@ -106,14 +106,14 @@ import {
   OBJECT_ROWS,
   toggleObject,
   type ObjectState,
-} from './widgets/appearance_objects.js';
+} from './widgets/appearance_controls.js';
 import {
   BUILTIN_PRESETS,
   matchPresetName,
   presetComboItems,
   PRESET_SEPARATOR,
   viewportComboItems,
-} from './widgets/appearance_presets.js';
+} from './widgets/appearance_controls.js';
 import {
   DEFAULT_SELECTION_FILTER_OPTIONS,
   SelectionFilterOnlyMenu,

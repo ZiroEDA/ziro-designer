@@ -24,6 +24,7 @@
  * which is the argument for this file existing at all.
  */
 import { describe, expect, it } from 'vitest';
+import { describePreview, fakeView, previewItems } from './pns_preview_view.js';
 import { parse } from '@ziroeda/sexpr/index.js';
 import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import type { Board } from '@ziroeda/pcbnew/types.js';
@@ -31,7 +32,7 @@ import {
   applyPnsChanges,
   PnsSession,
   shoveSettingsFrom,
-} from '@ziroeda/pcbnew/router/pns_session.js';
+} from '@ziroeda/pcbnew/router/router_tool.js';
 import {
   DEFAULT_ROUTING_SETTINGS,
   type RoutingSettings,
@@ -333,14 +334,19 @@ describe('a via mid-route, ROUTER_TOOL::onViaCommand', () => {
     // and the layer pair into the sizes, `ToggleViaPlacement`, `Move`. The
     // next `FixRoute` commits the segment AND the via, and the placer carries
     // on from the via on the pair's other layer.
-    const s = new PnsSession(twoPads(), { trackWidth: W, viaDiameter: 600_000, viaDrill: 300_000 });
+    const s = new PnsSession(twoPads(), {
+      trackWidth: W,
+      viaDiameter: 600_000,
+      viaDrill: 300_000,
+      view: fakeView().view,
+    });
     expect(s.start({ x: 100 * MM, y: 100 * MM }, 'F.Cu')).toBe(true);
     s.move({ x: 104 * MM, y: 100 * MM });
     expect(s.placingVia).toBe(false);
     s.placeVia('B.Cu', 600_000, 300_000, { x: 104 * MM, y: 100 * MM });
     expect(s.placingVia).toBe(true);
     // The head now ends in a via, so the preview carries one.
-    expect(s.preview.some((p) => p.kind === 'via')).toBe(true);
+    expect(previewItems(s).some((p) => describePreview(p).isVia)).toBe(true);
 
     expect(s.fix({ x: 104 * MM, y: 100 * MM })).toBe(false); // fixed, keep routing
     expect(s.currentBoardLayer()).toBe('B.Cu');
@@ -356,12 +362,17 @@ describe('a via mid-route, ROUTER_TOOL::onViaCommand', () => {
   });
 
   it('a second V takes the via off the head again', () => {
-    const s = new PnsSession(twoPads(), { trackWidth: W, viaDiameter: 600_000, viaDrill: 300_000 });
+    const s = new PnsSession(twoPads(), {
+      trackWidth: W,
+      viaDiameter: 600_000,
+      viaDrill: 300_000,
+      view: fakeView().view,
+    });
     s.start({ x: 100 * MM, y: 100 * MM }, 'F.Cu');
     s.move({ x: 104 * MM, y: 100 * MM });
     s.placeVia('B.Cu', 600_000, 300_000, { x: 104 * MM, y: 100 * MM });
     s.cancelVia({ x: 104 * MM, y: 100 * MM });
     expect(s.placingVia).toBe(false);
-    expect(s.preview.some((p) => p.kind === 'via')).toBe(false);
+    expect(previewItems(s).some((p) => describePreview(p).isVia)).toBe(false);
   });
 });

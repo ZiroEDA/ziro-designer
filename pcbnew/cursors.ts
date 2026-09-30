@@ -41,6 +41,11 @@ export interface BoardCursorState {
    * MOVING arm is the half that needs the state, exactly as the table's does.
    */
   imagePlacing?: boolean;
+  /**
+   * `doInteractiveItemPlacement`'s `setCursor`: a `MICROWAVE_TOOL` footprint
+   * (`newItem`) is on the pointer.
+   */
+  microwavePlacing?: boolean;
 }
 
 /**
@@ -65,6 +70,12 @@ export const boardToolCursor = (tool: string, state: BoardCursorState = {}): str
   // before and while a footprint rides the pointer alike. This frame's own:
   // the footprint editor has no such tool.
   if (tool === 'placeFootprint') return kiCursor('PENCIL');
+  // `MICROWAVE_TOOL::drawMicrowaveInductor`'s `setCursor` is `PENCIL` on every
+  // event; `doInteractiveItemPlacement`'s, for the four footprint tools, is
+  // `PENCIL` until `newItem` exists and `PLACE` after.
+  if (tool === 'microwaveCreateLine') return kiCursor('PENCIL');
+  if (tool.startsWith('microwaveCreate'))
+    return kiCursor(state.microwavePlacing ? 'PLACE' : 'PENCIL');
   // `ROUTER_TOOL::MainLoop`'s `setCursor` (router_tool.cpp:1950-1953) is one
   // line, `SetCurrentCursor( KICURSOR::PENCIL )`, run on arming and on every
   // event — idle and mid-route alike, single track and differential pair

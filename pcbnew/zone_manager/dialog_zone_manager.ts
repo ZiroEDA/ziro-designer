@@ -9,12 +9,11 @@
  * (`ZONE_PREVIEW_NOTEBOOK`); OK writes the clones back over the board's zones,
  * keeping each original's fill.
  *
- * The layout - `dialog_zone_manager_base.cpp`, the wxFormBuilder tree - is the
- * `_ui.tsx` this class drives through {@link DIALOG_ZONE_MANAGER_UI}, the way
- * `dialog_create_array.ts` drives `dialog_create_array_ui.tsx`. The properties
- * panel arrives as {@link PANEL_ZONE_PROPERTIES_LIKE} because `PANEL_ZONE_PROPERTIES`
- * is not a component of its own here yet: its fields live inside
- * `dialogs/dialog_copper_zones.tsx`.
+ * The layout - `dialog_zone_manager_base.cpp`, the wxFormBuilder tree - is
+ * `dialog_zone_manager_ui.tsx`, which this class drives through
+ * {@link DIALOG_ZONE_MANAGER_UI}, the way `dialog_create_array.ts` drives
+ * `dialog_create_array_ui.tsx`. The properties panel is `PANEL_ZONE_PROPERTIES`
+ * (`dialogs/panel_zone_properties.ts`), seen here as {@link PANEL_ZONE_PROPERTIES_LIKE}.
  */
 import { LSET } from '@ziroeda/common/lset.js';
 import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
@@ -80,8 +79,14 @@ export class DIALOG_ZONE_MANAGER implements MODEL_ZONES_OVERVIEW_VIEW {
     private readonly m_panelZoneProperties: PANEL_ZONE_PROPERTIES_LIKE,
     private readonly m_zonePreviewNotebook: ZONE_PREVIEW_NOTEBOOK,
     private readonly m_ui: DIALOG_ZONE_MANAGER_UI,
+    /**
+     * `m_zoneSettingsBag`, which the C++ constructs in its member-initializer
+     * list before the panel that shares it exists: here the panel is handed in,
+     * so the caller that built one over a bag hands the same bag in too.
+     */
+    aZoneSettingsBag?: ZONE_SETTINGS_BAG,
   ) {
-    this.m_zoneSettingsBag = new ZONE_SETTINGS_BAG(m_pcbFrame.GetBoard());
+    this.m_zoneSettingsBag = aZoneSettingsBag ?? new ZONE_SETTINGS_BAG(m_pcbFrame.GetBoard());
     this.m_modelZonesOverview = new MODEL_ZONES_OVERVIEW(this, m_pcbFrame, this.m_zoneSettingsBag);
 
     let usedLayers = new LSET();

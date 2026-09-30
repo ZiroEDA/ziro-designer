@@ -37,7 +37,7 @@ import {
   arcRadius,
   constructArcFromStartEndAngle,
   shapeArcCenter,
-} from '@ziroeda/pcbnew/router/shape_arc_ops.js';
+} from '@ziroeda/kimath/src/geometry/shape_arc.js';
 
 const V = (x: number, y: number): Vec2 => ({ x, y });
 

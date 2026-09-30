@@ -903,3 +903,10 @@ export function transformArcToPolygon(
 
   return [[outline]];
 }
+
+/**
+ * `ConvertArcToPolyline( aPolyline, aCenter, aRadius, aStartAngle, aArcAngle,
+ * aAccuracy, aErrorLoc )`, exported for the callers that hold a centre and a
+ * radius rather than three points (the Specctra exporter's circle outlines).
+ */
+export const ConvertArcToPolylineAboutCentre = convertArcToPolylineCentre;

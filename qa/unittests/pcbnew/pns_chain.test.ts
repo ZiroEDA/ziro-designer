@@ -27,7 +27,7 @@ import {
   pointInside,
   pointOnEdge,
   splitAt,
-} from '@ziroeda/pcbnew/router/pns_chain.js';
+} from '@ziroeda/kimath/src/geometry/shape_line_chain.js';
 import { hullIntersection, rawIntersections } from '@ziroeda/pcbnew/router/pns_utils.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 

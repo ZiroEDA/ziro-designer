@@ -45,7 +45,7 @@ import {
   segIntersect,
   segIntersectLines,
 } from '@ziroeda/pcbnew/router/pns_diff_pair.js';
-import { segApproxParallel, segLineProject } from '@ziroeda/pcbnew/router/pns_seg_ops.js';
+import { segApproxParallel, segLineProject } from '@ziroeda/kimath/src/geometry/seg.js';
 import { RangedNum } from '@ziroeda/pcbnew/router/ranged_num.js';
 import { PnsSegment } from '@ziroeda/pcbnew/router/pns_segment.js';
 import { PnsSolid } from '@ziroeda/pcbnew/router/pns_solid.js';
@@ -99,10 +99,10 @@ describe('RANGED_NUM', () => {
 });
 
 describe('exact SEG arithmetic', () => {
-  it('the chain length rounds the norm, where pns_seg_ops truncates it', () => {
+  it('the chain length rounds the norm, where seg.ts truncates it', () => {
     // `SEG::Length` is `( A - B ).EuclideanNorm()`, and the VECTOR2<int>
     // instantiation *rounds* — its return type is already int, so there is no
-    // double left for `int Length()` to truncate. `pns_seg_ops.ts::segLength`
+    // double left for `int Length()` to truncate. `seg.ts::segLength`
     // truncates, and the two part company as soon as the hypotenuse's fraction
     // reaches 0.5. Skew() is a difference of two of these, so the bias would
     // not cancel.

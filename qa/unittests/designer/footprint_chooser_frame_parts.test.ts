@@ -13,7 +13,7 @@ import {
   addFootprintToHistory,
   clearFootprintHistory,
   footprintHistory,
-} from '@ziroeda/pcbnew/widgets/footprint_history.js';
+} from '@ziroeda/pcbnew/load_select_footprint.js';
 import {
   addFootprintHistory,
   addFootprintLibraries,

@@ -27,7 +27,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { buildDrcRuleEngine } from '@ziroeda/pcbnew/drc/drc_rules_engine.js';
-import { PNS_PCBNEW_RULE_RESOLVER } from '@ziroeda/pcbnew/router/pns_rule_resolver.js';
+import { PNS_PCBNEW_RULE_RESOLVER } from '@ziroeda/pcbnew/router/pns_kicad_iface.js';
 import {
   defaultShapeCollider,
   getShapeCollider,
@@ -36,7 +36,7 @@ import {
 import { PnsHole } from '@ziroeda/pcbnew/router/pns_hole.js';
 import { PnsLayerRange } from '@ziroeda/pcbnew/router/pns_layerset.js';
 import { PnsSegment } from '@ziroeda/pcbnew/router/pns_segment.js';
-import type { PnsResolverHost } from '@ziroeda/pcbnew/router/pns_rule_resolver.js';
+import type { PnsResolverHost } from '@ziroeda/pcbnew/router/pns_kicad_iface.js';
 import type { DrcRule } from '@ziroeda/pcbnew/drc/drc_rule_view.js';
 import type { DrcEvalItem } from '@ziroeda/pcbnew/drc/drc_rules_engine.js';
 import type { PnsItem } from '@ziroeda/pcbnew/router/pns_item.js';

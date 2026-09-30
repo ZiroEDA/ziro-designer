@@ -26,7 +26,10 @@ import { BOARD_COMMIT, SKIP_CONNECTIVITY } from '../board_commit.js';
 import { ORPHANED_NET } from '../netinfo.js';
 import type { PCB_BASE_EDIT_FRAME } from '../pcb_base_edit_frame.js';
 import { layerSetOfTokens, layerTokens } from '../pcb_io/kicad_sexpr/board_view.js';
+import type { BOARD } from '../board.js';
 import type { ZONE } from '../zone.js';
+import type { ZONE_SETTINGS_BAG } from '../zone_settings_bag.js';
+import { TEARDROP_TYPE } from '../teardrop/teardrop_parameters.js';
 import {
   ZONE_BORDER_DISPLAY_STYLE,
   ZONE_FILL_MODE,
@@ -308,6 +311,142 @@ const ISLANDS: readonly ZoneValues['islandRemovalMode'][] = ['always', 'never', 
 const AREA_PER_MM2 = pcbIUScale.IU_PER_MM * pcbIUScale.IU_PER_MM;
 
 /**
+ * `PANEL_ZONE_PROPERTIES::TransferZoneSettingsToWindow` (panel_zone_properties.cpp:
+ * 139-237) plus the dialog's layer list: what the panel's controls hold for the
+ * settings of one zone.
+ */
+export function zoneSettingsToValues(
+  s: ZONE_SETTINGS,
+  aZone: ZONE,
+  aCopperLayerCount: number,
+): ZoneValues {
+  const layers = s.m_Layers;
+  const layerProperties: Record<string, { x: number; y: number }> = {};
+
+  for (const layer of LSET.AllCuMask().UIOrder()) {
+    const offset = s.m_LayerProperties.get(layer)?.hatching_offset;
+    if (offset) layerProperties[LSET_Name(layer)] = { x: offset.x, y: offset.y };
+  }
+
+  return {
+    name: s.m_Name,
+    net: Math.max(0, s.m_Netcode),
+    layers:
+      layers.count() > 1
+        ? layerTokens(layers, aCopperLayerCount, true, true)
+        : layers.Seq().map((l) => LSET_Name(l)),
+    locked: s.m_Locked,
+    clearance: s.m_ZoneClearance,
+    minThickness: s.m_ZoneMinThickness,
+    padConnection: (PAD_IN_ZONE.find(([, c]) => c === s.GetPadConnection()) ?? PAD_IN_ZONE[1]!)[0],
+    thermalGap: s.m_ThermalReliefGap,
+    thermalBridgeWidth: s.m_ThermalReliefSpokeWidth,
+    hatchStyle: (OUTLINE_DISPLAY.find(([, d]) => d === s.m_ZoneBorderDisplayStyle) ??
+      OUTLINE_DISPLAY[0]!)[0],
+    hatchPitch: s.m_BorderHatchPitch,
+    cornerSmoothing: SMOOTHING[s.GetCornerSmoothingType()] ?? 'none',
+    cornerRadius: s.GetCornerRadius(),
+    islandRemovalMode: ISLANDS[s.GetIslandRemovalMode()] ?? 'always',
+    islandAreaMin: s.GetMinIslandArea() / AREA_PER_MM2,
+    fillMode: s.m_FillMode === ZONE_FILL_MODE.HATCH_PATTERN ? 'hatch' : 'solid',
+    hatchThickness: s.m_HatchThickness,
+    hatchGap: s.m_HatchGap,
+    hatchOrientation: s.m_HatchOrientation.AsDegrees(),
+    hatchSmoothingLevel: s.m_HatchSmoothingLevel,
+    hatchSmoothingValue: s.m_HatchSmoothingValue,
+    hatchHoleMinArea: s.m_HatchHoleMinArea,
+    filled: aZone.IsFilled(),
+    priority: s.m_ZonePriority,
+    layerProperties,
+  };
+}
+
+/**
+ * `PANEL_ZONE_PROPERTIES::AcceptOptions` (panel_zone_properties.cpp:344-455):
+ * the controls' values into the zone's settings, false where a validator refuses.
+ * `aUseExportableSetupOnly` stops before the net, name, fill mode and hatch
+ * fields, the ones that are not exported to other zones.
+ */
+export function acceptZoneOptions(
+  s: ZONE_SETTINGS,
+  v: ZoneValues,
+  aZone: ZONE,
+  aUseExportableSetupOnly = false,
+): TransferResult {
+  const mm = (n: number) => pcbIUScale.mmToIU(n);
+
+  if (v.clearance < 0 || v.clearance > mm(ZONE_CLEARANCE_MAX_VALUE_MM)) return { ok: false };
+  if (v.minThickness < mm(ZONE_THICKNESS_MIN_VALUE_MM)) return { ok: false };
+  if (v.cornerRadius < 0) return { ok: false };
+  if (v.thermalBridgeWidth < 0) return { ok: false };
+
+  // Checked against the fill mode the settings held, before the window's.
+  if (s.m_FillMode === ZONE_FILL_MODE.HATCH_PATTERN) {
+    if (v.hatchThickness < v.minThickness) return { ok: false };
+    if (v.hatchGap < v.minThickness) return { ok: false };
+  }
+
+  s.SetPadConnection(
+    (PAD_IN_ZONE.find(([name]) => name === v.padConnection) ?? PAD_IN_ZONE[1]!)[1],
+  );
+
+  const outline = OUTLINE_DISPLAY.find(([name]) => name === v.hatchStyle);
+  if (outline) s.m_ZoneBorderDisplayStyle = outline[1];
+
+  if (
+    v.hatchPitch < mm(ZONE_BORDER_HATCH_MINDIST_MM) ||
+    v.hatchPitch > mm(ZONE_BORDER_HATCH_MAXDIST_MM)
+  )
+    return { ok: false };
+
+  s.m_BorderHatchPitch = v.hatchPitch;
+  s.m_ZoneClearance = v.clearance;
+  s.m_ZoneMinThickness = v.minThickness;
+
+  s.SetCornerSmoothingType(Math.max(0, SMOOTHING.indexOf(v.cornerSmoothing)));
+
+  if (s.GetCornerSmoothingType() === ZONE_SETTINGS.SMOOTHING_NONE) s.SetCornerRadius(0);
+  else s.SetCornerRadius(v.cornerRadius);
+
+  s.m_Locked = v.locked;
+  s.m_ThermalReliefGap = v.thermalGap;
+  s.m_ThermalReliefSpokeWidth = v.thermalBridgeWidth;
+
+  if (s.m_ThermalReliefSpokeWidth < s.m_ZoneMinThickness)
+    return {
+      ok: false,
+      message: 'Thermal spoke width cannot be smaller than the minimum width.',
+    };
+
+  s.SetIslandRemovalMode(Math.max(0, ISLANDS.indexOf(v.islandRemovalMode)));
+  s.SetMinIslandArea(v.islandAreaMin * AREA_PER_MM2);
+
+  // If we use only exportable to others zones parameters, exit here:
+  if (aUseExportableSetupOnly) return { ok: true };
+
+  s.m_Netcode = v.net;
+  s.m_Name = aZone.GetBoard()?.GetUniqueZoneName(v.name, aZone) ?? v.name;
+
+  s.m_FillMode = v.fillMode === 'hatch' ? ZONE_FILL_MODE.HATCH_PATTERN : ZONE_FILL_MODE.POLYGONS;
+  // m_gridStyleRotation.SetValue( NormalizeAngle180( ... ) )
+  s.m_HatchOrientation = new EDA_ANGLE(v.hatchOrientation).Normalize180();
+  s.m_HatchThickness = v.hatchThickness;
+  s.m_HatchGap = v.hatchGap;
+  s.m_HatchSmoothingLevel = v.hatchSmoothingLevel;
+  s.m_HatchSmoothingValue = v.hatchSmoothingValue;
+
+  for (const props of s.m_LayerProperties.values()) props.hatching_offset = undefined;
+
+  for (const [name, offset] of Object.entries(v.layerProperties)) {
+    const layer = LSET_NameToLayer(name);
+    if (layer >= 0)
+      s.m_LayerProperties.set(layer, new ZONE_LAYER_PROPERTIES({ x: offset.x, y: offset.y }));
+  }
+
+  return { ok: true };
+}
+
+/**
  * `DIALOG_COPPER_ZONE` + `PANEL_ZONE_PROPERTIES` on a live copper ZONE, as
  * `PCB_EDIT_FRAME::Edit_Zone_Params` (edit_zone_helpers.cpp:41-85) drives
  * them: the settings are the board's default zone settings with the zone
@@ -339,120 +478,12 @@ export class DIALOG_COPPER_ZONE {
 
   /** TransferZoneSettingsToWindow (:139-237), plus the dialog's layer list. */
   TransferDataToWindow(): ZoneValues {
-    const s = this.m_settings;
-    const layers = s.m_Layers;
-    const layerProperties: Record<string, { x: number; y: number }> = {};
-
-    for (const layer of LSET.AllCuMask().UIOrder()) {
-      const offset = s.m_LayerProperties.get(layer)?.hatching_offset;
-      if (offset) layerProperties[LSET_Name(layer)] = { x: offset.x, y: offset.y };
-    }
-
-    return {
-      name: s.m_Name,
-      net: Math.max(0, s.m_Netcode),
-      layers:
-        layers.count() > 1
-          ? layerTokens(layers, this.copperLayerCount(), true, true)
-          : layers.Seq().map((l) => LSET_Name(l)),
-      locked: s.m_Locked,
-      clearance: s.m_ZoneClearance,
-      minThickness: s.m_ZoneMinThickness,
-      padConnection: (PAD_IN_ZONE.find(([, c]) => c === s.GetPadConnection()) ??
-        PAD_IN_ZONE[1]!)[0],
-      thermalGap: s.m_ThermalReliefGap,
-      thermalBridgeWidth: s.m_ThermalReliefSpokeWidth,
-      hatchStyle: (OUTLINE_DISPLAY.find(([, d]) => d === s.m_ZoneBorderDisplayStyle) ??
-        OUTLINE_DISPLAY[0]!)[0],
-      hatchPitch: s.m_BorderHatchPitch,
-      cornerSmoothing: SMOOTHING[s.GetCornerSmoothingType()] ?? 'none',
-      cornerRadius: s.GetCornerRadius(),
-      islandRemovalMode: ISLANDS[s.GetIslandRemovalMode()] ?? 'always',
-      islandAreaMin: s.GetMinIslandArea() / AREA_PER_MM2,
-      fillMode: s.m_FillMode === ZONE_FILL_MODE.HATCH_PATTERN ? 'hatch' : 'solid',
-      hatchThickness: s.m_HatchThickness,
-      hatchGap: s.m_HatchGap,
-      hatchOrientation: s.m_HatchOrientation.AsDegrees(),
-      hatchSmoothingLevel: s.m_HatchSmoothingLevel,
-      hatchSmoothingValue: s.m_HatchSmoothingValue,
-      hatchHoleMinArea: s.m_HatchHoleMinArea,
-      filled: this.m_zone.IsFilled(),
-      priority: s.m_ZonePriority,
-      layerProperties,
-    };
+    return zoneSettingsToValues(this.m_settings, this.m_zone, this.copperLayerCount());
   }
 
   /** AcceptOptions (:344-455): false where a validator refuses. */
   private acceptOptions(v: ZoneValues): TransferResult {
-    const s = this.m_settings;
-    const mm = (n: number) => pcbIUScale.mmToIU(n);
-
-    if (v.clearance < 0 || v.clearance > mm(ZONE_CLEARANCE_MAX_VALUE_MM)) return { ok: false };
-    if (v.minThickness < mm(ZONE_THICKNESS_MIN_VALUE_MM)) return { ok: false };
-    if (v.cornerRadius < 0) return { ok: false };
-    if (v.thermalBridgeWidth < 0) return { ok: false };
-
-    // Checked against the fill mode the settings held, before the window's.
-    if (s.m_FillMode === ZONE_FILL_MODE.HATCH_PATTERN) {
-      if (v.hatchThickness < v.minThickness) return { ok: false };
-      if (v.hatchGap < v.minThickness) return { ok: false };
-    }
-
-    s.SetPadConnection(
-      (PAD_IN_ZONE.find(([name]) => name === v.padConnection) ?? PAD_IN_ZONE[1]!)[1],
-    );
-
-    const outline = OUTLINE_DISPLAY.find(([name]) => name === v.hatchStyle);
-    if (outline) s.m_ZoneBorderDisplayStyle = outline[1];
-
-    if (
-      v.hatchPitch < mm(ZONE_BORDER_HATCH_MINDIST_MM) ||
-      v.hatchPitch > mm(ZONE_BORDER_HATCH_MAXDIST_MM)
-    )
-      return { ok: false };
-
-    s.m_BorderHatchPitch = v.hatchPitch;
-    s.m_ZoneClearance = v.clearance;
-    s.m_ZoneMinThickness = v.minThickness;
-
-    s.SetCornerSmoothingType(Math.max(0, SMOOTHING.indexOf(v.cornerSmoothing)));
-
-    if (s.GetCornerSmoothingType() === ZONE_SETTINGS.SMOOTHING_NONE) s.SetCornerRadius(0);
-    else s.SetCornerRadius(v.cornerRadius);
-
-    s.m_Locked = v.locked;
-    s.m_ThermalReliefGap = v.thermalGap;
-    s.m_ThermalReliefSpokeWidth = v.thermalBridgeWidth;
-
-    if (s.m_ThermalReliefSpokeWidth < s.m_ZoneMinThickness)
-      return {
-        ok: false,
-        message: 'Thermal spoke width cannot be smaller than the minimum width.',
-      };
-
-    s.SetIslandRemovalMode(Math.max(0, ISLANDS.indexOf(v.islandRemovalMode)));
-    s.SetMinIslandArea(v.islandAreaMin * AREA_PER_MM2);
-
-    s.m_Netcode = v.net;
-    s.m_Name = this.m_zone.GetBoard()?.GetUniqueZoneName(v.name, this.m_zone) ?? v.name;
-
-    s.m_FillMode = v.fillMode === 'hatch' ? ZONE_FILL_MODE.HATCH_PATTERN : ZONE_FILL_MODE.POLYGONS;
-    // m_gridStyleRotation.SetValue( NormalizeAngle180( ... ) )
-    s.m_HatchOrientation = new EDA_ANGLE(v.hatchOrientation).Normalize180();
-    s.m_HatchThickness = v.hatchThickness;
-    s.m_HatchGap = v.hatchGap;
-    s.m_HatchSmoothingLevel = v.hatchSmoothingLevel;
-    s.m_HatchSmoothingValue = v.hatchSmoothingValue;
-
-    for (const props of s.m_LayerProperties.values()) props.hatching_offset = undefined;
-
-    for (const [name, offset] of Object.entries(v.layerProperties)) {
-      const layer = LSET_NameToLayer(name);
-      if (layer >= 0)
-        s.m_LayerProperties.set(layer, new ZONE_LAYER_PROPERTIES({ x: offset.x, y: offset.y }));
-    }
-
-    return { ok: true };
+    return acceptZoneOptions(this.m_settings, v, this.m_zone);
   }
 
   TransferDataFromWindow(v: ZoneValues): TransferResult {
@@ -469,5 +500,221 @@ export class DIALOG_COPPER_ZONE {
     editZoneParamsCommit(this.m_frame, this.m_zone, this.m_settings);
 
     return { ok: true };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// PANEL_ZONE_PROPERTIES: the panel both the Copper Zone dialog and the Zone
+// Manager put a zone's fields in
+// ---------------------------------------------------------------------------
+
+/** What the panel reads from its `PCB_BASE_FRAME`. */
+export interface PANEL_ZONE_PROPERTIES_FRAME {
+  GetBoard(): BOARD | null;
+}
+
+/** The events and dialogs the panel raises: `EVT_ZONE_NAME_UPDATE`, `EVT_ZONE_NET_UPDATE`, `DisplayErrorMessage`. */
+export interface PANEL_ZONE_PROPERTIES_EVENTS {
+  /** `wxQueueEvent( m_parent, new wxCommandEvent( EVT_ZONE_NAME_UPDATE ) )`. */
+  ZoneNameUpdate?(): void;
+  /** `EVT_ZONE_NET_UPDATE`. */
+  ZoneNetUpdate?(): void;
+  /** `DisplayErrorMessage( this, aMessage )`. */
+  DisplayErrorMessage?(aMessage: string): void;
+}
+
+/**
+ * `PANEL_ZONE_PROPERTIES` (`panel_zone_properties.{h,cpp}`), the logic half:
+ * the panel edits the settings the {@link ZONE_SETTINGS_BAG} keeps for one
+ * zone. `SetZone` first transfers whatever the previous zone's fields hold
+ * back into its settings, then shows the new zone's. The window is
+ * `panel_zone_properties_ui.tsx`, a view over {@link GetValues} that calls
+ * {@link SetValues} as a field changes.
+ */
+export class PANEL_ZONE_PROPERTIES {
+  private m_zone: ZONE | null = null;
+  private m_settings: ZONE_SETTINGS | undefined;
+  private m_isTeardrop = false;
+  private m_values: ZoneValues | null = null;
+  private readonly m_listeners = new Set<() => void>();
+  private m_version = 0;
+
+  constructor(
+    private readonly m_frame: PANEL_ZONE_PROPERTIES_FRAME,
+    private readonly m_zonesSettingsBag: ZONE_SETTINGS_BAG,
+    private readonly m_allowNetSpec = true,
+    private readonly m_events: PANEL_ZONE_PROPERTIES_EVENTS = {},
+  ) {}
+
+  /** `allowNetSpec`: with false the panel hides the net selector. */
+  IsNetSpecAllowed(): boolean {
+    return this.m_allowNetSpec;
+  }
+
+  GetZone(): ZONE | null {
+    return this.m_zone;
+  }
+
+  IsTeardrop(): boolean {
+    return this.m_isTeardrop;
+  }
+
+  /** The controls' values, null while no zone is shown (`Enable( false )`). */
+  GetValues(): ZoneValues | null {
+    return this.m_values;
+  }
+
+  /** `useSyncExternalStore`'s pair: a change notifier and a version to compare. */
+  Subscribe(aListener: () => void): () => void {
+    this.m_listeners.add(aListener);
+    return () => this.m_listeners.delete(aListener);
+  }
+
+  GetVersion(): number {
+    return this.m_version;
+  }
+
+  private notify(): void {
+    this.m_version++;
+    for (const l of this.m_listeners) l();
+  }
+
+  SetZone(aZone: ZONE | null): void {
+    if (this.m_settings) this.TransferZoneSettingsFromWindow();
+
+    this.m_zone = aZone;
+    this.m_settings = aZone ? this.m_zonesSettingsBag.GetZoneSettings(aZone) : undefined;
+
+    if (!this.m_settings) {
+      this.m_isTeardrop = false;
+      this.m_values = null;
+      this.notify();
+      return;
+    }
+
+    this.m_isTeardrop = this.m_settings.m_TeardropType !== TEARDROP_TYPE.TD_NONE;
+
+    this.TransferZoneSettingsToWindow();
+  }
+
+  /** `TransferZoneSettingsToWindow`. */
+  TransferZoneSettingsToWindow(): boolean {
+    const s = this.m_settings;
+
+    if (!s || !this.m_zone) return false;
+
+    const v = zoneSettingsToValues(
+      s,
+      this.m_zone,
+      this.m_frame.GetBoard()?.GetCopperLayerCount() ?? 2,
+    );
+
+    if (this.m_isTeardrop) {
+      // outlines are never smoothed: they have already the right shape
+      v.cornerSmoothing = 'none';
+      v.padConnection = 'full';
+      v.fillMode = 'solid';
+    }
+
+    // `onNetSelector( aEvent )`, run at the end of the transfer: a zone with no
+    // net never has islands removed.
+    if (v.net <= 0) v.islandRemovalMode = 'never';
+
+    this.m_values = v;
+    this.notify();
+
+    return true;
+  }
+
+  /**
+   * A control changed. The name and the net are the two the rest of the dialog
+   * hears about: `OnZoneNameChanged` and `onNetSelector` write them into the
+   * bag's settings and the zone at once, so the overview table follows.
+   */
+  SetValues(aPatch: Partial<ZoneValues>): void {
+    if (!this.m_values || !this.m_settings) return;
+
+    const before = this.m_values;
+    const next: ZoneValues = { ...before, ...aPatch };
+
+    if ('net' in aPatch && aPatch.net !== before.net) {
+      const noNetBefore = before.net <= 0;
+      const noNet = next.net <= 0;
+
+      if (noNet && !noNetBefore) {
+        // Zones with no net never have islands removed: remember the choice,
+        // show "Never", and disable the control.
+        this.m_settings.SetIslandRemovalMode(
+          Math.max(0, ISLANDS.indexOf(before.islandRemovalMode)),
+        );
+        next.islandRemovalMode = 'never';
+      } else if (!noNet && noNetBefore) {
+        next.islandRemovalMode = ISLANDS[this.m_settings.GetIslandRemovalMode()] ?? 'always';
+      }
+    }
+
+    this.m_values = next;
+    this.notify();
+
+    if ('name' in aPatch && aPatch.name !== before.name) this.OnZoneNameChanged();
+
+    if ('net' in aPatch && aPatch.net !== before.net) this.onNetSelector();
+  }
+
+  /** `OnZoneNameChanged`: "Propagate all the way out so that the MODEL_ZONES_OVERVIEW can pick it up". */
+  OnZoneNameChanged(): void {
+    if (!this.m_settings || !this.m_values) return;
+
+    this.m_settings.m_Name = this.m_values.name;
+
+    if (this.m_zone) {
+      const inBag = this.m_zonesSettingsBag.GetZoneSettings(this.m_zone);
+
+      if (inBag) inBag.m_Name = this.m_settings.m_Name;
+
+      this.m_zone.SetZoneName(this.m_settings.m_Name);
+    }
+
+    this.m_events.ZoneNameUpdate?.();
+  }
+
+  /** `onNetSelector`, the part after the island choice: the netcode goes into the settings and the zone. */
+  private onNetSelector(): void {
+    if (!this.m_allowNetSpec || !this.m_values) return;
+
+    if (this.m_settings) this.m_settings.m_Netcode = this.m_values.net;
+
+    if (this.m_settings && this.m_zone) {
+      const inBag = this.m_zonesSettingsBag.GetZoneSettings(this.m_zone);
+
+      if (inBag) inBag.m_Netcode = this.m_settings.m_Netcode;
+
+      this.m_zone.SetNetCode(this.m_settings.m_Netcode, true);
+    }
+
+    this.m_events.ZoneNetUpdate?.();
+  }
+
+  /** `TransferZoneSettingsFromWindow`: false when a field is refused. */
+  TransferZoneSettingsFromWindow(): boolean {
+    if (!this.m_settings || !this.m_zone || !this.m_values) return false;
+
+    return this.AcceptOptions();
+  }
+
+  /** `AcceptOptions`. */
+  AcceptOptions(aUseExportableSetupOnly = false): boolean {
+    if (!this.m_settings || !this.m_zone || !this.m_values) return false;
+
+    const r = acceptZoneOptions(
+      this.m_settings,
+      this.m_values,
+      this.m_zone,
+      aUseExportableSetupOnly,
+    );
+
+    if (!r.ok && r.message) this.m_events.DisplayErrorMessage?.(r.message);
+
+    return r.ok;
   }
 }

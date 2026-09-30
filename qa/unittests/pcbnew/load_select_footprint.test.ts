@@ -33,10 +33,7 @@ import {
   ParseFootprintFile,
 } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { PCBNEW_SETTINGS } from '@ziroeda/pcbnew/pcbnew_settings.js';
-import {
-  clearFootprintHistory,
-  footprintHistory,
-} from '@ziroeda/pcbnew/widgets/footprint_history.js';
+import { clearFootprintHistory, footprintHistory } from '@ziroeda/pcbnew/load_select_footprint.js';
 
 let seq = 0;
 const U = (): string => `00000000-0000-4000-8000-${(++seq).toString(16).padStart(12, '0')}`;

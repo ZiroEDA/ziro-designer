@@ -59,14 +59,14 @@ import {
   constructArcFromStartEndAngle,
   resizeD,
   shapeArcCenter,
-} from '@ziroeda/pcbnew/router/shape_arc_ops.js';
+} from '@ziroeda/kimath/src/geometry/shape_arc.js';
 import {
   segApproxParallel,
   segContains,
   segLength,
   segLineProject,
   segReflectPoint,
-} from '@ziroeda/pcbnew/router/pns_seg_ops.js';
+} from '@ziroeda/kimath/src/geometry/seg.js';
 import { ANGLE_90 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import type { Seg } from '@ziroeda/pcbnew/router/pns_line.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';

@@ -1,0 +1,108 @@
+(pcb "/home/akshay/ziro-designer-1/qa/data/pcbnew/specctra_oracle/waveorder_kicad_cli.dsn"
+  (parser
+    (string_quote ")
+    (space_in_quoted_tokens on)
+    (host_cad "KiCad's Pcbnew")
+    (host_version "10.0.6-10.0.6~ubuntu24.04.1")
+  )
+  (resolution um 10)
+  (unit um)
+  (structure
+    (layer F.Cu
+      (type signal)
+      (property
+        (index 0)
+      )
+    )
+    (layer B.Cu
+      (type signal)
+      (property
+        (index 1)
+      )
+    )
+    (boundary
+      (path pcb 0  125000 -125000  95000 -125000  95000 -95000  125000 -95000
+            125000 -125000)
+    )
+    (plane N0 (polygon F.Cu 0  100000 -100000  102000 -100000  102000 -102000  100000 -102000
+            100000 -100000))
+    (plane N1 (polygon F.Cu 0  103000 -103000  105000 -103000  105000 -105000  103000 -105000
+            103000 -103000))
+    (plane N2 (polygon F.Cu 0  106000 -106000  108000 -106000  108000 -108000  106000 -108000
+            106000 -106000))
+    (plane N3 (polygon F.Cu 0  109000 -109000  111000 -109000  111000 -111000  109000 -111000
+            109000 -109000))
+    (plane N4 (polygon F.Cu 0  112000 -112000  114000 -112000  114000 -114000  112000 -114000
+            112000 -112000))
+    (plane N5 (polygon F.Cu 0  115000 -115000  117000 -115000  117000 -117000  115000 -117000
+            115000 -115000))
+    (plane N6 (polygon F.Cu 0  118000 -118000  120000 -118000  120000 -120000  118000 -120000
+            118000 -118000))
+    (via "Via[0-1]_600:300_um")
+    (rule
+      (width 200)
+      (clearance 200)
+      (clearance 50 (type smd_smd))
+    )
+  )
+  (placement
+    (component T:pads
+      (place U1 100000 -100000 front 0 (PN pads))
+    )
+  )
+  (library
+    (image T:pads
+      (pin Round[A]Pad_1000.000000_um 1 1000 -1000)
+      (pin Round[A]Pad_1000.000000_um 2 4000 -4000)
+      (pin Round[A]Pad_1000.000000_um 3 7000 -7000)
+      (pin Round[A]Pad_1000.000000_um 4 10000 -10000)
+      (pin Round[A]Pad_1000.000000_um 5 13000 -13000)
+      (pin Round[A]Pad_1000.000000_um 6 16000 -16000)
+      (pin Round[A]Pad_1000.000000_um 7 19000 -19000)
+    )
+    (padstack Round[A]Pad_1000.000000_um
+      (shape (circle F.Cu 1000))
+      (shape (circle B.Cu 1000))
+      (attach off)
+    )
+    (padstack "Via[0-1]_600:300_um"
+      (shape (circle F.Cu 600))
+      (shape (circle B.Cu 600))
+      (attach off)
+    )
+  )
+  (network
+    (net N0
+      (pins U1-1)
+    )
+    (net N1
+      (pins U1-2)
+    )
+    (net N2
+      (pins U1-3)
+    )
+    (net N3
+      (pins U1-4)
+    )
+    (net N4
+      (pins U1-5)
+    )
+    (net N5
+      (pins U1-6)
+    )
+    (net N6
+      (pins U1-7)
+    )
+    (class kicad_default N0 N1 N2 N3 N4 N5 N6
+      (circuit
+        (use_via "Via[0-1]_600:300_um")
+      )
+      (rule
+        (width 200)
+        (clearance 200)
+      )
+    )
+  )
+  (wiring
+  )
+)

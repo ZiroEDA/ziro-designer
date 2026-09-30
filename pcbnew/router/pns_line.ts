@@ -88,7 +88,11 @@
 import { Direction45, AngleType } from '@ziroeda/kimath/src/geometry/direction45.js';
 import { type Vec2, EuclideanNormI } from '@ziroeda/kimath/src/math/vector2.js';
 import { LineMarker, PnsKind, PnsLinkHolder, type PnsItem } from './pns_item.js';
-import { segContains, segReflectPoint, segSquaredDistanceToPointExact } from './pns_seg_ops.js';
+import {
+  segContains,
+  segReflectPoint,
+  segSquaredDistanceToPoint as segSquaredDistanceToPointExact,
+} from '@ziroeda/kimath/src/geometry/seg.js';
 import {
   segDistanceToPoint,
   segIntersectLines,
@@ -96,7 +100,11 @@ import {
 } from '@ziroeda/kimath/src/geometry/seg.js';
 import { arcLength, convertArcToPolyline, reversedArc, type ShapeArc } from './pns_arc.js';
 import { arcShape } from '../drc/drc_engine_view.js';
-import { arcIsClockwise, constructArcFromStartEndCenter, shapeArcCenter } from './shape_arc_ops.js';
+import {
+  arcIsClockwise,
+  constructArcFromStartEndCenter,
+  shapeArcCenter,
+} from '@ziroeda/kimath/src/geometry/shape_arc.js';
 import { ARC_HIGH_DEF } from '../graphics_cleaner.js';
 import type { Shape } from '../drc/drc_geometry.js';
 import type { PnsVia } from './pns_via.js';

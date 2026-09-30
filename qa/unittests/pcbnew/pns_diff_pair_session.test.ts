@@ -15,9 +15,10 @@
  * fit no gateways — `Move` was false on every board.
  */
 import { describe, expect, it } from 'vitest';
+import { describePreview, fakeView, previewItems } from './pns_preview_view.js';
 import { parse } from '@ziroeda/sexpr/index.js';
 import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { applyPnsChanges, PnsSession } from '@ziroeda/pcbnew/router/pns_session.js';
+import { applyPnsChanges, PnsSession } from '@ziroeda/pcbnew/router/router_tool.js';
 import { DEFAULT_ROUTER_SIZES, PnsRouterMode } from '@ziroeda/pcbnew/router/pns_router.js';
 import type { Board } from '@ziroeda/pcbnew/types.js';
 
@@ -38,7 +39,11 @@ const DP_BOARD = `(kicad_pcb (version 20240108) (generator "t")
 const board = (): Board => readBoard(parse(DP_BOARD));
 
 const dpSession = (): PnsSession =>
-  new PnsSession(board(), { trackWidth: 200_000, mode: PnsRouterMode.PNS_MODE_ROUTE_DIFF_PAIR });
+  new PnsSession(board(), {
+    trackWidth: 200_000,
+    mode: PnsRouterMode.PNS_MODE_ROUTE_DIFF_PAIR,
+    view: fakeView().view,
+  });
 
 describe('SIZES_SETTINGS’ constructor', () => {
   it('is the router’s default, not zeros', () => {
@@ -60,17 +65,17 @@ describe('a differential pair, start to commit', () => {
 
     expect(s.move({ x: 105 * MM, y: 100.5 * MM })).toBe(true);
     // `movePlacing` displays each LINE of `Traces()` with PNS_HEAD_TRACE.
-    const nets = new Set(s.preview.map((p) => p.net));
-    expect(nets).toEqual(new Set([1, 2]));
-    expect(s.preview.every((p) => p.head)).toBe(true);
-    expect(s.preview.every((p) => p.kind === 'track' && p.width === 125000)).toBe(true);
+    const lanes = previewItems(s).map(describePreview);
+    // One ROUTER_PREVIEW_ITEM per lane, each the head at the pair's lane width.
+    expect(lanes).toHaveLength(2);
+    expect(lanes.every((p) => p.head && !p.isVia && p.width === 125000)).toBe(true);
 
     // `EraseView` before each `Move`: the overlay holds THIS head, not the sum
     // of every head so far. Two lanes of the same shape again, not twice as
     // many items.
-    const count = s.preview.length;
+    const count = previewItems(s).length;
     s.move({ x: 105 * MM, y: 100.5 * MM });
-    expect(s.preview.length).toBe(count);
+    expect(previewItems(s).length).toBe(count);
   });
 
   it('snaps onto the target pair, finishes on FixRoute, and commits both lanes', () => {
@@ -115,9 +120,10 @@ describe('a differential pair, start to commit', () => {
       mode: PnsRouterMode.PNS_MODE_ROUTE_DIFF_PAIR,
       diffPairWidth: 200_000,
       diffPairGap: 250_000,
+      view: fakeView().view,
     });
     s.start({ x: 100 * MM, y: 100 * MM }, 'F.Cu');
     s.move({ x: 110 * MM, y: 100 * MM });
-    expect(s.preview.every((q) => q.kind === 'track' && q.width === 200_000)).toBe(true);
+    expect(previewItems(s).every((q) => describePreview(q).width === 200_000)).toBe(true);
   });
 });
