@@ -11,8 +11,14 @@
  * a keepout, the board outline and an incomplete stackup. Each
  * `.PCB.kicad_pcb` is `kicad-cli pcb import --format pcad -o <out> <in>`
  * (10.0.6).
+ *
+ * A saved file cannot show everything: KiCad's writer keeps one of any
+ * drawings `BOARD::cmp_drawings` calls equal. `board_counts.json` is what
+ * KiCad's plugin leaves on the BOARD itself — drawings per layer, footprints,
+ * tracks, zones — read through its python module (`board_counts.py`).
  */
 
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { EMBEDDED_FILES } from '@ziroeda/common/embedded_files.js';
@@ -88,4 +94,34 @@ describe('PCB_IO_MGR finds the P-CAD plugin', () => {
     expect(await PCB_IO_MGR.FindPluginTypeFromBoardPath(name, read)).toBe(PCB_FILE_T.PCAD);
     expect(PCB_IO_MGR.ShowType(PCB_FILE_T.PCAD)).toBe('P-Cad');
   });
+});
+
+describe("PCB_IO_PCAD's BOARD against KiCad 10.0.6's python module", () => {
+  const expected = JSON.parse(readFileSync(`${DATA}board_counts.json`, 'utf8')) as Record<
+    string,
+    unknown
+  >;
+
+  beforeAll(async () => {
+    await EMBEDDED_FILES.InitCodec();
+  });
+
+  for (const name of BOARDS) {
+    it(`${name}: drawings per layer, footprints, tracks, zones`, () => {
+      const board = io(name).LoadBoard(name, null);
+      const drawings: Record<string, number> = {};
+
+      for (const d of board.Drawings()) {
+        const layer = board.GetLayerName(d.GetLayer());
+        drawings[layer] = (drawings[layer] ?? 0) + 1;
+      }
+
+      expect({
+        drawings,
+        footprints: board.Footprints().length,
+        tracks: board.Tracks().length,
+        zones: board.Zones().length,
+      }).toEqual(expected[name]);
+    }, 120_000);
+  }
 });

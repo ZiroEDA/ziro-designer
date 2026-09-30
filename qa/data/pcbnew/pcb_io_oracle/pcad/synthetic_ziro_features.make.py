@@ -158,7 +158,7 @@ S = r'''ACCEL_ASCII "synthetic_ziro_features.PCB"
         (padNum 1) (compPinRef "1")
         (padNum 2) (compPinRef "B")
         (padNum 3) (compPinRef "3")
-        (padNum 6) (compPinRef "6")
+        (padNum 6) (compPinRef)
       )
     )
   )
