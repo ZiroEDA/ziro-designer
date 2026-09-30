@@ -1,0 +1,28 @@
+{
+ "smartwatch": {
+  "auxOrigin": [
+   150000000,
+   110000000
+  ],
+  "copperLayers": 2,
+  "default": {
+   "clearance": 152400,
+   "trackWidth": 254000,
+   "viaDiameter": 609600,
+   "viaDrill": 304800
+  }
+ },
+ "usbmeter": {
+  "auxOrigin": [
+   130000000,
+   100000000
+  ],
+  "copperLayers": 4,
+  "default": {
+   "clearance": 152000,
+   "trackWidth": 152000,
+   "viaDiameter": 450000,
+   "viaDrill": 300000
+  }
+ }
+}

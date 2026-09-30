@@ -12942,14 +12942,34 @@ export function PcbEditor({
 
             void frame
               .ImportNonKicadBoard(file.path, file.bytes, KICTL_NONKICAD_ONLY)
-              .then(({ board: kb, loadMessages }) => {
+              .then(({ board: kb, loadMessages, customRules }) => {
                 frame.Clear_Pcb();
                 frame.SetBoard(kb, false);
                 kb.BuildConnectivity();
+
+                // The `.kicad_dru` an importer writes beside the board (Eagle's class
+                // clearance matrix) becomes the project's rules file, as it does when
+                // KiCad then opens the board's project; persisted now, like Board Setup's.
+                let files = projectFilesNow();
+                const pro = findProjectPro(files, rootPro);
+
+                if (customRules !== '' && pro) {
+                  const dru = findProjectDru(files, rootPro);
+                  const name = dru?.name ?? druFileName(pro.name);
+                  projectFileEditsRef.current.set(name, {
+                    base: dru?.text ?? '',
+                    text: customRules,
+                  });
+                  onPersistFiles?.([{ name, text: customRules }]);
+                  files = dru
+                    ? files.map((f) => (f === dru ? { name, text: customRules } : f))
+                    : [...files, { name, text: customRules }];
+                }
+
                 syncProjectSettingsIntoBoard(
                   frame,
                   panelRef.current,
-                  projectFilesNow(),
+                  files,
                   rootPro,
                   false,
                   projectDirRef.current,
