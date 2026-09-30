@@ -86,7 +86,7 @@ import {
   User_9,
 } from '@ziroeda/common/layer_id.js';
 import { LIB_ID } from '@ziroeda/common/lib_id.js';
-import { atoi, strtodPrefix, ToCDoubleOk } from '@ziroeda/common/libc/stdlib.js';
+import { atoi, ToCDouble } from '@ziroeda/common/libc/stdlib.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { NETCLASS } from '@ziroeda/common/netclass.js';
 import { RPT_SEVERITY_ERROR, RPT_SEVERITY_INFO } from '@ziroeda/common/reporter.js';
@@ -102,7 +102,7 @@ import { ANGLE_0, ANGLE_360, EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_
 import { GetArcToSegmentCount } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
 import { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_chain.js';
 import { CornerStrategy, SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
-import { atan2, cos, sin } from '@ziroeda/kimath/src/math/libm.js';
+import { atan2, cos, hypot, sin } from '@ziroeda/kimath/src/math/libm.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import { add, type VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { CalcArcMid, RotatePoint } from '@ziroeda/kimath/src/trigo.js';
@@ -171,9 +171,9 @@ function makeKey(aFirst: string, aSecond: string): string {
   return `${aFirst}\x02${aSecond}`;
 }
 
-/** `value.ToCDouble( &out )`: the output is written only when the whole text converts. */
+/** `value.ToCDouble( &out )`: `out` takes whatever prefix converts, else is left alone. */
 function toCDouble(aValue: string, aOld: number): number {
-  return ToCDoubleOk(aValue) ? strtodPrefix(aValue, 0)!.value : aOld;
+  return ToCDouble(aValue, aOld);
 }
 
 /** `std::map<wxString, T>` iteration: keys in `wxString::compare` order. */
@@ -1053,9 +1053,8 @@ export class PCB_IO_EAGLE extends PCB_IO {
               if (pt1.x > pt2.x) dimension.SetHeight(-offset);
               else dimension.SetHeight(offset);
             } else {
-              const dx = pt3.x - pt1.x;
-              const dy = pt3.y - pt1.y;
-              const offset = KiROUND(Math.sqrt(dx * dx + dy * dy));
+              // VECTOR2I::Distance: ( pt3 - pt1 ).EuclideanNorm(), std::hypot
+              const offset = KiROUND(hypot(pt3.x - pt1.x, pt3.y - pt1.y));
 
               if (pt1.y > pt2.y) dimension.SetHeight(offset);
               else dimension.SetHeight(-offset);
@@ -2524,8 +2523,9 @@ export class PCB_IO_EAGLE extends PCB_IO {
               let mid = CalcArcMid(start, end, center, true);
               let otherMid = CalcArcMid(start, end, center, false);
 
-              const radiusA = Math.hypot(mid.x - center.x, mid.y - center.y);
-              const radiusB = Math.hypot(otherMid.x - center.x, otherMid.y - center.y);
+              // VECTOR2I::EuclideanNorm is std::hypot
+              const radiusA = hypot(mid.x - center.x, mid.y - center.y);
+              const radiusB = hypot(otherMid.x - center.x, otherMid.y - center.y);
 
               if (Math.abs(radiusA - radius) > Math.abs(radiusB - radius))
                 [mid, otherMid] = [otherMid, mid];

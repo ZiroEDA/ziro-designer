@@ -1,0 +1,90 @@
+{
+ "Adafruit_AHT20": {
+  "copperLayers": 2,
+  "m_MinClearance": 203200,
+  "m_MinThroughDrill": 300000,
+  "m_TrackMinWidth": 200000,
+  "m_ViasMinAnnularWidth": 100000,
+  "m_ViasMinSize": 500000,
+  "netclasses": {
+   "Default": {
+    "clearance": 200000,
+    "trackWidth": 200000,
+    "viaDiameter": 600000,
+    "viaDrill": 300000
+   },
+   "highpower": {
+    "clearance": 200000,
+    "trackWidth": 304800,
+    "viaDiameter": 889000,
+    "viaDrill": 482600
+   },
+   "lowpower": {
+    "clearance": 200000,
+    "trackWidth": 200000,
+    "viaDiameter": 600000,
+    "viaDrill": 300000
+   }
+  }
+ },
+ "issue18515_managed_lib": {
+  "copperLayers": 2,
+  "m_MinClearance": 152400,
+  "m_MinThroughDrill": 300000,
+  "m_TrackMinWidth": 152400,
+  "m_ViasMinAnnularWidth": 100000,
+  "m_ViasMinSize": 500000,
+  "netclasses": {
+   "Default": {
+    "clearance": 200000,
+    "trackWidth": 200000,
+    "viaDiameter": 600000,
+    "viaDrill": 300000
+   }
+  }
+ },
+ "synthetic": {
+  "copperLayers": 4,
+  "m_MinClearance": 203200,
+  "m_MinThroughDrill": 250000,
+  "m_TrackMinWidth": 100000,
+  "m_ViasMinAnnularWidth": -25000,
+  "m_ViasMinSize": 300000,
+  "netclasses": {
+   "Default": {
+    "clearance": 200000,
+    "trackWidth": 200000,
+    "viaDiameter": 600000,
+    "viaDrill": 300000
+   },
+   "power": {
+    "clearance": 300000,
+    "trackWidth": 400000,
+    "viaDiameter": 300000,
+    "viaDrill": 250000
+   },
+   "signal": {
+    "clearance": 200000,
+    "trackWidth": 150000,
+    "viaDiameter": 600000,
+    "viaDrill": 300000
+   }
+  }
+ },
+ "test_eagle": {
+  "copperLayers": 2,
+  "m_MinClearance": 152400,
+  "m_MinThroughDrill": 300000,
+  "m_TrackMinWidth": 200000,
+  "m_ViasMinAnnularWidth": 100000,
+  "m_ViasMinSize": 500000,
+  "netclasses": {
+   "Default": {
+    "clearance": 200000,
+    "trackWidth": 200000,
+    "viaDiameter": 600000,
+    "viaDrill": 300000
+   }
+  }
+ }
+}
