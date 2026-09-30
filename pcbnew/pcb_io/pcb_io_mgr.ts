@@ -224,7 +224,13 @@ registry.Register(
   async () => new (await import('./easyedapro/pcb_io_easyedapro.js')).PCB_IO_EASYEDAPRO(),
 );
 
-// Fabmaster and gEDA / Lepton EDA register here upstream.
+// Fabmaster registers here upstream.
+
+registry.Register(
+  PCB_FILE_T.GEDA_PCB,
+  'gEDA / Lepton EDA',
+  async () => new (await import('./geda/pcb_io_geda.js')).PCB_IO_GEDA(),
+);
 
 registry.Register(
   PCB_FILE_T.PCAD,

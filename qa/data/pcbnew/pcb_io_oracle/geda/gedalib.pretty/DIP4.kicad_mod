@@ -1,0 +1,105 @@
+(footprint "DIP4"
+	(version 20260206)
+	(generator "pcbnew")
+	(generator_version "10.0")
+	(layer "F.Cu")
+	(descr "DIP4 old")
+	(property "Reference" "U?"
+		(at 3.8735 -2.232 0)
+		(layer "F.SilkS")
+		(uuid "b1683e53-7481-4ce2-8b38-005b25e4e254")
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+	)
+	(property "Value" "100"
+		(at 3.8735 4.137 0)
+		(layer "F.Fab")
+		(uuid "0c114a89-7c08-4413-b98b-f61356ee2c6e")
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+	)
+	(property "Datasheet" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "7a72a006-acad-4aef-8453-743dd983a020")
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+	)
+	(property "Description" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "6ad8f0ab-fdcb-42ca-87fd-037b389cfabe")
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+	)
+	(duplicate_pad_numbers_are_jumpers no)
+	(fp_line
+		(start 1.27 -1.27)
+		(end 6.35 -1.27)
+		(stroke
+			(width 0.254)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "1fd56e34-d219-4dc4-abdc-703be6689c8d")
+	)
+	(fp_arc
+		(start 5.08 -1.27)
+		(mid 3.81 0)
+		(end 2.54 -1.27)
+		(stroke
+			(width 0.254)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "47bf277b-8353-4f6a-af77-d641f541c48f")
+	)
+	(pad "1" thru_hole rect
+		(at 0 0)
+		(size 1.524 1.524)
+		(drill 0.7112)
+		(layers "*.Cu" "*.Mask" "F.SilkS")
+		(remove_unused_layers no)
+		(thermal_bridge_angle 45)
+		(uuid "c2829eb1-afd7-44ba-a049-bb5942d992c2")
+	)
+	(pad "2" thru_hole circle
+		(at 0 2.54)
+		(size 1.524 1.524)
+		(drill 0.7112)
+		(layers "*.Cu" "*.Mask" "F.SilkS")
+		(remove_unused_layers no)
+		(uuid "0a96a637-8cb9-488e-b831-6b43d29ccdfa")
+	)
+	(pad "3" thru_hole circle
+		(at 7.62 2.54)
+		(size 1.524 1.524)
+		(drill 1.524)
+		(layers "*.Cu" "*.Mask" "F.SilkS")
+		(remove_unused_layers no)
+		(uuid "84588588-0642-46e7-b74b-17e577467e7d")
+	)
+	(pad "4" thru_hole circle
+		(at 7.62 0)
+		(size 1.778 1.778)
+		(drill 0.7112)
+		(layers "*.Cu" "*.Mask" "F.SilkS")
+		(remove_unused_layers no)
+		(uuid "8fbb937b-2329-4598-bc8d-4a3908c74c3e")
+	)
+	(embedded_fonts no)
+)
