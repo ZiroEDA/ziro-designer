@@ -792,7 +792,11 @@ export function buildPcbMenus(
           disabled: st.selectionCount !== 1,
           action: () => h.action('inspectResolution'),
         },
-        { label: 'Show Footprint Associations', disabled: dis },
+        {
+          label: 'Show Footprint Associations',
+          disabled: dis,
+          action: () => h.action('showFootprintAssociations'),
+        },
         { label: 'Compare Footprint with Library', disabled: dis },
       ],
     },

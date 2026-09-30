@@ -638,6 +638,7 @@ import { DialogTrackViaProperties } from './dialogs/dialog_track_via_properties_
 import { DialogCopperZones } from './dialogs/dialog_copper_zones.js';
 import { SelectCopperLayerPairDialog } from './sel_layer.js';
 import { DialogFootprintProperties } from './dialogs/dialog_footprint_properties_ui.js';
+import { DialogFootprintAssociations } from './dialogs/dialog_footprint_associations_ui.js';
 import {
   DIALOG_FOOTPRINT_PROPERTIES,
   footprintAt,
@@ -2614,6 +2615,10 @@ export function PcbEditor({
   const [zonePropsIndex, setZonePropsIndex] = useState<number | null>(null);
   // Footprint Properties (DIALOG_FOOTPRINT_PROPERTIES), board side.
   const [fpPropsIndex, setFpPropsIndex] = useState<number | null>(null);
+  // Footprint Associations (DIALOG_FOOTPRINT_ASSOCIATIONS), on the selected footprint.
+  const [footprintAssociationsIndex, setFootprintAssociationsIndex] = useState<number | null>(
+    null,
+  );
   // Pad Properties (DIALOG_PAD_PROPERTIES), board side.
   const [padPropsRef, setPadPropsRef] = useState<PadRef | null>(null);
   // Text / Shape properties for board graphics.
@@ -10731,6 +10736,22 @@ export function PcbEditor({
     setNetclassNets(names);
   };
 
+  /**
+   * BOARD_INSPECTION_TOOL::ShowFootprintLinks (board_inspection_tool.cpp:1937-1957):
+   * `selection.Size() != 1 || selection.Front()->Type() != PCB_FOOTPRINT_T` is
+   * an infobar error, its exact string; otherwise the dialog opens on it.
+   */
+  const showFootprintAssociations = (): void => {
+    const brd = boardRef.current;
+    if (!brd) return;
+    const fpIdx = footprintAt(brd, selection);
+    if (fpIdx === null) {
+      setInfoBarError('Select a footprint for a footprint associations report.');
+      return;
+    }
+    setFootprintAssociationsIndex(fpIdx);
+  };
+
   const applyPreset = (name: string): void => {
     setPresetMRU((m) => touchMRU(m, name));
     const user = userPresets.find((x) => x.name === name);
@@ -11920,6 +11941,9 @@ export function PcbEditor({
       // it shows is decided by the selection, which is also what gates the rows.
       case 'inspectResolution':
         setInspectOpen(true);
+        break;
+      case 'showFootprintAssociations':
+        showFootprintAssociations();
         break;
       case 'updatePcbFromSchematic':
         void openUpdatePcb();
@@ -13404,6 +13428,15 @@ export function PcbEditor({
           onClose={() => setFpPropsIndex(null)}
         />
       )}
+      {footprintAssociationsIndex !== null &&
+        board?.footprints[footprintAssociationsIndex]?.k &&
+        frameRef.current && (
+          <DialogFootprintAssociations
+            footprint={board.footprints[footprintAssociationsIndex]!.k!}
+            adapter={frameRef.current.GetBoard()?.GetFootprintLibAdapter() ?? null}
+            onClose={() => setFootprintAssociationsIndex(null)}
+          />
+        )}
       {zonePropsIndex !== null &&
         board?.zones[zonePropsIndex]?.k?.GetIsRuleArea() &&
         frameRef.current && (

@@ -20,6 +20,8 @@ export interface LIBRARY_TABLE_ROW {
   readonly enabled: boolean;
   /** `LIBRARY_TABLE_ROW::GetOptionsMap()`: the row's options column, parsed. */
   GetOptionsMap(): ReadonlyMap<string, string>;
+  /** `LIBRARY_TABLE_ROW::Description()`; a host that has none omits it. */
+  Description?(): string;
 }
 
 export interface FOOTPRINT_LIBRARY_ADAPTER {

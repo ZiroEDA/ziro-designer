@@ -26,7 +26,7 @@
  */
 import { useState, type JSX } from 'react';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
-import { pcbUnitText, pcbUnitValue, unitLabel } from '@ziroeda/pcbnew/pcb_unit_binder.js';
+import { pcbUnitText, pcbUnitValue, unitLabel } from '../pcb_unit_binder.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
 
 /** The `PNS::SIZES_SETTINGS` members this dialog reads and writes, in IU. */
@@ -97,8 +97,8 @@ export function DialogPnsDiffPairDimensions({ value, units, onOk, onClose }: Pro
   };
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onClose}>
-      <div className="ze-modal ze-dpd-dialog" onMouseDown={(e) => e.stopPropagation()}>
+    <div className="ze-modal-backdrop">
+      <div className="ze-modal ze-dpd-dialog">
         <div className="ze-modal-header">
           Differential Pair Dimensions
           <span className="x" onClick={onClose}>
