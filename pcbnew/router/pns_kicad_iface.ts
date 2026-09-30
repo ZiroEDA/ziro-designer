@@ -51,7 +51,7 @@ import type { BOARD_DESIGN_SETTINGS } from '../board_design_settings.js';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { arcShape, padShapes } from '../drc/drc_engine_view.js';
 import { padShapePos } from '../padstack.js';
-import { matchDpSuffix } from '../drc/drc_diff_pair.js';
+import { DRC_ENGINE } from '../drc/drc_engine.js';
 import { padIsOnLayer } from '../dialogs/dialog_enum_pads.js';
 import { enabledCopperLayers, isCopperLayerName } from '../dialogs/dialog_swap_layers.js';
 import { padFlashState, viaFlashState } from '../unused_pad_layers.js';
@@ -63,11 +63,12 @@ import { PNS_UNDEFINED_LAYER } from './pns_drag_algo.js';
 import { PnsSegment } from './pns_segment.js';
 import { PnsSolid } from './pns_solid.js';
 import { PnsVia } from './pns_via.js';
-import type { Shape } from '../drc/drc_geometry.js';
+import type { Shape } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 import type { DrcEvalItem, DrcRuleEngine } from '../drc/drc_rules_engine.js';
 import type { Board, PcbArcTrack, PcbPad, PcbTrack, PcbVia } from '../types.js';
-import { PnsConstraintType } from './pns_collision.js';
-import type { DpNetPair, NetHandle, PnsRuleResolver } from './pns_collision.js';
+import { PnsConstraintType } from './pns_node.js';
+import type { DpNetPair, PnsRuleResolver } from './pns_node.js';
+import type { NetHandle } from './pns_item.js';
 import type { PnsItem } from './pns_item.js';
 import type { PnsItemSet } from './pns_itemset.js';
 import type { PnsLineChain } from './pns_line.js';
@@ -76,7 +77,7 @@ import type { PnsRouterIface, PnsRouterSizes } from './pns_router.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { evalDrcRules } from '../drc/drc_rules_engine.js';
 import { itemHull } from './pns_utils.js';
-import type { KeepoutResult, PnsConstraint } from './pns_collision.js';
+import type { KeepoutResult, PnsConstraint } from './pns_node.js';
 import type { DrcConstraintType } from '../drc/drc_rule_view.js';
 import type { Hull } from './pns_utils.js';
 import type { VIEW } from '@ziroeda/common/view/view.js';
@@ -1640,9 +1641,9 @@ export class PNS_KICAD_IFACE implements PnsRouterIface, PnsResolverHost, ROUTER_
 
     if (!name) return null;
 
-    const suffix = matchDpSuffix(name);
+    const suffix = DRC_ENGINE.MatchDpSuffix(name);
 
-    return suffix.polarity === 0 ? null : this.findNetByName(suffix.complement);
+    return suffix.polarity === 0 ? null : this.findNetByName(suffix.complementNet);
   }
 
   /**
@@ -1670,13 +1671,13 @@ export class PNS_KICAD_IFACE implements PnsRouterIface, PnsResolverHost, ROUTER_
     if (!net) return null;
 
     const name = this.getNetName(net);
-    const suffix = matchDpSuffix(name);
+    const suffix = DRC_ENGINE.MatchDpSuffix(name);
 
     if (suffix.polarity === 0) return null;
 
     // `r == 1` means the name we hold IS the positive half.
-    const nameP = suffix.polarity === 1 ? name : suffix.complement;
-    const nameN = suffix.polarity === 1 ? suffix.complement : name;
+    const nameP = suffix.polarity === 1 ? name : suffix.complementNet;
+    const nameN = suffix.polarity === 1 ? suffix.complementNet : name;
 
     const netP = this.findNetByName(nameP);
     const netN = this.findNetByName(nameN);
@@ -1692,7 +1693,7 @@ export class PNS_KICAD_IFACE implements PnsRouterIface, PnsResolverHost, ROUTER_
    * `MatchDpSuffix`'s own return value.
    */
   dpNetPolarity(aNet: NetHandle): number {
-    return matchDpSuffix(this.getNetName(aNet)).polarity;
+    return DRC_ENGINE.MatchDpSuffix(this.getNetName(aNet)).polarity;
   }
 }
 

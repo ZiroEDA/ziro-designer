@@ -14,7 +14,7 @@ import { ENUM_MAP } from '@ziroeda/common/properties/property.js';
 import { DRC_ENGINE } from '@ziroeda/pcbnew/drc/drc_engine.js';
 import type { DRC_ITEM } from '@ziroeda/pcbnew/drc/drc_item.js';
 import { PCB_DRC_CODE } from '@ziroeda/pcbnew/drc/drc_item.js';
-import '@ziroeda/pcbnew/drc/drc_test_providers.js';
+import '@ziroeda/pcbnew/browser/drc_test_providers.js';
 import type { FOOTPRINT } from '@ziroeda/pcbnew/footprint.js';
 import type {
   FOOTPRINT_LIBRARY_ADAPTER,

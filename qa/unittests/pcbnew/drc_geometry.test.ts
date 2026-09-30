@@ -20,8 +20,13 @@
  * measurement. None is read off what the implementation prints.
  */
 import { describe, expect, it } from 'vitest';
-import { collideShapes } from '@ziroeda/pcbnew/drc/shape_collisions.js';
-import { pointSeg, segSeg, shapeDist, type Shape } from '@ziroeda/pcbnew/drc/drc_geometry.js';
+import {
+  collideShapes,
+  pointSeg,
+  segSeg,
+  shapeDist,
+  type Shape,
+} from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 
 const circle = (x: number, y: number, r: number): Shape => ({ kind: 'circle', c: { x, y }, r });
 

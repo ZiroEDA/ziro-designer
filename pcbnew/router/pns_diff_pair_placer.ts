@@ -69,9 +69,9 @@
 import { AngleType, CornerMode, Direction45 } from '@ziroeda/kimath/src/geometry/direction45.js';
 import { EuclideanNormI } from '@ziroeda/kimath/src/math/vector2.js';
 import { segNearestPoint } from '@ziroeda/kimath/src/geometry/seg.js';
-import { collideShapes } from '../drc/shape_collisions.js';
+import { collideShapes } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 import { DiffPair, DpGateways, DpPrimitivePair } from './pns_diff_pair.js';
-import { ObstacleSet } from './pns_collision.js';
+import { ObstacleSet } from './pns_node.js';
 import { PnsItemSet } from './pns_itemset.js';
 import { PnsKind } from './pns_item.js';
 import { PnsLayerRange } from './pns_layerset.js';
@@ -86,14 +86,14 @@ import { itemHull } from './pns_utils.js';
 import { optimizeDiffPair } from './pns_optimizer.js';
 import { routeShortest } from './pns_walkaround.js';
 import { segLineProject } from '@ziroeda/kimath/src/geometry/seg.js';
-import type { NetHandle } from './pns_collision.js';
+import type { NetHandle } from './pns_item.js';
 import type { PnsArc } from './pns_arc.js';
 import type { PnsItem } from './pns_item.js';
 import type { PnsNode } from './pns_node.js';
 import type { PnsShoveSettings } from './pns_shove.js';
 import type { PnsViaType } from './pns_via.js';
 import type { RoutingSettings } from './pns_routing_settings.js';
-import type { Shape } from '../drc/drc_geometry.js';
+import type { Shape } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 // ---------------------------------------------------------------------------

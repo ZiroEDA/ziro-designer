@@ -30,8 +30,7 @@ import {
 import { DRC_ITEM, PCB_DRC_CODE } from './drc_item.js';
 import { DRC_LENGTH_REPORT, DRC_LENGTH_REPORT_ENTRY } from './drc_length_report.js';
 import { DRC_CONSTRAINT, DRC_CONSTRAINT_T, type DRC_RULE } from './drc_rule.js';
-import { DRC_REGISTER_TEST_PROVIDER, DRC_TEST_PROVIDER } from './drc_test_provider.js';
-import { ptrOrdinal } from './ptr_order.js';
+import { DRC_REGISTER_TEST_PROVIDER, DRC_TEST_PROVIDER, ptrOrdinal } from './drc_test_provider.js';
 
 type CONNECTION = DRC_LENGTH_REPORT_ENTRY;
 

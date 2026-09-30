@@ -85,7 +85,12 @@ import {
   type DrcItemRef,
   type DrcViolation,
 } from '../drc/drc_engine_view.js';
-import { segSeg, shapeBBox, shapeDist, type Shape } from '../drc/drc_geometry.js';
+import {
+  segSeg,
+  shapeBBox,
+  shapeDist,
+  type Shape,
+} from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 import { segmentsForRadius, shapeToPolygon } from '../zone_filler.js';
 import type { PadPrimitive, PcbFootprint, PcbPad, PcbShape } from '../types.js';
 

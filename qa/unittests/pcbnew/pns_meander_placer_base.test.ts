@@ -58,13 +58,13 @@ import type {
   MeanderPlacerHost,
   MeanderRouterIface,
 } from '@ziroeda/pcbnew/router/pns_meander_placer_base.js';
-import { PnsConstraintType } from '@ziroeda/pcbnew/router/pns_collision.js';
+import { PnsConstraintType } from '@ziroeda/pcbnew/router/pns_node.js';
 import { PnsItemSet } from '@ziroeda/pcbnew/router/pns_itemset.js';
 import { PnsLayerRange } from '@ziroeda/pcbnew/router/pns_layerset.js';
 import { PnsLineChain } from '@ziroeda/pcbnew/router/pns_line.js';
 import { PnsNode } from '@ziroeda/pcbnew/router/pns_node.js';
 import { PnsSegment } from '@ziroeda/pcbnew/router/pns_segment.js';
-import type { NetHandle } from '@ziroeda/pcbnew/router/pns_collision.js';
+import type { NetHandle } from '@ziroeda/pcbnew/router/pns_item.js';
 import type { PnsItem } from '@ziroeda/pcbnew/router/pns_item.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 

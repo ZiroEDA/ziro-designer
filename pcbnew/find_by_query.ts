@@ -16,7 +16,7 @@
  * property names.
  */
 
-import { type DrcExprContext, parseDrcExpr, testDrcCondition } from './drc/drc_expr.js';
+import { type DrcExprContext, parseDrcExpr, testDrcCondition } from './pcbexpr_evaluator.js';
 import type { DrcItemType } from './drc/drc_rules_engine.js';
 import type { Board } from './types.js';
 

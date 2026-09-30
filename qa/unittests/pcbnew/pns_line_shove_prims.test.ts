@@ -28,7 +28,7 @@ import { PnsLayerRange } from '@ziroeda/pcbnew/router/pns_layerset.js';
 import { LineMarker } from '@ziroeda/pcbnew/router/pns_item.js';
 import { constructArcFromStartEndAngle } from '@ziroeda/kimath/src/geometry/shape_arc.js';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
-import type { NetHandle } from '@ziroeda/pcbnew/router/pns_collision.js';
+import type { NetHandle } from '@ziroeda/pcbnew/router/pns_item.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 const NET: NetHandle = { id: 1 } as unknown as NetHandle;

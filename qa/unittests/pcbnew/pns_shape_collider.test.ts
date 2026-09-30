@@ -16,15 +16,16 @@
  */
 import { afterEach, describe, expect, it } from 'vitest';
 import {
-  setRouterIface,
-  setShapeCollider,
   type CollisionNode,
   type KeepoutResult,
-  type NetHandle,
   type PnsConstraint,
   type PnsRuleResolver,
-} from '@ziroeda/pcbnew/router/pns_collision.js';
-import { installLocatingShapeCollider } from '@ziroeda/pcbnew/router/pns_collision.js';
+} from '@ziroeda/pcbnew/router/pns_node.js';
+import { setRouterIface, type NetHandle } from '@ziroeda/pcbnew/router/pns_item.js';
+import {
+  setShapeCollider,
+  installLocatingShapeCollider,
+} from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 import type { PnsItem } from '@ziroeda/pcbnew/router/pns_item.js';
 import { PnsLayerRange } from '@ziroeda/pcbnew/router/pns_layerset.js';
 import { PnsSegment } from '@ziroeda/pcbnew/router/pns_segment.js';

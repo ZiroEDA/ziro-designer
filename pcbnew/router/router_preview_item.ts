@@ -35,7 +35,7 @@ import type { GAL } from '@ziroeda/common/gal/graphics_abstraction_layer.js';
 import { GAL_LAYER_ID, IsCopperLayer, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { NET_COLOR_MODE } from '@ziroeda/common/project/board_project_settings.js';
 import type { VIEW } from '@ziroeda/common/view/view.js';
-import type { Shape } from '../drc/drc_geometry.js';
+import type { Shape } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 import type { PCB_RENDER_SETTINGS } from '../pcb_painter.js';
 import { PnsKind, type PnsItem, LineMarker } from './pns_item.js';
 import type { PnsLine } from './pns_line.js';

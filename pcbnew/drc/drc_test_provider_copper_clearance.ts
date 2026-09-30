@@ -35,8 +35,7 @@ import type { PCB_TRACK, PCB_VIA } from '../pcb_track.js';
 import type { ZONE } from '../zone.js';
 import { DRC_ITEM, PCB_DRC_CODE } from './drc_item.js';
 import { DRC_CONSTRAINT, DRC_CONSTRAINT_T } from './drc_rule.js';
-import { DRC_REGISTER_TEST_PROVIDER, DRC_TEST_PROVIDER } from './drc_test_provider.js';
-import { ptrGreater } from './ptr_order.js';
+import { DRC_REGISTER_TEST_PROVIDER, DRC_TEST_PROVIDER, ptrGreater } from './drc_test_provider.js';
 
 export class DRC_TEST_PROVIDER_COPPER_CLEARANCE extends DRC_TEST_PROVIDER {
   private m_drcEpsilon = 0;

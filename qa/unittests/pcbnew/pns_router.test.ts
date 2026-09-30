@@ -66,7 +66,7 @@ import type { PnsMeanderSkewPlacer } from '@ziroeda/pcbnew/router/pns_meander_sk
 import { PnsNode } from '@ziroeda/pcbnew/router/pns_node.js';
 import { PnsSegment } from '@ziroeda/pcbnew/router/pns_segment.js';
 import { PnsSolid } from '@ziroeda/pcbnew/router/pns_solid.js';
-import type { NetHandle } from '@ziroeda/pcbnew/router/pns_collision.js';
+import type { NetHandle } from '@ziroeda/pcbnew/router/pns_item.js';
 import type { RoutingSettings } from '@ziroeda/pcbnew/router/pns_routing_settings.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 

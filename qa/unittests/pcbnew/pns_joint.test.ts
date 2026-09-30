@@ -34,7 +34,7 @@ import { PnsArc } from '@ziroeda/pcbnew/router/pns_arc.js';
 import { PnsSegment } from '@ziroeda/pcbnew/router/pns_segment.js';
 import { PnsSolid } from '@ziroeda/pcbnew/router/pns_solid.js';
 import { PnsVia, PnsVVia } from '@ziroeda/pcbnew/router/pns_via.js';
-import type { NetHandle } from '@ziroeda/pcbnew/router/pns_collision.js';
+import type { NetHandle } from '@ziroeda/pcbnew/router/pns_item.js';
 
 const L0 = (): PnsLayerRange => new PnsLayerRange(0);
 

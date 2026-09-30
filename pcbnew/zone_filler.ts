@@ -57,7 +57,7 @@ import {
   arcStartAngle,
   shapeArcCenter,
 } from '@ziroeda/kimath/src/geometry/shape_arc.js';
-import { shapeBBox, shapeDist, type Shape } from './drc/drc_geometry.js';
+import { shapeBBox, shapeDist, type Shape } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 import { tessellateArc } from './edit-board.js';
 import { padShapePos } from './padstack.js';
 import { viaIsOnLayer } from './via_layers.js';

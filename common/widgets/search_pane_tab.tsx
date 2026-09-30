@@ -19,7 +19,7 @@
  * (`SearchPanel.tsx`), so porting keyboard multi-select here would be an
  * untested surface with nothing exercising it.
  */
-import { useEffect, useRef, useState, type JSX } from 'react';
+import { useEffect, useReducer, useRef, useState, type JSX } from 'react';
 import type { SearchColumnAlign, SearchHandler } from './search_pane_types.js';
 
 const ALIGN: Record<SearchColumnAlign, 'left' | 'center' | 'right'> = {
@@ -40,6 +40,10 @@ export function SearchPaneTab({
   const [sortCol, setSortCol] = useState(-1);
   const [sortAscending, setSortAscending] = useState(true);
   const [count, setCount] = useState(0);
+  // `RefreshSearch` on a new handler set (a board edit) can find the same COUNT
+  // with different rows: `setCount` alone then bails out and the rows drawn
+  // against the new, freshly searched hitlist are never redrawn.
+  const [, redraw] = useReducer((n: number) => n + 1, 0);
   const [selectedRow, setSelectedRow] = useState<number | null>(null);
   // Read inside the search effect without making the sort toggle re-run it —
   // `OnColClicked` below already re-sorts and re-selects on its own, so the
@@ -56,6 +60,7 @@ export function SearchPaneTab({
     const col = Math.max(0, sortRef.current.col); // "stable order… if no sort column provided"
     handler.sort(col, sortRef.current.ascending, []);
     setCount(n);
+    redraw();
     setSelectedRow(null);
   }, [handler, query]);
 

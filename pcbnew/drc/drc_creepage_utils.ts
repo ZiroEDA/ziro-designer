@@ -56,7 +56,7 @@ import type { BOARD } from '../board.js';
 import type { BOARD_CONNECTED_ITEM } from '../board_connected_item.js';
 import type { BOARD_ITEM } from '../board_item.js';
 import { PCB_SHAPE } from '../pcb_shape.js';
-import { ptrGreater, ptrOrdinal } from './ptr_order.js';
+import { ptrGreater, ptrOrdinal } from './drc_test_provider.js';
 
 /** `VECTOR2I::Resize( T )`: the C++ takes the length as an int. */
 const resizeI = (v: VECTOR2I, aNewLength: number): VECTOR2I => ResizeI(v, Math.trunc(aNewLength));

@@ -30,8 +30,9 @@ import {
   circleIntersectCircle,
   circleIntersectSeg,
   collideShapes,
-} from '@ziroeda/pcbnew/drc/shape_collisions.js';
-import { shapeDist, type Shape } from '@ziroeda/pcbnew/drc/drc_geometry.js';
+  shapeDist,
+  type Shape,
+} from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 
 // ----- fixtures ----------------------------------------------------------------
 

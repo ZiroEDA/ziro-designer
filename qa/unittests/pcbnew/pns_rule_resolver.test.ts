@@ -28,11 +28,11 @@
 import { describe, expect, it } from 'vitest';
 import { buildDrcRuleEngine } from '@ziroeda/pcbnew/drc/drc_rules_engine.js';
 import { PNS_PCBNEW_RULE_RESOLVER } from '@ziroeda/pcbnew/router/pns_kicad_iface.js';
+import { PnsConstraintType } from '@ziroeda/pcbnew/router/pns_node.js';
 import {
   defaultShapeCollider,
   getShapeCollider,
-  PnsConstraintType,
-} from '@ziroeda/pcbnew/router/pns_collision.js';
+} from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 import { PnsHole } from '@ziroeda/pcbnew/router/pns_hole.js';
 import { PnsLayerRange } from '@ziroeda/pcbnew/router/pns_layerset.js';
 import { PnsSegment } from '@ziroeda/pcbnew/router/pns_segment.js';
@@ -40,7 +40,7 @@ import type { PnsResolverHost } from '@ziroeda/pcbnew/router/pns_kicad_iface.js'
 import type { DrcRule } from '@ziroeda/pcbnew/drc/drc_rule_view.js';
 import type { DrcEvalItem } from '@ziroeda/pcbnew/drc/drc_rules_engine.js';
 import type { PnsItem } from '@ziroeda/pcbnew/router/pns_item.js';
-import type { NetHandle } from '@ziroeda/pcbnew/router/pns_collision.js';
+import type { NetHandle } from '@ziroeda/pcbnew/router/pns_item.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 const V = (x: number, y: number): Vec2 => ({ x, y });

@@ -40,7 +40,8 @@
  */
 
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-import { ObstacleSet, type NetHandle } from './pns_collision.js';
+import { ObstacleSet } from './pns_node.js';
+import { type NetHandle } from './pns_item.js';
 import type { PnsArc } from './pns_arc.js';
 import {
   PNS_IU_PER_MM,

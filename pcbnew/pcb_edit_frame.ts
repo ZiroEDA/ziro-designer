@@ -36,7 +36,7 @@ import { STRTOK, strncpyLine } from '@ziroeda/common/libc/string.js';
 import type { KIWAY_MAIL_EVENT } from '@ziroeda/common/kiway_mail.js';
 import { MAIL_T } from '@ziroeda/common/mail_type.js';
 import type { FOOTPRINT_EDITOR_SETTINGS_LIKE } from './pcb_base_frame.js';
-import { PCBNEW_SETTINGS } from './pcbnew_settings.js';
+import { type AUI_PANELS, PCBNEW_SETTINGS } from './pcbnew_settings.js';
 import { BOARD_COMMIT, SKIP_SET_DIRTY, SKIP_UNDO } from './board_commit.js';
 import type { FOOTPRINT } from './footprint.js';
 import type { ZONE } from './zone.js';
@@ -46,7 +46,7 @@ import { MICROWAVE_TOOL, type MICROWAVE_HOST } from './microwave/microwave_tool.
 import type { PcbFootprint } from './types.js';
 import type { NETLIST } from './netlist_reader/pcb_netlist.js';
 import { type DIALOG_DRC_LIKE, DRC_TOOL } from './tools/drc_tool.js';
-import type { DRC_JOB_HOOKS, DRC_JOB_REQUEST } from './drc/drc_job.js';
+import type { DRC_JOB_HOOKS, DRC_JOB_REQUEST } from './browser/drc_job.js';
 import { runDrcJobOffThread } from './drc_runner.js';
 import { PCB_TOOL_BASE } from './tools/pcb_tool_base.js';
 import { MARKER_T } from '@ziroeda/common/marker_base.js';
@@ -64,6 +64,11 @@ import { defaultUnitsToggle } from '@ziroeda/common/settings/app_settings_units.
 import type { CrosshairMode } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
 import type { RawFile } from '@ziroeda/common';
 import { applyMixins } from '@ziroeda/core/mixins.js';
+import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
+import { PCB_DESIGN_BLOCK_UTILS_MIXIN } from './pcb_design_block_utils.js';
+import type { PCB_GROUP } from './pcb_group.js';
+import { SELECTION } from '@ziroeda/common/tool/selection.js';
+import type { PCB_DESIGN_BLOCK_PANE } from './widgets/pcb_design_block_pane.js';
 import { INITPCB_MIXIN } from './initpcb.js';
 import { EDIT_MIXIN } from './edit.js';
 import { FILES_MIXIN } from './files.js';
@@ -97,6 +102,8 @@ export interface PCBNEW_JSON_SETTINGS_LIKE {
     color_theme: string;
   };
   cross_probing: CROSS_PROBING_SETTINGS;
+  /** `m_AuiPanels`, the keys the Search and Net Inspector panes persist. */
+  aui: Pick<AUI_PANELS, 'show_search' | 'show_net_inspector' | 'search_panel_height'>;
   pcb_display: {
     net_names_mode: 0 | 1 | 2 | 3;
     pad_numbers: boolean;
@@ -347,6 +354,16 @@ export interface PCB_EDIT_FRAME_HOOKS {
   clearSelection?(): void;
   /** `PCB_ACTIONS::zoneFillAll`. */
   fillAllZones?(): void;
+  /**
+   * `PCB_SELECTION_TOOL::GetSelection()` on the live model (the design block
+   * commands read it). Optional: a frame with no selection tool has none.
+   */
+  currentSelection?(): readonly EDA_ITEM[];
+  /**
+   * `ACTIONS::selectionClear` then `ACTIONS::selectItem( aGroup )`, after a
+   * saved selection was grouped as its design block.
+   */
+  selectGroup?(aGroup: PCB_GROUP): void;
 }
 
 export interface PCB_EDIT_FRAME
@@ -355,7 +372,8 @@ export interface PCB_EDIT_FRAME
     FILES_MIXIN,
     EDIT_ZONE_HELPERS_MIXIN,
     PCBNEW_CONFIG_MIXIN,
-    LOAD_SELECT_FOOTPRINT_MIXIN {}
+    LOAD_SELECT_FOOTPRINT_MIXIN,
+    PCB_DESIGN_BLOCK_UTILS_MIXIN {}
 
 // biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (INITPCB_MIXIN mixin, see libs/core/mixins.ts)
 export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
@@ -396,6 +414,28 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
       screen.m_Route_Layer_TOP = pair.GetLayerA();
       screen.m_Route_Layer_BOTTOM = pair.GetLayerB();
     });
+  }
+
+  /// `m_designBlocksPane`: the Design Blocks dock, set by the window that docks it.
+  m_designBlocksPane: PCB_DESIGN_BLOCK_PANE | null = null;
+
+  /** `GetDesignBlockPane()`. */
+  GetDesignBlockPane(): PCB_DESIGN_BLOCK_PANE | null {
+    return this.m_designBlocksPane;
+  }
+
+  /** `GetCurrentSelection()`: the selection tool's selection. */
+  override GetCurrentSelection(): SELECTION {
+    const selection = new SELECTION();
+
+    for (const item of this.hooks.currentSelection?.() ?? []) selection.Add(item);
+
+    return selection;
+  }
+
+  /** What `SaveSelectionAsDesignBlock` does with the group it made: select it. */
+  OnDesignBlockGrouped(aGroup: PCB_GROUP): void {
+    this.hooks.selectGroup?.(aGroup);
   }
 
   /**
@@ -1009,6 +1049,7 @@ applyMixins(PCB_EDIT_FRAME, [
   EDIT_ZONE_HELPERS_MIXIN,
   PCBNEW_CONFIG_MIXIN,
   LOAD_SELECT_FOOTPRINT_MIXIN,
+  PCB_DESIGN_BLOCK_UTILS_MIXIN,
 ]);
 
 /**
@@ -1390,6 +1431,16 @@ export function pcbTogglesFromSettings(cfg: PcbnewSettings): Set<string> {
   for (const id of ['crosshairSmall', 'crosshairFull', 'crosshair45']) out.delete(id);
   out.add(crosshairToggleId(cfg.window.cursor.crosshair));
 
+  // `PCB_EDIT_FRAME::LoadSettings` (`pcb_edit_frame.cpp:1739-1740`):
+  // `m_ShowSearch = cfg->m_AuiPanels.show_search` and
+  // `m_ShowNetInspector = cfg->m_AuiPanels.show_net_inspector`, which the
+  // constructor's `.Show( m_ShowSearch )` / `.Show( m_ShowNetInspector )`
+  // (:419-420) then applies. Data: neither is in DEFAULT_TOGGLES because both
+  // default to false in `AUI_PANELS`.
+  for (const id of ['showSearch', 'showNetInspector']) out.delete(id);
+  if (cfg.aui.show_search) out.add('showSearch');
+  if (cfg.aui.show_net_inspector) out.add('showNetInspector');
+
   // `curvedRatsnestCond` reads `m_Display.m_DisplayRatsnestLinesCurved`
   // (`pcbnew/pcb_edit_frame.cpp:1150-1155`), which Preferences > PCB Editor >
   // Editing Options is the other control over.
@@ -1472,6 +1523,19 @@ export function foldPcbToggle(cfg: PcbnewSettings, id: string): boolean {
     return true;
   }
 
+  // `PCB_EDIT_FRAME::ToggleSearch` / `ToggleNetInspector`
+  // (`toolbars_pcb_editor.cpp:774-850`) and `SaveSettings` (`pcb_edit_frame.cpp:
+  // 1765-1776`), which writes the pane's shown state to `m_AuiPanels`.
+  if (id === 'showSearch') {
+    cfg.aui.show_search = !cfg.aui.show_search;
+    return true;
+  }
+
+  if (id === 'showNetInspector') {
+    cfg.aui.show_net_inspector = !cfg.aui.show_net_inspector;
+    return true;
+  }
+
   return false;
 }
 
@@ -1482,6 +1546,8 @@ export function isStoredPcbToggle(id: string): boolean {
     lineModeOf(id) !== null ||
     id === 'toggleGrid' ||
     id === 'ratsnestLineMode' ||
-    id === 'togglePolarCoords'
+    id === 'togglePolarCoords' ||
+    id === 'showSearch' ||
+    id === 'showNetInspector'
   );
 }

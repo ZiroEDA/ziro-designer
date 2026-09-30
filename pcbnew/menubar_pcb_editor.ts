@@ -154,7 +154,13 @@ export function buildPcbMenus(
             // Place toolbar button arms; from the menu it opens straight into
             // the dialog with no drawing tool to cancel out of first.
             { label: 'Graphics...', action: () => h.action('importGraphics') },
-            { label: 'Non-KiCad Board File...', disabled: dis },
+            // `PCB_ACTIONS::openNonKicadBoard`, added with no label override: the
+            // row reads the action's friendly name.
+            {
+              label: 'Import Non-KiCad Board File...',
+              icon: 'import_brd_file',
+              action: () => h.action('openNonKicadBoard'),
+            },
           ],
         },
         {
@@ -367,15 +373,25 @@ export function buildPcbMenus(
               checked: !!checks.showProperties,
               action: () => h.toggle('showProperties'),
             },
-            // `PCB_ACTIONS::showSearch` — the docked search pane, Ctrl+G. No
-            // pane here yet; Find is a dialog.
-            { label: 'Search', disabled: dis },
+            // `PCB_ACTIONS::showSearch` (ACTIONS::showSearch, Ctrl+G), a CHECK row on
+            // `searchPaneCond`: the docked PCB_SEARCH_PANE. Find is the dialog.
+            {
+              label: 'Search',
+              checked: !!checks.showSearch,
+              action: () => h.toggle('showSearch'),
+              shortcut: 'Ctrl+G',
+            },
             {
               label: 'Appearance',
               checked: !!checks.showLayersManager,
               action: () => h.toggle('showLayersManager'),
             },
-            { label: 'Net Inspector', disabled: dis },
+            // `PCB_ACTIONS::showNetInspector`, CHECK on `netInspectorCond`.
+            {
+              label: 'Net Inspector',
+              checked: !!checks.showNetInspector,
+              action: () => h.toggle('showNetInspector'),
+            },
           ],
         },
         { sep: true },

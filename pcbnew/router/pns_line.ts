@@ -106,7 +106,7 @@ import {
   shapeArcCenter,
 } from '@ziroeda/kimath/src/geometry/shape_arc.js';
 import { ARC_HIGH_DEF } from '../graphics_cleaner.js';
-import type { Shape } from '../drc/drc_geometry.js';
+import type { Shape } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 import type { PnsVia } from './pns_via.js';
 import { circleNearestPoint, constructFromTanTanPt } from '@ziroeda/kimath/src/geometry/circle.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';

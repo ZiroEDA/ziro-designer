@@ -36,20 +36,19 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   makeCollisionSearchContext,
   ObstacleSet,
-  setRouterIface,
-  setShapeCollider,
   type CollisionNode,
   type KeepoutResult,
-  type NetHandle,
   type PnsConstraint,
   type PnsRuleResolver,
-} from '@ziroeda/pcbnew/router/pns_collision.js';
+} from '@ziroeda/pcbnew/router/pns_node.js';
+import { setRouterIface, type NetHandle } from '@ziroeda/pcbnew/router/pns_item.js';
+import { setShapeCollider } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 import { PnsItem, PnsKind, type PnsLineLike } from '@ziroeda/pcbnew/router/pns_item.js';
 import { PnsLayerRange } from '@ziroeda/pcbnew/router/pns_layerset.js';
 import { PnsHole } from '@ziroeda/pcbnew/router/pns_hole.js';
 import { PnsSegment } from '@ziroeda/pcbnew/router/pns_segment.js';
 import { PnsVia } from '@ziroeda/pcbnew/router/pns_via.js';
-import type { Shape } from '@ziroeda/pcbnew/drc/drc_geometry.js';
+import type { Shape } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 // ----- stubs -------------------------------------------------------------------

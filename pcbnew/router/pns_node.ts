@@ -74,36 +74,281 @@
  * `doAddVia`, `doAddArc`, `doAddHole`, and the private kind dispatcher `add` is
  * `addItem`. Everything else keeps upstream's name.
  */
-import {
-  getShapeCollider,
-  makeCollisionSearchContext,
-  ObstacleSet,
-  resolveCollisionSearchOptions,
-} from './pns_collision.js';
+import { getShapeCollider } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
+import type { MinOptMax } from '../drc/drc_rule_view.js';
 import { hullIntersection } from './pns_utils.js';
 import { itemHull } from './pns_utils.js';
 import { PnsIndex, type IndexVisitor } from './pns_index.js';
 import { PnsJoint, type JointTag } from './pns_joint.js';
 import { PnsItemSet } from './pns_itemset.js';
-import { LineMarker, PnsKind, type PnsBoardItem, type PnsItem } from './pns_item.js';
+import {
+  LineMarker,
+  PnsKind,
+  type NetHandle,
+  type PnsBoardItem,
+  type PnsItem,
+} from './pns_item.js';
 import { PnsLayerRange } from './pns_layerset.js';
 import { PNS_HULL_MARGIN, PnsLine } from './pns_line.js';
 import { PnsArc, reversedArc } from './pns_arc.js';
 import { PnsSegment } from './pns_segment.js';
 import { PnsVVia } from './pns_via.js';
-import type {
-  CollisionNode,
-  CollisionSearchContext,
-  CollisionSearchOptions,
-  NetHandle,
-  Obstacle,
-  PnsRuleResolver,
-} from './pns_collision.js';
 import type { PnsLinkedItem } from './pns_item.js';
 import type { PnsSolid } from './pns_solid.js';
 import type { PnsVia, ViaHandle } from './pns_via.js';
-import type { Shape } from '../drc/drc_geometry.js';
+import type { Shape } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+
+// ----- design rules ------------------------------------------------------------
+
+/** `CONSTRAINT_TYPE`. */
+export enum PnsConstraintType {
+  CT_CLEARANCE = 1,
+  CT_DIFF_PAIR_GAP = 2,
+  CT_LENGTH = 3,
+  CT_WIDTH = 4,
+  CT_VIA_DIAMETER = 5,
+  CT_VIA_HOLE = 6,
+  CT_HOLE_CLEARANCE = 7,
+  CT_EDGE_CLEARANCE = 8,
+  CT_HOLE_TO_HOLE = 9,
+  CT_DIFF_PAIR_SKEW = 10,
+  CT_MAX_UNCOUPLED = 11,
+  CT_PHYSICAL_CLEARANCE = 12,
+  CT_PHYSICAL_HOLE_CLEARANCE = 13,
+}
+
+/** `CONSTRAINT`. */
+export interface PnsConstraint {
+  type: PnsConstraintType;
+  value: MinOptMax;
+  allowed: boolean;
+  ruleName: string;
+  fromName: string;
+  toName: string;
+  isTimeDomain: boolean;
+}
+
+/** `RULE_RESOLVER::IsKeepout`'s two results: upstream returns one and writes the other. */
+export interface KeepoutResult {
+  keepout: boolean;
+  /** Whether the keepout's rules actually exclude the item under test. */
+  enforce: boolean;
+}
+
+/** `RULE_RESOLVER::DpNetPair`'s out-parameters; null when upstream returns false. */
+export interface DpNetPair {
+  netP: NetHandle;
+  netN: NetHandle;
+}
+
+/**
+ * `RULE_RESOLVER`: the design-rule oracle. The optional members are the ones
+ * upstream gives a body to in the header — their absence here means exactly
+ * upstream's default, which is why every read of them goes through `?? …`.
+ *
+ * `HullCache` is not here: it defaults to `ITEM::Hull`, and hulls are a
+ * separate, already-existing module in this repo (`pns_hull.ts`) rather than an
+ * item virtual. See the note in `pns_item.ts`.
+ */
+export interface PnsRuleResolver {
+  clearance(a: PnsItem, b: PnsItem, useClearanceEpsilon?: boolean): number;
+  /** Default false. When true, physical rules run even between same-net items. */
+  hasUserDefinedPhysicalConstraint?(): boolean;
+
+  dpCoupledNet(net: NetHandle): NetHandle;
+  dpNetPolarity(net: NetHandle): number;
+  dpNetPair(item: PnsItem): DpNetPair | null;
+
+  netCode(net: NetHandle): number;
+  netName(net: NetHandle): string;
+
+  isInNetTie(a: PnsItem): boolean;
+  isNetTieExclusion(item: PnsItem, collisionPos: Vec2, collidingItem: PnsItem): boolean;
+
+  isDrilledHole(item: PnsItem): boolean;
+  isNonPlatedSlot(item: PnsItem): boolean;
+
+  isKeepout(obstacle: PnsItem, item: PnsItem): KeepoutResult;
+
+  queryConstraint(
+    type: PnsConstraintType,
+    itemA: PnsItem,
+    itemB: PnsItem,
+    layer: number,
+  ): PnsConstraint | null;
+
+  clearCacheForItems?(items: PnsItem[]): void;
+  clearCaches?(): void;
+  clearTemporaryCaches?(): void;
+  /** Default 0. */
+  clearanceEpsilon?(): number;
+
+  /**
+   * `HullCache`: the obstacle's hull, grown by a clearance, memoised.
+   *
+   * Added by the collision-querying change. The docblock above says this was
+   * left out because `Hull` is not an item virtual in this port and the only
+   * consumer, `NODE::NearestObstacle`, had not landed — that consumer is now
+   * here, and the dispatch lives in `pns_item_hull.ts`.
+   *
+   * It stays **optional**, and that is not laziness. Upstream gives it a body
+   * in the header (`pns_node.h:176-182`) — an uncached `aItem->Hull(...)` — so
+   * a resolver that does not implement it is a legal resolver, and the caller
+   * must fall back rather than fail. What the caller must *not* do is invent a
+   * fallback for a **missing resolver**: `NearestObstacle` dereferences
+   * `ruleResolver` unguarded (`pns_node.cpp:335`) and crashes, even though
+   * `GetClearance` two lines earlier tolerates a null one.
+   */
+  hullCache?(
+    item: PnsItem,
+    clearance: number,
+    walkaroundThickness: number,
+    layer: number,
+  ): readonly Vec2[];
+}
+
+// ----- obstacles ---------------------------------------------------------------
+
+/** `OBSTACLE`: something in the way, plus what was learned while finding it. */
+export interface Obstacle {
+  /** Line we search collisions against. */
+  head: PnsItem | null;
+  /** Item found to be colliding with {@link head}. */
+  item: PnsItem | null;
+  /** First intersection between head and the obstacle's hull. */
+  ipFirst: Vec2;
+  clearance: number;
+  pos: Vec2;
+  /** ... and the distance thereof. */
+  distFirst: number;
+  /** Worst case (largest) width of the tracks connected to the item. */
+  maxFanoutWidth: number;
+}
+
+/**
+ * `std::set<OBSTACLE>`: a set keyed on the `(head, item)` pair, so the same
+ * collision reported twice — once per layer of a multilayer item, say — counts
+ * once.
+ *
+ * Upstream's ordering is `operator<` on the two raw pointers, i.e. heap
+ * addresses. That is not a semantic order, it is whatever the allocator did,
+ * and it cannot be reproduced in a garbage-collected language. Insertion order
+ * is used instead. This is observable in exactly one place — `NODE`'s
+ * `CheckColliding` returns `*obstacles.begin()` when several were found — so a
+ * future NODE port gets *a* colliding obstacle, deterministically, rather than
+ * the same one a given C++ build happened to pick.
+ */
+export class ObstacleSet {
+  private readonly byHead = new Map<PnsItem | null, Set<PnsItem | null>>();
+  private readonly order: Obstacle[] = [];
+
+  /** `std::set::insert`: a no-op if an obstacle with this `(head, item)` is present. */
+  insert(aObstacle: Obstacle): boolean {
+    let items = this.byHead.get(aObstacle.head);
+
+    if (!items) {
+      items = new Set();
+      this.byHead.set(aObstacle.head, items);
+    }
+
+    if (items.has(aObstacle.item)) return false;
+
+    items.add(aObstacle.item);
+    this.order.push(aObstacle);
+    return true;
+  }
+
+  size(): number {
+    return this.order.length;
+  }
+
+  empty(): boolean {
+    return this.order.length === 0;
+  }
+
+  /** `*begin()` — undefined on an empty set upstream, null here. */
+  first(): Obstacle | null {
+    return this.order[0] ?? null;
+  }
+
+  items(): readonly Obstacle[] {
+    return this.order;
+  }
+
+  [Symbol.iterator](): Iterator<Obstacle> {
+    return this.order[Symbol.iterator]();
+  }
+}
+
+/** `COLLISION_SEARCH_OPTIONS`, with upstream's defaults. */
+export interface CollisionSearchOptions {
+  /** Default true: items on the same net do not collide. */
+  differentNetsOnly?: boolean;
+  /** Default -1, meaning "ask the rule resolver". */
+  overrideClearance?: number;
+  /** Default -1, meaning unlimited. */
+  limitCount?: number;
+  /** Default -1, all kinds. */
+  kindMask?: number;
+  /** Default true. */
+  useClearanceEpsilon?: boolean;
+  filter?: ((item: PnsItem) => boolean) | null;
+  /** Default -1. */
+  layer?: number;
+}
+
+/** Every field of {@link CollisionSearchOptions}, defaults filled in. */
+export interface ResolvedCollisionSearchOptions {
+  differentNetsOnly: boolean;
+  overrideClearance: number;
+  limitCount: number;
+  kindMask: number;
+  useClearanceEpsilon: boolean;
+  filter: ((item: PnsItem) => boolean) | null;
+  layer: number;
+}
+
+/** Apply the header's default member initialisers. */
+export function resolveCollisionSearchOptions(
+  aOpts?: CollisionSearchOptions | null,
+): ResolvedCollisionSearchOptions {
+  return {
+    differentNetsOnly: aOpts?.differentNetsOnly ?? true,
+    overrideClearance: aOpts?.overrideClearance ?? -1,
+    limitCount: aOpts?.limitCount ?? -1,
+    kindMask: aOpts?.kindMask ?? -1,
+    useClearanceEpsilon: aOpts?.useClearanceEpsilon ?? true,
+    filter: aOpts?.filter ?? null,
+    layer: aOpts?.layer ?? -1,
+  };
+}
+
+/** `COLLISION_SEARCH_CONTEXT`: the set being filled, and the options it is filled under. */
+export interface CollisionSearchContext {
+  obstacles: ObstacleSet;
+  options: ResolvedCollisionSearchOptions;
+}
+
+/** Build a context the way upstream's constructor does. */
+export function makeCollisionSearchContext(
+  aObstacles: ObstacleSet,
+  aOpts?: CollisionSearchOptions | null,
+): CollisionSearchContext {
+  return { obstacles: aObstacles, options: resolveCollisionSearchOptions(aOpts) };
+}
+
+// ----- the node surface collision needs ----------------------------------------
+
+/**
+ * Exactly the three members `ITEM::collideSimple` calls on the `NODE` it is
+ * given. `PNS::NODE` will satisfy this without changes.
+ */
+export interface CollisionNode {
+  getRuleResolver(): PnsRuleResolver | null;
+  getClearance(a: PnsItem, b: PnsItem, useClearanceEpsilon?: boolean): number;
+  queryEdgeExclusions(pos: Vec2): boolean;
+}
 
 /** `BOX2I`, to the extent `QueryJoints` needs one. `Contains` is inclusive. */
 export interface PnsBox {
@@ -172,7 +417,7 @@ let routerCornerMode: PnsCornerMode = PnsCornerMode.MITERED_45;
  * `ROUTER::GetInstance()->Settings().GetCornerMode()`.
  *
  * Another process-wide singleton, and modelled as one for the same reason the
- * router interface is (see `pns_collision.ts`): faking it as a parameter would
+ * router interface is (see `getRouterIface` in `pns_item.ts`): faking it as a parameter would
  * change which call sites can reach it. `MITERED_45` is
  * `PNS_SETTINGS`' default.
  */

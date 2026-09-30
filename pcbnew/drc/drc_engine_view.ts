@@ -24,7 +24,7 @@ import type {
   PcbVia,
   PcbZone,
 } from '../types.js';
-import type { Shape } from './drc_geometry.js';
+import type { Shape } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 import type { DrcDisallow, DrcRule } from './drc_rule_view.js';
 import { isSolidFill } from '../shape_fill.js';
 

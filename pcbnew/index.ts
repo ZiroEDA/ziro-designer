@@ -394,7 +394,7 @@ export {
   DrcExprError,
   type DrcExpr,
   type DrcExprContext,
-} from './drc/drc_expr.js';
+} from './pcbexpr_evaluator.js';
 export {
   buildDrcRuleEngine,
   evalDrcRules,
@@ -526,7 +526,7 @@ export {
   type InspectItem,
   type InspectPage,
   type InspectSection,
-} from './drc/drc_inspect.js';
+} from './tools/board_inspection_tool.js';
 
 export {
   ARROW_ANGLE_DEG,
@@ -999,31 +999,35 @@ export {
 export { PnsLayerRange } from './router/pns_layerset.js';
 
 export {
-  defaultShapeCollider,
-  getRouterIface,
-  getShapeCollider,
-  hasNet,
   makeCollisionSearchContext,
-  NO_NET,
   ObstacleSet,
   PnsConstraintType,
   resolveCollisionSearchOptions,
-  setRouterIface,
-  setShapeCollider,
   type CollisionNode,
   type CollisionSearchContext,
   type CollisionSearchOptions,
   type DpNetPair,
   type KeepoutResult,
-  type NetHandle,
   type Obstacle,
   type PnsConstraint,
-  type PnsRouterIface,
   type PnsRuleResolver,
   type ResolvedCollisionSearchOptions,
+} from './router/pns_node.js';
+export {
+  getRouterIface,
+  hasNet,
+  NO_NET,
+  setRouterIface,
+  type NetHandle,
+} from './router/pns_item.js';
+export { type PnsRouterIface } from './router/pns_router.js';
+export {
+  defaultShapeCollider,
+  getShapeCollider,
+  setShapeCollider,
   type ShapeCollider,
   type ShapeCollision,
-} from './router/pns_collision.js';
+} from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 
 export {
   LineMarker,
@@ -1060,7 +1064,7 @@ export {
   type ViaHandle,
 } from './router/pns_via.js';
 
-export { moveShape } from './drc/drc_geometry.js';
+export { moveShape } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 
 export {
   PnsLine,
@@ -1112,12 +1116,12 @@ export {
   type CollideCircle,
   type CollideSegment,
   type ShapeCollisionResult,
-} from './drc/shape_collisions.js';
+} from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 
 export {
   installLocatingShapeCollider,
   locatingShapeCollider,
-} from './router/pns_collision.js';
+} from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 
 export { rescale64 } from '@ziroeda/kimath/src/math/util.js';
 export {
@@ -1506,13 +1510,6 @@ export {
   type PnsRouterDeps,
   type PnsRouterSizes,
 } from './router/pns_router.js';
-// `PnsRouterIface` is deliberately NOT re-exported here. `pns_collision.js`
-// already exports a type of that name — the one-member slice
-// (`isFlashedOnLayer`) the item model reaches through the router singleton —
-// and it is re-exported above. The full `ROUTER_IFACE` extends that slice, so
-// the two are compatible, but two modules exporting rival names through this
-// file is exactly the conflict that costs a merge. Import it from
-// `router/pns_router.js` directly.
 
 // `PNS::TOOL_BASE`, the three methods of it that are routing decisions rather
 // than wxWidgets event plumbing. `snapToItem` asks the real `PCB_GRID_HELPER`
@@ -1554,11 +1551,7 @@ export {
 // above, from the routing-settings block this port builds on.
 export { PnsSizesSettings, type PnsViaTypeSetting } from './router/pns_sizes_settings.js';
 // `ChainIntersection` is already exported above, from the `pns_line.js` block.
-// The board bridge — `PNS_KICAD_IFACE` over this repo's `Board`. `PnsRouterIface`
-// itself is *not* re-exported: `pns_collision.ts` already exports a type of that
-// name (the one-member `isFlashedOnLayer` slice), and the full interface is
-// imported from `./router/pns_router.js` directly for the same reason
-// `DpPlacerHost` is.
+// The board bridge — `PNS_KICAD_IFACE` over this repo's `Board`.
 export {
   PNS_KICAD_IFACE,
   PNS_ORPHANED_NET,

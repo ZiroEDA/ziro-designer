@@ -1,15 +1,15 @@
 # pcbnew file-structure divergence from KiCad 10.0.5
 
-Generated 2026-09-29 against `/home/akshay/kicad-reference/pcbnew`. Regenerate with `qa/probes/struct_diff.sh`.
+Generated 2026-09-30 against `/home/akshay/kicad-reference/pcbnew`. Regenerate with `qa/probes/struct_diff.sh`.
 
 | status | count | meaning |
 |---|---:|---|
-| SAME | 270 | same relative path and name as KiCad's `.cpp` |
+| SAME | 277 | same relative path and name as KiCad's `.cpp` |
 | MOVED | 0 | KiCad has this name, in a different directory |
 | DIALOG | 1 | KiCad has it as `dialogs/dialog_<name>.cpp` |
-| HEADER | 13 | KiCad declares it in a `.h` with no matching `.cpp` |
+| HEADER | 14 | KiCad declares it in a `.h` with no matching `.cpp` |
 | ELSEWHERE | 3 | KiCad puts it outside `pcbnew/` |
-| OURS | 86 | no KiCad file of this name anywhere |
+| OURS | 72 | no KiCad file of this name anywhere |
 
 ## MOVED
 
@@ -39,6 +39,7 @@ Generated 2026-09-29 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 | `drc/drc_rtree.ts` | `drc/drc_rtree.h` |
 | `netinfo.ts` | `netinfo.h` |
 | `pcb_layer_presentation.ts` | `pcb_layer_presentation.h` |
+| `pcb_text_help_md.ts` | `pcb_text_help_md.h` |
 | `pcb_track_types.ts` | `pcb_track_types.h` |
 | `router/pns_drag_algo.ts` | `router/pns_drag_algo.h` |
 | `router/pns_joint.ts` | `router/pns_joint.h` |
@@ -107,21 +108,11 @@ Generated 2026-09-29 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 | `pcb_io/kicad_sexpr/board_view_commit.ts` | `-` |
 | `pcb_io/kicad_sexpr/board_view.ts` | `-` |
 | `pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_items.ts` | `-` |
-| `pcb_text_help.ts` | `-` |
 | `pcbTheme.ts` | `-` |
 | `pcb_unit_binder.ts` | `-` |
 | `place_image.ts` | `-` |
 | `renderBoard.ts` | `-` |
-| `router/pns_chain.ts` | `-` |
 | `router/pns_collision.ts` | `-` |
-| `router/pns_drag.ts` | `-` |
-| `router/pns_item_hull.ts` | `-` |
-| `router/pns_obstacles.ts` | `-` |
-| `router/pns_rule_resolver.ts` | `-` |
-| `router/pns_seg_ops.ts` | `-` |
-| `router/pns_session.ts` | `-` |
-| `router/pns_shape_collider.ts` | `-` |
-| `router/shape_arc_ops.ts` | `-` |
 | `shape_fill.ts` | `-` |
 | `table_geometry.ts` | `-` |
 | `textbox_geometry.ts` | `-` |
@@ -131,17 +122,13 @@ Generated 2026-09-29 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 | `transform_shape_to_polygon.ts` | `-` |
 | `types.ts` | `-` |
 | `via_layers.ts` | `-` |
-| `widgets/appearance_layers.ts` | `-` |
-| `widgets/appearance_nets.ts` | `-` |
-| `widgets/appearance_objects.ts` | `-` |
-| `widgets/appearance_presets.ts` | `-` |
-| `widgets/footprint_history.ts` | `-` |
+| `widgets/pcb_pane_wiring.ts` | `-` |
 | `zone_connection.ts` | `-` |
 | `zone_islands.ts` | `-` |
 
 ## SAME
 
-<details><summary>270 files already at KiCad's own path</summary>
+<details><summary>277 files already at KiCad's own path</summary>
 
 - `array_pad_number_provider.ts`
 - `autorouter/ar_autoplacer.ts`
@@ -378,6 +365,9 @@ Generated 2026-09-29 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 - `router/router_status_view_item.ts`
 - `router/router_tool.ts`
 - `router/time_limit.ts`
+- `specctra_import_export/specctra_export.ts`
+- `specctra_import_export/specctra_import.ts`
+- `specctra_import_export/specctra.ts`
 - `teardrop/teardrop_parameters.ts`
 - `teardrop/teardrop.ts`
 - `teardrop/teardrop_utils.ts`
@@ -406,9 +396,13 @@ Generated 2026-09-29 against `/home/akshay/kicad-reference/pcbnew`. Regenerate w
 - `undo_redo.ts`
 - `widgets/pcb_net_inspector_panel.ts`
 - `widgets/pcb_properties_panel.ts`
+- `widgets/search_handlers.ts`
 - `zone_filler.ts`
 - `zone_manager/board_edges_bounding_item.ts`
+- `zone_manager/dialog_zone_manager.ts`
 - `zone_manager/model_zones_overview.ts`
+- `zone_manager/zone_preview_canvas.ts`
+- `zone_manager/zone_preview_notebook.ts`
 - `zone_settings_bag.ts`
 - `zone_settings.ts`
 - `zone.ts`

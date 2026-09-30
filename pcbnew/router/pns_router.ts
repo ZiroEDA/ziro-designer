@@ -52,23 +52,18 @@
  */
 
 import { CornerMode } from '@ziroeda/kimath/src/geometry/direction45.js';
-import { ObstacleSet } from './pns_collision.js';
 import { PnsItemSet } from './pns_itemset.js';
 import { PnsKind, LineMarker } from './pns_item.js';
 import { PnsLayerRange } from './pns_layerset.js';
 import { PnsLine, PnsLineChain } from './pns_line.js';
-import { PnsNode } from './pns_node.js';
+import { ObstacleSet, PnsNode } from './pns_node.js';
 import { PnsSegment } from './pns_segment.js';
 import { findDpPrimitivePair, type DpPlacerSizes } from './pns_diff_pair_placer.js';
 import { PnsDragMode, type PnsDragAlgo } from './pns_drag_algo.js';
 import { PnsTopology } from './pns_topology.js';
 import type { MeanderRouterIface } from './pns_meander_placer_base.js';
-import type {
-  NetHandle,
-  PnsRouterIface as PnsCollisionRouterIface,
-  PnsRuleResolver,
-} from './pns_collision.js';
-import type { PnsItem } from './pns_item.js';
+import type { NetHandle, PnsItem } from './pns_item.js';
+import type { PnsRuleResolver } from './pns_node.js';
 import type { RoutingSettings } from './pns_routing_settings.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { PnsLogger, PnsLoggerEventType } from './pns_logger.js';
@@ -217,19 +212,11 @@ export const DEFAULT_ROUTER_SIZES: PnsRouterSizes = {
  *   no arithmetic and is not ported.
  * - {@link startPointUnroutableReason} has no C++ counterpart; see its doc.
  *
- * It also extends `pns_collision.ts`'s `PnsRouterIface`, which is the one
- * member (`isFlashedOnLayer`) the item model reaches through the router
- * singleton. That module declared the slice first and `setRouterIface` takes
- * it, so extending rather than restating means a full interface can be
- * installed as the singleton with no adapter — and there is one
- * `isFlashedOnLayer` signature in the tree, not two.
- *
- * Because the two share a name, `pcbnew/index.ts` re-exports only the
- * collision slice; import the full interface from
- * `./router/pns_router.js` directly. Same call, same reason, as
- * `pns_diff_pair_placer.ts`'s `DpPlacerHost`.
+ * `isFlashedOnLayer` is the one member the item model reaches through the
+ * router singleton (`getRouterIface` / `setRouterIface`, in `pns_item.ts`,
+ * typed as `Pick<PnsRouterIface, 'isFlashedOnLayer'>`).
  */
-export interface PnsRouterIface extends MeanderRouterIface, PnsCollisionRouterIface {
+export interface PnsRouterIface extends MeanderRouterIface {
   /** `SyncWorld( NODE* )`: fill a fresh, bulk-add-open node from the board. */
   syncWorld(aNode: PnsNode): void;
 
@@ -252,9 +239,13 @@ export interface PnsRouterIface extends MeanderRouterIface, PnsCollisionRouterIf
   /** `IsItemVisible( const ITEM* )`. */
   isItemVisible(aItem: PnsItem): boolean;
 
-  // `isFlashedOnLayer` — both `IsFlashedOnLayer` overloads (pns_router.h:103-104)
-  // — is inherited from `PnsCollisionRouterIface`, which already declares it
-  // with this exact signature.
+  /**
+   * Both `IsFlashedOnLayer` overloads (pns_router.h:103-104). Whether the item
+   * actually has copper on the given layer(s) — a through-hole pad with
+   * "remove unused layers" set is present but unflashed on the inner ones, and
+   * must not collide there.
+   */
+  isFlashedOnLayer(aItem: PnsItem, aLayers: PnsLayerRange | number): boolean;
 
   /** `IsPNSCopperLayer( int )`. */
   isPnsCopperLayer(aPnsLayer: number): boolean;

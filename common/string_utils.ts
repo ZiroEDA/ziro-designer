@@ -1143,3 +1143,76 @@ export function LinkifyHTML(aStr: string): string {
     (m) => `<a href="${m}" target="_blank" rel="noreferrer">${m}</a>`,
   );
 }
+
+/** `illegalFileNameChars` (string_utils.cpp:55). */
+const illegalFileNameChars = '\\/:"<>|*?';
+
+/**
+ * `ReplaceIllegalFileNameChars( std::string& aName, int aReplaceChar )`
+ * (string_utils.cpp:1329): each character that cannot be in a file name
+ * becomes `aReplaceChar`, or `%xx` when that is 0. Returns the new name.
+ */
+export function ReplaceIllegalFileNameChars(aName: string, aReplaceChar = ''): string {
+  let result = '';
+
+  for (const c of aName) {
+    if (illegalFileNameChars.includes(c)) {
+      if (aReplaceChar) result += aReplaceChar;
+      else result += `%${c.charCodeAt(0).toString(16).padStart(2, '0')}`;
+    } else {
+      result += c;
+    }
+  }
+
+  return result;
+}
+
+/**
+ * `UnescapeHTML( aString )` (string_utils.cpp:599): numeric references and
+ * the five named ones; `&#0;` (or an unparsable one) is dropped.
+ */
+export function UnescapeHTML(aString: string): string {
+  // Construct regex: the named keys in std::map order
+  const regex = /&(#(\d*)|#x([a-zA-Z0-9]{4})|amp|apos|gt|lt|quot);/;
+  const c_replacements: Record<string, string> = {
+    quot: '"',
+    apos: "'",
+    amp: '&',
+    lt: '<',
+    gt: '>',
+  };
+
+  let result = '';
+  let str = aString;
+
+  for (let m = regex.exec(str); m; m = regex.exec(str)) {
+    result += str.slice(0, m.index);
+
+    const code = m[1] ?? '';
+    const codeDec = m[2] ?? '';
+    const codeHex = m[3] ?? '';
+
+    if (codeDec !== '' || codeHex !== '') {
+      let codeVal = 0;
+
+      if (codeDec !== '') codeVal = /^\d+$/.test(codeDec) ? Number.parseInt(codeDec, 10) : 0;
+      else if (codeHex !== '')
+        codeVal = /^[0-9a-fA-F]+$/.test(codeHex) ? Number.parseInt(codeHex, 16) : 0;
+
+      if (codeVal !== 0 && codeVal <= 0x10ffff) result += String.fromCodePoint(codeVal);
+    } else if (c_replacements[code] !== undefined) {
+      result += c_replacements[code];
+    }
+
+    str = str.slice(m.index + m[0].length);
+  }
+
+  result += str;
+
+  return result;
+}
+
+/** `RemoveHTMLTags( aInput )` (string_utils.cpp:665): every `<...>` removed. */
+export function RemoveHTMLTags(aInput: string): string {
+  return aInput.replace(/<[^>]*>/g, '');
+}

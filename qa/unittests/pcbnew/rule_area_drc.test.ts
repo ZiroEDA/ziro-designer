@@ -2,7 +2,7 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * Rule areas as DRC rules, and the area predicates a condition can ask about.
+ * Rule areas as DRC rules, and the outline deflation the courtyard builder uses.
  *
  * Upstream turns every rule area into an implicit `disallow` rule conditioned
  * on `A.intersectsArea('<uuid>')` (`DRC_ENGINE::loadImplicitRules`), so a
@@ -10,13 +10,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
-import {
-  areaOutline,
-  areasMatching,
-  deflatePolygon,
-  shapesEnclosedByArea,
-  shapesIntersectArea,
-} from '@ziroeda/pcbnew/drc/drc_areas.js';
+import { deflatePolygon } from '@ziroeda/pcbnew/courtyard.js';
 import { ruleAreaRules } from '@ziroeda/pcbnew/drc/drc_engine_view.js';
 import type { Board, PcbTrack, PcbVia, PcbZone } from '@ziroeda/pcbnew/types.js';
 
@@ -111,56 +105,6 @@ describe('deflatePolygon', () => {
         MM(1),
       ),
     ).toHaveLength(2);
-  });
-});
-
-describe('areasMatching', () => {
-  const zones = [
-    ruleArea({ uuid: 'u1', name: 'HV_keepout' }),
-    ruleArea({ uuid: 'u2', name: 'HV_other' }),
-    ruleArea({ uuid: 'u3', name: 'LV' }),
-  ];
-
-  it('matches a uuid exactly', () => {
-    expect(areasMatching(zones, 'u2')).toHaveLength(1);
-  });
-
-  it('matches a name with wildcards, and may select several', () => {
-    expect(areasMatching(zones, 'HV_*')).toHaveLength(2);
-    expect(areasMatching(zones, 'LV')).toHaveLength(1);
-    expect(areasMatching(zones, 'nothing')).toHaveLength(0);
-  });
-});
-
-describe('the predicates', () => {
-  const outline = areaOutline(ruleArea())!;
-  const circleAt = (x: number, r: number) => [
-    { kind: 'circle' as const, c: { x: MM(x), y: MM(5) }, r: MM(r) },
-  ];
-
-  it('intersects when the item overlaps', () => {
-    expect(shapesIntersectArea(circleAt(15, 1), outline)).toBe(true);
-  });
-
-  it('does not intersect when the item is clear of it', () => {
-    expect(shapesIntersectArea(circleAt(5, 1), outline)).toBe(false);
-  });
-
-  it('intersects when the item merely straddles the border', () => {
-    expect(shapesIntersectArea(circleAt(9.5, 1), outline)).toBe(true);
-  });
-
-  it('encloses only when the whole item is inside', () => {
-    expect(shapesEnclosedByArea(circleAt(15, 1), outline)).toBe(true);
-    // Straddling the border is an intersection but not an enclosure.
-    expect(shapesEnclosedByArea(circleAt(9.5, 1), outline)).toBe(false);
-    expect(shapesEnclosedByArea(circleAt(5, 1), outline)).toBe(false);
-  });
-
-  it('reports nothing as enclosed by an area', () => {
-    // An item with no geometry (a footprint, whose courtyard we do not model)
-    // must not come back "enclosed" by default.
-    expect(shapesEnclosedByArea([], outline)).toBe(false);
   });
 });
 

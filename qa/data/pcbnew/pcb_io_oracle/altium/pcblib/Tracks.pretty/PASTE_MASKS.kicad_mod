@@ -1,0 +1,134 @@
+(footprint "PASTE_MASKS"
+	(version 20240108)
+	(generator "pcbnew")
+	(generator_version "8.0")
+	(layer "F.Cu")
+	(property "Reference" "REF**"
+		(at 0.891 -1.208 0)
+		(layer "F.SilkS")
+		(uuid "6266e858-0939-45a4-a0ae-744186d75473")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Value" "PASTE_MASKS"
+		(at 0.891 0.95 0)
+		(layer "F.Fab")
+		(uuid "57b107f7-6c3b-46bc-91c7-6dfa0edbbe78")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Footprint" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "ae5a474d-9a09-4ed4-b1a3-5af6d497442b")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Datasheet" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "3a968161-b24d-4124-ba99-062e05ff44a7")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Description" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "c8756e13-ea0b-4d7c-97dc-729c76107b41")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(fp_line
+		(start 0 0)
+		(end 0.635 0)
+		(stroke
+			(width 0.254)
+			(type solid)
+		)
+		(layer "F.Cu")
+		(uuid "68725e6d-a78d-46fa-b8fa-c6fc9ac19ec4")
+	)
+	(fp_line
+		(start 0.635 0)
+		(end 1.016 -0.381)
+		(stroke
+			(width 0.254)
+			(type solid)
+		)
+		(layer "F.Cu")
+		(uuid "f5734466-150c-40f9-b0f3-0d2fcad4a5cb")
+	)
+	(fp_line
+		(start 1.016 -0.381)
+		(end 1.524 -0.381)
+		(stroke
+			(width 0.254)
+			(type solid)
+		)
+		(layer "B.Cu")
+		(uuid "2df3e60b-b0b3-42b8-b53e-9ab9be6b4d32")
+	)
+	(fp_line
+		(start 1.524 -0.381)
+		(end 1.905 0)
+		(stroke
+			(width 0.254)
+			(type solid)
+		)
+		(layer "B.Cu")
+		(uuid "6f9f70b2-8f69-4003-84d6-4b5e637748d2")
+	)
+	(fp_line
+		(start 1.016 -0.381)
+		(end 1.524 -0.381)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(layer "B.Paste")
+		(uuid "bcc5a64a-8328-4fea-99a4-1e53539887aa")
+	)
+	(fp_line
+		(start 0 0)
+		(end 0.635 0)
+		(stroke
+			(width 0.3556)
+			(type solid)
+		)
+		(layer "F.Paste")
+		(uuid "87a29c84-77e8-4714-95d4-e53be2da6c86")
+	)
+	(fp_line
+		(start 0.635 0)
+		(end 1.016 -0.381)
+		(stroke
+			(width 0.254)
+			(type solid)
+		)
+		(layer "F.Paste")
+		(uuid "dd610261-7742-4e54-b06c-67d9daf907de")
+	)
+)

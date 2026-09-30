@@ -29,7 +29,7 @@ import {
   type DRC_JOB_REQUEST,
   type DRC_JOB_VIOLATION,
   drcJobPathShapes,
-} from '../drc/drc_job.js';
+} from '../browser/drc_job.js';
 import { DRC_ITEM, PCB_DRC_CODE } from '../drc/drc_item.js';
 import {
   CTL_ENUMERATE_LAYERS,

@@ -15,6 +15,8 @@ import { type ARC_EDIT_MODE, FRAME_T } from '@ziroeda/common/frame_type.js';
 import type { KIWAY } from '@ziroeda/common/kiway.js';
 import type { PCBNEW_APP } from './browser/pcbnew_app.js';
 import { jsonFileWildcard, reportFileWildcard } from '@ziroeda/common/wildcards_and_files_ext.js';
+import { type ChooserFilter, WxFileDialog } from '@ziroeda/common/wx/filedlg.js';
+import { KICTL_NONKICAD_ONLY } from '@ziroeda/common/kiway_player.js';
 import { DialogAssignNetclass } from '@ziroeda/common/dialogs/dialog_assign_netclass.js';
 import { connectedItemIdsOnNets } from './edit-board.js';
 import { EDA_VIEW_SWITCHER } from '@ziroeda/common/dialogs/eda_view_switcher.js';
@@ -119,6 +121,7 @@ import {
   useState,
   type CSSProperties,
   type JSX,
+  type ReactNode,
 } from 'react';
 import { parse } from '@ziroeda/sexpr';
 import {
@@ -310,6 +313,188 @@ function liveSelection(aBoard: Board, aIds: Iterable<string>): PCB_SELECTION {
   }
   return selection;
 }
+// Transitional (#636 stage 3): the bridge between the live BOARD and the legacy id selection;
+// PCB_SELECTION_TOOL holds items directly, so this goes away with that stage.
+// Seam between the live `BOARD` the docked panes work on and the editor's selection, which is a set of
+// `${kind}:${index}` ids over the legacy `Board` view (`edit-board.ts`). `PCB_SEARCH_PANE`'s hitlist and
+// `PCB_VERTEX_EDITOR_PANE`'s item are `BOARD_ITEM`s; every legacy item carries the live one as `k`.
+/** The id of the legacy item that wraps `aItem`, or null when the view has none. */
+export function legacyIdOf(aBoard: Board, aItem: EDA_ITEM): string | null {
+  const find = (aList: readonly { k?: unknown }[] | undefined): number =>
+    aList ? aList.findIndex((x) => x.k === aItem) : -1;
+
+  const groups: [Parameters<typeof boardItemId>[0], readonly { k?: unknown }[]][] = [
+    ['track', aBoard.tracks],
+    ['arc', aBoard.arcs],
+    ['via', aBoard.vias],
+    ['footprint', aBoard.footprints],
+    ['zone', aBoard.zones],
+    ['shape', aBoard.shapes],
+    ['text', aBoard.texts],
+    ['textbox', aBoard.textBoxes],
+    ['table', aBoard.tables],
+    ['image', aBoard.images],
+    ['dimension', aBoard.dimensions],
+    ['point', aBoard.points],
+    ['barcode', aBoard.barcodes],
+    ['group', aBoard.groups],
+  ];
+
+  for (const [kind, list] of groups) {
+    const i = find(list);
+
+    if (i >= 0) return boardItemId(kind, i);
+  }
+
+  for (let fi = 0; fi < aBoard.footprints.length; fi++) {
+    const pi = find(aBoard.footprints[fi]!.pads);
+
+    if (pi >= 0) return boardItemId('pad', fi, pi);
+  }
+
+  return null;
+}
+
+/** {@link legacyIdOf} over a hitlist, dropping what the view does not hold (a net, a ratsnest line). */
+export function legacyIdsOf(aBoard: Board, aItems: readonly EDA_ITEM[]): string[] {
+  const out: string[] = [];
+
+  for (const item of aItems) {
+    const id = legacyIdOf(aBoard, item);
+
+    if (id !== null && !out.includes(id)) out.push(id);
+  }
+
+  return out;
+}
+
+/** The live item behind an id, or null. */
+export function liveItemOfId(aBoard: Board, aId: string): BOARD_ITEM | null {
+  const ref = parseBoardItemId(aId);
+
+  if (!ref) return null;
+
+  const at = <T extends { k?: BOARD_ITEM }>(aList: readonly T[] | undefined): BOARD_ITEM | null =>
+    aList?.[ref.index]?.k ?? null;
+
+  switch (ref.kind) {
+    case 'track':
+      return at(aBoard.tracks);
+    case 'arc':
+      return at(aBoard.arcs);
+    case 'via':
+      return at(aBoard.vias);
+    case 'footprint':
+      return at(aBoard.footprints);
+    case 'zone':
+      return at(aBoard.zones);
+    case 'shape':
+      return at(aBoard.shapes);
+    case 'text':
+      return at(aBoard.texts);
+    case 'textbox':
+      return at(aBoard.textBoxes);
+    case 'table':
+      return at(aBoard.tables);
+    case 'image':
+      return at(aBoard.images);
+    case 'dimension':
+      return at(aBoard.dimensions);
+    case 'point':
+      return at(aBoard.points);
+    case 'barcode':
+      return at(aBoard.barcodes);
+    case 'group':
+      return at(aBoard.groups);
+    case 'pad':
+      return aBoard.footprints[ref.index]?.pads[ref.sub ?? 0]?.k ?? null;
+    default:
+      return null;
+  }
+}
+
+/** `itemHasEditableCorners` (`edit_tool.cpp:74-93`): a polygon shape, or a zone that is not a teardrop. */
+export function itemHasEditableCorners(aItem: BOARD_ITEM | null): boolean {
+  if (!aItem) return false;
+
+  if (aItem.Type() === KICAD_T.PCB_SHAPE_T) return (aItem as PCB_SHAPE).GetShape() === SHAPE_T.POLY;
+
+  if (aItem.Type() === KICAD_T.PCB_ZONE_T) return !(aItem as ZONE).IsTeardropArea();
+
+  return false;
+}
+
+/** `selectionHasEditableCorners` (`edit_tool.cpp:109-116`): exactly one item, and it has corners. */
+export function selectionHasEditableCorners(
+  aBoard: Board,
+  aSelection: ReadonlySet<string>,
+): boolean {
+  if (aSelection.size !== 1) return false;
+
+  return itemHasEditableCorners(liveItemOfId(aBoard, [...aSelection][0]!));
+}
+
+/**
+ * What `PCB_VERTEX_EDITOR_PANE` asks its `m_frame` (`PCB_BASE_EDIT_FRAME`,
+ * `vertex_editor_pane.cpp`): the units, the origin, `BOARD_COMMIT commit( m_frame )`,
+ * the canvas refresh, and `OnVertexEditorPaneClosed`.
+ */
+export function makeVertexEditorFrame(
+  aFrame: PCB_BASE_EDIT_FRAME,
+  aRefresh: () => void,
+  aOnClosed: (aPane: PCB_VERTEX_EDITOR_PANE) => void,
+): VertexEditorFrame {
+  return {
+    GetUnitsProvider: () => aFrame.GetUnitsProvider(),
+    GetOriginTransforms: () => aFrame.GetOriginTransforms(),
+    NewCommit: () => new BOARD_COMMIT(aFrame),
+    RefreshItem: () => aRefresh(),
+    OnVertexEditorPaneClosed: aOnClosed,
+  };
+}
+
+/** What the editor supplies for the tool-manager side of `SelectItems` / `ActivateItem`. */
+export interface PcbSearchWiringDeps {
+  /** The `Board` view whose ids the selection holds. */
+  getBoard(): Board | null;
+  /** The editor's selection (`PCB_SELECTION_TOOL`), as ids. */
+  setSelection(aIds: ReadonlySet<string>): void;
+  /** `ACTIONS::centerSelection` / `zoomFitSelection`, over the ids just selected. */
+  frameView(aIds: readonly string[], aFit: boolean): void;
+  refresh(): void;
+  /** `PCB_ACTIONS::properties`, on the first id selected. */
+  properties(aId: string): void;
+  /** `RENDER_SETTINGS::SetHighlight`. */
+  highlightNets(aNetCodes: readonly number[]): void;
+  showBoardSetupDialog(aInitialPage: string): void;
+}
+
+/** {@link PcbSearchWiring} over the editor's selection, remembering the last rows selected. */
+export function makePcbSearchWiring(aDeps: PcbSearchWiringDeps): PcbSearchWiring {
+  let hits: readonly string[] = [];
+
+  return {
+    clearSelection: () => {
+      hits = [];
+      aDeps.setSelection(new Set());
+    },
+    selectItems: (aItems) => {
+      const board = aDeps.getBoard();
+
+      hits = board ? legacyIdsOf(board, aItems) : [];
+      aDeps.setSelection(new Set(hits));
+    },
+    centerSelection: () => aDeps.frameView(hits, false),
+    zoomFitSelection: () => aDeps.frameView(hits, true),
+    refresh: () => aDeps.refresh(),
+    properties: () => {
+      if (hits[0] !== undefined) aDeps.properties(hits[0]);
+    },
+    highlightNets: (aNetCodes) => aDeps.highlightNets(aNetCodes),
+    showBoardSetupDialog: (aPage) => aDeps.showBoardSetupDialog(aPage),
+  };
+}
+
 const ORTHO_ON: ReadonlySet<string> = new Set(['toggleOrtho']);
 import {
   DIALOG_DIMENSION_PROPERTIES,
@@ -600,6 +785,18 @@ import {
   PCB_SPECIAL,
 } from './pcbTheme.js';
 import { PcbPropertiesPanel } from './widgets/pcb_properties_panel_ui.js';
+import { PcbNetInspectorPane } from './widgets/pcb_net_inspector_panel_ui.js';
+import { PcbSearchPane } from './widgets/pcb_search_pane.js';
+import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
+import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { BOARD_COMMIT } from './board_commit.js';
+import type { PCB_BASE_EDIT_FRAME } from './pcb_base_edit_frame.js';
+import type { PCB_SHAPE } from './pcb_shape.js';
+import type { VertexEditorFrame } from './widgets/vertex_editor_pane.js';
+import type { PcbSearchWiring } from './widgets/search_handlers.js';
+import { PCB_VERTEX_EDITOR_PANE } from './widgets/vertex_editor_pane.js';
+import { VertexEditorWindow } from './pcb_base_edit_frame_ui.js';
 import {
   drawGrid,
   drawCrosshair,
@@ -1117,6 +1314,148 @@ function boardSetupRepaint(frame: PCB_EDIT_FRAME, panel: PCB_DRAW_PANEL_GAL, kb:
     return flags;
   });
   panel.ForceRefresh();
+}
+
+/**
+ * The two `.Bottom()` panes of `PCB_EDIT_FRAME`'s AUI layout
+ * (`pcb_edit_frame.cpp:396-412`): the Net Inspector and the Search pane.
+ *
+ * Neither names a layer, so both take the innermost ring, side by side in one
+ * dock under the canvas, in `AddPane` order (Net Inspector first). Each is
+ * `.PaneBorder( false )` and `.CloseButton( true )`; the dock's height is the
+ * tallest `BestSize` of what is shown until it is dragged.
+ */
+/** [data] `.MinSize( 180, 60 )`, `.BestSize( 180, 100 )` (`pcb_edit_frame.cpp:408-409`). */
+export const PCB_SEARCH_PANE_SIZE = { minHeight: 60, bestHeight: 100 } as const;
+
+/** [data] `.MinSize( 240, 60 )`, `.BestSize( 300, 200 )` (`pcb_edit_frame.cpp:399-400`). */
+export const PCB_NET_INSPECTOR_SIZE = { minHeight: 60, bestHeight: 200 } as const;
+
+/** The dock's height for what is shown, when the user has not dragged it (or `SetAuiPaneSize( -1 )`'s stored -1). */
+export function bottomDockHeight(
+  aShowSearch: boolean,
+  aShowNetInspector: boolean,
+  aStored: number,
+): number {
+  if (aStored > 0) return aStored;
+
+  return Math.max(
+    aShowSearch ? PCB_SEARCH_PANE_SIZE.bestHeight : 0,
+    aShowNetInspector ? PCB_NET_INSPECTOR_SIZE.bestHeight : 0,
+  );
+}
+
+/** The floor a drag stops at: the tallest `MinSize` of what is shown. */
+export function bottomDockMinHeight(aShowSearch: boolean, aShowNetInspector: boolean): number {
+  return Math.max(
+    aShowSearch ? PCB_SEARCH_PANE_SIZE.minHeight : 0,
+    aShowNetInspector ? PCB_NET_INSPECTOR_SIZE.minHeight : 0,
+  );
+}
+
+interface DockedPaneProps {
+  caption: string;
+  testId: string;
+  onClose: () => void;
+  children: ReactNode;
+}
+
+function DockedPane({ caption, testId, onClose, children }: DockedPaneProps): JSX.Element {
+  return (
+    <div className="ze-panel" style={{ flex: '1 1 0', minWidth: 0 }} data-testid={testId}>
+      <div className="ze-panel-header">
+        <span>{caption}</span>
+        <button type="button" className="ze-pane-close" onClick={onClose} title="Close">
+          ⊠
+        </button>
+      </div>
+      <div className="ze-panel-body">{children}</div>
+    </div>
+  );
+}
+
+interface PcbBottomDockProps {
+  /** `m_auimgr.GetPane( SearchPaneName() ).IsShown()`. */
+  showSearch: boolean;
+  /** `NetInspectorShown()`. */
+  showNetInspector: boolean;
+  /** The stored height, `search_panel_height`; -1 until dragged. */
+  height: number;
+  onHeightChange: (aHeight: number) => void;
+  onCloseSearch: () => void;
+  onCloseNetInspector: () => void;
+  netInspector: ReactNode;
+  search: ReactNode;
+}
+
+export function PcbBottomDock({
+  showSearch,
+  showNetInspector,
+  height,
+  onHeightChange,
+  onCloseSearch,
+  onCloseNetInspector,
+  netInspector,
+  search,
+}: PcbBottomDockProps): JSX.Element | null {
+  if (!showSearch && !showNetInspector) return null;
+
+  const minHeight = bottomDockMinHeight(showSearch, showNetInspector);
+
+  // The sash is ABOVE the pane, so dragging down shrinks it.
+  const startResize = (e: React.MouseEvent): void => {
+    e.preventDefault();
+    const dock = (e.currentTarget as HTMLElement).nextElementSibling as HTMLElement | null;
+    const startY = e.clientY;
+    const startH =
+      dock?.getBoundingClientRect().height ??
+      bottomDockHeight(showSearch, showNetInspector, height);
+    const onMove = (ev: MouseEvent): void =>
+      onHeightChange(Math.max(minHeight, Math.round(startH - (ev.clientY - startY))));
+    const onUp = (): void => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.body.style.cursor = '';
+    };
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    document.body.style.cursor = 'row-resize';
+  };
+
+  return (
+    <>
+      <div
+        className="ze-splitter horizontal"
+        data-testid="pcb-bottom-dock-sash"
+        onMouseDown={startResize}
+        title="Drag to resize"
+      />
+      <div
+        className="ze-bottomdock"
+        data-testid="pcb-bottom-dock"
+        style={{
+          height: bottomDockHeight(showSearch, showNetInspector, height),
+          flexDirection: 'row',
+        }}
+      >
+        {showNetInspector && (
+          <DockedPane
+            caption="Net Inspector"
+            testId="pcb-net-inspector"
+            onClose={onCloseNetInspector}
+          >
+            {netInspector}
+          </DockedPane>
+        )}
+        {showSearch && (
+          <DockedPane caption="Search" testId="pcb-search-pane" onClose={onCloseSearch}>
+            {search}
+          </DockedPane>
+        )}
+      </div>
+    </>
+  );
 }
 
 export function PcbEditor({
@@ -2506,6 +2845,8 @@ export function PcbEditor({
   } | null>(null);
   // `DRAWING_TOOL::PlaceImportedGraphics`'s dialog (File > Import > Graphics).
   const [importGraphicsOpen, setImportGraphicsOpen] = useState(false);
+  /** File > Import > Non-KiCad Board File: the chooser's type combo while it is up. */
+  const [nonKicadFilters, setNonKicadFilters] = useState<ChooserFilter[] | null>(null);
   // Pending "Copper Zone Properties" dialog: the zone's first corner.
   const [zoneDialog, setZoneDialog] = useState<{
     at: { x: number; y: number };
@@ -2856,6 +3197,9 @@ export function PcbEditor({
 
   const showAppearance = toggles.has('showLayersManager');
   const showProperties = toggles.has('showProperties');
+  // `PCB_EDIT_FRAME::m_ShowSearch` / `m_ShowNetInspector`.
+  const showSearch = toggles.has('showSearch');
+  const showNetInspector = toggles.has('showNetInspector');
 
   // Draw options derived from the Objects tab + zone display mode.
   /** `PCBNEW_SETTINGS::m_Display` + `m_ViewersDisplay`, this page's slice. */
@@ -6657,6 +7001,18 @@ export function PcbEditor({
       // opposite sides of the band. [px] confirmed against the installed
       // pcbnew, one footprint selected (2026-08-31).
       menuSeparator(100),
+      // EDIT_TOOL's `shapeModificationSubMenu` (`edit_tool.cpp:255-291`), on
+      // `shapeModificationCondition`. Only its Edit Corners... row is ported, and
+      // that row is itself gated on `selectionHasEditableCorners`, so the submenu
+      // exists exactly when it has a row.
+      menuEntry(
+        {
+          label: 'Shape Modification',
+          submenu: [A('Edit Corners...', 'editVertices')],
+        },
+        100,
+        !!brd && selectionHasEditableCorners(brd, selection),
+      ),
       menuEntry(
         {
           label: 'Position',
@@ -10967,6 +11323,173 @@ export function PcbEditor({
   // (`applyEditorDisplayState`). The overlay scenes that used to tint the
   // raster copy went with the raster path.
 
+  // ----- the docked Search and Net Inspector panes, and Edit Vertices ---------
+
+  // `cfg->m_AuiPanels.search_panel_height` (`pcb_edit_frame.cpp:1768`), written
+  // once a drag has settled rather than on every mouse move.
+  const [dockHeight, setDockHeight] = useState(pcbCfg.aui.search_panel_height);
+  const storedDockHeight = pcbCfg.aui.search_panel_height;
+  useEffect(() => {
+    if (dockHeight === storedDockHeight) return;
+
+    const t = window.setTimeout(
+      () =>
+        updatePcbnewSettings((c) => {
+          c.aui.search_panel_height = dockHeight;
+        }),
+      300,
+    );
+
+    return () => window.clearTimeout(t);
+  }, [dockHeight, storedDockHeight, updatePcbnewSettings]);
+
+  /** Frame the box of `ids`: `centerSelection` keeps the zoom, `zoomFitSelection` fits. */
+  const viewSearchHits = (ids: readonly string[], fit: boolean): void => {
+    const brd = boardRef.current;
+    const canvas = canvasRef.current;
+    if (!brd || !canvas) return;
+
+    let box: BoardBBox | null = null;
+    for (const id of ids) {
+      const b = boardItemBBox(brd, id);
+      if (!b) continue;
+      box = box
+        ? {
+            minX: Math.min(box.minX, b.minX),
+            minY: Math.min(box.minY, b.minY),
+            maxX: Math.max(box.maxX, b.maxX),
+            maxY: Math.max(box.maxY, b.maxY),
+          }
+        : b;
+    }
+    if (!box) return;
+
+    if (fit) {
+      fitWorldBox(box.minX, box.minY, box.maxX, box.maxY, 'selection');
+      return;
+    }
+
+    const v = viewRef.current;
+    const cx = (box.minX + box.maxX) / 2;
+    const cy = (box.minY + box.maxY) / 2;
+    viewRef.current = {
+      ...v,
+      tx: canvas.width / 2 - cx * (v.flipX ? -v.scale : v.scale),
+      ty: canvas.height / 2 - cy * v.scale,
+    };
+    requestDraw();
+  };
+
+  /** `PCB_EDIT_FRAME` as the search handlers read it (`PcbSearchFrame`, minus `config`). */
+  const searchFrame = useMemo(
+    () => ({
+      GetBoard: () => frameRef.current?.GetBoard() ?? null,
+      IsClosing: () => frameRef.current?.IsClosing() ?? false,
+      MessageTextFromValue: (
+        v: number,
+        addUnits?: boolean,
+        type?: Parameters<UNITS_PROVIDER['MessageTextFromValue']>[2],
+      ) => frameRef.current!.GetUnitsProvider().MessageTextFromValue(v, addUnits, type),
+      GetOriginTransforms: () => frameRef.current!.GetOriginTransforms(),
+    }),
+    [],
+  );
+
+  const searchActions = useRef({
+    properties: (_id: string) => {},
+    boardSetup: (_page: string) => {},
+  });
+  const viewSearchHitsRef = useRef(viewSearchHits);
+  viewSearchHitsRef.current = viewSearchHits;
+  // What the hitlist rows do, in the tool manager upstream: the selection is our
+  // id set, and `PCB_ACTIONS::properties` is the double-click dispatch.
+  const searchWiring = useMemo<PcbSearchWiring>(
+    () =>
+      makePcbSearchWiring({
+        getBoard: () => boardRef.current,
+        setSelection: (ids) => setSelection(ids),
+        frameView: (ids, fit) => viewSearchHitsRef.current(ids, fit),
+        refresh: () => requestDrawRef.current(),
+        properties: (id) => searchActions.current.properties(id),
+        highlightNets: (codes) => setHighlightNets(new Set(codes)),
+        showBoardSetupDialog: (page) => searchActions.current.boardSetup(page),
+      }),
+    [],
+  );
+  searchActions.current = {
+    // `EDIT_TOOL::Properties` on the one selected item: the same dispatch a double click makes.
+    properties: (id) => {
+      const r = parseBoardItemId(id);
+      if (!r) return;
+
+      if (r.kind === 'track' || r.kind === 'arc' || r.kind === 'via') setTrackViaOpen(true);
+      else if (r.kind === 'zone') frameRef.current?.Edit_Zone_Params(r.index);
+      else if (r.kind === 'text') setTextPropsIndex(r.index);
+      else if (r.kind === 'shape') setShapePropsIndex(r.index);
+      else if (r.kind === 'pad') setPadPropsRef({ footprint: r.index, pad: r.sub ?? 0 });
+      else if (r.kind === 'footprint') setFpPropsIndex(r.index);
+    },
+    // `ShowBoardSetupDialog( _( "Net Classes" ) )`.
+    boardSetup: (page) => {
+      setBoardSetupPage(page === 'Net Classes' ? 'netclasses' : undefined);
+      setBoardSetupOpen(true);
+    },
+  };
+
+  /** The netclass names of a net, for the Net Inspector's Netclass column. */
+  const netClassesOf = useCallback(
+    (name: string): readonly string[] => {
+      const nc = boardK?.FindNet(name)?.GetNetClass();
+      if (!nc) return [];
+
+      const parts = nc.GetConstituentNetclasses();
+      return parts.length > 0 ? parts.map((c) => c.GetName()) : [nc.GetName()];
+    },
+    [boardK],
+  );
+
+  // `PCB_BASE_EDIT_FRAME::m_vertexEditorPane`: the floating Edit Vertices pane.
+  const [vertexPane, setVertexPane] = useState<PCB_VERTEX_EDITOR_PANE | null>(null);
+  const vertexPaneRef = useRef<PCB_VERTEX_EDITOR_PANE | null>(null);
+  vertexPaneRef.current = vertexPane;
+
+  /** `PCB_BASE_EDIT_FRAME::OpenVertexEditor` (`pcb_base_edit_frame.cpp:439-462`). */
+  const openVertexEditor = (): void => {
+    const brd = boardRef.current;
+    const frame = frameRef.current;
+    if (!brd || !frame || !selectionHasEditableCorners(brd, selection)) return;
+
+    const item = liveItemOfId(brd, [...selection][0]!);
+    if (!item) return;
+
+    let pane = vertexPaneRef.current;
+    if (!pane) {
+      pane = new PCB_VERTEX_EDITOR_PANE(
+        makeVertexEditorFrame(
+          frame,
+          () => requestDrawRef.current(),
+          (closed) => {
+            if (vertexPaneRef.current === closed) setVertexPane(null);
+          },
+        ),
+      );
+      setVertexPane(pane);
+    }
+    pane.SetItem(item);
+  };
+
+  // `PCB_CONTROL::UpdateMessagePanel`'s tail (`pcb_control.cpp:2872-2880`): the
+  // pane follows a single selected item, and anything else clears it.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `board` is only the trigger; the ids are re-read through boardRef
+  useEffect(() => {
+    const brd = boardRef.current;
+    if (!vertexPane || !brd) return;
+
+    vertexPane.OnSelectionChanged(
+      selection.size === 1 ? liveItemOfId(brd, [...selection][0]!) : null,
+    );
+  }, [selection, vertexPane, board]);
+
   // ----- toolbar handlers -----------------------------------------------------
 
   const onLeftToggle = (id: string): void => {
@@ -11244,6 +11767,22 @@ export function PcbEditor({
         );
         break;
       }
+      // `PCB_ACTIONS::openNonKicadBoard` -> `BOARD_EDITOR_CONTROL::OpenNonKicadBoard`:
+      // `AskLoadBoardFileName( KICTL_NONKICAD_ONLY )`'s type combo is "All supported
+      // formats" then every importer's board file description (files.cpp:117-171).
+      case 'openNonKicadBoard':
+        void import('./pcb_io/pcb_io_mgr.js').then(async ({ PCB_IO_MGR }) => {
+          const descs = await PCB_IO_MGR.BoardFileDescriptions(KICTL_NONKICAD_ONLY);
+          const filters = descs.map((d) => d.Chooser());
+          setNonKicadFilters([
+            {
+              label: 'All supported formats',
+              extensions: [...new Set(filters.flatMap((f) => f.extensions))],
+            },
+            ...filters,
+          ]);
+        });
+        break;
       // `PCB_ACTIONS::importSpecctraSession` -> `PCB_EDIT_FRAME::ImportSpecctraSession`.
       case 'importSpecctraSession': {
         const frame = frameRef.current;
@@ -11385,6 +11924,12 @@ export function PcbEditor({
       case 'updatePcbFromSchematic':
         void openUpdatePcb();
         break;
+      // `PCB_ACTIONS::editVertices` -> `EDIT_TOOL::EditVertices`
+      // (`edit_tool.cpp:2195-2224`): one polygon or zone opens the pane, anything
+      // else is `wxBell()`.
+      case 'editVertices':
+        openVertexEditor();
+        break;
       case 'showFootprintEditor':
         onShowFootprintEditor?.();
         break;
@@ -11493,6 +12038,8 @@ export function PcbEditor({
     {
       showProperties: leftToggles.has('showProperties'),
       showLayersManager: leftToggles.has('showLayersManager'),
+      showSearch: leftToggles.has('showSearch'),
+      showNetInspector: leftToggles.has('showNetInspector'),
       zoneDisplayFilled: leftToggles.has('zoneDisplayFilled'),
       zoneDisplayOutline: leftToggles.has('zoneDisplayOutline'),
     },
@@ -11991,6 +12538,48 @@ export function PcbEditor({
               </div>
             )}
           </div>
+          {/* The two `.Bottom()` panes, under the canvas and beside the toolbars
+              (`pcb_edit_frame.cpp:396-412`). */}
+          <PcbBottomDock
+            showSearch={showSearch}
+            showNetInspector={showNetInspector}
+            height={dockHeight}
+            onHeightChange={setDockHeight}
+            onCloseSearch={() => onLeftToggle('showSearch')}
+            onCloseNetInspector={() => onLeftToggle('showNetInspector')}
+            netInspector={
+              board && (
+                <PcbNetInspectorPane
+                  board={board}
+                  netClassesOf={netClassesOf}
+                  onHighlightNets={(codes) => setHighlightNets(new Set(codes))}
+                />
+              )
+            }
+            search={
+              <PcbSearchPane
+                frame={searchFrame}
+                board={boardK}
+                wiring={searchWiring}
+                menuState={{
+                  selectionZoom: commonCfg.search_pane.selection_zoom,
+                  searchHiddenFields: commonCfg.search_pane.search_hidden_fields,
+                  searchMetadata: commonCfg.search_pane.search_metadata,
+                }}
+                onMenuStateChange={(next) =>
+                  updateCommonSettings((c) => {
+                    c.search_pane.selection_zoom = next.selectionZoom;
+                    c.search_pane.search_hidden_fields = next.searchHiddenFields;
+                    c.search_pane.search_metadata = next.searchMetadata;
+                  })
+                }
+                units={unitLabel}
+              />
+            }
+          />
+          {vertexPane && (
+            <VertexEditorWindow pane={vertexPane} onClose={() => vertexPane.Destroy()} />
+          )}
         </div>
 
         <Toolbar
@@ -12335,6 +12924,52 @@ export function PcbEditor({
           );
         })()}
 
+      {/* File > Import > Non-KiCad Board File. `OpenProjectFiles( { file },
+          KICTL_NONKICAD_ONLY )` (files.cpp:476): the importer builds the board
+          (`ImportNonKicadBoard`), which replaces this one under the editor's
+          file name - upstream keeps `previousBoardFileName` - and is modified,
+          so the next save writes it into the project. */}
+      {nonKicadFilters && (
+        <WxFileDialog
+          title="Import Non KiCad Board File"
+          filters={nonKicadFilters}
+          projectDir={projectDirRef.current || null}
+          onDone={(file) => {
+            setNonKicadFilters(null);
+            const frame = frameRef.current;
+
+            if (!file || !frame) return;
+
+            void frame
+              .ImportNonKicadBoard(file.path, file.bytes, KICTL_NONKICAD_ONLY)
+              .then(({ board: kb, loadMessages }) => {
+                frame.Clear_Pcb();
+                frame.SetBoard(kb, false);
+                kb.BuildConnectivity();
+                syncProjectSettingsIntoBoard(
+                  frame,
+                  panelRef.current,
+                  projectFilesNow(),
+                  rootPro,
+                  false,
+                  projectDirRef.current,
+                );
+                setBoardModel({
+                  ...boardFromBOARD(kb, fileNameRef.current),
+                  fileName: fileNameRef.current,
+                });
+                setDirty(true);
+
+                if (loadMessages !== '') setInfoBarError(loadMessages.trimEnd());
+              })
+              .catch((e: unknown) =>
+                setInfoBarError(
+                  `Error loading PCB '${file.path}'.\n${e instanceof Error ? e.message : String(e)}`,
+                ),
+              );
+          }}
+        />
+      )}
       {/* File > Import > Graphics. `DRAWING_TOOL::PlaceImportedGraphics`
           (`drawing_tool.cpp:2044-2230`): the dialog runs the import live and
           reports it, then this commits what it produced and — for

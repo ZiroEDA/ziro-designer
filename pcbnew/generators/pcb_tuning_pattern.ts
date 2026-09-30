@@ -540,6 +540,35 @@ export class PCB_TUNING_PATTERN extends PCB_GENERATOR {
     this.m_tuningMode = aMode;
   }
 
+  // The un-meandered route the pattern was placed over; the outline is derived from it.
+  GetBaseLine(): SHAPE_LINE_CHAIN | null {
+    return this.m_baseLine;
+  }
+  SetBaseLine(aBaseLine: SHAPE_LINE_CHAIN): void {
+    this.m_baseLine = new SHAPE_LINE_CHAIN(aBaseLine);
+  }
+
+  GetBaseLineCoupled(): SHAPE_LINE_CHAIN | null {
+    return this.m_baseLineCoupled;
+  }
+  SetBaseLineCoupled(aBaseLine: SHAPE_LINE_CHAIN): void {
+    this.m_baseLineCoupled = new SHAPE_LINE_CHAIN(aBaseLine);
+  }
+
+  GetDiffPairGap(): number {
+    return this.m_diffPairGap;
+  }
+  SetDiffPairGap(aValue: number): void {
+    this.m_diffPairGap = aValue;
+  }
+
+  GetLastNetName(): string {
+    return this.m_lastNetName;
+  }
+  SetLastNetName(aNetName: string): void {
+    this.m_lastNetName = aNetName;
+  }
+
   GetPNSMode(): PnsRouterMode {
     switch (this.m_tuningMode) {
       case LENGTH_TUNING_MODE.SINGLE:

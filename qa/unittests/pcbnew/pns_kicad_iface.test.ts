@@ -30,7 +30,7 @@ import {
   pnsLayerFromBoardLayer,
   solidShapeForPad,
 } from '@ziroeda/pcbnew/router/pns_kicad_iface.js';
-import { setRouterIface } from '@ziroeda/pcbnew/router/pns_collision.js';
+import { setRouterIface } from '@ziroeda/pcbnew/router/pns_item.js';
 import { PnsKind } from '@ziroeda/pcbnew/router/pns_item.js';
 import { PnsLayerRange } from '@ziroeda/pcbnew/router/pns_layerset.js';
 import { PnsNode } from '@ziroeda/pcbnew/router/pns_node.js';

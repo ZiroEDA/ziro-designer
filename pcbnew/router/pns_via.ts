@@ -32,12 +32,12 @@
 import { PnsHole } from './pns_hole.js';
 import { PnsKind, PnsLinkedItem, type PnsItem, type PnsViaLike } from './pns_item.js';
 import { PnsLayerRange } from './pns_layerset.js';
-import type { Shape } from '../drc/drc_geometry.js';
-import type { NetHandle } from './pns_collision.js';
+import type { Shape } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
+import type { NetHandle } from './pns_item.js';
 import type { PcbVia, UnconnectedLayerMode } from '../types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { EuclideanNormI, ResizeI } from '@ziroeda/kimath/src/math/vector2.js';
-import { collideShapes } from '../drc/shape_collisions.js';
+import { collideShapes } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 // Type-only, and therefore erased: `pns_node.ts` imports `PnsVVia` from this
 // module as a value, so a value import back would close a runtime cycle.
 import type { PnsNode } from './pns_node.js';
