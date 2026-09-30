@@ -11,19 +11,20 @@
  * `OnVertexEditorPaneClosed`), so the owner drops its reference in `onClose`.
  */
 import { type JSX, useState, useSyncExternalStore } from 'react';
-import type { PCB_VERTEX_EDITOR_PANE } from './vertex_editor_pane.js';
-import { PcbVertexEditorPane } from './vertex_editor_pane.js';
+import type { PCB_VERTEX_EDITOR_PANE } from './widgets/vertex_editor_pane.js';
+import { PcbVertexEditorPane } from './widgets/vertex_editor_pane.js';
 
-/** Data: `.FloatingSize( 320, 360 )`, `.MinSize( 260, 200 )` (`pcb_base_edit_frame.cpp:451-455`). */
+/** [data] `.FloatingSize( 320, 360 )`, `.MinSize( 260, 200 )` (`pcb_base_edit_frame.cpp:452-454`). */
 export const VERTEX_EDITOR_FLOATING_SIZE = { width: 320, height: 360 } as const;
+/** [data] `.MinSize( 260, 200 )` (`pcb_base_edit_frame.cpp:452`). */
 export const VERTEX_EDITOR_MIN_SIZE = { width: 260, height: 200 } as const;
 
-interface Props {
+interface VertexEditorWindowProps {
   pane: PCB_VERTEX_EDITOR_PANE;
   onClose: () => void;
 }
 
-export function VertexEditorWindow({ pane, onClose }: Props): JSX.Element {
+export function VertexEditorWindow({ pane, onClose }: VertexEditorWindowProps): JSX.Element {
   const revision = useSyncExternalStore(
     (l) => pane.Subscribe(l),
     () => pane.GetRevision(),

@@ -33,14 +33,15 @@ import { PCB_IO_KICAD_SEXPR_PARSER } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pc
 import { boardFromBOARD } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/board_view.js';
 import { PCB_SHAPE } from '@ziroeda/pcbnew/pcb_shape.js';
 import { PCBNEW_SETTINGS } from '@ziroeda/pcbnew/pcbnew_settings.js';
-import { PcbBottomDock, bottomDockHeight } from '@ziroeda/pcbnew/widgets/pcb_bottom_dock_ui.js';
-import { PcbNetInspectorPane } from '@ziroeda/pcbnew/widgets/pcb_net_inspector_pane_ui.js';
+import { PcbNetInspectorPane } from '@ziroeda/pcbnew/widgets/pcb_net_inspector_panel_ui.js';
 import {
+  PcbBottomDock,
+  bottomDockHeight,
   legacyIdsOf,
   makePcbSearchWiring,
   makeVertexEditorFrame,
   selectionHasEditableCorners,
-} from '@ziroeda/pcbnew/widgets/pcb_pane_wiring.js';
+} from '@ziroeda/pcbnew/pcb_edit_frame_ui.js';
 import { PcbSearchPane } from '@ziroeda/pcbnew/widgets/pcb_search_pane.js';
 import type { PcbSearchWiring } from '@ziroeda/pcbnew/widgets/search_handlers.js';
 import { PCB_VERTEX_EDITOR_PANE } from '@ziroeda/pcbnew/widgets/vertex_editor_pane.js';
