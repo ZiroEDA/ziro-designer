@@ -30,7 +30,7 @@ import { PnsItem, PnsKind } from '@ziroeda/pcbnew/router/pns_item.js';
 import { PnsLayerRange } from '@ziroeda/pcbnew/router/pns_layerset.js';
 import { PnsSegment } from '@ziroeda/pcbnew/router/pns_segment.js';
 import type { NetHandle } from '@ziroeda/pcbnew/router/pns_item.js';
-import type { Shape } from '@ziroeda/pcbnew/drc/drc_geometry.js';
+import type { Shape } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 
 /** A horizontal zero-width segment from (x0,y) to (x1,y). */
 const seg = (

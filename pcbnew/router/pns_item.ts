@@ -46,11 +46,14 @@
  *   the first call's `enforce` that decides between "exact boundary" and "no
  *   clearance at all".
  */
-import { collideShapeLists, getShapeCollider } from '../drc/shape_collisions.js';
+import {
+  collideShapeLists,
+  getShapeCollider,
+} from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 import type { PnsRouterIface } from './pns_router.js';
 import type { CollisionNode, CollisionSearchContext, PnsRuleResolver } from './pns_node.js';
 import { PnsLayerRange } from './pns_layerset.js';
-import type { Shape } from '../drc/drc_geometry.js';
+import type { Shape } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 // ----- nets --------------------------------------------------------------------

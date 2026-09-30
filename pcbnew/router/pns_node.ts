@@ -74,7 +74,7 @@
  * `doAddVia`, `doAddArc`, `doAddHole`, and the private kind dispatcher `add` is
  * `addItem`. Everything else keeps upstream's name.
  */
-import { getShapeCollider } from '../drc/shape_collisions.js';
+import { getShapeCollider } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 import type { MinOptMax } from '../drc/drc_rule_view.js';
 import { hullIntersection } from './pns_utils.js';
 import { itemHull } from './pns_utils.js';
@@ -96,7 +96,7 @@ import { PnsVVia } from './pns_via.js';
 import type { PnsLinkedItem } from './pns_item.js';
 import type { PnsSolid } from './pns_solid.js';
 import type { PnsVia, ViaHandle } from './pns_via.js';
-import type { Shape } from '../drc/drc_geometry.js';
+import type { Shape } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 // ----- design rules ------------------------------------------------------------

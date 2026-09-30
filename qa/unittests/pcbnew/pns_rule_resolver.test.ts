@@ -29,7 +29,10 @@ import { describe, expect, it } from 'vitest';
 import { buildDrcRuleEngine } from '@ziroeda/pcbnew/drc/drc_rules_engine.js';
 import { PNS_PCBNEW_RULE_RESOLVER } from '@ziroeda/pcbnew/router/pns_kicad_iface.js';
 import { PnsConstraintType } from '@ziroeda/pcbnew/router/pns_node.js';
-import { defaultShapeCollider, getShapeCollider } from '@ziroeda/pcbnew/drc/shape_collisions.js';
+import {
+  defaultShapeCollider,
+  getShapeCollider,
+} from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 import { PnsHole } from '@ziroeda/pcbnew/router/pns_hole.js';
 import { PnsLayerRange } from '@ziroeda/pcbnew/router/pns_layerset.js';
 import { PnsSegment } from '@ziroeda/pcbnew/router/pns_segment.js';

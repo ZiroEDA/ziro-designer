@@ -22,8 +22,10 @@ import {
   type PnsRuleResolver,
 } from '@ziroeda/pcbnew/router/pns_node.js';
 import { setRouterIface, type NetHandle } from '@ziroeda/pcbnew/router/pns_item.js';
-import { setShapeCollider } from '@ziroeda/pcbnew/drc/shape_collisions.js';
-import { installLocatingShapeCollider } from '@ziroeda/pcbnew/drc/shape_collisions.js';
+import {
+  setShapeCollider,
+  installLocatingShapeCollider,
+} from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 import type { PnsItem } from '@ziroeda/pcbnew/router/pns_item.js';
 import { PnsLayerRange } from '@ziroeda/pcbnew/router/pns_layerset.js';
 import { PnsSegment } from '@ziroeda/pcbnew/router/pns_segment.js';

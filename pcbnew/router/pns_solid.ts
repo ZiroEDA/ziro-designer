@@ -18,7 +18,7 @@
  * cannot be connected to. `NODE::addSolid` and `NODE::removeSolidIndex` both
  * check the flag, which is why the two stay in step.
  */
-import { moveShape, type Shape } from '../drc/drc_geometry.js';
+import { moveShape, type Shape } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 import { PnsKind, PnsItem } from './pns_item.js';
 import type { PnsHole } from './pns_hole.js';
 import type { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';

@@ -33,7 +33,7 @@
 
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { buildCourtyard } from './courtyard.js';
-import { shapeDist } from './drc/drc_geometry.js';
+import { shapeDist } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 import { footprintBBox } from './edit-footprint.js';
 import { padHoleSegment } from './dialogs/dialog_footprint_checker.js';
 import type { Board, PcbFootprint } from './types.js';

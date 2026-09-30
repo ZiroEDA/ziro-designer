@@ -56,7 +56,10 @@ each; pcbnew needs a separate file because two windows share it) and
 `pcbnew_live_settings.ts` (the live `pcbnew.json` read/write pair
 `DIALOG_PRINT_PCBNEW`/`DIALOG_PNS_SETTINGS` use, a swappable provider for the
 same reason `common/gal/kicursors.ts`'s cursor provider is one — `pcbnew/`
-cannot read the app's settings singleton itself). **Not yet moved**, for the
+cannot read the app's settings singleton itself), `drc_job.ts` (the DRC job protocol
+that crosses the worker boundary) and `drc_test_providers.ts` (the provider registration
+order, `drc-provider-order-is-reversed`), both moved in from `drc/` on 09-30 (neither
+has a KiCad file). **Not yet moved**, for the
 reasons in "Root files, alphabetically" below: `drc_runner.ts`/`drc_worker.ts`
 (blocked — their only importer, `pcb_edit_frame.ts`, has another agent's
 uncommitted hunk this pass will not touch) and `netlist_from_schematic.ts`
@@ -136,8 +139,9 @@ anyway. (09-28: 19 root dialog bodies moved to `dialogs/`, `point_editor.ts` to
 above.)
 
 These belong outside pcbnew entirely (central-value rule):
-`convert_basic_shapes_to_polygon.ts`, `drc/shape_collisions.ts` →
-`libs/kimath/src/` (`board_project_settings.ts` moved 09-19, `layer_ids.ts`
+`convert_basic_shapes_to_polygon.ts` → `libs/kimath/src/`
+(`drc/shape_collisions.ts` and `drc/drc_geometry.ts` moved 09-30, into
+`libs/kimath/src/geometry/shape_collisions.ts`; `board_project_settings.ts` moved 09-19, `layer_ids.ts`
 moved 09-28). **`lset.ts` resolved 09-28:** it was already only a
 `@deprecated` re-export of `common/lset.ts` + `common/layer_range.ts`; its one
 remaining importer (`board_view.ts`) now imports those directly, and the shim
@@ -671,26 +675,39 @@ all).
   Footprints (Off-Board, Selected). Not ported: the view-refresh callback,
   overlay and progress reporter (the call is synchronous); "Override locks"
   is still a disabled stub, so locked footprints are always skipped.
-- `drc/`: **complete, no extras despite 51 files against KiCad's 37.** Every
-  one of the 14 apparently-extra files already names its real counterpart in
-  its own header, and none of them is a drc/-local split of a drc/ file:
-  `drc_length_report.ts`/`drc_rtree.ts` match header-only `.h`s;
-  `drc_areas.ts`/`drc_expr.ts`/`drc_inspect.ts` cite root (`pcbexpr_*.cpp`) or
-  `tools/` (`board_inspection_tool.cpp`) files, off-limits this pass;
-  `drc_geometry.ts`/`shape_collisions.ts` cite `libs/kimath` (already flagged
-  above under "belong outside pcbnew entirely"); `drc_job.ts`/`ptr_order.ts`/
-  `drc_test_providers.ts` are genuinely browser-only, no KiCad file at all;
-  `drc_diff_pair.ts` is upstream's *own* verbatim duplication between
-  `drc_test_provider_diff_pair_coupling.cpp:66` and `pns_diff_pair.cpp:786`
-  (see `router/pns_diff_pair.ts`'s own doc comment), so hosting it once in
-  `drc/` and importing it from `router/` is structurally exact, not a
-  misplacement. `drc_engine_view.ts`, `drc_rules_engine.ts` and
-  `drc_rule_view.ts` are the **view-side POJO architecture** (a plain-`Board`
-  rule/constraint engine and `.kicad_dru` parser, parallel to the live-BOARD
-  `drc_engine.ts`/`drc_rule.ts`/`drc_rule_parser.ts`), the same "teardrop
-  pattern" already documented above — both `router/` and `drc/` still read
-  the view-side engine, so folding it in is a #636 consumer migration, not a
-  file move.
+- `drc/`: **complete; three view-side files left (09-30).** KiCad has 37 `.cpp`
+  names here and all 37 exist. The 12 extras were folded into their KiCad homes
+  on 09-30, with no behaviour change (the 42-board DRC regression suite is
+  green):
+  `drc_geometry.ts` + `shape_collisions.ts` -> `libs/kimath/src/geometry/shape_collisions.ts`
+  (the value-typed `Shape` seam, a second half of the file below the class
+  based `SHAPE::Collide`; kimath's own private `collide*` helpers gained an
+  `Objects` suffix to make room). `drc_job.ts` and `drc_test_providers.ts` ->
+  `browser/`. `ptr_order.ts` -> `drc_test_provider.ts` (`std::less<void*>` has no
+  file; every provider extends that base). `drc_inspect.ts` ->
+  `tools/board_inspection_tool.ts`. `drc_expr.ts` -> `pcbexpr_evaluator.ts`.
+  `drc_areas.ts`: `deflatePolygon` -> `courtyard.ts` (its only caller); the
+  four area predicates had no caller but their own test (the live ones are in
+  `pcbexpr_functions.ts`) and were deleted with it. `drc_diff_pair.ts`:
+  `matchDpSuffix` was a copy of `DRC_ENGINE::MatchDpSuffix`, so the router
+  calls that; `commonParallelProjection` -> `router/pns_diff_pair.ts`
+  (`pns_diff_pair.cpp:821`, which `pns_topology.cpp:1033` links to);
+  `coupledSpans`/`evaluateDiffPair` had no caller but their test (the live
+  provider is pinned by the regression boards) and were deleted. Header-only
+  counterparts keep their own files: `drc_length_report.ts` and `drc_rtree.ts`.
+  **Still here, and held by #636 stage 3:** `drc_engine_view.ts` (plain-`Board`
+  shape helpers: read by the router, `zone_filler`, `ratsnest`,
+  `connectivity`, `tracks_cleaner`, `cleanup_connectivity`, `zone_islands`,
+  `dialog_footprint_checker`), `drc_rules_engine.ts` (read by
+  `router/pns_kicad_iface.ts`'s `PNS_PCBNEW_RULE_RESOLVER` through
+  `evalDrcRules`, and by `tools/board_inspection_tool.ts`, whose Clearance /
+  Constraints report is built from the plain `Board`) and `drc_rule_view.ts`
+  (`parseDrcRules` is called by `pcb_edit_frame_ui.tsx`'s inspector; the
+  `MinOptMax` type by `router/pns_node.ts`, `router/pns_meander.ts`,
+  `dialogs/dialog_tuning_pattern_properties.ts`). All three duplicate the live
+  `DRC_ENGINE`/`DRC_RULE`/`DRC_RULES_PARSER`; they go when the router and the
+  inspector run on the live `BOARD`, which is a consumer migration, not a file
+  move.
 - `router/`: **four merges/ports done (09-29), the rest audited and left.**
   1. KiCad's `pns_optimizer.cpp` (1539 lines, one file) had been split into
      `pns_optimizer.ts` (the pure single-line merge passes),
@@ -794,7 +811,7 @@ all).
   `ROUTER_IFACE` → `PnsRouterIface` in `pns_router.ts` (`pns_router.h`; it now declares
   `isFlashedOnLayer` itself instead of extending a slice); the `SHAPE::Collide` seam
   (`ShapeCollision`, `defaultShapeCollider`, `collideShapeLists`, the locating collider) →
-  `drc/shape_collisions.ts` (`shape_collisions.cpp`). **One deliberate placement:**
+  `libs/kimath/src/geometry/shape_collisions.ts` (`shape_collisions.cpp`). **One deliberate placement:**
   `getRouterIface`/`setRouterIface`, the `ROUTER::GetInstance()` seam, live in `pns_item.ts`, not
   `pns_router.ts`: `pns_router.ts` evaluates `extends` on the item classes, so `pns_item.ts` importing
   it back is a runtime ESM cycle that throws on whichever side loads first (the `board_types.ts`

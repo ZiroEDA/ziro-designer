@@ -65,12 +65,15 @@
 import { PnsItemSet } from './pns_itemset.js';
 import { LineMarker, PnsKind, PnsLinkedItem, type PnsItem } from './pns_item.js';
 import { ObstacleSet } from './pns_node.js';
-import { getShapeCollider } from '../drc/shape_collisions.js';
+import {
+  getShapeCollider,
+  shapeBBox,
+  shapeDist,
+} from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 import { commonParallelProjection, DiffPair } from './pns_diff_pair.js';
 import type { PnsLineChain } from './pns_line.js';
 import { segApproxParallel } from '@ziroeda/kimath/src/geometry/seg.js';
 import { arcRadius, shapeArcCenter } from '@ziroeda/kimath/src/geometry/shape_arc.js';
-import { shapeBBox, shapeDist } from '../drc/drc_geometry.js';
 import { segSquaredDistanceToSeg } from '@ziroeda/kimath/src/geometry/seg.js';
 import type { PnsArc } from './pns_arc.js';
 import type { NetHandle } from './pns_item.js';
@@ -82,7 +85,7 @@ import type { PnsNode } from './pns_node.js';
 import type { PnsSegment } from './pns_segment.js';
 import type { PnsSolid } from './pns_solid.js';
 import type { PnsVia } from './pns_via.js';
-import type { Shape } from '../drc/drc_geometry.js';
+import type { Shape } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 import { EuclideanNormI } from '@ziroeda/kimath/src/math/vector2.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 

@@ -52,10 +52,10 @@
  * calls it, and because it has an observable consequence: between the two calls,
  * queries find nothing while `getItemsForNet` finds everything.
  */
-import { shapeBBox } from '../drc/drc_geometry.js';
+import { shapeBBox } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 import { hasNet, type NetHandle } from './pns_item.js';
 import { PnsKind, type PnsItem } from './pns_item.js';
-import type { Shape } from '../drc/drc_geometry.js';
+import type { Shape } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 
 /** An axis-aligned box, as `BOX2I`. */
 interface Box {

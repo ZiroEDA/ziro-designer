@@ -1027,7 +1027,7 @@ export {
   setShapeCollider,
   type ShapeCollider,
   type ShapeCollision,
-} from './drc/shape_collisions.js';
+} from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 
 export {
   LineMarker,
@@ -1064,7 +1064,7 @@ export {
   type ViaHandle,
 } from './router/pns_via.js';
 
-export { moveShape } from './drc/drc_geometry.js';
+export { moveShape } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 
 export {
   PnsLine,
@@ -1116,9 +1116,12 @@ export {
   type CollideCircle,
   type CollideSegment,
   type ShapeCollisionResult,
-} from './drc/shape_collisions.js';
+} from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 
-export { installLocatingShapeCollider, locatingShapeCollider } from './drc/shape_collisions.js';
+export {
+  installLocatingShapeCollider,
+  locatingShapeCollider,
+} from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 
 export { rescale64 } from '@ziroeda/kimath/src/math/util.js';
 export {

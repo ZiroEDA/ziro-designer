@@ -141,7 +141,7 @@ import type { PnsNode } from './pns_node.js';
 import { PnsKind, type PnsItem } from './pns_item.js';
 import { PnsSolid } from './pns_solid.js';
 import type { NetHandle } from './pns_item.js';
-import type { Shape } from '../drc/drc_geometry.js';
+import type { Shape } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 
 /** Does this candidate route hit anything? */
 export type CollisionTest = (path: Chain) => boolean;

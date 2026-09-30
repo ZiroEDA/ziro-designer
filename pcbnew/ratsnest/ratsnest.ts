@@ -19,7 +19,7 @@
  */
 
 import { arcShape, padShapes } from '../drc/drc_engine_view.js';
-import { shapeBBox, shapeDist, type Shape } from '../drc/drc_geometry.js';
+import { shapeBBox, shapeDist, type Shape } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 import type { Board, PcbPad } from '../types.js';
 import type { Vec2 } from '@ziroeda/kimath';
 

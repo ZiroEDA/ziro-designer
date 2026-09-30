@@ -63,7 +63,7 @@ import { PNS_UNDEFINED_LAYER } from './pns_drag_algo.js';
 import { PnsSegment } from './pns_segment.js';
 import { PnsSolid } from './pns_solid.js';
 import { PnsVia } from './pns_via.js';
-import type { Shape } from '../drc/drc_geometry.js';
+import type { Shape } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 import type { DrcEvalItem, DrcRuleEngine } from '../drc/drc_rules_engine.js';
 import type { Board, PcbArcTrack, PcbPad, PcbTrack, PcbVia } from '../types.js';
 import { PnsConstraintType } from './pns_node.js';

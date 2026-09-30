@@ -98,7 +98,7 @@ import { PnsSegment } from './pns_segment.js';
 import { PnsVia } from './pns_via.js';
 import { RangedNum } from './ranged_num.js';
 import type { NetHandle } from './pns_item.js';
-import type { Shape } from '../drc/drc_geometry.js';
+import type { Shape } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 // ---------------------------------------------------------------------------
