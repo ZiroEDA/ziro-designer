@@ -87,6 +87,7 @@ export const REMOTE_PROVIDER_METADATA_SCHEMA: Record<string, unknown> = {
             },
             required: ['type'],
           },
+          // biome-ignore lint/suspicious/noThenProperty: JSON Schema's if/then keyword, as KiCad's provider schema has it
           then: {
             required: ['metadata_url', 'client_id'],
           },
@@ -163,6 +164,7 @@ export const REMOTE_PROVIDER_METADATA_SCHEMA: Record<string, unknown> = {
         },
         required: ['auth'],
       },
+      // biome-ignore lint/suspicious/noThenProperty: JSON Schema's if/then keyword, as KiCad's provider schema has it
       then: {
         required: ['session_bootstrap_url'],
       },
