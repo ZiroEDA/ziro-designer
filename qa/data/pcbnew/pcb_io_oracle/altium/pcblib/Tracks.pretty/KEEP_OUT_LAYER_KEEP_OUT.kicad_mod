@@ -1,0 +1,95 @@
+(footprint "KEEP_OUT_LAYER_KEEP_OUT"
+	(version 20240108)
+	(generator "pcbnew")
+	(generator_version "8.0")
+	(layer "F.Cu")
+	(property "Reference" "REF**"
+		(at 0.25478 -0.95 0)
+		(layer "F.SilkS")
+		(uuid "8aa4c99c-570b-4738-ba93-ed586da85f5b")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Value" "KEEP_OUT_LAYER_KEEP_OUT"
+		(at 0.25478 0.95 0)
+		(layer "F.Fab")
+		(uuid "6d05c9da-c4fb-494c-bbd4-dd1cf8990981")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Footprint" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "485b75cd-589b-4c48-bb81-59daf3da73ea")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Datasheet" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "45f596cc-5654-448a-b43a-133277e07f71")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Description" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "69a702c5-81dc-47da-9a5e-cdd25715ce8b")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(zone
+		(net 0)
+		(net_name "")
+		(layers "*.Cu")
+		(uuid "b12ffb7b-551b-46e4-afc0-4b27ec444bb5")
+		(hatch edge 0.5)
+		(connect_pads
+			(clearance 0)
+		)
+		(min_thickness 0.25)
+		(filled_areas_thickness no)
+		(keepout
+			(tracks not_allowed)
+			(vias not_allowed)
+			(pads not_allowed)
+			(copperpour not_allowed)
+			(footprints allowed)
+		)
+		(fill
+			(thermal_gap 0.5)
+			(thermal_bridge_width 0.5)
+		)
+		(polygon
+			(pts
+				(xy 0.659776 -0.12456) (xy 0.705557 -0.105597) (xy 0.740597 -0.070557) (xy 0.75956 -0.024776) (xy 0.75956 0.024776)
+				(xy 0.740597 0.070557) (xy 0.705557 0.105597) (xy 0.659776 0.12456) (xy 0.635 0.127) (xy 0 0.127)
+				(xy -0.024776 0.12456) (xy -0.070557 0.105597) (xy -0.105597 0.070557) (xy -0.12456 0.024776) (xy -0.12456 -0.024776)
+				(xy -0.105597 -0.070557) (xy -0.070557 -0.105597) (xy -0.024776 -0.12456) (xy 0 -0.127) (xy 0.635 -0.127)
+			)
+		)
+	)
+)

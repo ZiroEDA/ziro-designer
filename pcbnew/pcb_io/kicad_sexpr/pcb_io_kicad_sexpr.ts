@@ -232,7 +232,12 @@ function isDefaultTeardropParameters(tdParams: TEARDROP_PARAMETERS): boolean {
 function sortedSet<T>(aItems: readonly T[], aLess: (a: T, b: T) => boolean): T[] {
   const out = [...aItems];
   out.sort((a, b) => (aLess(a, b) ? -1 : aLess(b, a) ? 1 : 0));
-  return out;
+
+  // A std::set keeps one element per equivalence class: the range constructor inserts in
+  // order and drops an item the comparator ties with one already in, so two identical
+  // drawings (the uuid is not compared for shapes) are written once. Array.sort is stable,
+  // so the first of each run of ties is the one the set keeps.
+  return out.filter((item, i) => i === 0 || aLess(out[i - 1]!, item));
 }
 
 /** `wxArrayString::Sort()`: `wxStrcmp`, code-unit order. */
