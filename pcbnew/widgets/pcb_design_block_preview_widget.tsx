@@ -6,17 +6,18 @@
  * the Design Blocks dock's preview - the block's board drawn fitted to the
  * pane, or the status text when there is nothing to show.
  *
- * Upstream draws on a `FOOTPRINT_PREVIEW_PANEL` (a GAL canvas); this draws the
- * loaded board with the board painter onto a 2D canvas, the way
- * `footprint_preview_panel.tsx` does. `DisplayDesignBlock` loads the block's
+ * Like upstream this draws through a `PCB_DRAW_PANEL_GAL` (WebGL, the panel
+ * the editor itself uses), with no parent frame, so it takes the
+ * `FRAME_FOOTPRINT_PREVIEW` painter. `DisplayDesignBlock` loads the block's
  * `.kicad_pcb` (`PCB_IO_KICAD_SEXPR::LoadBoard`), all of its layers shown
  * (`SyncLayersVisibility`), and fits the union of the items' boxes - a hidden
  * field left out - with 1/1.2 of whitespace round it (`fitOnDrawArea`). A
  * block with no board file shows no preview.
  */
-import { useCallback, useEffect, useMemo, useRef, type JSX } from 'react';
+import { useEffect, useMemo, useRef, type JSX } from 'react';
 import type { DESIGN_BLOCK } from '@ziroeda/common/design_block.js';
-import { drawGrid } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
+import { GAL_DISPLAY_OPTIONS } from '@ziroeda/common/gal/gal_display_options.js';
+import { drawPanelWindow, loadBitmapFontImage } from '@ziroeda/common/gal/gal_window.js';
 import { IO_ERROR } from '@ziroeda/common/exceptions.js';
 import { wxFileExists, wxReadFileSync } from '@ziroeda/common/wx/filefn.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
@@ -24,9 +25,7 @@ import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import type { BOARD } from '../board.js';
 import type { PCB_FIELD } from '../pcb_field.js';
 import { ParseBoard } from '../pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { boardFromBOARD } from '../pcb_io/kicad_sexpr/board_view.js';
-import { PCB_BACKGROUND } from '../pcbTheme.js';
-import { buildScene, DEFAULT_DRAW_OPTIONS, drawBoard, pcbGridOptions } from '../renderBoard.js';
+import { PCB_DRAW_PANEL_GAL } from '../pcb_draw_panel_gal.js';
 
 /**
  * `DisplayDesignBlock`'s load: the block's board, or null when it has none or
@@ -67,22 +66,34 @@ export function designBlockItemBBox(aBoard: BOARD): BOX2I {
 }
 
 /**
- * `fitOnDrawArea()` (:171-191): the scale that fits \a aBox in the client area,
- * less a fifth for whitespace, and the view that centres it.
+ * `fitOnDrawArea()` (:171-191), the arithmetic: given the client area in world
+ * units at scale 1.0, the scale that fits \a aBox, less a fifth for whitespace,
+ * and the point the view is centred on.
  */
 export function fitDesignBlockView(
+  aClientWorld: { x: number; y: number },
   aBox: BOX2I,
-  aWidthPx: number,
-  aHeightPx: number,
-): { scale: number; tx: number; ty: number } {
+): { scale: number; center: { x: number; y: number } } {
   const scale =
     Math.min(
-      Math.abs(aWidthPx / Math.max(1, aBox.GetWidth())),
-      Math.abs(aHeightPx / Math.max(1, aBox.GetHeight())),
+      Math.abs(aClientWorld.x / Math.max(1, aBox.GetWidth())),
+      Math.abs(aClientWorld.y / Math.max(1, aBox.GetHeight())),
     ) / 1.2;
-  const c = aBox.Centre();
 
-  return { scale, tx: aWidthPx / 2 - c.x * scale, ty: aHeightPx / 2 - c.y * scale };
+  return { scale, center: aBox.Centre() };
+}
+
+/** `fitOnDrawArea()` on the panel's VIEW. */
+function fitOnDrawArea(aPanel: PCB_DRAW_PANEL_GAL, aBox: BOX2I): void {
+  const view = aPanel.GetView();
+
+  // Calculate the drawing area size, in internal units, for a scaling factor = 1.0
+  view.SetScale(1.0);
+  const clientWorld = view.ToWorld(aPanel.GetClientSize(), false);
+  const fit = fitDesignBlockView(clientWorld, aBox);
+
+  view.SetScale(fit.scale);
+  view.SetCenter(fit.center);
 }
 
 export function PcbDesignBlockPreviewWidget({
@@ -101,51 +112,60 @@ export function PcbDesignBlockPreviewWidget({
     [designBlock],
   );
 
-  const draw = useCallback(() => {
+  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || !board) return;
-    const dpr = window.devicePixelRatio || 1;
-    const rect = canvas.getBoundingClientRect();
-    canvas.width = Math.max(1, Math.floor(rect.width * dpr));
-    canvas.height = Math.max(1, Math.floor(rect.height * dpr));
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = PCB_BACKGROUND;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    const view = fitDesignBlockView(designBlockItemBBox(board), canvas.width, canvas.height);
-    const flat = boardFromBOARD(board);
-    const scene = buildScene(flat);
-    drawGrid(
-      ctx,
-      view,
-      canvas.width,
-      canvas.height,
-      pcbGridOptions({ show: true, devicePixelRatio: dpr }),
+    let cancelled = false;
+    let panel: PCB_DRAW_PANEL_GAL | null = null;
+    let observer: ResizeObserver | null = null;
+
+    loadBitmapFontImage().then(
+      (fontImage) => {
+        if (cancelled) return;
+
+        try {
+          panel = new PCB_DRAW_PANEL_GAL(
+            null,
+            drawPanelWindow(canvas, fontImage),
+            new GAL_DISPLAY_OPTIONS(),
+          );
+        } catch (err) {
+          console.warn(`Could not use OpenGL: ${(err as Error).message}`);
+          return;
+        }
+
+        panel.SetStealsFocus(false);
+        panel.GetGAL().SetAxesEnabled(false);
+        panel.UpdateColors();
+        panel.DisplayBoard(board);
+        // The preview panel was built around a 2-layer dummy board. Re-sync layer
+        // visibility to the loaded block so inner copper layers are shown.
+        panel.SyncLayersVisibility(board);
+
+        const box = designBlockItemBBox(board);
+        fitOnDrawArea(panel, box);
+        panel.ForceRefresh();
+
+        const p = panel;
+        observer = new ResizeObserver(() => {
+          fitOnDrawArea(p, box);
+          p.ForceRefresh();
+        });
+        observer.observe(canvas);
+      },
+      (err: unknown) => console.warn(`Could not use OpenGL: ${(err as Error).message}`),
     );
-    drawBoard(
-      ctx,
-      scene,
-      view,
-      new Set(flat.layers.map((l) => l.name)),
-      canvas.width,
-      canvas.height,
-      { ...DEFAULT_DRAW_OPTIONS, drawingSheet: false },
-    );
+
+    return () => {
+      cancelled = true;
+      observer?.disconnect();
+      panel?.Destroy();
+    };
   }, [board]);
 
-  useEffect(() => {
-    draw();
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ro = new ResizeObserver(() => draw());
-    ro.observe(canvas);
-    return () => ro.disconnect();
-  }, [draw]);
-
   return (
-    <div className="ze-dbpreview" style={{ background: PCB_BACKGROUND }}>
-      {board ? <canvas ref={canvasRef} className="ze-dbpreview-canvas" /> : null}
+    <div className="ze-dbpreview">
+      <canvas ref={canvasRef} className="ze-dbpreview-canvas" hidden={!board} />
     </div>
   );
 }

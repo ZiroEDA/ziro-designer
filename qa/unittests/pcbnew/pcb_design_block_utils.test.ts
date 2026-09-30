@@ -322,15 +322,14 @@ describe('PCB_DESIGN_BLOCK_PREVIEW_WIDGET', () => {
     expect(loadDesignBlockBoard(blk)).toBeNull();
   });
 
-  it('fits the items with a fifth of whitespace, centred', () => {
+  it('fits the items with a fifth of whitespace, centred on their box', () => {
     const b = board();
     const box = designBlockItemBBox(b);
     expect(box.GetWidth()).toBeGreaterThan(0);
-    const v = fitDesignBlockView(box, 600, 300);
+    const v = fitDesignBlockView({ x: 600, y: 300 }, box);
     const fit = Math.min(600 / box.GetWidth(), 300 / box.GetHeight());
     expect(v.scale).toBeCloseTo(fit / 1.2, 12);
-    expect(box.Centre().x * v.scale + v.tx).toBeCloseTo(300, 6);
-    expect(box.Centre().y * v.scale + v.ty).toBeCloseTo(150, 6);
+    expect(v.center).toEqual(box.Centre());
   });
 });
 
