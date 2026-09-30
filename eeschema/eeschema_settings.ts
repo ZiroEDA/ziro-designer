@@ -7,6 +7,10 @@
  * settings.ts`, which still owns the store (load, merge, persist) and reads
  * this slice's type and defaults from here.
  */
+import {
+  REMOTE_PROVIDER_SETTINGS,
+  type REMOTE_PROVIDER_SETTINGS_JSON,
+} from '@ziroeda/common/remote_provider_settings.js';
 import { CROSS_PROBING_SETTINGS } from '@ziroeda/common/settings/app_settings.js';
 import type { EdaUnits } from '@ziroeda/common/eda_units.js';
 import { defaultUnits } from '@ziroeda/common/settings/app_settings_units.js';
@@ -88,6 +92,12 @@ export interface EeschemaSettings {
     allow_rejustify: boolean;
     align_to_grid: boolean;
   };
+  /**
+   * `m_RemoteSymbol` (`REMOTE_PROVIDER_SETTINGS`), persisted under
+   * `remote_symbols.*` (eeschema_settings.cpp:336-352): the remote symbol
+   * providers and where their downloads go.
+   */
+  remote_symbols: REMOTE_PROVIDER_SETTINGS_JSON;
   drawing: {
     default_line_thickness: number; // mils
     default_wire_thickness: number; // mils
@@ -331,6 +341,7 @@ export const EESCHEMA_DEFAULTS: EeschemaSettings = {
     allow_rejustify: true,
     align_to_grid: true,
   },
+  remote_symbols: new REMOTE_PROVIDER_SETTINGS().ToJson(),
   drawing: {
     default_line_thickness: 6,
     default_wire_thickness: 6,
