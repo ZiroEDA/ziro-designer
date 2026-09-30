@@ -11234,12 +11234,14 @@ export function PcbEditor({
 
         const dsnName = `${fileName.replace(/\.kicad_pcb$/, '')}.dsn`;
 
-        void import('./specctra_import_export/specctra_export.js').then(({ ExportSpecctraFile }) => {
-          const r = ExportSpecctraFile(frame, dsnName);
+        void import('./specctra_import_export/specctra_export.js').then(
+          ({ ExportSpecctraFile }) => {
+            const r = ExportSpecctraFile(frame, dsnName);
 
-          if (r.ok && r.text !== undefined) saveReportFile(r.text, dsnName);
-          else setInfoBarError(`Unable to export, please fix and try again: ${r.error ?? ''}`);
-        });
+            if (r.ok && r.text !== undefined) saveReportFile(r.text, dsnName);
+            else setInfoBarError(`Unable to export, please fix and try again: ${r.error ?? ''}`);
+          },
+        );
         break;
       }
       // `PCB_ACTIONS::importSpecctraSession` -> `PCB_EDIT_FRAME::ImportSpecctraSession`.
