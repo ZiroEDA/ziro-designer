@@ -11,7 +11,7 @@
  * `DRAWING_TOOL::constrainDimension`. A copy parked next to any one of those
  * callers is a copy the other three will drift from.
  */
-import { acos } from '../math/libm.js';
+import { acos, cos } from '../math/libm.js';
 import type { BOX2I } from '../math/box2.js';
 import { INT_MAX, INT_MIN, KiROUND } from '../math/util.js';
 import type { Vec2, VECTOR2I } from '../math/vector2.js';
@@ -35,9 +35,10 @@ export function getArcToSegmentCount(
   aErrorMax: number,
   aArcAngleDeg: number,
 ): number {
-  // Avoid divide-by-zero.
-  const radius = Math.max(1, aRadius);
-  const errorMax = Math.max(1, aErrorMax);
+  // Avoid divide-by-zero. Both are `int` parameters upstream: a double radius (an arc's
+  // external radius) arrives truncated.
+  const radius = Math.max(1, Math.trunc(aRadius));
+  const errorMax = Math.max(1, Math.trunc(aErrorMax));
 
   const relError = errorMax / radius;
 
@@ -137,7 +138,8 @@ export function CircleToEndSegmentDeltaRadius(aRadius: number, aSegCount: number
 
   // aRadius is the radius of the circle tangent to the middle of each segment
   // and aRadius/cos(aplha) is the radius of the circle defined by seg ends
-  const delta = KiROUND(Math.abs(aRadius * (1 - 1 / Math.cos(alpha))));
+  // `int aRadius` upstream: a double radius arrives truncated
+  const delta = KiROUND(Math.abs(Math.trunc(aRadius) * (1 - 1 / cos(alpha))));
 
   return delta;
 }
