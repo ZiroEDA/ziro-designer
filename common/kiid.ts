@@ -121,9 +121,19 @@ const hex2 = (n: number): string => n.toString(16).padStart(2, '0');
  * (boost::uuids::name_generator_sha1, which is RFC 4122 §4.3).
  */
 export function kiidFromName(name: string): string {
+  return nameGeneratorSha1(NAMESPACE_UUID, name);
+}
+
+/**
+ * `boost::uuids::name_generator_sha1( aNamespace )( aName )`: the version-5
+ * UUID of `aName`'s UTF-8 bytes in the namespace `aNamespace` (RFC 4122 §4.3).
+ * `KIID::FromName` is this under KiCad's namespace; the Altium importers'
+ * `AltiumUniqueIdToKiid` is it under their own.
+ */
+export function nameGeneratorSha1(aNamespace: string, name: string): string {
   const nameBytes = new TextEncoder().encode(name);
   const input = new Uint8Array(16 + nameBytes.length);
-  input.set(uuidToBytes(NAMESPACE_UUID));
+  input.set(uuidToBytes(aNamespace));
   input.set(nameBytes, 16);
 
   const digest = sha1(input);

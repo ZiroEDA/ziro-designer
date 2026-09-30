@@ -17,7 +17,10 @@
  * same string either way.
  */
 
+import { ToCDouble, ToCDoubleOk, strtodPrefix, strtol10 } from '@ziroeda/common/libc/stdlib.js';
 import { wxReadFileSync } from '@ziroeda/common/wx/filefn.js';
+
+export { ToCDouble, ToCDoubleOk, strtodPrefix, strtol10 };
 
 /** The NUL a C string ends with, which `*aText` reads at the end of a line. */
 export const NUL = '\0';
@@ -134,134 +137,6 @@ export function strncasecmp0(aText: CHAR_PTR, aWhat: string, n: number): boolean
 /** `strncmp( aText, aWhat, n )` === 0. */
 export function strncmp0(aText: CHAR_PTR, aWhat: string, n: number): boolean {
   return aText.buf.s.slice(aText.i, aText.i + n) === aWhat.slice(0, n);
-}
-
-/**
- * The prefix of `s` from `start` that C's `strtod` would consume, in the C
- * locale: optional whitespace and sign, then a decimal number (digits, one
- * point, an optional exponent), a hexadecimal one (`0x`, digits, point, `p`
- * exponent), `inf`/`infinity` or `nan`. Returns the value and the index just
- * past it, or `null` when no conversion is performed (`endptr == nptr`).
- */
-export function strtodPrefix(s: string, start = 0): { value: number; end: number } | null {
-  let i = start;
-  while (i < s.length && WHITESPACE.includes(s[i] as string)) i++;
-  let sign = 1;
-  if (s[i] === '+' || s[i] === '-') {
-    if (s[i] === '-') sign = -1;
-    i++;
-  }
-  const lower = s.slice(i, i + 8).toLowerCase();
-  if (lower.startsWith('infinity')) return { value: sign * Infinity, end: i + 8 };
-  if (lower.startsWith('inf')) return { value: sign * Infinity, end: i + 3 };
-  if (lower.startsWith('nan')) return { value: Number.NaN, end: i + 3 };
-
-  const hexDigit = (ch: string | undefined): boolean => !!ch && /^[0-9a-fA-F]$/.test(ch);
-
-  if (s[i] === '0' && (s[i + 1] === 'x' || s[i + 1] === 'X')) {
-    let j = i + 2;
-    let mant = 0;
-    let any = false;
-    while (hexDigit(s[j])) {
-      mant = mant * 16 + Number.parseInt(s[j] as string, 16);
-      j++;
-      any = true;
-    }
-    let scale = 0;
-    if (s[j] === '.') {
-      let k = j + 1;
-      while (hexDigit(s[k])) {
-        mant = mant * 16 + Number.parseInt(s[k] as string, 16);
-        scale -= 4;
-        k++;
-        any = true;
-      }
-      if (any) j = k;
-    }
-    if (!any) {
-      // "0x" with no hex digit: strtod converts the "0" and stops at the 'x'.
-      return { value: sign * 0, end: i + 1 };
-    }
-    if (s[j] === 'p' || s[j] === 'P') {
-      let k = j + 1;
-      let esign = 1;
-      if (s[k] === '+' || s[k] === '-') {
-        if (s[k] === '-') esign = -1;
-        k++;
-      }
-      if (isdigit(s[k] ?? '')) {
-        let e = 0;
-        while (isdigit(s[k] ?? '')) e = e * 10 + Number(s[k++]);
-        scale += esign * e;
-        j = k;
-      }
-    }
-    return { value: sign * mant * 2 ** scale, end: j };
-  }
-
-  let j = i;
-  let digits = 0;
-  while (isdigit(s[j] ?? '')) {
-    j++;
-    digits++;
-  }
-  if (s[j] === '.') {
-    j++;
-    while (isdigit(s[j] ?? '')) {
-      j++;
-      digits++;
-    }
-  }
-  if (digits === 0) return null;
-  if (s[j] === 'e' || s[j] === 'E') {
-    let k = j + 1;
-    if (s[k] === '+' || s[k] === '-') k++;
-    if (isdigit(s[k] ?? '')) {
-      while (isdigit(s[k] ?? '')) k++;
-      j = k;
-    }
-  }
-  return { value: sign * Number(s.slice(i, j)), end: j };
-}
-
-/**
- * `strtol( nptr, &endptr, 10 )`: the value and where it stopped, `end ===
- * start` when no digits were read (and the value 0).
- */
-export function strtol10(s: string, start = 0): { value: number; end: number } {
-  let i = start;
-  while (i < s.length && WHITESPACE.includes(s[i] as string)) i++;
-  let sign = 1;
-  if (s[i] === '+' || s[i] === '-') {
-    if (s[i] === '-') sign = -1;
-    i++;
-  }
-  let j = i;
-  let v = 0;
-  while (isdigit(s[j] ?? '')) v = v * 10 + Number(s[j++]);
-  if (j === i) return { value: 0, end: start };
-  // A C long saturates; ours only ever reads counts and D-code numbers.
-  return { value: sign * v, end: j };
-}
-
-/**
- * `wxString::ToCDouble( &val )` as wx 3.2 behaves on this machine
- * (`qa/probes/gerbview_tocdouble_probe.cpp`): `val` gets strtod's result for
- * whatever prefix it could read — even when trailing text makes the call
- * return false — and is left UNTOUCHED when nothing at all converts.
- */
-export function ToCDouble(text: string, prev: number): number {
-  const r = strtodPrefix(text, 0);
-  return r === null ? prev : r.value;
-}
-
-/**
- * The return value of `wxString::ToCDouble`: true only when the whole text,
- * after leading blanks, is one number (`"1.25 "` is false).
- */
-export function ToCDoubleOk(text: string): boolean {
-  const r = strtodPrefix(text, 0);
-  return r !== null && r.end === text.length;
 }
 
 /** The file's text, as the readers' `wxFopen` + `fgets` see it; null when it cannot be opened. */
