@@ -22,189 +22,28 @@
  * Values seed from the project's .kicad_pro and commit on OK.
  */
 import { useLayoutEffect, useRef, useState, type JSX } from 'react';
-import { GRID_TRICKS } from '@ziroeda/common/grid_tricks.js';
-import { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
 import { WX_GRID } from '@ziroeda/common/widgets/wx_grid.js';
-import { wxGridSelectionModes, wxGridStringTable } from '@ziroeda/common/wx/grid.js';
-import { WxGridView } from '@ziroeda/common/wx/grid_ui.js';
 import {
   PagedDialog,
   type PagedDialogError,
   type PagedDialogSection,
 } from '@ziroeda/common/widgets/paged_dialog.js';
-import { validateUnitValue, type UnitRange } from '@ziroeda/common/widgets/unit_binder.js';
-import { pcbIUScale, pcbMmToIU } from '@ziroeda/common/eda_units.js';
-import { PCB_VIA, VIA_PARAMETER_ERROR_FIELD } from '../pcb_track.js';
-import { Icon } from '@ziroeda/common/widgets/icons.js';
-import { SpinCtrl } from '@ziroeda/common/widgets/spin_ctrl.js';
 
-/**
- * KiCad's own dark-theme constraint icons, vendored under assets/constraints
- * (GPL like this project, same pattern as assets/toolbar). Filenames are the
- * KiCad BITMAPS enum names assigned in panel_setup_constraints.cpp.
- */
-// Constraint row -> KiCad bitmap file (SetBitmap(KiBitmapBundle(BITMAPS::…))).
-const CON_ICON_FILE: Record<string, string> = {
-  clearance: 'ps_diff_pair_gap',
-  track: 'width_track',
-  conn: 'width_conn',
-  annular: 'via_annulus',
-  viaDia: 'via_diameter',
-  uviaDia: 'via_diameter',
-  uviaHole: 'via_hole_diameter',
-  copperHole: 'hole_to_copper_clearance',
-  copperEdge: 'edge_to_copper_clearance',
-  throughHole: 'via_hole_diameter',
-  holeToHole: 'hole_to_hole_clearance',
-  fillet: 'zone_fillet',
-  spoke: 'thermal_spokes',
-};
-
-/** `document.getElementById` handle for one grid cell, so PAGED_DIALOG can
- *  focus the cell `Validate()` refused — `SetError( …, grid, row, col )`. */
-export function sizeCellId(grid: string, row: number, col: string): string {
-  return `ze-size-${grid.replace(/\s+/g, '-').toLowerCase()}-${row}-${col}`;
-}
-
-/**
- * `std::sort` over the row struct, which is `operator<` and not the first
- * column: `VIA_DIMENSION` compares diameter then drill, `DIFF_PAIR_DIMENSION`
- * width then gap then via gap (`board_design_settings.h:144`, `:187`).
- */
-export function sortSizeRows<T>(rows: readonly T[], keys: readonly (keyof T)[]): T[] {
-  return [...rows].sort((a, b) => {
-    for (const k of keys) {
-      const d = (a[k] as number) - (b[k] as number);
-      if (d !== 0) return d;
-    }
-    return 0;
-  });
-}
-
-/**
- * `PANEL_SETUP_TRACKS_AND_VIAS::TransferDataFromWindow` (`:290-345`): a row
- * whose FIRST column is empty is dropped, and what survives is sorted.
- *
- * Both halves are unconditional. The Sort button is a convenience; OK sorts
- * whether or not it was pressed, which is why a board file's lists are always
- * in increasing order.
- */
-export function normalizeSizeRows<T>(rows: readonly T[], keys: readonly (keyof T)[]): T[] {
-  const first = keys[0]!;
-  return sortSizeRows(
-    rows.filter((r) => (r[first] as number) > 0),
-    keys,
-  );
-}
-
-/**
- * `PANEL_SETUP_TRACKS_AND_VIAS::Validate()` (`:376-433`), which is the page's
- * own refusal and runs before anything is stored.
- *
- * The via half is `PCB_VIA::ValidateViaParameters` (`pcb_track.cpp:1769-1817`)
- * with every layer argument `std::nullopt`, so five of its checks apply. A
- * value of zero is this page's empty cell, which is upstream's "has no value"
- * — so "no hole size defined" is a diameter with a zero drill beside it, not a
- * separate rule.
- *
- * Returns the message and the cell to focus, or null.
- */
-export function validateSizes(v: {
-  viaSizesMM: readonly ViaSize[];
-  diffPairsMM: readonly DiffPairSize[];
-}): { message: string; row: number; grid: string; col: string } | null {
-  for (const [row, via] of v.viaSizesMM.entries()) {
-    // `PCB_VIA::ValidateViaParameters`, shared with the Custom Track/Via Size
-    // dialog so the two refuse the same values in the same words. A zero is
-    // this page's empty cell, which is upstream's empty `std::optional`.
-    const bad = PCB_VIA.ValidateViaParameters(
-      via.diameter > 0 ? pcbMmToIU(via.diameter) : undefined,
-      via.drill > 0 ? pcbMmToIU(via.drill) : undefined,
-    );
-
-    if (bad) {
-      const col = bad.m_Field === VIA_PARAMETER_ERROR_FIELD.DIAMETER ? 'diameter' : 'drill';
-      return { message: bad.m_Message, row, grid: 'Vias', col };
-    }
-  }
-
-  // "No differential pair gap defined." — a width with no gap. A via gap is
-  // optional and is not checked.
-  for (const [row, dp] of v.diffPairsMM.entries()) {
-    if (dp.width > 0 && !(dp.gap > 0))
-      return {
-        message: 'No differential pair gap defined.',
-        row,
-        grid: 'Differential Pairs',
-        col: 'gap',
-      };
-  }
-
-  return null;
-}
-
-/**
- * `PANEL_SETUP_CONSTRAINTS::TransferDataFromWindow` validates ten of the page's
- * fields with `UNIT_BINDER::Validate` and returns false on the FIRST failure,
- * before storing anything (`panel_setup_constraints.cpp:126-165`) — so a bad
- * value keeps the dialog open on this page with the control selected, and none
- * of the page's other edits are committed either.
- *
- * The limits are written in inches and mils upstream and compared in internal
- * units; this page displays millimetres, so they are stated here in the
- * millimetres the message will quote back. The uVia, Silk and deviation fields
- * are deliberately absent: upstream validates none of them, and the deviation
- * is clamped instead ({@link clampMaxErrorMM}).
- */
-// [data] `Validate( 0, 10, EDA_UNITS::INCH )` — 10 inch.
-const INCH_0_10: UnitRange = { min: 0, max: 25.4 * 10 };
-// [data] `Validate( 2, 1000, EDA_UNITS::MILS )`, upstream's own comment being
-// "#107 to 1 inch".
-const MILS_2_1000: UnitRange = { min: 0.0254 * 2, max: 0.0254 * 1000 };
-
-const CONSTRAINT_RANGES: readonly (readonly [keyof BoardConstraints, string, UnitRange])[] = [
-  ['minClearanceMM', 'Minimum clearance:', INCH_0_10],
-  ['minConnectionMM', 'Minimum connection width:', INCH_0_10],
-  ['minTrackMM', 'Minimum track width:', INCH_0_10],
-  ['minAnnularMM', 'Minimum annular width:', INCH_0_10],
-  ['minViaMM', 'Minimum via diameter:', INCH_0_10],
-  ['copperToHoleMM', 'Copper to hole clearance:', INCH_0_10],
-  ['copperToEdgeMM', 'Copper to edge clearance:', INCH_0_10],
-  ['minThroughHoleMM', 'Minimum drill size:', MILS_2_1000],
-  ['minHoleToHoleMM', 'Hole to hole clearance:', INCH_0_10],
-];
-
-/** `document.getElementById` handle for one constraint entry, so PAGED_DIALOG
- *  can focus and select the field `Validate` refused. */
-export function constraintFieldId(key: keyof BoardConstraints): string {
-  return `ze-constraint-${key}`;
-}
-
-/** The first `Validate` failure on the page, or null. */
-function validateConstraints(c: BoardConstraints): PagedDialogError | null {
-  for (const [key, label, range] of CONSTRAINT_RANGES) {
-    const message = validateUnitValue(label, c[key] as number, range, 'mm', pcbIUScale);
-    if (message) return { message, page: 'constraints', focusId: constraintFieldId(key) };
-  }
-  return null;
-}
-
-function ConIcon({ name }: { name: string }): JSX.Element | null {
-  const file = CON_ICON_FILE[name];
-  const url = file ? svgUrl('constraints', file) : undefined;
-  // [data] `KiBitmapBundle( BITMAPS::…, 24 )` — every bitmap on this page is
-  // asked for at 24 (`panel_setup_constraints.cpp:61-73`). This drew them at 20.
-  return url ? <img src={url} width={24} height={24} alt="" aria-hidden="true" /> : null;
-}
 import { PanelTextVariables } from '@ziroeda/common/dialogs/panel_text_variables.js';
 import { PanelSetupNetclasses } from '@ziroeda/common/dialogs/panel_setup_netclasses.js';
 import { PanelEmbeddedFiles } from '@ziroeda/common/dialogs/panel_embedded_files.js';
 import { PanelSetupSeverities } from '@ziroeda/common/dialogs/panel_setup_severities.js';
 import { DRC_CATEGORIES, type DrcSeverity } from '../board_settings.js';
-import { PanelPcbTextGraphics } from './panel_setup_text_and_graphics.js';
+import { PanelSetupDefaults } from './panel_setup_defaults.js';
+import { PanelSetupConstraints, validateConstraints } from './panel_setup_constraints.js';
+import {
+  PanelSetupTracksAndVias,
+  SIZE_GRID_KEYS,
+  normalizeSizeRows,
+  validateSizes,
+} from './panel_setup_tracks_and_vias.js';
 import { PanelPcbFormatting } from './panel_setup_formatting.js';
 import { PanelPcbMaskPaste } from './panel_setup_mask_and_paste.js';
-import { PanelPcbZones } from './panel_setup_zones.js';
 import { PanelPcbLayers, layerNameInputId, testLayerNames } from './panel_setup_layers.js';
 import { PanelPcbZoneHatchOffsets } from './panel_setup_zone_hatch_offsets.js';
 import { PanelPcbTeardrops } from './panel_setup_teardrops.js';
@@ -212,7 +51,7 @@ import { PanelPcbTuning } from './panel_setup_tuning_patterns.js';
 import { PanelPcbTuningProfiles } from './panel_setup_tuning_profiles.js';
 import { PanelPcbBoardFinish } from '../board_stackup_manager/panel_board_finish.js';
 import { PanelPcbStackup } from '../board_stackup_manager/panel_board_stackup.js';
-import { PanelPcbComponentClasses } from './panel_pcb_component_classes.js';
+import { PanelPcbComponentClasses } from './panel_assign_component_classes.js';
 import { PanelPcbCustomRules } from './panel_setup_rules.js';
 import { clampMaxErrorMM, copperStackNames, syncCopperLayers } from '../board_settings.js';
 import type {
@@ -230,9 +69,7 @@ import { SETTINGS_MANAGER } from '@ziroeda/common/pgm_base.js';
 import type { JsonValue } from '@ziroeda/common/settings/json_settings.js';
 import { ParseBoard } from '../pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { DialogImportSettings, type ImportSettingsOpts } from './dialog_import_settings.js';
-import { pcbUnitTextMM, pcbUnitValueMM, unitLabel } from '../pcb_unit_binder.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
-import { svgUrl } from '@ziroeda/bitmaps_png';
 
 // The aggregate model lives in board_settings.ts (KiCad's data/UI split);
 // re-exported so dialog users keep importing from the dialog module.
@@ -263,175 +100,6 @@ export type PageId =
   | 'customRules'
   | 'severities'
   | 'embedded';
-
-/** The columns of each Pre-defined Sizes grid, by the grid's title. */
-const SIZE_GRID_KEYS: Record<string, string[]> = {
-  Tracks: ['width'],
-  Vias: ['diameter', 'drill'],
-  'Differential Pairs': ['width', 'gap', 'viaGap'],
-};
-
-/**
- * One pre-defined-size grid (Tracks / Vias / Differential Pairs), and the
- * three of them are the whole of `PANEL_SETUP_TRACKS_AND_VIAS`.
- *
- * A WX_GRID with GRID_TRICKS, rows selected whole, `SetUnitsProvider( m_Frame )`
- * and every column auto-eval (`panel_setup_tracks_and_vias.cpp:88-100`): a
- * cell holds TEXT, "0.5 mm", and a zero is an EMPTY cell, because
- * `AppendViaSize` / `AppendDiffPairs` only call `SetUnitValue` for a value
- * `> 0` (`:446-472`) — that empty cell is what `<= 0 means use Netclass`
- * looks like to the user.
- */
-function SizeGrid<T extends object>({
-  title,
-  cols,
-  rows,
-  setRows,
-  units,
-  gridRef,
-}: {
-  title: string;
-  cols: { label: string; key: keyof T }[];
-  rows: readonly T[];
-  setRows: (next: T[]) => void;
-  units: StatusUnits;
-  gridRef: (g: WX_GRID) => void;
-}): JSX.Element {
-  const [{ grid, tricks, provider }] = useState(() => {
-    const g = new WX_GRID();
-    g.SetTable(new wxGridStringTable(0, cols.length), true, wxGridSelectionModes.wxGridSelectRows);
-    cols.forEach((c, i) => {
-      g.SetColLabelValue(i, c.label);
-    });
-    const p = new UNITS_PROVIDER(pcbIUScale, units);
-    g.SetUnitsProvider(p);
-    g.SetAutoEvalCols(cols.map((_, i) => i));
-    return { grid: g, tricks: new GRID_TRICKS(g), provider: p };
-  });
-  gridRef(grid);
-
-  const written = useRef<string | null>(null);
-  const key = JSON.stringify([units, rows]);
-
-  /** `AppendTrackWidth` / `AppendViaSize` / `AppendDiffPairs`: a zero stays empty. */
-  const appendRow = (aRow: T): void => {
-    const row = grid.GetNumberRows();
-    grid.AppendRows(1);
-    cols.forEach((c, i) => {
-      const mm = aRow[c.key] as number;
-
-      if (mm > 0) grid.SetUnitValue(row, i, pcbIUScale.mmToIU(mm));
-    });
-  };
-
-  // TransferDataToWindow.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: key is the rows and units; the grid is stable
-  useLayoutEffect(() => {
-    if (key === written.current) return;
-
-    provider.SetUserUnits(units);
-    grid.BeginBatch();
-    grid.ClearRows();
-
-    for (const r of rows) appendRow(r);
-
-    grid.EndBatch();
-    written.current = key;
-  }, [key]);
-
-  /** The rows as the grid holds them; an empty cell is 0. */
-  const read = (): T[] =>
-    Array.from({ length: grid.GetNumberRows() }, (_, row) => {
-      const r = {} as T;
-      cols.forEach((c, i) => {
-        const text = grid.GetCellValue(row, i);
-        (r as Record<keyof T, number>)[c.key] =
-          text.trim() === '' ? 0 : pcbIUScale.iuToMM(grid.GetUnitValue(row, i));
-      });
-      return r;
-    });
-
-  const transfer = (): void => {
-    const next = read();
-    const nextKey = JSON.stringify([units, next]);
-
-    if (nextKey === written.current) return;
-
-    written.current = nextKey;
-    setRows(next);
-  };
-
-  /** `OnSort…Click`: the rows with a first value, sorted as `operator<` does. */
-  const onSort = (): void => {
-    if (grid.GetNumberRows() < 2) return;
-
-    grid.ClearSelection();
-    const sorted = sortSizeRows(
-      read().filter((r) => (r[cols[0]!.key] as number) > 0 || cols.length > 1),
-      cols.map((c) => c.key),
-    );
-    grid.BeginBatch();
-    grid.ClearRows();
-
-    for (const r of sorted) appendRow(r);
-
-    grid.EndBatch();
-  };
-
-  return (
-    <div className="ze-sizes-col">
-      {/* [data] `bSizerTracks->Add( stTracksLabel, 0, wxALL, 5 )`. */}
-      <div className="ze-sizes-title">{title}</div>
-      <div className="ze-grid-pane ze-sizes-pane">
-        <WxGridView
-          grid={grid}
-          tricks={tricks}
-          // [data] `SetColSize( n, 120 )` (`panel_setup_tracks_and_vias_base.cpp:38`, `:92-93`, `:151-153`).
-          columns={cols.map(() => ({ width: 120 }))}
-          onUpdate={transfer}
-          ariaLabel={title}
-        />
-      </div>
-      <div className="ze-grid-btns">
-        {/* `OnAddRow` appends a row of ZEROS and puts the cursor in its first
-            column. It does not invent a size. */}
-        <button
-          type="button"
-          className="ze-gridbtn ze-gridbtn-add"
-          title="Add"
-          onClick={() =>
-            grid.OnAddRow(() => {
-              appendRow({} as T);
-              return [grid.GetNumberRows() - 1, 0];
-            })
-          }
-        >
-          <Icon name="plus" />
-        </button>
-        {/* `std::sort` over the whole struct — `VIA_DIMENSION::operator<`
-            compares diameter then drill, `DIFF_PAIR_DIMENSION::operator<`
-            width then gap then via gap (`board_design_settings.h:144`, `:187`). */}
-        <button
-          type="button"
-          className="ze-gridbtn ze-gridbtn-sort"
-          title="Sort ascending"
-          onClick={onSort}
-        >
-          <Icon name="arrowDown" />
-        </button>
-        {/* `WX_GRID::OnDeleteRows` deletes the SELECTED rows. */}
-        <button
-          type="button"
-          className="ze-gridbtn ze-gridbtn-remove"
-          title="Remove"
-          onClick={() => grid.OnDeleteRows((row) => grid.DeleteRows(row, 1))}
-        >
-          <Icon name="delete" />
-        </button>
-      </div>
-    </div>
-  );
-}
 
 interface Props {
   value: BoardSetupValues;
@@ -535,199 +203,6 @@ export function DialogBoardSetup({
     setImportOpen(false);
   };
 
-  /**
-   * `UNIT_BINDER::GetValue()` for a field the model holds in millimetres.
-   *
-   * Not `Number()`: the field shows the FRAME's unit, so on a mils board this
-   * read 5.906 as 5.906 millimetres. It also honours a trailing designator, so
-   * `0.15mm` typed into a mils field means 0.15 mm.
-   */
-  const num = (s: string): number => {
-    const mm = pcbUnitValueMM(s, units);
-    return Number.isFinite(mm) ? mm : 0;
-  };
-
-  const setCon = (key: keyof BoardConstraints, value: number | boolean): void =>
-    setV({ ...v, constraints: { ...v.constraints, [key]: value } });
-
-  // A numeric constraint row of `fgFeatureConstraints`, the 4-column
-  // `wxFlexGridSizer( 0, 4, 0, 0 )` the whole left half of the page is built
-  // from (`panel_setup_constraints_base.cpp:26`): bitmap | label | wxTextCtrl |
-  // units. Pass icon='' for the rows KiCad leaves un-iconed (Silk); the empty
-  // cell keeps the column.
-  const conRow = (icon: string, label: string, key: keyof BoardConstraints): JSX.Element => (
-    <div className="ze-con-row" key={key}>
-      <span className="ze-con-icon">{icon ? <ConIcon name={icon} /> : null}</span>
-      <span className="lbl">{label}</span>
-      <input
-        id={constraintFieldId(key)}
-        className="ze-search"
-        value={pcbUnitTextMM(v.constraints[key] as number, units)}
-        onChange={(e) => setCon(key, num(e.target.value))}
-      />
-      <span className="unit">{unitLabel(units)}</span>
-    </div>
-  );
-
-  // A section heading of `fgFeatureConstraints`: the `wxStaticText` occupies
-  // the FIRST column only (`Add( m_staticText23, 0, wxTOP|wxLEFT, 13 )`), and
-  // the four `wxStaticLine`s under it fill the row. Making the heading span
-  // instead left the bitmap column as narrow as a bitmap; in KiCad it is as
-  // wide as "Copper", which is what indents the icons.
-  const conHead = (title: string): JSX.Element[] => [
-    <div className="ze-con-head" key={`h:${title}`}>
-      {title}
-    </div>,
-    <hr className="ze-hr ze-con-hr" key={`r:${title}`} />,
-  ];
-
-  const constraintsPanel = (): JSX.Element => (
-    // `bScrolledSizer`, a horizontal box: `sbFeatureConstraints` on the left
-    // and `sbFeatureRules` on the right (`:20-23`, `:379`).
-    <div className="ze-con-cols">
-      <div className="ze-con-grid">
-        {conHead('Copper')}
-        {conRow('clearance', 'Minimum clearance:', 'minClearanceMM')}
-        {conRow('track', 'Minimum track width:', 'minTrackMM')}
-        {conRow('conn', 'Minimum connection width:', 'minConnectionMM')}
-        {conRow('annular', 'Minimum annular width:', 'minAnnularMM')}
-        {conRow('viaDia', 'Minimum via diameter:', 'minViaMM')}
-        {conRow('copperHole', 'Copper to hole clearance:', 'copperToHoleMM')}
-        {conRow('copperEdge', 'Copper to edge clearance:', 'copperToEdgeMM')}
-        {/* `m_minGrooveWidth*`, "Minimum groove for creepage:" (`:172-190`), is
-            built and then `Show( false )` unless
-            `ADVANCED_CFG::m_EnableCreepageSlot` — an advanced-config flag that
-            is off by default, so a stock KiCad does not draw this row. */}
-
-        {conHead('Holes')}
-        {/* [data] `m_MinDrillTitle`, "Minimum drill size:" (`:214`). This read
-            "Minimum through hole:", which is the v7 string. */}
-        {conRow('throughHole', 'Minimum drill size:', 'minThroughHoleMM')}
-        {conRow('holeToHole', 'Hole to hole clearance:', 'minHoleToHoleMM')}
-
-        {conHead('uVias')}
-        {conRow('uviaDia', 'Minimum uVia diameter:', 'minUViaMM')}
-        {conRow('uviaHole', 'Minimum uVia hole:', 'minUViaHoleMM')}
-
-        {conHead('Silk')}
-        {conRow('', 'Minimum item clearance:', 'silkClearanceMM')}
-        {conRow('', 'Minimum text height:', 'minTextHeightMM')}
-        {conRow('', 'Minimum text thickness:', 'minTextThicknessMM')}
-      </div>
-
-      <div className="ze-con-rules">
-        {/* [data] `m_stCircleToPolyOpt`, "Arc/Circle Approximations" (`:384`).
-            This read "Arc/Circle Approximated by Segments", the v6 string. */}
-        <div className="ze-pref-group-title">Arc/Circle Approximations</div>
-        {/* `fgSizer2` (`:400`) is label | entry | units and has no bitmap
-            column, so this row is NOT one of the left grid's. */}
-        <div className="ze-con-dev">
-          <span className="lbl">Maximum allowed deviation:</span>
-          <input
-            className="ze-search"
-            value={pcbUnitTextMM(v.constraints.maxDeviationMM, units)}
-            onChange={(e) => setCon('maxDeviationMM', num(e.target.value))}
-          />
-          <span className="unit">{unitLabel(units)}</span>
-        </div>
-        {/* `KIUI::GetSmallInfoFont( this ).Italic()`
-            (`panel_setup_constraints.cpp:74`) — the info font TWO points down,
-            which is `.ze-pref-hint`, not a grey 11px caption. */}
-        <div className="ze-pref-hint">Note: zone filling can be slow when &lt; 0.005 mm.</div>
-
-        <div className="ze-con-fill">
-          <div className="ze-pref-group-title">Zone Fill Strategy</div>
-          {/* `bSizer9` (`:437-445`): the bitmap and the checkbox are SIBLINGS in
-              a horizontal box, so the icon sits outside the label. Inside it,
-              the box-to-text gap stays the shared checkbox's. */}
-          <div className="ze-con-check">
-            <span className="ze-con-icon">
-              <ConIcon name="fillet" />
-            </span>
-            <label className="ze-pref-check">
-              <input
-                type="checkbox"
-                checked={v.constraints.allowFilletsOutside}
-                onChange={(e) => setCon('allowFilletsOutside', e.target.checked)}
-              />
-              Allow fillets/chamfers outside zone outline
-            </label>
-          </div>
-          <div className="ze-con-spoke">
-            <span className="ze-con-icon">
-              <ConIcon name="spoke" />
-            </span>
-            <span className="lbl">Minimum thermal relief spoke count:</span>
-            {/* [data] `new wxSpinCtrl( …, wxSP_ARROW_KEYS, 0, 10, 0 )` (`:452`)
-                — a spin control with the theme's two arrow buttons, which this
-                drew as a plain 210 px text field. It carries no width: KiCad's
-                one `SetSize` on it (`panel_setup_constraints.cpp:77-79`) is
-                overridden by the sizer, which lays it out at its best size. */}
-            <SpinCtrl
-              value={v.constraints.minThermalSpokes}
-              onChange={(n) => setCon('minThermalSpokes', n)}
-              min={0}
-              max={10}
-              ariaLabel="Minimum thermal relief spoke count"
-            />
-          </div>
-        </div>
-
-        <div className="ze-pref-group-title">Length Tuning</div>
-        <label className="ze-pref-check">
-          <input
-            type="checkbox"
-            checked={v.constraints.includeStackupHeight}
-            onChange={(e) => setCon('includeStackupHeight', e.target.checked)}
-          />
-          Include stackup height in track length calculations
-        </label>
-      </div>
-    </div>
-  );
-
-  const sizesPanel = (): JSX.Element => (
-    // `bMainSizer`, horizontal: three columns at proportion 1
-    // (`panel_setup_tracks_and_vias_base.cpp:71`, `:130`, `:198`), so they
-    // split the page in thirds whatever their grids need.
-    <div className="ze-sizes-cols">
-      {/* [data] the column labels, which carry no unit: `SetColLabelValue( 0,
-          _("Width") )` and friends (`_base.cpp:41`, `:96-97`, `:165-167`).
-          These read "Width (mm)" — the unit is in the CELL, not the header. */}
-      <SizeGrid<{ width: number }>
-        title="Tracks"
-        cols={[{ label: 'Width', key: 'width' }]}
-        rows={v.trackWidthsMM.map((width) => ({ width }))}
-        setRows={(rows) => setV((cur) => ({ ...cur, trackWidthsMM: rows.map((r) => r.width) }))}
-        units={units}
-        gridRef={(g) => (sizeGrids.current.Tracks = g)}
-      />
-      <SizeGrid<ViaSize>
-        title="Vias"
-        cols={[
-          { label: 'Diameter', key: 'diameter' },
-          { label: 'Hole', key: 'drill' },
-        ]}
-        rows={v.viaSizesMM}
-        setRows={(rows) => setV((cur) => ({ ...cur, viaSizesMM: rows }))}
-        units={units}
-        gridRef={(g) => (sizeGrids.current.Vias = g)}
-      />
-      <SizeGrid<DiffPairSize>
-        title="Differential Pairs"
-        cols={[
-          { label: 'Width', key: 'width' },
-          { label: 'Gap', key: 'gap' },
-          { label: 'Via Gap', key: 'viaGap' },
-        ]}
-        rows={v.diffPairsMM}
-        setRows={(rows) => setV((cur) => ({ ...cur, diffPairsMM: rows }))}
-        units={units}
-        gridRef={(g) => (sizeGrids.current['Differential Pairs'] = g)}
-      />
-    </div>
-  );
-
   // The upstream page tree (DIALOG_BOARD_SETUP::DIALOG_BOARD_SETUP).
   const sections: PagedDialogSection[] = [
     {
@@ -812,13 +287,12 @@ export function DialogBoardSetup({
           // `PanelPcbTextGraphics`; the third was a tree row of its own here,
           // which is a page KiCad's Board Setup does not have.
           render: () => (
-            <div className="ze-pcb-defaults">
-              <PanelPcbTextGraphics
-                value={v.textGraphics}
-                onChange={(textGraphics) => setV({ ...v, textGraphics })}
-              />
-              <PanelPcbZones value={v.zones} onChange={(zones) => setV({ ...v, zones })} />
-            </div>
+            <PanelSetupDefaults
+              textGraphics={v.textGraphics}
+              onTextGraphics={(textGraphics) => setV({ ...v, textGraphics })}
+              zones={v.zones}
+              onZones={(zones) => setV({ ...v, zones })}
+            />
           ),
         },
         {
@@ -846,8 +320,31 @@ export function DialogBoardSetup({
     {
       label: 'Design Rules',
       pages: [
-        { id: 'constraints', label: 'Constraints', render: constraintsPanel },
-        { id: 'sizes', label: 'Pre-defined Sizes', render: sizesPanel },
+        {
+          id: 'constraints',
+          label: 'Constraints',
+          render: () => (
+            <PanelSetupConstraints
+              value={v.constraints}
+              units={units}
+              onChange={(constraints) => setV({ ...v, constraints })}
+            />
+          ),
+        },
+        {
+          id: 'sizes',
+          label: 'Pre-defined Sizes',
+          render: () => (
+            <PanelSetupTracksAndVias
+              trackWidthsMM={v.trackWidthsMM}
+              viaSizesMM={v.viaSizesMM}
+              diffPairsMM={v.diffPairsMM}
+              units={units}
+              onChange={(patch) => setV((cur) => ({ ...cur, ...patch }))}
+              gridRefs={sizeGrids.current}
+            />
+          ),
+        },
         {
           id: 'teardrops',
           label: 'Teardrops',

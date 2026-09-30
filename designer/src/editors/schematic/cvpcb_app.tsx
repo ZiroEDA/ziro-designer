@@ -18,7 +18,7 @@ import { Viewer3DFrame } from '../pcb/Viewer3DFrame.js';
 import { loadFootprint, loadFootprintIndex } from '../../widgets/footprint_list.js';
 import { footprintsBase } from '../footprint/footprint_edit_frame_app.js';
 import { LibraryLoadingPanel } from '../../widgets/library_loading_panel.js';
-import { DialogFpLibTable } from '../../widgets/dialog_fp_lib_table.js';
+import { DialogFpLibTable } from '@ziroeda/pcbnew/dialogs/panel_fp_lib_table.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
 import { OpenFileDialog } from '../../fs/OpenFileDialog.js';
 import { useDialogControl } from '../../ui/useDialogControl.js';

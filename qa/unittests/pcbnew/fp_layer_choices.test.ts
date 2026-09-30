@@ -25,10 +25,7 @@
  * this control shows. Akshay spotted it beside a live 10.0.5.
  */
 import { describe, expect, it } from 'vitest';
-import {
-  allLayerChoices,
-  userLayerChoices,
-} from '@ziroeda/designer/src/editors/footprint/fp_layer_choices.js';
+import { allLayerChoices, userLayerChoices } from '@ziroeda/pcbnew/grid_layer_box_helpers.js';
 import { layerColor } from '@ziroeda/pcbnew/pcbTheme.js';
 import { BUILTIN_DEFAULT_THEME } from '@ziroeda/common';
 import { toCssColor } from '@ziroeda/common/gal/color4d.js';

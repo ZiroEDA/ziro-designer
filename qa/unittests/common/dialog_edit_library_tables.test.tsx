@@ -31,7 +31,7 @@ describe('DIALOG_EDIT_LIBRARY_TABLES', () => {
     // The shared library-table panel installs itself in the dialog; the
     // symbol dialog gives it the title (rendered in lib_table_dialogs.test).
     const panel = readFileSync(
-      resolve(process.cwd(), '../designer/src/widgets/lib_table_panel.tsx'),
+      resolve(process.cwd(), '../common/dialogs/lib_table_panel.tsx'),
       'utf8',
     );
     const src = readFileSync(

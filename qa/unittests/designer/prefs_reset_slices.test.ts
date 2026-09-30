@@ -279,7 +279,7 @@ const SLICES: Partial<Record<PrefsPageId, readonly string[]>> = {
     'pcbnew.pcb_display.origin_invert_x_axis',
     'pcbnew.pcb_display.origin_invert_y_axis',
   ],
-  // PanelPcbEditingOptions.tsx — the whole `editing` slice this page draws,
+  // panel_edit_options.tsx — the whole `editing` slice this page draws,
   // plus the four `pcb_display.*` keys beside it. `editing.polar_coords` is a
   // toolbar button and `loadPCBSettings` never touches it.
   'pcb-editing': [

@@ -808,7 +808,10 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // 2/19 -> 3/34 on 09-26 (stage 3d): what `dialogs` gave up, 1 + 15.
   // metrics 34 -> 27 on 09-26: the Assign Netclass stub's inline styles went
   // when DIALOG_ASSIGN_NETCLASS was ported; its sizes are shell.css's, marked.
-  'common/dialogs': { colours: 1, metrics: 12 },
+  // 1 -> 2 and 12 -> 18 (09-30): `lib_table_panel.tsx` moved here from `widgets`,
+  // carrying its one colour and six metric literals; `widgets` fell by the same.
+  // The total is unchanged.
+  'common/dialogs': { colours: 2, metrics: 18 },
   // 09-26 (stage 3b): common/wx/controls.tsx, the wx controls the panels'
   // `_base` files instantiate, with the one colour `dialogs` gave up.
   'common/wx': { colours: 1, metrics: 0 },
@@ -856,7 +859,9 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // is left is entirely lib_table_panel.tsx, uncited. RESCANNED from this
   // tree; the exact literal each commit took could not be reconstructed one
   // for one, the same "two passes met" case the totals above describe.
-  widgets: { colours: 1, metrics: 6 },
+  // 1 -> 0 and 6 -> 0 (09-30): `lib_table_panel.tsx`, all that was left, moved to
+  // `common/dialogs` (KiCad's directory); see that row.
+  widgets: { colours: 0, metrics: 0 },
 };
 
 /** Properties whose value the GTK theme decides, so a px in one is drift. */

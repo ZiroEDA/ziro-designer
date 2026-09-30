@@ -64,11 +64,11 @@ import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import {
   GRID_CELL_LAYER_RENDERER,
   GRID_CELL_LAYER_SELECTOR,
-} from '@ziroeda/pcbnew/grid_layer_box_helpers.js';
+  allLayerChoices,
+  choiceOf,
+} from '../grid_layer_box_helpers.js';
 import { LSET_Name, LSET_NameToLayer } from '@ziroeda/common/layer_ids.js';
-import { allLayerChoices, choiceOf } from '../fp_layer_choices.js';
-import type { FpTextItem } from '../../../prefs/settings.js';
-import type { PrefsContext } from '../../../dialogs/prefs/types.js';
+import type { FP_TEXT_ITEM_LIKE as FpTextItem } from '../footprint_editor_settings.js';
 
 interface TEXT_ITEM_INFO {
   m_Text: string;
@@ -186,7 +186,21 @@ function makeGrid(aForFieldProps: boolean): {
   return { grid, table, tricks };
 }
 
-export function PanelFpFootprintDefaults({ ctx }: { ctx: PrefsContext }): JSX.Element {
+/** The `FOOTPRINT_EDITOR_SETTINGS` members this page reads and writes. */
+export interface PANEL_FP_EDITOR_FIELD_DEFAULTS_SLICE {
+  design_settings: { default_footprint_text_items: FpTextItem[] };
+}
+
+export interface PANEL_FP_EDITOR_FIELD_DEFAULTS_CTX {
+  fpEdit: PANEL_FP_EDITOR_FIELD_DEFAULTS_SLICE;
+  upFp: (fn: (s: PANEL_FP_EDITOR_FIELD_DEFAULTS_SLICE) => void) => void;
+}
+
+export function PanelFpFootprintDefaults({
+  ctx,
+}: {
+  ctx: PANEL_FP_EDITOR_FIELD_DEFAULTS_CTX;
+}): JSX.Element {
   const { fpEdit, upFp } = ctx;
   const upFpRef = useRef(upFp);
   upFpRef.current = upFp;

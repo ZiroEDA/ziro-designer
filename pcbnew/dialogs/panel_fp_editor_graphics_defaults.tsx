@@ -10,7 +10,7 @@
  *
  * Two things stacked: a 6 x 5 grid, and a whole `PANEL_SETUP_DIMENSIONS` added
  * to this panel's own sizer (`:86`). The second is the shared class Board Setup
- * also embeds, which is why it is `dialogs/prefs/PanelSetupDimensions.tsx` here
+ * also embeds, which is why it is `panel_setup_dimensions.tsx` here
  * rather than a second copy.
  *
  * The grid (`panel_fp_editor_graphics_defaults_base.cpp:26-57`):
@@ -55,8 +55,8 @@
  * `editors/footprint/graphics_defaults.ts` is that lookup.
  */
 import { type JSX, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { PanelSetupDimensions } from '../../../dialogs/prefs/PanelSetupDimensions.js';
-import { PCB_IU_PER_MM, pcbIUScale } from '@ziroeda/common';
+import { PanelSetupDimensions, type DimensionDefaults } from './panel_setup_dimensions.js';
+import { PCB_IU_PER_MM, pcbIUScale } from '@ziroeda/common/eda_units.js';
 import { GRID_TRICKS } from '@ziroeda/common/grid_tricks.js';
 import { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
 import { WX_GRID } from '@ziroeda/common/widgets/wx_grid.js';
@@ -72,9 +72,12 @@ import {
   wxGridStringTable,
 } from '@ziroeda/common/wx/grid.js';
 import { WxGridView } from '@ziroeda/common/wx/grid_ui.js';
-import { GRAPHICS_ROWS, checkFpGraphicsRow } from '@ziroeda/pcbnew/footprint_editor_settings.js';
-import type { FpGraphicsTextClass } from '../../../prefs/settings.js';
-import type { PrefsContext } from '../../../dialogs/prefs/types.js';
+import {
+  GRAPHICS_ROWS,
+  checkFpGraphicsRow,
+  type FP_GRAPHICS_LINE_CLASS_LIKE as FpGraphicsLineClass,
+  type FP_GRAPHICS_TEXT_CLASS_LIKE as FpGraphicsTextClass,
+} from '../footprint_editor_settings.js';
 
 /** `COL_*` (`panel_fp_editor_graphics_defaults.cpp:38-45`). */
 const COL_LINE_THICKNESS = 0;
@@ -94,7 +97,30 @@ const DISABLED_COLOUR = 'var(--grid-label-bg)';
 
 const toIU = (mm: number): number => Math.round(mm * PCB_IU_PER_MM);
 
-export function PanelFpGraphicsDefaults({ ctx }: { ctx: PrefsContext }): JSX.Element {
+/** The `FOOTPRINT_EDITOR_SETTINGS` members this page reads and writes. */
+export interface PANEL_FP_EDITOR_GRAPHICS_DEFAULTS_SLICE {
+  system: { units: Parameters<typeof toStatusUnits>[0] };
+  design_settings: {
+    silk: FpGraphicsTextClass;
+    copper: FpGraphicsTextClass;
+    edges: FpGraphicsLineClass;
+    courtyard: FpGraphicsLineClass;
+    fab: FpGraphicsTextClass;
+    others: FpGraphicsTextClass;
+    dimensions: DimensionDefaults;
+  };
+}
+
+export interface PANEL_FP_EDITOR_GRAPHICS_DEFAULTS_CTX {
+  fpEdit: PANEL_FP_EDITOR_GRAPHICS_DEFAULTS_SLICE;
+  upFp: (fn: (s: PANEL_FP_EDITOR_GRAPHICS_DEFAULTS_SLICE) => void) => void;
+}
+
+export function PanelFpGraphicsDefaults({
+  ctx,
+}: {
+  ctx: PANEL_FP_EDITOR_GRAPHICS_DEFAULTS_CTX;
+}): JSX.Element {
   const { fpEdit, upFp } = ctx;
   const upFpRef = useRef(upFp);
   upFpRef.current = upFp;

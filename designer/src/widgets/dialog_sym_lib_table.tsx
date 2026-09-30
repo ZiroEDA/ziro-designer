@@ -35,7 +35,12 @@ import {
   projectSymbolFiles,
   rowSymLibName,
 } from '@ziroeda/eeschema/project_sym_lib_table.js';
-import { hostedLibraryTable, LIB_LOADED, LibTablePanel, libNotFound } from './lib_table_panel.js';
+import {
+  hostedLibraryTable,
+  LIB_LOADED,
+  LibTablePanel,
+  libNotFound,
+} from '@ziroeda/common/dialogs/lib_table_panel.js';
 
 interface Props {
   /** The open project's files (`.kicad_sym`, the table, the `.kicad_pro`). */

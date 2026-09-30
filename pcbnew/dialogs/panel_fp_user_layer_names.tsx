@@ -75,10 +75,10 @@ import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import {
   GRID_CELL_LAYER_RENDERER,
   GRID_CELL_LAYER_SELECTOR,
-} from '@ziroeda/pcbnew/grid_layer_box_helpers.js';
+  choiceOf,
+  userLayerChoices,
+} from '../grid_layer_box_helpers.js';
 import { LSET_Name, LSET_NameToLayer } from '@ziroeda/common/layer_ids.js';
-import { choiceOf, userLayerChoices } from '../fp_layer_choices.js';
-import type { PrefsContext } from '../../../dialogs/prefs/types.js';
 
 /** `m_choiceUserLayersChoices` — "0" … "9" (`_base.cpp:29-30`). */
 const USER_LAYER_COUNTS: [number, string][] = Array.from({ length: 10 }, (_, i) => [i, String(i)]);
@@ -149,7 +149,24 @@ class LAYER_NAMES_GRID_TABLE extends WX_GRID_TABLE_BASE {
   }
 }
 
-export function PanelFpUserLayerNames({ ctx }: { ctx: PrefsContext }): JSX.Element {
+/** The `FOOTPRINT_EDITOR_SETTINGS` members this page reads and writes. */
+export interface PANEL_FP_USER_LAYER_NAMES_SLICE {
+  design_settings: {
+    default_footprint_layer_names: Record<string, string>;
+    user_layer_count: number;
+  };
+}
+
+export interface PANEL_FP_USER_LAYER_NAMES_CTX {
+  fpEdit: PANEL_FP_USER_LAYER_NAMES_SLICE;
+  upFp: (fn: (s: PANEL_FP_USER_LAYER_NAMES_SLICE) => void) => void;
+}
+
+export function PanelFpUserLayerNames({
+  ctx,
+}: {
+  ctx: PANEL_FP_USER_LAYER_NAMES_CTX;
+}): JSX.Element {
   const { fpEdit, upFp } = ctx;
   const upFpRef = useRef(upFp);
   upFpRef.current = upFp;

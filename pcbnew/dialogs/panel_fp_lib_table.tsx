@@ -38,7 +38,12 @@ import {
   rowPrettyDir,
   type FpLibRow,
 } from '@ziroeda/common/fp_lib_table.js';
-import { hostedLibraryTable, LIB_LOADED, LibTablePanel, libNotFound } from './lib_table_panel.js';
+import {
+  hostedLibraryTable,
+  LIB_LOADED,
+  LibTablePanel,
+  libNotFound,
+} from '@ziroeda/common/dialogs/lib_table_panel.js';
 
 interface Props {
   /** The open project's files (footprints, the table, the `.kicad_pro`). */

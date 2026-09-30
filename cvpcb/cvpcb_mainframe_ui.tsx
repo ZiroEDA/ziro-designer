@@ -253,7 +253,7 @@ export interface CVPCB_APP extends CvpcbDisplayFootprintsApp, CvpcbEquFilesApp {
 
   /** The "still loading" panel every chooser shows (`widgets/library_loading_panel.tsx`). */
   LibraryLoadingPanel(props: { label: string }): ReactNode;
-  /** Preferences > Manage Footprint Libraries (`widgets/dialog_fp_lib_table.tsx`). */
+  /** Preferences > Manage Footprint Libraries (`pcbnew/dialogs/panel_fp_lib_table.tsx`). */
   DialogFpLibTable(props: {
     projectFiles: readonly ProjectFile[];
     globalLibraries: readonly string[];

@@ -28,12 +28,12 @@
  */
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { DialogBoardSetup } from '@ziroeda/pcbnew/dialogs/dialog_board_setup.js';
 import {
-  DialogBoardSetup,
   normalizeSizeRows,
   sortSizeRows,
   validateSizes,
-} from '@ziroeda/pcbnew/dialogs/dialog_board_setup.js';
+} from '@ziroeda/pcbnew/dialogs/panel_setup_tracks_and_vias.js';
 import { defaultBoardSetup, type BoardSetupValues } from '@ziroeda/pcbnew/board_settings.js';
 
 afterEach(cleanup);

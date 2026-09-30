@@ -436,7 +436,10 @@ const BASELINE: Record<string, number> = {
   // it — it had sat at 6 unchanged since the ratchet's own seed
   // (6cd2df62), so it was already stale before this pass touched it. What is
   // left is entirely lib_table_panel.tsx, uncited. RESCANNED from this tree.
-  widgets: 2,
+  // 2 -> 0 (09-30): `lib_table_panel.tsx`, all that was left, moved to
+  // `common/dialogs`; this scan walks designer/src and the moved roots, not
+  // common/, so its two are ratcheted by `central_values` from now on.
+  widgets: 0,
 };
 
 /**
@@ -730,7 +733,9 @@ describe('hardcoded font sizes do not grow', () => {
     // pcbnew/.
     // 69 -> 100 (09-28): back to the pre-move figure, now that the scan reads
     // the packages the move carried sites into. Nothing was removed.
-    expect(sites.length).toBe(100);
+    // 100 -> 98 (09-30): `lib_table_panel.tsx` moved to `common/dialogs`, out of
+    // this scan and into `central_values`'; its two literals were not removed.
+    expect(sites.length).toBe(98);
   });
 });
 

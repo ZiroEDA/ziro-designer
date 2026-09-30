@@ -30,7 +30,7 @@ import { GAL_GROUP_TITLES } from '@ziroeda/common/dialogs/panel_gal_options.js';
 import { OVERRIDE_ROWS } from '@ziroeda/common/dialogs/panel_grid_settings.js';
 import { shippedUnder } from '@ziroeda/designer/src/dialogs/prefs/registry.js';
 import { FPEDIT_DEFAULTS } from '@ziroeda/designer/src/prefs/settings.js';
-import { fpColorRows } from '@ziroeda/designer/src/editors/footprint/fpColorLayers.js';
+import { fpColorRows } from '@ziroeda/pcbnew/dialogs/panel_fp_editor_color_settings.js';
 import { GRAPHICS_ROWS } from '@ziroeda/pcbnew/footprint_editor_settings.js';
 
 afterEach(() => {

@@ -2,8 +2,8 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import type { JSX, ReactNode } from 'react';
-import type { CROSS_PROBING_SETTINGS } from '@ziroeda/common/settings/app_settings.js';
-import { Check, Group } from '@ziroeda/common/wx/controls.js';
+import type { CROSS_PROBING_SETTINGS } from '../settings/app_settings.js';
+import { Check, Group } from '../wx/controls.js';
 
 /**
  * The "Cross-probing" group, written once because KiCad writes it twice: the

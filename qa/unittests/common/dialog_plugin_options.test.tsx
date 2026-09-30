@@ -81,7 +81,7 @@ describe('the symbol library table opens it on a double-click in Options', () =>
       'utf8',
     );
     const src = readFileSync(
-      resolve(process.cwd(), '../designer/src/widgets/lib_table_panel.tsx'),
+      resolve(process.cwd(), '../common/dialogs/lib_table_panel.tsx'),
       'utf8',
     );
     expect(tricks).toContain('if (aEvent.GetCol() === COL_OPTIONS) {');

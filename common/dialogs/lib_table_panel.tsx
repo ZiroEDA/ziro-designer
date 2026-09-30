@@ -37,31 +37,31 @@
  *  - The page shown first is the project's, as this dialog always opened.
  */
 import { type JSX, useLayoutEffect, useReducer, useRef, useState } from 'react';
-import { DIALOG_EDIT_LIBRARY_TABLES } from '@ziroeda/common/dialogs/dialog_edit_library_tables.js';
-import { DIALOG_PLUGIN_OPTIONS } from '@ziroeda/common/dialogs/dialog_plugin_options.js';
-import { DisplayInfoMessage } from '@ziroeda/common/confirm.js';
-import { ENV_VAR } from '@ziroeda/common/env_vars.js';
-import { GRID_TRICKS } from '@ziroeda/common/grid_tricks.js';
-import { LIB_ID } from '@ziroeda/common/lib_id.js';
-import { LIB_TABLE_GRID_TRICKS } from '@ziroeda/common/lib_table_grid_tricks.js';
+import { DIALOG_EDIT_LIBRARY_TABLES } from './dialog_edit_library_tables.js';
+import { DIALOG_PLUGIN_OPTIONS } from './dialog_plugin_options.js';
+import { DisplayInfoMessage } from '../confirm.js';
+import { ENV_VAR } from '../env_vars.js';
+import { GRID_TRICKS } from '../grid_tricks.js';
+import { LIB_ID } from '../lib_id.js';
+import { LIB_TABLE_GRID_TRICKS } from '../lib_table_grid_tricks.js';
 import {
   type LIB_TABLE_NOTEBOOK,
   LIB_TABLE_NOTEBOOK_PANEL,
   LibTableNotebookView,
-} from '@ziroeda/common/lib_table_notebook_panel.js';
+} from '../lib_table_notebook_panel.js';
 import {
   COL_NICKNAME,
   COL_TYPE,
   COL_URI,
   COL_VISIBLE,
   LIB_TABLE_GRID_DATA_MODEL,
-} from '@ziroeda/common/libraries/lib_table_grid_data_model.js';
+} from '../libraries/lib_table_grid_data_model.js';
 import {
   LIBRARY_MANAGER_ADAPTER,
   type LIB_DATA,
   type LIB_STATUS,
   LOAD_STATUS,
-} from '@ziroeda/common/libraries/library_manager.js';
+} from '../libraries/library_manager.js';
 import {
   LIBRARY_ERROR,
   type LIBRARY_RESULT,
@@ -70,14 +70,14 @@ import {
   LIBRARY_TABLE_ROW,
   LIBRARY_TABLE_SCOPE,
   type LIBRARY_TABLE_TYPE,
-} from '@ziroeda/common/libraries/library_table.js';
-import { PROJECT_VAR_NAME } from '@ziroeda/common/project.js';
-import { StdBitmapButton } from '@ziroeda/common/widgets/std_bitmap_button.js';
-import { WX_GRID } from '@ziroeda/common/widgets/wx_grid.js';
-import { wxAuiNotebook } from '@ziroeda/common/wx/aui_notebook.js';
-import { wxGridStringTable } from '@ziroeda/common/wx/grid.js';
-import { WxGridView } from '@ziroeda/common/wx/grid_ui.js';
-import { wxGetEnv } from '@ziroeda/common/wx/utils.js';
+} from '../libraries/library_table.js';
+import { PROJECT_VAR_NAME } from '../project.js';
+import { StdBitmapButton } from '../widgets/std_bitmap_button.js';
+import { WX_GRID } from '../widgets/wx_grid.js';
+import { wxAuiNotebook } from '../wx/aui_notebook.js';
+import { wxGridStringTable } from '../wx/grid.js';
+import { WxGridView } from '../wx/grid_ui.js';
+import { wxGetEnv } from '../wx/utils.js';
 
 /** `m_pluginChoices`: the formats this build reads (see the file comment). */
 const PLUGIN_CHOICES = ['KiCad'];
