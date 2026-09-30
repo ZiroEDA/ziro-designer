@@ -18007,6 +18007,51 @@ td.ze-grid-bool {
 }
 
 /* ---------------------------------------------------------------------------
+   Alignment Target Properties (dialog_target_properties_base.cpp).
+
+   bSizerMain > bSizerUpper `wxALL|wxEXPAND, 5` > fgSizer (3 cols, col 1
+   growable) `wxBOTTOM|wxEXPAND, 5`. Each cell states its own borders, so the
+   grid has no gap and every margin below is that Add()'s. */
+.ze-modal.ze-tgt-dialog .ze-modal-body.ze-tgt-body {
+  flex-direction: column;
+  padding: 5px; /* [data] `bSizerMain->Add( bSizerUpper, 1, wxALL|wxEXPAND, 5 )`, `_base.cpp:74`. */
+}
+.ze-tgt-grid {
+  display: grid;
+  grid-template-columns: max-content 1fr max-content;
+  align-items: center;
+  padding-bottom: 5px; /* [data] `bSizerUpper->Add( fgSizer, 1, wxBOTTOM|wxEXPAND, 5 )`. */
+}
+.ze-tgt-grid > .lbl {
+  white-space: nowrap;
+}
+/* Row 1: label `wxALL`, entry `wxALL|wxEXPAND`, unit `wxTOP|wxBOTTOM|wxRIGHT`, all 5. */
+.ze-tgt-grid > :nth-child(1) {
+  margin: 5px; /* [data] `Add( m_sizeLabel, 0, wxALIGN_CENTER_VERTICAL|wxALL, 5 )`. */
+}
+.ze-tgt-grid > :nth-child(2) {
+  margin: 5px; /* [data] `Add( m_sizeCtrl, 0, wxALL|wxEXPAND, 5 )`. */
+}
+.ze-tgt-grid > :nth-child(3) {
+  margin: 5px 5px 5px 0; /* [data] `Add( m_sizeUnits, 0, …|wxTOP|wxBOTTOM|wxRIGHT, 5 )`. */
+}
+/* Row 2: label and entry `wxBOTTOM|wxRIGHT|wxLEFT`, unit `wxBOTTOM|wxRIGHT`. */
+.ze-tgt-grid > :nth-child(4),
+.ze-tgt-grid > :nth-child(5) {
+  margin: 0 5px 5px; /* [data] `wxBOTTOM|wxRIGHT|wxLEFT, 5`. */
+}
+.ze-tgt-grid > :nth-child(6) {
+  margin: 0 5px 5px 0; /* [data] `Add( m_thicknessUnits, 0, …|wxBOTTOM|wxRIGHT, 5 )`. */
+}
+/* Row 3: label `wxTOP|wxBOTTOM|wxLEFT`, the choice `wxALL|wxEXPAND`. */
+.ze-tgt-grid > :nth-child(7) {
+  margin: 5px 0 5px 5px; /* [data] `Add( m_staticTextShape, 0, wxTOP|wxBOTTOM|wxLEFT|…, 5 )`. */
+}
+.ze-tgt-grid > :nth-child(8) {
+  margin: 5px; /* [data] `Add( m_TargetShape, 0, wxALL|wxEXPAND, 5 )`. */
+}
+
+/* ---------------------------------------------------------------------------
    Footprint Associations (dialog_footprint_associations_base.cpp).
 
    bMainBoxSizer is one vertical run: label / 5px spacer / grid (each border
