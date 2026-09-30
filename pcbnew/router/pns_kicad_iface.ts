@@ -79,6 +79,22 @@ import { itemHull } from './pns_utils.js';
 import type { KeepoutResult, PnsConstraint } from './pns_collision.js';
 import type { DrcConstraintType } from '../drc/drc_rule_view.js';
 import type { Hull } from './pns_utils.js';
+import type { VIEW } from '@ziroeda/common/view/view.js';
+import { VIEW_GROUP } from '@ziroeda/common/view/view_group.js';
+import type { VIEW_ITEM } from '@ziroeda/common/view/view_item.js';
+import { GAL_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { LSET_NameToLayer } from '@ziroeda/common/layer_ids.js';
+import {
+  SHOW_WHILE_ROUTING,
+  SHOW_WITH_VIA_ALWAYS,
+  SHOW_WITH_VIA_WHILE_ROUTING,
+  SHOW_WITH_VIA_WHILE_ROUTING_OR_DRAGGING,
+} from '../pcbnew_settings.js';
+import {
+  PNS_SEMI_SOLID,
+  ROUTER_PREVIEW_ITEM,
+  type ROUTER_PREVIEW_IFACE,
+} from './router_preview_item.js';
 
 // ---------------------------------------------------------------------------
 // Nets
@@ -326,17 +342,13 @@ export interface PNS_KICAD_IFACE_DEPS {
    */
   designSettings?: PnsDesignSettings | null;
   /**
-   * `PNS_KICAD_IFACE::DisplayItem` — a `ROUTER_PREVIEW_ITEM` put on the
-   * view's overlay for the head the placer is proposing. The router calls it
-   * on every `Move`, after `EraseView`, once per line and once per via
-   * (`ROUTER::movePlacing`), with `PNS_HEAD_TRACE` in `aFlags` for the head.
-   * The host draws; this only forwards.
+   * `PNS_KICAD_IFACE::SetView( KIGFX::VIEW* )`: with a view the interface owns a
+   * `VIEW_GROUP` on `LAYER_SELECT_OVERLAY` and `DisplayItem` puts a
+   * `ROUTER_PREVIEW_ITEM` in it. Without one the preview calls do nothing.
    */
-  onDisplayItem?: (aItem: PnsItem, aClearance: number, aEdit: boolean, aFlags: number) => void;
-  /** `PNS_KICAD_IFACE::EraseView` — the overlay is cleared. */
-  onEraseView?: () => void;
-  /** `PNS_KICAD_IFACE::HideItem` — a board item the shove has re-drawn. */
-  onHideItem?: (aItem: PnsItem) => void;
+  view?: VIEW | null;
+  /** `PCBNEW_SETTINGS::m_Display.m_TrackClearance`, read on every `DisplayItem`. */
+  trackClearanceMode?: () => number;
 }
 
 /**
@@ -400,7 +412,7 @@ export interface PnsPendingChange {
  * the board through the interface for exactly the things this class already
  * knows — layer conversion, net codes, net names.
  */
-export class PNS_KICAD_IFACE implements PnsRouterIface, PnsResolverHost {
+export class PNS_KICAD_IFACE implements PnsRouterIface, PnsResolverHost, ROUTER_PREVIEW_IFACE {
   private readonly mBoard: Board;
   private readonly mDeps: PNS_KICAD_IFACE_DEPS;
   private readonly mCopperLayers: string[];
@@ -417,6 +429,56 @@ export class PNS_KICAD_IFACE implements PnsRouterIface, PnsResolverHost {
     this.mBoard = aBoard;
     this.mDeps = aDeps;
     this.mCopperLayers = enabledCopperLayers(aBoard);
+    if (aDeps.view) this.SetView(aDeps.view);
+  }
+
+  /** `m_view` and `m_previewItems`. */
+  private mView: VIEW | null = null;
+  private mPreviewItems: VIEW_GROUP | null = null;
+  /** `m_hiddenItems`: what `HideItem` made invisible. */
+  private readonly mHiddenItems = new Set<VIEW_ITEM>();
+
+  /**
+   * `PNS_KICAD_IFACE::SetView` (cpp:2968): the group the router's previews go
+   * in, added to the view on `LAYER_SELECT_OVERLAY`.
+   */
+  SetView(aView: VIEW | null): void {
+    this.Dispose();
+    this.mView = aView;
+    this.mPreviewItems = new VIEW_GROUP(aView);
+    this.mPreviewItems.SetLayer(GAL_LAYER_ID.LAYER_SELECT_OVERLAY);
+
+    if (aView) aView.Add(this.mPreviewItems);
+  }
+
+  /** `~PNS_KICAD_IFACE`: free the preview items and take the group off the view. */
+  Dispose(): void {
+    if (this.mView) {
+      for (const item of this.mHiddenItems) this.mView.SetVisible(item, true);
+      this.mHiddenItems.clear();
+    }
+
+    if (this.mPreviewItems) {
+      this.mPreviewItems.FreeItems();
+      this.mView?.Remove(this.mPreviewItems);
+    }
+
+    this.mPreviewItems = null;
+    this.mView = null;
+  }
+
+  /** The group `DisplayItem` fills; null without a view. */
+  GetPreviewItems(): VIEW_GROUP | null {
+    return this.mPreviewItems;
+  }
+
+  // ROUTER_PREVIEW_IFACE.
+  GetBoardLayerFromPNSLayer(aPnsLayer: number): number {
+    return LSET_NameToLayer(this.getBoardLayerFromPnsLayer(aPnsLayer));
+  }
+
+  GetNetCode(aNet: unknown): number {
+    return this.getNetCode(aNet as NetHandle);
   }
 
   board(): Board {
@@ -1354,9 +1416,54 @@ export class PNS_KICAD_IFACE implements PnsRouterIface, PnsResolverHost {
 
   // ----- the view, which does not exist here ---------------------------------
 
-  /** `DisplayItem` — `ROUTER_PREVIEW_ITEM` on a `KIGFX::VIEW`; the host's. */
+  /**
+   * `PNS_KICAD_IFACE::DisplayItem` (cpp:2475): a `ROUTER_PREVIEW_ITEM` in the
+   * preview group, clearance shown as `m_TrackClearance` says.
+   */
   displayItem(aItem: PnsItem, aClearance: number, aEdit = false, aFlags = 0): void {
-    this.mDeps.onDisplayItem?.(aItem, aClearance, aEdit, aFlags);
+    const view = this.mView;
+    const group = this.mPreviewItems;
+
+    if (!view || !group) return;
+
+    if (aItem.isVirtual()) return;
+
+    // A rule area is a semi-solid: sketched, not filled, until it collides.
+    if ((aItem.parent() as { ruleArea?: unknown } | null)?.ruleArea !== undefined)
+      aFlags |= PNS_SEMI_SOLID;
+
+    const pitem = new ROUTER_PREVIEW_ITEM(aItem, this, view, aFlags);
+
+    // Note: SEGMENT_T is used for placed tracks; LINE_T is used for the routing head
+    const kind = aItem.kind();
+    const tracks = kind === PnsKind.SEGMENT_T || kind === PnsKind.ARC_T || kind === PnsKind.LINE_T;
+    const tracksOrVias = tracks || kind === PnsKind.VIA_T;
+
+    if (aClearance >= 0) {
+      pitem.SetClearance(aClearance);
+
+      switch (this.mDeps.trackClearanceMode?.() ?? SHOW_WITH_VIA_ALWAYS) {
+        case SHOW_WITH_VIA_ALWAYS:
+        case SHOW_WITH_VIA_WHILE_ROUTING_OR_DRAGGING:
+          pitem.ShowClearance(tracksOrVias);
+          break;
+
+        case SHOW_WITH_VIA_WHILE_ROUTING:
+          pitem.ShowClearance(tracksOrVias && !aEdit);
+          break;
+
+        case SHOW_WHILE_ROUTING:
+          pitem.ShowClearance(tracks && !aEdit);
+          break;
+
+        default:
+          pitem.ShowClearance(false);
+          break;
+      }
+    }
+
+    group.Add(pitem);
+    view.Update(group);
   }
 
   /** `DisplayPathLine` — pure view. Not ported. */
@@ -1369,14 +1476,37 @@ export class PNS_KICAD_IFACE implements PnsRouterIface, PnsResolverHost {
     // Intentionally empty: pure view.
   }
 
-  /** `HideItem` — the host's. */
+  /**
+   * `HideItem` (cpp:2589): the board item behind `aItem` is hidden in the view
+   * while the shove shows its replacement; `EraseView` shows it again.
+   */
   hideItem(aItem: PnsItem): void {
-    this.mDeps.onHideItem?.(aItem);
+    const view = this.mView;
+
+    if (!view) return;
+
+    const parent = (aItem.parent() as { k?: VIEW_ITEM } | null)?.k;
+
+    if (parent && view.HasItem(parent)) {
+      if (view.IsVisible(parent)) this.mHiddenItems.add(parent);
+
+      view.SetVisible(parent, false);
+    }
   }
 
-  /** `EraseView` — the host's. */
+  /** `EraseView` (cpp:2451). */
   eraseView(): void {
-    this.mDeps.onEraseView?.();
+    const view = this.mView;
+
+    if (view) {
+      for (const item of this.mHiddenItems) view.SetVisible(item, true);
+      this.mHiddenItems.clear();
+
+      if (this.mPreviewItems) {
+        this.mPreviewItems.FreeItems();
+        view.Update(this.mPreviewItems);
+      }
+    }
   }
 
   // ----- PnsResolverHost -----------------------------------------------------

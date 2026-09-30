@@ -2597,8 +2597,6 @@ export function PcbEditor({
    * tool ran on, is gone: both tools are this loop.
    */
   const pnsSessionRef = useRef<PnsSession | null>(null);
-  /** `ROUTER_PREVIEW_ITEM`s of the head, compiled for the overlay. */
-  const pnsPreviewSceneRef = useRef<BoardScene | null>(null);
   /**
    * `frame()->ShowInfoBarError( m_router->FailureReason(), true )`
    * (router_tool.cpp:1436, :1600) — why the router refused, in the infobar
@@ -2636,7 +2634,6 @@ export function PcbEditor({
     // pair in flight is thrown away, the board untouched.
     pnsSessionRef.current?.abort();
     pnsSessionRef.current = null;
-    pnsPreviewSceneRef.current = null;
     // `evt->IsActivate()` -> `cleanup()`: the footprint on the cursor is
     // dropped, never committed (board_editor_control.cpp:1447-1461).
     placeFpRef.current = null;
@@ -3670,31 +3667,6 @@ export function PcbEditor({
           ctx.globalAlpha = 0.9;
           ctx.strokeRect(box.minX, box.minY, w, h);
         }
-        ctx.restore();
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-      }
-    }
-    // The router's head (`ROUTER_PREVIEW_ITEM`, `PNS_HEAD_TRACE`): the two
-    // lanes the differential-pair placer proposes, at the 80% alpha
-    // ROUTER_PREVIEW_ITEM's constructor gives every preview (m_color.a = 0.8),
-    // in the layer's own colour — the same treatment the track drag gets.
-    {
-      const head = pnsPreviewSceneRef.current;
-      if (head) {
-        ctx.save();
-        ctx.globalAlpha = 0.8;
-        drawBoard(
-          ctx,
-          head,
-          v,
-          visible,
-          canvas.width,
-          canvas.height,
-          selDrawOpts,
-          undefined,
-          true,
-          'none',
-        );
         ctx.restore();
         ctx.setTransform(1, 0, 0, 1, 0, 0);
       }
@@ -7433,7 +7405,6 @@ export function PcbEditor({
       const dims = routeDims(0);
       session.placeVia(target, dims.viaDiameter, dims.viaDrill, at);
     }
-    updatePnsPreview();
     requestDraw();
   };
   const routeViaSwitchRef = useRef(routeViaSwitch);
@@ -8149,42 +8120,6 @@ export function PcbEditor({
   };
 
   /**
-   * `ROUTER::updateView` for the head: what `movePlacing` displayed since the
-   * last `EraseView`, compiled the way a move overlay is so the draw pass can
-   * paint it with the layer colours.
-   */
-  const updatePnsPreview = (): void => {
-    const session = pnsSessionRef.current;
-    const brd = boardRef.current;
-    if (!session || !brd) {
-      pnsPreviewSceneRef.current = null;
-      return;
-    }
-    let head: Board = emptyBoardLike(brd);
-    for (const item of session.preview) {
-      if (item.kind === 'track') {
-        head = addBoardTrack(head, {
-          start: item.start,
-          end: item.end,
-          width: item.width,
-          layer: item.layer,
-          net: item.net,
-        }).board;
-      } else {
-        head = addBoardVia(head, {
-          at: item.at,
-          size: item.size,
-          drill: item.drill,
-          layers: item.layers,
-          kind: 'through',
-          net: item.net,
-        }).board;
-      }
-    }
-    pnsPreviewSceneRef.current = buildScene(head, sceneFilter());
-  };
-
-  /**
    * `ROUTER_TOOL::performRouting`, one click at a time
    * (router_tool.cpp:1474-1650), in whichever `PNS::ROUTER_MODE` the tool was
    * armed with. The first click is
@@ -8205,6 +8140,10 @@ export function PcbEditor({
         mode,
         designSettings: pnsDesignSettings(),
         isLayerVisible: (l) => visible.has(l),
+        // `PNS_KICAD_IFACE::SetView( getView() )`: the router's ROUTER_PREVIEW_ITEMs
+        // go in a VIEW_GROUP of the canvas's own VIEW, which draws them.
+        view: panelRef.current!.GetView(),
+        trackClearanceMode: () => frameRef.current!.GetPcbNewSettings().m_Display.m_TrackClearance,
       });
       if (!next.start(at, layer)) {
         setInfoBarError(next.failureReason || 'The routing start point violates DRC.');
@@ -8214,7 +8153,6 @@ export function PcbEditor({
       setInfoBarError(null);
       pnsSessionRef.current = next;
       next.move(at);
-      updatePnsPreview();
       requestDraw();
       return;
     }
@@ -8223,7 +8161,6 @@ export function PcbEditor({
     if (finished) {
       const result = session.commit();
       pnsSessionRef.current = null;
-      pnsPreviewSceneRef.current = null;
       if (result.ok) commitBoard(applyPnsChanges(brd, result.changes));
       else if (result.reason) setInfoBarError(result.reason);
     } else {
@@ -8231,7 +8168,6 @@ export function PcbEditor({
       // follows the router's, which a fixed via has just changed.
       const layer = session.currentBoardLayer();
       if (layer !== activeLayerRef.current) setActiveLayer(layer);
-      updatePnsPreview();
     }
     requestDraw();
   };
@@ -9693,7 +9629,6 @@ export function PcbEditor({
       // then `m_router->Move( m_endSnapPoint, m_endItem )`.
       if (pnsSessionRef.current) {
         pnsSessionRef.current.move(routeSnapRef.current({ x: wx, y: wy }));
-        updatePnsPreview();
       }
       // Repaint so the crosshair follows even on a plain hover (no pan/drag).
       requestDraw();
@@ -10208,7 +10143,6 @@ export function PcbEditor({
           // (router_tool.cpp:1590-1595) — the tool stays armed.
           pnsSessionRef.current.abort();
           pnsSessionRef.current = null;
-          pnsPreviewSceneRef.current = null;
           requestDrawRef.current();
         } else if (placeMwRef.current || mwLineRef.current.originSet) {
           // `IsCancelInteractive()`: with an item (or an origin) that is
@@ -11442,37 +11376,24 @@ export function PcbEditor({
   /**
    * `ZONE_PREVIEW_NOTEBOOK_PAGE`'s `new ZONE_PREVIEW_CANVAS( board, zone, layer,
    * page, frame->GetGalDisplayOptions(), frame->GetCanvas()->GetBackend() )`: a
-   * WebGL panel on the page's element. Without WebGL (or before the font atlas
-   * has decoded) the page stays empty, as the main canvas would.
+   * WebGL panel on the page's element.
    */
   const createZonePreviewCanvas: ZonePreviewCanvasFactory = (aBoard, aZone, aLayer, aPage) => {
-    const inert = {
-      GetView: () => ({ GetScale: () => 1, GetCenter: () => ({ x: 0, y: 0 }) }),
-      LockZoom: () => {},
-      ZoomFitScreen: () => {},
-    };
-    const frame = frameRef.current;
-    if (!frame || !fontImage) return inert;
+    const frame = frameRef.current!;
     const el = document.createElement('canvas');
     aPage.appendChild(el);
-    try {
-      const canvas = new ZONE_PREVIEW_CANVAS(
-        aBoard,
-        aZone,
-        aLayer,
-        null,
-        drawPanelWindow(el, fontImage),
-        frame.GetGalDisplayOptions(),
-        frame.GetCanvas()?.GetBackend() ?? GAL_TYPE.GAL_TYPE_OPENGL,
-      );
-      // `Bind( wxEVT_SIZE, [this]( wxSizeEvent& ) { if( !m_zoomLocked ) ZoomFitScreen(); } )`
-      canvas.Connect(wxEVT_SIZE, () => canvas.OnResize());
-      return canvas;
-    } catch (err) {
-      console.warn(`Zone preview: could not use OpenGL: ${(err as Error).message}`);
-      el.remove();
-      return inert;
-    }
+    const canvas = new ZONE_PREVIEW_CANVAS(
+      aBoard,
+      aZone,
+      aLayer,
+      null,
+      drawPanelWindow(el, fontImage!),
+      frame.GetGalDisplayOptions(),
+      frame.GetCanvas()?.GetBackend() ?? GAL_TYPE.GAL_TYPE_OPENGL,
+    );
+    // `Bind( wxEVT_SIZE, [this]( wxSizeEvent& ) { if( !m_zoomLocked ) ZoomFitScreen(); } )`
+    canvas.Connect(wxEVT_SIZE, () => canvas.OnResize());
+    return canvas;
   };
 
   // ----- menus (menubar_pcb_editor.cpp structure, working subset active) ------

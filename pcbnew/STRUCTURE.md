@@ -765,9 +765,13 @@ all).
   session into `router_tool.ts` is a redesign (the session is the router's
   headless driver, tested as such), not a move, and is left;
   **`router_preview_item.ts` / `router_status_view_item.ts`** (09-29) are
-  ported as `VIEW_ITEM`s with tests; the router's preview still draws through
-  the `session.preview` records (`pnsPreviewItems`), so switching it onto them
-  is the follow-up.
+  ported as `VIEW_ITEM`s and are now the router's only preview:
+  `PNS_KICAD_IFACE::SetView` gives it a `VIEW_GROUP` on the canvas's VIEW,
+  `DisplayItem` / `EraseView` / `HideItem` work on it as the C++'s do, the
+  frame passes `panel.GetView()` (there is no 2D preview path; `session.preview`,
+  `pnsPreviewItems` and the frame's head drawing are gone), and
+  `updateDragStatus` puts the `ROUTER_STATUS_VIEW_ITEM` on a colliding drag
+  (the frame does not run a router drag yet).
 
   **Second fold pass (2026-09-29): 10 extras in, `router/` = KiCad's 37 .cpp + its header-only names.**
   Where each one's code lives in 10.0.6, and so where it went:
@@ -788,8 +792,7 @@ all).
   `CONSTRAINT`/`COLLISION_SEARCH_*` declarations. `pns_item.ts` reads them at load and `pns_node.ts`
   imports every item class, so folding them into `pns_node.ts` closes an ESM cycle that throws on
   whichever side loads first (the `board_types.ts` case). `pns_session.ts` is `ROUTER_TOOL`'s body
-  minus wx and stays: it carries the `PnsPreviewItem` records another pass is moving onto
-  `router_preview_item.ts`, so folding it into `router_tool.ts` now would be a redesign in a file
+  minus wx and stays: folding it into `router_tool.ts` would be a redesign in a file
   two passes are editing. Header-only upstream, so they keep their own files: `pns_joint`
   (`pns_joint.h`), `pns_layerset` (`pns_layerset.h`), `pns_segment` (`pns_segment.h`),
   `pns_drag_algo` (`pns_drag_algo.h`), `ranged_num` (`ranged_num.h`). Not ported because upstream

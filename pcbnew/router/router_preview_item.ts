@@ -15,8 +15,8 @@
  * SH_LINE_CHAIN branch is the primitives drawn by `drawLineChain`'s rule: one
  * `DrawLine` per segment, a zero-length one a filled dot, arcs as `DrawArc`.
  *
- * Not wired to the router's preview yet: `PnsSession.preview` still hands the
- * frame plain track/via records (see `pns_session.ts`'s `pnsPreviewItems`).
+ * The router's only preview: `PNS_KICAD_IFACE::DisplayItem` puts these in a
+ * `VIEW_GROUP` on the canvas's VIEW (`pns_kicad_iface.ts`).
  */
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { EDA_ANGLE, EDA_ANGLE_T } from '@ziroeda/kimath/src/geometry/eda_angle.js';

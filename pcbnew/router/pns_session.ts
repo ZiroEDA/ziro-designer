@@ -66,6 +66,11 @@ import { PnsShove, type PnsShoveSettings } from './pns_shove.js';
 import { DEFAULT_ROUTING_SETTINGS, type RoutingSettings } from './pns_routing_settings.js';
 import { CornerMode } from '@ziroeda/kimath/src/geometry/direction45.js';
 import { pickSingleItem } from './pns_tool_base.js';
+import type { VIEW } from '@ziroeda/common/view/view.js';
+import type { VIEW_GROUP } from '@ziroeda/common/view/view_group.js';
+import { KeyNameFromKeyCode, PSEUDO_WXK_CLICK } from '@ziroeda/common/hotkeys_basic.js';
+import { MD_CTRL } from '@ziroeda/common/tool/tool_event.js';
+import { ROUTER_STATUS_VIEW_ITEM } from './router_status_view_item.js';
 
 /**
  * `ROUTING_SETTINGS` as `SHOVE` reads it.
@@ -228,96 +233,15 @@ export interface PnsSessionOptions {
    * sets.
    */
   mode?: PnsRouterMode;
-}
-
-/**
- * One `ROUTER_PREVIEW_ITEM` — what the router wants drawn for the head it is
- * proposing, in board terms. A LINE arrives as one entry per segment, a via as
- * itself; the layer is the board's name. The host paints these over the board
- * on every motion event, as `ROUTER_PREVIEW_ITEM::ViewDraw` does.
- */
-export type PnsPreviewItem =
-  | {
-      kind: 'track';
-      start: Vec2;
-      end: Vec2;
-      width: number;
-      layer: string;
-      net: number;
-      /** `PNS_HEAD_TRACE` was in the flags: the head, not a shoved bystander. */
-      head: boolean;
-    }
-  | {
-      kind: 'via';
-      at: Vec2;
-      size: number;
-      drill: number;
-      layers: [string, string];
-      net: number;
-      head: boolean;
-    };
-
-/**
- * `ROUTER_PREVIEW_ITEM`'s `Update( const ITEM* )` for the kinds the placer
- * displays: a line becomes its segments, a segment itself, a via itself.
- */
-export function pnsPreviewItems(
-  aItem: PnsItem,
-  aCopperLayerCount: number,
-  aHead: boolean,
-): PnsPreviewItem[] {
-  const net = netCodeOf(aItem);
-  const layerName = (pnsLayer: number): string =>
-    boardLayerFromPnsLayer(pnsLayer, aCopperLayerCount);
-
-  if (aItem.kind() === PnsKind.LINE_T) {
-    const line = aItem as PnsLine;
-    const pts = line.cLine().points();
-    const out: PnsPreviewItem[] = [];
-    for (let i = 1; i < pts.length; i++) {
-      out.push({
-        kind: 'track',
-        start: { x: pts[i - 1]!.x, y: pts[i - 1]!.y },
-        end: { x: pts[i]!.x, y: pts[i]!.y },
-        width: line.width(),
-        layer: layerName(line.layer()),
-        net,
-        head: aHead,
-      });
-    }
-    return out;
-  }
-  if (aItem.kind() === PnsKind.SEGMENT_T) {
-    const seg = aItem as PnsSegment;
-    const s = seg.seg();
-    return [
-      {
-        kind: 'track',
-        start: { x: s.a.x, y: s.a.y },
-        end: { x: s.b.x, y: s.b.y },
-        width: seg.width(),
-        layer: layerName(seg.layers().start()),
-        net,
-        head: aHead,
-      },
-    ];
-  }
-  if (aItem.kind() === PnsKind.VIA_T) {
-    const via = aItem as PnsVia;
-    const at = via.pos();
-    return [
-      {
-        kind: 'via',
-        at: { x: at.x, y: at.y },
-        size: via.diameter(PnsVia.ALL_LAYERS),
-        drill: via.drill(),
-        layers: [layerName(via.layers().start()), layerName(via.layers().end())],
-        net,
-        head: aHead,
-      },
-    ];
-  }
-  return [];
+  /**
+   * `PNS_KICAD_IFACE::SetView`: the VIEW the router previews on. The interface
+   * puts its `VIEW_GROUP` in it and `DisplayItem` / `EraseView` / `HideItem`
+   * work on it, as upstream's do. Without one (a headless session) the
+   * preview calls do nothing.
+   */
+  view?: VIEW | null;
+  /** `PCBNEW_SETTINGS::m_Display.m_TrackClearance`, for `DisplayItem`. */
+  trackClearanceMode?: () => number;
 }
 
 /** What a session did to the board, once it finished. */
@@ -365,17 +289,10 @@ export class PnsSession {
     this.iface = new PNS_KICAD_IFACE(board, {
       isLayerVisible: aOptions.isLayerVisible,
       designSettings: aOptions.designSettings ?? null,
+      view: aOptions.view ?? null,
+      ...(aOptions.trackClearanceMode ? { trackClearanceMode: aOptions.trackClearanceMode } : {}),
       onCommit: (batch) => {
         for (const change of batch) this.committed.push(change);
-      },
-      // The overlay: `EraseView` empties it, `DisplayItem` appends to it, and
-      // the host reads {@link PnsSession.preview} after each `move`.
-      onEraseView: () => {
-        this.preview.length = 0;
-      },
-      onDisplayItem: (item, _clearance, _edit, flags) => {
-        for (const p of pnsPreviewItems(item, copperLayers, (flags & PNS_HEAD_TRACE) !== 0))
-          this.preview.push(p);
       },
     });
 
@@ -446,12 +363,6 @@ export class PnsSession {
     }
     this.router.syncWorld();
   }
-
-  /**
-   * `ROUTER_PREVIEW_ITEM`s on the overlay right now — the head the placer is
-   * proposing, refreshed by every {@link PnsSession.move}.
-   */
-  readonly preview: PnsPreviewItem[] = [];
 
   /** The live router, for callers that need more than this wrapper exposes. */
   get pnsRouter(): PnsRouter {
@@ -621,6 +532,7 @@ export class PnsSession {
     const changes = [...this.committed];
     this.committed.length = 0;
     this.router.dispose();
+    this.iface.Dispose();
 
     return { ok: changes.length > 0, reason: this.router.failureReason(), changes };
   }
@@ -630,5 +542,43 @@ export class PnsSession {
     this.router.stopRouting();
     this.iface.commit();
     this.router.dispose();
+    this.iface.Dispose();
   }
+
+  /** `PNS_KICAD_IFACE::~PNS_KICAD_IFACE`: free the preview and take its group off the view. */
+  dispose(): void {
+    this.iface.Dispose();
+  }
+
+  /** The group the router's preview items are in, when a view was given. */
+  get previewGroup(): VIEW_GROUP | null {
+    return this.iface.GetPreviewItems();
+  }
+}
+
+/**
+ * `ROUTER_TOOL::performDragging`'s motion arm (router_tool.cpp:2118-2142): when
+ * the dragger is in force-mark-obstacles mode, the preview is cleared and, if
+ * the drag collides, a `ROUTER_STATUS_VIEW_ITEM` at the pointer says so.
+ */
+export function updateDragStatus(
+  aView: VIEW,
+  aDragger: { getForceMarkObstaclesMode(aDragStatus: { value: boolean }): boolean },
+  aMousePosition: Vec2,
+): ROUTER_STATUS_VIEW_ITEM | null {
+  const dragStatus = { value: false };
+
+  if (!aDragger.getForceMarkObstaclesMode(dragStatus)) return null;
+
+  aView.ClearPreview();
+
+  if (dragStatus.value) return null;
+
+  const statusItem = new ROUTER_STATUS_VIEW_ITEM();
+  statusItem.SetMessage('Track violates DRC.');
+  statusItem.SetHint(`(${KeyNameFromKeyCode(MD_CTRL + PSEUDO_WXK_CLICK)} to commit anyway.)`);
+  statusItem.SetPosition({ x: Math.round(aMousePosition.x), y: Math.round(aMousePosition.y) });
+  aView.AddToPreview(statusItem);
+
+  return statusItem;
 }
