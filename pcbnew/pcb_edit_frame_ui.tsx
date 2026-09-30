@@ -15,6 +15,8 @@ import { type ARC_EDIT_MODE, FRAME_T } from '@ziroeda/common/frame_type.js';
 import type { KIWAY } from '@ziroeda/common/kiway.js';
 import type { PCBNEW_APP } from './browser/pcbnew_app.js';
 import { jsonFileWildcard, reportFileWildcard } from '@ziroeda/common/wildcards_and_files_ext.js';
+import { type ChooserFilter, WxFileDialog } from '@ziroeda/common/wx/filedlg.js';
+import { KICTL_NONKICAD_ONLY } from '@ziroeda/common/kiway_player.js';
 import { DialogAssignNetclass } from '@ziroeda/common/dialogs/dialog_assign_netclass.js';
 import { connectedItemIdsOnNets } from './edit-board.js';
 import { EDA_VIEW_SWITCHER } from '@ziroeda/common/dialogs/eda_view_switcher.js';
@@ -2518,6 +2520,8 @@ export function PcbEditor({
   } | null>(null);
   // `DRAWING_TOOL::PlaceImportedGraphics`'s dialog (File > Import > Graphics).
   const [importGraphicsOpen, setImportGraphicsOpen] = useState(false);
+  /** File > Import > Non-KiCad Board File: the chooser's type combo while it is up. */
+  const [nonKicadFilters, setNonKicadFilters] = useState<ChooserFilter[] | null>(null);
   // Pending "Copper Zone Properties" dialog: the zone's first corner.
   const [zoneDialog, setZoneDialog] = useState<{
     at: { x: number; y: number };
@@ -11438,6 +11442,22 @@ export function PcbEditor({
         );
         break;
       }
+      // `PCB_ACTIONS::openNonKicadBoard` -> `BOARD_EDITOR_CONTROL::OpenNonKicadBoard`:
+      // `AskLoadBoardFileName( KICTL_NONKICAD_ONLY )`'s type combo is "All supported
+      // formats" then every importer's board file description (files.cpp:117-171).
+      case 'openNonKicadBoard':
+        void import('./pcb_io/pcb_io_mgr.js').then(async ({ PCB_IO_MGR }) => {
+          const descs = await PCB_IO_MGR.BoardFileDescriptions(KICTL_NONKICAD_ONLY);
+          const filters = descs.map((d) => d.Chooser());
+          setNonKicadFilters([
+            {
+              label: 'All supported formats',
+              extensions: [...new Set(filters.flatMap((f) => f.extensions))],
+            },
+            ...filters,
+          ]);
+        });
+        break;
       // `PCB_ACTIONS::importSpecctraSession` -> `PCB_EDIT_FRAME::ImportSpecctraSession`.
       case 'importSpecctraSession': {
         const frame = frameRef.current;
@@ -12579,6 +12599,52 @@ export function PcbEditor({
           );
         })()}
 
+      {/* File > Import > Non-KiCad Board File. `OpenProjectFiles( { file },
+          KICTL_NONKICAD_ONLY )` (files.cpp:476): the importer builds the board
+          (`ImportNonKicadBoard`), which replaces this one under the editor's
+          file name - upstream keeps `previousBoardFileName` - and is modified,
+          so the next save writes it into the project. */}
+      {nonKicadFilters && (
+        <WxFileDialog
+          title="Import Non KiCad Board File"
+          filters={nonKicadFilters}
+          projectDir={projectDirRef.current || null}
+          onDone={(file) => {
+            setNonKicadFilters(null);
+            const frame = frameRef.current;
+
+            if (!file || !frame) return;
+
+            void frame
+              .ImportNonKicadBoard(file.path, file.bytes, KICTL_NONKICAD_ONLY)
+              .then(({ board: kb, loadMessages }) => {
+                frame.Clear_Pcb();
+                frame.SetBoard(kb, false);
+                kb.BuildConnectivity();
+                syncProjectSettingsIntoBoard(
+                  frame,
+                  panelRef.current,
+                  projectFilesNow(),
+                  rootPro,
+                  false,
+                  projectDirRef.current,
+                );
+                setBoardModel({
+                  ...boardFromBOARD(kb, fileNameRef.current),
+                  fileName: fileNameRef.current,
+                });
+                setDirty(true);
+
+                if (loadMessages !== '') setInfoBarError(loadMessages.trimEnd());
+              })
+              .catch((e: unknown) =>
+                setInfoBarError(
+                  `Error loading PCB '${file.path}'.\n${e instanceof Error ? e.message : String(e)}`,
+                ),
+              );
+          }}
+        />
+      )}
       {/* File > Import > Graphics. `DRAWING_TOOL::PlaceImportedGraphics`
           (`drawing_tool.cpp:2044-2230`): the dialog runs the import live and
           reports it, then this commits what it produced and — for

@@ -154,7 +154,13 @@ export function buildPcbMenus(
             // Place toolbar button arms; from the menu it opens straight into
             // the dialog with no drawing tool to cancel out of first.
             { label: 'Graphics...', action: () => h.action('importGraphics') },
-            { label: 'Non-KiCad Board File...', disabled: dis },
+            // `PCB_ACTIONS::openNonKicadBoard`, added with no label override: the
+            // row reads the action's friendly name.
+            {
+              label: 'Import Non-KiCad Board File...',
+              icon: 'import_brd_file',
+              action: () => h.action('openNonKicadBoard'),
+            },
           ],
         },
         {

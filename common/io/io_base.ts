@@ -12,9 +12,24 @@
  */
 
 import { IO_ERROR } from '../exceptions.js';
+import { fileFilter } from '../wildcards_and_files_ext.js';
+import type { ChooserFilter } from '../wx/filedlg.js';
 import type { PROGRESS_REPORTER } from '../progress_reporter.js';
 import type { Reporter } from '../reporter.js';
 import { RPT_SEVERITY_UNDEFINED, type Severity } from '../reporter.js';
+
+/** `formatWildcardExt( aWildcard )` on GTK: each letter as `[xX]`, so the pattern ignores case. */
+function formatWildcardExt(aWildcard: string): string {
+  let wc = '';
+
+  for (const ch of aWildcard) {
+    const lo = ch.toLowerCase();
+    const up = ch.toUpperCase();
+    wc += lo === up ? ch : `[${lo}${up}]`;
+  }
+
+  return wc;
+}
 
 /** What a plugin opens a path with: the file's bytes, or null when there is none. */
 export type IO_FILE_READER = (aPath: string) => Uint8Array | null;
@@ -58,25 +73,21 @@ export class IO_FILE_DESC {
 
   /**
    * `FileFilter()`: the description then `AddFileExtListToFilter( m_FileExtensions )`,
-   * " (*.a; *.b)|*.a;*.b" on GTK (both cases of each extension in the pattern).
+   * `"Desc (*.a; *.b)|*.a;*.b"`, each pattern extension in both cases as
+   * `formatWildcardExt` spells it for GTK.
    */
   FileFilter(): string {
-    if (this.m_FileExtensions.length === 0) return `${this.m_Description} (*)|*`;
+    return `${this.Chooser().label}|${
+      this.m_FileExtensions.length === 0
+        ? '*'
+        : this.m_FileExtensions.map((e) => `*.${formatWildcardExt(e)}`).join(';')
+    }`;
+  }
 
-    const shown = this.m_FileExtensions.map((e) => `*.${e}`).join(' ');
-    const pattern = this.m_FileExtensions
-      .map((e) => {
-        let p = '*.';
-        for (const c of e) {
-          const lo = c.toLowerCase();
-          const up = c.toUpperCase();
-          p += lo === up ? c : `[${lo}${up}]`;
-        }
-        return p;
-      })
-      .join(';');
-
-    return `${this.m_Description} (${shown})|${pattern}`;
+  /** The same filter as the file chooser's type combo takes it. */
+  Chooser(): ChooserFilter {
+    const f = fileFilter(this.m_Description, this.m_FileExtensions);
+    return { label: f.label, extensions: this.m_FileExtensions.map((e) => e.toLowerCase()) };
   }
 
   /** `operator bool()`. */

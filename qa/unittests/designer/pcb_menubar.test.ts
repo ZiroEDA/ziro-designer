@@ -105,7 +105,9 @@ describe('File', () => {
       '  Netlist...',
       '  Specctra Session...',
       '  Graphics...',
-      '  Non-KiCad Board File...',
+      // `submenuImport->Add( PCB_ACTIONS::openNonKicadBoard )` (menubar_pcb_editor.cpp:114)
+      // passes no label, so the row is the action's friendly name.
+      '  Import Non-KiCad Board File...',
       'Export',
       '  Specctra DSN...',
       '  GenCAD...',
