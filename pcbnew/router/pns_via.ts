@@ -33,7 +33,7 @@ import { PnsHole } from './pns_hole.js';
 import { PnsKind, PnsLinkedItem, type PnsItem, type PnsViaLike } from './pns_item.js';
 import { PnsLayerRange } from './pns_layerset.js';
 import type { Shape } from '../drc/drc_geometry.js';
-import type { NetHandle } from './pns_collision.js';
+import type { NetHandle } from './pns_item.js';
 import type { PcbVia, UnconnectedLayerMode } from '../types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { EuclideanNormI, ResizeI } from '@ziroeda/kimath/src/math/vector2.js';

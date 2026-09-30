@@ -28,7 +28,7 @@ import type { PnsTerminalJoints } from '@ziroeda/pcbnew/router/pns_topology.js';
 import { PnsVia } from '@ziroeda/pcbnew/router/pns_via.js';
 import { PnsKind } from '@ziroeda/pcbnew/router/pns_item.js';
 import type { PnsLine } from '@ziroeda/pcbnew/router/pns_line.js';
-import type { NetHandle } from '@ziroeda/pcbnew/router/pns_collision.js';
+import type { NetHandle } from '@ziroeda/pcbnew/router/pns_item.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 const V = (x: number, y: number): Vec2 => ({ x, y });

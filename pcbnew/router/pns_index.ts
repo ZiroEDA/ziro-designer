@@ -53,7 +53,7 @@
  * queries find nothing while `getItemsForNet` finds everything.
  */
 import { shapeBBox } from '../drc/drc_geometry.js';
-import { hasNet, type NetHandle } from './pns_collision.js';
+import { hasNet, type NetHandle } from './pns_item.js';
 import { PnsKind, type PnsItem } from './pns_item.js';
 import type { Shape } from '../drc/drc_geometry.js';
 

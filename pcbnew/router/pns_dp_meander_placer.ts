@@ -74,7 +74,7 @@ import {
 import type { CoupledSegments } from './pns_diff_pair.js';
 import type { MeanderPlacerHost } from './pns_meander_placer_base.js';
 import type { MeanderShape } from './pns_meander.js';
-import type { NetHandle } from './pns_collision.js';
+import type { NetHandle } from './pns_item.js';
 import type { PnsItem, PnsLinkedItem } from './pns_item.js';
 import type { PnsNode } from './pns_node.js';
 import type { Seg } from './pns_line.js';

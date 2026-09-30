@@ -46,18 +46,60 @@
  *   the first call's `enforce` that decides between "exact boundary" and "no
  *   clearance at all".
  */
-import {
-  collideShapeLists,
-  getRouterIface,
-  hasNet,
-  type CollisionNode,
-  type CollisionSearchContext,
-  type NetHandle,
-  type PnsRuleResolver,
-} from './pns_collision.js';
+import { collideShapeLists, getShapeCollider } from '../drc/shape_collisions.js';
+import type { PnsRouterIface } from './pns_router.js';
+import type { CollisionNode, CollisionSearchContext, PnsRuleResolver } from './pns_node.js';
 import { PnsLayerRange } from './pns_layerset.js';
 import type { Shape } from '../drc/drc_geometry.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+
+// ----- nets --------------------------------------------------------------------
+
+/**
+ * `NET_HANDLE`: upstream is `typedef void*`, an opaque token whose innards
+ * belong to the router interface. It stays opaque here — nothing in the item
+ * model may look inside one, only compare two for identity.
+ *
+ * The one piece of structure upstream *does* rely on is that a handle can be
+ * null, and `if( net )` is how it asks. `null`/`undefined` are that null; every
+ * other value, **including the number 0**, is a real handle. That matters: a
+ * future router interface that maps Ziro's numeric net codes onto handles must
+ * not hand back `0` for "no net", or index buckets and same-net collision
+ * skipping will both silently change behaviour.
+ */
+export type NetHandle = unknown;
+
+/** The null handle — upstream's `nullptr` net. */
+export const NO_NET: NetHandle = null;
+
+/** Upstream's `if( net )` on a `NET_HANDLE`: is this anything but the null handle? */
+export const hasNet = (aNet: NetHandle): boolean => aNet !== null && aNet !== undefined;
+
+// ----- the router interface singleton ------------------------------------------
+
+/**
+ * The slice of `ROUTER_IFACE` (`pns_router.ts`) the item model reaches through
+ * the singleton.
+ */
+export type PnsItemRouterIface = Pick<PnsRouterIface, 'isFlashedOnLayer'>;
+
+let routerIface: PnsItemRouterIface | null = null;
+
+/**
+ * `ROUTER::GetInstance()->GetInterface()`. Null when no router is running,
+ * which upstream also allows for and branches on.
+ *
+ * Declared here, not in `pns_router.ts` where `ROUTER` lives: `pns_router.ts`
+ * imports the item classes at module-evaluation time (`extends`), so an item
+ * module importing it back would be a runtime import cycle. The accessor sits
+ * beside its only caller instead; the interface itself is `import type`.
+ */
+export const getRouterIface = (): PnsItemRouterIface | null => routerIface;
+
+/** Install (or, with null, tear down) the router interface singleton. */
+export function setRouterIface(aIface: PnsItemRouterIface | null): void {
+  routerIface = aIface;
+}
 
 /** `LineMarker`: the bits `Mark`/`Unmark` set on an item. Note 1, 2 and 4 are unused. */
 export enum LineMarker {

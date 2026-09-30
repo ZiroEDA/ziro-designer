@@ -51,7 +51,8 @@ import {
   type RoutingSettings,
 } from '@ziroeda/pcbnew/router/pns_routing_settings.js';
 import type { PnsItem } from '@ziroeda/pcbnew/router/pns_item.js';
-import type { NetHandle, PnsRuleResolver } from '@ziroeda/pcbnew/router/pns_collision.js';
+import type { PnsRuleResolver } from '@ziroeda/pcbnew/router/pns_node.js';
+import type { NetHandle } from '@ziroeda/pcbnew/router/pns_item.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 const V = (x: number, y: number): Vec2 => ({ x, y });

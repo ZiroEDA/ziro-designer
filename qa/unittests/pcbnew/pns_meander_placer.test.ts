@@ -55,7 +55,7 @@ import type {
   MeanderPlacerHost,
   MeanderRouterIface,
 } from '@ziroeda/pcbnew/router/pns_meander_placer_base.js';
-import type { NetHandle } from '@ziroeda/pcbnew/router/pns_collision.js';
+import type { NetHandle } from '@ziroeda/pcbnew/router/pns_item.js';
 import type { PnsItem, PnsLinkedItem } from '@ziroeda/pcbnew/router/pns_item.js';
 import type { PnsNode as PnsNodeT } from '@ziroeda/pcbnew/router/pns_node.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';

@@ -32,10 +32,10 @@ import { describe, expect, it } from 'vitest';
 import {
   ObstacleSet,
   type CollisionSearchOptions,
-  type NetHandle,
   type Obstacle,
   type PnsRuleResolver,
-} from '@ziroeda/pcbnew/router/pns_collision.js';
+} from '@ziroeda/pcbnew/router/pns_node.js';
+import { type NetHandle } from '@ziroeda/pcbnew/router/pns_item.js';
 import { PnsItemSet } from '@ziroeda/pcbnew/router/pns_itemset.js';
 import { PnsKind } from '@ziroeda/pcbnew/router/pns_item.js';
 import { PnsLayerRange } from '@ziroeda/pcbnew/router/pns_layerset.js';

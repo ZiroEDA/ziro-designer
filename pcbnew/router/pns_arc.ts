@@ -35,7 +35,7 @@ import { ARC_HIGH_DEF } from '../graphics_cleaner.js';
 import { PnsKind, PnsLinkedItem, type PnsItem } from './pns_item.js';
 import type { PnsLine } from './pns_line.js';
 import type { Shape } from '../drc/drc_geometry.js';
-import type { NetHandle } from './pns_collision.js';
+import type { NetHandle } from './pns_item.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import type { ShapeArc } from '@ziroeda/kimath/src/geometry/shape_arc.js';
 

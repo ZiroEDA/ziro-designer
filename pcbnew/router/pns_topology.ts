@@ -64,7 +64,8 @@
  */
 import { PnsItemSet } from './pns_itemset.js';
 import { LineMarker, PnsKind, PnsLinkedItem, type PnsItem } from './pns_item.js';
-import { ObstacleSet, getShapeCollider } from './pns_collision.js';
+import { ObstacleSet } from './pns_node.js';
+import { getShapeCollider } from '../drc/shape_collisions.js';
 import { DiffPair } from './pns_diff_pair.js';
 import type { PnsLineChain } from './pns_line.js';
 import { segApproxParallel } from '@ziroeda/kimath/src/geometry/seg.js';
@@ -73,7 +74,7 @@ import { commonParallelProjection } from '../drc/drc_diff_pair.js';
 import { shapeBBox, shapeDist } from '../drc/drc_geometry.js';
 import { segSquaredDistanceToSeg } from '@ziroeda/kimath/src/geometry/seg.js';
 import type { PnsArc } from './pns_arc.js';
-import type { NetHandle } from './pns_collision.js';
+import type { NetHandle } from './pns_item.js';
 import type { PnsJoint } from './pns_joint.js';
 import type { PnsLayerRange } from './pns_layerset.js';
 import type { PnsLine } from './pns_line.js';

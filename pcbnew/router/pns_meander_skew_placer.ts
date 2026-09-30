@@ -57,7 +57,7 @@ import { PnsMeanderPlacer } from './pns_meander_placer.js';
 import { PnsTopology } from './pns_topology.js';
 import { getSnappedStartPoint } from './pns_meander_placer_base.js';
 import { minOptMaxMax, minOptMaxMin, minOptMaxOpt } from './pns_meander.js';
-import type { NetHandle } from './pns_collision.js';
+import type { NetHandle } from './pns_item.js';
 import type { PnsItem, PnsLinkedItem } from './pns_item.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 

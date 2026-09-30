@@ -86,7 +86,7 @@ import type { Shape } from '../drc/drc_geometry.js';
 import { pointInside, pointOnEdge } from '@ziroeda/kimath/src/geometry/shape_line_chain.js';
 import { PnsKind } from './pns_item.js';
 import type { PnsItem } from './pns_item.js';
-import { getRouterIface } from './pns_collision.js';
+import { getRouterIface } from './pns_item.js';
 import type { PnsArc } from './pns_arc.js';
 import type { PnsSegment } from './pns_segment.js';
 import type { PnsVia } from './pns_via.js';

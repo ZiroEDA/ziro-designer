@@ -41,7 +41,8 @@
 
 import { Direction45, Directions, AngleType } from '@ziroeda/kimath/src/geometry/direction45.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-import { ObstacleSet, makeCollisionSearchContext, type NetHandle } from './pns_collision.js';
+import { ObstacleSet, makeCollisionSearchContext } from './pns_node.js';
+import { type NetHandle } from './pns_item.js';
 import { PnsDragAlgo, PnsDragMode, toShoveSettings } from './pns_drag_algo.js';
 import { collectObstacleHulls } from './pns_dragger.js';
 import { PnsKind, type PnsItem, type PnsLinkedItem } from './pns_item.js';

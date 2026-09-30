@@ -55,7 +55,8 @@ import { PnsLayerRange } from '@ziroeda/pcbnew/router/pns_layerset.js';
 import { PnsKind } from '@ziroeda/pcbnew/router/pns_item.js';
 import { itemHull } from '@ziroeda/pcbnew/router/pns_utils.js';
 import { CornerMode, Direction45, Directions } from '@ziroeda/kimath/src/geometry/direction45.js';
-import type { NetHandle, PnsRuleResolver } from '@ziroeda/pcbnew/router/pns_collision.js';
+import type { PnsRuleResolver } from '@ziroeda/pcbnew/router/pns_node.js';
+import type { NetHandle } from '@ziroeda/pcbnew/router/pns_item.js';
 import type { PnsItem } from '@ziroeda/pcbnew/router/pns_item.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 

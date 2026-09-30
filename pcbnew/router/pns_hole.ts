@@ -22,7 +22,7 @@
 import { moveShape, type Shape } from '../drc/drc_geometry.js';
 import { PnsKind, PnsItem, type PnsBoardItem } from './pns_item.js';
 import type { PnsLayerRange } from './pns_layerset.js';
-import type { NetHandle } from './pns_collision.js';
+import type { NetHandle } from './pns_item.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 /** `HOLE`. */

@@ -24,7 +24,7 @@
  */
 import { PnsLayerRange } from './pns_layerset.js';
 import { PnsKind, type PnsItem } from './pns_item.js';
-import type { NetHandle } from './pns_collision.js';
+import type { NetHandle } from './pns_item.js';
 import type { Seg } from './pns_line.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 

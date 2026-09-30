@@ -32,7 +32,7 @@
  */
 
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-import type { NetHandle } from './pns_collision.js';
+import type { NetHandle } from './pns_item.js';
 import type { PnsArc } from './pns_arc.js';
 import { PNS_UNDEFINED_LAYER, PnsDragAlgo, PnsDragMode } from './pns_drag_algo.js';
 import { PnsKind, type PnsItem, type PnsLinkedItem } from './pns_item.js';

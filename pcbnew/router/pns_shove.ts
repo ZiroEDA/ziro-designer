@@ -78,8 +78,8 @@ import type { PnsArc } from './pns_arc.js';
 import type { PnsItem, PnsLinkedItem } from './pns_item.js';
 import type { ViaHandle } from './pns_via.js';
 import type { PnsJoint } from './pns_joint.js';
-import { ObstacleSet } from './pns_collision.js';
-import type { Obstacle, CollisionSearchOptions } from './pns_collision.js';
+import { ObstacleSet } from './pns_node.js';
+import type { Obstacle, CollisionSearchOptions } from './pns_node.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 /** `SHOVE::SHOVE_STATUS` (`pns_shove.h:50-57`). */

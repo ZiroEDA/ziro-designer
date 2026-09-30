@@ -73,7 +73,7 @@ import {
 } from './pns_meander_placer_base.js';
 import type { MeanderPlacerHost } from './pns_meander_placer_base.js';
 import type { MeanderShape } from './pns_meander.js';
-import type { NetHandle } from './pns_collision.js';
+import type { NetHandle } from './pns_item.js';
 import type { PnsItem, PnsLinkedItem } from './pns_item.js';
 import type { PnsNode } from './pns_node.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';

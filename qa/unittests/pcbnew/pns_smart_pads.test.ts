@@ -15,7 +15,7 @@ import {
 import { PnsNode } from '@ziroeda/pcbnew/router/pns_node.js';
 import { PnsSolid } from '@ziroeda/pcbnew/router/pns_solid.js';
 import { PnsLayerRange } from '@ziroeda/pcbnew/router/pns_layerset.js';
-import type { NetHandle } from '@ziroeda/pcbnew/router/pns_collision.js';
+import type { NetHandle } from '@ziroeda/pcbnew/router/pns_item.js';
 import type { Shape } from '@ziroeda/pcbnew/drc/drc_geometry.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 

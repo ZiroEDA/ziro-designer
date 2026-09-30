@@ -71,13 +71,14 @@
  * The full porting spec, with `file:line` for every claim, is
  * `/var/tmp/ziro-router-specs/pns_meander_placer_impl.md`.
  */
-import { PnsConstraintType } from './pns_collision.js';
+import { PnsConstraintType } from './pns_node.js';
 import { PnsKind } from './pns_item.js';
 import type { PnsLineChain } from './pns_line.js';
 import { MeanderType, copyMeanderSettings, defaultMeanderSettings } from './pns_meander.js';
 import { segDistanceToPoint, segNearestPoint } from '@ziroeda/kimath/src/geometry/seg.js';
 import type { MeanderPlacer, MeanderSettings, MeanderShape, MeanderedLine } from './pns_meander.js';
-import type { NetHandle, PnsConstraint } from './pns_collision.js';
+import type { PnsConstraint } from './pns_node.js';
+import type { NetHandle } from './pns_item.js';
 import type { PnsItem, PnsLinkedItem } from './pns_item.js';
 import type { PnsItemSet } from './pns_itemset.js';
 import type { PnsNode } from './pns_node.js';
@@ -155,7 +156,7 @@ export interface MeanderRouterIface {
  * passes.
  *
  * `PNS_PCBNEW_RULE_RESOLVER` satisfies this structurally; the `PnsRuleResolver`
- * interface in `pns_collision.ts` declares `itemB` non-null, which
+ * interface in `pns_node.ts` declares `itemB` non-null, which
  * {@link PnsMeanderPlacerBase.clearance} needs to be null.
  */
 export interface MeanderClearanceResolver {

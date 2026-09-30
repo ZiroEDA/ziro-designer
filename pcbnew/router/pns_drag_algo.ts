@@ -17,7 +17,7 @@
  * (`pns_router.cpp:196`).
  */
 
-import type { NetHandle } from './pns_collision.js';
+import type { NetHandle } from './pns_item.js';
 import type { PnsItem } from './pns_item.js';
 import type { PnsItemSet } from './pns_itemset.js';
 import type { PnsNode } from './pns_node.js';

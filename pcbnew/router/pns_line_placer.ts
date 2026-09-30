@@ -77,7 +77,7 @@ import { walkaround } from './pns_walkaround.js';
 import { PnsShovePolicy, PnsShoveStatus } from './pns_shove.js';
 import { segContains, segLength, segLineProject } from '@ziroeda/kimath/src/geometry/seg.js';
 import { lineDistance } from './pns_line.js';
-import type { NetHandle } from './pns_collision.js';
+import type { NetHandle } from './pns_item.js';
 import type { PnsNode } from './pns_node.js';
 import type { Seg } from './pns_line.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
@@ -158,12 +158,10 @@ export interface PnsShoveLike {
  * The slice of `PNS::ROUTER_IFACE` the *placer* calls. `pns_router.cpp` is out
  * of scope for this port; these are the four things it is asked for.
  *
- * Upstream this is the same `ROUTER_IFACE` that `pns_collision.ts` already
- * names `PnsRouterIface` for the item model's one question
- * (`IsFlashedOnLayer`). The two slices are kept apart here rather than merged
- * because they are reached differently — the collision one through a module
- * singleton, this one through the router handed to the placer — and a real
- * implementation satisfies both.
+ * Upstream this is the same `ROUTER_IFACE` that `pns_router.ts` declares in full
+ * (`PnsRouterIface`); the item model reaches its `IsFlashedOnLayer` through the
+ * singleton in `pns_item.ts`, this slice through the router handed to the
+ * placer, and a real implementation satisfies both.
  */
 export interface PnsPlacerIface {
   /**

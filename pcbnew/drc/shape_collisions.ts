@@ -13,7 +13,7 @@
  * `SHAPE::Collide` answers three questions at once — *do they collide*, *by how
  * much*, and *where*. The repo already had the first two: `shapeDist` is an
  * exact clamped gap for every pair of shapes Ziro models, and
- * `defaultShapeCollider` in `pns_collision.ts` turns it into upstream's verdict.
+ * `defaultShapeCollider`, below, turns it into upstream's verdict.
  * What it could not answer is *where*, and `ITEM::collideSimple` needs that to
  * decide castellation and net-tie exclusions.
  *
@@ -79,7 +79,7 @@ import {
 } from '@ziroeda/kimath/src/geometry/seg.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import { EuclideanNormI, type Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-import type { Shape } from './drc_geometry.js';
+import { shapeDist, type Shape } from './drc_geometry.js';
 
 // ----- the result --------------------------------------------------------------
 
@@ -1573,4 +1573,139 @@ export function collideShapes(aA: Shape, aB: Shape, aClearance: number): ShapeCo
   if (!collides) return { collides: false, actual: 0, location: null };
 
   return { collides: true, actual: Math.max(0, out.actual - rA - rB), location: out.location };
+}
+
+// ----- the shape collision seam ------------------------------------------------
+
+/** One `SHAPE::Collide( other, clearance, &actual, &location )` result. */
+export interface ShapeCollision {
+  collides: boolean;
+  /** The measured gap, clamped at 0 when the shapes touch or overlap. */
+  actual: number;
+  /**
+   * Where the collision happened. Null when the collider cannot say — see
+   * {@link defaultShapeCollider}.
+   */
+  location: Vec2 | null;
+}
+
+export type ShapeCollider = (a: Shape, b: Shape, clearance: number) => ShapeCollision;
+
+/**
+ * The stand-in for `SHAPE::Collide`.
+ *
+ * The **verdict** is exact. Upstream's generic answer, repeated at the bottom of
+ * every pair-specific routine in `shape_collisions.cpp`, is
+ * `closest_dist == 0 || closest_dist < aClearance`, over a distance that is
+ * clamped at zero when the shapes overlap. `shapeDist` from the DRC geometry is
+ * that same clamped distance, computed exactly for every pair of shapes this
+ * repo models, so the condition transfers verbatim. Note the consequence at the
+ * boundary: a *zero* clearance still collides on touching shapes but not on
+ * shapes exactly one unit apart, and that asymmetry is upstream's, not a typo.
+ *
+ * The **location** is not exact and is therefore not guessed. Upstream's
+ * `aLocation` is defined per shape pair and is frequently not the point of
+ * closest approach at all — circle against circle hands back the midpoint of the
+ * two *centres*, which can lie well outside both. Inventing a plausible point
+ * would put a number into `QueryEdgeExclusions` and `IsNetTieExclusion` that
+ * looks right and answers wrong. So this collider reports `location: null`, and
+ * {@link PnsItem.collide} throws rather than proceed if a rule resolver claims a
+ * castellation or net-tie case that needs one. Installing a location-capable
+ * collider — the job of a real `shape_collisions` port — makes that path work
+ * with no change to the item model.
+ */
+export const defaultShapeCollider: ShapeCollider = (a, b, clearance) => {
+  const d = shapeDist(a, b);
+  return { collides: d === 0 || d < clearance, actual: d, location: null };
+};
+
+let shapeCollider: ShapeCollider = defaultShapeCollider;
+
+export const getShapeCollider = (): ShapeCollider => shapeCollider;
+
+/** Install a collider; passing null restores {@link defaultShapeCollider}. */
+export function setShapeCollider(aCollider: ShapeCollider | null): void {
+  shapeCollider = aCollider ?? defaultShapeCollider;
+}
+
+/**
+ * One `SHAPE::Collide` between two *composite* shapes.
+ *
+ * Upstream a `SHAPE*` may be one primitive or many — a `SHAPE_LINE_CHAIN` is a
+ * run of segments and arcs, a `SHAPE_COMPOUND` an arbitrary bag. This repo's
+ * `Shape` union has only primitives, so "a shape that may be composite" is a
+ * *list* of them here, and this is the `Collide` that takes two of those.
+ *
+ * The verdict is upstream's, and it is upstream's for a reason that is worth
+ * stating: `Collide( SHAPE_LINE_CHAIN_BASE&, SHAPE_LINE_CHAIN_BASE& )` tracks
+ * `closest_dist` across every primitive pair and finishes on
+ * `closest_dist == 0 || closest_dist < aClearance`. The per-pair collider here
+ * answers that same predicate over an exact distance, and the predicate is
+ * monotone in the distance, so "some pair collides" and "the predicate holds of
+ * the minimum" are the same answer. Taking the disjunction lets a pair that
+ * collides settle it without the rest being measured being *observable* — it
+ * is not, because `actual` and `location` are still reported from the minimum.
+ *
+ * `location` comes from the minimising pair, first one winning a tie, which is
+ * upstream's `nearest`. Two empty lists, or one, collide with nothing: an empty
+ * chain has no segments to measure and upstream's `closest_dist` stays at its
+ * sentinel.
+ */
+export function collideShapeLists(
+  aA: readonly Shape[],
+  aB: readonly Shape[],
+  aClearance: number,
+): ShapeCollision {
+  const collider = getShapeCollider();
+
+  let collides = false;
+  let actual = Number.POSITIVE_INFINITY;
+  let location: Vec2 | null = null;
+
+  for (const a of aA) {
+    for (const b of aB) {
+      const hit = collider(a, b, aClearance);
+
+      collides = hit.collides || collides;
+
+      if (hit.actual < actual) {
+        actual = hit.actual;
+        location = hit.location;
+      }
+    }
+  }
+
+  return { collides, actual, location };
+}
+
+/**
+ * The adapter that hands `PNS::ITEM` the real `SHAPE::Collide`.
+ *
+ * Upstream has no counterpart, because upstream has no seam here: `ITEM` calls
+ * `SHAPE::Collide` directly and `shape_collisions.cpp` is linked in. The seam
+ * exists in this repo because the item model landed before the collision table
+ * did, with a stand-in collider that reproduces the verdict but reports
+ * `location: null`. This file closes it.
+ *
+ * Nothing here changes {@link defaultShapeCollider}: a collider that cannot say
+ * *where* two shapes met is still the honest default for a caller that has not
+ * installed one, and `ITEM::collideSimple`'s throw is what makes that honesty
+ * audible rather than silent. Installing this one is what makes the castellation
+ * and net-tie paths work.
+ */
+
+/**
+ * `SHAPE::Collide`, in the shape the item model asks for.
+ *
+ * The argument order is preserved, not normalised: several of upstream's pairs
+ * report a location that lies on the *first* shape, so `collideSimple`'s
+ * `collider( shapeH, shapeI, … )` — head first — is what puts the obstacle's
+ * location on the head.
+ */
+export const locatingShapeCollider: ShapeCollider = (aA, aB, aClearance) =>
+  collideShapes(aA, aB, aClearance);
+
+/** Install {@link locatingShapeCollider} as the process-wide shape collider. */
+export function installLocatingShapeCollider(): void {
+  setShapeCollider(locatingShapeCollider);
 }

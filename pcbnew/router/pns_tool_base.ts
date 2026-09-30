@@ -39,7 +39,7 @@ import { PnsDragger } from './pns_dragger.js';
 import { PnsMode } from './pns_routing_settings.js';
 import { PnsRouterState } from './pns_router.js';
 import { shapeBBox, shapeDist } from '../drc/drc_geometry.js';
-import type { NetHandle } from './pns_collision.js';
+import type { NetHandle } from './pns_item.js';
 import type { PnsItem } from './pns_item.js';
 import type { PnsRouter, PnsRouterIface } from './pns_router.js';
 import type { PnsSegment } from './pns_segment.js';
