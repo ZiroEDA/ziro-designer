@@ -56,10 +56,7 @@ describe('FootprintModelPreview3D', () => {
 
     const board = seen.at(-1)!;
     expect(board.footprints).toHaveLength(1);
-    expect(board.footprints[0]!.models.map((m) => m.path ?? m.filename)).toEqual([
-      'a.wrl',
-      'b.wrl',
-    ]);
+    expect(board.footprints[0]!.models.map((m) => m.path)).toEqual(['a.wrl', 'b.wrl']);
   });
 
   it('never touches the footprint it was given', () => {

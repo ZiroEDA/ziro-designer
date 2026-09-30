@@ -50,7 +50,11 @@ const rowsOf = (): string[] =>
 
 function mount(pick = async () => null as null | { filename: string; embedded: boolean }) {
   const apiRef: { current: PANEL_3D_MODEL_API | null } = { current: null };
-  const renderPreview = vi.fn(() => <div data-testid="preview" />);
+  const renderPreview = vi.fn(
+    (_models: readonly FP_3DMODEL[], _selected: number, _version: number) => (
+      <div data-testid="preview" />
+    ),
+  );
   render(
     <PanelFpProperties3dModel
       footprint={fp}
