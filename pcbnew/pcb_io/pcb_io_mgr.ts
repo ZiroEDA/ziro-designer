@@ -195,6 +195,12 @@ registry.Register(
 );
 
 registry.Register(
+  PCB_FILE_T.EAGLE,
+  'Eagle',
+  async () => new (await import('./eagle/pcb_io_eagle.js')).PCB_IO_EAGLE(),
+);
+
+registry.Register(
   PCB_FILE_T.SOLIDWORKS_PCB,
   'Solidworks PCB',
   async () => new (await import('./altium/pcb_io_solidworks.js')).PCB_IO_SOLIDWORKS(),

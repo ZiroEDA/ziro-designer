@@ -152,7 +152,12 @@ export class FILES_MIXIN {
     aData: Uint8Array,
     aCtl: number,
     aProgressReporter: PROGRESS_REPORTER | null = null,
-  ): Promise<{ board: BOARD; importedLibFootprints: FOOTPRINT[]; loadMessages: string }> {
+  ): Promise<{
+    board: BOARD;
+    importedLibFootprints: FOOTPRINT[];
+    loadMessages: string;
+    customRules: string;
+  }> {
     const { PCB_IO_MGR, PCB_FILE_T } = await import('./pcb_io/pcb_io_mgr.js');
     const readFile = (aPath: string): Uint8Array | null => (aPath === aFileName ? aData : null);
 
@@ -207,7 +212,16 @@ export class FILES_MIXIN {
     // we should not ask PCB_IOs to do these items:
     loadedBoard.BuildListOfNets();
 
-    return { board: loadedBoard, importedLibFootprints, loadMessages: loadReporter.GetMessages() };
+    // PCB_IO_EAGLE::LoadBoard writes the class clearance matrix to a `.kicad_dru` beside the
+    // board, only when it holds a rule; a plugin cannot write files here, so the caller does.
+    const rules = (pi as { GetCustomRules?: () => string }).GetCustomRules?.() ?? '';
+
+    return {
+      board: loadedBoard,
+      importedLibFootprints,
+      loadMessages: loadReporter.GetMessages(),
+      customRules: rules.includes('(rule ') ? rules : '',
+    };
   }
 
   /**
