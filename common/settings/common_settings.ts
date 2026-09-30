@@ -377,7 +377,12 @@ export const COMMON_DEFAULTS: CommonSettings = {
   input: {
     auto_pan: false,
     auto_pan_acceleration: 5,
-    center_on_zoom: true,
+    // A deliberate browser default, not KiCad's (common_settings.cpp:248 has
+    // true). Upstream's "centre on zoom" moves the view to the cursor AND warps
+    // the pointer there (CenterOnCursor); a browser cannot warp, so
+    // CenterOnCursor does nothing, as on Wayland, and every wheel zoom lands
+    // on the screen centre. Off, onWheel anchors the zoom under the cursor.
+    center_on_zoom: false,
     warp_mouse_on_move: true,
     hotkey_feedback: true,
     focus_follow_sch_pcb: false,
@@ -470,6 +475,14 @@ export function migrateCommonSettings(s: CommonSettings, from: number): boolean 
   if (from < 5 && typeof (a as { toolbar_icon_size?: unknown })?.toolbar_icon_size === 'string') {
     const legacy: Record<string, number> = { small: 16, normal: 24, large: 32 };
     a.toolbar_icon_size = legacy[a.toolbar_icon_size as unknown as string] ?? 24;
+    changed = true;
+  }
+
+  // v6: `input.center_on_zoom` defaults to false in the browser (see the
+  // default). A stored true is the old default, never a working choice -- the
+  // warp it needs has never succeeded here -- so it is reset rather than kept.
+  if (from < 6 && s?.input?.center_on_zoom === true) {
+    s.input.center_on_zoom = false;
     changed = true;
   }
 

@@ -183,6 +183,19 @@ describe('appearance.hicontrast_dimming_factor', () => {
     expect(one.appearance.hicontrast_dimming_factor).toBe(1);
   });
 
+  it('v6: turns off centre-on-zoom, the default a browser can never honour', () => {
+    // The warp CenterOnCursor needs always fails here, so a stored true zooms
+    // on the screen centre; the default and the migration both give false.
+    expect(COMMON_DEFAULTS.input.center_on_zoom).toBe(false);
+    const stored = { input: { center_on_zoom: true } } as unknown as CommonSettings;
+    expect(migrateCommonSettings(stored, 5)).toBe(true);
+    expect(stored.input.center_on_zoom).toBe(false);
+    // Already at v6: a user who ticks it again keeps their choice.
+    const chosen = { input: { center_on_zoom: true } } as unknown as CommonSettings;
+    expect(migrateCommonSettings(chosen, 6)).toBe(false);
+    expect(chosen.input.center_on_zoom).toBe(true);
+  });
+
   it('is INVERTED on the way to the painter', () => {
     // `m_hiContrastFactor = 1.0f - hicontrast_dimming_factor`. Wiring the
     // setting straight through would run the control backwards and still look

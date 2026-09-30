@@ -1747,7 +1747,7 @@ export const PRIVACY_DEFAULTS: PrivacySettings = {
  * used the app before, a default that was simply wrong has to be rewritten
  * once, here. KiCad's own SETTINGS_MANAGER migrates stored files the same way.
  */
-export const SETTINGS_VERSION = 5;
+export const SETTINGS_VERSION = 6;
 
 /**
  * Where the calculator's custom regulators used to live.
