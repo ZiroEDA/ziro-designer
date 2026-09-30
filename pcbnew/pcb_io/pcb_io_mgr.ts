@@ -207,6 +207,12 @@ registry.Register(
 );
 
 registry.Register(
+  PCB_FILE_T.EASYEDAPRO,
+  'EasyEDA / JLCEDA Pro',
+  async () => new (await import('./easyedapro/pcb_io_easyedapro.js')).PCB_IO_EASYEDAPRO(),
+);
+
+registry.Register(
   PCB_FILE_T.SOLIDWORKS_PCB,
   'Solidworks PCB',
   async () => new (await import('./altium/pcb_io_solidworks.js')).PCB_IO_SOLIDWORKS(),

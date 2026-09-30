@@ -7,58 +7,30 @@
  *
  * nlohmann's `get_to` throws `type_error` when the JSON value is not the C++
  * type it is read into (a number read as a `wxString`, a non-string in a
- * `std::map<wxString, wxString>`); `JSON_TYPE_ERROR` is that exception, and
- * every `json::exception` catch upstream catches it here.
+ * `std::map<wxString, wxString>`); `common/json_common.ts` gives those reads
+ * and their `JSON_EXCEPTION`, which every `json::exception` catch here catches.
  */
 
-import { strtodPrefix } from '../../libc/stdlib.js';
-import { ToLong } from '../../libc/stdlib.js';
+import {
+  isObject,
+  jMap,
+  jParse,
+  jParseDiscarding,
+  JSON_EXCEPTION,
+  type JSON_OBJECT,
+  type JSON_VALUE,
+  jStr,
+  typeName,
+} from '../../json_common.js';
+import { strtodPrefix, ToLong } from '../../libc/stdlib.js';
 
-/** A parsed JSON value, as `nlohmann::json` holds it. */
-export type JSON_VALUE =
-  | null
-  | boolean
-  | number
-  | string
-  | JSON_VALUE[]
-  | { [k: string]: JSON_VALUE };
-
-export type JSON_OBJECT = { [k: string]: JSON_VALUE };
-
-/** `nlohmann::json::exception`. */
-export class JSON_EXCEPTION extends Error {
-  constructor(aMessage: string) {
-    super(aMessage);
-    this.name = 'JSON_EXCEPTION';
-  }
-}
-
-export const isObject = (j: JSON_VALUE | undefined): j is JSON_OBJECT =>
-  typeof j === 'object' && j !== null && !Array.isArray(j);
+export { isObject, JSON_EXCEPTION, type JSON_VALUE };
 
 /** `j.get<wxString>()`. */
-export function getString(j: JSON_VALUE | undefined, aKey = ''): string {
-  if (typeof j !== 'string')
-    throw new JSON_EXCEPTION(
-      `[json.exception.type_error.302] type must be string, but is ${typeName(j)}${aKey ? ` (${aKey})` : ''}`,
-    );
-
-  return j;
-}
+export const getString = (j: JSON_VALUE | undefined): string => jStr(j);
 
 /** `j.get<std::map<wxString, wxString>>()`. */
-export function getStringMap(j: JSON_VALUE | undefined): Map<string, string> {
-  if (!isObject(j))
-    throw new JSON_EXCEPTION(
-      `[json.exception.type_error.302] type must be object, but is ${typeName(j)}`,
-    );
-
-  const out = new Map<string, string>();
-
-  for (const [k, v] of Object.entries(j)) out.set(k, getString(v, k));
-
-  return out;
-}
+export const getStringMap = (j: JSON_VALUE | undefined): Map<string, string> => jMap(j, jStr);
 
 /** `j.get<wxArrayString>()` / `std::vector<wxString>`. */
 export function getStringArray(j: JSON_VALUE | undefined): string[] {
@@ -67,45 +39,14 @@ export function getStringArray(j: JSON_VALUE | undefined): string[] {
       `[json.exception.type_error.302] type must be array, but is ${typeName(j)}`,
     );
 
-  return j.map((v) => getString(v));
+  return j.map((v) => jStr(v));
 }
 
-export function typeName(j: JSON_VALUE | undefined): string {
-  if (j === null || j === undefined) return 'null';
-  if (Array.isArray(j)) return 'array';
-  if (typeof j === 'object') return 'object';
-  return typeof j;
-}
-
-/**
- * `nlohmann::json::parse( text, nullptr, false )`: the value, or null when the
- * text is not JSON (`is_discarded()`). A leading UTF-8 BOM is skipped, as
- * nlohmann's lexer does; invalid UTF-8 discards the document.
- */
-export function parseJsonDiscarding(aBytes: Uint8Array): JSON_VALUE | undefined {
-  let text: string;
-
-  try {
-    text = new TextDecoder('utf-8', { fatal: true, ignoreBOM: false }).decode(aBytes);
-  } catch {
-    return undefined;
-  }
-
-  try {
-    return JSON.parse(text) as JSON_VALUE;
-  } catch {
-    return undefined;
-  }
-}
+/** `nlohmann::json::parse( text, nullptr, false )`: undefined when discarded. */
+export const parseJsonDiscarding = jParseDiscarding;
 
 /** `nlohmann::json::parse( text )`: throws `parse_error` on bad input. */
-export function parseJson(aText: string): JSON_VALUE {
-  try {
-    return JSON.parse(aText) as JSON_VALUE;
-  } catch (e) {
-    throw new JSON_EXCEPTION(`[json.exception.parse_error.101] ${(e as Error).message}`);
-  }
-}
+export const parseJson = jParse;
 
 export enum DOC_TYPE {
   UNKNOWN = 0,

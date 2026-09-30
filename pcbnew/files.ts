@@ -29,7 +29,12 @@ import { IMPORT_PROJ_PROPS } from '@ziroeda/common/import_proj_properties.js';
 import { Pgm } from '@ziroeda/common/pgm_base.js';
 import { KICTL_IMPORT_LIB } from '@ziroeda/common/kiway_player.js';
 import type { PROGRESS_REPORTER } from '@ziroeda/common/progress_reporter.js';
-import { RPT_SEVERITY_ERROR, WX_STRING_REPORTER } from '@ziroeda/common/reporter.js';
+import {
+  RPT_SEVERITY_ERROR,
+  RPT_SEVERITY_WARNING,
+  WX_STRING_REPORTER,
+} from '@ziroeda/common/reporter.js';
+import type { PROJECT_CHOOSER_PLUGIN } from '@ziroeda/common/io/common/plugin_common_choose_project.js';
 import type { APP_SETTINGS_BASE } from '@ziroeda/common/settings/app_settings.js';
 import type { BOARD } from './board.js';
 import type { FOOTPRINT } from './footprint.js';
@@ -190,7 +195,29 @@ export class FILES_MIXIN {
 
     pi.SetProgressReporter(aProgressReporter);
 
-    const loadedBoard = pi.LoadBoard(aFileName, null, props, null);
+    // `dynamic_cast<PROJECT_CHOOSER_PLUGIN*>( pi.get() )->RegisterCallback(
+    // DIALOG_IMPORT_CHOOSE_PROJECT::RunModal )`. That dialog is not ported: the first
+    // board is taken, and the others are named in the load messages.
+    (pi as { ProjectChooser?: () => PROJECT_CHOOSER_PLUGIN })
+      .ProjectChooser?.()
+      .RegisterCallback((aDescriptions) => {
+        if (aDescriptions.length > 1) {
+          loadReporter.Report(
+            `This project holds ${aDescriptions.length} boards; '${aDescriptions[0]!.PCBName}' was imported. Choosing another is not available yet: ${aDescriptions
+              .slice(1)
+              .map((d) => `'${d.PCBName}'`)
+              .join(', ')}.`,
+            RPT_SEVERITY_WARNING,
+          );
+        }
+
+        return aDescriptions.slice(0, 1);
+      });
+
+    const loadedBoard = pi.LoadBoard(aFileName, null, props, null) as BOARD | null;
+
+    // `failedLoad || !loadedBoard`: nothing imported (a project chooser that chose nothing)
+    if (!loadedBoard) throw new IO_ERROR(loadReporter.GetMessages());
 
     // grab cached lib footprints while the plugin is alive, for reconciliation below
     const importedLibFootprints: FOOTPRINT[] = [];
