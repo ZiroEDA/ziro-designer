@@ -2252,9 +2252,7 @@ export function PcbEditor({
    * sizes itself on its own observer) is redone once it is. Anything else is
    * read back from the VIEW.
    */
-  const syncedViewRef = useRef<{ view: EditorView; screenX: number; screenY: number } | null>(
-    null,
-  );
+  const syncedViewRef = useRef<{ view: EditorView; screenX: number; screenY: number } | null>(null);
   const syncWindowViewRef = useRef((aPanel: PCB_DRAW_PANEL_GAL): void => {
     const v = viewRef.current;
     const was = syncedViewRef.current;
