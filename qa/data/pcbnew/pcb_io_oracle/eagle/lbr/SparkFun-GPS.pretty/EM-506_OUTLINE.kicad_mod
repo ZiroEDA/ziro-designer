@@ -1,0 +1,185 @@
+(footprint "EM-506_OUTLINE"
+	(version 20260206)
+	(generator "pcbnew")
+	(generator_version "10.0")
+	(layer "F.Cu")
+	(descr "EM-406 and EM-506 module dimensions\n\nThe EM-506 is a GPS receiver module with on-board voltage regulation and patch antenna built-in.\n\n30 x 30 x 10.7 mm\n\nhttps://www.sparkfun.com/products/12751 Product Link")
+	(property "Reference" "REF**"
+		(at 0.24 -0.24 0)
+		(layer "F.SilkS")
+		(uuid "1666ddad-5cc7-411c-9be8-7ff6c796ffd1")
+		(effects
+			(font
+				(size 0.48768 0.48768)
+				(thickness 0.12192)
+			)
+			(justify bottom)
+		)
+	)
+	(property "Value" "EM-506_OUTLINE"
+		(at 0 1.27 0)
+		(layer "F.Fab")
+		(uuid "c9f537b2-e5ec-490e-9e00-aeed1939a05d")
+		(effects
+			(font
+				(size 0.48768 0.48768)
+				(thickness 0.12192)
+			)
+			(justify top)
+		)
+	)
+	(property "Datasheet" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "5d7ff3ec-5786-46b5-af3b-8a436f025c22")
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+	)
+	(property "Description" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "f697284b-2738-4781-9eb2-dbcf3615243d")
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+	)
+	(duplicate_pad_numbers_are_jumpers no)
+	(fp_line
+		(start -15.127 -15.127)
+		(end 15.127 -15.127)
+		(stroke
+			(width 0.2032)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "19771570-fb87-41b9-a9f0-ec7555ba03cb")
+	)
+	(fp_line
+		(start -15.127 15.127)
+		(end -15.127 -15.127)
+		(stroke
+			(width 0.2032)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "db169ddd-ae76-4631-ac7e-61b4b449e703")
+	)
+	(fp_line
+		(start -4 12)
+		(end 4 12)
+		(stroke
+			(width 0.2032)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "b92425cc-9b76-41cb-b2fb-381f5a283858")
+	)
+	(fp_line
+		(start -4 15.127)
+		(end -15.127 15.127)
+		(stroke
+			(width 0.2032)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "3d962d59-e590-491b-9e59-8f95d9c75552")
+	)
+	(fp_line
+		(start -4 15.127)
+		(end -4 12)
+		(stroke
+			(width 0.2032)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "62f9e68e-dbb9-4a15-b23c-c108672e95d7")
+	)
+	(fp_line
+		(start 4 15.127)
+		(end -4 15.127)
+		(stroke
+			(width 0.2032)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "0a807280-d6c0-4ce5-969e-437e42b062bf")
+	)
+	(fp_line
+		(start 4 15.127)
+		(end 4 12)
+		(stroke
+			(width 0.2032)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "2c4e46fc-d518-4d95-898a-0e528ca662c2")
+	)
+	(fp_line
+		(start 15.127 -15.127)
+		(end 15.127 15.127)
+		(stroke
+			(width 0.2032)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "f90b9647-df19-45b7-84cc-f6786fd6078a")
+	)
+	(fp_line
+		(start 15.127 15.127)
+		(end 4 15.127)
+		(stroke
+			(width 0.2032)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "70351933-8f98-4c46-840c-4417690e3fcd")
+	)
+	(fp_line
+		(start -15 -15)
+		(end 15 -15)
+		(stroke
+			(width 0.127)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "a1f7cc96-7f83-4ace-8fa7-8e23ceb204c1")
+	)
+	(fp_line
+		(start -15 15)
+		(end -15 -15)
+		(stroke
+			(width 0.127)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "7a94966c-c0ee-4e8d-81c0-974df5acd5c9")
+	)
+	(fp_line
+		(start 15 -15)
+		(end 15 15)
+		(stroke
+			(width 0.127)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "eb8ca5a3-7f4d-4927-922c-beec65698a5d")
+	)
+	(fp_line
+		(start 15 15)
+		(end -15 15)
+		(stroke
+			(width 0.127)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "7cd5fe48-6360-4920-b687-d61debebc97e")
+	)
+	(embedded_fonts no)
+)

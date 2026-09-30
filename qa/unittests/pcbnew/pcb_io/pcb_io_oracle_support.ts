@@ -144,3 +144,28 @@ export function firstDifference(aOurs: string, aTheirs: string): string {
 
   return `line ${i + 1}:\n  ours   ${JSON.stringify(a.slice(Math.max(0, i - 3), i + 3).join('\n'))}\n  theirs ${JSON.stringify(b.slice(Math.max(0, i - 3), i + 3).join('\n'))}`;
 }
+
+/** A footprint's library text, uuids masked, its depth-1 children sorted. */
+export function normalizeFootprint(aText: string): string {
+  const lines = aText.replace(UUID, 'UUID').split('\n');
+  const kids: string[] = [];
+  let cur: string[] | null = null;
+
+  for (const l of lines.slice(1, lines.length - 2)) {
+    if (cur === null) {
+      cur = [l];
+      if (!(l.startsWith('\t(') && !l.endsWith(')'))) {
+        kids.push(cur.join('\n'));
+        cur = null;
+      }
+    } else {
+      cur.push(l);
+      if (l === '\t)') {
+        kids.push(cur.join('\n'));
+        cur = null;
+      }
+    }
+  }
+
+  return [lines[0], ...kids.sort(), ')'].join('\n');
+}

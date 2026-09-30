@@ -1,0 +1,165 @@
+(footprint "ANT-GPS-2X8MM"
+	(version 20260206)
+	(generator "pcbnew")
+	(generator_version "10.0")
+	(layer "F.Cu")
+	(descr "GPS Chip Antenna - 2.0 x 8.0 x 1.5 mm\n\n2.0 x 8.0 x 1.5 mm package\n\nPackage used for Chant Sincere Co. 922D03E15X11113 GPS Antenna\n\nhttps://www.sparkfun.com/datasheets/GPS/GPS-ChipAntenna.pdf Example Datasheet")
+	(property "Reference" "REF**"
+		(at 0 -1.243 0)
+		(layer "F.SilkS")
+		(uuid "d5ef625d-c312-407a-924a-cd9bae6c67a6")
+		(effects
+			(font
+				(size 0.48768 0.48768)
+				(thickness 0.12192)
+			)
+			(justify bottom)
+		)
+	)
+	(property "Value" "ANT-GPS-2X8MM"
+		(at 0 1.243 0)
+		(layer "F.Fab")
+		(uuid "2d2e72bc-7771-4594-8bbd-70b07addaf11")
+		(effects
+			(font
+				(size 0.48768 0.48768)
+				(thickness 0.12192)
+			)
+			(justify top)
+		)
+	)
+	(property "Datasheet" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "2351b37b-0a28-402b-9421-027ab31a92e7")
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+	)
+	(property "Description" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "dfe4d730-e301-4e19-ae42-a2b0c3781b87")
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+	)
+	(duplicate_pad_numbers_are_jumpers no)
+	(fp_line
+		(start -4.7 -1)
+		(end -4.7 1)
+		(stroke
+			(width 0.2032)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "324bc63d-ef97-4b05-9560-386e1fb3039a")
+	)
+	(fp_line
+		(start -3 -1.1)
+		(end 3 -1.1)
+		(stroke
+			(width 0.2032)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "7c8a58f3-a7d2-4cfd-86cc-62890323dad6")
+	)
+	(fp_line
+		(start 3 1.1)
+		(end -3 1.1)
+		(stroke
+			(width 0.2032)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "fb6cdd9f-e853-4f57-9b9e-9cd8789c8296")
+	)
+	(fp_circle
+		(center -3 -0.6)
+		(end -2.873 -0.6)
+		(stroke
+			(width 0.254)
+			(type solid)
+		)
+		(fill yes)
+		(layer "F.SilkS")
+		(uuid "3aeb6b10-a6c8-4c37-a829-809ab16c55e4")
+	)
+	(fp_line
+		(start -4 -1)
+		(end -4 1)
+		(stroke
+			(width 0.127)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "c11d1dfe-49b7-4414-8f12-a0f99de80bae")
+	)
+	(fp_line
+		(start -4 1)
+		(end 4 1)
+		(stroke
+			(width 0.127)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "a0071a44-31e5-4d3e-9ac9-60bd110a282f")
+	)
+	(fp_line
+		(start 4 -1)
+		(end -4 -1)
+		(stroke
+			(width 0.127)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "6a25ce6f-e36d-4f75-9bee-6cf989bd47ee")
+	)
+	(fp_line
+		(start 4 1)
+		(end 4 -1)
+		(stroke
+			(width 0.127)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "c008f5cd-827b-4c4b-a08a-16c453f7be35")
+	)
+	(fp_text user "152111"
+		(at 0 0 0)
+		(layer "F.Fab")
+		(uuid "edebf6b4-5d94-48d2-b254-3f794550e07b")
+		(effects
+			(font
+				(size 0.560832 0.560832)
+				(thickness 0.048768)
+			)
+		)
+	)
+	(pad "NC" smd rect
+		(at 4 0)
+		(size 1 2)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(solder_mask_margin 0.1016)
+		(solder_paste_margin 0)
+		(thermal_bridge_angle 0)
+		(uuid "9b975849-28f2-46f4-9e36-778aa26811f5")
+	)
+	(pad "SIG" smd rect
+		(at -4 0)
+		(size 1 2)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(solder_mask_margin 0.1016)
+		(solder_paste_margin 0)
+		(thermal_bridge_angle 0)
+		(uuid "8789cca7-48a6-4175-80fc-22adfb2f572e")
+	)
+	(embedded_fonts no)
+)

@@ -1,0 +1,183 @@
+(footprint "ANT-GPS-2X7MM"
+	(version 20260206)
+	(generator "pcbnew")
+	(generator_version "10.0")
+	(layer "F.Cu")
+	(descr "GPS Chip Antenna - 7.0 x 2.0 x 0.8 mm\n\n7.0 x 2.0 x 0.8 mm package\n\nPackage used for Johanson 1575AT43A40 GPS Antenna\n\nhttps://www.sparkfun.com/datasheets/GPS/JTI_Antenna-1575AT43A40_2006-09.pdf Example Datasheet")
+	(property "Reference" "REF**"
+		(at 0 -1.243 0)
+		(layer "F.SilkS")
+		(uuid "a313f5d7-197f-45a3-a015-0d013a95a939")
+		(effects
+			(font
+				(size 0.48768 0.48768)
+				(thickness 0.12192)
+			)
+			(justify bottom)
+		)
+	)
+	(property "Value" "ANT-GPS-2X7MM"
+		(at 0 1.243 0)
+		(layer "F.Fab")
+		(uuid "1ff001e4-db18-41a2-844b-5db6a08e23d4")
+		(effects
+			(font
+				(size 0.48768 0.48768)
+				(thickness 0.12192)
+			)
+			(justify top)
+		)
+	)
+	(property "Datasheet" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "099233b7-e561-4516-8456-0573a7d5ea52")
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+	)
+	(property "Description" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "09ccf624-550d-40c7-ab40-f7d126a56749")
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+	)
+	(duplicate_pad_numbers_are_jumpers no)
+	(fp_line
+		(start -4.1 -1)
+		(end -4.1 1)
+		(stroke
+			(width 0.2032)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "e4d3ed65-ecdb-416e-bb4d-96fb2485f5ba")
+	)
+	(fp_line
+		(start -2.7 -1.1)
+		(end 2.7 -1.1)
+		(stroke
+			(width 0.2032)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "be2a9aab-9b52-480e-a260-9c8b81d78f2f")
+	)
+	(fp_line
+		(start -2.7 1.1)
+		(end 2.7 1.1)
+		(stroke
+			(width 0.2032)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "9fa0c1b3-f5fc-48bb-ba08-810116486def")
+	)
+	(fp_line
+		(start -2.6 -0.3)
+		(end -2.6 0.3)
+		(stroke
+			(width 0.2032)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "5d49400d-3db9-40f3-bb93-a65b79b48bb5")
+	)
+	(fp_line
+		(start -2.6 0.3)
+		(end -1.6 0.3)
+		(stroke
+			(width 0.2032)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "6b1716a0-0419-4355-8877-cac6865c4f9e")
+	)
+	(fp_line
+		(start -1.6 -0.3)
+		(end -2.6 -0.3)
+		(stroke
+			(width 0.2032)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "6a5f80c2-dc97-4edc-868b-19f571003aba")
+	)
+	(fp_line
+		(start -1.6 0.3)
+		(end -1.6 -0.3)
+		(stroke
+			(width 0.2032)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "55ec357a-ce63-41bc-8021-ba58b28dedb0")
+	)
+	(fp_line
+		(start -3.5 -1)
+		(end 3.5 -1)
+		(stroke
+			(width 0.127)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "9197fb06-fecb-44ad-bfc4-46f2033db62f")
+	)
+	(fp_line
+		(start -3.5 1)
+		(end -3.5 -1)
+		(stroke
+			(width 0.127)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "6ec4e15f-4482-4f4a-94c1-aad6c7c6b784")
+	)
+	(fp_line
+		(start 3.5 -1)
+		(end 3.5 1)
+		(stroke
+			(width 0.127)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "77a9971f-e069-40d2-a75f-52d773209e60")
+	)
+	(fp_line
+		(start 3.5 1)
+		(end -3.5 1)
+		(stroke
+			(width 0.127)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "5af64f1b-db54-4499-9891-0cd881209c2f")
+	)
+	(pad "1" smd rect
+		(at -3.4 0 90)
+		(size 2 0.75)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(solder_mask_margin 0.1016)
+		(solder_paste_margin 0)
+		(thermal_bridge_angle 0)
+		(uuid "6e15ce94-b5c4-4524-8e81-f7b8ed1a6fb7")
+	)
+	(pad "NC" smd rect
+		(at 3.4 0 90)
+		(size 2 0.75)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(solder_mask_margin 0.1016)
+		(solder_paste_margin 0)
+		(thermal_bridge_angle 0)
+		(uuid "6b0365db-158e-4945-bdb7-2e8dadb78ac3")
+	)
+	(embedded_fonts no)
+)

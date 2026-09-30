@@ -23,38 +23,11 @@ import {
   ParseFootprintFile,
 } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { PCB_IO_ALTIUM_DESIGNER } from '@ziroeda/pcbnew/pcb_io/altium/pcb_io_altium_designer.js';
-import { readOracleFile } from '../pcb_io_oracle_support.js';
+import { normalizeFootprint, readOracleFile } from '../pcb_io_oracle_support.js';
 
 const DATA = fileURLToPath(
   new URL('../../../../data/pcbnew/pcb_io_oracle/altium/pcblib/', import.meta.url),
 );
-
-const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g;
-
-/** A footprint's library text, uuids masked, its depth-1 children sorted. */
-function normalizeFootprint(aText: string): string {
-  const lines = aText.replace(UUID, 'UUID').split('\n');
-  const kids: string[] = [];
-  let cur: string[] | null = null;
-
-  for (const l of lines.slice(1, lines.length - 2)) {
-    if (cur === null) {
-      cur = [l];
-      if (!(l.startsWith('\t(') && !l.endsWith(')'))) {
-        kids.push(cur.join('\n'));
-        cur = null;
-      }
-    } else {
-      cur.push(l);
-      if (l === '\t)') {
-        kids.push(cur.join('\n'));
-        cur = null;
-      }
-    }
-  }
-
-  return [lines[0], ...kids.sort(), ')'].join('\n');
-}
 
 const altium_to_kicad_footprint_property: [string, string][] = [
   ['Tracks.v5.PcbLib', 'Tracks.pretty'],
