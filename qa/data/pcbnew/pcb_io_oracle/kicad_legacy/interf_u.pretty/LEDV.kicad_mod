@@ -1,0 +1,124 @@
+(footprint "LEDV"
+	(version 20260206)
+	(generator "pcbnew")
+	(generator_version "10.0")
+	(layer "F.Cu")
+	(descr "Led verticale diam 6mm")
+	(tags "LED DEV")
+	(property "Reference" "D2"
+		(at 0 -3.81 0)
+		(layer "F.SilkS")
+		(uuid "b8908962-6579-498c-9ef1-fbc7c7e92f5a")
+		(effects
+			(font
+				(size 1.524 1.524)
+				(thickness 0.3048)
+			)
+		)
+	)
+	(property "Value" "LED"
+		(at 0 -3.81 0)
+		(layer "F.SilkS")
+		(hide yes)
+		(uuid "2e6a34c8-1c8c-49bf-8f01-8232bfc720cf")
+		(effects
+			(font
+				(size 1.524 1.524)
+				(thickness 0.3048)
+			)
+		)
+	)
+	(property "Datasheet" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "131403a1-99b7-4b17-b8c6-b171b761fc69")
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+	)
+	(property "Description" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "7dd09aee-791c-4043-b852-d829c0fc8487")
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+	)
+	(duplicate_pad_numbers_are_jumpers no)
+	(fp_line
+		(start 1.905 -0.635)
+		(end 1.905 0.635)
+		(stroke
+			(width 0.3048)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "2137bce6-19c7-4c5f-bade-1c531569f749")
+	)
+	(fp_line
+		(start 1.905 0.635)
+		(end 2.54 0.635)
+		(stroke
+			(width 0.3048)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "f4edaaff-7746-4108-9dff-a6cd39df1638")
+	)
+	(fp_line
+		(start 2.54 -0.635)
+		(end 1.905 -0.635)
+		(stroke
+			(width 0.3048)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "cdd03fe6-ae3f-4468-a2f0-6595f9ede7a2")
+	)
+	(fp_circle
+		(center 0 0)
+		(end -2.54 0)
+		(stroke
+			(width 0.3048)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.SilkS")
+		(uuid "8e36f9d2-3018-4117-bb35-94f7e6352495")
+	)
+	(pad "1" thru_hole rect
+		(at -1.27 0)
+		(size 1.397 1.397)
+		(drill 0.8128)
+		(layers "*.Cu" "*.Mask" "F.SilkS")
+		(remove_unused_layers no)
+		(thermal_bridge_angle 45)
+		(uuid "02256069-c071-42d2-a988-b34679510e3f")
+	)
+	(pad "2" thru_hole circle
+		(at 1.27 0)
+		(size 1.397 1.397)
+		(drill 0.8128)
+		(layers "*.Cu" "*.Mask" "F.SilkS")
+		(remove_unused_layers no)
+		(uuid "3a90afab-4b24-4e95-b0f1-663dfea468d4")
+	)
+	(embedded_fonts no)
+	(model "discret/led5_vertical.wrl"
+		(offset
+			(xyz 0 0 0)
+		)
+		(scale
+			(xyz 1 1 1)
+		)
+		(rotate
+			(xyz 0 0 0)
+		)
+	)
+)

@@ -1,0 +1,272 @@
+{
+ "carte_test": {
+  "copperLayers": 2,
+  "lineThickness": [
+   304800,
+   304800,
+   304800,
+   304800
+  ],
+  "m_MicroViasMinDrill": 100000,
+  "m_MicroViasMinSize": 200000,
+  "m_MinThroughDrill": 300000,
+  "m_SolderMaskExpansion": 0,
+  "m_SolderPasteMargin": 0,
+  "m_SolderPasteMarginRatio": 0.0,
+  "m_TrackMinWidth": 200000,
+  "m_ViasMinSize": 500000,
+  "netclasses": {
+   "Default": {
+    "clearance": 254000,
+    "trackWidth": 431800,
+    "uViaDiameter": 508000,
+    "uViaDrill": 203200,
+    "viaDiameter": 1651000,
+    "viaDrill": 635000
+   }
+  },
+  "trackWidths": [],
+  "viaSizes": [],
+  "zoneClearance": 508000
+ },
+ "ecc83-pp": {
+  "copperLayers": 2,
+  "lineThickness": [
+   381000,
+   381000,
+   381000,
+   381000
+  ],
+  "m_MicroViasMinDrill": 100000,
+  "m_MicroViasMinSize": 200000,
+  "m_MinThroughDrill": 300000,
+  "m_SolderMaskExpansion": 0,
+  "m_SolderPasteMargin": 0,
+  "m_SolderPasteMarginRatio": 0.0,
+  "m_TrackMinWidth": 200000,
+  "m_ViasMinSize": 500000,
+  "netclasses": {
+   "Default": {
+    "clearance": 152400,
+    "trackWidth": 863600,
+    "uViaDiameter": 300000,
+    "uViaDrill": 100000,
+    "viaDiameter": 1143000,
+    "viaDrill": 635000
+   }
+  },
+  "trackWidths": [],
+  "viaSizes": [],
+  "zoneClearance": 381000
+ },
+ "ecc83-pp_v2": {
+  "copperLayers": 2,
+  "lineThickness": [
+   381000,
+   381000,
+   381000,
+   381000
+  ],
+  "m_MicroViasMinDrill": 100000,
+  "m_MicroViasMinSize": 200000,
+  "m_MinThroughDrill": 300000,
+  "m_SolderMaskExpansion": 0,
+  "m_SolderPasteMargin": 0,
+  "m_SolderPasteMarginRatio": 0.0,
+  "m_TrackMinWidth": 200000,
+  "m_ViasMinSize": 500000,
+  "netclasses": {
+   "Default": {
+    "clearance": 152400,
+    "trackWidth": 863600,
+    "uViaDiameter": 300000,
+    "uViaDrill": 100000,
+    "viaDiameter": 1143000,
+    "viaDrill": 635000
+   }
+  },
+  "trackWidths": [],
+  "viaSizes": [],
+  "zoneClearance": 381000
+ },
+ "flat_hierarchy": {
+  "copperLayers": 2,
+  "lineThickness": [
+   381000,
+   381000,
+   381000,
+   381000
+  ],
+  "m_MicroViasMinDrill": 100000,
+  "m_MicroViasMinSize": 200000,
+  "m_MinThroughDrill": 300000,
+  "m_SolderMaskExpansion": 0,
+  "m_SolderPasteMargin": 0,
+  "m_SolderPasteMarginRatio": 0.0,
+  "m_TrackMinWidth": 200000,
+  "m_ViasMinSize": 500000,
+  "netclasses": {
+   "Default": {
+    "clearance": 254000,
+    "trackWidth": 1016000,
+    "uViaDiameter": 508000,
+    "uViaDrill": 203200,
+    "viaDiameter": 1651000,
+    "viaDrill": 635000
+   }
+  },
+  "trackWidths": [],
+  "viaSizes": [],
+  "zoneClearance": 635000
+ },
+ "interf_u": {
+  "copperLayers": 2,
+  "lineThickness": [
+   381000,
+   127000,
+   381000,
+   381000
+  ],
+  "m_MicroViasMinDrill": 100000,
+  "m_MicroViasMinSize": 200000,
+  "m_MinThroughDrill": 300000,
+  "m_SolderMaskExpansion": 0,
+  "m_SolderPasteMargin": 0,
+  "m_SolderPasteMarginRatio": 0.0,
+  "m_TrackMinWidth": 200000,
+  "m_ViasMinSize": 500000,
+  "netclasses": {
+   "Default": {
+    "clearance": 279400,
+    "trackWidth": 431800,
+    "uViaDiameter": 508000,
+    "uViaDrill": 203200,
+    "viaDiameter": 1524000,
+    "viaDrill": 635000
+   }
+  },
+  "trackWidths": [],
+  "viaSizes": [],
+  "zoneClearance": 431800
+ },
+ "microwave": {
+  "copperLayers": 2,
+  "lineThickness": [
+   304800,
+   304800,
+   304800,
+   304800
+  ],
+  "m_MicroViasMinDrill": 100000,
+  "m_MicroViasMinSize": 200000,
+  "m_MinThroughDrill": 300000,
+  "m_SolderMaskExpansion": 0,
+  "m_SolderPasteMargin": 0,
+  "m_SolderPasteMarginRatio": 0.0,
+  "m_TrackMinWidth": 200000,
+  "m_ViasMinSize": 500000,
+  "netclasses": {
+   "Default": {
+    "clearance": 254000,
+    "trackWidth": 635000,
+    "uViaDiameter": 300000,
+    "uViaDrill": 100000,
+    "viaDiameter": 1143000,
+    "viaDrill": 635000
+   }
+  },
+  "trackWidths": [],
+  "viaSizes": [],
+  "zoneClearance": 381000
+ },
+ "pic_programmer": {
+  "copperLayers": 2,
+  "lineThickness": [
+   381000,
+   381000,
+   381000,
+   381000
+  ],
+  "m_MicroViasMinDrill": 100000,
+  "m_MicroViasMinSize": 200000,
+  "m_MinThroughDrill": 300000,
+  "m_SolderMaskExpansion": 0,
+  "m_SolderPasteMargin": 0,
+  "m_SolderPasteMarginRatio": 0.0,
+  "m_TrackMinWidth": 200000,
+  "m_ViasMinSize": 500000,
+  "netclasses": {
+   "Default": {
+    "clearance": 254000,
+    "trackWidth": 1016000,
+    "uViaDiameter": 508000,
+    "uViaDrill": 203200,
+    "viaDiameter": 1651000,
+    "viaDrill": 635000
+   }
+  },
+  "trackWidths": [],
+  "viaSizes": [],
+  "zoneClearance": 635000
+ },
+ "sonde_xilinx": {
+  "copperLayers": 2,
+  "lineThickness": [
+   304800,
+   304800,
+   304800,
+   304800
+  ],
+  "m_MicroViasMinDrill": 100000,
+  "m_MicroViasMinSize": 200000,
+  "m_MinThroughDrill": 300000,
+  "m_SolderMaskExpansion": 0,
+  "m_SolderPasteMargin": 0,
+  "m_SolderPasteMarginRatio": 0.0,
+  "m_TrackMinWidth": 200000,
+  "m_ViasMinSize": 500000,
+  "netclasses": {
+   "Default": {
+    "clearance": 254000,
+    "trackWidth": 431800,
+    "uViaDiameter": 300000,
+    "uViaDrill": 100000,
+    "viaDiameter": 1778000,
+    "viaDrill": 635000
+   }
+  },
+  "trackWidths": [],
+  "viaSizes": [],
+  "zoneClearance": 508000
+ },
+ "video": {
+  "copperLayers": 4,
+  "lineThickness": [
+   304800,
+   304800,
+   304800,
+   304800
+  ],
+  "m_MicroViasMinDrill": 100000,
+  "m_MicroViasMinSize": 200000,
+  "m_MinThroughDrill": 300000,
+  "m_SolderMaskExpansion": 0,
+  "m_SolderPasteMargin": 0,
+  "m_SolderPasteMarginRatio": 0.0,
+  "m_TrackMinWidth": 200000,
+  "m_ViasMinSize": 500000,
+  "netclasses": {
+   "Default": {
+    "clearance": 203200,
+    "trackWidth": 304800,
+    "uViaDiameter": 300000,
+    "uViaDrill": 100000,
+    "viaDiameter": 889000,
+    "viaDrill": 635000
+   }
+  },
+  "trackWidths": [],
+  "viaSizes": [],
+  "zoneClearance": 203200
+ }
+}

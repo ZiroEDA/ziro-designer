@@ -12,6 +12,7 @@
  * over the whole buffer (kicad_io_utils.ts), which is where the tabs and the
  * line breaks come from.
  */
+import { IO_ERROR } from './exceptions.js';
 import { FORMAT_MODE, Prettify, prettifySteps } from './io/kicad/kicad_io_utils.js';
 
 /** How many spaces per nestLevel (richio.cpp:424). */
@@ -167,5 +168,79 @@ export class PRETTIFIED_STRING_FORMATTER extends STRING_FORMATTER {
         sliceStart = performance.now();
       }
     }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// LINE_READER: the line-at-a-time byte reader the legacy formats are parsed
+// with, over bytes in memory (FILE_LINE_READER and STRING_LINE_READER read the
+// same way here). A line is its bytes up to and including the '\n', then a
+// NUL, in one mutable buffer the parsers index into and write into (strtok_r
+// does), as the C++ does with `char*`. ReadLine() returns it, or null at the end.
+// ---------------------------------------------------------------------------
+
+/** `LINE_READER_LINE_DEFAULT_MAX`. */
+const LINE_READER_LINE_DEFAULT_MAX = 1000000;
+
+export class LINE_READER {
+  protected m_line: Uint8Array = new Uint8Array([0]);
+  protected m_length = 0;
+  protected m_lineNum = 0;
+  private m_pos = 0;
+
+  constructor(
+    private readonly m_data: Uint8Array,
+    protected readonly m_source = '',
+    private readonly m_maxLineLength = LINE_READER_LINE_DEFAULT_MAX,
+  ) {}
+
+  /** The next line (with its `'\n'`, then a NUL), or null when the input is exhausted. */
+  ReadLine(): Uint8Array | null {
+    const d = this.m_data;
+
+    if (this.m_pos >= d.length) {
+      this.m_length = 0;
+      this.m_line = new Uint8Array([0]);
+      return null;
+    }
+
+    let end = d.indexOf(0x0a, this.m_pos);
+    end = end < 0 ? d.length : end + 1;
+
+    if (end - this.m_pos > this.m_maxLineLength) throw new IO_ERROR('Maximum line length exceeded');
+
+    const line = new Uint8Array(end - this.m_pos + 1);
+    line.set(d.subarray(this.m_pos, end));
+    this.m_pos = end;
+
+    this.m_line = line;
+    this.m_length = line.length - 1;
+    this.m_lineNum++;
+
+    return line;
+  }
+
+  /** `Line()`: the current line's buffer. */
+  Line(): Uint8Array {
+    return this.m_line;
+  }
+
+  /** `Length()`: the current line's length in bytes. */
+  Length(): number {
+    return this.m_length;
+  }
+
+  LineNumber(): number {
+    return this.m_lineNum;
+  }
+
+  GetSource(): string {
+    return this.m_source;
+  }
+
+  /** `FILE_LINE_READER::Rewind()`. */
+  Rewind(): void {
+    this.m_pos = 0;
+    this.m_lineNum = 0;
   }
 }

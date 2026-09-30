@@ -1,0 +1,191 @@
+(footprint "HC-18UH"
+	(version 20260206)
+	(generator "pcbnew")
+	(generator_version "10.0")
+	(layer "F.Cu")
+	(descr "Quartz boitier HC-18 horizontal")
+	(tags "QUARTZ DEV")
+	(property "Reference" "X1"
+		(at 0 6.35 0)
+		(layer "F.SilkS")
+		(uuid "5643b661-eb07-4d77-8646-865a4c8dfa6d")
+		(effects
+			(font
+				(size 1.524 1.524)
+				(thickness 0.3048)
+			)
+		)
+	)
+	(property "Value" "8MHz"
+		(at 0 11.43 0)
+		(layer "F.SilkS")
+		(uuid "ef20eebe-a441-4b62-8828-b407dc93ba15")
+		(effects
+			(font
+				(size 1.524 1.524)
+				(thickness 0.3048)
+			)
+		)
+	)
+	(property "Datasheet" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "262e89ff-8e43-418b-be47-3ab45657fff3")
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+	)
+	(property "Description" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "0b4f91b0-9ddf-4d99-8bb6-b57ecfd14e71")
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+	)
+	(duplicate_pad_numbers_are_jumpers no)
+	(fp_line
+		(start -6.35 2.794)
+		(end -6.35 2.032)
+		(stroke
+			(width 0.3048)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "0018397e-d85e-49a5-bf80-6a6bb4af06dd")
+	)
+	(fp_line
+		(start -5.842 2.794)
+		(end -5.842 15.24)
+		(stroke
+			(width 0.3048)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "290d12e4-827c-4d97-bbe4-bb03aa6d96ab")
+	)
+	(fp_line
+		(start -5.334 15.748)
+		(end -5.842 15.24)
+		(stroke
+			(width 0.3048)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "6df99143-6805-41b5-81c6-d48af976c39a")
+	)
+	(fp_line
+		(start -2.54 0)
+		(end -2.54 2.032)
+		(stroke
+			(width 0.3048)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "070afb81-d8ef-4bc2-814f-2682d150c633")
+	)
+	(fp_line
+		(start 2.54 0)
+		(end 2.54 2.032)
+		(stroke
+			(width 0.3048)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "2b5f74f7-cf93-4674-aa68-4732bc8ea951")
+	)
+	(fp_line
+		(start 5.334 15.748)
+		(end -5.334 15.748)
+		(stroke
+			(width 0.3048)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "31260d2c-d7c4-4217-8f55-d794721d5411")
+	)
+	(fp_line
+		(start 5.842 2.794)
+		(end 5.842 15.24)
+		(stroke
+			(width 0.3048)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "331e620e-f6a9-430a-b3a9-7b9b9f68a4c8")
+	)
+	(fp_line
+		(start 5.842 15.24)
+		(end 5.334 15.748)
+		(stroke
+			(width 0.3048)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "31ee2fdd-fa9e-40ee-8667-a57a532c0ade")
+	)
+	(fp_line
+		(start 6.35 2.032)
+		(end -6.35 2.032)
+		(stroke
+			(width 0.3048)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "4d42a45f-cd50-4c44-9b40-4ea88a051fc2")
+	)
+	(fp_line
+		(start 6.35 2.794)
+		(end -6.35 2.794)
+		(stroke
+			(width 0.3048)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "e31113a1-0bb9-4b21-a461-0c4b3f2969fb")
+	)
+	(fp_line
+		(start 6.35 2.794)
+		(end 6.35 2.032)
+		(stroke
+			(width 0.3048)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "23558a3d-21fc-4732-b84f-84581f31f7fc")
+	)
+	(pad "1" thru_hole circle
+		(at -2.54 0)
+		(size 1.778 1.778)
+		(drill 0.8128)
+		(layers "*.Cu" "*.Mask" "F.SilkS")
+		(remove_unused_layers no)
+		(uuid "930ae4b1-ee66-4e8a-bbba-2b5f4b790083")
+	)
+	(pad "2" thru_hole circle
+		(at 2.54 0)
+		(size 1.778 1.778)
+		(drill 0.8128)
+		(layers "*.Cu" "*.Mask" "F.SilkS")
+		(remove_unused_layers no)
+		(uuid "1fcb17d4-d20e-48a1-872c-43a66e28df37")
+	)
+	(embedded_fonts no)
+	(model "discret/crystal_hc18u_horizontal.wrl"
+		(offset
+			(xyz 0 0 0)
+		)
+		(scale
+			(xyz 1 1 1)
+		)
+		(rotate
+			(xyz 0 0 0)
+		)
+	)
+)

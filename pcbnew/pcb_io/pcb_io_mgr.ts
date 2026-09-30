@@ -10,10 +10,10 @@
  * in the editor's entry chunk and is fetched the first time it is needed.
  * Every lookup that has to construct a plugin is therefore async.
  *
- * Registered: the plugins that are ported. The KiCad s-expression and legacy
- * plugins are not PCB_IO classes here (the board is read and written by
- * `kicad_sexpr/`'s parser and formatter directly), so they have no entry yet;
- * every caller of this registry asks for non-KiCad files (`KICTL_NONKICAD_ONLY`).
+ * Registered: the plugins that are ported. The KiCad s-expression plugin is
+ * not a PCB_IO class here (the board is read and written by `kicad_sexpr/`'s
+ * parser and formatter directly), so it has no entry yet; LEGACY is a KiCad
+ * type, so a `KICTL_NONKICAD_ONLY` lookup passes it by, as upstream's does.
  */
 
 import { KICTL_KICAD_ONLY, KICTL_NONKICAD_ONLY } from '@ziroeda/common/kiway_player.js';
@@ -170,9 +170,15 @@ export const PCB_IO_MGR = {
 // These text strings are "truth" for identifying the plugins.  If you change the spellings,
 // you will obsolete library tables, so don't do it.  Additions are OK.
 
-// Keep non-KiCad plugins in alphabetical order
-
 const registry = PLUGIN_REGISTRY.Instance();
+
+registry.Register(
+  PCB_FILE_T.LEGACY,
+  'Legacy',
+  async () => new (await import('./kicad_legacy/pcb_io_kicad_legacy.js')).PCB_IO_KICAD_LEGACY(),
+);
+
+// Keep non-KiCad plugins in alphabetical order
 
 registry.Register(
   PCB_FILE_T.ALTIUM_CIRCUIT_MAKER,
