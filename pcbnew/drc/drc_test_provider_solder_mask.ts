@@ -29,8 +29,12 @@ import type { ZONE } from '../zone.js';
 import { DRC_ITEM, PCB_DRC_CODE } from './drc_item.js';
 import { DRC_RTREE } from './drc_rtree.js';
 import { DRC_CONSTRAINT, DRC_CONSTRAINT_T, DRC_RULE } from './drc_rule.js';
-import { DRC_REGISTER_TEST_PROVIDER, DRC_TEST_PROVIDER } from './drc_test_provider.js';
-import { ptrOrdinal, ptrPairKey } from './ptr_order.js';
+import {
+  DRC_REGISTER_TEST_PROVIDER,
+  DRC_TEST_PROVIDER,
+  ptrOrdinal,
+  ptrPairKey,
+} from './drc_test_provider.js';
 
 function isNPTHPadWithNoCopper(aItem: BOARD_ITEM): boolean {
   if (aItem.Type() === KICAD_T.PCB_PAD_T) return (aItem as PAD).IsNPTHWithNoCopper();

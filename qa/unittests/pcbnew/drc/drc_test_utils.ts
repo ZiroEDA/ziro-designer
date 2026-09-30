@@ -13,7 +13,7 @@ import { ENUM_MAP } from '@ziroeda/common/properties/property.js';
 import type { JsonValue } from '@ziroeda/common/settings/json_settings.js';
 import type { BOARD } from '@ziroeda/pcbnew/board.js';
 import { DRC_ENGINE } from '@ziroeda/pcbnew/drc/drc_engine.js';
-import '@ziroeda/pcbnew/drc/drc_test_providers.js';
+import '@ziroeda/pcbnew/browser/drc_test_providers.js';
 import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 
 /** `GetPcbnewTestDataDir()`: the reference tree's `qa/data/pcbnew/`. */

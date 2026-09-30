@@ -16,7 +16,7 @@ import {
   buildConstraintsReport,
   formatInspectReport,
   type InspectItem,
-} from '@ziroeda/pcbnew/drc/drc_inspect.js';
+} from '@ziroeda/pcbnew/tools/board_inspection_tool.js';
 import { parseDrcRules } from '@ziroeda/pcbnew/drc/drc_rule_view.js';
 import type { DrcItemType } from '@ziroeda/pcbnew/drc/drc_rules_engine.js';
 

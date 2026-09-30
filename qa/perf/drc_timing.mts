@@ -18,7 +18,7 @@ import { LSET } from '@ziroeda/common/lset.js';
 import { ENUM_MAP } from '@ziroeda/common/properties/property.js';
 import { PROGRESS_REPORTER_BASE } from '@ziroeda/common/widgets/progress_reporter_base.js';
 import { DRC_ENGINE } from '@ziroeda/pcbnew/drc/drc_engine.js';
-import '@ziroeda/pcbnew/drc/drc_test_providers.js';
+import '@ziroeda/pcbnew/browser/drc_test_providers.js';
 import type { DRC_ITEM } from '@ziroeda/pcbnew/drc/drc_item.js';
 import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/read_board.js';
 

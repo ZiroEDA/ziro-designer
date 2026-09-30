@@ -24,8 +24,72 @@
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { getArcToSegmentCount } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
-import { deflatePolygon } from './drc/drc_areas.js';
 import type { PcbFootprint, PcbShape } from './types.js';
+
+// ---------------------------------------------------------------------------
+// `SHAPE_POLY_SET::Deflate` for a simple ring (was `drc/drc_areas.ts`; the
+// courtyard builder is its only caller).
+
+/** Twice the signed area; negative when the points run anti-clockwise. */
+function signedArea2(pts: readonly Vec2[]): number {
+  let a = 0;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++)
+    a += pts[j]!.x * pts[i]!.y - pts[i]!.x * pts[j]!.y;
+  return a;
+}
+
+/**
+ * Shrink a simple polygon by `d`, by offsetting each edge inward and
+ * re-intersecting the neighbours.
+ *
+ * This is not a general offsetter — a deep enough concave notch would fold —
+ * but `d` here is the DRC epsilon, 0.5 µm against features measured in
+ * millimetres, so nothing on a real board comes close to folding. Returning the
+ * outline unchanged when the maths degenerates keeps a pathological outline
+ * from silently losing its area.
+ */
+export function deflatePolygon(pts: readonly Vec2[], d: number): Vec2[] {
+  if (pts.length < 3 || d <= 0) return [...pts];
+
+  // Offset direction depends on the winding: for a clockwise ring the inward
+  // normal is on the other side.
+  const sign = signedArea2(pts) >= 0 ? 1 : -1;
+  const lines: { p: Vec2; dx: number; dy: number }[] = [];
+
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i]!;
+    const b = pts[(i + 1) % pts.length]!;
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const len = Math.hypot(dx, dy);
+    if (len === 0) return [...pts];
+
+    // Unit normal, pointing into the polygon.
+    const nx = (-dy / len) * sign;
+    const ny = (dx / len) * sign;
+    lines.push({ p: { x: a.x + nx * d, y: a.y + ny * d }, dx, dy });
+  }
+
+  const out: Vec2[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const l1 = lines[(i + lines.length - 1) % lines.length]!;
+    const l2 = lines[i]!;
+    const det = l1.dx * l2.dy - l1.dy * l2.dx;
+
+    if (Math.abs(det) < 1e-9) {
+      // Collinear neighbours: the offset edges are the same line, so the
+      // shared vertex simply moves with it.
+      out.push(l2.p);
+      continue;
+    }
+
+    const t = ((l2.p.x - l1.p.x) * l2.dy - (l2.p.y - l1.p.y) * l2.dx) / det;
+    out.push({ x: l1.p.x + l1.dx * t, y: l1.p.y + l1.dy * t });
+  }
+
+  return out;
+}
 
 /** ConvertOutlineToPolygon's aErrorMax for a courtyard. */
 export const COURTYARD_MAX_ERROR = mmToIU(0.005);

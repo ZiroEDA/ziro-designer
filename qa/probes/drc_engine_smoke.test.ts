@@ -9,7 +9,7 @@ import { SETTINGS_MANAGER } from '@ziroeda/common/pgm_base.js';
 import { ENUM_MAP } from '@ziroeda/common/properties/property.js';
 import { DRC_ENGINE } from '@ziroeda/pcbnew/drc/drc_engine.js';
 import type { DRC_ITEM } from '@ziroeda/pcbnew/drc/drc_item.js';
-import '@ziroeda/pcbnew/drc/drc_test_providers.js';
+import '@ziroeda/pcbnew/browser/drc_test_providers.js';
 import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 
 const DEMO = new URL('../../designer/public/demos/ecc83/', import.meta.url);

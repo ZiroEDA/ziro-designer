@@ -37,8 +37,7 @@ import { ZONE } from '../zone.js';
 import { DRC_ITEM, PCB_DRC_CODE } from './drc_item.js';
 import { ATOMIC_TABLES, DRC_RTREE } from './drc_rtree.js';
 import { DRC_CONSTRAINT, DRC_CONSTRAINT_T } from './drc_rule.js';
-import { DRC_REGISTER_TEST_PROVIDER, DRC_TEST_PROVIDER } from './drc_test_provider.js';
-import { ptrPairKey } from './ptr_order.js';
+import { DRC_REGISTER_TEST_PROVIDER, DRC_TEST_PROVIDER, ptrPairKey } from './drc_test_provider.js';
 
 /** `UNIMPLEMENTED_FOR( x )`: `wxFAIL_MSG`, a debug assertion; nothing in a release build. */
 function UNIMPLEMENTED_FOR(_aName: string): void {}

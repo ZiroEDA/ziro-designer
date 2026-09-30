@@ -46,7 +46,7 @@ import { MICROWAVE_TOOL, type MICROWAVE_HOST } from './microwave/microwave_tool.
 import type { PcbFootprint } from './types.js';
 import type { NETLIST } from './netlist_reader/pcb_netlist.js';
 import { type DIALOG_DRC_LIKE, DRC_TOOL } from './tools/drc_tool.js';
-import type { DRC_JOB_HOOKS, DRC_JOB_REQUEST } from './drc/drc_job.js';
+import type { DRC_JOB_HOOKS, DRC_JOB_REQUEST } from './browser/drc_job.js';
 import { runDrcJobOffThread } from './drc_runner.js';
 import { PCB_TOOL_BASE } from './tools/pcb_tool_base.js';
 import { MARKER_T } from '@ziroeda/common/marker_base.js';

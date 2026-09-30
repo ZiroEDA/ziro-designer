@@ -28,8 +28,7 @@ import {
 } from './drc_creepage_utils.js';
 import { DRC_ITEM, PCB_DRC_CODE } from './drc_item.js';
 import { DRC_CONSTRAINT_T } from './drc_rule.js';
-import { DRC_REGISTER_TEST_PROVIDER, DRC_TEST_PROVIDER } from './drc_test_provider.js';
-import { ptrOrdinal } from './ptr_order.js';
+import { DRC_REGISTER_TEST_PROVIDER, DRC_TEST_PROVIDER, ptrOrdinal } from './drc_test_provider.js';
 
 export class DRC_TEST_PROVIDER_CREEPAGE extends DRC_TEST_PROVIDER {
   // std::set<std::pair<const BOARD_ITEM*, const BOARD_ITEM*>>: an ORDERED pair

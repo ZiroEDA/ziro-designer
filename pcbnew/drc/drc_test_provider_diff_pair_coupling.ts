@@ -37,8 +37,7 @@ import { type PCB_ARC, PCB_TRACK } from '../pcb_track.js';
 import { DRC_ENGINE } from './drc_engine.js';
 import { DRC_ITEM, PCB_DRC_CODE } from './drc_item.js';
 import { DRC_CONSTRAINT_T, type DRC_RULE } from './drc_rule.js';
-import { DRC_REGISTER_TEST_PROVIDER, DRC_TEST_PROVIDER } from './drc_test_provider.js';
-import { ptrOrdinal } from './ptr_order.js';
+import { DRC_REGISTER_TEST_PROVIDER, DRC_TEST_PROVIDER, ptrOrdinal } from './drc_test_provider.js';
 
 /** `rescale<int64_t>( a, b, d )`: exact in BigInt, the products pass 2^53. */
 const rescaleI64 = (a: number, b: number, d: number): number =>

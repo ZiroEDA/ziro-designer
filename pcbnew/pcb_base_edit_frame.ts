@@ -23,7 +23,7 @@ import { DRC_ENGINE } from './drc/drc_engine.js';
  * violations on a board KiCad finds 176 in. The engine is constructed here,
  * so the providers are pulled in here.
  */
-import './drc/drc_test_providers.js';
+import './browser/drc_test_providers.js';
 import { RESET_REASON } from '@ziroeda/common/tool/tool_base.js';
 import { DEFAULT_THEME, GetColorSettings } from '@ziroeda/common/pgm_base.js';
 import type { COLOR_SETTINGS } from '@ziroeda/common/settings/color_settings.js';

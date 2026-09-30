@@ -14,7 +14,7 @@ import {
   parseDrcExpr,
   testDrcCondition,
   type DrcExprContext,
-} from '@ziroeda/pcbnew/drc/drc_expr.js';
+} from '@ziroeda/pcbnew/pcbexpr_evaluator.js';
 
 const MM = (n: number): number => mmToIU(n);
 

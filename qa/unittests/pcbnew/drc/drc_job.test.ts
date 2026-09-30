@@ -22,7 +22,7 @@ import {
   type DRC_JOB_REQUEST,
   type DRC_JOB_VIOLATION,
   runDrcJob,
-} from '@ziroeda/pcbnew/drc/drc_job.js';
+} from '@ziroeda/pcbnew/browser/drc_job.js';
 import type { PCB_MARKER } from '@ziroeda/pcbnew/pcb_marker.js';
 import { HAVE_TEST_DATA, LoadBoard, PCBNEW_TEST_DATA_DIR } from './drc_test_utils.js';
 
@@ -180,7 +180,7 @@ suite('runDrcJob: the DRC across a worker boundary', () => {
   it('reads the marker back out of the wire data', { timeout: 120_000 }, async () => {
     const { PCB_MARKER: MARKER } = await import('@ziroeda/pcbnew/pcb_marker.js');
     const { DRC_ITEM: ITEM } = await import('@ziroeda/pcbnew/drc/drc_item.js');
-    const { drcJobPathShapes } = await import('@ziroeda/pcbnew/drc/drc_job.js');
+    const { drcJobPathShapes } = await import('@ziroeda/pcbnew/browser/drc_job.js');
 
     const got = await jobViolations('creepage/creepage');
     const wire = got[0]!;

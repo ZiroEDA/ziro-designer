@@ -51,7 +51,7 @@ import type { BOARD_DESIGN_SETTINGS } from '../board_design_settings.js';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { arcShape, padShapes } from '../drc/drc_engine_view.js';
 import { padShapePos } from '../padstack.js';
-import { matchDpSuffix } from '../drc/drc_diff_pair.js';
+import { DRC_ENGINE } from '../drc/drc_engine.js';
 import { padIsOnLayer } from '../dialogs/dialog_enum_pads.js';
 import { enabledCopperLayers, isCopperLayerName } from '../dialogs/dialog_swap_layers.js';
 import { padFlashState, viaFlashState } from '../unused_pad_layers.js';
@@ -1641,9 +1641,9 @@ export class PNS_KICAD_IFACE implements PnsRouterIface, PnsResolverHost, ROUTER_
 
     if (!name) return null;
 
-    const suffix = matchDpSuffix(name);
+    const suffix = DRC_ENGINE.MatchDpSuffix(name);
 
-    return suffix.polarity === 0 ? null : this.findNetByName(suffix.complement);
+    return suffix.polarity === 0 ? null : this.findNetByName(suffix.complementNet);
   }
 
   /**
@@ -1671,13 +1671,13 @@ export class PNS_KICAD_IFACE implements PnsRouterIface, PnsResolverHost, ROUTER_
     if (!net) return null;
 
     const name = this.getNetName(net);
-    const suffix = matchDpSuffix(name);
+    const suffix = DRC_ENGINE.MatchDpSuffix(name);
 
     if (suffix.polarity === 0) return null;
 
     // `r == 1` means the name we hold IS the positive half.
-    const nameP = suffix.polarity === 1 ? name : suffix.complement;
-    const nameN = suffix.polarity === 1 ? suffix.complement : name;
+    const nameP = suffix.polarity === 1 ? name : suffix.complementNet;
+    const nameN = suffix.polarity === 1 ? suffix.complementNet : name;
 
     const netP = this.findNetByName(nameP);
     const netN = this.findNetByName(nameN);
@@ -1693,7 +1693,7 @@ export class PNS_KICAD_IFACE implements PnsRouterIface, PnsResolverHost, ROUTER_
    * `MatchDpSuffix`'s own return value.
    */
   dpNetPolarity(aNet: NetHandle): number {
-    return matchDpSuffix(this.getNetName(aNet)).polarity;
+    return DRC_ENGINE.MatchDpSuffix(this.getNetName(aNet)).polarity;
   }
 }
 

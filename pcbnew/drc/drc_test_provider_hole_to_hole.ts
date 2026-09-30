@@ -23,8 +23,7 @@ import { VIATYPE } from '../pcb_track_types.js';
 import { DRC_ITEM, PCB_DRC_CODE } from './drc_item.js';
 import { DRC_RTREE } from './drc_rtree.js';
 import { DRC_CONSTRAINT_T } from './drc_rule.js';
-import { DRC_REGISTER_TEST_PROVIDER, DRC_TEST_PROVIDER } from './drc_test_provider.js';
-import { ptrPairKey } from './ptr_order.js';
+import { DRC_REGISTER_TEST_PROVIDER, DRC_TEST_PROVIDER, ptrPairKey } from './drc_test_provider.js';
 
 function getHoleShape(aItem: BOARD_ITEM): SHAPE_CIRCLE {
   if (aItem.Type() === KICAD_T.PCB_VIA_T) {

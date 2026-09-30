@@ -42,8 +42,8 @@ import { loadKicadNetlist } from '../netlist_reader/kicad_netlist_reader.js';
 import { PCB_MARKER } from '../pcb_marker.js';
 import { PCB_SHAPE } from '../pcb_shape.js';
 import { ParseBoard } from '../pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { DRC_ENGINE } from './drc_engine.js';
-import type { DRC_ITEM } from './drc_item.js';
+import { DRC_ENGINE } from '../drc/drc_engine.js';
+import type { DRC_ITEM } from '../drc/drc_item.js';
 // The providers register themselves at import, as linking pcbnew does in C++.
 import './drc_test_providers.js';
 

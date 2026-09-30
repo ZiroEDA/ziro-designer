@@ -9,7 +9,7 @@
  * Board Setup has been able to edit `.kicad_dru` text since the Board Setup
  * work, but nothing read it. This is the first half of making it mean
  * something: text in, typed rules out. Evaluating a rule's condition lives in
- * drc_expr.ts; deciding which rule wins lives in drc_rules_engine.ts.
+ * pcbexpr_evaluator.ts; deciding which rule wins lives in drc_rules_engine.ts.
  *
  * A `.kicad_dru` file is:
  *

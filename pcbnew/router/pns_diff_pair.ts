@@ -58,11 +58,10 @@
  * One reused piece is *not* bit-exact and is reused anyway, because forking it
  * would be worse:
  *
- *  - `commonParallelProjection` (`drc/drc_diff_pair.ts`) is upstream's own
- *    duplicate of the routine in this file — `drc_test_provider_diff_pair_coupling.cpp:66`
- *    is a verbatim static copy of `pns_diff_pair.cpp:786` — so reusing it is
- *    structurally exact. Its clip points round with `Math.round` where upstream
- *    uses `rescale`; the two differ only on a negative half.
+ *  - `commonParallelProjection` (at the end of this file) is the routine
+ *    `pns_diff_pair.cpp:821` defines and `pns_topology.cpp:1033` links to;
+ *    `drc_test_provider_diff_pair_coupling.cpp:66` is a verbatim static copy.
+ *    Its clip points round with `Math.round` where upstream uses `rescale`; the two differ only on a negative half.
  *
  * ## Not ported
  *
@@ -80,7 +79,6 @@ import {
   divideI,
 } from '@ziroeda/kimath/src/math/vector2.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
-import { commonParallelProjection } from '../drc/drc_diff_pair.js';
 import {
   segCollinear,
   segDistance,
@@ -1654,4 +1652,68 @@ export class DpGateways {
 
     return false;
   }
+}
+
+// ---------------------------------------------------------------------------
+// `commonParallelProjection` (`pns_diff_pair.cpp:821`). Upstream defines it in
+// `pns_diff_pair.cpp`, declares it again in `pns_topology.cpp:1033` and links to
+// this one, and has a third copy in `drc_test_provider_diff_pair_coupling.cpp:66`
+// (the DRC provider's, over `SEG`, in that file). This is the router's, over the
+// value-typed `Seg`.
+// ---------------------------------------------------------------------------
+
+/** `SEG::SquaredLength`. */
+const squaredLength = (s: Seg): number => dot(sub(s.b, s.a), sub(s.b, s.a));
+
+/**
+ * `SEG::TCoef`: how far along the segment a point projects, scaled by the
+ * segment's squared length so it stays integral.
+ */
+const tCoef = (s: Seg, p: Vec2): number => dot(sub(s.b, s.a), sub(p, s.a));
+
+/** `SEG::LineProject`: the point on this segment's *infinite line* nearest `p`. */
+function lineProject(s: Seg, p: Vec2): Vec2 {
+  const d = sub(s.b, s.a);
+  const len2 = dot(d, d);
+  if (len2 === 0) return { x: s.a.x, y: s.a.y };
+  const t = dot(sub(p, s.a), d) / len2;
+  return { x: Math.round(s.a.x + d.x * t), y: Math.round(s.a.y + d.y * t) };
+}
+
+/**
+ * Clip two segments to the span over which they run alongside each other.
+ *
+ * Returns null when they do not overlap at all in that sense — one is entirely
+ * past the end of the other — which is upstream's early `return false`, and is
+ * the difference between "these two tracks are a coupled pair here" and "these
+ * two tracks are merely both on the board".
+ */
+export function commonParallelProjection(p: Seg, n: Seg): { pClip: Seg; nClip: Seg } | null {
+  const nProjP: Seg = { a: lineProject(p, n.a), b: lineProject(p, n.b) };
+
+  let tA = 0;
+  let tB = tCoef(p, p.b);
+  let tProjA = tCoef(p, nProjP.a);
+  let tProjB = tCoef(p, nProjP.b);
+
+  if (tB < tA) [tA, tB] = [tB, tA];
+  if (tProjB < tProjA) [tProjA, tProjB] = [tProjB, tProjA];
+
+  if (tB <= tProjA) return null;
+  if (tA >= tProjB) return null;
+
+  // The two middle values of the four are the overlap; upstream sorts all four
+  // and takes tv[1] and tv[2], and calls the method awful in a comment.
+  const tv = [0, tCoef(p, p.b), tCoef(p, nProjP.a), tCoef(p, nProjP.b)].sort((x, y) => x - y);
+  const pLenSq = squaredLength(p);
+  if (pLenSq === 0) return null;
+
+  const d = sub(p.b, p.a);
+  const at = (t: number): Vec2 => ({
+    x: Math.round(p.a.x + (d.x * t) / pLenSq),
+    y: Math.round(p.a.y + (d.y * t) / pLenSq),
+  });
+
+  const pClip: Seg = { a: at(tv[1]!), b: at(tv[2]!) };
+  return { pClip, nClip: { a: lineProject(n, pClip.a), b: lineProject(n, pClip.b) } };
 }

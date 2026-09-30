@@ -22,7 +22,7 @@
  */
 
 import { wildCompareString } from '@ziroeda/common/string_utils.js';
-import { testDrcCondition, type DrcExprContext } from './drc_expr.js';
+import { testDrcCondition, type DrcExprContext } from '../pcbexpr_evaluator.js';
 import type {
   DrcConstraint,
   DrcConstraintType,

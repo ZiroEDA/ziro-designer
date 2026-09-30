@@ -394,7 +394,7 @@ export {
   DrcExprError,
   type DrcExpr,
   type DrcExprContext,
-} from './drc/drc_expr.js';
+} from './pcbexpr_evaluator.js';
 export {
   buildDrcRuleEngine,
   evalDrcRules,
@@ -526,7 +526,7 @@ export {
   type InspectItem,
   type InspectPage,
   type InspectSection,
-} from './drc/drc_inspect.js';
+} from './tools/board_inspection_tool.js';
 
 export {
   ARROW_ANGLE_DEG,

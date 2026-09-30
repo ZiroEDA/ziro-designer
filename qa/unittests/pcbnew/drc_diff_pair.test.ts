@@ -2,10 +2,11 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * Differential pair coupling.
- * Counterpart: `drc_test_provider_diff_pair_coupling.cpp`.
+ * Differential pair discovery and coupling geometry.
+ * Counterparts: `DRC_ENGINE::MatchDpSuffix` and `commonParallelProjection`
+ * (`pns_diff_pair.cpp:821`).
  *
- * Three things carry the weight here, and each surprised me:
+ * Two things carry the weight here, and each surprised me:
  *
  * 1. **A pair is discovered by name.** Nothing in the file declares one. The
  *    suffix matcher walks the name *backwards* over digits and underscores, so
@@ -14,24 +15,19 @@
  * 2. **The gap is measured on the overlap.** Two tracks of a pair are rarely
  *    aligned end to end, so both are clipped to the span over which they
  *    actually run alongside each other before anything is measured.
- * 3. **The gap check hides behind the uncoupled check.** A gap violation is
- *    reported only when the pair is already failing its uncoupled length, or
- *    when there is no uncoupled rule at all. This looks like a bug and is not;
- *    there is a test for it precisely so nobody "fixes" it.
  */
 import { describe, expect, it } from 'vitest';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
-import {
-  commonParallelProjection,
-  coupledSpans,
-  evaluateDiffPair,
-  matchDpSuffix,
-  type DpTrack,
-} from '@ziroeda/pcbnew/drc/drc_diff_pair.js';
-import type { Board, PcbTrack } from '@ziroeda/pcbnew/types.js';
+import { DRC_ENGINE } from '@ziroeda/pcbnew/drc/drc_engine.js';
+import { commonParallelProjection } from '@ziroeda/pcbnew/router/pns_diff_pair.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 const MM = (n: number): number => mmToIU(n);
+/** The view-side spelling of `DRC_ENGINE::MatchDpSuffix`'s answer. */
+const matchDpSuffix = (name: string) => {
+  const m = DRC_ENGINE.MatchDpSuffix(name);
+  return { polarity: m.polarity, complement: m.complementNet, baseName: m.baseDpName };
+};
 const P = (x: number, y: number): Vec2 => ({ x: MM(x), y: MM(y) });
 
 describe('finding a pair by name', () => {
@@ -108,156 +104,4 @@ describe('clipping two tracks to where they run together', () => {
       commonParallelProjection({ a: P(0, 0), b: P(10, 0) }, { a: P(20, 1), b: P(30, 1) }),
     ).toBeNull();
   });
-});
-
-describe('the measured gap', () => {
-  const track = (a: Vec2, b: Vec2, width = MM(0.2), layer = 'F.Cu'): DpTrack => ({
-    a,
-    b,
-    width,
-    layer,
-  });
-
-  it('is edge to edge, not centreline to centreline', () => {
-    // Centrelines 0.4 apart, two 0.2-wide tracks: 0.4 - 0.1 - 0.1 = 0.2. What a
-    // fabricator calls the gap.
-    const spans = coupledSpans([track(P(0, 0), P(50, 0))], [track(P(0, 0.4), P(50, 0.4))]);
-
-    expect(spans).toHaveLength(1);
-    expect(spans[0]?.gap).toBe(MM(0.2));
-  });
-
-  it('grows when the tracks are wider apart', () => {
-    const spans = coupledSpans([track(P(0, 0), P(50, 0))], [track(P(0, 1), P(50, 1))]);
-
-    expect(spans[0]?.gap).toBe(MM(0.8));
-  });
-
-  it('is measured only over the overlap, so the length is the shared part', () => {
-    const spans = coupledSpans([track(P(0, 0), P(50, 0))], [track(P(10, 0.4), P(30, 0.4))]);
-
-    expect(spans[0]?.length).toBe(MM(20));
-  });
-
-  it('ignores a track on another layer', () => {
-    expect(
-      coupledSpans([track(P(0, 0), P(50, 0))], [track(P(0, 0.4), P(50, 0.4), MM(0.2), 'B.Cu')]),
-    ).toEqual([]);
-  });
-
-  it('ignores a segment barely longer than an internal unit', () => {
-    // At that size the direction is numerical noise: it is "parallel" to
-    // everything and the projection it produces is meaningless.
-    expect(
-      coupledSpans(
-        [{ a: { x: 0, y: 0 }, b: { x: 1, y: 0 }, width: MM(0.2), layer: 'F.Cu' }],
-        [track(P(0, 0.4), P(50, 0.4))],
-      ),
-    ).toEqual([]);
-  });
-});
-
-describe('evaluating a pair', () => {
-  const p: DpTrack[] = [{ a: P(0, 0), b: P(50, 0), width: MM(0.2), layer: 'F.Cu' }];
-  const n: DpTrack[] = [{ a: P(0, 0.4), b: P(50, 0.4), width: MM(0.2), layer: 'F.Cu' }];
-
-  it('counts a well-spaced run as fully coupled', () => {
-    const r = evaluateDiffPair(p, n, { gapMin: MM(0.15), gapMax: MM(0.25) });
-
-    expect(r.coupledLength).toBe(MM(50));
-    expect(r.uncoupledLength).toBe(0);
-    expect(r.gapViolations).toEqual([]);
-  });
-
-  it('does not count a run at the wrong spacing as coupled at all', () => {
-    // Two tracks running alongside each other at the wrong gap are not a
-    // coupled pair; they are two tracks near each other.
-    const r = evaluateDiffPair(p, n, { gapMin: MM(0.5) });
-
-    expect(r.coupledLength).toBe(0);
-    expect(r.uncoupledLength).toBe(MM(50));
-  });
-
-  it('measures uncoupled length against the longer of the two nets', () => {
-    const longP: DpTrack[] = [{ a: P(0, 0), b: P(80, 0), width: MM(0.2), layer: 'F.Cu' }];
-    const r = evaluateDiffPair(longP, n, { gapMin: MM(0.15), gapMax: MM(0.25) });
-
-    expect(r.totalLength).toBe(MM(80));
-    expect(r.uncoupledLength).toBe(MM(30));
-  });
-
-  it('reports the uncoupled length only once it exceeds the maximum', () => {
-    const longP: DpTrack[] = [{ a: P(0, 0), b: P(80, 0), width: MM(0.2), layer: 'F.Cu' }];
-
-    expect(
-      evaluateDiffPair(longP, n, { gapMin: MM(0.15), gapMax: MM(0.25), maxUncoupled: MM(40) })
-        .uncoupledViolation,
-    ).toBe(false);
-    expect(
-      evaluateDiffPair(longP, n, { gapMin: MM(0.15), gapMax: MM(0.25), maxUncoupled: MM(20) })
-        .uncoupledViolation,
-    ).toBe(true);
-  });
-
-  it('holds back gap violations while the uncoupled length is within its limit', () => {
-    // Upstream's gate, and the thing most likely to be mistaken for a bug: a
-    // pair that is mostly well coupled with one out-of-spec stretch reports
-    // nothing, because that stretch is where a pair necessarily diverges.
-    const r = evaluateDiffPair(p, n, { gapMin: MM(0.5), maxUncoupled: MM(100) });
-
-    expect(r.gapViolations).toEqual([]);
-  });
-
-  it('releases them once the uncoupled length fails too', () => {
-    const r = evaluateDiffPair(p, n, { gapMin: MM(0.5), maxUncoupled: MM(10) });
-
-    expect(r.gapViolations.length).toBeGreaterThan(0);
-    expect(r.gapViolations[0]?.failedMin).toBe(true);
-  });
-
-  it('reports them straight away when there is no uncoupled rule at all', () => {
-    expect(evaluateDiffPair(p, n, { gapMin: MM(0.5) }).gapViolations.length).toBeGreaterThan(0);
-  });
-
-  it('separates a gap that is too wide from one that is too narrow', () => {
-    const tooWide = evaluateDiffPair(p, n, { gapMax: MM(0.1) });
-
-    expect(tooWide.gapViolations[0]?.failedMax).toBe(true);
-    expect(tooWide.gapViolations[0]?.failedMin).toBe(false);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Through the engine
-// ---------------------------------------------------------------------------
-
-const _track = (a: Vec2, b: Vec2, net: number, width = MM(0.2)): PcbTrack => ({
-  start: a,
-  end: b,
-  width,
-  layer: 'F.Cu',
-  net,
-});
-
-const _board = (tracks: PcbTrack[], names: [number, string][]): Board => ({
-  version: 20240108,
-  layers: [
-    { id: 0, name: 'F.Cu', kind: 'signal' },
-    { id: 31, name: 'B.Cu', kind: 'signal' },
-  ],
-  nets: new Map([[0, ''], ...names]),
-  footprints: [],
-  tracks,
-  arcs: [],
-  vias: [],
-  zones: [],
-  shapes: [],
-  texts: [],
-  dimensions: [],
-  textBoxes: [],
-  tables: [],
-  images: [],
-  points: [],
-  barcodes: [],
-  groups: [],
 });
