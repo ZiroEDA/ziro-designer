@@ -2616,9 +2616,7 @@ export function PcbEditor({
   // Footprint Properties (DIALOG_FOOTPRINT_PROPERTIES), board side.
   const [fpPropsIndex, setFpPropsIndex] = useState<number | null>(null);
   // Footprint Associations (DIALOG_FOOTPRINT_ASSOCIATIONS), on the selected footprint.
-  const [footprintAssociationsIndex, setFootprintAssociationsIndex] = useState<number | null>(
-    null,
-  );
+  const [footprintAssociationsIndex, setFootprintAssociationsIndex] = useState<number | null>(null);
   // Pad Properties (DIALOG_PAD_PROPERTIES), board side.
   const [padPropsRef, setPadPropsRef] = useState<PadRef | null>(null);
   // Text / Shape properties for board graphics.
