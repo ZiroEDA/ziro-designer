@@ -920,13 +920,14 @@ export {
   type ReannotateSortCodes,
 } from './dialogs/dialog_board_reannotate.js';
 
-export { cleanupErrorText, type CleanupRcCode, type CleanupRcItem } from './cleanup_item.js';
-
 export {
-  cleanupTrackGeometry,
-  type TrackGeometryCleanupOptions,
-  type TrackGeometryCleanupResult,
-} from './tracks_cleaner.js';
+  CLEANUP_ITEM,
+  CLEANUP_RC_CODE,
+  VECTOR_CLEANUP_ITEMS_PROVIDER,
+  cleanupErrorText,
+} from './cleanup_item.js';
+
+export { TRACKS_CLEANER } from './tracks_cleaner.js';
 
 export {
   parseLibraryTable,

@@ -2,123 +2,135 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * The report rows the cleanup dialogs list. Counterparts: `CLEANUP_RC_CODE`
- * (pcbnew/cleanup_item.h:29) and `CLEANUP_ITEM::GetErrorText`
- * (pcbnew/cleanup_item.cpp:32).
+ * `CLEANUP_RC_CODE`, `CLEANUP_ITEM` and `VECTOR_CLEANUP_ITEMS_PROVIDER`
+ * (pcbnew/cleanup_item.h, pcbnew/cleanup_item.cpp): the rows Cleanup Tracks &
+ * Vias and Cleanup Graphics list.
  *
- * ## Why the codes are strings here and integers upstream
- *
- * `CLEANUP_FIRST = DRCE_LAST + 1` exists so cleanup rows can travel through the
- * same `RC_ITEM` machinery as DRC violations without their codes colliding.
- * Nothing reads the numbers themselves — they are never serialised and never
- * compared against a DRC code — so the offset carries no information worth
- * reproducing, and a string union catches a mistyped code at compile time where
- * an integer would not.
- *
- * The enum order *is* reproduced, because it is the order the dialog's
- * "Change" list groups rows in.
- *
- * ## The four graphics codes are here and never emitted here
- *
- * `CLEANUP_NULL_GRAPHIC` … `CLEANUP_MERGE_PAD` belong to `GRAPHICS_CLEANER`
- * (Cleanup Graphics), which shares this enum upstream. They are defined here
- * because the enum is shared; the tracks cleaner never produces one.
- *
- * ## The `Rc` in the names
- *
- * `graphics_cleaner.ts` reached this ground first and took `CleanupCode` /
- * `CleanupItem` for a narrower pair of its own — a two-value code union and a
- * `{ code, id, message }` row, rather than `RC_ITEM`'s `{ code, title, items }`
- * with its up-to-two item references. Renaming that engine's exported types is
- * a change to a shipped API and is not this port's business, so these carry the
- * `Rc` of `CLEANUP_RC_CODE` and of the `RC_ITEM` a `CLEANUP_ITEM` *is*. When
- * the graphics cleaner is next revisited it should fold onto these.
+ * A `CLEANUP_ITEM` is an `RC_ITEM`, so it holds the KIIDs of up to two items,
+ * not the items: a dry run's rows stay valid while the board is unchanged, and
+ * the dialog resolves them against the live BOARD to select what a row names.
  */
-
-/** `CLEANUP_RC_CODE`, in enum order. */
+import { RC_ITEM, RC_ITEMS_PROVIDER } from '@ziroeda/common/rc_item.js';
 import { PCB_DRC_CODE } from './drc/drc_item.js';
 
 /**
  * `CLEANUP_FIRST = DRCE_LAST + 1` (cleanup_item.h:29): where the cleanup codes
- * start; `PCB_BASE_FRAME::GetSeverity` reads it to answer RPT_SEVERITY_ACTION.
+ * start, so they travel through the RC_ITEM machinery without colliding with a
+ * DRC code; `PCB_BASE_FRAME::GetSeverity` reads it to answer RPT_SEVERITY_ACTION.
  */
 export const CLEANUP_FIRST = PCB_DRC_CODE.DRCE_LAST + 1;
 
-export type CleanupRcCode =
-  | 'shorting_track'
-  | 'shorting_via'
-  | 'redundant_via'
-  | 'duplicate_track'
-  | 'merge_tracks'
-  | 'dangling_track'
-  | 'dangling_via'
-  | 'zero_length_track'
-  | 'track_in_pad'
-  | 'null_graphic'
-  | 'duplicate_graphic'
-  | 'lines_to_rect'
-  | 'merge_pad';
+/** `enum CLEANUP_RC_CODE` (cleanup_item.h:31-45). */
+export const CLEANUP_RC_CODE = {
+  CLEANUP_SHORTING_TRACK: CLEANUP_FIRST,
+  CLEANUP_SHORTING_VIA: CLEANUP_FIRST + 1,
+  CLEANUP_REDUNDANT_VIA: CLEANUP_FIRST + 2,
+  CLEANUP_DUPLICATE_TRACK: CLEANUP_FIRST + 3,
+  CLEANUP_MERGE_TRACKS: CLEANUP_FIRST + 4,
+  CLEANUP_DANGLING_TRACK: CLEANUP_FIRST + 5,
+  CLEANUP_DANGLING_VIA: CLEANUP_FIRST + 6,
+  CLEANUP_ZERO_LENGTH_TRACK: CLEANUP_FIRST + 7,
+  CLEANUP_TRACK_IN_PAD: CLEANUP_FIRST + 8,
+  CLEANUP_NULL_GRAPHIC: CLEANUP_FIRST + 9,
+  CLEANUP_DUPLICATE_GRAPHIC: CLEANUP_FIRST + 10,
+  CLEANUP_LINES_TO_RECT: CLEANUP_FIRST + 11,
+  CLEANUP_MERGE_PAD: CLEANUP_FIRST + 12,
+} as const;
+
+export type CLEANUP_RC_CODE = (typeof CLEANUP_RC_CODE)[keyof typeof CLEANUP_RC_CODE];
+
+const C = CLEANUP_RC_CODE;
 
 /**
- * `CLEANUP_ITEM::GetErrorText`. The strings are upstream's `_HKI` literals
- * verbatim, US spelling and all ("co-linear", not "collinear"), because they
- * are the msgid the translation catalogue is keyed by.
+ * `CLEANUP_ITEM::GetErrorText`'s table. The strings are upstream's `_HKI`
+ * literals verbatim ("co-linear", not "collinear"), because they are the msgid
+ * the translation catalogue is keyed by.
  */
-export function cleanupErrorText(aCode: CleanupRcCode): string {
+export function cleanupErrorText(aCode: number): string {
   switch (aCode) {
     // For cleanup tracks and vias:
-    case 'shorting_track':
+    case C.CLEANUP_SHORTING_TRACK:
       return 'Remove track shorting two nets';
-    case 'shorting_via':
+    case C.CLEANUP_SHORTING_VIA:
       return 'Remove via shorting two nets';
-    case 'redundant_via':
+    case C.CLEANUP_REDUNDANT_VIA:
       return 'Remove redundant via';
-    case 'duplicate_track':
+    case C.CLEANUP_DUPLICATE_TRACK:
       return 'Remove duplicate track';
-    case 'merge_tracks':
+    case C.CLEANUP_MERGE_TRACKS:
       return 'Merge co-linear tracks';
-    case 'dangling_track':
+    case C.CLEANUP_DANGLING_TRACK:
       return 'Remove track not connected at both ends';
-    case 'dangling_via':
+    case C.CLEANUP_DANGLING_VIA:
       return 'Remove via connected on less than 2 layers';
-    case 'zero_length_track':
+    case C.CLEANUP_ZERO_LENGTH_TRACK:
       return 'Remove zero-length track';
-    case 'track_in_pad':
+    case C.CLEANUP_TRACK_IN_PAD:
       return 'Remove track inside pad';
 
     // For cleanup graphics:
-    case 'null_graphic':
+    case C.CLEANUP_NULL_GRAPHIC:
       return 'Remove zero-size graphic';
-    case 'duplicate_graphic':
+    case C.CLEANUP_DUPLICATE_GRAPHIC:
       return 'Remove duplicated graphic';
-    case 'lines_to_rect':
+    case C.CLEANUP_LINES_TO_RECT:
       return 'Convert lines to rectangle';
-    case 'merge_pad':
+    case C.CLEANUP_MERGE_PAD:
       return 'Merge overlapping shapes into pad';
+
+    default:
+      // wxFAIL_MSG( wxT( "Missing cleanup item description" ) )
+      return 'Unknown cleanup action';
+  }
+}
+
+export class CLEANUP_ITEM extends RC_ITEM {
+  constructor(aErrorCode: number) {
+    super();
+    this.m_errorCode = aErrorCode;
+    this.m_errorTitle = cleanupErrorText(aErrorCode);
+  }
+
+  /**
+   * `GetErrorText( int aErrorCode = -1, bool aTranslate = true )`, which hides
+   * RC_ITEM's: called with a boolean it is RC_ITEM's own signature, and both
+   * answer from the code.
+   */
+  override GetErrorText(aCode: number | boolean = -1, _aTranslate = true): string {
+    const code = typeof aCode === 'number' && aCode >= 0 ? aCode : this.m_errorCode;
+
+    return cleanupErrorText(code);
   }
 }
 
 /**
- * One row of the cleanup report — `CLEANUP_ITEM`, which is an `RC_ITEM` with
- * `m_errorCode`, `m_errorTitle` and up to two item references.
- *
- * `items` holds `boardItemId()` strings resolved against the **input** board,
- * never against the cleaned-up one: a dry run reports against a board that was
- * not modified, and the dialog's click-to-locate has to resolve those ids while
- * the user decides whether to apply the changes at all.
- *
- * Only two upstream call sites pass a second item — `CLEANUP_MERGE_TRACKS`
- * (`SetItems( aSeg1, aSeg2 )`) and the through-hole-pad flavour of
- * `CLEANUP_REDUNDANT_VIA` (`SetItems( via, pad )`).
+ * `VECTOR_CLEANUP_ITEMS_PROVIDER`: the dialog's RC_ITEMS_PROVIDER over the
+ * cleaner's list. No ownership is taken of the vector.
  */
-export interface CleanupRcItem {
-  code: CleanupRcCode;
-  /** `m_errorTitle`, filled in by the constructor from the code. */
-  title: string;
-  items: string[];
-}
+export class VECTOR_CLEANUP_ITEMS_PROVIDER extends RC_ITEMS_PROVIDER {
+  constructor(private readonly m_sourceVector: CLEANUP_ITEM[]) {
+    super();
+  }
 
-/** `std::make_shared<CLEANUP_ITEM>( code )` followed by `SetItems( … )`. */
-export function makeCleanupItem(aCode: CleanupRcCode, ...aItems: string[]): CleanupRcItem {
-  return { code: aCode, title: cleanupErrorText(aCode), items: aItems };
+  SetSeverities(_aSeverities: number): void {}
+
+  GetSeverities(): number {
+    return 0;
+  }
+
+  GetCount(_aSeverity = -1): number {
+    return this.m_sourceVector.length;
+  }
+
+  GetItem(aIndex: number): RC_ITEM | null {
+    return this.m_sourceVector[aIndex] ?? null;
+  }
+
+  GetCleanupItem(aIndex: number): CLEANUP_ITEM | null {
+    return this.m_sourceVector[aIndex] ?? null;
+  }
+
+  DeleteItem(aIndex: number, aDeep: boolean): void {
+    if (aDeep) this.m_sourceVector.splice(aIndex, 1);
+  }
 }
