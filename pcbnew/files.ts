@@ -34,6 +34,11 @@ import {
   RPT_SEVERITY_WARNING,
   WX_STRING_REPORTER,
 } from '@ziroeda/common/reporter.js';
+import type { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import type {
+  INPUT_LAYER_DESC,
+  LAYER_MAPPING_HANDLER,
+} from './pcb_io/common/plugin_common_layer_mapping.js';
 import type { PROJECT_CHOOSER_PLUGIN } from '@ziroeda/common/io/common/plugin_common_choose_project.js';
 import type { APP_SETTINGS_BASE } from '@ziroeda/common/settings/app_settings.js';
 import type { BOARD } from './board.js';
@@ -145,9 +150,14 @@ export class FILES_MIXIN {
    * keeps the editor's file name, as upstream keeps `previousBoardFileName`
    * when a non-KiCad file is opened into a project.
    *
-   * The plugins are imported on demand (`pcb_io_mgr.ts`). The layer-mapping
-   * dialog is not ported (DIALOG_MAP_LAYERS); every layer takes the
-   * importer's automatic mapping, as `m_ImportSkipLayerMapping` does upstream.
+   * The plugins are imported on demand (`pcb_io_mgr.ts`). A plugin that is a
+   * `LAYER_MAPPABLE_PLUGIN` asks for its layer mapping in the middle of the load,
+   * synchronously, and `DIALOG_MAP_LAYERS::RunModal` is a window: so with
+   * `aMapLayers` (the dialog) the load is run once on the importer's automatic
+   * mapping to learn the layers it wants mapped, the dialog is shown on them,
+   * and, when the answer differs from the automatic one, the file is loaded
+   * again on a fresh plugin with the answer. Without it (`m_ImportSkipLayerMapping`
+   * upstream) every layer takes the automatic mapping.
    *
    * Throws the loader's IO_ERROR; the caller reports "Error loading PCB '%s'."
    */
@@ -157,6 +167,9 @@ export class FILES_MIXIN {
     aData: Uint8Array,
     aCtl: number,
     aProgressReporter: PROGRESS_REPORTER | null = null,
+    aMapLayers:
+      | ((aLayers: readonly INPUT_LAYER_DESC[]) => Promise<Map<string, PCB_LAYER_ID>>)
+      | null = null,
   ): Promise<{
     board: BOARD;
     importedLibFootprints: FOOTPRINT[];
@@ -171,50 +184,90 @@ export class FILES_MIXIN {
     if (pluginType === PCB_FILE_T.FILE_TYPE_NONE)
       throw new IO_ERROR('File format is not supported');
 
-    const pi = await PCB_IO_MGR.FindPlugin(pluginType);
+    type MAPPABLE = { RegisterCallback?: (aHandler: LAYER_MAPPING_HANDLER) => void };
 
-    // There was no plugin found, e.g. due to invalid file extension, file header,...
-    if (!pi) throw new IO_ERROR('File format is not supported');
+    /** One configured plugin and its reporter: what `OpenProjectFiles` sets up before `LoadBoard`. */
+    const prepare = async () => {
+      const pi = await PCB_IO_MGR.FindPlugin(pluginType);
 
-    pi.SetFileReader(readFile);
+      // There was no plugin found, e.g. due to invalid file extension, file header,...
+      if (!pi) throw new IO_ERROR('File format is not supported');
 
-    const props = new Map<string, string>(this.m_importProperties ?? []);
+      pi.SetFileReader(readFile);
 
-    // PCB_IO_EAGLE can use this info to center the BOARD, but it does not yet.
-    const pageSize = this.GetPageSizeIU();
-    props.set('page_width', String(pageSize.x));
-    props.set('page_height', String(pageSize.y));
+      const props = new Map<string, string>(this.m_importProperties ?? []);
 
-    // Use loadReporter for import issues - they will be shown in the status bar
-    // warning icon instead of a modal dialog
-    const loadReporter = new WX_STRING_REPORTER();
+      // PCB_IO_EAGLE can use this info to center the BOARD, but it does not yet.
+      const pageSize = this.GetPageSizeIU();
+      props.set('page_width', String(pageSize.x));
+      props.set('page_height', String(pageSize.y));
 
-    if ((this.config() as APP_SETTINGS_BASE | null)?.m_System.show_import_issues ?? true)
-      pi.SetReporter(loadReporter);
-    else pi.SetReporter(null);
+      // Use loadReporter for import issues - they will be shown in the status bar
+      // warning icon instead of a modal dialog
+      const loadReporter = new WX_STRING_REPORTER();
 
-    pi.SetProgressReporter(aProgressReporter);
+      if ((this.config() as APP_SETTINGS_BASE | null)?.m_System.show_import_issues ?? true)
+        pi.SetReporter(loadReporter);
+      else pi.SetReporter(null);
 
-    // `dynamic_cast<PROJECT_CHOOSER_PLUGIN*>( pi.get() )->RegisterCallback(
-    // DIALOG_IMPORT_CHOOSE_PROJECT::RunModal )`. That dialog is not ported: the first
-    // board is taken, and the others are named in the load messages.
-    (pi as { ProjectChooser?: () => PROJECT_CHOOSER_PLUGIN })
-      .ProjectChooser?.()
-      .RegisterCallback((aDescriptions) => {
-        if (aDescriptions.length > 1) {
-          loadReporter.Report(
-            `This project holds ${aDescriptions.length} boards; '${aDescriptions[0]!.PCBName}' was imported. Choosing another is not available yet: ${aDescriptions
-              .slice(1)
-              .map((d) => `'${d.PCBName}'`)
-              .join(', ')}.`,
-            RPT_SEVERITY_WARNING,
-          );
-        }
+      pi.SetProgressReporter(aProgressReporter);
 
-        return aDescriptions.slice(0, 1);
+      // `dynamic_cast<PROJECT_CHOOSER_PLUGIN*>( pi.get() )->RegisterCallback(
+      // DIALOG_IMPORT_CHOOSE_PROJECT::RunModal )`. That dialog is not ported: the first
+      // board is taken, and the others are named in the load messages.
+      (pi as { ProjectChooser?: () => PROJECT_CHOOSER_PLUGIN })
+        .ProjectChooser?.()
+        .RegisterCallback((aDescriptions) => {
+          if (aDescriptions.length > 1) {
+            loadReporter.Report(
+              `This project holds ${aDescriptions.length} boards; '${aDescriptions[0]!.PCBName}' was imported. Choosing another is not available yet: ${aDescriptions
+                .slice(1)
+                .map((d) => `'${d.PCBName}'`)
+                .join(', ')}.`,
+              RPT_SEVERITY_WARNING,
+            );
+          }
+
+          return aDescriptions.slice(0, 1);
+        });
+
+      return { pi, props, loadReporter };
+    };
+
+    let { pi, props, loadReporter } = await prepare();
+
+    // `dynamic_cast<LAYER_MAPPABLE_PLUGIN*>( pi.get() )` and `!m_ImportSkipLayerMapping`:
+    // the first load records what the plugin asks to have mapped (see above).
+    let asked: INPUT_LAYER_DESC[] | null = null;
+    let automatic: Map<string, PCB_LAYER_ID> | null = null;
+    const mappable = pi as MAPPABLE;
+
+    if (aMapLayers && typeof mappable.RegisterCallback === 'function') {
+      mappable.RegisterCallback((aDescs) => {
+        asked = [...aDescs];
+        automatic = new Map();
+
+        // the plugin's own default: the first layer of a name stays
+        for (const d of aDescs) if (!automatic.has(d.Name)) automatic.set(d.Name, d.AutoMapLayer);
+
+        return automatic;
       });
+    }
 
-    const loadedBoard = pi.LoadBoard(aFileName, null, props, null) as BOARD | null;
+    let loadedBoard = pi.LoadBoard(aFileName, null, props, null) as BOARD | null;
+
+    if (aMapLayers && asked && automatic) {
+      const chosen = await aMapLayers(asked);
+      const same =
+        chosen.size === (automatic as Map<string, PCB_LAYER_ID>).size &&
+        [...chosen].every(([k, v]) => (automatic as Map<string, PCB_LAYER_ID>).get(k) === v);
+
+      if (!same) {
+        ({ pi, props, loadReporter } = await prepare());
+        (pi as MAPPABLE).RegisterCallback?.(() => chosen);
+        loadedBoard = pi.LoadBoard(aFileName, null, props, null) as BOARD | null;
+      }
+    }
 
     // `failedLoad || !loadedBoard`: nothing imported (a project chooser that chose nothing)
     if (!loadedBoard) throw new IO_ERROR(loadReporter.GetMessages());

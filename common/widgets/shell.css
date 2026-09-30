@@ -18052,6 +18052,98 @@ td.ze-grid-bool {
 }
 
 /* ---------------------------------------------------------------------------
+   DIALOG_ITEMS_LIST (dialog_items_list.cpp), built by hand: message
+   `wxALL|wxEXPAND, 10`, the collapsible pane `wxALL|wxEXPAND, 10` at proportion
+   1, then the separated OK/Cancel sizer `wxEXPAND|wxALL, 10`. */
+.ze-modal.ze-items-list .ze-modal-body.ze-items-list-body {
+  flex-direction: column;
+  padding: 0;
+}
+.ze-items-list-message {
+  margin: 10px; /* [data] `mainSizer->Add( m_message, 0, wxALL | wxEXPAND, 10 )`. */
+}
+.ze-items-list-pane {
+  margin: 10px; /* [data] `mainSizer->Add( m_collapsiblePane, 1, wxALL | wxEXPAND, 10 )`. */
+  flex: 1;
+}
+.ze-items-list-list {
+  margin: 5px; /* [data] `paneSizer->Add( m_listCtrl, 1, wxEXPAND | wxALL, 5 )`. */
+  width: 400px; /* [data] `wxSize( 400, 200 )`, the list's stated size. */
+  height: 200px; /* [data] same. */
+}
+.ze-modal-footer.ze-items-list-foot {
+  margin: 10px; /* [data] `mainSizer->Add( buttonsSizer, 0, wxEXPAND | wxALL, 10 )`. */
+}
+
+/* ---------------------------------------------------------------------------
+   DIALOG_MAP_LAYERS (dialog_imported_layers_base.cpp) -- see the sizer tree in
+   dialog_map_layers.tsx. Every margin is that Add()'s own border. */
+.ze-modal.ze-maplayers .ze-modal-body.ze-maplayers-body {
+  flex-direction: column;
+  padding: 0;
+}
+.ze-maplayers-top {
+  display: flex;
+  flex: 1;
+  margin: 0 5px; /* [data] `bSizerMain->Add( bSizerTop, 1, wxEXPAND|wxRIGHT|wxLEFT, 5 )`, `_base.cpp:70`. */
+}
+/* fieldset.ze-sbox is (0,1,1) and sets margin: 0, so this must be as specific. */
+fieldset.ze-maplayers-box {
+  display: flex;
+  flex: 1;
+  margin: 5px 5px 0; /* [data] both static boxes: `wxEXPAND|…|wxTOP|wxRIGHT|wxLEFT, 5`. */
+  min-width: 0;
+}
+.ze-maplayers-unmatched {
+  flex: 1;
+}
+.ze-maplayers-fg {
+  display: grid;
+  grid-template-columns: 1fr 1fr; /* [data] `wxFlexGridSizer( 0, 2, 0, 0 )`, both columns growable. */
+  grid-template-rows: max-content 1fr; /* [data] `AddGrowableRow( 1 )`. */
+  flex: 1;
+}
+.ze-maplayers-lbl {
+  margin: 5px; /* [data] `Add( m_lblImportedLayers, 0, wxALL, 5 )`. */
+}
+.ze-maplayers-fg > .ze-maplayers-list {
+  margin: 0 5px 5px; /* [data] `wxBOTTOM|wxEXPAND|wxLEFT|wxRIGHT, 5`. */
+}
+.ze-maplayers-list {
+  min-width: 120px; /* [data] `SetMinSize( wxSize( 120,-1 ) )`, `_base.cpp:38,42,71`. */
+  overflow: auto;
+}
+.ze-maplayers-matched > .ze-maplayers-list {
+  flex: 1;
+  margin: 0 5px 5px; /* [data] `Add( m_matched_layers_list, 1, wxBOTTOM|wxEXPAND|wxLEFT|wxRIGHT, 5 )`. */
+}
+.ze-maplayers-arrows {
+  display: flex;
+  flex-direction: column;
+  margin-top: 10px; /* [data] `bSizerTop->Add( bSizer6, 0, wxEXPAND|wxTOP, 10 )`. */
+}
+.ze-maplayers-arrows > button {
+  margin: 5px; /* [data] `bSizer6->Add( …, 0, wxALL, 5 )`. */
+  width: 36px; /* [data] `wxSize( 36,100 )` and `wxSize( 36,50 )`, `_base.cpp:52,56,60`. */
+}
+.ze-maplayers-add,
+.ze-maplayers-remove {
+  height: 100px; /* [data] `wxSize( 36,100 )`. */
+}
+.ze-maplayers-removeall {
+  height: 50px; /* [data] `wxSize( 36,50 )`. */
+}
+.ze-maplayers-bottom {
+  display: flex;
+  align-items: center;
+  margin: 5px 0 5px 5px; /* [data] `bSizerMain->Add( bSizerBottom, 0, wxBOTTOM|wxEXPAND|wxLEFT|wxTOP, 5 )`. */
+}
+.ze-maplayers-bottom > button:first-child,
+.ze-maplayers-bottom > .ze-pref-check {
+  margin: 5px; /* [data] `wxALL, 5` on the Auto-Match button and the checkbox. */
+}
+
+/* ---------------------------------------------------------------------------
    Footprint Associations (dialog_footprint_associations_base.cpp).
 
    bMainBoxSizer is one vertical run: label / 5px spacer / grid (each border

@@ -639,6 +639,9 @@ import { DialogCopperZones } from './dialogs/dialog_copper_zones.js';
 import { SelectCopperLayerPairDialog } from './sel_layer.js';
 import { DialogFootprintProperties } from './dialogs/dialog_footprint_properties_ui.js';
 import { DialogFootprintAssociations } from './dialogs/dialog_footprint_associations_ui.js';
+import { DialogMapLayers } from './dialogs/dialog_map_layers.js';
+import type { INPUT_LAYER_DESC } from './pcb_io/common/plugin_common_layer_mapping.js';
+import type { PCB_LAYER_ID as MapLayersLayerId } from '@ziroeda/common/layer_id.js';
 import {
   DIALOG_FOOTPRINT_PROPERTIES,
   footprintAt,
@@ -2850,6 +2853,12 @@ export function PcbEditor({
   const [importGraphicsOpen, setImportGraphicsOpen] = useState(false);
   /** File > Import > Non-KiCad Board File: the chooser's type combo while it is up. */
   const [nonKicadFilters, setNonKicadFilters] = useState<ChooserFilter[] | null>(null);
+  // DIALOG_MAP_LAYERS::RunModal, asked for by a layer-mappable importer mid-load
+  // (files.cpp:642-649); the promise is what the synchronous `ShowModal` returns.
+  const [mapLayersRequest, setMapLayersRequest] = useState<{
+    layers: readonly INPUT_LAYER_DESC[];
+    done: (aMap: Map<string, MapLayersLayerId>, aKeep: boolean) => void;
+  } | null>(null);
   // Pending "Copper Zone Properties" dialog: the zone's first corner.
   const [zoneDialog, setZoneDialog] = useState<{
     at: { x: number; y: number };
@@ -12963,7 +12972,24 @@ export function PcbEditor({
             if (!file || !frame) return;
 
             void frame
-              .ImportNonKicadBoard(file.path, file.bytes, KICTL_NONKICAD_ONLY)
+              .ImportNonKicadBoard(
+                file.path,
+                file.bytes,
+                KICTL_NONKICAD_ONLY,
+                null,
+                (layers) =>
+                  new Promise((resolve) =>
+                    setMapLayersRequest({
+                      layers,
+                      done: (aMap, aKeep) => {
+                        // `m_ImportKeepKiCadLayerNames = dlg.m_cbKeepKiCadLayerNames->GetValue()`
+                        frame.GetPcbNewSettings().m_ImportKeepKiCadLayerNames = aKeep;
+                        setMapLayersRequest(null);
+                        resolve(aMap);
+                      },
+                    }),
+                  ),
+              )
               .then(({ board: kb, loadMessages, customRules }) => {
                 frame.Clear_Pcb();
                 frame.SetBoard(kb, false);
@@ -13010,6 +13036,13 @@ export function PcbEditor({
                 ),
               );
           }}
+        />
+      )}
+      {mapLayersRequest && frameRef.current && (
+        <DialogMapLayers
+          layers={mapLayersRequest.layers}
+          keepKiCadLayerNames={frameRef.current.GetPcbNewSettings().m_ImportKeepKiCadLayerNames}
+          onDone={mapLayersRequest.done}
         />
       )}
       {/* File > Import > Graphics. `DRAWING_TOOL::PlaceImportedGraphics`
