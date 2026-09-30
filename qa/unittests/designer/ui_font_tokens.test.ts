@@ -302,7 +302,7 @@ const BASELINE: Record<string, number> = {
   // RESCANNED from this tree.
   // 8 -> 39 (09-28): the scan now reads pcbnew/ and 3d-viewer/. The drop to 8
   // was the file-structure move carrying sites out of view, not removing them.
-  'editors/pcb': 40, // +1: the Footprint Editor window moved into pcbnew/
+  'editors/pcb': 39, // +1: the Footprint Editor window moved into pcbnew/; -1 (10-01): b7f7835f deleted Filter Selection's invented "N items kept" line
   // 55 -> 50: the COLOR_SWATCH sweep's second half. Seven Clear buttons and
   // one `(using Schematic Editor colors)` hint each carried an inline
   // `fontSize: 11`, and none of them exists upstream - the swatch clears
@@ -735,7 +735,9 @@ describe('hardcoded font sizes do not grow', () => {
     // the packages the move carried sites into. Nothing was removed.
     // 100 -> 98 (09-30): `lib_table_panel.tsx` moved to `common/dialogs`, out of
     // this scan and into `central_values`'; its two literals were not removed.
-    expect(sites.length).toBe(98);
+    // 98 -> 97 (10-01): b7f7835f deleted Filter Selection's "N items kept"
+    // line (11.5px), which KiCad's dialog does not have - see `editors/pcb`.
+    expect(sites.length).toBe(97);
   });
 });
 
