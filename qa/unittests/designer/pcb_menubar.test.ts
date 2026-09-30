@@ -311,6 +311,9 @@ describe('a row runs the command it names', () => {
     ['File', 'Page Settings...', 'action:pageSettings'],
     ['File', 'Print...', 'action:print'],
     ['File', 'Plot...', 'action:plot'],
+    // `PCB_ACTIONS::exportSpecctraDSN` / `importSpecctraSession`, greyed until 09-30.
+    ['File', 'Specctra DSN...', 'action:exportSpecctraDSN'],
+    ['File', 'Specctra Session...', 'action:importSpecctraSession'],
     ['Edit', 'Cut', 'action:cut'],
     ['Edit', 'Paste Special...', 'action:pasteSpecial'],
     ['Edit', 'Select All', 'action:selectAll'],

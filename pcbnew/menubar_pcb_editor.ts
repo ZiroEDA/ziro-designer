@@ -148,7 +148,7 @@ export function buildPcbMenus(
           icon: 'import',
           submenu: [
             { label: 'Netlist...', disabled: dis },
-            { label: 'Specctra Session...', disabled: dis },
+            { label: 'Specctra Session...', action: () => h.action('importSpecctraSession') },
             // `PCB_ACTIONS::placeImportedGraphics`, run non-interactively:
             // `DRAWING_TOOL::PlaceImportedGraphics` is the same handler the
             // Place toolbar button arms; from the menu it opens straight into
@@ -161,7 +161,7 @@ export function buildPcbMenus(
           label: 'Export',
           icon: 'export',
           submenu: [
-            { label: 'Specctra DSN...', disabled: dis },
+            { label: 'Specctra DSN...', action: () => h.action('exportSpecctraDSN') },
             { label: 'GenCAD...', disabled: dis },
             { label: 'VRML...', disabled: dis },
             { label: 'IDFv3...', disabled: dis },

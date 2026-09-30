@@ -45,6 +45,35 @@ export abstract class OUTPUTFORMATTER {
   }
 
   /**
+   * `OUTPUTFORMATTER::GetQuoteChar( wrapee, quote_char )` (richio.cpp:344): the
+   * quote character a Specctra-style symbol needs, or "" when it can go bare.
+   * A `#` is wrapped so it is not taken for a comment, as are the empty
+   * string, whitespace, parentheses, `%`, braces, and a `-` that is not first.
+   */
+  static GetQuoteChar(wrapee: string, quoteChar: string): string {
+    if (wrapee.startsWith('#')) return quoteChar;
+
+    if (wrapee.length === 0) return quoteChar;
+
+    let isFirst = true;
+
+    for (const ch of wrapee) {
+      if ('\t ()%{}'.includes(ch)) return quoteChar;
+
+      if (!isFirst && ch === '-') return quoteChar;
+
+      isFirst = false;
+    }
+
+    return ''; // caller does not need to wrap, can use an unwrapped string.
+  }
+
+  /** `GetQuoteChar( wrapee )`, with this formatter's own quote character. */
+  GetQuoteChar(wrapee: string): string {
+    return OUTPUTFORMATTER.GetQuoteChar(wrapee, this.quoteChar);
+  }
+
+  /**
    * `OUTPUTFORMATTER::Quotes` (richio.cpp:468): the string in double quotes
    * with `\n`, `\r`, `\\` and `"` escaped — and nothing else; a tab is written
    * as a tab.
@@ -93,6 +122,13 @@ export class STRING_FORMATTER extends OUTPUTFORMATTER {
 
   GetString(): string {
     return this.parts.join('');
+  }
+
+  /** `StripUseless` (richio.cpp:526): drop whitespace, parentheses and double quotes. */
+  StripUseless(): void {
+    const stripped = this.GetString().replace(/[\s()"]/g, '');
+    this.parts.length = 0;
+    this.parts.push(stripped);
   }
 }
 

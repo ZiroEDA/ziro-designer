@@ -11226,6 +11226,57 @@ export function PcbEditor({
       case 'importGraphics':
         setImportGraphicsOpen(true);
         break;
+      // `PCB_ACTIONS::exportSpecctraDSN` -> `PCB_EDIT_FRAME::ExportSpecctraFile`.
+      case 'exportSpecctraDSN': {
+        const frame = frameRef.current;
+
+        if (!frame) break;
+
+        const dsnName = `${fileName.replace(/\.kicad_pcb$/, '')}.dsn`;
+
+        void import('./specctra_import_export/specctra_export.js').then(({ ExportSpecctraFile }) => {
+          const r = ExportSpecctraFile(frame, dsnName);
+
+          if (r.ok && r.text !== undefined) saveReportFile(r.text, dsnName);
+          else setInfoBarError(`Unable to export, please fix and try again: ${r.error ?? ''}`);
+        });
+        break;
+      }
+      // `PCB_ACTIONS::importSpecctraSession` -> `PCB_EDIT_FRAME::ImportSpecctraSession`.
+      case 'importSpecctraSession': {
+        const frame = frameRef.current;
+
+        if (!frame) break;
+
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.ses';
+        input.onchange = (): void => {
+          const file = input.files?.[0];
+
+          if (!file) return;
+
+          void file.text().then(async (text) => {
+            const { ImportSpecctraSessionIntoFrame } = await import(
+              './specctra_import_export/specctra_import.js'
+            );
+            const r = ImportSpecctraSessionIntoFrame(frame, text, file.name);
+            const kb = frame.GetBoard();
+
+            // Re-derive the view: the session replaced the tracks and moved footprints.
+            if (kb)
+              setBoardModel({
+                ...boardFromBOARD(kb, fileNameRef.current),
+                fileName: fileNameRef.current,
+              });
+
+            if (r.ok) setDirty(true);
+            else setInfoBarError(r.error ?? 'Session import failed');
+          });
+        };
+        input.click();
+        break;
+      }
       // `AUTOPLACE_TOOL::autoplaceSelected` / `autoplaceOffboard`: Place > Auto-Place Footprints.
       case 'autoplaceSelected':
       case 'autoplaceOffboard': {

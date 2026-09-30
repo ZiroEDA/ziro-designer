@@ -1,0 +1,51 @@
+(session ecc83-pp.ses
+  (base_design "ecc83-pp.dsn")
+  (history
+    (self
+      (created_time Sep 30 09 : 15 : 00 2026)
+      (comment "hand written test session")
+    )
+  )
+  (placement
+    (resolution um 10)
+    (component Footprints:R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal
+      (place R1 1400000 -1100000 front 90)
+      (place R4 1650000 -1180000 back 30)
+    )
+    (component Footprints:CP_Radial_D10.0mm_P5.00mm
+      (place C1 1416050 -996950 front 0)
+      (place C9 1000 -1000 front 0)
+    )
+  )
+  (was_is
+  )
+  (routes
+    (resolution um 10)
+    (parser
+      (routes_include testpoint image_conductor)
+    )
+    (library_out
+      (padstack "Via[0-1]_600:300_um"
+        (shape (circle top_cu 6000 0 0))
+        (shape (circle bottom_cu 6000 0 0))
+        (attach off)
+      )
+    )
+    (network_out
+      (net GND
+        (wire (path top_cu 2500 1300000 -1000000 1310000 -1010000 1330000 -1010000)(type route))
+        (wire (path bottom_cu 4000 1330000 -1010000 1330000 -1040000)(type fix))
+        (wire (qarc top_cu 2500 1400000 -1000000 1410000 -1010000 1400000 -1010000)(type route))
+        (via "Via[0-1]_600:300_um" 1330000 -1040000 (type route))
+        (via "Via[0-1]_600:300_um" 1350000 -1040000 (type fix))
+      )
+      (net "Net-(P2-P1)"
+        (wire (path top_cu 2000 1282700 -1127760 1300000 -1127760)(type route))
+        (wire (path nosuchlayer 2000 1282700 -1127760 1300000 -1127760)(type route))
+        (wire (polygon top_cu 0 0 0 10000 0 10000 10000 0 10000)(type route))
+        (via "Via[0-1]_600:300_um" 1300000 -1127760)
+        (via nosuchpadstack 1310000 -1127760)
+      )
+    )
+  )
+)
