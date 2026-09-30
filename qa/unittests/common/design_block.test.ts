@@ -333,7 +333,9 @@ describe('DESIGN_BLOCK_TREE_MODEL_ADAPTER', () => {
     const lib = makeLibrary();
     wxWriteFileSync(
       `${lib}/amp.kicad_block/amp.json`,
-      enc('{"description": "See https://x.test/a <b>\\nnext", "keywords": "k", "fields": {"G": "1"}}'),
+      enc(
+        '{"description": "See https://x.test/a <b>\\nnext", "keywords": "k", "fields": {"G": "1"}}',
+      ),
     );
     const libs = new DESIGN_BLOCK_LIBRARY_ADAPTER(manager(row('Blocks', lib)));
     libs.LoadOneByName('Blocks');
