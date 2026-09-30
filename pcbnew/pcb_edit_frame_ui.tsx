@@ -2243,23 +2243,40 @@ export function PcbEditor({
    * (the wheel, the drag gestures, autopan) and the tools (`FocusOnLocation`,
    * `zoomFitSelection`) move it - while `viewRef` is the window overlay's copy
    * in its own device-pixel transform, which the window's own zoom commands
-   * still write. Each paint reconciles the two: a window write since the last
-   * paint is pushed into the VIEW, anything else is read back from it.
+   * (the startup fit among them) still write. Each paint reconciles the two:
+   * a window write since the last paint is pushed into the VIEW, and so is the
+   * window's transform whenever the GAL's screen has changed size since - the
+   * overlay and the GAL canvas are the same box, so the window's transform is
+   * the one that is right for the new size, and a push made while the GAL was
+   * still unsized (the fit runs on the wrap's first measurement, the panel
+   * sizes itself on its own observer) is redone once it is. Anything else is
+   * read back from the VIEW.
    */
-  const syncedViewRef = useRef<EditorView | null>(null);
+  const syncedViewRef = useRef<{ view: EditorView; screenX: number; screenY: number } | null>(
+    null,
+  );
   const syncWindowViewRef = useRef((aPanel: PCB_DRAW_PANEL_GAL): void => {
     const v = viewRef.current;
     const was = syncedViewRef.current;
+    const screen = aPanel.GetGAL().GetScreenPixelSize();
     const windowWrote =
-      !was || was.scale !== v.scale || was.tx !== v.tx || was.ty !== v.ty || was.flipX !== v.flipX;
+      !was ||
+      was.view.scale !== v.scale ||
+      was.view.tx !== v.tx ||
+      was.view.ty !== v.ty ||
+      was.view.flipX !== v.flipX ||
+      was.screenX !== screen.x ||
+      was.screenY !== screen.y;
 
-    if (windowWrote) syncViewTransform(aPanel, v, dpr);
+    if (windowWrote) {
+      syncViewTransform(aPanel, v, dpr);
+    } else {
+      const now = editorViewOf(aPanel, dpr);
 
-    const now = editorViewOf(aPanel, dpr);
+      if (now) Object.assign(v, now);
+    }
 
-    if (now) Object.assign(v, now);
-
-    syncedViewRef.current = { ...v };
+    syncedViewRef.current = { view: { ...v }, screenX: screen.x, screenY: screen.y };
   });
   const boardRef = useRef<Board | null>(null);
   // Live selection read by draw()'s overlay pass without re-creating the callback.
@@ -3625,8 +3642,8 @@ export function PcbEditor({
     () =>
       projectFilesNow()
         .filter((f) => /\.(kicad_pro|kicad_dru)$/i.test(f.name))
-        .map((f) => `${f.name}�${f.text}`)
-        .join('�'),
+        .map((f) => `${f.name}\u0000${f.text}`)
+        .join('\u0001'),
     [projectFilesNow],
   );
 
