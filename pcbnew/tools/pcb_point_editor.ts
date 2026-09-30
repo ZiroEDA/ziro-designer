@@ -65,6 +65,7 @@ import {
   PolygonEditHandles,
 } from '@ziroeda/common/tool/point_editor_behavior.js';
 import type { PcbImage } from '../types.js';
+import { PCB_TOOL_BASE } from './pcb_tool_base.js';
 
 /** A square handle on a corner or vertex (`EDIT_POINT`), or a circle at an edge
  *  midpoint (`EDIT_LINE`). */
@@ -948,4 +949,29 @@ export function editablePointItems(board: Board): string[] {
   push('dimension', board.dimensions.length);
   push('image', board.images.length);
   return out;
+}
+
+/**
+ * `PCB_POINT_EDITOR` (pcb_point_editor.h), the class as far as it is ported:
+ * registered under its name so `PCB_SELECTION_TOOL::Main` finds it, as it asks
+ * before arming the disambiguation timer on a press
+ * (`if( m_frame->ToolStackIsEmpty() && pt_tool && !pt_tool->HasPoint() )`).
+ *
+ * TRANSITIONAL (#636 stage 3): the point editing itself is still the window's
+ * handle drag over the functions above, and the window keeps a press on a
+ * handle off the tool dispatcher, so the selection tool never sees one and
+ * `m_editedPoint` stays null. The PCB_POINT_EDITOR stage fills this class in.
+ */
+export class PCB_POINT_EDITOR extends PCB_TOOL_BASE {
+  /** `EDIT_POINT* m_editedPoint`: currently edited point, null if there is none. */
+  private m_editedPoint: object | null = null;
+
+  constructor() {
+    super('pcbnew.PointEditor');
+  }
+
+  /** `HasPoint()` (pcb_point_editor.h:70). */
+  HasPoint(): boolean {
+    return this.m_editedPoint !== null;
+  }
 }

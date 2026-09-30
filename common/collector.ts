@@ -135,6 +135,15 @@ export class COLLECTOR {
    * @param aItem The EDA_ITEM* to be tested.
    * @return True if \a aItem is already collected.
    */
+  /**
+   * `std::sort( collector.begin(), collector.end(), aLess )`: the list reordered by
+   * a strict weak ordering. JavaScript's sort is stable where `std::sort` is not, so
+   * items the comparator ties keep their collection order.
+   */
+  Sort(aLess: (a: EDA_ITEM, b: EDA_ITEM) => boolean): void {
+    this.m_list.sort((a, b) => (aLess(a, b) ? -1 : aLess(b, a) ? 1 : 0));
+  }
+
   HasItem(aItem: EDA_ITEM): boolean {
     for (let i = 0; i < this.m_list.length; i++) {
       if (this.m_list[i] === aItem) return true;

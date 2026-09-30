@@ -94,6 +94,22 @@ export class PCB_SELECTION_FILTER_OPTIONS {
     );
   }
 
+  /** `SetAll( aState )` (board_project_settings.h:88). */
+  SetAll(aState: boolean): void {
+    this.footprints = aState;
+    this.text = aState;
+    this.tracks = aState;
+    this.vias = aState;
+    this.pads = aState;
+    this.graphics = aState;
+    this.zones = aState;
+    this.keepouts = aState;
+    this.dimensions = aState;
+    this.points = aState;
+    this.otherItems = aState;
+    this.lockedItems = aState;
+  }
+
   /** `SetDefaults()`: everything on. */
   SetDefaults(): void {
     this.lockedItems = true;

@@ -25,6 +25,14 @@ export class ADVANCED_CFG {
   m_DisambiguationMenuDelay = 500;
 
   /**
+   * Ratio by which a PCB selection's item visibility must exceed the visibility of items
+   * obscuring it before it is considered a candidate (`PCB_SELECTION_TOOL::
+   * pruneObscuredSelectionCandidates`). 1.0 turns the pruning off.
+   * Setting name: "PcbSelectionVisibilityRatio"; default 1.0; valid 0.0 to 1.0.
+   */
+  m_PcbSelectionVisibilityRatio = 1.0;
+
+  /**
    * When true, strokes the triangulations in OpenGL
    */
   m_DrawTriangulationOutlines = false;

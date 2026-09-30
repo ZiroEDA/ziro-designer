@@ -322,6 +322,20 @@ export abstract class EDA_DRAW_FRAME extends KIWAY_PLAYER {
     this.FocusOnItem(null);
   }
 
+  /**
+   * `m_overrideLocksCb`: the "Override locks" checkbox `configureToolbars` puts on a
+   * toolbar that asks for `ACTION_TOOLBAR_CONTROLS::overrideLocks`
+   * (eda_draw_frame.cpp:238-246). Null until a window wires one.
+   */
+  m_overrideLocksCb: { GetValue(): boolean } | null = null;
+
+  /** `GetOverrideLocks()` (eda_draw_frame.cpp:577-583). */
+  GetOverrideLocks(): boolean {
+    if (this.m_overrideLocksCb) return this.m_overrideLocksCb.GetValue();
+
+    return false;
+  }
+
   GetGalDisplayOptions(): GAL_DISPLAY_OPTIONS_IMPL {
     return this.m_galDisplayOptions;
   }

@@ -101,6 +101,13 @@ export abstract class EDA_BASE_FRAME
     return this.m_infoBar;
   }
 
+  /**
+   * `ShowInfoBarWarning( aWarningMsg, aShowCloseButton )` (eda_base_frame.cpp:1451): the
+   * infobar, warning icon, 6 s. The infobar is the window's; a frame with no window shows
+   * nothing, and a frame with one overrides this.
+   */
+  ShowInfoBarWarning(_aWarningMsg: string, _aShowCloseButton = false): void {}
+
   GetFrameType(): FRAME_T {
     return this.m_ident;
   }
