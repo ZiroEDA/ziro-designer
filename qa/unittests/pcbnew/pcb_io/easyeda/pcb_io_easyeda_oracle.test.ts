@@ -79,6 +79,40 @@ describe('PCB_IO_EASYEDA::LoadBoard against kicad-cli 10.0.6', () => {
   }, 120_000);
 });
 
+describe("PCB_IO_EASYEDA design settings against KiCad 10.0.6's python module", () => {
+  // The default netclass never reaches a .kicad_pcb: design_settings.json is what
+  // KiCad's own PCB_IO_EASYEDA leaves in it (design_settings.py).
+  const expected = JSON.parse(readFileSync(`${DATA}design_settings.json`, 'utf8')) as Record<
+    string,
+    unknown
+  >;
+
+  beforeAll(async () => {
+    await EMBEDDED_FILES.InitCodec();
+  });
+
+  for (const name of ['smartwatch', 'usbmeter']) {
+    it(`${name}: the Default DRC rule in the default netclass, the centring offset`, () => {
+      const file = `${name}.json`;
+      const board = plugin(file).LoadBoard(file, null);
+      const bds = board.GetDesignSettings();
+      const c = bds.m_NetSettings.GetDefaultNetclass();
+      const ao = bds.GetAuxOrigin();
+
+      expect({
+        auxOrigin: [ao.x, ao.y],
+        copperLayers: board.GetCopperLayerCount(),
+        default: {
+          clearance: c.GetClearance(),
+          trackWidth: c.GetTrackWidth(),
+          viaDiameter: c.GetViaDiameter(),
+          viaDrill: c.GetViaDrill(),
+        },
+      }).toEqual(expected[name]);
+    }, 120_000);
+  }
+});
+
 describe('PCB_IO_EASYEDA footprints against kicad-cli 10.0.6', () => {
   beforeAll(async () => {
     await EMBEDDED_FILES.InitCodec();
