@@ -28,7 +28,9 @@ const SRC = fileURLToPath(new URL('../../../designer/src', import.meta.url));
 const CANVASES = [
   'editors/schematic/components/SchematicCanvas.tsx',
   'editors/symbol/SymbolCanvas.tsx',
-  '../../pcbnew/pcb_edit_frame_ui.tsx',
+  // (The board editor's frame is not here: its canvas is PCB_DRAW_PANEL_GAL,
+  // whose own WX_VIEW_CONTROLS takes the wheel and the drag gestures, as
+  // upstream - see the last test.)
   '../../pcbnew/pcb_draw_panel_gal_ui.tsx',
   // The preview panes are EDA_DRAW_PANEL_GALs upstream too, so they get
   // WX_VIEW_CONTROLS on the same terms.
@@ -184,11 +186,12 @@ describe('shared view controls', () => {
   );
 
   it('every editing canvas holds its own m_panTimer', () => {
-    // Four, and the preview panes are the fifth CANVAS. If that count moves,
+    // Three, and the preview panes are the fourth CANVAS. If that count moves,
     // read the block comment above before changing the number. GerbView left
-    // this list when it moved onto EDA_DRAW_PANEL_GAL, and pl_editor after it:
-    // their autopan is WX_VIEW_CONTROLS' own, not a canvas's copy.
-    expect(AUTOPAN_CANVASES).toHaveLength(4);
+    // this list when it moved onto EDA_DRAW_PANEL_GAL, pl_editor after it, and
+    // the board editor after that (#636 stage 3): their autopan is
+    // WX_VIEW_CONTROLS' own, not a canvas's copy.
+    expect(AUTOPAN_CANVASES).toHaveLength(3);
   });
 
   it.each(AUTOPAN_CANVASES)('%s runs handleAutoPanning on motion', (rel) => {
@@ -244,5 +247,14 @@ describe('shared view controls', () => {
     for (const rel of [...CANVASES, ...FITTERS, '../../pcbnew/footprint_preview_panel.tsx']) {
       expect(read(rel), rel).not.toMatch(/import[^;]*InputPrefs[^;]*SchematicCanvas\.js/);
     }
+  });
+
+  it('the board editor has no wheel or pan gesture of its own: WX_VIEW_CONTROLS has them', () => {
+    const src = read('../../pcbnew/pcb_edit_frame_ui.tsx');
+    expect(src).not.toMatch(/addEventListener\('wheel'/);
+    expect(src).not.toContain('wheelAction(');
+    expect(src).not.toContain('makeAutoPan(');
+    expect(src).not.toContain('makeMotionPan(');
+    expect(src).not.toContain('dragGesture(');
   });
 });

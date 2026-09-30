@@ -46,7 +46,6 @@ function frameOn(board: BOARD, ans: Answers): PCB_EDIT_FRAME {
       return ans.text.shift() ?? null;
     },
     mwavePolygonalShapeDialog: async () => ans.polygon,
-    selectItem: (fp: FOOTPRINT) => ans.selected.push(fp),
   } as unknown as PCB_EDIT_FRAME_HOOKS;
   const frame = new PCB_EDIT_FRAME(hooks);
   frame.SetBoard(board);
@@ -195,7 +194,8 @@ describe('MICROWAVE_TOOL through the frame', () => {
     expect(push).toHaveBeenCalledTimes(1);
     expect(push.mock.calls[0]![0]).toBe('Add Microwave Inductor');
     expect(board.Footprints()).toHaveLength(1);
-    expect(ans.selected).toEqual([board.Footprints()[0]]);
+    // `RunAction<EDA_ITEM*>( ACTIONS::selectItem, inductorFP.get() )`
+    expect(frame.GetSelectionTool().GetSelection().GetItems()).toEqual([board.Footprints()[0]]);
     expect(board.Footprints()[0]!.GetFPID().GetLibItemName()).toBe('mw_inductor');
     expect(frame.GetUndoCommandCount()).toBe(1);
   });

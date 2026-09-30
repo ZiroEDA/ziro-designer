@@ -119,9 +119,10 @@ export abstract class PCB_TOOL_BASE extends TOOL_INTERACTIVE {
   }
 
   protected selection(): PCB_SELECTION {
-    // m_toolMgr->GetTool<PCB_SELECTION_TOOL>(): found by name until stage 3 supplies the class
+    // m_toolMgr->GetTool<PCB_SELECTION_TOOL>(), by its name ("common.InteractiveSelection"):
+    // the class imports this module, so asking by type would be an import cycle
     const selTool = this.m_toolMgr!.FindTool(
-      'pcbnew.InteractiveSelection',
+      'common.InteractiveSelection',
     ) as unknown as PCB_SELECTION_TOOL_LIKE;
 
     return selTool.GetSelection();

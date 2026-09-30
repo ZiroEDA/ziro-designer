@@ -33,7 +33,8 @@ function frame(answer: { ok: boolean; repour: boolean } | null) {
           },
         }
       : {}),
-    clearSelection: () => calls.push('clear'),
+    // PROPERTIES_TOOL hears the selection tool's ClearedEvent
+    updateProperties: () => calls.push('clear'),
     fillAllZones: () => calls.push('fillAll'),
   } as unknown as PCB_EDIT_FRAME_HOOKS;
   const f = new PCB_EDIT_FRAME(hooks);
@@ -48,6 +49,8 @@ function frame(answer: { ok: boolean; repour: boolean } | null) {
   z.SetLayer(PCB_LAYER_ID.F_Cu);
   board.Add(z);
   f.SetBoard(board);
+  // A selected zone, so ZonesManager's `selectionClear` has something to clear.
+  f.GetSelectionTool().AddItemToSel(z, true);
   const heard: string[] = [];
   board.AddListener(
     new (class extends BOARD_LISTENER {

@@ -4833,12 +4833,3 @@ function beforeLast(aText: string, aCh: string): string {
 
   return i < 0 ? '' : aText.slice(0, i);
 }
-
-/**
- * TRANSITIONAL (#636 stage 3): the window's right-click rule until the frame
- * runs this tool's `Main` (the next commit deletes it). `Main`'s own rule is
- * the `m_selection.Empty()` test at pcb_selection_tool.cpp:366.
- */
-export function contextMenuPick(selection: ReadonlySet<string>, hit: string | null): string | null {
-  return selection.size > 0 ? null : hit;
-}

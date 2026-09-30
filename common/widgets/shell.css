@@ -5581,36 +5581,6 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="
   border: 1px solid currentColor;
   border-radius: 4px;
 }
-/* Entered-group banner (SELECTION_TOOL::EnterGroup context indicator). */
-.ze-group-editing {
-  position: absolute;
-  top: 8px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 5;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 4px 6px 4px 12px;
-  background: rgba(30, 30, 36, 0.92);
-  border: 1px solid var(--chrome-border);
-  border-radius: 4px;
-  color: #ddd;
-  font-size: 12px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
-}
-.ze-group-editing button {
-  font-size: 11px;
-  padding: 2px 8px;
-  background: var(--chrome-bg2);
-  border: 1px solid var(--chrome-border);
-  border-radius: 3px;
-  color: #ddd;
-  cursor: default;
-}
-.ze-group-editing button:hover {
-  background: #3a3a42;
-}
 /* GTK draws dialog text at about 243, not pure white - the same gap that made
    the status bar look a size too big. Set here so every dialog inherits it. */
 /* A KiCad dialog is sized by its CONTENT, never by a number. Every

@@ -76,7 +76,14 @@ import { EDIT_ZONE_HELPERS_MIXIN } from './edit_zone_helpers.js';
 import { PCBNEW_CONFIG_MIXIN } from './pcbnew_config.js';
 import { LOAD_SELECT_FOOTPRINT_MIXIN } from './load_select_footprint.js';
 import type { LIB_ID } from '@ziroeda/common/lib_id.js';
-import { PCB_SELECTION_FILTER_OPTIONS } from '@ziroeda/common/project/board_project_settings.js';
+import type { PCB_SELECTION_FILTER_OPTIONS } from '@ziroeda/common/project/board_project_settings.js';
+import { ACTIONS } from '@ziroeda/common/tool/actions.js';
+import { TOOL_DISPATCHER } from '@ziroeda/common/tool/tool_dispatcher.js';
+import type { wxEvent } from '@ziroeda/common/wx/wx_event.js';
+import type { SelectionFilter } from './dialogs/dialog_filter_selection.js';
+import { PCB_POINT_EDITOR } from './tools/pcb_point_editor.js';
+import { PCB_SELECTION_TOOL } from './tools/pcb_selection_tool.js';
+import { type WINDOW_ACTION_HANDLER, WINDOW_ACTION_BRIDGE } from './tools/window_action_bridge.js';
 import {
   LAYER_PAIR_SETTINGS,
   PCB_CURRENT_LAYER_PAIR_CHANGED,
@@ -350,20 +357,35 @@ export interface PCB_EDIT_FRAME_HOOKS {
    * with `GetRepourOnClose()`. Optional: absent answers cancel.
    */
   showZoneManager?(): Promise<{ ok: boolean; repour: boolean }>;
-  /** `PCB_SELECTION_TOOL::ClearSelection`. */
-  clearSelection?(): void;
   /** `PCB_ACTIONS::zoneFillAll`. */
   fillAllZones?(): void;
   /**
-   * `PCB_SELECTION_TOOL::GetSelection()` on the live model (the design block
-   * commands read it). Optional: a frame with no selection tool has none.
+   * `EDA_BASE_FRAME::ShowInfoBarWarning( aWarningMsg, aShowCloseButton )`: the
+   * window's infobar, warning icon, 6 s. Optional: a frame with no window shows
+   * nothing.
    */
-  currentSelection?(): readonly EDA_ITEM[];
+  showInfoBarWarning?(aWarningMsg: string, aShowCloseButton: boolean): void;
   /**
-   * `ACTIONS::selectionClear` then `ACTIONS::selectItem( aGroup )`, after a
-   * saved selection was grouped as its design block.
+   * `DIALOG_FILTER_SELECTION( frame, aOptions ).ShowModal() == wxID_OK`, the
+   * dialog editing `aOptions` in place. Optional: absent answers cancel.
    */
-  selectGroup?(aGroup: PCB_GROUP): void;
+  showFilterSelectionDialog?(aOptions: SelectionFilter): Promise<boolean>;
+  /**
+   * `EDA_DRAW_FRAME::UpdateProperties()`'s window half: the selection tool's
+   * selection changed, and the window's panels re-read it.
+   */
+  updateProperties?(): void;
+  /**
+   * TRANSITIONAL (#636 stage 3): the window's own implementation of an action
+   * whose tool is not ported yet (`WINDOW_ACTION_BRIDGE`).
+   */
+  windowAction?: WINDOW_ACTION_HANDLER;
+  /**
+   * TRANSITIONAL (#636 stage 3): true when a canvas event belongs to one of the
+   * window's own not-yet-ported tools (a drawing tool, a point edit or a move
+   * in flight), which then gets it instead of the tool dispatcher.
+   */
+  eventToWindow?(aEvent: wxEvent): boolean;
 }
 
 export interface PCB_EDIT_FRAME
@@ -424,36 +446,50 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     return this.m_designBlocksPane;
   }
 
-  /** `GetCurrentSelection()`: the selection tool's selection. */
-  override GetCurrentSelection(): SELECTION {
-    const selection = new SELECTION();
-
-    for (const item of this.hooks.currentSelection?.() ?? []) selection.Add(item);
-
-    return selection;
+  /** `m_toolManager->GetTool<PCB_SELECTION_TOOL>()`. */
+  GetSelectionTool(): PCB_SELECTION_TOOL {
+    return this.m_toolManager!.GetTool(PCB_SELECTION_TOOL)!;
   }
 
-  /** What `SaveSelectionAsDesignBlock` does with the group it made: select it. */
-  OnDesignBlockGrouped(aGroup: PCB_GROUP): void {
-    this.hooks.selectGroup?.(aGroup);
+  /** `GetCurrentSelection()` (pcb_edit_frame.cpp): the selection tool's selection. */
+  override GetCurrentSelection(): SELECTION {
+    return this.GetSelectionTool().GetSelection();
   }
 
   /**
-   * `PCB_SELECTION_TOOL::m_filter`, which `GetFilter()` hands out
-   * (`pcb_selection_tool.h`). This port's selection tool is functions over
-   * the window's state, not a `TOOL_INTERACTIVE` holding a filter, so the
-   * filter lives on the frame the tool would be registered with.
+   * What `SaveSelectionAsDesignBlock` does with the group it made:
+   * `m_toolManager->RunAction( ACTIONS::selectionClear )` then
+   * `m_toolManager->RunAction<EDA_ITEM*>( ACTIONS::selectItem, group )`.
    */
-  private readonly m_selectionFilter = new PCB_SELECTION_FILTER_OPTIONS();
+  OnDesignBlockGrouped(aGroup: PCB_GROUP): void {
+    this.m_toolManager!.RunAction(ACTIONS.selectionClear);
+    this.m_toolManager!.RunAction<EDA_ITEM | null>(ACTIONS.selectItem, aGroup);
+  }
 
   /** `GetToolManager()->GetTool<PCB_SELECTION_TOOL>()->GetFilter()`. */
   GetSelectionFilter(): PCB_SELECTION_FILTER_OPTIONS {
-    return this.m_selectionFilter;
+    return this.GetSelectionTool().GetFilter();
   }
 
   /** `EDA_BASE_FRAME::ShowInfoBarError( aErrorMsg, aShowCloseButton )` (eda_base_frame.cpp). */
   ShowInfoBarError(aErrorMsg: string, aShowCloseButton = false): void {
     this.hooks.showInfoBarError?.(aErrorMsg, aShowCloseButton);
+  }
+
+  /** `EDA_BASE_FRAME::ShowInfoBarWarning( aWarningMsg, aShowCloseButton )` (eda_base_frame.cpp:1451). */
+  override ShowInfoBarWarning(aWarningMsg: string, aShowCloseButton = false): void {
+    this.hooks.showInfoBarWarning?.(aWarningMsg, aShowCloseButton);
+  }
+
+  /** `DIALOG_FILTER_SELECTION( this, aOptions ).ShowModal() == wxID_OK`. */
+  ShowFilterSelectionDialog(aOptions: SelectionFilter): Promise<boolean> {
+    return this.hooks.showFilterSelectionDialog?.(aOptions) ?? Promise.resolve(false);
+  }
+
+  /** `EDA_DRAW_FRAME::UpdateProperties()`, and the window re-reading the selection. */
+  override UpdateProperties(): void {
+    super.UpdateProperties();
+    this.hooks.updateProperties?.();
   }
 
   /** `MICROWAVE_TOOL` (`pcbnew.MicrowaveTool`): built on first use, over this frame. */
@@ -479,8 +515,7 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
         PolygonShapeDialog: () =>
           this.hooks.mwavePolygonalShapeDialog?.() ?? Promise.resolve(false),
         AddInductor: (aFootprint) => {
-          // `m_toolMgr->RunAction<EDA_ITEM*>( ACTIONS::selectItem, inductorFP.get() )`
-          this.hooks.selectItem?.(aFootprint);
+          this.m_toolManager!.RunAction<EDA_ITEM | null>(ACTIONS.selectItem, aFootprint);
 
           const commit = new BOARD_COMMIT(this);
           commit.Add(aFootprint);
@@ -538,7 +573,7 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     if (!ok) return;
 
     // "Ensure all zones are deselected before make any change in view"
-    this.hooks.clearSelection?.();
+    this.m_toolManager!.RunAction(ACTIONS.selectionClear);
 
     this.OnModify();
 
@@ -570,19 +605,41 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
 
   /**
    * `PCB_EDIT_FRAME::setupTools` (pcb_edit_frame.cpp:940): the manager, its
-   * environment, the tools registered in the C++ order - DRC_TOOL (#636 stage
-   * 4d) and common's PROPERTIES_TOOL and EMBED_TOOL are the ones ported so far;
-   * the rest are stage 3's.
+   * environment, the dispatcher, the tools registered in the C++ order - of
+   * them PCB_SELECTION_TOOL, PCB_POINT_EDITOR (as far as `HasPoint`),
+   * DRC_TOOL, PROPERTIES_TOOL and EMBED_TOOL are ported; the rest are #636
+   * stage 3's, and WINDOW_ACTION_BRIDGE answers their actions meanwhile.
    */
   private setupTools(): void {
     // Create the manager and dispatcher & route draw panel events to the dispatcher
     this.m_toolManager = new TOOL_MANAGER();
     this.m_toolManager.SetEnvironment(this.m_pcb, null, null, this.hooks.settings(), this);
+    const dispatcher = new TOOL_DISPATCHER(this.m_toolManager);
+
+    // TRANSITIONAL (#636 stage 3): an event one of the window's own tools owns
+    // goes to the window, not to the dispatcher (see `eventToWindow`).
+    this.m_toolDispatcher = {
+      DispatchWxEvent: (aEvent: wxEvent): void => {
+        if (this.hooks.eventToWindow?.(aEvent)) {
+          aEvent.Skip();
+          return;
+        }
+
+        dispatcher.DispatchWxEvent(aEvent);
+        this.OnIdle();
+      },
+      ResetState: (): void => dispatcher.ResetState(),
+    } as unknown as TOOL_DISPATCHER;
 
     // Register tools
+    this.m_toolManager.RegisterTool(new PCB_SELECTION_TOOL());
+    this.m_toolManager.RegisterTool(new PCB_POINT_EDITOR());
     this.m_toolManager.RegisterTool(new DRC_TOOL());
     this.m_toolManager.RegisterTool(new PROPERTIES_TOOL());
     this.m_toolManager.RegisterTool(new EMBED_TOOL());
+    this.m_toolManager.RegisterTool(
+      new WINDOW_ACTION_BRIDGE((aAction, aEvent) => this.hooks.windowAction?.(aAction, aEvent)),
+    );
     this.m_toolManager.InitTools();
 
     for (const tool of this.m_toolManager.Tools()) {
@@ -590,7 +647,7 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     }
 
     // Run the selection tool, it is supposed to be always active
-    // m_toolManager->InvokeTool( "common.InteractiveSelection" ): stage 3's
+    this.m_toolManager.InvokeTool('common.InteractiveSelection');
   }
 
   /** `PCB_EDIT_FRAME::GetDesignRulesPath()`: the project's rules file. */
