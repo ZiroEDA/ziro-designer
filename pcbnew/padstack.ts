@@ -1357,6 +1357,15 @@ export class PADSTACK {
     return this.CopperLayerMut(aLayer).shape.offset;
   }
 
+  /**
+   * `Offset( aLayer ) const`: read through the const `CopperLayer`, which never creates an
+   * entry. A const caller (PAD::GetOffset, ShapePos, IsOnCopperLayer) must use this one, or
+   * a FRONT_INNER_BACK stack gains a default inner entry the writer then prints.
+   */
+  OffsetConst(aLayer: PCB_LAYER_ID): VECTOR2I {
+    return this.CopperLayer(aLayer).shape.offset;
+  }
+
   SetOffset(aOffset: VECTOR2I, aLayer: PCB_LAYER_ID): void {
     this.CopperLayerMut(aLayer).shape.offset = { x: aOffset.x, y: aOffset.y };
   }
@@ -1370,6 +1379,11 @@ export class PADSTACK {
 
   TrapezoidDeltaSize(aLayer: PCB_LAYER_ID): VECTOR2I {
     return this.CopperLayerMut(aLayer).shape.trapezoid_delta_size;
+  }
+
+  /** `TrapezoidDeltaSize( aLayer ) const`: see OffsetConst. */
+  TrapezoidDeltaSizeConst(aLayer: PCB_LAYER_ID): VECTOR2I {
+    return this.CopperLayer(aLayer).shape.trapezoid_delta_size;
   }
 
   SetTrapezoidDeltaSize(aDelta: VECTOR2I, aLayer: PCB_LAYER_ID): void {

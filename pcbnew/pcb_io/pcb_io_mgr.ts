@@ -223,3 +223,14 @@ registry.Register(
   'Solidworks PCB',
   async () => new (await import('./altium/pcb_io_solidworks.js')).PCB_IO_SOLIDWORKS(),
 );
+
+// IPC-2581 and ODB++ register here upstream (export-only plugins).
+
+registry.Register(
+  PCB_FILE_T.PADS,
+  'PADS',
+  async () => new (await import('./pads/pcb_io_pads.js')).PCB_IO_PADS(),
+);
+
+// PCB_IO_PADS_BINARY (pads/pcb_io_pads_binary.ts) is ported but, as in KiCad 10.0.6, not
+// registered: upstream leaves it out of pcb_io/pads/CMakeLists.txt.

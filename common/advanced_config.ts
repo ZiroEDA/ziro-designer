@@ -169,6 +169,29 @@ export class ADVANCED_CFG {
   m_PDFStrokeFontBoldMultiplier = 1.8;
   m_PDFStrokeFontKerningFactor = 1.0;
 
+  /**
+   * PADS text sizing: the fraction of a PADS text height that is KiCad's
+   * character height and width, for PCB ("PadsPcbTextHeightScale" 0.69,
+   * "PadsPcbTextWidthScale" 0.64) and schematic ("PadsSchTextHeightScale"
+   * 0.50, "PadsSchTextWidthScale" 0.46) imports.
+   */
+  m_PadsPcbTextHeightScale = 0.69;
+  m_PadsPcbTextWidthScale = 0.64;
+  m_PadsSchTextHeightScale = 0.5;
+  m_PadsSchTextWidthScale = 0.46;
+
+  /**
+   * How far a PADS text's anchor sits from KiCad's, in nm.
+   * Setting name: "PadsTextAnchorOffsetNm"; default 350000.
+   */
+  m_PadsTextAnchorOffsetNm = 350000;
+
+  /**
+   * The smallest size a non-KiCad board importer gives an object, in nm.
+   * Setting name: "PcbImportMinObjectSizeNm"; default 1000.
+   */
+  m_PcbImportMinObjectSizeNm = 1000;
+
   private static s_cfg: ADVANCED_CFG | null = null;
 
   /** Get the singleton instance's config, which is shared by all consumers. */
