@@ -64,6 +64,11 @@ import { defaultUnitsToggle } from '@ziroeda/common/settings/app_settings_units.
 import type { CrosshairMode } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
 import type { RawFile } from '@ziroeda/common';
 import { applyMixins } from '@ziroeda/core/mixins.js';
+import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
+import { PCB_DESIGN_BLOCK_UTILS_MIXIN } from './pcb_design_block_utils.js';
+import type { PCB_GROUP } from './pcb_group.js';
+import { SELECTION } from '@ziroeda/common/tool/selection.js';
+import type { PCB_DESIGN_BLOCK_PANE } from './widgets/pcb_design_block_pane.js';
 import { INITPCB_MIXIN } from './initpcb.js';
 import { EDIT_MIXIN } from './edit.js';
 import { FILES_MIXIN } from './files.js';
@@ -349,6 +354,16 @@ export interface PCB_EDIT_FRAME_HOOKS {
   clearSelection?(): void;
   /** `PCB_ACTIONS::zoneFillAll`. */
   fillAllZones?(): void;
+  /**
+   * `PCB_SELECTION_TOOL::GetSelection()` on the live model (the design block
+   * commands read it). Optional: a frame with no selection tool has none.
+   */
+  currentSelection?(): readonly EDA_ITEM[];
+  /**
+   * `ACTIONS::selectionClear` then `ACTIONS::selectItem( aGroup )`, after a
+   * saved selection was grouped as its design block.
+   */
+  selectGroup?(aGroup: PCB_GROUP): void;
 }
 
 export interface PCB_EDIT_FRAME
@@ -357,7 +372,8 @@ export interface PCB_EDIT_FRAME
     FILES_MIXIN,
     EDIT_ZONE_HELPERS_MIXIN,
     PCBNEW_CONFIG_MIXIN,
-    LOAD_SELECT_FOOTPRINT_MIXIN {}
+    LOAD_SELECT_FOOTPRINT_MIXIN,
+    PCB_DESIGN_BLOCK_UTILS_MIXIN {}
 
 // biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (INITPCB_MIXIN mixin, see libs/core/mixins.ts)
 export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
@@ -398,6 +414,28 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
       screen.m_Route_Layer_TOP = pair.GetLayerA();
       screen.m_Route_Layer_BOTTOM = pair.GetLayerB();
     });
+  }
+
+  /// `m_designBlocksPane`: the Design Blocks dock, set by the window that docks it.
+  m_designBlocksPane: PCB_DESIGN_BLOCK_PANE | null = null;
+
+  /** `GetDesignBlockPane()`. */
+  GetDesignBlockPane(): PCB_DESIGN_BLOCK_PANE | null {
+    return this.m_designBlocksPane;
+  }
+
+  /** `GetCurrentSelection()`: the selection tool's selection. */
+  override GetCurrentSelection(): SELECTION {
+    const selection = new SELECTION();
+
+    for (const item of this.hooks.currentSelection?.() ?? []) selection.Add(item);
+
+    return selection;
+  }
+
+  /** What `SaveSelectionAsDesignBlock` does with the group it made: select it. */
+  OnDesignBlockGrouped(aGroup: PCB_GROUP): void {
+    this.hooks.selectGroup?.(aGroup);
   }
 
   /**
@@ -1011,6 +1049,7 @@ applyMixins(PCB_EDIT_FRAME, [
   EDIT_ZONE_HELPERS_MIXIN,
   PCBNEW_CONFIG_MIXIN,
   LOAD_SELECT_FOOTPRINT_MIXIN,
+  PCB_DESIGN_BLOCK_UTILS_MIXIN,
 ]);
 
 /**
