@@ -13,6 +13,7 @@ import { SetFileDialog } from '@ziroeda/common/wx/filedlg.js';
 import {
   DEFAULT_IMPORT_NETLIST_OPTIONS,
   DialogImportNetlist,
+  type ImportNetlistOptions,
 } from '@ziroeda/pcbnew/dialogs/dialog_import_netlist.js';
 
 afterEach(() => {
@@ -27,7 +28,10 @@ const BODY: ReportLine = {
 };
 
 function open(files: Record<string, string> = { '/p/a.net': '(export)' }, name = '/p/a.net') {
-  const performLoad = vi.fn(async () => [BODY] as readonly ReportLine[]);
+  const performLoad = vi.fn(
+    async (_name: string, _text: string, _opts: ImportNetlistOptions, _dry: boolean) =>
+      [BODY] as readonly ReportLine[],
+  );
   const onClose = vi.fn();
   render(
     <DialogImportNetlist

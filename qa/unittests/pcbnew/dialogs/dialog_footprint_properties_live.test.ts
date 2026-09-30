@@ -10,7 +10,7 @@ import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { FLIP_DIRECTION } from '@ziroeda/core/mirror.js';
 import type { BOARD } from '@ziroeda/pcbnew/board.js';
 import { DIALOG_FOOTPRINT_PROPERTIES } from '@ziroeda/pcbnew/dialogs/dialog_footprint_properties.js';
-import { FP_DNP, FP_SMD, FP_THROUGH_HOLE } from '@ziroeda/pcbnew/footprint.js';
+import { FP_3DMODEL, FP_DNP, FP_SMD, FP_THROUGH_HOLE } from '@ziroeda/pcbnew/footprint.js';
 import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { ZONE_CONNECTION } from '@ziroeda/pcbnew/zones.js';
 import { TEST_PCB_FRAME } from '../support/test_pcb_frame.js';
@@ -122,5 +122,50 @@ describe('DIALOG_FOOTPRINT_PROPERTIES', () => {
     const v = dlg().TransferDataToWindow();
     dlg().TransferDataFromWindow({ ...v, allowMissingCourtyard: true });
     expect(fp().AllowMissingCourtyard()).toBe(false);
+  });
+
+  it("copies the 3D Models page's list onto the footprint, in the same undo step", () => {
+    const m = new FP_3DMODEL();
+    m.m_Filename = '${KICAD10_3DMODEL_DIR}/R.3dshapes/R_0805.wrl';
+    m.m_Show = false;
+    const v = dlg().TransferDataToWindow();
+
+    expect(dlg().TransferDataFromWindow({ ...v, models: [m] }).ok).toBe(true);
+
+    expect(fp().Models()).toHaveLength(1);
+    expect(fp().Models()[0]).toMatchObject({ m_Filename: m.m_Filename, m_Show: false });
+    // a copy, not the page's own object
+    expect(fp().Models()[0]).not.toBe(m);
+    expect(frame.GetUndoCommandCount()).toBe(1);
+    frame.RestoreCopyFromUndoList();
+    expect(fp().Models()).toHaveLength(0);
+  });
+
+  it('leaves the models alone when the page was not shown', () => {
+    const m = new FP_3DMODEL();
+    m.m_Filename = 'keep.wrl';
+    fp().Models().push(m);
+    dlg().TransferDataFromWindow(dlg().TransferDataToWindow());
+    expect(
+      fp()
+        .Models()
+        .map((x) => x.m_Filename),
+    ).toEqual(['keep.wrl']);
+  });
+
+  it("the page's list REPLACES the footprint's, it is not appended to it", () => {
+    const old = new FP_3DMODEL();
+    old.m_Filename = 'old.wrl';
+    fp().Models().push(old);
+    const neu = new FP_3DMODEL();
+    neu.m_Filename = 'new.wrl';
+
+    dlg().TransferDataFromWindow({ ...dlg().TransferDataToWindow(), models: [neu] });
+
+    expect(
+      fp()
+        .Models()
+        .map((m) => m.m_Filename),
+    ).toEqual(['new.wrl']);
   });
 });

@@ -16,6 +16,7 @@ import { HomeLink } from '../../ui/HomeLink.js';
 import { SaveAsDialog } from '../../fs/SaveAsDialog.js';
 import { FootprintChooserFrame } from './dialogs/footprint_chooser_frame.js';
 import { Viewer3DFrame, type Viewer3DFrameProps } from './Viewer3DFrame.js';
+import { FootprintModelPreview3D } from './widgets/footprint_model_preview_3d.js';
 import { commonSettingsOf, windowSettingsOf } from '../../pgm_app.js';
 import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
 import { EMPTY_PCB } from '../../home/new_project.js';
@@ -50,6 +51,7 @@ export function usePcbnewApp(): PCBNEW_APP {
       HomeLink: (props) => <HomeLink {...props} />,
       SaveAsDialog: (props) => <SaveAsDialog {...props} />,
       FootprintChooserFrame: (props) => <FootprintChooserFrame {...props} />,
+      ModelPreview3D: (props) => <FootprintModelPreview3D {...props} />,
       // `PCBNEW_APP.Viewer3DFrame` takes an untyped prop bag (pcbnew/ does
       // not import 3d-viewer's types), so PcbEditor.tsx's own call site is
       // what actually shapes the props; this cast just re-attaches that

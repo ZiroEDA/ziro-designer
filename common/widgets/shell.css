@@ -18182,6 +18182,62 @@ fieldset.ze-import-netlist-options {
 }
 
 /* ---------------------------------------------------------------------------
+   PANEL_FP_PROPERTIES_3D_MODEL (panel_fp_properties_3d_model_base.cpp) -- the
+   sizer tree is in panel_fp_properties_3d_model_ui.tsx. */
+.ze-fp3d-host {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+.ze-fp3d-host[hidden] {
+  display: none; /* the class's own display would otherwise win over the attribute */
+}
+.ze-fp3d {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: calc(2 * 112px); /* [data] two panes of `SetMinimumPaneSize( 112 )`. */
+}
+.ze-fp3d-upper {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  min-height: 112px; /* [data] `m_splitter1->SetMinimumPaneSize( 112 )`. */
+}
+.ze-fp3d-grid {
+  flex: 1;
+  margin: 5px 5px 0; /* [data] `bSizer4->Add( m_modelsGrid, 1, wxEXPAND|wxTOP|wxRIGHT|wxLEFT, 5 )`. */
+  min-height: 0;
+}
+.ze-fp3d-buttons {
+  display: flex;
+  align-items: center;
+  margin: 2px 0; /* [data] `bSizer4->Add( bSizer3DButtons, 0, wxEXPAND|wxTOP|wxBOTTOM, 2 )`. */
+}
+.ze-fp3d-buttons > .ze-gridbtn:nth-child(-n + 2) {
+  margin-left: 5px; /* [data] `Add( m_button3DShapeAdd / Browse, 0, …|wxLEFT, 5 )`. */
+}
+.ze-fp3d-gap {
+  width: 20px; /* [data] `bSizer3DButtons->Add( 20, 0, 0, 0, 5 )`. */
+}
+.ze-fp3d-lower {
+  display: flex;
+  flex: 1;
+  min-height: 112px; /* [data] `m_splitter1->SetMinimumPaneSize( 112 )`. */
+}
+.ze-fp3d-lower > * {
+  flex: 1; /* [data] `m_LowerSizer3D->Add( m_previewPane, 1, wxEXPAND, 5 )`. */
+}
+.ze-fp3d-status {
+  display: flex;
+  justify-content: center;
+}
+.ze-fp3d-icon {
+  width: 16px; /* [px] `wxART_BUTTON`'s message-box icon. */
+  height: 16px;
+}
+
+/* ---------------------------------------------------------------------------
    Footprint Associations (dialog_footprint_associations_base.cpp).
 
    bMainBoxSizer is one vertical run: label / 5px spacer / grid (each border

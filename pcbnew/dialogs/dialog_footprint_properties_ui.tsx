@@ -13,12 +13,18 @@
  * The decision logic lives in `pcbnew/dialogs/dialog_footprint_properties.ts`.
  */
 
-import { useState, type JSX } from 'react';
+import { useRef, useState, type JSX, type ReactNode } from 'react';
 import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import type { FootprintValues } from './dialog_footprint_properties.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { pcbUnitText, pcbUnitValue, unitLabel } from '../pcb_unit_binder.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
+import type { FOOTPRINT, FP_3DMODEL } from '../footprint.js';
+import type { PANEL_3D_MODEL_HOST, SELECTED_3D_MODEL } from './panel_fp_properties_3d_model.js';
+import {
+  PanelFpProperties3dModel,
+  type PANEL_3D_MODEL_API,
+} from './panel_fp_properties_3d_model_ui.js';
 
 interface Props {
   /**
@@ -32,9 +38,24 @@ interface Props {
   libId: string;
   onApply: (values: FootprintValues) => void;
   onClose: () => void;
+  /**
+   * The 3D Models page (`PANEL_FP_PROPERTIES_3D_MODEL`, which upstream adds to the
+   * notebook as its third page): the live footprint it edits, what it asks of the
+   * frame, and the two `3d-viewer/` widgets it hosts. Absent, the page is not drawn.
+   */
+  model3d?: {
+    footprint: FOOTPRINT;
+    host: PANEL_3D_MODEL_HOST;
+    renderPreview: (
+      aModels: readonly FP_3DMODEL[],
+      aSelected: number,
+      aVersion: number,
+    ) => ReactNode;
+    pickModel: () => Promise<SELECTED_3D_MODEL | null>;
+  };
 }
 
-type Tab = 'general' | 'clearances';
+type Tab = 'general' | 'clearances' | 'models3d';
 
 export function DialogFootprintProperties({
   initial,
@@ -42,6 +63,7 @@ export function DialogFootprintProperties({
   libId,
   onApply,
   onClose,
+  model3d,
 }: Props): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
@@ -49,6 +71,7 @@ export function DialogFootprintProperties({
 
   const [tab, setTab] = useState<Tab>('general');
   const [v, setV] = useState<FootprintValues>(initial);
+  const modelsApi = useRef<PANEL_3D_MODEL_API | null>(null);
   // Millimetre boxes keep their text so a half-typed number survives the caret.
   const [text, setText] = useState<Record<string, string>>({});
 
@@ -152,6 +175,7 @@ export function DialogFootprintProperties({
         <div className="ze-tabbar ze-fpprops-tabs">
           {tabButton('general', 'General')}
           {tabButton('clearances', 'Clearance Overrides & Pad Connections')}
+          {model3d && tabButton('models3d', '3D Models')}
         </div>
 
         <div className="ze-modal-body ze-update-pcb-body ze-tvp-body">
@@ -244,7 +268,7 @@ export function DialogFootprintProperties({
                 {check('Allow missing courtyard', 'allowMissingCourtyard')}
               </fieldset>
             </>
-          ) : (
+          ) : tab === 'clearances' ? (
             <>
               <fieldset>
                 <legend>Clearances</legend>
@@ -319,6 +343,18 @@ export function DialogFootprintProperties({
                 </label>
               </fieldset>
             </>
+          ) : null}
+          {/* Mounted for the dialog's life, so the list survives a change of page. */}
+          {model3d && (
+            <div className="ze-fp3d-host" hidden={tab !== 'models3d'}>
+              <PanelFpProperties3dModel
+                footprint={model3d.footprint}
+                host={model3d.host}
+                renderPreview={model3d.renderPreview}
+                pickModel={model3d.pickModel}
+                apiRef={modelsApi}
+              />
+            </div>
           )}
         </div>
 
@@ -327,7 +363,15 @@ export function DialogFootprintProperties({
           <button type="button" onClick={onClose}>
             Cancel
           </button>
-          <button type="button" className="primary" onClick={() => onApply(v)}>
+          <button
+            type="button"
+            className="primary"
+            onClick={() => {
+              // `m_3dPanel->TransferDataFromWindow()`: commit the open cell, then take the list.
+              if (modelsApi.current && !modelsApi.current.CommitPendingChanges()) return;
+              onApply(modelsApi.current ? { ...v, models: modelsApi.current.GetModelList() } : v);
+            }}
+          >
             OK
           </button>
         </div>

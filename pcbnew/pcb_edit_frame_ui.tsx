@@ -640,6 +640,12 @@ import { SelectCopperLayerPairDialog } from './sel_layer.js';
 import { DialogFootprintProperties } from './dialogs/dialog_footprint_properties_ui.js';
 import { DialogFootprintAssociations } from './dialogs/dialog_footprint_associations_ui.js';
 import { DialogMapLayers } from './dialogs/dialog_map_layers.js';
+import type {
+  PANEL_3D_MODEL_HOST,
+  SELECTED_3D_MODEL,
+} from './dialogs/panel_fp_properties_3d_model.js';
+import { PROJECT_PCB } from './project_pcb.js';
+import type { FILENAME_RESOLVER } from '@ziroeda/common/filename_resolver.js';
 import { DialogImportNetlist, type ImportNetlistOptions } from './dialogs/dialog_import_netlist.js';
 import { loadNetlist as readNetlistText } from './netlist_reader/netlist_reader.js';
 import type { INPUT_LAYER_DESC } from './pcb_io/common/plugin_common_layer_mapping.js';
@@ -1585,6 +1591,7 @@ export function PcbEditor({
     HomeLink,
     SaveAsDialog,
     FootprintChooserFrame,
+    ModelPreview3D,
     Viewer3DFrame,
     pcbnewSettings: pcbCfg,
     commonSettings: commonCfg,
@@ -2675,6 +2682,12 @@ export function PcbEditor({
   // File > Import > Netlist... (DIALOG_IMPORT_NETLIST): the path it opens on is
   // `GetLastPath( LAST_PATH_NETLIST )`, null while the dialog is closed.
   const [importNetlistName, setImportNetlistName] = useState<string | null>(null);
+  // Footprint Properties > 3D Models > Browse: `DIALOG_SELECT_3DMODEL::ShowQuasiModal()`
+  // is not ported (it is a `3d-viewer/` dialog); a file chooser answers in its place.
+  const [pick3dModel, setPick3dModel] = useState<{
+    done: (aChosen: SELECTED_3D_MODEL | null) => void;
+  } | null>(null);
+  const model3dResolverRef = useRef<FILENAME_RESOLVER | null>(null);
   const lastNetlistPathRef = useRef('');
   const [updatePcbError, setUpdatePcbError] = useState<{
     message: string;
@@ -13555,6 +13568,63 @@ export function PcbEditor({
           libId={board.footprints[fpPropsIndex]!.lib}
           onApply={applyFootprintEdit}
           onClose={() => setFpPropsIndex(null)}
+          model3d={(() => {
+            const kfp = board.footprints[fpPropsIndex]!.k!;
+            const frame = frameRef.current!;
+            const resolver = (): FILENAME_RESOLVER =>
+              (model3dResolverRef.current ??= PROJECT_PCB.Get3DFilenameResolver());
+            const host: PANEL_3D_MODEL_HOST = {
+              resolver,
+              // `LIBRARY_MANAGER::GetFullURI( *row, true )` of the footprint's library.
+              footprintBasePath: (nick) =>
+                frame.GetBoard()?.GetFootprintLibAdapter()?.GetRow(nick)?.uri ?? '',
+              embeddedFilesStack: () => [
+                kfp.GetEmbeddedFiles(),
+                frame.GetBoard()!.GetEmbeddedFiles(),
+              ],
+              // The Embedded Files page is not in this dialog yet, so nothing embeds here
+              // and an embedded model's file stays with the footprint until it has one.
+              addEmbeddedFile: () => null,
+              removeEmbeddedFile: () => {},
+              onModify: () => {},
+            };
+            return {
+              footprint: kfp,
+              host,
+              renderPreview: (models, _selected, version) =>
+                ModelPreview3D({ footprint: kfp, models, version }),
+              pickModel: () =>
+                new Promise<SELECTED_3D_MODEL | null>((resolve) =>
+                  setPick3dModel({ done: resolve }),
+                ),
+            };
+          })()}
+        />
+      )}
+      {pick3dModel && (
+        <WxFileDialog
+          title="Select 3D Model"
+          filters={[
+            {
+              label: 'All 3D models (*.wrl, *.wrz, *.step, *.stp, *.stpz, *.iges, *.igs)',
+              extensions: ['wrl', 'wrz', 'step', 'stp', 'stpz', 'iges', 'igs'],
+            },
+          ]}
+          projectDir={projectDirRef.current || null}
+          onDone={(file) => {
+            const { done } = pick3dModel;
+            setPick3dModel(null);
+            // The name KiCad stores is the path shortened against the search paths.
+            done(
+              file
+                ? {
+                    filename: (model3dResolverRef.current ??=
+                      PROJECT_PCB.Get3DFilenameResolver()).ShortenPath(file.path),
+                    embedded: false,
+                  }
+                : null,
+            );
+          }}
         />
       )}
       {footprintAssociationsIndex !== null &&
