@@ -5,10 +5,12 @@
  * `pcbnew/microwave/microwave_polygon.cpp`: `MWAVE_POLYGONAL_SHAPE_DLG`'s
  * shape-description-file reader and `MICROWAVE_TOOL::createPolygonShape`.
  *
- * The dialog itself (`dialogs/dialog_mwave_polygonal_shape.tsx`) only edits the
- * three values the C++ keeps in file-scope statics (`g_PolyShapeType`, the two
- * scale factors, the point list); the statics live here, as they do upstream,
- * and `createPolygonShape` reads them after the dialog returns.
+ * The dialog is inside this .cpp upstream, so its logic is here
+ * ({@link MWAVE_POLYGONAL_SHAPE_DLG}) and its layout is `microwave_polygon_ui.tsx`.
+ * It only edits the values the C++ keeps in file-scope statics (`g_PolyShapeType`,
+ * `g_ShapeSize`, the two scale factors, the point list); the statics live here,
+ * as they do upstream, and `createPolygonShape` reads them after the dialog
+ * returns.
  *
  * One upstream quirk is kept: the dialog's Size X / Y fields are transferred
  * into `g_ShapeSize`, and `createPolygonShape` then overwrites `g_ShapeSize`
@@ -37,6 +39,50 @@ export enum MWAVE_POLY_SHAPE_TYPE {
 /** The statics of microwave_polygon.cpp. */
 export const g_PolyEdges: { x: number; y: number }[] = [];
 export const g_MwaveShape = { scaleX: 0, scaleY: 0, type: MWAVE_POLY_SHAPE_TYPE.NORMAL as number };
+
+/** `g_ShapeSize`: written by the dialog's TransferDataFromWindow, then overwritten. */
+export const g_ShapeSize = { x: 0, y: 0 };
+
+/**
+ * `MWAVE_POLYGONAL_SHAPE_DLG` (microwave_polygon.cpp:60-243), the logic half.
+ * The window is `microwave_polygon_ui.tsx`.
+ */
+export class MWAVE_POLYGONAL_SHAPE_DLG {
+  /** The Size X and Y fields, in IU (`m_sizeX` / `m_sizeY`). */
+  m_sizeX = 0;
+  m_sizeY = 0;
+  /** `m_shapeOptionCtrl->GetSelection()`. */
+  m_shapeOptionCtrl: MWAVE_POLY_SHAPE_TYPE = MWAVE_POLY_SHAPE_TYPE.NORMAL;
+
+  constructor() {
+    g_PolyEdges.length = 0;
+  }
+
+  /** `OnCancelClick`. */
+  OnCancelClick(): void {
+    g_PolyEdges.length = 0;
+  }
+
+  /** `TransferDataFromWindow`. */
+  TransferDataFromWindow(): boolean {
+    g_ShapeSize.x = this.m_sizeX;
+    g_ShapeSize.y = this.m_sizeY;
+    g_MwaveShape.type = this.m_shapeOptionCtrl;
+
+    return true;
+  }
+
+  /**
+   * `ReadDataShapeDescr`, once the file is chosen and read: the two size
+   * fields are set to `(int) g_ShapeScaleX` and `(int) g_ShapeScaleY`.
+   */
+  ReadDataShapeDescr(aFileText: string): void {
+    const { scaleX, scaleY } = ReadDataShapeDescr(aFileText);
+
+    this.m_sizeX = Math.trunc(scaleX);
+    this.m_sizeY = Math.trunc(scaleY);
+  }
+}
 
 /** Integer negation: `-x` of an `int` 0 is 0, where a JS `-0` is not `+0`. */
 const iNeg = (v: number): number => 0 - v;

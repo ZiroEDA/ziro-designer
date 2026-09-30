@@ -18159,3 +18159,40 @@ td.ze-grid-bool {
 .ze-genpos-label {
   min-width: 100px; /* [data] `m_variantLabel` / `m_staticTextDir`, the widest label in `fgSizerTop`'s left column */
 }
+
+/* MWAVE_POLYGONAL_SHAPE_DLG (pcbnew/microwave/microwave_polygon_ui.tsx): the
+   dialog is hand-built in microwave_polygon.cpp:60-243, each border an Add(). */
+.ze-mwave-top {
+  display: flex;
+  align-items: stretch;
+  flex: 1 1 auto;
+  margin: 5px; /* [data] mainBoxSizer->Add( topBoxSizer, 1, wxGROW | wxALL, 5 ) */
+}
+.ze-mwave-shape,
+.ze-mwave-size {
+  flex: 1 1 0;
+  margin: 5px; /* [data] topBoxSizer->Add( ..., 1, wxGROW | wxALL, 5 ) */
+}
+.ze-mwave-radio {
+  display: flex;
+  align-items: center;
+}
+.ze-mwave-sizerow {
+  display: flex;
+  align-items: center;
+}
+.ze-mwave-sizelabel {
+  margin: 5px; /* [data] xSizer->Add( xLabel, 0, wxALIGN_CENTER_VERTICAL | wxALL, 5 ) */
+}
+.ze-mwave-sizectrl {
+  flex: 1 1 auto; /* [data] xSizer->Add( xCtrl, 1, wxALIGN_CENTER_VERTICAL, 5 ): no border flag */
+}
+.ze-mwave-sizeunit {
+  margin: 5px; /* [data] xSizer->Add( xUnits, 0, wxALIGN_CENTER_VERTICAL | wxALL, 5 ) */
+}
+.ze-mwave-read {
+  margin: 0 10px; /* [data] buttonsBoxSizer->Add( btn, 0, wxALIGN_CENTER_VERTICAL | wxLEFT | wxRIGHT, 10 ) */
+}
+.ze-mwave-error {
+  margin: 0 5px 5px; /* [data] a DisplayError line has no upstream Add(); wxALL 5 */
+}

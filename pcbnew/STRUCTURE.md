@@ -589,21 +589,32 @@ all).
   over `ZoneValues`; the manager needs them over `ZONE_SETTINGS`). `ZONE_PREVIEW_CANVAS`'s
   constructor is not exercised by a test (needs a WebGL/2D window); its zoom and
   painter are, through a bare instance.
-- `microwave/` (4 KiCad, 4 ours, 0 extra, 09-29): `microwave_footprint`
+- `microwave/` (4 KiCad, 4 ours + `microwave_polygon_ui.tsx`, 09-29): `microwave_footprint`
   (Gap / Stub / Arc Stub), `microwave_inductor` (`BuildCornersList_S_Shape`,
   checked point for point against an independent Python transcription,
   `qa/data/pcbnew/microwave/inductor_oracle.py`), `microwave_polygon` (the shape
-  description file reader and `createPolygonShape`) and `microwave_tool`
-  (`MICROWAVE_TOOL` over a `MICROWAVE_HOST`; the C++'s one class is spread over
-  the four files as functions). **Not wired**, and the five Place > Draw
-  Microwave Shapes rows stay greyed: the host needs `PCB_BASE_FRAME::
-  CreateNewFootprint` on the live `FOOTPRINT` (`footprint_libraries_utils.cpp`,
-  package root; only the view-model form exists), a text-entry and the
-  `MWAVE_POLYGONAL_SHAPE_DLG` dialog (which will make `microwave_polygon` a
-  `.tsx`, the dialog being inside that `.cpp`), the placement hand-off
-  (`PlaceFootprintFromLibraryBrowser` takes a `PcbFootprint`) and, for Lines,
-  the two-click `CENTRELINE_RECT_ITEM` preview. `MICROWAVE_TOOL` is not yet a
-  `PCB_TOOL_BASE` with `setTransitions`.
+  description file reader, `createPolygonShape` and the logic of
+  `MWAVE_POLYGONAL_SHAPE_DLG`, which is defined inside that `.cpp`; its window is
+  `microwave_polygon_ui.tsx`, the `_ui` half every dialog here has) and
+  `microwave_tool` (`MICROWAVE_TOOL` over a `MICROWAVE_HOST`; the C++'s one class
+  is spread over the four files as functions). **Wired**: the five Place > Draw
+  Microwave Shapes rows (no hotkeys upstream) arm `microwaveCreate{Line, Gap,
+  Stub, StubArc, FunctionShape}` in `pcb_edit_frame_ui.tsx`. `PCB_EDIT_FRAME.
+  MicrowaveTool()` builds the tool over the frame as its host:
+  `PCB_BASE_FRAME::CreateNewFootprint` is now on the live `FOOTPRINT`
+  (`pcb_base_frame.ts`, from `m_DefaultFPTextItems`), the length and value prompts
+  are `WX_TEXT_ENTRY_DIALOG` (the `textEntry` hook), the polygon dialog is
+  `MwavePolygonalShapeDlg`. The four footprint tools are
+  `doInteractiveItemPlacement` with `IPO_REPEAT | IPO_ROTATE | IPO_FLIP`: the
+  first click makes the item (its dialogs open), it rides the cursor (R,
+  Shift+R and F turn it), the next click is `PlaceInteractiveItem` (`commit.Add`
+  and `Push( "Place microwave feature" )` on the live BOARD), Esc drops the item
+  and a second Esc leaves the tool. Lines is the two-click rectangle
+  (`CENTRELINE_RECT_ITEM`, `common/preview_items/centreline_rect_item.ts`, painted
+  on the overlay the way `POLYGON_ITEM` is); its second click runs
+  `createInductorBetween`, which commits "Add Microwave Inductor" and selects the
+  coil. `MICROWAVE_TOOL` is still not a `PCB_TOOL_BASE` with `setTransitions`: the
+  frame arms the tools by id, as it does every drawing tool.
 - `netlist_reader/` (7 KiCad, 7 ours, 0 extra, 09-29): all seven files exist by name.
   `kicad_netlist_reader` and `netlist_reader` re-export the shared
   `common/netlist_reader/*` ports (KiCad keeps its own duplicate tree there).

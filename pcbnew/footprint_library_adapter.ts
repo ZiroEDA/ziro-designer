@@ -55,6 +55,14 @@ export interface FOOTPRINT_LIBRARY_ADAPTER {
    */
   FootprintExists(aNickname: string, aName: string): boolean;
 
+  /**
+   * `FOOTPRINT_LIBRARY_ADAPTER::GetFootprintNames( aNickname, aBestEfforts )`
+   * (footprint_library_adapter.h): the names a loaded library holds. Optional:
+   * a host whose store cannot list a library omits it, and `CreateNewFootprint`
+   * then infers no attributes, as its own `catch( ... )` does.
+   */
+  GetFootprintNames?(aNickname: string, aBestEfforts?: boolean): string[];
+
   /** `FOOTPRINT_LIBRARY_ADAPTER::LoadOne( aNickname )` (:55): load one library by nickname. */
   LoadOne(aNickname: string): void;
 

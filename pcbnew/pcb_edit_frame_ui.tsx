@@ -518,7 +518,10 @@ import { filterSelectionItems } from './tools/pcb_selection_tool.js';
 import { PCB_SELECTION } from './tools/pcb_selection.js';
 import { Build_Board_Characteristics_Table } from './board_tables/board_characteristics_table.js';
 import { Build_Board_Stackup_Table } from './board_tables/board_stackup_table.js';
-import { PCB_ACTIONS } from './tools/pcb_actions.js';
+import { PCB_ACTIONS, MICROWAVE_FOOTPRINT_SHAPE } from './tools/pcb_actions.js';
+import { MwavePolygonalShapeDlg } from './microwave/microwave_polygon_ui.js';
+import { drawCentrelineRectItem } from '@ziroeda/common/preview_items/centreline_rect_item.js';
+import type { wxTextValidator } from '@ziroeda/common/validators.js';
 import type { DRC_TOOL } from './tools/drc_tool.js';
 import { BOX2D } from '@ziroeda/kimath/src/math/box2.js';
 import type { Vec2 as KVec2 } from '@ziroeda/kimath/src/math/vector2.js';
@@ -832,7 +835,33 @@ const PCB_TOOL_MSGS: Record<string, string> = {
   measureTool: 'Measure Tool',
   deleteTool: 'Interactive Delete Tool',
   localRatsnestTool: 'Local Ratsnest',
+  // `TOOL_ACTION::GetFriendlyName()` of the five `MICROWAVE_TOOL` actions.
+  microwaveCreateLine: 'Draw Microwave Lines',
+  microwaveCreateGap: 'Draw Microwave Gaps',
+  microwaveCreateStub: 'Draw Microwave Stubs',
+  microwaveCreateStubArc: 'Draw Microwave Arc Stubs',
+  microwaveCreateFunctionShape: 'Draw Microwave Polygonal Shapes',
 };
+
+/**
+ * `MICROWAVE_TOOL::setTransitions`: the four footprint tools run
+ * `addMicrowaveFootprint` with a `MICROWAVE_FOOTPRINT_SHAPE`, the fifth runs
+ * `drawMicrowaveInductor`.
+ */
+const MICROWAVE_PLACE_TOOLS: Readonly<Record<string, MICROWAVE_FOOTPRINT_SHAPE>> = {
+  microwaveCreateGap: MICROWAVE_FOOTPRINT_SHAPE.GAP,
+  microwaveCreateStub: MICROWAVE_FOOTPRINT_SHAPE.STUB,
+  microwaveCreateStubArc: MICROWAVE_FOOTPRINT_SHAPE.STUB_ARC,
+  microwaveCreateFunctionShape: MICROWAVE_FOOTPRINT_SHAPE.FUNCTION_SHAPE,
+};
+const isMicrowaveTool = (t: string): boolean =>
+  t === 'microwaveCreateLine' || t in MICROWAVE_PLACE_TOOLS;
+
+/** `inductorAreaFill` / `inductorAreaStroke` / `inductorAreaStrokeWidth` / `inductorAreaAspect`. */
+const INDUCTOR_AREA_FILL = 'rgba(77, 77, 128, 0.3)'; // [data] COLOR4D( 0.3, 0.3, 0.5, 0.3 ), microwave_tool.cpp:120
+const INDUCTOR_AREA_STROKE = 'rgba(102, 255, 255, 1)'; // [data] COLOR4D( 0.4, 1.0, 1.0, 1.0 ), microwave_tool.cpp:121
+const INDUCTOR_AREA_STROKE_WIDTH = 1.0; // [data] microwave_tool.cpp:122
+const INDUCTOR_AREA_ASPECT = 0.5; // [data] microwave_tool.cpp:126
 
 /**
  * `ACTIONS::selectSetRect` / `ACTIONS::selectSetLasso`: one tool, two drag
@@ -845,6 +874,7 @@ const isSelectTool = (t: string): boolean => t === 'selectSetRect' || t === 'sel
 const isClickTool = (t: string): boolean =>
   t === 'deleteTool' ||
   t === 'localRatsnestTool' ||
+  isMicrowaveTool(t) ||
   t === 'routeSingleTrack' ||
   t === 'drawVia' ||
   t === 'placeText' ||
@@ -1965,6 +1995,17 @@ export function PcbEditor({
     findDialogRects: () => BOX2D[];
     setViewCenter: (aPos: KVec2, aRects: readonly BOX2D[]) => void;
   } | null>(null);
+  // The window half of `MICROWAVE_TOOL`: its two dialogs and the selection.
+  const mwWindowRef = useRef<{
+    textEntry: (
+      aPrompt: string,
+      aCaption: string,
+      aValue: string,
+      aValidator?: wxTextValidator,
+    ) => Promise<string | null>;
+    polygonDialog: () => Promise<boolean>;
+    selectItem: (aItem: FOOTPRINT) => void;
+  } | null>(null);
   if (!frameRef.current) {
     // `PGM_BASE::InitPgm` runs before any KiCad frame exists, and the frame
     // needs it at once: the SetBoard below joins the board to `Prj()`, which is
@@ -2010,6 +2051,10 @@ export function PcbEditor({
       placingFootprint: () => placeFpRef.current !== null,
       placeFootprintFromLibrary: (aFpid, aFootprint) =>
         placeFromBrowserRef.current(aFpid, aFootprint),
+      textEntry: (aPrompt, aCaption, aValue, aValidator) =>
+        mwWindowRef.current!.textEntry(aPrompt, aCaption, aValue, aValidator),
+      mwavePolygonalShapeDialog: () => mwWindowRef.current!.polygonDialog(),
+      selectItem: (aItem) => mwWindowRef.current!.selectItem(aItem),
       setHighlightNets: (aNetCodes) =>
         setHighlightNets((prev) =>
           prev.size === aNetCodes.size && [...aNetCodes].every((c) => prev.has(c))
@@ -2478,6 +2523,36 @@ export function PcbEditor({
    */
   const placeFpRef = useRef<{ lib: PcbFootprint; fpid: string } | null>(null);
   /**
+   * `doInteractiveItemPlacement`'s `newItem` for the four `MICROWAVE_TOOL`
+   * footprints: the live FOOTPRINT `createFootprint` / `createPolygonShape` made,
+   * riding the cursor until the click that `commit.Add`s it. Null between
+   * placements. Drawn through `placeFpSceneRef`, as the library footprint is.
+   */
+  const placeMwRef = useRef<FOOTPRINT | null>(null);
+  /** A `CreateItem()` is waiting on its dialogs: a second click must not start another. */
+  const mwCreatingRef = useRef(false);
+  /**
+   * `drawMicrowaveInductor`'s `tpGeomMgr` and `originSet`: the two-click
+   * rectangle the S-shaped coil is built between.
+   */
+  const mwLineRef = useRef({ mgr: new TWO_POINT_GEOMETRY_MANAGER(), originSet: false });
+  /** `WX_TEXT_ENTRY_DIALOG` as `MICROWAVE_TOOL` asks it. */
+  const [mwTextEntry, setMwTextEntry] = useState<{
+    prompt: string;
+    caption: string;
+    value: string;
+    validator?: wxTextValidator;
+    resolve: (value: string | null) => void;
+  } | null>(null);
+  /** `MWAVE_POLYGONAL_SHAPE_DLG::ShowModal`. */
+  const [mwPolygonOpen, setMwPolygonOpen] = useState<{ resolve: (ok: boolean) => void } | null>(
+    null,
+  );
+  /** The inductor `AddInductor` committed: selected once the view has been re-derived. */
+  const mwSelectRef = useRef<FOOTPRINT | null>(null);
+  /** `doInteractiveItemPlacement`'s `setCursor`: PLACE once `newItem` exists. */
+  const [mwPlacing, setMwPlacing] = useState(false);
+  /**
    * The in-flight footprint compiled at its current cursor position, drawn
    * like a move overlay — upstream it is a real board item that
    * `ACTIONS::selectItem` selected and `SetPosition( cursorPos )` moves on
@@ -2542,10 +2617,24 @@ export function PcbEditor({
     // dropped, never committed (board_editor_control.cpp:1447-1461).
     placeFpRef.current = null;
     placeFpSceneRef.current = null;
+    // `cleanup()`: `newItem = nullptr`, and the coil's rectangle is hidden.
+    placeMwRef.current = null;
+    setMwPlacing(false);
+    mwLineRef.current.originSet = false;
     fpChooserResolveRef.current?.(null);
     fpChooserResolveRef.current = null;
     setFpChooserOpen(false);
   }, [activeTool]);
+  // `ACTIONS::selectItem` on a microwave inductor: the commit put it on the
+  // board, and once the view has been re-derived from the BOARD it can be found.
+  useEffect(() => {
+    const k = mwSelectRef.current;
+    if (!k || !board) return;
+    const id = viewIdOfBoardItem(board, k);
+    if (!id) return;
+    mwSelectRef.current = null;
+    setSelection(new Set([id]));
+  }, [board]);
   const sceneRef = useRef<BoardScene | null>(null);
   /**
    * The WebGL layer, and whether it is the one drawing.
@@ -3081,8 +3170,8 @@ export function PcbEditor({
     () =>
       projectFilesNow()
         .filter((f) => /\.(kicad_pro|kicad_dru)$/i.test(f.name))
-        .map((f) => `${f.name} ${f.text}`)
-        .join(''),
+        .map((f) => `${f.name}�${f.text}`)
+        .join('�'),
     [projectFilesNow],
   );
 
@@ -3584,6 +3673,23 @@ export function PcbEditor({
         );
         ctx.restore();
         ctx.setTransform(1, 0, 0, 1, 0, 0);
+      }
+    }
+    // `drawMicrowaveInductor`'s `previewRect`: shown from the first click, when
+    // `view.SetVisible( &previewRect, true )` follows the first motion.
+    {
+      const line = mwLineRef.current;
+      if (activeToolRef.current === 'microwaveCreateLine' && line.originSet) {
+        drawCentrelineRectItem(ctx, {
+          origin: line.mgr.GetOrigin(),
+          end: line.mgr.GetEnd(),
+          aspect: INDUCTOR_AREA_ASPECT,
+          toPx: (q) => ({ x: q.x * sx + v.tx, y: q.y * v.scale + v.ty }),
+          strokeColor: INDUCTOR_AREA_STROKE,
+          fillColor: INDUCTOR_AREA_FILL,
+          // `SetLineWidth( 1.0 )` is a world width of one internal unit.
+          linePx: INDUCTOR_AREA_STROKE_WIDTH * v.scale,
+        });
       }
     }
     // The footprint riding the cursor (`PlaceFootprint`): the real footprint
@@ -5382,6 +5488,18 @@ export function PcbEditor({
    * and view centring for `FocusOnLocation` / `FocusOnItems`, the item-edit
    * request and the netlist fetch.
    */
+  mwWindowRef.current = {
+    textEntry: (prompt, caption, value, validator) =>
+      new Promise<string | null>((resolve) =>
+        setMwTextEntry({ prompt, caption, value, ...(validator ? { validator } : {}), resolve }),
+      ),
+    polygonDialog: () => new Promise<boolean>((resolve) => setMwPolygonOpen({ resolve })),
+    // `ACTIONS::selectItem` on the inductor: it is selected once the commit has
+    // put it on the board and the view has been re-derived from it.
+    selectItem: (aItem) => {
+      mwSelectRef.current = aItem;
+    },
+  };
   drcWindowRef.current = {
     createDrcDialog: (_aTool: DRC_TOOL): DIALOG_DRC => {
       const frame = frameRef.current!;
@@ -7689,6 +7807,135 @@ export function PcbEditor({
   };
 
   /**
+   * The riding footprint compiled at its current position, for the preview
+   * pass: `view()->Update( &preview )`.
+   */
+  const refreshMicrowavePreview = (): void => {
+    const fp = placeMwRef.current;
+    const brd = boardRef.current;
+    if (!fp || !brd) {
+      placeFpSceneRef.current = null;
+      return;
+    }
+    const at = fp.GetPosition();
+    placeFpSceneRef.current = {
+      at: { x: at.x, y: at.y },
+      scene: buildScene(
+        { ...emptyBoardLike(brd), footprints: [footprintViewOfBoard(fp)] },
+        sceneFilter(),
+      ),
+    };
+  };
+
+  /**
+   * `MICROWAVE_TOOL`'s motion arms. `newItem->SetPosition( cursorPos )` moves the
+   * live footprint; the inductor's rectangle follows once its origin is set
+   * (`tpGeomMgr.SetAngleSnap( GetAngleSnapMode() )`, `SetEnd( cursorPos )`).
+   */
+  const updateMicrowaveCursor = (at: { x: number; y: number }): void => {
+    const fp = placeMwRef.current;
+    if (fp) {
+      const p = fp.GetPosition();
+      if (p.x !== at.x || p.y !== at.y) {
+        fp.SetPosition({ x: at.x, y: at.y });
+        refreshMicrowavePreview();
+      }
+    }
+    const line = mwLineRef.current;
+    if (line.originSet) {
+      line.mgr.SetAngleSnap(shapeAngleSnap('line', ctrlDownRef.current));
+      line.mgr.SetEnd(at);
+    }
+  };
+
+  /** R / Shift+R / F on the riding footprint: `Rotate` about its position, or `Flip`. */
+  const transformMicrowaveItem = (what: 'ccw' | 'cw' | 'flip'): void => {
+    const fp = placeMwRef.current;
+    const frame = frameRef.current;
+    if (!fp || !frame) return;
+    if (what === 'flip') {
+      fp.Flip(fp.GetPosition(), frame.GetPcbNewSettings().m_FlipDirection);
+    } else {
+      // `TOOL_EVT_UTILS::GetEventRotationAngle`: the step, CCW positive.
+      const step = rotationStepRef.current;
+      fp.Rotate(fp.GetPosition(), new EDA_ANGLE(what === 'ccw' ? step : -step));
+    }
+    refreshMicrowavePreview();
+    requestDraw();
+  };
+
+  const transformMicrowaveItemRef = useRef(transformMicrowaveItem);
+  transformMicrowaveItemRef.current = transformMicrowaveItem;
+
+  /**
+   * `MICROWAVE_TOOL::addMicrowaveFootprint` (a `doInteractiveItemPlacement` with
+   * `IPO_REPEAT | IPO_ROTATE | IPO_FLIP`) and `drawMicrowaveInductor`, one click.
+   *
+   * Placement: with nothing on the cursor the click makes the item
+   * (`MICROWAVE_PLACER::CreateItem`, whose dialogs open now) and it rides the
+   * cursor; the next click `PlaceItem`s and pushes "Place microwave feature".
+   * The tool stays armed either way (`IPO_REPEAT`).
+   *
+   * Inductor: the first click sets the origin, the second is the end and runs
+   * `createInductorBetween`, then the tool waits for the next origin.
+   */
+  const handleMicrowaveClick = (world: { x: number; y: number }): void => {
+    const frame = frameRef.current;
+    if (!frame || !frame.GetBoard()) return;
+    const tool = activeToolRef.current;
+    const cursor = cursorSnapRef.current(world);
+
+    if (tool === 'microwaveCreateLine') {
+      const line = mwLineRef.current;
+      if (!line.originSet) {
+        line.mgr.SetOrigin(cursor);
+        line.mgr.SetEnd(cursor);
+        line.originSet = true;
+      } else {
+        line.originSet = false;
+        void frame
+          .MicrowaveTool()
+          .createInductorBetween(
+            { x: Math.round(line.mgr.GetOrigin().x), y: Math.round(line.mgr.GetOrigin().y) },
+            { x: Math.round(line.mgr.GetEnd().x), y: Math.round(line.mgr.GetEnd().y) },
+          );
+      }
+      requestDraw();
+      return;
+    }
+
+    const fp = placeMwRef.current;
+    if (fp) {
+      fp.SetPosition({ x: cursor.x, y: cursor.y });
+      placeMwRef.current = null;
+      setMwPlacing(false);
+      placeFpSceneRef.current = null;
+      frame.PlaceInteractiveItem(fp, 'Place microwave feature');
+      requestDraw();
+      return;
+    }
+
+    if (mwCreatingRef.current) return;
+    const shape = MICROWAVE_PLACE_TOOLS[tool];
+    if (shape === undefined) return;
+    mwCreatingRef.current = true;
+    void frame
+      .MicrowaveTool()
+      .addMicrowaveFootprint(shape)
+      .then((created) => {
+        mwCreatingRef.current = false;
+        // No item created: wait for another click. The tool may also have been
+        // switched away while the dialogs were open.
+        if (!created || activeToolRef.current !== tool) return;
+        created.SetPosition({ x: cursor.x, y: cursor.y });
+        placeMwRef.current = created;
+        setMwPlacing(true);
+        refreshMicrowavePreview();
+        requestDraw();
+      });
+  };
+
+  /**
    * `BOARD_EDITOR_CONTROL::PlaceFootprint`'s left-click arm
    * (board_editor_control.cpp:1466-1526): with nothing on the cursor,
    * `SelectFootprintFromLibrary()` — the chooser — and with a footprint on it,
@@ -9384,6 +9631,10 @@ export function PcbEditor({
       }
       // `fp->SetPosition( cursorPos )` on every motion event (:1533-1539).
       if (placeFpRef.current) updatePlaceFpPreview(snapToGrid({ x: wx, y: wy }));
+      // `doInteractiveItemPlacement`'s motion arm (`newItem->SetPosition( cursorPos )`)
+      // and `drawMicrowaveInductor`'s (`tpGeomMgr.SetEnd( cursorPos )`).
+      if (isMicrowaveTool(activeToolRef.current))
+        updateMicrowaveCursor(cursorSnapRef.current({ x: wx, y: wy }));
       // `ROUTER_TOOL::performRouting`'s motion arm: `updateEndItem( *evt )`
       // then `m_router->Move( m_endSnapPoint, m_endItem )`.
       if (pnsSessionRef.current) {
@@ -9644,6 +9895,9 @@ export function PcbEditor({
         } else if (activeToolRef.current === 'placeReferenceImage') {
           const w = worldAt(e.clientX, e.clientY);
           if (w) handleImageClick(w);
+        } else if (isMicrowaveTool(activeToolRef.current)) {
+          const w = worldAt(e.clientX, e.clientY);
+          if (w) handleMicrowaveClick(w);
         } else if (activeToolRef.current === 'placeFootprint') {
           const w = worldAt(e.clientX, e.clientY);
           if (w) handlePlaceFootprintClick(w);
@@ -9762,6 +10016,16 @@ export function PcbEditor({
       if (!mod && (e.key === 'v' || e.key === 'V') && pnsSessionRef.current) {
         e.preventDefault();
         routeViaSwitchRef.current();
+        return;
+      }
+      // `TOOL_EVT_UTILS::IsRotateToolEvt` / `PCB_ACTIONS::flip` with `IPO_ROTATE |
+      // IPO_FLIP`: the microwave footprint on the cursor turns or flips, not the
+      // selection.
+      if (!mod && placeMwRef.current && 'rRfF'.includes(e.key) && e.key.length === 1) {
+        e.preventDefault();
+        transformMicrowaveItemRef.current(
+          e.key === 'f' || e.key === 'F' ? 'flip' : e.shiftKey ? 'cw' : 'ccw',
+        );
         return;
       }
       if (!mod && (e.key === 'r' || e.key === 'R')) {
@@ -9891,6 +10155,14 @@ export function PcbEditor({
           pnsSessionRef.current.abort();
           pnsSessionRef.current = null;
           pnsPreviewSceneRef.current = null;
+          requestDrawRef.current();
+        } else if (placeMwRef.current || mwLineRef.current.originSet) {
+          // `IsCancelInteractive()`: with an item (or an origin) that is
+          // `cleanup()` and the tool stays; without one, the fall-through pops it.
+          placeMwRef.current = null;
+          setMwPlacing(false);
+          placeFpSceneRef.current = null;
+          mwLineRef.current.originSet = false;
           requestDrawRef.current();
         } else if (placeFpRef.current) {
           // `IsCancelInteractive()` with `fp` set is `cleanup()` — the
@@ -11165,6 +11437,7 @@ export function PcbEditor({
   // MessageTextFromValue at the pcbnew IU scale (PCB_IU_PER_MM), which is the
   // long form: mm %.4f, mils %.2f, inches %.4f.
   unitsRef.current = unitLabel;
+  frameRef.current?.SetUserUnits(unitLabel);
   const fmtCoord = (iu: number): string =>
     messageTextFromValue(iuToMM(iu), unitLabel, PCB_IU_PER_MM);
 
@@ -11582,7 +11855,11 @@ export function PcbEditor({
                 // `PCB_VIEWER_TOOLS::MeasureTool` KICURSOR::MEASURE
                 // (`pcb_viewer_tools.cpp:292`). This frame had neither and
                 // showed the plain arrow for both.
-                cursor: boardToolCursor(activeTool, { tableDragging, imagePlacing }),
+                cursor: boardToolCursor(activeTool, {
+                  tableDragging,
+                  imagePlacing,
+                  microwavePlacing: mwPlacing,
+                }),
               }}
               onPointerDown={onPointerDown}
               onPointerMove={onPointerMove}
@@ -12739,6 +13016,28 @@ export function PcbEditor({
           onDone={(path) => {
             drcSaveReport.resolve(path);
             setDrcSaveReport(null);
+          }}
+        />
+      )}
+      {mwTextEntry && (
+        <WX_TEXT_ENTRY_DIALOG
+          label={mwTextEntry.prompt}
+          caption={mwTextEntry.caption}
+          defaultValue={mwTextEntry.value}
+          {...(mwTextEntry.validator ? { validator: mwTextEntry.validator } : {})}
+          onResult={(value) => {
+            mwTextEntry.resolve(value);
+            setMwTextEntry(null);
+          }}
+        />
+      )}
+      {mwPolygonOpen && (
+        <MwavePolygonalShapeDlg
+          units={unitLabel}
+          iuScale={pcbIUScale}
+          onResult={(ok) => {
+            mwPolygonOpen.resolve(ok);
+            setMwPolygonOpen(null);
           }}
         />
       )}

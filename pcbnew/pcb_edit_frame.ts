@@ -39,6 +39,9 @@ import type { FOOTPRINT_EDITOR_SETTINGS_LIKE } from './pcb_base_frame.js';
 import { PCBNEW_SETTINGS } from './pcbnew_settings.js';
 import { BOARD_COMMIT, SKIP_SET_DIRTY, SKIP_UNDO } from './board_commit.js';
 import type { FOOTPRINT } from './footprint.js';
+import type { wxTextValidator } from '@ziroeda/common/validators.js';
+import { DisplayErrorMessage } from '@ziroeda/common/confirm.js';
+import { MICROWAVE_TOOL, type MICROWAVE_HOST } from './microwave/microwave_tool.js';
 import type { PcbFootprint } from './types.js';
 import type { NETLIST } from './netlist_reader/pcb_netlist.js';
 import { type DIALOG_DRC_LIKE, DRC_TOOL } from './tools/drc_tool.js';
@@ -306,6 +309,27 @@ export interface PCB_EDIT_FRAME_HOOKS {
    * `FOOTPRINT_LIBRARY_ADAPTER` is asked.
    */
   loadFootprintFromLibrary?(aFootprintId: LIB_ID, aKeepUUID: boolean): Promise<FOOTPRINT | null>;
+  /**
+   * `WX_TEXT_ENTRY_DIALOG dlg( frame, aPrompt, aCaption, aValue ).ShowModal()`
+   * with an optional `SetTextValidator`: the entry's text on wxID_OK, null on
+   * wxID_CANCEL. Optional: a frame with no window answers cancel.
+   */
+  textEntry?(
+    aPrompt: string,
+    aCaption: string,
+    aValue: string,
+    aValidator?: wxTextValidator,
+  ): Promise<string | null>;
+  /**
+   * `MWAVE_POLYGONAL_SHAPE_DLG( frame, wxDefaultPosition ).ShowModal()`: true on
+   * wxID_OK. Optional: a frame with no window answers cancel.
+   */
+  mwavePolygonalShapeDialog?(): Promise<boolean>;
+  /**
+   * `m_toolMgr->RunAction<EDA_ITEM*>( ACTIONS::selectItem, aItem )`, the window's
+   * half: the selection shows the item once the commit has put it on the board.
+   */
+  selectItem?(aItem: FOOTPRINT): void;
 }
 
 export interface PCB_EDIT_FRAME
@@ -373,6 +397,57 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   /** `EDA_BASE_FRAME::ShowInfoBarError( aErrorMsg, aShowCloseButton )` (eda_base_frame.cpp). */
   ShowInfoBarError(aErrorMsg: string, aShowCloseButton = false): void {
     this.hooks.showInfoBarError?.(aErrorMsg, aShowCloseButton);
+  }
+
+  /** `MICROWAVE_TOOL` (`pcbnew.MicrowaveTool`): built on first use, over this frame. */
+  private m_microwaveTool: MICROWAVE_TOOL | null = null;
+
+  /**
+   * `GetToolManager()->GetTool<MICROWAVE_TOOL>()`. The tool asks this frame for
+   * what its C++ asks `PCB_EDIT_FRAME` for: the dialogs, the current track
+   * width, unit conversion, a blank footprint on this board and the commit.
+   */
+  MicrowaveTool(): MICROWAVE_TOOL {
+    if (!this.m_microwaveTool) {
+      const host: MICROWAVE_HOST = {
+        GetCurrentTrackWidth: () => this.GetDesignSettings().GetCurrentTrackWidth(),
+        StringFromValue: (aIU) => this.GetUnitsProvider().StringFromValue(aIU),
+        ValueFromString: (aText) => this.GetUnitsProvider().ValueFromString(aText),
+        CreateNewFootprint: (aName, aLib) => this.CreateNewFootprint(aName, aLib),
+        OnModify: () => this.OnModify(),
+        ShowInfoBarError: (aMessage) => this.ShowInfoBarError(aMessage),
+        DisplayError: (aMessage) => DisplayErrorMessage(aMessage),
+        TextEntry: (aPrompt, aCaption, aValue, aValidator) =>
+          this.hooks.textEntry?.(aPrompt, aCaption, aValue, aValidator) ?? Promise.resolve(null),
+        PolygonShapeDialog: () =>
+          this.hooks.mwavePolygonalShapeDialog?.() ?? Promise.resolve(false),
+        AddInductor: (aFootprint) => {
+          // `m_toolMgr->RunAction<EDA_ITEM*>( ACTIONS::selectItem, inductorFP.get() )`
+          this.hooks.selectItem?.(aFootprint);
+
+          const commit = new BOARD_COMMIT(this);
+          commit.Add(aFootprint);
+          commit.Push('Add Microwave Inductor');
+        },
+      };
+
+      this.m_microwaveTool = new MICROWAVE_TOOL(host);
+    }
+
+    return this.m_microwaveTool;
+  }
+
+  /**
+   * `doInteractiveItemPlacement`'s left click on an item riding the cursor:
+   * `aPlacer->PlaceItem( newBoardItem, commit )` is `commit.Add( aItem )`, then
+   * `commit.Push( aCommitMessage )`. The item is at the click already.
+   */
+  PlaceInteractiveItem(aItem: FOOTPRINT, aCommitMessage: string): void {
+    aItem.ClearFlags();
+
+    const commit = new BOARD_COMMIT(this);
+    commit.Add(aItem);
+    commit.Push(aCommitMessage);
   }
 
   /** `PCB_BASE_EDIT_FRAME::GetLayerPairSettings()` (`pcb_base_edit_frame.h:249`). */

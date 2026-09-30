@@ -28,7 +28,10 @@ import { ARC_LOW_DEF } from '@ziroeda/kimath/src/base_units.js';
 import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import { CornerStrategy, SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import { BOX2D } from '@ziroeda/kimath/src/math/box2.js';
-import type { FOOTPRINT } from './footprint.js';
+import { FOOTPRINT, FP_SMD } from './footprint.js';
+import { PCB_TEXT } from './pcb_text.js';
+import { LIB_ID } from '@ziroeda/common/lib_id.js';
+import { ADD_MODE } from './board_item_container.js';
 import type { ZONE } from './zone.js';
 import type { APP_SETTINGS_BASE } from '@ziroeda/common/settings/app_settings.js';
 import type { COLOR_SETTINGS } from '@ziroeda/common/settings/color_settings.js';
@@ -289,6 +292,113 @@ export abstract class PCB_BASE_FRAME extends EDA_DRAW_FRAME {
    */
   GetDesignSettings(): BOARD_DESIGN_SETTINGS {
     return this.m_pcb!.GetDesignSettings();
+  }
+
+  /**
+   * `PCB_BASE_FRAME::CreateNewFootprint` (`footprint_libraries_utils.cpp:1227`):
+   * a blank footprint on this frame's board, its texts taken from
+   * `m_DefaultFPTextItems` (item 0 the Reference, item 1 the Value, every one
+   * after a `PCB_TEXT`) and its size, stroke, italics and upright flag from the
+   * layer class each lands on.
+   *
+   * With a library name, the name is made unique in that library (`_1`, `_2`,
+   * ...) and the attributes are inferred from the last footprint the library
+   * lists, "best efforts".
+   */
+  CreateNewFootprint(aFootprintName: string, aLibName = ''): FOOTPRINT {
+    if (aFootprintName === '') aFootprintName = 'Untitled';
+
+    let footprintAttrs = FP_SMD;
+
+    if (aLibName !== '') {
+      const adapter = this.GetBoard()?.GetFootprintLibAdapter() ?? null;
+
+      if (adapter) {
+        const baseName = aFootprintName;
+        let idx = 1;
+
+        // Make sure the name is unique
+        while (adapter.FootprintExists(aLibName, aFootprintName))
+          aFootprintName = `${baseName}_${idx++}`;
+
+        // Try to infer the footprint attributes from an existing footprint in the library
+        try {
+          const fpnames = adapter.GetFootprintNames?.(aLibName, true) ?? [];
+
+          if (fpnames.length > 0) {
+            const fp = adapter.LoadFootprint(aLibName, fpnames[fpnames.length - 1]!, false);
+
+            if (fp) footprintAttrs = fp.GetAttributes();
+          }
+        } catch {
+          // best efforts
+        }
+      }
+    }
+
+    // Create the new footprint and add it to the head of the linked list of footprints
+    const footprint = new FOOTPRINT(this.GetBoard());
+
+    // Update its name in lib
+    footprint.SetFPID(new LIB_ID('', aFootprintName));
+
+    footprint.SetAttributes(footprintAttrs);
+
+    const settings = this.GetDesignSettings();
+    const items = settings.m_DefaultFPTextItems;
+    const default_pos = { x: 0, y: 0 };
+
+    if (items.length > 0) {
+      footprint.Reference().SetText(items[0]!.m_Text);
+      footprint.Reference().SetVisible(items[0]!.m_Visible);
+    }
+
+    let txt_layer = items[0]!.m_Layer;
+    footprint.Reference().SetLayer(txt_layer);
+    default_pos.y -= Math.trunc(settings.GetTextSize(txt_layer).y / 2);
+    footprint.Reference().SetPosition({ ...default_pos });
+    default_pos.y += settings.GetTextSize(txt_layer).y;
+
+    if (items.length > 1) {
+      footprint.Value().SetText(items[1]!.m_Text);
+      footprint.Value().SetVisible(items[1]!.m_Visible);
+    }
+
+    txt_layer = items[1]!.m_Layer;
+    footprint.Value().SetLayer(txt_layer);
+    default_pos.y += Math.trunc(settings.GetTextSize(txt_layer).y / 2);
+    footprint.Value().SetPosition({ ...default_pos });
+    default_pos.y += settings.GetTextSize(txt_layer).y;
+
+    for (let i = 2; i < items.length; ++i) {
+      const textItem = new PCB_TEXT(footprint);
+      textItem.SetText(items[i]!.m_Text);
+      txt_layer = items[i]!.m_Layer;
+      textItem.SetLayer(txt_layer);
+      default_pos.y += Math.trunc(settings.GetTextSize(txt_layer).y / 2);
+      textItem.SetPosition({ ...default_pos });
+      default_pos.y += settings.GetTextSize(txt_layer).y;
+      footprint.Add(textItem, ADD_MODE.APPEND);
+    }
+
+    if (footprint.GetReference() === '') footprint.SetReference(aFootprintName);
+
+    if (footprint.GetValue() === '') footprint.SetValue(aFootprintName);
+
+    footprint.RunOnChildren((aChild: BOARD_ITEM) => {
+      if (aChild.Type() === KICAD_T.PCB_FIELD_T || aChild.Type() === KICAD_T.PCB_TEXT_T) {
+        const textItem = aChild as PCB_TEXT;
+        const layer = textItem.GetLayer();
+
+        textItem.SetTextThickness(settings.GetTextThickness(layer));
+        textItem.SetTextSize({ ...settings.GetTextSize(layer) });
+        textItem.SetItalic(settings.GetTextItalic(layer));
+        textItem.SetKeepUpright(settings.GetTextUpright(layer));
+      }
+    }, RECURSE_MODE.RECURSE);
+
+    this.SetMsgPanel(footprint);
+    return footprint;
   }
 
   /**

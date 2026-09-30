@@ -515,16 +515,36 @@ export function buildPcbMenus(
           shortcut: 'Ctrl+Shift+K',
           action: () => h.tool('drawRuleArea'),
         },
-        // `muwaveSubmenu` (`:296-304`) — MICROWAVE_TOOL's five shapes. Not
-        // browser-impossible, just unbuilt.
+        // `muwaveSubmenu` (`:296-304`) — MICROWAVE_TOOL's five shapes. None of
+        // the five `PCB_ACTIONS::microwaveCreate*` declares a hotkey.
         {
           label: 'Draw Microwave Shapes',
           submenu: [
-            { label: 'Draw Microwave Lines', disabled: dis },
-            { label: 'Draw Microwave Gaps', disabled: dis },
-            { label: 'Draw Microwave Stubs', disabled: dis },
-            { label: 'Draw Microwave Arc Stubs', disabled: dis },
-            { label: 'Draw Microwave Polygonal Shapes', disabled: dis },
+            {
+              label: 'Draw Microwave Lines',
+              icon: 'microwaveCreateLine',
+              action: () => h.tool('microwaveCreateLine'),
+            },
+            {
+              label: 'Draw Microwave Gaps',
+              icon: 'microwaveCreateGap',
+              action: () => h.tool('microwaveCreateGap'),
+            },
+            {
+              label: 'Draw Microwave Stubs',
+              icon: 'microwaveCreateStub',
+              action: () => h.tool('microwaveCreateStub'),
+            },
+            {
+              label: 'Draw Microwave Arc Stubs',
+              icon: 'microwaveCreateStubArc',
+              action: () => h.tool('microwaveCreateStubArc'),
+            },
+            {
+              label: 'Draw Microwave Polygonal Shapes',
+              icon: 'microwaveCreateFunctionShape',
+              action: () => h.tool('microwaveCreateFunctionShape'),
+            },
           ],
         },
         { sep: true },
