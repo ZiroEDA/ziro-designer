@@ -61,7 +61,7 @@ describe('PCB_IO_PADS::LoadBoard against kicad-cli 10.0.6', () => {
   });
 
   it('has the boards', () => {
-    expect(BOARDS.length).toBe(34);
+    expect(BOARDS.length).toBe(35);
   });
 
   for (const name of BOARDS) {

@@ -1571,5 +1571,35 @@
   "patterns": {},
   "thickness": 1600000,
   "viaSizes": []
+ },
+ "synthetic_ziro_slots_routepins.asc": {
+  "copperLayers": 2,
+  "customTrack": 254000,
+  "customVia": [
+   1016000,
+   508000
+  ],
+  "hasStackup": false,
+  "m_CopperEdgeClearance": 254000,
+  "m_HoleToHoleMin": 254000,
+  "m_MinClearance": 203200,
+  "m_MinThroughDrill": 254000,
+  "m_SilkClearance": 127000,
+  "m_SolderMaskExpansion": 76200,
+  "m_TrackMinWidth": 152400,
+  "m_ViasMinSize": 508000,
+  "netclasses": {
+   "Default": {
+    "clearance": 254000,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 254000,
+    "viaDiameter": 1016000,
+    "viaDrill": 508000
+   }
+  },
+  "patterns": {},
+  "thickness": 1600000,
+  "viaSizes": []
  }
 }
