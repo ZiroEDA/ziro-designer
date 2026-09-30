@@ -18204,7 +18204,7 @@ fieldset.ze-import-netlist-options {
 }
 .ze-fp3d-icon {
   width: 16px; /* [px] `wxART_BUTTON`'s message-box icon. */
-  height: 16px;
+  height: 16px; /* [px] the same icon, square. */
 }
 
 /* ---------------------------------------------------------------------------

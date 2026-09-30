@@ -803,12 +803,12 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   //   the commit that set 684, and missed because that pass diffed
   //   NUMBER_BADGE's change rather than rescanning the whole tree. Found now
   //   by a full rescan, per the "derived twice" rule above.
-  // 139/692 -> 134/684 (#636 stage 3, PCB_SELECTION_TOOL): `.ze-group-editing`,
+  // 139/692 -> 134/683 (#636 stage 3, PCB_SELECTION_TOOL): `.ze-group-editing`,
   // the "Editing group" banner KiCad does not have, went with its markup - five
-  // colours and nine px. The tree it came off already scanned 693 px here, one
-  // over the 692 above, from a commit that landed alongside; 693 - 9 = 684.
-  // Rescanned.
-  'common/widgets': { colours: 134, metrics: 684 },
+  // colours and nine px. (8d09a787's `.ze-fp3d-icon` height, one unmarked px
+  // that briefly put this at 684, now carries its [px] like the width beside it:
+  // GRID_CELL_STATUS_ICON_RENDERER's wxART_BUTTON bitmap, 16 x 16.) Rescanned.
+  'common/widgets': { colours: 134, metrics: 683 },
   'common/tool': { colours: 0, metrics: 1 },
   // metrics 0 -> 15 on 09-26: the stage-1 moves, 8 from `dialogs` and 7 from
   // `editors/schematic`. Nothing added or removed: 8 + 7 = 15.
@@ -1585,9 +1585,9 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // move; 1138 - 89 - 8 agrees with the rescan.
     // 1041 -> 1138 (09-28): back to the pre-move figure with pcbnew/, eeschema/
     // and 3d-viewer/ in the scan; the 97 had left the scan, not the code.
-    // 1138 -> 1130 (#636 stage 3): `.ze-group-editing`'s nine out, from a tree
-    // that already scanned one over; see the `common/widgets` row.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1130);
+    // 1138 -> 1129 (#636 stage 3): `.ze-group-editing`'s nine; see the
+    // `common/widgets` row.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1129);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {
