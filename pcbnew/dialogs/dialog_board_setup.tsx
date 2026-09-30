@@ -199,13 +199,14 @@ function ConIcon({ name }: { name: string }): JSX.Element | null {
 import { PanelTextVariables } from '@ziroeda/common/dialogs/panel_text_variables.js';
 import { PanelSetupNetclasses } from '@ziroeda/common/dialogs/panel_setup_netclasses.js';
 import { PanelEmbeddedFiles } from '@ziroeda/common/dialogs/panel_embedded_files.js';
-import { PanelPcbSeverities } from './panels/panel_pcb_severities.js';
+import { PanelSetupSeverities } from '@ziroeda/common/dialogs/panel_setup_severities.js';
+import { DRC_CATEGORIES, type DrcSeverity } from '../board_settings.js';
 import { PanelPcbTextGraphics } from './panel_setup_text_and_graphics.js';
 import { PanelPcbFormatting } from './panel_setup_formatting.js';
 import { PanelPcbMaskPaste } from './panel_setup_mask_and_paste.js';
 import { PanelPcbZones } from './panel_setup_zones.js';
 import { PanelPcbLayers, layerNameInputId, testLayerNames } from './panel_setup_layers.js';
-import { PanelPcbZoneHatchOffsets } from './panels/panel_pcb_zone_hatch_offsets.js';
+import { PanelPcbZoneHatchOffsets } from './panel_setup_zone_hatch_offsets.js';
 import { PanelPcbTeardrops } from './panel_setup_teardrops.js';
 import { PanelPcbTuning } from './panel_setup_tuning_patterns.js';
 import { PanelPcbTuningProfiles } from './panel_setup_tuning_profiles.js';
@@ -918,9 +919,15 @@ export function DialogBoardSetup({
           id: 'severities',
           label: 'Violation Severity',
           render: () => (
-            <PanelPcbSeverities
-              value={v.drcSeverities}
-              onChange={(drcSeverities) => setV({ ...v, drcSeverities })}
+            // dialog_board_setup.cpp:240-246: the shared PANEL_SETUP_SEVERITIES with
+            // DRC_ITEM::GetItemsWithSeverities() and BDS::m_DRCSeverities.
+            <PanelSetupSeverities
+              groups={DRC_CATEGORIES}
+              severities={v.drcSeverities}
+              namePrefix="drc"
+              onChange={(code, level) =>
+                setV({ ...v, drcSeverities: { ...v.drcSeverities, [code]: level as DrcSeverity } })
+              }
             />
           ),
         },

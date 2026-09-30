@@ -33,7 +33,8 @@ const read = (rel: string): string =>
 
 const SHARED = read('../../../common/dialogs/panel_setup_severities.tsx');
 const SCH = read('../../../eeschema/dialogs/panel_setup_severities.tsx');
-const PCB = read('../../../pcbnew/dialogs/panels/panel_pcb_severities.tsx');
+// pcbnew has no severities panel file: dialog_board_setup instantiates the shared one.
+const PCB = read('../../../pcbnew/dialogs/dialog_board_setup.tsx');
 
 describe('the two Setup dialogs share one severities panel', () => {
   it('is instantiated, not reimplemented, by each editor', () => {
@@ -49,11 +50,10 @@ describe('the two Setup dialogs share one severities panel', () => {
   });
 
   it('is short, because all it does is pass the rule table', () => {
-    // The two copies were 81 and 83 lines of duplicated layout.
-    for (const [name, src] of [
-      ['schematic', SCH],
-      ['pcb', PCB],
-    ] as const) {
+    // The two copies were 81 and 83 lines of duplicated layout. pcbnew's is now
+    // inline in dialog_board_setup.tsx, as in dialog_board_setup.cpp, so only the
+    // schematic wrapper has a length to check.
+    for (const [name, src] of [['schematic', SCH]] as const) {
       const code = src.split('\n').filter((l) => !/^\s*(\*|\/\*|\/\/)/.test(l) && l.trim());
       expect(code.length, name).toBeLessThan(45);
     }

@@ -31,8 +31,8 @@
  */
 
 import type { JSX } from 'react';
-import type { ZoneLayerPropertiesMap } from '../../board_settings.js';
-import { ZoneLayerPropertiesGrid } from '../../zone_layer_properties_grid.js';
+import type { ZoneLayerPropertiesMap } from '../board_settings.js';
+import { ZoneLayerPropertiesGrid } from '../zone_layer_properties_grid.js';
 
 // The data model lives in board_settings.ts (KiCad's data/UI split);
 // re-exported so panel users keep importing from the panel module.
@@ -40,7 +40,7 @@ export {
   defaultZoneLayerProperties,
   type ZoneLayerProperties,
   type ZoneLayerPropertiesMap,
-} from '../../board_settings.js';
+} from '../board_settings.js';
 
 interface Props {
   /** The board's enabled copper layers, in `CuStack()` order. */
