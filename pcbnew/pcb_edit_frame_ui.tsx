@@ -520,6 +520,16 @@ import { Build_Board_Characteristics_Table } from './board_tables/board_characte
 import { Build_Board_Stackup_Table } from './board_tables/board_stackup_table.js';
 import { PCB_ACTIONS, MICROWAVE_FOOTPRINT_SHAPE } from './tools/pcb_actions.js';
 import { MwavePolygonalShapeDlg } from './microwave/microwave_polygon_ui.js';
+import {
+  DialogZoneManager,
+  type ZonePreviewCanvasFactory,
+} from './zone_manager/dialog_zone_manager_ui.js';
+import { ZONE_PREVIEW_CANVAS } from './zone_manager/zone_preview_canvas.js';
+import { drawPanelWindow } from '@ziroeda/common/gal/gal_window.js';
+import { GAL_TYPE } from '@ziroeda/common/draw_panel_gal.js';
+import { wxEVT_SIZE } from '@ziroeda/common/wx/wx_event.js';
+import { boardToBOARD } from './pcb_io/kicad_sexpr/board_view.js';
+import type { ZONE } from './zone.js';
 import { drawCentrelineRectItem } from '@ziroeda/common/preview_items/centreline_rect_item.js';
 import type { wxTextValidator } from '@ziroeda/common/validators.js';
 import type { DRC_TOOL } from './tools/drc_tool.js';
@@ -2005,6 +2015,10 @@ export function PcbEditor({
     ) => Promise<string | null>;
     polygonDialog: () => Promise<boolean>;
     selectItem: (aItem: FOOTPRINT) => void;
+    showZoneManager: () => Promise<{ ok: boolean; repour: boolean }>;
+    fillZones: (aBoard: BOARD, aZones: ZONE[]) => boolean;
+    clearSelection: () => void;
+    fillAllZones: () => void;
   } | null>(null);
   if (!frameRef.current) {
     // `PGM_BASE::InitPgm` runs before any KiCad frame exists, and the frame
@@ -2055,6 +2069,10 @@ export function PcbEditor({
         mwWindowRef.current!.textEntry(aPrompt, aCaption, aValue, aValidator),
       mwavePolygonalShapeDialog: () => mwWindowRef.current!.polygonDialog(),
       selectItem: (aItem) => mwWindowRef.current!.selectItem(aItem),
+      showZoneManager: () => mwWindowRef.current!.showZoneManager(),
+      fillZones: (aBoard, aZones) => mwWindowRef.current!.fillZones(aBoard, aZones),
+      clearSelection: () => mwWindowRef.current!.clearSelection(),
+      fillAllZones: () => mwWindowRef.current!.fillAllZones(),
       setHighlightNets: (aNetCodes) =>
         setHighlightNets((prev) =>
           prev.size === aNetCodes.size && [...aNetCodes].every((c) => prev.has(c))
@@ -2536,6 +2554,10 @@ export function PcbEditor({
    * rectangle the S-shaped coil is built between.
    */
   const mwLineRef = useRef({ mgr: new TWO_POINT_GEOMETRY_MANAGER(), originSet: false });
+  /** `DIALOG_ZONE_MANAGER`, open: `ShowQuasiModal()`'s answer. */
+  const [zoneManager, setZoneManager] = useState<{
+    resolve: (r: { ok: boolean; repour: boolean }) => void;
+  } | null>(null);
   /** `WX_TEXT_ENTRY_DIALOG` as `MICROWAVE_TOOL` asks it. */
   const [mwTextEntry, setMwTextEntry] = useState<{
     prompt: string;
@@ -2550,6 +2572,8 @@ export function PcbEditor({
   );
   /** The inductor `AddInductor` committed: selected once the view has been re-derived. */
   const mwSelectRef = useRef<FOOTPRINT | null>(null);
+  /** `ZONE_FILLER::Fill` over the Zone Manager's clones; set once the fill options exist. */
+  const fillZoneClonesRef = useRef<(aBoard: BOARD, aZones: ZONE[]) => boolean>(() => false);
   /** `doInteractiveItemPlacement`'s `setCursor`: PLACE once `newItem` exists. */
   const [mwPlacing, setMwPlacing] = useState(false);
   /**
@@ -5499,6 +5523,19 @@ export function PcbEditor({
     selectItem: (aItem) => {
       mwSelectRef.current = aItem;
     },
+    showZoneManager: () =>
+      new Promise((resolve) => {
+        setZoneManager((prev) => {
+          prev?.resolve({ ok: false, repour: false });
+          return { resolve };
+        });
+      }),
+    // `m_filler->Fill( clones )` with the board's zone list swapped for them:
+    // the view-based pour runs on a view of the board with the clones in it, and
+    // is written back over the clones alone.
+    fillZones: (aBoard, aZones) => fillZoneClonesRef.current(aBoard, aZones),
+    clearSelection: () => setSelection(new Set()),
+    fillAllZones: () => fillAllZonesRef.current(),
   };
   drcWindowRef.current = {
     createDrcDialog: (_aTool: DRC_TOOL): DIALOG_DRC => {
@@ -8761,6 +8798,23 @@ export function PcbEditor({
   // The global key handler is stable, so it reaches the action through a ref.
   const fillAllZonesRef = useRef(fillAllZones);
   fillAllZonesRef.current = fillAllZones;
+  fillZoneClonesRef.current = (aBoard, aZones) => {
+    // Swap the board's zone list for the clones, pour a view of that board,
+    // write the result back over the clones and restore the originals.
+    const original = [...aBoard.Zones()];
+    try {
+      aBoard.Zones().splice(0, aBoard.Zones().length, ...aZones);
+      const view = boardFromBOARD(aBoard, fileNameRef.current);
+      boardToBOARD(fillZones(view, zoneFillOptions));
+      return true;
+    } catch (err) {
+      console.error('Zone Manager fill failed:', err);
+      return false;
+    } finally {
+      aBoard.Zones().splice(0, aBoard.Zones().length, ...original);
+      aBoard.BuildConnectivity();
+    }
+  };
 
   /**
    * EDIT_TOOL::Properties: open Track & Via Properties on the selection.
@@ -11261,6 +11315,10 @@ export function PcbEditor({
       case 'zoneFillAll':
         fillAllZones();
         break;
+      // `PCB_ACTIONS::zonesManager` -> `GLOBAL_EDIT_TOOL::ZonesManager`.
+      case 'zonesManager':
+        void frameRef.current?.ZonesManager();
+        break;
       case 'polygonmerge':
         applyPolygonBoolean('merge');
         break;
@@ -11379,6 +11437,42 @@ export function PcbEditor({
   const closeFrame = (): void => {
     void cleanup3dCache(commonCfg.system.clear_3d_cache_interval);
     onExit();
+  };
+
+  /**
+   * `ZONE_PREVIEW_NOTEBOOK_PAGE`'s `new ZONE_PREVIEW_CANVAS( board, zone, layer,
+   * page, frame->GetGalDisplayOptions(), frame->GetCanvas()->GetBackend() )`: a
+   * WebGL panel on the page's element. Without WebGL (or before the font atlas
+   * has decoded) the page stays empty, as the main canvas would.
+   */
+  const createZonePreviewCanvas: ZonePreviewCanvasFactory = (aBoard, aZone, aLayer, aPage) => {
+    const inert = {
+      GetView: () => ({ GetScale: () => 1, GetCenter: () => ({ x: 0, y: 0 }) }),
+      LockZoom: () => {},
+      ZoomFitScreen: () => {},
+    };
+    const frame = frameRef.current;
+    if (!frame || !fontImage) return inert;
+    const el = document.createElement('canvas');
+    aPage.appendChild(el);
+    try {
+      const canvas = new ZONE_PREVIEW_CANVAS(
+        aBoard,
+        aZone,
+        aLayer,
+        null,
+        drawPanelWindow(el, fontImage),
+        frame.GetGalDisplayOptions(),
+        frame.GetCanvas()?.GetBackend() ?? GAL_TYPE.GAL_TYPE_OPENGL,
+      );
+      // `Bind( wxEVT_SIZE, [this]( wxSizeEvent& ) { if( !m_zoomLocked ) ZoomFitScreen(); } )`
+      canvas.Connect(wxEVT_SIZE, () => canvas.OnResize());
+      return canvas;
+    } catch (err) {
+      console.warn(`Zone preview: could not use OpenGL: ${(err as Error).message}`);
+      el.remove();
+      return inert;
+    }
   };
 
   // ----- menus (menubar_pcb_editor.cpp structure, working subset active) ------
@@ -12713,6 +12807,12 @@ export function PcbEditor({
             // this path is a zone that already exists, so the button is shown.
             existingZone
             onApply={applyZoneEdit}
+            // `onZoneManager`: `TransferDataFromWindow()`, close, then
+            // `RunAction( zonesManager )` after the commit (`CallAfter`).
+            onOpenZoneManager={(values) => {
+              applyZoneEdit(values);
+              setTimeout(() => void frameRef.current?.ZonesManager(), 0);
+            }}
             onClose={() => setZonePropsIndex(null)}
           />
         )}
@@ -13016,6 +13116,23 @@ export function PcbEditor({
           onDone={(path) => {
             drcSaveReport.resolve(path);
             setDrcSaveReport(null);
+          }}
+        />
+      )}
+      {zoneManager && frameRef.current && board && (
+        <DialogZoneManager
+          frame={{
+            GetBoard: () => frameRef.current!.GetBoard()!,
+            GetColorSettings: () => frameRef.current!.GetColorSettings(),
+            FillZones: (b, z) => frameRef.current!.FillZones(b, z),
+          }}
+          units={unitLabel}
+          nets={board.nets}
+          createCanvas={createZonePreviewCanvas}
+          displayError={DisplayErrorMessage}
+          onResult={(ok, repour) => {
+            zoneManager.resolve({ ok, repour });
+            setZoneManager(null);
           }}
         />
       )}

@@ -578,18 +578,26 @@ all).
   (`CN_RTREE`) is folded into `connectivity_items.ts`. `topo_match.ts` ports
   `topo_match.cpp` (`TMATCH`, the thread pool is a plain loop); nothing calls
   it yet — multichannel / repeat-layout does not exist here.
-- `zone_manager/` (5 KiCad, 5 ours, 0 extra, 09-29): `board_edges_bounding_item`,
+- `zone_manager/` (5 KiCad, 5 ours + `dialog_zone_manager_ui.tsx`, 09-29): `board_edges_bounding_item`,
   `model_zones_overview` (headless over a view interface; a `wxDataViewItem` is a
   row index, `null` invalid), `zone_preview_canvas` (`ZONE_PREVIEW_CANVAS extends
   PCB_DRAW_PANEL_GAL`, `ZONE_PAINTER`), `zone_preview_notebook` (the page/zoom
-  logic; the tab strip is the dialog's) and `dialog_zone_manager.ts` (the
-  dialog's logic, over `DIALOG_ZONE_MANAGER_UI`). **Not wired**: the Place >
-  Zone Manager... row stays greyed. Missing: `dialog_zone_manager_ui.tsx` (the
-  `_base` layout, the data view and drag and drop) and `PANEL_ZONE_PROPERTIES`
-  as a component of its own (its fields are inside `dialogs/dialog_copper_zones.tsx`,
-  over `ZoneValues`; the manager needs them over `ZONE_SETTINGS`). `ZONE_PREVIEW_CANVAS`'s
-  constructor is not exercised by a test (needs a WebGL/2D window); its zoom and
-  painter are, through a bare instance.
+  logic) and `dialog_zone_manager.ts` (the dialog's logic, over
+  `DIALOG_ZONE_MANAGER_UI`). **Wired**: Tools > Zone Manager..., the toolbar zone
+  menu's row and the Copper Zones dialog's "Open Zone Manager..." run
+  `PCB_EDIT_FRAME.ZonesManager()` (`GLOBAL_EDIT_TOOL::ZonesManager`; upstream's
+  `BOARD_COMMIT` is never pushed, so no undo entry). `dialog_zone_manager_ui.tsx`
+  is the `_base` tree: search, Name/Net boxes, layer choice, the zone table (a
+  `ze-grid` table, the data view's read-only rows), the four priority buttons and
+  Auto-assign, `PanelZoneProperties` over `PANEL_ZONE_PROPERTIES`
+  (`dialogs/panel_zone_properties.ts` logic, `panel_zone_properties_ui.tsx` window,
+  shared with the Copper Zones dialog), the preview notebook (one WebGL
+  `ZONE_PREVIEW_CANVAS` per layer, the frame's `createZonePreviewCanvas`),
+  Refill zones, Update Displayed Zones (the view-based pour run on the clones with
+  the board's zone list swapped, `fillZoneClonesRef`) and OK/Cancel. No size is
+  stated anywhere in `_base` (`SetSizeHints( -1, -1 )`, every fbp size -1), so the
+  dialog fits its content. Not exercised: the WebGL canvases (a fake factory
+  stands in) and drag and drop of rows (the buttons do the same swap).
 - `microwave/` (4 KiCad, 4 ours + `microwave_polygon_ui.tsx`, 09-29): `microwave_footprint`
   (Gap / Stub / Arc Stub), `microwave_inductor` (`BuildCornersList_S_Shape`,
   checked point for point against an independent Python transcription,

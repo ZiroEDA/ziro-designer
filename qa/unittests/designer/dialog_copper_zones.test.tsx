@@ -62,7 +62,12 @@ const NETS = new Map([
 
 function open(
   over: Partial<ZoneValues> = {},
-  props: { onApply?: (v: ZoneValues) => void; existingZone?: boolean } = {},
+  props: {
+    onApply?: (v: ZoneValues) => void;
+    existingZone?: boolean;
+    onOpenZoneManager?: (v: ZoneValues) => void;
+    teardrop?: boolean;
+  } = {},
 ): void {
   render(
     <DialogCopperZones
@@ -71,6 +76,8 @@ function open(
       nets={NETS}
       layers={LAYERS}
       existingZone={props.existingZone}
+      teardrop={props.teardrop}
+      onOpenZoneManager={props.onOpenZoneManager}
       onApply={props.onApply ?? (() => {})}
       onClose={() => {}}
     />,
@@ -100,6 +107,40 @@ describe('the frame', () => {
     cleanup();
     open({}, { existingZone: true });
     expect(screen.getByText('Open Zone Manager...')).toBeTruthy();
+  });
+
+  it("Open Zone Manager... hands the dialog's values on and does not apply them itself", () => {
+    // `onZoneManager`: `TransferDataFromWindow()`, then `COPPER_ZONE_OPEN_ZONE_MANAGER`.
+    const onApply = vi.fn();
+    const onOpenZoneManager = vi.fn();
+    open({ name: 'pour' }, { existingZone: true, onApply, onOpenZoneManager });
+    fireEvent.change(document.getElementById('ze-cz-name') as HTMLInputElement, {
+      target: { value: 'edited' },
+    });
+    fireEvent.click(screen.getByText('Open Zone Manager...'));
+    expect(onApply).not.toHaveBeenCalled();
+    expect(onOpenZoneManager).toHaveBeenCalledTimes(1);
+    expect(onOpenZoneManager.mock.calls[0]![0].name).toBe('edited');
+  });
+
+  it('Open Zone Manager... is greyed when nothing is listening', () => {
+    open({}, { existingZone: true });
+    expect((screen.getByText('Open Zone Manager...') as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('a zone with no net hands the forced island choice to the Zone Manager too', () => {
+    const onOpenZoneManager = vi.fn();
+    open({ net: 0, islandRemovalMode: 'always' }, { existingZone: true, onOpenZoneManager });
+    fireEvent.click(screen.getByText('Open Zone Manager...'));
+    expect(onOpenZoneManager.mock.calls[0]![0].islandRemovalMode).toBe('never');
+  });
+
+  it('a legacy teardrop titles the dialog so and fixes smoothing and pad connection', () => {
+    open({}, { teardrop: true });
+    expect(screen.getByText('Legacy Teardrop Properties')).toBeTruthy();
+    expect(screen.queryByText('Copper Zone Properties')).toBeNull();
+    expect((document.getElementById('ze-cz-smoothing') as HTMLButtonElement).disabled).toBe(true);
+    expect((document.getElementById('ze-cz-padconn') as HTMLButtonElement).disabled).toBe(true);
   });
 });
 

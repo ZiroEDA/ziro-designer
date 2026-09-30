@@ -39,6 +39,7 @@ import type { FOOTPRINT_EDITOR_SETTINGS_LIKE } from './pcb_base_frame.js';
 import { PCBNEW_SETTINGS } from './pcbnew_settings.js';
 import { BOARD_COMMIT, SKIP_SET_DIRTY, SKIP_UNDO } from './board_commit.js';
 import type { FOOTPRINT } from './footprint.js';
+import type { ZONE } from './zone.js';
 import type { wxTextValidator } from '@ziroeda/common/validators.js';
 import { DisplayErrorMessage } from '@ziroeda/common/confirm.js';
 import { MICROWAVE_TOOL, type MICROWAVE_HOST } from './microwave/microwave_tool.js';
@@ -330,6 +331,22 @@ export interface PCB_EDIT_FRAME_HOOKS {
    * half: the selection shows the item once the commit has put it on the board.
    */
   selectItem?(aItem: FOOTPRINT): void;
+  /**
+   * `ZONE_FILLER( board, nullptr ).Fill( aZones )` for the Zone Manager's
+   * "Update Displayed Zones": the pour of the clones, with the board's zone
+   * list swapped for them. The pour is the window's (it is still view based);
+   * true when it ran to the end. Optional: absent answers false.
+   */
+  fillZones?(aBoard: BOARD, aZones: ZONE[]): boolean;
+  /**
+   * `DIALOG_ZONE_MANAGER( editFrame ).ShowQuasiModal()`: true for wxID_OK,
+   * with `GetRepourOnClose()`. Optional: absent answers cancel.
+   */
+  showZoneManager?(): Promise<{ ok: boolean; repour: boolean }>;
+  /** `PCB_SELECTION_TOOL::ClearSelection`. */
+  clearSelection?(): void;
+  /** `PCB_ACTIONS::zoneFillAll`. */
+  fillAllZones?(): void;
 }
 
 export interface PCB_EDIT_FRAME
@@ -448,6 +465,50 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     const commit = new BOARD_COMMIT(this);
     commit.Add(aItem);
     commit.Push(aCommitMessage);
+  }
+
+  /** The window half of `ZONE_FILLER::Fill` over clones: see {@link PCB_EDIT_FRAME_HOOKS.fillZones}. */
+  FillZones(aBoard: BOARD, aZones: ZONE[]): boolean {
+    return this.hooks.fillZones?.(aBoard, aZones) ?? false;
+  }
+
+  /**
+   * `GLOBAL_EDIT_TOOL::ZonesManager` (global_edit_tool.cpp:240-290), run by
+   * Tools > Zone Manager..., the toolbar's zone menu and the Copper Zones
+   * dialog's "Open Zone Manager..." button.
+   *
+   * The dialog edits clones and writes them over the board's zones on OK, so
+   * what is left is what the tool does after it: deselect, `OnModify()` (which
+   * clears the zone bounding-box caches), update the zones in the view, rebuild
+   * the connectivity, and the refill when the box was ticked. Upstream's
+   * `BOARD_COMMIT` is populated with `Modify( zone )` and never pushed, so the
+   * change files no undo entry.
+   */
+  async ZonesManager(): Promise<void> {
+    const board = this.GetBoard();
+
+    if (!board || !this.hooks.showZoneManager) return;
+
+    const commit = new BOARD_COMMIT(this);
+
+    for (const zone of board.Zones()) commit.Modify(zone);
+
+    const { ok, repour } = await this.hooks.showZoneManager();
+
+    if (!ok) return;
+
+    // "Ensure all zones are deselected before make any change in view"
+    this.hooks.clearSelection?.();
+
+    this.OnModify();
+
+    for (const zone of board.Zones()) this.GetCanvas()?.GetView().Update(zone);
+
+    // The board's listeners hear the zones changed (the view re-derives), then rebuild connectivity.
+    board.OnItemsChanged([...board.Zones()]);
+    board.BuildConnectivity();
+
+    if (repour) this.hooks.fillAllZones?.();
   }
 
   /** `PCB_BASE_EDIT_FRAME::GetLayerPairSettings()` (`pcb_base_edit_frame.h:249`). */

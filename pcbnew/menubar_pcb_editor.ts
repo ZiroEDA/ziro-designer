@@ -824,7 +824,7 @@ export function buildPcbMenus(
         { label: 'Update Footprints from Library...', disabled: dis },
         { label: 'Migrate 3D Models...', disabled: dis },
         { sep: true },
-        { label: 'Zone Manager...', disabled: dis },
+        { label: 'Zone Manager...', icon: 'zonesManager', action: () => h.action('zonesManager') },
         { sep: true },
         { label: 'Cleanup Tracks & Vias...', disabled: dis },
         { label: 'Remove Unused Pads...', disabled: dis },

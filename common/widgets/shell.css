@@ -18196,3 +18196,172 @@ td.ze-grid-bool {
 .ze-mwave-error {
   margin: 0 5px 5px; /* [data] a DisplayError line has no upstream Add(); wxALL 5 */
 }
+
+/* DIALOG_ZONE_MANAGER (pcbnew/zone_manager/dialog_zone_manager_ui.tsx), each
+   border the Add() of dialog_zone_manager_base.cpp it is marked with. The
+   dialog states no size anywhere (SetSizeHints( -1, -1 ), every fbp size -1,-1):
+   it Fit()s to its content, so it is as wide and tall as its parts, capped by the
+   screen. The two right-hand parts are both proportion 1, so they are equal rows. */
+.ze-zm {
+  width: max-content;
+  max-width: 95vw;
+  max-height: 92vh;
+}
+.ze-zm-top {
+  display: flex; /* [data] m_sizerTop, wxHORIZONTAL, Add( 1, wxEXPAND ) */
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.ze-zm-list {
+  flex: 1 1 0; /* [data] m_sizerTop->Add( m_listPanel, 1, wxEXPAND ) */
+  display: flex;
+  min-width: 0;
+}
+.ze-zm-left {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  margin: 0 5px; /* [data] listPanelSizer->Add( m_leftColumn, 1, wxEXPAND|wxRIGHT|wxLEFT, 5 ) */
+}
+.ze-zm-search {
+  display: flex;
+  align-items: center;
+  margin: 5px 0; /* [data] Add( searchSizer, 0, wxBOTTOM|wxEXPAND|wxTOP, 5 ) */
+}
+.ze-zm-searchbox {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  margin: 0; /* [data] Add( m_filterCtrl, 1, wxALIGN_CENTER_VERTICAL, 1 ): the 1 is a border, but no border flag is set */
+}
+.ze-zm-searchbox .ze-search {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.ze-zm-searchcancel {
+  flex: 0 0 auto;
+  background: none;
+  border: 0;
+  color: inherit;
+  cursor: default;
+}
+.ze-zm-gap10 {
+  flex: 0 0 auto;
+  width: 10px; /* [data] searchSizer->Add( 10, 0, 0, wxEXPAND, 5 ) */
+}
+.ze-zm-check {
+  display: flex;
+  align-items: center;
+  margin: 0 5px; /* [data] Add( m_checkName, 0, wxALIGN_CENTER_VERTICAL|wxRIGHT|wxLEFT, 5 ) */
+}
+.ze-zm-check2 {
+  display: flex;
+  align-items: center; /* [data] Add( m_checkNet, 0, wxALIGN_CENTER_VERTICAL, 5 ): no border flag */
+}
+.ze-zm-layerrow {
+  display: flex;
+  align-items: center;
+  margin: 5px 0; /* [data] Add( layerFilterSizer, 0, wxBOTTOM|wxEXPAND|wxTOP, 5 ) */
+}
+.ze-zm-layerlabel {
+  margin-right: 5px; /* [data] Add( m_layerFilterLabel, 0, wxALIGN_CENTER_VERTICAL|wxRIGHT, 5 ) */
+}
+.ze-zm-layerrow .ze-combo {
+  flex: 1 1 auto; /* [data] Add( m_layerFilter, 1, wxALIGN_CENTER_VERTICAL, 0 ) */
+}
+.ze-zm-table {
+  flex: 1 1 0; /* [data] Add( m_viewZonesOverview, 1, wxEXPAND, 5 ) */
+  min-height: 0;
+  overflow: auto;
+}
+.ze-zm-grid {
+  outline: none;
+}
+.ze-zm-layerbar {
+  display: inline-flex;
+  flex-direction: column;
+  width: 16px; /* [data] LAYER_BAR_WIDTH, model_zones_overview.cpp */
+  vertical-align: middle;
+  margin-right: 5px; /* [data] wxDataViewIconText's icon-to-text gap, GTK cell padding */
+}
+.ze-zm-oprow {
+  display: flex;
+  align-items: center;
+  margin: 5px 0; /* [data] Add( m_sizerZoneOP, 0, wxEXPAND|wxTOP|wxBOTTOM, 5 ) */
+}
+.ze-zm-opbtn {
+  margin-right: 5px; /* [data] Add( m_btnMoveTop, 0, wxALIGN_CENTER_VERTICAL|wxRIGHT, 5 ) */
+}
+.ze-zm-zone {
+  flex: 2 1 0; /* [data] m_sizerTop->Add( m_zonePanel, 2, wxEXPAND ) */
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  min-width: 0;
+}
+.ze-zm-props {
+  min-height: 0; /* [data] m_rightColumn->Add( m_sizerProperties, 1, wxEXPAND ) */
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+.ze-zm-preview {
+  min-height: 0; /* [data] m_rightColumn->Add( m_sizerPreview, 1, wxEXPAND ) */
+  display: flex;
+  flex-direction: column;
+  margin: 0 5px 5px; /* [data] m_sizerPreview->Add( notebook, 1, wxBOTTOM|wxLEFT|wxRIGHT|wxEXPAND, 5 ) */
+}
+.ze-zm-nb {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.ze-zm-nbpages {
+  flex: 1 1 auto;
+  position: relative;
+  min-height: 0;
+}
+.ze-zm-nbpage {
+  position: absolute;
+  inset: 0;
+}
+.ze-zm-nbpage canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.ze-zm-tabswatch {
+  display: inline-block;
+  width: 16px; /* [data] LAYER_ICON_SIZE::WIDTH, zone_preview_notebook.cpp */
+  height: 16px; /* [data] LAYER_ICON_SIZE::HEIGHT */
+  margin-right: 5px; /* [data] the tab's icon-to-label gap, GTK notebook */
+  vertical-align: middle;
+}
+.ze-zm-line {
+  margin: 0; /* [data] m_MainBoxSizer->Add( m_staticline1, 0, wxEXPAND, 5 ): no border flag */
+  border: 0;
+  border-top: 1px solid var(--ctl-border);
+}
+.ze-zm-bottom {
+  display: flex;
+  align-items: center;
+  margin: 5px 0; /* [data] Add( m_sizerBottom, 0, wxBOTTOM|wxEXPAND|wxTOP, 5 ) */
+}
+.ze-zm-repour {
+  display: flex;
+  align-items: center;
+  margin-left: 5px; /* [data] Add( m_checkRepour, 0, wxALIGN_CENTER_VERTICAL|wxLEFT, 5 ) */
+}
+.ze-zm-stretch {
+  flex: 1 1 auto;
+  min-width: 100px; /* [data] Add( 100, 0, 1, wxEXPAND, 5 ) */
+}
+.ze-zm-update {
+  margin-right: 5px; /* [data] Add( m_updateDisplayedZones, 0, wxALIGN_CENTER_VERTICAL|wxRIGHT, 5 ) */
+}
+.ze-zm-bottom .ze-modal-footer {
+  flex: 0 0 auto;
+  border: 0;
+  padding: 0;
+}
