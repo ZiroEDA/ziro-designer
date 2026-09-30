@@ -18144,6 +18144,44 @@ fieldset.ze-maplayers-box {
 }
 
 /* ---------------------------------------------------------------------------
+   DIALOG_IMPORT_NETLIST (dialog_import_netlist_base.cpp), every margin that
+   Add()'s own border. */
+.ze-modal.ze-import-netlist .ze-modal-body.ze-import-netlist-body {
+  flex-direction: column;
+  padding: 0;
+}
+.ze-import-netlist-file {
+  display: flex;
+  align-items: center;
+  margin: 10px; /* [data] `bMainSizer->Add( bSizerNetlistFilename, 0, wxEXPAND|wxALL, 10 )`. */
+}
+.ze-import-netlist-file > label {
+  margin: 0 5px; /* [data] `Add( staticTextNetlistFile, 0, …|wxLEFT|wxRIGHT, 5 )`. */
+}
+.ze-import-netlist-file > .ze-search {
+  flex: 1; /* [data] `Add( m_NetlistFilenameCtrl, 1, wxALIGN_CENTER_VERTICAL, 5 )`. */
+}
+.ze-import-netlist-upper {
+  display: flex;
+  margin: 5px 5px 0; /* [data] `bMainSizer->Add( bUpperSizer, 0, wxEXPAND|wxTOP|wxRIGHT|wxLEFT, 5 )`. */
+}
+fieldset.ze-import-netlist-link,
+fieldset.ze-import-netlist-options {
+  flex: 1; /* [data] proportion 1 on both. */
+  margin: 5px 5px 0; /* [data] `wxEXPAND|wxLEFT|wxRIGHT|wxTOP, 5`. */
+}
+.ze-import-netlist-lower {
+  display: flex;
+  flex: 1;
+  min-height: 250px; /* [data] `bLowerSizer->SetMinSize( wxSize( -1,250 ) )`. */
+  margin: 5px 5px 0; /* [data] `bMainSizer->Add( bLowerSizer, 1, wxEXPAND|wxLEFT|wxRIGHT|wxTOP, 5 )`. */
+}
+.ze-import-netlist-lower > * {
+  flex: 1;
+  margin: 5px; /* [data] `bLowerSizer->Add( m_MessageWindow, 1, wxEXPAND | wxALL, 5 )`. */
+}
+
+/* ---------------------------------------------------------------------------
    Footprint Associations (dialog_footprint_associations_base.cpp).
 
    bMainBoxSizer is one vertical run: label / 5px spacer / grid (each border

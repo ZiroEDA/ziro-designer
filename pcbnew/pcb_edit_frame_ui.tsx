@@ -640,6 +640,8 @@ import { SelectCopperLayerPairDialog } from './sel_layer.js';
 import { DialogFootprintProperties } from './dialogs/dialog_footprint_properties_ui.js';
 import { DialogFootprintAssociations } from './dialogs/dialog_footprint_associations_ui.js';
 import { DialogMapLayers } from './dialogs/dialog_map_layers.js';
+import { DialogImportNetlist, type ImportNetlistOptions } from './dialogs/dialog_import_netlist.js';
+import { loadNetlist as readNetlistText } from './netlist_reader/netlist_reader.js';
 import type { INPUT_LAYER_DESC } from './pcb_io/common/plugin_common_layer_mapping.js';
 import type { PCB_LAYER_ID as MapLayersLayerId } from '@ziroeda/common/layer_id.js';
 import {
@@ -2670,6 +2672,10 @@ export function PcbEditor({
     library: Map<string, PcbFootprint>;
   } | null>(null);
   const [updatePcbBusy, setUpdatePcbBusy] = useState(false);
+  // File > Import > Netlist... (DIALOG_IMPORT_NETLIST): the path it opens on is
+  // `GetLastPath( LAST_PATH_NETLIST )`, null while the dialog is closed.
+  const [importNetlistName, setImportNetlistName] = useState<string | null>(null);
+  const lastNetlistPathRef = useRef('');
   const [updatePcbError, setUpdatePcbError] = useState<{
     message: string;
     details?: string;
@@ -4962,6 +4968,50 @@ export function PcbEditor({
   // ----- Update PCB from Schematic (BOARD_EDITOR_CONTROL::UpdatePCBFromSchematic) --
 
   /**
+   * Every footprint a netlist names, in hand before the synchronous updater runs:
+   * the project's own `.pretty` files, then the hosted libraries (a bare name
+   * searches them alphabetically, as `LoadFootprintWithOptionalNickname` does).
+   */
+  const buildNetlistLibrary = useCallback(
+    async (
+      netlist: NETLIST,
+      files: readonly { name: string; text: string }[],
+    ): Promise<Map<string, PcbFootprint>> => {
+      // Project-local `.kicad_mod` files, keyed by "<pretty dir>:<name>".
+      const projectFootprints = new Map<string, string>();
+      for (const file of files) {
+        const norm = file.name.replace(/\\/g, '/');
+        const match = /([^/]+)\.pretty\/([^/]+)\.kicad_mod$/i.exec(norm);
+        if (match) projectFootprints.set(`${match[1]}:${match[2]}`, file.text);
+      }
+
+      const wanted = new Set<string>();
+      for (const component of netlist.Components()) {
+        const fpid = component.GetFPID();
+        if (fpid !== '') wanted.add(fpid);
+      }
+
+      const library = new Map<string, PcbFootprint>();
+      await Promise.all(
+        [...wanted].map(async (fpid) => {
+          const local = projectFootprints.get(fpid);
+          if (local) {
+            const parsed = parseFootprint(local);
+            if (parsed) {
+              library.set(fpid, parsed);
+              return;
+            }
+          }
+          const fromLibrary = await loadFootprint(fpid);
+          if (fromLibrary) library.set(fpid, fromLibrary);
+        }),
+      );
+      return library;
+    },
+    [loadFootprint],
+  );
+
+  /**
    * FetchNetlistFromSchematic, then load every footprint the netlist names so the
    * synchronous updater can run: the hosted libraries plus any `.pretty` the project
    * carries (FOOTPRINT_LIBRARY_ADAPTER's project rows). A bare footprint name with no
@@ -4990,41 +5040,13 @@ export function PcbEditor({
 
     setUpdatePcbBusy(true);
     try {
-      // Project-local `.kicad_mod` files, keyed by "<pretty dir>:<name>".
-      const projectFootprints = new Map<string, string>();
-      for (const file of files) {
-        const norm = file.name.replace(/\\/g, '/');
-        const match = /([^/]+)\.pretty\/([^/]+)\.kicad_mod$/i.exec(norm);
-        if (match) projectFootprints.set(`${match[1]}:${match[2]}`, file.text);
-      }
-
-      const wanted = new Set<string>();
-      for (const component of fetched.netlist.Components()) {
-        const fpid = component.GetFPID();
-        if (fpid !== '') wanted.add(fpid);
-      }
-
-      const library = new Map<string, PcbFootprint>();
-      await Promise.all(
-        [...wanted].map(async (fpid) => {
-          const local = projectFootprints.get(fpid);
-          if (local) {
-            const parsed = parseFootprint(local);
-            if (parsed) {
-              library.set(fpid, parsed);
-              return;
-            }
-          }
-          const fromLibrary = await loadFootprint(fpid);
-          if (fromLibrary) library.set(fpid, fromLibrary);
-        }),
-      );
+      const library = await buildNetlistLibrary(fetched.netlist, files);
 
       setUpdatePcb({ netlist: fetched.netlist, library });
     } finally {
       setUpdatePcbBusy(false);
     }
-  }, [projectFilesNow, rootPro]);
+  }, [projectFilesNow, rootPro, buildNetlistLibrary]);
 
   // Tools > Update PCB from Schematic, invoked from the schematic editor:
   // MAIL_PCB_UPDATE runs the same dialog as this frame's own F8.
@@ -5037,21 +5059,25 @@ export function PcbEditor({
    * PCB_EDIT_FRAME::OnNetlistChanged's SpreadFootprints + selectItems, which is what
    * leaves the new parts ready to be dragged into place.
    */
-  const performNetlistUpdate = useCallback(
-    (options: UpdatePcbOptions, dryRun: boolean): readonly ReportLine[] => {
+  const runNetlistUpdate = useCallback(
+    (
+      data: { netlist: NETLIST; library: Map<string, PcbFootprint> },
+      options: UpdatePcbOptions,
+      dryRun: boolean,
+    ): readonly ReportLine[] => {
       const brd = boardRef.current;
-      if (!brd || !updatePcb) return [];
+      if (!brd) return [];
 
       const reporter = new Reporter();
       const updater = new BOARD_NETLIST_UPDATER(
         brd,
         reporter,
         (fpid) => {
-          const direct = updatePcb.library.get(fpid);
+          const direct = data.library.get(fpid);
           if (direct) return direct;
           if (fpid.includes(':')) return null;
-          for (const key of [...updatePcb.library.keys()].sort()) {
-            if (key.slice(key.indexOf(':') + 1) === fpid) return updatePcb.library.get(key) ?? null;
+          for (const key of [...data.library.keys()].sort()) {
+            if (key.slice(key.indexOf(':') + 1) === fpid) return data.library.get(key) ?? null;
           }
           return null;
         },
@@ -5068,7 +5094,7 @@ export function PcbEditor({
         },
       );
 
-      const result = updater.UpdateNetlist(updatePcb.netlist);
+      const result = updater.UpdateNetlist(data.netlist);
 
       if (!dryRun) {
         const spread =
@@ -5085,7 +5111,65 @@ export function PcbEditor({
 
       return reporter.lines;
     },
-    [updatePcb, commitBoard],
+    [commitBoard],
+  );
+
+  const performNetlistUpdate = useCallback(
+    (options: UpdatePcbOptions, dryRun: boolean): readonly ReportLine[] =>
+      updatePcb ? runNetlistUpdate(updatePcb, options, dryRun) : [],
+    [updatePcb, runNetlistUpdate],
+  );
+
+  /**
+   * `DIALOG_IMPORT_NETLIST::loadNetlist`: `ReadNetlistFromFile` then
+   * `BOARD_NETLIST_UPDATER::UpdateNetlist` with the dialog's options, on the
+   * same updater Update PCB from Schematic runs. Null when the file cannot be
+   * read (the error is the frame's `DisplayErrorMessage`, as upstream).
+   */
+  const performImportNetlist = useCallback(
+    async (
+      name: string,
+      text: string,
+      opts: ImportNetlistOptions,
+      dryRun: boolean,
+    ): Promise<readonly ReportLine[] | null> => {
+      let loaded: ReturnType<typeof readNetlistText>;
+
+      try {
+        loaded = readNetlistText(text);
+      } catch (e) {
+        DisplayErrorMessage(
+          `Error loading netlist.\n${e instanceof Error ? e.message : String(e)}`,
+        );
+        return null;
+      }
+
+      if (!loaded) {
+        DisplayErrorMessage(`Cannot open netlist file '${name}'.`);
+        return null;
+      }
+
+      lastNetlistPathRef.current = name;
+      const library = await buildNetlistLibrary(loaded.netlist, projectFilesNow());
+
+      return runNetlistUpdate(
+        { netlist: loaded.netlist, library },
+        {
+          // SetFindByTimeStamp( sel == 0 ) / SetLookupByTimestamp( sel == 0 ).
+          relinkFootprints: opts.matchByReference,
+          transferGroups: opts.transferGroups,
+          applyDesignBlockLayouts: false,
+          updateFootprints: opts.updateFootprints,
+          deleteExtraFootprints: opts.deleteExtraFootprints,
+          overrideLocks: opts.overrideLocks,
+          // `updater.SetUpdateFields( true )`; nothing in this dialog removes fields.
+          updateFields: true,
+          removeExtraFields: false,
+        },
+        dryRun,
+      );
+    },
+    [buildNetlistLibrary, projectFilesNow, runNetlistUpdate],
   );
 
   // PCB_BASE_EDIT_FRAME::RestoreCopyFromUndoList / RestoreCopyFromRedoList; the
@@ -11952,6 +12036,9 @@ export function PcbEditor({
       case 'showFootprintAssociations':
         showFootprintAssociations();
         break;
+      case 'importNetlist':
+        setImportNetlistName(lastNetlistPathRef.current);
+        break;
       case 'updatePcbFromSchematic':
         void openUpdatePcb();
         break;
@@ -13035,6 +13122,17 @@ export function PcbEditor({
                   `Error loading PCB '${file.path}'.\n${e instanceof Error ? e.message : String(e)}`,
                 ),
               );
+          }}
+        />
+      )}
+      {importNetlistName !== null && (
+        <DialogImportNetlist
+          netlistName={importNetlistName}
+          readFile={(p) => projectFilesNow().find((f) => f.name === p)?.text ?? null}
+          performLoad={performImportNetlist}
+          onClose={(n) => {
+            lastNetlistPathRef.current = n;
+            setImportNetlistName(null);
           }}
         />
       )}
