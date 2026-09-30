@@ -73,6 +73,7 @@ export interface COMMON_SETTINGS_INPUT {
 // same path here; re-exported for the importers that reached it through Pgm().
 export { DEFAULT_THEME, SETTINGS_MANAGER } from './settings/settings_manager.js';
 import { SETTINGS_MANAGER } from './settings/settings_manager.js';
+import { LIBRARY_MANAGER } from './libraries/library_manager.js';
 
 /** `::GetColorSettings( aName )`: `Pgm().GetSettingsManager().GetColorSettings( aName )`. */
 export function GetColorSettings(aName: string): COLOR_SETTINGS {
@@ -158,6 +159,16 @@ export class PGM_BASE {
 
   GetSettingsManager(): SETTINGS_MANAGER {
     return this.m_settings_manager;
+  }
+
+  /** `m_library_manager`: the library tables of every type, global and project. */
+  private m_library_manager: LIBRARY_MANAGER | null = null;
+
+  /** `GetLibraryManager()`. */
+  GetLibraryManager(): LIBRARY_MANAGER {
+    if (!this.m_library_manager) this.m_library_manager = new LIBRARY_MANAGER();
+
+    return this.m_library_manager;
   }
 
   /**

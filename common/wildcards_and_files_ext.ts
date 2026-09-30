@@ -246,3 +246,18 @@ export const GERBVIEW_JOB_FILTERS: readonly ChooserFilter[] = [gerberJobFileWild
  * (`gerbview/files.cpp:660-663`). One filter, again with no All files.
  */
 export const GERBVIEW_ZIP_FILTERS: readonly ChooserFilter[] = [zipFileWildcard()];
+
+/** `FILEEXT::KiCadDesignBlockLibPathExtension` (:192): a design block library, a directory. [data] */
+export const KiCadDesignBlockLibPathExtension = 'kicad_blocks';
+/** `FILEEXT::KiCadDesignBlockPathExtension` (:193): one design block, a directory. [data] */
+export const KiCadDesignBlockPathExtension = 'kicad_block';
+/** `FILEEXT::KiCadSchematicFileExtension`. [data] */
+export const KiCadSchematicFileExtension = 'kicad_sch';
+/** `FILEEXT::KiCadPcbFileExtension`. [data] */
+export const KiCadPcbFileExtension = 'kicad_pcb';
+/** `FILEEXT::JsonFileExtension`. [data] */
+export const JsonFileExtension = 'json';
+
+/** `FILEEXT::KiCadDesignBlockLibPathWildcard` (:383-387). */
+export const kicadDesignBlockLibPathWildcard = (): ChooserFilter =>
+  fileFilter('KiCad design block library paths', [KiCadDesignBlockLibPathExtension]);

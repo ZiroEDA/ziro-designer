@@ -23,6 +23,8 @@ import type { KIWAY_MAIL_EVENT } from '@ziroeda/common/kiway_mail.js';
 import { STRTOK, strncpyLine } from '@ziroeda/common/libc/string.js';
 import { MAIL_T } from '@ziroeda/common/mail_type.js';
 import type { CROSS_PROBING_SETTINGS } from '@ziroeda/common/settings/app_settings.js';
+import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
+import { SELECTION } from '@ziroeda/common/tool/selection.js';
 import { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
 import { applyMixins } from '@ziroeda/core/mixins.js';
 import { SCH_BASE_FRAME } from './sch_base_frame.js';
@@ -32,6 +34,9 @@ import type { SCH_SCREEN } from './sch_screen.js';
 import type { SCH_SHEET_PATH } from './sch_sheet_path.js';
 import type { SCH_CLEANUP_FLAGS, SCHEMATIC } from './schematic.js';
 import { SCH_UNDO_REDO_MIXIN } from './schematic_undo_redo.js';
+import { SCH_DESIGN_BLOCK_UTILS_MIXIN } from './sch_design_block_utils.js';
+import type { SCH_DESIGN_BLOCK_PANE } from './widgets/sch_design_block_pane.js';
+import type { SCH_GROUP } from './sch_group.js';
 
 export interface SCH_EDIT_FRAME_HOOKS {
   /** `eeconfig()->m_CrossProbing`, read on every probe so a changed preference is seen. */
@@ -61,10 +66,20 @@ export interface SCH_EDIT_FRAME_HOOKS {
    * schematic is not ready to netlist, which leaves the payload unchanged.
    */
   getNetlist(aAnnotateMessage: string): string | null;
+  /**
+   * `SCH_SELECTION_TOOL::GetSelection()` on the live model (the design block
+   * commands read it). Optional: a frame with no selection tool has none.
+   */
+  currentSelection?(): readonly EDA_ITEM[];
+  /**
+   * `ACTIONS::selectionClear` then `ACTIONS::selectItem( aGroup )`, after a
+   * saved selection was grouped as its design block.
+   */
+  selectGroup?(aGroup: SCH_GROUP): void;
 }
 
 // biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (SCH_UNDO_REDO_MIXIN, see libs/core/mixins.ts)
-export interface SCH_EDIT_FRAME extends SCH_UNDO_REDO_MIXIN {}
+export interface SCH_EDIT_FRAME extends SCH_UNDO_REDO_MIXIN, SCH_DESIGN_BLOCK_UTILS_MIXIN {}
 
 // biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (SCH_UNDO_REDO_MIXIN, see libs/core/mixins.ts)
 export class SCH_EDIT_FRAME extends SCH_BASE_FRAME {
@@ -72,6 +87,28 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME {
 
   /// The live-model schematic this frame edits (null until one is set).
   private m_schematic: SCHEMATIC | null = null;
+
+  /// `m_designBlocksPane`: the Design Blocks dock, set by the window that docks it.
+  m_designBlocksPane: SCH_DESIGN_BLOCK_PANE | null = null;
+
+  /** `GetDesignBlockPane()`. */
+  GetDesignBlockPane(): SCH_DESIGN_BLOCK_PANE | null {
+    return this.m_designBlocksPane;
+  }
+
+  /** `GetCurrentSelection()`: the selection tool's selection. */
+  override GetCurrentSelection(): SELECTION {
+    const selection = new SELECTION();
+
+    for (const item of this.hooks.currentSelection?.() ?? []) selection.Add(item);
+
+    return selection;
+  }
+
+  /** What `SaveSelectionAsDesignBlock` does with the group it made: select it. */
+  OnDesignBlockGrouped(aGroup: SCH_GROUP): void {
+    this.hooks.selectGroup?.(aGroup);
+  }
 
   /// Set when an undo/redo or recalculation may have changed the highlighted net.
   m_highlightedConnChanged = false;
@@ -620,7 +657,7 @@ export const SCH_BOTTOM_DOCK = {
   minHeight: 60,
 } as const;
 
-applyMixins(SCH_EDIT_FRAME, [SCH_UNDO_REDO_MIXIN]);
+applyMixins(SCH_EDIT_FRAME, [SCH_UNDO_REDO_MIXIN, SCH_DESIGN_BLOCK_UTILS_MIXIN]);
 
 /**
  * `SCH_EDIT_FRAME::updateTitle` (eeschema/sch_edit_frame.cpp:1819-1862).
