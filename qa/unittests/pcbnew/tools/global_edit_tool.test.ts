@@ -91,6 +91,8 @@ class GLOBAL_EDIT_FRAME extends TEST_PCB_FRAME implements GLOBAL_EDIT_TOOL_FRAME
   ShowZoneManagerDialog(): Promise<{ ok: boolean; repour: boolean }> {
     return Promise.resolve(this.zoneAnswer);
   }
+
+  ShowCleanupTracksAndViasDialog(): void {}
 }
 
 /** ZONE_FILLER_TOOL as far as the posted zoneFillAll: it counts the fills. */
