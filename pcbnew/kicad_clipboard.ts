@@ -1404,7 +1404,7 @@ export class CLIPBOARD_IO {
       // we will fake being a .kicad_pcb to get the full parser kicking
       // This means we also need layers and nets
       formatter.Print(
-        `(kicad_pcb (version ${SEXPR_BOARD_FILE_VERSION}) (generator "pcbnew") (generator_version ${formatter.Quotew(MAJOR_MINOR_VERSION)})`,
+        `(kicad_pcb (version ${SEXPR_BOARD_FILE_VERSION}) (generator ${formatter.Quotew(GENERATOR)}) (generator_version ${formatter.Quotew(MAJOR_MINOR_VERSION)})`,
       );
 
       io.FormatBoardLayers(board);
