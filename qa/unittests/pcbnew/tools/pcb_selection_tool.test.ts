@@ -15,7 +15,7 @@ import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import { GAL_DISPLAY_OPTIONS } from '@ziroeda/common/gal/gal_display_options.js';
 import { GAL } from '@ziroeda/common/gal/graphics_abstraction_layer.js';
 import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
-import { PGM_BASE, SETTINGS_MANAGER, SetPgm } from '@ziroeda/common/pgm_base.js';
+import { PGM_BASE, Pgm, SETTINGS_MANAGER, SetPgm } from '@ziroeda/common/pgm_base.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import type { ACTION_MENU } from '@ziroeda/common/tool/action_menu.js';
 import {
@@ -61,6 +61,14 @@ import {
   PCB_SELECTION_TOOL,
 } from '@ziroeda/pcbnew/tools/pcb_selection_tool.js';
 import { TEST_PCB_FRAME } from '../support/test_pcb_frame.js';
+import { TOOL_DISPATCHER } from '@ziroeda/common/tool/tool_dispatcher.js';
+import { wxMouseEventFromDom } from '@ziroeda/common/wx/dom_events.js';
+import { wxSetMouseButtons } from '@ziroeda/common/wx/wx_event.js';
+import {
+  makeGatedDispatcher,
+  WINDOW_ACTION_BRIDGE,
+} from '@ziroeda/pcbnew/tools/window_action_bridge.js';
+import { MOUSE_DRAG_ACTION } from '@ziroeda/common/mouse_drag_action.js';
 
 const MM = 1_000_000;
 
@@ -584,3 +592,90 @@ void TA_CHOICE_MENU_CHOICE;
 void TA_CHOICE_MENU_CLOSED;
 void TA_CHOICE_MENU_UPDATE;
 void EVENTS;
+
+describe('the frame dispatcher, when a window gesture takes the release (#636 stage 3)', () => {
+  it('a press after a window-owned drag is a press again, so the next click selects', () => {
+    const h = harness();
+    // WX_VIEW_CONTROLS answers screen pixels for GetMousePosition( false ).
+    const vc = h.mgr.GetViewControls() as unknown as { GetMousePosition(w?: boolean): Vec2 };
+    vc.GetMousePosition = (aWorld = true) => (aWorld ? h.mouse : h.view.ToScreen(h.mouse));
+    // the window's move: PCB_ACTIONS::move through WINDOW_ACTION_BRIDGE, after
+    // which the window owns the pointer until the button comes up
+    let toWindow = false;
+    const moves: string[] = [];
+    const bridge = new WINDOW_ACTION_BRIDGE((aAction) => {
+      moves.push(aAction.GetName());
+      toWindow = true;
+    });
+    h.mgr.RegisterTool(bridge);
+    h.mgr.InitTools();
+    // Preferences > Mouse and Touchpad's default left drag: drag the selected items
+    h.frame.CommonSettingsChanged(0, {
+      drag_left: MOUSE_DRAG_ACTION.DRAG_SELECTED,
+      warp_mouse_on_move: true,
+      immediate_actions: true,
+    });
+    const disp = makeGatedDispatcher(new TOOL_DISPATCHER(h.mgr), () => toWindow);
+    const target = {
+      getBoundingClientRect: () => ({ left: 0, top: 0, width: 1000, height: 1000 }),
+    } as unknown as HTMLElement;
+    const send = (aKind: 'down' | 'up' | 'move', aAt: Vec2, aButtons: number): void => {
+      const px = h.view.ToScreen(aAt);
+      h.mouse = aAt;
+      wxSetMouseButtons(aButtons);
+      const dom = {
+        button: 0,
+        buttons: aButtons,
+        detail: 1,
+        clientX: px.x,
+        clientY: px.y,
+        pageX: px.x,
+        pageY: px.y,
+        timeStamp: 0,
+        shiftKey: false,
+        ctrlKey: false,
+        altKey: false,
+        metaKey: false,
+      } as unknown as PointerEvent;
+      disp.DispatchWxEvent(wxMouseEventFromDom(target, dom, aKind));
+    };
+
+    // select R1, then press on it and drag: the selection tool's drag branch
+    // hands the move to the window, which then owns the pointer
+    const fp = mm(63, 31);
+    send('move', fp, 0);
+    send('down', fp, 1);
+    send('up', fp, 0);
+    expect(selectedUuids(h)).toEqual([U(1)]);
+    send('down', fp, 1);
+    send('move', mm(66, 31), 1);
+    expect(moves).toEqual(['pcbnew.InteractiveMove.move']);
+    send('move', mm(70, 31), 1);
+    send('up', mm(70, 31), 0);
+    // the window's pointer-up ends its move
+    toWindow = false;
+
+    // a plain click on the track - with no motion first, so nothing but the
+    // reset can tell the dispatcher the button was ever released - selects it
+    const tr = mm(15, 10);
+    send('down', tr, 1);
+    send('up', tr, 0);
+    expect(selectedUuids(h)).toEqual([U(20)]);
+  });
+});
+
+describe('TOOLS_HOLDER::CommonSettingsChanged (tools_holder.cpp:159)', () => {
+  it("takes the left-drag action from Pgm's COMMON_SETTINGS when the frame hands none over", () => {
+    const h = harness();
+    Pgm().SetCommonSettings({
+      m_Input: {
+        drag_left: MOUSE_DRAG_ACTION.DRAG_SELECTED,
+        warp_mouse_on_move: false,
+        immediate_actions: true,
+      },
+    } as never);
+    expect(h.frame.GetDragAction()).toBe(MOUSE_DRAG_ACTION.SELECT);
+    h.frame.CommonSettingsChanged();
+    expect(h.frame.GetDragAction()).toBe(MOUSE_DRAG_ACTION.DRAG_SELECTED);
+  });
+});

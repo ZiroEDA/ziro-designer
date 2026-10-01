@@ -3847,7 +3847,12 @@ export class PCB_SELECTION_TOOL extends SELECTION_TOOL {
    */
   private selectionContains(aPoint: VECTOR2I): boolean {
     const GRIP_MARGIN = 20;
-    const margin = KiROUND(this.getView()!.ToWorld(GRIP_MARGIN));
+    const view = this.getView();
+
+    // A frame with no canvas (a headless one) has no screen to grip in.
+    if (!view) return false;
+
+    const margin = KiROUND(view.ToWorld(GRIP_MARGIN));
 
     // Check if the point is located close to any of the currently selected items
     for (const item of this.m_selection) {

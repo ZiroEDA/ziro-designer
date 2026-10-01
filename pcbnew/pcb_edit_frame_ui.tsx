@@ -4873,6 +4873,23 @@ export function PcbEditor({
     if (!panelRef.current) return;
     frameRef.current?.GetGalDisplayOptions().ReadCommonConfig(commonSettingsOf(), window);
   }, [antialiasingMode]);
+  // `TOOLS_HOLDER::CommonSettingsChanged`: the left-drag action, warp-on-move
+  // and immediate actions the selection and edit tools read off the frame.
+  // Once Pgm() is installed (the panel effect), and again whenever
+  // Preferences > Mouse and Touchpad changes them.
+  const commonInput = commonCfg.input as {
+    mouse_left?: string;
+    warp_mouse_on_move?: boolean;
+    immediate_actions: boolean;
+  };
+  const inputLeftDrag = commonInput.mouse_left;
+  const inputWarp = commonInput.warp_mouse_on_move;
+  const inputImmediate = commonInput.immediate_actions;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the three settings and the panel are the triggers; the frame reads Pgm()
+  useEffect(() => {
+    if (!panelReady) return;
+    frameRef.current?.CommonSettingsChanged();
+  }, [inputLeftDrag, inputWarp, inputImmediate, panelReady]);
   const boardK = board?.k ?? null;
   useEffect(() => {
     const frame = frameRef.current;

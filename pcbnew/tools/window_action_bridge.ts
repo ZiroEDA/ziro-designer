@@ -19,6 +19,14 @@ import type { RESET_REASON } from '@ziroeda/common/tool/tool_base.js';
 import type { TOOL_ACTION } from '@ziroeda/common/tool/tool_action.js';
 import type { TOOL_EVENT } from '@ziroeda/common/tool/tool_event.js';
 import { SYNC_HANDLER, TOOL_INTERACTIVE } from '@ziroeda/common/tool/tool_interactive.js';
+import {
+  type wxEvent,
+  wxEVT_AUX1_UP,
+  wxEVT_AUX2_UP,
+  wxEVT_LEFT_UP,
+  wxEVT_MIDDLE_UP,
+  wxEVT_RIGHT_UP,
+} from '@ziroeda/common/wx/wx_event.js';
 import { PCB_ACTIONS } from './pcb_actions.js';
 
 /** The window's implementation of an action whose tool is not ported. */
@@ -61,3 +69,46 @@ export class WINDOW_ACTION_BRIDGE extends TOOL_INTERACTIVE {
     }
   }
 }
+
+/**
+ * TRANSITIONAL (#636 stage 3): the frame's TOOL_DISPATCHER, with the window's
+ * own tools' events kept off it (`aToWindow`).
+ *
+ * A gesture the window takes over can start in the middle of a press the
+ * dispatcher saw begin: the selection tool's drag branch runs
+ * `PCB_ACTIONS::move`, the window's move then owns the pointer, and the
+ * button's release goes to the window. The dispatcher, never seeing that
+ * release, would keep the button pressed and dragging - its next press is then
+ * not a press at all, the pointer's motion is a drag, and the selection tool
+ * sits in SelectRectArea for good. So a release the window takes also resets
+ * the dispatcher's button state, as `TOOL_DISPATCHER::ResetState` does when
+ * the canvas loses the focus.
+ */
+export function makeGatedDispatcher(
+  aDispatcher: { DispatchWxEvent(aEvent: wxEvent): void; ResetState(): void },
+  aToWindow: (aEvent: wxEvent) => boolean,
+  aAfter: () => void = () => {},
+): { DispatchWxEvent(aEvent: wxEvent): void; ResetState(): void } {
+  return {
+    DispatchWxEvent: (aEvent: wxEvent): void => {
+      if (aToWindow(aEvent)) {
+        if (BUTTON_UP_EVENTS.includes(aEvent.GetEventType())) aDispatcher.ResetState();
+
+        aEvent.Skip();
+        return;
+      }
+
+      aDispatcher.DispatchWxEvent(aEvent);
+      aAfter();
+    },
+    ResetState: (): void => aDispatcher.ResetState(),
+  };
+}
+
+const BUTTON_UP_EVENTS = [
+  wxEVT_LEFT_UP,
+  wxEVT_RIGHT_UP,
+  wxEVT_MIDDLE_UP,
+  wxEVT_AUX1_UP,
+  wxEVT_AUX2_UP,
+];

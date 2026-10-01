@@ -83,7 +83,11 @@ import type { wxEvent } from '@ziroeda/common/wx/wx_event.js';
 import type { SelectionFilter } from './dialogs/dialog_filter_selection.js';
 import { PCB_POINT_EDITOR } from './tools/pcb_point_editor.js';
 import { PCB_SELECTION_TOOL } from './tools/pcb_selection_tool.js';
-import { type WINDOW_ACTION_HANDLER, WINDOW_ACTION_BRIDGE } from './tools/window_action_bridge.js';
+import {
+  makeGatedDispatcher,
+  type WINDOW_ACTION_HANDLER,
+  WINDOW_ACTION_BRIDGE,
+} from './tools/window_action_bridge.js';
 import {
   LAYER_PAIR_SETTINGS,
   PCB_CURRENT_LAYER_PAIR_CHANGED,
@@ -618,18 +622,11 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
 
     // TRANSITIONAL (#636 stage 3): an event one of the window's own tools owns
     // goes to the window, not to the dispatcher (see `eventToWindow`).
-    this.m_toolDispatcher = {
-      DispatchWxEvent: (aEvent: wxEvent): void => {
-        if (this.hooks.eventToWindow?.(aEvent)) {
-          aEvent.Skip();
-          return;
-        }
-
-        dispatcher.DispatchWxEvent(aEvent);
-        this.OnIdle();
-      },
-      ResetState: (): void => dispatcher.ResetState(),
-    } as unknown as TOOL_DISPATCHER;
+    this.m_toolDispatcher = makeGatedDispatcher(
+      dispatcher,
+      (aEvent: wxEvent) => this.hooks.eventToWindow?.(aEvent) ?? false,
+      () => this.OnIdle(),
+    ) as unknown as TOOL_DISPATCHER;
 
     // Register tools
     this.m_toolManager.RegisterTool(new PCB_SELECTION_TOOL());
@@ -641,6 +638,12 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
       new WINDOW_ACTION_BRIDGE((aAction, aEvent) => this.hooks.windowAction?.(aAction, aEvent)),
     );
     this.m_toolManager.InitTools();
+
+    // `EDA_BASE_FRAME::LoadWindowSettings` ends with `TOOLS_HOLDER::CommonSettingsChanged()`:
+    // the left-drag action (`m_dragAction`), warp-on-move and immediate actions
+    // from COMMON_SETTINGS. Without it the drag action stays TOOLS_HOLDER's
+    // SELECT, and every drag - from a selected footprint too - is a selection box.
+    this.CommonSettingsChanged();
 
     for (const tool of this.m_toolManager.Tools()) {
       if (tool instanceof PCB_TOOL_BASE) tool.SetIsBoardEditor(true);
