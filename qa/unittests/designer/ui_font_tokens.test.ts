@@ -302,7 +302,7 @@ const BASELINE: Record<string, number> = {
   // RESCANNED from this tree.
   // 8 -> 39 (09-28): the scan now reads pcbnew/ and 3d-viewer/. The drop to 8
   // was the file-structure move carrying sites out of view, not removing them.
-  'editors/pcb': 39, // +1: the Footprint Editor window moved into pcbnew/; -1 (10-01): b7f7835f deleted Filter Selection's invented "N items kept" line
+  'editors/pcb': 32, // +1: the Footprint Editor window moved into pcbnew/; -1 (10-01): b7f7835f deleted Filter Selection's invented "N items kept" line; -7 (10-01): 860a063c deleted the legacy Position Relative dialog
   // 55 -> 50: the COLOR_SWATCH sweep's second half. Seven Clear buttons and
   // one `(using Schematic Editor colors)` hint each carried an inline
   // `fontSize: 11`, and none of them exists upstream - the swatch clears
@@ -737,7 +737,9 @@ describe('hardcoded font sizes do not grow', () => {
     // this scan and into `central_values`'; its two literals were not removed.
     // 98 -> 97 (10-01): b7f7835f deleted Filter Selection's "N items kept"
     // line (11.5px), which KiCad's dialog does not have - see `editors/pcb`.
-    expect(sites.length).toBe(97);
+    // 97 -> 90 (10-01): 860a063c deleted the legacy DialogPositionRelative,
+    // replaced by DIALOG_POSITION_RELATIVE in the panel font - see `editors/pcb`.
+    expect(sites.length).toBe(90);
   });
 });
 
