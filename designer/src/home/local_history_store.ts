@@ -126,8 +126,25 @@ export async function listSnapshots(projectId: string): Promise<Snapshot[]> {
     const opened = (await Promise.all(rows.map((r) => openRecord<SnapshotRecord>(r)))).filter(
       (r): r is SnapshotRecord => r !== null,
     );
-    return opened.sort((a, b) => b.at - a.at).map(({ projectId: _p, ...s }) => s);
+    return opened.sort(newestFirst).map(({ projectId: _p, ...s }) => s);
   }, []);
+}
+
+/**
+ * Newest first. `at` alone ties for two saves inside one millisecond, and the
+ * index hands ties back oldest first, so `commitSnapshot` compared against the
+ * OLDER of the two: a file reverted within that millisecond read as unchanged
+ * and the save was dropped. The id's suffix is the sub-millisecond stamp that
+ * separates them, compared as a number - as a base-36 string it misorders
+ * across a change of length.
+ */
+function newestFirst(a: { at: number; id: string }, b: { at: number; id: string }): number {
+  return b.at - a.at || idTick(b.id) - idTick(a.id);
+}
+
+function idTick(id: string): number {
+  const tick = Number.parseInt(id.slice(id.indexOf('-') + 1), 36);
+  return Number.isNaN(tick) ? 0 : tick;
 }
 
 /**

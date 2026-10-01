@@ -11,7 +11,7 @@
  * of those is silent when wrong - the pane looks fine and the origin fills up.
  */
 import 'fake-indexeddb/auto';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   commitSnapshot,
   deleteProjectHistory,
@@ -140,6 +140,23 @@ describe('blobs are shared, not copied', () => {
     await commitSnapshot(PRJ, [file('a', 'v2')]);
     const third = await commitSnapshot(PRJ, [file('a', 'v1')]);
     expect(dec.decode((await readSnapshot(third!.id))?.[0]?.bytes)).toBe('v1');
+  });
+});
+
+describe('saves inside one millisecond', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('compares against the newer of two same-millisecond snapshots', async () => {
+    // Two saves with one `at` used to sort oldest-first, so the revert to v1
+    // was compared against v1 itself and dropped as "nothing changed".
+    vi.spyOn(Date, 'now').mockReturnValue(1_790_000_000_000);
+    await commitSnapshot(PRJ, [file('a', 'v1')]);
+    await commitSnapshot(PRJ, [file('a', 'v2')]);
+    const third = await commitSnapshot(PRJ, [file('a', 'v1')]);
+    expect(third).not.toBeNull();
+    const list = await listSnapshots(PRJ);
+    expect(list).toHaveLength(3);
+    expect(list[0]?.id).toBe(third?.id);
   });
 });
 
