@@ -14,34 +14,6 @@ import { toolCursorCss } from '@ziroeda/common/tool/tool_cursors.js';
 /** What the board canvas needs to know beyond the tool id. */
 export interface BoardCursorState {
   /**
-   * A table's first corner has been clicked and the second is being dragged.
-   *
-   * `DRAWING_TOOL::DrawTable`'s `setCursor` is a two-arm chain rather than one
-   * answer (`drawing_tool.cpp:1203-1210`):
-   *
-   *     if( table ) SetCurrentCursor( KICURSOR::MOVING );
-   *     else        SetCurrentCursor( KICURSOR::PENCIL );
-   *
-   * so the tool id alone cannot answer for it — the same reason
-   * `editors/drawingsheet/cursors.ts` takes a state.
-   */
-  tableDragging?: boolean;
-  /**
-   * An image is on the cursor, between the file chooser and the click that
-   * drops it.
-   *
-   * `DRAWING_TOOL::PlaceReferenceImage`'s `setCursor` is the same two-arm chain
-   * (`drawing_tool.cpp:105-112`):
-   *
-   *     if( image ) SetCurrentCursor( KICURSOR::MOVING );
-   *     else        SetCurrentCursor( KICURSOR::ARROW );
-   *
-   * The idle arm is the plain arrow, which is this frame's fallback and why
-   * `placeReferenceImage` is deliberately absent from `ui/tool_cursors.ts`. The
-   * MOVING arm is the half that needs the state, exactly as the table's does.
-   */
-  imagePlacing?: boolean;
-  /**
    * `doInteractiveItemPlacement`'s `setCursor`: a `MICROWAVE_TOOL` footprint
    * (`newItem`) is on the pointer.
    */
@@ -60,10 +32,6 @@ export interface BoardCursorState {
  * source, not a measurement. Everything unarmed is the plain arrow.
  */
 export const boardToolCursor = (tool: string, state: BoardCursorState = {}): string => {
-  // The one tool whose cursor changes partway through the gesture. Checked
-  // before the shared table, which holds its idle answer.
-  if (tool === 'drawTable' && state.tableDragging) return kiCursor('MOVING');
-  if (tool === 'placeReferenceImage' && state.imagePlacing) return kiCursor('MOVING');
   if (tool === 'localRatsnestTool') return kiCursor('BULLSEYE');
   // `BOARD_EDITOR_CONTROL::PlaceFootprint`'s `setCursor` is one unconditional
   // line, `SetCurrentCursor( KICURSOR::PENCIL )` (board_editor_control.cpp:1370),

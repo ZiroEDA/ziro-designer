@@ -7,6 +7,7 @@
  * driven by mouse events through the TOOL_MANAGER. Each expectation cites
  * its line.
  */
+import { KICURSOR } from '@ziroeda/common/gal/cursors.js';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
 import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/font/text_attributes.js';
@@ -857,6 +858,17 @@ describe('DRAWING_TOOL::DrawTable (drawing_tool.cpp:1186-1415)', () => {
     expect(t.IsSelected()).toBe(true);
   });
 
+  it('PENCIL until the first corner, MOVING while the grid is dragged out (:1203-1210)', () => {
+    start(PCB_ACTIONS.drawTable);
+    expect(h.shape).toBe(KICURSOR.PENCIL);
+    click(mm(10, 10));
+    move(mm(30, 20));
+    expect(h.shape).toBe(KICURSOR.MOVING);
+    esc();
+    move(mm(31, 20));
+    expect(h.shape).toBe(KICURSOR.PENCIL);
+  });
+
   it('Cancel in the dialog draws nothing (:1323-1326)', async () => {
     tableDialogOk = false;
     start(PCB_ACTIONS.drawTable);
@@ -911,6 +923,17 @@ describe('DRAWING_TOOL::PlaceReferenceImage (drawing_tool.cpp:623-872)', () => {
     expect(im.GetPosition()).toEqual(mm(50, 50));
     expect(im.GetLayer()).toBe(PCB_LAYER_ID.F_SilkS);
     expect(im.IsSelected()).toBe(true);
+  });
+
+  it('ARROW until a file is chosen, MOVING while the image rides (:653-661)', async () => {
+    imageFile = null;
+    start(PCB_ACTIONS.placeReferenceImage);
+    await flush();
+    expect(h.shape).toBe(KICURSOR.ARROW);
+    imageFile = png();
+    click(mm(20, 20));
+    await flush();
+    expect(h.shape).toBe(KICURSOR.MOVING);
   });
 
   it('Cancel in the file dialog leaves the tool armed (:742-743)', async () => {

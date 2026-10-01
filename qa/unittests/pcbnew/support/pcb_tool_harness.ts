@@ -11,6 +11,7 @@
 import type { PCB_BASE_EDIT_FRAME } from '@ziroeda/pcbnew/pcb_base_edit_frame.js';
 import { RECURSE_MODE } from '@ziroeda/common/eda_item.js';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
+import type { KICURSOR } from '@ziroeda/common/gal/cursors.js';
 import { GAL_DISPLAY_OPTIONS } from '@ziroeda/common/gal/gal_display_options.js';
 import { GAL } from '@ziroeda/common/gal/graphics_abstraction_layer.js';
 import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
@@ -60,6 +61,8 @@ export interface TOOL_HARNESS<F extends TEST_PCB_FRAME> {
   view: PCB_VIEW;
   mouse: Vec2;
   forced: Vec2 | null;
+  /** The last cursor shape a tool asked the canvas for. */
+  shape?: KICURSOR;
   menus: ACTION_MENU[];
   /** Each shown menu's close, which the tool manager waits on. */
   menuCloses: (() => void)[];
@@ -113,10 +116,14 @@ export function toolHarness<F extends TEST_PCB_FRAME>(
   return Object.assign(h, { mgr, sel }) as TOOL_HARNESS<F>;
 }
 
-/** The mouse a harness canvas answers from: where it is, and any forced cursor. */
+/**
+ * The mouse a harness canvas answers from: where it is, and any forced cursor;
+ * and the last cursor shape a tool asked the canvas for (`SetCurrentCursor`).
+ */
 export interface HARNESS_MOUSE {
   mouse: Vec2;
   forced: Vec2 | null;
+  shape?: KICURSOR;
 }
 
 /**
@@ -151,7 +158,9 @@ export function harnessCanvas(
     GetViewControls: () => controls,
     GetView: () => view,
     GetGAL: () => gal,
-    SetCurrentCursor: () => {},
+    SetCurrentCursor: (aCursor: KICURSOR) => {
+      h.shape = aCursor;
+    },
     ForceRefresh: () => {},
     Refresh: () => {},
     RedrawRatsnest: () => {},

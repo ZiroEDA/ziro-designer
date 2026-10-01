@@ -196,14 +196,6 @@ describe('and the canvas draws what a selected or half-placed image needs', () =
     expect(EDITOR).toContain('imageOpacity: opacity.images,');
   });
 
-  it('previews the PICTURE while it rides the cursor, not a rectangle', () => {
-    // `m_view->AddToPreview( image, false )` puts the item itself in the view,
-    // so what follows the cursor is the image. This drew a bare outline, which
-    // is why nothing appeared until the click committed it.
-    expect(EDITOR).toContain('imageCacheRef.current.ensure(live.data, requestDraw)');
-    expect(EDITOR).toMatch(/ctx\.globalAlpha = opacity\.images;\s*\n\s*ctx\.drawImage\(bitmap,/);
-  });
-
   it('boxes a selected one in LAYER_ANCHOR, which is what selection means here', () => {
     // A raster has no stroke to brighten, so `draw( PCB_REFERENCE_IMAGE )` draws
     // a bounding box instead — the one item whose selection is not "repaint it
@@ -231,15 +223,12 @@ describe('the two ways a picture failed to appear at all', () => {
     // `GAL::DrawBitmap` and `GL_BITMAP_CACHE`. Nothing is pending, so nothing
     // has to re-trigger a render.
     //
-    // The image being PLACED is the exception, and the comment in the editor
-    // says why: it is not on the board, so no painter has been asked for it.
-    // It is drawn on the 2D overlay, which is redrawn whole every frame, so a
-    // bare `requestDraw` is the right callback there - the thing the old raster
-    // could not do with one.
-    expect(EDITOR).toContain('imageCacheRef.current.ensure(live.data, requestDraw)');
-
-    // ...and it is the only one left.
-    expect(EDITOR.match(/imageCacheRef\.current\.ensure\(/g)).toHaveLength(1);
+    //
+    // Since DRAWING_TOOL::PlaceReferenceImage runs on TOOL_MANAGER (10-02) the
+    // riding image is the item itself in the VIEW's preview
+    // (`m_view->AddToPreview( image, false )`), drawn by the same painter, so
+    // the editor decodes nothing.
+    expect(EDITOR).not.toContain('imageCacheRef');
     expect(EDITOR).not.toContain('sceneDirtyRef');
   });
 
