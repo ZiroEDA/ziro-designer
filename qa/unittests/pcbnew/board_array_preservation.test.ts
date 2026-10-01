@@ -24,7 +24,6 @@ import {
   groupBoardItems,
   moveBoardItems,
   setBoardItemsLocked,
-  ungroupBoardItems,
 } from '@ziroeda/pcbnew/edit-board.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import type { Board } from '@ziroeda/pcbnew/types.js';
@@ -147,18 +146,10 @@ describe('locking an item', () => {
   });
 });
 
-describe('grouping and ungrouping', () => {
+describe('grouping', () => {
   it('leaves every array but groups the same length', () => {
     const b = read();
     const { board: after } = groupBoardItems(b, new Set(['track:0', 'via:0']), 'g');
-
-    expect(except(counts(after), 'groups')).toEqual(except(counts(b), 'groups'));
-  });
-
-  it('leaves every array but groups the same length on ungroup', () => {
-    const b = read();
-    const { board: grouped, id } = groupBoardItems(b, new Set(['track:0', 'via:0']), 'g');
-    const after = ungroupBoardItems(grouped, new Set([id!]));
 
     expect(except(counts(after), 'groups')).toEqual(except(counts(b), 'groups'));
   });

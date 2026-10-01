@@ -28,14 +28,14 @@ import {
   settings,
 } from '@ziroeda/designer/src/prefs/settings.js';
 import { resetPcbColors } from '@ziroeda/designer/src/editors/pcb/prefs/resets.js';
-import { pcbColorRows } from '@ziroeda/designer/src/editors/pcb/pcbColorLayers.js';
-import { fpColorRows } from '@ziroeda/designer/src/editors/footprint/fpColorLayers.js';
+import { pcbColorRows } from '@ziroeda/pcbnew/dialogs/panel_pcbnew_color_settings.js';
+import { fpColorRows } from '@ziroeda/pcbnew/dialogs/panel_fp_editor_color_settings.js';
 import { parse } from '@ziroeda/sexpr';
 import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { DEFAULT_DRAW_OPTIONS as PCB_DEFAULT_DRAW_OPTIONS } from '@ziroeda/pcbnew/renderBoard.js';
 import { pageSizeMM } from '@ziroeda/common';
 import PREVIEW_BOARD_TEXT from '@ziroeda/designer/src/editors/pcb/data/color_preview_board.kicad_pcb?raw';
-import { DISPLAY_ORIGIN_CHOICES } from '@ziroeda/designer/src/dialogs/prefs/PanelDisplayOrigin.js';
+import { DISPLAY_ORIGIN_CHOICES } from '@ziroeda/pcbnew/dialogs/panel_pcbnew_display_origin.js';
 import {
   foldPcbToggle,
   isStoredPcbToggle,

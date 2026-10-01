@@ -30,7 +30,7 @@ let s_fontImage: Promise<ImageBitmap> | null = null;
 
 export function loadBitmapFontImage(): Promise<ImageBitmap> {
   s_fontImage ??= (async () => {
-    const url = new URL('../../../common/gal/opengl/bitmap_font_img.png', import.meta.url).href;
+    const url = new URL('./opengl/bitmap_font_img.png', import.meta.url).href;
     const response = await fetch(url);
 
     if (!response.ok) throw new Error(`bitmap font atlas: ${response.status}`);

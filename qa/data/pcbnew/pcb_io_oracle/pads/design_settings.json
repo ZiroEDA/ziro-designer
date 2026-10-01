@@ -1,0 +1,1605 @@
+{
+ "ClaySight_MK1_ClaySight_MK1.asc": {
+  "copperLayers": 2,
+  "customTrack": 1270000,
+  "customVia": [
+   27,
+   13
+  ],
+  "hasStackup": false,
+  "m_CopperEdgeClearance": 151993,
+  "m_HoleToHoleMin": 7,
+  "m_MinClearance": 151993,
+  "m_MinThroughDrill": 7,
+  "m_SilkClearance": 3,
+  "m_SolderMaskExpansion": 2,
+  "m_TrackMinWidth": 1270000,
+  "m_ViasMinSize": 13,
+  "netclasses": {
+   "Default": {
+    "clearance": 151993,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 1270000,
+    "viaDiameter": 27,
+    "viaDrill": 13
+   }
+  },
+  "patterns": {},
+  "thickness": 1600000,
+  "viaSizes": []
+ },
+ "ClaySight_MK2_ClaySight_MK2.asc": {
+  "copperLayers": 2,
+  "customTrack": 762000,
+  "customVia": [
+   610007,
+   305003
+  ],
+  "hasStackup": false,
+  "m_CopperEdgeClearance": 151993,
+  "m_HoleToHoleMin": 7,
+  "m_MinClearance": 151993,
+  "m_MinThroughDrill": 7,
+  "m_SilkClearance": 3,
+  "m_SolderMaskExpansion": 2,
+  "m_TrackMinWidth": 762000,
+  "m_ViasMinSize": 13,
+  "netclasses": {
+   "Default": {
+    "clearance": 151993,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 762000,
+    "viaDiameter": 610007,
+    "viaDrill": 305003
+   }
+  },
+  "patterns": {},
+  "thickness": 1600000,
+  "viaSizes": [
+   [
+    610007,
+    305003
+   ]
+  ]
+ },
+ "Dexter_MotorCtrl_Dexter_MotorCtrl.asc": {
+  "copperLayers": 8,
+  "customTrack": 254000,
+  "customVia": [
+   508000,
+   254000
+  ],
+  "hasStackup": true,
+  "m_CopperEdgeClearance": 152400,
+  "m_HoleToHoleMin": 152400,
+  "m_MinClearance": 152400,
+  "m_MinThroughDrill": 7,
+  "m_SilkClearance": 3,
+  "m_SolderMaskExpansion": 2,
+  "m_TrackMinWidth": 254000,
+  "m_ViasMinSize": 13,
+  "netclasses": {
+   "Default": {
+    "clearance": 152400,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 254000,
+    "viaDiameter": 508000,
+    "viaDrill": 254000
+   },
+   "DiffPair_D1": {
+    "clearance": 200000,
+    "dpGap": 304800,
+    "dpWidth": 254000,
+    "trackWidth": 254000,
+    "viaDiameter": 600000,
+    "viaDrill": 300000
+   }
+  },
+  "patterns": {
+   "N01267": "DiffPair_D1",
+   "N01271": "DiffPair_D1"
+  },
+  "thickness": 2072320,
+  "viaSizes": [
+   [
+    1778000,
+    939800
+   ],
+   [
+    508000,
+    254000
+   ]
+  ]
+ },
+ "Ems4_Rev2_Ems4_Rev2.asc": {
+  "copperLayers": 6,
+  "customTrack": 152400,
+  "customVia": [
+   406400,
+   203200
+  ],
+  "hasStackup": true,
+  "m_CopperEdgeClearance": 254000,
+  "m_HoleToHoleMin": 152400,
+  "m_MinClearance": 101600,
+  "m_MinThroughDrill": 7,
+  "m_SilkClearance": 3,
+  "m_SolderMaskExpansion": 2,
+  "m_TrackMinWidth": 101600,
+  "m_ViasMinSize": 13,
+  "netclasses": {
+   "Default": {
+    "clearance": 101600,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 152400,
+    "viaDiameter": 406400,
+    "viaDrill": 203200
+   },
+   "DiffPair_D1": {
+    "clearance": 200000,
+    "dpGap": 203200,
+    "dpWidth": 152400,
+    "trackWidth": 152400,
+    "viaDiameter": 600000,
+    "viaDrill": 300000
+   },
+   "DiffPair_D2": {
+    "clearance": 200000,
+    "dpGap": 203200,
+    "dpWidth": 152400,
+    "trackWidth": 152400,
+    "viaDiameter": 600000,
+    "viaDrill": 300000
+   },
+   "DiffPair_D3": {
+    "clearance": 200000,
+    "dpGap": 203200,
+    "dpWidth": 152400,
+    "trackWidth": 152400,
+    "viaDiameter": 600000,
+    "viaDrill": 300000
+   },
+   "DiffPair_D4": {
+    "clearance": 200000,
+    "dpGap": 203200,
+    "dpWidth": 152400,
+    "trackWidth": 152400,
+    "viaDiameter": 600000,
+    "viaDrill": 300000
+   }
+  },
+  "patterns": {
+   "RXN1": "DiffPair_D3",
+   "RXN2": "DiffPair_D4",
+   "RXP1": "DiffPair_D3",
+   "RXP2": "DiffPair_D4",
+   "TXN1": "DiffPair_D2",
+   "TXN2": "DiffPair_D1",
+   "TXP1": "DiffPair_D2",
+   "TXP2": "DiffPair_D1"
+  },
+  "thickness": 1427160,
+  "viaSizes": [
+   [
+    1778000,
+    939800
+   ],
+   [
+    406400,
+    203200
+   ],
+   [
+    406400,
+    203200
+   ]
+  ]
+ },
+ "Importer.asc": {
+  "copperLayers": 6,
+  "customTrack": 100000,
+  "customVia": [
+   1778000,
+   939800
+  ],
+  "hasStackup": true,
+  "m_CopperEdgeClearance": 200000,
+  "m_HoleToHoleMin": 300000,
+  "m_MinClearance": 200000,
+  "m_MinThroughDrill": 7,
+  "m_SilkClearance": 3,
+  "m_SolderMaskExpansion": 2,
+  "m_TrackMinWidth": 100000,
+  "m_ViasMinSize": 13,
+  "netclasses": {
+   "DIGITAL_ANALOG": {
+    "clearance": 6000000,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 250000,
+    "viaDiameter": 600000,
+    "viaDrill": 300000
+   },
+   "Default": {
+    "clearance": 200000,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 100000,
+    "viaDiameter": 1778000,
+    "viaDrill": 939800
+   },
+   "HP_DC+": {
+    "clearance": 2000000,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 500000,
+    "viaDiameter": 600000,
+    "viaDrill": 300000
+   },
+   "HP_DC+_IN": {
+    "clearance": 1500000,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 300000,
+    "viaDiameter": 600000,
+    "viaDrill": 300000
+   },
+   "HP_DC-": {
+    "clearance": 800000,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 250000,
+    "viaDiameter": 600000,
+    "viaDrill": 300000
+   },
+   "HP_DC_HALBE": {
+    "clearance": 1500000,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 500000,
+    "viaDiameter": 600000,
+    "viaDrill": 300000
+   },
+   "HP_L1": {
+    "clearance": 1500000,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 300000,
+    "viaDiameter": 600000,
+    "viaDrill": 300000
+   },
+   "HP_L2": {
+    "clearance": 1500000,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 300000,
+    "viaDiameter": 600000,
+    "viaDrill": 300000
+   },
+   "HP_L3": {
+    "clearance": 1500000,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 300000,
+    "viaDiameter": 600000,
+    "viaDrill": 300000
+   },
+   "HP_L_MIDDLE": {
+    "clearance": 1500000,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 300000,
+    "viaDiameter": 600000,
+    "viaDrill": 300000
+   },
+   "HP_U1": {
+    "clearance": 1500000,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 300000,
+    "viaDiameter": 600000,
+    "viaDrill": 300000
+   },
+   "HP_V1": {
+    "clearance": 1500000,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 300000,
+    "viaDiameter": 600000,
+    "viaDrill": 300000
+   },
+   "HP_W1": {
+    "clearance": 1500000,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 300000,
+    "viaDiameter": 600000,
+    "viaDrill": 300000
+   },
+   "PE": {
+    "clearance": 3000000,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 500000,
+    "viaDiameter": 600000,
+    "viaDrill": 300000
+   },
+   "POWER_H": {
+    "clearance": 1500000,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 300000,
+    "viaDiameter": 600000,
+    "viaDrill": 300000
+   },
+   "POWER_L": {
+    "clearance": 6000000,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 300000,
+    "viaDiameter": 600000,
+    "viaDrill": 300000
+   },
+   "REGEN": {
+    "clearance": 6000000,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 300000,
+    "viaDiameter": 600000,
+    "viaDrill": 300000
+   },
+   "STO_AX1": {
+    "clearance": 1500000,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 300000,
+    "viaDiameter": 600000,
+    "viaDrill": 300000
+   },
+   "STO_AX1_LOW_A": {
+    "clearance": 6000000,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 300000,
+    "viaDiameter": 600000,
+    "viaDrill": 300000
+   },
+   "STO_AX1_LOW_B": {
+    "clearance": 800000,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 300000,
+    "viaDiameter": 600000,
+    "viaDrill": 300000
+   }
+  },
+  "patterns": {
+   "DGND": "POWER_L"
+  },
+  "thickness": 1590000,
+  "viaSizes": [
+   [
+    1778000,
+    939800
+   ],
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    0
+   ],
+   [
+    1397000,
+    939800
+   ],
+   [
+    650000,
+    300000
+   ],
+   [
+    0,
+    0
+   ],
+   [
+    0,
+    0
+   ],
+   [
+    600000,
+    250000
+   ],
+   [
+    650000,
+    300000
+   ],
+   [
+    800000,
+    400000
+   ],
+   [
+    1000000,
+    400000
+   ]
+  ]
+ },
+ "LCORE_2_LCORE_2.asc": {
+  "copperLayers": 2,
+  "customTrack": 300000,
+  "customVia": [
+   1778000,
+   939800
+  ],
+  "hasStackup": true,
+  "m_CopperEdgeClearance": 300000,
+  "m_HoleToHoleMin": 150000,
+  "m_MinClearance": 300000,
+  "m_MinThroughDrill": 7,
+  "m_SilkClearance": 3,
+  "m_SolderMaskExpansion": 2,
+  "m_TrackMinWidth": 150000,
+  "m_ViasMinSize": 13,
+  "netclasses": {
+   "Default": {
+    "clearance": 300000,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 300000,
+    "viaDiameter": 1778000,
+    "viaDrill": 939800
+   }
+  },
+  "patterns": {},
+  "thickness": 820000,
+  "viaSizes": [
+   [
+    1778000,
+    939800
+   ],
+   [
+    400000,
+    200000
+   ]
+  ]
+ },
+ "LCORE_4_LCORE_4.asc": {
+  "copperLayers": 2,
+  "customTrack": 300000,
+  "customVia": [
+   400000,
+   200000
+  ],
+  "hasStackup": true,
+  "m_CopperEdgeClearance": 150000,
+  "m_HoleToHoleMin": 150000,
+  "m_MinClearance": 150000,
+  "m_MinThroughDrill": 7,
+  "m_SilkClearance": 3,
+  "m_SolderMaskExpansion": 2,
+  "m_TrackMinWidth": 150000,
+  "m_ViasMinSize": 13,
+  "netclasses": {
+   "Default": {
+    "clearance": 150000,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 300000,
+    "viaDiameter": 400000,
+    "viaDrill": 200000
+   }
+  },
+  "patterns": {},
+  "thickness": 820000,
+  "viaSizes": [
+   [
+    1778000,
+    939800
+   ],
+   [
+    400000,
+    200000
+   ]
+  ]
+ },
+ "MAIS_FC_MAIS_FC.asc": {
+  "copperLayers": 2,
+  "customTrack": 254000,
+  "customVia": [
+   1778000,
+   939800
+  ],
+  "hasStackup": true,
+  "m_CopperEdgeClearance": 200000,
+  "m_HoleToHoleMin": 304800,
+  "m_MinClearance": 177800,
+  "m_MinThroughDrill": 7,
+  "m_SilkClearance": 3,
+  "m_SolderMaskExpansion": 2,
+  "m_TrackMinWidth": 152400,
+  "m_ViasMinSize": 13,
+  "netclasses": {
+   "Default": {
+    "clearance": 177800,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 254000,
+    "viaDiameter": 1778000,
+    "viaDrill": 939800
+   }
+  },
+  "patterns": {},
+  "thickness": 274000,
+  "viaSizes": [
+   [
+    1778000,
+    939800
+   ],
+   [
+    710000,
+    406400
+   ]
+  ]
+ },
+ "MC2_PLUS_REV1_MC2_PLUS_REV1.asc": {
+  "copperLayers": 8,
+  "customTrack": 152400,
+  "customVia": [
+   406400,
+   203200
+  ],
+  "hasStackup": true,
+  "m_CopperEdgeClearance": 254000,
+  "m_HoleToHoleMin": 7,
+  "m_MinClearance": 101600,
+  "m_MinThroughDrill": 7,
+  "m_SilkClearance": 3,
+  "m_SolderMaskExpansion": 2,
+  "m_TrackMinWidth": 101600,
+  "m_ViasMinSize": 13,
+  "netclasses": {
+   "Default": {
+    "clearance": 101600,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 152400,
+    "viaDiameter": 406400,
+    "viaDrill": 203200
+   },
+   "GND": {
+    "clearance": 200000,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 200000,
+    "viaDiameter": 600000,
+    "viaDrill": 300000
+   },
+   "PGND": {
+    "clearance": 177800,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 200000,
+    "viaDiameter": 600000,
+    "viaDrill": 300000
+   }
+  },
+  "patterns": {},
+  "thickness": 1764980,
+  "viaSizes": [
+   [
+    1778000,
+    939800
+   ],
+   [
+    406400,
+    203200
+   ],
+   [
+    609600,
+    203200
+   ],
+   [
+    406400,
+    203200
+   ]
+  ]
+ },
+ "MC4_PLUS_CSHAPE_MC4_PLUS_CSHAPE.asc": {
+  "copperLayers": 8,
+  "customTrack": 152400,
+  "customVia": [
+   1778000,
+   939800
+  ],
+  "hasStackup": false,
+  "m_CopperEdgeClearance": 254000,
+  "m_HoleToHoleMin": 254000,
+  "m_MinClearance": 101600,
+  "m_MinThroughDrill": 254000,
+  "m_SilkClearance": 127000,
+  "m_SolderMaskExpansion": 76200,
+  "m_TrackMinWidth": 101600,
+  "m_ViasMinSize": 508000,
+  "netclasses": {
+   "Default": {
+    "clearance": 101600,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 152400,
+    "viaDiameter": 1778000,
+    "viaDrill": 939800
+   },
+   "GND": {
+    "clearance": 200000,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 200000,
+    "viaDiameter": 600000,
+    "viaDrill": 300000
+   },
+   "PGND": {
+    "clearance": 177800,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 200000,
+    "viaDiameter": 600000,
+    "viaDrill": 300000
+   }
+  },
+  "patterns": {},
+  "thickness": 1600000,
+  "viaSizes": [
+   [
+    1778000,
+    939800
+   ],
+   [
+    406400,
+    203200
+   ],
+   [
+    609600,
+    203200
+   ],
+   [
+    406400,
+    203200
+   ]
+  ]
+ },
+ "TMS1mmX19_TMS1mmX19.asc": {
+  "copperLayers": 2,
+  "customTrack": 254000,
+  "customVia": [
+   1778000,
+   939800
+  ],
+  "hasStackup": true,
+  "m_CopperEdgeClearance": 254000,
+  "m_HoleToHoleMin": 254000,
+  "m_MinClearance": 88900,
+  "m_MinThroughDrill": 7,
+  "m_SilkClearance": 3,
+  "m_SolderMaskExpansion": 2,
+  "m_TrackMinWidth": 152400,
+  "m_ViasMinSize": 13,
+  "netclasses": {
+   "Default": {
+    "clearance": 88900,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 254000,
+    "viaDiameter": 1778000,
+    "viaDrill": 939800
+   }
+  },
+  "patterns": {},
+  "thickness": 342580,
+  "viaSizes": [
+   [
+    1778000,
+    939800
+   ],
+   [
+    1270000,
+    254000
+   ],
+   [
+    1270000,
+    508000
+   ]
+  ]
+ },
+ "issue23241_partsandattr.asc": {
+  "copperLayers": 2,
+  "customTrack": 7,
+  "customVia": [
+   27,
+   13
+  ],
+  "hasStackup": false,
+  "m_CopperEdgeClearance": 7,
+  "m_HoleToHoleMin": 7,
+  "m_MinClearance": 5,
+  "m_MinThroughDrill": 7,
+  "m_SilkClearance": 3,
+  "m_SolderMaskExpansion": 2,
+  "m_TrackMinWidth": 4,
+  "m_ViasMinSize": 13,
+  "netclasses": {
+   "Default": {
+    "clearance": 7,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 7,
+    "viaDiameter": 27,
+    "viaDrill": 13
+   }
+  },
+  "patterns": {},
+  "thickness": 1600000,
+  "viaSizes": []
+ },
+ "issue23254_issue23254.asc": {
+  "copperLayers": 2,
+  "customTrack": 304800,
+  "customVia": [
+   1778000,
+   939800
+  ],
+  "hasStackup": true,
+  "m_CopperEdgeClearance": 152400,
+  "m_HoleToHoleMin": 152400,
+  "m_MinClearance": 152400,
+  "m_MinThroughDrill": 7,
+  "m_SilkClearance": 3,
+  "m_SolderMaskExpansion": 2,
+  "m_TrackMinWidth": 304800,
+  "m_ViasMinSize": 13,
+  "netclasses": {
+   "Default": {
+    "clearance": 152400,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 304800,
+    "viaDiameter": 1778000,
+    "viaDrill": 939800
+   }
+  },
+  "patterns": {},
+  "thickness": 342580,
+  "viaSizes": [
+   [
+    1778000,
+    939800
+   ],
+   [
+    1397000,
+    939800
+   ]
+  ]
+ },
+ "issue23297.asc": {
+  "copperLayers": 2,
+  "customTrack": 304800,
+  "customVia": [
+   1778000,
+   939800
+  ],
+  "hasStackup": true,
+  "m_CopperEdgeClearance": 152400,
+  "m_HoleToHoleMin": 152400,
+  "m_MinClearance": 152400,
+  "m_MinThroughDrill": 7,
+  "m_SilkClearance": 3,
+  "m_SolderMaskExpansion": 2,
+  "m_TrackMinWidth": 304800,
+  "m_ViasMinSize": 13,
+  "netclasses": {
+   "Default": {
+    "clearance": 152400,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 304800,
+    "viaDiameter": 1778000,
+    "viaDrill": 939800
+   }
+  },
+  "patterns": {},
+  "thickness": 342580,
+  "viaSizes": [
+   [
+    1778000,
+    939800
+   ],
+   [
+    1397000,
+    939800
+   ]
+  ]
+ },
+ "issue23352.asc": {
+  "copperLayers": 2,
+  "customTrack": 304800,
+  "customVia": [
+   480000,
+   230000
+  ],
+  "hasStackup": true,
+  "m_CopperEdgeClearance": 152400,
+  "m_HoleToHoleMin": 152400,
+  "m_MinClearance": 152400,
+  "m_MinThroughDrill": 7,
+  "m_SilkClearance": 3,
+  "m_SolderMaskExpansion": 2,
+  "m_TrackMinWidth": 304800,
+  "m_ViasMinSize": 13,
+  "netclasses": {
+   "Default": {
+    "clearance": 152400,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 304800,
+    "viaDiameter": 480000,
+    "viaDrill": 230000
+   },
+   "NETTCLASS1": {
+    "clearance": 2500000,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 304800,
+    "viaDiameter": 600000,
+    "viaDrill": 300000
+   },
+   "NETTCLASS2": {
+    "clearance": 3000000,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 304800,
+    "viaDiameter": 600000,
+    "viaDrill": 300000
+   }
+  },
+  "patterns": {
+   "+24V0": "NETTCLASS1",
+   "+24V0_FILTER": "NETTCLASS1",
+   "+24V0_FILTER_RTN": "NETTCLASS2",
+   "+24V0_RTN": "NETTCLASS2",
+   "GND_CHASSIS": "NETTCLASS2"
+  },
+  "thickness": 342580,
+  "viaSizes": [
+   [
+    480000,
+    230000
+   ],
+   [
+    1778000,
+    939800
+   ],
+   [
+    2000000,
+    500000
+   ],
+   [
+    0,
+    0
+   ],
+   [
+    800000,
+    0
+   ]
+  ]
+ },
+ "issue23391.asc": {
+  "copperLayers": 2,
+  "customTrack": 254000,
+  "customVia": [
+   1016000,
+   508000
+  ],
+  "hasStackup": false,
+  "m_CopperEdgeClearance": 254000,
+  "m_HoleToHoleMin": 254000,
+  "m_MinClearance": 203200,
+  "m_MinThroughDrill": 254000,
+  "m_SilkClearance": 127000,
+  "m_SolderMaskExpansion": 76200,
+  "m_TrackMinWidth": 152400,
+  "m_ViasMinSize": 508000,
+  "netclasses": {
+   "Default": {
+    "clearance": 254000,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 254000,
+    "viaDiameter": 1016000,
+    "viaDrill": 508000
+   }
+  },
+  "patterns": {},
+  "thickness": 1600000,
+  "viaSizes": []
+ },
+ "issue23393_demo.asc": {
+  "copperLayers": 2,
+  "customTrack": 304800,
+  "customVia": [
+   480000,
+   230000
+  ],
+  "hasStackup": true,
+  "m_CopperEdgeClearance": 152400,
+  "m_HoleToHoleMin": 152400,
+  "m_MinClearance": 152400,
+  "m_MinThroughDrill": 7,
+  "m_SilkClearance": 3,
+  "m_SolderMaskExpansion": 2,
+  "m_TrackMinWidth": 304800,
+  "m_ViasMinSize": 13,
+  "netclasses": {
+   "Default": {
+    "clearance": 152400,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 304800,
+    "viaDiameter": 480000,
+    "viaDrill": 230000
+   },
+   "NETTCLASS1": {
+    "clearance": 2500000,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 304800,
+    "viaDiameter": 600000,
+    "viaDrill": 300000
+   },
+   "NETTCLASS2": {
+    "clearance": 3000000,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 304800,
+    "viaDiameter": 600000,
+    "viaDrill": 300000
+   }
+  },
+  "patterns": {
+   "+24V0": "NETTCLASS1",
+   "+24V0_FILTER": "NETTCLASS1",
+   "+24V0_FILTER_RTN": "NETTCLASS2",
+   "+24V0_RTN": "NETTCLASS2",
+   "GND_CHASSIS": "NETTCLASS2"
+  },
+  "thickness": 342580,
+  "viaSizes": [
+   [
+    480000,
+    230000
+   ],
+   [
+    1778000,
+    939800
+   ],
+   [
+    2000000,
+    500000
+   ],
+   [
+    0,
+    0
+   ],
+   [
+    800000,
+    0
+   ]
+  ]
+ },
+ "issue23425_controlCARDDockingStation.asc": {
+  "copperLayers": 4,
+  "customTrack": 304800,
+  "customVia": [
+   1778000,
+   939800
+  ],
+  "hasStackup": true,
+  "m_CopperEdgeClearance": 152400,
+  "m_HoleToHoleMin": 152400,
+  "m_MinClearance": 152400,
+  "m_MinThroughDrill": 7,
+  "m_SilkClearance": 3,
+  "m_SolderMaskExpansion": 2,
+  "m_TrackMinWidth": 304800,
+  "m_ViasMinSize": 13,
+  "netclasses": {
+   "Default": {
+    "clearance": 152400,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 304800,
+    "viaDiameter": 1778000,
+    "viaDrill": 939800
+   }
+  },
+  "patterns": {},
+  "thickness": 463380,
+  "viaSizes": [
+   [
+    1778000,
+    939800
+   ],
+   [
+    1778000,
+    711200
+   ],
+   [
+    1397000,
+    330200
+   ]
+  ]
+ },
+ "issue23540_test_import.asc": {
+  "copperLayers": 2,
+  "customTrack": 152400,
+  "customVia": [
+   1397000,
+   939800
+  ],
+  "hasStackup": true,
+  "m_CopperEdgeClearance": 152400,
+  "m_HoleToHoleMin": 152400,
+  "m_MinClearance": 152400,
+  "m_MinThroughDrill": 7,
+  "m_SilkClearance": 3,
+  "m_SolderMaskExpansion": 2,
+  "m_TrackMinWidth": 152400,
+  "m_ViasMinSize": 13,
+  "netclasses": {
+   "Default": {
+    "clearance": 152400,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 152400,
+    "viaDiameter": 1397000,
+    "viaDrill": 939800
+   }
+  },
+  "patterns": {},
+  "thickness": 342580,
+  "viaSizes": [
+   [
+    1778000,
+    939800
+   ],
+   [
+    1397000,
+    939800
+   ]
+  ]
+ },
+ "issue23856.asc": {
+  "copperLayers": 2,
+  "customTrack": 762000,
+  "customVia": [
+   1397000,
+   939800
+  ],
+  "hasStackup": true,
+  "m_CopperEdgeClearance": 508000,
+  "m_HoleToHoleMin": 254000,
+  "m_MinClearance": 254000,
+  "m_MinThroughDrill": 7,
+  "m_SilkClearance": 3,
+  "m_SolderMaskExpansion": 2,
+  "m_TrackMinWidth": 508000,
+  "m_ViasMinSize": 13,
+  "netclasses": {
+   "Default": {
+    "clearance": 254000,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 762000,
+    "viaDiameter": 1397000,
+    "viaDrill": 939800
+   }
+  },
+  "patterns": {},
+  "thickness": 342580,
+  "viaSizes": [
+   [
+    1778000,
+    939800
+   ],
+   [
+    1397000,
+    939800
+   ]
+  ]
+ },
+ "keepout_test.asc": {
+  "copperLayers": 2,
+  "customTrack": 254000,
+  "customVia": [
+   1016000,
+   508000
+  ],
+  "hasStackup": false,
+  "m_CopperEdgeClearance": 254000,
+  "m_HoleToHoleMin": 254000,
+  "m_MinClearance": 203200,
+  "m_MinThroughDrill": 254000,
+  "m_SilkClearance": 127000,
+  "m_SolderMaskExpansion": 76200,
+  "m_TrackMinWidth": 152400,
+  "m_ViasMinSize": 508000,
+  "netclasses": {
+   "Default": {
+    "clearance": 254000,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 254000,
+    "viaDiameter": 1016000,
+    "viaDrill": 508000
+   }
+  },
+  "patterns": {},
+  "thickness": 1600000,
+  "viaSizes": []
+ },
+ "peka.asc": {
+  "copperLayers": 4,
+  "customTrack": 203200,
+  "customVia": [
+   914400,
+   457200
+  ],
+  "hasStackup": true,
+  "m_CopperEdgeClearance": 203200,
+  "m_HoleToHoleMin": 152400,
+  "m_MinClearance": 203200,
+  "m_MinThroughDrill": 7,
+  "m_SilkClearance": 3,
+  "m_SolderMaskExpansion": 2,
+  "m_TrackMinWidth": 203200,
+  "m_ViasMinSize": 13,
+  "netclasses": {
+   "Default": {
+    "clearance": 203200,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 203200,
+    "viaDiameter": 914400,
+    "viaDrill": 457200
+   }
+  },
+  "patterns": {},
+  "thickness": 919160,
+  "viaSizes": [
+   [
+    1778000,
+    939800
+   ],
+   [
+    1016000,
+    508000
+   ],
+   [
+    914400,
+    457200
+   ]
+  ]
+ },
+ "reuse_test.asc": {
+  "copperLayers": 2,
+  "customTrack": 254000,
+  "customVia": [
+   1016000,
+   508000
+  ],
+  "hasStackup": false,
+  "m_CopperEdgeClearance": 254000,
+  "m_HoleToHoleMin": 254000,
+  "m_MinClearance": 203200,
+  "m_MinThroughDrill": 254000,
+  "m_SilkClearance": 127000,
+  "m_SolderMaskExpansion": 76200,
+  "m_TrackMinWidth": 152400,
+  "m_ViasMinSize": 508000,
+  "netclasses": {
+   "Default": {
+    "clearance": 254000,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 254000,
+    "viaDiameter": 1016000,
+    "viaDrill": 508000
+   }
+  },
+  "patterns": {},
+  "thickness": 1600000,
+  "viaSizes": []
+ },
+ "synthetic_arcs.asc": {
+  "copperLayers": 2,
+  "customTrack": 254000,
+  "customVia": [
+   1016000,
+   508000
+  ],
+  "hasStackup": false,
+  "m_CopperEdgeClearance": 254000,
+  "m_HoleToHoleMin": 254000,
+  "m_MinClearance": 203200,
+  "m_MinThroughDrill": 254000,
+  "m_SilkClearance": 127000,
+  "m_SolderMaskExpansion": 76200,
+  "m_TrackMinWidth": 152400,
+  "m_ViasMinSize": 508000,
+  "netclasses": {
+   "Default": {
+    "clearance": 254000,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 254000,
+    "viaDiameter": 1016000,
+    "viaDrill": 508000
+   }
+  },
+  "patterns": {},
+  "thickness": 1600000,
+  "viaSizes": []
+ },
+ "synthetic_constraints.asc": {
+  "copperLayers": 2,
+  "customTrack": 254000,
+  "customVia": [
+   1016000,
+   508000
+  ],
+  "hasStackup": false,
+  "m_CopperEdgeClearance": 254000,
+  "m_HoleToHoleMin": 254000,
+  "m_MinClearance": 203200,
+  "m_MinThroughDrill": 254000,
+  "m_SilkClearance": 127000,
+  "m_SolderMaskExpansion": 76200,
+  "m_TrackMinWidth": 152400,
+  "m_ViasMinSize": 508000,
+  "netclasses": {
+   "DEFAULT": {
+    "clearance": 508000,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 200000,
+    "viaDiameter": 600000,
+    "viaDrill": 300000
+   },
+   "Default": {
+    "clearance": 254000,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 254000,
+    "viaDiameter": 1016000,
+    "viaDrill": 508000
+   }
+  },
+  "patterns": {},
+  "thickness": 1600000,
+  "viaSizes": []
+ },
+ "synthetic_degenerate_pour.asc": {
+  "copperLayers": 2,
+  "customTrack": 254000,
+  "customVia": [
+   1016000,
+   508000
+  ],
+  "hasStackup": false,
+  "m_CopperEdgeClearance": 254000,
+  "m_HoleToHoleMin": 254000,
+  "m_MinClearance": 203200,
+  "m_MinThroughDrill": 254000,
+  "m_SilkClearance": 127000,
+  "m_SolderMaskExpansion": 76200,
+  "m_TrackMinWidth": 152400,
+  "m_ViasMinSize": 508000,
+  "netclasses": {
+   "Default": {
+    "clearance": 254000,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 254000,
+    "viaDiameter": 1016000,
+    "viaDrill": 508000
+   }
+  },
+  "patterns": {},
+  "thickness": 1600000,
+  "viaSizes": []
+ },
+ "synthetic_filled_copper.asc": {
+  "copperLayers": 2,
+  "customTrack": 254000,
+  "customVia": [
+   1016000,
+   508000
+  ],
+  "hasStackup": false,
+  "m_CopperEdgeClearance": 254000,
+  "m_HoleToHoleMin": 254000,
+  "m_MinClearance": 203200,
+  "m_MinThroughDrill": 254000,
+  "m_SilkClearance": 127000,
+  "m_SolderMaskExpansion": 76200,
+  "m_TrackMinWidth": 152400,
+  "m_ViasMinSize": 508000,
+  "netclasses": {
+   "Default": {
+    "clearance": 254000,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 254000,
+    "viaDiameter": 1016000,
+    "viaDrill": 508000
+   }
+  },
+  "patterns": {},
+  "thickness": 1600000,
+  "viaSizes": []
+ },
+ "synthetic_mask_paste.asc": {
+  "copperLayers": 2,
+  "customTrack": 254000,
+  "customVia": [
+   1016000,
+   508000
+  ],
+  "hasStackup": false,
+  "m_CopperEdgeClearance": 254000,
+  "m_HoleToHoleMin": 254000,
+  "m_MinClearance": 203200,
+  "m_MinThroughDrill": 254000,
+  "m_SilkClearance": 127000,
+  "m_SolderMaskExpansion": 76200,
+  "m_TrackMinWidth": 152400,
+  "m_ViasMinSize": 508000,
+  "netclasses": {
+   "Default": {
+    "clearance": 254000,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 254000,
+    "viaDiameter": 1016000,
+    "viaDrill": 508000
+   }
+  },
+  "patterns": {},
+  "thickness": 1600000,
+  "viaSizes": []
+ },
+ "synthetic_multilayer.asc": {
+  "copperLayers": 2,
+  "customTrack": 254000,
+  "customVia": [
+   1016000,
+   508000
+  ],
+  "hasStackup": false,
+  "m_CopperEdgeClearance": 254000,
+  "m_HoleToHoleMin": 254000,
+  "m_MinClearance": 203200,
+  "m_MinThroughDrill": 254000,
+  "m_SilkClearance": 127000,
+  "m_SolderMaskExpansion": 76200,
+  "m_TrackMinWidth": 152400,
+  "m_ViasMinSize": 508000,
+  "netclasses": {
+   "Default": {
+    "clearance": 254000,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 254000,
+    "viaDiameter": 1016000,
+    "viaDrill": 508000
+   }
+  },
+  "patterns": {},
+  "thickness": 1600000,
+  "viaSizes": []
+ },
+ "synthetic_noncopper_track.asc": {
+  "copperLayers": 2,
+  "customTrack": 254000,
+  "customVia": [
+   1016000,
+   508000
+  ],
+  "hasStackup": false,
+  "m_CopperEdgeClearance": 254000,
+  "m_HoleToHoleMin": 254000,
+  "m_MinClearance": 203200,
+  "m_MinThroughDrill": 254000,
+  "m_SilkClearance": 127000,
+  "m_SolderMaskExpansion": 76200,
+  "m_TrackMinWidth": 152400,
+  "m_ViasMinSize": 508000,
+  "netclasses": {
+   "Default": {
+    "clearance": 254000,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 254000,
+    "viaDiameter": 1016000,
+    "viaDrill": 508000
+   }
+  },
+  "patterns": {},
+  "thickness": 1600000,
+  "viaSizes": []
+ },
+ "synthetic_pad_shapes.asc": {
+  "copperLayers": 2,
+  "customTrack": 254000,
+  "customVia": [
+   1016000,
+   508000
+  ],
+  "hasStackup": false,
+  "m_CopperEdgeClearance": 254000,
+  "m_HoleToHoleMin": 254000,
+  "m_MinClearance": 203200,
+  "m_MinThroughDrill": 254000,
+  "m_SilkClearance": 127000,
+  "m_SolderMaskExpansion": 76200,
+  "m_TrackMinWidth": 152400,
+  "m_ViasMinSize": 508000,
+  "netclasses": {
+   "Default": {
+    "clearance": 254000,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 254000,
+    "viaDiameter": 1016000,
+    "viaDrill": 508000
+   }
+  },
+  "patterns": {},
+  "thickness": 1600000,
+  "viaSizes": []
+ },
+ "synthetic_testpoint.asc": {
+  "copperLayers": 2,
+  "customTrack": 7,
+  "customVia": [
+   1016000,
+   508000
+  ],
+  "hasStackup": false,
+  "m_CopperEdgeClearance": 7,
+  "m_HoleToHoleMin": 7,
+  "m_MinClearance": 5,
+  "m_MinThroughDrill": 7,
+  "m_SilkClearance": 3,
+  "m_SolderMaskExpansion": 2,
+  "m_TrackMinWidth": 4,
+  "m_ViasMinSize": 13,
+  "netclasses": {
+   "Default": {
+    "clearance": 7,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 7,
+    "viaDiameter": 1016000,
+    "viaDrill": 508000
+   }
+  },
+  "patterns": {},
+  "thickness": 1600000,
+  "viaSizes": [
+   [
+    1016000,
+    508000
+   ],
+   [
+    0,
+    0
+   ],
+   [
+    800000,
+    0
+   ]
+  ]
+ },
+ "synthetic_text_attrs.asc": {
+  "copperLayers": 2,
+  "customTrack": 254000,
+  "customVia": [
+   1016000,
+   508000
+  ],
+  "hasStackup": false,
+  "m_CopperEdgeClearance": 254000,
+  "m_HoleToHoleMin": 254000,
+  "m_MinClearance": 203200,
+  "m_MinThroughDrill": 254000,
+  "m_SilkClearance": 127000,
+  "m_SolderMaskExpansion": 76200,
+  "m_TrackMinWidth": 152400,
+  "m_ViasMinSize": 508000,
+  "netclasses": {
+   "Default": {
+    "clearance": 254000,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 254000,
+    "viaDiameter": 1016000,
+    "viaDrill": 508000
+   }
+  },
+  "patterns": {},
+  "thickness": 1600000,
+  "viaSizes": []
+ },
+ "synthetic_unmapped_text_layer.asc": {
+  "copperLayers": 2,
+  "customTrack": 254000,
+  "customVia": [
+   1016000,
+   508000
+  ],
+  "hasStackup": false,
+  "m_CopperEdgeClearance": 254000,
+  "m_HoleToHoleMin": 254000,
+  "m_MinClearance": 203200,
+  "m_MinThroughDrill": 254000,
+  "m_SilkClearance": 127000,
+  "m_SolderMaskExpansion": 76200,
+  "m_TrackMinWidth": 152400,
+  "m_ViasMinSize": 508000,
+  "netclasses": {
+   "Default": {
+    "clearance": 254000,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 254000,
+    "viaDiameter": 1016000,
+    "viaDrill": 508000
+   }
+  },
+  "patterns": {},
+  "thickness": 1600000,
+  "viaSizes": []
+ },
+ "synthetic_ziro_slots_routepins.asc": {
+  "copperLayers": 2,
+  "customTrack": 254000,
+  "customVia": [
+   1016000,
+   508000
+  ],
+  "hasStackup": false,
+  "m_CopperEdgeClearance": 254000,
+  "m_HoleToHoleMin": 254000,
+  "m_MinClearance": 203200,
+  "m_MinThroughDrill": 254000,
+  "m_SilkClearance": 127000,
+  "m_SolderMaskExpansion": 76200,
+  "m_TrackMinWidth": 152400,
+  "m_ViasMinSize": 508000,
+  "netclasses": {
+   "Default": {
+    "clearance": 254000,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 254000,
+    "viaDiameter": 1016000,
+    "viaDrill": 508000
+   }
+  },
+  "patterns": {},
+  "thickness": 1600000,
+  "viaSizes": []
+ }
+}

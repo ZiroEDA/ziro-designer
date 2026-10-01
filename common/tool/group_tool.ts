@@ -21,6 +21,7 @@ import { type EDA_ITEM, type EDA_ITEMS, RECURSE_MODE } from '../eda_item.js';
 import { BITMAPS } from '../bitmaps/bitmaps_list.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { ACTION_MENU } from './action_menu.js';
+import type { COROUTINE_BODY } from './coroutine.js';
 import { ACTIONS } from './actions.js';
 import { SELECTION } from './selection.js';
 import { SELECTION_CONDITIONS } from './selection_conditions.js';
@@ -38,6 +39,8 @@ export type GROUP_TOOL_FRAME = EDA_DRAW_FRAME & {
 export interface DIALOG_GROUP_PROPERTIES {
   Show(aShow: boolean): void;
   Destroy(): void;
+  /** `DIALOG_GROUP_PROPERTIES::DoAddMember`: `PickNewMember`'s pick, into the member list. */
+  DoAddMember(aItem: EDA_ITEM): void;
 }
 
 export type DIALOG_GROUP_PROPERTIES_FACTORY = (
@@ -69,14 +72,15 @@ export interface GROUP_MENU_STATE {
 /**
  * `GROUP_CONTEXT_MENU::update()` (group_tool.cpp:67-105): Group needs two or
  * more items; Ungroup a selected group; Add to Group exactly one group plus
- * an item in no group; Remove from Group an item in a group.
+ * an item that is not a group (one in another group too: AddToGroup moves
+ * it); Remove from Group an item in a group.
  */
 export function GroupMenuState(aSelection: Iterable<EDA_ITEM> | null): GROUP_MENU_STATE {
   let selectionCount = 0;
   let hasGroup = false;
   let hasMember = false;
   let onlyOneGroup = false;
-  let hasUngroupedItems = false;
+  let hasNonGroupItems = false;
 
   if (aSelection !== null) {
     for (const item of aSelection) {
@@ -90,8 +94,8 @@ export function GroupMenuState(aSelection: Iterable<EDA_ITEM> | null): GROUP_MEN
           onlyOneGroup = true;
           hasGroup = true;
         }
-      } else if (!item.GetParentGroup()) {
-        hasUngroupedItems = true;
+      } else {
+        hasNonGroupItems = true;
       }
 
       if (item.GetParentGroup()) hasMember = true;
@@ -101,7 +105,7 @@ export function GroupMenuState(aSelection: Iterable<EDA_ITEM> | null): GROUP_MEN
   return {
     group: selectionCount >= 2,
     ungroup: hasGroup,
-    addToGroup: onlyOneGroup && hasUngroupedItems,
+    addToGroup: onlyOneGroup && hasNonGroupItems,
     removeFromGroup: hasMember,
   };
 }
@@ -197,7 +201,7 @@ export abstract class GROUP_TOOL extends TOOL_INTERACTIVE {
   /**
    * Invoke the picker tool to select a new member of the group.
    */
-  abstract PickNewMember(aEvent: TOOL_EVENT): number;
+  abstract PickNewMember(aEvent: TOOL_EVENT): COROUTINE_BODY<number>;
 
   ///< Group selected items.
   abstract Group(aEvent: TOOL_EVENT): number;
@@ -252,7 +256,7 @@ export abstract class GROUP_TOOL extends TOOL_INTERACTIVE {
         if (group !== null) return 0;
 
         group = asEdaGroup(item);
-      } else if (!item.GetParentGroup() && this.canGroupItem(item, errorMsg)) {
+      } else if (this.canGroupItem(item, errorMsg)) {
         toAdd.push(item);
       }
     }
@@ -351,7 +355,7 @@ export abstract class GROUP_TOOL extends TOOL_INTERACTIVE {
   ///< Set up handlers for various events.
   protected setTransitions(): void {
     this.Go(SYNC_HANDLER(this.GroupProperties), ACTIONS.groupProperties.MakeEvent());
-    this.Go(SYNC_HANDLER(this.PickNewMember), ACTIONS.pickNewGroupMember.MakeEvent());
+    this.Go(this.PickNewMember, ACTIONS.pickNewGroupMember.MakeEvent());
 
     this.Go(SYNC_HANDLER(this.Group), ACTIONS.group.MakeEvent());
     this.Go(SYNC_HANDLER(this.Ungroup), ACTIONS.ungroup.MakeEvent());

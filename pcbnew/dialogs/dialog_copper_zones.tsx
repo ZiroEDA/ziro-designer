@@ -41,6 +41,8 @@
 import { useState, type JSX } from 'react';
 import type { ZoneValues } from './panel_zone_properties.js';
 import { PanelZoneProperties } from './panel_zone_properties_ui.js';
+import type { ConversionBoxValues } from '../tools/convert_settings_dialog.js';
+import { ConversionSettingsBox } from '../tools/convert_settings_dialog_ui.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
 
@@ -66,7 +68,12 @@ interface Props {
    * the title says so and the panel fixes its smoothing and pad connection.
    */
   teardrop?: boolean;
-  onApply: (values: ZoneValues) => void;
+  /**
+   * `aConvertSettings`: CONVERT_TOOL opened the dialog, so it carries the
+   * "Conversion Settings" box and is titled "Convert to Copper Zone".
+   */
+  conversion?: ConversionBoxValues | null;
+  onApply: (values: ZoneValues, conversion: ConversionBoxValues | null) => void;
   /**
    * `DIALOG_COPPER_ZONE::onZoneManager`: `TransferDataFromWindow()`, then close
    * with `COPPER_ZONE_OPEN_ZONE_MANAGER`, on which `InvokeCopperZonesEditor`
@@ -84,6 +91,7 @@ export function DialogCopperZones({
   layers,
   existingZone = false,
   teardrop = false,
+  conversion = null,
   onApply,
   onOpenZoneManager,
   onClose,
@@ -100,17 +108,24 @@ export function DialogCopperZones({
   // The forced value is what upstream leaves in the settings, so hand back
   // what the disabled control shows rather than what it used to hold.
   const settled = (): ZoneValues => (noNet ? { ...v, islandRemovalMode: 'never' } : v);
-  const accept = (): void => onApply(settled());
+  const [conv, setConv] = useState<ConversionBoxValues | null>(conversion);
+  const accept = (): void => onApply(settled(), conv);
 
   return (
     <div className="ze-modal-backdrop" onMouseDown={onClose}>
       <div className="ze-modal ze-cz-dialog" onMouseDown={(e) => e.stopPropagation()}>
         <div className="ze-modal-header">
-          {teardrop ? 'Legacy Teardrop Properties' : 'Copper Zone Properties'}
+          {conv
+            ? 'Convert to Copper Zone'
+            : teardrop
+              ? 'Legacy Teardrop Properties'
+              : 'Copper Zone Properties'}
           <span className="x" onClick={onClose}>
             ✕
           </span>
         </div>
+
+        {conv && <ConversionSettingsBox values={conv} units={units} onChange={setConv} />}
 
         {/* bMainSizer, HORIZONTAL: bSizerLeft at proportion 0, m_sizerRight at 1. */}
         <div className="ze-modal-body ze-cz-body">

@@ -245,6 +245,38 @@ export function syncViewTransform(
     view.SetCenter(center);
 }
 
+/**
+ * {@link syncViewTransform}'s inverse: the VIEW's scale, centre and mirror as the
+ * editor's device-pixel transform.
+ *
+ * TRANSITIONAL (#636 stage 3): WX_VIEW_CONTROLS owns the view now (the wheel,
+ * the drag gestures, autopan) and the tools move it through `VIEW::SetScale` /
+ * `SetCenter`; the window's 2D overlay still paints in its own transform, so it
+ * reads the VIEW back through this until the overlay is gone.
+ */
+export function editorViewOf(
+  aPanel: EDA_DRAW_PANEL_GAL,
+  aDevicePixelRatio: number,
+): EditorView | null {
+  const view = aPanel.GetView();
+  const gal = aPanel.GetGAL();
+  const screen = gal.GetScreenPixelSize();
+
+  if (screen.x <= 0 || screen.y <= 0) return null;
+
+  const scale = gal.GetWorldScale() * aDevicePixelRatio;
+
+  if (!(scale > 0)) return null;
+
+  const flipX = view.IsMirroredX();
+  const center = view.GetCenter();
+  const cx = Math.trunc(screen.x / 2) * aDevicePixelRatio;
+  const cy = Math.trunc(screen.y / 2) * aDevicePixelRatio;
+  const sx = flipX ? -scale : scale;
+
+  return { scale, flipX, tx: cx - center.x * sx, ty: cy - center.y * scale };
+}
+
 /** The editor's Appearance state, as `BOARD` and the render settings take it. */
 export interface EditorDisplayState {
   /** The visible board layers, by name (`LAYER_*`, "F.Cu"...). */

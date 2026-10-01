@@ -747,9 +747,12 @@ export class PADSTACK {
     this.m_layerSet = new LSET(aOther.m_layerSet);
     this.SetCustomName(aOther.CustomName());
     this.m_orientation = aOther.m_orientation;
+    // `m_copperProps = aOther.m_copperProps` is safe for `*this = *this` (a pad pushed onto
+    // itself, `doPushPadProperties`); read the source map before replacing ours.
+    const otherCopperProps = aOther.m_copperProps;
     this.m_copperProps = new Map();
 
-    for (const [layer, props] of aOther.m_copperProps) this.m_copperProps.set(layer, props.clone());
+    for (const [layer, props] of otherCopperProps) this.m_copperProps.set(layer, props.clone());
 
     this.m_frontMaskProps = aOther.m_frontMaskProps.clone();
     this.m_backMaskProps = aOther.m_backMaskProps.clone();
@@ -1357,6 +1360,15 @@ export class PADSTACK {
     return this.CopperLayerMut(aLayer).shape.offset;
   }
 
+  /**
+   * `Offset( aLayer ) const`: read through the const `CopperLayer`, which never creates an
+   * entry. A const caller (PAD::GetOffset, ShapePos, IsOnCopperLayer) must use this one, or
+   * a FRONT_INNER_BACK stack gains a default inner entry the writer then prints.
+   */
+  OffsetConst(aLayer: PCB_LAYER_ID): VECTOR2I {
+    return this.CopperLayer(aLayer).shape.offset;
+  }
+
   SetOffset(aOffset: VECTOR2I, aLayer: PCB_LAYER_ID): void {
     this.CopperLayerMut(aLayer).shape.offset = { x: aOffset.x, y: aOffset.y };
   }
@@ -1370,6 +1382,11 @@ export class PADSTACK {
 
   TrapezoidDeltaSize(aLayer: PCB_LAYER_ID): VECTOR2I {
     return this.CopperLayerMut(aLayer).shape.trapezoid_delta_size;
+  }
+
+  /** `TrapezoidDeltaSize( aLayer ) const`: see OffsetConst. */
+  TrapezoidDeltaSizeConst(aLayer: PCB_LAYER_ID): VECTOR2I {
+    return this.CopperLayer(aLayer).shape.trapezoid_delta_size;
   }
 
   SetTrapezoidDeltaSize(aDelta: VECTOR2I, aLayer: PCB_LAYER_ID): void {

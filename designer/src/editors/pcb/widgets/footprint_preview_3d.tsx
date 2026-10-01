@@ -26,7 +26,7 @@ import '../viewer3d_cache_shim.js';
  * back masks enabled, `BuildDefaultStackupList( &dummy_bds, 2 )`. No edge —
  * the footprint holder's outline is the item bounds, as upstream's is.
  */
-const HOLDER_BOARD = `(kicad_pcb (version 20241229) (generator "ziroeda")
+export const HOLDER_BOARD = `(kicad_pcb (version 20241229) (generator "ziroeda")
   (general (thickness 1.6))
   (paper "A4")
   (layers (0 "F.Cu" signal) (2 "B.Cu" signal) (25 "Edge.Cuts" user)

@@ -316,6 +316,8 @@ describe('a row runs the command it names', () => {
     // `PCB_ACTIONS::exportSpecctraDSN` / `importSpecctraSession`, greyed until 09-30.
     ['File', 'Specctra DSN...', 'action:exportSpecctraDSN'],
     ['File', 'Specctra Session...', 'action:importSpecctraSession'],
+    // `BOARD_EDITOR_CONTROL::ImportNetlist` -> `InstallNetlistFrame`, DIALOG_IMPORT_NETLIST.
+    ['File', 'Netlist...', 'action:importNetlist'],
     ['Edit', 'Cut', 'action:cut'],
     ['Edit', 'Paste Special...', 'action:pasteSpecial'],
     ['Edit', 'Select All', 'action:selectAll'],
@@ -335,6 +337,8 @@ describe('a row runs the command it names', () => {
     ['Route', 'Interactive Router Settings...', 'action:routerSettingsDialog'],
     ['Inspect', 'Design Rules Checker', 'action:runDRC'],
     ['Inspect', 'Measure Tool', 'tool:measureTool'],
+    // `BOARD_INSPECTION_TOOL::ShowFootprintLinks`, DIALOG_FOOTPRINT_ASSOCIATIONS.
+    ['Inspect', 'Show Footprint Associations', 'action:showFootprintAssociations'],
     ['Tools', 'Switch to Schematic Editor', 'action:showEeschema'],
     ['Tools', 'Footprint Editor', 'action:showFootprintEditor'],
     ['Preferences', 'Preferences...', 'action:openPreferences'],

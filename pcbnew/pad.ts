@@ -591,7 +591,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
         switch (this.GetShape(aLayer)) {
           case PAD_SHAPE.CIRCLE:
             if (
-              equal(this.m_padStack.Offset(aLayer), { x: 0, y: 0 }) &&
+              equal(this.m_padStack.OffsetConst(aLayer), { x: 0, y: 0 }) &&
               this.m_padStack.Size(aLayer).x <= this.m_padStack.Drill().size.x
             ) {
               hasAnnularRing = false;
@@ -601,7 +601,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
 
           case PAD_SHAPE.OVAL:
             if (
-              equal(this.m_padStack.Offset(aLayer), { x: 0, y: 0 }) &&
+              equal(this.m_padStack.OffsetConst(aLayer), { x: 0, y: 0 }) &&
               this.m_padStack.Size(aLayer).x <= this.m_padStack.Drill().size.x &&
               this.m_padStack.Size(aLayer).y <= this.m_padStack.Drill().size.y
             ) {
@@ -684,7 +684,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
     this.SetDirty();
   }
   GetDelta(aLayer: PCB_LAYER_ID): VECTOR2I {
-    return this.m_padStack.TrapezoidDeltaSize(aLayer);
+    return this.m_padStack.TrapezoidDeltaSizeConst(aLayer);
   }
 
   SetPrimaryDrillSize(aSize: VECTOR2I): void {
@@ -736,7 +736,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
     this.SetDirty();
   }
   GetOffset(aLayer: PCB_LAYER_ID): VECTOR2I {
-    return this.m_padStack.Offset(aLayer);
+    return this.m_padStack.OffsetConst(aLayer);
   }
 
   override GetCenter(): VECTOR2I {
@@ -1701,7 +1701,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
 
       case PAD_SHAPE.TRAPEZOID:
       case PAD_SHAPE.RECTANGLE: {
-        const trapDelta = this.m_padStack.TrapezoidDeltaSize(aLayer);
+        const trapDelta = this.m_padStack.TrapezoidDeltaSizeConst(aLayer);
         const ddx = shape === PAD_SHAPE.TRAPEZOID ? Math.trunc(trapDelta.x / 2) : 0;
         const ddy = shape === PAD_SHAPE.TRAPEZOID ? Math.trunc(trapDelta.y / 2) : 0;
 
@@ -2234,7 +2234,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
   }
 
   ShapePos(aLayer: PCB_LAYER_ID): VECTOR2I {
-    let loc_offset = this.m_padStack.Offset(aLayer);
+    let loc_offset = this.m_padStack.OffsetConst(aLayer);
 
     if (loc_offset.x === 0 && loc_offset.y === 0) return this.m_pos;
 
@@ -3217,7 +3217,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
             break;
           }
         } else if (effectiveShape === PAD_SHAPE.TRAPEZOID) {
-          const d = this.m_padStack.TrapezoidDeltaSize(aLayer);
+          const d = this.m_padStack.TrapezoidDeltaSizeConst(aLayer);
           trap_delta = { x: Math.trunc(d.x / 2), y: Math.trunc(d.y / 2) };
         }
 

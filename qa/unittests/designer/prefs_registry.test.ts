@@ -175,10 +175,10 @@ describe('no editor reaches into another editor', () => {
     // which only stays legitimate while it lives above both editors.
     const users = [
       'editors/schematic/prefs/PanelEeschemaDisplayOptions.tsx',
-      'editors/pcb/prefs/PanelPcbDisplayOptions.tsx',
+      '../../pcbnew/dialogs/panel_display_options.tsx',
     ];
     for (const rel of users) {
-      expect(read(rel), rel).toContain("from '../../../dialogs/prefs/CrossProbingGroup.js'");
+      expect(read(rel), rel).toContain("from '@ziroeda/common/dialogs/cross_probing_group.js'");
     }
   });
 });

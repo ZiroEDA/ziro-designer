@@ -10,10 +10,10 @@
  * in the editor's entry chunk and is fetched the first time it is needed.
  * Every lookup that has to construct a plugin is therefore async.
  *
- * Registered: the plugins that are ported. The KiCad s-expression and legacy
- * plugins are not PCB_IO classes here (the board is read and written by
- * `kicad_sexpr/`'s parser and formatter directly), so they have no entry yet;
- * every caller of this registry asks for non-KiCad files (`KICTL_NONKICAD_ONLY`).
+ * Registered: the plugins that are ported. The KiCad s-expression plugin is
+ * not a PCB_IO class here (the board is read and written by `kicad_sexpr/`'s
+ * parser and formatter directly), so it has no entry yet; LEGACY is a KiCad
+ * type, so a `KICTL_NONKICAD_ONLY` lookup passes it by, as upstream's does.
  */
 
 import { KICTL_KICAD_ONLY, KICTL_NONKICAD_ONLY } from '@ziroeda/common/kiway_player.js';
@@ -170,9 +170,15 @@ export const PCB_IO_MGR = {
 // These text strings are "truth" for identifying the plugins.  If you change the spellings,
 // you will obsolete library tables, so don't do it.  Additions are OK.
 
-// Keep non-KiCad plugins in alphabetical order
-
 const registry = PLUGIN_REGISTRY.Instance();
+
+registry.Register(
+  PCB_FILE_T.LEGACY,
+  'Legacy',
+  async () => new (await import('./kicad_legacy/pcb_io_kicad_legacy.js')).PCB_IO_KICAD_LEGACY(),
+);
+
+// Keep non-KiCad plugins in alphabetical order
 
 registry.Register(
   PCB_FILE_T.ALTIUM_CIRCUIT_MAKER,
@@ -195,6 +201,12 @@ registry.Register(
 );
 
 registry.Register(
+  PCB_FILE_T.CADSTAR_PCB_ARCHIVE,
+  'CADSTAR PCB Archive',
+  async () => new (await import('./cadstar/pcb_io_cadstar_archive.js')).PCB_IO_CADSTAR_ARCHIVE(),
+);
+
+registry.Register(
   PCB_FILE_T.EAGLE,
   'Eagle',
   async () => new (await import('./eagle/pcb_io_eagle.js')).PCB_IO_EAGLE(),
@@ -207,7 +219,38 @@ registry.Register(
 );
 
 registry.Register(
+  PCB_FILE_T.EASYEDAPRO,
+  'EasyEDA / JLCEDA Pro',
+  async () => new (await import('./easyedapro/pcb_io_easyedapro.js')).PCB_IO_EASYEDAPRO(),
+);
+
+// Fabmaster registers here upstream.
+
+registry.Register(
+  PCB_FILE_T.GEDA_PCB,
+  'gEDA / Lepton EDA',
+  async () => new (await import('./geda/pcb_io_geda.js')).PCB_IO_GEDA(),
+);
+
+registry.Register(
+  PCB_FILE_T.PCAD,
+  'P-Cad',
+  async () => new (await import('./pcad/pcb_io_pcad.js')).PCB_IO_PCAD(),
+);
+
+registry.Register(
   PCB_FILE_T.SOLIDWORKS_PCB,
   'Solidworks PCB',
   async () => new (await import('./altium/pcb_io_solidworks.js')).PCB_IO_SOLIDWORKS(),
 );
+
+// IPC-2581 and ODB++ register here upstream (export-only plugins).
+
+registry.Register(
+  PCB_FILE_T.PADS,
+  'PADS',
+  async () => new (await import('./pads/pcb_io_pads.js')).PCB_IO_PADS(),
+);
+
+// PCB_IO_PADS_BINARY (pads/pcb_io_pads_binary.ts) is ported but, as in KiCad 10.0.6, not
+// registered: upstream leaves it out of pcb_io/pads/CMakeLists.txt.

@@ -28,9 +28,7 @@ import { editPointColors } from '@ziroeda/common/gal/color4d.js';
 import { galPenWidth, galSnapPx } from '@ziroeda/common/gal_pixel_grid.js';
 import {
   drawSelectionArea,
-  drawSelectionLasso,
   isBackgroundDark,
-  lassoIsInside,
   selectionAreaColors,
 } from '@ziroeda/common/preview_items/selection_area.js';
 import { BezierStep } from '@ziroeda/common/preview_items/bezier_geom_manager.js';
@@ -41,9 +39,9 @@ import { DialogRuleAreaProperties } from './dialogs/dialog_rule_area_properties_
 import type { PROGRESS_REPORTER_LIKE } from './connectivity/connectivity_algo.js';
 import { PROF_TIMER, traceAllegroPerf, wxLogTrace } from '@ziroeda/common/trace_helpers.js';
 import { placeImportedItems, placeVia } from './tools/drawing_tool.js';
-import { DEFAULT_RULE_AREA_KEEPOUT } from './convert_shapes.js';
 import {
   collectPlacementSources,
+  DEFAULT_RULE_AREA_KEEPOUT,
   DIALOG_RULE_AREA_PROPERTIES,
   uniqueZoneName,
   type RuleAreaValues,
@@ -69,16 +67,7 @@ import {
   EDIT_POINT_HOVER_SIZE,
   EDIT_POINT_SIZE,
 } from '@ziroeda/common/preview_items/edit_points.js';
-import {
-  commonInputPrefs,
-  dragGesture,
-  dragZoomScale,
-  makeAutoPan,
-  makeMotionPan,
-  makeZoomController,
-  wheelAction,
-  zoomFitScale,
-} from '@ziroeda/common/ui/view_controls.js';
+import { zoomFitScale } from '@ziroeda/common/ui/view_controls.js';
 import { DockSash } from '@ziroeda/common/widgets/wx_aui_sash.js';
 import { onOutlineFontsChanged } from '@ziroeda/common/font/outline_fonts.js';
 import {
@@ -127,8 +116,6 @@ import { parse } from '@ziroeda/sexpr';
 import {
   readBoard,
   boardHitCandidates,
-  boardItemsInBox,
-  boardItemsInLasso,
   allBoardItemIds,
   boardItemBBox,
   parseBoardItemId,
@@ -139,16 +126,9 @@ import {
   boardItemId,
   subsetBoardItems,
   deleteBoardItems,
-  rotateBoardItemsBy,
-  duplicateBoardItems,
-  mirrorBoardItems,
   groupBoardItems,
-  ungroupBoardItems,
-  addToGroupItems,
-  removeFromGroupItems,
   expandGroupIds,
   filterSelectionForFreePads,
-  filterSelectionForDelete,
   startTrackDrag,
   updateTrackDrag,
   trackDragSegments,
@@ -184,24 +164,16 @@ import {
   type PcbShape,
   type PcbPad,
   DEFAULT_SELECTION_FILTER,
-  distributeBoardItems,
-  type DistributeAction,
   defaultRotationAnchor,
   boardSelectionBBox,
   itemAnchorPoint,
-  positionRelative,
   boardGridOrigin,
-  convertToPoly,
-  convertToZone,
   modifyLines,
   modifiableLineCount,
   type LineModification,
   polygonBoolean,
   booleanableShapeCount,
   type PolygonBoolean,
-  outsetItems,
-  convertToLines,
-  segmentToArc,
   type SelectionFilter,
   BOARD_NETLIST_UPDATER,
   spreadBoardFootprints,
@@ -363,6 +335,54 @@ export function legacyIdsOf(aBoard: Board, aItems: readonly EDA_ITEM[]): string[
     const id = legacyIdOf(aBoard, item);
 
     if (id !== null && !out.includes(id)) out.push(id);
+  }
+
+  return out;
+}
+
+/**
+ * TRANSITIONAL (#636 stage 3): the view ids of live items, in their order,
+ * dropping what the view does not hold. One pass over the view builds the
+ * index, so a Select All of a big board is not quadratic.
+ */
+export function viewIdsOf(aBoard: Board, aItems: readonly EDA_ITEM[]): string[] {
+  const index = new Map<unknown, string>();
+  const scan = (aKind: BoardItemKind, aList: readonly { k?: unknown }[] | undefined): void => {
+    aList?.forEach((v, i) => {
+      if (v.k) index.set(v.k, boardItemId(aKind, i));
+    });
+  };
+
+  scan('track', aBoard.tracks);
+  scan('arc', aBoard.arcs);
+  scan('via', aBoard.vias);
+  scan('footprint', aBoard.footprints);
+  scan('zone', aBoard.zones);
+  scan('shape', aBoard.shapes);
+  scan('text', aBoard.texts);
+  scan('textbox', aBoard.textBoxes);
+  scan('table', aBoard.tables);
+  scan('image', aBoard.images);
+  scan('dimension', aBoard.dimensions);
+  scan('point', aBoard.points);
+  scan('barcode', aBoard.barcodes);
+  scan('group', aBoard.groups);
+
+  aBoard.footprints.forEach((fp, fi) => {
+    fp.pads.forEach((p, pi) => {
+      if (p.k) index.set(p.k, boardItemId('pad', fi, pi));
+    });
+    fp.texts.forEach((t, ti) => {
+      if (t.k) index.set(t.k, boardItemId('fptext', fi, ti));
+    });
+  });
+
+  const out: string[] = [];
+
+  for (const item of aItems) {
+    const id = index.get(item);
+
+    if (id !== undefined && !out.includes(id)) out.push(id);
   }
 
   return out;
@@ -572,6 +592,36 @@ import {
 import { BuildBomTextFromBoard } from './build_BOM_from_board.js';
 import { DialogBoardStatistics } from './dialogs/dialog_board_statistics.js';
 import { DialogFilterSelection } from './dialogs/dialog_filter_selection_ui.js';
+import {
+  type MOVE_EXACT_VALUES,
+  PNS_DRAG_MODE,
+  ROTATION_ANCHOR,
+  type ROUTER_TOOL_LIKE,
+} from './tools/edit_tool.js';
+import type { DOGBONE_PARAMETERS } from './tools/item_modification_routine.js';
+import type { TOOL_ACTION } from '@ziroeda/common/tool/tool_action.js';
+import type { BOX2I as KBOX2I } from '@ziroeda/kimath/src/math/box2.js';
+
+/** `ROTATION_ANCHOR` in DIALOG_MOVE_EXACT's order, as the dialog names them. */
+const ROTATION_ANCHOR_NAMES = ['itemAnchor', 'selectionCenter', 'userOrigin', 'auxOrigin'] as const;
+import { type WINDOW_ACTION_HANDLER } from './tools/window_action_bridge.js';
+import type { ACTION_MENU } from '@ziroeda/common/tool/action_menu.js';
+import { actionMenuItems } from '@ziroeda/common/tool/action_menu_popup.js';
+import { ACTIONS } from '@ziroeda/common/tool/actions.js';
+import { GroupMenuState } from '@ziroeda/common/tool/group_tool.js';
+import { CONDITIONAL_MENU } from '@ziroeda/common/tool/conditional_menu.js';
+import { EVENTS } from '@ziroeda/common/tool/tool_event.js';
+import * as KIPLATFORM_UI from '@ziroeda/common/kiplatform/ui.js';
+import { wxMenuEvent, wxMenuEventType } from '@ziroeda/common/wx/menu.js';
+import { clientPosition, wxKeyEventFromDom } from '@ziroeda/common/wx/dom_events.js';
+import {
+  type wxEvent,
+  wxEVT_CHAR_HOOK,
+  wxEVT_LEFT_DOWN,
+  wxKeyEvent,
+  wxMouseEvent,
+} from '@ziroeda/common/wx/wx_event.js';
+import { WXK } from '@ziroeda/core/wx_keycodes.js';
 import { DialogMoveExact, type MoveExactValues } from './dialogs/dialog_move_exact_ui.js';
 import { WX_UNIT_ENTRY_DIALOG } from '@ziroeda/common/dialogs/dialog_unit_entry.js';
 import { WX_MULTI_ENTRY_DIALOG } from '@ziroeda/common/dialogs/dialog_multi_unit_entry.js';
@@ -586,17 +636,19 @@ import {
   handleDragTarget,
   handleTolerance,
 } from './tools/pcb_point_editor_canvas.js';
-import { DialogOutsetItems } from './dialogs/dialog_outset_items.js';
+import { DialogOutsetItems } from './dialogs/dialog_outset_items_ui.js';
+import { DIALOG_OUTSET_ITEMS } from './dialogs/dialog_outset_items.js';
+import { CONVERT_SETTINGS_DIALOG } from './tools/convert_settings_dialog.js';
+import { ConvertSettingsDialog } from './tools/convert_settings_dialog_ui.js';
+import type { CONVERT_TOOL } from './tools/convert_tool.js';
+import type { OUTSET_PARAMETERS } from './tools/item_modification_routine.js';
+import type { CONVERT_SETTINGS } from './pcbnew_settings.js';
+import type { ZONE_SETTINGS } from './zone_settings.js';
 import { DialogPnsSettings } from './dialogs/dialog_pns_settings.js';
-import {
-  DEFAULT_OUTSET_SETTINGS,
-  outsetOptionsFrom,
-  type OutsetSettings,
-} from './tools/item_modification_routine.js';
-import {
-  DialogPositionRelative,
-  type PositionRelativeValues,
-} from './dialogs/dialog_position_relative_ui.js';
+import { DialogPositionRelativeModeless } from './dialogs/dialog_position_relative_ui.js';
+import type { DIALOG_POSITION_RELATIVE } from './dialogs/dialog_position_relative.js';
+import { DialogOffsetItem } from './dialogs/dialog_offset_item_ui.js';
+import type { DIALOG_OFFSET_ITEM } from './dialogs/dialog_offset_item.js';
 import { DIALOG_BOOK_REPORTER } from '@ziroeda/common/dialogs/dialog_book_reporter.js';
 import { inspectReport, describeSelected } from './tools/board_inspection_tool.js';
 import { netClassFor, netclassesForNet } from '@ziroeda/common/netclass_resolve.js';
@@ -621,6 +673,7 @@ import {
 } from './widgets/appearance_controls.js';
 import {
   DEFAULT_SELECTION_FILTER_OPTIONS,
+  SELECTION_FILTER_ITEMS,
   SelectionFilterOnlyMenu,
   SelectionFilterPanel,
   type SelectionFilterItem,
@@ -632,18 +685,28 @@ import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { type BoardCursorSnap, snapToBoardCopper } from './pcb_cursor_snap.js';
 import { inheritTrackWidth } from './inherit_track_width.js';
 import { moveDelta } from './pcb_edit_frame.js';
-import { contextMenuPick } from './tools/pcb_selection_tool.js';
 import { parseDrcRules } from './drc/drc_rule_view.js';
 import { DialogTrackViaProperties } from './dialogs/dialog_track_via_properties_ui.js';
 import { DialogCopperZones } from './dialogs/dialog_copper_zones.js';
-import { SelectCopperLayerPairDialog } from './sel_layer.js';
+import { PcbOneLayerSelector, SelectCopperLayerPairDialog } from './sel_layer.js';
 import { DialogFootprintProperties } from './dialogs/dialog_footprint_properties_ui.js';
+import { DialogFootprintAssociations } from './dialogs/dialog_footprint_associations_ui.js';
+import { DialogMapLayers } from './dialogs/dialog_map_layers.js';
+import type {
+  PANEL_3D_MODEL_HOST,
+  SELECTED_3D_MODEL,
+} from './dialogs/panel_fp_properties_3d_model.js';
+import { PROJECT_PCB } from './project_pcb.js';
+import type { FILENAME_RESOLVER } from '@ziroeda/common/filename_resolver.js';
+import { DialogImportNetlist, type ImportNetlistOptions } from './dialogs/dialog_import_netlist.js';
+import { loadNetlist as readNetlistText } from './netlist_reader/netlist_reader.js';
+import type { INPUT_LAYER_DESC } from './pcb_io/common/plugin_common_layer_mapping.js';
+import type { PCB_LAYER_ID as MapLayersLayerId } from '@ziroeda/common/layer_id.js';
 import {
   DIALOG_FOOTPRINT_PROPERTIES,
   footprintAt,
   type FootprintValues,
 } from './dialogs/dialog_footprint_properties.js';
-import { flipBoardItems, modificationPoint } from './edit-board.js';
 import { zoneItemDescription } from './item_description.js';
 import { DialogPadProperties } from './dialogs/dialog_pad_properties_ui.js';
 import { DialogShapeProperties } from './dialogs/dialog_graphic_properties.js';
@@ -695,11 +758,9 @@ import {
   viewIdOfBoardItem,
 } from './pcb_io/kicad_sexpr/board_view.js';
 import { DisplayErrorMessage, IsOK } from '@ziroeda/common/confirm.js';
-import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import { EDA_ANGLE, EDA_ANGLE_T } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { DIALOG_REFERENCE_IMAGE_PROPERTIES } from './dialogs/dialog_reference_image_properties.js';
-import { moveExactOnSelection } from './dialogs/dialog_move_exact.js';
 import { ARRAY_TOOL } from './tools/array_tool.js';
-import { filterSelectionItems } from './tools/pcb_selection_tool.js';
 import { PCB_SELECTION } from './tools/pcb_selection.js';
 import { Build_Board_Characteristics_Table } from './board_tables/board_characteristics_table.js';
 import { Build_Board_Stackup_Table } from './board_tables/board_stackup_table.js';
@@ -731,7 +792,6 @@ import { parseFootprint } from './footprint_edit_frame.js';
 import {
   buildScene,
   drawBoard,
-  hitTestBoardDrawingSheet,
   drawOriginMarkers,
   boardTextPath,
   PCB_DEFAULT_GRID_IU,
@@ -748,11 +808,12 @@ import {
   attachBoardToPanel,
   createPcbDrawPanel,
   type EditorDisplayState,
-  GL_SELECTION,
+  editorViewOf,
   kItemsForIds,
   loadBitmapFontImage,
   setItemsHidden,
   syncViewTransform,
+  type EditorView,
 } from './pcb_canvas.js';
 import type { PCB_DRAW_PANEL_GAL } from './pcb_draw_panel_gal.js';
 import type { BOARD_ITEM } from './board_item.js';
@@ -762,7 +823,12 @@ import {
   NET_COLOR_MODE,
   ZONE_DISPLAY_MODE,
 } from '@ziroeda/common/project/board_project_settings.js';
-import { GAL_LAYER_ID, LayerName, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import {
+  GAL_LAYER_ID,
+  LayerName,
+  PCB_LAYER_ID,
+  UNDEFINED_LAYER,
+} from '@ziroeda/common/layer_id.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { VIEW_UPDATE_FLAGS, type VIEW_ITEM } from '@ziroeda/common/view/view_item.js';
 import { PAD } from './pad.js';
@@ -1116,16 +1182,6 @@ const defaultShapeWidth = (layer: string): number => {
   if (layer === 'Edge.Cuts' || /\.CrtYd$/.test(layer)) return 0.05 * MM;
   return 0.1 * MM;
 };
-
-type AlignAction = 'left' | 'centerX' | 'right' | 'top' | 'centerY' | 'bottom';
-
-const bboxCenter = (b: BoardBBox): { x: number; y: number } => ({
-  x: (b.minX + b.maxX) / 2,
-  y: (b.minY + b.maxY) / 2,
-});
-
-const bboxContainsPoint = (b: BoardBBox, p: { x: number; y: number }): boolean =>
-  p.x >= b.minX && p.x <= b.maxX && p.y >= b.minY && p.y <= b.maxY;
 
 // Circumcenter of three points, or null when they are (nearly) collinear.
 const circumcenter = (
@@ -1579,6 +1635,7 @@ export function PcbEditor({
     HomeLink,
     SaveAsDialog,
     FootprintChooserFrame,
+    ModelPreview3D,
     Viewer3DFrame,
     pcbnewSettings: pcbCfg,
     commonSettings: commonCfg,
@@ -1874,8 +1931,14 @@ export function PcbEditor({
   // (BOARD_INSPECTION_TOOL::m_lastHighlighted).
   const lastHighlightRef = useRef<ReadonlySet<number>>(new Set());
   const [activeTool, setActiveTool] = useState('selectSetRect');
-  // Selected board items (PCB_SELECTION_TOOL's selection), by `${kind}:${index}` id.
-  const [selection, setSelection] = useState<ReadonlySet<string>>(new Set());
+  /**
+   * TRANSITIONAL (#636 stage 3): PCB_SELECTION_TOOL's selection, as the view
+   * ids the window's own not-yet-ported tools still read it by. The selection
+   * is the tool's; this is re-read from it whenever the tool's events reach the
+   * frame (`UpdateProperties`) and whenever the view is re-derived. Deleted
+   * with EDIT_TOOL.
+   */
+  const [selection, setSelectionMirror] = useState<ReadonlySet<string>>(new Set());
 
   /**
    * `SendCrossProbeNetName` / `SendCrossProbeClearHighlight`: the board's
@@ -1915,14 +1978,6 @@ export function PcbEditor({
     lastPartsRef.current = key;
     frameRef.current?.SendSelectItemsToSch(parts, false);
   }, [selection]);
-  // Disambiguation menu (PCB_SELECTION_TOOL::doSelectionMenu): shown at a click
-  // that hits several equally-plausible items so the user can pick one.
-  const [disambig, setDisambig] = useState<{
-    x: number;
-    y: number;
-    ids: string[];
-    additive: boolean;
-  } | null>(null);
   // `EDA_3D_VIEWER_FRAME`, shown by `CreateAndShow3D_Frame`. Owned here, but
   // mirrored to App when asked so the address can say `/pcb/3d`.
   const [show3DLocal, setShow3DLocal] = useState(false);
@@ -1937,7 +1992,33 @@ export function PcbEditor({
   const [inspectOpen, setInspectOpen] = useState(false);
   /** DIALOG_PASTE_SPECIAL, opened only by `ACTIONS::pasteSpecial`. */
   const [pasteSpecialOpen, setPasteSpecialOpen] = useState(false);
-  const [filterOpen, setFilterOpen] = useState(false);
+  /**
+   * `DIALOG_FILTER_SELECTION( m_frame, opts )` as PCB_SELECTION_TOOL::
+   * filterSelection shows it: the tool's options being edited, and the
+   * `ShowModal()` it waits on.
+   */
+  /** EDIT_TOOL's `WX_UNIT_ENTRY_DIALOG`, with the answer it waits on. */
+  const [unitEntryDlg, setUnitEntryDlg] = useState<{
+    title: string;
+    label: string;
+    value: number;
+    resolve: (aValue: number | null) => void;
+  } | null>(null);
+  /** EDIT_TOOL's `GetDogboneParams` WX_MULTI_ENTRY_DIALOG. */
+  const [dogboneDlg, setDogboneDlg] = useState<{
+    params: DOGBONE_PARAMETERS;
+    resolve: (aParams: DOGBONE_PARAMETERS | null) => void;
+  } | null>(null);
+  /** EDIT_TOOL's `DIALOG_MOVE_EXACT`. */
+  const [moveExactDlg, setMoveExactDlg] = useState<{
+    values: MOVE_EXACT_VALUES;
+    box: KBOX2I;
+    resolve: (aValues: MOVE_EXACT_VALUES | null) => void;
+  } | null>(null);
+  const [filterDlg, setFilterDlg] = useState<{
+    opts: SelectionFilter;
+    resolve: (aOk: boolean, aEdited?: SelectionFilter) => void;
+  } | null>(null);
   const [statsOpen, setStatsOpen] = useState(false);
 
   /**
@@ -1961,36 +2042,37 @@ export function PcbEditor({
     },
     [onOutputFile],
   );
-  const [moveExactOpen, setMoveExactOpen] = useState(false);
-  const [posRelOpen, setPosRelOpen] = useState(false);
-  // Fillet / chamfer prompts. Upstream keeps the last value in a
-  // function-static, so it reopens on whatever was typed last.
-  const [lineModOpen, setLineModOpen] = useState<'fillet' | 'chamfer' | 'dogbone' | null>(null);
-  const [outsetOpen, setOutsetOpen] = useState(false);
+  /** POSITION_RELATIVE_TOOL's modeless dialog, for as long as the tool keeps it. */
+  const [posRelDialog, setPosRelDialog] = useState<DIALOG_POSITION_RELATIVE | null>(null);
+  /** POSITION_RELATIVE_TOOL's DIALOG_OFFSET_ITEM, with the promise the tool waits on. */
+  const [offsetDlg, setOffsetDlg] = useState<{
+    dialog: DIALOG_OFFSET_ITEM;
+    resolve: (aOk: boolean) => void;
+  } | null>(null);
+  /** CONVERT_TOOL's modal dialogs, each with the promise the tool waits on. */
+  const [outsetDlg, setOutsetDlg] = useState<{
+    params: OUTSET_PARAMETERS;
+    resolve: (aOk: boolean) => void;
+  } | null>(null);
+  const [convertDlg, setConvertDlg] = useState<{
+    dialog: CONVERT_SETTINGS_DIALOG;
+    resolve: (aOk: boolean) => void;
+  } | null>(null);
+  const [zoneConvertDlg, setZoneConvertDlg] = useState<{
+    kind: 'ruleArea' | 'nonCopper' | 'copper';
+    zoneSettings: ZONE_SETTINGS;
+    convertSettings: CONVERT_SETTINGS;
+    resolve: (aOk: boolean) => void;
+  } | null>(null);
+  const [oneLayerDlg, setOneLayerDlg] = useState<{
+    notAllowed: LSET;
+    resolve: (aLayer: PCB_LAYER_ID) => void;
+  } | null>(null);
   const [pnsSettingsOpen, setPnsSettingsOpen] = useState(false);
   const [arrayOpen, setArrayOpen] = useState(false);
   // Kept across openings, as upstream persists its ARRAY_OPTIONS.
   const [arraySettings, setArraySettings] = useState<ArraySettings>(DEFAULT_ARRAY_SETTINGS);
   // Kept across openings, as upstream keeps its PARAMETERS on the tool.
-  const [outsetSettings, setOutsetSettings] = useState<OutsetSettings>(DEFAULT_OUTSET_SETTINGS);
-  const [filletRadius, setFilletRadius] = useState(1_000_000);
-  const [chamferSetback, setChamferSetback] = useState(1_000_000);
-  const [dogboneRadius, setDogboneRadius] = useState(1_000_000);
-  // s_dogBoneParams.AddSlots, true until the user says otherwise.
-  const [dogboneSlots, setDogboneSlots] = useState(true);
-  // The reference item for Position Relative, chosen by clicking the canvas
-  // (upstream arms PCB_PICKER_TOOL for this). Kept across openings, as upstream
-  // keeps its dialog alive between calls.
-  const [posRelRef, setPosRelRef] = useState<{ id: string; label: string } | null>(null);
-  const pickingRefItem = useRef(false);
-  // Mirrors the ref for rendering: the click handler needs a ref (it is not
-  // rebuilt per render), the banner needs state.
-  const [pickingRefShown, setPickingRefShown] = useState(false);
-  // The Filter Selection *dialog*'s options — distinct from `selFilter` above,
-  // which is the toolbar panel deciding what a click can pick up. This one
-  // narrows an existing selection once, and is kept across openings as
-  // PCB_SELECTION_TOOL keeps its OPTIONS on the tool.
-  const [filterOpts, setFilterOpts] = useState<SelectionFilter>(DEFAULT_SELECTION_FILTER);
   // Live (world) cursor position read by draw()'s crosshair pass without
   // re-creating the callback; null when the pointer is off the canvas.
   const cursorRef = useRef<{ x: number; y: number } | null>(null);
@@ -2077,21 +2159,6 @@ export function PcbEditor({
     }
     return gridHelperRef.current.SetState(gridState());
   };
-  /**
-   * What the drawing sheet is drawn from — `DS_PROXY_VIEW_ITEM`'s properties.
-   *
-   * One function because two callers must not disagree: the painter, and the
-   * double-click hit test that opens Page Settings. A hit test built from a
-   * different title block than the one on screen answers about a sheet the user
-   * cannot see.
-   */
-  const sheetInfoOf = (
-    brd: Board,
-  ): { paper?: string; titleBlock?: Board['titleBlock']; fileName: string } => ({
-    paper: brd.paper,
-    titleBlock: brd.titleBlock,
-    fileName,
-  });
 
   // Every grid snap in the editor, through the one function upstream uses.
   // Calling `computeNearest` directly anywhere would bypass the auxiliary axis
@@ -2172,35 +2239,50 @@ export function PcbEditor({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef({ scale: 0.005, tx: 0, ty: 0, flipX: false });
+  /**
+   * TRANSITIONAL (#636 stage 3): the view is the VIEW's - WX_VIEW_CONTROLS
+   * (the wheel, the drag gestures, autopan) and the tools (`FocusOnLocation`,
+   * `zoomFitSelection`) move it - while `viewRef` is the window overlay's copy
+   * in its own device-pixel transform, which the window's own zoom commands
+   * (the startup fit among them) still write. Each paint reconciles the two:
+   * a window write since the last paint is pushed into the VIEW, and so is the
+   * window's transform whenever the GAL's screen has changed size since - the
+   * overlay and the GAL canvas are the same box, so the window's transform is
+   * the one that is right for the new size, and a push made while the GAL was
+   * still unsized (the fit runs on the wrap's first measurement, the panel
+   * sizes itself on its own observer) is redone once it is. Anything else is
+   * read back from the VIEW.
+   */
+  const syncedViewRef = useRef<{ view: EditorView; screenX: number; screenY: number } | null>(null);
+  const syncWindowViewRef = useRef((aPanel: PCB_DRAW_PANEL_GAL): void => {
+    const v = viewRef.current;
+    const was = syncedViewRef.current;
+    const screen = aPanel.GetGAL().GetScreenPixelSize();
+    const windowWrote =
+      !was ||
+      was.view.scale !== v.scale ||
+      was.view.tx !== v.tx ||
+      was.view.ty !== v.ty ||
+      was.view.flipX !== v.flipX ||
+      was.screenX !== screen.x ||
+      was.screenY !== screen.y;
+
+    if (windowWrote) {
+      syncViewTransform(aPanel, v, dpr);
+    } else {
+      const now = editorViewOf(aPanel, dpr);
+
+      if (now) Object.assign(v, now);
+    }
+
+    syncedViewRef.current = { view: { ...v }, screenX: screen.x, screenY: screen.y };
+  });
   const boardRef = useRef<Board | null>(null);
   // Live selection read by draw()'s overlay pass without re-creating the callback.
   const selForDrawRef = useRef<ReadonlySet<string>>(selection);
   selForDrawRef.current = selection;
   // The in-progress rubber-band marquee (world coords), read by the overlay pass.
   const boxRef = useRef<{ a: { x: number; y: number }; b: { x: number; y: number } } | null>(null);
-  /**
-   * `SelectPolyArea`'s in-flight trace (`pcb_selection_tool.cpp:1366`), in
-   * world coordinates, or null when no lasso is running.
-   *
-   * **A lasso outlives the button**, which is the part that is easy to get
-   * wrong and the part our schematic one still gets wrong. Upstream's loop
-   * appends on `IsDrag( BUT_LEFT )` AND on `IsClick( BUT_LEFT )`, and only
-   * `IsDblClick` / `finishInteractive` breaks it — there is no mouse-up arm
-   * at all. The manual spells out what that feels like: "Dragging with the
-   * left mouse button held draws a freeform shape. Releasing the button
-   * stops drawing the freeform shape and starts drawing a straight line.
-   * Clicking again completes the straight line… Double click to finish
-   * drawing the lasso."
-   *
-   * So `freehand` is just whether the button is down, and releasing it ends
-   * nothing.
-   */
-  const lassoRef = useRef<{
-    pts: { x: number; y: number }[];
-    freehand: boolean;
-    additive: boolean;
-    subtractive: boolean;
-  } | null>(null);
   // Live drag-move offset (world units) applied to the selection highlight while
   // a move gesture is in flight; committed on pointer-up (PCB_MOVE_TOOL preview).
   const moveDeltaRef = useRef<{ x: number; y: number } | null>(null);
@@ -2269,31 +2351,6 @@ export function PcbEditor({
   // Keyboard grab (M/G): the selection follows the cursor until a click commits
   // or Esc cancels, SCH/PCB move tool. Distinct from a left-button drag.
   const grabbingRef = useRef(false);
-  /**
-   * `WX_VIEW_CONTROLS::m_panTimer` and the AUTO_PANNING state, per canvas.
-   *
-   * `enabled` is `m_autoPanEnabled`, which upstream every move and drawing
-   * tool brackets its loop with (`SetAutoPan( true/false )`) — so autopan
-   * runs while an item is in flight or a rubber band is being framed, and
-   * never on an idle hover.
-   */
-  const autoPanRef = useRef(
-    makeAutoPan({
-      viewportPx: () => ({
-        width: canvasRef.current?.width ?? 0,
-        height: canvasRef.current?.height ?? 0,
-      }),
-      enabled: () => movingRef.current || grabbingRef.current || boxRef.current !== null,
-      // `SetCenter( center + dir )`: the centre moves WITH dir, so the
-      // translation moves against it.
-      panBy: (dx, dy) => {
-        const v = viewRef.current;
-        v.tx -= dx;
-        v.ty -= dy;
-        requestDraw();
-      },
-    }),
-  );
   // While a move is in flight the base raster is the board with the moving items
   // removed; this scene holds just those items, painted live at the drag offset
   // so the real geometry follows the cursor (not merely its bounding box).
@@ -2302,8 +2359,6 @@ export function PcbEditor({
   // over the raster, KiCad's selection is the item's colour Brightened(0.8),
   // not a bounding box (pcb_painter.cpp getColor).
   const selSceneRef = useRef<BoardScene | null>(null);
-  /** PCB_SELECTION_TOOL's `m_selection` on the VIEW: the selected items drawn brightened on LAYER_SELECT_OVERLAY. */
-  const glSelectionRef = useRef(new GL_SELECTION());
   /**
    * The frame's non-window half: the BOARD, the tool manager and the
    * undo/redo stacks (`PCB_BASE_EDIT_FRAME`). Every edit is a BOARD_COMMIT on
@@ -2316,6 +2371,60 @@ export function PcbEditor({
   const setDirtyRef = useRef(setDirty);
   setDirtyRef.current = setDirty;
   const frameRef = useRef<PCB_EDIT_FRAME | null>(null);
+  /** `m_toolManager->RunAction( aAction )`: a menu row, a hotkey or a toolbar button. */
+  const runAction = (aAction: TOOL_ACTION): void => {
+    frameRef.current?.GetToolManager()?.RunAction(aAction);
+  };
+  /**
+   * TRANSITIONAL (#636 stage 3): a selection written by one of the window's own
+   * tools, by view id. The selection is PCB_SELECTION_TOOL's, so the write goes
+   * to the tool - its items, quietly, then the one event the frame's panels
+   * (and this window's mirror, through `UpdateProperties`) listen for. Deleted
+   * with EDIT_TOOL, when nothing writes ids any more.
+   */
+  const setSelectionRef = useRef(
+    (aNext: ReadonlySet<string> | ((aPrev: ReadonlySet<string>) => ReadonlySet<string>)): void => {
+      const next = typeof aNext === 'function' ? aNext(selForDrawRef.current) : aNext;
+      const frame = frameRef.current;
+      const brd = boardRef.current;
+      const mgr = frame?.GetToolManager();
+
+      if (!frame || !brd || !mgr) {
+        setSelectionMirror(next);
+        return;
+      }
+
+      const tool = frame.GetSelectionTool();
+      const items = kItemsForIds(brd, next);
+
+      tool.ClearSelection(true);
+      tool.AddItemsToSel(items, true);
+      mgr.ProcessEvent(items.length > 0 ? EVENTS.SelectedEvent : EVENTS.ClearedEvent);
+    },
+  );
+  /**
+   * TRANSITIONAL (#636 stage 3): the selection tool's selection and entered
+   * group, re-read as the view's ids for the window's own tools.
+   */
+  const refreshSelectionMirrorRef = useRef((): void => {
+    const frame = frameRef.current;
+    const brd = boardRef.current;
+    if (!frame || !brd) return;
+    const tool = frame.GetSelectionTool();
+    const next: ReadonlySet<string> = new Set(viewIdsOf(brd, tool.GetSelection().GetItems()));
+    enteredGroupRef.current = tool.GetEnteredGroup()?.m_Uuid ?? null;
+    selForDrawRef.current = next;
+    setSelectionMirror(next);
+  });
+  /**
+   * TRANSITIONAL (#636 stage 3): while a gesture of the window's own draws the
+   * moving copy on the overlay, the selection group on the VIEW is hidden.
+   */
+  const hideSelectionGroup = (aHide: boolean): void => {
+    const panel = panelRef.current;
+    const frame = frameRef.current;
+    if (panel && frame) panel.GetView().Hide(frame.GetSelectionTool().GetSelection(), aHide);
+  };
   /**
    * `PCB_EDIT_FRAME::SwitchLayer` (edit.cpp:72-95): the validated entry
    * point every explicit layer pick (the toolbar combo, a layer hotkey, a
@@ -2353,11 +2462,41 @@ export function PcbEditor({
       aValidator?: wxTextValidator,
     ) => Promise<string | null>;
     polygonDialog: () => Promise<boolean>;
-    selectItem: (aItem: FOOTPRINT) => void;
     showZoneManager: () => Promise<{ ok: boolean; repour: boolean }>;
     fillZones: (aBoard: BOARD, aZones: ZONE[]) => boolean;
-    clearSelection: () => void;
     fillAllZones: () => void;
+  } | null>(null);
+  /**
+   * The window half of PCB_SELECTION_TOOL and of the frame's selection
+   * plumbing: the infobar, the Filter Selection dialog, the panels' re-read of
+   * the selection, and (TRANSITIONAL, #636 stage 3) the actions and canvas
+   * events the window's own not-yet-ported tools still own.
+   */
+  const selWindowRef = useRef<{
+    showInfoBarWarning: (aMsg: string) => void;
+    showFilterSelectionDialog: (aOptions: SelectionFilter) => Promise<boolean>;
+    updateProperties: () => void;
+    windowAction: WINDOW_ACTION_HANDLER;
+    eventToWindow: (aEvent: wxEvent) => boolean;
+  } | null>(null);
+  /** The window half of EDIT_TOOL (EDIT_TOOL_FRAME through the frame's hooks). */
+  const editWindowRef = useRef<{
+    showInfoBarMsg: (aMsg: string) => void;
+    showUnitEntryDialog: (aTitle: string, aLabel: string, aValue: number) => Promise<number | null>;
+    showDogboneDialog: (aParams: DOGBONE_PARAMETERS) => Promise<DOGBONE_PARAMETERS | null>;
+    showMoveExactDialog: (
+      aValues: MOVE_EXACT_VALUES,
+      aBox: KBOX2I,
+    ) => Promise<MOVE_EXACT_VALUES | null>;
+    showTrackViaPropertiesDialog: () => Promise<void>;
+    showGetFootprintByNameDialog: (aList: string[]) => Promise<string | null>;
+    showConnectedPadDialog: (
+      aTitle: string,
+      aMessage: string,
+      aDetails: string,
+    ) => Promise<'ignore' | 'all' | null>;
+    openVertexEditor: () => void;
+    router: () => ROUTER_TOOL_LIKE;
   } | null>(null);
   if (!frameRef.current) {
     // `PGM_BASE::InitPgm` runs before any KiCad frame exists, and the frame
@@ -2407,10 +2546,65 @@ export function PcbEditor({
       textEntry: (aPrompt, aCaption, aValue, aValidator) =>
         mwWindowRef.current!.textEntry(aPrompt, aCaption, aValue, aValidator),
       mwavePolygonalShapeDialog: () => mwWindowRef.current!.polygonDialog(),
-      selectItem: (aItem) => mwWindowRef.current!.selectItem(aItem),
       showZoneManager: () => mwWindowRef.current!.showZoneManager(),
       fillZones: (aBoard, aZones) => mwWindowRef.current!.fillZones(aBoard, aZones),
-      clearSelection: () => mwWindowRef.current!.clearSelection(),
+      // PCB_SELECTION_TOOL's window half: filled in below, once the editor's
+      // state and callbacks exist (`selWindowRef`).
+      showInfoBarWarning: (aMsg) => selWindowRef.current?.showInfoBarWarning(aMsg),
+      showFilterSelectionDialog: (aOptions) =>
+        selWindowRef.current?.showFilterSelectionDialog(aOptions) ?? Promise.resolve(false),
+      updateProperties: () => selWindowRef.current?.updateProperties(),
+      windowAction: (aAction, aEvent) => selWindowRef.current?.windowAction(aAction, aEvent),
+      // EDIT_TOOL's window half: its dialogs, the infobar and the vertex editor.
+      showInfoBarMsg: (aMsg) => editWindowRef.current?.showInfoBarMsg(aMsg),
+      showUnitEntryDialog: (aTitle, aLabel, aValue) =>
+        editWindowRef.current?.showUnitEntryDialog(aTitle, aLabel, aValue) ?? Promise.resolve(null),
+      showDogboneDialog: (aParams) =>
+        editWindowRef.current?.showDogboneDialog(aParams) ?? Promise.resolve(null),
+      showMoveExactDialog: (aValues, aBox) =>
+        editWindowRef.current?.showMoveExactDialog(aValues, aBox) ?? Promise.resolve(null),
+      showTrackViaPropertiesDialog: () =>
+        editWindowRef.current?.showTrackViaPropertiesDialog() ?? Promise.resolve(),
+      showGetFootprintByNameDialog: (aList) =>
+        editWindowRef.current?.showGetFootprintByNameDialog(aList) ?? Promise.resolve(null),
+      showConnectedPadDialog: (aTitle, aMessage, aDetails) =>
+        editWindowRef.current?.showConnectedPadDialog(aTitle, aMessage, aDetails) ??
+        Promise.resolve(null),
+      openVertexEditor: () => editWindowRef.current?.openVertexEditor(),
+      // CONVERT_TOOL's window half: its four modal dialogs, each a promise.
+      showConvertSettingsDialog: (aSettings, aCopyLineWidth, aCenterline, aBoundingHull) =>
+        new Promise<boolean>((resolve) =>
+          setConvertDlg({
+            dialog: new CONVERT_SETTINGS_DIALOG(aSettings, {
+              copyLineWidth: aCopyLineWidth,
+              centerline: aCenterline,
+              boundingHull: aBoundingHull,
+            }),
+            resolve,
+          }),
+        ),
+      showZoneEditorForConversion: (aKind, aZoneSettings, aConvertSettings) =>
+        new Promise<boolean>((resolve) =>
+          setZoneConvertDlg({
+            kind: aKind,
+            zoneSettings: aZoneSettings,
+            convertSettings: aConvertSettings,
+            resolve,
+          }),
+        ),
+      selectOneLayer: (_aDefaultLayer, aNotAllowedLayersMask) =>
+        new Promise<PCB_LAYER_ID>((resolve) =>
+          setOneLayerDlg({ notAllowed: aNotAllowedLayersMask, resolve }),
+        ),
+      showOutsetItemsDialog: (aParams) =>
+        new Promise<boolean>((resolve) => setOutsetDlg({ params: aParams, resolve })),
+      // POSITION_RELATIVE_TOOL's window half.
+      attachPositionRelativeDialog: (aDialog) => setPosRelDialog(aDialog),
+      showOffsetItemDialog: (aDialog) =>
+        new Promise<boolean>((resolve) => setOffsetDlg({ dialog: aDialog, resolve })),
+      boardView: () => boardRef.current,
+      router: () => editWindowRef.current?.router() ?? null,
+      eventToWindow: (aEvent) => selWindowRef.current?.eventToWindow(aEvent) ?? false,
       fillAllZones: () => mwWindowRef.current!.fillAllZones(),
       setHighlightNets: (aNetCodes) =>
         setHighlightNets((prev) =>
@@ -2438,17 +2632,6 @@ export function PcbEditor({
       frame.SetKiway(null);
     };
   }, [kiway]);
-  // The rows the disambiguation menu is pointing at, and their geometry.
-  //
-  // `doSelectionMenu` answers TA_CHOICE_MENU_UPDATE with
-  // `highlight( item, BRIGHTENED, &highlightGroup )` — the item itself,
-  // repainted brighter on the select overlay. A set, not one id, because
-  // pointing at "Select All" brightens every candidate at once.
-  const hoverRef = useRef<ReadonlySet<string> | null>(null);
-  const hoverSceneRef = useRef<BoardScene | null>(null);
-  // Mirror of `disambig` open-state for the global Escape handler (no re-subscribe).
-  const disambigRef = useRef(false);
-  disambigRef.current = !!disambig;
   // Mirror of the active right-toolbar tool for the pointer/Escape handlers.
   const activeToolRef = useRef('selectSetRect');
   /**
@@ -2614,6 +2797,8 @@ export function PcbEditor({
   const [zonePropsIndex, setZonePropsIndex] = useState<number | null>(null);
   // Footprint Properties (DIALOG_FOOTPRINT_PROPERTIES), board side.
   const [fpPropsIndex, setFpPropsIndex] = useState<number | null>(null);
+  // Footprint Associations (DIALOG_FOOTPRINT_ASSOCIATIONS), on the selected footprint.
+  const [footprintAssociationsIndex, setFootprintAssociationsIndex] = useState<number | null>(null);
   // Pad Properties (DIALOG_PAD_PROPERTIES), board side.
   const [padPropsRef, setPadPropsRef] = useState<PadRef | null>(null);
   // Text / Shape properties for board graphics.
@@ -2664,6 +2849,16 @@ export function PcbEditor({
     library: Map<string, PcbFootprint>;
   } | null>(null);
   const [updatePcbBusy, setUpdatePcbBusy] = useState(false);
+  // File > Import > Netlist... (DIALOG_IMPORT_NETLIST): the path it opens on is
+  // `GetLastPath( LAST_PATH_NETLIST )`, null while the dialog is closed.
+  const [importNetlistName, setImportNetlistName] = useState<string | null>(null);
+  // Footprint Properties > 3D Models > Browse: `DIALOG_SELECT_3DMODEL::ShowQuasiModal()`
+  // is not ported (it is a `3d-viewer/` dialog); a file chooser answers in its place.
+  const [pick3dModel, setPick3dModel] = useState<{
+    done: (aChosen: SELECTED_3D_MODEL | null) => void;
+  } | null>(null);
+  const model3dResolverRef = useRef<FILENAME_RESOLVER | null>(null);
+  const lastNetlistPathRef = useRef('');
   const [updatePcbError, setUpdatePcbError] = useState<{
     message: string;
     details?: string;
@@ -2847,6 +3042,12 @@ export function PcbEditor({
   const [importGraphicsOpen, setImportGraphicsOpen] = useState(false);
   /** File > Import > Non-KiCad Board File: the chooser's type combo while it is up. */
   const [nonKicadFilters, setNonKicadFilters] = useState<ChooserFilter[] | null>(null);
+  // DIALOG_MAP_LAYERS::RunModal, asked for by a layer-mappable importer mid-load
+  // (files.cpp:642-649); the promise is what the synchronous `ShowModal` returns.
+  const [mapLayersRequest, setMapLayersRequest] = useState<{
+    layers: readonly INPUT_LAYER_DESC[];
+    done: (aMap: Map<string, MapLayersLayerId>, aKeep: boolean) => void;
+  } | null>(null);
   // Pending "Copper Zone Properties" dialog: the zone's first corner.
   const [zoneDialog, setZoneDialog] = useState<{
     at: { x: number; y: number };
@@ -2911,8 +3112,6 @@ export function PcbEditor({
   const [mwPolygonOpen, setMwPolygonOpen] = useState<{ resolve: (ok: boolean) => void } | null>(
     null,
   );
-  /** The inductor `AddInductor` committed: selected once the view has been re-derived. */
-  const mwSelectRef = useRef<FOOTPRINT | null>(null);
   /** `ZONE_FILLER::Fill` over the Zone Manager's clones; set once the fill options exist. */
   const fillZoneClonesRef = useRef<(aBoard: BOARD, aZones: ZONE[]) => boolean>(() => false);
   /** `doInteractiveItemPlacement`'s `setCursor`: PLACE once `newItem` exists. */
@@ -2987,16 +3186,6 @@ export function PcbEditor({
     fpChooserResolveRef.current = null;
     setFpChooserOpen(false);
   }, [activeTool]);
-  // `ACTIONS::selectItem` on a microwave inductor: the commit put it on the
-  // board, and once the view has been re-derived from the BOARD it can be found.
-  useEffect(() => {
-    const k = mwSelectRef.current;
-    if (!k || !board) return;
-    const id = viewIdOfBoardItem(board, k);
-    if (!id) return;
-    mwSelectRef.current = null;
-    setSelection(new Set([id]));
-  }, [board]);
   const sceneRef = useRef<BoardScene | null>(null);
   /**
    * The WebGL layer, and whether it is the one drawing.
@@ -3024,17 +3213,6 @@ export function PcbEditor({
   /** What `applyDisplayState` last pushed into the frame, for its diffs. */
   const displayStateRef = useRef<EditorDisplayState | null>(null);
   const glOkRef = useRef(false);
-  /**
-   * Everything drawn *above* the board: selection, ratsnest, previews, markers,
-   * the crosshair.
-   *
-   * The board's own canvas keeps the background, the grid and the drawing
-   * sheet, which sit *below* it. Splitting the two is what lets a retained
-   * layer go between them at all, and the cut is exactly where the raster blit
-   * used to be, so nothing changes order. Mounted only with the GL renderer;
-   * without it `draw` gets the one context back and paints as it always did.
-   */
-  const overCanvasRef = useRef<HTMLCanvasElement>(null);
   /**
    * This board carries a reference image, so it stays on the 2D canvas.
    *
@@ -3535,8 +3713,8 @@ export function PcbEditor({
     () =>
       projectFilesNow()
         .filter((f) => /\.(kicad_pro|kicad_dru)$/i.test(f.name))
-        .map((f) => `${f.name}�${f.text}`)
-        .join('�'),
+        .map((f) => `${f.name}\u0000${f.text}`)
+        .join('\u0001'),
     [projectFilesNow],
   );
 
@@ -3626,52 +3804,34 @@ export function PcbEditor({
     // Not gated on a compiled scene any more: the VIEW draws the board, and
     // `sceneRef` holds the shell alone under it (`buildBoardScene`).
     if (!canvas) return;
-    // The background, the grid and the drawing sheet: everything the board is
-    // drawn *over*. With the GL renderer the board itself lands on a layer
-    // between this and `ctx`; without one the raster blits here, exactly where
-    // it always did.
-    const bctx = canvas.getContext('2d');
-    if (!bctx) return;
-    // Everything above the board. Its own canvas when the GL layer is mounted,
-    // and the same context as `bctx` when it is not — which is what keeps the
-    // Canvas2D path a single-canvas paint in the order it has always used.
-    const over = overCanvasRef.current;
-    const ctx = over?.getContext('2d') ?? bctx;
-    const v = viewRef.current;
-    // Signed X scale for the flipped (mirrored) view; world→screen X uses this.
-    const sx = v.flipX ? -v.scale : v.scale;
-    // The KiCad VIEW draws the board. There is no second renderer: WebGL2 is
-    // on the browser-support gate (`browser_support.ts`), so a browser that
-    // cannot have this one is told so instead of being shown a different
-    // board. `panel` is null only between a lost context and its restoration,
-    // and then the frame simply has no board in it.
+    // The window's overlay, above the board: everything the tools not yet
+    // ported draw (TRANSITIONAL, #636 stage 3 - each tool's preview moves onto
+    // the VIEW with the tool, and then this canvas goes). Below it is only the
+    // KiCad canvas: `EDA_DRAW_PANEL_GAL::DoRePaint` clears to the theme's
+    // background, draws the grid (`GAL::DrawGrid`), then the VIEW - the drawing
+    // sheet, every board layer, the net names, the anchors, the ratsnest and the
+    // selection - each on its GAL layer in `GAL_LAYER_ORDER`.
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    // `panel` is null only between a lost context and its restoration, and then
+    // the frame simply has no board in it.
     const panel = panelRef.current;
-    // The retained buffer is keyed on the content, not on the view, so a pan or
-    // a zoom is a uniform update and there is nothing to chase.
-    bctx.setTransform(1, 0, 0, 1, 0, 0);
-    bctx.fillStyle = 'rgb(0,16,35)';
-    bctx.fillRect(0, 0, canvas.width, canvas.height);
-    if (ctx !== bctx) {
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-    }
-    // The KiCad canvas: `EDA_DRAW_PANEL_GAL::DoRePaint` clears to the theme's
-    // background, draws the grid (`GAL::DrawGrid`), then the VIEW — the
-    // drawing sheet, every board layer, the net names, the anchors and the
-    // ratsnest, each on its GAL layer in `GAL_LAYER_ORDER`. Its canvas is
-    // opaque and sits over this one, so nothing below the board is painted
-    // here; the overlay canvas above it keeps the editor's own chrome.
     // A board just opened, not yet fitted: its first frame caches every item
     // (seconds on a big board), so it is drawn once, at the fitted view,
     // rather than first at the blank sheet's.
     const awaitingFit =
       panel !== null && firstPaintPendingRef.current === boardRef.current && !fittedRef.current;
     if (panel && !awaitingFit) {
-      syncViewTransform(panel, v, dpr);
+      syncWindowViewRef.current(panel);
       // `Refresh()`, as a canvas event does: a repaint only when the view is
       // dirty or the cursor moved, throttled to the GAL's swap interval.
       panel.Refresh();
     }
+    const v = viewRef.current;
+    // Signed X scale for the flipped (mirrored) view; world→screen X uses this.
+    const sx = v.flipX ? -v.scale : v.scale;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
     // The open's last phase: the loaded board is on screen, so the Load PCB
     // dialog goes.
     if (firstPaintPendingRef.current === boardRef.current && !awaitingFit) {
@@ -4357,14 +4517,9 @@ export function PcbEditor({
       }
     }
     const brd = boardRef.current;
-    // The selection band, in `KIGFX::PREVIEW::SELECTION_AREA`'s own six colours
-    // (`selection_area.cpp:44-62`) — a slight-blue fill, a YELLOW outline for a
-    // window select and a blue one for a greedy one, per scheme.
-    //
-    // This was four invented literals, blue and green, matching neither KiCad
-    // nor the schematic canvas beside it. `drawSelectionArea` is the shared
-    // painter both now go through, so the rectangle and the lasso below cannot
-    // drift apart either.
+    // The zoom tool's band (TRANSITIONAL until ZOOM_TOOL, #636 stage 3), in
+    // `KIGFX::PREVIEW::SELECTION_AREA`'s colours. The selection tool's own band
+    // and lasso are its SELECTION_AREA on the VIEW.
     const toPx = (p: { x: number; y: number }): { x: number; y: number } => ({
       x: p.x * sx + v.tx,
       y: p.y * v.scale + v.ty,
@@ -4384,52 +4539,6 @@ export function PcbEditor({
         // Left→right is the window select, which is `INSIDE_RECTANGLE`.
         selectionAreaColors({ backgroundDark: bandDark, inside: box.b.x >= box.a.x }),
       );
-    }
-    // …and the lasso, with the live cursor as its open end: `area.SetPoly(
-    // points ); area.GetPoly().Append( m_toolMgr->GetMousePosition() )`
-    // (`pcb_selection_tool.cpp:1441-1442`).
-    const lasso = lassoRef.current;
-    if (lasso && lasso.pts.length >= 1) {
-      const cur = cursorRef.current;
-      const pts = cur ? [...lasso.pts, cur] : lasso.pts;
-      if (pts.length >= 2) {
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        drawSelectionLasso(
-          ctx,
-          pts.map(toPx),
-          selectionAreaColors({
-            backgroundDark: bandDark,
-            // The winding, recomputed every frame exactly as `SelectPolyArea`
-            // does — so what the outline promises is what `finishLasso` selects.
-            inside: lassoIsInside(pts),
-            additive: lasso.additive,
-            subtractive: lasso.subtractive,
-          }),
-        );
-      }
-    }
-    // Disambiguation hover: the pointed-at items repainted BRIGHTENED, which is
-    // `highlight( current, BRIGHTENED, &highlightGroup )` — their own geometry
-    // in their own colours, lifted. A bounding box was what stood here, and on
-    // the case this menu exists for it says nothing at all: three pours stacked
-    // through a board share a bounding box almost exactly, so every row of the
-    // menu drew the same rectangle and none of them told you which pour it was.
-    if (hoverSceneRef.current) {
-      ctx.save();
-      drawBoard(
-        ctx,
-        hoverSceneRef.current,
-        v,
-        visible,
-        canvas.width,
-        canvas.height,
-        drawOpts,
-        undefined,
-        true,
-        'highlighted',
-      );
-      ctx.restore();
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
     }
     // DRC markers are PCB_MARKERs in the BOARD since #636 stage 4d: the VIEW's
     // PCB_PAINTER draws them (LAYER_DRC_ERROR / _WARNING / _EXCLUSION, gated by
@@ -4567,46 +4676,13 @@ export function PcbEditor({
         : null;
   }, [objects.footprintsFront, objects.footprintsBack]);
 
-  // The selection / disambiguation hover live only in the overlay, recompile the
-  // selection scene and repaint.
+  // The selection lives on the VIEW (PCB_SELECTION_TOOL's `m_selection` on
+  // LAYER_SELECT_OVERLAY); the window's overlay keeps a copy of it only for a
+  // gesture of its own in flight (a move, a point edit), so recompile that.
   useEffect(() => {
     rebuildSelScene();
-    // On the VIEW the selection tool's group draws the selection: the items
-    // hidden from the cached layers, flagged SELECTED, painted brightened on
-    // the overlay (`PCB_SELECTION_TOOL::highlight`).
-    const panel = panelRef.current;
-    const brd = boardRef.current;
-    if (panel && brd) {
-      glSelectionRef.current.Set(kItemsForIds(brd, expandGroupIds(brd, selection)));
-      panel.Refresh();
-    }
     requestDraw();
-  }, [selection, disambig, requestDraw, rebuildSelScene]);
-
-  /**
-   * Point the disambiguation menu at some items (`null` = at none).
-   *
-   * Compiling their geometry here rather than in the paint keeps the per-frame
-   * cost where it belongs: this runs once per row the pointer crosses, and the
-   * overlay then draws a scene that is already built.
-   */
-  const setDisambigHover = useCallback(
-    (ids: ReadonlySet<string> | null) => {
-      const brd = boardRef.current;
-      hoverRef.current = ids && ids.size > 0 ? ids : null;
-      // Same expansion as the selection scene: hovering a group's row in the
-      // disambiguation menu has to light the group up.
-      hoverSceneRef.current =
-        brd && hoverRef.current
-          ? buildScene(subsetBoardItems(brd, expandGroupIds(brd, hoverRef.current)), {
-              hideFrontFootprints: !objects.footprintsFront,
-              hideBackFootprints: !objects.footprintsBack,
-            })
-          : null;
-      requestDraw();
-    },
-    [objects.footprintsFront, objects.footprintsBack, requestDraw],
-  );
+  }, [selection, requestDraw, rebuildSelScene]);
 
   // ----- board model mutation (edits + undo/redo) -----------------------------
 
@@ -4719,7 +4795,6 @@ export function PcbEditor({
     if (kb) {
       panel.DisplayBoard(kb);
       attachBoardToPanel(frame, panel, kb);
-      glSelectionRef.current.Reset(panel.GetView());
       panel.UpdateColors();
     }
     frame.ActivateGalCanvas();
@@ -4871,6 +4946,23 @@ export function PcbEditor({
     if (!panelRef.current) return;
     frameRef.current?.GetGalDisplayOptions().ReadCommonConfig(commonSettingsOf(), window);
   }, [antialiasingMode]);
+  // `TOOLS_HOLDER::CommonSettingsChanged`: the left-drag action, warp-on-move
+  // and immediate actions the selection and edit tools read off the frame.
+  // Once Pgm() is installed (the panel effect), and again whenever
+  // Preferences > Mouse and Touchpad changes them.
+  const commonInput = commonCfg.input as {
+    mouse_left?: string;
+    warp_mouse_on_move?: boolean;
+    immediate_actions: boolean;
+  };
+  const inputLeftDrag = commonInput.mouse_left;
+  const inputWarp = commonInput.warp_mouse_on_move;
+  const inputImmediate = commonInput.immediate_actions;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the three settings and the panel are the triggers; the frame reads Pgm()
+  useEffect(() => {
+    if (!panelReady) return;
+    frameRef.current?.CommonSettingsChanged();
+  }, [inputLeftDrag, inputWarp, inputImmediate, panelReady]);
   const boardK = board?.k ?? null;
   useEffect(() => {
     const frame = frameRef.current;
@@ -4893,7 +4985,6 @@ export function PcbEditor({
     const panel = panelRef.current;
     if (panel) {
       attachBoardToPanel(frame, panel, boardK);
-      glSelectionRef.current.Reset(panel.GetView());
       displayStateRef.current = null;
     }
     return () => boardK.RemoveListener(listener);
@@ -4950,6 +5041,50 @@ export function PcbEditor({
   // ----- Update PCB from Schematic (BOARD_EDITOR_CONTROL::UpdatePCBFromSchematic) --
 
   /**
+   * Every footprint a netlist names, in hand before the synchronous updater runs:
+   * the project's own `.pretty` files, then the hosted libraries (a bare name
+   * searches them alphabetically, as `LoadFootprintWithOptionalNickname` does).
+   */
+  const buildNetlistLibrary = useCallback(
+    async (
+      netlist: NETLIST,
+      files: readonly { name: string; text: string }[],
+    ): Promise<Map<string, PcbFootprint>> => {
+      // Project-local `.kicad_mod` files, keyed by "<pretty dir>:<name>".
+      const projectFootprints = new Map<string, string>();
+      for (const file of files) {
+        const norm = file.name.replace(/\\/g, '/');
+        const match = /([^/]+)\.pretty\/([^/]+)\.kicad_mod$/i.exec(norm);
+        if (match) projectFootprints.set(`${match[1]}:${match[2]}`, file.text);
+      }
+
+      const wanted = new Set<string>();
+      for (const component of netlist.Components()) {
+        const fpid = component.GetFPID();
+        if (fpid !== '') wanted.add(fpid);
+      }
+
+      const library = new Map<string, PcbFootprint>();
+      await Promise.all(
+        [...wanted].map(async (fpid) => {
+          const local = projectFootprints.get(fpid);
+          if (local) {
+            const parsed = parseFootprint(local);
+            if (parsed) {
+              library.set(fpid, parsed);
+              return;
+            }
+          }
+          const fromLibrary = await loadFootprint(fpid);
+          if (fromLibrary) library.set(fpid, fromLibrary);
+        }),
+      );
+      return library;
+    },
+    [loadFootprint],
+  );
+
+  /**
    * FetchNetlistFromSchematic, then load every footprint the netlist names so the
    * synchronous updater can run: the hosted libraries plus any `.pretty` the project
    * carries (FOOTPRINT_LIBRARY_ADAPTER's project rows). A bare footprint name with no
@@ -4978,41 +5113,13 @@ export function PcbEditor({
 
     setUpdatePcbBusy(true);
     try {
-      // Project-local `.kicad_mod` files, keyed by "<pretty dir>:<name>".
-      const projectFootprints = new Map<string, string>();
-      for (const file of files) {
-        const norm = file.name.replace(/\\/g, '/');
-        const match = /([^/]+)\.pretty\/([^/]+)\.kicad_mod$/i.exec(norm);
-        if (match) projectFootprints.set(`${match[1]}:${match[2]}`, file.text);
-      }
-
-      const wanted = new Set<string>();
-      for (const component of fetched.netlist.Components()) {
-        const fpid = component.GetFPID();
-        if (fpid !== '') wanted.add(fpid);
-      }
-
-      const library = new Map<string, PcbFootprint>();
-      await Promise.all(
-        [...wanted].map(async (fpid) => {
-          const local = projectFootprints.get(fpid);
-          if (local) {
-            const parsed = parseFootprint(local);
-            if (parsed) {
-              library.set(fpid, parsed);
-              return;
-            }
-          }
-          const fromLibrary = await loadFootprint(fpid);
-          if (fromLibrary) library.set(fpid, fromLibrary);
-        }),
-      );
+      const library = await buildNetlistLibrary(fetched.netlist, files);
 
       setUpdatePcb({ netlist: fetched.netlist, library });
     } finally {
       setUpdatePcbBusy(false);
     }
-  }, [projectFilesNow, rootPro]);
+  }, [projectFilesNow, rootPro, buildNetlistLibrary]);
 
   // Tools > Update PCB from Schematic, invoked from the schematic editor:
   // MAIL_PCB_UPDATE runs the same dialog as this frame's own F8.
@@ -5025,21 +5132,25 @@ export function PcbEditor({
    * PCB_EDIT_FRAME::OnNetlistChanged's SpreadFootprints + selectItems, which is what
    * leaves the new parts ready to be dragged into place.
    */
-  const performNetlistUpdate = useCallback(
-    (options: UpdatePcbOptions, dryRun: boolean): readonly ReportLine[] => {
+  const runNetlistUpdate = useCallback(
+    (
+      data: { netlist: NETLIST; library: Map<string, PcbFootprint> },
+      options: UpdatePcbOptions,
+      dryRun: boolean,
+    ): readonly ReportLine[] => {
       const brd = boardRef.current;
-      if (!brd || !updatePcb) return [];
+      if (!brd) return [];
 
       const reporter = new Reporter();
       const updater = new BOARD_NETLIST_UPDATER(
         brd,
         reporter,
         (fpid) => {
-          const direct = updatePcb.library.get(fpid);
+          const direct = data.library.get(fpid);
           if (direct) return direct;
           if (fpid.includes(':')) return null;
-          for (const key of [...updatePcb.library.keys()].sort()) {
-            if (key.slice(key.indexOf(':') + 1) === fpid) return updatePcb.library.get(key) ?? null;
+          for (const key of [...data.library.keys()].sort()) {
+            if (key.slice(key.indexOf(':') + 1) === fpid) return data.library.get(key) ?? null;
           }
           return null;
         },
@@ -5056,7 +5167,7 @@ export function PcbEditor({
         },
       );
 
-      const result = updater.UpdateNetlist(updatePcb.netlist);
+      const result = updater.UpdateNetlist(data.netlist);
 
       if (!dryRun) {
         const spread =
@@ -5065,7 +5176,7 @@ export function PcbEditor({
             : result.board;
         commitBoard(spread);
         const added = new Set(result.addedFootprints.map((i) => boardItemId('footprint', i)));
-        setSelection(added);
+        setSelectionRef.current(added);
         // `*aRunDragCommand = true` (`netlist.cpp:152`), acted on by the dialog's
         // destructor: the spread cluster follows the cursor until you click.
         startPostUpdateMoveRef.current(added);
@@ -5073,7 +5184,65 @@ export function PcbEditor({
 
       return reporter.lines;
     },
-    [updatePcb, commitBoard],
+    [commitBoard],
+  );
+
+  const performNetlistUpdate = useCallback(
+    (options: UpdatePcbOptions, dryRun: boolean): readonly ReportLine[] =>
+      updatePcb ? runNetlistUpdate(updatePcb, options, dryRun) : [],
+    [updatePcb, runNetlistUpdate],
+  );
+
+  /**
+   * `DIALOG_IMPORT_NETLIST::loadNetlist`: `ReadNetlistFromFile` then
+   * `BOARD_NETLIST_UPDATER::UpdateNetlist` with the dialog's options, on the
+   * same updater Update PCB from Schematic runs. Null when the file cannot be
+   * read (the error is the frame's `DisplayErrorMessage`, as upstream).
+   */
+  const performImportNetlist = useCallback(
+    async (
+      name: string,
+      text: string,
+      opts: ImportNetlistOptions,
+      dryRun: boolean,
+    ): Promise<readonly ReportLine[] | null> => {
+      let loaded: ReturnType<typeof readNetlistText>;
+
+      try {
+        loaded = readNetlistText(text);
+      } catch (e) {
+        DisplayErrorMessage(
+          `Error loading netlist.\n${e instanceof Error ? e.message : String(e)}`,
+        );
+        return null;
+      }
+
+      if (!loaded) {
+        DisplayErrorMessage(`Cannot open netlist file '${name}'.`);
+        return null;
+      }
+
+      lastNetlistPathRef.current = name;
+      const library = await buildNetlistLibrary(loaded.netlist, projectFilesNow());
+
+      return runNetlistUpdate(
+        { netlist: loaded.netlist, library },
+        {
+          // SetFindByTimeStamp( sel == 0 ) / SetLookupByTimestamp( sel == 0 ).
+          relinkFootprints: opts.matchByReference,
+          transferGroups: opts.transferGroups,
+          applyDesignBlockLayouts: false,
+          updateFootprints: opts.updateFootprints,
+          deleteExtraFootprints: opts.deleteExtraFootprints,
+          overrideLocks: opts.overrideLocks,
+          // `updater.SetUpdateFields( true )`; nothing in this dialog removes fields.
+          updateFields: true,
+          removeExtraFields: false,
+        },
+        dryRun,
+      );
+    },
+    [buildNetlistLibrary, projectFilesNow, runNetlistUpdate],
   );
 
   // PCB_BASE_EDIT_FRAME::RestoreCopyFromUndoList / RestoreCopyFromRedoList; the
@@ -5083,169 +5252,56 @@ export function PcbEditor({
     const frame = frameRef.current!;
     if (frame.GetUndoCommandCount() <= 0) return;
     frame.RestoreCopyFromUndoList();
-    setSelection(new Set());
+    setSelectionRef.current(new Set());
   }, []);
 
   const redo = useCallback(() => {
     const frame = frameRef.current!;
     if (frame.GetRedoCommandCount() <= 0) return;
     frame.RestoreCopyFromRedoList();
-    setSelection(new Set());
+    setSelectionRef.current(new Set());
   }, []);
 
   // Selection-filter predicate ref (assigned once passesFilter is defined), so
   // the stable Select All callback can honour the live filter.
   const passesFilterRef = useRef<(id: string) => boolean>(() => true);
 
-  // Delete the selected items (EDIT_TOOL::Remove). Reads the live selection ref
-  // so the keyboard shortcut and menu both act on the current selection.
-  // Deleting a group deletes its members too (the id set keeps the group id so
-  // the group node itself is dropped as well).
-  const deleteSel = useCallback(() => {
-    const brd = boardRef.current;
-    const sel = selForDrawRef.current;
-    if (!brd || sel.size === 0) return;
-    // EDIT_TOOL::Remove refuses outright when the free-pad filter would take a
-    // whole footprint with a selected pad; upstream rings the bell, and there is
-    // no bell to ring here, so the command simply does nothing.
-    const items = filterSelectionForDelete(new Set([...sel, ...expandGroupIds(brd, sel)]));
-    if (!items) return;
-    commitBoard(deleteBoardItems(brd, items));
-    setSelection(new Set());
-  }, [commitBoard]);
-
   // Select All / Unselect All (ACTIONS::selectAll / unselectAll). Select All
   // honours the Selection Filter, like PCB_SELECTION_TOOL::selectAll.
   const selectAllSel = useCallback(() => {
     const brd = boardRef.current;
     if (!brd) return;
-    setSelection(new Set(allBoardItemIds(brd).filter(passesFilterRef.current)));
+    setSelectionRef.current(new Set(allBoardItemIds(brd).filter(passesFilterRef.current)));
   }, []);
-  const unselectAllSel = useCallback(() => setSelection(new Set()), []);
+  const unselectAllSel = useCallback(() => setSelectionRef.current(new Set()), []);
 
   /**
-   * `EDIT_TOOL::updateModificationPoint` — what Rotate and Mirror turn the
-   * selection about. **One item turns about its own anchor**
-   * (`BOARD_ITEM::GetPosition`, a footprint's origin cross), and only a
-   * multi-item selection turns about the grid-snapped centre of its box.
-   *
-   * We passed no centre at all, so both commands fell back to the bounding-box
-   * centre for every selection. On a footprint that is not the same point: the
-   * box is grown by the silkscreen and the courtyard, so rotating a part
-   * translated it by half the offset between its origin and its box centre —
-   * a different amount for every part, and it drifted further on every R.
+   * TRANSITIONAL (#636 stage 3): `PCB_SELECTION_TOOL::GetEnteredGroup()`'s
+   * uuid, for the window's own hit test (`hitCandidates`), refreshed with the
+   * selection mirror. Entering and leaving are the tool's.
    */
-  const modPoint = useCallback((brd: Board, items: ReadonlySet<string>) => {
-    // `grid.BestSnapAnchor( refPt, nullptr )`, the multi-item branch's snap.
-    return (
-      modificationPoint(brd, items, (p) =>
-        gridHelper().BestSnapAnchor(brd, p, {
-          snapScale: 25 / viewRef.current.scale,
-          hysteresis: 5 / viewRef.current.scale,
-          visibleGrid: gridIURef.current,
-          layer: activeLayerRef.current,
-        }),
-      ) ?? undefined
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Rotate the selection ±90° (EDIT_TOOL::Rotate). Keeps the selection so it
-  // can be rotated repeatedly. Groups rotate as their members.
-  const rotateSel = useCallback(
-    (ccw: boolean) => {
-      const brd = boardRef.current;
-      const sel = selForDrawRef.current;
-      if (!brd || sel.size === 0) return;
-      const { items, selection } = promotePadsForCommand(brd, sel);
-      if (selection) setSelection(selection);
-      // `EDIT_TOOL::Rotate`: `rotateAngle = TOOL_EVT_UTILS::GetEventRotationAngle(
-      // *frame(), aEvent )`, which is `frame->GetRotationAngle()` — Preferences
-      // > PCB Editor > Editing Options' "Step for rotate commands", stored in
-      // tenths of a degree. This was a hardcoded ±90.
-      const step = rotationStepRef.current;
-      commitBoard(rotateBoardItemsBy(brd, items, ccw ? step : -step, modPoint(brd, items)));
-    },
-    [commitBoard, modPoint],
-  );
-
-  // Mirror the selection (EDIT_TOOL::Mirror; mirrorV = flip top/bottom,
-  // mirrorH = left/right), about the same modification point as Rotate
-  // (edit_tool.cpp:2451). Footprints are skipped, like KiCad.
-  const mirrorSel = useCallback(
-    (direction: 'v' | 'h') => {
-      const brd = boardRef.current;
-      const sel = selForDrawRef.current;
-      if (!brd || sel.size === 0) return;
-      const { items, selection } = promotePadsForCommand(brd, sel);
-      if (selection) setSelection(selection);
-      commitBoard(mirrorBoardItems(brd, items, direction, modPoint(brd, items)));
-    },
-    [commitBoard, modPoint],
-  );
-
-  // Group / ungroup the selection (ACTIONS::group / ungroup).
-  const groupSel = useCallback(() => {
-    const brd = boardRef.current;
-    const sel = selForDrawRef.current;
-    // ACTIONS::group is enabled only for >= 2 selected items (GROUP_TOOL::update
-    // -> Enable( group, selectionCount >= 2 )); grouping a lone item is a no-op.
-    if (!brd || sel.size < 2) return;
-    const { board: next, id } = groupBoardItems(brd, sel);
-    if (!id) return;
-    commitBoard(next);
-    setSelection(new Set([id]));
-  }, [commitBoard]);
-  const ungroupSel = useCallback(() => {
-    const brd = boardRef.current;
-    const sel = selForDrawRef.current;
-    if (!brd || sel.size === 0) return;
-    // The members stay selected after dissolving their group, like KiCad.
-    const members = expandGroupIds(brd, sel);
-    commitBoard(ungroupBoardItems(brd, sel));
-    setSelection(members);
-  }, [commitBoard]);
-  // Add the selected items to the one selected group (ACTIONS::addToGroup); the
-  // group stays selected afterwards, like GROUP_TOOL::AddToGroup.
-  const addToGroupSel = useCallback(() => {
-    const brd = boardRef.current;
-    const sel = selForDrawRef.current;
-    if (!brd || sel.size === 0) return;
-    const next = addToGroupItems(brd, sel);
-    if (next === brd) return;
-    const gid = [...sel].find((id) => parseBoardItemId(id)?.kind === 'group');
-    commitBoard(next);
-    if (gid) setSelection(new Set([gid]));
-  }, [commitBoard]);
-  // Remove the selected items from their parent groups (ACTIONS::removeFromGroup).
-  const removeFromGroupSel = useCallback(() => {
-    const brd = boardRef.current;
-    const sel = selForDrawRef.current;
-    if (!brd || sel.size === 0) return;
-    const next = removeFromGroupItems(brd, sel);
-    if (next === brd) return;
-    commitBoard(next);
-  }, [commitBoard]);
-
-  // Group-edit context (SELECTION_TOOL::EnterGroup): double-clicking a group
-  // "enters" it so its members become individually selectable; Esc or double-
-  // clicking empty space leaves. Held as the group's uuid so it survives edits.
-  const [enteredGroup, setEnteredGroup] = useState<string | null>(null);
   const enteredGroupRef = useRef<string | null>(null);
-  enteredGroupRef.current = enteredGroup;
-  // Drop out if the entered group is dissolved (ungroup / remove-from-group).
-  useEffect(() => {
-    if (enteredGroup && board && !board.groups.some((g) => g.uuid === enteredGroup))
-      setEnteredGroup(null);
-  }, [board, enteredGroup]);
-  const enteredGroupName = useMemo(() => {
-    if (!enteredGroup || !board) return null;
-    const g = board.groups.find((x) => x.uuid === enteredGroup);
-    return g ? g.name || 'Anonymous Group' : null;
-  }, [enteredGroup, board]);
 
-  // Canvas right-click menu (PCB_SELECTION_TOOL TOOL_MENU) position, or null.
-  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null);
+  /**
+   * PCB_SELECTION_TOOL's context menu (`m_menu->ShowContextMenu( m_selection )`)
+   * at the pointer, with the close the tool manager waits for.
+   *
+   * TRANSITIONAL (#636 stage 3): upstream every tool's `Init()` adds its rows to
+   * the selection tool's CONDITIONAL_MENU. Only PCB_SELECTION_TOOL's `Init` is
+   * ported, so the rows are still `buildPcbContextMenu`'s, which states all
+   * four `Init()`s' rows with their order numbers and conditions. Each tool's
+   * rows move into its `Init()` with that tool.
+   */
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; onClose: () => void } | null>(
+    null,
+  );
+  /** Any other ACTION_MENU a tool pops up (the disambiguation menu), with its close. */
+  const [toolPopup, setToolPopup] = useState<{
+    menu: ACTION_MENU;
+    x: number;
+    y: number;
+    onClose: () => void;
+  } | null>(null);
 
   // Lock / unlock the selection (PCB_ACTIONS::lock / unlock).
   const lockSel = useCallback(
@@ -5254,214 +5310,6 @@ export function PcbEditor({
       const sel = selForDrawRef.current;
       if (!brd || sel.size === 0) return;
       commitBoard(setBoardItemsLocked(brd, sel, locked));
-    },
-    [commitBoard],
-  );
-
-  // Duplicate the selection 1 mm off (EDIT_TOOL::Duplicate) and select the copies.
-  const duplicateSel = useCallback(() => {
-    const brd = boardRef.current;
-    const sel = selForDrawRef.current;
-    if (!brd || sel.size === 0) return;
-    const { board: next, ids } = duplicateBoardItems(brd, expandGroupIds(brd, sel), {
-      x: MM,
-      y: MM,
-    });
-    commitBoard(next);
-    setSelection(new Set(ids));
-  }, [commitBoard]);
-
-  // Align selected items like ALIGN_DISTRIBUTE_TOOL: choose the target item
-  // under the cursor when there is one, otherwise the first selected item in
-  // KiCad's sorted order, then move each item's own bounding box to that target.
-  const alignSelection = useCallback(
-    (action: AlignAction) => {
-      const brd = boardRef.current;
-      const sel = [...selForDrawRef.current];
-      if (!brd || sel.length < 2) return;
-
-      const entries = sel
-        .map((id) => {
-          const bbox = boardItemBBox(brd, id);
-          return bbox ? { id, bbox } : null;
-        })
-        .filter((entry): entry is { id: string; bbox: BoardBBox } => !!entry);
-      if (entries.length < 2) return;
-
-      const effective =
-        flipView && action === 'left' ? 'right' : flipView && action === 'right' ? 'left' : action;
-      const sorted = [...entries].sort((a, b) => {
-        switch (effective) {
-          case 'left':
-            return a.bbox.minX - b.bbox.minX;
-          case 'right':
-            return b.bbox.maxX - a.bbox.maxX;
-          case 'top':
-            return a.bbox.minY - b.bbox.minY;
-          case 'bottom':
-            return b.bbox.maxY - a.bbox.maxY;
-          case 'centerX':
-            return bboxCenter(a.bbox).x - bboxCenter(b.bbox).x;
-          case 'centerY':
-            return bboxCenter(a.bbox).y - bboxCenter(b.bbox).y;
-        }
-        return 0;
-      });
-      const cursorHit = cursorRef.current
-        ? sorted.find((entry) => bboxContainsPoint(entry.bbox, cursorRef.current!))
-        : undefined;
-      const target = cursorHit ?? sorted[0];
-      if (!target) return;
-
-      const targetCenter = bboxCenter(target.bbox);
-      let next = brd;
-      let changed = false;
-      for (const entry of entries) {
-        const center = bboxCenter(entry.bbox);
-        let delta = { x: 0, y: 0 };
-        switch (effective) {
-          case 'left':
-            delta = { x: target.bbox.minX - entry.bbox.minX, y: 0 };
-            break;
-          case 'right':
-            delta = { x: target.bbox.maxX - entry.bbox.maxX, y: 0 };
-            break;
-          case 'top':
-            delta = { x: 0, y: target.bbox.minY - entry.bbox.minY };
-            break;
-          case 'bottom':
-            delta = { x: 0, y: target.bbox.maxY - entry.bbox.maxY };
-            break;
-          case 'centerX':
-            delta = { x: targetCenter.x - center.x, y: 0 };
-            break;
-          case 'centerY':
-            delta = { x: 0, y: targetCenter.y - center.y };
-            break;
-        }
-        if (delta.x !== 0 || delta.y !== 0) {
-          next = moveBoardItems(next, new Set([entry.id]), delta);
-          changed = true;
-        }
-      }
-      if (changed) commitBoard(next);
-    },
-    [commitBoard, flipView],
-  );
-
-  /** EDIT_TOOL::MoveExact, once the dialog has the numbers. */
-  const applyMoveExact = useCallback((v: MoveExactValues) => {
-    const brd = boardRef.current;
-    const frame = frameRef.current;
-    const sel = [...selForDrawRef.current];
-    setMoveExactOpen(false);
-    if (!brd || !frame || sel.length === 0) return;
-
-    // EDIT_TOOL::MoveExact's OK branch on the live items: one BOARD_COMMIT,
-    // the local and aux origins now the real ones.
-    moveExactOnSelection(
-      frame,
-      liveSelection(brd, sel),
-      v.translation,
-      new EDA_ANGLE(v.rotation),
-      v.anchor,
-    );
-  }, []);
-
-  /** POSITION_RELATIVE_TOOL::RelativeItemSelectionMove, once the dialog has
-   *  the reference and the offset. */
-  const applyPositionRelative = useCallback(
-    (v: PositionRelativeValues) => {
-      const brd = boardRef.current;
-      const sel = [...selForDrawRef.current];
-      if (!brd || sel.length === 0) return;
-
-      const next = positionRelative(brd, sel, v);
-      if (next !== brd) commitBoard(next);
-      setPosRelOpen(false);
-    },
-    [commitBoard],
-  );
-
-  /** CONVERT_TOOL::CreatePolys — to a filled graphic, a zone, or a rule area. */
-  const convertSelection = useCallback(
-    (to: 'poly' | 'zone' | 'ruleArea' | 'lines' | 'tracks' | 'arc') => {
-      const brd = boardRef.current;
-      const sel = [...selForDrawRef.current];
-      if (!brd || sel.length === 0) return;
-
-      const layer = activeLayer;
-      let next = brd;
-
-      if (to === 'poly') {
-        next = convertToPoly(brd, sel, { layer }).board;
-      } else if (to === 'zone' || to === 'ruleArea') {
-        next = convertToZone(brd, sel, { layer, ruleArea: to === 'ruleArea' }).board;
-      } else if (to === 'lines' || to === 'tracks') {
-        next = convertToLines(brd, sel, {
-          layer,
-          target: to === 'tracks' ? 'track' : 'graphic',
-        }).board;
-      } else {
-        // Create Arc acts on one item, upstream's selection.Front().
-        next = segmentToArc(brd, sel[0]!).board;
-      }
-
-      if (next !== brd) commitBoard(next);
-    },
-    [commitBoard, activeLayer],
-  );
-
-  /** EDIT_TOOL::ModifyLines — fillet, chamfer or extend the selected lines. */
-  const applyLineModification = useCallback(
-    (op: LineModification, valueIU?: number, addSlots = true) => {
-      const brd = boardRef.current;
-      const sel = [...selForDrawRef.current];
-      if (!brd || sel.length < 2) return;
-
-      const res = modifyLines(brd, sel, op, {
-        radius: valueIU,
-        setback: valueIU,
-        dogboneRadius: valueIU,
-        // DOGBONE_CORNER_ROUTINE::PARAMETERS::AddSlots, as the dialog answered.
-        addSlots,
-      });
-      if (res.board !== brd) commitBoard(res.board);
-      setLineModOpen(null);
-    },
-    [commitBoard],
-  );
-
-  /** POLYGON_BOOLEAN_ROUTINE — merge, subtract or intersect the selection. */
-  const applyPolygonBoolean = useCallback(
-    (op: PolygonBoolean) => {
-      const brd = boardRef.current;
-      const sel = [...selForDrawRef.current];
-      if (!brd || sel.length < 2) return;
-
-      const res = polygonBoolean(brd, sel, op);
-      if (res.board !== brd) {
-        commitBoard(res.board);
-        // The sources are gone and the result is new, so the old ids name
-        // nothing (or worse, something else). Clearing is the honest answer.
-        setSelection(new Set());
-      }
-    },
-    [commitBoard],
-  );
-
-  /** OUTSET_ROUTINE — draw the selection again, a fixed distance outside. */
-  const applyOutset = useCallback(
-    (settings: OutsetSettings) => {
-      setOutsetSettings(settings);
-      setOutsetOpen(false);
-
-      const brd = boardRef.current;
-      const sel = [...selForDrawRef.current];
-      if (!brd || sel.length === 0) return;
-
-      const res = outsetItems(brd, sel, outsetOptionsFrom(settings));
-      if (res.board !== brd) commitBoard(res.board);
     },
     [commitBoard],
   );
@@ -5479,19 +5327,6 @@ export function PcbEditor({
     // ARRAY_TOOL::onDialogClosed on the live selection: one BOARD_COMMIT.
     new ARRAY_TOOL(frame).onDialogClosed(liveSelection(brd, sel), arraySpecFrom(settings));
   }, []);
-
-  /** ALIGN_DISTRIBUTE_TOOL::DistributeItems. */
-  const distributeSelection = useCallback(
-    (action: DistributeAction) => {
-      const brd = boardRef.current;
-      const sel = [...selForDrawRef.current];
-      if (!brd || sel.length < 3) return;
-
-      const next = distributeBoardItems(brd, sel, action);
-      if (next !== brd) commitBoard(next);
-    },
-    [commitBoard],
-  );
 
   /**
    * `ALIGN_DISTRIBUTE_TOOL`'s submenu (align_distribute_tool.cpp:66-88), built
@@ -5511,30 +5346,44 @@ export function PcbEditor({
    * two items the submenu ends after Align to Bottom rather than on a rule with
    * four dead rows beneath it.
    */
+  /**
+   * CONVERT_TOOL's "Create from Selection" CONDITIONAL_MENU, evaluated over
+   * the selection tool's selection; a chosen row is the menu's own
+   * `OnMenuEvent`, which runs the action through the tool manager.
+   */
+  const convertSubmenu = (): MenuItem[] => {
+    const frame = frameRef.current;
+    const tool = frame?.GetToolManager()?.FindTool('pcbnew.Convert') as CONVERT_TOOL | null;
+    const menu = tool?.GetMenu();
+    if (!frame || !menu) return [];
+    menu.Evaluate(frame.GetSelectionTool().GetSelection());
+    menu.UpdateAll();
+    return actionMenuItems(menu);
+  };
+
   const alignDistributeSubmenu = (): MenuItem[] => {
-    const align = (label: string, action: AlignAction): MenuItem => ({
+    const row = (label: string, action: TOOL_ACTION): MenuItem => ({
       label,
-      action: () => alignSelection(action),
+      action: () => runAction(action),
     });
-    const distribute = (label: string, action: DistributeAction): MenuItem => ({
-      label,
-      action: () => distributeSelection(action),
-    });
+    // `canDistribute = SELECTION_CONDITIONS::MoreThan( 2 )` over the selection
+    // tool's selection, whose rows run ALIGN_DISTRIBUTE_TOOL's actions.
+    const canDistribute = (frameRef.current?.GetSelectionTool().GetSelection().Size() ?? 0) > 2;
     return [
-      align('Align to Left', 'left'),
-      align('Align to Horizontal Center', 'centerX'),
-      align('Align to Right', 'right'),
+      row('Align to Left', PCB_ACTIONS.alignLeft),
+      row('Align to Horizontal Center', PCB_ACTIONS.alignCenterX),
+      row('Align to Right', PCB_ACTIONS.alignRight),
       { sep: true },
-      align('Align to Top', 'top'),
-      align('Align to Vertical Center', 'centerY'),
-      align('Align to Bottom', 'bottom'),
-      ...(selection.size > 2
+      row('Align to Top', PCB_ACTIONS.alignTop),
+      row('Align to Vertical Center', PCB_ACTIONS.alignCenterY),
+      row('Align to Bottom', PCB_ACTIONS.alignBottom),
+      ...(canDistribute
         ? [
             { sep: true } as MenuItem,
-            distribute('Distribute Horizontally by Centers', 'horizontallyCenters'),
-            distribute('Distribute Horizontally with Even Gaps', 'horizontallyGaps'),
-            distribute('Distribute Vertically by Centers', 'verticallyCenters'),
-            distribute('Distribute Vertically with Even Gaps', 'verticallyGaps'),
+            row('Distribute Horizontally by Centers', PCB_ACTIONS.distributeHorizontallyCenters),
+            row('Distribute Horizontally with Even Gaps', PCB_ACTIONS.distributeHorizontallyGaps),
+            row('Distribute Vertically by Centers', PCB_ACTIONS.distributeVerticallyCenters),
+            row('Distribute Vertically with Even Gaps', PCB_ACTIONS.distributeVerticallyGaps),
           ]
         : []),
     ];
@@ -5623,7 +5472,7 @@ export function PcbEditor({
       // `m_ProbingSchToPcb = true`: this selection came from the schematic, so
       // it is not sent back to it.
       lastPartsRef.current = boardSyncSelectionParts(brd, new Set(ids)).join(',');
-      setSelection(new Set(ids));
+      setSelectionRef.current(new Set(ids));
 
       // A fresh probe restarts any flash still running (`m_crossProbeFlashTimer.Stop()`).
       if (flashRef.current) {
@@ -5633,12 +5482,12 @@ export function PcbEditor({
       if (cfg.flash_selection && ids.length > 0) {
         let phase = 0;
         const timer = window.setInterval(() => {
-          setSelection(new Set(crossProbeFlashSelection(phase, ids)));
+          setSelectionRef.current(new Set(crossProbeFlashSelection(phase, ids)));
           phase++;
           if (phase > CROSS_PROBE_FLASH_LAST_PHASE) {
             if (flashRef.current) clearInterval(flashRef.current.timer);
             flashRef.current = null;
-            setSelection(new Set(ids));
+            setSelectionRef.current(new Set(ids));
           }
         }, CROSS_PROBE_FLASH_INTERVAL_MS);
         flashRef.current = { ids, timer };
@@ -5798,7 +5647,7 @@ export function PcbEditor({
       findCursorRef.current = cur;
       const hit = hits[cur]!;
       setFindStatus(`Hit(s): ${cur + 1} of ${hits.length}`);
-      setSelection(new Set([hit.id]));
+      setSelectionRef.current(new Set([hit.id]));
       // FocusOnLocation: centre the view on the hit at the current zoom.
       const canvas = canvasRef.current;
       if (canvas) {
@@ -5834,11 +5683,6 @@ export function PcbEditor({
         setMwTextEntry({ prompt, caption, value, ...(validator ? { validator } : {}), resolve }),
       ),
     polygonDialog: () => new Promise<boolean>((resolve) => setMwPolygonOpen({ resolve })),
-    // `ACTIONS::selectItem` on the inductor: it is selected once the commit has
-    // put it on the board and the view has been re-derived from it.
-    selectItem: (aItem) => {
-      mwSelectRef.current = aItem;
-    },
     showZoneManager: () =>
       new Promise((resolve) => {
         setZoneManager((prev) => {
@@ -5850,9 +5694,206 @@ export function PcbEditor({
     // the view-based pour runs on a view of the board with the clones in it, and
     // is written back over the clones alone.
     fillZones: (aBoard, aZones) => fillZoneClonesRef.current(aBoard, aZones),
-    clearSelection: () => setSelection(new Set()),
     fillAllZones: () => fillAllZonesRef.current(),
   };
+  selWindowRef.current = {
+    showInfoBarWarning: (aMsg) => setInfoBarError(aMsg),
+    showFilterSelectionDialog: (aOptions) =>
+      new Promise<boolean>((resolve) =>
+        setFilterDlg({
+          opts: { ...aOptions },
+          // wxID_OK writes the dialog's choices back into the tool's OPTIONS
+          // (`m_priv->m_filterOpts`, TransferDataFromWindow).
+          resolve: (aOk, aEdited) => {
+            if (aOk && aEdited) Object.assign(aOptions, aEdited);
+            resolve(aOk);
+          },
+        }),
+      ),
+    updateProperties: () => {
+      refreshSelectionMirrorRef.current();
+      requestDraw();
+    },
+    windowAction: (aAction, aEvent) => {
+      const origin = downRef.current?.world ?? cursorRef.current;
+      const sel = selForDrawRef.current;
+      switch (aAction) {
+        // ROUTER_TOOL::InlineDrag, which EDIT_TOOL::invokeInlineRouter runs:
+        // the window's router drag of a track, or its drag of footprints with
+        // their tracks following.
+        case PCB_ACTIONS.routerInlineDrag: {
+          if (!origin) return;
+          const mode = aEvent.Parameter<number>();
+          movingRef.current = true;
+          const seed = routableTrackSeed(sel);
+          if (
+            seed === null ||
+            !beginTrackDrag(seed, origin, (mode & PNS_DRAG_MODE.DM_FREE_ANGLE) !== 0)
+          )
+            beginMove(sel, 'drag', origin);
+          break;
+        }
+        // EDIT_TOOL::Properties on the drawing sheet: PCB_EDIT_FRAME's Page Settings.
+        case ACTIONS.pageSettings:
+          setPageDlgOpen(true);
+          break;
+        // ARRAY_TOOL::CreateArray: the window's Create Array dialog.
+        case PCB_ACTIONS.createArray:
+          setArrayOpen(true);
+          break;
+        // BOARD_INSPECTION_TOOL's local ratsnest during a move: not drawn yet.
+        case PCB_ACTIONS.updateLocalRatsnest:
+        case PCB_ACTIONS.hideLocalRatsnest:
+          break;
+        case PCB_ACTIONS.highlightNet:
+          highlightNetRef.current();
+          break;
+        case ACTIONS.zoomFitScreen:
+          zoomToFit();
+          break;
+        case ACTIONS.zoomFitObjects:
+          zoomFitObjects();
+          break;
+      }
+    },
+    eventToWindow: (aEvent) => {
+      // A key: the window's key chain has every key but Escape; Escape in the
+      // selection tool, with nothing of the window's in flight, is the tool's.
+      if (aEvent instanceof wxKeyEvent) {
+        if (aEvent.GetKeyCode() !== WXK.WXK_ESCAPE) return true;
+        if (!isSelectTool(activeToolRef.current) || windowGestureInFlight()) return true;
+        // `controller->ClearHighlight( *evt )` (pcb_selection_tool.cpp:571-577)
+        // is BOARD_INSPECTION_TOOL's, which is not ported: the window clears
+        // its highlight on the same condition Main reaches that branch on.
+        const tool = frameRef.current?.GetSelectionTool();
+        if (
+          tool?.GetSelection().Empty() &&
+          !tool.GetEnteredGroup() &&
+          escClearsHighlightRef.current
+        )
+          clearHighlightRef.current();
+        return false;
+      }
+      if (!(aEvent instanceof wxMouseEvent)) return false;
+      if (!isSelectTool(activeToolRef.current) || windowGestureInFlight()) return true;
+      // A press on a point-editor handle is PCB_POINT_EDITOR's (the window's).
+      if (aEvent.GetEventType() === wxEVT_LEFT_DOWN) {
+        const canvas = glCanvasRef.current;
+        if (canvas) {
+          const r = canvas.getBoundingClientRect();
+          const w = worldAt(r.left + aEvent.GetX(), r.top + aEvent.GetY());
+          if (w && editHandleAt(w)) return true;
+        }
+      }
+      return false;
+    },
+  };
+  // `wxWindow::PopupMenu` for the frame: PCB_SELECTION_TOOL's context menu, and
+  // any other ACTION_MENU a tool puts up (the disambiguation menu).
+  useEffect(() => {
+    const frame = frameRef.current;
+    if (!frame) return;
+    frame.SetPopupMenuPresenter((aMenu, aOnClose) => {
+      const at = KIPLATFORM_UI.GetMousePosition();
+      aMenu.OnMenuEvent(new wxMenuEvent(wxMenuEventType.wxEVT_MENU_OPEN, 0, aMenu));
+      // TRANSITIONAL (#636 stage 3): a TOOL_MENU (a CONDITIONAL_MENU) is the
+      // selection tool's context menu - the only tool with one so far - which
+      // shows the rows every tool's `Init()` adds, still stated by the window
+      // (`buildPcbContextMenu`); see `ctxMenu`.
+      if (aMenu instanceof CONDITIONAL_MENU) {
+        refreshSelectionMirrorRef.current();
+        setCtxMenu({ x: at.x, y: at.y, onClose: aOnClose });
+      } else {
+        setToolPopup({ menu: aMenu, x: at.x, y: at.y, onClose: aOnClose });
+      }
+    });
+    return () => frame.SetPopupMenuPresenter(null);
+  }, []);
+  // The Selection Filter panel edits PCB_SELECTION_TOOL's `m_filter` (the
+  // panel's checkboxes are its fields, PANEL_SELECTION_FILTER::onFilterChanged).
+  useEffect(() => {
+    const frame = frameRef.current;
+    if (!frame) return;
+    const filter = frame.GetSelectionTool().GetFilter() as unknown as Record<string, boolean>;
+    for (const item of SELECTION_FILTER_ITEMS) filter[item.key] = selFilter.has(item.key);
+  }, [selFilter]);
+  // The two selection modes are the selection tool's (`ACTIONS::selectSetRect`
+  // / `selectSetLasso` set `m_selectionMode`); a window tool leaves it alone.
+  // Both set the canvas cursor, so they wait for the canvas.
+  useEffect(() => {
+    const mgr = frameRef.current?.GetToolManager();
+    if (!mgr || !panelReady) return;
+    if (activeTool === 'selectSetLasso') mgr.RunAction(ACTIONS.selectSetLasso);
+    else if (activeTool === 'selectSetRect') mgr.RunAction(ACTIONS.selectSetRect);
+  }, [activeTool, panelReady]);
+  // The frame's idle handler: modifier keys change the selection tool's cursor
+  // (ADD / SUBTRACT / XOR) without a mouse event (pcb_base_edit_frame.cpp:75-88).
+  useEffect(() => {
+    const onKey = (): void => {
+      if (isSelectTool(activeToolRef.current) && panelRef.current) frameRef.current?.OnIdle();
+    };
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('keyup', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('keyup', onKey);
+    };
+  }, []);
+  // A re-derived view renumbers the ids; the tool's items are the same objects.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `board` is the trigger; the mirror reads refs
+  useEffect(() => {
+    refreshSelectionMirrorRef.current();
+  }, [board]);
+  editWindowRef.current = {
+    showInfoBarMsg: (aMsg) => setInfoBarError(aMsg),
+    showUnitEntryDialog: (aTitle, aLabel, aValue) =>
+      new Promise((resolve) =>
+        setUnitEntryDlg({ title: aTitle, label: aLabel, value: aValue, resolve }),
+      ),
+    showDogboneDialog: (aParams) =>
+      new Promise((resolve) => setDogboneDlg({ params: aParams, resolve })),
+    showMoveExactDialog: (aValues, aBox) =>
+      new Promise((resolve) => setMoveExactDlg({ values: aValues, box: aBox, resolve })),
+    showTrackViaPropertiesDialog: () => {
+      setTrackViaOpen(true);
+      return Promise.resolve();
+    },
+    // TRANSITIONAL (#636 stage 3): DIALOG_GET_FOOTPRINT_BY_NAME is not built;
+    // its "Reference designator:" field, without the "Available footprints:"
+    // list, through the text-entry dialog.
+    showGetFootprintByNameDialog: (_aList) =>
+      mwWindowRef.current!.textEntry('Reference designator:', 'Get and Move Footprint', ''),
+    // TRANSITIONAL (#636 stage 3): KIDIALOG has OK and Cancel, so the
+    // "Swap All Connected Pads" answer (wxID_NO) is not offered yet.
+    showConnectedPadDialog: (aTitle, aMessage, aDetails) =>
+      askKiDialog({
+        caption: aTitle,
+        message: aMessage,
+        extendedMessage: aDetails,
+        icon: 'warning',
+        labels: { ok: 'Ignore Unselected Pads' },
+      }).then((r) => (r === 'ok' ? 'ignore' : null)),
+    openVertexEditor: () => openVertexEditor(),
+    router: () => ({
+      IsToolActive: () =>
+        activeToolRef.current === 'routeSingleTrack' || activeToolRef.current === 'routeDiffPair',
+      RoutingInProgress: () => pnsSessionRef.current !== null,
+      // `ROUTER_TOOL::CanInlineDrag`: one routable track or via, or footprints.
+      CanInlineDrag: () => {
+        const sel = selForDrawRef.current;
+        return (
+          routableTrackSeed(sel) !== null ||
+          (sel.size > 0 && [...sel].every((id) => parseBoardItemId(id)?.kind === 'footprint'))
+        );
+      },
+    }),
+  };
+  /** A gesture of the window's own tools in flight, which owns the pointer until it ends. */
+  const windowGestureInFlight = (): boolean =>
+    movingRef.current ||
+    grabbingRef.current ||
+    editHandleDragRef.current !== null ||
+    trackDragRef.current !== null;
   drcWindowRef.current = {
     createDrcDialog: (_aTool: DRC_TOOL): DIALOG_DRC => {
       const frame = frameRef.current!;
@@ -5954,7 +5995,7 @@ export function PcbEditor({
       const id = viewIdOfBoardItem(brd, aItem);
       if (!id) return;
       const sel = new Set([id]);
-      setSelection(sel);
+      setSelectionRef.current(sel);
       // The Properties... row's dispatch, over this one item.
       const zoneIndex = zoneAt(brd, sel);
       if (hasTrackOrVia(trackViaSelection(brd, sel))) setTrackViaOpen(true);
@@ -5964,6 +6005,11 @@ export function PcbEditor({
       else if (textAt(brd, sel) !== null) setTextPropsIndex(textAt(brd, sel));
       else if (shapeAt(brd, sel) !== null) setShapePropsIndex(shapeAt(brd, sel));
       else if (footprintAt(brd, sel) !== null) setFpPropsIndex(footprintAt(brd, sel));
+      else {
+        const r = parseBoardItemId(id);
+        const bc = r?.kind === 'barcode' ? brd.barcodes[r.index] : undefined;
+        if (r && bc) setBarcodeDialog({ at: bc.at, index: r.index });
+      }
     },
     /** `PCB_EDIT_FRAME::Edit_Zone_Params`'s actual open: the rendering trigger. */
     editZoneParams: (zoneIndex: number): void => setZonePropsIndex(zoneIndex),
@@ -6094,7 +6140,7 @@ export function PcbEditor({
       // nothing at all.
       const size = canvasBackingSize(wrap, dpr);
       // The KiCad canvas sizes its own element (EDA_DRAW_PANEL_GAL::onSize).
-      const changed = applyCanvasSize([canvas, overCanvasRef.current], size);
+      const changed = applyCanvasSize([canvas], size);
       // Only a fit against a viewport that exists counts.
       //
       // The frames stay mounted and are toggled with CSS, so this observer also
@@ -6153,47 +6199,14 @@ export function PcbEditor({
     requestDraw();
   }, [requestDraw]);
 
-  // WX_VIEW_CONTROLS::onWheel; drag to pan (left or middle button).
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const onWheel = (e: WheelEvent): void => {
-      e.preventDefault();
-      const v = viewRef.current;
-      const action = wheelAction(
-        e,
-        commonInputPrefs(),
-        { width: canvas.width, height: canvas.height },
-        zoomCtlRef.current,
-      );
-      if (action.kind === 'none') return;
-      if (action.kind === 'pan') {
-        v.tx += action.dx;
-        v.ty += action.dy;
-        requestDraw();
-        return;
-      }
-      const rect = canvas.getBoundingClientRect();
-      const px = (e.clientX - rect.left) * dpr;
-      const py = (e.clientY - rect.top) * dpr;
-      const sx = v.flipX ? -v.scale : v.scale;
-      const wx = (px - v.tx) / sx;
-      const wy = (py - v.ty) / v.scale;
-      v.scale *= action.factor;
-      v.tx = px - wx * (v.flipX ? -v.scale : v.scale);
-      v.ty = py - wy * v.scale;
-      requestDraw();
-    };
-    canvas.addEventListener('wheel', onWheel, { passive: false });
-    return () => canvas.removeEventListener('wheel', onWheel);
-  }, [dpr, requestDraw]);
-
   // World coordinate under a pointer event (device pixels → board units).
   const worldAt = useCallback(
     (clientX: number, clientY: number): { x: number; y: number } | null => {
       const canvas = canvasRef.current;
       if (!canvas) return null;
       const rect = canvas.getBoundingClientRect();
+      // The VIEW may have moved (a wheel zoom, autopan) since the last paint.
+      if (panelRef.current) syncWindowViewRef.current(panelRef.current);
       const v = viewRef.current;
       return {
         x: ((clientX - rect.left) * dpr - v.tx) / (v.flipX ? -v.scale : v.scale),
@@ -6203,24 +6216,6 @@ export function PcbEditor({
     [dpr],
   );
 
-  // Middle-button pan (KiCad reserves the left button for select/move).
-  const panRef = useRef<{ x: number; y: number } | null>(null);
-  /** `WX_VIEW_CONTROLS::m_metaPanning` / `m_metaPanStart`, per canvas. */
-  const motionPanRef = useRef(makeMotionPan());
-  /**
-   * `WX_VIEW_CONTROLS::m_zoomController` — this canvas's own, because upstream
-   * each `WX_VIEW_CONTROLS` owns one and the accelerating one has history.
-   */
-  const zoomCtlRef = useRef(makeZoomController());
-  /**
-   * A DRAG_ZOOMING gesture: the last pointer y, and `m_zoomStartPoint` --
-   * where the button went down, held fixed for the whole drag
-   * (`wx_view_controls.cpp:562`, `:386`).
-   */
-  const dragZoomRef = useRef<{
-    lastClientY: number;
-    anchor: { x: number; y: number };
-  } | null>(null);
   // The left press in progress: origin, world origin, the item it landed on (if
   // any), and whether it has moved. Still = click; moved on an item = drag-move;
   // moved on empty = box-select.
@@ -6317,52 +6312,11 @@ export function PcbEditor({
 
   const tolOf = (): number => (5 * dpr) / viewRef.current.scale; // ~5px, like COLLECTORS_GUIDE
 
-  // Set the selection to (or toggle) a single item id (null clears).
-  const applySelect = (id: string | null, additive: boolean): void => {
-    setSelection((prev) => {
-      const next = new Set(additive ? prev : []);
-      if (id) {
-        if (additive && next.has(id)) next.delete(id);
-        else next.add(id);
-      }
-      return next;
-    });
-  };
-
-  // PCB_SELECTION_TOOL::selectPoint: pick the best filtered candidate under the
-  // cursor. When several items are equally plausible (same priority tier after
-  // guessSelectionCandidates drops the obvious container), pop the
-  // disambiguation menu instead of guessing. Shift adds/toggles.
-  const clickSelect = (clientX: number, clientY: number, additive: boolean): void => {
-    const w = worldAt(clientX, clientY);
-    const brd = boardRef.current;
-    if (!w || !brd) return;
-    const cands = hitCandidates(w);
-    if (cands.length === 0) {
-      applySelect(null, additive);
-      return;
-    }
-    // GuessSelectionCandidates already pruned the list; a single survivor is
-    // selected outright, several raise the disambiguation menu (selectPoint:
-    // "If still more than one item we're going to have to ask the user").
-    if (cands.length === 1) {
-      applySelect(cands[0]!, additive);
-      return;
-    }
-    setDisambig({ x: clientX, y: clientY, ids: cands, additive });
-  };
-
-  // Double-click enters the group under the cursor (SELECTION_TOOL::EnterGroup):
-  // a member of the entered group that is itself a sub-group enters one level
-  // deeper; double-clicking empty space leaves the current group.
+  // A double click in a window tool (TRANSITIONAL, #636 stage 3): the outline
+  // tools' close and the two-point tools' end. In the selection tool a double
+  // click is Main's (`EnterGroup`, or `PCB_ACTIONS::properties`).
   const onCanvasDoubleClick = (e: React.MouseEvent): void => {
     if (e.button !== 0) return;
-    // `evt->IsDblClick( BUT_LEFT ) || evt->IsAction( &ACTIONS::finishInteractive )`
-    // is the only thing that ends a lasso (`pcb_selection_tool.cpp:1404-1414`).
-    if (lassoRef.current) {
-      finishLasso();
-      return;
-    }
     const w = worldAt(e.clientX, e.clientY);
     const brd = boardRef.current;
     if (!w || !brd) return;
@@ -6384,111 +6338,17 @@ export function PcbEditor({
       handleDrawClick(w, true);
       return;
     }
-    const top = hitCandidates(w)[0];
-    const r = top ? parseBoardItemId(top) : null;
-    if (r?.kind === 'group') {
-      setEnteredGroup(brd.groups[r.index]?.uuid ?? null);
-      setSelection(new Set());
-    } else if (top && (r?.kind === 'track' || r?.kind === 'arc' || r?.kind === 'via')) {
-      // EDIT_TOOL::Properties on a copper item.
-      setSelection((prev) => (prev.has(top) ? prev : new Set([top])));
-      setTrackViaOpen(true);
-    } else if (top && r?.kind === 'zone') {
-      setSelection((prev) => (prev.has(top) ? prev : new Set([top])));
-      frameRef.current?.Edit_Zone_Params(r.index);
-    } else if (top && r?.kind === 'text') {
-      setSelection((prev) => (prev.has(top) ? prev : new Set([top])));
-      setTextPropsIndex(r.index);
-    } else if (top && r?.kind === 'barcode') {
-      setSelection((prev) => (prev.has(top) ? prev : new Set([top])));
-      const bc = brd.barcodes[r.index];
-      if (bc) setBarcodeDialog({ at: bc.at, index: r.index });
-    } else if (top && r?.kind === 'shape') {
-      setSelection((prev) => (prev.has(top) ? prev : new Set([top])));
-      setShapePropsIndex(r.index);
-    } else if (top && r?.kind === 'pad') {
-      setSelection((prev) => (prev.has(top) ? prev : new Set([top])));
-      setPadPropsRef({ footprint: r.index, pad: r.sub ?? 0 });
-    } else if (top && r?.kind === 'footprint') {
-      setSelection((prev) => (prev.has(top) ? prev : new Set([top])));
-      setFpPropsIndex(r.index);
-    } else if (!top) {
-      setEnteredGroup(null);
-      /**
-       * `EDIT_TOOL::Properties`'s last branch (edit_tool.cpp:2153-2161):
-       *
-       *     else if( selection.Size() == 0 && getView()->IsLayerVisible( LAYER_DRAWINGSHEET ) )
-       *     {
-       *         DS_PROXY_VIEW_ITEM* ds = editFrame->GetCanvas()->GetDrawingSheet();
-       *         VECTOR2D cursorPos = getViewControls()->GetCursorPosition( false );
-       *
-       *         if( ds && ds->HitTestDrawingSheetItems( getView(), cursorPos ) )
-       *             m_toolMgr->PostAction( ACTIONS::pageSettings );
-       *
-       * The board editor has this and eeschema has the same thing
-       * (sch_edit_tool.cpp:2580); only ours was missing it, so double-clicking
-       * the page frame or the title block did nothing here while it opened Page
-       * Settings in the schematic. Empty paper *inside* the frame hits no item,
-       * so this cannot fire from a double-click on blank canvas.
-       */
-      if (objects.drawingSheet) {
-        const hit = hitTestBoardDrawingSheet(
-          sheetInfoOf(brd),
-          // The painter passes no project `.kicad_wks` either; the two must
-          // agree or the hit test answers for a sheet nobody can see.
-          undefined,
-          w,
-          // `aView->ToWorld( 5.0 )` — five screen pixels at this zoom.
-          (5 * dpr) / viewRef.current.scale,
-        );
-        if (hit) setPageDlgOpen(true);
-      }
-    }
     requestDraw();
   };
 
   /**
-   * Right-click opens the context menu for **the selection**
-   * (`PCB_SELECTION_TOOL::Main`, pcb_selection_tool.cpp:359-379):
-   *
-   *     else if( evt->IsClick( BUT_RIGHT ) )
-   *     {
-   *         …
-   *         if( m_selection.Empty() )
-   *         {
-   *             selectPoint( evt->Position(), false, &selectionCancelled );
-   *             m_selection.SetIsHover( true );
-   *         }
-   *         …
-   *         m_menu->ShowContextMenu( m_selection );
-   *     }
-   *
-   * The re-pick is gated on an **empty** selection and on nothing else. With
-   * something selected the item under the cursor is irrelevant: right-clicking
-   * a footprint's reference text while the footprint is selected gives the
-   * footprint's menu, because the selection was never touched.
-   *
-   * Ours re-picked whenever the top hit was not itself in the selection, which
-   * is a different rule and the one the user hits: every field, pad and silk
-   * line inside a selected footprint stole the selection on right-click and
-   * opened its own menu. Note this is deliberately *not* eeschema's rule —
-   * `SCH_SELECTION_TOOL` (sch_selection_tool.cpp:643-672) additionally re-picks
-   * when the click is more than a grid square outside the selection's bounding
-   * box, and pcbnew has no such branch.
+   * The browser's own menu never opens on the canvas: a right click is
+   * PCB_SELECTION_TOOL::Main's (`m_menu->ShowContextMenu( m_selection )`,
+   * pcb_selection_tool.cpp:359-379), which reaches the window through
+   * `PopupMenu`.
    */
   const onCanvasContextMenu = (e: React.MouseEvent): void => {
     e.preventDefault();
-    const w = worldAt(e.clientX, e.clientY);
-    const brd = boardRef.current;
-    if (!w || !brd) {
-      setCtxMenu(null);
-      return;
-    }
-    const pick = contextMenuPick(selForDrawRef.current, hitCandidates(w)[0] ?? null);
-    if (pick) applySelect(pick, false);
-    // The menu always opens on a non-empty board (Select All is shown even with
-    // nothing selected, per noItemsCondition = board && !IsEmpty).
-    setCtxMenu({ x: e.clientX, y: e.clientY });
   };
 
   /**
@@ -6539,26 +6399,6 @@ export function PcbEditor({
     return bb ? { x: bb.minX, y: bb.minY } : { x: 0, y: 0 };
   };
 
-  const copySel = useCallback(() => {
-    const brd = boardRef.current;
-    if (!brd) return;
-    const text = copySelectionToClipboardText(brd, selForDrawRef.current, clipboardRef());
-    // "dont even start if the selection is empty" — leave whatever is on the
-    // system clipboard alone rather than blanking it.
-    if (text === '') return;
-    void navigator.clipboard?.writeText(text);
-  }, []);
-
-  const cutSel = useCallback(() => {
-    const brd = boardRef.current;
-    if (!brd) return;
-    const res = cutSelectionToClipboardText(brd, selForDrawRef.current, clipboardRef());
-    if (res.text === '') return;
-    void navigator.clipboard?.writeText(res.text);
-    commitBoard(res.board);
-    setSelection(new Set());
-  }, [commitBoard]);
-
   /**
    * The paste half. `mode` and `clearNets` come from DIALOG_PASTE_SPECIAL for
    * `ACTIONS::pasteSpecial`; a plain `ACTIONS::paste` never opens it and takes
@@ -6575,7 +6415,7 @@ export function PcbEditor({
       if (!parsed) return;
       const res = pasteIntoBoard(brd, parsed, { mode, clearNets });
       commitBoard(res.board);
-      setSelection(new Set(res.newIds));
+      setSelectionRef.current(new Set(res.newIds));
     },
     [commitBoard],
   );
@@ -6619,7 +6459,7 @@ export function PcbEditor({
       e.clipboardData?.setData('text/plain', res.text);
       e.preventDefault();
       commitBoard(res.board);
-      setSelection(new Set());
+      setSelectionRef.current(new Set());
     };
     const onPaste = (e: ClipboardEvent): void => {
       if (hidden() || typing()) return;
@@ -6641,9 +6481,6 @@ export function PcbEditor({
 
   const buildPcbContextMenu = (): MenuItem[] => {
     const brd = board;
-    let groupCount = 0;
-    let hasUngrouped = false;
-    let hasMember = false;
     let anyLocked = false;
     let anyUnlocked = false;
     for (const id of selection) {
@@ -6653,16 +6490,8 @@ export function PcbEditor({
         if (isBoardItemLocked(brd, id)) anyLocked = true;
         else anyUnlocked = true;
       }
-      if (r.kind === 'group') {
-        groupCount++;
-        if (brd && groupContaining(brd, id)) hasMember = true;
-      } else if (r.kind === 'pad' || r.kind === 'fptext') {
-        // children: not groupable on their own
-      } else {
-        if (brd && groupContaining(brd, id)) hasMember = true;
-        else hasUngrouped = true;
-      }
     }
+    const groupMenu = GroupMenuState(frameRef.current?.GetSelectionTool().GetSelection() ?? null);
     const A = (label: string, actionId: string, disabled?: boolean): MenuItem => ({
       label,
       icon: actionId,
@@ -6847,7 +6676,11 @@ export function PcbEditor({
       // selected, which is why this heads the empty-canvas menu and vanishes
       // the moment something is picked.
       menuEntry(
-        { label: 'Get and Move Footprint', shortcut: 'T', disabled: true },
+        {
+          label: 'Get and Move Footprint',
+          shortcut: 'T',
+          action: () => runAction(PCB_ACTIONS.getAndPlace),
+        },
         -1,
         toolStackIsEmpty && !notEmpty,
       ),
@@ -6855,16 +6688,24 @@ export function PcbEditor({
 
       // ---- EDIT_TOOL::Init (edit_tool.cpp:763-810) -----------------------
       menuEntry(
-        { label: 'Move', shortcut: 'M', action: () => grabStartRef.current('move') },
+        { label: 'Move', shortcut: 'M', action: () => runAction(PCB_ACTIONS.move) },
         -1,
         notEmpty,
       ),
-      menuEntry(TODO('Move with Reference...'), -1, notEmpty),
+      menuEntry(
+        { label: 'Move with Reference...', action: () => runAction(PCB_ACTIONS.moveWithReference) },
+        -1,
+        notEmpty,
+      ),
       // `PCB_ACTIONS::moveIndividually` (pcb_actions.cpp:601-605): the friendly
       // name carries NO ellipsis - it starts an interactive move, it does not
       // open a dialog - and it does carry Ctrl+M.
       menuEntry(
-        { label: 'Move Individually', shortcut: 'Ctrl+M', disabled: true },
+        {
+          label: 'Move Individually',
+          shortcut: 'Ctrl+M',
+          action: () => runAction(PCB_ACTIONS.moveIndividually),
+        },
         -1,
         moreThanOne,
       ),
@@ -6887,13 +6728,17 @@ export function PcbEditor({
         {
           label: 'Drag 45 Degree Mode',
           shortcut: 'D',
-          action: () => grabStartRef.current('drag45'),
+          action: () => runAction(PCB_ACTIONS.drag45Degree),
         },
         -1,
         canDrag45,
       ),
       menuEntry(
-        { label: 'Drag Free Angle', shortcut: 'G', action: () => grabStartRef.current('drag') },
+        {
+          label: 'Drag Free Angle',
+          shortcut: 'G',
+          action: () => runAction(PCB_ACTIONS.dragFreeAngle),
+        },
         -1,
         canDragFree,
       ),
@@ -6901,21 +6746,27 @@ export function PcbEditor({
       menuEntry({ ...A('Rotate Counterclockwise', 'rotateCCW'), shortcut: 'R' }, -1, notEmpty),
       menuEntry({ ...A('Rotate Clockwise', 'rotateCW'), shortcut: 'Shift+R' }, -1, notEmpty),
       menuEntry(
-        { label: 'Change Side / Flip', shortcut: 'F', action: () => flipSelection() },
+        { label: 'Change Side / Flip', shortcut: 'F', action: () => runAction(PCB_ACTIONS.flip) },
         -1,
         notEmpty,
       ),
       menuEntry(A('Mirror Horizontally', 'mirrorH'), -1, canMirror),
       menuEntry(A('Mirror Vertically', 'mirrorV'), -1, canMirror),
       // `PCB_ACTIONS::swap` carries Alt+S (pcb_actions.cpp:704-708).
-      menuEntry({ label: 'Swap', shortcut: 'Alt+S', disabled: true }, -1, moreThanOne),
+      menuEntry(
+        { label: 'Swap', shortcut: 'Alt+S', action: () => runAction(PCB_ACTIONS.swap) },
+        -1,
+        moreThanOne,
+      ),
       // `packAndMoveFootprints` (edit_tool.cpp:794-795), on
       // `MoreThan( 1 ) && HasType( PCB_FOOTPRINT_T )` — ANY footprint in the
-      // selection, not only footprints. P (pcb_actions.cpp:727-731). Shown in
-      // its upstream position and greyed, like Grid Origin and Single Track:
-      // the row was missing outright, which is a row of the height difference.
+      // selection, not only footprints. P (pcb_actions.cpp:727-731).
       menuEntry(
-        { label: 'Pack and Move Footprints', shortcut: 'P', disabled: true },
+        {
+          label: 'Pack and Move Footprints',
+          shortcut: 'P',
+          action: () => runAction(PCB_ACTIONS.packAndMoveFootprints),
+        },
         -1,
         moreThanOne && anyFootprint,
       ),
@@ -7017,13 +6868,20 @@ export function PcbEditor({
         {
           label: 'Position',
           submenu: [
-            { label: 'Move Exactly...', shortcut: 'Shift+M', action: () => setMoveExactOpen(true) },
+            {
+              label: 'Move Exactly...',
+              shortcut: 'Shift+M',
+              action: () => runAction(PCB_ACTIONS.moveExact),
+            },
             {
               label: 'Position Relative To...',
               shortcut: 'Shift+P',
-              action: () => setPosRelOpen(true),
+              action: () => runAction(PCB_ACTIONS.positionRelative),
             },
-            { label: 'Outset Items...', action: () => setOutsetOpen(true) },
+            {
+              label: 'Outset Items...',
+              action: () => runAction(PCB_ACTIONS.outsetItems),
+            },
           ],
         },
         100,
@@ -7107,37 +6965,20 @@ export function PcbEditor({
       // to an Edit-menu submenu that upstream does not have. See
       // `alignDistributeSubmenu`.
       menuEntry({ label: 'Align/Distribute', submenu: alignDistributeSubmenu() }, 100, moreThanOne),
-      menuEntry(
-        {
-          label: 'Create from Selection',
-          submenu: [
-            { label: 'Create Polygon from Selection...', action: () => convertSelection('poly') },
-            { label: 'Create Zone from Selection...', action: () => convertSelection('zone') },
-            {
-              label: 'Create Rule Area from Selection...',
-              action: () => convertSelection('ruleArea'),
-            },
-            { label: 'Create Lines from Selection...', action: () => convertSelection('lines') },
-            { label: 'Outset Items...', action: () => setOutsetOpen(true) },
-            { sep: true },
-            { label: 'Create Tracks from Selection...', action: () => convertSelection('tracks') },
-            { label: 'Create Arc from Selection...', action: () => convertSelection('arc') },
-            { sep: true },
-            { label: 'Create Array...', action: () => setArrayOpen(true) },
-          ],
-        },
-        100,
-        notEmpty,
-      ),
+      // CONVERT_TOOL::Init's CONDITIONAL_MENU (convert_tool.cpp:291-333),
+      // evaluated over the selection tool's selection as the tool's own menu is.
+      menuEntry({ label: 'Create from Selection', submenu: convertSubmenu() }, 100, notEmpty),
       menuEntry(
         {
           label: 'Grouping',
           icon: 'group',
+          // GROUP_CONTEXT_MENU (group_tool.cpp:40-105), which PCB_GROUP_TOOL's
+          // Init adds; its enables read the selection tool's selection.
           submenu: [
-            A('Group Items', 'group', selection.size < 2),
-            A('Ungroup Items', 'ungroup', groupCount === 0),
-            A('Add Items', 'addToGroup', !(groupCount === 1 && hasUngrouped)),
-            A('Remove Items', 'removeFromGroup', !hasMember),
+            A('Group Items', 'group', !groupMenu.group),
+            A('Ungroup Items', 'ungroup', !groupMenu.ungroup),
+            A('Add Items', 'addToGroup', !groupMenu.addToGroup),
+            A('Remove Items', 'removeFromGroup', !groupMenu.removeFromGroup),
           ],
         },
         100,
@@ -7146,9 +6987,13 @@ export function PcbEditor({
 
       // ---- EDIT_TOOL's @150 clipboard group (edit_tool.cpp:817-827) ------
       menuSeparator(150),
-      menuEntry({ label: 'Cut', icon: 'cut', shortcut: 'Ctrl+X', action: cutSel }, 150, notEmpty),
       menuEntry(
-        { label: 'Copy', icon: 'copy', shortcut: 'Ctrl+C', action: copySel },
+        { label: 'Cut', icon: 'cut', shortcut: 'Ctrl+X', action: () => runAction(ACTIONS.cut) },
+        150,
+        notEmpty,
+      ),
+      menuEntry(
+        { label: 'Copy', icon: 'copy', shortcut: 'Ctrl+C', action: () => runAction(ACTIONS.copy) },
         150,
         notEmpty,
       ),
@@ -7180,12 +7025,21 @@ export function PcbEditor({
         toolStackIsEmpty,
       ),
       menuEntry(
-        { ...A('Duplicate', 'duplicate'), shortcut: 'Ctrl+D', action: duplicateSel },
+        {
+          ...A('Duplicate', 'duplicate'),
+          shortcut: 'Ctrl+D',
+          action: () => runAction(ACTIONS.duplicate),
+        },
         150,
         notEmpty,
       ),
       menuEntry(
-        { label: 'Delete', icon: 'delete', shortcut: 'Delete', action: deleteSel },
+        {
+          label: 'Delete',
+          icon: 'delete',
+          shortcut: 'Delete',
+          action: () => runAction(ACTIONS.doDelete),
+        },
         150,
         notEmpty,
       ),
@@ -7310,7 +7164,7 @@ export function PcbEditor({
     if (!brd) return;
     const res = addBoardShape(brd, shape);
     commitBoard(res.board);
-    if (select) setSelection(new Set([res.id]));
+    if (select) setSelectionRef.current(new Set([res.id]));
   };
 
   /**
@@ -7543,7 +7397,7 @@ export function PcbEditor({
     });
     commitBoard(res.board);
     // `m_tool.GetManager()->RunAction<EDA_ITEM*>( ACTIONS::selectItem, poly )`.
-    setSelection(new Set([res.id]));
+    setSelectionRef.current(new Set([res.id]));
   };
 
   /**
@@ -7607,7 +7461,7 @@ export function PcbEditor({
         priority: 0,
       });
       commitBoard(res.board);
-      setSelection(new Set([res.id]));
+      setSelectionRef.current(new Set([res.id]));
       return;
     }
 
@@ -7641,7 +7495,7 @@ export function PcbEditor({
       priority: v.priority,
     });
     commitBoard(res.board);
-    setSelection(new Set([res.id]));
+    setSelectionRef.current(new Set([res.id]));
   };
 
   // ----- interactive routing (ROUTER_TOOL, highlight mode) --------------------
@@ -7918,7 +7772,7 @@ export function PcbEditor({
       // `m_toolMgr->RunAction<EDA_ITEM*>( ACTIONS::selectItem, dimension )` —
       // the placed dimension is left selected, so the properties panel and Del
       // act on what was just drawn.
-      setSelection(new Set([added.id]));
+      setSelectionRef.current(new Set([added.id]));
       // "Run the edit immediately to set the leader text": a leader shows typed
       // text, so upstream opens its properties dialog the moment it lands
       // (drawing_tool.cpp:1791-1793). Without this the label is stuck on the
@@ -8127,7 +7981,7 @@ export function PcbEditor({
     if (commit && brd) {
       const { board: withImage, id } = addBoardImage(brd, commit);
       commitBoard(withImage);
-      setSelection(new Set([id]));
+      setSelectionRef.current(new Set([id]));
     }
     setImagePlacing(next.step === 'placing');
     requestDraw();
@@ -8318,7 +8172,7 @@ export function PcbEditor({
     const fp = placeLibraryFootprint(pf.lib, { fpid: pf.fpid, at });
     if (fp) {
       commitBoard({ ...brd, footprints: [...brd.footprints, fp] });
-      setSelection(new Set());
+      setSelectionRef.current(new Set());
     }
     placeFpRef.current = null;
     placeFpSceneRef.current = null;
@@ -8398,7 +8252,7 @@ export function PcbEditor({
    */
   const browserFpRef = useRef<{ lib: PcbFootprint; fpid: string } | null>(null);
   const placeFromBrowser = (aFpid: string, aFootprint: PcbFootprint): void => {
-    setSelection(new Set());
+    setSelectionRef.current(new Set());
     setFpChooserOpen(false);
     if (activeToolRef.current === 'placeFootprint') {
       placeFpRef.current = { lib: aFootprint, fpid: aFpid };
@@ -8874,7 +8728,7 @@ export function PcbEditor({
     // selection before it moves anything.
     const { items: sel, selection } = promotePadsForCommand(brd, sel0);
     movingSelRef.current = sel;
-    if (selection) setSelection(selection);
+    if (selection) setSelectionRef.current(selection);
     moveKindRef.current = kind;
     moveOriginRef.current = origin;
     // `m_cursor = grid.BestDragOrigin( originalMousePos, sel_items, … )`
@@ -8956,7 +8810,7 @@ export function PcbEditor({
       const items = kItemsForIds(brd, affected);
       hiddenItemsRef.current = items;
       setItemsHidden(panel, items, true);
-      glSelectionRef.current.SetGroupHidden(true);
+      hideSelectionGroup(true);
       panel.Refresh();
       return;
     }
@@ -8979,7 +8833,7 @@ export function PcbEditor({
     hiddenItemsRef.current = [];
     if (panel && items.length > 0) {
       setItemsHidden(panel, items, false);
-      glSelectionRef.current.SetGroupHidden(false);
+      hideSelectionGroup(false);
       panel.Refresh();
     }
   };
@@ -9038,7 +8892,7 @@ export function PcbEditor({
       const items = kItemsForIds(brd, affected);
       hiddenItemsRef.current = items;
       setItemsHidden(panelRef.current, items, true);
-      glSelectionRef.current.SetGroupHidden(true);
+      hideSelectionGroup(true);
     } else {
       sceneRef.current = buildBoardScene(deleteBoardItems(brd, affected), sceneFilter());
     }
@@ -9194,18 +9048,6 @@ export function PcbEditor({
     [askKiDialog],
   );
 
-  /**
-   * Change Side / Flip (EDIT_TOOL::Flip, F). Not Mirror: upstream refuses to
-   * mirror a footprint and points you here, because flipping has to swap every
-   * child's layer as well as mirror the geometry.
-   */
-  const flipSelection = useCallback(() => {
-    const brd = boardRef.current;
-    const sel = selForDrawRef.current;
-    if (!brd || sel.size === 0) return;
-    const next = flipBoardItems(brd, sel);
-    if (next !== brd) commitBoard(next);
-  }, [commitBoard]);
   /** DIALOG_TEXT_PROPERTIES / DIALOG_SHAPE_PROPERTIES::TransferDataFromWindow. */
   const applyTextEdit = useCallback(
     (values: TextValues) => {
@@ -9629,29 +9471,6 @@ export function PcbEditor({
     if (brd) rebuildScene(brd);
   };
 
-  // Keyboard grab: M = Move (PCB_ACTIONS::move, routing left behind), D = Drag
-  // 45° (drag45Degree) and G = Drag free angle (dragFreeAngle). On a trace the
-  // two drags run the router's dragger; on anything else EDIT_TOOL::Drag falls
-  // through to doMoveSelection, which is the move with the traces rubber-banded.
-  // Routed through refs so the stable global key handler always calls the latest
-  // closures.
-  const grabStartRef = useRef<(kind: 'move' | 'drag' | 'drag45') => void>(() => {});
-  grabStartRef.current = (kind) => {
-    const sel = selForDrawRef.current;
-    const cur = cursorRef.current;
-    if (sel.size === 0 || !cur || movingRef.current || grabbingRef.current) return;
-    if (kind !== 'move') {
-      const seed = routableTrackSeed(sel);
-      if (seed !== null && beginTrackDrag(seed, cur, kind === 'drag')) {
-        grabbingRef.current = true;
-        requestDraw();
-        return;
-      }
-    }
-    beginMove(sel, kind === 'move' ? 'move' : 'drag', cur);
-    grabbingRef.current = true;
-    requestDraw();
-  };
   /**
    * `DIALOG_UPDATE_PCB::~DIALOG_UPDATE_PCB` (`dialog_update_pcb.cpp:65-85`): once
    * the update has spread the new footprints, KiCad hands the whole cluster to
@@ -9673,15 +9492,16 @@ export function PcbEditor({
    * left at the page origin — the top-left of the sheet — which is not where
    * anybody wants their board.
    *
-   * A ref because the update handler is a `useCallback` and `beginMove` is
-   * rebuilt every render; capturing it directly would freeze the first one.
+   * A ref because the update handler is a `useCallback`; the selection it
+   * writes is the selection tool's, and the move is EDIT_TOOL's.
    */
   const startPostUpdateMoveRef = useRef<(sel: ReadonlySet<string>) => void>(() => {});
   startPostUpdateMoveRef.current = (sel) => {
-    if (sel.size === 0 || movingRef.current || grabbingRef.current) return;
-    beginMove(sel, 'move', { x: 0, y: 0 });
-    grabbingRef.current = true;
-    requestDraw();
+    const frame = frameRef.current;
+    if (sel.size === 0 || !frame) return;
+    setSelectionRef.current(sel);
+    frame.GetSelectionTool().GetSelection().SetReferencePoint({ x: 0, y: 0 });
+    frame.GetToolManager()?.PostAction(PCB_ACTIONS.move);
   };
 
   const grabCancelRef = useRef<() => void>(() => {});
@@ -9737,85 +9557,13 @@ export function PcbEditor({
   };
 
   /**
-   * `area.GetPoly().GenerateBBoxCache(); SelectMultiple( area, m_subtractive,
-   * m_exclusive_or );` — the double-click arm (`:1409-1414`).
-   *
-   * The mode is the trace's WINDING and not a modifier: `SelectPolyArea`
-   * recomputes it from the signed area on every event (`:1384-1391`), which is
-   * the same rule the band is coloured by, so the yellow outline and the
-   * window select cannot disagree.
+   * The window's own tools' press (TRANSITIONAL, #636 stage 3). The selection
+   * tool takes its own presses through the dispatcher; what is left here is a
+   * press `eventToWindow` gave the window: a click tool's, a point edit's, the
+   * end of a keyboard grab - and, in the selection tool, only where the press
+   * went down, for a move the tool starts through `PCB_ACTIONS::move`.
    */
-  const finishLasso = (): void => {
-    const lasso = lassoRef.current;
-    const brd = boardRef.current;
-    lassoRef.current = null;
-    if (!lasso || !brd || lasso.pts.length < 3) {
-      requestDraw();
-      return;
-    }
-    const ids = boardItemsInLasso(brd, lasso.pts, lassoIsInside(lasso.pts)).filter(passesFilter);
-    setSelection((prev) => {
-      const next = new Set(lasso.additive || lasso.subtractive ? prev : []);
-      for (const id of ids) {
-        if (lasso.subtractive) next.delete(id);
-        else next.add(id);
-      }
-      return next;
-    });
-    requestDraw();
-  };
-
   const onPointerDown = (e: React.PointerEvent): void => {
-    // `WX_VIEW_CONTROLS::onButton` (`wx_view_controls.cpp:546-569`): the
-    // middle button starts what Preferences > Mouse and Touchpad > Drag
-    // Gestures says, and NONE is neither branch -- the press falls through to
-    // the tools.
-    if (e.button === 1) {
-      const gesture = dragGesture(e.button, commonInputPrefs());
-      if (gesture !== 'none') {
-        (e.target as HTMLElement).setPointerCapture(e.pointerId);
-        if (gesture === 'zoom') {
-          const r = canvasRef.current?.getBoundingClientRect() ?? new DOMRect();
-          dragZoomRef.current = {
-            lastClientY: e.clientY,
-            anchor: { x: (e.clientX - r.left) * dpr, y: (e.clientY - r.top) * dpr },
-          };
-        } else {
-          panRef.current = { x: e.clientX, y: e.clientY };
-        }
-        return;
-      }
-    }
-    if (e.button === 0 && lassoRef.current) {
-      // `evt->IsClick( BUT_LEFT )` also appends (`:1364-1368`): a click
-      // completes the straight leg and the next drag draws freehand from there.
-      const w = worldAt(e.clientX, e.clientY);
-      if (w) lassoRef.current.pts.push(w);
-      lassoRef.current.freehand = true;
-      (e.target as HTMLElement).setPointerCapture(e.pointerId);
-      requestDraw();
-      return;
-    }
-    if (
-      e.button === 0 &&
-      selectModeRef.current === 'selectSetLasso' &&
-      isSelectTool(activeToolRef.current)
-    ) {
-      // The gesture the rectangle would have started, in the shape the mode
-      // names (`pcb_selection_tool.cpp:462-475`). "Any items in the existing
-      // selection are deselected" unless a modifier says otherwise, which is
-      // the `!m_drag_additive && !m_drag_subtractive` block at `:1430-1439`.
-      const w = worldAt(e.clientX, e.clientY);
-      if (w) {
-        const additive = (e.ctrlKey || e.shiftKey) && !e.altKey;
-        const subtractive = e.ctrlKey && e.shiftKey && !e.altKey;
-        lassoRef.current = { pts: [w], freehand: true, additive, subtractive };
-        if (!additive && !subtractive) setSelection(new Set());
-        (e.target as HTMLElement).setPointerCapture(e.pointerId);
-        requestDraw();
-        return;
-      }
-    }
     if (e.button === 0) {
       // A left click during a keyboard grab (M/G) drops the selection there.
       if (grabbingRef.current) {
@@ -9839,28 +9587,16 @@ export function PcbEditor({
           // endpoint or zone corner can be put back exactly where it was.
           auxAxisRef.current = { x: handle.at.x, y: handle.at.y };
           editHandleDragRef.current = { handle, origin: handleSnap(w) };
-          // Reshaping touches one item, so split the board the same way a move
-          // drag does: the rest of it is recorded once here and stays in the
-          // cached raster, and the item being reshaped rides the live overlay.
-          // Rebuilding the whole scene per pointermove instead costs a full
-          // buildScene *and* a full re-raster on every mouse event.
+          // Reshaping touches one item: it is hidden in the VIEW for the
+          // gesture and rides the overlay, so nothing is rebuilt per event.
           const id = editHandleItemRef.current;
           if (brd && id) {
             const only = new Set([id]);
-            // The base goes through `buildBoardScene` so it is compiled for
-            // whichever backend draws it; the overlay stays `buildScene`,
-            // because it is painted onto the 2D layer and needs real `Path2D`.
-            // Getting this pair the wrong way round is silent: a GL scene drawn
-            // by the raster path, or a `Path2D` scene handed to the recorder,
-            // both come out as an empty board with no error at all. Neither of
-            // the two changes that met here shows it on its own.
             if (panelRef.current) {
               const items = kItemsForIds(brd, only);
               hiddenItemsRef.current = items;
               setItemsHidden(panelRef.current, items, true);
-              glSelectionRef.current.SetGroupHidden(true);
-            } else {
-              sceneRef.current = buildBoardScene(deleteBoardItems(brd, only), sceneFilter());
+              hideSelectionGroup(true);
             }
             moveSceneRef.current = buildScene(subsetBoardItems(brd, only), sceneFilter());
             // The overlay is drawn at absolute coords: a reshape moves points,
@@ -9871,27 +9607,12 @@ export function PcbEditor({
           return;
         }
       }
-      // The zoom tool always rubber-bands: never grab the item under the cursor.
-      //
-      // What the press *grabs* is not what a click on it would *select*. The
-      // drag branch of PCB_SELECTION_TOOL::Main runs selectPoint through
-      // `zoneFilledAreaFilter` — "Don't allow starting a drag from a zone
-      // filled area that isn't already selected" — and its other branch,
-      // selectionContains, asks ZONE::HitTest, which is corner-or-edge too. So
-      // a pour is grabbable only by its outline either way, while a plain click
-      // anywhere inside it still selects it (and M then moves it). Without this
-      // a stray drag over a ground pour picked the pour up and slid it off the
-      // board, which is not something pcbnew will let you do.
-      const hitId =
-        activeToolRef.current !== 'zoomTool' && w && brd
-          ? (hitCandidates(w, true)[0] ?? null)
-          : null;
       downRef.current = {
         x: e.clientX,
         y: e.clientY,
         world: w,
-        hitId,
-        onItem: !!hitId,
+        hitId: null,
+        onItem: false,
         moved: false,
         shift: e.shiftKey,
       };
@@ -9901,43 +9622,10 @@ export function PcbEditor({
   const onPointerMove = (e: React.PointerEvent): void => {
     shiftDownRef.current = e.shiftKey;
     ctrlDownRef.current = e.ctrlKey || e.metaKey;
-    // A running lasso owns the pointer: `IsDrag( BUT_LEFT )` appends, a plain
-    // motion only moves the rubber band to the cursor. Before the crosshair and
-    // the tool arms, because none of them should see these events.
-    if (lassoRef.current) {
-      const w = worldAt(e.clientX, e.clientY);
-      if (w) {
-        cursorRef.current = w;
-        statusReadout.setCursor(w);
-        if (lassoRef.current.freehand) lassoRef.current.pts.push(w);
-      }
-      requestDraw();
-      return;
-    }
-    // `if( m_autoPanEnabled && m_autoPanSettingEnabled ) isAutoPanning =
-    // handleAutoPanning( aEvent )` (`wx_view_controls.cpp:304-305`).
-    {
-      const apr = canvasRef.current?.getBoundingClientRect();
-      if (apr)
-        autoPanRef.current.motion(
-          { x: (e.clientX - apr.left) * dpr, y: (e.clientY - apr.top) * dpr },
-          {
-            settingEnabled: commonInputPrefs().autoPan,
-            acceleration: commonInputPrefs().autoPanAcceleration,
-          },
-        );
-    }
-    // `onMotion`'s meta-pan (`wx_view_controls.cpp:288-311`), which comes
-    // FIRST and returns: with the Drag Gestures key held, a bare pointer move
-    // pans and nothing else in this handler runs.
-    const meta = motionPanRef.current.update(e, commonInputPrefs().motionPanModifier, dpr);
-    if (meta) {
-      const v = viewRef.current;
-      v.tx += meta.dx;
-      v.ty += meta.dy;
-      requestDraw();
-      return;
-    }
+    // `controls->SetAutoPan( true )` for as long as a move of the window's own
+    // is in flight (EDIT_TOOL::doMoveSelection brackets its loop with it);
+    // WX_VIEW_CONTROLS does the panning.
+    panelRef.current?.GetViewControls().SetAutoPan(movingRef.current || grabbingRef.current);
     const canvas = canvasRef.current;
     if (canvas) {
       const rect = canvas.getBoundingClientRect();
@@ -9989,30 +9677,6 @@ export function PcbEditor({
       // Repaint so the crosshair follows even on a plain hover (no pan/drag).
       requestDraw();
     }
-    if (panRef.current) {
-      const v = viewRef.current;
-      v.tx += (e.clientX - panRef.current.x) * dpr;
-      v.ty += (e.clientY - panRef.current.y) * dpr;
-      panRef.current = { x: e.clientX, y: e.clientY };
-      requestDraw();
-      return;
-    }
-    const dz = dragZoomRef.current;
-    if (dz) {
-      // DRAG_ZOOMING (`wx_view_controls.cpp:363-405`) — the wheel's own
-      // zoom-about-a-point arithmetic, flipX included, at `m_zoomStartPoint`.
-      const v = viewRef.current;
-      const f = dragZoomScale(dz.lastClientY - e.clientY, commonInputPrefs());
-      const sx = v.flipX ? -v.scale : v.scale;
-      const wx = (dz.anchor.x - v.tx) / sx;
-      const wy = (dz.anchor.y - v.ty) / v.scale;
-      v.scale *= f;
-      v.tx = dz.anchor.x - wx * (v.flipX ? -v.scale : v.scale);
-      v.ty = dz.anchor.y - wy * v.scale;
-      dz.lastClientY = e.clientY;
-      requestDraw();
-      return;
-    }
     // Dragging a handle: reshape the item live. A corner follows the cursor; an
     // edge handle carries its whole edge, so it is moved by the cursor's delta
     // from where it was grabbed rather than snapped onto the cursor — grabbing
@@ -10063,47 +9727,25 @@ export function PcbEditor({
       // Click-driven tools (delete, local ratsnest, drawing, routing, vias,
       // text) take no drag-move or box-select gestures.
       if (isClickTool(activeToolRef.current)) return;
-      if (d.moved && d.world) {
-        const cur = worldAt(e.clientX, e.clientY);
-        if (!cur) return;
-        if (d.onItem) {
-          // On the first move, ensure the grabbed item is selected, then start
-          // the gesture so the real geometry tracks the cursor.
-          if (!movingRef.current) {
-            movingRef.current = true;
-            let movingSel: ReadonlySet<string> = selForDrawRef.current;
-            if (d.hitId && !movingSel.has(d.hitId)) {
-              movingSel = new Set([d.hitId]);
-              applySelect(d.hitId, false);
-            }
-            // pcb_selection_tool.cpp: a routable selection (tracks/arcs/vias and
-            // nothing else) left-drags as a router *drag*, PCBNEW_SETTINGS'
-            // m_TrackDragAction, which defaults to TRACK_DRAG_ACTION::DRAG, the
-            // 45° one. Everything else runs PCB_ACTIONS::move, which leaves the
-            // routing behind.
-            const seed = routableTrackSeed(movingSel);
-            if (seed === null || !beginTrackDrag(seed, d.world, false))
-              beginMove(movingSel, 'move', d.world);
-          }
-          updateMove(cur);
-        } else {
-          // Drag from empty space rubber-bands a selection box.
-          boxRef.current = { a: d.world, b: cur };
-          requestDraw();
-        }
+      const cur = worldAt(e.clientX, e.clientY);
+      if (!cur) return;
+      // A move or a router drag the selection tool started (`PCB_ACTIONS::move`
+      // / `drag45Degree` through the window action bridge) follows the cursor
+      // until the button comes up.
+      if (movingRef.current) {
+        // The dispatcher's drag threshold, not this handler's, started it.
+        d.moved = true;
+        updateMove(cur);
+        return;
+      }
+      // ZOOM_TOOL::selectRegion rubber-bands the area it zooms to.
+      if (d.moved && d.world && activeToolRef.current === 'zoomTool') {
+        boxRef.current = { a: d.world, b: cur };
+        requestDraw();
       }
     }
   };
   const onPointerUp = (e: React.PointerEvent): void => {
-    // "Releasing the button stops drawing the freeform shape and starts drawing
-    // a straight line." Upstream has no mouse-up arm at all, so releasing ends
-    // nothing: the trace stays live and the last leg follows the cursor.
-    if (lassoRef.current) {
-      lassoRef.current.freehand = false;
-      (e.target as Element).releasePointerCapture(e.pointerId);
-      requestDraw();
-      return;
-    }
     // Finish a point edit: commit the reshaped board, or put the scene back if
     // the handle never moved.
     if (editHandleDragRef.current) {
@@ -10125,9 +9767,6 @@ export function PcbEditor({
     const d = downRef.current;
     const box = boxRef.current;
     const moved = movingRef.current;
-    panRef.current = null;
-    // DRAG_ZOOMING and DRAG_PANNING share one release (`:575-588`).
-    dragZoomRef.current = null;
     downRef.current = null;
     boxRef.current = null;
     movingRef.current = false;
@@ -10152,25 +9791,6 @@ export function PcbEditor({
         return;
       }
       if (!d.moved) {
-        // Arming the Position Relative reference picker (PCB_PICKER_TOOL): the
-        // next click names an item and does *not* touch the selection, which is
-        // the thing being positioned.
-        if (pickingRefItem.current) {
-          const w = worldAt(e.clientX, e.clientY);
-          const hit = w ? hitCandidates(w)[0] : undefined;
-          if (hit) {
-            const brd0 = boardRef.current;
-            setPosRelRef({
-              id: hit,
-              label: (brd0 && describeSelected(brd0, hit)?.desc) || hit,
-            });
-            pickingRefItem.current = false;
-            setPickingRefShown(false);
-            setPosRelOpen(true);
-            requestDraw();
-          }
-          return;
-        }
         // Interactive Delete Tool (PCB_CONTROL::DeleteItemCursor): each click
         // deletes the item under the cursor, honouring the selection filter.
         if (activeToolRef.current === 'deleteTool') {
@@ -10180,7 +9800,7 @@ export function PcbEditor({
             const hit = hitCandidates(w)[0];
             if (hit) {
               commitBoard(deleteBoardItems(brd, new Set([hit])));
-              setSelection(new Set());
+              setSelectionRef.current(new Set());
             }
           }
         } else if (activeToolRef.current === 'localRatsnestTool') {
@@ -10203,7 +9823,7 @@ export function PcbEditor({
             const ref = picked ? parseBoardItemId(picked) : null;
             const padHit2 = ref?.kind === 'pad' ? ref : undefined;
             const fpHit = ref?.kind === 'footprint' ? ref : undefined;
-            setSelection(picked ? new Set([picked]) : new Set());
+            setSelectionRef.current(picked ? new Set([picked]) : new Set());
             const hit: LocalRatsnestHit = padHit2
               ? { kind: 'pad', footprint: padHit2.index, pad: padHit2.sub ?? 0 }
               : fpHit
@@ -10279,28 +9899,12 @@ export function PcbEditor({
         } else if (activeToolRef.current === 'measureTool') {
           const w = worldAt(e.clientX, e.clientY);
           if (w) handleMeasureClick(w);
-        } else {
-          clickSelect(e.clientX, e.clientY, d.shift);
         }
+        // A click in the selection tool is the tool's, through the dispatcher.
       } else if (moved) {
-        // Drop the left-drag move (EDIT_TOOL Move); a zero net delta restores.
+        // Drop the move the selection tool started (EDIT_TOOL::Move's window
+        // half); a zero net delta restores.
         commitMove();
-      } else if (box && boardRef.current) {
-        // Left→right = window (contained); right→left = crossing (touching).
-        const contained = box.b.x >= box.a.x;
-        const ids = boardItemsInBox(
-          boardRef.current,
-          box.a.x,
-          box.a.y,
-          box.b.x,
-          box.b.y,
-          contained,
-        ).filter(passesFilter);
-        setSelection((prev) => {
-          const next = new Set(d.shift ? prev : []);
-          for (const id of ids) next.add(id);
-          return next;
-        });
       }
     }
     requestDraw();
@@ -10374,7 +9978,7 @@ export function PcbEditor({
         return;
       }
       if (!mod && (e.key === 'r' || e.key === 'R')) {
-        rotateSel(!e.shiftKey);
+        runAction(e.shiftKey ? PCB_ACTIONS.rotateCw : PCB_ACTIONS.rotateCcw);
         return;
       } // R = CCW, Shift+R = CW (PCB_ACTIONS::rotateCcw / rotateCw, no row)
       // M = Move (routing left behind), G = Drag (attached traces follow), a
@@ -10384,18 +9988,18 @@ export function PcbEditor({
       // this would swallow the row's accelerator before it reached the menu.
       if (!mod && !e.shiftKey && (e.key === 'm' || e.key === 'M')) {
         e.preventDefault();
-        grabStartRef.current('move');
+        runAction(PCB_ACTIONS.move);
         return;
       }
       if (!mod && (e.key === 'g' || e.key === 'G')) {
         e.preventDefault();
-        grabStartRef.current('drag');
+        runAction(PCB_ACTIONS.dragFreeAngle);
         return;
       }
       // Bare D is drag45; Ctrl+D is Edit > Duplicate and belongs to its row.
       if (!mod && (e.key === 'd' || e.key === 'D')) {
         e.preventDefault();
-        grabStartRef.current('drag45');
+        runAction(PCB_ACTIONS.drag45Degree);
         return;
       }
       // PgUp / PgDn: `PCB_ACTIONS::layerTop` and `layerBottom`
@@ -10477,17 +10081,13 @@ export function PcbEditor({
         return;
       }
       if (e.key === 'Escape') {
-        // Escape cancels an in-flight grab first, then the disambiguation menu,
-        // then clears the selection.
+        // Escape cancels an in-flight grab first, then what a window tool has
+        // in flight, then leaves the tool; in the selection tool it is Main's.
         if (grabbingRef.current) {
           grabCancelRef.current();
           return;
         }
-        if (disambigRef.current) {
-          hoverRef.current = null;
-          hoverSceneRef.current = null;
-          setDisambig(null);
-        } else if (tableStartRef.current) {
+        if (tableStartRef.current) {
           setTableStart(null);
           requestDrawRef.current();
         } else if (textBoxStartRef.current) {
@@ -10547,15 +10147,6 @@ export function PcbEditor({
           // First Esc abandons the in-flight shape; the tool stays active.
           drawingRef.current = [];
           requestDrawRef.current();
-        } else if (lassoRef.current) {
-          // `evt->IsCancelInteractive() || evt->IsActivate()` -> `cancelled =
-          // true; break;` — the trace is dropped and nothing is selected.
-          lassoRef.current = null;
-          requestDrawRef.current();
-        } else if (enteredGroupRef.current) {
-          // Esc leaves the entered group first (SELECTION_TOOL groupLeave).
-          setEnteredGroup(null);
-          requestDrawRef.current();
         } else if (!isSelectTool(activeToolRef.current)) {
           // Esc in a tool returns to the selection tool (TOOL_MANAGER), in
           // whichever mode it was left in.
@@ -10566,13 +10157,28 @@ export function PcbEditor({
           setActiveTool(selectModeRef.current);
         } else {
           setShow3D(false);
-          setSelection(new Set());
-          // `m_ESCClearsNetHighlight` — Editing Options' "<ESC> clears net
-          // highlighting". `PCB_CONTROL::ClearHighlight` is bound to Escape
-          // only when it is set (`pcb_edit_frame.cpp`), so with it off a
-          // highlighted net survives the key that clears the selection. Ours
-          // never cleared it at all, which is the other half of the same gap.
-          if (escClearsHighlightRef.current) clearHighlightRef.current();
+          // The selection tool's cancel (`IsCancel()`, pcb_selection_tool.cpp:
+          // 554-584): clear the selection, else leave the entered group, else
+          // clear the net highlight when `m_ESCClearsNetHighlight` says so. The
+          // key reaches the canvas's dispatcher first when the canvas has the
+          // focus; from anywhere else in the frame it is handed to it here, as
+          // the frame's char hook hands it upstream.
+          const canvas = glCanvasRef.current;
+          const dispatcher = frameRef.current?.GetToolDispatcher();
+          if (canvas && dispatcher) {
+            const at = KIPLATFORM_UI.GetMousePosition();
+            dispatcher.DispatchWxEvent(
+              wxKeyEventFromDom(
+                canvas,
+                e,
+                wxEVT_CHAR_HOOK,
+                clientPosition(canvas, {
+                  clientX: at.x,
+                  clientY: at.y,
+                }),
+              ),
+            );
+          }
         }
         return;
       }
@@ -10582,7 +10188,7 @@ export function PcbEditor({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [zoomToFit, rotateSel, switchActiveLayer]);
+  }, [zoomToFit, switchActiveLayer]);
 
   // The snap modifiers, tracked on the keyboard as well as the pointer.
   // Upstream a modifier arrives as its own `TOOL_EVENT`, so pressing Shift or
@@ -10727,8 +10333,24 @@ export function PcbEditor({
       setInfoBarError('Selection contains no items with labeled nets.');
       return;
     }
-    setSelection(new Set(connectedItemIdsOnNets(brd, codes)));
+    setSelectionRef.current(new Set(connectedItemIdsOnNets(brd, codes)));
     setNetclassNets(names);
+  };
+
+  /**
+   * BOARD_INSPECTION_TOOL::ShowFootprintLinks (board_inspection_tool.cpp:1937-1957):
+   * `selection.Size() != 1 || selection.Front()->Type() != PCB_FOOTPRINT_T` is
+   * an infobar error, its exact string; otherwise the dialog opens on it.
+   */
+  const showFootprintAssociations = (): void => {
+    const brd = boardRef.current;
+    if (!brd) return;
+    const fpIdx = footprintAt(brd, selection);
+    if (fpIdx === null) {
+      setInfoBarError('Select a footprint for a footprint associations report.');
+      return;
+    }
+    setFootprintAssociationsIndex(fpIdx);
   };
 
   const applyPreset = (name: string): void => {
@@ -11407,7 +11029,7 @@ export function PcbEditor({
     () =>
       makePcbSearchWiring({
         getBoard: () => boardRef.current,
-        setSelection: (ids) => setSelection(ids),
+        setSelection: (ids) => setSelectionRef.current(ids),
         frameView: (ids, fit) => viewSearchHitsRef.current(ids, fit),
         refresh: () => requestDrawRef.current(),
         properties: (id) => searchActions.current.properties(id),
@@ -11596,10 +11218,10 @@ export function PcbEditor({
         redo();
         break;
       case 'rotateCCW':
-        rotateSel(true);
+        runAction(PCB_ACTIONS.rotateCcw);
         break;
       case 'rotateCW':
-        rotateSel(false);
+        runAction(PCB_ACTIONS.rotateCw);
         break;
       /**
        * `BOARD_EDITOR_CONTROL::AutoTrackWidth` (board_editor_control.cpp:1332-1344):
@@ -11646,22 +11268,22 @@ export function PcbEditor({
         setPlotDlgOpen(true);
         break;
       case 'mirrorV':
-        mirrorSel('v');
+        runAction(PCB_ACTIONS.mirrorV);
         break;
       case 'mirrorH':
-        mirrorSel('h');
+        runAction(PCB_ACTIONS.mirrorH);
         break;
       case 'group':
-        groupSel();
+        runAction(ACTIONS.group);
         break;
       case 'ungroup':
-        ungroupSel();
+        runAction(ACTIONS.ungroup);
         break;
       case 'addToGroup':
-        addToGroupSel();
+        runAction(ACTIONS.addToGroup);
         break;
       case 'removeFromGroup':
-        removeFromGroupSel();
+        runAction(ACTIONS.removeFromGroup);
         break;
       case 'lock':
         lockSel(true);
@@ -11723,10 +11345,10 @@ export function PcbEditor({
         saveCopy();
         break;
       case 'cut':
-        cutSel();
+        runAction(ACTIONS.cut);
         break;
       case 'copy':
-        copySel();
+        runAction(ACTIONS.copy);
         break;
       case 'paste':
         void navigator.clipboard?.readText().then((text) => pasteText(text));
@@ -11735,7 +11357,7 @@ export function PcbEditor({
         setPasteSpecialOpen(true);
         break;
       case 'doDelete':
-        deleteSel();
+        runAction(ACTIONS.doDelete);
         break;
       case 'selectAll':
         selectAllSel();
@@ -11846,28 +11468,28 @@ export function PcbEditor({
         void frameRef.current?.ZonesManager();
         break;
       case 'polygonmerge':
-        applyPolygonBoolean('merge');
+        runAction(PCB_ACTIONS.mergePolygons);
         break;
       case 'polygonsubtract':
-        applyPolygonBoolean('subtract');
+        runAction(PCB_ACTIONS.subtractPolygons);
         break;
       case 'polygonintersect':
-        applyPolygonBoolean('intersect');
+        runAction(PCB_ACTIONS.intersectPolygons);
         break;
       case 'linefillet':
-        setLineModOpen('fillet');
+        runAction(PCB_ACTIONS.filletLines);
         break;
       case 'linechamfer':
-        setLineModOpen('chamfer');
+        runAction(PCB_ACTIONS.chamferLines);
         break;
       case 'linedogbone':
-        setLineModOpen('dogbone');
+        runAction(PCB_ACTIONS.dogboneCorners);
         break;
       case 'lineextend':
-        applyLineModification('extend');
+        runAction(PCB_ACTIONS.extendLines);
         break;
       case 'filterSelection':
-        setFilterOpen(true);
+        frameRef.current?.GetToolManager()?.RunAction(PCB_ACTIONS.filterSelection);
         break;
       case 'boardStatistics':
         setStatsOpen(true);
@@ -11921,6 +11543,12 @@ export function PcbEditor({
       case 'inspectResolution':
         setInspectOpen(true);
         break;
+      case 'showFootprintAssociations':
+        showFootprintAssociations();
+        break;
+      case 'importNetlist':
+        setImportNetlistName(lastNetlistPathRef.current);
+        break;
       case 'updatePcbFromSchematic':
         void openUpdatePcb();
         break;
@@ -11928,7 +11556,7 @@ export function PcbEditor({
       // (`edit_tool.cpp:2195-2224`): one polygon or zone opens the pane, anything
       // else is `wxBell()`.
       case 'editVertices':
-        openVertexEditor();
+        runAction(PCB_ACTIONS.editVertices);
         break;
       case 'showFootprintEditor':
         onShowFootprintEditor?.();
@@ -12439,11 +12067,24 @@ export function PcbEditor({
             ref={wrapRef}
             style={{ position: 'relative', flex: 1, minHeight: 0 }}
           >
+            {/* The KiCad canvas: `PCB_DRAW_PANEL_GAL` on WebGL2 (#481). It takes
+              the canvas events itself - `EDA_DRAW_PANEL_GAL`'s own listeners feed
+              WX_VIEW_CONTROLS (the wheel, the drag gestures, autopan) and the
+              TOOL_DISPATCHER, which runs PCB_SELECTION_TOOL. The React handlers
+              on it are the window's own tools' (TRANSITIONAL, #636 stage 3): a
+              drawing tool, a point edit or a move in flight, which
+              `eventToWindow` keeps off the dispatcher. */}
             <canvas
-              ref={canvasRef}
+              ref={glCanvasRef}
               style={{
                 position: 'absolute',
                 inset: 0,
+                outline: 'none',
+                // The selection tool sets its own cursor through
+                // `SetCurrentCursor` (ARROW, MOVING, ADD, SUBTRACT, XOR,
+                // SELECT_WINDOW, SELECT_LASSO); a window tool still states its
+                // own here.
+                //
                 // A real cursor, always.
                 //
                 // This was `none` for every tool but the picker, on the grounds
@@ -12470,59 +12111,40 @@ export function PcbEditor({
                 // `PCB_VIEWER_TOOLS::MeasureTool` KICURSOR::MEASURE
                 // (`pcb_viewer_tools.cpp:292`). This frame had neither and
                 // showed the plain arrow for both.
-                cursor: boardToolCursor(activeTool, {
-                  tableDragging,
-                  imagePlacing,
-                  microwavePlacing: mwPlacing,
-                }),
+                cursor: isSelectTool(activeTool)
+                  ? undefined
+                  : boardToolCursor(activeTool, {
+                      tableDragging,
+                      imagePlacing,
+                      microwavePlacing: mwPlacing,
+                    }),
               }}
               onPointerDown={onPointerDown}
               onPointerMove={onPointerMove}
               onPointerUp={onPointerUp}
               onPointerLeave={onPointerLeave}
+              onWheel={requestDraw}
               onDoubleClick={onCanvasDoubleClick}
               onContextMenu={onCanvasContextMenu}
             />
-            {/* The board, on the GPU (#481). Transparent, so the background, the
-              grid and the drawing sheet painted on the canvas below show
-              through — the grid's spacing adapts to the zoom, which is the one
-              thing that genuinely cannot live in a retained buffer. Takes no
-              events, like the overlay above it, so pointer captures still land
-              on the canvas underneath. */}
-            {
-              <canvas
-                ref={glCanvasRef}
-                style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
-              />
-            }
-            {/* Everything above the board: selection, ratsnest, umbilicals, the
-              in-flight previews, DRC markers and the crosshair. Split out only
-              because the GL layer has to go between it and the background;
-              without the GL renderer `draw` paints all of it onto the one
-              canvas as before. */}
-            {
-              <canvas
-                ref={overCanvasRef}
-                style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
-              />
-            }
+            {/* TRANSITIONAL (#636 stage 3): the window's overlay - the previews,
+              handles and chrome of the tools not yet ported onto the VIEW. It
+              takes no events. Deleted when the last of them has moved. */}
+            <canvas
+              ref={canvasRef}
+              style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
+            />
             {ctxMenu && (
               <ContextMenu
                 x={ctxMenu.x}
                 y={ctxMenu.y}
                 items={buildPcbContextMenu()}
-                onClose={() => setCtxMenu(null)}
+                onClose={() => {
+                  const close = ctxMenu.onClose;
+                  setCtxMenu(null);
+                  queueMicrotask(close);
+                }}
               />
-            )}
-            {enteredGroupName && (
-              <div className="ze-group-editing" onMouseDown={(e) => e.stopPropagation()}>
-                <span>
-                  Editing group: <b>{enteredGroupName}</b>
-                </span>
-                <button type="button" onClick={() => setEnteredGroup(null)}>
-                  Leave (Esc)
-                </button>
-              </div>
             )}
             {error && (
               <div
@@ -12737,38 +12359,22 @@ export function PcbEditor({
           "Select &All\tA". No title — pcbnew never sets `m_MenuTitle`, so the
           "Clarify Selection" caption we had was ours, not KiCad's. Pointing at
           a row brightens what it refers to on the board. */}
-      {disambig && board && (
+      {/* `wxWindow::PopupMenu` for a tool's ACTION_MENU - the disambiguation
+          menu `doSelectionMenu` puts up, and any other a tool shows - drawn
+          with the menu bar's ContextMenu (common/tool/action_menu_popup.tsx's
+          rows), each row wired back to the menu's OnMenuEvent. */}
+      {toolPopup && (
         <ContextMenu
-          x={disambig.x}
-          y={disambig.y}
+          x={toolPopup.x}
+          y={toolPopup.y}
+          items={actionMenuItems(toolPopup.menu)}
           onClose={() => {
-            setDisambigHover(null);
-            setDisambig(null);
+            const close = toolPopup.onClose;
+            setToolPopup(null);
+            // wx runs the chosen row while PopupMenu is still open and returns
+            // after, so the close half runs once the row's handler has.
+            queueMicrotask(close);
           }}
-          items={[
-            ...disambig.ids.map((id, i) => ({
-              // Past nine, upstream drops the number and the accelerator: there
-              // are only nine digit keys.
-              label:
-                i < 9 ? `${i + 1}  ${describeBoardItem(board, id)}` : describeBoardItem(board, id),
-              ...(i < 9 ? { mnemonic: String(i + 1), shortcut: String(i + 1) } : {}),
-              onHover: (over: boolean) => setDisambigHover(over ? new Set([id]) : null),
-              action: () => applySelect(id, disambig.additive),
-            })),
-            { sep: true },
-            {
-              label: 'Select All',
-              mnemonic: 'A',
-              shortcut: 'A',
-              onHover: (over: boolean) => setDisambigHover(over ? new Set(disambig.ids) : null),
-              action: () =>
-                setSelection((prev) => {
-                  const next = new Set(disambig.additive ? prev : []);
-                  for (const id of disambig.ids) next.add(id);
-                  return next;
-                }),
-            },
-          ]}
         />
       )}
 
@@ -12918,7 +12524,7 @@ export function PcbEditor({
                 // (`drawing_tool.cpp:1558`): the new barcode is left selected.
                 const added = addBoardBarcode(brd, next);
                 commitBoard(added.board);
-                setSelection(new Set([added.id]));
+                setSelectionRef.current(new Set([added.id]));
               }}
             />
           );
@@ -12941,7 +12547,24 @@ export function PcbEditor({
             if (!file || !frame) return;
 
             void frame
-              .ImportNonKicadBoard(file.path, file.bytes, KICTL_NONKICAD_ONLY)
+              .ImportNonKicadBoard(
+                file.path,
+                file.bytes,
+                KICTL_NONKICAD_ONLY,
+                null,
+                (layers) =>
+                  new Promise((resolve) =>
+                    setMapLayersRequest({
+                      layers,
+                      done: (aMap, aKeep) => {
+                        // `m_ImportKeepKiCadLayerNames = dlg.m_cbKeepKiCadLayerNames->GetValue()`
+                        frame.GetPcbNewSettings().m_ImportKeepKiCadLayerNames = aKeep;
+                        setMapLayersRequest(null);
+                        resolve(aMap);
+                      },
+                    }),
+                  ),
+              )
               .then(({ board: kb, loadMessages, customRules }) => {
                 frame.Clear_Pcb();
                 frame.SetBoard(kb, false);
@@ -12988,6 +12611,24 @@ export function PcbEditor({
                 ),
               );
           }}
+        />
+      )}
+      {importNetlistName !== null && (
+        <DialogImportNetlist
+          netlistName={importNetlistName}
+          readFile={(p) => projectFilesNow().find((f) => f.name === p)?.text ?? null}
+          performLoad={performImportNetlist}
+          onClose={(n) => {
+            lastNetlistPathRef.current = n;
+            setImportNetlistName(null);
+          }}
+        />
+      )}
+      {mapLayersRequest && frameRef.current && (
+        <DialogMapLayers
+          layers={mapLayersRequest.layers}
+          keepKiCadLayerNames={frameRef.current.GetPcbNewSettings().m_ImportKeepKiCadLayerNames}
+          onDone={mapLayersRequest.done}
         />
       )}
       {/* File > Import > Graphics. `DRAWING_TOOL::PlaceImportedGraphics`
@@ -13037,7 +12678,7 @@ export function PcbEditor({
             }
 
             commitBoard(next);
-            setSelection(selectIds);
+            setSelectionRef.current(selectIds);
             if (opts.interactive) beginMove(selectIds, 'move', { x: 0, y: 0 });
           }}
         />
@@ -13402,8 +13043,74 @@ export function PcbEditor({
           libId={board.footprints[fpPropsIndex]!.lib}
           onApply={applyFootprintEdit}
           onClose={() => setFpPropsIndex(null)}
+          model3d={(() => {
+            const kfp = board.footprints[fpPropsIndex]!.k!;
+            const frame = frameRef.current!;
+            const resolver = (): FILENAME_RESOLVER =>
+              (model3dResolverRef.current ??= PROJECT_PCB.Get3DFilenameResolver());
+            const host: PANEL_3D_MODEL_HOST = {
+              resolver,
+              // `LIBRARY_MANAGER::GetFullURI( *row, true )` of the footprint's library.
+              footprintBasePath: (nick) =>
+                frame.GetBoard()?.GetFootprintLibAdapter()?.GetRow(nick)?.uri ?? '',
+              embeddedFilesStack: () => [
+                kfp.GetEmbeddedFiles(),
+                frame.GetBoard()!.GetEmbeddedFiles(),
+              ],
+              // The Embedded Files page is not in this dialog yet, so nothing embeds here
+              // and an embedded model's file stays with the footprint until it has one.
+              addEmbeddedFile: () => null,
+              removeEmbeddedFile: () => {},
+              onModify: () => {},
+            };
+            return {
+              footprint: kfp,
+              host,
+              renderPreview: (models, _selected, version) =>
+                ModelPreview3D({ footprint: kfp, models, version }),
+              pickModel: () =>
+                new Promise<SELECTED_3D_MODEL | null>((resolve) =>
+                  setPick3dModel({ done: resolve }),
+                ),
+            };
+          })()}
         />
       )}
+      {pick3dModel && (
+        <WxFileDialog
+          title="Select 3D Model"
+          filters={[
+            {
+              label: 'All 3D models (*.wrl, *.wrz, *.step, *.stp, *.stpz, *.iges, *.igs)',
+              extensions: ['wrl', 'wrz', 'step', 'stp', 'stpz', 'iges', 'igs'],
+            },
+          ]}
+          projectDir={projectDirRef.current || null}
+          onDone={(file) => {
+            const { done } = pick3dModel;
+            setPick3dModel(null);
+            model3dResolverRef.current ??= PROJECT_PCB.Get3DFilenameResolver();
+            // The name KiCad stores is the path shortened against the search paths.
+            done(
+              file
+                ? {
+                    filename: model3dResolverRef.current.ShortenPath(file.path),
+                    embedded: false,
+                  }
+                : null,
+            );
+          }}
+        />
+      )}
+      {footprintAssociationsIndex !== null &&
+        board?.footprints[footprintAssociationsIndex]?.k &&
+        frameRef.current && (
+          <DialogFootprintAssociations
+            footprint={board.footprints[footprintAssociationsIndex]!.k!}
+            adapter={frameRef.current.GetBoard()?.GetFootprintLibAdapter() ?? null}
+            onClose={() => setFootprintAssociationsIndex(null)}
+          />
+        )}
       {zonePropsIndex !== null &&
         board?.zones[zonePropsIndex]?.k?.GetIsRuleArea() &&
         frameRef.current && (
@@ -13476,43 +13183,6 @@ export function PcbEditor({
         />
       )}
       {kiDialogNode}
-      {moveExactOpen && board && (
-        <DialogMoveExact
-          bbox={boardSelectionBBox(board, selection)}
-          defaultAnchor={defaultRotationAnchor(selection.size)}
-          onApply={applyMoveExact}
-          onClose={() => setMoveExactOpen(false)}
-        />
-      )}
-      {pickingRefShown && (
-        <div
-          style={{
-            position: 'absolute',
-            top: 80,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            padding: '6px 12px',
-            fontSize: 12,
-            background: 'var(--chrome-bg)',
-            border: '1px solid var(--chrome-border)',
-            borderRadius: 6,
-            boxShadow: '0 8px 28px rgba(0,0,0,0.45)',
-            zIndex: 41,
-          }}
-        >
-          Click an item to use as the reference.{' '}
-          <button
-            type="button"
-            onClick={() => {
-              pickingRefItem.current = false;
-              setPickingRefShown(false);
-              setPosRelOpen(true);
-            }}
-          >
-            Cancel
-          </button>
-        </div>
-      )}
       {arrayOpen && board && (
         <DialogCreateArray
           initial={arraySettings}
@@ -13521,82 +13191,144 @@ export function PcbEditor({
         />
       )}
       {pnsSettingsOpen && <DialogPnsSettings onClose={() => setPnsSettingsOpen(false)} />}
-      {outsetOpen && board && (
+      {/* CONVERT_TOOL::OutsetItems' DIALOG_OUTSET_ITEMS, on the tool's
+          persistent OUTSET_ROUTINE::PARAMETERS. */}
+      {outsetDlg && board && (
         <DialogOutsetItems
           units={unitLabel}
           layers={board.layers.map((l) => l.name)}
-          initial={outsetSettings}
-          onApply={applyOutset}
-          onClose={() => setOutsetOpen(false)}
-        />
-      )}
-      {(lineModOpen === 'fillet' || lineModOpen === 'chamfer') && board && (
-        // GetRadiusParams / GetChamferParams (pcbnew/tools/edit_tool.cpp:1485,
-        // :1550): WX_UNIT_ENTRY_DIALOG; Cancel or a value of 0 does nothing.
-        <WX_UNIT_ENTRY_DIALOG
-          caption={lineModOpen === 'fillet' ? 'Fillet Lines' : 'Chamfer Lines'}
-          label={lineModOpen === 'fillet' ? 'Radius:' : 'Chamfer setback:'}
-          defaultValue={lineModOpen === 'fillet' ? filletRadius : chamferSetback}
-          units={unitLabel}
-          iuScale={pcbIUScale}
-          onResult={(v) => {
-            const op = lineModOpen;
-            setLineModOpen(null);
-            if (v === null || v === 0) return;
-            if (op === 'fillet') setFilletRadius(v);
-            else setChamferSetback(v);
-            applyLineModification(op, v);
+          initial={new DIALOG_OUTSET_ITEMS(outsetDlg.params).TransferDataToWindow()}
+          onApply={(values) => {
+            const res = new DIALOG_OUTSET_ITEMS(outsetDlg.params).TransferDataFromWindow(values);
+            if (!res.ok) {
+              if (res.message) setInfoBarError(res.message);
+              return;
+            }
+            setOutsetDlg(null);
+            outsetDlg.resolve(true);
+          }}
+          onClose={() => {
+            setOutsetDlg(null);
+            outsetDlg.resolve(false);
           }}
         />
       )}
-      {lineModOpen === 'dogbone' && board && (
-        // GetDogboneParams (edit_tool.cpp:1498-1530): WX_MULTI_ENTRY_DIALOG.
-        <WX_MULTI_ENTRY_DIALOG
-          caption="Dogbone Corner Settings"
-          entries={[
-            { label: 'Arc radius:', value: { UNIT_BOUND: dogboneRadius } },
-            {
-              label: 'Add slots in acute corners',
-              tooltip: 'Add slots in acute corners to allow access to a cutter of the given radius',
-              value: { CHECKBOX: dogboneSlots },
-            },
-          ]}
+      {convertDlg && (
+        <ConvertSettingsDialog
+          dialog={convertDlg.dialog}
           units={unitLabel}
-          iuScale={pcbIUScale}
-          onResult={(r) => {
-            setLineModOpen(null);
-            if (r === null) return;
-            const radius = r[0] as number;
-            const slots = r[1] as boolean;
-            setDogboneRadius(radius);
-            setDogboneSlots(slots);
-            applyLineModification('dogbone', radius, slots);
+          onClose={(aOk) => {
+            setConvertDlg(null);
+            convertDlg.resolve(aOk);
           }}
         />
       )}
-      {posRelOpen && board && (
-        <DialogPositionRelative
-          gridOrigin={boardGridOrigin(board)}
-          userOrigin={{ x: 0, y: 0 }}
-          referenceItem={
-            posRelRef
-              ? {
-                  label: posRelRef.label,
-                  at: itemAnchorPoint(board, posRelRef.id) ?? { x: 0, y: 0 },
+      {oneLayerDlg && frameRef.current?.GetBoard() && (
+        <PcbOneLayerSelector
+          board={frameRef.current.GetBoard()!}
+          theme={theme}
+          notAllowedLayersMask={oneLayerDlg.notAllowed}
+          onSelect={(aLayer) => {
+            setOneLayerDlg(null);
+            oneLayerDlg.resolve(aLayer);
+          }}
+          onCancel={() => {
+            setOneLayerDlg(null);
+            oneLayerDlg.resolve(UNDEFINED_LAYER);
+          }}
+        />
+      )}
+      {zoneConvertDlg &&
+        board &&
+        frameRef.current &&
+        zoneConvertDlg.kind === 'copper' &&
+        (() => {
+          const dlg = new DIALOG_COPPER_ZONE(
+            frameRef.current!,
+            null,
+            zoneConvertDlg.zoneSettings,
+            zoneConvertDlg.convertSettings,
+          );
+          return (
+            <DialogCopperZones
+              units={unitLabel}
+              initial={dlg.TransferDataToWindow()}
+              conversion={dlg.TransferConversionToWindow()}
+              nets={board.nets}
+              layers={copperLayerRows}
+              onApply={(values, conversion) => {
+                const res = dlg.TransferDataFromWindow(values, conversion);
+                if (!res.ok) {
+                  if (res.message) setInfoBarError(res.message);
+                  return;
                 }
-              : null
-          }
-          onPick={() => {
-            // Hide the dialog while the canvas is armed: it is an overlay, and
-            // the item wanted may well be underneath it.
-            pickingRefItem.current = true;
-            setPickingRefShown(true);
-            setPosRelOpen(false);
-          }}
-          onApply={applyPositionRelative}
-          onClose={() => setPosRelOpen(false)}
-        />
-      )}
+                setZoneConvertDlg(null);
+                zoneConvertDlg.resolve(true);
+              }}
+              onClose={() => {
+                setZoneConvertDlg(null);
+                zoneConvertDlg.resolve(false);
+              }}
+            />
+          );
+        })()}
+      {zoneConvertDlg &&
+        board &&
+        frameRef.current &&
+        zoneConvertDlg.kind === 'ruleArea' &&
+        (() => {
+          const dlg = new DIALOG_RULE_AREA_PROPERTIES(
+            frameRef.current!,
+            null,
+            zoneConvertDlg.zoneSettings,
+            zoneConvertDlg.convertSettings,
+          );
+          return (
+            <DialogRuleAreaProperties
+              units={unitLabel}
+              initial={dlg.TransferDataToWindow()}
+              conversion={dlg.TransferConversionToWindow()}
+              layers={ruleAreaLayers}
+              sources={collectPlacementSources(board)}
+              onApply={(values, conversion) => {
+                const res = dlg.TransferDataFromWindow(values, conversion);
+                if (!res.ok) {
+                  if (res.message) setInfoBarError(res.message);
+                  return;
+                }
+                setZoneConvertDlg(null);
+                zoneConvertDlg.resolve(true);
+              }}
+              onClose={() => {
+                setZoneConvertDlg(null);
+                zoneConvertDlg.resolve(false);
+              }}
+            />
+          );
+        })()}
+      {/* TRANSITIONAL (#636 stage 3): DIALOG_NON_COPPER_ZONES_EDITOR has no
+          window yet (its transfers are ported), so a non-copper conversion
+          asks only the conversion settings and keeps the board's default
+          zone settings on the active layer. */}
+      {zoneConvertDlg &&
+        zoneConvertDlg.kind === 'nonCopper' &&
+        (() => {
+          const dlg = new CONVERT_SETTINGS_DIALOG(zoneConvertDlg.convertSettings, {
+            copyLineWidth: false,
+            centerline: true,
+            boundingHull: true,
+          });
+          return (
+            <ConvertSettingsDialog
+              dialog={dlg}
+              units={unitLabel}
+              onClose={(aOk) => {
+                setZoneConvertDlg(null);
+                zoneConvertDlg.resolve(aOk);
+              }}
+            />
+          );
+        })()}
       {statsOpen && frameRef.current?.GetBoard() && (
         <DialogBoardStatistics
           board={frameRef.current.GetBoard()!}
@@ -13607,24 +13339,75 @@ export function PcbEditor({
           onClose={() => setStatsOpen(false)}
         />
       )}
-      {filterOpen && board && (
-        <DialogFilterSelection
-          filter={filterOpts}
-          onChange={setFilterOpts}
-          matchCount={filterSelectionItems(liveSelection(board, selection), filterOpts).length}
-          onApply={() => {
-            // PCB_SELECTION_TOOL::filterSelection: clear, then re-select what passes.
-            const kept = filterSelectionItems(liveSelection(board, selection), filterOpts);
-            setSelection(
-              new Set(
-                kept
-                  .map((item) => viewIdOfBoardItem(board, item))
-                  .filter((id): id is string => id !== null),
-              ),
-            );
-            setFilterOpen(false);
+      {unitEntryDlg && (
+        <WX_UNIT_ENTRY_DIALOG
+          caption={unitEntryDlg.title}
+          label={unitEntryDlg.label}
+          defaultValue={unitEntryDlg.value}
+          units={unitLabel}
+          iuScale={pcbIUScale}
+          onResult={(v) => {
+            unitEntryDlg.resolve(v);
+            setUnitEntryDlg(null);
           }}
-          onClose={() => setFilterOpen(false)}
+        />
+      )}
+      {dogboneDlg && (
+        <WX_MULTI_ENTRY_DIALOG
+          caption="Dogbone Corner Settings"
+          entries={[
+            { label: 'Arc radius:', value: { UNIT_BOUND: dogboneDlg.params.DogboneRadiusIU } },
+            {
+              label: 'Add slots in acute corners',
+              tooltip: 'Add slots in acute corners to allow access to a cutter of the given radius',
+              value: { CHECKBOX: dogboneDlg.params.AddSlots },
+            },
+          ]}
+          units={unitLabel}
+          iuScale={pcbIUScale}
+          onResult={(r) => {
+            dogboneDlg.resolve(
+              r === null ? null : { DogboneRadiusIU: r[0] as number, AddSlots: r[1] as boolean },
+            );
+            setDogboneDlg(null);
+          }}
+        />
+      )}
+      {moveExactDlg && (
+        <DialogMoveExact
+          bbox={{
+            minX: moveExactDlg.box.GetLeft(),
+            minY: moveExactDlg.box.GetTop(),
+            maxX: moveExactDlg.box.GetRight(),
+            maxY: moveExactDlg.box.GetBottom(),
+          }}
+          defaultAnchor={ROTATION_ANCHOR_NAMES[moveExactDlg.values.rotationAnchor]}
+          onApply={(v: MoveExactValues) => {
+            moveExactDlg.resolve({
+              translation: v.translation,
+              rotation: new EDA_ANGLE(v.rotation, EDA_ANGLE_T.DEGREES_T),
+              rotationAnchor: ROTATION_ANCHOR_NAMES.indexOf(v.anchor) as ROTATION_ANCHOR,
+            });
+            setMoveExactDlg(null);
+          }}
+          onClose={() => {
+            moveExactDlg.resolve(null);
+            setMoveExactDlg(null);
+          }}
+        />
+      )}
+      {filterDlg && (
+        <DialogFilterSelection
+          filter={filterDlg.opts}
+          onChange={(next) => setFilterDlg({ ...filterDlg, opts: next })}
+          onApply={() => {
+            filterDlg.resolve(true, filterDlg.opts);
+            setFilterDlg(null);
+          }}
+          onClose={() => {
+            filterDlg.resolve(false);
+            setFilterDlg(null);
+          }}
         />
       )}
       {inspectOpen && board && inspectReportPages && (
@@ -13710,7 +13493,7 @@ export function PcbEditor({
             const codes = new Set(
               [...brd.nets.entries()].filter(([, n]) => want.has(n)).map(([c]) => c),
             );
-            setSelection(new Set(connectedItemIdsOnNets(brd, codes)));
+            setSelectionRef.current(new Set(connectedItemIdsOnNets(brd, codes)));
           }}
           onCancel={() => setNetclassNets(null)}
           onOk={(pattern, netClass) => {
@@ -13823,6 +13606,18 @@ export function PcbEditor({
             setBoardSetupOpen(false);
           }}
           onClose={() => setBoardSetupOpen(false)}
+        />
+      )}
+      {/* POSITION_RELATIVE_TOOL's DIALOG_POSITION_RELATIVE: modeless, in the
+          same host as Find; it draws itself only while it is shown. */}
+      {posRelDialog && <DialogPositionRelativeModeless dialog={posRelDialog} />}
+      {offsetDlg && (
+        <DialogOffsetItem
+          dialog={offsetDlg.dialog}
+          onResult={(aOk) => {
+            setOffsetDlg(null);
+            offsetDlg.resolve(aOk);
+          }}
         />
       )}
       {findOpen && (

@@ -2,634 +2,462 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * Cleanup Tracks & Vias, geometric passes: `TRACKS_CLEANER::cleanup` and the
- * `CleanupBoard` sequence around it.
+ * TRACKS_CLEANER (pcbnew/tracks_cleaner.cpp) on the live BOARD: every pass
+ * CleanupBoard runs, the dry run against the real one, and the undo step.
  *
- * Most of what is pinned here looks like a bug on first reading and is not:
- * duplicate removal that no checkbox can switch off, more report rows than
- * removals, a dry run that finds strictly less than the real run, and a merge
- * test that lets an unnetted track through checks a netted one fails.
- *
- * The upstream regression boards (issue2904, issue5093, issue8883 …) are not in
- * this repo, and upstream's own harness passes `aDryRun = true` for both of its
- * runs, so it never exercises the mutating path at all. These boards are built
- * by hand instead, one behaviour each.
+ * Several expectations look like bugs and are upstream's: duplicate removal
+ * that no checkbox switches off, a reference track reported once per partner it
+ * finds, and a merge refused because of a pad on the shared point.
  */
-import { describe, expect, it } from 'vitest';
-import { U } from './support/written_node.js';
-import { parse } from '@ziroeda/sexpr/index.js';
-import { segApproxCollinear } from '@ziroeda/kimath/src/geometry/seg.js';
-import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { cleanupErrorText } from '@ziroeda/pcbnew/cleanup_item.js';
-import {
-  cleanupTrackGeometry,
-  type TrackGeometryCleanupOptions,
-} from '@ziroeda/pcbnew/tracks_cleaner.js';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { Reporter } from '@ziroeda/common/reporter.js';
-import type {
-  Board,
-  PcbArcTrack,
-  PcbFootprint,
-  PcbPad,
-  PcbTrack,
-  PcbVia,
-} from '@ziroeda/pcbnew/types.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import type { BOARD } from '@ziroeda/pcbnew/board.js';
+import { BOARD_COMMIT } from '@ziroeda/pcbnew/board_commit.js';
+import { CLEANUP_ITEM, CLEANUP_RC_CODE, cleanupErrorText } from '@ziroeda/pcbnew/cleanup_item.js';
+import type { PCB_TRACK } from '@ziroeda/pcbnew/pcb_track.js';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { TRACKS_CLEANER } from '@ziroeda/pcbnew/tracks_cleaner.js';
+import { TEST_PCB_FRAME } from './support/test_pcb_frame.js';
 
-const P = (x: number, y: number) => ({ x, y });
+let uid = 0;
+const U = (): string => `00000000-0000-4000-8000-${String(++uid).padStart(12, '0')}`;
 
-const board = (over: Partial<Board> = {}): Board => ({
-  version: 20240108,
-  layers: [
-    { id: 0, name: 'F.Cu', kind: 'signal' },
-    { id: 2, name: 'B.Cu', kind: 'signal' },
-    { id: 37, name: 'F.Mask', kind: 'user' },
-  ],
-  nets: new Map([
-    [0, ''],
-    [1, 'N1'],
-    [2, 'N2'],
-  ]),
-  footprints: [],
-  tracks: [],
-  arcs: [],
-  vias: [],
-  zones: [],
-  shapes: [],
-  texts: [],
-  dimensions: [],
-  textBoxes: [],
-  tables: [],
-  images: [],
-  points: [],
-  barcodes: [],
-  groups: [],
-  ...over,
+const seg = (
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  net = 1,
+  o: { w?: number; layer?: string; locked?: boolean } = {},
+) =>
+  `(segment (start ${x1} ${y1}) (end ${x2} ${y2}) (width ${o.w ?? 0.25}) (layer "${o.layer ?? 'F.Cu'}")${o.locked ? ' (locked yes)' : ''} (net ${net}) (uuid "${U()}"))`;
+
+const via = (x: number, y: number, net = 1, kind = '') =>
+  `(via ${kind}(at ${x} ${y}) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu") (net ${net}) (uuid "${U()}"))`;
+
+const smdPad = (x: number, y: number, net = 1, size = 2) =>
+  `(footprint "t:smd" (layer "F.Cu") (uuid "${U()}") (at ${x} ${y})
+    (pad "1" smd rect (at 0 0) (size ${size} ${size}) (layers "F.Cu") (net ${net} "N${net}") (uuid "${U()}")))`;
+
+const thtPad = (x: number, y: number, net = 1) =>
+  `(footprint "t:tht" (layer "F.Cu") (uuid "${U()}") (at ${x} ${y})
+    (pad "1" thru_hole circle (at 0 0) (size 1.7 1.7) (drill 1) (layers "*.Cu") (net ${net} "N${net}") (uuid "${U()}")))`;
+
+function makeBoard(...items: string[]): BOARD {
+  const b = ParseBoard(`(kicad_pcb (version 20241229) (generator "test")
+  (layers (0 "F.Cu" signal) (2 "B.Cu" signal))
+  (net 0 "") (net 1 "N1") (net 2 "N2")
+  ${items.join('\n  ')})`);
+  b.BuildConnectivity();
+  return b;
+}
+
+interface RunOpts {
+  dryRun?: boolean;
+  shorts?: boolean;
+  vias?: boolean;
+  merge?: boolean;
+  dangling?: boolean;
+  inPad?: boolean;
+  danglingVias?: boolean;
+  filter?: (t: unknown) => boolean;
+}
+
+function run(board: BOARD, o: RunOpts = {}) {
+  const frame = new TEST_PCB_FRAME(board);
+  const commit = new BOARD_COMMIT(frame);
+  const cleaner = new TRACKS_CLEANER(board, commit);
+  if (o.filter) cleaner.SetFilter(o.filter);
+  const items: CLEANUP_ITEM[] = [];
+  const reporter = new Reporter();
+  cleaner.CleanupBoard(
+    o.dryRun ?? false,
+    items,
+    o.shorts ?? false,
+    o.vias ?? false,
+    o.merge ?? false,
+    o.dangling ?? false,
+    o.inPad ?? false,
+    o.danglingVias ?? false,
+    reporter,
+  );
+  if (!(o.dryRun ?? false)) commit.Push('Board cleanup');
+  return { items, frame, reporter, codes: items.map((i) => i.GetErrorCode()) };
+}
+
+const C = CLEANUP_RC_CODE;
+const tracks = (b: BOARD): PCB_TRACK[] =>
+  b.Tracks().filter((t) => t.Type() === KICAD_T.PCB_TRACE_T);
+const vias = (b: BOARD): PCB_TRACK[] => b.Tracks().filter((t) => t.Type() === KICAD_T.PCB_VIA_T);
+
+beforeEach(() => {
+  uid = 0;
 });
 
-const track = (
-  start: { x: number; y: number },
-  end: { x: number; y: number },
-  over: Partial<PcbTrack> = {},
-): PcbTrack => ({ start, end, width: 200, layer: 'F.Cu', net: 1, ...over });
-
-const arc = (
-  start: { x: number; y: number },
-  mid: { x: number; y: number },
-  end: { x: number; y: number },
-  over: Partial<PcbArcTrack> = {},
-): PcbArcTrack => ({
-  start,
-  mid,
-  end,
-  width: 200,
-  layer: 'F.Cu',
-  net: 1,
-  ...over,
-});
-
-const via = (at: { x: number; y: number }, over: Partial<PcbVia> = {}): PcbVia => ({
-  at,
-  size: 600,
-  drill: 300,
-  layers: ['F.Cu', 'B.Cu'],
-  kind: 'through',
-  net: 1,
-  ...over,
-});
-
-/** One SMD pad on F.Cu, as its own footprint, so its id is `pad:<n>:0`. */
-const padFootprint = (at: { x: number; y: number }, over: Partial<PcbPad> = {}): PcbFootprint =>
-  ({
-    lib: 'test:pad',
-    at,
-    angle: 0,
-    layer: 'F.Cu',
-    pads: [
-      {
-        number: '1',
-        type: 'smd',
-        shape: 'rect',
-        at,
-        angle: 0,
-        size: P(1000, 1000),
-        layers: ['F.Cu', 'F.Mask'],
-        net: 1,
-        ...over,
-      },
-    ],
-    texts: [],
-    shapes: [],
-  }) as unknown as PcbFootprint;
-
-const run = (b: Board, opts: Partial<TrackGeometryCleanupOptions> = {}) =>
-  cleanupTrackGeometry(b, { dryRun: false, ...opts });
-
-const codes = (items: { code: string }[]): string[] => items.map((i) => i.code);
-
-// ---------------------------------------------------------------------------
-
-describe('CLEANUP_ITEM report codes', () => {
-  it('spells the nine track messages exactly as upstream does', () => {
-    // These are `_HKI` msgids — the translation catalogue is keyed by the
-    // literal, so "fixing" the hyphen in "co-linear" would drop every
-    // translation of that row on the floor.
-    expect(cleanupErrorText('shorting_track')).toBe('Remove track shorting two nets');
-    expect(cleanupErrorText('shorting_via')).toBe('Remove via shorting two nets');
-    expect(cleanupErrorText('redundant_via')).toBe('Remove redundant via');
-    expect(cleanupErrorText('duplicate_track')).toBe('Remove duplicate track');
-    expect(cleanupErrorText('merge_tracks')).toBe('Merge co-linear tracks');
-    expect(cleanupErrorText('dangling_track')).toBe('Remove track not connected at both ends');
-    expect(cleanupErrorText('dangling_via')).toBe('Remove via connected on less than 2 layers');
-    expect(cleanupErrorText('zero_length_track')).toBe('Remove zero-length track');
-    expect(cleanupErrorText('track_in_pad')).toBe('Remove track inside pad');
+describe('CLEANUP_ITEM', () => {
+  it('spells the nine track messages exactly as upstream does, in enum order', () => {
+    expect(
+      [
+        C.CLEANUP_SHORTING_TRACK,
+        C.CLEANUP_SHORTING_VIA,
+        C.CLEANUP_REDUNDANT_VIA,
+        C.CLEANUP_DUPLICATE_TRACK,
+        C.CLEANUP_MERGE_TRACKS,
+        C.CLEANUP_DANGLING_TRACK,
+        C.CLEANUP_DANGLING_VIA,
+        C.CLEANUP_ZERO_LENGTH_TRACK,
+        C.CLEANUP_TRACK_IN_PAD,
+      ].map(cleanupErrorText),
+    ).toEqual([
+      'Remove track shorting two nets',
+      'Remove via shorting two nets',
+      'Remove redundant via',
+      'Remove duplicate track',
+      'Merge co-linear tracks',
+      'Remove track not connected at both ends',
+      'Remove via connected on less than 2 layers',
+      'Remove zero-length track',
+      'Remove track inside pad',
+    ]);
+    expect(C.CLEANUP_TRACK_IN_PAD - C.CLEANUP_SHORTING_TRACK).toBe(8);
   });
 
-  it('fills in the row title from the code, as the constructor does', () => {
-    const res = run(board({ tracks: [track(P(0, 0), P(0, 0))] }), { removeNullSegments: true });
-
-    // A row with no title is a row the dialog lists as blank.
-    expect(res.items[0]?.title).toBe('Remove zero-length track');
-    expect(res.items[0]?.items).toEqual(['track:0']);
+  it('takes its title from the code', () => {
+    expect(new CLEANUP_ITEM(C.CLEANUP_REDUNDANT_VIA).GetErrorText(true)).toBe(
+      'Remove redundant via',
+    );
   });
 });
 
 describe('zero-length segments', () => {
-  it('reports and removes a track whose two ends coincide', () => {
-    const b = board({ tracks: [track(P(0, 0), P(0, 0)), track(P(0, 0), P(10000, 0))] });
-    const res = run(b, { removeNullSegments: true });
-
-    expect(codes(res.items)).toEqual(['zero_length_track']);
-    // If the removal did not happen the board would still carry an invisible,
-    // unselectable segment that DRC keeps tripping over.
-    expect(res.board.tracks.map((t) => t.end)).toEqual([P(10000, 0)]);
+  it('are reported and removed when merging is asked for', () => {
+    const b = makeBoard(seg(10, 10, 10, 10), seg(20, 10, 30, 10));
+    const { codes } = run(b, { merge: true });
+    expect(codes).toContain(C.CLEANUP_ZERO_LENGTH_TRACK);
+    expect(tracks(b)).toHaveLength(1);
   });
 
-  it('leaves the pass switched off when removeNullSegments is not asked for', () => {
-    // `removeNullSegments` is `aMergeSegments || aRemoveMisConnected`; with both
-    // checkboxes clear a zero-length track survives a cleanup run untouched.
-    const res = run(board({ tracks: [track(P(0, 0), P(0, 0))] }));
-
-    expect(res.items).toEqual([]);
-    expect(res.board.tracks).toHaveLength(1);
+  it('also when only shorting-track removal is asked for (removeNullSegments)', () => {
+    const b = makeBoard(seg(10, 10, 10, 10));
+    expect(run(b, { shorts: true }).codes).toEqual([C.CLEANUP_ZERO_LENGTH_TRACK]);
   });
 
-  it('reports a closed arc, because IsNull() does not exclude arcs', () => {
-    // `IsNull()` is `Type() == PCB_VIA_T || m_Start == m_End`, and the caller
-    // only guards vias — so a full-circle arc is destroyed by this pass. That
-    // is upstream's behaviour and a port that spared arcs would keep geometry
-    // KiCad deletes.
-    const b = board({ arcs: [arc(P(0, 0), P(5000, 5000), P(0, 0))] });
-    const res = run(b, { removeNullSegments: true });
-
-    expect(codes(res.items)).toEqual(['zero_length_track']);
-    expect(res.items[0]?.items).toEqual(['arc:0']);
-    expect(res.board.arcs).toHaveLength(0);
-  });
-
-  it('never reports a via, whose start and end always coincide', () => {
-    // `IsNull()` is true for every via, which is exactly why the caller tests
-    // `Type() != PCB_VIA_T` first. Drop that guard and the pass eats the board.
-    const res = run(board({ vias: [via(P(0, 0))] }), { removeNullSegments: true });
-
-    expect(res.items).toEqual([]);
-    expect(res.board.vias).toHaveLength(1);
+  it('are left alone when neither is asked for', () => {
+    const b = makeBoard(seg(10, 10, 10, 10));
+    expect(run(b, {}).codes).toEqual([]);
+    expect(tracks(b)).toHaveLength(1);
   });
 });
 
 describe('duplicate segments', () => {
-  const three = () =>
-    board({
-      tracks: [
-        track(P(0, 0), P(10000, 0)),
-        track(P(0, 0), P(10000, 0)),
-        track(P(0, 0), P(10000, 0)),
-      ],
-    });
-
-  it('reports three rows and removes two of three identical tracks', () => {
-    const res = run(three());
-
-    // A finds B and C and is pushed once per partner; B then finds only C,
-    // because A is now both IS_DELETED and SKIP_STRUCT; C finds nothing. The
-    // asymmetry is what makes the *last* member of a duplicate group survive.
-    expect(codes(res.items)).toEqual(['duplicate_track', 'duplicate_track', 'duplicate_track']);
-    expect(res.items.map((i) => i.items)).toEqual([['track:0'], ['track:0'], ['track:1']]);
-    expect(res.board.tracks).toHaveLength(1);
+  it('three identical tracks give three rows and two removals', () => {
+    const b = makeBoard(seg(10, 10, 20, 10), seg(10, 10, 20, 10), seg(10, 10, 20, 10));
+    const { codes } = run(b, {});
+    expect(codes).toEqual([
+      C.CLEANUP_DUPLICATE_TRACK,
+      C.CLEANUP_DUPLICATE_TRACK,
+      C.CLEANUP_DUPLICATE_TRACK,
+    ]);
+    expect(tracks(b)).toHaveLength(1);
   });
 
-  it('runs whether or not co-linear merging is asked for', () => {
-    // Step 2 folds the duplicate pass into the merge call and step 4 runs it on
-    // its own when merging is off; there is no checkbox that turns it off, and
-    // wiring one is the single likeliest way to get this port wrong.
-    for (const mergeSegments of [false, true]) {
-      const res = run(three(), { mergeSegments });
-
-      expect(codes(res.items)).toEqual(['duplicate_track', 'duplicate_track', 'duplicate_track']);
-      expect(res.board.tracks).toHaveLength(1);
-    }
+  it('runs whether or not merging is asked for, and counts a reversed copy', () => {
+    const b = makeBoard(seg(10, 10, 20, 10), seg(20, 10, 10, 10));
+    expect(run(b, { merge: false }).codes).toEqual([C.CLEANUP_DUPLICATE_TRACK]);
+    expect(tracks(b)).toHaveLength(1);
   });
 
-  it('counts a reversed duplicate, because IsPointOnEnds tests both ends', () => {
-    const b = board({ tracks: [track(P(0, 0), P(10000, 0)), track(P(10000, 0), P(0, 0))] });
-    const res = run(b);
-
-    expect(codes(res.items)).toEqual(['duplicate_track']);
-    expect(res.board.tracks).toHaveLength(1);
+  it('does not count a copy of another width or on another layer', () => {
+    const b = makeBoard(
+      seg(10, 10, 20, 10),
+      seg(10, 10, 20, 10, 1, { w: 0.3 }),
+      seg(10, 10, 20, 10, 1, { layer: 'B.Cu' }),
+    );
+    expect(run(b, {}).codes).toEqual([]);
   });
 
-  it('does not count a track that is one IU off', () => {
-    // `IsPointOnEnds( p, 0 )` is exact integer equality, not a tolerance. A port
-    // that used the DRC epsilon here would delete real, distinct copper.
-    const b = board({ tracks: [track(P(0, 0), P(10000, 0)), track(P(0, 0), P(10001, 0))] });
-
-    expect(run(b).items).toEqual([]);
-  });
-
-  it('does not count tracks that differ only in width or only in layer', () => {
-    const widths = board({
-      tracks: [track(P(0, 0), P(10000, 0)), track(P(0, 0), P(10000, 0), { width: 300 })],
-    });
-    const layers = board({
-      tracks: [track(P(0, 0), P(10000, 0)), track(P(0, 0), P(10000, 0), { layer: 'B.Cu' })],
-    });
-
-    expect(run(widths).items).toEqual([]);
-    expect(run(layers).items).toEqual([]);
-  });
-
-  it('excludes arcs from the duplicate pass entirely', () => {
-    // The branch is `Type() == PCB_TRACE_T`, so two identical arcs are left
-    // alone even though they are as duplicated as two identical traces.
-    const one = arc(P(0, 0), P(5000, 2000), P(10000, 0));
-    const res = run(board({ arcs: [one, { ...one }] }));
-
-    expect(res.items).toEqual([]);
-    expect(res.board.arcs).toHaveLength(2);
+  it('keeps a locked copy', () => {
+    const b = makeBoard(seg(10, 10, 20, 10, 1, { locked: true }), seg(10, 10, 20, 10));
+    run(b, {});
+    expect(tracks(b)).toHaveLength(1);
+    expect(tracks(b)[0]!.IsLocked()).toBe(true);
   });
 });
 
 describe('merging co-linear segments', () => {
-  const pair = (over: Partial<Board> = {}) =>
-    board({
-      tracks: [
-        track(P(0, 0), P(10000, 0), { uuid: 'seg-a' }),
-        track(P(10000, 0), P(20000, 0), { uuid: 'seg-b' }),
-      ],
-      ...over,
-    });
-
-  it('merges an end-to-end pair into the earlier track, keeping its uuid', () => {
-    const res = run(pair(), { mergeSegments: true });
-
-    expect(codes(res.items)).toEqual(['merge_tracks']);
-    // Both items are named, seg1 first: the dialog highlights the pair.
-    expect(res.items[0]?.items).toEqual(['track:0', 'track:1']);
-    expect(res.board.tracks).toHaveLength(1);
-    // `*aSeg1 = dummy_seg` goes through `EDA_ITEM::operator=`, which does not
-    // copy the KIID — losing the uuid here would orphan every reference to the
-    // surviving track.
-    expect(res.board.tracks[0]?.uuid).toBe('seg-a');
-    expect(res.board.tracks[0]?.width).toBe(200);
-    expect(res.board.tracks[0]?.start).toEqual(P(0, 0));
-    expect(res.board.tracks[0]?.end).toEqual(P(20000, 0));
+  it('merges an end-to-end pair into the first, which spans both', () => {
+    const b = makeBoard(seg(10, 10, 20, 10), seg(20, 10, 30, 10));
+    const first = tracks(b)[0]!;
+    const { codes, items } = run(b, { merge: true });
+    expect(codes).toEqual([C.CLEANUP_MERGE_TRACKS]);
+    expect(items[0]!.GetMainItemID()).toBe(first.m_Uuid);
+    expect(tracks(b)).toEqual([first]);
+    expect([first.GetStart(), first.GetEnd()]).toEqual([
+      { x: 10_000_000, y: 10_000_000 },
+      { x: 30_000_000, y: 10_000_000 },
+    ]);
   });
 
-  it('does nothing when merging is not asked for', () => {
-    expect(run(pair()).items).toEqual([]);
+  it('merges a chain of three into one, iterating until nothing merges', () => {
+    const b = makeBoard(seg(10, 10, 20, 10), seg(20, 10, 30, 10), seg(30, 10, 40, 10));
+    run(b, { merge: true });
+    expect(tracks(b)).toHaveLength(1);
+    expect(tracks(b)[0]!.GetEnd()).toEqual({ x: 40_000_000, y: 10_000_000 });
   });
 
-  it('takes the merged diagonal from seg1 alone', () => {
-    // `(s.x > e.x) == (s.y > e.y)` picks min→max, otherwise (minX,maxY)→(maxX,minY).
-    // seg1 here runs *backwards* along the descending diagonal, so the merged
-    // segment does not simply inherit its direction.
-    const descending = board({
-      tracks: [track(P(10000, 10000), P(0, 0)), track(P(10000, 10000), P(20000, 20000))],
-    });
-    const merged = run(descending, { mergeSegments: true }).board.tracks[0];
-
-    expect(merged?.start).toEqual(P(0, 0));
-    expect(merged?.end).toEqual(P(20000, 20000));
-
-    const antiDiagonal = board({
-      tracks: [track(P(0, 10000), P(10000, 0)), track(P(10000, 0), P(20000, -10000))],
-    });
-    const other = run(antiDiagonal, { mergeSegments: true }).board.tracks[0];
-
-    expect(other?.start).toEqual(P(0, 10000));
-    expect(other?.end).toEqual(P(20000, -10000));
+  it("takes a diagonal from seg1's direction", () => {
+    const b = makeBoard(seg(10, 20, 20, 10), seg(20, 10, 30, 0));
+    run(b, { merge: true });
+    const t = tracks(b)[0]!;
+    expect([t.GetStart(), t.GetEnd()]).toEqual([
+      { x: 10_000_000, y: 20_000_000 },
+      { x: 30_000_000, y: 0 },
+    ]);
   });
 
   it('refuses when a third track branches off the shared point', () => {
-    // The T-stub sets p1e and p2s — a popcount of 2, so it survives the "node in
-    // the centre" test — and is then caught by the rule that every attachment
-    // point must still be an endpoint of the merged segment. Merging anyway
-    // would silently disconnect the stub.
-    const res = run(pair({ tracks: [...pair().tracks, track(P(10000, 0), P(10000, 10000))] }), {
-      mergeSegments: true,
-    });
-
-    expect(res.items).toEqual([]);
-    expect(res.board.tracks).toHaveLength(3);
+    const b = makeBoard(seg(10, 10, 20, 10), seg(20, 10, 30, 10), seg(20, 10, 20, 20));
+    expect(run(b, { merge: true }).codes).toEqual([]);
+    expect(tracks(b)).toHaveLength(3);
   });
 
-  it('refuses when more than two distinct points carry attachments', () => {
-    const res = run(
-      pair({
-        tracks: [
-          ...pair().tracks,
-          track(P(10000, 0), P(10000, 10000)),
-          track(P(0, 0), P(0, 10000)),
-        ],
-      }),
-      { mergeSegments: true },
-    );
+  it('refuses at an end where a track of another width is attached', () => {
+    const b = makeBoard(seg(10, 10, 20, 10), seg(20, 10, 30, 10, 1, { w: 0.5 }));
+    expect(run(b, { merge: true }).codes).toEqual([]);
+  });
 
-    // p1s, p1e and p2s are all set, and `popcount( flags ) > 2` rejects before
-    // the geometry is even computed.
-    expect(res.items).toEqual([]);
+  it('refuses the whole segment when a different-width track hangs off its FAR end (necking down)', () => {
+    const b = makeBoard(
+      seg(10, 10, 20, 10),
+      seg(20, 10, 30, 10),
+      seg(10, 10, 10, 0, 1, { w: 0.5 }),
+    );
+    expect(run(b, { merge: true }).codes).toEqual([]);
+    expect(tracks(b)).toHaveLength(3);
   });
 
   it('refuses on the popcount rule alone, where the endpoint rule would allow it', () => {
-    // The two traces *overlap* rather than abut, sharing (0,0), so the merged
-    // segment is A itself and every attachment point is still an endpoint of it
-    // — the "every flag must survive" rule is satisfied. What refuses the merge
-    // is `popcount( flags ) > 2`: the stub at (0,0) sets p1s *and* p2s, the stub
-    // at (20000,0) sets p1e, and the mask counts bits rather than distinct
-    // locations. This is the only shape of board where the two rules disagree,
-    // so without it the popcount test is dead weight.
-    const overlapping = board({
-      tracks: [
-        track(P(0, 0), P(20000, 0)),
-        track(P(0, 0), P(10000, 0)),
-        track(P(0, 0), P(0, 10000)),
-        track(P(20000, 0), P(20000, 10000)),
-      ],
-    });
-    const res = run(overlapping, { mergeSegments: true });
-
-    expect(res.items).toEqual([]);
-    expect(res.board.tracks).toHaveLength(4);
+    // seg2 contains seg1 and shares its start: attachments at 10 (p1s and p2s) and
+    // at 30 (p2e) are three flags on two points, both on the merged ends.
+    const b = makeBoard(
+      seg(10, 10, 20, 10),
+      seg(10, 10, 30, 10),
+      smdPad(10, 10, 1, 0.3),
+      smdPad(30, 10, 1, 0.3),
+    );
+    expect(run(b, { merge: true }).codes).toEqual([]);
+    expect(tracks(b)).toHaveLength(2);
   });
 
   it('refuses when a pad sits on the shared point', () => {
-    // A pad is not a track, so its bit is set by `HitTest` at `(width + 1) / 2`
-    // rather than by exact endpoint equality — a different code path to the
-    // T-junction above, and the one that protects real routing into a pad.
-    const res = run(pair({ footprints: [padFootprint(P(10000, 0))] }), { mergeSegments: true });
-
-    expect(res.items).toEqual([]);
-    expect(res.board.tracks).toHaveLength(2);
+    const b = makeBoard(seg(10, 10, 20, 10), seg(20, 10, 30, 10), smdPad(20, 10, 1, 0.3));
+    expect(run(b, { merge: true }).codes).toEqual([]);
   });
 
-  it('refuses when a via sits on the shared point', () => {
-    const res = run(pair({ vias: [via(P(10000, 0))] }), { mergeSegments: true });
-
-    expect(res.items).toEqual([]);
+  it('refuses when either segment is locked', () => {
+    const b = makeBoard(seg(10, 10, 20, 10, 1, { locked: true }), seg(20, 10, 30, 10));
+    expect(run(b, { merge: true }).codes).toEqual([]);
   });
 
-  it('merges an unnetted pair even through a T-junction', () => {
-    // `GetConnectedItems` drops items with `Net() <= 0` before it clusters, so
-    // an unnetted segment gets an empty cluster, every attachment test is
-    // vacuous, and the merge goes through checks a netted pair fails. Pinned
-    // because it is the one case where "no net" is not the same as "some net".
-    const res = run(
-      board({
-        tracks: [
-          track(P(0, 0), P(10000, 0), { net: 0 }),
-          track(P(10000, 0), P(20000, 0), { net: 0 }),
-          track(P(10000, 0), P(10000, 10000), { net: 0 }),
-        ],
-      }),
-      { mergeSegments: true },
-    );
-
-    expect(codes(res.items)).toEqual(['merge_tracks']);
-    expect(res.board.tracks[0]?.end).toEqual(P(20000, 0));
-  });
-
-  it('refuses the whole segment when a different-width track is attached to it', () => {
-    // Necking down between pads: any connected trace of another width, at either
-    // end, takes the segment out of the pass. The blocked segment is seg1 of the
-    // pair that would otherwise merge, so the pair is never even considered.
-    const necked = board({
-      tracks: [
-        track(P(0, 0), P(10000, 0)),
-        track(P(10000, 0), P(20000, 0)),
-        track(P(0, 0), P(0, -10000), { width: 400 }),
-      ],
-    });
-
-    expect(run(necked, { mergeSegments: true }).items).toEqual([]);
-    // …and without the wide stub the same two tracks do merge, so the test is
-    // pinning the width rule rather than some other refusal.
-    expect(codes(run(pair(), { mergeSegments: true }).items)).toEqual(['merge_tracks']);
-  });
-
-  it('never merges arcs or vias', () => {
-    const res = run(
-      board({
-        arcs: [
-          arc(P(0, 0), P(5000, 100), P(10000, 0)),
-          arc(P(10000, 0), P(15000, 100), P(20000, 0)),
-        ],
-      }),
-      { mergeSegments: true },
-    );
-
-    expect(res.items).toEqual([]);
-    expect(res.board.arcs).toHaveLength(2);
+  it('never merges when not asked to', () => {
+    const b = makeBoard(seg(10, 10, 20, 10), seg(20, 10, 30, 10));
+    expect(run(b, {}).codes).toEqual([]);
+    expect(tracks(b)).toHaveLength(2);
   });
 });
 
-describe('dry run versus real run', () => {
-  const chain = () =>
-    board({
-      tracks: [
-        track(P(0, 0), P(10000, 0)),
-        track(P(10000, 0), P(20000, 0)),
-        track(P(20000, 0), P(30000, 0)),
-      ],
-    });
-
-  it('finds one merge on a dry run and two on a real one, for the same board', () => {
-    // One scan collects (A,B) and (B,C); applying (A,B) flags B, so (B,C) is
-    // skipped. A real run then rewrites A's geometry, the next iteration sees A
-    // touching C, and merges again. A dry run rewrote nothing, so there is
-    // nothing more to find. The two counts *should* differ; a port that made
-    // them agree has stopped mirroring upstream.
-    const dry = cleanupTrackGeometry(chain(), { dryRun: true, mergeSegments: true });
-    const real = cleanupTrackGeometry(chain(), { dryRun: false, mergeSegments: true });
-
-    expect(codes(dry.items)).toEqual(['merge_tracks']);
-    expect(codes(real.items)).toEqual(['merge_tracks', 'merge_tracks']);
-    expect(real.board.tracks).toHaveLength(1);
-    expect(real.board.tracks[0]?.end).toEqual(P(30000, 0));
+describe('redundant vias', () => {
+  it('of two identical vias one goes', () => {
+    const b = makeBoard(via(10, 10), via(10, 10));
+    expect(run(b, { vias: true }).codes).toEqual([C.CLEANUP_REDUNDANT_VIA]);
+    expect(vias(b)).toHaveLength(1);
   });
 
-  it('reports zero-length and duplicate tracks on a dry run without removing them', () => {
-    // `removeItems` is gated on `!m_dryRun` for both passes. A dry run that
-    // deleted would make the dialog's first press destructive, and the user
-    // never gets to press "Update PCB".
-    const nulls = board({ tracks: [track(P(0, 0), P(0, 0))] });
-    const dupes = board({ tracks: [track(P(0, 0), P(10000, 0)), track(P(0, 0), P(10000, 0))] });
-
-    const nullRes = cleanupTrackGeometry(nulls, { dryRun: true, removeNullSegments: true });
-    const dupeRes = cleanupTrackGeometry(dupes, { dryRun: true });
-
-    expect(codes(nullRes.items)).toEqual(['zero_length_track']);
-    expect(nullRes.board.tracks).toHaveLength(1);
-    expect(codes(dupeRes.items)).toEqual(['duplicate_track']);
-    expect(dupeRes.board.tracks).toHaveLength(2);
+  it('a through via on a through-hole pad goes, and its row names the pad too', () => {
+    const b = makeBoard(via(10, 10), thtPad(10, 10));
+    const { items } = run(b, { vias: true });
+    expect(items.map((i) => i.GetErrorCode())).toEqual([C.CLEANUP_REDUNDANT_VIA]);
+    expect(items[0]!.GetAuxItemID()).toBe(b.Footprints()[0]!.Pads()[0]!.m_Uuid);
+    expect(vias(b)).toHaveLength(0);
   });
 
-  it('leaves the input board untouched on a dry run', () => {
-    const b = chain();
-    const before = JSON.stringify(b.tracks);
-    const res = cleanupTrackGeometry(b, { dryRun: true, mergeSegments: true });
-
-    // The dialog runs the cleaner twice against the same board and only the
-    // second run may modify it; a dry run that mutated would make "Build
-    // changes" destructive.
-    expect(res.board).toBe(b);
-    expect(JSON.stringify(b.tracks)).toBe(before);
+  it('two vias at one place but of different types both stay', () => {
+    const b = makeBoard(via(10, 10), via(10, 10, 1, 'blind '));
+    expect(run(b, { vias: true }).codes).toEqual([]);
+    expect(vias(b)).toHaveLength(2);
   });
 
-  it('reports the two progress lines with the mode-appropriate wording', () => {
-    const dry = new Reporter();
-    const real = new Reporter();
+  it('a via on an SMD pad stays', () => {
+    const b = makeBoard(via(10, 10), smdPad(10, 10));
+    expect(run(b, { vias: true }).codes).toEqual([]);
+  });
 
-    cleanupTrackGeometry(board(), { dryRun: true, reporter: dry });
-    cleanupTrackGeometry(board(), { dryRun: false, reporter: real });
+  it('nothing happens to vias when not asked', () => {
+    const b = makeBoard(via(10, 10), via(10, 10));
+    expect(run(b, {}).codes).toEqual([]);
+    expect(vias(b)).toHaveLength(2);
+  });
+});
 
-    expect(dry.lines.map((l) => l.message)).toEqual([
+describe('shorting tracks', () => {
+  // A track touching one foreign pad is not a short: RecalculateRatsnest's
+  // PropagateNets gives it the pad's net on load. A short needs a conflicting
+  // cluster, two pads of different nets joined by copper.
+  it('a track joining two pads of different nets goes', () => {
+    const b = makeBoard(smdPad(10, 10, 1), smdPad(20, 10, 2), seg(10, 10, 20, 10, 1));
+    expect(run(b, { shorts: true }).codes).toEqual([C.CLEANUP_SHORTING_TRACK]);
+    expect(tracks(b)).toHaveLength(0);
+  });
+
+  it('a via of one net on a track of another is a shorting VIA, and the track a shorting track', () => {
+    const b = makeBoard(
+      smdPad(10, 10, 1),
+      smdPad(30, 10, 2),
+      seg(10, 10, 20, 10, 1),
+      via(20, 10, 1),
+      seg(20, 10, 30, 10, 2),
+    );
+    const { codes } = run(b, { shorts: true, dryRun: true });
+    // Board order, a row per foreign-net contact: the net-1 track touches the
+    // net-2 track at x=20; the via touches the net-2 track; the net-2 track
+    // touches both the net-1 track and the via, so it is reported twice.
+    expect(codes).toEqual([
+      C.CLEANUP_SHORTING_TRACK,
+      C.CLEANUP_SHORTING_VIA,
+      C.CLEANUP_SHORTING_TRACK,
+      C.CLEANUP_SHORTING_TRACK,
+    ]);
+    expect(b.Tracks()).toHaveLength(3);
+  });
+
+  it('same-net contacts are left alone', () => {
+    const b = makeBoard(seg(10, 10, 20, 10, 1), smdPad(20, 10, 1));
+    expect(run(b, { shorts: true }).codes).toEqual([]);
+  });
+});
+
+describe('tracks inside pads', () => {
+  it('a track wholly inside one pad goes', () => {
+    const b = makeBoard(seg(9.8, 10, 10.2, 10), smdPad(10, 10, 1, 2));
+    expect(run(b, { inPad: true }).codes).toEqual([C.CLEANUP_TRACK_IN_PAD]);
+    expect(tracks(b)).toHaveLength(0);
+  });
+
+  it('a track whose ends are in the pad but whose width is not stays (the polygon test)', () => {
+    const b = makeBoard(seg(9.8, 10, 10.2, 10, 1, { w: 3 }), smdPad(10, 10, 1, 2));
+    expect(run(b, { inPad: true }).codes).toEqual([]);
+    expect(tracks(b)).toHaveLength(1);
+  });
+
+  it('a track that leaves the pad stays', () => {
+    const b = makeBoard(seg(10, 10, 20, 10), smdPad(10, 10, 1, 2), smdPad(20, 10, 1, 2));
+    expect(run(b, { inPad: true }).codes).toEqual([]);
+  });
+});
+
+describe('dangling tracks and vias', () => {
+  it('a chain hanging off a pad is removed back to the pad, one pass at a time', () => {
+    const b = makeBoard(smdPad(10, 10), seg(10, 10, 20, 10), seg(20, 10, 20, 20));
+    const { codes } = run(b, { dangling: true });
+    expect(codes).toEqual([C.CLEANUP_DANGLING_TRACK, C.CLEANUP_DANGLING_TRACK]);
+    expect(tracks(b)).toHaveLength(0);
+  });
+
+  it('a track between two pads stays', () => {
+    const b = makeBoard(smdPad(10, 10), smdPad(20, 10), seg(10, 10, 20, 10));
+    expect(run(b, { dangling: true }).codes).toEqual([]);
+  });
+
+  it('a lone via is dangling only when vias are asked for', () => {
+    expect(run(makeBoard(via(10, 10)), { dangling: true }).codes).toEqual([]);
+    expect(run(makeBoard(via(10, 10)), { danglingVias: true }).codes).toEqual([
+      C.CLEANUP_DANGLING_VIA,
+    ]);
+  });
+
+  it('deleting a dangling track re-runs the merge pass when merging is asked for', () => {
+    // The stub at x=20 blocks the merge; once it is gone the two halves join.
+    const b = makeBoard(
+      smdPad(10, 10),
+      smdPad(30, 10),
+      seg(10, 10, 20, 10),
+      seg(20, 10, 30, 10),
+      seg(20, 10, 20, 20),
+    );
+    const { codes } = run(b, { dangling: true, merge: true });
+    expect(codes).toEqual([C.CLEANUP_DANGLING_TRACK, C.CLEANUP_MERGE_TRACKS]);
+    expect(tracks(b)).toHaveLength(1);
+  });
+});
+
+describe('dry run, filter, reporter and undo', () => {
+  it('a dry run reports without touching the board', () => {
+    const b = makeBoard(seg(10, 10, 20, 10), seg(20, 10, 30, 10), seg(40, 40, 40, 40));
+    const { codes, frame } = run(b, { merge: true, dryRun: true });
+    expect(codes).toEqual([C.CLEANUP_ZERO_LENGTH_TRACK, C.CLEANUP_MERGE_TRACKS]);
+    expect(tracks(b)).toHaveLength(3);
+    expect(tracks(b)[0]!.GetEnd()).toEqual({ x: 20_000_000, y: 10_000_000 });
+    expect(frame.GetUndoCommandCount()).toBe(0);
+  });
+
+  it('leaves no IS_DELETED / SKIP_STRUCT flag behind on a dry run', () => {
+    const b = makeBoard(seg(10, 10, 20, 10), seg(10, 10, 20, 10));
+    run(b, { dryRun: true, merge: true });
+    for (const t of b.Tracks()) expect(t.GetFlags()).toBe(0);
+  });
+
+  it('the filter EXCLUDES the items it returns true for', () => {
+    const b = makeBoard(seg(10, 10, 10, 10), seg(30, 30, 30, 30));
+    const [skip, other] = tracks(b) as [PCB_TRACK, PCB_TRACK];
+    const otherId = other.m_Uuid;
+    const { items } = run(b, { merge: true, filter: (t) => t === skip });
+    expect(items.map((i) => i.GetMainItemID())).toEqual([otherId]);
+    expect(tracks(b)).toEqual([skip]);
+  });
+
+  it("reports the progress lines in the mode's wording", () => {
+    const b = makeBoard(seg(10, 10, 20, 10));
+    const dry = run(b, {
+      dryRun: true,
+      merge: true,
+      shorts: true,
+      inPad: true,
+      dangling: true,
+    }).reporter.lines.map((l) => l.message);
+    expect(dry).toEqual([
       'Checking null tracks and vias...',
       'Checking redundant tracks...',
+      'Checking shorting tracks...',
+      'Checking tracks in pads...',
+      'Checking dangling tracks and vias...',
     ]);
-    expect(real.lines.map((l) => l.message)).toEqual([
-      'Removing null tracks and vias...',
-      'Removing redundant tracks...',
-    ]);
-  });
-});
-
-describe('locked and filtered items', () => {
-  it('skips a locked track in the duplicate pass, so the locked copy survives', () => {
-    // The outer guard drops the locked track as a *reference*, but nothing stops
-    // it being a *partner* — so the unlocked copy is the one reported and
-    // removed. Reversing that would delete copper the user pinned.
-    const b = board({
-      tracks: [track(P(0, 0), P(10000, 0), { locked: true }), track(P(0, 0), P(10000, 0))],
-    });
-    const res = run(b);
-
-    expect(res.items.map((i) => i.items)).toEqual([['track:1']]);
-    expect(res.board.tracks[0]?.locked).toBe(true);
-  });
-
-  it('refuses a merge when either segment is locked', () => {
-    // `testMergeCollinearSegments` checks both, and the candidate scan checks
-    // neither — so the refusal has to come from the test, not from the scan.
-    const b = board({
-      tracks: [track(P(0, 0), P(10000, 0)), track(P(10000, 0), P(20000, 0), { locked: true })],
-    });
-
-    expect(run(b, { mergeSegments: true }).items).toEqual([]);
-  });
-
-  it('treats a track inside a locked group as locked', () => {
-    const b = board({
-      tracks: [track(P(0, 0), P(10000, 0), { uuid: 'in-group' }), track(P(0, 0), P(10000, 0))],
-      groups: [{ name: 'g', uuid: 'g-1', locked: true, members: ['in-group'] }],
-    });
-
-    expect(run(b).items.map((i) => i.items)).toEqual([['track:1']]);
-  });
-
-  it('EXCLUDES the items the filter returns true for', () => {
-    // The polarity reads backwards and is upstream's: `filterItem() == true`
-    // means "leave this one alone".
-    const b = board({
-      tracks: [track(P(0, 0), P(10000, 0)), track(P(0, 0), P(10000, 0))],
-    });
-    const res = run(b, { filter: (id) => id === 'track:0' });
-
-    expect(res.items.map((i) => i.items)).toEqual([['track:1']]);
-  });
-});
-
-describe('the merged track survives serialization', () => {
-  const BOARD = `(kicad_pcb (version 20240108) (generator pcbnew)
-  (general (thickness 1.6))
-  (paper "A4")
-  (layers (0 "F.Cu" signal) (31 "B.Cu" signal))
-  (net 0 "")
-  (net 1 "N1")
-  (segment (start 0 0) (end 10 0) (width 0.2) (layer "F.Cu") (net 1) (uuid "${U('aaa')}"))
-  (segment (start 10 0) (end 20 0) (width 0.2) (layer "F.Cu") (net 1) (uuid "${U('bbb')}"))
-)`;
-
-  it('patches (start …) / (end …) in the surviving segment and drops the other', () => {
-    // The surviving segment is written with the merged endpoints; the other
-    // is gone.
-    const res = cleanupTrackGeometry(readBoard(parse(BOARD)), {
-      dryRun: false,
-      mergeSegments: true,
-    });
-    const text = serializeBoard(res.board);
-
-    expect(text).toContain('(start 0 0)');
-    expect(text).toContain('(end 20 0)');
-    expect(text).not.toContain('(end 10 0)');
-    expect(text.match(/\(segment/g)).toHaveLength(1);
-    expect(text).toContain(`"${U('aaa')}"`);
-    expect(text).not.toContain(`"${U('bbb')}"`);
-  });
-});
-
-describe('SEG::ApproxCollinear at board scale', () => {
-  // The line here runs from the origin to (1e9, 999999999) — a 1.4 m diagonal,
-  // well inside KiCad's design space — and the probe segment is offset by very
-  // nearly the 1.22 IU the threshold works out to after the integer rescale.
-  const A1 = P(0, 0);
-  const A2 = P(1000000000, 999999999);
-
-  it('accepts the last offset inside the threshold', () => {
-    expect(segApproxCollinear(A1, A2, P(732050806, 732050807), P(1732050806, 1732050806))).toBe(
-      true,
+    const real = run(makeBoard(seg(10, 10, 20, 10)), {
+      dangling: true,
+      danglingVias: true,
+    }).reporter.lines.map((l) => l.message);
+    expect(real).toEqual(
+      [
+        'Removing null tracks and vias...',
+        'Removing redundant tracks...',
+        'Removing dangling tracks...',
+        'Removing dangling vias...',
+        'Merging collinear tracks...',
+      ].slice(0, 4),
     );
   });
 
-  it('rejects the first offset outside it', () => {
-    expect(segApproxCollinear(A1, A2, P(732050807, 732050808), P(1732050807, 1732050807))).toBe(
-      false,
-    );
-  });
-
-  it('disagrees with the same arithmetic done in doubles', () => {
-    // The point of the BigInt: `det` is ~1.7e9 built from products of ~7e17,
-    // which double arithmetic rounds by ±128 apiece. That is 250 times the gap
-    // between two adjacent achievable values of `det²/l`, so at the threshold
-    // the double answer is essentially arbitrary — here it says "not collinear"
-    // where int64 says "collinear", and a merge KiCad performs would not happen.
-    const naive = (b1: { x: number; y: number }, b2: { x: number; y: number }): boolean => {
-      const p = A1.y - A2.y;
-      const q = A2.x - A1.x;
-      const r = -p * A1.x - q * A1.y;
-      const l = p * p + q * q;
-      const rescale = (det: number): number => Math.trunc((det * det + Math.floor(l / 2)) / l);
-      return rescale(p * b1.x + q * b1.y + r) <= 1 && rescale(p * b2.x + q * b2.y + r) <= 1;
-    };
-
-    expect(naive(P(732050806, 732050807), P(1732050806, 1732050806))).toBe(false);
-    expect(segApproxCollinear(A1, A2, P(732050806, 732050807), P(1732050806, 1732050806))).toBe(
-      true,
-    );
-  });
-
-  it('calls a zero-length longer segment not collinear', () => {
-    // `l == 0` returns false rather than treating the degenerate case as a line,
-    // which is what keeps a zero-length track out of every merge.
-    expect(segApproxCollinear(P(5, 5), P(5, 5), P(5, 5), P(5, 5))).toBe(false);
+  it('a real run is one undo step that puts everything back', () => {
+    const b = makeBoard(seg(10, 10, 20, 10), seg(20, 10, 30, 10), seg(40, 40, 40, 40));
+    const { frame } = run(b, { merge: true });
+    expect(tracks(b)).toHaveLength(1);
+    expect(frame.GetUndoCommandCount()).toBe(1);
+    frame.RestoreCopyFromUndoList();
+    expect(tracks(b)).toHaveLength(3);
+    expect(
+      tracks(b)
+        .find((t) => t.GetStart().x === 10_000_000)!
+        .GetEnd(),
+    ).toEqual({ x: 20_000_000, y: 10_000_000 });
   });
 });

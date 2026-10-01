@@ -44,6 +44,8 @@ import {
   ZONE_THICKNESS_MIN_VALUE_MM,
 } from '../zones.js';
 import type { TransferResult } from './dialog_text_properties.js';
+import type { CONVERT_SETTINGS } from '../pcbnew_settings.js';
+import { CONVERSION_BOX, type ConversionBoxValues } from '../tools/convert_settings_dialog.js';
 
 /** Every field PANEL_ZONE_PROPERTIES edits. */
 export interface ZoneValues {
@@ -317,7 +319,7 @@ const AREA_PER_MM2 = pcbIUScale.IU_PER_MM * pcbIUScale.IU_PER_MM;
  */
 export function zoneSettingsToValues(
   s: ZONE_SETTINGS,
-  aZone: ZONE,
+  aZone: ZONE | null,
   aCopperLayerCount: number,
 ): ZoneValues {
   const layers = s.m_Layers;
@@ -355,7 +357,7 @@ export function zoneSettingsToValues(
     hatchSmoothingLevel: s.m_HatchSmoothingLevel,
     hatchSmoothingValue: s.m_HatchSmoothingValue,
     hatchHoleMinArea: s.m_HatchHoleMinArea,
-    filled: aZone.IsFilled(),
+    filled: aZone?.IsFilled() ?? false,
     priority: s.m_ZonePriority,
     layerProperties,
   };
@@ -370,8 +372,9 @@ export function zoneSettingsToValues(
 export function acceptZoneOptions(
   s: ZONE_SETTINGS,
   v: ZoneValues,
-  aZone: ZONE,
+  aZone: ZONE | null,
   aUseExportableSetupOnly = false,
+  aBoard: BOARD | null = aZone?.GetBoard() ?? null,
 ): TransferResult {
   const mm = (n: number) => pcbIUScale.mmToIU(n);
 
@@ -425,7 +428,8 @@ export function acceptZoneOptions(
   if (aUseExportableSetupOnly) return { ok: true };
 
   s.m_Netcode = v.net;
-  s.m_Name = aZone.GetBoard()?.GetUniqueZoneName(v.name, aZone) ?? v.name;
+  // `if( BOARD* board = m_frame->GetBoard() )`
+  s.m_Name = aBoard?.GetUniqueZoneName(v.name, aZone) ?? v.name;
 
   s.m_FillMode = v.fillMode === 'hatch' ? ZONE_FILL_MODE.HATCH_PATTERN : ZONE_FILL_MODE.POLYGONS;
   // m_gridStyleRotation.SetValue( NormalizeAngle180( ... ) )
@@ -462,18 +466,45 @@ export function acceptZoneOptions(
  */
 export class DIALOG_COPPER_ZONE {
   private readonly m_frame: PCB_BASE_EDIT_FRAME;
-  private readonly m_zone: ZONE;
+  private readonly m_zone: ZONE | null;
   private readonly m_settings: ZONE_SETTINGS;
+  /** `m_ptr`: the caller's settings, written on OK when there is no zone. */
+  private readonly m_ptr: ZONE_SETTINGS | null;
+  /** `m_convertSettings`: CONVERT_TOOL's, when it opens the dialog. */
+  readonly m_convertSettings: CONVERT_SETTINGS | null;
 
-  constructor(aFrame: PCB_BASE_EDIT_FRAME, aZone: ZONE) {
+  /**
+   * On a live zone, as `Edit_Zone_Params` opens it; or, with `aZone` null, on
+   * `aSettings` alone, as `InvokeCopperZonesEditor( frame, nullptr, &zoneInfo,
+   * &convertSettings )` does for CONVERT_TOOL - no commit, the settings come
+   * back through `*m_ptr`.
+   */
+  constructor(
+    aFrame: PCB_BASE_EDIT_FRAME,
+    aZone: ZONE | null,
+    aSettings: ZONE_SETTINGS | null = null,
+    aConvertSettings: CONVERT_SETTINGS | null = null,
+  ) {
     this.m_frame = aFrame;
     this.m_zone = aZone;
-    this.m_settings = aFrame.GetDesignSettings().GetDefaultZoneSettings().clone();
-    this.m_settings.importFrom(aZone);
+    this.m_ptr = aSettings;
+    this.m_convertSettings = aConvertSettings;
+
+    if (aZone) {
+      this.m_settings = aFrame.GetDesignSettings().GetDefaultZoneSettings().clone();
+      this.m_settings.importFrom(aZone);
+    } else {
+      this.m_settings = aSettings!.clone();
+    }
   }
 
   private copperLayerCount(): number {
-    return this.m_zone.GetBoard()?.GetCopperLayerCount() ?? 2;
+    return (this.m_zone?.GetBoard() ?? this.m_frame.GetBoard())?.GetCopperLayerCount() ?? 2;
+  }
+
+  /** The "Conversion Settings" box's controls, or null when there is none. */
+  TransferConversionToWindow(): ConversionBoxValues | null {
+    return this.m_convertSettings ? CONVERSION_BOX.ToWindow(this.m_convertSettings, false) : null;
   }
 
   /** TransferZoneSettingsToWindow (:139-237), plus the dialog's layer list. */
@@ -483,10 +514,13 @@ export class DIALOG_COPPER_ZONE {
 
   /** AcceptOptions (:344-455): false where a validator refuses. */
   private acceptOptions(v: ZoneValues): TransferResult {
-    return acceptZoneOptions(this.m_settings, v, this.m_zone);
+    return acceptZoneOptions(this.m_settings, v, this.m_zone, false, this.m_frame.GetBoard());
   }
 
-  TransferDataFromWindow(v: ZoneValues): TransferResult {
+  TransferDataFromWindow(
+    v: ZoneValues,
+    aConversion: ConversionBoxValues | null = null,
+  ): TransferResult {
     // DIALOG_COPPER_ZONE::TransferDataFromWindow's layer check comes first.
     const layers = layerSetOfTokens(v.layers);
 
@@ -497,7 +531,13 @@ export class DIALOG_COPPER_ZONE {
     const accepted = this.acceptOptions(v);
     if (!accepted.ok) return accepted;
 
-    editZoneParamsCommit(this.m_frame, this.m_zone, this.m_settings);
+    if (this.m_convertSettings && aConversion)
+      CONVERSION_BOX.FromWindow(this.m_convertSettings, aConversion, false);
+
+    // `*m_ptr = *m_zoneSettingsBag.GetZoneSettings( m_zone )`: with no zone,
+    // the caller's settings; with one, Edit_Zone_Params' commit.
+    if (this.m_zone) editZoneParamsCommit(this.m_frame, this.m_zone, this.m_settings);
+    else this.m_ptr!.CopyFrom(this.m_settings, true);
 
     return { ok: true };
   }

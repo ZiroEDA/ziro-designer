@@ -8,7 +8,7 @@
  * import and exercise it. See `editors/pcb/prefs/resets.ts`.
  */
 import { FPEDIT_DEFAULTS } from '../../../prefs/settings.js';
-import { resetSessionArcEditMode } from '../arc_edit_mode.js';
+import { resetSessionArcEditMode } from '@ziroeda/pcbnew/dialogs/panel_edit_options.js';
 import { resetKeys } from '@ziroeda/common/settings/json_settings.js';
 import { resetToolbarsPanel } from '@ziroeda/common/tool/ui/toolbar_configuration.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';

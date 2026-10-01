@@ -69,7 +69,8 @@ class TEST_GROUP_TOOL extends GROUP_TOOL {
   log: CommitLog = { calls: [] };
   names = new Map<EDA_ITEM, string>();
   refuse = new Set<EDA_ITEM>();
-  PickNewMember(): number {
+  // biome-ignore lint/correctness/useYield: the base declares a coroutine; this stub never waits
+  *PickNewMember(): Generator<void, number, void> {
     return 0;
   }
   Group(): number {
@@ -106,7 +107,7 @@ class TEST_FRAME extends EDA_BASE_FRAME {
   override OnModify(): void {
     this.modified++;
   }
-  ShowInfoBarWarning(m: string): void {
+  override ShowInfoBarWarning(m: string): void {
     this.warnings.push(m);
   }
 }
@@ -189,6 +190,20 @@ describe('GROUP_TOOL', () => {
     expect(env.calls).toEqual(['modify g', 'modify c', 'push Add Items to Group']);
     expect(c.GetParentGroup()).toBe(g);
     expect(env.selected()).toEqual(['g']);
+  });
+
+  it('Add to Group moves an item out of another group (group_tool.cpp:215, :232-241)', () => {
+    const env = setup();
+    const g = env.group('g', env.track('a'), env.track('b'));
+    const c = env.track('c');
+    const h = env.group('h', c, env.track('d'));
+    env.select(g, c);
+
+    env.mgr.RunAction(ACTIONS.addToGroup);
+
+    expect(env.calls).toEqual(['modify g', 'modify c', 'modify h', 'push Add Items to Group']);
+    expect(c.GetParentGroup()).toBe(g);
+    expect(h.GetItems().size).toBe(1);
   });
 
   it('Add to Group does nothing with two groups selected', () => {
@@ -280,6 +295,10 @@ describe('GROUP_CONTEXT_MENU::update', () => {
       removeFromGroup: false,
     });
     expect(GroupMenuState([g, g2, free]).addToGroup).toBe(false);
+    // `else hasNonGroupItems = true` (:92-93): an item already in ANOTHER
+    // group counts, since AddToGroup moves it (:215, :232-241)
+    const c = [...g2.GetItems()][0]!;
+    expect(GroupMenuState([g, c]).addToGroup).toBe(true);
     expect(GroupMenuState(null).group).toBe(false);
   });
 });

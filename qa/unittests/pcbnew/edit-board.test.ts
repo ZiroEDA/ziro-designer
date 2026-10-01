@@ -16,9 +16,6 @@ import {
   duplicateBoardItems,
   mirrorBoardItems,
   groupBoardItems,
-  ungroupBoardItems,
-  addToGroupItems,
-  removeFromGroupItems,
   expandGroupIds,
   filterSelectionForFreePads,
   filterSelectionForDelete,
@@ -688,13 +685,6 @@ describe('groups (PCB_GROUP: group / ungroup / expansion)', () => {
     // Editing commands act on the expansion.
     expect([...expandGroupIds(g, new Set(['group:0']))].sort()).toEqual(['track:0', 'track:1']);
   });
-  it('ungroup dissolves the group and keeps the members', () => {
-    const b = board({ tracks: [t0, t1] });
-    const { board: g } = groupBoardItems(b, new Set(['track:0', 'track:1']));
-    const u = ungroupBoardItems(g, new Set(['group:0']));
-    expect(u.groups).toHaveLength(0);
-    expect(u.tracks).toHaveLength(2);
-  });
   it('round-trips the exact (group …) s-expression: sorted members, no empty groups', () => {
     const A = U('a');
     const B = U('b');
@@ -717,32 +707,6 @@ describe('groups (PCB_GROUP: group / ungroup / expansion)', () => {
     expect(serializeBoard(gone)).not.toContain('(group');
   });
 
-  const t2 = { ...track({ x: 0, y: 900 }, { x: 1000, y: 900 }, 100), uuid: 'uuid-t2' };
-  it('adds an ungrouped item to the selected group', () => {
-    const b = board({ tracks: [t0, t1, t2] });
-    const { board: g } = groupBoardItems(b, new Set(['track:0', 'track:1']), 'pair');
-    const added = addToGroupItems(g, new Set(['group:0', 'track:2']));
-    expect(added.groups[0]!.members.sort()).toEqual(['uuid-t0', 'uuid-t1', 'uuid-t2']);
-  });
-  it('add-to-group is a no-op unless exactly one group is selected', () => {
-    const b = board({ tracks: [t0, t1, t2] });
-    let g = groupBoardItems(b, new Set(['track:0', 'track:1']), 'a').board;
-    g = groupBoardItems(g, new Set(['track:2']), 'b').board; // group:1 (single-member, for the test)
-    // Two groups selected -> AddToGroup bails (GROUP_TOOL::AddToGroup early return).
-    expect(addToGroupItems(g, new Set(['group:0', 'group:1']))).toBe(g);
-  });
-  it('removes a member, dissolving the group once fewer than two remain', () => {
-    const b = board({ tracks: [t0, t1, t2] });
-    const { board: g } = groupBoardItems(b, new Set(['track:0', 'track:1', 'track:2']), 'trio');
-    // Remove one of three -> two remain, group survives.
-    const r1 = removeFromGroupItems(g, new Set(['track:2']));
-    expect(r1.groups).toHaveLength(1);
-    expect(r1.groups[0]!.members.sort()).toEqual(['uuid-t0', 'uuid-t1']);
-    // Remove another -> one left (< 2) -> group dissolves, items stay.
-    const r2 = removeFromGroupItems(r1, new Set(['track:1']));
-    expect(r2.groups).toHaveLength(0);
-    expect(r2.tracks).toHaveLength(3);
-  });
   it('an entered group stops click resolution at its boundary', () => {
     const b = board({ tracks: [t0, t1] });
     const { board: g } = groupBoardItems(b, new Set(['track:0', 'track:1']), 'pair');

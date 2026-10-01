@@ -13,7 +13,7 @@
  */
 import type { JSX } from 'react';
 import { Check, Group, Num, Sel } from '@ziroeda/common/wx/controls.js';
-import { CrossProbingGroup } from '../../../dialogs/prefs/CrossProbingGroup.js';
+import { CrossProbingGroup } from '@ziroeda/common/dialogs/cross_probing_group.js';
 import { PanelGalOptions } from '@ziroeda/common/dialogs/panel_gal_options.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
 

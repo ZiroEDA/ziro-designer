@@ -7,6 +7,7 @@
  * of user-level "tools" (the actions whose buttons stay pressed).
  */
 import { MOUSE_DRAG_ACTION } from '../mouse_drag_action.js';
+import { PgmOrNull } from '../pgm_base.js';
 import { ACTIONS } from './actions.js';
 import type { ACTION_CONDITIONS } from './action_manager.js';
 import { SELECTION } from './selection.js';
@@ -221,6 +222,10 @@ export abstract class TOOLS_HOLDER {
       this.GetToolManager()!
         .GetActionManager()!
         .UpdateHotKeys((aFlags & HOTKEYS_CHANGED) !== 0);
+
+    // `COMMON_SETTINGS* settings = Pgm().GetCommonSettings()` when the frame
+    // hands nothing over.
+    aInput ??= PgmOrNull()?.GetCommonSettings()?.m_Input;
 
     if (aInput) {
       this.m_moveWarpsCursor = aInput.warp_mouse_on_move;

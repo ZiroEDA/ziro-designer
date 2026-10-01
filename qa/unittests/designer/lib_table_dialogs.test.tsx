@@ -12,7 +12,7 @@
  */
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { DialogFpLibTable } from '@ziroeda/designer/src/widgets/dialog_fp_lib_table.js';
+import { DialogFpLibTable } from '@ziroeda/pcbnew/dialogs/panel_fp_lib_table.js';
 import { DialogSymLibTable } from '@ziroeda/designer/src/widgets/dialog_sym_lib_table.js';
 
 afterEach(cleanup);

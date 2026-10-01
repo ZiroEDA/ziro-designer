@@ -27,8 +27,8 @@ const SRC = resolve(process.cwd(), '../designer/src');
 const read = (rel: string): string => readFileSync(resolve(SRC, rel), 'utf8');
 
 const PANEL = read('editors/schematic/prefs/PanelEeschemaDisplayOptions.tsx');
-const GROUP = read('dialogs/prefs/CrossProbingGroup.tsx');
-const PCB = read('editors/pcb/prefs/PanelPcbDisplayOptions.tsx');
+const GROUP = read('../../common/dialogs/cross_probing_group.tsx');
+const PCB = read('../../pcbnew/dialogs/panel_display_options.tsx');
 const CSS = read('../../common/widgets/shell.css');
 /** Comments stripped: prose ABOUT a row is not that row. */
 const strip = (t: string): string =>

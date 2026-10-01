@@ -2,816 +2,720 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * Cleanup Tracks & Vias — the *geometric* passes. Counterpart:
- * `TRACKS_CLEANER::cleanup` (pcbnew/tracks_cleaner.cpp:378) and the part of
- * `TRACKS_CLEANER::CleanupBoard` (tracks_cleaner.cpp:59) that drives it.
+ * `TRACKS_CLEANER` (pcbnew/tracks_cleaner.h, pcbnew/tracks_cleaner.cpp), whole,
+ * on the live BOARD: Cleanup Tracks & Vias' engine, which
+ * `GLOBAL_EDIT_TOOL::CleanupTracksAndVias` drives through
+ * `DIALOG_CLEANUP_TRACKS_AND_VIAS`.
  *
- * Ported here: zero-length segments, duplicate segments, collinear merging, the
- * `CLEANUP_ITEM` report rows and the dry-run / real-run split. The passes that
- * need answers this port cannot yet give — shorting tracks, dangling tracks and
- * vias, tracks inside pads, redundant vias — are absent rather than stubbed;
- * see the notes at the end of this block.
+ * Every pass is upstream's: null and duplicate segments, redundant vias
+ * (duplicates, and through vias on a through-hole pad), co-linear merging,
+ * shorting tracks and vias, tracks inside pads, and dangling tracks and vias.
+ * They run on the BOARD's own items through its CONNECTIVITY_DATA and a
+ * DRC_RTREE, set `IS_DELETED` / `SKIP_STRUCT` on the items as upstream does, and
+ * on a real run remove through the caller's BOARD_COMMIT.
  *
- * ## Flags, and why the run needs a working copy
- *
- * Two per-item flags drive everything, and both survive across passes:
- *
- *  - `IS_DELETED` — "logically gone". On a real run the item is also removed
- *    from the board; **on a dry run only the flag is set**, so the board still
- *    holds it and every later pass has to honour the flag by hand.
- *  - `SKIP_STRUCT` — "already processed by this geometry pass", which is what
- *    makes duplicate detection asymmetric: of N identical tracks the *last*
- *    survives, and the reference track is reported once per partner it finds,
- *    so three identical tracks give two removals and three report rows.
- *
- * Both are cleared at the start and at the end of every `cleanup()` call and
- * nowhere else. Upstream can set them because it owns mutable `PCB_TRACK`
- * pointers; here they live on {@link TrackRec}, a working copy that also
- * carries the item's *original* `boardItemId`. Report rows name original ids,
- * because a dry run must stay clickable against the board the caller still
- * has, and the new board is only materialised at the end — deleting as we went
- * would renumber every index-based id mid-run.
- *
- * ## Iteration order
- *
- * Upstream walks one interleaved `m_tracks` deque; a ziro `Board` keeps
- * `tracks`, `arcs` and `vias` in three arrays and the file's interleaving is
- * not recoverable from it. The canonical order here is
- * `[...tracks, ...arcs, ...vias]`. No outcome depends on it — every
- * order-sensitive comparison in these passes is like-with-like and the relative
- * order inside each array is preserved — but the *interleaving of report rows*
- * differs from KiCad's for a board that interleaves vias among tracks.
- *
- * ## Two deliberate divergences
+ * Two things cannot be reproduced literally:
  *
  *  - `if( candidate < segment ) continue` in the merge scan compares raw
- *    pointers. Its only purpose is to emit each unordered pair once, and a
- *    pointer order has no counterpart in TS, so canonical-index order stands in:
- *    the **earlier** track is `seg1` and survives, the later is `seg2` and is
- *    removed. Upstream's survivor is whichever the allocator put lower in
- *    memory; the "one merge per pair" effect is reproduced exactly, the choice
- *    of survivor is ours.
- *  - Upstream's connectivity keeps being updated *during* the apply phase of a
- *    merge pass (`Update( aSeg1 )`, `Remove( aSeg2 )`), but its
- *    `m_connectedItemsCache` — cleared once per merge iteration — means every
- *    re-test in that phase reads the pre-merge clusters anyway. This port
- *    builds the graph once per iteration and caches clusters for its duration,
- *    which lands on the same answers by construction.
- *
- * ## Not ported (each needs machinery this port does not have)
- *
- *  - `removeShortingTrackSegments`, `deleteDanglingTracks`: both need
- *    connectivity queries this module does not expose, and the dangling test
- *    needs `TestTrackEndpointDangling`.
- *  - `deleteTracksInPads`: needs `TransformOvalToPolygon` and
- *    `PAD::GetEffectivePolygon( layer, ERROR_INSIDE )`, and the two must share
- *    an inscribe convention or the boolean subtraction leaves slivers and the
- *    pass silently reports nothing.
- *  - the duplicate-**via** half of `cleanup()` (`aDeleteDuplicateVias`): the
- *    R-tree half stands alone, but the through-hole-pad rule beside it needs
- *    `GetConnectedPads`, and half a pass is worse than none.
- *
- * Because `deleteDanglingTracks` is absent, `CleanupBoard`'s step 8 — a second
- * collinear pass gated on `has_deleted && aMergeSegments` — can never fire.
- * Note that it could not fire on a dry run either way: `deleteDanglingTracks`
- * returns `modified`, which is only ever set when `!m_dryRun`.
+ *    pointers, to emit each unordered pair once. A pointer order has no
+ *    counterpart here, so the item's index in `m_brd->Tracks()` stands in: the
+ *    earlier track is `aSeg1` and survives. Upstream's survivor is whichever
+ *    the allocator put lower in memory, which for a loaded board is usually
+ *    the same load order.
+ *  - The merge scan runs on KiCad's thread pool in blocks, and the pairs are
+ *    applied block by block in index order. Run in one block it applies the
+ *    same pairs in the same order; there is no thread pool here.
  */
+import { SKIP_STRUCT, IS_DELETED } from '@ziroeda/common/eda_item_flags.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import { RPT_SEVERITY_UNDEFINED, type Reporter } from '@ziroeda/common/reporter.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
+import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
+import { type VECTOR2I, equal } from '@ziroeda/kimath/src/math/vector2.js';
+import type { BOARD } from './board.js';
+import type { BOARD_COMMIT } from './board_commit.js';
+import type { BOARD_CONNECTED_ITEM } from './board_connected_item.js';
+import type { BOARD_ITEM } from './board_item.js';
+import { CLEANUP_ITEM, CLEANUP_RC_CODE } from './cleanup_item.js';
+import type { CN_CONNECTIVITY_ALGO } from './connectivity/connectivity_algo.js';
+import { DRC_RTREE } from './drc/drc_rtree.js';
+import { PCB_TRACK, type PCB_VIA } from './pcb_track.js';
 
-import { segApproxCollinear } from '@ziroeda/kimath/src/geometry/seg.js';
-import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-import type { Reporter } from '@ziroeda/common/reporter.js';
-import {
-  buildCleanupConnectivity,
-  cnItemHitTest,
-  padCnItems,
-  type CleanupCnItem,
-  type CleanupConnectivity,
-} from './cleanup_connectivity.js';
-import { makeCleanupItem, type CleanupRcItem } from './cleanup_item.js';
-import { arcShape, viaLayers } from './drc/drc_engine_view.js';
-import { shapeDist, type Shape } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
-import { boardItemId, deleteBoardItems } from './edit-board.js';
-import { groupLockedUuids } from './dialogs/dialog_global_deletion.js';
-import { enabledCopperLayers } from './dialogs/dialog_swap_layers.js';
-import type { Board, PcbTrack } from './types.js';
+const popcount = (v: number): number => {
+  let n = 0;
 
-// ---------------------------------------------------------------------------
-// The working copy
+  for (let x = v >>> 0; x; x &= x - 1) n++;
 
-/** `EDA_ITEM_FLAGS` bits `PCB_TRACK::IsPointOnEnds` returns. */
-const STARTPOINT = 1;
-const ENDPOINT = 2;
+  return n;
+};
 
-/**
- * One `PCB_TRACK` of the board, plus the two flags and the geometry the run is
- * allowed to rewrite. A via is a track whose start and end are its centre,
- * exactly as `PCB_VIA` is a `PCB_TRACK` upstream.
- */
-interface TrackRec {
-  /** `boardItemId()` against the *input* board; stable for the whole run. */
-  id: string;
-  /** Position in `[...tracks, ...arcs, ...vias]`; the pointer-order stand-in. */
-  order: number;
-  type: 'track' | 'arc' | 'via';
-  start: Vec2;
-  end: Vec2;
-  /** Arcs only. */
-  mid?: Vec2;
-  /** `GetWidth()`; a via's is its diameter, as `PCB_VIA::GetWidth()` is. */
-  width: number;
-  /** `GetLayer()` — for a via, its *top* layer alone. */
-  layer: string;
-  /** `GetLayerSet()`, intersected with the board's enabled layers. */
-  layers: string[];
-  net: number;
-  /** `BOARD_ITEM::IsLocked()`, ancestor groups included. */
-  locked: boolean;
-  isDeleted: boolean;
-  skipStruct: boolean;
-  /** Set when a merge rewrote `start`/`end`, so the emitter patches this one. */
-  merged: boolean;
-}
+export class TRACKS_CLEANER {
+  private readonly m_brd: BOARD;
+  private readonly m_commit: BOARD_COMMIT; // caller owns
+  private m_dryRun = true;
+  private m_itemsList: CLEANUP_ITEM[] = []; // caller owns
+  private m_reporter: Reporter | null = null;
 
-interface CleanerState {
-  recs: TrackRec[];
-  byId: Map<string, TrackRec>;
-  /** Pads never change during a run, so they are built once. */
-  pads: CleanupCnItem[];
-  dryRun: boolean;
-  filterItem: (aId: string) => boolean;
-  items: CleanupRcItem[];
-  /** Ids to drop from the board when the run finishes; real runs only. */
-  removed: Set<string>;
-}
+  // Cache connections.  O(n^2) is awful, but it beats O(2n^3).
+  private readonly m_connectedItemsCache = new Map<PCB_TRACK, BOARD_CONNECTED_ITEM[]>();
 
-/**
- * `m_brd->Tracks()` — the items still *on* the board.
- *
- * Upstream's `removeItems` takes them off it, so the next `cleanup()` call, the
- * connectivity rebuild and every later pass simply do not see them; here the
- * working copy outlives the removal, so the exclusion has to be explicit —
- * `cleanup()` clears `IS_DELETED` on the way out, and without this a track that
- * was removed for real walks back into the second `cleanup()` call with a clean
- * flag.
- *
- * `removed` is only ever filled on a real run, which is exactly right — on a
- * dry run the item genuinely is still on the board, carrying its flag.
- *
- * Mutation testing says no test can currently tell the difference: with only
- * the null and duplicate passes ported, everything this filters out is already
- * excluded by `IsNull()` or by the `IS_DELETED` check at the use site. It stays
- * because it is what "removed from the board" means, and the first pass added
- * either side of it would depend on it.
- */
-const live = (aState: CleanerState): TrackRec[] =>
-  aState.recs.filter((r) => !aState.removed.has(r.id));
+  private m_filter: ((aItem: BOARD_CONNECTED_ITEM) => boolean) | null = null;
 
-/** `PCB_TRACK::IsNull()` — a via is null by definition, hence the type guards
- *  the callers put in front of it. */
-const isNull = (aRec: TrackRec): boolean =>
-  aRec.type === 'via' || (aRec.start.x === aRec.end.x && aRec.start.y === aRec.end.y);
+  /** The track's index in `m_brd->Tracks()` at the start of a merge scan: the pointer order. */
+  private m_order = new Map<PCB_TRACK, number>();
 
-/**
- * `PCB_TRACK::IsPointOnEnds( point, min_dist )` (pcb_track.cpp:943), returning
- * the same `STARTPOINT | ENDPOINT` bitmask. Every call site in the cleaner uses
- * the result as a boolean, but the mask is what upstream returns and the two
- * ends genuinely differ for a caller that wants to know which one matched.
- *
- * `min_dist == 0` is *exact integer equality*, which is why a reversed
- * duplicate track counts and one that is a single IU off does not.
- */
-function isPointOnEnds(
-  aEnds: { start: Vec2; end: Vec2; width: number },
-  aPoint: Vec2,
-  aMinDist = 0,
-): number {
-  let result = 0;
-  let minDist = aMinDist;
+  constructor(aPcb: BOARD, aCommit: BOARD_COMMIT) {
+    this.m_brd = aPcb;
+    this.m_commit = aCommit;
+  }
 
-  if (minDist < 0) minDist = Math.trunc(aEnds.width / 2);
+  /**
+   * The cleanup function.
+   * @param aDryRun true to build the changes list, false to modify the board
+   * @param aItemsList the list of modified items
+   * @param aRemoveMisConnected true to remove segments connecting 2 different nets
+   * @param aCleanVias true to remove superimposed vias
+   * @param aMergeSegments true to merge collinear segments and remove 0 len segments
+   * @param aDeleteUnconnected true to remove dangling tracks
+   * @param aDeleteTracksinPad true to remove tracks fully inside pads
+   * @param aDeleteDanglingVias true to remove a via that is only connected to a single layer
+   * @param aReporter a REPORTER to print activity and info
+   *
+   * The parameter order is the definition's (tracks_cleaner.cpp:55-58), which
+   * swaps the first two against the declaration's names; the definition is what
+   * runs, and the dialog calls it in that order.
+   */
+  CleanupBoard(
+    aDryRun: boolean,
+    aItemsList: CLEANUP_ITEM[],
+    aRemoveMisConnected: boolean,
+    aCleanVias: boolean,
+    aMergeSegments: boolean,
+    aDeleteUnconnected: boolean,
+    aDeleteTracksinPad: boolean,
+    aDeleteDanglingVias: boolean,
+    aReporter: Reporter | null = null,
+  ): void {
+    this.m_reporter = aReporter;
+    let has_deleted = false;
 
-  if (minDist === 0) {
-    if (aEnds.start.x === aPoint.x && aEnds.start.y === aPoint.y) result |= STARTPOINT;
-    if (aEnds.end.x === aPoint.x && aEnds.end.y === aPoint.y) result |= ENDPOINT;
-  } else {
-    if (minDist >= Math.hypot(aEnds.start.x - aPoint.x, aEnds.start.y - aPoint.y)) {
-      result |= STARTPOINT;
+    this.m_dryRun = aDryRun;
+    this.m_itemsList = aItemsList;
+
+    this.report(aDryRun ? 'Checking null tracks and vias...' : 'Removing null tracks and vias...');
+
+    const removeNullSegments = aMergeSegments || aRemoveMisConnected;
+    this.cleanup(aCleanVias, removeNullSegments, aMergeSegments /* dup segments*/, aMergeSegments);
+
+    this.report(aDryRun ? 'Checking redundant tracks...' : 'Removing redundant tracks...');
+
+    // If we didn't remove duplicates above, do it now
+    if (!aMergeSegments) this.cleanup(false, false, true, false);
+
+    if (aRemoveMisConnected) {
+      this.report(aDryRun ? 'Checking shorting tracks...' : 'Removing shorting tracks...');
+
+      this.removeShortingTrackSegments();
     }
 
-    if (minDist >= Math.hypot(aEnds.end.x - aPoint.x, aEnds.end.y - aPoint.y)) {
-      result |= ENDPOINT;
+    if (aDeleteTracksinPad) {
+      this.report(aDryRun ? 'Checking tracks in pads...' : 'Removing tracks in pads...');
+
+      this.deleteTracksInPads();
+    }
+
+    if (aDeleteUnconnected || aDeleteDanglingVias) {
+      if (aDryRun) {
+        this.report('Checking dangling tracks and vias...');
+      } else {
+        if (aDeleteUnconnected) this.report('Removing dangling tracks...');
+
+        if (aDeleteDanglingVias) this.report('Removing dangling vias...');
+      }
+
+      has_deleted = this.deleteDanglingTracks(aDeleteUnconnected, aDeleteDanglingVias);
+    }
+
+    if (has_deleted && aMergeSegments) {
+      this.report(aDryRun ? 'Checking collinear tracks...' : 'Merging collinear tracks...');
+
+      this.cleanup(false, false, false, true);
     }
   }
 
-  return result;
-}
-
-/** `PCB_TRACK::ApproxCollinear` (pcb_track.cpp:537): the two chords, threshold 1. */
-const approxCollinear = (aA: TrackRec, aB: TrackRec): boolean =>
-  segApproxCollinear(aA.start, aA.end, aB.start, aB.end);
-
-/** `GetEffectiveShape()` — SHAPE_SEGMENT, SHAPE_ARC or a via's circle. */
-function recShape(aRec: TrackRec): Shape {
-  if (aRec.type === 'via') return { kind: 'circle', c: aRec.start, r: aRec.width / 2 };
-  if (aRec.type === 'arc' && aRec.mid) {
-    return arcShape(aRec.start, aRec.mid, aRec.end, aRec.width);
-  }
-  return { kind: 'stadium', a: aRec.start, b: aRec.end, r: aRec.width / 2 };
-}
-
-/** `std::popcount` over the four attachment-point bits. */
-function popcount(aFlags: number): number {
-  let count = 0;
-
-  for (let bits = aFlags; bits !== 0; bits >>>= 1) count += bits & 1;
-
-  return count;
-}
-
-function buildRecs(aBoard: Board): TrackRec[] {
-  const enabled = aBoard.layers.map((l) => l.name);
-  const copperOrder = enabledCopperLayers(aBoard);
-  const lockedByGroup = groupLockedUuids(aBoard);
-  const recs: TrackRec[] = [];
-
-  const locked = (item: { locked?: boolean; uuid?: string }): boolean =>
-    !!item.locked || (item.uuid !== undefined && lockedByGroup.has(item.uuid));
-
-  // `PCB_TRACK::GetLayerSet()` (pcb_track.cpp:1545): the copper layer, plus the
-  // matching mask layer when the track carries a solder-mask opening.
-  const traceLayers = (layer: string, maskLayer: string | undefined): string[] =>
-    [layer, ...(maskLayer === undefined ? [] : [maskLayer])].filter((l) => enabled.includes(l));
-
-  aBoard.tracks.forEach((t, i) => {
-    recs.push({
-      id: boardItemId('track', i),
-      order: recs.length,
-      type: 'track',
-      start: t.start,
-      end: t.end,
-      width: t.width,
-      layer: t.layer,
-      layers: traceLayers(t.layer, t.maskLayer),
-      net: t.net,
-      locked: locked(t),
-      isDeleted: false,
-      skipStruct: false,
-      merged: false,
-    });
-  });
-
-  aBoard.arcs.forEach((a, i) => {
-    recs.push({
-      id: boardItemId('arc', i),
-      order: recs.length,
-      type: 'arc',
-      start: a.start,
-      mid: a.mid,
-      end: a.end,
-      width: a.width,
-      layer: a.layer,
-      layers: traceLayers(a.layer, a.maskLayer),
-      net: a.net,
-      locked: locked(a),
-      isDeleted: false,
-      skipStruct: false,
-      merged: false,
-    });
-  });
-
-  aBoard.vias.forEach((v, i) => {
-    recs.push({
-      id: boardItemId('via', i),
-      order: recs.length,
-      type: 'via',
-      // A via's start and end are both its centre; `cleanup()` even repairs a
-      // via whose two differ, which our single-point model cannot express.
-      start: v.at,
-      end: v.at,
-      width: v.size,
-      // `GetLayer()` for a via is the *top* of its span, which is the only
-      // layer the R-tree indexes it on.
-      layer: v.layers[0],
-      layers: viaLayers(v, copperOrder).filter((l) => enabled.includes(l)),
-      net: v.net,
-      locked: locked(v),
-      isDeleted: false,
-      skipStruct: false,
-      merged: false,
-    });
-  });
-
-  return recs;
-}
-
-// ---------------------------------------------------------------------------
-// The spatial index (DRC_RTREE)
-
-/**
- * `DRC_RTREE::QueryColliding( ref, refLayer, targetLayer, filter, visitor )`
- * (drc/drc_rtree.h:225) as a brute-force scan.
- *
- * The three properties that matter are kept: an item never matches itself, each
- * parent is visited at most once, and the collision is the effective shapes at
- * clearance 0. Items are indexed on `GetLayer()` and both the query layers are
- * the reference's own, so only same-layer items are candidates at all.
- *
- * The *filter* is applied at visit time rather than when the candidate list is
- * built, because the visitor sets flags the filter reads.
- */
-function buildTrackIndex(aRecs: readonly TrackRec[]): (aRef: TrackRec) => TrackRec[] {
-  const byLayer = new Map<string, TrackRec[]>();
-  const shapes = new Map<string, Shape>();
-
-  for (const rec of aRecs) {
-    const bucket = byLayer.get(rec.layer);
-
-    if (bucket) bucket.push(rec);
-    else byLayer.set(rec.layer, [rec]);
-
-    shapes.set(rec.id, recShape(rec));
+  SetFilter(aFilter: ((aItem: BOARD_CONNECTED_ITEM) => boolean) | null): void {
+    this.m_filter = aFilter;
   }
 
-  return (aRef: TrackRec): TrackRec[] => {
-    const refShape = shapes.get(aRef.id)!;
+  /** `m_reporter->Report( msg )`; `wxSafeYield()` has nothing to yield to. */
+  private report(aMsg: string): void {
+    this.m_reporter?.report(aMsg, RPT_SEVERITY_UNDEFINED);
+  }
 
-    return (byLayer.get(aRef.layer) ?? []).filter(
-      (other) => other !== aRef && shapeDist(refShape, shapes.get(other.id)!) <= 0,
-    );
-  };
-}
+  private filterItem(aItem: BOARD_CONNECTED_ITEM): boolean {
+    if (!this.m_filter) return false;
 
-// ---------------------------------------------------------------------------
-// testMergeCollinearSegments and friends
+    return this.m_filter(aItem);
+  }
 
-/**
- * `TRACKS_CLEANER::testTrackEndpointIsNode` (tracks_cleaner.cpp:230),
- * reproduced faithfully — **including the fact that it cannot fire**.
- *
- * `ItemEntry( aTrack ).GetItems()` holds the track's own `CN_ITEM` and nothing
- * else (`m_itemMap[item] = ITEM_MAP_ENTRY( item )`; `Link()` is used only for
- * the extra items a zone gets per layer), and the loop's first guard skips the
- * item whose parent *is* `aTrack`. So the body never executes, `itemcount`
- * stays 0, and the answer is always false.
- *
- * Even if the list did hold neighbours, the anchor test asks a single anchor to
- * equal both `GetStart()` *and* `GetEnd()`, which no anchor of a non-degenerate
- * track can. It is written out here so that the day upstream fixes it, this is
- * a small diff instead of a rediscovery.
- */
-function testTrackEndpointIsNode(aTrack: TrackRec, aTstStart: boolean, aTstEnd: boolean): boolean {
-  if (!(aTstStart && aTstEnd)) return false;
+  private push(aCode: number, a: BOARD_ITEM, b: BOARD_ITEM | null = null): void {
+    const item = new CLEANUP_ITEM(aCode);
+    item.SetItems(a, b);
+    this.m_itemsList.push(item);
+  }
 
-  const items: readonly TrackRec[] = [aTrack];
+  /** Removes track segments which are connected to more than one net (short circuits). */
+  private removeShortingTrackSegments(): void {
+    const connectivity = this.m_brd.GetConnectivity();
+    const toRemove = new Set<BOARD_ITEM>();
 
-  if (items.length === 0) return false;
+    for (const segment of this.m_brd.Tracks()) {
+      if (segment.IsLocked() || this.filterItem(segment)) continue;
 
-  let itemcount = 0;
+      const code =
+        segment.Type() === KICAD_T.PCB_VIA_T
+          ? CLEANUP_RC_CODE.CLEANUP_SHORTING_VIA
+          : CLEANUP_RC_CODE.CLEANUP_SHORTING_TRACK;
 
-  for (const item of items) {
-    if (item === aTrack || item.isDeleted) continue;
+      for (const testedPad of connectivity.GetConnectedPads(segment)) {
+        if (segment.GetNetCode() !== testedPad.GetNetCode()) {
+          this.push(code, segment);
+          toRemove.add(segment);
+        }
+      }
 
-    if (item.type === 'track' && approxCollinear(item, aTrack)) continue;
-
-    for (const anchor of [item.start, item.end]) {
-      if (
-        aTstStart &&
-        anchor.x === aTrack.start.x &&
-        anchor.y === aTrack.start.y &&
-        aTstEnd &&
-        anchor.x === aTrack.end.x &&
-        anchor.y === aTrack.end.y
-      ) {
-        itemcount++;
-        break;
+      for (const testedTrack of connectivity.GetConnectedTracks(segment)) {
+        if (segment.GetNetCode() !== testedTrack.GetNetCode()) {
+          this.push(code, segment);
+          toRemove.add(segment);
+        }
       }
     }
+
+    if (!this.m_dryRun) this.removeItems(toRemove);
   }
 
-  return itemcount > 1;
-}
+  /**
+   * @return true if a track end position is a node, i.e. an end connected to more
+   * than one item.
+   */
+  private testTrackEndpointIsNode(
+    aTrack: PCB_TRACK,
+    aTstStart: boolean,
+    aTstEnd: boolean,
+  ): boolean {
+    if (!(aTstStart && aTstEnd)) return false;
 
-/**
- * `TRACKS_CLEANER::testMergeCollinearSegments` (tracks_cleaner.cpp:412).
- *
- * The question it answers is "would merging these two lose an attachment?".
- * It collects the *distinct points at which anything else is attached* to
- * either segment as a four-bit mask over
- * `[seg1.start, seg1.end, seg2.start, seg2.end]`; more than two such points
- * means there is a node in the middle of the pair, and the merge is refused.
- *
- * Two details that look interchangeable and are not:
- *
- *  - the attachment scan walks each segment's whole **same-net cluster**
- *    (`GetConnectedItems`), not its direct neighbours. A track with net <= 0
- *    gets an empty cluster, so the mask stays 0 and an unnetted collinear pair
- *    always merges;
- *  - a track, arc or via sets a bit by *exact* endpoint equality, while
- *    anything else sets it by `HitTest` at `(width + 1) / 2` — the integer
- *    round-*up* of the segment's own half width.
- *
- * When `aDummySeg` is supplied the merged geometry is written into it, which is
- * how `mergeCollinearSegments` gets the geometry it commits.
- */
-function testMergeCollinearSegments(
-  aState: CleanerState,
-  aConnectivity: CleanupConnectivity,
-  aSeg1: TrackRec,
-  aSeg2: TrackRec,
-  aDummySeg?: { start: Vec2; end: Vec2 },
-): boolean {
-  if (aSeg1.locked || aSeg2.locked) return false;
+    // A node is a point where more than 2 items are connected.  However, we elide tracks that
+    // are collinear with the track being tested.
+    const items = this.m_brd.GetConnectivity().GetConnectivityAlgo().ItemEntry(aTrack).GetItems();
 
-  const pts = [aSeg1.start, aSeg1.end, aSeg2.start, aSeg2.end];
-  let flags = 0;
+    if (items.length === 0) return false;
 
-  // p1s = 1 << 0, p1e = 1 << 1, p2s = 1 << 2, p2e = 1 << 3.
-  const collectPts = (aItem: CleanupCnItem, aBase: number, aSeg: TrackRec): void => {
-    if (popcount(flags) > 2) return;
+    let itemcount = 0;
 
-    const startBit = 1 << aBase;
-    const endBit = 1 << (aBase + 1);
-
-    if (aItem.type !== 'pad') {
-      const other = aState.byId.get(aItem.id)!;
-
-      if (isPointOnEnds(other, aSeg.start)) flags |= startBit;
-      if (isPointOnEnds(other, aSeg.end)) flags |= endBit;
-    } else {
-      const accuracy = Math.trunc((aSeg.width + 1) / 2);
-
-      if (!(flags & startBit) && cnItemHitTest(aItem, aSeg.start, accuracy)) flags |= startBit;
-      if (!(flags & endBit) && cnItemHitTest(aItem, aSeg.end, accuracy)) flags |= endBit;
-    }
-  };
-
-  const scan = (aSeg: TrackRec, aBase: number): void => {
-    for (const item of aConnectivity.cluster(aSeg.id)) {
-      if (aState.byId.get(item.id)?.isDeleted) continue;
-      if (item.id === aSeg1.id || item.id === aSeg2.id) continue;
-
-      collectPts(item, aBase, aSeg);
-    }
-  };
-
-  scan(aSeg1, 0);
-  scan(aSeg2, 2);
-
-  // This means there is a node in the center.
-  if (popcount(flags) > 2) return false;
-
-  const minX = Math.min(aSeg1.start.x, aSeg1.end.x, aSeg2.start.x, aSeg2.end.x);
-  const minY = Math.min(aSeg1.start.y, aSeg1.end.y, aSeg2.start.y, aSeg2.end.y);
-  const maxX = Math.max(aSeg1.start.x, aSeg1.end.x, aSeg2.start.x, aSeg2.end.x);
-  const maxY = Math.max(aSeg1.start.y, aSeg1.end.y, aSeg2.start.y, aSeg2.end.y);
-
-  // Which diagonal of the bounding box the merged segment runs along is decided
-  // by aSeg1's own orientation alone — aSeg2 does not get a vote, which is what
-  // makes the survivor's identity matter.
-  const dummy =
-    aSeg1.start.x > aSeg1.end.x === aSeg1.start.y > aSeg1.end.y
-      ? { start: { x: minX, y: minY }, end: { x: maxX, y: maxY } }
-      : { start: { x: minX, y: maxY }, end: { x: maxX, y: minY } };
-
-  if (aDummySeg) {
-    aDummySeg.start = dummy.start;
-    aDummySeg.end = dummy.end;
-  }
-
-  const dummyEnds = { ...dummy, width: aSeg1.width };
-
-  // Every attachment point must still be an endpoint of the merged segment.
-  for (let i = 0; i < 4; ++i) {
-    if (flags & (1 << i) && !isPointOnEnds(dummyEnds, pts[i]!)) return false;
-  }
-
-  return !testTrackEndpointIsNode(
-    aSeg1,
-    isPointOnEnds(dummyEnds, aSeg1.start) !== 0,
-    isPointOnEnds(dummyEnds, aSeg1.end) !== 0,
-  );
-}
-
-/**
- * `TRACKS_CLEANER::mergeCollinearSegments` (tracks_cleaner.cpp:530).
- *
- * The test is re-run with a real out-parameter rather than carrying geometry
- * over from the scan, so the merged shape is computed against whatever the
- * segments look like *now* — an earlier merge in the same pass may have moved
- * `aSeg1`'s far end.
- *
- * `*aSeg1 = dummy_seg` copies through `EDA_ITEM::operator=`, which does not
- * copy `m_Uuid`: the surviving track keeps its own uuid, width, layer and net,
- * and only its endpoints change.
- */
-function mergeCollinearSegments(
-  aState: CleanerState,
-  aConnectivity: CleanupConnectivity,
-  aSeg1: TrackRec,
-  aSeg2: TrackRec,
-): boolean {
-  const dummy = { start: aSeg1.start, end: aSeg1.end };
-
-  if (!testMergeCollinearSegments(aState, aConnectivity, aSeg1, aSeg2, dummy)) return false;
-
-  aState.items.push(makeCleanupItem('merge_tracks', aSeg1.id, aSeg2.id));
-
-  aSeg2.isDeleted = true;
-
-  if (!aState.dryRun) {
-    aSeg1.start = dummy.start;
-    aSeg1.end = dummy.end;
-    aSeg1.merged = true;
-
-    // Merge successful, seg2 has to go away.
-    aState.removed.add(aSeg2.id);
-  }
-
-  return true;
-}
-
-/**
- * The `mergeSegments` lambda of `cleanup()` (tracks_cleaner.cpp:509): collect
- * every mergeable pair, then apply them.
- *
- * Upstream splits the scan across a thread pool purely for speed, but the
- * two-phase shape it forces is observable: a pair collected before its partner
- * was flagged is *skipped* at apply time, yet still counts as "something
- * happened" and so drives another iteration of the outer loop.
- *
- * The scan iterates the segment's `CN_ITEM`s, not its two ends — and a track
- * has exactly one — so despite the comment upstream a segment yields **at most
- * one pair per pass** and picks up its other end on the next one.
- */
-function mergeSegmentsPass(aState: CleanerState, aConnectivity: CleanupConnectivity): boolean {
-  const pairs: [TrackRec, TrackRec][] = [];
-
-  for (const segment of live(aState)) {
-    // One can merge only collinear segments, not vias or arcs.
-    if (segment.type !== 'track') continue;
-    if (segment.isDeleted) continue; // already taken into account
-    if (aState.filterItem(segment.id)) continue;
-
-    // Do not merge an end which has different width tracks attached -- it's a
-    // common use-case for necking-down a track between pads.
-    const sameWidthCandidates: TrackRec[] = [];
-    let differentWidth = false;
-
-    for (const connected of aConnectivity.neighbours(segment.id)) {
-      const candidate = aState.byId.get(connected.id);
+    for (const item of items) {
+      if (!item.Valid() || item.Parent() === aTrack || item.Parent().HasFlag(IS_DELETED)) continue;
 
       if (
-        candidate === undefined ||
-        candidate.type !== 'track' ||
-        candidate.isDeleted ||
-        aState.filterItem(candidate.id)
+        item.Parent().Type() === KICAD_T.PCB_TRACE_T &&
+        (item.Parent() as PCB_TRACK).ApproxCollinear(aTrack)
       ) {
         continue;
       }
 
-      if (candidate.width === segment.width) {
-        sameWidthCandidates.push(candidate);
-      } else {
-        differentWidth = true;
-        break;
+      for (const anchor of item.Anchors()) {
+        if (
+          aTstStart &&
+          equal(anchor.Pos(), aTrack.GetStart()) &&
+          aTstEnd &&
+          equal(anchor.Pos(), aTrack.GetEnd())
+        ) {
+          itemcount++;
+          break;
+        }
       }
     }
 
-    if (differentWidth) continue;
+    return itemcount > 1;
+  }
 
-    for (const candidate of sameWidthCandidates) {
-      // Upstream's `if( candidate < segment ) continue` — see the file header.
-      if (candidate.order < segment.order) continue;
+  /**
+   * Removes tracks or vias only connected on one end.
+   * @return true if any items were deleted
+   */
+  private deleteDanglingTracks(aTrack: boolean, aVia: boolean): boolean {
+    let item_erased = false;
+    let modified = false;
+
+    if (!aTrack && !aVia) return false;
+
+    do {
+      // Iterate when at least one track is deleted
+      item_erased = false;
+      // Ensure the connectivity is up to date, especially after removing a dangling segment
+      this.m_brd.BuildConnectivity();
+
+      // Keep a duplicate deque to allow deleting in the primary
+      const temp_tracks = [...this.m_brd.Tracks()];
+
+      for (const track of temp_tracks) {
+        if (track.HasFlag(IS_DELETED) || track.IsLocked() || this.filterItem(track)) continue;
+
+        if (!aVia && track.Type() === KICAD_T.PCB_VIA_T) continue;
+
+        if (!aTrack && (track.Type() === KICAD_T.PCB_TRACE_T || track.Type() === KICAD_T.PCB_ARC_T))
+          continue;
+
+        // Test if a track (or a via) endpoint is not connected to another track or zone.
+        if (this.m_brd.GetConnectivity().TestTrackEndpointDangling(track, false)) {
+          this.push(
+            track.Type() === KICAD_T.PCB_VIA_T
+              ? CLEANUP_RC_CODE.CLEANUP_DANGLING_VIA
+              : CLEANUP_RC_CODE.CLEANUP_DANGLING_TRACK,
+            track,
+          );
+          track.SetFlags(IS_DELETED);
+
+          // keep iterating, because a track connected to the deleted track
+          // now perhaps is not connected and should be deleted
+          item_erased = true;
+
+          if (!this.m_dryRun) {
+            this.m_brd.Remove(track);
+            this.m_commit.Removed(track);
+            modified = true;
+          }
+        }
+      }
+    } while (item_erased); // A segment was erased: test for some new dangling segments
+
+    return modified;
+  }
+
+  private deleteTracksInPads(): void {
+    const toRemove = new Set<BOARD_ITEM>();
+
+    // Delete tracks that start and end on the same pad
+    const connectivity = this.m_brd.GetConnectivity();
+
+    for (const track of this.m_brd.Tracks()) {
+      if (track.IsLocked() || this.filterItem(track)) continue;
+
+      if (track.Type() === KICAD_T.PCB_VIA_T) continue;
+
+      // Mark track if connected to pads
+      for (const pad of connectivity.GetConnectedPads(track)) {
+        if (pad.HitTest(track.GetStart()) && pad.HitTest(track.GetEnd())) {
+          const poly = new SHAPE_POLY_SET();
+          track.TransformShapeToPolygon(
+            poly,
+            track.GetLayer(),
+            0,
+            track.GetMaxError(),
+            ERROR_LOC.ERROR_INSIDE,
+          );
+
+          poly.BooleanSubtract(pad.GetEffectivePolygon(track.GetLayer(), ERROR_LOC.ERROR_INSIDE));
+
+          if (poly.IsEmpty()) {
+            this.push(CLEANUP_RC_CODE.CLEANUP_TRACK_IN_PAD, track);
+
+            toRemove.add(track);
+            track.SetFlags(IS_DELETED);
+          }
+        }
+      }
+    }
+
+    if (!this.m_dryRun) this.removeItems(toRemove);
+  }
+
+  /** Geometry-based cleanup: duplicate items, null items, colinear items. */
+  private cleanup(
+    aDeleteDuplicateVias: boolean,
+    aDeleteNullSegments: boolean,
+    aDeleteDuplicateSegments: boolean,
+    aMergeSegments: boolean,
+  ): void {
+    const rtree = new DRC_RTREE();
+
+    for (const track of this.m_brd.Tracks()) {
+      track.ClearFlags(IS_DELETED | SKIP_STRUCT);
+      rtree.Insert(track, track.GetLayer());
+    }
+
+    const toRemove = new Set<BOARD_ITEM>();
+
+    for (const track of this.m_brd.Tracks()) {
+      if (track.HasFlag(IS_DELETED) || track.IsLocked() || this.filterItem(track)) continue;
+
+      if (aDeleteDuplicateVias && track.Type() === KICAD_T.PCB_VIA_T) {
+        const via = track as PCB_VIA;
+
+        if (!equal(via.GetStart(), via.GetEnd())) via.SetEnd(via.GetStart());
+
+        rtree.QueryCollidingItem(
+          via,
+          via.GetLayer(),
+          via.GetLayer(),
+          // Filter:
+          (aItem) =>
+            aItem.Type() === KICAD_T.PCB_VIA_T &&
+            !aItem.HasFlag(SKIP_STRUCT) &&
+            !aItem.HasFlag(IS_DELETED),
+          // Visitor:
+          (aItem) => {
+            const other = aItem as PCB_VIA;
+
+            if (
+              equal(via.GetPosition(), other.GetPosition()) &&
+              via.GetViaType() === other.GetViaType() &&
+              via.GetLayerSet().equals(other.GetLayerSet())
+            ) {
+              this.push(CLEANUP_RC_CODE.CLEANUP_REDUNDANT_VIA, via);
+
+              via.SetFlags(IS_DELETED);
+              toRemove.add(via);
+            }
+
+            return true;
+          },
+        );
+
+        // To delete through Via on THT pads at same location
+        // Examine the list of connected pads: if a through pad is found, the via is redundant
+        for (const pad of this.m_brd.GetConnectivity().GetConnectedPads(via)) {
+          const all_cu = LSET.AllCuMask(this.m_brd.GetCopperLayerCount());
+
+          if (pad.GetLayerSet().and(all_cu).equals(all_cu)) {
+            this.push(CLEANUP_RC_CODE.CLEANUP_REDUNDANT_VIA, via, pad);
+
+            via.SetFlags(IS_DELETED);
+            toRemove.add(via);
+            break;
+          }
+        }
+
+        via.SetFlags(SKIP_STRUCT);
+      }
+
+      if (aDeleteNullSegments && track.Type() !== KICAD_T.PCB_VIA_T) {
+        if (track.IsNull()) {
+          this.push(CLEANUP_RC_CODE.CLEANUP_ZERO_LENGTH_TRACK, track);
+
+          track.SetFlags(IS_DELETED);
+          toRemove.add(track);
+        }
+      }
+
+      if (aDeleteDuplicateSegments && track.Type() === KICAD_T.PCB_TRACE_T && !track.IsNull()) {
+        rtree.QueryCollidingItem(
+          track,
+          track.GetLayer(),
+          track.GetLayer(),
+          // Filter:
+          (aItem) =>
+            aItem.Type() === KICAD_T.PCB_TRACE_T &&
+            !aItem.HasFlag(SKIP_STRUCT) &&
+            !aItem.HasFlag(IS_DELETED) &&
+            !(aItem as PCB_TRACK).IsNull(),
+          // Visitor:
+          (aItem) => {
+            const other = aItem as PCB_TRACK;
+
+            if (
+              track.IsPointOnEnds(other.GetStart()) &&
+              track.IsPointOnEnds(other.GetEnd()) &&
+              track.GetWidth() === other.GetWidth() &&
+              track.GetLayer() === other.GetLayer()
+            ) {
+              this.push(CLEANUP_RC_CODE.CLEANUP_DUPLICATE_TRACK, track);
+
+              track.SetFlags(IS_DELETED);
+              toRemove.add(track);
+            }
+
+            return true;
+          },
+        );
+
+        track.SetFlags(SKIP_STRUCT);
+      }
+    }
+
+    if (!this.m_dryRun) this.removeItems(toRemove);
+
+    const mergeSegments = (connectivity: CN_CONNECTIVITY_ALGO): boolean => {
+      const tracksOf = this.m_brd.Tracks();
+
+      this.m_order = new Map(tracksOf.map((t, i) => [t, i]));
+
+      const before = (a: PCB_TRACK, b: PCB_TRACK): boolean =>
+        (this.m_order.get(a) ?? Number.MAX_SAFE_INTEGER) <
+        (this.m_order.get(b) ?? Number.MAX_SAFE_INTEGER);
+
+      const track_loop = (aStart: number, aEnd: number): [PCB_TRACK, PCB_TRACK][] => {
+        const tracks: [PCB_TRACK, PCB_TRACK][] = [];
+
+        for (let ii = aStart; ii < aEnd; ++ii) {
+          const segment = tracksOf[ii]!;
+
+          // one can merge only collinear segments, not vias or arcs.
+          if (segment.Type() !== KICAD_T.PCB_TRACE_T) continue;
+
+          if (segment.HasFlag(IS_DELETED)) continue; // already taken into account
+
+          if (this.filterItem(segment)) continue;
+
+          // for each end of the segment:
+          const cnItems = connectivity.ItemEntry(segment).GetItems();
+
+          for (const citem of cnItems) {
+            // Do not merge an end which has different width tracks attached -- it's a
+            // common use-case for necking-down a track between pads.
+            const sameWidthCandidates: PCB_TRACK[] = [];
+            const differentWidthCandidates: PCB_TRACK[] = [];
+
+            for (const connected of citem.ConnectedItems()) {
+              if (!connected.Valid()) continue;
+
+              const candidate = connected.Parent();
+
+              if (
+                candidate.Type() === KICAD_T.PCB_TRACE_T &&
+                !candidate.HasFlag(IS_DELETED) &&
+                !this.filterItem(candidate)
+              ) {
+                const candidateSegment = candidate as PCB_TRACK;
+
+                if (candidateSegment.GetWidth() === segment.GetWidth()) {
+                  sameWidthCandidates.push(candidateSegment);
+                } else {
+                  differentWidthCandidates.push(candidateSegment);
+                  break;
+                }
+              }
+            }
+
+            if (differentWidthCandidates.length > 0) continue;
+
+            for (const candidate of sameWidthCandidates) {
+              if (before(candidate, segment)) continue; // avoid duplicate merges
+
+              if (
+                segment.ApproxCollinear(candidate) &&
+                this.testMergeCollinearSegments(segment, candidate)
+              ) {
+                tracks.push([segment, candidate]);
+                break;
+              }
+            }
+          }
+        }
+
+        return tracks;
+      };
+
+      // Upstream submits the loop in blocks to the thread pool and applies the pairs
+      // block by block; one block applies the same pairs in the same order.
+      const merge_returns = [track_loop(0, tracksOf.length)];
+      let retval = false;
+
+      for (const ret of merge_returns) {
+        for (const [seg1, seg2] of ret) {
+          retval = true;
+
+          if (seg1.HasFlag(IS_DELETED) || seg2.HasFlag(IS_DELETED)) continue;
+
+          this.mergeCollinearSegments(seg1, seg2);
+        }
+      }
+
+      return retval;
+    };
+
+    if (aMergeSegments) {
+      do {
+        while (!this.m_brd.BuildConnectivity()) {
+          // wxSafeYield()
+        }
+
+        // BuildConnectivity adds items but doesn't establish connections between them.
+        // RecalculateRatsnest triggers searchConnections which actually finds and links
+        // connected items in the connectivity graph.
+        this.m_brd.GetConnectivity().RecalculateRatsnest();
+
+        this.m_connectedItemsCache.clear();
+      } while (mergeSegments(this.m_brd.GetConnectivity().GetConnectivityAlgo()));
+    }
+
+    for (const track of this.m_brd.Tracks()) track.ClearFlags(IS_DELETED | SKIP_STRUCT);
+  }
+
+  private getConnectedItems(aTrack: PCB_TRACK): BOARD_CONNECTED_ITEM[] {
+    const connectivity = this.m_brd.GetConnectivity();
+    let items = this.m_connectedItemsCache.get(aTrack);
+
+    if (!items) {
+      items = connectivity.GetConnectedItems(aTrack);
+      this.m_connectedItemsCache.set(aTrack, items);
+    }
+
+    return items;
+  }
+
+  /**
+   * Test if 2 segments are colinear and can be merged. Does not modify the connectivity.
+   * @param aSeg1 the reference
+   * @param aSeg2 the candidate
+   * @param aDummySeg receives the merged segment's ends
+   */
+  private testMergeCollinearSegments(
+    aSeg1: PCB_TRACK,
+    aSeg2: PCB_TRACK,
+    aDummySeg: PCB_TRACK | null = null,
+  ): boolean {
+    if (aSeg1.IsLocked() || aSeg2.IsLocked()) return false;
+
+    // Collect the unique points where the two tracks are connected to other items
+    const p1s = 1 << 0;
+    const p1e = 1 << 1;
+    const p2s = 1 << 2;
+    const p2e = 1 << 3;
+    const pts: VECTOR2I[] = [aSeg1.GetStart(), aSeg1.GetEnd(), aSeg2.GetStart(), aSeg2.GetEnd()];
+    let flags = 0;
+
+    const collectPts = (
+      aSeg: PCB_TRACK,
+      ps: number,
+      pe: number,
+      citem: BOARD_CONNECTED_ITEM,
+    ): void => {
+      if (popcount(flags) > 2) return;
 
       if (
-        approxCollinear(segment, candidate) &&
-        testMergeCollinearSegments(aState, aConnectivity, segment, candidate)
+        citem.Type() === KICAD_T.PCB_TRACE_T ||
+        citem.Type() === KICAD_T.PCB_ARC_T ||
+        citem.Type() === KICAD_T.PCB_VIA_T
       ) {
-        pairs.push([segment, candidate]);
-        break;
+        const track = citem as PCB_TRACK;
+
+        if (track.IsPointOnEnds(aSeg.GetStart())) flags |= ps;
+
+        if (track.IsPointOnEnds(aSeg.GetEnd())) flags |= pe;
+      } else {
+        const half = Math.trunc((aSeg.GetWidth() + 1) / 2);
+
+        if (!(flags & ps) && citem.HitTest(aSeg.GetStart(), half)) flags |= ps;
+
+        if (!(flags & pe) && citem.HitTest(aSeg.GetEnd(), half)) flags |= pe;
       }
-    }
-  }
+    };
 
-  let retval = false;
+    for (const item of this.getConnectedItems(aSeg1)) {
+      if (item.HasFlag(IS_DELETED)) continue;
 
-  for (const [seg1, seg2] of pairs) {
-    retval = true;
-
-    if (seg1.isDeleted || seg2.isDeleted) continue;
-
-    mergeCollinearSegments(aState, aConnectivity, seg1, seg2);
-  }
-
-  return retval;
-}
-
-/** `BOARD::BuildConnectivity()` + `RecalculateRatsnest()`, over the working copy. */
-function rebuildConnectivity(aState: CleanerState): CleanupConnectivity {
-  const items: CleanupCnItem[] = [];
-
-  // On a real run the flagged items came off the board with `removeItems`, so
-  // they are out of the connectivity too; on a dry run they are still on it,
-  // still linked, and every consumer filters them by flag instead. The
-  // difference is observable — a dry run can reach through a doomed segment to
-  // the far side of a cluster, a real run cannot.
-  for (const rec of live(aState)) {
-    items.push({
-      id: rec.id,
-      type: rec.type,
-      net: rec.net,
-      layers: rec.layers,
-      shapes: [recShape(rec)],
-      // CN_ITEMs for tracks and arcs are built with aCanChangeNet = true, and a
-      // via's is `!GetIsFree()` — free vias are not modelled, so every via here
-      // is an ordinary one.
-      canChangeNet: true,
-    });
-  }
-
-  return buildCleanupConnectivity([...items, ...aState.pads]);
-}
-
-// ---------------------------------------------------------------------------
-// cleanup()
-
-/**
- * `TRACKS_CLEANER::cleanup` (tracks_cleaner.cpp:378), minus the duplicate-via
- * branch — see the file header.
- *
- * All the branches run for the same item inside one iteration, in this order,
- * which is why a zero-length trace flagged by the null pass is never also
- * examined by the duplicate pass: `IsNull()` excludes it there.
- */
-function geometryCleanup(
-  aState: CleanerState,
-  aDeleteNullSegments: boolean,
-  aDeleteDuplicateSegments: boolean,
-  aMergeSegments: boolean,
-): void {
-  const tracks = live(aState);
-
-  for (const rec of tracks) {
-    rec.isDeleted = false;
-    rec.skipStruct = false;
-  }
-
-  const queryColliding = buildTrackIndex(tracks);
-  const toRemove = new Set<string>();
-
-  for (const track of tracks) {
-    if (track.isDeleted || track.locked || aState.filterItem(track.id)) continue;
-
-    if (aDeleteNullSegments && track.type !== 'via') {
-      // `IsNull()` is exact equality of the two ends, and arcs are *not*
-      // excluded here, so a closed arc is reported as a zero-length track.
-      if (isNull(track)) {
-        aState.items.push(makeCleanupItem('zero_length_track', track.id));
-
-        track.isDeleted = true;
-        toRemove.add(track.id);
-      }
+      if (item !== aSeg1 && item !== aSeg2) collectPts(aSeg1, p1s, p1e, item);
     }
 
-    if (aDeleteDuplicateSegments && track.type === 'track' && !isNull(track)) {
-      for (const other of queryColliding(track)) {
-        if (other.type !== 'track' || other.skipStruct || other.isDeleted || isNull(other)) {
-          continue;
-        }
+    for (const item of this.getConnectedItems(aSeg2)) {
+      if (item.HasFlag(IS_DELETED)) continue;
 
-        if (
-          isPointOnEnds(track, other.start) &&
-          isPointOnEnds(track, other.end) &&
-          track.width === other.width &&
-          track.layer === other.layer
-        ) {
-          // The *reference* is the one reported and flagged, once per partner
-          // it finds; the visitor neither stops nor re-checks the flag.
-          aState.items.push(makeCleanupItem('duplicate_track', track.id));
-
-          track.isDeleted = true;
-          toRemove.add(track.id);
-        }
-      }
-
-      // Redundant for traces and kept anyway: duplicate-ness is exact equality,
-      // hence an equivalence, so every member of a group but the last is
-      // already IS_DELETED by the time a later reference could look at it, and
-      // no test can distinguish this line from a no-op. SKIP_STRUCT earns its
-      // keep in the duplicate-*via* branch, which sets it on every via it
-      // examines rather than only on the ones it flags.
-      track.skipStruct = true;
+      if (item !== aSeg1 && item !== aSeg2) collectPts(aSeg2, p2s, p2e, item);
     }
-  }
 
-  if (!aState.dryRun) for (const id of toRemove) aState.removed.add(id);
+    // This means there is a node in the center
+    if (popcount(flags) > 2) return false;
 
-  if (aMergeSegments) {
-    let more = true;
+    // Verify the removed point after merging is not a node.
+    // If it is a node (i.e. if more than one other item is connected, the segments cannot be merged
+    const dummy_seg = aDummySeg ?? PCB_TRACK.copyOf(aSeg1);
 
-    while (more) {
-      const connectivity = rebuildConnectivity(aState);
+    // Calculate the new ends of the segment to merge, and store them to dummy_seg:
+    const min_x = Math.min(
+      aSeg1.GetStart().x,
+      aSeg1.GetEnd().x,
+      aSeg2.GetStart().x,
+      aSeg2.GetEnd().x,
+    );
+    const min_y = Math.min(
+      aSeg1.GetStart().y,
+      aSeg1.GetEnd().y,
+      aSeg2.GetStart().y,
+      aSeg2.GetEnd().y,
+    );
+    const max_x = Math.max(
+      aSeg1.GetStart().x,
+      aSeg1.GetEnd().x,
+      aSeg2.GetStart().x,
+      aSeg2.GetEnd().x,
+    );
+    const max_y = Math.max(
+      aSeg1.GetStart().y,
+      aSeg1.GetEnd().y,
+      aSeg2.GetStart().y,
+      aSeg2.GetEnd().y,
+    );
 
-      more = mergeSegmentsPass(aState, connectivity);
+    if (aSeg1.GetStart().x > aSeg1.GetEnd().x === aSeg1.GetStart().y > aSeg1.GetEnd().y) {
+      dummy_seg.SetStart({ x: min_x, y: min_y });
+      dummy_seg.SetEnd({ x: max_x, y: max_y });
+    } else {
+      dummy_seg.SetStart({ x: min_x, y: max_y });
+      dummy_seg.SetEnd({ x: max_x, y: min_y });
     }
+
+    // The new ends of the segment must be connected to all of the same points as the original
+    // segments.  If not, the segments cannot be merged.
+    for (let i = 0; i < 4; ++i) {
+      if (flags & (1 << i) && !dummy_seg.IsPointOnEnds(pts[i]!)) return false;
+    }
+
+    // Now find the removed end(s) and stop merging if it is a node:
+    return !this.testTrackEndpointIsNode(
+      aSeg1,
+      dummy_seg.IsPointOnEnds(aSeg1.GetStart()) !== 0,
+      dummy_seg.IsPointOnEnds(aSeg1.GetEnd()) !== 0,
+    );
   }
 
-  for (const rec of live(aState)) {
-    rec.isDeleted = false;
-    rec.skipStruct = false;
-  }
-}
-
-// ---------------------------------------------------------------------------
-// The board the run produces
-
-function emitBoard(aBoard: Board, aState: CleanerState): Board {
-  const merged = aState.recs.filter((r) => r.merged);
-
-  if (merged.length === 0 && aState.removed.size === 0) return aBoard;
-
-  const tracks: PcbTrack[] = aBoard.tracks.map((track, i) => {
-    const rec = aState.byId.get(boardItemId('track', i));
-
-    if (!rec?.merged) return track;
-
-    return { ...track, start: rec.start, end: rec.end };
-  });
-
-  return deleteBoardItems({ ...aBoard, tracks }, aState.removed);
-}
-
-// ---------------------------------------------------------------------------
-// The entry point
-
-export interface TrackGeometryCleanupOptions {
-  /** `aDryRun`: build the change list without touching the board. */
-  dryRun: boolean;
   /**
-   * `removeNullSegments`, which `CleanupBoard` derives as
-   * `aMergeSegments || aRemoveMisConnected` (tracks_cleaner.cpp:78) — the
-   * shorting pass needs zero-length segments gone before it runs, so the
-   * "Delete tracks connecting different nets" checkbox turns this on too. It is
-   * taken as an input here because the shorting pass itself is not ported.
+   * Merge aSeg1 and aSeg2 when they are colinear, same width, and same layer.
+   * @param aSeg1 the reference
+   * @param aSeg2 the candidate, and after merging, the removed segment
+   * @return true if the segments are merged
    */
-  removeNullSegments?: boolean;
-  /** `aMergeSegments`: the "Merge co-linear tracks" checkbox. */
-  mergeSegments?: boolean;
-  /**
-   * `TRACKS_CLEANER::m_filter`. **Returning true EXCLUDES the item** — the
-   * polarity is upstream's and reads backwards.
-   */
-  filter?: (aId: string) => boolean;
-  /** `aReporter`: the dialog's progress log. */
-  reporter?: Reporter;
-}
+  private mergeCollinearSegments(aSeg1: PCB_TRACK, aSeg2: PCB_TRACK): boolean {
+    const dummy_seg = PCB_TRACK.copyOf(aSeg1);
 
-export interface TrackGeometryCleanupResult {
-  /** The input board itself on a dry run, which changes nothing. */
-  board: Board;
-  /** `aItemsList`, in the order upstream pushes rows. */
-  items: CleanupRcItem[];
-}
+    if (!this.testMergeCollinearSegments(aSeg1, aSeg2, dummy_seg)) return false;
 
-/**
- * `TRACKS_CLEANER::CleanupBoard` restricted to the geometry passes.
- *
- * The one step here that is easy to get wrong: **duplicate-track removal always
- * runs**. Step 2 asks for it when `mergeSegments` is set, and step 4 runs a
- * second `cleanup()` for it alone when `mergeSegments` is clear — so there is
- * no combination of checkboxes that switches it off, and the dialog offers
- * none.
- */
-export function cleanupTrackGeometry(
-  aBoard: Board,
-  aOpts: TrackGeometryCleanupOptions,
-): TrackGeometryCleanupResult {
-  const recs = buildRecs(aBoard);
-  const state: CleanerState = {
-    recs,
-    byId: new Map(recs.map((r) => [r.id, r])),
-    pads: padCnItems(aBoard),
-    dryRun: aOpts.dryRun,
-    filterItem: aOpts.filter ?? (() => false),
-    items: [],
-    removed: new Set<string>(),
-  };
+    this.push(CLEANUP_RC_CODE.CLEANUP_MERGE_TRACKS, aSeg1, aSeg2);
 
-  const mergeSegments = aOpts.mergeSegments ?? false;
-  const removeNullSegments = aOpts.removeNullSegments ?? false;
+    aSeg2.SetFlags(IS_DELETED);
 
-  aOpts.reporter?.report(
-    aOpts.dryRun ? 'Checking null tracks and vias...' : 'Removing null tracks and vias...',
-  );
+    if (!this.m_dryRun) {
+      this.m_commit.Modify(aSeg1);
 
-  geometryCleanup(state, removeNullSegments, mergeSegments, mergeSegments);
+      // `*aSeg1 = dummy_seg`
+      aSeg1.assignTrack(dummy_seg);
 
-  aOpts.reporter?.report(
-    aOpts.dryRun ? 'Checking redundant tracks...' : 'Removing redundant tracks...',
-  );
+      this.m_brd.GetConnectivity().Update(aSeg1);
 
-  // If we didn't remove duplicates above, do it now.
-  if (!mergeSegments) geometryCleanup(state, false, true, false);
+      // Merge successful, seg2 has to go away
+      this.m_brd.Remove(aSeg2);
+      this.m_commit.Removed(aSeg2);
+    }
 
-  return { board: emitBoard(aBoard, state), items: state.items };
+    return true;
+  }
+
+  private removeItems(aItems: Set<BOARD_ITEM>): void {
+    for (const item of aItems) {
+      this.m_brd.Remove(item);
+      this.m_commit.Removed(item);
+    }
+  }
 }

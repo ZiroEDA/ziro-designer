@@ -130,12 +130,9 @@ const MODIFIER_EXCEPTIONS: Readonly<Record<string, readonly string[]>> = {
     // pointer's, one the keyboard's.
     'ctrlDownRef.current = e.ctrlKey || e.metaKey;',
     'const ctrl = e.ctrlKey || e.metaKey;',
-    // Also not keys: `PCB_SELECTION_TOOL`'s drag modifiers. Ctrl or Shift adds
-    // to the selection and Ctrl+Shift subtracts, which is `m_drag_additive` /
-    // `m_drag_subtractive` (`pcb_selection_tool.cpp:1430-1439`) — a property of
-    // the drag being started, not an accelerator any menu row could own.
-    'const additive = (e.ctrlKey || e.shiftKey) && !e.altKey;',
-    'const subtractive = e.ctrlKey && e.shiftKey && !e.altKey;',
+    // (`PCB_SELECTION_TOOL`'s drag modifiers used to be here. They left with
+    // the frame's hand-written lasso: the tool reads them off the TOOL_EVENT,
+    // `setModifiersState( evt->Modifier( MD_SHIFT ), ... )`.)
     // (The 3D viewer overlay's own "not a modified key" guard used to be here.
     // It left with the viewer when EDA_3D_VIEWER_FRAME became one shared
     // component, and is now covered by that file's PENDING entry above.)
@@ -602,10 +599,10 @@ const CANVAS_KEYS: Readonly<
       // `routeRef` until 8b83d6b3 retired route_tool.ts; the session the key
       // asks about is the PNS one now, and the branch is otherwise the same.
       ['V while routing', /e\.key === 'v' \|\| e\.key === 'V'\) && pnsSessionRef\.current/],
-      ['R rotate', /rotateSel\(!e\.shiftKey\)/],
-      ['M grab move', /grabStartRef\.current\('move'\)/],
-      ['G grab drag', /grabStartRef\.current\('drag'\)/],
-      ['D grab drag45', /grabStartRef\.current\('drag45'\)/],
+      ['R rotate', /runAction\(e\.shiftKey \? PCB_ACTIONS\.rotateCw : PCB_ACTIONS\.rotateCcw\)/],
+      ['M move', /runAction\(PCB_ACTIONS\.move\)/],
+      ['G drag free angle', /runAction\(PCB_ACTIONS\.dragFreeAngle\)/],
+      ['D drag 45', /runAction\(PCB_ACTIONS\.drag45Degree\)/],
       // PCB_ACTIONS::zoneFillAll, no row.
       ['B fill zones', /fillAllZonesRef\.current\(\)/],
       // ACTIONS::zoomFitScreen is Home off macOS; the row prints the macOS
@@ -1488,14 +1485,10 @@ const UNPRESSABLE: Readonly<Record<string, readonly string[]>> = {
   '../../pcbnew/pcb_edit_frame_ui.tsx': [
     // Canvas context-menu rows for commands that are not built. The row is
     // KiCad's and prints KiCad's key; there is nothing yet to run.
-    'Get and Move Footprint',
-    'Move Individually',
     'Route Selected',
     'Route Selected From Other End',
     'Unroute Segment',
     'Attempt Finish Selected (Autoroute)',
-    'Swap',
-    'Pack and Move Footprints',
     // Rotate is live in this frame's own canvas key chain with a `kept` entry
     // in the table above — the row and the key run the same thing, by two
     // routes. The rows are built from a helper, so they scrape without a label.

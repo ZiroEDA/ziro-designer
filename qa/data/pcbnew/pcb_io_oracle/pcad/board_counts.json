@@ -1,0 +1,27 @@
+{
+ "pcad_4layer_glyph_test_ascii.PCB": {
+  "drawings": {
+   "B.Cu": 4,
+   "F.Cu": 24,
+   "F.Fab": 108
+  },
+  "footprints": 0,
+  "tracks": 0,
+  "zones": 4
+ },
+ "synthetic_ziro_features.PCB": {
+  "drawings": {
+   "B.Cu": 1,
+   "B.Fab": 1,
+   "B.Silkscreen": 4,
+   "Edge.Cuts": 5,
+   "F.Cu": 3,
+   "F.Fab": 1,
+   "F.Silkscreen": 7,
+   "User.Drawings": 2
+  },
+  "footprints": 5,
+  "tracks": 6,
+  "zones": 9
+ }
+}

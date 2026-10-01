@@ -27,6 +27,7 @@
  * is what lets the numbers be tested without a DOM.
  */
 
+import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import {
   DoubleValueFromStringIn,
@@ -35,6 +36,7 @@ import {
   stringFromValue as iuStringFromValue,
 } from '../eda_units.js';
 import { type EdaIuScale, SCH_IU_PER_MM, drawSheetIUScale } from '../index.js';
+import { COORD_TYPES_T, type ORIGIN_TRANSFORMS } from '../origin_transforms.js';
 import type { StatusUnits } from './kistatusbar_format.js';
 
 /**
@@ -237,6 +239,12 @@ export function validateUnitValue(
 export interface UNIT_BINDER_UNITS_PROVIDER {
   GetUserUnits(): EDA_UNITS;
   GetIuScale(): EdaIuScale;
+  /**
+   * `m_originTransforms` (`m_units_provider->GetOriginTransforms()`): a frame
+   * with a display origin answers; a drawing-sheet frame has none, which reads
+   * as the base class's identity transform.
+   */
+  GetOriginTransforms?(): ORIGIN_TRANSFORMS;
 }
 
 /**
@@ -250,7 +258,11 @@ export interface UNIT_BINDER_UNITS_PROVIDER {
 export class UNIT_BINDER {
   private readonly m_unitsProvider: UNIT_BINDER_UNITS_PROVIDER;
   /** `m_label->GetLabel()`: what an error message names. */
-  private readonly m_label: string;
+  private m_label: string;
+  /** `m_units` after a `SetUnits( aUnits )`; null while it follows the parent's. */
+  private m_unitsOverride: EDA_UNITS | null = null;
+  /** `m_coordType`, set by `SetCoordType`. */
+  private m_coordType: COORD_TYPES_T = COORD_TYPES_T.NOT_A_COORD;
   /** Where `delayedFocusHandler`'s `DisplayError` goes. */
   private readonly m_errorSink: ((aMessage: string) => void) | null;
   /** The `wxTextCtrl`'s text. */
@@ -272,17 +284,47 @@ export class UNIT_BINDER {
     return this.m_label;
   }
 
-  /** `m_units`: the parent's, read live. */
-  GetUnits(): EDA_UNITS {
-    return this.m_unitsProvider.GetUserUnits();
+  /** `SetLabel( aLabel )` (`unit_binder.cpp:691`): the label's text, which an error names. */
+  SetLabel(aLabel: string): void {
+    this.m_label = aLabel;
   }
 
-  /** `SetDoubleValue( aValue )` (`unit_binder.cpp:434-444`): IU into the field, no unit label. */
+  /** `m_units`: the parent's, read live, until `SetUnits` states another. */
+  GetUnits(): EDA_UNITS {
+    return this.m_unitsOverride ?? this.m_unitsProvider.GetUserUnits();
+  }
+
+  /** `SetUnits( aUnits )` (`:159`): `m_units`, and so the label beside the entry. */
+  SetUnits(aUnits: EDA_UNITS): void {
+    this.m_unitsOverride = aUnits;
+  }
+
+  /** `SetCoordType( aCoordType )`: how `m_originTransforms` treats the value. */
+  SetCoordType(aCoordType: COORD_TYPES_T): void {
+    this.m_coordType = aCoordType;
+  }
+
+  /** `m_originTransforms.ToDisplay( aValue, m_coordType )`; identity with no display origin. */
+  private toDisplay(aValue: number): number {
+    const ot = this.m_unitsProvider.GetOriginTransforms?.();
+    return ot ? ot.ToDisplay(aValue, this.m_coordType) : aValue;
+  }
+
+  /** `m_originTransforms.FromDisplay( aValue, m_coordType )`. */
+  private fromDisplay(aValue: number): number {
+    const ot = this.m_unitsProvider.GetOriginTransforms?.();
+    return ot ? ot.FromDisplay(aValue, this.m_coordType) : aValue;
+  }
+
+  /**
+   * `SetDoubleValue( aValue )` (`unit_binder.cpp:434-444`): IU into the field,
+   * through the display origin (`getTextForDoubleValue`), no unit label.
+   */
   SetDoubleValue(aValue: number): void {
     this.m_value = iuStringFromValue(
       this.m_unitsProvider.GetIuScale(),
       this.GetUnits(),
-      aValue,
+      this.toDisplay(aValue),
       false,
     );
   }
@@ -290,6 +332,22 @@ export class UNIT_BINDER {
   /** `SetValue( long long )`. */
   SetValue(aValue: number): void {
     this.SetDoubleValue(aValue);
+  }
+
+  /** `ChangeValue( int )`: as `SetValue`; there is no change event to withhold here. */
+  ChangeValue(aValue: number): void {
+    this.SetDoubleValue(aValue);
+  }
+
+  /**
+   * `SetAngleValue( aValue )` (`:447`):
+   * `SetDoubleValue( m_originTransforms.ToDisplay( aValue, m_coordType ) )` -
+   * which takes the display origin a second time, as upstream does.
+   */
+  SetAngleValue(aValue: EDA_ANGLE): void {
+    const ot = this.m_unitsProvider.GetOriginTransforms?.();
+
+    this.SetDoubleValue(ot ? ot.ToDisplay(aValue, this.m_coordType) : aValue.AsDegrees());
   }
 
   /** The field's text, as the control holds it. */
@@ -302,13 +360,22 @@ export class UNIT_BINDER {
     this.m_value = aText;
   }
 
-  /** `GetDoubleValue()`: the text in the parent's units, to IU. */
+  /** `GetDoubleValue()`: the text in the parent's units, to IU, out of the display origin. */
   GetDoubleValue(): number {
-    return DoubleValueFromStringIn(
-      this.m_unitsProvider.GetIuScale(),
-      this.GetUnits(),
-      this.m_value,
+    return this.fromDisplay(
+      DoubleValueFromStringIn(this.m_unitsProvider.GetIuScale(), this.GetUnits(), this.m_value),
     );
+  }
+
+  /**
+   * `GetAngleValue()` (`:634`):
+   * `m_originTransforms.FromDisplay( EDA_ANGLE( GetDoubleValue(), DEGREES_T ), m_coordType )`.
+   */
+  GetAngleValue(): EDA_ANGLE {
+    const ot = this.m_unitsProvider.GetOriginTransforms?.();
+    const angle = new EDA_ANGLE(this.GetDoubleValue());
+
+    return ot ? ot.FromDisplay(angle, this.m_coordType) : angle;
   }
 
   /** `GetValue()` (`:554-600`): `ValueFromString`, `KiROUND` to IU. */

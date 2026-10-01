@@ -10,6 +10,7 @@
  * properties panel carries.
  */
 
+import { ptrLess } from '@ziroeda/core/kicad_algo.js';
 import { EDA_ITEM, RECURSE_MODE } from '@ziroeda/common/eda_item.js';
 import type { EDA_GROUP } from '@ziroeda/common/eda_group.js';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
@@ -726,7 +727,7 @@ export abstract class BOARD_ITEM extends EDA_ITEM {
       // UUIDs *should* always be unique (for valid boards anyway)
       return a.m_Uuid < b.m_Uuid;
 
-    return false; // `a < b` on the pointers: two distinct objects with one UUID have no order here
+    return ptrLess(a, b); // `a < b` on the pointers: distinct objects are never equivalent
   }
 
   protected swapData(aImage: BOARD_ITEM): void {

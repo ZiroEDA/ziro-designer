@@ -19,8 +19,6 @@ import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 interface Props {
   filter: SelectionFilter;
   onChange: (next: SelectionFilter) => void;
-  /** How many items the current filter would keep, for the footer. */
-  matchCount: number;
   onApply: () => void;
   onClose: () => void;
   rootRef?: Ref<HTMLDivElement>;
@@ -29,7 +27,6 @@ interface Props {
 export function DialogFilterSelection({
   filter,
   onChange,
-  matchCount,
   onApply,
   onClose,
   rootRef,
@@ -127,16 +124,13 @@ export function DialogFilterSelection({
       <div
         style={{
           display: 'flex',
-          justifyContent: 'space-between',
+          justifyContent: 'flex-end',
           alignItems: 'center',
           gap: 8,
           padding: '8px 10px',
           borderTop: '1px solid var(--chrome-border)',
         }}
       >
-        <span style={{ fontSize: 11.5, opacity: 0.75 }}>
-          {matchCount === 1 ? '1 item kept' : `${matchCount} items kept`}
-        </span>
         <span style={{ display: 'flex', gap: 8 }}>
           <button type="button" onClick={onClose}>
             Cancel

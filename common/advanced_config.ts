@@ -25,6 +25,22 @@ export class ADVANCED_CFG {
   m_DisambiguationMenuDelay = 500;
 
   /**
+   * Ratio by which a PCB selection's item visibility must exceed the visibility of items
+   * obscuring it before it is considered a candidate (`PCB_SELECTION_TOOL::
+   * pruneObscuredSelectionCandidates`). 1.0 turns the pruning off.
+   * Setting name: "PcbSelectionVisibilityRatio"; default 1.0; valid 0.0 to 1.0.
+   */
+  m_PcbSelectionVisibilityRatio = 1.0;
+
+  /**
+   * `m_SnapHysteresis` (advanced_config.h:750): the hysteresis, in screen
+   * pixels, around a snap anchor - a snap is taken inside the snap range less
+   * this and let go outside the range plus this.
+   * Setting name: "SnapHysteresis"; default 5; valid 0 to 100.
+   */
+  m_SnapHysteresis = 5;
+
+  /**
    * When true, strokes the triangulations in OpenGL
    */
   m_DrawTriangulationOutlines = false;
@@ -168,6 +184,29 @@ export class ADVANCED_CFG {
   m_PDFStrokeFontYOffset = 0.35;
   m_PDFStrokeFontBoldMultiplier = 1.8;
   m_PDFStrokeFontKerningFactor = 1.0;
+
+  /**
+   * PADS text sizing: the fraction of a PADS text height that is KiCad's
+   * character height and width, for PCB ("PadsPcbTextHeightScale" 0.69,
+   * "PadsPcbTextWidthScale" 0.64) and schematic ("PadsSchTextHeightScale"
+   * 0.50, "PadsSchTextWidthScale" 0.46) imports.
+   */
+  m_PadsPcbTextHeightScale = 0.69;
+  m_PadsPcbTextWidthScale = 0.64;
+  m_PadsSchTextHeightScale = 0.5;
+  m_PadsSchTextWidthScale = 0.46;
+
+  /**
+   * How far a PADS text's anchor sits from KiCad's, in nm.
+   * Setting name: "PadsTextAnchorOffsetNm"; default 350000.
+   */
+  m_PadsTextAnchorOffsetNm = 350000;
+
+  /**
+   * The smallest size a non-KiCad board importer gives an object, in nm.
+   * Setting name: "PcbImportMinObjectSizeNm"; default 1000.
+   */
+  m_PcbImportMinObjectSizeNm = 1000;
 
   private static s_cfg: ADVANCED_CFG | null = null;
 

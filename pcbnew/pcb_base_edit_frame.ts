@@ -12,6 +12,7 @@
  * doc comment for why this class can't just `extends` it directly the way
  * `PCB_BASE_FRAME` is extended.
  */
+import { ANGLE_90, type EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { applyMixins } from '@ziroeda/core/mixins.js';
 import { DRC_ENGINE } from './drc/drc_engine.js';
 /**
@@ -55,6 +56,8 @@ export interface APPEARANCE_CONTROLS_LIKE {
 /** `PANEL_SELECTION_FILTER` as the frame calls it (`pcbnew/widgets/panel_selection_filter.h`). */
 export interface PANEL_SELECTION_FILTER_LIKE {
   SetCheckboxesFromFilter(aOptions: PCB_SELECTION_FILTER_OPTIONS): void;
+  /** `OnFlashEvent`: flash the checkboxes of the categories `aOptions` names. */
+  OnFlashEvent?(aOptions: PCB_SELECTION_FILTER_OPTIONS): void;
 }
 
 export interface PCB_BASE_EDIT_FRAME extends UNDO_REDO_MIXIN {}
@@ -67,6 +70,31 @@ export abstract class PCB_BASE_EDIT_FRAME extends PCB_BASE_FRAME {
   m_selectionFilterPanel: PANEL_SELECTION_FILTER_LIKE | null = null;
   /** `m_appearancePanel` (pcb_base_edit_frame.h:282): set by the window that docks it. */
   m_appearancePanel: APPEARANCE_CONTROLS_LIKE | null = null;
+
+  /**
+   * The frame's `wxEVT_IDLE` handler (pcb_base_edit_frame.cpp:75-88): "Handle
+   * cursor adjustments. While we can get motion and key events through
+   * wxWidgets, we can't get modifier-key-up events." A page has no idle event;
+   * the frame calls this after each canvas event and each key the window sees.
+   */
+  OnIdle(): void {
+    if (this.m_toolManager) {
+      const selTool = this.m_toolManager.FindTool('common.InteractiveSelection') as unknown as {
+        OnIdle(): void;
+      } | null;
+
+      if (selTool) selTool.OnIdle();
+    }
+  }
+
+  /**
+   * `HighlightSelectionFilter( aOptions )` (pcb_base_edit_frame.cpp:428-432):
+   * `wxPostEvent` of a `PCB_SELECTION_FILTER_EVENT`, which the Selection Filter
+   * panel answers by flashing the checkboxes that rejected a click.
+   */
+  HighlightSelectionFilter(aOptions: PCB_SELECTION_FILTER_OPTIONS): void {
+    queueMicrotask(() => this.m_selectionFilterPanel?.OnFlashEvent?.(aOptions));
+  }
 
   /** `APPEARANCE_CONTROLS* GetAppearancePanel()` (pcb_base_edit_frame.h:244). */
   GetAppearancePanel(): APPEARANCE_CONTROLS_LIKE | null {
@@ -139,6 +167,16 @@ export abstract class PCB_BASE_EDIT_FRAME extends PCB_BASE_FRAME {
   /**
    * Check if the undo and redo operations are currently blocked.
    */
+  /**
+   * `GetRotationAngle()` (pcb_base_edit_frame.h:191): the step `rotateCw` /
+   * `rotateCcw` turn by. The board editor's is Preferences > Editing Options'
+   * "Rotation angle" (`PCB_EDIT_FRAME::GetRotationAngle`, pcb_edit_frame.cpp:1803),
+   * 90 degrees when there is no configuration.
+   */
+  GetRotationAngle(): EDA_ANGLE {
+    return this.GetPcbNewSettings()?.m_RotationAngle ?? ANGLE_90;
+  }
+
   UndoRedoBlocked(): boolean {
     return this.m_undoRedoBlocked;
   }

@@ -26,6 +26,11 @@
  * the caller passes the values in rather than a zone.
  */
 
+import type { ConversionBoxValues } from '../tools/convert_settings_dialog.js';
+import {
+  CONVERSION_BOX_LINE_MARGIN,
+  ConversionSettingsBox,
+} from '../tools/convert_settings_dialog_ui.js';
 import { useState, type JSX } from 'react';
 import {
   NO_LAYERS_SELECTED,
@@ -57,7 +62,13 @@ interface Props {
    * `wxID_OK`. The caller applies the values; a rule area started by the
    * drawing tool has no zone to patch yet, so this hands back the values.
    */
-  onApply: (values: RuleAreaValues) => void;
+  onApply: (values: RuleAreaValues, conversion: ConversionBoxValues | null) => void;
+  /**
+   * `aConvertSettings`: CONVERT_TOOL opened the dialog, so it carries the
+   * "Conversion Settings" box and a rule under it, and is titled "Convert to
+   * Rule Area" (dialog_rule_area_properties.cpp:149-187).
+   */
+  conversion?: ConversionBoxValues | null;
   /** `wxID_CANCEL`, which for the drawing tool vetoes `OnFirstPoint`. */
   onClose: () => void;
 }
@@ -83,6 +94,7 @@ export function DialogRuleAreaProperties({
   layers,
   sources,
   onApply,
+  conversion = null,
   onClose,
 }: Props): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask.
@@ -98,6 +110,7 @@ export function DialogRuleAreaProperties({
   const [error, setError] = useState<string | null>(null);
 
   const set = (patch: Partial<RuleAreaValues>): void => setV((prev) => ({ ...prev, ...patch }));
+  const [conv, setConv] = useState<ConversionBoxValues | null>(conversion);
 
   const keepout = (label: string, key: keyof RuleAreaValues, title: string): JSX.Element => (
     <label title={title}>
@@ -154,18 +167,32 @@ export function DialogRuleAreaProperties({
       return;
     }
 
-    onApply(next);
+    onApply(next, conv);
   };
 
   return (
     <div className="ze-modal-backdrop" onMouseDown={onClose}>
       <div className="ze-modal ze-rule-area-dialog" onMouseDown={(e) => e.stopPropagation()}>
         <div className="ze-modal-header">
-          Rule Area Properties
+          {conv ? 'Convert to Rule Area' : 'Rule Area Properties'}
           <span className="x" onClick={onClose}>
             ✕
           </span>
         </div>
+
+        {conv && (
+          <>
+            <ConversionSettingsBox values={conv} units={units} onChange={setConv} />
+            {/* the wxStaticLine, Insert( 1, line, 0, wxLEFT|wxRIGHT|wxEXPAND, 10 ) */}
+            <div
+              style={{
+                height: 1,
+                margin: CONVERSION_BOX_LINE_MARGIN,
+                background: 'var(--gtk-separator)',
+              }}
+            />
+          </>
+        )}
 
         <div className="ze-modal-body ze-rule-area-body">
           {/* bLayersListSizer, proportion 4 — a wxDataViewListCtrl of

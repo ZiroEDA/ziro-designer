@@ -316,7 +316,14 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // exactly the 97 that move removed from view.
   // 24/141 -> 28/146 (pcbnew stage C): the Footprint Editor window's 4/5,
   // moved in from `editors/footprint` (see that row) - moved, not added.
-  'editors/pcb': { colours: 28, metrics: 146 },
+  // 28 -> 27 (#636 stage 3, PCB_SELECTION_TOOL): the board editor's under-board
+  // 2D canvas and its hidden `rgb(0,16,35)` fill went; the GAL clears to the
+  // theme's background.
+  // 27 -> 25 colours, 146 -> 127 metrics (#636 stage 3, POSITION_RELATIVE_TOOL):
+  // the pre-port Position Relative dialog and its picker banner went with the
+  // window's own positioning code; DIALOG_POSITION_RELATIVE draws in the
+  // shared chrome.
+  'editors/pcb': { colours: 25, metrics: 127 },
   // At zero, and listed rather than absent: `prefs/` is the settings store, and
   // the one literal it had - the 3D viewer's `rgb(0,255,0)` selection colour -
   // is `PARAM<COLOR4D>( "render.opengl_selection_color", …, COLOR4D( 0, 1, 0, 1 ) )`
@@ -800,7 +807,12 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   //   the commit that set 684, and missed because that pass diffed
   //   NUMBER_BADGE's change rather than rescanning the whole tree. Found now
   //   by a full rescan, per the "derived twice" rule above.
-  'common/widgets': { colours: 139, metrics: 692 },
+  // 139/692 -> 134/683 (#636 stage 3, PCB_SELECTION_TOOL): `.ze-group-editing`,
+  // the "Editing group" banner KiCad does not have, went with its markup - five
+  // colours and nine px. (8d09a787's `.ze-fp3d-icon` height, one unmarked px
+  // that briefly put this at 684, now carries its [px] like the width beside it:
+  // GRID_CELL_STATUS_ICON_RENDERER's wxART_BUTTON bitmap, 16 x 16.) Rescanned.
+  'common/widgets': { colours: 134, metrics: 683 },
   'common/tool': { colours: 0, metrics: 1 },
   // metrics 0 -> 15 on 09-26: the stage-1 moves, 8 from `dialogs` and 7 from
   // `editors/schematic`. Nothing added or removed: 8 + 7 = 15.
@@ -808,7 +820,10 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // 2/19 -> 3/34 on 09-26 (stage 3d): what `dialogs` gave up, 1 + 15.
   // metrics 34 -> 27 on 09-26: the Assign Netclass stub's inline styles went
   // when DIALOG_ASSIGN_NETCLASS was ported; its sizes are shell.css's, marked.
-  'common/dialogs': { colours: 1, metrics: 12 },
+  // 1 -> 2 and 12 -> 18 (09-30): `lib_table_panel.tsx` moved here from `widgets`,
+  // carrying its one colour and six metric literals; `widgets` fell by the same.
+  // The total is unchanged.
+  'common/dialogs': { colours: 2, metrics: 18 },
   // 09-26 (stage 3b): common/wx/controls.tsx, the wx controls the panels'
   // `_base` files instantiate, with the one colour `dialogs` gave up.
   'common/wx': { colours: 1, metrics: 0 },
@@ -856,7 +871,9 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // is left is entirely lib_table_panel.tsx, uncited. RESCANNED from this
   // tree; the exact literal each commit took could not be reconstructed one
   // for one, the same "two passes met" case the totals above describe.
-  widgets: { colours: 1, metrics: 6 },
+  // 1 -> 0 and 6 -> 0 (09-30): `lib_table_panel.tsx`, all that was left, moved to
+  // `common/dialogs` (KiCad's directory); see that row.
+  widgets: { colours: 0, metrics: 0 },
 };
 
 /** Properties whose value the GTK theme decides, so a px in one is drift. */
@@ -1373,7 +1390,11 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // see the editors/pcb and editors/schematic rows (+7, -1).
     // 296 -> 297 (09-28): eeschema/'s .ts files joined the scan; see the
     // editors/schematic row (+1, project_settings.ts:131).
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(297);
+    // 297 -> 291 (#636 stage 3): the `editors/pcb` (-1) and `common/widgets`
+    // (-5) rows above; the rescan agrees.
+    // 291 -> 289 (#636 stage 3): the `editors/pcb` row, the legacy Position
+    // Relative dialog (-2).
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(289);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.
@@ -1570,7 +1591,11 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // move; 1138 - 89 - 8 agrees with the rescan.
     // 1041 -> 1138 (09-28): back to the pre-move figure with pcbnew/, eeschema/
     // and 3d-viewer/ in the scan; the 97 had left the scan, not the code.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1138);
+    // 1138 -> 1129 (#636 stage 3): `.ze-group-editing`'s nine; see the
+    // `common/widgets` row.
+    // 1129 -> 1110 (#636 stage 3): the `editors/pcb` row, the legacy Position
+    // Relative dialog and its banner (-19).
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1110);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

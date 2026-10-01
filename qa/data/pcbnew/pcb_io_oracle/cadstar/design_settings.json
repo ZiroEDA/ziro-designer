@@ -1,0 +1,118 @@
+{
+ "minimal_route_offset_curved_track.cpa": {
+  "annular": 63500,
+  "copperLayers": 2,
+  "customTrack": 200000,
+  "customVia": [
+   500000,
+   300000
+  ],
+  "hasStackup": true,
+  "holeClearance": 0,
+  "m_CopperEdgeClearance": 304800,
+  "m_HoleToHoleMin": 508000,
+  "m_MinClearance": 304800,
+  "m_MinThroughDrill": 50800,
+  "m_SilkClearance": 0,
+  "m_SolderMaskExpansion": 0,
+  "m_TrackMinWidth": 127000,
+  "m_ViasMinSize": 127000,
+  "netclasses": {
+   "Default": {
+    "clearance": 304800,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 200000,
+    "viaDiameter": 600000,
+    "viaDrill": 300000
+   },
+   "Route code: Signal": {
+    "clearance": 200000,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 254000,
+    "viaDiameter": 600000,
+    "viaDrill": 300000
+   }
+  },
+  "patterns": {
+   "Net-(UE1-Pad1)": "Route code: Signal"
+  },
+  "thickness": 1655000,
+  "viaSizes": []
+ },
+ "revision7_format_no_routewidth.cpa": {
+  "annular": 500000,
+  "copperLayers": 2,
+  "customTrack": 200000,
+  "customVia": [
+   500000,
+   300000
+  ],
+  "hasStackup": true,
+  "holeClearance": 0,
+  "m_CopperEdgeClearance": 1000000,
+  "m_HoleToHoleMin": 1000000,
+  "m_MinClearance": 1000000,
+  "m_MinThroughDrill": 50800,
+  "m_SilkClearance": 0,
+  "m_SolderMaskExpansion": 0,
+  "m_TrackMinWidth": 1000000,
+  "m_ViasMinSize": 1000000,
+  "netclasses": {
+   "Default": {
+    "clearance": 1000000,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 200000,
+    "viaDiameter": 600000,
+    "viaDrill": 300000
+   }
+  },
+  "patterns": {},
+  "thickness": 1730000,
+  "viaSizes": []
+ },
+ "synthetic_ziro_features.cpa": {
+  "annular": 500000,
+  "copperLayers": 2,
+  "customTrack": 200000,
+  "customVia": [
+   500000,
+   300000
+  ],
+  "hasStackup": true,
+  "holeClearance": 0,
+  "m_CopperEdgeClearance": 1000000,
+  "m_HoleToHoleMin": 1000000,
+  "m_MinClearance": 1000000,
+  "m_MinThroughDrill": 50800,
+  "m_SilkClearance": 0,
+  "m_SolderMaskExpansion": 0,
+  "m_TrackMinWidth": 1000000,
+  "m_ViasMinSize": 1000000,
+  "netclasses": {
+   "Default": {
+    "clearance": 1000000,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 200000,
+    "viaDiameter": 600000,
+    "viaDrill": 300000
+   },
+   "Route code: Route code 1": {
+    "clearance": 200000,
+    "dpGap": 250000,
+    "dpWidth": 200000,
+    "trackWidth": 100000,
+    "viaDiameter": 600000,
+    "viaDrill": 300000
+   }
+  },
+  "patterns": {
+   "SYNNET": "Route code: Route code 1"
+  },
+  "thickness": 1730000,
+  "viaSizes": []
+ }
+}

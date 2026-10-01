@@ -103,16 +103,18 @@ describe('WX_MULTI_ENTRY_DIALOG', () => {
 
 describe('the board editor asks as edit_tool.cpp does', () => {
   const src = readFileSync(resolve(process.cwd(), '../pcbnew/pcb_edit_frame_ui.tsx'), 'utf8');
+  const tool = readFileSync(resolve(process.cwd(), '../pcbnew/tools/edit_tool.ts'), 'utf8');
 
   it('Fillet / Chamfer through WX_UNIT_ENTRY_DIALOG, with upstream’s labels', () => {
     expect(src).toContain('<WX_UNIT_ENTRY_DIALOG');
-    expect(src).toContain("'Chamfer setback:'");
-    expect(src).toContain('if (v === null || v === 0) return;');
+    expect(tool).toContain("'Chamfer setback:'");
+    // GetRadiusParams / GetChamferParams: a cancel or a 0 is no routine
+    expect(tool).toContain('if (aValue === null || aValue === 0) return run(null);');
   });
 
   it('Dogbone through WX_MULTI_ENTRY_DIALOG, and the slots answer reaches the engine', () => {
     expect(src).toContain('caption="Dogbone Corner Settings"');
     expect(src).toContain("label: 'Add slots in acute corners'");
-    expect(src).not.toMatch(/addSlots:\s*true/);
+    expect(src).toContain('AddSlots: r[1] as boolean');
   });
 });

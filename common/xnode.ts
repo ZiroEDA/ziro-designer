@@ -19,6 +19,8 @@ import { type OUTPUTFORMATTER, STRING_FORMATTER } from './richio.js';
 export enum wxXmlNodeType {
   wxXML_ELEMENT_NODE = 1,
   wxXML_TEXT_NODE = 3,
+  wxXML_CDATA_SECTION_NODE = 4,
+  wxXML_DOCUMENT_NODE = 9,
 }
 
 /**
@@ -109,6 +111,8 @@ export class XNODE {
   private m_content: string;
   private readonly m_attributes: XATTR[] = [];
   private m_children: XNODE | null = null;
+  /** The last child, so appending does not walk the list (wx keeps the same). */
+  private m_lastChild: XNODE | null = null;
   private m_next: XNODE | null = null;
   private m_parent: XNODE | null = null;
 
@@ -129,6 +133,27 @@ export class XNODE {
 
   GetContent(): string {
     return this.m_content;
+  }
+
+  /** `wxXmlNode::SetContent`. */
+  SetContent(aContent: string): void {
+    this.m_content = aContent;
+  }
+
+  /**
+   * `wxXmlNode::GetNodeContent`: the content of the first text or CDATA
+   * child, or empty when there is none.
+   */
+  GetNodeContent(): string {
+    for (let n = this.m_children; n; n = n.m_next) {
+      if (
+        n.m_type === wxXmlNodeType.wxXML_TEXT_NODE ||
+        n.m_type === wxXmlNodeType.wxXML_CDATA_SECTION_NODE
+      )
+        return n.m_content;
+    }
+
+    return '';
   }
 
   GetParent(): XNODE | null {
@@ -152,14 +177,27 @@ export class XNODE {
     aChild.m_parent = this;
     aChild.m_next = null;
 
-    if (!this.m_children) {
-      this.m_children = aChild;
-      return;
-    }
+    if (!this.m_children) this.m_children = aChild;
+    else this.m_lastChild!.m_next = aChild;
 
-    let last = this.m_children;
-    while (last.m_next) last = last.m_next;
-    last.m_next = aChild;
+    this.m_lastChild = aChild;
+  }
+
+  /** `wxXmlNode::GetAttribute( name, &value )`: the value, or null when there is none. */
+  GetAttribute(aName: string): string | null {
+    for (const a of this.m_attributes) if (a.GetName() === aName) return a.GetValueText();
+
+    return null;
+  }
+
+  /** `wxXmlNode::DeleteAttribute( name )`: whether one was removed. */
+  DeleteAttribute(aName: string): boolean {
+    const i = this.m_attributes.findIndex((a) => a.GetName() === aName);
+
+    if (i < 0) return false;
+
+    this.m_attributes.splice(i, 1);
+    return true;
   }
 
   AddBool(aKey: string, aValue: boolean): void {

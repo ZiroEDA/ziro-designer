@@ -147,7 +147,7 @@ export function buildPcbMenus(
           label: 'Import',
           icon: 'import',
           submenu: [
-            { label: 'Netlist...', disabled: dis },
+            { label: 'Netlist...', disabled: dis, action: () => h.action('importNetlist') },
             { label: 'Specctra Session...', action: () => h.action('importSpecctraSession') },
             // `PCB_ACTIONS::placeImportedGraphics`, run non-interactively:
             // `DRAWING_TOOL::PlaceImportedGraphics` is the same handler the
@@ -792,7 +792,11 @@ export function buildPcbMenus(
           disabled: st.selectionCount !== 1,
           action: () => h.action('inspectResolution'),
         },
-        { label: 'Show Footprint Associations', disabled: dis },
+        {
+          label: 'Show Footprint Associations',
+          disabled: dis,
+          action: () => h.action('showFootprintAssociations'),
+        },
         { label: 'Compare Footprint with Library', disabled: dis },
       ],
     },

@@ -302,7 +302,7 @@ const BASELINE: Record<string, number> = {
   // RESCANNED from this tree.
   // 8 -> 39 (09-28): the scan now reads pcbnew/ and 3d-viewer/. The drop to 8
   // was the file-structure move carrying sites out of view, not removing them.
-  'editors/pcb': 40, // +1: the Footprint Editor window moved into pcbnew/
+  'editors/pcb': 32, // +1: the Footprint Editor window moved into pcbnew/; -1 (10-01): b7f7835f deleted Filter Selection's invented "N items kept" line; -7 (10-01): 860a063c deleted the legacy Position Relative dialog
   // 55 -> 50: the COLOR_SWATCH sweep's second half. Seven Clear buttons and
   // one `(using Schematic Editor colors)` hint each carried an inline
   // `fontSize: 11`, and none of them exists upstream - the swatch clears
@@ -436,7 +436,10 @@ const BASELINE: Record<string, number> = {
   // it — it had sat at 6 unchanged since the ratchet's own seed
   // (6cd2df62), so it was already stale before this pass touched it. What is
   // left is entirely lib_table_panel.tsx, uncited. RESCANNED from this tree.
-  widgets: 2,
+  // 2 -> 0 (09-30): `lib_table_panel.tsx`, all that was left, moved to
+  // `common/dialogs`; this scan walks designer/src and the moved roots, not
+  // common/, so its two are ratcheted by `central_values` from now on.
+  widgets: 0,
 };
 
 /**
@@ -730,7 +733,13 @@ describe('hardcoded font sizes do not grow', () => {
     // pcbnew/.
     // 69 -> 100 (09-28): back to the pre-move figure, now that the scan reads
     // the packages the move carried sites into. Nothing was removed.
-    expect(sites.length).toBe(100);
+    // 100 -> 98 (09-30): `lib_table_panel.tsx` moved to `common/dialogs`, out of
+    // this scan and into `central_values`'; its two literals were not removed.
+    // 98 -> 97 (10-01): b7f7835f deleted Filter Selection's "N items kept"
+    // line (11.5px), which KiCad's dialog does not have - see `editors/pcb`.
+    // 97 -> 90 (10-01): 860a063c deleted the legacy DialogPositionRelative,
+    // replaced by DIALOG_POSITION_RELATIVE in the panel font - see `editors/pcb`.
+    expect(sites.length).toBe(90);
   });
 });
 

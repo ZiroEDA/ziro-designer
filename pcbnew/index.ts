@@ -101,9 +101,6 @@ export {
   boardSelectionBBox,
   mirrorBoardItems,
   groupBoardItems,
-  ungroupBoardItems,
-  addToGroupItems,
-  removeFromGroupItems,
   expandGroupIds,
   filterSelectionForFreePads,
   filterSelectionForDelete,
@@ -319,6 +316,7 @@ export {
   type PlacementCombo,
   type ZoneBorderStyle,
   type ZoneValueError,
+  DEFAULT_RULE_AREA_KEEPOUT,
 } from './dialogs/dialog_rule_area_properties.js';
 // Length Tuning Settings (pcbnew/dialogs/dialog_tuning_pattern_properties.cpp).
 export {
@@ -440,11 +438,6 @@ export {
 } from './dialogs/dialog_create_array.js';
 
 export {
-  outsetItems,
-  outsetSegmentRing,
-  roundRectOutwards,
-  type OutsetOptions,
-  type OutsetResult,
   polygonBoolean,
   booleanableShapeCount,
   shapeAsPolygon,
@@ -457,46 +450,6 @@ export {
   type ModifyLinesOptions,
   type ModifyLinesResult,
 } from './tools/item_modification_routine.js';
-
-export {
-  convertToLines,
-  itemRings,
-  segmentToArc,
-  bowedMidpoint,
-  ARC_BOW_RATIO,
-  type LineTarget,
-  type ConvertToLinesOptions,
-} from './convert_lines.js';
-
-export {
-  chainSegmentsToPolygons,
-  chainableItem,
-  closedShapeRing,
-  convertToPoly,
-  convertToPolygons,
-  convertToZone,
-  resolvedLineWidth,
-  CHAINING_EPSILON,
-  DEFAULT_RULE_AREA_KEEPOUT,
-  type ConvertStrategy,
-  type ConvertToPolyOptions,
-  type ConvertToZoneOptions,
-} from './convert_shapes.js';
-
-export {
-  positionRelative,
-  promotePadsToFootprints,
-  selectionAnchorId,
-  selectionAnchorPosition,
-  topLeftItem,
-  type PositionRelativeOptions,
-} from './tools/position_relative_tool.js';
-export { type PositionAnchorType } from './dialogs/dialog_position_relative.js';
-
-export {
-  distributeBoardItems,
-  type DistributeAction,
-} from './tools/align_distribute_tool.js';
 
 export {
   defaultRotationAnchor,
@@ -920,13 +873,14 @@ export {
   type ReannotateSortCodes,
 } from './dialogs/dialog_board_reannotate.js';
 
-export { cleanupErrorText, type CleanupRcCode, type CleanupRcItem } from './cleanup_item.js';
-
 export {
-  cleanupTrackGeometry,
-  type TrackGeometryCleanupOptions,
-  type TrackGeometryCleanupResult,
-} from './tracks_cleaner.js';
+  CLEANUP_ITEM,
+  CLEANUP_RC_CODE,
+  VECTOR_CLEANUP_ITEMS_PROVIDER,
+  cleanupErrorText,
+} from './cleanup_item.js';
+
+export { TRACKS_CLEANER } from './tracks_cleaner.js';
 
 export {
   parseLibraryTable,

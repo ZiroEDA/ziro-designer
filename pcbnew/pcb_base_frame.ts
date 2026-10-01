@@ -51,7 +51,11 @@ import type { BOARD_DESIGN_SETTINGS } from './board_design_settings.js';
 import { type BOARD_ITEM, DELETED_BOARD_ITEM } from './board_item.js';
 import type { BOARD_ITEM_CONTAINER } from './board_item_container.js';
 import { PCB_ORIGIN_TRANSFORMS } from './pcb_origin_transforms.js';
-import { PCB_DISPLAY_ORIGIN, type PCBNEW_SETTINGS } from './pcbnew_settings.js';
+import {
+  type MAGNETIC_SETTINGS,
+  PCB_DISPLAY_ORIGIN,
+  type PCBNEW_SETTINGS,
+} from './pcbnew_settings.js';
 
 /**
  * `FOOTPRINT_EDITOR_SETTINGS` as the base frame reads it; the class lands with
@@ -421,6 +425,14 @@ export abstract class PCB_BASE_FRAME extends EDA_DRAW_FRAME {
    * the designer's settings store supplies the object.
    */
   abstract GetPcbNewSettings(): PCBNEW_SETTINGS;
+
+  /**
+   * `GetMagneticItemsSettings()`: the board editor's `m_MagneticItems`
+   * (pcb_edit_frame.cpp). The footprint editor answers its own.
+   */
+  GetMagneticItemsSettings(): MAGNETIC_SETTINGS {
+    return this.GetPcbNewSettings().m_MagneticItems;
+  }
 
   /**
    * `EDA_BASE_FRAME::config()` is `Kiface().KifaceSettings()`, which in

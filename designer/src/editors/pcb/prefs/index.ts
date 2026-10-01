@@ -14,8 +14,8 @@
  * which have no browser form.
  */
 import { PanelPcbColorSettings } from './PanelPcbColorSettings.js';
-import { PanelPcbDisplayOptions } from './PanelPcbDisplayOptions.js';
-import { PanelPcbEditingOptions } from './PanelPcbEditingOptions.js';
+import { PanelPcbDisplayOptions } from '@ziroeda/pcbnew/dialogs/panel_display_options.js';
+import { PanelPcbEditingOptions } from '@ziroeda/pcbnew/dialogs/panel_edit_options.js';
 import { PanelPcbGrids } from './PanelPcbGrids.js';
 import { PanelPcbOriginsAxes } from './PanelPcbOriginsAxes.js';
 import {

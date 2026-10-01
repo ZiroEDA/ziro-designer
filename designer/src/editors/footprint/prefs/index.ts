@@ -14,14 +14,14 @@
  * in that order, which is also the order of this switch.
  */
 import { PanelFpColorSettings } from './PanelFpColorSettings.js';
-import { PanelFpDisplayOptions } from './PanelFpDisplayOptions.js';
-import { PanelFpEditingOptions } from './PanelFpEditingOptions.js';
-import { PanelFpFootprintDefaults } from './PanelFpFootprintDefaults.js';
-import { PanelFpGraphicsDefaults } from './PanelFpGraphicsDefaults.js';
+import { PanelFpDisplayOptions } from '@ziroeda/pcbnew/dialogs/panel_display_options.js';
+import { PanelFpEditingOptions } from '@ziroeda/pcbnew/dialogs/panel_edit_options.js';
+import { PanelFpFootprintDefaults } from '@ziroeda/pcbnew/dialogs/panel_fp_editor_field_defaults.js';
+import { PanelFpGraphicsDefaults } from '@ziroeda/pcbnew/dialogs/panel_fp_editor_graphics_defaults.js';
 import { PanelFpGrids } from './PanelFpGrids.js';
 import { PanelFpOriginsAxes } from './PanelFpOriginsAxes.js';
 import { PanelFpToolbars } from './PanelFpToolbars.js';
-import { PanelFpUserLayerNames } from './PanelFpUserLayerNames.js';
+import { PanelFpUserLayerNames } from '@ziroeda/pcbnew/dialogs/panel_fp_user_layer_names.js';
 import {
   resetFpColors,
   resetFpDisplayOptions,

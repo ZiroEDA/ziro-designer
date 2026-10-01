@@ -247,6 +247,12 @@ export interface StdDialogButtonsProps {
   /** A tooltip on Cancel — `SetToolTip` on the stock button. */
   cancelTitle?: string;
   /**
+   * A `wxID_APPLY` button. `wxStdDialogButtonSizer::Realize` on GTK puts it
+   * between Cancel and the affirmative button: Cancel, Apply, OK.
+   */
+  onApply?: () => void;
+  applyLabel?: string;
+  /**
    * Anything the dialog puts at the *left* of the row — a Help button, a
    * "Reset to Defaults", a status line. `wxStdDialogButtonSizer` grows a
    * stretch spacer between those and the affirmative pair.
@@ -261,6 +267,8 @@ export function StdDialogButtons({
   cancelLabel = 'Cancel',
   okDisabled,
   cancelTitle,
+  onApply,
+  applyLabel = 'Apply',
   children,
 }: StdDialogButtonsProps): JSX.Element {
   return (
@@ -270,6 +278,11 @@ export function StdDialogButtons({
       <button type="button" className="ze-btn" title={cancelTitle} onClick={onCancel}>
         {cancelLabel}
       </button>
+      {onApply ? (
+        <button type="button" className="ze-btn" onClick={onApply}>
+          {applyLabel}
+        </button>
+      ) : null}
       <button type="button" className="ze-btn primary" disabled={okDisabled} onClick={onOk}>
         {okLabel}
       </button>

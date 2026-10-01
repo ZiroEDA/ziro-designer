@@ -36,6 +36,7 @@ import {
 } from '../footprint.js';
 import type { PCB_BASE_EDIT_FRAME } from '../pcb_base_edit_frame.js';
 import { ZONE_CONNECTION } from '../zones.js';
+import type { FP_3DMODEL } from '../footprint.js';
 import type { TransferResult } from './dialog_text_properties.js';
 
 /** FOOTPRINT_ATTR_T, in the order PCB_IO_KICAD_SEXPR writes them. */
@@ -81,6 +82,12 @@ export interface FootprintValues {
   localSolderPasteMargin: number | null;
   localSolderPasteMarginRatio: number | null;
   zoneConnection: NonNullable<PcbFootprint['zoneConnection']>;
+  /**
+   * `m_3dPanel->GetModelList()`: the 3D Models page's list, which OK copies onto
+   * the footprint (`dialog_footprint_properties.cpp:729-733`). Absent when the page
+   * was not shown, and then the footprint's models are left alone.
+   */
+  models?: FP_3DMODEL[];
 }
 
 /** Resolve a `footprint:N` id, or null when the selection is not one footprint. */
@@ -359,6 +366,13 @@ export class DIALOG_FOOTPRINT_PROPERTIES {
         : fp.GetLayer() === PCB_LAYER_ID.F_Cu;
 
     if (change_layer) fp.Flip(fp.GetPosition(), this.m_frame.GetPcbNewSettings().m_FlipDirection);
+
+    // Copy the models from the panel to the footprint
+    if (v.models) {
+      const fpList = fp.Models();
+      fpList.length = 0;
+      fpList.push(...v.models.map((m) => m.clone()));
+    }
 
     // This is a simple edit, we must create an undo entry
     if (fp.GetEditFlags() === 0) commit.Push('Edit Footprint Properties');

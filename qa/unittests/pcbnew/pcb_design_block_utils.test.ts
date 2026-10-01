@@ -82,8 +82,6 @@ const board = (): BOARD => {
 };
 
 function setup(aDialogs: Partial<DESIGN_BLOCK_PANE_DIALOGS> = {}) {
-  let selection: EDA_ITEM[] = [];
-  const selectedGroups: PCB_GROUP[] = [];
   const hooks: PCB_EDIT_FRAME_HOOKS = {
     settings: () => new PCBNEW_SETTINGS(),
     onModify: () => {},
@@ -104,8 +102,6 @@ function setup(aDialogs: Partial<DESIGN_BLOCK_PANE_DIALOGS> = {}) {
     editZoneParams: () => {},
     selectCopperLayerPair: () => {},
     updatePcbFromSchematic: () => {},
-    currentSelection: () => selection,
-    selectGroup: (g) => selectedGroups.push(g),
   };
   const frame = new PCB_EDIT_FRAME(hooks);
   const b = board();
@@ -152,9 +148,11 @@ function setup(aDialogs: Partial<DESIGN_BLOCK_PANE_DIALOGS> = {}) {
     errors,
     asked,
     written,
-    selectedGroups,
+    /** What the selection tool holds after the command (`selectionClear`, `selectItem`). */
+    selected: (): EDA_ITEM[] => frame.GetSelectionTool().GetSelection().GetItems(),
     select: (items: EDA_ITEM[]) => {
-      selection = items;
+      frame.GetSelectionTool().ClearSelection(true);
+      frame.GetSelectionTool().AddItemsToSel(items, true);
     },
   };
 }
@@ -229,7 +227,7 @@ describe('SaveSelectionAsDesignBlock', () => {
     expect(groups[0]!.GetItems().size).toBe(2);
     expect(groups[0]!.GetItems().has(a!) && groups[0]!.GetItems().has(b!)).toBe(true);
     expect(other!.GetParentGroup()).toBeNull();
-    expect(t.selectedGroups.map((g) => g === groups[0])).toEqual([true]);
+    expect(t.selected()).toEqual([groups[0]]);
   });
 
   it('a footprint saves with the nets of its pads and is grouped whole', async () => {
@@ -296,7 +294,7 @@ describe('UpdateDesignBlockFromSelection', () => {
     expect(await t.frame.UpdateDesignBlockFromSelection(new LIB_ID('Blocks', 'power'))).toBe(true);
     expect(blockText('power').match(/\(segment/g)).toHaveLength(2);
     expect(group.GetDesignBlockLibId().Format()).toBe('Blocks:power');
-    expect(t.selectedGroups.map((g) => g === group)).toEqual([true]);
+    expect(t.selected()).toEqual([group]);
     expect(t.board.Groups()).toHaveLength(1);
   });
 

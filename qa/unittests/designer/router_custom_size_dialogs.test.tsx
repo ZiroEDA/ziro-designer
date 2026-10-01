@@ -26,11 +26,11 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import {
   DialogTrackViaSize,
   type CustomTrackViaSize,
-} from '@ziroeda/designer/src/editors/pcb/dialogs/dialog_track_via_size.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_track_via_size.js';
 import {
   DialogPnsDiffPairDimensions,
   type DiffPairDimensionsValue,
-} from '@ziroeda/designer/src/editors/pcb/dialogs/dialog_pns_diff_pair_dimensions.js';
+} from '@ziroeda/pcbnew/dialogs/dialog_pns_diff_pair_dimensions.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 
 afterEach(cleanup);
@@ -239,5 +239,29 @@ describe('DIALOG_PNS_DIFF_PAIR_DIMENSIONS', () => {
     ok();
 
     expect(out()!.width).toBe(MM(0.001));
+  });
+});
+
+describe('both dialogs, as _base.cpp draws them', () => {
+  it('Track/Via labels its rows Track width / Via diameter / Via hole', () => {
+    openTrackVia();
+    for (const l of ['Track width:', 'Via diameter:', 'Via hole:'])
+      expect(screen.getByText(l)).toBeTruthy();
+  });
+
+  it('a wxDialog does not dismiss on a click outside it', () => {
+    let closed = 0;
+    render(
+      <DialogPnsDiffPairDimensions
+        value={{ width: MM(0.2), gap: MM(0.2), viaGap: MM(0.2), viaGapSameAsTraceGap: true }}
+        units="mm"
+        onOk={() => {}}
+        onClose={() => {
+          closed++;
+        }}
+      />,
+    );
+    fireEvent.mouseDown(document.querySelector('.ze-modal-backdrop')!);
+    expect(closed).toBe(0);
   });
 });

@@ -60,7 +60,8 @@ export function circleToEndSegmentDeltaRadius(aRadius: number, aSegCount: number
   // clamps to 8.
   const segCount = aSegCount <= 2 ? 3 : aSegCount;
   const alpha = Math.PI / segCount;
-  return KiROUND(Math.abs(aRadius * (1.0 - 1.0 / Math.cos(alpha))));
+  // `int aRadius` upstream: a double radius arrives truncated
+  return KiROUND(Math.abs(Math.trunc(aRadius) * (1.0 - 1.0 / cos(alpha))));
 }
 
 /**

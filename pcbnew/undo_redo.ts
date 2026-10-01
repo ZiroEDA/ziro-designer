@@ -57,8 +57,11 @@ import { SHOW_WITH_VIA_ALWAYS } from './pcbnew_settings.js';
 import { PCB_ACTIONS } from './tools/pcb_actions.js';
 import type { ZONE } from './zone.js';
 
-/** The selection tool the frame rebuilds after an undo; the class is stage 3's. */
-export const PCB_SELECTION_TOOL_NAME = 'pcbnew.InteractiveSelection';
+/**
+ * `PCB_SELECTION_TOOL`'s name, which `GetTool<PCB_SELECTION_TOOL>()` finds it by here: the
+ * class imports BOARD_COMMIT, so asking by type would be an import cycle.
+ */
+export const PCB_SELECTION_TOOL_NAME = 'common.InteractiveSelection';
 
 export interface PCB_SELECTION_TOOL_LIKE {
   RebuildSelection(): void;

@@ -45,6 +45,7 @@ import {
   wxGridTableBase,
 } from '../wx/grid.js';
 import { type EdaIuScale, pcbIUScale } from '../index.js';
+import { isNullableEditor } from './grid_text_helpers.js';
 import { type EdaUnits, parseUnitValue, stringFromValue } from './unit_binder.js';
 
 export function GridUnitCell({
@@ -224,8 +225,9 @@ export class WX_GRID extends wxGrid {
 
   /**
    * `onCellEditorHidden`: once the edit is applied (`CallAfter`), an auto-eval
-   * cell is re-read in its column's units and written back formatted. Nullable
-   * cells and the evaluator itself are not ported.
+   * cell is re-read in its column's units and written back formatted; a nullable
+   * cell (`GRID_CELL_MARK_AS_NULLABLE`) keeps an empty entry empty. The evaluator
+   * itself is not ported.
    */
   private onCellEditorHidden(aEvent: wxGridEvent): void {
     const col = aEvent.GetCol();
@@ -235,12 +237,23 @@ export class WX_GRID extends wxGrid {
       const unitsProvider = this.getUnitsProvider(col);
       const [, cellDataType] = this.getColumnUnits(col);
 
+      // Determine if this cell is marked as holding nullable values
+      const cellEditor = this.GetCellEditor(row, col);
+      const isNullable = isNullableEditor(cellEditor) && cellEditor.IsNullable();
+
       queueMicrotask(() => {
         if (row >= this.GetNumberRows() || col >= this.GetNumberCols()) return;
 
         const stringValue = this.GetCellValue(row, col);
-        const val = unitsProvider.ValueFromString(stringValue, cellDataType);
-        const evalValue = unitsProvider.StringFromValue(val, true, cellDataType);
+        let evalValue: string;
+
+        if (isNullable) {
+          const val = unitsProvider.OptionalValueFromString(stringValue, cellDataType);
+          evalValue = unitsProvider.StringFromOptionalValue(val, true, cellDataType);
+        } else {
+          const val = unitsProvider.ValueFromString(stringValue, cellDataType);
+          evalValue = unitsProvider.StringFromValue(val, true, cellDataType);
+        }
 
         if (stringValue !== evalValue) {
           this.SetCellValue(row, col, evalValue);

@@ -91,6 +91,30 @@ import { reannotateDuplicates } from './dialogs/dialog_board_reannotate.js';
 import type { Board, PcbFootprint, PcbGroup, PcbPad, PcbTextItem, PcbZone } from './types.js';
 import type { FOOTPRINT } from './footprint.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+import {
+  CTL_FOR_CLIPBOARD,
+  MAJOR_MINOR_VERSION,
+  PCB_IO_KICAD_SEXPR,
+} from './pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { SEXPR_BOARD_FILE_VERSION } from './pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_parser.js';
+import { PRETTIFIED_STRING_FORMATTER } from '@ziroeda/common/richio.js';
+import { FORMAT_MODE } from '@ziroeda/common/io/kicad/kicad_io_utils.js';
+import { GENERATOR } from '@ziroeda/common/generator.js';
+import { SaveClipboard } from '@ziroeda/common/clipboard.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { LIB_ID } from '@ziroeda/common/lib_id.js';
+import { STRUCT_DELETED } from '@ziroeda/common/eda_item_flags.js';
+import type { BOARD } from './board.js';
+import type { BOARD_ITEM } from './board_item.js';
+import { FOOTPRINT as FOOTPRINT_CLASS } from './footprint.js';
+import type { PAD } from './pad.js';
+import type { PCB_FIELD } from './pcb_field.js';
+import type { PCB_GROUP } from './pcb_group.js';
+import type { PCB_GENERATOR } from './pcb_generator.js';
+import { PCB_TEXT } from './pcb_text.js';
+import type { PCB_TABLE } from './pcb_table.js';
+import type { PCB_TABLECELL } from './pcb_tablecell.js';
+import type { PCB_SELECTION } from './tools/pcb_selection.js';
 
 // ----- paste-special options --------------------------------------------------
 
@@ -1191,4 +1215,292 @@ function appendPayload(dest: Board, clip: Board): { board: Board; newIds: string
     },
     newIds,
   };
+}
+
+/**
+ * `CLIPBOARD_IO` (kicad_clipboard.h/.cpp), the writing half, on the live BOARD:
+ * `SaveSelection` formats the selection the way KiCad puts it on the system
+ * clipboard. The reading half (`Parse`, `PCB_CONTROL::Paste`) is still the
+ * view-board functions above (TRANSITIONAL, #636 stage 3: with PCB_CONTROL).
+ */
+export class CLIPBOARD_IO {
+  private m_board: BOARD | null = null;
+  /** `m_writer`: where the formatted text goes. `SaveClipboard` upstream. */
+  m_writer: (aText: string) => void = (aText) => {
+    SaveClipboard(aText);
+  };
+
+  SetBoard(aBoard: BOARD | null): void {
+    this.m_board = aBoard;
+  }
+
+  /** `CLIPBOARD_IO::SaveSelection( const PCB_SELECTION&, bool )` (kicad_clipboard.cpp:115). */
+  SaveSelection(aSelected: PCB_SELECTION, isFootprintEditor: boolean): void {
+    let refPoint = { x: 0, y: 0 };
+
+    // dont even start if the selection is empty
+    if (aSelected.Empty()) return;
+
+    if (aSelected.HasReferencePoint()) refPoint = aSelected.GetReferencePoint();
+
+    const board = this.m_board!;
+    const formatter = new PRETTIFIED_STRING_FORMATTER(FORMAT_MODE.COMPACT_TEXT_PROPERTIES);
+    const io = new PCB_IO_KICAD_SEXPR(formatter, CTL_FOR_CLIPBOARD, GENERATOR);
+
+    io.SetBoard(board);
+
+    const Format = (aItem: BOARD_ITEM): void => io.Format(aItem);
+    const back = { x: -refPoint.x, y: -refPoint.y };
+
+    const deleteUnselectedCells = (aTable: PCB_TABLE): void => {
+      let minCol = aTable.GetColCount();
+      let maxCol = -1;
+      let minRow = aTable.GetRowCount();
+      let maxRow = -1;
+
+      for (let row = 0; row < aTable.GetRowCount(); ++row) {
+        for (let col = 0; col < aTable.GetColCount(); ++col) {
+          const cell = aTable.GetCell(row, col)!;
+
+          if (cell.IsSelected()) {
+            minRow = Math.min(minRow, row);
+            maxRow = Math.max(maxRow, row);
+            minCol = Math.min(minCol, col);
+            maxCol = Math.max(maxCol, col);
+          } else {
+            cell.SetFlags(STRUCT_DELETED);
+          }
+        }
+      }
+
+      if (!(maxCol >= minCol && maxRow >= minRow)) return; // No selected cells!
+
+      // aTable is always a clone in the clipboard case
+      let destRow = 0;
+
+      for (let row = minRow; row <= maxRow; row++)
+        aTable.SetRowHeight(destRow++, aTable.GetRowHeight(row));
+
+      let destCol = 0;
+
+      for (let col = minCol; col <= maxCol; col++)
+        aTable.SetColWidth(destCol++, aTable.GetColWidth(col));
+
+      aTable.DeleteMarkedCells();
+      aTable.SetColCount(maxCol - minCol + 1);
+      aTable.Normalize();
+    };
+
+    const promotedTables = new Set<PCB_TABLE>();
+
+    const parentIsPromoted = (cell: PCB_TABLECELL): boolean => {
+      for (const table of promotedTables) {
+        if (table.m_Uuid === cell.GetParent()!.m_Uuid) return true;
+      }
+
+      return false;
+    };
+
+    if (aSelected.Size() === 1 && aSelected.Front()!.Type() === KICAD_T.PCB_FOOTPRINT_T) {
+      // make the footprint safe to transfer to other pcbs
+      const footprint = aSelected.Front() as unknown as FOOTPRINT;
+      // Do not modify existing board
+      const newFootprint = footprint.Clone() as FOOTPRINT;
+
+      for (const pad of newFootprint.Pads()) pad.SetNetCode(0);
+
+      // locked means "locked in place"; copied items therefore can't be locked
+      newFootprint.SetLocked(false);
+
+      // locate the reference point at (0, 0) in the copied items
+      newFootprint.Move(back);
+
+      Format(newFootprint);
+
+      newFootprint.SetParent(null);
+      newFootprint.SetParentGroup(null);
+    } else if (isFootprintEditor) {
+      const partialFootprint = new FOOTPRINT_CLASS(board);
+
+      // Useful to copy the selection to the board editor (if any), and provides
+      // a dummy lib id.
+      // Perhaps not a good Id, but better than a empty id
+      partialFootprint.SetFPID(new LIB_ID('clipboard', newKiid()));
+
+      for (const item of aSelected) {
+        if (!item.IsBOARD_ITEM()) continue;
+
+        const boardItem = item as unknown as BOARD_ITEM;
+        let copy: BOARD_ITEM | null = null;
+
+        if (item.Type() === KICAD_T.PCB_FIELD_T && (item as unknown as PCB_FIELD).IsMandatory())
+          continue;
+
+        if (boardItem.Type() === KICAD_T.PCB_GROUP_T) {
+          copy = (boardItem as PCB_GROUP).DeepClone();
+        } else if (boardItem.Type() === KICAD_T.PCB_GENERATOR_T) {
+          copy = (boardItem as PCB_GENERATOR).DeepClone();
+        } else if (item.Type() === KICAD_T.PCB_TABLECELL_T) {
+          if (parentIsPromoted(item as unknown as PCB_TABLECELL)) continue;
+
+          copy = item.GetParent()!.Clone() as unknown as BOARD_ITEM;
+          promotedTables.add(copy as PCB_TABLE);
+        } else {
+          copy = boardItem.Clone() as BOARD_ITEM;
+        }
+
+        // If it is only a footprint, clear the nets from the pads
+        if (copy.Type() === KICAD_T.PCB_PAD_T) (copy as PAD).SetNetCode(0);
+
+        // Don't copy group membership information for the 1st level objects being copied
+        // since the group they belong to isn't being copied.
+        copy.SetParentGroup(null);
+
+        // Add the pad to the new footprint before moving to ensure the local coords are
+        // correct
+        partialFootprint.Add(copy);
+
+        // A list of not added items, when adding items to the footprint
+        // some PCB_TEXT (reference and value) cannot be added to the footprint
+        const skipped_items: BOARD_ITEM[] = [];
+
+        // Will catch at least PCB_GROUP_T and PCB_GENERATOR_T
+        if (copy.Type() === KICAD_T.PCB_GROUP_T || copy.Type() === KICAD_T.PCB_GENERATOR_T) {
+          copy.RunOnChildren((descendant: BOARD_ITEM) => {
+            // One cannot add an additional mandatory field to a given footprint:
+            // only one is allowed. So add only non-mandatory fields.
+            let can_add = true;
+
+            if (item.Type() === KICAD_T.PCB_FIELD_T && (item as unknown as PCB_FIELD).IsMandatory())
+              can_add = false;
+
+            if (can_add) partialFootprint.Add(descendant);
+            else skipped_items.push(descendant);
+          }, RECURSE_MODE.RECURSE);
+        }
+
+        // locate the reference point at (0, 0) in the copied items
+        copy.Move(back);
+
+        // Now delete items, duplicated but not added:
+        for (const skipped_item of skipped_items) {
+          (copy as PCB_GROUP).RemoveItem(skipped_item);
+          skipped_item.SetParentGroup(null);
+        }
+      }
+
+      // Set the new relative internal local coordinates of copied items
+      const editedFootprint = board.Footprints()[0]!;
+      const p = partialFootprint.GetPosition();
+      const e = editedFootprint.GetPosition();
+      partialFootprint.MoveAnchorPosition({ x: p.x + e.x, y: p.y + e.y });
+
+      for (const table of promotedTables) deleteUnselectedCells(table);
+
+      Format(partialFootprint);
+
+      partialFootprint.SetParent(null);
+    } else {
+      // we will fake being a .kicad_pcb to get the full parser kicking
+      // This means we also need layers and nets
+      formatter.Print(
+        `(kicad_pcb (version ${SEXPR_BOARD_FILE_VERSION}) (generator ${formatter.Quotew(GENERATOR)}) (generator_version ${formatter.Quotew(MAJOR_MINOR_VERSION)})`,
+      );
+
+      io.FormatBoardLayers(board);
+
+      for (const item of aSelected) {
+        if (!item.IsBOARD_ITEM()) continue;
+
+        const boardItem = item as unknown as BOARD_ITEM;
+        let copy: BOARD_ITEM | null = null;
+
+        if (boardItem.Type() === KICAD_T.PCB_FIELD_T) {
+          const field = boardItem as unknown as PCB_FIELD;
+          const textItem = new PCB_TEXT(board);
+
+          textItem.SetPosition(field.GetPosition());
+          textItem.SetLayer(field.GetLayer());
+          textItem.SetHyperlink(field.GetHyperlink());
+          textItem.SetText(field.GetText());
+          textItem.SetAttributes(field.GetAttributes());
+          textItem.SetTextAngle(field.GetDrawRotation());
+
+          if (textItem.GetText() === '${VALUE}')
+            textItem.SetText(boardItem.GetParentFootprint()!.GetValue());
+          else if (textItem.GetText() === '${REFERENCE}')
+            textItem.SetText(boardItem.GetParentFootprint()!.GetReference());
+
+          copy = textItem;
+        } else if (boardItem.Type() === KICAD_T.PCB_TEXT_T) {
+          const textItem = boardItem.Clone() as PCB_TEXT;
+
+          if (textItem.GetText() === '${VALUE}')
+            textItem.SetText(boardItem.GetParentFootprint()!.GetValue());
+          else if (textItem.GetText() === '${REFERENCE}')
+            textItem.SetText(boardItem.GetParentFootprint()!.GetReference());
+
+          copy = textItem;
+        } else if (boardItem.Type() === KICAD_T.PCB_GROUP_T) {
+          copy = (boardItem as PCB_GROUP).DeepClone();
+        } else if (boardItem.Type() === KICAD_T.PCB_GENERATOR_T) {
+          copy = (boardItem as PCB_GENERATOR).DeepClone();
+        } else if (item.Type() === KICAD_T.PCB_TABLECELL_T) {
+          if (parentIsPromoted(item as unknown as PCB_TABLECELL)) continue;
+
+          copy = item.GetParent()!.Clone() as unknown as BOARD_ITEM;
+          promotedTables.add(copy as PCB_TABLE);
+        } else {
+          copy = boardItem.Clone() as BOARD_ITEM;
+        }
+
+        if (copy) {
+          if (copy.Type() === KICAD_T.PCB_FIELD_T || copy.Type() === KICAD_T.PCB_PAD_T) {
+            // Create a parent footprint to own the copied item
+            const footprint = new FOOTPRINT_CLASS(board);
+
+            footprint.SetPosition(copy.GetPosition());
+            footprint.Add(copy);
+
+            // Convert any mandatory fields to user fields.  The destination footprint
+            // will already have its own mandatory fields.
+            if (copy.Type() === KICAD_T.PCB_FIELD_T) {
+              const field = copy as unknown as PCB_FIELD;
+
+              if (field.IsMandatory()) field.SetOrdinal(footprint.GetNextFieldOrdinal());
+            }
+
+            copy = footprint;
+          }
+
+          copy.SetLocked(false);
+          copy.SetParent(board);
+          copy.SetParentGroup(null);
+
+          // locate the reference point at (0, 0) in the copied items
+          copy.Move(back);
+
+          if (copy.Type() === KICAD_T.PCB_TABLE_T) {
+            const table = copy as PCB_TABLE;
+
+            if (promotedTables.has(table)) deleteUnselectedCells(table);
+          }
+
+          Format(copy);
+
+          if (copy.Type() === KICAD_T.PCB_GROUP_T || copy.Type() === KICAD_T.PCB_GENERATOR_T) {
+            copy.RunOnChildren((descendant: BOARD_ITEM) => {
+              descendant.SetLocked(false);
+              Format(descendant);
+            }, RECURSE_MODE.RECURSE);
+          }
+        }
+      }
+
+      formatter.Print(')');
+    }
+
+    // These are placed at the end to minimize the open time of the clipboard
+    this.m_writer(formatter.Finish());
+  }
 }

@@ -37,7 +37,7 @@
  * the relative-coordinate arithmetic beside it, nothing on the board.
  */
 import type { JSX } from 'react';
-import { PanelDisplayOrigin } from '../../../dialogs/prefs/PanelDisplayOrigin.js';
+import { PanelDisplayOrigin } from '@ziroeda/pcbnew/dialogs/panel_pcbnew_display_origin.js';
 import type { PrefsContext } from '../../../dialogs/prefs/types.js';
 
 export function PanelFpOriginsAxes({ ctx }: { ctx: PrefsContext }): JSX.Element {

@@ -17,6 +17,7 @@
  * header.
  */
 
+import { ptrLess } from '@ziroeda/core/kicad_algo.js';
 import {
   CompareByUuid,
   EDA_ITEM,
@@ -3526,7 +3527,7 @@ export class BOARD extends BOARD_ITEM_CONTAINER {
       // shopuld be always the case foer valid boards
       return a.m_Uuid < b.m_Uuid;
 
-    return false; // a < b: pointer order, no analogue
+    return ptrLess(a, b); // a < b on the pointers
   }
 
   /** `BOARD::cmp_drawings::operator()`. */

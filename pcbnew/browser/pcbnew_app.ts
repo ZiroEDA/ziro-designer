@@ -21,6 +21,7 @@ import type { ChooserFilter } from '@ziroeda/common/wx/filedlg.js';
 import type { ToolbarDefaults, ToolbarLoc } from '@ziroeda/common/tool/ui/toolbar_configuration.js';
 import type { ToolEntry } from '@ziroeda/common/tool/action_toolbar_types.js';
 import type { FootprintIndexLibrary } from '../footprint_info_impl.js';
+import type { FOOTPRINT, FP_3DMODEL } from '../footprint.js';
 import type { PcbFootprint, Board } from '../types.js';
 import type { NetClassAssignmentLike } from '@ziroeda/common/netclass_resolve.js';
 
@@ -84,6 +85,16 @@ export interface PCBNEW_APP {
   SaveAsDialog: (props: PcbnewSaveAsDialogProps) => ReactNode;
   /** `DIALOG_FOOTPRINT_CHOOSER`, with the two library reads baked in. */
   FootprintChooserFrame: (props: PcbnewFootprintChooserFrameProps) => ReactNode;
+  /**
+   * `PANEL_PREVIEW_3D_MODEL`'s canvas under Footprint Properties' 3D Models page
+   * (WebGL, through the 3D viewer's `mount3DViewer`): a dummy copy of `footprint`
+   * given `models`, redrawn when `version` changes.
+   */
+  ModelPreview3D: (props: {
+    footprint: FOOTPRINT;
+    models: readonly FP_3DMODEL[];
+    version: number;
+  }) => ReactNode;
   /** The 3D viewer child frame; every prop is the caller's own board state,
    *  so this stays untyped here rather than importing 3d-viewer's types. */
   Viewer3DFrame: (props: Record<string, unknown>) => ReactNode;

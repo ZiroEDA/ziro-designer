@@ -8,6 +8,7 @@
  * Not here: `PCB_POINT_DESC`, the `PROPERTY_MANAGER` registration.
  */
 
+import { ptrLess } from '@ziroeda/core/kicad_algo.js';
 import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import { FLASHING, GAL_LAYER_ID, PCB_LAYER_ID, POINT_LAYER_FOR } from '@ziroeda/common/layer_id.js';
@@ -108,7 +109,7 @@ export class PCB_POINT extends BOARD_ITEM {
 
     if (a.m_Uuid !== b.m_Uuid) return a.m_Uuid < b.m_Uuid;
 
-    return false; // a < b: pointer order, no analogue
+    return ptrLess(a, b); // a < b on the pointers
   }
 
   override SetPosition(aPos: VECTOR2I): void {

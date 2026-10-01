@@ -23,7 +23,7 @@ import {
 import {
   NET_NAMES_CHOICES,
   TRACK_CLEARANCE_CHOICES,
-} from '@ziroeda/designer/src/dialogs/prefs/DisplayOptionsGroups.js';
+} from '@ziroeda/pcbnew/dialogs/panel_display_options.js';
 import {
   crosshairToggleId,
   foldPcbToggle,

@@ -99,3 +99,119 @@ export function pinNumbersCompare(lhs: string, rhs: string): number {
     }
   }
 }
+
+/**
+ * `PIN_NUMBERS` (common/pin_numbers.h): the set of pin numbers, ordered by
+ * {@link pinNumbersCompare}, that collapses to a summary like `1-8,10` and
+ * remembers which numbers were inserted more than once.
+ *
+ * Two numbers are the same element of the set when neither is less than the
+ * other (`std::set<wxString, less>`), so a duplicate is `v` when an equivalent
+ * element is already there.
+ */
+export class PIN_NUMBERS {
+  private pins: string[] = [];
+  private duplicate_pins: string[] = [];
+
+  /** `PIN_NUMBERS::less`. */
+  private static less(lhs: string, rhs: string): boolean {
+    return pinNumbersCompare(lhs, rhs) < 0;
+  }
+
+  static Compare(lhs: string, rhs: string): number {
+    return pinNumbersCompare(lhs, rhs);
+  }
+
+  /**
+   * `insert( v )`: a number the set already holds goes into the duplicates
+   * (a `std::set<wxString>`, in `wxString` order) instead.
+   */
+  insert(v: string): void {
+    let lo = 0;
+    let hi = this.pins.length;
+
+    // std::set::insert: the first element that is not less than v
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (PIN_NUMBERS.less(this.pins[mid] as string, v)) lo = mid + 1;
+      else hi = mid;
+    }
+
+    if (lo < this.pins.length && !PIN_NUMBERS.less(v, this.pins[lo] as string)) {
+      // Not inserted: the pin number is a duplicate so add it to the duplicate set.
+      if (!this.duplicate_pins.includes(v)) {
+        this.duplicate_pins.push(v);
+        this.duplicate_pins.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+      }
+
+      return;
+    }
+
+    this.pins.splice(lo, 0, v);
+  }
+
+  size(): number {
+    return this.pins.length;
+  }
+
+  [Symbol.iterator](): IterableIterator<string> {
+    return this.pins[Symbol.iterator]();
+  }
+
+  /** `GetSummary()`: runs of adjacent numbers as `first-last`, joined with commas. */
+  GetSummary(): string {
+    let ret = '';
+
+    if (this.pins.length === 0) return ret;
+
+    let i = 0;
+    let begin_of_range = i;
+    let last: number;
+
+    for (;;) {
+      last = i;
+      ++i;
+
+      const rc =
+        i !== this.pins.length
+          ? PIN_NUMBERS.Compare(this.pins[last] as string, this.pins[i] as string)
+          : -2;
+
+      console.assert(rc === -1 || rc === -2);
+
+      // adjacent elements
+      if (rc === -1) continue;
+
+      ret += this.pins[begin_of_range];
+
+      if (begin_of_range !== last) {
+        ret += '-';
+        ret += this.pins[last];
+      }
+
+      if (i === this.pins.length) break;
+
+      begin_of_range = i;
+      ret += ',';
+    }
+
+    return ret;
+  }
+
+  /** `GetDuplicates()`: the numbers inserted more than once, or "none". */
+  GetDuplicates(): string {
+    let ret = '';
+
+    for (const pinNumber of this.duplicate_pins) {
+      ret += pinNumber;
+      ret += ',';
+    }
+
+    // Remove the trailing comma
+    ret = ret.slice(0, -1);
+
+    if (ret === '') ret = 'none';
+
+    return ret;
+  }
+}

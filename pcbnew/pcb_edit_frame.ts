@@ -15,7 +15,12 @@ import { PCB_EDIT_FRAME_NAME } from '@ziroeda/common/eda_draw_frame.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { ENUM_MAP } from '@ziroeda/common/properties/property.js';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
-import { CLEARANCE_LAYER_FOR, IsCopperLayer, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import {
+  CLEARANCE_LAYER_FOR,
+  IsCopperLayer,
+  PCB_LAYER_ID,
+  UNDEFINED_LAYER,
+} from '@ziroeda/common/layer_id.js';
 import { EMBED_TOOL } from '@ziroeda/common/tool/embed_tool.js';
 import { PROPERTIES_TOOL } from '@ziroeda/common/tool/properties_tool.js';
 import { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
@@ -43,7 +48,7 @@ import type { ZONE } from './zone.js';
 import type { wxTextValidator } from '@ziroeda/common/validators.js';
 import { DisplayErrorMessage } from '@ziroeda/common/confirm.js';
 import { MICROWAVE_TOOL, type MICROWAVE_HOST } from './microwave/microwave_tool.js';
-import type { PcbFootprint } from './types.js';
+import type { Board, PcbFootprint } from './types.js';
 import type { NETLIST } from './netlist_reader/pcb_netlist.js';
 import { type DIALOG_DRC_LIKE, DRC_TOOL } from './tools/drc_tool.js';
 import type { DRC_JOB_HOOKS, DRC_JOB_REQUEST } from './browser/drc_job.js';
@@ -76,7 +81,34 @@ import { EDIT_ZONE_HELPERS_MIXIN } from './edit_zone_helpers.js';
 import { PCBNEW_CONFIG_MIXIN } from './pcbnew_config.js';
 import { LOAD_SELECT_FOOTPRINT_MIXIN } from './load_select_footprint.js';
 import type { LIB_ID } from '@ziroeda/common/lib_id.js';
-import { PCB_SELECTION_FILTER_OPTIONS } from '@ziroeda/common/project/board_project_settings.js';
+import type { PCB_SELECTION_FILTER_OPTIONS } from '@ziroeda/common/project/board_project_settings.js';
+import { ACTIONS } from '@ziroeda/common/tool/actions.js';
+import { TOOL_DISPATCHER } from '@ziroeda/common/tool/tool_dispatcher.js';
+import type { wxEvent } from '@ziroeda/common/wx/wx_event.js';
+import type { SelectionFilter } from './dialogs/dialog_filter_selection.js';
+import { PCB_POINT_EDITOR } from './tools/pcb_point_editor.js';
+import { PCB_SELECTION_TOOL } from './tools/pcb_selection_tool.js';
+import { EDIT_TOOL, type MOVE_EXACT_VALUES, type ROUTER_TOOL_LIKE } from './tools/edit_tool.js';
+import type { DOGBONE_PARAMETERS } from './tools/item_modification_routine.js';
+import { ALIGN_DISTRIBUTE_TOOL } from './tools/align_distribute_tool.js';
+import { POSITION_RELATIVE_TOOL } from './tools/position_relative_tool.js';
+import type { DIALOG_POSITION_RELATIVE } from './dialogs/dialog_position_relative.js';
+import type { DIALOG_OFFSET_ITEM } from './dialogs/dialog_offset_item.js';
+import { CONVERT_TOOL } from './tools/convert_tool.js';
+import type { OUTSET_PARAMETERS } from './tools/item_modification_routine.js';
+import type { CONVERT_SETTINGS } from './pcbnew_settings.js';
+import type { ZONE_SETTINGS } from './zone_settings.js';
+import { PCB_GROUP_TOOL } from './tools/pcb_group_tool.js';
+import { PCB_PICKER_TOOL } from './tools/pcb_picker_tool.js';
+import type { PCB_SELECTION } from './tools/pcb_selection.js';
+import type { PCB_TABLE } from './pcb_table.js';
+import type { PCB_TABLECELL } from './pcb_tablecell.js';
+import type { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
+import {
+  makeGatedDispatcher,
+  type WINDOW_ACTION_HANDLER,
+  WINDOW_ACTION_BRIDGE,
+} from './tools/window_action_bridge.js';
 import {
   LAYER_PAIR_SETTINGS,
   PCB_CURRENT_LAYER_PAIR_CHANGED,
@@ -350,20 +382,89 @@ export interface PCB_EDIT_FRAME_HOOKS {
    * with `GetRepourOnClose()`. Optional: absent answers cancel.
    */
   showZoneManager?(): Promise<{ ok: boolean; repour: boolean }>;
-  /** `PCB_SELECTION_TOOL::ClearSelection`. */
-  clearSelection?(): void;
   /** `PCB_ACTIONS::zoneFillAll`. */
   fillAllZones?(): void;
   /**
-   * `PCB_SELECTION_TOOL::GetSelection()` on the live model (the design block
-   * commands read it). Optional: a frame with no selection tool has none.
+   * `EDA_BASE_FRAME::ShowInfoBarWarning( aWarningMsg, aShowCloseButton )`: the
+   * window's infobar, warning icon, 6 s. Optional: a frame with no window shows
+   * nothing.
    */
-  currentSelection?(): readonly EDA_ITEM[];
+  showInfoBarWarning?(aWarningMsg: string, aShowCloseButton: boolean): void;
+  /** `EDA_BASE_FRAME::ShowInfoBarMsg( aMsg )`: the infobar, information icon. */
+  showInfoBarMsg?(aMsg: string): void;
+  /** `WX_UNIT_ENTRY_DIALOG( frame, aTitle, aLabel, aValue ).ShowModal()`: the value, null on cancel. */
+  showUnitEntryDialog?(aTitle: string, aLabel: string, aValue: number): Promise<number | null>;
+  /** EDIT_TOOL's `GetDogboneParams` WX_MULTI_ENTRY_DIALOG. */
+  showDogboneDialog?(aParams: DOGBONE_PARAMETERS): Promise<DOGBONE_PARAMETERS | null>;
+  /** `DIALOG_MOVE_EXACT( frame, translation, rotation, anchor, bbox ).ShowModal()`. */
+  showMoveExactDialog?(
+    aValues: MOVE_EXACT_VALUES,
+    aSelectionBox: BOX2I,
+  ): Promise<MOVE_EXACT_VALUES | null>;
+  /** `DIALOG_TRACK_VIA_PROPERTIES( frame, selection ).ShowQuasiModal()`. */
+  showTrackViaPropertiesDialog?(aSelection: PCB_SELECTION): Promise<void>;
+  /** `DIALOG_GET_FOOTPRINT_BY_NAME( frame, fplist ).ShowModal()`: the value, null on cancel. */
+  showGetFootprintByNameDialog?(aList: string[]): Promise<string | null>;
+  /** CONVERT_TOOL's `CONVERT_SETTINGS_DIALOG(...).ShowModal() == wxID_OK`. */
+  showConvertSettingsDialog?(
+    aSettings: CONVERT_SETTINGS,
+    aShowCopyLineWidthOption: boolean,
+    aShowCenterlineOption: boolean,
+    aShowBoundingHullOption: boolean,
+  ): Promise<boolean>;
+  /** CONVERT_TOOL's `Invoke*ZonesEditor( frame, nullptr, &zoneInfo, &m_userSettings )`. */
+  showZoneEditorForConversion?(
+    aKind: 'ruleArea' | 'nonCopper' | 'copper',
+    aZoneSettings: ZONE_SETTINGS,
+    aConvertSettings: CONVERT_SETTINGS,
+  ): Promise<boolean>;
+  /** `PCB_BASE_FRAME::SelectOneLayer`: UNDEFINED_LAYER on cancel. */
+  selectOneLayer?(aDefaultLayer: PCB_LAYER_ID, aNotAllowedLayersMask: LSET): Promise<PCB_LAYER_ID>;
+  /** `DIALOG_OUTSET_ITEMS( frame, aParams ).ShowModal() != wxID_CANCEL`. */
+  showOutsetItemsDialog?(aParams: OUTSET_PARAMETERS): Promise<boolean>;
+  /** POSITION_RELATIVE_TOOL's modeless DIALOG_POSITION_RELATIVE, drawn while it lives. */
+  attachPositionRelativeDialog?(aDialog: DIALOG_POSITION_RELATIVE): void;
+  /** POSITION_RELATIVE_TOOL's `DIALOG_OFFSET_ITEM( ... ).ShowModal() == wxID_OK`. */
+  showOffsetItemDialog?(aDialog: DIALOG_OFFSET_ITEM): Promise<boolean>;
+  /** `PromptConnectedPadDecision`'s wxRichMessageDialog. */
+  showConnectedPadDialog?(
+    aTitle: string,
+    aMessage: string,
+    aDetails: string,
+  ): Promise<'ignore' | 'all' | null>;
+  /** `PCB_BASE_EDIT_FRAME::OpenVertexEditor( aItem )`. */
+  openVertexEditor?(aItem: BOARD_ITEM): void;
   /**
-   * `ACTIONS::selectionClear` then `ACTIONS::selectItem( aGroup )`, after a
-   * saved selection was grouped as its design block.
+   * TRANSITIONAL (#636 stage 3): the window's view board, which PCB_GRID_HELPER
+   * still computes its anchors from (`GetTransitionalBoardView`).
    */
-  selectGroup?(aGroup: PCB_GROUP): void;
+  boardView?(): Board | null;
+  /**
+   * TRANSITIONAL (#636 stage 3): ROUTER_TOOL's state, while the router is the
+   * window's (`WINDOW_ACTION_BRIDGE::Router`).
+   */
+  router?(): ROUTER_TOOL_LIKE | null;
+  /**
+   * `DIALOG_FILTER_SELECTION( frame, aOptions ).ShowModal() == wxID_OK`, the
+   * dialog editing `aOptions` in place. Optional: absent answers cancel.
+   */
+  showFilterSelectionDialog?(aOptions: SelectionFilter): Promise<boolean>;
+  /**
+   * `EDA_DRAW_FRAME::UpdateProperties()`'s window half: the selection tool's
+   * selection changed, and the window's panels re-read it.
+   */
+  updateProperties?(): void;
+  /**
+   * TRANSITIONAL (#636 stage 3): the window's own implementation of an action
+   * whose tool is not ported yet (`WINDOW_ACTION_BRIDGE`).
+   */
+  windowAction?: WINDOW_ACTION_HANDLER;
+  /**
+   * TRANSITIONAL (#636 stage 3): true when a canvas event belongs to one of the
+   * window's own not-yet-ported tools (a drawing tool, a point edit or a move
+   * in flight), which then gets it instead of the tool dispatcher.
+   */
+  eventToWindow?(aEvent: wxEvent): boolean;
 }
 
 export interface PCB_EDIT_FRAME
@@ -424,36 +525,162 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     return this.m_designBlocksPane;
   }
 
-  /** `GetCurrentSelection()`: the selection tool's selection. */
-  override GetCurrentSelection(): SELECTION {
-    const selection = new SELECTION();
-
-    for (const item of this.hooks.currentSelection?.() ?? []) selection.Add(item);
-
-    return selection;
+  /** `m_toolManager->GetTool<PCB_SELECTION_TOOL>()`. */
+  GetSelectionTool(): PCB_SELECTION_TOOL {
+    return this.m_toolManager!.GetTool(PCB_SELECTION_TOOL)!;
   }
 
-  /** What `SaveSelectionAsDesignBlock` does with the group it made: select it. */
-  OnDesignBlockGrouped(aGroup: PCB_GROUP): void {
-    this.hooks.selectGroup?.(aGroup);
+  /** `GetCurrentSelection()` (pcb_edit_frame.cpp): the selection tool's selection. */
+  override GetCurrentSelection(): SELECTION {
+    return this.GetSelectionTool().GetSelection();
   }
 
   /**
-   * `PCB_SELECTION_TOOL::m_filter`, which `GetFilter()` hands out
-   * (`pcb_selection_tool.h`). This port's selection tool is functions over
-   * the window's state, not a `TOOL_INTERACTIVE` holding a filter, so the
-   * filter lives on the frame the tool would be registered with.
+   * What `SaveSelectionAsDesignBlock` does with the group it made:
+   * `m_toolManager->RunAction( ACTIONS::selectionClear )` then
+   * `m_toolManager->RunAction<EDA_ITEM*>( ACTIONS::selectItem, group )`.
    */
-  private readonly m_selectionFilter = new PCB_SELECTION_FILTER_OPTIONS();
+  OnDesignBlockGrouped(aGroup: PCB_GROUP): void {
+    this.m_toolManager!.RunAction(ACTIONS.selectionClear);
+    this.m_toolManager!.RunAction<EDA_ITEM | null>(ACTIONS.selectItem, aGroup);
+  }
 
   /** `GetToolManager()->GetTool<PCB_SELECTION_TOOL>()->GetFilter()`. */
   GetSelectionFilter(): PCB_SELECTION_FILTER_OPTIONS {
-    return this.m_selectionFilter;
+    return this.GetSelectionTool().GetFilter();
   }
 
   /** `EDA_BASE_FRAME::ShowInfoBarError( aErrorMsg, aShowCloseButton )` (eda_base_frame.cpp). */
   ShowInfoBarError(aErrorMsg: string, aShowCloseButton = false): void {
     this.hooks.showInfoBarError?.(aErrorMsg, aShowCloseButton);
+  }
+
+  /** `EDA_BASE_FRAME::ShowInfoBarWarning( aWarningMsg, aShowCloseButton )` (eda_base_frame.cpp:1451). */
+  override ShowInfoBarWarning(aWarningMsg: string, aShowCloseButton = false): void {
+    this.hooks.showInfoBarWarning?.(aWarningMsg, aShowCloseButton);
+  }
+
+  /** `DIALOG_FILTER_SELECTION( this, aOptions ).ShowModal() == wxID_OK`. */
+  ShowFilterSelectionDialog(aOptions: SelectionFilter): Promise<boolean> {
+    return this.hooks.showFilterSelectionDialog?.(aOptions) ?? Promise.resolve(false);
+  }
+
+  // ---- EDIT_TOOL's window half (EDIT_TOOL_FRAME) -------------------------
+
+  /** `EDA_BASE_FRAME::ShowInfoBarMsg( aMsg )` (eda_base_frame.cpp). */
+  ShowInfoBarMsg(aMsg: string): void {
+    this.hooks.showInfoBarMsg?.(aMsg);
+  }
+
+  ShowUnitEntryDialog(aTitle: string, aLabel: string, aValue: number): Promise<number | null> {
+    return this.hooks.showUnitEntryDialog?.(aTitle, aLabel, aValue) ?? Promise.resolve(null);
+  }
+
+  ShowDogboneDialog(aParams: DOGBONE_PARAMETERS): Promise<DOGBONE_PARAMETERS | null> {
+    return this.hooks.showDogboneDialog?.(aParams) ?? Promise.resolve(null);
+  }
+
+  ShowMoveExactDialog(
+    aValues: MOVE_EXACT_VALUES,
+    aSelectionBox: BOX2I,
+  ): Promise<MOVE_EXACT_VALUES | null> {
+    return this.hooks.showMoveExactDialog?.(aValues, aSelectionBox) ?? Promise.resolve(null);
+  }
+
+  ShowTrackViaPropertiesDialog(aSelection: PCB_SELECTION): Promise<void> {
+    return this.hooks.showTrackViaPropertiesDialog?.(aSelection) ?? Promise.resolve();
+  }
+
+  /**
+   * `DIALOG_TABLECELL_PROPERTIES`. TRANSITIONAL (#636 stage 3): not wired to a
+   * window dialog yet; a table cell's properties open the table's own.
+   */
+  ShowTableCellPropertiesDialog(_aCells: PCB_TABLECELL[]): Promise<boolean> {
+    return Promise.resolve(true);
+  }
+
+  /** `DIALOG_TABLE_PROPERTIES( frame, table ).ShowQuasiModal()`: the table's edit request. */
+  ShowTablePropertiesDialog(aTable: PCB_TABLE): Promise<void> {
+    this.OnEditItemRequest(aTable);
+    return Promise.resolve();
+  }
+
+  // ---- CONVERT_TOOL's window half (CONVERT_TOOL_FRAME) ---------------------
+
+  ShowConvertSettingsDialog(
+    aSettings: CONVERT_SETTINGS,
+    aShowCopyLineWidthOption: boolean,
+    aShowCenterlineOption: boolean,
+    aShowBoundingHullOption: boolean,
+  ): Promise<boolean> {
+    return (
+      this.hooks.showConvertSettingsDialog?.(
+        aSettings,
+        aShowCopyLineWidthOption,
+        aShowCenterlineOption,
+        aShowBoundingHullOption,
+      ) ?? Promise.resolve(false)
+    );
+  }
+
+  ShowZoneEditorForConversion(
+    aKind: 'ruleArea' | 'nonCopper' | 'copper',
+    aZoneSettings: ZONE_SETTINGS,
+    aConvertSettings: CONVERT_SETTINGS,
+  ): Promise<boolean> {
+    return (
+      this.hooks.showZoneEditorForConversion?.(aKind, aZoneSettings, aConvertSettings) ??
+      Promise.resolve(false)
+    );
+  }
+
+  SelectOneLayer(aDefaultLayer: PCB_LAYER_ID, aNotAllowedLayersMask: LSET): Promise<PCB_LAYER_ID> {
+    return (
+      this.hooks.selectOneLayer?.(aDefaultLayer, aNotAllowedLayersMask) ??
+      Promise.resolve(UNDEFINED_LAYER)
+    );
+  }
+
+  ShowOutsetItemsDialog(aParams: OUTSET_PARAMETERS): Promise<boolean> {
+    return this.hooks.showOutsetItemsDialog?.(aParams) ?? Promise.resolve(false);
+  }
+
+  // ---- POSITION_RELATIVE_TOOL's window half (POSITION_RELATIVE_TOOL_FRAME) --
+
+  AttachPositionRelativeDialog(aDialog: DIALOG_POSITION_RELATIVE): void {
+    this.hooks.attachPositionRelativeDialog?.(aDialog);
+  }
+
+  ShowOffsetItemDialog(aDialog: DIALOG_OFFSET_ITEM): Promise<boolean> {
+    return this.hooks.showOffsetItemDialog?.(aDialog) ?? Promise.resolve(false);
+  }
+
+  ShowGetFootprintByNameDialog(aList: string[]): Promise<string | null> {
+    return this.hooks.showGetFootprintByNameDialog?.(aList) ?? Promise.resolve(null);
+  }
+
+  ShowConnectedPadDialog(
+    aTitle: string,
+    aMessage: string,
+    aDetails: string,
+  ): Promise<'ignore' | 'all' | null> {
+    return this.hooks.showConnectedPadDialog?.(aTitle, aMessage, aDetails) ?? Promise.resolve(null);
+  }
+
+  /** `PCB_BASE_EDIT_FRAME::OpenVertexEditor( aItem )`. */
+  OpenVertexEditor(aItem: BOARD_ITEM): void {
+    this.hooks.openVertexEditor?.(aItem);
+  }
+
+  /** TRANSITIONAL (#636 stage 3): see the `boardView` hook. */
+  GetTransitionalBoardView(): Board | null {
+    return this.hooks.boardView?.() ?? null;
+  }
+
+  /** `EDA_DRAW_FRAME::UpdateProperties()`, and the window re-reading the selection. */
+  override UpdateProperties(): void {
+    super.UpdateProperties();
+    this.hooks.updateProperties?.();
   }
 
   /** `MICROWAVE_TOOL` (`pcbnew.MicrowaveTool`): built on first use, over this frame. */
@@ -479,8 +706,7 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
         PolygonShapeDialog: () =>
           this.hooks.mwavePolygonalShapeDialog?.() ?? Promise.resolve(false),
         AddInductor: (aFootprint) => {
-          // `m_toolMgr->RunAction<EDA_ITEM*>( ACTIONS::selectItem, inductorFP.get() )`
-          this.hooks.selectItem?.(aFootprint);
+          this.m_toolManager!.RunAction<EDA_ITEM | null>(ACTIONS.selectItem, aFootprint);
 
           const commit = new BOARD_COMMIT(this);
           commit.Add(aFootprint);
@@ -538,7 +764,7 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     if (!ok) return;
 
     // "Ensure all zones are deselected before make any change in view"
-    this.hooks.clearSelection?.();
+    this.m_toolManager!.RunAction(ACTIONS.selectionClear);
 
     this.OnModify();
 
@@ -570,27 +796,59 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
 
   /**
    * `PCB_EDIT_FRAME::setupTools` (pcb_edit_frame.cpp:940): the manager, its
-   * environment, the tools registered in the C++ order - DRC_TOOL (#636 stage
-   * 4d) and common's PROPERTIES_TOOL and EMBED_TOOL are the ones ported so far;
-   * the rest are stage 3's.
+   * environment, the dispatcher, the tools registered in the C++ order - of
+   * them PCB_SELECTION_TOOL, EDIT_TOOL, PCB_POINT_EDITOR (as far as
+   * `HasPoint`), ALIGN_DISTRIBUTE_TOOL, POSITION_RELATIVE_TOOL, DRC_TOOL,
+   * CONVERT_TOOL, PCB_GROUP_TOOL,
+   * PROPERTIES_TOOL, EMBED_TOOL and PCB_PICKER_TOOL are ported; the rest are
+   * #636 stage 3's, and WINDOW_ACTION_BRIDGE answers their actions meanwhile.
    */
   private setupTools(): void {
     // Create the manager and dispatcher & route draw panel events to the dispatcher
     this.m_toolManager = new TOOL_MANAGER();
     this.m_toolManager.SetEnvironment(this.m_pcb, null, null, this.hooks.settings(), this);
+    const dispatcher = new TOOL_DISPATCHER(this.m_toolManager);
+
+    // TRANSITIONAL (#636 stage 3): an event one of the window's own tools owns
+    // goes to the window, not to the dispatcher (see `eventToWindow`).
+    this.m_toolDispatcher = makeGatedDispatcher(
+      dispatcher,
+      (aEvent: wxEvent) => this.hooks.eventToWindow?.(aEvent) ?? false,
+      () => this.OnIdle(),
+    ) as unknown as TOOL_DISPATCHER;
 
     // Register tools
+    this.m_toolManager.RegisterTool(new PCB_SELECTION_TOOL());
+    this.m_toolManager.RegisterTool(new EDIT_TOOL());
+    this.m_toolManager.RegisterTool(new PCB_POINT_EDITOR());
+    this.m_toolManager.RegisterTool(new ALIGN_DISTRIBUTE_TOOL());
+    this.m_toolManager.RegisterTool(new POSITION_RELATIVE_TOOL());
     this.m_toolManager.RegisterTool(new DRC_TOOL());
+    this.m_toolManager.RegisterTool(new CONVERT_TOOL());
+    this.m_toolManager.RegisterTool(new PCB_GROUP_TOOL());
     this.m_toolManager.RegisterTool(new PROPERTIES_TOOL());
     this.m_toolManager.RegisterTool(new EMBED_TOOL());
+    this.m_toolManager.RegisterTool(new PCB_PICKER_TOOL());
+    this.m_toolManager.RegisterTool(
+      new WINDOW_ACTION_BRIDGE(
+        (aAction, aEvent) => this.hooks.windowAction?.(aAction, aEvent),
+        () => this.hooks.router?.() ?? null,
+      ),
+    );
     this.m_toolManager.InitTools();
+
+    // `EDA_BASE_FRAME::LoadWindowSettings` ends with `TOOLS_HOLDER::CommonSettingsChanged()`:
+    // the left-drag action (`m_dragAction`), warp-on-move and immediate actions
+    // from COMMON_SETTINGS. Without it the drag action stays TOOLS_HOLDER's
+    // SELECT, and every drag - from a selected footprint too - is a selection box.
+    this.CommonSettingsChanged();
 
     for (const tool of this.m_toolManager.Tools()) {
       if (tool instanceof PCB_TOOL_BASE) tool.SetIsBoardEditor(true);
     }
 
     // Run the selection tool, it is supposed to be always active
-    // m_toolManager->InvokeTool( "common.InteractiveSelection" ): stage 3's
+    this.m_toolManager.InvokeTool('common.InteractiveSelection');
   }
 
   /** `PCB_EDIT_FRAME::GetDesignRulesPath()`: the project's rules file. */
