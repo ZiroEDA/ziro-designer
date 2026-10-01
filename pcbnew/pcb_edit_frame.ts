@@ -91,6 +91,9 @@ import { PCB_SELECTION_TOOL } from './tools/pcb_selection_tool.js';
 import { EDIT_TOOL, type MOVE_EXACT_VALUES, type ROUTER_TOOL_LIKE } from './tools/edit_tool.js';
 import type { DOGBONE_PARAMETERS } from './tools/item_modification_routine.js';
 import { ALIGN_DISTRIBUTE_TOOL } from './tools/align_distribute_tool.js';
+import { POSITION_RELATIVE_TOOL } from './tools/position_relative_tool.js';
+import type { DIALOG_POSITION_RELATIVE } from './dialogs/dialog_position_relative.js';
+import type { DIALOG_OFFSET_ITEM } from './dialogs/dialog_offset_item.js';
 import { CONVERT_TOOL } from './tools/convert_tool.js';
 import type { OUTSET_PARAMETERS } from './tools/item_modification_routine.js';
 import type { CONVERT_SETTINGS } from './pcbnew_settings.js';
@@ -419,6 +422,10 @@ export interface PCB_EDIT_FRAME_HOOKS {
   selectOneLayer?(aDefaultLayer: PCB_LAYER_ID, aNotAllowedLayersMask: LSET): Promise<PCB_LAYER_ID>;
   /** `DIALOG_OUTSET_ITEMS( frame, aParams ).ShowModal() != wxID_CANCEL`. */
   showOutsetItemsDialog?(aParams: OUTSET_PARAMETERS): Promise<boolean>;
+  /** POSITION_RELATIVE_TOOL's modeless DIALOG_POSITION_RELATIVE, drawn while it lives. */
+  attachPositionRelativeDialog?(aDialog: DIALOG_POSITION_RELATIVE): void;
+  /** POSITION_RELATIVE_TOOL's `DIALOG_OFFSET_ITEM( ... ).ShowModal() == wxID_OK`. */
+  showOffsetItemDialog?(aDialog: DIALOG_OFFSET_ITEM): Promise<boolean>;
   /** `PromptConnectedPadDecision`'s wxRichMessageDialog. */
   showConnectedPadDialog?(
     aTitle: string,
@@ -638,6 +645,16 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     return this.hooks.showOutsetItemsDialog?.(aParams) ?? Promise.resolve(false);
   }
 
+  // ---- POSITION_RELATIVE_TOOL's window half (POSITION_RELATIVE_TOOL_FRAME) --
+
+  AttachPositionRelativeDialog(aDialog: DIALOG_POSITION_RELATIVE): void {
+    this.hooks.attachPositionRelativeDialog?.(aDialog);
+  }
+
+  ShowOffsetItemDialog(aDialog: DIALOG_OFFSET_ITEM): Promise<boolean> {
+    return this.hooks.showOffsetItemDialog?.(aDialog) ?? Promise.resolve(false);
+  }
+
   ShowGetFootprintByNameDialog(aList: string[]): Promise<string | null> {
     return this.hooks.showGetFootprintByNameDialog?.(aList) ?? Promise.resolve(null);
   }
@@ -781,7 +798,8 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
    * `PCB_EDIT_FRAME::setupTools` (pcb_edit_frame.cpp:940): the manager, its
    * environment, the dispatcher, the tools registered in the C++ order - of
    * them PCB_SELECTION_TOOL, EDIT_TOOL, PCB_POINT_EDITOR (as far as
-   * `HasPoint`), ALIGN_DISTRIBUTE_TOOL, DRC_TOOL, CONVERT_TOOL, PCB_GROUP_TOOL,
+   * `HasPoint`), ALIGN_DISTRIBUTE_TOOL, POSITION_RELATIVE_TOOL, DRC_TOOL,
+   * CONVERT_TOOL, PCB_GROUP_TOOL,
    * PROPERTIES_TOOL, EMBED_TOOL and PCB_PICKER_TOOL are ported; the rest are
    * #636 stage 3's, and WINDOW_ACTION_BRIDGE answers their actions meanwhile.
    */
@@ -804,6 +822,7 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     this.m_toolManager.RegisterTool(new EDIT_TOOL());
     this.m_toolManager.RegisterTool(new PCB_POINT_EDITOR());
     this.m_toolManager.RegisterTool(new ALIGN_DISTRIBUTE_TOOL());
+    this.m_toolManager.RegisterTool(new POSITION_RELATIVE_TOOL());
     this.m_toolManager.RegisterTool(new DRC_TOOL());
     this.m_toolManager.RegisterTool(new CONVERT_TOOL());
     this.m_toolManager.RegisterTool(new PCB_GROUP_TOOL());

@@ -167,7 +167,6 @@ import {
   defaultRotationAnchor,
   boardSelectionBBox,
   itemAnchorPoint,
-  positionRelative,
   boardGridOrigin,
   modifyLines,
   modifiableLineCount,
@@ -646,10 +645,10 @@ import type { OUTSET_PARAMETERS } from './tools/item_modification_routine.js';
 import type { CONVERT_SETTINGS } from './pcbnew_settings.js';
 import type { ZONE_SETTINGS } from './zone_settings.js';
 import { DialogPnsSettings } from './dialogs/dialog_pns_settings.js';
-import {
-  DialogPositionRelative,
-  type PositionRelativeValues,
-} from './dialogs/dialog_position_relative_ui.js';
+import { DialogPositionRelativeModeless } from './dialogs/dialog_position_relative_ui.js';
+import type { DIALOG_POSITION_RELATIVE } from './dialogs/dialog_position_relative.js';
+import { DialogOffsetItem } from './dialogs/dialog_offset_item_ui.js';
+import type { DIALOG_OFFSET_ITEM } from './dialogs/dialog_offset_item.js';
 import { DIALOG_BOOK_REPORTER } from '@ziroeda/common/dialogs/dialog_book_reporter.js';
 import { inspectReport, describeSelected } from './tools/board_inspection_tool.js';
 import { netClassFor, netclassesForNet } from '@ziroeda/common/netclass_resolve.js';
@@ -2043,7 +2042,13 @@ export function PcbEditor({
     },
     [onOutputFile],
   );
-  const [posRelOpen, setPosRelOpen] = useState(false);
+  /** POSITION_RELATIVE_TOOL's modeless dialog, for as long as the tool keeps it. */
+  const [posRelDialog, setPosRelDialog] = useState<DIALOG_POSITION_RELATIVE | null>(null);
+  /** POSITION_RELATIVE_TOOL's DIALOG_OFFSET_ITEM, with the promise the tool waits on. */
+  const [offsetDlg, setOffsetDlg] = useState<{
+    dialog: DIALOG_OFFSET_ITEM;
+    resolve: (aOk: boolean) => void;
+  } | null>(null);
   /** CONVERT_TOOL's modal dialogs, each with the promise the tool waits on. */
   const [outsetDlg, setOutsetDlg] = useState<{
     params: OUTSET_PARAMETERS;
@@ -2068,14 +2073,6 @@ export function PcbEditor({
   // Kept across openings, as upstream persists its ARRAY_OPTIONS.
   const [arraySettings, setArraySettings] = useState<ArraySettings>(DEFAULT_ARRAY_SETTINGS);
   // Kept across openings, as upstream keeps its PARAMETERS on the tool.
-  // The reference item for Position Relative, chosen by clicking the canvas
-  // (upstream arms PCB_PICKER_TOOL for this). Kept across openings, as upstream
-  // keeps its dialog alive between calls.
-  const [posRelRef, setPosRelRef] = useState<{ id: string; label: string } | null>(null);
-  const pickingRefItem = useRef(false);
-  // Mirrors the ref for rendering: the click handler needs a ref (it is not
-  // rebuilt per render), the banner needs state.
-  const [pickingRefShown, setPickingRefShown] = useState(false);
   // Live (world) cursor position read by draw()'s crosshair pass without
   // re-creating the callback; null when the pointer is off the canvas.
   const cursorRef = useRef<{ x: number; y: number } | null>(null);
@@ -2601,6 +2598,10 @@ export function PcbEditor({
         ),
       showOutsetItemsDialog: (aParams) =>
         new Promise<boolean>((resolve) => setOutsetDlg({ params: aParams, resolve })),
+      // POSITION_RELATIVE_TOOL's window half.
+      attachPositionRelativeDialog: (aDialog) => setPosRelDialog(aDialog),
+      showOffsetItemDialog: (aDialog) =>
+        new Promise<boolean>((resolve) => setOffsetDlg({ dialog: aDialog, resolve })),
       boardView: () => boardRef.current,
       router: () => editWindowRef.current?.router() ?? null,
       eventToWindow: (aEvent) => selWindowRef.current?.eventToWindow(aEvent) ?? false,
@@ -5313,21 +5314,6 @@ export function PcbEditor({
     [commitBoard],
   );
 
-  /** POSITION_RELATIVE_TOOL::RelativeItemSelectionMove, once the dialog has
-   *  the reference and the offset. */
-  const applyPositionRelative = useCallback(
-    (v: PositionRelativeValues) => {
-      const brd = boardRef.current;
-      const sel = [...selForDrawRef.current];
-      if (!brd || sel.length === 0) return;
-
-      const next = positionRelative(brd, sel, v);
-      if (next !== brd) commitBoard(next);
-      setPosRelOpen(false);
-    },
-    [commitBoard],
-  );
-
   /** ARRAY_TOOL::CreateArray. */
   const applyArray = useCallback((settings: ArraySettings) => {
     setArraySettings(settings);
@@ -5907,8 +5893,7 @@ export function PcbEditor({
     movingRef.current ||
     grabbingRef.current ||
     editHandleDragRef.current !== null ||
-    trackDragRef.current !== null ||
-    pickingRefItem.current;
+    trackDragRef.current !== null;
   drcWindowRef.current = {
     createDrcDialog: (_aTool: DRC_TOOL): DIALOG_DRC => {
       const frame = frameRef.current!;
@@ -6891,7 +6876,7 @@ export function PcbEditor({
             {
               label: 'Position Relative To...',
               shortcut: 'Shift+P',
-              action: () => setPosRelOpen(true),
+              action: () => runAction(PCB_ACTIONS.positionRelative),
             },
             {
               label: 'Outset Items...',
@@ -9806,25 +9791,6 @@ export function PcbEditor({
         return;
       }
       if (!d.moved) {
-        // Arming the Position Relative reference picker (PCB_PICKER_TOOL): the
-        // next click names an item and does *not* touch the selection, which is
-        // the thing being positioned.
-        if (pickingRefItem.current) {
-          const w = worldAt(e.clientX, e.clientY);
-          const hit = w ? hitCandidates(w)[0] : undefined;
-          if (hit) {
-            const brd0 = boardRef.current;
-            setPosRelRef({
-              id: hit,
-              label: (brd0 && describeSelected(brd0, hit)?.desc) || hit,
-            });
-            pickingRefItem.current = false;
-            setPickingRefShown(false);
-            setPosRelOpen(true);
-            requestDraw();
-          }
-          return;
-        }
         // Interactive Delete Tool (PCB_CONTROL::DeleteItemCursor): each click
         // deletes the item under the cursor, honouring the selection filter.
         if (activeToolRef.current === 'deleteTool') {
@@ -13217,35 +13183,6 @@ export function PcbEditor({
         />
       )}
       {kiDialogNode}
-      {pickingRefShown && (
-        <div
-          style={{
-            position: 'absolute',
-            top: 80,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            padding: '6px 12px',
-            fontSize: 12,
-            background: 'var(--chrome-bg)',
-            border: '1px solid var(--chrome-border)',
-            borderRadius: 6,
-            boxShadow: '0 8px 28px rgba(0,0,0,0.45)',
-            zIndex: 41,
-          }}
-        >
-          Click an item to use as the reference.{' '}
-          <button
-            type="button"
-            onClick={() => {
-              pickingRefItem.current = false;
-              setPickingRefShown(false);
-              setPosRelOpen(true);
-            }}
-          >
-            Cancel
-          </button>
-        </div>
-      )}
       {arrayOpen && board && (
         <DialogCreateArray
           initial={arraySettings}
@@ -13392,29 +13329,6 @@ export function PcbEditor({
             />
           );
         })()}
-      {posRelOpen && board && (
-        <DialogPositionRelative
-          gridOrigin={boardGridOrigin(board)}
-          userOrigin={{ x: 0, y: 0 }}
-          referenceItem={
-            posRelRef
-              ? {
-                  label: posRelRef.label,
-                  at: itemAnchorPoint(board, posRelRef.id) ?? { x: 0, y: 0 },
-                }
-              : null
-          }
-          onPick={() => {
-            // Hide the dialog while the canvas is armed: it is an overlay, and
-            // the item wanted may well be underneath it.
-            pickingRefItem.current = true;
-            setPickingRefShown(true);
-            setPosRelOpen(false);
-          }}
-          onApply={applyPositionRelative}
-          onClose={() => setPosRelOpen(false)}
-        />
-      )}
       {statsOpen && frameRef.current?.GetBoard() && (
         <DialogBoardStatistics
           board={frameRef.current.GetBoard()!}
@@ -13692,6 +13606,18 @@ export function PcbEditor({
             setBoardSetupOpen(false);
           }}
           onClose={() => setBoardSetupOpen(false)}
+        />
+      )}
+      {/* POSITION_RELATIVE_TOOL's DIALOG_POSITION_RELATIVE: modeless, in the
+          same host as Find; it draws itself only while it is shown. */}
+      {posRelDialog && <DialogPositionRelativeModeless dialog={posRelDialog} />}
+      {offsetDlg && (
+        <DialogOffsetItem
+          dialog={offsetDlg.dialog}
+          onResult={(aOk) => {
+            setOffsetDlg(null);
+            offsetDlg.resolve(aOk);
+          }}
         />
       )}
       {findOpen && (

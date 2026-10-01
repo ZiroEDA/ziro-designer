@@ -452,16 +452,6 @@ export {
 } from './tools/item_modification_routine.js';
 
 export {
-  positionRelative,
-  promotePadsToFootprints,
-  selectionAnchorId,
-  selectionAnchorPosition,
-  topLeftItem,
-  type PositionRelativeOptions,
-} from './tools/position_relative_tool.js';
-export { type PositionAnchorType } from './dialogs/dialog_position_relative.js';
-
-export {
   defaultRotationAnchor,
   itemAnchorPoint,
   MAX_BOARD_COORD,

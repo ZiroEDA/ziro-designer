@@ -65,13 +65,6 @@ const POSITION_RELATIVE_TOOL_NAME = 'pcbnew.PositionRelative';
 /** `DIALOG_POSITION_RELATIVE_BASE`'s title. */
 export const DIALOG_POSITION_RELATIVE_TITLE = 'Position Relative To Reference Item';
 
-/**
- * Legacy name for the four anchor kinds, from before this dialog was ported
- * whole. TRANSITIONAL: `pcbnew/index.ts` still exports it; delete with the
- * legacy block of `tools/position_relative_tool.ts`.
- */
-export type PositionAnchorType = 'gridOrigin' | 'userOrigin' | 'item' | 'point';
-
 export class DIALOG_POSITION_RELATIVE implements PICKER_RECEIVER {
   /** `static ANCHOR_TYPE s_anchorType = ANCHOR_ITEM`. */
   static s_anchorType: ANCHOR_TYPE = ANCHOR_TYPE.ANCHOR_ITEM;

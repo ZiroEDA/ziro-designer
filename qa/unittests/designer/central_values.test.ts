@@ -319,7 +319,11 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // 28 -> 27 (#636 stage 3, PCB_SELECTION_TOOL): the board editor's under-board
   // 2D canvas and its hidden `rgb(0,16,35)` fill went; the GAL clears to the
   // theme's background.
-  'editors/pcb': { colours: 27, metrics: 146 },
+  // 27 -> 25 colours, 146 -> 127 metrics (#636 stage 3, POSITION_RELATIVE_TOOL):
+  // the pre-port Position Relative dialog and its picker banner went with the
+  // window's own positioning code; DIALOG_POSITION_RELATIVE draws in the
+  // shared chrome.
+  'editors/pcb': { colours: 25, metrics: 127 },
   // At zero, and listed rather than absent: `prefs/` is the settings store, and
   // the one literal it had - the 3D viewer's `rgb(0,255,0)` selection colour -
   // is `PARAM<COLOR4D>( "render.opengl_selection_color", …, COLOR4D( 0, 1, 0, 1 ) )`
@@ -1388,7 +1392,9 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // editors/schematic row (+1, project_settings.ts:131).
     // 297 -> 291 (#636 stage 3): the `editors/pcb` (-1) and `common/widgets`
     // (-5) rows above; the rescan agrees.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(291);
+    // 291 -> 289 (#636 stage 3): the `editors/pcb` row, the legacy Position
+    // Relative dialog (-2).
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(289);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.
@@ -1587,7 +1593,9 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // and 3d-viewer/ in the scan; the 97 had left the scan, not the code.
     // 1138 -> 1129 (#636 stage 3): `.ze-group-editing`'s nine; see the
     // `common/widgets` row.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1129);
+    // 1129 -> 1110 (#636 stage 3): the `editors/pcb` row, the legacy Position
+    // Relative dialog and its banner (-19).
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1110);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {
