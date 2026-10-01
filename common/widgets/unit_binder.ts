@@ -38,6 +38,7 @@ import {
 import { type EdaIuScale, SCH_IU_PER_MM, drawSheetIUScale } from '../index.js';
 import { COORD_TYPES_T, type ORIGIN_TRANSFORMS } from '../origin_transforms.js';
 import type { StatusUnits } from './kistatusbar_format.js';
+import { INDETERMINATE_ACTION, INDETERMINATE_STATE } from './ui_common.js';
 
 /**
  * `EDA_UNITS`, restricted to the three a drawing frame's toolbar offers. Same
@@ -386,6 +387,13 @@ export class UNIT_BINDER {
   /** `GetIntValue()`: `(int) GetValue()`. */
   GetIntValue(): number {
     return Math.trunc(this.GetValue());
+  }
+
+  /** `IsIndeterminate()`: the entry holds "-- mixed values --" or "-- leave unchanged --". */
+  IsIndeterminate(): boolean {
+    const text = this.GetText();
+
+    return text === INDETERMINATE_STATE || text === INDETERMINATE_ACTION;
   }
 
   /**

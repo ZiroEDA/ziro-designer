@@ -754,25 +754,7 @@ export {
   type PadFinding,
 } from './dialogs/dialog_footprint_checker.js';
 
-export {
-  textGfxLayerClass,
-  TEXT_GFX_LAYER_CLASSES,
-  styleTextFromSettings,
-  styleShapeFromSettings,
-  styleTextBoxFromSettings,
-  styleDimensionFromSettings,
-  autoTextThicknessDisplay,
-  globalTextGfxSizesValid,
-  applyGlobalTextAndGraphicsEdit,
-  countGlobalTextAndGraphicsTargets,
-  DEFAULT_GLOBAL_TEXT_GFX_OPTIONS,
-  type TextGfxLayerClass,
-  type TextGfxClassDefaultsIU,
-  type TextGfxDefaultsIU,
-  type DimensionDefaultsIU,
-  type GlobalTextGfxOptions,
-  type GlobalTextGfxContext,
-} from './dialogs/dialog_global_edit_text_and_graphics.js';
+export { DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS } from './dialogs/dialog_global_edit_text_and_graphics.js';
 
 export {
   isExternalCopperLayer,

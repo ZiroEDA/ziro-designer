@@ -263,7 +263,10 @@ export function buildPcbMenus(
         { label: 'Find', icon: 'find', action: () => h.action('find'), shortcut: 'Ctrl+F' },
         { sep: true },
         { label: 'Edit Track & Via Properties...', action: () => h.action('editTracksAndVias') },
-        { label: 'Edit Text & Graphics Properties...', disabled: dis },
+        {
+          label: 'Edit Text & Graphics Properties...',
+          action: () => h.action('editTextAndGraphics'),
+        },
         { label: 'Edit Teardrops...', action: () => h.action('editTeardrops') },
         { label: 'Change Footprints...', disabled: dis },
         { label: 'Swap Layers...', action: () => h.action('swapLayers') },

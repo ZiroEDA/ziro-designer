@@ -656,6 +656,12 @@ import { DialogCleanupGraphics } from './dialogs/dialog_cleanup_graphics_ui.js';
 import { DialogUnusedPadLayers } from './dialogs/dialog_unused_pad_layers_ui.js';
 import { DialogGlobalDeletion } from './dialogs/dialog_global_deletion_ui.js';
 import { DialogGlobalEditTracksAndVias } from './dialogs/dialog_global_edit_tracks_and_vias_ui.js';
+import {
+  DialogGlobalEditTextAndGraphics,
+  type LAYER_DEFAULTS_ROW,
+} from './dialogs/dialog_global_edit_text_and_graphics_ui.js';
+import type { DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS } from './dialogs/dialog_global_edit_text_and_graphics.js';
+import { LAYER_CLASS } from './board_design_settings.js';
 import type { DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS } from './dialogs/dialog_global_edit_tracks_and_vias.js';
 import type { DIALOG_GLOBAL_DELETION } from './dialogs/dialog_global_deletion.js';
 import type { DIALOG_UNUSED_PAD_LAYERS } from './dialogs/dialog_unused_pad_layers.js';
@@ -1538,6 +1544,44 @@ export function PcbBottomDock({
   );
 }
 
+/**
+ * The read-only layer-defaults grid of DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS
+ * (dialog_global_edit_text_and_graphics.cpp:213-284): Board Setup's per-class
+ * line and text defaults. Edge Cuts and Courtyards have line thickness only.
+ */
+function layerDefaultsRows(aFrame: PCB_EDIT_FRAME): LAYER_DEFAULTS_ROW[] {
+  const bds = aFrame.GetBoard()!.GetDesignSettings();
+  const str = (v: number): string => aFrame.GetUnitsProvider().StringFromValue(v, true);
+  const C = LAYER_CLASS;
+  const full = (name: string, c: LAYER_CLASS): LAYER_DEFAULTS_ROW => ({
+    name,
+    line: str(bds.m_LineThickness[c]!),
+    width: str(bds.m_TextSize[c]!.x),
+    height: str(bds.m_TextSize[c]!.y),
+    thickness: str(bds.m_TextThickness[c]!),
+    italic: bds.m_TextItalic[c]!,
+    upright: bds.m_TextUpright[c]!,
+  });
+  const lineOnly = (name: string, c: LAYER_CLASS): LAYER_DEFAULTS_ROW => ({
+    name,
+    line: str(bds.m_LineThickness[c]!),
+    width: '',
+    height: '',
+    thickness: '',
+    italic: null,
+    upright: null,
+  });
+
+  return [
+    full('Silk Layers', C.LAYER_CLASS_SILK),
+    full('Copper Layers', C.LAYER_CLASS_COPPER),
+    lineOnly('Edge Cuts', C.LAYER_CLASS_EDGES),
+    lineOnly('Courtyards', C.LAYER_CLASS_COURTYARD),
+    full('Fab Layers', C.LAYER_CLASS_FAB),
+    full('Other Layers', C.LAYER_CLASS_OTHERS),
+  ];
+}
+
 export function PcbEditor({
   app,
   fileName,
@@ -2104,6 +2148,8 @@ export function PcbEditor({
     dialog: DIALOG_OFFSET_ITEM;
     resolve: (aOk: boolean) => void;
   } | null>(null);
+  /** GLOBAL_EDIT_TOOL's DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS. */
+  const [editTgDlg, setEditTgDlg] = useState<DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS | null>(null);
   /** GLOBAL_EDIT_TOOL's DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS. */
   const [editTvDlg, setEditTvDlg] = useState<DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS | null>(null);
   /** GLOBAL_EDIT_TOOL's DIALOG_GLOBAL_DELETION, with the promise the tool waits on. */
@@ -2692,6 +2738,7 @@ export function PcbEditor({
       showCleanupGraphicsDialog: (aDialog) => setCleanupGfxDlg(aDialog),
       showUnusedPadLayersDialog: (aDialog) => setUnusedPadsDlg(aDialog),
       showGlobalEditTracksAndViasDialog: (aDialog) => setEditTvDlg(aDialog),
+      showGlobalEditTextAndGraphicsDialog: (aDialog) => setEditTgDlg(aDialog),
       showGlobalDeletionDialog: (aDialog) =>
         new Promise<boolean>((resolve) => setGlobalDelDlg({ dialog: aDialog, resolve })),
       askKiDialog: (aRequest) => askKiDialogRef.current(aRequest),
@@ -11514,6 +11561,9 @@ export function PcbEditor({
       case 'editTracksAndVias':
         runAction(PCB_ACTIONS.editTracksAndVias);
         break;
+      case 'editTextAndGraphics':
+        runAction(PCB_ACTIONS.editTextAndGraphics);
+        break;
       case 'polygonmerge':
         runAction(PCB_ACTIONS.mergePolygons);
         break;
@@ -13667,6 +13717,20 @@ export function PcbEditor({
       {/* POSITION_RELATIVE_TOOL's DIALOG_POSITION_RELATIVE: modeless, in the
           same host as Find; it draws itself only while it is shown. */}
       {posRelDialog && <DialogPositionRelativeModeless dialog={posRelDialog} />}
+      {editTgDlg && frameRef.current?.GetBoard() && (
+        <DialogGlobalEditTextAndGraphics
+          dialog={editTgDlg}
+          layers={LSET.AllLayersMask()
+            .UIOrder()
+            .filter((l) => frameRef.current!.GetBoard()!.IsLayerEnabled(l))
+            .map((l) => {
+              const c = choiceOf(l);
+              return { layer: l, label: c.label, swatch: c.swatch };
+            })}
+          defaults={layerDefaultsRows(frameRef.current)}
+          onClose={() => setEditTgDlg(null)}
+        />
+      )}
       {editTvDlg && (
         <DialogGlobalEditTracksAndVias
           dialog={editTvDlg}

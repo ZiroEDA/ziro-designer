@@ -25,6 +25,7 @@ import { DIALOG_CLEANUP_GRAPHICS } from '../dialogs/dialog_cleanup_graphics.js';
 import { DIALOG_UNUSED_PAD_LAYERS } from '../dialogs/dialog_unused_pad_layers.js';
 import { DIALOG_GLOBAL_DELETION } from '../dialogs/dialog_global_deletion.js';
 import { DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS } from '../dialogs/dialog_global_edit_tracks_and_vias.js';
+import { DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS } from '../dialogs/dialog_global_edit_text_and_graphics.js';
 import type { PCB_EDIT_FRAME } from '../pcb_edit_frame.js';
 import type { PCB_SELECTION_TOOL } from './pcb_selection_tool.js';
 import type { PCB_BASE_EDIT_FRAME } from '../pcb_base_edit_frame.js';
@@ -40,6 +41,8 @@ const GEOMETRY = VIEW_UPDATE_FLAGS.GEOMETRY;
 export interface GLOBAL_EDIT_TOOL_FRAME {
   /** `DIALOG_SWAP_LAYERS dlg( frame(), layerMap ); dlg.ShowModal() == wxID_OK`. */
   ShowSwapLayersDialog(aDialog: DIALOG_SWAP_LAYERS): Promise<boolean>;
+  /** `DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS dlg( editFrame ); dlg.ShowModal()`. */
+  ShowGlobalEditTextAndGraphicsDialog(aDialog: DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS): void;
   /** `DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS dlg( editFrame ); dlg.ShowQuasiModal()`. */
   ShowGlobalEditTracksAndViasDialog(aDialog: DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS): void;
   /** `DIALOG_GLOBAL_DELETION dlg( editFrame ); dlg.ShowModal() == wxID_OK`. */
@@ -190,6 +193,15 @@ export class GLOBAL_EDIT_TOOL extends PCB_TOOL_BASE {
     return 0;
   }
 
+  /** `GLOBAL_EDIT_TOOL::EditTextAndGraphics` (dialog_global_edit_text_and_graphics.cpp:640-646). */
+  EditTextAndGraphics(_aEvent: TOOL_EVENT): number {
+    const editFrame = this.editFrame();
+    const dlg = new DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS(editFrame, true);
+
+    editFrame.ShowGlobalEditTextAndGraphicsDialog(dlg);
+    return 0;
+  }
+
   EditTracksAndVias(_aEvent: TOOL_EVENT): number {
     const editFrame = this.editFrame();
     const dlg = new DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS(editFrame as unknown as PCB_EDIT_FRAME);
@@ -261,6 +273,7 @@ export class GLOBAL_EDIT_TOOL extends PCB_TOOL_BASE {
     this.Go(S(this.CleanupGraphics), PCB_ACTIONS.cleanupGraphics.MakeEvent());
     this.Go(S(this.RemoveUnusedPads), PCB_ACTIONS.removeUnusedPads.MakeEvent());
     this.Go(S(this.EditTracksAndVias), PCB_ACTIONS.editTracksAndVias.MakeEvent());
+    this.Go(S(this.EditTextAndGraphics), PCB_ACTIONS.editTextAndGraphics.MakeEvent());
     this.Go(S(this.GlobalDeletions), PCB_ACTIONS.globalDeletions.MakeEvent());
     this.Go(S(this.ZonesManager), PCB_ACTIONS.zonesManager.MakeEvent());
   }

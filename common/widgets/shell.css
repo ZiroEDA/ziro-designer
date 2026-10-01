@@ -19086,3 +19086,68 @@ fieldset.ze-pushpad-box {
 .ze-gettv-action-grid > * {
   margin: 0 5px 5px; /* [data] the controls' `wxBOTTOM|wxRIGHT|wxLEFT, 5`. */
 }
+
+/* DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS (dialog_global_edit_text_and_graphics_base.cpp). */
+.ze-getg-top {
+  display: flex;
+}
+.ze-getg-scope {
+  margin: 10px 10px 0; /* [data] `bSizerTop->Add( sbScope, 0, wxEXPAND|wxTOP|wxRIGHT|wxLEFT, 10 )`. */
+}
+.ze-getg-scope-grid {
+  display: grid;
+  grid-template-columns: max-content max-content;
+  row-gap: 5px; /* [data] `wxFlexGridSizer( 0, 2, 5, 30 )`'s vgap. */
+  column-gap: 30px; /* [data] the same sizer's hgap. */
+  margin: 0 5px; /* [data] `sbScope->Add( fgSizer3, 1, wxEXPAND|wxRIGHT|wxLEFT, 5 )`. */
+}
+.ze-getg .ze-check.top5 {
+  margin-top: 5px; /* [data] `m_footprintGraphics`'s `wxTOP, 5`. */
+}
+.ze-getg .ze-check.all5 {
+  margin: 5px; /* [data] `m_selectedItemsFilter`'s `wxALL, 5`. */
+}
+.ze-getg-filters {
+  flex: 1;
+  margin: 10px 10px 0 0; /* [data] `sbFilters`, `wxEXPAND|wxTOP|wxRIGHT, 10`. */
+}
+.ze-getg-filter-grid {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  row-gap: 3px; /* [data] the filter grid's vgap. */
+  align-items: center;
+}
+.ze-getg-action {
+  margin: 10px 10px 0; /* [data] `bMainSizer->Add( sbAction, 1, wxEXPAND|wxTOP|wxRIGHT|wxLEFT, 10 )`. */
+}
+.ze-getg-values {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr) max-content max-content;
+  column-gap: 5px; /* [data] the gridbag's controls' `wxRIGHT|wxLEFT, 5`. */
+  row-gap: 3px; /* [data] the gridbag's vgap. */
+  align-items: center;
+  margin: 0 0 5px 25px; /* [data] the gridbag's `wxBOTTOM|wxLEFT, 25`. */
+}
+.ze-getg-font,
+.ze-getg-auto {
+  display: flex;
+  align-items: center;
+  column-gap: 5px; /* [data] the same `wxRIGHT|wxLEFT, 5`. */
+}
+.ze-getg-defaults {
+  margin: 0 0 5px 25px; /* [data] `m_grid`'s `wxBOTTOM|wxLEFT, 25`. */
+  border-collapse: collapse;
+}
+.ze-getg-defaults[aria-disabled="true"] {
+  color: var(--ctl-fg-disabled); /* `m_grid->Enable( false )`: label:disabled's colour. */
+}
+.ze-getg-defaults td,
+.ze-getg-defaults th {
+  border: 1px solid var(--chrome-border);
+  padding: 0 4px; /* [data] wxGrid's cell margin. */
+  font-size: var(--ui-font-size-small);
+  font-weight: normal;
+}
+.ze-getg-defaults td.c {
+  text-align: center;
+}

@@ -14,6 +14,11 @@
  */
 
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+import {
+  ClampTextPenSize,
+  GetPenSizeForBold,
+  GetPenSizeForNormal,
+} from '@ziroeda/common/gr_text.js';
 import type { ZoneConnection } from './zone_connection.js';
 import type { PcbFillMode } from './shape_fill.js';
 import type { BOARD } from './board.js';
@@ -1060,4 +1065,51 @@ export function expandLayerWildcards(layers: readonly string[], board: Board): s
   }
 
   return out;
+}
+
+// TRANSITIONAL (#636 stage 3): the view text's pen width, for dialog_text_properties.
+
+/**
+ * `EDA_TEXT::GetEffectiveTextPenWidth` (eda_text.cpp:461).
+ *
+ * Three details a rewrite gets wrong. The guard is `<= 1`, not `=== 0`, so a
+ * stored thickness of exactly one IU counts as unset. The bold and normal
+ * fallbacks use `GetTextWidth()` — the **x** alone — while the final clamp uses
+ * the full size and therefore reduces to `min(x, y)`; that asymmetry is real
+ * upstream and is not tidied here. And the `else if( penWidth <= 1 )` means a
+ * caller-supplied default above 1 survives for non-bold text.
+ */
+export function effectiveTextPenWidth(
+  t: { thickness?: number; bold?: boolean; size: Vec2 },
+  defaultPenWidth = 0,
+): number {
+  let pen = t.thickness ?? 0;
+
+  if (pen <= 1) {
+    pen = defaultPenWidth;
+
+    if (t.bold) pen = GetPenSizeForBold(t.size.x);
+    else if (pen <= 1) pen = GetPenSizeForNormal(t.size.x);
+  }
+
+  return ClampTextPenSize(pen, t.size);
+}
+
+/** `GetAutoThickness()` is `GetTextThickness() == 0`; an absent token reads as 0. */
+export const isAutoThickness = (t: { thickness?: number }): boolean => (t.thickness ?? 0) === 0;
+
+/**
+ * `EDA_TEXT::SetAutoThickness` (eda_text.cpp:287).
+ *
+ * Guarded on the current state, so calling it with the value the item already
+ * has must not recompute anything. Turning auto *off* has to materialise the
+ * width the renderer was using, which is why {@link effectiveTextPenWidth} is
+ * ported even though this dialog only ever calls it with `true`.
+ */
+export function setAutoThickness<T extends { thickness?: number; bold?: boolean; size: Vec2 }>(
+  t: T,
+  auto: boolean,
+): T {
+  if (isAutoThickness(t) === auto) return t;
+  return { ...t, thickness: auto ? 0 : effectiveTextPenWidth(t) };
 }

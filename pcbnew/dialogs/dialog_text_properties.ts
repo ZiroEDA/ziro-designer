@@ -26,7 +26,7 @@ import { parseBoardItemId } from '../edit-board.js';
 import type { PCB_BASE_EDIT_FRAME } from '../pcb_base_edit_frame.js';
 import type { PCB_FIELD } from '../pcb_field.js';
 import type { PCB_TEXT } from '../pcb_text.js';
-import { effectiveTextPenWidth, isAutoThickness } from './dialog_global_edit_text_and_graphics.js';
+import { effectiveTextPenWidth, isAutoThickness } from '../types.js';
 import type { Board, PcbTextItem } from '../types.js';
 
 /** Every field DIALOG_TEXT_PROPERTIES edits, for a board text item. */
