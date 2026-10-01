@@ -107,6 +107,16 @@ import { NoPrintableChars } from '@ziroeda/common/string_utils.js';
 import { DIALOG_TEXT_PROPERTIES } from '../dialogs/dialog_text_properties.js';
 import { PCB_TEXT } from '../pcb_text.js';
 import type { ZONE } from '../zone.js';
+import {
+  PCB_DIM_ALIGNED,
+  PCB_DIM_CENTER,
+  PCB_DIM_LEADER,
+  PCB_DIM_ORTHOGONAL,
+  PCB_DIM_RADIAL,
+  type PCB_DIMENSION_BASE,
+} from '../pcb_dimension.js';
+import { DIM_ARROW_DIRECTION } from '../pcb_dimension_types.js';
+import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { POLYGON_GEOM_MANAGER } from '@ziroeda/common/preview_items/polygon_geom_manager.js';
 import { ZONE_MODE } from './pcb_actions.js';
@@ -1219,6 +1229,398 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
     );
   }
 
+  /** `constrainDimension` (drawing_tool.cpp:1417-1423): the end on a 45-degree multiple. */
+  private constrainDimension(aDim: PCB_DIMENSION_BASE): void {
+    const lineVector = sub(aDim.GetEnd(), aDim.GetStart());
+
+    aDim.SetEnd(add(aDim.GetStart(), vectorSnapped45(lineVector)));
+    aDim.Update();
+  }
+
+  *DrawDimension(aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+    if (this.m_isFootprintEditor && !this.m_frame!.GetModel()) return 0;
+
+    return yield* this.scoped(
+      DRAWING_MODE.DIMENSION,
+      function* (this: DRAWING_TOOL) {
+        const SET_ORIGIN = 0;
+        const SET_END = 1;
+        const SET_HEIGHT = 2;
+        const FINISHED = 3;
+
+        const originalEvent = aEvent;
+        let dimension: PCB_DIMENSION_BASE | null = null;
+        const commit = new BOARD_COMMIT(this.m_frame!);
+        const grid = new PCB_GRID_HELPER(this.m_toolMgr!, this.m_frame!.GetMagneticItemsSettings());
+        const boardSettings = this.m_board!.GetDesignSettings();
+        const preview = new PCB_SELECTION(); // A VIEW_GROUP that serves as a preview for the new item(s)
+        const controls = this.m_controls!;
+        let step = SET_ORIGIN;
+        let t: KICAD_T = KICAD_T.PCB_DIMENSION_T;
+
+        this.m_view!.Add(preview);
+
+        const cleanup = (): void => {
+          controls.SetAutoPan(false);
+          controls.CaptureCursor(false);
+          controls.ForceCursorPosition(false);
+
+          preview.Clear();
+          this.m_view!.Update(preview);
+
+          // Snap guides persist in the grid helper until the tool exits, so abandoning the
+          // dimension mid-draw must clear them or they linger on screen.
+          grid.FullReset();
+
+          dimension = null;
+          step = SET_ORIGIN;
+        };
+
+        const setCursor = (): void => {
+          this.m_frame!.GetCanvas()!.SetCurrentCursor(KICURSOR.MEASURE);
+        };
+
+        this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
+
+        this.m_frame!.PushTool(aEvent);
+
+        this.Activate();
+        // Must be done after Activate() so that it gets set into the correct context
+        controls.ShowCursor(true);
+        controls.ForceCursorPosition(false);
+        // Set initial cursor
+        setCursor();
+
+        this.m_toolMgr!.PostAction(ACTIONS.refreshPreview);
+
+        if (aEvent.HasPosition()) this.m_toolMgr!.PrimeTool(aEvent.Position());
+
+        // Main loop: keep receiving events
+        for (let evt = yield* this.Wait(); evt; evt = yield* this.Wait()) {
+          if (step > SET_ORIGIN && dimension) this.m_frame!.SetMsgPanel(dimension);
+
+          setCursor();
+
+          grid.SetSnap(!evt.Modifier(MD_SHIFT));
+          let angleSnap = this.GetAngleSnapMode();
+          if (evt.Modifier(MD_CTRL)) angleSnap = LeaderMode.DIRECT;
+          const constrained = angleSnap !== LeaderMode.DIRECT;
+          grid.SetUseGrid(
+            this.getView()!.GetGAL()!.GetGridSnapping() && !evt.DisableGridSnapping(),
+          );
+
+          if (step === SET_HEIGHT && t !== KICAD_T.PCB_DIM_ORTHOGONAL_T && dimension) {
+            const d: PCB_DIMENSION_BASE = dimension;
+
+            if (d.GetStart().x !== d.GetEnd().x && d.GetStart().y !== d.GetEnd().y) {
+              // Not cardinal.  Grid snapping doesn't make sense for height.
+              grid.SetUseGrid(false);
+            }
+          }
+
+          let cursorPos: VECTOR2I = evt.HasPosition()
+            ? evt.Position()
+            : controls.GetMousePosition();
+          cursorPos = GetClampedCoords(
+            grid.BestSnapAnchor(cursorPos, null, GRID_HELPER_GRIDS.GRID_GRAPHICS),
+            DRAWING_COORDS_PADDING,
+          );
+
+          controls.ForceCursorPosition(true, cursorPos);
+
+          if (evt.IsCancelInteractive() || (dimension && evt.IsAction(ACTIONS.undo))) {
+            controls.SetAutoPan(false);
+
+            if (step !== SET_ORIGIN) {
+              // start from the beginning
+              cleanup();
+            } else {
+              this.m_frame!.PopTool(aEvent);
+              break;
+            }
+          } else if (evt.IsActivate()) {
+            if (step !== SET_ORIGIN) cleanup();
+
+            if (evt.IsPointEditor()) {
+              // don't exit (the point editor runs in the background)
+            } else if (evt.IsMoveTool()) {
+              // leave ourselves on the stack so we come back after the move
+              break;
+            } else {
+              this.m_frame!.PopTool(aEvent);
+              break;
+            }
+          } else if (evt.IsAction(PCB_ACTIONS.incWidth) && step !== SET_ORIGIN && dimension) {
+            const d: PCB_DIMENSION_BASE = dimension;
+            this.m_stroke.SetWidth(this.m_stroke.GetWidth() + WIDTH_STEP);
+            d.SetLineThickness(this.m_stroke.GetWidth());
+            this.m_view!.Update(preview);
+            this.m_frame!.SetMsgPanel(d);
+          } else if (evt.IsAction(PCB_ACTIONS.decWidth) && step !== SET_ORIGIN && dimension) {
+            const d: PCB_DIMENSION_BASE = dimension;
+
+            if (this.m_stroke.GetWidth() > WIDTH_STEP) {
+              this.m_stroke.SetWidth(this.m_stroke.GetWidth() - WIDTH_STEP);
+              d.SetLineThickness(this.m_stroke.GetWidth());
+              this.m_view!.Update(preview);
+              this.m_frame!.SetMsgPanel(d);
+            }
+          } else if (evt.IsClick(BUT_RIGHT)) {
+            if (!dimension) this.m_toolMgr!.VetoContextMenuMouseWarp();
+
+            this.m_menu.ShowContextMenu(this.selection());
+          } else if (evt.IsClick(BUT_LEFT) || evt.IsDblClick(BUT_LEFT)) {
+            let fallThrough = false;
+
+            if (step === SET_ORIGIN) {
+              this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
+
+              const layer = this.m_frame!.GetActiveLayer();
+              const parent = this.m_frame!.GetModel() as unknown as BOARD_ITEM;
+
+              // Init the new item attributes
+              const setMeasurementAttributes = (aDim: PCB_DIMENSION_BASE): void => {
+                aDim.SetUnitsMode(boardSettings.m_DimensionUnitsMode);
+                aDim.SetUnitsFormat(boardSettings.m_DimensionUnitsFormat);
+                aDim.SetPrecision(boardSettings.m_DimensionPrecision);
+                aDim.SetSuppressZeroes(boardSettings.m_DimensionSuppressZeroes);
+                aDim.SetTextPositionMode(boardSettings.m_DimensionTextPosition);
+                aDim.SetKeepTextAligned(boardSettings.m_DimensionKeepTextAligned);
+              };
+
+              let d: PCB_DIMENSION_BASE;
+
+              if (originalEvent.IsAction(PCB_ACTIONS.drawAlignedDimension)) {
+                d = new PCB_DIM_ALIGNED(parent);
+                setMeasurementAttributes(d);
+              } else if (originalEvent.IsAction(PCB_ACTIONS.drawOrthogonalDimension)) {
+                d = new PCB_DIM_ORTHOGONAL(parent);
+                setMeasurementAttributes(d);
+              } else if (originalEvent.IsAction(PCB_ACTIONS.drawCenterDimension)) {
+                d = new PCB_DIM_CENTER(parent);
+              } else if (originalEvent.IsAction(PCB_ACTIONS.drawRadialDimension)) {
+                d = new PCB_DIM_RADIAL(parent);
+                setMeasurementAttributes(d);
+              } else {
+                // drawLeader (anything else is wxFAIL_MSG upstream)
+                d = new PCB_DIM_LEADER(parent);
+                d.SetTextPos(cursorPos);
+              }
+
+              dimension = d;
+              t = d.Type();
+
+              d.SetLayer(layer);
+              d.SetMirrored(this.m_board!.IsBackLayer(layer));
+              d.SetTextSize(boardSettings.GetTextSize(layer));
+              d.SetTextThickness(boardSettings.GetTextThickness(layer));
+              d.SetItalic(boardSettings.GetTextItalic(layer));
+              d.SetLineThickness(boardSettings.GetLineThickness(layer));
+              d.SetArrowLength(boardSettings.m_DimensionArrowLength);
+              d.SetExtensionOffset(boardSettings.m_DimensionExtensionOffset);
+              d.SetStart(cursorPos);
+              d.SetEnd(cursorPos);
+              d.Update();
+
+              if (!this.m_view!.IsLayerVisible(layer)) {
+                this.m_frame!.GetAppearancePanel()?.SetLayerVisible?.(layer, true);
+                this.m_frame!.GetCanvas()!.Refresh();
+              }
+
+              preview.Add(d);
+              this.m_frame!.SetMsgPanel(d);
+
+              controls.SetAutoPan(true);
+              controls.CaptureCursor(true);
+            } else if (step === SET_END && dimension) {
+              const d: PCB_DIMENSION_BASE = dimension;
+
+              // Dimensions that have origin and end in the same spot are not valid
+              if (equal(d.GetStart(), d.GetEnd())) {
+                --step;
+              } else if (
+                t === KICAD_T.PCB_DIM_CENTER_T ||
+                t === KICAD_T.PCB_DIM_RADIAL_T ||
+                t === KICAD_T.PCB_DIM_LEADER_T
+              ) {
+                ++step;
+                fallThrough = true;
+              }
+            } else if (step === SET_HEIGHT) {
+              fallThrough = true;
+            }
+
+            if (fallThrough && dimension) {
+              const d: PCB_DIMENSION_BASE = dimension;
+
+              preview.Remove(d);
+
+              commit.Add(d);
+              commit.Push('Draw Dimension');
+
+              // Run the edit immediately to set the leader text
+              if (t === KICAD_T.PCB_DIM_LEADER_T) onEditItemRequest(this.m_frame!, d);
+
+              this.m_toolMgr!.RunAction(ACTIONS.selectItem, d);
+            }
+
+            if (++step >= FINISHED) {
+              dimension = null;
+              step = SET_ORIGIN;
+              controls.SetAutoPan(false);
+              controls.CaptureCursor(false);
+            } else if (evt.IsDblClick(BUT_LEFT)) {
+              this.m_toolMgr!.PostAction(ACTIONS.cursorClick);
+            }
+          } else if (evt.IsMotion() && dimension) {
+            const d: PCB_DIMENSION_BASE = dimension;
+
+            if (step === SET_END) {
+              d.SetEnd(cursorPos);
+
+              if (constrained || t === KICAD_T.PCB_DIM_CENTER_T) this.constrainDimension(d);
+
+              if (t === KICAD_T.PCB_DIM_ORTHOGONAL_T) {
+                const ortho = d as PCB_DIM_ORTHOGONAL;
+
+                const bounds = new BOX2I(d.GetStart(), sub(d.GetEnd(), d.GetStart()));
+
+                // Create a nice preview by measuring the longer dimension
+                const vert = bounds.GetWidth() < bounds.GetHeight();
+
+                ortho.SetOrientation(
+                  vert ? PCB_DIM_ORTHOGONAL.DIR.VERTICAL : PCB_DIM_ORTHOGONAL.DIR.HORIZONTAL,
+                );
+              } else if (t === KICAD_T.PCB_DIM_RADIAL_T) {
+                const radialDim = d as PCB_DIM_RADIAL;
+                let textOffset: VECTOR2I = { x: radialDim.GetArrowLength() * 10, y: 0 };
+
+                if (radialDim.GetEnd().x < radialDim.GetStart().x)
+                  textOffset = { x: -textOffset.x, y: -textOffset.y };
+
+                radialDim.SetTextPos(add(radialDim.GetKnee(), textOffset));
+              } else if (t === KICAD_T.PCB_DIM_LEADER_T) {
+                let textOffset: VECTOR2I = { x: d.GetArrowLength() * 10, y: 0 };
+
+                if (d.GetEnd().x < d.GetStart().x)
+                  textOffset = { x: -textOffset.x, y: -textOffset.y };
+
+                d.SetTextPos(add(d.GetEnd(), textOffset));
+              }
+
+              d.Update();
+            } else if (step === SET_HEIGHT) {
+              if (t === KICAD_T.PCB_DIM_ALIGNED_T) {
+                const aligned = d as PCB_DIM_ALIGNED;
+
+                // Calculating the direction of travel perpendicular to the selected axis
+                const angle = aligned.GetAngle() + Math.PI / 2;
+
+                const delta = sub(cursorPos, d.GetEnd());
+                const height = delta.x * Math.cos(angle) + delta.y * Math.sin(angle);
+                aligned.SetHeight(height);
+                aligned.Update();
+              } else if (t === KICAD_T.PCB_DIM_ORTHOGONAL_T) {
+                const ortho = d as PCB_DIM_ORTHOGONAL;
+
+                const bbox = new BOX2I(d.GetStart(), sub(d.GetEnd(), d.GetStart()));
+                const direction = sub(cursorPos, bbox.Centre());
+                let vert: boolean;
+
+                // Only change the orientation when we move outside the bbox
+                if (!bbox.Contains(cursorPos)) {
+                  // If the dimension is horizontal or vertical, set correct orientation
+                  // otherwise, test if we're left/right of the bounding box or above/below it
+                  if (bbox.GetWidth() === 0) vert = true;
+                  else if (bbox.GetHeight() === 0) vert = false;
+                  else if (cursorPos.x > bbox.GetLeft() && cursorPos.x < bbox.GetRight())
+                    vert = false;
+                  else if (cursorPos.y > bbox.GetTop() && cursorPos.y < bbox.GetBottom())
+                    vert = true;
+                  else vert = Math.abs(direction.y) < Math.abs(direction.x);
+
+                  ortho.SetOrientation(
+                    vert ? PCB_DIM_ORTHOGONAL.DIR.VERTICAL : PCB_DIM_ORTHOGONAL.DIR.HORIZONTAL,
+                  );
+                } else {
+                  vert = ortho.GetOrientation() === PCB_DIM_ORTHOGONAL.DIR.VERTICAL;
+                }
+
+                const heightVector = sub(cursorPos, d.GetStart());
+                ortho.SetHeight(vert ? heightVector.x : heightVector.y);
+                ortho.Update();
+              }
+            }
+
+            // Show a preview of the item
+            this.m_view!.Update(preview);
+          } else if (dimension && evt.IsAction(PCB_ACTIONS.layerChanged)) {
+            const d: PCB_DIMENSION_BASE = dimension;
+            const layer = this.m_frame!.GetActiveLayer();
+
+            if (!this.m_view!.IsLayerVisible(layer)) {
+              this.m_frame!.GetAppearancePanel()?.SetLayerVisible?.(layer, true);
+              this.m_frame!.GetCanvas()!.Refresh();
+            }
+
+            d.SetLayer(layer);
+            d.SetTextSize(boardSettings.GetTextSize(layer));
+            d.SetTextThickness(boardSettings.GetTextThickness(layer));
+            d.SetItalic(boardSettings.GetTextItalic(layer));
+            d.SetLineThickness(boardSettings.GetLineThickness(layer));
+            d.Update();
+
+            this.m_view!.Update(preview);
+            this.m_frame!.SetMsgPanel(d);
+          } else if (dimension && evt.IsAction(PCB_ACTIONS.properties)) {
+            const d: PCB_DIMENSION_BASE = dimension;
+
+            if (step === SET_END || step === SET_HEIGHT) {
+              onEditItemRequest(this.m_frame!, d);
+              d.Update();
+              this.m_frame!.SetMsgPanel(d);
+              break;
+            } else {
+              wxBell();
+            }
+          } else if (dimension && evt.IsAction(PCB_ACTIONS.changeDimensionArrows)) {
+            const d: PCB_DIMENSION_BASE = dimension;
+
+            switch (d.Type()) {
+              case KICAD_T.PCB_DIM_ALIGNED_T:
+              case KICAD_T.PCB_DIM_ORTHOGONAL_T:
+              case KICAD_T.PCB_DIM_RADIAL_T:
+                if (d.GetArrowDirection() === DIM_ARROW_DIRECTION.INWARD)
+                  d.SetArrowDirection(DIM_ARROW_DIRECTION.OUTWARD);
+                else d.SetArrowDirection(DIM_ARROW_DIRECTION.INWARD);
+                break;
+              default:
+                // Other dimension types don't have arrows that can swap
+                wxBell();
+            }
+
+            this.m_view!.Update(preview);
+          } else if (dimension && (IsZoneFillAction(evt) || evt.IsAction(ACTIONS.redo))) {
+            wxBell();
+          } else {
+            evt.SetPassEvent();
+          }
+        }
+
+        controls.SetAutoPan(false);
+        controls.ForceCursorPosition(false);
+        controls.CaptureCursor(false);
+        this.m_frame!.GetCanvas()!.SetCurrentCursor(KICURSOR.ARROW);
+
+        this.m_view!.Remove(preview);
+
+        if (this.selection().Empty()) this.m_frame!.SetMsgPanel(this.board());
+
+        return 0;
+      }.bind(this),
+    );
+  }
+
   /** `getSourceZoneForAction` (drawing_tool.cpp:3399-3432). */
   private getSourceZoneForAction(aMode: ZONE_MODE, aZone: { value: ZONE | null }): boolean {
     let clearSelection = false;
@@ -2034,6 +2436,11 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
     this.Go(S(this.DrawZone), PCB_ACTIONS.drawZone.MakeEvent());
     this.Go(S(this.DrawZone), PCB_ACTIONS.drawZoneCutout.MakeEvent());
     this.Go(S(this.DrawZone), PCB_ACTIONS.drawSimilarZone.MakeEvent());
+    this.Go(S(this.DrawDimension), PCB_ACTIONS.drawAlignedDimension.MakeEvent());
+    this.Go(S(this.DrawDimension), PCB_ACTIONS.drawOrthogonalDimension.MakeEvent());
+    this.Go(S(this.DrawDimension), PCB_ACTIONS.drawCenterDimension.MakeEvent());
+    this.Go(S(this.DrawDimension), PCB_ACTIONS.drawRadialDimension.MakeEvent());
+    this.Go(S(this.DrawDimension), PCB_ACTIONS.drawLeader.MakeEvent());
     // TRANSITIONAL: the remaining handlers are bound as they are ported.
   }
 }

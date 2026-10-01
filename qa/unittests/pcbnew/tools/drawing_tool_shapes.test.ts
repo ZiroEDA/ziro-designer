@@ -31,6 +31,14 @@ import { DIALOG_NON_COPPER_ZONES_EDITOR } from '@ziroeda/pcbnew/dialogs/dialog_n
 import { DIALOG_RULE_AREA_PROPERTIES } from '@ziroeda/pcbnew/dialogs/dialog_rule_area_properties.js';
 import { DIALOG_COPPER_ZONE } from '@ziroeda/pcbnew/dialogs/panel_zone_properties.js';
 import type { ZONE } from '@ziroeda/pcbnew/zone.js';
+import {
+  PCB_DIMENSION_BASE,
+  type PCB_DIM_ALIGNED,
+  PCB_DIM_ORTHOGONAL,
+} from '@ziroeda/pcbnew/pcb_dimension.js';
+import { DIM_ARROW_DIRECTION } from '@ziroeda/pcbnew/pcb_dimension_types.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { sub } from '@ziroeda/kimath/src/math/vector2.js';
 import { DRAWING_MODE, DRAWING_TOOL } from '@ziroeda/pcbnew/tools/drawing_tool.js';
 import type { TOOL_ACTION } from '@ziroeda/common/tool/tool_action.js';
 import { PCB_ACTIONS } from '@ziroeda/pcbnew/tools/pcb_actions.js';
@@ -542,5 +550,86 @@ describe('DRAWING_TOOL::DrawZone, the zone modes (drawing_tool.cpp:3435-3683, zo
     expect(zoneDialogs).toHaveLength(dialogs);
     expect(zones()).toHaveLength(2);
     expect(zones().every((z) => z.GetFirstLayer() === PCB_LAYER_ID.F_Cu)).toBe(true);
+  });
+});
+
+describe('DRAWING_TOOL::DrawDimension (drawing_tool.cpp:1580-2045)', () => {
+  const dims = (): PCB_DIMENSION_BASE[] =>
+    h.board.Drawings().filter((d) => d instanceof PCB_DIMENSION_BASE) as PCB_DIMENSION_BASE[];
+
+  it('aligned: origin, end, height - three clicks, then committed and selected (:1690-1846)', () => {
+    start(PCB_ACTIONS.drawAlignedDimension);
+    click(mm(10, 10));
+    click(mm(40, 10));
+    expect(dims()).toHaveLength(0);
+    move(mm(40, 5));
+    click(mm(40, 5));
+    expect(dims()).toHaveLength(1);
+    const d = dims()[0]! as PCB_DIM_ALIGNED;
+    expect(d.Type()).toBe(KICAD_T.PCB_DIM_ALIGNED_T);
+    expect(d.GetStart()).toEqual(mm(10, 10));
+    expect(d.GetEnd()).toEqual(mm(40, 10));
+    expect(d.GetHeight()).toBe(-5 * MM);
+    expect(d.GetLayer()).toBe(PCB_LAYER_ID.F_SilkS);
+    expect(d.IsSelected()).toBe(true);
+  });
+
+  it('a centre mark needs two clicks, the end on 45 degrees (:1823-1832, :1876)', () => {
+    start(PCB_ACTIONS.drawCenterDimension);
+    click(mm(50, 50));
+    move(mm(53, 51));
+    click(mm(53, 51));
+    expect(dims()).toHaveLength(1);
+    const d = dims()[0]!;
+    expect(d.Type()).toBe(KICAD_T.PCB_DIM_CENTER_T);
+    const e = sub(d.GetEnd(), d.GetStart());
+    expect(Math.abs(e.x) === Math.abs(e.y) || e.x === 0 || e.y === 0).toBe(true);
+  });
+
+  it('origin and end on the same spot is refused: the end is asked again (:1820-1825)', () => {
+    start(PCB_ACTIONS.drawAlignedDimension);
+    click(mm(10, 10));
+    click(mm(10, 10));
+    click(mm(30, 10));
+    move(mm(30, 15));
+    click(mm(30, 15));
+    expect(dims()).toHaveLength(1);
+    expect(dims()[0]!.GetEnd()).toEqual(mm(30, 10));
+  });
+
+  it('orthogonal measures the longer side by default (:1880-1891)', () => {
+    start(PCB_ACTIONS.drawOrthogonalDimension);
+    click(mm(10, 10));
+    move(mm(20, 40));
+    click(mm(20, 40));
+    // Inside the box the orientation is kept, so it is the SET_END preview's (:1912-1916).
+    move(mm(15, 25));
+    click(mm(15, 25));
+    const d = dims()[0]! as PCB_DIM_ORTHOGONAL;
+    expect(d.Type()).toBe(KICAD_T.PCB_DIM_ORTHOGONAL_T);
+    expect(d.GetOrientation()).toBe(PCB_DIM_ORTHOGONAL.DIR.VERTICAL);
+  });
+
+  it('Esc mid-dimension starts over; a second Esc leaves (:1661-1673)', () => {
+    start(PCB_ACTIONS.drawAlignedDimension);
+    click(mm(10, 10));
+    esc();
+    expect(tool.GetDrawingMode()).toBe(DRAWING_MODE.DIMENSION);
+    esc();
+    expect(tool.GetDrawingMode()).toBe(DRAWING_MODE.NONE);
+    expect(dims()).toHaveLength(0);
+  });
+
+  it('changeDimensionArrows flips an aligned dimension arrows (:2006-2020)', () => {
+    start(PCB_ACTIONS.drawAlignedDimension);
+    click(mm(10, 10));
+    move(mm(40, 10));
+    const before = h.board.GetDesignSettings().m_DimensionArrowLength;
+    expect(before).toBeGreaterThan(0);
+    h.mgr.RunAction(PCB_ACTIONS.changeDimensionArrows);
+    click(mm(40, 10));
+    click(mm(40, 5));
+    // OUTWARD is the default (pcb_dimension.cpp), so one flip is INWARD.
+    expect(dims()[0]!.GetArrowDirection()).toBe(DIM_ARROW_DIRECTION.INWARD);
   });
 });

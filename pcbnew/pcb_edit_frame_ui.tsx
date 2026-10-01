@@ -1088,7 +1088,7 @@ const DRAW_SHAPE_TOOLS: Record<string, PcbShape['kind']> = {
 /**
  * The toolbar tools that run on TOOL_MANAGER: DRAWING_TOOL's DrawLine,
  * DrawRectangle, DrawCircle, DrawArc, PlaceText and DrawZone (polygons, zones, rule
- * areas, cutouts and similar zones). Arming one runs its action as the
+ * areas, cutouts and similar zones) and DrawDimension. Arming one runs its action as the
  * toolbar does (no position); while it is the current tool the canvas's events
  * and keys go to TOOL_DISPATCHER, and its PopTool returns the toolbar to the
  * selection mode. The other drawing tools still run in this window.
@@ -1104,6 +1104,11 @@ const TOOL_MANAGER_TOOLS: Readonly<Record<string, TOOL_ACTION>> = {
   drawRuleArea: PCB_ACTIONS.drawRuleArea,
   drawZoneCutout: PCB_ACTIONS.drawZoneCutout,
   drawSimilarZone: PCB_ACTIONS.drawSimilarZone,
+  drawAlignedDimension: PCB_ACTIONS.drawAlignedDimension,
+  drawOrthogonalDimension: PCB_ACTIONS.drawOrthogonalDimension,
+  drawCenterDimension: PCB_ACTIONS.drawCenterDimension,
+  drawRadialDimension: PCB_ACTIONS.drawRadialDimension,
+  drawLeader: PCB_ACTIONS.drawLeader,
 };
 
 // Friendly names for the "Current Tool" status-bar field (field 6), shown while
