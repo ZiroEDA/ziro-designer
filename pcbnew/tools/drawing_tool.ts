@@ -2030,8 +2030,10 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
     this.Go(S(this.DrawArc), PCB_ACTIONS.drawArc.MakeEvent());
     this.Go(S(this.PlaceText), PCB_ACTIONS.placeText.MakeEvent());
     this.Go(S(this.DrawZone), PCB_ACTIONS.drawPolygon.MakeEvent());
-    // TRANSITIONAL: drawZone, drawRuleArea, drawZoneCutout and drawSimilarZone
-    // bind to DrawZone once their properties windows take a ZONE_SETTINGS.
+    this.Go(S(this.DrawZone), PCB_ACTIONS.drawRuleArea.MakeEvent());
+    this.Go(S(this.DrawZone), PCB_ACTIONS.drawZone.MakeEvent());
+    this.Go(S(this.DrawZone), PCB_ACTIONS.drawZoneCutout.MakeEvent());
+    this.Go(S(this.DrawZone), PCB_ACTIONS.drawSimilarZone.MakeEvent());
     // TRANSITIONAL: the remaining handlers are bound as they are ported.
   }
 }

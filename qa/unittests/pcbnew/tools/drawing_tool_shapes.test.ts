@@ -27,6 +27,10 @@ import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import type { PCB_SHAPE } from '@ziroeda/pcbnew/pcb_shape.js';
 import type { DIALOG_TEXT_PROPERTIES } from '@ziroeda/pcbnew/dialogs/dialog_text_properties.js';
 import type { PCB_TEXT } from '@ziroeda/pcbnew/pcb_text.js';
+import { DIALOG_NON_COPPER_ZONES_EDITOR } from '@ziroeda/pcbnew/dialogs/dialog_non_copper_zones_properties.js';
+import { DIALOG_RULE_AREA_PROPERTIES } from '@ziroeda/pcbnew/dialogs/dialog_rule_area_properties.js';
+import { DIALOG_COPPER_ZONE } from '@ziroeda/pcbnew/dialogs/panel_zone_properties.js';
+import type { ZONE } from '@ziroeda/pcbnew/zone.js';
 import { DRAWING_MODE, DRAWING_TOOL } from '@ziroeda/pcbnew/tools/drawing_tool.js';
 import type { TOOL_ACTION } from '@ziroeda/common/tool/tool_action.js';
 import { PCB_ACTIONS } from '@ziroeda/pcbnew/tools/pcb_actions.js';
@@ -48,7 +52,22 @@ const BOARD_TEXT = `(kicad_pcb (version 20241229) (generator "pcbnew") (generato
 /** The text dialog's answer: the text typed, or null for Cancel. */
 let dialogText: string | null = 'HELLO';
 
+/** The zone dialogs the tool asked for, and whether they answer OK. */
+let zoneDialogs: unknown[] = [];
+let zoneDialogOk = true;
+
 class TEXT_FRAME extends TEST_PCB_FRAME {
+  override ShowZoneSettingsDialog(aDialog: unknown): Promise<boolean> {
+    zoneDialogs.push(aDialog);
+    if (!zoneDialogOk) return Promise.resolve(false);
+    const d = aDialog as {
+      TransferDataToWindow(): unknown;
+      TransferDataFromWindow(v: unknown): unknown;
+    };
+    d.TransferDataFromWindow(d.TransferDataToWindow());
+    return Promise.resolve(true);
+  }
+
   override ShowTextPropertiesDialog(aDialog: DIALOG_TEXT_PROPERTIES): Promise<boolean> {
     if (dialogText === null) return Promise.resolve(false);
     const v = aDialog.TransferDataToWindow();
@@ -70,6 +89,8 @@ beforeEach(() => {
     },
   );
   dialogText = 'HELLO';
+  zoneDialogs = [];
+  zoneDialogOk = true;
   h.frame.SetActiveLayer(PCB_LAYER_ID.F_SilkS);
   h.mgr.ResetTools(RESET_REASON.MODEL_RELOAD);
 });
@@ -410,5 +431,116 @@ describe('DRAWING_TOOL::DrawZone, Draw Polygons (drawing_tool.cpp:3435-3683)', (
     click(mm(30, 10));
     h.mgr.RunAction(PCB_ACTIONS.closeOutline);
     expect(polys()).toHaveLength(0);
+  });
+});
+
+describe('DRAWING_TOOL::DrawZone, the zone modes (drawing_tool.cpp:3435-3683, zone_create_helper.cpp)', () => {
+  const flush = async (): Promise<void> => {
+    for (let i = 0; i < 4; i++) await new Promise((r) => setTimeout(r, 0));
+  };
+  const zones = (): ZONE[] => [...h.board.Zones()];
+  const triangle = async (a: Vec2, b: Vec2, c: Vec2): Promise<void> => {
+    click(a);
+    await flush();
+    click(b);
+    click(c);
+    click(a);
+  };
+
+  it('a copper zone: its dialog first, then the outline, committed on the active layer and selected (:212-220, :238-247)', async () => {
+    h.frame.SetActiveLayer(PCB_LAYER_ID.F_Cu);
+    start(PCB_ACTIONS.drawZone);
+    await triangle(mm(10, 10), mm(40, 10), mm(40, 40));
+    expect(zoneDialogs).toHaveLength(1);
+    expect(zoneDialogs[0]).toBeInstanceOf(DIALOG_COPPER_ZONE);
+    expect(zones()).toHaveLength(1);
+    const z = zones()[0]!;
+    expect(z.GetLayerSet().Seq()).toEqual([PCB_LAYER_ID.F_Cu]);
+    expect(z.Outline().Outline(0).PointCount()).toBe(3);
+    expect(z.GetIsRuleArea()).toBe(false);
+    expect(z.IsSelected()).toBe(true);
+  });
+
+  it('a new copper zone takes the first unused priority (zone_create_helper.cpp:56-80)', async () => {
+    h.frame.SetActiveLayer(PCB_LAYER_ID.F_Cu);
+    start(PCB_ACTIONS.drawZone);
+    await triangle(mm(10, 10), mm(40, 10), mm(40, 40));
+    start(PCB_ACTIONS.drawZone);
+    await triangle(mm(60, 10), mm(90, 10), mm(90, 40));
+    expect(
+      zones()
+        .map((z) => z.GetAssignedPriority())
+        .sort(),
+    ).toEqual([0, 1]);
+  });
+
+  it('Cancel in the dialog draws nothing and the tool stays (zone_create_helper.cpp:142-143)', async () => {
+    zoneDialogOk = false;
+    h.frame.SetActiveLayer(PCB_LAYER_ID.F_Cu);
+    start(PCB_ACTIONS.drawZone);
+    click(mm(10, 10));
+    await flush();
+    click(mm(40, 10));
+    await flush();
+    click(mm(40, 40));
+    await flush();
+    click(mm(10, 10));
+    await flush();
+    expect(zones()).toHaveLength(0);
+    // Refused, the outline never starts: every click asks again.
+    expect(zoneDialogs).toHaveLength(4);
+    expect(tool.GetDrawingMode()).toBe(DRAWING_MODE.ZONE);
+  });
+
+  it('a rule area asks the rule-area dialog and is a rule area (:3448-3449, :135-136)', async () => {
+    h.frame.SetActiveLayer(PCB_LAYER_ID.F_Cu);
+    start(PCB_ACTIONS.drawRuleArea);
+    await triangle(mm(10, 10), mm(40, 10), mm(40, 40));
+    expect(zoneDialogs[0]).toBeInstanceOf(DIALOG_RULE_AREA_PROPERTIES);
+    expect(zones()[0]!.GetIsRuleArea()).toBe(true);
+  });
+
+  it('a zone on a non-copper layer asks the non-copper dialog (:139-140)', async () => {
+    start(PCB_ACTIONS.drawZone);
+    await triangle(mm(10, 10), mm(40, 10), mm(40, 40));
+    expect(zoneDialogs[0]).toBeInstanceOf(DIALOG_NON_COPPER_ZONES_EDITOR);
+    expect(zones()[0]!.GetLayerSet().Seq()).toEqual([PCB_LAYER_ID.F_SilkS]);
+  });
+
+  it('a cutout cuts a hole in the selected zone, without a dialog (:3405-3432, :185-219)', async () => {
+    h.frame.SetActiveLayer(PCB_LAYER_ID.F_Cu);
+    start(PCB_ACTIONS.drawZone);
+    click(mm(10, 10));
+    await flush();
+    click(mm(50, 10));
+    click(mm(50, 50));
+    click(mm(10, 50));
+    click(mm(10, 10));
+    expect(zones()).toHaveLength(1);
+    const dialogs = zoneDialogs.length;
+    h.mgr.RunAction(ACTIONS.selectItem, zones()[0]!);
+    start(PCB_ACTIONS.drawZoneCutout);
+    await triangle(mm(20, 20), mm(30, 20), mm(30, 30));
+    expect(zoneDialogs).toHaveLength(dialogs);
+    expect(zones()).toHaveLength(1);
+    expect(zones()[0]!.Outline().HoleCount(0)).toBe(1);
+  });
+
+  it('a cutout with no zone selected does nothing (:3418-3428)', () => {
+    start(PCB_ACTIONS.drawZoneCutout);
+    expect(tool.GetDrawingMode()).toBe(DRAWING_MODE.NONE);
+  });
+
+  it('a similar zone copies the source zone, without a dialog (:3463-3464, :160-171)', async () => {
+    h.frame.SetActiveLayer(PCB_LAYER_ID.F_Cu);
+    start(PCB_ACTIONS.drawZone);
+    await triangle(mm(10, 10), mm(40, 10), mm(40, 40));
+    const dialogs = zoneDialogs.length;
+    h.mgr.RunAction(ACTIONS.selectItem, zones()[0]!);
+    start(PCB_ACTIONS.drawSimilarZone);
+    await triangle(mm(60, 10), mm(90, 10), mm(90, 40));
+    expect(zoneDialogs).toHaveLength(dialogs);
+    expect(zones()).toHaveLength(2);
+    expect(zones().every((z) => z.GetFirstLayer() === PCB_LAYER_ID.F_Cu)).toBe(true);
   });
 });

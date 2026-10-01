@@ -137,6 +137,9 @@ import { PCB_GROUP_TOOL } from './tools/pcb_group_tool.js';
 import { DRAWING_TOOL } from './tools/drawing_tool.js';
 import type { TOOL_EVENT } from '@ziroeda/common/tool/tool_event.js';
 import type { DIALOG_TEXT_PROPERTIES } from './dialogs/dialog_text_properties.js';
+import type { DIALOG_NON_COPPER_ZONES_EDITOR } from './dialogs/dialog_non_copper_zones_properties.js';
+import type { DIALOG_COPPER_ZONE } from './dialogs/panel_zone_properties.js';
+import type { DIALOG_RULE_AREA_PROPERTIES } from './dialogs/dialog_rule_area_properties.js';
 import { PCB_PICKER_TOOL } from './tools/pcb_picker_tool.js';
 import type { PCB_SELECTION } from './tools/pcb_selection.js';
 import type { PCB_TABLE } from './pcb_table.js';
@@ -299,6 +302,10 @@ export interface PCB_EDIT_FRAME_HOOKS {
   createDrcDialog(aTool: DRC_TOOL, aParent: unknown): DIALOG_DRC_LIKE;
   /** `Kiface().IsSingle()`: no schematic to test parity against. */
   isSingle(): boolean;
+  /** A zone's properties dialog on a ZONE_SETTINGS alone; true when OK closed it. */
+  showZoneSettingsDialog?(
+    aDialog: DIALOG_COPPER_ZONE | DIALOG_NON_COPPER_ZONES_EDITOR | DIALOG_RULE_AREA_PROPERTIES,
+  ): Promise<boolean>;
   /** DIALOG_TEXT_PROPERTIES shown quasi-modally; true when OK closed it. */
   showTextPropertiesDialog?(aDialog: DIALOG_TEXT_PROPERTIES): Promise<boolean>;
   /** The tool stack changed (`PushTool` / `PopTool`): the window's toolbar follows it. */
@@ -1438,6 +1445,12 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   }
 
   /** `ShowExchangeFootprintsDialog`: `DIALOG_EXCHANGE_FOOTPRINTS( ... ).ShowQuasiModal()`. */
+  override ShowZoneSettingsDialog(
+    aDialog: DIALOG_COPPER_ZONE | DIALOG_NON_COPPER_ZONES_EDITOR | DIALOG_RULE_AREA_PROPERTIES,
+  ): Promise<boolean> {
+    return this.hooks.showZoneSettingsDialog?.(aDialog) ?? Promise.resolve(false);
+  }
+
   override ShowTextPropertiesDialog(aDialog: DIALOG_TEXT_PROPERTIES): Promise<boolean> {
     return this.hooks.showTextPropertiesDialog?.(aDialog) ?? Promise.resolve(false);
   }

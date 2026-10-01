@@ -657,6 +657,8 @@ import { DialogUnusedPadLayers } from './dialogs/dialog_unused_pad_layers_ui.js'
 import { DialogGlobalDeletion } from './dialogs/dialog_global_deletion_ui.js';
 import { DialogGlobalEditTracksAndVias } from './dialogs/dialog_global_edit_tracks_and_vias_ui.js';
 import { DialogExchangeFootprints } from './dialogs/dialog_exchange_footprints_ui.js';
+import { DialogNonCopperZonesProperties } from './dialogs/dialog_non_copper_zones_properties_ui.js';
+import type { DIALOG_NON_COPPER_ZONES_EDITOR } from './dialogs/dialog_non_copper_zones_properties.js';
 import type { DIALOG_EXCHANGE_FOOTPRINTS } from './dialogs/dialog_exchange_footprints.js';
 import {
   DialogGlobalEditTextAndGraphics,
@@ -1085,7 +1087,8 @@ const DRAW_SHAPE_TOOLS: Record<string, PcbShape['kind']> = {
 
 /**
  * The toolbar tools that run on TOOL_MANAGER: DRAWING_TOOL's DrawLine,
- * DrawRectangle, DrawCircle, DrawArc, PlaceText and DrawZone's Draw Polygons. Arming one runs its action as the
+ * DrawRectangle, DrawCircle, DrawArc, PlaceText and DrawZone (polygons, zones, rule
+ * areas, cutouts and similar zones). Arming one runs its action as the
  * toolbar does (no position); while it is the current tool the canvas's events
  * and keys go to TOOL_DISPATCHER, and its PopTool returns the toolbar to the
  * selection mode. The other drawing tools still run in this window.
@@ -1097,6 +1100,10 @@ const TOOL_MANAGER_TOOLS: Readonly<Record<string, TOOL_ACTION>> = {
   drawArc: PCB_ACTIONS.drawArc,
   placeText: PCB_ACTIONS.placeText,
   drawPolygon: PCB_ACTIONS.drawPolygon,
+  drawZone: PCB_ACTIONS.drawZone,
+  drawRuleArea: PCB_ACTIONS.drawRuleArea,
+  drawZoneCutout: PCB_ACTIONS.drawZoneCutout,
+  drawSimilarZone: PCB_ACTIONS.drawSimilarZone,
 };
 
 // Friendly names for the "Current Tool" status-bar field (field 6), shown while
@@ -2762,6 +2769,8 @@ export function PcbEditor({
       showUnusedPadLayersDialog: (aDialog) => setUnusedPadsDlg(aDialog),
       showGlobalEditTracksAndViasDialog: (aDialog) => setEditTvDlg(aDialog),
       showGlobalEditTextAndGraphicsDialog: (aDialog) => setEditTgDlg(aDialog),
+      showZoneSettingsDialog: (aDialog) =>
+        new Promise<boolean>((resolve) => setZoneSettingsDlg({ dialog: aDialog, resolve })),
       showTextPropertiesDialog: (aDialog) =>
         new Promise<boolean>((resolve) => setTextPropsDlg({ dialog: aDialog, resolve })),
       showGlobalEditTeardropsDialog: (aDialog) => setTeardropsDlg(aDialog),
@@ -3012,6 +3021,14 @@ export function PcbEditor({
    * DIALOG_TEXT_PROPERTIES on a live PCB_TEXT: the board's own (Properties on a
    * selected text) or DRAWING_TOOL::PlaceText's new one, which waits on `resolve`.
    */
+  /**
+   * ZONE_CREATE_HELPER::createNewZone's properties dialog, on a ZONE_SETTINGS
+   * alone: the copper, non-copper or rule-area one, and the tool waiting on it.
+   */
+  const [zoneSettingsDlg, setZoneSettingsDlg] = useState<{
+    dialog: DIALOG_COPPER_ZONE | DIALOG_NON_COPPER_ZONES_EDITOR | DIALOG_RULE_AREA_PROPERTIES;
+    resolve: (aOk: boolean) => void;
+  } | null>(null);
   const [textPropsDlg, setTextPropsDlg] = useState<{
     dialog: DIALOG_TEXT_PROPERTIES;
     resolve?: (aOk: boolean) => void;
@@ -13065,6 +13082,49 @@ export function PcbEditor({
           onClose={() => setUpdatePcb(null)}
         />
       )}
+      {zoneSettingsDlg &&
+        board &&
+        (() => {
+          const { dialog, resolve } = zoneSettingsDlg;
+          const done = (aOk: boolean): void => {
+            setZoneSettingsDlg(null);
+            resolve(aOk);
+          };
+          const transferred = (r: { ok: boolean; message?: string }): void => {
+            if (r.ok) done(true);
+            else if (r.message) DisplayErrorMessage(r.message);
+          };
+          if (dialog instanceof DIALOG_COPPER_ZONE)
+            return (
+              <DialogCopperZones
+                units={unitLabel}
+                initial={dialog.TransferDataToWindow()}
+                nets={board.nets}
+                layers={copperLayerRows}
+                onApply={(values, conv) => transferred(dialog.TransferDataFromWindow(values, conv))}
+                onClose={() => done(false)}
+              />
+            );
+          if (dialog instanceof DIALOG_RULE_AREA_PROPERTIES)
+            return (
+              <DialogRuleAreaProperties
+                units={unitLabel}
+                initial={dialog.TransferDataToWindow()}
+                layers={ruleAreaLayers}
+                sources={collectPlacementSources(board)}
+                onApply={(values, conv) => transferred(dialog.TransferDataFromWindow(values, conv))}
+                onClose={() => done(false)}
+              />
+            );
+          return (
+            <DialogNonCopperZonesProperties
+              dialog={dialog}
+              units={unitLabel}
+              layers={ruleAreaLayers.filter((l) => !/\.Cu$/.test(l.name))}
+              onResult={done}
+            />
+          );
+        })()}
       {textPropsDlg && board && (
         <DialogTextProperties
           initial={textPropsDlg.dialog.TransferDataToWindow()}
