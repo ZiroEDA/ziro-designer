@@ -35,7 +35,6 @@ const makeFrame = () =>
     showExchangeFootprintsDialog: () => {},
     findDialogRects: () => [],
     setViewCenter: () => {},
-    setHighlightNets: () => {},
     syncSelection: () => {},
     editZoneParams: () => {},
     selectCopperLayerPair: () => {},

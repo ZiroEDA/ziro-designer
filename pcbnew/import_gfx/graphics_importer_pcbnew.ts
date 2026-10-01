@@ -34,7 +34,6 @@
  * the port notes.
  */
 
-import { ARC_HIGH_DEF } from '../graphics_cleaner.js';
 import {
   GRAPHICS_IMPORTER,
   type IMPORTED_STROKE,
@@ -45,7 +44,7 @@ import { LINE_STYLE } from '@ziroeda/common/stroke_params.js';
 import type { PCB_LAYER_NAME } from '@ziroeda/common/layer_ids.js';
 import { joinJustify } from '../dialogs/dialog_textbox_properties.js';
 import type { PcbShape, PcbTextItem, StrokeType } from '../types.js';
-import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { ARC_HIGH_DEF, pcbIUScale } from '@ziroeda/common/eda_units.js';
 import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/eda_text.js';
 import { BezierPoly } from '@ziroeda/kimath/src/bezier_curves.js';
 import { segApproxCollinear } from '@ziroeda/kimath/src/geometry/seg.js';

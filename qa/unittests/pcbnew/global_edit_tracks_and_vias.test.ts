@@ -2,314 +2,190 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * "Edit Track & Via Properties" — the scope, the filters, and what they set.
- * Counterparts: `DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS::visitItem` and
- * `PCB_EDIT_FRAME::SetTrackSegmentWidth`.
- *
- * The interesting cases are all places where the dialog does something its own
- * UI does not suggest: arcs have no checkbox and ride the tracks one, a via's
- * layers can never be changed even though a layer *filter* selects vias, a
- * microvia ignores the size you typed, and net 0 is a real filter value that a
- * truthiness test would silently discard.
+ * Edit > Edit Track & Via Properties: GLOBAL_EDIT_TOOL::EditTracksAndVias and
+ * DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS (dialog_global_edit_tracks_and_vias.cpp)
+ * on a live BOARD. KiCad has no qa for it; each expectation cites its line.
  */
-import { describe, expect, it } from 'vitest';
-import {
-  applyGlobalTrackViaEdit,
-  countGlobalTrackViaTargets,
-  passesGlobalTrackViaFilters,
-} from '@ziroeda/pcbnew/dialogs/dialog_global_edit_tracks_and_vias.js';
-import type { Board, PcbVia } from '@ziroeda/pcbnew/types.js';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { RESET_REASON } from '@ziroeda/common/tool/tool_base.js';
+import { INDETERMINATE_ACTION } from '@ziroeda/common/widgets/ui_common.js';
+import type { DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS } from '@ziroeda/pcbnew/dialogs/dialog_global_edit_tracks_and_vias.js';
+import type { PCB_TRACK } from '@ziroeda/pcbnew/pcb_track.js';
+import { GLOBAL_EDIT_TOOL } from '@ziroeda/pcbnew/tools/global_edit_tool.js';
+import { PCB_ACTIONS } from '@ziroeda/pcbnew/tools/pcb_actions.js';
+import { byUuid, select, type TOOL_HARNESS, toolHarness, U } from './support/pcb_tool_harness.js';
+import { GLOBAL_EDIT_TEST_FRAME } from './support/global_edit_test_frame.js';
 
-const P = (x: number, y: number) => ({ x, y });
+const MM = (n: number): number => Math.round(n * 1_000_000);
 
-const track = (over: Record<string, unknown> = {}) => ({
-  start: P(0, 0),
-  end: P(1000, 0),
-  width: 250_000,
-  layer: 'F.Cu',
-  net: 1,
-  ...over,
-});
-const arc = (over: Record<string, unknown> = {}) => ({ ...track(), mid: P(500, 100), ...over });
-const via = (over: Partial<PcbVia> = {}): PcbVia => ({
-  at: P(0, 0),
-  size: 800_000,
-  drill: 400_000,
-  layers: ['F.Cu', 'B.Cu'],
-  kind: 'through',
-  net: 1,
-  ...over,
-});
+// N1 track on F.Cu (20), N2 track on F.Cu (21), N1 track on B.Cu (22), an N1
+// arc on F.Cu (23), a through via (24) and a blind via (25), both N1.
+const BOARD_TEXT = `(kicad_pcb (version 20241229) (generator "pcbnew") (generator_version "9.0")
+  (general (thickness 1.6) (legacy_teardrops no))
+  (paper "A4")
+  (layers (0 "F.Cu" signal) (4 "In1.Cu" signal) (6 "In2.Cu" signal) (2 "B.Cu" signal) (25 "Edge.Cuts" user))
+  (setup (pad_to_mask_clearance 0))
+  (net 0 "")
+  (net 1 "N1")
+  (net 2 "N2")
+  (segment (start 10 10) (end 20 10) (width 0.25) (layer "F.Cu") (net 1) (uuid "${U(20)}"))
+  (segment (start 10 20) (end 20 20) (width 0.25) (layer "F.Cu") (net 2) (uuid "${U(21)}"))
+  (segment (start 10 30) (end 20 30) (width 0.25) (layer "B.Cu") (net 1) (uuid "${U(22)}"))
+  (arc (start 10 40) (mid 15 42) (end 20 40) (width 0.25) (layer "F.Cu") (net 1) (uuid "${U(23)}"))
+  (via (at 30 10) (size 0.6) (drill 0.3) (layers "F.Cu" "B.Cu") (net 1) (uuid "${U(24)}"))
+  (via blind (at 30 20) (size 0.6) (drill 0.3) (layers "F.Cu" "In1.Cu") (net 1) (uuid "${U(25)}"))
+)
+`;
 
-const board = (over: Partial<Board> = {}): Board => ({
-  version: 20240108,
-  layers: [
-    { id: 0, name: 'F.Cu', kind: 'signal' },
-    { id: 31, name: 'B.Cu', kind: 'signal' },
-  ],
-  nets: new Map([
-    [0, ''],
-    [1, 'A'],
-    [2, 'B'],
-  ]),
-  footprints: [],
-  tracks: [],
-  arcs: [],
-  vias: [],
-  zones: [],
-  shapes: [],
-  texts: [],
-  dimensions: [],
-  textBoxes: [],
-  tables: [],
-  images: [],
-  points: [],
-  barcodes: [],
-  groups: [],
-  ...over,
+class FRAME extends GLOBAL_EDIT_TEST_FRAME {
+  dialog: DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS | null = null;
+  override ShowGlobalEditTracksAndViasDialog(aDialog: DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS): void {
+    this.dialog = aDialog;
+  }
+}
+
+let h: TOOL_HARNESS<FRAME>;
+
+beforeEach(() => {
+  h = toolHarness(
+    BOARD_TEXT,
+    (aBoard) => new FRAME(aBoard),
+    () => [new GLOBAL_EDIT_TOOL()],
+  );
+  h.mgr.ResetTools(RESET_REASON.MODEL_RELOAD);
+  // The pre-defined sizes come from the project; entry 0 is "use netclass".
+  h.board.GetDesignSettings().m_TrackWidthList = [0, MM(0.4), MM(0.5)];
 });
 
-/** Everything in scope, nothing filtered. */
-const ALL = { tracks: true, throughVias: true, microVias: true, blindVias: true, buriedVias: true };
+function open(): DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS {
+  h.mgr.RunAction(PCB_ACTIONS.editTracksAndVias);
+  const dlg = h.frame.dialog!;
+  dlg.TransferDataToWindow();
+  return dlg;
+}
 
-describe('the netclass filter is a name, not a pattern', () => {
-  it('compares the chosen netclass name for equality', () => {
-    // dialog_global_edit_tracks_and_vias.cpp:365 —
-    // `netclass->ContainsNetclassWithName( filterNetclass )`, where
-    // filterNetclass is `m_netclassFilter->GetStringSelection()`, one entry of
-    // a wxChoice of the board's netclasses. There is no wildcard here.
-    const b = board({ tracks: [track({ net: 1 })] });
-    const ctx = { netclassOf: () => ['PowerRail'] };
-    const pass = (netclassFilter: string): boolean =>
-      passesGlobalTrackViaFilters(b, 'track', 0, { ...ALL, netclassFilter }, ctx);
+const track = (n: number): PCB_TRACK => byUuid(h.board, n) as unknown as PCB_TRACK;
 
-    expect(pass('PowerRail')).toBe(true);
-    expect(pass('Power*')).toBe(false);
-    expect(pass('Power')).toBe(false);
-    expect(pass('powerrail')).toBe(false);
+/** Pick "Track: 0.500 mm ..." (row 1, list entry 2). */
+const width05 = (dlg: DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS): void => {
+  dlg.m_trackWidthCtrl.selection = 1;
+};
+
+describe('DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS', () => {
+  it('lists the pre-defined widths, then "leave unchanged", and starts there (:61-64, :204-206)', () => {
+    const dlg = open();
+    expect(dlg.m_trackWidthCtrl.items).toEqual([
+      'Track: 0.400 mm (15.75 mils)',
+      'Track: 0.500 mm (19.69 mils)',
+      INDETERMINATE_ACTION,
+    ]);
+    expect(dlg.m_trackWidthCtrl.items[dlg.m_trackWidthCtrl.selection]).toBe(INDETERMINATE_ACTION);
+    expect(dlg.m_layerCtrl).toBe(PCB_LAYER_ID.UNDEFINED_LAYER);
   });
 
-  it('searches every constituent class of the net, not one aggregate name', () => {
-    const b = board({ tracks: [track({ net: 1 })] });
-    const ctx = { netclassOf: () => ['Default', 'HighSpeed'] };
-
-    expect(
-      passesGlobalTrackViaFilters(b, 'track', 0, { ...ALL, netclassFilter: 'HighSpeed' }, ctx),
-    ).toBe(true);
-  });
-});
-
-describe('the filters', () => {
-  it('treats net 0 as a real filter value', () => {
-    // Unconnected copper is exactly what someone filtering for net 0 wants.
-    // `if (opts.netFilter)` would discard the filter and edit the whole board.
-    const b = board({ tracks: [track({ net: 0 }), track({ net: 1 })] });
-
-    expect(passesGlobalTrackViaFilters(b, 'track', 0, { ...ALL, netFilter: 0 }, {})).toBe(true);
-    expect(passesGlobalTrackViaFilters(b, 'track', 1, { ...ALL, netFilter: 0 }, {})).toBe(false);
+  it('sets the chosen width on tracks and arcs, one undo entry (:241-251, :427-432)', () => {
+    const dlg = open();
+    width05(dlg);
+    const undo = h.frame.GetUndoCommandCount();
+    dlg.TransferDataFromWindow();
+    for (const n of [20, 21, 22, 23]) expect(track(n).GetWidth()).toBe(MM(0.5));
+    expect(h.frame.GetUndoCommandCount()).toBe(undo + 1);
   });
 
-  it('is inert when the net filter is negative', () => {
-    // A ticked checkbox with no net chosen: upstream gates on `>= 0`.
-    const b = board({ tracks: [track({ net: 7 })] });
-
-    expect(passesGlobalTrackViaFilters(b, 'track', 0, { ...ALL, netFilter: -1 }, {})).toBe(true);
+  it('leaves everything alone when every action is "leave unchanged"', () => {
+    const undo = h.frame.GetUndoCommandCount();
+    open().TransferDataFromWindow();
+    expect(track(20).GetWidth()).toBe(MM(0.25));
+    expect(h.frame.GetUndoCommandCount()).toBe(undo);
   });
 
-  it('filters vias by their start layer', () => {
-    // A via has no single layer, but the layer filter still applies to it —
-    // which is how the dialog can select vias by layer while being unable to
-    // change a via's layers at all.
-    const b = board({ vias: [via({ layers: ['In1.Cu', 'B.Cu'] })] });
-
-    expect(passesGlobalTrackViaFilters(b, 'via', 0, { ...ALL, layerFilter: 'In1.Cu' }, {})).toBe(
-      true,
-    );
-    expect(passesGlobalTrackViaFilters(b, 'via', 0, { ...ALL, layerFilter: 'F.Cu' }, {})).toBe(
-      false,
-    );
+  it('the Tracks box gates tracks and arcs (:404-412)', () => {
+    const dlg = open();
+    width05(dlg);
+    dlg.m_tracks = false;
+    dlg.TransferDataFromWindow();
+    expect(track(20).GetWidth()).toBe(MM(0.25));
+    expect(track(23).GetWidth()).toBe(MM(0.25));
   });
 
-  it('applies the width filter to arcs as well as tracks', () => {
-    const b = board({ arcs: [arc({ width: 250_000 }), arc({ width: 500_000 })] });
+  it('net filter, net class filter, layer filter (:349-372)', () => {
+    let dlg = open();
+    width05(dlg);
+    dlg.m_netFilterOpt = true;
+    dlg.m_netFilter = 2;
+    dlg.TransferDataFromWindow();
+    expect([track(20).GetWidth(), track(21).GetWidth()]).toEqual([MM(0.25), MM(0.5)]);
 
-    expect(
-      passesGlobalTrackViaFilters(b, 'arc', 0, { ...ALL, trackWidthFilter: 250_000 }, {}),
-    ).toBe(true);
-    expect(
-      passesGlobalTrackViaFilters(b, 'arc', 1, { ...ALL, trackWidthFilter: 250_000 }, {}),
-    ).toBe(false);
+    dlg = open();
+    width05(dlg);
+    dlg.m_layerFilterOpt = true;
+    dlg.m_layerFilter = PCB_LAYER_ID.B_Cu;
+    dlg.TransferDataFromWindow();
+    expect(track(22).GetWidth()).toBe(MM(0.5));
+    expect(track(20).GetWidth()).toBe(MM(0.25));
   });
 
-  it('passes an item whose ancestor group is selected, however deep', () => {
-    // An unselected item rides a selected group. It has to walk *up*, not stop
-    // at the top-level group, or a selected inner group selects nothing.
-    const b = board({
-      tracks: [track({ uuid: 't-1' })],
-      groups: [
-        { name: 'inner', uuid: 'g-inner', members: ['t-1'] },
-        { name: 'outer', uuid: 'g-outer', members: ['g-inner'] },
-      ],
-    });
-    const opts = { ...ALL, selectedOnly: true };
-
-    expect(
-      passesGlobalTrackViaFilters(b, 'track', 0, opts, { isSelected: (id) => id === 'g-outer' }),
-    ).toBe(true);
-    expect(
-      passesGlobalTrackViaFilters(b, 'track', 0, opts, { isSelected: (id) => id === 'g-inner' }),
-    ).toBe(true);
-    expect(passesGlobalTrackViaFilters(b, 'track', 0, opts, { isSelected: () => false })).toBe(
-      false,
-    );
+  it('the width filter applies to arcs as well as tracks (:381-385)', () => {
+    track(23).SetWidth(MM(0.3));
+    const dlg = open();
+    width05(dlg);
+    dlg.m_filterByTrackWidth = true;
+    dlg.m_trackWidthFilter.SetValue(MM(0.3));
+    dlg.TransferDataFromWindow();
+    expect(track(23).GetWidth()).toBe(MM(0.5));
+    expect(track(20).GetWidth()).toBe(MM(0.25));
   });
 
-  it('does not spin on a group cycle', () => {
-    // Malformed input, not a real board — but the walk must terminate.
-    const b = board({
-      tracks: [track({ uuid: 't-1' })],
-      groups: [
-        { name: 'a', uuid: 'g-a', members: ['t-1', 'g-b'] },
-        { name: 'b', uuid: 'g-b', members: ['g-a'] },
-      ],
-    });
-
-    expect(
-      passesGlobalTrackViaFilters(
-        b,
-        'track',
-        0,
-        { ...ALL, selectedOnly: true },
-        { isSelected: () => false },
-      ),
-    ).toBe(false);
-  });
-});
-
-describe('the scope boxes', () => {
-  it('lets arcs ride the tracks checkbox', () => {
-    // There is no arc scope anywhere in the dialog.
-    const b = board({ arcs: [arc()] });
-    const out = applyGlobalTrackViaEdit(b, { ...ALL, trackWidth: 500_000 }, {});
-
-    expect(out.changed).toBe(1);
-    expect(out.board.arcs[0]!.width).toBe(500_000);
+  it('the layer action moves tracks and arcs, never vias (:301-312)', () => {
+    const dlg = open();
+    dlg.m_layerCtrl = PCB_LAYER_ID.B_Cu;
+    dlg.TransferDataFromWindow();
+    expect(track(20).GetLayer()).toBe(PCB_LAYER_ID.B_Cu);
+    expect(track(23).GetLayer()).toBe(PCB_LAYER_ID.B_Cu);
+    expect(track(24).GetLayer()).toBe(PCB_LAYER_ID.F_Cu);
   });
 
-  it('leaves arcs alone when tracks are out of scope', () => {
-    const b = board({ arcs: [arc()] });
-
-    expect(
-      applyGlobalTrackViaEdit(b, { ...ALL, tracks: false, trackWidth: 500_000 }, {}).changed,
-    ).toBe(0);
+  it('Selected items only (:327-339)', () => {
+    select(h, 21);
+    const dlg = open();
+    width05(dlg);
+    dlg.m_selectedItemsFilter = true;
+    dlg.TransferDataFromWindow();
+    expect(track(21).GetWidth()).toBe(MM(0.5));
+    expect(track(20).GetWidth()).toBe(MM(0.25));
   });
 
-  it('gates each via kind on its own box', () => {
-    const b = board({
-      vias: [via({ kind: 'through' }), via({ kind: 'blind' }), via({ kind: 'micro' })],
-    });
-    const opts = {
-      tracks: false,
-      throughVias: true,
-      microVias: false,
-      blindVias: false,
-      buriedVias: false,
-      viaSize: { diameter: 900_000, drill: 500_000 },
-    };
-    const out = applyGlobalTrackViaEdit(b, opts, {});
-
-    expect(out.changed).toBe(1);
-    expect(out.board.vias[0]!.size).toBe(900_000);
-    expect(out.board.vias[1]).toBe(b.vias[1]);
-    expect(out.board.vias[2]).toBe(b.vias[2]);
-  });
-});
-
-describe('what it sets', () => {
-  it('never changes a via’s layers, even when the layer action is set', () => {
-    // The layer sub-action is guarded by `(isArc || isTrack)`. A via selected
-    // by the layer filter still keeps its own layer pair.
-    const b = board({ vias: [via({ layers: ['F.Cu', 'B.Cu'] })] });
-    const out = applyGlobalTrackViaEdit(b, { ...ALL, layer: 'In1.Cu' }, {});
-
-    expect(out.board.vias[0]!.layers).toEqual(['F.Cu', 'B.Cu']);
+  it('net class values: the Default netclass track width (:315-318)', () => {
+    // SetTrackSegmentWidth( ..., true ) reads GetWidthConstraint(), which the
+    // DRC engine answers from the netclass once its rules are compiled, as
+    // PCB_EDIT_FRAME does when a board loads.
+    h.board.GetDesignSettings().m_DRCEngine!.InitEngine(null);
+    // A current width other than the netclass's, so "design rules" and "the
+    // current width" give different answers.
+    h.board.GetDesignSettings().SetTrackWidthIndex(2);
+    const dlg = open();
+    dlg.m_setToSpecifiedValues = false;
+    dlg.TransferDataFromWindow();
+    const nc = h.board.GetDesignSettings().m_NetSettings.GetDefaultNetclass();
+    expect(track(20).GetWidth()).toBe(nc.GetTrackWidth());
   });
 
-  it('makes a microvia ignore the size you typed', () => {
-    // `GetViaType() == MICROVIA` is tested *before* the generic via branch, so
-    // the netclass microvia size wins outright rather than as a fallback.
-    const b = board({ vias: [via({ kind: 'micro', net: 1 })] });
-    const out = applyGlobalTrackViaEdit(
-      b,
-      { ...ALL, viaSize: { diameter: 900_000, drill: 500_000 } },
-      { netclassUViaOf: () => ({ diameter: 300_000, drill: 150_000 }) },
-    );
-
-    expect(out.board.vias[0]!.size).toBe(300_000);
-    expect(out.board.vias[0]!.drill).toBe(150_000);
+  it('the Vias box is tri-state over the four via types (:118-134)', () => {
+    const dlg = open();
+    expect(dlg.GetViasValue()).toBe(true);
+    dlg.m_blindVias = false;
+    expect(dlg.GetViasValue()).toBe(null);
+    dlg.OnVias(false);
+    expect(dlg.GetViasValue()).toBe(false);
   });
 
-  it('keeps the existing hole when the chosen drill is zero', () => {
-    // GetCurrentViaDrill() returns -1 for a zero drill and the `<= 0` guard
-    // then keeps the via's own hole, so the pad resizes and the hole does not.
-    const b = board({ vias: [via({ size: 800_000, drill: 400_000 })] });
-    const out = applyGlobalTrackViaEdit(
-      b,
-      { ...ALL, viaSize: { diameter: 900_000, drill: 0 } },
-      {},
-    );
-
-    expect(out.board.vias[0]!.size).toBe(900_000);
-    expect(out.board.vias[0]!.drill).toBe(400_000);
-  });
-
-  it('leaves a property alone when the action is indeterminate', () => {
-    // An absent field is INDETERMINATE_ACTION, not "set it to zero".
-    const b = board({ tracks: [track({ width: 250_000, layer: 'F.Cu' })] });
-    const out = applyGlobalTrackViaEdit(b, { ...ALL, layer: 'B.Cu' }, {});
-
-    expect(out.board.tracks[0]!.width).toBe(250_000);
-    expect(out.board.tracks[0]!.layer).toBe('B.Cu');
-  });
-
-  it('returns the same board when nothing matched', () => {
-    // No undo entry for a run that changed nothing.
-    const b = board({ tracks: [track()] });
-    const out = applyGlobalTrackViaEdit(b, { ...ALL, netFilter: 99, trackWidth: 500_000 }, {});
-
-    expect(out.board).toBe(b);
-    expect(out.changed).toBe(0);
-  });
-
-  it('returns the same board when the new value equals the old one', () => {
-    const b = board({ tracks: [track({ width: 250_000 })] });
-
-    expect(applyGlobalTrackViaEdit(b, { ...ALL, trackWidth: 250_000 }, {}).board).toBe(b);
-  });
-});
-
-describe('counting what will be touched', () => {
-  it('agrees with what apply actually changes', () => {
-    // The preview and the effect share one gauntlet, so they cannot drift.
-    const b = board({
-      tracks: [track({ net: 1 }), track({ net: 2 })],
-      arcs: [arc({ net: 1 })],
-      vias: [via({ net: 1 }), via({ net: 2, kind: 'blind' })],
-    });
-    const opts = {
-      ...ALL,
-      netFilter: 1,
-      trackWidth: 500_000,
-      viaSize: { diameter: 900_000, drill: 500_000 },
-    };
-
-    expect(countGlobalTrackViaTargets(b, opts, {})).toBe(3);
-    expect(applyGlobalTrackViaEdit(b, opts, {}).changed).toBe(3);
-  });
-
-  it('does not count vias whose kind is out of scope', () => {
-    const b = board({ vias: [via({ kind: 'micro' }), via({ kind: 'through' })] });
-
-    expect(countGlobalTrackViaTargets(b, { ...ALL, microVias: false }, {})).toBe(1);
+  it('keeps the net class filter for the next open (the destructor statics, :103-104)', () => {
+    let dlg = open();
+    dlg.m_netclassFilter = 'Default';
+    dlg.m_netFilter = 2;
+    dlg.OnClose();
+    dlg = open();
+    expect(dlg.m_netFilter).toBe(2);
   });
 });

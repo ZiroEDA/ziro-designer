@@ -53,7 +53,7 @@ import { arcShape, padShapes } from '../drc/drc_engine_view.js';
 import { padShapePos } from '../padstack.js';
 import { DRC_ENGINE } from '../drc/drc_engine.js';
 import { padIsOnLayer } from '../dialogs/dialog_enum_pads.js';
-import { enabledCopperLayers, isCopperLayerName } from '../dialogs/dialog_swap_layers.js';
+import { enabledCopperLayers, isCopperLayerName } from '../types.js';
 import { padFlashState, viaFlashState } from '../unused_pad_layers.js';
 import { PnsArc } from './pns_arc.js';
 import { PnsHole } from './pns_hole.js';

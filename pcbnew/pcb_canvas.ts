@@ -285,8 +285,6 @@ export interface EditorDisplayState {
   visibleElements: ReadonlyMap<GAL_LAYER_ID, boolean>;
   displayOptions: PCB_DISPLAY_OPTIONS;
   activeLayer: PCB_LAYER_ID;
-  /** The highlighted nets (BOARD_INSPECTION_TOOL::HighlightNet), empty for none. */
-  highlightNets: ReadonlySet<number>;
   /** `COLOR_SETTINGS::GetFilename()` of the theme the frame paints with. */
   colorTheme: string;
 }
@@ -343,12 +341,6 @@ export function applyDisplayState(
 
   if (!displayOptionsEqual(held, aState.displayOptions))
     aFrame.SetDisplayOptions(aState.displayOptions, false);
-
-  // Net highlight: BOARD_INSPECTION_TOOL::HighlightNet -> SetHighlight + UpdateAllLayersColor
-  if (!aPrev || !setsEqual(aPrev.highlightNets, aState.highlightNets)) {
-    settings.SetHighlight(new Set(aState.highlightNets), aState.highlightNets.size > 0);
-    view.UpdateAllLayersColor();
-  }
 
   // The first sync of a board is the tail of PCB_EDIT_FRAME::OnBoardLoaded
   // (pcb_edit_frame.cpp:2035-2055): after `SetActiveLayer( ..., true )`,

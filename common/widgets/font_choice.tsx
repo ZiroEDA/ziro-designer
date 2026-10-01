@@ -8,6 +8,7 @@
  */
 
 import type { JSX } from 'react';
+import { INDETERMINATE_ACTION } from './ui_common.js';
 import { BUNDLED_FONTS } from '../font/fontconfig.js';
 import { Combo, type ComboOption } from './wx_combobox.js';
 
@@ -54,10 +55,15 @@ const NOT_FOUND = ' <not found>';
 export function FontChoice({
   face,
   onChange,
+  indeterminate = false,
+  disabled = false,
 }: {
   /** '' is `Default Font`, i.e. no `(font (face …))` in the file. */
   face: string;
   onChange: (face: string) => void;
+  /** `SetHasIndeterminateChoice()`: a last row, "-- leave unchanged --". */
+  indeterminate?: boolean;
+  disabled?: boolean;
 }): JSX.Element {
   // `FONT_CHOICE` is a **wxOwnerDrawnComboBox** (`font_choice.h:28`), not a
   // wxChoice and certainly not a native dropdown: it draws its own rows so it
@@ -71,14 +77,18 @@ export function FontChoice({
   // `name + m_notFound` and selected; its value stays the face, so OK keeps
   // what the file said.
   const value = face === '' ? 'Default Font' : face;
-  const options = FONT_OPTIONS.some((o) => o.value === value)
-    ? FONT_OPTIONS
-    : [...FONT_OPTIONS, { value, label: `${value}${NOT_FOUND}` }];
+  const base = indeterminate
+    ? [...FONT_OPTIONS, { value: INDETERMINATE_ACTION, label: INDETERMINATE_ACTION }]
+    : FONT_OPTIONS;
+  const options = base.some((o) => o.value === value)
+    ? base
+    : [...base, { value, label: `${value}${NOT_FOUND}` }];
   return (
     <Combo
       className="ze-lp-font"
       value={value}
       options={options}
+      disabled={disabled}
       onChange={(v) => onChange(v === 'Default Font' ? '' : v)}
     />
   );

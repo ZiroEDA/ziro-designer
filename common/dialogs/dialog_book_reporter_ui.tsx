@@ -14,18 +14,14 @@
  * The sizer tree (dialog_book_reporter_base.cpp): the notebook, minimum
  * 550 x 480, wxEXPAND|wxALL 10; the button sizer wxEXPAND|wxALL 5.
  */
-import { useState, type JSX, type Ref } from 'react';
+import { useEffect, useState, type JSX, type Ref } from 'react';
 import { WX_HTML_REPORT_BOX } from '../widgets/wx_html_report_box.js';
 import { useModalEscape } from '../dialog_shim.js';
+import type { BOOK_REPORTER_PAGE, DIALOG_BOOK_REPORTER } from './dialog_book_reporter.js';
 
-export interface BOOK_REPORTER_PAGE {
-  /** `AddHTMLPage( aTitle )`'s caption. */
-  title: string;
-  /** What the page's reporter was given, in order. */
-  messages: readonly string[];
-}
+export type { BOOK_REPORTER_PAGE };
 
-export function DIALOG_BOOK_REPORTER({
+export function DialogBookReporter({
   title,
   pages,
   onClose,
@@ -85,5 +81,34 @@ export function DIALOG_BOOK_REPORTER({
         </button>
       </div>
     </div>
+  );
+}
+
+/**
+ * One DIALOG_BOOK_REPORTER as the frame hosts it: drawn while `Show(true)`,
+ * redrawn on every page change and Flush(), and OK / the close box are its
+ * OnClose, which hands the dialog's name to the frame to destroy it.
+ */
+export function DialogBookReporterModeless({
+  dialog,
+}: {
+  dialog: DIALOG_BOOK_REPORTER;
+}): JSX.Element | null {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const unsubscribe = dialog.Subscribe(() => setTick((t) => t + 1));
+    return () => {
+      unsubscribe();
+    };
+  }, [dialog]);
+
+  if (!dialog.IsShown()) return null;
+
+  return (
+    <DialogBookReporter
+      title={dialog.GetTitle()}
+      pages={dialog.GetPages()}
+      onClose={() => dialog.OnClose('ok')}
+    />
   );
 }

@@ -18853,3 +18853,301 @@ fieldset.ze-pushpad-box {
   margin: 5px; /* [data] `topSizer->Add( m_sdbSizer, 0, wxALIGN_RIGHT|wxALL, 5 )`. */
   align-self: flex-end;
 }
+
+/* DIALOG_SWAP_LAYERS (dialog_swap_layers_base.cpp). */
+.ze-swaplayers-body {
+  /* [data] `bMainSizer->Add( bMarginsSizer, 1, wxEXPAND|wxTOP|wxRIGHT|wxLEFT, 10 )`. */
+  padding: 10px 10px 0;
+}
+.ze-swaplayers-grid {
+  margin: 5px; /* [data] `bMarginsSizer->Add( m_grid, 1, wxEXPAND|wxALL, 5 )`. */
+  min-width: 250px; /* [data] `m_grid->SetMinSize( wxSize( 250,150 ) )`. */
+  min-height: 150px; /* [data] the same SetMinSize. */
+}
+
+/* DIALOG_CLEANUP_TRACKS_AND_VIAS (dialog_cleanup_tracks_and_vias_base.cpp). */
+.ze-cleanup-top {
+  display: flex;
+  margin: 5px; /* [data] `bSizerMain->Add( bSizerTop, 0, wxEXPAND|wxALL, 5 )`. */
+}
+.ze-cleanup-actions,
+.ze-cleanup-filters {
+  flex: 1;
+  margin: 0 5px; /* [data] `bSizerTop->Add( sbSizer3 / sbFilters, 1, wxEXPAND|wxRIGHT|wxLEFT, 5 )`. */
+  display: flex;
+  flex-direction: column;
+}
+.ze-cleanup-actions .ze-check {
+  margin: 0 5px; /* [data] the checkboxes' `wxRIGHT|wxLEFT, 5`. */
+}
+.ze-cleanup .ze-check.top5 {
+  margin-top: 5px; /* [data] `wxTOP|wxRIGHT|wxLEFT, 5`. */
+}
+.ze-cleanup .ze-check.all5 {
+  margin: 5px; /* [data] `wxALL, 5`. */
+}
+.ze-cleanup-gap12 {
+  height: 12px; /* [data] `sbSizer3->Add( 0, 12, 1, wxEXPAND, 5 )`. */
+}
+.ze-cleanup-gap10 {
+  height: 10px; /* [data] `sbSizer3->Add( 0, 10, 1, wxEXPAND, 5 )`. */
+}
+.ze-cleanup-gap7 {
+  height: 7px; /* [data] `fgSizer3->Add( 0, 7, 1, wxEXPAND, 5 )`. */
+}
+.ze-cleanup-filter-grid {
+  display: grid;
+  /* [data] `wxFlexGridSizer( 0, 2, 3, 0 )`, `AddGrowableCol( 1 )`. */
+  grid-template-columns: max-content 1fr;
+  row-gap: 3px; /* [data] the same sizer's vgap. */
+  align-items: center;
+  margin-bottom: 5px; /* [data] `sbFilters->Add( fgSizer3, 0, wxEXPAND|wxBOTTOM, 5 )`. */
+}
+.ze-cleanup-filter-grid > .ze-check {
+  margin: 0 5px; /* [data] `wxALIGN_CENTER_VERTICAL|wxRIGHT|wxLEFT, 5`. */
+}
+.ze-cleanup-output {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  margin: 5px; /* [data] `bSizerMain->Add( bLowerSizer, 1, wxEXPAND|wxALL, 5 )`. */
+  min-height: 0;
+}
+.ze-cleanup-label {
+  margin: 5px 5px 0; /* [data] `changesSizer->Add( staticChangesLabel, 0, wxTOP|wxRIGHT|wxLEFT, 5 )`. */
+}
+.ze-cleanup-label.all5 {
+  margin: 5px; /* [data] `progressSizer->Add( staticProgressLabel, 0, wxALL, 5 )`. */
+}
+.ze-cleanup-report {
+  flex: 1;
+  margin: 0 3px; /* [data] `progressSizer->Add( m_tcReport, 1, wxEXPAND|wxRIGHT|wxLEFT, 3 )`. */
+  font: inherit;
+  resize: none;
+}
+
+/* DIALOG_CLEANUP_GRAPHICS (dialog_cleanup_graphics_base.cpp). */
+.ze-cleanupgfx-upper {
+  display: flex;
+  flex-direction: column;
+  margin: 5px; /* [data] `bSizerMain->Add( bSizerUpper, 0, wxEXPAND|wxALL, 5 )`. */
+}
+.ze-cleanupgfx .ze-check.all5 {
+  margin: 5px; /* [data] the checkboxes' `wxALL, 5`. */
+}
+.ze-cleanupgfx .ze-check.trl5 {
+  margin: 5px 5px 0; /* [data] `m_mergePadsOpt`'s `wxTOP|wxRIGHT|wxLEFT, 5`. */
+}
+.ze-cleanupgfx-hint {
+  margin: 3px 3px 3px 28px; /* [data] `wxLEFT, 25` inside `bSizerMargins`' `wxALL, 3`. */
+  font-style: italic;
+  font-size: var(--ui-font-size-small);
+}
+.ze-cleanupgfx-tolerance {
+  display: flex;
+  align-items: center;
+}
+.ze-cleanupgfx-tolerance .lbl {
+  margin-left: 25px; /* [data] `m_toleranceLabel`'s `wxLEFT, 25`. */
+}
+.ze-cleanupgfx-tolerance .ze-search {
+  margin: 0 5px; /* [data] `m_toleranceCtrl`'s `wxRIGHT|wxLEFT, 5`. */
+}
+.ze-cleanupgfx-tolerance .unit {
+  margin-right: 5px; /* [data] `m_toleranceUnits`' `wxRIGHT, 5`. */
+}
+.ze-cleanupgfx-lower {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  margin: 5px 5px 0; /* [data] `bSizerMain->Add( bLowerSizer, 1, wxEXPAND|wxTOP|wxRIGHT|wxLEFT, 5 )`. */
+  min-height: 0;
+}
+
+/* DIALOG_UNUSED_PAD_LAYERS (dialog_unused_pad_layers_base.cpp). */
+.ze-unusedpads-body {
+  display: flex;
+  margin: 0 5px 5px; /* [data] `m_MainSizer->Add( bMargins, 6, wxBOTTOM|wxEXPAND|wxLEFT|wxRIGHT, 5 )`. */
+}
+.ze-unusedpads-boxes {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  margin: 10px 0 0 10px; /* [data] `bMargins->Add( bSizer4, 1, wxEXPAND|wxTOP|wxLEFT, 10 )`. */
+}
+.ze-unusedpads .ze-check.all5 {
+  margin: 5px; /* [data] `m_cbVias`, `wxALL, 5`. */
+}
+.ze-unusedpads .ze-check.brl5 {
+  margin: 0 5px 5px; /* [data] `m_cbPads`, `wxBOTTOM|wxRIGHT|wxLEFT, 5`. */
+}
+.ze-unusedpads .ze-check.bl5 {
+  margin: 0 0 5px 5px; /* [data] `m_cbSelectedOnly`, `wxEXPAND|wxBOTTOM|wxLEFT, 5`. */
+}
+.ze-unusedpads .ze-check.l5 {
+  margin-left: 5px; /* [data] `m_cbPreserveExternalLayers`, `wxEXPAND|wxLEFT, 5`. */
+}
+.ze-unusedpads-gap {
+  height: 15px; /* [data] `bSizer4->Add( 0, 15, 0, wxEXPAND, 5 )`. */
+}
+.ze-unusedpads-preview {
+  flex: 1;
+  margin: 0 5px; /* [data] `bMargins->Add( bSizerPreview, 1, wxEXPAND|wxLEFT|wxRIGHT, 5 )`. */
+}
+.ze-unusedpads-preview img {
+  margin: 10px 10px 0; /* [data] `m_image`, `wxTOP|wxRIGHT|wxLEFT, 10`. */
+}
+
+/* DIALOG_GLOBAL_DELETION (dialog_global_deletion_base.cpp). */
+.ze-globaldel-upper {
+  display: flex;
+  margin: 5px; /* [data] `bSizerMain->Add( bSizerUpper, 1, wxEXPAND|wxALL, 5 )`. */
+}
+.ze-globaldel-items {
+  margin: 5px; /* [data] `bSizerUpper->Add( sbSizerLeft, 0, wxEXPAND|wxALL, 5 )`. */
+  display: flex;
+  flex-direction: column;
+}
+.ze-globaldel-filter {
+  margin: 5px 0 5px 10px; /* [data] `sbFilter` `wxTOP|wxBOTTOM|wxLEFT, 5` inside `bSizerRight` `wxLEFT, 5`. */
+}
+.ze-globaldel-filter-grid {
+  display: flex;
+  flex-direction: column;
+  row-gap: 3px; /* [data] `wxFlexGridSizer( 0, 1, 3, 0 )`'s vgap. */
+}
+.ze-globaldel .ze-check.brl5 {
+  margin: 0 5px 5px; /* [data] `wxBOTTOM|wxRIGHT|wxLEFT, 5`. */
+}
+.ze-globaldel .ze-check.rl5 {
+  margin: 0 5px; /* [data] `wxRIGHT|wxLEFT, 5`. */
+}
+.ze-globaldel .ze-check.trl5 {
+  margin: 5px 5px 0; /* [data] `wxTOP|wxRIGHT|wxLEFT, 5`. */
+}
+.ze-globaldel-layers {
+  margin: 0 10px; /* [data] `bSizerMain->Add( m_rbLayersOption, 0, wxEXPAND|wxRIGHT|wxLEFT, 10 )`. */
+}
+
+/* DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS (dialog_global_edit_tracks_and_vias_base.cpp). */
+.ze-gettv-top {
+  display: flex;
+}
+.ze-gettv-scope {
+  flex: 1;
+  margin: 10px 10px 0; /* [data] `bSizerTop->Add( sbScope, 1, wxEXPAND|wxTOP|wxRIGHT|wxLEFT, 10 )`. */
+  display: flex;
+  flex-direction: column;
+}
+.ze-gettv-filters {
+  flex: 2;
+  margin: 10px 10px 0; /* [data] `bSizerTop->Add( sbFilters, 2, wxEXPAND|wxTOP|wxRIGHT|wxLEFT, 10 )`. */
+}
+.ze-gettv .ze-check.brl5 {
+  margin: 0 5px 5px; /* [data] `wxBOTTOM|wxRIGHT|wxLEFT, 5`. */
+}
+.ze-gettv .ze-check.l20 {
+  margin-left: 20px; /* [data] the via types' `wxLEFT, 20`. */
+}
+.ze-gettv .ze-check.t3 {
+  margin-top: 3px; /* [data] `sbScope->Add( 0, 3, 0, wxEXPAND, 5 )`. */
+}
+.ze-gettv .ze-check.all5 {
+  margin: 5px; /* [data] `m_selectedItemsFilter`'s `wxALL, 5`. */
+}
+.ze-gettv-gap10 {
+  height: 10px; /* [data] `sbScope->Add( 0, 10, 0, wxEXPAND, 5 )`. */
+}
+.ze-gettv-filter-grid {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  row-gap: 3px; /* [data] `fgSizer3`'s vgap. */
+  align-items: center;
+  margin-bottom: 5px; /* [data] `sbFilters->Add( fgSizer3, 1, wxEXPAND|wxBOTTOM, 5 )`. */
+}
+.ze-gettv-size {
+  display: flex;
+  align-items: center;
+}
+.ze-gettv-size .unit {
+  margin: 0 5px; /* [data] the units labels' `wxRIGHT|wxLEFT, 5`. */
+}
+.ze-gettv-action {
+  margin: 10px 10px 0; /* [data] `bMainSizer->Add( sbAction, 1, wxEXPAND|wxTOP|wxRIGHT|wxLEFT, 10 )`. */
+}
+.ze-gettv-action-grid {
+  display: grid;
+  /* [data] `wxFlexGridSizer( 5, 2, 0, 10 )`, `AddGrowableCol( 1 )`. */
+  grid-template-columns: max-content 1fr;
+  column-gap: 10px; /* [data] the same sizer's hgap. */
+  align-items: center;
+  margin: 0 0 5px 25px; /* [data] `sbAction->Add( fgSizerTrackViaPopups, 0, wxBOTTOM|wxEXPAND|wxLEFT, 25 )`. */
+}
+.ze-gettv-action-grid > * {
+  margin: 0 5px 5px; /* [data] the controls' `wxBOTTOM|wxRIGHT|wxLEFT, 5`. */
+}
+
+/* DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS (dialog_global_edit_text_and_graphics_base.cpp). */
+.ze-getg-top {
+  display: flex;
+}
+.ze-getg-scope {
+  margin: 10px 10px 0; /* [data] `bSizerTop->Add( sbScope, 0, wxEXPAND|wxTOP|wxRIGHT|wxLEFT, 10 )`. */
+}
+.ze-getg-scope-grid {
+  display: grid;
+  grid-template-columns: max-content max-content;
+  row-gap: 5px; /* [data] `wxFlexGridSizer( 0, 2, 5, 30 )`'s vgap. */
+  column-gap: 30px; /* [data] the same sizer's hgap. */
+  margin: 0 5px; /* [data] `sbScope->Add( fgSizer3, 1, wxEXPAND|wxRIGHT|wxLEFT, 5 )`. */
+}
+.ze-getg .ze-check.top5 {
+  margin-top: 5px; /* [data] `m_footprintGraphics`'s `wxTOP, 5`. */
+}
+.ze-getg .ze-check.all5 {
+  margin: 5px; /* [data] `m_selectedItemsFilter`'s `wxALL, 5`. */
+}
+.ze-getg-filters {
+  flex: 1;
+  margin: 10px 10px 0 0; /* [data] `sbFilters`, `wxEXPAND|wxTOP|wxRIGHT, 10`. */
+}
+.ze-getg-filter-grid {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  row-gap: 3px; /* [data] the filter grid's vgap. */
+  align-items: center;
+}
+.ze-getg-action {
+  margin: 10px 10px 0; /* [data] `bMainSizer->Add( sbAction, 1, wxEXPAND|wxTOP|wxRIGHT|wxLEFT, 10 )`. */
+}
+.ze-getg-values {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr) max-content max-content;
+  column-gap: 5px; /* [data] the gridbag's controls' `wxRIGHT|wxLEFT, 5`. */
+  row-gap: 3px; /* [data] the gridbag's vgap. */
+  align-items: center;
+  margin: 0 0 5px 25px; /* [data] the gridbag's `wxBOTTOM|wxLEFT, 25`. */
+}
+.ze-getg-font,
+.ze-getg-auto {
+  display: flex;
+  align-items: center;
+  column-gap: 5px; /* [data] the same `wxRIGHT|wxLEFT, 5`. */
+}
+.ze-getg-defaults {
+  margin: 0 0 5px 25px; /* [data] `m_grid`'s `wxBOTTOM|wxLEFT, 25`. */
+  border-collapse: collapse;
+}
+.ze-getg-defaults[aria-disabled="true"] {
+  color: var(--ctl-fg-disabled); /* `m_grid->Enable( false )`: label:disabled's colour. */
+}
+.ze-getg-defaults td,
+.ze-getg-defaults th {
+  border: 1px solid var(--chrome-border);
+  padding: 0 4px; /* [data] wxGrid's cell margin. */
+  font-size: var(--ui-font-size-small);
+  font-weight: normal;
+}
+.ze-getg-defaults td.c {
+  text-align: center;
+}

@@ -53,7 +53,6 @@ function frameOnBoard(): { frame: PCB_EDIT_FRAME; render: PCB_RENDER_SETTINGS } 
     showExchangeFootprintsDialog: () => {},
     findDialogRects: () => [],
     setViewCenter: () => {},
-    setHighlightNets: () => {},
     syncSelection: () => {},
     editZoneParams: () => {},
     selectCopperLayerPair: () => {},

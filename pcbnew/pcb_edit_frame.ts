@@ -30,6 +30,9 @@ import { LeaderMode as LEADER_MODE } from '@ziroeda/kimath/src/geometry/geometry
 import { EDA_ANGLE, EDA_ANGLE_T } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import type { BOARD } from './board.js';
 import type { BOARD_ITEM } from './board_item.js';
+import type { BOARD_CONNECTED_ITEM } from './board_connected_item.js';
+import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
+import type { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
 import type { BOARD_ITEM_CONTAINER } from './board_item_container.js';
 import { BOARD_LISTENER } from './board.js';
 import { HIGH_CONTRAST_MODE } from '@ziroeda/common/project/board_project_settings.js';
@@ -44,6 +47,8 @@ import type { FOOTPRINT_EDITOR_SETTINGS_LIKE } from './pcb_base_frame.js';
 import { type AUI_PANELS, PCBNEW_SETTINGS } from './pcbnew_settings.js';
 import { BOARD_COMMIT, SKIP_SET_DIRTY, SKIP_UNDO } from './board_commit.js';
 import type { FOOTPRINT } from './footprint.js';
+import type { PCB_FIELD } from './pcb_field.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import type { ZONE } from './zone.js';
 import type { wxTextValidator } from '@ziroeda/common/validators.js';
 import { DisplayErrorMessage } from '@ziroeda/common/confirm.js';
@@ -91,9 +96,29 @@ import { PCB_SELECTION_TOOL } from './tools/pcb_selection_tool.js';
 import { EDIT_TOOL, type MOVE_EXACT_VALUES, type ROUTER_TOOL_LIKE } from './tools/edit_tool.js';
 import type { DOGBONE_PARAMETERS } from './tools/item_modification_routine.js';
 import { ALIGN_DISTRIBUTE_TOOL } from './tools/align_distribute_tool.js';
+import { BOARD_INSPECTION_TOOL } from './tools/board_inspection_tool.js';
 import { POSITION_RELATIVE_TOOL } from './tools/position_relative_tool.js';
 import type { DIALOG_POSITION_RELATIVE } from './dialogs/dialog_position_relative.js';
 import type { DIALOG_OFFSET_ITEM } from './dialogs/dialog_offset_item.js';
+import { PAD_TOOL } from './tools/pad_tool.js';
+import { GLOBAL_EDIT_TOOL } from './tools/global_edit_tool.js';
+import { ZONE_FILLER_TOOL } from './tools/zone_filler_tool.js';
+import type { ZoneFillOptions } from './zone_filler.js';
+import type { KiDialogRequest } from '@ziroeda/common/kidialog.js';
+import type { KiDialogResult } from '@ziroeda/common/kidialog_do_not_show.js';
+import type { DIALOG_SWAP_LAYERS } from './dialogs/dialog_swap_layers.js';
+import type { DIALOG_CLEANUP_TRACKS_AND_VIAS } from './dialogs/dialog_cleanup_tracks_and_vias.js';
+import type { DIALOG_CLEANUP_GRAPHICS } from './dialogs/dialog_cleanup_graphics.js';
+import type { DIALOG_UNUSED_PAD_LAYERS } from './dialogs/dialog_unused_pad_layers.js';
+import type { DIALOG_GLOBAL_DELETION } from './dialogs/dialog_global_deletion.js';
+import type { DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS } from './dialogs/dialog_global_edit_tracks_and_vias.js';
+import type { DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS } from './dialogs/dialog_global_edit_text_and_graphics.js';
+import {
+  type DIALOG_PUSH_PAD_PROPERTIES,
+  wxID_CANCEL,
+} from './dialogs/dialog_push_pad_properties.js';
+import type { DIALOG_ENUM_PADS } from './dialogs/dialog_enum_pads.js';
+import type { DIALOG_FP_EDIT_PAD_TABLE } from './dialogs/dialog_fp_edit_pad_table.js';
 import { CONVERT_TOOL } from './tools/convert_tool.js';
 import type { OUTSET_PARAMETERS } from './tools/item_modification_routine.js';
 import type { CONVERT_SETTINGS } from './pcbnew_settings.js';
@@ -103,7 +128,9 @@ import { PCB_PICKER_TOOL } from './tools/pcb_picker_tool.js';
 import type { PCB_SELECTION } from './tools/pcb_selection.js';
 import type { PCB_TABLE } from './pcb_table.js';
 import type { PCB_TABLECELL } from './pcb_tablecell.js';
-import type { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
+import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
+import { DIALOG_BOOK_REPORTER } from '@ziroeda/common/dialogs/dialog_book_reporter.js';
+
 import {
   makeGatedDispatcher,
   type WINDOW_ACTION_HANDLER,
@@ -114,6 +141,9 @@ import {
   PCB_CURRENT_LAYER_PAIR_CHANGED,
   PCB_LAYER_PAIR_PRESETS_CHANGED,
 } from './layer_pairs.js';
+
+/** `INSPECT_DRC_ERROR_DIALOG_NAME` (pcb_edit_frame.cpp:160). */
+const INSPECT_DRC_ERROR_DIALOG_NAME = 'InspectDrcErrorDialog';
 
 /**
  * The slice of the designer's `PcbnewSettings` (`prefs/settings.ts`)
@@ -299,11 +329,13 @@ export interface PCB_EDIT_FRAME_HOOKS {
   /** `wxMessageBox( _( "Incomplete undo/redo operation: some items not found" ) )`. */
   onUndoRedoIncomplete(): void;
   /**
-   * `pcb->SetHighLightNet()` + `renderSettings->SetHighlight()`: the editor
-   * still owns the highlighted-net set, so it performs the change. Empty is
-   * no highlight.
+   * TRANSITIONAL (#636 stage 3): after a tool event, the window re-reads
+   * PCB_RENDER_SETTINGS' net highlight into the state its own panels draw
+   * from, as it re-reads the selection on UpdateProperties.
    */
-  setHighlightNets(aNetCodes: ReadonlySet<number>): void;
+  highlightChanged?(): void;
+  /** `DIALOG_BOARD_STATISTICS dialog( m_frame ); dialog.ShowModal()`. */
+  showBoardStatisticsDialog?(): void;
   /**
    * `PCB_ACTIONS::syncSelection` / `syncSelectionWithNets` on the items
    * `FindItemsFromSyncSelection` names: the editor owns the selection, so it
@@ -382,8 +414,10 @@ export interface PCB_EDIT_FRAME_HOOKS {
    * with `GetRepourOnClose()`. Optional: absent answers cancel.
    */
   showZoneManager?(): Promise<{ ok: boolean; repour: boolean }>;
-  /** `PCB_ACTIONS::zoneFillAll`. */
-  fillAllZones?(): void;
+  /** TRANSITIONAL (#636 stage 3): ZONE_FILLER's view-pour options. */
+  zoneFillOptions?(): ZoneFillOptions;
+  /** The window's KiDialog: KIDIALOG::ShowModal. */
+  askKiDialog?(aRequest: KiDialogRequest): Promise<KiDialogResult>;
   /**
    * `EDA_BASE_FRAME::ShowInfoBarWarning( aWarningMsg, aShowCloseButton )`: the
    * window's infobar, warning icon, 6 s. Optional: a frame with no window shows
@@ -426,6 +460,28 @@ export interface PCB_EDIT_FRAME_HOOKS {
   attachPositionRelativeDialog?(aDialog: DIALOG_POSITION_RELATIVE): void;
   /** POSITION_RELATIVE_TOOL's `DIALOG_OFFSET_ITEM( ... ).ShowModal() == wxID_OK`. */
   showOffsetItemDialog?(aDialog: DIALOG_OFFSET_ITEM): Promise<boolean>;
+  /** GLOBAL_EDIT_TOOL's DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS, modal; it closes itself. */
+  showGlobalEditTextAndGraphicsDialog?(aDialog: DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS): void;
+  /** GLOBAL_EDIT_TOOL's DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS, quasi-modal; it closes itself. */
+  showGlobalEditTracksAndViasDialog?(aDialog: DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS): void;
+  /** GLOBAL_EDIT_TOOL's DIALOG_GLOBAL_DELETION: true on OK. */
+  showGlobalDeletionDialog?(aDialog: DIALOG_GLOBAL_DELETION): Promise<boolean>;
+  /** GLOBAL_EDIT_TOOL's DIALOG_UNUSED_PAD_LAYERS, modal; it closes itself. */
+  showUnusedPadLayersDialog?(aDialog: DIALOG_UNUSED_PAD_LAYERS): void;
+  /** GLOBAL_EDIT_TOOL's DIALOG_CLEANUP_GRAPHICS, modal; it closes itself. */
+  showCleanupGraphicsDialog?(aDialog: DIALOG_CLEANUP_GRAPHICS): void;
+  /** GLOBAL_EDIT_TOOL's DIALOG_CLEANUP_TRACKS_AND_VIAS, modal; it closes itself. */
+  showCleanupTracksAndViasDialog?(aDialog: DIALOG_CLEANUP_TRACKS_AND_VIAS): void;
+  /** GLOBAL_EDIT_TOOL's DIALOG_SWAP_LAYERS: true on OK. */
+  showSwapLayersDialog?(aDialog: DIALOG_SWAP_LAYERS): Promise<boolean>;
+  /** PAD_TOOL's DIALOG_PUSH_PAD_PROPERTIES: 0 OK, 1 Apply, wxID_CANCEL dismissed. */
+  showPushPadPropertiesDialog?(aDialog: DIALOG_PUSH_PAD_PROPERTIES): Promise<number>;
+  /** PAD_TOOL's DIALOG_ENUM_PADS: true on OK. */
+  showEnumPadsDialog?(aDialog: DIALOG_ENUM_PADS): Promise<boolean>;
+  /** PAD_TOOL's DIALOG_FP_EDIT_PAD_TABLE, quasi-modal. */
+  showPadTableDialog?(aDialog: DIALOG_FP_EDIT_PAD_TABLE): void;
+  /** `WX_INFOBAR::Dismiss()`. */
+  dismissInfoBar?(): void;
   /** `PromptConnectedPadDecision`'s wxRichMessageDialog. */
   showConnectedPadDialog?(
     aTitle: string,
@@ -477,7 +533,47 @@ export interface PCB_EDIT_FRAME
     PCB_DESIGN_BLOCK_UTILS_MIXIN {}
 
 // biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (INITPCB_MIXIN mixin, see libs/core/mixins.ts)
+/** `FormatProbeItem( BOARD_ITEM* aItem )` (pcbnew/cross-probing.cpp:258-307). */
+export function FormatProbeItem(aItem: BOARD_ITEM | null): string {
+  if (!aItem) return '$CLEAR: "HIGHLIGHTED"'; // message to clear highlight state
+
+  switch (aItem.Type()) {
+    case KICAD_T.PCB_FOOTPRINT_T: {
+      const footprint = aItem as unknown as FOOTPRINT;
+      return `$PART: "${footprint.GetReference()}"`;
+    }
+
+    case KICAD_T.PCB_PAD_T: {
+      const pad = aItem as unknown as PAD;
+      const footprint = pad.GetParentFootprint()!;
+
+      return `$PART: "${footprint.GetReference()}" $PAD: "${pad.GetNumber()}"`;
+    }
+
+    case KICAD_T.PCB_FIELD_T: {
+      const field = aItem as unknown as PCB_FIELD;
+      const footprint = field.GetParentFootprint()!;
+      let text_key: string;
+
+      /* This can't be a switch since the break need to pull out
+       * from the outer switch! */
+      if (field.IsReference()) text_key = '$REF:';
+      else if (field.IsValue()) text_key = '$VAL:';
+      else break;
+
+      return `$PART: "${footprint.GetReference()}" ${text_key} "${field.GetText()}"`;
+    }
+
+    default:
+      break;
+  }
+
+  return '';
+}
+
 export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
+  /** Recursion guard when synchronizing selection from schematic. */
+  m_ProbingSchToPcb = false;
   protected readonly hooks: PCB_EDIT_FRAME_HOOKS;
 
   /**
@@ -488,6 +584,11 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   m_importProperties: ReadonlyMap<string, string> | null = null;
   /** The project's .kicad_dru as last given to OnBoardLoaded: `GetDesignRulesPath()` and its text. */
   private m_designRulesText: string | null = null;
+  private m_inspectDrcErrorDlg: DIALOG_BOOK_REPORTER | null = null;
+
+  /** `m_ZoneFillsDirty`: the board has been modified since the last zone fill. */
+  m_ZoneFillsDirty = true;
+  private m_bookReporterListener: (() => void) | null = null;
   private m_designRulesPath = '';
   /**
    * `PCB_BASE_EDIT_FRAME::m_layerPairSettings` (`pcb_base_edit_frame.h:283`),
@@ -655,6 +756,76 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     return this.hooks.showOffsetItemDialog?.(aDialog) ?? Promise.resolve(false);
   }
 
+  // ---- GLOBAL_EDIT_TOOL's window half (GLOBAL_EDIT_TOOL_FRAME) --------------
+
+  ShowGlobalEditTextAndGraphicsDialog(aDialog: DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS): void {
+    this.hooks.showGlobalEditTextAndGraphicsDialog?.(aDialog);
+  }
+
+  ShowGlobalEditTracksAndViasDialog(aDialog: DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS): void {
+    this.hooks.showGlobalEditTracksAndViasDialog?.(aDialog);
+  }
+
+  ShowGlobalDeletionDialog(aDialog: DIALOG_GLOBAL_DELETION): Promise<boolean> {
+    return this.hooks.showGlobalDeletionDialog?.(aDialog) ?? Promise.resolve(false);
+  }
+
+  ShowUnusedPadLayersDialog(aDialog: DIALOG_UNUSED_PAD_LAYERS): void {
+    this.hooks.showUnusedPadLayersDialog?.(aDialog);
+  }
+
+  ShowCleanupGraphicsDialog(aDialog: DIALOG_CLEANUP_GRAPHICS): void {
+    this.hooks.showCleanupGraphicsDialog?.(aDialog);
+  }
+
+  ShowCleanupTracksAndViasDialog(aDialog: DIALOG_CLEANUP_TRACKS_AND_VIAS): void {
+    this.hooks.showCleanupTracksAndViasDialog?.(aDialog);
+  }
+
+  ShowSwapLayersDialog(aDialog: DIALOG_SWAP_LAYERS): Promise<boolean> {
+    return this.hooks.showSwapLayersDialog?.(aDialog) ?? Promise.resolve(false);
+  }
+
+  ShowZoneManagerDialog(): Promise<{ ok: boolean; repour: boolean }> {
+    return this.hooks.showZoneManager?.() ?? Promise.resolve({ ok: false, repour: false });
+  }
+
+  // ---- ZONE_FILLER_TOOL's window half (ZONE_FILLER_TOOL_FRAME) --------------
+
+  /** `infobar->ShowMessageFor( ..., 10000, wxICON_WARNING )` with a "Show DRC rules" link. */
+  ShowZoneFillRulesWarning(): void {
+    this.ShowInfoBarWarning('Zone fills may be inaccurate.  DRC rules contain errors.');
+  }
+
+  /** `KIDIALOG( this, ... ).ShowModal()`, through the window's KiDialog host. */
+  AskKiDialog(aRequest: KiDialogRequest): Promise<KiDialogResult> {
+    return this.hooks.askKiDialog?.(aRequest) ?? Promise.resolve('cancel');
+  }
+
+  /** TRANSITIONAL (#636 stage 3): the view pour's options, from the window's Board Setup. */
+  GetZoneFillOptions(): ZoneFillOptions {
+    return this.hooks.zoneFillOptions?.() ?? {};
+  }
+
+  // ---- PAD_TOOL's window half (PAD_TOOL_FRAME) ------------------------------
+
+  ShowPushPadPropertiesDialog(aDialog: DIALOG_PUSH_PAD_PROPERTIES): Promise<number> {
+    return this.hooks.showPushPadPropertiesDialog?.(aDialog) ?? Promise.resolve(wxID_CANCEL);
+  }
+
+  ShowEnumPadsDialog(aDialog: DIALOG_ENUM_PADS): Promise<boolean> {
+    return this.hooks.showEnumPadsDialog?.(aDialog) ?? Promise.resolve(false);
+  }
+
+  ShowPadTableDialog(aDialog: DIALOG_FP_EDIT_PAD_TABLE): void {
+    this.hooks.showPadTableDialog?.(aDialog);
+  }
+
+  /** `GetInfoBar()->Dismiss()`. */
+  DismissInfoBar(): void {
+    this.hooks.dismissInfoBar?.();
+  }
+
   ShowGetFootprintByNameDialog(aList: string[]): Promise<string | null> {
     return this.hooks.showGetFootprintByNameDialog?.(aList) ?? Promise.resolve(null);
   }
@@ -675,6 +846,38 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   /** TRANSITIONAL (#636 stage 3): see the `boardView` hook. */
   GetTransitionalBoardView(): Board | null {
     return this.hooks.boardView?.() ?? null;
+  }
+
+  /**
+   * The frame's idle pass after a canvas event (PCB_BASE_EDIT_FRAME::OnIdle),
+   * and TRANSITIONAL (#636 stage 3) the window re-reading the net highlight a
+   * tool may have changed.
+   */
+  override OnIdle(): void {
+    super.OnIdle();
+    this.hooks.highlightChanged?.();
+  }
+
+  /** `DIALOG_BOARD_STATISTICS dialog( this ); dialog.ShowModal()`. */
+  ShowBoardStatisticsDialog(): void {
+    this.hooks.showBoardStatisticsDialog?.();
+  }
+
+  /** `PCB_EDIT_FRAME::SendCrossProbeItem` (pcbnew/cross-probing.cpp:426). */
+  SendCrossProbeItem(aSyncItem: BOARD_ITEM | null): void {
+    const packet = FormatProbeItem(aSyncItem);
+
+    if (packet !== '') {
+      // Typically ExpressMail is going to be s-expression packets, but since
+      // we have existing interpreter of the cross probe packet on the other
+      // side in place, we use that here.
+      this.Kiway()?.ExpressMail(
+        FRAME_T.FRAME_SCH,
+        MAIL_T.MAIL_CROSS_PROBE,
+        { value: packet },
+        this,
+      );
+    }
   }
 
   /** `EDA_DRAW_FRAME::UpdateProperties()`, and the window re-reading the selection. */
@@ -738,45 +941,6 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     return this.hooks.fillZones?.(aBoard, aZones) ?? false;
   }
 
-  /**
-   * `GLOBAL_EDIT_TOOL::ZonesManager` (global_edit_tool.cpp:240-290), run by
-   * Tools > Zone Manager..., the toolbar's zone menu and the Copper Zones
-   * dialog's "Open Zone Manager..." button.
-   *
-   * The dialog edits clones and writes them over the board's zones on OK, so
-   * what is left is what the tool does after it: deselect, `OnModify()` (which
-   * clears the zone bounding-box caches), update the zones in the view, rebuild
-   * the connectivity, and the refill when the box was ticked. Upstream's
-   * `BOARD_COMMIT` is populated with `Modify( zone )` and never pushed, so the
-   * change files no undo entry.
-   */
-  async ZonesManager(): Promise<void> {
-    const board = this.GetBoard();
-
-    if (!board || !this.hooks.showZoneManager) return;
-
-    const commit = new BOARD_COMMIT(this);
-
-    for (const zone of board.Zones()) commit.Modify(zone);
-
-    const { ok, repour } = await this.hooks.showZoneManager();
-
-    if (!ok) return;
-
-    // "Ensure all zones are deselected before make any change in view"
-    this.m_toolManager!.RunAction(ACTIONS.selectionClear);
-
-    this.OnModify();
-
-    for (const zone of board.Zones()) this.GetCanvas()?.GetView().Update(zone);
-
-    // The board's listeners hear the zones changed (the view re-derives), then rebuild connectivity.
-    board.OnItemsChanged([...board.Zones()]);
-    board.BuildConnectivity();
-
-    if (repour) this.hooks.fillAllZones?.();
-  }
-
   /** `PCB_BASE_EDIT_FRAME::GetLayerPairSettings()` (`pcb_base_edit_frame.h:249`). */
   GetLayerPairSettings(): LAYER_PAIR_SETTINGS {
     return this.m_layerPairSettings;
@@ -798,7 +962,8 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
    * `PCB_EDIT_FRAME::setupTools` (pcb_edit_frame.cpp:940): the manager, its
    * environment, the dispatcher, the tools registered in the C++ order - of
    * them PCB_SELECTION_TOOL, EDIT_TOOL, PCB_POINT_EDITOR (as far as
-   * `HasPoint`), ALIGN_DISTRIBUTE_TOOL, POSITION_RELATIVE_TOOL, DRC_TOOL,
+   * `HasPoint`), BOARD_INSPECTION_TOOL (highlight and ratsnest), ALIGN_DISTRIBUTE_TOOL,
+   * POSITION_RELATIVE_TOOL, DRC_TOOL,
    * CONVERT_TOOL, PCB_GROUP_TOOL,
    * PROPERTIES_TOOL, EMBED_TOOL and PCB_PICKER_TOOL are ported; the rest are
    * #636 stage 3's, and WINDOW_ACTION_BRIDGE answers their actions meanwhile.
@@ -820,9 +985,13 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     // Register tools
     this.m_toolManager.RegisterTool(new PCB_SELECTION_TOOL());
     this.m_toolManager.RegisterTool(new EDIT_TOOL());
+    this.m_toolManager.RegisterTool(new GLOBAL_EDIT_TOOL());
+    this.m_toolManager.RegisterTool(new PAD_TOOL());
     this.m_toolManager.RegisterTool(new PCB_POINT_EDITOR());
+    this.m_toolManager.RegisterTool(new BOARD_INSPECTION_TOOL());
     this.m_toolManager.RegisterTool(new ALIGN_DISTRIBUTE_TOOL());
     this.m_toolManager.RegisterTool(new POSITION_RELATIVE_TOOL());
+    this.m_toolManager.RegisterTool(new ZONE_FILLER_TOOL());
     this.m_toolManager.RegisterTool(new DRC_TOOL());
     this.m_toolManager.RegisterTool(new CONVERT_TOOL());
     this.m_toolManager.RegisterTool(new PCB_GROUP_TOOL());
@@ -859,6 +1028,38 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   /** The rules file's text, which `DRC_ENGINE::InitEngine` reads here in place of the path. */
   GetDesignRulesText(): string | null {
     return this.m_designRulesText;
+  }
+
+  /** `PCB_EDIT_FRAME::GetInspectDrcErrorDialog()`: made on first use, destroyed on close. */
+  GetInspectDrcErrorDialog(): DIALOG_BOOK_REPORTER {
+    if (!this.m_inspectDrcErrorDlg) {
+      this.m_inspectDrcErrorDlg = new DIALOG_BOOK_REPORTER(
+        INSPECT_DRC_ERROR_DIALOG_NAME,
+        'Violation Report',
+        (aName) => this.onCloseModelessBookReporterDialogs(aName),
+      );
+      this.m_bookReporterListener?.();
+    }
+
+    return this.m_inspectDrcErrorDlg;
+  }
+
+  /** The book-reporter dialogs alive now, for the window to draw. */
+  GetBookReporterDialogs(): DIALOG_BOOK_REPORTER[] {
+    return this.m_inspectDrcErrorDlg ? [this.m_inspectDrcErrorDlg] : [];
+  }
+
+  /** The window's subscription to a book-reporter dialog being made or destroyed. */
+  SetBookReporterListener(aListener: (() => void) | null): void {
+    this.m_bookReporterListener = aListener;
+  }
+
+  /** `EDA_EVT_CLOSE_DIALOG_BOOK_REPORTER`: a modeless report closed; destroy it. */
+  private onCloseModelessBookReporterDialogs(aName: string): void {
+    if (this.m_inspectDrcErrorDlg && aName === INSPECT_DRC_ERROR_DIALOG_NAME) {
+      this.m_inspectDrcErrorDlg = null;
+      this.m_bookReporterListener?.();
+    }
   }
 
   /** `PCB_EDIT_FRAME::KiwayMailIn` (pcbnew/cross-probing.cpp:533). */
@@ -930,31 +1131,63 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
 
     let netcode = -1;
     let multiHighlight = false;
-    const highlighted = new Set<number>();
+
+    const view = this.m_toolManager!.GetView()!;
+    const renderSettings = view.GetPainter()!.GetSettings();
 
     if (idcmd === '$CLEAR') {
-      this.hooks.setHighlightNets(new Set());
+      if (renderSettings.IsHighlightEnabled()) {
+        renderSettings.SetHighlight(false);
+        view.UpdateAllLayersColor();
+      }
+
+      if (pcb.IsHighLightNetON()) {
+        pcb.ResetNetHighLight();
+        this.SetMsgPanel(pcb);
+      }
+
+      this.GetCanvas()?.Refresh();
       return;
     } else if (idcmd === '$NET:') {
       if (!crossProbingSettings.auto_highlight) return;
 
       const netinfo = pcb.FindNet(text ?? '');
 
-      if (netinfo) netcode = netinfo.GetNetCode();
+      if (netinfo) {
+        netcode = netinfo.GetNetCode();
+
+        const items: MSG_PANEL_ITEM[] = [];
+        netinfo.GetMsgPanelInfo(this as unknown as EDA_DRAW_FRAME_LIKE, items);
+        this.SetMsgPanel(items);
+      }
 
       // fall through to highlighting section
     } else if (idcmd === '$NETS:') {
       if (!crossProbingSettings.auto_highlight) return;
 
       // wxStringTokenizer( …, ",", wxTOKEN_STRTOK ): empty tokens are skipped.
+      let first = true;
+
       for (const token of (text ?? '').split(',')) {
         if (token === '') continue;
 
         const netinfo = pcb.FindNet(token.trim());
 
         if (netinfo) {
-          highlighted.add(netinfo.GetNetCode());
-          multiHighlight = true;
+          if (first) {
+            // TODO: Once buses are included in netlist, show bus name
+            const items: MSG_PANEL_ITEM[] = [];
+            netinfo.GetMsgPanelInfo(this as unknown as EDA_DRAW_FRAME_LIKE, items);
+            this.SetMsgPanel(items);
+            first = false;
+
+            pcb.SetHighLightNet(netinfo.GetNetCode());
+            renderSettings.SetHighlight(true, netinfo.GetNetCode());
+            multiHighlight = true;
+          } else {
+            pcb.SetHighLightNet(netinfo.GetNetCode(), true);
+            renderSettings.SetHighlight(true, netinfo.GetNetCode(), true);
+          }
         }
       }
 
@@ -965,14 +1198,48 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
       return;
     }
 
-    if (netcode > 0 || multiHighlight) {
-      if (!multiHighlight) highlighted.add(netcode);
+    const bbox = new BOX2I();
 
-      this.hooks.setHighlightNets(highlighted);
+    if (netcode > 0 || multiHighlight) {
+      if (!multiHighlight) {
+        renderSettings.SetHighlight(netcode >= 0, netcode);
+        pcb.SetHighLightNet(netcode);
+      } else {
+        // Just pick the first one for area calculation
+        netcode = Math.min(...pcb.GetHighLightNetCodes());
+      }
+
+      pcb.HighLightON();
+
+      const merge_area = (aItem: BOARD_CONNECTED_ITEM): void => {
+        if (aItem.GetNetCode() === netcode) bbox.Merge(aItem.GetBoundingBox());
+      };
+
+      if (crossProbingSettings.center_on_items) {
+        for (const zone of pcb.Zones()) merge_area(zone);
+
+        for (const track of pcb.Tracks()) merge_area(track);
+
+        for (const fp of pcb.Footprints()) {
+          for (const p of fp.Pads()) merge_area(p);
+        }
+      }
     } else {
-      // renderSettings->SetHighlight( false )
-      this.hooks.setHighlightNets(new Set());
+      renderSettings.SetHighlight(false);
     }
+
+    if (crossProbingSettings.center_on_items && bbox.GetWidth() !== 0 && bbox.GetHeight() !== 0) {
+      if (crossProbingSettings.zoom_to_fit) this.GetSelectionTool().ZoomFitCrossProbeBBox(bbox);
+
+      this.FocusOnLocation(bbox.Centre());
+    }
+
+    view.UpdateAllLayersColor();
+
+    // Ensure the display is refreshed, because in some installs the refresh is done only
+    // when the gal canvas has the focus, and that is not the case when crossprobing from
+    // Eeschema:
+    this.GetCanvas()?.Refresh();
   }
 
   /**
@@ -1292,6 +1559,7 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
 
   override OnModify(): void {
     super.OnModify();
+    this.m_ZoneFillsDirty = true;
     this.hooks.onModify();
   }
 

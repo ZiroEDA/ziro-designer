@@ -14,6 +14,11 @@
  */
 
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+import {
+  ClampTextPenSize,
+  GetPenSizeForBold,
+  GetPenSizeForNormal,
+} from '@ziroeda/common/gr_text.js';
 import type { ZoneConnection } from './zone_connection.js';
 import type { PcbFillMode } from './shape_fill.js';
 import type { BOARD } from './board.js';
@@ -997,4 +1002,114 @@ export interface Board {
   fileName?: string;
   /** The item in KiCad's own model, what the file is written from. */
   k?: BOARD;
+}
+
+// ---- String-layer helpers for this view model ------------------------------
+//
+// TRANSITIONAL (#636 stage 3): the view spells layers as names; these answer
+// the questions KiCad asks of LSET / IsCopperLayer, by name. They lived in
+// dialog_swap_layers.ts until DIALOG_SWAP_LAYERS was ported onto the live
+// BOARD, and they go with this file.
+
+/** `IsCopperLayer` (layer_ids.h), by name: the front, the back, or an inner. */
+export function isCopperLayerName(name: string): boolean {
+  return /^(F|B|In\d+)\.Cu$/.test(name);
+}
+
+/**
+ * Physical depth in the stack, used to order a via's layer pair.
+ *
+ * Note this is *not* the ordinal a layer is written with. KiCad has three
+ * different orders in play here and confusing them is the easy mistake: the
+ * dialog's rows run F.Cu, In1…, B.Cu (back last); a written layer list runs by
+ * `PCB_LAYER_ID`, where B.Cu is *second*; and the via comparator wants physical
+ * depth, where the back is deepest. This is the third one.
+ */
+export function copperRank(name: string): number {
+  if (name === 'F.Cu') return 0;
+  if (name === 'B.Cu') return Number.POSITIVE_INFINITY;
+  const m = /^In(\d+)\.Cu$/.exec(name);
+  return m ? Number(m[1]) : Number.NaN;
+}
+
+/**
+ * The dialog's rows: `LSET::AllCuMask(copperLayerCount).UIOrder()`.
+ *
+ * Upstream's `CuStack()` iterator runs front, then the inners in order, then
+ * the back — so **B.Cu is last, not second**. Taking the board's own layer
+ * table rather than synthesising names means a board whose inner layers are
+ * disabled does not get rows for layers it does not have.
+ */
+export function enabledCopperLayers(board: Board): string[] {
+  const copper = board.layers.map((l) => l.name).filter(isCopperLayerName);
+  return copper.sort((a, b) => copperRank(a) - copperRank(b));
+}
+
+/**
+ * Zone layer sets can hold the wildcards the file format allows.
+ *
+ * The view spells a zone's `(layers …)` the way `formatLayers` writes them, so
+ * `*.Cu` and `F&B.Cu` reach the model as literal strings where KiCad's own
+ * `LSET` has already expanded them. Neither spelling is a key in the map,
+ * so without this a zone on `F&B.Cu` would not move at all — the swap would
+ * appear to work everywhere else and silently skip exactly the zones most
+ * likely to be on both sides.
+ */
+export function expandLayerWildcards(layers: readonly string[], board: Board): string[] {
+  const copper = enabledCopperLayers(board);
+  const out: string[] = [];
+
+  for (const layer of layers) {
+    const expanded = layer === '*.Cu' ? copper : layer === 'F&B.Cu' ? ['F.Cu', 'B.Cu'] : [layer];
+    for (const l of expanded) if (!out.includes(l)) out.push(l);
+  }
+
+  return out;
+}
+
+// TRANSITIONAL (#636 stage 3): the view text's pen width, for dialog_text_properties.
+
+/**
+ * `EDA_TEXT::GetEffectiveTextPenWidth` (eda_text.cpp:461).
+ *
+ * Three details a rewrite gets wrong. The guard is `<= 1`, not `=== 0`, so a
+ * stored thickness of exactly one IU counts as unset. The bold and normal
+ * fallbacks use `GetTextWidth()` — the **x** alone — while the final clamp uses
+ * the full size and therefore reduces to `min(x, y)`; that asymmetry is real
+ * upstream and is not tidied here. And the `else if( penWidth <= 1 )` means a
+ * caller-supplied default above 1 survives for non-bold text.
+ */
+export function effectiveTextPenWidth(
+  t: { thickness?: number; bold?: boolean; size: Vec2 },
+  defaultPenWidth = 0,
+): number {
+  let pen = t.thickness ?? 0;
+
+  if (pen <= 1) {
+    pen = defaultPenWidth;
+
+    if (t.bold) pen = GetPenSizeForBold(t.size.x);
+    else if (pen <= 1) pen = GetPenSizeForNormal(t.size.x);
+  }
+
+  return ClampTextPenSize(pen, t.size);
+}
+
+/** `GetAutoThickness()` is `GetTextThickness() == 0`; an absent token reads as 0. */
+export const isAutoThickness = (t: { thickness?: number }): boolean => (t.thickness ?? 0) === 0;
+
+/**
+ * `EDA_TEXT::SetAutoThickness` (eda_text.cpp:287).
+ *
+ * Guarded on the current state, so calling it with the value the item already
+ * has must not recompute anything. Turning auto *off* has to materialise the
+ * width the renderer was using, which is why {@link effectiveTextPenWidth} is
+ * ported even though this dialog only ever calls it with `true`.
+ */
+export function setAutoThickness<T extends { thickness?: number; bold?: boolean; size: Vec2 }>(
+  t: T,
+  auto: boolean,
+): T {
+  if (isAutoThickness(t) === auto) return t;
+  return { ...t, thickness: auto ? 0 : effectiveTextPenWidth(t) };
 }

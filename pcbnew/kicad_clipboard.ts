@@ -86,7 +86,7 @@ import {
 } from './edit-board.js';
 import { readBoard, readFootprintFile } from './pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { uniqueZoneName } from './dialogs/dialog_rule_area_properties.js';
-import { expandLayerWildcards } from './dialogs/dialog_swap_layers.js';
+import { expandLayerWildcards } from './types.js';
 import { reannotateDuplicates } from './dialogs/dialog_board_reannotate.js';
 import type { Board, PcbFootprint, PcbGroup, PcbPad, PcbTextItem, PcbZone } from './types.js';
 import type { FOOTPRINT } from './footprint.js';

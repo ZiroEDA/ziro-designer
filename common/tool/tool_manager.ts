@@ -252,6 +252,10 @@ export class TOOL_MANAGER {
   /// Queue that stores events to be processed at the end of the event processing cycle.
   private m_eventQueue: TOOL_EVENT[] = [];
 
+  /** How many processEvent cycles are on the stack: 0 outside event processing. */
+  private m_eventDepth = 0;
+  private m_drainScheduled = false;
+
   /// Right click context menu position.
   private m_menuCursor: VECTOR2D = { x: 0, y: 0 };
 
@@ -663,6 +667,26 @@ export class TOOL_MANAGER {
       this.m_eventQueue.pop();
 
     this.m_eventQueue.push(aEvent.clone());
+
+    // Upstream drains the queue at the end of the processEvent cycle that posted
+    // to it, and an event posted outside any cycle waits for the next wx event,
+    // which under wx is an idle event a moment later. A browser raises none, so
+    // an event posted after an awaited dialog closed would sit until the next
+    // mouse move. Outside a cycle, it is drained on a microtask instead.
+    if (this.m_eventDepth === 0) this.scheduleDrain();
+  }
+
+  private scheduleDrain(): void {
+    if (this.m_drainScheduled) return;
+
+    this.m_drainScheduled = true;
+
+    queueMicrotask(() => {
+      this.m_drainScheduled = false;
+
+      while (this.m_eventQueue.length !== 0 && this.m_eventDepth === 0 && !this.m_shuttingDown)
+        this.ProcessEvent(this.m_eventQueue.shift()!);
+    });
   }
 
   /**
@@ -1393,6 +1417,16 @@ export class TOOL_MANAGER {
    * @return true if a hotkey was handled.
    */
   private processEvent(aEvent: TOOL_EVENT): boolean {
+    this.m_eventDepth++;
+
+    try {
+      return this.processEventCycle(aEvent);
+    } finally {
+      this.m_eventDepth--;
+    }
+  }
+
+  private processEventCycle(aEvent: TOOL_EVENT): boolean {
     // First try to dispatch the action associated with the event if it is a key press event
     let handled = this.DispatchHotKey(aEvent);
 

@@ -31,7 +31,7 @@ import {
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import { segDistanceToPoint } from '@ziroeda/kimath/src/geometry/seg.js';
 import { arcShape } from '../drc/drc_engine_view.js';
-import { ARC_HIGH_DEF } from '../graphics_cleaner.js';
+import { ARC_HIGH_DEF } from '@ziroeda/common/eda_units.js';
 import { PnsKind, PnsLinkedItem, type PnsItem } from './pns_item.js';
 import type { PnsLine } from './pns_line.js';
 import type { Shape } from '@ziroeda/kimath/src/geometry/shape_collisions.js';

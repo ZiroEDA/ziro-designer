@@ -686,23 +686,11 @@ export {
   verifyDpBypass,
 } from './router/pns_optimizer.js';
 
-export {
-  isCopperLayerName,
-  copperRank,
-  enabledCopperLayers,
-  buildSwapLayerMap,
-  swapItemLayers,
-  swapViaLayerPair,
-  swapBoardLayers,
-} from './dialogs/dialog_swap_layers.js';
+export { isCopperLayerName, copperRank, enabledCopperLayers } from './types.js';
+export { DIALOG_SWAP_LAYERS } from './dialogs/dialog_swap_layers.js';
+export { GLOBAL_EDIT_TOOL } from './tools/global_edit_tool.js';
 
-export {
-  passesGlobalTrackViaFilters,
-  applyGlobalTrackViaEdit,
-  countGlobalTrackViaTargets,
-  type GlobalTrackViaEditOptions,
-  type GlobalTrackViaEditContext,
-} from './dialogs/dialog_global_edit_tracks_and_vias.js';
+export { DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS } from './dialogs/dialog_global_edit_tracks_and_vias.js';
 
 export {
   exportD356,
@@ -731,30 +719,9 @@ export {
   type PlaceFileOptions,
 } from './exporters/place_file_exporter.js';
 
-export {
-  cleanupGraphics,
-  isNullShape,
-  areEquivalent,
-  equivalentPt,
-  DRC_EPSILON,
-  ARC_HIGH_DEF,
-  type CleanupItem,
-  type CleanupCode,
-  type CleanupGraphicsOptions,
-} from './graphics_cleaner.js';
+export { GRAPHICS_CLEANER } from './graphics_cleaner.js';
 
-export {
-  globalDeletionFilterEnabled,
-  globalDeletionLayerChoices,
-  layerMatchesFilter,
-  layerMatchesDrawingFilter,
-  globalDeletionIds,
-  globalDeletionRebuildsRatsnest,
-  applyGlobalDeletion,
-  countGlobalDeletionTargets,
-  DEFAULT_GLOBAL_DELETION_OPTIONS,
-  type GlobalDeletionOptions,
-} from './dialogs/dialog_global_deletion.js';
+export { DIALOG_GLOBAL_DELETION } from './dialogs/dialog_global_deletion.js';
 
 export {
   padEnumerationNumber,
@@ -787,25 +754,7 @@ export {
   type PadFinding,
 } from './dialogs/dialog_footprint_checker.js';
 
-export {
-  textGfxLayerClass,
-  TEXT_GFX_LAYER_CLASSES,
-  styleTextFromSettings,
-  styleShapeFromSettings,
-  styleTextBoxFromSettings,
-  styleDimensionFromSettings,
-  autoTextThicknessDisplay,
-  globalTextGfxSizesValid,
-  applyGlobalTextAndGraphicsEdit,
-  countGlobalTextAndGraphicsTargets,
-  DEFAULT_GLOBAL_TEXT_GFX_OPTIONS,
-  type TextGfxLayerClass,
-  type TextGfxClassDefaultsIU,
-  type TextGfxDefaultsIU,
-  type DimensionDefaultsIU,
-  type GlobalTextGfxOptions,
-  type GlobalTextGfxContext,
-} from './dialogs/dialog_global_edit_text_and_graphics.js';
+export { DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS } from './dialogs/dialog_global_edit_text_and_graphics.js';
 
 export {
   isExternalCopperLayer,

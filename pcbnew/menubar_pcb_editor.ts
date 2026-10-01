@@ -262,11 +262,14 @@ export function buildPcbMenus(
         { sep: true },
         { label: 'Find', icon: 'find', action: () => h.action('find'), shortcut: 'Ctrl+F' },
         { sep: true },
-        { label: 'Edit Track & Via Properties...', disabled: dis },
-        { label: 'Edit Text & Graphics Properties...', disabled: dis },
+        { label: 'Edit Track & Via Properties...', action: () => h.action('editTracksAndVias') },
+        {
+          label: 'Edit Text & Graphics Properties...',
+          action: () => h.action('editTextAndGraphics'),
+        },
         { label: 'Edit Teardrops...', action: () => h.action('editTeardrops') },
         { label: 'Change Footprints...', disabled: dis },
-        { label: 'Swap Layers...', disabled: dis },
+        { label: 'Swap Layers...', action: () => h.action('swapLayers') },
         // `ACTIONS::gridOrigin` — the DIALOG ("Grid Origin..."), not
         // `gridSetOrigin`, which is the interactive tool the Place menu has.
         { label: 'Grid Origin...', disabled: dis },
@@ -279,13 +282,13 @@ export function buildPcbMenus(
           action: () => h.action('zoneFillAll'),
           shortcut: 'B',
         },
-        { label: 'Unfill All Zones', disabled: dis },
+        { label: 'Unfill All Zones', action: () => h.action('zoneUnfillAll') },
         { label: 'Update All Tuning Patterns', disabled: dis },
         { sep: true },
         // `ACTIONS::deleteTool` — the interactive one, which keeps deleting
         // what you click until it is cancelled. Not the same command as Delete.
         { label: 'Interactive Delete Tool', disabled: dis },
-        { label: 'Global Deletions...', disabled: dis },
+        { label: 'Global Deletions...', action: () => h.action('globalDeletions') },
         { sep: true },
         /*
          * Below here is NOT KiCad's Edit menu.
@@ -846,9 +849,9 @@ export function buildPcbMenus(
         { sep: true },
         { label: 'Zone Manager...', icon: 'zonesManager', action: () => h.action('zonesManager') },
         { sep: true },
-        { label: 'Cleanup Tracks & Vias...', disabled: dis },
-        { label: 'Remove Unused Pads...', disabled: dis },
-        { label: 'Cleanup Graphics...', disabled: dis },
+        { label: 'Cleanup Tracks & Vias...', action: () => h.action('cleanupTracksAndVias') },
+        { label: 'Remove Unused Pads...', action: () => h.action('removeUnusedPads') },
+        { label: 'Cleanup Graphics...', action: () => h.action('cleanupGraphics') },
         { label: 'Repair Board', disabled: dis },
         { sep: true },
         { label: 'Collect And Embed 3D Models', disabled: dis },
