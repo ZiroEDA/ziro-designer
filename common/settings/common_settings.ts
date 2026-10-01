@@ -478,10 +478,12 @@ export function migrateCommonSettings(s: CommonSettings, from: number): boolean 
     changed = true;
   }
 
-  // v6: `input.center_on_zoom` defaults to false in the browser (see the
+  // v7: `input.center_on_zoom` defaults to false in the browser (see the
   // default). A stored true is the old default, never a working choice -- the
   // warp it needs has never succeeded here -- so it is reset rather than kept.
-  if (from < 6 && s?.input?.center_on_zoom === true) {
+  // Shipped as v6, but the localStorage path stamped 6 without running the
+  // common slice's migrations, so a v6 device never got it: hence 7.
+  if (from < 7 && s?.input?.center_on_zoom === true) {
     s.input.center_on_zoom = false;
     changed = true;
   }

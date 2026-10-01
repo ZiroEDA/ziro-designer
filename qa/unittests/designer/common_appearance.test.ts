@@ -183,16 +183,17 @@ describe('appearance.hicontrast_dimming_factor', () => {
     expect(one.appearance.hicontrast_dimming_factor).toBe(1);
   });
 
-  it('v6: turns off centre-on-zoom, the default a browser can never honour', () => {
+  it('v7: turns off centre-on-zoom, the default a browser can never honour', () => {
     // The warp CenterOnCursor needs always fails here, so a stored true zooms
     // on the screen centre; the default and the migration both give false.
     expect(COMMON_DEFAULTS.input.center_on_zoom).toBe(false);
     const stored = { input: { center_on_zoom: true } } as unknown as CommonSettings;
-    expect(migrateCommonSettings(stored, 5)).toBe(true);
+    // From 6 too: a v6 build stamped 6 without migrating this slice.
+    expect(migrateCommonSettings(stored, 6)).toBe(true);
     expect(stored.input.center_on_zoom).toBe(false);
-    // Already at v6: a user who ticks it again keeps their choice.
+    // Already at v7: a user who ticks it again keeps their choice.
     const chosen = { input: { center_on_zoom: true } } as unknown as CommonSettings;
-    expect(migrateCommonSettings(chosen, 6)).toBe(false);
+    expect(migrateCommonSettings(chosen, 7)).toBe(false);
     expect(chosen.input.center_on_zoom).toBe(true);
   });
 

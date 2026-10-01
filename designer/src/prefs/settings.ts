@@ -1747,7 +1747,7 @@ export const PRIVACY_DEFAULTS: PrivacySettings = {
  * used the app before, a default that was simply wrong has to be rewritten
  * once, here. KiCad's own SETTINGS_MANAGER migrates stored files the same way.
  */
-export const SETTINGS_VERSION = 6;
+export const SETTINGS_VERSION = 7;
 
 /**
  * Where the calculator's custom regulators used to live.
@@ -2007,11 +2007,15 @@ function migrateStored(): void {
     const from = Number(localStorage.getItem(versionKey) ?? '0');
     if (from >= SETTINGS_VERSION) return;
 
-    const raw = localStorage.getItem(sliceStorageKey('eeschema'));
-    if (raw) {
-      const s = JSON.parse(raw) as EeschemaSettings;
-      if (migrateSlice('eeschema', s, from))
-        localStorage.setItem(sliceStorageKey('eeschema'), JSON.stringify(s));
+    // Every slice `migrateSlice` dispatches. `common` was missing until v7, so
+    // its v5 and v6 corrections only ever reached a slice arriving from the
+    // account, while this function still stamped the new version.
+    for (const slice of ['eeschema', 'common'] as const) {
+      const raw = localStorage.getItem(sliceStorageKey(slice));
+      if (!raw) continue;
+      const s: unknown = JSON.parse(raw);
+      if (migrateSlice(slice, s, from))
+        localStorage.setItem(sliceStorageKey(slice), JSON.stringify(s));
     }
 
     // v3: `ziroeda.bitmap2cmp` -> `ziroeda.bitmap2component`.
