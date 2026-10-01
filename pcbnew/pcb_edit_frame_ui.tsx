@@ -641,6 +641,7 @@ import { DIALOG_OUTSET_ITEMS } from './dialogs/dialog_outset_items.js';
 import { CONVERT_SETTINGS_DIALOG } from './tools/convert_settings_dialog.js';
 import { ConvertSettingsDialog } from './tools/convert_settings_dialog_ui.js';
 import type { CONVERT_TOOL } from './tools/convert_tool.js';
+import type { BOARD_INSPECTION_TOOL } from './tools/board_inspection_tool.js';
 import type { OUTSET_PARAMETERS } from './tools/item_modification_routine.js';
 import type { CONVERT_SETTINGS } from './pcbnew_settings.js';
 import type { ZONE_SETTINGS } from './zone_settings.js';
@@ -649,7 +650,11 @@ import { DialogPositionRelativeModeless } from './dialogs/dialog_position_relati
 import type { DIALOG_POSITION_RELATIVE } from './dialogs/dialog_position_relative.js';
 import { DialogOffsetItem } from './dialogs/dialog_offset_item_ui.js';
 import type { DIALOG_OFFSET_ITEM } from './dialogs/dialog_offset_item.js';
-import { DIALOG_BOOK_REPORTER } from '@ziroeda/common/dialogs/dialog_book_reporter.js';
+import {
+  DialogBookReporter,
+  DialogBookReporterModeless,
+} from '@ziroeda/common/dialogs/dialog_book_reporter_ui.js';
+import type { DIALOG_BOOK_REPORTER } from '@ziroeda/common/dialogs/dialog_book_reporter.js';
 import { inspectReport, describeSelected } from './tools/board_inspection_tool.js';
 import { netClassFor, netclassesForNet } from '@ziroeda/common/netclass_resolve.js';
 // APPEARANCE_CONTROLS is ONE widget that PCB_EDIT_FRAME and
@@ -1927,9 +1932,40 @@ export function PcbEditor({
   const [highlightNets, setHighlightNets] = useState<ReadonlySet<number>>(new Set());
   const highlightNetsRef = useRef<ReadonlySet<number>>(highlightNets);
   highlightNetsRef.current = highlightNets;
-  // The previously-shown highlight set, restored by the toggle button/Alt+`
-  // (BOARD_INSPECTION_TOOL::m_lastHighlighted).
-  const lastHighlightRef = useRef<ReadonlySet<number>>(new Set());
+  /**
+   * TRANSITIONAL (#636 stage 3): BOARD_INSPECTION_TOOL writes the net
+   * highlight and the hidden nets on PCB_RENDER_SETTINGS, as KiCad does; the
+   * window's own panels still draw from React state, so it re-reads both after
+   * a tool event (the frame's OnIdle) and after an action it runs.
+   */
+  const refreshInspectionMirrorRef = useRef((): void => {
+    const rs = (panelRef.current?.GetView().GetPainter() as PCB_PAINTER | undefined)?.GetSettings();
+    if (!rs) return;
+    const same = (a: ReadonlySet<number>, b: ReadonlySet<number>): boolean =>
+      a.size === b.size && [...a].every((c) => b.has(c));
+    const lit: ReadonlySet<number> = rs.IsHighlightEnabled()
+      ? new Set(rs.GetHighlightNetCodes())
+      : new Set();
+    setHighlightNets((prev) => (same(prev, lit) ? prev : lit));
+    const hidden: ReadonlySet<number> = new Set(rs.GetHiddenNets());
+    setHiddenNets((prev) => (same(prev, hidden) ? prev : hidden));
+  });
+  /**
+   * `GetPainter()->GetSettings()->SetHighlight( netcodes )` +
+   * `UpdateAllLayersColor()`, as the net inspector, the search pane and the
+   * router's drag write the highlight directly in KiCad.
+   */
+  const applyRenderHighlightRef = useRef((aNetCodes: Iterable<number>): void => {
+    const view = panelRef.current?.GetView();
+    if (!view) return;
+    const codes = new Set(aNetCodes);
+    view
+      .GetPainter()!
+      .GetSettings()
+      .SetHighlight(codes, codes.size > 0);
+    view.UpdateAllLayersColor();
+    refreshInspectionMirrorRef.current();
+  });
   const [activeTool, setActiveTool] = useState('selectSetRect');
   /**
    * TRANSITIONAL (#636 stage 3): PCB_SELECTION_TOOL's selection, as the view
@@ -2374,6 +2410,7 @@ export function PcbEditor({
   /** `m_toolManager->RunAction( aAction )`: a menu row, a hotkey or a toolbar button. */
   const runAction = (aAction: TOOL_ACTION): void => {
     frameRef.current?.GetToolManager()?.RunAction(aAction);
+    refreshInspectionMirrorRef.current();
   };
   /**
    * TRANSITIONAL (#636 stage 3): a selection written by one of the window's own
@@ -2606,12 +2643,8 @@ export function PcbEditor({
       router: () => editWindowRef.current?.router() ?? null,
       eventToWindow: (aEvent) => selWindowRef.current?.eventToWindow(aEvent) ?? false,
       fillAllZones: () => mwWindowRef.current!.fillAllZones(),
-      setHighlightNets: (aNetCodes) =>
-        setHighlightNets((prev) =>
-          prev.size === aNetCodes.size && [...aNetCodes].every((c) => prev.has(c))
-            ? prev
-            : aNetCodes,
-        ),
+      highlightChanged: () => refreshInspectionMirrorRef.current(),
+      showBoardStatisticsDialog: () => setStatsOpen(true),
     });
     // `PCB_EDIT_FRAME::PCB_EDIT_FRAME`: `SetBoard( new BOARD() )` (:250) --
     // the frame never has no board, and the empty one's drawing sheet is on
@@ -2632,6 +2665,17 @@ export function PcbEditor({
       frame.SetKiway(null);
     };
   }, [kiway]);
+  // The frame's modeless book-reporter dialogs (GetInspectDrcErrorDialog and
+  // its siblings): the tools make and fill them, this draws the live ones.
+  const [bookReporters, setBookReporters] = useState<DIALOG_BOOK_REPORTER[]>([]);
+  useEffect(() => {
+    const frame = frameRef.current;
+    if (!frame) return;
+    const sync = (): void => setBookReporters(frame.GetBookReporterDialogs());
+    frame.SetBookReporterListener(sync);
+    sync();
+    return () => frame.SetBookReporterListener(null);
+  }, []);
   // Mirror of the active right-toolbar tool for the pointer/Escape handlers.
   const activeToolRef = useRef('selectSetRect');
   /**
@@ -5351,6 +5395,17 @@ export function PcbEditor({
    * the selection tool's selection; a chosen row is the menu's own
    * `OnMenuEvent`, which runs the action through the tool manager.
    */
+  /** BOARD_INSPECTION_TOOL's NET_CONTEXT_MENU, its rows the tool's actions. */
+  const netInspectionSubmenu = (): MenuItem[] => {
+    const tool = frameRef.current
+      ?.GetToolManager()
+      ?.FindTool('pcbnew.InspectionTool') as BOARD_INSPECTION_TOOL | null;
+    const menu = tool?.GetNetSubMenu();
+    if (!menu) return [];
+    menu.UpdateAll();
+    return actionMenuItems(menu);
+  };
+
   const convertSubmenu = (): MenuItem[] => {
     const frame = frameRef.current;
     const tool = frame?.GetToolManager()?.FindTool('pcbnew.Convert') as CONVERT_TOOL | null;
@@ -5741,13 +5796,6 @@ export function PcbEditor({
         case PCB_ACTIONS.createArray:
           setArrayOpen(true);
           break;
-        // BOARD_INSPECTION_TOOL's local ratsnest during a move: not drawn yet.
-        case PCB_ACTIONS.updateLocalRatsnest:
-        case PCB_ACTIONS.hideLocalRatsnest:
-          break;
-        case PCB_ACTIONS.highlightNet:
-          highlightNetRef.current();
-          break;
         case ACTIONS.zoomFitScreen:
           zoomToFit();
           break;
@@ -5762,16 +5810,6 @@ export function PcbEditor({
       if (aEvent instanceof wxKeyEvent) {
         if (aEvent.GetKeyCode() !== WXK.WXK_ESCAPE) return true;
         if (!isSelectTool(activeToolRef.current) || windowGestureInFlight()) return true;
-        // `controller->ClearHighlight( *evt )` (pcb_selection_tool.cpp:571-577)
-        // is BOARD_INSPECTION_TOOL's, which is not ported: the window clears
-        // its highlight on the same condition Main reaches that branch on.
-        const tool = frameRef.current?.GetSelectionTool();
-        if (
-          tool?.GetSelection().Empty() &&
-          !tool.GetEnteredGroup() &&
-          escClearsHighlightRef.current
-        )
-          clearHighlightRef.current();
         return false;
       }
       if (!(aEvent instanceof wxMouseEvent)) return false;
@@ -6921,43 +6959,7 @@ export function PcbEditor({
       // `showNetMenuFunc` — every selected item connectable. Four rows around
       // one rule; Clear Net Highlighting carries `~` (pcb_actions.cpp:1575).
       menuEntry(
-        {
-          label: 'Net Inspection Tools',
-          submenu: [
-            {
-              label: 'Show Net in Ratsnest',
-              action: () =>
-                setHiddenNets((prev) => {
-                  const next = new Set(prev);
-                  for (const net of selectedNetsRef.current) next.delete(net);
-                  return next;
-                }),
-            },
-            {
-              label: 'Hide Net in Ratsnest',
-              action: () =>
-                setHiddenNets((prev) => {
-                  const next = new Set(prev);
-                  for (const net of selectedNetsRef.current) next.add(net);
-                  return next;
-                }),
-            },
-            { sep: true },
-            // `highlightNetSelection` — "highlight all copper items on the
-            // selected net(s)". The SELECTION's nets, not the item under the
-            // cursor, which is what the backtick row does; and it is not the
-            // toolbar button's toggle either.
-            {
-              label: 'Highlight Net',
-              action: () => setHighlightNets(new Set(selectedNetsRef.current)),
-            },
-            {
-              label: 'Clear Net Highlighting',
-              shortcut: '~',
-              action: () => clearHighlightRef.current(),
-            },
-          ],
-        },
+        { label: 'Net Inspection Tools', submenu: netInspectionSubmenu() },
         100,
         netInspectable,
       ),
@@ -8883,7 +8885,7 @@ export function PcbEditor({
     if (drag.line.net > 0) {
       const current = highlightNetsRef.current;
       dragHighlightRestoreRef.current = current.has(drag.line.net) ? current : new Set();
-      setHighlightNets(new Set([drag.line.net]));
+      applyRenderHighlightRef.current([drag.line.net]);
     }
     const affected = new Set(drag.line.tracks.map((i) => boardItemId('track', i)));
     movingSelRef.current = affected;
@@ -9290,7 +9292,7 @@ export function PcbEditor({
     const restore = dragHighlightRestoreRef.current;
     if (!restore) return;
     dragHighlightRestoreRef.current = null;
-    setHighlightNets(restore);
+    applyRenderHighlightRef.current(restore);
   };
 
   /**
@@ -9510,50 +9512,6 @@ export function PcbEditor({
     grabbingRef.current = false;
     cancelMove();
     requestDraw();
-  };
-
-  // Net highlight actions (BOARD_INSPECTION_TOOL). Held in refs so the global
-  // keydown handler stays subscribed without re-binding every render.
-  // `highlightNet` (backtick): highlight the net of the copper item under the
-  // cursor; re-invoking on the same (sole) net toggles it off, like KiCad.
-  const highlightNetRef = useRef<() => void>(() => {});
-  highlightNetRef.current = () => {
-    const cur = cursorRef.current;
-    if (!cur) return;
-    const net = copperAt(cur)?.net ?? 0;
-    setHighlightNets((prev) => {
-      if (prev.size > 0) lastHighlightRef.current = prev;
-      // Empty spot, or clicking the already-highlighted sole net: clear.
-      if (net <= 0 || (prev.size === 1 && prev.has(net))) return new Set();
-      return new Set([net]);
-    });
-  };
-  // `~` (Clear Net Highlighting).
-  const clearHighlightRef = useRef<() => void>(() => {});
-  clearHighlightRef.current = () => {
-    setHighlightNets((prev) => {
-      if (prev.size === 0) return prev;
-      lastHighlightRef.current = prev;
-      return new Set();
-    });
-  };
-  // Toggle Net Highlight (the left-toolbar button / Alt+`). If a highlight is
-  // showing, hide it (KiCad's `turnOn = highlighted.empty() && …`). Otherwise
-  // highlight the net(s) of the current selection, PCB_ACTIONS::
-  // highlightNetSelection, "highlight all copper items on the selected net(s)"
-  // - falling back to the last highlighted set when nothing carries a net.
-  const toggleHighlightRef = useRef<() => void>(() => {});
-  toggleHighlightRef.current = () => {
-    setHighlightNets((prev) => {
-      if (prev.size > 0) {
-        lastHighlightRef.current = prev;
-        return new Set();
-      }
-      const sel = selectedNetsRef.current;
-      const next = sel.size > 0 ? new Set(sel) : new Set(lastHighlightRef.current);
-      if (next.size > 0) lastHighlightRef.current = next;
-      return next;
-    });
   };
 
   /**
@@ -10034,13 +9992,13 @@ export function PcbEditor({
       // highlight on/off; a bare ` highlights the net under the cursor.
       if (!mod && e.key === '~') {
         e.preventDefault();
-        clearHighlightRef.current();
+        runAction(PCB_ACTIONS.clearHighlight);
         return;
       }
       if (e.key === '`') {
         e.preventDefault();
-        if (e.altKey) toggleHighlightRef.current();
-        else highlightNetRef.current();
+        // `toggleNetHighlight` is MD_ALT + '`'; `highlightNet` the bare key.
+        runAction(e.altKey ? PCB_ACTIONS.toggleNetHighlight : PCB_ACTIONS.highlightNet);
         return;
       }
       // `PCB_ACTIONS::deleteLastPoint`, `.DefaultHotkey( WXK_BACK )`
@@ -10725,7 +10683,6 @@ export function PcbEditor({
       visibleElements,
       displayOptions: opts,
       activeLayer: kb.GetLayerID(activeLayer),
-      highlightNets,
       colorTheme: theme.filename,
     };
     // The net colour assignments the painter's NET_COLOR_MODE reads
@@ -10757,7 +10714,6 @@ export function PcbEditor({
     netColorMode,
     netColors,
     activeLayer,
-    highlightNets,
     theme,
     pcbCfg,
     gridIU,
@@ -11033,7 +10989,7 @@ export function PcbEditor({
         frameView: (ids, fit) => viewSearchHitsRef.current(ids, fit),
         refresh: () => requestDrawRef.current(),
         properties: (id) => searchActions.current.properties(id),
-        highlightNets: (codes) => setHighlightNets(new Set(codes)),
+        highlightNets: (codes) => applyRenderHighlightRef.current(codes),
         showBoardSetupDialog: (page) => searchActions.current.boardSetup(page),
       }),
     [],
@@ -11143,7 +11099,7 @@ export function PcbEditor({
     }
     // Toggle Net Highlight: show/hide the last-highlighted net set.
     if (id === 'toggleNetHighlight') {
-      toggleHighlightRef.current();
+      runAction(PCB_ACTIONS.toggleNetHighlight);
       return;
     }
     // The three crosshair shapes and Show Grid are stored settings, so the
@@ -12174,7 +12130,7 @@ export function PcbEditor({
                 <PcbNetInspectorPane
                   board={board}
                   netClassesOf={netClassesOf}
-                  onHighlightNets={(codes) => setHighlightNets(new Set(codes))}
+                  onHighlightNets={(codes) => applyRenderHighlightRef.current(codes)}
                 />
               )
             }
@@ -12259,13 +12215,19 @@ export function PcbEditor({
                   nets={{
                     nets: netRows,
                     onNetColor: setNetColor,
-                    onNetVisibility: (code) =>
-                      setHiddenNets((p) => {
-                        const next = new Set(p);
-                        if (next.has(code)) next.delete(code);
-                        else next.add(code);
-                        return next;
-                      }),
+                    // APPEARANCE_CONTROLS' net row: BOARD_INSPECTION_TOOL's
+                    // show/hideNetInRatsnest with the net code.
+                    onNetVisibility: (code) => {
+                      frameRef.current
+                        ?.GetToolManager()
+                        ?.RunAction(
+                          hiddenNets.has(code)
+                            ? PCB_ACTIONS.showNetInRatsnest
+                            : PCB_ACTIONS.hideNetInRatsnest,
+                          code,
+                        );
+                      refreshInspectionMirrorRef.current();
+                    },
                     netclasses: netclassRows,
                     onNetclassColor: (cls, picked) =>
                       setClassColors((p) => new Map(p).set(cls, toCssColor(picked, ', '))),
@@ -13410,10 +13372,13 @@ export function PcbEditor({
           }}
         />
       )}
+      {bookReporters.map((d) => (
+        <DialogBookReporterModeless key={d.GetName()} dialog={d} />
+      ))}
       {inspectOpen && board && inspectReportPages && (
         // DIALOG_BOOK_REPORTER, as BOARD_INSPECTION_TOOL::InspectClearance /
         // InspectConstraints fill it (the frame's Get...Dialog()).
-        <DIALOG_BOOK_REPORTER
+        <DialogBookReporter
           title={inspectReportPages.title}
           pages={inspectReportPages.pages}
           onClose={() => setInspectOpen(false)}

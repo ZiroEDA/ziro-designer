@@ -97,7 +97,6 @@ function setup(aDialogs: Partial<DESIGN_BLOCK_PANE_DIALOGS> = {}) {
     showExchangeFootprintsDialog: () => {},
     findDialogRects: () => [],
     setViewCenter: () => {},
-    setHighlightNets: () => {},
     syncSelection: () => {},
     editZoneParams: () => {},
     selectCopperLayerPair: () => {},

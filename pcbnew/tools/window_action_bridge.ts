@@ -5,9 +5,8 @@
  *
  * PCB_SELECTION_TOOL and EDIT_TOOL are ported whole and run on the live
  * BOARD, but some of the actions they run belong to tools that are not ported
- * yet: a router drag `PCB_ACTIONS::routerInlineDrag` (ROUTER_TOOL), a Ctrl+click
- * `PCB_ACTIONS::highlightNet` and a move's local ratsnest (BOARD_INSPECTION_TOOL),
- * a middle double click `ACTIONS::zoomFitScreen` (COMMON_TOOLS). Until each of
+ * yet: a router drag `PCB_ACTIONS::routerInlineDrag` (ROUTER_TOOL), a middle
+ * double click `ACTIONS::zoomFitScreen` (COMMON_TOOLS). Until each of
  * those tools lands, this tool answers its actions by handing them to the
  * window, which still implements them.
  *
@@ -37,10 +36,6 @@ export type WINDOW_ACTION_HANDLER = (aAction: TOOL_ACTION, aEvent: TOOL_EVENT) =
 export const WINDOW_BRIDGED_ACTIONS: readonly TOOL_ACTION[] = [
   // ROUTER_TOOL: EDIT_TOOL::invokeInlineRouter's drag
   PCB_ACTIONS.routerInlineDrag,
-  // BOARD_INSPECTION_TOOL
-  PCB_ACTIONS.highlightNet,
-  PCB_ACTIONS.updateLocalRatsnest,
-  PCB_ACTIONS.hideLocalRatsnest,
   // BOARD_EDITOR_CONTROL::PageSettings
   ACTIONS.pageSettings,
   // ARRAY_TOOL::CreateArray, run from CONVERT_TOOL's "Create from Selection"

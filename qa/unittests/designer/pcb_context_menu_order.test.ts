@@ -63,14 +63,15 @@ const BAND = (() => {
 
 /**
  * The band's rows in file order. A top-level entry's label is indented ten
- * spaces; a submenu's own rows sit deeper, which is what keeps "Move
+ * spaces (or eight, as `{ label, submenu }` on the line after a wrapped
+ * `menuEntry(`); a submenu's own rows sit deeper, which is what keeps "Move
  * Exactly..." out of this.
  */
 const ROWS = [
   ...BAND.matchAll(
-    /^ {10}label: '([^']+)'|^ {6}menuEntry\(\{ label: '([^']+)'|^ {6}(menuSeparator\(100\)),/gm,
+    /^ {10}label: '([^']+)'|^ {6}menuEntry\(\{ label: '([^']+)'|^ {8}\{ label: '([^']+)', submenu|^ {6}(menuSeparator\(100\)),/gm,
   ),
-].map((m) => m[1] ?? m[2] ?? '----');
+].map((m) => m[1] ?? m[2] ?? m[3] ?? '----');
 
 describe('the PCB selection menu @100 band, in KiCad registration order', () => {
   it('reads Position | Locking, Net Inspection Tools, Align/Distribute, Create from Selection, Grouping', () => {
@@ -225,16 +226,13 @@ describe('the rows a connectable item is entitled to', () => {
     expect(FRAME).toMatch(/^ {8}netInspectable,$/m);
   });
 
-  it('wires the submenu rows, which the frame has had all along', () => {
-    // Show/Hide in Ratsnest are `hiddenNets`, Highlight Net is
-    // `highlightNetSelection` (the SELECTION's nets, not the cursor's), Clear
-    // Net Highlighting is the existing `~` handler.
-    const at = FRAME.indexOf("label: 'Net Inspection Tools'");
-    const body = FRAME.slice(at, FRAME.indexOf('netInspectable,', at));
-    expect(body).toContain('setHiddenNets');
-    expect(body).toContain('setHighlightNets(new Set(selectedNetsRef.current))');
-    expect(body).toContain('clearHighlightRef.current()');
-    expect(body).toMatch(/label: 'Clear Net Highlighting',[\s\S]*?shortcut: '~'/);
+  it("draws BOARD_INSPECTION_TOOL's own NET_CONTEXT_MENU for the rows", () => {
+    // The four rows are the tool's (board_inspection_tool.cpp:68-82), each
+    // running its action; they are pinned in tools/board_inspection_tool.test.ts.
+    expect(FRAME).toMatch(/label: 'Net Inspection Tools', submenu: netInspectionSubmenu\(\)/);
+    const at = FRAME.indexOf('const netInspectionSubmenu');
+    expect(at).toBeGreaterThan(-1);
+    expect(FRAME.slice(at, FRAME.indexOf('\n  };', at))).toContain('GetNetSubMenu()');
   });
 });
 

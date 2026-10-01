@@ -7,6 +7,7 @@
  */
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { DialogBookReporter } from '@ziroeda/common/dialogs/dialog_book_reporter_ui.js';
 import { DIALOG_BOOK_REPORTER } from '@ziroeda/common/dialogs/dialog_book_reporter.js';
 import { reportBoxHtml } from '@ziroeda/common/widgets/wx_html_report_box.js';
 import { inspectPages, type InspectSection } from '@ziroeda/pcbnew';
@@ -28,7 +29,7 @@ describe('DIALOG_BOOK_REPORTER', () => {
   ];
 
   it('is titled by the caller and shows one tab per AddHTMLPage, the first selected', () => {
-    render(<DIALOG_BOOK_REPORTER title="Clearance Report" pages={pages} onClose={() => {}} />);
+    render(<DialogBookReporter title="Clearance Report" pages={pages} onClose={() => {}} />);
     expect(screen.getByText('Clearance Report')).toBeTruthy();
     const tabs = screen.getAllByRole('tab');
     expect(tabs.map((t) => t.textContent)).toEqual(['F.Cu', 'Hole']);
@@ -36,14 +37,14 @@ describe('DIALOG_BOOK_REPORTER', () => {
   });
 
   it('switches pages from the tabs', () => {
-    render(<DIALOG_BOOK_REPORTER title="T" pages={pages} onClose={() => {}} />);
+    render(<DialogBookReporter title="T" pages={pages} onClose={() => {}} />);
     fireEvent.click(screen.getByRole('tab', { name: 'Hole' }));
     expect(screen.getByRole('tab', { name: 'Hole' }).getAttribute('aria-selected')).toBe('true');
   });
 
   it('has OK and no Apply (m_sdbSizerApply->Hide())', () => {
     const onClose = vi.fn();
-    render(<DIALOG_BOOK_REPORTER title="T" pages={pages} onClose={onClose} />);
+    render(<DialogBookReporter title="T" pages={pages} onClose={onClose} />);
     expect(screen.queryByRole('button', { name: 'Apply' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'OK' }));
     expect(onClose).toHaveBeenCalledTimes(1);
@@ -98,5 +99,51 @@ describe('inspectPages (BOARD_INSPECTION_TOOL’s pages)', () => {
       'F.Cu',
     );
     expect(pages.map((p) => p.title)).toEqual(['Track Width', 'Via Annular Width', 'Text Size']);
+  });
+});
+
+describe('DIALOG_BOOK_REPORTER, the object a tool fills', () => {
+  it('pages hold what was reported into them, in order', () => {
+    const dlg = new DIALOG_BOOK_REPORTER('N', 'T');
+    const r = dlg.AddHTMLPage('Clearance');
+    r.report('a');
+    r.report('b');
+    dlg.AddHTMLPage('Physical');
+    expect(dlg.GetPageCount()).toBe(2);
+    expect(dlg.GetPages()).toEqual([
+      { title: 'Clearance', messages: ['a', 'b'] },
+      { title: 'Physical', messages: [] },
+    ]);
+  });
+
+  it('DeleteAllPages empties the notebook', () => {
+    const dlg = new DIALOG_BOOK_REPORTER('N', 'T');
+    dlg.AddHTMLPage('One');
+    dlg.DeleteAllPages();
+    expect(dlg.GetPages()).toEqual([]);
+  });
+
+  it('Flush, a new page and Show each tell the window to redraw', () => {
+    const dlg = new DIALOG_BOOK_REPORTER('N', 'T');
+    let redraws = 0;
+    const unsubscribe = dlg.Subscribe(() => redraws++);
+    const r = dlg.AddHTMLPage('P');
+    r.Flush();
+    dlg.Show(true);
+    expect(redraws).toBe(3);
+    unsubscribe();
+    dlg.Show(false);
+    expect(redraws).toBe(3);
+  });
+
+  it('closing hides it and hands its name and button to the parent (EDA_EVT_CLOSE_...)', () => {
+    const closed: [string, string][] = [];
+    const dlg = new DIALOG_BOOK_REPORTER('InspectDrcErrorDialog', 'Violation Report', (n, id) =>
+      closed.push([n, id]),
+    );
+    dlg.Show(true);
+    dlg.OnClose();
+    expect(dlg.IsShown()).toBe(false);
+    expect(closed).toEqual([['InspectDrcErrorDialog', 'ok']]);
   });
 });
