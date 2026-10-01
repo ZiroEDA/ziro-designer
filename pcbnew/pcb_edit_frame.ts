@@ -85,6 +85,8 @@ import { PCB_POINT_EDITOR } from './tools/pcb_point_editor.js';
 import { PCB_SELECTION_TOOL } from './tools/pcb_selection_tool.js';
 import { EDIT_TOOL, type MOVE_EXACT_VALUES, type ROUTER_TOOL_LIKE } from './tools/edit_tool.js';
 import type { DOGBONE_PARAMETERS } from './tools/item_modification_routine.js';
+import { ALIGN_DISTRIBUTE_TOOL } from './tools/align_distribute_tool.js';
+import { PCB_GROUP_TOOL } from './tools/pcb_group_tool.js';
 import { PCB_PICKER_TOOL } from './tools/pcb_picker_tool.js';
 import type { PCB_SELECTION } from './tools/pcb_selection.js';
 import type { PCB_TABLE } from './pcb_table.js';
@@ -712,9 +714,10 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   /**
    * `PCB_EDIT_FRAME::setupTools` (pcb_edit_frame.cpp:940): the manager, its
    * environment, the dispatcher, the tools registered in the C++ order - of
-   * them PCB_SELECTION_TOOL, PCB_POINT_EDITOR (as far as `HasPoint`),
-   * DRC_TOOL, PROPERTIES_TOOL and EMBED_TOOL are ported; the rest are #636
-   * stage 3's, and WINDOW_ACTION_BRIDGE answers their actions meanwhile.
+   * them PCB_SELECTION_TOOL, EDIT_TOOL, PCB_POINT_EDITOR (as far as
+   * `HasPoint`), ALIGN_DISTRIBUTE_TOOL, DRC_TOOL, PCB_GROUP_TOOL,
+   * PROPERTIES_TOOL, EMBED_TOOL and PCB_PICKER_TOOL are ported; the rest are
+   * #636 stage 3's, and WINDOW_ACTION_BRIDGE answers their actions meanwhile.
    */
   private setupTools(): void {
     // Create the manager and dispatcher & route draw panel events to the dispatcher
@@ -734,7 +737,9 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     this.m_toolManager.RegisterTool(new PCB_SELECTION_TOOL());
     this.m_toolManager.RegisterTool(new EDIT_TOOL());
     this.m_toolManager.RegisterTool(new PCB_POINT_EDITOR());
+    this.m_toolManager.RegisterTool(new ALIGN_DISTRIBUTE_TOOL());
     this.m_toolManager.RegisterTool(new DRC_TOOL());
+    this.m_toolManager.RegisterTool(new PCB_GROUP_TOOL());
     this.m_toolManager.RegisterTool(new PROPERTIES_TOOL());
     this.m_toolManager.RegisterTool(new EMBED_TOOL());
     this.m_toolManager.RegisterTool(new PCB_PICKER_TOOL());

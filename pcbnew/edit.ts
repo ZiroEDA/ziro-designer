@@ -18,6 +18,8 @@
  */
 import { IsCopperLayer, type PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { HIGH_CONTRAST_MODE } from '@ziroeda/common/project/board_project_settings.js';
+import { ACTIONS } from '@ziroeda/common/tool/actions.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import type { BOARD_ITEM } from './board_item.js';
 import type { PCB_EDIT_FRAME } from './pcb_edit_frame.js';
 
@@ -52,6 +54,13 @@ export class EDIT_MIXIN {
 
   /** `PCB_EDIT_FRAME::OnEditItemRequest`: the item's properties dialog. */
   OnEditItemRequest(this: PCB_EDIT_FRAME, aItem: BOARD_ITEM | null): void {
+    // `case PCB_GROUP_T:` (edit.cpp:161-164): GROUP_TOOL::GroupProperties.
+    // Every other arm is still the window's.
+    if (aItem?.Type() === KICAD_T.PCB_GROUP_T) {
+      this.m_toolManager!.RunAction(ACTIONS.groupProperties, aItem);
+      return;
+    }
+
     this.hooks.onEditItemRequest(aItem);
   }
 }

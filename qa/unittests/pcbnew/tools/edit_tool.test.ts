@@ -8,43 +8,18 @@
  * read off the C++ line it cites.
  */
 import { beforeEach, describe, expect, it } from 'vitest';
-import { RECURSE_MODE } from '@ziroeda/common/eda_item.js';
-import { FRAME_T } from '@ziroeda/common/frame_type.js';
-import { GAL_DISPLAY_OPTIONS } from '@ziroeda/common/gal/gal_display_options.js';
-import { GAL } from '@ziroeda/common/gal/graphics_abstraction_layer.js';
 import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
-import { PGM_BASE, SETTINGS_MANAGER, SetPgm } from '@ziroeda/common/pgm_base.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
-import type { ACTION_MENU } from '@ziroeda/common/tool/action_menu.js';
-import {
-  AS_GLOBAL,
-  BUT_LEFT,
-  TA_MOUSE_CLICK,
-  TA_MOUSE_DOWN,
-  TA_MOUSE_MOTION,
-  TC_MOUSE,
-  TOOL_EVENT,
-} from '@ziroeda/common/tool/tool_event.js';
-import type {
-  TOOL_MANAGER,
-  TOOL_MANAGER_VIEW_CONTROLS,
-} from '@ziroeda/common/tool/tool_manager.js';
-import { VC_SETTINGS } from '@ziroeda/common/view/view_controls.js';
+import { TA_MOUSE_CLICK, TA_MOUSE_DOWN, TA_MOUSE_MOTION } from '@ziroeda/common/tool/tool_event.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { ANGLE_90, EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
-import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import type { BOARD } from '@ziroeda/pcbnew/board.js';
 import type { BOARD_ITEM } from '@ziroeda/pcbnew/board_item.js';
 import type { FOOTPRINT } from '@ziroeda/pcbnew/footprint.js';
 import type { PAD } from '@ziroeda/pcbnew/pad.js';
-import type { PCB_DRAW_PANEL_GAL } from '@ziroeda/pcbnew/pcb_draw_panel_gal.js';
-import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { PCB_PAINTER } from '@ziroeda/pcbnew/pcb_painter.js';
-import { PCB_SCREEN } from '@ziroeda/pcbnew/pcb_screen.js';
 import type { PCB_SHAPE } from '@ziroeda/pcbnew/pcb_shape.js';
 import type { PCB_TEXT } from '@ziroeda/pcbnew/pcb_text.js';
 import type { PCB_TRACK } from '@ziroeda/pcbnew/pcb_track.js';
-import { PCB_VIEW } from '@ziroeda/pcbnew/pcb_view.js';
 import {
   EDIT_TOOL,
   type EDIT_TOOL_FRAME,
@@ -53,18 +28,18 @@ import {
 import { PCB_ACTIONS } from '@ziroeda/pcbnew/tools/pcb_actions.js';
 import { PCB_PICKER_TOOL } from '@ziroeda/pcbnew/tools/pcb_picker_tool.js';
 import { PCB_POINT_EDITOR } from '@ziroeda/pcbnew/tools/pcb_point_editor.js';
-import { PCB_SELECTION_TOOL } from '@ziroeda/pcbnew/tools/pcb_selection_tool.js';
+import {
+  byUuid,
+  ids,
+  MM,
+  mm,
+  mouse,
+  select,
+  type TOOL_HARNESS,
+  toolHarness,
+  U,
+} from '../support/pcb_tool_harness.js';
 import { TEST_PCB_FRAME } from '../support/test_pcb_frame.js';
-
-const MM = 1_000_000;
-
-class STUB_GAL extends GAL {
-  override ResizeScreen(aWidth: number, aHeight: number): void {
-    this.m_screenSize = { x: aWidth, y: aHeight };
-  }
-}
-
-const U = (n: number): string => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 
 const BOARD_TEXT = `(kicad_pcb (version 20241229) (generator "pcbnew") (generator_version "9.0")
   (general (thickness 1.6) (legacy_teardrops no))
@@ -158,126 +133,22 @@ class EDIT_FRAME extends TEST_PCB_FRAME implements EDIT_TOOL_FRAME {
   }
 }
 
-interface Harness {
-  board: BOARD;
-  frame: EDIT_FRAME;
-  mgr: TOOL_MANAGER;
-  sel: PCB_SELECTION_TOOL;
+interface Harness extends TOOL_HARNESS<EDIT_FRAME> {
   edit: EDIT_TOOL;
-  view: PCB_VIEW;
-  mouse: Vec2;
-  forced: Vec2 | null;
-  menus: ACTION_MENU[];
 }
-
-function byUuid(aBoard: BOARD, aN: number): BOARD_ITEM {
-  let found: BOARD_ITEM | null = null;
-
-  aBoard.RunOnChildren((aItem: BOARD_ITEM) => {
-    if (aItem.m_Uuid === U(aN)) found = aItem;
-  }, RECURSE_MODE.RECURSE);
-
-  if (!found) throw new Error(`no item ${U(aN)}`);
-
-  return found;
-}
-
-const mm = (x: number, y: number): Vec2 => ({ x: x * MM, y: y * MM });
-/** Items by uuid: a failed comparison of the items themselves prints the whole board. */
-const ids = (aItems: readonly { m_Uuid: string }[]): string[] => aItems.map((i) => i.m_Uuid);
 
 function harness(): Harness {
-  SetPgm(new PGM_BASE(null, new SETTINGS_MANAGER()));
-
-  const board = ParseBoard(BOARD_TEXT, '/p/x.kicad_pcb');
-  board.BuildConnectivity();
-  const frame = new EDIT_FRAME(board);
-  frame.SetScreen(new PCB_SCREEN({ x: 297 * MM, y: 210 * MM }));
-  frame.SetActiveLayer(PCB_LAYER_ID.F_Cu);
-
-  const gal = new STUB_GAL(new GAL_DISPLAY_OPTIONS());
-  gal.ResizeScreen(1000, 1000);
-  // a 0.1 mm grid, snapping on, as the frame sets it from its grid settings
-  gal.SetGridSize({ x: 0.1 * MM, y: 0.1 * MM });
-  (gal as unknown as { m_options: { m_gridSnapping: number } }).m_options.m_gridSnapping = 0; // GRID_SNAPPING::ALWAYS
-  const view = new PCB_VIEW();
-  view.SetGAL(gal);
-  view.SetPainter(new PCB_PAINTER(gal, FRAME_T.FRAME_PCB_EDITOR));
-  view.SetScale(1);
-  view.SetScale(view.GetScale() * (view.ToWorld(1000) / (150 * MM)));
-  view.SetCenter(mm(60, 60));
-
-  board.RunOnChildren((aItem: BOARD_ITEM) => view.Add(aItem), RECURSE_MODE.NO_RECURSE);
-
-  for (const fp of board.Footprints())
-    fp.RunOnChildren((aItem: BOARD_ITEM) => view.Add(aItem), RECURSE_MODE.NO_RECURSE);
-
-  const h: Partial<Harness> = {
-    board,
-    frame,
-    view,
-    mouse: { x: 0, y: 0 },
-    forced: null,
-    menus: [],
-  };
-
-  frame.SetCanvas({
-    GetView: () => view,
-    GetGAL: () => gal,
-    SetCurrentCursor: () => {},
-    ForceRefresh: () => {},
-    Refresh: () => {},
-    RedrawRatsnest: () => {},
-    SetStatusPopup: () => {},
-    GetDrawingSheet: () => null,
-    GetClientSize: () => ({ x: 1000, y: 1000 }),
-  } as unknown as PCB_DRAW_PANEL_GAL);
-
-  frame.SetPopupMenuPresenter((aMenu: ACTION_MENU) => {
-    h.menus!.push(aMenu);
-  });
-
-  const controls = {
-    GetMousePosition: () => h.mouse!,
-    GetCursorPosition: () => h.forced ?? h.mouse!,
-    SetAutoPan: () => {},
-    SetCursorPosition: (aPos: Vec2) => {
-      h.mouse = { ...aPos };
+  let edit: EDIT_TOOL | null = null;
+  const h = toolHarness(
+    BOARD_TEXT,
+    (aBoard) => new EDIT_FRAME(aBoard),
+    () => {
+      edit = new EDIT_TOOL();
+      return [new PCB_POINT_EDITOR(), edit, new PCB_PICKER_TOOL()];
     },
-    ForceCursorPosition: (aEnable: boolean, aPos?: Vec2) => {
-      h.forced = aEnable && aPos ? { ...aPos } : null;
-    },
-    ShowCursor: () => {},
-    CaptureCursor: () => {},
-    WarpMouseCursor: () => {},
-    GetSettings: () => new VC_SETTINGS(),
-    ApplySettings: () => {},
-  } as unknown as TOOL_MANAGER_VIEW_CONTROLS;
+  );
 
-  const mgr = frame.GetToolManager()!;
-  mgr.SetEnvironment(board, view, controls, frame.settings, frame);
-
-  const sel = new PCB_SELECTION_TOOL();
-  const edit = new EDIT_TOOL();
-  mgr.RegisterTool(sel);
-  mgr.RegisterTool(new PCB_POINT_EDITOR());
-  mgr.RegisterTool(edit);
-  mgr.RegisterTool(new PCB_PICKER_TOOL());
-  mgr.InitTools();
-  mgr.InvokeTool('common.InteractiveSelection');
-
-  return Object.assign(h, { mgr, sel, edit }) as Harness;
-}
-
-function mouse(h: Harness, aAction: number, aAt: Vec2, aButton = BUT_LEFT): void {
-  h.mouse = aAt;
-  const evt = new TOOL_EVENT(TC_MOUSE, aAction, aButton, AS_GLOBAL);
-  evt.SetMousePosition(aAt);
-  h.mgr.ProcessEvent(evt);
-}
-
-function select(h: Harness, ...aUuids: number[]): void {
-  for (const n of aUuids) h.sel.AddItemToSel(byUuid(h.board, n), true);
+  return Object.assign(h, { edit: edit! });
 }
 
 const track = (h: Harness, n: number): PCB_TRACK => byUuid(h.board, n) as PCB_TRACK;

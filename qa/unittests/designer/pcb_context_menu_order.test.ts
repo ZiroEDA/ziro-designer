@@ -154,7 +154,8 @@ describe('the rows a multi-item selection is entitled to', () => {
     const at = FRAME.indexOf('const alignDistributeSubmenu');
     expect(at, 'the submenu is built by one function').toBeGreaterThan(-1);
     const body = FRAME.slice(at, FRAME.indexOf('\n  };', at));
-    const gate = body.indexOf('selection.size > 2');
+    const gate = body.indexOf('...(canDistribute');
+    expect(body, 'canDistribute is MoreThan( 2 )').toContain('.Size() ?? 0) > 2');
     expect(gate, 'the distribute group is gated on MoreThan( 2 )').toBeGreaterThan(-1);
     for (const row of [
       'Distribute Horizontally by Centers',

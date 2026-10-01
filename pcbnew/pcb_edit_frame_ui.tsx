@@ -127,9 +127,6 @@ import {
   subsetBoardItems,
   deleteBoardItems,
   groupBoardItems,
-  ungroupBoardItems,
-  addToGroupItems,
-  removeFromGroupItems,
   expandGroupIds,
   filterSelectionForFreePads,
   startTrackDrag,
@@ -167,8 +164,6 @@ import {
   type PcbShape,
   type PcbPad,
   DEFAULT_SELECTION_FILTER,
-  distributeBoardItems,
-  type DistributeAction,
   defaultRotationAnchor,
   boardSelectionBBox,
   itemAnchorPoint,
@@ -619,6 +614,7 @@ import { type WINDOW_ACTION_HANDLER } from './tools/window_action_bridge.js';
 import type { ACTION_MENU } from '@ziroeda/common/tool/action_menu.js';
 import { actionMenuItems } from '@ziroeda/common/tool/action_menu_popup.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
+import { GroupMenuState } from '@ziroeda/common/tool/group_tool.js';
 import { CONDITIONAL_MENU } from '@ziroeda/common/tool/conditional_menu.js';
 import { EVENTS } from '@ziroeda/common/tool/tool_event.js';
 import * as KIPLATFORM_UI from '@ziroeda/common/kiplatform/ui.js';
@@ -1185,16 +1181,6 @@ const defaultShapeWidth = (layer: string): number => {
   if (layer === 'Edge.Cuts' || /\.CrtYd$/.test(layer)) return 0.05 * MM;
   return 0.1 * MM;
 };
-
-type AlignAction = 'left' | 'centerX' | 'right' | 'top' | 'centerY' | 'bottom';
-
-const bboxCenter = (b: BoardBBox): { x: number; y: number } => ({
-  x: (b.minX + b.maxX) / 2,
-  y: (b.minY + b.maxY) / 2,
-});
-
-const bboxContainsPoint = (b: BoardBBox, p: { x: number; y: number }): boolean =>
-  p.x >= b.minX && p.x <= b.maxX && p.y >= b.minY && p.y <= b.maxY;
 
 // Circumcenter of three points, or null when they are (nearly) collinear.
 const circumcenter = (
@@ -5242,49 +5228,6 @@ export function PcbEditor({
   }, []);
   const unselectAllSel = useCallback(() => setSelectionRef.current(new Set()), []);
 
-  // Group / ungroup the selection (ACTIONS::group / ungroup).
-  const groupSel = useCallback(() => {
-    const brd = boardRef.current;
-    const sel = selForDrawRef.current;
-    // ACTIONS::group is enabled only for >= 2 selected items (GROUP_TOOL::update
-    // -> Enable( group, selectionCount >= 2 )); grouping a lone item is a no-op.
-    if (!brd || sel.size < 2) return;
-    const { board: next, id } = groupBoardItems(brd, sel);
-    if (!id) return;
-    commitBoard(next);
-    setSelectionRef.current(new Set([id]));
-  }, [commitBoard]);
-  const ungroupSel = useCallback(() => {
-    const brd = boardRef.current;
-    const sel = selForDrawRef.current;
-    if (!brd || sel.size === 0) return;
-    // The members stay selected after dissolving their group, like KiCad.
-    const members = expandGroupIds(brd, sel);
-    commitBoard(ungroupBoardItems(brd, sel));
-    setSelectionRef.current(members);
-  }, [commitBoard]);
-  // Add the selected items to the one selected group (ACTIONS::addToGroup); the
-  // group stays selected afterwards, like GROUP_TOOL::AddToGroup.
-  const addToGroupSel = useCallback(() => {
-    const brd = boardRef.current;
-    const sel = selForDrawRef.current;
-    if (!brd || sel.size === 0) return;
-    const next = addToGroupItems(brd, sel);
-    if (next === brd) return;
-    const gid = [...sel].find((id) => parseBoardItemId(id)?.kind === 'group');
-    commitBoard(next);
-    if (gid) setSelectionRef.current(new Set([gid]));
-  }, [commitBoard]);
-  // Remove the selected items from their parent groups (ACTIONS::removeFromGroup).
-  const removeFromGroupSel = useCallback(() => {
-    const brd = boardRef.current;
-    const sel = selForDrawRef.current;
-    if (!brd || sel.size === 0) return;
-    const next = removeFromGroupItems(brd, sel);
-    if (next === brd) return;
-    commitBoard(next);
-  }, [commitBoard]);
-
   /**
    * TRANSITIONAL (#636 stage 3): `PCB_SELECTION_TOOL::GetEnteredGroup()`'s
    * uuid, for the window's own hit test (`hitCandidates`), refreshed with the
@@ -5322,84 +5265,6 @@ export function PcbEditor({
       commitBoard(setBoardItemsLocked(brd, sel, locked));
     },
     [commitBoard],
-  );
-
-  // Align selected items like ALIGN_DISTRIBUTE_TOOL: choose the target item
-  // under the cursor when there is one, otherwise the first selected item in
-  // KiCad's sorted order, then move each item's own bounding box to that target.
-  const alignSelection = useCallback(
-    (action: AlignAction) => {
-      const brd = boardRef.current;
-      const sel = [...selForDrawRef.current];
-      if (!brd || sel.length < 2) return;
-
-      const entries = sel
-        .map((id) => {
-          const bbox = boardItemBBox(brd, id);
-          return bbox ? { id, bbox } : null;
-        })
-        .filter((entry): entry is { id: string; bbox: BoardBBox } => !!entry);
-      if (entries.length < 2) return;
-
-      const effective =
-        flipView && action === 'left' ? 'right' : flipView && action === 'right' ? 'left' : action;
-      const sorted = [...entries].sort((a, b) => {
-        switch (effective) {
-          case 'left':
-            return a.bbox.minX - b.bbox.minX;
-          case 'right':
-            return b.bbox.maxX - a.bbox.maxX;
-          case 'top':
-            return a.bbox.minY - b.bbox.minY;
-          case 'bottom':
-            return b.bbox.maxY - a.bbox.maxY;
-          case 'centerX':
-            return bboxCenter(a.bbox).x - bboxCenter(b.bbox).x;
-          case 'centerY':
-            return bboxCenter(a.bbox).y - bboxCenter(b.bbox).y;
-        }
-        return 0;
-      });
-      const cursorHit = cursorRef.current
-        ? sorted.find((entry) => bboxContainsPoint(entry.bbox, cursorRef.current!))
-        : undefined;
-      const target = cursorHit ?? sorted[0];
-      if (!target) return;
-
-      const targetCenter = bboxCenter(target.bbox);
-      let next = brd;
-      let changed = false;
-      for (const entry of entries) {
-        const center = bboxCenter(entry.bbox);
-        let delta = { x: 0, y: 0 };
-        switch (effective) {
-          case 'left':
-            delta = { x: target.bbox.minX - entry.bbox.minX, y: 0 };
-            break;
-          case 'right':
-            delta = { x: target.bbox.maxX - entry.bbox.maxX, y: 0 };
-            break;
-          case 'top':
-            delta = { x: 0, y: target.bbox.minY - entry.bbox.minY };
-            break;
-          case 'bottom':
-            delta = { x: 0, y: target.bbox.maxY - entry.bbox.maxY };
-            break;
-          case 'centerX':
-            delta = { x: targetCenter.x - center.x, y: 0 };
-            break;
-          case 'centerY':
-            delta = { x: 0, y: targetCenter.y - center.y };
-            break;
-        }
-        if (delta.x !== 0 || delta.y !== 0) {
-          next = moveBoardItems(next, new Set([entry.id]), delta);
-          changed = true;
-        }
-      }
-      if (changed) commitBoard(next);
-    },
-    [commitBoard, flipView],
   );
 
   /** POSITION_RELATIVE_TOOL::RelativeItemSelectionMove, once the dialog has
@@ -5476,19 +5341,6 @@ export function PcbEditor({
     new ARRAY_TOOL(frame).onDialogClosed(liveSelection(brd, sel), arraySpecFrom(settings));
   }, []);
 
-  /** ALIGN_DISTRIBUTE_TOOL::DistributeItems. */
-  const distributeSelection = useCallback(
-    (action: DistributeAction) => {
-      const brd = boardRef.current;
-      const sel = [...selForDrawRef.current];
-      if (!brd || sel.length < 3) return;
-
-      const next = distributeBoardItems(brd, sel, action);
-      if (next !== brd) commitBoard(next);
-    },
-    [commitBoard],
-  );
-
   /**
    * `ALIGN_DISTRIBUTE_TOOL`'s submenu (align_distribute_tool.cpp:66-88), built
    * ONCE.
@@ -5508,29 +5360,28 @@ export function PcbEditor({
    * four dead rows beneath it.
    */
   const alignDistributeSubmenu = (): MenuItem[] => {
-    const align = (label: string, action: AlignAction): MenuItem => ({
+    const row = (label: string, action: TOOL_ACTION): MenuItem => ({
       label,
-      action: () => alignSelection(action),
+      action: () => runAction(action),
     });
-    const distribute = (label: string, action: DistributeAction): MenuItem => ({
-      label,
-      action: () => distributeSelection(action),
-    });
+    // `canDistribute = SELECTION_CONDITIONS::MoreThan( 2 )` over the selection
+    // tool's selection, whose rows run ALIGN_DISTRIBUTE_TOOL's actions.
+    const canDistribute = (frameRef.current?.GetSelectionTool().GetSelection().Size() ?? 0) > 2;
     return [
-      align('Align to Left', 'left'),
-      align('Align to Horizontal Center', 'centerX'),
-      align('Align to Right', 'right'),
+      row('Align to Left', PCB_ACTIONS.alignLeft),
+      row('Align to Horizontal Center', PCB_ACTIONS.alignCenterX),
+      row('Align to Right', PCB_ACTIONS.alignRight),
       { sep: true },
-      align('Align to Top', 'top'),
-      align('Align to Vertical Center', 'centerY'),
-      align('Align to Bottom', 'bottom'),
-      ...(selection.size > 2
+      row('Align to Top', PCB_ACTIONS.alignTop),
+      row('Align to Vertical Center', PCB_ACTIONS.alignCenterY),
+      row('Align to Bottom', PCB_ACTIONS.alignBottom),
+      ...(canDistribute
         ? [
             { sep: true } as MenuItem,
-            distribute('Distribute Horizontally by Centers', 'horizontallyCenters'),
-            distribute('Distribute Horizontally with Even Gaps', 'horizontallyGaps'),
-            distribute('Distribute Vertically by Centers', 'verticallyCenters'),
-            distribute('Distribute Vertically with Even Gaps', 'verticallyGaps'),
+            row('Distribute Horizontally by Centers', PCB_ACTIONS.distributeHorizontallyCenters),
+            row('Distribute Horizontally with Even Gaps', PCB_ACTIONS.distributeHorizontallyGaps),
+            row('Distribute Vertically by Centers', PCB_ACTIONS.distributeVerticallyCenters),
+            row('Distribute Vertically with Even Gaps', PCB_ACTIONS.distributeVerticallyGaps),
           ]
         : []),
     ];
@@ -6625,9 +6476,6 @@ export function PcbEditor({
 
   const buildPcbContextMenu = (): MenuItem[] => {
     const brd = board;
-    let groupCount = 0;
-    let hasUngrouped = false;
-    let hasMember = false;
     let anyLocked = false;
     let anyUnlocked = false;
     for (const id of selection) {
@@ -6637,16 +6485,8 @@ export function PcbEditor({
         if (isBoardItemLocked(brd, id)) anyLocked = true;
         else anyUnlocked = true;
       }
-      if (r.kind === 'group') {
-        groupCount++;
-        if (brd && groupContaining(brd, id)) hasMember = true;
-      } else if (r.kind === 'pad' || r.kind === 'fptext') {
-        // children: not groupable on their own
-      } else {
-        if (brd && groupContaining(brd, id)) hasMember = true;
-        else hasUngrouped = true;
-      }
     }
+    const groupMenu = GroupMenuState(frameRef.current?.GetSelectionTool().GetSelection() ?? null);
     const A = (label: string, actionId: string, disabled?: boolean): MenuItem => ({
       label,
       icon: actionId,
@@ -7143,11 +6983,13 @@ export function PcbEditor({
         {
           label: 'Grouping',
           icon: 'group',
+          // GROUP_CONTEXT_MENU (group_tool.cpp:40-105), which PCB_GROUP_TOOL's
+          // Init adds; its enables read the selection tool's selection.
           submenu: [
-            A('Group Items', 'group', selection.size < 2),
-            A('Ungroup Items', 'ungroup', groupCount === 0),
-            A('Add Items', 'addToGroup', !(groupCount === 1 && hasUngrouped)),
-            A('Remove Items', 'removeFromGroup', !hasMember),
+            A('Group Items', 'group', !groupMenu.group),
+            A('Ungroup Items', 'ungroup', !groupMenu.ungroup),
+            A('Add Items', 'addToGroup', !groupMenu.addToGroup),
+            A('Remove Items', 'removeFromGroup', !groupMenu.removeFromGroup),
           ],
         },
         100,
@@ -11462,16 +11304,16 @@ export function PcbEditor({
         runAction(PCB_ACTIONS.mirrorH);
         break;
       case 'group':
-        groupSel();
+        runAction(ACTIONS.group);
         break;
       case 'ungroup':
-        ungroupSel();
+        runAction(ACTIONS.ungroup);
         break;
       case 'addToGroup':
-        addToGroupSel();
+        runAction(ACTIONS.addToGroup);
         break;
       case 'removeFromGroup':
-        removeFromGroupSel();
+        runAction(ACTIONS.removeFromGroup);
         break;
       case 'lock':
         lockSel(true);
