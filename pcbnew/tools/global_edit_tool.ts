@@ -24,6 +24,8 @@ import { DIALOG_CLEANUP_TRACKS_AND_VIAS } from '../dialogs/dialog_cleanup_tracks
 import { DIALOG_CLEANUP_GRAPHICS } from '../dialogs/dialog_cleanup_graphics.js';
 import { DIALOG_UNUSED_PAD_LAYERS } from '../dialogs/dialog_unused_pad_layers.js';
 import { DIALOG_GLOBAL_DELETION } from '../dialogs/dialog_global_deletion.js';
+import { DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS } from '../dialogs/dialog_global_edit_tracks_and_vias.js';
+import type { PCB_EDIT_FRAME } from '../pcb_edit_frame.js';
 import type { PCB_SELECTION_TOOL } from './pcb_selection_tool.js';
 import type { PCB_BASE_EDIT_FRAME } from '../pcb_base_edit_frame.js';
 import type { PCB_VIA } from '../pcb_track.js';
@@ -38,6 +40,8 @@ const GEOMETRY = VIEW_UPDATE_FLAGS.GEOMETRY;
 export interface GLOBAL_EDIT_TOOL_FRAME {
   /** `DIALOG_SWAP_LAYERS dlg( frame(), layerMap ); dlg.ShowModal() == wxID_OK`. */
   ShowSwapLayersDialog(aDialog: DIALOG_SWAP_LAYERS): Promise<boolean>;
+  /** `DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS dlg( editFrame ); dlg.ShowQuasiModal()`. */
+  ShowGlobalEditTracksAndViasDialog(aDialog: DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS): void;
   /** `DIALOG_GLOBAL_DELETION dlg( editFrame ); dlg.ShowModal() == wxID_OK`. */
   ShowGlobalDeletionDialog(aDialog: DIALOG_GLOBAL_DELETION): Promise<boolean>;
   /** `DIALOG_UNUSED_PAD_LAYERS dlg( editFrame, selection, *m_commit ); dlg.ShowModal()`. */
@@ -186,6 +190,14 @@ export class GLOBAL_EDIT_TOOL extends PCB_TOOL_BASE {
     return 0;
   }
 
+  EditTracksAndVias(_aEvent: TOOL_EVENT): number {
+    const editFrame = this.editFrame();
+    const dlg = new DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS(editFrame as unknown as PCB_EDIT_FRAME);
+
+    editFrame.ShowGlobalEditTracksAndViasDialog(dlg); // QuasiModal required for NET_SELECTOR
+    return 0;
+  }
+
   /** `GLOBAL_EDIT_TOOL::GlobalDeletions` (dialog_global_deletion.cpp:71-81). */
   GlobalDeletions(_aEvent: TOOL_EVENT): number {
     const editFrame = this.editFrame();
@@ -248,6 +260,7 @@ export class GLOBAL_EDIT_TOOL extends PCB_TOOL_BASE {
     this.Go(S(this.CleanupTracksAndVias), PCB_ACTIONS.cleanupTracksAndVias.MakeEvent());
     this.Go(S(this.CleanupGraphics), PCB_ACTIONS.cleanupGraphics.MakeEvent());
     this.Go(S(this.RemoveUnusedPads), PCB_ACTIONS.removeUnusedPads.MakeEvent());
+    this.Go(S(this.EditTracksAndVias), PCB_ACTIONS.editTracksAndVias.MakeEvent());
     this.Go(S(this.GlobalDeletions), PCB_ACTIONS.globalDeletions.MakeEvent());
     this.Go(S(this.ZonesManager), PCB_ACTIONS.zonesManager.MakeEvent());
   }

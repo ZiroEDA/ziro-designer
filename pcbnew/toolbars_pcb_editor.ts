@@ -12,6 +12,8 @@
 import { browserSafeKey } from '@ziroeda/common/browser_reserved.js';
 import type { ToolbarDefaults } from '@ziroeda/common/tool/ui/toolbar_configuration.js';
 import type { ToolEntry } from '@ziroeda/common/tool/action_toolbar_types.js';
+import { type EdaUnits, pcbIUScale, toUserUnit, unitLabelText } from '@ziroeda/common/eda_units.js';
+import type { BOARD_DESIGN_SETTINGS } from './board_design_settings.js';
 
 const sep: ToolEntry = 'sep';
 
@@ -390,3 +392,114 @@ export const PCB_DEFAULT_TOOLBARS: ToolbarDefaults = {
   TOP_MAIN: PCB_TOP_TOOLBAR,
   TOP_AUX: PCB_AUX_TOOLBAR,
 };
+
+/**
+ * `ComboBoxUnits( aUnits, aValue, aIncludeLabel )` (toolbars_pcb_editor.cpp:608):
+ * a size in a combo entry, to KiCad's fixed precision per unit.
+ */
+export function ComboBoxUnits(aUnits: EdaUnits, aValue: number, aIncludeLabel = true): string {
+  let digits: number;
+
+  switch (aUnits) {
+    case 'mm':
+      digits = 3;
+      break;
+    case 'mils':
+      digits = 2;
+      break;
+    case 'in':
+      digits = 5;
+      break;
+    default:
+      digits = 0;
+  }
+
+  let text = toUserUnit(pcbIUScale, aUnits, aValue).toFixed(digits);
+
+  if (aIncludeLabel) text += unitLabelText(aUnits, 'distance');
+
+  return text;
+}
+
+/** What a filled `wxChoice` holds: its strings and the selected row. */
+export interface SELECT_BOX_CONTENT {
+  items: string[];
+  selection: number;
+}
+
+/**
+ * `PCB_EDIT_FRAME::UpdateTrackWidthSelectBox` (toolbars_pcb_editor.cpp:633):
+ * the board's pre-defined track widths, in both units. Like upstream it resets
+ * an out-of-range width index to 0.
+ */
+export function TrackWidthSelectBoxContent(
+  aSettings: BOARD_DESIGN_SETTINGS,
+  aUnits: [EdaUnits, EdaUnits],
+  aShowNetclass: boolean,
+  aShowEdit: boolean,
+): SELECT_BOX_CONTENT {
+  const [primaryUnit, secondaryUnit] = aUnits;
+  const items: string[] = [];
+
+  if (aShowNetclass) items.push('Track: use netclass width');
+
+  for (let ii = 1; ii < aSettings.m_TrackWidthList.length; ii++) {
+    const size = aSettings.m_TrackWidthList[ii]!;
+    items.push(
+      `Track: ${ComboBoxUnits(primaryUnit, size)} (${ComboBoxUnits(secondaryUnit, size)})`,
+    );
+  }
+
+  if (aShowEdit) {
+    items.push('---');
+    items.push('Edit Pre-defined Sizes...');
+  }
+
+  if (aSettings.GetTrackWidthIndex() >= aSettings.m_TrackWidthList.length)
+    aSettings.SetTrackWidthIndex(0);
+
+  // GetTrackWidthIndex() can be < 0 if no board loaded
+  // So in this case select the first select box item available (use netclass)
+  return { items, selection: Math.max(0, aSettings.GetTrackWidthIndex()) };
+}
+
+/** `PCB_EDIT_FRAME::UpdateViaSizeSelectBox` (toolbars_pcb_editor.cpp:676). */
+export function ViaSizeSelectBoxContent(
+  aSettings: BOARD_DESIGN_SETTINGS,
+  aUnits: [EdaUnits, EdaUnits],
+  aShowNetclass: boolean,
+  aShowEdit: boolean,
+): SELECT_BOX_CONTENT {
+  const [primaryUnit, secondaryUnit] = aUnits;
+  const items: string[] = [];
+
+  if (aShowNetclass) items.push('Via: use netclass sizes');
+
+  for (let ii = 1; ii < aSettings.m_ViasDimensionsList.length; ii++) {
+    const viaDimension = aSettings.m_ViasDimensionsList[ii]!;
+    const diam = viaDimension.m_Diameter;
+    const hole = viaDimension.m_Drill;
+    let priStr: string;
+    let secStr: string;
+
+    if (hole > 0) {
+      priStr = `${ComboBoxUnits(primaryUnit, diam, false)} / ${ComboBoxUnits(primaryUnit, hole, true)}`;
+      secStr = `${ComboBoxUnits(secondaryUnit, diam, false)} / ${ComboBoxUnits(secondaryUnit, hole, true)}`;
+    } else {
+      priStr = ComboBoxUnits(primaryUnit, diam, true);
+      secStr = ComboBoxUnits(secondaryUnit, diam, true);
+    }
+
+    items.push(`Via: ${priStr} (${secStr})`);
+  }
+
+  if (aShowEdit) {
+    items.push('---');
+    items.push('Edit Pre-defined Sizes...');
+  }
+
+  if (aSettings.GetViaSizeIndex() >= aSettings.m_ViasDimensionsList.length)
+    aSettings.SetViaSizeIndex(0);
+
+  return { items, selection: Math.max(0, aSettings.GetViaSizeIndex()) };
+}

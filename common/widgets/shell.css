@@ -19028,3 +19028,61 @@ fieldset.ze-pushpad-box {
 .ze-globaldel-layers {
   margin: 0 10px; /* [data] `bSizerMain->Add( m_rbLayersOption, 0, wxEXPAND|wxRIGHT|wxLEFT, 10 )`. */
 }
+
+/* DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS (dialog_global_edit_tracks_and_vias_base.cpp). */
+.ze-gettv-top {
+  display: flex;
+}
+.ze-gettv-scope {
+  flex: 1;
+  margin: 10px 10px 0; /* [data] `bSizerTop->Add( sbScope, 1, wxEXPAND|wxTOP|wxRIGHT|wxLEFT, 10 )`. */
+  display: flex;
+  flex-direction: column;
+}
+.ze-gettv-filters {
+  flex: 2;
+  margin: 10px 10px 0; /* [data] `bSizerTop->Add( sbFilters, 2, wxEXPAND|wxTOP|wxRIGHT|wxLEFT, 10 )`. */
+}
+.ze-gettv .ze-check.brl5 {
+  margin: 0 5px 5px; /* [data] `wxBOTTOM|wxRIGHT|wxLEFT, 5`. */
+}
+.ze-gettv .ze-check.l20 {
+  margin-left: 20px; /* [data] the via types' `wxLEFT, 20`. */
+}
+.ze-gettv .ze-check.t3 {
+  margin-top: 3px; /* [data] `sbScope->Add( 0, 3, 0, wxEXPAND, 5 )`. */
+}
+.ze-gettv .ze-check.all5 {
+  margin: 5px; /* [data] `m_selectedItemsFilter`'s `wxALL, 5`. */
+}
+.ze-gettv-gap10 {
+  height: 10px; /* [data] `sbScope->Add( 0, 10, 0, wxEXPAND, 5 )`. */
+}
+.ze-gettv-filter-grid {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  row-gap: 3px; /* [data] `fgSizer3`'s vgap. */
+  align-items: center;
+  margin-bottom: 5px; /* [data] `sbFilters->Add( fgSizer3, 1, wxEXPAND|wxBOTTOM, 5 )`. */
+}
+.ze-gettv-size {
+  display: flex;
+  align-items: center;
+}
+.ze-gettv-size .unit {
+  margin: 0 5px; /* [data] the units labels' `wxRIGHT|wxLEFT, 5`. */
+}
+.ze-gettv-action {
+  margin: 10px 10px 0; /* [data] `bMainSizer->Add( sbAction, 1, wxEXPAND|wxTOP|wxRIGHT|wxLEFT, 10 )`. */
+}
+.ze-gettv-action-grid {
+  display: grid;
+  /* [data] `wxFlexGridSizer( 5, 2, 0, 10 )`, `AddGrowableCol( 1 )`. */
+  grid-template-columns: max-content 1fr;
+  column-gap: 10px; /* [data] the same sizer's hgap. */
+  align-items: center;
+  margin: 0 0 5px 25px; /* [data] `sbAction->Add( fgSizerTrackViaPopups, 0, wxBOTTOM|wxEXPAND|wxLEFT, 25 )`. */
+}
+.ze-gettv-action-grid > * {
+  margin: 0 5px 5px; /* [data] the controls' `wxBOTTOM|wxRIGHT|wxLEFT, 5`. */
+}

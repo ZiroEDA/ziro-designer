@@ -2,274 +2,337 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * "Edit Track & Via Properties" — set width and size across many items at once.
- * Counterparts: `DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS::visitItem` /
- * `TransferDataFromWindow` (pcbnew/dialogs/dialog_global_edit_tracks_and_vias.cpp)
- * and `PCB_EDIT_FRAME::SetTrackSegmentWidth` (pcbnew/edit_track_width.cpp).
- *
- * Structured like {@link applyGlobalTeardropEdit}: the same scope / filter /
- * action shape, and the same trick of taking the facts the typed Board model
- * does not carry as hooks on a context object rather than reaching for a board
- * settings object that lives in `designer`.
- *
- * ## What is deliberately not here
- *
- * The dialog has two further sub-actions — annular rings and IPC-4761 via
- * protection — and a second action mode, "set to net class / custom rule
- * values". None are ported, and none are approximated:
- *
- * - `PcbVia` has no padstack. There is no unconnected-layer mode and no
- *   tenting / covering / plugging / filling / capping anywhere in the model, so
- *   annular rings and protection have nothing to write to.
- * - The implicit netclass DRC rules emit the netclass track width as `min`,
- *   where upstream emits `{min: boardMinWidth, opt: netclassWidth}`, and emit no
- *   `via_diameter` or `hole_size` rule at all. Since `SetTrackSegmentWidth`
- *   tests `HasOpt()` first, "set to net class values" would today resolve to the
- *   board *minimum* — a plausible-looking number that is simply the wrong one.
- *   Shipping that would be worse than not shipping it.
- *
- * Buried vias are a related gap: `read-board` maps the file's `buried` token to
- * `'through'`, so they are edited by the "Through vias" box and a "Buried vias"
- * box would select nothing. The scope options below therefore expose no buried
- * flag rather than one that silently does nothing.
+ * `DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS` (pcbnew/dialogs/dialog_global_edit_tracks_and_vias.cpp),
+ * on the live BOARD: Edit > Edit Track & Via Properties. The scope (tracks,
+ * the four via types), the filters, and either the specified values or the
+ * net class / custom rule values, applied to every visited item and saved as
+ * one undo entry. The window is dialog_global_edit_tracks_and_vias_ui.tsx.
  */
-import type { Board, PcbArcTrack, PcbTrack, PcbVia } from '../types.js';
+import { PCB_LAYER_ID, ToLAYER_ID } from '@ziroeda/common/layer_id.js';
+import { ITEM_PICKER, PICKED_ITEMS_LIST, UNDO_REDO } from '@ziroeda/common/undo_redo_container.js';
+import { INDETERMINATE_ACTION } from '@ziroeda/common/widgets/ui_common.js';
+import { UNIT_BINDER } from '@ziroeda/common/widgets/unit_binder.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import type { BOARD } from '../board.js';
+import { SetTrackSegmentWidth } from '../edit_track_width.js';
+import { UNCONNECTED_LAYER_MODE } from '../padstack.js';
+import type { PCB_EDIT_FRAME } from '../pcb_edit_frame.js';
+import type { PCB_TRACK, PCB_VIA } from '../pcb_track.js';
+import { VIATYPE } from '../pcb_track_types.js';
+import { TrackWidthSelectBoxContent, ViaSizeSelectBoxContent } from '../toolbars_pcb_editor.js';
+import {
+  IPC4761_NAMES,
+  IPC4761_PRESET,
+  VIA_PROTECTION_UI_MIXIN,
+} from '../via_protection_ui_mixin.js';
 
-/** Which items the dialog's Scope box lets through. */
-export interface GlobalTrackViaEditOptions {
-  /** `m_tracks`. Covers `PCB_TRACE_T` **and** `PCB_ARC_T` — arcs have no box of their own. */
-  tracks: boolean;
-  throughVias: boolean;
-  microVias: boolean;
-  blindVias: boolean;
-  buriedVias: boolean;
+/** `g_netclassFilter` / `g_netFilter`: the filters a closed dialog leaves for the next. */
+let g_netclassFilter = '';
+let g_netFilter = '';
 
-  /**
-   * `m_netFilter`. Upstream gates on `>= 0`, so an unset filter is inert —
-   * but net 0 (unconnected) is a real, active value. A truthiness test here
-   * would silently stop anyone filtering for unconnected copper.
-   */
-  netFilter?: number | null;
-  /** `m_netclassFilter`. The chosen netclass **name**, matched for equality
-   *  against every constituent class (`ContainsNetclassWithName`). */
-  netclassFilter?: string | null;
-  /** `m_layerFilter`. Applies to vias too, against the via's start layer. */
-  layerFilter?: string | null;
-  /** `m_trackWidthFilter`. Tracks and arcs only. */
-  trackWidthFilter?: number | null;
-  /** `m_viaSizeFilter`. Vias only. */
-  viaSizeFilter?: number | null;
-  /** `m_selectedItemsFilter`. Needs {@link GlobalTrackViaEditContext.isSelected}. */
-  selectedOnly?: boolean;
+/** `m_annularRingsCtrlChoices[]` (dialog_global_edit_tracks_and_vias_base.cpp:200). */
+const ANNULAR_RING_CHOICES = [
+  'All copper layers',
+  'Start, end, and connected layers',
+  'Connected layers only',
+  'Start and end layers only',
+];
 
-  /** Absent means INDETERMINATE_ACTION: leave that property alone. */
-  trackWidth?: number;
-  viaSize?: { diameter: number; drill: number };
-  /** Tracks and arcs only — a via's layers can never be changed by this dialog. */
-  layer?: string;
+/** A `wxChoice`: its strings and the selected row. */
+export interface CHOICE {
+  items: string[];
+  selection: number;
 }
 
-/** Board facts the typed model does not carry. */
-export interface GlobalTrackViaEditContext {
-  /**
-   * Every constituent netclass of a net, not the aggregate name.
-   * `ContainsNetclassWithName` searches all of them, so a net in
-   * `Default,HighSpeed` must report both or the filter misses it.
-   */
-  netclassOf?: (net: number) => readonly string[];
-  /**
-   * Whether a board item id (`track:0`, `via:3`) **or a group uuid** is
-   * selected. Groups are asked by uuid so the ancestry walk can use one hook.
-   */
-  isSelected?: (id: string) => boolean;
-  /** The netclass microvia size, which a microvia takes instead of the chosen one. */
-  netclassUViaOf?: (net: number) => { diameter?: number; drill?: number };
-}
+const leaveUnchanged = (c: CHOICE): boolean => c.items[c.selection] === INDETERMINATE_ACTION;
 
-/** An item passes if it, or **any ancestor group**, is selected. */
-function selectionPasses(
-  board: Board,
-  id: string,
-  uuid: string | undefined,
-  ctx: GlobalTrackViaEditContext,
-): boolean {
-  if (ctx.isSelected?.(id) ?? false) return true;
-  if (!uuid) return false;
+export class DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS {
+  // Scope
+  m_tracks = true;
+  m_throughVias = true;
+  m_microVias = true;
+  m_blindVias = true;
+  m_buriedVias = true;
 
-  // Walk upward through nested groups. `groupContaining` answers a different
-  // question — it returns the *top-level* group — so a selected inner group
-  // would not be found by it.
-  // `seen` is a termination guard, not an optimisation: a malformed file whose
-  // groups reference each other in a cycle would otherwise walk for ever.
-  // Mutation testing confirms it — removing it hangs the suite rather than
-  // failing it, which is why the cycle test below can only be a smoke test.
-  const seen = new Set<string>();
-  let current = uuid;
+  // Filter Items
+  m_netFilterOpt = false;
+  m_netFilter = -1;
+  m_netclassFilterOpt = false;
+  m_netclassFilter = '';
+  m_layerFilterOpt = false;
+  m_layerFilter: PCB_LAYER_ID;
+  m_filterByTrackWidth = false;
+  readonly m_trackWidthFilter: UNIT_BINDER;
+  m_filterByViaSize = false;
+  readonly m_viaSizeFilter: UNIT_BINDER;
+  m_selectedItemsFilter = false;
 
-  for (;;) {
-    const parent = board.groups.find((g) => g.members.includes(current));
-    if (!parent?.uuid || seen.has(parent.uuid)) return false;
-    if (ctx.isSelected?.(parent.uuid) ?? false) return true;
-    seen.add(parent.uuid);
-    current = parent.uuid;
-  }
-}
+  // Action
+  m_setToSpecifiedValues = true;
+  /** `m_layerCtrl`: UNDEFINED_LAYER is its "-- leave unchanged --". */
+  m_layerCtrl: PCB_LAYER_ID = PCB_LAYER_ID.UNDEFINED_LAYER;
+  m_trackWidthCtrl: CHOICE;
+  m_viaSizesCtrl: CHOICE;
+  m_annularRingsCtrl: CHOICE = {
+    items: [...ANNULAR_RING_CHOICES, INDETERMINATE_ACTION],
+    selection: 0,
+  };
+  m_protectionFeatures: CHOICE;
 
-/** `visitItem`'s filter gauntlet, in upstream's order. */
-export function passesGlobalTrackViaFilters(
-  board: Board,
-  kind: 'track' | 'arc' | 'via',
-  index: number,
-  opts: GlobalTrackViaEditOptions,
-  ctx: GlobalTrackViaEditContext,
-): boolean {
-  const item =
-    kind === 'via' ? board.vias[index] : kind === 'arc' ? board.arcs[index] : board.tracks[index];
-  if (!item) return false;
+  readonly m_netclassNames: string[] = [];
 
-  if (opts.selectedOnly && !selectionPasses(board, `${kind}:${index}`, item.uuid, ctx))
-    return false;
+  private readonly m_brd: BOARD;
+  private m_items_changed: PCB_TRACK[] = [];
+  private readonly m_viaProtection = new VIA_PROTECTION_UI_MIXIN();
 
-  if (opts.netFilter != null && opts.netFilter >= 0 && item.net !== opts.netFilter) return false;
+  constructor(private readonly m_parent: PCB_EDIT_FRAME) {
+    this.m_brd = m_parent.GetBoard()!;
 
-  if (opts.netclassFilter) {
-    // `netclass->ContainsNetclassWithName( filterNetclass )`
-    // (dialog_global_edit_tracks_and_vias.cpp:365) — an exact name, not a
-    // pattern. The filter is a wxChoice of the board's netclass names, so the
-    // user picks one rather than typing a wildcard, and a composite class like
-    // `Default,HighSpeed` answers to each of its constituents. The teardrop
-    // dialog next door does the same thing for the same reason.
-    const classes = ctx.netclassOf?.(item.net) ?? [];
-    if (!classes.includes(opts.netclassFilter)) return false;
+    const provider = m_parent as unknown as ConstructorParameters<typeof UNIT_BINDER>[0];
+    this.m_trackWidthFilter = new UNIT_BINDER(provider, '');
+    this.m_viaSizeFilter = new UNIT_BINDER(provider, '');
+    this.m_layerFilter = m_parent.GetActiveLayer();
+
+    this.buildFilterLists();
+
+    const bds = this.m_brd.GetDesignSettings();
+    const pair = m_parent.GetUnitPair();
+    const units: [typeof pair.primary, typeof pair.secondary] = [pair.primary, pair.secondary];
+
+    this.m_trackWidthCtrl = TrackWidthSelectBoxContent(bds, units, false, false);
+    this.m_trackWidthCtrl.items.push(INDETERMINATE_ACTION);
+
+    this.m_viaSizesCtrl = ViaSizeSelectBoxContent(bds, units, false, false);
+    this.m_viaSizesCtrl.items.push(INDETERMINATE_ACTION);
+
+    const presets: string[] = [];
+
+    // `magic_enum::enum_values<IPC4761_PRESET>()`: enum order, which is also the
+    // order `static_cast<IPC4761_PRESET>( GetSelection() )` reads the row back in.
+    for (let preset = 0 as IPC4761_PRESET; preset < IPC4761_PRESET.CUSTOM; preset++)
+      presets.push(IPC4761_NAMES.get(preset) ?? 'Unknown choice');
+
+    presets.push(INDETERMINATE_ACTION);
+    this.m_protectionFeatures = { items: presets, selection: 0 };
   }
 
-  if (opts.layerFilter) {
-    // A via has no single layer; upstream compares against its start layer.
-    const layer = kind === 'via' ? (item as PcbVia).layers[0] : (item as PcbTrack).layer;
-    if (layer !== opts.layerFilter) return false;
+  private buildFilterLists(): void {
+    const highlighted = this.m_brd.GetHighLightNetCodes();
+
+    if (highlighted.size > 0) this.m_netFilter = [...highlighted][0]!;
+
+    const settings = this.m_brd.GetDesignSettings().m_NetSettings;
+
+    this.m_netclassNames.push(settings.GetDefaultNetclass().GetName());
+
+    for (const name of settings.GetNetclasses().keys()) this.m_netclassNames.push(name);
+
+    this.m_netclassFilter = this.m_brd.GetDesignSettings().GetCurrentNetClassName();
+    this.m_layerFilter = this.m_parent.GetActiveLayer();
   }
 
-  if (kind === 'via') {
-    if (opts.viaSizeFilter != null && (item as PcbVia).size !== opts.viaSizeFilter) return false;
-  } else if (opts.trackWidthFilter != null) {
-    if ((item as PcbTrack | PcbArcTrack).width !== opts.trackWidthFilter) return false;
+  /** The tri-state "Vias" box: on, off, or (null) undetermined. */
+  GetViasValue(): boolean | null {
+    const checked = [
+      this.m_throughVias,
+      this.m_microVias,
+      this.m_blindVias,
+      this.m_buriedVias,
+    ].filter(Boolean).length;
+
+    if (checked === 0) return false;
+    else if (checked === 4) return true;
+    else return null;
   }
 
-  return true;
-}
+  /** `onVias`: the "Vias" box sets all four. */
+  OnVias(aChecked: boolean): void {
+    this.m_throughVias = aChecked;
+    this.m_microVias = aChecked;
+    this.m_blindVias = aChecked;
+    this.m_buriedVias = aChecked;
+  }
 
-/** Whether this via's kind is ticked. A via whose box is off is never even filtered. */
-function viaInScope(via: PcbVia, opts: GlobalTrackViaEditOptions): boolean {
-  if (via.kind === 'micro') return opts.microVias;
-  if (via.kind === 'blind') return opts.blindVias;
-  if (via.kind === 'buried') return opts.buriedVias;
-  return opts.throughVias;
-}
+  /** `onActionButtonChange`: the value controls only when setting specified values. */
+  ActionControlsEnabled(): boolean {
+    return this.m_setToSpecifiedValues;
+  }
 
-const changedTrack = <T extends PcbTrack | PcbArcTrack>(
-  t: T,
-  opts: GlobalTrackViaEditOptions,
-): T => {
-  const width = opts.trackWidth ?? t.width;
-  const layer = opts.layer ?? t.layer;
-  if (width === t.width && layer === t.layer) return t;
+  TransferDataToWindow(): boolean {
+    this.m_netclassFilter = this.m_netclassNames.includes(g_netclassFilter)
+      ? g_netclassFilter
+      : this.m_netclassFilter;
 
-  return { ...t, width, layer };
-};
+    const net = this.m_brd.FindNet(g_netFilter);
 
-function changedVia(
-  v: PcbVia,
-  opts: GlobalTrackViaEditOptions,
-  ctx: GlobalTrackViaEditContext,
-): PcbVia {
-  // A microvia ignores the chosen size entirely and takes its netclass's
-  // microvia values. Upstream tests `GetViaType() == MICROVIA` *before* the
-  // generic via branch, so this is not a fallback — it wins outright.
-  const chosen =
-    v.kind === 'micro'
-      ? {
-          diameter: ctx.netclassUViaOf?.(v.net)?.diameter,
-          drill: ctx.netclassUViaOf?.(v.net)?.drill,
+    if (net) this.m_netFilter = net.GetNetCode();
+
+    this.m_trackWidthCtrl.selection = this.m_trackWidthCtrl.items.length - 1;
+    this.m_viaSizesCtrl.selection = this.m_viaSizesCtrl.items.length - 1;
+    this.m_annularRingsCtrl.selection = this.m_annularRingsCtrl.items.length - 1;
+    this.m_layerCtrl = PCB_LAYER_ID.UNDEFINED_LAYER;
+    this.m_protectionFeatures.selection = this.m_protectionFeatures.items.length - 1;
+
+    return true;
+  }
+
+  /** The destructor's statics: the filters the next open starts from. */
+  OnClose(): void {
+    g_netclassFilter = this.m_netclassFilter;
+    g_netFilter = this.m_brd.FindNet(this.m_netFilter)?.GetNetname() ?? '';
+  }
+
+  private processItem(aUndoList: PICKED_ITEMS_LIST, aItem: PCB_TRACK): void {
+    const brdSettings = this.m_brd.GetDesignSettings();
+    const isTrack = aItem.Type() === KICAD_T.PCB_TRACE_T;
+    const isArc = aItem.Type() === KICAD_T.PCB_ARC_T;
+    const isVia = aItem.Type() === KICAD_T.PCB_VIA_T;
+
+    if (this.m_setToSpecifiedValues) {
+      if ((isArc || isTrack) && !leaveUnchanged(this.m_trackWidthCtrl)) {
+        const prevTrackWidthIndex = brdSettings.GetTrackWidthIndex();
+        const trackWidthIndex = this.m_trackWidthCtrl.selection;
+
+        if (trackWidthIndex >= 0) brdSettings.SetTrackWidthIndex(trackWidthIndex + 1);
+
+        SetTrackSegmentWidth(aItem, aUndoList, false);
+        brdSettings.SetTrackWidthIndex(prevTrackWidthIndex);
+      }
+
+      if (isVia && !leaveUnchanged(this.m_viaSizesCtrl)) {
+        const prevViaSizeIndex = brdSettings.GetViaSizeIndex();
+        const viaSizeIndex = this.m_viaSizesCtrl.selection;
+
+        if (viaSizeIndex >= 0) brdSettings.SetViaSizeIndex(viaSizeIndex + 1);
+
+        SetTrackSegmentWidth(aItem, aUndoList, false);
+        brdSettings.SetViaSizeIndex(prevViaSizeIndex);
+      }
+
+      if (isVia && !leaveUnchanged(this.m_annularRingsCtrl)) {
+        const v = aItem as unknown as PCB_VIA;
+
+        switch (this.m_annularRingsCtrl.selection) {
+          case 0:
+            v.Padstack().SetUnconnectedLayerMode(UNCONNECTED_LAYER_MODE.KEEP_ALL);
+            break;
+          case 1:
+            v.Padstack().SetUnconnectedLayerMode(
+              UNCONNECTED_LAYER_MODE.REMOVE_EXCEPT_START_AND_END,
+            );
+            break;
+          case 2:
+            v.Padstack().SetUnconnectedLayerMode(UNCONNECTED_LAYER_MODE.REMOVE_ALL);
+            break;
+          case 3:
+            v.Padstack().SetUnconnectedLayerMode(UNCONNECTED_LAYER_MODE.START_END_ONLY);
+            break;
+          default:
+            break;
         }
-      : { diameter: opts.viaSize?.diameter, drill: opts.viaSize?.drill };
+      }
 
-  const size = chosen.diameter ?? v.size;
-  // `GetCurrentViaDrill()` returns -1 for a zero drill and the `<= 0` guard
-  // then keeps the existing hole, so a preset with drill 0 resizes the pad and
-  // leaves the hole alone.
-  const drill = chosen.drill !== undefined && chosen.drill > 0 ? chosen.drill : v.drill;
+      if (isVia && !leaveUnchanged(this.m_protectionFeatures)) {
+        this.m_viaProtection.setViaConfiguration(
+          aItem as unknown as PCB_VIA,
+          this.m_protectionFeatures.selection as IPC4761_PRESET,
+        );
+      }
 
-  if (size === v.size && drill === v.drill) return v;
+      if ((isArc || isTrack) && this.m_layerCtrl !== PCB_LAYER_ID.UNDEFINED_LAYER) {
+        if (aUndoList.FindItem(aItem) < 0) {
+          const picker = new ITEM_PICKER(null, aItem, UNDO_REDO.CHANGED);
+          picker.SetLink(aItem.Clone());
+          aUndoList.PushItem(picker);
+        }
 
-  return { ...v, size, drill };
-}
+        aItem.SetLayer(ToLAYER_ID(this.m_layerCtrl));
+        this.m_brd.GetConnectivity().Update(aItem);
+      }
+    } else {
+      SetTrackSegmentWidth(aItem, aUndoList, true);
+    }
 
-/**
- * `TransferDataFromWindow` + `processItem`.
- *
- * Returns the same board reference when nothing changed, so a run that matches
- * no item pushes no undo entry — the contract the other global edits keep.
- */
-export function applyGlobalTrackViaEdit(
-  board: Board,
-  opts: GlobalTrackViaEditOptions,
-  ctx: GlobalTrackViaEditContext = {},
-): { board: Board; changed: number } {
-  let changed = 0;
-
-  const tracks = board.tracks.map((t, i) => {
-    if (!opts.tracks || !passesGlobalTrackViaFilters(board, 'track', i, opts, ctx)) return t;
-    const next = changedTrack(t, opts);
-    if (next !== t) changed++;
-    return next;
-  });
-
-  // Arcs ride the tracks checkbox and the track-width filter; there is no
-  // separate arc scope anywhere in the dialog.
-  const arcs = board.arcs.map((a, i) => {
-    if (!opts.tracks || !passesGlobalTrackViaFilters(board, 'arc', i, opts, ctx)) return a;
-    const next = changedTrack(a, opts);
-    if (next !== a) changed++;
-    return next;
-  });
-
-  const vias = board.vias.map((v, i) => {
-    if (!viaInScope(v, opts)) return v;
-    if (!passesGlobalTrackViaFilters(board, 'via', i, opts, ctx)) return v;
-    const next = changedVia(v, opts, ctx);
-    if (next !== v) changed++;
-    return next;
-  });
-
-  if (changed === 0) return { board, changed: 0 };
-
-  return { board: { ...board, tracks, arcs, vias }, changed };
-}
-
-/**
- * How many items the current scope and filters select, for the dialog to
- * report before it commits. Shares the gauntlet with the apply path so the
- * count and the effect can never disagree.
- */
-export function countGlobalTrackViaTargets(
-  board: Board,
-  opts: GlobalTrackViaEditOptions,
-  ctx: GlobalTrackViaEditContext = {},
-): number {
-  let n = 0;
-
-  if (opts.tracks) {
-    board.tracks.forEach((_, i) => {
-      if (passesGlobalTrackViaFilters(board, 'track', i, opts, ctx)) n++;
-    });
-    board.arcs.forEach((_, i) => {
-      if (passesGlobalTrackViaFilters(board, 'arc', i, opts, ctx)) n++;
-    });
+    this.m_items_changed.push(aItem);
   }
 
-  board.vias.forEach((v, i) => {
-    if (viaInScope(v, opts) && passesGlobalTrackViaFilters(board, 'via', i, opts, ctx)) n++;
-  });
+  private visitItem(aUndoList: PICKED_ITEMS_LIST, aItem: PCB_TRACK): void {
+    if (this.m_selectedItemsFilter) {
+      if (!aItem.IsSelected()) {
+        let group = aItem.GetParentGroup();
 
-  return n;
+        while (group && !group.AsEdaItem().IsSelected()) group = group.AsEdaItem().GetParentGroup();
+
+        if (!group) return;
+      }
+    }
+
+    if (this.m_netFilterOpt && this.m_netFilter >= 0) {
+      if (aItem.GetNetCode() !== this.m_netFilter) return;
+    }
+
+    if (this.m_netclassFilterOpt && this.m_netclassFilter !== '') {
+      const netclass = aItem.GetEffectiveNetClass();
+
+      if (!netclass.ContainsNetclassWithName(this.m_netclassFilter)) return;
+    }
+
+    if (this.m_layerFilterOpt && this.m_layerFilter !== PCB_LAYER_ID.UNDEFINED_LAYER) {
+      if (aItem.GetLayer() !== this.m_layerFilter) return;
+    }
+
+    if (aItem.Type() === KICAD_T.PCB_VIA_T) {
+      if (this.m_filterByViaSize && aItem.GetWidth() !== this.m_viaSizeFilter.GetValue()) return;
+    } else {
+      if (this.m_filterByTrackWidth && aItem.GetWidth() !== this.m_trackWidthFilter.GetValue())
+        return;
+    }
+
+    this.processItem(aUndoList, aItem);
+  }
+
+  /** "Apply and Close". */
+  TransferDataFromWindow(): boolean {
+    const itemsListPicker = new PICKED_ITEMS_LIST();
+
+    for (const track of this.m_brd.Tracks()) {
+      if (track.Type() === KICAD_T.PCB_TRACE_T && this.m_tracks) {
+        this.visitItem(itemsListPicker, track);
+      } else if (track.Type() === KICAD_T.PCB_ARC_T && this.m_tracks) {
+        this.visitItem(itemsListPicker, track);
+      } else if (track.Type() === KICAD_T.PCB_VIA_T) {
+        const via = track as unknown as PCB_VIA;
+
+        if (via.GetViaType() === VIATYPE.THROUGH && this.m_throughVias)
+          this.visitItem(itemsListPicker, via);
+        else if (via.GetViaType() === VIATYPE.MICROVIA && this.m_microVias)
+          this.visitItem(itemsListPicker, via);
+        else if (via.GetViaType() === VIATYPE.BLIND && this.m_blindVias)
+          this.visitItem(itemsListPicker, via);
+        else if (via.GetViaType() === VIATYPE.BURIED && this.m_buriedVias)
+          this.visitItem(itemsListPicker, via);
+      }
+    }
+
+    if (itemsListPicker.GetCount() > 0) {
+      this.m_parent.SaveCopyInUndoList(itemsListPicker, UNDO_REDO.CHANGED);
+
+      for (const track of this.m_brd.Tracks()) this.m_parent.GetCanvas()?.GetView().Update(track);
+    }
+
+    this.m_parent.GetCanvas()?.ForceRefresh();
+
+    if (this.m_items_changed.length > 0) {
+      this.m_brd.OnItemsChanged(this.m_items_changed);
+      this.m_parent.OnModify();
+
+      const connectivity = this.m_brd.GetConnectivity();
+      connectivity.RecalculateRatsnest();
+      connectivity.ClearLocalRatsnest();
+      this.m_parent.GetCanvas()?.RedrawRatsnest();
+      this.m_brd.OnRatsnestChanged();
+    }
+
+    return true;
+  }
 }

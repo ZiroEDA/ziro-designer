@@ -690,13 +690,7 @@ export { isCopperLayerName, copperRank, enabledCopperLayers } from './types.js';
 export { DIALOG_SWAP_LAYERS } from './dialogs/dialog_swap_layers.js';
 export { GLOBAL_EDIT_TOOL } from './tools/global_edit_tool.js';
 
-export {
-  passesGlobalTrackViaFilters,
-  applyGlobalTrackViaEdit,
-  countGlobalTrackViaTargets,
-  type GlobalTrackViaEditOptions,
-  type GlobalTrackViaEditContext,
-} from './dialogs/dialog_global_edit_tracks_and_vias.js';
+export { DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS } from './dialogs/dialog_global_edit_tracks_and_vias.js';
 
 export {
   exportD356,

@@ -655,6 +655,8 @@ import { DialogCleanupTracksAndVias } from './dialogs/dialog_cleanup_tracks_and_
 import { DialogCleanupGraphics } from './dialogs/dialog_cleanup_graphics_ui.js';
 import { DialogUnusedPadLayers } from './dialogs/dialog_unused_pad_layers_ui.js';
 import { DialogGlobalDeletion } from './dialogs/dialog_global_deletion_ui.js';
+import { DialogGlobalEditTracksAndVias } from './dialogs/dialog_global_edit_tracks_and_vias_ui.js';
+import type { DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS } from './dialogs/dialog_global_edit_tracks_and_vias.js';
 import type { DIALOG_GLOBAL_DELETION } from './dialogs/dialog_global_deletion.js';
 import type { DIALOG_UNUSED_PAD_LAYERS } from './dialogs/dialog_unused_pad_layers.js';
 import type { DIALOG_CLEANUP_GRAPHICS } from './dialogs/dialog_cleanup_graphics.js';
@@ -2102,6 +2104,8 @@ export function PcbEditor({
     dialog: DIALOG_OFFSET_ITEM;
     resolve: (aOk: boolean) => void;
   } | null>(null);
+  /** GLOBAL_EDIT_TOOL's DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS. */
+  const [editTvDlg, setEditTvDlg] = useState<DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS | null>(null);
   /** GLOBAL_EDIT_TOOL's DIALOG_GLOBAL_DELETION, with the promise the tool waits on. */
   const [globalDelDlg, setGlobalDelDlg] = useState<{
     dialog: DIALOG_GLOBAL_DELETION;
@@ -2687,6 +2691,7 @@ export function PcbEditor({
       showCleanupTracksAndViasDialog: (aDialog) => setCleanupDlg(aDialog),
       showCleanupGraphicsDialog: (aDialog) => setCleanupGfxDlg(aDialog),
       showUnusedPadLayersDialog: (aDialog) => setUnusedPadsDlg(aDialog),
+      showGlobalEditTracksAndViasDialog: (aDialog) => setEditTvDlg(aDialog),
       showGlobalDeletionDialog: (aDialog) =>
         new Promise<boolean>((resolve) => setGlobalDelDlg({ dialog: aDialog, resolve })),
       askKiDialog: (aRequest) => askKiDialogRef.current(aRequest),
@@ -11506,6 +11511,9 @@ export function PcbEditor({
       case 'globalDeletions':
         runAction(PCB_ACTIONS.globalDeletions);
         break;
+      case 'editTracksAndVias':
+        runAction(PCB_ACTIONS.editTracksAndVias);
+        break;
       case 'polygonmerge':
         runAction(PCB_ACTIONS.mergePolygons);
         break;
@@ -13659,6 +13667,25 @@ export function PcbEditor({
       {/* POSITION_RELATIVE_TOOL's DIALOG_POSITION_RELATIVE: modeless, in the
           same host as Find; it draws itself only while it is shown. */}
       {posRelDialog && <DialogPositionRelativeModeless dialog={posRelDialog} />}
+      {editTvDlg && (
+        <DialogGlobalEditTracksAndVias
+          dialog={editTvDlg}
+          nets={
+            new Map(
+              [...(frameRef.current?.GetBoard()?.GetNetInfo().NetsByNetcode() ?? new Map())].map(
+                ([code, net]) => [code, net.GetNetname()] as const,
+              ),
+            )
+          }
+          layers={LSET.AllCuMask(frameRef.current?.GetBoard()?.GetCopperLayerCount() ?? 2)
+            .UIOrder()
+            .map((l) => {
+              const c = choiceOf(l);
+              return { layer: l, label: c.label, swatch: c.swatch };
+            })}
+          onClose={() => setEditTvDlg(null)}
+        />
+      )}
       {globalDelDlg && (
         <DialogGlobalDeletion
           dialog={globalDelDlg.dialog}
