@@ -134,6 +134,14 @@ export abstract class PCB_BASE_EDIT_FRAME extends PCB_BASE_FRAME {
     return Promise.resolve(false);
   }
 
+  /**
+   * `wxFileDialog( this, _( "Choose Image" ), ..., FILEEXT::ImageFileWildcard(), wxFD_OPEN )`:
+   * the bytes of the file chosen, or null for Cancel (and without a window).
+   */
+  ShowImageFileDialog(): Promise<Uint8Array | null> {
+    return Promise.resolve(null);
+  }
+
   /** `SetObjectVisible` (pcb_base_edit_frame.cpp:271-275): through the Appearance panel. */
   SetObjectVisible(aLayer: GAL_LAYER_ID, aVisible = true): void {
     if (this.m_appearancePanel) this.m_appearancePanel.SetObjectVisible?.(aLayer, aVisible);

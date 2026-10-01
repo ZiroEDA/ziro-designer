@@ -1113,6 +1113,7 @@ const TOOL_MANAGER_TOOLS: Readonly<Record<string, TOOL_ACTION>> = {
   drawBezier: PCB_ACTIONS.drawBezier,
   placePoint: PCB_ACTIONS.placePoint,
   drawTable: PCB_ACTIONS.drawTable,
+  placeReferenceImage: PCB_ACTIONS.placeReferenceImage,
 };
 
 // Friendly names for the "Current Tool" status-bar field (field 6), shown while
@@ -2778,6 +2779,28 @@ export function PcbEditor({
       showUnusedPadLayersDialog: (aDialog) => setUnusedPadsDlg(aDialog),
       showGlobalEditTracksAndViasDialog: (aDialog) => setEditTvDlg(aDialog),
       showGlobalEditTextAndGraphicsDialog: (aDialog) => setEditTgDlg(aDialog),
+      // The "Choose Image" dialog: a file input, read as bytes. Cancel answers
+      // null (the input's `cancel` event), which leaves the tool armed, as
+      // upstream's `continue` does.
+      showImageFileDialog: () =>
+        new Promise<Uint8Array | null>((resolve) => {
+          const input = document.createElement('input');
+          input.type = 'file';
+          input.accept = 'image/*';
+          input.addEventListener('cancel', () => resolve(null));
+          input.onchange = (): void => {
+            const file = input.files?.[0];
+            if (!file) {
+              resolve(null);
+              return;
+            }
+            void file.arrayBuffer().then(
+              (b) => resolve(new Uint8Array(b)),
+              () => resolve(null),
+            );
+          };
+          input.click();
+        }),
       showTablePropertiesDialog: (aDialog) =>
         new Promise<boolean>((resolve) =>
           setTablePropsDlg({ dialog: aDialog, table: aDialog.GetTable(), resolve }),

@@ -117,6 +117,9 @@ import {
 import { DIM_ARROW_DIRECTION } from '../pcb_dimension_types.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { PCB_POINT } from '../pcb_point.js';
+import { PCB_REFERENCE_IMAGE } from '../pcb_reference_image.js';
+import { IS_MOVING } from '@ziroeda/common/eda_item_flags.js';
+import { DisplayErrorMessage } from '@ziroeda/common/confirm.js';
 import { PCB_TABLE } from '../pcb_table.js';
 import { PCB_TABLECELL } from '../pcb_tablecell.js';
 import { BEZIER_ASSISTANT } from '@ziroeda/common/preview_items/bezier_assistant.js';
@@ -1499,6 +1502,209 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
         controls.SetAutoPan(false);
         controls.CaptureCursor(false);
         this.m_frame!.GetCanvas()!.SetCurrentCursor(KICURSOR.ARROW);
+        return 0;
+      }.bind(this),
+    );
+  }
+
+  *PlaceReferenceImage(aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+    return yield* this.scoped(
+      DRAWING_MODE.IMAGE,
+      function* (this: DRAWING_TOOL) {
+        let image = aEvent.Parameter<PCB_REFERENCE_IMAGE | null>() ?? null;
+        const immediateMode = image !== null;
+        const grid = new PCB_GRID_HELPER(this.m_toolMgr!, this.m_frame!.GetMagneticItemsSettings());
+        let ignorePrimePosition = false;
+        const common_settings = Pgm().GetCommonSettings();
+        const controls = this.m_controls!;
+
+        let cursorPos: VECTOR2I = controls.GetCursorPosition();
+        const selectionTool = this.m_toolMgr!.FindTool(
+          'common.InteractiveSelection',
+        ) as unknown as PCB_SELECTION_TOOL;
+        const commit = new BOARD_COMMIT(this.m_frame!);
+
+        this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
+
+        // Add all the drawable symbols to preview
+        if (image) {
+          image.SetPosition(cursorPos);
+          this.m_view!.ClearPreview();
+          this.m_view!.AddToPreview(image, false); // Add, but not give ownership
+        }
+
+        this.m_frame!.PushTool(aEvent);
+
+        const setCursor = (): void => {
+          if (image) this.m_frame!.GetCanvas()!.SetCurrentCursor(KICURSOR.MOVING);
+          else this.m_frame!.GetCanvas()!.SetCurrentCursor(KICURSOR.ARROW);
+        };
+
+        const cleanup = (): void => {
+          this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
+          this.m_view!.ClearPreview();
+          this.m_view!.RecacheAllItems();
+          image = null;
+        };
+
+        this.Activate();
+
+        // Must be done after Activate() so that it gets set into the correct context
+        controls.ShowCursor(true);
+
+        // Set initial cursor
+        setCursor();
+
+        // Prime the pump
+        if (image) {
+          this.m_toolMgr!.PostAction(ACTIONS.refreshPreview);
+        } else if (aEvent.HasPosition()) {
+          this.m_toolMgr!.PrimeTool(aEvent.Position());
+        } else if ((common_settings?.m_Input.immediate_actions ?? true) && !aEvent.IsReactivate()) {
+          this.m_toolMgr!.PrimeTool({ x: 0, y: 0 });
+          ignorePrimePosition = true;
+        }
+
+        // Main loop: keep receiving events
+        for (let evt = yield* this.Wait(); evt; evt = yield* this.Wait()) {
+          setCursor();
+
+          grid.SetSnap(!evt.Modifier(MD_SHIFT));
+          grid.SetUseGrid(
+            this.getView()!.GetGAL()!.GetGridSnapping() && !evt.DisableGridSnapping(),
+          );
+          cursorPos = GetClampedCoords(
+            grid.BestSnapAnchor(
+              controls.GetMousePosition(),
+              new LSET([this.m_frame!.GetActiveLayer()]),
+              GRID_HELPER_GRIDS.GRID_GRAPHICS,
+            ),
+            DRAWING_COORDS_PADDING,
+          );
+          controls.ForceCursorPosition(true, cursorPos);
+
+          if (evt.IsCancelInteractive() || (image && evt.IsAction(ACTIONS.undo))) {
+            if (image) {
+              cleanup();
+            } else {
+              this.m_frame!.PopTool(aEvent);
+              break;
+            }
+
+            if (immediateMode) {
+              this.m_frame!.PopTool(aEvent);
+              break;
+            }
+          } else if (evt.IsActivate()) {
+            if (image && evt.IsMoveTool()) {
+              // We're already moving our own item; ignore the move tool
+              evt.SetPassEvent(false);
+              continue;
+            }
+
+            if (image) {
+              (this.m_frame as unknown as { ShowInfoBarMsg?(aMsg: string): void }).ShowInfoBarMsg?.(
+                'Press <ESC> to cancel image creation.',
+              );
+              evt.SetPassEvent(false);
+              continue;
+            }
+
+            if (evt.IsMoveTool()) {
+              // Leave ourselves on the stack so we come back after the move
+              break;
+            } else {
+              this.m_frame!.PopTool(aEvent);
+              break;
+            }
+          } else if (evt.IsClick(BUT_LEFT) || evt.IsDblClick(BUT_LEFT)) {
+            if (!image) {
+              this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
+
+              // wxFileDialog( m_frame, _( "Choose Image" ), ..., ImageFileWildcard(), wxFD_OPEN ):
+              // the bytes of the file chosen, or null for Cancel.
+              const data = yield* this.RunMainStackModal(() => this.m_frame!.ShowImageFileDialog());
+
+              if (!data) continue;
+
+              // If we started with a hotkey which has a position then warp back to that.
+              // Otherwise update to the current mouse position pinned inside the autoscroll
+              // boundaries.
+              if (evt.IsPrime() && !ignorePrimePosition) {
+                cursorPos = grid.Align(evt.Position());
+                this.getViewControls()!.WarpMouseCursor(cursorPos, true);
+              } else {
+                controls.PinCursorInsideNonAutoscrollArea(true);
+                cursorPos = controls.GetMousePosition();
+              }
+
+              cursorPos = controls.GetMousePosition(true);
+
+              const newImage = new PCB_REFERENCE_IMAGE(
+                this.m_frame!.GetModel() as unknown as BOARD_ITEM,
+                cursorPos,
+              );
+
+              if (!newImage.GetReferenceImage().ReadImageFile(data)) {
+                DisplayErrorMessage('Could not load image.');
+                continue;
+              }
+
+              image = newImage;
+              image.SetFlags(IS_NEW | IS_MOVING);
+              image.SetLayer(this.m_frame!.GetActiveLayer());
+
+              this.m_view!.ClearPreview();
+              this.m_view!.AddToPreview(image, false); // Add, but not give ownership
+              this.m_view!.RecacheAllItems(); // Bitmaps are cached in Opengl
+              selectionTool.AddItemToSel(image, false);
+
+              controls.SetCursorPosition(cursorPos, false);
+              setCursor();
+              this.m_view!.ShowPreview(true);
+            } else {
+              commit.Add(image);
+              commit.Push('Place Image');
+
+              this.m_toolMgr!.RunAction(ACTIONS.selectItem, image);
+
+              image = null;
+              this.m_toolMgr!.PostAction(ACTIONS.activatePointEditor);
+
+              this.m_view!.ClearPreview();
+
+              if (immediateMode) {
+                this.m_frame!.PopTool(aEvent);
+                break;
+              }
+            }
+          } else if (evt.IsClick(BUT_RIGHT)) {
+            // Warp after context menu only if dragging...
+            if (!image) this.m_toolMgr!.VetoContextMenuMouseWarp();
+
+            this.m_menu.ShowContextMenu(selectionTool.GetSelection());
+          } else if (image && (evt.IsAction(ACTIONS.refreshPreview) || evt.IsMotion())) {
+            image.SetPosition(cursorPos);
+            this.m_view!.ClearPreview();
+            this.m_view!.AddToPreview(image, false); // Add, but not give ownership
+            this.m_view!.RecacheAllItems(); // Bitmaps are cached in Opengl
+          } else if (image && evt.IsAction(ACTIONS.doDelete)) {
+            cleanup();
+          } else if (image && (IsZoneFillAction(evt) || evt.IsAction(ACTIONS.redo))) {
+            wxBell();
+          } else {
+            evt.SetPassEvent();
+          }
+
+          // Enable autopanning and cursor capture only when there is an image to be placed
+          controls.SetAutoPan(image !== null);
+          controls.CaptureCursor(image !== null);
+        }
+
+        controls.SetAutoPan(false);
+        controls.CaptureCursor(false);
+        this.m_frame!.GetCanvas()!.SetCurrentCursor(KICURSOR.ARROW);
+
         return 0;
       }.bind(this),
     );
@@ -3018,6 +3224,7 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
     this.Go(S(this.DrawBezier), PCB_ACTIONS.drawBezier.MakeEvent());
     this.Go(S(this.PlacePoint), PCB_ACTIONS.placePoint.MakeEvent());
     this.Go(S(this.DrawTable), PCB_ACTIONS.drawTable.MakeEvent());
+    this.Go(S(this.PlaceReferenceImage), PCB_ACTIONS.placeReferenceImage.MakeEvent());
     // TRANSITIONAL: the remaining handlers are bound as they are ported.
   }
 }

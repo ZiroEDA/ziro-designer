@@ -32,6 +32,9 @@ import { DIALOG_RULE_AREA_PROPERTIES } from '@ziroeda/pcbnew/dialogs/dialog_rule
 import { DIALOG_COPPER_ZONE } from '@ziroeda/pcbnew/dialogs/panel_zone_properties.js';
 import type { ZONE } from '@ziroeda/pcbnew/zone.js';
 import type { PCB_TABLE } from '@ziroeda/pcbnew/pcb_table.js';
+import type { PCB_REFERENCE_IMAGE } from '@ziroeda/pcbnew/pcb_reference_image.js';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import {
   PCB_DIMENSION_BASE,
   type PCB_DIM_ALIGNED,
@@ -72,7 +75,14 @@ let zoneDialogOk = true;
 /** The table dialog's answer. */
 let tableDialogOk = true;
 
+/** The image file dialog's answer: a fixture PNG's bytes, or null for Cancel. */
+let imageFile: Uint8Array | null = null;
+
 class TEXT_FRAME extends TEST_PCB_FRAME {
+  override ShowImageFileDialog(): Promise<Uint8Array | null> {
+    return Promise.resolve(imageFile);
+  }
+
   override ShowTablePropertiesDialog(): Promise<boolean> {
     return Promise.resolve(tableDialogOk);
   }
@@ -112,6 +122,7 @@ beforeEach(() => {
   zoneDialogs = [];
   zoneDialogOk = true;
   tableDialogOk = true;
+  imageFile = null;
   h.frame.SetActiveLayer(PCB_LAYER_ID.F_SilkS);
   h.mgr.ResetTools(RESET_REASON.MODEL_RELOAD);
 });
@@ -856,5 +867,60 @@ describe('DRAWING_TOOL::DrawTable (drawing_tool.cpp:1186-1415)', () => {
     esc();
     expect(tool.GetDrawingMode()).toBe(DRAWING_MODE.NONE);
     expect(tables()).toHaveLength(0);
+  });
+});
+
+describe('DRAWING_TOOL::PlaceReferenceImage (drawing_tool.cpp:623-872)', () => {
+  const flush = async (): Promise<void> => {
+    for (let i = 0; i < 4; i++) await new Promise((r) => setTimeout(r, 0));
+  };
+  const images = (): PCB_REFERENCE_IMAGE[] =>
+    h.board
+      .Drawings()
+      .filter(
+        (d) => d.Type() === KICAD_T.PCB_REFERENCE_IMAGE_T,
+      ) as unknown as PCB_REFERENCE_IMAGE[];
+  const png = (): Uint8Array =>
+    new Uint8Array(
+      readFileSync(
+        fileURLToPath(new URL('../../../fixtures/png/rgb8_100dpi.png', import.meta.url)),
+      ),
+    );
+
+  it('the file dialog first, the image rides the cursor, a click places it (:728-819)', async () => {
+    imageFile = png();
+    h.mouse = mm(20, 20);
+    start(PCB_ACTIONS.placeReferenceImage);
+    await flush();
+    // It rides from the cursor it was chosen at (:748-760)...
+    const riding = h.sel.GetSelection().GetItems()[0] as unknown as PCB_REFERENCE_IMAGE;
+    expect(riding.GetPosition()).toEqual(mm(20, 20));
+    // ...and follows it (:842-848).
+    move(mm(50, 50));
+    click(mm(50, 50));
+    expect(images()).toHaveLength(1);
+    const im = images()[0]!;
+    expect(im.GetPosition()).toEqual(mm(50, 50));
+    expect(im.GetLayer()).toBe(PCB_LAYER_ID.F_SilkS);
+    expect(im.IsSelected()).toBe(true);
+  });
+
+  it('Cancel in the file dialog leaves the tool armed (:742-743)', async () => {
+    imageFile = null;
+    start(PCB_ACTIONS.placeReferenceImage);
+    await flush();
+    expect(images()).toHaveLength(0);
+    expect(tool.GetDrawingMode()).toBe(DRAWING_MODE.IMAGE);
+  });
+
+  it('Esc drops a riding image; a second Esc leaves (:704-713)', async () => {
+    imageFile = png();
+    start(PCB_ACTIONS.placeReferenceImage);
+    await flush();
+    esc();
+    expect(tool.GetDrawingMode()).toBe(DRAWING_MODE.IMAGE);
+    esc();
+    expect(tool.GetDrawingMode()).toBe(DRAWING_MODE.NONE);
+    expect(images()).toHaveLength(0);
   });
 });

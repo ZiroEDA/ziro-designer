@@ -303,6 +303,8 @@ export interface PCB_EDIT_FRAME_HOOKS {
   createDrcDialog(aTool: DRC_TOOL, aParent: unknown): DIALOG_DRC_LIKE;
   /** `Kiface().IsSingle()`: no schematic to test parity against. */
   isSingle(): boolean;
+  /** The "Choose Image" file dialog: the bytes chosen, or null for Cancel. */
+  showImageFileDialog?(): Promise<Uint8Array | null>;
   /** DIALOG_TABLE_PROPERTIES on a live table, new or not; true when OK closed it. */
   showTablePropertiesDialog?(aDialog: DIALOG_TABLE_PROPERTIES): Promise<boolean>;
   /** A zone's properties dialog on a ZONE_SETTINGS alone; true when OK closed it. */
@@ -828,6 +830,10 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
    */
   ShowTableCellPropertiesDialog(_aCells: PCB_TABLECELL[]): Promise<boolean> {
     return Promise.resolve(true);
+  }
+
+  override ShowImageFileDialog(): Promise<Uint8Array | null> {
+    return this.hooks.showImageFileDialog?.() ?? Promise.resolve(null);
   }
 
   /** `DIALOG_TABLE_PROPERTIES( frame, table ).ShowQuasiModal() == wxID_OK`, on the live table. */
