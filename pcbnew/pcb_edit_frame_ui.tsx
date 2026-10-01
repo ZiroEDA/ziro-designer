@@ -658,6 +658,7 @@ import { DialogGlobalDeletion } from './dialogs/dialog_global_deletion_ui.js';
 import { DialogGlobalEditTracksAndVias } from './dialogs/dialog_global_edit_tracks_and_vias_ui.js';
 import { DialogExchangeFootprints } from './dialogs/dialog_exchange_footprints_ui.js';
 import { DialogNonCopperZonesProperties } from './dialogs/dialog_non_copper_zones_properties_ui.js';
+import type { PCB_TABLE } from './pcb_table.js';
 import type { DIALOG_NON_COPPER_ZONES_EDITOR } from './dialogs/dialog_non_copper_zones_properties.js';
 import type { DIALOG_EXCHANGE_FOOTPRINTS } from './dialogs/dialog_exchange_footprints.js';
 import {
@@ -1111,6 +1112,7 @@ const TOOL_MANAGER_TOOLS: Readonly<Record<string, TOOL_ACTION>> = {
   drawVia: PCB_ACTIONS.drawVia,
   drawBezier: PCB_ACTIONS.drawBezier,
   placePoint: PCB_ACTIONS.placePoint,
+  drawTable: PCB_ACTIONS.drawTable,
 };
 
 // Friendly names for the "Current Tool" status-bar field (field 6), shown while
@@ -2776,6 +2778,10 @@ export function PcbEditor({
       showUnusedPadLayersDialog: (aDialog) => setUnusedPadsDlg(aDialog),
       showGlobalEditTracksAndViasDialog: (aDialog) => setEditTvDlg(aDialog),
       showGlobalEditTextAndGraphicsDialog: (aDialog) => setEditTgDlg(aDialog),
+      showTablePropertiesDialog: (aDialog) =>
+        new Promise<boolean>((resolve) =>
+          setTablePropsDlg({ dialog: aDialog, table: aDialog.GetTable(), resolve }),
+        ),
       showZoneSettingsDialog: (aDialog) =>
         new Promise<boolean>((resolve) => setZoneSettingsDlg({ dialog: aDialog, resolve })),
       showTextPropertiesDialog: (aDialog) =>
@@ -3050,7 +3056,21 @@ export function PcbEditor({
   const [dimensionPropsIndex, setDimensionPropsIndex] = useState<number | null>(null);
   const [textBoxPropsIndex, setTextBoxPropsIndex] = useState<number | null>(null);
   const [imagePropsIndex, setImagePropsIndex] = useState<number | null>(null);
-  const [tablePropsIndex, setTablePropsIndex] = useState<number | null>(null);
+  /**
+   * DIALOG_TABLE_PROPERTIES on a live PCB_TABLE: the board's own, or
+   * DRAWING_TOOL::DrawTable's new one, which waits on `resolve`.
+   */
+  const [tablePropsDlg, setTablePropsDlg] = useState<{
+    dialog: DIALOG_TABLE_PROPERTIES;
+    table: PCB_TABLE;
+    resolve?: (aOk: boolean) => void;
+  } | null>(null);
+  /** Properties on the view board's table `aIndex`. */
+  const setTablePropsIndex = useCallback((aIndex: number | null): void => {
+    const k = aIndex === null ? undefined : boardRef.current?.tables[aIndex]?.k;
+    const f = frameRef.current;
+    setTablePropsDlg(k && f ? { dialog: new DIALOG_TABLE_PROPERTIES(f, k), table: k } : null);
+  }, []);
   /**
    * A text box drawn but not yet confirmed. Upstream opens the properties
    * dialog straight after the second click and throws the box away if it is
@@ -9230,7 +9250,7 @@ export function PcbEditor({
 
     const fi = footprintAt(brd, sel);
     if (fi !== null) setFpPropsIndex(fi);
-  }, [setTextPropsIndex]);
+  }, [setTablePropsIndex, setTextPropsIndex]);
   /** DIALOG_TRACK_VIA_PROPERTIES::TransferDataFromWindow. */
   const applyTrackViaEdit = useCallback(
     (values: TrackViaValues) => {
@@ -9269,16 +9289,15 @@ export function PcbEditor({
   /** DIALOG_TABLE_PROPERTIES::TransferDataFromWindow. */
   const applyTableEdit = useCallback(
     (values: TableValues) => {
-      const brd = boardRef.current;
-      const index = tablePropsIndex;
-      setTablePropsIndex(null);
-      const frame = frameRef.current;
-      const k = index === null ? undefined : brd?.tables[index]?.k;
-      if (!frame || !k) return;
-      // DIALOG_TABLE_PROPERTIES on the live PCB_TABLE: one BOARD_COMMIT.
-      new DIALOG_TABLE_PROPERTIES(frame, k).TransferDataFromWindow(values);
+      const d = tablePropsDlg;
+      setTablePropsDlg(null);
+      if (!d) return;
+      // On the live PCB_TABLE: one BOARD_COMMIT, or none for a new table (IS_NEW),
+      // which its tool commits.
+      const r = d.dialog.TransferDataFromWindow(values);
+      d.resolve?.(r.ok);
     },
-    [tablePropsIndex],
+    [tablePropsDlg],
   );
 
   /** DIALOG_TEXTBOX_PROPERTIES::TransferDataFromWindow. */
@@ -13197,17 +13216,20 @@ export function PcbEditor({
           onClose={() => setPendingTextBox(null)}
         />
       )}
-      {tablePropsIndex !== null && board?.tables[tablePropsIndex]?.k && frameRef.current && (
+      {tablePropsDlg && (
         <DialogTableProperties<TableValues>
-          initial={new DIALOG_TABLE_PROPERTIES(
-            frameRef.current!,
-            board.tables[tablePropsIndex]!.k!,
-          ).TransferDataToWindow()}
+          initial={tablePropsDlg.dialog.TransferDataToWindow()}
           iuScale={pcbIUScale}
-          columnWidths={board.tables[tablePropsIndex]!.columnWidths}
+          columnWidths={Array.from({ length: tablePropsDlg.table.GetColCount() }, (_, i) =>
+            tablePropsDlg.table.GetColWidth(i),
+          )}
+          isNew={tablePropsDlg.table.IsNew()}
           header={tableDialogHeader}
           onOk={applyTableEdit}
-          onCancel={() => setTablePropsIndex(null)}
+          onCancel={() => {
+            tablePropsDlg.resolve?.(false);
+            setTablePropsDlg(null);
+          }}
         />
       )}
       {textBoxPropsIndex !== null && board?.textBoxes[textBoxPropsIndex]?.k && frameRef.current && (

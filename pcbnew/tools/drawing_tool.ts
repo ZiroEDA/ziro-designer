@@ -117,6 +117,8 @@ import {
 import { DIM_ARROW_DIRECTION } from '../pcb_dimension_types.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { PCB_POINT } from '../pcb_point.js';
+import { PCB_TABLE } from '../pcb_table.js';
+import { PCB_TABLECELL } from '../pcb_tablecell.js';
 import { BEZIER_ASSISTANT } from '@ziroeda/common/preview_items/bezier_assistant.js';
 import { ACTION_MENU } from '@ziroeda/common/tool/action_menu.js';
 import { BITMAPS } from '@ziroeda/common/bitmaps/bitmaps_list.js';
@@ -645,6 +647,8 @@ export enum DRAWING_MODE {
   TUNING,
   BEZIER,
   POINT,
+  TABLE,
+  BARCODE,
 }
 
 /** `DRAWING_TOOL::DRAW_ONE_RESULT`: how one bezier ended. */
@@ -1302,6 +1306,199 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
           INTERACTIVE_PLACEMENT_OPTIONS.IPO_REPEAT | INTERACTIVE_PLACEMENT_OPTIONS.IPO_SINGLE_CLICK,
         );
 
+        return 0;
+      }.bind(this),
+    );
+  }
+
+  *DrawTable(aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+    return yield* this.scoped(
+      DRAWING_MODE.TABLE,
+      function* (this: DRAWING_TOOL) {
+        let table: PCB_TABLE | null = null;
+        const bds = this.m_frame!.GetDesignSettings();
+        const commit = new BOARD_COMMIT(this.m_frame!);
+        const grid = new PCB_GRID_HELPER(this.m_toolMgr!, this.m_frame!.GetMagneticItemsSettings());
+        const controls = this.m_controls!;
+
+        // We might be running as the same shape in another co-routine.  Make sure that one
+        // gets whacked.
+        this.m_toolMgr!.DeactivateTool();
+
+        const setCursor = (): void => {
+          if (table) this.m_frame!.GetCanvas()!.SetCurrentCursor(KICURSOR.MOVING);
+          else this.m_frame!.GetCanvas()!.SetCurrentCursor(KICURSOR.PENCIL);
+        };
+
+        const cleanup = (): void => {
+          this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
+          controls.ForceCursorPosition(false);
+          controls.ShowCursor(true);
+          controls.SetAutoPan(false);
+          controls.CaptureCursor(false);
+          table = null;
+        };
+
+        this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
+
+        this.m_frame!.PushTool(aEvent);
+
+        this.Activate();
+        // Must be done after Activate() so that it gets set into the correct context
+        controls.ShowCursor(true);
+        controls.ForceCursorPosition(false);
+        // Set initial cursor
+        setCursor();
+
+        if (aEvent.HasPosition()) this.m_toolMgr!.PrimeTool(aEvent.Position());
+
+        // Main loop: keep receiving events
+        for (let evt = yield* this.Wait(); evt; evt = yield* this.Wait()) {
+          setCursor();
+          grid.SetSnap(!evt.Modifier(MD_SHIFT));
+          grid.SetUseGrid(
+            this.getView()!.GetGAL()!.GetGridSnapping() && !evt.DisableGridSnapping(),
+          );
+          const cursorPos = GetClampedCoords(
+            grid.BestSnapAnchor(
+              controls.GetMousePosition(),
+              new LSET([this.m_frame!.GetActiveLayer()]),
+              GRID_HELPER_GRIDS.GRID_TEXT,
+            ),
+            DRAWING_COORDS_PADDING,
+          );
+          controls.ForceCursorPosition(true, cursorPos);
+
+          if (evt.IsDrag()) {
+            continue;
+          } else if (evt.IsCancelInteractive() || (table && evt.IsAction(ACTIONS.undo))) {
+            if (table) {
+              cleanup();
+            } else {
+              this.m_frame!.PopTool(aEvent);
+              break;
+            }
+          } else if (evt.IsActivate()) {
+            if (table) cleanup();
+
+            if (evt.IsMoveTool()) {
+              // leave ourselves on the stack so we come back after the move
+              break;
+            } else {
+              this.m_frame!.PopTool(aEvent);
+              break;
+            }
+          } else if (evt.IsClick(BUT_RIGHT)) {
+            // Warp after context menu only if dragging...
+            if (!table) this.m_toolMgr!.VetoContextMenuMouseWarp();
+
+            this.m_menu.ShowContextMenu(this.selection());
+          } else if (evt.IsClick(BUT_LEFT)) {
+            if (!table) {
+              this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
+
+              const layer = this.m_frame!.GetActiveLayer();
+
+              const t = new PCB_TABLE(
+                this.m_frame!.GetModel() as unknown as BOARD_ITEM,
+                bds.GetLineThickness(layer),
+              );
+              t.SetFlags(IS_NEW);
+              t.SetLayer(layer);
+              t.SetColCount(1);
+              t.AddCell(new PCB_TABLECELL(t));
+
+              t.SetLayer(layer);
+              t.SetPosition(cursorPos);
+              table = t;
+
+              if (!this.m_view!.IsLayerVisible(layer)) {
+                this.m_frame!.GetAppearancePanel()?.SetLayerVisible?.(layer, true);
+                this.m_frame!.GetCanvas()!.Refresh();
+              }
+
+              this.m_toolMgr!.RunAction(ACTIONS.selectItem, t);
+              this.m_view!.Update(this.selection());
+
+              // update the cursor so it looks correct before another event
+              setCursor();
+            } else {
+              const t: PCB_TABLE = table;
+              this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
+
+              t.Normalize();
+
+              // QuasiModal required for Scintilla auto-complete
+              const ok = yield* this.RunMainStackModal(() =>
+                this.m_frame!.ShowTablePropertiesDialog(t),
+              );
+              const cancelled = ok !== true;
+
+              if (!cancelled) {
+                commit.Add(t, this.m_frame!.GetScreen());
+                commit.Push('Draw Table');
+
+                this.m_toolMgr!.RunAction(ACTIONS.selectItem, t);
+                this.m_toolMgr!.PostAction(ACTIONS.activatePointEditor);
+              }
+
+              table = null;
+            }
+          } else if (table && (evt.IsAction(ACTIONS.refreshPreview) || evt.IsMotion())) {
+            const t: PCB_TABLE = table;
+            const fontSize = bds.GetTextSize(t.GetLayer());
+            const gridSize = grid.GetGridSize(grid.GetItemGrid(t));
+            const origin = t.GetPosition();
+            const requestedSize = sub(cursorPos, origin);
+
+            const colCount = Math.max(1, Math.trunc(requestedSize.x / (fontSize.x * 15)));
+            const rowCount = Math.max(1, Math.trunc(requestedSize.y / (fontSize.y * 3)));
+
+            const cellSize = {
+              x: Math.max(fontSize.x * 5, Math.trunc(requestedSize.x / colCount)),
+              y: Math.max(fontSize.y * 3, Math.trunc(requestedSize.y / rowCount)),
+            };
+
+            cellSize.x = KiROUND(cellSize.x / gridSize.x) * gridSize.x;
+            cellSize.y = KiROUND(cellSize.y / gridSize.y) * gridSize.y;
+
+            t.ClearCells();
+            t.SetColCount(colCount);
+
+            for (let col = 0; col < colCount; ++col) t.SetColWidth(col, cellSize.x);
+
+            for (let row = 0; row < rowCount; ++row) {
+              t.SetRowHeight(row, cellSize.y);
+
+              for (let col = 0; col < colCount; ++col) {
+                const cell = new PCB_TABLECELL(t);
+                cell.SetPosition(add(origin, { x: col * cellSize.x, y: row * cellSize.y }));
+                cell.SetEnd(add(cell.GetPosition(), cellSize));
+                t.AddCell(cell);
+              }
+            }
+
+            this.selection().SetReferencePoint(cursorPos);
+            this.m_view!.Update(this.selection());
+            this.m_frame!.SetMsgPanel(t);
+          } else if (table && evt.IsAction(PCB_ACTIONS.properties)) {
+            onEditItemRequest(this.m_frame!, table);
+            this.m_view!.Update(this.selection());
+            this.m_frame!.SetMsgPanel(table);
+          } else if (table && (IsZoneFillAction(evt) || evt.IsAction(ACTIONS.redo))) {
+            wxBell();
+          } else {
+            evt.SetPassEvent();
+          }
+
+          // Enable autopanning and cursor capture only when there is a shape being drawn
+          controls.SetAutoPan(table !== null);
+          controls.CaptureCursor(table !== null);
+        }
+
+        controls.SetAutoPan(false);
+        controls.CaptureCursor(false);
+        this.m_frame!.GetCanvas()!.SetCurrentCursor(KICURSOR.ARROW);
         return 0;
       }.bind(this),
     );
@@ -2820,6 +3017,7 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
     this.Go(S(this.DrawVia), PCB_ACTIONS.drawVia.MakeEvent());
     this.Go(S(this.DrawBezier), PCB_ACTIONS.drawBezier.MakeEvent());
     this.Go(S(this.PlacePoint), PCB_ACTIONS.placePoint.MakeEvent());
+    this.Go(S(this.DrawTable), PCB_ACTIONS.drawTable.MakeEvent());
     // TRANSITIONAL: the remaining handlers are bound as they are ported.
   }
 }

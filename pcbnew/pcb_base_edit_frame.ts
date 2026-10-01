@@ -14,6 +14,7 @@
  */
 import type { GAL_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import type { DIALOG_TEXT_PROPERTIES } from './dialogs/dialog_text_properties.js';
+import type { PCB_TABLE } from './pcb_table.js';
 import type { DIALOG_COPPER_ZONE } from './dialogs/panel_zone_properties.js';
 import type { DIALOG_NON_COPPER_ZONES_EDITOR } from './dialogs/dialog_non_copper_zones_properties.js';
 import type { DIALOG_RULE_AREA_PROPERTIES } from './dialogs/dialog_rule_area_properties.js';
@@ -122,6 +123,14 @@ export abstract class PCB_BASE_EDIT_FRAME extends PCB_BASE_FRAME {
   ShowZoneSettingsDialog(
     _aDialog: DIALOG_COPPER_ZONE | DIALOG_NON_COPPER_ZONES_EDITOR | DIALOG_RULE_AREA_PROPERTIES,
   ): Promise<boolean> {
+    return Promise.resolve(false);
+  }
+
+  /**
+   * `DIALOG_TABLE_PROPERTIES dlg( frame, table ); dlg.ShowQuasiModal() == wxID_OK`.
+   * Cancel without a window.
+   */
+  ShowTablePropertiesDialog(_aTable: PCB_TABLE): Promise<boolean> {
     return Promise.resolve(false);
   }
 

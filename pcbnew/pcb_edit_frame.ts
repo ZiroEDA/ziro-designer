@@ -137,6 +137,7 @@ import { PCB_GROUP_TOOL } from './tools/pcb_group_tool.js';
 import { DRAWING_TOOL } from './tools/drawing_tool.js';
 import type { TOOL_EVENT } from '@ziroeda/common/tool/tool_event.js';
 import type { DIALOG_TEXT_PROPERTIES } from './dialogs/dialog_text_properties.js';
+import { DIALOG_TABLE_PROPERTIES } from './dialogs/dialog_table_properties.js';
 import type { DIALOG_NON_COPPER_ZONES_EDITOR } from './dialogs/dialog_non_copper_zones_properties.js';
 import type { DIALOG_COPPER_ZONE } from './dialogs/panel_zone_properties.js';
 import type { DIALOG_RULE_AREA_PROPERTIES } from './dialogs/dialog_rule_area_properties.js';
@@ -302,6 +303,8 @@ export interface PCB_EDIT_FRAME_HOOKS {
   createDrcDialog(aTool: DRC_TOOL, aParent: unknown): DIALOG_DRC_LIKE;
   /** `Kiface().IsSingle()`: no schematic to test parity against. */
   isSingle(): boolean;
+  /** DIALOG_TABLE_PROPERTIES on a live table, new or not; true when OK closed it. */
+  showTablePropertiesDialog?(aDialog: DIALOG_TABLE_PROPERTIES): Promise<boolean>;
   /** A zone's properties dialog on a ZONE_SETTINGS alone; true when OK closed it. */
   showZoneSettingsDialog?(
     aDialog: DIALOG_COPPER_ZONE | DIALOG_NON_COPPER_ZONES_EDITOR | DIALOG_RULE_AREA_PROPERTIES,
@@ -827,10 +830,12 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     return Promise.resolve(true);
   }
 
-  /** `DIALOG_TABLE_PROPERTIES( frame, table ).ShowQuasiModal()`: the table's edit request. */
-  ShowTablePropertiesDialog(aTable: PCB_TABLE): Promise<void> {
-    this.OnEditItemRequest(aTable);
-    return Promise.resolve();
+  /** `DIALOG_TABLE_PROPERTIES( frame, table ).ShowQuasiModal() == wxID_OK`, on the live table. */
+  override ShowTablePropertiesDialog(aTable: PCB_TABLE): Promise<boolean> {
+    return (
+      this.hooks.showTablePropertiesDialog?.(new DIALOG_TABLE_PROPERTIES(this, aTable)) ??
+      Promise.resolve(false)
+    );
   }
 
   // ---- CONVERT_TOOL's window half (CONVERT_TOOL_FRAME) ---------------------

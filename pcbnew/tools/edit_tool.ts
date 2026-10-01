@@ -153,8 +153,8 @@ export interface EDIT_TOOL_FRAME {
    * returned TABLECELL_PROPS_EDIT_TABLE.
    */
   ShowTableCellPropertiesDialog(aCells: PCB_TABLECELL[]): Promise<boolean>;
-  /** `DIALOG_TABLE_PROPERTIES( frame, table ).ShowQuasiModal()`. */
-  ShowTablePropertiesDialog(aTable: PCB_TABLE): Promise<void>;
+  /** `DIALOG_TABLE_PROPERTIES( frame, table ).ShowQuasiModal() == wxID_OK`. */
+  ShowTablePropertiesDialog(aTable: PCB_TABLE): Promise<boolean>;
   /** `DIALOG_GET_FOOTPRINT_BY_NAME( frame, fplist ).ShowModal()`: the value, or null. */
   ShowGetFootprintByNameDialog(aList: string[]): Promise<string | null>;
   /**

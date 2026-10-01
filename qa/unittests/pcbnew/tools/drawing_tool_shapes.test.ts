@@ -31,6 +31,7 @@ import { DIALOG_NON_COPPER_ZONES_EDITOR } from '@ziroeda/pcbnew/dialogs/dialog_n
 import { DIALOG_RULE_AREA_PROPERTIES } from '@ziroeda/pcbnew/dialogs/dialog_rule_area_properties.js';
 import { DIALOG_COPPER_ZONE } from '@ziroeda/pcbnew/dialogs/panel_zone_properties.js';
 import type { ZONE } from '@ziroeda/pcbnew/zone.js';
+import type { PCB_TABLE } from '@ziroeda/pcbnew/pcb_table.js';
 import {
   PCB_DIMENSION_BASE,
   type PCB_DIM_ALIGNED,
@@ -68,7 +69,14 @@ let dialogText: string | null = 'HELLO';
 let zoneDialogs: unknown[] = [];
 let zoneDialogOk = true;
 
+/** The table dialog's answer. */
+let tableDialogOk = true;
+
 class TEXT_FRAME extends TEST_PCB_FRAME {
+  override ShowTablePropertiesDialog(): Promise<boolean> {
+    return Promise.resolve(tableDialogOk);
+  }
+
   override ShowZoneSettingsDialog(aDialog: unknown): Promise<boolean> {
     zoneDialogs.push(aDialog);
     if (!zoneDialogOk) return Promise.resolve(false);
@@ -103,6 +111,7 @@ beforeEach(() => {
   dialogText = 'HELLO';
   zoneDialogs = [];
   zoneDialogOk = true;
+  tableDialogOk = true;
   h.frame.SetActiveLayer(PCB_LAYER_ID.F_SilkS);
   h.mgr.ResetTools(RESET_REASON.MODEL_RELOAD);
 });
@@ -801,5 +810,51 @@ describe('DRAWING_TOOL::PlacePoint (drawing_tool.cpp:874-925)', () => {
       expect.arrayContaining([mm(10, 10), mm(20, 20)]),
     );
     expect(tool.GetDrawingMode()).toBe(DRAWING_MODE.POINT);
+  });
+});
+
+describe('DRAWING_TOOL::DrawTable (drawing_tool.cpp:1186-1415)', () => {
+  const flush = async (): Promise<void> => {
+    for (let i = 0; i < 4; i++) await new Promise((r) => setTimeout(r, 0));
+  };
+  const tables = (): PCB_TABLE[] =>
+    h.board.Drawings().filter((d) => d.Type() === KICAD_T.PCB_TABLE_T) as unknown as PCB_TABLE[];
+
+  it('click, drag out the grid, click: the dialog, then one table committed and selected (:1285-1352)', async () => {
+    start(PCB_ACTIONS.drawTable);
+    click(mm(10, 10));
+    // the layer's text size sets the cell: 15 characters wide, 3 lines high
+    const fs = h.board.GetDesignSettings().GetTextSize(PCB_LAYER_ID.F_SilkS);
+    const w = (fs.x * 15 * 2.5) / MM;
+    const ht = (fs.y * 3 * 2.5) / MM;
+    move(mm(10 + w, 10 + ht));
+    click(mm(10 + w, 10 + ht));
+    await flush();
+    expect(tables()).toHaveLength(1);
+    const t = tables()[0]!;
+    expect(t.GetColCount()).toBe(2);
+    expect(t.GetRowCount()).toBe(2);
+    expect(t.GetPosition()).toEqual(mm(10, 10));
+    expect(t.IsSelected()).toBe(true);
+  });
+
+  it('Cancel in the dialog draws nothing (:1323-1326)', async () => {
+    tableDialogOk = false;
+    start(PCB_ACTIONS.drawTable);
+    click(mm(10, 10));
+    move(mm(40, 30));
+    click(mm(40, 30));
+    await flush();
+    expect(tables()).toHaveLength(0);
+  });
+
+  it('Esc while sizing drops the table; a second Esc leaves (:1255-1265)', () => {
+    start(PCB_ACTIONS.drawTable);
+    click(mm(10, 10));
+    esc();
+    expect(tool.GetDrawingMode()).toBe(DRAWING_MODE.TABLE);
+    esc();
+    expect(tool.GetDrawingMode()).toBe(DRAWING_MODE.NONE);
+    expect(tables()).toHaveLength(0);
   });
 });
