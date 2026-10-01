@@ -9,6 +9,7 @@
  * (pcb_io_kicad_sexpr_parser.cpp:3642-3645) and nothing inflates them.
  */
 import { beforeEach, describe, expect, it } from 'vitest';
+import { PCB_MARKER } from '@ziroeda/pcbnew/pcb_marker.js';
 import { PCB_ACTIONS } from '@ziroeda/pcbnew/tools/pcb_actions.js';
 import { ALIGN_DISTRIBUTE_TOOL } from '@ziroeda/pcbnew/tools/align_distribute_tool.js';
 import type { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
@@ -27,9 +28,9 @@ const rect = (n: number, x0: number, y0: number, x1: number, y1: number, locked 
   `(gr_rect (start ${x0} ${y0}) (end ${x1} ${y1}) (stroke (width 0) (type solid)) (fill yes)` +
   ` (layer "F.SilkS")${locked ? ' (locked yes)' : ''} (uuid "${U(n)}"))`;
 
-const fp = (n: number, x: number, y: number, pads: number[]): string =>
+const fp = (n: number, x: number, y: number, pads: number[], refY = -3): string =>
   `(footprint "R" (layer "F.Cu") (uuid "${U(n)}") (at ${x} ${y})
-    (property "Reference" "R${n}" (at 0 -3 0) (layer "F.SilkS") (uuid "${U(n + 1)}")
+    (property "Reference" "R${n}" (at 0 ${refY} 0) (layer "F.SilkS") (uuid "${U(n + 1)}")
       (effects (font (size 1 1) (thickness 0.15))))
     ${pads
       .map(
@@ -54,18 +55,25 @@ const BOARD_TEXT = `(kicad_pcb (version 20241229) (generator "pcbnew") (generato
   ${rect(3, 90, 0, 100, 5)}
   ${rect(4, 50, 50, 60, 60, true)}
   ${fp(10, 60, 130, [12, 13])}
-  ${fp(20, 80, 140, [22])}
+  ${fp(20, 80, 140, [22], -6)}
 )
 `;
 
-type Harness = TOOL_HARNESS<TEST_PCB_FRAME>;
+class ALIGN_FRAME extends TEST_PCB_FRAME {
+  warnings: string[] = [];
+  override ShowInfoBarWarning(aMsg: string): void {
+    this.warnings.push(aMsg);
+  }
+}
+
+type Harness = TOOL_HARNESS<ALIGN_FRAME>;
 
 let h: Harness;
 
 beforeEach(() => {
   h = toolHarness(
     BOARD_TEXT,
-    (aBoard) => new TEST_PCB_FRAME(aBoard),
+    (aBoard) => new ALIGN_FRAME(aBoard),
     () => [new ALIGN_DISTRIBUTE_TOOL()],
   );
   // nowhere near any item: selectTarget's cursor preference stays out of it
@@ -177,12 +185,52 @@ describe('GetSelections (align_distribute_tool.cpp:122-197)', () => {
   it('an item whose parent is selected moves with the parent only (:247-248)', () => {
     const field = byUuid(h.board, 11);
     const before = field.GetPosition();
-    select(h, 10, 11, 20);
+    // the field first: once R10 is selected its children are flagged selected,
+    // and select() turns an already-selected item away
+    select(h, 11, 10, 20);
+    expect([...h.sel.GetSelection()].map((i) => i.GetClass())).toEqual([
+      'PCB_FIELD',
+      'FOOTPRINT',
+      'FOOTPRINT',
+    ]);
     h.mgr.RunAction(PCB_ACTIONS.alignBottom);
     // R20's pad bottom (140.5) is the target: R10 (pad bottom 130.5) moves down
     // 10 mm and its field rides with it, once - not again by its own box
     expect(byUuid(h.board, 10).GetPosition()).toEqual(mm(60, 140));
     expect(field.GetPosition().y - before.y).toBe(10 * MM);
+  });
+});
+
+describe('more GetSelections and target rules', () => {
+  it('a DRC marker is not aligned and is no target (:127-135)', () => {
+    const marker = new PCB_MARKER(null, mm(5, 5));
+    h.board.Add(marker);
+    select(h, 2, 3);
+    h.sel.AddItemToSel(marker, true);
+    h.mgr.RunAction(PCB_ACTIONS.alignLeft);
+    expect([left(2), left(3)]).toEqual([30, 30]);
+    expect(marker.GetPosition()).toEqual(mm(5, 5));
+  });
+
+  it('AlignTop without a locked item: the top-most top (:229-261)', () => {
+    select(h, 2, 1);
+    h.mgr.RunAction(PCB_ACTIONS.alignTop);
+    expect([top(1), top(2)]).toEqual([0, 0]);
+  });
+
+  it('two pads of one footprint move it once (addToList, :160-171)', () => {
+    select(h, 12, 13, 2);
+    h.mgr.RunAction(PCB_ACTIONS.alignLeft);
+    // rect 2's left (30) is the target; R10 moves by 30 - 58.5, once
+    expect(byUuid(h.board, 10).GetPosition()).toEqual(mm(31.5, 130));
+  });
+
+  it('a footprint is measured without its text (getBoundingBox, :94-98)', () => {
+    select(h, 10, 20);
+    h.mgr.RunAction(PCB_ACTIONS.alignTop);
+    // pad tops 129.5 and 139.5; the two references sit 3 and 6 mm up, so
+    // measuring with text would move R20 by 7 mm, not 10
+    expect(byUuid(h.board, 20).GetPosition()).toEqual(mm(80, 130));
   });
 });
 
@@ -230,10 +278,22 @@ describe('ALIGN_DISTRIBUTE_TOOL::DistributeItems (align_distribute_tool.cpp:449-
     expect(h.frame.GetUndoCommandCount()).toBe(0);
   });
 
-  it('a locked item stops the whole command (ReportFilteredLockedItems, :465-466)', () => {
+  it('a locked item stops the whole command, with the warning (ReportFilteredLockedItems, :465-466)', () => {
     select(h, 1, 2, 3, 4);
     h.mgr.RunAction(PCB_ACTIONS.distributeHorizontallyGaps);
     expect(left(2)).toBe(30);
     expect(h.frame.GetUndoCommandCount()).toBe(0);
+    expect(h.frame.warnings).toEqual([
+      "Selection contains locked items. Enable 'Override locks' to operate on them.",
+    ]);
+  });
+
+  it('a selected footprint child goes with its footprint (FilterCollectorForHierarchy, :455)', () => {
+    const field = byUuid(h.board, 11);
+    const offset = field.GetPosition().x - byUuid(h.board, 10).GetPosition().x;
+    select(h, 11, 10, 1, 3);
+    h.mgr.RunAction(PCB_ACTIONS.distributeHorizontallyGaps);
+    expect(byUuid(h.board, 10).GetPosition().x).not.toBe(60 * MM);
+    expect(field.GetPosition().x - byUuid(h.board, 10).GetPosition().x).toBe(offset);
   });
 });
