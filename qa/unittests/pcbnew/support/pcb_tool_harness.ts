@@ -147,6 +147,8 @@ export function harnessCanvas(
     fp.RunOnChildren((aItem: BOARD_ITEM) => view.Add(aItem), RECURSE_MODE.NO_RECURSE);
 
   frame.SetCanvas({
+    // Read lazily: the controls are built just below.
+    GetViewControls: () => controls,
     GetView: () => view,
     GetGAL: () => gal,
     SetCurrentCursor: () => {},

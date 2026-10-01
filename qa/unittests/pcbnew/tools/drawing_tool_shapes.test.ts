@@ -39,6 +39,9 @@ import {
 import { DIM_ARROW_DIRECTION } from '@ziroeda/pcbnew/pcb_dimension_types.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { sub } from '@ziroeda/kimath/src/math/vector2.js';
+import { PCB_TRACK, type PCB_VIA } from '@ziroeda/pcbnew/pcb_track.js';
+import { VIATYPE } from '@ziroeda/pcbnew/pcb_track_types.js';
+import { BOARD_COMMIT } from '@ziroeda/pcbnew/board_commit.js';
 import { DRAWING_MODE, DRAWING_TOOL } from '@ziroeda/pcbnew/tools/drawing_tool.js';
 import type { TOOL_ACTION } from '@ziroeda/common/tool/tool_action.js';
 import { PCB_ACTIONS } from '@ziroeda/pcbnew/tools/pcb_actions.js';
@@ -54,6 +57,7 @@ const BOARD_TEXT = `(kicad_pcb (version 20241229) (generator "pcbnew") (generato
   (layers (0 "F.Cu" signal) (2 "B.Cu" signal) (5 "F.SilkS" user "F.Silkscreen") (25 "Edge.Cuts" user))
   (setup (pad_to_mask_clearance 0))
   (net 0 "")
+  (net 1 "N1")
 )
 `;
 
@@ -631,5 +635,84 @@ describe('DRAWING_TOOL::DrawDimension (drawing_tool.cpp:1580-2045)', () => {
     click(mm(40, 5));
     // OUTWARD is the default (pcb_dimension.cpp), so one flip is INWARD.
     expect(dims()[0]!.GetArrowDirection()).toBe(DIM_ARROW_DIRECTION.INWARD);
+  });
+});
+
+describe('DRAWING_TOOL::DrawVia (drawing_tool.cpp:3686-4407)', () => {
+  const vias = (): PCB_VIA[] =>
+    h.board.Tracks().filter((t) => t.Type() === KICAD_T.PCB_VIA_T) as PCB_VIA[];
+  const traces = (): PCB_TRACK[] =>
+    h.board.Tracks().filter((t) => t.Type() === KICAD_T.PCB_TRACE_T) as PCB_TRACK[];
+
+  const withTrack = (net: number): void => {
+    const t = new PCB_TRACK(h.board);
+    t.SetStart(mm(10, 50));
+    t.SetEnd(mm(50, 50));
+    t.SetWidth(0.25 * MM);
+    t.SetLayer(PCB_LAYER_ID.F_Cu);
+    t.SetNetCode(net);
+    const commit = new BOARD_COMMIT(h.frame);
+    commit.Add(t);
+    commit.Push('track');
+  };
+
+  beforeEach(() => {
+    h.board.GetDesignSettings().m_DRCEngine!.InitEngine(null);
+    h.frame.SetActiveLayer(PCB_LAYER_ID.F_Cu);
+  });
+
+  it('a click places a through via of the current size, with no net in open space (:4361-4397)', () => {
+    start(PCB_ACTIONS.drawVia);
+    click(mm(80, 80));
+    expect(vias()).toHaveLength(1);
+    const v = vias()[0]!;
+    expect(v.GetPosition()).toEqual(mm(80, 80));
+    expect(v.GetViaType()).toBe(VIATYPE.THROUGH);
+    expect(v.GetLayerSet().test(PCB_LAYER_ID.F_Cu) && v.GetLayerSet().test(PCB_LAYER_ID.B_Cu)).toBe(
+      true,
+    );
+    const bds = h.board.GetDesignSettings();
+    expect(v.GetWidth(PCB_LAYER_ID.F_Cu)).toBe(bds.GetCurrentViaSize());
+    expect(v.GetNetCode()).toBe(0);
+  });
+
+  it('on a track: takes its net and splits it in two (:4296-4345)', () => {
+    withTrack(1);
+    start(PCB_ACTIONS.drawVia);
+    click(mm(30, 50));
+    expect(vias()).toHaveLength(1);
+    expect(vias()[0]!.GetNetCode()).toBe(1);
+    expect(vias()[0]!.GetPosition()).toEqual(mm(30, 50));
+    const ends = traces()
+      .map((t) => [t.GetStart().x, t.GetEnd().x].sort((a, b) => a - b))
+      .sort((a, b) => a[0]! - b[0]!);
+    expect(ends).toEqual([
+      [10 * MM, 30 * MM],
+      [30 * MM, 50 * MM],
+    ]);
+  });
+
+  it('a via that would short another net is refused (:4324-4333)', () => {
+    withTrack(1);
+    start(PCB_ACTIONS.drawVia);
+    // Beside the track, within clearance, so it neither snaps to it nor clears it.
+    click(mm(30, 50.5));
+    expect(vias()).toHaveLength(0);
+  });
+
+  it('a via near a track snaps onto it (:4131-4141)', () => {
+    withTrack(1);
+    start(PCB_ACTIONS.drawVia);
+    click(mm(30, 50.2));
+    expect(vias()).toHaveLength(1);
+    expect(vias()[0]!.GetPosition()).toEqual(mm(30, 50));
+  });
+
+  it('places repeatedly: the tool stays for the next via (:4404 IPO_REPEAT)', () => {
+    start(PCB_ACTIONS.drawVia);
+    click(mm(80, 80));
+    click(mm(90, 80));
+    expect(vias()).toHaveLength(2);
+    expect(tool.GetDrawingMode()).toBe(DRAWING_MODE.VIA);
   });
 });

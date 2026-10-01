@@ -94,7 +94,6 @@ import {
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { BOARD } from '../board.js';
 import { BOARD_COMMIT } from '../board_commit.js';
-import type { BOARD_ITEM } from '../board_item.js';
 import type { PCB_BASE_EDIT_FRAME } from '../pcb_base_edit_frame.js';
 import type { PCB_BASE_FRAME } from '../pcb_base_frame.js';
 import { PCB_ACTIONS } from './pcb_actions.js';
@@ -117,6 +116,35 @@ import {
 } from '../pcb_dimension.js';
 import { DIM_ARROW_DIRECTION } from '../pcb_dimension_types.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
+import { ACTION_MENU } from '@ziroeda/common/tool/action_menu.js';
+import { BITMAPS } from '@ziroeda/common/bitmaps/bitmaps_list.js';
+import {
+  CONTEXT_MENU_TRIGGER,
+  TA_CHOICE_MENU_CHOICE,
+  TA_CHOICE_MENU_CLOSED,
+  TA_CHOICE_MENU_UPDATE,
+} from '@ziroeda/common/tool/tool_event.js';
+import type { VIEW_ITEM } from '@ziroeda/common/view/view_item.js';
+import { PARSE_ERROR } from '@ziroeda/common/exceptions.js';
+import { RPT_SEVERITY_IGNORE } from '@ziroeda/common/reporter.js';
+import { HIGH_CONTRAST_MODE } from '@ziroeda/common/project/board_project_settings.js';
+import { IsCopperLayer } from '@ziroeda/common/layer_id.js';
+import { ARC_LOW_DEF } from '@ziroeda/common/eda_units.js';
+import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
+import { SEG } from '@ziroeda/kimath/src/geometry/seg.js';
+import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
+import { EuclideanNormI, SquaredEuclideanNorm } from '@ziroeda/kimath/src/math/vector2.js';
+import { BOARD_CONNECTED_ITEM } from '../board_connected_item.js';
+import { BOARD_ITEM } from '../board_item.js';
+import { DRC_CONSTRAINT, DRC_CONSTRAINT_T } from '../drc/drc_rule.js';
+import type { DRC_ENGINE } from '../drc/drc_engine.js';
+import type { PAD } from '../pad.js';
+import { PADSTACK } from '../padstack.js';
+import { PCB_ARC, PCB_TRACK, PCB_VIA } from '../pcb_track.js';
+import { VIATYPE } from '../pcb_track_types.js';
+import { MAGNETIC_OPTIONS } from '../pcbnew_settings.js';
+import { ORPHANED_NET } from '../netinfo_list.js';
+import { INTERACTIVE_PLACEMENT_OPTIONS, INTERACTIVE_PLACER_BASE } from './pcb_tool_base.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { POLYGON_GEOM_MANAGER } from '@ziroeda/common/preview_items/polygon_geom_manager.js';
 import { ZONE_MODE } from './pcb_actions.js';
@@ -1223,6 +1251,26 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
         this.m_frame!.GetCanvas()!.SetCurrentCursor(KICURSOR.ARROW);
 
         if (this.selection().Empty()) this.m_frame!.SetMsgPanel(this.board());
+
+        return 0;
+      }.bind(this),
+    );
+  }
+
+  *DrawVia(aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+    if (this.m_isFootprintEditor) return 0;
+
+    return yield* this.scoped(
+      DRAWING_MODE.VIA,
+      function* (this: DRAWING_TOOL) {
+        const placer = new VIA_PLACER(this.m_frame!, this);
+
+        yield* this.doInteractiveItemPlacement(
+          aEvent,
+          placer,
+          'Place via',
+          INTERACTIVE_PLACEMENT_OPTIONS.IPO_REPEAT | INTERACTIVE_PLACEMENT_OPTIONS.IPO_SINGLE_CLICK,
+        );
 
         return 0;
       }.bind(this),
@@ -2441,7 +2489,607 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
     this.Go(S(this.DrawDimension), PCB_ACTIONS.drawCenterDimension.MakeEvent());
     this.Go(S(this.DrawDimension), PCB_ACTIONS.drawRadialDimension.MakeEvent());
     this.Go(S(this.DrawDimension), PCB_ACTIONS.drawLeader.MakeEvent());
+    this.Go(S(this.DrawVia), PCB_ACTIONS.drawVia.MakeEvent());
     // TRANSITIONAL: the remaining handlers are bound as they are ported.
+  }
+}
+
+/**
+ * DrawVia's `VIA_PLACER` (drawing_tool.cpp:3696-4407): the via under the
+ * cursor, snapped onto a track, a pad or a graphic; on placement it takes the
+ * net of what it lands on (or of the filled zone it stitches, asking when that
+ * is ambiguous), refuses a DRC violation unless the router allows them, and
+ * splits a track it lands on the middle of.
+ */
+class VIA_PLACER extends INTERACTIVE_PLACER_BASE {
+  private readonly m_gridHelper: PCB_GRID_HELPER;
+  private readonly m_drcEngine: DRC_ENGINE;
+  private readonly m_drcEpsilon: number;
+  private m_worstClearance = 0;
+  /**
+   * TRANSITIONAL: `router->Router()->Settings().AllowDRCViolations()`. ROUTER_TOOL is
+   * not a registered tool yet, which is upstream's `if( router )` arm not taken.
+   */
+  private readonly m_allowDRCViolations = false;
+
+  constructor(
+    aFrame: PCB_BASE_EDIT_FRAME,
+    private readonly m_tool: DRAWING_TOOL,
+  ) {
+    super();
+    this.m_frame = aFrame as unknown as typeof this.m_frame;
+    this.m_board = aFrame.GetBoard()!;
+    this.m_gridHelper = new PCB_GRID_HELPER(
+      aFrame.GetToolManager()!,
+      aFrame.GetMagneticItemsSettings(),
+    );
+    this.m_drcEngine = aFrame.GetBoard()!.GetDesignSettings().m_DRCEngine!;
+    this.m_drcEpsilon = aFrame.GetBoard()!.GetDesignSettings().GetDRCEpsilon();
+
+    try {
+      // `GetDesignRulesPath()` is PCB_EDIT_FRAME's (DrawVia never runs in the footprint editor).
+      this.m_drcEngine.InitEngine(
+        (aFrame as unknown as { GetDesignRulesPath?(): string }).GetDesignRulesPath?.() ?? null,
+      );
+
+      let constraint = this.m_drcEngine.QueryWorstConstraint(DRC_CONSTRAINT_T.CLEARANCE_CONSTRAINT);
+
+      if (constraint) this.m_worstClearance = constraint.GetValue().Min();
+
+      constraint = this.m_drcEngine.QueryWorstConstraint(
+        DRC_CONSTRAINT_T.HOLE_CLEARANCE_CONSTRAINT,
+      );
+
+      if (constraint)
+        this.m_worstClearance = Math.max(this.m_worstClearance, constraint.GetValue().Min());
+
+      for (const footprint of aFrame.GetBoard()!.Footprints()) {
+        for (const pad of footprint.Pads()) {
+          const padOverride = pad.GetClearanceOverrides(null);
+
+          if (padOverride !== undefined && padOverride !== null)
+            this.m_worstClearance = Math.max(this.m_worstClearance, padOverride);
+        }
+      }
+    } catch (e) {
+      if (!(e instanceof PARSE_ERROR)) throw e;
+    }
+  }
+
+  private frame(): PCB_BASE_EDIT_FRAME {
+    return this.m_frame as unknown as PCB_BASE_EDIT_FRAME;
+  }
+
+  private sub_e(aClearance: number): number {
+    return Math.max(0, aClearance - this.m_drcEpsilon);
+  }
+
+  /**
+   * Get the bounding box the via would have if placed at the given position
+   * (the via's bounding box is relative to its own position).
+   */
+  private static getEffectiveBoundingBox(aVia: PCB_VIA, aPosition: VECTOR2I): BOX2I {
+    const bbox = aVia.GetBoundingBox();
+    bbox.Move(sub(aPosition, aVia.GetPosition()));
+    return bbox;
+  }
+
+  private query(aBox: BOX2I): BOARD_ITEM[] {
+    const items: [VIEW_ITEM, number][] = [];
+    this.frame().GetCanvas()!.GetView()!.Query(aBox, items);
+    return items.map(([i]) => i).filter((i): i is BOARD_ITEM => i instanceof BOARD_ITEM);
+  }
+
+  findTrack(aVia: PCB_VIA, aPosition: VECTOR2I): PCB_TRACK | null {
+    const lset = aVia.GetLayerSet();
+    const bbox = VIA_PLACER.getEffectiveBoundingBox(aVia, aPosition);
+    const possible_tracks: PCB_TRACK[] = [];
+
+    for (const item of this.query(bbox)) {
+      if (!item.GetLayerSet().and(lset).any()) continue;
+
+      if (item.Type() === KICAD_T.PCB_TRACE_T) {
+        const track = item as PCB_TRACK;
+
+        if (
+          TestSegmentHit(
+            aPosition,
+            track.GetStart(),
+            track.GetEnd(),
+            (track.GetWidth() + aVia.GetWidth(track.GetLayer())) / 2,
+          )
+        ) {
+          possible_tracks.push(track);
+        }
+      } else if (item.Type() === KICAD_T.PCB_ARC_T) {
+        const arc = item as PCB_ARC;
+
+        if (arc.HitTest(aPosition, aVia.GetWidth(arc.GetLayer()) / 2)) possible_tracks.push(arc);
+      }
+    }
+
+    let return_track: PCB_TRACK | null = null;
+    let min_d = Number.MAX_SAFE_INTEGER;
+
+    for (const track of possible_tracks) {
+      const test = new SEG(track.GetStart(), track.GetEnd());
+      const dist = EuclideanNormI(sub(test.NearestPoint(aPosition), aPosition));
+
+      if (dist < min_d) {
+        min_d = dist;
+        return_track = track;
+      }
+    }
+
+    return return_track;
+  }
+
+  private hasDRCViolation(aVia: PCB_VIA, aOther: BOARD_ITEM): boolean {
+    let constraint: DRC_CONSTRAINT;
+    let clearance: number;
+    const connectedItem = aOther instanceof BOARD_CONNECTED_ITEM ? aOther : null;
+    const zone = aOther.Type() === KICAD_T.PCB_ZONE_T ? (aOther as unknown as ZONE) : null;
+
+    if (zone && zone.GetIsRuleArea()) {
+      if (zone.GetDoNotAllowVias()) {
+        let hit = false;
+
+        aVia.Padstack().ForEachUniqueLayer((aLayer: PCB_LAYER_ID) => {
+          if (hit) return;
+
+          if (zone.Outline().Collide(aVia.GetPosition(), aVia.GetWidth(aLayer) / 2)) hit = true;
+        });
+
+        return hit;
+      }
+
+      return false;
+    }
+
+    if (connectedItem) {
+      const connectedItemNet = connectedItem.GetNetCode();
+
+      if (connectedItemNet === 0 || connectedItemNet === aVia.GetNetCode()) return false;
+    }
+
+    for (const layer of aOther.GetLayerSet().Seq()) {
+      // Reference images are "on" a copper layer but are not actually part of it
+      if (!IsCopperLayer(layer) || aOther.Type() === KICAD_T.PCB_REFERENCE_IMAGE_T) continue;
+
+      constraint = this.m_drcEngine.EvalRules(
+        DRC_CONSTRAINT_T.CLEARANCE_CONSTRAINT,
+        aVia,
+        aOther,
+        layer,
+      );
+      clearance = constraint.GetValue().Min();
+
+      if (clearance >= 0) {
+        const viaShape = aVia.GetEffectiveShape(layer);
+        const otherShape = aOther.GetEffectiveShape(layer);
+
+        if (viaShape.Collide(otherShape, this.sub_e(clearance))) return true;
+      }
+    }
+
+    if (aOther.HasHole()) {
+      constraint = this.m_drcEngine.EvalRules(
+        DRC_CONSTRAINT_T.HOLE_CLEARANCE_CONSTRAINT,
+        aVia,
+        aOther,
+        PCB_LAYER_ID.UNDEFINED_LAYER,
+      );
+      clearance = constraint.GetValue().Min();
+
+      if (clearance >= 0) {
+        const viaShape = aVia.GetEffectiveShape(PCB_LAYER_ID.UNDEFINED_LAYER);
+
+        if (viaShape.Collide(aOther.GetEffectiveHoleShape()!, this.sub_e(clearance))) return true;
+      }
+    }
+
+    return false;
+  }
+
+  checkDRCViolation(aVia: PCB_VIA): boolean {
+    const checkedItems = new Set<BOARD_ITEM>();
+    const bbox = aVia.GetBoundingBox();
+
+    bbox.Inflate(this.m_worstClearance);
+
+    for (const item of this.query(bbox)) {
+      if (item.Type() === KICAD_T.PCB_ZONE_T && !(item as unknown as ZONE).GetIsRuleArea()) {
+        continue; // stitching vias bind to zones, so ignore them
+      } else if (item.Type() === KICAD_T.PCB_FOOTPRINT_T || item.Type() === KICAD_T.PCB_GROUP_T) {
+        continue; // check against children, but not against footprint itself
+      } else if (
+        (item.Type() === KICAD_T.PCB_FIELD_T || item.Type() === KICAD_T.PCB_TEXT_T) &&
+        !(item as unknown as PCB_TEXT).IsVisible()
+      ) {
+        continue; // ignore hidden items
+      } else if (checkedItems.has(item)) {
+        continue; // already checked
+      }
+
+      if (this.hasDRCViolation(aVia, item)) return true;
+
+      checkedItems.add(item);
+    }
+
+    const constraint = this.m_drcEngine.EvalRules(
+      DRC_CONSTRAINT_T.DISALLOW_CONSTRAINT,
+      aVia,
+      null,
+      PCB_LAYER_ID.UNDEFINED_LAYER,
+    );
+
+    if (constraint.m_DisallowFlags && constraint.GetSeverity() !== RPT_SEVERITY_IGNORE) return true;
+
+    return false;
+  }
+
+  findPad(aVia: PCB_VIA, aPosition: VECTOR2I): PAD | null {
+    const lset = aVia.GetLayerSet();
+    const bbox = VIA_PLACER.getEffectiveBoundingBox(aVia, aPosition);
+
+    for (const item of this.query(bbox)) {
+      if (item.Type() === KICAD_T.PCB_PAD_T && item.GetLayerSet().and(lset).any()) {
+        const pad = item as unknown as PAD;
+
+        if (pad.HitTest(aPosition)) return pad;
+      }
+    }
+
+    return null;
+  }
+
+  findGraphic(aVia: PCB_VIA, aPosition: VECTOR2I): PCB_SHAPE | null {
+    const lset = aVia.GetLayerSet().and(LSET.AllCuMask());
+    const bbox = VIA_PLACER.getEffectiveBoundingBox(aVia, aPosition);
+    const activeLayer = this.frame().GetActiveLayer();
+    const possible_shapes: PCB_SHAPE[] = [];
+
+    for (const item of this.query(bbox)) {
+      if (!item.GetLayerSet().and(lset).any()) continue;
+
+      if (item.Type() === KICAD_T.PCB_SHAPE_T) {
+        const shape = item as unknown as PCB_SHAPE;
+
+        if (shape.HitTest(aPosition, aVia.GetWidth(activeLayer) / 2)) possible_shapes.push(shape);
+      }
+    }
+
+    let return_shape: PCB_SHAPE | null = null;
+    let min_d = Number.MAX_SAFE_INTEGER;
+
+    for (const shape of possible_shapes) {
+      const dist = EuclideanNormI(sub(shape.GetPosition(), aPosition));
+
+      if (dist < min_d) {
+        min_d = dist;
+        return_shape = shape;
+      }
+    }
+
+    return return_shape;
+  }
+
+  /** `selectPossibleNetsByPopupMenu`: the nets to choose from as a context menu. */
+  private *selectPossibleNetsByPopupMenu(
+    aNetcodeList: ReadonlySet<number>,
+  ): COROUTINE_BODY<number | null> {
+    const menu = new ACTION_MENU(true);
+    const netInfo = this.m_board.GetNetInfo();
+    const menuIDNetCodeMap = new Map<number, number>();
+    let menuID = 1;
+
+    for (const netcode of aNetcodeList) {
+      let menuText: string;
+      const name = netInfo.GetNetItem(netcode)?.GetNetname() ?? '';
+
+      if (menuID < 10) menuText = `&${menuID}  ${name}\t`;
+      else menuText = name;
+
+      menu.Add(menuText, menuID, BITMAPS.INVALID_BITMAP);
+      menuIDNetCodeMap.set(menuID, netcode);
+      menuID++;
+    }
+
+    menu.SetTitle('Select Net:');
+    menu.DisplayTitle(true);
+
+    const drawingTool = this.m_tool;
+    drawingTool.SetContextMenu(menu, CONTEXT_MENU_TRIGGER.CMENU_NOW);
+
+    let selectedNetCode = -1;
+    let cancelled = false;
+
+    for (let evt = yield* drawingTool.Wait(); evt; evt = yield* drawingTool.Wait()) {
+      if (evt.Action() === TA_CHOICE_MENU_UPDATE) {
+        evt.SetPassEvent();
+      } else if (evt.Action() === TA_CHOICE_MENU_CHOICE) {
+        const id = evt.GetCommandId();
+
+        // User has selected an item, so this one will be returned
+        if (id !== undefined && id > 0 && id < menuID) {
+          selectedNetCode = menuIDNetCodeMap.get(id)!;
+        }
+        // User has cancelled the menu (either by <esc> or clicking out of it),
+        else {
+          cancelled = true;
+        }
+      } else if (evt.Action() === TA_CHOICE_MENU_CLOSED) {
+        break;
+      }
+    }
+
+    if (cancelled) return null;
+    else return selectedNetCode;
+  }
+
+  private *findStitchedZoneNet(aVia: PCB_VIA): COROUTINE_BODY<number | null> {
+    const position = aVia.GetPosition();
+    const opts = this.frame().GetDisplayOptions();
+    const netcodeList = new Set<number>();
+    const activeLayer = this.frame().GetActiveLayer();
+
+    // See if there are any connections available on a high-contrast layer
+    if (
+      opts.m_ContrastModeDisplay === HIGH_CONTRAST_MODE.DIMMED ||
+      opts.m_ContrastModeDisplay === HIGH_CONTRAST_MODE.HIDDEN
+    ) {
+      if (aVia.GetLayerSet().test(activeLayer)) {
+        for (const z of this.m_board.Zones()) {
+          if (z.IsOnLayer(activeLayer)) {
+            if (z.HitTestFilledArea(activeLayer, position)) netcodeList.add(z.GetNetCode());
+          }
+        }
+      }
+    }
+
+    // If there's only one, return it.
+    if (netcodeList.size === 1) return [...netcodeList][0]!;
+
+    // See if there are any connections available on a visible layer
+    const lset = this.m_board.GetVisibleLayers().and(aVia.GetLayerSet());
+
+    for (const z of this.m_board.Zones()) {
+      if (z.GetIsRuleArea()) continue; // ignore rule areas
+
+      for (const layer of lset.Seq()) {
+        if (z.IsOnLayer(layer)) {
+          if (z.HitTestFilledArea(layer, position)) netcodeList.add(z.GetNetCode());
+        }
+      }
+    }
+
+    // If there's only one, return it.
+    if (netcodeList.size === 1) return [...netcodeList][0]!;
+
+    if (netcodeList.size > 1) {
+      // The net assignment is ambiguous.  Let the user decide.
+      return yield* this.selectPossibleNetsByPopupMenu(netcodeList);
+    } else {
+      return ORPHANED_NET;
+    }
+  }
+
+  override SnapItem(aItem: BOARD_ITEM): void {
+    this.m_gridHelper.SetSnap(!(this.m_modifiers & MD_SHIFT));
+
+    const settings = this.frame().GetMagneticItemsSettings();
+    const via = aItem as PCB_VIA;
+
+    // When snapping, use the mouse position, not the item position, which may be
+    // grid-snapped, so that we can get the cursor within snap-range of snap points.
+    // If we don't get a snap, the via will be left as it is (i.e. maybe grid-snapped).
+    const viewControls = this.frame().GetCanvas()!.GetViewControls()!;
+    const position = viewControls.GetMousePosition();
+
+    if (settings.tracks !== MAGNETIC_OPTIONS.NO_EFFECT && this.m_gridHelper.GetSnap()) {
+      const track = this.findTrack(via, position);
+
+      if (track) {
+        const trackSeg = new SEG(track.GetStart(), track.GetEnd());
+        const snap = this.m_gridHelper.AlignToSegment(position, { a: trackSeg.A, b: trackSeg.B });
+
+        aItem.SetPosition(snap);
+        return;
+      }
+    }
+
+    if (settings.pads !== MAGNETIC_OPTIONS.NO_EFFECT && this.m_gridHelper.GetSnap()) {
+      const pad = this.findPad(via, position);
+
+      if (pad) {
+        aItem.SetPosition(pad.GetPosition());
+        return;
+      }
+    }
+
+    if (settings.graphics && this.m_gridHelper.GetSnap()) {
+      const shape = this.findGraphic(via, position);
+
+      if (shape) {
+        if (shape.IsAnyFill()) {
+          // Is this shape something to be replaced by the via, or something to be
+          // stitched by multiple vias?  Use an area-based test to make a guess.
+          const poly = new SHAPE_POLY_SET();
+          shape.TransformShapeToPolygon(
+            poly,
+            shape.GetLayer(),
+            0,
+            ARC_LOW_DEF,
+            ERROR_LOC.ERROR_INSIDE,
+          );
+          const shapeArea = poly.Area();
+
+          const R = via.GetWidth(shape.GetLayer()) / 2;
+          const viaArea = Math.PI * R * R;
+
+          if (viaArea * 4 > shapeArea) aItem.SetPosition(shape.GetPosition());
+        } else {
+          switch (shape.GetShape()) {
+            case SHAPE_T.SEGMENT: {
+              const seg = new SEG(shape.GetStart(), shape.GetEnd());
+              const snap = this.m_gridHelper.AlignToSegment(position, { a: seg.A, b: seg.B });
+              aItem.SetPosition(snap);
+              break;
+            }
+
+            case SHAPE_T.ARC: {
+              if (
+                SquaredEuclideanNorm(sub(shape.GetEnd(), position)) <
+                SquaredEuclideanNorm(sub(shape.GetStart(), position))
+              ) {
+                aItem.SetPosition(shape.GetEnd());
+              } else {
+                aItem.SetPosition(shape.GetStart());
+              }
+
+              break;
+            }
+
+            case SHAPE_T.POLY: {
+              if (!shape.IsPolyShapeValid()) {
+                aItem.SetPosition(shape.GetPosition());
+                break;
+              }
+
+              const polySet = shape.GetPolyShape();
+              let nearestSeg: SEG | null = null;
+              let minDist = Number.MAX_SAFE_INTEGER;
+
+              for (let ii = 0; ii < polySet.OutlineCount(); ++ii) {
+                const outline = polySet.Outline(ii);
+
+                for (let jj = 0; jj < outline.SegmentCount(); ++jj) {
+                  const seg = outline.GetSegment(jj);
+                  const dist = seg.Distance(position);
+
+                  if (dist < minDist) {
+                    minDist = dist;
+                    nearestSeg = seg;
+                  }
+                }
+              }
+
+              if (nearestSeg) {
+                const snap = this.m_gridHelper.AlignToSegment(position, {
+                  a: nearestSeg.A,
+                  b: nearestSeg.B,
+                });
+                aItem.SetPosition(snap);
+              }
+
+              break;
+            }
+
+            default:
+              aItem.SetPosition(shape.GetPosition());
+          }
+        }
+      }
+    }
+  }
+
+  override *PlaceItem(aItem: BOARD_ITEM, aCommit: BOARD_COMMIT): COROUTINE_BODY<boolean> {
+    const via = aItem as PCB_VIA;
+    const viaPos = via.GetPosition();
+    const track = this.findTrack(via, via.GetPosition());
+    const pad = this.findPad(via, via.GetPosition());
+    const shape = this.findGraphic(via, via.GetPosition());
+
+    if (track) {
+      via.SetNetCode(track.GetNetCode());
+      via.SetIsFree(false);
+    } else if (pad) {
+      via.SetNetCode(pad.GetNetCode());
+      via.SetIsFree(false);
+    } else if (shape && shape.GetNetCode() > 0) {
+      via.SetNetCode(shape.GetNetCode());
+      via.SetIsFree(false);
+    } else {
+      const netcode = yield* this.findStitchedZoneNet(via);
+
+      if (netcode === null) return false; // user cancelled net disambiguation menu
+
+      via.SetNetCode(netcode);
+      via.SetIsFree(via.GetNetCode() > 0);
+    }
+
+    if (this.checkDRCViolation(via)) {
+      // TRANSITIONAL: WX_INFOBAR::MESSAGE_TYPE is not ported, so the message
+      // carries no DRC_VIOLATION type and the `else` arm's Dismiss of one has
+      // nothing to match.
+      (
+        this.frame() as unknown as {
+          ShowInfoBarError?(aMsg: string, aShowClose: boolean): void;
+        }
+      ).ShowInfoBarError?.('Via location violates DRC.', true);
+
+      if (!this.m_allowDRCViolations) return false;
+    }
+
+    aCommit.Add(via);
+
+    // If the user explicitly disables snap (using shift), then don't break the tracks.
+    // This will prevent PNS from being able to connect the via and track but
+    // it is explicitly requested by the user
+    if (track && this.m_gridHelper.GetSnap()) {
+      const trackStart = track.GetStart();
+      const trackEnd = track.GetEnd();
+      const trackSeg = new SEG(trackStart, trackEnd);
+
+      if (equal(viaPos, trackStart) || equal(viaPos, trackEnd)) return true;
+
+      if (!trackSeg.Contains(viaPos)) return true;
+
+      aCommit.Modify(track);
+      track.SetStart(trackStart);
+      track.SetEnd(viaPos);
+
+      const newTrack = track.Clone() as PCB_TRACK;
+      newTrack.ResetUuidDirect();
+
+      newTrack.SetStart(viaPos);
+      newTrack.SetEnd(trackEnd);
+      aCommit.Add(newTrack);
+    }
+
+    return true;
+  }
+
+  override CreateItem(): BOARD_ITEM {
+    const bds = this.m_board.GetDesignSettings();
+    const via = new PCB_VIA(this.m_board);
+
+    via.SetNetCode(0);
+    via.SetViaType(bds.m_CurrentViaType);
+
+    if (via.GetViaType() === VIATYPE.THROUGH) {
+      via.SetLayerPair(PCB_LAYER_ID.B_Cu, PCB_LAYER_ID.F_Cu);
+    } else {
+      const first_layer = this.frame().GetActiveLayer();
+      let last_layer: PCB_LAYER_ID;
+      const screen = this.frame().GetScreen()!;
+
+      // prepare switch to new active layer:
+      if (first_layer !== screen.m_Route_Layer_TOP) last_layer = screen.m_Route_Layer_TOP;
+      else last_layer = screen.m_Route_Layer_BOTTOM;
+
+      via.SetLayerPair(first_layer, last_layer);
+    }
+
+    if (via.GetViaType() === VIATYPE.MICROVIA) {
+      via.SetWidth(PADSTACK.ALL_LAYERS, via.GetEffectiveNetClass().GetuViaDiameter());
+      via.SetDrill(via.GetEffectiveNetClass().GetuViaDrill());
+    } else {
+      via.SetWidth(PADSTACK.ALL_LAYERS, bds.GetCurrentViaSize());
+      via.SetDrill(bds.GetCurrentViaDrill());
+    }
+
+    return via;
   }
 }
 

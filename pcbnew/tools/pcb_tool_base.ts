@@ -71,7 +71,12 @@ export abstract class INTERACTIVE_PLACER_BASE {
     // Base implementation performs no snapping
   }
 
-  PlaceItem(aItem: BOARD_ITEM, aCommit: BOARD_COMMIT): boolean {
+  /**
+   * A placer that must wait on the user mid-placement (VIA_PLACER's net menu
+   * runs its own event loop inside PlaceItem upstream) answers a coroutine,
+   * which the placement loop runs with `yield*`.
+   */
+  PlaceItem(aItem: BOARD_ITEM, aCommit: BOARD_COMMIT): boolean | COROUTINE_BODY<boolean> {
     aCommit.Add(aItem);
     return true;
   }
@@ -281,7 +286,9 @@ export abstract class PCB_TOOL_BASE extends TOOL_INTERACTIVE {
 
           newBoardItem.ClearFlags();
 
-          if (!aPlacer.PlaceItem(newBoardItem, commit)) {
+          const placed = aPlacer.PlaceItem(newBoardItem, commit);
+
+          if (!(typeof placed === 'boolean' ? placed : yield* placed)) {
             newBoardItem.SetFlags(oldFlags);
             newItem = newBoardItem;
             continue;
