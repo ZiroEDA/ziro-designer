@@ -16,6 +16,7 @@ import type { GAL_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import type { DIALOG_TEXT_PROPERTIES } from './dialogs/dialog_text_properties.js';
 import type { PCB_TABLE } from './pcb_table.js';
 import type { PCB_TEXTBOX } from './pcb_textbox.js';
+import type { PCB_BARCODE } from './pcb_barcode.js';
 import type { DIALOG_COPPER_ZONE } from './dialogs/panel_zone_properties.js';
 import type { DIALOG_NON_COPPER_ZONES_EDITOR } from './dialogs/dialog_non_copper_zones_properties.js';
 import type { DIALOG_RULE_AREA_PROPERTIES } from './dialogs/dialog_rule_area_properties.js';
@@ -149,6 +150,15 @@ export abstract class PCB_BASE_EDIT_FRAME extends PCB_BASE_FRAME {
    * Cancel without a window.
    */
   ShowTextBoxPropertiesDialog(_aTextBox: PCB_TEXTBOX): Promise<boolean> {
+    return Promise.resolve(false);
+  }
+
+  /**
+   * `DIALOG_BARCODE_PROPERTIES( this, aBarcode ).ShowModal() == wxID_OK`, as
+   * `DRAWING_TOOL::DrawBarcode` and `EDIT_TOOL::Properties` open it. Cancel
+   * without a window.
+   */
+  ShowBarcodePropertiesDialog(_aBarcode: PCB_BARCODE): Promise<boolean> {
     return Promise.resolve(false);
   }
 

@@ -118,6 +118,7 @@ import { DIM_ARROW_DIRECTION } from '../pcb_dimension_types.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { PCB_POINT } from '../pcb_point.js';
 import { PCB_TEXTBOX } from '../pcb_textbox.js';
+import { PCB_BARCODE } from '../pcb_barcode.js';
 import { PCB_REFERENCE_IMAGE } from '../pcb_reference_image.js';
 import { IS_MOVING } from '@ziroeda/common/eda_item_flags.js';
 import { DisplayErrorMessage } from '@ziroeda/common/confirm.js';
@@ -625,11 +626,10 @@ export function placeImportedItems(
 // ---------------------------------------------------------------------------
 // DRAWING_TOOL (pcbnew/tools/drawing_tool.cpp), on the live BOARD.
 //
-// Ported so far: the class, Init, Reset, UpdateStatusBar, and the four shape
-// tools - DrawLine, DrawRectangle, DrawCircle, DrawArc - with drawShape and
-// drawArc, their previews in the VIEW (`m_preview` and the assistants), as
-// upstream. The other handlers (text, dimensions, zones, vias, tables, images,
-// beziers, barcodes, points, import) still run in the frame window.
+// Every handler setTransitions binds but four: PlaceImportedGraphics (and its
+// drag-and-drop twin), whose importer still builds view records, so the frame
+// window places them; SetAnchor, the footprint editor's; and PlaceTuningPattern,
+// which waits on PCB_TUNING_PATTERN.
 // ---------------------------------------------------------------------------
 
 /** `DRAWING_TOOL::MODE`. */
@@ -1719,6 +1719,130 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
         controls.CaptureCursor(false);
         this.m_frame!.GetCanvas()!.SetCurrentCursor(KICURSOR.ARROW);
 
+        return 0;
+      }.bind(this),
+    );
+  }
+
+  *DrawBarcode(aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+    return yield* this.scoped(
+      DRAWING_MODE.BARCODE,
+      function* (this: DRAWING_TOOL) {
+        let barcode: PCB_BARCODE | null = null;
+        const commit = new BOARD_COMMIT(this.m_frame!);
+        const grid = new PCB_GRID_HELPER(this.m_toolMgr!, this.m_frame!.GetMagneticItemsSettings());
+        const bds = this.m_frame!.GetDesignSettings();
+        const controls = this.m_controls!;
+
+        const setCursor = (): void => {
+          if (barcode) this.m_frame!.GetCanvas()!.SetCurrentCursor(KICURSOR.MOVING);
+          else this.m_frame!.GetCanvas()!.SetCurrentCursor(KICURSOR.PENCIL);
+        };
+
+        const cleanup = (): void => {
+          this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
+          controls.ForceCursorPosition(false);
+          controls.ShowCursor(true);
+          controls.SetAutoPan(false);
+          controls.CaptureCursor(false);
+          barcode = null;
+        };
+
+        this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
+
+        this.m_frame!.PushTool(aEvent);
+
+        this.Activate();
+        // Must be done after Activate() so that it gets set into the correct context
+        controls.ShowCursor(true);
+        controls.ForceCursorPosition(false);
+        setCursor();
+
+        if (aEvent.HasPosition()) this.m_toolMgr!.PrimeTool(aEvent.Position());
+
+        for (let evt = yield* this.Wait(); evt; evt = yield* this.Wait()) {
+          setCursor();
+
+          grid.SetSnap(!evt.Modifier(MD_SHIFT));
+          grid.SetUseGrid(
+            this.getView()!.GetGAL()!.GetGridSnapping() && !evt.DisableGridSnapping(),
+          );
+          const cursorPos: VECTOR2I = GetClampedCoords(
+            grid.BestSnapAnchor(
+              controls.GetMousePosition(),
+              new LSET([this.m_frame!.GetActiveLayer()]),
+              GRID_HELPER_GRIDS.GRID_TEXT,
+            ),
+            DRAWING_COORDS_PADDING,
+          );
+          controls.ForceCursorPosition(true, cursorPos);
+
+          if (evt.IsDrag()) {
+            continue;
+          } else if (evt.IsCancelInteractive() || (barcode && evt.IsAction(ACTIONS.undo))) {
+            if (barcode) {
+              cleanup();
+            } else {
+              this.m_frame!.PopTool(aEvent);
+              break;
+            }
+          } else if (evt.IsActivate()) {
+            if (barcode) cleanup();
+
+            if (evt.IsMoveTool()) {
+              // leave ourselves on the stack so we come back after the move
+              break;
+            } else {
+              this.m_frame!.PopTool(aEvent);
+              break;
+            }
+          } else if (evt.IsClick(BUT_RIGHT)) {
+            if (!barcode) this.m_toolMgr!.VetoContextMenuMouseWarp();
+
+            this.m_menu.ShowContextMenu(this.selection());
+          } else if (evt.IsClick(BUT_LEFT)) {
+            this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
+
+            const layer = this.m_frame!.GetActiveLayer();
+
+            const newBarcode = new PCB_BARCODE(this.m_frame!.GetModel() as unknown as BOARD_ITEM);
+            barcode = newBarcode;
+            newBarcode.SetFlags(IS_NEW);
+            newBarcode.SetLayer(layer);
+            newBarcode.SetPosition(cursorPos);
+            newBarcode.SetTextSize(bds.GetTextSize(layer).y);
+
+            // DIALOG_BARCODE_PROPERTIES dlg( m_frame, barcode ); ShowModal() != wxID_OK
+            const ok = yield* this.RunMainStackModal(() =>
+              this.m_frame!.ShowBarcodePropertiesDialog(newBarcode),
+            );
+            const cancelled = ok !== true;
+
+            if (!cancelled) {
+              if (!this.m_view!.IsLayerVisible(layer)) {
+                this.m_frame!.GetAppearancePanel()?.SetLayerVisible?.(layer, true);
+                this.m_frame!.GetCanvas()!.Refresh();
+              }
+
+              commit.Add(newBarcode);
+              commit.Push('Draw Barcode');
+
+              this.m_toolMgr!.RunAction(ACTIONS.selectItem, newBarcode);
+              this.m_view!.Update(this.selection());
+            }
+
+            barcode = null;
+          } else {
+            evt.SetPassEvent();
+          }
+
+          controls.SetAutoPan(false);
+          controls.CaptureCursor(false);
+        }
+
+        controls.SetAutoPan(false);
+        controls.CaptureCursor(false);
+        this.m_frame!.GetCanvas()!.SetCurrentCursor(KICURSOR.ARROW);
         return 0;
       }.bind(this),
     );
@@ -3244,6 +3368,7 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
     this.Go(S(this.PlacePoint), PCB_ACTIONS.placePoint.MakeEvent());
     this.Go(S(this.DrawTable), PCB_ACTIONS.drawTable.MakeEvent());
     this.Go(S(this.PlaceReferenceImage), PCB_ACTIONS.placeReferenceImage.MakeEvent());
+    this.Go(S(this.DrawBarcode), PCB_ACTIONS.placeBarcode.MakeEvent());
     // TRANSITIONAL: the remaining handlers are bound as they are ported.
   }
 }

@@ -19,7 +19,12 @@ import {
 import { fpTargetOf, newFootprint } from './footprint_editor_utils.js';
 import { fpLineThicknessMM, type FP_EDIT_JSON_SETTINGS_LIKE } from './footprint_editor_settings.js';
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX, type ReactNode } from 'react';
-import { applyBarcodeValues, barcodeValues } from './dialogs/dialog_barcode_properties.js';
+import {
+  applyBarcodeValues,
+  barcodeCommitError,
+  barcodeValues,
+} from './dialogs/dialog_barcode_properties.js';
+import { barcodeGeometry } from './pcb_io/kicad_sexpr/board_view.js';
 import { DialogBarcodeProperties } from './dialogs/dialog_barcode_properties_ui.js';
 import {
   moveFootprintItems,
@@ -2331,7 +2336,11 @@ export function FootprintEditFrame({
           return (
             <DialogBarcodeProperties
               units={unitLabel}
-              barcode={bc}
+              preview={(v) => {
+                const g = barcodeGeometry(applyBarcodeValues(bc, v));
+                return { rings: g.poly.flat(), bbox: g.bbox };
+              }}
+              commitError={(v) => barcodeCommitError(bc, v)}
               initial={barcodeValues(bc)}
               layers={allFpLayers}
               layerColor={layerColor}

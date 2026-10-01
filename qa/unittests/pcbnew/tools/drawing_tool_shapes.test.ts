@@ -34,6 +34,7 @@ import { DIALOG_COPPER_ZONE } from '@ziroeda/pcbnew/dialogs/panel_zone_propertie
 import type { ZONE } from '@ziroeda/pcbnew/zone.js';
 import type { PCB_TABLE } from '@ziroeda/pcbnew/pcb_table.js';
 import type { PCB_REFERENCE_IMAGE } from '@ziroeda/pcbnew/pcb_reference_image.js';
+import type { PCB_BARCODE } from '@ziroeda/pcbnew/pcb_barcode.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {
@@ -81,8 +82,18 @@ let imageFile: Uint8Array | null = null;
 
 /** The text box dialog's answer. */
 let textBoxOk = true;
+/** The barcode dialog's answer, and the text it types into the new barcode. */
+let barcodeOk = true;
 
 class TEXT_FRAME extends TEST_PCB_FRAME {
+  override ShowBarcodePropertiesDialog(aBarcode: PCB_BARCODE): Promise<boolean> {
+    if (barcodeOk) {
+      aBarcode.SetText('ZIRO');
+      aBarcode.AssembleBarcode();
+    }
+    return Promise.resolve(barcodeOk);
+  }
+
   override ShowTextBoxPropertiesDialog(): Promise<boolean> {
     return Promise.resolve(textBoxOk);
   }
@@ -132,6 +143,7 @@ beforeEach(() => {
   tableDialogOk = true;
   imageFile = null;
   textBoxOk = true;
+  barcodeOk = true;
   h.frame.SetActiveLayer(PCB_LAYER_ID.F_SilkS);
   h.mgr.ResetTools(RESET_REASON.MODEL_RELOAD);
 });
@@ -982,5 +994,43 @@ describe('DRAWING_TOOL::DrawRectangle as a text box (drawing_tool.cpp:411-470)',
     await flush();
     expect(boxes()).toHaveLength(0);
     expect(tool.GetDrawingMode()).toBe(DRAWING_MODE.RECTANGLE);
+  });
+});
+
+describe('DRAWING_TOOL::DrawBarcode (drawing_tool.cpp:1425-1577)', () => {
+  const flush = async (): Promise<void> => {
+    for (let i = 0; i < 4; i++) await new Promise((r) => setTimeout(r, 0));
+  };
+  const barcodes = (): PCB_BARCODE[] =>
+    h.board
+      .Drawings()
+      .filter((d) => d.Type() === KICAD_T.PCB_BARCODE_T) as unknown as PCB_BARCODE[];
+
+  it('a click builds the barcode at the cursor and opens the dialog; OK commits it, selected (:1520-1560)', async () => {
+    start(PCB_ACTIONS.placeBarcode);
+    expect(h.shape).toBe(KICURSOR.PENCIL);
+    click(mm(30, 20));
+    await flush();
+    expect(barcodes()).toHaveLength(1);
+    const b = barcodes()[0]!;
+    expect(b.GetPosition()).toEqual(mm(30, 20));
+    expect(b.GetLayer()).toBe(PCB_LAYER_ID.F_SilkS);
+    expect(b.GetTextSize()).toBe(h.board.GetDesignSettings().GetTextSize(PCB_LAYER_ID.F_SilkS).y);
+    expect(b.GetText()).toBe('ZIRO');
+    expect(b.IsSelected()).toBe(true);
+    expect(b.IsNew()).toBe(false);
+    // one dialog per click: the tool stays armed for the next barcode
+    expect(tool.GetDrawingMode()).toBe(DRAWING_MODE.BARCODE);
+  });
+
+  it('Cancel in the dialog adds nothing, and the tool stays (:1542-1546)', async () => {
+    barcodeOk = false;
+    start(PCB_ACTIONS.placeBarcode);
+    click(mm(30, 20));
+    await flush();
+    expect(barcodes()).toHaveLength(0);
+    expect(tool.GetDrawingMode()).toBe(DRAWING_MODE.BARCODE);
+    esc();
+    expect(tool.GetDrawingMode()).toBe(DRAWING_MODE.NONE);
   });
 });

@@ -140,6 +140,8 @@ import type { DIALOG_TEXT_PROPERTIES } from './dialogs/dialog_text_properties.js
 import { DIALOG_TABLE_PROPERTIES } from './dialogs/dialog_table_properties.js';
 import type { PCB_TEXTBOX } from './pcb_textbox.js';
 import { DIALOG_TEXTBOX_PROPERTIES } from './dialogs/dialog_textbox_properties.js';
+import { DIALOG_BARCODE_PROPERTIES } from './dialogs/dialog_barcode_properties.js';
+import type { PCB_BARCODE } from './pcb_barcode.js';
 import type { DIALOG_NON_COPPER_ZONES_EDITOR } from './dialogs/dialog_non_copper_zones_properties.js';
 import type { DIALOG_COPPER_ZONE } from './dialogs/panel_zone_properties.js';
 import type { DIALOG_RULE_AREA_PROPERTIES } from './dialogs/dialog_rule_area_properties.js';
@@ -305,6 +307,8 @@ export interface PCB_EDIT_FRAME_HOOKS {
   createDrcDialog(aTool: DRC_TOOL, aParent: unknown): DIALOG_DRC_LIKE;
   /** `Kiface().IsSingle()`: no schematic to test parity against. */
   isSingle(): boolean;
+  /** DIALOG_BARCODE_PROPERTIES on a live barcode, new or not; true when OK closed it. */
+  showBarcodePropertiesDialog?(aDialog: DIALOG_BARCODE_PROPERTIES): Promise<boolean>;
   /** DIALOG_TEXTBOX_PROPERTIES on a live text box, new or not; true when OK closed it. */
   showTextBoxPropertiesDialog?(aDialog: DIALOG_TEXTBOX_PROPERTIES): Promise<boolean>;
   /** The "Choose Image" file dialog: the bytes chosen, or null for Cancel. */
@@ -834,6 +838,13 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
    */
   ShowTableCellPropertiesDialog(_aCells: PCB_TABLECELL[]): Promise<boolean> {
     return Promise.resolve(true);
+  }
+
+  override ShowBarcodePropertiesDialog(aBarcode: PCB_BARCODE): Promise<boolean> {
+    return (
+      this.hooks.showBarcodePropertiesDialog?.(new DIALOG_BARCODE_PROPERTIES(this, aBarcode)) ??
+      Promise.resolve(false)
+    );
   }
 
   override ShowTextBoxPropertiesDialog(aTextBox: PCB_TEXTBOX): Promise<boolean> {

@@ -156,14 +156,13 @@ import {
   crossProbeFlashSelection,
   CROSS_PROBE_FLASH_INTERVAL_MS,
   CROSS_PROBE_FLASH_LAST_PHASE,
-  addBoardBarcode,
-  type PcbBarcode,
 } from './index.js';
 import {
-  applyBarcodeValues,
   barcodeAt,
-  barcodeValues,
+  barcodePreview,
   DIALOG_BARCODE_PROPERTIES,
+  type BarcodePreview,
+  type BarcodeValues,
 } from './dialogs/dialog_barcode_properties.js';
 import { DialogBarcodeProperties } from './dialogs/dialog_barcode_properties_ui.js';
 import { AUTOPLACE_TOOL } from './autorouter/autoplace_tool.js';
@@ -503,7 +502,6 @@ import {
   type PCBNEW_JSON_SETTINGS_LIKE,
 } from './pcb_edit_frame.js';
 import { clampMaxErrorMM } from './board_settings.js';
-import type { TextGfxRow } from './board_settings.js';
 import { BoardSetupFromWindow, BoardSetupToWindow } from './dialogs/board_setup_transfer.js';
 import { DumpJson } from '@ziroeda/common/settings/json_dump.js';
 import type { BOARD } from './board.js';
@@ -852,29 +850,6 @@ import { parseColor4d, toCssColor, type Color4d } from '@ziroeda/common/gal/colo
 
 const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
 
-/** A node with no children, for an item that has never been in a file. */
-
-/**
- * `PCB_BARCODE`'s constructor (`pcb_barcode.cpp:61-72`), for the item the
- * barcode tool creates before opening its dialog. The layer, position and text
- * height are the tool's and are filled in by the caller; everything here is
- * the item's own default.
- */
-const NEW_BARCODE = {
-  at: { x: 0, y: 0 },
-  angle: 0,
-  layer: 'Dwgs.User',
-  width: 40 * MM,
-  height: 40 * MM,
-  text: '',
-  textHeight: 1.27 * MM,
-  kind: 'qr' as const,
-  ecc: 'L' as const,
-  showText: true,
-  knockout: false,
-  margin: { x: 0, y: 0 },
-};
-
 /**
  * The board is drawn by `OPENGL_GAL` through KiCad's `VIEW` and `PCB_PAINTER`,
  * and by nothing else.
@@ -1019,6 +994,7 @@ const TOOL_MANAGER_TOOLS: Readonly<Record<string, TOOL_ACTION>> = {
   drawTable: PCB_ACTIONS.drawTable,
   placeReferenceImage: PCB_ACTIONS.placeReferenceImage,
   drawTextBox: PCB_ACTIONS.drawTextBox,
+  placeBarcode: PCB_ACTIONS.placeBarcode,
 };
 
 // Friendly names for the "Current Tool" status-bar field (field 6), shown while
@@ -1112,10 +1088,6 @@ const isClickTool = (t: string): boolean =>
   isMicrowaveTool(t) ||
   t === 'routeSingleTrack' ||
   t === 'measureTool' ||
-  // `DRAWING_TOOL::DrawBarcode` snaps through `PCB_GRID_HELPER::BestSnapAnchor`
-  // with `GRID_TEXT` (`drawing_tool.cpp:1478-1481`) before the click, exactly
-  // as the text tool does.
-  t === 'placeBarcode' ||
   // `PCB_CONTROL::PlaceCharacteristics` / `PlaceStackup` build the table and
   // hand it to `placeBoardItems`, an interactive move ending on a click.
   t === 'placeCharacteristics' ||
@@ -2623,6 +2595,8 @@ export function PcbEditor({
       // The "Choose Image" dialog: a file input, read as bytes. Cancel answers
       // null (the input's `cancel` event), which leaves the tool armed, as
       // upstream's `continue` does.
+      showBarcodePropertiesDialog: (aDialog) =>
+        new Promise<boolean>((resolve) => openBarcodeProps(aDialog, resolve)),
       showTextBoxPropertiesDialog: (aDialog) =>
         new Promise<boolean>((resolve) => setTextBoxPropsDlg({ dialog: aDialog, resolve })),
       showImageFileDialog: () =>
@@ -3008,23 +2982,6 @@ export function PcbEditor({
   const boardSetupRef = useRef(boardSetup);
   boardSetupRef.current = boardSetup;
 
-  // BOARD_DESIGN_SETTINGS::GetLayerClass, the Text & Graphics Defaults row
-  // for a layer (silk / copper / edges / courtyard / fab / other).
-  const layerClassRow = (layer: string): TextGfxRow => {
-    const rows = boardSetupRef.current.textGraphics.rows;
-    const i = /\.SilkS$/.test(layer)
-      ? 0
-      : /\.Cu$/.test(layer)
-        ? 1
-        : layer === 'Edge.Cuts'
-          ? 2
-          : /\.CrtYd$/.test(layer)
-            ? 3
-            : /\.Fab$/.test(layer)
-              ? 4
-              : 5;
-    return rows[i] ?? rows[5]!;
-  };
   // Find dialog (DIALOG_FIND): query, options, hit cursor + status line.
   const [findOpen, setFindOpen] = useState(false);
   const [findQuery, setFindQuery] = useState('');
@@ -3035,14 +2992,36 @@ export function PcbEditor({
   // A query/options change restarts the search (DIALOG_FIND::search(true)).
   const findDirtyRef = useRef(true);
   /**
-   * The barcode properties dialog. `at` is where the click landed for a new
-   * one; `index` names an existing barcode being edited instead
-   * (`EDIT_TOOL::Properties`).
+   * DIALOG_BARCODE_PROPERTIES on a live PCB_BARCODE: the board's own
+   * (`EDIT_TOOL::Properties`), or DRAWING_TOOL::DrawBarcode's new one, which
+   * waits on `resolve`. The preview and the error check are the model's, held
+   * here so the dialog's preview effect sees one function per opening.
    */
-  const [barcodeDialog, setBarcodeDialog] = useState<{
-    at: { x: number; y: number };
-    index?: number;
+  const [barcodePropsDlg, setBarcodePropsDlg] = useState<{
+    dialog: DIALOG_BARCODE_PROPERTIES;
+    preview: (v: BarcodeValues) => BarcodePreview;
+    commitError: (v: BarcodeValues) => string;
+    resolve?: (aOk: boolean) => void;
   } | null>(null);
+  const openBarcodeProps = useCallback(
+    (aDialog: DIALOG_BARCODE_PROPERTIES, aResolve?: (aOk: boolean) => void): void =>
+      setBarcodePropsDlg({
+        dialog: aDialog,
+        preview: (v) => barcodePreview(aDialog.Preview(v)),
+        commitError: (v) => aDialog.CommitError(v),
+        ...(aResolve ? { resolve: aResolve } : {}),
+      }),
+    [],
+  );
+  /** Properties on the view board's barcode `aIndex`. */
+  const setBarcodePropsIndex = useCallback(
+    (aIndex: number): void => {
+      const k = boardRef.current?.barcodes[aIndex]?.k;
+      const f = frameRef.current;
+      if (k && f) openBarcodeProps(new DIALOG_BARCODE_PROPERTIES(f, k));
+    },
+    [openBarcodeProps],
+  );
   // `DRAWING_TOOL::PlaceImportedGraphics`'s dialog (File > Import > Graphics).
   const [importGraphicsOpen, setImportGraphicsOpen] = useState(false);
   /** File > Import > Non-KiCad Board File: the chooser's type combo while it is up. */
@@ -5618,8 +5597,7 @@ export function PcbEditor({
       else if (footprintAt(brd, sel) !== null) setFpPropsIndex(footprintAt(brd, sel));
       else {
         const r = parseBoardItemId(id);
-        const bc = r?.kind === 'barcode' ? brd.barcodes[r.index] : undefined;
-        if (r && bc) setBarcodeDialog({ at: bc.at, index: r.index });
+        if (r?.kind === 'barcode' && brd.barcodes[r.index]) setBarcodePropsIndex(r.index);
       }
     },
     /** `PCB_EDIT_FRAME::Edit_Zone_Params`'s actual open: the rendering trigger. */
@@ -6364,10 +6342,8 @@ export function PcbEditor({
             else if (padIdx !== null) setPadPropsRef(padIdx);
             else if (textIdx !== null) setTextPropsIndex(textIdx);
             else if (shapeIdx !== null) setShapePropsIndex(shapeIdx);
-            else if (barcodeIdx !== null) {
-              const bc = boardRef.current?.barcodes[barcodeIdx];
-              if (bc) setBarcodeDialog({ at: bc.at, index: barcodeIdx });
-            } else setFpPropsIndex(fpIdx);
+            else if (barcodeIdx !== null) setBarcodePropsIndex(barcodeIdx);
+            else setFpPropsIndex(fpIdx);
           },
         },
         -1,
@@ -6775,31 +6751,6 @@ export function PcbEditor({
   };
   const routeViaSwitchRef = useRef(routeViaSwitch);
   routeViaSwitchRef.current = routeViaSwitch;
-
-  /**
-   * The barcode the properties dialog edits: an existing one when the dialog
-   * was opened by double-click, otherwise the item `DRAWING_TOOL::DrawBarcode`
-   * builds before opening it (`drawing_tool.cpp:1528-1532`) —
-   *
-   *     barcode = new PCB_BARCODE( m_frame->GetModel() );
-   *     barcode->SetLayer( layer );
-   *     barcode->SetPosition( cursorPos );
-   *     barcode->SetTextSize( bds.GetTextSize( layer ).y );
-   *
-   * so everything else is `PCB_BARCODE`'s constructor, and the text height is
-   * the layer class's Board Setup value rather than `EDA_TEXT`'s default.
-   */
-  const barcodeUnderEdit = (): PcbBarcode | null => {
-    const brd = boardRef.current;
-    if (!brd || !barcodeDialog) return null;
-    if (barcodeDialog.index !== undefined) return brd.barcodes[barcodeDialog.index] ?? null;
-    return {
-      ...NEW_BARCODE,
-      at: barcodeDialog.at,
-      layer: activeLayer,
-      textHeight: Math.round((layerClassRow(activeLayer).textHeight ?? 1) * MM),
-    };
-  };
 
   /**
    * The two controls the *board's* table dialog has and the schematic's does
@@ -8394,12 +8345,6 @@ export function PcbEditor({
         } else if (activeToolRef.current === 'drillOrigin') {
           const w = worldAt(e.clientX, e.clientY);
           if (w) handleOriginClick('aux_axis_origin', w);
-        } else if (activeToolRef.current === 'placeBarcode') {
-          const w = worldAt(e.clientX, e.clientY);
-          // `DrawBarcode` creates the item, opens the dialog, and only commits
-          // if it returns OK (`drawing_tool.cpp:1528-1560`) — so nothing is
-          // added here, and Cancel leaves the board untouched.
-          if (w) setBarcodeDialog({ at: cursorSnapRef.current(w) });
         } else if (
           activeToolRef.current === 'placeCharacteristics' ||
           activeToolRef.current === 'placeStackup'
@@ -10977,48 +10922,29 @@ export function PcbEditor({
         </>
       )}
 
-      {/* Barcode properties. `DRAWING_TOOL::DrawBarcode` opens this before
-          placing (`drawing_tool.cpp:1534-1541`); a double-click on an existing
-          barcode opens it through `EDIT_TOOL::Properties`. */}
-      {barcodeDialog &&
-        (() => {
-          const bc = barcodeUnderEdit();
-          if (!bc) return null;
-          return (
-            <DialogBarcodeProperties
-              units={unitLabel}
-              barcode={bc}
-              initial={
-                bc.k && frameRef.current
-                  ? new DIALOG_BARCODE_PROPERTIES(frameRef.current, bc.k).TransferDataToWindow()
-                  : barcodeValues(bc)
-              }
-              layers={board?.layers.map((l) => l.name) ?? []}
-              layerColor={layerColor}
-              background={PCB_BACKGROUND}
-              onClose={() => setBarcodeDialog(null)}
-              onApply={(v) => {
-                const brd = boardRef.current;
-                const dlg = barcodeDialog;
-                setBarcodeDialog(null);
-                if (!brd || !dlg) return;
-                if (dlg.index !== undefined) {
-                  // DIALOG_BARCODE_PROPERTIES on the live PCB_BARCODE: one BOARD_COMMIT.
-                  const k = brd.barcodes[dlg.index]?.k;
-                  if (k && frameRef.current)
-                    new DIALOG_BARCODE_PROPERTIES(frameRef.current, k).TransferDataFromWindow(v);
-                  return;
-                }
-                const next = applyBarcodeValues(bc, v);
-                // `m_toolMgr->RunAction<EDA_ITEM*>( ACTIONS::selectItem, barcode )`
-                // (`drawing_tool.cpp:1558`): the new barcode is left selected.
-                const added = addBoardBarcode(brd, next);
-                commitBoard(added.board);
-                setSelectionRef.current(new Set([added.id]));
-              }}
-            />
-          );
-        })()}
+      {/* Barcode properties: `DRAWING_TOOL::DrawBarcode` opens it on its new
+          barcode before committing (`drawing_tool.cpp:1534-1541`); a double-click
+          on an existing one opens it through `EDIT_TOOL::Properties`. */}
+      {barcodePropsDlg && board && (
+        <DialogBarcodeProperties
+          units={unitLabel}
+          preview={barcodePropsDlg.preview}
+          commitError={barcodePropsDlg.commitError}
+          initial={barcodePropsDlg.dialog.TransferDataToWindow()}
+          layers={board.layers.map((l) => l.name)}
+          layerColor={layerColor}
+          background={PCB_BACKGROUND}
+          onClose={() => {
+            barcodePropsDlg.resolve?.(false);
+            setBarcodePropsDlg(null);
+          }}
+          onApply={(v) => {
+            const d = barcodePropsDlg;
+            setBarcodePropsDlg(null);
+            d.resolve?.(d.dialog.TransferDataFromWindow(v).ok);
+          }}
+        />
+      )}
 
       {/* File > Import > Non-KiCad Board File. `OpenProjectFiles( { file },
           KICTL_NONKICAD_ONLY )` (files.cpp:476): the importer builds the board
