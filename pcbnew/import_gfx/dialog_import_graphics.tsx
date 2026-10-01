@@ -29,11 +29,10 @@
  */
 
 import { useMemo, useState, type JSX } from 'react';
-import {
-  GRAPHICS_IMPORTER_PCBNEW,
-  DEFAULT_IMPORT_LAYER,
-  type IMPORTED_ITEM,
-} from './graphics_importer_pcbnew.js';
+import { GRAPHICS_IMPORTER_PCBNEW } from './graphics_importer_pcbnew.js';
+import type { BOARD_ITEM } from '../board_item.js';
+import type { BOARD_ITEM_CONTAINER } from '../board_item_container.js';
+import { LSET_NameToLayer } from '@ziroeda/common/layer_ids.js';
 import {
   fileExtension,
   getImportableFileTypes,
@@ -85,7 +84,7 @@ export interface Params {
 
 /**
  * `_base`'s literal defaults: place-at unchecked (interactive placement),
- * "Layer:" checked with {@link DEFAULT_IMPORT_LAYER} — the importer's own
+ * "Layer:" checked with Dwgs.User — the importer's own
  * default, since nothing in `dialog_import_graphics.cpp` calls
  * `SetLayerSelection` before the first paint — group items and fix
  * discontinuities both checked, tolerance "1" and line width "0.2", both read
@@ -97,7 +96,8 @@ export const DEFAULT_PARAMS: Params = {
   placeAt: false,
   originMM: { x: 0, y: 0 },
   setLayer: true,
-  layer: DEFAULT_IMPORT_LAYER,
+  // `Dwgs_User`, GRAPHICS_IMPORTER_PCBNEW's own `m_layer`.
+  layer: 'Dwgs.User',
   groupItems: true,
   fixDiscontinuities: true,
   toleranceMM: 1,
@@ -107,7 +107,7 @@ export const DEFAULT_PARAMS: Params = {
 
 /** What one import produced, for the dialog to report before OK is live. */
 export interface Imported {
-  items: IMPORTED_ITEM[];
+  items: BOARD_ITEM[];
   /** `GetImageWidth`/`Height`: the drawing's extent in millimetres. */
   widthMM: number;
   heightMM: number;
@@ -144,13 +144,14 @@ export function runImport(
   invertX: boolean,
   invertY: boolean,
   activeLayer: PCB_LAYER_NAME,
+  aParent: BOARD_ITEM_CONTAINER | null,
 ): Imported {
   const empty = { items: [], widthMM: 0, heightMM: 0, notes: [] };
 
   const plugin = getPluginByExt(fileExtension(name));
   if (!plugin) return { ...empty, error: 'There is no plugin to handle this file type.' };
 
-  const importer = new GRAPHICS_IMPORTER_PCBNEW();
+  const importer = new GRAPHICS_IMPORTER_PCBNEW(aParent);
 
   if (plugin instanceof DXF_IMPORT_PLUGIN) {
     plugin.SetUnit(p.dxfUnits);
@@ -160,7 +161,7 @@ export function runImport(
   }
 
   plugin.SetImporter(importer);
-  importer.SetLayer(p.setLayer ? p.layer : activeLayer);
+  importer.SetLayer(LSET_NameToLayer(p.setLayer ? p.layer : activeLayer));
 
   const xscale = p.scale * (invertX ? -1 : 1);
   const yscale = p.scale * (invertY ? -1 : 1);
@@ -195,11 +196,13 @@ interface Props {
   layerColor: (layer: string) => string;
   /** `m_parent->GetActiveLayer()`, used when "Layer:" is unchecked. */
   activeLayer: PCB_LAYER_NAME;
+  /** `GRAPHICS_IMPORTER_PCBNEW( m_parent->GetModel() )`: the items' parent. */
+  parent: BOARD_ITEM_CONTAINER | null;
   /** `cfg->m_Display.m_Display{Invert{X,Y}Axis}`. */
   invertX: boolean;
   invertY: boolean;
   onOk: (
-    items: IMPORTED_ITEM[],
+    items: BOARD_ITEM[],
     opts: {
       group: boolean;
       interactive: boolean;
@@ -215,6 +218,7 @@ export function DialogImportGraphics({
   layers,
   layerColor,
   activeLayer,
+  parent,
   invertX,
   invertY,
   onOk,
@@ -233,8 +237,8 @@ export function DialogImportGraphics({
 
   const imported = useMemo(() => {
     if (!file) return null;
-    return runImport(file.name, file.text, params, invertX, invertY, activeLayer);
-  }, [file, params, invertX, invertY, activeLayer]);
+    return runImport(file.name, file.text, params, invertX, invertY, activeLayer, parent);
+  }, [file, params, invertX, invertY, activeLayer, parent]);
 
   const choose = async (chosen: File | undefined): Promise<void> => {
     if (!chosen) return;

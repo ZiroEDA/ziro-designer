@@ -121,7 +121,7 @@ import { PCB_TEXTBOX } from '../pcb_textbox.js';
 import { PCB_BARCODE } from '../pcb_barcode.js';
 import { PCB_REFERENCE_IMAGE } from '../pcb_reference_image.js';
 import { IS_MOVING } from '@ziroeda/common/eda_item_flags.js';
-import { DisplayErrorMessage } from '@ziroeda/common/confirm.js';
+import { DisplayErrorMessage, DisplayInfoMessage } from '@ziroeda/common/confirm.js';
 import { PCB_TABLE } from '../pcb_table.js';
 import { PCB_TABLECELL } from '../pcb_tablecell.js';
 import { BEZIER_ASSISTANT } from '@ziroeda/common/preview_items/bezier_assistant.js';
@@ -161,15 +161,15 @@ import type { PCB_SELECTION_TOOL } from './pcb_selection_tool.js';
 import { ZONE_CREATE_HELPER, type ZONE_CREATE_PARAMS } from './zone_create_helper.js';
 import { BEZIER_GEOM_MANAGER, BEZIER_STEPS } from '@ziroeda/common/index.js';
 import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
-import { pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import { newKiid } from '@ziroeda/common/kiid.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { segNearestPoint } from '@ziroeda/kimath/src/geometry/seg.js';
 import { TestSegmentHit } from '@ziroeda/kimath/src/trigo.js';
 import { ConnectBoardShapes } from '../fix_board_shape.js';
-import type { IMPORTED_ITEM } from '../import_gfx/graphics_importer_pcbnew.js';
+import { PCB_GROUP } from '../pcb_group.js';
+import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import { PCB_SHAPE } from '../pcb_shape.js';
-import type { Board, PcbShape, PcbTextItem, PcbTrack, PcbVia } from '../types.js';
+import type { Board, PcbTrack, PcbVia } from '../types.js';
 import {
   DEFAULT_DIMENSION_DEFAULTS,
   type DimensionDefaults as EngineDimensionDefaults,
@@ -516,120 +516,11 @@ const DIM_PRECISION = ['0', '0.0', '0.00', '0.000', '0.0000', '0.00000'] as cons
 // by dragging the text, not chosen up front.
 const DIM_POSITION = ['Outside', 'Inline'] as const;
 
-/*
- * The model half of `DRAWING_TOOL::PlaceImportedGraphics`
- * (`drawing_tool.cpp:2044-2230`): turning the plain records
- * `DialogImportGraphics.onOk` hands back into board items, welding them if
- * asked, and reporting which ids to select. The interactive half (the cluster
- * following the cursor) reuses the netlist updater's post-update move gesture;
- * Escape leaves the items at the import origin rather than deleting them.
- */
-
-/**
- * `shapeList` in `PlaceImportedGraphics` (`:2098-2106`) is every imported
- * `PCB_SHAPE`, unfiltered by its `SHAPE_T` — `ConnectBoardShapes` itself is
- * what restricts which of them may START a walk (`fix_board_shape.cpp:401-410`,
- * SEGMENT/ARC/BEZIER only). Only those three kinds have a start/mid/end this
- * port can read back afterwards, so only those three are welded; a circle,
- * rect or polygon among the imported shapes is left untouched — the same
- * shapes `AddCircle`/`AddPolygon` in `graphics_importer_pcbnew.ts` produce are
- * exactly the ones a DXF/SVG outline needs connected in the first place.
- */
-const WELDABLE: ReadonlySet<PcbShape['kind']> = new Set(['line', 'arc', 'curve']);
-
-/** One imported shape, as a live `PCB_SHAPE` for `ConnectBoardShapes` to mutate. */
-function shapeToWeldItem(s: PcbShape): PCB_SHAPE {
-  const k = new PCB_SHAPE(null);
-  switch (s.kind) {
-    case 'line':
-      k.SetShape(SHAPE_T.SEGMENT);
-      k.SetStart(s.start!);
-      k.SetEnd(s.end!);
-      break;
-    case 'arc':
-      k.SetShape(SHAPE_T.ARC);
-      k.SetArcGeometry(s.start!, s.mid!, s.end!);
-      break;
-    case 'curve':
-      k.SetShape(SHAPE_T.BEZIER);
-      k.SetStart(s.pts![0]!);
-      k.SetBezierC1(s.pts![1]!);
-      k.SetBezierC2(s.pts![2]!);
-      k.SetEnd(s.pts![3]!);
-      break;
-    default:
-      // Unreachable: callers only build this for a WELDABLE kind.
-      break;
-  }
-  return k;
-}
-
-/** Read a welded `PCB_SHAPE`'s geometry back into the record it came from. */
-function weldItemToShape(s: PcbShape, k: PCB_SHAPE): PcbShape {
-  switch (s.kind) {
-    case 'line':
-      return { ...s, start: k.GetStart(), end: k.GetEnd() };
-    case 'arc':
-      return { ...s, start: k.GetStart(), mid: k.GetArcMid(), end: k.GetEnd() };
-    case 'curve':
-      return { ...s, pts: [k.GetStart(), k.GetBezierC1(), k.GetBezierC2(), k.GetEnd()] };
-    default:
-      return s;
-  }
-}
-
-/**
- * `ConnectBoardShapes( shapeList, dlg.GetTolerance() )` (`:2099`): weld the
- * open (line/arc/curve) shapes' endpoints in place, at `aToleranceIU`.
- */
-export function weldImportedShapes(shapes: readonly PcbShape[], aToleranceIU: number): PcbShape[] {
-  const weldable = shapes.map((s, i) => ({ s, i })).filter(({ s }) => WELDABLE.has(s.kind));
-
-  if (weldable.length === 0) return [...shapes];
-
-  const items = weldable.map(({ s }) => shapeToWeldItem(s));
-  ConnectBoardShapes(items, aToleranceIU);
-
-  const out = [...shapes];
-  weldable.forEach(({ i, s }, n) => {
-    out[i] = weldItemToShape(s, items[n]!);
-  });
-  return out;
-}
-
-export interface PlacedImport {
-  shapes: PcbShape[];
-  texts: PcbTextItem[];
-}
-
-/**
- * Split the importer's `IMPORTED_ITEM[]`, stamp a fresh KIID on each — every
- * `EDA_ITEM` constructor does this upstream, and `groupBoardItems` below
- * skips an item with none — and weld if asked.
- */
-export function placeImportedItems(
-  items: readonly IMPORTED_ITEM[],
-  opts: { fixDiscontinuities: boolean; toleranceMM: number },
-): PlacedImport {
-  let shapes = items
-    .filter((i): i is { type: 'shape'; shape: Omit<PcbShape, 'source'> } => i.type === 'shape')
-    .map((i) => ({ ...i.shape, uuid: newKiid() }) as PcbShape);
-  const texts = items
-    .filter((i): i is { type: 'text'; text: Omit<PcbTextItem, 'source'> } => i.type === 'text')
-    .map((i) => ({ ...i.text, uuid: newKiid() }) as PcbTextItem);
-
-  if (opts.fixDiscontinuities) shapes = weldImportedShapes(shapes, pcbMmToIU(opts.toleranceMM));
-
-  return { shapes, texts };
-}
-
 // ---------------------------------------------------------------------------
 // DRAWING_TOOL (pcbnew/tools/drawing_tool.cpp), on the live BOARD.
 //
-// Every handler setTransitions binds but four: PlaceImportedGraphics (and its
-// drag-and-drop twin), whose importer still builds view records, so the frame
-// window places them; SetAnchor, the footprint editor's; and PlaceTuningPattern,
-// which waits on PCB_TUNING_PATTERN.
+// Every handler setTransitions binds but two: SetAnchor, the footprint
+// editor's; and PlaceTuningPattern, which waits on PCB_TUNING_PATTERN.
 // ---------------------------------------------------------------------------
 
 /** `DRAWING_TOOL::MODE`. */
@@ -1843,6 +1734,189 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
         controls.SetAutoPan(false);
         controls.CaptureCursor(false);
         this.m_frame!.GetCanvas()!.SetCurrentCursor(KICURSOR.ARROW);
+        return 0;
+      }.bind(this),
+    );
+  }
+
+  *PlaceImportedGraphics(aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+    if (!this.m_frame!.GetModel()) return 0;
+
+    return yield* this.scoped(
+      DRAWING_MODE.NONE,
+      function* (this: DRAWING_TOOL) {
+        // DIALOG_IMPORT_GRAPHICS dlg( m_frame ); with the dropped file's name on
+        // drag-and-drop. Null is any answer but wxID_OK.
+        //
+        // Upstream's ShowModal blocks the handler; ours waits in this coroutine
+        // for the dialog to settle, and only an activated tool is woken, so the
+        // tool activates first (upstream activates it next, for the placement).
+        this.Activate();
+
+        const filenameOverride = aEvent.HasParameter() ? aEvent.Parameter<string>() : undefined;
+        const dlg = yield* this.RunMainStackModal(() =>
+          this.m_frame!.ShowImportGraphicsDialog(filenameOverride),
+        );
+
+        if (!dlg) return 0;
+
+        const list = dlg.items;
+
+        // Ensure the list is not empty:
+        if (list.length === 0) {
+          yield* this.RunMainStackModal(() =>
+            DisplayInfoMessage('No graphic items found in file.'),
+          );
+          return 0;
+        }
+
+        this.m_toolMgr!.RunAction(ACTIONS.cancelInteractive);
+
+        const newItems: BOARD_ITEM[] = []; // all new items, including group
+        const selectedItems: BOARD_ITEM[] = []; // the group, or newItems if no group
+        const preview = new PCB_SELECTION();
+        const commit = new BOARD_COMMIT(this.m_frame!);
+        let group: PCB_GROUP | null = null;
+        let layer: PCB_LAYER_ID = PCB_LAYER_ID.F_Cu;
+
+        if (dlg.groupItems) {
+          const boardItemCount = list.filter((ptr) => ptr.IsBOARD_ITEM()).length;
+
+          if (boardItemCount >= 2) {
+            group = new PCB_GROUP(this.m_frame!.GetModel() as unknown as BOARD_ITEM);
+
+            newItems.push(group);
+            selectedItems.push(group);
+            preview.Add(group);
+          }
+        }
+
+        if (dlg.fixDiscontinuities) {
+          const shapeList: PCB_SHAPE[] = [];
+
+          for (const ptr of list) if (ptr instanceof PCB_SHAPE) shapeList.push(ptr);
+
+          ConnectBoardShapes(shapeList, dlg.tolerance);
+        }
+
+        for (const item of list) {
+          if (item.IsBOARD_ITEM()) {
+            newItems.push(item);
+
+            if (group) group.AddItem(item);
+            else selectedItems.push(item);
+
+            layer = item.GetLayer();
+          }
+
+          preview.Add(item);
+        }
+
+        // Clear the current selection then select the drawings so that edit tools work on them
+        this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
+
+        const selItems: EDA_ITEM[] = [...selectedItems];
+        this.m_toolMgr!.RunAction(ACTIONS.selectItems, selItems);
+
+        if (!dlg.interactive) {
+          for (const item of newItems) commit.Add(item);
+
+          commit.Push('Import Graphics');
+
+          return 0;
+        }
+
+        // Turn shapes on if they are off, so that the created object will be visible after completion
+        this.m_frame!.SetObjectVisible(GAL_LAYER_ID.LAYER_FILLED_SHAPES);
+
+        if (!this.m_view!.IsLayerVisible(layer)) {
+          this.m_frame!.GetAppearancePanel()?.SetLayerVisible?.(layer, true);
+          this.m_frame!.GetCanvas()!.Refresh();
+        }
+
+        this.m_view!.Add(preview);
+
+        this.m_frame!.PushTool(aEvent);
+
+        const setCursor = (): void => {
+          this.m_frame!.GetCanvas()!.SetCurrentCursor(KICURSOR.MOVING);
+        };
+
+        const controls = this.m_controls!;
+
+        this.Activate();
+        // Must be done after Activate() so that it gets set into the correct context
+        controls.ShowCursor(true);
+        controls.ForceCursorPosition(false);
+        // Set initial cursor
+        setCursor();
+
+        this.m_mode = DRAWING_MODE.DXF;
+        const grid = new PCB_GRID_HELPER(this.m_toolMgr!, this.m_frame!.GetMagneticItemsSettings());
+
+        // Now move the new items to the current cursor position:
+        let cursorPos: VECTOR2I = controls.GetCursorPosition(!aEvent.DisableGridSnapping());
+        const topLeft = (): VECTOR2I => (preview.GetTopLeftItem() as BOARD_ITEM).GetPosition();
+        let delta = { x: cursorPos.x - topLeft().x, y: cursorPos.y - topLeft().y };
+
+        for (const item of selectedItems) item.Move(delta);
+
+        this.m_view!.Update(preview);
+
+        // Main loop: keep receiving events
+        for (let evt = yield* this.Wait(); evt; evt = yield* this.Wait()) {
+          setCursor();
+
+          grid.SetSnap(!evt.Modifier(MD_SHIFT));
+          grid.SetUseGrid(
+            this.getView()!.GetGAL()!.GetGridSnapping() && !evt.DisableGridSnapping(),
+          );
+          cursorPos = GetClampedCoords(
+            grid.BestSnapAnchor(
+              controls.GetMousePosition(),
+              new LSET([layer]),
+              GRID_HELPER_GRIDS.GRID_GRAPHICS,
+            ),
+            DRAWING_COORDS_PADDING,
+          );
+          controls.ForceCursorPosition(true, cursorPos);
+
+          if (evt.IsCancelInteractive() || evt.IsActivate()) {
+            this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
+
+            if (group) preview.Remove(group);
+
+            break;
+          } else if (evt.IsMotion()) {
+            delta = { x: cursorPos.x - topLeft().x, y: cursorPos.y - topLeft().y };
+
+            for (const item of selectedItems) item.Move(delta);
+
+            this.m_view!.Update(preview);
+          } else if (evt.IsClick(BUT_RIGHT)) {
+            this.m_menu.ShowContextMenu(this.selection());
+          } else if (evt.IsClick(BUT_LEFT) || evt.IsDblClick(BUT_LEFT)) {
+            // Place the imported drawings
+            for (const item of newItems) commit.Add(item);
+
+            commit.Push('Import Graphics');
+
+            break; // This is a one-shot command, not a tool
+          } else if (IsZoneFillAction(evt)) {
+            wxBell();
+          } else {
+            evt.SetPassEvent();
+          }
+        }
+
+        preview.Clear();
+        this.m_view!.Remove(preview);
+
+        this.m_frame!.GetCanvas()!.SetCurrentCursor(KICURSOR.ARROW);
+        controls.ForceCursorPosition(false);
+
+        this.m_frame!.PopTool(aEvent);
+
         return 0;
       }.bind(this),
     );
@@ -3369,6 +3443,8 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
     this.Go(S(this.DrawTable), PCB_ACTIONS.drawTable.MakeEvent());
     this.Go(S(this.PlaceReferenceImage), PCB_ACTIONS.placeReferenceImage.MakeEvent());
     this.Go(S(this.DrawBarcode), PCB_ACTIONS.placeBarcode.MakeEvent());
+    this.Go(S(this.PlaceImportedGraphics), PCB_ACTIONS.placeImportedGraphics.MakeEvent());
+    this.Go(S(this.PlaceImportedGraphics), PCB_ACTIONS.ddImportGraphics.MakeEvent());
     // TRANSITIONAL: the remaining handlers are bound as they are ported.
   }
 }

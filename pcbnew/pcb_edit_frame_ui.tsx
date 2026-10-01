@@ -34,7 +34,6 @@ import {
 import { DialogRuleAreaProperties } from './dialogs/dialog_rule_area_properties_ui.js';
 import type { PROGRESS_REPORTER_LIKE } from './connectivity/connectivity_algo.js';
 import { PROF_TIMER, traceAllegroPerf, wxLogTrace } from '@ziroeda/common/trace_helpers.js';
-import { placeImportedItems } from './tools/drawing_tool.js';
 import {
   collectPlacementSources,
   DIALOG_RULE_AREA_PROPERTIES,
@@ -98,7 +97,6 @@ import {
   boardItemId,
   subsetBoardItems,
   deleteBoardItems,
-  groupBoardItems,
   expandGroupIds,
   filterSelectionForFreePads,
   startTrackDrag,
@@ -120,8 +118,6 @@ import {
   courtyardConflictsAt,
   type CourtyardConflicts,
   type CourtyardConflictSession,
-  addBoardShape,
-  addBoardText,
   setBoardOrigin,
   type Board,
   type BoardBBox,
@@ -810,7 +806,8 @@ import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { BOARD_COMMIT } from './board_commit.js';
-import type { PCB_BASE_EDIT_FRAME } from './pcb_base_edit_frame.js';
+import type { IMPORT_GRAPHICS_RESULT, PCB_BASE_EDIT_FRAME } from './pcb_base_edit_frame.js';
+import type { BOARD_ITEM_CONTAINER } from './board_item_container.js';
 import type { PCB_SHAPE } from './pcb_shape.js';
 import type { VertexEditorFrame } from './widgets/vertex_editor_pane.js';
 import type { PcbSearchWiring } from './widgets/search_handlers.js';
@@ -995,6 +992,7 @@ const TOOL_MANAGER_TOOLS: Readonly<Record<string, TOOL_ACTION>> = {
   placeReferenceImage: PCB_ACTIONS.placeReferenceImage,
   drawTextBox: PCB_ACTIONS.drawTextBox,
   placeBarcode: PCB_ACTIONS.placeBarcode,
+  placeImportedGraphics: PCB_ACTIONS.placeImportedGraphics,
 };
 
 // Friendly names for the "Current Tool" status-bar field (field 6), shown while
@@ -2595,6 +2593,8 @@ export function PcbEditor({
       // The "Choose Image" dialog: a file input, read as bytes. Cancel answers
       // null (the input's `cancel` event), which leaves the tool armed, as
       // upstream's `continue` does.
+      showImportGraphicsDialog: () =>
+        new Promise<IMPORT_GRAPHICS_RESULT | null>((resolve) => setImportGfxDlg({ resolve })),
       showBarcodePropertiesDialog: (aDialog) =>
         new Promise<boolean>((resolve) => openBarcodeProps(aDialog, resolve)),
       showTextBoxPropertiesDialog: (aDialog) =>
@@ -3022,8 +3022,11 @@ export function PcbEditor({
     },
     [openBarcodeProps],
   );
-  // `DRAWING_TOOL::PlaceImportedGraphics`'s dialog (File > Import > Graphics).
-  const [importGraphicsOpen, setImportGraphicsOpen] = useState(false);
+  // `DRAWING_TOOL::PlaceImportedGraphics`'s DIALOG_IMPORT_GRAPHICS (File >
+  // Import > Graphics): the tool waits on `resolve`, null for Cancel.
+  const [importGfxDlg, setImportGfxDlg] = useState<{
+    resolve: (aResult: IMPORT_GRAPHICS_RESULT | null) => void;
+  } | null>(null);
   /** File > Import > Non-KiCad Board File: the chooser's type combo while it is up. */
   const [nonKicadFilters, setNonKicadFilters] = useState<ChooserFilter[] | null>(null);
   // DIALOG_MAP_LAYERS::RunModal, asked for by a layer-mappable importer mid-load
@@ -9771,7 +9774,7 @@ export function PcbEditor({
         runAction(PCB_ACTIONS.editTeardrops);
         break;
       case 'importGraphics':
-        setImportGraphicsOpen(true);
+        runAction(PCB_ACTIONS.placeImportedGraphics);
         break;
       // `PCB_ACTIONS::exportSpecctraDSN` -> `PCB_EDIT_FRAME::ExportSpecctraFile`.
       case 'exportSpecctraDSN': {
@@ -11047,55 +11050,32 @@ export function PcbEditor({
           onDone={mapLayersRequest.done}
         />
       )}
-      {/* File > Import > Graphics. `DRAWING_TOOL::PlaceImportedGraphics`
-          (`drawing_tool.cpp:2044-2230`): the dialog runs the import live and
-          reports it, then this commits what it produced and — for
-          interactive placement — hands the new selection to the same move
-          gesture `startPostUpdateMoveRef` uses for a netlist update's spread
-          footprints, per `placeImportedItems`'s doc comment on why
-          that is the reused mechanism rather than an uncommitted preview. */}
-      {importGraphicsOpen && (
+      {/* File > Import > Graphics: DIALOG_IMPORT_GRAPHICS, which
+          `DRAWING_TOOL::PlaceImportedGraphics` opens and then places what it
+          imported (`drawing_tool.cpp:2044-2230`). */}
+      {importGfxDlg && (
         <DialogImportGraphics
           units={unitLabel}
           layers={board?.layers.map((l) => l.name) ?? []}
           layerColor={layerColor}
           activeLayer={activeLayer}
+          parent={(frameRef.current?.GetModel() as BOARD_ITEM_CONTAINER | null | undefined) ?? null}
           invertX={frameRef.current?.GetPcbNewSettings().m_Display.m_DisplayInvertXAxis ?? false}
           invertY={frameRef.current?.GetPcbNewSettings().m_Display.m_DisplayInvertYAxis ?? false}
-          onCancel={() => setImportGraphicsOpen(false)}
+          onCancel={() => {
+            importGfxDlg.resolve(null);
+            setImportGfxDlg(null);
+          }}
           onOk={(items, opts) => {
-            setImportGraphicsOpen(false);
-            const brd = boardRef.current;
-            if (!brd || items.length === 0) return;
-
-            const placed = placeImportedItems(items, opts);
-            let next = brd;
-            const ids: string[] = [];
-            for (const s of placed.shapes) {
-              const r = addBoardShape(next, s);
-              next = r.board;
-              ids.push(r.id);
-            }
-            for (const t of placed.texts) {
-              const r = addBoardText(next, t);
-              next = r.board;
-              ids.push(r.id);
-            }
-
-            // `boardItemCount >= 2` (`drawing_tool.cpp:2087`): a group is only
-            // worth making for two items or more.
-            let selectIds = new Set(ids);
-            if (opts.group && ids.length >= 2) {
-              const g = groupBoardItems(next, new Set(ids));
-              if (g.id) {
-                next = g.board;
-                selectIds = new Set([g.id]);
-              }
-            }
-
-            commitBoard(next);
-            setSelectionRef.current(selectIds);
-            if (opts.interactive) beginMove(selectIds, 'move', { x: 0, y: 0 });
+            importGfxDlg.resolve({
+              items,
+              groupItems: opts.group,
+              interactive: opts.interactive,
+              fixDiscontinuities: opts.fixDiscontinuities,
+              // `m_tolerance.GetValue()`: the unit binder answers IU.
+              tolerance: pcbIUScale.mmToIU(opts.toleranceMM),
+            });
+            setImportGfxDlg(null);
           }}
         />
       )}

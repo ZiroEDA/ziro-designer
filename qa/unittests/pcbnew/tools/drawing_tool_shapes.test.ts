@@ -25,7 +25,9 @@ import {
   TA_MOUSE_MOTION,
 } from '@ziroeda/common/tool/tool_event.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-import type { PCB_SHAPE } from '@ziroeda/pcbnew/pcb_shape.js';
+import { PCB_SHAPE } from '@ziroeda/pcbnew/pcb_shape.js';
+import type { BOARD_ITEM } from '@ziroeda/pcbnew/board_item.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import type { DIALOG_TEXT_PROPERTIES } from '@ziroeda/pcbnew/dialogs/dialog_text_properties.js';
 import type { PCB_TEXT } from '@ziroeda/pcbnew/pcb_text.js';
 import { DIALOG_NON_COPPER_ZONES_EDITOR } from '@ziroeda/pcbnew/dialogs/dialog_non_copper_zones_properties.js';
@@ -35,6 +37,7 @@ import type { ZONE } from '@ziroeda/pcbnew/zone.js';
 import type { PCB_TABLE } from '@ziroeda/pcbnew/pcb_table.js';
 import type { PCB_REFERENCE_IMAGE } from '@ziroeda/pcbnew/pcb_reference_image.js';
 import type { PCB_BARCODE } from '@ziroeda/pcbnew/pcb_barcode.js';
+import type { IMPORT_GRAPHICS_RESULT } from '@ziroeda/pcbnew/pcb_base_edit_frame.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {
@@ -84,8 +87,13 @@ let imageFile: Uint8Array | null = null;
 let textBoxOk = true;
 /** The barcode dialog's answer, and the text it types into the new barcode. */
 let barcodeOk = true;
+/** What OK on the import graphics dialog hands the tool, or null for Cancel. */
+let importResult: IMPORT_GRAPHICS_RESULT | null = null;
 
 class TEXT_FRAME extends TEST_PCB_FRAME {
+  override ShowImportGraphicsDialog(): Promise<IMPORT_GRAPHICS_RESULT | null> {
+    return Promise.resolve(importResult);
+  }
   override ShowBarcodePropertiesDialog(aBarcode: PCB_BARCODE): Promise<boolean> {
     if (barcodeOk) {
       aBarcode.SetText('ZIRO');
@@ -144,6 +152,7 @@ beforeEach(() => {
   imageFile = null;
   textBoxOk = true;
   barcodeOk = true;
+  importResult = null;
   h.frame.SetActiveLayer(PCB_LAYER_ID.F_SilkS);
   h.mgr.ResetTools(RESET_REASON.MODEL_RELOAD);
 });
@@ -1032,5 +1041,114 @@ describe('DRAWING_TOOL::DrawBarcode (drawing_tool.cpp:1425-1577)', () => {
     expect(tool.GetDrawingMode()).toBe(DRAWING_MODE.BARCODE);
     esc();
     expect(tool.GetDrawingMode()).toBe(DRAWING_MODE.NONE);
+  });
+});
+
+describe('DRAWING_TOOL::PlaceImportedGraphics (drawing_tool.cpp:2044-2230)', () => {
+  const flush = async (): Promise<void> => {
+    for (let i = 0; i < 4; i++) await new Promise((r) => setTimeout(r, 0));
+  };
+  /** A segment as GRAPHICS_IMPORTER_PCBNEW builds one, parented to the board. */
+  const seg = (a: Vec2, b: Vec2): PCB_SHAPE => {
+    const l = new PCB_SHAPE(h.board, SHAPE_T.SEGMENT);
+    l.SetLayer(PCB_LAYER_ID.Dwgs_User);
+    l.SetStart(a);
+    l.SetEnd(b);
+    return l;
+  };
+  const result = (
+    aItems: BOARD_ITEM[],
+    aOpts: Partial<Omit<IMPORT_GRAPHICS_RESULT, 'items'>> = {},
+  ): IMPORT_GRAPHICS_RESULT => ({
+    items: aItems,
+    groupItems: true,
+    interactive: false,
+    fixDiscontinuities: false,
+    tolerance: pcbIUScale.mmToIU(1),
+    ...aOpts,
+  });
+  const groups = (): BOARD_ITEM[] => h.board.Groups() as unknown as BOARD_ITEM[];
+
+  it('placed at the file origin: everything committed at once, in one new group, selected (:2083-2149)', async () => {
+    const a = seg(mm(0, 0), mm(10, 0));
+    const b = seg(mm(10, 0), mm(10, 10));
+    importResult = result([a, b]);
+    const before = shapes().length;
+    start(PCB_ACTIONS.placeImportedGraphics);
+    await flush();
+    expect(shapes()).toHaveLength(before + 2);
+    expect(groups()).toHaveLength(1);
+    expect(a.GetParentGroup()).toBe(groups()[0]);
+    expect(groups()[0]!.IsSelected()).toBe(true);
+    expect(a.GetStart()).toEqual(mm(0, 0));
+    expect(h.frame.GetUndoCommandCount()).toBe(1);
+  });
+
+  it('one item, or Group unchecked, makes no group and selects the items themselves (:2085-2096)', async () => {
+    const a = seg(mm(0, 0), mm(10, 0));
+    const b = seg(mm(10, 0), mm(10, 10));
+    importResult = result([a, b], { groupItems: false });
+    start(PCB_ACTIONS.placeImportedGraphics);
+    await flush();
+    expect(groups()).toHaveLength(0);
+    expect(a.IsSelected() && b.IsSelected()).toBe(true);
+  });
+
+  it('a single item is not worth a group, even with Group checked (:2087)', async () => {
+    const a = seg(mm(0, 0), mm(10, 0));
+    importResult = result([a]);
+    start(PCB_ACTIONS.placeImportedGraphics);
+    await flush();
+    expect(groups()).toHaveLength(0);
+    expect(a.IsSelected()).toBe(true);
+  });
+
+  it('Fix discontinuities welds the imported shapes at the tolerance (:2098-2108)', async () => {
+    // A corner 1 um short: extended to where the two lines cross.
+    const a = seg(mm(0, 0), { x: 9_999_000, y: 0 });
+    const b = seg(mm(10, 0), mm(10, 10));
+    importResult = result([a, b], { fixDiscontinuities: true });
+    start(PCB_ACTIONS.placeImportedGraphics);
+    await flush();
+    expect(a.GetEnd()).toEqual(mm(10, 0));
+  });
+
+  it('interactive: the drawing rides the cursor by its top-left item, and a click commits it (:2158-2205)', async () => {
+    const a = seg(mm(0, 0), mm(10, 0));
+    const b = seg(mm(0, 5), mm(10, 5));
+    importResult = result([a, b], { interactive: true });
+    h.mouse = mm(40, 40);
+    const before = shapes().length;
+    start(PCB_ACTIONS.placeImportedGraphics);
+    await flush();
+    expect(h.shape).toBe(KICURSOR.MOVING);
+    expect(shapes()).toHaveLength(before);
+    move(mm(50, 60));
+    expect(a.GetStart()).toEqual(mm(50, 60));
+    expect(b.GetStart()).toEqual(mm(50, 65));
+    click(mm(50, 60));
+    expect(shapes()).toHaveLength(before + 2);
+    expect(h.frame.GetUndoCommandCount()).toBe(1);
+  });
+
+  it('interactive: Esc throws the drawing away (:2183-2194)', async () => {
+    importResult = result([seg(mm(0, 0), mm(10, 0)), seg(mm(0, 5), mm(10, 5))], {
+      interactive: true,
+    });
+    const before = shapes().length;
+    start(PCB_ACTIONS.placeImportedGraphics);
+    await flush();
+    esc();
+    expect(shapes()).toHaveLength(before);
+    expect(groups()).toHaveLength(0);
+    expect(h.frame.GetUndoCommandCount()).toBe(0);
+  });
+
+  it('Cancel in the dialog changes nothing (:2061-2062)', async () => {
+    importResult = null;
+    const before = shapes().length;
+    start(PCB_ACTIONS.placeImportedGraphics);
+    await flush();
+    expect(shapes()).toHaveLength(before);
   });
 });

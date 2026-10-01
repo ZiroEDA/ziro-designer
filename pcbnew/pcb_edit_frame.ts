@@ -39,7 +39,7 @@ import { HIGH_CONTRAST_MODE } from '@ziroeda/common/project/board_project_settin
 import { PAD } from './pad.js';
 import { PCB_VIA, VIATYPE } from './pcb_track.js';
 import type { PROGRESS_REPORTER_LIKE } from './connectivity/connectivity_algo.js';
-import { PCB_BASE_EDIT_FRAME } from './pcb_base_edit_frame.js';
+import { PCB_BASE_EDIT_FRAME, type IMPORT_GRAPHICS_RESULT } from './pcb_base_edit_frame.js';
 import { STRTOK, strncpyLine } from '@ziroeda/common/libc/string.js';
 import type { KIWAY_MAIL_EVENT } from '@ziroeda/common/kiway_mail.js';
 import { MAIL_T } from '@ziroeda/common/mail_type.js';
@@ -307,6 +307,8 @@ export interface PCB_EDIT_FRAME_HOOKS {
   createDrcDialog(aTool: DRC_TOOL, aParent: unknown): DIALOG_DRC_LIKE;
   /** `Kiface().IsSingle()`: no schematic to test parity against. */
   isSingle(): boolean;
+  /** DIALOG_IMPORT_GRAPHICS: what OK read off it, or null. */
+  showImportGraphicsDialog?(aFilenameOverride?: string): Promise<IMPORT_GRAPHICS_RESULT | null>;
   /** DIALOG_BARCODE_PROPERTIES on a live barcode, new or not; true when OK closed it. */
   showBarcodePropertiesDialog?(aDialog: DIALOG_BARCODE_PROPERTIES): Promise<boolean>;
   /** DIALOG_TEXTBOX_PROPERTIES on a live text box, new or not; true when OK closed it. */
@@ -838,6 +840,12 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
    */
   ShowTableCellPropertiesDialog(_aCells: PCB_TABLECELL[]): Promise<boolean> {
     return Promise.resolve(true);
+  }
+
+  override ShowImportGraphicsDialog(
+    aFilenameOverride?: string,
+  ): Promise<IMPORT_GRAPHICS_RESULT | null> {
+    return this.hooks.showImportGraphicsDialog?.(aFilenameOverride) ?? Promise.resolve(null);
   }
 
   override ShowBarcodePropertiesDialog(aBarcode: PCB_BARCODE): Promise<boolean> {

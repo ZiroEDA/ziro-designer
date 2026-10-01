@@ -148,10 +148,10 @@ export function harnessCanvas(
   view.SetScale(view.GetScale() * (view.ToWorld(1000) / (150 * MM)));
   view.SetCenter(mm(60, 60));
 
-  board.RunOnChildren((aItem: BOARD_ITEM) => view.Add(aItem), RECURSE_MODE.NO_RECURSE);
-
-  for (const fp of board.Footprints())
-    fp.RunOnChildren((aItem: BOARD_ITEM) => view.Add(aItem), RECURSE_MODE.NO_RECURSE);
+  // PCB_DRAW_PANEL_GAL::DisplayBoard: the top-level items; PCB_VIEW::Add
+  // brings a footprint's children with it (adding them again would put each
+  // in the R-tree twice, and one Remove would leave a ghost behind).
+  for (const item of board.GetItemSet()) view.Add(item);
 
   frame.SetCanvas({
     // Read lazily: the controls are built just below.

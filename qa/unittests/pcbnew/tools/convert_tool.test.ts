@@ -195,11 +195,12 @@ const gone = (n: number): boolean => {
 
 describe('test_convert_tool.cpp: CreatePolygonFromSplineOutline (issue 22127)', () => {
   it('a Fusion360 line+spline outline chains into exactly one closed polygon, every shape used', () => {
+    const board = new BOARD();
     const plugin = new DXF_IMPORT_PLUGIN();
-    const importer = new GRAPHICS_IMPORTER_PCBNEW();
+    const importer = new GRAPHICS_IMPORTER_PCBNEW(board);
     plugin.SetImporter(importer);
     plugin.SetUnit(DXF_IMPORT_UNITS.MM);
-    importer.SetLayer('Edge.Cuts');
+    importer.SetLayer(PCB_LAYER_ID.Edge_Cuts);
     const dxf = readFileSync(
       fileURLToPath(
         new URL(
@@ -212,33 +213,8 @@ describe('test_convert_tool.cpp: CreatePolygonFromSplineOutline (issue 22127)', 
     expect(plugin.Load(dxf)).toBe(true);
     expect(plugin.Import()).toBe(true);
 
-    // The importer's records as the PCB_SHAPEs GRAPHICS_IMPORTER_PCBNEW makes upstream.
-    const board = new BOARD();
-    const items: EDA_ITEM[] = [];
-    for (const i of importer.GetItems()) {
-      if (i.type !== 'shape') continue;
-      const s = i.shape;
-      let shape: PCB_SHAPE;
-      if (s.kind === 'line') {
-        shape = new PCB_SHAPE(board, SHAPE_T.SEGMENT);
-        shape.SetStart(s.start!);
-        shape.SetEnd(s.end!);
-      } else if (s.kind === 'curve') {
-        shape = new PCB_SHAPE(board, SHAPE_T.BEZIER);
-        const [p0, c1, c2, p1] = s.pts!;
-        shape.SetStart(p0!);
-        shape.SetBezierC1(c1!);
-        shape.SetBezierC2(c2!);
-        shape.SetEnd(p1!);
-        shape.RebuildBezierToSegmentsPointsList(shape.GetMaxError());
-      } else if (s.kind === 'arc') {
-        shape = new PCB_SHAPE(board, SHAPE_T.ARC);
-        shape.SetArcGeometry(s.start!, s.mid!, s.end!);
-      } else {
-        continue;
-      }
-      items.push(shape);
-    }
+    // GRAPHICS_IMPORTER_PCBNEW's own PCB_SHAPEs, as the C++ test hands them over.
+    const items: EDA_ITEM[] = importer.GetItems().filter((i) => i instanceof PCB_SHAPE);
 
     expect(items.length).toBeGreaterThanOrEqual(6);
 

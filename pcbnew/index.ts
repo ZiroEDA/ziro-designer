@@ -891,9 +891,6 @@ export {
 
 export {
   GRAPHICS_IMPORTER_PCBNEW,
-  DEFAULT_IMPORT_LAYER,
-  lineStyleToStrokeType,
-  type IMPORTED_ITEM,
   type LayerMapTarget,
 } from './import_gfx/graphics_importer_pcbnew.js';
 export { PnsLayerRange } from './router/pns_layerset.js';

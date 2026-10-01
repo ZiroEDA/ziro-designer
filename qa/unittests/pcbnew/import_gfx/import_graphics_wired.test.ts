@@ -27,13 +27,14 @@ describe('File > Import > Graphics', () => {
     expect(MENUBAR).not.toMatch(/label: 'Graphics\.\.\.', disabled: dis/);
   });
 
-  it('the board editor answers that action by opening the dialog', () => {
-    expect(EDITOR).toContain("case 'importGraphics':");
-    expect(EDITOR).toContain('setImportGraphicsOpen(true)');
+  it('the board editor answers that action with DRAWING_TOOL, which opens the dialog', () => {
+    // `PCB_ACTIONS::placeImportedGraphics` -> `DRAWING_TOOL::PlaceImportedGraphics`,
+    // whose DIALOG_IMPORT_GRAPHICS is the window's `showImportGraphicsDialog`.
+    // The placement itself is drawing_tool_shapes.test.ts's.
+    expect(EDITOR).toMatch(
+      /case 'importGraphics':\s*runAction\(PCB_ACTIONS\.placeImportedGraphics\);/,
+    );
+    expect(EDITOR).toContain('showImportGraphicsDialog: () =>');
     expect(EDITOR).toContain('<DialogImportGraphics');
-  });
-
-  it('an interactive import hands the new selection to the move gesture', () => {
-    expect(EDITOR).toContain("beginMove(selectIds, 'move', { x: 0, y: 0 })");
   });
 });
