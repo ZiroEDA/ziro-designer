@@ -116,6 +116,8 @@ import {
 } from '../pcb_dimension.js';
 import { DIM_ARROW_DIRECTION } from '../pcb_dimension_types.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
+import { PCB_POINT } from '../pcb_point.js';
+import { BEZIER_ASSISTANT } from '@ziroeda/common/preview_items/bezier_assistant.js';
 import { ACTION_MENU } from '@ziroeda/common/tool/action_menu.js';
 import { BITMAPS } from '@ziroeda/common/bitmaps/bitmaps_list.js';
 import {
@@ -643,6 +645,14 @@ export enum DRAWING_MODE {
   TUNING,
   BEZIER,
   POINT,
+}
+
+/** `DRAWING_TOOL::DRAW_ONE_RESULT`: how one bezier ended. */
+enum DRAW_ONE_RESULT {
+  ACCEPTED,
+  ACCEPTED_AND_RESET,
+  RESET,
+  CANCELLED,
 }
 
 /** `DRAWING_TOOL::COORDS_PADDING` (drawing_tool.cpp:92). */
@@ -1269,6 +1279,26 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
           aEvent,
           placer,
           'Place via',
+          INTERACTIVE_PLACEMENT_OPTIONS.IPO_REPEAT | INTERACTIVE_PLACEMENT_OPTIONS.IPO_SINGLE_CLICK,
+        );
+
+        return 0;
+      }.bind(this),
+    );
+  }
+
+  *PlacePoint(aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+    if (this.m_isFootprintEditor && !this.m_frame!.GetModel()) return 0;
+
+    return yield* this.scoped(
+      DRAWING_MODE.POINT,
+      function* (this: DRAWING_TOOL) {
+        const placer = new POINT_PLACER(this, this.m_frame!);
+
+        yield* this.doInteractiveItemPlacement(
+          aEvent,
+          placer,
+          'Place point',
           INTERACTIVE_PLACEMENT_OPTIONS.IPO_REPEAT | INTERACTIVE_PLACEMENT_OPTIONS.IPO_SINGLE_CLICK,
         );
 
@@ -1929,6 +1959,304 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
     );
   }
 
+  *DrawBezier(aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+    if (this.m_isFootprintEditor && !this.m_frame!.GetModel()) return 0;
+
+    return yield* this.scoped(
+      DRAWING_MODE.BEZIER,
+      function* (this: DRAWING_TOOL) {
+        const commit = new BOARD_COMMIT(this.m_frame!);
+        let startingPoint: VECTOR2I | null = null;
+        let startingC1: VECTOR2I | null = null;
+
+        this.m_frame!.PushTool(aEvent);
+        this.Activate();
+
+        if (aEvent.HasPosition()) startingPoint = aEvent.Position();
+
+        const result = { value: DRAW_ONE_RESULT.ACCEPTED };
+
+        while (result.value !== DRAW_ONE_RESULT.CANCELLED) {
+          const bezier: PCB_SHAPE | null = yield* this.drawOneBezier(
+            aEvent,
+            startingPoint,
+            startingC1,
+            result,
+          );
+
+          // Anyting other than accepted means no chaining
+          startingPoint = null;
+          startingC1 = null;
+
+          // If a bezier was created, add it and go again
+          if (bezier) {
+            commit.Add(bezier);
+            commit.Push('Draw Bezier');
+
+            // Don't chain if reset (or accepted and reset)
+            if (result.value === DRAW_ONE_RESULT.ACCEPTED) {
+              startingPoint = bezier.GetEnd();
+
+              // If the last bezier has a zero C2 control arm, allow the user to define a new C1
+              // control arm for the next one.
+              if (!equal(bezier.GetEnd(), bezier.GetBezierC2())) {
+                // Mirror the control point across the end point to get a tangent control point
+                startingC1 = sub(bezier.GetEnd(), sub(bezier.GetBezierC2(), bezier.GetEnd()));
+              }
+            }
+          }
+        }
+
+        return 0;
+      }.bind(this),
+    );
+  }
+
+  private *drawOneBezier(
+    aTool: TOOL_EVENT,
+    aStartingPoint: VECTOR2I | null,
+    aStartingControl1Point: VECTOR2I | null,
+    aResult: { value: DRAW_ONE_RESULT },
+  ): COROUTINE_BODY<PCB_SHAPE | null> {
+    const maxError = this.board().GetDesignSettings().m_MaxError;
+
+    let bezier: PCB_SHAPE | null = new PCB_SHAPE(this.m_frame!.GetModel() as unknown as BOARD_ITEM);
+    bezier.SetShape(SHAPE_T.BEZIER);
+    bezier.SetFlags(IS_NEW);
+
+    if (this.m_layer !== this.m_frame!.GetActiveLayer()) {
+      this.m_layer = this.m_frame!.GetActiveLayer();
+      this.m_stroke.SetWidth(this.m_frame!.GetDesignSettings().GetLineThickness(this.m_layer));
+      this.m_stroke.SetLineStyle(LINE_STYLE.DEFAULT);
+      this.m_stroke.SetColor(COLOR4D_UNSPECIFIED);
+    }
+
+    // Arc geometric construction manager
+    const bezierManager = new BEZIER_GEOM_MANAGER();
+
+    // Arc drawing assistant overlay
+    const bezierAsst = new BEZIER_ASSISTANT(
+      bezierManager,
+      pcbIUScale,
+      this.m_frame!.GetUserUnits(),
+    );
+
+    // Add a VIEW_GROUP that serves as a preview for the new item
+    const preview = new PCB_SELECTION();
+    this.m_view!.Add(preview);
+    this.m_view!.Add(bezierAsst);
+    const grid = new PCB_GRID_HELPER(this.m_toolMgr!, this.m_frame!.GetMagneticItemsSettings());
+    const controls = this.m_controls!;
+
+    const setCursor = (): void => {
+      this.m_frame!.GetCanvas()!.SetCurrentCursor(KICURSOR.PENCIL);
+    };
+
+    const resetProgress = (): void => {
+      preview.Clear();
+      bezier = null;
+    };
+
+    controls.ShowCursor(true);
+    controls.ForceCursorPosition(false);
+    // Set initial cursor
+    setCursor();
+
+    const started = (): boolean => bezierManager.GetStep() > BEZIER_STEPS.SET_START;
+
+    aResult.value = DRAW_ONE_RESULT.ACCEPTED;
+    let priming = false;
+
+    this.m_toolMgr!.PostAction(ACTIONS.refreshPreview);
+
+    // Load in one or two points if they were passed in
+    if (aStartingPoint) {
+      priming = true;
+
+      if (aStartingControl1Point) {
+        bezierManager.AddPoint(aStartingPoint, true);
+        bezierManager.AddPoint(aStartingControl1Point, true);
+        this.m_toolMgr!.PrimeTool(aStartingControl1Point);
+      } else {
+        bezierManager.AddPoint(aStartingPoint, true);
+        this.m_toolMgr!.PrimeTool(aStartingPoint);
+      }
+    }
+
+    // Main loop: keep receiving events
+    for (let evt = yield* this.Wait(); evt && bezier; evt = yield* this.Wait()) {
+      const b: PCB_SHAPE = bezier;
+
+      if (started()) this.m_frame!.SetMsgPanel(b);
+
+      setCursor();
+
+      // Init the new item attributes
+      // (non-geometric, those are handled by the manager)
+      b.SetShape(SHAPE_T.BEZIER);
+      b.SetStroke(this.m_stroke.clone());
+      b.SetLayer(this.m_layer);
+
+      grid.SetSnap(!evt.Modifier(MD_SHIFT));
+      grid.SetUseGrid(this.getView()!.GetGAL()!.GetGridSnapping() && !evt.DisableGridSnapping());
+      const cursorPos = GetClampedCoords(
+        grid.BestSnapAnchor(controls.GetMousePosition(), b, GRID_HELPER_GRIDS.GRID_GRAPHICS),
+        DRAWING_COORDS_PADDING,
+      );
+      controls.ForceCursorPosition(true, cursorPos);
+
+      if (evt.IsCancelInteractive() || (started() && evt.IsAction(ACTIONS.undo))) {
+        resetProgress();
+
+        if (!started()) {
+          // We've handled the cancel event.  Don't cancel other tools
+          evt.SetPassEvent(false);
+          this.m_frame!.PopTool(aTool);
+          aResult.value = DRAW_ONE_RESULT.CANCELLED;
+        } else {
+          // We're not cancelling, but we're also not returning a finished bezier
+          // So we'll be called again.
+          aResult.value = DRAW_ONE_RESULT.RESET;
+        }
+
+        break;
+      } else if (evt.IsActivate()) {
+        if (evt.IsPointEditor()) {
+          // don't exit (the point editor runs in the background)
+        } else if (evt.IsMoveTool()) {
+          resetProgress();
+          // leave ourselves on the stack so we come back after the move
+          aResult.value = DRAW_ONE_RESULT.CANCELLED;
+          break;
+        } else {
+          resetProgress();
+          this.m_frame!.PopTool(aTool);
+          aResult.value = DRAW_ONE_RESULT.CANCELLED;
+          break;
+        }
+      } else if (evt.IsClick(BUT_LEFT) || evt.IsDblClick(BUT_LEFT)) {
+        if (!started()) {
+          this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
+
+          controls.SetAutoPan(true);
+          controls.CaptureCursor(true);
+
+          this.showLayer();
+
+          this.m_frame!.SetMsgPanel(b);
+        }
+
+        if (!priming) bezierManager.AddPoint(cursorPos, true);
+        else priming = false;
+
+        const doubleClick = evt.IsDblClick(BUT_LEFT);
+
+        if (doubleClick) {
+          // Use the current point for all remaining points
+          while (bezierManager.GetStep() < BEZIER_STEPS.SET_END)
+            bezierManager.AddPoint(cursorPos, true);
+        }
+
+        if (bezierManager.GetStep() === BEZIER_STEPS.SET_END) preview.Add(b);
+
+        // Return to the caller for a reset
+        if (doubleClick) {
+          // Don't chain to this one
+          aResult.value = DRAW_ONE_RESULT.ACCEPTED_AND_RESET;
+          break;
+        }
+      } else if (evt.IsAction(PCB_ACTIONS.deleteLastPoint)) {
+        // Snap guides persist in the grid helper until the tool exits, so a mid-draw backup
+        // must clear them or they linger on screen.
+        grid.FullReset();
+        bezierManager.RemoveLastPoint();
+
+        if (bezierManager.GetStep() < BEZIER_STEPS.SET_END) preview.Remove(b);
+      } else if (evt.IsMotion()) {
+        // update, but don't step the manager state
+        bezierManager.AddPoint(cursorPos, false);
+      } else if (evt.IsAction(PCB_ACTIONS.layerChanged)) {
+        if (this.m_layer !== this.m_frame!.GetActiveLayer()) {
+          this.m_layer = this.m_frame!.GetActiveLayer();
+          this.m_stroke.SetWidth(this.m_frame!.GetDesignSettings().GetLineThickness(this.m_layer));
+          this.m_stroke.SetLineStyle(LINE_STYLE.DEFAULT);
+          this.m_stroke.SetColor(COLOR4D_UNSPECIFIED);
+        }
+
+        this.showLayer();
+
+        b.SetLayer(this.m_layer);
+        b.SetStroke(this.m_stroke.clone());
+        this.m_view!.Update(preview);
+        this.m_frame!.SetMsgPanel(b);
+      } else if (evt.IsAction(PCB_ACTIONS.properties)) {
+        // Don't show the edit panel if we can't represent the arc with it
+        if (bezierManager.GetStep() >= BEZIER_STEPS.SET_END) {
+          onEditItemRequest(this.m_frame!, b);
+          this.m_view!.Update(preview);
+          this.m_frame!.SetMsgPanel(b);
+          break;
+        } else {
+          evt.SetPassEvent();
+        }
+      } else if (evt.IsClick(BUT_RIGHT)) {
+        this.m_menu.ShowContextMenu(this.selection());
+      } else if (evt.IsAction(PCB_ACTIONS.incWidth)) {
+        this.m_stroke.SetWidth(this.m_stroke.GetWidth() + WIDTH_STEP);
+
+        b.SetStroke(this.m_stroke.clone());
+        this.m_view!.Update(preview);
+        this.m_frame!.SetMsgPanel(b);
+      } else if (evt.IsAction(PCB_ACTIONS.decWidth)) {
+        if (this.m_stroke.GetWidth() > WIDTH_STEP) {
+          this.m_stroke.SetWidth(this.m_stroke.GetWidth() - WIDTH_STEP);
+
+          b.SetStroke(this.m_stroke.clone());
+          this.m_view!.Update(preview);
+          this.m_frame!.SetMsgPanel(b);
+        }
+      } else if (evt.IsAction(ACTIONS.updateUnits)) {
+        bezierAsst.SetUnits(this.m_frame!.GetUserUnits());
+        this.m_view!.Update(bezierAsst);
+        evt.SetPassEvent();
+      } else if (started() && (IsZoneFillAction(evt) || evt.IsAction(ACTIONS.redo))) {
+        wxBell();
+      } else {
+        evt.SetPassEvent();
+      }
+
+      if (bezierManager.IsComplete()) {
+        break;
+      } else if (bezierManager.HasGeometryChanged()) {
+        b.SetStart(bezierManager.GetStart());
+        b.SetBezierC1(bezierManager.GetControlC1());
+        b.SetEnd(bezierManager.GetEnd());
+        b.SetBezierC2(bezierManager.GetControlC2());
+        b.RebuildBezierToSegmentsPointsList(maxError);
+
+        this.m_view!.Update(preview);
+        this.m_view!.Update(bezierAsst);
+
+        // Once we are receiving end points, we can show the bezier in the preview
+        if (bezierManager.GetStep() >= BEZIER_STEPS.SET_END) this.m_frame!.SetMsgPanel(b);
+        else this.m_frame!.SetMsgPanel(this.board());
+      }
+    }
+
+    if (bezier) preview.Remove(bezier);
+    this.m_view!.Remove(bezierAsst);
+    this.m_view!.Remove(preview);
+
+    if (this.selection().Empty()) this.m_frame!.SetMsgPanel(this.board());
+
+    this.m_frame!.GetCanvas()!.SetCurrentCursor(KICURSOR.ARROW);
+    controls.SetAutoPan(false);
+    controls.CaptureCursor(false);
+    controls.ForceCursorPosition(false);
+
+    return bezier;
+  }
+
   /** `m_frame->GetAppearancePanel()->SetLayerVisible( m_layer, true )` when it is hidden. */
   private showLayer(): void {
     if (!this.m_view!.IsLayerVisible(this.m_layer)) {
@@ -2490,6 +2818,8 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
     this.Go(S(this.DrawDimension), PCB_ACTIONS.drawRadialDimension.MakeEvent());
     this.Go(S(this.DrawDimension), PCB_ACTIONS.drawLeader.MakeEvent());
     this.Go(S(this.DrawVia), PCB_ACTIONS.drawVia.MakeEvent());
+    this.Go(S(this.DrawBezier), PCB_ACTIONS.drawBezier.MakeEvent());
+    this.Go(S(this.PlacePoint), PCB_ACTIONS.placePoint.MakeEvent());
     // TRANSITIONAL: the remaining handlers are bound as they are ported.
   }
 }
@@ -3090,6 +3420,46 @@ class VIA_PLACER extends INTERACTIVE_PLACER_BASE {
     }
 
     return via;
+  }
+}
+
+/** `POINT_PLACER` (drawing_tool.cpp:874-907): a PCB_POINT on the active layer, snapped. */
+class POINT_PLACER extends INTERACTIVE_PLACER_BASE {
+  private readonly m_gridHelper: PCB_GRID_HELPER;
+
+  constructor(
+    private readonly m_drawingTool: DRAWING_TOOL,
+    aFrame: PCB_BASE_EDIT_FRAME,
+  ) {
+    super();
+    this.m_frame = aFrame as unknown as typeof this.m_frame;
+    this.m_board = aFrame.GetBoard()!;
+    this.m_gridHelper = new PCB_GRID_HELPER(
+      m_drawingTool.GetManager()!,
+      aFrame.GetMagneticItemsSettings(),
+    );
+  }
+
+  override CreateItem(): BOARD_ITEM {
+    const frame = this.m_frame as unknown as PCB_BASE_EDIT_FRAME;
+    const new_point = new PCB_POINT(frame.GetModel() as unknown as BOARD_ITEM);
+
+    const layer = frame.GetActiveLayer();
+    new_point.SetLayer(layer);
+
+    return new_point;
+  }
+
+  override SnapItem(aItem: BOARD_ITEM): void {
+    this.m_gridHelper.SetSnap(!(this.m_modifiers & MD_SHIFT));
+    this.m_gridHelper.SetUseGrid(!(this.m_modifiers & MD_CTRL));
+
+    const viewControls = this.m_drawingTool.GetManager()!.GetViewControls()!;
+    const position = viewControls.GetMousePosition();
+
+    const cursorPos = this.m_gridHelper.BestSnapAnchor(position, aItem.GetLayerSet());
+    viewControls.ForceCursorPosition(true, cursorPos);
+    aItem.SetPosition(cursorPos);
   }
 }
 

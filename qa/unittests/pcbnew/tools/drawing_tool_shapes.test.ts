@@ -716,3 +716,90 @@ describe('DRAWING_TOOL::DrawVia (drawing_tool.cpp:3686-4407)', () => {
     expect(tool.GetDrawingMode()).toBe(DRAWING_MODE.VIA);
   });
 });
+
+describe('DRAWING_TOOL::DrawBezier (drawing_tool.cpp:566-618, :3084-3398)', () => {
+  const beziers = (): PCB_SHAPE[] => shapes().filter((s) => s.GetShape() === SHAPE_T.BEZIER);
+
+  it('start, control 1, end, control 2: one bezier committed (:3227-3256, :3367-3378)', () => {
+    start(PCB_ACTIONS.drawBezier);
+    click(mm(10, 10));
+    click(mm(20, 0));
+    click(mm(40, 10));
+    click(mm(50, 20));
+    const b = beziers().find((x) => x.GetStart().x === 10 * MM)!;
+    expect(b).toBeDefined();
+    expect(b.GetStart()).toEqual(mm(10, 10));
+    expect(b.GetBezierC1()).toEqual(mm(20, 0));
+    expect(b.GetEnd()).toEqual(mm(40, 10));
+    // setControlC2 stores the click mirrored across the end: 2 * (40,10) - (50,20).
+    expect(b.GetBezierC2()).toEqual(mm(30, 0));
+    expect(b.GetLayer()).toBe(PCB_LAYER_ID.F_SilkS);
+  });
+
+  it('chains: the next starts at the end, its first control the mirror of the last (:600-613)', () => {
+    start(PCB_ACTIONS.drawBezier);
+    click(mm(10, 10));
+    click(mm(20, 0));
+    click(mm(40, 10));
+    click(mm(50, 20));
+    // the chained bezier has start and C1 locked in: end and C2 finish it
+    click(mm(70, 10));
+    click(mm(80, 0));
+    const next = beziers().find((x) => x.GetStart().x === 40 * MM)!;
+    expect(next).toBeDefined();
+    // end - ( C2 - end ): the mirror of the mirror, the point clicked for C2.
+    expect(next.GetBezierC1()).toEqual(mm(50, 20));
+  });
+
+  it('a double click finishes with the current point and does not chain (:3258-3276)', () => {
+    start(PCB_ACTIONS.drawBezier);
+    click(mm(10, 10));
+    click(mm(20, 0));
+    move(mm(40, 10));
+    mouse(h, TA_MOUSE_DBLCLICK, mm(40, 10), BUT_LEFT);
+    expect(beziers()).toHaveLength(1);
+    expect(beziers()[0]!.GetBezierC2()).toEqual(mm(40, 10));
+    // No chain: three more clicks are a fresh start, C1 and end. Chained, the
+    // start would be primed (end == C2 here, so no C1) and these three the C1,
+    // end and C2, finishing a second one.
+    click(mm(60, 60));
+    click(mm(70, 60));
+    click(mm(80, 60));
+    expect(beziers()).toHaveLength(1);
+  });
+
+  it('a double click right after the start fills the control and end with that point (:3262-3267)', () => {
+    start(PCB_ACTIONS.drawBezier);
+    click(mm(10, 10));
+    move(mm(40, 10));
+    mouse(h, TA_MOUSE_DBLCLICK, mm(40, 10), BUT_LEFT);
+    const b = beziers()[0]!;
+    expect(b.GetBezierC1()).toEqual(mm(40, 10));
+    expect(b.GetEnd()).toEqual(mm(40, 10));
+  });
+
+  it('Esc mid-bezier resets; Esc again leaves the tool (:3193-3213)', () => {
+    start(PCB_ACTIONS.drawBezier);
+    click(mm(10, 10));
+    esc();
+    expect(tool.GetDrawingMode()).toBe(DRAWING_MODE.BEZIER);
+    esc();
+    expect(tool.GetDrawingMode()).toBe(DRAWING_MODE.NONE);
+    expect(beziers()).toHaveLength(0);
+  });
+});
+
+describe('DRAWING_TOOL::PlacePoint (drawing_tool.cpp:874-925)', () => {
+  it('each click places a point on the active layer, and the tool stays (IPO_REPEAT)', () => {
+    start(PCB_ACTIONS.placePoint);
+    click(mm(10, 10));
+    click(mm(20, 20));
+    const points = [...h.board.Points()];
+    expect(points).toHaveLength(2);
+    expect(points.every((p) => p.GetLayer() === PCB_LAYER_ID.F_SilkS)).toBe(true);
+    expect(points.map((p) => p.GetPosition())).toEqual(
+      expect.arrayContaining([mm(10, 10), mm(20, 20)]),
+    );
+    expect(tool.GetDrawingMode()).toBe(DRAWING_MODE.POINT);
+  });
+});

@@ -1081,14 +1081,13 @@ const AUTO_TRACK_WIDTH_ON: ReadonlySet<string> = new Set(['autoTrackWidth']);
 
 // The graphic-shape drawing tools (DRAWING_TOOL) and the PcbShape kind each
 // one creates.
-const DRAW_SHAPE_TOOLS: Record<string, PcbShape['kind']> = {
-  drawBezier: 'curve',
-};
+const DRAW_SHAPE_TOOLS: Record<string, PcbShape['kind']> = {};
 
 /**
  * The toolbar tools that run on TOOL_MANAGER: DRAWING_TOOL's DrawLine,
  * DrawRectangle, DrawCircle, DrawArc, PlaceText and DrawZone (polygons, zones, rule
- * areas, cutouts and similar zones), DrawDimension and DrawVia. Arming one runs its action as the
+ * areas, cutouts and similar zones), DrawDimension, DrawVia, DrawBezier and
+ * PlacePoint. Arming one runs its action as the
  * toolbar does (no position); while it is the current tool the canvas's events
  * and keys go to TOOL_DISPATCHER, and its PopTool returns the toolbar to the
  * selection mode. The other drawing tools still run in this window.
@@ -1110,6 +1109,8 @@ const TOOL_MANAGER_TOOLS: Readonly<Record<string, TOOL_ACTION>> = {
   drawRadialDimension: PCB_ACTIONS.drawRadialDimension,
   drawLeader: PCB_ACTIONS.drawLeader,
   drawVia: PCB_ACTIONS.drawVia,
+  drawBezier: PCB_ACTIONS.drawBezier,
+  placePoint: PCB_ACTIONS.placePoint,
 };
 
 // Friendly names for the "Current Tool" status-bar field (field 6), shown while
