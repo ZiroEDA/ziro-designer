@@ -46,10 +46,10 @@ import {
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
-import { MultistepGeomManager } from './multistep_geom_manager.js';
+import { MULTISTEP_GEOM_MANAGER } from './multistep_geom_manager.js';
 
 /** `ARC_GEOM_MANAGER::ARC_STEPS`. */
-export enum ArcStep {
+export enum ARC_STEPS {
   /** Waiting to lock in the origin — the arc's **centre**. */
   SET_ORIGIN = 0,
   /** Waiting to lock in the arc start point, which also fixes the radius. */
@@ -78,7 +78,7 @@ function radiusEnd(origin: Vec2, radius: number, angle: EDA_ANGLE): Vec2 {
 }
 
 /** `ARC_GEOM_MANAGER`. */
-export class ArcGeomManager extends MultistepGeomManager {
+export class ARC_GEOM_MANAGER extends MULTISTEP_GEOM_MANAGER {
   private clockwise_ = true;
   private origin_: Vec2 = { x: 0, y: 0 };
   private radius_ = 0;
@@ -88,21 +88,21 @@ export class ArcGeomManager extends MultistepGeomManager {
   private directionLocked_ = false;
 
   protected getMaxStep(): number {
-    return ArcStep.COMPLETE;
+    return ARC_STEPS.COMPLETE;
   }
 
   /** `GetStep()`. */
-  getArcStep(): ArcStep {
-    return this.getStep() as ArcStep;
+  GetStep(): ARC_STEPS {
+    return this.getStep() as ARC_STEPS;
   }
 
   protected acceptPoint(pt: Vec2): boolean {
-    switch (this.getArcStep()) {
-      case ArcStep.SET_ORIGIN:
+    switch (this.GetStep()) {
+      case ARC_STEPS.SET_ORIGIN:
         return this.setOrigin(pt);
-      case ArcStep.SET_START:
+      case ARC_STEPS.SET_START:
         return this.setStart(pt);
-      case ArcStep.SET_ANGLE:
+      case ARC_STEPS.SET_ANGLE:
         return this.setEnd(pt);
       default:
         return false;
@@ -110,53 +110,53 @@ export class ArcGeomManager extends MultistepGeomManager {
   }
 
   /** `SetClockwise` — also locks the direction, as an explicit choice does. */
-  setClockwise(cw: boolean): void {
+  SetClockwise(cw: boolean): void {
     this.clockwise_ = cw;
     this.directionLocked_ = true;
     this.setGeometryChanged();
   }
 
   /** `ToggleClockwise` — `PCB_ACTIONS::arcPosture`, the `/` key. */
-  toggleClockwise(): void {
+  ToggleClockwise(): void {
     this.clockwise_ = !this.clockwise_;
     this.directionLocked_ = true;
     this.setGeometryChanged();
   }
 
   /** `SetAngleSnap` — a bool here, set from `angleSnap != LEADER_MODE::DIRECT`. */
-  setAngleSnap(snap: boolean): void {
+  SetAngleSnap(snap: boolean): void {
     this.angleSnap_ = snap;
   }
 
   /** `GetOrigin` — the arc's centre. */
-  getOrigin(): Vec2 {
+  GetOrigin(): Vec2 {
     return this.origin_;
   }
 
   /** `GetStartRadiusEnd` — where the first radius line meets the arc. */
-  getStartRadiusEnd(): Vec2 {
+  GetStartRadiusEnd(): Vec2 {
     return radiusEnd(this.origin_, this.radius_, this.startAngle_.negate());
   }
 
   /** `GetEndRadiusEnd`. */
-  getEndRadiusEnd(): Vec2 {
+  GetEndRadiusEnd(): Vec2 {
     return radiusEnd(this.origin_, this.radius_, this.endAngle_.negate());
   }
 
   /** `GetRadius`. */
-  getRadius(): number {
+  GetRadius(): number {
     return this.radius_;
   }
 
   /** `GetStartAngle` — negated, and turned back a full turn when clockwise. */
-  getStartAngle(): EDA_ANGLE {
+  GetStartAngle(): EDA_ANGLE {
     let angle = this.startAngle_.Clone();
     if (this.clockwise_) angle = angle.sub(ANGLE_360);
     return angle.negate();
   }
 
   /** `GetSubtended` — the swept angle, signed by the posture. */
-  getSubtended(): EDA_ANGLE {
+  GetSubtended(): EDA_ANGLE {
     let angle = this.endAngle_.sub(this.startAngle_);
 
     if (this.endAngle_.AsDegrees() <= this.startAngle_.AsDegrees()) angle = angle.add(ANGLE_360);
@@ -214,7 +214,7 @@ export class ArcGeomManager extends MultistepGeomManager {
       if (Math.min(ccwAngle.AsDegrees(), cwAngle.AsDegrees()) >= ANGLE_90.AsDegrees())
         this.directionLocked_ = true;
       else this.clockwise_ = cwAngle.AsDegrees() < ccwAngle.AsDegrees();
-    } else if (Math.abs(this.getSubtended().AsDegrees()) < ANGLE_90.AsDegrees()) {
+    } else if (Math.abs(this.GetSubtended().AsDegrees()) < ANGLE_90.AsDegrees()) {
       this.directionLocked_ = false;
     }
 

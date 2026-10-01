@@ -21,8 +21,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
-  BezierGeomManager,
-  BezierStep,
+  BEZIER_GEOM_MANAGER,
+  BEZIER_STEPS,
 } from '@ziroeda/common/preview_items/bezier_geom_manager.js';
 import {
   bezierChainSeed,
@@ -40,30 +40,30 @@ describe('BEZIER_GEOM_MANAGER', () => {
     // comment "Prevents weird-looking loops if the control points aren't
     // initialized" — without it the preview after one click is a curve through
     // whatever the last one left behind.
-    const m = new BezierGeomManager();
-    expect(m.isReset()).toBe(true);
-    expect(m.getBezierStep()).toBe(BezierStep.SET_START);
+    const m = new BEZIER_GEOM_MANAGER();
+    expect(m.IsReset()).toBe(true);
+    expect(m.GetStep()).toBe(BEZIER_STEPS.SET_START);
 
-    m.addPoint(P(10, 10), true);
-    expect(m.getBezierStep()).toBe(BezierStep.SET_CONTROL1);
-    expect(m.getStart()).toEqual(P(10, 10));
-    expect(m.getControlC1()).toEqual(P(10, 10));
-    expect(m.getEnd()).toEqual(P(10, 10));
-    expect(m.getControlC2()).toEqual(P(10, 10));
+    m.AddPoint(P(10, 10), true);
+    expect(m.GetStep()).toBe(BEZIER_STEPS.SET_CONTROL1);
+    expect(m.GetStart()).toEqual(P(10, 10));
+    expect(m.GetControlC1()).toEqual(P(10, 10));
+    expect(m.GetEnd()).toEqual(P(10, 10));
+    expect(m.GetControlC2()).toEqual(P(10, 10));
   });
 
   it('drags the end and C2 along with C1, so a straight line follows the cursor', () => {
     // `setControlC1` sets `m_end = m_controlC2 = m_controlC1`. A cubic whose
     // last three points coincide is a straight segment, which is exactly what
     // the user should see between click one and click two.
-    const m = new BezierGeomManager();
-    m.addPoint(P(0, 0), true);
-    m.addPoint(P(100, 0), false);
-    expect(m.getControlC1()).toEqual(P(100, 0));
-    expect(m.getEnd()).toEqual(P(100, 0));
-    expect(m.getControlC2()).toEqual(P(100, 0));
+    const m = new BEZIER_GEOM_MANAGER();
+    m.AddPoint(P(0, 0), true);
+    m.AddPoint(P(100, 0), false);
+    expect(m.GetControlC1()).toEqual(P(100, 0));
+    expect(m.GetEnd()).toEqual(P(100, 0));
+    expect(m.GetControlC2()).toEqual(P(100, 0));
     // and the step has NOT moved, because lockIn was false
-    expect(m.getBezierStep()).toBe(BezierStep.SET_CONTROL1);
+    expect(m.GetStep()).toBe(BEZIER_STEPS.SET_CONTROL1);
   });
 
   it('refuses an end clicked on the start, and walks BACKWARDS a step', () => {
@@ -71,37 +71,37 @@ describe('BEZIER_GEOM_MANAGER', () => {
     // rather than standing still. So the refusal costs the user their C1 too —
     // faithful, and the reason `bezierClick` drops a point instead of ignoring
     // the click.
-    const m = new BezierGeomManager();
-    m.addPoint(P(0, 0), true);
-    m.addPoint(P(50, 50), true);
-    expect(m.getBezierStep()).toBe(BezierStep.SET_END);
-    m.addPoint(P(0, 0), true);
-    expect(m.getBezierStep()).toBe(BezierStep.SET_CONTROL1);
+    const m = new BEZIER_GEOM_MANAGER();
+    m.AddPoint(P(0, 0), true);
+    m.AddPoint(P(50, 50), true);
+    expect(m.GetStep()).toBe(BEZIER_STEPS.SET_END);
+    m.AddPoint(P(0, 0), true);
+    expect(m.GetStep()).toBe(BEZIER_STEPS.SET_CONTROL1);
   });
 
   it('reflects C2 about the end point', () => {
     // `return m_end - ( m_controlC2 - m_end )`.
-    const m = new BezierGeomManager();
-    m.addPoint(P(0, 0), true);
-    m.addPoint(P(10, 0), true);
-    m.addPoint(P(100, 0), true);
-    m.addPoint(P(120, 30), true);
-    expect(m.isComplete()).toBe(true);
-    expect(m.getControlC2()).toEqual(P(80, -30));
+    const m = new BEZIER_GEOM_MANAGER();
+    m.AddPoint(P(0, 0), true);
+    m.AddPoint(P(10, 0), true);
+    m.AddPoint(P(100, 0), true);
+    m.AddPoint(P(120, 30), true);
+    expect(m.IsComplete()).toBe(true);
+    expect(m.GetControlC2()).toEqual(P(80, -30));
   });
 
   it('backs a point out and re-accepts the raw cursor in the earlier step', () => {
     // `RemoveLastPoint`: `performStep( false )` then `acceptPoint( lastPoint )`,
     // so the preview shows the earlier step's geometry rather than a stale one.
-    const m = new BezierGeomManager();
-    m.addPoint(P(0, 0), true);
-    m.addPoint(P(10, 0), true);
-    expect(m.getBezierStep()).toBe(BezierStep.SET_END);
-    m.removeLastPoint();
-    expect(m.getBezierStep()).toBe(BezierStep.SET_CONTROL1);
+    const m = new BEZIER_GEOM_MANAGER();
+    m.AddPoint(P(0, 0), true);
+    m.AddPoint(P(10, 0), true);
+    expect(m.GetStep()).toBe(BEZIER_STEPS.SET_END);
+    m.RemoveLastPoint();
+    expect(m.GetStep()).toBe(BEZIER_STEPS.SET_CONTROL1);
     // re-accepted through setControlC1, which drags the end and C2 with it
-    expect(m.getEnd()).toEqual(P(10, 0));
-    expect(m.getControlC2()).toEqual(P(10, 0));
+    expect(m.GetEnd()).toEqual(P(10, 0));
+    expect(m.GetControlC2()).toEqual(P(10, 0));
   });
 });
 
@@ -141,7 +141,7 @@ describe('the four clicks of the tool', () => {
     // pins C2 to it: the preview is a curve from the start through C1 to the
     // cursor, with no second handle yet.
     const live = bezierInFlight([P(0, 0), P(0, 100)], P(300, 100));
-    expect(live?.step).toBe(BezierStep.SET_END);
+    expect(live?.step).toBe(BEZIER_STEPS.SET_END);
     expect(live?.points).toEqual([P(0, 0), P(0, 100), P(300, 100), P(300, 100)]);
   });
 });
@@ -159,7 +159,7 @@ describe('what the preview may stroke, and when', () => {
 
   it('and strokes it from SET_END on, which is when upstream adds it', () => {
     const live = bezierInFlight([P(0, 0), P(0, 100)], P(300, 100));
-    expect(live?.step).toBe(BezierStep.SET_END);
+    expect(live?.step).toBe(BEZIER_STEPS.SET_END);
     expect(bezierPreviewCurve(live)).toEqual(live?.points);
   });
 
@@ -168,7 +168,7 @@ describe('what the preview may stroke, and when', () => {
     // The arm is the only thing on screen at that step, and it has to be:
     // without it the first click leaves no feedback at all.
     const live = bezierInFlight([P(0, 0)], P(50, 50));
-    expect(live?.step).toBe(BezierStep.SET_CONTROL1);
+    expect(live?.step).toBe(BEZIER_STEPS.SET_CONTROL1);
     expect(live?.points[0]).toEqual(P(0, 0));
     expect(live?.points[1]).toEqual(P(50, 50));
   });

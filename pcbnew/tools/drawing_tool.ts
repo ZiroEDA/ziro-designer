@@ -6,7 +6,7 @@
  * preview geometry, and the rule that chains one curve into the next.
  * Counterpart: `pcbnew/tools/drawing_tool.cpp`.
  *
- * The geometry itself is not here: it is {@link BezierGeomManager} in
+ * The geometry itself is not here: it is {@link BEZIER_GEOM_MANAGER} in
  * `common/`, exactly as upstream keeps it in `common/preview_items/`. What is
  * here is the part `drawOneBezier` owns — which clicks lock in, what the
  * committed shape's four points are, and what the *next* curve starts with.
@@ -45,7 +45,7 @@
  * be the odd behaviour.
  */
 
-import { BezierGeomManager, BezierStep } from '@ziroeda/common/index.js';
+import { BEZIER_GEOM_MANAGER, BEZIER_STEPS } from '@ziroeda/common/index.js';
 import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
 import { pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import { newKiid } from '@ziroeda/common/kiid.js';
@@ -69,7 +69,7 @@ export type BezierPoints = [Vec2, Vec2, Vec2, Vec2];
 export interface BezierInFlight {
   readonly points: BezierPoints;
   /** Which point the cursor is currently dragging. */
-  readonly step: BezierStep;
+  readonly step: BEZIER_STEPS;
 }
 
 const same = (a: Vec2, b: Vec2): boolean => a.x === b.x && a.y === b.y;
@@ -78,10 +78,10 @@ const same = (a: Vec2, b: Vec2): boolean => a.x === b.x && a.y === b.y;
  * Replay the locked-in points into a manager, then feed the cursor without
  * locking it in — `AddPoint( cursorPos, false )`, the motion case.
  */
-function replay(locked: readonly Vec2[], cursor: Vec2 | null): BezierGeomManager {
-  const m = new BezierGeomManager();
-  for (const p of locked) m.addPoint(p, true);
-  if (cursor) m.addPoint(cursor, false);
+function replay(locked: readonly Vec2[], cursor: Vec2 | null): BEZIER_GEOM_MANAGER {
+  const m = new BEZIER_GEOM_MANAGER();
+  for (const p of locked) m.AddPoint(p, true);
+  if (cursor) m.AddPoint(cursor, false);
   return m;
 }
 
@@ -97,10 +97,10 @@ export function bezierInFlight(
 ): BezierInFlight | null {
   if (locked.length === 0 && !cursor) return null;
   const m = replay(locked, cursor);
-  if (m.isReset()) return null;
+  if (m.IsReset()) return null;
   return {
-    points: [m.getStart(), m.getControlC1(), m.getControlC2(), m.getEnd()],
-    step: m.getBezierStep(),
+    points: [m.GetStart(), m.GetControlC1(), m.GetControlC2(), m.GetEnd()],
+    step: m.GetStep(),
   };
 }
 
@@ -125,7 +125,7 @@ export function bezierInFlight(
  * `SET_CONTROL1` on; only the curve waits.
  */
 export function bezierPreviewCurve(live: BezierInFlight | null): BezierPoints | null {
-  if (!live || live.step < BezierStep.SET_END) return null;
+  if (!live || live.step < BEZIER_STEPS.SET_END) return null;
   return live.points;
 }
 
@@ -146,18 +146,18 @@ export type BezierClick =
  * dropping the last entry here reproduces.
  */
 export function bezierClick(locked: readonly Vec2[], at: Vec2): BezierClick {
-  const step = locked.length as BezierStep;
+  const step = locked.length as BEZIER_STEPS;
 
-  if (step === BezierStep.SET_END && !same(at, locked[0]!))
+  if (step === BEZIER_STEPS.SET_END && !same(at, locked[0]!))
     return { kind: 'continue', locked: [...locked, at] };
 
-  if (step === BezierStep.SET_END) return { kind: 'continue', locked: locked.slice(0, -1) };
+  if (step === BEZIER_STEPS.SET_END) return { kind: 'continue', locked: locked.slice(0, -1) };
 
-  if (step < BezierStep.SET_CONTROL2) return { kind: 'continue', locked: [...locked, at] };
+  if (step < BEZIER_STEPS.SET_CONTROL2) return { kind: 'continue', locked: [...locked, at] };
 
   const m = replay(locked, null);
-  m.addPoint(at, true);
-  const points: BezierPoints = [m.getStart(), m.getControlC1(), m.getControlC2(), m.getEnd()];
+  m.AddPoint(at, true);
+  const points: BezierPoints = [m.GetStart(), m.GetControlC1(), m.GetControlC2(), m.GetEnd()];
   return { kind: 'commit', points, next: bezierChainSeed(points) };
 }
 

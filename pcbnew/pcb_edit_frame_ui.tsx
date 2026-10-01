@@ -31,7 +31,7 @@ import {
   isBackgroundDark,
   selectionAreaColors,
 } from '@ziroeda/common/preview_items/selection_area.js';
-import { BezierStep } from '@ziroeda/common/preview_items/bezier_geom_manager.js';
+import { BEZIER_STEPS } from '@ziroeda/common/preview_items/bezier_geom_manager.js';
 import { PolygonGeomManager } from '@ziroeda/common/preview_items/polygon_geom_manager.js';
 import { COLOR4D_WHITE, brightness, cssWithAlpha, toCss } from '@ziroeda/common/gal/color4d.js';
 import { drawPolygonItem } from '@ziroeda/common/preview_items/polygon_item.js';
@@ -48,7 +48,7 @@ import {
   type ZoneBorderStyle,
 } from './dialogs/dialog_rule_area_properties.js';
 import { TWO_POINT_GEOMETRY_MANAGER } from '@ziroeda/common/preview_items/two_point_geom_manager.js';
-import { ArcGeomManager, ArcStep } from '@ziroeda/common/preview_items/arc_geom_manager.js';
+import { ARC_GEOM_MANAGER, ARC_STEPS } from '@ziroeda/common/preview_items/arc_geom_manager.js';
 import { arcMidPoint, drawArcAssistant } from '@ziroeda/common/preview_items/arc_assistant.js';
 import {
   drawTwoPointAssistant,
@@ -2822,7 +2822,7 @@ export function PcbEditor({
   const twoPtRef = useRef(new TWO_POINT_GEOMETRY_MANAGER());
   const twoPtStartedRef = useRef(false);
   /** `ARC_GEOM_MANAGER` — centre, then start, then swept angle. */
-  const arcMgrRef = useRef(new ArcGeomManager());
+  const arcMgrRef = useRef(new ARC_GEOM_MANAGER());
   const cleanupShapeRef = useRef<() => void>(() => {});
   /**
    * `POLYGON_GEOM_MANAGER`, one per outline tool.
@@ -3322,7 +3322,7 @@ export function PcbEditor({
     zoneMgrRef.current?.reset();
     twoPtRef.current.Reset();
     twoPtStartedRef.current = false;
-    arcMgrRef.current.reset();
+    arcMgrRef.current.Reset();
     setRuleAreaDialog(null);
     measureRef.current = null;
     dimensionRef.current = null;
@@ -4560,11 +4560,11 @@ export function PcbEditor({
             q.y * v.scale + v.ty,
           ];
           ctx.beginPath();
-          if (bezierArms.step >= BezierStep.SET_CONTROL1) {
+          if (bezierArms.step >= BEZIER_STEPS.SET_CONTROL1) {
             ctx.moveTo(...toPx(a));
             ctx.lineTo(...toPx(c1));
           }
-          if (bezierArms.step >= BezierStep.SET_CONTROL2) {
+          if (bezierArms.step >= BEZIER_STEPS.SET_CONTROL2) {
             // "Draw the second control point control line as a double length
             // line centered on the end point": from `end - ( C2 - end )` to
             // `C2`. The near half is where the cursor is and the far half is
@@ -4641,7 +4641,7 @@ export function PcbEditor({
     // `drawArc`'s live arc and its `ARC_ASSISTANT`.
     {
       const arcMgr = arcMgrRef.current;
-      if (DRAW_SHAPE_TOOLS[activeToolRef.current] === 'arc' && !arcMgr.isReset()) {
+      if (DRAW_SHAPE_TOOLS[activeToolRef.current] === 'arc' && !arcMgr.IsReset()) {
         const toPx = (q: { x: number; y: number }): { x: number; y: number } => ({
           x: q.x * sx + v.tx,
           y: q.y * v.scale + v.ty,
@@ -4649,14 +4649,14 @@ export function PcbEditor({
 
         // `preview.Add( graphic )` happens on the first click, but the arc
         // itself only has a shape once there is a radius to sweep.
-        if (arcMgr.getArcStep() > ArcStep.SET_START) {
+        if (arcMgr.GetStep() > ARC_STEPS.SET_START) {
           ctx.save();
           ctx.setTransform(sx, 0, 0, v.scale, v.tx, v.ty);
           ctx.strokeStyle = layerColor(activeLayer);
           ctx.lineWidth = shapeWidthIU(activeLayer);
           ctx.lineCap = 'round';
           ctx.beginPath();
-          traceArc3(ctx, arcMgr.getStartRadiusEnd(), arcMidPoint(arcMgr), arcMgr.getEndRadiusEnd());
+          traceArc3(ctx, arcMgr.GetStartRadiusEnd(), arcMidPoint(arcMgr), arcMgr.GetEndRadiusEnd());
           ctx.stroke();
           ctx.restore();
           ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -7263,7 +7263,7 @@ export function PcbEditor({
   const cleanupShape = (): void => {
     twoPtRef.current.Reset();
     twoPtStartedRef.current = false;
-    arcMgrRef.current.reset();
+    arcMgrRef.current.Reset();
     drawingRef.current = [];
   };
   // Ref mirror, so the long-lived global keydown listener never calls a stale one.
@@ -7296,9 +7296,9 @@ export function PcbEditor({
     // arc always runs one way round. The drawn shape is the same either way
     // once a mid point is carried with it, but the file is not, and the file is
     // what a diff against KiCad's own output compares.
-    const ccw = mgr.getSubtended().AsDegrees() < 0;
-    const a = mgr.getStartRadiusEnd();
-    const b = mgr.getEndRadiusEnd();
+    const ccw = mgr.GetSubtended().AsDegrees() < 0;
+    const a = mgr.GetStartRadiusEnd();
+    const b = mgr.GetEndRadiusEnd();
     commitShape(
       {
         kind: 'arc',
@@ -7387,9 +7387,9 @@ export function PcbEditor({
         // the swept angle. Not eeschema's start/end/bow-through, which is what
         // this frame had.
         const mgr = arcMgrRef.current;
-        mgr.setAngleSnap(shapeAngleSnap(kind, ctrlDownRef.current) !== LeaderMode.DIRECT);
-        mgr.addPoint(p, true);
-        if (mgr.isComplete()) commitArc();
+        mgr.SetAngleSnap(shapeAngleSnap(kind, ctrlDownRef.current) !== LeaderMode.DIRECT);
+        mgr.AddPoint(p, true);
+        if (mgr.IsComplete()) commitArc();
         break;
       }
       case 'curve': {
@@ -9706,11 +9706,11 @@ export function PcbEditor({
         const drawKind = DRAW_SHAPE_TOOLS[activeToolRef.current];
         const snapped = snapToGrid({ x: wx, y: wy });
         if (twoPtStartedRef.current && drawKind) updateTwoPointCursor(drawKind, snapped);
-        if (drawKind === 'arc' && !arcMgrRef.current.isReset()) {
-          arcMgrRef.current.setAngleSnap(
+        if (drawKind === 'arc' && !arcMgrRef.current.IsReset()) {
+          arcMgrRef.current.SetAngleSnap(
             shapeAngleSnap('arc', ctrlDownRef.current) !== LeaderMode.DIRECT,
           );
-          arcMgrRef.current.addPoint(snapped, false);
+          arcMgrRef.current.AddPoint(snapped, false);
         }
       }
       // `fp->SetPosition( cursorPos )` on every motion event (:1533-1539).
@@ -10115,18 +10115,18 @@ export function PcbEditor({
         // `drawArc`'s own `deleteLastPoint` arm: `arcManager.RemoveLastPoint()`
         // steps back and re-accepts the same cursor, so the assistant falls
         // back to the previous stage rather than showing a stale later one.
-        if (!arcMgrRef.current.isReset()) {
+        if (!arcMgrRef.current.IsReset()) {
           e.preventDefault();
-          arcMgrRef.current.removeLastPoint();
+          arcMgrRef.current.RemoveLastPoint();
           requestDrawRef.current();
           return;
         }
       }
       // `PCB_ACTIONS::arcPosture`, `.DefaultHotkey( '/' )` — flips which way
       // round the arc goes, and locks that choice.
-      if (!mod && e.key === '/' && !arcMgrRef.current.isReset()) {
+      if (!mod && e.key === '/' && !arcMgrRef.current.IsReset()) {
         e.preventDefault();
-        arcMgrRef.current.toggleClockwise();
+        arcMgrRef.current.ToggleClockwise();
         requestDrawRef.current();
         return;
       }
@@ -10187,7 +10187,7 @@ export function PcbEditor({
         } else if (measureRef.current) {
           measureRef.current = null;
           requestDrawRef.current();
-        } else if (twoPtStartedRef.current || !arcMgrRef.current.isReset()) {
+        } else if (twoPtStartedRef.current || !arcMgrRef.current.IsReset()) {
           // `cleanup()` — and `drawShape`'s `if( !started ) … PopTool`, so the
           // first Esc only throws the in-flight shape away and the tool stays
           // armed for the next one.
