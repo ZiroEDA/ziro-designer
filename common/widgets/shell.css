@@ -18997,3 +18997,34 @@ fieldset.ze-pushpad-box {
 .ze-unusedpads-preview img {
   margin: 10px 10px 0; /* [data] `m_image`, `wxTOP|wxRIGHT|wxLEFT, 10`. */
 }
+
+/* DIALOG_GLOBAL_DELETION (dialog_global_deletion_base.cpp). */
+.ze-globaldel-upper {
+  display: flex;
+  margin: 5px; /* [data] `bSizerMain->Add( bSizerUpper, 1, wxEXPAND|wxALL, 5 )`. */
+}
+.ze-globaldel-items {
+  margin: 5px; /* [data] `bSizerUpper->Add( sbSizerLeft, 0, wxEXPAND|wxALL, 5 )`. */
+  display: flex;
+  flex-direction: column;
+}
+.ze-globaldel-filter {
+  margin: 5px 0 5px 10px; /* [data] `sbFilter` `wxTOP|wxBOTTOM|wxLEFT, 5` inside `bSizerRight` `wxLEFT, 5`. */
+}
+.ze-globaldel-filter-grid {
+  display: flex;
+  flex-direction: column;
+  row-gap: 3px; /* [data] `wxFlexGridSizer( 0, 1, 3, 0 )`'s vgap. */
+}
+.ze-globaldel .ze-check.brl5 {
+  margin: 0 5px 5px; /* [data] `wxBOTTOM|wxRIGHT|wxLEFT, 5`. */
+}
+.ze-globaldel .ze-check.rl5 {
+  margin: 0 5px; /* [data] `wxRIGHT|wxLEFT, 5`. */
+}
+.ze-globaldel .ze-check.trl5 {
+  margin: 5px 5px 0; /* [data] `wxTOP|wxRIGHT|wxLEFT, 5`. */
+}
+.ze-globaldel-layers {
+  margin: 0 10px; /* [data] `bSizerMain->Add( m_rbLayersOption, 0, wxEXPAND|wxRIGHT|wxLEFT, 10 )`. */
+}

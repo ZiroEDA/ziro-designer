@@ -727,18 +727,7 @@ export {
 
 export { GRAPHICS_CLEANER } from './graphics_cleaner.js';
 
-export {
-  globalDeletionFilterEnabled,
-  globalDeletionLayerChoices,
-  layerMatchesFilter,
-  layerMatchesDrawingFilter,
-  globalDeletionIds,
-  globalDeletionRebuildsRatsnest,
-  applyGlobalDeletion,
-  countGlobalDeletionTargets,
-  DEFAULT_GLOBAL_DELETION_OPTIONS,
-  type GlobalDeletionOptions,
-} from './dialogs/dialog_global_deletion.js';
+export { DIALOG_GLOBAL_DELETION } from './dialogs/dialog_global_deletion.js';
 
 export {
   padEnumerationNumber,

@@ -285,7 +285,7 @@ export function buildPcbMenus(
         // `ACTIONS::deleteTool` — the interactive one, which keeps deleting
         // what you click until it is cancelled. Not the same command as Delete.
         { label: 'Interactive Delete Tool', disabled: dis },
-        { label: 'Global Deletions...', disabled: dis },
+        { label: 'Global Deletions...', action: () => h.action('globalDeletions') },
         { sep: true },
         /*
          * Below here is NOT KiCad's Edit menu.
