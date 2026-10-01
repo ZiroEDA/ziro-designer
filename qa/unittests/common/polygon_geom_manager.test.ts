@@ -14,8 +14,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   LeaderMode,
-  PolygonGeomManager,
-  type PolygonGeomClient,
+  POLYGON_GEOM_MANAGER,
+  type POLYGON_GEOM_MANAGER_CLIENT,
 } from '@ziroeda/common/preview_items/polygon_geom_manager.js';
 
 interface Log {
@@ -24,21 +24,21 @@ interface Log {
   complete: number;
 }
 
-function mgrWith(vetoFirst = false): { mgr: PolygonGeomManager; log: Log } {
+function mgrWith(vetoFirst = false): { mgr: POLYGON_GEOM_MANAGER; log: Log } {
   const log: Log = { firstPoint: 0, geometry: 0, complete: 0 };
-  const client: PolygonGeomClient = {
-    onFirstPoint: () => {
+  const client: POLYGON_GEOM_MANAGER_CLIENT = {
+    OnFirstPoint: () => {
       log.firstPoint++;
       return !vetoFirst;
     },
-    onGeometryChange: () => {
+    OnGeometryChange: () => {
       log.geometry++;
     },
-    onComplete: () => {
+    OnComplete: () => {
       log.complete++;
     },
   };
-  return { mgr: new PolygonGeomManager(client), log };
+  return { mgr: new POLYGON_GEOM_MANAGER(client), log };
 }
 
 const pts = (chain: readonly { x: number; y: number }[]): [number, number][] =>
@@ -54,9 +54,9 @@ const pts = (chain: readonly { x: number; y: number }[]): [number, number][] =>
  * loop feeds `SetCursorPosition` on every `evt->IsMotion()`, so this is the
  * sequence a real click arrives in.
  */
-function click(mgr: PolygonGeomManager, p: { x: number; y: number }): void {
-  mgr.setCursorPosition(p);
-  mgr.addPoint(p);
+function click(mgr: POLYGON_GEOM_MANAGER, p: { x: number; y: number }): void {
+  mgr.SetCursorPosition(p);
+  mgr.AddPoint(p);
 }
 
 describe('LEADER_MODE::DIRECT', () => {
@@ -69,7 +69,7 @@ describe('LEADER_MODE::DIRECT', () => {
     // The tail of the leader is appended, not the raw cursor — and its first
     // element is the corner already locked in. `SHAPE_LINE_CHAIN::Append`'s
     // duplicate suppression is the only thing stopping every corner doubling.
-    expect(pts(mgr.getLockedInPoints())).toEqual([
+    expect(pts(mgr.GetLockedInPoints())).toEqual([
       [0, 0],
       [100, 0],
       [100, 100],
@@ -79,13 +79,13 @@ describe('LEADER_MODE::DIRECT', () => {
   it('a click with no motion before it locks in the stale leader end', () => {
     const { mgr } = mgrWith();
     click(mgr, { x: 0, y: 0 });
-    mgr.setCursorPosition({ x: 100, y: 0 });
+    mgr.SetCursorPosition({ x: 100, y: 0 });
     // No `SetCursorPosition` for this one: `AddPoint`'s argument is ignored
     // whenever the leader has more than one point, which it always does once
     // the outline has started.
-    mgr.addPoint({ x: 999, y: 999 });
+    mgr.AddPoint({ x: 999, y: 999 });
 
-    expect(pts(mgr.getLockedInPoints())).toEqual([
+    expect(pts(mgr.GetLockedInPoints())).toEqual([
       [0, 0],
       [100, 0],
     ]);
@@ -93,16 +93,16 @@ describe('LEADER_MODE::DIRECT', () => {
 
   it('leaves the loop chain empty and the leader a single segment', () => {
     const { mgr } = mgrWith();
-    mgr.addPoint({ x: 0, y: 0 });
-    mgr.setCursorPosition({ x: 70, y: 40 });
+    mgr.AddPoint({ x: 0, y: 0 });
+    mgr.SetCursorPosition({ x: 70, y: 40 });
 
-    expect(pts(mgr.getLeaderLinePoints())).toEqual([
+    expect(pts(mgr.GetLeaderLinePoints())).toEqual([
       [0, 0],
       [70, 40],
     ]);
     // `m_loopPts.Clear()` — the closing edge is straight, so `POLYGON_ITEM`
     // gets it from the contour closing itself rather than from a chain.
-    expect(mgr.getLoopLinePoints()).toHaveLength(0);
+    expect(mgr.GetLoopLinePoints()).toHaveLength(0);
   });
 });
 
@@ -118,12 +118,12 @@ describe('LEADER_MODE::DEG45', () => {
    */
   it('bends the leader through a computed mid point', () => {
     const { mgr } = mgrWith();
-    mgr.setLeaderMode(LeaderMode.DEG45);
+    mgr.SetLeaderMode(LeaderMode.DEG45);
     click(mgr, { x: 0, y: 0 });
     click(mgr, { x: 100, y: 0 });
-    mgr.setCursorPosition({ x: 200, y: 50 });
+    mgr.SetCursorPosition({ x: 200, y: 50 });
 
-    expect(pts(mgr.getLeaderLinePoints())).toEqual([
+    expect(pts(mgr.GetLeaderLinePoints())).toEqual([
       [100, 0],
       [150, 0],
       [200, 50],
@@ -141,12 +141,12 @@ describe('LEADER_MODE::DEG45', () => {
    */
   it('builds the loop back to the FIRST corner, reversed', () => {
     const { mgr } = mgrWith();
-    mgr.setLeaderMode(LeaderMode.DEG45);
+    mgr.SetLeaderMode(LeaderMode.DEG45);
     click(mgr, { x: 0, y: 0 });
     click(mgr, { x: 100, y: 0 });
-    mgr.setCursorPosition({ x: 200, y: 50 });
+    mgr.SetCursorPosition({ x: 200, y: 50 });
 
-    expect(pts(mgr.getLoopLinePoints())).toEqual([
+    expect(pts(mgr.GetLoopLinePoints())).toEqual([
       [200, 50],
       [50, 50],
       [0, 0],
@@ -167,12 +167,12 @@ describe('LEADER_MODE::DEG45', () => {
    */
   it('puts the bend at the near end when the previous segment is diagonal', () => {
     const { mgr } = mgrWith();
-    mgr.setLeaderMode(LeaderMode.DEG45);
+    mgr.SetLeaderMode(LeaderMode.DEG45);
     click(mgr, { x: 0, y: 0 });
     click(mgr, { x: 100, y: 100 });
-    mgr.setCursorPosition({ x: 300, y: 120 });
+    mgr.SetCursorPosition({ x: 300, y: 120 });
 
-    expect(pts(mgr.getLeaderLinePoints())).toEqual([
+    expect(pts(mgr.GetLeaderLinePoints())).toEqual([
       [100, 100],
       [120, 120],
       [300, 120],
@@ -181,14 +181,14 @@ describe('LEADER_MODE::DEG45', () => {
 
   it('a click locks in BOTH points of the dogleg', () => {
     const { mgr } = mgrWith();
-    mgr.setLeaderMode(LeaderMode.DEG45);
+    mgr.SetLeaderMode(LeaderMode.DEG45);
     click(mgr, { x: 0, y: 0 });
     click(mgr, { x: 100, y: 0 });
     click(mgr, { x: 200, y: 50 });
 
     // Three clicks, four corners: the bend is a corner of the polygon, which
     // is why `AddPoint` appends `CPoints()[count-2]` as well as the last.
-    expect(pts(mgr.getLockedInPoints())).toEqual([
+    expect(pts(mgr.GetLockedInPoints())).toEqual([
       [0, 0],
       [100, 0],
       [150, 0],
@@ -200,17 +200,17 @@ describe('LEADER_MODE::DEG45', () => {
 describe('LEADER_MODE::DEG90', () => {
   it('goes horizontal first, then vertical', () => {
     const { mgr } = mgrWith();
-    mgr.setLeaderMode(LeaderMode.DEG90);
-    mgr.addPoint({ x: 0, y: 0 });
-    mgr.setCursorPosition({ x: 200, y: 50 });
+    mgr.SetLeaderMode(LeaderMode.DEG90);
+    mgr.AddPoint({ x: 0, y: 0 });
+    mgr.SetCursorPosition({ x: 200, y: 50 });
 
     // `VECTOR2I mid( aEndPoint.x, lastPt.y )`.
-    expect(pts(mgr.getLeaderLinePoints())).toEqual([
+    expect(pts(mgr.GetLeaderLinePoints())).toEqual([
       [0, 0],
       [200, 0],
       [200, 50],
     ]);
-    expect(pts(mgr.getLoopLinePoints())).toEqual([
+    expect(pts(mgr.GetLoopLinePoints())).toEqual([
       [200, 50],
       [200, 0],
       [0, 0],
@@ -219,11 +219,11 @@ describe('LEADER_MODE::DEG90', () => {
 
   it('degenerates to one segment when the move is already orthogonal', () => {
     const { mgr } = mgrWith();
-    mgr.setLeaderMode(LeaderMode.DEG90);
-    mgr.addPoint({ x: 0, y: 0 });
-    mgr.setCursorPosition({ x: 200, y: 0 });
+    mgr.SetLeaderMode(LeaderMode.DEG90);
+    mgr.AddPoint({ x: 0, y: 0 });
+    mgr.SetCursorPosition({ x: 200, y: 0 });
 
-    expect(pts(mgr.getLeaderLinePoints())).toEqual([
+    expect(pts(mgr.GetLeaderLinePoints())).toEqual([
       [0, 0],
       [200, 0],
     ]);
@@ -236,23 +236,23 @@ describe('closing the outline', () => {
     click(mgr, { x: 1000, y: 2000 });
     click(mgr, { x: 5000, y: 2000 });
 
-    expect(mgr.newPointClosesOutline({ x: 1000, y: 2000 })).toBe(true);
+    expect(mgr.NewPointClosesOutline({ x: 1000, y: 2000 })).toBe(true);
     // One internal unit away is a corner, not a close. A radius here would
     // steal every click placed near the start.
-    expect(mgr.newPointClosesOutline({ x: 1001, y: 2000 })).toBe(false);
+    expect(mgr.NewPointClosesOutline({ x: 1001, y: 2000 })).toBe(false);
     // And it is the FIRST corner that closes, never the last.
-    expect(mgr.newPointClosesOutline({ x: 5000, y: 2000 })).toBe(false);
+    expect(mgr.NewPointClosesOutline({ x: 5000, y: 2000 })).toBe(false);
   });
 
   it('an outline with no corners cannot be closed', () => {
     const { mgr } = mgrWith();
-    expect(mgr.newPointClosesOutline({ x: 0, y: 0 })).toBe(false);
+    expect(mgr.NewPointClosesOutline({ x: 0, y: 0 })).toBe(false);
   });
 
   it('SetFinished reports to the client', () => {
     const { mgr, log } = mgrWith();
-    mgr.addPoint({ x: 0, y: 0 });
-    mgr.setFinished();
+    mgr.AddPoint({ x: 0, y: 0 });
+    mgr.SetFinished();
     expect(log.complete).toBe(1);
   });
 });
@@ -260,8 +260,8 @@ describe('closing the outline', () => {
 describe('the client callbacks', () => {
   it('OnFirstPoint is asked once, and a veto refuses the corner', () => {
     const { mgr, log } = mgrWith(true);
-    expect(mgr.addPoint({ x: 0, y: 0 })).toBe(false);
-    expect(mgr.isPolygonInProgress()).toBe(false);
+    expect(mgr.AddPoint({ x: 0, y: 0 })).toBe(false);
+    expect(mgr.IsPolygonInProgress()).toBe(false);
     expect(log.firstPoint).toBe(1);
   });
 
@@ -280,8 +280,8 @@ describe('DeleteLastCorner', () => {
     click(mgr, { x: 100, y: 0 });
     click(mgr, { x: 100, y: 100 });
 
-    expect(mgr.deleteLastCorner()).toEqual({ x: 100, y: 100 });
-    expect(pts(mgr.getLockedInPoints())).toEqual([
+    expect(mgr.DeleteLastCorner()).toEqual({ x: 100, y: 100 });
+    expect(pts(mgr.GetLockedInPoints())).toEqual([
       [0, 0],
       [100, 0],
     ]);
@@ -289,22 +289,22 @@ describe('DeleteLastCorner', () => {
 
   it('returns null once there is nothing left to delete', () => {
     const { mgr } = mgrWith();
-    mgr.addPoint({ x: 0, y: 0 });
-    expect(mgr.deleteLastCorner()).toEqual({ x: 0, y: 0 });
-    expect(mgr.deleteLastCorner()).toBeNull();
+    mgr.AddPoint({ x: 0, y: 0 });
+    expect(mgr.DeleteLastCorner()).toEqual({ x: 0, y: 0 });
+    expect(mgr.DeleteLastCorner()).toBeNull();
   });
 
   it('rebuilds the leader from the corner that is now last', () => {
     const { mgr } = mgrWith();
     click(mgr, { x: 0, y: 0 });
     click(mgr, { x: 100, y: 0 });
-    mgr.setCursorPosition({ x: 200, y: 50 });
-    mgr.deleteLastCorner();
+    mgr.SetCursorPosition({ x: 200, y: 50 });
+    mgr.DeleteLastCorner();
 
     // "update the new last segment (was previously locked in), reusing last
     // constraints" — the leader must start at (0,0) now, not at the deleted
     // (100,0).
-    expect(pts(mgr.getLeaderLinePoints())).toEqual([
+    expect(pts(mgr.GetLeaderLinePoints())).toEqual([
       [0, 0],
       [200, 50],
     ]);
@@ -314,17 +314,17 @@ describe('DeleteLastCorner', () => {
 describe('Reset', () => {
   it('drops all three chains and reports the change', () => {
     const { mgr, log } = mgrWith();
-    mgr.setLeaderMode(LeaderMode.DEG45);
+    mgr.SetLeaderMode(LeaderMode.DEG45);
     click(mgr, { x: 0, y: 0 });
     click(mgr, { x: 100, y: 0 });
     const before = log.geometry;
 
-    mgr.reset();
+    mgr.Reset();
 
-    expect(mgr.isPolygonInProgress()).toBe(false);
-    expect(mgr.getLockedInPoints()).toHaveLength(0);
-    expect(mgr.getLeaderLinePoints()).toHaveLength(0);
-    expect(mgr.getLoopLinePoints()).toHaveLength(0);
+    expect(mgr.IsPolygonInProgress()).toBe(false);
+    expect(mgr.GetLockedInPoints()).toHaveLength(0);
+    expect(mgr.GetLeaderLinePoints()).toHaveLength(0);
+    expect(mgr.GetLoopLinePoints()).toHaveLength(0);
     expect(log.geometry).toBe(before + 1);
   });
 });
@@ -340,7 +340,7 @@ describe('IsSelfIntersecting', () => {
     ])
       click(mgr, p);
 
-    expect(mgr.isSelfIntersecting(false)).toBe(false);
+    expect(mgr.IsSelfIntersecting(false)).toBe(false);
   });
 
   it('is true for a bow tie', () => {
@@ -353,6 +353,6 @@ describe('IsSelfIntersecting', () => {
     ])
       click(mgr, p);
 
-    expect(mgr.isSelfIntersecting(false)).toBe(true);
+    expect(mgr.IsSelfIntersecting(false)).toBe(true);
   });
 });

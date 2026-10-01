@@ -32,7 +32,7 @@ import {
   selectionAreaColors,
 } from '@ziroeda/common/preview_items/selection_area.js';
 import { BEZIER_STEPS } from '@ziroeda/common/preview_items/bezier_geom_manager.js';
-import { PolygonGeomManager } from '@ziroeda/common/preview_items/polygon_geom_manager.js';
+import { POLYGON_GEOM_MANAGER } from '@ziroeda/common/preview_items/polygon_geom_manager.js';
 import { COLOR4D_WHITE, brightness, cssWithAlpha, toCss } from '@ziroeda/common/gal/color4d.js';
 import { drawPolygonItem } from '@ziroeda/common/preview_items/polygon_item.js';
 import { DialogRuleAreaProperties } from './dialogs/dialog_rule_area_properties_ui.js';
@@ -1080,13 +1080,12 @@ const AUTO_TRACK_WIDTH_ON: ReadonlySet<string> = new Set(['autoTrackWidth']);
 // The graphic-shape drawing tools (DRAWING_TOOL) and the PcbShape kind each
 // one creates.
 const DRAW_SHAPE_TOOLS: Record<string, PcbShape['kind']> = {
-  drawPolygon: 'poly',
   drawBezier: 'curve',
 };
 
 /**
  * The toolbar tools that run on TOOL_MANAGER: DRAWING_TOOL's DrawLine,
- * DrawRectangle, DrawCircle, DrawArc and PlaceText. Arming one runs its action as the
+ * DrawRectangle, DrawCircle, DrawArc, PlaceText and DrawZone's Draw Polygons. Arming one runs its action as the
  * toolbar does (no position); while it is the current tool the canvas's events
  * and keys go to TOOL_DISPATCHER, and its PopTool returns the toolbar to the
  * selection mode. The other drawing tools still run in this window.
@@ -1097,6 +1096,7 @@ const TOOL_MANAGER_TOOLS: Readonly<Record<string, TOOL_ACTION>> = {
   drawCircle: PCB_ACTIONS.drawCircle,
   drawArc: PCB_ACTIONS.drawArc,
   placeText: PCB_ACTIONS.placeText,
+  drawPolygon: PCB_ACTIONS.drawPolygon,
 };
 
 // Friendly names for the "Current Tool" status-bar field (field 6), shown while
@@ -2884,27 +2884,27 @@ export function PcbEditor({
    * `onComplete` goes through a ref because the commit needs the board and the
    * active layer, which are further down this component.
    */
-  const polyCommitRef = useRef<(mgr: PolygonGeomManager) => void>(() => {});
-  const zoneCommitRef = useRef<(mgr: PolygonGeomManager) => void>(() => {});
-  const polyMgrRef = useRef<PolygonGeomManager | null>(null);
-  const zoneMgrRef = useRef<PolygonGeomManager | null>(null);
-  const polyMgr = (): PolygonGeomManager => {
-    polyMgrRef.current ??= new PolygonGeomManager({
+  const polyCommitRef = useRef<(mgr: POLYGON_GEOM_MANAGER) => void>(() => {});
+  const zoneCommitRef = useRef<(mgr: POLYGON_GEOM_MANAGER) => void>(() => {});
+  const polyMgrRef = useRef<POLYGON_GEOM_MANAGER | null>(null);
+  const zoneMgrRef = useRef<POLYGON_GEOM_MANAGER | null>(null);
+  const polyMgr = (): POLYGON_GEOM_MANAGER => {
+    polyMgrRef.current ??= new POLYGON_GEOM_MANAGER({
       // GRAPHIC_POLYGON is the one zone mode with no properties dialog, so
       // `OnFirstPoint` has nothing to veto and the outline always starts.
-      onFirstPoint: () => true,
-      onGeometryChange: () => requestDrawRef.current(),
-      onComplete: (m) => polyCommitRef.current(m),
+      OnFirstPoint: () => true,
+      OnGeometryChange: () => requestDrawRef.current(),
+      OnComplete: (m) => polyCommitRef.current(m),
     });
     return polyMgrRef.current;
   };
-  const zoneMgr = (): PolygonGeomManager => {
-    zoneMgrRef.current ??= new PolygonGeomManager({
+  const zoneMgr = (): POLYGON_GEOM_MANAGER => {
+    zoneMgrRef.current ??= new POLYGON_GEOM_MANAGER({
       // The zone's veto is the properties dialog, which our flow has already
       // shown by the time the first corner reaches the manager.
-      onFirstPoint: () => true,
-      onGeometryChange: () => requestDrawRef.current(),
-      onComplete: (m) => zoneCommitRef.current(m),
+      OnFirstPoint: () => true,
+      OnGeometryChange: () => requestDrawRef.current(),
+      OnComplete: (m) => zoneCommitRef.current(m),
     });
     return zoneMgrRef.current;
   };
@@ -2921,8 +2921,8 @@ export function PcbEditor({
         : toggles.has('lineMode90')
           ? LeaderMode.DEG90
           : LeaderMode.DIRECT;
-    polyMgrRef.current?.setLeaderMode(mode);
-    zoneMgrRef.current?.setLeaderMode(mode);
+    polyMgrRef.current?.SetLeaderMode(mode);
+    zoneMgrRef.current?.SetLeaderMode(mode);
   };
   // Pending "Add Text" dialog: where the text will be placed.
   // Page Settings / Print dialogs (DIALOG_PAGES_SETTINGS / DIALOG_PRINT_PCBNEW).
@@ -3378,8 +3378,8 @@ export function PcbEditor({
     drawingRef.current = [];
     zoneRef.current = null;
     // `cleanup()`'s `polyGeomMgr.Reset()` (drawing_tool.cpp:3494).
-    polyMgrRef.current?.reset();
-    zoneMgrRef.current?.reset();
+    polyMgrRef.current?.Reset();
+    zoneMgrRef.current?.Reset();
     twoPtRef.current.Reset();
     twoPtStartedRef.current = false;
     arcMgrRef.current.Reset();
@@ -4478,16 +4478,16 @@ export function PcbEditor({
     // makes a half-drawn zone read as an area rather than as three loose lines.
     {
       const cur0 = cursorRef.current;
-      const mgrs: { mgr: PolygonGeomManager | null; layer: string }[] = [
+      const mgrs: { mgr: POLYGON_GEOM_MANAGER | null; layer: string }[] = [
         { mgr: polyMgrRef.current, layer: activeLayer },
         { mgr: zoneMgrRef.current, layer: zoneRef.current?.layer ?? activeLayer },
       ];
       for (const { mgr, layer } of mgrs) {
-        if (!mgr?.isPolygonInProgress() || !cur0) continue;
+        if (!mgr?.IsPolygonInProgress() || !cur0) continue;
         drawPolygonItem(ctx, {
-          locked: mgr.getLockedInPoints(),
-          leader: mgr.getLeaderLinePoints(),
-          loop: mgr.getLoopLinePoints(),
+          locked: mgr.GetLockedInPoints(),
+          leader: mgr.GetLeaderLinePoints(),
+          loop: mgr.GetLoopLinePoints(),
           toPx: (q) => ({ x: q.x * sx + v.tx, y: q.y * v.scale + v.ty }),
           // `m_previewItem.SetStrokeColor( COLOR4D::WHITE )` and
           // `SetFillColor( color.WithAlpha( 0.2 ) )`, where `color` is
@@ -6539,9 +6539,9 @@ export function PcbEditor({
     // `const bool endPolygon = evt->IsDblClick( BUT_LEFT ) || ...`
     // (drawing_tool.cpp:3591-3593) — the second click of the pair has already
     // locked its corner in, so this only has to close.
-    const outline = polyMgrRef.current?.isPolygonInProgress()
+    const outline = polyMgrRef.current?.IsPolygonInProgress()
       ? polyMgrRef.current
-      : zoneMgrRef.current?.isPolygonInProgress()
+      : zoneMgrRef.current?.IsPolygonInProgress()
         ? zoneMgrRef.current
         : null;
     if (outline) {
@@ -7478,8 +7478,8 @@ export function PcbEditor({
         // expensive one: any corner placed within five pixels of the start
         // finished the polygon instead of being added.
         const mgr = polyMgr();
-        if (mgr.newPointClosesOutline(p)) closeOutline(mgr);
-        else mgr.addPoint(p);
+        if (mgr.NewPointClosesOutline(p)) closeOutline(mgr);
+        else mgr.AddPoint(p);
         break;
       }
       default:
@@ -7510,9 +7510,9 @@ export function PcbEditor({
    * another. Ours kept the polygon tool armed, so closing an outline left the
    * user still in a tool they had finished with.
    */
-  const closeOutline = (mgr: PolygonGeomManager): void => {
-    mgr.setFinished();
-    mgr.reset();
+  const closeOutline = (mgr: POLYGON_GEOM_MANAGER): void => {
+    mgr.SetFinished();
+    mgr.Reset();
     zoneRef.current = null;
     setActiveTool(selectModeRef.current);
     requestDraw();
@@ -7523,8 +7523,8 @@ export function PcbEditor({
    * corners the committed item actually gets, or null for an outline too small
    * to keep ("just scrap the zone in progress").
    */
-  const finishedOutline = (mgr: PolygonGeomManager): { x: number; y: number }[] | null => {
-    const final = mgr.getLockedInPoints();
+  const finishedOutline = (mgr: POLYGON_GEOM_MANAGER): { x: number; y: number }[] | null => {
+    const final = mgr.GetLockedInPoints();
     if (final.length < 3) return null;
 
     const outline = final.map((q) => ({ x: q.x, y: q.y }));
@@ -7533,10 +7533,10 @@ export function PcbEditor({
     // be included as they are shown in the preview.  These typically maintain
     // the 45 constraint." The loop chain contributes its middle points only —
     // its first is the cursor and its last is the start corner, both already in.
-    if (mgr.getLeaderMode() !== LeaderMode.DIRECT) {
-      const leader = mgr.getLeaderLinePoints();
+    if (mgr.GetLeaderMode() !== LeaderMode.DIRECT) {
+      const leader = mgr.GetLeaderLinePoints();
       for (let i = 1; i < leader.length; i++) outline.push({ ...leader[i]! });
-      const loop = mgr.getLoopLinePoints();
+      const loop = mgr.GetLoopLinePoints();
       for (let i = 1; i < loop.length - 1; i++) outline.push({ ...loop[i]! });
     }
 
@@ -8585,8 +8585,8 @@ export function PcbEditor({
     // The same click arm as the polygon tool's, because upstream it is
     // literally the same one (drawing_tool.cpp:3587-3623).
     const mgr = zoneMgr();
-    if (mgr.newPointClosesOutline(p)) closeOutline(mgr);
-    else mgr.addPoint(p);
+    if (mgr.NewPointClosesOutline(p)) closeOutline(mgr);
+    else mgr.AddPoint(p);
     requestDraw();
   };
 
@@ -8609,8 +8609,8 @@ export function PcbEditor({
     }
 
     const mgr = zoneMgr();
-    if (mgr.newPointClosesOutline(p)) closeOutline(mgr);
-    else mgr.addPoint(p);
+    if (mgr.NewPointClosesOutline(p)) closeOutline(mgr);
+    else mgr.AddPoint(p);
     requestDraw();
   };
 
@@ -9750,14 +9750,14 @@ export function PcbEditor({
       //     polyGeomMgr.SetCursorPosition( cursorPos );`
       // (drawing_tool.cpp:3641-3645), with the leader mode re-read first
       // because upstream sets it on every event and Ctrl suspends it.
-      if (polyMgrRef.current?.isPolygonInProgress() || zoneMgrRef.current?.isPolygonInProgress()) {
+      if (polyMgrRef.current?.IsPolygonInProgress() || zoneMgrRef.current?.IsPolygonInProgress()) {
         // `ctrlDownRef` is already this handler's Ctrl/Cmd snap modifier,
         // set at the top; re-reading the event would be a second declaration
         // of the same thing.
         syncLeaderMode(ctrlDownRef.current);
         const snapped = snapToGrid({ x: wx, y: wy });
-        polyMgrRef.current?.setCursorPosition(snapped);
-        zoneMgrRef.current?.setCursorPosition(snapped);
+        polyMgrRef.current?.SetCursorPosition(snapped);
+        zoneMgrRef.current?.SetCursorPosition(snapped);
       }
       // `drawShape`'s and `drawArc`'s motion arms. The two-point manager only
       // moves once a shape has started; the arc manager takes every motion,
@@ -10180,9 +10180,9 @@ export function PcbEditor({
       // — the `started &&` guard in DrawZone's event loop — and dropping the
       // last corner of a one-corner outline abandons it, via `cleanup()`.
       if (!mod && e.key === 'Backspace') {
-        const outline = polyMgrRef.current?.isPolygonInProgress()
+        const outline = polyMgrRef.current?.IsPolygonInProgress()
           ? polyMgrRef.current
-          : zoneMgrRef.current?.isPolygonInProgress()
+          : zoneMgrRef.current?.IsPolygonInProgress()
             ? zoneMgrRef.current
             : null;
         if (outline) {
@@ -10190,7 +10190,7 @@ export function PcbEditor({
           // Upstream also warps the mouse onto the corner it removed
           // (`WarpMouseCursor`), which a browser cannot do; the manager has
           // already rebuilt the leader from it either way.
-          outline.deleteLastCorner();
+          outline.DeleteLastCorner();
           requestDrawRef.current();
           return;
         }
@@ -10257,14 +10257,14 @@ export function PcbEditor({
         } else if (dimensionRef.current) {
           dimensionRef.current = null;
           requestDrawRef.current();
-        } else if (polyMgrRef.current?.isPolygonInProgress()) {
+        } else if (polyMgrRef.current?.IsPolygonInProgress()) {
           // `cleanup()` — `polyGeomMgr.Reset()` and the tool stays armed
           // (drawing_tool.cpp:3486-3502); only a second Esc pops the tool.
-          polyMgrRef.current.reset();
+          polyMgrRef.current.Reset();
           requestDrawRef.current();
-        } else if (zoneRef.current || zoneMgrRef.current?.isPolygonInProgress()) {
+        } else if (zoneRef.current || zoneMgrRef.current?.IsPolygonInProgress()) {
           zoneRef.current = null;
-          zoneMgrRef.current?.reset();
+          zoneMgrRef.current?.Reset();
           requestDrawRef.current();
         } else if (measureRef.current) {
           measureRef.current = null;
@@ -12901,7 +12901,7 @@ export function PcbEditor({
             };
             if (values.layers[0] && values.layers[0] !== activeLayer)
               switchActiveLayer(values.layers[0]);
-            zoneMgr().addPoint(zoneDialog.at);
+            zoneMgr().AddPoint(zoneDialog.at);
             setZoneDialog(null);
             requestDraw();
           }}
@@ -12931,7 +12931,7 @@ export function PcbEditor({
               layer: named.layers[0] ?? activeLayer,
               values: named,
             };
-            zoneMgr().addPoint(ruleAreaDialog);
+            zoneMgr().AddPoint(ruleAreaDialog);
             setRuleAreaDialog(null);
             requestDraw();
           }}

@@ -106,6 +106,12 @@ import { Pgm } from '@ziroeda/common/pgm_base.js';
 import { NoPrintableChars } from '@ziroeda/common/string_utils.js';
 import { DIALOG_TEXT_PROPERTIES } from '../dialogs/dialog_text_properties.js';
 import { PCB_TEXT } from '../pcb_text.js';
+import type { ZONE } from '../zone.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { POLYGON_GEOM_MANAGER } from '@ziroeda/common/preview_items/polygon_geom_manager.js';
+import { ZONE_MODE } from './pcb_actions.js';
+import type { PCB_SELECTION_TOOL } from './pcb_selection_tool.js';
+import { ZONE_CREATE_HELPER, type ZONE_CREATE_PARAMS } from './zone_create_helper.js';
 import { BEZIER_GEOM_MANAGER, BEZIER_STEPS } from '@ziroeda/common/index.js';
 import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
 import { pcbMmToIU } from '@ziroeda/common/eda_units.js';
@@ -1213,6 +1219,266 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
     );
   }
 
+  /** `getSourceZoneForAction` (drawing_tool.cpp:3399-3432). */
+  private getSourceZoneForAction(aMode: ZONE_MODE, aZone: { value: ZONE | null }): boolean {
+    let clearSelection = false;
+    aZone.value = null;
+
+    // not an action that needs a source zone
+    if (aMode === ZONE_MODE.ADD || aMode === ZONE_MODE.GRAPHIC_POLYGON) return true;
+
+    const selTool = this.m_toolMgr!.FindTool(
+      'common.InteractiveSelection',
+    ) as unknown as PCB_SELECTION_TOOL;
+    const selection = selTool.GetSelection();
+
+    if (selection.Empty()) {
+      clearSelection = true;
+      this.m_toolMgr!.RunAction(ACTIONS.selectionCursor);
+    }
+
+    // we want a single zone
+    if (selection.Size() === 1 && selection.GetItems()[0]!.Type() === KICAD_T.PCB_ZONE_T)
+      aZone.value = selection.GetItems()[0] as unknown as ZONE;
+
+    // expected a zone, but didn't get one
+    if (!aZone.value) {
+      if (clearSelection) this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
+
+      return false;
+    }
+
+    return true;
+  }
+
+  *DrawZone(aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+    if (this.m_isFootprintEditor && !this.m_frame!.GetModel()) return 0;
+
+    const zoneMode = aEvent.Parameter<ZONE_MODE>();
+    let drawMode = DRAWING_MODE.ZONE;
+
+    if (aEvent.IsAction(PCB_ACTIONS.drawRuleArea)) drawMode = DRAWING_MODE.KEEPOUT;
+
+    if (aEvent.IsAction(PCB_ACTIONS.drawPolygon)) drawMode = DRAWING_MODE.GRAPHIC_POLYGON;
+
+    return yield* this.scoped(
+      drawMode,
+      function* (this: DRAWING_TOOL) {
+        // get a source zone, if we need one. We need it for:
+        // ZONE_MODE::CUTOUT (adding a hole to the source zone)
+        // ZONE_MODE::SIMILAR (creating a new zone using settings of source zone
+        const sourceZone: { value: ZONE | null } = { value: null };
+
+        if (!this.getSourceZoneForAction(zoneMode, sourceZone)) return 0;
+
+        // Turn zones on if they are off, so that the created object will be visible after completion
+        this.m_frame!.SetObjectVisible(GAL_LAYER_ID.LAYER_ZONES);
+
+        const params: ZONE_CREATE_PARAMS = {
+          m_keepout: drawMode === DRAWING_MODE.KEEPOUT,
+          m_mode: zoneMode,
+          m_sourceZone: sourceZone.value,
+          m_layer: this.m_frame!.GetActiveLayer(),
+        };
+
+        if (zoneMode === ZONE_MODE.SIMILAR && !sourceZone.value!.IsOnLayer(params.m_layer))
+          params.m_layer = sourceZone.value!.GetFirstLayer();
+
+        const zoneTool = new ZONE_CREATE_HELPER(
+          {
+            GetManager: () => this.m_toolMgr,
+            getView: () => this.m_view,
+            GetAngleSnapMode: () => this.GetAngleSnapMode(),
+            editFrame: () => this.m_frame!,
+            RunMainStackModal: (f) => this.RunMainStackModal(f),
+          },
+          params,
+        );
+        // the geometry manager which handles the zone geometry, and hands the calculated points
+        // over to the zone creator tool
+        const polyGeomMgr = new POLYGON_GEOM_MANAGER(zoneTool);
+        let started = false;
+        const grid = new PCB_GRID_HELPER(this.m_toolMgr!, this.m_frame!.GetMagneticItemsSettings());
+        const controls = this.m_controls!;
+
+        this.m_frame!.PushTool(aEvent);
+
+        const setCursor = (): void => {
+          this.m_frame!.GetCanvas()!.SetCurrentCursor(KICURSOR.PENCIL);
+        };
+
+        const cleanup = (): void => {
+          polyGeomMgr.Reset();
+          started = false;
+          grid.ClearSkipPoint();
+
+          // Snap guides persist in the grid helper until the tool exits, so abandoning the
+          // outline mid-draw must clear them or they linger on screen.
+          grid.FullReset();
+
+          controls.SetAutoPan(false);
+          controls.CaptureCursor(false);
+        };
+
+        this.Activate();
+        // Must be done after Activate() so that it gets set into the correct context
+        controls.ShowCursor(true);
+        controls.ForceCursorPosition(false);
+        // Set initial cursor
+        setCursor();
+
+        if (aEvent.HasPosition()) this.m_toolMgr!.PrimeTool(aEvent.Position());
+
+        try {
+          // Main loop: keep receiving events
+          for (let evt = yield* this.Wait(); evt; evt = yield* this.Wait()) {
+            setCursor();
+
+            const layers = new LSET([this.m_frame!.GetActiveLayer()]);
+            grid.SetSnap(!evt.Modifier(MD_SHIFT));
+            let angleSnap = this.GetAngleSnapMode();
+
+            if (evt.Modifier(MD_CTRL)) angleSnap = LeaderMode.DIRECT;
+
+            grid.SetUseGrid(
+              this.getView()!.GetGAL()!.GetGridSnapping() && !evt.DisableGridSnapping(),
+            );
+
+            let cursorPos: VECTOR2I = evt.HasPosition()
+              ? evt.Position()
+              : controls.GetMousePosition();
+            cursorPos = GetClampedCoords(
+              grid.BestSnapAnchor(cursorPos, layers, GRID_HELPER_GRIDS.GRID_GRAPHICS),
+              DRAWING_COORDS_PADDING,
+            );
+
+            controls.ForceCursorPosition(true, cursorPos);
+
+            polyGeomMgr.SetLeaderMode(angleSnap);
+
+            if (evt.IsCancelInteractive()) {
+              if (started) {
+                cleanup();
+              } else {
+                this.m_frame!.PopTool(aEvent);
+
+                // We've handled the cancel event.  Don't cancel other tools
+                evt.SetPassEvent(false);
+                break;
+              }
+            } else if (evt.IsActivate()) {
+              if (started) cleanup();
+
+              if (evt.IsPointEditor()) {
+                // don't exit (the point editor runs in the background)
+              } else if (evt.IsMoveTool()) {
+                // leave ourselves on the stack so we come back after the move
+                break;
+              } else {
+                this.m_frame!.PopTool(aEvent);
+                break;
+              }
+            } else if (evt.IsAction(PCB_ACTIONS.layerChanged)) {
+              if (zoneMode !== ZONE_MODE.SIMILAR) params.m_layer = this.m_frame!.GetActiveLayer();
+
+              if (!this.m_view!.IsLayerVisible(params.m_layer)) {
+                this.m_frame!.GetAppearancePanel()?.SetLayerVisible?.(params.m_layer, true);
+                this.m_frame!.GetCanvas()!.Refresh();
+              }
+            } else if (evt.IsClick(BUT_RIGHT)) {
+              if (!started) this.m_toolMgr!.VetoContextMenuMouseWarp();
+
+              this.m_menu.ShowContextMenu(this.selection());
+            }
+            // events that lock in nodes
+            else if (
+              evt.IsClick(BUT_LEFT) ||
+              evt.IsDblClick(BUT_LEFT) ||
+              evt.IsAction(PCB_ACTIONS.closeOutline)
+            ) {
+              // Check if it is double click / closing line (so we have to finish the zone)
+              const endPolygon =
+                evt.IsDblClick(BUT_LEFT) ||
+                evt.IsAction(PCB_ACTIONS.closeOutline) ||
+                polyGeomMgr.NewPointClosesOutline(cursorPos);
+
+              if (endPolygon) {
+                polyGeomMgr.SetFinished();
+                polyGeomMgr.Reset();
+
+                cleanup();
+                this.m_frame!.PopTool(aEvent);
+                break;
+              }
+
+              // The zone's properties dialog, which upstream's OnFirstPoint shows
+              // from inside AddPoint (see ZONE_CREATE_HELPER).
+              if (!polyGeomMgr.IsPolygonInProgress() && !(yield* zoneTool.PrepareFirstPoint()))
+                continue;
+
+              // adding a corner
+              if (polyGeomMgr.AddPoint(cursorPos)) {
+                if (!started) {
+                  started = true;
+
+                  controls.SetAutoPan(true);
+                  controls.CaptureCursor(true);
+
+                  if (!this.m_view!.IsLayerVisible(params.m_layer)) {
+                    this.m_frame!.GetAppearancePanel()?.SetLayerVisible?.(params.m_layer, true);
+                    this.m_frame!.GetCanvas()!.Refresh();
+                  }
+                }
+              }
+            } else if (
+              started &&
+              (evt.IsAction(PCB_ACTIONS.deleteLastPoint) ||
+                evt.IsAction(ACTIONS.doDelete) ||
+                evt.IsAction(ACTIONS.undo))
+            ) {
+              // Snap guides persist in the grid helper until the tool exits, so dropping a corner
+              // must clear them or they linger on screen.
+              grid.FullReset();
+
+              const last = polyGeomMgr.DeleteLastCorner();
+
+              if (last) {
+                cursorPos = last;
+                this.getViewControls()!.WarpMouseCursor(cursorPos, true);
+                controls.ForceCursorPosition(true, cursorPos);
+                polyGeomMgr.SetCursorPosition(cursorPos);
+              } else {
+                cleanup();
+              }
+            } else if (started && (evt.IsMotion() || evt.IsDrag(BUT_LEFT))) {
+              polyGeomMgr.SetCursorPosition(cursorPos);
+            } else if (started && (IsZoneFillAction(evt) || evt.IsAction(ACTIONS.redo))) {
+              wxBell();
+            } else if (started && evt.IsAction(PCB_ACTIONS.properties)) {
+              const zone = zoneTool.GetZone();
+
+              if (zone) {
+                onEditItemRequest(this.m_frame!, zone);
+                zoneTool.OnGeometryChange(polyGeomMgr);
+                this.m_frame!.SetMsgPanel(zone);
+              }
+            } else {
+              evt.SetPassEvent();
+            }
+          } // end while
+        } finally {
+          zoneTool.Destroy();
+        }
+
+        this.m_frame!.GetCanvas()!.SetCurrentCursor(KICURSOR.ARROW);
+        controls.ForceCursorPosition(false);
+        controls.SetAutoPan(false);
+        controls.CaptureCursor(false);
+        return 0;
+      }.bind(this),
+    );
+  }
+
   /** `m_frame->GetAppearancePanel()->SetLayerVisible( m_layer, true )` when it is hidden. */
   private showLayer(): void {
     if (!this.m_view!.IsLayerVisible(this.m_layer)) {
@@ -1763,6 +2029,9 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
     this.Go(S(this.DrawCircle), PCB_ACTIONS.drawCircle.MakeEvent());
     this.Go(S(this.DrawArc), PCB_ACTIONS.drawArc.MakeEvent());
     this.Go(S(this.PlaceText), PCB_ACTIONS.placeText.MakeEvent());
+    this.Go(S(this.DrawZone), PCB_ACTIONS.drawPolygon.MakeEvent());
+    // TRANSITIONAL: drawZone, drawRuleArea, drawZoneCutout and drawSimilarZone
+    // bind to DrawZone once their properties windows take a ZONE_SETTINGS.
     // TRANSITIONAL: the remaining handlers are bound as they are ported.
   }
 }

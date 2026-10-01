@@ -350,3 +350,65 @@ describe('DRAWING_TOOL::PlaceText (drawing_tool.cpp:933-1183)', () => {
     expect(h.frame.GetUndoCommandCount()).toBe(undo + 1);
   });
 });
+
+describe('DRAWING_TOOL::DrawZone, Draw Polygons (drawing_tool.cpp:3435-3683)', () => {
+  const polys = (): PCB_SHAPE[] => shapes().filter((s) => s.GetShape() === SHAPE_T.POLY);
+
+  it('three corners and a click on the first close a filled polygon on the active layer (:3587-3601, zone_create_helper.cpp:237-257)', () => {
+    start(PCB_ACTIONS.drawPolygon);
+    click(mm(10, 10));
+    click(mm(30, 10));
+    click(mm(30, 30));
+    click(mm(10, 10));
+    expect(polys()).toHaveLength(1);
+    const p = polys()[0]!;
+    expect(p.GetLayer()).toBe(PCB_LAYER_ID.F_SilkS);
+    expect(p.IsSolidFill()).toBe(true);
+    expect(p.GetPolyShape().Outline(0).PointCount()).toBe(3);
+    expect(p.GetWidth()).toBe(h.board.GetDesignSettings().GetLineThickness(PCB_LAYER_ID.F_SilkS));
+    expect(p.IsSelected()).toBe(true);
+    // DrawZone draws one outline and pops the tool (:3600)
+    expect(tool.GetDrawingMode()).toBe(DRAWING_MODE.NONE);
+  });
+
+  it('on Edge.Cuts the polygon is not filled (zone_create_helper.cpp:246)', () => {
+    h.frame.SetActiveLayer(PCB_LAYER_ID.Edge_Cuts);
+    start(PCB_ACTIONS.drawPolygon);
+    click(mm(10, 10));
+    click(mm(30, 10));
+    click(mm(30, 30));
+    mouse(h, TA_MOUSE_DBLCLICK, mm(30, 30), BUT_LEFT);
+    expect(polys()).toHaveLength(1);
+    expect(polys()[0]!.IsSolidFill()).toBe(false);
+  });
+
+  it('Delete Last Point drops a corner; Esc abandons the outline and stays (:3625-3643, :3528-3541)', () => {
+    start(PCB_ACTIONS.drawPolygon);
+    click(mm(10, 10));
+    click(mm(30, 10));
+    click(mm(50, 50));
+    h.mgr.RunAction(PCB_ACTIONS.deleteLastPoint);
+    click(mm(30, 30));
+    click(mm(10, 10));
+    const pts = polys()[0]!.GetPolyShape().Outline(0);
+    expect(pts.PointCount()).toBe(3);
+    expect([...Array(3).keys()].map((i) => pts.CPoint(i))).not.toContainEqual(mm(50, 50));
+
+    start(PCB_ACTIONS.drawPolygon);
+    click(mm(60, 60));
+    click(mm(70, 60));
+    esc();
+    expect(tool.GetDrawingMode()).toBe(DRAWING_MODE.GRAPHIC_POLYGON);
+    esc();
+    expect(tool.GetDrawingMode()).toBe(DRAWING_MODE.NONE);
+    expect(polys()).toHaveLength(1);
+  });
+
+  it('fewer than three corners scraps the outline (zone_create_helper.cpp:327-331)', () => {
+    start(PCB_ACTIONS.drawPolygon);
+    click(mm(10, 10));
+    click(mm(30, 10));
+    h.mgr.RunAction(PCB_ACTIONS.closeOutline);
+    expect(polys()).toHaveLength(0);
+  });
+});
