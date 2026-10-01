@@ -596,7 +596,9 @@ describe('CONVERT_TOOL::OutsetItems and OUTSET_ROUTINE', () => {
     expect(arcs).toHaveLength(4);
     const radius = (byUuid(h.board, 9) as PCB_SHAPE).GetRadius();
     expect(arcs.map((a) => Math.round(a.GetRadius() / 1000) * 1000).sort((a, b) => a - b)).toEqual(
-      [MM, MM, radius - MM, radius + MM].map((v) => Math.round(v / 1000) * 1000).sort((a, b) => a - b),
+      [MM, MM, radius - MM, radius + MM]
+        .map((v) => Math.round(v / 1000) * 1000)
+        .sort((a, b) => a - b),
     );
   });
 
