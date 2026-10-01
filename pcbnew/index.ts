@@ -686,15 +686,9 @@ export {
   verifyDpBypass,
 } from './router/pns_optimizer.js';
 
-export {
-  isCopperLayerName,
-  copperRank,
-  enabledCopperLayers,
-  buildSwapLayerMap,
-  swapItemLayers,
-  swapViaLayerPair,
-  swapBoardLayers,
-} from './dialogs/dialog_swap_layers.js';
+export { isCopperLayerName, copperRank, enabledCopperLayers } from './types.js';
+export { DIALOG_SWAP_LAYERS } from './dialogs/dialog_swap_layers.js';
+export { GLOBAL_EDIT_TOOL } from './tools/global_edit_tool.js';
 
 export {
   passesGlobalTrackViaFilters,

@@ -649,6 +649,8 @@ import { DialogPnsSettings } from './dialogs/dialog_pns_settings.js';
 import { DialogPositionRelativeModeless } from './dialogs/dialog_position_relative_ui.js';
 import type { DIALOG_POSITION_RELATIVE } from './dialogs/dialog_position_relative.js';
 import { DialogOffsetItem } from './dialogs/dialog_offset_item_ui.js';
+import { DialogSwapLayers } from './dialogs/dialog_swap_layers_ui.js';
+import type { DIALOG_SWAP_LAYERS } from './dialogs/dialog_swap_layers.js';
 import { DialogPushPadProperties } from './dialogs/dialog_push_pad_properties_ui.js';
 import { DialogEnumPads } from './dialogs/dialog_enum_pads_ui.js';
 import { DialogFpEditPadTable } from './dialogs/dialog_fp_edit_pad_table_ui.js';
@@ -2091,6 +2093,11 @@ export function PcbEditor({
     dialog: DIALOG_OFFSET_ITEM;
     resolve: (aOk: boolean) => void;
   } | null>(null);
+  /** GLOBAL_EDIT_TOOL's DIALOG_SWAP_LAYERS, with the promise the tool waits on. */
+  const [swapLayersDlg, setSwapLayersDlg] = useState<{
+    dialog: DIALOG_SWAP_LAYERS;
+    resolve: (aOk: boolean) => void;
+  } | null>(null);
   /** PAD_TOOL's dialogs, each with the promise the tool waits on. */
   const [pushPadDlg, setPushPadDlg] = useState<{
     dialog: DIALOG_PUSH_PAD_PROPERTIES;
@@ -2656,6 +2663,9 @@ export function PcbEditor({
       attachPositionRelativeDialog: (aDialog) => setPosRelDialog(aDialog),
       showOffsetItemDialog: (aDialog) =>
         new Promise<boolean>((resolve) => setOffsetDlg({ dialog: aDialog, resolve })),
+      // GLOBAL_EDIT_TOOL's window half.
+      showSwapLayersDialog: (aDialog) =>
+        new Promise<boolean>((resolve) => setSwapLayersDlg({ dialog: aDialog, resolve })),
       // PAD_TOOL's window half.
       showPushPadPropertiesDialog: (aDialog) =>
         new Promise<number>((resolve) => setPushPadDlg({ dialog: aDialog, resolve })),
@@ -11446,7 +11456,11 @@ export function PcbEditor({
         break;
       // `PCB_ACTIONS::zonesManager` -> `GLOBAL_EDIT_TOOL::ZonesManager`.
       case 'zonesManager':
-        void frameRef.current?.ZonesManager();
+        runAction(PCB_ACTIONS.zonesManager);
+        break;
+      // `PCB_ACTIONS::swapLayers` -> `GLOBAL_EDIT_TOOL::SwapLayers`.
+      case 'swapLayers':
+        runAction(PCB_ACTIONS.swapLayers);
         break;
       case 'polygonmerge':
         runAction(PCB_ACTIONS.mergePolygons);
@@ -13134,7 +13148,7 @@ export function PcbEditor({
             // `RunAction( zonesManager )` after the commit (`CallAfter`).
             onOpenZoneManager={(values) => {
               applyZoneEdit(values);
-              setTimeout(() => void frameRef.current?.ZonesManager(), 0);
+              setTimeout(() => runAction(PCB_ACTIONS.zonesManager), 0);
             }}
             onClose={() => setZonePropsIndex(null)}
           />
@@ -13601,6 +13615,16 @@ export function PcbEditor({
       {/* POSITION_RELATIVE_TOOL's DIALOG_POSITION_RELATIVE: modeless, in the
           same host as Find; it draws itself only while it is shown. */}
       {posRelDialog && <DialogPositionRelativeModeless dialog={posRelDialog} />}
+      {swapLayersDlg && board && (
+        <DialogSwapLayers
+          dialog={swapLayersDlg.dialog}
+          copperLayerCount={frameRef.current?.GetBoard()?.GetCopperLayerCount() ?? 2}
+          onResult={(aOk) => {
+            setSwapLayersDlg(null);
+            swapLayersDlg.resolve(aOk);
+          }}
+        />
+      )}
       {pushPadDlg && (
         <DialogPushPadProperties
           dialog={pushPadDlg.dialog}

@@ -48,7 +48,7 @@
 
 import { boardItemId, deleteBoardItems } from '../edit-board.js';
 import { viaIsTented } from '../exporters/export_d356.js';
-import { enabledCopperLayers, isCopperLayerName } from './dialog_swap_layers.js';
+import { enabledCopperLayers, isCopperLayerName } from '../types.js';
 import type { Board, PcbArcTrack, PcbShape, PcbTrack, PcbVia, PcbZone } from '../types.js';
 
 /**

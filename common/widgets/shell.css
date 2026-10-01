@@ -18853,3 +18853,14 @@ fieldset.ze-pushpad-box {
   margin: 5px; /* [data] `topSizer->Add( m_sdbSizer, 0, wxALIGN_RIGHT|wxALL, 5 )`. */
   align-self: flex-end;
 }
+
+/* DIALOG_SWAP_LAYERS (dialog_swap_layers_base.cpp). */
+.ze-swaplayers-body {
+  /* [data] `bMainSizer->Add( bMarginsSizer, 1, wxEXPAND|wxTOP|wxRIGHT|wxLEFT, 10 )`. */
+  padding: 10px 10px 0;
+}
+.ze-swaplayers-grid {
+  margin: 5px; /* [data] `bMarginsSizer->Add( m_grid, 1, wxEXPAND|wxALL, 5 )`. */
+  min-width: 250px; /* [data] `m_grid->SetMinSize( wxSize( 250,150 ) )`. */
+  min-height: 150px; /* [data] the same SetMinSize. */
+}

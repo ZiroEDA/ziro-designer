@@ -266,7 +266,7 @@ export function buildPcbMenus(
         { label: 'Edit Text & Graphics Properties...', disabled: dis },
         { label: 'Edit Teardrops...', action: () => h.action('editTeardrops') },
         { label: 'Change Footprints...', disabled: dis },
-        { label: 'Swap Layers...', disabled: dis },
+        { label: 'Swap Layers...', action: () => h.action('swapLayers') },
         // `ACTIONS::gridOrigin` — the DIALOG ("Grid Origin..."), not
         // `gridSetOrigin`, which is the interactive tool the Place menu has.
         { label: 'Grid Origin...', disabled: dis },

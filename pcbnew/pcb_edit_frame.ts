@@ -101,6 +101,8 @@ import { POSITION_RELATIVE_TOOL } from './tools/position_relative_tool.js';
 import type { DIALOG_POSITION_RELATIVE } from './dialogs/dialog_position_relative.js';
 import type { DIALOG_OFFSET_ITEM } from './dialogs/dialog_offset_item.js';
 import { PAD_TOOL } from './tools/pad_tool.js';
+import { GLOBAL_EDIT_TOOL } from './tools/global_edit_tool.js';
+import type { DIALOG_SWAP_LAYERS } from './dialogs/dialog_swap_layers.js';
 import {
   type DIALOG_PUSH_PAD_PROPERTIES,
   wxID_CANCEL,
@@ -446,6 +448,8 @@ export interface PCB_EDIT_FRAME_HOOKS {
   attachPositionRelativeDialog?(aDialog: DIALOG_POSITION_RELATIVE): void;
   /** POSITION_RELATIVE_TOOL's `DIALOG_OFFSET_ITEM( ... ).ShowModal() == wxID_OK`. */
   showOffsetItemDialog?(aDialog: DIALOG_OFFSET_ITEM): Promise<boolean>;
+  /** GLOBAL_EDIT_TOOL's DIALOG_SWAP_LAYERS: true on OK. */
+  showSwapLayersDialog?(aDialog: DIALOG_SWAP_LAYERS): Promise<boolean>;
   /** PAD_TOOL's DIALOG_PUSH_PAD_PROPERTIES: 0 OK, 1 Apply, wxID_CANCEL dismissed. */
   showPushPadPropertiesDialog?(aDialog: DIALOG_PUSH_PAD_PROPERTIES): Promise<number>;
   /** PAD_TOOL's DIALOG_ENUM_PADS: true on OK. */
@@ -725,6 +729,21 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     return this.hooks.showOffsetItemDialog?.(aDialog) ?? Promise.resolve(false);
   }
 
+  // ---- GLOBAL_EDIT_TOOL's window half (GLOBAL_EDIT_TOOL_FRAME) --------------
+
+  ShowSwapLayersDialog(aDialog: DIALOG_SWAP_LAYERS): Promise<boolean> {
+    return this.hooks.showSwapLayersDialog?.(aDialog) ?? Promise.resolve(false);
+  }
+
+  ShowZoneManagerDialog(): Promise<{ ok: boolean; repour: boolean }> {
+    return this.hooks.showZoneManager?.() ?? Promise.resolve({ ok: false, repour: false });
+  }
+
+  /** TRANSITIONAL (#636 stage 3): ZONE_FILLER_TOOL's zoneFillAll, until it is ported. */
+  FillAllZones(): void {
+    this.hooks.fillAllZones?.();
+  }
+
   // ---- PAD_TOOL's window half (PAD_TOOL_FRAME) ------------------------------
 
   ShowPushPadPropertiesDialog(aDialog: DIALOG_PUSH_PAD_PROPERTIES): Promise<number> {
@@ -859,45 +878,6 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     return this.hooks.fillZones?.(aBoard, aZones) ?? false;
   }
 
-  /**
-   * `GLOBAL_EDIT_TOOL::ZonesManager` (global_edit_tool.cpp:240-290), run by
-   * Tools > Zone Manager..., the toolbar's zone menu and the Copper Zones
-   * dialog's "Open Zone Manager..." button.
-   *
-   * The dialog edits clones and writes them over the board's zones on OK, so
-   * what is left is what the tool does after it: deselect, `OnModify()` (which
-   * clears the zone bounding-box caches), update the zones in the view, rebuild
-   * the connectivity, and the refill when the box was ticked. Upstream's
-   * `BOARD_COMMIT` is populated with `Modify( zone )` and never pushed, so the
-   * change files no undo entry.
-   */
-  async ZonesManager(): Promise<void> {
-    const board = this.GetBoard();
-
-    if (!board || !this.hooks.showZoneManager) return;
-
-    const commit = new BOARD_COMMIT(this);
-
-    for (const zone of board.Zones()) commit.Modify(zone);
-
-    const { ok, repour } = await this.hooks.showZoneManager();
-
-    if (!ok) return;
-
-    // "Ensure all zones are deselected before make any change in view"
-    this.m_toolManager!.RunAction(ACTIONS.selectionClear);
-
-    this.OnModify();
-
-    for (const zone of board.Zones()) this.GetCanvas()?.GetView().Update(zone);
-
-    // The board's listeners hear the zones changed (the view re-derives), then rebuild connectivity.
-    board.OnItemsChanged([...board.Zones()]);
-    board.BuildConnectivity();
-
-    if (repour) this.hooks.fillAllZones?.();
-  }
-
   /** `PCB_BASE_EDIT_FRAME::GetLayerPairSettings()` (`pcb_base_edit_frame.h:249`). */
   GetLayerPairSettings(): LAYER_PAIR_SETTINGS {
     return this.m_layerPairSettings;
@@ -942,6 +922,7 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     // Register tools
     this.m_toolManager.RegisterTool(new PCB_SELECTION_TOOL());
     this.m_toolManager.RegisterTool(new EDIT_TOOL());
+    this.m_toolManager.RegisterTool(new GLOBAL_EDIT_TOOL());
     this.m_toolManager.RegisterTool(new PAD_TOOL());
     this.m_toolManager.RegisterTool(new PCB_POINT_EDITOR());
     this.m_toolManager.RegisterTool(new BOARD_INSPECTION_TOOL());
