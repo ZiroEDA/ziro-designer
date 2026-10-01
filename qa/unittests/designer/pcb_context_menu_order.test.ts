@@ -107,7 +107,7 @@ describe('the rows a multi-item selection is entitled to', () => {
   // at all, and had renamed two rows and dropped two accelerators.
 
   it('offers Pack and Move Footprints, on P, from two items with a footprint', () => {
-    expect(FRAME).toContain("label: 'Pack and Move Footprints', shortcut: 'P'");
+    expect(FRAME).toMatch(/label: 'Pack and Move Footprints',\s*shortcut: 'P'/);
     expect(FRAME).toMatch(/'Pack and Move Footprints'[\s\S]{0,200}moreThanOne && anyFootprint/);
   });
 
@@ -138,9 +138,9 @@ describe('the rows a multi-item selection is entitled to', () => {
   it('carries the accelerators Move Individually and Swap are defined with', () => {
     // pcb_actions.cpp:601-605 and :704-708. Move Individually takes no
     // ellipsis: it starts an interactive move, it does not open a dialog.
-    expect(FRAME).toContain("label: 'Move Individually', shortcut: 'Ctrl+M'");
+    expect(FRAME).toMatch(/label: 'Move Individually',\s*shortcut: 'Ctrl\+M'/);
     expect(FRAME).not.toContain("'Move Individually...'");
-    expect(FRAME).toContain("label: 'Swap', shortcut: 'Alt+S'");
+    expect(FRAME).toMatch(/label: 'Swap',\s*shortcut: 'Alt\+S'/);
   });
 
   it('opens Align/Distribute from two items and its distribute group from three', () => {

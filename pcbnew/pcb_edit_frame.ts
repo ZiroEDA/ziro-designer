@@ -43,7 +43,7 @@ import type { ZONE } from './zone.js';
 import type { wxTextValidator } from '@ziroeda/common/validators.js';
 import { DisplayErrorMessage } from '@ziroeda/common/confirm.js';
 import { MICROWAVE_TOOL, type MICROWAVE_HOST } from './microwave/microwave_tool.js';
-import type { PcbFootprint } from './types.js';
+import type { Board, PcbFootprint } from './types.js';
 import type { NETLIST } from './netlist_reader/pcb_netlist.js';
 import { type DIALOG_DRC_LIKE, DRC_TOOL } from './tools/drc_tool.js';
 import type { DRC_JOB_HOOKS, DRC_JOB_REQUEST } from './browser/drc_job.js';
@@ -83,6 +83,13 @@ import type { wxEvent } from '@ziroeda/common/wx/wx_event.js';
 import type { SelectionFilter } from './dialogs/dialog_filter_selection.js';
 import { PCB_POINT_EDITOR } from './tools/pcb_point_editor.js';
 import { PCB_SELECTION_TOOL } from './tools/pcb_selection_tool.js';
+import { EDIT_TOOL, type MOVE_EXACT_VALUES, type ROUTER_TOOL_LIKE } from './tools/edit_tool.js';
+import type { DOGBONE_PARAMETERS } from './tools/item_modification_routine.js';
+import { PCB_PICKER_TOOL } from './tools/pcb_picker_tool.js';
+import type { PCB_SELECTION } from './tools/pcb_selection.js';
+import type { PCB_TABLE } from './pcb_table.js';
+import type { PCB_TABLECELL } from './pcb_tablecell.js';
+import type { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import {
   makeGatedDispatcher,
   type WINDOW_ACTION_HANDLER,
@@ -369,6 +376,39 @@ export interface PCB_EDIT_FRAME_HOOKS {
    * nothing.
    */
   showInfoBarWarning?(aWarningMsg: string, aShowCloseButton: boolean): void;
+  /** `EDA_BASE_FRAME::ShowInfoBarMsg( aMsg )`: the infobar, information icon. */
+  showInfoBarMsg?(aMsg: string): void;
+  /** `WX_UNIT_ENTRY_DIALOG( frame, aTitle, aLabel, aValue ).ShowModal()`: the value, null on cancel. */
+  showUnitEntryDialog?(aTitle: string, aLabel: string, aValue: number): Promise<number | null>;
+  /** EDIT_TOOL's `GetDogboneParams` WX_MULTI_ENTRY_DIALOG. */
+  showDogboneDialog?(aParams: DOGBONE_PARAMETERS): Promise<DOGBONE_PARAMETERS | null>;
+  /** `DIALOG_MOVE_EXACT( frame, translation, rotation, anchor, bbox ).ShowModal()`. */
+  showMoveExactDialog?(
+    aValues: MOVE_EXACT_VALUES,
+    aSelectionBox: BOX2I,
+  ): Promise<MOVE_EXACT_VALUES | null>;
+  /** `DIALOG_TRACK_VIA_PROPERTIES( frame, selection ).ShowQuasiModal()`. */
+  showTrackViaPropertiesDialog?(aSelection: PCB_SELECTION): Promise<void>;
+  /** `DIALOG_GET_FOOTPRINT_BY_NAME( frame, fplist ).ShowModal()`: the value, null on cancel. */
+  showGetFootprintByNameDialog?(aList: string[]): Promise<string | null>;
+  /** `PromptConnectedPadDecision`'s wxRichMessageDialog. */
+  showConnectedPadDialog?(
+    aTitle: string,
+    aMessage: string,
+    aDetails: string,
+  ): Promise<'ignore' | 'all' | null>;
+  /** `PCB_BASE_EDIT_FRAME::OpenVertexEditor( aItem )`. */
+  openVertexEditor?(aItem: BOARD_ITEM): void;
+  /**
+   * TRANSITIONAL (#636 stage 3): the window's view board, which PCB_GRID_HELPER
+   * still computes its anchors from (`GetTransitionalBoardView`).
+   */
+  boardView?(): Board | null;
+  /**
+   * TRANSITIONAL (#636 stage 3): ROUTER_TOOL's state, while the router is the
+   * window's (`WINDOW_ACTION_BRIDGE::Router`).
+   */
+  router?(): ROUTER_TOOL_LIKE | null;
   /**
    * `DIALOG_FILTER_SELECTION( frame, aOptions ).ShowModal() == wxID_OK`, the
    * dialog editing `aOptions` in place. Optional: absent answers cancel.
@@ -488,6 +528,68 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   /** `DIALOG_FILTER_SELECTION( this, aOptions ).ShowModal() == wxID_OK`. */
   ShowFilterSelectionDialog(aOptions: SelectionFilter): Promise<boolean> {
     return this.hooks.showFilterSelectionDialog?.(aOptions) ?? Promise.resolve(false);
+  }
+
+  // ---- EDIT_TOOL's window half (EDIT_TOOL_FRAME) -------------------------
+
+  /** `EDA_BASE_FRAME::ShowInfoBarMsg( aMsg )` (eda_base_frame.cpp). */
+  ShowInfoBarMsg(aMsg: string): void {
+    this.hooks.showInfoBarMsg?.(aMsg);
+  }
+
+  ShowUnitEntryDialog(aTitle: string, aLabel: string, aValue: number): Promise<number | null> {
+    return this.hooks.showUnitEntryDialog?.(aTitle, aLabel, aValue) ?? Promise.resolve(null);
+  }
+
+  ShowDogboneDialog(aParams: DOGBONE_PARAMETERS): Promise<DOGBONE_PARAMETERS | null> {
+    return this.hooks.showDogboneDialog?.(aParams) ?? Promise.resolve(null);
+  }
+
+  ShowMoveExactDialog(
+    aValues: MOVE_EXACT_VALUES,
+    aSelectionBox: BOX2I,
+  ): Promise<MOVE_EXACT_VALUES | null> {
+    return this.hooks.showMoveExactDialog?.(aValues, aSelectionBox) ?? Promise.resolve(null);
+  }
+
+  ShowTrackViaPropertiesDialog(aSelection: PCB_SELECTION): Promise<void> {
+    return this.hooks.showTrackViaPropertiesDialog?.(aSelection) ?? Promise.resolve();
+  }
+
+  /**
+   * `DIALOG_TABLECELL_PROPERTIES`. TRANSITIONAL (#636 stage 3): not wired to a
+   * window dialog yet; a table cell's properties open the table's own.
+   */
+  ShowTableCellPropertiesDialog(_aCells: PCB_TABLECELL[]): Promise<boolean> {
+    return Promise.resolve(true);
+  }
+
+  /** `DIALOG_TABLE_PROPERTIES( frame, table ).ShowQuasiModal()`: the table's edit request. */
+  ShowTablePropertiesDialog(aTable: PCB_TABLE): Promise<void> {
+    this.OnEditItemRequest(aTable);
+    return Promise.resolve();
+  }
+
+  ShowGetFootprintByNameDialog(aList: string[]): Promise<string | null> {
+    return this.hooks.showGetFootprintByNameDialog?.(aList) ?? Promise.resolve(null);
+  }
+
+  ShowConnectedPadDialog(
+    aTitle: string,
+    aMessage: string,
+    aDetails: string,
+  ): Promise<'ignore' | 'all' | null> {
+    return this.hooks.showConnectedPadDialog?.(aTitle, aMessage, aDetails) ?? Promise.resolve(null);
+  }
+
+  /** `PCB_BASE_EDIT_FRAME::OpenVertexEditor( aItem )`. */
+  OpenVertexEditor(aItem: BOARD_ITEM): void {
+    this.hooks.openVertexEditor?.(aItem);
+  }
+
+  /** TRANSITIONAL (#636 stage 3): see the `boardView` hook. */
+  GetTransitionalBoardView(): Board | null {
+    return this.hooks.boardView?.() ?? null;
   }
 
   /** `EDA_DRAW_FRAME::UpdateProperties()`, and the window re-reading the selection. */
@@ -630,12 +732,17 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
 
     // Register tools
     this.m_toolManager.RegisterTool(new PCB_SELECTION_TOOL());
+    this.m_toolManager.RegisterTool(new EDIT_TOOL());
     this.m_toolManager.RegisterTool(new PCB_POINT_EDITOR());
     this.m_toolManager.RegisterTool(new DRC_TOOL());
     this.m_toolManager.RegisterTool(new PROPERTIES_TOOL());
     this.m_toolManager.RegisterTool(new EMBED_TOOL());
+    this.m_toolManager.RegisterTool(new PCB_PICKER_TOOL());
     this.m_toolManager.RegisterTool(
-      new WINDOW_ACTION_BRIDGE((aAction, aEvent) => this.hooks.windowAction?.(aAction, aEvent)),
+      new WINDOW_ACTION_BRIDGE(
+        (aAction, aEvent) => this.hooks.windowAction?.(aAction, aEvent),
+        () => this.hooks.router?.() ?? null,
+      ),
     );
     this.m_toolManager.InitTools();
 

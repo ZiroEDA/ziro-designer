@@ -3,10 +3,10 @@
 /**
  * TRANSITIONAL (#636 stage 3) - not KiCad code, and deleted piece by piece.
  *
- * `PCB_SELECTION_TOOL` is ported whole and runs on the live BOARD, but some of
- * the actions it runs belong to tools that are not ported yet: a drag starts
- * `PCB_ACTIONS::move` (EDIT_TOOL), a double click `PCB_ACTIONS::properties`
- * (EDIT_TOOL), a Ctrl+click `PCB_ACTIONS::highlightNet` (BOARD_INSPECTION_TOOL),
+ * PCB_SELECTION_TOOL and EDIT_TOOL are ported whole and run on the live
+ * BOARD, but some of the actions they run belong to tools that are not ported
+ * yet: a router drag `PCB_ACTIONS::routerInlineDrag` (ROUTER_TOOL), a Ctrl+click
+ * `PCB_ACTIONS::highlightNet` and a move's local ratsnest (BOARD_INSPECTION_TOOL),
  * a middle double click `ACTIONS::zoomFitScreen` (COMMON_TOOLS). Until each of
  * those tools lands, this tool answers its actions by handing them to the
  * window, which still implements them.
@@ -28,20 +28,21 @@ import {
   wxEVT_RIGHT_UP,
 } from '@ziroeda/common/wx/wx_event.js';
 import { PCB_ACTIONS } from './pcb_actions.js';
+import type { ROUTER_TOOL_LIKE } from './edit_tool.js';
 
 /** The window's implementation of an action whose tool is not ported. */
 export type WINDOW_ACTION_HANDLER = (aAction: TOOL_ACTION, aEvent: TOOL_EVENT) => void;
 
 /** The actions the window still answers, by the tool that will take each over. */
 export const WINDOW_BRIDGED_ACTIONS: readonly TOOL_ACTION[] = [
-  // EDIT_TOOL
-  PCB_ACTIONS.move,
-  PCB_ACTIONS.moveIndividually,
-  PCB_ACTIONS.drag45Degree,
-  PCB_ACTIONS.dragFreeAngle,
-  PCB_ACTIONS.properties,
+  // ROUTER_TOOL: EDIT_TOOL::invokeInlineRouter's drag
+  PCB_ACTIONS.routerInlineDrag,
   // BOARD_INSPECTION_TOOL
   PCB_ACTIONS.highlightNet,
+  PCB_ACTIONS.updateLocalRatsnest,
+  PCB_ACTIONS.hideLocalRatsnest,
+  // BOARD_EDITOR_CONTROL::PageSettings
+  ACTIONS.pageSettings,
   // COMMON_TOOLS
   ACTIONS.zoomFitScreen,
   ACTIONS.zoomFitObjects,
@@ -49,10 +50,20 @@ export const WINDOW_BRIDGED_ACTIONS: readonly TOOL_ACTION[] = [
 
 export class WINDOW_ACTION_BRIDGE extends TOOL_INTERACTIVE {
   private readonly m_handler: WINDOW_ACTION_HANDLER;
+  private readonly m_router: () => ROUTER_TOOL_LIKE | null;
 
-  constructor(aHandler: WINDOW_ACTION_HANDLER) {
+  constructor(
+    aHandler: WINDOW_ACTION_HANDLER,
+    aRouter: () => ROUTER_TOOL_LIKE | null = () => null,
+  ) {
     super('pcbnew.WindowActionBridge');
     this.m_handler = aHandler;
+    this.m_router = aRouter;
+  }
+
+  /** ROUTER_TOOL's state, as EDIT_TOOL asks it, while the router is the window's. */
+  Router(): ROUTER_TOOL_LIKE | null {
+    return this.m_router();
   }
 
   override Reset(_aReason: RESET_REASON): void {}

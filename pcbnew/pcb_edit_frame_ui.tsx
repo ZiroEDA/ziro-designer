@@ -126,16 +126,12 @@ import {
   boardItemId,
   subsetBoardItems,
   deleteBoardItems,
-  rotateBoardItemsBy,
-  duplicateBoardItems,
-  mirrorBoardItems,
   groupBoardItems,
   ungroupBoardItems,
   addToGroupItems,
   removeFromGroupItems,
   expandGroupIds,
   filterSelectionForFreePads,
-  filterSelectionForDelete,
   startTrackDrag,
   updateTrackDrag,
   trackDragSegments,
@@ -607,6 +603,18 @@ import {
 import { BuildBomTextFromBoard } from './build_BOM_from_board.js';
 import { DialogBoardStatistics } from './dialogs/dialog_board_statistics.js';
 import { DialogFilterSelection } from './dialogs/dialog_filter_selection_ui.js';
+import {
+  type MOVE_EXACT_VALUES,
+  PNS_DRAG_MODE,
+  ROTATION_ANCHOR,
+  type ROUTER_TOOL_LIKE,
+} from './tools/edit_tool.js';
+import type { DOGBONE_PARAMETERS } from './tools/item_modification_routine.js';
+import type { TOOL_ACTION } from '@ziroeda/common/tool/tool_action.js';
+import type { BOX2I as KBOX2I } from '@ziroeda/kimath/src/math/box2.js';
+
+/** `ROTATION_ANCHOR` in DIALOG_MOVE_EXACT's order, as the dialog names them. */
+const ROTATION_ANCHOR_NAMES = ['itemAnchor', 'selectionCenter', 'userOrigin', 'auxOrigin'] as const;
 import { type WINDOW_ACTION_HANDLER } from './tools/window_action_bridge.js';
 import type { ACTION_MENU } from '@ziroeda/common/tool/action_menu.js';
 import { actionMenuItems } from '@ziroeda/common/tool/action_menu_popup.js';
@@ -707,7 +715,6 @@ import {
   footprintAt,
   type FootprintValues,
 } from './dialogs/dialog_footprint_properties.js';
-import { flipBoardItems, modificationPoint } from './edit-board.js';
 import { zoneItemDescription } from './item_description.js';
 import { DialogPadProperties } from './dialogs/dialog_pad_properties_ui.js';
 import { DialogShapeProperties } from './dialogs/dialog_graphic_properties.js';
@@ -759,9 +766,8 @@ import {
   viewIdOfBoardItem,
 } from './pcb_io/kicad_sexpr/board_view.js';
 import { DisplayErrorMessage, IsOK } from '@ziroeda/common/confirm.js';
-import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import { EDA_ANGLE, EDA_ANGLE_T } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { DIALOG_REFERENCE_IMAGE_PROPERTIES } from './dialogs/dialog_reference_image_properties.js';
-import { moveExactOnSelection } from './dialogs/dialog_move_exact.js';
 import { ARRAY_TOOL } from './tools/array_tool.js';
 import { PCB_SELECTION } from './tools/pcb_selection.js';
 import { Build_Board_Characteristics_Table } from './board_tables/board_characteristics_table.js';
@@ -794,7 +800,6 @@ import { parseFootprint } from './footprint_edit_frame.js';
 import {
   buildScene,
   drawBoard,
-  hitTestBoardDrawingSheet,
   drawOriginMarkers,
   boardTextPath,
   PCB_DEFAULT_GRID_IU,
@@ -2005,6 +2010,24 @@ export function PcbEditor({
    * filterSelection shows it: the tool's options being edited, and the
    * `ShowModal()` it waits on.
    */
+  /** EDIT_TOOL's `WX_UNIT_ENTRY_DIALOG`, with the answer it waits on. */
+  const [unitEntryDlg, setUnitEntryDlg] = useState<{
+    title: string;
+    label: string;
+    value: number;
+    resolve: (aValue: number | null) => void;
+  } | null>(null);
+  /** EDIT_TOOL's `GetDogboneParams` WX_MULTI_ENTRY_DIALOG. */
+  const [dogboneDlg, setDogboneDlg] = useState<{
+    params: DOGBONE_PARAMETERS;
+    resolve: (aParams: DOGBONE_PARAMETERS | null) => void;
+  } | null>(null);
+  /** EDIT_TOOL's `DIALOG_MOVE_EXACT`. */
+  const [moveExactDlg, setMoveExactDlg] = useState<{
+    values: MOVE_EXACT_VALUES;
+    box: KBOX2I;
+    resolve: (aValues: MOVE_EXACT_VALUES | null) => void;
+  } | null>(null);
   const [filterDlg, setFilterDlg] = useState<{
     opts: SelectionFilter;
     resolve: (aOk: boolean, aEdited?: SelectionFilter) => void;
@@ -2032,11 +2055,7 @@ export function PcbEditor({
     },
     [onOutputFile],
   );
-  const [moveExactOpen, setMoveExactOpen] = useState(false);
   const [posRelOpen, setPosRelOpen] = useState(false);
-  // Fillet / chamfer prompts. Upstream keeps the last value in a
-  // function-static, so it reopens on whatever was typed last.
-  const [lineModOpen, setLineModOpen] = useState<'fillet' | 'chamfer' | 'dogbone' | null>(null);
   const [outsetOpen, setOutsetOpen] = useState(false);
   const [pnsSettingsOpen, setPnsSettingsOpen] = useState(false);
   const [arrayOpen, setArrayOpen] = useState(false);
@@ -2044,11 +2063,6 @@ export function PcbEditor({
   const [arraySettings, setArraySettings] = useState<ArraySettings>(DEFAULT_ARRAY_SETTINGS);
   // Kept across openings, as upstream keeps its PARAMETERS on the tool.
   const [outsetSettings, setOutsetSettings] = useState<OutsetSettings>(DEFAULT_OUTSET_SETTINGS);
-  const [filletRadius, setFilletRadius] = useState(1_000_000);
-  const [chamferSetback, setChamferSetback] = useState(1_000_000);
-  const [dogboneRadius, setDogboneRadius] = useState(1_000_000);
-  // s_dogBoneParams.AddSlots, true until the user says otherwise.
-  const [dogboneSlots, setDogboneSlots] = useState(true);
   // The reference item for Position Relative, chosen by clicking the canvas
   // (upstream arms PCB_PICKER_TOOL for this). Kept across openings, as upstream
   // keeps its dialog alive between calls.
@@ -2143,21 +2157,6 @@ export function PcbEditor({
     }
     return gridHelperRef.current.SetState(gridState());
   };
-  /**
-   * What the drawing sheet is drawn from — `DS_PROXY_VIEW_ITEM`'s properties.
-   *
-   * One function because two callers must not disagree: the painter, and the
-   * double-click hit test that opens Page Settings. A hit test built from a
-   * different title block than the one on screen answers about a sheet the user
-   * cannot see.
-   */
-  const sheetInfoOf = (
-    brd: Board,
-  ): { paper?: string; titleBlock?: Board['titleBlock']; fileName: string } => ({
-    paper: brd.paper,
-    titleBlock: brd.titleBlock,
-    fileName,
-  });
 
   // Every grid snap in the editor, through the one function upstream uses.
   // Calling `computeNearest` directly anywhere would bypass the auxiliary axis
@@ -2370,6 +2369,10 @@ export function PcbEditor({
   const setDirtyRef = useRef(setDirty);
   setDirtyRef.current = setDirty;
   const frameRef = useRef<PCB_EDIT_FRAME | null>(null);
+  /** `m_toolManager->RunAction( aAction )`: a menu row, a hotkey or a toolbar button. */
+  const runAction = (aAction: TOOL_ACTION): void => {
+    frameRef.current?.GetToolManager()?.RunAction(aAction);
+  };
   /**
    * TRANSITIONAL (#636 stage 3): a selection written by one of the window's own
    * tools, by view id. The selection is PCB_SELECTION_TOOL's, so the write goes
@@ -2474,6 +2477,25 @@ export function PcbEditor({
     windowAction: WINDOW_ACTION_HANDLER;
     eventToWindow: (aEvent: wxEvent) => boolean;
   } | null>(null);
+  /** The window half of EDIT_TOOL (EDIT_TOOL_FRAME through the frame's hooks). */
+  const editWindowRef = useRef<{
+    showInfoBarMsg: (aMsg: string) => void;
+    showUnitEntryDialog: (aTitle: string, aLabel: string, aValue: number) => Promise<number | null>;
+    showDogboneDialog: (aParams: DOGBONE_PARAMETERS) => Promise<DOGBONE_PARAMETERS | null>;
+    showMoveExactDialog: (
+      aValues: MOVE_EXACT_VALUES,
+      aBox: KBOX2I,
+    ) => Promise<MOVE_EXACT_VALUES | null>;
+    showTrackViaPropertiesDialog: () => Promise<void>;
+    showGetFootprintByNameDialog: (aList: string[]) => Promise<string | null>;
+    showConnectedPadDialog: (
+      aTitle: string,
+      aMessage: string,
+      aDetails: string,
+    ) => Promise<'ignore' | 'all' | null>;
+    openVertexEditor: () => void;
+    router: () => ROUTER_TOOL_LIKE;
+  } | null>(null);
   if (!frameRef.current) {
     // `PGM_BASE::InitPgm` runs before any KiCad frame exists, and the frame
     // needs it at once: the SetBoard below joins the board to `Prj()`, which is
@@ -2531,6 +2553,24 @@ export function PcbEditor({
         selWindowRef.current?.showFilterSelectionDialog(aOptions) ?? Promise.resolve(false),
       updateProperties: () => selWindowRef.current?.updateProperties(),
       windowAction: (aAction, aEvent) => selWindowRef.current?.windowAction(aAction, aEvent),
+      // EDIT_TOOL's window half: its dialogs, the infobar and the vertex editor.
+      showInfoBarMsg: (aMsg) => editWindowRef.current?.showInfoBarMsg(aMsg),
+      showUnitEntryDialog: (aTitle, aLabel, aValue) =>
+        editWindowRef.current?.showUnitEntryDialog(aTitle, aLabel, aValue) ?? Promise.resolve(null),
+      showDogboneDialog: (aParams) =>
+        editWindowRef.current?.showDogboneDialog(aParams) ?? Promise.resolve(null),
+      showMoveExactDialog: (aValues, aBox) =>
+        editWindowRef.current?.showMoveExactDialog(aValues, aBox) ?? Promise.resolve(null),
+      showTrackViaPropertiesDialog: () =>
+        editWindowRef.current?.showTrackViaPropertiesDialog() ?? Promise.resolve(),
+      showGetFootprintByNameDialog: (aList) =>
+        editWindowRef.current?.showGetFootprintByNameDialog(aList) ?? Promise.resolve(null),
+      showConnectedPadDialog: (aTitle, aMessage, aDetails) =>
+        editWindowRef.current?.showConnectedPadDialog(aTitle, aMessage, aDetails) ??
+        Promise.resolve(null),
+      openVertexEditor: () => editWindowRef.current?.openVertexEditor(),
+      boardView: () => boardRef.current,
+      router: () => editWindowRef.current?.router() ?? null,
       eventToWindow: (aEvent) => selWindowRef.current?.eventToWindow(aEvent) ?? false,
       fillAllZones: () => mwWindowRef.current!.fillAllZones(),
       setHighlightNets: (aNetCodes) =>
@@ -5193,23 +5233,6 @@ export function PcbEditor({
   // the stable Select All callback can honour the live filter.
   const passesFilterRef = useRef<(id: string) => boolean>(() => true);
 
-  // Delete the selected items (EDIT_TOOL::Remove). Reads the live selection ref
-  // so the keyboard shortcut and menu both act on the current selection.
-  // Deleting a group deletes its members too (the id set keeps the group id so
-  // the group node itself is dropped as well).
-  const deleteSel = useCallback(() => {
-    const brd = boardRef.current;
-    const sel = selForDrawRef.current;
-    if (!brd || sel.size === 0) return;
-    // EDIT_TOOL::Remove refuses outright when the free-pad filter would take a
-    // whole footprint with a selected pad; upstream rings the bell, and there is
-    // no bell to ring here, so the command simply does nothing.
-    const items = filterSelectionForDelete(new Set([...sel, ...expandGroupIds(brd, sel)]));
-    if (!items) return;
-    commitBoard(deleteBoardItems(brd, items));
-    setSelectionRef.current(new Set());
-  }, [commitBoard]);
-
   // Select All / Unselect All (ACTIONS::selectAll / unselectAll). Select All
   // honours the Selection Filter, like PCB_SELECTION_TOOL::selectAll.
   const selectAllSel = useCallback(() => {
@@ -5218,67 +5241,6 @@ export function PcbEditor({
     setSelectionRef.current(new Set(allBoardItemIds(brd).filter(passesFilterRef.current)));
   }, []);
   const unselectAllSel = useCallback(() => setSelectionRef.current(new Set()), []);
-
-  /**
-   * `EDIT_TOOL::updateModificationPoint` — what Rotate and Mirror turn the
-   * selection about. **One item turns about its own anchor**
-   * (`BOARD_ITEM::GetPosition`, a footprint's origin cross), and only a
-   * multi-item selection turns about the grid-snapped centre of its box.
-   *
-   * We passed no centre at all, so both commands fell back to the bounding-box
-   * centre for every selection. On a footprint that is not the same point: the
-   * box is grown by the silkscreen and the courtyard, so rotating a part
-   * translated it by half the offset between its origin and its box centre —
-   * a different amount for every part, and it drifted further on every R.
-   */
-  const modPoint = useCallback((brd: Board, items: ReadonlySet<string>) => {
-    // `grid.BestSnapAnchor( refPt, nullptr )`, the multi-item branch's snap.
-    return (
-      modificationPoint(brd, items, (p) =>
-        gridHelper().BestSnapAnchor(brd, p, {
-          snapScale: 25 / viewRef.current.scale,
-          hysteresis: 5 / viewRef.current.scale,
-          visibleGrid: gridIURef.current,
-          layer: activeLayerRef.current,
-        }),
-      ) ?? undefined
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Rotate the selection ±90° (EDIT_TOOL::Rotate). Keeps the selection so it
-  // can be rotated repeatedly. Groups rotate as their members.
-  const rotateSel = useCallback(
-    (ccw: boolean) => {
-      const brd = boardRef.current;
-      const sel = selForDrawRef.current;
-      if (!brd || sel.size === 0) return;
-      const { items, selection } = promotePadsForCommand(brd, sel);
-      if (selection) setSelectionRef.current(selection);
-      // `EDIT_TOOL::Rotate`: `rotateAngle = TOOL_EVT_UTILS::GetEventRotationAngle(
-      // *frame(), aEvent )`, which is `frame->GetRotationAngle()` — Preferences
-      // > PCB Editor > Editing Options' "Step for rotate commands", stored in
-      // tenths of a degree. This was a hardcoded ±90.
-      const step = rotationStepRef.current;
-      commitBoard(rotateBoardItemsBy(brd, items, ccw ? step : -step, modPoint(brd, items)));
-    },
-    [commitBoard, modPoint],
-  );
-
-  // Mirror the selection (EDIT_TOOL::Mirror; mirrorV = flip top/bottom,
-  // mirrorH = left/right), about the same modification point as Rotate
-  // (edit_tool.cpp:2451). Footprints are skipped, like KiCad.
-  const mirrorSel = useCallback(
-    (direction: 'v' | 'h') => {
-      const brd = boardRef.current;
-      const sel = selForDrawRef.current;
-      if (!brd || sel.size === 0) return;
-      const { items, selection } = promotePadsForCommand(brd, sel);
-      if (selection) setSelectionRef.current(selection);
-      commitBoard(mirrorBoardItems(brd, items, direction, modPoint(brd, items)));
-    },
-    [commitBoard, modPoint],
-  );
 
   // Group / ungroup the selection (ACTIONS::group / ungroup).
   const groupSel = useCallback(() => {
@@ -5362,19 +5324,6 @@ export function PcbEditor({
     [commitBoard],
   );
 
-  // Duplicate the selection 1 mm off (EDIT_TOOL::Duplicate) and select the copies.
-  const duplicateSel = useCallback(() => {
-    const brd = boardRef.current;
-    const sel = selForDrawRef.current;
-    if (!brd || sel.size === 0) return;
-    const { board: next, ids } = duplicateBoardItems(brd, expandGroupIds(brd, sel), {
-      x: MM,
-      y: MM,
-    });
-    commitBoard(next);
-    setSelectionRef.current(new Set(ids));
-  }, [commitBoard]);
-
   // Align selected items like ALIGN_DISTRIBUTE_TOOL: choose the target item
   // under the cursor when there is one, otherwise the first selected item in
   // KiCad's sorted order, then move each item's own bounding box to that target.
@@ -5453,25 +5402,6 @@ export function PcbEditor({
     [commitBoard, flipView],
   );
 
-  /** EDIT_TOOL::MoveExact, once the dialog has the numbers. */
-  const applyMoveExact = useCallback((v: MoveExactValues) => {
-    const brd = boardRef.current;
-    const frame = frameRef.current;
-    const sel = [...selForDrawRef.current];
-    setMoveExactOpen(false);
-    if (!brd || !frame || sel.length === 0) return;
-
-    // EDIT_TOOL::MoveExact's OK branch on the live items: one BOARD_COMMIT,
-    // the local and aux origins now the real ones.
-    moveExactOnSelection(
-      frame,
-      liveSelection(brd, sel),
-      v.translation,
-      new EDA_ANGLE(v.rotation),
-      v.anchor,
-    );
-  }, []);
-
   /** POSITION_RELATIVE_TOOL::RelativeItemSelectionMove, once the dialog has
    *  the reference and the offset. */
   const applyPositionRelative = useCallback(
@@ -5514,44 +5444,6 @@ export function PcbEditor({
       if (next !== brd) commitBoard(next);
     },
     [commitBoard, activeLayer],
-  );
-
-  /** EDIT_TOOL::ModifyLines — fillet, chamfer or extend the selected lines. */
-  const applyLineModification = useCallback(
-    (op: LineModification, valueIU?: number, addSlots = true) => {
-      const brd = boardRef.current;
-      const sel = [...selForDrawRef.current];
-      if (!brd || sel.length < 2) return;
-
-      const res = modifyLines(brd, sel, op, {
-        radius: valueIU,
-        setback: valueIU,
-        dogboneRadius: valueIU,
-        // DOGBONE_CORNER_ROUTINE::PARAMETERS::AddSlots, as the dialog answered.
-        addSlots,
-      });
-      if (res.board !== brd) commitBoard(res.board);
-      setLineModOpen(null);
-    },
-    [commitBoard],
-  );
-
-  /** POLYGON_BOOLEAN_ROUTINE — merge, subtract or intersect the selection. */
-  const applyPolygonBoolean = useCallback(
-    (op: PolygonBoolean) => {
-      const brd = boardRef.current;
-      const sel = [...selForDrawRef.current];
-      if (!brd || sel.length < 2) return;
-
-      const res = polygonBoolean(brd, sel, op);
-      if (res.board !== brd) {
-        commitBoard(res.board);
-        // The sources are gone and the result is new, so the old ids name
-        // nothing (or worse, something else). Clearing is the honest answer.
-        setSelectionRef.current(new Set());
-      }
-    },
-    [commitBoard],
   );
 
   /** OUTSET_ROUTINE — draw the selection again, a fixed distance outside. */
@@ -5969,29 +5861,32 @@ export function PcbEditor({
       refreshSelectionMirrorRef.current();
       requestDraw();
     },
-    windowAction: (aAction) => {
+    windowAction: (aAction, aEvent) => {
       const origin = downRef.current?.world ?? cursorRef.current;
       const sel = selForDrawRef.current;
       switch (aAction) {
-        case PCB_ACTIONS.move:
+        // ROUTER_TOOL::InlineDrag, which EDIT_TOOL::invokeInlineRouter runs:
+        // the window's router drag of a track, or its drag of footprints with
+        // their tracks following.
+        case PCB_ACTIONS.routerInlineDrag: {
           if (!origin) return;
-          movingRef.current = true;
-          beginMove(sel, 'move', origin);
-          break;
-        case PCB_ACTIONS.drag45Degree:
-        case PCB_ACTIONS.dragFreeAngle: {
-          if (!origin) return;
+          const mode = aEvent.Parameter<number>();
           movingRef.current = true;
           const seed = routableTrackSeed(sel);
-          if (seed === null || !beginTrackDrag(seed, origin, aAction === PCB_ACTIONS.dragFreeAngle))
-            beginMove(sel, 'move', origin);
+          if (
+            seed === null ||
+            !beginTrackDrag(seed, origin, (mode & PNS_DRAG_MODE.DM_FREE_ANGLE) !== 0)
+          )
+            beginMove(sel, 'drag', origin);
           break;
         }
-        case PCB_ACTIONS.moveIndividually:
-          grabStartRef.current('move');
+        // EDIT_TOOL::Properties on the drawing sheet: PCB_EDIT_FRAME's Page Settings.
+        case ACTIONS.pageSettings:
+          setPageDlgOpen(true);
           break;
-        case PCB_ACTIONS.properties:
-          openSelectionProperties();
+        // BOARD_INSPECTION_TOOL's local ratsnest during a move: not drawn yet.
+        case PCB_ACTIONS.updateLocalRatsnest:
+        case PCB_ACTIONS.hideLocalRatsnest:
           break;
         case PCB_ACTIONS.highlightNet:
           highlightNetRef.current();
@@ -6092,6 +5987,50 @@ export function PcbEditor({
   useEffect(() => {
     refreshSelectionMirrorRef.current();
   }, [board]);
+  editWindowRef.current = {
+    showInfoBarMsg: (aMsg) => setInfoBarError(aMsg),
+    showUnitEntryDialog: (aTitle, aLabel, aValue) =>
+      new Promise((resolve) =>
+        setUnitEntryDlg({ title: aTitle, label: aLabel, value: aValue, resolve }),
+      ),
+    showDogboneDialog: (aParams) =>
+      new Promise((resolve) => setDogboneDlg({ params: aParams, resolve })),
+    showMoveExactDialog: (aValues, aBox) =>
+      new Promise((resolve) => setMoveExactDlg({ values: aValues, box: aBox, resolve })),
+    showTrackViaPropertiesDialog: () => {
+      setTrackViaOpen(true);
+      return Promise.resolve();
+    },
+    // TRANSITIONAL (#636 stage 3): DIALOG_GET_FOOTPRINT_BY_NAME is not built;
+    // its "Reference designator:" field, without the "Available footprints:"
+    // list, through the text-entry dialog.
+    showGetFootprintByNameDialog: (_aList) =>
+      mwWindowRef.current!.textEntry('Reference designator:', 'Get and Move Footprint', ''),
+    // TRANSITIONAL (#636 stage 3): KIDIALOG has OK and Cancel, so the
+    // "Swap All Connected Pads" answer (wxID_NO) is not offered yet.
+    showConnectedPadDialog: (aTitle, aMessage, aDetails) =>
+      askKiDialog({
+        caption: aTitle,
+        message: aMessage,
+        extendedMessage: aDetails,
+        icon: 'warning',
+        labels: { ok: 'Ignore Unselected Pads' },
+      }).then((r) => (r === 'ok' ? 'ignore' : null)),
+    openVertexEditor: () => openVertexEditor(),
+    router: () => ({
+      IsToolActive: () =>
+        activeToolRef.current === 'routeSingleTrack' || activeToolRef.current === 'routeDiffPair',
+      RoutingInProgress: () => pnsSessionRef.current !== null,
+      // `ROUTER_TOOL::CanInlineDrag`: one routable track or via, or footprints.
+      CanInlineDrag: () => {
+        const sel = selForDrawRef.current;
+        return (
+          routableTrackSeed(sel) !== null ||
+          (sel.size > 0 && [...sel].every((id) => parseBoardItemId(id)?.kind === 'footprint'))
+        );
+      },
+    }),
+  };
   /** A gesture of the window's own tools in flight, which owns the pointer until it ends. */
   const windowGestureInFlight = (): boolean =>
     movingRef.current ||
@@ -6210,6 +6149,11 @@ export function PcbEditor({
       else if (textAt(brd, sel) !== null) setTextPropsIndex(textAt(brd, sel));
       else if (shapeAt(brd, sel) !== null) setShapePropsIndex(shapeAt(brd, sel));
       else if (footprintAt(brd, sel) !== null) setFpPropsIndex(footprintAt(brd, sel));
+      else {
+        const r = parseBoardItemId(id);
+        const bc = r?.kind === 'barcode' ? brd.barcodes[r.index] : undefined;
+        if (r && bc) setBarcodeDialog({ at: bc.at, index: r.index });
+      }
     },
     /** `PCB_EDIT_FRAME::Edit_Zone_Params`'s actual open: the rendering trigger. */
     editZoneParams: (zoneIndex: number): void => setZonePropsIndex(zoneIndex),
@@ -6542,67 +6486,6 @@ export function PcbEditor({
   };
 
   /**
-   * `EDIT_TOOL::Properties` on the selection (TRANSITIONAL, #636 stage 3:
-   * the window still has the properties dialogs' openers). Reached through
-   * `PCB_ACTIONS::properties`, which the selection tool runs on a double click.
-   */
-  const openSelectionProperties = (): void => {
-    const brd = boardRef.current;
-    const w = cursorRef.current;
-    if (!brd) return;
-    const top = [...selForDrawRef.current][0];
-    const r = top ? parseBoardItemId(top) : null;
-    if (top && (r?.kind === 'track' || r?.kind === 'arc' || r?.kind === 'via')) {
-      // EDIT_TOOL::Properties on a copper item.
-      setTrackViaOpen(true);
-    } else if (top && r?.kind === 'zone') {
-      frameRef.current?.Edit_Zone_Params(r.index);
-    } else if (top && r?.kind === 'text') {
-      setTextPropsIndex(r.index);
-    } else if (top && r?.kind === 'barcode') {
-      const bc = brd.barcodes[r.index];
-      if (bc) setBarcodeDialog({ at: bc.at, index: r.index });
-    } else if (top && r?.kind === 'shape') {
-      setShapePropsIndex(r.index);
-    } else if (top && r?.kind === 'pad') {
-      setPadPropsRef({ footprint: r.index, pad: r.sub ?? 0 });
-    } else if (top && r?.kind === 'footprint') {
-      setFpPropsIndex(r.index);
-    } else if (!top && w) {
-      /**
-       * `EDIT_TOOL::Properties`'s last branch (edit_tool.cpp:2153-2161):
-       *
-       *     else if( selection.Size() == 0 && getView()->IsLayerVisible( LAYER_DRAWINGSHEET ) )
-       *     {
-       *         DS_PROXY_VIEW_ITEM* ds = editFrame->GetCanvas()->GetDrawingSheet();
-       *         VECTOR2D cursorPos = getViewControls()->GetCursorPosition( false );
-       *
-       *         if( ds && ds->HitTestDrawingSheetItems( getView(), cursorPos ) )
-       *             m_toolMgr->PostAction( ACTIONS::pageSettings );
-       *
-       * The board editor has this and eeschema has the same thing
-       * (sch_edit_tool.cpp:2580); only ours was missing it, so double-clicking
-       * the page frame or the title block did nothing here while it opened Page
-       * Settings in the schematic. Empty paper *inside* the frame hits no item,
-       * so this cannot fire from a double-click on blank canvas.
-       */
-      if (objects.drawingSheet) {
-        const hit = hitTestBoardDrawingSheet(
-          sheetInfoOf(brd),
-          // The painter passes no project `.kicad_wks` either; the two must
-          // agree or the hit test answers for a sheet nobody can see.
-          undefined,
-          w,
-          // `aView->ToWorld( 5.0 )` — five screen pixels at this zoom.
-          (5 * dpr) / viewRef.current.scale,
-        );
-        if (hit) setPageDlgOpen(true);
-      }
-    }
-    requestDraw();
-  };
-
-  /**
    * The browser's own menu never opens on the canvas: a right click is
    * PCB_SELECTION_TOOL::Main's (`m_menu->ShowContextMenu( m_selection )`,
    * pcb_selection_tool.cpp:359-379), which reaches the window through
@@ -6659,26 +6542,6 @@ export function PcbEditor({
     const bb = brd ? boardSelectionBBox(brd, selForDrawRef.current) : null;
     return bb ? { x: bb.minX, y: bb.minY } : { x: 0, y: 0 };
   };
-
-  const copySel = useCallback(() => {
-    const brd = boardRef.current;
-    if (!brd) return;
-    const text = copySelectionToClipboardText(brd, selForDrawRef.current, clipboardRef());
-    // "dont even start if the selection is empty" — leave whatever is on the
-    // system clipboard alone rather than blanking it.
-    if (text === '') return;
-    void navigator.clipboard?.writeText(text);
-  }, []);
-
-  const cutSel = useCallback(() => {
-    const brd = boardRef.current;
-    if (!brd) return;
-    const res = cutSelectionToClipboardText(brd, selForDrawRef.current, clipboardRef());
-    if (res.text === '') return;
-    void navigator.clipboard?.writeText(res.text);
-    commitBoard(res.board);
-    setSelectionRef.current(new Set());
-  }, [commitBoard]);
 
   /**
    * The paste half. `mode` and `clearNets` come from DIALOG_PASTE_SPECIAL for
@@ -6968,7 +6831,11 @@ export function PcbEditor({
       // selected, which is why this heads the empty-canvas menu and vanishes
       // the moment something is picked.
       menuEntry(
-        { label: 'Get and Move Footprint', shortcut: 'T', disabled: true },
+        {
+          label: 'Get and Move Footprint',
+          shortcut: 'T',
+          action: () => runAction(PCB_ACTIONS.getAndPlace),
+        },
         -1,
         toolStackIsEmpty && !notEmpty,
       ),
@@ -6976,16 +6843,24 @@ export function PcbEditor({
 
       // ---- EDIT_TOOL::Init (edit_tool.cpp:763-810) -----------------------
       menuEntry(
-        { label: 'Move', shortcut: 'M', action: () => grabStartRef.current('move') },
+        { label: 'Move', shortcut: 'M', action: () => runAction(PCB_ACTIONS.move) },
         -1,
         notEmpty,
       ),
-      menuEntry(TODO('Move with Reference...'), -1, notEmpty),
+      menuEntry(
+        { label: 'Move with Reference...', action: () => runAction(PCB_ACTIONS.moveWithReference) },
+        -1,
+        notEmpty,
+      ),
       // `PCB_ACTIONS::moveIndividually` (pcb_actions.cpp:601-605): the friendly
       // name carries NO ellipsis - it starts an interactive move, it does not
       // open a dialog - and it does carry Ctrl+M.
       menuEntry(
-        { label: 'Move Individually', shortcut: 'Ctrl+M', disabled: true },
+        {
+          label: 'Move Individually',
+          shortcut: 'Ctrl+M',
+          action: () => runAction(PCB_ACTIONS.moveIndividually),
+        },
         -1,
         moreThanOne,
       ),
@@ -7008,13 +6883,17 @@ export function PcbEditor({
         {
           label: 'Drag 45 Degree Mode',
           shortcut: 'D',
-          action: () => grabStartRef.current('drag45'),
+          action: () => runAction(PCB_ACTIONS.drag45Degree),
         },
         -1,
         canDrag45,
       ),
       menuEntry(
-        { label: 'Drag Free Angle', shortcut: 'G', action: () => grabStartRef.current('drag') },
+        {
+          label: 'Drag Free Angle',
+          shortcut: 'G',
+          action: () => runAction(PCB_ACTIONS.dragFreeAngle),
+        },
         -1,
         canDragFree,
       ),
@@ -7022,21 +6901,27 @@ export function PcbEditor({
       menuEntry({ ...A('Rotate Counterclockwise', 'rotateCCW'), shortcut: 'R' }, -1, notEmpty),
       menuEntry({ ...A('Rotate Clockwise', 'rotateCW'), shortcut: 'Shift+R' }, -1, notEmpty),
       menuEntry(
-        { label: 'Change Side / Flip', shortcut: 'F', action: () => flipSelection() },
+        { label: 'Change Side / Flip', shortcut: 'F', action: () => runAction(PCB_ACTIONS.flip) },
         -1,
         notEmpty,
       ),
       menuEntry(A('Mirror Horizontally', 'mirrorH'), -1, canMirror),
       menuEntry(A('Mirror Vertically', 'mirrorV'), -1, canMirror),
       // `PCB_ACTIONS::swap` carries Alt+S (pcb_actions.cpp:704-708).
-      menuEntry({ label: 'Swap', shortcut: 'Alt+S', disabled: true }, -1, moreThanOne),
+      menuEntry(
+        { label: 'Swap', shortcut: 'Alt+S', action: () => runAction(PCB_ACTIONS.swap) },
+        -1,
+        moreThanOne,
+      ),
       // `packAndMoveFootprints` (edit_tool.cpp:794-795), on
       // `MoreThan( 1 ) && HasType( PCB_FOOTPRINT_T )` — ANY footprint in the
-      // selection, not only footprints. P (pcb_actions.cpp:727-731). Shown in
-      // its upstream position and greyed, like Grid Origin and Single Track:
-      // the row was missing outright, which is a row of the height difference.
+      // selection, not only footprints. P (pcb_actions.cpp:727-731).
       menuEntry(
-        { label: 'Pack and Move Footprints', shortcut: 'P', disabled: true },
+        {
+          label: 'Pack and Move Footprints',
+          shortcut: 'P',
+          action: () => runAction(PCB_ACTIONS.packAndMoveFootprints),
+        },
         -1,
         moreThanOne && anyFootprint,
       ),
@@ -7138,7 +7023,11 @@ export function PcbEditor({
         {
           label: 'Position',
           submenu: [
-            { label: 'Move Exactly...', shortcut: 'Shift+M', action: () => setMoveExactOpen(true) },
+            {
+              label: 'Move Exactly...',
+              shortcut: 'Shift+M',
+              action: () => runAction(PCB_ACTIONS.moveExact),
+            },
             {
               label: 'Position Relative To...',
               shortcut: 'Shift+P',
@@ -7267,9 +7156,13 @@ export function PcbEditor({
 
       // ---- EDIT_TOOL's @150 clipboard group (edit_tool.cpp:817-827) ------
       menuSeparator(150),
-      menuEntry({ label: 'Cut', icon: 'cut', shortcut: 'Ctrl+X', action: cutSel }, 150, notEmpty),
       menuEntry(
-        { label: 'Copy', icon: 'copy', shortcut: 'Ctrl+C', action: copySel },
+        { label: 'Cut', icon: 'cut', shortcut: 'Ctrl+X', action: () => runAction(ACTIONS.cut) },
+        150,
+        notEmpty,
+      ),
+      menuEntry(
+        { label: 'Copy', icon: 'copy', shortcut: 'Ctrl+C', action: () => runAction(ACTIONS.copy) },
         150,
         notEmpty,
       ),
@@ -7301,12 +7194,21 @@ export function PcbEditor({
         toolStackIsEmpty,
       ),
       menuEntry(
-        { ...A('Duplicate', 'duplicate'), shortcut: 'Ctrl+D', action: duplicateSel },
+        {
+          ...A('Duplicate', 'duplicate'),
+          shortcut: 'Ctrl+D',
+          action: () => runAction(ACTIONS.duplicate),
+        },
         150,
         notEmpty,
       ),
       menuEntry(
-        { label: 'Delete', icon: 'delete', shortcut: 'Delete', action: deleteSel },
+        {
+          label: 'Delete',
+          icon: 'delete',
+          shortcut: 'Delete',
+          action: () => runAction(ACTIONS.doDelete),
+        },
         150,
         notEmpty,
       ),
@@ -9315,18 +9217,6 @@ export function PcbEditor({
     [askKiDialog],
   );
 
-  /**
-   * Change Side / Flip (EDIT_TOOL::Flip, F). Not Mirror: upstream refuses to
-   * mirror a footprint and points you here, because flipping has to swap every
-   * child's layer as well as mirror the geometry.
-   */
-  const flipSelection = useCallback(() => {
-    const brd = boardRef.current;
-    const sel = selForDrawRef.current;
-    if (!brd || sel.size === 0) return;
-    const next = flipBoardItems(brd, sel);
-    if (next !== brd) commitBoard(next);
-  }, [commitBoard]);
   /** DIALOG_TEXT_PROPERTIES / DIALOG_SHAPE_PROPERTIES::TransferDataFromWindow. */
   const applyTextEdit = useCallback(
     (values: TextValues) => {
@@ -9750,29 +9640,6 @@ export function PcbEditor({
     if (brd) rebuildScene(brd);
   };
 
-  // Keyboard grab: M = Move (PCB_ACTIONS::move, routing left behind), D = Drag
-  // 45° (drag45Degree) and G = Drag free angle (dragFreeAngle). On a trace the
-  // two drags run the router's dragger; on anything else EDIT_TOOL::Drag falls
-  // through to doMoveSelection, which is the move with the traces rubber-banded.
-  // Routed through refs so the stable global key handler always calls the latest
-  // closures.
-  const grabStartRef = useRef<(kind: 'move' | 'drag' | 'drag45') => void>(() => {});
-  grabStartRef.current = (kind) => {
-    const sel = selForDrawRef.current;
-    const cur = cursorRef.current;
-    if (sel.size === 0 || !cur || movingRef.current || grabbingRef.current) return;
-    if (kind !== 'move') {
-      const seed = routableTrackSeed(sel);
-      if (seed !== null && beginTrackDrag(seed, cur, kind === 'drag')) {
-        grabbingRef.current = true;
-        requestDraw();
-        return;
-      }
-    }
-    beginMove(sel, kind === 'move' ? 'move' : 'drag', cur);
-    grabbingRef.current = true;
-    requestDraw();
-  };
   /**
    * `DIALOG_UPDATE_PCB::~DIALOG_UPDATE_PCB` (`dialog_update_pcb.cpp:65-85`): once
    * the update has spread the new footprints, KiCad hands the whole cluster to
@@ -9794,15 +9661,16 @@ export function PcbEditor({
    * left at the page origin — the top-left of the sheet — which is not where
    * anybody wants their board.
    *
-   * A ref because the update handler is a `useCallback` and `beginMove` is
-   * rebuilt every render; capturing it directly would freeze the first one.
+   * A ref because the update handler is a `useCallback`; the selection it
+   * writes is the selection tool's, and the move is EDIT_TOOL's.
    */
   const startPostUpdateMoveRef = useRef<(sel: ReadonlySet<string>) => void>(() => {});
   startPostUpdateMoveRef.current = (sel) => {
-    if (sel.size === 0 || movingRef.current || grabbingRef.current) return;
-    beginMove(sel, 'move', { x: 0, y: 0 });
-    grabbingRef.current = true;
-    requestDraw();
+    const frame = frameRef.current;
+    if (sel.size === 0 || !frame) return;
+    setSelectionRef.current(sel);
+    frame.GetSelectionTool().GetSelection().SetReferencePoint({ x: 0, y: 0 });
+    frame.GetToolManager()?.PostAction(PCB_ACTIONS.move);
   };
 
   const grabCancelRef = useRef<() => void>(() => {});
@@ -10298,7 +10166,7 @@ export function PcbEditor({
         return;
       }
       if (!mod && (e.key === 'r' || e.key === 'R')) {
-        rotateSel(!e.shiftKey);
+        runAction(e.shiftKey ? PCB_ACTIONS.rotateCw : PCB_ACTIONS.rotateCcw);
         return;
       } // R = CCW, Shift+R = CW (PCB_ACTIONS::rotateCcw / rotateCw, no row)
       // M = Move (routing left behind), G = Drag (attached traces follow), a
@@ -10308,18 +10176,18 @@ export function PcbEditor({
       // this would swallow the row's accelerator before it reached the menu.
       if (!mod && !e.shiftKey && (e.key === 'm' || e.key === 'M')) {
         e.preventDefault();
-        grabStartRef.current('move');
+        runAction(PCB_ACTIONS.move);
         return;
       }
       if (!mod && (e.key === 'g' || e.key === 'G')) {
         e.preventDefault();
-        grabStartRef.current('drag');
+        runAction(PCB_ACTIONS.dragFreeAngle);
         return;
       }
       // Bare D is drag45; Ctrl+D is Edit > Duplicate and belongs to its row.
       if (!mod && (e.key === 'd' || e.key === 'D')) {
         e.preventDefault();
-        grabStartRef.current('drag45');
+        runAction(PCB_ACTIONS.drag45Degree);
         return;
       }
       // PgUp / PgDn: `PCB_ACTIONS::layerTop` and `layerBottom`
@@ -10508,7 +10376,7 @@ export function PcbEditor({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [zoomToFit, rotateSel, switchActiveLayer]);
+  }, [zoomToFit, switchActiveLayer]);
 
   // The snap modifiers, tracked on the keyboard as well as the pointer.
   // Upstream a modifier arrives as its own `TOOL_EVENT`, so pressing Shift or
@@ -11538,10 +11406,10 @@ export function PcbEditor({
         redo();
         break;
       case 'rotateCCW':
-        rotateSel(true);
+        runAction(PCB_ACTIONS.rotateCcw);
         break;
       case 'rotateCW':
-        rotateSel(false);
+        runAction(PCB_ACTIONS.rotateCw);
         break;
       /**
        * `BOARD_EDITOR_CONTROL::AutoTrackWidth` (board_editor_control.cpp:1332-1344):
@@ -11588,10 +11456,10 @@ export function PcbEditor({
         setPlotDlgOpen(true);
         break;
       case 'mirrorV':
-        mirrorSel('v');
+        runAction(PCB_ACTIONS.mirrorV);
         break;
       case 'mirrorH':
-        mirrorSel('h');
+        runAction(PCB_ACTIONS.mirrorH);
         break;
       case 'group':
         groupSel();
@@ -11665,10 +11533,10 @@ export function PcbEditor({
         saveCopy();
         break;
       case 'cut':
-        cutSel();
+        runAction(ACTIONS.cut);
         break;
       case 'copy':
-        copySel();
+        runAction(ACTIONS.copy);
         break;
       case 'paste':
         void navigator.clipboard?.readText().then((text) => pasteText(text));
@@ -11677,7 +11545,7 @@ export function PcbEditor({
         setPasteSpecialOpen(true);
         break;
       case 'doDelete':
-        deleteSel();
+        runAction(ACTIONS.doDelete);
         break;
       case 'selectAll':
         selectAllSel();
@@ -11788,25 +11656,25 @@ export function PcbEditor({
         void frameRef.current?.ZonesManager();
         break;
       case 'polygonmerge':
-        applyPolygonBoolean('merge');
+        runAction(PCB_ACTIONS.mergePolygons);
         break;
       case 'polygonsubtract':
-        applyPolygonBoolean('subtract');
+        runAction(PCB_ACTIONS.subtractPolygons);
         break;
       case 'polygonintersect':
-        applyPolygonBoolean('intersect');
+        runAction(PCB_ACTIONS.intersectPolygons);
         break;
       case 'linefillet':
-        setLineModOpen('fillet');
+        runAction(PCB_ACTIONS.filletLines);
         break;
       case 'linechamfer':
-        setLineModOpen('chamfer');
+        runAction(PCB_ACTIONS.chamferLines);
         break;
       case 'linedogbone':
-        setLineModOpen('dogbone');
+        runAction(PCB_ACTIONS.dogboneCorners);
         break;
       case 'lineextend':
-        applyLineModification('extend');
+        runAction(PCB_ACTIONS.extendLines);
         break;
       case 'filterSelection':
         frameRef.current?.GetToolManager()?.RunAction(PCB_ACTIONS.filterSelection);
@@ -11876,7 +11744,7 @@ export function PcbEditor({
       // (`edit_tool.cpp:2195-2224`): one polygon or zone opens the pane, anything
       // else is `wxBell()`.
       case 'editVertices':
-        openVertexEditor();
+        runAction(PCB_ACTIONS.editVertices);
         break;
       case 'showFootprintEditor':
         onShowFootprintEditor?.();
@@ -13503,14 +13371,6 @@ export function PcbEditor({
         />
       )}
       {kiDialogNode}
-      {moveExactOpen && board && (
-        <DialogMoveExact
-          bbox={boardSelectionBBox(board, selection)}
-          defaultAnchor={defaultRotationAnchor(selection.size)}
-          onApply={applyMoveExact}
-          onClose={() => setMoveExactOpen(false)}
-        />
-      )}
       {pickingRefShown && (
         <div
           style={{
@@ -13557,50 +13417,6 @@ export function PcbEditor({
           onClose={() => setOutsetOpen(false)}
         />
       )}
-      {(lineModOpen === 'fillet' || lineModOpen === 'chamfer') && board && (
-        // GetRadiusParams / GetChamferParams (pcbnew/tools/edit_tool.cpp:1485,
-        // :1550): WX_UNIT_ENTRY_DIALOG; Cancel or a value of 0 does nothing.
-        <WX_UNIT_ENTRY_DIALOG
-          caption={lineModOpen === 'fillet' ? 'Fillet Lines' : 'Chamfer Lines'}
-          label={lineModOpen === 'fillet' ? 'Radius:' : 'Chamfer setback:'}
-          defaultValue={lineModOpen === 'fillet' ? filletRadius : chamferSetback}
-          units={unitLabel}
-          iuScale={pcbIUScale}
-          onResult={(v) => {
-            const op = lineModOpen;
-            setLineModOpen(null);
-            if (v === null || v === 0) return;
-            if (op === 'fillet') setFilletRadius(v);
-            else setChamferSetback(v);
-            applyLineModification(op, v);
-          }}
-        />
-      )}
-      {lineModOpen === 'dogbone' && board && (
-        // GetDogboneParams (edit_tool.cpp:1498-1530): WX_MULTI_ENTRY_DIALOG.
-        <WX_MULTI_ENTRY_DIALOG
-          caption="Dogbone Corner Settings"
-          entries={[
-            { label: 'Arc radius:', value: { UNIT_BOUND: dogboneRadius } },
-            {
-              label: 'Add slots in acute corners',
-              tooltip: 'Add slots in acute corners to allow access to a cutter of the given radius',
-              value: { CHECKBOX: dogboneSlots },
-            },
-          ]}
-          units={unitLabel}
-          iuScale={pcbIUScale}
-          onResult={(r) => {
-            setLineModOpen(null);
-            if (r === null) return;
-            const radius = r[0] as number;
-            const slots = r[1] as boolean;
-            setDogboneRadius(radius);
-            setDogboneSlots(slots);
-            applyLineModification('dogbone', radius, slots);
-          }}
-        />
-      )}
       {posRelOpen && board && (
         <DialogPositionRelative
           gridOrigin={boardGridOrigin(board)}
@@ -13632,6 +13448,63 @@ export function PcbEditor({
           boardName={fileName}
           onGenerateReport={saveReportFile}
           onClose={() => setStatsOpen(false)}
+        />
+      )}
+      {unitEntryDlg && (
+        <WX_UNIT_ENTRY_DIALOG
+          caption={unitEntryDlg.title}
+          label={unitEntryDlg.label}
+          defaultValue={unitEntryDlg.value}
+          units={unitLabel}
+          iuScale={pcbIUScale}
+          onResult={(v) => {
+            unitEntryDlg.resolve(v);
+            setUnitEntryDlg(null);
+          }}
+        />
+      )}
+      {dogboneDlg && (
+        <WX_MULTI_ENTRY_DIALOG
+          caption="Dogbone Corner Settings"
+          entries={[
+            { label: 'Arc radius:', value: { UNIT_BOUND: dogboneDlg.params.DogboneRadiusIU } },
+            {
+              label: 'Add slots in acute corners',
+              tooltip: 'Add slots in acute corners to allow access to a cutter of the given radius',
+              value: { CHECKBOX: dogboneDlg.params.AddSlots },
+            },
+          ]}
+          units={unitLabel}
+          iuScale={pcbIUScale}
+          onResult={(r) => {
+            dogboneDlg.resolve(
+              r === null ? null : { DogboneRadiusIU: r[0] as number, AddSlots: r[1] as boolean },
+            );
+            setDogboneDlg(null);
+          }}
+        />
+      )}
+      {moveExactDlg && (
+        <DialogMoveExact
+          bbox={{
+            minX: moveExactDlg.box.GetLeft(),
+            minY: moveExactDlg.box.GetTop(),
+            maxX: moveExactDlg.box.GetRight(),
+            maxY: moveExactDlg.box.GetBottom(),
+          }}
+          defaultAnchor={ROTATION_ANCHOR_NAMES[moveExactDlg.values.rotationAnchor]}
+          onApply={(v: MoveExactValues) => {
+            moveExactDlg.resolve({
+              translation: v.translation,
+              rotation: new EDA_ANGLE(v.rotation, EDA_ANGLE_T.DEGREES_T),
+              rotationAnchor: ROTATION_ANCHOR_NAMES.indexOf(v.anchor) as ROTATION_ANCHOR,
+            });
+            setMoveExactDlg(null);
+          }}
+          onClose={() => {
+            moveExactDlg.resolve(null);
+            setMoveExactDlg(null);
+          }}
         />
       )}
       {filterDlg && (

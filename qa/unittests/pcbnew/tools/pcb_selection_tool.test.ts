@@ -64,10 +64,8 @@ import { TEST_PCB_FRAME } from '../support/test_pcb_frame.js';
 import { TOOL_DISPATCHER } from '@ziroeda/common/tool/tool_dispatcher.js';
 import { wxMouseEventFromDom } from '@ziroeda/common/wx/dom_events.js';
 import { wxSetMouseButtons } from '@ziroeda/common/wx/wx_event.js';
-import {
-  makeGatedDispatcher,
-  WINDOW_ACTION_BRIDGE,
-} from '@ziroeda/pcbnew/tools/window_action_bridge.js';
+import { makeGatedDispatcher } from '@ziroeda/pcbnew/tools/window_action_bridge.js';
+import { SYNC_HANDLER, TOOL_INTERACTIVE } from '@ziroeda/common/tool/tool_interactive.js';
 import { MOUSE_DRAG_ACTION } from '@ziroeda/common/mouse_drag_action.js';
 
 const MM = 1_000_000;
@@ -599,15 +597,28 @@ describe('the frame dispatcher, when a window gesture takes the release (#636 st
     // WX_VIEW_CONTROLS answers screen pixels for GetMousePosition( false ).
     const vc = h.mgr.GetViewControls() as unknown as { GetMousePosition(w?: boolean): Vec2 };
     vc.GetMousePosition = (aWorld = true) => (aWorld ? h.mouse : h.view.ToScreen(h.mouse));
-    // the window's move: PCB_ACTIONS::move through WINDOW_ACTION_BRIDGE, after
-    // which the window owns the pointer until the button comes up
+    // a move the window owns (the router's inline drag through
+    // WINDOW_ACTION_BRIDGE is one): PCB_ACTIONS::move answered by a stand-in for
+    // EDIT_TOOL that hands the pointer to the window until the button comes up
     let toWindow = false;
     const moves: string[] = [];
-    const bridge = new WINDOW_ACTION_BRIDGE((aAction) => {
-      moves.push(aAction.GetName());
-      toWindow = true;
-    });
-    h.mgr.RegisterTool(bridge);
+    class WINDOW_MOVE extends TOOL_INTERACTIVE {
+      constructor() {
+        super('test.WindowMove');
+      }
+      override Reset(): void {}
+      protected override setTransitions(): void {
+        this.Go(
+          SYNC_HANDLER((aEvent: TOOL_EVENT): number => {
+            moves.push(aEvent.getCommandStr());
+            toWindow = true;
+            return 0;
+          }),
+          PCB_ACTIONS.move.MakeEvent(),
+        );
+      }
+    }
+    h.mgr.RegisterTool(new WINDOW_MOVE());
     h.mgr.InitTools();
     // Preferences > Mouse and Touchpad's default left drag: drag the selected items
     h.frame.CommonSettingsChanged(0, {
