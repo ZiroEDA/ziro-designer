@@ -95,6 +95,7 @@ import {
   viewIdOfBoardItem,
 } from '../pcb_io/kicad_sexpr/board_view.js';
 import type { BOARD_ITEM } from '../board_item.js';
+import type { PAD } from '../pad.js';
 import type { MAGNETIC_SETTINGS } from '../pcbnew_settings.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import type { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
@@ -829,6 +830,71 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
    */
   GetAnchors(): readonly ANCHOR[] {
     return this.m_anchors;
+  }
+
+  /**
+   * `PCB_GRID_HELPER::SnapToPad` (pcb_grid_helper.cpp:446): of the pads under the
+   * mouse, the centre nearest it; the mouse position itself when none is hit.
+   *
+   * Each pad under the mouse goes through `computeAnchors( item, aMousePos, true )`
+   * (`aFrom`, no selection filter), where a pad is visible only if the view
+   * shows it, one of its layers is shown (or, in high contrast, active) and its
+   * LOD is below the view's scale (`checkVisibility`, cpp:1338-1361), and then
+   * contributes its position as an `ORIGIN | SNAPPABLE` anchor (`handlePadShape`,
+   * cpp:1372; `aFrom` returns before the outline points).
+   */
+  SnapToPad(aMousePos: Vec2, aPads: readonly PAD[]): Vec2 {
+    this.clearAnchors();
+
+    const view = this.m_toolMgr!.GetView()!;
+    const settings = view.GetPainter().GetSettings();
+    const activeLayers = settings.GetHighContrastLayers();
+    const isHighContrast = settings.GetHighContrast();
+
+    const checkVisibility = (aItem: BOARD_ITEM): boolean => {
+      // New moved items don't yet have view flags so VIEW will call them invisible
+      if (!view.IsVisible(aItem) && !aItem.IsMoving()) return false;
+
+      let onActiveLayer = !isHighContrast;
+      let isLODVisible = false;
+
+      for (const layer of aItem.GetLayerSet().Seq()) {
+        if (!onActiveLayer && activeLayers.has(layer)) onActiveLayer = true;
+
+        if (!isLODVisible && aItem.ViewGetLOD(layer, view) < view.GetScale()) isLODVisible = true;
+
+        if (onActiveLayer && isLODVisible) return true;
+      }
+
+      return false;
+    };
+
+    for (const pad of aPads) {
+      if (!pad.HitTest(aMousePos)) continue;
+
+      if (checkVisibility(pad))
+        this.addAnchor(
+          pad.GetPosition(),
+          ANCHOR_FLAGS.ORIGIN | ANCHOR_FLAGS.SNAPPABLE,
+          this.itemToken(pad.m_Uuid),
+        );
+    }
+
+    let minDist = Number.MAX_VALUE;
+    let nearestOrigin: ANCHOR | null = null;
+
+    for (const a of this.m_anchors) {
+      if ((ANCHOR_FLAGS.ORIGIN & a.flags) !== ANCHOR_FLAGS.ORIGIN) continue;
+
+      const dist = a.Distance(aMousePos);
+
+      if (dist < minDist) {
+        minDist = dist;
+        nearestOrigin = a;
+      }
+    }
+
+    return nearestOrigin ? { x: nearestOrigin.pos.x, y: nearestOrigin.pos.y } : aMousePos;
   }
 
   /**

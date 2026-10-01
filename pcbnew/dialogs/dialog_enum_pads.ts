@@ -393,3 +393,49 @@ export function getNextPadNumber(fp: PcbFootprint, lastPadNumber: string): strin
 
   return `${prefix}${num}`;
 }
+
+// ---------------------------------------------------------------------------
+// DIALOG_ENUM_PADS (dialog_enum_pads.cpp + .h), on the live tool's parameters.
+// ---------------------------------------------------------------------------
+
+/**
+ * `DIALOG_ENUM_PADS_BASE`'s title and labels - the base file states the title
+ * as wxFormBuilder's default.
+ */
+export const DIALOG_ENUM_PADS_TITLE = 'Renumber Pads';
+
+/**
+ * `DIALOG_ENUM_PADS` (dialog_enum_pads.cpp): the modal dialog `PAD_TOOL::EnumeratePads`
+ * shows for the numbering parameters. `m_params` is the caller's object, written
+ * back by `TransferDataFromWindow`.
+ *
+ * The widgets' limits are the window's, as in the base file: the prefix takes 4
+ * characters and each spin control runs 0..999.
+ */
+export class DIALOG_ENUM_PADS {
+  private readonly m_params: SequentialPadEnumerationParams;
+
+  /** `m_padStartNum`, `m_padNumStep`, `m_padPrefix`. */
+  m_padStartNum: number;
+  m_padNumStep: number;
+  m_padPrefix: string;
+
+  constructor(aParams: SequentialPadEnumerationParams) {
+    this.m_params = aParams;
+
+    // Transfer data from the params to the dialog
+    this.m_padStartNum = aParams.startNumber;
+    this.m_padNumStep = aParams.step;
+    this.m_padPrefix = aParams.prefix ?? '';
+  }
+
+  /** Transfer data from the dialog to the params. */
+  TransferDataFromWindow(): boolean {
+    this.m_params.startNumber = this.m_padStartNum;
+    this.m_params.step = this.m_padNumStep;
+    this.m_params.prefix = this.m_padPrefix;
+
+    // No other validation implemented
+    return true;
+  }
+}

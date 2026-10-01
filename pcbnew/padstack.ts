@@ -747,9 +747,12 @@ export class PADSTACK {
     this.m_layerSet = new LSET(aOther.m_layerSet);
     this.SetCustomName(aOther.CustomName());
     this.m_orientation = aOther.m_orientation;
+    // `m_copperProps = aOther.m_copperProps` is safe for `*this = *this` (a pad pushed onto
+    // itself, `doPushPadProperties`); read the source map before replacing ours.
+    const otherCopperProps = aOther.m_copperProps;
     this.m_copperProps = new Map();
 
-    for (const [layer, props] of aOther.m_copperProps) this.m_copperProps.set(layer, props.clone());
+    for (const [layer, props] of otherCopperProps) this.m_copperProps.set(layer, props.clone());
 
     this.m_frontMaskProps = aOther.m_frontMaskProps.clone();
     this.m_backMaskProps = aOther.m_backMaskProps.clone();

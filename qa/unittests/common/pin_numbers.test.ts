@@ -10,7 +10,7 @@
  * correct sort and a broken summary. Both are pinned here.
  */
 import { describe, expect, it } from 'vitest';
-import { pinNumbersCompare } from '@ziroeda/common/pin_numbers.js';
+import { PIN_NUMBERS, pinNumbersCompare } from '@ziroeda/common/pin_numbers.js';
 
 describe('PIN_NUMBERS::Compare', () => {
   it('is a natural compare, so 10 comes after 9 and not after 1', () => {
@@ -61,5 +61,47 @@ describe('PIN_NUMBERS::Compare', () => {
     // (common/pin_numbers.cpp:40-42).
     expect(pinNumbersCompare('-5', '5')).toBeLessThan(0);
     expect(pinNumbersCompare('-1', '0')).toBe(-1);
+  });
+});
+
+describe('PIN_NUMBERS (common/pin_numbers.h, .cpp:70-130)', () => {
+  const set = (...pins: string[]): PIN_NUMBERS => {
+    const p = new PIN_NUMBERS();
+    for (const pin of pins) p.insert(pin);
+    return p;
+  };
+
+  it('has no summary when it is empty (:73-74)', () => {
+    expect(new PIN_NUMBERS().GetSummary()).toBe('');
+    expect(new PIN_NUMBERS().size()).toBe(0);
+  });
+
+  it('a lone number is its own summary (:104-107)', () => {
+    expect(set('5').GetSummary()).toBe('5');
+  });
+
+  it('runs of adjacent numbers are first-last, runs are joined with commas, in pin order (:80-120)', () => {
+    expect(set('10', '2', '1', '7', '8', '9').GetSummary()).toBe('1-2,7-10');
+    expect(set('1', '3').GetSummary()).toBe('1,3');
+  });
+
+  it('letter groups compare as ±1, so A3 and B1 count as adjacent and run together (Compare :190-205)', () => {
+    expect(set('B1', 'A1', 'A3', 'A2').GetSummary()).toBe('A1-B1');
+  });
+
+  it('keeps one of each number, in pin order, and counts it (insert, size)', () => {
+    const p = set('10', '2', '10', '1');
+    expect([...p]).toEqual(['1', '2', '10']);
+    expect(p.size()).toBe(3);
+  });
+
+  it('remembers a number that was inserted again, once, in string order (insert :71-79, GetDuplicates)', () => {
+    expect(set('1', '2', '2', '2', '10', '1').GetDuplicates()).toBe('1,2');
+    expect(set('B', 'A', 'B', 'A').GetDuplicates()).toBe('A,B');
+  });
+
+  it('says "none" when there are no duplicates (:127-128)', () => {
+    expect(set('1', '2').GetDuplicates()).toBe('none');
+    expect(new PIN_NUMBERS().GetDuplicates()).toBe('none');
   });
 });
