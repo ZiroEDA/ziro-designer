@@ -52,3 +52,10 @@ export function wxLaunchDefaultBrowser(aUrl: string): boolean {
   window.open(aUrl, '_blank', 'noopener,noreferrer');
   return true;
 }
+
+/**
+ * `wxBell()` (wx/utils.h): the system alert sound, which on GTK is
+ * `gdk_display_beep`. A page has no way to ring the system bell, so it is
+ * silent; the callers' early returns are what matter.
+ */
+export function wxBell(): void {}

@@ -33,6 +33,14 @@ export class ADVANCED_CFG {
   m_PcbSelectionVisibilityRatio = 1.0;
 
   /**
+   * `m_SnapHysteresis` (advanced_config.h:750): the hysteresis, in screen
+   * pixels, around a snap anchor - a snap is taken inside the snap range less
+   * this and let go outside the range plus this.
+   * Setting name: "SnapHysteresis"; default 5; valid 0 to 100.
+   */
+  m_SnapHysteresis = 5;
+
+  /**
    * When true, strokes the triangulations in OpenGL
    */
   m_DrawTriangulationOutlines = false;

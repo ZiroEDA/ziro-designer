@@ -66,6 +66,10 @@ import {
 } from '@ziroeda/common/tool/point_editor_behavior.js';
 import type { PcbImage } from '../types.js';
 import { PCB_TOOL_BASE } from './pcb_tool_base.js';
+import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
+import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
+import type { SELECTION } from '@ziroeda/common/tool/selection.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 
 /** A square handle on a corner or vertex (`EDIT_POINT`), or a circle at an edge
  *  midpoint (`EDIT_LINE`). */
@@ -972,6 +976,57 @@ export class PCB_POINT_EDITOR extends PCB_TOOL_BASE {
 
   /** `HasPoint()` (pcb_point_editor.h:70). */
   HasPoint(): boolean {
+    return this.m_editedPoint !== null;
+  }
+
+  /**
+   * `HasMidpoint()` (pcb_point_editor.h:71): the edited point is an EDIT_LINE.
+   * TRANSITIONAL (#636 stage 3): the window edits points, so there is none here.
+   */
+  HasMidpoint(): boolean {
+    return false;
+  }
+
+  /** `HasCorner()` (pcb_point_editor.h:72). TRANSITIONAL, as HasMidpoint. */
+  HasCorner(): boolean {
+    return this.HasPoint() && !this.HasMidpoint();
+  }
+
+  /** `CanAddCorner( const EDA_ITEM& )` (pcb_point_editor.cpp:1848). */
+  static CanAddCorner(aItem: EDA_ITEM): boolean {
+    const type = aItem.Type();
+
+    if (type === KICAD_T.PCB_ZONE_T) return true;
+
+    if (type === KICAD_T.PCB_SHAPE_T) {
+      const shapeType = (aItem as unknown as { GetShape(): SHAPE_T }).GetShape();
+      return (
+        shapeType === SHAPE_T.SEGMENT || shapeType === SHAPE_T.POLY || shapeType === SHAPE_T.ARC
+      );
+    }
+
+    return false;
+  }
+
+  /** `CanChamferCorner( const EDA_ITEM& )` (pcb_point_editor.cpp:1866). */
+  static CanChamferCorner(aItem: EDA_ITEM): boolean {
+    const type = aItem.Type();
+
+    if (type === KICAD_T.PCB_ZONE_T) return true;
+
+    if (type === KICAD_T.PCB_SHAPE_T) {
+      const shapeType = (aItem as unknown as { GetShape(): SHAPE_T }).GetShape();
+      return shapeType === SHAPE_T.POLY;
+    }
+
+    return false;
+  }
+
+  /**
+   * `CanRemoveCorner( const SELECTION& )` (pcb_point_editor.cpp:3150): false
+   * without an edited point. TRANSITIONAL, as HasMidpoint.
+   */
+  CanRemoveCorner(_aSelection: SELECTION): boolean {
     return this.m_editedPoint !== null;
   }
 }

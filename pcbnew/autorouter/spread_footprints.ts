@@ -27,6 +27,8 @@ import { findBestPacking, type RectWH } from '@ziroeda/rectpack2d';
 import { boardItemId, moveBoardItems } from '../edit-board.js';
 import { footprintBBox } from '../edit-footprint.js';
 import type { Board, PcbFootprint } from '../types.js';
+import type { FOOTPRINT } from '../footprint.js';
+import { kiidPathAsString } from '@ziroeda/common/kiid.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 /** Placement is calculated in 0.01 mm units, to keep the search cheap. */
@@ -70,10 +72,20 @@ export function getRefDesPrefix(refDes: string): string {
   return refDes.slice(0, end);
 }
 
+/**
+ * What the spread reads of a footprint: its box WITHOUT text, the path of the
+ * sheet its symbol lives on (`GetPath().AsString()`), and its reference.
+ */
+interface SpreadSubject {
+  box: Box;
+  path: string;
+  reference: string;
+}
+
 /** compareFootprintsbyRef, reference prefix, then the trailing number. */
-function compareFootprintsByRef(a: PcbFootprint, b: PcbFootprint): number {
-  const refA = a.reference ?? '';
-  const refB = b.reference ?? '';
+function compareFootprintsByRef(a: SpreadSubject, b: SpreadSubject): number {
+  const refA = a.reference;
+  const refB = b.reference;
   const prefixA = getRefDesPrefix(refA);
   const prefixB = getRefDesPrefix(refB);
   if (prefixA !== prefixB) return prefixA < prefixB ? -1 : 1;
@@ -118,7 +130,7 @@ function spreadRectangles(rects: readonly RectWH[], areaSize: number): Vec2[] {
 interface SizeBlock {
   /** The size all its footprints share, plus the component gap. */
   size: { x: number; y: number };
-  footprints: PcbFootprint[];
+  footprints: SpreadSubject[];
   /** Bounding box of the block once its footprints are arranged. */
   box: Box | null;
 }
@@ -149,6 +161,59 @@ export function spreadFootprints(
   targetBoxPosition: Vec2,
   options: SpreadFootprintsOptions = {},
 ): Vec2[] {
+  return spreadSubjects(
+    footprints.map((fp) => {
+      const bbox = footprintBBox(fp, false) ?? {
+        minX: fp.at.x,
+        minY: fp.at.y,
+        maxX: fp.at.x,
+        maxY: fp.at.y,
+      };
+      return {
+        box: { minX: bbox.minX, minY: bbox.minY, maxX: bbox.maxX, maxY: bbox.maxY },
+        path: fp.path ?? '',
+        reference: fp.reference ?? '',
+      };
+    }),
+    targetBoxPosition,
+    options,
+  );
+}
+
+/**
+ * `SpreadFootprints( std::vector<FOOTPRINT*>* aFootprints, VECTOR2I
+ * aTargetBoxPosition, bool aGroupBySheet, int aComponentGap, int aGroupGap )`
+ * (spread_footprints.cpp:123), on the live footprints: each is moved.
+ */
+export function SpreadFootprints(
+  aFootprints: readonly FOOTPRINT[],
+  aTargetBoxPosition: Vec2,
+  aGroupBySheet = true,
+  aComponentGap: number = mmToIU(1),
+  aGroupGap: number = mmToIU(1.5),
+): void {
+  const deltas = spreadSubjects(
+    aFootprints.map((fp) => {
+      const b = fp.GetBoundingBox(false);
+      return {
+        box: { minX: b.GetLeft(), minY: b.GetTop(), maxX: b.GetRight(), maxY: b.GetBottom() },
+        path: kiidPathAsString(fp.GetPath()),
+        reference: fp.GetReference(),
+      };
+    }),
+    aTargetBoxPosition,
+    { groupBySheet: aGroupBySheet, componentGap: aComponentGap, groupGap: aGroupGap },
+  );
+
+  aFootprints.forEach((fp, i) => fp.Move(deltas[i]!));
+}
+
+/** The three passes over what the spread reads of each footprint. */
+function spreadSubjects(
+  footprints: readonly SpreadSubject[],
+  targetBoxPosition: Vec2,
+  options: SpreadFootprintsOptions,
+): Vec2[] {
   const groupBySheet = options.groupBySheet ?? true;
   const componentGap = options.componentGap ?? mmToIU(1);
   const groupGap = options.groupGap ?? mmToIU(1.5);
@@ -177,26 +242,13 @@ export function spreadFootprints(
   // The proof of the reading is in a pcbnew capture rather than in the source:
   // KiCad's own output has the value text of one part overlapping the outline
   // of the next. A box that included the text could not produce that overlap.
-  const startBox = new Map<PcbFootprint, Box>();
-  const boxOf = (fp: PcbFootprint): Box => {
-    const cached = startBox.get(fp);
-    if (cached) return cached;
-    const bbox = footprintBBox(fp, false) ?? {
-      minX: fp.at.x,
-      minY: fp.at.y,
-      maxX: fp.at.x,
-      maxY: fp.at.y,
-    };
-    const box = { minX: bbox.minX, minY: bbox.minY, maxX: bbox.maxX, maxY: bbox.maxY };
-    startBox.set(fp, box);
-    return box;
-  };
+  const boxOf = (fp: SpreadSubject): Box => fp.box;
 
   // Running position of each footprint through the three passes.
-  const position = new Map<PcbFootprint, Box>();
+  const position = new Map<SpreadSubject, Box>();
   for (const fp of footprints) position.set(fp, { ...boxOf(fp) });
 
-  const moveTo = (fp: PcbFootprint, origin: Vec2): void => {
+  const moveTo = (fp: SpreadSubject, origin: Vec2): void => {
     const box = position.get(fp)!;
     const dx = origin.x - box.minX;
     const dy = origin.y - box.minY;
@@ -207,7 +259,7 @@ export function spreadFootprints(
       maxY: box.maxY + dy,
     });
   };
-  const moveBy = (fp: PcbFootprint, delta: Vec2): void => {
+  const moveBy = (fp: SpreadSubject, delta: Vec2): void => {
     const box = position.get(fp)!;
     position.set(fp, {
       minX: box.minX + delta.x,
@@ -222,7 +274,7 @@ export function spreadFootprints(
 
   for (const fp of footprints) {
     // GetPath().AsString().BeforeLast( '/' ), the sheet the symbol lives on.
-    const path = groupBySheet ? (fp.path ?? '').slice(0, (fp.path ?? '').lastIndexOf('/') + 1) : '';
+    const path = groupBySheet ? fp.path.slice(0, fp.path.lastIndexOf('/') + 1) : '';
     const box = boxOf(fp);
     const size = { x: boxWidth(box) + componentGap, y: boxHeight(box) + componentGap };
     const sizeKey = `${size.x},${size.y}`;

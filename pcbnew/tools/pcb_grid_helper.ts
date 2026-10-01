@@ -89,7 +89,17 @@ import {
 import type { Board, PcbBarcode, PcbShape } from '../types.js';
 import { parseBoardItemId, rotatePcb } from '../edit-board.js';
 import { footprintBBox, padBBox } from '../edit-footprint.js';
-import { barcodeGeometry, type BarcodeGeometry } from '../pcb_io/kicad_sexpr/board_view.js';
+import {
+  barcodeGeometry,
+  type BarcodeGeometry,
+  viewIdOfBoardItem,
+} from '../pcb_io/kicad_sexpr/board_view.js';
+import type { BOARD_ITEM } from '../board_item.js';
+import type { MAGNETIC_SETTINGS } from '../pcbnew_settings.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import type { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import type { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
+import { GRID_HELPER_GRIDS } from '@ziroeda/common/tool/grid_helper.js';
 import { PnsMagneticOption } from '../router/pns_tool_base.js';
 import { arcSliceContainsPoint } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 import { arcCenterI } from '@ziroeda/kimath/src/geometry/shape_arc.js';
@@ -709,11 +719,24 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
    * `PCB_GRID_HELPER()` — no `TOOL_MANAGER`, so the grid comes through the
    * base's manual setters; `aState`, when given, is applied at once.
    */
-  constructor(aState?: PcbGridState) {
-    super();
+  constructor(aState?: PcbGridState);
+  /**
+   * `PCB_GRID_HELPER( TOOL_MANAGER* aToolMgr, MAGNETIC_SETTINGS* aMagneticSettings )`:
+   * the grid, its origin and snapping come from the view, as upstream.
+   */
+  constructor(aToolMgr: TOOL_MANAGER, aMagneticSettings: MAGNETIC_SETTINGS | null);
+  constructor(a?: PcbGridState | TOOL_MANAGER, aMagneticSettings: MAGNETIC_SETTINGS | null = null) {
+    const toolMgr = a && 'GetView' in a ? a : null;
 
-    if (aState) this.SetState(aState);
+    super(toolMgr);
+
+    this.m_magneticSettings = aMagneticSettings;
+
+    if (a && !toolMgr) this.SetState(a as PcbGridState);
   }
+
+  /** `m_magneticSettings`, when constructed on a tool manager. */
+  private m_magneticSettings: MAGNETIC_SETTINGS | null;
 
   /**
    * Load one event's {@link PcbGridState} into the base: `SetGridSize` /
@@ -1038,7 +1061,97 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
    * items' construction geometry; the item under the cursor proposed on hover;
    * the nearest point on an element when the grid is off; and the grid.
    */
-  BestSnapAnchor(aBoard: Board, aWhere: Vec2, aOpts: BestSnapOptions): Vec2 {
+  BestSnapAnchor(aBoard: Board, aWhere: Vec2, aOpts: BestSnapOptions): Vec2;
+  /**
+   * `BestSnapAnchor( const VECTOR2I& aOrigin, BOARD_ITEM* aReferenceItem,
+   * GRID_HELPER_GRIDS aGrid )` (cpp:568-590): the reference item's layers, else
+   * the frame's active layer, else all of them; the reference item skipped.
+   */
+  BestSnapAnchor(aOrigin: Vec2, aReferenceItem: BOARD_ITEM | null, aGrid?: GRID_HELPER_GRIDS): Vec2;
+  /**
+   * `BestSnapAnchor( const VECTOR2I& aOrigin, const LSET& aLayers,
+   * GRID_HELPER_GRIDS aGrid, const std::vector<BOARD_ITEM*>& aSkip )` (cpp:593).
+   */
+  BestSnapAnchor(
+    aOrigin: Vec2,
+    aLayers: LSET,
+    aGrid?: GRID_HELPER_GRIDS,
+    aSkip?: readonly BOARD_ITEM[],
+  ): Vec2;
+  BestSnapAnchor(
+    a: Board | Vec2,
+    b: Vec2 | BOARD_ITEM | LSET | null,
+    c?: BestSnapOptions | GRID_HELPER_GRIDS,
+    d?: readonly BOARD_ITEM[],
+  ): Vec2 {
+    if ('footprints' in a) return this.bestSnapAnchorOn(a, b as Vec2, c as BestSnapOptions);
+
+    if (b instanceof LSET) return this.bestSnapAnchorLive(a, b, d ?? []);
+
+    let layers: LSET;
+    const item: BOARD_ITEM[] = [];
+    const frame = this.toolFrame();
+
+    if (b) {
+      layers = (b as BOARD_ITEM).GetLayerSet();
+      item.push(b as BOARD_ITEM);
+    } else if (frame?.GetScreen()) {
+      layers = new LSET([frame.GetActiveLayer()]);
+    } else {
+      layers = LSET.AllLayersMask();
+    }
+
+    return this.bestSnapAnchorLive(a, layers, item);
+  }
+
+  /**
+   * TRANSITIONAL (#636 stage 3): the live-BOARD form of `BestSnapAnchor`, run
+   * on the view board the frame still keeps, whose items the anchors are
+   * computed from. The skip list and layers are turned into what that form
+   * reads (view ids, a layer name). Deleted when PCB_GRID_HELPER's
+   * `computeAnchors` walks the BOARD itself.
+   */
+  private bestSnapAnchorLive(aOrigin: Vec2, aLayers: LSET, aSkip: readonly BOARD_ITEM[]): Vec2 {
+    const view = this.m_toolMgr!.GetView()!;
+    const board = this.toolFrame()?.GetTransitionalBoardView?.() ?? null;
+
+    if (!board) return this.Align(aOrigin);
+
+    const avoid = new Set<string>();
+
+    for (const item of aSkip) {
+      const id = viewIdOfBoardItem(board, item);
+
+      if (id !== null) avoid.add(id);
+    }
+
+    const seq = aLayers.Seq();
+    const mag = this.m_magneticSettings;
+
+    return this.bestSnapAnchorOn(board, aOrigin, {
+      // Tuning constant: snap radius in screen space (cpp:601)
+      snapScale: view.ToWorld(25),
+      visibleGrid: this.GetVisibleGrid().x,
+      hysteresis: view.ToWorld(ADVANCED_CFG.GetCfg().m_SnapHysteresis),
+      layer: seq.length === 1 ? LSET.Name(seq[0]!) : undefined,
+      allLayers: seq.length !== 1 || (mag?.allLayers ?? false),
+      magneticPads: (mag?.pads ?? PnsMagneticOption.CAPTURE_ALWAYS) as number as PnsMagneticOption,
+      magneticTracks: (mag?.tracks ??
+        PnsMagneticOption.CAPTURE_ALWAYS) as number as PnsMagneticOption,
+      avoid,
+    });
+  }
+
+  /** The tool holder, as the PCB frame the live forms read. */
+  private toolFrame(): {
+    GetScreen(): unknown;
+    GetActiveLayer(): PCB_LAYER_ID;
+    GetTransitionalBoardView?(): Board | null;
+  } | null {
+    return (this.m_toolMgr?.GetToolHolder() as never) ?? null;
+  }
+
+  private bestSnapAnchorOn(aBoard: Board, aWhere: Vec2, aOpts: BestSnapOptions): Vec2 {
     this.m_board = aBoard;
 
     // Snapping distance is in screen space, clamped to the current grid so that
@@ -1418,6 +1531,51 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
    * itself is the answer.
    */
   BestDragOrigin(
+    aBoard: Board,
+    aItems: Iterable<string>,
+    aWhere: Vec2,
+    aOpts: DragOriginOptions,
+  ): Vec2;
+  /**
+   * `BestDragOrigin( const VECTOR2I& aMousePos, std::vector<BOARD_ITEM*>& aItems,
+   * GRID_HELPER_GRIDS aGrid, const PCB_SELECTION_FILTER_OPTIONS* aSelectionFilter )`
+   * (cpp:507). TRANSITIONAL (#636 stage 3): computed on the frame's view board,
+   * as `bestSnapAnchorLive`.
+   */
+  BestDragOrigin(
+    aMousePos: Vec2,
+    aItems: readonly BOARD_ITEM[],
+    aGrid?: GRID_HELPER_GRIDS,
+    aSelectionFilter?: unknown,
+  ): Vec2;
+  BestDragOrigin(
+    a: Board | Vec2,
+    b: Iterable<string> | readonly BOARD_ITEM[],
+    c?: Vec2 | GRID_HELPER_GRIDS,
+    d?: DragOriginOptions | unknown,
+  ): Vec2 {
+    if ('footprints' in a)
+      return this.bestDragOriginOn(a, b as Iterable<string>, c as Vec2, d as DragOriginOptions);
+
+    const board = this.toolFrame()?.GetTransitionalBoardView?.() ?? null;
+
+    if (!board) return { x: a.x, y: a.y };
+
+    const ids: string[] = [];
+
+    for (const item of b as readonly BOARD_ITEM[]) {
+      const id = viewIdOfBoardItem(board, item);
+
+      if (id !== null) ids.push(id);
+    }
+
+    return this.bestDragOriginOn(board, ids, a, {
+      gridSize: this.GetGrid().x,
+      lineSnapMinCornerDistance: this.m_toolMgr!.GetView()!.ToWorld(50),
+    });
+  }
+
+  private bestDragOriginOn(
     aBoard: Board,
     aItems: Iterable<string>,
     aWhere: Vec2,

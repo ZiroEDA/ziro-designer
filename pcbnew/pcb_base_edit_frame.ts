@@ -12,6 +12,7 @@
  * doc comment for why this class can't just `extends` it directly the way
  * `PCB_BASE_FRAME` is extended.
  */
+import { ANGLE_90, type EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { applyMixins } from '@ziroeda/core/mixins.js';
 import { DRC_ENGINE } from './drc/drc_engine.js';
 /**
@@ -166,6 +167,16 @@ export abstract class PCB_BASE_EDIT_FRAME extends PCB_BASE_FRAME {
   /**
    * Check if the undo and redo operations are currently blocked.
    */
+  /**
+   * `GetRotationAngle()` (pcb_base_edit_frame.h:191): the step `rotateCw` /
+   * `rotateCcw` turn by. The board editor's is Preferences > Editing Options'
+   * "Rotation angle" (`PCB_EDIT_FRAME::GetRotationAngle`, pcb_edit_frame.cpp:1803),
+   * 90 degrees when there is no configuration.
+   */
+  GetRotationAngle(): EDA_ANGLE {
+    return this.GetPcbNewSettings()?.m_RotationAngle ?? ANGLE_90;
+  }
+
   UndoRedoBlocked(): boolean {
     return this.m_undoRedoBlocked;
   }
