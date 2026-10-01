@@ -78,7 +78,14 @@ let tableDialogOk = true;
 /** The image file dialog's answer: a fixture PNG's bytes, or null for Cancel. */
 let imageFile: Uint8Array | null = null;
 
+/** The text box dialog's answer. */
+let textBoxOk = true;
+
 class TEXT_FRAME extends TEST_PCB_FRAME {
+  override ShowTextBoxPropertiesDialog(): Promise<boolean> {
+    return Promise.resolve(textBoxOk);
+  }
+
   override ShowImageFileDialog(): Promise<Uint8Array | null> {
     return Promise.resolve(imageFile);
   }
@@ -123,6 +130,7 @@ beforeEach(() => {
   zoneDialogOk = true;
   tableDialogOk = true;
   imageFile = null;
+  textBoxOk = true;
   h.frame.SetActiveLayer(PCB_LAYER_ID.F_SilkS);
   h.mgr.ResetTools(RESET_REASON.MODEL_RELOAD);
 });
@@ -922,5 +930,34 @@ describe('DRAWING_TOOL::PlaceReferenceImage (drawing_tool.cpp:623-872)', () => {
     esc();
     expect(tool.GetDrawingMode()).toBe(DRAWING_MODE.NONE);
     expect(images()).toHaveLength(0);
+  });
+});
+
+describe('DRAWING_TOOL::DrawRectangle as a text box (drawing_tool.cpp:411-470)', () => {
+  const flush = async (): Promise<void> => {
+    for (let i = 0; i < 4; i++) await new Promise((r) => setTimeout(r, 0));
+  };
+  const boxes = (): PCB_SHAPE[] => shapes().filter((x) => x.Type() === KICAD_T.PCB_TEXTBOX_T);
+
+  it('two corners, then the dialog: OK commits a normalized text box, selected (:448-461)', async () => {
+    start(PCB_ACTIONS.drawTextBox);
+    click(mm(30, 30));
+    click(mm(10, 20));
+    await flush();
+    expect(boxes()).toHaveLength(1);
+    const b = boxes()[0]!;
+    expect(b.GetStart()).toEqual(mm(10, 20));
+    expect(b.GetEnd()).toEqual(mm(30, 30));
+    expect(b.IsSelected()).toBe(true);
+  });
+
+  it('Cancel in the dialog drops the box (:448-454)', async () => {
+    textBoxOk = false;
+    start(PCB_ACTIONS.drawTextBox);
+    click(mm(30, 30));
+    click(mm(10, 20));
+    await flush();
+    expect(boxes()).toHaveLength(0);
+    expect(tool.GetDrawingMode()).toBe(DRAWING_MODE.RECTANGLE);
   });
 });

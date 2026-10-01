@@ -138,6 +138,8 @@ import { DRAWING_TOOL } from './tools/drawing_tool.js';
 import type { TOOL_EVENT } from '@ziroeda/common/tool/tool_event.js';
 import type { DIALOG_TEXT_PROPERTIES } from './dialogs/dialog_text_properties.js';
 import { DIALOG_TABLE_PROPERTIES } from './dialogs/dialog_table_properties.js';
+import type { PCB_TEXTBOX } from './pcb_textbox.js';
+import { DIALOG_TEXTBOX_PROPERTIES } from './dialogs/dialog_textbox_properties.js';
 import type { DIALOG_NON_COPPER_ZONES_EDITOR } from './dialogs/dialog_non_copper_zones_properties.js';
 import type { DIALOG_COPPER_ZONE } from './dialogs/panel_zone_properties.js';
 import type { DIALOG_RULE_AREA_PROPERTIES } from './dialogs/dialog_rule_area_properties.js';
@@ -303,6 +305,8 @@ export interface PCB_EDIT_FRAME_HOOKS {
   createDrcDialog(aTool: DRC_TOOL, aParent: unknown): DIALOG_DRC_LIKE;
   /** `Kiface().IsSingle()`: no schematic to test parity against. */
   isSingle(): boolean;
+  /** DIALOG_TEXTBOX_PROPERTIES on a live text box, new or not; true when OK closed it. */
+  showTextBoxPropertiesDialog?(aDialog: DIALOG_TEXTBOX_PROPERTIES): Promise<boolean>;
   /** The "Choose Image" file dialog: the bytes chosen, or null for Cancel. */
   showImageFileDialog?(): Promise<Uint8Array | null>;
   /** DIALOG_TABLE_PROPERTIES on a live table, new or not; true when OK closed it. */
@@ -830,6 +834,13 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
    */
   ShowTableCellPropertiesDialog(_aCells: PCB_TABLECELL[]): Promise<boolean> {
     return Promise.resolve(true);
+  }
+
+  override ShowTextBoxPropertiesDialog(aTextBox: PCB_TEXTBOX): Promise<boolean> {
+    return (
+      this.hooks.showTextBoxPropertiesDialog?.(new DIALOG_TEXTBOX_PROPERTIES(this, aTextBox)) ??
+      Promise.resolve(false)
+    );
   }
 
   override ShowImageFileDialog(): Promise<Uint8Array | null> {

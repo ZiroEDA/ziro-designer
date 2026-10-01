@@ -15,6 +15,7 @@
 import type { GAL_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import type { DIALOG_TEXT_PROPERTIES } from './dialogs/dialog_text_properties.js';
 import type { PCB_TABLE } from './pcb_table.js';
+import type { PCB_TEXTBOX } from './pcb_textbox.js';
 import type { DIALOG_COPPER_ZONE } from './dialogs/panel_zone_properties.js';
 import type { DIALOG_NON_COPPER_ZONES_EDITOR } from './dialogs/dialog_non_copper_zones_properties.js';
 import type { DIALOG_RULE_AREA_PROPERTIES } from './dialogs/dialog_rule_area_properties.js';
@@ -140,6 +141,15 @@ export abstract class PCB_BASE_EDIT_FRAME extends PCB_BASE_FRAME {
    */
   ShowImageFileDialog(): Promise<Uint8Array | null> {
     return Promise.resolve(null);
+  }
+
+  /**
+   * `ShowTextBoxPropertiesDialog( aTextBox )` (dialog_textbox_properties.cpp:185-191):
+   * `DIALOG_TEXTBOX_PROPERTIES( this, aTextBox ).ShowQuasiModal() == wxID_OK`.
+   * Cancel without a window.
+   */
+  ShowTextBoxPropertiesDialog(_aTextBox: PCB_TEXTBOX): Promise<boolean> {
+    return Promise.resolve(false);
   }
 
   /** `SetObjectVisible` (pcb_base_edit_frame.cpp:271-275): through the Appearance panel. */

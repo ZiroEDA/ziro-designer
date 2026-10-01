@@ -117,6 +117,7 @@ import {
 import { DIM_ARROW_DIRECTION } from '../pcb_dimension_types.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { PCB_POINT } from '../pcb_point.js';
+import { PCB_TEXTBOX } from '../pcb_textbox.js';
 import { PCB_REFERENCE_IMAGE } from '../pcb_reference_image.js';
 import { IS_MOVING } from '@ziroeda/common/eda_item_flags.js';
 import { DisplayErrorMessage } from '@ziroeda/common/confirm.js';
@@ -949,14 +950,13 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
     return yield* this.scoped(
       DRAWING_MODE.RECTANGLE,
       function* (this: DRAWING_TOOL) {
-        // TRANSITIONAL: drawTextBox (isTextBox) still runs in the frame window,
-        // because its properties dialog is asynchronous here.
+        const isTextBox = aEvent.IsAction(PCB_ACTIONS.drawTextBox);
         const parent = this.m_frame!.GetModel() as unknown as BOARD_ITEM;
         const commit = new BOARD_COMMIT(this.m_frame!);
         let startingPoint: VECTOR2D | null = null;
 
         const make = (): PCB_SHAPE => {
-          const rect = new PCB_SHAPE(parent);
+          const rect = isTextBox ? new PCB_TEXTBOX(parent) : new PCB_SHAPE(parent);
           rect.SetShape(SHAPE_T.RECTANGLE);
           rect.SetFilled(false);
           rect.SetFlags(IS_NEW);
@@ -972,11 +972,25 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
 
         while (yield* this.drawShape(aEvent, rect, startingPoint, null)) {
           if (rect.value) {
-            rect.value.Normalize();
-            commit.Add(rect.value);
-            commit.Push('Draw Rectangle');
+            let cancelled = false;
+            const textbox = rect.value instanceof PCB_TEXTBOX ? rect.value : null;
 
-            this.m_toolMgr!.RunAction(ACTIONS.selectItem, rect.value);
+            if (textbox) {
+              const ok = yield* this.RunMainStackModal(() =>
+                this.m_frame!.ShowTextBoxPropertiesDialog(textbox),
+              );
+              cancelled = ok !== true;
+            }
+
+            if (cancelled) {
+              rect.value = null;
+            } else {
+              rect.value.Normalize();
+              commit.Add(rect.value);
+              commit.Push(isTextBox ? 'Draw Text Box' : 'Draw Rectangle');
+
+              this.m_toolMgr!.RunAction(ACTIONS.selectItem, rect.value);
+            }
           }
 
           rect.value = make();
@@ -2800,6 +2814,8 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
           graphic.SetLayer(this.m_layer);
           graphic.SetStroke(this.m_stroke.clone());
 
+          if (graphic instanceof PCB_TEXTBOX) graphic.SetAttributes(this.m_textAttrs);
+
           this.m_view!.Update(this.m_preview);
           this.m_frame!.SetMsgPanel(graphic);
         } else {
@@ -2827,6 +2843,8 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
           graphic.SetFilled(false);
           graphic.SetStroke(this.m_stroke.clone());
           graphic.SetLayer(this.m_layer);
+
+          if (graphic instanceof PCB_TEXTBOX) graphic.SetAttributes(this.m_textAttrs);
 
           grid.SetSkipPoint(cursorPos);
 
@@ -3207,6 +3225,7 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
     // clang-format off
     this.Go(S(this.DrawLine), PCB_ACTIONS.drawLine.MakeEvent());
     this.Go(S(this.DrawRectangle), PCB_ACTIONS.drawRectangle.MakeEvent());
+    this.Go(S(this.DrawRectangle), PCB_ACTIONS.drawTextBox.MakeEvent());
     this.Go(S(this.DrawCircle), PCB_ACTIONS.drawCircle.MakeEvent());
     this.Go(S(this.DrawArc), PCB_ACTIONS.drawArc.MakeEvent());
     this.Go(S(this.PlaceText), PCB_ACTIONS.placeText.MakeEvent());

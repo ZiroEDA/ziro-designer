@@ -1114,6 +1114,7 @@ const TOOL_MANAGER_TOOLS: Readonly<Record<string, TOOL_ACTION>> = {
   placePoint: PCB_ACTIONS.placePoint,
   drawTable: PCB_ACTIONS.drawTable,
   placeReferenceImage: PCB_ACTIONS.placeReferenceImage,
+  drawTextBox: PCB_ACTIONS.drawTextBox,
 };
 
 // Friendly names for the "Current Tool" status-bar field (field 6), shown while
@@ -2782,6 +2783,8 @@ export function PcbEditor({
       // The "Choose Image" dialog: a file input, read as bytes. Cancel answers
       // null (the input's `cancel` event), which leaves the tool armed, as
       // upstream's `continue` does.
+      showTextBoxPropertiesDialog: (aDialog) =>
+        new Promise<boolean>((resolve) => setTextBoxPropsDlg({ dialog: aDialog, resolve })),
       showImageFileDialog: () =>
         new Promise<Uint8Array | null>((resolve) => {
           const input = document.createElement('input');
@@ -3077,7 +3080,20 @@ export function PcbEditor({
   }, []);
   const [shapePropsIndex, setShapePropsIndex] = useState<number | null>(null);
   const [dimensionPropsIndex, setDimensionPropsIndex] = useState<number | null>(null);
-  const [textBoxPropsIndex, setTextBoxPropsIndex] = useState<number | null>(null);
+  /**
+   * DIALOG_TEXTBOX_PROPERTIES on a live PCB_TEXTBOX: the board's own, or
+   * DRAWING_TOOL's new one (drawTextBox), which waits on `resolve`.
+   */
+  const [textBoxPropsDlg, setTextBoxPropsDlg] = useState<{
+    dialog: DIALOG_TEXTBOX_PROPERTIES;
+    resolve?: (aOk: boolean) => void;
+  } | null>(null);
+  /** Properties on the view board's text box `aIndex`. */
+  const setTextBoxPropsIndex = useCallback((aIndex: number | null): void => {
+    const k = aIndex === null ? undefined : boardRef.current?.textBoxes[aIndex]?.k;
+    const f = frameRef.current;
+    setTextBoxPropsDlg(k && f ? { dialog: new DIALOG_TEXTBOX_PROPERTIES(f, k) } : null);
+  }, []);
   const [imagePropsIndex, setImagePropsIndex] = useState<number | null>(null);
   /**
    * DIALOG_TABLE_PROPERTIES on a live PCB_TABLE: the board's own, or
@@ -9273,7 +9289,7 @@ export function PcbEditor({
 
     const fi = footprintAt(brd, sel);
     if (fi !== null) setFpPropsIndex(fi);
-  }, [setTablePropsIndex, setTextPropsIndex]);
+  }, [setTablePropsIndex, setTextBoxPropsIndex, setTextPropsIndex]);
   /** DIALOG_TRACK_VIA_PROPERTIES::TransferDataFromWindow. */
   const applyTrackViaEdit = useCallback(
     (values: TrackViaValues) => {
@@ -9326,16 +9342,15 @@ export function PcbEditor({
   /** DIALOG_TEXTBOX_PROPERTIES::TransferDataFromWindow. */
   const applyTextBoxEdit = useCallback(
     (values: TextBoxValues) => {
-      const brd = boardRef.current;
-      const index = textBoxPropsIndex;
-      setTextBoxPropsIndex(null);
-      const frame = frameRef.current;
-      const k = index === null ? undefined : brd?.textBoxes[index]?.k;
-      if (!frame || !k) return;
-      // DIALOG_TEXTBOX_PROPERTIES on the live PCB_TEXTBOX: one BOARD_COMMIT.
-      new DIALOG_TEXTBOX_PROPERTIES(frame, k).TransferDataFromWindow(values);
+      const d = textBoxPropsDlg;
+      setTextBoxPropsDlg(null);
+      if (!d) return;
+      // On the live PCB_TEXTBOX: one BOARD_COMMIT, or none for a new box (IS_NEW),
+      // which its tool commits.
+      const r = d.dialog.TransferDataFromWindow(values);
+      d.resolve?.(r.ok);
     },
-    [textBoxPropsIndex],
+    [textBoxPropsDlg],
   );
 
   /** DIALOG_REFERENCE_IMAGE_PROPERTIES::TransferDataFromWindow. */
@@ -13255,17 +13270,17 @@ export function PcbEditor({
           }}
         />
       )}
-      {textBoxPropsIndex !== null && board?.textBoxes[textBoxPropsIndex]?.k && frameRef.current && (
+      {textBoxPropsDlg && board && (
         <DialogTextBoxProperties
-          initial={new DIALOG_TEXTBOX_PROPERTIES(
-            frameRef.current!,
-            board.textBoxes[textBoxPropsIndex]!.k!,
-          ).TransferDataToWindow()}
+          initial={textBoxPropsDlg.dialog.TransferDataToWindow()}
           units={unitLabel}
           layers={board.layers.map((l) => l.name)}
           layerColor={layerColor}
           onApply={applyTextBoxEdit}
-          onClose={() => setTextBoxPropsIndex(null)}
+          onClose={() => {
+            textBoxPropsDlg.resolve?.(false);
+            setTextBoxPropsDlg(null);
+          }}
         />
       )}
       {imagePropsIndex !== null && board?.images[imagePropsIndex]?.k && frameRef.current && (
