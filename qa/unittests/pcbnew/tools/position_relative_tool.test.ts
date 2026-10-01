@@ -13,6 +13,7 @@ import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import { GAL_DISPLAY_OPTIONS } from '@ziroeda/common/gal/gal_display_options.js';
 import { GAL } from '@ziroeda/common/gal/graphics_abstraction_layer.js';
 import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { RULER_ITEM } from '@ziroeda/common/preview_items/ruler_item.js';
 import { PGM_BASE, SETTINGS_MANAGER, SetPgm } from '@ziroeda/common/pgm_base.js';
 import { ACTIONS, EVENTS } from '@ziroeda/common/tool/actions.js';
 import { RESET_REASON } from '@ziroeda/common/tool/tool_base.js';
@@ -20,7 +21,9 @@ import {
   AS_GLOBAL,
   BUT_LEFT,
   TA_MOUSE_CLICK,
+  TA_MOUSE_DRAG,
   TA_MOUSE_MOTION,
+  TA_MOUSE_UP,
   TC_MOUSE,
   TOOL_EVENT,
 } from '@ziroeda/common/tool/tool_event.js';
@@ -29,12 +32,14 @@ import type {
   TOOL_MANAGER_VIEW_CONTROLS,
 } from '@ziroeda/common/tool/tool_manager.js';
 import { VC_SETTINGS } from '@ziroeda/common/view/view_controls.js';
+import { LeaderMode } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import type { BOARD } from '@ziroeda/pcbnew/board.js';
 import type { BOARD_ITEM } from '@ziroeda/pcbnew/board_item.js';
 import type { DIALOG_OFFSET_ITEM } from '@ziroeda/pcbnew/dialogs/dialog_offset_item.js';
 import type { DIALOG_POSITION_RELATIVE } from '@ziroeda/pcbnew/dialogs/dialog_position_relative.js';
 import type { FOOTPRINT } from '@ziroeda/pcbnew/footprint.js';
+import type { FOOTPRINT_EDITOR_SETTINGS_LIKE } from '@ziroeda/pcbnew/pcb_base_frame.js';
 import type { PAD } from '@ziroeda/pcbnew/pad.js';
 import type { PCB_DRAW_PANEL_GAL } from '@ziroeda/pcbnew/pcb_draw_panel_gal.js';
 import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
@@ -51,6 +56,15 @@ import {
 import { TEST_PCB_FRAME } from '../support/test_pcb_frame.js';
 
 const MM = 1_000_000;
+
+/** The ruler's private state, which nothing public reports. */
+interface RULER_PRIVATE {
+  m_geomMgr: { GetOrigin(): Vec2; GetEnd(): Vec2; IsReset(): boolean; GetAngleSnap(): LeaderMode };
+  m_flipX: boolean;
+  m_flipY: boolean;
+  m_userUnits: string;
+}
+const rulerState = (r: RULER_ITEM): RULER_PRIVATE => r as unknown as RULER_PRIVATE;
 
 class STUB_GAL extends GAL {
   override ResizeScreen(aWidth: number, aHeight: number): void {
@@ -109,6 +123,11 @@ class POSREL_FRAME extends TEST_PCB_FRAME implements POSITION_RELATIVE_TOOL_FRAM
   offsetAnswer: ((d: DIALOG_OFFSET_ITEM) => void) | null = null;
   /** The two entries as the dialog showed them: polar by default, so distance (IU) and angle (deg). */
   offsetAsked: number[][] = [];
+  warnings: string[] = [];
+
+  override ShowInfoBarWarning(aMsg: string): void {
+    this.warnings.push(aMsg);
+  }
 
   AttachPositionRelativeDialog(aDialog: DIALOG_POSITION_RELATIVE): void {
     this.attached.push(aDialog);
@@ -125,8 +144,25 @@ class POSREL_FRAME extends TEST_PCB_FRAME implements POSITION_RELATIVE_TOOL_FRAM
   }
 }
 
+/** A footprint editor frame, whose own settings say how the ruler snaps and which way it points. */
+class POSREL_FP_FRAME extends POSREL_FRAME {
+  fpSettings: FOOTPRINT_EDITOR_SETTINGS_LIKE = {
+    m_DisplayInvertXAxis: true,
+    m_DisplayInvertYAxis: false,
+    m_AngleSnapMode: LeaderMode.DEG45,
+  };
+
+  override GetFootprintEditorSettings(): FOOTPRINT_EDITOR_SETTINGS_LIKE {
+    return this.fpSettings;
+  }
+}
+
 interface Harness {
   board: BOARD;
+  view: PCB_VIEW;
+  rulers: RULER_ITEM[];
+  /** The ruler's end at each of the tool's GEOMETRY updates of it. */
+  rulerEnds: Vec2[];
   frame: POSREL_FRAME;
   mgr: TOOL_MANAGER;
   sel: PCB_SELECTION_TOOL;
@@ -150,12 +186,14 @@ function byUuid(aBoard: BOARD, aN: number): BOARD_ITEM {
 
 const mm = (x: number, y: number): Vec2 => ({ x: x * MM, y: y * MM });
 
-function harness(): Harness {
+function harness(aFootprintEditor = false): Harness {
   SetPgm(new PGM_BASE(null, new SETTINGS_MANAGER()));
 
   const board = ParseBoard(BOARD_TEXT, '/p/x.kicad_pcb');
   board.BuildConnectivity();
-  const frame = new POSREL_FRAME(board);
+  const frame = aFootprintEditor
+    ? new POSREL_FP_FRAME(board, FRAME_T.FRAME_FOOTPRINT_EDITOR)
+    : new POSREL_FRAME(board);
   frame.SetScreen(new PCB_SCREEN({ x: 297 * MM, y: 210 * MM }));
   frame.SetActiveLayer(PCB_LAYER_ID.F_Cu);
 
@@ -176,7 +214,32 @@ function harness(): Harness {
   for (const fp of board.Footprints())
     fp.RunOnChildren((aItem: BOARD_ITEM) => view.Add(aItem), RECURSE_MODE.NO_RECURSE);
 
-  const h: Partial<Harness> = { board, frame, mouse: { x: 0, y: 0 }, forced: null, processed: [] };
+  // the ruler the tool puts on the view
+  const rulers: RULER_ITEM[] = [];
+  const add = view.Add.bind(view);
+  view.Add = (aItem, ...rest) => {
+    if (aItem instanceof RULER_ITEM) rulers.push(aItem);
+    return add(aItem, ...rest);
+  };
+
+  const rulerEnds: Vec2[] = [];
+  const update = view.Update.bind(view);
+  view.Update = (aItem, ...rest) => {
+    if (aItem instanceof RULER_ITEM)
+      rulerEnds.push({ ...(aItem as unknown as RULER_PRIVATE).m_geomMgr.GetEnd() });
+    return update(aItem, ...rest);
+  };
+
+  const h: Partial<Harness> = {
+    board,
+    view,
+    rulers,
+    rulerEnds,
+    frame,
+    mouse: { x: 0, y: 0 },
+    forced: null,
+    processed: [],
+  };
 
   frame.SetCanvas({
     GetView: () => view,
@@ -212,6 +275,7 @@ function harness(): Harness {
 
   const sel = new PCB_SELECTION_TOOL();
   const tool = new POSITION_RELATIVE_TOOL();
+  tool.SetIsFootprintEditor(aFootprintEditor);
   mgr.RegisterTool(sel);
   mgr.RegisterTool(tool);
   mgr.InitTools();
@@ -312,6 +376,14 @@ describe('POSITION_RELATIVE_TOOL::PositionRelative (position_relative_tool.cpp:9
     expect(h.frame.attached).toHaveLength(0);
   });
 
+  it('a locked item gets the banner telling the user to enable Override locks (:111, ReportFilteredLockedItems)', () => {
+    select(h, 22);
+    h.mgr.RunAction(PCB_ACTIONS.positionRelative);
+    expect(h.frame.warnings).toEqual([
+      "Selection contains locked items. Enable 'Override locks' to operate on them.",
+    ]);
+  });
+
   it('keeps the one dialog between calls (:145-147)', () => {
     select(h, 1);
     h.mgr.RunAction(PCB_ACTIONS.positionRelative);
@@ -394,6 +466,37 @@ describe('POSITION_RELATIVE_TOOL::RelativeItemSelectionMove (position_relative_t
     positionRelativeTo(h.frame.attached[0]!, '10', '10');
     expect(fp(1).GetPosition()).toEqual(mm(60, 30));
     expect((byUuid(h.board, 6) as PAD).GetPosition()).toEqual(mm(10, 10));
+  });
+
+  it('moves the selection the dialog was opened on, not whatever is selected when OK is pressed (:117, m_selection is a copy)', () => {
+    select(h, 1);
+    h.mgr.RunAction(PCB_ACTIONS.positionRelative);
+    // the dialog is modeless: the user clicks elsewhere before pressing OK
+    h.mgr.RunAction(ACTIONS.selectionClear);
+    select(h, 7);
+    positionRelativeTo(h.frame.attached[0]!, '10', '5');
+    expect(fp(1).GetPosition()).toEqual(mm(10, 5));
+    expect(fp(7).GetPosition()).toEqual(mm(80, 40));
+  });
+
+  it('in the footprint editor a pad moves alone (:34, m_isFootprintEditor)', () => {
+    h = harness(true);
+    select(h, 6);
+    h.mgr.RunAction(PCB_ACTIONS.positionRelative);
+    positionRelativeTo(h.frame.attached[0]!, '10', '10');
+    expect(fp(1).GetPosition()).toEqual(mm(60, 30));
+    // this frame's footprint editor settings invert X, so the typed 10 is -10 on the board
+    expect((byUuid(h.board, 6) as PAD).GetPosition()).toEqual(mm(-10, 10));
+  });
+
+  it('undo gives the footprint and its pads back (:36, Modify( RECURSE ))', () => {
+    select(h, 1);
+    h.mgr.RunAction(PCB_ACTIONS.positionRelative);
+    positionRelativeTo(h.frame.attached[0]!, '10', '5');
+    expect((byUuid(h.board, 6) as PAD).GetPosition()).toEqual(mm(11, 5));
+    h.frame.RestoreCopyFromUndoList();
+    expect((byUuid(h.board, 6) as PAD).GetPosition()).toEqual(mm(61, 30));
+    expect((byUuid(h.board, 5) as PAD).GetPosition()).toEqual(mm(59, 30));
   });
 
   it('a hover selection is cleared after the move (:405-406)', () => {
@@ -538,5 +641,225 @@ describe('POSITION_RELATIVE_TOOL::InteractiveOffset (position_relative_tool.cpp:
     mouse(h, TA_MOUSE_MOTION, mm(70, 30));
     await flush();
     expect(h.frame.offsetAsked).toEqual([]);
+  });
+
+  it('does nothing while the Measure tool is the current tool (:182)', () => {
+    select(h, 1);
+    h.frame.PushTool(ACTIONS.measureTool.MakeEvent());
+    h.mgr.RunAction(PCB_ACTIONS.interactiveOffsetTool);
+    drawOffset(mm(60, 30), mm(70, 30));
+    expect(h.frame.offsetAsked).toEqual([]);
+    expect(h.rulers).toHaveLength(0);
+  });
+
+  it('in the footprint editor with no footprint loaded it does nothing (:179)', () => {
+    h = harness(true);
+    select(h, 1);
+    h.frame.GetModel = () => null;
+    h.mgr.RunAction(PCB_ACTIONS.interactiveOffsetTool);
+    drawOffset(mm(60, 30), mm(70, 30));
+    expect(h.frame.offsetAsked).toEqual([]);
+  });
+
+  it('in the footprint editor with a footprint loaded it runs (:179)', async () => {
+    h = harness(true);
+    select(h, 1);
+    h.mgr.RunAction(PCB_ACTIONS.interactiveOffsetTool);
+    drawOffset(mm(60, 30), mm(70, 30));
+    await flush();
+    expect(h.frame.offsetAsked).toHaveLength(1);
+  });
+
+  it('forces the crosshair onto the snapped point (:219-221)', () => {
+    select(h, 1);
+    h.mgr.RunAction(PCB_ACTIONS.interactiveOffsetTool);
+    mouse(h, TA_MOUSE_MOTION, { x: 60.04 * MM, y: 30.02 * MM });
+    expect(h.forced).toEqual(mm(60, 30));
+  });
+
+  it('a drag starts the ruler and releasing the button ends it (:246, :251)', async () => {
+    select(h, 1);
+    h.mgr.RunAction(PCB_ACTIONS.interactiveOffsetTool);
+    mouse(h, TA_MOUSE_DRAG, mm(60, 30));
+    mouse(h, TA_MOUSE_DRAG, mm(70, 30));
+    mouse(h, TA_MOUSE_UP, mm(70, 30));
+    await flush();
+    expect(h.frame.offsetAsked).toEqual([[10 * MM, 180]]);
+  });
+
+  it('another tool being activated ends it (:243-249)', () => {
+    select(h, 1);
+    h.mgr.RunAction(PCB_ACTIONS.interactiveOffsetTool);
+    expect(h.frame.IsCurrentTool(PCB_ACTIONS.interactiveOffsetTool)).toBe(true);
+    h.mgr.RunAction(ACTIONS.selectionActivate);
+    expect(h.frame.IsCurrentTool(PCB_ACTIONS.interactiveOffsetTool)).toBe(false);
+  });
+
+  it('clicks while the modal dialog is up never reach the tool (the dialog blocks the canvas)', async () => {
+    select(h, 1);
+    h.mgr.RunAction(PCB_ACTIONS.interactiveOffsetTool);
+    drawOffset(mm(60, 30), mm(70, 30));
+    // the dialog has not answered yet
+    mouse(h, TA_MOUSE_CLICK, mm(10, 10));
+    mouse(h, TA_MOUSE_CLICK, mm(20, 20));
+    await flush();
+    expect(h.frame.offsetAsked).toHaveLength(1);
+  });
+
+  it('asking again while it runs does not start a second pass (:164-165, the re-entrancy guard)', async () => {
+    select(h, 1);
+    h.mgr.RunAction(PCB_ACTIONS.interactiveOffsetTool);
+    h.mgr.RunAction(PCB_ACTIONS.interactiveOffsetTool);
+    drawOffset(mm(60, 30), mm(70, 30));
+    await flush();
+    expect(h.frame.offsetAsked).toHaveLength(1);
+  });
+
+  describe('the ruler (:140-148, :272-277, :313-339)', () => {
+    it('is put on the view, hidden, in the colour of the anchor layer, with an arrow head and no ticks', () => {
+      select(h, 1);
+      h.mgr.RunAction(PCB_ACTIONS.interactiveOffsetTool);
+      expect(h.rulers).toHaveLength(1);
+      expect(h.view.HasItem(h.rulers[0]!)).toBe(true);
+      expect(h.view.IsVisible(h.rulers[0]!)).toBe(false);
+    });
+
+    it('shows once the reference point is set and the pointer moves', () => {
+      select(h, 1);
+      h.mgr.RunAction(PCB_ACTIONS.interactiveOffsetTool);
+      mouse(h, TA_MOUSE_CLICK, mm(60, 30));
+      expect(h.view.IsVisible(h.rulers[0]!)).toBe(false);
+      mouse(h, TA_MOUSE_MOTION, mm(70, 30));
+      expect(h.view.IsVisible(h.rulers[0]!)).toBe(true);
+      expect(rulerState(h.rulers[0]!).m_geomMgr.GetEnd()).toEqual(mm(60, 30));
+      expect(rulerState(h.rulers[0]!).m_geomMgr.GetOrigin()).toEqual(mm(70, 30));
+    });
+
+    it('is re-pointed at origin + the dialog offset when the dialog is accepted (:272-277)', async () => {
+      select(h, 1);
+      h.frame.offsetAnswer = (d) => {
+        d.OnPolarChanged(false);
+        d.SetEntryText(d.m_xOffset, '5');
+        d.SetEntryText(d.m_yOffset, '2');
+      };
+      h.mgr.RunAction(PCB_ACTIONS.interactiveOffsetTool);
+      drawOffset(mm(60, 30), mm(70, 30));
+      await flush();
+      // the first click, then the pointer, then the accepted offset from the second click (70,30)
+      expect(h.rulerEnds).toContainEqual(mm(75, 32));
+    });
+
+    it('the re-pointed end keeps to the angle snap (SetEnd snaps)', async () => {
+      h.frame.settings.m_AngleSnapMode = LeaderMode.DEG45;
+      select(h, 1);
+      h.frame.offsetAnswer = (d) => {
+        d.OnPolarChanged(false);
+        d.SetEntryText(d.m_xOffset, '5');
+        d.SetEntryText(d.m_yOffset, '2');
+      };
+      h.mgr.RunAction(PCB_ACTIONS.interactiveOffsetTool);
+      drawOffset(mm(60, 30), mm(70, 30));
+      await flush();
+      // (5,2) is within 2:1 of the horizontal, so 45 degree mode holds it flat
+      expect(h.rulerEnds).toContainEqual(mm(75, 30));
+      expect(h.rulerEnds).not.toContainEqual(mm(75, 32));
+    });
+
+    it('is left as it was drawn when the dialog is cancelled', async () => {
+      select(h, 1);
+      h.mgr.RunAction(PCB_ACTIONS.interactiveOffsetTool);
+      drawOffset(mm(60, 30), mm(70, 30));
+      await flush();
+      expect(h.view.IsVisible(h.rulers[0]!)).toBe(true);
+      expect(rulerState(h.rulers[0]!).m_geomMgr.GetEnd()).toEqual(mm(60, 30));
+      expect(rulerState(h.rulers[0]!).m_geomMgr.GetOrigin()).toEqual(mm(70, 30));
+    });
+
+    it('is hidden by Esc while the origin is set (:232, cleanup)', () => {
+      select(h, 1);
+      h.mgr.RunAction(PCB_ACTIONS.interactiveOffsetTool);
+      mouse(h, TA_MOUSE_CLICK, mm(60, 30));
+      mouse(h, TA_MOUSE_MOTION, mm(70, 30));
+      h.mgr.RunAction(ACTIONS.cancelInteractive);
+      expect(h.view.IsVisible(h.rulers[0]!)).toBe(false);
+    });
+
+    it('is taken off the view when the tool ends (:381-382)', () => {
+      select(h, 1);
+      h.mgr.RunAction(PCB_ACTIONS.interactiveOffsetTool);
+      h.mgr.RunAction(ACTIONS.cancelInteractive);
+      expect(h.view.HasItem(h.rulers[0]!)).toBe(false);
+    });
+
+    it('is cleared by an action that is not a mouse event, which may have moved the items (:357-364)', () => {
+      select(h, 1);
+      h.mgr.RunAction(PCB_ACTIONS.interactiveOffsetTool);
+      mouse(h, TA_MOUSE_CLICK, mm(60, 30));
+      mouse(h, TA_MOUSE_MOTION, mm(70, 30));
+      h.mgr.RunAction(ACTIONS.zoomIn);
+      expect(h.view.IsVisible(h.rulers[0]!)).toBe(false);
+      expect(rulerState(h.rulers[0]!).m_geomMgr.IsReset()).toBe(true);
+    });
+
+    it('follows the display axis inversion, and the preferences changing it (:75-87, :342-355)', () => {
+      h.frame.settings.m_Display.m_DisplayInvertYAxis = true;
+      select(h, 1);
+      h.mgr.RunAction(PCB_ACTIONS.interactiveOffsetTool);
+      expect(rulerState(h.rulers[0]!).m_flipX).toBe(false);
+      expect(rulerState(h.rulers[0]!).m_flipY).toBe(true);
+      h.frame.settings.m_Display.m_DisplayInvertXAxis = true;
+      h.frame.settings.m_Display.m_DisplayInvertYAxis = false;
+      h.mgr.RunAction(ACTIONS.updatePreferences);
+      expect(rulerState(h.rulers[0]!).m_flipX).toBe(true);
+      expect(rulerState(h.rulers[0]!).m_flipY).toBe(false);
+    });
+
+    it('in the footprint editor takes its axes from the footprint editor settings (:78-83)', () => {
+      h = harness(true);
+      select(h, 1);
+      h.mgr.RunAction(PCB_ACTIONS.interactiveOffsetTool);
+      // POSREL_FP_FRAME: invert X on, Y off
+      expect(rulerState(h.rulers[0]!).m_flipX).toBe(true);
+      expect(rulerState(h.rulers[0]!).m_flipY).toBe(false);
+    });
+
+    it("switches units when the frame's change (:325-337)", () => {
+      select(h, 1);
+      h.mgr.RunAction(PCB_ACTIONS.interactiveOffsetTool);
+      expect(rulerState(h.rulers[0]!).m_userUnits).toBe('mm');
+      h.frame.SetUserUnits('in');
+      h.mgr.RunAction(ACTIONS.updateUnits);
+      expect(rulerState(h.rulers[0]!).m_userUnits).toBe('in');
+    });
+  });
+
+  describe('the angle snap (:300-311)', () => {
+    const snapAfterMotion = (): LeaderMode => {
+      select(h, 1);
+      h.mgr.RunAction(PCB_ACTIONS.interactiveOffsetTool);
+      mouse(h, TA_MOUSE_CLICK, mm(60, 30));
+      mouse(h, TA_MOUSE_MOTION, mm(70, 31));
+      return rulerState(h.rulers[0]!).m_geomMgr.GetAngleSnap();
+    };
+
+    it("takes the board editor's mode", () => {
+      h.frame.settings.m_AngleSnapMode = LeaderMode.DEG45;
+      expect(snapAfterMotion()).toBe(LeaderMode.DEG45);
+    });
+
+    it('and 90 degrees when that is the mode', () => {
+      h.frame.settings.m_AngleSnapMode = LeaderMode.DEG90;
+      expect(snapAfterMotion()).toBe(LeaderMode.DEG90);
+    });
+
+    it('is direct by default', () => {
+      expect(snapAfterMotion()).toBe(LeaderMode.DIRECT);
+    });
+
+    it("in the footprint editor is the footprint editor's own (:305-308)", () => {
+      h = harness(true);
+      // POSREL_FP_FRAME: 45 degrees, while the board editor settings say direct
+      expect(snapAfterMotion()).toBe(LeaderMode.DEG45);
+    });
   });
 });

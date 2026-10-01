@@ -25,7 +25,19 @@ import { TEST_PCB_FRAME } from '../support/test_pcb_frame.js';
 
 const MM = 1_000_000;
 
+class STUB_PICKER extends TOOL_INTERACTIVE {
+  constructor() {
+    super('pcbnew.InteractivePicker');
+  }
+  override Init(): boolean {
+    return true;
+  }
+  override Reset(_r: RESET_REASON): void {}
+  protected override setTransitions(): void {}
+}
+
 class STUB_POSREL extends TOOL_INTERACTIVE {
+  anchor: Vec2 = { x: 0, y: 0 };
   moves: { anchor: Vec2; translation: Vec2 }[] = [];
 
   constructor() {
@@ -37,7 +49,7 @@ class STUB_POSREL extends TOOL_INTERACTIVE {
   override Reset(_r: RESET_REASON): void {}
   protected override setTransitions(): void {}
   GetSelectionAnchorPosition(): Vec2 {
-    return { x: 0, y: 0 };
+    return this.anchor;
   }
   RelativeItemSelectionMove(aAnchor: Vec2, aTranslation: Vec2): number {
     this.moves.push({ anchor: aAnchor, translation: aTranslation });
@@ -58,6 +70,7 @@ beforeEach(() => {
   frame.SetScreen(new PCB_SCREEN({ x: 297e6, y: 210e6 }));
   posrel = new STUB_POSREL();
   frame.GetToolManager()!.RegisterTool(posrel);
+  frame.GetToolManager()!.RegisterTool(new STUB_PICKER());
   frame.GetToolManager()!.InitTools();
 });
 
@@ -167,6 +180,45 @@ describe('DialogPositionRelativeModeless (dialog_position_relative_base.cpp)', (
     expect(posrel.moves).toEqual([]);
   });
 
+  it('each Reset button resets its own entry to the current offset from the reference', () => {
+    posrel.anchor = { x: 10 * MM, y: 20 * MM };
+    const dlg = new DIALOG_POSITION_RELATIVE(frame);
+    render(<DialogPositionRelativeModeless dialog={dlg} />);
+    act(() => dlg.Show(true));
+    fireEvent.click(screen.getByRole('button', { name: 'Use Grid Origin' }));
+    fireEvent.click(screen.getByLabelText('Use polar coordinates'));
+    fireEvent.change(input('ze-posrel-x'), { target: { value: '99' } });
+    fireEvent.change(input('ze-posrel-y'), { target: { value: '99' } });
+    fireEvent.click(screen.getAllByRole('button', { name: 'Reset' })[1]!);
+    expect(input('ze-posrel-x').value).toBe('99');
+    expect(input('ze-posrel-y').value).toBe('20');
+    fireEvent.click(screen.getAllByRole('button', { name: 'Reset' })[0]!);
+    expect(input('ze-posrel-x').value).toBe('10');
+  });
+
+  it('Select Item... and Select Point... hide the window', () => {
+    const dlg = new DIALOG_POSITION_RELATIVE(frame);
+    render(<DialogPositionRelativeModeless dialog={dlg} />);
+    act(() => dlg.Show(true));
+    fireEvent.click(screen.getByRole('button', { name: 'Select Item...' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    act(() => dlg.Show(true));
+    fireEvent.click(screen.getByRole('button', { name: 'Select Point...' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('a picked point is printed in the reference line, and the window comes back', () => {
+    const dlg = new DIALOG_POSITION_RELATIVE(frame);
+    render(<DialogPositionRelativeModeless dialog={dlg} />);
+    act(() => dlg.Show(true));
+    act(() => dlg.Hide());
+    act(() => dlg.UpdatePickedPoint({ x: 12 * MM, y: 34 * MM }));
+    expect(
+      screen.getByText('Reference location: selected point (12.0000 mm, 34.0000 mm)'),
+    ).toBeTruthy();
+    expect(document.activeElement).toBe(input('ze-posrel-x'));
+  });
+
   it('puts the cursor in the X entry when it is shown (SetInitialFocus( m_xEntry ))', () => {
     const dlg = new DIALOG_POSITION_RELATIVE(frame);
     render(<DialogPositionRelativeModeless dialog={dlg} />);
@@ -214,6 +266,29 @@ describe('DialogOffsetItem (dialog_offset_item_base.cpp)', () => {
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(onResult.mock.calls).toEqual([[false], [false]]);
     expect(offset).toEqual({ x: -10 * MM, y: 0 });
+  });
+
+  it('Reset on Y puts the original angle back, and leaves X', () => {
+    const { dlg } = make();
+    render(<DialogOffsetItem dialog={dlg} onResult={() => {}} />);
+    fireEvent.change(input('ze-offset-x'), { target: { value: '99' } });
+    fireEvent.change(input('ze-offset-y'), { target: { value: '12' } });
+    fireEvent.click(screen.getAllByRole('button', { name: 'Reset' })[1]!);
+    expect(input('ze-offset-x').value).toBe('99');
+    expect(input('ze-offset-y').value).toBe('180');
+  });
+
+  it('a blank entry is 0 again on blur, and Enter is OK', () => {
+    const { dlg, offset } = make();
+    const onResult = vi.fn();
+    render(<DialogOffsetItem dialog={dlg} onResult={onResult} />);
+    fireEvent.click(screen.getByLabelText('Use polar coordinates'));
+    fireEvent.change(input('ze-offset-x'), { target: { value: '' } });
+    fireEvent.blur(input('ze-offset-x'));
+    expect(input('ze-offset-x').value).toBe('0');
+    fireEvent.keyDown(input('ze-offset-x'), { key: 'Enter' });
+    expect(onResult).toHaveBeenCalledWith(true);
+    expect(offset).toEqual({ x: 0, y: 0 });
   });
 
   it('Reset puts the original back', () => {
