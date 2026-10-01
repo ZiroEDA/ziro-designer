@@ -14,13 +14,10 @@ import { SYNC_HANDLER, TOOL_INTERACTIVE } from '@ziroeda/common/tool/tool_intera
 import type { BOARD_ITEM } from '@ziroeda/pcbnew/board_item.js';
 import { DIALOG_SWAP_LAYERS } from '@ziroeda/pcbnew/dialogs/dialog_swap_layers.js';
 import type { PCB_VIA } from '@ziroeda/pcbnew/pcb_track.js';
-import {
-  GLOBAL_EDIT_TOOL,
-  type GLOBAL_EDIT_TOOL_FRAME,
-} from '@ziroeda/pcbnew/tools/global_edit_tool.js';
+import { GLOBAL_EDIT_TOOL } from '@ziroeda/pcbnew/tools/global_edit_tool.js';
 import { PCB_ACTIONS } from '@ziroeda/pcbnew/tools/pcb_actions.js';
 import { byUuid, type TOOL_HARNESS, toolHarness, U } from '../support/pcb_tool_harness.js';
-import { TEST_PCB_FRAME } from '../support/test_pcb_frame.js';
+import { GLOBAL_EDIT_TEST_FRAME } from '../support/global_edit_test_frame.js';
 
 const { F_Cu, In1_Cu, In2_Cu, B_Cu, F_SilkS } = PCB_LAYER_ID;
 
@@ -60,7 +57,7 @@ const BOARD_TEXT = `(kicad_pcb (version 20241229) (generator "pcbnew") (generato
 )
 `;
 
-class GLOBAL_EDIT_FRAME extends TEST_PCB_FRAME implements GLOBAL_EDIT_TOOL_FRAME {
+class GLOBAL_EDIT_FRAME extends GLOBAL_EDIT_TEST_FRAME {
   /** What the Swap Layers dialog answers: a row edit, then OK or Cancel. */
   swapAnswer: { set: [PCB_LAYER_ID, PCB_LAYER_ID][]; ok: boolean } = { set: [], ok: true };
   swapDialogs = 0;
@@ -73,7 +70,7 @@ class GLOBAL_EDIT_FRAME extends TEST_PCB_FRAME implements GLOBAL_EDIT_TOOL_FRAME
     super.OnModify();
   }
 
-  ShowSwapLayersDialog(aDialog: DIALOG_SWAP_LAYERS): Promise<boolean> {
+  override ShowSwapLayersDialog(aDialog: DIALOG_SWAP_LAYERS): Promise<boolean> {
     this.swapDialogs++;
     const rows = aDialog.GetRows();
 
@@ -88,11 +85,9 @@ class GLOBAL_EDIT_FRAME extends TEST_PCB_FRAME implements GLOBAL_EDIT_TOOL_FRAME
     return Promise.resolve(this.swapAnswer.ok);
   }
 
-  ShowZoneManagerDialog(): Promise<{ ok: boolean; repour: boolean }> {
+  override ShowZoneManagerDialog(): Promise<{ ok: boolean; repour: boolean }> {
     return Promise.resolve(this.zoneAnswer);
   }
-
-  ShowCleanupTracksAndViasDialog(): void {}
 }
 
 /** ZONE_FILLER_TOOL as far as the posted zoneFillAll: it counts the fills. */

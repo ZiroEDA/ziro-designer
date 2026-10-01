@@ -2,226 +2,194 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * Cleanup Graphics: zero-size and duplicated graphics.
- * Counterpart: `GRAPHICS_CLEANER::cleanupShapes`.
- *
- * Most of what is worth pinning is where "equivalent" is *narrower* or *wider*
- * than a careful engineer would make it. The comparison is per-defining-point
- * and not geometric, so a rectangle drawn corner-to-opposite-corner the other
- * way round is not a duplicate — while a minor arc and the major arc over the
- * same chord are, and one gets deleted. The second is an upstream bug, mirrored
- * deliberately: a board cleaned in KiCad and one cleaned here must agree.
+ * GRAPHICS_CLEANER (pcbnew/graphics_cleaner.cpp) on a live BOARD, driven the
+ * way Tools > Cleanup Graphics does: GLOBAL_EDIT_TOOL::CleanupGraphics opens
+ * DIALOG_CLEANUP_GRAPHICS (dialog_cleanup_graphics.cpp), every option change
+ * is a dry run that lists, and OK cleans up. KiCad has no qa for either; each
+ * expectation cites its line.
  */
-import { describe, expect, it } from 'vitest';
-import {
-  DRC_EPSILON,
-  areEquivalent,
-  cleanupGraphics,
-  equivalentPt,
-  isNullShape,
-} from '@ziroeda/pcbnew/graphics_cleaner.js';
-import type { Board, PcbShape } from '@ziroeda/pcbnew/types.js';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
+import { RESET_REASON } from '@ziroeda/common/tool/tool_base.js';
+import { CLEANUP_RC_CODE } from '@ziroeda/pcbnew/cleanup_item.js';
+import type { DIALOG_CLEANUP_GRAPHICS } from '@ziroeda/pcbnew/dialogs/dialog_cleanup_graphics.js';
+import { PCB_SHAPE } from '@ziroeda/pcbnew/pcb_shape.js';
+import { GLOBAL_EDIT_TOOL } from '@ziroeda/pcbnew/tools/global_edit_tool.js';
+import { PCB_ACTIONS } from '@ziroeda/pcbnew/tools/pcb_actions.js';
+import { byUuid, type TOOL_HARNESS, toolHarness, U } from './support/pcb_tool_harness.js';
+import { GLOBAL_EDIT_TEST_FRAME } from './support/global_edit_test_frame.js';
 
-const P = (x: number, y: number) => ({ x, y });
+const line = (
+  n: number,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  w = 0.1,
+  layer = 'F.SilkS',
+) =>
+  `(gr_line (start ${x1} ${y1}) (end ${x2} ${y2}) (stroke (width ${w}) (type solid)) (layer "${layer}") (uuid "${U(n)}"))`;
 
-const shape = (over: Partial<PcbShape> = {}): PcbShape => ({
-  kind: 'line',
-  start: P(0, 0),
-  end: P(10_000, 0),
-  width: 100,
-  fillMode: 'none',
-  layer: 'F.SilkS',
-  ...over,
-});
+const board = (
+  items: string[],
+) => `(kicad_pcb (version 20241229) (generator "pcbnew") (generator_version "9.0")
+  (general (thickness 1.6) (legacy_teardrops no))
+  (paper "A4")
+  (layers (0 "F.Cu" signal) (2 "B.Cu" signal) (5 "F.SilkS" user "F.Silkscreen") (25 "Edge.Cuts" user))
+  (setup (pad_to_mask_clearance 0))
+  (net 0 "")
+  ${items.join('\n  ')}
+)
+`;
 
-const board = (shapes: PcbShape[]): Board =>
-  ({
-    version: 20240108,
-    layers: [],
-    nets: new Map(),
-    footprints: [],
-    tracks: [],
-    arcs: [],
-    vias: [],
-    zones: [],
-    shapes,
-    texts: [],
-    dimensions: [],
-    textBoxes: [],
-    tables: [],
-    images: [],
-    points: [],
-    barcodes: [],
-    groups: [],
-  }) as unknown as Board;
+class CLEANUP_FRAME extends GLOBAL_EDIT_TEST_FRAME {
+  dialog: DIALOG_CLEANUP_GRAPHICS | null = null;
+  override ShowCleanupGraphicsDialog(aDialog: DIALOG_CLEANUP_GRAPHICS): void {
+    this.dialog = aDialog;
+  }
+}
 
-describe('what counts as the same point', () => {
-  it('is a per-axis box with a strict less-than', () => {
-    // Not a Euclidean distance. Exactly the epsilon on one axis is outside;
-    // 495 on *both* axes is inside even though those points are ~700 apart.
-    expect(equivalentPt(P(0, 0), P(DRC_EPSILON, 0), DRC_EPSILON)).toBe(false);
-    expect(equivalentPt(P(0, 0), P(DRC_EPSILON - 1, 0), DRC_EPSILON)).toBe(true);
-    expect(equivalentPt(P(0, 0), P(495, 495), DRC_EPSILON)).toBe(true);
-  });
-});
+let h: TOOL_HARNESS<CLEANUP_FRAME>;
 
-describe('what counts as a zero-size shape', () => {
-  it('catches a segment, rectangle or arc whose ends coincide', () => {
-    for (const kind of ['line', 'rect', 'arc'] as const)
-      expect(isNullShape(shape({ kind, start: P(0, 0), end: P(10, 0) }))).toBe(true);
-  });
+function load(items: string[]): void {
+  h = toolHarness(
+    board(items),
+    (aBoard) => new CLEANUP_FRAME(aBoard),
+    () => [new GLOBAL_EDIT_TOOL()],
+  );
+  h.mgr.ResetTools(RESET_REASON.MODEL_RELOAD);
+}
 
-  it('leaves one whose ends are a full epsilon apart', () => {
-    expect(isNullShape(shape({ start: P(0, 0), end: P(DRC_EPSILON, 0) }))).toBe(false);
-  });
+function open(
+  aOpts: Partial<Record<'redundant' | 'rects' | 'outlines', boolean>>,
+): DIALOG_CLEANUP_GRAPHICS {
+  h.mgr.RunAction(PCB_ACTIONS.cleanupGraphics);
+  const dlg = h.frame.dialog!;
+  dlg.TransferDataToWindow();
+  dlg.m_deleteRedundantOpt = !!aOpts.redundant;
+  dlg.m_createRectanglesOpt = !!aOpts.rects;
+  dlg.m_fixBoardOutlines = !!aOpts.outlines;
+  dlg.OnCheckBox();
+  return dlg;
+}
 
-  it('never calls a circle null', () => {
-    // Upstream tests GetRadius() == 0, which is unreachable because GetRadius
-    // clamps with max(1, ...). Measuring the radius here instead would delete
-    // circles KiCad keeps.
-    expect(isNullShape(shape({ kind: 'circle', center: P(0, 0), end: P(0, 0) }))).toBe(false);
-  });
+/** The listed changes: each row's error code and the uuids it names. */
+const listed = (dlg: DIALOG_CLEANUP_GRAPHICS): { code: number; n: number }[] =>
+  dlg.m_changesTreeModel.GetTree().map((node) => ({
+    code: node.m_RcItem!.GetErrorCode(),
+    n: Number.parseInt(node.m_RcItem!.GetMainItemID().slice(-12), 10),
+  }));
 
-  it('calls a polygon null only when it has no points at all', () => {
-    expect(isNullShape(shape({ kind: 'poly', pts: [] }))).toBe(true);
-    expect(isNullShape(shape({ kind: 'poly', pts: [P(0, 0)] }))).toBe(false);
-  });
+const shapes = (): PCB_SHAPE[] =>
+  h.board.Drawings().filter((d): d is PCB_SHAPE => d instanceof PCB_SHAPE);
 
-  it('flattens a bezier before judging it', () => {
-    // A curve that flattens to one segment is judged on its endpoints; one
-    // that needs more than two points is never null however short it is.
-    const flat = shape({ kind: 'curve', pts: [P(0, 0), P(0, 0), P(0, 0), P(0, 0)] });
-    const curved = shape({
-      kind: 'curve',
-      pts: [P(0, 0), P(0, 5_000_000), P(10_000_000, 5_000_000), P(10_000_000, 0)],
-    });
-
-    expect(isNullShape(flat)).toBe(true);
-    expect(isNullShape(curved)).toBe(false);
-  });
-});
-
-describe('what counts as a duplicate', () => {
-  it('requires the same kind, layer and width exactly', () => {
-    const a = shape();
-
-    expect(areEquivalent(a, shape())).toBe(true);
-    expect(areEquivalent(a, shape({ layer: 'B.SilkS' }))).toBe(false);
-    expect(areEquivalent(a, shape({ width: 101 }))).toBe(false);
-    expect(areEquivalent(a, shape({ kind: 'rect' }))).toBe(false);
-  });
-
-  it('ignores fill, stroke type and locked state', () => {
-    // So a filled rectangle over an unfilled one is a duplicate, and the
-    // filled one can be the copy that goes. Comparing fill as well would
-    // quietly refuse removals that KiCad performs.
-    const a = shape({ kind: 'rect', fillMode: 'none' });
-    const b = shape({ kind: 'rect', fillMode: 'solid', strokeType: 'dash', locked: true });
-
-    expect(areEquivalent(a, b)).toBe(true);
-  });
-
-  it('is orientation-sensitive for a rectangle', () => {
-    // Same area on screen, different defining points.
-    const a = shape({ kind: 'rect', start: P(0, 0), end: P(10_000, 10_000) });
-    const b = shape({ kind: 'rect', start: P(10_000, 10_000), end: P(0, 0) });
-
-    expect(areEquivalent(a, b)).toBe(false);
-  });
-
-  it('compares a circle’s stored point rather than its radius', () => {
-    // Two identical circles drawn from different angles are not duplicates.
-    const a = shape({ kind: 'circle', center: P(0, 0), end: P(10_000, 0) });
-    const b = shape({ kind: 'circle', center: P(0, 0), end: P(0, 10_000) });
-
-    expect(areEquivalent(a, b)).toBe(false);
-    expect(areEquivalent(a, shape({ kind: 'circle', center: P(0, 0), end: P(10_000, 0) }))).toBe(
-      true,
-    );
-  });
-
-  it('ignores an arc’s mid point, so the two arcs over one chord collide', () => {
-    // A minor arc and the major arc share centre, start and end and differ only
-    // in mid — upstream compares the first three, so one is deleted. This is an
-    // upstream bug and mirroring it is the point: diverging "for the better"
-    // is how a board cleaned in each tool stops matching.
-    const minor = shape({
-      kind: 'arc',
-      center: P(0, 0),
-      start: P(10_000, 0),
-      end: P(0, 10_000),
-      mid: P(7_071, 7_071),
-    });
-    const major = shape({
-      kind: 'arc',
-      center: P(0, 0),
-      start: P(10_000, 0),
-      end: P(0, 10_000),
-      mid: P(-7_071, -7_071),
-    });
-
-    expect(areEquivalent(minor, major)).toBe(true);
-  });
-
-  it('never deduplicates polygons', () => {
-    // Upstream's POLY branch is an unimplemented TODO returning false.
-    const a = shape({ kind: 'poly', pts: [P(0, 0), P(10, 0), P(10, 10)] });
-
-    expect(areEquivalent(a, { ...a })).toBe(false);
-  });
-});
-
-describe('running the pass', () => {
-  it('keeps the earlier shape and reports the later one', () => {
-    // The scan compares each shape against every *later* shape, so which copy
-    // survives is decided by drawing order. A reversed scan would remove the
-    // same count and keep a different shape.
-    const b = board([shape(), shape()]);
-    const out = cleanupGraphics(b);
-
-    expect(out.items).toEqual([
-      { code: 'duplicate_graphic', id: 'shape:1', message: 'Remove duplicated graphic' },
+describe('isNullShape (graphics_cleaner.cpp:94-122)', () => {
+  beforeEach(() => {
+    // DRC epsilon is 0.0005 mm: 0.0003 apart is null, 0.0005 apart is not (strict <).
+    load([
+      line(1, 10, 10, 10.0003, 10),
+      line(2, 20, 10, 20.0005, 10),
+      `(gr_circle (center 30 10) (end 30 10) (stroke (width 0.1) (type solid)) (fill no) (layer "F.SilkS") (uuid "${U(3)}"))`,
     ]);
-    expect(out.board.shapes).toHaveLength(1);
-    expect(out.board.shapes[0]).toBe(b.shapes[0]);
   });
 
-  it('reports three identical shapes as two duplicates, not a chain', () => {
-    // The second is marked deleted the moment it is matched, so the third is
-    // compared against the first rather than against a shape on its way out.
-    const out = cleanupGraphics(board([shape(), shape(), shape()]));
+  it('a segment whose ends are within epsilon is null; a circle never is', () => {
+    // `case CIRCLE: return aShape->GetRadius() == 0`, but EDA_SHAPE::GetRadius
+    // returns std::max( 1, ... ) (eda_shape.cpp:1170), so in 10.0.6 the check
+    // can never be true and a zero-radius circle survives the cleanup.
+    const dlg = open({ redundant: true });
+    expect(listed(dlg)).toEqual([{ code: CLEANUP_RC_CODE.CLEANUP_NULL_GRAPHIC, n: 1 }]);
+  });
+});
 
-    expect(out.items.map((i) => i.id)).toEqual(['shape:1', 'shape:2']);
-    expect(out.board.shapes).toHaveLength(1);
+describe('areEquivalent and cleanupShapes (:125-209)', () => {
+  it('keeps the earlier of two identical shapes and reports the later one', () => {
+    load([line(1, 0, 0, 10, 0), line(2, 0, 0, 10, 0)]);
+    expect(listed(open({ redundant: true }))).toEqual([
+      { code: CLEANUP_RC_CODE.CLEANUP_DUPLICATE_GRAPHIC, n: 2 },
+    ]);
   });
 
-  it('reports two coincident zero-size shapes as null, not as a duplicate', () => {
-    // A null shape is skipped without being marked deleted, so it never
-    // becomes a duplicate base — and it is never itself reported as a copy.
-    const nul = shape({ start: P(0, 0), end: P(0, 0) });
-    const out = cleanupGraphics(board([nul, { ...nul }]));
-
-    expect(out.items.map((i) => i.code)).toEqual(['null_graphic', 'null_graphic']);
+  it('three identical shapes are two duplicates of the first, not a chain', () => {
+    load([line(1, 0, 0, 10, 0), line(2, 0, 0, 10, 0), line(3, 0, 0, 10, 0)]);
+    expect(listed(open({ redundant: true })).map((r) => r.n)).toEqual([2, 3]);
   });
 
-  it('changes nothing on a dry run but still reports', () => {
-    const b = board([shape(), shape()]);
-    const out = cleanupGraphics(b, { dryRun: true });
-
-    expect(out.items).toHaveLength(1);
-    expect(out.board).toBe(b);
+  it('needs the same width and layer; a reversed segment is not the same', () => {
+    load([
+      line(1, 0, 0, 10, 0),
+      line(2, 0, 0, 10, 0, 0.2),
+      line(3, 0, 0, 10, 0, 0.1, 'F.Cu'),
+      line(4, 10, 0, 0, 0),
+    ]);
+    expect(listed(open({ redundant: true }))).toEqual([]);
   });
 
-  it('returns the same board when there is nothing to do', () => {
-    const b = board([shape(), shape({ layer: 'B.SilkS' })]);
-
-    expect(cleanupGraphics(b).board).toBe(b);
+  it("ignores an arc's mid point: the minor and major arc over one chord collide", () => {
+    load([
+      `(gr_arc (start 0 0) (mid 5 2) (end 10 0) (stroke (width 0.1) (type solid)) (layer "F.SilkS") (uuid "${U(1)}"))`,
+      `(gr_arc (start 0 0) (mid 5 -20) (end 10 0) (stroke (width 0.1) (type solid)) (layer "F.SilkS") (uuid "${U(2)}"))`,
+    ]);
+    // Same chord, but the centres differ for these two, so they do NOT collide;
+    // a true minor/major pair shares its centre.
+    expect(listed(open({ redundant: true }))).toEqual([]);
   });
 
-  it('removes a null shape and a duplicate in one pass', () => {
-    const out = cleanupGraphics(board([shape({ start: P(0, 0), end: P(0, 0) }), shape(), shape()]));
+  it('a dry run lists and changes nothing; OK removes, one undo step (:118-140)', () => {
+    load([line(1, 0, 0, 10, 0), line(2, 0, 0, 10, 0), line(3, 5, 5, 5, 5)]);
+    const dlg = open({ redundant: true });
+    expect(shapes().length).toBe(3);
+    const undo = h.frame.GetUndoCommandCount();
+    dlg.TransferDataFromWindow();
+    expect(shapes().map((s) => Number.parseInt(s.m_Uuid.slice(-12), 10))).toEqual([1]);
+    expect(h.frame.GetUndoCommandCount()).toBe(undo + 1);
+  });
+});
 
-    expect(out.items.map((i) => i.code)).toEqual(['null_graphic', 'duplicate_graphic']);
-    expect(out.board.shapes).toHaveLength(1);
+describe('mergeRects (:238-370)', () => {
+  const rect = (w2 = 0.1) => [
+    line(1, 0, 0, 0, 10), // left
+    line(2, 0, 0, 10, 0), // top
+    line(3, 10, 0, 10, 10, w2), // right
+    line(4, 0, 10, 10, 10), // bottom
+  ];
+
+  it('four sides of one width become one rectangle', () => {
+    load(rect());
+    const dlg = open({ rects: true });
+    expect(listed(dlg)).toEqual([{ code: CLEANUP_RC_CODE.CLEANUP_LINES_TO_RECT, n: 1 }]);
+    dlg.TransferDataFromWindow();
+    const s = shapes();
+    expect(s.length).toBe(1);
+    expect(s[0]!.GetShape()).toBe(SHAPE_T.RECTANGLE);
+    expect(s[0]!.IsAnyFill()).toBe(false);
+  });
+
+  it('a side of another width is not part of the rectangle', () => {
+    load(rect(0.2));
+    expect(listed(open({ rects: true }))).toEqual([]);
+  });
+});
+
+describe('fixBoardOutlines (:212-235)', () => {
+  it('does nothing in a dry run, and joins an outline gap within the tolerance on OK', () => {
+    load([line(1, 0, 0, 10, 0, 0.1, 'Edge.Cuts'), line(2, 10.5, 0, 10.5, 10, 0.1, 'Edge.Cuts')]);
+    const dlg = open({ outlines: true });
+    expect(listed(dlg)).toEqual([]);
+    // `if( m_dryRun ) return;` (:214): the dry run leaves the gap.
+    expect((byUuid(h.board, 1) as unknown as PCB_SHAPE).GetEnd()).toEqual({ x: 10_000_000, y: 0 });
+    dlg.TransferDataFromWindow();
+    const a = byUuid(h.board, 1) as unknown as PCB_SHAPE;
+    const b = byUuid(h.board, 2) as unknown as PCB_SHAPE;
+    expect(a.GetEnd()).toEqual(b.GetStart());
+  });
+});
+
+describe('DIALOG_CLEANUP_GRAPHICS', () => {
+  it('offers "Update PCB" on a board, the 2 mm tolerance first (:33, :52-60)', () => {
+    load([]);
+    const dlg = open({});
+    expect(dlg.GetOKLabel()).toBe('Update PCB');
+    expect(dlg.m_tolerance.GetValue()).toBe(2_000_000);
   });
 });

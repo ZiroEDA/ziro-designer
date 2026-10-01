@@ -2,226 +2,365 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * Cleanup Graphics: drop zero-size and duplicated graphics.
- * Counterpart: `GRAPHICS_CLEANER::cleanupShapes`, `isNullShape` and
- * `areEquivalent` (pcbnew/graphics_cleaner.cpp).
+ * `GRAPHICS_CLEANER` (pcbnew/graphics_cleaner.cpp, graphics_cleaner.h), on the
+ * live BOARD: Cleanup Graphics' four passes over a drawing list - redundant
+ * (null and duplicated) shapes, board outlines joined end to end, four lines
+ * that make a rectangle merged into one, and (footprint editor) pads rebuilt
+ * from the shapes around them.
  *
- * ## What "equivalent" means here, and what it ignores
+ * ## What "equivalent" means, and what it ignores
  *
- * Two shapes are duplicates if their **kind, layer and width** match exactly
- * and their defining points coincide within the DRC epsilon. Fill, stroke type,
- * solder-mask layer and locked state are not compared at all — so a filled
- * rectangle and an unfilled one drawn over it are duplicates, and the filled
- * one can be the copy that goes. That is upstream's rule; a port that also
- * compared fill would quietly refuse to remove shapes KiCad removes.
- *
- * The comparison is per-defining-point and *not* geometric, which has visible
- * consequences worth stating rather than discovering:
- *
- * - A rectangle is orientation-sensitive: `(0,0)-(10,10)` and `(10,10)-(0,0)`
- *   cover the same area and are not duplicates.
- * - A circle compares its stored circumference point, not its radius, so two
- *   identical circles drawn from different angles are not duplicates.
- * - An arc compares centre, start and end but **not** the mid point, so a minor
- *   arc and the major arc over the same chord count as duplicates and one is
- *   deleted. That is an upstream bug and it is mirrored here: a board cleaned
- *   in KiCad and a board cleaned here have to end up the same, and diverging
- *   "for the better" is how the two stop agreeing.
- * - Polygons are never deduplicated. Upstream has an unimplemented TODO in that
- *   branch and returns false.
- *
- * ## Only the redundant-shape pass
- *
- * `GRAPHICS_CLEANER` has three further passes — `mergeRects`, `fixBoardOutlines`
- * and `connectBoardShapes` — which are not here. They need primitives the port
- * does not have (infinite-line intersection, net-tie pad groups) and, in
- * `connectBoardShapes`' case, upstream's start order comes from a
- * pointer-ordered `std::set` and is not reproducible even between two runs of
- * KiCad. They are separate work rather than approximations.
+ * Two shapes are duplicates if their kind, layer and width match exactly and
+ * their defining points coincide within the DRC epsilon. Fill, stroke type and
+ * locked state are not compared, so a filled rectangle and an unfilled one
+ * drawn over it are duplicates. The comparison is per defining point: a circle
+ * compares its stored circumference point, not its radius, and an arc compares
+ * centre, start and end but not the mid point, so a minor and a major arc over
+ * the same chord count as duplicates. Polygons are never deduplicated (an
+ * upstream TODO). All of it upstream's, mirrored rather than improved.
  */
-import { BezierPoly } from '@ziroeda/kimath/src/bezier_curves.js';
-import { boardItemId, deleteBoardItems } from './edit-board.js';
-import type { Board, PcbShape } from './types.js';
-import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-
-/** `BOARD_DESIGN_SETTINGS::GetDRCEpsilon()`, 0.0005 mm. */
-export const DRC_EPSILON = 500;
-// `ARC_HIGH_DEF`, the default `m_MaxError`, lives with the other
-// `base_units.h` constants; this re-export is only so the router and the
-// importer keep the import path they already had.
+import { IS_DELETED } from '@ziroeda/common/eda_item_flags.js';
 import { ARC_HIGH_DEF } from '@ziroeda/common/eda_units.js';
-export { ARC_HIGH_DEF };
+import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import type { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
+import type { Vec2 as VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+import type { BOARD_COMMIT } from './board_commit.js';
+import type { BOARD_ITEM } from './board_item.js';
+import { CLEANUP_ITEM, CLEANUP_RC_CODE } from './cleanup_item.js';
+import { ConnectBoardShapes } from './fix_board_shape.js';
+import type { FOOTPRINT } from './footprint.js';
+import { PCB_SHAPE } from './pcb_shape.js';
+import type { PAD_TOOL } from './tools/pad_tool.js';
 
-export type CleanupCode = 'null_graphic' | 'duplicate_graphic';
-
-export interface CleanupItem {
-  code: CleanupCode;
-  /** The board item id of the shape that would be removed. */
-  id: string;
-  message: string;
-}
-
-const MESSAGES: Record<CleanupCode, string> = {
-  null_graphic: 'Remove zero-size graphic',
-  duplicate_graphic: 'Remove duplicated graphic',
-};
-
-/**
- * `equivalent( a, b, epsilon )`.
- *
- * A **per-axis box test with a strict `<`**, not a Euclidean distance. Two
- * consequences that a distance-based port gets wrong in both directions: a
- * delta of exactly the epsilon on one axis is *not* equivalent, while 495 on
- * both axes is — even though those points are 700 apart.
- */
-export function equivalentPt(a: Vec2, b: Vec2, epsilon: number): boolean {
+/** `equivalent( a, b, epsilon )`: each axis within epsilon, exclusive. */
+function equivalent(a: VECTOR2I, b: VECTOR2I, epsilon: number): boolean {
   return Math.abs(a.x - b.x) < epsilon && Math.abs(a.y - b.y) < epsilon;
 }
 
-const ORIGIN: Vec2 = { x: 0, y: 0 };
-const startOf = (s: PcbShape): Vec2 => s.start ?? s.pts?.[0] ?? ORIGIN;
-const endOf = (s: PcbShape): Vec2 => s.end ?? s.pts?.[s.pts.length - 1] ?? ORIGIN;
+const asShape = (aItem: BOARD_ITEM): PCB_SHAPE | null =>
+  aItem instanceof PCB_SHAPE ? aItem : null;
 
-/** `isNullShape`: a shape with no extent, which is invisible and unselectable. */
-export function isNullShape(
-  shape: PcbShape,
-  epsilon = DRC_EPSILON,
-  maxError = ARC_HIGH_DEF,
-): boolean {
-  switch (shape.kind) {
-    case 'line':
-    case 'rect':
-    case 'arc':
-      return equivalentPt(startOf(shape), endOf(shape), epsilon);
+/** `SIDE_CANDIDATE`: an axis-aligned segment, its ends ordered low to high. */
+class SIDE_CANDIDATE {
+  start: VECTOR2I;
+  end: VECTOR2I;
 
-    case 'circle':
-      // Upstream tests `GetRadius() == 0`, which is unreachable: `GetRadius`
-      // clamps with `std::max(1, KiROUND(radius))`. So a circle is never null,
-      // and returning false here is the faithful answer rather than an
-      // oversight — a port that measured the radius itself would delete
-      // circles KiCad keeps.
-      return false;
+  constructor(readonly shape: PCB_SHAPE) {
+    this.start = shape.GetStart();
+    this.end = shape.GetEnd();
 
-    case 'poly':
-      return (shape.pts?.length ?? 0) === 0;
-
-    case 'curve': {
-      const ctrl = shape.pts ?? [];
-      if (ctrl.length < 4) return ctrl.length < 2;
-
-      const flattened = new BezierPoly(ctrl[0]!, ctrl[1]!, ctrl[2]!, ctrl[3]!).getPoly(maxError);
-
-      // Flattened to a single segment, it is a segment: compare its ends.
-      // Fewer than two points is a point. Three or more is never null however
-      // short the curve is.
-      if (flattened.length === 2) return equivalentPt(startOf(shape), endOf(shape), epsilon);
-      return flattened.length < 2;
-    }
-
-    default:
-      return false;
+    if (this.start.x > this.end.x || this.start.y > this.end.y)
+      [this.start, this.end] = [this.end, this.start];
   }
 }
 
-/** `areEquivalent`: are these two shapes duplicates of one another? */
-export function areEquivalent(a: PcbShape, b: PcbShape, epsilon = DRC_EPSILON): boolean {
-  if (a.kind !== b.kind || a.layer !== b.layer || a.width !== b.width) return false;
+const ptKey = (p: VECTOR2I): string => `${p.x},${p.y}`;
 
-  switch (a.kind) {
-    case 'line':
-    case 'rect':
-      return (
-        equivalentPt(startOf(a), startOf(b), epsilon) && equivalentPt(endOf(a), endOf(b), epsilon)
-      );
+export class GRAPHICS_CLEANER {
+  private m_dryRun = true;
+  private m_epsilon = 1;
+  private m_maxError = ARC_HIGH_DEF;
+  private m_outlinesTolerance = 0;
+  private m_itemsList: CLEANUP_ITEM[] | null = null;
 
-    case 'circle':
-      // Centre and the stored circumference point, not the radius.
-      return (
-        equivalentPt(a.center ?? ORIGIN, b.center ?? ORIGIN, epsilon) &&
-        equivalentPt(endOf(a), endOf(b), epsilon)
-      );
+  constructor(
+    private readonly m_drawings: readonly BOARD_ITEM[],
+    private readonly m_parentFootprint: FOOTPRINT | null,
+    private readonly m_commit: BOARD_COMMIT,
+    private readonly m_toolMgr: TOOL_MANAGER | null,
+  ) {}
 
-    case 'arc':
-      // Centre, start and end — deliberately not the mid point.
-      return (
-        equivalentPt(a.center ?? ORIGIN, b.center ?? ORIGIN, epsilon) &&
-        equivalentPt(startOf(a), startOf(b), epsilon) &&
-        equivalentPt(endOf(a), endOf(b), epsilon)
-      );
+  CleanupBoard(
+    aDryRun: boolean,
+    aItemsList: CLEANUP_ITEM[],
+    aMergeRects: boolean,
+    aDeleteRedundant: boolean,
+    aMergePads: boolean,
+    aFixBoardOutlines: boolean,
+    aTolerance: number,
+  ): void {
+    this.m_dryRun = aDryRun;
+    this.m_itemsList = aItemsList;
+    this.m_outlinesTolerance = aTolerance;
 
-    case 'curve': {
-      const pa = a.pts ?? [];
-      const pb = b.pts ?? [];
-      if (pa.length < 4 || pb.length < 4) return false;
-      return [0, 1, 2, 3].every((i) => equivalentPt(pa[i]!, pb[i]!, epsilon));
-    }
+    const bds = this.m_commit.GetBoard()!.GetDesignSettings();
+    this.m_epsilon = bds.GetDRCEpsilon();
+    this.m_maxError = bds.m_MaxError;
 
-    // Upstream's POLY branch is an unimplemented TODO returning false.
-    default:
-      return false;
+    // Clear the flag used to mark some shapes as deleted, in dry run:
+    for (const drawing of this.m_drawings) drawing.ClearFlags(IS_DELETED);
+
+    if (aDeleteRedundant) this.cleanupShapes();
+
+    if (aFixBoardOutlines) this.fixBoardOutlines();
+
+    if (aMergeRects) this.mergeRects();
+
+    if (aMergePads) this.mergePads();
+
+    // Clear the flag used to mark some shapes:
+    for (const drawing of this.m_drawings) drawing.ClearFlags(IS_DELETED);
   }
-}
 
-export interface CleanupGraphicsOptions {
-  epsilon?: number;
-  maxError?: number;
-  /** Report what would change without changing it. */
-  dryRun?: boolean;
-}
+  private isNullShape(aShape: PCB_SHAPE): boolean {
+    switch (aShape.GetShape()) {
+      case SHAPE_T.SEGMENT:
+      case SHAPE_T.RECTANGLE:
+      case SHAPE_T.ARC:
+        return equivalent(aShape.GetStart(), aShape.GetEnd(), this.m_epsilon);
 
-/**
- * `cleanupShapes`, plus the board rebuild upstream leaves to `BOARD_COMMIT`.
- *
- * The scan order is upstream's and it decides *which* of a duplicate pair
- * survives: for each shape, every **later** shape is compared against it, so
- * the earlier one is kept and the removal is reported against the later. A
- * reversed scan would delete the same number of shapes and keep different ones.
- *
- * A null shape is reported and then skipped **without being marked deleted**,
- * so it never becomes a duplicate base. Two coincident zero-size shapes are
- * therefore both reported as null rather than one null and one duplicate.
- */
-export function cleanupGraphics(
-  board: Board,
-  opts: CleanupGraphicsOptions = {},
-): { board: Board; items: CleanupItem[] } {
-  const epsilon = opts.epsilon ?? DRC_EPSILON;
-  const maxError = opts.maxError ?? ARC_HIGH_DEF;
+      case SHAPE_T.CIRCLE:
+        return aShape.GetRadius() === 0;
 
-  const items: CleanupItem[] = [];
-  const deleted = new Set<number>();
+      case SHAPE_T.POLY:
+        return aShape.GetPointCount() === 0;
 
-  for (let i = 0; i < board.shapes.length; i++) {
-    if (deleted.has(i)) continue;
-    const shape = board.shapes[i]!;
+      case SHAPE_T.BEZIER:
+        aShape.RebuildBezierToSegmentsPointsList(this.m_maxError);
 
-    if (isNullShape(shape, epsilon, maxError)) {
-      items.push({
-        code: 'null_graphic',
-        id: boardItemId('shape', i),
-        message: MESSAGES.null_graphic,
-      });
-      continue;
+        // If the Bezier points list contains 2 points, it is equivalent to a segment
+        if (aShape.GetBezierPoints().length === 2)
+          return equivalent(aShape.GetStart(), aShape.GetEnd(), this.m_epsilon);
+
+        // If the Bezier points list contains 1 points, it is equivalent to a point
+        return aShape.GetBezierPoints().length < 2;
+
+      default:
+        // UNIMPLEMENTED_FOR( aShape->SHAPE_T_asString() )
+        return false;
+    }
+  }
+
+  private areEquivalent(aShape1: PCB_SHAPE, aShape2: PCB_SHAPE): boolean {
+    if (
+      aShape1.GetShape() !== aShape2.GetShape() ||
+      aShape1.GetLayer() !== aShape2.GetLayer() ||
+      aShape1.GetWidth() !== aShape2.GetWidth()
+    ) {
+      return false;
     }
 
-    for (let j = i + 1; j < board.shapes.length; j++) {
-      if (deleted.has(j)) continue;
-      const other = board.shapes[j]!;
+    const eps = this.m_epsilon;
 
-      if (areEquivalent(shape, other, epsilon)) {
-        items.push({
-          code: 'duplicate_graphic',
-          id: boardItemId('shape', j),
-          message: MESSAGES.duplicate_graphic,
-        });
-        // Marked deleted immediately, so a third identical shape is compared
-        // against the first rather than against a shape already on its way out.
-        deleted.add(j);
+    switch (aShape1.GetShape()) {
+      case SHAPE_T.SEGMENT:
+      case SHAPE_T.RECTANGLE:
+      case SHAPE_T.CIRCLE:
+        return (
+          equivalent(aShape1.GetStart(), aShape2.GetStart(), eps) &&
+          equivalent(aShape1.GetEnd(), aShape2.GetEnd(), eps)
+        );
+
+      case SHAPE_T.ARC:
+        return (
+          equivalent(aShape1.GetCenter(), aShape2.GetCenter(), eps) &&
+          equivalent(aShape1.GetStart(), aShape2.GetStart(), eps) &&
+          equivalent(aShape1.GetEnd(), aShape2.GetEnd(), eps)
+        );
+
+      case SHAPE_T.POLY:
+        // TODO
+        return false;
+
+      case SHAPE_T.BEZIER:
+        return (
+          equivalent(aShape1.GetStart(), aShape2.GetStart(), eps) &&
+          equivalent(aShape1.GetEnd(), aShape2.GetEnd(), eps) &&
+          equivalent(aShape1.GetBezierC1(), aShape2.GetBezierC1(), eps) &&
+          equivalent(aShape1.GetBezierC2(), aShape2.GetBezierC2(), eps)
+        );
+
+      default:
+        // wxFAIL_MSG( "GRAPHICS_CLEANER::areEquivalent unimplemented for " ... )
+        return false;
+    }
+  }
+
+  private cleanupShapes(): void {
+    // Remove duplicate shapes (2 superimposed identical shapes):
+    for (let it = 0; it < this.m_drawings.length; it++) {
+      const shape = asShape(this.m_drawings[it]!);
+
+      if (!shape || shape.HasFlag(IS_DELETED)) continue;
+
+      if (this.isNullShape(shape)) {
+        const item = new CLEANUP_ITEM(CLEANUP_RC_CODE.CLEANUP_NULL_GRAPHIC);
+        item.SetItems(shape);
+        this.m_itemsList!.push(item);
+
+        if (!this.m_dryRun) this.m_commit.Remove(shape);
+
+        continue;
+      }
+
+      for (let it2 = it + 1; it2 < this.m_drawings.length; it2++) {
+        const shape2 = asShape(this.m_drawings[it2]!);
+
+        if (!shape2 || shape2.HasFlag(IS_DELETED)) continue;
+
+        if (this.areEquivalent(shape, shape2)) {
+          const item = new CLEANUP_ITEM(CLEANUP_RC_CODE.CLEANUP_DUPLICATE_GRAPHIC);
+          item.SetItems(shape2);
+          this.m_itemsList!.push(item);
+
+          shape2.SetFlags(IS_DELETED);
+
+          if (!this.m_dryRun) this.m_commit.Remove(shape2);
+        }
       }
     }
   }
 
-  if (opts.dryRun || items.length === 0) return { board, items };
+  private fixBoardOutlines(): void {
+    if (this.m_dryRun) return;
 
-  return { board: deleteBoardItems(board, new Set(items.map((it) => it.id))), items };
+    const shapeList: PCB_SHAPE[] = [];
+
+    for (const item of this.m_drawings) {
+      const shape = asShape(item);
+
+      if (!shape || !shape.IsOnLayer(PCB_LAYER_ID.Edge_Cuts)) continue;
+
+      shapeList.push(shape);
+
+      if (!this.m_dryRun) this.m_commit.Modify(shape);
+    }
+
+    ConnectBoardShapes(shapeList, this.m_outlinesTolerance);
+  }
+
+  private mergeRects(): void {
+    const sides: SIDE_CANDIDATE[] = [];
+    const ptMap = new Map<string, SIDE_CANDIDATE[]>();
+    const at = (p: VECTOR2I): SIDE_CANDIDATE[] => ptMap.get(ptKey(p)) ?? [];
+
+    // First load all the candidates into the side vector and layer maps
+    for (const item of this.m_drawings) {
+      const shape = asShape(item);
+
+      if (!shape || this.isNullShape(shape) || shape.GetShape() !== SHAPE_T.SEGMENT) continue;
+
+      if (shape.GetStart().x === shape.GetEnd().x || shape.GetStart().y === shape.GetEnd().y) {
+        const side = new SIDE_CANDIDATE(shape);
+        sides.push(side);
+
+        const key = ptKey(side.start);
+        if (!ptMap.has(key)) ptMap.set(key, []);
+        ptMap.get(key)!.push(side);
+      }
+    }
+
+    // Now go through the sides and try and match lines into rectangles
+    for (const side of sides) {
+      if (side.shape.HasFlag(IS_DELETED)) continue;
+
+      let left: SIDE_CANDIDATE | null = null;
+      let top: SIDE_CANDIDATE | null = null;
+      let right: SIDE_CANDIDATE | null = null;
+      let bottom: SIDE_CANDIDATE | null = null;
+
+      const viable = (aCandidate: SIDE_CANDIDATE): boolean =>
+        aCandidate.shape.GetLayer() === side.shape.GetLayer() &&
+        aCandidate.shape.GetWidth() === side.shape.GetWidth() &&
+        !aCandidate.shape.HasFlag(IS_DELETED);
+
+      if (side.start.x === side.end.x) {
+        // We've found a possible left; see if we have a top
+        left = side;
+
+        for (const candidate of at(left.start)) {
+          if (candidate !== left && viable(candidate)) {
+            top = candidate;
+            break;
+          }
+        }
+      } else if (side.start.y === side.end.y) {
+        // We've found a possible top; see if we have a left
+        top = side;
+
+        for (const candidate of at(top.start)) {
+          if (candidate !== top && viable(candidate)) {
+            left = candidate;
+            break;
+          }
+        }
+      }
+
+      if (top && left) {
+        // See if we can fill in the other two sides
+        for (const candidate of at(top.end)) {
+          if (candidate !== top && candidate !== left && viable(candidate)) {
+            right = candidate;
+            break;
+          }
+        }
+
+        for (const candidate of at(left.end)) {
+          if (candidate !== top && candidate !== left && viable(candidate)) {
+            bottom = candidate;
+            break;
+          }
+        }
+
+        if (right && bottom && right.end.x === bottom.end.x && right.end.y === bottom.end.y) {
+          left.shape.SetFlags(IS_DELETED);
+          top.shape.SetFlags(IS_DELETED);
+          right.shape.SetFlags(IS_DELETED);
+          bottom.shape.SetFlags(IS_DELETED);
+
+          const item = new CLEANUP_ITEM(CLEANUP_RC_CODE.CLEANUP_LINES_TO_RECT);
+          item.SetItems(left.shape, top.shape, right.shape, bottom.shape);
+          this.m_itemsList!.push(item);
+
+          if (!this.m_dryRun) {
+            const rect = new PCB_SHAPE(this.m_parentFootprint);
+
+            rect.SetShape(SHAPE_T.RECTANGLE);
+            rect.SetFilled(false);
+            rect.SetStart(top.start);
+            rect.SetEnd(bottom.end);
+            rect.SetLayer(top.shape.GetLayer());
+            rect.SetStroke(top.shape.GetStroke());
+
+            this.m_commit.Add(rect);
+            this.m_commit.Remove(left.shape);
+            this.m_commit.Remove(top.shape);
+            this.m_commit.Remove(right.shape);
+            this.m_commit.Remove(bottom.shape);
+          }
+        }
+      }
+    }
+  }
+
+  private mergePads(): void {
+    // wxCHECK_MSG( m_parentFootprint, ..., "mergePads() is FootprintEditor only" )
+    if (!this.m_parentFootprint) return;
+
+    const padTool = this.m_toolMgr?.FindTool('pcbnew.PadTool') as unknown as PAD_TOOL | null;
+    const padToNetTieGroupMap = this.m_parentFootprint.MapPadNumbersToNetTieGroups();
+
+    if (!padTool) return;
+
+    for (const pad of this.m_parentFootprint.Pads()) {
+      // Don't merge a pad that's in a net-tie pad group.  (We don't care which group.)
+      if ((padToNetTieGroupMap.get(pad.GetNumber()) ?? -1) >= 0) continue;
+
+      if (this.m_commit.GetStatus(this.m_parentFootprint) === 0)
+        this.m_commit.Modify(this.m_parentFootprint);
+
+      const shapes = padTool.RecombinePad(pad, this.m_dryRun);
+
+      if (shapes.length > 0) {
+        const item = new CLEANUP_ITEM(CLEANUP_RC_CODE.CLEANUP_MERGE_PAD);
+
+        for (const shape of shapes) item.AddItem(shape);
+
+        item.AddItem(pad);
+
+        this.m_itemsList!.push(item);
+      }
+    }
+  }
 }

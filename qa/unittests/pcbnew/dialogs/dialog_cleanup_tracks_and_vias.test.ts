@@ -10,13 +10,10 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { RESET_REASON } from '@ziroeda/common/tool/tool_base.js';
 import type { DIALOG_CLEANUP_TRACKS_AND_VIAS } from '@ziroeda/pcbnew/dialogs/dialog_cleanup_tracks_and_vias.js';
-import {
-  GLOBAL_EDIT_TOOL,
-  type GLOBAL_EDIT_TOOL_FRAME,
-} from '@ziroeda/pcbnew/tools/global_edit_tool.js';
+import { GLOBAL_EDIT_TOOL } from '@ziroeda/pcbnew/tools/global_edit_tool.js';
 import { PCB_ACTIONS } from '@ziroeda/pcbnew/tools/pcb_actions.js';
 import { type TOOL_HARNESS, toolHarness, U } from '../support/pcb_tool_harness.js';
-import { TEST_PCB_FRAME } from '../support/test_pcb_frame.js';
+import { GLOBAL_EDIT_TEST_FRAME } from '../support/global_edit_test_frame.js';
 
 // Two co-linear segments of N1 meeting at (20,10) with nothing else there:
 // "Merge co-linear tracks" makes them one.
@@ -33,15 +30,9 @@ const BOARD_TEXT = `(kicad_pcb (version 20241229) (generator "pcbnew") (generato
 )
 `;
 
-class CLEANUP_FRAME extends TEST_PCB_FRAME implements GLOBAL_EDIT_TOOL_FRAME {
+class CLEANUP_FRAME extends GLOBAL_EDIT_TEST_FRAME {
   dialog: DIALOG_CLEANUP_TRACKS_AND_VIAS | null = null;
-  ShowSwapLayersDialog(): Promise<boolean> {
-    return Promise.resolve(false);
-  }
-  ShowZoneManagerDialog(): Promise<{ ok: boolean; repour: boolean }> {
-    return Promise.resolve({ ok: false, repour: false });
-  }
-  ShowCleanupTracksAndViasDialog(aDialog: DIALOG_CLEANUP_TRACKS_AND_VIAS): void {
+  override ShowCleanupTracksAndViasDialog(aDialog: DIALOG_CLEANUP_TRACKS_AND_VIAS): void {
     this.dialog = aDialog;
   }
 }

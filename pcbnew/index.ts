@@ -725,17 +725,7 @@ export {
   type PlaceFileOptions,
 } from './exporters/place_file_exporter.js';
 
-export {
-  cleanupGraphics,
-  isNullShape,
-  areEquivalent,
-  equivalentPt,
-  DRC_EPSILON,
-  ARC_HIGH_DEF,
-  type CleanupItem,
-  type CleanupCode,
-  type CleanupGraphicsOptions,
-} from './graphics_cleaner.js';
+export { GRAPHICS_CLEANER } from './graphics_cleaner.js';
 
 export {
   globalDeletionFilterEnabled,

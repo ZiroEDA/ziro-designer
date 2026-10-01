@@ -848,7 +848,7 @@ export function buildPcbMenus(
         { sep: true },
         { label: 'Cleanup Tracks & Vias...', action: () => h.action('cleanupTracksAndVias') },
         { label: 'Remove Unused Pads...', disabled: dis },
-        { label: 'Cleanup Graphics...', disabled: dis },
+        { label: 'Cleanup Graphics...', action: () => h.action('cleanupGraphics') },
         { label: 'Repair Board', disabled: dis },
         { sep: true },
         { label: 'Collect And Embed 3D Models', disabled: dis },

@@ -18925,3 +18925,41 @@ fieldset.ze-pushpad-box {
   font: inherit;
   resize: none;
 }
+
+/* DIALOG_CLEANUP_GRAPHICS (dialog_cleanup_graphics_base.cpp). */
+.ze-cleanupgfx-upper {
+  display: flex;
+  flex-direction: column;
+  margin: 5px; /* [data] `bSizerMain->Add( bSizerUpper, 0, wxEXPAND|wxALL, 5 )`. */
+}
+.ze-cleanupgfx .ze-check.all5 {
+  margin: 5px; /* [data] the checkboxes' `wxALL, 5`. */
+}
+.ze-cleanupgfx .ze-check.trl5 {
+  margin: 5px 5px 0; /* [data] `m_mergePadsOpt`'s `wxTOP|wxRIGHT|wxLEFT, 5`. */
+}
+.ze-cleanupgfx-hint {
+  margin: 3px 3px 3px 28px; /* [data] `wxLEFT, 25` inside `bSizerMargins`' `wxALL, 3`. */
+  font-style: italic;
+  font-size: var(--ui-font-size-small);
+}
+.ze-cleanupgfx-tolerance {
+  display: flex;
+  align-items: center;
+}
+.ze-cleanupgfx-tolerance .lbl {
+  margin-left: 25px; /* [data] `m_toleranceLabel`'s `wxLEFT, 25`. */
+}
+.ze-cleanupgfx-tolerance .ze-search {
+  margin: 0 5px; /* [data] `m_toleranceCtrl`'s `wxRIGHT|wxLEFT, 5`. */
+}
+.ze-cleanupgfx-tolerance .unit {
+  margin-right: 5px; /* [data] `m_toleranceUnits`' `wxRIGHT, 5`. */
+}
+.ze-cleanupgfx-lower {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  margin: 5px 5px 0; /* [data] `bSizerMain->Add( bLowerSizer, 1, wxEXPAND|wxTOP|wxRIGHT|wxLEFT, 5 )`. */
+  min-height: 0;
+}
