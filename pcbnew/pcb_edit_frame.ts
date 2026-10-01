@@ -100,6 +100,13 @@ import { BOARD_INSPECTION_TOOL } from './tools/board_inspection_tool.js';
 import { POSITION_RELATIVE_TOOL } from './tools/position_relative_tool.js';
 import type { DIALOG_POSITION_RELATIVE } from './dialogs/dialog_position_relative.js';
 import type { DIALOG_OFFSET_ITEM } from './dialogs/dialog_offset_item.js';
+import { PAD_TOOL } from './tools/pad_tool.js';
+import {
+  type DIALOG_PUSH_PAD_PROPERTIES,
+  wxID_CANCEL,
+} from './dialogs/dialog_push_pad_properties.js';
+import type { DIALOG_ENUM_PADS } from './dialogs/dialog_enum_pads.js';
+import type { DIALOG_FP_EDIT_PAD_TABLE } from './dialogs/dialog_fp_edit_pad_table.js';
 import { CONVERT_TOOL } from './tools/convert_tool.js';
 import type { OUTSET_PARAMETERS } from './tools/item_modification_routine.js';
 import type { CONVERT_SETTINGS } from './pcbnew_settings.js';
@@ -439,6 +446,14 @@ export interface PCB_EDIT_FRAME_HOOKS {
   attachPositionRelativeDialog?(aDialog: DIALOG_POSITION_RELATIVE): void;
   /** POSITION_RELATIVE_TOOL's `DIALOG_OFFSET_ITEM( ... ).ShowModal() == wxID_OK`. */
   showOffsetItemDialog?(aDialog: DIALOG_OFFSET_ITEM): Promise<boolean>;
+  /** PAD_TOOL's DIALOG_PUSH_PAD_PROPERTIES: 0 OK, 1 Apply, wxID_CANCEL dismissed. */
+  showPushPadPropertiesDialog?(aDialog: DIALOG_PUSH_PAD_PROPERTIES): Promise<number>;
+  /** PAD_TOOL's DIALOG_ENUM_PADS: true on OK. */
+  showEnumPadsDialog?(aDialog: DIALOG_ENUM_PADS): Promise<boolean>;
+  /** PAD_TOOL's DIALOG_FP_EDIT_PAD_TABLE, quasi-modal. */
+  showPadTableDialog?(aDialog: DIALOG_FP_EDIT_PAD_TABLE): void;
+  /** `WX_INFOBAR::Dismiss()`. */
+  dismissInfoBar?(): void;
   /** `PromptConnectedPadDecision`'s wxRichMessageDialog. */
   showConnectedPadDialog?(
     aTitle: string,
@@ -710,6 +725,25 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     return this.hooks.showOffsetItemDialog?.(aDialog) ?? Promise.resolve(false);
   }
 
+  // ---- PAD_TOOL's window half (PAD_TOOL_FRAME) ------------------------------
+
+  ShowPushPadPropertiesDialog(aDialog: DIALOG_PUSH_PAD_PROPERTIES): Promise<number> {
+    return this.hooks.showPushPadPropertiesDialog?.(aDialog) ?? Promise.resolve(wxID_CANCEL);
+  }
+
+  ShowEnumPadsDialog(aDialog: DIALOG_ENUM_PADS): Promise<boolean> {
+    return this.hooks.showEnumPadsDialog?.(aDialog) ?? Promise.resolve(false);
+  }
+
+  ShowPadTableDialog(aDialog: DIALOG_FP_EDIT_PAD_TABLE): void {
+    this.hooks.showPadTableDialog?.(aDialog);
+  }
+
+  /** `GetInfoBar()->Dismiss()`. */
+  DismissInfoBar(): void {
+    this.hooks.dismissInfoBar?.();
+  }
+
   ShowGetFootprintByNameDialog(aList: string[]): Promise<string | null> {
     return this.hooks.showGetFootprintByNameDialog?.(aList) ?? Promise.resolve(null);
   }
@@ -908,6 +942,7 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     // Register tools
     this.m_toolManager.RegisterTool(new PCB_SELECTION_TOOL());
     this.m_toolManager.RegisterTool(new EDIT_TOOL());
+    this.m_toolManager.RegisterTool(new PAD_TOOL());
     this.m_toolManager.RegisterTool(new PCB_POINT_EDITOR());
     this.m_toolManager.RegisterTool(new BOARD_INSPECTION_TOOL());
     this.m_toolManager.RegisterTool(new ALIGN_DISTRIBUTE_TOOL());

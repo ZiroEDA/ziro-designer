@@ -649,6 +649,12 @@ import { DialogPnsSettings } from './dialogs/dialog_pns_settings.js';
 import { DialogPositionRelativeModeless } from './dialogs/dialog_position_relative_ui.js';
 import type { DIALOG_POSITION_RELATIVE } from './dialogs/dialog_position_relative.js';
 import { DialogOffsetItem } from './dialogs/dialog_offset_item_ui.js';
+import { DialogPushPadProperties } from './dialogs/dialog_push_pad_properties_ui.js';
+import { DialogEnumPads } from './dialogs/dialog_enum_pads_ui.js';
+import { DialogFpEditPadTable } from './dialogs/dialog_fp_edit_pad_table_ui.js';
+import type { DIALOG_PUSH_PAD_PROPERTIES } from './dialogs/dialog_push_pad_properties.js';
+import type { DIALOG_ENUM_PADS } from './dialogs/dialog_enum_pads.js';
+import type { DIALOG_FP_EDIT_PAD_TABLE } from './dialogs/dialog_fp_edit_pad_table.js';
 import type { DIALOG_OFFSET_ITEM } from './dialogs/dialog_offset_item.js';
 import {
   DialogBookReporter,
@@ -2085,6 +2091,16 @@ export function PcbEditor({
     dialog: DIALOG_OFFSET_ITEM;
     resolve: (aOk: boolean) => void;
   } | null>(null);
+  /** PAD_TOOL's dialogs, each with the promise the tool waits on. */
+  const [pushPadDlg, setPushPadDlg] = useState<{
+    dialog: DIALOG_PUSH_PAD_PROPERTIES;
+    resolve: (aReturnCode: number) => void;
+  } | null>(null);
+  const [enumPadsDlg, setEnumPadsDlg] = useState<{
+    dialog: DIALOG_ENUM_PADS;
+    resolve: (aOk: boolean) => void;
+  } | null>(null);
+  const [padTableDlg, setPadTableDlg] = useState<DIALOG_FP_EDIT_PAD_TABLE | null>(null);
   /** CONVERT_TOOL's modal dialogs, each with the promise the tool waits on. */
   const [outsetDlg, setOutsetDlg] = useState<{
     params: OUTSET_PARAMETERS;
@@ -2519,6 +2535,7 @@ export function PcbEditor({
   /** The window half of EDIT_TOOL (EDIT_TOOL_FRAME through the frame's hooks). */
   const editWindowRef = useRef<{
     showInfoBarMsg: (aMsg: string) => void;
+    dismissInfoBar: () => void;
     showUnitEntryDialog: (aTitle: string, aLabel: string, aValue: number) => Promise<number | null>;
     showDogboneDialog: (aParams: DOGBONE_PARAMETERS) => Promise<DOGBONE_PARAMETERS | null>;
     showMoveExactDialog: (
@@ -2639,6 +2656,13 @@ export function PcbEditor({
       attachPositionRelativeDialog: (aDialog) => setPosRelDialog(aDialog),
       showOffsetItemDialog: (aDialog) =>
         new Promise<boolean>((resolve) => setOffsetDlg({ dialog: aDialog, resolve })),
+      // PAD_TOOL's window half.
+      showPushPadPropertiesDialog: (aDialog) =>
+        new Promise<number>((resolve) => setPushPadDlg({ dialog: aDialog, resolve })),
+      showEnumPadsDialog: (aDialog) =>
+        new Promise<boolean>((resolve) => setEnumPadsDlg({ dialog: aDialog, resolve })),
+      showPadTableDialog: (aDialog) => setPadTableDlg(aDialog),
+      dismissInfoBar: () => editWindowRef.current?.dismissInfoBar(),
       boardView: () => boardRef.current,
       router: () => editWindowRef.current?.router() ?? null,
       eventToWindow: (aEvent) => selWindowRef.current?.eventToWindow(aEvent) ?? false,
@@ -5884,6 +5908,7 @@ export function PcbEditor({
   }, [board]);
   editWindowRef.current = {
     showInfoBarMsg: (aMsg) => setInfoBarError(aMsg),
+    dismissInfoBar: () => setInfoBarError(null),
     showUnitEntryDialog: (aTitle, aLabel, aValue) =>
       new Promise((resolve) =>
         setUnitEntryDlg({ title: aTitle, label: aLabel, value: aValue, resolve }),
@@ -13576,6 +13601,27 @@ export function PcbEditor({
       {/* POSITION_RELATIVE_TOOL's DIALOG_POSITION_RELATIVE: modeless, in the
           same host as Find; it draws itself only while it is shown. */}
       {posRelDialog && <DialogPositionRelativeModeless dialog={posRelDialog} />}
+      {pushPadDlg && (
+        <DialogPushPadProperties
+          dialog={pushPadDlg.dialog}
+          onResult={(aReturnCode) => {
+            setPushPadDlg(null);
+            pushPadDlg.resolve(aReturnCode);
+          }}
+        />
+      )}
+      {enumPadsDlg && (
+        <DialogEnumPads
+          dialog={enumPadsDlg.dialog}
+          onResult={(aOk) => {
+            setEnumPadsDlg(null);
+            enumPadsDlg.resolve(aOk);
+          }}
+        />
+      )}
+      {padTableDlg && (
+        <DialogFpEditPadTable dialog={padTableDlg} onClose={() => setPadTableDlg(null)} />
+      )}
       {offsetDlg && (
         <DialogOffsetItem
           dialog={offsetDlg.dialog}
