@@ -15,6 +15,8 @@ import {
   type ZONE_FILLER_TOOL_FRAME,
 } from '@ziroeda/pcbnew/tools/zone_filler_tool.js';
 import type { ZoneFillOptions } from '@ziroeda/pcbnew/zone_filler.js';
+import type { KiDialogRequest } from '@ziroeda/common/kidialog.js';
+import type { KiDialogResult } from '@ziroeda/common/kidialog_do_not_show.js';
 import { byUuid, select, type TOOL_HARNESS, toolHarness, U } from '../support/pcb_tool_harness.js';
 import { TEST_PCB_FRAME } from '../support/test_pcb_frame.js';
 
@@ -45,6 +47,12 @@ class FILLER_FRAME extends TEST_PCB_FRAME implements ZONE_FILLER_TOOL_FRAME {
   }
   GetZoneFillOptions(): ZoneFillOptions {
     return {};
+  }
+  asked: string[] = [];
+  answer: KiDialogResult = 'ok';
+  AskKiDialog(aRequest: KiDialogRequest): Promise<KiDialogResult> {
+    this.asked.push(aRequest.message);
+    return Promise.resolve(this.answer);
   }
 }
 
@@ -109,6 +117,42 @@ describe('ZONE_FILLER_TOOL::ZoneUnfill / ZoneUnfillAll (:387-452)', () => {
     const undo = h.frame.GetUndoCommandCount();
     h.mgr.RunAction(PCB_ACTIONS.zoneUnfill);
     expect(zone(40).IsFilled()).toBe(true);
+    expect(h.frame.GetUndoCommandCount()).toBe(undo);
+  });
+});
+
+describe('ZONE_FILLER_TOOL::CheckAllZones and ZONE_FILLER::Fill( aCheck ) (:67-110, zone_filler.cpp:1606-1658)', () => {
+  it('does nothing when the board has not changed since the last fill (:69-70)', async () => {
+    h.frame.m_ZoneFillsDirty = false;
+    await tool().CheckAllZones();
+    expect(h.frame.asked).toEqual([]);
+    expect(zone(40).IsFilled()).toBe(false);
+  });
+
+  it('out-of-date fills: asks, and Refill keeps the new fill as one undo step', async () => {
+    const undo = h.frame.GetUndoCommandCount();
+    await tool().CheckAllZones();
+    expect(h.frame.asked).toEqual(['Zone fills are out-of-date. Refill?']);
+    expect(zone(40).IsFilled()).toBe(true);
+    expect(h.frame.GetUndoCommandCount()).toBe(undo + 1);
+    expect(h.frame.m_ZoneFillsDirty).toBe(false);
+  });
+
+  it('"Continue without Refill" reverts the pour and files nothing', async () => {
+    h.frame.answer = 'cancel';
+    const undo = h.frame.GetUndoCommandCount();
+    await tool().CheckAllZones();
+    expect(zone(40).IsFilled()).toBe(false);
+    expect(h.frame.GetUndoCommandCount()).toBe(undo);
+    expect(h.frame.m_ZoneFillsDirty).toBe(true);
+  });
+
+  it('fills already current: no question, no undo step (:1653-1657)', async () => {
+    h.mgr.RunAction(PCB_ACTIONS.zoneFillAll);
+    h.frame.m_ZoneFillsDirty = true;
+    const undo = h.frame.GetUndoCommandCount();
+    await tool().CheckAllZones();
+    expect(h.frame.asked).toEqual([]);
     expect(h.frame.GetUndoCommandCount()).toBe(undo);
   });
 });

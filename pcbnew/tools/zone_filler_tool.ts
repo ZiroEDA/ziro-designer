@@ -23,6 +23,8 @@ import type { PCB_VIA } from '../pcb_track.js';
 import { TEARDROP_MANAGER } from '../teardrop/teardrop.js';
 import type { ZONE } from '../zone.js';
 import { ZONE_FILLER, type ZoneFillOptions } from '../zone_filler.js';
+import type { KiDialogRequest } from '@ziroeda/common/kidialog.js';
+import type { KiDialogResult } from '@ziroeda/common/kidialog_do_not_show.js';
 import { PCB_ACTIONS } from './pcb_actions.js';
 import type { PCB_SELECTION_TOOL } from './pcb_selection_tool.js';
 import { PCB_TOOL_BASE } from './pcb_tool_base.js';
@@ -41,6 +43,8 @@ export interface ZONE_FILLER_TOOL_FRAME {
   ShowZoneFillRulesWarning(): void;
   /** TRANSITIONAL (#636 stage 3): the view pour's options; see ZONE_FILLER. */
   GetZoneFillOptions(): ZoneFillOptions;
+  /** `KIDIALOG( frame, ... ).ShowModal()`: ZONE_FILLER's out-of-date question. */
+  AskKiDialog(aRequest: KiDialogRequest): Promise<KiDialogResult>;
 }
 
 type FRAME = PCB_BASE_EDIT_FRAME & ZONE_FILLER_TOOL_FRAME;
@@ -57,6 +61,46 @@ export class ZONE_FILLER_TOOL extends PCB_TOOL_BASE {
 
   private editFrame(): FRAME {
     return this.getEditFrame<FRAME>();
+  }
+
+  /**
+   * `CheckAllZones( aCaller, aReporter )`: when the board changed since the last
+   * fill, re-pour and, if any fill moved, ask before keeping it.
+   */
+  async CheckAllZones(
+    _aCaller: unknown = null,
+    aReporter: PROGRESS_REPORTER | null = null,
+  ): Promise<void> {
+    const frame = this.editFrame();
+
+    if (!frame.m_ZoneFillsDirty || this.m_fillInProgress) return;
+
+    this.m_fillInProgress = true;
+
+    const toFill: ZONE[] = [...this.board().Zones()];
+    const commit = new BOARD_COMMIT(this);
+
+    this.m_filler = new ZONE_FILLER(this.board(), commit);
+    this.m_filler.SetViewFillOptions(frame.GetZoneFillOptions());
+
+    // `WX_PROGRESS_REPORTER( aCaller, "Check Zones", 4, PR_CAN_ABORT )` when none
+    // was passed: the pour runs on this thread, so there is no window to show.
+    if (aReporter) this.m_filler.SetProgressReporter(aReporter);
+
+    try {
+      if (await this.m_filler.CheckFill(toFill, (r) => frame.AskKiDialog(r))) {
+        commit.Push('Fill Zone(s)', SKIP_CONNECTIVITY | ZONE_FILL_OP);
+        frame.m_ZoneFillsDirty = false;
+      } else {
+        commit.Revert();
+      }
+
+      this.rebuildConnectivity();
+      this.refresh();
+    } finally {
+      this.m_fillInProgress = false;
+      this.m_filler = null;
+    }
   }
 
   /** `IsBusy()`: a fill is running. */

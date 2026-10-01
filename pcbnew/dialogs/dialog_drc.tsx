@@ -16,7 +16,7 @@
  * are the same wx widgets on the same DIALOG_SHIM.
  */
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
-import { rcTreeRowStyle, rcTreeTextColour } from '@ziroeda/common/widgets/rc_tree_style.js';
+import { RcTreeView } from '@ziroeda/common/widgets/rc_tree_view.js';
 import type { RC_TREE_MODEL, RC_TREE_NODE, RC_TREE_VIEW_STATE } from '@ziroeda/common/rc_item.js';
 import { RC_TREE_NODE_TYPE } from '@ziroeda/common/rc_item.js';
 import { ContextMenu, type MenuItem } from '@ziroeda/common/tool/action_menu_bar.js';
@@ -52,76 +52,6 @@ interface Props {
   canRefillZones: boolean;
   /** The dialog root, the frame's findDialogRects reads its rect. */
   rootRef: { current: HTMLDivElement | null };
-}
-
-/** One RC_TREE_MODEL as a wxDataViewCtrl: the marker rows and their item children. */
-function MarkerTree({
-  dialog,
-  model,
-  view,
-  onContextMenu,
-}: {
-  dialog: DIALOG_DRC;
-  model: RC_TREE_MODEL;
-  view: RC_TREE_VIEW_STATE;
-  onContextMenu: (e: React.MouseEvent, node: RC_TREE_NODE) => void;
-}): JSX.Element {
-  const selectedRowRef = useRef<HTMLDivElement>(null);
-  const selection = view.GetSelection();
-
-  // `EnsureVisible( ToItem( candidate ) )`: the selected row scrolls into view.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: the selection is the trigger; the ref is read
-  useEffect(() => {
-    selectedRowRef.current?.scrollIntoView({ block: 'nearest' });
-  }, [selection]);
-
-  const textColour = useMemo(rcTreeTextColour, []);
-
-  const rowStyle = (node: RC_TREE_NODE): React.CSSProperties =>
-    rcTreeRowStyle(model.GetAttr(node, textColour), textColour);
-
-  return (
-    <div className="ze-erc-list" data-testid="drc-violation-list">
-      {model.GetTree().map((node, i) => (
-        <div key={i} className="ze-erc-item">
-          <div
-            ref={selection === node ? selectedRowRef : undefined}
-            className={`ze-erc-row${selection === node ? ' selected' : ''}`}
-            style={rowStyle(node)}
-            onClick={() => view.Select(node)}
-            onDoubleClick={() => dialog.OnDRCItemDClick(node)}
-            onContextMenu={(e) => {
-              e.preventDefault();
-              view.Select(node);
-              onContextMenu(e, node);
-            }}
-          >
-            {/* the expander of a container row; every marker row is expanded (ExpandAll) */}
-            <span className="twisty expandable open" />
-            <span className="msg">{model.GetValue(node)}</span>
-          </div>
-          {node.m_Children.map((child, k) => (
-            <div
-              key={k}
-              className={`ze-erc-subrow${selection === child ? ' selected' : ''}${
-                child.m_Type === RC_TREE_NODE_TYPE.COMMENT ? ' comment' : ''
-              }`}
-              style={rowStyle(child)}
-              onClick={() => view.Select(child)}
-              onDoubleClick={() => dialog.OnDRCItemDClick(child)}
-              onContextMenu={(e) => {
-                e.preventDefault();
-                view.Select(child);
-                onContextMenu(e, child);
-              }}
-            >
-              {model.GetValue(child)}
-            </div>
-          ))}
-        </div>
-      ))}
-    </div>
-  );
 }
 
 export function DialogDrc({ dialog, isSingle, canRefillZones, rootRef }: Props): JSX.Element {
@@ -265,24 +195,27 @@ export function DialogDrc({ dialog, isSingle, canRefillZones, rootRef }: Props):
             ))}
           </div>
           {page === 0 && (
-            <MarkerTree
-              dialog={dialog}
+            <RcTreeView
+              onDoubleClick={(node) => dialog.OnDRCItemDClick(node)}
+              testId="drc-violation-list"
               model={dialog.m_markersTreeModel}
               view={dialog.m_markerDataView}
               onContextMenu={treeMenu(dialog.m_markersTreeModel)}
             />
           )}
           {page === 1 && (
-            <MarkerTree
-              dialog={dialog}
+            <RcTreeView
+              onDoubleClick={(node) => dialog.OnDRCItemDClick(node)}
+              testId="drc-violation-list"
               model={dialog.m_unconnectedTreeModel}
               view={dialog.m_unconnectedDataView}
               onContextMenu={treeMenu(dialog.m_unconnectedTreeModel)}
             />
           )}
           {page === 2 && (
-            <MarkerTree
-              dialog={dialog}
+            <RcTreeView
+              onDoubleClick={(node) => dialog.OnDRCItemDClick(node)}
+              testId="drc-violation-list"
               model={dialog.m_fpWarningsTreeModel}
               view={dialog.m_footprintsDataView}
               onContextMenu={treeMenu(dialog.m_fpWarningsTreeModel)}

@@ -650,6 +650,9 @@ import { DialogPositionRelativeModeless } from './dialogs/dialog_position_relati
 import type { DIALOG_POSITION_RELATIVE } from './dialogs/dialog_position_relative.js';
 import { DialogOffsetItem } from './dialogs/dialog_offset_item_ui.js';
 import { DialogSwapLayers } from './dialogs/dialog_swap_layers_ui.js';
+import { choiceOf } from './grid_layer_box_helpers.js';
+import { DialogCleanupTracksAndVias } from './dialogs/dialog_cleanup_tracks_and_vias_ui.js';
+import type { DIALOG_CLEANUP_TRACKS_AND_VIAS } from './dialogs/dialog_cleanup_tracks_and_vias.js';
 import type { DIALOG_SWAP_LAYERS } from './dialogs/dialog_swap_layers.js';
 import { DialogPushPadProperties } from './dialogs/dialog_push_pad_properties_ui.js';
 import { DialogEnumPads } from './dialogs/dialog_enum_pads_ui.js';
@@ -2093,6 +2096,8 @@ export function PcbEditor({
     dialog: DIALOG_OFFSET_ITEM;
     resolve: (aOk: boolean) => void;
   } | null>(null);
+  /** GLOBAL_EDIT_TOOL's DIALOG_CLEANUP_TRACKS_AND_VIAS. */
+  const [cleanupDlg, setCleanupDlg] = useState<DIALOG_CLEANUP_TRACKS_AND_VIAS | null>(null);
   /** GLOBAL_EDIT_TOOL's DIALOG_SWAP_LAYERS, with the promise the tool waits on. */
   const [swapLayersDlg, setSwapLayersDlg] = useState<{
     dialog: DIALOG_SWAP_LAYERS;
@@ -2664,6 +2669,8 @@ export function PcbEditor({
       showOffsetItemDialog: (aDialog) =>
         new Promise<boolean>((resolve) => setOffsetDlg({ dialog: aDialog, resolve })),
       // GLOBAL_EDIT_TOOL's window half.
+      showCleanupTracksAndViasDialog: (aDialog) => setCleanupDlg(aDialog),
+      askKiDialog: (aRequest) => askKiDialogRef.current(aRequest),
       showSwapLayersDialog: (aDialog) =>
         new Promise<boolean>((resolve) => setSwapLayersDlg({ dialog: aDialog, resolve })),
       // PAD_TOOL's window half.
@@ -2872,6 +2879,8 @@ export function PcbEditor({
   const [layerPairDialogOpen, setLayerPairDialogOpen] = useState(false);
   // The KIDIALOGs its OK asks (confirmShortingNets, confirmPadChange).
   const { ask: askKiDialog, node: kiDialogNode } = useKiDialog();
+  const askKiDialogRef = useRef(askKiDialog);
+  askKiDialogRef.current = askKiDialog;
   // Copper Zone Properties (DIALOG_COPPER_ZONE), on the selected zone.
   const [zonePropsIndex, setZonePropsIndex] = useState<number | null>(null);
   // Footprint Properties (DIALOG_FOOTPRINT_PROPERTIES), board side.
@@ -11466,6 +11475,9 @@ export function PcbEditor({
       case 'swapLayers':
         runAction(PCB_ACTIONS.swapLayers);
         break;
+      case 'cleanupTracksAndVias':
+        runAction(PCB_ACTIONS.cleanupTracksAndVias);
+        break;
       case 'polygonmerge':
         runAction(PCB_ACTIONS.mergePolygons);
         break;
@@ -13619,6 +13631,25 @@ export function PcbEditor({
       {/* POSITION_RELATIVE_TOOL's DIALOG_POSITION_RELATIVE: modeless, in the
           same host as Find; it draws itself only while it is shown. */}
       {posRelDialog && <DialogPositionRelativeModeless dialog={posRelDialog} />}
+      {cleanupDlg && (
+        <DialogCleanupTracksAndVias
+          dialog={cleanupDlg}
+          nets={
+            new Map(
+              [...(frameRef.current?.GetBoard()?.GetNetInfo().NetsByNetcode() ?? new Map())].map(
+                ([code, net]) => [code, net.GetNetname()] as const,
+              ),
+            )
+          }
+          layers={LSET.AllCuMask(frameRef.current?.GetBoard()?.GetCopperLayerCount() ?? 2)
+            .UIOrder()
+            .map((l) => {
+              const c = choiceOf(l);
+              return { layer: l, label: c.label, swatch: c.swatch };
+            })}
+          onClose={() => setCleanupDlg(null)}
+        />
+      )}
       {swapLayersDlg && board && (
         <DialogSwapLayers
           dialog={swapLayersDlg.dialog}

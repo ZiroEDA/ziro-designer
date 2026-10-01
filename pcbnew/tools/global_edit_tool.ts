@@ -20,6 +20,7 @@ import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { BOARD_COMMIT } from '../board_commit.js';
 import type { BOARD_ITEM } from '../board_item.js';
 import { DIALOG_SWAP_LAYERS } from '../dialogs/dialog_swap_layers.js';
+import { DIALOG_CLEANUP_TRACKS_AND_VIAS } from '../dialogs/dialog_cleanup_tracks_and_vias.js';
 import type { PCB_BASE_EDIT_FRAME } from '../pcb_base_edit_frame.js';
 import type { PCB_VIA } from '../pcb_track.js';
 import { VIATYPE } from '../pcb_track_types.js';
@@ -33,6 +34,8 @@ const GEOMETRY = VIEW_UPDATE_FLAGS.GEOMETRY;
 export interface GLOBAL_EDIT_TOOL_FRAME {
   /** `DIALOG_SWAP_LAYERS dlg( frame(), layerMap ); dlg.ShowModal() == wxID_OK`. */
   ShowSwapLayersDialog(aDialog: DIALOG_SWAP_LAYERS): Promise<boolean>;
+  /** `DIALOG_CLEANUP_TRACKS_AND_VIAS dlg( editFrame ); dlg.ShowModal()`. */
+  ShowCleanupTracksAndViasDialog(aDialog: DIALOG_CLEANUP_TRACKS_AND_VIAS): void;
   /** `DIALOG_ZONE_MANAGER dlg( editFrame ); dlg.ShowQuasiModal()`, and its repour box. */
   ShowZoneManagerDialog(): Promise<{ ok: boolean; repour: boolean }>;
 }
@@ -142,6 +145,14 @@ export class GLOBAL_EDIT_TOOL extends PCB_TOOL_BASE {
     }
   }
 
+  CleanupTracksAndVias(_aEvent: TOOL_EVENT): number {
+    const editFrame = this.editFrame();
+    const dlg = new DIALOG_CLEANUP_TRACKS_AND_VIAS(editFrame);
+
+    editFrame.ShowCleanupTracksAndViasDialog(dlg);
+    return 0;
+  }
+
   /**
    * The Zone Manager. Upstream's BOARD_COMMIT is filled with Modify( zone )
    * and never pushed, so the change files no undo entry.
@@ -187,6 +198,7 @@ export class GLOBAL_EDIT_TOOL extends PCB_TOOL_BASE {
     const S = SYNC_HANDLER<GLOBAL_EDIT_TOOL>;
 
     this.Go(S(this.SwapLayers), PCB_ACTIONS.swapLayers.MakeEvent());
+    this.Go(S(this.CleanupTracksAndVias), PCB_ACTIONS.cleanupTracksAndVias.MakeEvent());
     this.Go(S(this.ZonesManager), PCB_ACTIONS.zonesManager.MakeEvent());
   }
 }

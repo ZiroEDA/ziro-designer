@@ -104,7 +104,10 @@ import { PAD_TOOL } from './tools/pad_tool.js';
 import { GLOBAL_EDIT_TOOL } from './tools/global_edit_tool.js';
 import { ZONE_FILLER_TOOL } from './tools/zone_filler_tool.js';
 import type { ZoneFillOptions } from './zone_filler.js';
+import type { KiDialogRequest } from '@ziroeda/common/kidialog.js';
+import type { KiDialogResult } from '@ziroeda/common/kidialog_do_not_show.js';
 import type { DIALOG_SWAP_LAYERS } from './dialogs/dialog_swap_layers.js';
+import type { DIALOG_CLEANUP_TRACKS_AND_VIAS } from './dialogs/dialog_cleanup_tracks_and_vias.js';
 import {
   type DIALOG_PUSH_PAD_PROPERTIES,
   wxID_CANCEL,
@@ -408,6 +411,8 @@ export interface PCB_EDIT_FRAME_HOOKS {
   showZoneManager?(): Promise<{ ok: boolean; repour: boolean }>;
   /** TRANSITIONAL (#636 stage 3): ZONE_FILLER's view-pour options. */
   zoneFillOptions?(): ZoneFillOptions;
+  /** The window's KiDialog: KIDIALOG::ShowModal. */
+  askKiDialog?(aRequest: KiDialogRequest): Promise<KiDialogResult>;
   /**
    * `EDA_BASE_FRAME::ShowInfoBarWarning( aWarningMsg, aShowCloseButton )`: the
    * window's infobar, warning icon, 6 s. Optional: a frame with no window shows
@@ -450,6 +455,8 @@ export interface PCB_EDIT_FRAME_HOOKS {
   attachPositionRelativeDialog?(aDialog: DIALOG_POSITION_RELATIVE): void;
   /** POSITION_RELATIVE_TOOL's `DIALOG_OFFSET_ITEM( ... ).ShowModal() == wxID_OK`. */
   showOffsetItemDialog?(aDialog: DIALOG_OFFSET_ITEM): Promise<boolean>;
+  /** GLOBAL_EDIT_TOOL's DIALOG_CLEANUP_TRACKS_AND_VIAS, modal; it closes itself. */
+  showCleanupTracksAndViasDialog?(aDialog: DIALOG_CLEANUP_TRACKS_AND_VIAS): void;
   /** GLOBAL_EDIT_TOOL's DIALOG_SWAP_LAYERS: true on OK. */
   showSwapLayersDialog?(aDialog: DIALOG_SWAP_LAYERS): Promise<boolean>;
   /** PAD_TOOL's DIALOG_PUSH_PAD_PROPERTIES: 0 OK, 1 Apply, wxID_CANCEL dismissed. */
@@ -736,6 +743,10 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
 
   // ---- GLOBAL_EDIT_TOOL's window half (GLOBAL_EDIT_TOOL_FRAME) --------------
 
+  ShowCleanupTracksAndViasDialog(aDialog: DIALOG_CLEANUP_TRACKS_AND_VIAS): void {
+    this.hooks.showCleanupTracksAndViasDialog?.(aDialog);
+  }
+
   ShowSwapLayersDialog(aDialog: DIALOG_SWAP_LAYERS): Promise<boolean> {
     return this.hooks.showSwapLayersDialog?.(aDialog) ?? Promise.resolve(false);
   }
@@ -749,6 +760,11 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   /** `infobar->ShowMessageFor( ..., 10000, wxICON_WARNING )` with a "Show DRC rules" link. */
   ShowZoneFillRulesWarning(): void {
     this.ShowInfoBarWarning('Zone fills may be inaccurate.  DRC rules contain errors.');
+  }
+
+  /** `KIDIALOG( this, ... ).ShowModal()`, through the window's KiDialog host. */
+  AskKiDialog(aRequest: KiDialogRequest): Promise<KiDialogResult> {
+    return this.hooks.askKiDialog?.(aRequest) ?? Promise.resolve('cancel');
   }
 
   /** TRANSITIONAL (#636 stage 3): the view pour's options, from the window's Board Setup. */

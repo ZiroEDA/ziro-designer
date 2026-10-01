@@ -118,6 +118,9 @@ import { ZONE_CONNECTION } from './zones.js';
 import type { ZONE } from './zone.js';
 import type { COMMIT } from '@ziroeda/common/commit.js';
 import type { PROGRESS_REPORTER } from '@ziroeda/common/progress_reporter.js';
+import type { KiDialogRequest } from '@ziroeda/common/kidialog.js';
+import type { HASH_128 } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
+import type { KiDialogResult } from '@ziroeda/common/kidialog_do_not_show.js';
 import type { PCB_VIA } from './pcb_track.js';
 import { ZONE_LAYER_OVERRIDE } from './board_item.js';
 import { UNCONNECTED_LAYER_MODE } from './padstack.js';
@@ -193,6 +196,82 @@ export class ZONE_FILLER {
    * ZoneFillDirty) and the out-of-date check (`aCheck`) arrive with the pour
    * on this class.
    */
+  /**
+   * `ZONE_FILLER::Fill( aZones, true, aParent )`, the check mode
+   * (zone_filler.cpp:1606-1658): pour, then compare every zone-layer's fill
+   * hash with the one it had. Unchanged: false, and nothing is committed. Out
+   * of date: ask "Zone fills are out-of-date. Refill?" and keep the new fill
+   * on Refill. Upstream's modal blocks inside Fill; ours is awaited, so the
+   * check is its own method and the plain Fill stays synchronous for DRC.
+   */
+  async CheckFill(
+    aZones: readonly ZONE[],
+    aAsk: (aRequest: KiDialogRequest) => Promise<KiDialogResult>,
+  ): Promise<boolean> {
+    const oldFillHashes = new Map<ZONE, Map<PCB_LAYER_ID, HASH_128>>();
+
+    for (const zone of aZones) {
+      const hashes = new Map<PCB_LAYER_ID, HASH_128>();
+
+      // calculate the hash value for filled areas. it will be used later to know if the
+      // current filled areas are up to date (zone_filler.cpp:729-734)
+      for (const layer of zone.GetLayerSet().Seq()) {
+        zone.BuildHashValue(layer);
+        hashes.set(layer, zone.GetHashValue(layer));
+      }
+
+      oldFillHashes.set(zone, hashes);
+    }
+
+    if (!this.Fill(aZones)) return false;
+
+    let outOfDate = false;
+
+    for (const zone of aZones) {
+      // Keepout zones are not filled
+      if (zone.GetIsRuleArea()) continue;
+
+      for (const layer of zone.GetLayerSet().Seq()) {
+        zone.BuildHashValue(layer);
+
+        if (oldFillHashes.get(zone)?.get(layer) !== zone.GetHashValue(layer)) outOfDate = true;
+      }
+    }
+
+    const localSettings = this.m_board.GetProject()?.GetLocalSettings();
+
+    if (localSettings?.m_PrototypeZoneFill) {
+      const answer = await aAsk({
+        caption: 'Confirmation',
+        message: 'Prototype zone fill enabled. Disable setting and refill?',
+        icon: 'warning',
+        labels: { ok: 'Disable and refill', cancel: 'Continue without Refill' },
+        doNotShowKey: 'pcbnew/zone_filler.cpp:Fill:prototype',
+      });
+
+      if (answer === 'ok') localSettings.m_PrototypeZoneFill = false;
+      else if (!outOfDate) return false;
+    }
+
+    if (outOfDate) {
+      const answer = await aAsk({
+        caption: 'Confirmation',
+        message: 'Zone fills are out-of-date. Refill?',
+        icon: 'warning',
+        labels: { ok: 'Refill', cancel: 'Continue without Refill' },
+        doNotShowKey: 'pcbnew/zone_filler.cpp:Fill:outOfDate',
+      });
+
+      if (answer === 'cancel') return false;
+    } else {
+      // No need to commit something that hasn't changed (and committing will set
+      // the modified flag).
+      return false;
+    }
+
+    return true;
+  }
+
   Fill(aZones: readonly ZONE[]): boolean {
     const board = this.m_board;
 

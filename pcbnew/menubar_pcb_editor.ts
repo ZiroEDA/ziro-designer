@@ -846,7 +846,7 @@ export function buildPcbMenus(
         { sep: true },
         { label: 'Zone Manager...', icon: 'zonesManager', action: () => h.action('zonesManager') },
         { sep: true },
-        { label: 'Cleanup Tracks & Vias...', disabled: dis },
+        { label: 'Cleanup Tracks & Vias...', action: () => h.action('cleanupTracksAndVias') },
         { label: 'Remove Unused Pads...', disabled: dis },
         { label: 'Cleanup Graphics...', disabled: dis },
         { label: 'Repair Board', disabled: dis },

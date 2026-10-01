@@ -18864,3 +18864,64 @@ fieldset.ze-pushpad-box {
   min-width: 250px; /* [data] `m_grid->SetMinSize( wxSize( 250,150 ) )`. */
   min-height: 150px; /* [data] the same SetMinSize. */
 }
+
+/* DIALOG_CLEANUP_TRACKS_AND_VIAS (dialog_cleanup_tracks_and_vias_base.cpp). */
+.ze-cleanup-top {
+  display: flex;
+  margin: 5px; /* [data] `bSizerMain->Add( bSizerTop, 0, wxEXPAND|wxALL, 5 )`. */
+}
+.ze-cleanup-actions,
+.ze-cleanup-filters {
+  flex: 1;
+  margin: 0 5px; /* [data] `bSizerTop->Add( sbSizer3 / sbFilters, 1, wxEXPAND|wxRIGHT|wxLEFT, 5 )`. */
+  display: flex;
+  flex-direction: column;
+}
+.ze-cleanup-actions .ze-check {
+  margin: 0 5px; /* [data] the checkboxes' `wxRIGHT|wxLEFT, 5`. */
+}
+.ze-cleanup .ze-check.top5 {
+  margin-top: 5px; /* [data] `wxTOP|wxRIGHT|wxLEFT, 5`. */
+}
+.ze-cleanup .ze-check.all5 {
+  margin: 5px; /* [data] `wxALL, 5`. */
+}
+.ze-cleanup-gap12 {
+  height: 12px; /* [data] `sbSizer3->Add( 0, 12, 1, wxEXPAND, 5 )`. */
+}
+.ze-cleanup-gap10 {
+  height: 10px; /* [data] `sbSizer3->Add( 0, 10, 1, wxEXPAND, 5 )`. */
+}
+.ze-cleanup-gap7 {
+  height: 7px; /* [data] `fgSizer3->Add( 0, 7, 1, wxEXPAND, 5 )`. */
+}
+.ze-cleanup-filter-grid {
+  display: grid;
+  /* [data] `wxFlexGridSizer( 0, 2, 3, 0 )`, `AddGrowableCol( 1 )`. */
+  grid-template-columns: max-content 1fr;
+  row-gap: 3px; /* [data] the same sizer's vgap. */
+  align-items: center;
+  margin-bottom: 5px; /* [data] `sbFilters->Add( fgSizer3, 0, wxEXPAND|wxBOTTOM, 5 )`. */
+}
+.ze-cleanup-filter-grid > .ze-check {
+  margin: 0 5px; /* [data] `wxALIGN_CENTER_VERTICAL|wxRIGHT|wxLEFT, 5`. */
+}
+.ze-cleanup-output {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  margin: 5px; /* [data] `bSizerMain->Add( bLowerSizer, 1, wxEXPAND|wxALL, 5 )`. */
+  min-height: 0;
+}
+.ze-cleanup-label {
+  margin: 5px 5px 0; /* [data] `changesSizer->Add( staticChangesLabel, 0, wxTOP|wxRIGHT|wxLEFT, 5 )`. */
+}
+.ze-cleanup-label.all5 {
+  margin: 5px; /* [data] `progressSizer->Add( staticProgressLabel, 0, wxALL, 5 )`. */
+}
+.ze-cleanup-report {
+  flex: 1;
+  margin: 0 3px; /* [data] `progressSizer->Add( m_tcReport, 1, wxEXPAND|wxRIGHT|wxLEFT, 3 )`. */
+  font: inherit;
+  resize: none;
+}
