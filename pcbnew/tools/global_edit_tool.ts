@@ -30,6 +30,8 @@ import type { PCB_EDIT_FRAME } from '../pcb_edit_frame.js';
 import type { PCB_SELECTION_TOOL } from './pcb_selection_tool.js';
 import type { PCB_BASE_EDIT_FRAME } from '../pcb_base_edit_frame.js';
 import type { PCB_VIA } from '../pcb_track.js';
+import { FOOTPRINT } from '../footprint.js';
+import { EDIT_TOOL } from './edit_tool.js';
 import { VIATYPE } from '../pcb_track_types.js';
 import { PCB_ACTIONS } from './pcb_actions.js';
 import { PCB_TOOL_BASE } from './pcb_tool_base.js';
@@ -193,6 +195,46 @@ export class GLOBAL_EDIT_TOOL extends PCB_TOOL_BASE {
     return 0;
   }
 
+  /**
+   * `GLOBAL_EDIT_TOOL::ExchangeFootprints` (global_edit_tool.cpp:66-109): the
+   * four update/change actions share the dialog; "current" is the clicked or
+   * selected footprint for the single forms, any selected footprint for the
+   * plural ones.
+   */
+  ExchangeFootprints(aEvent: TOOL_EVENT): number {
+    const editFrame = this.m_toolMgr!.GetToolHolder() as unknown as PCB_EDIT_FRAME;
+    const selTool = this.m_toolMgr!.FindTool(
+      'common.InteractiveSelection',
+    ) as unknown as PCB_SELECTION_TOOL;
+    let selection = selTool.GetSelection();
+    let footprint: FOOTPRINT | null = null;
+    let updateMode = false;
+    let currentMode = false;
+
+    if (aEvent.HasPosition()) selection = selTool.RequestSelection(EDIT_TOOL.FootprintFilter);
+
+    if (!selection.Empty())
+      footprint = selection.FirstOfKind((i): i is FOOTPRINT => i instanceof FOOTPRINT);
+
+    if (aEvent.IsAction(PCB_ACTIONS.updateFootprint)) {
+      updateMode = true;
+      currentMode = true;
+    } else if (aEvent.IsAction(PCB_ACTIONS.updateFootprints)) {
+      updateMode = true;
+      currentMode = selection.CountType(KICAD_T.PCB_FOOTPRINT_T) > 0;
+    } else if (aEvent.IsAction(PCB_ACTIONS.changeFootprint)) {
+      updateMode = false;
+      currentMode = true;
+    } else if (aEvent.IsAction(PCB_ACTIONS.changeFootprints)) {
+      updateMode = false;
+      currentMode = selection.CountType(KICAD_T.PCB_FOOTPRINT_T) > 0;
+    }
+
+    editFrame.ShowExchangeFootprintsDialog(footprint, updateMode, currentMode);
+
+    return 0;
+  }
+
   /** `GLOBAL_EDIT_TOOL::EditTextAndGraphics` (dialog_global_edit_text_and_graphics.cpp:640-646). */
   EditTextAndGraphics(_aEvent: TOOL_EVENT): number {
     const editFrame = this.editFrame();
@@ -274,6 +316,10 @@ export class GLOBAL_EDIT_TOOL extends PCB_TOOL_BASE {
     this.Go(S(this.RemoveUnusedPads), PCB_ACTIONS.removeUnusedPads.MakeEvent());
     this.Go(S(this.EditTracksAndVias), PCB_ACTIONS.editTracksAndVias.MakeEvent());
     this.Go(S(this.EditTextAndGraphics), PCB_ACTIONS.editTextAndGraphics.MakeEvent());
+    this.Go(S(this.ExchangeFootprints), PCB_ACTIONS.updateFootprint.MakeEvent());
+    this.Go(S(this.ExchangeFootprints), PCB_ACTIONS.updateFootprints.MakeEvent());
+    this.Go(S(this.ExchangeFootprints), PCB_ACTIONS.changeFootprint.MakeEvent());
+    this.Go(S(this.ExchangeFootprints), PCB_ACTIONS.changeFootprints.MakeEvent());
     this.Go(S(this.GlobalDeletions), PCB_ACTIONS.globalDeletions.MakeEvent());
     this.Go(S(this.ZonesManager), PCB_ACTIONS.zonesManager.MakeEvent());
   }

@@ -656,6 +656,8 @@ import { DialogCleanupGraphics } from './dialogs/dialog_cleanup_graphics_ui.js';
 import { DialogUnusedPadLayers } from './dialogs/dialog_unused_pad_layers_ui.js';
 import { DialogGlobalDeletion } from './dialogs/dialog_global_deletion_ui.js';
 import { DialogGlobalEditTracksAndVias } from './dialogs/dialog_global_edit_tracks_and_vias_ui.js';
+import { DialogExchangeFootprints } from './dialogs/dialog_exchange_footprints_ui.js';
+import type { DIALOG_EXCHANGE_FOOTPRINTS } from './dialogs/dialog_exchange_footprints.js';
 import {
   DialogGlobalEditTextAndGraphics,
   type LAYER_DEFAULTS_ROW,
@@ -2150,6 +2152,8 @@ export function PcbEditor({
   } | null>(null);
   /** GLOBAL_EDIT_TOOL's DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS. */
   const [editTgDlg, setEditTgDlg] = useState<DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS | null>(null);
+  /** PCB_EDIT_FRAME::ShowExchangeFootprintsDialog's DIALOG_EXCHANGE_FOOTPRINTS. */
+  const [exchangeDlg, setExchangeDlg] = useState<DIALOG_EXCHANGE_FOOTPRINTS | null>(null);
   /** GLOBAL_EDIT_TOOL's DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS. */
   const [editTvDlg, setEditTvDlg] = useState<DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS | null>(null);
   /** GLOBAL_EDIT_TOOL's DIALOG_GLOBAL_DELETION, with the promise the tool waits on. */
@@ -2657,10 +2661,7 @@ export function PcbEditor({
         drcWindowRef.current!.selectFootprintFromChooser(aPreselect),
       loadFootprintFromLibrary: (aId, aKeepUUID) =>
         drcWindowRef.current!.loadFootprintFromLibrary(aId, aKeepUUID),
-      showExchangeFootprintsDialog: () => {
-        // DIALOG_EXCHANGE_FOOTPRINTS is not built (Edit > Change Footprints... is
-        // greyed in the menu for the same reason).
-      },
+      showExchangeFootprintsDialog: (aDialog) => setExchangeDlg(aDialog),
       findDialogRects: () => drcWindowRef.current!.findDialogRects(),
       setViewCenter: (aPos, aRects) => drcWindowRef.current!.setViewCenter(aPos, aRects),
       // The `$NET:` probe's highlight, kept as the same set when it is unchanged
@@ -11564,6 +11565,12 @@ export function PcbEditor({
       case 'editTextAndGraphics':
         runAction(PCB_ACTIONS.editTextAndGraphics);
         break;
+      case 'changeFootprints':
+        runAction(PCB_ACTIONS.changeFootprints);
+        break;
+      case 'updateFootprints':
+        runAction(PCB_ACTIONS.updateFootprints);
+        break;
       case 'polygonmerge':
         runAction(PCB_ACTIONS.mergePolygons);
         break;
@@ -13717,6 +13724,15 @@ export function PcbEditor({
       {/* POSITION_RELATIVE_TOOL's DIALOG_POSITION_RELATIVE: modeless, in the
           same host as Find; it draws itself only while it is shown. */}
       {posRelDialog && <DialogPositionRelativeModeless dialog={posRelDialog} />}
+      {exchangeDlg && (
+        <DialogExchangeFootprints
+          dialog={exchangeDlg}
+          onBrowse={(aPreselect) =>
+            drcWindowRef.current?.selectFootprintFromChooser(aPreselect) ?? Promise.resolve(null)
+          }
+          onClose={() => setExchangeDlg(null)}
+        />
+      )}
       {editTgDlg && frameRef.current?.GetBoard() && (
         <DialogGlobalEditTextAndGraphics
           dialog={editTgDlg}

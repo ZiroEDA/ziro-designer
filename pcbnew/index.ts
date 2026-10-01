@@ -1467,3 +1467,4 @@ export {
   type PnsBoardNet,
   type PnsPendingChange,
 } from './router/pns_kicad_iface.js';
+export { DIALOG_EXCHANGE_FOOTPRINTS } from './dialogs/dialog_exchange_footprints.js';

@@ -92,7 +92,11 @@ export interface DRC_TOOL_FRAME extends PCB_BASE_EDIT_FRAME {
   ResolveDRCExclusions(aCreateMarkers: boolean): void;
   OnEditItemRequest(aItem: BOARD_ITEM | null): void;
   /** `DIALOG_EXCHANGE_FOOTPRINTS( m_editFrame, footprint, updateMode, true ).ShowQuasiModal()`. */
-  ShowExchangeFootprintsDialog(aFootprint: FOOTPRINT, aUpdateMode: boolean): void;
+  ShowExchangeFootprintsDialog(
+    aFootprint: FOOTPRINT | null,
+    aUpdateMode: boolean,
+    aSelectedMode: boolean,
+  ): void;
 }
 
 export class DRC_TOOL extends PCB_TOOL_BASE {
@@ -477,7 +481,7 @@ export class DRC_TOOL extends PCB_TOOL_BASE {
       const item = this.m_pcb!.ResolveItem(aDRCItem.GetMainItemID());
 
       if (item instanceof FOOTPRINT)
-        this.m_editFrame!.ShowExchangeFootprintsDialog(item, updateMode);
+        this.m_editFrame!.ShowExchangeFootprintsDialog(item, updateMode, true);
     } else if (
       aDRCItem.GetErrorCode() === PCB_DRC_CODE.DRCE_SCHEMATIC_PARITY ||
       aDRCItem.GetErrorCode() === PCB_DRC_CODE.DRCE_SCHEMATIC_FIELDS_PARITY ||
