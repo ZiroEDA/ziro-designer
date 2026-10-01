@@ -632,7 +632,7 @@ function processTextItem(
   }
 
   aDest.SetLocked(aSrc.IsLocked());
-  aDest.SetUuid(aSrc.m_Uuid);
+  aDest.SetUuidDirect(aSrc.m_Uuid);
 }
 
 /**
@@ -1447,6 +1447,10 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
    * similarity, keep or reset the texts, fields, fabrication attributes,
    * clearance overrides and 3D models per the flags, and stage the swap in
    * `aCommit`. `aUpdated.value` is raised when anything actually changed.
+   *
+   * KiCad's `SetUuid` rebinds an item the board has indexed, else is
+   * `SetUuidDirect`; everything renumbered here belongs to the freshly loaded
+   * `aNew`, which no board has indexed yet, so it is `SetUuidDirect` throughout.
    */
   ExchangeFootprint(
     aExisting: FOOTPRINT,
@@ -1482,16 +1486,16 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
 
     aNew.SetLocked(aExisting.IsLocked());
 
-    aNew.SetUuid(aExisting.m_Uuid);
-    aNew.Reference().SetUuid(aExisting.Reference().m_Uuid);
-    aNew.Value().SetUuid(aExisting.Value().m_Uuid);
+    aNew.SetUuidDirect(aExisting.m_Uuid);
+    aNew.Reference().SetUuidDirect(aExisting.Reference().m_Uuid);
+    aNew.Value().SetUuidDirect(aExisting.Value().m_Uuid);
 
     const padMatches = matchItemsBySimilarity<PAD>([...aExisting.Pads()], [...aNew.Pads()], true);
     const matchedNewPads = new Set<PAD>();
 
     for (const [oldPad, newPad] of padMatches) {
       matchedNewPads.add(newPad);
-      newPad.SetUuid(oldPad.m_Uuid);
+      newPad.SetUuidDirect(oldPad.m_Uuid);
       newPad.SetLocalRatsnestVisible(oldPad.GetLocalRatsnestVisible());
       newPad.SetPinFunction(oldPad.GetPinFunction());
       newPad.SetPinType(oldPad.GetPinType());
@@ -1503,7 +1507,7 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     for (const newPad of aNew.Pads()) {
       if (matchedNewPads.has(newPad)) continue;
 
-      newPad.ResetUuid();
+      newPad.ResetUuidDirect();
       newPad.SetNetCode(UNCONNECTED_NET);
     }
 
@@ -1516,11 +1520,11 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
 
     for (const [oldItem, newItem] of drawingMatches) {
       matchedNewDrawings.add(newItem);
-      newItem.SetUuid(oldItem.m_Uuid);
+      newItem.SetUuidDirect(oldItem.m_Uuid);
     }
 
     for (const newItem of newDrawings) {
-      if (!matchedNewDrawings.has(newItem)) newItem.ResetUuid();
+      if (!matchedNewDrawings.has(newItem)) newItem.ResetUuidDirect();
     }
 
     const reuseUuids = <T extends BOARD_ITEM>(
@@ -1531,11 +1535,11 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
 
       for (const [o, n] of matchItemsBySimilarity<T>(aOld, aNewItems)) {
         matched.add(n);
-        n.SetUuid(o.m_Uuid);
+        n.SetUuidDirect(o.m_Uuid);
       }
 
       for (const n of aNewItems) {
-        if (!matched.has(n)) n.ResetUuid();
+        if (!matched.has(n)) n.ResetUuidDirect();
       }
     };
 
@@ -1556,11 +1560,11 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     for (const [oldField, newField] of fieldMatches) {
       oldToNewFields.set(oldField, newField);
       matchedNewFields.add(newField);
-      newField.SetUuid(oldField.m_Uuid);
+      newField.SetUuidDirect(oldField.m_Uuid);
     }
 
     for (const newField of newFieldsVec) {
-      if (!matchedNewFields.has(newField)) newField.ResetUuid();
+      if (!matchedNewFields.has(newField)) newField.ResetUuidDirect();
     }
 
     const oldToNewTexts = new Map<PCB_TEXT, PCB_TEXT>();
