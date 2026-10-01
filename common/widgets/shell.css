@@ -18625,3 +18625,231 @@ fieldset.ze-import-netlist-options {
   display: flex;
   min-height: 20px; /* [data] the same minimum pane size */
 }
+
+/* ---------------------------------------------------------------------------
+   DIALOG_POSITION_RELATIVE (dialog_position_relative_base.cpp), the sizer tree
+   in dialog_position_relative_ui.tsx. Every margin is that Add()'s own border;
+   the chrome (face, caption, border) is the modeless `.ze-find-dialog`'s, which
+   it is wearing, and is not restated.
+
+   bMainSizer (V)
+     bUpperSizer (V)            wxEXPAND|wxALL 5
+       m_referenceInfo          wxALL|wxEXPAND 5, min width 340
+       bSizerButtOpts (H)       1, wxEXPAND|wxTOP|wxBOTTOM 5
+         4 buttons              1, wxALL 5
+       bSizer6 > staticline     wxEXPAND|wxTOP 5
+     fgSizer2 (5 cols, 5 / 0, col 1 growable)  1, wxEXPAND|wxALL 5
+     bSizerBottom (H)           wxEXPAND|wxTOP 5 */
+.ze-posrel-body {
+  display: flex;
+  flex-direction: column;
+}
+.ze-posrel-upper {
+  display: flex;
+  flex-direction: column;
+  margin: 5px; /* [data] `bMainSizer->Add( bUpperSizer, 0, wxEXPAND|wxALL, 5 )`. */
+}
+.ze-posrel-info {
+  margin: 5px; /* [data] `bUpperSizer->Add( m_referenceInfo, 0, wxALL|wxEXPAND, 5 )`. */
+  min-width: 340px; /* [data] `m_referenceInfo->SetMinSize( wxSize( 340,-1 ) )`. */
+}
+.ze-posrel-buttons {
+  display: grid;
+  /* [css] wxBoxSizer: four items of proportion 1 are as wide as the widest. */
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  margin: 5px 0; /* [data] `Add( bSizerButtOpts, 1, wxEXPAND|wxTOP|wxBOTTOM, 5 )`. */
+}
+.ze-posrel-buttons > .ze-btn {
+  margin: 5px; /* [data] each button `wxALL, 5`. */
+}
+.ze-posrel-buttons > .ze-btn:last-child {
+  align-self: start; /* [data] `m_select_point_button` is `wxALL`, with no wxEXPAND. */
+}
+.ze-posrel-line {
+  margin-top: 5px; /* [data] `bUpperSizer->Add( bSizer6, 0, wxEXPAND|wxTOP, 5 )`. */
+  height: 1px; /* [css] a wxStaticLine is a GtkSeparator: `separator { min-width: 1px }`. */
+  background: var(--gtk-separator);
+}
+.ze-posrel-grid,
+.ze-offset-grid {
+  display: grid;
+  /* [data] `wxFlexGridSizer( 0, 5, 5, 0 )`, `AddGrowableCol( 1 )`: label, entry, unit,
+     the 10 wide spacer, Reset. */
+  grid-template-columns: max-content 1fr max-content max-content max-content;
+  row-gap: 5px; /* [data] the same sizer's vgap, `wxFlexGridSizer( 0, 5, 5, 0 )`. */
+  align-items: center;
+  margin: 5px; /* [data] `bMainSizer->Add( fgSizer2, 1, wxEXPAND|wxALL, 5 )`. */
+}
+.ze-posrel-grid .lbl,
+.ze-offset-grid .lbl {
+  white-space: nowrap;
+}
+.ze-posrel-grid .spacer,
+.ze-offset-grid .spacer {
+  width: 10px; /* [data] `fgSizer2->Add( 10, 0, 1, wxEXPAND, 5 )`. */
+}
+/* Row 1: label `wxRIGHT|wxLEFT`, entry `wxEXPAND|wxLEFT|wxRIGHT`, unit `wxRIGHT`, spacer
+   `wxRIGHT|wxLEFT`, Reset `wxLEFT|wxRIGHT`, all 5. */
+.ze-posrel-grid .r1 {
+  margin: 0 5px; /* [data] the row-1 `Add()`s' wxLEFT|wxRIGHT 5. */
+}
+.ze-posrel-grid .unit {
+  margin: 0 5px 0 0; /* [data] `wxALIGN_CENTER_VERTICAL|wxALIGN_LEFT|wxRIGHT, 5`. */
+}
+/* Row 2: the label also has `wxBOTTOM`. */
+.ze-posrel-grid .r2l {
+  margin: 0 5px 5px; /* [data] `m_yLabel`: `wxBOTTOM|wxRIGHT|wxLEFT, 5`. */
+}
+.ze-posrel-grid .r2 {
+  margin: 0 5px; /* [data] `m_yEntry` and `m_clearY`: `wxLEFT|wxRIGHT, 5`. */
+}
+.ze-posrel-grid .r2s {
+  margin: 0; /* [data] the row-2 spacer states no border. */
+}
+/* bSizerBottom: the check box `wxLEFT, 10`, a 40 wide stretch spacer, the standard buttons
+   `wxBOTTOM|wxTOP, 5`; the whole row `wxEXPAND|wxTOP, 5`. */
+.ze-posrel .ze-modal-footer,
+.ze-offset .ze-modal-footer {
+  padding: 0;
+  margin-top: 5px; /* [data] `bMainSizer->Add( bSizerBottom, 0, wxEXPAND|wxTOP, 5 )`. */
+}
+.ze-posrel .ze-modal-footer > label,
+.ze-offset .ze-modal-footer > label {
+  margin-left: 10px; /* [data] `bSizerBottom->Add( m_polarCoords, 0, …|wxLEFT, 10 )`. */
+}
+.ze-posrel .ze-sdb-spacer,
+.ze-offset .ze-sdb-spacer {
+  min-width: 40px; /* [data] `bSizerBottom->Add( 40, 0, 1, wxEXPAND, 5 )`. */
+}
+.ze-posrel .ze-modal-footer .ze-btn,
+.ze-offset .ze-modal-footer .ze-btn {
+  margin: 5px 0; /* [data] `bSizerBottom->Add( m_stdButtons, 0, wxBOTTOM|wxTOP, 5 )`. */
+}
+
+/* DIALOG_OFFSET_ITEM (dialog_offset_item_base.cpp): the same grid and bottom row
+   under a bMainSizer with no upper sizer. Row 1 has `wxTOP` where the Position
+   Relative dialog's has none. */
+.ze-offset-body {
+  display: flex;
+  flex-direction: column;
+}
+.ze-offset-grid .r1 {
+  margin: 5px 5px 0; /* [data] row 1: `wxTOP|wxRIGHT|wxLEFT, 5` (label, entry, Reset). */
+}
+.ze-offset-grid .unit1 {
+  margin: 5px 5px 0 0; /* [data] `m_xUnit`: `wxTOP|wxRIGHT, 5`. */
+}
+.ze-offset-grid .s1 {
+  margin: 0 5px; /* [data] the row-1 spacer: `wxRIGHT|wxLEFT, 5`. */
+}
+.ze-offset-grid .r2l {
+  margin: 0 5px 5px; /* [data] `m_yLabel`: `wxBOTTOM|wxRIGHT|wxLEFT, 5`. */
+}
+.ze-offset-grid .r2 {
+  margin: 0 5px; /* [data] `m_yEntry` and `m_clearY`: `wxLEFT|wxRIGHT, 5`. */
+}
+.ze-offset-grid .unit2 {
+  margin: 0 5px 0 0; /* [data] `m_yUnit`: `wxRIGHT, 5`. */
+}
+.ze-offset-grid .r2s {
+  margin: 0; /* [data] the row-2 spacer states no border. */
+}
+
+/* ---------------------------------------------------------------------------
+   DIALOG_PUSH_PAD_PROPERTIES (dialog_push_pad_properties_base.cpp), the sizer
+   tree in dialog_push_pad_properties_ui.tsx. Every margin is that Add()'s own
+   border. */
+.ze-modal.ze-pushpad .ze-modal-body.ze-pushpad-body {
+  flex-direction: column;
+  margin: 5px; /* [data] `bMainSizer->Add( bLeftSizer, 1, wxALL|wxEXPAND, 5 )`. */
+  padding: 0;
+}
+.ze-pushpad-left {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+fieldset.ze-pushpad-box {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  margin: 5px 5px 0; /* [data] `bLeftSizer->Add( sbSizer1, 1, wxEXPAND|wxTOP|wxRIGHT|wxLEFT, 5 )`. */
+}
+.ze-pushpad-cb {
+  display: flex;
+  align-items: center;
+  gap: 6px; /* [data] wxCheckBox label spacing. */
+  margin: 0 5px 5px; /* [data] each check box `wxBOTTOM|wxRIGHT|wxLEFT, 5`. */
+}
+.ze-pushpad .ze-modal-footer {
+  padding: 0;
+  margin: 5px; /* [data] `bMainSizer->Add( m_sdbSizer1, 0, wxALL|wxEXPAND, 5 )`. */
+}
+
+/* DIALOG_ENUM_PADS (dialog_enum_pads_base.cpp). */
+.ze-modal.ze-enumpads .ze-modal-body.ze-enumpads-body {
+  flex-direction: column;
+  padding: 0;
+}
+.ze-enumpads-info {
+  margin: 5px; /* [data] `bMainSizer->Add( m_lblInfo, 0, wxALL|wxALIGN_CENTER_HORIZONTAL, 5 )`. */
+  align-self: center;
+}
+.ze-enumpads-gap {
+  height: 10px; /* [data] `Add( 0, 0, 0, wxTOP|wxBOTTOM, 5 )`: a 0 high spacer with 5 above and below. */
+}
+.ze-enumpads-grid {
+  display: grid;
+  grid-template-columns: max-content 1fr; /* [data] `wxFlexGridSizer( 0, 2, 0, 0 )`, col 1 growable. */
+  align-items: center;
+  margin: 5px; /* [data] `bMainSizer->Add( fgSizer, 1, wxEXPAND|wxALL, 5 )`. */
+}
+.ze-enumpads-grid > * {
+  margin: 5px; /* [data] every cell `wxALL`, 5. */
+}
+.ze-enumpads .ze-modal-footer {
+  padding: 0;
+  margin: 5px; /* [data] `bMainSizer->Add( m_stdButtons, 0, wxEXPAND|wxALL, 5 )`. */
+}
+
+/* DIALOG_FP_EDIT_PAD_TABLE (dialog_fp_edit_pad_table_base.cpp). */
+.ze-modal.ze-padtable .ze-modal-body.ze-padtable-body {
+  flex-direction: column;
+  padding: 0;
+}
+.ze-padtable-summary {
+  display: flex;
+  align-items: center;
+  margin: 5px 0; /* [data] `topSizer->Add( bSummarySizer, 0, wxEXPAND|wxTOP|wxBOTTOM, 5 )`. */
+}
+.ze-padtable-summary .stretch {
+  flex: 1; /* [data] `bSummarySizer->Add( 0, 0, 1, wxEXPAND, 5 )`. */
+}
+.ze-padtable-summary .l5 {
+  margin-left: 5px; /* [data] the "Pad numbers:" label: `wxLEFT, 5`. */
+}
+.ze-padtable-summary .l10 {
+  margin-left: 10px; /* [data] "Pad count:" and "Duplicate pads:": `wxLEFT, 10`. */
+}
+.ze-padtable-summary .r5 {
+  margin: 0 5px; /* [data] each value: `wxRIGHT|wxLEFT, 5`. */
+}
+.ze-padtable-ellipsis {
+  /* [data] `SetMinSize / SetMaxSize( GetCharWidth() * 30 )` and `wxST_ELLIPSIZE_END`. */
+  width: 30ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ze-padtable-grid {
+  flex: 1;
+  margin: 5px; /* [data] `topSizer->Add( m_grid, 1, wxEXPAND|wxALL, 5 )`. */
+  min-width: 800px; /* [data] `new WX_GRID( this, wxID_ANY, wxDefaultPosition, wxSize( 800,400 ) )`. */
+  min-height: 400px; /* [data] the same size's height. */
+}
+.ze-padtable .ze-modal-footer {
+  padding: 0;
+  margin: 5px; /* [data] `topSizer->Add( m_sdbSizer, 0, wxALIGN_RIGHT|wxALL, 5 )`. */
+  align-self: flex-end;
+}
