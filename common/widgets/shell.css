@@ -11498,79 +11498,6 @@ textarea.ze-ds-textedit {
   text-align: center;
 }
 
-/* Edit Teardrops (dialog_global_edit_teardrops_base.cpp): Scope and Filter
-   Items side by side, Action below, with the specified-values block indented
-   under its radio. */
-.ze-teardrops-dialog {
-  height: auto;
-  max-height: 92vh;
-}
-.ze-teardrops-top {
-  display: grid;
-  grid-template-columns: 1fr 1.4fr;
-  gap: 10px;
-}
-.ze-teardrops-body select {
-  margin-left: 4px;
-  max-width: 180px;
-}
-.ze-teardrops-body .ze-td-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.ze-teardrops-body .ze-link {
-  background: none;
-  border: none;
-  color: var(--accent, #4a9eff);
-  text-decoration: underline;
-  cursor: default;
-  font-size: 12px;
-  padding: 0;
-}
-.ze-teardrops-body .ze-link:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-.ze-teardrops-body .ze-td-specified {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin: 4px 0 0 22px;
-}
-.ze-teardrops-body .ze-td-label {
-  min-width: 150px;
-}
-.ze-teardrops-body .ze-td-input {
-  width: 70px;
-  text-align: right;
-}
-.ze-teardrops-body .ze-td-unit {
-  color: #8a8c90;
-  font-size: 12px;
-}
-.ze-teardrops-body .ze-td-note {
-  color: #8a8c90;
-  font-size: 11px;
-  margin-left: 150px;
-}
-/* The three-state control: checked, unchecked, or indeterminate ("—"). */
-.ze-teardrops-body .ze-tristate {
-  width: 15px;
-  height: 15px;
-  line-height: 1;
-  font-size: 11px;
-  padding: 0;
-  border: 1px solid var(--chrome-border);
-  background: var(--input-bg, #2b2d31);
-  color: inherit;
-  cursor: default;
-}
-.ze-teardrops-body .ze-tristate:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
 /* Track & Via Properties (dialog_track_via_properties_base.cpp): Common,
    Tracks, Vias and the via teardrop box stacked, each a label/value/unit row. */
 .ze-tvp-dialog {
@@ -19227,4 +19154,126 @@ fieldset.ze-pushpad-box {
   flex: 5; /* [data] `m_MessageWindow`, proportion 5. */
   flex-direction: column;
   margin: 0 10px; /* [data] `wxEXPAND|wxRIGHT|wxLEFT, 10`. */
+}
+
+/* DIALOG_GLOBAL_EDIT_TEARDROPS (dialog_global_edit_teardrops_base.cpp). */
+.ze-getd-top {
+  display: flex;
+}
+.ze-getd-scope {
+  flex: 1; /* [data] `bSizerTop->Add( sbScope, 1, ... )`. */
+  margin: 5px 5px 0; /* [data] `wxEXPAND|wxTOP|wxRIGHT|wxLEFT, 5`. */
+}
+.ze-getd-scope > .ze-check {
+  margin: 0 5px 5px; /* [data] the scope boxes' `wxBOTTOM|wxRIGHT|wxLEFT, 5`. */
+}
+.ze-getd .ze-check.all5 {
+  margin: 5px; /* [data] `wxALL, 5`. */
+}
+.ze-getd .ze-check.top5 {
+  margin: 5px 5px 0; /* [data] `m_existingFilter`'s `wxTOP|wxRIGHT|wxLEFT, 5`. */
+}
+.ze-getd-filters {
+  flex: 2; /* [data] `bSizerTop->Add( sbFilters, 2, ... )`. */
+  margin: 5px 5px 0 0; /* [data] `wxEXPAND|wxTOP|wxRIGHT|wxLEFT, 5`, the left one shared. */
+}
+.ze-getd-filter-grid {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  row-gap: 5px; /* [data] `wxFlexGridSizer( 0, 2, 5, 0 )`. */
+  align-items: center;
+  margin-bottom: 5px; /* [data] `sbFilters->Add( 0, 5, ... )`. */
+}
+.ze-getd-filter-grid > .ze-check {
+  margin: 0 5px; /* [data] the filter boxes' `wxRIGHT|wxLEFT, 5`. */
+}
+.ze-getd-gap {
+  height: 0; /* [data] the grid's empty spacer row; the vgap gives it its 5px. */
+}
+.ze-getd-action {
+  margin: 5px; /* [data] `bMainSizer->Add( sbAction, 1, wxBOTTOM|wxEXPAND|wxLEFT|wxRIGHT|wxTOP, 5 )`. */
+}
+.ze-getd-action > .ze-radio {
+  margin: 0 10px 10px 0; /* [data] the remove radios' `wxBOTTOM|wxRIGHT, 10`. */
+}
+.ze-getd-addrow {
+  display: flex;
+  align-items: center;
+  margin-bottom: 15px; /* [data] `sbAction->Add( bSizer12, 0, wxEXPAND|wxBOTTOM, 15 )`. */
+}
+.ze-getd-addrow > .ze-radio,
+.ze-getd-addrow > .ze-hyperlink {
+  flex: 1; /* [data] both proportion 1 in bSizer12. */
+}
+.ze-getd-addrow > .ze-hyperlink {
+  margin: 0 10px; /* [data] `m_boardSetupLink`'s `wxRIGHT|wxLEFT, 10`. */
+}
+.ze-getd-specified {
+  margin-left: 25px; /* [data] `sbAction->Add( bSizerSpecifiedValues, 0, wxEXPAND|wxLEFT, 25 )`. */
+}
+.ze-getd-cols {
+  display: flex;
+  column-gap: 25px; /* [data] `bSizerCols11->Add( 25, 0, ... )`. */
+  margin: 3px 0 5px; /* [data] `wxEXPAND|wxTOP, 3`, then the `Add( 0, 5 )` spacer. */
+}
+.ze-getd-col {
+  display: flex;
+  flex: 1; /* [data] both columns proportion 1. */
+  flex-direction: column;
+}
+.ze-getd-col > .ze-check {
+  margin: 0 5px 5px 0; /* [data] `wxBOTTOM|wxRIGHT, 5`. */
+}
+.ze-getd-col.right {
+  margin-left: 10px; /* [data] `bSizerRightCol11`'s `wxEXPAND|wxLEFT, 10`. */
+}
+.ze-getd-hd {
+  display: flex;
+  align-items: center;
+}
+.ze-getd-hd > input {
+  margin: 0 5px; /* [data] `m_tcHDRatio`'s `wxRIGHT|wxLEFT, 5`. */
+}
+.ze-getd-hint {
+  margin: 2px 0 2px 2px; /* [data] `m_minTrackWidthHint`'s `wxTOP|wxBOTTOM|wxLEFT, 2`. */
+  font-style: italic; /* [data] `KIUI::GetStatusFont( this ).Italic()`. */
+  font-size: var(--ui-font-size-small);
+}
+.ze-getd-shape {
+  display: flex;
+  column-gap: 25px; /* [data] `bSizerShapeColumns->Add( 25, 0, ... )`. */
+  margin-bottom: 3px; /* [data] `wxEXPAND|wxBOTTOM, 3`. */
+}
+.ze-getd-bitmap {
+  display: flex;
+  flex: 1; /* [data] `bSizerLeftCol`, proportion 1. */
+  justify-content: center;
+  margin: 0 10px 5px 0; /* [data] `wxEXPAND|wxRIGHT, 10` and bSizer41's `wxBOTTOM, 5`. */
+}
+.ze-getd-bitmap > img {
+  margin: 0 5px; /* [data] `m_bitmapTeardrop`'s `wxRIGHT|wxLEFT, 5`. */
+}
+.ze-getd-grid {
+  display: grid;
+  flex: 1; /* [data] `bSizer121`, proportion 1. */
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
+  row-gap: 5px; /* [data] `wxFlexGridSizer( 0, 3, 5, 0 )`. */
+  align-items: center;
+  margin: 5px 0 0 10px; /* [data] `wxEXPAND|wxTOP, 5`, then `fgSizerRightCol`'s `wxEXPAND|wxLEFT, 10`. */
+}
+.ze-getd-grid > input {
+  margin: 0 5px; /* [data] the fields' `wxRIGHT|wxLEFT, 5`. */
+}
+.ze-getd-pct {
+  margin-right: 5px; /* [data] the `%( d )` sizer's `wxRIGHT, 5`. */
+}
+.ze-getd-pct > .hint {
+  vertical-align: sub; /* [data] `m_lengthUnitsHint`, `wxALIGN_BOTTOM, 1`. */
+}
+.ze-getd-curved {
+  grid-column: 1 / -1;
+  margin: 8px 0 3px 3px; /* [data] the `Add( 0, 8 )` spacer, then bSizer44's `wxBOTTOM|wxEXPAND|wxLEFT, 3`. */
+}
+.ze-getd-curved > .ze-check {
+  margin: 0 5px; /* [data] `m_curvedEdges`'s `wxLEFT|wxRIGHT, 5`. */
 }

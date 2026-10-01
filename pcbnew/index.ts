@@ -274,11 +274,8 @@ export {
 
 // Edit Teardrops (pcbnew/dialogs/dialog_global_edit_teardrops.cpp).
 export {
-  applyGlobalTeardropEdit,
-  DEFAULT_GLOBAL_TEARDROP_EDIT,
-  type GlobalTeardropEditOptions,
-  type SpecifiedTeardropValues,
-  type TeardropEditAction,
+  DIALOG_GLOBAL_EDIT_TEARDROPS,
+  TEARDROP_ACTION,
 } from './dialogs/dialog_global_edit_teardrops.js';
 
 // Item properties dialogs (pcbnew/dialogs/: DIALOG_TRACK_VIA_PROPERTIES,

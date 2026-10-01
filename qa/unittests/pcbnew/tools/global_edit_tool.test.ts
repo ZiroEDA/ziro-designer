@@ -6,6 +6,7 @@
  * (pcbnew/dialogs/dialog_swap_layers.cpp) on a live BOARD, driven through the
  * tool manager. KiCad has no qa for either; each expectation cites its line.
  */
+import { DIALOG_GLOBAL_EDIT_TEARDROPS } from '@ziroeda/pcbnew/dialogs/dialog_global_edit_teardrops.js';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { RESET_REASON } from '@ziroeda/common/tool/tool_base.js';
@@ -62,8 +63,13 @@ class GLOBAL_EDIT_FRAME extends GLOBAL_EDIT_TEST_FRAME {
   swapAnswer: { set: [PCB_LAYER_ID, PCB_LAYER_ID][]; ok: boolean } = { set: [], ok: true };
   swapDialogs = 0;
   zoneAnswer = { ok: true, repour: false };
+  teardropDialogs: DIALOG_GLOBAL_EDIT_TEARDROPS[] = [];
   fills = 0;
   modifies = 0;
+
+  override ShowGlobalEditTeardropsDialog(aDialog: DIALOG_GLOBAL_EDIT_TEARDROPS): void {
+    this.teardropDialogs.push(aDialog);
+  }
 
   override OnModify(): void {
     this.modifies++;
@@ -226,6 +232,14 @@ describe('GLOBAL_EDIT_TOOL::SwapLayers (global_edit_tool.cpp:137-192)', () => {
     const undo = h.frame.GetUndoCommandCount();
     await swap([[F_Cu, B_Cu]]);
     expect(h.frame.GetUndoCommandCount()).toBe(undo + 1);
+  });
+});
+
+describe('GLOBAL_EDIT_TOOL::EditTeardrops (dialog_global_edit_teardrops.cpp:501-508)', () => {
+  it('editTeardrops opens one DIALOG_GLOBAL_EDIT_TEARDROPS on the board', () => {
+    h.mgr.RunAction(PCB_ACTIONS.editTeardrops);
+    expect(h.frame.teardropDialogs).toHaveLength(1);
+    expect(h.frame.teardropDialogs[0]).toBeInstanceOf(DIALOG_GLOBAL_EDIT_TEARDROPS);
   });
 });
 

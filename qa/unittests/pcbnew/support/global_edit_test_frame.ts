@@ -9,6 +9,7 @@ import type { DIALOG_UNUSED_PAD_LAYERS } from '@ziroeda/pcbnew/dialogs/dialog_un
 import type { DIALOG_GLOBAL_DELETION } from '@ziroeda/pcbnew/dialogs/dialog_global_deletion.js';
 import type { DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS } from '@ziroeda/pcbnew/dialogs/dialog_global_edit_tracks_and_vias.js';
 import type { DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS } from '@ziroeda/pcbnew/dialogs/dialog_global_edit_text_and_graphics.js';
+import type { DIALOG_GLOBAL_EDIT_TEARDROPS } from '@ziroeda/pcbnew/dialogs/dialog_global_edit_teardrops.js';
 import type { DIALOG_CLEANUP_TRACKS_AND_VIAS } from '@ziroeda/pcbnew/dialogs/dialog_cleanup_tracks_and_vias.js';
 import type { DIALOG_SWAP_LAYERS } from '@ziroeda/pcbnew/dialogs/dialog_swap_layers.js';
 import type { GLOBAL_EDIT_TOOL_FRAME } from '@ziroeda/pcbnew/tools/global_edit_tool.js';
@@ -32,6 +33,8 @@ export class GLOBAL_EDIT_TEST_FRAME extends TEST_PCB_FRAME implements GLOBAL_EDI
   ShowGlobalEditTracksAndViasDialog(_aDialog: DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS): void {}
 
   ShowGlobalEditTextAndGraphicsDialog(_aDialog: DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS): void {}
+
+  ShowGlobalEditTeardropsDialog(_aDialog: DIALOG_GLOBAL_EDIT_TEARDROPS): void {}
 
   ShowGlobalDeletionDialog(_aDialog: DIALOG_GLOBAL_DELETION): Promise<boolean> {
     return Promise.resolve(false);

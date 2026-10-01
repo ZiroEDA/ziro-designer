@@ -26,6 +26,7 @@ import { DIALOG_UNUSED_PAD_LAYERS } from '../dialogs/dialog_unused_pad_layers.js
 import { DIALOG_GLOBAL_DELETION } from '../dialogs/dialog_global_deletion.js';
 import { DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS } from '../dialogs/dialog_global_edit_tracks_and_vias.js';
 import { DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS } from '../dialogs/dialog_global_edit_text_and_graphics.js';
+import { DIALOG_GLOBAL_EDIT_TEARDROPS } from '../dialogs/dialog_global_edit_teardrops.js';
 import type { PCB_EDIT_FRAME } from '../pcb_edit_frame.js';
 import type { PCB_SELECTION_TOOL } from './pcb_selection_tool.js';
 import type { PCB_BASE_EDIT_FRAME } from '../pcb_base_edit_frame.js';
@@ -43,6 +44,8 @@ const GEOMETRY = VIEW_UPDATE_FLAGS.GEOMETRY;
 export interface GLOBAL_EDIT_TOOL_FRAME {
   /** `DIALOG_SWAP_LAYERS dlg( frame(), layerMap ); dlg.ShowModal() == wxID_OK`. */
   ShowSwapLayersDialog(aDialog: DIALOG_SWAP_LAYERS): Promise<boolean>;
+  /** `DIALOG_GLOBAL_EDIT_TEARDROPS dlg( editFrame ); dlg.ShowQuasiModal()`. */
+  ShowGlobalEditTeardropsDialog(aDialog: DIALOG_GLOBAL_EDIT_TEARDROPS): void;
   /** `DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS dlg( editFrame ); dlg.ShowModal()`. */
   ShowGlobalEditTextAndGraphicsDialog(aDialog: DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS): void;
   /** `DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS dlg( editFrame ); dlg.ShowQuasiModal()`. */
@@ -235,6 +238,15 @@ export class GLOBAL_EDIT_TOOL extends PCB_TOOL_BASE {
     return 0;
   }
 
+  /** `GLOBAL_EDIT_TOOL::EditTeardrops` (dialog_global_edit_teardrops.cpp:501-508). */
+  EditTeardrops(_aEvent: TOOL_EVENT): number {
+    const editFrame = this.m_toolMgr!.GetToolHolder() as unknown as PCB_EDIT_FRAME;
+    const dlg = new DIALOG_GLOBAL_EDIT_TEARDROPS(editFrame);
+
+    editFrame.ShowGlobalEditTeardropsDialog(dlg); // QuasiModal required for NET_SELECTOR
+    return 0;
+  }
+
   /** `GLOBAL_EDIT_TOOL::EditTextAndGraphics` (dialog_global_edit_text_and_graphics.cpp:640-646). */
   EditTextAndGraphics(_aEvent: TOOL_EVENT): number {
     const editFrame = this.editFrame();
@@ -316,6 +328,7 @@ export class GLOBAL_EDIT_TOOL extends PCB_TOOL_BASE {
     this.Go(S(this.RemoveUnusedPads), PCB_ACTIONS.removeUnusedPads.MakeEvent());
     this.Go(S(this.EditTracksAndVias), PCB_ACTIONS.editTracksAndVias.MakeEvent());
     this.Go(S(this.EditTextAndGraphics), PCB_ACTIONS.editTextAndGraphics.MakeEvent());
+    this.Go(S(this.EditTeardrops), PCB_ACTIONS.editTeardrops.MakeEvent());
     this.Go(S(this.ExchangeFootprints), PCB_ACTIONS.updateFootprint.MakeEvent());
     this.Go(S(this.ExchangeFootprints), PCB_ACTIONS.updateFootprints.MakeEvent());
     this.Go(S(this.ExchangeFootprints), PCB_ACTIONS.changeFootprint.MakeEvent());

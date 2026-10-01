@@ -122,6 +122,7 @@ import type { DIALOG_UNUSED_PAD_LAYERS } from './dialogs/dialog_unused_pad_layer
 import type { DIALOG_GLOBAL_DELETION } from './dialogs/dialog_global_deletion.js';
 import type { DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS } from './dialogs/dialog_global_edit_tracks_and_vias.js';
 import type { DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS } from './dialogs/dialog_global_edit_text_and_graphics.js';
+import type { DIALOG_GLOBAL_EDIT_TEARDROPS } from './dialogs/dialog_global_edit_teardrops.js';
 import {
   type DIALOG_PUSH_PAD_PROPERTIES,
   wxID_CANCEL,
@@ -469,6 +470,8 @@ export interface PCB_EDIT_FRAME_HOOKS {
   attachPositionRelativeDialog?(aDialog: DIALOG_POSITION_RELATIVE): void;
   /** POSITION_RELATIVE_TOOL's `DIALOG_OFFSET_ITEM( ... ).ShowModal() == wxID_OK`. */
   showOffsetItemDialog?(aDialog: DIALOG_OFFSET_ITEM): Promise<boolean>;
+  /** GLOBAL_EDIT_TOOL's DIALOG_GLOBAL_EDIT_TEARDROPS, quasi-modal; it closes itself. */
+  showGlobalEditTeardropsDialog?(aDialog: DIALOG_GLOBAL_EDIT_TEARDROPS): void;
   /** GLOBAL_EDIT_TOOL's DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS, modal; it closes itself. */
   showGlobalEditTextAndGraphicsDialog?(aDialog: DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS): void;
   /** GLOBAL_EDIT_TOOL's DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS, quasi-modal; it closes itself. */
@@ -867,6 +870,10 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   }
 
   // ---- GLOBAL_EDIT_TOOL's window half (GLOBAL_EDIT_TOOL_FRAME) --------------
+
+  ShowGlobalEditTeardropsDialog(aDialog: DIALOG_GLOBAL_EDIT_TEARDROPS): void {
+    this.hooks.showGlobalEditTeardropsDialog?.(aDialog);
+  }
 
   ShowGlobalEditTextAndGraphicsDialog(aDialog: DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS): void {
     this.hooks.showGlobalEditTextAndGraphicsDialog?.(aDialog);
