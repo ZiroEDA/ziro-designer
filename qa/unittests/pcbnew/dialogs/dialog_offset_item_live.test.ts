@@ -147,6 +147,21 @@ describe('DIALOG_OFFSET_ITEM::OnPolarChanged (:80-127)', () => {
   });
 });
 
+describe('DIALOG_OFFSET_ITEM::OnPolarChanged, one entry changed (:84)', () => {
+  it('a change of x alone is enough to recompute, and so is a change of y alone', () => {
+    dlg.OnPolarChanged(false);
+    dlg.SetEntryText(dlg.m_xOffset, '3');
+    dlg.SetEntryText(dlg.m_yOffset, '0');
+    dlg.OnPolarChanged(true);
+    expect(dlg.m_xOffset.GetText()).toBe('3');
+    dlg.OnPolarChanged(false);
+    dlg.SetEntryText(dlg.m_xOffset, '0');
+    dlg.SetEntryText(dlg.m_yOffset, '3');
+    dlg.OnPolarChanged(true);
+    expect(dlg.m_xOffset.GetText()).toBe('3');
+  });
+});
+
 describe('DIALOG_OFFSET_ITEM::OnTextFocusLost (:38-45)', () => {
   it('an entry left blank is reset to 0', () => {
     dlg.SetEntryText(dlg.m_yOffset, '');

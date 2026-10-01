@@ -10,7 +10,7 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RESET_REASON } from '@ziroeda/common/tool/tool_base.js';
-import { TOOL_INTERACTIVE } from '@ziroeda/common/tool/tool_interactive.js';
+import { SYNC_HANDLER, TOOL_INTERACTIVE } from '@ziroeda/common/tool/tool_interactive.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { DIALOG_OFFSET_ITEM } from '@ziroeda/pcbnew/dialogs/dialog_offset_item.js';
 import { DialogOffsetItem } from '@ziroeda/pcbnew/dialogs/dialog_offset_item_ui.js';
@@ -21,11 +21,14 @@ import {
 import { DialogPositionRelativeModeless } from '@ziroeda/pcbnew/dialogs/dialog_position_relative_ui.js';
 import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { PCB_SCREEN } from '@ziroeda/pcbnew/pcb_screen.js';
+import { PCB_ACTIONS } from '@ziroeda/pcbnew/tools/pcb_actions.js';
 import { TEST_PCB_FRAME } from '../support/test_pcb_frame.js';
 
 const MM = 1_000_000;
 
 class STUB_PICKER extends TOOL_INTERACTIVE {
+  asked: string[] = [];
+
   constructor() {
     super('pcbnew.InteractivePicker');
   }
@@ -33,7 +36,20 @@ class STUB_PICKER extends TOOL_INTERACTIVE {
     return true;
   }
   override Reset(_r: RESET_REASON): void {}
-  protected override setTransitions(): void {}
+  protected override setTransitions(): void {
+    const record = (aName: string) => (): number => {
+      this.asked.push(aName);
+      return 0;
+    };
+    this.Go(
+      SYNC_HANDLER<STUB_PICKER>(record('item')),
+      PCB_ACTIONS.selectItemInteractively.MakeEvent(),
+    );
+    this.Go(
+      SYNC_HANDLER<STUB_PICKER>(record('point')),
+      PCB_ACTIONS.selectPointInteractively.MakeEvent(),
+    );
+  }
 }
 
 class STUB_POSREL extends TOOL_INTERACTIVE {
@@ -59,6 +75,7 @@ class STUB_POSREL extends TOOL_INTERACTIVE {
 
 let frame: TEST_PCB_FRAME;
 let posrel: STUB_POSREL;
+let picker: STUB_PICKER;
 
 beforeEach(() => {
   DIALOG_POSITION_RELATIVE.s_anchorType = ANCHOR_TYPE.ANCHOR_ITEM;
@@ -70,7 +87,8 @@ beforeEach(() => {
   frame.SetScreen(new PCB_SCREEN({ x: 297e6, y: 210e6 }));
   posrel = new STUB_POSREL();
   frame.GetToolManager()!.RegisterTool(posrel);
-  frame.GetToolManager()!.RegisterTool(new STUB_PICKER());
+  picker = new STUB_PICKER();
+  frame.GetToolManager()!.RegisterTool(picker);
   frame.GetToolManager()!.InitTools();
 });
 
@@ -165,6 +183,18 @@ describe('DialogPositionRelativeModeless (dialog_position_relative_base.cpp)', (
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
+  it('the OK button moves the selection and hides the dialog', () => {
+    const dlg = new DIALOG_POSITION_RELATIVE(frame);
+    render(<DialogPositionRelativeModeless dialog={dlg} />);
+    act(() => dlg.Show(true));
+    fireEvent.click(screen.getByRole('button', { name: 'Use Grid Origin' }));
+    fireEvent.click(screen.getByLabelText('Use polar coordinates'));
+    fireEvent.change(input('ze-posrel-x'), { target: { value: '1' } });
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+    expect(posrel.moves).toHaveLength(1);
+    expect(dlg.IsShown()).toBe(false);
+  });
+
   it('Cancel, the close box and Esc hide it without moving anything', () => {
     const dlg = new DIALOG_POSITION_RELATIVE(frame);
     render(<DialogPositionRelativeModeless dialog={dlg} />);
@@ -205,6 +235,8 @@ describe('DialogPositionRelativeModeless (dialog_position_relative_base.cpp)', (
     act(() => dlg.Show(true));
     fireEvent.click(screen.getByRole('button', { name: 'Select Point...' }));
     expect(screen.queryByRole('dialog')).toBeNull();
+    // each button runs its own picker action
+    expect(picker.asked).toEqual(['item', 'point']);
   });
 
   it('a picked point is printed in the reference line, and the window comes back', () => {

@@ -9,6 +9,7 @@
  * read off the C++ line it cites.
  */
 import { beforeEach, describe, expect, it } from 'vitest';
+import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import { TOOL_INTERACTIVE, SYNC_HANDLER } from '@ziroeda/common/tool/tool_interactive.js';
 import type { RESET_REASON } from '@ziroeda/common/tool/tool_base.js';
@@ -208,6 +209,21 @@ describe('DIALOG_POSITION_RELATIVE::OnPolarChanged (:95-141)', () => {
     expect(dlg.m_yOffset.GetText()).toBe('-400');
   });
 
+  it('a change of x alone is enough to recompute (:107, || not &&)', () => {
+    dlg.OnPolarChanged(false);
+    typeXY('3', '0');
+    dlg.OnPolarChanged(true);
+    expect(dlg.m_xOffset.GetText()).toBe('3');
+    expect(dlg.m_yOffset.GetText()).toBe('0');
+  });
+
+  it('a change of y alone is enough too', () => {
+    dlg.OnPolarChanged(false);
+    typeXY('0', '3');
+    dlg.OnPolarChanged(true);
+    expect(dlg.m_xOffset.GetText()).toBe('3');
+  });
+
   it('an edit between toggles is recomputed from the entries (:107-110)', () => {
     typeXY('10', '400');
     dlg.OnPolarChanged(false);
@@ -266,6 +282,11 @@ describe('DIALOG_POSITION_RELATIVE anchors (:200-292)', () => {
     expect(dlg.getAnchorPos()).toEqual({ x: MM(5), y: MM(6) });
   });
 
+  it('something that is not a board item is not an anchor (:296, IsBOARD_ITEM)', () => {
+    dlg.UpdatePickedItem({ IsBOARD_ITEM: () => false } as unknown as EDA_ITEM);
+    expect(dlg.m_referenceInfo).toBe('Reference item: <none selected>');
+  });
+
   it('a picked point is the anchor and is printed in the frame units (:279-285, :309-318)', () => {
     dlg.UpdatePickedPoint({ x: MM(12), y: MM(34) });
     expect(DIALOG_POSITION_RELATIVE.s_anchorType).toBe(ANCHOR_TYPE.ANCHOR_POINT);
@@ -296,6 +317,15 @@ describe('DIALOG_POSITION_RELATIVE pick buttons (:186-211)', () => {
     expect(picker.asked[0]!.action).toBe('item');
     expect(picker.asked[0]!.params.m_Receiver).toBe(dlg);
     expect(picker.asked[0]!.params.m_Prompt).toBe('Select reference item...');
+  });
+
+  it('with no picker tool the buttons do nothing at all (wxCHECK( pickerTool, ))', () => {
+    const bare = new TEST_PCB_FRAME(board);
+    const d = new DIALOG_POSITION_RELATIVE(bare);
+    d.Show(true);
+    d.OnSelectItemClick();
+    d.OnSelectPointClick();
+    expect(d.IsShown()).toBe(true);
   });
 
   it('Select Point... hides, but does not close, the dialog (:199-207)', () => {

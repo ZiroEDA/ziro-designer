@@ -12,7 +12,7 @@ import { RECURSE_MODE } from '@ziroeda/common/eda_item.js';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import { GAL_DISPLAY_OPTIONS } from '@ziroeda/common/gal/gal_display_options.js';
 import { GAL } from '@ziroeda/common/gal/graphics_abstraction_layer.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { LAYER_ANCHOR, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { RULER_ITEM } from '@ziroeda/common/preview_items/ruler_item.js';
 import { PGM_BASE, SETTINGS_MANAGER, SetPgm } from '@ziroeda/common/pgm_base.js';
 import { ACTIONS, EVENTS } from '@ziroeda/common/tool/actions.js';
@@ -63,6 +63,9 @@ interface RULER_PRIVATE {
   m_flipX: boolean;
   m_flipY: boolean;
   m_userUnits: string;
+  m_showTicks: boolean;
+  m_showEndArrowHead: boolean;
+  m_color: unknown;
 }
 const rulerState = (r: RULER_ITEM): RULER_PRIVATE => r as unknown as RULER_PRIVATE;
 
@@ -111,6 +114,9 @@ const BOARD_TEXT = `(kicad_pcb (version 20241229) (generator "pcbnew") (generato
   (segment (start 10 10) (end 20 10) (width 0.25) (layer "F.Cu") (net 1) (uuid "${U(20)}"))
   (segment (start 100 100) (end 110 100) (width 0.25) (layer "F.Cu") (locked yes) (net 2) (uuid "${U(22)}"))
   (gr_line (start 10 50) (end 20 50) (stroke (width 0.1) (type solid)) (layer "F.SilkS") (uuid "${U(30)}"))
+  (gr_line (start 12 60) (end 18 60) (stroke (width 0.1) (type solid)) (layer "F.SilkS") (uuid "${U(31)}"))
+  (gr_line (start 12 62) (end 18 62) (stroke (width 0.1) (type solid)) (layer "F.SilkS") (uuid "${U(32)}"))
+  (group "G" (uuid "${U(50)}") (members "${U(31)}" "${U(32)}"))
   (gr_text "A1" (at 70 70 0) (layer "F.SilkS") (uuid "${U(40)}")
     (effects (font (size 1 1) (thickness 0.15))))
 )
@@ -499,6 +505,16 @@ describe('POSITION_RELATIVE_TOOL::RelativeItemSelectionMove (position_relative_t
     expect((byUuid(h.board, 5) as PAD).GetPosition()).toEqual(mm(59, 30));
   });
 
+  it("undo gives a moved group's members back (:36, Modify( RECURSE ) stages them)", () => {
+    select(h, 50);
+    h.mgr.RunAction(PCB_ACTIONS.positionRelative);
+    positionRelativeTo(h.frame.attached[0]!, '0', '0');
+    expect((byUuid(h.board, 31) as PCB_SHAPE).GetStart()).not.toEqual(mm(12, 60));
+    h.frame.RestoreCopyFromUndoList();
+    expect((byUuid(h.board, 31) as PCB_SHAPE).GetStart()).toEqual(mm(12, 60));
+    expect((byUuid(h.board, 32) as PCB_SHAPE).GetStart()).toEqual(mm(12, 62));
+  });
+
   it('a hover selection is cleared after the move (:405-406)', () => {
     h.mouse = mm(15, 10);
     h.mgr.RunAction(PCB_ACTIONS.positionRelative);
@@ -518,7 +534,8 @@ describe('POSITION_RELATIVE_TOOL::RelativeItemSelectionMove (position_relative_t
     h.mgr.RunAction(PCB_ACTIONS.positionRelative);
     h.processed.length = 0;
     positionRelativeTo(h.frame.attached[0]!, '10', '5');
-    expect(h.processed).toContain(EVENTS.SelectedItemsModified);
+    // once from BOARD_COMMIT::Push for the selected items it changed, once from the tool itself
+    expect(h.processed.filter((e) => e === EVENTS.SelectedItemsModified)).toHaveLength(2);
   });
 
   it('moves every item of a mixed selection by the same vector', () => {
@@ -564,6 +581,32 @@ describe('POSITION_RELATIVE_TOOL::InteractiveOffset (position_relative_tool.cpp:
     expect(h.frame.GetUndoCommandCount()).toBe(1);
   });
 
+  it('moves along y as well: (origin - end) + the dialog offset (:268-271)', async () => {
+    select(h, 1);
+    h.frame.offsetAnswer = (d) => {
+      d.OnPolarChanged(false);
+      d.SetEntryText(d.m_xOffset, '5');
+      d.SetEntryText(d.m_yOffset, '2');
+    };
+    h.mgr.RunAction(PCB_ACTIONS.interactiveOffsetTool);
+    drawOffset(mm(60, 30), mm(70, 35));
+    await flush();
+    // (70-60)+5 = 15 along x, (35-30)+2 = 7 along y
+    expect(fp(1).GetPosition()).toEqual(mm(75, 37));
+  });
+
+  it('shows the y of the vector as well (:260-264)', async () => {
+    select(h, 1);
+    h.mgr.RunAction(PCB_ACTIONS.interactiveOffsetTool);
+    drawOffset(mm(60, 30), mm(70, 35));
+    await flush();
+    // (-10, -5) mm: 11.1803398875 mm, and the vector points up-left, -153.4349 degrees,
+    // shown negated (pcb_origin_transforms.cpp:76) as 153.4349
+    expect(h.frame.offsetAsked).toHaveLength(1);
+    expect(h.frame.offsetAsked[0]![0]).toBeCloseTo(11180339.8875, 3);
+    expect(h.frame.offsetAsked[0]![1]).toBe(153.4349);
+  });
+
   it('accepting the dialog as shown moves nothing (offset = end - origin cancels the term)', async () => {
     select(h, 1);
     h.frame.offsetAnswer = () => {};
@@ -596,9 +639,10 @@ describe('POSITION_RELATIVE_TOOL::InteractiveOffset (position_relative_tool.cpp:
   it('snaps the clicks to the grid (:216-224)', async () => {
     select(h, 1);
     h.mgr.RunAction(PCB_ACTIONS.interactiveOffsetTool);
-    drawOffset({ x: 60.04 * MM, y: 30.02 * MM }, { x: 70.03 * MM, y: 30.04 * MM });
+    // empty board space, so only the 0.1 mm grid can move the points
+    drawOffset({ x: 100.04 * MM, y: 60.02 * MM }, { x: 110.03 * MM, y: 60.04 * MM });
     await flush();
-    // 0.1 mm grid: (60.0, 30.0) and (70.0, 30.0), so 10 mm at 180 degrees exactly
+    // (100.0, 60.0) and (110.0, 60.0): exactly 10 mm at 180 degrees
     expect(h.frame.offsetAsked).toEqual([[10 * MM, 180]]);
   });
 
@@ -615,6 +659,15 @@ describe('POSITION_RELATIVE_TOOL::InteractiveOffset (position_relative_tool.cpp:
     h.mgr.RunAction(PCB_ACTIONS.interactiveOffsetTool);
     drawOffset(mm(105, 100), mm(110, 100));
     expect(h.frame.offsetAsked).toEqual([]);
+  });
+
+  it('a locked item gets the banner and the tool does not start (:175, ReportFilteredLockedItems)', () => {
+    select(h, 22);
+    h.mgr.RunAction(PCB_ACTIONS.interactiveOffsetTool);
+    expect(h.frame.warnings).toEqual([
+      "Selection contains locked items. Enable 'Override locks' to operate on them.",
+    ]);
+    expect(h.frame.IsCurrentTool(PCB_ACTIONS.interactiveOffsetTool)).toBe(false);
   });
 
   it('Esc with no origin set ends the tool (:238-244)', () => {
@@ -673,8 +726,8 @@ describe('POSITION_RELATIVE_TOOL::InteractiveOffset (position_relative_tool.cpp:
   it('forces the crosshair onto the snapped point (:219-221)', () => {
     select(h, 1);
     h.mgr.RunAction(PCB_ACTIONS.interactiveOffsetTool);
-    mouse(h, TA_MOUSE_MOTION, { x: 60.04 * MM, y: 30.02 * MM });
-    expect(h.forced).toEqual(mm(60, 30));
+    mouse(h, TA_MOUSE_MOTION, { x: 100.04 * MM, y: 60.02 * MM });
+    expect(h.forced).toEqual(mm(100, 60));
   });
 
   it('a drag starts the ruler and releasing the button ends it (:246, :251)', async () => {
@@ -722,6 +775,11 @@ describe('POSITION_RELATIVE_TOOL::InteractiveOffset (position_relative_tool.cpp:
       expect(h.rulers).toHaveLength(1);
       expect(h.view.HasItem(h.rulers[0]!)).toBe(true);
       expect(h.view.IsVisible(h.rulers[0]!)).toBe(false);
+      expect(rulerState(h.rulers[0]!).m_showTicks).toBe(false);
+      expect(rulerState(h.rulers[0]!).m_showEndArrowHead).toBe(true);
+      expect(rulerState(h.rulers[0]!).m_color).toEqual(
+        h.view.GetPainter().GetSettings().GetLayerColor(LAYER_ANCHOR),
+      );
     });
 
     it('shows once the reference point is set and the pointer moves', () => {
@@ -802,16 +860,17 @@ describe('POSITION_RELATIVE_TOOL::InteractiveOffset (position_relative_tool.cpp:
     });
 
     it('follows the display axis inversion, and the preferences changing it (:75-87, :342-355)', () => {
-      h.frame.settings.m_Display.m_DisplayInvertYAxis = true;
-      select(h, 1);
-      h.mgr.RunAction(PCB_ACTIONS.interactiveOffsetTool);
-      expect(rulerState(h.rulers[0]!).m_flipX).toBe(false);
-      expect(rulerState(h.rulers[0]!).m_flipY).toBe(true);
       h.frame.settings.m_Display.m_DisplayInvertXAxis = true;
       h.frame.settings.m_Display.m_DisplayInvertYAxis = false;
-      h.mgr.RunAction(ACTIONS.updatePreferences);
+      select(h, 1);
+      h.mgr.RunAction(PCB_ACTIONS.interactiveOffsetTool);
       expect(rulerState(h.rulers[0]!).m_flipX).toBe(true);
       expect(rulerState(h.rulers[0]!).m_flipY).toBe(false);
+      h.frame.settings.m_Display.m_DisplayInvertXAxis = false;
+      h.frame.settings.m_Display.m_DisplayInvertYAxis = true;
+      h.mgr.RunAction(ACTIONS.updatePreferences);
+      expect(rulerState(h.rulers[0]!).m_flipX).toBe(false);
+      expect(rulerState(h.rulers[0]!).m_flipY).toBe(true);
     });
 
     it('in the footprint editor takes its axes from the footprint editor settings (:78-83)', () => {
