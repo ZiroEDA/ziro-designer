@@ -268,7 +268,7 @@ export function buildPcbMenus(
           action: () => h.action('editTextAndGraphics'),
         },
         { label: 'Edit Teardrops...', action: () => h.action('editTeardrops') },
-        { label: 'Change Footprints...', disabled: dis },
+        { label: 'Change Footprints...', action: () => h.action('changeFootprints') },
         { label: 'Swap Layers...', action: () => h.action('swapLayers') },
         // `ACTIONS::gridOrigin` — the DIALOG ("Grid Origin..."), not
         // `gridSetOrigin`, which is the interactive tool the Place menu has.
@@ -844,7 +844,7 @@ export function buildPcbMenus(
           action: () => h.action('showFootprintEditor'),
           disabled: !st.hasFootprintEditor,
         },
-        { label: 'Update Footprints from Library...', disabled: dis },
+        { label: 'Update Footprints from Library...', action: () => h.action('updateFootprints') },
         { label: 'Migrate 3D Models...', disabled: dis },
         { sep: true },
         { label: 'Zone Manager...', icon: 'zonesManager', action: () => h.action('zonesManager') },

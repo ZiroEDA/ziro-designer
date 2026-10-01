@@ -8,6 +8,7 @@
  * invoked as `PCB_EDIT_FRAME::setupTools` leaves it, and the TOOL_EVENTs the
  * dispatcher makes.
  */
+import type { PCB_BASE_EDIT_FRAME } from '@ziroeda/pcbnew/pcb_base_edit_frame.js';
 import { RECURSE_MODE } from '@ziroeda/common/eda_item.js';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import { GAL_DISPLAY_OPTIONS } from '@ziroeda/common/gal/gal_display_options.js';
@@ -82,6 +83,52 @@ export function toolHarness<F extends TEST_PCB_FRAME>(
   frame.SetScreen(new PCB_SCREEN({ x: 297 * MM, y: 210 * MM }));
   frame.SetActiveLayer(PCB_LAYER_ID.F_Cu);
 
+  const h: Partial<TOOL_HARNESS<F>> = {
+    board,
+    frame,
+    mouse: { x: 0, y: 0 },
+    forced: null,
+    menus: [],
+    menuCloses: [],
+  };
+  const { view, controls } = harnessCanvas(board, frame, h as HARNESS_MOUSE);
+  h.view = view;
+
+  frame.SetPopupMenuPresenter((aMenu: ACTION_MENU, aOnClose: () => void) => {
+    h.menus!.push(aMenu);
+    h.menuCloses!.push(aOnClose);
+  });
+
+  const mgr = frame.GetToolManager()!;
+  mgr.SetEnvironment(board, view, controls, frame.settings, frame);
+
+  const sel = new PCB_SELECTION_TOOL();
+  mgr.RegisterTool(sel);
+
+  for (const tool of aTools()) mgr.RegisterTool(tool);
+
+  mgr.InitTools();
+  mgr.InvokeTool('common.InteractiveSelection');
+
+  return Object.assign(h, { mgr, sel }) as TOOL_HARNESS<F>;
+}
+
+/** The mouse a harness canvas answers from: where it is, and any forced cursor. */
+export interface HARNESS_MOUSE {
+  mouse: Vec2;
+  forced: Vec2 | null;
+}
+
+/**
+ * A real PCB_VIEW on a stub GAL with the board's items in it, a canvas, and
+ * view controls answering from `aMouse` - what toolHarness gives its frame,
+ * for a test that builds its own frame (a real PCB_EDIT_FRAME, say).
+ */
+export function harnessCanvas(
+  board: BOARD,
+  frame: PCB_BASE_EDIT_FRAME,
+  h: HARNESS_MOUSE,
+): { view: PCB_VIEW; controls: TOOL_MANAGER_VIEW_CONTROLS } {
   const gal = new STUB_GAL(new GAL_DISPLAY_OPTIONS());
   gal.ResizeScreen(1000, 1000);
   // a 0.1 mm grid, snapping on, as the frame sets it from its grid settings
@@ -99,16 +146,6 @@ export function toolHarness<F extends TEST_PCB_FRAME>(
   for (const fp of board.Footprints())
     fp.RunOnChildren((aItem: BOARD_ITEM) => view.Add(aItem), RECURSE_MODE.NO_RECURSE);
 
-  const h: Partial<TOOL_HARNESS<F>> = {
-    board,
-    frame,
-    view,
-    mouse: { x: 0, y: 0 },
-    forced: null,
-    menus: [],
-    menuCloses: [],
-  };
-
   frame.SetCanvas({
     GetView: () => view,
     GetGAL: () => gal,
@@ -121,14 +158,9 @@ export function toolHarness<F extends TEST_PCB_FRAME>(
     GetClientSize: () => ({ x: 1000, y: 1000 }),
   } as unknown as PCB_DRAW_PANEL_GAL);
 
-  frame.SetPopupMenuPresenter((aMenu: ACTION_MENU, aOnClose: () => void) => {
-    h.menus!.push(aMenu);
-    h.menuCloses!.push(aOnClose);
-  });
-
   const controls = {
-    GetMousePosition: () => h.mouse!,
-    GetCursorPosition: () => h.forced ?? h.mouse!,
+    GetMousePosition: () => h.mouse,
+    GetCursorPosition: () => h.forced ?? h.mouse,
     SetAutoPan: () => {},
     SetCursorPosition: (aPos: Vec2) => {
       h.mouse = { ...aPos };
@@ -143,18 +175,7 @@ export function toolHarness<F extends TEST_PCB_FRAME>(
     ApplySettings: () => {},
   } as unknown as TOOL_MANAGER_VIEW_CONTROLS;
 
-  const mgr = frame.GetToolManager()!;
-  mgr.SetEnvironment(board, view, controls, frame.settings, frame);
-
-  const sel = new PCB_SELECTION_TOOL();
-  mgr.RegisterTool(sel);
-
-  for (const tool of aTools()) mgr.RegisterTool(tool);
-
-  mgr.InitTools();
-  mgr.InvokeTool('common.InteractiveSelection');
-
-  return Object.assign(h, { mgr, sel }) as TOOL_HARNESS<F>;
+  return { view, controls };
 }
 
 /** The item whose uuid is `U(aN)`, at any depth. */

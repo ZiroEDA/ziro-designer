@@ -29,7 +29,7 @@ import { FLIP_DIRECTION } from '@ziroeda/kimath/src/core/mirror.js';
 import { LeaderMode as LEADER_MODE } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
 import { EDA_ANGLE, EDA_ANGLE_T } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import type { BOARD } from './board.js';
-import type { BOARD_ITEM } from './board_item.js';
+import { BOARD_ITEM } from './board_item.js';
 import type { BOARD_CONNECTED_ITEM } from './board_connected_item.js';
 import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
 import type { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
@@ -48,6 +48,15 @@ import { type AUI_PANELS, PCBNEW_SETTINGS } from './pcbnew_settings.js';
 import { BOARD_COMMIT, SKIP_SET_DIRTY, SKIP_UNDO } from './board_commit.js';
 import type { FOOTPRINT } from './footprint.js';
 import type { PCB_FIELD } from './pcb_field.js';
+import { PCB_TEXT } from './pcb_text.js';
+import { PCB_DIMENSION_BASE } from './pcb_dimension.js';
+import { FootprintNeedsUpdate } from './footprint_needs_update.js';
+import { DIALOG_EXCHANGE_FOOTPRINTS } from './dialogs/dialog_exchange_footprints.js';
+import { EMBEDDED_FILE, FILE_TYPE } from '@ziroeda/common/embedded_files.js';
+import { UNCONNECTED_NET } from './netinfo_list.js';
+import { RECURSE_MODE } from '@ziroeda/common/eda_item.js';
+import type { EDA_TEXT } from '@ziroeda/common/eda_text.js';
+import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import type { ZONE } from './zone.js';
 import type { wxTextValidator } from '@ziroeda/common/validators.js';
@@ -113,6 +122,7 @@ import type { DIALOG_UNUSED_PAD_LAYERS } from './dialogs/dialog_unused_pad_layer
 import type { DIALOG_GLOBAL_DELETION } from './dialogs/dialog_global_deletion.js';
 import type { DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS } from './dialogs/dialog_global_edit_tracks_and_vias.js';
 import type { DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS } from './dialogs/dialog_global_edit_text_and_graphics.js';
+import type { DIALOG_GLOBAL_EDIT_TEARDROPS } from './dialogs/dialog_global_edit_teardrops.js';
 import {
   type DIALOG_PUSH_PAD_PROPERTIES,
   wxID_CANCEL,
@@ -304,8 +314,8 @@ export interface PCB_EDIT_FRAME_HOOKS {
    * own render choice, from the zone's own `GetIsRuleArea()`/layer).
    */
   editZoneParams(zoneIndex: number): void;
-  /** `DIALOG_EXCHANGE_FOOTPRINTS( frame, footprint, updateMode, true ).ShowQuasiModal()`. */
-  showExchangeFootprintsDialog(aFootprint: FOOTPRINT, aUpdateMode: boolean): void;
+  /** `DIALOG_EXCHANGE_FOOTPRINTS::ShowQuasiModal()`: the window shows the dialog; it closes itself. */
+  showExchangeFootprintsDialog(aDialog: DIALOG_EXCHANGE_FOOTPRINTS): void;
   /**
    * `BOARD_EDITOR_CONTROL::PlacingFootprint()`: a footprint is riding the
    * cursor. The editor owns the placement, so it answers. Optional so a frame
@@ -460,6 +470,8 @@ export interface PCB_EDIT_FRAME_HOOKS {
   attachPositionRelativeDialog?(aDialog: DIALOG_POSITION_RELATIVE): void;
   /** POSITION_RELATIVE_TOOL's `DIALOG_OFFSET_ITEM( ... ).ShowModal() == wxID_OK`. */
   showOffsetItemDialog?(aDialog: DIALOG_OFFSET_ITEM): Promise<boolean>;
+  /** GLOBAL_EDIT_TOOL's DIALOG_GLOBAL_EDIT_TEARDROPS, quasi-modal; it closes itself. */
+  showGlobalEditTeardropsDialog?(aDialog: DIALOG_GLOBAL_EDIT_TEARDROPS): void;
   /** GLOBAL_EDIT_TOOL's DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS, modal; it closes itself. */
   showGlobalEditTextAndGraphicsDialog?(aDialog: DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS): void;
   /** GLOBAL_EDIT_TOOL's DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS, quasi-modal; it closes itself. */
@@ -569,6 +581,107 @@ export function FormatProbeItem(aItem: BOARD_ITEM | null): string {
   }
 
   return '';
+}
+
+/**
+ * `processTextItem` (pcb_edit_frame.cpp:2462-2516): copy text settings from
+ * aSrc to aDest, or - for each reset flag - keep aDest's and note whether it
+ * differs.
+ */
+function processTextItem(
+  aSrc: PCB_TEXT,
+  aDest: PCB_TEXT,
+  aResetText: boolean,
+  aResetTextLayers: boolean,
+  aResetTextEffects: boolean,
+  aResetTextPositions: boolean,
+  aUpdated: { value: boolean },
+): void {
+  const ne = (a: VECTOR2I, b: VECTOR2I): boolean => a.x !== b.x || a.y !== b.y;
+
+  if (aResetText) aUpdated.value ||= aSrc.GetText() !== aDest.GetText();
+  else aDest.SetText(aSrc.GetText());
+
+  if (aResetTextLayers) {
+    aUpdated.value ||= aSrc.GetLayer() !== aDest.GetLayer();
+    aUpdated.value ||= aSrc.IsVisible() !== aDest.IsVisible();
+  } else {
+    aDest.SetLayer(aSrc.GetLayer());
+    aDest.SetVisible(aSrc.IsVisible());
+  }
+
+  const origPos = aDest.GetFPRelativePosition();
+
+  if (aResetTextEffects) {
+    aUpdated.value ||= aSrc.GetHorizJustify() !== aDest.GetHorizJustify();
+    aUpdated.value ||= aSrc.GetVertJustify() !== aDest.GetVertJustify();
+    aUpdated.value ||= ne(aSrc.GetTextSize(), aDest.GetTextSize());
+    aUpdated.value ||= aSrc.GetTextThickness() !== aDest.GetTextThickness();
+    aUpdated.value ||= !aSrc.GetTextAngle().equals(aDest.GetTextAngle());
+    aUpdated.value ||= aSrc.IsKnockout() !== aDest.IsKnockout();
+  } else {
+    aDest.SetAttributes(aSrc as unknown as EDA_TEXT); // PCB_TEXT is an EDA_TEXT by mixin
+    aDest.SetIsKnockout(aSrc.IsKnockout());
+  }
+
+  if (aResetTextPositions) {
+    aUpdated.value ||= ne(aSrc.GetFPRelativePosition(), origPos);
+    aDest.SetFPRelativePosition(origPos);
+  } else {
+    aDest.SetFPRelativePosition(aSrc.GetFPRelativePosition());
+  }
+
+  aDest.SetLocked(aSrc.IsLocked());
+  aDest.SetUuidDirect(aSrc.m_Uuid);
+}
+
+/**
+ * `matchItemsBySimilarity<T>` (pcb_edit_frame.cpp:2521-2588): pair old and new
+ * items greedily by `Similarity`, best first; a pad pair with the same number
+ * scores 2 more. KiCad breaks a tie on the two pointers, which is allocation
+ * order; the list order stands in for it here.
+ */
+function matchItemsBySimilarity<T extends BOARD_ITEM>(
+  aExisting: readonly T[],
+  aNew: readonly T[],
+  aIsPad = false,
+): Array<[T, T]> {
+  const candidates: Array<{ e: number; u: number; score: number }> = [];
+
+  aExisting.forEach((existing, e) => {
+    aNew.forEach((updated, u) => {
+      if (existing.Type() !== updated.Type()) return;
+
+      let similarity = existing.Similarity(updated);
+
+      if (aIsPad) {
+        if ((existing as unknown as PAD).GetNumber() === (updated as unknown as PAD).GetNumber())
+          similarity += 2.0;
+      }
+
+      if (similarity <= 0.0) return;
+
+      candidates.push({ e, u, score: similarity });
+    });
+  });
+
+  candidates.sort((a, b) => b.score - a.score || a.e - b.e || a.u - b.u);
+
+  const matches: Array<[T, T]> = [];
+  const matchedExisting = new Set<number>();
+  const matchedNew = new Set<number>();
+
+  for (const c of candidates) {
+    if (matchedExisting.has(c.e)) continue;
+
+    if (matchedNew.has(c.u)) continue;
+
+    matchedExisting.add(c.e);
+    matchedNew.add(c.u);
+    matches.push([aExisting[c.e]!, aNew[c.u]!]);
+  }
+
+  return matches;
 }
 
 export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
@@ -757,6 +870,10 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   }
 
   // ---- GLOBAL_EDIT_TOOL's window half (GLOBAL_EDIT_TOOL_FRAME) --------------
+
+  ShowGlobalEditTeardropsDialog(aDialog: DIALOG_GLOBAL_EDIT_TEARDROPS): void {
+    this.hooks.showGlobalEditTeardropsDialog?.(aDialog);
+  }
 
   ShowGlobalEditTextAndGraphicsDialog(aDialog: DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS): void {
     this.hooks.showGlobalEditTextAndGraphicsDialog?.(aDialog);
@@ -1312,8 +1429,334 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     return this.hooks.fetchNetlistFromSchematic(aNetlist, aAnnotateMessage);
   }
 
-  ShowExchangeFootprintsDialog(aFootprint: FOOTPRINT, aUpdateMode: boolean): void {
-    this.hooks.showExchangeFootprintsDialog(aFootprint, aUpdateMode);
+  /** `ShowExchangeFootprintsDialog`: `DIALOG_EXCHANGE_FOOTPRINTS( ... ).ShowQuasiModal()`. */
+  ShowExchangeFootprintsDialog(
+    aFootprint: FOOTPRINT | null,
+    aUpdateMode: boolean,
+    aSelectedMode: boolean,
+  ): void {
+    const dialog = new DIALOG_EXCHANGE_FOOTPRINTS(this, aFootprint, aUpdateMode, aSelectedMode);
+
+    this.hooks.showExchangeFootprintsDialog(dialog);
+  }
+
+  /**
+   * `PCB_EDIT_FRAME::ExchangeFootprint` (pcb_edit_frame.cpp:2591-3062): put
+   * `aNew` where `aExisting` is - its group, place, side, orientation, lock
+   * and identity - carry over the pads' nets and the children's UUIDs by
+   * similarity, keep or reset the texts, fields, fabrication attributes,
+   * clearance overrides and 3D models per the flags, and stage the swap in
+   * `aCommit`. `aUpdated.value` is raised when anything actually changed.
+   *
+   * KiCad's `SetUuid` rebinds an item the board has indexed, else is
+   * `SetUuidDirect`; everything renumbered here belongs to the freshly loaded
+   * `aNew`, which no board has indexed yet, so it is `SetUuidDirect` throughout.
+   */
+  ExchangeFootprint(
+    aExisting: FOOTPRINT,
+    aNew: FOOTPRINT,
+    aCommit: BOARD_COMMIT,
+    deleteExtraTexts: boolean,
+    resetTextLayers: boolean,
+    resetTextEffects: boolean,
+    resetTextPositions: boolean,
+    resetTextContent: boolean,
+    resetFabricationAttrs: boolean,
+    resetClearanceOverrides: boolean,
+    reset3DModels: boolean,
+    aUpdated: { value: boolean } = { value: false },
+  ): void {
+    const parentGroup = aExisting.GetParentGroup();
+
+    if (parentGroup) {
+      aCommit.Modify(parentGroup.AsEdaItem(), null, RECURSE_MODE.NO_RECURSE);
+      parentGroup.RemoveItem(aExisting);
+      parentGroup.AddItem(aNew);
+    }
+
+    aNew.SetParent(this.GetBoard());
+
+    this.PlaceFootprint(aNew, false, aExisting.GetPosition());
+
+    if (aNew.GetLayer() !== aExisting.GetLayer())
+      aNew.Flip(aNew.GetPosition(), this.GetPcbNewSettings().m_FlipDirection);
+
+    if (!aNew.GetOrientation().equals(aExisting.GetOrientation()))
+      aNew.SetOrientation(aExisting.GetOrientation());
+
+    aNew.SetLocked(aExisting.IsLocked());
+
+    aNew.SetUuidDirect(aExisting.m_Uuid);
+    aNew.Reference().SetUuidDirect(aExisting.Reference().m_Uuid);
+    aNew.Value().SetUuidDirect(aExisting.Value().m_Uuid);
+
+    const padMatches = matchItemsBySimilarity<PAD>([...aExisting.Pads()], [...aNew.Pads()], true);
+    const matchedNewPads = new Set<PAD>();
+
+    for (const [oldPad, newPad] of padMatches) {
+      matchedNewPads.add(newPad);
+      newPad.SetUuidDirect(oldPad.m_Uuid);
+      newPad.SetLocalRatsnestVisible(oldPad.GetLocalRatsnestVisible());
+      newPad.SetPinFunction(oldPad.GetPinFunction());
+      newPad.SetPinType(oldPad.GetPinType());
+
+      if (newPad.IsOnCopperLayer()) newPad.SetNetCode(oldPad.GetNetCode());
+      else newPad.SetNetCode(UNCONNECTED_NET);
+    }
+
+    for (const newPad of aNew.Pads()) {
+      if (matchedNewPads.has(newPad)) continue;
+
+      newPad.ResetUuidDirect();
+      newPad.SetNetCode(UNCONNECTED_NET);
+    }
+
+    const newDrawings = [...aNew.GraphicalItems()];
+    const drawingMatches = matchItemsBySimilarity<BOARD_ITEM>(
+      [...aExisting.GraphicalItems()],
+      newDrawings,
+    );
+    const matchedNewDrawings = new Set<BOARD_ITEM>();
+
+    for (const [oldItem, newItem] of drawingMatches) {
+      matchedNewDrawings.add(newItem);
+      newItem.SetUuidDirect(oldItem.m_Uuid);
+    }
+
+    for (const newItem of newDrawings) {
+      if (!matchedNewDrawings.has(newItem)) newItem.ResetUuidDirect();
+    }
+
+    const reuseUuids = <T extends BOARD_ITEM>(
+      aOld: readonly T[],
+      aNewItems: readonly T[],
+    ): void => {
+      const matched = new Set<T>();
+
+      for (const [o, n] of matchItemsBySimilarity<T>(aOld, aNewItems)) {
+        matched.add(n);
+        n.SetUuidDirect(o.m_Uuid);
+      }
+
+      for (const n of aNewItems) {
+        if (!matched.has(n)) n.ResetUuidDirect();
+      }
+    };
+
+    reuseUuids([...aExisting.Zones()], [...aNew.Zones()]);
+    reuseUuids([...aExisting.Points()], [...aNew.Points()]);
+    reuseUuids<BOARD_ITEM>(
+      [...aExisting.Groups()] as unknown as BOARD_ITEM[],
+      [...aNew.Groups()] as unknown as BOARD_ITEM[],
+    );
+
+    const otherFields = (aFp: FOOTPRINT): PCB_FIELD[] =>
+      aFp.GetFields().filter((f): f is PCB_FIELD => !!f && !f.IsReference() && !f.IsValue());
+    const newFieldsVec = otherFields(aNew);
+    const fieldMatches = matchItemsBySimilarity<PCB_FIELD>(otherFields(aExisting), newFieldsVec);
+    const oldToNewFields = new Map<PCB_FIELD, PCB_FIELD>();
+    const matchedNewFields = new Set<PCB_FIELD>();
+
+    for (const [oldField, newField] of fieldMatches) {
+      oldToNewFields.set(oldField, newField);
+      matchedNewFields.add(newField);
+      newField.SetUuidDirect(oldField.m_Uuid);
+    }
+
+    for (const newField of newFieldsVec) {
+      if (!matchedNewFields.has(newField)) newField.ResetUuidDirect();
+    }
+
+    const oldToNewTexts = new Map<PCB_TEXT, PCB_TEXT>();
+
+    for (const [oldItem, newItem] of drawingMatches) {
+      if (oldItem instanceof PCB_TEXT && newItem instanceof PCB_TEXT)
+        oldToNewTexts.set(oldItem, newItem);
+    }
+
+    const handledTextItems = new Set<PCB_TEXT>();
+
+    for (const oldItem of [...aExisting.GraphicalItems()]) {
+      if (!(oldItem instanceof PCB_TEXT)) continue;
+
+      // Dimensions have PCB_TEXT base but are not treated like texts in the updater
+      if (oldItem instanceof PCB_DIMENSION_BASE) continue;
+
+      let newTextItem = oldToNewTexts.get(oldItem) ?? null;
+
+      if (newTextItem) {
+        handledTextItems.add(newTextItem);
+        processTextItem(
+          oldItem,
+          newTextItem,
+          resetTextContent,
+          resetTextLayers,
+          resetTextEffects,
+          resetTextPositions,
+          aUpdated,
+        );
+      } else if (deleteExtraTexts) {
+        aUpdated.value = true;
+      } else {
+        newTextItem = oldItem.Clone() as PCB_TEXT;
+        handledTextItems.add(newTextItem);
+        aNew.Add(newTextItem);
+      }
+    }
+
+    // Check for any newly-added text items and set the update flag as appropriate
+    for (const newItem of aNew.GraphicalItems()) {
+      if (!(newItem instanceof PCB_TEXT)) continue;
+
+      // Dimensions have PCB_TEXT base but are not treated like texts in the updater
+      if (newItem instanceof PCB_DIMENSION_BASE) continue;
+
+      if (!handledTextItems.has(newItem)) {
+        aUpdated.value = true;
+        break;
+      }
+    }
+
+    // Copy reference. The initial text is always used, never resetted
+    processTextItem(
+      aExisting.Reference(),
+      aNew.Reference(),
+      false,
+      resetTextLayers,
+      resetTextEffects,
+      resetTextPositions,
+      aUpdated,
+    );
+
+    // Copy value
+    processTextItem(
+      aExisting.Value(),
+      aNew.Value(),
+      // reset value text only when it is a proxy for the footprint ID
+      // (cf replacing value "MountingHole-2.5mm" with "MountingHole-4.0mm")
+      aExisting.GetValue() === aExisting.GetFPID().GetLibItemName(),
+      resetTextLayers,
+      resetTextEffects,
+      resetTextPositions,
+      aUpdated,
+    );
+
+    const handledFields = new Set<PCB_FIELD>();
+
+    // Copy fields in accordance with the reset* flags
+    for (const oldField of [...aExisting.GetFields()]) {
+      if (!oldField) continue; // wxCHECK2( oldField, continue )
+
+      // Reference and value are already handled
+      if (oldField.IsReference() || oldField.IsValue()) continue;
+
+      let newField = oldToNewFields.get(oldField) ?? null;
+
+      if (newField) {
+        handledFields.add(newField);
+        processTextItem(
+          oldField,
+          newField,
+          resetTextContent,
+          resetTextLayers,
+          resetTextEffects,
+          resetTextPositions,
+          aUpdated,
+        );
+      } else if (deleteExtraTexts) {
+        aUpdated.value = true;
+      } else {
+        newField = oldField.Clone() as PCB_FIELD;
+        handledFields.add(newField);
+        aNew.Add(newField);
+      }
+    }
+
+    // Check for any newly-added fields and set the update flag as appropriate
+    for (const newField of aNew.GetFields()) {
+      if (!newField) continue; // wxCHECK2( newField, continue )
+
+      // Reference and value are already handled
+      if (newField.IsReference() || newField.IsValue()) continue;
+
+      if (!handledFields.has(newField)) {
+        aUpdated.value = true;
+        break;
+      }
+    }
+
+    if (resetFabricationAttrs) {
+      // We've replaced the existing footprint with the library one, so the fabrication attrs
+      // are already reset.  Just set the aUpdated flag if appropriate.
+      if (aNew.GetAttributes() !== aExisting.GetAttributes()) aUpdated.value = true;
+    } else {
+      aNew.SetAttributes(aExisting.GetAttributes());
+    }
+
+    if (resetClearanceOverrides) {
+      if (aExisting.AllowSolderMaskBridges() !== aNew.AllowSolderMaskBridges())
+        aUpdated.value = true;
+
+      if (
+        aExisting.GetLocalClearance() !== aNew.GetLocalClearance() ||
+        aExisting.GetLocalSolderMaskMargin() !== aNew.GetLocalSolderMaskMargin() ||
+        aExisting.GetLocalSolderPasteMargin() !== aNew.GetLocalSolderPasteMargin() ||
+        aExisting.GetLocalSolderPasteMarginRatio() !== aNew.GetLocalSolderPasteMarginRatio() ||
+        aExisting.GetLocalZoneConnection() !== aNew.GetLocalZoneConnection()
+      ) {
+        aUpdated.value = true;
+      }
+    } else {
+      aNew.SetLocalClearance(aExisting.GetLocalClearance());
+      aNew.SetLocalSolderMaskMargin(aExisting.GetLocalSolderMaskMargin());
+      aNew.SetLocalSolderPasteMargin(aExisting.GetLocalSolderPasteMargin());
+      aNew.SetLocalSolderPasteMarginRatio(aExisting.GetLocalSolderPasteMarginRatio());
+      aNew.SetLocalZoneConnection(aExisting.GetLocalZoneConnection());
+      aNew.SetAllowSolderMaskBridges(aExisting.AllowSolderMaskBridges());
+    }
+
+    if (reset3DModels) {
+      // We've replaced the existing footprint with the library one, so the 3D models are
+      // already reset.  Just set the aUpdated flag if appropriate.
+      if (aNew.Models().length !== aExisting.Models().length) {
+        aUpdated.value = true;
+      } else {
+        for (let ii = 0; ii < aNew.Models().length; ++ii) {
+          if (!aNew.Models()[ii]!.equals(aExisting.Models()[ii]!)) {
+            aUpdated.value = true;
+            break;
+          }
+        }
+      }
+    } else {
+      // Preserve model references and all embedded model data.
+      aNew.Models().splice(0, aNew.Models().length, ...aExisting.Models().map((m) => m.clone()));
+
+      for (const [name, file] of aExisting.GetEmbeddedFiles().EmbeddedFileMap()) {
+        if (file.type !== FILE_TYPE.MODEL) continue;
+
+        aNew.GetEmbeddedFiles().RemoveFile(name, true);
+        aNew.GetEmbeddedFiles().AddFile(EMBEDDED_FILE.copyOf(file));
+      }
+    }
+
+    // Updating other parameters
+    aNew.SetPath(aExisting.GetPath());
+    aNew.SetSheetfile(aExisting.GetSheetfile());
+    aNew.SetSheetname(aExisting.GetSheetname());
+    aNew.SetFilters(aExisting.GetFilters());
+    aNew.SetStaticComponentClass(aExisting.GetComponentClass());
+
+    if (aUpdated.value === false) {
+      // Check pad shapes, graphics, zones, etc. for changes
+      if (FootprintNeedsUpdate(aNew, aExisting, BOARD_ITEM.COMPARE_FLAGS.INSTANCE_TO_INSTANCE))
+        aUpdated.value = true;
+    }
+
+    aCommit.Remove(aExisting);
+    aCommit.Add(aNew);
+
+    aNew.ClearFlags();
   }
 
   /**

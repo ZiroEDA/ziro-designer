@@ -656,6 +656,8 @@ import { DialogCleanupGraphics } from './dialogs/dialog_cleanup_graphics_ui.js';
 import { DialogUnusedPadLayers } from './dialogs/dialog_unused_pad_layers_ui.js';
 import { DialogGlobalDeletion } from './dialogs/dialog_global_deletion_ui.js';
 import { DialogGlobalEditTracksAndVias } from './dialogs/dialog_global_edit_tracks_and_vias_ui.js';
+import { DialogExchangeFootprints } from './dialogs/dialog_exchange_footprints_ui.js';
+import type { DIALOG_EXCHANGE_FOOTPRINTS } from './dialogs/dialog_exchange_footprints.js';
 import {
   DialogGlobalEditTextAndGraphics,
   type LAYER_DEFAULTS_ROW,
@@ -775,10 +777,7 @@ import {
   type TrackViaValues,
 } from './dialogs/dialog_track_via_properties.js';
 import { useKiDialog } from '@ziroeda/common/kidialog.js';
-import {
-  applyGlobalTeardropEdit,
-  type GlobalTeardropEditOptions,
-} from './dialogs/dialog_global_edit_teardrops.js';
+import type { DIALOG_GLOBAL_EDIT_TEARDROPS } from './dialogs/dialog_global_edit_teardrops.js';
 import { SKIP_TEARDROPS } from './board_commit.js';
 import {
   boardFromBOARD,
@@ -2150,6 +2149,8 @@ export function PcbEditor({
   } | null>(null);
   /** GLOBAL_EDIT_TOOL's DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS. */
   const [editTgDlg, setEditTgDlg] = useState<DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS | null>(null);
+  /** PCB_EDIT_FRAME::ShowExchangeFootprintsDialog's DIALOG_EXCHANGE_FOOTPRINTS. */
+  const [exchangeDlg, setExchangeDlg] = useState<DIALOG_EXCHANGE_FOOTPRINTS | null>(null);
   /** GLOBAL_EDIT_TOOL's DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS. */
   const [editTvDlg, setEditTvDlg] = useState<DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS | null>(null);
   /** GLOBAL_EDIT_TOOL's DIALOG_GLOBAL_DELETION, with the promise the tool waits on. */
@@ -2657,10 +2658,7 @@ export function PcbEditor({
         drcWindowRef.current!.selectFootprintFromChooser(aPreselect),
       loadFootprintFromLibrary: (aId, aKeepUUID) =>
         drcWindowRef.current!.loadFootprintFromLibrary(aId, aKeepUUID),
-      showExchangeFootprintsDialog: () => {
-        // DIALOG_EXCHANGE_FOOTPRINTS is not built (Edit > Change Footprints... is
-        // greyed in the menu for the same reason).
-      },
+      showExchangeFootprintsDialog: (aDialog) => setExchangeDlg(aDialog),
       findDialogRects: () => drcWindowRef.current!.findDialogRects(),
       setViewCenter: (aPos, aRects) => drcWindowRef.current!.setViewCenter(aPos, aRects),
       // The `$NET:` probe's highlight, kept as the same set when it is unchanged
@@ -2739,6 +2737,7 @@ export function PcbEditor({
       showUnusedPadLayersDialog: (aDialog) => setUnusedPadsDlg(aDialog),
       showGlobalEditTracksAndViasDialog: (aDialog) => setEditTvDlg(aDialog),
       showGlobalEditTextAndGraphicsDialog: (aDialog) => setEditTgDlg(aDialog),
+      showGlobalEditTeardropsDialog: (aDialog) => setTeardropsDlg(aDialog),
       showGlobalDeletionDialog: (aDialog) =>
         new Promise<boolean>((resolve) => setGlobalDelDlg({ dialog: aDialog, resolve })),
       askKiDialog: (aRequest) => askKiDialogRef.current(aRequest),
@@ -2942,7 +2941,8 @@ export function PcbEditor({
     resolve: (value: string | null) => void;
   } | null>(null);
   // Edit Teardrops (DIALOG_GLOBAL_EDIT_TEARDROPS).
-  const [teardropsOpen, setTeardropsOpen] = useState(false);
+  /** GLOBAL_EDIT_TOOL's DIALOG_GLOBAL_EDIT_TEARDROPS. */
+  const [teardropsDlg, setTeardropsDlg] = useState<DIALOG_GLOBAL_EDIT_TEARDROPS | null>(null);
   // Track & Via Properties (DIALOG_TRACK_VIA_PROPERTIES), opened by E or a
   // double-click on a copper item.
   const [trackViaOpen, setTrackViaOpen] = useState(false);
@@ -9346,62 +9346,38 @@ export function PcbEditor({
    * the items' parameters are staged on a BOARD_COMMIT and TEARDROP_MANAGER
    * rebuilds the zones, as upstream does; the listener re-derives the view.
    */
-  const applyTeardropEdit = useCallback(
-    (options: GlobalTeardropEditOptions) => {
-      const brd = boardRef.current;
-      const frame = frameRef.current;
-      const kb = frame?.GetBoard();
-      setTeardropsOpen(false);
-      if (!brd || !frame || !kb) return;
+  /**
+   * After DIALOG_GLOBAL_EDIT_TEARDROPS applies: the scope checkboxes are project
+   * state (`teardrop_options`), which the dialog wrote onto
+   * BOARD_DESIGN_SETTINGS; persist them with the project.
+   */
+  const onTeardropsApplied = useCallback((): void => {
+    const kb = frameRef.current?.GetBoard();
+    if (!kb) return;
 
-      // EDA_ITEM::IsSelected: the editor's selection speaks view ids
-      // (`pad:<fp>:<i>`, `via:<i>`, `group:<i>`), not the items' SELECTED flag
-      // (PCB_SELECTION_TOOL is stage 3 of #636).
-      const selectedItems = new Set<unknown>();
-      if (options.selectedOnly) {
-        brd.footprints.forEach((fp, fi) =>
-          fp.pads.forEach((pad, pi) => {
-            if (selection.has(boardItemId('pad', fi, pi))) selectedItems.add(pad.k);
-          }),
-        );
-        brd.vias.forEach((via, vi) => {
-          if (selection.has(boardItemId('via', vi))) selectedItems.add(via.k);
-        });
-        brd.groups.forEach((group, gi) => {
-          if (selection.has(boardItemId('group', gi))) selectedItems.add(group.k);
-        });
-      }
-
-      const listener = listenerRef.current!;
-      applyGlobalTeardropEdit(frame, options, (item) => selectedItems.has(item));
-
-      // A run that changed no item (every filter missed) raises no listener
-      // call; the view is re-derived here instead.
-      if (!listener.IsPending())
-        setBoardModel({
-          ...boardFromBOARD(kb, fileNameRef.current),
-          fileName: fileNameRef.current,
-        });
-
-      // The scope checkboxes are project state (`teardrop_options`), which the
-      // dialog wrote onto BOARD_DESIGN_SETTINGS; persist them with the project.
-      const tdl = kb.GetDesignSettings().GetTeadropParamsList();
-      commitBoardSetup({
-        ...boardSetupRef.current,
-        teardrops: {
-          ...boardSetupRef.current.teardrops,
-          targets: {
-            vias: tdl.m_TargetVias,
-            pthPads: tdl.m_TargetPTHPads,
-            smdPads: tdl.m_TargetSMDPads,
-            trackToTrack: tdl.m_TargetTrack2Track,
-            roundShapesOnly: tdl.m_UseRoundShapesOnly,
-          },
-        },
+    // A run that changed no item (every filter missed) raises no listener
+    // call; the view is re-derived here instead.
+    if (!listenerRef.current!.IsPending())
+      setBoardModel({
+        ...boardFromBOARD(kb, fileNameRef.current),
+        fileName: fileNameRef.current,
       });
-    },
-    [commitBoardSetup, selection, setBoardModel],
-  );
+
+    const tdl = kb.GetDesignSettings().GetTeadropParamsList();
+    commitBoardSetup({
+      ...boardSetupRef.current,
+      teardrops: {
+        ...boardSetupRef.current.teardrops,
+        targets: {
+          vias: tdl.m_TargetVias,
+          pthPads: tdl.m_TargetPTHPads,
+          smdPads: tdl.m_TargetSMDPads,
+          trackToTrack: tdl.m_TargetTrack2Track,
+          roundShapesOnly: tdl.m_UseRoundShapesOnly,
+        },
+      },
+    });
+  }, [commitBoardSetup, setBoardModel]);
 
   /** Put the net highlight back the way a track drag found it. */
   const restoreDragHighlight = (): void => {
@@ -11438,7 +11414,7 @@ export function PcbEditor({
         unselectAllSel();
         break;
       case 'editTeardrops':
-        setTeardropsOpen(true);
+        runAction(PCB_ACTIONS.editTeardrops);
         break;
       case 'importGraphics':
         setImportGraphicsOpen(true);
@@ -11563,6 +11539,12 @@ export function PcbEditor({
         break;
       case 'editTextAndGraphics':
         runAction(PCB_ACTIONS.editTextAndGraphics);
+        break;
+      case 'changeFootprints':
+        runAction(PCB_ACTIONS.changeFootprints);
+        break;
+      case 'updateFootprints':
+        runAction(PCB_ACTIONS.updateFootprints);
         break;
       case 'polygonmerge':
         runAction(PCB_ACTIONS.mergePolygons);
@@ -13525,26 +13507,29 @@ export function PcbEditor({
           onClose={() => setInspectOpen(false)}
         />
       )}
-      {teardropsOpen && board && (
+      {teardropsDlg && (
         <DialogGlobalEditTeardrops
-          nets={board.nets}
-          layers={board.layers.filter((l) => /\.Cu$/.test(l.name)).map((l) => l.name)}
-          netclasses={boardSetup.netClasses.classes.map((c) => c.name)}
-          hasSelection={selection.size > 0}
-          initialScope={{
-            vias: boardSetup.teardrops.targets.vias,
-            pthPads: boardSetup.teardrops.targets.pthPads,
-            smdPads: boardSetup.teardrops.targets.smdPads,
-            trackToTrack: boardSetup.teardrops.targets.trackToTrack,
-            roundPadsOnly: boardSetup.teardrops.targets.roundShapesOnly,
-          }}
-          onEditDefaults={() => {
-            setTeardropsOpen(false);
-            setBoardSetupPage(undefined);
+          dialog={teardropsDlg}
+          nets={
+            new Map(
+              [...(frameRef.current?.GetBoard()?.GetNetInfo().NetsByNetcode() ?? new Map())].map(
+                ([code, net]) => [code, net.GetNetname()] as const,
+              ),
+            )
+          }
+          layers={LSET.AllCuMask(frameRef.current?.GetBoard()?.GetCopperLayerCount() ?? 2)
+            .UIOrder()
+            .map((l) => {
+              const c = choiceOf(l);
+              return { layer: l, label: c.label, swatch: c.swatch };
+            })}
+          onShowBoardSetup={() => {
+            setTeardropsDlg(null);
+            setBoardSetupPage('teardrops');
             setBoardSetupOpen(true);
           }}
-          onApply={applyTeardropEdit}
-          onClose={() => setTeardropsOpen(false)}
+          onApplied={onTeardropsApplied}
+          onClose={() => setTeardropsDlg(null)}
         />
       )}
       {drcDialog?.shown && (
@@ -13717,6 +13702,15 @@ export function PcbEditor({
       {/* POSITION_RELATIVE_TOOL's DIALOG_POSITION_RELATIVE: modeless, in the
           same host as Find; it draws itself only while it is shown. */}
       {posRelDialog && <DialogPositionRelativeModeless dialog={posRelDialog} />}
+      {exchangeDlg && (
+        <DialogExchangeFootprints
+          dialog={exchangeDlg}
+          onBrowse={(aPreselect) =>
+            drcWindowRef.current?.selectFootprintFromChooser(aPreselect) ?? Promise.resolve(null)
+          }
+          onClose={() => setExchangeDlg(null)}
+        />
+      )}
       {editTgDlg && frameRef.current?.GetBoard() && (
         <DialogGlobalEditTextAndGraphics
           dialog={editTgDlg}

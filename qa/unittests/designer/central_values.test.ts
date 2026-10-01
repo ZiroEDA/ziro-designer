@@ -812,7 +812,7 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // colours and nine px. (8d09a787's `.ze-fp3d-icon` height, one unmarked px
   // that briefly put this at 684, now carries its [px] like the width beside it:
   // GRID_CELL_STATUS_ICON_RENDERER's wxART_BUTTON bitmap, 16 x 16.) Rescanned.
-  'common/widgets': { colours: 134, metrics: 683 },
+  'common/widgets': { colours: 130, metrics: 675 },
   'common/tool': { colours: 0, metrics: 1 },
   // metrics 0 -> 15 on 09-26: the stage-1 moves, 8 from `dialogs` and 7 from
   // `editors/schematic`. Nothing added or removed: 8 + 7 = 15.
@@ -1394,7 +1394,10 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // (-5) rows above; the rescan agrees.
     // 291 -> 289 (#636 stage 3): the `editors/pcb` row, the legacy Position
     // Relative dialog (-2).
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(289);
+    // 289 -> 285 (10-01): `common/widgets` 134 -> 130, the old Edit Teardrops
+    // window's CSS deleted with it; the dialog is DIALOG_GLOBAL_EDIT_TEARDROPS
+    // on the shared widgets now. Rescanned.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(285);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.
@@ -1595,7 +1598,9 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // `common/widgets` row.
     // 1129 -> 1110 (#636 stage 3): the `editors/pcb` row, the legacy Position
     // Relative dialog and its banner (-19).
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1110);
+    // 1110 -> 1102 (10-01): `common/widgets` 683 -> 675, the old Edit
+    // Teardrops window's CSS deleted with it. Rescanned.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1102);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

@@ -8,7 +8,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
-import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
+import { PCB_SCREEN } from '@ziroeda/pcbnew/pcb_screen.js';
 import { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
@@ -19,10 +19,11 @@ import type { FOOTPRINT_EDITOR_SETTINGS_LIKE } from '@ziroeda/pcbnew/pcb_base_fr
 import { PCBNEW_SETTINGS } from '@ziroeda/pcbnew/pcbnew_settings.js';
 import type { BOARD } from '@ziroeda/pcbnew/board.js';
 import {
-  applyGlobalTeardropEdit,
-  DEFAULT_GLOBAL_TEARDROP_EDIT,
-  type GlobalTeardropEditOptions,
+  DIALOG_GLOBAL_EDIT_TEARDROPS,
+  TEARDROP_ACTION,
 } from '@ziroeda/pcbnew/dialogs/dialog_global_edit_teardrops.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import type { PCB_EDIT_FRAME } from '@ziroeda/pcbnew/pcb_edit_frame.js';
 import type { PAD } from '@ziroeda/pcbnew/pad.js';
 import { boardFromBOARD } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/board_view.js';
 import { PCB_IO_KICAD_SEXPR_PARSER } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_parser.js';
@@ -66,11 +67,6 @@ function mixed(opts: { viaNet?: number; viaTd?: string; padTd?: string } = {}): 
   return board;
 }
 
-const opts = (over: Partial<GlobalTeardropEditOptions> = {}): GlobalTeardropEditOptions => ({
-  ...DEFAULT_GLOBAL_TEARDROP_EDIT,
-  ...over,
-});
-
 /** A PCB_EDIT_FRAME without the window: the model, the settings and the tool manager. */
 class TEST_PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   readonly settings = new PCBNEW_SETTINGS();
@@ -78,6 +74,7 @@ class TEST_PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   constructor(board: BOARD) {
     super(FRAME_T.FRAME_PCB_EDITOR);
     this.SetBoard(board);
+    this.SetScreen(new PCB_SCREEN({ x: MM(297), y: MM(210) }));
     this.m_toolManager = new TOOL_MANAGER();
     this.m_toolManager.SetEnvironment(board, null, null, this.settings, this);
   }
@@ -100,13 +97,16 @@ class TEST_PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   }
 }
 
+/** Open the dialog on `board` (TransferDataToWindow), set its controls, then OK. */
 function run(
   board: BOARD,
-  o: Partial<GlobalTeardropEditOptions> = {},
-  isSelected?: (item: EDA_ITEM) => boolean,
+  aSet: (dlg: DIALOG_GLOBAL_EDIT_TEARDROPS) => void = () => {},
 ): TEST_PCB_EDIT_FRAME {
   const frame = new TEST_PCB_EDIT_FRAME(board);
-  applyGlobalTeardropEdit(frame, opts(o), isSelected);
+  const dlg = new DIALOG_GLOBAL_EDIT_TEARDROPS(frame as unknown as PCB_EDIT_FRAME);
+  dlg.TransferDataToWindow();
+  aSet(dlg);
+  dlg.TransferDataFromWindow();
   return frame;
 }
 
@@ -155,7 +155,12 @@ describe('action: add teardrops with default values', () => {
 
   it('saves the scope checkboxes into BOARD_DESIGN_SETTINGS', () => {
     const b = mixed();
-    run(b, { vias: false, pthPads: false, trackToTrack: true, roundPadsOnly: true });
+    run(b, (d) => {
+      d.m_vias = false;
+      d.m_pthPads = false;
+      d.m_trackToTrack = true;
+      d.m_roundPadsFilter = true;
+    });
     const list = b.GetDesignSettings().GetTeadropParamsList();
 
     expect(list.m_TargetVias).toBe(false);
@@ -171,7 +176,9 @@ describe('action: add teardrops with default values', () => {
 describe('scope', () => {
   it('leaves vias alone when the Vias box is off', () => {
     const b = mixed();
-    run(b, { vias: false });
+    run(b, (d) => {
+      d.m_vias = false;
+    });
 
     expect(viaOf(b).GetTeardropParams().m_Enabled).toBe(false);
     expect(enabled(b)).toBe(2);
@@ -179,12 +186,16 @@ describe('scope', () => {
 
   it('splits PTH from SMD pads', () => {
     const smdOnly = mixed();
-    run(smdOnly, { pthPads: false });
+    run(smdOnly, (d) => {
+      d.m_pthPads = false;
+    });
     expect(smd(smdOnly).GetTeardropParams().m_Enabled).toBe(true);
     expect(pth(smdOnly).GetTeardropParams().m_Enabled).toBe(false);
 
     const pthOnly = mixed();
-    run(pthOnly, { smdPads: false });
+    run(pthOnly, (d) => {
+      d.m_smdPads = false;
+    });
     expect(smd(pthOnly).GetTeardropParams().m_Enabled).toBe(false);
     expect(pth(pthOnly).GetTeardropParams().m_Enabled).toBe(true);
   });
@@ -193,7 +204,10 @@ describe('scope', () => {
 describe('filters', () => {
   it('filters by net', () => {
     const b = mixed({ viaNet: 2 });
-    run(b, { netFilter: 1 });
+    run(b, (d) => {
+      d.m_netFilterOpt = true;
+      d.m_netFilter = 1;
+    });
 
     expect(viaOf(b).GetTeardropParams().m_Enabled).toBe(false);
     expect(enabled(b)).toBe(2);
@@ -201,13 +215,18 @@ describe('filters', () => {
 
   it('filters by layer', () => {
     const b = mixed();
-    run(b, { layerFilter: 'B.Cu' });
+    run(b, (d) => {
+      d.m_layerFilterOpt = true;
+      d.m_layerFilter = PCB_LAYER_ID.B_Cu;
+    });
     expect(enabled(b)).toBe(0);
   });
 
   it('filters to round pads only', () => {
     const b = mixed();
-    run(b, { roundPadsOnly: true });
+    run(b, (d) => {
+      d.m_roundPadsFilter = true;
+    });
 
     expect(smd(b).GetTeardropParams().m_Enabled).toBe(true);
     expect(pth(b).GetTeardropParams().m_Enabled).toBe(false);
@@ -215,7 +234,11 @@ describe('filters', () => {
 
   it('filters to existing teardrops only, and does not enable what was off', () => {
     const b = mixed({ viaTd: '(teardrops (enabled yes))' });
-    run(b, { action: 'specified', existingOnly: true, specified: { curvedEdges: true } });
+    run(b, (d) => {
+      d.m_action = TEARDROP_ACTION.SPECIFIED;
+      d.m_existingFilter = true;
+      d.m_curvedEdges = true;
+    });
 
     expect(viaOf(b).GetTeardropParams().m_CurvedEdges).toBe(true);
     // The pads had no teardrops, so the filter skipped them entirely.
@@ -225,30 +248,50 @@ describe('filters', () => {
 
   it('filters to the selection', () => {
     const b = mixed();
-    const target = viaOf(b);
-    run(b, { selectedOnly: true }, (item) => item === target);
+    viaOf(b).SetSelected();
+    run(b, (d) => {
+      d.m_selectedItemsFilter = true;
+    });
 
     expect(viaOf(b).GetTeardropParams().m_Enabled).toBe(true);
     expect(padsOf(b).every((p) => !p.GetTeardropParams().m_Enabled)).toBe(true);
   });
 
-  it('reads the selection off the items themselves when the frame does not answer', () => {
+  it('reads the selection off the items themselves (EDA_ITEM::IsSelected)', () => {
     const b = mixed();
     smd(b).SetSelected();
-    run(b, { selectedOnly: true });
+    run(b, (d) => {
+      d.m_selectedItemsFilter = true;
+    });
 
     expect(smd(b).GetTeardropParams().m_Enabled).toBe(true);
     expect(enabled(b)).toBe(1);
   });
 
+  it('a filter applies only when its box is ticked (:315-332)', () => {
+    const b = mixed();
+    run(b, (d) => {
+      d.m_layerFilter = PCB_LAYER_ID.B_Cu;
+      d.m_netclassFilter = 'Power';
+      d.m_netFilter = 2;
+    });
+    expect(enabled(b)).toBe(3);
+  });
+
   it('filters by the effective netclass, constituents included', () => {
     // No assignments: every net's effective class is Default.
     const power = mixed();
-    run(power, { netclassFilter: 'Power' });
+    run(power, (d) => {
+      d.m_netclassFilterOpt = true;
+      d.m_netclassFilter = 'Power';
+    });
     expect(enabled(power)).toBe(0);
 
     const def = mixed();
-    run(def, { netclassFilter: 'Default' });
+    run(def, (d) => {
+      d.m_netclassFilterOpt = true;
+      d.m_netclassFilter = 'Default';
+    });
     expect(enabled(def)).toBe(3);
   });
 });
@@ -262,7 +305,9 @@ describe('action: remove', () => {
 
   it('clears m_Enabled on the filtered items and drops their zones', () => {
     const b = enabledBoard();
-    run(b, { action: 'remove' });
+    run(b, (d) => {
+      d.m_action = TEARDROP_ACTION.REMOVE;
+    });
 
     expect(enabled(b)).toBe(0);
     expect(tdZones(b)).toHaveLength(0);
@@ -270,7 +315,10 @@ describe('action: remove', () => {
 
   it('honours the filters', () => {
     const b = enabledBoard();
-    run(b, { action: 'remove', roundPadsOnly: true });
+    run(b, (d) => {
+      d.m_action = TEARDROP_ACTION.REMOVE;
+      d.m_roundPadsFilter = true;
+    });
 
     // The rect pad kept its teardrop; the round items lost theirs.
     expect(pth(b).GetTeardropParams().m_Enabled).toBe(true);
@@ -280,15 +328,24 @@ describe('action: remove', () => {
 
   it('remove-all ignores the filters', () => {
     const b = enabledBoard();
-    run(b, { action: 'removeAll', roundPadsOnly: true, netFilter: 999, vias: false });
+    run(b, (d) => {
+      d.m_action = TEARDROP_ACTION.REMOVE_ALL;
+      d.m_roundPadsFilter = true;
+      d.m_netFilterOpt = true;
+      d.m_netFilter = 999;
+      d.m_vias = false;
+    });
 
     expect(enabled(b)).toBe(0);
   });
 
   it('remove-all still respects "selected items only"', () => {
     const b = enabledBoard();
-    const target = viaOf(b);
-    run(b, { action: 'removeAll', selectedOnly: true }, (item) => item === target);
+    viaOf(b).SetSelected();
+    run(b, (d) => {
+      d.m_action = TEARDROP_ACTION.REMOVE_ALL;
+      d.m_selectedItemsFilter = true;
+    });
 
     expect(viaOf(b).GetTeardropParams().m_Enabled).toBe(false);
     expect(padsOf(b).every((p) => p.GetTeardropParams().m_Enabled)).toBe(true);
@@ -298,7 +355,10 @@ describe('action: remove', () => {
 describe('action: specified values', () => {
   it('overlays only the fields given, leaving the rest untouched', () => {
     const b = mixed({ viaTd: '(teardrops (enabled yes) (max_length 3) (best_width_ratio 0.42))' });
-    run(b, { action: 'specified', specified: { curvedEdges: true } });
+    run(b, (d) => {
+      d.m_action = TEARDROP_ACTION.SPECIFIED;
+      d.m_curvedEdges = true;
+    });
 
     const td = viaOf(b).GetTeardropParams();
     expect(td.m_CurvedEdges).toBe(true);
@@ -309,10 +369,83 @@ describe('action: specified values', () => {
 
   it('enables items it touches unless the existing-only filter is on', () => {
     const b = mixed();
-    run(b, { action: 'specified', specified: { tdMaxWidth: MM(1) } });
+    run(b, (d) => {
+      d.m_action = TEARDROP_ACTION.SPECIFIED;
+      d.m_teardropMaxHeight.SetValue(MM(1));
+    });
 
     expect(enabled(b)).toBe(3);
     expect(viaOf(b).GetTeardropParams().m_TdMaxWidth).toBe(MM(1));
+  });
+});
+
+describe('DIALOG_GLOBAL_EDIT_TEARDROPS controls', () => {
+  const open = (b: BOARD): DIALOG_GLOBAL_EDIT_TEARDROPS => {
+    const dlg = new DIALOG_GLOBAL_EDIT_TEARDROPS(
+      new TEST_PCB_EDIT_FRAME(b) as unknown as PCB_EDIT_FRAME,
+    );
+    dlg.TransferDataToWindow();
+    return dlg;
+  };
+
+  it('opens on the board scope, "add defaults", every specified value undetermined (:166-185)', () => {
+    const b = mixed();
+    const list = b.GetDesignSettings().GetTeadropParamsList();
+    list.m_TargetVias = false;
+    list.m_TargetTrack2Track = true;
+    list.m_UseRoundShapesOnly = true;
+    const dlg = open(b);
+    expect([dlg.m_vias, dlg.m_pthPads, dlg.m_smdPads, dlg.m_trackToTrack]).toEqual([
+      false,
+      true,
+      true,
+      true,
+    ]);
+    // TransferDataToWindow does not read m_UseRoundShapesOnly back.
+    expect(dlg.m_roundPadsFilter).toBe(false);
+    expect(dlg.m_action).toBe(TEARDROP_ACTION.ADD_DEFAULTS);
+    expect([dlg.m_cbPreferZoneConnection, dlg.m_curvedEdges]).toEqual([null, null]);
+    expect(dlg.m_teardropMaxLen.IsIndeterminate()).toBe(true);
+    expect(dlg.m_teardropHDPercent.IsIndeterminate()).toBe(true);
+  });
+
+  it('the percentages are percent: 50 is a ratio of 0.5 (:236-247)', () => {
+    const b = mixed();
+    run(b, (d) => {
+      d.m_action = TEARDROP_ACTION.SPECIFIED;
+      d.m_teardropLenPercent.SetValue(50);
+      d.m_cbPreferZoneConnection = true;
+    });
+    expect(viaOf(b).GetTeardropParams().m_BestLengthRatio).toBe(0.5);
+    expect(viaOf(b).GetTeardropParams().m_TdOnPadsInZones).toBe(false);
+  });
+
+  it('track to track turns "specified" back into "add defaults" (:66-73)', () => {
+    const dlg = open(mixed());
+    dlg.m_action = TEARDROP_ACTION.SPECIFIED;
+    dlg.OnTrackToTrack(true);
+    expect(dlg.m_action).toBe(TEARDROP_ACTION.ADD_DEFAULTS);
+    expect(dlg.FiltersEnabled()).toBe(false);
+  });
+
+  it('"existing only" drops "add" from the two labels (:92-104)', () => {
+    const dlg = open(mixed());
+    expect(dlg.AddLabels().addTeardrops).toBe('Add teardrops with default values for shape');
+    dlg.m_existingFilter = true;
+    expect(dlg.AddLabels()).toEqual({
+      addTeardrops: 'Set teardrops to default values for shape',
+      specifiedValues: 'Set teardrops to specified values:',
+    });
+  });
+
+  it('lists Default then the netclasses, and keeps the filters for the next open (:146-158)', () => {
+    const b = mixed();
+    let dlg = open(b);
+    expect(dlg.m_netclassNames[0]).toBe('Default');
+    dlg.m_netFilter = 2;
+    dlg.OnClose();
+    dlg = open(b);
+    expect(dlg.m_netFilter).toBe(2);
   });
 });
 

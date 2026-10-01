@@ -2,364 +2,313 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * Edit Teardrops dialog. Counterpart: `pcbnew/dialogs/dialog_global_edit_teardrops.cpp`
- * over `dialog_global_edit_teardrops_base.cpp`'s layout — three static boxes,
- * Scope and Filter Items side by side above Action, with OK/Cancel.
- *
- * The three-state checkboxes in the "specified values" block are real: leaving
- * one indeterminate means "do not touch this field on the items I edit", which
- * is the only way to change one property across a board without flattening the
- * rest. A plain two-state checkbox would silently rewrite every other field.
- *
- * The decision logic lives in `pcbnew/dialogs/dialog_global_edit_teardrops.ts`; this file is
- * only the controls.
+ * DIALOG_GLOBAL_EDIT_TEARDROPS's window (dialog_global_edit_teardrops_base.cpp):
+ * Scope and Filter Items side by side, then Action - the four radios, the
+ * Board Setup link, and the specified values (tri-state boxes and five
+ * UNIT_BINDERs beside the teardrop_sizes bitmap) - then Apply and Close / Close.
  */
-
-import { useState, type JSX } from 'react';
-import type {
-  GlobalTeardropEditOptions,
-  TeardropEditAction,
-} from './dialog_global_edit_teardrops.js';
-import { DEFAULT_GLOBAL_TEARDROP_EDIT } from './dialog_global_edit_teardrops.js';
-import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/eda_units.js';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { type JSX, useEffect, useState } from 'react';
+import { svgUrl } from '@ziroeda/bitmaps_png';
+import { StdDialogButtons, useModalEscape } from '@ziroeda/common/dialog_shim.js';
+import { unitLabel } from '@ziroeda/common/eda_units.js';
 import { NetSelector } from '@ziroeda/common/widgets/net_selector.js';
+import type { UNIT_BINDER } from '@ziroeda/common/widgets/unit_binder.js';
+import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
+import {
+  type DIALOG_GLOBAL_EDIT_TEARDROPS,
+  TEARDROP_ACTION,
+  type TRI_STATE,
+} from './dialog_global_edit_teardrops.js';
 
-interface Props {
-  /** Net codes and names for the "Filter items by net" choice. */
-  nets: ReadonlyMap<number, string>;
-  /** Copper layer names for the layer filter. */
-  layers: readonly string[];
-  /** Netclass names for the netclass filter. */
-  netclasses: readonly string[];
-  /** Whether anything is selected; gates "Selected items only". */
-  hasSelection: boolean;
-  /** The project's remembered `teardrop_options` scope flags. */
-  initialScope?: Pick<
-    GlobalTeardropEditOptions,
-    'pthPads' | 'smdPads' | 'vias' | 'trackToTrack' | 'roundPadsOnly'
-  >;
-  /** Open Board Setup on the Teardrops page. */
-  onEditDefaults?: () => void;
-  onApply: (options: GlobalTeardropEditOptions) => void;
-  onClose: () => void;
+export interface TEARDROP_LAYER_CHOICE {
+  layer: number;
+  label: string;
+  swatch?: string;
 }
 
-/** A three-state control's value: on, off, or "leave alone". */
-type Tri = boolean | undefined;
-
-const nextTri = (v: Tri): Tri => (v === undefined ? true : v ? false : undefined);
-const triLabel = (v: Tri): string => (v === undefined ? '—' : v ? '✓' : '');
+type Flag =
+  | 'm_pthPads'
+  | 'm_smdPads'
+  | 'm_vias'
+  | 'm_netFilterOpt'
+  | 'm_netclassFilterOpt'
+  | 'm_layerFilterOpt'
+  | 'm_roundPadsFilter'
+  | 'm_existingFilter'
+  | 'm_selectedItemsFilter';
 
 export function DialogGlobalEditTeardrops({
+  dialog,
   nets,
   layers,
-  netclasses,
-  hasSelection,
-  initialScope,
-  onEditDefaults,
-  onApply,
+  onShowBoardSetup,
+  onApplied,
   onClose,
-}: Props): JSX.Element {
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts.
-  useModalEscape(onClose);
-
-  const [opts, setOpts] = useState<GlobalTeardropEditOptions>({
-    ...DEFAULT_GLOBAL_TEARDROP_EDIT,
-    ...initialScope,
-  });
-
-  // The "specified values" fields, held as strings so a half-typed number does
-  // not snap back under the caret.
-  const [preferZone, setPreferZone] = useState<Tri>(undefined);
-  const [twoTracks, setTwoTracks] = useState<Tri>(undefined);
-  const [curvedEdges, setCurvedEdges] = useState<Tri>(undefined);
-  const [widthLimit, setWidthLimit] = useState('');
-  const [bestLength, setBestLength] = useState('');
-  const [maxLength, setMaxLength] = useState('');
-  const [bestWidth, setBestWidth] = useState('');
-  const [maxWidth, setMaxWidth] = useState('');
-
-  const set = (patch: Partial<GlobalTeardropEditOptions>): void =>
-    setOpts((prev) => ({ ...prev, ...patch }));
-
-  const specifiedEnabled = opts.action === 'specified';
-
-  /** Collect the non-blank "specified" fields; a blank one stays indeterminate. */
-  const buildSpecified = (): GlobalTeardropEditOptions['specified'] => {
-    const out: NonNullable<GlobalTeardropEditOptions['specified']> = {};
-
-    if (preferZone !== undefined) out.tdOnPadsInZones = !preferZone;
-    if (twoTracks !== undefined) out.allowUseTwoTracks = twoTracks;
-    if (curvedEdges !== undefined) out.curvedEdges = curvedEdges;
-
-    const pct = (s: string): number | undefined => {
-      const v = Number(s);
-      return s.trim() === '' || Number.isNaN(v) ? undefined : v / 100;
-    };
-    const mm = (s: string): number | undefined => {
-      const v = Number(s);
-      return s.trim() === '' || Number.isNaN(v) ? undefined : pcbMmToIU(v);
-    };
-
-    const wl = pct(widthLimit);
-    if (wl !== undefined) out.widthtoSizeFilterRatio = wl;
-    const bl = pct(bestLength);
-    if (bl !== undefined) out.bestLengthRatio = bl;
-    const bw = pct(bestWidth);
-    if (bw !== undefined) out.bestWidthRatio = bw;
-    const ml = mm(maxLength);
-    if (ml !== undefined) out.tdMaxLen = ml;
-    const mw = mm(maxWidth);
-    if (mw !== undefined) out.tdMaxWidth = mw;
-
-    return out;
+}: {
+  dialog: DIALOG_GLOBAL_EDIT_TEARDROPS;
+  nets: ReadonlyMap<number, string>;
+  /** The copper layers (`SetNotAllowedLayerSet( LSET::AllNonCuMask() )`). */
+  layers: readonly TEARDROP_LAYER_CHOICE[];
+  /** `onShowBoardSetup`: Board Setup on its Teardrops page. */
+  onShowBoardSetup: () => void;
+  /** After a successful Apply and Close, before the dialog goes. */
+  onApplied: () => void;
+  onClose: () => void;
+}): JSX.Element {
+  const [, setTick] = useState(0);
+  const redraw = (): void => setTick((t) => t + 1);
+  const close = (): void => {
+    dialog.OnClose();
+    onClose();
   };
 
-  const apply = (): void => {
-    onApply({ ...opts, specified: specifiedEnabled ? buildSpecified() : {} });
-  };
+  useModalEscape(close);
 
-  const check = (
-    key: 'pthPads' | 'smdPads' | 'vias' | 'trackToTrack',
-    label: string,
-  ): JSX.Element => (
-    <label>
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the dialog is the trigger; redraw only bumps a counter
+  useEffect(() => {
+    dialog.TransferDataToWindow();
+    redraw();
+  }, [dialog]);
+
+  const filtersOn = dialog.FiltersEnabled();
+  const specOn = dialog.SpecifiedValuesEnabled();
+  const labels = dialog.AddLabels();
+
+  const box = (key: Flag, label: string, cls = '', disabled = false): JSX.Element => (
+    <label className={`ze-check ${cls}`}>
       <input
         type="checkbox"
-        checked={opts[key]}
-        onChange={(e) => set({ [key]: e.target.checked } as Partial<GlobalTeardropEditOptions>)}
+        checked={dialog[key]}
+        disabled={disabled}
+        onChange={(e) => {
+          dialog[key] = e.target.checked;
+          redraw();
+        }}
       />
       {label}
     </label>
   );
 
-  const radio = (value: TeardropEditAction, label: string, title?: string): JSX.Element => (
-    <label title={title}>
+  const tri = (
+    key: 'm_cbPreferZoneConnection' | 'm_cbTeardropsUseNextTrack' | 'm_curvedEdges',
+    label: string,
+    tooltip?: string,
+  ): JSX.Element => {
+    const v: TRI_STATE = dialog[key];
+    return (
+      <label className="ze-check" title={tooltip}>
+        <input
+          type="checkbox"
+          checked={v === true}
+          disabled={!specOn}
+          ref={(el) => {
+            if (el) el.indeterminate = v === null;
+          }}
+          onChange={() => {
+            // wxCHK_ALLOW_3RD_STATE_FOR_USER: off -> on -> undetermined -> off.
+            dialog[key] = v === false ? true : v === true ? null : false;
+            redraw();
+          }}
+        />
+        {label}
+      </label>
+    );
+  };
+
+  const radio = (action: TEARDROP_ACTION, label: string, tooltip?: string): JSX.Element => (
+    <label className="ze-radio" title={tooltip}>
       <input
         type="radio"
-        name="td-action"
-        checked={opts.action === value}
-        onChange={() => set({ action: value })}
+        name="ze-getd-action"
+        checked={dialog.m_action === action}
+        onChange={() => {
+          dialog.m_action = action;
+          redraw();
+        }}
       />
       {label}
     </label>
   );
 
-  const triBox = (v: Tri, setV: (n: Tri) => void, label: string, title?: string): JSX.Element => (
-    <label className={specifiedEnabled ? '' : 'disabled'} title={title}>
-      <button
-        type="button"
-        className="ze-tristate"
-        disabled={!specifiedEnabled}
-        aria-checked={v === undefined ? 'mixed' : v}
-        role="checkbox"
-        onClick={() => setV(nextTri(v))}
-      >
-        {triLabel(v)}
-      </button>
-      {label}
-    </label>
+  const entry = (b: UNIT_BINDER): JSX.Element => (
+    <input
+      className="ze-search"
+      value={b.GetText()}
+      disabled={!specOn}
+      onChange={(e) => {
+        b.SetText(e.target.value);
+        redraw();
+      }}
+    />
   );
 
-  const field = (
-    value: string,
-    setValue: (s: string) => void,
-    label: string,
-    unit: string,
-    title?: string,
-  ): JSX.Element => (
-    <label className={specifiedEnabled ? '' : 'disabled'} title={title}>
-      <span className="ze-td-label">{label}</span>
-      <input
-        type="text"
-        className="ze-td-input"
-        value={value}
-        disabled={!specifiedEnabled}
-        placeholder="—"
-        onChange={(e) => setValue(e.target.value)}
-      />
-      <span className="ze-td-unit">{unit}</span>
-    </label>
+  /** The `%( d )` unit hint after a percentage. */
+  const pctOf = (d: string): JSX.Element => (
+    <span className="ze-getd-pct">
+      %(<span className="hint">{d}</span> )
+    </span>
   );
+
+  const src = svgUrl('teardrops', 'teardrop_sizes');
 
   return (
-    <div className="ze-modal-backdrop" onMouseDown={onClose}>
-      <div className="ze-modal ze-teardrops-dialog" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          Edit Teardrops
-          <span className="x" onClick={onClose}>
-            ✕
-          </span>
-        </div>
-
-        <div className="ze-modal-body ze-update-pcb-body ze-teardrops-body">
-          <div className="ze-teardrops-top">
-            <fieldset>
+    <div className="ze-modal-backdrop">
+      <div className="ze-modal ze-getd" role="dialog" aria-modal="true">
+        <div className="ze-modal-header">Edit Teardrops</div>
+        <div className="ze-modal-body">
+          <div className="ze-getd-top">
+            <fieldset className="ze-sbox ze-getd-scope">
               <legend>Scope</legend>
-              {check('pthPads', 'PTH pads')}
-              {check('smdPads', 'SMD pads')}
-              {check('vias', 'Vias')}
-              {check('trackToTrack', 'Track to track')}
-            </fieldset>
-
-            <fieldset>
-              <legend>Filter Items</legend>
-              <label>
+              {box('m_pthPads', 'PTH pads')}
+              {box('m_smdPads', 'SMD pads')}
+              {box('m_vias', 'Vias')}
+              <label className="ze-check all5">
                 <input
                   type="checkbox"
-                  checked={opts.netFilter != null}
-                  onChange={(e) => set({ netFilter: e.target.checked ? 0 : null })}
+                  checked={dialog.m_trackToTrack}
+                  onChange={(e) => {
+                    dialog.OnTrackToTrack(e.target.checked);
+                    redraw();
+                  }}
                 />
-                Filter items by net:
+                Track to track
+              </label>
+            </fieldset>
+            <fieldset className="ze-sbox ze-getd-filters">
+              <legend>Filter Items</legend>
+              <div className="ze-getd-filter-grid">
+                {box('m_netFilterOpt', 'Filter items by net:', '', !filtersOn)}
                 <NetSelector
                   netInfo={nets}
-                  netcode={opts.netFilter ?? 0}
-                  disabled={opts.netFilter == null}
-                  onChange={(netFilter) => set({ netFilter })}
+                  netcode={dialog.m_netFilter}
+                  disabled={!filtersOn}
+                  onChange={(net) => {
+                    dialog.m_netFilter = net;
+                    dialog.m_netFilterOpt = true; // OnNetFilterSelect
+                    redraw();
+                  }}
                 />
-              </label>
-
-              <label>
-                <input
-                  type="checkbox"
-                  checked={opts.netclassFilter != null}
-                  onChange={(e) =>
-                    set({ netclassFilter: e.target.checked ? (netclasses[0] ?? null) : null })
-                  }
+                {box('m_netclassFilterOpt', 'Filter items by net class:', '', !filtersOn)}
+                <Combo
+                  value={dialog.m_netclassFilter}
+                  disabled={!filtersOn}
+                  options={dialog.m_netclassNames.map((n) => ({ value: n, label: n }))}
+                  onChange={(v: string) => {
+                    dialog.m_netclassFilter = v;
+                    dialog.m_netclassFilterOpt = true; // OnNetclassFilterSelect
+                    redraw();
+                  }}
                 />
-                Filter items by net class:
-                <select
-                  value={opts.netclassFilter ?? ''}
-                  disabled={opts.netclassFilter == null}
-                  onChange={(e) => set({ netclassFilter: e.target.value })}
-                >
-                  {netclasses.map((n) => (
-                    <option key={n} value={n}>
-                      {n}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label>
-                <input
-                  type="checkbox"
-                  checked={opts.layerFilter != null}
-                  onChange={(e) =>
-                    set({ layerFilter: e.target.checked ? (layers[0] ?? null) : null })
-                  }
+                <span className="ze-getd-gap" />
+                <span className="ze-getd-gap" />
+                {box('m_layerFilterOpt', 'Filter items by layer:', '', !filtersOn)}
+                <Combo
+                  value={String(dialog.m_layerFilter)}
+                  disabled={!filtersOn}
+                  options={layers.map((l) => ({
+                    value: String(l.layer),
+                    label: l.label,
+                    swatch: l.swatch,
+                  }))}
+                  onChange={(v: string) => {
+                    dialog.m_layerFilter = Number(v);
+                    dialog.m_layerFilterOpt = true; // OnLayerFilterSelect
+                    redraw();
+                  }}
                 />
-                Filter items by layer:
-                <select
-                  value={opts.layerFilter ?? ''}
-                  disabled={opts.layerFilter == null}
-                  onChange={(e) => set({ layerFilter: e.target.value })}
-                >
-                  {layers.map((l) => (
-                    <option key={l} value={l}>
-                      {l}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label>
-                <input
-                  type="checkbox"
-                  checked={opts.roundPadsOnly ?? false}
-                  onChange={(e) => set({ roundPadsOnly: e.target.checked })}
-                />
-                Round pads only
-              </label>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={opts.existingOnly ?? false}
-                  onChange={(e) => set({ existingOnly: e.target.checked })}
-                />
-                Existing teardrops only
-              </label>
-              <label className={hasSelection ? '' : 'disabled'}>
-                <input
-                  type="checkbox"
-                  checked={opts.selectedOnly ?? false}
-                  disabled={!hasSelection}
-                  onChange={(e) => set({ selectedOnly: e.target.checked })}
-                />
-                Selected items only
-              </label>
+              </div>
+              {box('m_roundPadsFilter', 'Round pads only', 'top5', !filtersOn)}
+              {box('m_existingFilter', 'Existing teardrops only', 'top5', !filtersOn)}
+              {box('m_selectedItemsFilter', 'Selected items only', 'all5', !filtersOn)}
             </fieldset>
           </div>
-
-          <fieldset>
+          <fieldset className="ze-sbox ze-getd-action">
             <legend>Action</legend>
-            {radio('remove', 'Remove teardrops', 'Remove teardrops according to filtering options')}
             {radio(
-              'removeAll',
+              TEARDROP_ACTION.REMOVE,
+              'Remove teardrops',
+              'Remove teardrops according to filtering options',
+            )}
+            {radio(
+              TEARDROP_ACTION.REMOVE_ALL,
               'Remove all teardrops',
               'Remove all teardrops, regardless of filtering options',
             )}
-            <div className="ze-td-row">
-              {radio('addDefaults', 'Add teardrops with default values for shape')}
+            <div className="ze-getd-addrow">
+              {radio(TEARDROP_ACTION.ADD_DEFAULTS, labels.addTeardrops)}
               <button
                 type="button"
-                className="ze-link"
-                disabled={!onEditDefaults}
-                onClick={onEditDefaults}
+                className="ze-hyperlink"
+                onClick={() => {
+                  dialog.OnClose();
+                  onShowBoardSetup();
+                }}
               >
                 Edit default values in Board Setup
               </button>
             </div>
-            {radio('specified', 'Add teardrops with specified values:')}
-
-            <div className="ze-td-specified">
-              {triBox(
-                preferZone,
-                setPreferZone,
-                'Prefer zone connection',
-                'Do not create teardrops on tracks connected to pads that are also connected to a copper zone.',
-              )}
-              {triBox(
-                twoTracks,
-                setTwoTracks,
-                'Allow teardrops to span two track segments',
-                'Allows a teardrop to extend over the first 2 connected track segments if the first track segment is too short to accommodate the best length.',
-              )}
-              {field(
-                widthLimit,
-                setWidthLimit,
-                'Track width limit:',
-                '%',
-                'Max pad/via size to track width ratio to create a teardrop.\n100 always creates a teardrop.',
-              )}
-              <div className="ze-td-note">
-                Tracks which are similar in size to the pad or via do not need teardrops.
+            {radio(TEARDROP_ACTION.SPECIFIED, labels.specifiedValues)}
+            <div className="ze-getd-specified">
+              <div className="ze-getd-cols">
+                <div className="ze-getd-col">
+                  {tri(
+                    'm_cbPreferZoneConnection',
+                    'Prefer zone connection',
+                    'Do not create teardrops on tracks connected to pads that are also connected to a copper zone.',
+                  )}
+                  {tri(
+                    'm_cbTeardropsUseNextTrack',
+                    'Allow teardrops to span two track segments',
+                    'Allows a teardrop to extend over the first 2 connected track segments if the first track segment is too short to accommodate the best length.',
+                  )}
+                </div>
+                <div className="ze-getd-col right">
+                  <div className="ze-getd-hd">
+                    <span className="lbl">{dialog.m_teardropHDPercent.GetLabel()}</span>
+                    {entry(dialog.m_teardropHDPercent)}
+                    <span className="unit">%</span>
+                  </div>
+                  <span className="ze-getd-hint">(as a percentage of pad/via minor dimension)</span>
+                </div>
               </div>
-              <div className="ze-td-note">(as a percentage of pad/via minor dimension)</div>
-              {field(bestLength, setBestLength, 'Best length (L):', '%')}
-              {field(maxLength, setMaxLength, 'Maximum length (L):', 'mm')}
-              {field(bestWidth, setBestWidth, 'Best width (W):', '%')}
-              {field(maxWidth, setMaxWidth, 'Maximum width (W):', 'mm')}
-              {triBox(curvedEdges, setCurvedEdges, 'Curved edges')}
+              <div className="ze-getd-shape">
+                <div className="ze-getd-bitmap">
+                  {src && <img src={src} alt="" aria-hidden="true" />}
+                </div>
+                <div className="ze-getd-grid">
+                  <span className="lbl">{dialog.m_teardropLenPercent.GetLabel()}</span>
+                  {entry(dialog.m_teardropLenPercent)}
+                  {pctOf('d')}
+                  <span className="lbl">{dialog.m_teardropMaxLen.GetLabel()}</span>
+                  {entry(dialog.m_teardropMaxLen)}
+                  <span className="unit">{unitLabel(dialog.m_teardropMaxLen.GetUnits())}</span>
+                  <span className="ze-getd-gap" />
+                  <span />
+                  <span />
+                  <span className="lbl">{dialog.m_teardropHeightPercent.GetLabel()}</span>
+                  {entry(dialog.m_teardropHeightPercent)}
+                  {pctOf('d')}
+                  <span className="lbl">{dialog.m_teardropMaxHeight.GetLabel()}</span>
+                  {entry(dialog.m_teardropMaxHeight)}
+                  <span className="unit">{unitLabel(dialog.m_teardropMaxHeight.GetUnits())}</span>
+                  <span className="ze-getd-curved">{tri('m_curvedEdges', 'Curved edges')}</span>
+                </div>
+              </div>
             </div>
           </fieldset>
         </div>
-
-        <div className="ze-modal-footer">
-          <span style={{ flex: 1 }} />
-          <button type="button" onClick={onClose}>
-            Cancel
-          </button>
-          <button type="button" className="primary" onClick={apply}>
-            OK
-          </button>
-        </div>
+        <StdDialogButtons
+          okLabel="Apply and Close"
+          cancelLabel="Close"
+          onOk={() => {
+            if (dialog.TransferDataFromWindow()) {
+              onApplied();
+              close();
+            }
+          }}
+          onCancel={close}
+        />
       </div>
     </div>
   );
 }
-
-/** Millimetre text for a stored IU value, for callers pre-filling the fields. */
-export const teardropMm = (iu: number): string => String(pcbIuToMM(iu));
