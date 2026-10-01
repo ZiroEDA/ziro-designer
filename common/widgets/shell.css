@@ -18963,3 +18963,37 @@ fieldset.ze-pushpad-box {
   margin: 5px 5px 0; /* [data] `bSizerMain->Add( bLowerSizer, 1, wxEXPAND|wxTOP|wxRIGHT|wxLEFT, 5 )`. */
   min-height: 0;
 }
+
+/* DIALOG_UNUSED_PAD_LAYERS (dialog_unused_pad_layers_base.cpp). */
+.ze-unusedpads-body {
+  display: flex;
+  margin: 0 5px 5px; /* [data] `m_MainSizer->Add( bMargins, 6, wxBOTTOM|wxEXPAND|wxLEFT|wxRIGHT, 5 )`. */
+}
+.ze-unusedpads-boxes {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  margin: 10px 0 0 10px; /* [data] `bMargins->Add( bSizer4, 1, wxEXPAND|wxTOP|wxLEFT, 10 )`. */
+}
+.ze-unusedpads .ze-check.all5 {
+  margin: 5px; /* [data] `m_cbVias`, `wxALL, 5`. */
+}
+.ze-unusedpads .ze-check.brl5 {
+  margin: 0 5px 5px; /* [data] `m_cbPads`, `wxBOTTOM|wxRIGHT|wxLEFT, 5`. */
+}
+.ze-unusedpads .ze-check.bl5 {
+  margin: 0 0 5px 5px; /* [data] `m_cbSelectedOnly`, `wxEXPAND|wxBOTTOM|wxLEFT, 5`. */
+}
+.ze-unusedpads .ze-check.l5 {
+  margin-left: 5px; /* [data] `m_cbPreserveExternalLayers`, `wxEXPAND|wxLEFT, 5`. */
+}
+.ze-unusedpads-gap {
+  height: 15px; /* [data] `bSizer4->Add( 0, 15, 0, wxEXPAND, 5 )`. */
+}
+.ze-unusedpads-preview {
+  flex: 1;
+  margin: 0 5px; /* [data] `bMargins->Add( bSizerPreview, 1, wxEXPAND|wxLEFT|wxRIGHT, 5 )`. */
+}
+.ze-unusedpads-preview img {
+  margin: 10px 10px 0; /* [data] `m_image`, `wxTOP|wxRIGHT|wxLEFT, 10`. */
+}

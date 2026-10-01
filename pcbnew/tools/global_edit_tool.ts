@@ -22,6 +22,8 @@ import type { BOARD_ITEM } from '../board_item.js';
 import { DIALOG_SWAP_LAYERS } from '../dialogs/dialog_swap_layers.js';
 import { DIALOG_CLEANUP_TRACKS_AND_VIAS } from '../dialogs/dialog_cleanup_tracks_and_vias.js';
 import { DIALOG_CLEANUP_GRAPHICS } from '../dialogs/dialog_cleanup_graphics.js';
+import { DIALOG_UNUSED_PAD_LAYERS } from '../dialogs/dialog_unused_pad_layers.js';
+import type { PCB_SELECTION_TOOL } from './pcb_selection_tool.js';
 import type { PCB_BASE_EDIT_FRAME } from '../pcb_base_edit_frame.js';
 import type { PCB_VIA } from '../pcb_track.js';
 import { VIATYPE } from '../pcb_track_types.js';
@@ -35,6 +37,8 @@ const GEOMETRY = VIEW_UPDATE_FLAGS.GEOMETRY;
 export interface GLOBAL_EDIT_TOOL_FRAME {
   /** `DIALOG_SWAP_LAYERS dlg( frame(), layerMap ); dlg.ShowModal() == wxID_OK`. */
   ShowSwapLayersDialog(aDialog: DIALOG_SWAP_LAYERS): Promise<boolean>;
+  /** `DIALOG_UNUSED_PAD_LAYERS dlg( editFrame, selection, *m_commit ); dlg.ShowModal()`. */
+  ShowUnusedPadLayersDialog(aDialog: DIALOG_UNUSED_PAD_LAYERS): void;
   /** `DIALOG_CLEANUP_GRAPHICS dlg( editFrame, false ); dlg.ShowModal()`. */
   ShowCleanupGraphicsDialog(aDialog: DIALOG_CLEANUP_GRAPHICS): void;
   /** `DIALOG_CLEANUP_TRACKS_AND_VIAS dlg( editFrame ); dlg.ShowModal()`. */
@@ -164,6 +168,21 @@ export class GLOBAL_EDIT_TOOL extends PCB_TOOL_BASE {
     return 0;
   }
 
+  RemoveUnusedPads(_aEvent: TOOL_EVENT): number {
+    const editFrame = this.editFrame();
+    const selTool = this.m_toolMgr!.FindTool(
+      'common.InteractiveSelection',
+    ) as unknown as PCB_SELECTION_TOOL;
+    const selection = selTool.RequestSelection((_aPt, aCollector, sTool) => {
+      sTool.FilterCollectorForHierarchy(aCollector, true);
+    });
+    const dlg = new DIALOG_UNUSED_PAD_LAYERS(editFrame, [...selection], this.m_commit!);
+
+    editFrame.ShowUnusedPadLayersDialog(dlg);
+
+    return 0;
+  }
+
   /**
    * The Zone Manager. Upstream's BOARD_COMMIT is filled with Modify( zone )
    * and never pushed, so the change files no undo entry.
@@ -211,6 +230,7 @@ export class GLOBAL_EDIT_TOOL extends PCB_TOOL_BASE {
     this.Go(S(this.SwapLayers), PCB_ACTIONS.swapLayers.MakeEvent());
     this.Go(S(this.CleanupTracksAndVias), PCB_ACTIONS.cleanupTracksAndVias.MakeEvent());
     this.Go(S(this.CleanupGraphics), PCB_ACTIONS.cleanupGraphics.MakeEvent());
+    this.Go(S(this.RemoveUnusedPads), PCB_ACTIONS.removeUnusedPads.MakeEvent());
     this.Go(S(this.ZonesManager), PCB_ACTIONS.zonesManager.MakeEvent());
   }
 }

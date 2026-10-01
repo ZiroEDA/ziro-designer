@@ -109,6 +109,7 @@ import type { KiDialogResult } from '@ziroeda/common/kidialog_do_not_show.js';
 import type { DIALOG_SWAP_LAYERS } from './dialogs/dialog_swap_layers.js';
 import type { DIALOG_CLEANUP_TRACKS_AND_VIAS } from './dialogs/dialog_cleanup_tracks_and_vias.js';
 import type { DIALOG_CLEANUP_GRAPHICS } from './dialogs/dialog_cleanup_graphics.js';
+import type { DIALOG_UNUSED_PAD_LAYERS } from './dialogs/dialog_unused_pad_layers.js';
 import {
   type DIALOG_PUSH_PAD_PROPERTIES,
   wxID_CANCEL,
@@ -456,6 +457,8 @@ export interface PCB_EDIT_FRAME_HOOKS {
   attachPositionRelativeDialog?(aDialog: DIALOG_POSITION_RELATIVE): void;
   /** POSITION_RELATIVE_TOOL's `DIALOG_OFFSET_ITEM( ... ).ShowModal() == wxID_OK`. */
   showOffsetItemDialog?(aDialog: DIALOG_OFFSET_ITEM): Promise<boolean>;
+  /** GLOBAL_EDIT_TOOL's DIALOG_UNUSED_PAD_LAYERS, modal; it closes itself. */
+  showUnusedPadLayersDialog?(aDialog: DIALOG_UNUSED_PAD_LAYERS): void;
   /** GLOBAL_EDIT_TOOL's DIALOG_CLEANUP_GRAPHICS, modal; it closes itself. */
   showCleanupGraphicsDialog?(aDialog: DIALOG_CLEANUP_GRAPHICS): void;
   /** GLOBAL_EDIT_TOOL's DIALOG_CLEANUP_TRACKS_AND_VIAS, modal; it closes itself. */
@@ -745,6 +748,10 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   }
 
   // ---- GLOBAL_EDIT_TOOL's window half (GLOBAL_EDIT_TOOL_FRAME) --------------
+
+  ShowUnusedPadLayersDialog(aDialog: DIALOG_UNUSED_PAD_LAYERS): void {
+    this.hooks.showUnusedPadLayersDialog?.(aDialog);
+  }
 
   ShowCleanupGraphicsDialog(aDialog: DIALOG_CLEANUP_GRAPHICS): void {
     this.hooks.showCleanupGraphicsDialog?.(aDialog);

@@ -653,6 +653,8 @@ import { DialogSwapLayers } from './dialogs/dialog_swap_layers_ui.js';
 import { choiceOf } from './grid_layer_box_helpers.js';
 import { DialogCleanupTracksAndVias } from './dialogs/dialog_cleanup_tracks_and_vias_ui.js';
 import { DialogCleanupGraphics } from './dialogs/dialog_cleanup_graphics_ui.js';
+import { DialogUnusedPadLayers } from './dialogs/dialog_unused_pad_layers_ui.js';
+import type { DIALOG_UNUSED_PAD_LAYERS } from './dialogs/dialog_unused_pad_layers.js';
 import type { DIALOG_CLEANUP_GRAPHICS } from './dialogs/dialog_cleanup_graphics.js';
 import type { DIALOG_CLEANUP_TRACKS_AND_VIAS } from './dialogs/dialog_cleanup_tracks_and_vias.js';
 import type { DIALOG_SWAP_LAYERS } from './dialogs/dialog_swap_layers.js';
@@ -2098,6 +2100,8 @@ export function PcbEditor({
     dialog: DIALOG_OFFSET_ITEM;
     resolve: (aOk: boolean) => void;
   } | null>(null);
+  /** GLOBAL_EDIT_TOOL's DIALOG_UNUSED_PAD_LAYERS. */
+  const [unusedPadsDlg, setUnusedPadsDlg] = useState<DIALOG_UNUSED_PAD_LAYERS | null>(null);
   /** GLOBAL_EDIT_TOOL's DIALOG_CLEANUP_GRAPHICS. */
   const [cleanupGfxDlg, setCleanupGfxDlg] = useState<DIALOG_CLEANUP_GRAPHICS | null>(null);
   /** GLOBAL_EDIT_TOOL's DIALOG_CLEANUP_TRACKS_AND_VIAS. */
@@ -2675,6 +2679,7 @@ export function PcbEditor({
       // GLOBAL_EDIT_TOOL's window half.
       showCleanupTracksAndViasDialog: (aDialog) => setCleanupDlg(aDialog),
       showCleanupGraphicsDialog: (aDialog) => setCleanupGfxDlg(aDialog),
+      showUnusedPadLayersDialog: (aDialog) => setUnusedPadsDlg(aDialog),
       askKiDialog: (aRequest) => askKiDialogRef.current(aRequest),
       showSwapLayersDialog: (aDialog) =>
         new Promise<boolean>((resolve) => setSwapLayersDlg({ dialog: aDialog, resolve })),
@@ -11486,6 +11491,9 @@ export function PcbEditor({
       case 'cleanupGraphics':
         runAction(PCB_ACTIONS.cleanupGraphics);
         break;
+      case 'removeUnusedPads':
+        runAction(PCB_ACTIONS.removeUnusedPads);
+        break;
       case 'polygonmerge':
         runAction(PCB_ACTIONS.mergePolygons);
         break;
@@ -13639,6 +13647,9 @@ export function PcbEditor({
       {/* POSITION_RELATIVE_TOOL's DIALOG_POSITION_RELATIVE: modeless, in the
           same host as Find; it draws itself only while it is shown. */}
       {posRelDialog && <DialogPositionRelativeModeless dialog={posRelDialog} />}
+      {unusedPadsDlg && (
+        <DialogUnusedPadLayers dialog={unusedPadsDlg} onClose={() => setUnusedPadsDlg(null)} />
+      )}
       {cleanupGfxDlg && (
         <DialogCleanupGraphics dialog={cleanupGfxDlg} onClose={() => setCleanupGfxDlg(null)} />
       )}
