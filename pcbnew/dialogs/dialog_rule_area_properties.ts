@@ -32,7 +32,6 @@
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 // ZONE_SETTINGS' defaults for a fresh rule area, which is also what a copper
 // zone being *converted* into one starts from.
-import { DEFAULT_RULE_AREA_KEEPOUT } from '../convert_shapes.js';
 import type { Board, PcbZone, PlacementSourceType, ZonePlacementArea } from '../types.js';
 import { LSET_Name } from '@ziroeda/common/layer_ids.js';
 import { LSET } from '@ziroeda/common/lset.js';
@@ -45,8 +44,23 @@ import {
   type ZONE_SETTINGS,
 } from '../zone_settings.js';
 import type { TransferResult } from './dialog_text_properties.js';
+import type { BOARD } from '../board.js';
+import type { CONVERT_SETTINGS } from '../pcbnew_settings.js';
+import { CONVERSION_BOX, type ConversionBoxValues } from '../tools/convert_settings_dialog.js';
 import { editZoneParamsCommit } from './panel_zone_properties.js';
 
+/**
+ * `ZONE_SETTINGS`'s defaults for a fresh rule area: tracks, vias and pads
+ * forbidden, zone fills and footprints allowed. Every flag is *do not allow*,
+ * so `false` on copperPour means a pour may still enter.
+ */
+export const DEFAULT_RULE_AREA_KEEPOUT = {
+  tracks: true,
+  vias: true,
+  pads: true,
+  copperPour: false,
+  footprints: false,
+} as const;
 /** ZONE_BORDER_HATCH_{DIST,MINDIST,MAXDIST}_MM (pcbnew/zones.h:34-36). */
 const BORDER_HATCH_DEFAULT = mmToIU(0.5);
 const BORDER_HATCH_MIN = mmToIU(0.1);
@@ -451,22 +465,53 @@ const PLACEMENT_SOURCE: readonly [PlacementSourceType, PLACEMENT_SOURCE_T][] = [
  */
 export class DIALOG_RULE_AREA_PROPERTIES {
   private readonly m_frame: PCB_BASE_EDIT_FRAME;
-  private readonly m_zone: ZONE;
+  private readonly m_zone: ZONE | null;
   private readonly m_zonesettings: ZONE_SETTINGS;
   private readonly m_originalName: string;
+  /** `m_ptr`: the caller's settings, written on OK when there is no zone. */
+  private readonly m_ptr: ZONE_SETTINGS | null;
+  /** `m_convertSettings`: CONVERT_TOOL's, when it opens the dialog. */
+  readonly m_convertSettings: CONVERT_SETTINGS | null;
 
-  constructor(aFrame: PCB_BASE_EDIT_FRAME, aZone: ZONE) {
+  /**
+   * On a live rule area, as `Edit_Zone_Params` opens it; or, with `aZone`
+   * null, on `aSettings` alone, as `InvokeRuleAreaEditor( frame, &zoneInfo,
+   * board, &convertSettings )` does for CONVERT_TOOL.
+   */
+  constructor(
+    aFrame: PCB_BASE_EDIT_FRAME,
+    aZone: ZONE | null,
+    aSettings: ZONE_SETTINGS | null = null,
+    aConvertSettings: CONVERT_SETTINGS | null = null,
+  ) {
     this.m_frame = aFrame;
     this.m_zone = aZone;
-    this.m_zonesettings = aFrame.GetDesignSettings().GetDefaultZoneSettings().clone();
-    this.m_zonesettings.importFrom(aZone);
+    this.m_ptr = aSettings;
+    this.m_convertSettings = aConvertSettings;
+
+    if (aZone) {
+      this.m_zonesettings = aFrame.GetDesignSettings().GetDefaultZoneSettings().clone();
+      this.m_zonesettings.importFrom(aZone);
+    } else {
+      this.m_zonesettings = aSettings!.clone();
+    }
+
     this.m_originalName = this.m_zonesettings.m_Name;
+  }
+
+  private board(): BOARD | null {
+    return this.m_zone?.GetBoard() ?? this.m_frame.GetBoard();
+  }
+
+  /** The "Conversion Settings" box's controls, or null when there is none. */
+  TransferConversionToWindow(): ConversionBoxValues | null {
+    return this.m_convertSettings ? CONVERSION_BOX.ToWindow(this.m_convertSettings, true) : null;
   }
 
   TransferDataToWindow(): RuleAreaValues {
     const s = this.m_zonesettings;
     const layers = s.m_Layers;
-    const copperLayerCount = this.m_zone.GetBoard()?.GetCopperLayerCount() ?? 2;
+    const copperLayerCount = this.board()?.GetCopperLayerCount() ?? 2;
 
     return {
       doNotAllowTracks: s.GetDoNotAllowTracks(),
@@ -490,8 +535,14 @@ export class DIALOG_RULE_AREA_PROPERTIES {
     };
   }
 
-  TransferDataFromWindow(v: RuleAreaValues): TransferResult {
+  TransferDataFromWindow(
+    v: RuleAreaValues,
+    aConversion: ConversionBoxValues | null = null,
+  ): TransferResult {
     const s = this.m_zonesettings;
+
+    if (this.m_convertSettings && aConversion)
+      CONVERSION_BOX.FromWindow(this.m_convertSettings, aConversion, true);
 
     // Set keepout parameters:
     s.SetIsRuleArea(true);
@@ -524,11 +575,14 @@ export class DIALOG_RULE_AREA_PROPERTIES {
     s.m_Name = v.name;
 
     // Only enforce uniqueness when the user actually changed the name (issue 23131)
-    const board = this.m_zone.GetBoard();
+    const board = this.board();
     if (board && s.m_Name !== this.m_originalName)
       s.m_Name = board.GetUniqueZoneName(s.m_Name, null);
 
-    editZoneParamsCommit(this.m_frame, this.m_zone, s);
+    // `*m_ptr = m_zonesettings`: with no zone, the caller's settings; with
+    // one, Edit_Zone_Params' commit.
+    if (this.m_zone) editZoneParamsCommit(this.m_frame, this.m_zone, s);
+    else this.m_ptr!.CopyFrom(s, true);
 
     return { ok: true };
   }

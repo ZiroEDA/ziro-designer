@@ -26,7 +26,6 @@ import {
   type PlacementSources,
   type RuleAreaValues,
 } from '@ziroeda/pcbnew/dialogs/dialog_rule_area_properties.js';
-import { convertToZone } from '@ziroeda/pcbnew/convert_shapes.js';
 import type { Board, PcbZone } from '@ziroeda/pcbnew/types.js';
 import { writtenItems } from './support/written_node.js';
 
@@ -486,24 +485,6 @@ describe('apply', () => {
     // A free name is taken as typed.
     const renamed = applyRuleAreaValues(b, 0, { ...base, name: 'shield' });
     expect(zone(roundTrip(renamed)).name).toBe('shield');
-  });
-
-  it('writes a placement block for a rule area built from scratch', () => {
-    // A converted rule area has no stored source, so the canonical builder
-    // runs instead — and upstream's writer emits `(placement …)` for every
-    // rule area, not just the ones that came out of a file with one.
-    const { board: converted } = convertToZone(load(src()), ['zone:0'], {
-      layer: 'F.Cu',
-      ruleArea: true,
-    });
-    const back = zone(roundTrip(converted), 1);
-
-    expect(flat(converted)).toContain('(placement (enabled no) (sheetname ""))');
-    expect(back.placementArea).toEqual({
-      enabled: false,
-      sourceType: 'sheetname',
-      source: '',
-    });
   });
 
   it('drops the name token when the field is cleared', () => {

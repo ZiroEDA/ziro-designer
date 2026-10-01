@@ -29,6 +29,21 @@ import type { Board, PcbShape } from '../types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import type { BOARD_ITEM } from '../board_item.js';
 import { PCB_SHAPE } from '../pcb_shape.js';
+import type { PAD } from '../pad.js';
+import { PAD_SHAPE, PADSTACK } from '../padstack.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { ROUNDRECT } from '@ziroeda/kimath/src/geometry/roundrect.js';
+import { SHAPE_RECT } from '@ziroeda/kimath/src/geometry/shape_rect.js';
+import { CIRCLE } from '@ziroeda/kimath/src/geometry/circle.js';
+import { SHAPE_SEGMENT } from '@ziroeda/kimath/src/geometry/shape_segment.js';
+import { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_chain.js';
+import { KIGEOM_ConvertToChain } from '@ziroeda/kimath/src/geometry/oval.js';
+import { KIGEOM_RoundNW, KIGEOM_RoundSE } from '@ziroeda/kimath/src/geometry/vector_utils.js';
+import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
+import { GetRotated } from '@ziroeda/kimath/src/trigo.js';
+import { ANGLE_90, ANGLE_180 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import { GetBoardItemWidth } from './pcb_tool_utils.js';
+import { ResizeI } from '@ziroeda/kimath/src/math/vector2.js';
 import { SHAPE_T, FILL_T } from '@ziroeda/common/eda_shape.js';
 import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { SEG } from '@ziroeda/kimath/src/geometry/seg.js';
@@ -746,6 +761,400 @@ export class POLYGON_INTERSECT_ROUTINE extends POLYGON_BOOLEAN_ROUTINE {
   }
 }
 
+/** `OUTSET_ROUTINE::PARAMETERS`. */
+export interface OUTSET_PARAMETERS {
+  outsetDistance: number;
+  roundCorners: boolean;
+  useSourceLayers: boolean;
+  useSourceWidths: boolean;
+  layer: PCB_LAYER_ID;
+  lineWidth: number;
+  gridRounding: number | null;
+  deleteSourceItems: boolean;
+}
+
+function GetRectRoundedToGridOutwards(aRect: SHAPE_RECT, aGridSize: number): SHAPE_RECT {
+  const newPos = KIGEOM_RoundNW(aRect.GetPosition(), aGridSize);
+  const p = aRect.GetPosition();
+  const sz = aRect.GetSize();
+  const newOpposite = KIGEOM_RoundSE({ x: p.x + sz.x, y: p.y + sz.y }, aGridSize);
+  return new SHAPE_RECT(newPos, newOpposite);
+}
+
+/**
+ * `OUTSET_ROUTINE`: draw new shapes a fixed distance outside the selected
+ * pads and shapes (item_modification_routine.cpp:649-1042).
+ */
+export class OUTSET_ROUTINE extends ITEM_MODIFICATION_ROUTINE {
+  private readonly m_params: OUTSET_PARAMETERS;
+
+  constructor(aBoard: BOARD_ITEM | null, aHandler: CHANGE_HANDLER, aParams: OUTSET_PARAMETERS) {
+    super(aBoard, aHandler);
+    this.m_params = { ...aParams };
+  }
+
+  GetCommitDescription(): string {
+    return 'Outset Items';
+  }
+
+  GetStatusMessage(): string | null {
+    if (this.GetSuccesses() === 0) return 'Unable to outset the selected items.';
+    else if (this.GetFailures() > 0) return 'Some of the items could not be outset.';
+
+    return null;
+  }
+
+  ProcessItem(aItem: BOARD_ITEM): void {
+    /*
+     * This attempts to do exact outsetting, rather than punting to Clipper.
+     * So it can't do all shapes, but it can do the most obvious ones, which are probably
+     * the ones you want to outset anyway, most usually when making a courtyard for a footprint.
+     */
+
+    const layer = this.m_params.useSourceLayers ? aItem.GetLayer() : this.m_params.layer;
+
+    // Not all items have a width, even if the parameters want to copy it
+    // So fall back to the given width if we can't get one.
+    let width = this.m_params.lineWidth;
+
+    if (this.m_params.useSourceWidths) {
+      const item_width = GetBoardItemWidth(aItem);
+
+      if (item_width !== null) width = item_width;
+    }
+
+    const handler = this.GetHandler();
+
+    const addPolygonalChain = (aChain: SHAPE_LINE_CHAIN): void => {
+      const new_poly = new SHAPE_POLY_SET(aChain);
+
+      const new_shape = new PCB_SHAPE(this.GetBoard(), SHAPE_T.POLY);
+
+      new_shape.SetPolyShape(new_poly);
+      new_shape.SetLayer(layer);
+      new_shape.SetWidth(width);
+
+      handler.AddNewItem(new_shape);
+    };
+
+    // Iterate the SHAPE_LINE_CHAIN in the polygon, pulling out
+    // segments and arcs to create new PCB_SHAPE primitives.
+    const addChain = (aChain: SHAPE_LINE_CHAIN): void => {
+      // Prefer to add a polygonal chain if there are no arcs
+      // as this permits boolean ops
+      if (aChain.ArcCount() === 0) {
+        addPolygonalChain(aChain);
+        return;
+      }
+
+      for (let si = 0; si < aChain.GetSegmentCount(); ++si) {
+        const seg = aChain.GetSegment(si);
+
+        if (seg.Length() === 0) continue;
+
+        if (aChain.IsArcSegment(si)) continue;
+
+        const new_shape = new PCB_SHAPE(this.GetBoard(), SHAPE_T.SEGMENT);
+        new_shape.SetStart(seg.A);
+        new_shape.SetEnd(seg.B);
+        new_shape.SetLayer(layer);
+        new_shape.SetWidth(width);
+
+        handler.AddNewItem(new_shape);
+      }
+
+      for (let ai = 0; ai < aChain.ArcCount(); ++ai) {
+        const arc = aChain.Arc(ai);
+        const p0 = arc.GetP0();
+        const p1 = arc.GetP1();
+
+        if (arc.GetRadius() === 0 || (p0.x === p1.x && p0.y === p1.y)) continue;
+
+        const new_shape = new PCB_SHAPE(this.GetBoard(), SHAPE_T.ARC);
+        new_shape.SetArcGeometry(p0, arc.GetArcMid(), p1);
+        new_shape.SetLayer(layer);
+        new_shape.SetWidth(width);
+
+        handler.AddNewItem(new_shape);
+      }
+    };
+
+    const addPoly = (aPoly: SHAPE_POLY_SET): void => {
+      for (let oi = 0; oi < aPoly.OutlineCount(); ++oi) {
+        addChain(aPoly.Outline(oi));
+      }
+    };
+
+    const addRect = (aRect: SHAPE_RECT): void => {
+      const new_shape = new PCB_SHAPE(this.GetBoard(), SHAPE_T.RECTANGLE);
+
+      if (this.m_params.gridRounding === null) {
+        new_shape.SetPosition(aRect.GetPosition());
+        new_shape.SetRectangleWidth(aRect.GetWidth());
+        new_shape.SetRectangleHeight(aRect.GetHeight());
+      } else {
+        const grid_rect = GetRectRoundedToGridOutwards(aRect, this.m_params.gridRounding);
+        new_shape.SetPosition(grid_rect.GetPosition());
+        new_shape.SetRectangleWidth(grid_rect.GetWidth());
+        new_shape.SetRectangleHeight(grid_rect.GetHeight());
+      }
+
+      new_shape.SetLayer(layer);
+      new_shape.SetWidth(width);
+
+      handler.AddNewItem(new_shape);
+    };
+
+    const addCircle = (aCircle: CIRCLE): void => {
+      const new_shape = new PCB_SHAPE(this.GetBoard(), SHAPE_T.CIRCLE);
+      new_shape.SetCenter(aCircle.Center);
+      new_shape.SetRadius(aCircle.Radius);
+      new_shape.SetLayer(layer);
+      new_shape.SetWidth(width);
+
+      handler.AddNewItem(new_shape);
+    };
+
+    const addCircleOrRect = (aCircle: CIRCLE): void => {
+      if (this.m_params.roundCorners) {
+        addCircle(aCircle);
+      } else {
+        const c = aCircle.Center;
+        const r = aCircle.Radius;
+        const rect = new SHAPE_RECT({ x: c.x - r, y: c.y - r }, { x: c.x + r, y: c.y + r });
+        addRect(rect);
+      }
+    };
+
+    switch (aItem.Type()) {
+      case KICAD_T.PCB_PAD_T: {
+        const pad = aItem as unknown as PAD;
+
+        // TODO(JE) padstacks
+        const pad_shape = pad.GetShape(PADSTACK.ALL_LAYERS);
+
+        switch (pad_shape) {
+          case PAD_SHAPE.RECTANGLE:
+          case PAD_SHAPE.ROUNDRECT:
+          case PAD_SHAPE.OVAL: {
+            const pad_size = pad.GetSize(PADSTACK.ALL_LAYERS);
+            const pos = pad.GetPosition();
+
+            // `pad_size / 2` is VECTOR2I integer division
+            const box = new BOX2I(
+              { x: pos.x - Math.trunc(pad_size.x / 2), y: pos.y - Math.trunc(pad_size.y / 2) },
+              pad_size,
+            );
+            box.Inflate(this.m_params.outsetDistance);
+
+            if (box.GetWidth() <= 0 || box.GetHeight() <= 0) {
+              this.AddFailure();
+              break;
+            }
+
+            let radius = this.m_params.outsetDistance;
+
+            if (pad_shape === PAD_SHAPE.ROUNDRECT)
+              radius += pad.GetRoundRectCornerRadius(PADSTACK.ALL_LAYERS);
+            else if (pad_shape === PAD_SHAPE.OVAL)
+              radius += Math.trunc(Math.min(pad_size.x, pad_size.y) / 2);
+
+            radius = this.m_params.roundCorners ? Math.max(radius, 0) : 0;
+
+            // No point doing a SHAPE_RECT as we may need to rotate it
+            const rrect = new ROUNDRECT(new SHAPE_RECT(box), radius);
+            const poly = new SHAPE_POLY_SET();
+            rrect.TransformToPolygon(poly, pad.GetMaxError());
+
+            poly.Rotate(pad.GetOrientation(), pad.GetPosition());
+            addPoly(poly);
+            this.AddSuccess();
+            break;
+          }
+
+          case PAD_SHAPE.CIRCLE: {
+            const radius =
+              Math.trunc(pad.GetSize(PADSTACK.ALL_LAYERS).x / 2) + this.m_params.outsetDistance;
+
+            if (radius <= 0) {
+              this.AddFailure();
+              break;
+            }
+
+            const circle = new CIRCLE(pad.GetPosition(), radius);
+            addCircleOrRect(circle);
+            this.AddSuccess();
+            break;
+          }
+
+          case PAD_SHAPE.TRAPEZOID:
+            // Not handled yet, but could use a generic convex polygon outset method.
+            break;
+
+          default:
+            // Other pad shapes are not supported with exact outsets
+            break;
+        }
+        break;
+      }
+      case KICAD_T.PCB_SHAPE_T: {
+        const pcb_shape = aItem as unknown as PCB_SHAPE;
+
+        switch (pcb_shape.GetShape()) {
+          case SHAPE_T.RECTANGLE: {
+            const box = new BOX2I(pcb_shape.GetPosition(), {
+              x: pcb_shape.GetRectangleWidth(),
+              y: pcb_shape.GetRectangleHeight(),
+            });
+            box.Inflate(this.m_params.outsetDistance);
+
+            if (box.GetWidth() <= 0 || box.GetHeight() <= 0) {
+              this.AddFailure();
+              break;
+            }
+
+            box.Normalize();
+
+            let rect = new SHAPE_RECT(box);
+            let cornerRadius = pcb_shape.GetCornerRadius();
+
+            if (this.m_params.roundCorners)
+              cornerRadius = Math.max(cornerRadius + this.m_params.outsetDistance, 0);
+
+            if (this.m_params.gridRounding !== null)
+              rect = GetRectRoundedToGridOutwards(rect, this.m_params.gridRounding);
+
+            if (cornerRadius > 0) {
+              const rrect = new ROUNDRECT(rect, cornerRadius);
+              const poly = new SHAPE_POLY_SET();
+              rrect.TransformToPolygon(poly, pcb_shape.GetMaxError());
+              addChain(poly.Outline(0));
+            } else {
+              addRect(rect);
+            }
+
+            this.AddSuccess();
+            break;
+          }
+
+          case SHAPE_T.CIRCLE: {
+            const newRadius = pcb_shape.GetRadius() + this.m_params.outsetDistance;
+
+            if (newRadius <= 0) {
+              this.AddFailure();
+              break;
+            }
+
+            const circle = new CIRCLE(pcb_shape.GetCenter(), newRadius);
+            addCircleOrRect(circle);
+            this.AddSuccess();
+            break;
+          }
+
+          case SHAPE_T.SEGMENT: {
+            if (this.m_params.outsetDistance <= 0) {
+              this.AddFailure();
+              break;
+            }
+
+            // For now just make the whole stadium shape and let the user delete the unwanted bits
+            const seg = new SEG(pcb_shape.GetStart(), pcb_shape.GetEnd());
+
+            if (this.m_params.roundCorners) {
+              const oval = new SHAPE_SEGMENT(seg, this.m_params.outsetDistance * 2);
+              addChain(KIGEOM_ConvertToChain(oval));
+            } else {
+              const chain = new SHAPE_LINE_CHAIN();
+              const ext = ResizeI(
+                { x: seg.B.x - seg.A.x, y: seg.B.y - seg.A.y },
+                this.m_params.outsetDistance,
+              );
+              const perp = GetRotated(ext, ANGLE_90);
+
+              chain.Append({ x: seg.A.x - ext.x + perp.x, y: seg.A.y - ext.y + perp.y });
+              chain.Append({ x: seg.A.x - ext.x - perp.x, y: seg.A.y - ext.y - perp.y });
+              chain.Append({ x: seg.B.x + ext.x - perp.x, y: seg.B.y + ext.y - perp.y });
+              chain.Append({ x: seg.B.x + ext.x + perp.x, y: seg.B.y + ext.y + perp.y });
+              chain.SetClosed(true);
+              addChain(chain);
+            }
+
+            this.AddSuccess();
+            break;
+          }
+
+          case SHAPE_T.ARC:
+            // Not 100% sure what a sensible non-round outset of an arc is!
+            // (not sure it's that important in practice)
+
+            // Gets rather complicated if this isn't true
+            if (pcb_shape.GetRadius() >= this.m_params.outsetDistance) {
+              // Again, include the endcaps and let the user delete the unwanted bits
+              const arc = new SHAPE_ARC(
+                pcb_shape.GetCenter(),
+                pcb_shape.GetStart(),
+                pcb_shape.GetArcAngle(),
+                0,
+              );
+
+              const c = arc.GetCenter();
+              const p0 = arc.GetP0();
+              const startNorm = ResizeI(
+                { x: p0.x - c.x, y: p0.y - c.y },
+                this.m_params.outsetDistance,
+              );
+
+              const inner = new SHAPE_ARC(
+                c,
+                { x: p0.x - startNorm.x, y: p0.y - startNorm.y },
+                arc.GetCentralAngle(),
+                0,
+              );
+              const outer = new SHAPE_ARC(
+                c,
+                { x: p0.x + startNorm.x, y: p0.y + startNorm.y },
+                arc.GetCentralAngle(),
+                0,
+              );
+
+              const chain = new SHAPE_LINE_CHAIN();
+              chain.Append(outer);
+              // End cap at the P1 end
+              chain.Append(new SHAPE_ARC(arc.GetP1(), outer.GetP1(), ANGLE_180));
+
+              if (inner.GetRadius() > 0) {
+                chain.Append(inner.Reversed());
+              }
+
+              // End cap at the P0 end back to the start
+              chain.Append(new SHAPE_ARC(arc.GetP0(), inner.GetP0(), ANGLE_180));
+              addChain(chain);
+              this.AddSuccess();
+            }
+
+            break;
+
+          default:
+            // Other shapes are not supported with exact outsets
+            // (convex) POLY shouldn't be too traumatic and it would bring trapezoids for free.
+            break;
+        }
+
+        break;
+      }
+
+      default:
+        // Other item types are not supported with exact outsets
+        break;
+    }
+
+    // It would be nice if we could differentiate which items went with which in the mixed success/failure
+    // case, but since we can't it's better to err on the side of safety.
+    if (this.m_params.deleteSourceItems && this.GetSuccesses() > 0 && this.GetFailures() === 0)
+      handler.DeleteItem(aItem);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // PAIRWISE_LINE_ROUTINE: fillet, chamfer, extend and dogbone selected lines.
 // ---------------------------------------------------------------------------
@@ -940,343 +1349,6 @@ export function modifyLines(
 /** Ids of the lines a modification would consider, for enabling the menu. */
 export function modifiableLineCount(board: Board, selection: Iterable<string>): number {
   return lineRefs(board, selection).length;
-}
-
-// ---------------------------------------------------------------------------
-// OUTSET_ROUTINE: draw a shape a fixed distance outside another one.
-// ---------------------------------------------------------------------------
-/**
- * Outset Items: draw a shape a fixed distance outside another one.
- * Counterpart: `OUTSET_ROUTINE` in `pcbnew/tools/item_modification_routine.cpp`.
- *
- * The point of the tool is making a courtyard from a footprint's pads, so the
- * result wants to be a *clean* shape — a rectangle that is still a rectangle, a
- * circle still a circle — not a many-sided approximation.
- *
- * That is why this does exact per-shape outsetting rather than offsetting
- * through Clipper, which is upstream's choice and its stated reason: "This
- * attempts to do exact outsetting, rather than punting to Clipper. So it can't
- * do all shapes, but it can do the most obvious ones, which are probably the
- * ones you want to outset anyway." Shapes it cannot do exactly fall back to
- * their bounding box, which is honest about being an approximation in a way
- * that a 200-sided polygon is not.
- */
-
-export interface OutsetOptions {
-  /** How far outside the source to draw, in IU. */
-  distance: number;
-  /**
-   * Round the corners the outset introduces. A rectangle outset with rounded
-   * corners becomes a rounded rectangle — which is what a courtyard around a
-   * rectangular pad actually wants — while a square outset stays a rectangle.
-   */
-  roundCorners?: boolean;
-  /** Layer for the new shapes; the source item's own layer when absent. */
-  layer?: string;
-  /** Width for the new shapes; the source item's own width when absent. */
-  lineWidth?: number;
-  /** Snap the result outwards onto a grid of this pitch, `gridRounding`. */
-  gridRounding?: number;
-  /** `deleteSourceItems`. */
-  deleteSourceItems?: boolean;
-}
-
-export interface OutsetResult {
-  board: Board;
-  successes: number;
-  /** Items whose outset would collapse to nothing, or which are not supported. */
-  failures: number;
-}
-
-const roundDown = (v: number, grid: number): number => Math.floor(v / grid) * grid;
-const roundUp = (v: number, grid: number): number => Math.ceil(v / grid) * grid;
-
-/**
- * `GetRectRoundedToGridOutwards`: grow the box to the nearest grid lines that
- * contain it. Outwards on both corners, never inwards — a courtyard snapped
- * inwards would be smaller than the clearance asked for.
- */
-export function roundRectOutwards(min: Vec2, max: Vec2, grid: number): { min: Vec2; max: Vec2 } {
-  return {
-    min: { x: roundDown(min.x, grid), y: roundDown(min.y, grid) },
-    max: { x: roundUp(max.x, grid), y: roundUp(max.y, grid) },
-  };
-}
-
-/** A rounded rectangle as a point ring: four corner arcs joined by four sides. */
-function roundedRectRing(min: Vec2, max: Vec2, radius: number): Vec2[] {
-  const r = Math.min(radius, (max.x - min.x) / 2, (max.y - min.y) / 2);
-  if (r <= 0) {
-    return [
-      { x: min.x, y: min.y },
-      { x: max.x, y: min.y },
-      { x: max.x, y: max.y },
-      { x: min.x, y: max.y },
-    ];
-  }
-
-  // Each corner is a quarter turn about a centre inset by the radius; the arc's
-  // mid point is at 45°, which is what the tessellator needs to know the sweep.
-  const arcAt = (cx: number, cy: number, a0: number, a1: number): Vec2[] => {
-    const mid = (a0 + a1) / 2;
-    return tessellateArc(
-      { x: Math.round(cx + r * Math.cos(a0)), y: Math.round(cy + r * Math.sin(a0)) },
-      { x: Math.round(cx + r * Math.cos(mid)), y: Math.round(cy + r * Math.sin(mid)) },
-      { x: Math.round(cx + r * Math.cos(a1)), y: Math.round(cy + r * Math.sin(a1)) },
-    );
-  };
-
-  const H = Math.PI / 2;
-  return [
-    // Top-left corner, sweeping from pointing left to pointing up.
-    ...arcAt(min.x + r, min.y + r, Math.PI, Math.PI + H),
-    ...arcAt(max.x - r, min.y + r, Math.PI + H, 2 * Math.PI).slice(1),
-    ...arcAt(max.x - r, max.y - r, 0, H).slice(1),
-    ...arcAt(min.x + r, max.y - r, H, Math.PI).slice(1, -1),
-  ];
-}
-
-/**
- * A segment's outset: the stadium around it, or its bounding rectangle.
- *
- * Upstream builds the whole closed shape rather than only the side the user
- * might want — "make the whole stadium shape and let the user delete the
- * unwanted bits" — because which side is wanted cannot be known from the
- * geometry alone.
- */
-export function outsetSegmentRing(a: Vec2, b: Vec2, distance: number, round: boolean): Vec2[] {
-  const dx = b.x - a.x;
-  const dy = b.y - a.y;
-  const len = Math.hypot(dx, dy);
-  if (len === 0 || distance <= 0) return [];
-
-  const ex = (dx * distance) / len;
-  const ey = (dy * distance) / len;
-  // `GetRotated( ext, ANGLE_90 )` in the board's y-down frame.
-  const px = ey;
-  const py = -ex;
-
-  if (!round) {
-    return [
-      { x: Math.round(a.x - ex + px), y: Math.round(a.y - ey + py) },
-      { x: Math.round(a.x - ex - px), y: Math.round(a.y - ey - py) },
-      { x: Math.round(b.x + ex - px), y: Math.round(b.y + ey - py) },
-      { x: Math.round(b.x + ex + px), y: Math.round(b.y + ey + py) },
-    ];
-  }
-
-  // The stadium: a half turn round each end, joined by the two parallel sides.
-  const capA = tessellateArc(
-    { x: Math.round(a.x - px), y: Math.round(a.y - py) },
-    { x: Math.round(a.x - ex), y: Math.round(a.y - ey) },
-    { x: Math.round(a.x + px), y: Math.round(a.y + py) },
-  );
-  const capB = tessellateArc(
-    { x: Math.round(b.x + px), y: Math.round(b.y + py) },
-    { x: Math.round(b.x + ex), y: Math.round(b.y + ey) },
-    { x: Math.round(b.x - px), y: Math.round(b.y - py) },
-  );
-
-  return [...capA, ...capB];
-}
-
-/** `OUTSET_ROUTINE::ProcessItem`. */
-export function outsetItems(
-  board: Board,
-  selection: Iterable<string>,
-  opts: OutsetOptions,
-): OutsetResult {
-  const { distance } = opts;
-  const round = opts.roundCorners ?? false;
-
-  const added: PcbShape[] = [];
-  const consumed = new Set<number>();
-  let successes = 0;
-  let failures = 0;
-
-  const emit = (
-    src: PcbShape | null,
-    shape: Omit<PcbShape, 'source' | 'layer' | 'width'>,
-  ): void => {
-    added.push({
-      ...shape,
-      layer: opts.layer ?? src?.layer ?? 'F.CrtYd',
-      width: opts.lineWidth ?? src?.width ?? 0,
-    });
-  };
-
-  /** The outset box of an axis-aligned extent, or null if it collapses. */
-  const boxOutset = (min: Vec2, max: Vec2): { min: Vec2; max: Vec2 } | null => {
-    let lo = { x: min.x - distance, y: min.y - distance };
-    let hi = { x: max.x + distance, y: max.y + distance };
-    // A negative distance can shrink the box past nothing.
-    if (hi.x <= lo.x || hi.y <= lo.y) return null;
-    if (opts.gridRounding && opts.gridRounding > 0) {
-      const g = roundRectOutwards(lo, hi, opts.gridRounding);
-      lo = g.min;
-      hi = g.max;
-    }
-    return { min: lo, max: hi };
-  };
-
-  for (const id of selection) {
-    const r = parseBoardItemId(id);
-    const s = r?.kind === 'shape' ? board.shapes[r.index] : undefined;
-
-    // A rectangle stays a rectangle, unless rounded corners are asked for.
-    if (s?.kind === 'rect' && s.start && s.end) {
-      const min = { x: Math.min(s.start.x, s.end.x), y: Math.min(s.start.y, s.end.y) };
-      const max = { x: Math.max(s.start.x, s.end.x), y: Math.max(s.start.y, s.end.y) };
-      const box = boxOutset(min, max);
-      if (!box) {
-        failures++;
-        continue;
-      }
-
-      if (round && distance > 0) {
-        emit(s, {
-          kind: 'poly',
-          pts: roundedRectRing(box.min, box.max, distance),
-          fillMode: 'none',
-        });
-      } else {
-        emit(s, { kind: 'rect', start: box.min, end: box.max, fillMode: 'none' });
-      }
-
-      if (r) consumed.add(r.index);
-      successes++;
-      continue;
-    }
-
-    // A circle stays a circle, or becomes the square that contains it.
-    if (s?.kind === 'circle') {
-      const c = s.center ?? s.start;
-      if (!c || !s.end) {
-        failures++;
-        continue;
-      }
-      const newRadius = Math.hypot(s.end.x - c.x, s.end.y - c.y) + distance;
-      if (newRadius <= 0) {
-        failures++;
-        continue;
-      }
-
-      if (round) {
-        emit(s, {
-          kind: 'circle',
-          center: c,
-          end: { x: c.x + newRadius, y: c.y },
-          fillMode: 'none',
-        });
-      } else {
-        // The square containing the already-outset circle: upstream builds it
-        // from the new radius, so the distance is not applied a second time.
-        let lo = { x: c.x - newRadius, y: c.y - newRadius };
-        let hi = { x: c.x + newRadius, y: c.y + newRadius };
-        if (opts.gridRounding && opts.gridRounding > 0) {
-          const g = roundRectOutwards(lo, hi, opts.gridRounding);
-          lo = g.min;
-          hi = g.max;
-        }
-        emit(s, { kind: 'rect', start: lo, end: hi, fillMode: 'none' });
-      }
-
-      if (r) consumed.add(r.index);
-      successes++;
-      continue;
-    }
-
-    // A segment becomes the whole stadium (or its rectangle): which side the
-    // user wants cannot be told from the geometry.
-    if (s?.kind === 'line' && s.start && s.end) {
-      if (distance <= 0) {
-        failures++;
-        continue;
-      }
-      const ring = outsetSegmentRing(s.start, s.end, distance, round);
-      if (ring.length < 3) {
-        failures++;
-        continue;
-      }
-      emit(s, { kind: 'poly', pts: ring, fillMode: 'none' });
-      if (r) consumed.add(r.index);
-      successes++;
-      continue;
-    }
-
-    // Everything else falls back to its bounding box — upstream's default.
-    const bb = boardItemBBox(board, id);
-    if (!bb) {
-      failures++;
-      continue;
-    }
-    const box = boxOutset({ x: bb.minX, y: bb.minY }, { x: bb.maxX, y: bb.maxY });
-    if (!box) {
-      failures++;
-      continue;
-    }
-    emit(s ?? null, { kind: 'rect', start: box.min, end: box.max, fillMode: 'none' });
-    if (r?.kind === 'shape') consumed.add(r.index);
-    successes++;
-  }
-
-  if (successes === 0) return { board, successes: 0, failures };
-
-  const kept = opts.deleteSourceItems
-    ? board.shapes.filter((_, i) => !consumed.has(i))
-    : board.shapes;
-
-  return { board: { ...board, shapes: [...kept, ...added] }, successes, failures };
-}
-
-// ---------------------------------------------------------------------------
-// DIALOG_OUTSET_ITEMS::TransferDataFromWindow (was outset_settings.ts)
-// ---------------------------------------------------------------------------
-
-/** One field per `PARAMETERS` member. */
-export interface OutsetSettings {
-  distanceIU: number;
-  roundCorners: boolean;
-  useSourceLayers: boolean;
-  layer: string;
-  useSourceWidths: boolean;
-  lineWidthIU: number;
-  roundToGrid: boolean;
-  gridPitchIU: number;
-  deleteSourceItems: boolean;
-}
-
-/** Upstream's defaults: a 0.25 mm rounded courtyard at 0.05 mm line width. */
-export const DEFAULT_OUTSET_SETTINGS: OutsetSettings = {
-  distanceIU: mmToIU(0.25),
-  roundCorners: true,
-  useSourceLayers: false,
-  layer: 'F.CrtYd',
-  useSourceWidths: false,
-  lineWidthIU: mmToIU(0.05),
-  roundToGrid: false,
-  gridPitchIU: mmToIU(0.01),
-  deleteSourceItems: false,
-};
-
-/**
- * What the engine should be handed for these settings.
- *
- * The two "copy from source" checkboxes are expressed by *leaving the field
- * out*: absent already means "take it from the source item" to the engine, so
- * passing a flag as well would give the same intent two spellings that could
- * disagree. Likewise the grid pitch is only sent when rounding is on, so a
- * stale pitch left in the box cannot leak into the result.
- */
-export function outsetOptionsFrom(s: OutsetSettings): OutsetOptions {
-  return {
-    distance: s.distanceIU,
-    roundCorners: s.roundCorners,
-    ...(s.useSourceLayers ? {} : { layer: s.layer }),
-    ...(s.useSourceWidths ? {} : { lineWidth: s.lineWidthIU }),
-    ...(s.roundToGrid ? { gridRounding: s.gridPitchIU } : {}),
-    deleteSourceItems: s.deleteSourceItems,
-  };
 }
 
 // ---------------------------------------------------------------------------

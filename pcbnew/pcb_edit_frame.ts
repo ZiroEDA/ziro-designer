@@ -15,7 +15,12 @@ import { PCB_EDIT_FRAME_NAME } from '@ziroeda/common/eda_draw_frame.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { ENUM_MAP } from '@ziroeda/common/properties/property.js';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
-import { CLEARANCE_LAYER_FOR, IsCopperLayer, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import {
+  CLEARANCE_LAYER_FOR,
+  IsCopperLayer,
+  PCB_LAYER_ID,
+  UNDEFINED_LAYER,
+} from '@ziroeda/common/layer_id.js';
 import { EMBED_TOOL } from '@ziroeda/common/tool/embed_tool.js';
 import { PROPERTIES_TOOL } from '@ziroeda/common/tool/properties_tool.js';
 import { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
@@ -86,6 +91,10 @@ import { PCB_SELECTION_TOOL } from './tools/pcb_selection_tool.js';
 import { EDIT_TOOL, type MOVE_EXACT_VALUES, type ROUTER_TOOL_LIKE } from './tools/edit_tool.js';
 import type { DOGBONE_PARAMETERS } from './tools/item_modification_routine.js';
 import { ALIGN_DISTRIBUTE_TOOL } from './tools/align_distribute_tool.js';
+import { CONVERT_TOOL } from './tools/convert_tool.js';
+import type { OUTSET_PARAMETERS } from './tools/item_modification_routine.js';
+import type { CONVERT_SETTINGS } from './pcbnew_settings.js';
+import type { ZONE_SETTINGS } from './zone_settings.js';
 import { PCB_GROUP_TOOL } from './tools/pcb_group_tool.js';
 import { PCB_PICKER_TOOL } from './tools/pcb_picker_tool.js';
 import type { PCB_SELECTION } from './tools/pcb_selection.js';
@@ -393,6 +402,23 @@ export interface PCB_EDIT_FRAME_HOOKS {
   showTrackViaPropertiesDialog?(aSelection: PCB_SELECTION): Promise<void>;
   /** `DIALOG_GET_FOOTPRINT_BY_NAME( frame, fplist ).ShowModal()`: the value, null on cancel. */
   showGetFootprintByNameDialog?(aList: string[]): Promise<string | null>;
+  /** CONVERT_TOOL's `CONVERT_SETTINGS_DIALOG(...).ShowModal() == wxID_OK`. */
+  showConvertSettingsDialog?(
+    aSettings: CONVERT_SETTINGS,
+    aShowCopyLineWidthOption: boolean,
+    aShowCenterlineOption: boolean,
+    aShowBoundingHullOption: boolean,
+  ): Promise<boolean>;
+  /** CONVERT_TOOL's `Invoke*ZonesEditor( frame, nullptr, &zoneInfo, &m_userSettings )`. */
+  showZoneEditorForConversion?(
+    aKind: 'ruleArea' | 'nonCopper' | 'copper',
+    aZoneSettings: ZONE_SETTINGS,
+    aConvertSettings: CONVERT_SETTINGS,
+  ): Promise<boolean>;
+  /** `PCB_BASE_FRAME::SelectOneLayer`: UNDEFINED_LAYER on cancel. */
+  selectOneLayer?(aDefaultLayer: PCB_LAYER_ID, aNotAllowedLayersMask: LSET): Promise<PCB_LAYER_ID>;
+  /** `DIALOG_OUTSET_ITEMS( frame, aParams ).ShowModal() != wxID_CANCEL`. */
+  showOutsetItemsDialog?(aParams: OUTSET_PARAMETERS): Promise<boolean>;
   /** `PromptConnectedPadDecision`'s wxRichMessageDialog. */
   showConnectedPadDialog?(
     aTitle: string,
@@ -572,6 +598,46 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     return Promise.resolve();
   }
 
+  // ---- CONVERT_TOOL's window half (CONVERT_TOOL_FRAME) ---------------------
+
+  ShowConvertSettingsDialog(
+    aSettings: CONVERT_SETTINGS,
+    aShowCopyLineWidthOption: boolean,
+    aShowCenterlineOption: boolean,
+    aShowBoundingHullOption: boolean,
+  ): Promise<boolean> {
+    return (
+      this.hooks.showConvertSettingsDialog?.(
+        aSettings,
+        aShowCopyLineWidthOption,
+        aShowCenterlineOption,
+        aShowBoundingHullOption,
+      ) ?? Promise.resolve(false)
+    );
+  }
+
+  ShowZoneEditorForConversion(
+    aKind: 'ruleArea' | 'nonCopper' | 'copper',
+    aZoneSettings: ZONE_SETTINGS,
+    aConvertSettings: CONVERT_SETTINGS,
+  ): Promise<boolean> {
+    return (
+      this.hooks.showZoneEditorForConversion?.(aKind, aZoneSettings, aConvertSettings) ??
+      Promise.resolve(false)
+    );
+  }
+
+  SelectOneLayer(aDefaultLayer: PCB_LAYER_ID, aNotAllowedLayersMask: LSET): Promise<PCB_LAYER_ID> {
+    return (
+      this.hooks.selectOneLayer?.(aDefaultLayer, aNotAllowedLayersMask) ??
+      Promise.resolve(UNDEFINED_LAYER)
+    );
+  }
+
+  ShowOutsetItemsDialog(aParams: OUTSET_PARAMETERS): Promise<boolean> {
+    return this.hooks.showOutsetItemsDialog?.(aParams) ?? Promise.resolve(false);
+  }
+
   ShowGetFootprintByNameDialog(aList: string[]): Promise<string | null> {
     return this.hooks.showGetFootprintByNameDialog?.(aList) ?? Promise.resolve(null);
   }
@@ -715,7 +781,7 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
    * `PCB_EDIT_FRAME::setupTools` (pcb_edit_frame.cpp:940): the manager, its
    * environment, the dispatcher, the tools registered in the C++ order - of
    * them PCB_SELECTION_TOOL, EDIT_TOOL, PCB_POINT_EDITOR (as far as
-   * `HasPoint`), ALIGN_DISTRIBUTE_TOOL, DRC_TOOL, PCB_GROUP_TOOL,
+   * `HasPoint`), ALIGN_DISTRIBUTE_TOOL, DRC_TOOL, CONVERT_TOOL, PCB_GROUP_TOOL,
    * PROPERTIES_TOOL, EMBED_TOOL and PCB_PICKER_TOOL are ported; the rest are
    * #636 stage 3's, and WINDOW_ACTION_BRIDGE answers their actions meanwhile.
    */
@@ -739,6 +805,7 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     this.m_toolManager.RegisterTool(new PCB_POINT_EDITOR());
     this.m_toolManager.RegisterTool(new ALIGN_DISTRIBUTE_TOOL());
     this.m_toolManager.RegisterTool(new DRC_TOOL());
+    this.m_toolManager.RegisterTool(new CONVERT_TOOL());
     this.m_toolManager.RegisterTool(new PCB_GROUP_TOOL());
     this.m_toolManager.RegisterTool(new PROPERTIES_TOOL());
     this.m_toolManager.RegisterTool(new EMBED_TOOL());

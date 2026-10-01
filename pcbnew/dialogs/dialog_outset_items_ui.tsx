@@ -5,15 +5,15 @@
  * Outset Items.
  * Counterpart: `pcbnew/dialogs/dialog_outset_items.cpp`.
  *
- * The geometry lives in pcbnew (outset_items.ts) where it is tested; this
- * collects the seven parameters `OUTSET_ROUTINE::PARAMETERS` carries.
+ * The window half; the transfers to and from `OUTSET_ROUTINE::PARAMETERS`
+ * are `dialog_outset_items.ts`.
  *
  * Two controls gate others, as upstream enables and disables them: the grid
  * pitch means nothing unless rounding is on, and the layer picker means nothing
  * while layers are being copied from the source.
  */
 import { useState, type JSX, type Ref } from 'react';
-import type { OutsetSettings } from '../tools/item_modification_routine.js';
+import type { OutsetSettings } from './dialog_outset_items.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { pcbUnitText, pcbUnitValue, unitLabel } from '../pcb_unit_binder.js';
 import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';

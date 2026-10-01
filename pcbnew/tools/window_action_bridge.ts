@@ -43,6 +43,8 @@ export const WINDOW_BRIDGED_ACTIONS: readonly TOOL_ACTION[] = [
   PCB_ACTIONS.hideLocalRatsnest,
   // BOARD_EDITOR_CONTROL::PageSettings
   ACTIONS.pageSettings,
+  // ARRAY_TOOL::CreateArray, run from CONVERT_TOOL's "Create from Selection"
+  PCB_ACTIONS.createArray,
   // COMMON_TOOLS
   ACTIONS.zoomFitScreen,
   ACTIONS.zoomFitObjects,

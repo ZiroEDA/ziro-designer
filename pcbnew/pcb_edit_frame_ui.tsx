@@ -39,9 +39,9 @@ import { DialogRuleAreaProperties } from './dialogs/dialog_rule_area_properties_
 import type { PROGRESS_REPORTER_LIKE } from './connectivity/connectivity_algo.js';
 import { PROF_TIMER, traceAllegroPerf, wxLogTrace } from '@ziroeda/common/trace_helpers.js';
 import { placeImportedItems, placeVia } from './tools/drawing_tool.js';
-import { DEFAULT_RULE_AREA_KEEPOUT } from './convert_shapes.js';
 import {
   collectPlacementSources,
+  DEFAULT_RULE_AREA_KEEPOUT,
   DIALOG_RULE_AREA_PROPERTIES,
   uniqueZoneName,
   type RuleAreaValues,
@@ -169,17 +169,12 @@ import {
   itemAnchorPoint,
   positionRelative,
   boardGridOrigin,
-  convertToPoly,
-  convertToZone,
   modifyLines,
   modifiableLineCount,
   type LineModification,
   polygonBoolean,
   booleanableShapeCount,
   type PolygonBoolean,
-  outsetItems,
-  convertToLines,
-  segmentToArc,
   type SelectionFilter,
   BOARD_NETLIST_UPDATER,
   spreadBoardFootprints,
@@ -642,13 +637,15 @@ import {
   handleDragTarget,
   handleTolerance,
 } from './tools/pcb_point_editor_canvas.js';
-import { DialogOutsetItems } from './dialogs/dialog_outset_items.js';
+import { DialogOutsetItems } from './dialogs/dialog_outset_items_ui.js';
+import { DIALOG_OUTSET_ITEMS } from './dialogs/dialog_outset_items.js';
+import { CONVERT_SETTINGS_DIALOG } from './tools/convert_settings_dialog.js';
+import { ConvertSettingsDialog } from './tools/convert_settings_dialog_ui.js';
+import type { CONVERT_TOOL } from './tools/convert_tool.js';
+import type { OUTSET_PARAMETERS } from './tools/item_modification_routine.js';
+import type { CONVERT_SETTINGS } from './pcbnew_settings.js';
+import type { ZONE_SETTINGS } from './zone_settings.js';
 import { DialogPnsSettings } from './dialogs/dialog_pns_settings.js';
-import {
-  DEFAULT_OUTSET_SETTINGS,
-  outsetOptionsFrom,
-  type OutsetSettings,
-} from './tools/item_modification_routine.js';
 import {
   DialogPositionRelative,
   type PositionRelativeValues,
@@ -692,7 +689,7 @@ import { moveDelta } from './pcb_edit_frame.js';
 import { parseDrcRules } from './drc/drc_rule_view.js';
 import { DialogTrackViaProperties } from './dialogs/dialog_track_via_properties_ui.js';
 import { DialogCopperZones } from './dialogs/dialog_copper_zones.js';
-import { SelectCopperLayerPairDialog } from './sel_layer.js';
+import { PcbOneLayerSelector, SelectCopperLayerPairDialog } from './sel_layer.js';
 import { DialogFootprintProperties } from './dialogs/dialog_footprint_properties_ui.js';
 import { DialogFootprintAssociations } from './dialogs/dialog_footprint_associations_ui.js';
 import { DialogMapLayers } from './dialogs/dialog_map_layers.js';
@@ -827,7 +824,12 @@ import {
   NET_COLOR_MODE,
   ZONE_DISPLAY_MODE,
 } from '@ziroeda/common/project/board_project_settings.js';
-import { GAL_LAYER_ID, LayerName, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import {
+  GAL_LAYER_ID,
+  LayerName,
+  PCB_LAYER_ID,
+  UNDEFINED_LAYER,
+} from '@ziroeda/common/layer_id.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { VIEW_UPDATE_FLAGS, type VIEW_ITEM } from '@ziroeda/common/view/view_item.js';
 import { PAD } from './pad.js';
@@ -2042,13 +2044,30 @@ export function PcbEditor({
     [onOutputFile],
   );
   const [posRelOpen, setPosRelOpen] = useState(false);
-  const [outsetOpen, setOutsetOpen] = useState(false);
+  /** CONVERT_TOOL's modal dialogs, each with the promise the tool waits on. */
+  const [outsetDlg, setOutsetDlg] = useState<{
+    params: OUTSET_PARAMETERS;
+    resolve: (aOk: boolean) => void;
+  } | null>(null);
+  const [convertDlg, setConvertDlg] = useState<{
+    dialog: CONVERT_SETTINGS_DIALOG;
+    resolve: (aOk: boolean) => void;
+  } | null>(null);
+  const [zoneConvertDlg, setZoneConvertDlg] = useState<{
+    kind: 'ruleArea' | 'nonCopper' | 'copper';
+    zoneSettings: ZONE_SETTINGS;
+    convertSettings: CONVERT_SETTINGS;
+    resolve: (aOk: boolean) => void;
+  } | null>(null);
+  const [oneLayerDlg, setOneLayerDlg] = useState<{
+    notAllowed: LSET;
+    resolve: (aLayer: PCB_LAYER_ID) => void;
+  } | null>(null);
   const [pnsSettingsOpen, setPnsSettingsOpen] = useState(false);
   const [arrayOpen, setArrayOpen] = useState(false);
   // Kept across openings, as upstream persists its ARRAY_OPTIONS.
   const [arraySettings, setArraySettings] = useState<ArraySettings>(DEFAULT_ARRAY_SETTINGS);
   // Kept across openings, as upstream keeps its PARAMETERS on the tool.
-  const [outsetSettings, setOutsetSettings] = useState<OutsetSettings>(DEFAULT_OUTSET_SETTINGS);
   // The reference item for Position Relative, chosen by clicking the canvas
   // (upstream arms PCB_PICKER_TOOL for this). Kept across openings, as upstream
   // keeps its dialog alive between calls.
@@ -2555,6 +2574,33 @@ export function PcbEditor({
         editWindowRef.current?.showConnectedPadDialog(aTitle, aMessage, aDetails) ??
         Promise.resolve(null),
       openVertexEditor: () => editWindowRef.current?.openVertexEditor(),
+      // CONVERT_TOOL's window half: its four modal dialogs, each a promise.
+      showConvertSettingsDialog: (aSettings, aCopyLineWidth, aCenterline, aBoundingHull) =>
+        new Promise<boolean>((resolve) =>
+          setConvertDlg({
+            dialog: new CONVERT_SETTINGS_DIALOG(aSettings, {
+              copyLineWidth: aCopyLineWidth,
+              centerline: aCenterline,
+              boundingHull: aBoundingHull,
+            }),
+            resolve,
+          }),
+        ),
+      showZoneEditorForConversion: (aKind, aZoneSettings, aConvertSettings) =>
+        new Promise<boolean>((resolve) =>
+          setZoneConvertDlg({
+            kind: aKind,
+            zoneSettings: aZoneSettings,
+            convertSettings: aConvertSettings,
+            resolve,
+          }),
+        ),
+      selectOneLayer: (_aDefaultLayer, aNotAllowedLayersMask) =>
+        new Promise<PCB_LAYER_ID>((resolve) =>
+          setOneLayerDlg({ notAllowed: aNotAllowedLayersMask, resolve }),
+        ),
+      showOutsetItemsDialog: (aParams) =>
+        new Promise<boolean>((resolve) => setOutsetDlg({ params: aParams, resolve })),
       boardView: () => boardRef.current,
       router: () => editWindowRef.current?.router() ?? null,
       eventToWindow: (aEvent) => selWindowRef.current?.eventToWindow(aEvent) ?? false,
@@ -5282,51 +5328,6 @@ export function PcbEditor({
     [commitBoard],
   );
 
-  /** CONVERT_TOOL::CreatePolys — to a filled graphic, a zone, or a rule area. */
-  const convertSelection = useCallback(
-    (to: 'poly' | 'zone' | 'ruleArea' | 'lines' | 'tracks' | 'arc') => {
-      const brd = boardRef.current;
-      const sel = [...selForDrawRef.current];
-      if (!brd || sel.length === 0) return;
-
-      const layer = activeLayer;
-      let next = brd;
-
-      if (to === 'poly') {
-        next = convertToPoly(brd, sel, { layer }).board;
-      } else if (to === 'zone' || to === 'ruleArea') {
-        next = convertToZone(brd, sel, { layer, ruleArea: to === 'ruleArea' }).board;
-      } else if (to === 'lines' || to === 'tracks') {
-        next = convertToLines(brd, sel, {
-          layer,
-          target: to === 'tracks' ? 'track' : 'graphic',
-        }).board;
-      } else {
-        // Create Arc acts on one item, upstream's selection.Front().
-        next = segmentToArc(brd, sel[0]!).board;
-      }
-
-      if (next !== brd) commitBoard(next);
-    },
-    [commitBoard, activeLayer],
-  );
-
-  /** OUTSET_ROUTINE — draw the selection again, a fixed distance outside. */
-  const applyOutset = useCallback(
-    (settings: OutsetSettings) => {
-      setOutsetSettings(settings);
-      setOutsetOpen(false);
-
-      const brd = boardRef.current;
-      const sel = [...selForDrawRef.current];
-      if (!brd || sel.length === 0) return;
-
-      const res = outsetItems(brd, sel, outsetOptionsFrom(settings));
-      if (res.board !== brd) commitBoard(res.board);
-    },
-    [commitBoard],
-  );
-
   /** ARRAY_TOOL::CreateArray. */
   const applyArray = useCallback((settings: ArraySettings) => {
     setArraySettings(settings);
@@ -5359,6 +5360,21 @@ export function PcbEditor({
    * two items the submenu ends after Align to Bottom rather than on a rule with
    * four dead rows beneath it.
    */
+  /**
+   * CONVERT_TOOL's "Create from Selection" CONDITIONAL_MENU, evaluated over
+   * the selection tool's selection; a chosen row is the menu's own
+   * `OnMenuEvent`, which runs the action through the tool manager.
+   */
+  const convertSubmenu = (): MenuItem[] => {
+    const frame = frameRef.current;
+    const tool = frame?.GetToolManager()?.FindTool('pcbnew.Convert') as CONVERT_TOOL | null;
+    const menu = tool?.GetMenu();
+    if (!frame || !menu) return [];
+    menu.Evaluate(frame.GetSelectionTool().GetSelection());
+    menu.UpdateAll();
+    return actionMenuItems(menu);
+  };
+
   const alignDistributeSubmenu = (): MenuItem[] => {
     const row = (label: string, action: TOOL_ACTION): MenuItem => ({
       label,
@@ -5734,6 +5750,10 @@ export function PcbEditor({
         // EDIT_TOOL::Properties on the drawing sheet: PCB_EDIT_FRAME's Page Settings.
         case ACTIONS.pageSettings:
           setPageDlgOpen(true);
+          break;
+        // ARRAY_TOOL::CreateArray: the window's Create Array dialog.
+        case PCB_ACTIONS.createArray:
+          setArrayOpen(true);
           break;
         // BOARD_INSPECTION_TOOL's local ratsnest during a move: not drawn yet.
         case PCB_ACTIONS.updateLocalRatsnest:
@@ -6873,7 +6893,10 @@ export function PcbEditor({
               shortcut: 'Shift+P',
               action: () => setPosRelOpen(true),
             },
-            { label: 'Outset Items...', action: () => setOutsetOpen(true) },
+            {
+              label: 'Outset Items...',
+              action: () => runAction(PCB_ACTIONS.outsetItems),
+            },
           ],
         },
         100,
@@ -6957,28 +6980,9 @@ export function PcbEditor({
       // to an Edit-menu submenu that upstream does not have. See
       // `alignDistributeSubmenu`.
       menuEntry({ label: 'Align/Distribute', submenu: alignDistributeSubmenu() }, 100, moreThanOne),
-      menuEntry(
-        {
-          label: 'Create from Selection',
-          submenu: [
-            { label: 'Create Polygon from Selection...', action: () => convertSelection('poly') },
-            { label: 'Create Zone from Selection...', action: () => convertSelection('zone') },
-            {
-              label: 'Create Rule Area from Selection...',
-              action: () => convertSelection('ruleArea'),
-            },
-            { label: 'Create Lines from Selection...', action: () => convertSelection('lines') },
-            { label: 'Outset Items...', action: () => setOutsetOpen(true) },
-            { sep: true },
-            { label: 'Create Tracks from Selection...', action: () => convertSelection('tracks') },
-            { label: 'Create Arc from Selection...', action: () => convertSelection('arc') },
-            { sep: true },
-            { label: 'Create Array...', action: () => setArrayOpen(true) },
-          ],
-        },
-        100,
-        notEmpty,
-      ),
+      // CONVERT_TOOL::Init's CONDITIONAL_MENU (convert_tool.cpp:291-333),
+      // evaluated over the selection tool's selection as the tool's own menu is.
+      menuEntry({ label: 'Create from Selection', submenu: convertSubmenu() }, 100, notEmpty),
       menuEntry(
         {
           label: 'Grouping',
@@ -13250,15 +13254,144 @@ export function PcbEditor({
         />
       )}
       {pnsSettingsOpen && <DialogPnsSettings onClose={() => setPnsSettingsOpen(false)} />}
-      {outsetOpen && board && (
+      {/* CONVERT_TOOL::OutsetItems' DIALOG_OUTSET_ITEMS, on the tool's
+          persistent OUTSET_ROUTINE::PARAMETERS. */}
+      {outsetDlg && board && (
         <DialogOutsetItems
           units={unitLabel}
           layers={board.layers.map((l) => l.name)}
-          initial={outsetSettings}
-          onApply={applyOutset}
-          onClose={() => setOutsetOpen(false)}
+          initial={new DIALOG_OUTSET_ITEMS(outsetDlg.params).TransferDataToWindow()}
+          onApply={(values) => {
+            const res = new DIALOG_OUTSET_ITEMS(outsetDlg.params).TransferDataFromWindow(values);
+            if (!res.ok) {
+              if (res.message) setInfoBarError(res.message);
+              return;
+            }
+            setOutsetDlg(null);
+            outsetDlg.resolve(true);
+          }}
+          onClose={() => {
+            setOutsetDlg(null);
+            outsetDlg.resolve(false);
+          }}
         />
       )}
+      {convertDlg && (
+        <ConvertSettingsDialog
+          dialog={convertDlg.dialog}
+          units={unitLabel}
+          onClose={(aOk) => {
+            setConvertDlg(null);
+            convertDlg.resolve(aOk);
+          }}
+        />
+      )}
+      {oneLayerDlg && frameRef.current?.GetBoard() && (
+        <PcbOneLayerSelector
+          board={frameRef.current.GetBoard()!}
+          theme={theme}
+          notAllowedLayersMask={oneLayerDlg.notAllowed}
+          onSelect={(aLayer) => {
+            setOneLayerDlg(null);
+            oneLayerDlg.resolve(aLayer);
+          }}
+          onCancel={() => {
+            setOneLayerDlg(null);
+            oneLayerDlg.resolve(UNDEFINED_LAYER);
+          }}
+        />
+      )}
+      {zoneConvertDlg &&
+        board &&
+        frameRef.current &&
+        zoneConvertDlg.kind === 'copper' &&
+        (() => {
+          const dlg = new DIALOG_COPPER_ZONE(
+            frameRef.current!,
+            null,
+            zoneConvertDlg.zoneSettings,
+            zoneConvertDlg.convertSettings,
+          );
+          return (
+            <DialogCopperZones
+              units={unitLabel}
+              initial={dlg.TransferDataToWindow()}
+              conversion={dlg.TransferConversionToWindow()}
+              nets={board.nets}
+              layers={copperLayerRows}
+              onApply={(values, conversion) => {
+                const res = dlg.TransferDataFromWindow(values, conversion);
+                if (!res.ok) {
+                  if (res.message) setInfoBarError(res.message);
+                  return;
+                }
+                setZoneConvertDlg(null);
+                zoneConvertDlg.resolve(true);
+              }}
+              onClose={() => {
+                setZoneConvertDlg(null);
+                zoneConvertDlg.resolve(false);
+              }}
+            />
+          );
+        })()}
+      {zoneConvertDlg &&
+        board &&
+        frameRef.current &&
+        zoneConvertDlg.kind === 'ruleArea' &&
+        (() => {
+          const dlg = new DIALOG_RULE_AREA_PROPERTIES(
+            frameRef.current!,
+            null,
+            zoneConvertDlg.zoneSettings,
+            zoneConvertDlg.convertSettings,
+          );
+          return (
+            <DialogRuleAreaProperties
+              units={unitLabel}
+              initial={dlg.TransferDataToWindow()}
+              conversion={dlg.TransferConversionToWindow()}
+              layers={ruleAreaLayers}
+              sources={collectPlacementSources(board)}
+              onApply={(values, conversion) => {
+                const res = dlg.TransferDataFromWindow(values, conversion);
+                if (!res.ok) {
+                  if (res.message) setInfoBarError(res.message);
+                  return;
+                }
+                setZoneConvertDlg(null);
+                zoneConvertDlg.resolve(true);
+              }}
+              onClose={() => {
+                setZoneConvertDlg(null);
+                zoneConvertDlg.resolve(false);
+              }}
+            />
+          );
+        })()}
+      {/* TRANSITIONAL (#636 stage 3): DIALOG_NON_COPPER_ZONES_EDITOR has no
+          window yet (its transfers are ported), so a non-copper conversion
+          asks only the conversion settings and keeps the board's default
+          zone settings on the active layer. */}
+      {zoneConvertDlg &&
+        zoneConvertDlg.kind === 'nonCopper' &&
+        (() => {
+          const dlg = new CONVERT_SETTINGS_DIALOG(zoneConvertDlg.convertSettings, {
+            copyLineWidth: false,
+            centerline: true,
+            boundingHull: true,
+          });
+          return (
+            <ConvertSettingsDialog
+              dialog={dlg}
+              units={unitLabel}
+              onClose={(aOk) => {
+                setZoneConvertDlg(null);
+                zoneConvertDlg.resolve(aOk);
+              }}
+            />
+          );
+        })()}
       {posRelOpen && board && (
         <DialogPositionRelative
           gridOrigin={boardGridOrigin(board)}
