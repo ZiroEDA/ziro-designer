@@ -125,7 +125,7 @@ class EDIT_FRAME extends TEST_PCB_FRAME implements EDIT_TOOL_FRAME {
   ShowInfoBarMsg(aMsg: string): void {
     this.infobar.push(aMsg);
   }
-  override ShowInfoBarError(aMsg: string): void {
+  ShowInfoBarError(aMsg: string): void {
     this.infobar.push(`error: ${aMsg}`);
   }
   OnEditItemRequest(aItem: BOARD_ITEM): void {
