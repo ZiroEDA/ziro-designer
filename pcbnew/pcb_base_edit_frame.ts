@@ -12,6 +12,7 @@
  * doc comment for why this class can't just `extends` it directly the way
  * `PCB_BASE_FRAME` is extended.
  */
+import type { GAL_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { ANGLE_90, type EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { applyMixins } from '@ziroeda/core/mixins.js';
 import { DRC_ENGINE } from './drc/drc_engine.js';
@@ -51,6 +52,10 @@ export interface APPEARANCE_CONTROLS_LIKE {
   GetActiveLayerPreset(): string;
   GetUserViewports(): VIEWPORT[];
   SetUserViewports(aPresetList: VIEWPORT[]): void;
+  /** `APPEARANCE_CONTROLS::SetLayerVisible`. */
+  SetLayerVisible?(aLayer: number, isVisible: boolean): void;
+  /** `APPEARANCE_CONTROLS::SetObjectVisible`. */
+  SetObjectVisible?(aLayer: number, isVisible: boolean): void;
 }
 
 /** `PANEL_SELECTION_FILTER` as the frame calls it (`pcbnew/widgets/panel_selection_filter.h`). */
@@ -94,6 +99,11 @@ export abstract class PCB_BASE_EDIT_FRAME extends PCB_BASE_FRAME {
    */
   HighlightSelectionFilter(aOptions: PCB_SELECTION_FILTER_OPTIONS): void {
     queueMicrotask(() => this.m_selectionFilterPanel?.OnFlashEvent?.(aOptions));
+  }
+
+  /** `SetObjectVisible` (pcb_base_edit_frame.cpp:271-275): through the Appearance panel. */
+  SetObjectVisible(aLayer: GAL_LAYER_ID, aVisible = true): void {
+    if (this.m_appearancePanel) this.m_appearancePanel.SetObjectVisible?.(aLayer, aVisible);
   }
 
   /** `APPEARANCE_CONTROLS* GetAppearancePanel()` (pcb_base_edit_frame.h:244). */

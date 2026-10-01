@@ -1080,12 +1080,22 @@ const AUTO_TRACK_WIDTH_ON: ReadonlySet<string> = new Set(['autoTrackWidth']);
 // The graphic-shape drawing tools (DRAWING_TOOL) and the PcbShape kind each
 // one creates.
 const DRAW_SHAPE_TOOLS: Record<string, PcbShape['kind']> = {
-  drawLine: 'line',
-  drawArc: 'arc',
-  drawRectangle: 'rect',
-  drawCircle: 'circle',
   drawPolygon: 'poly',
   drawBezier: 'curve',
+};
+
+/**
+ * The toolbar tools that run on TOOL_MANAGER: DRAWING_TOOL's DrawLine,
+ * DrawRectangle, DrawCircle and DrawArc. Arming one runs its action as the
+ * toolbar does (no position); while it is the current tool the canvas's events
+ * and keys go to TOOL_DISPATCHER, and its PopTool returns the toolbar to the
+ * selection mode. The other drawing tools still run in this window.
+ */
+const TOOL_MANAGER_TOOLS: Readonly<Record<string, TOOL_ACTION>> = {
+  drawLine: PCB_ACTIONS.drawLine,
+  drawRectangle: PCB_ACTIONS.drawRectangle,
+  drawCircle: PCB_ACTIONS.drawCircle,
+  drawArc: PCB_ACTIONS.drawArc,
 };
 
 // Friendly names for the "Current Tool" status-bar field (field 6), shown while
@@ -2646,6 +2656,20 @@ export function PcbEditor({
       // editor's state and callbacks exist (`drcWindowRef`).
       createDrcDialog: (aTool, aParent) => drcWindowRef.current!.createDrcDialog(aTool, aParent),
       isSingle: () => drcWindowRef.current!.isSingle(),
+      // The toolbar follows the tool stack for the TOOL_MANAGER tools: a push
+      // from a hotkey arms the button, the tool's PopTool disarms it.
+      toolStackChanged: () => {
+        const f = frameRef.current;
+        if (!f) return;
+        const pushed = Object.keys(TOOL_MANAGER_TOOLS).find((k) =>
+          f.IsCurrentTool(TOOL_MANAGER_TOOLS[k]!),
+        );
+        if (pushed) {
+          if (activeToolRef.current !== pushed) setActiveTool(pushed);
+        } else if (TOOL_MANAGER_TOOLS[activeToolRef.current]) {
+          setActiveTool(selectModeRef.current);
+        }
+      },
       fetchNetlistFromSchematic: (aNetlist, aMessage) =>
         drcWindowRef.current!.fetchNetlistFromSchematic(aNetlist, aMessage),
       schematicNetlistText: () => drcWindowRef.current!.schematicNetlistText(),
@@ -2802,6 +2826,26 @@ export function PcbEditor({
   const selectModeRef = useRef('selectSetRect');
   if (isSelectTool(activeTool)) selectModeRef.current = activeTool;
   activeToolRef.current = activeTool;
+
+  // Arming a TOOL_MANAGER tool runs its action the way the toolbar does (no
+  // position, so nothing is primed at the cursor); arming anything else while
+  // one is current activates the selection tool, which the drawing tool reads
+  // as `IsActivate()`: cleanup and PopTool.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: activeTool is the trigger; the frame is read through its ref
+  useEffect(() => {
+    const f = frameRef.current;
+    const mgr = f?.GetToolManager();
+    if (!f || !mgr) return;
+    const action = TOOL_MANAGER_TOOLS[activeTool];
+    if (action) {
+      if (f.IsCurrentTool(action)) return;
+      const evt = action.MakeEvent();
+      evt.SetHasPosition(false);
+      mgr.ProcessEvent(evt);
+    } else if (Object.values(TOOL_MANAGER_TOOLS).some((a) => f.IsCurrentTool(a))) {
+      mgr.RunAction(ACTIONS.selectionTool);
+    }
+  }, [activeTool]);
   // The local ratsnest overrides outlive the tool. `LocalRatsnestTool`'s
   // finalize handler (board_inspection_tool.cpp:2354-2365) resets every pad
   // to the global setting only `if( aCondition != END_ACTIVATE )` — Esc
@@ -5920,6 +5964,8 @@ export function PcbEditor({
       }
     },
     eventToWindow: (aEvent) => {
+      // A TOOL_MANAGER tool owns the canvas: every event is the dispatcher's.
+      if (TOOL_MANAGER_TOOLS[activeToolRef.current]) return false;
       // A key: the window's key chain has every key but Escape; Escape in the
       // selection tool, with nothing of the window's in flight, is the tool's.
       if (aEvent instanceof wxKeyEvent) {
@@ -9995,6 +10041,27 @@ export function PcbEditor({
       const target = e.target as (FocusLike & { readOnly?: boolean; disabled?: boolean }) | null;
       if (focusBlocksHotkey(target, e)) return;
       const mod = e.ctrlKey || e.metaKey;
+
+      // A TOOL_MANAGER tool (DRAWING_TOOL's shapes) takes its keys through
+      // TOOL_DISPATCHER: Esc is TA_CANCEL_TOOL, and the rest reach the
+      // actions' hotkeys (deleteLastPoint, arcPosture, incWidth...) there.
+      if (TOOL_MANAGER_TOOLS[activeToolRef.current] && !mod) {
+        const canvas = glCanvasRef.current;
+        const dispatcher = frameRef.current?.GetToolDispatcher();
+        if (canvas && dispatcher) {
+          const at = KIPLATFORM_UI.GetMousePosition();
+          e.preventDefault();
+          dispatcher.DispatchWxEvent(
+            wxKeyEventFromDom(
+              canvas,
+              e,
+              wxEVT_CHAR_HOOK,
+              clientPosition(canvas, { clientX: at.x, clientY: at.y }),
+            ),
+          );
+          return;
+        }
+      }
 
       // PCB_BASE_EDIT_FRAME::TryBefore: Tab with PRESET_SWITCH_KEY (Ctrl) or
       // VIEWPORT_SWITCH_KEY (Shift) raises EDA_VIEW_SWITCHER.

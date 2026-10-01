@@ -45,6 +45,63 @@
  * be the odd behaviour.
  */
 
+import { ACTIONS } from '@ziroeda/common/tool/actions.js';
+import type { COROUTINE_BODY } from '@ziroeda/common/tool/coroutine.js';
+import {
+  BUT_LEFT,
+  BUT_RIGHT,
+  MD_CTRL,
+  MD_SHIFT,
+  type TOOL_EVENT,
+} from '@ziroeda/common/tool/tool_event.js';
+import { RESET_REASON } from '@ziroeda/common/tool/tool_base.js';
+import type { SELECTION } from '@ziroeda/common/tool/selection.js';
+import { GRID_HELPER_GRIDS } from '@ziroeda/common/tool/grid_helper.js';
+import { IS_NEW } from '@ziroeda/common/eda_item_flags.js';
+import { KICURSOR } from '@ziroeda/common/gal/cursors.js';
+import { COLOR4D_UNSPECIFIED } from '@ziroeda/common/gal/color4d.js';
+import { GAL_LAYER_ID, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { LINE_STYLE, STROKE_PARAMS } from '@ziroeda/common/stroke_params.js';
+import { TEXT_ATTRIBUTES } from '@ziroeda/common/font/text_attributes.js';
+import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/font/text_attributes.js';
+import { InferBold } from '@ziroeda/common/gr_text.js';
+import { wxBell } from '@ziroeda/common/wx/utils.js';
+import type { VIEW } from '@ziroeda/common/view/view.js';
+import type { VIEW_CONTROLS } from '@ziroeda/common/view/view_controls.js';
+import { ARC_ASSISTANT } from '@ziroeda/common/preview_items/arc_assistant.js';
+import { ARC_GEOM_MANAGER, ARC_STEPS } from '@ziroeda/common/preview_items/arc_geom_manager.js';
+import {
+  GEOM_SHAPE,
+  TWO_POINT_ASSISTANT,
+} from '@ziroeda/common/preview_items/two_point_assistant.js';
+import { TWO_POINT_GEOMETRY_MANAGER } from '@ziroeda/common/preview_items/two_point_geom_manager.js';
+import { ANGLE_0, ANGLE_90 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import {
+  GetClampedCoords,
+  LeaderMode,
+  vectorSnapped45,
+  vectorSnapped90,
+} from '@ziroeda/kimath/src/geometry/geometry_utils.js';
+import {
+  add,
+  equal,
+  sub,
+  type Vec2 as VECTOR2D,
+  type VECTOR2I,
+} from '@ziroeda/kimath/src/math/vector2.js';
+import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
+import type { BOARD } from '../board.js';
+import { BOARD_COMMIT } from '../board_commit.js';
+import type { BOARD_ITEM } from '../board_item.js';
+import type { PCB_BASE_EDIT_FRAME } from '../pcb_base_edit_frame.js';
+import type { PCB_BASE_FRAME } from '../pcb_base_frame.js';
+import { PCB_ACTIONS } from './pcb_actions.js';
+import { PCB_GRID_HELPER } from './pcb_grid_helper.js';
+import { IsZoneFillAction } from './pcb_picker_tool.js';
+import { PCB_SELECTION } from './pcb_selection.js';
+import { PCB_TOOL_BASE } from './pcb_tool_base.js';
 import { BEZIER_GEOM_MANAGER, BEZIER_STEPS } from '@ziroeda/common/index.js';
 import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
 import { pcbMmToIU } from '@ziroeda/common/eda_units.js';
@@ -507,4 +564,1001 @@ export function placeImportedItems(
   if (opts.fixDiscontinuities) shapes = weldImportedShapes(shapes, pcbMmToIU(opts.toleranceMM));
 
   return { shapes, texts };
+}
+
+// ---------------------------------------------------------------------------
+// DRAWING_TOOL (pcbnew/tools/drawing_tool.cpp), on the live BOARD.
+//
+// Ported so far: the class, Init, Reset, UpdateStatusBar, and the four shape
+// tools - DrawLine, DrawRectangle, DrawCircle, DrawArc - with drawShape and
+// drawArc, their previews in the VIEW (`m_preview` and the assistants), as
+// upstream. The other handlers (text, dimensions, zones, vias, tables, images,
+// beziers, barcodes, points, import) still run in the frame window.
+// ---------------------------------------------------------------------------
+
+/** `DRAWING_TOOL::MODE`. */
+export enum DRAWING_MODE {
+  NONE,
+  LINE,
+  RECTANGLE,
+  CIRCLE,
+  ARC,
+  IMAGE,
+  TEXT,
+  ANCHOR,
+  DXF,
+  DIMENSION,
+  KEEPOUT,
+  ZONE,
+  GRAPHIC_POLYGON,
+  VIA,
+  TUNING,
+  BEZIER,
+  POINT,
+}
+
+/** `DRAWING_TOOL::COORDS_PADDING` (drawing_tool.cpp:92). */
+const DRAWING_COORDS_PADDING = pcbIUScale.mmToIU(20);
+
+/** `DRAWING_TOOL::WIDTH_STEP` (drawing_tool.cpp:4418): one -/+ key press. */
+const WIDTH_STEP = pcbIUScale.mmToIU(0.1);
+
+const INT_MAX = 2147483647;
+
+/**
+ * `getClampedDifferenceEnd` (drawing_tool.h:344-364): the end clamped so its
+ * difference from the origin fits an int.
+ */
+export function getClampedDifferenceEnd(aOrigin: VECTOR2I, aEnd: VECTOR2I): VECTOR2I {
+  const guardValue = 1;
+  const maxDiff = INT_MAX - guardValue;
+
+  let xDiff = aEnd.x - aOrigin.x;
+  let yDiff = aEnd.y - aOrigin.y;
+
+  if (xDiff > maxDiff) xDiff = maxDiff;
+  if (yDiff > maxDiff) yDiff = maxDiff;
+
+  if (xDiff < -maxDiff) xDiff = -maxDiff;
+  if (yDiff < -maxDiff) yDiff = -maxDiff;
+
+  return { x: aOrigin.x + xDiff, y: aOrigin.y + yDiff };
+}
+
+/**
+ * `getClampedRadiusEnd` (drawing_tool.h:374-394): the end pulled in so the
+ * radius fits half an int.
+ */
+export function getClampedRadiusEnd(aOrigin: VECTOR2I, aEnd: VECTOR2I): VECTOR2I {
+  const guardValue = 10;
+
+  let xDiff = aEnd.x - aOrigin.x;
+  let yDiff = aEnd.y - aOrigin.y;
+
+  const maxRadius = Math.trunc(INT_MAX / 2) - guardValue;
+  const radius = Math.hypot(xDiff, yDiff);
+
+  if (radius > maxRadius) {
+    const scaleFactor = maxRadius / radius;
+
+    xDiff = KiROUND(xDiff * scaleFactor);
+    yDiff = KiROUND(yDiff * scaleFactor);
+  }
+
+  return { x: aOrigin.x + xDiff, y: aOrigin.y + yDiff };
+}
+
+/** `updateSegmentFromGeometryMgr` (drawing_tool.cpp:2349-2356). */
+function updateSegmentFromGeometryMgr(aMgr: TWO_POINT_GEOMETRY_MANAGER, aGraphic: PCB_SHAPE): void {
+  if (!aMgr.IsReset()) {
+    aGraphic.SetStart(aMgr.GetOrigin());
+    aGraphic.SetEnd(aMgr.GetEnd());
+  }
+}
+
+/** `updateArcFromConstructionMgr` (drawing_tool.cpp:2771-2788). */
+function updateArcFromConstructionMgr(aMgr: ARC_GEOM_MANAGER, aArc: PCB_SHAPE): void {
+  aArc.SetCenter(aMgr.GetOrigin());
+
+  if (aMgr.GetSubtended().lt(ANGLE_0)) {
+    aArc.SetStart(aMgr.GetStartRadiusEnd());
+    aArc.SetEnd(aMgr.GetEndRadiusEnd());
+  } else {
+    aArc.SetStart(aMgr.GetEndRadiusEnd());
+    aArc.SetEnd(aMgr.GetStartRadiusEnd());
+  }
+}
+
+/** A `PCB_SHAPE*&` out-parameter. */
+interface SHAPE_REF {
+  value: PCB_SHAPE | null;
+}
+
+const S = <T>(aBody: T): T => aBody;
+
+export class DRAWING_TOOL extends PCB_TOOL_BASE {
+  private m_view: VIEW | null = null;
+  private m_controls: VIEW_CONTROLS | null = null;
+  private m_board: BOARD | null = null;
+  private m_frame: PCB_BASE_EDIT_FRAME | null = null;
+  private m_mode: DRAWING_MODE = DRAWING_MODE.NONE;
+  /** Re-entrancy guard. */
+  private m_inDrawingTool = false;
+
+  /** The layer we last drew on. */
+  private m_layer: PCB_LAYER_ID = PCB_LAYER_ID.UNDEFINED_LAYER;
+  /** Current stroke for multi-segment drawing. */
+  private readonly m_stroke = new STROKE_PARAMS(1, LINE_STYLE.DEFAULT, COLOR4D_UNSPECIFIED);
+  private readonly m_textAttrs = new TEXT_ATTRIBUTES();
+
+  private readonly m_preview = new PCB_SELECTION();
+
+  constructor() {
+    super('pcbnew.InteractiveDrawing');
+  }
+
+  override Init(): boolean {
+    const haveHighlight = (_sel: SELECTION): boolean => {
+      const cfg = this.m_toolMgr!.GetView()!.GetPainter()!.GetSettings();
+
+      return cfg.GetHighlightNetCodes().size > 0;
+    };
+
+    const activeToolFunctor = (_aSel: SELECTION): boolean => this.m_mode !== DRAWING_MODE.NONE;
+
+    // some interactive drawing tools can undo the last point
+    const canUndoPoint = (_aSel: SELECTION): boolean =>
+      this.m_mode === DRAWING_MODE.ARC ||
+      this.m_mode === DRAWING_MODE.ZONE ||
+      this.m_mode === DRAWING_MODE.KEEPOUT ||
+      this.m_mode === DRAWING_MODE.GRAPHIC_POLYGON ||
+      this.m_mode === DRAWING_MODE.BEZIER ||
+      this.m_mode === DRAWING_MODE.LINE;
+
+    // functor for tools that can automatically close the outline
+    const canCloseOutline = (_aSel: SELECTION): boolean =>
+      this.m_mode === DRAWING_MODE.ZONE ||
+      this.m_mode === DRAWING_MODE.KEEPOUT ||
+      this.m_mode === DRAWING_MODE.GRAPHIC_POLYGON;
+
+    const arcToolActive = (_aSel: SELECTION): boolean => this.m_mode === DRAWING_MODE.ARC;
+    const tuningToolActive = (_aSel: SELECTION): boolean => this.m_mode === DRAWING_MODE.TUNING;
+    const dimensionToolActive = (_aSel: SELECTION): boolean =>
+      this.m_mode === DRAWING_MODE.DIMENSION;
+
+    const ctxMenu = this.m_menu.GetMenu();
+
+    // cancel current tool goes in main context menu at the top if present
+    ctxMenu.AddItem(ACTIONS.cancelInteractive, activeToolFunctor, 1);
+    ctxMenu.AddSeparator(1);
+
+    ctxMenu.AddItem(PCB_ACTIONS.clearHighlight, haveHighlight, 2);
+    ctxMenu.AddSeparator(haveHighlight, 2);
+
+    // tool-specific actions
+    ctxMenu.AddItem(PCB_ACTIONS.closeOutline, canCloseOutline, 200);
+    ctxMenu.AddItem(PCB_ACTIONS.deleteLastPoint, canUndoPoint, 200);
+    ctxMenu.AddItem(PCB_ACTIONS.arcPosture, arcToolActive, 200);
+    ctxMenu.AddItem(PCB_ACTIONS.spacingIncrease, tuningToolActive, 200);
+    ctxMenu.AddItem(PCB_ACTIONS.spacingDecrease, tuningToolActive, 200);
+    ctxMenu.AddItem(PCB_ACTIONS.amplIncrease, tuningToolActive, 200);
+    ctxMenu.AddItem(PCB_ACTIONS.amplDecrease, tuningToolActive, 200);
+    ctxMenu.AddItem(PCB_ACTIONS.lengthTunerSettings, tuningToolActive, 200);
+    ctxMenu.AddItem(PCB_ACTIONS.changeDimensionArrows, dimensionToolActive, 200);
+
+    ctxMenu.AddSeparator(500);
+
+    // TRANSITIONAL: VIA_SIZE_MENU arrives with DrawVia.
+    ctxMenu.AddSeparator(500);
+
+    // Type-specific sub-menus will be added for us by other tools
+    // For example, zone fill/unfill is provided by the PCB control tool
+
+    // Finally, add the standard zoom/grid items
+    this.getEditFrame<PCB_BASE_FRAME>().AddStandardSubMenus(this.m_menu);
+
+    return true;
+  }
+
+  override Reset(aReason: RESET_REASON): void {
+    // Init variables used by every drawing tool
+    this.m_view = this.getView();
+    this.m_controls = this.getViewControls() as unknown as VIEW_CONTROLS;
+    this.m_board = this.getModel<BOARD>();
+    this.m_frame = this.getEditFrame<PCB_BASE_EDIT_FRAME>();
+
+    if (aReason === RESET_REASON.SHUTDOWN) return;
+
+    // KiCad's frame always holds a BOARD and a screen (empty ones before a
+    // file is opened); ours can have neither yet, and then there is nothing
+    // to read the layer defaults from.
+    if (!this.m_board || !this.m_frame.GetScreen()) return;
+
+    this.setLayerDefaults();
+    this.UpdateStatusBar();
+  }
+
+  /** The session attributes Reset, drawShape and layerChanged all take from the layer. */
+  private setLayerDefaults(): void {
+    // Re-initialize session attributes
+    const bds = this.m_frame!.GetDesignSettings();
+
+    this.m_layer = this.m_frame!.GetActiveLayer();
+    this.m_stroke.SetWidth(bds.GetLineThickness(this.m_layer));
+    this.m_stroke.SetLineStyle(LINE_STYLE.DEFAULT);
+    this.m_stroke.SetColor(COLOR4D_UNSPECIFIED);
+
+    this.m_textAttrs.m_Size = bds.GetTextSize(this.m_layer);
+    this.m_textAttrs.m_StrokeWidth = bds.GetTextThickness(this.m_layer);
+    InferBold(this.m_textAttrs);
+    this.m_textAttrs.m_Italic = bds.GetTextItalic(this.m_layer);
+    this.m_textAttrs.m_KeepUpright = bds.GetTextUpright(this.m_layer);
+    this.m_textAttrs.m_Mirrored = this.m_board!.IsBackLayer(this.m_layer);
+    this.m_textAttrs.m_Halign = GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT;
+    this.m_textAttrs.m_Valign = GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_TOP;
+  }
+
+  GetDrawingMode(): DRAWING_MODE {
+    return this.m_mode;
+  }
+
+  UpdateStatusBar(): void {
+    if (this.m_frame) {
+      switch (this.GetAngleSnapMode()) {
+        case LeaderMode.DEG45:
+          this.m_frame.DisplayConstraintsMsg('Constrain to H, V, 45');
+          break;
+        case LeaderMode.DEG90:
+          this.m_frame.DisplayConstraintsMsg('Constrain to H, V');
+          break;
+        default:
+          this.m_frame.DisplayConstraintsMsg('');
+          break;
+      }
+    }
+  }
+
+  /** `REENTRANCY_GUARD` and `SCOPED_DRAW_MODE` around a handler body. */
+  private *scoped(
+    aMode: DRAWING_MODE,
+    aBody: () => COROUTINE_BODY<number>,
+  ): COROUTINE_BODY<number> {
+    if (this.m_inDrawingTool) return 0;
+
+    const prevMode = this.m_mode;
+    this.m_inDrawingTool = true;
+    this.m_mode = aMode;
+
+    try {
+      return yield* aBody();
+    } finally {
+      this.m_mode = prevMode;
+      this.m_inDrawingTool = false;
+    }
+  }
+
+  *DrawLine(aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+    if (this.m_isFootprintEditor && !this.m_frame!.GetModel()) return 0;
+
+    return yield* this.scoped(
+      DRAWING_MODE.LINE,
+      function* (this: DRAWING_TOOL) {
+        const parent = this.m_frame!.GetModel() as unknown as BOARD_ITEM;
+        const line: SHAPE_REF = { value: new PCB_SHAPE(parent) };
+        const commit = new BOARD_COMMIT(this.m_frame!);
+        let startingPoint: VECTOR2D | null = null;
+        const committedLines: PCB_SHAPE[] = [];
+
+        line.value!.SetShape(SHAPE_T.SEGMENT);
+        line.value!.SetFlags(IS_NEW);
+
+        if (aEvent.HasPosition())
+          startingPoint = this.getViewControls()!.GetCursorPosition(!aEvent.DisableGridSnapping());
+
+        this.m_frame!.PushTool(aEvent);
+        this.Activate();
+
+        while (yield* this.drawShape(aEvent, line, startingPoint, committedLines)) {
+          if (line.value) {
+            commit.Add(line.value);
+            commit.Push('Draw Line');
+            startingPoint = { ...line.value.GetEnd() };
+            committedLines.push(line.value);
+          } else {
+            startingPoint = null;
+          }
+
+          line.value = new PCB_SHAPE(parent);
+          line.value.SetShape(SHAPE_T.SEGMENT);
+          line.value.SetFlags(IS_NEW);
+        }
+
+        return 0;
+      }.bind(this),
+    );
+  }
+
+  *DrawRectangle(aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+    if (this.m_isFootprintEditor && !this.m_frame!.GetModel()) return 0;
+
+    return yield* this.scoped(
+      DRAWING_MODE.RECTANGLE,
+      function* (this: DRAWING_TOOL) {
+        // TRANSITIONAL: drawTextBox (isTextBox) still runs in the frame window,
+        // because its properties dialog is asynchronous here.
+        const parent = this.m_frame!.GetModel() as unknown as BOARD_ITEM;
+        const commit = new BOARD_COMMIT(this.m_frame!);
+        let startingPoint: VECTOR2D | null = null;
+
+        const make = (): PCB_SHAPE => {
+          const rect = new PCB_SHAPE(parent);
+          rect.SetShape(SHAPE_T.RECTANGLE);
+          rect.SetFilled(false);
+          rect.SetFlags(IS_NEW);
+          return rect;
+        };
+        const rect: SHAPE_REF = { value: make() };
+
+        if (aEvent.HasPosition())
+          startingPoint = this.getViewControls()!.GetCursorPosition(!aEvent.DisableGridSnapping());
+
+        this.m_frame!.PushTool(aEvent);
+        this.Activate();
+
+        while (yield* this.drawShape(aEvent, rect, startingPoint, null)) {
+          if (rect.value) {
+            rect.value.Normalize();
+            commit.Add(rect.value);
+            commit.Push('Draw Rectangle');
+
+            this.m_toolMgr!.RunAction(ACTIONS.selectItem, rect.value);
+          }
+
+          rect.value = make();
+          startingPoint = null;
+        }
+
+        return 0;
+      }.bind(this),
+    );
+  }
+
+  *DrawCircle(aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+    if (this.m_isFootprintEditor && !this.m_frame!.GetModel()) return 0;
+
+    return yield* this.scoped(
+      DRAWING_MODE.CIRCLE,
+      function* (this: DRAWING_TOOL) {
+        const parent = this.m_frame!.GetModel() as unknown as BOARD_ITEM;
+        const commit = new BOARD_COMMIT(this.m_frame!);
+        let startingPoint: VECTOR2D | null = null;
+
+        const make = (): PCB_SHAPE => {
+          const circle = new PCB_SHAPE(parent);
+          circle.SetShape(SHAPE_T.CIRCLE);
+          circle.SetFilled(false);
+          circle.SetFlags(IS_NEW);
+          return circle;
+        };
+        const circle: SHAPE_REF = { value: make() };
+
+        if (aEvent.HasPosition())
+          startingPoint = this.getViewControls()!.GetCursorPosition(!aEvent.DisableGridSnapping());
+
+        this.m_frame!.PushTool(aEvent);
+        this.Activate();
+
+        while (yield* this.drawShape(aEvent, circle, startingPoint, null)) {
+          if (circle.value) {
+            commit.Add(circle.value);
+            commit.Push('Draw Circle');
+
+            this.m_toolMgr!.RunAction(ACTIONS.selectItem, circle.value);
+          }
+
+          circle.value = make();
+          startingPoint = null;
+        }
+
+        return 0;
+      }.bind(this),
+    );
+  }
+
+  *DrawArc(aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+    if (this.m_isFootprintEditor && !this.m_frame!.GetModel()) return 0;
+
+    return yield* this.scoped(
+      DRAWING_MODE.ARC,
+      function* (this: DRAWING_TOOL) {
+        const parent = this.m_frame!.GetModel() as unknown as BOARD_ITEM;
+        const commit = new BOARD_COMMIT(this.m_frame!);
+        let startingPoint: VECTOR2D | null = null;
+
+        const make = (): PCB_SHAPE => {
+          const arc = new PCB_SHAPE(parent);
+          arc.SetShape(SHAPE_T.ARC);
+          arc.SetFlags(IS_NEW);
+          return arc;
+        };
+        const arc: SHAPE_REF = { value: make() };
+
+        this.m_frame!.PushTool(aEvent);
+        this.Activate();
+
+        if (aEvent.HasPosition()) startingPoint = aEvent.Position();
+
+        while (yield* this.drawArc(aEvent, arc, startingPoint)) {
+          if (arc.value) {
+            commit.Add(arc.value);
+            commit.Push('Draw Arc');
+
+            this.m_toolMgr!.RunAction(ACTIONS.selectItem, arc.value);
+          }
+
+          arc.value = make();
+          startingPoint = null;
+        }
+
+        return 0;
+      }.bind(this),
+    );
+  }
+
+  /** `m_frame->GetAppearancePanel()->SetLayerVisible( m_layer, true )` when it is hidden. */
+  private showLayer(): void {
+    if (!this.m_view!.IsLayerVisible(this.m_layer)) {
+      this.m_frame!.GetAppearancePanel()?.SetLayerVisible?.(this.m_layer, true);
+      this.m_frame!.GetCanvas()!.Refresh();
+    }
+  }
+
+  private *drawShape(
+    aTool: TOOL_EVENT,
+    aGraphic: SHAPE_REF,
+    aStartingPoint: VECTOR2D | null,
+    aCommittedGraphics: PCB_SHAPE[] | null,
+  ): COROUTINE_BODY<boolean> {
+    const shape = aGraphic.value!.GetShape();
+
+    // Only three shapes are currently supported
+    console.assert(
+      shape === SHAPE_T.SEGMENT || shape === SHAPE_T.CIRCLE || shape === SHAPE_T.RECTANGLE,
+    );
+
+    const bds = this.m_frame!.GetDesignSettings();
+    let userUnits = this.m_frame!.GetUserUnits();
+    const grid = new PCB_GRID_HELPER(this.m_toolMgr!, this.m_frame!.GetMagneticItemsSettings());
+
+    if (this.m_layer !== this.m_frame!.GetActiveLayer()) this.setLayerDefaults();
+
+    // Turn shapes on if they are off, so that the created object will be visible after completion
+    this.m_frame!.SetObjectVisible(GAL_LAYER_ID.LAYER_FILLED_SHAPES);
+
+    // geometric construction manager
+    const twoPointMgr = new TWO_POINT_GEOMETRY_MANAGER();
+
+    // drawing assistant overlay
+    const geomShape =
+      shape === SHAPE_T.SEGMENT
+        ? GEOM_SHAPE.SEGMENT
+        : shape === SHAPE_T.RECTANGLE
+          ? GEOM_SHAPE.RECT
+          : GEOM_SHAPE.CIRCLE;
+    const twoPointAsst = new TWO_POINT_ASSISTANT(twoPointMgr, pcbIUScale, userUnits, geomShape);
+
+    // Add a VIEW_GROUP that serves as a preview for the new item
+    this.m_preview.Clear();
+    this.m_view!.Add(this.m_preview);
+    this.m_view!.Add(twoPointAsst);
+
+    let started = false;
+    let cancelled = false;
+    const screen = this.m_frame!.GetScreen()!;
+    let isLocalOriginSet = screen.m_LocalOrigin.x !== 0 || screen.m_LocalOrigin.y !== 0;
+    let cursorPos: VECTOR2I = this.m_controls!.GetMousePosition();
+
+    const setCursor = (): void => {
+      this.m_frame!.GetCanvas()!.SetCurrentCursor(KICURSOR.PENCIL);
+    };
+
+    const cleanup = (): void => {
+      this.m_preview.Clear();
+      this.m_view!.Update(this.m_preview);
+      aGraphic.value = null;
+
+      if (!isLocalOriginSet) screen.m_LocalOrigin = { x: 0, y: 0 };
+    };
+
+    this.m_controls!.ShowCursor(true);
+    this.m_controls!.ForceCursorPosition(false);
+    // Set initial cursor
+    setCursor();
+
+    this.m_toolMgr!.PostAction(ACTIONS.refreshPreview);
+
+    if (aStartingPoint) this.m_toolMgr!.PrimeTool(aStartingPoint);
+
+    // Main loop: keep receiving events
+    for (let evt = yield* this.Wait(); evt; evt = yield* this.Wait()) {
+      setCursor();
+
+      if (started) this.m_frame!.SetMsgPanel(aGraphic.value!);
+
+      grid.SetSnap(!evt.Modifier(MD_SHIFT));
+      let angleSnap = this.GetAngleSnapMode();
+
+      // Drawing rectangles and circles ignore the snap behavior by default, but constrains
+      // when the modifier key is pressed
+      if (shape === SHAPE_T.RECTANGLE || shape === SHAPE_T.CIRCLE) {
+        if (evt.Modifier(MD_CTRL)) angleSnap = LeaderMode.DEG45;
+        else angleSnap = LeaderMode.DIRECT;
+      } else {
+        // All other drawing uses the snap mode, except that is disabled with the modifier key
+        if (evt.Modifier(MD_CTRL)) angleSnap = LeaderMode.DIRECT;
+      }
+
+      grid.SetUseGrid(this.getView()!.GetGAL()!.GetGridSnapping() && !evt.DisableGridSnapping());
+      cursorPos = GetClampedCoords(
+        grid.BestSnapAnchor(
+          this.m_controls!.GetMousePosition(),
+          new LSET([this.m_layer]),
+          GRID_HELPER_GRIDS.GRID_GRAPHICS,
+        ),
+        DRAWING_COORDS_PADDING,
+      );
+      this.m_controls!.ForceCursorPosition(true, cursorPos);
+
+      if (evt.IsCancelInteractive() || (started && evt.IsAction(ACTIONS.undo))) {
+        cleanup();
+
+        if (!started) {
+          // We've handled the cancel event.  Don't cancel other tools
+          evt.SetPassEvent(false);
+          this.m_frame!.PopTool(aTool);
+          cancelled = true;
+        }
+
+        break;
+      } else if (evt.IsActivate()) {
+        if (evt.IsPointEditor()) {
+          // don't exit (the point editor runs in the background)
+        } else if (evt.IsMoveTool()) {
+          cleanup();
+          // leave ourselves on the stack so we come back after the move
+          cancelled = true;
+          break;
+        } else {
+          cleanup();
+          this.m_frame!.PopTool(aTool);
+          cancelled = true;
+          break;
+        }
+      } else if (evt.IsAction(PCB_ACTIONS.layerChanged)) {
+        if (this.m_layer !== this.m_frame!.GetActiveLayer()) this.setLayerDefaults();
+
+        const graphic = aGraphic.value;
+
+        if (graphic) {
+          this.showLayer();
+
+          graphic.SetLayer(this.m_layer);
+          graphic.SetStroke(this.m_stroke.clone());
+
+          this.m_view!.Update(this.m_preview);
+          this.m_frame!.SetMsgPanel(graphic);
+        } else {
+          evt.SetPassEvent();
+        }
+      } else if (evt.IsClick(BUT_RIGHT)) {
+        if (!aGraphic.value) this.m_toolMgr!.VetoContextMenuMouseWarp();
+
+        this.m_menu.ShowContextMenu(this.selection());
+      } else if (evt.IsClick(BUT_LEFT) || evt.IsDblClick(BUT_LEFT)) {
+        const graphic = aGraphic.value;
+
+        if (!graphic) break;
+
+        if (!started) {
+          this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
+
+          if (aStartingPoint) {
+            cursorPos = { x: aStartingPoint.x, y: aStartingPoint.y };
+            aStartingPoint = null;
+          }
+
+          // Init the new item attributes
+          graphic.SetShape(shape);
+          graphic.SetFilled(false);
+          graphic.SetStroke(this.m_stroke.clone());
+          graphic.SetLayer(this.m_layer);
+
+          grid.SetSkipPoint(cursorPos);
+
+          twoPointMgr.SetOrigin(cursorPos);
+          twoPointMgr.SetEnd(cursorPos);
+
+          if (!isLocalOriginSet) screen.m_LocalOrigin = { ...cursorPos };
+
+          this.m_preview.Add(graphic);
+          this.m_frame!.SetMsgPanel(graphic);
+          this.m_controls!.SetAutoPan(true);
+          this.m_controls!.CaptureCursor(true);
+
+          this.showLayer();
+
+          updateSegmentFromGeometryMgr(twoPointMgr, graphic);
+
+          started = true;
+        } else {
+          const snapped = grid.GetSnapped();
+          const snapItem = snapped instanceof PCB_SHAPE ? snapped : null;
+
+          if (shape === SHAPE_T.SEGMENT && snapItem && graphic.GetLength() > 0) {
+            // User has clicked on the end of an existing segment, closing a path
+            const commit = new BOARD_COMMIT(this.m_frame!);
+
+            commit.Add(graphic);
+            commit.Push('Draw Line');
+            this.m_toolMgr!.RunAction(ACTIONS.selectItem, graphic);
+
+            aGraphic.value = null;
+          } else if (twoPointMgr.IsEmpty() || evt.IsDblClick(BUT_LEFT)) {
+            // User has clicked twice in the same spot, meaning we're finished
+            aGraphic.value = null;
+          }
+
+          this.m_preview.Clear();
+          twoPointMgr.Reset();
+          break;
+        }
+
+        twoPointMgr.SetEnd(GetClampedCoords(cursorPos));
+      } else if (evt.IsMotion()) {
+        let clampedCursorPos = cursorPos;
+
+        if (shape === SHAPE_T.CIRCLE || shape === SHAPE_T.ARC)
+          clampedCursorPos = getClampedRadiusEnd(twoPointMgr.GetOrigin(), cursorPos);
+        else clampedCursorPos = getClampedDifferenceEnd(twoPointMgr.GetOrigin(), cursorPos);
+
+        // constrained lines
+        if (started && angleSnap !== LeaderMode.DIRECT) {
+          const lineVector = sub(clampedCursorPos, twoPointMgr.GetOrigin());
+
+          let newEnd: VECTOR2I;
+          if (angleSnap === LeaderMode.DEG90) newEnd = vectorSnapped90(lineVector);
+          else newEnd = vectorSnapped45(lineVector, shape === SHAPE_T.RECTANGLE);
+
+          this.m_controls!.ForceCursorPosition(true, twoPointMgr.GetEnd());
+          twoPointMgr.SetEnd(add(twoPointMgr.GetOrigin(), newEnd));
+          twoPointMgr.SetAngleSnap(angleSnap);
+        } else {
+          twoPointMgr.SetEnd(clampedCursorPos);
+          twoPointMgr.SetAngleSnap(LeaderMode.DIRECT);
+        }
+
+        if (aGraphic.value) updateSegmentFromGeometryMgr(twoPointMgr, aGraphic.value);
+
+        this.m_view!.Update(this.m_preview);
+        this.m_view!.Update(twoPointAsst);
+      } else if (
+        started &&
+        (evt.IsAction(PCB_ACTIONS.doDelete) || evt.IsAction(PCB_ACTIONS.deleteLastPoint))
+      ) {
+        if (aCommittedGraphics && aCommittedGraphics.length > 0) {
+          const top = aCommittedGraphics.pop()!;
+          twoPointMgr.SetOrigin(top.GetStart());
+          twoPointMgr.SetEnd(top.GetEnd());
+
+          // Snap guides persist in the grid helper until the tool exits, so a mid-draw
+          // backup must clear them or they linger on screen.
+          grid.FullReset();
+
+          this.getViewControls()!.WarpMouseCursor(twoPointMgr.GetEnd(), true);
+
+          const undo = this.m_frame!.PopCommandFromUndoList();
+
+          if (undo) {
+            this.m_frame!.PutDataInPreviousState(undo);
+            this.m_frame!.ClearListAndDeleteItems(undo);
+          }
+
+          if (aGraphic.value) updateSegmentFromGeometryMgr(twoPointMgr, aGraphic.value);
+
+          this.m_view!.Update(this.m_preview);
+          this.m_view!.Update(twoPointAsst);
+        } else {
+          cleanup();
+          break;
+        }
+      } else if (aGraphic.value && evt.IsAction(PCB_ACTIONS.incWidth)) {
+        this.m_stroke.SetWidth(this.m_stroke.GetWidth() + WIDTH_STEP);
+        aGraphic.value.SetStroke(this.m_stroke.clone());
+        this.m_view!.Update(this.m_preview);
+        this.m_frame!.SetMsgPanel(aGraphic.value);
+      } else if (aGraphic.value && evt.IsAction(PCB_ACTIONS.decWidth)) {
+        if (this.m_stroke.GetWidth() > WIDTH_STEP) {
+          this.m_stroke.SetWidth(this.m_stroke.GetWidth() - WIDTH_STEP);
+          aGraphic.value.SetStroke(this.m_stroke.clone());
+          this.m_view!.Update(this.m_preview);
+          this.m_frame!.SetMsgPanel(aGraphic.value);
+        }
+      } else if (started && evt.IsAction(PCB_ACTIONS.properties)) {
+        onEditItemRequest(this.m_frame!, aGraphic.value!);
+        this.m_view!.Update(this.m_preview);
+        this.m_frame!.SetMsgPanel(aGraphic.value!);
+      } else if (started && (IsZoneFillAction(evt) || evt.IsAction(ACTIONS.redo))) {
+        wxBell();
+      } else if (evt.IsAction(ACTIONS.resetLocalCoords)) {
+        isLocalOriginSet = true;
+        evt.SetPassEvent();
+      } else if (evt.IsAction(ACTIONS.updateUnits)) {
+        if (this.m_frame!.GetUserUnits() !== userUnits) {
+          userUnits = this.m_frame!.GetUserUnits();
+          twoPointAsst.SetUnits(userUnits);
+          this.m_view!.Update(twoPointAsst);
+        }
+        evt.SetPassEvent();
+      } else {
+        evt.SetPassEvent();
+      }
+    }
+
+    if (!isLocalOriginSet)
+      // reset the relative coordinate if it was not set before
+      screen.m_LocalOrigin = { x: 0, y: 0 };
+
+    this.m_view!.Remove(twoPointAsst);
+    this.m_view!.Remove(this.m_preview);
+
+    if (this.selection().Empty()) this.m_frame!.SetMsgPanel(this.board());
+
+    this.m_frame!.GetCanvas()!.SetCurrentCursor(KICURSOR.ARROW);
+    this.m_controls!.SetAutoPan(false);
+    this.m_controls!.CaptureCursor(false);
+    this.m_controls!.ForceCursorPosition(false);
+
+    return !cancelled;
+  }
+
+  private *drawArc(
+    aTool: TOOL_EVENT,
+    aGraphic: SHAPE_REF,
+    aStartingPoint: VECTOR2D | null,
+  ): COROUTINE_BODY<boolean> {
+    if (!aGraphic.value) return false; // wxCHECK( graphic, false )
+
+    if (this.m_layer !== this.m_frame!.GetActiveLayer()) {
+      this.m_layer = this.m_frame!.GetActiveLayer();
+      this.m_stroke.SetWidth(this.m_frame!.GetDesignSettings().GetLineThickness(this.m_layer));
+      this.m_stroke.SetLineStyle(LINE_STYLE.DEFAULT);
+      this.m_stroke.SetColor(COLOR4D_UNSPECIFIED);
+    }
+
+    // Arc geometric construction manager
+    const arcManager = new ARC_GEOM_MANAGER();
+
+    // Arc drawing assistant overlay
+    const arcAsst = new ARC_ASSISTANT(arcManager, pcbIUScale, this.m_frame!.GetUserUnits());
+
+    // Add a VIEW_GROUP that serves as a preview for the new item
+    const preview = new PCB_SELECTION();
+    this.m_view!.Add(preview);
+    this.m_view!.Add(arcAsst);
+    const grid = new PCB_GRID_HELPER(this.m_toolMgr!, this.m_frame!.GetMagneticItemsSettings());
+
+    const setCursor = (): void => {
+      this.m_frame!.GetCanvas()!.SetCurrentCursor(KICURSOR.PENCIL);
+    };
+
+    const cleanup = (): void => {
+      preview.Clear();
+      aGraphic.value = null;
+    };
+
+    this.m_controls!.ShowCursor(true);
+    this.m_controls!.ForceCursorPosition(false);
+    // Set initial cursor
+    setCursor();
+
+    let started = false;
+    let cancelled = false;
+
+    this.m_toolMgr!.PostAction(ACTIONS.refreshPreview);
+
+    if (aStartingPoint) this.m_toolMgr!.PrimeTool(aStartingPoint);
+
+    // Main loop: keep receiving events
+    for (let evt = yield* this.Wait(); evt; evt = yield* this.Wait()) {
+      const graphic = aGraphic.value;
+
+      if (started && graphic) this.m_frame!.SetMsgPanel(graphic);
+
+      setCursor();
+
+      graphic?.SetLayer(this.m_layer);
+
+      grid.SetSnap(!evt.Modifier(MD_SHIFT));
+      let angleSnap = this.GetAngleSnapMode();
+
+      if (evt.Modifier(MD_CTRL)) angleSnap = LeaderMode.DIRECT;
+
+      grid.SetUseGrid(this.getView()!.GetGAL()!.GetGridSnapping() && !evt.DisableGridSnapping());
+      const cursorPos = GetClampedCoords(
+        grid.BestSnapAnchor(
+          this.m_controls!.GetMousePosition(),
+          graphic,
+          GRID_HELPER_GRIDS.GRID_GRAPHICS,
+        ),
+        DRAWING_COORDS_PADDING,
+      );
+      this.m_controls!.ForceCursorPosition(true, cursorPos);
+
+      if (evt.IsCancelInteractive() || (started && evt.IsAction(ACTIONS.undo))) {
+        cleanup();
+
+        if (!started) {
+          // We've handled the cancel event.  Don't cancel other tools
+          evt.SetPassEvent(false);
+          this.m_frame!.PopTool(aTool);
+          cancelled = true;
+        }
+
+        break;
+      } else if (evt.IsActivate()) {
+        if (evt.IsPointEditor()) {
+          // don't exit (the point editor runs in the background)
+        } else if (evt.IsMoveTool()) {
+          cleanup();
+          // leave ourselves on the stack so we come back after the move
+          cancelled = true;
+          break;
+        } else {
+          cleanup();
+          this.m_frame!.PopTool(aTool);
+          cancelled = true;
+          break;
+        }
+      } else if (evt.IsClick(BUT_LEFT)) {
+        if (!started && graphic) {
+          this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
+
+          this.m_controls!.SetAutoPan(true);
+          this.m_controls!.CaptureCursor(true);
+
+          // Init the new item attributes
+          // (non-geometric, those are handled by the manager)
+          graphic.SetShape(SHAPE_T.ARC);
+          graphic.SetStroke(this.m_stroke.clone());
+
+          this.showLayer();
+
+          preview.Add(graphic);
+          this.m_frame!.SetMsgPanel(graphic);
+          started = true;
+        }
+
+        arcManager.AddPoint(cursorPos, true);
+      } else if (evt.IsAction(PCB_ACTIONS.deleteLastPoint)) {
+        // Snap guides persist in the grid helper until the tool exits, so a mid-draw backup
+        // must clear them or they linger on screen.
+        grid.FullReset();
+        arcManager.RemoveLastPoint();
+      } else if (evt.IsMotion()) {
+        // set angle snap
+        arcManager.SetAngleSnap(angleSnap !== LeaderMode.DIRECT);
+
+        // update, but don't step the manager state
+        arcManager.AddPoint(cursorPos, false);
+      } else if (evt.IsAction(PCB_ACTIONS.layerChanged)) {
+        if (this.m_layer !== this.m_frame!.GetActiveLayer()) {
+          this.m_layer = this.m_frame!.GetActiveLayer();
+          this.m_stroke.SetWidth(this.m_frame!.GetDesignSettings().GetLineThickness(this.m_layer));
+          this.m_stroke.SetLineStyle(LINE_STYLE.DEFAULT);
+          this.m_stroke.SetColor(COLOR4D_UNSPECIFIED);
+        }
+
+        if (graphic) {
+          this.showLayer();
+
+          graphic.SetLayer(this.m_layer);
+          graphic.SetStroke(this.m_stroke.clone());
+          this.m_view!.Update(preview);
+          this.m_frame!.SetMsgPanel(graphic);
+        } else {
+          evt.SetPassEvent();
+        }
+      } else if (evt.IsAction(PCB_ACTIONS.properties) && graphic) {
+        if (arcManager.GetStep() === ARC_STEPS.SET_START) {
+          graphic.SetArcAngleAndEnd(ANGLE_90);
+          onEditItemRequest(this.m_frame!, graphic);
+          this.m_view!.Update(preview);
+          this.m_frame!.SetMsgPanel(graphic);
+          break;
+        }
+        // Don't show the edit panel if we can't represent the arc with it
+        else if (
+          arcManager.GetStep() === ARC_STEPS.SET_ANGLE &&
+          !equal(arcManager.GetStartRadiusEnd(), arcManager.GetEndRadiusEnd())
+        ) {
+          onEditItemRequest(this.m_frame!, graphic);
+          this.m_view!.Update(preview);
+          this.m_frame!.SetMsgPanel(graphic);
+          break;
+        } else {
+          evt.SetPassEvent();
+        }
+      } else if (evt.IsClick(BUT_RIGHT)) {
+        if (!graphic) this.m_toolMgr!.VetoContextMenuMouseWarp();
+
+        this.m_menu.ShowContextMenu(this.selection());
+      } else if (evt.IsAction(PCB_ACTIONS.incWidth)) {
+        this.m_stroke.SetWidth(this.m_stroke.GetWidth() + WIDTH_STEP);
+
+        if (graphic) {
+          graphic.SetStroke(this.m_stroke.clone());
+          this.m_view!.Update(preview);
+          this.m_frame!.SetMsgPanel(graphic);
+        }
+      } else if (evt.IsAction(PCB_ACTIONS.decWidth)) {
+        if (this.m_stroke.GetWidth() > WIDTH_STEP) {
+          this.m_stroke.SetWidth(this.m_stroke.GetWidth() - WIDTH_STEP);
+
+          if (graphic) {
+            graphic.SetStroke(this.m_stroke.clone());
+            this.m_view!.Update(preview);
+            this.m_frame!.SetMsgPanel(graphic);
+          }
+        }
+      } else if (evt.IsAction(PCB_ACTIONS.arcPosture)) {
+        arcManager.ToggleClockwise();
+      } else if (evt.IsAction(ACTIONS.updateUnits)) {
+        arcAsst.SetUnits(this.m_frame!.GetUserUnits());
+        this.m_view!.Update(arcAsst);
+        evt.SetPassEvent();
+      } else if (started && (IsZoneFillAction(evt) || evt.IsAction(ACTIONS.redo))) {
+        wxBell();
+      } else {
+        evt.SetPassEvent();
+      }
+
+      if (arcManager.IsComplete()) {
+        break;
+      } else if (arcManager.HasGeometryChanged() && aGraphic.value) {
+        updateArcFromConstructionMgr(arcManager, aGraphic.value);
+        this.m_view!.Update(preview);
+        this.m_view!.Update(arcAsst);
+
+        if (started) this.m_frame!.SetMsgPanel(aGraphic.value);
+        else this.m_frame!.SetMsgPanel(this.board());
+      }
+    }
+
+    if (aGraphic.value) preview.Remove(aGraphic.value);
+    this.m_view!.Remove(arcAsst);
+    this.m_view!.Remove(preview);
+
+    if (this.selection().Empty()) this.m_frame!.SetMsgPanel(this.board());
+
+    this.m_frame!.GetCanvas()!.SetCurrentCursor(KICURSOR.ARROW);
+    this.m_controls!.SetAutoPan(false);
+    this.m_controls!.CaptureCursor(false);
+    this.m_controls!.ForceCursorPosition(false);
+
+    return !cancelled;
+  }
+
+  protected override setTransitions(): void {
+    // clang-format off
+    this.Go(S(this.DrawLine), PCB_ACTIONS.drawLine.MakeEvent());
+    this.Go(S(this.DrawRectangle), PCB_ACTIONS.drawRectangle.MakeEvent());
+    this.Go(S(this.DrawCircle), PCB_ACTIONS.drawCircle.MakeEvent());
+    this.Go(S(this.DrawArc), PCB_ACTIONS.drawArc.MakeEvent());
+    // TRANSITIONAL: the remaining handlers are bound as they are ported.
+  }
+}
+
+/** `frame()->OnEditItemRequest( aItem )`: PCB_BASE_FRAME's virtual, which PCB_EDIT_FRAME answers. */
+function onEditItemRequest(aFrame: PCB_BASE_EDIT_FRAME, aItem: BOARD_ITEM): void {
+  (aFrame as unknown as { OnEditItemRequest?(aItem: BOARD_ITEM): void }).OnEditItemRequest?.(aItem);
 }

@@ -843,6 +843,17 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
    * contributes its position as an `ORIGIN | SNAPPABLE` anchor (`handlePadShape`,
    * cpp:1372; `aFrom` returns before the outline points).
    */
+  /** `PCB_GRID_HELPER::GetSnapped` (pcb_grid_helper.cpp:933-944): the snapped anchor's first item. */
+  GetSnapped(): BOARD_ITEM | null {
+    if (!this.m_snapItem) return null;
+
+    // The snap anchor doesn't have an item associated with it
+    // (odd, could it be entirely made of construction geometry?)
+    if (this.m_snapItem.items.length === 0) return null;
+
+    return this.m_snapItem.items[0] as BOARD_ITEM;
+  }
+
   SnapToPad(aMousePos: Vec2, aPads: readonly PAD[]): Vec2 {
     this.clearAnchors();
 

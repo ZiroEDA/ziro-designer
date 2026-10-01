@@ -134,6 +134,8 @@ import type { OUTSET_PARAMETERS } from './tools/item_modification_routine.js';
 import type { CONVERT_SETTINGS } from './pcbnew_settings.js';
 import type { ZONE_SETTINGS } from './zone_settings.js';
 import { PCB_GROUP_TOOL } from './tools/pcb_group_tool.js';
+import { DRAWING_TOOL } from './tools/drawing_tool.js';
+import type { TOOL_EVENT } from '@ziroeda/common/tool/tool_event.js';
 import { PCB_PICKER_TOOL } from './tools/pcb_picker_tool.js';
 import type { PCB_SELECTION } from './tools/pcb_selection.js';
 import type { PCB_TABLE } from './pcb_table.js';
@@ -296,6 +298,8 @@ export interface PCB_EDIT_FRAME_HOOKS {
   createDrcDialog(aTool: DRC_TOOL, aParent: unknown): DIALOG_DRC_LIKE;
   /** `Kiface().IsSingle()`: no schematic to test parity against. */
   isSingle(): boolean;
+  /** The tool stack changed (`PushTool` / `PopTool`): the window's toolbar follows it. */
+  toolStackChanged?(): void;
   /** `PCB_EDIT_FRAME::FetchNetlistFromSchematic`: fills aNetlist, false on failure. */
   fetchNetlistFromSchematic(aNetlist: NETLIST, aAnnotateMessage: string): boolean;
   /**
@@ -1115,6 +1119,7 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     this.m_toolManager.RegisterTool(new PROPERTIES_TOOL());
     this.m_toolManager.RegisterTool(new EMBED_TOOL());
     this.m_toolManager.RegisterTool(new PCB_PICKER_TOOL());
+    this.m_toolManager.RegisterTool(new DRAWING_TOOL());
     this.m_toolManager.RegisterTool(
       new WINDOW_ACTION_BRIDGE(
         (aAction, aEvent) => this.hooks.windowAction?.(aAction, aEvent),
@@ -1430,6 +1435,18 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   }
 
   /** `ShowExchangeFootprintsDialog`: `DIALOG_EXCHANGE_FOOTPRINTS( ... ).ShowQuasiModal()`. */
+  /** `TOOLS_HOLDER::PushTool`, and the window's toolbar told (KiCad's toolbar asks on update-UI). */
+  override PushTool(aEvent: TOOL_EVENT): void {
+    super.PushTool(aEvent);
+    this.hooks.toolStackChanged?.();
+  }
+
+  /** `TOOLS_HOLDER::PopTool`, and the window's toolbar told. */
+  override PopTool(aEvent: TOOL_EVENT): void {
+    super.PopTool(aEvent);
+    this.hooks.toolStackChanged?.();
+  }
+
   ShowExchangeFootprintsDialog(
     aFootprint: FOOTPRINT | null,
     aUpdateMode: boolean,
