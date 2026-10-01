@@ -102,6 +102,10 @@ import { PCB_GRID_HELPER } from './pcb_grid_helper.js';
 import { IsZoneFillAction } from './pcb_picker_tool.js';
 import { PCB_SELECTION } from './pcb_selection.js';
 import { PCB_TOOL_BASE } from './pcb_tool_base.js';
+import { Pgm } from '@ziroeda/common/pgm_base.js';
+import { NoPrintableChars } from '@ziroeda/common/string_utils.js';
+import { DIALOG_TEXT_PROPERTIES } from '../dialogs/dialog_text_properties.js';
+import { PCB_TEXT } from '../pcb_text.js';
 import { BEZIER_GEOM_MANAGER, BEZIER_STEPS } from '@ziroeda/common/index.js';
 import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
 import { pcbMmToIU } from '@ziroeda/common/eda_units.js';
@@ -1005,6 +1009,210 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
     );
   }
 
+  *PlaceText(aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+    if (this.m_isFootprintEditor && !this.m_frame!.GetModel()) return 0;
+
+    return yield* this.scoped(
+      DRAWING_MODE.TEXT,
+      function* (this: DRAWING_TOOL) {
+        const common_settings = Pgm().GetCommonSettings();
+        let text: PCB_TEXT | null = null;
+        let ignorePrimePosition = false;
+        const bds = this.m_frame!.GetDesignSettings();
+        const commit = new BOARD_COMMIT(this.m_frame!);
+        const grid = new PCB_GRID_HELPER(this.m_toolMgr!, this.m_frame!.GetMagneticItemsSettings());
+        const controls = this.m_controls!;
+
+        const setCursor = (): void => {
+          if (text) this.m_frame!.GetCanvas()!.SetCurrentCursor(KICURSOR.MOVING);
+          else this.m_frame!.GetCanvas()!.SetCurrentCursor(KICURSOR.TEXT);
+        };
+
+        const cleanup = (): void => {
+          this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
+          controls.ForceCursorPosition(false);
+          controls.ShowCursor(true);
+          controls.SetAutoPan(false);
+          controls.CaptureCursor(false);
+          text = null;
+        };
+
+        this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
+
+        this.m_frame!.PushTool(aEvent);
+
+        this.Activate();
+        // Must be done after Activate() so that it gets set into the correct context
+        controls.ShowCursor(true);
+        controls.ForceCursorPosition(false);
+        // do not capture or auto-pan until we start placing some text
+        // Set initial cursor
+        setCursor();
+
+        if (aEvent.HasPosition()) {
+          this.m_toolMgr!.PrimeTool(aEvent.Position());
+        } else if ((common_settings?.m_Input.immediate_actions ?? true) && !aEvent.IsReactivate()) {
+          this.m_toolMgr!.PrimeTool({ x: 0, y: 0 });
+          ignorePrimePosition = true;
+        }
+
+        // Main loop: keep receiving events
+        for (let evt = yield* this.Wait(); evt; evt = yield* this.Wait()) {
+          setCursor();
+
+          grid.SetSnap(!evt.Modifier(MD_SHIFT));
+          grid.SetUseGrid(
+            this.getView()!.GetGAL()!.GetGridSnapping() && !evt.DisableGridSnapping(),
+          );
+          let cursorPos: VECTOR2I = GetClampedCoords(
+            grid.BestSnapAnchor(
+              controls.GetMousePosition(),
+              new LSET([this.m_frame!.GetActiveLayer()]),
+              GRID_HELPER_GRIDS.GRID_TEXT,
+            ),
+            DRAWING_COORDS_PADDING,
+          );
+          controls.ForceCursorPosition(true, cursorPos);
+
+          if (evt.IsDrag()) {
+            continue;
+          } else if (evt.IsCancelInteractive() || (text && evt.IsAction(ACTIONS.undo))) {
+            if (text) {
+              cleanup();
+            } else {
+              this.m_frame!.PopTool(aEvent);
+              break;
+            }
+          } else if (evt.IsActivate()) {
+            if (text) cleanup();
+
+            if (evt.IsMoveTool()) {
+              // leave ourselves on the stack so we come back after the move
+              break;
+            } else {
+              this.m_frame!.PopTool(aEvent);
+              break;
+            }
+          } else if (evt.IsClick(BUT_RIGHT)) {
+            if (!text) this.m_toolMgr!.VetoContextMenuMouseWarp();
+
+            this.m_menu.ShowContextMenu(this.selection());
+          } else if (evt.IsClick(BUT_LEFT)) {
+            let placing = text !== null;
+
+            if (!text) {
+              this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
+
+              controls.ForceCursorPosition(true, controls.GetCursorPosition());
+
+              const layer = this.m_frame!.GetActiveLayer();
+              const textAttrs = new TEXT_ATTRIBUTES();
+
+              textAttrs.m_Size = bds.GetTextSize(layer);
+              textAttrs.m_StrokeWidth = bds.GetTextThickness(layer);
+              InferBold(textAttrs);
+              textAttrs.m_Italic = bds.GetTextItalic(layer);
+              textAttrs.m_KeepUpright = bds.GetTextUpright(layer);
+              textAttrs.m_Mirrored = this.m_board!.IsBackLayer(layer);
+              textAttrs.m_Halign = GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT;
+              textAttrs.m_Valign = GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_BOTTOM;
+
+              const newText = new PCB_TEXT(this.m_frame!.GetModel() as unknown as BOARD_ITEM);
+
+              newText.SetLayer(layer);
+              newText.SetAttributes(textAttrs);
+              newText.SetTextPos(cursorPos);
+              newText.SetFlags(IS_NEW); // Prevent double undo commits
+
+              const textDialog = new DIALOG_TEXT_PROPERTIES(this.m_frame!, newText);
+
+              // QuasiModal required for Scintilla auto-complete
+              const ok = yield* this.RunMainStackModal(() =>
+                this.m_frame!.ShowTextPropertiesDialog(textDialog),
+              );
+              const cancelled = ok !== true;
+
+              text = newText;
+
+              if (cancelled || NoPrintableChars(text.GetText())) {
+                text = null;
+              } else if (!equal(text.GetTextPos(), cursorPos)) {
+                // If the user modified the location then go ahead and place it there.
+                // Otherwise we'll drag.
+                placing = true;
+              }
+
+              if (text) {
+                if (!this.m_view!.IsLayerVisible(text.GetLayer())) {
+                  this.m_frame!.GetAppearancePanel()?.SetLayerVisible?.(text.GetLayer(), true);
+                  this.m_frame!.GetCanvas()!.Refresh();
+                }
+
+                this.m_toolMgr!.RunAction(ACTIONS.selectItem, text);
+                this.m_view!.Update(this.selection());
+
+                // update the cursor so it looks correct before another event
+                setCursor();
+              }
+            }
+
+            if (placing && text) {
+              text.ClearFlags();
+              this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
+
+              commit.Add(text);
+              commit.Push('Draw Text');
+
+              this.m_toolMgr!.RunAction(ACTIONS.selectItem, text);
+
+              text = null;
+            }
+
+            controls.ForceCursorPosition(false);
+
+            // If we started with a hotkey which has a position then warp back to that.
+            // Otherwise update to the current mouse position pinned inside the autoscroll
+            // boundaries.
+            if (evt.IsPrime() && !ignorePrimePosition) {
+              cursorPos = evt.Position();
+              controls.WarpMouseCursor(cursorPos, true);
+            } else {
+              controls.PinCursorInsideNonAutoscrollArea(true);
+              cursorPos = controls.GetMousePosition();
+            }
+
+            this.m_toolMgr!.PostAction(ACTIONS.refreshPreview);
+
+            controls.ShowCursor(true);
+            controls.CaptureCursor(text !== null);
+            controls.SetAutoPan(text !== null);
+          } else if (text && (evt.IsMotion() || evt.IsAction(ACTIONS.refreshPreview))) {
+            text.SetPosition(cursorPos);
+            this.selection().SetReferencePoint(cursorPos);
+            this.m_view!.Update(this.selection());
+          } else if (text && (IsZoneFillAction(evt) || evt.IsAction(ACTIONS.redo))) {
+            wxBell();
+          } else if (text && evt.IsAction(PCB_ACTIONS.properties)) {
+            onEditItemRequest(this.m_frame!, text);
+            this.m_view!.Update(this.selection());
+            this.m_frame!.SetMsgPanel(text);
+          } else {
+            evt.SetPassEvent();
+          }
+        }
+
+        controls.SetAutoPan(false);
+        controls.CaptureCursor(false);
+        controls.ForceCursorPosition(false);
+        this.m_frame!.GetCanvas()!.SetCurrentCursor(KICURSOR.ARROW);
+
+        if (this.selection().Empty()) this.m_frame!.SetMsgPanel(this.board());
+
+        return 0;
+      }.bind(this),
+    );
+  }
+
   /** `m_frame->GetAppearancePanel()->SetLayerVisible( m_layer, true )` when it is hidden. */
   private showLayer(): void {
     if (!this.m_view!.IsLayerVisible(this.m_layer)) {
@@ -1554,6 +1762,7 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
     this.Go(S(this.DrawRectangle), PCB_ACTIONS.drawRectangle.MakeEvent());
     this.Go(S(this.DrawCircle), PCB_ACTIONS.drawCircle.MakeEvent());
     this.Go(S(this.DrawArc), PCB_ACTIONS.drawArc.MakeEvent());
+    this.Go(S(this.PlaceText), PCB_ACTIONS.placeText.MakeEvent());
     // TRANSITIONAL: the remaining handlers are bound as they are ported.
   }
 }

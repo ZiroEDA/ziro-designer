@@ -169,6 +169,7 @@ export function harnessCanvas(
       h.forced = aEnable && aPos ? { ...aPos } : null;
     },
     ShowCursor: () => {},
+    PinCursorInsideNonAutoscrollArea: () => {},
     CaptureCursor: () => {},
     WarpMouseCursor: () => {},
     GetSettings: () => new VC_SETTINGS(),

@@ -9,7 +9,15 @@
  */
 import type { COROUTINE_BODY } from './coroutine.js';
 import { TOOL_BASE, type TOOL_ID, type TOOL_STATE_FUNC, TOOL_TYPE } from './tool_base.js';
-import { CONTEXT_MENU_TRIGGER, TC_ANY, TA_ANY, TOOL_EVENT, TOOL_EVENT_LIST } from './tool_event.js';
+import {
+  CONTEXT_MENU_TRIGGER,
+  TA_ACTION,
+  TA_ANY,
+  TC_ANY,
+  TC_MESSAGE,
+  TOOL_EVENT,
+  TOOL_EVENT_LIST,
+} from './tool_event.js';
 import { TOOL_MANAGER } from './tool_manager.js';
 import type { ACTION_MENU } from './action_menu.js';
 import { TOOL_MENU } from './tool_menu.js';
@@ -85,6 +93,42 @@ export abstract class TOOL_INTERACTIVE extends TOOL_BASE {
    */
   RunMainStack(aFunc: () => void): void {
     this.m_toolMgr!.RunMainStack(this, aFunc);
+  }
+
+  /**
+   * `RunMainStack( [&]() { result = dialog.ShowModal(); } )` for a dialog that
+   * answers asynchronously, as every dialog does in a browser. The C++ blocks
+   * the coroutine inside the modal loop; here the coroutine waits until the
+   * dialog's promise settles, which posts a message to wake it. Nothing reaches
+   * the canvas while a modal is up, and any event that does arrive meanwhile is
+   * dropped, as the modal loop would have swallowed it. Answers null when the
+   * tool is torn down before the dialog closes.
+   */
+  *RunMainStackModal<T>(aShow: () => Promise<T>): COROUTINE_BODY<T | null> {
+    let settled = false;
+    let value: T | null = null;
+
+    const wake = new TOOL_EVENT(TC_MESSAGE, TA_ACTION, 'common.Interactive.modalClosed');
+
+    void aShow().then(
+      (v) => {
+        value = v;
+        settled = true;
+        this.m_toolMgr!.PostEvent(wake);
+      },
+      () => {
+        settled = true;
+        this.m_toolMgr!.PostEvent(wake);
+      },
+    );
+
+    while (!settled) {
+      const evt = yield* this.Wait();
+
+      if (!evt) return null;
+    }
+
+    return value;
   }
 
   /**

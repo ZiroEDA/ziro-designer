@@ -9,6 +9,7 @@
  */
 import { beforeEach, describe, expect, it } from 'vitest';
 import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
+import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/font/text_attributes.js';
 import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import { RESET_REASON } from '@ziroeda/common/tool/tool_base.js';
@@ -24,6 +25,8 @@ import {
 } from '@ziroeda/common/tool/tool_event.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import type { PCB_SHAPE } from '@ziroeda/pcbnew/pcb_shape.js';
+import type { DIALOG_TEXT_PROPERTIES } from '@ziroeda/pcbnew/dialogs/dialog_text_properties.js';
+import type { PCB_TEXT } from '@ziroeda/pcbnew/pcb_text.js';
 import { DRAWING_MODE, DRAWING_TOOL } from '@ziroeda/pcbnew/tools/drawing_tool.js';
 import type { TOOL_ACTION } from '@ziroeda/common/tool/tool_action.js';
 import { PCB_ACTIONS } from '@ziroeda/pcbnew/tools/pcb_actions.js';
@@ -42,18 +45,31 @@ const BOARD_TEXT = `(kicad_pcb (version 20241229) (generator "pcbnew") (generato
 )
 `;
 
+/** The text dialog's answer: the text typed, or null for Cancel. */
+let dialogText: string | null = 'HELLO';
+
+class TEXT_FRAME extends TEST_PCB_FRAME {
+  override ShowTextPropertiesDialog(aDialog: DIALOG_TEXT_PROPERTIES): Promise<boolean> {
+    if (dialogText === null) return Promise.resolve(false);
+    const v = aDialog.TransferDataToWindow();
+    aDialog.TransferDataFromWindow({ ...v, text: dialogText });
+    return Promise.resolve(true);
+  }
+}
+
 let h: TOOL_HARNESS<TEST_PCB_FRAME>;
 let tool: DRAWING_TOOL;
 
 beforeEach(() => {
   h = toolHarness(
     BOARD_TEXT,
-    (aBoard) => new TEST_PCB_FRAME(aBoard),
+    (aBoard) => new TEXT_FRAME(aBoard),
     () => {
       tool = new DRAWING_TOOL();
       return [tool];
     },
   );
+  dialogText = 'HELLO';
   h.frame.SetActiveLayer(PCB_LAYER_ID.F_SilkS);
   h.mgr.ResetTools(RESET_REASON.MODEL_RELOAD);
 });
@@ -263,5 +279,74 @@ describe('DRAWING_TOOL::DrawArc (:520-563, :2792-3062)', () => {
     esc();
     expect(shapes()).toHaveLength(0);
     expect(tool.GetDrawingMode()).toBe(DRAWING_MODE.ARC);
+  });
+});
+
+describe('DRAWING_TOOL::PlaceText (drawing_tool.cpp:933-1183)', () => {
+  const flush = async (): Promise<void> => {
+    for (let i = 0; i < 4; i++) await new Promise((r) => setTimeout(r, 0));
+  };
+  const texts = (): PCB_TEXT[] => h.board.Drawings() as unknown as PCB_TEXT[];
+
+  it('the dialog opens at once (immediate actions); the text rides the cursor; a click places it (:984-990, :1052-1131)', async () => {
+    h.mouse = mm(40, 40);
+    start(PCB_ACTIONS.placeText);
+    await flush();
+    expect(texts()).toHaveLength(0);
+    move(mm(50, 50));
+    click(mm(50, 50));
+    expect(texts()).toHaveLength(1);
+    const t = texts()[0]!;
+    expect(t.GetText()).toBe('HELLO');
+    expect(t.GetTextPos()).toEqual(mm(50, 50));
+    expect(t.GetLayer()).toBe(PCB_LAYER_ID.F_SilkS);
+    expect(t.IsSelected()).toBe(true);
+  });
+
+  it('the new text takes the layer defaults, bottom-left justified (:1066-1077)', async () => {
+    start(PCB_ACTIONS.placeText);
+    await flush();
+    click(mm(30, 30));
+    const t = texts()[0]!;
+    const bds = h.board.GetDesignSettings();
+    expect(t.GetTextSize()).toEqual(bds.GetTextSize(PCB_LAYER_ID.F_SilkS));
+    expect(t.GetVertJustify()).toBe(GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_BOTTOM);
+    expect(t.GetHorizJustify()).toBe(GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT);
+  });
+
+  it('Cancel in the dialog places nothing, and the tool stays (:1094-1098)', async () => {
+    dialogText = null;
+    start(PCB_ACTIONS.placeText);
+    await flush();
+    click(mm(30, 30));
+    await flush();
+    expect(texts()).toHaveLength(0);
+    expect(tool.GetDrawingMode()).toBe(DRAWING_MODE.TEXT);
+  });
+
+  it('a text of only spaces is not placed (:1094)', async () => {
+    dialogText = '   ';
+    start(PCB_ACTIONS.placeText);
+    await flush();
+    click(mm(30, 30));
+    expect(texts()).toHaveLength(0);
+  });
+
+  it('Esc while the text rides the cursor drops it; a second Esc leaves the tool (:1010-1019)', async () => {
+    start(PCB_ACTIONS.placeText);
+    await flush();
+    esc();
+    expect(tool.GetDrawingMode()).toBe(DRAWING_MODE.TEXT);
+    esc();
+    expect(tool.GetDrawingMode()).toBe(DRAWING_MODE.NONE);
+    expect(texts()).toHaveLength(0);
+  });
+
+  it('one undo step per text (:1121-1122)', async () => {
+    const undo = h.frame.GetUndoCommandCount();
+    start(PCB_ACTIONS.placeText);
+    await flush();
+    click(mm(30, 30));
+    expect(h.frame.GetUndoCommandCount()).toBe(undo + 1);
   });
 });

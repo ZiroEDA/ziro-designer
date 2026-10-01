@@ -1086,7 +1086,7 @@ const DRAW_SHAPE_TOOLS: Record<string, PcbShape['kind']> = {
 
 /**
  * The toolbar tools that run on TOOL_MANAGER: DRAWING_TOOL's DrawLine,
- * DrawRectangle, DrawCircle and DrawArc. Arming one runs its action as the
+ * DrawRectangle, DrawCircle, DrawArc and PlaceText. Arming one runs its action as the
  * toolbar does (no position); while it is the current tool the canvas's events
  * and keys go to TOOL_DISPATCHER, and its PopTool returns the toolbar to the
  * selection mode. The other drawing tools still run in this window.
@@ -1096,6 +1096,7 @@ const TOOL_MANAGER_TOOLS: Readonly<Record<string, TOOL_ACTION>> = {
   drawRectangle: PCB_ACTIONS.drawRectangle,
   drawCircle: PCB_ACTIONS.drawCircle,
   drawArc: PCB_ACTIONS.drawArc,
+  placeText: PCB_ACTIONS.placeText,
 };
 
 // Friendly names for the "Current Tool" status-bar field (field 6), shown while
@@ -2761,6 +2762,8 @@ export function PcbEditor({
       showUnusedPadLayersDialog: (aDialog) => setUnusedPadsDlg(aDialog),
       showGlobalEditTracksAndViasDialog: (aDialog) => setEditTvDlg(aDialog),
       showGlobalEditTextAndGraphicsDialog: (aDialog) => setEditTgDlg(aDialog),
+      showTextPropertiesDialog: (aDialog) =>
+        new Promise<boolean>((resolve) => setTextPropsDlg({ dialog: aDialog, resolve })),
       showGlobalEditTeardropsDialog: (aDialog) => setTeardropsDlg(aDialog),
       showGlobalDeletionDialog: (aDialog) =>
         new Promise<boolean>((resolve) => setGlobalDelDlg({ dialog: aDialog, resolve })),
@@ -3005,7 +3008,20 @@ export function PcbEditor({
   // Pad Properties (DIALOG_PAD_PROPERTIES), board side.
   const [padPropsRef, setPadPropsRef] = useState<PadRef | null>(null);
   // Text / Shape properties for board graphics.
-  const [textPropsIndex, setTextPropsIndex] = useState<number | null>(null);
+  /**
+   * DIALOG_TEXT_PROPERTIES on a live PCB_TEXT: the board's own (Properties on a
+   * selected text) or DRAWING_TOOL::PlaceText's new one, which waits on `resolve`.
+   */
+  const [textPropsDlg, setTextPropsDlg] = useState<{
+    dialog: DIALOG_TEXT_PROPERTIES;
+    resolve?: (aOk: boolean) => void;
+  } | null>(null);
+  /** Properties on the view board's text `aIndex`. */
+  const setTextPropsIndex = useCallback((aIndex: number | null): void => {
+    const k = aIndex === null ? undefined : boardRef.current?.texts[aIndex]?.k;
+    const f = frameRef.current;
+    setTextPropsDlg(k && f ? { dialog: new DIALOG_TEXT_PROPERTIES(f, k) } : null);
+  }, []);
   const [shapePropsIndex, setShapePropsIndex] = useState<number | null>(null);
   const [dimensionPropsIndex, setDimensionPropsIndex] = useState<number | null>(null);
   const [textBoxPropsIndex, setTextBoxPropsIndex] = useState<number | null>(null);
@@ -9190,7 +9206,7 @@ export function PcbEditor({
 
     const fi = footprintAt(brd, sel);
     if (fi !== null) setFpPropsIndex(fi);
-  }, []);
+  }, [setTextPropsIndex]);
   /** DIALOG_TRACK_VIA_PROPERTIES::TransferDataFromWindow. */
   const applyTrackViaEdit = useCallback(
     (values: TrackViaValues) => {
@@ -9215,16 +9231,15 @@ export function PcbEditor({
   /** DIALOG_TEXT_PROPERTIES / DIALOG_SHAPE_PROPERTIES::TransferDataFromWindow. */
   const applyTextEdit = useCallback(
     (values: TextValues) => {
-      const brd = boardRef.current;
-      const index = textPropsIndex;
-      setTextPropsIndex(null);
-      const frame = frameRef.current;
-      const k = index === null ? undefined : brd?.texts[index]?.k;
-      if (!frame || !k) return;
-      // DIALOG_TEXT_PROPERTIES on the live PCB_TEXT: one BOARD_COMMIT.
-      new DIALOG_TEXT_PROPERTIES(frame, k).TransferDataFromWindow(values);
+      const d = textPropsDlg;
+      setTextPropsDlg(null);
+      if (!d) return;
+      // On the live PCB_TEXT: one BOARD_COMMIT, or none for a new text (IS_NEW),
+      // which its tool commits.
+      const r = d.dialog.TransferDataFromWindow(values);
+      d.resolve?.(r.ok);
     },
-    [textPropsIndex],
+    [textPropsDlg],
   );
 
   /** DIALOG_TABLE_PROPERTIES::TransferDataFromWindow. */
@@ -13050,17 +13065,17 @@ export function PcbEditor({
           onClose={() => setUpdatePcb(null)}
         />
       )}
-      {textPropsIndex !== null && board?.texts[textPropsIndex]?.k && frameRef.current && (
+      {textPropsDlg && board && (
         <DialogTextProperties
-          initial={new DIALOG_TEXT_PROPERTIES(
-            frameRef.current!,
-            board.texts[textPropsIndex]!.k!,
-          ).TransferDataToWindow()}
+          initial={textPropsDlg.dialog.TransferDataToWindow()}
           units={unitLabel}
           layers={board.layers.map((l) => l.name)}
           layerColor={layerColor}
           onApply={applyTextEdit}
-          onClose={() => setTextPropsIndex(null)}
+          onClose={() => {
+            textPropsDlg.resolve?.(false);
+            setTextPropsDlg(null);
+          }}
         />
       )}
       {shapePropsIndex !== null && board?.shapes[shapePropsIndex]?.k && frameRef.current && (

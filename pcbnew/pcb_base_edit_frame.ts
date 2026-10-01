@@ -13,6 +13,7 @@
  * `PCB_BASE_FRAME` is extended.
  */
 import type { GAL_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import type { DIALOG_TEXT_PROPERTIES } from './dialogs/dialog_text_properties.js';
 import { ANGLE_90, type EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { applyMixins } from '@ziroeda/core/mixins.js';
 import { DRC_ENGINE } from './drc/drc_engine.js';
@@ -99,6 +100,15 @@ export abstract class PCB_BASE_EDIT_FRAME extends PCB_BASE_FRAME {
    */
   HighlightSelectionFilter(aOptions: PCB_SELECTION_FILTER_OPTIONS): void {
     queueMicrotask(() => this.m_selectionFilterPanel?.OnFlashEvent?.(aOptions));
+  }
+
+  /**
+   * `DIALOG_TEXT_PROPERTIES dlg( frame, text ); dlg.ShowQuasiModal() == wxID_OK`:
+   * the window shows it and answers whether OK closed it. A frame without a
+   * window has no dialog, which answers Cancel.
+   */
+  ShowTextPropertiesDialog(_aDialog: DIALOG_TEXT_PROPERTIES): Promise<boolean> {
+    return Promise.resolve(false);
   }
 
   /** `SetObjectVisible` (pcb_base_edit_frame.cpp:271-275): through the Appearance panel. */
