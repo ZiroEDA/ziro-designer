@@ -35,11 +35,6 @@ export interface GLOBAL_EDIT_TOOL_FRAME {
   ShowSwapLayersDialog(aDialog: DIALOG_SWAP_LAYERS): Promise<boolean>;
   /** `DIALOG_ZONE_MANAGER dlg( editFrame ); dlg.ShowQuasiModal()`, and its repour box. */
   ShowZoneManagerDialog(): Promise<{ ok: boolean; repour: boolean }>;
-  /**
-   * TRANSITIONAL (#636 stage 3): upstream posts `PCB_ACTIONS::zoneFillAll` to
-   * ZONE_FILLER_TOOL, which is not ported yet; the frame fills instead.
-   */
-  FillAllZones(): void;
 }
 
 type FRAME = PCB_BASE_EDIT_FRAME & GLOBAL_EDIT_TOOL_FRAME;
@@ -182,7 +177,7 @@ export class GLOBAL_EDIT_TOOL extends PCB_TOOL_BASE {
 
       editFrame.GetCanvas()?.RedrawRatsnest();
 
-      if (repour) editFrame.FillAllZones();
+      if (repour) this.m_toolMgr?.PostAction(PCB_ACTIONS.zoneFillAll);
     });
 
     return 0;

@@ -102,6 +102,8 @@ import type { DIALOG_POSITION_RELATIVE } from './dialogs/dialog_position_relativ
 import type { DIALOG_OFFSET_ITEM } from './dialogs/dialog_offset_item.js';
 import { PAD_TOOL } from './tools/pad_tool.js';
 import { GLOBAL_EDIT_TOOL } from './tools/global_edit_tool.js';
+import { ZONE_FILLER_TOOL } from './tools/zone_filler_tool.js';
+import type { ZoneFillOptions } from './zone_filler.js';
 import type { DIALOG_SWAP_LAYERS } from './dialogs/dialog_swap_layers.js';
 import {
   type DIALOG_PUSH_PAD_PROPERTIES,
@@ -404,8 +406,8 @@ export interface PCB_EDIT_FRAME_HOOKS {
    * with `GetRepourOnClose()`. Optional: absent answers cancel.
    */
   showZoneManager?(): Promise<{ ok: boolean; repour: boolean }>;
-  /** `PCB_ACTIONS::zoneFillAll`. */
-  fillAllZones?(): void;
+  /** TRANSITIONAL (#636 stage 3): ZONE_FILLER's view-pour options. */
+  zoneFillOptions?(): ZoneFillOptions;
   /**
    * `EDA_BASE_FRAME::ShowInfoBarWarning( aWarningMsg, aShowCloseButton )`: the
    * window's infobar, warning icon, 6 s. Optional: a frame with no window shows
@@ -561,6 +563,9 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   /** The project's .kicad_dru as last given to OnBoardLoaded: `GetDesignRulesPath()` and its text. */
   private m_designRulesText: string | null = null;
   private m_inspectDrcErrorDlg: DIALOG_BOOK_REPORTER | null = null;
+
+  /** `m_ZoneFillsDirty`: the board has been modified since the last zone fill. */
+  m_ZoneFillsDirty = true;
   private m_bookReporterListener: (() => void) | null = null;
   private m_designRulesPath = '';
   /**
@@ -739,9 +744,16 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     return this.hooks.showZoneManager?.() ?? Promise.resolve({ ok: false, repour: false });
   }
 
-  /** TRANSITIONAL (#636 stage 3): ZONE_FILLER_TOOL's zoneFillAll, until it is ported. */
-  FillAllZones(): void {
-    this.hooks.fillAllZones?.();
+  // ---- ZONE_FILLER_TOOL's window half (ZONE_FILLER_TOOL_FRAME) --------------
+
+  /** `infobar->ShowMessageFor( ..., 10000, wxICON_WARNING )` with a "Show DRC rules" link. */
+  ShowZoneFillRulesWarning(): void {
+    this.ShowInfoBarWarning('Zone fills may be inaccurate.  DRC rules contain errors.');
+  }
+
+  /** TRANSITIONAL (#636 stage 3): the view pour's options, from the window's Board Setup. */
+  GetZoneFillOptions(): ZoneFillOptions {
+    return this.hooks.zoneFillOptions?.() ?? {};
   }
 
   // ---- PAD_TOOL's window half (PAD_TOOL_FRAME) ------------------------------
@@ -928,6 +940,7 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     this.m_toolManager.RegisterTool(new BOARD_INSPECTION_TOOL());
     this.m_toolManager.RegisterTool(new ALIGN_DISTRIBUTE_TOOL());
     this.m_toolManager.RegisterTool(new POSITION_RELATIVE_TOOL());
+    this.m_toolManager.RegisterTool(new ZONE_FILLER_TOOL());
     this.m_toolManager.RegisterTool(new DRC_TOOL());
     this.m_toolManager.RegisterTool(new CONVERT_TOOL());
     this.m_toolManager.RegisterTool(new PCB_GROUP_TOOL());
@@ -1495,6 +1508,7 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
 
   override OnModify(): void {
     super.OnModify();
+    this.m_ZoneFillsDirty = true;
     this.hooks.onModify();
   }
 

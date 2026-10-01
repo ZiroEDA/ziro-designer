@@ -2676,7 +2676,8 @@ export function PcbEditor({
       boardView: () => boardRef.current,
       router: () => editWindowRef.current?.router() ?? null,
       eventToWindow: (aEvent) => selWindowRef.current?.eventToWindow(aEvent) ?? false,
-      fillAllZones: () => mwWindowRef.current!.fillAllZones(),
+      // TRANSITIONAL (#636 stage 3): ZONE_FILLER's view pour reads these.
+      zoneFillOptions: () => zoneFillOptionsRef.current,
       highlightChanged: () => refreshInspectionMirrorRef.current(),
       showBoardStatisticsDialog: () => setStatsOpen(true),
     });
@@ -8974,10 +8975,10 @@ export function PcbEditor({
    * than one zone, so an edit anywhere re-flows everything that touches it.
    */
   const fillAllZones = useCallback(() => {
-    const brd = boardRef.current;
-    if (!brd || brd.zones.length === 0) return;
-    commitBoard(fillZones(brd, zoneFillOptions));
-  }, [commitBoard, zoneFillOptions]);
+    frameRef.current?.GetToolManager()?.RunAction(PCB_ACTIONS.zoneFillAll);
+  }, []);
+  const zoneFillOptionsRef = useRef(zoneFillOptions);
+  zoneFillOptionsRef.current = zoneFillOptions;
   // The global key handler is stable, so it reaches the action through a ref.
   const fillAllZonesRef = useRef(fillAllZones);
   fillAllZonesRef.current = fillAllZones;
@@ -11454,6 +11455,9 @@ export function PcbEditor({
       case 'zoneFillAll':
         fillAllZones();
         break;
+      case 'zoneUnfillAll':
+        runAction(PCB_ACTIONS.zoneUnfillAll);
+        break;
       // `PCB_ACTIONS::zonesManager` -> `GLOBAL_EDIT_TOOL::ZonesManager`.
       case 'zonesManager':
         runAction(PCB_ACTIONS.zonesManager);
@@ -13449,7 +13453,7 @@ export function PcbEditor({
         <DialogDrc
           dialog={drcDialog.dialog}
           isSingle={!projectHasSchematic}
-          canRefillZones={false}
+          canRefillZones
           rootRef={drcDialogRef}
         />
       )}

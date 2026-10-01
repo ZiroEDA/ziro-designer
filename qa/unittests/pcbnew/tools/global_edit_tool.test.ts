@@ -9,6 +9,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { RESET_REASON } from '@ziroeda/common/tool/tool_base.js';
+import type { TOOL_EVENT } from '@ziroeda/common/tool/tool_event.js';
+import { SYNC_HANDLER, TOOL_INTERACTIVE } from '@ziroeda/common/tool/tool_interactive.js';
 import type { BOARD_ITEM } from '@ziroeda/pcbnew/board_item.js';
 import { DIALOG_SWAP_LAYERS } from '@ziroeda/pcbnew/dialogs/dialog_swap_layers.js';
 import type { PCB_VIA } from '@ziroeda/pcbnew/pcb_track.js';
@@ -89,9 +91,23 @@ class GLOBAL_EDIT_FRAME extends TEST_PCB_FRAME implements GLOBAL_EDIT_TOOL_FRAME
   ShowZoneManagerDialog(): Promise<{ ok: boolean; repour: boolean }> {
     return Promise.resolve(this.zoneAnswer);
   }
+}
 
-  FillAllZones(): void {
-    this.fills++;
+/** ZONE_FILLER_TOOL as far as the posted zoneFillAll: it counts the fills. */
+class COUNTING_FILLER extends TOOL_INTERACTIVE {
+  constructor(private readonly m_frame: () => GLOBAL_EDIT_FRAME) {
+    super('pcbnew.ZoneFiller');
+  }
+  override Init(): boolean {
+    return true;
+  }
+  override Reset(): void {}
+  ZoneFillAll(_aEvent: TOOL_EVENT): number {
+    this.m_frame().fills++;
+    return 0;
+  }
+  protected override setTransitions(): void {
+    this.Go(SYNC_HANDLER<COUNTING_FILLER>(this.ZoneFillAll), PCB_ACTIONS.zoneFillAll.MakeEvent());
   }
 }
 
@@ -102,7 +118,7 @@ beforeEach(() => {
   h = toolHarness(
     BOARD_TEXT,
     (aBoard) => new GLOBAL_EDIT_FRAME(aBoard),
-    () => [new GLOBAL_EDIT_TOOL()],
+    () => [new GLOBAL_EDIT_TOOL(), new COUNTING_FILLER(() => h.frame)],
   );
   // A loaded board: PCB_BASE_EDIT_FRAME::SetBoard's ResetTools( MODEL_RELOAD ),
   // which is when the tool makes its BOARD_COMMIT (global_edit_tool.cpp:52-53).
@@ -224,7 +240,7 @@ describe('GLOBAL_EDIT_TOOL::ZonesManager (global_edit_tool.cpp:240-291)', () => 
     expect(h.frame.fills).toBe(0);
   });
 
-  it('OK with repour refills; OK alone does not (:285-289)', async () => {
+  it('OK with repour posts zoneFillAll; OK alone does not (:285-289)', async () => {
     h.frame.zoneAnswer = { ok: true, repour: false };
     h.mgr.RunAction(PCB_ACTIONS.zonesManager);
     await flush();

@@ -36,7 +36,6 @@ function frame(answer: { ok: boolean; repour: boolean } | null) {
       : {}),
     // PROPERTIES_TOOL hears the selection tool's ClearedEvent
     updateProperties: () => calls.push('clear'),
-    fillAllZones: () => calls.push('fillAll'),
   } as unknown as PCB_EDIT_FRAME_HOOKS;
   const f = new PCB_EDIT_FRAME(hooks);
   const board = new BOARD();
@@ -61,7 +60,7 @@ function frame(answer: { ok: boolean; repour: boolean } | null) {
     })(),
   );
   calls.length = 0;
-  return { f, calls, heard };
+  return { f, calls, heard, z };
 }
 
 describe('Tools > Zone Manager...', () => {
@@ -121,12 +120,23 @@ describe('GLOBAL_EDIT_TOOL::ZonesManager on the board editor', () => {
   it('OK with "Refill zones" ticked then runs zoneFillAll (ZONE_MANAGER_REPOUR)', async () => {
     const t = frame({ ok: true, repour: true });
     await run(t);
-    expect(t.calls.at(-1)).toBe('fillAll');
+    // ZONE_FILLER_TOOL, registered on the frame, poured the board.
+    expect(t.z.IsFilled()).toBe(true);
   });
 
   it('a frame without the dialog does nothing', async () => {
     const t = frame(null);
     await run(t);
     expect(t.calls).toEqual([]);
+  });
+});
+
+describe('PCB_EDIT_FRAME::m_ZoneFillsDirty (pcb_edit_frame.cpp:234, :2087)', () => {
+  it('starts dirty, and every OnModify marks it dirty again', () => {
+    const t = frame(null);
+    expect(t.f.m_ZoneFillsDirty).toBe(true);
+    t.f.m_ZoneFillsDirty = false;
+    t.f.OnModify();
+    expect(t.f.m_ZoneFillsDirty).toBe(true);
   });
 });

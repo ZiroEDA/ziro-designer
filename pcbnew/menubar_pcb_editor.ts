@@ -279,7 +279,7 @@ export function buildPcbMenus(
           action: () => h.action('zoneFillAll'),
           shortcut: 'B',
         },
-        { label: 'Unfill All Zones', disabled: dis },
+        { label: 'Unfill All Zones', action: () => h.action('zoneUnfillAll') },
         { label: 'Update All Tuning Patterns', disabled: dis },
         { sep: true },
         // `ACTIONS::deleteTool` — the interactive one, which keeps deleting

@@ -72,7 +72,12 @@ import {
 } from './convert_basic_shapes_to_polygon.js';
 
 export { segmentsForRadius };
-import { barcodeGeometry, barcodeHullBoxes } from './pcb_io/kicad_sexpr/board_view.js';
+import {
+  barcodeGeometry,
+  barcodeHullBoxes,
+  boardFromBOARD,
+  boardToBOARD,
+} from './pcb_io/kicad_sexpr/board_view.js';
 import {
   arcTrackTransformShapeToPolygon,
   edaShapeTransformShapeToPolygon,
@@ -111,6 +116,8 @@ import { DRC_ENGINE } from './drc/drc_engine.js';
 import { DRC_CONSTRAINT_T } from './drc/drc_rule.js';
 import { ZONE_CONNECTION } from './zones.js';
 import type { ZONE } from './zone.js';
+import type { COMMIT } from '@ziroeda/common/commit.js';
+import type { PROGRESS_REPORTER } from '@ziroeda/common/progress_reporter.js';
 import type { PCB_VIA } from './pcb_track.js';
 import { ZONE_LAYER_OVERRIDE } from './board_item.js';
 import { UNCONNECTED_LAYER_MODE } from './padstack.js';
@@ -144,15 +151,61 @@ import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
  */
 export class ZONE_FILLER {
   private m_board: BOARD;
+  private m_commit: COMMIT | null;
+  private m_progressReporter: PROGRESS_REPORTER | null = null;
 
   /**
-   * Upstream also takes a `COMMIT*` and holds `m_boardOutline`,
-   * `m_worstClearance`, `m_maxError` and the progress reporter. None of them
-   * is read by the prologue, so none of them is here: each arrives with the
-   * method that reads it, rather than sitting write-only in the meantime.
+   * TRANSITIONAL (#636 stage 3): the options the view's pour reads, which the
+   * board editor still derives from its Board Setup state. They go when the
+   * pour moves onto this class and reads BOARD_DESIGN_SETTINGS itself.
    */
-  constructor(aBoard: BOARD) {
+  private m_viewFillOptions: ZoneFillOptions = {};
+
+  /**
+   * Upstream also holds `m_boardOutline`, `m_worstClearance` and `m_maxError`;
+   * the pour that reads them is still the view's, so they arrive with it.
+   */
+  constructor(aBoard: BOARD, aCommit: COMMIT | null = null) {
     this.m_board = aBoard;
+    this.m_commit = aCommit;
+  }
+
+  SetProgressReporter(aReporter: PROGRESS_REPORTER | null): void {
+    this.m_progressReporter = aReporter;
+  }
+
+  GetProgressReporter(): PROGRESS_REPORTER | null {
+    return this.m_progressReporter;
+  }
+
+  /** TRANSITIONAL (#636 stage 3): see `m_viewFillOptions`. */
+  SetViewFillOptions(aOptions: ZoneFillOptions): void {
+    this.m_viewFillOptions = aOptions;
+  }
+
+  /**
+   * `ZONE_FILLER::Fill( aZones )`: pour `aZones`, recording each in the commit
+   * first so the fill is one undo step. Returns false when the user cancelled.
+   *
+   * TRANSITIONAL (#636 stage 3): the pour is still `fillZones` on a view of the
+   * board, which is vertex-identical to kicad-cli but pours EVERY zone. So only
+   * a whole-board fill is accepted here; filling a subset (ZoneFill,
+   * ZoneFillDirty) and the out-of-date check (`aCheck`) arrive with the pour
+   * on this class.
+   */
+  Fill(aZones: readonly ZONE[]): boolean {
+    const board = this.m_board;
+
+    if (aZones.length !== board.Zones().length)
+      throw new Error('ZONE_FILLER::Fill: a subset fill waits for the live-BOARD pour');
+
+    for (const zone of aZones) this.m_commit?.Modify(zone);
+
+    this.m_progressReporter?.Report('Pouring zones...');
+
+    boardToBOARD(fillZones(boardFromBOARD(board), this.m_viewFillOptions));
+
+    return true;
   }
 
   /**
