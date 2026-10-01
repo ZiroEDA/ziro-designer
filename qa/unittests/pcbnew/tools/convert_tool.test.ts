@@ -89,9 +89,9 @@ const BOARD_TEXT = `(kicad_pcb (version 20241229) (generator "pcbnew") (generato
   (net 0 "")
   (net 1 "N1")
   ${line(1, 10, 10, 20, 10)}
-  ${line(2, 20, 10, 20, 20)}
+  ${line(2, 20, 10, 20, 20, 0.25)}
   ${line(3, 20, 20, 10, 20, 0.3)}
-  ${line(4, 10, 20, 10, 10)}
+  ${line(4, 10, 20, 10, 10, 0.18)}
   ${line(5, 40, 10, 50, 10)}
   ${line(6, 50, 10, 50, 20)}
   (gr_rect (start 60 10) (end 70 20) (stroke (width 0.15) (type solid)) (fill no) (layer "F.SilkS") (uuid "${U(7)}"))
@@ -283,7 +283,8 @@ describe('CONVERT_TOOL::CreatePolys (convert_tool.cpp:367-583)', () => {
     h.mgr.RunAction(PCB_ACTIONS.convertToPoly);
     await flush();
     const p = added()[0] as PCB_SHAPE;
-    // positions (start points): 1 (10,10), 4 (10,20): the left-most, then top-most is 1
+    // positions (start points): 1 (10,10) 0.2, 4 (10,20) 0.18, 2 (20,10) 0.25,
+    // 3 (20,20) 0.3: the left-most, then top-most is 1
     expect(p.GetWidth()).toBe(0.2 * MM);
     expect(p.IsSolidFill()).toBe(false);
     expect(gone(1)).toBe(false);
@@ -345,6 +346,7 @@ describe('CONVERT_TOOL::CreatePolys (convert_tool.cpp:367-583)', () => {
     select(h, 1, 2, 3, 4);
     h.mgr.RunAction(PCB_ACTIONS.convertToKeepout);
     await flush();
+    expect(h.frame.asked).toEqual(['zone ruleArea']);
     expect([...h.board.Zones()][0]!.GetIsRuleArea()).toBe(true);
 
     h.frame.asked = [];
@@ -353,6 +355,35 @@ describe('CONVERT_TOOL::CreatePolys (convert_tool.cpp:367-583)', () => {
     h.mgr.RunAction(PCB_ACTIONS.convertToZone);
     await flush();
     expect(h.frame.asked).toEqual(['zone nonCopper']);
+  });
+
+  it('nothing convertible: the preflight returns before any dialog (:409-410)', async () => {
+    select(h, 30);
+    h.mgr.RunAction(PCB_ACTIONS.convertToPoly);
+    await flush();
+    expect(h.frame.asked).toEqual([]);
+  });
+
+  it('a hull with a gap grows by the gap and half the line width (:440-447)', async () => {
+    h.frame.convertAnswer = (s) => {
+      s.m_Strategy = CONVERT_STRATEGY.BOUNDING_HULL;
+      s.m_Gap = MM;
+      s.m_LineWidth = 0.4 * MM;
+    };
+    select(h, 5, 6);
+    h.mgr.RunAction(PCB_ACTIONS.convertToPoly);
+    await flush();
+    const bb = (added()[0] as PCB_SHAPE).GetPolyShape().BBox();
+    // the lines' own half width (0.1) + the gap (1) + half the 0.4 line (0.2)
+    expect(Math.abs(bb.GetLeft() - (40 - 1.3) * MM)).toBeLessThanOrEqual(0.01 * MM);
+  });
+
+  it('only the items that went into a polygon are deleted (SKIP_STRUCT, :548-557)', async () => {
+    select(h, 1, 2, 3, 4, 20);
+    h.mgr.RunAction(PCB_ACTIONS.convertToPoly);
+    await flush();
+    expect([1, 2, 3, 4].every(gone)).toBe(true);
+    expect(gone(20)).toBe(false);
   });
 
   it('cancelling the zone editor adds nothing', async () => {
@@ -539,6 +570,36 @@ describe('CONVERT_TOOL::OutsetItems and OUTSET_ROUTINE', () => {
     ).toBe(true);
   });
 
+  it('the tool reports a total failure on the infobar (:1530-1531)', async () => {
+    h.frame.outsetAnswer = (p) => {
+      p.outsetDistance = -6 * MM;
+    };
+    select(h, 8);
+    h.mgr.RunAction(PCB_ACTIONS.outsetItems);
+    await flush();
+    expect(h.frame.infobar).toEqual(['Unable to outset the selected items.']);
+  });
+
+  it('round corners on a grid: the rounded outline is built on the grid-rounded box (:878-883)', () => {
+    const { r, made } = routine({ roundCorners: true, outsetDistance: 0.3 * MM, gridRounding: MM });
+    r.ProcessItem(byUuid(h.board, 7));
+    const xs = made.flatMap((m) => [m.GetStart().x, m.GetEnd().x]);
+    // 60..70 outset by 0.3 is 59.7..70.3; rounded outwards to 1 mm, 59..71
+    expect(Math.min(...xs)).toBe(59 * MM);
+    expect(Math.max(...xs)).toBe(71 * MM);
+  });
+
+  it('an arc: the outer and inner arcs and the two end caps (:966-1007)', () => {
+    const { r, made } = routine({});
+    r.ProcessItem(byUuid(h.board, 9));
+    const arcs = made.filter((m) => m.GetShape() === SHAPE_T.ARC);
+    expect(arcs).toHaveLength(4);
+    const radius = (byUuid(h.board, 9) as PCB_SHAPE).GetRadius();
+    expect(arcs.map((a) => Math.round(a.GetRadius() / 1000) * 1000).sort((a, b) => a - b)).toEqual(
+      [MM, MM, radius - MM, radius + MM].map((v) => Math.round(v / 1000) * 1000).sort((a, b) => a - b),
+    );
+  });
+
   it('a negative distance that swallows a circle is a failure (:900-907, :656-658)', () => {
     const { r, made } = routine({ outsetDistance: -6 * MM });
     r.ProcessItem(byUuid(h.board, 8));
@@ -599,6 +660,15 @@ describe('the dialogs and helpers', () => {
     const filled = byUuid(h.board, 7) as PCB_SHAPE;
     filled.SetFilled(true);
     expect(GetBoardItemWidth(filled)).toBeNull();
+  });
+
+  it('getStartEndPoints: a zero-length line has none (:1347-1348)', () => {
+    const z = new PCB_SHAPE(h.board, SHAPE_T.SEGMENT);
+    z.SetStart(mm(5, 5));
+    z.SetEnd(mm(5, 5));
+    expect(CONVERT_TOOL.getStartEndPoints(z)).toBeNull();
+    expect(CONVERT_TOOL.getStartEndPoints(byUuid(h.board, 7))).toBeNull();
+    expect(CONVERT_TOOL.getStartEndPoints(byUuid(h.board, 1))?.B).toEqual(mm(20, 10));
   });
 
   it('KIGEOM::RoundNW / RoundSE round towards -inf / +inf, negatives included', () => {
