@@ -136,11 +136,22 @@ describe('the standard button row', () => {
     expect(comp.indexOf('{cancelLabel}')).toBeLessThan(comp.indexOf('{okLabel}'));
   });
 
-  it('gives both buttons the shared class and never lets one be a submit', () => {
+  it('gives every button the shared class and never lets one be a submit', () => {
+    // Cancel, OK, and the optional wxID_APPLY button PAD_TOOL's Push Pad
+    // Properties dialog needs (c71099d4).
     const comp = read('../../common/dialog_shim.tsx');
     const tags = comp.match(/<button[^>]*>/g) ?? [];
-    expect(tags).toHaveLength(2);
+    expect(tags).toHaveLength(3);
     for (const tag of tags) expect(tag).toContain('type="button"');
+    for (const tag of tags) expect(tag).toMatch(/className="ze-btn( primary)?"/);
     expect(comp).toContain('className="ze-btn primary"');
+  });
+
+  it('puts Apply between Cancel and OK, as GTK Realize() does', () => {
+    const comp = read('../../common/dialog_shim.tsx');
+    const cancel = comp.indexOf('{cancelLabel}');
+    const apply = comp.indexOf('{applyLabel}');
+    expect(cancel).toBeLessThan(apply);
+    expect(apply).toBeLessThan(comp.indexOf('{okLabel}'));
   });
 });
