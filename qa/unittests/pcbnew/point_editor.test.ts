@@ -23,7 +23,7 @@ import {
   dragBoardHandle,
   editablePointItems,
   hasEditPoints,
-} from '@ziroeda/pcbnew/tools/pcb_point_editor.js';
+} from '@ziroeda/pcbnew/tools/pcb_point_editor_view.js';
 import type { Board, PcbShape, PcbTrack } from '@ziroeda/pcbnew/types.js';
 import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { flatText, writtenNode } from './support/written_node.js';

@@ -19,7 +19,7 @@ import {
   dragBoardHandle,
   editablePointItems,
   type BoardEditHandle,
-} from '@ziroeda/pcbnew/tools/pcb_point_editor.js';
+} from '@ziroeda/pcbnew/tools/pcb_point_editor_view.js';
 import { boardItemId } from '@ziroeda/pcbnew/edit-board.js';
 import { radialKnee } from '@ziroeda/pcbnew/dimension_geometry.js';
 import type { Board, PcbDimension, PcbTextItem } from '@ziroeda/pcbnew/types.js';

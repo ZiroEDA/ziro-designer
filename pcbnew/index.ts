@@ -418,7 +418,7 @@ export {
   type BoardEditHandle,
   type BoardIndicatorLine,
   type HandleKind,
-} from './tools/pcb_point_editor.js';
+} from './tools/pcb_point_editor_view.js';
 
 export {
   createArray,

@@ -25,7 +25,7 @@ import {
   boardEditHandles,
   boardIndicatorLines,
   dragBoardHandle,
-} from '@ziroeda/pcbnew/tools/pcb_point_editor.js';
+} from '@ziroeda/pcbnew/tools/pcb_point_editor_view.js';
 import type { Board } from '@ziroeda/pcbnew/types.js';
 import {
   buildScene,
