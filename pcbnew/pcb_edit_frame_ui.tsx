@@ -2523,7 +2523,6 @@ export function PcbEditor({
         new Promise<boolean>((resolve) => setEnumPadsDlg({ dialog: aDialog, resolve })),
       showPadTableDialog: (aDialog) => setPadTableDlg(aDialog),
       dismissInfoBar: () => editWindowRef.current?.dismissInfoBar(),
-      boardView: () => boardRef.current,
       eventToWindow: (aEvent) => selWindowRef.current?.eventToWindow(aEvent) ?? false,
       // TRANSITIONAL (#636 stage 3): ZONE_FILLER's view pour reads these.
       zoneFillOptions: () => zoneFillOptionsRef.current,

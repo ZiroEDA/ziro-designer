@@ -74,7 +74,7 @@ import type { ZONE } from './zone.js';
 import type { wxTextValidator } from '@ziroeda/common/validators.js';
 import { DisplayErrorMessage } from '@ziroeda/common/confirm.js';
 import { MICROWAVE_TOOL, type MICROWAVE_HOST } from './microwave/microwave_tool.js';
-import type { Board, PcbFootprint } from './types.js';
+import type { PcbFootprint } from './types.js';
 import type { NETLIST } from './netlist_reader/pcb_netlist.js';
 import { type DIALOG_DRC_LIKE, DRC_TOOL } from './tools/drc_tool.js';
 import type { DRC_JOB_HOOKS, DRC_JOB_REQUEST } from './browser/drc_job.js';
@@ -557,11 +557,6 @@ export interface PCB_EDIT_FRAME_HOOKS {
   ): Promise<'ignore' | 'all' | null>;
   /** `PCB_BASE_EDIT_FRAME::OpenVertexEditor( aItem )`. */
   openVertexEditor?(aItem: BOARD_ITEM): void;
-  /**
-   * TRANSITIONAL (#636 stage 3): the window's view board, which PCB_GRID_HELPER
-   * still computes its anchors from (`GetTransitionalBoardView`).
-   */
-  boardView?(): Board | null;
   /**
    * `DIALOG_FILTER_SELECTION( frame, aOptions ).ShowModal() == wxID_OK`, the
    * dialog editing `aOptions` in place. Optional: absent answers cancel.
@@ -1115,11 +1110,6 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   /** `PCB_BASE_EDIT_FRAME::OpenVertexEditor( aItem )`. */
   OpenVertexEditor(aItem: BOARD_ITEM): void {
     this.hooks.openVertexEditor?.(aItem);
-  }
-
-  /** TRANSITIONAL (#636 stage 3): see the `boardView` hook. */
-  GetTransitionalBoardView(): Board | null {
-    return this.hooks.boardView?.() ?? null;
   }
 
   /**
