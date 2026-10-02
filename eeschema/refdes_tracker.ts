@@ -14,6 +14,7 @@
  * role here), not semantics.
  */
 
+import { STD_UNORDERED_MAP } from '@ziroeda/common/libc/unordered_map.js';
 import type { SCH_REFERENCE } from './sch_reference_list.js';
 
 interface PrefixData {
@@ -37,7 +38,9 @@ export class REFDES_TRACKER {
   /** m_externalUnitsChecker: replaces areUnitsAvailable when set. */
   private m_externalUnitsChecker: UNITS_CHECKER_FUNC | null = null;
 
-  private prefixData = new Map<string, PrefixData>();
+  /// m_prefixData: a std::unordered_map upstream, and Serialize writes it in that map's
+  /// iteration order, so it is libstdc++'s order here too.
+  private prefixData = new STD_UNORDERED_MAP<PrefixData>();
   private allRefDes = new Set<string>();
 
   /** REFDES_TRACKER::parseRefDes: split on the trailing run of digits so any
@@ -60,11 +63,7 @@ export class REFDES_TRACKER {
   }
 
   private insertNumber(prefix: string, number: number): boolean {
-    let data = this.prefixData.get(prefix);
-    if (!data) {
-      data = { usedNumbers: new Set() };
-      this.prefixData.set(prefix, data);
-    }
+    const data = this.prefixData.getOrInsert(prefix, () => ({ usedNumbers: new Set() }));
     if (data.usedNumbers.has(number)) return false;
     data.usedNumbers.add(number);
     return true;
@@ -238,14 +237,12 @@ export class REFDES_TRACKER {
     return result;
   }
 
-  /** REFDES_TRACKER::Serialize, sorted prefixes (std::map order), each with
+  /** REFDES_TRACKER::Serialize: the prefixes in m_prefixData's (unordered) order, each with
    *  its consecutive numbers collapsed to `start-end` ranges, prefix-only
    *  entries last per prefix. */
   Serialize(): string {
     const parts: string[] = [];
-    const prefixes = [...this.prefixData.keys()].sort();
-    for (const prefix of prefixes) {
-      const data = this.prefixData.get(prefix)!;
+    for (const [prefix, data] of this.prefixData) {
       const escapedPrefix = REFDES_TRACKER.escape(prefix);
       const numbers = [...data.usedNumbers].filter((n) => n > 0).sort((a, b) => a - b);
       const hasPrefix = data.usedNumbers.has(0);

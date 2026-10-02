@@ -354,7 +354,9 @@ describe('REFDES_TRACKER', () => {
     const t = new REFDES_TRACKER();
     for (const r of ['R1', 'R2', 'R3', 'R7', 'U1', 'X-Y2']) t.Insert(r);
     const text = t.Serialize();
-    expect(text).toBe('R1-3,R7,U1,X\\-Y2');
+    // The prefixes in libstdc++'s unordered_map order for inserting R, U, X-Y: U, X-Y, R
+    // (`std_unordered_map_probe order R U X-Y`).
+    expect(text).toBe('U1,X\\-Y2,R1-3,R7');
     const t2 = new REFDES_TRACKER();
     expect(t2.Deserialize(text)).toBe(true);
     expect(t2.Contains('R2')).toBe(true);
