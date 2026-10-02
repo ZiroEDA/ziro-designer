@@ -13,6 +13,7 @@
  * live items: the frame methods `SCH_COMMIT` and `schematic_undo_redo.ts`
  * (`SCH_UNDO_REDO_MIXIN`, mixed in below) need.
  */
+import { SCH_ANNOTATE_MIXIN } from './annotate.js';
 import { SCH_FILES_IO_MIXIN } from './files-io.js';
 import { SCH_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import type { SCH_GLOBALLABEL } from './sch_label.js';
@@ -86,7 +87,8 @@ export interface SCH_EDIT_FRAME_HOOKS {
 export interface SCH_EDIT_FRAME
   extends SCH_UNDO_REDO_MIXIN,
     SCH_DESIGN_BLOCK_UTILS_MIXIN,
-    SCH_FILES_IO_MIXIN {}
+    SCH_FILES_IO_MIXIN,
+    SCH_ANNOTATE_MIXIN {}
 
 // biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (SCH_UNDO_REDO_MIXIN, see libs/core/mixins.ts)
 export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
@@ -695,6 +697,7 @@ applyMixins(SCH_EDIT_FRAME, [
   SCH_UNDO_REDO_MIXIN,
   SCH_DESIGN_BLOCK_UTILS_MIXIN,
   SCH_FILES_IO_MIXIN,
+  SCH_ANNOTATE_MIXIN,
 ]);
 
 /**
