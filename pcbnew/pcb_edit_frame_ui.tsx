@@ -25,8 +25,6 @@ import { WxTextEntryDialog } from '@ziroeda/common/wx/textdlg.js';
 import { WX_TEXT_ENTRY_DIALOG } from '@ziroeda/common/dialogs/dialog_text_entry.js';
 import { Pgm } from '@ziroeda/common/pgm_base.js';
 import { PCB_IU_PER_MM } from '@ziroeda/common/eda_units.js';
-import { editPointColors } from '@ziroeda/common/gal/color4d.js';
-import { galPenWidth, galSnapPx } from '@ziroeda/common/gal_pixel_grid.js';
 import {
   drawSelectionArea,
   isBackgroundDark,
@@ -42,14 +40,9 @@ import {
 } from './dialogs/dialog_rule_area_properties.js';
 import { TWO_POINT_GEOMETRY_MANAGER } from '@ziroeda/common/preview_items/two_point_geom_manager.js';
 import { LeaderMode } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
-import {
-  EDIT_LINE_WIDTH,
-  EDIT_POINT_BORDER_SIZE,
-  EDIT_POINT_HOVER_SIZE,
-  EDIT_POINT_SIZE,
-} from '@ziroeda/common/preview_items/edit_points.js';
 import { zoomFitScale } from '@ziroeda/common/ui/view_controls.js';
 import { DockSash } from '@ziroeda/common/widgets/wx_aui_sash.js';
+import { galPenWidth } from '@ziroeda/common/gal_pixel_grid.js';
 import { onOutlineFontsChanged } from '@ziroeda/common/font/outline_fonts.js';
 import {
   applyCanvasSize,
@@ -131,11 +124,6 @@ import {
   type NETLIST,
   fillZones,
   zoneClearanceOf,
-  boardEditHandles,
-  boardIndicatorLines,
-  dragBoardHandle,
-  type BoardEditHandle,
-  type BoardIndicatorLine,
   imageAt,
   type ImageValues,
   boardAuxOrigin,
@@ -523,7 +511,6 @@ import { clientPosition, wxKeyEventFromDom } from '@ziroeda/common/wx/dom_events
 import {
   type wxEvent,
   wxEVT_CHAR_HOOK,
-  wxEVT_LEFT_DOWN,
   wxKeyEvent,
   wxMouseEvent,
 } from '@ziroeda/common/wx/wx_event.js';
@@ -537,11 +524,6 @@ import {
   arraySpecFrom,
   type ArraySettings,
 } from './dialogs/dialog_create_array.js';
-import {
-  handleAtPoint,
-  handleDragTarget,
-  handleTolerance,
-} from './tools/pcb_point_editor_canvas.js';
 import { DialogOutsetItems } from './dialogs/dialog_outset_items_ui.js';
 import { DIALOG_OUTSET_ITEMS } from './dialogs/dialog_outset_items.js';
 import { CONVERT_SETTINGS_DIALOG } from './tools/convert_settings_dialog.js';
@@ -2269,20 +2251,6 @@ export function PcbEditor({
   const dragSeedIdRef = useRef<string | null>(null);
   /** The net highlight to restore when a track drag ends, or null if none. */
   const dragHighlightRestoreRef = useRef<ReadonlySet<number> | null>(null);
-  // Zone outline editing (PCB_POINT_EDITOR): the handles of the one selected
-  // item, which handle the cursor is over, and the drag in flight.
-  const editHandlesRef = useRef<BoardEditHandle[]>([]);
-  /** `EDIT_POINTS::AddIndicatorLine` — the bezier's two control arms. */
-  const editIndicatorsRef = useRef<BoardIndicatorLine[]>([]);
-  /** The item the handles belong to, as a board item id. */
-  const editHandleItemRef = useRef<string | null>(null);
-  const hoveredEditHandleRef = useRef<BoardEditHandle | null>(null);
-  const editHandleDragRef = useRef<{
-    handle: BoardEditHandle;
-    origin: { x: number; y: number };
-  } | null>(null);
-  /** The reshaped board while a handle drag is in flight, committed on release. */
-  const pointEditPreviewRef = useRef<Board | null>(null);
   const moveOriginRef = useRef<{ x: number; y: number } | null>(null);
   /**
    * `grid.BestDragOrigin( originalMousePos, sel_items, … )` — the anchor **on
@@ -3701,36 +3669,6 @@ export function PcbEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setupSourceKey, rootPro, openNonce]);
 
-  // PCB_POINT_EDITOR shows its points for a *single* selected item: a handle per
-  // corner or vertex, plus one at each edge midpoint. Which items have any is
-  // the engine's business, not this component's.
-  useEffect(() => {
-    // The `board` this effect DEPENDS on, not `boardRef.current`. The two are
-    // the same object almost always and differ exactly when it matters: the ref
-    // is written by `setBoardModel` and by the loader's own timeout, so an
-    // effect keyed on the state that reads the ref can compute handles for a
-    // different board than the one it woke up for — and `boardEditHandles`
-    // answers `[]` for an index that board has not got, which is no handles at
-    // all until something else re-runs this.
-    const brd = board ?? boardRef.current;
-    const id = selection.size === 1 ? [...selection][0]! : null;
-    const handles = brd && id ? boardEditHandles(brd, id) : [];
-
-    if (handles.length === 0) {
-      editHandlesRef.current = [];
-      editIndicatorsRef.current = [];
-      editHandleItemRef.current = null;
-      hoveredEditHandleRef.current = null;
-      requestDrawRef.current();
-      return;
-    }
-    editHandlesRef.current = handles;
-    editIndicatorsRef.current = brd && id ? boardIndicatorLines(brd, id) : [];
-    editHandleItemRef.current = id;
-    requestDrawRef.current();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selection, board]);
-
   // "Footprints Front/Back" hide whole footprints: rebuild the scene.
   useEffect(() => {
     if (!boardRef.current) return;
@@ -3896,7 +3834,8 @@ export function PcbEditor({
       const brd = boardRef.current;
       // The same single-selected item the point editor is showing handles for,
       // which is exactly when upstream's `IsSelected()` branch fires.
-      const ref = editHandleItemRef.current ? parseBoardItemId(editHandleItemRef.current) : null;
+      const selected = selForDrawRef.current;
+      const ref = selected.size === 1 ? parseBoardItemId([...selected][0]!) : null;
       const img = brd && ref?.kind === 'image' ? brd.images[ref.index] : null;
       if (img && !moveDeltaRef.current) {
         const box = imageBBox(img);
@@ -3907,53 +3846,6 @@ export function PcbEditor({
         ctx.strokeRect(box.minX, box.minY, box.maxX - box.minX, box.maxY - box.minY);
         ctx.restore();
         ctx.setTransform(1, 0, 0, 1, 0, 0);
-      }
-    }
-    // Point-editor handles (PCB_POINT_EDITOR): a single selected item gets a
-    // square on each corner or vertex and a circle at each edge midpoint, drawn at
-    // a fixed screen size in LAYER_AUX_ITEMS white with a darker border
-    // (EDIT_POINTS::ViewDraw; POINT_SIZE 8, BORDER_SIZE 3, HOVER_SIZE 6).
-    {
-      const handles = editHandlesRef.current;
-      if (handles.length > 0 && !moveDeltaRef.current) {
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        const half = (EDIT_POINT_SIZE / 2) * dpr;
-        const hovered = hoveredEditHandleRef.current;
-        const colors = editPointColors(
-          drawOpts.theme?.special.auxItems ?? PCB_SPECIAL.auxItems,
-          drawOpts.theme?.background ?? PCB_BACKGROUND,
-        );
-        // `EDIT_POINTS::ViewDraw`'s second loop: an `EDIT_LINE` with no centre
-        // point draws only its line, at `borderSize / 4` in the border colour.
-        // Drawn before the handles so the squares sit on top of the arms.
-        if (editIndicatorsRef.current.length > 0) {
-          ctx.strokeStyle = colors.border;
-          ctx.lineWidth = galPenWidth(EDIT_LINE_WIDTH * dpr);
-          ctx.beginPath();
-          for (const ln of editIndicatorsRef.current) {
-            ctx.moveTo(ln.a.x * sx + v.tx, ln.a.y * v.scale + v.ty);
-            ctx.lineTo(ln.b.x * sx + v.tx, ln.b.y * v.scale + v.ty);
-          }
-          ctx.stroke();
-        }
-        ctx.fillStyle = colors.fill;
-        for (const h of handles) {
-          const active = hovered?.kind === h.kind && hovered?.index === h.index;
-          const pen = galPenWidth((active ? EDIT_POINT_HOVER_SIZE : EDIT_POINT_BORDER_SIZE) * dpr);
-          // GAL quantises the stroke and snaps the geometry to the same pixel
-          // grid (kicad_vert.glsl:69-77). Without the snap a handle's border
-          // straddles two columns at half strength each and reads soft next to
-          // pcbnew's, which is exactly how these looked.
-          const x = galSnapPx(h.at.x * sx + v.tx, pen);
-          const y = galSnapPx(h.at.y * v.scale + v.ty, pen);
-          ctx.strokeStyle = active ? colors.highlight : colors.border;
-          ctx.lineWidth = pen;
-          ctx.beginPath();
-          if (h.kind === 'line') ctx.arc(x, y, half, 0, Math.PI * 2);
-          else ctx.rect(x - half, y - half, half * 2, half * 2);
-          ctx.fill();
-          ctx.stroke();
-        }
       }
     }
     // Selection / move overlay: the selected items repainted brightened over the
@@ -5433,15 +5325,6 @@ export function PcbEditor({
       }
       if (!(aEvent instanceof wxMouseEvent)) return false;
       if (!isSelectTool(activeToolRef.current) || windowGestureInFlight()) return true;
-      // A press on a point-editor handle is PCB_POINT_EDITOR's (the window's).
-      if (aEvent.GetEventType() === wxEVT_LEFT_DOWN) {
-        const canvas = glCanvasRef.current;
-        if (canvas) {
-          const r = canvas.getBoundingClientRect();
-          const w = worldAt(r.left + aEvent.GetX(), r.top + aEvent.GetY());
-          if (w && editHandleAt(w)) return true;
-        }
-      }
       return false;
     },
   };
@@ -5548,10 +5431,7 @@ export function PcbEditor({
   };
   /** A gesture of the window's own tools in flight, which owns the pointer until it ends. */
   const windowGestureInFlight = (): boolean =>
-    movingRef.current ||
-    grabbingRef.current ||
-    editHandleDragRef.current !== null ||
-    trackDragRef.current !== null;
+    movingRef.current || grabbingRef.current || trackDragRef.current !== null;
   drcWindowRef.current = {
     createDrcDialog: (_aTool: DRC_TOOL): DIALOG_DRC => {
       const frame = frameRef.current!;
@@ -7348,36 +7228,6 @@ export function PcbEditor({
   };
 
   /**
-   * The cursor while a point/handle is being dragged —
-   * `grid.BestSnapAnchor( pos, snapLayers, GetItemGrid( item ), { item } )`
-   * (pcb_point_editor.cpp:2644).
-   *
-   * The point editor snapped to the bare grid before this, which meant a
-   * reshaped point could neither land on a pad centre or another track's end,
-   * nor go back to an off-grid position it started at.
-   */
-  const handleSnap = (w: { x: number; y: number }): { x: number; y: number } => {
-    const brd = boardRef.current;
-    if (!brd) return snapToGrid(w);
-    const id = editHandleItemRef.current;
-    return gridHelper().BestSnapAnchor(brd, w, {
-      snapScale: 25 / viewRef.current.scale,
-      hysteresis: 5 / viewRef.current.scale,
-      visibleGrid: gridIURef.current,
-      layer: activeLayerRef.current,
-      avoid: id ? new Set([id]) : undefined,
-    });
-  };
-
-  /** The handle under a world point (EDIT_POINTS::FindPoint). */
-  const editHandleAt = (p: { x: number; y: number }): BoardEditHandle | null =>
-    handleAtPoint(
-      editHandlesRef.current,
-      p,
-      handleTolerance(EDIT_POINT_SIZE, viewRef.current.scale),
-    );
-
-  /**
    * Fill All Zones (PCB_ACTIONS::zoneFillAll, the B key): re-pour every zone
    * from the current copper. ZONE_FILLER::Fill runs over the whole board rather
    * than one zone, so an edit anywhere re-flows everything that touches it.
@@ -7943,39 +7793,6 @@ export function PcbEditor({
       }
       const w = worldAt(e.clientX, e.clientY);
       const brd = boardRef.current;
-      // A handle under the cursor takes the press: PCB_POINT_EDITOR runs ahead
-      // of the selection tool, so grabbing a point reshapes the item rather
-      // than starting a move of it.
-      if (w && !isClickTool(activeToolRef.current)) {
-        const handle = editHandleAt(w);
-        if (handle) {
-          // `PCB_POINT_EDITOR` puts the auxiliary axis on the point's *original
-          // position* — `SetAuxAxes( true, m_original.GetPosition() )`
-          // (pcb_point_editor.cpp:2366) — not on the cursor. So a handle that
-          // started off-grid stays reachable for the whole drag, and a track
-          // endpoint or zone corner can be put back exactly where it was.
-          auxAxisRef.current = { x: handle.at.x, y: handle.at.y };
-          editHandleDragRef.current = { handle, origin: handleSnap(w) };
-          // Reshaping touches one item: it is hidden in the VIEW for the
-          // gesture and rides the overlay, so nothing is rebuilt per event.
-          const id = editHandleItemRef.current;
-          if (brd && id) {
-            const only = new Set([id]);
-            if (panelRef.current) {
-              const items = kItemsForIds(brd, only);
-              hiddenItemsRef.current = items;
-              setItemsHidden(panelRef.current, items, true);
-              hideSelectionGroup(true);
-            }
-            moveSceneRef.current = buildScene(subsetBoardItems(brd, only), sceneFilter());
-            // The overlay is drawn at absolute coords: a reshape moves points,
-            // not the item, so it carries no drag delta.
-            moveDeltaRef.current = { x: 0, y: 0 };
-          }
-          (e.target as HTMLElement).setPointerCapture(e.pointerId);
-          return;
-        }
-      }
       downRef.current = {
         x: e.clientX,
         y: e.clientY,
@@ -8017,43 +7834,6 @@ export function PcbEditor({
       // Repaint so the crosshair follows even on a plain hover (no pan/drag).
       requestDraw();
     }
-    // Dragging a handle: reshape the item live. A corner follows the cursor; an
-    // edge handle carries its whole edge, so it is moved by the cursor's delta
-    // from where it was grabbed rather than snapped onto the cursor — grabbing
-    // an edge slightly off its midpoint should not jump it.
-    const handleDrag = editHandleDragRef.current;
-    if (handleDrag) {
-      const cur = worldAt(e.clientX, e.clientY);
-      const brd = boardRef.current;
-      const id = editHandleItemRef.current;
-      if (cur && brd && id) {
-        const to = handleSnap(cur);
-        const target = handleDragTarget(handleDrag.handle, handleDrag.origin, to);
-        const next = dragBoardHandle(brd, id, handleDrag.handle, target, arcEditModeRef.current);
-        pointEditPreviewRef.current = next;
-        editHandlesRef.current = boardEditHandles(next, id);
-        editIndicatorsRef.current = boardIndicatorLines(next, id);
-        // Only the reshaped item is re-recorded; the base scene was captured
-        // without it at drag start and is not dirtied, so the raster survives.
-        // Under the GL renderer that is also what keeps the content key
-        // unchanged, so a handle drag stays a uniform update instead of a full
-        // re-record per mouse event. `buildScene`, not `buildBoardScene`: the
-        // move overlay is painted onto the 2D layer and needs real `Path2D`.
-        moveSceneRef.current = buildScene(subsetBoardItems(next, new Set([id])), sceneFilter());
-        requestDraw();
-      }
-      return;
-    }
-    // Hovering a handle thickens its border (EDIT_POINT::IsHover).
-    if (!downRef.current && editHandlesRef.current.length > 0) {
-      const cur = worldAt(e.clientX, e.clientY);
-      const hit = cur ? editHandleAt(cur) : null;
-      const prev = hoveredEditHandleRef.current;
-      if (hit?.kind !== prev?.kind || hit?.index !== prev?.index) {
-        hoveredEditHandleRef.current = hit;
-        requestDraw();
-      }
-    }
     // Keyboard grab (M/G) in flight: the selection follows the cursor freely
     // until a click commits it (no button held).
     if (grabbingRef.current) {
@@ -8086,24 +7866,6 @@ export function PcbEditor({
     }
   };
   const onPointerUp = (e: React.PointerEvent): void => {
-    // Finish a point edit: commit the reshaped board, or put the scene back if
-    // the handle never moved.
-    if (editHandleDragRef.current) {
-      const preview = pointEditPreviewRef.current;
-      editHandleDragRef.current = null;
-      // The gesture is over: `SetAuxAxes( false )`.
-      auxAxisRef.current = null;
-      pointEditPreviewRef.current = null;
-      // Drop the reshape overlay: both paths below rebuild a full base scene
-      // that contains the item again, so leaving it up would double-draw it.
-      moveSceneRef.current = null;
-      // The VIEW's hidden item draws again; a commit re-derives the view anyway.
-      unhideMovingItems();
-      if (preview) commitBoard(preview);
-      else if (boardRef.current) rebuildScene(boardRef.current);
-      requestDraw();
-      return;
-    }
     const d = downRef.current;
     const box = boxRef.current;
     const moved = movingRef.current;

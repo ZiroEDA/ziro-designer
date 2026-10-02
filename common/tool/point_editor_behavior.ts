@@ -981,8 +981,10 @@ export class EDA_ARC_POINT_EDIT_BEHAVIOR extends POINT_EDIT_BEHAVIOR {
  * has to provide UpdateItem() to handle the actual update.
  */
 export class EDA_TABLECELL_POINT_EDIT_BEHAVIOR extends POINT_EDIT_BEHAVIOR {
-  private static readonly COL_WIDTH = 0;
-  private static readonly ROW_HEIGHT = 1;
+  /** `enum TABLECELL_POINTS` (protected). */
+  protected static readonly COL_WIDTH = 0;
+  protected static readonly ROW_HEIGHT = 1;
+  protected static readonly TABLECELL_MAX_POINTS = 2;
 
   private readonly m_cell: EDA_SHAPE;
 

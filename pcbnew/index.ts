@@ -409,18 +409,6 @@ export {
 } from './tools/drawing_tool.js';
 
 export {
-  boardEditHandles,
-  boardIndicatorLines,
-  dragBoardHandle,
-  hasEditPoints,
-  editablePointItems,
-  arcHandleCentre,
-  type BoardEditHandle,
-  type BoardIndicatorLine,
-  type HandleKind,
-} from './tools/pcb_point_editor_view.js';
-
-export {
   createArray,
   arraySize,
   arrayTransform,

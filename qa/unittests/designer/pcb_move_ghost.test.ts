@@ -164,27 +164,19 @@ describe('the VIEW hides what the overlay is dragging', () => {
     expect(body).toContain('setItemsHidden(panelRef.current, items, true)');
   });
 
-  it('both ends of the gesture show the items again, and the end of a point edit', () => {
-    expect(text.match(/unhideMovingItems\(\);/g)).toHaveLength(3);
+  it('both ends of the gesture show the items again', () => {
+    expect(text.match(/unhideMovingItems\(\);/g)).toHaveLength(2);
     const commit = text.indexOf('const commitMove = (): void => {');
     const cancel = text.indexOf('const cancelMove = (): void => {');
     expect(text.slice(commit, cancel)).toContain('unhideMovingItems();');
     expect(text.slice(cancel, cancel + 2500)).toContain('unhideMovingItems();');
-    // The point editor hides the item it reshapes the same way, so its release
-    // shows it again before the commit re-derives the view.
-    const release = text.indexOf(
-      'if (editHandleDragRef.current) {',
-      text.indexOf('const onPointerUp'),
-    );
-    expect(release).toBeGreaterThan(-1);
-    expect(text.slice(release, release + 1200)).toContain('unhideMovingItems();');
   });
 
-  it('a point edit hides the reshaped item in the VIEW, not in a rebuilt scene', () => {
-    const i = text.indexOf('editHandleDragRef.current = { handle, origin: handleSnap(w) };');
-    expect(i).toBeGreaterThan(-1);
-    const body = text.slice(i, i + 2500);
-    expect(body).toContain('setItemsHidden(panelRef.current, items, true)');
+  it("a point edit is PCB_POINT_EDITOR's, which updates the live item in the VIEW", () => {
+    // The window's handle drag (and the overlay it hid the item under) is gone;
+    // tools/pcb_point_editor.test.ts pins the tool.
+    expect(text).not.toContain('editHandleDragRef');
+    expect(text).not.toContain('pointEditPreviewRef');
   });
 
   it('nothing is shifted in place any more', () => {

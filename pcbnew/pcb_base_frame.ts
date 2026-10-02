@@ -14,7 +14,7 @@ import { pcbMmToIU as mmToIU } from '@ziroeda/common';
 import { fromPaperToken, pageSizeMM } from '@ziroeda/common/dialogs/dialog_page_settings.js';
 import type { EdaUnits } from '@ziroeda/common/eda_units.js';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
-import type { FRAME_T } from '@ziroeda/common/frame_type.js';
+import type { ARC_EDIT_MODE, FRAME_T } from '@ziroeda/common/frame_type.js';
 import type { KIID } from '@ziroeda/common/kiid.js';
 import { RPT_SEVERITY_ACTION, type Severity } from '@ziroeda/common/reporter.js';
 import type { LeaderMode as LEADER_MODE } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
@@ -65,6 +65,8 @@ export interface FOOTPRINT_EDITOR_SETTINGS_LIKE {
   m_DisplayInvertXAxis: boolean;
   m_DisplayInvertYAxis: boolean;
   m_AngleSnapMode: LEADER_MODE;
+  /** `m_ArcEditMode` (footprint_editor_settings.h:79); KEEP_CENTER_ADJUST_ANGLE_RADIUS when absent. */
+  m_ArcEditMode?: ARC_EDIT_MODE;
 }
 
 export abstract class PCB_BASE_FRAME extends EDA_DRAW_FRAME {

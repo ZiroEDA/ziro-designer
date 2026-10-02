@@ -190,6 +190,8 @@ function harness(): Harness {
     GetMousePosition: () => h.mouse!,
     GetCursorPosition: () => h.mouse!,
     SetAutoPan: () => {},
+    ShowCursor: () => {},
+    CaptureCursor: () => {},
     SetCursorPosition: () => {},
     ForceCursorPosition: () => {},
     WarpMouseCursor: () => {},

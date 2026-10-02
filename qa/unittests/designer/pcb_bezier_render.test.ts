@@ -21,11 +21,6 @@ import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/index.js';
 import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { boardHitCandidates, boardItemId } from '@ziroeda/pcbnew/edit-board.js';
-import {
-  boardEditHandles,
-  boardIndicatorLines,
-  dragBoardHandle,
-} from '@ziroeda/pcbnew/tools/pcb_point_editor_view.js';
 import type { Board } from '@ziroeda/pcbnew/types.js';
 import {
   buildScene,
@@ -235,49 +230,5 @@ describe('clicking it', () => {
     // The chord matters on its own because a FILLED bezier closes it — the fill
     // does, but the outline still must not.
     expect(boardHitCandidates(board, { x: 7.5 * MM, y: 0 }, TOL)).not.toContain(ID);
-  });
-});
-
-describe('editing it', () => {
-  const board = boardWith(CURVE);
-
-  it('carries four handles in EDA_BEZIER_POINT_EDIT_BEHAVIOR’s order', () => {
-    // START, CTRL_PT1, CTRL_PT2, END — the same order `MakePoints` adds them and
-    // the same order the file stores them. A bezier had none at all before this,
-    // because `curve` matched neither the `poly` guard nor any other.
-    expect(boardEditHandles(board, ID)).toEqual([
-      { kind: 'point', index: 0, at: { x: 0, y: 0 } },
-      { kind: 'point', index: 1, at: { x: 2 * MM, y: 4 * MM } },
-      { kind: 'point', index: 2, at: { x: 8 * MM, y: -4 * MM } },
-      { kind: 'point', index: 3, at: { x: 10 * MM, y: 0 } },
-    ]);
-  });
-
-  it('moves only the dragged point, since no bezier point constrains another', () => {
-    const h = boardEditHandles(board, ID)[1]!;
-    const next = dragBoardHandle(board, ID, h, { x: 3 * MM, y: 9 * MM });
-    expect(next.shapes[0]?.pts).toEqual([
-      { x: 0, y: 0 },
-      { x: 3 * MM, y: 9 * MM },
-      { x: 8 * MM, y: -4 * MM },
-      { x: 10 * MM, y: 0 },
-    ]);
-  });
-
-  it('draws the two control arms, so a handle says which end it belongs to', () => {
-    // `AddIndicatorLine( START, CTRL_PT1 )` and `AddIndicatorLine( CTRL_PT2,
-    // END )`. Not start→C2 and not a ring round all four: each arm ties one
-    // control point to the endpoint whose tangent it sets.
-    expect(boardIndicatorLines(board, ID)).toEqual([
-      { a: { x: 0, y: 0 }, b: { x: 2 * MM, y: 4 * MM } },
-      { a: { x: 8 * MM, y: -4 * MM }, b: { x: 10 * MM, y: 0 } },
-    ]);
-  });
-
-  it('and nothing else has any', () => {
-    const poly = boardWith(
-      '(gr_poly (pts (xy 0 0) (xy 1 0) (xy 1 1)) (stroke (width 0.1) (type solid)) (layer "F.SilkS"))',
-    );
-    expect(boardIndicatorLines(poly, ID)).toEqual([]);
   });
 });

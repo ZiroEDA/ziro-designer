@@ -95,6 +95,11 @@ import {
   viewIdOfBoardItem,
 } from '../pcb_io/kicad_sexpr/board_view.js';
 import type { BOARD_ITEM } from '../board_item.js';
+import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { KIGEOM_BoxToSegs } from '@ziroeda/kimath/src/geometry/shape_utils.js';
+import type { PCB_REFERENCE_IMAGE } from '../pcb_reference_image.js';
+import type { PCB_SHAPE } from '../pcb_shape.js';
 import type { PAD } from '../pad.js';
 import type { MAGNETIC_SETTINGS } from '../pcbnew_settings.js';
 import { LSET } from '@ziroeda/common/lset.js';
@@ -1414,7 +1419,32 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
     aItemIds: readonly string[],
     aExtensionOnly: boolean,
     aIsPersistent: boolean,
+  ): void;
+  /**
+   * `PCB_GRID_HELPER::AddConstructionItems( std::vector<BOARD_ITEM*>, bool, bool )`
+   * (cpp:204-343) on live items, each proposed under its own pointer.
+   */
+  AddConstructionItems(
+    aItems: readonly BOARD_ITEM[],
+    aExtensionOnly: boolean,
+    aIsPersistent: boolean,
+  ): void;
+  AddConstructionItems(
+    a: Board | readonly BOARD_ITEM[],
+    b: readonly string[] | boolean,
+    c: boolean,
+    d?: boolean,
   ): void {
+    if (Array.isArray(a)) {
+      this.addConstructionItemsLive(a as readonly BOARD_ITEM[], b as boolean, c);
+      return;
+    }
+
+    const aBoard = a as Board;
+    const aItemIds = b as readonly string[];
+    const aExtensionOnly = c;
+    const aIsPersistent = d!;
+
     if (!ADVANCED_CFG.GetCfg().m_EnableExtensionSnaps) return;
 
     const batch: CONSTRUCTION_ITEM_BATCH = [];
@@ -1473,6 +1503,126 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
         Source: CONSTRUCTION_MANAGER_SOURCE.FROM_ITEMS,
         Item: this.itemToken(id)[0]!,
         Constructions: drawables.map((d) => ({ Drawable: d, LineWidth: 1 })),
+      });
+    }
+
+    if (referenceOnlyPoints.length)
+      this.getSnapManager().SetReferenceOnlyPoints(referenceOnlyPoints);
+
+    this.getSnapManager().GetConstructionManager().ProposeConstructionItems(batch, aIsPersistent);
+  }
+
+  private addConstructionItemsLive(
+    aItems: readonly BOARD_ITEM[],
+    aExtensionOnly: boolean,
+    aIsPersistent: boolean,
+  ): void {
+    if (!ADVANCED_CFG.GetCfg().m_EnableExtensionSnaps) return;
+
+    // For all the elements that get drawn construction geometry,
+    // add something suitable to the construction helper.
+    // This can be nothing.
+    const batch: CONSTRUCTION_ITEM_BATCH = [];
+    const referenceOnlyPoints: Vec2[] = [];
+
+    for (const item of aItems) {
+      const drawables: CONSTRUCTION_GEOM_DRAWABLE[] = [];
+
+      switch (item.Type()) {
+        case KICAD_T.PCB_SHAPE_T: {
+          const shape = item as unknown as PCB_SHAPE;
+
+          switch (shape.GetShape()) {
+            case SHAPE_T.SEGMENT: {
+              const start = shape.GetStart();
+              const end = shape.GetEnd();
+
+              if (!aExtensionOnly) {
+                drawables.push(new LINE(start, end));
+              } else {
+                // Two rays, extending from the segment ends
+                const segVec = { x: end.x - start.x, y: end.y - start.y };
+                drawables.push(
+                  new HALF_LINE(start, { x: start.x - segVec.x, y: start.y - segVec.y }),
+                );
+                drawables.push(new HALF_LINE(end, { x: end.x + segVec.x, y: end.y + segVec.y }));
+              }
+
+              if (aIsPersistent) {
+                // include the original endpoints as construction items
+                // (this allows H/V snapping), but mark them as references, so
+                // they don't get snapped to themselves
+                drawables.push({ ...start }, { ...end });
+                referenceOnlyPoints.push({ ...start }, { ...end });
+              }
+
+              break;
+            }
+
+            case SHAPE_T.ARC: {
+              const center = shape.GetCenter();
+
+              if (!aExtensionOnly) {
+                drawables.push(new CIRCLE(center, shape.GetRadius()));
+              } else {
+                // The rest of the circle is the arc through the opposite point to the midpoint
+                const arcMid = shape.GetArcMid();
+                const oppositeMid = {
+                  x: center.x + (center.x - arcMid.x),
+                  y: center.y + (center.y - arcMid.y),
+                };
+                drawables.push(new SHAPE_ARC(shape.GetStart(), oppositeMid, shape.GetEnd(), 0));
+              }
+
+              drawables.push({ ...center });
+
+              if (aIsPersistent) {
+                drawables.push({ ...shape.GetStart() }, { ...shape.GetEnd() });
+                referenceOnlyPoints.push({ ...shape.GetStart() }, { ...shape.GetEnd() });
+              }
+
+              break;
+            }
+
+            case SHAPE_T.CIRCLE:
+            case SHAPE_T.RECTANGLE:
+              drawables.push({ ...shape.GetCenter() });
+              break;
+
+            default:
+              // This shape doesn't have any construction geometry to draw
+              break;
+          }
+
+          break;
+        }
+
+        case KICAD_T.PCB_REFERENCE_IMAGE_T: {
+          const refImg = (item as unknown as PCB_REFERENCE_IMAGE).GetReferenceImage();
+          const pos = refImg.GetPosition();
+          const offset = refImg.GetTransformOriginOffset();
+
+          drawables.push({ ...pos });
+
+          if (offset.x !== 0 || offset.y !== 0)
+            drawables.push({ x: pos.x + offset.x, y: pos.y + offset.y });
+
+          for (const seg of KIGEOM_BoxToSegs(refImg.GetBoundingBox())) drawables.push(seg);
+
+          break;
+        }
+
+        default:
+          // This item doesn't have any construction geometry to draw
+          break;
+      }
+
+      // constructionDrawables can be empty, which is fine: the item is still
+      // going to be proposed for activation
+      batch.push({
+        Source: CONSTRUCTION_MANAGER_SOURCE.FROM_ITEMS,
+        Item: item,
+        Constructions: drawables.map((dr) => ({ Drawable: dr, LineWidth: 1 })),
       });
     }
 
