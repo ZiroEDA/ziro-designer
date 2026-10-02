@@ -211,9 +211,8 @@ export {
 export {
   BOARD_NETLIST_UPDATER,
   fpidsEquivalent,
-  type BoardNetlistUpdaterOptions,
-  type BoardNetlistUpdateResult,
-  type FootprintLoader,
+  type NETLIST_FOOTPRINT_LOADER,
+  type NETLIST_UPDATER_FRAME,
 } from './netlist_reader/board_netlist_updater.js';
 export {
   appendNet,

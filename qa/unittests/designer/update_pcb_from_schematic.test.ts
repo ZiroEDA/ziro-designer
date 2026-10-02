@@ -21,13 +21,8 @@ import { parse } from '@ziroeda/sexpr';
 import { Reporter, RPT_SEVERITY_ACTION } from '@ziroeda/common';
 import { formatSchematicNetlist } from '@ziroeda/eeschema/cross-probing.js';
 import { setHeadlessNetlistProvider } from '@ziroeda/pcbnew/netlist_from_schematic.js';
-import {
-  BOARD_NETLIST_UPDATER,
-  readBoard,
-  readFootprintFile,
-  serializeBoard,
-} from '@ziroeda/pcbnew';
-import type { PcbFootprint } from '@ziroeda/pcbnew';
+import { readBoard, serializeBoard } from '@ziroeda/pcbnew';
+import { libraryLoader, runLiveUpdate } from '../pcbnew/support/netlist_update_harness.js';
 import { fetchNetlistFromSchematic } from '@ziroeda/pcbnew/netlist_from_schematic.js';
 
 // The app registers the headless MAIL_SCH_GET_NETLIST answer at startup
@@ -78,14 +73,12 @@ const FILES = projectFiles();
  * - which is exactly what the board already holds, and enough to prove the updater
  * leaves an in-sync project alone.
  */
-function footprintLibrary(): Map<string, PcbFootprint> {
-  const library = new Map<string, PcbFootprint>();
+function footprintLibrary(): Map<string, string> {
+  const library = new Map<string, string>();
 
   for (const file of FILES) {
     const match = /([^/]+)\.pretty\/([^/]+)\.kicad_mod$/i.exec(file.name);
-    if (!match) continue;
-    const parsed = readFootprintFile(parse(file.text));
-    if (parsed) library.set(`${match[1]}:${match[2]}`, parsed);
+    if (match) library.set(`${match[1]}:${match[2]}`, file.text);
   }
 
   return library;
@@ -170,20 +163,14 @@ describe('BOARD_NETLIST_UPDATER over the Arduino_Uno template', () => {
   const run = (dryRun: boolean, relink = false) => {
     if (!fetched.ok) throw new Error(fetched.error);
     const board = readBoard(parse(boardText));
-    const reporter = new Reporter();
-    const updater = new BOARD_NETLIST_UPDATER(
-      board,
-      reporter,
-      (fpid) => library.get(fpid) ?? null,
-      {
-        isDryRun: dryRun,
-        // The dialog's defaults (dialog_update_pcb_base.cpp).
-        lookupByTimestamp: !relink,
-        replaceFootprints: true,
-        updateFields: true,
-      },
-    );
-    return { board, reporter, result: updater.UpdateNetlist(fetched.netlist) };
+    const { reporter, result } = runLiveUpdate(board, fetched.netlist, libraryLoader(library), {
+      isDryRun: dryRun,
+      // The dialog's defaults (dialog_update_pcb_base.cpp).
+      lookupByTimestamp: !relink,
+      replaceFootprints: true,
+      updateFields: true,
+    });
+    return { board, reporter, result };
   };
 
   const actionsOf = (reporter: Reporter): string[] =>

@@ -10,6 +10,9 @@
  * The listener is `BOARD_LISTENER` as the React side subscribes to it: every
  * notification schedules one re-derivation of the view from the BOARD.
  */
+import type { BOARD_NETLIST_UPDATER } from './netlist_reader/board_netlist_updater.js';
+import { PCB_TRACK } from './pcb_track.js';
+import { SpreadFootprints } from './autorouter/spread_footprints.js';
 import { PCB_CONTROL } from './tools/pcb_control.js';
 import { BOARD_EDITOR_CONTROL } from './tools/board_editor_control.js';
 import { PARSE_ERROR } from '@ziroeda/common/dsnlexer.js';
@@ -852,6 +855,77 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
    */
   ShowTableCellPropertiesDialog(_aCells: PCB_TABLECELL[]): Promise<boolean> {
     return Promise.resolve(true);
+  }
+
+  /**
+   * `PCB_EDIT_FRAME::OnNetlistChanged( aUpdater, aRunDragCommand )`
+   * (netlist_reader/netlist.cpp:90-164): after a real netlist update, re-sync
+   * the nets, classes and rules, repaint what shows net names, then spread the
+   * new footprints at the origin and select them for the drag that follows.
+   */
+  OnNetlistChanged(aUpdater: BOARD_NETLIST_UPDATER, aRunDragCommand: { value: boolean }): void {
+    const board = this.GetBoard()!;
+
+    this.SetMsgPanel(board);
+
+    // Re-sync nets and  netclasses
+    board.SynchronizeNetsAndNetClasses(false);
+
+    // Recompute component classes
+    board.GetComponentClassManager().InvalidateComponentClasses();
+    board.GetComponentClassManager().RebuildRequiredCaches();
+
+    // Resync DRC rules to account for new aggregate netclass / component class rules
+    try {
+      board
+        .GetDesignSettings()
+        .m_DRCEngine?.InitEngine(this.m_designRulesText, this.m_designRulesPath);
+    } catch (e) {
+      if (!(e instanceof PARSE_ERROR)) throw e;
+    }
+
+    // Update rendered track/via/pad net labels, and any text items that might reference a
+    // netName or netClass
+    const netNamesCfg = this.GetPcbNewSettings().m_Display.m_NetNames;
+
+    this.GetCanvas()
+      ?.GetView()
+      ?.UpdateAllItemsConditionally((aItem: VIEW_ITEM): number => {
+        if (aItem instanceof PCB_TRACK) {
+          if (netNamesCfg === 2 || netNamesCfg === 3) return VIEW_UPDATE_FLAGS.REPAINT;
+        } else if (aItem instanceof PAD) {
+          if (netNamesCfg === 1 || netNamesCfg === 3) return VIEW_UPDATE_FLAGS.REPAINT;
+        }
+
+        const text = aItem as unknown as Partial<EDA_TEXT>;
+
+        if (text.HasTextVars?.()) {
+          text.ClearRenderCache!();
+          text.ClearBoundingBoxCache!();
+          return VIEW_UPDATE_FLAGS.GEOMETRY | VIEW_UPDATE_FLAGS.REPAINT;
+        }
+
+        return 0;
+      });
+
+    // Spread new footprints.
+    const newFootprints = aUpdater.GetAddedFootprints();
+
+    this.GetToolManager()!.RunAction(ACTIONS.selectionClear);
+
+    SpreadFootprints(newFootprints, { x: 0, y: 0 }, true);
+
+    // Start drag command for new footprints
+    if (newFootprints.length > 0) {
+      const items: EDA_ITEM[] = [...newFootprints];
+      this.GetToolManager()!.RunAction(ACTIONS.selectItems, items);
+
+      aRunDragCommand.value = true;
+    }
+
+    this.Compile_Ratsnest(true);
+
+    this.GetCanvas()?.Refresh();
   }
 
   override ShowPasteSpecialDialog(

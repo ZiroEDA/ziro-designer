@@ -10,6 +10,7 @@
  * viewer pipeline, layer/object controls and presets are fully functional.
  */
 
+import { ParseFootprintFile } from './pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import type { OutStr } from '@ziroeda/common/eda_item.js';
 import { type ARC_EDIT_MODE, FRAME_T } from '@ziroeda/common/frame_type.js';
 import type { KIWAY } from '@ziroeda/common/kiway.js';
@@ -127,7 +128,6 @@ import {
   booleanableShapeCount,
   type SelectionFilter,
   BOARD_NETLIST_UPDATER,
-  spreadBoardFootprints,
   type NETLIST,
   fillZones,
   zoneClearanceOf,
@@ -722,7 +722,6 @@ import { FetchNetlistFromSchematic } from './netlist_from_schematic.js';
 import { LIB_ID } from '@ziroeda/common/lib_id.js';
 import type { BOARD_EDITOR_CONTROL } from './tools/board_editor_control.js';
 import type { FOOTPRINT } from './footprint.js';
-import { parseFootprint } from './footprint_edit_frame.js';
 import {
   buildScene,
   drawBoard,
@@ -2881,7 +2880,7 @@ export function PcbEditor({
   // libraries have to be in hand first (upstream's adapter->BlockUntilLoaded).
   const [updatePcb, setUpdatePcb] = useState<{
     netlist: NETLIST;
-    library: Map<string, PcbFootprint>;
+    library: Map<string, FOOTPRINT>;
   } | null>(null);
   const [updatePcbBusy, setUpdatePcbBusy] = useState(false);
   // File > Import > Netlist... (DIALOG_IMPORT_NETLIST): the path it opens on is
@@ -4697,7 +4696,11 @@ export function PcbEditor({
     async (
       netlist: NETLIST,
       files: readonly { name: string; text: string }[],
-    ): Promise<Map<string, PcbFootprint>> => {
+    ): Promise<Map<string, FOOTPRINT>> => {
+      const frame = frameRef.current;
+      const library = new Map<string, FOOTPRINT>();
+      if (!frame) return library;
+
       // Project-local `.kicad_mod` files, keyed by "<pretty dir>:<name>".
       const projectFootprints = new Map<string, string>();
       for (const file of files) {
@@ -4712,24 +4715,42 @@ export function PcbEditor({
         if (fpid !== '') wanted.add(fpid);
       }
 
-      const library = new Map<string, PcbFootprint>();
       await Promise.all(
         [...wanted].map(async (fpid) => {
           const local = projectFootprints.get(fpid);
           if (local) {
-            const parsed = parseFootprint(local);
-            if (parsed) {
-              library.set(fpid, parsed);
+            try {
+              // `PCB_BASE_FRAME::loadFootprint`'s tail: nets cleared, the
+              // board's default styles applied.
+              const fp = ParseFootprintFile(local);
+              const id = new LIB_ID();
+              id.Parse(fpid, true);
+              fp.SetFPID(id);
+              fp.ClearAllNets();
+              const bds = frame.GetBoard()!.GetDesignSettings();
+              fp.ApplyDefaultSettings(
+                frame.GetBoard()!,
+                bds.m_StyleFPFields,
+                bds.m_StyleFPText,
+                bds.m_StyleFPShapes,
+                bds.m_StyleFPDimensions,
+                bds.m_StyleFPBarcodes,
+              );
+              library.set(fpid, fp);
               return;
+            } catch {
+              // not a footprint: fall through to the libraries
             }
           }
-          const fromLibrary = await loadFootprint(fpid);
+          const id = new LIB_ID();
+          id.Parse(fpid, true);
+          const fromLibrary = await frame.LoadFootprint(id);
           if (fromLibrary) library.set(fpid, fromLibrary);
         }),
       );
       return library;
     },
-    [loadFootprint],
+    [],
   );
 
   /**
@@ -4782,57 +4803,65 @@ export function PcbEditor({
    */
   const runNetlistUpdate = useCallback(
     (
-      data: { netlist: NETLIST; library: Map<string, PcbFootprint> },
+      data: { netlist: NETLIST; library: Map<string, FOOTPRINT> },
       options: UpdatePcbOptions,
       dryRun: boolean,
     ): readonly ReportLine[] => {
-      const brd = boardRef.current;
-      if (!brd) return [];
+      const frame = frameRef.current;
+      const board = frame?.GetBoard();
+      if (!frame || !board) return [];
 
       const reporter = new Reporter();
-      const updater = new BOARD_NETLIST_UPDATER(
-        brd,
-        reporter,
-        (fpid) => {
-          const direct = data.library.get(fpid);
-          if (direct) return direct;
-          if (fpid.includes(':')) return null;
-          for (const key of [...data.library.keys()].sort()) {
-            if (key.slice(key.indexOf(':') + 1) === fpid) return data.library.get(key) ?? null;
-          }
-          return null;
-        },
-        {
-          isDryRun: dryRun,
-          // SetFindByTimeStamp( !relink ) / SetLookupByTimestamp( !relink ).
-          lookupByTimestamp: !options.relinkFootprints,
-          replaceFootprints: options.updateFootprints,
-          deleteUnusedFootprints: options.deleteExtraFootprints,
-          overrideLocks: options.overrideLocks,
-          updateFields: options.updateFields,
-          removeExtraFields: options.removeExtraFields,
-          transferGroups: options.transferGroups,
-        },
-      );
 
-      const result = updater.UpdateNetlist(data.netlist);
+      // `m_netlist->SetFindByTimeStamp( !relink ); SetReplaceFootprints( update )`.
+      data.netlist.SetFindByTimeStamp(!options.relinkFootprints);
+      data.netlist.SetReplaceFootprints(options.updateFootprints);
 
       if (!dryRun) {
-        const spread =
-          result.addedFootprints.length > 0
-            ? spreadBoardFootprints(result.board, result.addedFootprints)
-            : result.board;
-        commitBoard(spread);
-        const added = new Set(result.addedFootprints.map((i) => boardItemId('footprint', i)));
-        setSelectionRef.current(added);
+        frame.GetToolManager()?.DeactivateTool();
+        frame.GetToolManager()?.RunAction(ACTIONS.selectionClear);
+      }
+
+      // `m_frame->LoadFootprint( aFootprintId )`, from what was loaded before
+      // the dialog opened; a bare name searches the libraries alphabetically,
+      // as LoadFootprintWithOptionalNickname does. Each call is a new copy.
+      const loader = (aFpid: LIB_ID): FOOTPRINT | null => {
+        const key = aFpid.Format();
+        let proto = data.library.get(key) ?? null;
+        if (!proto && aFpid.IsLegacy()) {
+          for (const k of [...data.library.keys()].sort()) {
+            if (k.slice(k.indexOf(':') + 1) === aFpid.GetLibItemName()) {
+              proto = data.library.get(k) ?? null;
+              break;
+            }
+          }
+        }
+        return proto ? (proto.Duplicate(false) as FOOTPRINT) : null;
+      };
+
+      const updater = new BOARD_NETLIST_UPDATER(frame, board, loader);
+      updater.SetReporter(reporter);
+      updater.SetIsDryRun(dryRun);
+      updater.SetLookupByTimestamp(!options.relinkFootprints);
+      updater.SetDeleteUnusedFootprints(options.deleteExtraFootprints);
+      updater.SetReplaceFootprints(options.updateFootprints);
+      updater.SetTransferGroups(options.transferGroups);
+      updater.SetOverrideLocks(options.overrideLocks);
+      updater.SetUpdateFields(options.updateFields);
+      updater.SetRemoveExtraFields(options.removeExtraFields);
+      updater.UpdateNetlist(data.netlist);
+
+      if (!dryRun) {
+        const runDragCommand = { value: false };
+        frame.OnNetlistChanged(updater, runDragCommand);
         // `*aRunDragCommand = true` (`netlist.cpp:152`), acted on by the dialog's
         // destructor: the spread cluster follows the cursor until you click.
-        startPostUpdateMoveRef.current(added);
+        if (runDragCommand.value) startPostUpdateMoveRef.current();
       }
 
       return reporter.lines;
     },
-    [commitBoard],
+    [],
   );
 
   const performNetlistUpdate = useCallback(
@@ -7879,12 +7908,13 @@ export function PcbEditor({
    * A ref because the update handler is a `useCallback`; the selection it
    * writes is the selection tool's, and the move is EDIT_TOOL's.
    */
-  const startPostUpdateMoveRef = useRef<(sel: ReadonlySet<string>) => void>(() => {});
-  startPostUpdateMoveRef.current = (sel) => {
+  const startPostUpdateMoveRef = useRef<() => void>(() => {});
+  startPostUpdateMoveRef.current = () => {
     const frame = frameRef.current;
-    if (sel.size === 0 || !frame) return;
-    setSelectionRef.current(sel);
-    frame.GetSelectionTool().GetSelection().SetReferencePoint({ x: 0, y: 0 });
+    if (!frame) return;
+    const selection = frame.GetSelectionTool().GetSelection();
+    if (selection.Size() === 0) return;
+    selection.SetReferencePoint({ x: 0, y: 0 });
     frame.GetToolManager()?.PostAction(PCB_ACTIONS.move);
   };
 
