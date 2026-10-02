@@ -384,6 +384,46 @@ describe('the branches that need the rule engine', () => {
     expect(sizes.widthSource).toBe("rule 'wide'");
   });
 
+  it("queries the rules on the start item's layer (m_startLayer, cpp:1104)", () => {
+    const iface = new PNS_KICAD_IFACE(
+      boardWithRules('(version 1)(rule back (layer "B.Cu") (constraint track_width (opt 0.6mm)))'),
+      { designSettings: designSettings() },
+    );
+    const node = new PnsNode();
+    node.beginBulkAdd();
+    iface.syncWorld(node);
+    node.finalizeBulkAdd();
+
+    const seg = new PnsSegment({ a: { x: 0, y: 0 }, b: { x: MM(10), y: 0 } }, null);
+    seg.setLayer(1);
+
+    const sizes: PnsRouterSizes = { ...DEFAULT_ROUTER_SIZES };
+    iface.importSizes(sizes, seg, null, { x: 0, y: 0 });
+
+    expect(sizes.trackWidth).toBe(MM(0.6));
+    expect(sizes.widthSource).toBe("rule 'back'");
+  });
+
+  it('a rule for another layer does not reach a start on B.Cu', () => {
+    const iface = new PNS_KICAD_IFACE(
+      boardWithRules('(version 1)(rule front (layer "F.Cu") (constraint track_width (opt 0.6mm)))'),
+      { designSettings: designSettings() },
+    );
+    const node = new PnsNode();
+    node.beginBulkAdd();
+    iface.syncWorld(node);
+    node.finalizeBulkAdd();
+
+    const seg = new PnsSegment({ a: { x: 0, y: 0 }, b: { x: MM(10), y: 0 } }, null);
+    seg.setLayer(1);
+
+    const sizes: PnsRouterSizes = { ...DEFAULT_ROUTER_SIZES };
+    iface.importSizes(sizes, seg, null, { x: 0, y: 0 });
+
+    expect(sizes.widthSource).not.toBe("rule 'front'");
+    expect(sizes.trackWidth).not.toBe(MM(0.6));
+  });
+
   it('does NOT name a rule whose optimum lost to the board minimum', () => {
     // `trackWidth = std::max( trackWidth, opt ); if( trackWidth == opt ) …`
     // A rule asking for less than the board allows does not get the credit for

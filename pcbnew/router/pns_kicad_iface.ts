@@ -354,6 +354,45 @@ export interface PnsDesignSettings {
 }
 
 /**
+ * `m_board->GetDesignSettings()` as `ImportSizes` reads it: every member a
+ * getter over the live BOARD_DESIGN_SETTINGS, so a toolbar choice made after
+ * the interface was built is the one the next route uses, as upstream's read of
+ * the board at `ImportSizes` time is.
+ */
+export function PnsDesignSettingsFromBds(aBds: BOARD_DESIGN_SETTINGS): PnsDesignSettings {
+  return {
+    get minClearance() {
+      return aBds.m_MinClearance;
+    },
+    get trackMinWidth() {
+      return aBds.m_TrackMinWidth;
+    },
+    get viasMinSize() {
+      return aBds.m_ViasMinSize;
+    },
+    get minThroughDrill() {
+      return aBds.m_MinThroughDrill;
+    },
+    get holeToHoleMin() {
+      return aBds.m_HoleToHoleMin;
+    },
+    get useConnectedTrackWidth() {
+      return aBds.m_UseConnectedTrackWidth;
+    },
+    get tempOverrideTrackWidth() {
+      return aBds.m_TempOverrideTrackWidth;
+    },
+    sizes: aBds,
+    get useHeightForLengthCalcs() {
+      return aBds.m_UseHeightForLengthCalcs;
+    },
+    get stackup() {
+      return aBds.GetStackupDescriptor();
+    },
+  };
+}
+
+/**
  * `PNS_KICAD_IFACE_BASE` + `PNS_KICAD_IFACE`, on the live BOARD.
  *
  * `SyncWorld` builds the router's world from the board's items; `AddItem`,
@@ -381,6 +420,29 @@ export class PNS_KICAD_IFACE implements PnsRouterIface, ROUTER_PREVIEW_IFACE {
     this.mDeps = aDeps;
     this.m_commit = aDeps.commitHost ? new BOARD_COMMIT(aDeps.commitHost as PCB_BASE_FRAME) : null;
     if (aDeps.view) this.SetView(aDeps.view);
+  }
+
+  /**
+   * `m_startLayer` (pns_kicad_iface.h:140), the route's starting layer in PNS
+   * layer coordinates; -1 until set, as the constructor leaves it (cpp:1585).
+   */
+  private m_startLayer = -1;
+  /** `m_commitFlags` (cpp:1594), OR'd into each `Commit()`'s push. */
+  private m_commitFlags = 0;
+
+  /** `SetStartLayerFromPCBNew( PCB_LAYER_ID )` (cpp:3070). */
+  SetStartLayerFromPCBNew(aLayer: PCB_LAYER_ID): void {
+    this.m_startLayer = this.GetPNSLayerFromBoardLayer(aLayer);
+  }
+
+  /** `SetStartLayerFromPNS( int )` (pns_kicad_iface.h:107). */
+  SetStartLayerFromPNS(aLayer: number): void {
+    this.m_startLayer = aLayer;
+  }
+
+  /** `SetCommitFlags( int )` (pns_kicad_iface.h). */
+  SetCommitFlags(aCommitFlags: number): void {
+    this.m_commitFlags = aCommitFlags;
   }
 
   /** `m_view` and `m_previewItems`. */
@@ -1297,7 +1359,12 @@ export class PNS_KICAD_IFACE implements PnsRouterIface, ROUTER_PREVIEW_IFACE {
       if (d1 < d0) startAnchor = 1;
     }
 
-    const startLayer = aStartItem ? aStartItem.layer() : 0;
+    // `if( aStartItem && m_startLayer < 0 ) m_startLayer = aStartItem->Layer();`
+    // (cpp:1104). Every read below is behind an `aStartItem` test, so the -1 of
+    // an unset layer never reaches the rule engine.
+    if (aStartItem && this.m_startLayer < 0) this.m_startLayer = aStartItem.layer();
+
+    const startLayer = this.m_startLayer;
 
     /** `PNS::SEGMENT dummyTrack` on the start anchor, for the rule engine. */
     const dummyTrack = (aNet: NetHandle, aAnchor = startAnchor): PnsSegment => {
@@ -1873,7 +1940,7 @@ export class PNS_KICAD_IFACE implements PnsRouterIface, ROUTER_PREVIEW_IFACE {
 
     if (!commit.Empty()) this.m_pushedCommits++;
 
-    commit.Push('Routing', SKIP_ENTERED_GROUP);
+    commit.Push('Routing', this.m_commitFlags | SKIP_ENTERED_GROUP);
     this.m_commit = new BOARD_COMMIT(this.mDeps.commitHost as PCB_BASE_FRAME);
   }
 

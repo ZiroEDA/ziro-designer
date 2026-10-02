@@ -594,11 +594,6 @@ const CANVAS_KEYS: Readonly<
     kept: [
       // ACTIONS::highContrastModeCycle, no row.
       ['H contrast cycle', /e\.key === 'h' \|\| e\.key === 'H'/],
-      // ROUTER_TOOL's place-a-via-and-switch-layer, and the clearest context
-      // action in the app: it claims V only while a route is in progress.
-      // `routeRef` until 8b83d6b3 retired route_tool.ts; the session the key
-      // asks about is the PNS one now, and the branch is otherwise the same.
-      ['V while routing', /e\.key === 'v' \|\| e\.key === 'V'\) && pnsSessionRef\.current/],
       ['R rotate', /runAction\(e\.shiftKey \? PCB_ACTIONS\.rotateCw : PCB_ACTIONS\.rotateCcw\)/],
       ['M move', /runAction\(PCB_ACTIONS\.move\)/],
       ['G drag free angle', /runAction\(PCB_ACTIONS\.dragFreeAngle\)/],

@@ -22,26 +22,46 @@
  *   currently being dragged.
  * - {@link snapToItem} (cpp:445-515) — where on the item to snap.
  *
- * Deliberately not ported: the ctor/dtor, `Reset` (they own the iface, the
- * router and the grid helper), `highlightNets`, `updateStartItem`,
- * `updateEndItem`, and the two trivial accessors. All are wx-side.
- *
- * The wx dependencies the three ported methods do have — `PCB_GRID_HELPER`,
- * the view's top layer, the high-contrast display option, the magnetic
- * settings — become small explicit inputs rather than a frame pointer.
+ * The class itself, {@link PNS_TOOL_BASE}, is at the end: `Reset` builds the
+ * interface, the router and the grid helper on the live BOARD, and
+ * `updateStartItem` / `updateEndItem` / `highlightNets` are the event half the
+ * three functions above serve.
  *
  * See `/var/tmp/ziro-router-specs/pns_router_impl.md` §20.
  */
 
 import { PnsKind } from './pns_item.js';
 import { PnsLinkedItem } from './pns_item.js';
+import { HIGH_CONTRAST_MODE } from '@ziroeda/common/project/board_project_settings.js';
+import { RESET_REASON } from '@ziroeda/common/tool/tool_base.js';
+import { MD_CTRL, MD_SHIFT, type TOOL_EVENT } from '@ziroeda/common/tool/tool_event.js';
+import { CornerMode } from '@ziroeda/kimath/src/geometry/direction45.js';
+import { GetClampedCoords } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
+import type { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import type { EDA_GROUP } from '@ziroeda/common/eda_group.js';
+import type { VIEW_CONTROLS } from '@ziroeda/common/view/view_controls.js';
+import type { PCB_BASE_FRAME } from '../pcb_base_frame.js';
+import type { BOARD } from '../board.js';
+import { PCB_GRID_HELPER } from '../tools/pcb_grid_helper.js';
+import { PCB_TOOL_BASE } from '../tools/pcb_tool_base.js';
+import { pcbnewLiveSettings } from '../browser/pcbnew_live_settings.js';
+import { PNS_KICAD_IFACE, PnsDesignSettingsFromBds } from './pns_kicad_iface.js';
+import { PnsLinePlacer, type PnsRouterLike } from './pns_line_placer.js';
+import { PnsDiffPairPlacer } from './pns_diff_pair_placer.js';
+import { PnsShove, type PnsShoveSettings } from './pns_shove.js';
+import { DEFAULT_ROUTER_SIZES, PnsRouter, type PnsRouterSizes } from './pns_router.js';
+import type { PnsNode } from './pns_node.js';
+import { readRoutingSettings, type RoutingSettings } from './pns_routing_settings.js';
 import { PnsDragger } from './pns_dragger.js';
+import { PnsComponentDragger } from './pns_component_dragger.js';
+import { PnsMultiDragger } from './pns_multi_dragger.js';
+import { makePnsRouterHost, type PnsRouterHost } from './pns_drag_algo.js';
 import { PnsMode } from './pns_routing_settings.js';
 import { PnsRouterState } from './pns_router.js';
 import { shapeBBox, shapeDist } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 import type { NetHandle } from './pns_item.js';
 import type { PnsItem } from './pns_item.js';
-import type { PnsRouter, PnsRouterIface } from './pns_router.js';
+import type { PnsRouterIface } from './pns_router.js';
 import type { PnsSegment } from './pns_segment.js';
 import type { PnsSolid } from './pns_solid.js';
 import type { PnsVia } from './pns_via.js';
@@ -49,7 +69,7 @@ import type { Seg } from './pns_line.js';
 import type { Shape } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { GRID_HELPER_GRIDS } from '@ziroeda/common/tool/grid_helper.js';
-import type { PCB_GRID_HELPER } from '../tools/pcb_grid_helper.js';
+import { MAGNETIC_OPTIONS } from '../pcbnew_settings.js';
 
 /**
  * `TOOL_BASE::COORDS_PADDING` — `pcbIUScale.mmToIU( 20 )`, i.e. 20 mm in
@@ -59,17 +79,10 @@ import type { PCB_GRID_HELPER } from '../tools/pcb_grid_helper.js';
  */
 export const PNS_COORDS_PADDING = 20_000_000;
 
-/** `MAGNETIC_OPTIONS` — `pcbnew/pcbnew_settings.h:53-58`. */
-export enum PnsMagneticOption {
-  NO_EFFECT = 0,
-  CAPTURE_CURSOR_IN_TRACK_TOOL = 1,
-  CAPTURE_ALWAYS = 2,
-}
-
 /** The two `MAGNETIC_SETTINGS` fields `checkSnap` reads. */
 export interface PnsMagneticSettings {
-  pads: PnsMagneticOption;
-  tracks: PnsMagneticOption;
+  pads: MAGNETIC_OPTIONS;
+  tracks: MAGNETIC_OPTIONS;
 }
 
 /**
@@ -325,12 +338,12 @@ export function checkSnap(aCtx: PnsSnapContext, aItem: PnsItem | null): boolean 
   const magSettings = aCtx.magnetic;
 
   pnss.snapToPads =
-    magSettings.pads === PnsMagneticOption.CAPTURE_CURSOR_IN_TRACK_TOOL ||
-    magSettings.pads === PnsMagneticOption.CAPTURE_ALWAYS;
+    magSettings.pads === MAGNETIC_OPTIONS.CAPTURE_CURSOR_IN_TRACK_TOOL ||
+    magSettings.pads === MAGNETIC_OPTIONS.CAPTURE_ALWAYS;
 
   pnss.snapToTracks =
-    magSettings.tracks === PnsMagneticOption.CAPTURE_CURSOR_IN_TRACK_TOOL ||
-    magSettings.tracks === PnsMagneticOption.CAPTURE_ALWAYS;
+    magSettings.tracks === MAGNETIC_OPTIONS.CAPTURE_CURSOR_IN_TRACK_TOOL ||
+    magSettings.tracks === MAGNETIC_OPTIONS.CAPTURE_ALWAYS;
 
   if (aItem) {
     if (aItem.ofKind(PnsKind.VIA_T | PnsKind.SEGMENT_T | PnsKind.ARC_T)) return pnss.snapToTracks;
@@ -431,4 +444,391 @@ export function snapToItem(
   }
 
   return aCtx.grid.Align(aP, gridFor());
+}
+
+/**
+ * `ROUTING_SETTINGS` as `SHOVE` reads it.
+ *
+ * `pns_shove.ts` declares its own settings type and says so: it was written
+ * before `RoutingSettings` was ported and left the field names identical so the
+ * bridge would be this and nothing more. Two of them are not straight copies —
+ * `SMART_PADS` is only enabled in the 45° corner modes (`ROUTER_TOOL` gates it
+ * the same way), and `cornerMode45` is that test rather than the mode itself.
+ */
+export function shoveSettingsFrom(aSettings: RoutingSettings): PnsShoveSettings {
+  const cornerMode45 =
+    aSettings.cornerMode === CornerMode.MITERED_45 ||
+    aSettings.cornerMode === CornerMode.ROUNDED_45;
+
+  return {
+    shoveIterationLimit: aSettings.shoveIterationLimit,
+    shoveTimeLimit: aSettings.shoveTimeLimit,
+    shoveVias: aSettings.shoveVias,
+    jumpOverObstacles: aSettings.jumpOverObstacles,
+    walkaroundIterationLimit: aSettings.walkaroundIterationLimit,
+    optimizerEffort: aSettings.optimizerEffort,
+    smartPads: aSettings.smartPads,
+    cornerMode45,
+  };
+}
+
+/**
+ * `new ROUTER` (pns_router.cpp:63-79), with the placers `ROUTER::SetMode` and
+ * `StartRouting` build.
+ *
+ * Upstream's router news its placers itself; here they are a factory because
+ * `PnsRouter` cannot import them without a cycle — `pns_shove.ts` reaches back
+ * into the router's world. The shove reads the router's settings when it is
+ * made, as upstream's reads `Settings()` when it runs, so a corner mode changed
+ * mid-route reaches the next shove.
+ */
+export function newPnsRouter(): PnsRouter {
+  return new PnsRouter({
+    factory: {
+      linePlacer: (r) => {
+        const host: PnsRouterLike = {
+          getInterface: () => r.getInterface() as never,
+          getWorld: () => r.world(),
+          settings: () => r.settings(),
+          commitRouting: (aNode: PnsNode) => r.commitRouting(aNode),
+          makeShove: (aWorld: PnsNode) => new PnsShove(aWorld, shoveSettingsFrom(r.settings())),
+        };
+
+        return new PnsLinePlacer(host) as never;
+      },
+      // `ROUTER::StartDragging`'s three `new …DRAGGER( this )`.
+      dragger: (r) => new PnsDragger(draggerHost(r)),
+      componentDragger: (r) => new PnsComponentDragger(draggerHost(r)),
+      multiDragger: (r) => new PnsMultiDragger(draggerHost(r)),
+      diffPairPlacer: (r) =>
+        new PnsDiffPairPlacer({
+          world: () => r.world(),
+          settings: () => r.settings(),
+          setFailureReason: (reason: string) => r.setFailureReason(reason),
+          commitRouting: (aNode: PnsNode) => r.commitRouting(aNode),
+        }) as never,
+    },
+  });
+}
+
+/** What a dragger asks its ROUTER for. */
+function draggerHost(aRouter: PnsRouter): PnsRouterHost {
+  return makePnsRouterHost({
+    settings: () => aRouter.settings(),
+    commitRouting: (aNode: PnsNode) => {
+      aRouter.commitRouting(aNode);
+    },
+    setFailureReason: (aReason: string) => aRouter.setFailureReason(aReason),
+  });
+}
+
+/** `SIZES_SETTINGS`' copy constructor: a value copy, its layer-pair map included. */
+export function copySizes(aSizes: PnsRouterSizes): PnsRouterSizes {
+  return { ...aSizes, layerPairs: new Map(aSizes.layerPairs ?? []) };
+}
+
+/**
+ * `PNS::TOOL_BASE` — pns_tool_base.{h,cpp}: what `ROUTER_TOOL` and the length
+ * tuner share. It owns the interface, the router and the grid helper, rebuilt
+ * on every `Reset( RUN )`, and the start/end item and snap point the event
+ * loops read.
+ */
+export abstract class PNS_TOOL_BASE extends PCB_TOOL_BASE {
+  /** `COORDS_PADDING` — `pcbIUScale.mmToIU( 20 )`. */
+  static readonly COORDS_PADDING = PNS_COORDS_PADDING;
+
+  /** `m_savedSizes`: the sizes kept across a `Reset`. */
+  protected m_savedSizes: PnsRouterSizes = copySizes(DEFAULT_ROUTER_SIZES);
+
+  protected m_startItem: PnsItem | null = null;
+  protected m_startSnapPoint: Vec2 = { x: 0, y: 0 };
+
+  protected m_endItem: PnsItem | null = null;
+  protected m_endSnapPoint: Vec2 = { x: 0, y: 0 };
+
+  protected m_gridHelper: PCB_GRID_HELPER | null = null;
+  protected m_iface: PNS_KICAD_IFACE | null = null;
+  protected m_router: PnsRouter | null = null;
+  protected m_cancelled = false;
+
+  /** `m_startHighlightNetcodes`: the highlight to restore when routing ends. */
+  private m_startHighlightNetcodes = new Set<number>();
+
+  /** `TOOL_BASE::Reset` (pns_tool_base.cpp:72-107). */
+  override Reset(aReason: RESET_REASON): void {
+    // `delete m_router; delete m_iface;` — m_router first, as its NODE dtor
+    // needs the interface's rule resolver.
+    this.m_router?.dispose();
+    this.m_iface?.Dispose();
+
+    if (aReason === RESET_REASON.SHUTDOWN) {
+      this.m_gridHelper = null;
+      this.m_router = null;
+      this.m_iface = null;
+      return;
+    }
+
+    const frame = this.frame<PCB_BASE_FRAME>();
+    const view = this.getView();
+
+    // A frame resets its tools before a board is bound (`InitTools` runs from
+    // `setupTools`). Upstream builds the router regardless and its `SyncWorld`
+    // returns early on a null board (pns_kicad_iface.cpp, `if( !m_board )`);
+    // this interface needs the board to exist, so the router waits for the
+    // `Reset( RUN )` that comes with one.
+    if (!this.getModel<BOARD>()) {
+      this.m_router = null;
+      this.m_iface = null;
+      this.m_gridHelper = null;
+      return;
+    }
+
+    // m_iface->SetBoard( board() ); SetView( getView() ); SetHostTool( this );
+    this.m_iface = new PNS_KICAD_IFACE(this.board(), {
+      isLayerVisible: view
+        ? (aLayer: string) => view.IsLayerVisible(this.board().GetLayerID(aLayer))
+        : undefined,
+      designSettings: PnsDesignSettingsFromBds(this.board().GetDesignSettings()),
+      view,
+      trackClearanceMode: () => frame.GetPcbNewSettings().m_Display.m_TrackClearance,
+      commitHost: this,
+      enteredGroup: () => this.enteredGroup(),
+    });
+
+    this.m_router = newPnsRouter();
+    this.m_router.setInterface(this.m_iface as unknown as PnsRouterIface);
+    this.m_router.clearWorld();
+    this.m_router.syncWorld();
+
+    this.m_router.updateSizes(copySizes(this.m_savedSizes));
+
+    const settings = frame.GetPcbNewSettings();
+
+    // `std::make_unique<ROUTING_SETTINGS>( settings, "tools.pns" )`: the
+    // NESTED_SETTINGS loads itself from pcbnew.json's `tools.pns` block.
+    if (!settings.m_PnsSettings)
+      settings.m_PnsSettings = readRoutingSettings(pcbnewLiveSettings().tools.pns);
+
+    this.m_router.loadSettings(settings.m_PnsSettings);
+
+    this.m_gridHelper = new PCB_GRID_HELPER(
+      this.m_toolMgr!,
+      frame.GetMagneticItemsSettings() as never,
+    );
+  }
+
+  /** `PCB_SELECTION_TOOL::GetEnteredGroup()`, by name to keep the import graph acyclic. */
+  private enteredGroup(): EDA_GROUP | null {
+    const selTool = this.m_toolMgr?.FindTool('common.InteractiveSelection') as unknown as {
+      GetEnteredGroup(): EDA_GROUP | null;
+    } | null;
+
+    return selTool?.GetEnteredGroup() ?? null;
+  }
+
+  /** `PCB_TOOL_BASE::controls()`: the view controls, as the C++ types them. */
+  protected controls(): VIEW_CONTROLS {
+    return this.getViewControls() as unknown as VIEW_CONTROLS;
+  }
+
+  /** `Router()`. */
+  Router(): PnsRouter | null {
+    return this.m_router;
+  }
+
+  /** `GetInterface()`. */
+  GetInterface(): PNS_KICAD_IFACE | null {
+    return this.m_iface;
+  }
+
+  /** `TOOL_BASE::pickSingleItem` on this tool's router, view and grid. */
+  protected pickSingleItem(
+    aWhere: Vec2,
+    aNet: NetHandle = null,
+    aLayer = -1,
+    aIgnorePads = false,
+    aAvoidItems: readonly PnsItem[] = [],
+  ): PnsItem | null {
+    const grid = this.m_gridHelper!.GetGrid();
+    const frame = this.frame<PCB_BASE_FRAME>();
+
+    return pickSingleItem(
+      {
+        router: this.m_router!,
+        iface: this.m_iface as unknown as PnsRouterIface,
+        topLayer: this.m_iface!.GetPNSLayerFromBoardLayer(
+          this.getView()!.GetTopLayer() as PCB_LAYER_ID,
+        ),
+        maxSlopRadius: Math.max(grid.x, grid.y),
+        highContrast: frame.GetDisplayOptions().m_ContrastModeDisplay !== HIGH_CONTRAST_MODE.NORMAL,
+      },
+      aWhere,
+      aNet,
+      aLayer,
+      aIgnorePads,
+      aAvoidItems,
+    );
+  }
+
+  /** `TOOL_BASE::checkSnap` with the frame's magnetic settings. */
+  protected checkSnap(aItem: PnsItem | null): boolean {
+    const mag = this.frame<PCB_BASE_FRAME>().GetMagneticItemsSettings();
+
+    return checkSnap(
+      {
+        router: this.m_router!,
+        magnetic: { pads: mag.pads, tracks: mag.tracks },
+        startItem: this.m_startItem,
+      },
+      aItem,
+    );
+  }
+
+  /** `TOOL_BASE::snapToItem`. */
+  protected snapToItem(aItem: PnsItem | null, aP: Vec2): Vec2 {
+    return snapToItem(
+      {
+        router: this.m_router!,
+        iface: this.m_iface as unknown as PnsRouterIface,
+        grid: this.m_gridHelper!,
+      },
+      aItem,
+      aP,
+    );
+  }
+
+  /** `TOOL_BASE::highlightNets` (pns_tool_base.cpp:253-293). */
+  protected highlightNets(aEnabled: boolean, aNets: ReadonlySet<NetHandle> = new Set()): void {
+    const view = this.getView();
+
+    if (!view) return;
+
+    const rs = view.GetPainter()!.GetSettings();
+    const netcodes = new Set<number>();
+
+    for (const net of aNets) netcodes.add(this.m_router!.getInterface()!.getNetCode(net));
+
+    if (netcodes.size > 0 && aEnabled) {
+      // If the user has previously set some of the routed nets to be highlighted,
+      // we assume they want to keep them highlighted after routing
+      const currentNetCodes = rs.GetHighlightNetCodes();
+      let keep = false;
+
+      for (const netcode of netcodes) {
+        if (currentNetCodes.has(netcode)) {
+          keep = true;
+          break;
+        }
+      }
+
+      if (rs.IsHighlightEnabled() && keep) this.m_startHighlightNetcodes = new Set(currentNetCodes);
+      else this.m_startHighlightNetcodes.clear();
+
+      rs.SetHighlight(netcodes, true);
+    } else {
+      rs.SetHighlight(this.m_startHighlightNetcodes, this.m_startHighlightNetcodes.size > 0);
+    }
+
+    // Do not remove this call.  This is required to update the layers when we highlight a net.
+    // In this case, highlighting a net dims all other elements, so the colors need to update
+    view.UpdateAllLayersColor();
+  }
+
+  /** `TOOL_BASE::updateStartItem` (pns_tool_base.cpp:332-364). */
+  protected updateStartItem(aEvent: TOOL_EVENT, aIgnorePads = false): void {
+    const tl = this.m_iface!.GetPNSLayerFromBoardLayer(
+      this.getView()!.GetTopLayer() as PCB_LAYER_ID,
+    );
+    const gal = this.m_toolMgr!.GetView()!.GetGAL()!;
+    const controls = this.controls();
+    let pos = aEvent.HasPosition() ? aEvent.Position() : this.m_startSnapPoint;
+
+    pos = GetClampedCoords(pos, PNS_COORDS_PADDING);
+
+    if (aEvent.Modifier(MD_CTRL) && aEvent.Modifier(MD_SHIFT)) {
+      this.m_startItem = null;
+      this.m_startSnapPoint = controls.GetMousePosition();
+      controls.ForceCursorPosition(true, this.m_startSnapPoint);
+      return;
+    }
+
+    controls.ForceCursorPosition(false);
+    this.m_gridHelper!.SetUseGrid(gal.GetGridSnapping() && !aEvent.DisableGridSnapping());
+    this.m_gridHelper!.SetSnap(!aEvent.Modifier(MD_SHIFT));
+
+    this.m_startItem = this.pickSingleItem(pos, null, -1, aIgnorePads);
+
+    if (
+      !this.m_gridHelper!.GetUseGrid() &&
+      this.m_startItem &&
+      !this.m_startItem.layers().overlaps(tl)
+    )
+      this.m_startItem = null;
+
+    this.m_startSnapPoint = this.snapToItem(this.m_startItem, pos);
+    controls.ForceCursorPosition(true, this.m_startSnapPoint);
+  }
+
+  /** `TOOL_BASE::updateEndItem` (pns_tool_base.cpp:367-430). */
+  protected updateEndItem(aEvent: TOOL_EVENT): void {
+    const gal = this.m_toolMgr!.GetView()!.GetGAL()!;
+    const controls = this.controls();
+    const router = this.m_router!;
+
+    this.m_gridHelper!.SetUseGrid(gal.GetGridSnapping() && !aEvent.DisableGridSnapping());
+    this.m_gridHelper!.SetSnap(!aEvent.Modifier(MD_SHIFT));
+
+    controls.ForceCursorPosition(false);
+
+    let mousePos = GetClampedCoords(controls.GetMousePosition(), PNS_COORDS_PADDING);
+
+    if (router.getState() === PnsRouterState.ROUTE_TRACK && aEvent.IsDrag()) {
+      // If the user is moving the mouse quickly while routing then clicks will come in as
+      // short drags.  In this case we want to use the drag origin rather than the current
+      // mouse position.
+      mousePos = aEvent.DragOrigin();
+    }
+
+    const nets = router.getCurrentNets();
+
+    if (
+      router.settings().routingMode !== PnsMode.RM_MarkObstacles &&
+      (nets.length === 0 || nets[0] == null)
+    ) {
+      this.m_endSnapPoint = this.snapToItem(null, mousePos);
+      controls.ForceCursorPosition(true, this.m_endSnapPoint);
+      this.m_endItem = null;
+
+      return;
+    }
+
+    const layer = router.isPlacingVia() ? -1 : router.getCurrentLayer();
+
+    let endItem: PnsItem | null = null;
+
+    for (const net of nets) {
+      endItem = this.pickSingleItem(
+        mousePos,
+        net,
+        layer,
+        false,
+        this.m_startItem ? [this.m_startItem] : [],
+      );
+
+      if (endItem) break;
+    }
+
+    if (this.m_gridHelper!.GetSnap() && this.checkSnap(endItem)) {
+      this.m_endItem = endItem;
+      this.m_endSnapPoint = this.snapToItem(endItem, mousePos);
+    } else {
+      this.m_endItem = null;
+      this.m_endSnapPoint = this.m_gridHelper!.Align(
+        mousePos,
+        router.isPlacingVia() ? GRID_HELPER_GRIDS.GRID_VIAS : GRID_HELPER_GRIDS.GRID_WIRES,
+      );
+    }
+
+    controls.ForceCursorPosition(true, this.m_endSnapPoint);
+  }
 }

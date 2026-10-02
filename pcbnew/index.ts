@@ -1396,7 +1396,6 @@ export {
 // explicit context fields.
 export {
   PNS_COORDS_PADDING,
-  PnsMagneticOption,
   checkSnap,
   pickSingleItem,
   snapToItem,

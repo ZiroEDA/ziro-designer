@@ -10,6 +10,8 @@
  * The listener is `BOARD_LISTENER` as the React side subscribes to it: every
  * notification schedules one re-derivation of the view from the BOARD.
  */
+import { ROUTER_TOOL } from './router/router_tool.js';
+import { PCB_ACTIONS } from './tools/pcb_actions.js';
 import { AUTOPLACE_TOOL } from './autorouter/autoplace_tool.js';
 import type { BOARD_NETLIST_UPDATER } from './netlist_reader/board_netlist_updater.js';
 import { PCB_TRACK } from './pcb_track.js';
@@ -414,6 +416,14 @@ export interface PCB_EDIT_FRAME_HOOKS {
    * (tests, headless callers) shows nothing.
    */
   showInfoBarError?(aErrorMsg: string, aShowCloseButton: boolean): void;
+  /**
+   * `m_appearancePanel->OnLayerChanged()` and the layer box's `SetLayerSelection`
+   * in `PCB_EDIT_FRAME::SetActiveLayer` (pcb_edit_frame.cpp:1823-1870): the
+   * window's layer combo and Appearance row follow a layer a tool chose (the
+   * router's via, its layer commands). Optional: a frame with no window has
+   * neither.
+   */
+  activeLayerChanged?(aLayer: PCB_LAYER_ID): void;
   /**
    * `KISTATUSBAR::AddWarningMessages( aKey, aMessages )`: the status bar's
    * warning icon, which `reconcileImportedFootprintLibraries` fills. Optional:
@@ -1253,6 +1263,7 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
 
     // Register tools
     this.m_toolManager.RegisterTool(new PCB_SELECTION_TOOL());
+    this.m_toolManager.RegisterTool(new ROUTER_TOOL());
     this.m_toolManager.RegisterTool(new EDIT_TOOL());
     this.m_toolManager.RegisterTool(new GLOBAL_EDIT_TOOL());
     this.m_toolManager.RegisterTool(new PAD_TOOL());
@@ -2049,8 +2060,8 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
 
   /**
    * `PCB_EDIT_FRAME::SetActiveLayer( aLayer, aForceRedraw )` (pcb_edit_frame.cpp:1823):
-   * the canvas half. The Appearance panel's `OnLayerChanged` is the React
-   * state's, and `PCB_ACTIONS::layerChanged` is stage 3's.
+   * the canvas half; the Appearance panel's `OnLayerChanged` is the window's,
+   * through `activeLayerChanged`.
    */
   override SetActiveLayer(aLayer: PCB_LAYER_ID, aForceRedraw = false): void {
     const oldLayer = this.GetActiveLayer();
@@ -2058,6 +2069,10 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     if (oldLayer === aLayer && !aForceRedraw) return;
 
     super.SetActiveLayer(aLayer);
+
+    this.hooks.activeLayerChanged?.(aLayer);
+
+    this.m_toolManager?.PostAction(PCB_ACTIONS.layerChanged); // notify other tools
 
     const canvas = this.GetCanvas();
 

@@ -150,9 +150,7 @@ import {
   hasLockedItems,
   hasUnlockedItems,
 } from './tools/pcb_selection_conditions.js';
-import { PnsSession } from './router/router_tool.js';
-import { PnsRouterMode } from './router/pns_router.js';
-import type { PnsDesignSettings } from './router/pns_kicad_iface.js';
+import { ROUTER_TOOL } from './router/router_tool.js';
 import { Infobar } from '@ziroeda/common/widgets/wx_infobar.js';
 import { buildPcbMenus } from './menubar_pcb_editor.js';
 import { DialogDimensionProperties } from './dialogs/dialog_dimension_properties_ui.js';
@@ -605,7 +603,6 @@ import { drawConstructionGeom } from '@ziroeda/common/preview_items/construction
 import { drawSnapIndicator } from '@ziroeda/common/preview_items/snap_indicator.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { type BoardCursorSnap, snapToBoardCopper } from './pcb_cursor_snap.js';
-import { inheritTrackWidth } from './inherit_track_width.js';
 import { moveDelta } from './pcb_edit_frame.js';
 import { parseDrcRules } from './drc/drc_rule_view.js';
 import { DialogTrackViaProperties } from './dialogs/dialog_track_via_properties_ui.js';
@@ -976,6 +973,9 @@ const TOOL_MANAGER_TOOLS: Readonly<Record<string, TOOL_ACTION>> = {
   placeStackup: PCB_ACTIONS.placeStackup,
   // BOARD_EDITOR_CONTROL::PlaceFootprint
   placeFootprint: PCB_ACTIONS.placeFootprint,
+  // ROUTER_TOOL::MainLoop
+  routeSingleTrack: PCB_ACTIONS.routeSingleTrack,
+  routeDiffPair: PCB_ACTIONS.routeDiffPair,
 };
 
 // Friendly names for the "Current Tool" status-bar field (field 6), shown while
@@ -2174,12 +2174,8 @@ export function PcbEditor({
    * `inheritTrackWidth`.
    */
   const [autoTrackWidth, setAutoTrackWidth] = useState(false);
-  const autoTrackWidthRef = useRef(autoTrackWidth);
-  autoTrackWidthRef.current = autoTrackWidth;
   const trackSelRef = useRef(trackSel);
   trackSelRef.current = trackSel;
-  const viaSelRef = useRef(viaSel);
-  viaSelRef.current = viaSel;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef({ scale: 0.005, tx: 0, ty: 0, flipX: false });
@@ -2489,6 +2485,11 @@ export function PcbEditor({
       editZoneParams: (zoneIndex) => drcWindowRef.current!.editZoneParams(zoneIndex),
       selectCopperLayerPair: () => drcWindowRef.current!.selectCopperLayerPair(),
       showInfoBarError: (aMsg) => drcWindowRef.current?.showInfoBarError(aMsg),
+      /** `m_appearancePanel->OnLayerChanged()`: the layer combo follows a layer a tool chose. */
+      activeLayerChanged: (aLayer) => {
+        const name = boardRef.current?.layers.find((l) => l.id === aLayer)?.name;
+        if (name !== undefined) setActiveLayer(name);
+      },
       selectFootprintFromChooser: (aPreselect) =>
         drcWindowRef.current!.selectFootprintFromChooser(aPreselect),
       loadFootprintFromLibrary: (aId, aKeepUUID) =>
@@ -3081,14 +3082,6 @@ export function PcbEditor({
   /** What the open chooser answers, `SelectFootprintFromLibrary` being `await`ing it. */
   const fpChooserResolveRef = useRef<((aLibId: string | null) => void) | null>(null);
   /**
-   * `ROUTER_TOOL`'s router: the PNS session that owns the route in flight,
-   * single track or differential pair by `PNS::ROUTER_MODE`, from the click
-   * that started it to the fix that ends it. Null while a routing tool is
-   * armed and idle. `route_tool.ts`, the 117-line substitute the single-track
-   * tool ran on, is gone: both tools are this loop.
-   */
-  const pnsSessionRef = useRef<PnsSession | null>(null);
-  /**
    * `frame()->ShowInfoBarError( m_router->FailureReason(), true )`
    * (router_tool.cpp:1436, :1600) — why the router refused, in the infobar
    * above the canvas, with its close button.
@@ -3103,10 +3096,6 @@ export function PcbEditor({
   // route, the footprint on the cursor.
   useEffect(() => {
     measureRef.current = null;
-    // `ROUTER_TOOL::MainLoop`'s `IsActivate()` arm -> `StopRouting`: the
-    // pair in flight is thrown away, the board untouched.
-    pnsSessionRef.current?.abort();
-    pnsSessionRef.current = null;
     placeFpSceneRef.current = null;
     // `cleanup()`: `newItem = nullptr`, and the coil's rectangle is hidden.
     placeMwRef.current = null;
@@ -5415,10 +5404,13 @@ export function PcbEditor({
         labels: { ok: 'Ignore Unselected Pads' },
       }).then((r) => (r === 'ok' ? 'ignore' : null)),
     openVertexEditor: () => openVertexEditor(),
+    // TRANSITIONAL (#636 E11b): ROUTER_TOOL routes; its InlineDrag is still
+    // the window's track drag, so CanInlineDrag is answered here.
     router: () => ({
       IsToolActive: () =>
-        activeToolRef.current === 'routeSingleTrack' || activeToolRef.current === 'routeDiffPair',
-      RoutingInProgress: () => pnsSessionRef.current !== null,
+        frameRef.current?.GetToolManager()?.GetTool(ROUTER_TOOL)?.IsToolActive() ?? false,
+      RoutingInProgress: () =>
+        frameRef.current?.GetToolManager()?.GetTool(ROUTER_TOOL)?.RoutingInProgress() ?? false,
       // `ROUTER_TOOL::CanInlineDrag`: one routable track or via, or footprints.
       CanInlineDrag: () => {
         const sel = selForDrawRef.current;
@@ -6592,72 +6584,6 @@ export function PcbEditor({
   // `copperAt` exists now, so the crosshair can reach it (see `routeSnapRef`).
   routeSnapRef.current = (w) => copperAt(w)?.snap ?? snapToGrid(w);
 
-  // Routing dimensions for a net: its net class dims, overridden by the
-  // TOP_AUX track-width / via-size selections when they're not "use netclass"
-  // (BOARD_DESIGN_SETTINGS::GetCurrentTrackWidth / GetCurrentViaSize).
-  const routeDims = (
-    net: number,
-    // `ImportSizes`'s `aStartItem` and `aStartPosition`: what the route is
-    // starting on, and where the pointer was. Absent for a route that is not
-    // starting from an existing item, where inheritance cannot apply.
-    startItem?: BoardCursorSnap | null,
-    startLayer?: string,
-    cursor?: { x: number; y: number },
-  ): ClassDims => {
-    const base = netclassInfo.classDims.get(netClassOf.get(net) ?? 'Default') ?? DEFAULT_CLASS_DIMS;
-    const tw = trackWidthListRef.current[trackSelRef.current - 1];
-    const vs = viaSizeListRef.current[viaSelRef.current - 1];
-    // `PNS_KICAD_IFACE_BASE::ImportSizes` (pns_kicad_iface.cpp:1146-1152): the
-    // existing item's width wins over both the toolbar choice and the netclass,
-    // and only under the toggle.
-    //
-    //     if( bds.m_UseConnectedTrackWidth && … && aStartItem != nullptr )
-    //         found = inheritTrackWidth( aStartItem, &trackWidth, startPosInt );
-    const brd = boardRef.current;
-    const inherited =
-      autoTrackWidthRef.current && startItem && brd
-        ? inheritTrackWidth(
-            brd,
-            { kind: startItem.kind, width: startItem.width, at: startItem.snap },
-            startLayer ?? activeLayerRef.current,
-            cursor ?? null,
-          )
-        : null;
-    return {
-      trackWidth: inherited ?? tw ?? base.trackWidth,
-      viaDiameter: vs?.diameter ?? base.viaDiameter,
-      viaDrill: vs?.drill ?? base.viaDrill,
-    };
-  };
-
-  /**
-   * `ROUTER_TOOL::onViaCommand` — 'V' while routing. With no via on the head,
-   * `handleLayerSwitch( aEvent, aForceVia = true )`: the target is the other
-   * side of the layer pair (F.Cu/B.Cu, the frame's `m_Route_Layer_TOP/BOTTOM`),
-   * the via is `GetCurrentViaSize()` / `GetCurrentViaDrill()` — the top
-   * toolbar's Via selector, else the netclass — and the head gains a via. With
-   * one already there, `ToggleViaPlacement` takes it off again. The layer
-   * itself switches only when the via is FIXED (`switchLayerOnViaPlacement`),
-   * which the session does inside `fix`.
-   */
-  const routeViaSwitch = (): void => {
-    const session = pnsSessionRef.current;
-    const cur = cursorRef.current;
-    if (!session || !cur) return;
-    const at = routeSnapRef.current(cur);
-    if (session.placingVia) {
-      session.cancelVia(at);
-    } else {
-      const current = session.currentBoardLayer();
-      const target = current === 'F.Cu' ? 'B.Cu' : 'F.Cu';
-      const dims = routeDims(0);
-      session.placeVia(target, dims.viaDiameter, dims.viaDrill, at);
-    }
-    requestDraw();
-  };
-  const routeViaSwitchRef = useRef(routeViaSwitch);
-  routeViaSwitchRef.current = routeViaSwitch;
-
   /**
    * The two controls the *board's* table dialog has and the schematic's does
    * not: `m_LayerSelectionCtrl` and `m_cbLocked`
@@ -6866,127 +6792,6 @@ export function PcbEditor({
   };
   const placeFromBrowserRef = useRef(placeFromBrowser);
   placeFromBrowserRef.current = placeFromBrowser;
-
-  /**
-   * `BOARD_DESIGN_SETTINGS` as `PNS_KICAD_IFACE_BASE::ImportSizes` reads it:
-   * the four minimums from Board Setup > Constraints, the two width toggles,
-   * the three Pre-defined Sizes lists behind their `[0]` "use netclass" entry,
-   * the Default netclass, and the toolbar's current selection.
-   */
-  const pnsDesignSettings = (): PnsDesignSettings => {
-    const c = boardSetup.constraints;
-    const mm = (v: number): number => Math.round(v * MM);
-    const rows = boardSetup.netClasses.classes;
-    const dflt = rows.find((r) => r.name === 'Default') ?? rows[0];
-    const mmOpt = (t: string | undefined): number | undefined => {
-      const v = parseFloat(t ?? '');
-      return Number.isFinite(v) && v > 0 ? mm(v) : undefined;
-    };
-    const dims = netclassInfo.classDims.get('Default') ?? DEFAULT_CLASS_DIMS;
-    return {
-      minClearance: mm(c.minClearanceMM),
-      trackMinWidth: mm(c.minTrackMM),
-      viasMinSize: mm(c.minViaMM),
-      minThroughDrill: mm(c.minThroughHoleMM),
-      holeToHoleMin: mm(c.minHoleToHoleMM),
-      useConnectedTrackWidth: autoTrackWidthRef.current,
-      tempOverrideTrackWidth: false,
-      // `StackupHeight` reads both off the live BOARD; Board Setup edits them in place.
-      useHeightForLengthCalcs: boardRef.current?.k?.GetDesignSettings().m_UseHeightForLengthCalcs,
-      stackup: boardRef.current?.k?.GetDesignSettings().GetStackupDescriptor(),
-      sizes: (() => {
-        // A real BOARD_DESIGN_SETTINGS, not a copy of one. The three lists
-        // keep their reserved `[0]` "use netclass" row, which is why the
-        // indices the toolbar holds line up with `m_TrackWidthList` directly.
-        const bds = new BOARD_DESIGN_SETTINGS();
-
-        bds.m_TrackWidthList = [0, ...trackWidthListRef.current];
-        bds.m_ViasDimensionsList = [
-          new VIA_DIMENSION(0, 0),
-          ...viaSizeListRef.current.map((v) => new VIA_DIMENSION(v.diameter, v.drill)),
-        ];
-        bds.m_DiffPairDimensionsList = [
-          new DIFF_PAIR_DIMENSION(0, 0, 0),
-          ...boardSetup.diffPairsMM
-            .filter((d) => d.width > 0)
-            .map((d) => new DIFF_PAIR_DIMENSION(mm(d.width), mm(d.gap), mm(d.viaGap))),
-        ];
-
-        const nc = bds.m_NetSettings.GetDefaultNetclass();
-        nc.SetTrackWidth(dims.trackWidth);
-        nc.SetClearance(netclassInfo.classClearance.get('Default') ?? 0);
-        nc.SetViaDiameter(dims.viaDiameter);
-        nc.SetViaDrill(dims.viaDrill);
-        if (mmOpt(dflt?.dpWidth) !== undefined) nc.SetDiffPairWidth(mmOpt(dflt?.dpWidth)!);
-        if (mmOpt(dflt?.dpGap) !== undefined) nc.SetDiffPairGap(mmOpt(dflt?.dpGap)!);
-        if (mmOpt(dflt?.dpViaGap) !== undefined) nc.SetDiffPairViaGap(mmOpt(dflt?.dpViaGap)!);
-
-        bds.SetTrackWidthIndex(trackSelRef.current);
-        bds.SetViaSizeIndex(viaSelRef.current);
-
-        return bds;
-      })(),
-    };
-  };
-
-  /**
-   * `ROUTER_TOOL::performRouting`, one click at a time
-   * (router_tool.cpp:1474-1650), in whichever `PNS::ROUTER_MODE` the tool was
-   * armed with. The first click is
-   * `prepareInteractive` + `StartRouting`; a refusal goes to the infobar as
-   * `m_router->FailureReason()`. Each later click is `FixRoute`: false is
-   * "fixed, keep routing", true — the head snapped onto the target pair — is
-   * `finishInteractive`, and `CommitRouting` hands the segments over.
-   */
-  const handlePnsRouteClick = (world: { x: number; y: number }, mode: PnsRouterMode): void => {
-    const brd = boardRef.current;
-    if (!brd) return;
-    const at = routeSnapRef.current(world);
-    const session = pnsSessionRef.current;
-    if (!session) {
-      const layer = /\.Cu$/.test(activeLayer) ? activeLayer : 'F.Cu';
-      if (layer !== activeLayer) setActiveLayer(layer);
-      const kb = brd.k;
-      const frame = frameRef.current;
-      if (!kb || !frame) return;
-      const next = new PnsSession(kb, {
-        mode,
-        // `SetHostTool( this )`: each fixed segment is pushed as a BOARD_COMMIT
-        // ("Routing"), and the board listener re-derives the view from it.
-        commitHost: frame,
-        enteredGroup: () => frame.GetSelectionTool().GetEnteredGroup(),
-        designSettings: pnsDesignSettings(),
-        isLayerVisible: (l) => visible.has(l),
-        // `PNS_KICAD_IFACE::SetView( getView() )`: the router's ROUTER_PREVIEW_ITEMs
-        // go in a VIEW_GROUP of the canvas's own VIEW, which draws them.
-        view: panelRef.current!.GetView(),
-        trackClearanceMode: () => frameRef.current!.GetPcbNewSettings().m_Display.m_TrackClearance,
-      });
-      if (!next.start(at, layer)) {
-        setInfoBarError(next.failureReason || 'The routing start point violates DRC.');
-        next.abort();
-        return;
-      }
-      setInfoBarError(null);
-      pnsSessionRef.current = next;
-      next.move(at);
-      requestDraw();
-      return;
-    }
-    session.move(at);
-    const finished = session.fix(at);
-    if (finished) {
-      const result = session.commit();
-      pnsSessionRef.current = null;
-      if (!result.ok && result.reason) setInfoBarError(result.reason);
-    } else {
-      // `syncRouterAndFrameLayer()` after every fix: the frame's active layer
-      // follows the router's, which a fixed via has just changed.
-      const layer = session.currentBoardLayer();
-      if (layer !== activeLayerRef.current) setActiveLayer(layer);
-    }
-    requestDraw();
-  };
 
   // Measure tool (ACTIONS::measureTool): two clicks pin the ruler; the next
   // click starts a new measurement.
@@ -7832,11 +7637,6 @@ export function PcbEditor({
       // and `drawMicrowaveInductor`'s (`tpGeomMgr.SetEnd( cursorPos )`).
       if (isMicrowaveTool(activeToolRef.current))
         updateMicrowaveCursor(cursorSnapRef.current({ x: wx, y: wy }));
-      // `ROUTER_TOOL::performRouting`'s motion arm: `updateEndItem( *evt )`
-      // then `m_router->Move( m_endSnapPoint, m_endItem )`.
-      if (pnsSessionRef.current) {
-        pnsSessionRef.current.move(routeSnapRef.current({ x: wx, y: wy }));
-      }
       // Repaint so the crosshair follows even on a plain hover (no pan/drag).
       requestDraw();
     }
@@ -7932,12 +7732,6 @@ export function PcbEditor({
             const globalOn = objects.ratsnest && ratsnestMode !== 'off';
             setLocalRats((prev) => toggleLocalRatsnest(prev, globalOn, hit));
           }
-        } else if (activeToolRef.current === 'routeSingleTrack') {
-          const w = worldAt(e.clientX, e.clientY);
-          if (w) handlePnsRouteClick(w, PnsRouterMode.PNS_MODE_ROUTE_SINGLE);
-        } else if (activeToolRef.current === 'routeDiffPair') {
-          const w = worldAt(e.clientX, e.clientY);
-          if (w) handlePnsRouteClick(w, PnsRouterMode.PNS_MODE_ROUTE_DIFF_PAIR);
         } else if (isMicrowaveTool(activeToolRef.current)) {
           const w = worldAt(e.clientX, e.clientY);
           if (w) handleMicrowaveClick(w);
@@ -8025,14 +7819,6 @@ export function PcbEditor({
         setContrast((c) => (c === 'normal' ? 'dim' : c === 'dim' ? 'hide' : 'normal'));
         return;
       }
-      // V while routing: place a via and switch copper layer (ROUTER_TOOL).
-      // The clearest context action in the frame - it claims V only while
-      // there is a route in progress, and otherwise leaves the key alone.
-      if (!mod && (e.key === 'v' || e.key === 'V') && pnsSessionRef.current) {
-        e.preventDefault();
-        routeViaSwitchRef.current();
-        return;
-      }
       // `TOOL_EVT_UTILS::IsRotateToolEvt` / `PCB_ACTIONS::flip` with `IPO_ROTATE |
       // IPO_FLIP`: the microwave footprint on the cursor turns or flips, not the
       // selection.
@@ -8116,14 +7902,7 @@ export function PcbEditor({
           grabCancelRef.current();
           return;
         }
-        if (pnsSessionRef.current) {
-          // `evt->IsCancelInteractive()` inside `performRouting`: `StopRouting`
-          // and `break` out of the routing loop, back to the tool's own loop
-          // (router_tool.cpp:1590-1595) — the tool stays armed.
-          pnsSessionRef.current.abort();
-          pnsSessionRef.current = null;
-          requestDrawRef.current();
-        } else if (placeMwRef.current || mwLineRef.current.originSet) {
+        if (placeMwRef.current || mwLineRef.current.originSet) {
           // `IsCancelInteractive()`: with an item (or an origin) that is
           // `cleanup()` and the tool stays; without one, the fall-through pops it.
           placeMwRef.current = null;
@@ -8582,10 +8361,17 @@ export function PcbEditor({
   useEffect(() => {
     if (viaSel > viaSizeList.length) setViaSel(0);
   }, [viaSizeList, viaSel]);
-  const trackWidthListRef = useRef(trackWidthList);
-  trackWidthListRef.current = trackWidthList;
-  const viaSizeListRef = useRef(viaSizeList);
-  viaSizeListRef.current = viaSizeList;
+  // The TOP_AUX choices live in BOARD_DESIGN_SETTINGS upstream: the combos'
+  // handlers call `SetTrackWidthIndex` / `SetViaSizeIndex` and AutoTrackWidth
+  // flips `m_UseConnectedTrackWidth` (board_editor_control.cpp:1332-1344), and
+  // ROUTER_TOOL's `ImportSizes` reads them there.
+  useEffect(() => {
+    const bds = boardK?.GetDesignSettings();
+    if (!bds) return;
+    if (bds.GetTrackWidthIndex() !== trackSel) bds.SetTrackWidthIndex(trackSel);
+    if (bds.GetViaSizeIndex() !== viaSel) bds.SetViaSizeIndex(viaSel);
+    bds.m_UseConnectedTrackWidth = autoTrackWidth;
+  }, [boardK, trackSel, viaSel, autoTrackWidth]);
   // net code -> net class name, via the project's netclass_patterns.
   const netClassOf = useMemo(() => {
     const m = new Map<number, string>();
@@ -9707,15 +9493,11 @@ export function PcbEditor({
   // Field 6 (EDA_DRAW_FRAME::DisplayToolMsg, the "Current Tool" panel): the
   // friendly name of the active right-toolbar tool, blank in the selection tool.
   const toolMsg = PCB_TOOL_MSGS[activeTool] ?? '';
-  // Field 7 (DisplayConstraintsMsg): the line-constraint hint shown while a
-  // line/track drawing tool is active (COMMON_TOOLS line mode).
-  const constraintMsg = pnsSessionRef.current
-    ? toggles.has('lineMode45')
-      ? 'Constrain to H, V, 45'
-      : toggles.has('lineMode90')
-        ? 'Constrain to H, V'
-        : ''
-    : '';
+  // Field 7 (DisplayConstraintsMsg). ROUTER_TOOL writes nothing there
+  // (router_tool.cpp never calls DisplayConstraintsMsg); the hint this showed
+  // while routing was the window's own. DRAWING_TOOL::UpdateStatusBar's
+  // `SetStatusText( msg, 7 )` does not reach this field yet.
+  const constraintMsg = '';
   /**
    * `PCB_CONTROL::UpdateMessagePanel` (pcbnew/tools/pcb_control.cpp:2377) and
    * the `GetMsgPanelInfo` virtuals it dispatches to — all of them in
@@ -11109,7 +10891,12 @@ export function PcbEditor({
           onClose={() => setArrayOpen(false)}
         />
       )}
-      {pnsSettingsOpen && <DialogPnsSettings onClose={() => setPnsSettingsOpen(false)} />}
+      {pnsSettingsOpen && (
+        <DialogPnsSettings
+          onClose={() => setPnsSettingsOpen(false)}
+          settings={frameRef.current?.GetPcbNewSettings().m_PnsSettings}
+        />
+      )}
       {/* CONVERT_TOOL::OutsetItems' DIALOG_OUTSET_ITEMS, on the tool's
           persistent OUTSET_ROUTINE::PARAMETERS. */}
       {outsetDlg && board && (

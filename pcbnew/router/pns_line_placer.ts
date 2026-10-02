@@ -2751,6 +2751,12 @@ export class PnsLinePlacer {
     if (optimized || simplified.pointCount() !== l.pointCount()) {
       aNode.removeLine(lOrig);
       l.setShape(simplified);
+      // `LINE l( l_orig )` copies the links (LINK_HOLDER's copy constructor),
+      // and `Remove( l_orig )` clears only the original's, so upstream's
+      // `Add( l )` meets a linked line: `assert( !aLine.IsLinked() )`, which a
+      // release build compiles out. The stale links point at the segments just
+      // removed, so dropping them first is what the release build computes.
+      l.clearLinks();
       aNode.addLine(l);
     }
   }

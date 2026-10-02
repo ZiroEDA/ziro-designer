@@ -52,6 +52,7 @@
  */
 
 import { VIATYPE } from '../pcb_track_types.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { CornerMode } from '@ziroeda/kimath/src/geometry/direction45.js';
 import { PnsItemSet } from './pns_itemset.js';
 import { PnsKind, LineMarker } from './pns_item.js';
@@ -144,6 +145,67 @@ export interface PnsRouterSizes extends DpPlacerSizes {
   widthSource: string;
   diffPairWidthSource: string;
   diffPairGapSource: string;
+  /**
+   * `m_layerPairs` (pns_sizes_settings.h:175), the `std::map<int, int>` of via
+   * layer pairs, both directions. Absent is the empty map. Replaced, never
+   * mutated, by the helpers below: `SIZES_SETTINGS` is copied by value
+   * upstream, and a spread copy here would otherwise share the map.
+   */
+  layerPairs?: ReadonlyMap<number, number>;
+}
+
+/**
+ * `SIZES_SETTINGS::GetLayerTop()` (pns_sizes_settings.cpp:46): the lowest key
+ * of the ordered map, or `F_Cu` with no pairs.
+ */
+export function sizesGetLayerTop(aSizes: PnsRouterSizes): number {
+  const pairs = aSizes.layerPairs;
+
+  if (!pairs || pairs.size === 0) return PCB_LAYER_ID.F_Cu;
+
+  return Math.min(...pairs.keys());
+}
+
+/**
+ * `SIZES_SETTINGS::GetLayerBottom()` (pns_sizes_settings.cpp:55): the partner
+ * of the lowest key, or `B_Cu` with no pairs. Both empty-map answers are board
+ * layer ids where a PNS layer is meant; upstream, mirrored.
+ */
+export function sizesGetLayerBottom(aSizes: PnsRouterSizes): number {
+  const pairs = aSizes.layerPairs;
+
+  if (!pairs || pairs.size === 0) return PCB_LAYER_ID.B_Cu;
+
+  return pairs.get(Math.min(...pairs.keys()))!;
+}
+
+/** `layerTop` / `layerBottom`, which the placers read, kept equal to the two getters. */
+function syncLayerPairEnds(aSizes: PnsRouterSizes): void {
+  aSizes.layerTop = sizesGetLayerTop(aSizes);
+  aSizes.layerBottom = sizesGetLayerBottom(aSizes);
+}
+
+/** `SIZES_SETTINGS::ClearLayerPairs()` (pns_sizes_settings.cpp:30). */
+export function sizesClearLayerPairs(aSizes: PnsRouterSizes): void {
+  aSizes.layerPairs = new Map();
+  syncLayerPairEnds(aSizes);
+}
+
+/** `SIZES_SETTINGS::AddLayerPair( aL1, aL2 )` (pns_sizes_settings.cpp:36). */
+export function sizesAddLayerPair(aSizes: PnsRouterSizes, aL1: number, aL2: number): void {
+  const top = Math.min(aL1, aL2);
+  const bottom = Math.max(aL1, aL2);
+  const pairs = new Map(aSizes.layerPairs ?? []);
+
+  pairs.set(bottom, top);
+  pairs.set(top, bottom);
+  aSizes.layerPairs = pairs;
+  syncLayerPairEnds(aSizes);
+}
+
+/** `SIZES_SETTINGS::PairedLayer( aLayerId )` (pns_sizes_settings.h:109): undefined is no pair. */
+export function sizesPairedLayer(aSizes: PnsRouterSizes, aLayerId: number): number | undefined {
+  return aSizes.layerPairs?.get(aLayerId);
 }
 
 /**

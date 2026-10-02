@@ -106,7 +106,7 @@ import { LSET } from '@ziroeda/common/lset.js';
 import type { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import type { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
 import { GRID_HELPER_GRIDS } from '@ziroeda/common/tool/grid_helper.js';
-import { PnsMagneticOption } from '../router/pns_tool_base.js';
+import { MAGNETIC_OPTIONS } from '../pcbnew_settings.js';
 import { arcSliceContainsPoint } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 import { arcCenterI } from '@ziroeda/kimath/src/geometry/shape_arc.js';
 
@@ -285,8 +285,8 @@ export interface BestSnapOptions {
   /** The active layer — `BestSnapAnchor`'s `aLayers`. */
   layer?: string;
   /** `MAGNETIC_SETTINGS::pads` / `::tracks`. */
-  magneticPads?: PnsMagneticOption;
-  magneticTracks?: PnsMagneticOption;
+  magneticPads?: MAGNETIC_OPTIONS;
+  magneticTracks?: MAGNETIC_OPTIONS;
   /** `MAGNETIC_SETTINGS::allLayers`, which defeats the layer filter. */
   allLayers?: boolean;
   /**
@@ -933,8 +933,8 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
   ): void {
     const add = (aPos: Vec2, aFlags: number, aId: string): void =>
       this.addAnchor(aPos, aFlags, this.itemToken(aId));
-    const pads = aOpts.magneticPads ?? PnsMagneticOption.CAPTURE_ALWAYS;
-    const tracks = aOpts.magneticTracks ?? PnsMagneticOption.CAPTURE_ALWAYS;
+    const pads = aOpts.magneticPads ?? MAGNETIC_OPTIONS.CAPTURE_ALWAYS;
+    const tracks = aOpts.magneticTracks ?? MAGNETIC_OPTIONS.CAPTURE_ALWAYS;
 
     // `queryVisible`'s horizon: upstream builds a box of `snapRange` about the
     // cursor and asks the view for what is inside it.
@@ -947,7 +947,7 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
     const skipped = (kind: string, index: number): boolean =>
       aOpts.avoid?.has(`${kind}:${index}`) ?? false;
 
-    if (pads === PnsMagneticOption.CAPTURE_ALWAYS) {
+    if (pads === MAGNETIC_OPTIONS.CAPTURE_ALWAYS) {
       for (const [fpIndex, fp] of aBoard.footprints.entries()) {
         if (skipped('footprint', fpIndex)) continue;
 
@@ -961,7 +961,7 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
       }
     }
 
-    if (tracks === PnsMagneticOption.CAPTURE_ALWAYS) {
+    if (tracks === MAGNETIC_OPTIONS.CAPTURE_ALWAYS) {
       for (const [i, v] of aBoard.vias.entries()) {
         if (skipped('via', i)) continue;
 
@@ -1217,9 +1217,9 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
       hysteresis: view.ToWorld(ADVANCED_CFG.GetCfg().m_SnapHysteresis),
       layer: seq.length === 1 ? LSET.Name(seq[0]!) : undefined,
       allLayers: seq.length !== 1 || (mag?.allLayers ?? false),
-      magneticPads: (mag?.pads ?? PnsMagneticOption.CAPTURE_ALWAYS) as number as PnsMagneticOption,
+      magneticPads: (mag?.pads ?? MAGNETIC_OPTIONS.CAPTURE_ALWAYS) as number as MAGNETIC_OPTIONS,
       magneticTracks: (mag?.tracks ??
-        PnsMagneticOption.CAPTURE_ALWAYS) as number as PnsMagneticOption,
+        MAGNETIC_OPTIONS.CAPTURE_ALWAYS) as number as MAGNETIC_OPTIONS,
       avoid,
     });
   }
