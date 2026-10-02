@@ -448,7 +448,7 @@ import type { Netlist } from './connectivity/nets.js';
 import { DEFAULT_WIRE_WIDTH } from './sch_painter.js';
 import { computeNetClassOverrides } from './net_overrides.js';
 import {
-  RefDesTracker,
+  REFDES_TRACKER,
   buildPageRefsMap,
   connectionName,
   equivalentBusNames,
@@ -3349,9 +3349,9 @@ export function SchematicEditor({
    */
   const pasteOptions = useCallback(
     (mode?: PasteMode): PasteOptions => {
-      const tracker = new RefDesTracker();
-      tracker.deserialize(setup.usedDesignators);
-      tracker.reuseRefDes = setup.annotation.allowReuse;
+      const tracker = new REFDES_TRACKER();
+      tracker.Deserialize(setup.usedDesignators);
+      tracker.SetReuseRefDes(setup.annotation.allowReuse);
       const defaultMode: PasteMode = es.annotation.automatic ? 'unique' : 'remove';
       const page = flatSheets.findIndex((s) => s.path === currentPath);
       return {
@@ -4096,9 +4096,9 @@ export function SchematicEditor({
       const alwaysAnnotate = lib.isPower === true || reference.startsWith('#');
       if (!es.annotation.automatic && !alwaysAnnotate) return sym;
 
-      const tracker = new RefDesTracker();
-      tracker.deserialize(setup.usedDesignators);
-      tracker.reuseRefDes = setup.annotation.allowReuse;
+      const tracker = new REFDES_TRACKER();
+      tracker.Deserialize(setup.usedDesignators);
+      tracker.SetReuseRefDes(setup.annotation.allowReuse);
 
       // Annotate it in a document that already holds it, scoped to it alone, so
       // every existing reference on the sheet is seen as taken.
@@ -4182,9 +4182,9 @@ export function SchematicEditor({
   // by the project's reuse_designators, and persists back after the run.
   const runAnnotate = useCallback(
     (opts: AnnotateRun) => {
-      const tracker = new RefDesTracker();
-      tracker.deserialize(setup.usedDesignators);
-      tracker.reuseRefDes = setup.annotation.allowReuse;
+      const tracker = new REFDES_TRACKER();
+      tracker.Deserialize(setup.usedDesignators);
+      tracker.SetReuseRefDes(setup.annotation.allowReuse);
 
       const sheets = annotateSheets(opts.scope, opts.recursive);
       const libs = hierarchyLibs(sheets);
@@ -4221,7 +4221,7 @@ export function SchematicEditor({
         });
       setAnnotateMessages(lines);
 
-      const usedDesignators = tracker.serialize();
+      const usedDesignators = tracker.Serialize();
       if (usedDesignators !== setup.usedDesignators) commitSetup({ ...setup, usedDesignators });
     },
     [

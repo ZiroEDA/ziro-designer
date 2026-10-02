@@ -236,7 +236,7 @@ const CLIPBOARD_SHEET = '<clipboard>';
  * to the same `SCH_REFERENCE_LIST` machinery the Annotate dialog uses, so the
  * project's sort order, algorithm, start number and REFDES_TRACKER all apply:
  *
- *   annotatedSymbols[path].SetRefDesTracker( schematicSettings.m_refDesTracker );
+ *   annotatedSymbols[path].SetREFDES_TRACKER( schematicSettings.m_refDesTracker );
  *   if( pasteMode == PASTE_MODE::UNIQUE_ANNOTATIONS )
  *       annotatedSymbols[path].ReannotateDuplicates( existingRefs, annotateAlgo );
  *   else
