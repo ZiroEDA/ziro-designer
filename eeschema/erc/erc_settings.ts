@@ -9,7 +9,15 @@
  * defaults, so overriding a severity or a matrix cell changes the check.
  */
 
+import { ELECTRICAL_PINTYPE, ELECTRICAL_PINTYPES_TOTAL } from '@ziroeda/common/pin_type.js';
+import { NESTED_SETTINGS } from '@ziroeda/common/settings/nested_settings.js';
+import type { JSON_SETTINGS } from '@ziroeda/common/settings/json_settings.js';
+import type { JsonValue } from '@ziroeda/common/settings/json_settings_internals.js';
+import { PARAM_LAMBDA } from '@ziroeda/common/settings/parameters.js';
+import { ERC_ITEM } from './erc_item.js';
 import {
+  SeverityFromString,
+  SeverityToString,
   RPT_SEVERITY_ERROR,
   RPT_SEVERITY_IGNORE,
   RPT_SEVERITY_UNDEFINED,
@@ -489,7 +497,61 @@ export enum ERCE_T {
  * `rule_severities`, the pin map, exclusions) are the record model's `ErcSettings` above
  * until the project file is on the live model.
  */
-export class ERC_SETTINGS {
+/** `PIN_ERROR`. */
+export enum PIN_ERROR {
+  OK,
+  WARNING,
+  PP_ERROR,
+  UNCONNECTED,
+}
+
+/// The sorting metric used for erc resolution of multi-pin errors.
+export enum ERC_PIN_SORTING_METRIC {
+  SM_HEURISTICS,
+  SM_VIOLATION_COUNT,
+}
+
+/// Types of drive on a net (used for legacy ERC)
+export const NPI = 4; // Net with Pin isolated, this pin has type Not Connected and must be left N.C.
+export const DRV = 3; // Net driven by a signal (a pin output for instance)
+export const NET_NC = 2; // Net "connected" to a "NoConnect symbol"
+export const NOD = 1; // Net not driven ( Such as 2 or more connected inputs )
+export const NOC = 0; // initial state of a net: no connection
+
+const ercSettingsSchemaVersion = 0;
+
+/**
+ * Container for ERC settings
+ *
+ * Currently only stores flags about checks to run, but could later be expanded to contain the
+ * matrix of electrical pin types.
+ */
+export class ERC_SETTINGS extends NESTED_SETTINGS {
+  /**
+   * Look up table which gives the minimal drive for a pair of connected pins on a net.
+   *
+   * The initial state of a net is NOC (Net with No Connection).  It can be updated to NPI
+   * (Pin Isolated), NET_NC (Net with a no connect symbol), NOD (Not Driven) or DRV (DRIven).
+   * It can be updated to NET_NC with no error only if there is only one pin in net.  Nets are
+   * OK when their final state is NET_NC or DRV.   Nets with the state NOD have no valid
+   * source signal.
+   */
+  static readonly m_PinMinDrive: readonly (readonly number[])[] = [
+    /*         I,    O,    Bi,   3S,   Pas,  NIC,  UnS,  PwrI, PwrO, OC,   OE,   NC */
+    /* I  */ [NOD, DRV, DRV, DRV, DRV, NOD, DRV, NOD, DRV, DRV, DRV, NPI],
+    /* O  */ [DRV, DRV, DRV, DRV, DRV, NOD, DRV, DRV, DRV, DRV, DRV, NPI],
+    /* Bi */ [DRV, DRV, DRV, DRV, DRV, NOD, DRV, NOD, DRV, DRV, DRV, NPI],
+    /* 3S */ [DRV, DRV, DRV, DRV, DRV, NOD, DRV, NOD, DRV, DRV, DRV, NPI],
+    /*Pas */ [DRV, DRV, DRV, DRV, DRV, NOD, DRV, NOD, DRV, DRV, DRV, NPI],
+    /*NIC */ [NOD, NOD, NOD, NOD, NOD, NOD, NOD, NOD, NOD, NOD, NOD, NPI],
+    /*UnS */ [DRV, DRV, DRV, DRV, DRV, NOD, DRV, NOD, DRV, DRV, DRV, NPI],
+    /*PwrI*/ [NOD, DRV, NOD, NOD, NOD, NOD, NOD, NOD, DRV, NOD, NOD, NPI],
+    /*PwrO*/ [DRV, DRV, DRV, DRV, DRV, NOD, DRV, DRV, DRV, DRV, DRV, NPI],
+    /* OC */ [DRV, DRV, DRV, DRV, DRV, NOD, DRV, NOD, DRV, DRV, DRV, NPI],
+    /* OE */ [DRV, DRV, DRV, DRV, DRV, NOD, DRV, NOD, DRV, DRV, DRV, NPI],
+    /* NC */ [NPI, NPI, NPI, NPI, NPI, NPI, NPI, NPI, NPI, NPI, NPI, NPI],
+  ];
+
   m_ERCSeverities: Map<number, Severity>;
 
   /// Serialized excluded ERC markers. A `std::set<wxString>` upstream, so it iterates in
@@ -499,7 +561,22 @@ export class ERC_SETTINGS {
   /// Map from serialization to comment.
   m_ErcExclusionComments = new Map<string, string>();
 
-  constructor() {
+  m_PinMap: PIN_ERROR[][] = [];
+
+  /**
+   * Weights for electrical pins used in ERC to decide which pin gets the marker in case of a
+   * multi-pin erc pin-to-pin error.
+   */
+  private m_PinTypeWeights = new Map<ELECTRICAL_PINTYPE, number>();
+
+  /** The type of sorting used by the ERC checker to resolve multi-pin errors. */
+  private m_ERCSortingMetric: ERC_PIN_SORTING_METRIC;
+
+  constructor(aParent: JSON_SETTINGS | null = null, aPath = 'erc') {
+    super('erc', ercSettingsSchemaVersion, aParent, aPath);
+
+    this.ResetPinMap();
+
     this.m_ERCSeverities = new Map();
 
     for (let i: number = ERCE_T.ERCE_FIRST; i <= ERCE_T.ERCE_LAST; ++i)
@@ -534,6 +611,124 @@ export class ERC_SETTINGS {
     s.set(ERCE_T.ERCE_UNCONNECTED_WIRE_ENDPOINT, RPT_SEVERITY_WARNING);
     s.set(ERCE_T.ERCE_STACKED_PIN_SYNTAX, RPT_SEVERITY_WARNING);
     s.set(ERCE_T.ERCE_FIELD_NAME_WHITESPACE, RPT_SEVERITY_WARNING);
+
+    this.addParam(
+      new PARAM_LAMBDA<JsonValue>(
+        'rule_severities',
+        () => {
+          const ret: { [k: string]: JsonValue } = {};
+
+          for (const item of ERC_ITEM.GetItemsWithSeverities()) {
+            const name = item.GetSettingsKey();
+            const code = item.GetErrorCode();
+
+            if (name === '' || !this.m_ERCSeverities.has(code)) continue;
+
+            ret[name] = SeverityToString(this.m_ERCSeverities.get(code)!);
+          }
+
+          return ret;
+        },
+        (aJson) => {
+          if (aJson === null || typeof aJson !== 'object' || Array.isArray(aJson)) return;
+
+          for (const item of ERC_ITEM.GetItemsWithSeverities()) {
+            const code = item.GetErrorCode();
+            const key = item.GetSettingsKey();
+
+            if (key in aJson)
+              this.m_ERCSeverities.set(code, SeverityFromString(String(aJson[key])));
+          }
+        },
+        {},
+      ),
+    );
+
+    this.addParam(
+      new PARAM_LAMBDA<JsonValue>(
+        'erc_exclusions',
+        () => {
+          const js: JsonValue[] = [];
+
+          for (const entry of sortedExclusions(this))
+            js.push([entry, this.m_ErcExclusionComments.get(entry) ?? '']);
+
+          return js;
+        },
+        (aObj) => {
+          this.m_ErcExclusions.clear();
+
+          if (!Array.isArray(aObj)) return;
+
+          for (const entry of aObj) {
+            if (Array.isArray(entry)) {
+              const serialized = String(entry[0]);
+              this.m_ErcExclusions.add(serialized);
+              this.m_ErcExclusionComments.set(serialized, String(entry[1]));
+            } else if (typeof entry === 'string') {
+              this.m_ErcExclusions.add(entry);
+            }
+          }
+        },
+        [],
+      ),
+    );
+
+    this.addParam(
+      new PARAM_LAMBDA<JsonValue>(
+        'pin_map',
+        () => {
+          const ret: JsonValue[] = [];
+
+          for (let i = 0; i < ELECTRICAL_PINTYPES_TOTAL; i++) {
+            const inner: number[] = [];
+
+            for (let j = 0; j < ELECTRICAL_PINTYPES_TOTAL; j++)
+              inner.push(this.GetPinMapValue(i, j));
+
+            ret.push(inner);
+          }
+
+          return ret;
+        },
+        (aJson) => {
+          if (!Array.isArray(aJson) || aJson.length !== ELECTRICAL_PINTYPES_TOTAL) return;
+
+          for (let i = 0; i < ELECTRICAL_PINTYPES_TOTAL; i++) {
+            if (i > aJson.length - 1) break;
+
+            const inner = aJson[i];
+
+            if (!Array.isArray(inner) || inner.length !== ELECTRICAL_PINTYPES_TOTAL) return;
+
+            for (let j = 0; j < ELECTRICAL_PINTYPES_TOTAL; j++) {
+              const val = inner[j];
+
+              if (typeof val === 'number' && Number.isInteger(val)) {
+                if (val >= 0 && val <= PIN_ERROR.UNCONNECTED) this.SetPinMapValue(i, j, val);
+              }
+            }
+          }
+        },
+        [],
+      ),
+    );
+
+    // Pin weights used for sorting. Take care, sorting is descending!
+    this.m_PinTypeWeights.set(ELECTRICAL_PINTYPE.PT_NIC, 11);
+    this.m_PinTypeWeights.set(ELECTRICAL_PINTYPE.PT_UNSPECIFIED, 10);
+    this.m_PinTypeWeights.set(ELECTRICAL_PINTYPE.PT_PASSIVE, 9);
+    this.m_PinTypeWeights.set(ELECTRICAL_PINTYPE.PT_OPENCOLLECTOR, 8);
+    this.m_PinTypeWeights.set(ELECTRICAL_PINTYPE.PT_OPENEMITTER, 7);
+    this.m_PinTypeWeights.set(ELECTRICAL_PINTYPE.PT_INPUT, 6);
+    this.m_PinTypeWeights.set(ELECTRICAL_PINTYPE.PT_TRISTATE, 5);
+    this.m_PinTypeWeights.set(ELECTRICAL_PINTYPE.PT_BIDI, 4);
+    this.m_PinTypeWeights.set(ELECTRICAL_PINTYPE.PT_OUTPUT, 3);
+    this.m_PinTypeWeights.set(ELECTRICAL_PINTYPE.PT_POWER_IN, 2);
+    this.m_PinTypeWeights.set(ELECTRICAL_PINTYPE.PT_POWER_OUT, 1);
+    this.m_PinTypeWeights.set(ELECTRICAL_PINTYPE.PT_NC, 0);
+
+    this.m_ERCSortingMetric = ERC_PIN_SORTING_METRIC.SM_HEURISTICS;
   }
 
   IsTestEnabled(aErrorCode: number): boolean {
@@ -569,6 +764,35 @@ export class ERC_SETTINGS {
 
   SetSeverity(aErrorCode: number, aSeverity: Severity): void {
     this.m_ERCSeverities.set(aErrorCode, aSeverity);
+  }
+
+  ResetPinMap(): void {
+    this.m_PinMap = DEFAULT_PIN_MAP.map((row) => [...row] as PIN_ERROR[]);
+  }
+
+  /**
+   * Get the weight for an electrical pin type.
+   * Used for sorting of pins in pin-to-pin erc resolution.
+   */
+  GetPinTypeWeight(aPinType: ELECTRICAL_PINTYPE): number {
+    return this.m_PinTypeWeights.get(aPinType)!;
+  }
+
+  /** Get the type of sorting metric the ERC checker should use to resolve multi-pin errors. */
+  GetERCSortingMetric(): ERC_PIN_SORTING_METRIC {
+    return this.m_ERCSortingMetric;
+  }
+
+  GetPinMapValue(aFirstType: number, aSecondType: number): PIN_ERROR {
+    return this.m_PinMap[aFirstType]![aSecondType]!;
+  }
+
+  SetPinMapValue(aFirstType: number, aSecondType: number, aValue: PIN_ERROR): void {
+    this.m_PinMap[aFirstType]![aSecondType] = aValue;
+  }
+
+  GetPinMinDrive(aFirstType: ELECTRICAL_PINTYPE, aSecondType: ELECTRICAL_PINTYPE): number {
+    return ERC_SETTINGS.m_PinMinDrive[aFirstType]![aSecondType]!;
   }
 }
 

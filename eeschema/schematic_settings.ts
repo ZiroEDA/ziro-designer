@@ -370,9 +370,8 @@ export function defaultSchematicSetup(): SchematicSetup {
 // defaults, with no EESCHEMA_SETTINGS app config (KiCad's answer when there is none).
 // Everything above is the record model's settings, untouched.
 //
-// Pending: the JSON parameter table (NESTED_SETTINGS / PARAM), the BOM presets, NGSPICE
-// settings, the refdes tracker, and TEMPLATES (the field name templates are kept as a
-// list here, read through `m_TemplateFieldNames.GetTemplateFieldNames()`).
+// Not here: NGSPICE_SETTINGS (no simulator), and the EESCHEMA_SETTINGS app config the
+// constructor reads its defaults from (none here, so upstream's no-config constants stand).
 // ---------------------------------------------------------------------------
 
 import { schIUScale as schIUScaleE3 } from '@ziroeda/common/eda_units.js';
@@ -386,25 +385,37 @@ import {
   DEFAULT_TEXT_SIZE as DEFAULT_TEXT_SIZE_E3,
 } from './default_values.js';
 import { LIB_SYMBOL as LIB_SYMBOL_E3 } from './lib_symbol.js';
+import { REFDES_TRACKER } from './refdes_tracker.js';
+import { TEMPLATES } from '@ziroeda/common/template_fieldnames.js';
+import { NESTED_SETTINGS } from '@ziroeda/common/settings/nested_settings.js';
+import type { JSON_SETTINGS } from '@ziroeda/common/settings/json_settings.js';
+import type { JsonValue } from '@ziroeda/common/settings/json_settings_internals.js';
+import { PARAM, PARAM_LAMBDA, PARAM_SCALED, ref } from '@ziroeda/common/settings/parameters.js';
+import {
+  BOM_FMT_PRESET_from_json,
+  BOM_FMT_PRESET_to_json,
+  BOM_PRESET_from_json,
+  BOM_PRESET_to_json,
+} from '@ziroeda/common/settings/bom_settings.js';
 
 /** `DEFAULT_CONNECTION_GRID_MILS` (schematic_settings.h). */
 export const DEFAULT_CONNECTION_GRID_MILS = 50;
 
+/** `MIN_CONNECTION_GRID_MILS` (schematic_settings.h). */
+export const MIN_CONNECTION_GRID_MILS = 25;
+
 /** `ARC_LOW_DEF_MM` (include/base_units.h). */
 const ARC_LOW_DEF_MM_E3 = 0.02;
 
-/** A field name template: `TEMPLATE_FIELDNAME`. */
-export interface TEMPLATE_FIELDNAME {
-  m_Name: string;
-  m_Visible: boolean;
-  m_URL: boolean;
-}
+export type { TEMPLATE_FIELDNAME } from '@ziroeda/common/template_fieldnames.js';
+
+const schSettingsSchemaVersion = 1;
 
 /**
  * These are loaded from Eeschema settings but then overwritten by the project settings.
  * All of the values are stored in IU, but the backing file stores in mils.
  */
-export class SCHEMATIC_SETTINGS {
+export class SCHEMATIC_SETTINGS extends NESTED_SETTINGS {
   m_DefaultLineWidth = Math.trunc(DEFAULT_LINE_WIDTH_MILS_E3 * schIUScaleE3.IU_PER_MILS);
   m_DefaultTextSize = Math.trunc(DEFAULT_TEXT_SIZE_E3 * schIUScaleE3.IU_PER_MILS);
   m_LabelSizeRatio = DEFAULT_LABEL_SIZE_RATIO_E3;
@@ -442,10 +453,15 @@ export class SCHEMATIC_SETTINGS {
   m_SchDrawingSheetFileName = '';
   m_PlotDirectoryName = '';
 
-  private m_templateFieldNames: TEMPLATE_FIELDNAME[] = [];
-  m_TemplateFieldNames = {
-    GetTemplateFieldNames: (): readonly TEMPLATE_FIELDNAME[] => this.m_templateFieldNames,
-  };
+  m_TemplateFieldNames = new TEMPLATES();
+
+  /// List of stored BOM presets
+  m_BomSettings: BOM_PRESET = BOM_PRESET.DefaultEditing();
+  m_BomPresets: BOM_PRESET[] = [];
+
+  /// List of stored BOM format presets
+  m_BomFmtSettings: BOM_FMT_PRESET = BOM_FMT_PRESET.CSV();
+  m_BomFmtPresets: BOM_FMT_PRESET[] = [];
 
   m_BomExportFileName = '';
 
@@ -454,6 +470,337 @@ export class SCHEMATIC_SETTINGS {
   m_MaxError = Math.trunc(ARC_LOW_DEF_MM_E3 * schIUScaleE3.IU_PER_MM);
 
   m_VariantDescriptions = new Map<string, string>();
+
+  /// A list of previously used schematic reference designators.
+  m_refDesTracker: REFDES_TRACKER | null = null;
+
+  constructor(aParent: JSON_SETTINGS | null = null, aPath = 'schematic') {
+    super('schematic', schSettingsSchemaVersion, aParent, aPath, false);
+
+    const mils = (v: number) => schIUScaleE3.milsToIU(v);
+    const perMil = 1 / schIUScaleE3.IU_PER_MILS;
+
+    this.addParam(
+      new PARAM<boolean>('drawing.intersheets_ref_show', ref(this, 'm_IntersheetRefsShow'), false),
+    );
+    this.addParam(
+      new PARAM<boolean>(
+        'drawing.intersheets_ref_own_page',
+        ref(this, 'm_IntersheetRefsListOwnPage'),
+        true,
+      ),
+    );
+    this.addParam(
+      new PARAM<boolean>(
+        'drawing.intersheets_ref_short',
+        ref(this, 'm_IntersheetRefsFormatShort'),
+        false,
+      ),
+    );
+    this.addParam(
+      new PARAM<string>(
+        'drawing.intersheets_ref_prefix',
+        ref(this, 'm_IntersheetRefsPrefix'),
+        DEFAULT_IREF_PREFIX_E3,
+      ),
+    );
+    this.addParam(
+      new PARAM<string>(
+        'drawing.intersheets_ref_suffix',
+        ref(this, 'm_IntersheetRefsSuffix'),
+        DEFAULT_IREF_SUFFIX_E3,
+      ),
+    );
+    // Default from ISO 128-2
+    this.addParam(
+      new PARAM<number>(
+        'drawing.dashed_lines_dash_length_ratio',
+        ref(this, 'm_DashedLineDashRatio'),
+        12.0,
+      ),
+    );
+    // Default from ISO 128-2
+    this.addParam(
+      new PARAM<number>(
+        'drawing.dashed_lines_gap_length_ratio',
+        ref(this, 'm_DashedLineGapRatio'),
+        3.0,
+      ),
+    );
+    this.addParam(
+      new PARAM<number>(
+        'drawing.operating_point_overlay_v_precision',
+        ref(this, 'm_OPO_VPrecision'),
+        3,
+      ),
+    );
+    this.addParam(
+      new PARAM<string>('drawing.operating_point_overlay_v_range', ref(this, 'm_OPO_VRange'), '~V'),
+    );
+    this.addParam(
+      new PARAM<number>(
+        'drawing.operating_point_overlay_i_precision',
+        ref(this, 'm_OPO_IPrecision'),
+        3,
+      ),
+    );
+    this.addParam(
+      new PARAM<string>('drawing.operating_point_overlay_i_range', ref(this, 'm_OPO_IRange'), '~A'),
+    );
+    this.addParam(
+      new PARAM_SCALED(
+        'drawing.default_line_thickness',
+        ref(this, 'm_DefaultLineWidth'),
+        mils(DEFAULT_LINE_WIDTH_MILS_E3),
+        mils(5),
+        mils(1000),
+        perMil,
+      ),
+    );
+    this.addParam(
+      new PARAM_SCALED(
+        'drawing.default_text_size',
+        ref(this, 'm_DefaultTextSize'),
+        mils(DEFAULT_TEXT_SIZE_E3),
+        mils(5),
+        mils(1000),
+        perMil,
+      ),
+    );
+    this.addParam(
+      new PARAM<number>(
+        'drawing.text_offset_ratio',
+        ref(this, 'm_TextOffsetRatio'),
+        DEFAULT_TEXT_OFFSET_RATIO_E3,
+        0.0,
+        2.0,
+      ),
+    );
+    this.addParam(
+      new PARAM<number>(
+        'drawing.label_size_ratio',
+        ref(this, 'm_LabelSizeRatio'),
+        DEFAULT_LABEL_SIZE_RATIO_E3,
+        0.0,
+        2.0,
+      ),
+    );
+    this.addParam(
+      new PARAM<number>(
+        'drawing.overbar_offset_ratio',
+        ref(this.m_FontMetrics, 'm_OverbarHeight'),
+        this.m_FontMetrics.m_OverbarHeight,
+      ),
+    );
+    this.addParam(
+      new PARAM_SCALED(
+        'drawing.pin_symbol_size',
+        ref(this, 'm_PinSymbolSize'),
+        mils(DEFAULT_TEXT_SIZE_E3 / 2),
+        mils(0),
+        mils(1000),
+        perMil,
+      ),
+    );
+    this.addParam(
+      new PARAM_SCALED(
+        'connection_grid_size',
+        ref(this, 'm_ConnectionGridSize'),
+        mils(DEFAULT_CONNECTION_GRID_MILS),
+        mils(MIN_CONNECTION_GRID_MILS),
+        mils(10000),
+        perMil,
+      ),
+    );
+    // User choice for junction dot size ( e.g. none = 0, smallest = 1, small = 2, etc )
+    this.addParam(
+      new PARAM<number>('drawing.junction_size_choice', ref(this, 'm_JunctionSizeChoice'), 3),
+    );
+    this.addParam(
+      new PARAM<number>('drawing.hop_over_size_choice', ref(this, 'm_HopOverSizeChoice'), 0),
+    );
+
+    this.addParam(
+      new PARAM_LAMBDA<JsonValue>(
+        'drawing.field_names',
+        () =>
+          this.m_TemplateFieldNames.GetTemplateFieldNames(false).map((field) => ({
+            name: field.m_Name,
+            visible: field.m_Visible,
+            url: field.m_URL,
+          })),
+        (aJson) => {
+          if (Array.isArray(aJson) && aJson.length > 0) {
+            this.m_TemplateFieldNames.DeleteAllFieldNameTemplates(false);
+
+            for (const entry of aJson) {
+              if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) continue;
+              if (!('name' in entry) || !('url' in entry) || !('visible' in entry)) continue;
+
+              this.m_TemplateFieldNames.AddTemplateFieldName(
+                {
+                  m_Name: String(entry.name),
+                  m_URL: Boolean(entry.url),
+                  m_Visible: Boolean(entry.visible),
+                },
+                false,
+              );
+            }
+          }
+
+          // Read global fieldname templates: no EESCHEMA_SETTINGS here.
+        },
+        [],
+      ),
+    );
+
+    this.addParam(
+      new PARAM<string>(
+        'bom_export_filename',
+        ref(this, 'm_BomExportFileName'),
+        '${PROJECTNAME}.csv',
+      ),
+    );
+
+    // PARAM<BOM_PRESET> / PARAM_LIST<BOM_PRESET> through bom_settings.cpp's to_json/from_json.
+    this.addParam(
+      new PARAM_LAMBDA<JsonValue>(
+        'bom_settings',
+        () => BOM_PRESET_to_json(this.m_BomSettings) as JsonValue,
+        (j) => {
+          this.m_BomSettings = BOM_PRESET_from_json(j);
+        },
+        BOM_PRESET_to_json(BOM_PRESET.DefaultEditing()) as JsonValue,
+      ),
+    );
+    this.addParam(
+      new PARAM_LAMBDA<JsonValue>(
+        'bom_presets',
+        () => this.m_BomPresets.map(BOM_PRESET_to_json) as JsonValue,
+        (j) => {
+          this.m_BomPresets = Array.isArray(j) ? j.map(BOM_PRESET_from_json) : [];
+        },
+        [],
+      ),
+    );
+    this.addParam(
+      new PARAM_LAMBDA<JsonValue>(
+        'bom_fmt_settings',
+        () => BOM_FMT_PRESET_to_json(this.m_BomFmtSettings) as JsonValue,
+        (j) => {
+          this.m_BomFmtSettings = BOM_FMT_PRESET_from_json(j);
+        },
+        BOM_FMT_PRESET_to_json(BOM_FMT_PRESET.CSV()) as JsonValue,
+      ),
+    );
+    this.addParam(
+      new PARAM_LAMBDA<JsonValue>(
+        'bom_fmt_presets',
+        () => this.m_BomFmtPresets.map(BOM_FMT_PRESET_to_json) as JsonValue,
+        (j) => {
+          this.m_BomFmtPresets = Array.isArray(j) ? j.map(BOM_FMT_PRESET_from_json) : [];
+        },
+        [],
+      ),
+    );
+
+    this.addParam(
+      new PARAM<string>('page_layout_descr_file', ref(this, 'm_SchDrawingSheetFileName'), ''),
+    );
+    this.addParam(new PARAM<string>('plot_directory', ref(this, 'm_PlotDirectoryName'), ''));
+    this.addParam(
+      new PARAM<number>('subpart_id_separator', ref(this, 'm_SubpartIdSeparator'), 0, 0, 126),
+    );
+    this.addParam(
+      new PARAM<number>(
+        'subpart_first_id',
+        ref(this, 'm_SubpartFirstId'),
+        'A'.charCodeAt(0),
+        '1'.charCodeAt(0),
+        'z'.charCodeAt(0),
+      ),
+    );
+    this.addParam(new PARAM<number>('annotate_start_num', ref(this, 'm_AnnotateStartNum'), 0));
+    this.addParam(
+      new PARAM<number>('annotation.sort_order', ref(this, 'm_AnnotateSortOrder'), 0, 0, 1),
+    );
+    this.addParam(new PARAM<number>('annotation.method', ref(this, 'm_AnnotateMethod'), 0, 0, 2));
+
+    this.addParam(
+      new PARAM_LAMBDA<boolean>(
+        'reuse_designators',
+        () => (this.m_refDesTracker ? this.m_refDesTracker.GetReuseRefDes() : false),
+        (aReuse) => {
+          if (!this.m_refDesTracker) this.m_refDesTracker = new REFDES_TRACKER();
+
+          this.m_refDesTracker.SetReuseRefDes(aReuse);
+        },
+        true,
+      ),
+    );
+    this.addParam(
+      new PARAM_LAMBDA<string>(
+        'used_designators',
+        () => (this.m_refDesTracker ? this.m_refDesTracker.Serialize() : ''),
+        (aData) => {
+          if (!this.m_refDesTracker) this.m_refDesTracker = new REFDES_TRACKER();
+
+          this.m_refDesTracker.Deserialize(aData);
+        },
+        '',
+      ),
+    );
+
+    this.addParam(
+      new PARAM_LAMBDA<JsonValue>(
+        'variants',
+        () => {
+          const ret: JsonValue[] = [];
+
+          // std::map<wxString, wxString>: key order.
+          for (const [name, description] of [...this.m_VariantDescriptions].sort((a, b) =>
+            a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0,
+          )) {
+            const entry: { [k: string]: JsonValue } = { name };
+
+            if (description !== '') entry.description = description;
+
+            ret.push(entry);
+          }
+
+          return ret;
+        },
+        (aJson) => {
+          this.m_VariantDescriptions.clear();
+
+          if (Array.isArray(aJson)) {
+            for (const entry of aJson) {
+              if (
+                entry !== null &&
+                typeof entry === 'object' &&
+                !Array.isArray(entry) &&
+                'name' in entry
+              ) {
+                const name = String(entry.name);
+                const desc = 'description' in entry ? String(entry.description) : '';
+
+                this.m_VariantDescriptions.set(name, desc);
+              }
+            }
+          }
+        },
+        [],
+      ),
+    );
+
+    this.registerMigration(0, 1, () => {
+      const tor = this.Get<number>('drawing.text_offset_ratio');
+
+      if (tor !== undefined) this.Set('drawing.label_size_ratio', tor);
+
+      return true;
+    });
+  }
 
   /**
    * Return the sub-reference of a unit: the separator (when set and asked for) and the

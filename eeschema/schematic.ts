@@ -97,11 +97,8 @@ export function schematicTextVarResolver(ctx: TextVarContext): TextVarResolverFn
 // the top-level sheets, the current sheet, the hierarchy, bus aliases, variants and the
 // schematic's embedded files. Everything above is the record model's resolver, untouched.
 //
-// Pending, marked in place: CleanUp and RecalculateConnections' incremental path (the
-// connection graph is always rebuilt whole; see RecalculateConnections), the ERC exclusions (ErcSettings() is a schematic-owned
-// ERC_SETTINGS, as Settings() below), the project
-// settings file (Settings() is a schematic-owned SCHEMATIC_SETTINGS, KiCad's no-project
-// answer), the PROPERTY_MANAGER listener that syncs other units' fields, SCH_REFERENCE_LIST
+// Pending, marked in place: RecalculateConnections' incremental path (the connection graph
+// is always rebuilt whole; see RecalculateConnections), the PROPERTY_MANAGER listener that syncs other units' fields, SCH_REFERENCE_LIST
 // uses (CacheExistingAnnotation, Contains, the refdes fallback of ResolveCrossReference,
 // ConvertRefsToKIIDs), fonts (GetFonts, EmbedFonts), SPICE_VALUE formatting of operating
 // points, RecomputeIntersheetRefs' field autoplacement, SaveToHistory.
@@ -211,11 +208,10 @@ export class SCHEMATIC extends EDA_ITEM_E3 {
 
   private m_settingTopLevelSheets: boolean;
 
-  /// The project settings file's SCHEMATIC_SETTINGS stand-in (see the header note).
-  private m_settings: SCHEMATIC_SETTINGS;
-
-  /// The project file's ERC_SETTINGS stand-in, same reasoning as m_settings.
-  private m_ercSettings: ERC_SETTINGS;
+  /// The settings a schematic with no project (or a project with no file) answers with:
+  /// upstream dereferences the project file and has no such case.
+  private m_settings: SCHEMATIC_SETTINGS | null = null;
+  private m_ercSettings: ERC_SETTINGS | null = null;
 
   /// `m_schematicHolder`: the editor the schematic calls back through (null headless).
   private m_schematicHolder: SCHEMATIC_HOLDER | null = null;
@@ -240,8 +236,6 @@ export class SCHEMATIC extends EDA_ITEM_E3 {
     this.m_currentVariant = '';
     this.m_variantNames = new Set();
     this.m_settingTopLevelSheets = false;
-    this.m_settings = new SCHEMATIC_SETTINGS();
-    this.m_ercSettings = new ERC_SETTINGS();
     this.m_connectionGraph = new CONNECTION_GRAPH(this);
 
     SCHEMATIC.m_IsSchematicExists = true;
@@ -280,12 +274,32 @@ export class SCHEMATIC extends EDA_ITEM_E3 {
     return this.m_project!;
   }
 
-  /**
-   * `SetProject`: the project's bus aliases are loaded.  The ERC and schematic settings
-   * upstream hangs on the project file are schematic-owned here (see the header note).
-   */
+  /** `SetProject` (schematic.cpp:180). */
   SetProject(aPrj: PROJECT | null): void {
+    const oldFile = this.m_project?.GetProjectFile() as PROJECT_FILE | null | undefined;
+
+    if (oldFile) {
+      // d'tor will save settings to file
+      if (oldFile.m_ErcSettings) oldFile.ReleaseNestedSettings(oldFile.m_ErcSettings);
+      oldFile.m_ErcSettings = null;
+
+      // d'tor will save settings to file
+      if (oldFile.m_SchematicSettings) oldFile.ReleaseNestedSettings(oldFile.m_SchematicSettings);
+      oldFile.m_SchematicSettings = null;
+    }
+
     this.m_project = aPrj;
+
+    const project = this.m_project?.GetProjectFile() as PROJECT_FILE | null | undefined;
+
+    if (project) {
+      project.m_ErcSettings = new ERC_SETTINGS(project, 'erc');
+      project.m_SchematicSettings = new SCHEMATIC_SETTINGS(project, 'schematic');
+
+      project.m_SchematicSettings.LoadFromFile();
+      // m_NgspiceSettings: no simulator here.
+      project.m_ErcSettings.LoadFromFile();
+    }
 
     if (this.m_project) this.loadBusAliasesFromProject();
   }
@@ -601,6 +615,12 @@ export class SCHEMATIC extends EDA_ITEM_E3 {
   }
 
   Settings(): SCHEMATIC_SETTINGS {
+    const project = this.m_project?.GetProjectFile() as PROJECT_FILE | null | undefined;
+
+    if (project?.m_SchematicSettings) return project.m_SchematicSettings as SCHEMATIC_SETTINGS;
+
+    if (!this.m_settings) this.m_settings = new SCHEMATIC_SETTINGS();
+
     return this.m_settings;
   }
 
@@ -833,8 +853,14 @@ export class SCHEMATIC extends EDA_ITEM_E3 {
     this.m_connectionGraph.Recalculate(list, true, aChangedItemHandler);
   }
 
-  /** `ErcSettings()`: the project file's `m_ErcSettings` upstream; schematic-owned here. */
+  /** `ErcSettings()`: the project file's `m_ErcSettings`. */
   ErcSettings(): ERC_SETTINGS {
+    const project = this.m_project?.GetProjectFile() as PROJECT_FILE | null | undefined;
+
+    if (project?.m_ErcSettings) return project.m_ErcSettings as ERC_SETTINGS;
+
+    if (!this.m_ercSettings) this.m_ercSettings = new ERC_SETTINGS();
+
     return this.m_ercSettings;
   }
 
