@@ -19,6 +19,12 @@ for n in [5,14,40]:
     again=list(dict.fromkeys(rkey() for _ in range(n)))
     lines=run('clear',*keys,'--',*again); cases.append({'op':'clear','insert':keys,'after':again,'order':lines[:-1],'buckets':int(lines[-1].split()[-1])})
 # KiCad's own file: the refdes prefixes of test1243
+# erase, then insert: the bucket fix-ups only show in where later keys land
+for n in [6,14,30]:
+    keys=list(dict.fromkeys(rkey() for _ in range(n*2)))[:n]
+    er=random.sample(keys,n//2)
+    more=list(dict.fromkeys(rkey() for _ in range(n)))
+    lines=run('erase',*keys,'--',*er,'--',*more); cases.append({'op':'erase','insert':keys,'erase':er,'after':more,'order':lines[:-1],'buckets':int(lines[-1].split()[-1])})
 cases.append({'op':'order','insert':['R','J','#PWR'],'order':run('order','R','J','#PWR')[:-1],'buckets':13})
 out['cases']=cases
 json.dump(out,open(HERE.parent/'data/common/libc/std_unordered_map_probe.json','w'),indent=1)

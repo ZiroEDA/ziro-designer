@@ -8,7 +8,8 @@
 //   nextbkt <n>            _Prime_rehash_policy( 1.0 )._M_next_bkt( n ), and the resize threshold it sets
 //   order <k1> <k2> ...    the iteration order after inserting k1, k2, ... in that order,
 //                          and the bucket count at the end
-//   erase <k...> -- <e...> insert the first list, erase the second, print the order
+//   erase <k...> -- <e...> [-- <i...>]  insert the first list, erase the second, insert the
+//                          third, print the order
 //   clear <k...> -- <e...> insert the first list, clear(), insert the second, print the order
 //   primes <limit>         every bucket count _M_next_bkt gives above its fast table, to limit
 //   growth <k...>          the bucket count after each insertion
@@ -88,8 +89,12 @@ int main( int argc, char** argv )
         }
         else
         {
-            for( ++i; i < argc; ++i )
+            // erase: the second list; then any keys after a second "--" are inserted.
+            for( ++i; i < argc && std::strcmp( argv[i], "--" ) != 0; ++i )
                 map.erase( argv[i] );
+
+            for( ++i; i < argc; ++i )
+                map.emplace( argv[i], i );
         }
 
         for( const auto& [key, value] : map )

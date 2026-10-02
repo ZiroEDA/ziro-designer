@@ -236,6 +236,34 @@ describe('SCHEMATIC::SetProject', () => {
     expect(erc.GetPinMapValue(0, 11)).toBe(PIN_ERROR.OK); // the file's 0, not the default ERR
   });
 
+  it('ignores a pin map of eleven good rows: the row count is checked first', () => {
+    const rows = Array.from({ length: 11 }, () => Array<number>(12).fill(0));
+    const { schematic } = open({ erc: { pin_map: rows } });
+    expect(schematic.ErcSettings().GetPinMapValue(0, 11)).toBe(PIN_ERROR.PP_ERROR);
+  });
+
+  it('reads a BOM preset from before 8.0 as not including the excluded-from-BOM', () => {
+    const { schematic } = open({
+      schematic: {
+        bom_settings: {
+          name: 'Old',
+          sort_field: 'Reference',
+          sort_asc: true,
+          filter_string: '',
+          group_symbols: true,
+          exclude_dnp: false,
+          fields_ordered: [{ name: 'Reference', label: 'Ref', show: true, group_by: false }],
+        },
+      },
+    });
+    const bom = schematic.Settings().m_BomSettings;
+    expect([bom.name, bom.includeExcludedFromBOM, bom.fieldsOrdered[0]!.label]).toEqual([
+      'Old',
+      false,
+      'Ref',
+    ]);
+  });
+
   it('keeps the default pin map when the file has a short one', () => {
     const { schematic } = open({ erc: { pin_map: [[0, 0]] } });
     expect(schematic.ErcSettings().GetPinMapValue(0, 11)).toBe(PIN_ERROR.PP_ERROR);

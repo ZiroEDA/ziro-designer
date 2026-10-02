@@ -43,7 +43,10 @@ describe('std::unordered_map<std::string> iteration order', () => {
 
       c.insert.forEach((k, i) => map.emplace(k, i));
 
-      if (c.op === 'erase') for (const k of c.erase!) expect(map.erase(k)).toBe(true);
+      if (c.op === 'erase') {
+        for (const k of c.erase!) expect(map.erase(k)).toBe(true);
+        c.after?.forEach((k, i) => map.emplace(k, i));
+      }
 
       if (c.op === 'clear') {
         map.clear();
