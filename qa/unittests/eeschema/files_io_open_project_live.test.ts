@@ -210,4 +210,28 @@ describe('SCH_EDIT_FRAME::OpenProjectFiles', () => {
     expect(top.m_Uuid).toBe('11111111-2222-4333-8444-555555555555');
     expect(top.GetName()).toBe('Main');
   });
+
+  it("switches to the schematic's own project, read from beside it", () => {
+    const file = join(DATA, 'eeschema/netlist_oracle/issue24330/issue24330.kicad_sch');
+    const pro = file.replace(/\.kicad_sch$/, '.kicad_pro');
+    const readFile = (p: string): string | null => {
+      if (p === pro) return readFileSync(pro, 'utf8');
+      const oracle = `${join(ORACLE, relative(DATA, p))}.pass1`;
+      return existsSync(oracle) ? readFileSync(oracle, 'utf8') : null;
+    };
+    const frame = new SCH_EDIT_FRAME(hooks);
+    expect(frame.OpenProjectFiles([file], 0, readFile)).toBe(true);
+    expect(frame.Prj().GetProjectFullName()).toBe(pro);
+    expect(frame.Prj().GetProjectName()).toBe('issue24330');
+    expect(frame.Prj().IsReadOnly()).toBe(false);
+  });
+
+  it('opens a schematic with no project file read-only, unless creating', () => {
+    const readFile = (p: string): string | null =>
+      p === '/x/lonely.kicad_sch' ? readFileSync(`${files[0]}.pass1`, 'utf8') : null;
+    const frame = new SCH_EDIT_FRAME(hooks);
+    expect(frame.OpenProjectFiles(['/x/lonely.kicad_sch'], 0, readFile)).toBe(true);
+    expect(frame.Prj().GetProjectFullName()).toBe('/x/lonely.kicad_pro');
+    expect(frame.Prj().IsReadOnly()).toBe(true);
+  });
 });

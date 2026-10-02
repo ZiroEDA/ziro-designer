@@ -16,6 +16,8 @@ import {
   type SCH_FP_FIELD_RECONCILE_RESULT,
 } from './sch_footprint_field_reconciler.js';
 import { KICTL_CREATE } from '@ziroeda/common/kiway_player.js';
+import type { JsonValue } from '@ziroeda/common/settings/json_settings_internals.js';
+import { Pgm } from '@ziroeda/common/pgm_base.js';
 import { niluuid } from '@ziroeda/common/kiid.js';
 import { SCH_COMMIT } from './sch_commit.js';
 import type { SCH_EDIT_FRAME } from './sch_edit_frame.js';
@@ -124,7 +126,7 @@ export function ReconcileImportedFootprintFields(
  * Left to the window, being UI or the desktop: the lock file and its override prompt,
  * `AskToSaveChanges`, the "does not exist, create it?" question (asked as `aCtl`'s
  * `KICTL_CREATE`), the progress reporter, the info bar, autosave recovery, the window state,
- * the settings manager's project switch, and `DIALOG_MIGRATE_BUSES`. Not on the live model
+ * saving the outgoing project's local settings, and `DIALOG_MIGRATE_BUSES`. Not on the live model
  * yet: the legacy (`.sch`) plugin, `MigrateSimModels` (the simulator) and
  * `LoadProjectSettings`/`LoadDrawingSheet` (the window loads both from the record model).
  */
@@ -151,6 +153,32 @@ export class SCH_FILES_IO_MIXIN {
 
     this.ClearUndoRedoList();
     this.ClearRepeatItemsList();
+
+    // The schematic's own project: the `.kicad_pro` beside it (files-io.cpp:186-206). Saving
+    // the outgoing project's local settings is the window's (it persists the files).
+    const pro = fullFileName.replace(/\.[^./]*$/, '.kicad_pro');
+    const manager = Pgm().GetSettingsManager();
+
+    if (pro !== this.Prj().GetProjectFullName()) {
+      const json = (aPath: string): JsonValue | null => {
+        const text = aReadFile(aPath);
+        if (text === null) return null;
+        try {
+          return JSON.parse(text) as JsonValue;
+        } catch {
+          return null;
+        }
+      };
+
+      if (!this.Prj().IsNullProject()) manager.UnloadProject(this.Prj());
+
+      manager.LoadProject(pro, json(pro), json(pro.replace(/\.kicad_pro$/, '.kicad_prl')));
+
+      const legacyPro = pro.replace(/\.kicad_pro$/, '.pro');
+
+      if (aReadFile(pro) === null && aReadFile(legacyPro) === null && !(aCtl & KICTL_CREATE))
+        this.Prj().SetReadOnly();
+    }
 
     const newSchematic = new SCHEMATIC(this.Prj());
 
