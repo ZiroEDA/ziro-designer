@@ -13,6 +13,9 @@
  * live items: the frame methods `SCH_COMMIT` and `schematic_undo_redo.ts`
  * (`SCH_UNDO_REDO_MIXIN`, mixed in below) need.
  */
+import { SCH_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import type { SCH_GLOBALLABEL } from './sch_label.js';
+import type { SCHEMATIC_HOLDER } from './schematic_holder.js';
 import {
   frameTitle,
   type FrameTitleParts,
@@ -82,7 +85,7 @@ export interface SCH_EDIT_FRAME_HOOKS {
 export interface SCH_EDIT_FRAME extends SCH_UNDO_REDO_MIXIN, SCH_DESIGN_BLOCK_UTILS_MIXIN {}
 
 // biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (SCH_UNDO_REDO_MIXIN, see libs/core/mixins.ts)
-export class SCH_EDIT_FRAME extends SCH_BASE_FRAME {
+export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
   private readonly hooks: SCH_EDIT_FRAME_HOOKS;
 
   /// The live-model schematic this frame edits (null until one is set).
@@ -138,6 +141,9 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME {
     if (!this.m_toolManager) this.m_toolManager = new TOOL_MANAGER();
 
     this.m_toolManager.SetEnvironment(aSchematic, null, null, null, this);
+
+    // sch_edit_frame.cpp:179 / :3051: the schematic calls back through its editor.
+    aSchematic?.SetSchematicHolder(this);
   }
 
   Schematic(): SCHEMATIC {
@@ -165,6 +171,23 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME {
     this.m_schematic!.RecalculateConnections(aCommit, aCleanupFlags, () => {
       this.m_highlightedConnChanged = true;
     });
+  }
+
+  /** `RecomputeIntersheetRefs()` (sch_edit_frame.cpp:1966). */
+  RecomputeIntersheetRefs(): void {
+    this.Schematic().RecomputeIntersheetRefs();
+  }
+
+  /** `IntersheetRefUpdate()` (sch_edit_frame.cpp:1972): repaint the label's references. */
+  IntersheetRefUpdate(aItem: SCH_GLOBALLABEL): void {
+    this.GetCanvas()?.GetView().Update(aItem);
+  }
+
+  /** `ShowAllIntersheetRefs()` (sch_edit_frame.cpp:1978). */
+  ShowAllIntersheetRefs(aShow: boolean): void {
+    this.RecomputeIntersheetRefs();
+
+    this.GetCanvas()?.GetView().SetLayerVisible(SCH_LAYER_ID.LAYER_INTERSHEET_REFS, aShow);
   }
 
   SetSheetNumberAndCount(): void {

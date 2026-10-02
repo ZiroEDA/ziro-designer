@@ -492,6 +492,13 @@ export enum ERCE_T {
 export class ERC_SETTINGS {
   m_ERCSeverities: Map<number, Severity>;
 
+  /// Serialized excluded ERC markers. A `std::set<wxString>` upstream, so it iterates in
+  /// code-point order; read it through `sortedExclusions` wherever the order shows.
+  m_ErcExclusions = new Set<string>();
+
+  /// Map from serialization to comment.
+  m_ErcExclusionComments = new Map<string, string>();
+
   constructor() {
     this.m_ERCSeverities = new Map();
 
@@ -563,4 +570,9 @@ export class ERC_SETTINGS {
   SetSeverity(aErrorCode: number, aSeverity: Severity): void {
     this.m_ERCSeverities.set(aErrorCode, aSeverity);
   }
+}
+
+/** `ERC_SETTINGS::m_ErcExclusions` in `std::set<wxString>` order (by code point). */
+export function sortedExclusions(aSettings: ERC_SETTINGS): string[] {
+  return [...aSettings.m_ErcExclusions].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
 }

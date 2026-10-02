@@ -115,8 +115,11 @@ import { KICAD_T as KICAD_T_E3 } from '@ziroeda/core/typeinfo.js';
 import { applyMixins } from '@ziroeda/core/mixins.js';
 import { BUS_ALIAS } from './bus_alias.js';
 import { CONNECTION_GRAPH, CONNECTION_SUBGRAPH } from './connection_graph.js';
-import { ERC_SETTINGS } from './erc/erc_settings.js';
-import type { SCH_ITEM } from './sch_item.js';
+import { ERC_SETTINGS, sortedExclusions } from './erc/erc_settings.js';
+import { SCH_MARKER } from './sch_marker.js';
+import type { SCH_GLOBALLABEL } from './sch_label.js';
+import type { SCHEMATIC_HOLDER } from './schematic_holder.js';
+import { AUTOPLACE_ALGO, type SCH_ITEM } from './sch_item.js';
 import { SCH_RULE_AREA } from './sch_rule_area.js';
 import { SCH_SCREEN, SCH_SCREENS } from './sch_screen.js';
 import { SCH_SHEET } from './sch_sheet.js';
@@ -206,6 +209,9 @@ export class SCHEMATIC extends EDA_ITEM_E3 {
 
   /// The project file's ERC_SETTINGS stand-in, same reasoning as m_settings.
   private m_ercSettings: ERC_SETTINGS;
+
+  /// `m_schematicHolder`: the editor the schematic calls back through (null headless).
+  private m_schematicHolder: SCHEMATIC_HOLDER | null = null;
 
   /// Holds and calculates connectivity information of this schematic.
   private m_connectionGraph: CONNECTION_GRAPH;
@@ -633,7 +639,7 @@ export class SCHEMATIC extends EDA_ITEM_E3 {
     this.RefreshHierarchy();
     const list = this.Hierarchy();
 
-    // if( Settings().m_IntersheetRefsShow ) RecomputeIntersheetRefs(): pending on the live model.
+    if (this.Settings().m_IntersheetRefsShow) this.RecomputeIntersheetRefs();
 
     // Clear all resolved netclass caches in case labels have changed
     this.m_project?.GetProjectFile().NetSettings().ClearAllCaches();
@@ -652,6 +658,123 @@ export class SCHEMATIC extends EDA_ITEM_E3 {
   /** `ErcSettings()`: the project file's `m_ErcSettings` upstream; schematic-owned here. */
   ErcSettings(): ERC_SETTINGS {
     return this.m_ercSettings;
+  }
+
+  /**
+   * `SCHEMATIC::ResolveERCExclusions` (schematic.cpp:557): match the recorded exclusions
+   * against the markers on the screens, and make markers for the ones that no longer have
+   * one (returned for the caller to place).
+   */
+  ResolveERCExclusions(): SCH_MARKER[] {
+    const sheetList = this.Hierarchy();
+    const settings = this.ErcSettings();
+
+    // Migrate legacy marker exclusions to new format to ensure exclusion matching functions across
+    // file versions. Silently drops any legacy exclusions which can not be mapped to the new format
+    // without risking an incorrect exclusion - this is preferable to silently dropping
+    // new ERC errors / warnings due to an incorrect match between a legacy and new
+    // marker serialization format
+    const migratedExclusions = new Set<string>();
+
+    for (const it of sortedExclusions(settings)) {
+      const testMarker = SCH_MARKER.DeserializeFromString(sheetList, it);
+
+      if (!testMarker) {
+        settings.m_ErcExclusions.delete(it);
+        continue;
+      }
+
+      if (testMarker.IsLegacyMarker()) {
+        const settingsKey = testMarker.GetRCItem()!.GetSettingsKey();
+
+        if (
+          settingsKey !== 'pin_to_pin' &&
+          settingsKey !== 'hier_label_mismatch' &&
+          settingsKey !== 'different_unit_net'
+        ) {
+          migratedExclusions.add(testMarker.SerializeToString());
+        }
+
+        settings.m_ErcExclusions.delete(it);
+      }
+    }
+
+    for (const m of migratedExclusions) settings.m_ErcExclusions.add(m);
+
+    // End of legacy exclusion removal / migrations
+
+    for (const sheet of sheetList) {
+      for (const item of sheet.LastScreen()!.Items().OfType(KICAD_T_E3.SCH_MARKER_T)) {
+        const marker = item as unknown as SCH_MARKER;
+        const serialized = marker.SerializeToString();
+
+        if (settings.m_ErcExclusions.has(serialized)) {
+          marker.SetExcluded(true, settings.m_ErcExclusionComments.get(serialized) ?? '');
+          settings.m_ErcExclusions.delete(serialized);
+        }
+      }
+    }
+
+    const newMarkers: SCH_MARKER[] = [];
+
+    for (const serialized of sortedExclusions(settings)) {
+      const marker = SCH_MARKER.DeserializeFromString(sheetList, serialized);
+
+      if (marker) {
+        marker.SetExcluded(true, settings.m_ErcExclusionComments.get(serialized) ?? '');
+        newMarkers.push(marker);
+      }
+    }
+
+    settings.m_ErcExclusions.clear();
+
+    return newMarkers;
+  }
+
+  /**
+   * `SCHEMATIC::RecordERCExclusions` (schematic.cpp:1349): every excluded marker on the
+   * screens, serialized with its comment, into the settings.
+   */
+  RecordERCExclusions(): void {
+    // Use a sorted sheetList to reduce file churn
+    const sheetList = this.Hierarchy();
+    const ercSettings = this.ErcSettings();
+
+    ercSettings.m_ErcExclusions.clear();
+    ercSettings.m_ErcExclusionComments.clear();
+
+    for (const sheet of sheetList) {
+      for (const item of sheet.LastScreen()!.Items().OfType(KICAD_T_E3.SCH_MARKER_T)) {
+        const marker = item as unknown as SCH_MARKER;
+
+        if (marker.IsExcluded()) {
+          const serialized = marker.SerializeToString();
+          ercSettings.m_ErcExclusions.add(serialized);
+          ercSettings.m_ErcExclusionComments.set(serialized, marker.GetComment());
+        }
+      }
+    }
+  }
+
+  /**
+   * `SCHEMATIC::ResolveERCExclusionsPostUpdate` (schematic.cpp:1375): place the markers
+   * the exclusions still need on the screen of the item they name, then record them so
+   * they are retained even before the schematic is saved.
+   */
+  ResolveERCExclusionsPostUpdate(): void {
+    const sheetList = this.Hierarchy();
+
+    for (const marker of this.ResolveERCExclusions()) {
+      const errorPath = new SCH_SHEET_PATH();
+      sheetList.ResolveItem(marker.GetRCItem()!.GetMainItemID(), errorPath);
+
+      if (errorPath.LastScreen()) errorPath.LastScreen()!.Append(marker);
+      else this.RootScreen()!.Append(marker);
+    }
+
+    // Once we have the ERC Exclusions, record them in the project file so that
+    // they are retained even before the schematic is saved (PCB Editor can also save the project)
+    this.RecordERCExclusions();
   }
 
   override GetEmbeddedFiles(): EMBEDDED_FILES {
@@ -778,6 +901,73 @@ export class SCHEMATIC extends EDA_ITEM_E3 {
 
   GetPageRefsMap(): Map<string, Set<number>> {
     return this.m_labelToPageRefsMap;
+  }
+
+  /** `SetSchematicHolder()`. */
+  SetSchematicHolder(aHolder: SCHEMATIC_HOLDER | null): void {
+    this.m_schematicHolder = aHolder;
+  }
+
+  /** `GetSchematicHolder()`. */
+  GetSchematicHolder(): SCHEMATIC_HOLDER | null {
+    return this.m_schematicHolder;
+  }
+
+  /**
+   * `SCHEMATIC::RecomputeIntersheetRefs` (schematic.cpp:1196): rebuild the label-to-pages
+   * map from every global label in the hierarchy, then show or hide the current sheet's
+   * inter-sheet reference fields as the settings say.
+   */
+  RecomputeIntersheetRefs(): void {
+    const pageRefsMap = this.GetPageRefsMap();
+
+    pageRefsMap.clear();
+
+    for (const sheet of this.Hierarchy()) {
+      for (const item of sheet.LastScreen()!.Items().OfType(KICAD_T_E3.SCH_GLOBAL_LABEL_T)) {
+        const global = item as unknown as SCH_GLOBALLABEL;
+        const resolvedLabel = global.GetShownText(sheet, false);
+
+        const pages = pageRefsMap.get(resolvedLabel) ?? new Set<number>();
+        pages.add(sheet.GetVirtualPageNumber());
+        pageRefsMap.set(resolvedLabel, pages);
+      }
+    }
+
+    const show = this.Settings().m_IntersheetRefsShow;
+
+    // Refresh all visible global labels.  Note that we have to collect them first as the
+    // SCH_SCREEN::Update() call is going to invalidate the RTree iterator.
+    const currentSheetGlobalLabels = this.CurrentSheet()
+      .LastScreen()!
+      .Items()
+      .OfType(KICAD_T_E3.SCH_GLOBAL_LABEL_T)
+      .map((item) => item as unknown as SCH_GLOBALLABEL);
+
+    for (const globalLabel of currentSheetGlobalLabels) {
+      const fields = globalLabel.GetFields();
+
+      fields[0]?.SetVisible(show);
+
+      if (show) {
+        const pos = fields[0]?.GetTextPos();
+        const at = globalLabel.GetPosition();
+
+        if (fields.length === 1 && pos && pos.x === at.x && pos.y === at.y)
+          globalLabel.AutoplaceFields(
+            this.CurrentSheet().LastScreen(),
+            AUTOPLACE_ALGO.AUTOPLACE_AUTO,
+          );
+
+        this.CurrentSheet().LastScreen()!.Update(globalLabel);
+
+        for (const field of globalLabel.GetFields()) field.ClearBoundingBoxCache();
+
+        globalLabel.ClearBoundingBoxCache();
+
+        this.m_schematicHolder?.IntersheetRefUpdate?.(globalLabel);
+      }
+    }
   }
 
   /** The virtual page number of each sheet, to its name. */
