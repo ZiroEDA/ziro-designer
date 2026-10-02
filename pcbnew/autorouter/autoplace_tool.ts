@@ -4,95 +4,87 @@
 /**
  * `pcbnew/autorouter/autoplace_tool.cpp`: AUTOPLACE_TOOL, the two Autoplace
  * actions (`PCB_ACTIONS::autoplaceSelectedComponents`,
- * `autoplaceOffboardComponents`) that drive AR_AUTOPLACER.
+ * `autoplaceOffboardComponents`) that drive {@link AR_AUTOPLACER}.
  *
- * The board here is a value, so the BOARD_COMMIT is the return: `board` is the
- * pushed result on completion, and the untouched input where KiCad calls
- * `commit.Revert()`. The view-refresh callback, the overlay and the progress
- * reporter have no counterpart in a synchronous call and are not ported.
+ * KiCad's overlay, refresh callback and WX_PROGRESS_REPORTER show the run as it
+ * goes; this run is synchronous, so the commit's push is the only redraw.
  */
-import { parseBoardItemId } from '../edit-board.js';
-import type { Board } from '../types.js';
-import {
-  type AutoplaceOptions,
-  autoplaceFootprints,
-  boardEdgesBoundingBox,
-  boardOutlineRings,
-} from './ar_autoplacer.js';
+import { PCB_LAYER_ID, LayerName } from '@ziroeda/common/layer_id.js';
+import { SYNC_HANDLER } from '@ziroeda/common/tool/tool_interactive.js';
+import type { TOOL_EVENT } from '@ziroeda/common/tool/tool_event.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
+import { BOARD_COMMIT } from '../board_commit.js';
+import type { FOOTPRINT } from '../footprint.js';
+import type { PCB_EDIT_FRAME } from '../pcb_edit_frame.js';
+import { PCB_ACTIONS } from '../tools/pcb_actions.js';
+import { PCB_TOOL_BASE } from '../tools/pcb_tool_base.js';
+import { AR_AUTOPLACER, AR_RESULT } from './ar_autoplacer.js';
 
-export interface AutoplaceToolResult {
-  board: Board;
-  /** `AUTOPLACE_TOOL::autoplace` showed its infobar error, or the placer failed and reverted. */
-  error?: string;
-  /** True when the commit was pushed (`AR_COMPLETED`). */
-  pushed: boolean;
-}
-
-/** `SHAPE_POLY_SET::Contains` over the outline rings: an even-odd crossing count. */
-function ringsContain(rings: readonly { x: number; y: number }[][], x: number, y: number): boolean {
-  let inside = false;
-  for (const ring of rings) {
-    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-      const a = ring[i]!;
-      const b = ring[j]!;
-      if (a.y > y !== b.y > y && x < ((b.x - a.x) * (y - a.y)) / (b.y - a.y) + a.x)
-        inside = !inside;
-    }
+export class AUTOPLACE_TOOL extends PCB_TOOL_BASE {
+  constructor() {
+    super('pcbnew.Autoplacer');
   }
-  return inside;
-}
 
-export class AUTOPLACE_TOOL {
-  /** `frame()->GetOverrideLocks()`. */
-  constructor(
-    private readonly m_overrideLocks: boolean,
-    private readonly m_options: AutoplaceOptions,
-  ) {}
+  private autoplace(aFootprints: FOOTPRINT[]): number {
+    const bbox = this.board().GetBoardEdgesBoundingBox();
 
-  /** `AUTOPLACE_TOOL::autoplace`: `aFootprints` are footprint indices. */
-  autoplace(aBoard: Board, aFootprints: number[]): AutoplaceToolResult {
-    const bbox = boardEdgesBoundingBox(aBoard);
+    if (bbox.GetWidth() === 0 || bbox.GetHeight() === 0) {
+      const msg = `Board edges must be defined on the ${LayerName(PCB_LAYER_ID.Edge_Cuts)} layer.`;
 
-    if (!bbox || bbox.w === 0 || bbox.h === 0) {
-      return {
-        board: aBoard,
-        pushed: false,
-        error: 'Board edges must be defined on the Edge.Cuts layer.',
-      };
+      // `GetInfoBar()->RemoveAllButtons(); ShowMessageFor( msg, 5000, wxICON_ERROR )`.
+      this.frame<PCB_EDIT_FRAME>().ShowInfoBarError(msg);
+      return 0;
     }
 
     let footprints = aFootprints;
 
-    if (!this.m_overrideLocks) footprints = footprints.filter((i) => !aBoard.footprints[i]?.locked);
+    if (!this.frame().GetOverrideLocks()) footprints = footprints.filter((fp) => !fp.IsLocked());
 
-    const result = autoplaceFootprints(aBoard, footprints, this.m_options);
+    this.Activate();
 
-    if (result.status === 'completed') return { board: result.board, pushed: true };
+    const autoplacer = new AR_AUTOPLACER(this.board());
+    const commit = new BOARD_COMMIT(this.frame());
 
-    return { board: aBoard, pushed: false };
+    const result = autoplacer.AutoplaceFootprints(footprints, commit, false);
+
+    if (result === AR_RESULT.AR_COMPLETED) commit.Push('Autoplace Footprints');
+    else commit.Revert();
+
+    return 0;
   }
 
-  /** `AUTOPLACE_TOOL::autoplaceSelected`: `aSelection` is a set of board item ids. */
-  autoplaceSelected(aBoard: Board, aSelection: Iterable<string>): AutoplaceToolResult {
-    const footprints: number[] = [];
+  autoplaceSelected(_aEvent: TOOL_EVENT): number {
+    const footprints: FOOTPRINT[] = [];
 
-    for (const id of aSelection) {
-      const ref = parseBoardItemId(id);
-      if (ref?.kind === 'footprint') footprints.push(ref.index);
+    for (const item of this.selection()) {
+      if (item.Type() === KICAD_T.PCB_FOOTPRINT_T) footprints.push(item as FOOTPRINT);
     }
 
-    return this.autoplace(aBoard, footprints);
+    return this.autoplace(footprints);
   }
 
-  /** `AUTOPLACE_TOOL::autoplaceOffboard`: every footprint whose position is off the board outline. */
-  autoplaceOffboard(aBoard: Board): AutoplaceToolResult {
-    const rings = boardOutlineRings(aBoard);
-    const footprints: number[] = [];
+  autoplaceOffboard(_aEvent: TOOL_EVENT): number {
+    const boardShape = new SHAPE_POLY_SET();
+    this.board().GetBoardPolygonOutlines(boardShape, true);
 
-    aBoard.footprints.forEach((fp, i) => {
-      if (!ringsContain(rings, fp.at.x, fp.at.y)) footprints.push(i);
-    });
+    const footprints: FOOTPRINT[] = [];
 
-    return this.autoplace(aBoard, footprints);
+    for (const footprint of this.board().Footprints()) {
+      if (!boardShape.Contains(footprint.GetPosition())) footprints.push(footprint);
+    }
+
+    return this.autoplace(footprints);
+  }
+
+  protected override setTransitions(): void {
+    this.Go(
+      SYNC_HANDLER<AUTOPLACE_TOOL>(this.autoplaceSelected),
+      PCB_ACTIONS.autoplaceSelectedComponents.MakeEvent(),
+    );
+    this.Go(
+      SYNC_HANDLER<AUTOPLACE_TOOL>(this.autoplaceOffboard),
+      PCB_ACTIONS.autoplaceOffboardComponents.MakeEvent(),
+    );
   }
 }

@@ -33,7 +33,7 @@ export {
   type SerializeFootprintOptions,
 } from './pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 export { DEFAULT_POINT_SIZE } from './pcb_point.js';
-export { arcSweepDegrees } from './autorouter/ar_matrix.js';
+export { arcSweepDegrees } from './edit-board.js';
 export {
   fpItemId,
   parseFpItemId,
@@ -243,12 +243,7 @@ export {
 } from './autorouter/spread_footprints.js';
 
 // Footprint autoplacement (pcbnew/autorouter: AR_AUTOPLACER + AR_MATRIX).
-export {
-  autoplaceFootprints,
-  AR_STEP_MM,
-  type AutoplaceOptions,
-  type AutoplaceResult,
-} from './autorouter/ar_autoplacer.js';
+export { AR_AUTOPLACER, AR_RESULT } from './autorouter/ar_autoplacer.js';
 
 // Zone filling (pcbnew/zone_filler.cpp: ZONE_FILLER).
 export {

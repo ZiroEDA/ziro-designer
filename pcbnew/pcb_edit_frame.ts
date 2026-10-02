@@ -10,6 +10,7 @@
  * The listener is `BOARD_LISTENER` as the React side subscribes to it: every
  * notification schedules one re-derivation of the view from the BOARD.
  */
+import { AUTOPLACE_TOOL } from './autorouter/autoplace_tool.js';
 import type { BOARD_NETLIST_UPDATER } from './netlist_reader/board_netlist_updater.js';
 import { PCB_TRACK } from './pcb_track.js';
 import { SpreadFootprints } from './autorouter/spread_footprints.js';
@@ -1269,6 +1270,7 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     this.m_toolManager.RegisterTool(new DRAWING_TOOL());
     this.m_toolManager.RegisterTool(new PCB_CONTROL());
     this.m_toolManager.RegisterTool(new BOARD_EDITOR_CONTROL());
+    this.m_toolManager.RegisterTool(new AUTOPLACE_TOOL());
     this.m_toolManager.RegisterTool(
       new WINDOW_ACTION_BRIDGE(
         (aAction, aEvent) => this.hooks.windowAction?.(aAction, aEvent),
