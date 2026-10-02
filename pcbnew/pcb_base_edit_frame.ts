@@ -25,6 +25,9 @@ import type { BOARD_ITEM } from './board_item.js';
  * `IsPlacementInteractive()`, `ShouldFixDiscontinuities()` and
  * `GetTolerance()` (IU).
  */
+/** `PASTE_MODE` (dialog_paste_special.h). */
+export type PASTE_MODE = 'UNIQUE_ANNOTATIONS' | 'KEEP_ANNOTATIONS' | 'REMOVE_ANNOTATIONS';
+
 export interface IMPORT_GRAPHICS_RESULT {
   items: BOARD_ITEM[];
   groupItems: boolean;
@@ -194,6 +197,17 @@ export abstract class PCB_BASE_EDIT_FRAME extends PCB_BASE_FRAME {
    */
   ShowPageSettingsDialog(): Promise<boolean> {
     return Promise.resolve(false);
+  }
+
+  /**
+   * `DIALOG_PASTE_SPECIAL( this, &mode, "REF**" )`, `HideClearNets()` unless
+   * `aShowClearNets`, then `ShowModal()`: the mode and `GetClearNets()`, or null
+   * for Cancel (and without a window).
+   */
+  ShowPasteSpecialDialog(
+    _aShowClearNets: boolean,
+  ): Promise<{ mode: PASTE_MODE; clearNets: boolean } | null> {
+    return Promise.resolve(null);
   }
 
   /** `SetObjectVisible` (pcb_base_edit_frame.cpp:271-275): through the Appearance panel. */

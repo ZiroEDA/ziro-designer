@@ -8,6 +8,10 @@
  * and EDIT_TOOL on the live BOARD.
  */
 import { beforeEach, describe, expect, it } from 'vitest';
+import { SetClipboardFromText } from '@ziroeda/common/clipboard.js';
+import type { BOARD_ITEM } from '@ziroeda/pcbnew/board_item.js';
+import type { PASTE_MODE } from '@ziroeda/pcbnew/pcb_base_edit_frame.js';
+import type { PCB_TEXT } from '@ziroeda/pcbnew/pcb_text.js';
 import type { FOOTPRINT } from '@ziroeda/pcbnew/footprint.js';
 import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { PAGE_INFO } from '@ziroeda/common/page_info.js';
@@ -27,6 +31,7 @@ import { PCB_CONTROL } from '@ziroeda/pcbnew/tools/pcb_control.js';
 import { PCB_PICKER_TOOL } from '@ziroeda/pcbnew/tools/pcb_picker_tool.js';
 import {
   byUuid,
+  U,
   mm,
   mouse,
   select,
@@ -71,7 +76,14 @@ const libFootprint = (): FOOTPRINT => {
   return fp;
 };
 
+/** What DIALOG_PASTE_SPECIAL answers, or null for Cancel. */
+let pasteSpecial: { mode: PASTE_MODE; clearNets: boolean } | null = null;
+
 class PAGE_FRAME extends TEST_PCB_FRAME {
+  override ShowPasteSpecialDialog(): Promise<{ mode: PASTE_MODE; clearNets: boolean } | null> {
+    return Promise.resolve(pasteSpecial);
+  }
+
   SelectFootprintFromLibrary(): Promise<FOOTPRINT | null> {
     return Promise.resolve(chosenFootprint ? chosenFootprint() : null);
   }
@@ -99,6 +111,7 @@ beforeEach(() => {
   h.mgr.ResetTools(RESET_REASON.MODEL_RELOAD);
   pagePaper = null;
   chosenFootprint = null;
+  pasteSpecial = null;
 });
 
 const click = (p: Vec2): void => {
@@ -320,3 +333,92 @@ describe('BOARD_EDITOR_CONTROL::PlaceFootprint (board_editor_control.cpp:1359-15
     expect(h.board.Footprints()).toHaveLength(0);
   });
 });
+
+describe('PCB_CONTROL::Paste (:1077-1387)', () => {
+  const flush = async (): Promise<void> => {
+    for (let i = 0; i < 4; i++) await new Promise((r) => setTimeout(r, 0));
+  };
+  const lines = (): PCB_SHAPE[] =>
+    shapes().filter((d) => (d as BOARD_ITEM).Type() === KICAD_T.PCB_SHAPE_T);
+
+  it('a copied line pastes as a new line riding the cursor; a click commits "Paste" (:1349-1387)', () => {
+    select(h, 1);
+    h.mgr.RunAction(ACTIONS.copy);
+    h.mgr.RunAction(ACTIONS.selectionClear);
+    h.mouse = mm(50, 50);
+    h.mgr.RunAction(ACTIONS.paste);
+    expect(lines()).toHaveLength(2);
+    mouse(h, TA_MOUSE_MOTION, mm(60, 60));
+    click(mm(60, 60));
+    expect(lines()).toHaveLength(3);
+    const pasted = lines().find((l) => l.m_Uuid !== U(1) && l.m_Uuid !== U(2))!;
+    expect(pasted).toBeDefined();
+    expect(pasted.GetLength()).toBe((byUuid(h.board, 1) as unknown as PCB_SHAPE).GetLength());
+    expect(h.frame.GetUndoActionDescription()).toBe('Paste');
+  });
+
+  it('text that is not a board pastes as a text item on the active layer, "Paste Text" (:1148-1199)', () => {
+    SetClipboardFromText('HELLO BOARD');
+    h.frame.SetActiveLayer(PCB_LAYER_ID.F_SilkS);
+    h.mgr.RunAction(ACTIONS.paste);
+    click(mm(40, 40));
+    const texts = h.board.Drawings().filter((d) => d.Type() === KICAD_T.PCB_TEXT_T);
+    expect(texts).toHaveLength(1);
+    expect((texts[0] as unknown as PCB_TEXT).GetText()).toBe('HELLO BOARD');
+    expect(texts[0]!.GetLayer()).toBe(PCB_LAYER_ID.F_SilkS);
+    expect(h.frame.GetUndoActionDescription()).toBe('Paste Text');
+  });
+
+  it('Paste Special "remove annotations" gives a pasted footprint REF** (:1206-1220, :1349-1356)', async () => {
+    SetClipboardFromText(FOOTPRINT_PAYLOAD);
+    pasteSpecial = { mode: 'REMOVE_ANNOTATIONS', clearNets: false };
+    h.mgr.RunAction(ACTIONS.pasteSpecial);
+    await flush();
+    click(mm(70, 70));
+    expect(h.board.Footprints()).toHaveLength(1);
+    expect(h.board.Footprints()[0]!.GetReference()).toBe('REF**');
+  });
+
+  it('…and every footprint of a pasted board too (:1316-1320)', async () => {
+    SetClipboardFromText(BOARD_WITH_FOOTPRINT_PAYLOAD);
+    pasteSpecial = { mode: 'REMOVE_ANNOTATIONS', clearNets: false };
+    h.mgr.RunAction(ACTIONS.pasteSpecial);
+    await flush();
+    click(mm(70, 70));
+    expect(h.board.Footprints()).toHaveLength(1);
+    expect(h.board.Footprints()[0]!.GetReference()).toBe('REF**');
+  });
+
+  it('Paste Special cancelled pastes nothing', async () => {
+    SetClipboardFromText(FOOTPRINT_PAYLOAD);
+    pasteSpecial = null;
+    h.mgr.RunAction(ACTIONS.pasteSpecial);
+    await flush();
+    expect(h.board.Footprints()).toHaveLength(0);
+    expect(h.frame.GetUndoCommandCount()).toBe(0);
+  });
+
+  it('items on layers this board has not enabled are dropped (pruneItemLayers, :1010-1074)', () => {
+    SetClipboardFromText(PRUNE_PAYLOAD);
+    h.mgr.RunAction(ACTIONS.paste);
+    click(mm(70, 70));
+    // the F.SilkS line comes across; the In5.Cu line does not
+    expect(lines()).toHaveLength(3);
+  });
+});
+
+const FOOTPRINT_PAYLOAD = `(footprint "Lib:R" (layer "F.Cu") (at 0 0) (uuid "00000000-0000-4000-8000-0000000000ba")
+  (property "Reference" "R7" (at 0 -2 0) (layer "F.SilkS") (uuid "00000000-0000-4000-8000-0000000000bb"))
+  (pad "1" smd rect (at -1 0) (size 1 1) (layers "F.Cu") (uuid "00000000-0000-4000-8000-0000000000bc"))
+)`;
+
+const BOARD_WITH_FOOTPRINT_PAYLOAD = `(kicad_pcb (version 20241229) (generator "pcbnew")
+  (layers (0 "F.Cu" signal) (2 "B.Cu" signal) (5 "F.SilkS" user "F.Silkscreen"))
+  ${FOOTPRINT_PAYLOAD}
+)`;
+
+const PRUNE_PAYLOAD = `(kicad_pcb (version 20241229) (generator "pcbnew")
+  (layers (0 "F.Cu" signal) (2 "B.Cu" signal) (5 "F.SilkS" user "F.Silkscreen") (14 "In5.Cu" signal))
+  (gr_line (start 0 0) (end 5 0) (stroke (width 0.2) (type solid)) (layer "F.SilkS") (uuid "00000000-0000-4000-8000-0000000000ca"))
+  (gr_line (start 0 1) (end 5 1) (stroke (width 0.2) (type solid)) (layer "In5.Cu") (uuid "00000000-0000-4000-8000-0000000000cb"))
+)`;

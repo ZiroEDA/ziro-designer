@@ -451,13 +451,6 @@ import { formatTitle, useDocumentTitle } from '@ziroeda/common/use_document_titl
 import { PCB_FRAME_NAME, pcbFrameTitle } from './pcb_edit_frame.js';
 import { withSaveEnablement } from '@ziroeda/common/save_enablement.js';
 import {
-  copySelectionToClipboardText,
-  cutSelectionToClipboardText,
-  parseClipboardText,
-  pasteIntoBoard,
-  type PasteMode,
-} from './kicad_clipboard.js';
-import {
   DialogPasteSpecial,
   type PasteSpecialMode,
 } from '@ziroeda/common/dialogs/dialog_paste_special.js';
@@ -798,7 +791,16 @@ import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { BOARD_COMMIT } from './board_commit.js';
-import type { IMPORT_GRAPHICS_RESULT, PCB_BASE_EDIT_FRAME } from './pcb_base_edit_frame.js';
+import type {
+  IMPORT_GRAPHICS_RESULT,
+  PASTE_MODE,
+  PCB_BASE_EDIT_FRAME,
+} from './pcb_base_edit_frame.js';
+import {
+  GetClipboardText,
+  SetClipboardFromPaste,
+  SetClipboardFromText,
+} from '@ziroeda/common/clipboard.js';
 import type { BOARD_ITEM_CONTAINER } from './board_item_container.js';
 import type { PCB_SHAPE } from './pcb_shape.js';
 import type { VertexEditorFrame } from './widgets/vertex_editor_pane.js';
@@ -1917,8 +1919,11 @@ export function PcbEditor({
     [onViewer3DOpenChange],
   );
   const [inspectOpen, setInspectOpen] = useState(false);
-  /** DIALOG_PASTE_SPECIAL, opened only by `ACTIONS::pasteSpecial`. */
-  const [pasteSpecialOpen, setPasteSpecialOpen] = useState(false);
+  /** DIALOG_PASTE_SPECIAL, opened by PCB_CONTROL::Paste for `ACTIONS::pasteSpecial`. */
+  const [pasteSpecialDlg, setPasteSpecialDlg] = useState<{
+    showClearNets: boolean;
+    resolve: (aResult: { mode: PASTE_MODE; clearNets: boolean } | null) => void;
+  } | null>(null);
   /**
    * `DIALOG_FILTER_SELECTION( m_frame, opts )` as PCB_SELECTION_TOOL::
    * filterSelection shows it: the tool's options being edited, and the
@@ -2335,6 +2340,24 @@ export function PcbEditor({
     frameRef.current?.GetToolManager()?.RunAction(aAction);
     refreshInspectionMirrorRef.current();
   };
+  /** The same, for listeners installed once (the clipboard events). */
+  const runActionRef = useRef(runAction);
+  runActionRef.current = runAction;
+  /**
+   * PCB_CONTROL::Paste from a menu row: outside a paste event the browser hands
+   * the system clipboard over only asynchronously, so its text is read into the
+   * clipboard first.
+   */
+  const pasteFromSystemClipboard = (aAction: TOOL_ACTION): void => {
+    const run = (): void => runActionRef.current(aAction);
+    const read = navigator.clipboard?.readText();
+    if (read)
+      void read.then((text) => {
+        SetClipboardFromText(text);
+        run();
+      }, run);
+    else run();
+  };
   /**
    * TRANSITIONAL (#636 stage 3): a selection written by one of the window's own
    * tools, by view id. The selection is PCB_SELECTION_TOOL's, so the write goes
@@ -2592,6 +2615,8 @@ export function PcbEditor({
       // The "Choose Image" dialog: a file input, read as bytes. Cancel answers
       // null (the input's `cancel` event), which leaves the tool armed, as
       // upstream's `continue` does.
+      showPasteSpecialDialog: (aShowClearNets) =>
+        new Promise((resolve) => setPasteSpecialDlg({ showClearNets: aShowClearNets, resolve })),
       showPageSettingsDialog: () => new Promise<boolean>((resolve) => setPageDlg({ resolve })),
       showImportGraphicsDialog: () =>
         new Promise<IMPORT_GRAPHICS_RESULT | null>((resolve) => setImportGfxDlg({ resolve })),
@@ -5927,6 +5952,63 @@ export function PcbEditor({
   };
 
   /**
+   * The system clipboard's own events, so Ctrl+X / Ctrl+C / Ctrl+V work and not
+   * only the menu rows. Same shape as the schematic editor's, for the same
+   * reason: the browser will only hand a page the clipboard from inside one of
+   * these three events.
+   *
+   * The editors all stay mounted behind `display: none`, so only the visible
+   * frame may own them — `App` stamps the active view on `document.body` and
+   * every frame checks it. Without that, the PCB editor would answer a copy
+   * pressed in the schematic.
+   */
+  useEffect(() => {
+    const hidden = (): boolean => document.body.dataset.activeView !== 'pcb';
+    // `isTypingTarget` is the shared predicate, and its own doc comment names
+    // Ctrl+C / Ctrl+X / Ctrl+V as the reason it exists: while a field has
+    // focus the FIELD's copy must win, not the board's. Building a synthetic
+    // Ctrl+C to ask `focusBlocksHotkey` instead put a hand-written modifier
+    // comparison in a converted frame, which is the one thing
+    // `menu_hotkey_coverage.test.ts` forbids — and it caught it.
+    const typing = (): boolean => isTypingTarget(document.activeElement as FocusLike | null);
+
+    // EDIT_TOOL::copyToClipboard / cutToClipboard save through SaveClipboard;
+    // inside the browser's own event, what they saved goes on the system
+    // clipboard too.
+    const onCopy = (e: ClipboardEvent): void => {
+      if (hidden() || typing() || selForDrawRef.current.size === 0) return;
+      runActionRef.current(ACTIONS.copy);
+      const text = GetClipboardText();
+      if (!text) return;
+      e.clipboardData?.setData('text/plain', text);
+      e.preventDefault();
+    };
+    const onCut = (e: ClipboardEvent): void => {
+      if (hidden() || typing() || selForDrawRef.current.size === 0) return;
+      runActionRef.current(ACTIONS.cut);
+      const text = GetClipboardText();
+      if (!text) return;
+      e.clipboardData?.setData('text/plain', text);
+      e.preventDefault();
+    };
+    // PCB_CONTROL::Paste reads the clipboard; the event's data becomes it first.
+    const onPaste = (e: ClipboardEvent): void => {
+      if (hidden() || typing() || !e.clipboardData) return;
+      e.preventDefault();
+      void SetClipboardFromPaste(e.clipboardData).then(() => runActionRef.current(ACTIONS.paste));
+    };
+
+    document.addEventListener('copy', onCopy);
+    document.addEventListener('cut', onCut);
+    document.addEventListener('paste', onPaste);
+    return () => {
+      document.removeEventListener('copy', onCopy);
+      document.removeEventListener('cut', onCut);
+      document.removeEventListener('paste', onPaste);
+    };
+  }, []);
+
+  /**
    * The canvas context menu. Four `Init()`s feed one `CONDITIONAL_MENU`
    * upstream, and this states their rows with the same order numbers and
    * conditions rather than with the evaluated shape, so
@@ -5957,103 +6039,6 @@ export function PcbEditor({
    * `frame()->GetBoard() && !frame()->GetBoard()->IsEmpty()`, about the BOARD
    * and not about the selection, and it gates both rows identically.
    */
-  /**
-   * `PCB_CONTROL::CopyToClipboard` / `CutToClipboard` / `Paste`
-   * (`pcbnew/tools/pcb_control.cpp`). The payload itself is built and parsed by
-   * `pcbnew/pcb_clipboard.ts`; only the system-clipboard I/O and the drop
-   * point are here, because those are the two things a pure function cannot do.
-   *
-   * The reference point is upstream's `grid.BestDragOrigin` — the anchor the
-   * payload is written relative to. We use the selection's bounding-box origin,
-   * so a paste with no offset lands the items exactly where they were copied
-   * from, which is what `placeBoardItems` does before its interactive move.
-   */
-  const clipboardRef = (): { x: number; y: number } => {
-    const brd = boardRef.current;
-    const bb = brd ? boardSelectionBBox(brd, selForDrawRef.current) : null;
-    return bb ? { x: bb.minX, y: bb.minY } : { x: 0, y: 0 };
-  };
-
-  /**
-   * The paste half. `mode` and `clearNets` come from DIALOG_PASTE_SPECIAL for
-   * `ACTIONS::pasteSpecial`; a plain `ACTIONS::paste` never opens it and takes
-   * `KEEP_ANNOTATIONS` with nets mapped (`pcb_control.cpp:1208-1209`).
-   */
-  const pasteText = useCallback(
-    (text: string, mode: PasteMode = 'keep_annotations', clearNets = false) => {
-      const brd = boardRef.current;
-      if (!brd) return;
-      const parsed = parseClipboardText(text);
-      // Not a board or footprint payload: upstream falls through to its
-      // bitmap/plain-text branches, which we have not ported. Do nothing
-      // rather than clobber the board.
-      if (!parsed) return;
-      const res = pasteIntoBoard(brd, parsed, { mode, clearNets });
-      commitBoard(res.board);
-      setSelectionRef.current(new Set(res.newIds));
-    },
-    [commitBoard],
-  );
-
-  /**
-   * The system clipboard's own events, so Ctrl+X / Ctrl+C / Ctrl+V work and not
-   * only the menu rows. Same shape as the schematic editor's, for the same
-   * reason: the browser will only hand a page the clipboard from inside one of
-   * these three events.
-   *
-   * The editors all stay mounted behind `display: none`, so only the visible
-   * frame may own them — `App` stamps the active view on `document.body` and
-   * every frame checks it. Without that, the PCB editor would answer a copy
-   * pressed in the schematic.
-   */
-  useEffect(() => {
-    const hidden = (): boolean => document.body.dataset.activeView !== 'pcb';
-    // `isTypingTarget` is the shared predicate, and its own doc comment names
-    // Ctrl+C / Ctrl+X / Ctrl+V as the reason it exists: while a field has
-    // focus the FIELD's copy must win, not the board's. Building a synthetic
-    // Ctrl+C to ask `focusBlocksHotkey` instead put a hand-written modifier
-    // comparison in a converted frame, which is the one thing
-    // `menu_hotkey_coverage.test.ts` forbids — and it caught it.
-    const typing = (): boolean => isTypingTarget(document.activeElement as FocusLike | null);
-
-    const onCopy = (e: ClipboardEvent): void => {
-      if (hidden() || typing() || selForDrawRef.current.size === 0) return;
-      const brd = boardRef.current;
-      if (!brd) return;
-      const text = copySelectionToClipboardText(brd, selForDrawRef.current, clipboardRef());
-      if (text === '') return;
-      e.clipboardData?.setData('text/plain', text);
-      e.preventDefault();
-    };
-    const onCut = (e: ClipboardEvent): void => {
-      if (hidden() || typing() || selForDrawRef.current.size === 0) return;
-      const brd = boardRef.current;
-      if (!brd) return;
-      const res = cutSelectionToClipboardText(brd, selForDrawRef.current, clipboardRef());
-      if (res.text === '') return;
-      e.clipboardData?.setData('text/plain', res.text);
-      e.preventDefault();
-      commitBoard(res.board);
-      setSelectionRef.current(new Set());
-    };
-    const onPaste = (e: ClipboardEvent): void => {
-      if (hidden() || typing()) return;
-      const text = e.clipboardData?.getData('text/plain') ?? '';
-      if (!parseClipboardText(text)) return;
-      e.preventDefault();
-      pasteText(text);
-    };
-
-    document.addEventListener('copy', onCopy);
-    document.addEventListener('cut', onCut);
-    document.addEventListener('paste', onPaste);
-    return () => {
-      document.removeEventListener('copy', onCopy);
-      document.removeEventListener('cut', onCut);
-      document.removeEventListener('paste', onPaste);
-    };
-  }, [commitBoard, pasteText]);
-
   const buildPcbContextMenu = (): MenuItem[] => {
     const brd = board;
     let anyLocked = false;
@@ -6545,9 +6530,7 @@ export function PcbEditor({
           // Ctrl+V itself is the browser's own paste event, not ours — see
           // MenuItem.nativeShortcut, the same as the drawing sheet's row.
           nativeShortcut: true,
-          action: () => {
-            void navigator.clipboard?.readText().then((text) => pasteText(text));
-          },
+          action: () => pasteFromSystemClipboard(ACTIONS.paste),
         },
         150,
         toolStackIsEmpty,
@@ -6556,7 +6539,7 @@ export function PcbEditor({
         {
           label: 'Paste Special...',
           shortcut: 'Ctrl+Shift+V',
-          action: () => setPasteSpecialOpen(true),
+          action: () => pasteFromSystemClipboard(ACTIONS.pasteSpecial),
         },
         150,
         toolStackIsEmpty,
@@ -9555,11 +9538,13 @@ export function PcbEditor({
       case 'copy':
         runAction(ACTIONS.copy);
         break;
+      // PCB_CONTROL::Paste, after the system clipboard's text has been read
+      // into the clipboard (a menu row is outside any paste event).
       case 'paste':
-        void navigator.clipboard?.readText().then((text) => pasteText(text));
+        pasteFromSystemClipboard(ACTIONS.paste);
         break;
       case 'pasteSpecial':
-        setPasteSpecialOpen(true);
+        pasteFromSystemClipboard(ACTIONS.pasteSpecial);
         break;
       case 'doDelete':
         runAction(ACTIONS.doDelete);
@@ -10965,7 +10950,7 @@ export function PcbEditor({
       {/* Update PCB from Schematic: the netlist fetch, then DIALOG_UPDATE_PCB.
           A failed fetch shows the same message upstream puts in a
           DisplayErrorMessage box (a missing schematic, or one not annotated). */}
-      {pasteSpecialOpen && (
+      {pasteSpecialDlg && (
         <DialogPasteSpecial
           /* `PASTE_MODE mode = PASTE_MODE::KEEP_ANNOTATIONS` before the dialog
              is shown (pcb_control.cpp:1208), so pcbnew always opens on "keep"
@@ -10974,17 +10959,15 @@ export function PcbEditor({
           /* `const wxString defaultRef = wxT( "REF**" )` (:1211), which is the
              string the third row's tooltip names. */
           defaultRef="REF**"
+          showClearNets={pasteSpecialDlg.showClearNets}
           onOk={(chosen: PasteSpecialMode, clearNets: boolean) => {
-            setPasteSpecialOpen(false);
-            const mode: PasteMode =
-              chosen === 'UNIQUE_ANNOTATIONS'
-                ? 'unique_annotations'
-                : chosen === 'KEEP_ANNOTATIONS'
-                  ? 'keep_annotations'
-                  : 'remove_annotations';
-            void navigator.clipboard?.readText().then((text) => pasteText(text, mode, clearNets));
+            pasteSpecialDlg.resolve({ mode: chosen, clearNets });
+            setPasteSpecialDlg(null);
           }}
-          onCancel={() => setPasteSpecialOpen(false)}
+          onCancel={() => {
+            pasteSpecialDlg.resolve(null);
+            setPasteSpecialDlg(null);
+          }}
         />
       )}
       {aboutOpen && (

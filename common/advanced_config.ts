@@ -25,6 +25,14 @@ export class ADVANCED_CFG {
   m_DisambiguationMenuDelay = 500;
 
   /**
+   * Set the maximum number of characters that can be pasted without warning.
+   * Pasting very long text strings can cause the application to freeze for a
+   * long time and are probably not what the user intended.
+   * Setting name: "MaxPastedTextLength"; default 100.
+   */
+  m_MaxPastedTextLength = 100;
+
+  /**
    * Ratio by which a PCB selection's item visibility must exceed the visibility of items
    * obscuring it before it is considered a candidate (`PCB_SELECTION_TOOL::
    * pruneObscuredSelectionCandidates`). 1.0 turns the pruning off.

@@ -41,7 +41,11 @@ import { HIGH_CONTRAST_MODE } from '@ziroeda/common/project/board_project_settin
 import { PAD } from './pad.js';
 import { PCB_VIA, VIATYPE } from './pcb_track.js';
 import type { PROGRESS_REPORTER_LIKE } from './connectivity/connectivity_algo.js';
-import { PCB_BASE_EDIT_FRAME, type IMPORT_GRAPHICS_RESULT } from './pcb_base_edit_frame.js';
+import {
+  PCB_BASE_EDIT_FRAME,
+  type IMPORT_GRAPHICS_RESULT,
+  type PASTE_MODE,
+} from './pcb_base_edit_frame.js';
 import { STRTOK, strncpyLine } from '@ziroeda/common/libc/string.js';
 import type { KIWAY_MAIL_EVENT } from '@ziroeda/common/kiway_mail.js';
 import { MAIL_T } from '@ziroeda/common/mail_type.js';
@@ -309,6 +313,10 @@ export interface PCB_EDIT_FRAME_HOOKS {
   createDrcDialog(aTool: DRC_TOOL, aParent: unknown): DIALOG_DRC_LIKE;
   /** `Kiface().IsSingle()`: no schematic to test parity against. */
   isSingle(): boolean;
+  /** DIALOG_PASTE_SPECIAL: the chosen mode and clear-nets, or null for Cancel. */
+  showPasteSpecialDialog?(
+    aShowClearNets: boolean,
+  ): Promise<{ mode: PASTE_MODE; clearNets: boolean } | null>;
   /** DIALOG_PAGES_SETTINGS: true when OK wrote the page and title block into the frame. */
   showPageSettingsDialog?(): Promise<boolean>;
   /** DIALOG_IMPORT_GRAPHICS: what OK read off it, or null. */
@@ -844,6 +852,12 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
    */
   ShowTableCellPropertiesDialog(_aCells: PCB_TABLECELL[]): Promise<boolean> {
     return Promise.resolve(true);
+  }
+
+  override ShowPasteSpecialDialog(
+    aShowClearNets: boolean,
+  ): Promise<{ mode: PASTE_MODE; clearNets: boolean } | null> {
+    return this.hooks.showPasteSpecialDialog?.(aShowClearNets) ?? Promise.resolve(null);
   }
 
   override ShowPageSettingsDialog(): Promise<boolean> {
