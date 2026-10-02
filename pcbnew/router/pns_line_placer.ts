@@ -46,6 +46,7 @@
  *   `updateLeadingRatLine` is ported and calls an optional hook on the router
  *   interface, so the call site and its timing are real.
  */
+import { VIATYPE } from '../pcb_track_types.js';
 import {
   AngleType,
   CornerMode,
@@ -1796,11 +1797,11 @@ export class PnsLinePlacer {
     const iface = this.mRouter.getInterface();
 
     const start =
-      this.mSizes.viaType() === 'through'
+      this.mSizes.viaType() === VIATYPE.THROUGH
         ? iface.getPnsLayerFromBoardLayer('F.Cu')
         : this.mSizes.getLayerTop();
     const end =
-      this.mSizes.viaType() === 'through'
+      this.mSizes.viaType() === VIATYPE.THROUGH
         ? iface.getPnsLayerFromBoardLayer('B.Cu')
         : this.mSizes.getLayerBottom();
 

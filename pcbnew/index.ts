@@ -1143,7 +1143,7 @@ export {
 // `ARC_LOW_DEF`/`arcHull`/`buildHullForPrimitiveShape`/`convexHull` are already
 // exported above, from the `pns_utils.js` block.
 export { itemHull } from './router/pns_utils.js';
-export { PNS_PCBNEW_RULE_RESOLVER, type PnsResolverHost } from './router/pns_kicad_iface.js';
+export { PNS_PCBNEW_RULE_RESOLVER } from './router/pns_kicad_iface.js';
 
 export {
   DEFAULT_ROUTING_SETTINGS,
@@ -1430,17 +1430,12 @@ export {
 // above, from the routing-settings block this port builds on.
 export { PnsSizesSettings, type PnsViaTypeSetting } from './router/pns_sizes_settings.js';
 // `ChainIntersection` is already exported above, from the `pns_line.js` block.
-// The board bridge — `PNS_KICAD_IFACE` over this repo's `Board`.
+// The board bridge — `PNS_KICAD_IFACE` over the live BOARD.
 export {
   PNS_KICAD_IFACE,
-  PNS_ORPHANED_NET,
-  asBoardItem,
   boardLayerFromPnsLayer,
-  padHoleShape,
   pnsLayerFromBoardLayer,
-  solidShapeForPad,
+  pnsShapeOf,
   type PNS_KICAD_IFACE_DEPS,
-  type PnsBoardNet,
-  type PnsPendingChange,
 } from './router/pns_kicad_iface.js';
 export { DIALOG_EXCHANGE_FOOTPRINTS } from './dialogs/dialog_exchange_footprints.js';

@@ -23,8 +23,8 @@ import { PNS_KICAD_IFACE } from '@ziroeda/pcbnew/router/pns_kicad_iface.js';
 import { DEFAULT_ROUTER_SIZES } from '@ziroeda/pcbnew/router/pns_router.js';
 import { PnsSegment } from '@ziroeda/pcbnew/router/pns_segment.js';
 import { PnsNode } from '@ziroeda/pcbnew/router/pns_node.js';
-import { buildDrcRuleEngine } from '@ziroeda/pcbnew/drc/drc_rules_engine.js';
-import { parseDrcRules } from '@ziroeda/pcbnew/drc/drc_rule_view.js';
+import { DRC_ENGINE } from '@ziroeda/pcbnew/drc/drc_engine.js';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import {
   BOARD_DESIGN_SETTINGS,
   DIFF_PAIR_DIMENSION,
@@ -32,35 +32,24 @@ import {
 } from '@ziroeda/pcbnew/board_design_settings.js';
 import type { PnsDesignSettings } from '@ziroeda/pcbnew/router/pns_kicad_iface.js';
 import type { PnsRouterSizes } from '@ziroeda/pcbnew/router/pns_router.js';
-import type { Board } from '@ziroeda/pcbnew/types.js';
+import type { BOARD as BOARD_T } from '@ziroeda/pcbnew/board.js';
 
 const MM = (n: number): number => mmToIU(n);
 
-const BOARD: Board = {
-  version: 20240108,
-  layers: [
-    { id: 0, name: 'F.Cu', kind: 'signal' },
-    { id: 31, name: 'B.Cu', kind: 'signal' },
-  ],
-  nets: new Map([
-    [0, ''],
-    [1, 'N1'],
-  ]),
-  footprints: [],
-  tracks: [],
-  arcs: [],
-  vias: [],
-  zones: [],
-  shapes: [],
-  texts: [],
-  dimensions: [],
-  textBoxes: [],
-  tables: [],
-  images: [],
-  points: [],
-  barcodes: [],
-  groups: [],
-};
+const BOARD_TEXT = `(kicad_pcb (version 20241229) (generator "test")
+  (layers (0 "F.Cu" signal) (2 "B.Cu" signal))
+  (net 0 "") (net 1 "N1"))`;
+
+const BOARD: BOARD_T = ParseBoard(BOARD_TEXT);
+
+/** A board with `aDru` loaded into its DRC engine, as `OnBoardLoaded` does. */
+function boardWithRules(aDru: string): BOARD_T {
+  const board = ParseBoard(BOARD_TEXT, 'r.kicad_pcb');
+  const engine = new DRC_ENGINE(board, board.GetDesignSettings());
+  engine.InitEngine(aDru, 'r.kicad_dru');
+  board.GetDesignSettings().m_DRCEngine = engine;
+  return board;
+}
 
 /** A BOARD_DESIGN_SETTINGS with the three lists behind their reserved [0] row. */
 function sizesModel(
@@ -369,10 +358,7 @@ describe('the branches that need the rule engine', () => {
    * credit for the width survived on that alone.
    */
   const synced = (dru: string, ds: PnsDesignSettings): PnsRouterSizes => {
-    const iface = new PNS_KICAD_IFACE(BOARD, {
-      designSettings: ds,
-      ruleEngine: buildDrcRuleEngine([], parseDrcRules(dru)),
-    });
+    const iface = new PNS_KICAD_IFACE(boardWithRules(dru), { designSettings: ds });
     // `ROUTER::SyncWorld` — what builds the rule resolver.
     const node = new PnsNode();
     node.beginBulkAdd();
@@ -394,7 +380,8 @@ describe('the branches that need the rule engine', () => {
     );
 
     expect(sizes.trackWidth).toBe(MM(0.6));
-    expect(sizes.widthSource).toBe('wide');
+    // `DRC_CONSTRAINT::GetName()`: `rule '%s'`.
+    expect(sizes.widthSource).toBe("rule 'wide'");
   });
 
   it('does NOT name a rule whose optimum lost to the board minimum', () => {
@@ -418,7 +405,7 @@ describe('the branches that need the rule engine', () => {
 
     expect(sizes.diffPairGap).toBe(MM(0.35));
     expect(sizes.diffPairViaGap).toBe(MM(0.35));
-    expect(sizes.diffPairGapSource).toBe('dp');
+    expect(sizes.diffPairGapSource).toBe("rule 'dp'");
   });
 
   it('does NOT name a gap rule whose optimum lost to the board minimum', () => {
@@ -434,10 +421,12 @@ describe('the branches that need the rule engine', () => {
     expect(sizes.diffPairGapSource).toBe('board minimum clearance');
   });
 
-  it('leaves the board minimum named when no rule matches', () => {
+  it('falls to the Default netclass when no custom rule matches', () => {
     const sizes = synced('(version 1)', designSettings());
 
+    // The engine's implicit netclass rules answer both: the track width, and the
+    // netclass diff-pair gap (`netclass '%s' (diff pair)`, drc_engine.cpp).
     expect(sizes.widthSource).toBe("netclass 'Default'");
-    expect(sizes.diffPairGapSource).toBe('board minimum clearance');
+    expect(sizes.diffPairGapSource).toBe("netclass 'Default' (diff pair)");
   });
 });

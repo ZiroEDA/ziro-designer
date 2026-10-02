@@ -17,10 +17,13 @@
 import { describe, expect, it } from 'vitest';
 import { describePreview, fakeView, previewItems } from './pns_preview_view.js';
 import { parse } from '@ziroeda/sexpr/index.js';
-import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { applyPnsChanges, PnsSession } from '@ziroeda/pcbnew/router/router_tool.js';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { PnsSession } from '@ziroeda/pcbnew/router/router_tool.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import type { BOARD } from '@ziroeda/pcbnew/board.js';
+import { TEST_PCB_FRAME } from './support/test_pcb_frame.js';
 import { DEFAULT_ROUTER_SIZES, PnsRouterMode } from '@ziroeda/pcbnew/router/pns_router.js';
-import type { Board } from '@ziroeda/pcbnew/types.js';
 
 const MM = 1_000_000;
 
@@ -36,14 +39,33 @@ const DP_BOARD = `(kicad_pcb (version 20240108) (generator "t")
     (pad "2" smd rect (at 0 1) (size 1 1) (layers "F.Cu") (net 2 "/CLK_N")))
 )`;
 
-const board = (): Board => readBoard(parse(DP_BOARD));
+const board = (): BOARD => ParseBoard(DP_BOARD);
 
-const dpSession = (): PnsSession =>
-  new PnsSession(board(), {
+/** The session's board: its interface commits onto it (`SetHostTool`). */
+let current: BOARD;
+
+/** The board's tracks, as plain records. */
+const routedTracks = (aBoard: BOARD) =>
+  aBoard
+    .Tracks()
+    .filter((t) => t.Type() === KICAD_T.PCB_TRACE_T)
+    .map((t) => ({
+      start: { ...t.GetStart() },
+      end: { ...t.GetEnd() },
+      width: t.GetWidth(),
+      net: t.GetNetCode(),
+      layer: LSET.Name(t.GetLayer()),
+    }));
+
+const dpSession = (): PnsSession => {
+  current = board();
+  return new PnsSession(current, {
+    commitHost: new TEST_PCB_FRAME(current),
     trackWidth: 200_000,
     mode: PnsRouterMode.PNS_MODE_ROUTE_DIFF_PAIR,
     view: fakeView().view,
   });
+};
 
 describe('SIZES_SETTINGS’ constructor', () => {
   it('is the router’s default, not zeros', () => {
@@ -89,18 +111,20 @@ describe('a differential pair, start to commit', () => {
 
     const result = s.commit();
     expect(result.ok).toBe(true);
-    const after = applyPnsChanges(board(), result.changes);
+    const tracks = routedTracks(current);
 
-    const p = after.tracks.filter((t) => t.net === 1);
-    const n = after.tracks.filter((t) => t.net === 2);
+    const p = tracks.filter((t) => t.net === 1);
+    const n = tracks.filter((t) => t.net === 2);
     expect(p.length).toBeGreaterThan(0);
     expect(n.length).toBe(p.length);
-    expect(after.tracks.every((t) => t.width === 125000 && t.layer === 'F.Cu')).toBe(true);
-    // Each lane runs from its own pad to its own pad.
-    expect(p[0]!.start).toEqual({ x: 100 * MM, y: 100 * MM });
-    expect(p.at(-1)!.end).toEqual({ x: 110 * MM, y: 100 * MM });
-    expect(n[0]!.start).toEqual({ x: 100 * MM, y: 101 * MM });
-    expect(n.at(-1)!.end).toEqual({ x: 110 * MM, y: 101 * MM });
+    expect(tracks.every((t) => t.width === 125000 && t.layer === 'F.Cu')).toBe(true);
+    // Each lane runs from its own pad to its own pad. (BOARD_COMMIT inserts each
+    // new track at the front, so a lane's order on the board is reversed.)
+    const ends = (lane: typeof p) => lane.flatMap((t) => [t.start, t.end]);
+    expect(ends(p)).toContainEqual({ x: 100 * MM, y: 100 * MM });
+    expect(ends(p)).toContainEqual({ x: 110 * MM, y: 100 * MM });
+    expect(ends(n)).toContainEqual({ x: 100 * MM, y: 101 * MM });
+    expect(ends(n)).toContainEqual({ x: 110 * MM, y: 101 * MM });
     // The coupled run: the two lanes' long middle segments sit width + gap
     // apart, centre to centre — 125000 + 180000 = 305000, to the IU rounding
     // of a 45° approach.
@@ -116,7 +140,9 @@ describe('a differential pair, start to commit', () => {
   });
 
   it('a caller may state the pair’s own width and gap', () => {
-    const s = new PnsSession(board(), {
+    current = board();
+    const s = new PnsSession(current, {
+      commitHost: new TEST_PCB_FRAME(current),
       mode: PnsRouterMode.PNS_MODE_ROUTE_DIFF_PAIR,
       diffPairWidth: 200_000,
       diffPairGap: 250_000,

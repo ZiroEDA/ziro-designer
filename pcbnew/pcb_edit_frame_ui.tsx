@@ -150,7 +150,7 @@ import {
   hasLockedItems,
   hasUnlockedItems,
 } from './tools/pcb_selection_conditions.js';
-import { applyPnsChanges, PnsSession } from './router/router_tool.js';
+import { PnsSession } from './router/router_tool.js';
 import { PnsRouterMode } from './router/pns_router.js';
 import type { PnsDesignSettings } from './router/pns_kicad_iface.js';
 import { Infobar } from '@ziroeda/common/widgets/wx_infobar.js';
@@ -6946,8 +6946,15 @@ export function PcbEditor({
     if (!session) {
       const layer = /\.Cu$/.test(activeLayer) ? activeLayer : 'F.Cu';
       if (layer !== activeLayer) setActiveLayer(layer);
-      const next = new PnsSession(brd, {
+      const kb = brd.k;
+      const frame = frameRef.current;
+      if (!kb || !frame) return;
+      const next = new PnsSession(kb, {
         mode,
+        // `SetHostTool( this )`: each fixed segment is pushed as a BOARD_COMMIT
+        // ("Routing"), and the board listener re-derives the view from it.
+        commitHost: frame,
+        enteredGroup: () => frame.GetSelectionTool().GetEnteredGroup(),
         designSettings: pnsDesignSettings(),
         isLayerVisible: (l) => visible.has(l),
         // `PNS_KICAD_IFACE::SetView( getView() )`: the router's ROUTER_PREVIEW_ITEMs
@@ -6971,8 +6978,7 @@ export function PcbEditor({
     if (finished) {
       const result = session.commit();
       pnsSessionRef.current = null;
-      if (result.ok) commitBoard(applyPnsChanges(brd, result.changes));
-      else if (result.reason) setInfoBarError(result.reason);
+      if (!result.ok && result.reason) setInfoBarError(result.reason);
     } else {
       // `syncRouterAndFrameLayer()` after every fix: the frame's active layer
       // follows the router's, which a fixed via has just changed.

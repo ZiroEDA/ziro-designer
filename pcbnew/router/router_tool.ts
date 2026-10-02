@@ -32,12 +32,12 @@ import type {
   DIFF_PAIR_DIMENSION,
   VIA_DIMENSION,
 } from '../board_design_settings.js';
-import type { Board } from '../types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-import { addBoardTrack, addBoardVia } from '../edit-board.js';
-import { boardCopperLayerCount as copperLayerCount } from '../unused_pad_layers.js';
 import { PNS_KICAD_IFACE, boardLayerFromPnsLayer } from './pns_kicad_iface.js';
-import type { PnsDesignSettings, PnsPendingChange } from './pns_kicad_iface.js';
+import type { COMMIT_HOST, PnsDesignSettings } from './pns_kicad_iface.js';
+import type { BOARD } from '../board.js';
+import type { EDA_GROUP } from '@ziroeda/common/eda_group.js';
+import { VIATYPE } from '../pcb_track_types.js';
 import { PnsKind } from './pns_item.js';
 import type { PnsItem } from './pns_item.js';
 import type { PnsLine } from './pns_line.js';
@@ -270,91 +270,6 @@ export function shoveSettingsFrom(aSettings: RoutingSettings): PnsShoveSettings 
   };
 }
 
-/**
- * Fold the router's decisions into a board.
- *
- * `PNS_KICAD_IFACE::AddItem`/`RemoveItem` build `PCB_TRACK`s and `PCB_VIA`s and
- * stage them on a `BOARD_COMMIT`; this is that, against an immutable `Board`.
- * Identity does the matching: an item the router synced out of the board keeps
- * a reference to the object it came from in `parent()`, so a remove or an update
- * finds its original without any search key.
- *
- * Arcs are placed by the router as `PnsArc`, and this drops them for now rather
- * than writing a wrong `PcbArcTrack`; the 45° corner modes the tool defaults to
- * never produce one.
- */
-export function applyPnsChanges(aBoard: Board, aChanges: readonly PnsPendingChange[]): Board {
-  let board = aBoard;
-  // A removal names the object to drop; collect them and filter once, so a
-  // route that rips up ten segments is one pass rather than ten copies.
-  const dropped = new Set<unknown>();
-
-  for (const change of aChanges) {
-    const item = change.item;
-    const parent = item.parent() as unknown;
-
-    if (change.kind === 'remove' || change.kind === 'update') {
-      if (parent) dropped.add(parent);
-      if (change.kind === 'remove') continue;
-    }
-
-    if (item.kind() === PnsKind.SEGMENT_T) {
-      const seg = item as PnsSegment;
-      const s = seg.seg();
-      board = addBoardTrack(board, {
-        start: { x: s.a.x, y: s.a.y },
-        end: { x: s.b.x, y: s.b.y },
-        width: seg.width(),
-        layer: boardLayerFromPnsLayer(seg.layers().start(), copperLayerCount(board)),
-        net: netCodeOf(item),
-      }).board;
-    } else if (item.kind() === PnsKind.VIA_T) {
-      const via = item as PnsVia;
-      const at = via.pos();
-      board = addBoardVia(board, {
-        at: { x: at.x, y: at.y },
-        size: via.diameter(PnsVia.ALL_LAYERS),
-        drill: via.drill(),
-        kind: via.viaType(),
-        layers: [
-          boardLayerFromPnsLayer(via.layers().start(), copperLayerCount(board)),
-          boardLayerFromPnsLayer(via.layers().end(), copperLayerCount(board)),
-        ],
-        net: netCodeOf(item),
-      }).board;
-    }
-  }
-
-  if (dropped.size === 0) return board;
-
-  return {
-    ...board,
-    tracks: board.tracks.filter((t) => !dropped.has(t)),
-    arcs: board.arcs.filter((a) => !dropped.has(a)),
-    vias: board.vias.filter((v) => !dropped.has(v)),
-  };
-}
-
-/**
- * The net code behind a `NET_HANDLE`.
- *
- * Upstream a handle is an opaque `void*` that only `PNS_KICAD_IFACE::GetNetCode`
- * can read; here it is the board's own net object, and this is that accessor
- * without needing the interface on hand. A handle-less item is net zero, which
- * is what an unconnected track is.
- */
-function netCodeOf(aItem: PnsItem): number {
-  const net = aItem.net() as unknown;
-
-  if (typeof net === 'number') return net;
-  if (net && typeof net === 'object' && 'code' in net) {
-    const code = (net as { code: unknown }).code;
-    if (typeof code === 'number') return code;
-  }
-
-  return 0;
-}
-
 /** How a session is set up. Everything optional has a KiCad default. */
 export interface PnsSessionOptions {
   /** `ROUTING_SETTINGS`; the tool's Interactive Router Settings dialog. */
@@ -414,6 +329,10 @@ export interface PnsSessionOptions {
   view?: VIEW | null;
   /** `PCBNEW_SETTINGS::m_Display.m_TrackClearance`, for `DisplayItem`. */
   trackClearanceMode?: () => number;
+  /** What the interface's BOARD_COMMIT is made for (`SetHostTool`). */
+  commitHost?: COMMIT_HOST | null;
+  /** `PCB_SELECTION_TOOL::GetEnteredGroup()`. */
+  enteredGroup?: () => EDA_GROUP | null;
 }
 
 /** What a session did to the board, once it finished. */
@@ -422,8 +341,6 @@ export interface PnsSessionResult {
   ok: boolean;
   /** `ROUTER::FailureReason()` — already a user-facing sentence upstream. */
   reason: string;
-  /** The adds, updates and removes the router decided on, in order. */
-  changes: PnsPendingChange[];
 }
 
 /**
@@ -440,32 +357,20 @@ export class PnsSession {
   private readonly maxSlopRadius: number;
   /** The PNS layer the route is on; `pickSingleItem` needs it as `topLayer`. */
   private layer = 0;
-  /**
-   * Everything the router committed, in order.
-   *
-   * Collected through the interface's commit hook rather than read off it
-   * afterwards: `ROUTER::CommitRouting` closes the batch itself, from inside
-   * the placer, so by the time control comes back here the interface has
-   * already opened a fresh one.
-   */
-  private readonly committed: PnsPendingChange[] = [];
-
   constructor(
-    private readonly board: Board,
+    private readonly board: BOARD,
     aOptions: PnsSessionOptions = {},
   ) {
     this.settings = aOptions.settings ?? { ...DEFAULT_ROUTING_SETTINGS };
     this.maxSlopRadius = aOptions.maxSlopRadius ?? 250_000;
 
-    const copperLayers = copperLayerCount(board);
     this.iface = new PNS_KICAD_IFACE(board, {
       isLayerVisible: aOptions.isLayerVisible,
       designSettings: aOptions.designSettings ?? null,
       view: aOptions.view ?? null,
       ...(aOptions.trackClearanceMode ? { trackClearanceMode: aOptions.trackClearanceMode } : {}),
-      onCommit: (batch) => {
-        for (const change of batch) this.committed.push(change);
-      },
+      commitHost: aOptions.commitHost ?? null,
+      ...(aOptions.enteredGroup ? { enteredGroup: aOptions.enteredGroup } : {}),
     });
 
     const shoveSettings = shoveSettingsFrom(this.settings);
@@ -593,7 +498,7 @@ export class PnsSession {
 
   /** `m_iface->GetBoardLayerFromPNSLayer( m_router->GetCurrentLayer() )`. */
   currentBoardLayer(): string {
-    return boardLayerFromPnsLayer(this.router.getCurrentLayer(), copperLayerCount(this.board));
+    return boardLayerFromPnsLayer(this.router.getCurrentLayer(), this.board.GetCopperLayerCount());
   }
 
   /** `ROUTER::IsPlacingVia`. */
@@ -624,7 +529,7 @@ export class PnsSession {
       ...this.router.sizes(),
       viaDiameter: aViaDiameter,
       viaDrill: aViaDrill,
-      viaType: 'through' as const,
+      viaType: VIATYPE.THROUGH,
       layerTop: this.router.getCurrentLayer(),
       layerBottom: this.pnsLayer(aTargetBoardLayer),
     };
@@ -690,23 +595,19 @@ export class PnsSession {
   }
 
   /**
-   * End the session and hand back what the router decided.
-   *
-   * `CommitRoutingSession` folds the placer's node into the world and the
-   * interface turns that into board changes; nothing has touched `board` until
-   * this point, so a session abandoned before here costs nothing.
+   * End the session. `CommitRoutingSession` folds the placer's node into the
+   * world, and the interface pushes it onto the board as a BOARD_COMMIT, as
+   * each fixed segment already was.
    */
   commit(): PnsSessionResult {
     const wasRouting = this.routing;
 
     if (wasRouting) this.router.commitRoutingSession();
 
-    const changes = [...this.committed];
-    this.committed.length = 0;
     this.router.dispose();
     this.iface.Dispose();
 
-    return { ok: changes.length > 0, reason: this.router.failureReason(), changes };
+    return { ok: this.iface.pushedCommits() > 0, reason: this.router.failureReason() };
   }
 
   /** `ROUTER::StopRouting` — throw the route away, board untouched. */

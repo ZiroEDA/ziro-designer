@@ -34,7 +34,8 @@ import { PnsKind, PnsLinkedItem, type PnsItem, type PnsViaLike } from './pns_ite
 import { PnsLayerRange } from './pns_layerset.js';
 import type { Shape } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 import type { NetHandle } from './pns_item.js';
-import type { PcbVia, UnconnectedLayerMode } from '../types.js';
+import { UNCONNECTED_LAYER_MODE } from '../padstack.js';
+import { VIATYPE } from '../pcb_track_types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { EuclideanNormI, ResizeI } from '@ziroeda/kimath/src/math/vector2.js';
 import { collideShapes } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
@@ -43,7 +44,7 @@ import { collideShapes } from '@ziroeda/kimath/src/geometry/shape_collisions.js'
 import type { PnsNode } from './pns_node.js';
 
 /** `VIATYPE`, as this repo already spells it on a board via. */
-export type PnsViaType = PcbVia['kind'];
+export type PnsViaType = VIATYPE;
 
 /** `VIA::STACK_MODE`. */
 export enum ViaStackMode {
@@ -79,8 +80,8 @@ export class PnsVia extends PnsLinkedItem implements PnsViaLike {
   private mShapes = new Map<number, { c: Vec2; r: number }>();
   private mDrill: number;
   private mPos: Vec2;
-  private mViaType: PnsViaType = 'through';
-  private mUnconnectedLayerMode: UnconnectedLayerMode = 'keep_all';
+  private mViaType: PnsViaType = VIATYPE.THROUGH;
+  private mUnconnectedLayerMode: UNCONNECTED_LAYER_MODE = UNCONNECTED_LAYER_MODE.KEEP_ALL;
   private mIsFree = false;
   private mHole: PnsHole | null = null;
   private mHoleLayers: PnsLayerRange = new PnsLayerRange();
@@ -98,7 +99,7 @@ export class PnsVia extends PnsLinkedItem implements PnsViaLike {
     aDiameter?: number,
     aDrill?: number,
     aNet: NetHandle = null,
-    aViaType: PnsViaType = 'through',
+    aViaType: PnsViaType = VIATYPE.THROUGH,
   ) {
     super(PnsKind.VIA_T);
 
@@ -207,17 +208,17 @@ export class PnsVia extends PnsLinkedItem implements PnsViaLike {
     this.mViaType = aViaType;
   }
 
-  unconnectedLayerMode(): UnconnectedLayerMode {
+  unconnectedLayerMode(): UNCONNECTED_LAYER_MODE {
     return this.mUnconnectedLayerMode;
   }
 
-  setUnconnectedLayerMode(aMode: UnconnectedLayerMode): void {
+  setUnconnectedLayerMode(aMode: UNCONNECTED_LAYER_MODE): void {
     this.mUnconnectedLayerMode = aMode;
   }
 
-  /** A `start_end_only` via has copper on its two end layers and nowhere else. */
+  /** A START_END_ONLY via has copper on its two end layers and nowhere else. */
   connectsLayer(aLayer: number): boolean {
-    if (this.mUnconnectedLayerMode === 'start_end_only') {
+    if (this.mUnconnectedLayerMode === UNCONNECTED_LAYER_MODE.START_END_ONLY) {
       return aLayer === this.mLayers.start() || aLayer === this.mLayers.end();
     }
 

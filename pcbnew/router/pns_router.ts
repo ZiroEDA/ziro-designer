@@ -51,6 +51,7 @@
  * further members `ROUTER` reads, rather than creating a rival module.
  */
 
+import { VIATYPE } from '../pcb_track_types.js';
 import { CornerMode } from '@ziroeda/kimath/src/geometry/direction45.js';
 import { PnsItemSet } from './pns_itemset.js';
 import { PnsKind, LineMarker } from './pns_item.js';
@@ -169,7 +170,7 @@ export const DEFAULT_ROUTER_SIZES: PnsRouterSizes = {
   diffPairCopperToHole: 0,
   viaDiameter: 600000,
   viaDrill: 250000,
-  viaType: 'through',
+  viaType: VIATYPE.THROUGH,
   layerTop: 0,
   layerBottom: 0,
   trackWidthIsExplicit: true,

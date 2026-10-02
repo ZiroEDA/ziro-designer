@@ -43,48 +43,81 @@
  * {@link solidShapeForPad}). Both are documented at the site. Nothing here
  * touches that file or the tool that calls it.
  */
-import { buildConvexHull } from '@ziroeda/kimath/src/geometry/convex_hull.js';
-import { Distance } from '@ziroeda/kimath/src/math/vector2.js';
+import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import type { BOARD_STACKUP } from '../board_stackup_manager/board_stackup.js';
 import type { BOARD_DESIGN_SETTINGS } from '../board_design_settings.js';
-import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
-import { arcShape, padShapes } from '../drc/drc_engine_view.js';
-import { padShapePos } from '../padstack.js';
+import { arcShape } from '../drc/drc_engine_view.js';
 import { DRC_ENGINE } from '../drc/drc_engine.js';
-import { padIsOnLayer } from '../dialogs/dialog_enum_pads.js';
-import { enabledCopperLayers, isCopperLayerName } from '../types.js';
-import { padFlashState, viaFlashState } from '../unused_pad_layers.js';
+import {
+  DRC_CONSTRAINT,
+  DRC_CONSTRAINT_OPTIONS,
+  DRC_CONSTRAINT_T,
+  DRC_IMPLICIT_SOURCE,
+} from '../drc/drc_rule.js';
 import { PnsArc } from './pns_arc.js';
 import { PnsHole } from './pns_hole.js';
-import { PnsKind, LineMarker } from './pns_item.js';
+import { PnsKind, LineMarker, type PnsBoardItem } from './pns_item.js';
 import { PnsLayerRange } from './pns_layerset.js';
 import { PNS_UNDEFINED_LAYER } from './pns_drag_algo.js';
 import { PnsSegment } from './pns_segment.js';
 import { PnsSolid } from './pns_solid.js';
-import { PnsVia } from './pns_via.js';
+import { PnsVia, ViaStackMode as PNS_VIA_STACK_MODE } from './pns_via.js';
 import type { Shape } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
-import type { DrcEvalItem, DrcRuleEngine } from '../drc/drc_rules_engine.js';
-import type { Board, PcbArcTrack, PcbPad, PcbTrack, PcbVia } from '../types.js';
 import { PnsConstraintType } from './pns_node.js';
 import type { DpNetPair, PnsRuleResolver } from './pns_node.js';
 import type { NetHandle } from './pns_item.js';
 import type { PnsItem } from './pns_item.js';
 import type { PnsItemSet } from './pns_itemset.js';
-import type { PnsLineChain } from './pns_line.js';
+import type { PnsLine, PnsLineChain } from './pns_line.js';
 import type { PnsNode } from './pns_node.js';
 import type { PnsRouterIface, PnsRouterSizes } from './pns_router.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-import { evalDrcRules } from '../drc/drc_rules_engine.js';
+import { Distance } from '@ziroeda/kimath/src/math/vector2.js';
 import { itemHull } from './pns_utils.js';
 import type { KeepoutResult, PnsConstraint } from './pns_node.js';
-import type { DrcConstraintType } from '../drc/drc_rule_view.js';
 import type { Hull } from './pns_utils.js';
 import type { VIEW } from '@ziroeda/common/view/view.js';
 import { VIEW_GROUP } from '@ziroeda/common/view/view_group.js';
 import type { VIEW_ITEM } from '@ziroeda/common/view/view_item.js';
-import { GAL_LAYER_ID } from '@ziroeda/common/layer_id.js';
-import { LSET_NameToLayer } from '@ziroeda/common/layer_ids.js';
+import { FLASHING, GAL_LAYER_ID, IsCopperLayer, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { RPT_SEVERITY_IGNORE } from '@ziroeda/common/reporter.js';
+import { RECURSE_MODE, type EDA_ITEM } from '@ziroeda/common/eda_item.js';
+import type { EDA_GROUP } from '@ziroeda/common/eda_group.js';
+import { IN_EDIT, ROUTER_TRANSIENT } from '@ziroeda/common/eda_item_flags.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import type { MINOPTMAX } from '@ziroeda/core/minoptmax.js';
+import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
+import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
+import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
+import { SHAPE_TYPE, type SHAPE } from '@ziroeda/kimath/src/geometry/shape.js';
+import type { SHAPE_ARC } from '@ziroeda/kimath/src/geometry/shape_arc.js';
+import type { SHAPE_CIRCLE } from '@ziroeda/kimath/src/geometry/shape_circle.js';
+import type { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_chain.js';
+import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
+import type { SHAPE_RECT } from '@ziroeda/kimath/src/geometry/shape_rect.js';
+import type { SHAPE_SEGMENT } from '@ziroeda/kimath/src/geometry/shape_segment.js';
+import type { SHAPE_SIMPLE } from '@ziroeda/kimath/src/geometry/shape_simple.js';
+import type { BOARD } from '../board.js';
+import type { PCB_BASE_FRAME } from '../pcb_base_frame.js';
+import type { TOOL_BASE } from '@ziroeda/common/tool/tool_base.js';
+import type { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
+import { BOARD_COMMIT, SKIP_ENTERED_GROUP } from '../board_commit.js';
+import type { BOARD_CONNECTED_ITEM } from '../board_connected_item.js';
+import type { BOARD_ITEM } from '../board_item.js';
+import type { FOOTPRINT } from '../footprint.js';
+import { NETINFO_LIST } from '../netinfo.js';
+import type { NETINFO_ITEM } from '../netinfo_item.js';
+import type { PAD } from '../pad.js';
+import { PAD_ATTRIB, PAD_PROP, PADSTACK, PADSTACK_MODE } from '../padstack.js';
+import type { PCB_BARCODE } from '../pcb_barcode.js';
+import type { PCB_DIMENSION_BASE } from '../pcb_dimension.js';
+import type { PCB_FIELD } from '../pcb_field.js';
+import { PCB_SHAPE } from '../pcb_shape.js';
+import { PCB_TEXT } from '../pcb_text.js';
+import { PCB_ARC, PCB_TRACK, PCB_VIA } from '../pcb_track.js';
+import { VIATYPE } from '../pcb_track_types.js';
+import type { ZONE } from '../zone.js';
 import {
   SHOW_WHILE_ROUTING,
   SHOW_WITH_VIA_ALWAYS,
@@ -97,31 +130,15 @@ import {
   type ROUTER_PREVIEW_IFACE,
 } from './router_preview_item.js';
 
-// ---------------------------------------------------------------------------
-// Nets
+/** `ENTERED_GROUP_MAGIC_NUMBER`: the replacement-map key for brand-new items. */
+const ENTERED_GROUP = Symbol('ENTERED_GROUP_MAGIC_NUMBER');
 
-/**
- * `NETINFO_ITEM`, reduced to the two fields `ROUTER_IFACE` reads off one.
- *
- * `PNS::NET_HANDLE` is `void*` and always a `NETINFO_ITEM*`. Identity is the
- * whole point — `ITEM::collideSimple` compares handles, never codes — so this
- * has to be an object interned per net code, not the code itself.
- */
-export interface PnsBoardNet {
-  code: number;
-  name: string;
+/** `dynamic_cast<PCB_GENERATOR*>( GetParentGroup() ) && !HasFlag( IN_EDIT )`. */
+function isUneditedGenerator(aGroup: EDA_GROUP | null): boolean {
+  const item = aGroup?.AsEdaItem() as EDA_ITEM | undefined;
+
+  return item !== undefined && item.Type() === KICAD_T.PCB_GENERATOR_T && !item.HasFlag(IN_EDIT);
 }
-
-/**
- * `NETINFO_LIST::OrphanedItem()` (`netinfo.h:269`): a process-wide singleton
- * carrying `NETINFO_LIST::UNCONNECTED`, i.e. net code 0, and an empty name.
- *
- * It is deliberately **not** the same object as a board's own net-0 handle,
- * because upstream's `g_orphanedItem` is not the same pointer as
- * `board->FindNet( 0 )`. Code that compares two handles for equality — which
- * is most of the router — must see them as different nets, and it does.
- */
-export const PNS_ORPHANED_NET: PnsBoardNet = { code: 0, name: '' };
 
 // ---------------------------------------------------------------------------
 // Layer names <-> PNS layer indices
@@ -170,152 +187,90 @@ export function boardLayerFromPnsLayer(aLayer: number, aCopperLayerCount: number
 }
 
 // ---------------------------------------------------------------------------
-// Pad geometry
+// Geometry: a kimath SHAPE as the router's `Shape`
 
-/** How finely a curved sub-shape is sampled when a multi-shape pad is hulled. */
-const HULL_SAMPLES = 16;
-
-/** Points that cover a shape, for the convex hull of a multi-shape pad. */
-function shapeSamplePoints(aShape: Shape, aOut: Vec2[]): void {
-  const circle = (c: Vec2, r: number): void => {
-    for (let i = 0; i < HULL_SAMPLES; i++) {
-      const a = (2 * Math.PI * i) / HULL_SAMPLES;
-      aOut.push({ x: Math.round(c.x + r * Math.cos(a)), y: Math.round(c.y + r * Math.sin(a)) });
-    }
-  };
-
-  switch (aShape.kind) {
-    case 'circle':
-      circle(aShape.c, aShape.r);
-      break;
-
-    case 'stadium':
-      circle(aShape.a, aShape.r);
-      circle(aShape.b, aShape.r);
-      break;
-
-    case 'arc': {
-      for (let i = 0; i <= HULL_SAMPLES; i++) {
-        const a = aShape.a0 + (aShape.sweep * i) / HULL_SAMPLES;
-        circle(
-          {
-            x: Math.round(aShape.c.x + aShape.rad * Math.cos(a)),
-            y: Math.round(aShape.c.y + aShape.rad * Math.sin(a)),
-          },
-          aShape.r,
-        );
-      }
-      break;
+/**
+ * The router's `Shape` for a kimath SHAPE: what `SOLID::SetShape( shape->Clone() )`
+ * stores upstream. The engine's collision code works on its own tagged union,
+ * so the live item's shape is translated once, here, at sync.
+ *
+ * Null for a shape the router cannot hold (a poly set, a compound, an empty
+ * shape) — the caller reduces those first, as upstream does.
+ */
+export function pnsShapeOf(aShape: SHAPE): Shape | null {
+  switch (aShape.Type()) {
+    case SHAPE_TYPE.SH_CIRCLE: {
+      const c = aShape as SHAPE_CIRCLE;
+      return { kind: 'circle', c: { ...c.GetCenter() }, r: c.GetRadius() };
     }
 
-    case 'poly':
-      if (aShape.r > 0) for (const p of aShape.pts) circle(p, aShape.r);
-      else for (const p of aShape.pts) aOut.push({ x: p.x, y: p.y });
-      break;
+    case SHAPE_TYPE.SH_SEGMENT: {
+      const seg = aShape as SHAPE_SEGMENT;
+      const s = seg.GetSeg();
+      return { kind: 'stadium', a: { ...s.A }, b: { ...s.B }, r: seg.GetWidth() / 2 };
+    }
+
+    case SHAPE_TYPE.SH_RECT: {
+      const rect = aShape as SHAPE_RECT;
+      const p = rect.GetPosition();
+      const sz = rect.GetSize();
+      const r = rect.GetRadius();
+
+      // A rounded rectangle is its inner rectangle swept by the corner radius.
+      return {
+        kind: 'poly',
+        pts: [
+          { x: p.x + r, y: p.y + r },
+          { x: p.x + sz.x - r, y: p.y + r },
+          { x: p.x + sz.x - r, y: p.y + sz.y - r },
+          { x: p.x + r, y: p.y + sz.y - r },
+        ],
+        r,
+      };
+    }
+
+    case SHAPE_TYPE.SH_SIMPLE: {
+      const simple = aShape as SHAPE_SIMPLE;
+      const pts: Vec2[] = [];
+
+      for (let i = 0; i < simple.PointCount(); i++) pts.push({ ...simple.CPoint(i) });
+
+      return { kind: 'poly', pts, r: 0 };
+    }
+
+    case SHAPE_TYPE.SH_LINE_CHAIN: {
+      const chain = aShape as SHAPE_LINE_CHAIN;
+      const pts: Vec2[] = [];
+
+      for (let i = 0; i < chain.PointCount(); i++) pts.push({ ...chain.CPoint(i) });
+
+      return { kind: 'poly', pts, r: chain.GetWidth() / 2 };
+    }
+
+    case SHAPE_TYPE.SH_ARC: {
+      const arc = aShape as SHAPE_ARC;
+      return arcShape(arc.GetP0(), arc.GetArcMid(), arc.GetP1(), arc.GetWidth());
+    }
+
+    default:
+      return null;
   }
 }
 
-/**
- * The one `SHAPE` a `SOLID` gets for a pad — `syncPad`'s tail (cpp:1712-1735).
- *
- * Upstream: if the effective shape has exactly one indexable subshape, clone
- * it; otherwise fall back to `GetEffectivePolygon( aLayer, ERROR_OUTSIDE )` and
- * take outline 0, with the comment that *"Multiple shapes have a tendency to
- * confuse the hull generator"* (kicad #15553).
- *
- * `padShapes` is this tree's `GetEffectiveShape`, and it returns more than one
- * shape for exactly the two cases upstream's polygon fallback exists for: a
- * chamfered round-rect (a polygon plus one circle per rounded corner) and a
- * custom pad (an anchor plus its primitives). There is no polygon union here,
- * so the fallback is the **convex hull** of the constituents.
- *
- * That is an over-approximation where upstream's outline is exact, so a route
- * near a concave custom pad is held slightly further off than KiCad would hold
- * it. It is still far tighter than `boardObstacleHulls`, which wraps *every*
- * non-round pad in an axis-aligned bounding box — a 45°-rotated rectangular pad
- * blocks its whole diagonal square there and only its own outline here.
- *
- * Null when the pad has no geometry at all, which is upstream's
- * `if( !solid->Shape( 0 ) ) return;` — the solid is dropped, not added shapeless.
- *
- * ## Why not `ITEM::shapes()`
- *
- * `pns_item.ts` grew `shapes( aLayer )` with the line-vs-line collide fix
- * (#494), and a `SOLID` overriding it could carry the constituents unreduced.
- * It deliberately does not: upstream's `SOLID` holds a single `m_shape`, and
- * `syncPad`'s whole tail exists to pick *one* — the indexable subshape when
- * there is exactly one, the polygon outline otherwise. Handing the router
- * several shapes for one pad would diverge from that, not complete it. The hull
- * is the reduction; `shapes()` is not the hook here.
- */
-export function solidShapeForPad(aPad: PcbPad): Shape | null {
-  const shapes = padShapes(aPad);
-
-  if (shapes.length === 0) return null;
-
-  // MUTATION SURVIVOR: dropping this line — i.e. always returning `shapes[0]`
-  // and never hulling — is not caught. `padShapes` puts the polygon first for
-  // both multi-shape cases, so the first primitive is a `poly` of roughly the
-  // right extent and the test's assertions (kind, non-zero extent, `r === 0`)
-  // hold for it too. Distinguishing them needs a pad whose later primitives
-  // stick out past the first — a custom pad with an off-anchor primitive — and
-  // an assertion that a point inside that primitive is inside the result.
-  if (shapes.length === 1) return shapes[0] as Shape;
-
+/** A closed outline as a `SHAPE_SIMPLE`-equivalent router polygon. */
+function pnsPolyOf(aOutline: SHAPE_LINE_CHAIN): Shape {
   const pts: Vec2[] = [];
-  for (const s of shapes) shapeSamplePoints(s, pts);
 
-  if (pts.length < 3) return null;
+  for (let i = 0; i < aOutline.PointCount(); i++) pts.push({ ...aOutline.CPoint(i) });
 
-  return { kind: 'poly', pts: buildConvexHull(pts), r: 0 };
-}
-
-/**
- * `PAD::GetEffectiveHoleShape()`. A round drill is a circle; an oblong one is
- * the stadium swept by a disc of the short radius along the long axis, which is
- * upstream's `SHAPE_SEGMENT`.
- *
- * The drill offset is not applied here, and that is upstream's own geometry:
- * `GetEffectiveHoleShape` builds the segment from `m_pos`. It is the pad's
- * COPPER that `(drill … (offset …))` moves, which `padShapePos` does for
- * `padShapes`.
- */
-export function padHoleShape(aPad: PcbPad): Shape | null {
-  const drill = aPad.drill;
-
-  if (!drill || drill.w <= 0) return null;
-
-  const h = drill.oblong && drill.h > 0 ? drill.h : drill.w;
-  const r = Math.min(drill.w, h) / 2;
-  const half = (Math.max(drill.w, h) - Math.min(drill.w, h)) / 2;
-
-  if (half === 0) return { kind: 'circle', c: { ...aPad.at }, r };
-
-  const a = (aPad.angle * Math.PI) / 180;
-  const d =
-    drill.w >= h
-      ? { x: half * Math.cos(a), y: half * Math.sin(a) }
-      : { x: -half * Math.sin(a), y: half * Math.cos(a) };
-
-  return {
-    kind: 'stadium',
-    a: { x: Math.round(aPad.at.x - d.x), y: Math.round(aPad.at.y - d.y) },
-    b: { x: Math.round(aPad.at.x + d.x), y: Math.round(aPad.at.y + d.y) },
-    r,
-  };
+  return { kind: 'poly', pts, r: 0 };
 }
 
 // ---------------------------------------------------------------------------
 // The interface
 
-/** What a host can tell the bridge that the `Board` itself does not carry. */
+/** What a host can tell the bridge that the BOARD itself does not carry. */
 export interface PNS_KICAD_IFACE_DEPS {
-  /** `BOARD_DESIGN_SETTINGS::m_DRCEngine` — the compiled custom rules. */
-  ruleEngine?: DrcRuleEngine | null;
-  /** Every netclass a net belongs to, for the rule resolver's conditions. */
-  netClassesOf?: (aNet: number) => readonly string[];
-  /** `BOARD::GetMaxClearanceValue()`, the seed for `NODE::SetMaxClearance`. */
-  maxClearance?: number;
   /**
    * `KIGFX::VIEW::IsLayerVisible`. Absent means everything is visible, which is
    * **not** upstream's no-view answer for `IsAnyLayerVisible` — see
@@ -324,18 +279,6 @@ export interface PNS_KICAD_IFACE_DEPS {
   isLayerVisible?: (aBoardLayer: string) => boolean;
   /** `KIGFX::VIEW::IsVisible( BOARD_ITEM* )`. Absent means visible. */
   isItemVisible?: (aItem: PnsItem) => boolean;
-  /**
-   * Called at each end-of-transaction boundary with the batch being closed,
-   * just before it is dropped — upstream's `BOARD_COMMIT::Push()`.
-   *
-   * A hook rather than a return value because {@link PNS_KICAD_IFACE.commit} is
-   * called by `ROUTER::CommitRouting` itself, from inside the placer's own
-   * commit, with no caller of ours on the stack to hand anything back to.
-   * Without it the changes the router decided on were recorded and then thrown
-   * away, which is exactly how far the port had got: everything up to the
-   * boundary, and nothing across it.
-   */
-  onCommit?: (aChanges: readonly PnsPendingChange[]) => void;
   /**
    * `BOARD_DESIGN_SETTINGS`, as `ImportSizes` reads it. Absent is upstream's
    * `if( !m_board )` early-out: {@link PNS_KICAD_IFACE.importSizes} returns false
@@ -350,7 +293,19 @@ export interface PNS_KICAD_IFACE_DEPS {
   view?: VIEW | null;
   /** `PCBNEW_SETTINGS::m_Display.m_TrackClearance`, read on every `DisplayItem`. */
   trackClearanceMode?: () => number;
+  /**
+   * `SetHostTool( PCB_TOOL_BASE* )`: the commit host `m_commit` is made for
+   * (`std::make_unique<BOARD_COMMIT>( m_tool )`), and the selection tool
+   * `Commit()` asks for the entered group. Without one the interface still
+   * syncs and previews, and `Commit()` changes nothing.
+   */
+  commitHost?: COMMIT_HOST | null;
+  /** `PCB_SELECTION_TOOL::GetEnteredGroup()`, for new items (`Commit()`). */
+  enteredGroup?: () => EDA_GROUP | null;
 }
+
+/** What `BOARD_COMMIT( m_tool )` is made for: a tool, a frame or a tool manager. */
+export type COMMIT_HOST = TOOL_BASE | PCB_BASE_FRAME | TOOL_MANAGER;
 
 /**
  * The `BOARD_DESIGN_SETTINGS` members `ImportSizes` reads, in IU.
@@ -398,38 +353,33 @@ export interface PnsDesignSettings {
   stackup?: BOARD_STACKUP;
 }
 
-/** One board mutation the router asked for, held rather than applied. */
-export interface PnsPendingChange {
-  kind: 'add' | 'update' | 'remove';
-  item: PnsItem;
-}
-
 /**
- * `PNS_KICAD_IFACE_BASE` + the parts of `PNS_KICAD_IFACE` that are not a
- * `KIGFX::VIEW`.
+ * `PNS_KICAD_IFACE_BASE` + `PNS_KICAD_IFACE`, on the live BOARD.
  *
- * Also its own {@link PnsResolverHost}, because upstream's
- * `PNS_PCBNEW_RULE_RESOLVER` is constructed with `( m_board, this )` and reads
- * the board through the interface for exactly the things this class already
- * knows — layer conversion, net codes, net names.
+ * `SyncWorld` builds the router's world from the board's items; `AddItem`,
+ * `RemoveItem`, `UpdateItem` and `Commit` put the router's result back onto it
+ * through a BOARD_COMMIT, as upstream's `m_commit`.
  */
-export class PNS_KICAD_IFACE implements PnsRouterIface, PnsResolverHost, ROUTER_PREVIEW_IFACE {
-  private readonly mBoard: Board;
+export class PNS_KICAD_IFACE implements PnsRouterIface, ROUTER_PREVIEW_IFACE {
+  private readonly m_board: BOARD;
   private readonly mDeps: PNS_KICAD_IFACE_DEPS;
-  private readonly mCopperLayers: string[];
-  private readonly mNets = new Map<number, PnsBoardNet>();
-
-  /** Every pad a `SOLID` was built from, by the board object it points at. */
-  private readonly mPads = new WeakMap<object, PcbPad>();
 
   private mWorld: PnsNode | null = null;
   private mRuleResolver: PNS_PCBNEW_RULE_RESOLVER | null = null;
-  private mPending: PnsPendingChange[] = [];
 
-  constructor(aBoard: Board, aDeps: PNS_KICAD_IFACE_DEPS = {}) {
-    this.mBoard = aBoard;
+  /** `m_commit`: the board commit the router's edits go into. */
+  private m_commit: BOARD_COMMIT | null;
+  /** `m_fpOffsets`: pads the router moved (footprint drag), old and new positions. */
+  private readonly m_fpOffsets = new Map<PAD, { p_old?: Vec2; p_new?: Vec2 }>();
+  /** `m_itemGroups`: the group each removed item was in. */
+  private readonly m_itemGroups = new Map<BOARD_ITEM, EDA_GROUP>();
+  /** `m_replacementMap`: the new items made from each removed one, or for the entered group. */
+  private readonly m_replacementMap = new Map<BOARD_ITEM | typeof ENTERED_GROUP, BOARD_ITEM[]>();
+
+  constructor(aBoard: BOARD, aDeps: PNS_KICAD_IFACE_DEPS = {}) {
+    this.m_board = aBoard;
     this.mDeps = aDeps;
-    this.mCopperLayers = enabledCopperLayers(aBoard);
+    this.m_commit = aDeps.commitHost ? new BOARD_COMMIT(aDeps.commitHost as PCB_BASE_FRAME) : null;
     if (aDeps.view) this.SetView(aDeps.view);
   }
 
@@ -473,103 +423,100 @@ export class PNS_KICAD_IFACE implements PnsRouterIface, PnsResolverHost, ROUTER_
     return this.mPreviewItems;
   }
 
-  // ROUTER_PREVIEW_IFACE.
-  GetBoardLayerFromPNSLayer(aPnsLayer: number): number {
-    return LSET_NameToLayer(this.getBoardLayerFromPnsLayer(aPnsLayer));
+  /** `GetBoardLayerFromPNSLayer` (cpp:3040). */
+  GetBoardLayerFromPNSLayer(aLayer: number): PCB_LAYER_ID {
+    const count = this.m_board.GetCopperLayerCount();
+
+    if (aLayer < 0) return PCB_LAYER_ID.UNDEFINED_LAYER;
+
+    if (aLayer === 0) return PCB_LAYER_ID.F_Cu;
+
+    if (aLayer === count - 1) return PCB_LAYER_ID.B_Cu;
+
+    return ((aLayer + 1) * 2) as PCB_LAYER_ID;
+  }
+
+  /** `GetPNSLayerFromBoardLayer` (cpp:3055). */
+  GetPNSLayerFromBoardLayer(aLayer: PCB_LAYER_ID): number {
+    if (aLayer < 0) return -1;
+
+    if (aLayer === PCB_LAYER_ID.F_Cu) return 0;
+
+    if (aLayer === PCB_LAYER_ID.B_Cu) return this.m_board.GetCopperLayerCount() - 1;
+
+    return aLayer / 2 - 1;
+  }
+
+  /** `SetLayersFromPCBNew( aStartLayer, aEndLayer )` (cpp:3076). */
+  SetLayersFromPCBNew(aStartLayer: PCB_LAYER_ID, aEndLayer: PCB_LAYER_ID): PnsLayerRange {
+    return new PnsLayerRange(
+      this.GetPNSLayerFromBoardLayer(aStartLayer),
+      this.GetPNSLayerFromBoardLayer(aEndLayer),
+    );
+  }
+
+  /** `IsKicadCopperLayer` (cpp:2144). */
+  IsKicadCopperLayer(aKicadLayer: PCB_LAYER_ID): boolean {
+    return IsCopperLayer(aKicadLayer) && this.m_board.IsLayerEnabled(aKicadLayer);
   }
 
   GetNetCode(aNet: unknown): number {
     return this.getNetCode(aNet as NetHandle);
   }
 
-  board(): Board {
-    return this.mBoard;
+  board(): BOARD {
+    return this.m_board;
   }
 
   /** `BOARD::GetCopperLayerCount()`. */
   copperLayerCount(): number {
-    return this.mCopperLayers.length;
+    return this.m_board.GetCopperLayerCount();
   }
 
   // ----- nets ----------------------------------------------------------------
 
-  /**
-   * `BOARD_CONNECTED_ITEM::GetNet()`: one interned handle per net code.
-   *
-   * **Net code 0 gets a handle too, and that is the point.** In KiCad every
-   * unconnected copper item points at the same `NETINFO_ITEM`
-   * (`NETINFO_LIST::UNCONNECTED == 0`, `netinfo_list.cpp:315`) and that pointer
-   * is non-null, so `ITEM::collideSimple`'s same-net exemption —
-   * `Net() == aHead->Net() && aHead->Net()` — fires between two pieces of
-   * unconnected copper.
-   *
-   * `boardObstacleHulls` does the opposite on purpose (its `foreign()` reads
-   * net 0 as never-same-net) and argues at its own site that the alternative
-   * lets a route run through copper. Both cannot be upstream, and upstream is
-   * this one. The consequence is real: rewiring the Route tool onto this bridge
-   * changes which obstacles unconnected copper presents, which is why that is a
-   * separate change with a human looking at the routes.
-   */
-  netHandle(aNetCode: number | undefined): NetHandle {
-    const code = aNetCode ?? 0;
-    const existing = this.mNets.get(code);
-
-    if (existing) return existing;
-
-    const net: PnsBoardNet = { code, name: this.mBoard.nets.get(code) ?? '' };
-    this.mNets.set(code, net);
-
-    return net;
-  }
-
-  /** `PNS_KICAD_IFACE::GetNetCode` (cpp:2998-3004). A null handle is −1. */
+  /** `PNS_KICAD_IFACE::GetNetCode` (cpp:2997). A null handle is −1. */
   getNetCode(aNet: NetHandle): number {
-    return aNet ? (aNet as PnsBoardNet).code : -1;
+    return aNet ? (aNet as NETINFO_ITEM).GetNetCode() : -1;
   }
 
-  /** `PNS_KICAD_IFACE::GetNetName` (cpp:3007-3013). */
+  /** `PNS_KICAD_IFACE::GetNetName` (cpp:3006). */
   getNetName(aNet: NetHandle): string {
-    return aNet ? (aNet as PnsBoardNet).name : '';
+    return aNet ? (aNet as NETINFO_ITEM).GetNetname() : '';
   }
 
-  /**
-   * `PNS_KICAD_IFACE::UpdateNet` (cpp:3016-3019).
-   *
-   * Upstream's whole body is a `wxLogTrace`. The ratsnest is *not* recomputed
-   * here — `BOARD_COMMIT` does that when the route is pushed — so a no-op is
-   * the port, not a stub.
-   */
+  /** `UpdateNet` (cpp:3015): a trace; the ratsnest is the commit's business. */
   updateNet(_aNet: NetHandle): void {
-    // Intentionally empty; see the doc comment.
+    // Intentionally empty.
   }
 
-  /** `PNS_KICAD_IFACE_BASE::GetOrphanedNetHandle` (cpp:3022-3025). */
+  /** `GetOrphanedNetHandle` (cpp:3021). */
   getOrphanedNetHandle(): NetHandle {
-    return PNS_ORPHANED_NET;
+    return NETINFO_LIST.OrphanedItem();
   }
 
   // ----- layers --------------------------------------------------------------
 
+  /** The board layer, by name — the router engine's spelling of a layer. */
   getBoardLayerFromPnsLayer(aLayer: number): string {
-    return boardLayerFromPnsLayer(aLayer, this.mCopperLayers.length);
+    const layer = this.GetBoardLayerFromPNSLayer(aLayer);
+
+    return layer === PCB_LAYER_ID.UNDEFINED_LAYER || aLayer >= this.m_board.GetCopperLayerCount()
+      ? ''
+      : LSET.Name(layer);
   }
 
   getPnsLayerFromBoardLayer(aLayer: string): number {
-    return pnsLayerFromBoardLayer(aLayer, this.mCopperLayers.length);
+    return pnsLayerFromBoardLayer(aLayer, this.m_board.GetCopperLayerCount());
   }
 
-  /**
-   * `IsPNSCopperLayer` (cpp:2138-2141), written as upstream writes it: convert
-   * to a board layer and ask whether *that* is copper. The out-of-stack
-   * rejection therefore lives in one place, the conversion, rather than being
-   * duplicated as a range test that could drift from it.
-   */
+  /** `IsPNSCopperLayer` (cpp:2137). */
   isPnsCopperLayer(aPnsLayer: number): boolean {
-    return isCopperLayerName(this.getBoardLayerFromPnsLayer(aPnsLayer));
+    return this.IsKicadCopperLayer(this.GetBoardLayerFromPNSLayer(aPnsLayer));
   }
 
   /**
-   * `PNS_KICAD_IFACE::IsAnyLayerVisible` (cpp:2150-2162).
+   * `PNS_KICAD_IFACE::IsAnyLayerVisible` (cpp:2150).
    *
    * Upstream returns **false** when there is no `VIEW`. Reproducing that would
    * make `TOOL_BASE::pickSingleItem` reject every candidate in a headless
@@ -589,12 +536,8 @@ export class PNS_KICAD_IFACE implements PnsRouterIface, PnsResolverHost, ROUTER_
   }
 
   /**
-   * `PNS_KICAD_IFACE::IsItemVisible` (cpp:2255-2283).
-   *
-   * Upstream's first line is the one that survives here: an item with no
-   * `BOARD_ITEM` parent has not been committed to the board yet and is always
-   * visible. The rest is high-contrast mode, level-of-detail and the hidden-item
-   * set, all `VIEW`.
+   * `PNS_KICAD_IFACE::IsItemVisible` (cpp:2257): an item with no board parent
+   * has not been committed yet and is always visible; the rest is the view's.
    */
   isItemVisible(aItem: PnsItem): boolean {
     if (!aItem.parent()) return true;
@@ -602,47 +545,65 @@ export class PNS_KICAD_IFACE implements PnsRouterIface, PnsResolverHost, ROUTER_
     return this.mDeps.isItemVisible?.(aItem) ?? true;
   }
 
-  /**
-   * Both `IsFlashedOnLayer` overloads (cpp:2164-2255), collapsed onto one
-   * method as `PnsRouterIface` declares it.
-   *
-   * The single-layer form short-circuits `aLayer < 0` to true ("default is all
-   * layers"); the range form has no such escape and instead intersects the
-   * item's own span with the range first, so an empty intersection is false.
-   *
-   * `padFlashState` / `viaFlashState` answer `'if-connected'` where upstream
-   * consults `CONNECTIVITY_DATA::IsConnectedOnLayer`. There is no connectivity
-   * graph here, so it reads as flashed — which is precisely
-   * `PAD::CanFlashLayer`, upstream's own "may this layer be there?" reading,
-   * and errs towards more copper rather than less.
-   */
+  /** Both `IsFlashedOnLayer` overloads (cpp:2165-2254). */
   isFlashedOnLayer(aItem: PnsItem, aLayer: number | PnsLayerRange): boolean {
+    const parent = aItem.parent() as unknown as BOARD_ITEM | null;
+
     if (typeof aLayer === 'number') {
+      // Default is all layers
       if (aLayer < 0) return true;
 
-      const flashes = this.parentFlashes(aItem, aLayer);
-      if (flashes !== null) return flashes;
+      if (parent) {
+        switch (parent.Type()) {
+          case KICAD_T.PCB_VIA_T:
+            return (parent as PCB_VIA).FlashLayer(this.GetBoardLayerFromPNSLayer(aLayer));
 
-      if (aItem.kind() === PnsKind.VIA_T) return (aItem as PnsVia).connectsLayer(aLayer);
+          case KICAD_T.PCB_PAD_T:
+            return (parent as PAD).FlashLayer(this.GetBoardLayerFromPNSLayer(aLayer));
+
+          default:
+            break;
+        }
+      }
+
+      if (aItem.ofKind(PnsKind.VIA_T)) return (aItem as PnsVia).connectsLayer(aLayer);
 
       return aItem.layers().overlaps(aLayer);
     }
 
     const test = aItem.layers().intersection(aLayer);
-    const parent = aItem.parent();
 
-    if (parent && (this.mPads.has(parent) || isBoardVia(parent))) {
-      for (let layer = test.start(); layer <= test.end(); layer++) {
-        if (this.parentFlashes(aItem, layer) === true) return true;
+    if (parent) {
+      switch (parent.Type()) {
+        case KICAD_T.PCB_VIA_T: {
+          const via = parent as PCB_VIA;
+
+          for (let layer = test.start(); layer <= test.end(); ++layer) {
+            if (via.FlashLayer(this.GetBoardLayerFromPNSLayer(layer))) return true;
+          }
+
+          return false;
+        }
+
+        case KICAD_T.PCB_PAD_T: {
+          const pad = parent as PAD;
+
+          for (let layer = test.start(); layer <= test.end(); ++layer) {
+            if (pad.FlashLayer(this.GetBoardLayerFromPNSLayer(layer))) return true;
+          }
+
+          return false;
+        }
+
+        default:
+          break;
       }
-
-      return false;
     }
 
-    if (aItem.kind() === PnsKind.VIA_T) {
+    if (aItem.ofKind(PnsKind.VIA_T)) {
       const via = aItem as PnsVia;
 
-      for (let layer = test.start(); layer <= test.end(); layer++) {
+      for (let layer = test.start(); layer <= test.end(); ++layer) {
         if (via.connectsLayer(layer)) return true;
       }
 
@@ -652,31 +613,6 @@ export class PNS_KICAD_IFACE implements PnsRouterIface, PnsResolverHost, ROUTER_
     return test.start() <= test.end();
   }
 
-  /**
-   * `PAD::FlashLayer` / `PCB_VIA::FlashLayer` on the item's parent, or null
-   * when the parent is neither — which is upstream's `default: break` falling
-   * out of the switch into the via/layers tests below it.
-   */
-  private parentFlashes(aItem: PnsItem, aPnsLayer: number): boolean | null {
-    const parent = aItem.parent();
-
-    if (!parent) return null;
-
-    const boardLayer = this.getBoardLayerFromPnsLayer(aPnsLayer);
-
-    if (boardLayer === '') return null;
-
-    const pad = this.mPads.get(parent);
-
-    if (pad) return padFlashState(pad, boardLayer) !== 'removed';
-
-    if (isBoardVia(parent)) {
-      return viaFlashState(this.mBoard, parent as PcbVia, boardLayer) !== 'removed';
-    }
-
-    return null;
-  }
-
   // ----- the world -----------------------------------------------------------
 
   /** `PNS_KICAD_IFACE_BASE::GetWorld()` — the node the last sync filled. */
@@ -684,307 +620,588 @@ export class PNS_KICAD_IFACE implements PnsRouterIface, PnsResolverHost, ROUTER_
     return this.mWorld;
   }
 
-  /** `PNS_KICAD_IFACE_BASE::GetRuleResolver()` (cpp:3028-3031). Null before a sync. */
+  /** `GetRuleResolver()` (cpp:3027). Null before a sync. */
   getRuleResolver(): PnsRuleResolver | null {
     return this.mRuleResolver;
   }
 
-  /**
-   * `PNS_KICAD_IFACE_BASE::SyncWorld` (cpp:2289-2449).
-   *
-   * Upstream's order is drawings, zones, footprints (pads, then text, then
-   * footprint zones, then graphics), then tracks/arcs/vias, then a **fresh**
-   * rule resolver and `SetMaxClearance( worst + epsilon )`.
-   *
-   * Ported: pads, tracks, arcs, vias — the four item kinds this tree's `Board`
-   * can produce copper from — plus the castellation edge exclusions and the
-   * resolver. Left out, each because the geometry it needs is not in this tree:
-   *
-   *  - **`syncZone`** (cpp:1891-1951) syncs *rule areas only*, never filled
-   *    copper, and syncs each as one `SOLID` **per triangle** of the outline's
-   *    triangulation. There is no triangulator here, and approximating a
-   *    keepout by its convex hull would block copper the keepout allows —
-   *    wrong in the direction that silently refuses legal routes.
-   *  - **`syncTextItem`** / **`syncGraphicalItem`** / **`syncDimension`** /
-   *    **`syncBarcode`** all need `TransformShapeToPolygon` over stroked glyphs
-   *    and graphics.
-   *
-   * The consequence is recorded at {@link startPointUnroutableReason}: two of
-   * upstream's three unroutable classifications can never be reached, because
-   * no item in this node carries a zone or a text as its parent.
-   *
-   * Note that the resolver is rebuilt on every sync. Upstream's comment at
-   * cpp:2442 — *"if this were ever to become a long-lived object we would need
-   * to dirty its clearance cache here"* — is the reason, and it holds here too:
-   * `PNS_PCBNEW_RULE_RESOLVER` caches clearances by item identity.
-   */
-  syncWorld(aNode: PnsNode): void {
-    let worstClearance = this.mDeps.maxClearance ?? 0;
+  /** `PNS_KICAD_IFACE_BASE::SyncWorld` (cpp:2288-2449). */
+  syncWorld(aWorld: PnsNode): void {
+    let worstClearance = this.m_board.GetMaxClearanceValue();
 
-    this.mWorld = aNode;
+    this.mWorld = aWorld;
 
-    for (const fp of this.mBoard.footprints) {
-      for (const pad of fp.pads) {
-        const solid = this.syncPad(pad);
+    const syncBoardGraphic = (aItem: BOARD_ITEM): void => {
+      switch (aItem.Type()) {
+        case KICAD_T.PCB_SHAPE_T:
+        case KICAD_T.PCB_TEXTBOX_T:
+          this.syncGraphicalItem(aWorld, aItem as PCB_SHAPE);
+          break;
 
-        if (solid) aNode.addSolid(solid);
+        case KICAD_T.PCB_TEXT_T:
+        case KICAD_T.PCB_TABLE_T:
+          this.syncTextItem(aWorld, aItem, aItem.GetLayer());
+          break;
 
-        if (pad.localClearance !== undefined) {
-          worstClearance = Math.max(worstClearance, pad.localClearance);
+        case KICAD_T.PCB_BARCODE_T:
+          this.syncBarcode(aWorld, aItem as PCB_BARCODE);
+          break;
+
+        case KICAD_T.PCB_DIM_ALIGNED_T:
+        case KICAD_T.PCB_DIM_CENTER_T:
+        case KICAD_T.PCB_DIM_RADIAL_T:
+        case KICAD_T.PCB_DIM_ORTHOGONAL_T:
+        case KICAD_T.PCB_DIM_LEADER_T:
+          this.syncDimension(aWorld, aItem as PCB_DIMENSION_BASE);
+          break;
+
+        default: // PCB_REFERENCE_IMAGE_T, PCB_TARGET_T: ignore
+          break;
+      }
+    };
+
+    for (const gitem of this.m_board.Drawings()) syncBoardGraphic(gitem);
+
+    for (const zone of this.m_board.Zones()) this.syncZone(aWorld, zone);
+
+    for (const footprint of this.m_board.Footprints()) {
+      for (const pad of footprint.Pads()) {
+        for (const solid of this.syncPad(pad)) aWorld.addSolid(solid);
+
+        const clearanceOverride = pad.GetClearanceOverrides(null);
+
+        if (clearanceOverride !== undefined)
+          worstClearance = Math.max(worstClearance, clearanceOverride);
+
+        if (pad.GetProperty() === PAD_PROP.CASTELLATED) {
+          const hole = pnsShapeOf(pad.GetEffectiveHoleShape());
+
+          if (hole) aWorld.addEdgeExclusion(hole);
         }
+      }
 
-        // cpp:2365-2370: a castellated pad's hole is a board-edge exclusion, so
-        // copper is allowed to run right up to it.
-        if (pad.padProperty === 'pad_prop_castellated') {
-          const hole = padHoleShape(pad);
-          if (hole) aNode.addEdgeExclusion(hole);
-        }
+      this.syncTextItem(aWorld, footprint.Reference(), footprint.Reference().GetLayer());
+      this.syncTextItem(aWorld, footprint.Value(), footprint.Value().GetLayer());
+
+      for (const zone of footprint.Zones()) this.syncZone(aWorld, zone);
+
+      for (const field of footprint.GetFields()) this.syncTextItem(aWorld, field, field.GetLayer());
+
+      for (const item of footprint.GraphicalItems()) syncBoardGraphic(item);
+    }
+
+    for (const t of this.m_board.Tracks()) {
+      const type = t.Type();
+
+      if (type === KICAD_T.PCB_TRACE_T) {
+        const segment = this.syncTrack(t);
+
+        if (segment) aWorld.addSegment(segment, true);
+      } else if (type === KICAD_T.PCB_ARC_T) {
+        const arc = this.syncArc(t as PCB_ARC);
+
+        if (arc) aWorld.addArc(arc, true);
+      } else if (type === KICAD_T.PCB_VIA_T) {
+        const via = this.syncVia(t as PCB_VIA);
+
+        if (via) aWorld.addVia(via);
       }
     }
 
-    for (const track of this.mBoard.tracks) {
-      const segment = this.syncTrack(track);
+    // NB: if this were ever to become a long-lived object we would need to dirty its
+    // clearance cache here....
+    this.mRuleResolver = new PNS_PCBNEW_RULE_RESOLVER(this.m_board, this);
 
-      // cpp:2428 — `Add( segment, /*aAllowRedundant=*/true )`. A board may hold
-      // two identical tracks and upstream keeps both; the redundancy check
-      // exists for the router's own output, not for what it was handed.
-      if (segment) aNode.addSegment(segment, true);
-    }
-
-    for (const arc of this.mBoard.arcs) {
-      const item = this.syncArc(arc);
-
-      if (item) aNode.addArc(item, true);
-    }
-
-    for (const via of this.mBoard.vias) {
-      const item = this.syncVia(via);
-
-      if (item) aNode.addVia(item);
-    }
-
-    this.mRuleResolver = new PNS_PCBNEW_RULE_RESOLVER(this);
-
-    aNode.setRuleResolver(this.mRuleResolver);
-    aNode.setMaxClearance(worstClearance + this.mRuleResolver.clearanceEpsilon());
+    aWorld.setRuleResolver(this.mRuleResolver);
+    aWorld.setMaxClearance(worstClearance + this.mRuleResolver.clearanceEpsilon());
   }
 
   /**
-   * `PNS_KICAD_IFACE_BASE::syncPad` (cpp:1615-1743), for a board with no
-   * per-layer padstacks.
-   *
-   * Upstream opens with `PNS_LAYER_RANGE layers( 0, copperCount - 1 )` and the
-   * pad's copper stack, then:
-   *
-   * ```
-   * if( lmsk.empty() && drill.x == 0 )  return {};   // not copper, no hole
-   * PTH / NPTH : layers stays the whole stack
-   * SMD / CONN : lmsk empty ? return {}
-   *                         : layers = ( front, front )
-   * default    : return {};
-   * ```
-   *
-   * A through-hole pad therefore spans **every** copper layer whatever its
-   * `(layers …)` says — the layer-specific truth is left to `IsFlashedOnLayer`,
-   * with upstream's comment: *"We generate a single SOLID for a pad, so we have
-   * to treat it as ALWAYS_FLASHED and then perform layer-specific flashing
-   * tests internally."*
-   *
-   * The setter order below is upstream's and is load-bearing: `SOLID::SetPos`
-   * **moves** the shape and the hole by the delta, so it must run while both
-   * are still null. Moving it after `SetShape` would translate every pad by its
-   * own position.
+   * `PNS_KICAD_IFACE_BASE::syncPad` (cpp:1615-1743): a SOLID per unique padstack
+   * layer, for a copper pad or one with a hole.
    */
-  syncPad(aPad: PcbPad): PnsSolid | null {
-    const count = this.mCopperLayers.length;
-    const cuStack = this.mCopperLayers.filter((layer) => padIsOnLayer(aPad, layer));
-    const hasDrill = (aPad.drill?.w ?? 0) > 0;
+  syncPad(aPad: PAD): PnsSolid[] {
+    const solids: PnsSolid[] = [];
+    const copperCount = aPad.BoardCopperLayerCount();
+    let layers = new PnsLayerRange(0, copperCount - 1);
+    const lmsk = aPad.GetLayerSet().CuStack();
 
-    if (cuStack.length === 0 && !hasDrill) return null;
+    // ignore non-copper pads except for those with holes
+    if (lmsk.length === 0 && aPad.GetDrillSize().x === 0) return solids;
 
-    let layers = new PnsLayerRange(0, count - 1);
+    switch (aPad.GetAttribute()) {
+      case PAD_ATTRIB.PTH:
+      case PAD_ATTRIB.NPTH:
+        break;
 
-    if (aPad.type === 'smd' || aPad.type === 'connect') {
-      if (cuStack.length === 0) return null;
+      case PAD_ATTRIB.CONN:
+      case PAD_ATTRIB.SMD: {
+        let isCopper = false;
 
-      const front = this.getPnsLayerFromBoardLayer(cuStack[0] as string);
-      layers = new PnsLayerRange(front, front);
-    } else if (aPad.type !== 'thru_hole' && aPad.type !== 'np_thru_hole') {
-      // Upstream's `default:` arm — an attribute the router does not know.
-      return null;
+        if (lmsk.length > 0 && aPad.GetAttribute() !== PAD_ATTRIB.NPTH) {
+          layers = this.SetLayersFromPCBNew(lmsk[0]!, lmsk[0]!);
+          isCopper = true;
+        }
+
+        if (!isCopper) return solids;
+
+        break;
+      }
+
+      default:
+        return solids;
     }
 
-    const shape = solidShapeForPad(aPad);
+    const mode = aPad.Padstack().Mode();
 
-    // cpp:1734 — `if( !solid->Shape( 0 ) ) return;`. A pad with no geometry is
-    // dropped rather than added shapeless.
-    if (!shape) return null;
+    const makeSolidFromPadLayer = (aLayer: PCB_LAYER_ID): void => {
+      // For FRONT_INNER_BACK mode, skip creating a SOLID for inner layers when there are
+      // no inner layers (2-layer board). Otherwise PNS_LAYER_RANGE(1, 0) would be swapped
+      // to (0, 1) and indexed on both F_Cu and B_Cu, causing incorrect collision checks.
+      if (
+        mode === PADSTACK_MODE.FRONT_INNER_BACK &&
+        aLayer !== PCB_LAYER_ID.F_Cu &&
+        aLayer !== PCB_LAYER_ID.B_Cu &&
+        copperCount <= 2
+      )
+        return;
 
-    const solid = new PnsSolid();
+      const solid = new PnsSolid();
 
-    if (aPad.type === 'np_thru_hole') solid.setRoutable(false);
+      if (aPad.GetAttribute() === PAD_ATTRIB.NPTH) solid.setRoutable(false);
 
-    solid.setLayers(layers);
-    solid.setNet(this.netHandle(aPad.net));
-    solid.setParent(asBoardItem(aPad));
-    solid.setPadToDie(aPad.padToDieLength ?? 0);
-    solid.setOrientation(new EDA_ANGLE(aPad.angle));
+      if (mode === PADSTACK_MODE.CUSTOM) {
+        solid.setLayer(this.GetPNSLayerFromBoardLayer(aLayer));
+      } else if (mode === PADSTACK_MODE.FRONT_INNER_BACK) {
+        if (aLayer === PCB_LAYER_ID.F_Cu || aLayer === PCB_LAYER_ID.B_Cu)
+          solid.setLayer(this.GetPNSLayerFromBoardLayer(aLayer));
+        else solid.setLayers(new PnsLayerRange(1, copperCount - 2));
+      } else {
+        solid.setLayers(layers);
+      }
 
-    // "solid->SetPos( c - offset ); solid->SetOffset( offset )" with
-    // `c = aPad->ShapePos( aLayer )`, so the position is the pad's own — the
-    // hole — and the offset is `GetOffset` turned by the orientation. The shape
-    // above is absolute and already carries it (`padShapes` centres on
-    // `ShapePos`); the offset is what tells the optimizer to leave an offset
-    // pad's breakout alone.
-    const shapePos = padShapePos(aPad);
-    solid.setPos(aPad.at);
-    solid.setOffset({ x: shapePos.x - aPad.at.x, y: shapePos.y - aPad.at.y });
+      solid.setNet(aPad.GetNet());
+      solid.setParent(aPad as unknown as PnsBoardItem);
+      solid.setPadToDie(aPad.GetPadToDieLength());
+      solid.setPadToDieDelay(aPad.GetPadToDieDelay());
+      solid.setOrientation(aPad.GetOrientation());
 
-    const holeShape = padHoleShape(aPad);
+      if (aPad.IsFreePad()) solid.setIsFreePad();
 
-    if (holeShape) {
-      solid.setHole(new PnsHole(holeShape));
-      // cpp:1707 — the hole spans the whole board, not the pad's own layers,
-      // and this assignment has to follow `SetHole`, which forces the hole onto
-      // the solid's layers.
-      //
-      // MUTATION SURVIVOR: replacing the range with `layers` is not caught,
-      // and is very nearly an equivalent mutant. A through-hole pad already
-      // *has* `layers === (0, count - 1)` two dozen lines above, and a
-      // through-hole pad is the only kind this tree normally drills. The one
-      // input that separates them is an SMD or connector pad carrying a drill,
-      // which the file format permits and no fixture contains.
-      solid.hole()?.setLayers(new PnsLayerRange(0, count - 1));
-    }
+      const c = aPad.ShapePos(aLayer);
+      const offset = RotatePoint(aPad.GetOffset(aLayer), aPad.GetOrientation());
 
-    solid.setShape(shape);
+      solid.setPos({ x: c.x - offset.x, y: c.y - offset.y });
+      solid.setOffset({ x: offset.x, y: offset.y });
 
-    this.mPads.set(aPad, aPad);
+      if (aPad.GetDrillSize().x > 0) {
+        const hole = pnsShapeOf(aPad.GetEffectiveHoleShape());
 
-    return solid;
+        if (hole) {
+          solid.setHole(new PnsHole(hole));
+          solid.hole()?.setLayers(new PnsLayerRange(0, copperCount - 1));
+        }
+      }
+
+      // We generate a single SOLID for a pad, so we have to treat it as ALWAYS_FLASHED and
+      // then perform layer-specific flashing tests internally.
+      const shape = aPad.GetEffectiveShape(aLayer, FLASHING.ALWAYS_FLASHED);
+      let solidShape: Shape | null = null;
+
+      if (shape.HasIndexableSubshapes() && shape.GetIndexableSubshapeCount() === 1) {
+        const subshapes: SHAPE[] = [];
+        shape.GetIndexableSubshapes(subshapes);
+
+        solidShape = pnsShapeOf(subshapes[0]!);
+      } else {
+        // For anything that's not a single shape we use a polygon. Multiple shapes have a
+        // tendency to confuse the hull generator. https://gitlab.com/kicad/code/kicad/-/issues/15553
+        const poly = aPad.GetEffectivePolygon(aLayer, ERROR_LOC.ERROR_OUTSIDE);
+
+        if (poly.OutlineCount()) solidShape = pnsPolyOf(poly.Outline(0));
+      }
+
+      if (!solidShape) return;
+
+      solid.setShape(solidShape);
+      solids.push(solid);
+    };
+
+    aPad.Padstack().ForEachUniqueLayer(makeSolidFromPadLayer);
+
+    return solids;
   }
 
-  /** `PNS_KICAD_IFACE_BASE::syncTrack` (cpp:1746-1764). */
-  syncTrack(aTrack: PcbTrack): PnsSegment | null {
-    const layer = this.getPnsLayerFromBoardLayer(aTrack.layer);
-
-    // No upstream counterpart: every `PCB_TRACE_T` is on copper by
-    // construction, so `GetPNSLayerFromBoardLayer` is never asked about a silk
-    // layer there. A parsed file can carry one, and an item with layer −1 would
-    // sit in the index with a span that overlaps nothing.
-    if (layer < 0) return null;
-
+  /** `PNS_KICAD_IFACE_BASE::syncTrack` (cpp:1745). */
+  syncTrack(aTrack: PCB_TRACK): PnsSegment | null {
+    const start = aTrack.GetStart();
+    const end = aTrack.GetEnd();
     const segment = new PnsSegment(
-      { seg: { a: { ...aTrack.start }, b: { ...aTrack.end } }, width: aTrack.width },
-      this.netHandle(aTrack.net),
+      { seg: { a: { ...start }, b: { ...end } }, width: aTrack.GetWidth() },
+      aTrack.GetNet(),
     );
 
-    segment.setWidth(aTrack.width);
-    segment.setLayer(layer);
-    segment.setParent(aTrack);
+    segment.setWidth(aTrack.GetWidth());
+    segment.setLayer(this.GetPNSLayerFromBoardLayer(aTrack.GetLayer()));
+    segment.setParent(aTrack as unknown as PnsBoardItem);
 
-    if (aTrack.locked) segment.mark(LineMarker.MK_LOCKED);
+    if (aTrack.IsLocked()) segment.mark(LineMarker.MK_LOCKED);
+
+    if (isUneditedGenerator(aTrack.GetParentGroup())) segment.mark(LineMarker.MK_LOCKED);
 
     return segment;
   }
 
-  /** `PNS_KICAD_IFACE_BASE::syncArc` (cpp:1767-1785). */
-  syncArc(aArc: PcbArcTrack): PnsArc | null {
-    const layer = this.getPnsLayerFromBoardLayer(aArc.layer);
-
-    if (layer < 0) return null;
-
+  /** `PNS_KICAD_IFACE_BASE::syncArc` (cpp:1766). */
+  syncArc(aArc: PCB_ARC): PnsArc | null {
     const arc = new PnsArc(
       {
-        p0: { ...aArc.start },
-        arcMid: { ...aArc.mid },
-        p1: { ...aArc.end },
-        width: aArc.width,
+        p0: { ...aArc.GetStart() },
+        arcMid: { ...aArc.GetMid() },
+        p1: { ...aArc.GetEnd() },
+        width: aArc.GetWidth(),
       },
-      this.netHandle(aArc.net),
+      aArc.GetNet(),
     );
 
-    arc.setLayer(layer);
-    arc.setParent(aArc);
+    arc.setLayer(this.GetPNSLayerFromBoardLayer(aArc.GetLayer()));
+    arc.setParent(aArc as unknown as PnsBoardItem);
 
-    if (aArc.locked) arc.mark(LineMarker.MK_LOCKED);
+    if (aArc.IsLocked()) arc.mark(LineMarker.MK_LOCKED);
+
+    if (isUneditedGenerator(aArc.GetParentGroup())) arc.mark(LineMarker.MK_LOCKED);
 
     return arc;
   }
 
-  /**
-   * `PNS_KICAD_IFACE_BASE::syncVia` (cpp:1788-1888).
-   *
-   * The `PADSTACK::MODE` switch collapses to its `NORMAL` arm —
-   * `SetDiameter( 0, GetWidth( ALL_LAYERS ) )` — because `PcbVia` carries one
-   * size. Upstream's long comment on why `FRONT_INNER_BACK` cannot be used for
-   * a blind or buried via is therefore moot here, and the two padstack arms are
-   * unreachable rather than dropped.
-   *
-   * `SetLayersFromPCBNew( top, bottom )` (cpp:3165) maps both ends and lets
-   * `PNS_LAYER_RANGE`'s constructor sort them, so a `(layers "B.Cu" "F.Cu")`
-   * pair still gives `(0, n-1)`.
-   */
-  syncVia(aVia: PcbVia): PnsVia | null {
-    const top = this.getPnsLayerFromBoardLayer(aVia.layers[0]);
-    const bottom = this.getPnsLayerFromBoardLayer(aVia.layers[1]);
-
-    // Same guard as syncTrack, and with no upstream counterpart for the same
-    // reason.
-    if (top < 0 || bottom < 0) return null;
-
-    const layers = new PnsLayerRange(top, bottom);
+  /** `PNS_KICAD_IFACE_BASE::syncVia` (cpp:1788-1888). */
+  syncVia(aVia: PCB_VIA): PnsVia | null {
     const via = new PnsVia(
-      { ...aVia.at },
-      layers,
+      { ...aVia.GetPosition() },
+      this.SetLayersFromPCBNew(aVia.TopLayer(), aVia.BottomLayer()),
       0,
-      aVia.drill,
-      this.netHandle(aVia.net),
-      aVia.kind,
+      aVia.GetDrillValue(),
+      aVia.GetNet(),
+      aVia.GetViaType(),
     );
+    via.setUnconnectedLayerMode(aVia.Padstack().UnconnectedLayerMode());
 
-    via.setUnconnectedLayerMode(aVia.unconnectedLayerMode ?? 'keep_all');
-    via.setDiameter(0, aVia.size);
-    via.setParent(asBoardItem(aVia));
+    const syncDiameter = (aLayer: PCB_LAYER_ID): void => {
+      via.setDiameter(this.GetPNSLayerFromBoardLayer(aLayer), aVia.GetWidth(aLayer));
+    };
 
-    if (aVia.locked) via.mark(LineMarker.MK_LOCKED);
+    switch (aVia.Padstack().Mode()) {
+      case PADSTACK_MODE.NORMAL:
+        via.setDiameter(0, aVia.GetWidth(PADSTACK.ALL_LAYERS));
+        break;
 
-    via.setIsFree(false);
+      case PADSTACK_MODE.FRONT_INNER_BACK:
+        if (aVia.GetViaType() === VIATYPE.BLIND || aVia.GetViaType() === VIATYPE.BURIED) {
+          via.setDiameter(0, aVia.GetWidth(PADSTACK.INNER_LAYERS));
+        } else {
+          via.setStackMode(PNS_VIA_STACK_MODE.FRONT_INNER_BACK);
+          aVia.Padstack().ForEachUniqueLayer(syncDiameter);
+        }
+
+        break;
+
+      case PADSTACK_MODE.CUSTOM:
+        via.setStackMode(PNS_VIA_STACK_MODE.CUSTOM);
+        aVia.Padstack().ForEachUniqueLayer(syncDiameter);
+    }
+
+    via.setParent(aVia as unknown as PnsBoardItem);
+
+    if (aVia.IsLocked()) via.mark(LineMarker.MK_LOCKED);
+
+    if (isUneditedGenerator(aVia.GetParentGroup())) via.mark(LineMarker.MK_LOCKED);
+
+    via.setIsFree(aVia.GetIsFree());
     via.setHole(
-      PnsHole.makeCircularHole({ ...aVia.at }, Math.trunc(aVia.drill / 2), layers.clone()),
+      PnsHole.makeCircularHole(
+        { ...aVia.GetPosition() },
+        Math.trunc(aVia.GetDrillValue() / 2),
+        this.SetLayersFromPCBNew(aVia.TopLayer(), aVia.BottomLayer()),
+      ),
     );
-    via.setHoleLayers(layers.clone());
-    via.setSecondaryDrill(null);
-    via.setSecondaryHoleLayers(null);
+
+    const primaryStart = aVia.GetPrimaryDrillStartLayer();
+    const primaryEnd = aVia.GetPrimaryDrillEndLayer();
+
+    if (
+      primaryStart !== PCB_LAYER_ID.UNDEFINED_LAYER &&
+      primaryEnd !== PCB_LAYER_ID.UNDEFINED_LAYER
+    )
+      via.setHoleLayers(this.SetLayersFromPCBNew(primaryStart, primaryEnd));
+    else via.setHoleLayers(this.SetLayersFromPCBNew(aVia.TopLayer(), aVia.BottomLayer()));
+
+    via.setSecondaryDrill(aVia.GetSecondaryDrillSize() ?? null);
+
+    let secondaryLayers: PnsLayerRange | null = null;
+
+    if (
+      aVia.GetSecondaryDrillStartLayer() !== PCB_LAYER_ID.UNDEFINED_LAYER &&
+      aVia.GetSecondaryDrillEndLayer() !== PCB_LAYER_ID.UNDEFINED_LAYER
+    ) {
+      secondaryLayers = this.SetLayersFromPCBNew(
+        aVia.GetSecondaryDrillStartLayer(),
+        aVia.GetSecondaryDrillEndLayer(),
+      );
+    }
+
+    via.setSecondaryHoleLayers(secondaryLayers);
 
     return via;
+  }
+
+  /**
+   * `PNS_KICAD_IFACE_BASE::syncZone` (cpp:1890-1951): a keepout rule area, as
+   * one non-routable SOLID per triangle of its outline on each copper layer.
+   */
+  syncZone(aWorld: PnsNode, aZone: ZONE): boolean {
+    if (!aZone.GetIsRuleArea() || !aZone.HasKeepoutParametersSet()) return false;
+
+    const layers = aZone.GetLayerSet();
+    const poly = aZone.Outline();
+
+    poly.CacheTriangulation(false);
+
+    // Upstream shows "%s is malformed." in a KIDIALOG here; the zone is skipped either way.
+    if (!poly.IsTriangulationUpToDate()) return false;
+
+    for (const layer of this.m_board.GetEnabledLayers().CuStack()) {
+      if (!layers.Contains(layer)) continue;
+
+      for (let polyId = 0; polyId < poly.TriangulatedPolyCount(); polyId++) {
+        const tri = poly.TriangulatedPolygon(polyId);
+
+        for (let i = 0; i < tri.GetTriangleCount(); i++) {
+          const a = { x: 0, y: 0 };
+          const b = { x: 0, y: 0 };
+          const c = { x: 0, y: 0 };
+          tri.GetTriangle(i, a, b, c);
+
+          const solid = new PnsSolid();
+
+          solid.setLayer(this.GetPNSLayerFromBoardLayer(layer));
+          solid.setNet(null);
+          solid.setParent(aZone as unknown as PnsBoardItem);
+          solid.setShape({ kind: 'poly', pts: [a, b, c], r: 0 });
+          solid.setIsCompoundShapePrimitive();
+          solid.setRoutable(false);
+
+          aWorld.addSolid(solid);
+        }
+      }
+    }
+
+    return true;
+  }
+
+  /** `PNS_KICAD_IFACE_BASE::syncTextItem` (cpp:1954): text on copper, as one outline. */
+  syncTextItem(aWorld: PnsNode, aItem: BOARD_ITEM, aLayer: PCB_LAYER_ID): boolean {
+    if (!this.IsKicadCopperLayer(aLayer)) return false;
+
+    if (aItem.Type() === KICAD_T.PCB_FIELD_T && !(aItem as PCB_FIELD).IsVisible()) return false;
+
+    const cornerBuffer = new SHAPE_POLY_SET();
+
+    aItem.TransformShapeToPolygon(
+      cornerBuffer,
+      aItem.GetLayer(),
+      0,
+      aItem.GetMaxError(),
+      ERROR_LOC.ERROR_OUTSIDE,
+    );
+
+    cornerBuffer.Simplify();
+
+    if (!cornerBuffer.OutlineCount()) return false;
+
+    const solid = new PnsSolid();
+
+    solid.setLayer(this.GetPNSLayerFromBoardLayer(aLayer));
+    solid.setNet(null);
+    solid.setParent(aItem as unknown as PnsBoardItem);
+    solid.setShape(pnsPolyOf(cornerBuffer.Outline(0)));
+    solid.setRoutable(false);
+
+    aWorld.addSolid(solid);
+
+    return true;
+  }
+
+  /** `PNS_KICAD_IFACE_BASE::syncDimension` (cpp:1989). */
+  syncDimension(aWorld: PnsNode, aDimension: PCB_DIMENSION_BASE): boolean {
+    if (!this.IsKicadCopperLayer(aDimension.GetLayer())) return false;
+
+    const addPolysToWorld = (aPolys: SHAPE_POLY_SET): void => {
+      for (let ii = 0; ii < aPolys.OutlineCount(); ++ii) {
+        const solid = new PnsSolid();
+
+        solid.setLayer(this.GetPNSLayerFromBoardLayer(aDimension.GetLayer()));
+        solid.setNet(null);
+        solid.setParent(aDimension as unknown as PnsBoardItem);
+        solid.setShape(pnsPolyOf(aPolys.Outline(ii)));
+        solid.setRoutable(false);
+
+        aWorld.addSolid(solid);
+      }
+    };
+
+    const cornerBuffer = new SHAPE_POLY_SET();
+
+    aDimension.TransformShapeToPolygon(
+      cornerBuffer,
+      aDimension.GetLayer(),
+      0,
+      aDimension.GetMaxError(),
+      ERROR_LOC.ERROR_OUTSIDE,
+    );
+
+    cornerBuffer.Simplify();
+
+    if (cornerBuffer.OutlineCount()) addPolysToWorld(cornerBuffer);
+
+    // Footprints can have hidden dimensions
+    if (aDimension.IsVisible() && aDimension.GetText() !== '') {
+      const textBuffer = new SHAPE_POLY_SET();
+
+      PCB_TEXT.prototype.TransformShapeToPolygon.call(
+        aDimension,
+        textBuffer,
+        aDimension.GetLayer(),
+        0,
+        aDimension.GetMaxError(),
+        ERROR_LOC.ERROR_OUTSIDE,
+      );
+
+      textBuffer.Simplify();
+
+      if (textBuffer.OutlineCount()) addPolysToWorld(textBuffer);
+    }
+
+    return cornerBuffer.OutlineCount() > 0 || aDimension.GetText() !== '';
+  }
+
+  /** `PNS_KICAD_IFACE_BASE::syncGraphicalItem` (cpp:2043). */
+  syncGraphicalItem(aWorld: PnsNode, aItem: PCB_SHAPE): boolean {
+    const layer = aItem.GetLayer();
+    const isEdgeLayer = layer === PCB_LAYER_ID.Edge_Cuts || layer === PCB_LAYER_ID.Margin;
+
+    if (!isEdgeLayer && !this.IsKicadCopperLayer(layer)) return false;
+
+    const shapes = aItem.MakeEffectiveShapes();
+
+    for (const shape of shapes) {
+      const solid = new PnsSolid();
+
+      if (isEdgeLayer) {
+        solid.setLayers(new PnsLayerRange(0, this.m_board.GetCopperLayerCount() - 1));
+        solid.setRoutable(false);
+      } else {
+        solid.setLayer(this.GetPNSLayerFromBoardLayer(layer));
+        solid.setRoutable(aItem.Type() !== KICAD_T.PCB_TABLECELL_T);
+      }
+
+      if (layer === PCB_LAYER_ID.Edge_Cuts) {
+        switch (shape.Type()) {
+          case SHAPE_TYPE.SH_SEGMENT:
+            (shape as SHAPE_SEGMENT).SetWidth(0);
+            break;
+          case SHAPE_TYPE.SH_ARC:
+            (shape as SHAPE_ARC).SetWidth(0);
+            break;
+          case SHAPE_TYPE.SH_LINE_CHAIN:
+            (shape as SHAPE_LINE_CHAIN).SetWidth(0);
+            break;
+          default: // remaining shapes don't have width
+            break;
+        }
+      }
+
+      const pnsShape = pnsShapeOf(shape);
+
+      if (!pnsShape) continue;
+
+      solid.setAnchorPoints(aItem.GetConnectionPoints());
+      solid.setNet(aItem.GetNet());
+      solid.setParent(aItem as unknown as PnsBoardItem);
+      solid.setShape(pnsShape);
+
+      if (shapes.length > 1) solid.setIsCompoundShapePrimitive();
+
+      aWorld.addSolid(solid);
+    }
+
+    return true;
+  }
+
+  /** `PNS_KICAD_IFACE_BASE::syncBarcode` (cpp:2095). */
+  syncBarcode(aWorld: PnsNode, aBarcode: PCB_BARCODE): boolean {
+    if (!this.IsKicadCopperLayer(aBarcode.GetLayer())) return false;
+
+    const cornerBuffer = new SHAPE_POLY_SET();
+
+    aBarcode.GetBoundingHull(
+      cornerBuffer,
+      aBarcode.GetLayer(),
+      0,
+      aBarcode.GetMaxError(),
+      ERROR_LOC.ERROR_OUTSIDE,
+    );
+
+    if (!cornerBuffer.OutlineCount()) return false;
+
+    for (let ii = 0; ii < cornerBuffer.OutlineCount(); ++ii) {
+      const solid = new PnsSolid();
+
+      solid.setLayer(this.GetPNSLayerFromBoardLayer(aBarcode.GetLayer()));
+      solid.setNet(null);
+      solid.setParent(aBarcode as unknown as PnsBoardItem);
+      solid.setShape(pnsPolyOf(cornerBuffer.Outline(ii)));
+      solid.setRoutable(false);
+
+      aWorld.addSolid(solid);
+    }
+
+    return true;
   }
 
   // ----- routability ---------------------------------------------------------
 
   /**
-   * The `switch( parent->Type() )` at `pns_router.cpp:257-295`, pushed behind
-   * the interface because `PnsBoardItem` is `{ layer?: string }` and carries no
-   * type.
-   *
-   * Upstream classifies three parents: an NPTH pad, a rule area with keepout
-   * parameters (named or not), and a text/textbox/field. **Only the first is
-   * reachable here**, because {@link syncWorld} does not sync zones or text —
-   * so no item in the node can carry either as a parent, and the two missing
-   * arms are unreachable rather than silently wrong. When `syncZone` lands, the
-   * zone arm belongs here and nothing else moves.
-   *
-   * `null` is upstream's `default:` — no objection.
+   * The `switch( parent->Type() )` at `pns_router.cpp:257-295`: why routing may
+   * not start on an item, or null when it may.
    */
   startPointUnroutableReason(aItem: PnsItem): string | null {
-    const parent = aItem.parent();
+    const parent = aItem.parent() as unknown as BOARD_ITEM | null;
 
     if (!parent) return null;
 
-    const pad = this.mPads.get(parent);
+    switch (parent.Type()) {
+      case KICAD_T.PCB_PAD_T:
+        if ((parent as PAD).GetAttribute() === PAD_ATTRIB.NPTH)
+          return 'Cannot start routing from a non-plated hole.';
+        break;
 
-    if (pad && pad.type === 'np_thru_hole') {
-      return 'Cannot start routing from a non-plated hole.';
+      case KICAD_T.PCB_ZONE_T: {
+        const zone = parent as ZONE;
+
+        if (!zone.HasKeepoutParametersSet()) break;
+
+        if (zone.GetZoneName() !== '') return `Rule area '${zone.GetZoneName()}' disallows tracks.`;
+
+        return 'Rule area disallows tracks.';
+      }
+
+      case KICAD_T.PCB_FIELD_T:
+      case KICAD_T.PCB_TEXT_T:
+      case KICAD_T.PCB_TEXTBOX_T:
+        return 'Cannot start routing from a text item.';
+
+      default:
+        break;
     }
 
     return null;
@@ -1004,7 +1221,7 @@ export class PNS_KICAD_IFACE implements PnsRouterIface, PnsResolverHost, ROUTER_
    * answer 0 — that is the setting doing its job, not the port giving up.
    *
    * The stackup is the live `BOARD_STACKUP`, passed in with the design
-   * settings because the interface still sees the board through `Board`.
+   * settings the window hands it.
    */
   stackupHeight(aFirstLayer: number, aSecondLayer: number): number {
     const ds = this.mDeps.designSettings;
@@ -1012,12 +1229,10 @@ export class PNS_KICAD_IFACE implements PnsRouterIface, PnsResolverHost, ROUTER_
     // `if( !m_board || !m_board->GetDesignSettings().m_UseHeightForLengthCalcs )`
     if (!ds?.useHeightForLengthCalcs || !ds.stackup) return 0;
 
-    const first = this.boardLayer(aFirstLayer);
-    const second = this.boardLayer(aSecondLayer);
-
-    if (!first || !second) return 0;
-
-    return ds.stackup.GetLayerDistance(LSET.NameToLayer(first), LSET.NameToLayer(second));
+    return ds.stackup.GetLayerDistance(
+      this.GetBoardLayerFromPNSLayer(aFirstLayer),
+      this.GetBoardLayerFromPNSLayer(aSecondLayer),
+    );
   }
 
   /**
@@ -1367,52 +1582,328 @@ export class PNS_KICAD_IFACE implements PnsRouterIface, PnsResolverHost, ROUTER_
     return 0;
   }
 
-  // ----- the board mutations, held rather than applied ------------------------
+  // ----- the board mutations ---------------------------------------------------
 
-  /**
-   * The pending `AddItem`/`UpdateItem`/`RemoveItem` calls since the last
-   * {@link commit}, in the order the router made them.
-   *
-   * Upstream turns each into a `PCB_TRACK`/`PCB_ARC`/`PCB_VIA` and stages it on
-   * a `BOARD_COMMIT` (cpp:2650-2900). Building a board item here means
-   * synthesising its `source: SList`, and pushing it means the editor's undo
-   * stack — both of which belong with the commit wiring, not with the sync. So
-   * the calls are recorded, exactly, and a caller that wants to drive them can
-   * read them back; nothing is written to the `Board`.
-   */
-  pendingChanges(): readonly PnsPendingChange[] {
-    return this.mPending;
-  }
-
-  /** `AddItem( ITEM* )`. Recorded; see {@link pendingChanges}. */
-  addItem(aItem: PnsItem): void {
-    this.mPending.push({ kind: 'add', item: aItem });
-  }
-
-  /** `UpdateItem( ITEM* )`. Recorded; see {@link pendingChanges}. */
-  updateItem(aItem: PnsItem): void {
-    this.mPending.push({ kind: 'update', item: aItem });
-  }
-
-  /** `RemoveItem( ITEM* )`. Recorded; see {@link pendingChanges}. */
+  /** `PNS_KICAD_IFACE::RemoveItem` (cpp:2620). */
   removeItem(aItem: PnsItem): void {
-    this.mPending.push({ kind: 'remove', item: aItem });
+    const parent = aItem.parent() as unknown as BOARD_ITEM | null;
+
+    if (aItem.ofKind(PnsKind.SOLID_T) && parent?.Type() === KICAD_T.PCB_PAD_T) {
+      const pad = parent as PAD;
+      const pos = (aItem as PnsSolid).pos();
+
+      this.fpOffset(pad).p_old = { ...pos };
+      return;
+    }
+
+    if (parent && this.m_commit) {
+      const group = parent.GetParentGroup();
+
+      if (group) this.m_itemGroups.set(parent, group);
+
+      this.m_commit.Remove(parent);
+    }
   }
 
-  /**
-   * `Commit()`: upstream pushes the `BOARD_COMMIT` at the undo stack and opens
-   * a fresh one. Here the batch goes to {@link PNS_KICAD_IFACE_DEPS.onCommit} and
-   * a fresh one is opened — the same end-of-transaction boundary, with somebody
-   * on the other side of it at last.
-   *
-   * An empty batch still fires nothing: `ROUTER::CommitRouting` calls this on
-   * every commit path, including the ones that decided to change nothing.
-   */
-  commit(): void {
-    const batch = this.mPending;
-    this.mPending = [];
+  /** `PNS_KICAD_IFACE::UpdateItem` (cpp:2747): `modifyBoardItem`. */
+  updateItem(aItem: PnsItem): void {
+    this.modifyBoardItem(aItem);
+  }
 
-    if (batch.length > 0) this.mDeps.onCommit?.(batch);
+  /** `PNS_KICAD_IFACE::modifyBoardItem` (cpp:2648). */
+  private modifyBoardItem(aItem: PnsItem): void {
+    const boardItem = aItem.parent() as unknown as BOARD_ITEM | null;
+    const commit = this.m_commit;
+
+    if (!commit || !boardItem) return;
+
+    switch (aItem.kind()) {
+      case PnsKind.ARC_T: {
+        const arc = aItem as PnsArc;
+        const arcBoard = boardItem as PCB_ARC;
+        const a = arc.cArc();
+
+        commit.Modify(arcBoard);
+
+        arcBoard.SetStart({ ...a.p0 });
+        arcBoard.SetEnd({ ...a.p1 });
+        arcBoard.SetMid({ ...a.arcMid });
+        arcBoard.SetWidth(arc.width());
+        break;
+      }
+
+      case PnsKind.SEGMENT_T: {
+        const seg = aItem as PnsSegment;
+        const track = boardItem as PCB_TRACK;
+        const s = seg.seg();
+
+        commit.Modify(track);
+
+        track.SetStart({ x: s.a.x, y: s.a.y });
+        track.SetEnd({ x: s.b.x, y: s.b.y });
+        track.SetWidth(seg.width());
+        break;
+      }
+
+      case PnsKind.VIA_T: {
+        const viaBoard = boardItem as PCB_VIA;
+
+        commit.Modify(viaBoard);
+        this.writeVia(viaBoard, aItem as PnsVia, (aItem as PnsVia).net() as NETINFO_ITEM | null);
+        break;
+      }
+
+      case PnsKind.SOLID_T: {
+        if (boardItem.Type() === KICAD_T.PCB_PAD_T) {
+          const pad = boardItem as PAD;
+          const pos = (aItem as PnsSolid).pos();
+
+          // Don't add to commit; we'll add the parent footprints when processing the m_fpOffsets
+          const offset = this.fpOffset(pad);
+          offset.p_old = { ...pad.GetPosition() };
+          offset.p_new = { ...pos };
+        }
+
+        break;
+      }
+
+      default:
+        commit.Modify(boardItem);
+        break;
+    }
+  }
+
+  /** The via fields `modifyBoardItem` and `createBoardItem` both write from a PNS::VIA. */
+  private writeVia(aViaBoard: PCB_VIA, aVia: PnsVia, aNet: NETINFO_ITEM | null): void {
+    aViaBoard.SetPosition({ x: aVia.pos().x, y: aVia.pos().y });
+    aViaBoard.SetWidth(PADSTACK.ALL_LAYERS, aVia.diameter(0));
+    aViaBoard.SetDrill(aVia.drill());
+    aViaBoard.SetNet(aNet);
+    aViaBoard.SetViaType(aVia.viaType()); // MUST be before SetLayerPair()
+    aViaBoard.Padstack().SetUnconnectedLayerMode(aVia.unconnectedLayerMode());
+    aViaBoard.SetIsFree(aVia.isFree());
+    aViaBoard.SetLayerPair(
+      this.GetBoardLayerFromPNSLayer(aVia.layers().start()),
+      this.GetBoardLayerFromPNSLayer(aVia.layers().end()),
+    );
+
+    const holeLayers = aVia.holeLayers();
+
+    if (holeLayers.start() >= 0 && holeLayers.end() >= 0) {
+      aViaBoard.SetPrimaryDrillStartLayer(this.GetBoardLayerFromPNSLayer(holeLayers.start()));
+      aViaBoard.SetPrimaryDrillEndLayer(this.GetBoardLayerFromPNSLayer(holeLayers.end()));
+    }
+
+    aViaBoard.SetSecondaryDrillSize(aVia.secondaryDrill() ?? undefined);
+
+    const secondaryLayers = aVia.secondaryHoleLayers();
+
+    if (secondaryLayers) {
+      aViaBoard.SetSecondaryDrillStartLayer(
+        this.GetBoardLayerFromPNSLayer(secondaryLayers.start()),
+      );
+      aViaBoard.SetSecondaryDrillEndLayer(this.GetBoardLayerFromPNSLayer(secondaryLayers.end()));
+    } else {
+      aViaBoard.SetSecondaryDrillStartLayer(PCB_LAYER_ID.UNDEFINED_LAYER);
+      aViaBoard.SetSecondaryDrillEndLayer(PCB_LAYER_ID.UNDEFINED_LAYER);
+    }
+  }
+
+  /** `PNS_KICAD_IFACE::createBoardItem` (cpp:2758). */
+  private createBoardItem(aItem: PnsItem): BOARD_CONNECTED_ITEM | null {
+    let newBoardItem: BOARD_CONNECTED_ITEM | null = null;
+    let net = aItem.net() as NETINFO_ITEM | null;
+
+    if (!net) net = NETINFO_LIST.OrphanedItem();
+
+    const source = aItem.getSourceItem() as unknown as BOARD_ITEM | null;
+
+    switch (aItem.kind()) {
+      case PnsKind.ARC_T: {
+        const arc = aItem as PnsArc;
+        const a = arc.cArc();
+        const newArc = new PCB_ARC(this.m_board);
+        newArc.SetStart({ ...a.p0 });
+        newArc.SetMid({ ...a.arcMid });
+        newArc.SetEnd({ ...a.p1 });
+        newArc.SetWidth(arc.width());
+        newArc.SetLayer(this.GetBoardLayerFromPNSLayer(arc.layers().start()));
+        newArc.SetNet(net);
+
+        if (source?.IsType([KICAD_T.PCB_TRACE_T, KICAD_T.PCB_ARC_T])) {
+          const sourceTrack = source as PCB_TRACK;
+          newArc.SetHasSolderMask(sourceTrack.HasSolderMask());
+          newArc.SetLocalSolderMaskMargin(sourceTrack.GetLocalSolderMaskMargin());
+        }
+
+        newBoardItem = newArc;
+        break;
+      }
+
+      case PnsKind.SEGMENT_T: {
+        const seg = aItem as PnsSegment;
+        const track = new PCB_TRACK(this.m_board);
+        const s = seg.seg();
+        track.SetStart({ x: s.a.x, y: s.a.y });
+        track.SetEnd({ x: s.b.x, y: s.b.y });
+        track.SetWidth(seg.width());
+        track.SetLayer(this.GetBoardLayerFromPNSLayer(seg.layers().start()));
+        track.SetNet(net);
+
+        if (source?.IsType([KICAD_T.PCB_TRACE_T, KICAD_T.PCB_ARC_T])) {
+          const sourceTrack = source as PCB_TRACK;
+          track.SetHasSolderMask(sourceTrack.HasSolderMask());
+          track.SetLocalSolderMaskMargin(sourceTrack.GetLocalSolderMaskMargin());
+        }
+
+        newBoardItem = track;
+        break;
+      }
+
+      case PnsKind.VIA_T: {
+        const viaBoard = new PCB_VIA(this.m_board);
+        this.writeVia(viaBoard, aItem as PnsVia, net);
+
+        if (source?.Type() === KICAD_T.PCB_VIA_T) {
+          const sourceVia = source as PCB_VIA;
+          viaBoard.SetFrontTentingMode(sourceVia.GetFrontTentingMode());
+          viaBoard.SetBackTentingMode(sourceVia.GetBackTentingMode());
+        }
+
+        newBoardItem = viaBoard;
+        break;
+      }
+
+      case PnsKind.SOLID_T: {
+        const pad = aItem.parent() as unknown as PAD;
+        const pos = (aItem as PnsSolid).pos();
+
+        this.fpOffset(pad).p_new = { ...pos };
+        return null;
+      }
+
+      default:
+        return null;
+    }
+
+    if (net.GetNetCode() <= 0) {
+      const newNetInfo = newBoardItem.GetNet();
+
+      if (newNetInfo) {
+        newNetInfo.SetParent(this.m_board);
+        newNetInfo.SetNetClass(this.m_board.GetDesignSettings().m_NetSettings.GetDefaultNetclass());
+      }
+    }
+
+    if (aItem.isLocked()) newBoardItem.SetLocked(true);
+
+    if (source) {
+      if (this.m_itemGroups.has(source)) this.replacements(source).push(newBoardItem);
+    } else {
+      // This is a new item, which goes in the entered group (if any)
+      this.replacements(ENTERED_GROUP).push(newBoardItem);
+    }
+
+    return newBoardItem;
+  }
+
+  /** `PNS_KICAD_IFACE::AddItem` (cpp:2898). */
+  addItem(aItem: PnsItem): void {
+    const boardItem = this.createBoardItem(aItem);
+
+    if (boardItem) {
+      aItem.setParent(boardItem as unknown as PnsBoardItem);
+      boardItem.ClearFlags();
+
+      this.m_commit?.Add(boardItem);
+    }
+  }
+
+  /** `PNS_KICAD_IFACE::Commit` (cpp:2912). */
+  commit(): void {
+    const commit = this.m_commit;
+
+    this.eraseView();
+
+    if (!commit) {
+      this.m_fpOffsets.clear();
+      this.m_itemGroups.clear();
+      this.m_replacementMap.clear();
+      return;
+    }
+
+    const processedFootprints = new Set<FOOTPRINT>();
+
+    for (const [pad, fpOffset] of this.m_fpOffsets) {
+      const footprint = pad.GetParentFootprint();
+
+      if (!footprint || !fpOffset.p_new || !fpOffset.p_old) continue;
+
+      const offset = {
+        x: fpOffset.p_new.x - fpOffset.p_old.x,
+        y: fpOffset.p_new.y - fpOffset.p_old.y,
+      };
+      const pOrig = footprint.GetPosition();
+      const pNew = { x: pOrig.x + offset.x, y: pOrig.y + offset.y };
+
+      if (processedFootprints.has(footprint)) continue;
+
+      processedFootprints.add(footprint);
+      commit.Modify(footprint);
+      footprint.SetPosition(pNew);
+    }
+
+    this.m_fpOffsets.clear();
+
+    for (const [src, items] of this.m_replacementMap) {
+      let group: EDA_GROUP | null = null;
+
+      if (src === ENTERED_GROUP) group = this.mDeps.enteredGroup?.() ?? null;
+      else group = this.m_itemGroups.get(src) ?? null;
+
+      if (group) {
+        commit.Modify(group.AsEdaItem(), null, RECURSE_MODE.NO_RECURSE);
+
+        for (const bi of items) group.AddItem(bi);
+      }
+    }
+
+    this.m_itemGroups.clear();
+    this.m_replacementMap.clear();
+
+    if (!commit.Empty()) this.m_pushedCommits++;
+
+    commit.Push('Routing', SKIP_ENTERED_GROUP);
+    this.m_commit = new BOARD_COMMIT(this.mDeps.commitHost as PCB_BASE_FRAME);
+  }
+
+  /** How many non-empty commits this interface has pushed. */
+  pushedCommits(): number {
+    return this.m_pushedCommits;
+  }
+
+  private m_pushedCommits = 0;
+
+  private fpOffset(aPad: PAD): { p_old?: Vec2; p_new?: Vec2 } {
+    let offset = this.m_fpOffsets.get(aPad);
+
+    if (!offset) {
+      offset = {};
+      this.m_fpOffsets.set(aPad, offset);
+    }
+
+    return offset;
+  }
+
+  private replacements(aKey: BOARD_ITEM | typeof ENTERED_GROUP): BOARD_ITEM[] {
+    let list = this.m_replacementMap.get(aKey);
+
+    if (!list) {
+      list = [];
+      this.m_replacementMap.set(aKey, list);
+    }
+
+    return list;
   }
 
   // ----- the view, which does not exist here ---------------------------------
@@ -1509,233 +2000,6 @@ export class PNS_KICAD_IFACE implements PnsRouterIface, PnsResolverHost, ROUTER_
       }
     }
   }
-
-  // ----- PnsResolverHost -----------------------------------------------------
-
-  /** `BOARD_DESIGN_SETTINGS::m_DRCEngine`. */
-  engine(): DrcRuleEngine | null {
-    return this.mDeps.ruleEngine ?? null;
-  }
-
-  /** `ROUTER_IFACE::GetBoardLayerFromPNSLayer`, as the resolver wants it. */
-  boardLayer(aPnsLayer: number): string | undefined {
-    const layer = this.getBoardLayerFromPnsLayer(aPnsLayer);
-
-    return layer === '' ? undefined : layer;
-  }
-
-  /**
-   * `PNS_PCBNEW_RULE_RESOLVER::getBoardItem` plus the `DRC_ENGINE` view of it.
-   *
-   * Upstream manufactures a dummy `PCB_TRACK` or `PCB_VIA` for a router item
-   * with no board counterpart, so the rules engine always has something to
-   * evaluate. Same here: the `DrcEvalItem` is built from the parent board item
-   * when there is one and from the `PNS::ITEM` itself when there is not, and
-   * the two agree field for field with `boardEvalItems` in `drc_engine.ts` —
-   * which matters, because a router that resolved a *different* clearance from
-   * DRC would route boards that fail the checker.
-   */
-  evalItem(aItem: PnsItem): DrcEvalItem | null {
-    const net = aItem.net() as PnsBoardNet | null;
-    const netName = net ? net.name : undefined;
-    const netClasses = [...(this.mDeps.netClassesOf?.(net?.code ?? 0) ?? [])];
-    const layer = this.boardLayer(aItem.layers().start());
-
-    switch (aItem.kind()) {
-      case PnsKind.SEGMENT_T:
-        return {
-          type: 'Track',
-          layer,
-          netName,
-          netClasses,
-          props: { Width: (aItem as PnsSegment).width() },
-        };
-
-      case PnsKind.ARC_T:
-        return {
-          type: 'Arc',
-          layer,
-          netName,
-          netClasses,
-          props: { Width: (aItem as PnsArc).width() },
-        };
-
-      case PnsKind.LINE_T:
-        // A `LINE` is a view over segments, not a board item; upstream's dummy
-        // proxy for it is a `PCB_TRACK` of the line's width.
-        return { type: 'Track', layer, netName, netClasses };
-
-      case PnsKind.VIA_T: {
-        const via = aItem as PnsVia;
-        const span = via.layers();
-
-        return {
-          type: 'Via',
-          layer,
-          layers: layerNames(this, span),
-          netName,
-          netClasses,
-          props: { Width: via.diameter(span.start()), Hole: via.drill() },
-        };
-      }
-
-      case PnsKind.SOLID_T: {
-        const parent = aItem.parent();
-        const pad = parent ? this.mPads.get(parent) : undefined;
-
-        return {
-          type: 'Pad',
-          layer: pad ? pad.layers[0] : layer,
-          layers: pad ? [...pad.layers] : layerNames(this, aItem.layers()),
-          netName,
-          netClasses,
-          props: pad ? { Pad_Number: pad.number } : undefined,
-        };
-      }
-
-      case PnsKind.HOLE_T:
-        return {
-          type: 'Via',
-          layer,
-          layers: layerNames(this, aItem.layers()),
-          netName,
-          netClasses,
-        };
-
-      default:
-        return null;
-    }
-  }
-
-  /** `NETINFO_ITEM::GetNetCode`, as the resolver's optional hook. */
-  netCode(aNet: NetHandle): number {
-    return this.getNetCode(aNet);
-  }
-
-  /** `NETINFO_ITEM::GetNetname`, as the resolver's optional hook. */
-  netName(aNet: NetHandle): string {
-    return this.getNetName(aNet);
-  }
-
-  /**
-   * `BOARD::FindNet( const wxString& )` — a handle for a net looked up by NAME.
-   *
-   * The board keeps code -> name; this is the only place that needs the other
-   * direction, and it is the differential pair that needs it: the complement of
-   * `/USB_D_P` is a NAME, and the router works in handles.
-   */
-  findNetByName(aName: string): NetHandle {
-    for (const [code, name] of this.mBoard.nets) {
-      if (name === aName) return this.netHandle(code);
-    }
-
-    return null;
-  }
-
-  /**
-   * `BOARD::DpCoupledNet` (`pcbnew/board.cpp`) — the other half of a pair, by
-   * name, or null when this net is not half of one.
-   */
-  dpCoupledNet(aNet: NetHandle): NetHandle {
-    const name = this.getNetName(aNet);
-
-    if (!name) return null;
-
-    const suffix = DRC_ENGINE.MatchDpSuffix(name);
-
-    return suffix.polarity === 0 ? null : this.findNetByName(suffix.complementNet);
-  }
-
-  /**
-   * `PNS_PCBNEW_RULE_RESOLVER::DpNetPair` (`pns_kicad_iface.cpp:2790-2823`) —
-   * an item's pair, ORIENTED so that `netP` is the positive half whichever one
-   * the user grabbed:
-   *
-   *     int r = m_board->MatchDpSuffix( netNameP, netNameCoupled );
-   *     if( r == 0 )       return false;
-   *     else if( r == 1 )  netNameN = netNameCoupled;          // we hold P
-   *     else             { netNameN = netNameP;                // we hold N
-   *                        netNameP = netNameCoupled; }
-   *
-   * Both halves must exist on the board — `if( !netInfoP || !netInfoN ) return
-   * false` — so a `/CLK_P` with no `/CLK_N` anywhere is not a pair.
-   *
-   * Without this hook `findDpPrimitivePair` answers "unable to find
-   * complementary differential pair nets" for every item, which is where
-   * differential-pair routing stopped: the placer was ported, the router asked
-   * for the pair, and nothing could name it.
-   */
-  dpNetPair(aItem: PnsItem): DpNetPair | null {
-    const net = aItem.net();
-
-    if (!net) return null;
-
-    const name = this.getNetName(net);
-    const suffix = DRC_ENGINE.MatchDpSuffix(name);
-
-    if (suffix.polarity === 0) return null;
-
-    // `r == 1` means the name we hold IS the positive half.
-    const nameP = suffix.polarity === 1 ? name : suffix.complementNet;
-    const nameN = suffix.polarity === 1 ? suffix.complementNet : name;
-
-    const netP = this.findNetByName(nameP);
-    const netN = this.findNetByName(nameN);
-
-    if (!netP || !netN) return null;
-
-    return { netP, netN };
-  }
-
-  /**
-   * `PNS_PCBNEW_RULE_RESOLVER::DpNetPolarity` — +1 for the positive half, −1
-   * for the negative, 0 for a net that is not half of a pair. It is
-   * `MatchDpSuffix`'s own return value.
-   */
-  dpNetPolarity(aNet: NetHandle): number {
-    return DRC_ENGINE.MatchDpSuffix(this.getNetName(aNet)).polarity;
-  }
-}
-
-/**
- * `ITEM::SetParent( BOARD_ITEM* )` for a board object that is not on one layer.
- *
- * `PnsBoardItem` is `{ layer?: string }` — every member optional — so TypeScript
- * refuses a `PcbPad` or a `PcbVia` outright under its weak-type check: they have
- * no property in common with it, since a pad and a via each carry `layers`
- * rather than `layer`. Widening `PnsBoardItem` would make that check useless for
- * every other caller, and the parent really is the board object: identity is
- * what `commitRoutingTo` pairs removes against adds by, and what
- * {@link PNS_KICAD_IFACE.startPointUnroutableReason} looks up. So the cast is the
- * honest expression of "this interface is a nominal handle, not a shape".
- *
- * Exported because every caller that wants to ask a node for the items made
- * from a given pad or via — `NODE::findItemsByParent`, which the tests do a lot
- * of — hits the same wall on the way in.
- */
-export const asBoardItem = (aItem: object): { layer?: string } => aItem as { layer?: string };
-
-/** Every board layer name a PNS span covers, for a `DrcEvalItem`. */
-function layerNames(aIface: PNS_KICAD_IFACE, aSpan: PnsLayerRange): string[] {
-  const out: string[] = [];
-
-  for (let i = aSpan.start(); i <= aSpan.end(); i++) {
-    const name = aIface.getBoardLayerFromPnsLayer(i);
-    if (name !== '') out.push(name);
-  }
-
-  return out;
-}
-
-/**
- * Is this board object a `PCB_VIA`? `PnsBoardItem` carries no type, so the
- * discriminator is the shape of `PcbVia` — a two-element `layers` tuple beside
- * a `drill`, which no other board item has.
- */
-function isBoardVia(aParent: object): aParent is PcbVia {
-  const via = aParent as Partial<PcbVia>;
-
-  return typeof via.drill === 'number' && Array.isArray(via.layers) && via.layers.length === 2;
 }
 
 // ============================================================================
@@ -1802,68 +2066,63 @@ function isBoardVia(aParent: object): aParent is PcbVia {
 const LAYER_ID_START = 0;
 const LAYER_ID_END = 127;
 
-/**
- * What the resolver needs from the board and the interface layer. Everything
- * that reads a `BOARD_ITEM`, a `ZONE` or a `NETINFO_ITEM` upstream is here;
- * everything that is pure PNS arithmetic is in the resolver itself.
- *
- * The optional members have upstream-faithful fallbacks, which are *not*
- * neutral: a host that does not answer `isEdge` produces a board with no edge
- * clearance rule, and one that does not answer `isOnCopperLayer` gets
- * upstream's `!Parent()` reading, i.e. **everything counts as copper**.
- */
-export interface PnsResolverHost {
-  /** The compiled rule set — `BOARD_DESIGN_SETTINGS::m_DRCEngine`. */
-  engine(): DrcRuleEngine | null;
-  /** `ROUTER_IFACE::GetBoardLayerFromPNSLayer`. */
-  boardLayer(pnsLayer: number): string | undefined;
-  /** A router item as the rules engine sees it — upstream's `BoardItem()` plus
-   * the dummy `PCB_TRACK`/`PCB_VIA` proxies `getBoardItem` manufactures for
-   * items that have no board counterpart. Null means "no A item", which makes
-   * `queryConstraint` return nothing at all. */
-  evalItem(item: PnsItem): DrcEvalItem | null;
+/** `CONSTRAINT_TYPE` -> `DRC_CONSTRAINT_T` (`QueryConstraint`'s switch). */
+const HOST_TYPE: Partial<Record<PnsConstraintType, DRC_CONSTRAINT_T>> = {
+  [PnsConstraintType.CT_CLEARANCE]: DRC_CONSTRAINT_T.CLEARANCE_CONSTRAINT,
+  [PnsConstraintType.CT_WIDTH]: DRC_CONSTRAINT_T.TRACK_WIDTH_CONSTRAINT,
+  [PnsConstraintType.CT_DIFF_PAIR_GAP]: DRC_CONSTRAINT_T.DIFF_PAIR_GAP_CONSTRAINT,
+  [PnsConstraintType.CT_LENGTH]: DRC_CONSTRAINT_T.LENGTH_CONSTRAINT,
+  [PnsConstraintType.CT_DIFF_PAIR_SKEW]: DRC_CONSTRAINT_T.SKEW_CONSTRAINT,
+  [PnsConstraintType.CT_MAX_UNCOUPLED]: DRC_CONSTRAINT_T.MAX_UNCOUPLED_CONSTRAINT,
+  [PnsConstraintType.CT_VIA_DIAMETER]: DRC_CONSTRAINT_T.VIA_DIAMETER_CONSTRAINT,
+  [PnsConstraintType.CT_VIA_HOLE]: DRC_CONSTRAINT_T.HOLE_SIZE_CONSTRAINT,
+  [PnsConstraintType.CT_HOLE_CLEARANCE]: DRC_CONSTRAINT_T.HOLE_CLEARANCE_CONSTRAINT,
+  [PnsConstraintType.CT_EDGE_CLEARANCE]: DRC_CONSTRAINT_T.EDGE_CLEARANCE_CONSTRAINT,
+  [PnsConstraintType.CT_HOLE_TO_HOLE]: DRC_CONSTRAINT_T.HOLE_TO_HOLE_CONSTRAINT,
+  [PnsConstraintType.CT_PHYSICAL_CLEARANCE]: DRC_CONSTRAINT_T.PHYSICAL_CLEARANCE_CONSTRAINT,
+  [PnsConstraintType.CT_PHYSICAL_HOLE_CLEARANCE]:
+    DRC_CONSTRAINT_T.PHYSICAL_HOLE_CLEARANCE_CONSTRAINT,
+};
 
-  /** `BOARD_DESIGN_SETTINGS::GetDRCEpsilon()`. Default 0. */
-  clearanceEpsilon?(): number;
-  /** `DRC_ENGINE::HasUserDefinedPhysicalConstraint()`. Default false. */
-  hasUserDefinedPhysicalConstraint?(): boolean;
+/** The BOARD_ITEM behind a router item (`ITEM::BoardItem()`). */
+const boardItemOf = (aItem: PnsItem | null): BOARD_ITEM | null =>
+  (aItem?.boardItem() as unknown as BOARD_ITEM | null) ?? null;
 
-  /** `isCopper`: `!Parent() || Parent()->IsOnCopperLayer()`. Default **true**. */
-  isOnCopperLayer?(item: PnsItem): boolean;
-  /** `isEdge`: a `PCB_SHAPE` on `Edge.Cuts` or `Margin`. Default false. */
-  isEdge?(item: PnsItem): boolean;
-  /** `BOARD_ITEM::HasDrilledHole()` on the hole's parent. Default false. */
-  hasDrilledHole?(item: PnsItem): boolean;
-  /** An NPTH pad whose two drill sizes differ. Default false. */
-  isNonPlatedSlot?(item: PnsItem): boolean;
+/** `ITEM::Parent()`. */
+const parentOf = (aItem: PnsItem | null): BOARD_ITEM | null =>
+  (aItem?.parent() as unknown as BOARD_ITEM | null) ?? null;
 
-  isInNetTie?(item: PnsItem): boolean;
-  isNetTieExclusion?(item: PnsItem, collisionPos: Vec2, collidingItem: PnsItem): boolean;
-  isKeepout?(obstacle: PnsItem, item: PnsItem): KeepoutResult;
+/** `isCopper`: `!parent || parent->IsOnCopperLayer()`. */
+function isCopper(aItem: PnsItem | null): boolean {
+  if (!aItem) return false;
 
-  netCode?(net: NetHandle): number;
-  netName?(net: NetHandle): string;
-  dpCoupledNet?(net: NetHandle): NetHandle;
-  dpNetPolarity?(net: NetHandle): number;
-  dpNetPair?(item: PnsItem): DpNetPair | null;
+  const parent = parentOf(aItem);
+
+  return !parent || parent.IsOnCopperLayer();
 }
 
-/** `CONSTRAINT_TYPE` → this repo's `DRC_CONSTRAINT_T` name. */
-const HOST_TYPE: Partial<Record<PnsConstraintType, DrcConstraintType>> = {
-  [PnsConstraintType.CT_CLEARANCE]: 'clearance',
-  [PnsConstraintType.CT_WIDTH]: 'track_width',
-  [PnsConstraintType.CT_DIFF_PAIR_GAP]: 'diff_pair_gap',
-  [PnsConstraintType.CT_LENGTH]: 'length',
-  [PnsConstraintType.CT_DIFF_PAIR_SKEW]: 'skew',
-  [PnsConstraintType.CT_MAX_UNCOUPLED]: 'diff_pair_uncoupled',
-  [PnsConstraintType.CT_VIA_DIAMETER]: 'via_diameter',
-  [PnsConstraintType.CT_VIA_HOLE]: 'hole_size',
-  [PnsConstraintType.CT_HOLE_CLEARANCE]: 'hole_clearance',
-  [PnsConstraintType.CT_EDGE_CLEARANCE]: 'edge_clearance',
-  [PnsConstraintType.CT_HOLE_TO_HOLE]: 'hole_to_hole',
-  [PnsConstraintType.CT_PHYSICAL_CLEARANCE]: 'physical_clearance',
-  [PnsConstraintType.CT_PHYSICAL_HOLE_CLEARANCE]: 'physical_hole_clearance',
-};
+/** `isEdge`: a PCB_SHAPE on Edge.Cuts or Margin. */
+function isEdge(aItem: PnsItem | null): boolean {
+  if (!aItem) return false;
+
+  const parent = boardItemOf(aItem);
+
+  return (
+    parent instanceof PCB_SHAPE &&
+    (parent.IsOnLayer(PCB_LAYER_ID.Edge_Cuts) || parent.IsOnLayer(PCB_LAYER_ID.Margin))
+  );
+}
+
+/** A MINOPTMAX as the engine's plain value. */
+function minOptMaxOf(aValue: MINOPTMAX): PnsConstraint['value'] {
+  const out: PnsConstraint['value'] = {};
+
+  if (aValue.HasMin()) out.min = aValue.Min();
+  if (aValue.HasOpt()) out.opt = aValue.Opt();
+  if (aValue.HasMax()) out.max = aValue.Max();
+
+  return out;
+}
 
 /** One entry of the long-lived clearance cache, kept whole so it can be swept. */
 interface ClearanceEntry {
@@ -1893,7 +2152,12 @@ const isHole = (aItem: PnsItem | null): boolean => {
  * {@link PNS_PCBNEW_RULE_RESOLVER.clearCaches} is for.
  */
 export class PNS_PCBNEW_RULE_RESOLVER implements PnsRuleResolver {
-  private readonly mHost: PnsResolverHost;
+  private readonly m_routerIface: PNS_KICAD_IFACE;
+  private readonly m_board: BOARD | null;
+  private readonly m_dummyTracks: [PCB_TRACK, PCB_TRACK];
+  private readonly m_dummyArcs: [PCB_ARC, PCB_ARC];
+  private readonly m_dummyVias: [PCB_VIA, PCB_VIA];
+  private readonly m_clearanceEpsilon: number;
 
   /** Stable stand-in for `(uintptr_t) pointer`, handed out on first sight. */
   private readonly mOrdinals = new WeakMap<object, number>();
@@ -1906,8 +2170,22 @@ export class PNS_PCBNEW_RULE_RESOLVER implements PnsRuleResolver {
   /** `std::optional<bool> m_hasUserPhysicalConstraint`. */
   private mHasUserPhysicalConstraint: boolean | undefined;
 
-  constructor(aHost: PnsResolverHost) {
-    this.mHost = aHost;
+  constructor(aBoard: BOARD | null, aRouterIface: PNS_KICAD_IFACE) {
+    this.m_routerIface = aRouterIface;
+    this.m_board = aBoard;
+    this.m_dummyTracks = [new PCB_TRACK(aBoard), new PCB_TRACK(aBoard)];
+    this.m_dummyArcs = [new PCB_ARC(aBoard), new PCB_ARC(aBoard)];
+    this.m_dummyVias = [new PCB_VIA(aBoard), new PCB_VIA(aBoard)];
+
+    for (const track of this.m_dummyTracks) track.SetFlags(ROUTER_TRANSIENT);
+    for (const arc of this.m_dummyArcs) arc.SetFlags(ROUTER_TRANSIENT);
+    for (const via of this.m_dummyVias) via.SetFlags(ROUTER_TRANSIENT);
+
+    this.m_clearanceEpsilon = aBoard ? aBoard.GetDesignSettings().GetDRCEpsilon() : 0;
+  }
+
+  private drcEngine(): DRC_ENGINE | null {
+    return this.m_board?.GetDesignSettings().m_DRCEngine ?? null;
   }
 
   // ----- identity ------------------------------------------------------------------
@@ -1995,144 +2273,430 @@ export class PNS_PCBNEW_RULE_RESOLVER implements PnsRuleResolver {
 
   hasUserDefinedPhysicalConstraint(): boolean {
     if (this.mHasUserPhysicalConstraint === undefined) {
-      this.mHasUserPhysicalConstraint = this.mHost.hasUserDefinedPhysicalConstraint?.() ?? false;
+      const drc = this.drcEngine();
+      this.mHasUserPhysicalConstraint = drc ? drc.HasUserDefinedPhysicalConstraint() : false;
     }
 
     return this.mHasUserPhysicalConstraint;
   }
 
+  /** `DpCoupledNet( aNet )`: `m_board->DpCoupledNet( NETINFO_ITEM* )`. */
   dpCoupledNet(aNet: NetHandle): NetHandle {
-    return this.mHost.dpCoupledNet?.(aNet) ?? null;
+    if (!this.m_board || !aNet) return null;
+
+    return this.m_board.DpCoupledNet(aNet as NETINFO_ITEM);
   }
 
+  /** `DpNetPolarity( aNet )` (cpp:1359): `m_board->MatchDpSuffix( name, dummy )`. */
   dpNetPolarity(aNet: NetHandle): number {
-    return this.mHost.dpNetPolarity?.(aNet) ?? 0;
+    return DRC_ENGINE.MatchDpSuffix(this.netName(aNet)).polarity;
   }
 
+  /** `DpNetPair( aItem, aNetP, aNetN )` (cpp:1372), null where upstream returns false. */
   dpNetPair(aItem: PnsItem): DpNetPair | null {
-    return this.mHost.dpNetPair?.(aItem) ?? null;
+    if (!aItem || !aItem.net() || !this.m_board) return null;
+
+    const netNameP = this.netName(aItem.net());
+    const r = DRC_ENGINE.MatchDpSuffix(netNameP);
+
+    if (r.polarity === 0) return null;
+
+    let nameP: string;
+    let nameN: string;
+
+    if (r.polarity === 1) {
+      nameP = netNameP;
+      nameN = r.complementNet;
+    } else {
+      nameP = r.complementNet;
+      nameN = netNameP;
+    }
+
+    const netInfoP = this.m_board.FindNet(nameP);
+    const netInfoN = this.m_board.FindNet(nameN);
+
+    if (!netInfoP || !netInfoN) return null;
+
+    return { netP: netInfoP, netN: netInfoN };
   }
 
+  /** `NetCode( aNet )`: `NETINFO_ITEM::GetNetCode`, -1 for a null handle. */
   netCode(aNet: NetHandle): number {
-    return this.mHost.netCode?.(aNet) ?? 0;
+    return aNet ? (aNet as NETINFO_ITEM).GetNetCode() : -1;
   }
 
+  /** `NetName( aNet )`. */
   netName(aNet: NetHandle): string {
-    return this.mHost.netName?.(aNet) ?? '';
+    return aNet ? (aNet as NETINFO_ITEM).GetNetname() : '';
   }
 
+  /** `IsInNetTie` (cpp:347). */
   isInNetTie(aA: PnsItem): boolean {
-    return this.mHost.isInNetTie?.(aA) ?? false;
+    const item = boardItemOf(aA);
+    const fp = item ? item.GetParentFootprint() : null;
+
+    return fp !== null && fp.IsNetTie();
   }
 
+  /** `IsNetTieExclusion` (cpp:355). */
   isNetTieExclusion(aItem: PnsItem, aCollisionPos: Vec2, aCollidingItem: PnsItem): boolean {
-    return this.mHost.isNetTieExclusion?.(aItem, aCollisionPos, aCollidingItem) ?? false;
+    if (!aItem || !aCollidingItem) return false;
+
+    const drcEngine = this.drcEngine();
+    const item = boardItemOf(aItem);
+    const collidingItem = boardItemOf(aCollidingItem);
+
+    const collidingFp = collidingItem ? collidingItem.GetParentFootprint() : null;
+    const itemFp = item ? item.GetParentFootprint() : null;
+
+    // Two items colliding from the same net tie footprint are not checked
+    if (collidingFp && itemFp && collidingFp === itemFp && itemFp.IsNetTie()) return true;
+
+    if (drcEngine && collidingItem) {
+      return drcEngine.IsNetTieExclusion(
+        this.netCode(aItem.net()),
+        this.m_routerIface.GetBoardLayerFromPNSLayer(aItem.layer()),
+        aCollisionPos,
+        collidingItem,
+      );
+    }
+
+    return false;
   }
 
   /**
-   * `IsDrilledHole`: a hole whose owning pad or via is actually drilled.
-   *
-   * Note the two-step parent lookup — the hole's own parent, falling back to
-   * its pad/via's — and that a non-`HOLE_T` item is rejected outright, so
-   * asking this of a via answers **false** even though the via has a drill.
+   * `IsDrilledHole` (cpp:462): a hole whose own parent, or failing that its
+   * pad/via's, has a drilled hole.
    */
   isDrilledHole(aItem: PnsItem): boolean {
     if (!isHole(aItem)) return false;
 
-    return this.mHost.hasDrilledHole?.(aItem) ?? false;
+    let parent = parentOf(aItem);
+
+    if (!parent && aItem.parentPadVia()) parent = parentOf(aItem.parentPadVia());
+
+    return parent !== null && parent.HasDrilledHole();
   }
 
+  /** `IsNonPlatedSlot` (cpp:476): an NPTH pad whose two drill sizes differ. */
   isNonPlatedSlot(aItem: PnsItem): boolean {
     if (!isHole(aItem)) return false;
 
-    return this.mHost.isNonPlatedSlot?.(aItem) ?? false;
+    let parent = parentOf(aItem);
+
+    if (!parent && aItem.parentPadVia()) parent = parentOf(aItem.parentPadVia());
+
+    if (parent && parent.Type() === KICAD_T.PCB_PAD_T) {
+      const pad = parent as PAD;
+
+      return pad.GetAttribute() === PAD_ATTRIB.NPTH && pad.GetDrillSizeX() !== pad.GetDrillSizeY();
+    }
+
+    // Via holes are (currently) always round, and always plated
+    return false;
   }
 
+  /**
+   * `IsKeepout( aObstacle, aItem, aEnforce )` (cpp:386): a rule area with keepout
+   * parameters is a keepout, and `enforce` says whether its rules exclude aItem.
+   */
   isKeepout(aObstacle: PnsItem, aItem: PnsItem): KeepoutResult {
-    return this.mHost.isKeepout?.(aObstacle, aItem) ?? { keepout: false, enforce: false };
+    const checkKeepout = (aKeepout: ZONE, aOther: BOARD_ITEM | null): boolean => {
+      if (!aOther) return false;
+
+      if (aKeepout.GetDoNotAllowTracks() && aOther.IsType([KICAD_T.PCB_ARC_T, KICAD_T.PCB_TRACE_T]))
+        return true;
+
+      if (aKeepout.GetDoNotAllowVias() && aOther.Type() === KICAD_T.PCB_VIA_T) return true;
+
+      if (aKeepout.GetDoNotAllowPads() && aOther.Type() === KICAD_T.PCB_PAD_T) return true;
+
+      // Incomplete test, but better than nothing:
+      if (aKeepout.GetDoNotAllowFootprints() && aOther.Type() === KICAD_T.PCB_PAD_T) {
+        return (
+          !aKeepout.GetParentFootprint() ||
+          aKeepout.GetParentFootprint() !== aOther.GetParentFootprint()
+        );
+      }
+
+      return false;
+    };
+
+    const parent = parentOf(aObstacle);
+
+    if (parent && parent.Type() === KICAD_T.PCB_ZONE_T) {
+      const zone = parent as ZONE;
+
+      if (zone.GetIsRuleArea() && zone.HasKeepoutParametersSet()) {
+        return {
+          keepout: true,
+          enforce: checkKeepout(
+            zone,
+            this.getBoardItem(
+              aItem,
+              this.m_routerIface.GetBoardLayerFromPNSLayer(aObstacle.layer()),
+            ),
+          ),
+        };
+      }
+    }
+
+    return { keepout: false, enforce: false };
   }
 
   clearanceEpsilon(): number {
-    return this.mHost.clearanceEpsilon?.() ?? 0;
+    return this.m_clearanceEpsilon;
+  }
+
+  /**
+   * `getBoardItem( aItem, aBoardLayer, aIdx )` (cpp:503): the item's own board
+   * item, or one of the two ROUTER_TRANSIENT dummies set up as it.
+   */
+  private getBoardItem(aItem: PnsItem, aBoardLayer: PCB_LAYER_ID, aIdx = 0): BOARD_ITEM | null {
+    const parent = boardItemOf(aItem);
+
+    if (parent) return parent;
+
+    return this.getDummyItem(aItem, aBoardLayer, aIdx);
+  }
+
+  private getDummyItem(aItem: PnsItem, aBoardLayer: PCB_LAYER_ID, aIdx: number): BOARD_ITEM | null {
+    const net = aItem.net() as NETINFO_ITEM | null;
+
+    switch (aItem.kind()) {
+      case PnsKind.ARC_T: {
+        const arc = this.m_dummyArcs[aIdx]!;
+        arc.SetLayer(aBoardLayer);
+        arc.SetNet(net);
+        arc.SetStart(aItem.anchor(0));
+        arc.SetEnd(aItem.anchor(1));
+        return arc;
+      }
+
+      case PnsKind.VIA_T:
+      case PnsKind.HOLE_T: {
+        const via = this.m_dummyVias[aIdx]!;
+        via.SetLayer(aBoardLayer);
+        via.SetNet(net);
+        via.SetStart(aItem.anchor(0));
+        return via;
+      }
+
+      case PnsKind.SEGMENT_T:
+      case PnsKind.LINE_T: {
+        const track = this.m_dummyTracks[aIdx]!;
+        track.SetLayer(aBoardLayer);
+        track.SetNet(net);
+        track.SetStart(aItem.anchor(0));
+        track.SetEnd(aItem.anchor(1));
+        return track;
+      }
+
+      default:
+        return null;
+    }
   }
 
   // ----- constraints ------------------------------------------------------------------
 
-  /**
-   * `QueryConstraint`.
-   *
-   * ### Two arms of upstream's implementation are missing, deliberately
-   *
-   * 1. **Segment-by-segment evaluation of multi-segment `LINE`s.** When
-   *    `DRC_ENGINE::HasGeometryDependentRules()` and one or both items is a
-   *    `LINE` with more than one segment and no board item, upstream walks the
-   *    chain, builds a dummy `PCB_TRACK` per segment, evaluates every segment
-   *    (or, when both sides are lines, every *pair* within a proximity
-   *    threshold) and keeps the **smallest** constraint, breaking out as soon as
-   *    one resolves to `<= 0`. That needs a `PCB_TRACK` proxy and a
-   *    `HasGeometryDependentRules` on this repo's engine, and neither exists.
-   *    Consequence: a `.kicad_dru` rule whose condition is geometry-dependent
-   *    (`intersectsCourtyard`, `insideArea`) is resolved once against the whole
-   *    line rather than per segment, which can yield a *larger* clearance than
-   *    upstream — the safe direction, but a real divergence.
-   * 2. **The tuning-profile exception to the ignore-severity branch.** Upstream
-   *    returns `min = -1` for an ignored constraint *unless* it came from an
-   *    implicit tuning-profile rule. This repo's engine has no notion of an
-   *    implicit source, so every ignored constraint takes the `-1` path.
-   *
-   * ### What is exact
-   *
-   * The type mapping, the "no A item means no answer at all" early exit, the
-   * `-1` for an ignored severity, and — the one that matters for clearance —
-   * that a type with no mapping returns nothing rather than falling through to
-   * a default.
-   */
+  /** `QueryConstraint` (cpp:535-787). */
   queryConstraint(
     aType: PnsConstraintType,
     aItemA: PnsItem | null,
     aItemB: PnsItem | null,
-    aLayer: number,
+    aPNSLayer: number,
   ): PnsConstraint | null {
-    const engine = this.mHost.engine();
+    const drcEngine = this.drcEngine();
 
-    if (!engine) return null;
+    if (!drcEngine) return null;
 
     const hostType = HOST_TYPE[aType];
 
-    if (!hostType) return null;
+    // should not happen
+    if (hostType === undefined) return null;
 
-    const evalA = aItemA ? this.mHost.evalItem(aItemA) : null;
-    const evalB = aItemB ? this.mHost.evalItem(aItemB) : null;
-    const boardLayer = this.mHost.boardLayer(aLayer);
+    let parentA = aItemA ? boardItemOf(aItemA) : null;
+    let parentB = aItemB ? boardItemOf(aItemB) : null;
+    const boardLayer = this.m_routerIface.GetBoardLayerFromPNSLayer(aPNSLayer);
+    let hostConstraint = new DRC_CONSTRAINT();
 
-    // `if( parentA ) hostConstraint = drcEngine->EvalRules(...)` — with no A
-    // item there is no evaluation and the constraint stays null.
-    if (!evalA) return null;
+    // For clearance-type constraints, pick the smaller (more permissive) value.
+    // Returns true if we found a zero/negative clearance (can't get more permissive).
+    const pickSmallerConstraint = (aCandidate: DRC_CONSTRAINT): boolean => {
+      if (aCandidate.IsNull()) return false;
 
-    const resolved = evalDrcRules(
-      engine,
-      hostType,
-      evalA,
-      evalB ?? undefined,
-      boardLayer,
-      undefined,
-      false,
-    );
+      if (hostConstraint.IsNull()) {
+        hostConstraint = aCandidate;
+      } else if (
+        aCandidate.GetValue().HasMin() &&
+        hostConstraint.GetValue().HasMin() &&
+        aCandidate.GetValue().Min() < hostConstraint.GetValue().Min()
+      ) {
+        hostConstraint = aCandidate;
+      }
 
-    // `DRC_CONSTRAINT::IsNull()`: nothing matched, so there is no constraint —
-    // as opposed to a constraint whose value happens to be zero.
-    if (!resolved.rule) return null;
+      return hostConstraint.GetValue().HasMin() && hostConstraint.GetValue().Min() <= 0;
+    };
 
-    if (resolved.severity === 'ignore') {
+    // Check for multi-segment LINEs without BoardItems. These need segment-by-segment
+    // evaluation because custom DRC rules may have geometry-dependent conditions (like
+    // intersectsCourtyard) that require evaluating actual segment positions.
+    const isMultiSegmentLine = (aItem: PnsItem | null, aParent: BOARD_ITEM | null): boolean => {
+      if (!aItem || aParent || aItem.kind() !== PnsKind.LINE_T) return false;
+
+      return (aItem as PnsLine).cLine().segmentCount() > 1;
+    };
+
+    let lineANeedsSegmentEval = false;
+    let lineBNeedsSegmentEval = false;
+
+    if (drcEngine.HasGeometryDependentRules()) {
+      lineANeedsSegmentEval = isMultiSegmentLine(aItemA, parentA);
+      lineBNeedsSegmentEval = isMultiSegmentLine(aItemB, parentB);
+    }
+
+    const evalRules = (a: BOARD_ITEM | null, b: BOARD_ITEM | null): DRC_CONSTRAINT =>
+      drcEngine.EvalRules(hostType, a, b, boardLayer);
+
+    // Evaluate segments of a multi-segment LINE against a single opposing item.
+    const evaluateLineSegments = (
+      aLineItem: PnsItem,
+      aOpposingItem: BOARD_ITEM | null,
+      aLineIsFirst: boolean,
+      aIdx: number,
+    ): void => {
+      const line = aLineItem as PnsLine;
+      const chain = line.cLine();
+      const dummyTrack = this.m_dummyTracks[aIdx]!;
+
+      dummyTrack.SetLayer(boardLayer);
+      dummyTrack.SetNet(aLineItem.net() as NETINFO_ITEM | null);
+      dummyTrack.SetWidth(line.width());
+
+      for (let i = 0; i < chain.segmentCount(); i++) {
+        dummyTrack.SetStart(chain.cPoint(i));
+        dummyTrack.SetEnd(chain.cPoint(i + 1));
+
+        const segConstraint = aLineIsFirst
+          ? evalRules(dummyTrack, aOpposingItem)
+          : evalRules(aOpposingItem, dummyTrack);
+
+        if (pickSmallerConstraint(segConstraint)) break;
+      }
+    };
+
+    const chainBBox = (aChain: PnsLineChain): BOX2I => {
+      const box = new BOX2I();
+      const pts: Vec2[] = [];
+
+      for (let i = 0; i < aChain.pointCount(); i++) pts.push(aChain.cPoint(i));
+
+      box.Compute(pts);
+      return box;
+    };
+
+    // Check if two multi-segment lines have overlapping bboxes (worth doing segment evaluation)
+    const linesBBoxOverlap = (): boolean => {
+      if (!lineANeedsSegmentEval || !lineBNeedsSegmentEval) return true;
+
+      const lineA = aItemA as PnsLine;
+      const lineB = aItemB as PnsLine;
+      const proximityThreshold = Math.max(lineA.width(), lineB.width()) * 2;
+
+      const bboxA = chainBBox(lineA.cLine());
+      bboxA.Inflate(proximityThreshold);
+
+      return bboxA.Intersects(chainBBox(lineB.cLine()));
+    };
+
+    // Handle multi-segment lines with segment-by-segment evaluation.
+    if ((lineANeedsSegmentEval || lineBNeedsSegmentEval) && linesBBoxOverlap()) {
+      // Get dummy items for non-multi-segment items that need them
+      if (aItemA && !parentA && !lineANeedsSegmentEval)
+        parentA = this.getDummyItem(aItemA, boardLayer, 0);
+
+      if (aItemB && !parentB && !lineBNeedsSegmentEval)
+        parentB = this.getDummyItem(aItemB, boardLayer, 1);
+
+      if (lineANeedsSegmentEval && lineBNeedsSegmentEval) {
+        // Both items are multi-segment lines. Evaluate segment pairs, skipping pairs that are
+        // far apart since geometry-dependent rules won't trigger for them.
+        const lineA = aItemA as PnsLine;
+        const lineB = aItemB as PnsLine;
+        const chainA = lineA.cLine();
+        const chainB = lineB.cLine();
+        const proximityThreshold = Math.max(lineA.width(), lineB.width()) * 2;
+
+        const dummyA = this.m_dummyTracks[0];
+        dummyA.SetLayer(boardLayer);
+        dummyA.SetNet(aItemA!.net() as NETINFO_ITEM | null);
+        dummyA.SetWidth(lineA.width());
+
+        const dummyB = this.m_dummyTracks[1];
+        dummyB.SetLayer(boardLayer);
+        dummyB.SetNet(aItemB!.net() as NETINFO_ITEM | null);
+        dummyB.SetWidth(lineB.width());
+
+        let done = false;
+
+        for (let i = 0; i < chainA.segmentCount() && !done; i++) {
+          const ptA1 = chainA.cPoint(i);
+          const ptA2 = chainA.cPoint(i + 1);
+
+          const bboxA = new BOX2I(ptA1);
+          bboxA.SetEnd(ptA2);
+          bboxA.Normalize();
+          bboxA.Inflate(proximityThreshold);
+
+          dummyA.SetStart(ptA1);
+          dummyA.SetEnd(ptA2);
+
+          for (let j = 0; j < chainB.segmentCount(); j++) {
+            const ptB1 = chainB.cPoint(j);
+            const ptB2 = chainB.cPoint(j + 1);
+
+            const bboxB = new BOX2I(ptB1);
+            bboxB.SetEnd(ptB2);
+            bboxB.Normalize();
+
+            if (!bboxA.Intersects(bboxB)) continue;
+
+            dummyB.SetStart(ptB1);
+            dummyB.SetEnd(ptB2);
+
+            if (pickSmallerConstraint(evalRules(dummyA, dummyB))) {
+              done = true;
+              break;
+            }
+          }
+        }
+      } else if (lineANeedsSegmentEval) {
+        evaluateLineSegments(aItemA!, parentB, true, 0);
+      } else {
+        evaluateLineSegments(aItemB!, parentA, false, 1);
+      }
+    } else {
+      // Standard path: no multi-segment lines (or lines too far apart), use anchor-based dummies
+      if (aItemA && !parentA) parentA = this.getDummyItem(aItemA, boardLayer, 0);
+
+      if (aItemB && !parentB) parentB = this.getDummyItem(aItemB, boardLayer, 1);
+
+      if (parentA) hostConstraint = evalRules(parentA, parentB);
+    }
+
+    if (hostConstraint.IsNull()) return null;
+
+    const rule = hostConstraint.GetParentRule();
+
+    if (
+      hostConstraint.GetSeverity() === RPT_SEVERITY_IGNORE &&
+      (!rule?.IsImplicit() || rule.GetImplicitSource() !== DRC_IMPLICIT_SOURCE.TUNING_PROFILE)
+    ) {
       return {
         type: aType,
         value: { min: -1 },
-        // Upstream's `PNS::CONSTRAINT constraint;` is default-initialised at
-        // block scope, so `m_Allowed` is indeterminate on every path through
-        // this function and no caller on the clearance path reads it. Zero is
-        // what value-initialisation would have given.
         allowed: false,
-        ruleName: resolved.rule.name,
+        ruleName: hostConstraint.GetName(),
         fromName: '',
         toName: '',
         isTimeDomain: false,
@@ -2141,13 +2705,12 @@ export class PNS_PCBNEW_RULE_RESOLVER implements PnsRuleResolver {
 
     return {
       type: aType,
-      value: resolved.value,
+      value: minOptMaxOf(hostConstraint.GetValue()),
       allowed: false,
-      ruleName: resolved.rule.name,
+      ruleName: hostConstraint.GetName(),
       fromName: '',
       toName: '',
-      // `DRC_CONSTRAINT::OPTIONS::TIME_DOMAIN` has no counterpart here.
-      isTimeDomain: false,
+      isTimeDomain: hostConstraint.GetOption(DRC_CONSTRAINT_OPTIONS.TIME_DOMAIN),
     };
   }
 
@@ -2198,8 +2761,8 @@ export class PNS_PCBNEW_RULE_RESOLVER implements PnsRuleResolver {
     let layers: PnsLayerRange;
 
     if (!aB) layers = aA.layers();
-    else if (this.isEdge(aA)) layers = aB.layers();
-    else if (this.isEdge(aB)) layers = aA.layers();
+    else if (isEdge(aA)) layers = aB.layers();
+    else if (isEdge(aB)) layers = aA.layers();
     else layers = aA.layers().intersection(aB.layers());
 
     // Normalize layer range (no -1 magic numbers).
@@ -2227,11 +2790,11 @@ export class PNS_PCBNEW_RULE_RESOLVER implements PnsRuleResolver {
         }
 
         // No 'else'; plated holes get both HOLE_CLEARANCE and CLEARANCE.
-        if (this.isCopper(aA) && (!aB || this.isCopper(aB))) {
+        if (isCopper(aA) && (!aB || isCopper(aB))) {
           fold(PnsConstraintType.CT_CLEARANCE, layer);
         }
 
-        if (this.isEdge(aA) || this.isEdge(aB)) {
+        if (isEdge(aA) || isEdge(aB)) {
           fold(PnsConstraintType.CT_EDGE_CLEARANCE, layer);
         }
       }
@@ -2265,21 +2828,6 @@ export class PNS_PCBNEW_RULE_RESOLVER implements PnsRuleResolver {
   }
 
   /** `isCopper`: an item with **no parent counts as copper**. */
-  private isCopper(aItem: PnsItem | null): boolean {
-    if (!aItem) return false;
-
-    if (!aItem.parent()) return true;
-
-    return this.mHost.isOnCopperLayer?.(aItem) ?? true;
-  }
-
-  /** `isEdge`: a board shape on `Edge.Cuts` or `Margin`. */
-  private isEdge(aItem: PnsItem | null): boolean {
-    if (!aItem) return false;
-
-    return this.mHost.isEdge?.(aItem) ?? false;
-  }
-
   // ----- the hull cache ----------------------------------------------------------------
 
   /**
