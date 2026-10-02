@@ -125,6 +125,25 @@ import { PAD_TOOL } from './tools/pad_tool.js';
 import { GLOBAL_EDIT_TOOL } from './tools/global_edit_tool.js';
 import { ZONE_FILLER_TOOL } from './tools/zone_filler_tool.js';
 import type { ZoneFillOptions } from './zone_filler.js';
+import type { RoutingSettings } from './router/pns_routing_settings.js';
+import type { VIA_DIMENSION } from './board_design_settings.js';
+
+/**
+ * `dialog_pns_diff_pair_dimensions.tsx`'s value, restated: qa typechecks this
+ * module without JSX, so it cannot import a type from a `.tsx`.
+ */
+interface DiffPairDimensionsValue {
+  width: number;
+  gap: number;
+  viaGap: number;
+  viaGapSameAsTraceGap: boolean;
+}
+
+/** `dialog_track_via_size.tsx`'s value, restated for the same reason. */
+interface CustomTrackViaSize {
+  trackWidth: number;
+  via: VIA_DIMENSION;
+}
 import type { KiDialogRequest } from '@ziroeda/common/kidialog.js';
 import type { KiDialogResult } from '@ziroeda/common/kidialog_do_not_show.js';
 import type { DIALOG_SWAP_LAYERS } from './dialogs/dialog_swap_layers.js';
@@ -557,6 +576,14 @@ export interface PCB_EDIT_FRAME_HOOKS {
   ): Promise<'ignore' | 'all' | null>;
   /** `PCB_BASE_EDIT_FRAME::OpenVertexEditor( aItem )`. */
   openVertexEditor?(aItem: BOARD_ITEM): void;
+  /** `DIALOG_PNS_SETTINGS( frame(), aSettings ).ShowModal()`; resolves when it closes. */
+  showPnsSettingsDialog?(aSettings: RoutingSettings): Promise<void>;
+  /** `DIALOG_PNS_DIFF_PAIR_DIMENSIONS( frame(), sizes ).ShowModal()`: the values, or null on cancel. */
+  showDiffPairDimensionsDialog?(
+    aValue: DiffPairDimensionsValue,
+  ): Promise<DiffPairDimensionsValue | null>;
+  /** `DIALOG_TRACK_VIA_SIZE( frame(), bds ).ShowModal()`: the values, or null on cancel. */
+  showTrackViaSizeDialog?(aValue: CustomTrackViaSize): Promise<CustomTrackViaSize | null>;
   /**
    * `DIALOG_FILTER_SELECTION( frame, aOptions ).ShowModal() == wxID_OK`, the
    * dialog editing `aOptions` in place. Optional: absent answers cancel.
@@ -1108,6 +1135,23 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   }
 
   /** `PCB_BASE_EDIT_FRAME::OpenVertexEditor( aItem )`. */
+  /** `DIALOG_PNS_SETTINGS::ShowModal`, through the window. */
+  ShowPnsSettingsDialog(aSettings: RoutingSettings): Promise<void> {
+    return this.hooks.showPnsSettingsDialog?.(aSettings) ?? Promise.resolve();
+  }
+
+  /** `DIALOG_PNS_DIFF_PAIR_DIMENSIONS::ShowModal`, through the window. */
+  ShowDiffPairDimensionsDialog(
+    aValue: DiffPairDimensionsValue,
+  ): Promise<DiffPairDimensionsValue | null> {
+    return this.hooks.showDiffPairDimensionsDialog?.(aValue) ?? Promise.resolve(null);
+  }
+
+  /** `DIALOG_TRACK_VIA_SIZE::ShowModal`, through the window. */
+  ShowTrackViaSizeDialog(aValue: CustomTrackViaSize): Promise<CustomTrackViaSize | null> {
+    return this.hooks.showTrackViaSizeDialog?.(aValue) ?? Promise.resolve(null);
+  }
+
   OpenVertexEditor(aItem: BOARD_ITEM): void {
     this.hooks.openVertexEditor?.(aItem);
   }

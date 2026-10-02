@@ -27,11 +27,8 @@
  * so the two menus number their rows differently against the same lists.
  */
 
-import type {
-  BOARD_DESIGN_SETTINGS,
-  DIFF_PAIR_DIMENSION,
-  VIA_DIMENSION,
-} from '../board_design_settings.js';
+import type { BOARD_DESIGN_SETTINGS, DIFF_PAIR_DIMENSION } from '../board_design_settings.js';
+import { VIA_DIMENSION } from '../board_design_settings.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { PNS_KICAD_IFACE, boardLayerFromPnsLayer } from './pns_kicad_iface.js';
 import type { COMMIT_HOST, PnsDesignSettings } from './pns_kicad_iface.js';
@@ -75,6 +72,10 @@ import {
 } from '@ziroeda/common/tool/tool_action.js';
 import { RESET_REASON } from '@ziroeda/common/tool/tool_base.js';
 import { SYNC_HANDLER } from '@ziroeda/common/tool/tool_interactive.js';
+import { ACTION_CONDITIONS } from '@ziroeda/common/tool/action_manager.js';
+import { CONDITIONAL_MENU } from '@ziroeda/common/tool/conditional_menu.js';
+import type { SELECTION } from '@ziroeda/common/tool/selection.js';
+import { SELECTION_CONDITIONS } from '@ziroeda/common/tool/selection_conditions.js';
 import {
   BUT_LEFT,
   BUT_RIGHT,
@@ -104,6 +105,7 @@ import { TOOL_EVENT as TOOL_EVENT_CLASS } from '@ziroeda/common/tool/tool_event.
 import { GetClampedCoords } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
 import { shapeDist } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 import type { BOARD_ITEM } from '../board_item.js';
+import type { BOARD_CONNECTED_ITEM } from '../board_connected_item.js';
 import { GENERAL_COLLECTOR } from '../collectors.js';
 import { CONNECTIVITY_DATA } from '../connectivity/connectivity_data.js';
 import type { DRC_ENGINE } from '../drc/drc_engine.js';
@@ -864,9 +866,122 @@ export class ROUTER_TOOL extends PNS_TOOL_BASE {
     super('pcbnew.InteractiveRouter');
   }
 
-  /** `ROUTER_TOOL::Init` (router_tool.cpp:529-678), menu rows still to come. */
+  /**
+   * `ROUTER_TOOL::Init` (router_tool.cpp:529-678): the context menu.
+   *
+   * TRANSITIONAL (#636 E11b): TRACK_WIDTH_MENU and DIFF_PAIR_MENU are item
+   * lists (`trackWidthMenuItems`, `diffPairMenuItems`) with no ACTION_MENU
+   * yet, so their two submenus are not registered.
+   */
   override Init(): boolean {
     this.m_originalActiveLayer = PCB_LAYER_ID.UNDEFINED_LAYER;
+
+    const frame = this.getEditFrame<PCB_EDIT_FRAME>();
+    const menu = this.m_menu.GetMenu();
+    menu.SetUntranslatedTitle('Interactive Router');
+
+    const mgr = frame.GetToolManager()!.GetActionManager();
+
+    const haveHighlight = (_aSel: SELECTION): boolean => {
+      const cfg = this.m_toolMgr!.GetView()!.GetPainter()!.GetSettings();
+
+      return cfg.GetHighlightNetCodes().size > 0;
+    };
+
+    const notRoutingCond = (_aSel: SELECTION): boolean => !this.RoutingInProgress();
+
+    const inRouteSelected = (_aSel: SELECTION): boolean => this.m_inRouteSelected;
+
+    const hasOtherEnd = (_aSel: SELECTION): boolean => {
+      const currentNets = this.m_router?.getCurrentNets() ?? [];
+
+      if (currentNets.length === 0 || currentNets[0] == null) return false;
+
+      // Need to have something unconnected to finish to
+      const netInfo = currentNets[0] as NETINFO_ITEM;
+      const currentNet = netInfo.GetNetCode();
+      const board = this.getEditFrame<PCB_EDIT_FRAME>().GetBoard()!;
+      const ratsnest = board.GetConnectivity().GetRatsnestForNet(currentNet);
+
+      return !!ratsnest && ratsnest.GetEdges().length > 0;
+    };
+
+    const { ShowAlways, NotEmpty } = SELECTION_CONDITIONS;
+
+    menu.AddItem(ACTIONS.cancelInteractive, ShowAlways, 1);
+    menu.AddItem(PCB_ACTIONS.cancelCurrentItem, inRouteSelected, 1);
+    menu.AddSeparator(1);
+
+    menu.AddItem(PCB_ACTIONS.clearHighlight, haveHighlight, 2);
+    menu.AddSeparator(haveHighlight, 2);
+
+    menu.AddItem(PCB_ACTIONS.routeSingleTrack, notRoutingCond);
+    menu.AddItem(PCB_ACTIONS.routeDiffPair, notRoutingCond);
+    menu.AddItem(ACTIONS.finishInteractive, ShowAlways);
+    menu.AddItem(PCB_ACTIONS.routerUndoLastSegment, ShowAlways);
+    menu.AddItem(PCB_ACTIONS.routerContinueFromEnd, hasOtherEnd);
+    menu.AddItem(PCB_ACTIONS.routerAttemptFinish, hasOtherEnd);
+    menu.AddItem(
+      PCB_ACTIONS.routerAutorouteSelected,
+      SELECTION_CONDITIONS.And(notRoutingCond, NotEmpty),
+    );
+    menu.AddItem(PCB_ACTIONS.breakTrack, notRoutingCond);
+
+    menu.AddItem(PCB_ACTIONS.drag45Degree, notRoutingCond);
+    menu.AddItem(PCB_ACTIONS.dragFreeAngle, notRoutingCond);
+
+    menu.AddItem(ACT_PlaceThroughVia, ShowAlways);
+    menu.AddItem(ACT_PlaceBlindVia, ShowAlways);
+    menu.AddItem(ACT_PlaceMicroVia, ShowAlways);
+    menu.AddItem(ACT_SelLayerAndPlaceThroughVia, ShowAlways);
+    menu.AddItem(ACT_SelLayerAndPlaceBlindVia, ShowAlways);
+    menu.AddItem(ACT_SelLayerAndPlaceMicroVia, ShowAlways);
+    menu.AddItem(ACT_SwitchPosture, ShowAlways);
+
+    // Add submenu for track corner mode handling
+    const submenuCornerMode = new CONDITIONAL_MENU(this);
+    submenuCornerMode.SetTitle('Track Corner Mode');
+    submenuCornerMode.SetIcon(BITMAPS.switch_corner_rounding_shape);
+
+    submenuCornerMode.AddItem(ACT_SwitchCornerModeToNext, ShowAlways);
+    submenuCornerMode.AddSeparator(1);
+    submenuCornerMode.AddCheckItem(ACT_SwitchCornerMode45, ShowAlways);
+    submenuCornerMode.AddCheckItem(ACT_SwitchCornerModeArc45, ShowAlways);
+    submenuCornerMode.AddCheckItem(ACT_SwitchCornerMode90, ShowAlways);
+    submenuCornerMode.AddCheckItem(ACT_SwitchCornerModeArc90, ShowAlways);
+
+    menu.AddMenu(submenuCornerMode);
+
+    // Manage check/uncheck marks in this submenu items
+    const cornerModeIs =
+      (aMode: CornerMode) =>
+      (_aSel: SELECTION): boolean =>
+        this.routingSettings().cornerMode === aMode;
+
+    mgr.SetConditions(
+      ACT_SwitchCornerMode45,
+      new ACTION_CONDITIONS().Check(cornerModeIs(CornerMode.MITERED_45)),
+    );
+    mgr.SetConditions(
+      ACT_SwitchCornerMode90,
+      new ACTION_CONDITIONS().Check(cornerModeIs(CornerMode.MITERED_90)),
+    );
+    mgr.SetConditions(
+      ACT_SwitchCornerModeArc45,
+      new ACTION_CONDITIONS().Check(cornerModeIs(CornerMode.ROUNDED_45)),
+    );
+    mgr.SetConditions(
+      ACT_SwitchCornerModeArc90,
+      new ACTION_CONDITIONS().Check(cornerModeIs(CornerMode.ROUNDED_90)),
+    );
+
+    menu.AddSeparator();
+
+    menu.AddItem(PCB_ACTIONS.routerSettingsDialog, ShowAlways);
+
+    menu.AddSeparator();
+
+    frame.AddStandardSubMenus(this.m_menu);
 
     return true;
   }
@@ -901,7 +1016,7 @@ export class ROUTER_TOOL extends PNS_TOOL_BASE {
 
   /** `handlePnSCornerModeChange` (router_tool.cpp:800-848). */
   handlePnSCornerModeChange(aEvent: TOOL_EVENT): number {
-    const settings = this.m_router!.settings();
+    const settings = this.routingSettings();
     let asChanged = false;
 
     if (aEvent.IsAction(ACT_SwitchCornerModeToNext)) {
@@ -927,10 +1042,16 @@ export class ROUTER_TOOL extends PNS_TOOL_BASE {
       asChanged = true;
     }
 
+    // Upstream's router exists from InitTools; ours is built by the first
+    // `Reset( RUN )` with a board (PNS_TOOL_BASE::Reset), and a menu can reach
+    // this before then.
     if (asChanged) {
       this.UpdateMessagePanel();
-      this.updateEndItem(aEvent);
-      this.m_router!.move(this.m_endSnapPoint, this.m_endItem); // refresh
+
+      if (this.m_router) {
+        this.updateEndItem(aEvent);
+        this.m_router.move(this.m_endSnapPoint, this.m_endItem); // refresh
+      }
     }
 
     return 0;
@@ -1663,6 +1784,126 @@ export class ROUTER_TOOL extends PNS_TOOL_BASE {
     this.finishInteractive();
   }
 
+  /** `RouteSelected` (router_tool.cpp:1783-1922): route each selected item's ratsnest. */
+  *RouteSelected(aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+    const mode = aEvent.Parameter<PnsRouterMode>() ?? PnsRouterMode.PNS_MODE_ROUTE_SINGLE;
+    const frame = this.editFrame();
+    const controls = this.controls();
+    const originalLayer = frame.GetActiveLayer();
+    const autoRoute = aEvent.Matches(PCB_ACTIONS.routerAutorouteSelected.MakeEvent());
+    const otherEnd = aEvent.Matches(PCB_ACTIONS.routerRouteSelectedFromEnd.MakeEvent());
+
+    if (this.m_router!.routingInProgress()) return 0;
+
+    // Save selection then clear it for interactive routing
+    const selection = this.selection();
+
+    if (selection.Size() === 0) return 0;
+
+    const sorted = selection.GetItemsSortedBySelectionOrder();
+
+    this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
+
+    const pushedEvent = aEvent;
+    frame.PushTool(aEvent);
+
+    const setCursor = (): void => {
+      frame.GetCanvas()?.SetCurrentCursor(KICURSOR.PENCIL);
+    };
+
+    this.Activate();
+    this.m_inRouteSelected = true;
+
+    // Must be done after Activate() so that it gets set into the correct context
+    controls.ShowCursor(true);
+    controls.ForceCursorPosition(false);
+    // Set initial cursor
+    setCursor();
+
+    // Get all connected board items, adding pads for any footprints selected
+    const itemList: BOARD_CONNECTED_ITEM[] = [];
+
+    for (const item of sorted) {
+      if (item.Type() === KICAD_T.PCB_FOOTPRINT_T) {
+        for (const pad of (item as unknown as FOOTPRINT).Pads()) itemList.push(pad);
+      } else if ((item as unknown as BOARD_ITEM).IsConnected?.()) {
+        itemList.push(item as unknown as BOARD_CONNECTED_ITEM);
+      }
+    }
+
+    const connectivity = frame.GetBoard()!.GetConnectivity();
+
+    // For putting sequential tracks that successfully autoroute into one undo commit
+    let groupStart = true;
+    this.m_cancelled = false;
+
+    for (const item of itemList) {
+      // This code is similar to GetRatsnestForPad() but it only adds the anchor for
+      // the side of the connectivity on this pad. It also checks for ratsnest points
+      // inside the pad (like a trace end) and counts them.
+      const net = connectivity.GetRatsnestForNet(item.GetNetCode());
+
+      if (!net) continue;
+
+      const anchors = [];
+
+      for (const edge of net.GetEdges()) {
+        const target = edge.GetTargetNode();
+        const source = edge.GetSourceNode();
+
+        if (!source || source.Dirty() || !target || target.Dirty()) continue;
+
+        if (source.Parent() === item) anchors.push(source);
+        else if (target.Parent() === item) anchors.push(target);
+      }
+
+      // Route them
+      for (const anchor of anchors) {
+        if (!anchor.Valid()) continue;
+
+        // Try to return to the original layer as indicating the user's preferred
+        // layer for autorouting tracks. The layer can be changed by the user to
+        // finish tracks that can't complete automatically, but should be changed
+        // back after.
+        if (frame.GetActiveLayer() !== originalLayer) frame.SetActiveLayer(originalLayer);
+
+        this.m_startItem =
+          this.m_router!.world()!.findItemByParent(anchor.Parent() as unknown as PnsBoardItem) ??
+          null;
+        this.m_startSnapPoint = anchor.Pos();
+        this.m_router!.setMode(mode);
+
+        // Prime the interactive routing to attempt finish if we are autorouting
+        const autoRouted = { value: false };
+
+        if (autoRoute) this.m_toolMgr!.PostAction(PCB_ACTIONS.routerAttemptFinish, autoRouted);
+        else if (otherEnd) this.m_toolMgr!.PostAction(PCB_ACTIONS.routerContinueFromEnd);
+
+        // We want autorouted tracks to all be in one undo group except for
+        // any tracks that need to be manually finished.
+        // The undo appending for manually finished tracks is handled in peformRouting()
+        if (groupStart) groupStart = false;
+        else this.m_iface!.SetCommitFlags(APPEND_UNDO);
+
+        // Start interactive routing. Will automatically finish if possible.
+        yield* this.performRouting({ x: 0, y: 0 });
+
+        if (this.m_cancelled) break;
+
+        // Route didn't complete automatically, need to a new undo commit
+        // for the next line so those can group as far as they autoroute
+        if (!autoRouted.value) groupStart = true;
+      }
+
+      if (this.m_cancelled) break;
+    }
+
+    this.m_iface!.SetCommitFlags(0);
+    frame.PopTool(pushedEvent);
+    this.m_inRouteSelected = false;
+    return 0;
+  }
+
   /** `breakTrack` (router_tool.cpp:1773-1780). */
   private breakTrack(): void {
     if (!this.m_startItem) return;
@@ -2363,10 +2604,108 @@ export class ROUTER_TOOL extends PNS_TOOL_BASE {
     return 0;
   }
 
+  /** `DpDimensionsDialog` (router_tool.cpp:1698-1715). */
+  *DpDimensionsDialog(_aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+    const sizes = copySizes(this.m_router?.sizes() ?? this.m_savedSizes);
+
+    const result = yield* this.RunMainStackModal(() =>
+      this.editFrame().ShowDiffPairDimensionsDialog({
+        width: sizes.diffPairWidth,
+        gap: sizes.diffPairGap,
+        viaGap: sizes.diffPairViaGap,
+        viaGapSameAsTraceGap: sizes.diffPairViaGapSameAsTraceGap,
+      }),
+    );
+
+    if (result) {
+      sizes.diffPairWidth = result.width;
+      sizes.diffPairGap = result.gap;
+      sizes.diffPairViaGap = result.viaGap;
+      sizes.diffPairViaGapSameAsTraceGap = result.viaGapSameAsTraceGap;
+
+      this.m_router?.updateSizes(sizes);
+      this.m_savedSizes = copySizes(sizes);
+
+      const bds = this.board().GetDesignSettings();
+      bds.SetCustomDiffPairWidth(sizes.diffPairWidth);
+      bds.SetCustomDiffPairGap(sizes.diffPairGap);
+      // `sizes.DiffPairViaGap()`: the trace gap while "same as trace gap" holds.
+      bds.SetCustomDiffPairViaGap(
+        sizes.diffPairViaGapSameAsTraceGap ? sizes.diffPairGap : sizes.diffPairViaGap,
+      );
+    }
+
+    return 0;
+  }
+
+  /** `SettingsDialog` (router_tool.cpp:1718-1727). */
+  *SettingsDialog(_aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+    yield* this.RunMainStackModal(() =>
+      this.editFrame().ShowPnsSettingsDialog(this.routingSettings()),
+    );
+
+    this.UpdateMessagePanel();
+
+    return 0;
+  }
+
+  /** `CustomTrackWidthDialog` (router_tool.cpp:2874-2889). */
+  *CustomTrackWidthDialog(aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+    const bds = this.board().GetDesignSettings();
+
+    const result = yield* this.RunMainStackModal(() =>
+      this.editFrame().ShowTrackViaSizeDialog({
+        trackWidth: bds.GetCustomTrackWidth(),
+        via: new VIA_DIMENSION(bds.GetCustomViaSize(), bds.GetCustomViaDrill()),
+      }),
+    );
+
+    if (result) {
+      // DIALOG_TRACK_VIA_SIZE::TransferDataFromWindow
+      bds.SetCustomTrackWidth(result.trackWidth);
+      bds.SetCustomViaSize(result.via.m_Diameter);
+      bds.SetCustomViaDrill(result.via.m_Drill);
+
+      bds.m_TempOverrideTrackWidth = true;
+      bds.UseCustomTrackViaSize(true);
+
+      this.onTrackViaSizeChanged(aEvent);
+    }
+
+    return 0;
+  }
+
+  /** `onTrackViaSizeChanged` (router_tool.cpp:2892-2910). */
+  onTrackViaSizeChanged(aEvent: TOOL_EVENT): number {
+    // No router before the first `Reset( RUN )` with a board; the next one
+    // imports the sizes anyway.
+    if (!this.m_router) return 0;
+
+    const sizes = copySizes(this.m_router.sizes());
+
+    if (this.m_router!.getCurrentNets().length > 0)
+      this.m_iface!.importSizes(sizes, this.m_startItem, this.m_router!.getCurrentNets()[0]!, {
+        x: 0,
+        y: 0,
+      });
+
+    this.m_router!.updateSizes(sizes);
+
+    // Changing the track width can affect the placement, so call the
+    // move routine without changing the destination
+    // Update end item first to avoid moving to an invalid/missing item
+    this.updateEndItem(aEvent);
+    this.m_router!.move(this.m_endSnapPoint, this.m_endItem);
+
+    this.UpdateMessagePanel();
+
+    return 0;
+  }
+
   /** `ChangeRouterMode` (router_tool.cpp:1730-1739). */
   ChangeRouterMode(aEvent: TOOL_EVENT): number {
     const mode = aEvent.Parameter<PnsMode>();
-    const settings = this.m_router!.settings();
+    const settings = this.routingSettings();
 
     settings.routingMode = mode;
     this.UpdateMessagePanel();
@@ -2376,7 +2715,7 @@ export class ROUTER_TOOL extends PNS_TOOL_BASE {
 
   /** `CycleRouterMode` (router_tool.cpp:1742-1758). */
   CycleRouterMode(_aEvent: TOOL_EVENT): number {
-    const settings = this.m_router!.settings();
+    const settings = this.routingSettings();
     let mode = settings.routingMode;
 
     switch (mode) {
@@ -2399,7 +2738,7 @@ export class ROUTER_TOOL extends PNS_TOOL_BASE {
 
   /** `GetRouterMode` (router_tool.cpp:1761). */
   GetRouterMode(): PnsMode {
-    return this.m_router!.settings().routingMode;
+    return this.routingSettings().routingMode;
   }
 
   /** `RoutingInProgress` (router_tool.cpp:1767). */
@@ -2534,10 +2873,10 @@ export class ROUTER_TOOL extends PNS_TOOL_BASE {
 
   /** `UpdateMessagePanel` (router_tool.cpp:2913-3054). */
   UpdateMessagePanel(): void {
-    const router = this.m_router!;
+    const router = this.m_router;
     const frame = this.editFrame();
 
-    if (router.getState() !== PnsRouterState.ROUTE_TRACK) {
+    if (!router || router.getState() !== PnsRouterState.ROUTE_TRACK) {
       frame.SetMsgPanel(this.board());
       return;
     }
@@ -2696,6 +3035,16 @@ export class ROUTER_TOOL extends PNS_TOOL_BASE {
     this.Go(
       SYNC_HANDLER<ROUTER_TOOL>(this.CycleRouterMode),
       PCB_ACTIONS.cycleRouterMode.MakeEvent(),
+    );
+    this.Go(this.RouteSelected, PCB_ACTIONS.routerRouteSelected.MakeEvent());
+    this.Go(this.RouteSelected, PCB_ACTIONS.routerRouteSelectedFromEnd.MakeEvent());
+    this.Go(this.RouteSelected, PCB_ACTIONS.routerAutorouteSelected.MakeEvent());
+    this.Go(this.DpDimensionsDialog, PCB_ACTIONS.routerDiffPairDialog.MakeEvent());
+    this.Go(this.SettingsDialog, PCB_ACTIONS.routerSettingsDialog.MakeEvent());
+    this.Go(this.CustomTrackWidthDialog, ACT_CustomTrackWidth.MakeEvent());
+    this.Go(
+      SYNC_HANDLER<ROUTER_TOOL>(this.onTrackViaSizeChanged),
+      PCB_ACTIONS.trackViaSizeChanged.MakeEvent(),
     );
     this.Go(this.InlineDrag, PCB_ACTIONS.routerInlineDrag.MakeEvent());
     this.Go(this.InlineBreakTrack, PCB_ACTIONS.breakTrack.MakeEvent());

@@ -602,19 +602,28 @@ export abstract class PNS_TOOL_BASE extends PCB_TOOL_BASE {
 
     this.m_router.updateSizes(copySizes(this.m_savedSizes));
 
-    const settings = frame.GetPcbNewSettings();
-
-    // `std::make_unique<ROUTING_SETTINGS>( settings, "tools.pns" )`: the
-    // NESTED_SETTINGS loads itself from pcbnew.json's `tools.pns` block.
-    if (!settings.m_PnsSettings)
-      settings.m_PnsSettings = readRoutingSettings(pcbnewLiveSettings().tools.pns);
-
-    this.m_router.loadSettings(settings.m_PnsSettings);
+    this.m_router.loadSettings(this.routingSettings());
 
     this.m_gridHelper = new PCB_GRID_HELPER(
       this.m_toolMgr!,
       frame.GetMagneticItemsSettings() as never,
     );
+  }
+
+  /**
+   * `PCBNEW_SETTINGS::m_PnsSettings`, made on first use as `Reset` makes it
+   * upstream (`std::make_unique<ROUTING_SETTINGS>( settings, "tools.pns" )`:
+   * the NESTED_SETTINGS loads itself from pcbnew.json's `tools.pns` block).
+   * The router reads this same object, so a handler that only touches
+   * settings works before any route has built a router.
+   */
+  protected routingSettings(): RoutingSettings {
+    const settings = this.frame<PCB_BASE_FRAME>().GetPcbNewSettings();
+
+    if (!settings.m_PnsSettings)
+      settings.m_PnsSettings = readRoutingSettings(pcbnewLiveSettings().tools.pns);
+
+    return settings.m_PnsSettings;
   }
 
   /** `PCB_SELECTION_TOOL::GetEnteredGroup()`, by name to keep the import graph acyclic. */

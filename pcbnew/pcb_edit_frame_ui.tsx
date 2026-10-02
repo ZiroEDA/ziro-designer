@@ -507,6 +507,12 @@ import type { OUTSET_PARAMETERS } from './tools/item_modification_routine.js';
 import type { CONVERT_SETTINGS } from './pcbnew_settings.js';
 import type { ZONE_SETTINGS } from './zone_settings.js';
 import { DialogPnsSettings } from './dialogs/dialog_pns_settings.js';
+import {
+  DialogPnsDiffPairDimensions,
+  type DiffPairDimensionsValue,
+} from './dialogs/dialog_pns_diff_pair_dimensions.js';
+import { type CustomTrackViaSize, DialogTrackViaSize } from './dialogs/dialog_track_via_size.js';
+import type { RoutingSettings } from './router/pns_routing_settings.js';
 import { DialogPositionRelativeModeless } from './dialogs/dialog_position_relative_ui.js';
 import type { DIALOG_POSITION_RELATIVE } from './dialogs/dialog_position_relative.js';
 import { DialogOffsetItem } from './dialogs/dialog_offset_item_ui.js';
@@ -1972,7 +1978,23 @@ export function PcbEditor({
     notAllowed: LSET;
     resolve: (aLayer: PCB_LAYER_ID) => void;
   } | null>(null);
-  const [pnsSettingsOpen, setPnsSettingsOpen] = useState(false);
+  /**
+   * ROUTER_TOOL's three dialogs (`SettingsDialog`, `DpDimensionsDialog`,
+   * `CustomTrackWidthDialog`): what each was opened on, and how it answers the
+   * coroutine waiting in RunMainStackModal.
+   */
+  const [pnsSettingsReq, setPnsSettingsReq] = useState<{
+    settings: RoutingSettings;
+    resolve: () => void;
+  } | null>(null);
+  const [dpDimsReq, setDpDimsReq] = useState<{
+    value: DiffPairDimensionsValue;
+    resolve: (aValue: DiffPairDimensionsValue | null) => void;
+  } | null>(null);
+  const [trackViaSizeReq, setTrackViaSizeReq] = useState<{
+    value: CustomTrackViaSize;
+    resolve: (aValue: CustomTrackViaSize | null) => void;
+  } | null>(null);
   const [arrayOpen, setArrayOpen] = useState(false);
   // Kept across openings, as upstream persists its ARRAY_OPTIONS.
   const [arraySettings, setArraySettings] = useState<ArraySettings>(DEFAULT_ARRAY_SETTINGS);
@@ -2378,6 +2400,12 @@ export function PcbEditor({
       selectCopperLayerPair: () => drcWindowRef.current!.selectCopperLayerPair(),
       showInfoBarError: (aMsg) => drcWindowRef.current?.showInfoBarError(aMsg),
       /** `m_appearancePanel->OnLayerChanged()`: the layer combo follows a layer a tool chose. */
+      showPnsSettingsDialog: (aSettings) =>
+        new Promise<void>((resolve) => setPnsSettingsReq({ settings: aSettings, resolve })),
+      showDiffPairDimensionsDialog: (aValue) =>
+        new Promise((resolve) => setDpDimsReq({ value: aValue, resolve })),
+      showTrackViaSizeDialog: (aValue) =>
+        new Promise((resolve) => setTrackViaSizeReq({ value: aValue, resolve })),
       activeLayerChanged: (aLayer) => {
         const name = boardRef.current?.layers.find((l) => l.id === aLayer)?.name;
         if (name !== undefined) setActiveLayer(name);
@@ -7666,9 +7694,20 @@ export function PcbEditor({
   useEffect(() => {
     const bds = boardK?.GetDesignSettings();
     if (!bds) return;
-    if (bds.GetTrackWidthIndex() !== trackSel) bds.SetTrackWidthIndex(trackSel);
-    if (bds.GetViaSizeIndex() !== viaSel) bds.SetViaSizeIndex(viaSel);
+    let changed = false;
+    if (bds.GetTrackWidthIndex() !== trackSel) {
+      bds.SetTrackWidthIndex(trackSel);
+      changed = true;
+    }
+    if (bds.GetViaSizeIndex() !== viaSel) {
+      bds.SetViaSizeIndex(viaSel);
+      changed = true;
+    }
     bds.m_UseConnectedTrackWidth = autoTrackWidth;
+    // `PCB_EDIT_FRAME::Tracks_and_Vias_Size_Event` ends with
+    // `RunAction( PCB_ACTIONS::trackViaSizeChanged )` (edit_track_width.cpp:224):
+    // a route in flight takes the new size at once.
+    if (changed) frameRef.current?.GetToolManager()?.RunAction(PCB_ACTIONS.trackViaSizeChanged);
   }, [boardK, trackSel, viaSel, autoTrackWidth]);
   // net code -> net class name, via the project's netclass_patterns.
   const netClassOf = useMemo(() => {
@@ -8619,7 +8658,8 @@ export function PcbEditor({
         runAction(ACTIONS.gridResetOrigin);
         break;
       case 'routerSettingsDialog':
-        setPnsSettingsOpen(true);
+        // `PCB_ACTIONS::routerSettingsDialog` -> `ROUTER_TOOL::SettingsDialog`.
+        runAction(PCB_ACTIONS.routerSettingsDialog);
         break;
       case 'selectLayerPair':
         // `PCB_ACTIONS::selectLayerPair` -> `ROUTER_TOOL::SelectCopperLayerPair`.
@@ -10186,10 +10226,41 @@ export function PcbEditor({
           onClose={() => setArrayOpen(false)}
         />
       )}
-      {pnsSettingsOpen && (
+      {pnsSettingsReq && (
         <DialogPnsSettings
-          onClose={() => setPnsSettingsOpen(false)}
-          settings={frameRef.current?.GetPcbNewSettings().m_PnsSettings}
+          onClose={() => {
+            pnsSettingsReq.resolve();
+            setPnsSettingsReq(null);
+          }}
+          settings={pnsSettingsReq.settings}
+        />
+      )}
+      {dpDimsReq && (
+        <DialogPnsDiffPairDimensions
+          value={dpDimsReq.value}
+          units={unitLabel}
+          onOk={(v) => {
+            dpDimsReq.resolve(v);
+            setDpDimsReq(null);
+          }}
+          onClose={() => {
+            dpDimsReq.resolve(null);
+            setDpDimsReq(null);
+          }}
+        />
+      )}
+      {trackViaSizeReq && (
+        <DialogTrackViaSize
+          value={trackViaSizeReq.value}
+          units={unitLabel}
+          onOk={(v) => {
+            trackViaSizeReq.resolve(v);
+            setTrackViaSizeReq(null);
+          }}
+          onClose={() => {
+            trackViaSizeReq.resolve(null);
+            setTrackViaSizeReq(null);
+          }}
         />
       )}
       {/* CONVERT_TOOL::OutsetItems' DIALOG_OUTSET_ITEMS, on the tool's

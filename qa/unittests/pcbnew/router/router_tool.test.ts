@@ -13,6 +13,7 @@ import { LSET } from '@ziroeda/common/lset.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import {
   AS_GLOBAL,
+  BUT_RIGHT,
   TA_CANCEL_TOOL,
   TA_MOUSE_CLICK,
   TA_MOUSE_DBLCLICK,
@@ -27,7 +28,8 @@ import type { BOARD } from '@ziroeda/pcbnew/board.js';
 import { DRC_ENGINE } from '@ziroeda/pcbnew/drc/drc_engine.js';
 import type { PCB_TRACK } from '@ziroeda/pcbnew/pcb_track.js';
 import { PCB_ACTIONS } from '@ziroeda/pcbnew/tools/pcb_actions.js';
-import { PnsMode } from '@ziroeda/pcbnew/router/pns_routing_settings.js';
+import { PnsMode, type RoutingSettings } from '@ziroeda/pcbnew/router/pns_routing_settings.js';
+import { VIA_DIMENSION } from '@ziroeda/pcbnew/board_design_settings.js';
 import {
   DEFAULT_ROUTER_SIZES,
   sizesAddLayerPair,
@@ -38,6 +40,7 @@ import {
 } from '@ziroeda/pcbnew/router/pns_router.js';
 import { copySizes } from '@ziroeda/pcbnew/router/pns_tool_base.js';
 import {
+  ACT_CustomTrackWidth,
   ACT_PlaceThroughVia,
   ACT_SwitchCornerModeToNext,
   ROUTER_TOOL,
@@ -67,6 +70,23 @@ const BOARD_TEXT = `(kicad_pcb (version 20241229) (generator "pcbnew")
 class ROUTER_TEST_FRAME extends TEST_PCB_FRAME {
   readonly infobar: string[] = [];
   chosenLayer: PCB_LAYER_ID = PCB_LAYER_ID.UNDEFINED_LAYER;
+  /** The ROUTING_SETTINGS the settings dialog was opened on. */
+  pnsSettingsShown: RoutingSettings[] = [];
+  dpDimsAnswer: DP_DIMS | null = null;
+  trackViaAnswer: TRACK_VIA | null = null;
+
+  ShowPnsSettingsDialog(aSettings: RoutingSettings): Promise<void> {
+    this.pnsSettingsShown.push(aSettings);
+    return Promise.resolve();
+  }
+
+  ShowDiffPairDimensionsDialog(_aValue: DP_DIMS): Promise<DP_DIMS | null> {
+    return Promise.resolve(this.dpDimsAnswer);
+  }
+
+  ShowTrackViaSizeDialog(_aValue: TRACK_VIA): Promise<TRACK_VIA | null> {
+    return Promise.resolve(this.trackViaAnswer);
+  }
 
   ShowInfoBarError(aErrorMsg: string): void {
     this.infobar.push(aErrorMsg);
@@ -76,6 +96,23 @@ class ROUTER_TEST_FRAME extends TEST_PCB_FRAME {
     return Promise.resolve(this.chosenLayer);
   }
 }
+
+interface DP_DIMS {
+  width: number;
+  gap: number;
+  viaGap: number;
+  viaGapSameAsTraceGap: boolean;
+}
+
+interface TRACK_VIA {
+  trackWidth: number;
+  via: VIA_DIMENSION;
+}
+
+/** Let RunMainStackModal's promise settle and the coroutine resume. */
+const settle = async (): Promise<void> => {
+  for (let i = 0; i < 5; i++) await Promise.resolve();
+};
 
 let h: TOOL_HARNESS<ROUTER_TEST_FRAME>;
 let rt: ROUTER_TOOL;
@@ -406,5 +443,130 @@ describe('SIZES_SETTINGS layer pairs (pns_sizes_settings.cpp:30-61)', () => {
     sizesClearLayerPairs(b);
 
     expect(sizesPairedLayer(a, 0)).toBe(1);
+  });
+});
+
+describe('ROUTER_TOOL::RouteSelected (router_tool.cpp:1783)', () => {
+  it("Autoroute Selected routes the selected footprint's ratsnest to the other pad", () => {
+    h.sel.AddItemToSel(h.board.Footprints()[0]!, true);
+    const evt = PCB_ACTIONS.routerAutorouteSelected.MakeEvent();
+    evt.SetHasPosition(false);
+    h.mgr.ProcessEvent(evt);
+
+    expect(rt.RoutingInProgress()).toBe(false);
+    const ends = tracks(h.board).flatMap((t) => [t.GetStart(), t.GetEnd()]);
+    expect(ends).toContainEqual(mm(40, 60));
+    expect(ends).toContainEqual(mm(50, 60));
+    expect(tracks(h.board).every((t) => t.GetNetCode() === 1)).toBe(true);
+    expect(h.frame.GetUndoCommandCount()).toBe(1);
+  });
+
+  it('Route Selected starts a route from the pad and leaves it for the user to finish', () => {
+    h.sel.AddItemToSel(h.board.Footprints()[0]!, true);
+    const evt = PCB_ACTIONS.routerRouteSelected.MakeEvent();
+    evt.SetHasPosition(false);
+    h.mgr.ProcessEvent(evt);
+
+    expect(rt.RoutingInProgress()).toBe(true);
+    mouse(h, TA_MOUSE_MOTION, mm(45, 60));
+    mouse(h, TA_MOUSE_DBLCLICK, mm(45, 60));
+
+    expect(tracks(h.board).flatMap((t) => [t.GetStart(), t.GetEnd()])).toContainEqual(mm(40, 60));
+  });
+
+  it('nothing selected, nothing routed', () => {
+    const evt = PCB_ACTIONS.routerAutorouteSelected.MakeEvent();
+    evt.SetHasPosition(false);
+    h.mgr.ProcessEvent(evt);
+
+    expect(tracks(h.board)).toHaveLength(0);
+  });
+});
+
+describe('ROUTER_TOOL dialogs (router_tool.cpp:1698-1727, 2874-2910)', () => {
+  it('Interactive Router Settings opens on the frame-owned ROUTING_SETTINGS, router or not', async () => {
+    h.mgr.RunAction(PCB_ACTIONS.routerSettingsDialog);
+    await settle();
+
+    expect(h.frame.pnsSettingsShown).toHaveLength(1);
+    expect(h.frame.pnsSettingsShown[0]).toBe(h.frame.GetPcbNewSettings().m_PnsSettings);
+  });
+
+  it('Differential Pair Dimensions: OK sets the router sizes and the board custom pair', async () => {
+    arm();
+    h.frame.dpDimsAnswer = {
+      width: 0.3 * MM,
+      gap: 0.4 * MM,
+      viaGap: 0.5 * MM,
+      viaGapSameAsTraceGap: false,
+    };
+    h.mgr.RunAction(PCB_ACTIONS.routerDiffPairDialog);
+    await settle();
+
+    const sizes = rt.Router()!.sizes();
+    expect([sizes.diffPairWidth, sizes.diffPairGap, sizes.diffPairViaGap]).toEqual([
+      0.3 * MM,
+      0.4 * MM,
+      0.5 * MM,
+    ]);
+    const bds = h.board.GetDesignSettings();
+    expect([
+      bds.GetCustomDiffPairWidth(),
+      bds.GetCustomDiffPairGap(),
+      bds.GetCustomDiffPairViaGap(),
+    ]).toEqual([0.3 * MM, 0.4 * MM, 0.5 * MM]);
+  });
+
+  it('Custom Track/Via Size (Q) mid-route: the route continues at the custom width', async () => {
+    h.frame.trackViaAnswer = { trackWidth: 0.7 * MM, via: new VIA_DIMENSION(0.9 * MM, 0.45 * MM) };
+    arm();
+    click(mm(40, 60));
+    mouse(h, TA_MOUSE_MOTION, mm(44, 60));
+    h.mgr.RunAction(ACT_CustomTrackWidth);
+    await settle();
+
+    const bds = h.board.GetDesignSettings();
+    expect(bds.UseCustomTrackViaSize()).toBe(true);
+    expect(bds.m_TempOverrideTrackWidth).toBe(true);
+    expect(bds.GetCustomViaSize()).toBe(0.9 * MM);
+    expect(rt.Router()!.sizes().trackWidth).toBe(0.7 * MM);
+
+    mouse(h, TA_MOUSE_DBLCLICK, mm(44, 60));
+    expect(tracks(h.board).map((t) => t.GetWidth())).toEqual([0.7 * MM]);
+  });
+
+  it('a cancelled Custom Track/Via Size changes nothing', async () => {
+    arm();
+    h.mgr.RunAction(ACT_CustomTrackWidth);
+    await settle();
+
+    expect(h.board.GetDesignSettings().UseCustomTrackViaSize()).toBe(false);
+  });
+
+  it('trackViaSizeChanged mid-route re-imports the toolbar width', () => {
+    const bds = h.board.GetDesignSettings();
+    bds.m_TrackWidthList = [0, 0.5 * MM];
+    arm();
+    click(mm(40, 60));
+    bds.SetTrackWidthIndex(1);
+    h.mgr.RunAction(PCB_ACTIONS.trackViaSizeChanged);
+
+    expect(rt.Router()!.sizes().trackWidth).toBe(0.5 * MM);
+  });
+});
+
+describe('ROUTER_TOOL context menu (router_tool.cpp:529-678)', () => {
+  it('a right click while armed shows the router menu, with its settings row', () => {
+    arm();
+    mouse(h, TA_MOUSE_MOTION, mm(20, 20));
+    mouse(h, TA_MOUSE_CLICK, mm(20, 20), BUT_RIGHT);
+
+    const menu = h.menus.at(-1)!;
+    const ids = [
+      ...(menu as unknown as { m_toolActions: Map<number, unknown> }).m_toolActions.values(),
+    ];
+    expect(ids).toContain(PCB_ACTIONS.routerSettingsDialog);
+    expect(ids).toContain(PCB_ACTIONS.routeDiffPair);
+    expect(ids).not.toContain(PCB_ACTIONS.cancelCurrentItem);
   });
 });
