@@ -120,6 +120,13 @@ import { SCH_MARKER } from './sch_marker.js';
 import type { SCH_GLOBALLABEL } from './sch_label.js';
 import type { SCHEMATIC_HOLDER } from './schematic_holder.js';
 import { AUTOPLACE_ALGO, type SCH_ITEM } from './sch_item.js';
+import { SCH_COMMIT } from './sch_commit.js';
+import type { SCH_JUNCTION } from './sch_junction.js';
+import type { SCH_LINE } from './sch_line.js';
+import type { SCH_NO_CONNECT } from './sch_no_connect.js';
+import { SELECTED_BY_DRAG, STRUCT_DELETED } from '@ziroeda/common/eda_item_flags.js';
+import { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
+import { SCH_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { SCH_RULE_AREA } from './sch_rule_area.js';
 import { SCH_SCREEN, SCH_SCREENS } from './sch_screen.js';
 import { SCH_SHEET } from './sch_sheet.js';
@@ -623,21 +630,192 @@ export class SCHEMATIC extends EDA_ITEM_E3 {
   }
 
   /**
-   * Generate the connection data for the entire schematic hierarchy.
-   *
-   * Upstream first runs `CleanUp` (not on the live model yet: nothing is merged, split or
-   * given a junction here) and, when `ADVANCED_CFG::m_IncrementalConnectivity` is set and
-   * the change list is small, recalculates only the damaged part of the graph.  Here the
-   * graph is always rebuilt whole - upstream's GLOBAL_CLEANUP arm, the same answer as the
-   * incremental one, more slowly.
+   * `SCHEMATIC::CleanUp` (schematic.cpp:1525): on one screen, drop junctions that are no
+   * longer needed and duplicate junctions and no-connects, then repeatedly remove null and
+   * identical wires/buses and merge overlapping or colinear touching ones, recording every
+   * change in \a aCommit (and through the holder, on the screen and its view).
+   */
+  CleanUp(aCommit: SCH_COMMIT, aScreen: SCH_SCREEN | null = null): void {
+    const lines: SCH_LINE[] = [];
+    const junctions: SCH_JUNCTION[] = [];
+    const ncs: SCH_NO_CONNECT[] = [];
+    const items_to_remove: SCH_ITEM[] = [];
+    let changed = true;
+
+    const screen = aScreen ?? this.GetCurrentScreen()!;
+
+    // No SCH_SELECTION_TOOL on the live model yet (GetSelectionTool() is null), so the
+    // upstream selection bookkeeping in remove_item and the merge has nothing to update.
+    const remove_item = (aItem: SCH_ITEM): void => {
+      changed = true;
+
+      if (!(aItem.GetFlags() & STRUCT_DELETED)) {
+        aItem.SetFlags(STRUCT_DELETED);
+
+        if (this.m_schematicHolder) this.m_schematicHolder.RemoveFromScreen(aItem, screen);
+
+        aCommit.Removed(aItem, screen);
+      }
+    };
+
+    for (const item of screen.Items().OfType(KICAD_T_E3.SCH_JUNCTION_T)) {
+      if (!screen.IsExplicitJunction(item.GetPosition())) {
+        if (item.IsSelected() || item.HasFlag(SELECTED_BY_DRAG)) continue;
+
+        items_to_remove.push(item);
+      } else junctions.push(item as unknown as SCH_JUNCTION);
+    }
+
+    for (const item of items_to_remove) remove_item(item);
+
+    for (const item of screen.Items().OfType(KICAD_T_E3.SCH_NO_CONNECT_T))
+      ncs.push(item as unknown as SCH_NO_CONNECT);
+
+    // alg::for_all_pairs: each unordered pair once, first before second.
+    const samePos = (a: SCH_ITEM, b: SCH_ITEM) => {
+      const pa = a.GetPosition();
+      const pb = b.GetPosition();
+      return pa.x === pb.x && pa.y === pb.y;
+    };
+
+    for (let i = 0; i < junctions.length; i++)
+      for (let j = i + 1; j < junctions.length; j++) {
+        const aFirst = junctions[i]!;
+        const aSecond = junctions[j]!;
+
+        if (aFirst.GetEditFlags() & STRUCT_DELETED || aSecond.GetEditFlags() & STRUCT_DELETED)
+          continue;
+
+        if (samePos(aFirst, aSecond)) remove_item(aSecond);
+      }
+
+    for (let i = 0; i < ncs.length; i++)
+      for (let j = i + 1; j < ncs.length; j++) {
+        const aFirst = ncs[i]!;
+        const aSecond = ncs[j]!;
+
+        if (aFirst.GetEditFlags() & STRUCT_DELETED || aSecond.GetEditFlags() & STRUCT_DELETED)
+          continue;
+
+        if (samePos(aFirst, aSecond)) remove_item(aSecond);
+      }
+
+    const minX = (l: SCH_LINE) => Math.min(l.GetStartPoint().x, l.GetEndPoint().x);
+    const maxX = (l: SCH_LINE) => Math.max(l.GetStartPoint().x, l.GetEndPoint().x);
+    const minY = (l: SCH_LINE) => Math.min(l.GetStartPoint().y, l.GetEndPoint().y);
+    const maxY = (l: SCH_LINE) => Math.max(l.GetStartPoint().y, l.GetEndPoint().y);
+
+    // Would be nice to put lines in a canonical form here by swapping
+    //  start <-> end as needed but I don't know what swapping breaks.
+    while (changed) {
+      changed = false;
+      lines.length = 0;
+
+      for (const item of screen.Items().OfType(KICAD_T_E3.SCH_LINE_T)) {
+        if (
+          item.GetLayer() === SCH_LAYER_ID.LAYER_WIRE ||
+          item.GetLayer() === SCH_LAYER_ID.LAYER_BUS
+        )
+          lines.push(item as unknown as SCH_LINE);
+      }
+
+      // Sort by minimum X position. (std::sort is not stable; JS's sort is, so lines with
+      // the same left edge keep their screen order - one of the orders upstream allows.)
+      lines.sort((a, b) => minX(a) - minX(b));
+
+      outer: for (let it1 = 0; it1 < lines.length; it1++) {
+        const firstLine = lines[it1]!;
+
+        if (firstLine.GetEditFlags() & STRUCT_DELETED) continue;
+
+        if (firstLine.IsNull()) {
+          remove_item(firstLine);
+          continue;
+        }
+
+        const firstRightXEdge = maxX(firstLine);
+
+        for (let it2 = it1 + 1; it2 < lines.length; it2++) {
+          const secondLine = lines[it2]!;
+          const secondLeftXEdge = minX(secondLine);
+
+          // impossible to overlap remaining lines
+          if (secondLeftXEdge > firstRightXEdge) break;
+
+          // No Y axis overlap
+          if (
+            !(
+              Math.max(minY(firstLine), minY(secondLine)) <=
+              Math.min(maxY(firstLine), maxY(secondLine))
+            )
+          )
+            continue;
+
+          if (secondLine.GetFlags() & STRUCT_DELETED) continue;
+
+          if (
+            !secondLine.IsParallel(firstLine) ||
+            !secondLine.IsStrokeEquivalent(firstLine) ||
+            secondLine.GetLayer() !== firstLine.GetLayer()
+          )
+            continue;
+
+          // Remove identical lines
+          if (
+            firstLine.IsEndPoint(secondLine.GetStartPoint()) &&
+            firstLine.IsEndPoint(secondLine.GetEndPoint())
+          ) {
+            remove_item(secondLine);
+            continue;
+          }
+
+          // See if we can merge an overlap (or two colinear touching segments with
+          // no junction where they meet).
+          const mergedLine = secondLine.MergeOverlap(screen, firstLine, true);
+
+          if (mergedLine !== null) {
+            remove_item(firstLine);
+            remove_item(secondLine);
+
+            if (this.m_schematicHolder) this.m_schematicHolder.AddToScreen(mergedLine, screen);
+
+            aCommit.Added(mergedLine, screen);
+
+            continue outer; // upstream's `break` out of the inner loop
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * `SCHEMATIC::RecalculateConnections`: generate the connection data for the entire
+   * schematic hierarchy, after the `CleanUp` the flags ask for. When
+   * `ADVANCED_CFG::m_IncrementalConnectivity` is set and the change list is small,
+   * upstream recalculates only the damaged part of the graph; here the graph is always
+   * rebuilt whole - upstream's GLOBAL_CLEANUP arm, the same answer, more slowly. `aProgressReporter`, `aSchView` and `aLastChangeList` serve the incremental
+   * arm and the view, neither of which is here.
    */
   RecalculateConnections(
-    _aCommit: unknown,
-    _aCleanupFlags: SCH_CLEANUP_FLAGS,
+    aCommit: SCH_COMMIT | null,
+    aCleanupFlags: SCH_CLEANUP_FLAGS,
+    aToolManager: TOOL_MANAGER | null = null,
+    _aProgressReporter: unknown = null,
+    _aSchView: unknown = null,
     aChangedItemHandler: ((aItem: SCH_ITEM) => void) | null = null,
   ): void {
     this.RefreshHierarchy();
     const list = this.Hierarchy();
+
+    // SCH_COMMIT localCommit( aToolManager ): a headless caller passes no manager.
+    const commit = aCommit ?? new SCH_COMMIT(aToolManager ?? new TOOL_MANAGER());
+
+    // Ensure schematic graph is accurate
+    if (aCleanupFlags === SCH_CLEANUP_FLAGS.LOCAL_CLEANUP) {
+      this.CleanUp(commit, this.GetCurrentScreen());
+    } else if (aCleanupFlags === SCH_CLEANUP_FLAGS.GLOBAL_CLEANUP) {
+      for (const sheet of list) this.CleanUp(commit, sheet.LastScreen());
+    }
 
     if (this.Settings().m_IntersheetRefsShow) this.RecomputeIntersheetRefs();
 

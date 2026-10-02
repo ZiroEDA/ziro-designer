@@ -168,9 +168,16 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
    * flags a changed highlighted net.  The view refresh upstream does after is left out.
    */
   RecalculateConnections(aCommit: SCH_COMMIT | null, aCleanupFlags: SCH_CLEANUP_FLAGS): void {
-    this.m_schematic!.RecalculateConnections(aCommit, aCleanupFlags, () => {
-      this.m_highlightedConnChanged = true;
-    });
+    this.m_schematic!.RecalculateConnections(
+      aCommit,
+      aCleanupFlags,
+      this.m_toolManager,
+      null,
+      null,
+      () => {
+        this.m_highlightedConnChanged = true;
+      },
+    );
   }
 
   /** `RecomputeIntersheetRefs()` (sch_edit_frame.cpp:1966). */
