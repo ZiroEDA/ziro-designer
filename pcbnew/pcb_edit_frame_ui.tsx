@@ -85,8 +85,6 @@ import {
   boardItemBBox,
   parseBoardItemId,
   pcbMsgPanelInfo,
-  moveBoardItems,
-  dragBoardItems,
   boardItemId,
   subsetBoardItems,
   expandGroupIds,
@@ -97,9 +95,6 @@ import {
   serializeBoardAsync,
   toggleLocalRatsnest,
   type LocalRatsnestHit,
-  courtyardConflictsAt,
-  type CourtyardConflicts,
-  type CourtyardConflictSession,
   type Board,
   type BoardBBox,
   type BoardItemKind,
@@ -583,7 +578,6 @@ import { drawConstructionGeom } from '@ziroeda/common/preview_items/construction
 import { drawSnapIndicator } from '@ziroeda/common/preview_items/snap_indicator.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { type BoardCursorSnap, snapToBoardCopper } from './pcb_cursor_snap.js';
-import { moveDelta } from './pcb_edit_frame.js';
 import { parseDrcRules } from './drc/drc_rule_view.js';
 import { DialogTrackViaProperties } from './dialogs/dialog_track_via_properties_ui.js';
 import { DialogCopperZones } from './dialogs/dialog_copper_zones.js';
@@ -637,7 +631,6 @@ import {
 } from './dialogs/dialog_track_via_properties.js';
 import { useKiDialog } from '@ziroeda/common/kidialog.js';
 import type { DIALOG_GLOBAL_EDIT_TEARDROPS } from './dialogs/dialog_global_edit_teardrops.js';
-import { SKIP_TEARDROPS } from './board_commit.js';
 import {
   boardFromBOARD,
   boardItemOfViewId,
@@ -674,7 +667,6 @@ import { BOX2D } from '@ziroeda/kimath/src/math/box2.js';
 import type { Vec2 as KVec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { DIALOG_DRC, type DIALOG_DRC_WINDOW } from './dialogs/dialog_drc_model.js';
 import { MessageDialogYesNoCancel } from '@ziroeda/common/dialogs/dialog_message.js';
-import { commitViewToBoard } from './pcb_io/kicad_sexpr/board_view_commit.js';
 import { PCB_EDIT_FRAME, REACT_BOARD_LISTENER, pcbnewSettingsOf } from './pcb_edit_frame.js';
 import { FetchNetlistFromSchematic } from './netlist_from_schematic.js';
 import { LIB_ID } from '@ziroeda/common/lib_id.js';
@@ -702,7 +694,6 @@ import {
   editorViewOf,
   kItemsForIds,
   loadBitmapFontImage,
-  setItemsHidden,
   syncViewTransform,
   type EditorView,
 } from './pcb_canvas.js';
@@ -1599,9 +1590,7 @@ export function PcbEditor({
   const showCourtyardConflictsRef = useRef(true);
   showCourtyardConflictsRef.current = pcbCfg.editing.show_courtyard_collisions;
   /** `drc_on_move`: the courtyards cached once at grab (`Init`). */
-  const courtyardSessionRef = useRef<CourtyardConflictSession | null>(null);
   /** …and the last frame's `m_itemsInConflict`, which the overlay shades. */
-  const conflictsRef = useRef<CourtyardConflicts | null>(null);
   /** `GAL::GetGridSnapping()` — Snap to grid, against `window.grid.show`. */
   const gridSnapRef = useRef(true);
   gridSnapRef.current = gridSnappingEnabled(pcbCfg.window.grid.snap, pcbCfg.window.grid.show);
@@ -2194,54 +2183,6 @@ export function PcbEditor({
   selForDrawRef.current = selection;
   // The in-progress rubber-band marquee (world coords), read by the overlay pass.
   const boxRef = useRef<{ a: { x: number; y: number }; b: { x: number; y: number } } | null>(null);
-  // Live drag-move offset (world units) applied to the selection highlight while
-  // a move gesture is in flight; committed on pointer-up (PCB_MOVE_TOOL preview).
-  const moveDeltaRef = useRef<{ x: number; y: number } | null>(null);
-  const movingRef = useRef(false);
-  // Move (M / left-drag) leaves the routing behind; Drag (G) stretches the
-  // traces attached to the moving footprints (EDIT_TOOL Move vs Drag). Drag mode
-  // is on only while a 'drag' gesture actually has footprints to carry traces.
-  const moveKindRef = useRef<'move' | 'drag'>('move');
-  const dragModeRef = useRef(false);
-  // The exact selection captured at gesture start (applySelect is async) plus,
-  // for a drag, the ids excluded from the backdrop raster (part + its traces),
-  // and the world grab origin the delta is measured from.
-  const movingSelRef = useRef<ReadonlySet<string>>(new Set());
-  const dragAffectedRef = useRef<ReadonlySet<string>>(new Set());
-  const moveOriginRef = useRef<{ x: number; y: number } | null>(null);
-  /**
-   * `grid.BestDragOrigin( originalMousePos, sel_items, … )` — the anchor **on
-   * the selection** that a move measures itself from, and the whole reason
-   * dragging a part in KiCad lines it up with the next one.
-   *
-   * `EDIT_TOOL::Move` warps the pointer onto this point ("Warp mouse to origin
-   * of moved object", on by default) and then only ever moves the selection by
-   * `BestSnapAnchor( mousePos ) - prevPos` with `prevPos` starting here — so the
-   * anchor lands *absolutely* on a grid node or another item's anchor. A
-   * delta-based move cannot do that: quantising the travel keeps whatever
-   * sub-grid offset the part already had, forever.
-   *
-   * We cannot warp a browser pointer, and do not need to: with the warp,
-   * upstream's mouse position is this anchor plus the motion since the grab, so
-   * {@link updateMove} adds that motion here and snaps the result instead.
-   */
-  const moveAnchorRef = useRef<{ x: number; y: number } | null>(null);
-  /**
-   * `controls->ForceCursorPosition( true, m_cursor )` (edit_tool_move_fct.cpp:1174):
-   * while a move is in flight the drawn crosshair is the *move's* cursor — the
-   * point the drag anchor has been snapped to — and not the pointer's own grid
-   * round. Upstream the two are the same point because the pointer was warped
-   * onto the anchor; here they differ by the grab offset, so the crosshair has
-   * to be told which one to draw or it marks a place nothing is going.
-   */
-  const forcedCursorRef = useRef<{ x: number; y: number } | null>(null);
-  // Keyboard grab (M/G): the selection follows the cursor until a click commits
-  // or Esc cancels, SCH/PCB move tool. Distinct from a left-button drag.
-  const grabbingRef = useRef(false);
-  // While a move is in flight the base raster is the board with the moving items
-  // removed; this scene holds just those items, painted live at the drag offset
-  // so the real geometry follows the cursor (not merely its bounding box).
-  const moveSceneRef = useRef<BoardScene | null>(null);
   // Selected items, compiled on their own so they can be repainted brightened
   // over the raster, KiCad's selection is the item's colour Brightened(0.8),
   // not a bounding box (pcb_painter.cpp getColor).
@@ -2322,15 +2263,6 @@ export function PcbEditor({
     selForDrawRef.current = next;
     setSelectionMirror(next);
   });
-  /**
-   * TRANSITIONAL (#636 stage 3): while a gesture of the window's own draws the
-   * moving copy on the overlay, the selection group on the VIEW is hidden.
-   */
-  const hideSelectionGroup = (aHide: boolean): void => {
-    const panel = panelRef.current;
-    const frame = frameRef.current;
-    if (panel && frame) panel.GetView().Hide(frame.GetSelectionTool().GetSelection(), aHide);
-  };
   /**
    * `PCB_EDIT_FRAME::SwitchLayer` (edit.cpp:72-95): the validated entry
    * point every explicit layer pick (the toolbar combo, a layer hotkey, a
@@ -3735,8 +3667,7 @@ export function PcbEditor({
       const sel = selForDrawRef.current;
       const brd = boardRef.current;
       if (brd) {
-        const md = moveDeltaRef.current;
-        const off = !dragModeRef.current && md ? md : { x: 0, y: 0 };
+        const off = { x: 0, y: 0 };
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.strokeStyle = PCB_SPECIAL.anchor;
         ctx.lineWidth = Math.max(1, dpr);
@@ -3785,55 +3716,13 @@ export function PcbEditor({
       const selected = selForDrawRef.current;
       const ref = selected.size === 1 ? parseBoardItemId([...selected][0]!) : null;
       const img = brd && ref?.kind === 'image' ? brd.images[ref.index] : null;
-      if (img && !moveDeltaRef.current) {
+      if (img) {
         const box = imageBBox(img);
         ctx.save();
         ctx.setTransform(sx, 0, 0, v.scale, v.tx, v.ty);
         ctx.strokeStyle = drawOpts.theme?.special.anchor ?? PCB_SPECIAL.anchor;
         ctx.lineWidth = (2 * Math.max(1, dpr)) / v.scale;
         ctx.strokeRect(box.minX, box.minY, box.maxX - box.minX, box.maxY - box.minY);
-        ctx.restore();
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-      }
-    }
-    // Selection / move overlay: the selected items repainted brightened over the
-    // raster, KiCad draws a selected item in its layer colour Brightened(0.8),
-    // not a bounding box (pcb_painter.cpp getColor). While a move is in flight the
-    // moving items are excluded from the raster and this overlay follows the
-    // cursor at the drag offset (EDIT_TOOL::Move's GAL overlay); otherwise it
-    // sits exactly over the raster so the selection just lights up in place.
-    // Net highlight (BOARD_INSPECTION_TOOL::HighlightNet): the whole board dims
-    {
-      const md = moveDeltaRef.current;
-      // The VIEW draws the selection itself (the selection tool's overlay
-      // group); the raster copy is only for a gesture in flight.
-      const gestureInFlight = md !== null || dragModeRef.current;
-      const os = moveSceneRef.current ?? (gestureInFlight ? selSceneRef.current : null);
-      if (os) {
-        // A stretched footprint drag is already at its absolute coords; only a
-        // move overlay is the static subset that has to be translated by the
-        // drag delta.
-        const absolute = dragModeRef.current;
-        const off = absolute ? { x: 0, y: 0 } : (md ?? { x: 0, y: 0 });
-        const offView = {
-          scale: v.scale,
-          flipX: v.flipX,
-          tx: v.tx + off.x * sx,
-          ty: v.ty + off.y * v.scale,
-        };
-        ctx.save();
-        drawBoard(
-          ctx,
-          os,
-          offView,
-          visible,
-          canvas.width,
-          canvas.height,
-          selDrawOpts,
-          undefined,
-          true,
-          'selected',
-        );
         ctx.restore();
         ctx.setTransform(1, 0, 0, 1, 0, 0);
       }
@@ -3845,7 +3734,7 @@ export function PcbEditor({
     {
       const brd = boardRef.current;
       const sel = selForDrawRef.current;
-      if (brd && sel.size > 0 && !moveDeltaRef.current) {
+      if (brd && sel.size > 0) {
         const groups = [...sel]
           .map((id) => parseBoardItemId(id))
           .filter((r) => r?.kind === 'group')
@@ -4056,7 +3945,7 @@ export function PcbEditor({
     // that one tool.
     const cur = cursorRef.current;
     if (cur) {
-      const snapped = forcedCursorRef.current ?? cursorSnapRef.current(cur);
+      const snapped = cursorSnapRef.current(cur);
       drawCrosshair(
         ctx,
         { x: snapped.x * sx + v.tx, y: snapped.y * v.scale + v.ty },
@@ -4137,12 +4026,6 @@ export function PcbEditor({
    * on top of a committed edit and two drags cannot race.
    */
   const baseRebuildRef = useRef(0);
-  /**
-   * The delta already applied to the retained buffer, when a move is running
-   * in place instead of through a rebuild. `null` means the gesture is using
-   * the rebuild path (Canvas2D, a router drag, or items with no ranges).
-   */
-  const inPlaceMoveRef = useRef<{ x: number; y: number } | null>(null);
 
   // Recompile the render scene for a new board and repaint (edits change geometry).
   const rebuildScene = useCallback(
@@ -4469,54 +4352,6 @@ export function PcbEditor({
     }
     return () => boardK.RemoveListener(listener);
   }, [boardK]);
-
-  /**
-   * Commit an edit: the view the tool produced becomes one BOARD_COMMIT on
-   * the live BOARD (`commitViewToBoard`), which files the undo entry, keeps
-   * the connectivity, and — as `BOARD_COMMIT::Push` does on every commit that
-   * touched a track, pad, via or footprint — rebuilds the teardrops around
-   * them with TEARDROP_MANAGER. The view is then re-derived from the BOARD by
-   * the listener, so whatever Push added (a teardrop, a propagated net) is
-   * what the editor shows.
-   *
-   * `skipTeardrops` is upstream's SKIP_TEARDROPS flag: the teardrop commands
-   * have already built the zones they want.
-   */
-  const commitBoard = useCallback(
-    (next: Board, opts: { skipTeardrops?: boolean; message?: string } = {}) => {
-      const prev = boardRef.current;
-      const frame = frameRef.current!;
-      const kb = next.k ?? prev?.k;
-
-      if (!kb) {
-        setDirty(true);
-        setBoardModel(next);
-        return;
-      }
-
-      const listener = listenerRef.current!;
-      commitViewToBoard(
-        frame,
-        prev,
-        next,
-        opts.message ?? 'Edit',
-        opts.skipTeardrops ? SKIP_TEARDROPS : 0,
-      );
-
-      // Until the listener's re-derivation lands, a same-tick reader of the
-      // board sees the view the tool produced, not the one before it.
-      boardRef.current = next;
-
-      // A commit with no item change (a title block, a layer name) raises no
-      // listener call; the view is re-derived here instead.
-      if (!listener.IsPending())
-        setBoardModel({
-          ...boardFromBOARD(kb, fileNameRef.current),
-          fileName: fileNameRef.current,
-        });
-    },
-    [setBoardModel],
-  );
 
   // ----- Update PCB from Schematic (BOARD_EDITOR_CONTROL::UpdatePCBFromSchematic) --
 
@@ -5242,15 +5077,13 @@ export function PcbEditor({
       // A TOOL_MANAGER tool owns the canvas: every event is the dispatcher's.
       if (TOOL_MANAGER_TOOLS[activeToolRef.current]) return false;
       // A key: the window's key chain has every key but Escape; Escape in the
-      // selection tool, with nothing of the window's in flight, is the tool's.
+      // selection tool is the tool's.
       if (aEvent instanceof wxKeyEvent) {
         if (aEvent.GetKeyCode() !== WXK.WXK_ESCAPE) return true;
-        if (!isSelectTool(activeToolRef.current) || windowGestureInFlight()) return true;
-        return false;
+        return !isSelectTool(activeToolRef.current);
       }
       if (!(aEvent instanceof wxMouseEvent)) return false;
-      if (!isSelectTool(activeToolRef.current) || windowGestureInFlight()) return true;
-      return false;
+      return !isSelectTool(activeToolRef.current);
     },
   };
   // `wxWindow::PopupMenu` for the frame: PCB_SELECTION_TOOL's context menu, and
@@ -5341,8 +5174,6 @@ export function PcbEditor({
       }).then((r) => (r === 'ok' ? 'ignore' : null)),
     openVertexEditor: () => openVertexEditor(),
   };
-  /** A gesture of the window's own tools in flight, which owns the pointer until it ends. */
-  const windowGestureInFlight = (): boolean => movingRef.current || grabbingRef.current;
   drcWindowRef.current = {
     createDrcDialog: (_aTool: DRC_TOOL): DIALOG_DRC => {
       const frame = frameRef.current!;
@@ -6734,19 +6565,8 @@ export function PcbEditor({
   // Splits the scene into a backdrop (everything else) + a live moving overlay.
 
   /** The BOARD_ITEMs hidden in the VIEW for the gesture in flight. */
-  const hiddenItemsRef = useRef<readonly BOARD_ITEM[]>([]);
 
   /** The gesture is over: the hidden items draw again (`VIEW::Hide( item, false )`). */
-  const unhideMovingItems = (): void => {
-    const panel = panelRef.current;
-    const items = hiddenItemsRef.current;
-    hiddenItemsRef.current = [];
-    if (panel && items.length > 0) {
-      setItemsHidden(panel, items, false);
-      hideSelectionGroup(false);
-      panel.Refresh();
-    }
-  };
 
   /**
    * Fill All Zones (PCB_ACTIONS::zoneFillAll, the B key): re-pour every zone
@@ -7069,132 +6889,6 @@ export function PcbEditor({
   }, [commitBoardSetup, setBoardModel]);
 
   /**
-   * `EDIT_TOOL::Move`'s per-frame cursor, as a delta for the selection.
-   *
-   * Upstream (edit_tool_move_fct.cpp:1144-1177):
-   *
-   *     m_cursor = grid.BestSnapAnchor( mousePos, layers, selectionGrid, sel_items );
-   *     movement = m_cursor - prevPos;
-   *     …
-   *     prevPos = m_cursor;
-   *
-   * with `prevPos` seeded to the drag origin. Summed over the gesture that is
-   * `anchor + Σmovement = BestSnapAnchor( mousePos )`: the anchor's new position
-   * is **absolute**, which is what puts a part on the grid however far off it
-   * started. `sel_items` is `aSkip`, so the gesture cannot snap to itself.
-   *
-   * The pointer warp we cannot perform is why the anchor and the raw grab point
-   * are both kept: upstream's `mousePos` is the anchor plus the motion since the
-   * grab, and that is exactly what is reconstructed here.
-   */
-  const moveSnap = (raw: { x: number; y: number }): { x: number; y: number } => {
-    const brd = boardRef.current;
-    if (!brd) return snapToGrid(raw);
-    return gridHelper().BestSnapAnchor(brd, raw, {
-      snapScale: 25 / viewRef.current.scale,
-      hysteresis: 5 / viewRef.current.scale,
-      visibleGrid: gridIURef.current,
-      layer: activeLayerRef.current,
-      avoid: dragAffectedRef.current,
-    });
-  };
-
-  // Track the in-flight gesture to the snapped cursor. A drag rebuilds the
-  // stretched geometry each frame (traces don't translate uniformly).
-  const updateMove = (cur: { x: number; y: number }): void => {
-    const brd = boardRef.current;
-    const origin = moveOriginRef.current;
-    if (!brd || !origin) return;
-    const anchor = moveAnchorRef.current ?? origin;
-    const delta = moveDelta(anchor, origin, cur, moveSnap);
-    moveDeltaRef.current = delta;
-    forcedCursorRef.current = { x: anchor.x + delta.x, y: anchor.y + delta.y };
-    // `drc_on_move->Run(); drc_on_move->UpdateConflicts( view, true )` (:1207).
-    // Before the in-place branch returns: every path through this function is a
-    // frame of the same move, and the fast one is the one a footprint takes.
-    const session = courtyardSessionRef.current;
-    conflictsRef.current = session ? courtyardConflictsAt(session, delta) : null;
-    if (dragModeRef.current) {
-      const dragged = dragBoardItems(brd, movingSelRef.current, delta);
-      moveSceneRef.current = buildScene(
-        subsetBoardItems(dragged, dragAffectedRef.current),
-        sceneFilter(),
-      );
-    }
-    // The airwires that follow a moving part are `CONNECTIVITY_DATA::
-    // ComputeLocalRatsnest( movedItems, dynamicData )`, and
-    // `RATSNEST_VIEW_ITEM::ViewDraw` already draws what it produces
-    // (`ratsnest_view_item.ts:111`). Nothing calls it yet: it wants the moved
-    // BOARD_ITEMs, the way EDIT_TOOL moves them, and this gesture previews an
-    // immutable copy of the view instead. That is stage 3's to connect (#636).
-    // What stood here was a per-frame `buildRatsnest` over a rebuilt view
-    // board, drawn only by the Canvas2D path that has gone.
-    requestDraw();
-  };
-
-  // Commit the gesture (drop). A zero net delta just restores the full scene.
-  const commitMove = (): void => {
-    const brd = boardRef.current;
-    const delta = moveDeltaRef.current;
-    const kind = moveKindRef.current;
-    const sel = movingSelRef.current;
-    const hadOverlay =
-      moveSceneRef.current !== null || dragModeRef.current || inPlaceMoveRef.current !== null;
-    inPlaceMoveRef.current = null;
-    // `drc_on_move->ClearConflicts( view )` (:1493): the gesture is over, so
-    // the shadow goes with it whether or not the move was committed.
-    courtyardSessionRef.current = null;
-    conflictsRef.current = null;
-    dragModeRef.current = false;
-    moveDeltaRef.current = null;
-    moveSceneRef.current = null;
-    moveOriginRef.current = null;
-    moveAnchorRef.current = null;
-    // `ForceCursorPosition( false )` — the crosshair goes back to the pointer.
-    forcedCursorRef.current = null;
-    // The gesture is over: `SetAuxAxes( false )`.
-    auxAxisRef.current = null;
-    unhideMovingItems();
-    if (brd && delta && (delta.x !== 0 || delta.y !== 0)) {
-      commitBoard(
-        kind === 'drag' ? dragBoardItems(brd, sel, delta) : moveBoardItems(brd, sel, delta),
-      );
-    } else if (hadOverlay && brd) {
-      rebuildScene(brd);
-    }
-  };
-
-  // Abandon the gesture without committing (Esc), restoring the full scene.
-  const cancelMove = (): void => {
-    const brd = boardRef.current;
-    // An in-place move only ever shifted vertices, so undoing it is the same
-    // shift back — far cheaper than rebuilding a board that never changed.
-    const applied = inPlaceMoveRef.current;
-    inPlaceMoveRef.current = null;
-    courtyardSessionRef.current = null;
-    conflictsRef.current = null;
-    unhideMovingItems();
-    dragModeRef.current = false;
-    moveDeltaRef.current = null;
-    moveSceneRef.current = null;
-    moveOriginRef.current = null;
-    moveAnchorRef.current = null;
-    // `ForceCursorPosition( false )` — the crosshair goes back to the pointer.
-    forcedCursorRef.current = null;
-    // The gesture is over: `SetAuxAxes( false )`.
-    auxAxisRef.current = null;
-    if (applied) {
-      moveSceneRef.current = null;
-      moveOriginRef.current = null;
-      // The gesture is over: `SetAuxAxes( false )`.
-      auxAxisRef.current = null;
-      requestDraw();
-      return;
-    }
-    if (brd) rebuildScene(brd);
-  };
-
-  /**
    * `DIALOG_UPDATE_PCB::~DIALOG_UPDATE_PCB` (`dialog_update_pcb.cpp:65-85`): once
    * the update has spread the new footprints, KiCad hands the whole cluster to
    * the cursor as a move, so you drop it where you want it.
@@ -7228,14 +6922,6 @@ export function PcbEditor({
     frame.GetToolManager()?.PostAction(PCB_ACTIONS.move);
   };
 
-  const grabCancelRef = useRef<() => void>(() => {});
-  grabCancelRef.current = () => {
-    if (!grabbingRef.current) return;
-    grabbingRef.current = false;
-    cancelMove();
-    requestDraw();
-  };
-
   /**
    * The window's own tools' press (TRANSITIONAL, #636 stage 3). The selection
    * tool takes its own presses through the dispatcher; what is left here is a
@@ -7245,13 +6931,6 @@ export function PcbEditor({
    */
   const onPointerDown = (e: React.PointerEvent): void => {
     if (e.button === 0) {
-      // A left click during a keyboard grab (M/G) drops the selection there.
-      if (grabbingRef.current) {
-        grabbingRef.current = false;
-        commitMove();
-        requestDraw();
-        return;
-      }
       const w = worldAt(e.clientX, e.clientY);
       const brd = boardRef.current;
       downRef.current = {
@@ -7269,10 +6948,6 @@ export function PcbEditor({
   const onPointerMove = (e: React.PointerEvent): void => {
     shiftDownRef.current = e.shiftKey;
     ctrlDownRef.current = e.ctrlKey || e.metaKey;
-    // `controls->SetAutoPan( true )` for as long as a move of the window's own
-    // is in flight (EDIT_TOOL::doMoveSelection brackets its loop with it);
-    // WX_VIEW_CONTROLS does the panning.
-    panelRef.current?.GetViewControls().SetAutoPan(movingRef.current || grabbingRef.current);
     const canvas = canvasRef.current;
     if (canvas) {
       const rect = canvas.getBoundingClientRect();
@@ -7290,13 +6965,6 @@ export function PcbEditor({
       // Repaint so the crosshair follows even on a plain hover (no pan/drag).
       requestDraw();
     }
-    // Keyboard grab (M/G) in flight: the selection follows the cursor freely
-    // until a click commits it (no button held).
-    if (grabbingRef.current) {
-      const cur = worldAt(e.clientX, e.clientY);
-      if (cur) updateMove(cur);
-      return;
-    }
     const d = downRef.current;
     if (d) {
       if (!d.moved && Math.hypot(e.clientX - d.x, e.clientY - d.y) > 3 * dpr) d.moved = true;
@@ -7305,15 +6973,6 @@ export function PcbEditor({
       if (isClickTool(activeToolRef.current)) return;
       const cur = worldAt(e.clientX, e.clientY);
       if (!cur) return;
-      // A move or a router drag the selection tool started (`PCB_ACTIONS::move`
-      // / `drag45Degree` through the window action bridge) follows the cursor
-      // until the button comes up.
-      if (movingRef.current) {
-        // The dispatcher's drag threshold, not this handler's, started it.
-        d.moved = true;
-        updateMove(cur);
-        return;
-      }
       // ZOOM_TOOL::selectRegion rubber-bands the area it zooms to.
       if (d.moved && d.world && activeToolRef.current === 'zoomTool') {
         boxRef.current = { a: d.world, b: cur };
@@ -7324,10 +6983,8 @@ export function PcbEditor({
   const onPointerUp = (e: React.PointerEvent): void => {
     const d = downRef.current;
     const box = boxRef.current;
-    const moved = movingRef.current;
     downRef.current = null;
     boxRef.current = null;
-    movingRef.current = false;
     if (d) {
       // Zoom-to-selection (ZOOM_TOOL::Main): a dragged box zooms into it, a
       // plain click zooms in a step about the clicked point; either way the
@@ -7390,10 +7047,6 @@ export function PcbEditor({
           if (w) handleMeasureClick(w);
         }
         // A click in the selection tool is the tool's, through the dispatcher.
-      } else if (moved) {
-        // Drop the move the selection tool started (EDIT_TOOL::Move's window
-        // half); a zero net delta restores.
-        commitMove();
       }
     }
     requestDraw();
@@ -7546,12 +7199,8 @@ export function PcbEditor({
         return;
       }
       if (e.key === 'Escape') {
-        // Escape cancels an in-flight grab first, then what a window tool has
-        // in flight, then leaves the tool; in the selection tool it is Main's.
-        if (grabbingRef.current) {
-          grabCancelRef.current();
-          return;
-        }
+        // Escape cancels what a window tool has in flight, then leaves the
+        // tool; in the selection tool it is Main's.
         if (placeMwRef.current || mwLineRef.current.originSet) {
           // `IsCancelInteractive()`: with an item (or an origin) that is
           // `cleanup()` and the tool stays; without one, the fall-through pops it.

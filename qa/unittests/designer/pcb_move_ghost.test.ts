@@ -154,14 +154,9 @@ describe('the VIEW hides what the overlay is dragging', () => {
     expect(text).not.toContain('const startOverlayMove = (');
     expect(text).not.toContain('const beginMove = (');
     expect(text).not.toContain('const beginTrackDrag = (');
-  });
-
-  it('both ends of the gesture show the items again', () => {
-    expect(text.match(/unhideMovingItems\(\);/g)).toHaveLength(2);
-    const commit = text.indexOf('const commitMove = (): void => {');
-    const cancel = text.indexOf('const cancelMove = (): void => {');
-    expect(text.slice(commit, cancel)).toContain('unhideMovingItems();');
-    expect(text.slice(cancel, cancel + 2500)).toContain('unhideMovingItems();');
+    // …nor drops or cancels one: EDIT_TOOL::Move commits on the live BOARD.
+    expect(text).not.toContain('const commitMove = (');
+    expect(text).not.toContain('const cancelMove = (');
   });
 
   it("a point edit is PCB_POINT_EDITOR's, which updates the live item in the VIEW", () => {
