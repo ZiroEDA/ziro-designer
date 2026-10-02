@@ -15,7 +15,18 @@ import {
   SCH_FOOTPRINT_FIELD_RECONCILER,
   type SCH_FP_FIELD_RECONCILE_RESULT,
 } from './sch_footprint_field_reconciler.js';
-import type { SCHEMATIC } from './schematic.js';
+import { KICTL_CREATE } from '@ziroeda/common/kiway_player.js';
+import { niluuid } from '@ziroeda/common/kiid.js';
+import { SCH_COMMIT } from './sch_commit.js';
+import type { SCH_EDIT_FRAME } from './sch_edit_frame.js';
+import {
+  PosixPath,
+  SCH_IO_KICAD_SEXPR,
+  type SCH_FILE_READER,
+} from './sch_io/kicad_sexpr/sch_io_kicad_sexpr.js';
+import { SCH_SCREENS } from './sch_screen.js';
+import type { SCH_SHEET } from './sch_sheet.js';
+import { SCH_CLEANUP_FLAGS, SCHEMATIC } from './schematic.js';
 
 /**
  * `SCH_EDIT_FRAME::saveSchematicFile`'s success message
@@ -102,4 +113,163 @@ export function ReconcileImportedFootprintFields(
     aLoadReporter,
   );
   return fpReconciler.Reconcile(aSchematic);
+}
+
+/**
+ * `SCH_EDIT_FRAME`'s half of `files-io.cpp`, on the live model: `OpenProjectFiles`'s load of
+ * a KiCad s-expression schematic, step for step (files-io.cpp:98-790). A TypeScript class
+ * cannot be split across files the way the C++ class is, so this is mixed into
+ * `SCH_EDIT_FRAME` by `sch_edit_frame.ts` with `applyMixins`, as `schematic_undo_redo.ts` is.
+ *
+ * Left to the window, being UI or the desktop: the lock file and its override prompt,
+ * `AskToSaveChanges`, the "does not exist, create it?" question (asked as `aCtl`'s
+ * `KICTL_CREATE`), the progress reporter, the info bar, autosave recovery, the window state,
+ * the settings manager's project switch, and `DIALOG_MIGRATE_BUSES`. Not on the live model
+ * yet: the legacy (`.sch`) plugin, `MigrateSimModels` (the simulator) and
+ * `LoadProjectSettings`/`LoadDrawingSheet` (the window loads both from the record model).
+ */
+export class SCH_FILES_IO_MIXIN {
+  /**
+   * Load \a aFileSet's one schematic (with its hierarchy, or the project file's top-level
+   * sheets) into a new SCHEMATIC on this frame. \a aReadFile answers a file's text by
+   * absolute path (null: no such file). Returns false when it could not be loaded.
+   */
+  OpenProjectFiles(
+    this: SCH_EDIT_FRAME,
+    aFileSet: readonly string[],
+    aCtl: number,
+    aReadFile: SCH_FILE_READER,
+  ): boolean {
+    // This is for python:
+    if (aFileSet.length !== 1) return false;
+
+    const fullFileName = aFileSet[0]!;
+    const is_new = aReadFile(fullFileName) === null;
+
+    // "Schematic '%s' does not exist.  Do you wish to create it?" - the window asks.
+    if (is_new && !(aCtl & KICTL_CREATE)) return false;
+
+    this.ClearUndoRedoList();
+    this.ClearRepeatItemsList();
+
+    const newSchematic = new SCHEMATIC(this.Prj());
+
+    if (is_new) {
+      newSchematic.CreateDefaultScreens();
+      this.SetSchematic(newSchematic);
+
+      // mark new, unsaved file as modified.
+      this.GetScreen()!.SetContentModified();
+      this.GetScreen()!.SetFileName(fullFileName);
+    } else {
+      const pi = new SCH_IO_KICAD_SEXPR('eeschema');
+      const projectPath = this.Prj().GetProjectPath();
+      let failedLoad = false;
+
+      try {
+        // Check if project file has top-level sheets defined
+        const topLevelSheets = this.Prj().GetProjectFile().GetTopLevelSheets();
+
+        if (topLevelSheets.length > 0) {
+          const loadedSheets: SCH_SHEET[] = [];
+
+          // Load each top-level sheet
+          for (const sheetInfo of topLevelSheets) {
+            // wxFileName( Prj().GetProjectPath(), sheetInfo.filename ).GetFullPath()
+            const sheetPath = PosixPath.makeAbsolute(sheetInfo.filename, projectPath);
+
+            // "Top-level sheet file not found: %s" (a log warning upstream)
+            if (aReadFile(sheetPath) === null) continue;
+
+            const sheet = pi.LoadSchematicFile(sheetPath, newSchematic, projectPath, aReadFile);
+
+            if (sheet) {
+              // Preserve the UUID from the project file, unless it's niluuid which is
+              // just a placeholder meaning "use the UUID from the file"
+              if (sheetInfo.uuid !== niluuid) (sheet as { m_Uuid: string }).m_Uuid = sheetInfo.uuid;
+
+              sheet.SetName(sheetInfo.name);
+              loadedSheets.push(sheet);
+            }
+          }
+
+          if (loadedSheets.length > 0) newSchematic.SetTopLevelSheets(loadedSheets);
+          else newSchematic.CreateDefaultScreens();
+        } else {
+          // Legacy single-root format: Load the single root sheet
+          const rootSheet = pi.LoadSchematicFile(
+            fullFileName,
+            newSchematic,
+            projectPath,
+            aReadFile,
+          );
+
+          if (rootSheet) {
+            newSchematic.SetTopLevelSheets([rootSheet]);
+
+            // Make ${SHEETNAME} work on the root sheet until we properly support
+            // naming the root sheet
+            newSchematic.GetTopLevelSheet()?.SetName('Root');
+          } else {
+            newSchematic.CreateDefaultScreens();
+          }
+        }
+      } catch {
+        // "Error loading schematic '%s'." - the window reports it.
+        newSchematic.CreateDefaultScreens();
+        failedLoad = true;
+      }
+
+      this.SetSchematic(newSchematic);
+
+      if (failedLoad) {
+        // Do not leave g_RootSheet == NULL because it is expected to be
+        // a valid sheet. Therefore create a dummy empty root sheet and screen.
+        this.Schematic().CreateDefaultScreens();
+        return false;
+      }
+
+      const sheetList = this.Schematic().Hierarchy();
+
+      if (sheetList.AllSheetPageNumbersEmpty()) sheetList.SetInitialPageNumbers();
+      else sheetList.RepairPageNumbers();
+
+      const schematic = new SCH_SCREENS(this.Schematic().Root());
+
+      // S-expression schematic.
+      for (let screen = schematic.GetFirst(); screen; screen = schematic.GetNext())
+        screen.UpdateLocalLibSymbolLinks();
+
+      const rootScreen = this.Schematic().RootScreen();
+
+      if (rootScreen && rootScreen.GetFileFormatVersionAtLoad() < 20221002)
+        sheetList.UpdateSymbolInstanceData(rootScreen.GetSymbolInstances());
+
+      if (rootScreen && rootScreen.GetFileFormatVersionAtLoad() < 20221110)
+        sheetList.UpdateSheetInstanceData(rootScreen.GetSheetInstances());
+
+      if (rootScreen && rootScreen.GetFileFormatVersionAtLoad() < 20230221)
+        for (let screen = schematic.GetFirst(); screen; screen = schematic.GetNext())
+          screen.FixLegacyPowerSymbolMismatches();
+
+      this.Schematic().LoadVariants();
+      this.UpdateVariantSelectionCtrl(this.Schematic().GetVariantNamesForUI());
+
+      sheetList.CheckForMissingSymbolInstances(this.Prj().GetProjectName());
+      schematic.PruneOrphanedSymbolInstances(this.Prj().GetProjectName(), sheetList);
+      schematic.PruneOrphanedSheetInstances(this.Prj().GetProjectName(), sheetList);
+
+      this.Schematic().ConnectionGraph().Reset();
+
+      const dummy = new SCH_COMMIT(this);
+      this.RecalculateConnections(dummy, SCH_CLEANUP_FLAGS.GLOBAL_CLEANUP);
+    }
+
+    this.Schematic().ResolveERCExclusionsPostUpdate();
+    this.SetSheetNumberAndCount();
+    this.RecomputeIntersheetRefs();
+    this.GetCurrentSheet().UpdateAllScreenReferences();
+
+    return true;
+  }
 }
