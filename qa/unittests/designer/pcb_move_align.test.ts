@@ -234,30 +234,17 @@ describe('a mouse drag puts the part on the grid', () => {
 
 describe('the editor wires it up', () => {
   /**
-   * `PcbEditor.tsx` as text: qa's tsc has no `--jsx`, so the move's call site
-   * cannot be imported. Everything above is arithmetic that the editor has to
-   * actually use — a correct `moveDelta` that nothing calls fixes nothing, and
-   * the old formula would keep every test in this file passing.
+   * `pcb_edit_frame_ui.tsx` as text. The window used to run the move itself
+   * from this arithmetic; EDIT_TOOL::Move does now, on the live BOARD
+   * (tools/edit_tool tests pin BestDragOrigin there), and the window's own
+   * move went with the router drag that was its last entry.
    */
   const text = readFileSync(
     fileURLToPath(new URL('../../../pcbnew/pcb_edit_frame_ui.tsx', import.meta.url)),
     'utf8',
   );
 
-  it('measures the move from the drag origin, not the grab point', () => {
-    expect(text).toContain('const dragOrigin = gridHelper().BestDragOrigin(brd, sel, origin, {');
-    expect(text).toContain('const delta = moveDelta(anchor, origin, cur, moveSnap);');
-    // `SetAuxAxes( true, dragOrigin )` — the anchor, not its grid round.
-    expect(text).toContain('auxAxisRef.current = dragOrigin;');
-  });
-
-  it('no longer takes the difference of two grid rounds', () => {
-    // The line this replaced, and the reason the parts could never be aligned.
-    expect(text).not.toContain('const from = snapToGrid(origin);');
-    expect(text).not.toContain('auxAxisRef.current = snapToGrid(origin);');
-  });
-
-  it('skips the moving items when it snaps, as `sel_items` does', () => {
-    expect(text).toContain('avoid: dragAffectedRef.current,');
+  it('the window measures no move of its own', () => {
+    expect(text).not.toContain('const dragOrigin = gridHelper().BestDragOrigin(');
   });
 });

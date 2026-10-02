@@ -15,11 +15,7 @@
  *
  * What the tool asks the window for - its modal dialogs, the infobar, the
  * vertex editor - is the frame's, through EDIT_TOOL_FRAME (the frame's hooks).
- *
- * TRANSITIONAL (#636 stage 3): ROUTER_TOOL is not ported. A router drag
- * (`invokeInlineRouter`, `Drag`) asks WINDOW_ACTION_BRIDGE for the router's
- * state and runs `PCB_ACTIONS::routerInlineDrag`, which the bridge hands to
- * the window's router drag.
+
  */
 import { ADVANCED_CFG } from '@ziroeda/common/advanced_config.js';
 import { SaveClipboard } from '@ziroeda/common/clipboard.js';
@@ -1020,15 +1016,14 @@ export class EDIT_TOOL extends PCB_TOOL_BASE {
   }
 
   /**
-   * `m_toolMgr->GetTool<ROUTER_TOOL>()`. TRANSITIONAL (#636 stage 3): the
-   * router is the window's, and WINDOW_ACTION_BRIDGE answers for it.
+   * `m_toolMgr->GetTool<ROUTER_TOOL>()`, by name: router_tool.ts reaches this
+   * module through PCB_TOOL_BASE, so asking by type would be an import cycle.
+   * The footprint editor registers none.
    */
   routerTool(): ROUTER_TOOL_LIKE | null {
-    const bridge = this.m_toolMgr!.FindTool('pcbnew.WindowActionBridge') as unknown as {
-      Router(): ROUTER_TOOL_LIKE | null;
-    } | null;
-
-    return bridge?.Router() ?? null;
+    return this.m_toolMgr!.FindTool(
+      'pcbnew.InteractiveRouter',
+    ) as unknown as ROUTER_TOOL_LIKE | null;
   }
 
   invokeInlineRouter(aDragMode: number): boolean {

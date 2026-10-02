@@ -1637,6 +1637,29 @@ export class PnsRouter {
     return this.mPlacer?.unfixRoute?.() ?? null;
   }
 
+  /**
+   * `ROUTER::BreakSegmentOrArc( ITEM*, const VECTOR2I& )` — cpp:1086-1107: a
+   * throwaway LINE_PLACER splits the segment (or arc) at `aP` in a branch of
+   * the world, and the branch is committed when the split happened.
+   */
+  breakSegmentOrArc(aItem: PnsItem, aP: Vec2): void {
+    const node = this.mWorld!.branch();
+
+    const placer = this.mFactory.linePlacer?.(this) as unknown as {
+      splitAdjacentSegments(aNode: PnsNode, aSeg: PnsItem, aP: Vec2): boolean;
+      splitAdjacentArcs(aNode: PnsNode, aArc: PnsItem, aP: Vec2): boolean;
+    } | null;
+
+    if (!placer) return;
+
+    let ret = false;
+
+    if (aItem.ofKind(PnsKind.SEGMENT_T)) ret = placer.splitAdjacentSegments(node, aItem, aP);
+    else if (aItem.ofKind(PnsKind.ARC_T)) ret = placer.splitAdjacentArcs(node, aItem, aP);
+
+    if (ret) this.commitRouting(node);
+  }
+
   /** `ROUTER::CommitRouting()` — cpp:955-961. */
   commitRoutingSession(): void {
     if (this.mState === PnsRouterState.ROUTE_TRACK) this.mPlacer?.commitPlacement?.();

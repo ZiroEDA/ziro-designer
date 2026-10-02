@@ -87,23 +87,14 @@ import {
   pcbMsgPanelInfo,
   moveBoardItems,
   dragBoardItems,
-  connectedTrackEnds,
   boardItemId,
   subsetBoardItems,
-  deleteBoardItems,
   expandGroupIds,
-  filterSelectionForFreePads,
-  startTrackDrag,
-  updateTrackDrag,
-  trackDragSegments,
-  applyTrackDrag,
-  type TrackDrag,
   groupContaining,
   isBoardItemLocked,
   isCopperLayerName,
   serializeBoard,
   serializeBoardAsync,
-  beginCourtyardConflicts,
   toggleLocalRatsnest,
   type LocalRatsnestHit,
   courtyardConflictsAt,
@@ -150,7 +141,6 @@ import {
   hasLockedItems,
   hasUnlockedItems,
 } from './tools/pcb_selection_conditions.js';
-import { ROUTER_TOOL } from './router/router_tool.js';
 import { Infobar } from '@ziroeda/common/widgets/wx_infobar.js';
 import { buildPcbMenus } from './menubar_pcb_editor.js';
 import { DialogDimensionProperties } from './dialogs/dialog_dimension_properties_ui.js';
@@ -476,20 +466,10 @@ import type { BOARD } from './board.js';
 import { DialogDrc } from './dialogs/dialog_drc.js';
 import { DialogUpdatePcb, type UpdatePcbOptions } from './dialogs/dialog_update_pcb.js';
 import { DialogGlobalEditTeardrops } from './dialogs/dialog_global_edit_teardrops_ui.js';
-import {
-  BOARD_DESIGN_SETTINGS,
-  DIFF_PAIR_DIMENSION,
-  VIA_DIMENSION,
-} from './board_design_settings.js';
 import { BuildBomTextFromBoard } from './build_BOM_from_board.js';
 import { DialogBoardStatistics } from './dialogs/dialog_board_statistics.js';
 import { DialogFilterSelection } from './dialogs/dialog_filter_selection_ui.js';
-import {
-  type MOVE_EXACT_VALUES,
-  PNS_DRAG_MODE,
-  ROTATION_ANCHOR,
-  type ROUTER_TOOL_LIKE,
-} from './tools/edit_tool.js';
+import { type MOVE_EXACT_VALUES, ROTATION_ANCHOR } from './tools/edit_tool.js';
 import type { DOGBONE_PARAMETERS } from './tools/item_modification_routine.js';
 import type { TOOL_ACTION } from '@ziroeda/common/tool/tool_action.js';
 import type { BOX2I as KBOX2I } from '@ziroeda/kimath/src/math/box2.js';
@@ -1136,15 +1116,6 @@ function emptyBoardLike(board: Board): Board {
     tables: [],
     groups: [],
   };
-}
-
-function promotePadsForCommand(
-  board: Board,
-  sel: ReadonlySet<string>,
-): { items: Set<string>; selection: Set<string> | null } {
-  const items = filterSelectionForFreePads(expandGroupIds(board, sel));
-  const hadPad = [...sel].some((id) => parseBoardItemId(id)?.kind === 'pad');
-  return { items, selection: hadPad ? filterSelectionForFreePads(sel) : null };
 }
 
 /**
@@ -2237,16 +2208,6 @@ export function PcbEditor({
   // and the world grab origin the delta is measured from.
   const movingSelRef = useRef<ReadonlySet<string>>(new Set());
   const dragAffectedRef = useRef<ReadonlySet<string>>(new Set());
-  // A router drag of a trace (EDIT_TOOL::Drag → PNS::DRAGGER): the whole line is
-  // re-cut every frame rather than translated, so it runs beside the move refs.
-  const trackDragRef = useRef<TrackDrag | null>(null);
-  // `TOOL_BASE::m_startItem` — the one segment the drag grabbed, and the whole
-  // of `pickSingleItem`'s `aAvoidItems`. Its *neighbours* stay snappable on
-  // purpose: they still hold the line's original geometry, so bringing the
-  // cursor back over them lands it on the centreline the trace started on.
-  const dragSeedIdRef = useRef<string | null>(null);
-  /** The net highlight to restore when a track drag ends, or null if none. */
-  const dragHighlightRestoreRef = useRef<ReadonlySet<number> | null>(null);
   const moveOriginRef = useRef<{ x: number; y: number } | null>(null);
   /**
    * `grid.BestDragOrigin( originalMousePos, sel_items, … )` — the anchor **on
@@ -2442,7 +2403,6 @@ export function PcbEditor({
       aDetails: string,
     ) => Promise<'ignore' | 'all' | null>;
     openVertexEditor: () => void;
-    router: () => ROUTER_TOOL_LIKE;
   } | null>(null);
   if (!frameRef.current) {
     // `PGM_BASE::InitPgm` runs before any KiCad frame exists, and the frame
@@ -2632,7 +2592,6 @@ export function PcbEditor({
       showPadTableDialog: (aDialog) => setPadTableDlg(aDialog),
       dismissInfoBar: () => editWindowRef.current?.dismissInfoBar(),
       boardView: () => boardRef.current,
-      router: () => editWindowRef.current?.router() ?? null,
       eventToWindow: (aEvent) => selWindowRef.current?.eventToWindow(aEvent) ?? false,
       // TRANSITIONAL (#636 stage 3): ZONE_FILLER's view pour reads these.
       zoneFillOptions: () => zoneFillOptionsRef.current,
@@ -3848,13 +3807,13 @@ export function PcbEditor({
       const md = moveDeltaRef.current;
       // The VIEW draws the selection itself (the selection tool's overlay
       // group); the raster copy is only for a gesture in flight.
-      const gestureInFlight = md !== null || dragModeRef.current || trackDragRef.current !== null;
+      const gestureInFlight = md !== null || dragModeRef.current;
       const os = moveSceneRef.current ?? (gestureInFlight ? selSceneRef.current : null);
       if (os) {
-        // A drag overlay, a stretched footprint drag or a re-cut router drag ,
-        // is already at its absolute coords; only a move overlay is the static
-        // subset that has to be translated by the drag delta.
-        const absolute = dragModeRef.current || trackDragRef.current !== null;
+        // A stretched footprint drag is already at its absolute coords; only a
+        // move overlay is the static subset that has to be translated by the
+        // drag delta.
+        const absolute = dragModeRef.current;
         const off = absolute ? { x: 0, y: 0 } : (md ?? { x: 0, y: 0 });
         const offView = {
           scale: v.scale,
@@ -3863,9 +3822,6 @@ export function PcbEditor({
           ty: v.ty + off.y * v.scale,
         };
         ctx.save();
-        // The router draws its in-flight line as a preview item at 80% alpha
-        // (ROUTER_PREVIEW_ITEM's ctor: m_color.a = 0.8).
-        if (trackDragRef.current) ctx.globalAlpha = 0.8;
         drawBoard(
           ctx,
           os,
@@ -3876,10 +3832,7 @@ export function PcbEditor({
           selDrawOpts,
           undefined,
           true,
-          // The router's preview line keeps the plain layer color, the net
-          // highlight is what lifts the rest of the net (DisplayItem passes no
-          // flags for a drag, so getLayerColor returns the layer color as-is).
-          trackDragRef.current ? 'none' : 'selected',
+          'selected',
         );
         ctx.restore();
         ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -5271,25 +5224,8 @@ export function PcbEditor({
       refreshSelectionMirrorRef.current();
       requestDraw();
     },
-    windowAction: (aAction, aEvent) => {
-      const origin = downRef.current?.world ?? cursorRef.current;
-      const sel = selForDrawRef.current;
+    windowAction: (aAction) => {
       switch (aAction) {
-        // ROUTER_TOOL::InlineDrag, which EDIT_TOOL::invokeInlineRouter runs:
-        // the window's router drag of a track, or its drag of footprints with
-        // their tracks following.
-        case PCB_ACTIONS.routerInlineDrag: {
-          if (!origin) return;
-          const mode = aEvent.Parameter<number>();
-          movingRef.current = true;
-          const seed = routableTrackSeed(sel);
-          if (
-            seed === null ||
-            !beginTrackDrag(seed, origin, (mode & PNS_DRAG_MODE.DM_FREE_ANGLE) !== 0)
-          )
-            beginMove(sel, 'drag', origin);
-          break;
-        }
         // ARRAY_TOOL::CreateArray: the window's Create Array dialog.
         case PCB_ACTIONS.createArray:
           setArrayOpen(true);
@@ -5404,26 +5340,9 @@ export function PcbEditor({
         labels: { ok: 'Ignore Unselected Pads' },
       }).then((r) => (r === 'ok' ? 'ignore' : null)),
     openVertexEditor: () => openVertexEditor(),
-    // TRANSITIONAL (#636 E11b): ROUTER_TOOL routes; its InlineDrag is still
-    // the window's track drag, so CanInlineDrag is answered here.
-    router: () => ({
-      IsToolActive: () =>
-        frameRef.current?.GetToolManager()?.GetTool(ROUTER_TOOL)?.IsToolActive() ?? false,
-      RoutingInProgress: () =>
-        frameRef.current?.GetToolManager()?.GetTool(ROUTER_TOOL)?.RoutingInProgress() ?? false,
-      // `ROUTER_TOOL::CanInlineDrag`: one routable track or via, or footprints.
-      CanInlineDrag: () => {
-        const sel = selForDrawRef.current;
-        return (
-          routableTrackSeed(sel) !== null ||
-          (sel.size > 0 && [...sel].every((id) => parseBoardItemId(id)?.kind === 'footprint'))
-        );
-      },
-    }),
   };
   /** A gesture of the window's own tools in flight, which owns the pointer until it ends. */
-  const windowGestureInFlight = (): boolean =>
-    movingRef.current || grabbingRef.current || trackDragRef.current !== null;
+  const windowGestureInFlight = (): boolean => movingRef.current || grabbingRef.current;
   drcWindowRef.current = {
     createDrcDialog: (_aTool: DRC_TOOL): DIALOG_DRC => {
       const frame = frameRef.current!;
@@ -6559,28 +6478,6 @@ export function PcbEditor({
     });
   };
 
-  /**
-   * `TOOL_BASE::updateStartItem` / `updateEndItem` for a drag: the snapped
-   * cursor, over copper when there is any and on the grid otherwise.
-   *
-   * `aAvoid` is `pickSingleItem`'s `aAvoidItems` — the line being dragged, so
-   * the gesture cannot snap to itself.
-   */
-  const dragSnap = (
-    w: { x: number; y: number },
-    aAvoid: ReadonlySet<string> | null,
-  ): { x: number; y: number } => {
-    const brd = boardRef.current;
-    if (!brd) return snapToGrid(w);
-    return (
-      snapToBoardCopper(brd, w, gridHelper(), {
-        tol: tolOf(),
-        layer: /\.Cu$/.test(activeLayerRef.current) ? activeLayerRef.current : undefined,
-        avoid: aAvoid ?? undefined,
-      })?.snap ?? snapToGrid(w)
-    );
-  };
-
   // `copperAt` exists now, so the crosshair can reach it (see `routeSnapRef`).
   routeSnapRef.current = (w) => copperAt(w)?.snap ?? snapToGrid(w);
 
@@ -6835,130 +6732,6 @@ export function PcbEditor({
   // Start a move/drag of `sel` from world grab point `origin`. 'move' leaves the
   // routing behind; 'drag' stretches the traces attached to moving footprints.
   // Splits the scene into a backdrop (everything else) + a live moving overlay.
-  /**
-   * Rebuild the board scene without `affected`, off the critical path.
-   *
-   * This is the expensive half of starting a drag and none of it is needed to
-   * *start* one — only to stop the original showing under the preview.
-   */
-  const scheduleBaseWithout = (brd: Board, affected: ReadonlySet<string>): void => {
-    const token = ++baseRebuildRef.current;
-    setTimeout(() => {
-      if (token !== baseRebuildRef.current) return;
-      if (movingSelRef.current.size === 0) return; // the drag already finished
-      if (panelRef.current) return; // the VIEW hides the moving items itself
-      sceneRef.current = buildBoardScene(deleteBoardItems(brd, affected), sceneFilter());
-      requestDraw();
-    }, 0);
-  };
-
-  const beginMove = (
-    sel0: ReadonlySet<string>,
-    kind: 'move' | 'drag',
-    origin: { x: number; y: number },
-  ): void => {
-    const brd = boardRef.current;
-    if (!brd || sel0.size === 0) return;
-    // A grabbed group moves as its members (the move commands know items only),
-    // and a grabbed pad moves its whole footprint, EDIT_TOOL::doMoveSelection
-    // runs FilterCollectorForHierarchy then FilterCollectorForFreePads over the
-    // selection before it moves anything.
-    const { items: sel, selection } = promotePadsForCommand(brd, sel0);
-    movingSelRef.current = sel;
-    if (selection) setSelectionRef.current(selection);
-    moveKindRef.current = kind;
-    moveOriginRef.current = origin;
-    // `m_cursor = grid.BestDragOrigin( originalMousePos, sel_items, … )`
-    // (edit_tool_move_fct.cpp:1311) — "use the mouse position over cursor, as
-    // otherwise large grids will allow only snapping to items that are closest
-    // to grid points", so the *raw* grab point, not the snapped one.
-    //
-    // Cleared first so the anchor is chosen without a stale axis biasing it,
-    // then installed as the axis for the rest of the gesture, which is
-    // upstream's `grid.SetAuxAxes( true, dragOrigin )` (:1335). The axis is what
-    // keeps the part's *original* off-grid position reachable, so a move that
-    // changes its mind can put it back exactly.
-    auxAxisRef.current = null;
-    const dragOrigin = gridHelper().BestDragOrigin(brd, sel, origin, {
-      gridSize: gridIURef.current,
-    });
-    moveAnchorRef.current = dragOrigin;
-    auxAxisRef.current = dragOrigin;
-    const fpIdx = new Set<number>();
-    for (const id of sel) {
-      const r = parseBoardItemId(id);
-      if (r?.kind === 'footprint') fpIdx.add(r.index);
-    }
-    dragModeRef.current = kind === 'drag' && fpIdx.size > 0;
-    const affected = new Set<string>(sel);
-    if (dragModeRef.current) {
-      for (const e of connectedTrackEnds(brd, fpIdx)) affected.add(boardItemId(e.kind, e.index));
-    }
-    dragAffectedRef.current = affected;
-    moveDeltaRef.current = { x: 0, y: 0 };
-    // `drc_on_move->Init( board )` at :1016, once per gesture: deriving every
-    // courtyard from its F.CrtYd graphics is the expensive half and none of it
-    // changes while the mouse is down.
-    courtyardSessionRef.current =
-      showCourtyardConflictsRef.current && fpIdx.size > 0
-        ? beginCourtyardConflicts(brd, fpIdx)
-        : null;
-    conflictsRef.current = null;
-    // The moving items leave the board's own drawing for the gesture: hidden
-    // in the VIEW (`VIEW::Hide`, as the move tool takes them out of the
-    // layer's drawing until `EDIT_TOOL::Move` puts them back) and drawn by
-    // the overlay at the drag offset.
-    inPlaceMoveRef.current = null;
-    startOverlayMove(brd, sel, affected);
-  };
-
-  /**
-   * Set the drag up the slow way: the moving items as an overlay that follows
-   * the cursor, and the board rebuilt without them underneath.
-   *
-   * Its own function because there are TWO ways in. `beginMove` takes it when
-   * the GPU cannot address the selection, and `updateMove` has to take it when
-   * `moveItems` fails PART WAY THROUGH a gesture that started in place — which
-   * it did not, and that is the bug this became. `beginMove`'s in-place branch
-   * returns before any of this, quite correctly: the GPU is moving the item's
-   * own vertices, so there is nothing to hide and nothing to preview. But when
-   * the GPU then refused, the drag was left with neither — the original still
-   * in the retained scene at its old position and never translated, and no
-   * overlay of its own. All that followed the cursor was the selection copy,
-   * while the part itself (its pink courtyard, its silkscreen, all of it) sat
-   * still until the drop committed the board and it "respawned" at the new
-   * place.
-   */
-  const startOverlayMove = (
-    brd: Board,
-    sel: ReadonlySet<string>,
-    affected: ReadonlySet<string>,
-  ): void => {
-    // The moving items first, because they are the cheap half and the drag
-    // cannot start without them: one footprint compiles in about 2 ms.
-    moveSceneRef.current = dragModeRef.current
-      ? null
-      : buildScene(subsetBoardItems(brd, sel), sceneFilter());
-    requestDraw();
-    const panel = panelRef.current;
-    if (panel) {
-      // The VIEW draws the board: the moving items are hidden in it for the
-      // gesture, nothing is rebuilt.
-      const items = kItemsForIds(brd, affected);
-      hiddenItemsRef.current = items;
-      setItemsHidden(panel, items, true);
-      hideSelectionGroup(true);
-      panel.Refresh();
-      return;
-    }
-    // The expensive half — the whole board again, minus what is moving — is
-    // what made grabbing a part freeze the editor: measured at 589 ms on the
-    // coldfire demo (160 footprints, 2935 tracks) before the GPU re-record on
-    // top, all to take one footprint out of a retained buffer. It is not
-    // needed to *start* the drag, only to stop the original showing under the
-    // preview, so it runs off the critical path and swaps in when ready.
-    scheduleBaseWithout(brd, affected);
-  };
 
   /** The BOARD_ITEMs hidden in the VIEW for the gesture in flight. */
   const hiddenItemsRef = useRef<readonly BOARD_ITEM[]>([]);
@@ -6973,69 +6746,6 @@ export function PcbEditor({
       hideSelectionGroup(false);
       panel.Refresh();
     }
-  };
-
-  /**
-   * Start a router drag of the track under the cursor (EDIT_TOOL::Drag →
-   * PNS::DRAGGER). The gesture works on the whole *line* the segment belongs to,
-   * so its neighbours are re-cut as it moves rather than left behind. Returns
-   * false when the seed is not draggable, so the caller can fall back to a move.
-   */
-  const beginTrackDrag = (
-    trackIndex: number,
-    origin: { x: number; y: number },
-    freeAngle: boolean,
-  ): boolean => {
-    const brd = boardRef.current;
-    if (!brd) return false;
-    // `ROUTER_TOOL::performDragging` starts the drag at `m_startSnapPoint` —
-    // the *snapped* cursor from `updateStartItem`, not the raw pointer. Both
-    // ends of the gesture must use the same snap or the geometry can never be
-    // reproduced: a raw origin with grid-snapped updates jumps the line onto
-    // the grid the instant you move, and no cursor position afterwards gets
-    // back to where the track actually was.
-    // Cleared first so the origin is snapped without a stale axis biasing it,
-    // then installed as the axis for the rest of the gesture — upstream's
-    // `SetAuxAxes( true, m_startSnapPoint )`.
-    auxAxisRef.current = null;
-    const start = dragSnap(origin, null);
-    const drag = startTrackDrag(brd, trackIndex, start, { freeAngle });
-    if (!drag) return false;
-
-    auxAxisRef.current = start;
-    dragSeedIdRef.current = boardItemId('track', trackIndex);
-
-    trackDragRef.current = drag;
-    moveKindRef.current = 'drag';
-    moveOriginRef.current = origin;
-    // A router drag re-cuts the line against the cursor rather than translating
-    // a selection, so it has no `BestDragOrigin` anchor of its own.
-    moveAnchorRef.current = null;
-    dragModeRef.current = false;
-    // ROUTER_TOOL::performDragging highlights the dragged item's net for the
-    // duration of the drag (router_tool.cpp → TOOL_BASE::highlightNets), so the
-    // whole net lifts to the highlight color while everything else dims. An
-    // existing highlight that already covers this net is kept on the way out;
-    // otherwise the previous one is restored (TOOL_BASE::m_startHighlightNetcodes).
-    if (drag.line.net > 0) {
-      const current = highlightNetsRef.current;
-      dragHighlightRestoreRef.current = current.has(drag.line.net) ? current : new Set();
-      applyRenderHighlightRef.current([drag.line.net]);
-    }
-    const affected = new Set(drag.line.tracks.map((i) => boardItemId('track', i)));
-    movingSelRef.current = affected;
-    dragAffectedRef.current = affected;
-    if (panelRef.current) {
-      const items = kItemsForIds(brd, affected);
-      hiddenItemsRef.current = items;
-      setItemsHidden(panelRef.current, items, true);
-      hideSelectionGroup(true);
-    } else {
-      sceneRef.current = buildBoardScene(deleteBoardItems(brd, affected), sceneFilter());
-    }
-    moveSceneRef.current = buildScene(subsetBoardItems(brd, affected), sceneFilter());
-    moveDeltaRef.current = { x: 0, y: 0 };
-    return true;
   };
 
   /**
@@ -7358,26 +7068,6 @@ export function PcbEditor({
     });
   }, [commitBoardSetup, setBoardModel]);
 
-  /** Put the net highlight back the way a track drag found it. */
-  const restoreDragHighlight = (): void => {
-    const restore = dragHighlightRestoreRef.current;
-    if (!restore) return;
-    dragHighlightRestoreRef.current = null;
-    applyRenderHighlightRef.current(restore);
-  };
-
-  /**
-   * The track a routable selection drags, or null. Upstream's test is
-   * `(segs >= 1 || arcs >= 1 || vias == 1) && segs + arcs + vias == size`, the
-   * selection must be nothing but routing. Only a lone track segment is dragged
-   * here; multi-segment and via drags still fall back to a move.
-   */
-  const routableTrackSeed = (sel: ReadonlySet<string>): number | null => {
-    if (sel.size !== 1) return null;
-    const r = parseBoardItemId([...sel][0]!);
-    return r?.kind === 'track' ? r.index : null;
-  };
-
   /**
    * `EDIT_TOOL::Move`'s per-frame cursor, as a delta for the selection.
    *
@@ -7424,26 +7114,6 @@ export function PcbEditor({
     // frame of the same move, and the fast one is the one a footprint takes.
     const session = courtyardSessionRef.current;
     conflictsRef.current = session ? courtyardConflictsAt(session, delta) : null;
-    if (trackDragRef.current) {
-      // The line is re-cut from scratch against the cursor each frame: a router
-      // drag is not a translation, so the overlay carries the new absolute
-      // geometry and the draw path applies no offset to it.
-      const drag = trackDragRef.current;
-      // `updateEndItem` again, with the dragged line in `aAvoidItems` so the
-      // cursor cannot snap to the thing it is moving. Snapping to the line's
-      // own collinear neighbours is what lets a trace go back exactly where it
-      // came from, which a grid-only cursor cannot do for off-grid copper.
-      const seed = dragSeedIdRef.current;
-      const at = dragSnap(cur, seed ? new Set([seed]) : null);
-      // The router forces the cursor to its own snap point too
-      // (`ROUTER_TOOL`: `controls->ForceCursorPosition( true, m_endSnapPoint )`).
-      forcedCursorRef.current = at;
-      const chain = updateTrackDrag(drag, at);
-      const line = trackDragSegments(brd, drag, chain);
-      moveSceneRef.current = buildScene({ ...emptyBoardLike(brd), tracks: line }, sceneFilter());
-      requestDraw();
-      return;
-    }
     if (dragModeRef.current) {
       const dragged = dragBoardItems(brd, movingSelRef.current, delta);
       moveSceneRef.current = buildScene(
@@ -7475,8 +7145,6 @@ export function PcbEditor({
     // the shadow goes with it whether or not the move was committed.
     courtyardSessionRef.current = null;
     conflictsRef.current = null;
-    const trackDrag = trackDragRef.current;
-    trackDragRef.current = null;
     dragModeRef.current = false;
     moveDeltaRef.current = null;
     moveSceneRef.current = null;
@@ -7487,22 +7155,6 @@ export function PcbEditor({
     // The gesture is over: `SetAuxAxes( false )`.
     auxAxisRef.current = null;
     unhideMovingItems();
-    if (trackDrag) {
-      const cur = cursorRef.current;
-      const seed = dragSeedIdRef.current;
-      dragSeedIdRef.current = null;
-      restoreDragHighlight();
-      if (brd && cur && delta && (delta.x !== 0 || delta.y !== 0)) {
-        // The same snap the preview used. A grid-only snap here would commit
-        // geometry the user never saw, and would land off the copper the
-        // preview was sitting on.
-        const at = dragSnap(cur, seed ? new Set([seed]) : null);
-        commitBoard(applyTrackDrag(brd, trackDrag, updateTrackDrag(trackDrag, at)));
-      } else if (brd) {
-        rebuildScene(brd);
-      }
-      return;
-    }
     if (brd && delta && (delta.x !== 0 || delta.y !== 0)) {
       commitBoard(
         kind === 'drag' ? dragBoardItems(brd, sel, delta) : moveBoardItems(brd, sel, delta),
@@ -7515,8 +7167,6 @@ export function PcbEditor({
   // Abandon the gesture without committing (Esc), restoring the full scene.
   const cancelMove = (): void => {
     const brd = boardRef.current;
-    trackDragRef.current = null;
-    restoreDragHighlight();
     // An in-place move only ever shifted vertices, so undoing it is the same
     // shift back — far cheaper than rebuilding a board that never changed.
     const applied = inPlaceMoveRef.current;
@@ -8688,9 +8338,6 @@ export function PcbEditor({
         if (p.net !== undefined && highlightNets.has(p.net)) ids.add(boardItemId('pad', fi, pi));
       });
     });
-    // The line a router drag has in flight is drawn by the move overlay, so it
-    // must not also appear here at its old position (upstream HideItem()s it).
-    if (trackDragRef.current) for (const id of dragAffectedRef.current) ids.delete(id);
     highlightSceneRef.current = ids.size > 0 ? buildScene(subsetBoardItems(brd, ids)) : null;
     // The dimming of everything NOT on the net is the VIEW's:
     // `PCB_RENDER_SETTINGS::GetColor` darkens by `1 - m_highlightFactor` for

@@ -114,7 +114,7 @@ import type { wxEvent } from '@ziroeda/common/wx/wx_event.js';
 import type { SelectionFilter } from './dialogs/dialog_filter_selection.js';
 import { PCB_POINT_EDITOR } from './tools/pcb_point_editor.js';
 import { PCB_SELECTION_TOOL } from './tools/pcb_selection_tool.js';
-import { EDIT_TOOL, type MOVE_EXACT_VALUES, type ROUTER_TOOL_LIKE } from './tools/edit_tool.js';
+import { EDIT_TOOL, type MOVE_EXACT_VALUES } from './tools/edit_tool.js';
 import type { DOGBONE_PARAMETERS } from './tools/item_modification_routine.js';
 import { ALIGN_DISTRIBUTE_TOOL } from './tools/align_distribute_tool.js';
 import { BOARD_INSPECTION_TOOL } from './tools/board_inspection_tool.js';
@@ -562,11 +562,6 @@ export interface PCB_EDIT_FRAME_HOOKS {
    * still computes its anchors from (`GetTransitionalBoardView`).
    */
   boardView?(): Board | null;
-  /**
-   * TRANSITIONAL (#636 stage 3): ROUTER_TOOL's state, while the router is the
-   * window's (`WINDOW_ACTION_BRIDGE::Router`).
-   */
-  router?(): ROUTER_TOOL_LIKE | null;
   /**
    * `DIALOG_FILTER_SELECTION( frame, aOptions ).ShowModal() == wxID_OK`, the
    * dialog editing `aOptions` in place. Optional: absent answers cancel.
@@ -1283,10 +1278,7 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     this.m_toolManager.RegisterTool(new BOARD_EDITOR_CONTROL());
     this.m_toolManager.RegisterTool(new AUTOPLACE_TOOL());
     this.m_toolManager.RegisterTool(
-      new WINDOW_ACTION_BRIDGE(
-        (aAction, aEvent) => this.hooks.windowAction?.(aAction, aEvent),
-        () => this.hooks.router?.() ?? null,
-      ),
+      new WINDOW_ACTION_BRIDGE((aAction, aEvent) => this.hooks.windowAction?.(aAction, aEvent)),
     );
     this.m_toolManager.InitTools();
 

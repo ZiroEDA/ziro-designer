@@ -148,20 +148,12 @@ describe('the VIEW hides what the overlay is dragging', () => {
   // draws their copy at the cursor; the drop or the Escape shows them again
   // before the commit re-derives the view. The in-place GPU shift is gone
   // with the buffer it shifted.
-  it('the one entry into the overlay move hides the items in the VIEW', () => {
-    expect(text).toContain('const startOverlayMove = (');
-    expect(text.match(/startOverlayMove\(/g)).toHaveLength(1);
-    const i = text.indexOf('const startOverlayMove = (');
-    const body = text.slice(i, i + 1600);
-    expect(body).toContain('kItemsForIds(brd, affected)');
-    expect(body).toContain('setItemsHidden(panel, items, true)');
-  });
-
-  it('a router drag hides the line it re-cuts, too', () => {
-    const i = text.indexOf('const beginTrackDrag = (');
-    expect(i).toBeGreaterThan(-1);
-    const body = text.slice(i, i + 4000);
-    expect(body).toContain('setItemsHidden(panelRef.current, items, true)');
+  it('the window starts no move or router drag of its own any more', () => {
+    // Its only entry was PCB_ACTIONS::routerInlineDrag, which ROUTER_TOOL
+    // answers now (router/router_tool_drag.test.ts pins the drag).
+    expect(text).not.toContain('const startOverlayMove = (');
+    expect(text).not.toContain('const beginMove = (');
+    expect(text).not.toContain('const beginTrackDrag = (');
   });
 
   it('both ends of the gesture show the items again', () => {

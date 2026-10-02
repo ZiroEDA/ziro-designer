@@ -94,6 +94,23 @@ import type { PCB_EDIT_FRAME } from '../pcb_edit_frame.js';
 import { PCB_TRACK, PCB_VIA } from '../pcb_track.js';
 import { PCB_ACTIONS } from '../tools/pcb_actions.js';
 import { IsZoneFillAction } from '../tools/pcb_picker_tool.js';
+import { PnsDragMode } from './pns_drag_algo.js';
+import { PnsItemSet } from './pns_itemset.js';
+import type { PnsBoardItem } from './pns_item.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
+import { ENDPOINT, STARTPOINT } from '@ziroeda/common/eda_item_flags.js';
+import { TOOL_EVENT as TOOL_EVENT_CLASS } from '@ziroeda/common/tool/tool_event.js';
+import { GetClampedCoords } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
+import { shapeDist } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
+import type { BOARD_ITEM } from '../board_item.js';
+import { GENERAL_COLLECTOR } from '../collectors.js';
+import { CONNECTIVITY_DATA } from '../connectivity/connectivity_data.js';
+import type { DRC_ENGINE } from '../drc/drc_engine.js';
+import { DRC_INTERACTIVE_COURTYARD_CLEARANCE } from '../drc/drc_interactive_courtyard_clearance.js';
+import type { FOOTPRINT } from '../footprint.js';
+import type { PCB_BASE_FRAME } from '../pcb_base_frame.js';
+import { PNS_COORDS_PADDING } from './pns_tool_base.js';
 import type { VIEW } from '@ziroeda/common/view/view.js';
 import type { VIEW_GROUP } from '@ziroeda/common/view/view_group.js';
 import { KeyNameFromKeyCode, PSEUDO_WXK_CLICK } from '@ziroeda/common/hotkeys_basic.js';
@@ -1646,6 +1663,706 @@ export class ROUTER_TOOL extends PNS_TOOL_BASE {
     this.finishInteractive();
   }
 
+  /** `breakTrack` (router_tool.cpp:1773-1780). */
+  private breakTrack(): void {
+    if (!this.m_startItem) return;
+
+    if (this.m_startItem.ofKind(PnsKind.SEGMENT_T | PnsKind.ARC_T))
+      this.m_router!.breakSegmentOrArc(this.m_startItem, this.m_startSnapPoint);
+  }
+
+  /** `KIDIALOG( frame(), "The selected item is locked.", … )` with `aOKLabel`. */
+  private *confirmLocked(aOKLabel: string, aKey: string): COROUTINE_BODY<boolean> {
+    const answer = yield* this.RunMainStackModal(() =>
+      this.editFrame().AskKiDialog({
+        caption: 'Confirmation',
+        message: 'The selected item is locked.',
+        icon: 'warning',
+        labels: { ok: aOKLabel },
+        doNotShowKey: aKey as never,
+      }),
+    );
+
+    return answer === 'ok';
+  }
+
+  /** `performDragging` (router_tool.cpp:2073-2219). */
+  private *performDragging(aMode: number): COROUTINE_BODY<void> {
+    const router = this.m_router!;
+    const view = this.view()!;
+    const ctls = this.controls();
+
+    router.clearViewDecorations();
+
+    view.ClearPreview();
+    view.InitPreview();
+
+    if (this.m_startItem?.isLocked()) {
+      const ok = yield* this.confirmLocked(
+        'Drag Anyway',
+        'pcbnew/router/router_tool.cpp:performDragging',
+      );
+
+      if (!ok) return;
+    }
+
+    const dragStarted = this.m_startItem
+      ? router.startDraggingItem(this.m_startSnapPoint, this.m_startItem, aMode)
+      : false;
+
+    if (!dragStarted) {
+      if (router.failureReason() !== '')
+        this.editFrame().ShowInfoBarError(router.failureReason(), true);
+
+      return;
+    }
+
+    if (this.m_startItem?.net()) this.highlightNets(true, new Set([this.m_startItem.net()]));
+
+    ctls.SetAutoPan(true);
+    this.m_gridHelper!.SetAuxAxes(true, this.m_startSnapPoint);
+    this.editFrame().UndoRedoBlock(true);
+
+    for (let evt = yield* this.Wait(); evt; evt = yield* this.Wait()) {
+      ctls.ForceCursorPosition(false);
+
+      if (evt.IsMotion()) {
+        this.updateEndItem(evt);
+        router.move(this.m_endSnapPoint, this.m_endItem);
+
+        const dragger = router.getDragger();
+
+        if (dragger) updateDragStatus(view, dragger, this.m_toolMgr!.GetMousePosition());
+      } else if (evt.IsClick(BUT_LEFT)) {
+        const forceFinish = false;
+        const forceCommit = evt.Modifier(MD_CTRL) !== 0;
+
+        if (router.fixRoute(this.m_endSnapPoint, this.m_endItem, forceFinish, forceCommit)) break;
+      } else if (evt.IsClick(BUT_RIGHT)) {
+        this.m_menu.ShowContextMenu(this.selection());
+      } else if (
+        evt.IsCancelInteractive() ||
+        evt.IsAction(PCB_ACTIONS.cancelCurrentItem) ||
+        evt.IsActivate()
+      ) {
+        if (evt.IsCancelInteractive() && !this.m_startItem) this.m_cancelled = true;
+
+        if (evt.IsActivate() && !evt.IsMoveTool()) this.m_cancelled = true;
+
+        break;
+      } else if (evt.IsUndoRedo()) {
+        // We're in an UndoRedoBlock.  If we get here, something's broken.
+        break;
+      } else if (evt.Category() === TOOL_EVENT_CATEGORY.TC_COMMAND) {
+        // TODO: It'd be nice to be able to say "don't allow any non-trivial editing actions",
+        // but we don't at present have that, so we just knock out some of the egregious ones.
+        if (
+          evt.IsAction(ACTIONS.cut) ||
+          evt.IsAction(ACTIONS.copy) ||
+          evt.IsAction(ACTIONS.paste) ||
+          evt.IsAction(ACTIONS.pasteSpecial) ||
+          IsZoneFillAction(evt)
+        ) {
+          wxBell();
+        }
+        // treat an undo as an escape
+        else if (evt.IsAction(ACTIONS.undo)) {
+          if (this.m_startItem) break;
+
+          wxBell();
+        } else {
+          evt.SetPassEvent();
+        }
+      } else {
+        evt.SetPassEvent();
+      }
+
+      this.handleCommonEvents(evt);
+    }
+
+    view.ClearPreview();
+    view.ShowPreview(false);
+
+    if (router.routingInProgress()) router.stopRouting();
+
+    this.m_startItem = null;
+
+    this.m_gridHelper!.SetAuxAxes(false);
+    this.editFrame().UndoRedoBlock(false);
+    ctls.SetAutoPan(false);
+    ctls.ForceCursorPosition(false);
+    this.highlightNets(false);
+  }
+
+  /**
+   * `NeighboringSegmentFilter` (router_tool.cpp:2222-2292): a trivial line
+   * corner or a non-fanout via collapses to the one item, since dragging any of
+   * them drags them all.
+   */
+  static NeighboringSegmentFilter(
+    aPt: Vec2,
+    aCollector: GENERAL_COLLECTOR,
+    _aSelTool: unknown,
+  ): void {
+    // First make sure we've got something that *might* match.
+    const vias = aCollector.CountType(KICAD_T.PCB_VIA_T);
+    const traces = aCollector.CountType(KICAD_T.PCB_TRACE_T);
+    const arcs = aCollector.CountType(KICAD_T.PCB_ARC_T);
+
+    // We eliminate arcs because they are not supported in the inline drag code.
+    if (arcs > 0) return;
+
+    // We need to have at least 1 via or track
+    if (vias + traces === 0) return;
+
+    // We cannot drag more than one via at a time
+    if (vias > 1) return;
+
+    // We cannot drag more than two track segments at a time
+    if (traces > 2) return;
+
+    // Fetch first PCB_TRACK (via or trace) as our reference
+    let reference: PCB_TRACK | null = null;
+
+    for (let i = 0; !reference && i < aCollector.GetCount(); i++) {
+      const item = aCollector.At(i);
+
+      if (item instanceof PCB_TRACK) reference = item;
+    }
+
+    // This should never happen, but just in case...
+    if (!reference) return;
+
+    const refNet = reference.GetNetCode();
+
+    let refPoint: Vec2 = { x: aPt.x, y: aPt.y };
+    const flags = reference.IsPointOnEnds(refPoint, -1);
+
+    if (flags & STARTPOINT) refPoint = reference.GetStart();
+    else if (flags & ENDPOINT) refPoint = reference.GetEnd();
+
+    // Check all items to ensure that any TRACKs are co-terminus with the reference and on
+    // the same net.
+    for (let i = 0; i < aCollector.GetCount(); i++) {
+      const neighbor = aCollector.At(i);
+
+      if (neighbor instanceof PCB_TRACK && neighbor !== reference) {
+        if (neighbor.GetNetCode() !== refNet) return;
+
+        const s = neighbor.GetStart();
+        const e = neighbor.GetEnd();
+
+        if (
+          (s.x !== refPoint.x || s.y !== refPoint.y) &&
+          (e.x !== refPoint.x || e.y !== refPoint.y)
+        )
+          return;
+      }
+    }
+
+    // Selection meets criteria; trim it to the reference item.
+    aCollector.Empty();
+    aCollector.Append(reference);
+  }
+
+  /** `CanInlineDrag` (router_tool.cpp:2295-2315). */
+  CanInlineDrag(aDragMode: number): boolean {
+    this.m_toolMgr!.RunAction(ACTIONS.selectionCursor, ROUTER_TOOL.NeighboringSegmentFilter);
+    const selection = this.selection();
+
+    if (selection.Size() === 1) {
+      return selection.Front()!.IsType(GENERAL_COLLECTOR.DraggableItems);
+    } else if (selection.CountType(KICAD_T.PCB_FOOTPRINT_T) === selection.Size()) {
+      // Footprints cannot be dragged freely.
+      return !(aDragMode & PnsDragMode.DM_FREE_ANGLE);
+    } else if (selection.CountType(KICAD_T.PCB_TRACE_T) === selection.Size()) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /** `restoreSelection` (router_tool.cpp:2318-2323). */
+  private restoreSelection(aOriginalSelection: readonly EDA_ITEM[]): void {
+    this.m_toolMgr!.RunAction<EDA_ITEM[]>(ACTIONS.selectItems, [...aOriginalSelection]);
+  }
+
+  /** `InlineDrag` (router_tool.cpp:2326-2807). */
+  *InlineDrag(aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+    let selection = this.selection();
+
+    if (selection.Empty())
+      this.m_toolMgr!.RunAction(ACTIONS.selectionCursor, ROUTER_TOOL.NeighboringSegmentFilter);
+
+    selection = this.selection();
+
+    if (selection.Empty() || !selection.Front()!.IsBOARD_ITEM()) return 0;
+
+    // selection gets cleared in the next action, we need a copy of the selected items.
+    const selectedItems = [...selection.GetItems()];
+
+    const item = selection.Front() as BOARD_ITEM;
+
+    if (
+      item.Type() !== KICAD_T.PCB_TRACE_T &&
+      item.Type() !== KICAD_T.PCB_VIA_T &&
+      item.Type() !== KICAD_T.PCB_ARC_T &&
+      item.Type() !== KICAD_T.PCB_FOOTPRINT_T
+    ) {
+      return 0;
+    }
+
+    const footprints = new Set<FOOTPRINT>();
+
+    if (item.Type() === KICAD_T.PCB_FOOTPRINT_T) footprints.add(item as unknown as FOOTPRINT);
+
+    // We can drag multiple footprints, but not a grab-bag of items
+    if (selection.Size() > 1 && item.Type() === KICAD_T.PCB_FOOTPRINT_T) {
+      for (let idx = 1; idx < selection.Size(); ++idx) {
+        const other = selectedItems[idx]!;
+
+        if (!other.IsBOARD_ITEM()) return 0;
+
+        if (other.Type() !== KICAD_T.PCB_FOOTPRINT_T) return 0;
+
+        footprints.add(other as unknown as FOOTPRINT);
+      }
+    }
+
+    // If we overrode locks, we want to clear the flag from the source item before SyncWorld is
+    // called so that virtual vias are not generated for the (now unlocked) track segment.  Note in
+    // this case the lock can't be reliably re-applied, because there is no guarantee that the end
+    // state of the drag results in the same number of segments so it's not clear which segment to
+    // apply the lock state to.
+    let wasLocked = false;
+
+    if (item.IsLocked()) {
+      wasLocked = true;
+      item.SetLocked(false);
+    }
+
+    this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
+
+    const pushedEvent = aEvent;
+    this.frame().PushTool(aEvent);
+    this.Activate();
+
+    this.m_startItem = null;
+
+    const router = this.m_router!;
+    const view = this.view()!;
+    const itemsToDrag = new PnsItemSet();
+
+    const showCourtyardConflicts =
+      this.frame<PCB_BASE_FRAME>().GetPcbNewSettings().m_ShowCourtyardCollisions;
+
+    const drcTool = this.m_toolMgr!.FindTool('pcbnew.DRCTool') as unknown as {
+      GetDRCEngine(): DRC_ENGINE | null;
+    } | null;
+    const drcEngine = drcTool?.GetDRCEngine() ?? null;
+    const courtyardClearanceDRC = drcEngine
+      ? new DRC_INTERACTIVE_COURTYARD_CLEARANCE(drcEngine)
+      : null;
+
+    const connectivityData = this.board().GetConnectivity();
+    const dynamicItems: BOARD_ITEM[] = [];
+    let dynamicData: CONNECTIVITY_DATA | null = null;
+    let lastOffset: Vec2 = { x: 0, y: 0 };
+    let leaderSegments: PnsItem[] = [];
+    let singleFootprintDrag = false;
+
+    // The PNS world may be stale if the board has been modified since the last sync (e.g. by
+    // a Move operation). Sync it now so that FindItemByParent and joint lookups work correctly.
+    router.syncWorld();
+
+    const world = router.world()!;
+
+    if (footprints.size > 0) {
+      if (footprints.size === 1) singleFootprintDrag = true;
+
+      if (showCourtyardConflicts) courtyardClearanceDRC?.Init(this.board());
+
+      for (const footprint of footprints) {
+        for (const pad of footprint.Pads()) {
+          const solid = world.findItemByParent(pad as unknown as PnsBoardItem);
+
+          if (solid) itemsToDrag.add(solid);
+
+          if (pad.GetLocalRatsnestVisible() || this.displayOptions().m_ShowModuleRatsnest) {
+            if (connectivityData.GetRatsnestForPad(pad).length > 0) dynamicItems.push(pad);
+          }
+        }
+
+        for (const zone of footprint.Zones()) {
+          for (const solid of world.findItemsByParent(zone as unknown as PnsBoardItem))
+            itemsToDrag.add(solid);
+        }
+
+        for (const shape of footprint.GraphicalItems()) {
+          if (
+            shape.GetLayer() === PCB_LAYER_ID.Edge_Cuts ||
+            shape.GetLayer() === PCB_LAYER_ID.Margin ||
+            IsCopperLayer(shape.GetLayer())
+          ) {
+            for (const solid of world.findItemsByParent(shape as unknown as PnsBoardItem))
+              itemsToDrag.add(solid);
+          }
+        }
+
+        if (showCourtyardConflicts) courtyardClearanceDRC?.m_FpInMove.push(footprint);
+      }
+
+      dynamicData = new CONNECTIVITY_DATA(connectivityData, dynamicItems, true);
+      connectivityData.BlockRatsnestItems(dynamicItems);
+    } else {
+      for (const selItem of selectedItems) {
+        if (!selItem.IsBOARD_ITEM()) continue;
+
+        const pnsItem = world.findItemByParent(selItem as unknown as PnsBoardItem);
+
+        if (!pnsItem) continue;
+
+        if (
+          pnsItem.ofKind(PnsKind.SEGMENT_T) ||
+          pnsItem.ofKind(PnsKind.VIA_T) ||
+          pnsItem.ofKind(PnsKind.ARC_T)
+        ) {
+          itemsToDrag.add(pnsItem);
+        }
+      }
+    }
+
+    const gal = this.m_toolMgr!.GetView()!.GetGAL()!;
+    const p0 = GetClampedCoords(this.controls().GetCursorPosition(false), PNS_COORDS_PADDING);
+    let p = p0;
+
+    this.m_gridHelper!.SetUseGrid(gal.GetGridSnapping() && !aEvent.DisableGridSnapping());
+    this.m_gridHelper!.SetSnap(!aEvent.Modifier(MD_SHIFT));
+
+    if (itemsToDrag.count() >= 1) {
+      // Snap to closest item. Use the frame's active layer rather than m_originalActiveLayer,
+      // which is only set during prepareInteractive() and remains UNDEFINED_LAYER for inline
+      // drag operations.
+      const activeLayer = this.frame().GetActiveLayer();
+      const layer = this.m_iface!.GetPNSLayerFromBoardLayer(activeLayer);
+      let closestItem: PnsItem | null = null;
+      let closestDistSq = Number.MAX_VALUE;
+
+      for (const pitem of itemsToDrag.items()) {
+        const shape = pitem.shape(layer);
+
+        if (!shape) continue;
+
+        const d = shapeDist(shape, { kind: 'circle', c: p0, r: 0 });
+        const distSq = d <= 0 ? 0 : d * d;
+
+        if (distSq < closestDistSq) {
+          closestDistSq = distSq;
+          closestItem = pitem;
+        }
+      }
+
+      if (closestItem) {
+        p = this.snapToItem(closestItem, p0);
+
+        this.m_startItem = closestItem;
+
+        if (closestItem.net()) this.highlightNets(true, new Set([closestItem.net()]));
+      }
+    }
+
+    if (footprints.size > 0 && singleFootprintDrag) {
+      const footprint = item as unknown as FOOTPRINT;
+
+      // The mouse is going to be moved on grid before dragging begins.
+      let tweakedMousePos: Vec2;
+
+      // Check if user wants to warp the mouse to origin of moved object
+      if (this.editFrame().GetMoveWarpsCursor())
+        tweakedMousePos = footprint.GetPosition(); // Use footprint anchor to warp mouse
+      else
+        tweakedMousePos = GetClampedCoords(this.controls().GetCursorPosition(), PNS_COORDS_PADDING); // Just use current mouse pos
+
+      // We tweak the mouse position using the value from above, and then use that as the
+      // start position to prevent the footprint from jumping when we start dragging.
+      // First we move the visual cross hair cursor...
+      this.controls().ForceCursorPosition(true, tweakedMousePos);
+      this.controls().SetCursorPosition(tweakedMousePos); // ...then the mouse pointer
+
+      // Now that the mouse is in the right position, get a copy of the position to use later
+      p = this.controls().GetCursorPosition();
+    }
+
+    const dragMode = aEvent.Parameter<number>() ?? PnsDragMode.DM_ANY;
+
+    const dragStarted = router.startDragging(p, itemsToDrag, dragMode);
+
+    if (!dragStarted) {
+      if (wasLocked) item.SetLocked(true);
+
+      if (footprints.size > 0) connectivityData.ClearLocalRatsnest();
+
+      // Clear temporary COURTYARD_CONFLICT flag and ensure the conflict shadow is cleared
+      courtyardClearanceDRC?.ClearConflicts(this.getView()!);
+
+      this.restoreSelection(selectedItems);
+      this.controls().ForceCursorPosition(false);
+      this.frame().PopTool(pushedEvent);
+      this.highlightNets(false);
+      return 0;
+    }
+
+    this.m_gridHelper!.SetAuxAxes(true, p);
+    this.controls().ShowCursor(true);
+    this.controls().SetAutoPan(true);
+    this.editFrame().UndoRedoBlock(true);
+
+    view.ClearPreview();
+    view.InitPreview();
+
+    const setCursor = (): void => {
+      this.frame().GetCanvas()?.SetCurrentCursor(KICURSOR.ARROW);
+    };
+
+    // Set initial cursor
+    setCursor();
+
+    // Set the initial visible area
+    this.handleCommonEvents(new TOOL_EVENT_CLASS(TOOL_EVENT_CATEGORY.TC_VIEW, TOOL_ACTIONS.TA_ANY));
+
+    // Send an initial movement to prime the collision detection
+    router.move(p, null);
+
+    let hasMouseMoved = false;
+    let hasMultidragCancelled = false;
+
+    for (let evt = yield* this.Wait(); evt; evt = yield* this.Wait()) {
+      setCursor();
+
+      if (
+        evt.IsCancelInteractive() ||
+        evt.IsAction(PCB_ACTIONS.cancelCurrentItem) ||
+        evt.IsActivate()
+      ) {
+        if (wasLocked) item.SetLocked(true);
+
+        hasMultidragCancelled = true;
+
+        break;
+      } else if (evt.IsMotion() || evt.IsDrag(BUT_LEFT)) {
+        hasMouseMoved = true;
+        this.updateEndItem(evt);
+        router.move(this.m_endSnapPoint, this.m_endItem);
+
+        view.ClearPreview();
+
+        if (footprints.size > 0) {
+          const offset = { x: this.m_endSnapPoint.x - p.x, y: this.m_endSnapPoint.y - p.y };
+
+          for (const footprint of footprints) {
+            for (const drawing of footprint.GraphicalItems()) {
+              const previewItem = drawing.Clone() as BOARD_ITEM;
+              previewItem.Move(offset);
+
+              view.AddToPreview(previewItem);
+              view.Hide(drawing, true);
+            }
+
+            for (const pad of footprint.Pads()) {
+              if (pad.GetLayerSet().and(LSET.AllCuMask()).none() && pad.GetDrillSize().x === 0) {
+                const previewItem = pad.Clone() as BOARD_ITEM;
+                previewItem.Move(offset);
+
+                view.AddToPreview(previewItem);
+              } else {
+                // Pads with copper or holes are handled by the router
+              }
+
+              view.Hide(pad, true);
+            }
+
+            let previewItem = footprint.Reference().Clone() as BOARD_ITEM;
+            previewItem.Move(offset);
+            view.AddToPreview(previewItem);
+            view.Hide(footprint.Reference());
+
+            previewItem = footprint.Value().Clone() as BOARD_ITEM;
+            previewItem.Move(offset);
+            view.AddToPreview(previewItem);
+            view.Hide(footprint.Value());
+
+            if (showCourtyardConflicts) footprint.Move(offset);
+          }
+
+          if (showCourtyardConflicts && courtyardClearanceDRC) {
+            courtyardClearanceDRC.Run();
+            courtyardClearanceDRC.UpdateConflicts(this.getView()!, false);
+
+            for (const footprint of footprints) footprint.Move({ x: -offset.x, y: -offset.y });
+          }
+
+          // Update ratsnest
+          dynamicData!.Move({ x: offset.x - lastOffset.x, y: offset.y - lastOffset.y });
+          lastOffset = offset;
+          connectivityData.ComputeLocalRatsnest(dynamicItems, dynamicData, offset);
+        }
+
+        const dragger = router.getDragger();
+
+        if (dragger) {
+          const dragStatus = { value: false };
+
+          if (dragger.getForceMarkObstaclesMode(dragStatus) && !dragStatus.value) {
+            const statusItem = new ROUTER_STATUS_VIEW_ITEM();
+            statusItem.SetMessage('Track violates DRC.');
+            statusItem.SetHint(
+              `(${KeyNameFromKeyCode(MD_CTRL + PSEUDO_WXK_CLICK)} to commit anyway.)`,
+            );
+            const at = this.m_toolMgr!.GetMousePosition();
+            statusItem.SetPosition({ x: Math.round(at.x), y: Math.round(at.y) });
+            view.AddToPreview(statusItem);
+          }
+        }
+      } else if (hasMouseMoved && (evt.IsMouseUp(BUT_LEFT) || evt.IsClick(BUT_LEFT))) {
+        const forceFinish = false;
+        const forceCommit = evt.Modifier(MD_CTRL) !== 0;
+
+        this.updateEndItem(evt);
+        router.fixRoute(this.m_endSnapPoint, this.m_endItem, forceFinish, forceCommit);
+        leaderSegments = router.getLastCommittedLeaderSegments();
+
+        break;
+      } else if (evt.IsUndoRedo()) {
+        // We're in an UndoRedoBlock.  If we get here, something's broken.
+        break;
+      } else if (evt.Category() === TOOL_EVENT_CATEGORY.TC_COMMAND) {
+        // TODO: It'd be nice to be able to say "don't allow any non-trivial editing actions",
+        // but we don't at present have that, so we just knock out some of the egregious ones.
+        if (
+          evt.IsAction(ACTIONS.cut) ||
+          evt.IsAction(ACTIONS.copy) ||
+          evt.IsAction(ACTIONS.paste) ||
+          evt.IsAction(ACTIONS.pasteSpecial) ||
+          IsZoneFillAction(evt)
+        ) {
+          wxBell();
+        }
+        // treat an undo as an escape
+        else if (evt.IsAction(ACTIONS.undo)) {
+          if (wasLocked) item.SetLocked(true);
+
+          break;
+        } else {
+          evt.SetPassEvent();
+        }
+      } else {
+        evt.SetPassEvent();
+      }
+
+      this.handleCommonEvents(evt);
+    }
+
+    if (footprints.size > 0) {
+      for (const footprint of footprints) {
+        for (const drawing of footprint.GraphicalItems()) view.Hide(drawing, false);
+
+        view.Hide(footprint.Reference(), false);
+        view.Hide(footprint.Value(), false);
+
+        for (const pad of footprint.Pads()) view.Hide(pad, false);
+      }
+
+      view.ClearPreview();
+      view.ShowPreview(false);
+
+      connectivityData.ClearLocalRatsnest();
+    }
+
+    // Clear temporary COURTYARD_CONFLICT flag and ensure the conflict shadow is cleared
+    courtyardClearanceDRC?.ClearConflicts(this.getView()!);
+
+    if (router.routingInProgress()) router.stopRouting();
+
+    if (itemsToDrag.size() && hasMultidragCancelled) {
+      this.restoreSelection(selectedItems);
+    } else if (leaderSegments.length) {
+      const newItems: EDA_ITEM[] = [];
+
+      for (const lseg of leaderSegments) newItems.push(lseg.parent() as unknown as EDA_ITEM);
+
+      this.m_toolMgr!.RunAction<EDA_ITEM[]>(ACTIONS.selectItems, newItems);
+    }
+
+    this.m_gridHelper!.SetAuxAxes(false);
+    this.controls().SetAutoPan(false);
+    this.controls().ForceCursorPosition(false);
+    this.editFrame().UndoRedoBlock(false);
+    this.frame().PopTool(pushedEvent);
+    this.highlightNets(false);
+    view.ClearPreview();
+    view.ShowPreview(false);
+
+    return 0;
+  }
+
+  /** `InlineBreakTrack` (router_tool.cpp:2810-2871). */
+  *InlineBreakTrack(aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+    const selection = this.selection();
+
+    if (selection.Size() !== 1) return 0;
+
+    const item = selection.Front() as BOARD_ITEM;
+
+    if (item.Type() !== KICAD_T.PCB_TRACE_T && item.Type() !== KICAD_T.PCB_ARC_T) return 0;
+
+    this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
+
+    this.Activate();
+
+    this.m_startItem =
+      this.m_router!.world()!.findItemByParent(item as unknown as PnsBoardItem) ?? null;
+
+    const toolManager = this.m_toolMgr!;
+    const gal = toolManager.GetView()!.GetGAL()!;
+
+    this.m_gridHelper!.SetUseGrid(gal.GetGridSnapping() && !aEvent.DisableGridSnapping());
+    this.m_gridHelper!.SetSnap(!aEvent.Modifier(MD_SHIFT));
+
+    this.controls().ForceCursorPosition(false);
+
+    if (toolManager.IsContextMenuActive()) {
+      // If we're here from a context menu then we need to get the position of the
+      // cursor when the context menu was invoked.  This is used to figure out the
+      // break point on the track.
+      this.m_startSnapPoint = this.snapToItem(this.m_startItem, toolManager.GetMenuCursorPos());
+    } else {
+      // If we're here from a hotkey, then get the current mouse position so we know
+      // where to break the track.
+      this.m_startSnapPoint = this.snapToItem(
+        this.m_startItem,
+        this.controls().GetCursorPosition(),
+      );
+    }
+
+    if (this.m_startItem?.isLocked()) {
+      const ok = yield* this.confirmLocked(
+        'Break Track',
+        'pcbnew/router/router_tool.cpp:InlineBreakTrack',
+      );
+
+      if (!ok) return 0;
+    }
+
+    this.editFrame().UndoRedoBlock(true);
+    this.breakTrack();
+
+    if (this.m_router!.routingInProgress()) this.m_router!.stopRouting();
+
+    this.editFrame().UndoRedoBlock(false);
+
+    return 0;
+  }
+
   /** `ChangeRouterMode` (router_tool.cpp:1730-1739). */
   ChangeRouterMode(aEvent: TOOL_EVENT): number {
     const mode = aEvent.Parameter<PnsMode>();
@@ -1763,6 +2480,16 @@ export class ROUTER_TOOL extends PNS_TOOL_BASE {
         router.syncWorld();
       } else if (evt.IsMotion()) {
         this.updateStartItem(evt);
+      } else if (evt.IsAction(PCB_ACTIONS.dragFreeAngle)) {
+        this.updateStartItem(evt, true);
+        yield* this.performDragging(PnsDragMode.DM_ANY | PnsDragMode.DM_FREE_ANGLE);
+      } else if (evt.IsAction(PCB_ACTIONS.drag45Degree)) {
+        this.updateStartItem(evt, true);
+        yield* this.performDragging(PnsDragMode.DM_ANY);
+      } else if (evt.IsAction(PCB_ACTIONS.breakTrack)) {
+        this.updateStartItem(evt, true);
+        this.breakTrack();
+        evt.SetPassEvent(false);
       } else if (
         evt.IsClick(BUT_LEFT) ||
         evt.IsAction(PCB_ACTIONS.routeSingleTrack) ||
@@ -1970,6 +2697,8 @@ export class ROUTER_TOOL extends PNS_TOOL_BASE {
       SYNC_HANDLER<ROUTER_TOOL>(this.CycleRouterMode),
       PCB_ACTIONS.cycleRouterMode.MakeEvent(),
     );
+    this.Go(this.InlineDrag, PCB_ACTIONS.routerInlineDrag.MakeEvent());
+    this.Go(this.InlineBreakTrack, PCB_ACTIONS.breakTrack.MakeEvent());
 
     this.Go(this.onViaCommand, ACT_PlaceThroughVia.MakeEvent());
     this.Go(this.onViaCommand, ACT_PlaceBlindVia.MakeEvent());

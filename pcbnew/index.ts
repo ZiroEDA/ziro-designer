@@ -255,16 +255,6 @@ export {
 } from './zone_filler.js';
 
 // Track dragging (pcbnew/router: PNS::DRAGGER + PNS::LINE geometry).
-export {
-  assembleLine,
-  startTrackDrag,
-  updateTrackDrag,
-  trackDragSegments,
-  applyTrackDrag,
-  type AssembledLine,
-  type TrackDrag,
-  type DragMode,
-} from './router/pns_dragger.js';
 
 // Edit Teardrops (pcbnew/dialogs/dialog_global_edit_teardrops.cpp).
 export {
