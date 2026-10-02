@@ -157,6 +157,29 @@ describe('SCH_REFERENCE_LIST::Annotate', () => {
     expect(a.GetRef(env.sheet)).toBe('R201');
   });
 
+  it('reannotating, a locked unit shares a package only with units of its own value', () => {
+    // ReannotateByOptions locks every annotated reference (sch_reference_list.cpp:345).
+    // B is U5 unit 1 (y) and its locked partner C is U5 unit 2 (z): GetUnitsMatchingRef
+    // asks only for B's own unit (:230 drops C's value), so B fits beside A (U1 unit 2,
+    // y) as U1; C, unlike everything, takes U2.
+    const env = setup();
+    const u = part('LM358', 2);
+    const a = place(env, u, 'U1', 0, 2, 'y');
+    const b = place(env, u, 'U5', 100, 1, 'y');
+    const c = place(env, u, 'U5', 200, 2, 'z');
+    const list = listOf(env, [a, b, c]);
+    list.ReannotateByOptions(
+      ANNOTATE_ORDER_T.SORT_BY_X_POSITION,
+      ANNOTATE_ALGO_T.INCREMENTAL_BY_REF,
+      0,
+      new SCH_REFERENCE_LIST(),
+      false,
+      null,
+    );
+    list.UpdateAnnotation();
+    expect([a, b, c].map((s) => s.GetRef(env.sheet))).toEqual(['U1', 'U1', 'U2']);
+  });
+
   it('with reuse off, skips a number used before even though it is free now', () => {
     const env = setup();
     const tracker = new REFDES_TRACKER();
