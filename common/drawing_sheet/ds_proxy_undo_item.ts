@@ -95,6 +95,18 @@ export class DS_PROXY_UNDO_ITEM extends EDA_ITEM {
     }
   }
 
+  /** `DS_PROXY_UNDO_ITEM& operator=( DS_PROXY_UNDO_ITEM&& )`: the saved state of another. */
+  override assign(aItem: EDA_ITEM): this {
+    super.assign(aItem);
+    const aOther = aItem as DS_PROXY_UNDO_ITEM;
+    this.m_titleBlock = aOther.m_titleBlock;
+    this.m_pageInfo = aOther.m_pageInfo;
+    this.m_layoutSerialization = aOther.m_layoutSerialization;
+    this.m_selectedDataItem = aOther.m_selectedDataItem;
+    this.m_selectedDrawItem = aOther.m_selectedDrawItem;
+    return this;
+  }
+
   override GetClass(): string {
     return 'DS_PROXY_UNDO_ITEM';
   }

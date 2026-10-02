@@ -33,6 +33,9 @@
 
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { galSnapPx } from './gal_pixel_grid.js';
+import { EDA_ITEM } from './eda_item.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import type { Color4d } from './gal/color4d.js';
 
 /** `ORIGIN_VIEWITEM::MARKER_STYLE` (`include/origin_viewitem.h:44-47`). */
 export type OriginMarkerStyle = 'no_graphic' | 'cross' | 'circle_cross' | 'circle_x';
@@ -147,4 +150,82 @@ export function drawOriginViewItem(
     ctx.lineTo(x + r, y - r);
   }
   ctx.stroke();
+}
+
+/**
+ * `KIGFX::ORIGIN_VIEWITEM` as the EDA_ITEM it is upstream (`EDA_ITEM( NOT_USED )`):
+ * what PCB_CONTROL's grid origin and BOARD_EDITOR_CONTROL's drill origin
+ * hold, and what their undo records clone (`SaveCopyInUndoList( item,
+ * UNDO_REDO::GRIDORIGIN )`, `PutDataInPreviousState` swapping positions with
+ * the image).
+ *
+ * TRANSITIONAL: not added to the VIEW yet - the board canvas draws both
+ * markers through {@link drawOriginViewItem} from the design settings, which
+ * `DoSetGridOrigin` / `DoSetDrillOrigin` write alongside this position.
+ */
+export class ORIGIN_VIEWITEM extends EDA_ITEM {
+  private m_position: Vec2;
+  private m_color: Color4d;
+  private m_style: OriginMarkerStyle;
+  private m_size: number;
+  private m_drawAtZero = false;
+
+  constructor(
+    aColor: Color4d = { r: 1, g: 1, b: 1, a: 1 },
+    aStyle: OriginMarkerStyle = 'circle_x',
+    aSize = ORIGIN_VIEWITEM_SIZE,
+    aPosition: Vec2 = { x: 0, y: 0 },
+  ) {
+    super(KICAD_T.NOT_USED);
+    this.m_position = { ...aPosition };
+    this.m_color = { ...aColor };
+    this.m_style = aStyle;
+    this.m_size = aSize;
+  }
+
+  override Clone(): ORIGIN_VIEWITEM {
+    const copy = new ORIGIN_VIEWITEM(this.m_color, this.m_style, this.m_size, this.m_position);
+    copy.m_drawAtZero = this.m_drawAtZero;
+    return copy;
+  }
+
+  override GetClass(): string {
+    return 'ORIGIN_VIEWITEM';
+  }
+
+  override GetPosition(): Vec2 {
+    return { ...this.m_position };
+  }
+
+  override SetPosition(aPosition: Vec2): void {
+    this.m_position = { ...aPosition };
+  }
+
+  SetColor(aColor: Color4d): void {
+    this.m_color = { ...aColor };
+  }
+
+  GetColor(): Color4d {
+    return { ...this.m_color };
+  }
+
+  SetStyle(aStyle: OriginMarkerStyle): void {
+    this.m_style = aStyle;
+  }
+
+  GetStyle(): OriginMarkerStyle {
+    return this.m_style;
+  }
+
+  SetSize(aSize: number): void {
+    this.m_size = aSize;
+  }
+
+  GetSize(): number {
+    return this.m_size;
+  }
+
+  SetDrawAtZero(aDrawFlag: boolean): void {
+    this.m_drawAtZero = aDrawFlag;
+  }
 }

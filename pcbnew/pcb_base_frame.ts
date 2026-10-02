@@ -283,6 +283,14 @@ export abstract class PCB_BASE_FRAME extends EDA_DRAW_FRAME {
     return this.m_originTransforms;
   }
 
+  SetPageSettings(aPageSettings: PAGE_INFO): void {
+    this.m_pcb!.SetPageSettings(aPageSettings);
+
+    const screen = this.GetScreen();
+
+    if (screen) screen.InitDataPoints(aPageSettings.GetSizeIU(pcbIUScale.IU_PER_MILS));
+  }
+
   GetTitleBlock(): TITLE_BLOCK {
     return this.m_pcb!.GetTitleBlock();
   }

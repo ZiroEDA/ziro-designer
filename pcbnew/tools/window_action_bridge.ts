@@ -36,8 +36,6 @@ export type WINDOW_ACTION_HANDLER = (aAction: TOOL_ACTION, aEvent: TOOL_EVENT) =
 export const WINDOW_BRIDGED_ACTIONS: readonly TOOL_ACTION[] = [
   // ROUTER_TOOL: EDIT_TOOL::invokeInlineRouter's drag
   PCB_ACTIONS.routerInlineDrag,
-  // BOARD_EDITOR_CONTROL::PageSettings
-  ACTIONS.pageSettings,
   // ARRAY_TOOL::CreateArray, run from CONVERT_TOOL's "Create from Selection"
   PCB_ACTIONS.createArray,
   // COMMON_TOOLS

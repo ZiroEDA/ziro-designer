@@ -10,6 +10,8 @@
  * The listener is `BOARD_LISTENER` as the React side subscribes to it: every
  * notification schedules one re-derivation of the view from the BOARD.
  */
+import { PCB_CONTROL } from './tools/pcb_control.js';
+import { BOARD_EDITOR_CONTROL } from './tools/board_editor_control.js';
 import { PARSE_ERROR } from '@ziroeda/common/dsnlexer.js';
 import { PCB_EDIT_FRAME_NAME } from '@ziroeda/common/eda_draw_frame.js';
 import { LSET } from '@ziroeda/common/lset.js';
@@ -307,6 +309,8 @@ export interface PCB_EDIT_FRAME_HOOKS {
   createDrcDialog(aTool: DRC_TOOL, aParent: unknown): DIALOG_DRC_LIKE;
   /** `Kiface().IsSingle()`: no schematic to test parity against. */
   isSingle(): boolean;
+  /** DIALOG_PAGES_SETTINGS: true when OK wrote the page and title block into the frame. */
+  showPageSettingsDialog?(): Promise<boolean>;
   /** DIALOG_IMPORT_GRAPHICS: what OK read off it, or null. */
   showImportGraphicsDialog?(aFilenameOverride?: string): Promise<IMPORT_GRAPHICS_RESULT | null>;
   /** DIALOG_BARCODE_PROPERTIES on a live barcode, new or not; true when OK closed it. */
@@ -842,6 +846,10 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     return Promise.resolve(true);
   }
 
+  override ShowPageSettingsDialog(): Promise<boolean> {
+    return this.hooks.showPageSettingsDialog?.() ?? Promise.resolve(false);
+  }
+
   override ShowImportGraphicsDialog(
     aFilenameOverride?: string,
   ): Promise<IMPORT_GRAPHICS_RESULT | null> {
@@ -1171,6 +1179,8 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     this.m_toolManager.RegisterTool(new EMBED_TOOL());
     this.m_toolManager.RegisterTool(new PCB_PICKER_TOOL());
     this.m_toolManager.RegisterTool(new DRAWING_TOOL());
+    this.m_toolManager.RegisterTool(new PCB_CONTROL());
+    this.m_toolManager.RegisterTool(new BOARD_EDITOR_CONTROL());
     this.m_toolManager.RegisterTool(
       new WINDOW_ACTION_BRIDGE(
         (aAction, aEvent) => this.hooks.windowAction?.(aAction, aEvent),

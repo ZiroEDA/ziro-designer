@@ -186,6 +186,16 @@ export abstract class PCB_BASE_EDIT_FRAME extends PCB_BASE_FRAME {
     return Promise.resolve(null);
   }
 
+  /**
+   * `DIALOG_PAGES_SETTINGS( this, … ).ShowModal() == wxID_OK`
+   * (board_editor_control.cpp:526-533). OK has written the page and the title
+   * block into the frame (`SetPageSettings` / `SetTitleBlock`). Cancel without a
+   * window.
+   */
+  ShowPageSettingsDialog(): Promise<boolean> {
+    return Promise.resolve(false);
+  }
+
   /** `SetObjectVisible` (pcb_base_edit_frame.cpp:271-275): through the Appearance panel. */
   SetObjectVisible(aLayer: GAL_LAYER_ID, aVisible = true): void {
     if (this.m_appearancePanel) this.m_appearancePanel.SetObjectVisible?.(aLayer, aVisible);

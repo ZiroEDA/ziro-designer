@@ -55,6 +55,8 @@ import type { PCB_GROUP } from './pcb_group.js';
 import type { PCB_TRACK } from './pcb_track.js';
 import { SHOW_WITH_VIA_ALWAYS } from './pcbnew_settings.js';
 import { PCB_ACTIONS } from './tools/pcb_actions.js';
+import { DoSetDrillOrigin, DoSetGridOrigin } from './tools/pcb_origins.js';
+import { DS_PROXY_UNDO_ITEM } from '@ziroeda/common/drawing_sheet/ds_proxy_undo_item.js';
 import type { ZONE } from './zone.js';
 
 /**
@@ -584,14 +586,30 @@ export class UNDO_REDO_MIXIN {
         case UNDO_REDO.GRIDORIGIN: {
           // Warning: DRILLORIGIN and GRIDORIGIN undo/redo command create EDA_ITEMs
           // that cannot be casted to BOARD_ITEMs
-          // BOARD_EDITOR_CONTROL::DoSetDrillOrigin / PCB_CONTROL::DoSetGridOrigin:
-          // pending with those tools (#636 stage 3)
-          throw new Error('PutDataInPreviousState: DRILLORIGIN/GRIDORIGIN pending (#636 stage 3)');
+          const image = aList.GetPickedItemLink(ii)!;
+          const origin = image.GetPosition();
+          image.SetPosition(eda_item.GetPosition());
+
+          if (aList.GetPickedItemStatus(ii) === UNDO_REDO.DRILLORIGIN)
+            DoSetDrillOrigin(view, this, eda_item, origin);
+          else DoSetGridOrigin(view, this, eda_item, origin);
+
+          break;
         }
 
         case UNDO_REDO.PAGESETTINGS:
-          // DS_PROXY_UNDO_ITEM: pending with the drawing sheet (#636 stage 6)
-          throw new Error('PutDataInPreviousState: PAGESETTINGS pending (#636 stage 6)');
+          if (
+            eda_item.Type() === KICAD_T.WS_PROXY_UNDO_ITEM_T ||
+            eda_item.Type() === KICAD_T.WS_PROXY_UNDO_ITEM_PLUS_T
+          ) {
+            // swap current settings with stored settings
+            const alt_item = new DS_PROXY_UNDO_ITEM(this);
+            const item = eda_item as DS_PROXY_UNDO_ITEM;
+            item.Restore(this);
+            item.assign(alt_item);
+          }
+
+          break;
 
         default:
           console.assert(

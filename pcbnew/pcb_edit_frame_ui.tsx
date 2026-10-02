@@ -105,20 +105,16 @@ import {
   applyTrackDrag,
   type TrackDrag,
   groupContaining,
-  setBoardItemsLocked,
   isBoardItemLocked,
   isCopperLayerName,
-  setBoardPageSettings,
   serializeBoard,
   serializeBoardAsync,
   beginCourtyardConflicts,
-  placeFootprint as placeLibraryFootprint,
   toggleLocalRatsnest,
   type LocalRatsnestHit,
   courtyardConflictsAt,
   type CourtyardConflicts,
   type CourtyardConflictSession,
-  setBoardOrigin,
   type Board,
   type BoardBBox,
   type BoardItemKind,
@@ -140,8 +136,6 @@ import {
   dragBoardHandle,
   type BoardEditHandle,
   type BoardIndicatorLine,
-  addBoardTable,
-  moveTable,
   imageAt,
   type ImageValues,
   boardAuxOrigin,
@@ -579,7 +573,7 @@ import { DialogGlobalEditTracksAndVias } from './dialogs/dialog_global_edit_trac
 import { DialogExchangeFootprints } from './dialogs/dialog_exchange_footprints_ui.js';
 import { DialogNonCopperZonesProperties } from './dialogs/dialog_non_copper_zones_properties_ui.js';
 import type { PCB_TABLE } from './pcb_table.js';
-import type { DIALOG_NON_COPPER_ZONES_EDITOR } from './dialogs/dialog_non_copper_zones_properties.js';
+import { DIALOG_NON_COPPER_ZONES_EDITOR } from './dialogs/dialog_non_copper_zones_properties.js';
 import type { DIALOG_EXCHANGE_FOOTPRINTS } from './dialogs/dialog_exchange_footprints.js';
 import {
   DialogGlobalEditTextAndGraphics,
@@ -682,13 +676,7 @@ import {
   type PadRef,
   type PadValues,
 } from './dialogs/dialog_pad_properties.js';
-import {
-  applyZoneValues,
-  collectZoneValues,
-  DIALOG_COPPER_ZONE,
-  zoneAt,
-  type ZoneValues,
-} from './dialogs/panel_zone_properties.js';
+import { DIALOG_COPPER_ZONE, zoneAt, type ZoneValues } from './dialogs/panel_zone_properties.js';
 import {
   DIALOG_TRACK_VIA_PROPERTIES,
   hasTrackOrVia,
@@ -703,7 +691,6 @@ import {
   boardFromBOARD,
   boardItemOfViewId,
   footprintViewOfBoard,
-  tableView,
   viewIdOfBoardItem,
 } from './pcb_io/kicad_sexpr/board_view.js';
 import { DisplayErrorMessage, IsOK } from '@ziroeda/common/confirm.js';
@@ -711,8 +698,6 @@ import { EDA_ANGLE, EDA_ANGLE_T } from '@ziroeda/kimath/src/geometry/eda_angle.j
 import { DIALOG_REFERENCE_IMAGE_PROPERTIES } from './dialogs/dialog_reference_image_properties.js';
 import { ARRAY_TOOL } from './tools/array_tool.js';
 import { PCB_SELECTION } from './tools/pcb_selection.js';
-import { Build_Board_Characteristics_Table } from './board_tables/board_characteristics_table.js';
-import { Build_Board_Stackup_Table } from './board_tables/board_stackup_table.js';
 import { PCB_ACTIONS, MICROWAVE_FOOTPRINT_SHAPE } from './tools/pcb_actions.js';
 import { MwavePolygonalShapeDlg } from './microwave/microwave_polygon_ui.js';
 import {
@@ -723,7 +708,13 @@ import { ZONE_PREVIEW_CANVAS } from './zone_manager/zone_preview_canvas.js';
 import { drawPanelWindow } from '@ziroeda/common/gal/gal_window.js';
 import { GAL_TYPE } from '@ziroeda/common/draw_panel_gal.js';
 import { wxEVT_SIZE } from '@ziroeda/common/wx/wx_event.js';
-import { boardToBOARD } from './pcb_io/kicad_sexpr/board_view.js';
+import {
+  boardToBOARD,
+  pageInfoOfPaper,
+  paperOfPageInfo,
+  titleBlockView,
+} from './pcb_io/kicad_sexpr/board_view.js';
+import { TITLE_BLOCK } from '@ziroeda/common/title_block.js';
 import type { ZONE } from './zone.js';
 import { drawCentrelineRectItem } from '@ziroeda/common/preview_items/centreline_rect_item.js';
 import type { wxTextValidator } from '@ziroeda/common/validators.js';
@@ -735,7 +726,8 @@ import { MessageDialogYesNoCancel } from '@ziroeda/common/dialogs/dialog_message
 import { commitViewToBoard } from './pcb_io/kicad_sexpr/board_view_commit.js';
 import { PCB_EDIT_FRAME, REACT_BOARD_LISTENER, pcbnewSettingsOf } from './pcb_edit_frame.js';
 import { FetchNetlistFromSchematic } from './netlist_from_schematic.js';
-import type { LIB_ID } from '@ziroeda/common/lib_id.js';
+import { LIB_ID } from '@ziroeda/common/lib_id.js';
+import type { BOARD_EDITOR_CONTROL } from './tools/board_editor_control.js';
 import type { FOOTPRINT } from './footprint.js';
 import { parseFootprint } from './footprint_edit_frame.js';
 import {
@@ -993,6 +985,15 @@ const TOOL_MANAGER_TOOLS: Readonly<Record<string, TOOL_ACTION>> = {
   drawTextBox: PCB_ACTIONS.drawTextBox,
   placeBarcode: PCB_ACTIONS.placeBarcode,
   placeImportedGraphics: PCB_ACTIONS.placeImportedGraphics,
+  // PCB_CONTROL / BOARD_EDITOR_CONTROL, through PCB_PICKER_TOOL.
+  gridSetOrigin: ACTIONS.gridSetOrigin,
+  drillOrigin: PCB_ACTIONS.drillOrigin,
+  deleteTool: ACTIONS.deleteTool,
+  // PCB_CONTROL's board tables, placed through EDIT_TOOL::Move.
+  placeCharacteristics: PCB_ACTIONS.placeCharacteristics,
+  placeStackup: PCB_ACTIONS.placeStackup,
+  // BOARD_EDITOR_CONTROL::PlaceFootprint
+  placeFootprint: PCB_ACTIONS.placeFootprint,
 };
 
 // Friendly names for the "Current Tool" status-bar field (field 6), shown while
@@ -1081,20 +1082,10 @@ const isSelectTool = (t: string): boolean => t === 'selectSetRect' || t === 'sel
 
 // Tools that act on plain clicks and take no drag/box-select gestures.
 const isClickTool = (t: string): boolean =>
-  t === 'deleteTool' ||
   t === 'localRatsnestTool' ||
   isMicrowaveTool(t) ||
   t === 'routeSingleTrack' ||
-  t === 'measureTool' ||
-  // `PCB_CONTROL::PlaceCharacteristics` / `PlaceStackup` build the table and
-  // hand it to `placeBoardItems`, an interactive move ending on a click.
-  t === 'placeCharacteristics' ||
-  t === 'placeStackup' ||
-  // `PCB_PICKER_TOOL::Main` runs the cursor through `BestSnapAnchor` on every
-  // motion (`pcb_picker_tool.cpp`), which is what lets an origin be dropped
-  // exactly on a pad or a track end.
-  t === 'gridSetOrigin' ||
-  t === 'drillOrigin';
+  t === 'measureTool';
 
 // The left toolbar's radio groups, its opening state and its reducer are in
 // `toggles.ts` rather than here, because `qa`'s tsconfig compiles `.ts` only:
@@ -1547,7 +1538,6 @@ export function PcbEditor({
     commonSettings: commonCfg,
     updatePcbnewSettings,
     updateCommonSettings,
-    commonInputImmediateActionsLive,
     commonSettingsOf,
     windowSettingsOf,
     installPgm,
@@ -2478,7 +2468,10 @@ export function PcbEditor({
     installPgm();
     frameRef.current = new PCB_EDIT_FRAME({
       settings: () => pcbnewSettingsOf(pcbCfgRef.current),
-      onModify: () => setDirtyRef.current(true),
+      onModify: () => {
+        setDirtyRef.current(true);
+        syncOriginsRef.current();
+      },
       onUndoRedoIncomplete: () =>
         console.warn('Incomplete undo/redo operation: some items not found'),
       // The window half of DRC_TOOL / DIALOG_DRC: filled in below, once the
@@ -2522,7 +2515,13 @@ export function PcbEditor({
       updatePcbFromSchematic: () => void openUpdatePcbRef.current(),
       // The Footprint Library Browser's Insert: `PlacingFootprint()` and the
       // placement it posts. Both read the placement state declared below.
-      placingFootprint: () => placeFpRef.current !== null,
+      placingFootprint: () =>
+        (
+          frameRef.current?.GetToolManager()?.FindTool('pcbnew.EditorControl') as unknown as
+            | BOARD_EDITOR_CONTROL
+            | null
+            | undefined
+        )?.PlacingFootprint() ?? false,
       placeFootprintFromLibrary: (aFpid, aFootprint) =>
         placeFromBrowserRef.current(aFpid, aFootprint),
       textEntry: (aPrompt, aCaption, aValue, aValidator) =>
@@ -2593,6 +2592,7 @@ export function PcbEditor({
       // The "Choose Image" dialog: a file input, read as bytes. Cancel answers
       // null (the input's `cancel` event), which leaves the tool armed, as
       // upstream's `continue` does.
+      showPageSettingsDialog: () => new Promise<boolean>((resolve) => setPageDlg({ resolve })),
       showImportGraphicsDialog: () =>
         new Promise<IMPORT_GRAPHICS_RESULT | null>((resolve) => setImportGfxDlg({ resolve })),
       showBarcodePropertiesDialog: (aDialog) =>
@@ -2723,7 +2723,9 @@ export function PcbEditor({
     ),
   );
 
-  const [pageDlgOpen, setPageDlgOpen] = useState(false);
+  // BOARD_EDITOR_CONTROL::PageSettings's DIALOG_PAGES_SETTINGS: the tool waits
+  // on `resolve` (true when OK wrote the page and title block into the frame).
+  const [pageDlg, setPageDlg] = useState<{ resolve: (aOk: boolean) => void } | null>(null);
   const [printDlgOpen, setPrintDlgOpen] = useState(false);
   const [plotDlgOpen, setPlotDlgOpen] = useState(false);
   // Folders that already exist in the project, relative to the project's own
@@ -3041,13 +3043,6 @@ export function PcbEditor({
     b: { x: number; y: number } | null;
   } | null>(null);
   /**
-   * `BOARD_EDITOR_CONTROL::PlaceFootprint`'s `fp` — the library footprint the
-   * chooser returned, riding the cursor until the click that commits it
-   * (board_editor_control.cpp:1350-1560). Null between placements: the tool
-   * stays armed and the next click opens the chooser again.
-   */
-  const placeFpRef = useRef<{ lib: PcbFootprint; fpid: string } | null>(null);
-  /**
    * `doInteractiveItemPlacement`'s `newItem` for the four `MICROWAVE_TOOL`
    * footprints: the live FOOTPRINT `createFootprint` / `createPolygonShape` made,
    * riding the cursor until the click that `commit.Add`s it. Null between
@@ -3121,9 +3116,6 @@ export function PcbEditor({
     // pair in flight is thrown away, the board untouched.
     pnsSessionRef.current?.abort();
     pnsSessionRef.current = null;
-    // `evt->IsActivate()` -> `cleanup()`: the footprint on the cursor is
-    // dropped, never committed (board_editor_control.cpp:1447-1461).
-    placeFpRef.current = null;
     placeFpSceneRef.current = null;
     // `cleanup()`: `newItem = nullptr`, and the coil's rectangle is hidden.
     placeMwRef.current = null;
@@ -4443,6 +4435,41 @@ export function PcbEditor({
   );
 
   /**
+   * `OnModify` after a tool changed a board setting that is not an item: an
+   * origin (PCB_CONTROL::DoSetGridOrigin, BOARD_EDITOR_CONTROL::DoSetDrillOrigin)
+   * or the page and title block (BOARD_EDITOR_CONTROL::PageSettings), or their
+   * undo. No listener re-derives the view for those, and the canvas and the
+   * page dialog read them from it, so they are taken from the BOARD here.
+   */
+  const syncOriginsRef = useRef<() => void>(() => {});
+  syncOriginsRef.current = () => {
+    const brd = boardRef.current;
+    const bds = frameRef.current?.GetBoard()?.GetDesignSettings();
+    if (!brd || !bds) return;
+    const grid = bds.GetGridOrigin();
+    const aux = bds.GetAuxOrigin();
+    const same = (a: { x: number; y: number } | undefined, b: { x: number; y: number }): boolean =>
+      (a?.x ?? 0) === b.x && (a?.y ?? 0) === b.y;
+    const kb = frameRef.current!.GetBoard()!;
+    const paper = paperOfPageInfo(kb.GetPageSettings());
+    const titleBlock = titleBlockView(kb.GetTitleBlock());
+    if (
+      same(brd.gridOrigin, grid) &&
+      same(brd.auxOrigin, aux) &&
+      brd.paper === paper &&
+      JSON.stringify(brd.titleBlock) === JSON.stringify(titleBlock)
+    )
+      return;
+    setBoardModel({
+      ...brd,
+      gridOrigin: { ...grid },
+      auxOrigin: { ...aux },
+      paper,
+      titleBlock,
+    });
+  };
+
+  /**
    * `PCB_EDIT_FRAME::ShowBoardSetupDialog`, the OK half: every panel's
    * TransferDataFromWindow into the live BOARD / BOARD_DESIGN_SETTINGS /
    * PROJECT_FILE, then the syncs, tickers and repaints upstream does after
@@ -4899,17 +4926,6 @@ export function PcbEditor({
     onClose: () => void;
   } | null>(null);
 
-  // Lock / unlock the selection (PCB_ACTIONS::lock / unlock).
-  const lockSel = useCallback(
-    (locked: boolean | 'toggle') => {
-      const brd = boardRef.current;
-      const sel = selForDrawRef.current;
-      if (!brd || sel.size === 0) return;
-      commitBoard(setBoardItemsLocked(brd, sel, locked));
-    },
-    [commitBoard],
-  );
-
   /** ARRAY_TOOL::CreateArray. */
   const applyArray = useCallback((settings: ArraySettings) => {
     setArraySettings(settings);
@@ -5340,10 +5356,6 @@ export function PcbEditor({
             beginMove(sel, 'drag', origin);
           break;
         }
-        // EDIT_TOOL::Properties on the drawing sheet: PCB_EDIT_FRAME's Page Settings.
-        case ACTIONS.pageSettings:
-          setPageDlgOpen(true);
-          break;
         // ARRAY_TOOL::CreateArray: the window's Create Array dialog.
         case PCB_ACTIONS.createArray:
           setArrayOpen(true);
@@ -6801,23 +6813,6 @@ export function PcbEditor({
    */
 
   /**
-   * Compile the riding footprint at `at`, the way every motion event upstream
-   * does `fp->SetPosition( cursorPos ); getView()->Update( fp )`. Skipped when
-   * the cursor has not left the grid point it was already drawn at.
-   */
-  const updatePlaceFpPreview = (at: { x: number; y: number }): void => {
-    const pf = placeFpRef.current;
-    const brd = boardRef.current;
-    if (!pf || !brd) return;
-    const prev = placeFpSceneRef.current;
-    if (prev && prev.at.x === at.x && prev.at.y === at.y) return;
-    const fp = placeLibraryFootprint(pf.lib, { fpid: pf.fpid, at });
-    placeFpSceneRef.current = fp
-      ? { at, scene: buildScene({ ...emptyBoardLike(brd), footprints: [fp] }, sceneFilter()) }
-      : null;
-  };
-
-  /**
    * The riding footprint compiled at its current position, for the preview
    * pass: `view()->Update( &preview )`.
    */
@@ -6946,53 +6941,6 @@ export function PcbEditor({
       });
   };
 
-  /**
-   * `BOARD_EDITOR_CONTROL::PlaceFootprint`'s left-click arm
-   * (board_editor_control.cpp:1466-1526): with nothing on the cursor,
-   * `SelectFootprintFromLibrary()` — the chooser — and with a footprint on it,
-   * `commit.Push( _( "Place Footprint" ) )` after `selectionClear`. Either way
-   * the tool stays armed; `fp = nullptr` is what readies the next placement.
-   */
-  const handlePlaceFootprintClick = (world: { x: number; y: number }): void => {
-    const pf = placeFpRef.current;
-    const brd = boardRef.current;
-    if (!pf) {
-      selectFootprintFromLibrary();
-      return;
-    }
-    if (!brd) return;
-    const at = snapToGrid(world);
-    const fp = placeLibraryFootprint(pf.lib, { fpid: pf.fpid, at });
-    if (fp) {
-      commitBoard({ ...brd, footprints: [...brd.footprints, fp] });
-      setSelectionRef.current(new Set());
-    }
-    placeFpRef.current = null;
-    placeFpSceneRef.current = null;
-    requestDraw();
-  };
-
-  /**
-   * The chooser answered. `loadFootprint( fpid )` then `ClearAllNets` and
-   * `SetPosition( cursorPos )` (:1478-1516) — `placeLibraryFootprint` is that
-   * load-and-place, and it clears the pads' orphaned nets itself. Layer F.Cu,
-   * orientation 0, reference as the library wrote it (REF**): upstream
-   * annotates nothing here.
-   */
-  const selectFootprintFromLibrary = (): void => {
-    void frameRef.current!.SelectFootprintFromLibrary().then((footprint) => {
-      if (!footprint) return;
-      // The tool may have been switched away while the chooser was open.
-      if (activeToolRef.current !== 'placeFootprint') return;
-      placeFpRef.current = {
-        lib: footprintViewOfBoard(footprint),
-        fpid: footprint.GetFPIDAsString(),
-      };
-      updatePlaceFpPreview(snapToGrid(cursorRef.current ?? { x: 0, y: 0 }));
-      requestDraw();
-    });
-  };
-
   /** The chooser answered: `ShowModal` returned, `footprintName` set. */
   const onFootprintChosen = (libId: string): void => {
     setFpChooserOpen(false);
@@ -7008,54 +6956,22 @@ export function PcbEditor({
   };
 
   /**
-   * "Prime the pump" (:1406-1417): with `m_Input.immediate_actions` on — the
-   * default — arming the tool posts a synthetic click at (0,0), so the chooser
-   * opens the moment the tool is picked, and `ignorePrimePosition` keeps the
-   * footprint on the real pointer afterwards. With it off, the first click
-   * opens it. The image tool takes the same arm.
-   */
-  // biome-ignore lint/correctness/useExhaustiveDependencies: arming the tool is the trigger; the rest are read at that moment
-  useEffect(() => {
-    if (activeTool !== 'placeFootprint') return;
-    // `if( fp ) { … }` comes before the prime (:1408-1414): a footprint
-    // handed in by another command rides the cursor at once, no chooser.
-    const handed = browserFpRef.current;
-    if (handed) {
-      browserFpRef.current = null;
-      placeFpRef.current = handed;
-      updatePlaceFpPreview(snapToGrid(cursorRef.current ?? { x: 0, y: 0 }));
-      requestDraw();
-      return;
-    }
-    if (commonInputImmediateActionsLive()) selectFootprintFromLibrary();
-  }, [activeTool]);
-
-  /**
    * `FOOTPRINT_VIEWER_FRAME::AddFootprintToPCB`'s board half
    * (`footprint_viewer_frame.cpp:735-779`): `selectionClear`, then
-   * `PostAction( PCB_ACTIONS::placeFootprint, newFootprint )` — the tool runs
+   * `PostAction( PCB_ACTIONS::placeFootprint, newFootprint )` - the tool runs
    * with the footprint as its parameter, so it is on the cursor at once and
-   * the next click commits it. `placeLibraryFootprint` is the copy: it
-   * clears the library's orphaned pad nets and places on the front.
-   *
-   * Arming the tool clears whatever was in flight (the `[activeTool]` effect
-   * above), so the footprint waits in `browserFpRef` for the prime effect to
-   * pick it up — unless the tool is already the placement tool, where no
-   * effect will run and it is placed on the cursor directly.
+   * the next click commits it.
    */
-  const browserFpRef = useRef<{ lib: PcbFootprint; fpid: string } | null>(null);
-  const placeFromBrowser = (aFpid: string, aFootprint: PcbFootprint): void => {
-    setSelectionRef.current(new Set());
+  const placeFromBrowser = (aFpid: string, _aFootprint: PcbFootprint): void => {
     setFpChooserOpen(false);
-    if (activeToolRef.current === 'placeFootprint') {
-      placeFpRef.current = { lib: aFootprint, fpid: aFpid };
-      placeFpSceneRef.current = null;
-      updatePlaceFpPreview(snapToGrid(cursorRef.current ?? { x: 0, y: 0 }));
-      requestDraw();
-      return;
-    }
-    browserFpRef.current = { lib: aFootprint, fpid: aFpid };
-    setActiveTool('placeFootprint');
+    const frame = frameRef.current;
+    if (!frame) return;
+    frame.GetToolManager()?.RunAction(ACTIONS.selectionClear);
+    const fpid = new LIB_ID();
+    fpid.Parse(aFpid);
+    void frame.LoadFootprint(fpid).then((fp) => {
+      if (fp) frame.GetToolManager()?.PostAction(PCB_ACTIONS.placeFootprint, fp);
+    });
   };
   const placeFromBrowserRef = useRef(placeFromBrowser);
   placeFromBrowserRef.current = placeFromBrowser;
@@ -7206,80 +7122,6 @@ export function PcbEditor({
    * `activeTool`; `IPO_SINGLE_CLICK` is why one click both creates and commits
    * (the preview item exists before the first click, see `pointPreviewRef`).
    */
-  /**
-   * `PCB_CONTROL::PlaceCharacteristics` / `PlaceStackup`
-   * (`pcb_control.cpp:2907-2942`): build the table on the active layer and
-   * `placeBoardItems( …, isNew, anchorAtOrigin )` it — the table's origin lands
-   * on the cursor, and the commit is "Place Board Characteristics" / "Place
-   * Board Stackup Table". Upstream's interactive move runs before the click;
-   * here the click IS the drop, and the action is a one-shot.
-   */
-  const handlePlaceTableClick = (
-    which: 'placeCharacteristics' | 'placeStackup',
-    world: { x: number; y: number },
-  ): void => {
-    const brd = boardRef.current;
-    const kb = brd?.k;
-    if (!brd || !kb) return;
-    const table =
-      which === 'placeCharacteristics'
-        ? Build_Board_Characteristics_Table(kb, unitsRef.current)
-        : Build_Board_Stackup_Table(kb, unitsRef.current);
-    // The view carries no `k`: the built table is a template the view layer
-    // re-creates on the live BOARD through `applyTable`, like any new item.
-    const view = tableView(table);
-    const placed = moveTable(
-      {
-        ...view,
-        layer: activeLayerRef.current,
-        k: undefined,
-        cells: view.cells.map((c) => ({ ...c, k: undefined })),
-      },
-      cursorSnapRef.current(world),
-    );
-    commitBoard(addBoardTable(brd, placed).board);
-    setActiveTool(selectModeRef.current);
-  };
-
-  /**
-   * The two origin pickers: Grid Origin and Drill/Place File Origin.
-   *
-   * `PCB_CONTROL::GridPlaceOrigin` (`pcb_control.cpp:769-800`) and
-   * `BOARD_EDITOR_CONTROL::DrillOrigin` (`board_editor_control.cpp:2288-2330`)
-   * are the same shape: `Activate()` to deactivate whatever else is running,
-   * `picker->SetCursor( KICURSOR::PLACE )`, one click handler, and
-   * `ACTIONS::pickerTool`. Both handlers end
-   *
-   *     return false;   // drill origin is a one-shot; don't continue with tool
-   *
-   * so the tool pops after a single click — unlike Place Point, which is
-   * `IPO_REPEAT`. That `false` is why `setActiveTool` returns to the selection
-   * tool here rather than leaving the button lit.
-   *
-   * What each writes is one design setting: `SetGridOrigin` /
-   * `SetAuxOrigin`, which the file spells `(setup (grid_origin …))` and
-   * `(setup (aux_axis_origin …))`.
-   */
-  const handleOriginClick = (
-    which: 'grid_origin' | 'aux_axis_origin',
-    world: { x: number; y: number },
-  ): void => {
-    const brd = boardRef.current;
-    if (!brd) return;
-    commitBoard(setBoardOrigin(brd, which, cursorSnapRef.current(world)));
-    // `PopTool` — the picker is a one-shot.
-    setActiveTool(selectModeRef.current);
-  };
-
-  /**
-   * `PCB_CONTROL::GridResetOrigin` (`:803-808`) and `drillResetOrigin`
-   * (`board_editor_control.cpp:2290-2295`): the same setter with (0, 0), and
-   * no picker at all — a menu row, not a tool.
-   */
-  const resetOrigin = (which: 'grid_origin' | 'aux_axis_origin'): void => {
-    const brd = boardRef.current;
-    if (brd) commitBoard(setBoardOrigin(brd, which, { x: 0, y: 0 }));
-  };
 
   // ----- interactive move / drag (EDIT_TOOL Move vs Drag) ---------------------
 
@@ -7787,16 +7629,9 @@ export function PcbEditor({
       const k = brd.zones[index]?.k;
       // Edit_Zone_Params: a copper zone is DIALOG_COPPER_ZONE on the live
       // ZONE, one BOARD_COMMIT; the commit refills under "Auto-refill zones".
-      if (frame && k && !k.GetIsRuleArea() && IsCopperLayer(k.GetFirstLayer())) {
-        new DIALOG_COPPER_ZONE(frame, k).TransferDataFromWindow(values);
-        return;
-      }
-      const next = applyZoneValues(brd, index, values);
-      // A changed zone has to be re-poured; its fill was built from the old
-      // clearances (ZONE_FILLER runs on the commit that closes the dialog).
-      if (next !== brd) commitBoard(fillZones(next, zoneFillOptions));
+      if (frame && k) new DIALOG_COPPER_ZONE(frame, k).TransferDataFromWindow(values);
     },
-    [commitBoard, zonePropsIndex, zoneFillOptions],
+    [zonePropsIndex],
   );
 
   /** Edit_Zone_Params on a rule area: DIALOG_RULE_AREA_PROPERTIES on the live ZONE. */
@@ -8158,7 +7993,6 @@ export function PcbEditor({
       statusReadout.setCursor({ x: wx, y: wy });
       cursorRef.current = { x: wx, y: wy };
       // `fp->SetPosition( cursorPos )` on every motion event (:1533-1539).
-      if (placeFpRef.current) updatePlaceFpPreview(snapToGrid({ x: wx, y: wy }));
       // `doInteractiveItemPlacement`'s motion arm (`newItem->SetPosition( cursorPos )`)
       // and `drawMicrowaveInductor`'s (`tpGeomMgr.SetEnd( cursorPos )`).
       if (isMicrowaveTool(activeToolRef.current))
@@ -8285,19 +8119,7 @@ export function PcbEditor({
         return;
       }
       if (!d.moved) {
-        // Interactive Delete Tool (PCB_CONTROL::DeleteItemCursor): each click
-        // deletes the item under the cursor, honouring the selection filter.
-        if (activeToolRef.current === 'deleteTool') {
-          const w = worldAt(e.clientX, e.clientY);
-          const brd = boardRef.current;
-          if (w && brd) {
-            const hit = hitCandidates(w)[0];
-            if (hit) {
-              commitBoard(deleteBoardItems(brd, new Set([hit])));
-              setSelectionRef.current(new Set());
-            }
-          }
-        } else if (activeToolRef.current === 'localRatsnestTool') {
+        if (activeToolRef.current === 'localRatsnestTool') {
           // BOARD_INSPECTION_TOOL::LocalRatsnestTool's click handler
           // (board_inspection_tool.cpp:2299-2351): `selectionClear`, then
           // `selectionCursor` with `EDIT_TOOL::PadFilter`, and with
@@ -8339,21 +8161,6 @@ export function PcbEditor({
         } else if (isMicrowaveTool(activeToolRef.current)) {
           const w = worldAt(e.clientX, e.clientY);
           if (w) handleMicrowaveClick(w);
-        } else if (activeToolRef.current === 'placeFootprint') {
-          const w = worldAt(e.clientX, e.clientY);
-          if (w) handlePlaceFootprintClick(w);
-        } else if (activeToolRef.current === 'gridSetOrigin') {
-          const w = worldAt(e.clientX, e.clientY);
-          if (w) handleOriginClick('grid_origin', w);
-        } else if (activeToolRef.current === 'drillOrigin') {
-          const w = worldAt(e.clientX, e.clientY);
-          if (w) handleOriginClick('aux_axis_origin', w);
-        } else if (
-          activeToolRef.current === 'placeCharacteristics' ||
-          activeToolRef.current === 'placeStackup'
-        ) {
-          const w = worldAt(e.clientX, e.clientY);
-          if (w) handlePlaceTableClick(activeToolRef.current, w);
         } else if (activeToolRef.current === 'measureTool') {
           const w = worldAt(e.clientX, e.clientY);
           if (w) handleMeasureClick(w);
@@ -8543,13 +8350,6 @@ export function PcbEditor({
           setMwPlacing(false);
           placeFpSceneRef.current = null;
           mwLineRef.current.originSet = false;
-          requestDrawRef.current();
-        } else if (placeFpRef.current) {
-          // `IsCancelInteractive()` with `fp` set is `cleanup()` — the
-          // footprint is reverted and the tool stays on the stack; only a
-          // second Esc pops it (:1436-1446).
-          placeFpRef.current = null;
-          placeFpSceneRef.current = null;
           requestDrawRef.current();
         } else if (measureRef.current) {
           measureRef.current = null;
@@ -9656,7 +9456,7 @@ export function PcbEditor({
         }
         break;
       case 'pageSettings':
-        setPageDlgOpen(true);
+        runAction(ACTIONS.pageSettings);
         break;
       case 'runDRC':
         // PCB_ACTIONS::runDRC -> DRC_TOOL::ShowDRCDialog
@@ -9691,13 +9491,13 @@ export function PcbEditor({
         runAction(ACTIONS.removeFromGroup);
         break;
       case 'lock':
-        lockSel(true);
+        runAction(PCB_ACTIONS.lock);
         break;
       case 'unlock':
-        lockSel(false);
+        runAction(PCB_ACTIONS.unlock);
         break;
       case 'toggleLock':
-        lockSel('toggle');
+        runAction(PCB_ACTIONS.toggleLock);
         break;
       case 'find':
         setFindOpen(true);
@@ -9962,10 +9762,10 @@ export function PcbEditor({
         toggleFlip();
         break;
       case 'drillResetOrigin':
-        resetOrigin('aux_axis_origin');
+        runAction(PCB_ACTIONS.drillResetOrigin);
         break;
       case 'gridResetOrigin':
-        resetOrigin('grid_origin');
+        runAction(ACTIONS.gridResetOrigin);
         break;
       case 'routerSettingsDialog':
         setPnsSettingsOpen(true);
@@ -11098,7 +10898,7 @@ export function PcbEditor({
         />
       )}
 
-      {pageDlgOpen && board && (
+      {pageDlg && board && (
         <DialogPageSettings
           // BOARD_EDITOR_CONTROL::PageSettings constructs the base class, not
           // eeschema's subclass (board_editor_control.cpp:530-532), so the
@@ -11117,21 +10917,26 @@ export function PcbEditor({
             comments: board.titleBlock?.comments ?? [],
           })}
           onOk={(next) => {
-            const brd = boardRef.current;
-            if (brd)
-              commitBoard(
-                setBoardPageSettings(brd, {
-                  paper: toPaperToken(next),
-                  title: next.title,
-                  date: next.date,
-                  rev: next.rev,
-                  company: next.company,
-                  comments: next.comments,
-                }),
-              );
-            setPageDlgOpen(false);
+            // DIALOG_PAGES_SETTINGS::TransferDataFromWindow: the page and the
+            // title block into the frame.
+            const frame = frameRef.current;
+            if (frame) {
+              frame.SetPageSettings(pageInfoOfPaper(toPaperToken(next), frame.GetPageSettings()));
+              const tb = new TITLE_BLOCK();
+              tb.SetTitle(next.title);
+              tb.SetDate(next.date);
+              tb.SetRevision(next.rev);
+              tb.SetCompany(next.company);
+              next.comments.forEach((c, i) => tb.SetComment(i, c));
+              frame.SetTitleBlock(tb);
+            }
+            pageDlg.resolve(frame !== null);
+            setPageDlg(null);
           }}
-          onCancel={() => setPageDlgOpen(false)}
+          onCancel={() => {
+            pageDlg.resolve(false);
+            setPageDlg(null);
+          }}
         />
       )}
       {printDlgOpen && board && (
@@ -11456,17 +11261,33 @@ export function PcbEditor({
             onClose={() => setZonePropsIndex(null)}
           />
         )}
+      {/* Edit_Zone_Params on a zone off copper: InvokeNonCopperZonesEditor
+          (edit_zone_helpers.cpp:59-63), on the live ZONE. */}
       {zonePropsIndex !== null &&
-        board?.zones[zonePropsIndex] &&
-        !board.zones[zonePropsIndex]!.k?.GetIsRuleArea() && (
+        board?.zones[zonePropsIndex]?.k &&
+        !board.zones[zonePropsIndex]!.k!.GetIsRuleArea() &&
+        !IsCopperLayer(board.zones[zonePropsIndex]!.k!.GetFirstLayer()) &&
+        frameRef.current && (
+          <DialogNonCopperZonesProperties
+            dialog={
+              new DIALOG_NON_COPPER_ZONES_EDITOR(frameRef.current, board.zones[zonePropsIndex]!.k!)
+            }
+            units={unitLabel}
+            layers={ruleAreaLayers.filter((l) => !/\.Cu$/.test(l.name))}
+            onResult={() => setZonePropsIndex(null)}
+          />
+        )}
+      {zonePropsIndex !== null &&
+        board?.zones[zonePropsIndex]?.k &&
+        !board.zones[zonePropsIndex]!.k!.GetIsRuleArea() &&
+        IsCopperLayer(board.zones[zonePropsIndex]!.k!.GetFirstLayer()) &&
+        frameRef.current && (
           <DialogCopperZones
             units={unitLabel}
-            initial={(() => {
-              const k = board.zones[zonePropsIndex]!.k;
-              return frameRef.current && k && IsCopperLayer(k.GetFirstLayer())
-                ? new DIALOG_COPPER_ZONE(frameRef.current, k).TransferDataToWindow()
-                : collectZoneValues(board.zones[zonePropsIndex]!);
-            })()}
+            initial={new DIALOG_COPPER_ZONE(
+              frameRef.current,
+              board.zones[zonePropsIndex]!.k!,
+            ).TransferDataToWindow()}
             nets={board.nets}
             layers={copperLayerRows}
             // "A zone still in creation … can't be edited by the Zone Manager";
