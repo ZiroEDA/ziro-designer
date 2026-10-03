@@ -31,12 +31,10 @@ const ORACLE = join(DATA, 'erc_oracle');
 const PENDING = new Set([
   'different_unit_footprint',
   'duplicate_pins',
-  'ground_pin_not_ground',
   'stacked_pin_name',
   'similar_labels',
   'similar_power',
   'similar_label_and_power',
-  'same_local_global_label',
   'unresolved_variable',
   'field_name_whitespace',
   'simulation_model_issue',
@@ -46,7 +44,6 @@ const PENDING = new Set([
   'footprint_filter',
   'four_way_junction',
   'label_multiple_wires',
-  'undefined_netclass',
 ]);
 
 /**

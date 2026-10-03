@@ -2153,6 +2153,10 @@ import { multiUnitEntries, type SCH_MULTI_UNIT_REFERENCE_MAP } from '../sch_refe
 import { SCH_SCREENS } from '../sch_screen.js';
 import type { SCH_SHEET } from '../sch_sheet.js';
 import type { SCH_PIN } from '../sch_pin.js';
+import type { SCH_LABEL_BASE } from '../sch_label.js';
+import type { SCH_FIELD } from '../sch_field.js';
+import type { SCH_SHEET_PATH as SCH_SHEET_PATH_LIVE } from '../sch_sheet_path.js';
+import { RECURSE_MODE } from '@ziroeda/common/eda_item.js';
 import type { SCH_ITEM as SCH_ITEM_LIVE } from '../sch_item.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import type { SCH_SCREEN } from '../sch_screen.js';
@@ -2768,6 +2772,170 @@ export class ERC_TESTER {
   }
 
   /**
+   * Test that power pins named as grounds are on a ground net, in symbols that have one.
+   *
+   * @return the error count
+   */
+  TestGroundPins(): number {
+    let errors = 0;
+
+    const isGround = (txt: string) => {
+      const upper = txt.toUpperCase();
+
+      return (
+        upper.includes('GND') ||
+        upper === 'EARTH' ||
+        upper.startsWith('EARTH_') ||
+        upper === 'VSS' ||
+        upper === 'VSSA'
+      );
+    };
+
+    for (const sheet of this.m_sheetList) {
+      const screen = sheet.LastScreen()!;
+
+      for (const item of screen.Items().OfType(KICAD_T_LIVE.SCH_SYMBOL_T)) {
+        const symbol = item as SCH_SYMBOL;
+        let hasGroundNet = false;
+        const mismatched: SCH_PIN[] = [];
+
+        for (const pin of symbol.GetPins(sheet)) {
+          const conn = pin.Connection(sheet);
+          const net = conn ? conn.GetNetName() : '';
+          const netIsGround = isGround(net);
+
+          // We are only interested in power pins
+          if (
+            pin.GetType() !== ELECTRICAL_PINTYPE.PT_POWER_OUT &&
+            pin.GetType() !== ELECTRICAL_PINTYPE.PT_POWER_IN
+          ) {
+            continue;
+          }
+
+          if (netIsGround) hasGroundNet = true;
+
+          if (isGround(pin.GetShownName()) && !netIsGround) mismatched.push(pin);
+        }
+
+        if (hasGroundNet) {
+          for (const pin of mismatched) {
+            const ercItem = ERC_ITEM.Create(ERCE.ERCE_GROUND_PIN_NOT_GROUND)!;
+
+            ercItem.SetErrorMessage(`Pin ${pin.GetShownName()} not connected to ground net`);
+            ercItem.SetItems(pin);
+            ercItem.SetSheetSpecificPath(sheet);
+            ercItem.SetItemsSheetPaths(sheet);
+
+            const marker = new SCH_MARKER_LIVE(ercItem, pin.GetPosition());
+            screen.Append(marker);
+            errors++;
+          }
+        }
+      }
+    }
+
+    return errors;
+  }
+
+  /**
+   * Check for global and local labels with the same name.
+   *
+   * @return the error count
+   */
+  TestSameLocalGlobalLabel(): number {
+    let errCount = 0;
+
+    // std::unordered_map<wxString, ...>: only which label is kept per text is observable.
+    const globalLabels = new Map<string, [SCH_ITEM_LIVE, SCH_SHEET_PATH_LIVE]>();
+    const localLabels = new Map<string, [SCH_ITEM_LIVE, SCH_SHEET_PATH_LIVE]>();
+
+    for (const [, subgraphs] of this.m_nets) {
+      for (const subgraph of subgraphs) {
+        const sheet = subgraph.GetSheet();
+
+        for (const item of subgraph.GetItems()) {
+          if (
+            item.Type() === KICAD_T_LIVE.SCH_LABEL_T ||
+            item.Type() === KICAD_T_LIVE.SCH_GLOBAL_LABEL_T
+          ) {
+            const label = item as SCH_LABEL_BASE;
+            const text = label.GetShownText(sheet, false);
+
+            const map = item.Type() === KICAD_T_LIVE.SCH_LABEL_T ? localLabels : globalLabels;
+
+            if (!map.has(text)) map.set(text, [label, sheet]);
+          }
+        }
+      }
+    }
+
+    for (const [globalText, globalItem] of globalLabels) {
+      for (const [localText, localItem] of localLabels) {
+        if (globalText === localText) {
+          const ercItem = ERC_ITEM.Create(ERCE.ERCE_SAME_LOCAL_GLOBAL_LABEL)!;
+          ercItem.SetItems(globalItem[0], localItem[0]);
+          ercItem.SetSheetSpecificPath(globalItem[1]);
+          ercItem.SetItemsSheetPaths(globalItem[1], localItem[1]);
+
+          const marker = new SCH_MARKER_LIVE(ercItem, globalItem[0].GetPosition());
+          globalItem[1].LastScreen()!.Append(marker);
+
+          errCount++;
+        }
+      }
+    }
+
+    return errCount;
+  }
+
+  /**
+   * Test for netclasses that are referenced but not defined.
+   *
+   * @return the error count
+   */
+  TestMissingNetclasses(): number {
+    let err_count = 0;
+    const settings = this.m_schematic.Project().GetProjectFile().NetSettings();
+    const defaultNetclass = settings.GetDefaultNetclass().GetName();
+
+    const logError = (sheet: SCH_SHEET_PATH_LIVE, item: SCH_ITEM_LIVE, netclass: string) => {
+      err_count++;
+
+      const ercItem = ERC_ITEM.Create(ERCE.ERCE_UNDEFINED_NETCLASS)!;
+
+      ercItem.SetItems(item);
+      ercItem.SetErrorMessage(`Netclass ${netclass} is not defined`);
+
+      const marker = new SCH_MARKER_LIVE(ercItem, item.GetPosition());
+      sheet.LastScreen()!.Append(marker);
+    };
+
+    for (const sheet of this.m_sheetList) {
+      for (const item of sheet.LastScreen()!.Items()) {
+        item.RunOnChildren((aChild: SCH_ITEM_LIVE) => {
+          if (aChild.Type() === KICAD_T_LIVE.SCH_FIELD_T) {
+            const field = aChild as unknown as SCH_FIELD;
+
+            if (field.GetCanonicalName() === 'Netclass') {
+              const netclass = field.GetShownText(sheet, false);
+
+              if (
+                netclass !== '' &&
+                netclass !== defaultNetclass &&
+                !settings.HasNetclass(netclass)
+              ) {
+                logError(sheet, item, netclass);
+              }
+            }
+          }
+        }, RECURSE_MODE.NO_RECURSE);
+      }
+    }
+
+    return err_count;
+  }
+
+  /**
    * Test pins and wire ends for being off grid.
    *
    * @return the error count
@@ -2882,15 +3050,24 @@ export class ERC_TESTER {
       this.TestPinToPin();
     }
 
-    // Pending, after TestPinToPin: TestGroundPins,
-    // TestStackedPinNotation, TestSimilarLabels, TestSameLocalGlobalLabel, TestTextVars,
-    // TestFieldNameWhitespace, TestSimModelIssues, TestLibSymbolIssues,
-    // TestFootprintLinkIssues, TestFootprintFilters, TestFourWayJunction,
-    // TestLabelMultipleWires, TestMissingNetclasses.
+    if (this.m_settings.IsTestEnabled(ERCE.ERCE_GROUND_PIN_NOT_GROUND)) this.TestGroundPins();
+
+    // Pending: TestStackedPinNotation, TestSimilarLabels.
+
+    if (this.m_settings.IsTestEnabled(ERCE.ERCE_SAME_LOCAL_GLOBAL_LABEL))
+      this.TestSameLocalGlobalLabel();
+
+    // Pending: TestTextVars, TestFieldNameWhitespace, TestSimModelIssues.
 
     if (this.m_settings.IsTestEnabled(ERCE.ERCE_NOCONNECT_CONNECTED)) this.TestNoConnectPins();
 
+    // Pending: TestLibSymbolIssues, TestFootprintLinkIssues, TestFootprintFilters.
+
     if (this.m_settings.IsTestEnabled(ERCE.ERCE_ENDPOINT_OFF_GRID)) this.TestOffGridEndpoints();
+
+    // Pending: TestFourWayJunction, TestLabelMultipleWires.
+
+    if (this.m_settings.IsTestEnabled(ERCE.ERCE_UNDEFINED_NETCLASS)) this.TestMissingNetclasses();
 
     this.m_schematic.ResolveERCExclusionsPostUpdate();
   }
