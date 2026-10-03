@@ -12,6 +12,14 @@
  * follow KiCad's per-orientation direction.
  */
 
+import { ANGLE_180, ANGLE_270 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import { IS_DANGLING } from '@ziroeda/common/eda_item_flags.js';
+import { METRICS as METRICS_CLASS } from '@ziroeda/common/font/font_metrics.js';
+import { ClampTextPenSize } from '@ziroeda/common/gr_text.js';
+import { ELECTRICAL_PINTYPE, GRAPHIC_PINSHAPE } from '@ziroeda/common/pin_type.js';
+import { wxStringSplit } from '@ziroeda/common/string_utils.js';
+import type { TEXT_INFO } from './pin_layout_cache.js';
+import { type SCH_PIN, TARGET_PIN_RADIUS as SCH_PIN_TARGET_RADIUS } from './sch_pin.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import {
   ANGLE_0,
@@ -5203,6 +5211,85 @@ function boxText(
   aGal.DrawRectangle(box.GetOrigin(), box.GetEnd());
 }
 
+/**
+ * `drawAltPinModesIcon` (sch_painter.cpp:838): the alternate-pin-mode arrows. Named apart from
+ * the record painter's Canvas2D copy above, which goes at S4-7.
+ */
+function drawAltPinModesIconGal(
+  aGal: GAL,
+  aPos: Vec2,
+  aSize: number,
+  aBaseSelected: boolean,
+  aRotate: boolean,
+  aExtraLineWidth: number,
+  aColor: Color4d,
+): void {
+  aGal.Save();
+
+  aGal.Translate(aPos);
+
+  if (aRotate) aGal.Rotate(ANGLE_270.AsRadians());
+
+  aGal.SetIsFill(false);
+  aGal.SetIsStroke(true);
+  aGal.SetLineWidth(aSize / 10.0 + aExtraLineWidth);
+  aGal.SetStrokeColor(aColor);
+
+  /*
+   *  ----------->
+   *      + <--center
+   *     \------->
+   *
+   * or
+   *
+   *  -----  ---->
+   *     \
+   *      \------>
+   */
+
+  const lineYOffset = aSize / 4;
+  const arrowHead = aSize / 8;
+
+  const topLineREnd = { x: aSize / 2, y: -lineYOffset };
+  const btmLineREnd = { x: aSize / 2, y: lineYOffset };
+  const sub = (a: Vec2, x: number, y: number) => ({ x: a.x - x, y: a.y - y });
+
+  // Top line and arrowhead
+  if (aBaseSelected) {
+    // Full top line
+    aGal.DrawLine(topLineREnd, sub(topLineREnd, aSize, 0));
+  } else {
+    // Line with a gap
+    aGal.DrawLine(topLineREnd, sub(topLineREnd, aSize / 2, 0));
+    aGal.DrawLine(sub(topLineREnd, aSize, 0), sub(topLineREnd, aSize * 0.7, 0));
+  }
+
+  aGal.DrawLine(topLineREnd, sub(topLineREnd, arrowHead * 1.2, arrowHead));
+  aGal.DrawLine(topLineREnd, sub(topLineREnd, arrowHead * 1.2, -arrowHead));
+
+  // Bottom line and arrowhead
+  aGal.DrawLine(btmLineREnd, sub(btmLineREnd, aSize / 2, 0));
+  aGal.DrawLine(btmLineREnd, sub(btmLineREnd, arrowHead * 1.2, arrowHead));
+  aGal.DrawLine(btmLineREnd, sub(btmLineREnd, arrowHead * 1.2, -arrowHead));
+
+  // Top and bottom 'S' arcs
+  if (!aBaseSelected) {
+    aGal.DrawArc(sub(topLineREnd, aSize, -lineYOffset), lineYOffset, ANGLE_0, ANGLE_90.Invert());
+  }
+
+  aGal.DrawArc(
+    sub(topLineREnd, aSize - lineYOffset * 2, -lineYOffset),
+    lineYOffset,
+    ANGLE_180,
+    ANGLE_90.Invert(),
+  );
+
+  aGal.Restore();
+}
+
+/** `sign()` (kimath util.h): -1, 0 or 1. */
+const sign = (v: number): number => (v > 0 ? 1 : v < 0 ? -1 : 0);
+
 export class SCH_PAINTER extends PAINTER {
   /** Item types whose selection shadow scales with zoom (sch_painter.cpp:84). */
   static g_ScaledSelectionTypes: KICAD_T[] = [
@@ -5256,9 +5343,13 @@ export class SCH_PAINTER extends PAINTER {
 
   protected draw(aItem: EDA_ITEM, aLayer: number, aDimmed: boolean): void {
     // Enable draw bounding box on request. Some bboxes are handled locally.
-    const drawBoundingBox = this.m_schSettings.GetDrawBoundingBoxes();
+    let drawBoundingBox = this.m_schSettings.GetDrawBoundingBoxes();
 
     switch (aItem.Type()) {
+      case KICAD_T.SCH_PIN_T:
+        drawBoundingBox = false;
+        this.drawPin(aItem as SCH_PIN, aLayer, aDimmed);
+        break;
       case KICAD_T.SCH_JUNCTION_T:
         this.drawJunction(aItem as SCH_JUNCTION, aLayer);
         break;
@@ -6855,6 +6946,661 @@ export class SCH_PAINTER extends PAINTER {
     } else {
       this.gal.DrawPolyline(pts);
     }
+  }
+
+  protected internalPinDecoSize(aPin: SCH_PIN): number {
+    if (this.m_schSettings.m_PinSymbolSize > 0) return this.m_schSettings.m_PinSymbolSize;
+
+    return aPin.GetNameTextSize() !== 0
+      ? Math.trunc(aPin.GetNameTextSize() / 2)
+      : Math.trunc(aPin.GetNumberTextSize() / 2);
+  }
+
+  // Utility for getting the size of the 'external' pin decorators (as a radius)
+  // i.e. the negation circle, the polarity 'slopes' and the nonlogic marker
+  protected externalPinDecoSize(aPin: SCH_PIN): number {
+    if (this.m_schSettings.m_PinSymbolSize > 0) return this.m_schSettings.m_PinSymbolSize;
+
+    return Math.trunc(aPin.GetNumberTextSize() / 2);
+  }
+
+  // Draw the target (an open circle) for a pin which has no connection or is being moved.
+  protected drawPinDanglingIndicator(
+    aPin: SCH_PIN,
+    aColor: Color4d,
+    aDrawingShadows: boolean,
+    aBrightened: boolean,
+  ): void {
+    const plc = aPin.GetLayoutCache();
+    const c = plc.GetDanglingIndicator();
+
+    const lineWidth = aDrawingShadows
+      ? this.getShadowWidth(aBrightened)
+      : this.m_schSettings.GetDanglingIndicatorThickness();
+
+    // Dangling symbols must be drawn in a slightly different colour so they can be seen when
+    // they overlap with a junction dot.
+    this.gal.SetStrokeColor(brightened(aColor, 0.3));
+
+    this.gal.SetIsFill(false);
+    this.gal.SetIsStroke(true);
+    this.gal.SetLineWidth(lineWidth);
+    this.gal.DrawCircle(c.Center, c.Radius);
+  }
+
+  protected triLine(a: Vec2, b: Vec2, c: Vec2): void {
+    this.gal.DrawLine(a, b);
+    this.gal.DrawLine(b, c);
+  }
+
+  protected drawPin(aPin: SCH_PIN, aLayer: number, aDimmed: boolean): void {
+    // Don't draw pins from a selection view-group.  Pins in a schematic must always be drawn
+    // from their parent symbol's m_part.
+    if (aPin.GetParentSymbol()?.Type() === KICAD_T.SCH_SYMBOL_T) return;
+
+    if (!this.isUnitAndConversionShown(aPin)) return;
+
+    const drawingShadows = aLayer === SCH_LAYER_ID.LAYER_SELECTION_SHADOWS;
+    const drawingDangling = aLayer === SCH_LAYER_ID.LAYER_DANGLING;
+    const drawingOP = aLayer === SCH_LAYER_ID.LAYER_OP_CURRENTS;
+
+    if (this.m_schSettings.IsPrinting() && (drawingShadows || drawingDangling)) return;
+
+    const isDangling = this.m_schSettings.m_IsSymbolEditor || aPin.HasFlag(IS_DANGLING);
+
+    if (drawingShadows && !(aPin.IsBrightened() || aPin.IsSelected())) return;
+
+    const pos = aPin.GetPosition();
+    let color = this.getRenderColor(aPin, SCH_LAYER_ID.LAYER_PIN, drawingShadows, aDimmed);
+
+    if (!aPin.IsVisible()) {
+      if (this.m_schSettings.IsPrinting()) return;
+
+      const force_show = this.m_schematic
+        ? eeconfig()!.appearance.show_hidden_pins
+        : this.m_schSettings.m_ShowHiddenPins;
+
+      if (force_show) {
+        color = this.getRenderColor(aPin, SCH_LAYER_ID.LAYER_HIDDEN, drawingShadows, aDimmed);
+      } else {
+        if (drawingDangling && isDangling && aPin.IsGlobalPower())
+          this.drawPinDanglingIndicator(aPin, color, drawingShadows, aPin.IsBrightened());
+
+        return;
+      }
+    }
+
+    if (drawingDangling) {
+      if (isDangling)
+        this.drawPinDanglingIndicator(aPin, color, drawingShadows, aPin.IsBrightened());
+
+      return;
+    }
+
+    if (this.m_schSettings.GetDrawBoundingBoxes()) this.drawItemBoundingBox(aPin);
+
+    const p0 = aPin.GetPinRoot();
+    const dir = { x: sign(pos.x - p0.x), y: sign(pos.y - p0.y) };
+    const len = aPin.GetLength();
+
+    if (drawingOP && aPin.GetOperatingPoint() !== '') {
+      const textSize = this.getOperatingPointTextSize();
+      const mid = { x: Math.trunc((p0.x + pos.x) / 2), y: Math.trunc((p0.y + pos.y) / 2) };
+      const textOffset = Math.round(textSize * 0.22);
+      const attrs = new TEXT_ATTRIBUTES();
+
+      if (len > textSize) {
+        if (dir.x === 0) {
+          mid.x += Math.round(textOffset * 1.2);
+          attrs.m_Angle = ANGLE_HORIZONTAL;
+        } else {
+          mid.y -= Math.round(textOffset * 1.2);
+          attrs.m_Angle = ANGLE_VERTICAL;
+        }
+
+        attrs.m_Halign = GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT;
+        attrs.m_Valign = GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_CENTER;
+
+        attrs.m_Font = FONT.GetFont(); // always use stroke font for performance
+        attrs.m_Size = { x: textSize, y: textSize };
+        attrs.m_StrokeWidth = GetPenSizeForDemiBold(textSize);
+        attrs.m_Color = this.m_schSettings.GetLayerColor(SCH_LAYER_ID.LAYER_OP_CURRENTS);
+
+        knockoutText(this.gal, aPin.GetOperatingPoint(), mid, attrs, aPin.GetFontMetrics());
+      }
+    }
+
+    if (drawingOP) return;
+
+    this.gal.SetIsStroke(true);
+    this.gal.SetIsFill(false);
+    this.gal.SetLineWidth(this.getLineWidth(aPin, drawingShadows));
+    this.gal.SetStrokeColor(color);
+    this.gal.SetFontBold(false);
+    this.gal.SetFontUnderlined(false);
+    this.gal.SetFontItalic(false);
+
+    const radius = this.externalPinDecoSize(aPin);
+    const diam = radius * 2;
+    const clock_size = this.internalPinDecoSize(aPin);
+
+    const at = (o: Vec2, x: number, y: number): Vec2 => ({ x: o.x + x, y: o.y + y });
+
+    if (aPin.GetType() === ELECTRICAL_PINTYPE.PT_NC) {
+      // Draw a N.C. symbol
+      this.gal.DrawLine(p0, pos);
+
+      this.gal.DrawLine(
+        at(pos, -SCH_PIN_TARGET_RADIUS, -SCH_PIN_TARGET_RADIUS),
+        at(pos, SCH_PIN_TARGET_RADIUS, SCH_PIN_TARGET_RADIUS),
+      );
+      this.gal.DrawLine(
+        at(pos, SCH_PIN_TARGET_RADIUS, -SCH_PIN_TARGET_RADIUS),
+        at(pos, -SCH_PIN_TARGET_RADIUS, SCH_PIN_TARGET_RADIUS),
+      );
+    } else {
+      switch (aPin.GetShape()) {
+        case GRAPHIC_PINSHAPE.INVERTED:
+          this.gal.DrawCircle(at(p0, dir.x * radius, dir.y * radius), radius);
+          this.gal.DrawLine(at(p0, dir.x * diam, dir.y * diam), pos);
+          break;
+
+        case GRAPHIC_PINSHAPE.INVERTED_CLOCK: {
+          const pc = at(p0, -dir.x * clock_size, -dir.y * clock_size);
+
+          this.triLine(
+            at(p0, dir.y * clock_size, -dir.x * clock_size),
+            pc,
+            at(p0, -dir.y * clock_size, dir.x * clock_size),
+          );
+
+          this.gal.DrawCircle(at(p0, dir.x * radius, dir.y * radius), radius);
+          this.gal.DrawLine(at(p0, dir.x * diam, dir.y * diam), pos);
+          break;
+        }
+
+        case GRAPHIC_PINSHAPE.CLOCK_LOW:
+        case GRAPHIC_PINSHAPE.FALLING_EDGE_CLOCK: {
+          const pc = at(p0, -dir.x * clock_size, -dir.y * clock_size);
+
+          this.triLine(
+            at(p0, dir.y * clock_size, -dir.x * clock_size),
+            pc,
+            at(p0, -dir.y * clock_size, dir.x * clock_size),
+          );
+
+          if (!dir.y) {
+            this.triLine(at(p0, dir.x * diam, 0), at(p0, dir.x * diam, -diam), p0);
+          } else {
+            /* MapX1 = 0 */
+            this.triLine(at(p0, 0, dir.y * diam), at(p0, -diam, dir.y * diam), p0);
+          }
+
+          this.gal.DrawLine(p0, pos);
+          break;
+        }
+
+        case GRAPHIC_PINSHAPE.CLOCK:
+          this.gal.DrawLine(p0, pos);
+
+          if (!dir.y) {
+            this.triLine(
+              at(p0, 0, clock_size),
+              at(p0, -dir.x * clock_size, 0),
+              at(p0, 0, -clock_size),
+            );
+          } else {
+            this.triLine(
+              at(p0, clock_size, 0),
+              at(p0, 0, -dir.y * clock_size),
+              at(p0, -clock_size, 0),
+            );
+          }
+          break;
+
+        case GRAPHIC_PINSHAPE.INPUT_LOW:
+          this.gal.DrawLine(p0, pos);
+
+          if (!dir.y) {
+            this.triLine(at(p0, dir.x * diam, 0), at(p0, dir.x * diam, -diam), p0);
+          } else {
+            /* MapX1 = 0 */
+            this.triLine(at(p0, 0, dir.y * diam), at(p0, -diam, dir.y * diam), p0);
+          }
+          break;
+
+        case GRAPHIC_PINSHAPE.OUTPUT_LOW: // IEEE symbol "Active Low Output"
+          this.gal.DrawLine(p0, pos);
+
+          if (!dir.y)
+            // Horizontal pin
+            this.gal.DrawLine(at(p0, 0, -diam), at(p0, dir.x * diam, 0));
+          // Vertical pin
+          else this.gal.DrawLine(at(p0, -diam, 0), at(p0, 0, dir.y * diam));
+          break;
+
+        case GRAPHIC_PINSHAPE.NONLOGIC: // NonLogic pin symbol
+          this.gal.DrawLine(p0, pos);
+
+          this.gal.DrawLine(
+            at(p0, -(dir.x + dir.y) * radius, -(dir.y - dir.x) * radius),
+            at(p0, (dir.x + dir.y) * radius, (dir.y - dir.x) * radius),
+          );
+          this.gal.DrawLine(
+            at(p0, -(dir.x - dir.y) * radius, -(dir.x + dir.y) * radius),
+            at(p0, (dir.x - dir.y) * radius, (dir.x + dir.y) * radius),
+          );
+          break;
+
+        default: // GRAPHIC_PINSHAPE::LINE
+          this.gal.DrawLine(p0, pos);
+          break;
+      }
+    }
+
+    if (drawingShadows && !eeconfig()!.selection.draw_selected_children) return;
+
+    // Draw the labels
+    let nameStrokeWidth = this.getLineWidth(aPin, false);
+    let numStrokeWidth = this.getLineWidth(aPin, false);
+
+    nameStrokeWidth = Math.fround(ClampTextPenSize(nameStrokeWidth, aPin.GetNameTextSize(), true));
+    numStrokeWidth = Math.fround(ClampTextPenSize(numStrokeWidth, aPin.GetNumberTextSize(), true));
+
+    let shadowWidth = 0.0;
+
+    if (drawingShadows) shadowWidth = this.getShadowWidth(aPin.IsBrightened());
+
+    const cache = aPin.GetLayoutCache();
+    // SetRenderParameters takes ints: the float widths truncate
+    cache.SetRenderParameters(
+      Math.trunc(nameStrokeWidth),
+      Math.trunc(numStrokeWidth),
+      this.m_schSettings.m_ShowPinsElectricalType,
+      this.m_schSettings.m_ShowPinAltIcons,
+    );
+
+    const textRendersAsBitmap = (aGal: GAL, aTextSize: number): boolean => {
+      // Rendering text is expensive (particularly when using outline fonts).  At small effective
+      // sizes (ie: zoomed out) the visual differences between outline and/or stroke fonts and the
+      // bitmap font becomes immaterial, and there's often more to draw when zoomed out so the
+      // performance gain becomes more significant.
+      const BITMAP_FONT_SIZE_THRESHOLD = Math.fround(3.5);
+
+      // Any text non bitmappable?
+      return aTextSize * aGal.GetWorldScale() < BITMAP_FONT_SIZE_THRESHOLD;
+    };
+
+    // Helper function for drawing braces around multi-line text
+    const drawBrace = (
+      aGal: GAL,
+      aTop: Vec2,
+      aBottom: Vec2,
+      aBraceWidth: number,
+      aLeftBrace: boolean,
+      aAttrs: TEXT_ATTRIBUTES,
+    ): void => {
+      // Draw a simple brace using line segments, accounting for text rotation
+      const mid = { x: (aTop.x + aBottom.x) / 2.0, y: (aTop.y + aBottom.y) / 2.0 };
+
+      aGal.SetLineWidth(aAttrs.m_StrokeWidth);
+      aGal.SetIsFill(false);
+      aGal.SetIsStroke(true);
+
+      // Calculate brace points in text coordinate system
+      const p1 = { ...aTop };
+      const p2 = { ...aTop };
+      const p3 = { ...mid };
+      const p4 = { ...aBottom };
+      const p5 = { ...aBottom };
+
+      // Apply brace offset based on text orientation
+      const braceOffset = aLeftBrace ? -aBraceWidth : aBraceWidth;
+
+      if (aAttrs.m_Angle.equals(ANGLE_VERTICAL)) {
+        // For vertical text, braces extend in the Y direction
+        // "Left" brace is actually towards negative Y, "right" towards positive Y
+        p2.y += braceOffset / 2;
+        p3.y += braceOffset;
+        p4.y += braceOffset / 2;
+      } else {
+        // For horizontal text, braces extend in the X direction
+        p2.x += braceOffset / 2;
+        p3.x += braceOffset;
+        p4.x += braceOffset / 2;
+      }
+
+      // Draw the brace segments
+      aGal.DrawLine(p1, p2);
+      aGal.DrawLine(p2, p3);
+      aGal.DrawLine(p3, p4);
+      aGal.DrawLine(p4, p5);
+    };
+
+    const drawBracesAroundText = (
+      aGal: GAL,
+      aLines: string[],
+      aStartPos: Vec2,
+      aLineSpacing: number,
+      aAttrs: TEXT_ATTRIBUTES,
+    ): void => {
+      if (aLines.length <= 1) return;
+
+      // Calculate brace dimensions
+      const braceWidth = Math.trunc(aAttrs.m_Size.x / 3); // Make braces a bit larger
+
+      // Find the maximum line width to position braces
+      let maxLineWidth = 0;
+      const font = aAttrs.m_Font ?? FONT.GetFont(eeconfig()?.appearance.default_font ?? '');
+
+      for (const line of aLines) {
+        const lineExtents = font.StringBoundaryLimits(
+          line.trim(),
+          aAttrs.m_Size,
+          aAttrs.m_StrokeWidth,
+          false,
+          false,
+          new METRICS_CLASS(),
+        );
+        maxLineWidth = Math.max(maxLineWidth, lineExtents.x);
+      }
+
+      // Calculate brace positions based on text vertical alignment and rotation
+      const braceStart = { ...aStartPos };
+      const braceEnd = { ...aStartPos };
+
+      // Extend braces beyond the text bounds
+      const textHeight = aAttrs.m_Size.y;
+      const extraHeight = Math.trunc(textHeight / 3); // Extend braces by 1/3 of text height beyond text
+
+      // Position braces in the perpendicular direction with proper spacing
+      const braceSpacing = Math.trunc(maxLineWidth / 2) + braceWidth;
+
+      if (aAttrs.m_Angle.equals(ANGLE_VERTICAL)) {
+        // For vertical text, lines are spaced horizontally and braces are horizontal
+        braceEnd.x += (aLines.length - 1) * aLineSpacing;
+
+        // Extend braces horizontally to encompass all lines plus extra space
+        braceStart.x -= 2 * extraHeight;
+
+        drawBrace(
+          aGal,
+          { x: braceStart.x, y: braceStart.y - braceSpacing },
+          { x: braceEnd.x, y: braceEnd.y - braceSpacing },
+          braceWidth,
+          true,
+          aAttrs,
+        );
+        drawBrace(
+          aGal,
+          { x: braceStart.x, y: braceStart.y + braceSpacing },
+          { x: braceEnd.x, y: braceEnd.y + braceSpacing },
+          braceWidth,
+          false,
+          aAttrs,
+        );
+      } else {
+        // For horizontal text, lines are spaced vertically and braces are vertical
+        braceEnd.y += (aLines.length - 1) * aLineSpacing;
+
+        // Extend braces vertically to encompass all lines plus extra space
+        braceStart.y -= 2 * extraHeight;
+
+        // Draw left brace
+        drawBrace(
+          aGal,
+          { x: braceStart.x - braceSpacing, y: braceStart.y },
+          { x: braceEnd.x - braceSpacing, y: braceEnd.y },
+          braceWidth,
+          true,
+          aAttrs,
+        );
+        // Draw right brace
+        drawBrace(
+          aGal,
+          { x: braceStart.x + braceSpacing, y: braceStart.y },
+          { x: braceEnd.x + braceSpacing, y: braceEnd.y },
+          braceWidth,
+          false,
+          aAttrs,
+        );
+      }
+    };
+
+    const drawBracesAroundTextBitmap = (
+      aGal: GAL,
+      aLines: string[],
+      aStartPos: Vec2,
+      aLineSpacing: number,
+      aAttrs: TEXT_ATTRIBUTES,
+    ): void => {
+      // Simplified brace drawing for bitmap text
+      if (aLines.length <= 1) return;
+
+      const braceWidth = Math.trunc(aAttrs.m_Size.x / 4);
+
+      // Estimate max line width (less precise for bitmap text)
+      const maxLineWidth = aAttrs.m_Size.x * 4; // Conservative estimate
+
+      // Calculate brace positions based on rotation
+      const braceStart = { ...aStartPos };
+      const braceEnd = { ...aStartPos };
+
+      const textHalfHeight = Math.trunc(aAttrs.m_Size.y / 2);
+      const off = maxLineWidth / 2.0 + braceWidth / 2.0;
+
+      if (aAttrs.m_Angle.equals(ANGLE_VERTICAL)) {
+        // For vertical text, lines are spaced horizontally
+        braceEnd.x += (aLines.length - 1) * aLineSpacing;
+
+        drawBrace(
+          aGal,
+          { x: braceStart.x, y: braceStart.y - off },
+          { x: braceEnd.x, y: braceEnd.y - off },
+          braceWidth,
+          true,
+          aAttrs,
+        );
+        drawBrace(
+          aGal,
+          { x: braceStart.x, y: braceStart.y + off },
+          { x: braceEnd.x, y: braceEnd.y + off },
+          braceWidth,
+          false,
+          aAttrs,
+        );
+      } else {
+        // For horizontal text, lines are spaced vertically
+        braceEnd.y += (aLines.length - 1) * aLineSpacing;
+
+        const braceTop = { x: braceStart.x, y: braceStart.y - textHalfHeight };
+        const braceBottom = { x: braceEnd.x, y: braceEnd.y + textHalfHeight };
+
+        drawBrace(
+          aGal,
+          { x: braceTop.x - off, y: braceTop.y },
+          { x: braceBottom.x - off, y: braceBottom.y },
+          braceWidth,
+          true,
+          aAttrs,
+        );
+        drawBrace(
+          aGal,
+          { x: braceTop.x + off, y: braceTop.y },
+          { x: braceBottom.x + off, y: braceBottom.y },
+          braceWidth,
+          false,
+          aAttrs,
+        );
+      }
+    };
+
+    /**
+     * The three multi-line helpers (drawMultiLineText, boxMultiLineText,
+     * drawMultiLineBitmapText) differ only in how one line is drawn and which braces follow.
+     */
+    const multiLine = (
+      aGal: GAL,
+      aText: string,
+      aPosition: Vec2,
+      aAttrs: TEXT_ATTRIBUTES,
+      aDrawLine: (aLine: string, aPos: VECTOR2I) => void,
+      aBraces: typeof drawBracesAroundText,
+    ): void => {
+      // Check if this is multi-line stacked pin text with braces
+      if (aText.startsWith('[') && aText.endsWith(']') && aText.includes('\n')) {
+        // Extract content between braces and split into lines
+        const content = aText.slice(1, aText.length - 1);
+        const lines = wxStringSplit(content, '\n');
+
+        if (lines.length > 1) {
+          // Calculate line spacing (similar to EDA_TEXT::GetInterline)
+          const lineSpacing = Math.round(aAttrs.m_Size.y * 1.3); // 130% of text height
+
+          // Calculate positioning based on text alignment and rotation
+          const startPos = { ...aPosition };
+
+          if (aAttrs.m_Angle.equals(ANGLE_VERTICAL)) {
+            // For vertical text, lines are spaced horizontally
+            // Adjust start position based on horizontal alignment
+            const totalWidth = (lines.length - 1) * lineSpacing;
+
+            if (aAttrs.m_Halign === GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_RIGHT)
+              startPos.x -= totalWidth;
+            else if (aAttrs.m_Halign === GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_CENTER)
+              startPos.x -= totalWidth / 2.0;
+
+            // Draw each line
+            for (let i = 0; i < lines.length; i++)
+              aDrawLine(lines[i]!.trim(), { x: startPos.x + i * lineSpacing, y: startPos.y });
+          } else {
+            // For horizontal text, lines are spaced vertically
+            // Adjust start position based on vertical alignment
+            const totalHeight = (lines.length - 1) * lineSpacing;
+
+            if (aAttrs.m_Valign === GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_BOTTOM)
+              startPos.y -= totalHeight;
+            else if (aAttrs.m_Valign === GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_CENTER)
+              startPos.y -= totalHeight / 2.0;
+
+            // Draw each line
+            for (let i = 0; i < lines.length; i++)
+              aDrawLine(lines[i]!.trim(), { x: startPos.x, y: startPos.y + i * lineSpacing });
+          }
+
+          // Draw braces around the text
+          aBraces(aGal, lines, startPos, lineSpacing, aAttrs);
+          return;
+        }
+      }
+
+      // Fallback to regular single-line text
+      aDrawLine(aText, aPosition);
+    };
+
+    const drawTextInfo = (aTextInfo: TEXT_INFO, aColor: Color4d): void => {
+      const renderTextAsBitmap = textRendersAsBitmap(this.gal, aTextInfo.m_TextSize);
+
+      // Which of these gets used depends on the font technology, so set both
+      this.gal.SetStrokeColor(aColor);
+      this.gal.SetFillColor(aColor);
+
+      const attrs = new TEXT_ATTRIBUTES();
+      attrs.m_Font = FONT.GetFont(eeconfig()?.appearance.default_font ?? '');
+      attrs.m_Size = { x: aTextInfo.m_TextSize, y: aTextInfo.m_TextSize };
+      attrs.m_Halign = aTextInfo.m_HAlign;
+      attrs.m_Valign = aTextInfo.m_VAlign;
+      attrs.m_Angle = aTextInfo.m_Angle;
+      attrs.m_StrokeWidth = aTextInfo.m_Thickness;
+
+      const metrics = aPin.GetFontMetrics();
+      const stroked = (l: string, p: VECTOR2I) => strokeText(this.gal, l, p, attrs, metrics);
+
+      if (drawingShadows) {
+        attrs.m_StrokeWidth += Math.round(shadowWidth);
+
+        if (!attrs.m_Font.IsOutline()) {
+          multiLine(
+            this.gal,
+            aTextInfo.m_Text,
+            aTextInfo.m_TextPosition,
+            attrs,
+            stroked,
+            drawBracesAroundText,
+          );
+        } else {
+          multiLine(
+            this.gal,
+            aTextInfo.m_Text,
+            aTextInfo.m_TextPosition,
+            attrs,
+            (l, p) => boxText(this.gal, l, p, attrs, metrics),
+            drawBracesAroundText,
+          );
+        }
+      } else if (SCH_PAINTER.nonCached(aPin) && renderTextAsBitmap) {
+        multiLine(
+          this.gal,
+          aTextInfo.m_Text,
+          aTextInfo.m_TextPosition,
+          attrs,
+          (l, p) => bitmapText(this.gal, l, p, attrs),
+          drawBracesAroundTextBitmap,
+        );
+        aPin.SetFlags(IS_SHOWN_AS_BITMAP);
+      } else {
+        multiLine(
+          this.gal,
+          aTextInfo.m_Text,
+          aTextInfo.m_TextPosition,
+          attrs,
+          stroked,
+          drawBracesAroundText,
+        );
+        aPin.SetFlags(IS_SHOWN_AS_BITMAP);
+      }
+    };
+
+    const getColorForLayer = (aDrawnLayer: number): Color4d => {
+      if (!aPin.IsVisible())
+        return this.getRenderColor(aPin, SCH_LAYER_ID.LAYER_HIDDEN, drawingShadows, aDimmed);
+
+      return this.getRenderColor(aPin, aDrawnLayer, drawingShadows, aDimmed);
+    };
+
+    // Request text layout info and draw it.  The cache takes the shadow width as an int.
+    const shadowInt = Math.trunc(shadowWidth);
+
+    const numInfo = cache.GetPinNumberInfo(shadowInt);
+
+    if (numInfo) drawTextInfo(numInfo, getColorForLayer(SCH_LAYER_ID.LAYER_PINNUM));
+
+    const nameInfo = cache.GetPinNameInfo(shadowInt);
+
+    if (nameInfo) {
+      drawTextInfo(nameInfo, getColorForLayer(SCH_LAYER_ID.LAYER_PINNAM));
+
+      const altIconBox = cache.GetAltIconBBox();
+
+      if (altIconBox) {
+        drawAltPinModesIconGal(
+          this.gal,
+          altIconBox.GetCenter(),
+          altIconBox.GetWidth(),
+          // Icon style doesn't work due to the tempPin having no alt
+          // but maybe it's better with just one style anyway.
+          true,
+          nameInfo.m_Angle.equals(ANGLE_VERTICAL),
+          shadowInt,
+          getColorForLayer(SCH_LAYER_ID.LAYER_PINNAM),
+        );
+      }
+    }
+
+    const elecTypeInfo = cache.GetPinElectricalTypeInfo(shadowInt);
+
+    if (elecTypeInfo)
+      drawTextInfo(elecTypeInfo, getColorForLayer(SCH_LAYER_ID.LAYER_PRIVATE_NOTES));
   }
 
   protected drawLine(
