@@ -296,6 +296,17 @@ describe('annotation over a reused sheet', () => {
     expect(horizontal.filter((r) => vertical.has(r))).toEqual([]);
   });
 
+  it('the root sheet alone, reset: the sheets below it are not renumbered', () => {
+    // annotate.cpp:426: the subsheets join the current sheet's list only when recursive.
+    const frame = hierarchy();
+    const before = refsBySheet(frame);
+    annotate(frame, { scope: ANNOTATE_CURRENT_SHEET, recursive: false, reset: true });
+    const after = refsBySheet(frame);
+
+    expect(after.get('/ampli_ht_vertical/')).toEqual(before.get('/ampli_ht_vertical/'));
+    expect(after.get('/ampli_ht_horizontal/')).toEqual(before.get('/ampli_ht_horizontal/'));
+  });
+
   it('the current sheet alone: it is renumbered around the others, which are untouched', () => {
     const frame = hierarchy();
     const schematic = frame.Schematic();
