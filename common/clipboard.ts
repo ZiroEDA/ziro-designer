@@ -114,6 +114,19 @@ export async function SetClipboardFromPaste(aData: DataTransfer): Promise<void> 
 }
 
 /**
+ * The system clipboard's text, read outside a paste event (a menu row's
+ * `navigator.clipboard.readText()`), becomes the clipboard - unless it is the
+ * text this tab saved last, whose `application/kicad` payload rides with it.
+ */
+export function SetClipboardFromText(aText: string): void {
+  if (s_clipboard.text === aText) return;
+
+  const data = new wxDataObjectComposite();
+  data.text = aText;
+  s_clipboard = data;
+}
+
+/**
  * Store information to the clipboard.
  *
  * @param aTextUTF8 is the information to be stored, expected UTF8 encoding.

@@ -11,7 +11,7 @@
  * refinement.
  */
 import { describe, expect, it } from 'vitest';
-import { ArcGeomManager } from '@ziroeda/common/preview_items/arc_geom_manager.js';
+import { ARC_GEOM_MANAGER } from '@ziroeda/common/preview_items/arc_geom_manager.js';
 import {
   arcCursorStrings,
   arcMidPoint,
@@ -152,27 +152,27 @@ describe('TWO_POINT_ASSISTANT drawing', () => {
 });
 
 describe('ARC_ASSISTANT', () => {
-  const started = (): ArcGeomManager => {
-    const mgr = new ArcGeomManager();
-    mgr.addPoint({ x: 0, y: 0 }, true);
+  const started = (): ARC_GEOM_MANAGER => {
+    const mgr = new ARC_GEOM_MANAGER();
+    mgr.AddPoint({ x: 0, y: 0 }, true);
     return mgr;
   };
 
   it('reports r and θ while the radius is being set', () => {
     const mgr = started();
-    mgr.addPoint({ x: 10 * IU, y: 0 }, false);
+    mgr.AddPoint({ x: 10 * IU, y: 0 }, false);
 
     expect(arcCursorStrings(mgr, IU, 'mm')).toEqual(['r: 10.000 mm', 'θ: 0.0°']);
   });
 
   it('switches to Δθ and θ once sweeping', () => {
     const mgr = started();
-    mgr.addPoint({ x: 10 * IU, y: 0 }, true); // start angle 0°
+    mgr.AddPoint({ x: 10 * IU, y: 0 }, true); // start angle 0°
     // Exactly a quarter turn, which is the boundary: `min( ccw 90, cw 270 ) >=
     // ANGLE_90` takes the LOCK arm rather than the choose-the-shorter-way arm,
     // and locking leaves `m_clockwise` at its default of true. So the very
     // first 90° sweep goes the long way round and Δθ reads +270, not −90.
-    mgr.addPoint({ x: 0, y: 10 * IU }, false);
+    mgr.AddPoint({ x: 0, y: 10 * IU }, false);
 
     const [dtheta, theta] = arcCursorStrings(mgr, IU, 'mm');
     expect(dtheta).toBe('Δθ: 270.0°');
@@ -183,17 +183,17 @@ describe('ARC_ASSISTANT', () => {
 
   it('reports the shorter sweep while it is under a quarter turn', () => {
     const mgr = started();
-    mgr.addPoint({ x: 10 * IU, y: 0 }, true);
+    mgr.AddPoint({ x: 10 * IU, y: 0 }, true);
     // 45° below +x: ccw 45 beats cw 315, so the posture goes
     // counter-clockwise and the sweep is reported negative.
-    mgr.addPoint({ x: 10 * IU, y: 10 * IU }, false);
+    mgr.AddPoint({ x: 10 * IU, y: 10 * IU }, false);
 
     expect(arcCursorStrings(mgr, IU, 'mm')[0]).toBe('Δθ: -45.0°');
   });
 
   it('draws one radius line and a guide circle while setting the radius', () => {
     const mgr = started();
-    mgr.addPoint({ x: 10 * IU, y: 0 }, false);
+    mgr.AddPoint({ x: 10 * IU, y: 0 }, false);
     const ctx = recorder();
     drawArcAssistant(ctx, {
       mgr,
@@ -215,8 +215,8 @@ describe('ARC_ASSISTANT', () => {
     // out to the raw cursor — which is off the arc, because the radius is
     // already fixed.
     const mgr = started();
-    mgr.addPoint({ x: 10 * IU, y: 0 }, true);
-    mgr.addPoint({ x: 0, y: 40 * IU }, false);
+    mgr.AddPoint({ x: 10 * IU, y: 0 }, true);
+    mgr.AddPoint({ x: 0, y: 40 * IU }, false);
     const ctx = recorder();
     drawArcAssistant(ctx, {
       mgr,
@@ -236,7 +236,7 @@ describe('ARC_ASSISTANT', () => {
   it('dims the first radius only after it has been locked in', () => {
     // `dimFirstLine = GetStep() > SET_START`, and de-emphasis is alpha 0.5.
     const setting = started();
-    setting.addPoint({ x: 10 * IU, y: 3 * IU }, false);
+    setting.AddPoint({ x: 10 * IU, y: 3 * IU }, false);
     const a = recorder();
     drawArcAssistant(a, {
       mgr: setting,
@@ -251,8 +251,8 @@ describe('ARC_ASSISTANT', () => {
     expect(a.calls.find((c) => c.op === 'lineTo')!.stroke).toBe('rgb(255, 255, 0)');
 
     const sweeping = started();
-    sweeping.addPoint({ x: 10 * IU, y: 3 * IU }, true);
-    sweeping.addPoint({ x: 3 * IU, y: 10 * IU }, false);
+    sweeping.AddPoint({ x: 10 * IU, y: 3 * IU }, true);
+    sweeping.AddPoint({ x: 3 * IU, y: 10 * IU }, false);
     const b = recorder();
     drawArcAssistant(b, {
       mgr: sweeping,
@@ -335,11 +335,11 @@ describe('DrawTextNextToCursor', () => {
 
 describe('arcMidPoint', () => {
   /** Centre (0,0), radius 10 mm, start on +x, cursor a quarter turn below. */
-  const quarter = (): ArcGeomManager => {
-    const mgr = new ArcGeomManager();
-    mgr.addPoint({ x: 0, y: 0 }, true);
-    mgr.addPoint({ x: 10 * IU, y: 0 }, true);
-    mgr.addPoint({ x: 0, y: 10 * IU }, false);
+  const quarter = (): ARC_GEOM_MANAGER => {
+    const mgr = new ARC_GEOM_MANAGER();
+    mgr.AddPoint({ x: 0, y: 0 }, true);
+    mgr.AddPoint({ x: 10 * IU, y: 0 }, true);
+    mgr.AddPoint({ x: 0, y: 10 * IU }, false);
     return mgr;
   };
 
@@ -361,7 +361,7 @@ describe('arcMidPoint', () => {
 
   it('follows the posture when it is flipped', () => {
     const mgr = quarter();
-    mgr.toggleClockwise();
+    mgr.ToggleClockwise();
     const mid = arcMidPoint(mgr);
     // Counter-clockwise now: the 90° sweep's midpoint is at 45°, down-right.
     expect(mid.x).toBeGreaterThan(0);
@@ -373,19 +373,19 @@ describe('ARC_GEOM_MANAGER radius ends, on this canvas', () => {
   it('a start clicked BELOW the centre comes back below it', () => {
     // A round trip through `EDA_ANGLE( radVec )` and `RotatePoint( vec, -a )`,
     // which is where a sign error would mirror the whole arc.
-    const mgr = new ArcGeomManager();
-    mgr.addPoint({ x: 0, y: 0 }, true);
-    mgr.addPoint({ x: 0, y: 1000 }, true);
+    const mgr = new ARC_GEOM_MANAGER();
+    mgr.AddPoint({ x: 0, y: 0 }, true);
+    mgr.AddPoint({ x: 0, y: 1000 }, true);
 
-    expect(mgr.getStartRadiusEnd()).toEqual({ x: 0, y: 1000 });
+    expect(mgr.GetStartRadiusEnd()).toEqual({ x: 0, y: 1000 });
   });
 
   it('and one clicked up-left comes back up-left', () => {
-    const mgr = new ArcGeomManager();
-    mgr.addPoint({ x: 0, y: 0 }, true);
-    mgr.addPoint({ x: -1000, y: -1000 }, true);
+    const mgr = new ARC_GEOM_MANAGER();
+    mgr.AddPoint({ x: 0, y: 0 }, true);
+    mgr.AddPoint({ x: -1000, y: -1000 }, true);
 
-    const p = mgr.getStartRadiusEnd();
+    const p = mgr.GetStartRadiusEnd();
     expect(p.x).toBeLessThan(0);
     expect(p.y).toBeLessThan(0);
   });

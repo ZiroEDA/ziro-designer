@@ -2,667 +2,563 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * Footprint autoplacement. Counterpart: `pcbnew/autorouter/ar_autoplacer.cpp`
- * (AR_AUTOPLACER), driven the way `autoplace_tool.cpp` drives it.
+ * `pcbnew/autorouter/ar_autoplacer.cpp`: AR_AUTOPLACER, the footprint
+ * autoplacer behind Place > Auto-Place Footprints.
  *
- * One footprint is placed at a time, and the choice of *which* one is as much
- * of the algorithm as the choice of where. Each round:
+ * Every footprint already on the board is stamped into an {@link AR_MATRIX}
+ * as an obstacle with a keep-out cost halo; then, one at a time, the next
+ * footprint to place ({@link AR_AUTOPLACER.pickFootprint}) is tried at every
+ * grid position inside the board outline, and lands where its ratsnest cost
+ * plus keep-out cost is least.
  *
- *  1. {@link Autoplacer.pickFootprint} ranks every footprint on the board by
- *     bounding-box area times pad count, then re-ranks by area times the number
- *     of ratsnest edges leaving it, and takes the first still-unplaced one with
- *     any ratsnest at all — the biggest, busiest part first, so the parts that
- *     have to reach it can be pulled in around it afterwards.
- *  2. {@link Autoplacer.getOptimalFPPlacement} sweeps that footprint over every
- *     grid position that fits inside the board, columns before rows, scoring
- *     each with the ratsnest cost plus the keep-out cost read out of the matrix.
- *  3. The winner is committed and burned into the matrix, so the next footprint
- *     sees it as occupied and pays to sit near it.
+ * The overlay (`drawPlacementRoutingMatrix`), the refresh callback and the
+ * progress reporter are KiCad's live feedback during a long run; this port runs
+ * synchronously inside one tool call, so they are not ported.
  *
- * The scoring detail that decides the layout, and that a rewrite always gets
- * wrong: ties go to the *last* position tried, because upstream accepts a new
- * best on `min_cost >= Score`, not `>`. Sweeping x outermost and y innermost,
- * that puts a tied footprint at the bottom-right of the tied region rather than
- * the top-left. Change either the comparison or the loop nesting and every board
- * with a symmetry — which is most boards — comes out mirrored from KiCad's.
- *
- * The cost of one airwire is `hypot(dx, dy * 2)` after sorting the two so that
- * `dx >= dy`: a length, plus a penalty that is worst at 45 degrees and zero for
- * a horizontal or vertical run.
+ * C++ returns `GetBoundingBox()` by value; ours returns the item's cached box,
+ * so every box this file inflates or moves is cloned first.
  */
 
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
-import { textItemBBox } from '../text_metrics.js';
-import { EuclideanNormI } from '@ziroeda/kimath/src/math/vector2.js';
-import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-import { boardItemId, moveBoardItems } from '../edit-board.js';
-import { chainOutlines, shapePoints } from '../courtyard.js';
-import { buildRatsnest } from '../ratsnest/ratsnest.js';
-import type { Board, PcbFootprint, PcbPad, PcbShape, PcbTextItem } from '../types.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
+import type { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
+import { type VECTOR2I, EuclideanNormI, add, sub } from '@ziroeda/kimath/src/math/vector2.js';
+import type { BOARD } from '../board.js';
+import type { BOARD_COMMIT } from '../board_commit.js';
+import { CONNECTIVITY_DATA } from '../connectivity/connectivity_data.js';
+import type { FOOTPRINT } from '../footprint.js';
+import type { PAD } from '../pad.js';
+import type { PCB_SHAPE } from '../pcb_shape.js';
 import {
+  AR_MATRIX,
   AR_SIDE_BOTTOM,
   AR_SIDE_TOP,
-  ArMatrix,
   CELL_IS_EDGE,
   CELL_IS_HOLE,
   CELL_IS_MODULE,
   CELL_IS_ZONE,
-  boxBottom,
-  boxContains,
-  boxInflate,
-  boxMove,
-  boxRight,
+  CELL_OP,
   idiv,
-  sideMask,
-  type Box2,
 } from './ar_matrix.js';
 
-/** `AR_GAIN`: divides the grid-times-pad-count keep-out margin. */
 const AR_GAIN = 16;
-/** `AR_KEEPOUT_MARGIN`: the cost a cell right under a placed footprint carries. */
 const AR_KEEPOUT_MARGIN = 500;
+const AR_ABORT_PLACEMENT = -1;
 
-/** `STEP_AR_MM`: the placement grid, 1 mm. */
-export const AR_STEP_MM = 1.0;
+const STEP_AR_MM = 1.0;
 
-/** `AR_CELL_STATE`. `testFootprintOnBoard` returns one of these, or a cost >= 0. */
-const AR_OUT_OF_BOARD = -2;
-const AR_OCCUIPED_BY_MODULE = -1;
-const AR_FREE_CELL = 0;
-
-/** Tessellation error for turning a curved graphic into an outline, 5 µm. */
-const OUTLINE_MAX_ERROR = mmToIU(0.005);
-
-/**
- * `BOARD::GetOutlinesChainingEpsilon`'s default, 0.01 mm: how far apart two
- * `Edge.Cuts` endpoints may be and still count as the same corner.
- */
-const OUTLINE_CHAINING_EPSILON = mmToIU(0.01);
-
-/** Layers a sided footprint's annotations live on, excluded from its extents. */
-const ANNOTATION_LAYERS: ReadonlySet<string> = new Set([
-  'Cmts.User',
-  'Dwgs.User',
-  'Eco1.User',
-  'Eco2.User',
-]);
-
-export interface AutoplaceOptions {
-  /**
-   * `PAD::GetOwnClearance( pad->GetLayer() )` in IU: the clearance the design
-   * rules give this pad. Injected rather than resolved here — the constraint
-   * resolver lives in the DRC engine, and the autoplacer must not be the thing
-   * that decides what a clearance is.
-   */
-  padClearance: (pad: PcbPad, footprint: PcbFootprint) => number;
-  /** The placement grid in IU. Defaults to `AR_STEP_MM`; floors at 0.25 mm. */
-  gridSize?: number;
-  /**
-   * `aPlaceOffboardModules`: also place every footprint whose position falls
-   * outside the matrix box, on top of the ones asked for.
-   */
-  placeOffboardFootprints?: boolean;
+/** `AR_CELL_STATE`. */
+export enum AR_CELL_STATE {
+  AR_OUT_OF_BOARD = -2,
+  AR_OCCUIPED_BY_MODULE = -1,
+  AR_FREE_CELL = 0,
 }
 
-export interface AutoplaceResult {
-  /** The board with the placed footprints moved. Unchanged on failure. */
-  board: Board;
-  /** `AR_RESULT`. `failure` means the board has no usable `Edge.Cuts` extents. */
-  status: 'completed' | 'failure';
-  /** Footprint indices in the order they were placed. */
-  order: number[];
+/** `AR_RESULT`. */
+export enum AR_RESULT {
+  AR_COMPLETED = 1,
+  AR_CANCELLED,
+  AR_FAILURE,
 }
 
-// ----- geometry the placer needs from the board model ------------------------
-
-const emptyBox = (): Box2 | null => null;
-
-const mergePoint = (box: Box2 | null, x: number, y: number): Box2 => {
-  if (!box) return { x, y, w: 0, h: 0 };
-  const minX = Math.min(box.x, x);
-  const minY = Math.min(box.y, y);
-  const maxX = Math.max(boxRight(box), x);
-  const maxY = Math.max(boxBottom(box), y);
-  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
-};
-
-const mergeBox = (box: Box2 | null, other: Box2 | null): Box2 | null => {
-  if (!other) return box;
-  const a = mergePoint(box, other.x, other.y);
-  return mergePoint(a, boxRight(other), boxBottom(other));
-};
-
-/** Round a box's corners to integers, which is what a `BOX2I` holds. */
-const roundBox = (b: Box2): Box2 => {
-  const x = Math.round(b.x);
-  const y = Math.round(b.y);
-  return { x, y, w: Math.round(b.x + b.w) - x, h: Math.round(b.y + b.h) - y };
-};
-
-/**
- * `PCB_SHAPE::GetBoundingBox`. A circle is exact (centre plus radius); curved
- * shapes are measured from the same tessellation the courtyard builder uses,
- * which is inside upstream's exact arc extents by at most the tessellation
- * error.
- */
-function shapeExtent(s: PcbShape): Box2 | null {
-  let box = emptyBox();
-
-  if (s.kind === 'circle' && s.center && s.end) {
-    const r = Math.hypot(s.end.x - s.center.x, s.end.y - s.center.y);
-    box = { x: s.center.x - r, y: s.center.y - r, w: 2 * r, h: 2 * r };
-  } else {
-    const pts = shapePoints(s, OUTLINE_MAX_ERROR)?.pts ?? [
-      ...(s.start ? [s.start] : []),
-      ...(s.mid ? [s.mid] : []),
-      ...(s.end ? [s.end] : []),
-      ...(s.pts ?? []),
-    ];
-    for (const p of pts) box = mergePoint(box, p.x, p.y);
-  }
-
-  return box ? boxInflate(box, Math.max(0, s.width) / 2) : null;
+/** `sortFootprintsByComplexity`: area times pad count, largest first. */
+function sortFootprintsByComplexity(ref: FOOTPRINT, compare: FOOTPRINT): boolean {
+  const ff1 = ref.GetArea() * ref.GetPadCount();
+  const ff2 = compare.GetArea() * compare.GetPadCount();
+  return ff2 < ff1;
 }
 
-/** `PAD::GetBoundingBox`: the pad's size rectangle at its orientation. */
-function padExtent(pad: PcbPad): Box2 {
-  const hw = pad.size.x / 2;
-  const hh = pad.size.y / 2;
-  const rad = (pad.angle * Math.PI) / 180;
-  const c = Math.cos(rad);
-  const sn = Math.sin(rad);
-  let box = emptyBox();
-
-  for (const corner of [
-    { x: -hw, y: -hh },
-    { x: hw, y: -hh },
-    { x: hw, y: hh },
-    { x: -hw, y: hh },
-  ]) {
-    // The reader stores pad angles board-frame absolute, with KiCad's
-    // clockwise-positive convention (read-board.ts).
-    box = mergePoint(
-      box,
-      pad.at.x + corner.x * c + corner.y * sn,
-      pad.at.y + corner.y * c - corner.x * sn,
-    );
-  }
-
-  return box!;
+/** `sortFootprintsByRatsnestSize`: area times ratsnest edge count, largest first. */
+function sortFootprintsByRatsnestSize(ref: FOOTPRINT, compare: FOOTPRINT): boolean {
+  const ff1 = ref.GetArea() * ref.GetFlag();
+  const ff2 = compare.GetArea() * compare.GetFlag();
+  return ff2 < ff1;
 }
 
-/** `PCB_TEXT::GetBoundingBox` — `EDA_TEXT::GetTextBox` at the draw rotation. */
-function textExtent(t: PcbTextItem): Box2 {
-  return textItemBBox(t);
+/** `std::sort` with a strict-weak-ordering `less`, as a comparator. */
+function byLess<T>(less: (a: T, b: T) => boolean): (a: T, b: T) => number {
+  return (a, b) => (less(a, b) ? -1 : less(b, a) ? 1 : 0);
 }
 
-/**
- * `FOOTPRINT::GetBoundingBox( false )`, the text-excluded extents every part of
- * the autoplacer measures a footprint by.
- *
- * The seed is a zero-size box at the footprint anchor inflated by 0.25 mm, so a
- * footprint always has some extent even with nothing in it, and a footprint
- * whose geometry sits far from its anchor is measured from the anchor outwards.
- * Annotation layers are dropped for a sided footprint; text only counts when
- * there is nothing else at all.
- */
-export function footprintExtent(fp: PcbFootprint): Box2 {
-  let box: Box2 | null = boxInflate({ x: fp.at.x, y: fp.at.y, w: 0, h: 0 }, mmToIU(0.25));
+export class AR_AUTOPLACER {
+  private m_matrix = new AR_MATRIX();
+  /** The polygonal description of the top side free areas. */
+  private m_topFreeArea = new SHAPE_POLY_SET();
+  /** The polygonal description of the bottom side free areas. */
+  private m_bottomFreeArea = new SHAPE_POLY_SET();
+  /** The polygonal description of the board. */
+  private m_boardShape = new SHAPE_POLY_SET();
+  /** The footprint being placed, top side. */
+  private m_fpAreaTop = new SHAPE_POLY_SET();
+  /** The footprint being placed, bottom side. */
+  private m_fpAreaBottom = new SHAPE_POLY_SET();
 
-  const sided = fp.layer === 'F.Cu' || fp.layer === 'B.Cu';
+  private readonly m_board: BOARD;
+  private m_curPosition: VECTOR2I = { x: 0, y: 0 };
+  private m_minCost = 0.0;
+  private readonly m_gridSize: number;
+  private readonly m_connectivity: CONNECTIVITY_DATA;
 
-  for (const s of fp.shapes) {
-    if (sided && ANNOTATION_LAYERS.has(s.layer)) continue;
-    box = mergeBox(box, shapeExtent(s));
+  constructor(aBoard: BOARD) {
+    this.m_board = aBoard;
+    this.m_connectivity = new CONNECTIVITY_DATA();
+
+    for (const footprint of this.m_board.Footprints()) this.m_connectivity.Add(footprint);
+
+    this.m_gridSize = pcbIUScale.mmToIU(STEP_AR_MM);
   }
 
-  for (const pad of fp.pads) box = mergeBox(box, padExtent(pad));
-
-  // Upstream's `m_drawings` holds graphics and free text but not the fields, so
-  // the reference and value never keep this test from firing.
-  const userTexts = fp.texts.filter((t) => t.kind === 'user');
-  const noDrawItems = fp.shapes.length === 0 && userTexts.length === 0 && fp.pads.length === 0;
-
-  if (noDrawItems) {
-    for (const t of fp.texts) box = mergeBox(box, textExtent(t));
+  /** The cost of the last placement (`m_minCost`); read by tests. */
+  GetMinCost(): number {
+    return this.m_minCost;
   }
 
-  return roundBox(box!);
-}
+  private placeFootprint(
+    aFootprint: FOOTPRINT | null,
+    _aDoNotRecreateRatsnest: boolean,
+    aPos: VECTOR2I,
+  ): void {
+    if (!aFootprint) return;
 
-/** `FOOTPRINT::GetArea( 0 )`: the text-excluded bounding box's area. */
-export function footprintArea(fp: PcbFootprint): number {
-  const box = footprintExtent(fp);
-  return Math.abs(box.w) * Math.abs(box.h);
-}
-
-/**
- * `BOARD::GetBoardEdgesBoundingBox`: the extents of every `Edge.Cuts` graphic,
- * board level and inside footprints alike. Null when there are none.
- */
-export function boardEdgesBoundingBox(board: Board): Box2 | null {
-  let box = emptyBox();
-
-  for (const s of board.shapes) {
-    if (s.layer === 'Edge.Cuts') box = mergeBox(box, shapeExtent(s));
+    aFootprint.SetPosition(aPos);
+    this.m_connectivity.Update(aFootprint);
   }
 
-  for (const fp of board.footprints) {
-    for (const s of fp.shapes) {
-      if (s.layer === 'Edge.Cuts') box = mergeBox(box, shapeExtent(s));
-    }
-  }
+  private genPlacementRoutingMatrix(): number {
+    this.m_matrix.UnInitRoutingMatrix();
 
-  return box ? roundBox(box) : null;
-}
+    const bbox = this.m_board.GetBoardEdgesBoundingBox();
 
-/**
- * The board outline as closed rings of integer points, for the scanline fill.
- *
- * Upstream builds a `SHAPE_POLY_SET` and fractures it, then scans outline 0.
- * Fracturing folds a polygon's holes into its outer contour precisely so that a
- * crossing-parity scan of the result fills the same area as an even-odd scan of
- * the contour and its holes, which is what this does directly — so cut-outs
- * come out identical. What is not reproduced is upstream's *discarding* of
- * outlines 1 and beyond: a board drawn as two disjoint islands fills both here
- * and only the first upstream. Nor is `BuildBoardPolygonOutlines`' test for
- * whether a footprint's own `Edge.Cuts` graphics are a cut-out or a board of
- * their own (`isCopperOutside`) — every ring counts here, and the even-odd scan
- * then reads a closed one inside the board as a hole. Right for a milled slot,
- * wrong for the rare footprint that carries a whole board outline.
- */
-export function boardOutlineRings(board: Board): Vec2[][] {
-  const edges = [
-    ...board.shapes.filter((s) => s.layer === 'Edge.Cuts'),
-    ...board.footprints.flatMap((fp) => fp.shapes.filter((s) => s.layer === 'Edge.Cuts')),
-  ];
+    if (bbox.GetWidth() === 0 || bbox.GetHeight() === 0) return 0;
 
-  const closed: Vec2[][] = [];
-  const open: Vec2[][] = [];
+    // Build the board shape.
+    this.m_board.GetBoardPolygonOutlines(this.m_boardShape, true);
+    this.m_topFreeArea = this.m_boardShape.CloneDropTriangulation();
+    this.m_bottomFreeArea = this.m_boardShape.CloneDropTriangulation();
 
-  for (const s of edges) {
-    const pts = shapePoints(s, OUTLINE_MAX_ERROR);
-    if (!pts) continue;
-    (pts.closed ? closed : open).push(pts.pts);
-  }
-
-  // `ConvertOutlineToPolygon`'s chaining, shared with the courtyard builder and
-  // the malformed-outline DRC check so the three agree on what closes. A run
-  // that never closes is dropped along with everything after it, exactly as it
-  // is there.
-  const chained = chainOutlines(open, OUTLINE_CHAINING_EPSILON).outlines;
-
-  return [...closed, ...chained].map((ring) =>
-    ring.map((p) => ({ x: Math.round(p.x), y: Math.round(p.y) })),
-  );
-}
-
-// ----- the placer ------------------------------------------------------------
-
-/**
- * `AR_AUTOPLACER`. Exported for the tests, which drive the matrix build and the
- * position sweep separately; callers want {@link autoplaceFootprints}.
- */
-export class Autoplacer {
-  board: Board;
-  matrix = new ArMatrix();
-  curPosition: Vec2 = { x: 0, y: 0 };
-  /** `FOOTPRINT::NeedsPlaced`, by footprint index. */
-  needsPlaced = new Set<number>();
-
-  constructor(
-    board: Board,
-    private readonly opts: AutoplaceOptions,
-  ) {
-    this.board = board;
-  }
-
-  private get grid(): number {
-    return this.matrix.gridRouting;
-  }
-
-  /** `placeFootprint`: `SetPosition`, which drags the footprint's children along. */
-  placeFootprint(index: number, pos: Vec2): void {
-    const fp = this.board.footprints[index]!;
-    this.board = moveBoardItems(this.board, new Set([boardItemId('footprint', index)]), {
-      x: pos.x - fp.at.x,
-      y: pos.y - fp.at.y,
-    });
-  }
-
-  /** `genPlacementRoutingMatrix`. False is upstream's `return 0`, i.e. AR_FAILURE. */
-  genPlacementRoutingMatrix(): boolean {
-    this.matrix.unInitRoutingMatrix();
-
-    const bbox = boardEdgesBoundingBox(this.board);
-    if (!bbox || bbox.w === 0 || bbox.h === 0) return false;
-
-    this.matrix.computeMatrixSize(bbox);
+    this.m_matrix.ComputeMatrixSize(bbox);
 
     // Choose the number of board sides.
-    this.matrix.routingLayersCount = 2;
-    this.matrix.initRoutingMatrix();
-    this.matrix.routeLayerBottom = 'B.Cu';
-    this.matrix.routeLayerTop = 'F.Cu';
+    this.m_matrix.m_RoutingLayersCount = 2;
+    this.m_matrix.InitRoutingMatrix();
+    this.m_matrix.m_routeLayerBottom = PCB_LAYER_ID.B_Cu;
+    this.m_matrix.m_routeLayerTop = PCB_LAYER_ID.F_Cu;
 
     // Fill (mark) the cells inside the board.
     this.fillMatrix();
 
-    // Other obstacles. Every board graphic that is not on Edge.Cuts becomes a
-    // hole, silkscreen and fabrication notes included — upstream tests the
-    // layer only to exclude the outline itself.
-    for (const drawing of this.board.shapes) {
-      if (drawing.layer !== 'Edge.Cuts') {
-        this.matrix.tracePcbShape(drawing, CELL_IS_HOLE | CELL_IS_EDGE, this.grid, 'write');
+    // Other obstacles can be added here.
+    for (const drawing of this.m_board.Drawings()) {
+      switch (drawing.Type()) {
+        case KICAD_T.PCB_SHAPE_T:
+          if (drawing.GetLayer() !== PCB_LAYER_ID.Edge_Cuts) {
+            this.m_matrix.TracePcbShape(
+              drawing as PCB_SHAPE,
+              CELL_IS_HOLE | CELL_IS_EDGE,
+              this.m_matrix.m_GridRouting,
+              CELL_OP.WRITE_CELL,
+            );
+          }
+
+          break;
+
+        default:
+          break;
       }
     }
 
-    // Initialise the top layer to the same value as the bottom layer.
-    this.matrix.copySide(AR_SIDE_BOTTOM, AR_SIDE_TOP);
-    return true;
+    // Initialize top layer to the same value as the bottom layer.
+    this.m_matrix.copySide(AR_SIDE_BOTTOM, AR_SIDE_TOP);
+
+    return 1;
   }
 
-  /**
-   * `fillMatrix`: mark every cell inside the board outline `CELL_IS_ZONE`, by
-   * scanning one horizontal line per grid row and filling between crossings.
-   *
-   * Two upstream behaviours survive here on purpose. Row 0 is skipped
-   * (`if( idy <= 0 ) continue;`), so the topmost row of the matrix is never
-   * inside the board and nothing can be placed against it. And an odd number of
-   * crossings on any row abandons the whole fill from that row down — the rows
-   * already done keep their cells, and the caller ignores the failure.
-   */
-  fillMatrix(): boolean {
-    const step = this.grid;
-    const origin = this.matrix.brdCoordOrigin;
-    const rings = boardOutlineRings(this.board);
-    if (rings.length === 0) return true;
+  private fillMatrix(): boolean {
+    let success = true;
+    const step = this.m_matrix.m_GridRouting;
+    // Board coordinate of matrix cell (0, 0).
+    const coordOrigin = this.m_matrix.GetBrdCoordOrigin();
 
-    let top = Infinity;
-    let bottom = -Infinity;
-    for (const ring of rings) {
-      for (const p of ring) {
-        if (p.y < top) top = p.y;
-        if (p.y > bottom) bottom = p.y;
-      }
-    }
+    // Create a single board outline.
+    const brdShape = this.m_boardShape.CloneDropTriangulation();
+    brdShape.Fracture();
+    const outline = brdShape.Outline(0);
+    const rect = outline.BBox();
 
-    for (let refy = top; refy < bottom; refy += step) {
-      // The row index of the current line scan inside the placement matrix.
-      const idy = idiv(refy - origin.y, step);
+    // Creates the horizontal segments.
+    for (let refy = rect.GetY(), endy = rect.GetBottom(); refy < endy; refy += step) {
+      // The row index (vertical position) of current line scan inside the placement matrix.
+      const idy = idiv(refy - coordOrigin.y, step);
 
-      if (idy >= this.matrix.nrows) break;
+      // Ensure we are still inside the placement matrix.
+      if (idy >= this.m_matrix.m_Nrows) break;
+
+      // Ensure we are inside the placement matrix.
       if (idy <= 0) continue;
 
-      // Every crossing of the infinite line y = refy with a polyline side.
-      const xs: number[] = [];
+      // Find all intersection points of an infinite line with polyline sides.
+      const xCoordinates: number[] = [];
 
-      for (const ring of rings) {
-        for (let v = 0; v < ring.length; v++) {
-          const a = ring[v]!;
-          const b = ring[(v + 1) % ring.length]!;
+      for (let v = 0; v < outline.PointCount(); v++) {
+        const segStartX = outline.CPoint(v).x;
+        const segStartY = outline.CPoint(v).y;
+        let segEndX = outline.CPoint(v + 1).x;
+        let segEndY = outline.CPoint(v + 1).y;
 
-          // Trivially above or below the scan line.
-          if (a.y > refy && b.y > refy) continue;
-          if (a.y <= refy && b.y <= refy) continue;
+        // Trivial cases: skip if ref above or below the segment to test.
+        if (segStartY > refy && segEndY > refy) continue;
 
-          const segEndX = b.x - a.x;
-          const segEndY = b.y - a.y;
-          if (segEndY === 0) continue; // horizontal, already excluded above
+        // Segment below ref point, or its Y end pos on Y coordinate ref point: skip.
+        if (segStartY <= refy && segEndY <= refy) continue;
 
-          const invSlope = segEndX / segEndY;
-          xs.push(Math.trunc((refy - a.y) * invSlope) + a.x);
-        }
+        // At this point refy is between segStartY and segEndY: move the origin
+        // to the segment start and intersect.
+        segEndX -= segStartX;
+        segEndY -= segStartY;
+        const newrefy = refy - segStartY;
+
+        // Horizontal segment on the same line: skip.
+        if (segEndY === 0) continue;
+
+        const invSlope = segEndX / segEndY;
+        const intersecX = newrefy * invSlope;
+        // `(int) intersec_x`: truncation towards zero.
+        xCoordinates.push(Math.trunc(intersecX) + segStartX);
       }
 
-      xs.sort((p, q) => p - q);
+      // A line scan is finished: sort the intersections so that two
+      // consecutive points are the ends of a segment.
+      xCoordinates.sort((a, b) => a - b);
 
-      // An even count is expected: a segment has two ends.
-      if ((xs.length & 1) !== 0) return false;
+      // An even number of coordinates is expected, because a segment has 2 ends.
+      if ((xCoordinates.length & 1) !== 0) {
+        success = false;
+        break;
+      }
 
-      const iimax = xs.length - 1;
+      // Fill cells having the same Y coordinate.
+      const iimax = xCoordinates.length - 1;
 
       for (let ii = 0; ii < iimax; ii += 2) {
-        const segStartX = xs[ii]! - origin.x;
-        const segEndX = xs[ii + 1]! - origin.x;
+        const segStart = xCoordinates[ii]! - coordOrigin.x;
+        const segEnd = xCoordinates[ii + 1]! - coordOrigin.x;
 
-        for (let idx = idiv(segStartX, step); idx < this.matrix.ncols; idx++) {
-          if (idx * step > segEndX) break;
-          if (idx * step >= segStartX) this.matrix.setCell(idy, idx, AR_SIDE_BOTTOM, CELL_IS_ZONE);
+        // Fill cells at y coord = idy, and at x coord >= segStart and <= segEnd.
+        for (let idx = idiv(segStart, step); idx < this.m_matrix.m_Ncols; idx++) {
+          if (idx * step > segEnd) break;
+
+          if (idx * step >= segStart) this.m_matrix.SetCell(idy, idx, AR_SIDE_BOTTOM, CELL_IS_ZONE);
         }
       }
     }
 
-    return true;
+    return success;
   }
 
-  /**
-   * `genModuleOnRoutingMatrix`: burn a placed footprint into the matrix as
-   * occupied cells, and lay its cost gradient into the dist map.
-   *
-   * The keep-out margin is `grid * padCount / 16` — the cost halo around a
-   * footprint grows with how many pads it has, so the placer keeps space around
-   * a connector and crowds resistors together.
-   */
-  genModuleOnRoutingMatrix(index: number): void {
-    const fp = this.board.footprints[index]!;
-    const fpBBox = boxInflate(footprintExtent(fp), idiv(this.grid, 2));
-
-    const brd = this.matrix.brdBox;
-    const clampX = (v: number): number => Math.min(Math.max(v, brd.x), boxRight(brd));
-    const clampY = (v: number): number => Math.min(Math.max(v, brd.y), boxBottom(brd));
-
-    const ox = clampX(fpBBox.x);
-    const fx = clampX(boxRight(fpBBox));
-    const oy = clampY(fpBBox.y);
-    const fy = clampY(boxBottom(fpBBox));
-
-    const layerMask = sideMask(fp.layer);
-
-    this.matrix.traceFilledRectangle(ox, oy, fx, fy, layerMask, CELL_IS_MODULE, 'or');
-
-    for (const pad of fp.pads) {
-      const margin = idiv(this.grid, 2) + this.opts.padClearance(pad, fp);
-      this.matrix.placePad(pad, CELL_IS_MODULE, margin, 'or');
+  /** Add a polygonal shape (rectangle) to m_fpAreaTop and/or m_fpAreaBottom. */
+  private addFpBody(aStart: VECTOR2I, aEnd: VECTOR2I, aLayerMask: LSET): void {
+    if (aLayerMask.Contains(PCB_LAYER_ID.F_Cu)) {
+      this.m_fpAreaTop.NewOutline();
+      this.m_fpAreaTop.Append(aStart.x, aStart.y);
+      this.m_fpAreaTop.Append(aEnd.x, aStart.y);
+      this.m_fpAreaTop.Append(aEnd.x, aEnd.y);
+      this.m_fpAreaTop.Append(aStart.x, aEnd.y);
     }
 
-    const margin = idiv(this.grid * fp.pads.length, AR_GAIN);
-    this.matrix.createKeepOutRectangle(ox, oy, fx, fy, margin, AR_KEEPOUT_MARGIN, layerMask);
+    if (aLayerMask.Contains(PCB_LAYER_ID.B_Cu)) {
+      this.m_fpAreaBottom.NewOutline();
+      this.m_fpAreaBottom.Append(aStart.x, aStart.y);
+      this.m_fpAreaBottom.Append(aEnd.x, aStart.y);
+      this.m_fpAreaBottom.Append(aEnd.x, aEnd.y);
+      this.m_fpAreaBottom.Append(aStart.x, aEnd.y);
+    }
   }
 
-  /**
-   * `testRectangle`: is every cell the rectangle covers inside the board and
-   * free? The rectangle is inflated by half a grid step first, so a footprint
-   * has to clear the cells around it as well as the ones it sits on.
-   */
-  testRectangle(aRect: Box2, side: number): number {
-    const rect = boxInflate(aRect, idiv(this.grid, 2));
-    const brd = this.matrix.brdBox;
+  /** Add a polygonal shape (rectangle) to m_fpAreaTop and/or m_fpAreaBottom. */
+  private addPad(aPad: PAD, aClearance: number): void {
+    const bbox = aPad.GetBoundingBox().Clone();
+    bbox.Inflate(aClearance);
 
-    const startX = rect.x - brd.x;
-    const startY = rect.y - brd.y;
-    const endX = boxRight(rect) - brd.x;
-    const endY = boxBottom(rect) - brd.y;
+    if (aPad.IsOnLayer(PCB_LAYER_ID.F_Cu)) {
+      this.m_fpAreaTop.NewOutline();
+      this.m_fpAreaTop.Append(bbox.GetLeft(), bbox.GetTop());
+      this.m_fpAreaTop.Append(bbox.GetRight(), bbox.GetTop());
+      this.m_fpAreaTop.Append(bbox.GetRight(), bbox.GetBottom());
+      this.m_fpAreaTop.Append(bbox.GetLeft(), bbox.GetBottom());
+    }
 
-    let rowMin = idiv(startY, this.grid);
-    let rowMax = idiv(endY, this.grid);
-    let colMin = idiv(startX, this.grid);
-    let colMax = idiv(endX, this.grid);
+    if (aPad.IsOnLayer(PCB_LAYER_ID.B_Cu)) {
+      this.m_fpAreaBottom.NewOutline();
+      this.m_fpAreaBottom.Append(bbox.GetLeft(), bbox.GetTop());
+      this.m_fpAreaBottom.Append(bbox.GetRight(), bbox.GetTop());
+      this.m_fpAreaBottom.Append(bbox.GetRight(), bbox.GetBottom());
+      this.m_fpAreaBottom.Append(bbox.GetLeft(), bbox.GetBottom());
+    }
+  }
 
-    if (startY > rowMin * this.grid) rowMin++;
-    if (startX > colMin * this.grid) colMin++;
+  /** Build m_fpAreaTop and m_fpAreaBottom for aFootprint; aFpClearance is a mechanical clearance. */
+  private buildFpAreas(aFootprint: FOOTPRINT, aFpClearance: number): void {
+    this.m_fpAreaTop.RemoveAllContours();
+    this.m_fpAreaBottom.RemoveAllContours();
+
+    aFootprint.BuildCourtyardCaches();
+    this.m_fpAreaTop = aFootprint.GetCourtyard(PCB_LAYER_ID.F_CrtYd).CloneDropTriangulation();
+    this.m_fpAreaBottom = aFootprint.GetCourtyard(PCB_LAYER_ID.B_CrtYd).CloneDropTriangulation();
+
+    const layerMask = new LSET();
+
+    if (aFootprint.GetLayer() === PCB_LAYER_ID.F_Cu) layerMask.set(PCB_LAYER_ID.F_Cu);
+
+    if (aFootprint.GetLayer() === PCB_LAYER_ID.B_Cu) layerMask.set(PCB_LAYER_ID.B_Cu);
+
+    const fpBBox = aFootprint.GetBoundingBox(false).Clone();
+    fpBBox.Inflate(idiv(this.m_matrix.m_GridRouting, 2) + aFpClearance);
+
+    // Add a minimal area to the fp area.
+    this.addFpBody(fpBBox.GetOrigin(), fpBBox.GetEnd(), layerMask);
+
+    // Trace pads + clearance areas.
+    for (const pad of aFootprint.Pads()) {
+      const margin = idiv(this.m_matrix.m_GridRouting, 2) + pad.GetOwnClearance(pad.GetLayer());
+      this.addPad(pad, margin);
+    }
+  }
+
+  private genModuleOnRoutingMatrix(aFootprint: FOOTPRINT): void {
+    const layerMask = new LSET();
+
+    const fpBBox = aFootprint.GetBoundingBox(false).Clone();
+    fpBBox.Inflate(idiv(this.m_matrix.m_GridRouting, 2));
+
+    const brd = this.m_matrix.m_BrdBox;
+    let ox = fpBBox.GetX();
+    let fx = fpBBox.GetRight();
+    let oy = fpBBox.GetY();
+    let fy = fpBBox.GetBottom();
+
+    if (ox < brd.GetX()) ox = brd.GetX();
+    if (ox > brd.GetRight()) ox = brd.GetRight();
+    if (fx < brd.GetX()) fx = brd.GetX();
+    if (fx > brd.GetRight()) fx = brd.GetRight();
+    if (oy < brd.GetY()) oy = brd.GetY();
+    if (oy > brd.GetBottom()) oy = brd.GetBottom();
+    if (fy < brd.GetY()) fy = brd.GetY();
+    if (fy > brd.GetBottom()) fy = brd.GetBottom();
+
+    if (aFootprint.GetLayer() === PCB_LAYER_ID.F_Cu) layerMask.set(PCB_LAYER_ID.F_Cu);
+
+    if (aFootprint.GetLayer() === PCB_LAYER_ID.B_Cu) layerMask.set(PCB_LAYER_ID.B_Cu);
+
+    this.m_matrix.TraceFilledRectangle(
+      ox,
+      oy,
+      fx,
+      fy,
+      layerMask,
+      CELL_IS_MODULE,
+      CELL_OP.WRITE_OR_CELL,
+    );
+
+    // Trace pads + clearance areas.
+    for (const pad of aFootprint.Pads()) {
+      const margin = idiv(this.m_matrix.m_GridRouting, 2) + pad.GetOwnClearance(pad.GetLayer());
+      this.m_matrix.PlacePad(pad, CELL_IS_MODULE, margin, CELL_OP.WRITE_OR_CELL);
+    }
+
+    // Trace clearance.
+    const margin = idiv(this.m_matrix.m_GridRouting * aFootprint.GetPadCount(), AR_GAIN);
+    this.m_matrix.CreateKeepOutRectangle(ox, oy, fx, fy, margin, AR_KEEPOUT_MARGIN, layerMask);
+
+    // Build the footprint courtyard.
+    this.buildFpAreas(aFootprint, margin);
+
+    // Subtract the shape from the free areas.
+    this.m_topFreeArea.BooleanSubtract(this.m_fpAreaTop);
+    this.m_bottomFreeArea.BooleanSubtract(this.m_fpAreaBottom);
+  }
+
+  /** The cell range a rectangle covers, clipped to the matrix (shared by the two scans below). */
+  private cellRange(aRect: BOX2I): {
+    rowMin: number;
+    rowMax: number;
+    colMin: number;
+    colMax: number;
+  } {
+    const grid = this.m_matrix.m_GridRouting;
+    const start = sub(aRect.GetOrigin(), this.m_matrix.m_BrdBox.GetOrigin());
+    const end = sub(aRect.GetEnd(), this.m_matrix.m_BrdBox.GetOrigin());
+
+    let rowMin = idiv(start.y, grid);
+    let rowMax = idiv(end.y, grid);
+    let colMin = idiv(start.x, grid);
+    let colMax = idiv(end.x, grid);
+
+    if (start.y > rowMin * grid) rowMin++;
+    if (start.x > colMin * grid) colMin++;
     if (rowMin < 0) rowMin = 0;
-    if (rowMax >= this.matrix.nrows - 1) rowMax = this.matrix.nrows - 1;
+    if (rowMax >= this.m_matrix.m_Nrows - 1) rowMax = this.m_matrix.m_Nrows - 1;
     if (colMin < 0) colMin = 0;
-    if (colMax >= this.matrix.ncols - 1) colMax = this.matrix.ncols - 1;
+    if (colMax >= this.m_matrix.m_Ncols - 1) colMax = this.m_matrix.m_Ncols - 1;
+
+    return { rowMin, rowMax, colMin, colMax };
+  }
+
+  private testRectangle(aRect: BOX2I, side: number): number {
+    const rect = aRect.Clone();
+    rect.Inflate(idiv(this.m_matrix.m_GridRouting, 2));
+
+    const { rowMin, rowMax, colMin, colMax } = this.cellRange(rect);
 
     for (let row = rowMin; row <= rowMax; row++) {
       for (let col = colMin; col <= colMax; col++) {
-        const data = this.matrix.getCell(row, col, side);
+        const data = this.m_matrix.GetCell(row, col, side);
 
-        if ((data & CELL_IS_ZONE) === 0) return AR_OUT_OF_BOARD;
-        if (data & CELL_IS_MODULE) return AR_OCCUIPED_BY_MODULE;
+        if ((data & CELL_IS_ZONE) === 0) return AR_CELL_STATE.AR_OUT_OF_BOARD;
+
+        if (data & CELL_IS_MODULE) return AR_CELL_STATE.AR_OCCUIPED_BY_MODULE;
       }
     }
 
-    return AR_FREE_CELL;
+    return AR_CELL_STATE.AR_FREE_CELL;
   }
 
-  /** `calculateKeepOutArea`: the summed cost of the cells the rectangle covers. */
-  calculateKeepOutArea(aRect: Box2, side: number): number {
-    const brd = this.matrix.brdBox;
-
-    const startX = aRect.x - brd.x;
-    const startY = aRect.y - brd.y;
-    const endX = boxRight(aRect) - brd.x;
-    const endY = boxBottom(aRect) - brd.y;
-
-    let rowMin = idiv(startY, this.grid);
-    let rowMax = idiv(endY, this.grid);
-    let colMin = idiv(startX, this.grid);
-    let colMax = idiv(endX, this.grid);
-
-    if (startY > rowMin * this.grid) rowMin++;
-    if (startX > colMin * this.grid) colMin++;
-    if (rowMin < 0) rowMin = 0;
-    if (rowMax >= this.matrix.nrows - 1) rowMax = this.matrix.nrows - 1;
-    if (colMin < 0) colMin = 0;
-    if (colMax >= this.matrix.ncols - 1) colMax = this.matrix.ncols - 1;
-
+  private calculateKeepOutArea(aRect: BOX2I, side: number): number {
+    const { rowMin, rowMax, colMin, colMax } = this.cellRange(aRect);
     let keepOutCost = 0;
 
     for (let row = rowMin; row <= rowMax; row++) {
-      for (let col = colMin; col <= colMax; col++) {
-        keepOutCost += this.matrix.getDist(row, col, side);
-      }
+      for (let col = colMin; col <= colMax; col++)
+        keepOutCost += this.m_matrix.GetDist(row, col, side);
     }
 
-    return keepOutCost;
+    // `unsigned int`.
+    return keepOutCost >>> 0;
   }
 
-  /**
-   * `testFootprintOnBoard`: the footprint's extents shifted to the trial
-   * position, tested for fit and then priced. A negative return is a refusal
-   * ({@link AR_OUT_OF_BOARD} or {@link AR_OCCUIPED_BY_MODULE}); zero or more is
-   * the keep-out cost of sitting there.
-   */
-  testFootprintOnBoard(index: number, tstOtherSide: boolean, offset: Vec2): number {
-    const fp = this.board.footprints[index]!;
+  private testFootprintOnBoard(
+    aFootprint: FOOTPRINT,
+    TstOtherSide: boolean,
+    aOffset: VECTOR2I,
+  ): number {
+    let side = AR_SIDE_TOP;
+    let otherside = AR_SIDE_BOTTOM;
 
-    const side = fp.layer === 'B.Cu' ? AR_SIDE_BOTTOM : AR_SIDE_TOP;
-    const otherside = fp.layer === 'B.Cu' ? AR_SIDE_TOP : AR_SIDE_BOTTOM;
+    if (aFootprint.GetLayer() === PCB_LAYER_ID.B_Cu) {
+      side = AR_SIDE_BOTTOM;
+      otherside = AR_SIDE_TOP;
+    }
 
-    let fpBBox = boxMove(footprintExtent(fp), -offset.x, -offset.y);
+    const fpBBox = aFootprint.GetBoundingBox(false).Clone();
+    fpBBox.Move({ x: -aOffset.x, y: -aOffset.y });
 
     let diag = this.testRectangle(fpBBox, side);
-    if (diag !== AR_FREE_CELL) return diag;
 
-    if (tstOtherSide) {
+    if (diag !== AR_CELL_STATE.AR_FREE_CELL) return diag;
+
+    if (TstOtherSide) {
       diag = this.testRectangle(fpBBox, otherside);
-      if (diag !== AR_FREE_CELL) return diag;
+
+      if (diag !== AR_CELL_STATE.AR_FREE_CELL) return diag;
     }
 
-    const marge = idiv(this.grid * fp.pads.length, AR_GAIN);
+    const marge = idiv(this.m_matrix.m_GridRouting * aFootprint.GetPadCount(), AR_GAIN);
 
-    fpBBox = boxInflate(fpBBox, marge);
-    return this.calculateKeepOutArea(fpBBox, side);
+    fpBBox.Inflate(marge);
+    // `int` from the `unsigned int` cost.
+    return this.calculateKeepOutArea(fpBBox, side) | 0;
   }
 
-  /**
-   * `getOptimalFPPlacement`. Returns 1 when no position on the whole board
-   * accepted the footprint, in which case {@link curPosition} is left at the
-   * matrix origin and the caller places it there anyway.
-   */
-  getOptimalFPPlacement(index: number): number {
-    const fp = this.board.footprints[index]!;
-    const brd = this.matrix.brdBox;
-
+  private getOptimalFPPlacement(aFootprint: FOOTPRINT): number {
     let error = 1;
-    let lastPosOK: Vec2 = { x: brd.x, y: brd.y };
+    let minCost: number;
+    let lastPosOK = this.m_matrix.m_BrdBox.GetOrigin();
+    const grid = this.m_matrix.m_GridRouting;
 
-    const fpPos = fp.at;
-    // Move the extents so the footprint's own position is at (0, 0). Upstream
-    // also re-anchors this box to each trial position inside the sweep; the
-    // result is never read, because `testFootprintOnBoard` measures the
-    // footprint again from scratch, so it is left out here.
-    const fpBBox = boxMove(footprintExtent(fp), -fpPos.x, -fpPos.y);
+    const fpPos = aFootprint.GetPosition();
+    const fpBBox = aFootprint.GetBoundingBox(false).Clone();
 
-    // The limit of the footprint position, relative to the matrix area.
-    const xylimit = {
-      x: boxRight(brd) - boxRight(fpBBox),
-      y: boxBottom(brd) - boxBottom(fpBBox),
-    };
+    // Move fpBBox to have the footprint position at (0, 0).
+    fpBBox.Move({ x: -fpPos.x, y: -fpPos.y });
+    const fpBBoxOrg = fpBBox.GetOrigin();
 
-    const initialPos = { x: brd.x - fpBBox.x, y: brd.y - fpBBox.y };
+    // Calculate the limit of the footprint position, relative to the routing matrix area.
+    const xylimit = sub(this.m_matrix.m_BrdBox.GetEnd(), fpBBox.GetEnd());
+
+    const initialPos = sub(this.m_matrix.m_BrdBox.GetOrigin(), fpBBoxOrg);
 
     // Stay on grid.
-    initialPos.x -= initialPos.x % this.grid;
-    initialPos.y -= initialPos.y % this.grid;
+    initialPos.x -= initialPos.x % grid;
+    initialPos.y -= initialPos.y % grid;
 
-    // A footprint with any pad reaching the far side has to clear that side too.
+    this.m_curPosition = { ...initialPos };
+    let fpOffset = sub(fpPos, this.m_curPosition);
+
+    // Examine pads, and set testOtherSide to true if a footprint has at least
+    // one pad through.
     let testOtherSide = false;
 
-    if (this.matrix.routingLayersCount > 1) {
-      const other = fp.layer === 'B.Cu' ? 'F.Cu' : 'B.Cu';
+    if (this.m_matrix.m_RoutingLayersCount > 1) {
+      const other = new LSET([
+        aFootprint.GetLayer() === PCB_LAYER_ID.B_Cu ? PCB_LAYER_ID.F_Cu : PCB_LAYER_ID.B_Cu,
+      ]);
 
-      for (const pad of fp.pads) {
-        if (!pad.layers.includes(other) && !pad.layers.includes('*.Cu')) continue;
+      for (const pad of aFootprint.Pads()) {
+        if (!pad.GetLayerSet().and(other).any()) continue;
+
         testOtherSide = true;
         break;
       }
     }
 
-    let minCost = -1.0;
+    fpBBox.SetOrigin(add(fpBBoxOrg, this.m_curPosition));
 
-    for (let x = initialPos.x; x < xylimit.x; x += this.grid) {
-      for (let y = initialPos.y; y < xylimit.y; y += this.grid) {
-        const offset = { x: fpPos.x - x, y: fpPos.y - y };
-        const keepOutCost = this.testFootprintOnBoard(index, testOtherSide, offset);
+    minCost = -1.0;
 
+    for (; this.m_curPosition.x < xylimit.x; this.m_curPosition.x += grid) {
+      this.m_curPosition.y = initialPos.y;
+
+      for (; this.m_curPosition.y < xylimit.y; this.m_curPosition.y += grid) {
+        fpBBox.SetOrigin(add(fpBBoxOrg, this.m_curPosition));
+        fpOffset = sub(fpPos, this.m_curPosition);
+        const keepOutCost = this.testFootprintOnBoard(aFootprint, testOtherSide, fpOffset);
+
+        // I.e. if the footprint can be put here.
         if (keepOutCost >= 0) {
-          // The footprint can be put here.
           error = 0;
-          const currCost = this.computePlacementRatsnestCost(index, offset);
+          const currCost = this.computePlacementRatsnestCost(aFootprint, fpOffset);
           const score = currCost + keepOutCost;
 
-          // `>=`, not `>`: a tie moves the footprint on.
           if (minCost >= score || minCost < 0) {
-            lastPosOK = { x, y };
+            lastPosOK = { ...this.m_curPosition };
             minCost = score;
           }
         }
       }
     }
 
-    this.curPosition = lastPosOK;
+    // Regeneration of the modified variable.
+    this.m_curPosition = lastPosOK;
+    this.m_minCost = minCost;
+
     return error;
   }
 
-  /**
-   * `nearestPad`: the closest same-net pad on any *other* footprint whose
-   * anchor lies inside the matrix box. Footprints still waiting to be placed
-   * are not excluded, so a part can be scored against one that has not moved
-   * yet.
-   */
-  nearestPad(refIndex: number, refPad: PcbPad, offset: Vec2): PcbPad | null {
-    let nearest: PcbPad | null = null;
-    let nearestDist = Infinity;
-    const refNet = refPad.net ?? 0;
+  private nearestPad(aRefFP: FOOTPRINT, aRefPad: PAD, aOffset: VECTOR2I): PAD | null {
+    let nearest: PAD | null = null;
+    let nearestDist = Number.MAX_SAFE_INTEGER;
 
-    for (let i = 0; i < this.board.footprints.length; i++) {
-      if (i === refIndex) continue;
+    for (const footprint of this.m_board.Footprints()) {
+      if (footprint === aRefFP) continue;
 
-      const fp = this.board.footprints[i]!;
-      if (!boxContains(this.matrix.brdBox, fp.at.x, fp.at.y)) continue;
+      if (!this.m_matrix.m_BrdBox.Contains(footprint.GetPosition())) continue;
 
-      for (const pad of fp.pads) {
-        const net = pad.net ?? 0;
-        if (net !== refNet || net <= 0) continue;
+      for (const pad of footprint.Pads()) {
+        if (pad.GetNetCode() !== aRefPad.GetNetCode() || pad.GetNetCode() <= 0) continue;
 
-        const dist = EuclideanNormI({
-          x: refPad.at.x - offset.x - pad.at.x,
-          y: refPad.at.y - offset.y - pad.at.y,
-        });
+        const dist = EuclideanNormI(sub(sub(aRefPad.GetPosition(), aOffset), pad.GetPosition()));
 
         if (dist < nearestDist) {
           nearestDist = dist;
@@ -674,158 +570,135 @@ export class Autoplacer {
     return nearest;
   }
 
-  /**
-   * `computePlacementRatsnestCost`: one airwire per pad, to that pad's nearest
-   * same-net neighbour, priced at `hypot(dx, dy * 2)` with `dx` the longer axis.
-   * Note that this is a *per-pad* nearest neighbour and not a spanning tree —
-   * two pads of the same net can both be charged for reaching the same target.
-   */
-  computePlacementRatsnestCost(index: number, offset: Vec2): number {
-    const fp = this.board.footprints[index]!;
+  private computePlacementRatsnestCost(aFootprint: FOOTPRINT, aOffset: VECTOR2I): number {
     let currCost = 0;
 
-    for (const pad of fp.pads) {
-      const nearest = this.nearestPad(index, pad, offset);
+    for (const pad of aFootprint.Pads()) {
+      const nearest = this.nearestPad(aFootprint, pad, aOffset);
+
       if (!nearest) continue;
 
-      const start = { x: pad.at.x - offset.x, y: pad.at.y - offset.y };
-      const end = nearest.at;
-
+      const start = sub(pad.GetPosition(), aOffset);
+      const end = nearest.GetPosition();
       let dx = Math.abs(end.x - start.x);
       let dy = Math.abs(end.y - start.y);
 
-      // Always dx >= dy, so the penalty is on the shorter axis.
+      // Ensure dx >= dy.
       if (dx < dy) [dx, dy] = [dy, dx];
 
-      // Length plus a slope penalty: worst at 45 degrees, nil on an axis.
-      currCost += Math.hypot(dx, dy * 2.0);
+      // Cost of a connection = lenght + penalty * disgonal_lenght; a diagonal
+      // connection has twice the cost of the same horizontal or vertical one.
+      const connCost = Math.hypot(dx, dy * 2.0);
+
+      // Total cost = sum of costs of each connection.
+      currCost += connCost;
     }
 
     return currCost;
   }
 
-  /**
-   * `pickFootprint`. Two sorts, both descending and both stable here where
-   * upstream's `std::sort` is not: first by area times pad count, then by area
-   * times ratsnest-edge count. The first still-unplaced footprint with a
-   * non-zero ratsnest wins; if none has one, the *last* unplaced footprint
-   * scanned is returned instead, which after the second sort is the least
-   * complex one on the board.
-   *
-   * The edge count is `GetRatsnestForComponent( fp, true )`. Its
-   * `aSkipInternalConnections` argument has no effect: an edge with both ends on
-   * this footprint fails the first test for want of the flag and is then caught
-   * by the `else if( srcFound || dstFound )`, so it is counted anyway. Mirrored,
-   * because the flag is what orders the whole placement.
-   */
-  pickFootprint(): number | null {
-    const fps = this.board.footprints;
-    let list = fps.map((_, i) => i);
+  /** Find the "best" footprint place. The criteria are: maximum ratsnest with placed footprints, maximum size. */
+  pickFootprint(): FOOTPRINT | null {
+    const fpList: FOOTPRINT[] = [...this.m_board.Footprints()];
 
-    list = stableSortDesc(list, (i) => footprintArea(fps[i]!) * fps[i]!.pads.length);
+    fpList.sort(byLess(sortFootprintsByComplexity));
 
-    // The connectivity the autoplacer carries holds only footprints — no
-    // tracks, vias or zones were ever added to it — so nothing but pad copper
-    // can merge two clusters and shorten the ratsnest.
-    const padsOnly: Board = { ...this.board, tracks: [], arcs: [], vias: [], zones: [] };
-    const edges = buildRatsnest(padsOnly);
+    for (const footprint of fpList) {
+      footprint.SetFlag(0);
 
-    const flags = new Array<number>(fps.length).fill(0);
-    for (const e of edges) {
-      if (e.aFootprint !== undefined) flags[e.aFootprint]!++;
-      // An edge with both ends on one footprint counts **once**, not twice:
-      // upstream pushes it from the first branch or from the `else if`, never
-      // both (connectivity_data.cpp:1107-1110). Verified against the C++ rather
-      // than by test — the count reaches the outside only through the order
-      // `pickFootprint` returns, so pinning it needs a board contrived so that
-      // double-counting flips two footprints' ranking. Dropping this guard is a
-      // real divergence; it is simply not one a test here can see.
-      if (e.bFootprint !== undefined && e.bFootprint !== e.aFootprint) flags[e.bFootprint]!++;
+      if (!footprint.NeedsPlaced()) continue;
+
+      this.m_connectivity.Update(footprint);
     }
 
-    list = stableSortDesc(list, (i) => footprintArea(fps[i]!) * flags[i]!);
+    this.m_connectivity.RecalculateRatsnest();
 
-    let bestFootprint: number | null = null;
-    let altFootprint: number | null = null;
+    for (const footprint of fpList) {
+      const edges = this.m_connectivity.GetRatsnestForComponent(footprint, true);
+      footprint.SetFlag(edges.length);
+    }
 
-    for (const i of list) {
-      if (!this.needsPlaced.has(i)) continue;
+    fpList.sort(byLess(sortFootprintsByRatsnestSize));
 
-      altFootprint = i;
+    // Search for "best" footprint.
+    let bestFootprint: FOOTPRINT | null = null;
+    let altFootprint: FOOTPRINT | null = null;
 
-      if (flags[i] === 0) continue;
+    for (const footprint of fpList) {
+      if (!footprint.NeedsPlaced()) continue;
 
-      bestFootprint = i;
+      altFootprint = footprint;
+
+      if (footprint.GetFlag() === 0) continue;
+
+      bestFootprint = footprint;
       break;
     }
 
     return bestFootprint ?? altFootprint;
   }
-}
 
-/** A stable descending sort by a numeric key, taken once per element. */
-function stableSortDesc(list: number[], key: (i: number) => number): number[] {
-  const keyed = list.map((i) => ({ i, k: key(i) }));
-  keyed.sort((a, b) => b.k - a.k);
-  return keyed.map((e) => e.i);
-}
+  AutoplaceFootprints(
+    aFootprints: FOOTPRINT[],
+    aCommit: BOARD_COMMIT,
+    aPlaceOffboardModules = false,
+  ): AR_RESULT {
+    const memopos = this.m_curPosition;
 
-/**
- * `AR_AUTOPLACER::AutoplaceFootprints`, driven as `AUTOPLACE_TOOL::autoplace`
- * drives it.
- *
- * `footprints` names the footprints to place by board index; every other
- * footprint is treated as fixed and is burned into the matrix before the first
- * placement, so the ones being placed arrange themselves around what is already
- * there.
- */
-export function autoplaceFootprints(
-  board: Board,
-  footprints: Iterable<number>,
-  opts: AutoplaceOptions,
-): AutoplaceResult {
-  const placer = new Autoplacer(board, opts);
+    this.m_matrix.m_GridRouting = this.m_gridSize;
 
-  placer.matrix.gridRouting = opts.gridSize ?? mmToIU(AR_STEP_MM);
+    // Ensure Grid size is not too small.
+    if (this.m_matrix.m_GridRouting < pcbIUScale.mmToIU(0.25))
+      this.m_matrix.m_GridRouting = pcbIUScale.mmToIU(0.25);
 
-  // Ensure the routing grid has a reasonable value.
-  if (placer.matrix.gridRouting < mmToIU(0.25)) placer.matrix.gridRouting = mmToIU(0.25);
+    // Compute footprint parameters used in autoplace.
+    if (this.genPlacementRoutingMatrix() === 0) return AR_RESULT.AR_FAILURE;
 
-  if (!placer.genPlacementRoutingMatrix()) return { board, status: 'failure', order: [] };
+    for (const footprint of this.m_board.Footprints()) footprint.SetNeedsPlaced(false);
 
-  const offboard: number[] = [];
+    const offboardMods: FOOTPRINT[] = [];
 
-  if (opts.placeOffboardFootprints) {
-    board.footprints.forEach((fp, i) => {
-      if (!boxContains(placer.matrix.brdBox, fp.at.x, fp.at.y)) offboard.push(i);
-    });
+    if (aPlaceOffboardModules) {
+      for (const footprint of this.m_board.Footprints()) {
+        if (!this.m_matrix.m_BrdBox.Contains(footprint.GetPosition())) offboardMods.push(footprint);
+      }
+    }
+
+    for (const footprint of aFootprints) {
+      footprint.SetNeedsPlaced(true);
+      aCommit.Modify(footprint);
+    }
+
+    for (const footprint of offboardMods) {
+      footprint.SetNeedsPlaced(true);
+      aCommit.Modify(footprint);
+    }
+
+    for (const footprint of this.m_board.Footprints()) {
+      if (!footprint.NeedsPlaced()) this.genModuleOnRoutingMatrix(footprint);
+    }
+
+    for (
+      let footprint = this.pickFootprint();
+      footprint !== null;
+      footprint = this.pickFootprint()
+    ) {
+      const error = this.getOptimalFPPlacement(footprint);
+
+      if (error === AR_ABORT_PLACEMENT) break;
+
+      // Place footprint.
+      this.placeFootprint(footprint, true, this.m_curPosition);
+
+      this.genModuleOnRoutingMatrix(footprint);
+      footprint.SetIsPlaced(true);
+      footprint.SetNeedsPlaced(false);
+    }
+
+    this.m_curPosition = memopos;
+
+    this.m_matrix.UnInitRoutingMatrix();
+
+    return AR_RESULT.AR_COMPLETED;
   }
-
-  for (const i of footprints) {
-    if (i >= 0 && i < board.footprints.length) placer.needsPlaced.add(i);
-  }
-
-  for (const i of offboard) placer.needsPlaced.add(i);
-
-  for (let i = 0; i < board.footprints.length; i++) {
-    if (!placer.needsPlaced.has(i)) placer.genModuleOnRoutingMatrix(i);
-  }
-
-  const order: number[] = [];
-
-  for (;;) {
-    const index = placer.pickFootprint();
-    if (index === null) break;
-
-    placer.getOptimalFPPlacement(index);
-
-    placer.placeFootprint(index, placer.curPosition);
-    placer.genModuleOnRoutingMatrix(index);
-    placer.needsPlaced.delete(index);
-    order.push(index);
-  }
-
-  placer.matrix.unInitRoutingMatrix();
-
-  return { board: placer.board, status: 'completed', order };
 }

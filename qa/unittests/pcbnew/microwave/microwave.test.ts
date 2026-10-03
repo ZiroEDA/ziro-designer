@@ -63,7 +63,7 @@ function makeHost(answers: (string | null)[], over: Partial<MICROWAVE_HOST> = {}
 describe('Gap / Stub / Arc Stub footprints', () => {
   it('Gap: two pads a 1 mm gap apart, centred on the anchor', async () => {
     const { host, asked, modified } = makeHost(['1000000']);
-    const fp = (await new MICROWAVE_TOOL(host).addMicrowaveFootprint(
+    const fp = (await new MICROWAVE_TOOL(host).createMicrowaveFeature(
       MICROWAVE_FOOTPRINT_SHAPE.GAP,
     ))!;
     expect(asked).toEqual(['Gap Size:']);
@@ -83,7 +83,7 @@ describe('Gap / Stub / Arc Stub footprints', () => {
 
   it('Stub: pad 2 is stretched to the stub size and moved up by half of (stub + pad)', async () => {
     const { host } = makeHost(['1000000']);
-    const fp = (await new MICROWAVE_TOOL(host).addMicrowaveFootprint(
+    const fp = (await new MICROWAVE_TOOL(host).createMicrowaveFeature(
       MICROWAVE_FOOTPRINT_SHAPE.STUB,
     ))!;
     const [a, b] = fp.Pads();
@@ -94,7 +94,7 @@ describe('Gap / Stub / Arc Stub footprints', () => {
 
   it('Arc Stub: one custom pad with a 5-degree fan polygon from the origin', async () => {
     const { host, asked } = makeHost(['1000000', '90']);
-    const fp = (await new MICROWAVE_TOOL(host).addMicrowaveFootprint(
+    const fp = (await new MICROWAVE_TOOL(host).createMicrowaveFeature(
       MICROWAVE_FOOTPRINT_SHAPE.STUB_ARC,
     ))!;
     expect(asked).toEqual(['Arc Stub Radius Value:', 'Angle in degrees:']);
@@ -116,7 +116,7 @@ describe('Gap / Stub / Arc Stub footprints', () => {
   it('Arc Stub: a negative angle is its absolute value, above 180 is 180', async () => {
     const run = async (ang: string) => {
       const { host } = makeHost(['1000000', ang]);
-      const fp = (await new MICROWAVE_TOOL(host).addMicrowaveFootprint(
+      const fp = (await new MICROWAVE_TOOL(host).createMicrowaveFeature(
         MICROWAVE_FOOTPRINT_SHAPE.STUB_ARC,
       ))!;
       return (fp.Pads()[0]!.GetPrimitives(PADSTACK.ALL_LAYERS) as PCB_SHAPE[])[0]!
@@ -131,13 +131,13 @@ describe('Gap / Stub / Arc Stub footprints', () => {
 
   it('cancel, and a non-numeric angle, produce nothing', async () => {
     expect(
-      await new MICROWAVE_TOOL(makeHost([null]).host).addMicrowaveFootprint(
+      await new MICROWAVE_TOOL(makeHost([null]).host).createMicrowaveFeature(
         MICROWAVE_FOOTPRINT_SHAPE.GAP,
       ),
     ).toBeNull();
     const bad = makeHost(['1000000', 'abc']);
     expect(
-      await new MICROWAVE_TOOL(bad.host).addMicrowaveFootprint(MICROWAVE_FOOTPRINT_SHAPE.STUB_ARC),
+      await new MICROWAVE_TOOL(bad.host).createMicrowaveFeature(MICROWAVE_FOOTPRINT_SHAPE.STUB_ARC),
     ).toBeNull();
     expect(bad.errors).toEqual(['Incorrect number, abort']);
   });
@@ -257,7 +257,7 @@ $ENDCOORD
     ReadDataShapeDescr(text);
     g_MwaveShape.type = type;
     const { host, errors } = makeHost([]);
-    const fp = await new MICROWAVE_TOOL(host).addMicrowaveFootprint(
+    const fp = await new MICROWAVE_TOOL(host).createMicrowaveFeature(
       MICROWAVE_FOOTPRINT_SHAPE.FUNCTION_SHAPE,
     );
     return { fp, errors };

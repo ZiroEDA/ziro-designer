@@ -509,15 +509,22 @@ export class COMMON_TOOLS extends TOOL_INTERACTIVE {
     // Update the combobox (if any)
     this.frame().OnUpdateSelectGrid();
 
-    // Update GAL canvas from screen
-    const gal = this.getView()!.GetGAL()!;
-    gal.SetGridSize(this.m_grids[grid.last_size_idx]!);
-    gal.SetGridVisibility(grid.show);
-    this.getView()!.MarkTargetDirty(RENDER_TARGET.TARGET_NONCACHED);
+    // A frame whose window attaches the canvas after the constructor has no
+    // VIEW until it does; ActivateGalCanvas resets the tools, which lands here
+    // again with one.
+    const view = this.getView();
 
-    // Put cursor on new grid
-    const gridCursor = this.vc().GetCursorPosition(true);
-    this.vc().SetCrossHairCursorPosition(gridCursor, false);
+    if (view) {
+      // Update GAL canvas from screen
+      const gal = view.GetGAL()!;
+      gal.SetGridSize(this.m_grids[grid.last_size_idx]!);
+      gal.SetGridVisibility(grid.show);
+      view.MarkTargetDirty(RENDER_TARGET.TARGET_NONCACHED);
+
+      // Put cursor on new grid
+      const gridCursor = this.vc().GetCursorPosition(true);
+      this.vc().SetCrossHairCursorPosition(gridCursor, false);
+    }
 
     // Show feedback
     if (aFromHotkey) this.m_toolMgr!.PostEvent(EVENTS.GridChangedByKeyEvent);

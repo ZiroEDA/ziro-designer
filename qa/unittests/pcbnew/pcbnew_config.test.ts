@@ -111,6 +111,8 @@ function setup(aPro: JsonValue | null = {}, aPrl: JsonValue | null = null): Env 
     GetView: () => view,
     SetHighContrastLayer: () => {},
     Refresh: () => {},
+    // A canvas not on the GAL yet: UpdateStatusBar reports no zoom.
+    GetGAL: () => null,
   } as unknown as PCB_DRAW_PANEL_GAL);
 
   const panel: Env['panel'] = {

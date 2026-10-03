@@ -112,8 +112,8 @@ class EDIT_FRAME extends TEST_PCB_FRAME implements EDIT_TOOL_FRAME {
   ShowTableCellPropertiesDialog(): Promise<boolean> {
     return Promise.resolve(false);
   }
-  ShowTablePropertiesDialog(): Promise<void> {
-    return Promise.resolve();
+  override ShowTablePropertiesDialog(): Promise<boolean> {
+    return Promise.resolve(false);
   }
   ShowGetFootprintByNameDialog(): Promise<string | null> {
     return Promise.resolve('c1');

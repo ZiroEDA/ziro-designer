@@ -353,8 +353,29 @@ export function storedBytes(snapshots: readonly Snapshot[]): number {
  *  - Dropping a snapshot frees only the hashes no surviving snapshot still
  *    references, which is why this measures what is left rather than what goes.
  */
+/**
+ * Newest first. `at` alone ties for two saves inside one millisecond, and the
+ * index hands ties back oldest first, so `commitSnapshot` compared against the
+ * OLDER of the two: a file reverted within that millisecond read as unchanged
+ * and the save was dropped. The id's suffix is the sub-millisecond stamp that
+ * separates them, compared as a number - as a base-36 string it misorders
+ * across a change of length.
+ */
+export function newestFirst(a: { at: number; id: string }, b: { at: number; id: string }): number {
+  return b.at - a.at || snapshotIdTick(b.id) - snapshotIdTick(a.id);
+}
+
+/** The sub-millisecond stamp after the `-` of a snapshot id; 0 for none. */
+export function snapshotIdTick(id: string): number {
+  const tick = Number.parseInt(id.slice(id.indexOf('-') + 1), 36);
+  return Number.isNaN(tick) ? 0 : tick;
+}
+
 export function snapshotsToEvict(snapshots: readonly Snapshot[], maxBytes: number): string[] {
-  const byAge = [...snapshots].sort((a, b) => a.at - b.at);
+  // Oldest first, by the same order as the list: three saves in one
+  // millisecond, handed over newest first, sorted on `at` alone kept the
+  // newest at the front and evicted it.
+  const byAge = [...snapshots].sort((a, b) => newestFirst(b, a));
   const evicted: string[] = [];
 
   for (let i = 0; i < byAge.length - 1; i++) {

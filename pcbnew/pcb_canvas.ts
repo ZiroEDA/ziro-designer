@@ -33,7 +33,6 @@ import { RECURSE_MODE } from '@ziroeda/common/eda_item.js';
 import type { VIEW } from '@ziroeda/common/view/view.js';
 import { PCB_DRAW_PANEL_GAL } from './pcb_draw_panel_gal.js';
 import type { PCB_DISPLAY_OPTIONS } from './pcb_painter.js';
-import { PCB_SCREEN } from './pcb_screen.js';
 import type { PCB_EDIT_FRAME } from './pcb_edit_frame.js';
 import { type KiCursor, kiCursor } from '@ziroeda/common/gal/kicursors.js';
 import { drawPanelWindow } from '@ziroeda/common/gal/gal_window.js';
@@ -48,8 +47,9 @@ export { loadBitmapFontImage } from '@ziroeda/common/gal/gal_window.js';
  * `PCB_EDIT_FRAME::PCB_EDIT_FRAME`'s canvas construction: the panel on the
  * element, the frame's screen and canvas, the drawing sheet proxy item.
  *
- * @return the panel, or null when WebGL2 is unavailable (there is no Cairo
- *         here; the editor keeps its raster path for that).
+ * @return the panel, or null when it could not be built at all. Without WebGL2
+ *         the panel is the same VIEW on CAIRO_GAL (`EDA_DRAW_PANEL_GAL::GAL_FALLBACK`),
+ *         as pcbnew is without OpenGL.
  */
 export function createPcbDrawPanel(
   aFrame: PCB_EDIT_FRAME,
@@ -67,11 +67,6 @@ export function createPcbDrawPanel(
     return null;
   }
 
-  if (panel.GetBackend() !== 1 /* GAL_TYPE_OPENGL */) {
-    panel.Destroy();
-    return null;
-  }
-
   aFrame.SetCanvas(panel);
 
   // `PCB_BASE_FRAME::LoadSettings` (pcb_base_frame.cpp:850): the painter's
@@ -85,11 +80,8 @@ export function createPcbDrawPanel(
     rs.SetSelectFactor(cfg.m_Graphics.select_factor);
   }
 
-  // SetScreen( new PCB_SCREEN( GetPageSettings().GetSizeIU( pcbIUScale.IU_PER_MILS ) ) ):
-  // the A4 the frame starts with; attachBoardToPanel re-sizes it for the board
-  aFrame.SetScreen(new PCB_SCREEN({ x: pcbIUScale.milsToIU(11693), y: pcbIUScale.milsToIU(8268) }));
-
-  // Must be set after calling SetScreen()
+  // The constructor made the frame's screen; attachBoardToPanel re-sizes it
+  // for the board. "Must be set after calling SetScreen()":
   panel.GetGAL().SetAxesEnabled(false);
 
   return panel;
@@ -381,35 +373,6 @@ function displayOptionsEqual(a: PCB_DISPLAY_OPTIONS, b: PCB_DISPLAY_OPTIONS): bo
     a.m_FilledShapeOpacity === b.m_FilledShapeOpacity &&
     a.m_FlipBoardView === b.m_FlipBoardView
   );
-}
-
-/**
- * Hide (or show again) items in the view: what a move in flight does with
- * the items it is dragging while the editor draws their moving copies on
- * its overlay (`VIEW::Hide`, as the selection tool uses it).
- */
-export function setItemsHidden(
-  aPanel: PCB_DRAW_PANEL_GAL,
-  aItems: Iterable<BOARD_ITEM>,
-  aHide: boolean,
-): void {
-  const view = aPanel.GetView();
-
-  const hide = (item: BOARD_ITEM): void => {
-    // A selected item is hidden by the selection itself (drawn on its
-    // overlay group), so the end of a move leaves it hidden.
-    if (aHide || !item.IsSelected()) {
-      if (view.HasItem(item)) view.Hide(item, aHide);
-    }
-
-    // A footprint's pads, graphics and fields are VIEW items of their own
-    // (PCB_VIEW::Add adds them beside it), so hiding the footprint alone left
-    // them drawn where the part was while the drag carried its copy away -
-    // as PCB_SELECTION_TOOL::highlightInternal walks them, so does this.
-    item.RunOnChildren(hide, RECURSE_MODE.RECURSE);
-  };
-
-  for (const item of aItems) hide(item);
 }
 
 /**

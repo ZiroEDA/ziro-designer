@@ -9,19 +9,14 @@
  * leaves the tracks behind on the old one, which shows up as a ratsnest drawn
  * over copper that is already routed.
  */
+import { runLiveUpdate } from './support/netlist_update_harness.js';
+import type { FOOTPRINT } from '@ziroeda/pcbnew/footprint.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
-import { Reporter } from '@ziroeda/common/reporter.js';
 import { exportKicadNetlist } from '@ziroeda/eeschema/cross-probing.js';
-import {
-  BOARD_NETLIST_UPDATER,
-  buildRatsnest,
-  loadKicadNetlist,
-  readBoard,
-  type PcbFootprint,
-} from '@ziroeda/pcbnew';
+import { buildRatsnest, loadKicadNetlist, readBoard } from '@ziroeda/pcbnew';
 
 const DEMO = fileURLToPath(new URL('../../../designer/public/demos/ecc83/', import.meta.url));
 const read = (name: string): string => readFileSync(DEMO + name, 'utf8');
@@ -46,17 +41,15 @@ describe('update PCB from schematic (ecc83 demo)', () => {
 
     // The board's own footprints are what the netlist names; nothing has to be
     // loaded from a library for a board that is already populated.
-    const reporter = new Reporter();
-    const updater = new BOARD_NETLIST_UPDATER(
+    const { reporter, result } = runLiveUpdate(
       board,
-      reporter,
+      netlist,
       (fpid) => {
-        const local = board.footprints.find((f) => f.lib === fpid);
-        return (local as PcbFootprint | undefined) ?? null;
+        const local = board.k!.Footprints().find((f) => f.GetFPID().Format() === fpid.Format());
+        return local ? (local.Duplicate(false) as FOOTPRINT) : null;
       },
       { isDryRun: false },
     );
-    const result = updater.UpdateNetlist(netlist);
 
     const netChanges = reporter.lines
       .map((l) => l.message)

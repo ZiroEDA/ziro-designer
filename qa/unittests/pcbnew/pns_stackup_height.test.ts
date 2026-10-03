@@ -21,7 +21,7 @@ import {
 } from '@ziroeda/pcbnew/board_design_settings.js';
 import type { BOARD_STACKUP } from '@ziroeda/pcbnew/board_stackup_manager/board_stackup.js';
 import type { PnsDesignSettings } from '@ziroeda/pcbnew/router/pns_kicad_iface.js';
-import type { Board } from '@ziroeda/pcbnew/types.js';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 
 const MM = (n: number): number => mmToIU(n);
 const { F_Cu, In1_Cu, In2_Cu, B_Cu } = PCB_LAYER_ID;
@@ -36,30 +36,9 @@ function fourLayer(): BOARD_STACKUP {
   return stackup;
 }
 
-const BOARD: Board = {
-  version: 20240108,
-  layers: [
-    { id: 0, name: 'F.Cu', kind: 'signal' },
-    { id: 1, name: 'In1.Cu', kind: 'signal' },
-    { id: 2, name: 'In2.Cu', kind: 'signal' },
-    { id: 31, name: 'B.Cu', kind: 'signal' },
-  ],
-  nets: new Map([[0, '']]),
-  footprints: [],
-  tracks: [],
-  arcs: [],
-  vias: [],
-  zones: [],
-  shapes: [],
-  texts: [],
-  dimensions: [],
-  textBoxes: [],
-  tables: [],
-  images: [],
-  points: [],
-  barcodes: [],
-  groups: [],
-};
+const BOARD = ParseBoard(`(kicad_pcb (version 20241229) (generator "test")
+  (layers (0 "F.Cu" signal) (4 "In1.Cu" signal) (6 "In2.Cu" signal) (2 "B.Cu" signal))
+  (net 0 ""))`);
 
 function designSettings(over: Partial<PnsDesignSettings> = {}): PnsDesignSettings {
   return {

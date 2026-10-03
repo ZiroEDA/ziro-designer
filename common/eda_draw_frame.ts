@@ -142,7 +142,35 @@ export const FOOTPRINT_EDIT_FRAME_NAME = 'ModEditFrame';
 export const FOOTPRINT_VIEWER_FRAME_NAME = 'ModViewFrame';
 export const PCB_EDIT_FRAME_NAME = 'PcbFrame';
 
+/** `HOTKEY_CYCLE_POPUP`, as the frame and its tools call it. */
+export interface HOTKEY_CYCLE_POPUP_LIKE {
+  Popup(aTitle: string, aItems: readonly string[], aSelection: number): void;
+}
+
 export abstract class EDA_DRAW_FRAME extends KIWAY_PLAYER {
+  /** `m_hotkeyPopup` (eda_draw_frame.h). */
+  protected m_hotkeyPopup: HOTKEY_CYCLE_POPUP_LIKE | null = null;
+
+  /** `PropertiesPaneName()` (eda_draw_frame.h:437). */
+  static PropertiesPaneName(): string {
+    return 'PropertiesManager';
+  }
+
+  /** `NetInspectorPanelName()` (eda_draw_frame.h:439). */
+  static NetInspectorPanelName(): string {
+    return 'NetInspector';
+  }
+
+  /** `DesignBlocksPaneName()` (eda_draw_frame.h:441). */
+  static DesignBlocksPaneName(): string {
+    return 'DesignBlocks';
+  }
+
+  /** `AppearancePanelName()` (eda_draw_frame.h:445). */
+  static AppearancePanelName(): string {
+    return 'LayersManager';
+  }
+
   protected m_canvas: EDA_DRAW_PANEL_GAL | null = null;
   protected m_propertiesPanel: PROPERTIES_PANEL | null = null;
   protected m_currentScreen: BASE_SCREEN | null = null; ///< current used SCREEN
@@ -656,6 +684,26 @@ export abstract class EDA_DRAW_FRAME extends KIWAY_PLAYER {
     const y = KiROUND((aPosition.y - yOffset) / gridSize.y);
 
     return { x: KiROUND(x * gridSize.x + xOffset), y: KiROUND(y * gridSize.y + yOffset) };
+  }
+
+  /** `ReCreateAuxiliaryToolbar()` (eda_draw_frame.h:222): nothing, unless a frame has one. */
+  ReCreateAuxiliaryToolbar(): void {}
+
+  /** `GetHotkeyPopup()` (eda_draw_frame.h:506). */
+  GetHotkeyPopup(): HOTKEY_CYCLE_POPUP_LIKE | null {
+    return this.m_hotkeyPopup;
+  }
+
+  /**
+   * `CreateHotkeyPopup()` (eda_draw_frame.cpp:1341-1347). The popup is a page
+   * widget the window renders, so the window creates it and hands it over with
+   * {@link SetHotkeyPopup}; a frame without a window has none.
+   */
+  CreateHotkeyPopup(): void {}
+
+  /** The window's HOTKEY_CYCLE_POPUP, or null when it unmounts. */
+  SetHotkeyPopup(aPopup: HOTKEY_CYCLE_POPUP_LIKE | null): void {
+    this.m_hotkeyPopup = aPopup;
   }
 
   /**

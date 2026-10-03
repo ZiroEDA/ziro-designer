@@ -92,6 +92,7 @@ import type { PnsItem } from './pns_item.js';
 import type { PnsNode } from './pns_node.js';
 import type { PnsShoveSettings } from './pns_shove.js';
 import type { PnsViaType } from './pns_via.js';
+import { VIATYPE } from '../pcb_track_types.js';
 import type { RoutingSettings } from './pns_routing_settings.js';
 import type { Shape } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
@@ -166,7 +167,7 @@ export const DEFAULT_DP_PLACER_SIZES: DpPlacerSizes = {
   diffPairCopperToHole: 0,
   viaDiameter: 0,
   viaDrill: 0,
-  viaType: 'through',
+  viaType: VIATYPE.THROUGH,
   layerTop: 0,
   layerBottom: 0,
   trackWidthIsExplicit: false,

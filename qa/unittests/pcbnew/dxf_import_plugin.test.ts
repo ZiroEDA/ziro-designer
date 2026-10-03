@@ -9,6 +9,7 @@
  * on a round-tripped board file, because the board reader and writer both
  * normalise and would launder a wrong coordinate into a plausible one.
  */
+import { importedRecords } from './support/imported_records.js';
 import { describe, expect, it } from 'vitest';
 import type { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/eda_text.js';
@@ -204,12 +205,12 @@ describe('DXF_IMPORT_PLUGIN: coordinates are millimetres and Y is flipped', () =
 
     // ...and the importer multiplies by it exactly once (2 mm/unit * 10 units
     // = 20 mm, which is 20e6 internal units).
-    const importer = new GRAPHICS_IMPORTER_PCBNEW();
+    const importer = new GRAPHICS_IMPORTER_PCBNEW(null);
     importer.SetScale({ x: 2, y: 2 });
     plugin.SetImporter(importer);
     plugin.Import();
 
-    const items = importer.GetItems();
+    const items = importedRecords(importer.GetItems());
 
     expect(items).toHaveLength(1);
     expect(items[0]!.type).toBe('shape');
@@ -351,7 +352,7 @@ describe('DXF_IMPORT_PLUGIN: line widths', () => {
 
   it('takes the width the importer was told to use as the default', () => {
     const plugin = new DXF_IMPORT_PLUGIN();
-    const importer = new GRAPHICS_IMPORTER_PCBNEW();
+    const importer = new GRAPHICS_IMPORTER_PCBNEW(null);
 
     importer.SetLineWidthMM(0.35);
     plugin.SetImporter(importer);
@@ -1407,13 +1408,13 @@ describe('DXF_IMPORT_PLUGIN: layers and unsupported entities', () => {
       ]),
     );
 
-    const importer = new GRAPHICS_IMPORTER_PCBNEW();
+    const importer = new GRAPHICS_IMPORTER_PCBNEW(null);
 
     importer.SetLayerMap(new Map([['Keep', importer.GetLayer()]]));
     plugin.SetImporter(importer);
     plugin.Import();
 
-    expect(importer.GetItems()).toHaveLength(1);
+    expect(importedRecords(importer.GetItems())).toHaveLength(1);
   });
 
   it('reports each unsupported entity type with upstream wording', () => {

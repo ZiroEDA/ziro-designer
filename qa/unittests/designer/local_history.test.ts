@@ -147,6 +147,12 @@ describe('evicting to a size limit (EnforceSizeLimit)', () => {
     expect(snapshotsToEvict(history, 200)).toEqual(['1']);
   });
 
+  it('orders saves inside one millisecond by the id’s stamp, not by arrival', () => {
+    // listSnapshots hands them over newest first; `at` alone kept that order.
+    const history = [big('k-3', 5, 'c'), big('k-2', 5, 'b'), big('k-1', 5, 'a')];
+    expect(snapshotsToEvict(history, 200)).toEqual(['k-1']);
+  });
+
   it('never drops the newest, whatever the budget', () => {
     // A history whose limit is smaller than one snapshot should hold one
     // snapshot, not none. Deleting the last copy of the current state to

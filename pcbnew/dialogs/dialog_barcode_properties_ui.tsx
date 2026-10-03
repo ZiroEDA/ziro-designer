@@ -24,14 +24,11 @@ import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import {
   BARCODE_ECC_CHOICES,
   BARCODE_KIND_CHOICES,
-  applyBarcodeValues,
-  barcodeCommitError,
   barcodeUiState,
   correctEccForKind,
+  type BarcodePreview,
   type BarcodeValues,
 } from './dialog_barcode_properties.js';
-import { barcodeGeometry } from '../pcb_io/kicad_sexpr/board_view.js';
-import type { PcbBarcode } from '../types.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { pcbUnitText, pcbUnitValue, unitLabel } from '../pcb_unit_binder.js';
@@ -44,8 +41,10 @@ interface Props {
    * a fixed millimetre.
    */
   units: StatusUnits;
-  /** The item being edited, for the fields the dialog does not own. */
-  barcode: PcbBarcode;
+  /** `m_dummyBarcode` with these values: its outline rings and bounding box. */
+  preview: (v: BarcodeValues) => BarcodePreview;
+  /** What OK would refuse with ("Barcode Error"), or ''. */
+  commitError: (v: BarcodeValues) => string;
   initial: BarcodeValues;
   layers: readonly string[];
   /** The layer colours, so the preview is drawn in the one it will be. */
@@ -61,8 +60,7 @@ interface Props {
  */
 function drawPreview(
   canvas: HTMLCanvasElement,
-  barcode: PcbBarcode,
-  v: BarcodeValues,
+  g: BarcodePreview,
   ink: string,
   background: string,
 ): void {
@@ -75,8 +73,7 @@ function drawPreview(
   ctx.fillStyle = background;
   ctx.fillRect(0, 0, w, h);
 
-  const g = barcodeGeometry(applyBarcodeValues(barcode, v));
-  if (g.poly.length === 0) return;
+  if (g.rings.length === 0) return;
 
   const bw = g.bbox.x2 - g.bbox.x1;
   const bh = g.bbox.y2 - g.bbox.y1;
@@ -91,19 +88,18 @@ function drawPreview(
   ctx.setTransform(scale, 0, 0, scale, w / 2 - cx * scale, h / 2 - cy * scale);
   ctx.fillStyle = ink;
   ctx.beginPath();
-  for (const rings of g.poly) {
-    for (const ring of rings) {
-      if (ring.length < 3) continue;
-      ctx.moveTo(ring[0]!.x, ring[0]!.y);
-      for (let i = 1; i < ring.length; i++) ctx.lineTo(ring[i]!.x, ring[i]!.y);
-      ctx.closePath();
-    }
+  for (const ring of g.rings) {
+    if (ring.length < 3) continue;
+    ctx.moveTo(ring[0]!.x, ring[0]!.y);
+    for (let i = 1; i < ring.length; i++) ctx.lineTo(ring[i]!.x, ring[i]!.y);
+    ctx.closePath();
   }
   ctx.fill('nonzero');
 }
 
 export function DialogBarcodeProperties({
-  barcode,
+  preview,
+  commitError,
   initial,
   units,
   layers,
@@ -123,8 +119,8 @@ export function DialogBarcodeProperties({
   // change, including every keystroke in the text field (`OnTextValueChanged`).
   useEffect(() => {
     const c = canvasRef.current;
-    if (c) drawPreview(c, barcode, v, layerColor(v.layer), background);
-  }, [barcode, v, layerColor, background]);
+    if (c) drawPreview(c, preview(v), layerColor(v.layer), background);
+  }, [preview, v, layerColor, background]);
 
   const ui = barcodeUiState(v);
   const set = (patch: Partial<BarcodeValues>): void =>
@@ -159,7 +155,7 @@ export function DialogBarcodeProperties({
   );
 
   const ok = (): void => {
-    const message = barcodeCommitError(barcode, v);
+    const message = commitError(v);
     if (message) {
       setError(message);
       return;

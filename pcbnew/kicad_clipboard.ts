@@ -100,7 +100,8 @@ import { SEXPR_BOARD_FILE_VERSION } from './pcb_io/kicad_sexpr/pcb_io_kicad_sexp
 import { PRETTIFIED_STRING_FORMATTER } from '@ziroeda/common/richio.js';
 import { FORMAT_MODE } from '@ziroeda/common/io/kicad/kicad_io_utils.js';
 import { GENERATOR } from '@ziroeda/common/generator.js';
-import { SaveClipboard } from '@ziroeda/common/clipboard.js';
+import { GetClipboardText, SaveClipboard } from '@ziroeda/common/clipboard.js';
+import { PCB_IO_KICAD_SEXPR_PARSER } from './pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_parser.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { LIB_ID } from '@ziroeda/common/lib_id.js';
 import { STRUCT_DELETED } from '@ziroeda/common/eda_item_flags.js';
@@ -1230,8 +1231,25 @@ export class CLIPBOARD_IO {
     SaveClipboard(aText);
   };
 
+  /** `m_reader`: where the text to parse comes from. `clipboardReader` upstream. */
+  m_reader: () => string = () => GetClipboardText() ?? '';
+
   SetBoard(aBoard: BOARD | null): void {
     this.m_board = aBoard;
+  }
+
+  /**
+   * `CLIPBOARD_IO::Parse` (kicad_clipboard.cpp:460-474): the clipboard text as a
+   * board or a footprint, or null when it is neither.
+   */
+  Parse(): BOARD_ITEM | null {
+    const result = this.m_reader();
+
+    try {
+      return new PCB_IO_KICAD_SEXPR_PARSER(result, 'clipboard').Parse();
+    } catch {
+      return null;
+    }
   }
 
   /** `CLIPBOARD_IO::SaveSelection( const PCB_SELECTION&, bool )` (kicad_clipboard.cpp:115). */

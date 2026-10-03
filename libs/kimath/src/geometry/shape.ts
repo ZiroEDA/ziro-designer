@@ -569,7 +569,7 @@ function squaredNorm(dx: number, dy: number): number {
  * half-away-from-zero correction by the sign of the PRODUCT, truncating
  * division - the same arithmetic as the int64 arm, so `rescale64` is it.
  */
-function rescaleInt(numerator: number, value: number, denominator: number): number {
+export function rescaleInt(numerator: number, value: number, denominator: number): number {
   const product = numerator * value;
 
   // A product below 2^53 (less the half-denominator headroom) is an exact

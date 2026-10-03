@@ -9,18 +9,18 @@ import { LeaderMode as LEADER_MODE } from '@ziroeda/kimath/src/geometry/geometry
 import type { BOARD } from '@ziroeda/pcbnew/board.js';
 import type { BOARD_ITEM_CONTAINER } from '@ziroeda/pcbnew/board_item_container.js';
 import type { FOOTPRINT } from '@ziroeda/pcbnew/footprint.js';
-import { BOARD_NETLIST_UPDATER } from '@ziroeda/pcbnew/netlist_reader/board_netlist_updater.js';
+import {
+  BOARD_NETLIST_UPDATER,
+  type NETLIST_UPDATER_FRAME,
+} from '@ziroeda/pcbnew/netlist_reader/board_netlist_updater.js';
 import { COMPONENT, NETLIST } from '@ziroeda/common/netlist_reader/netlist.js';
 import { PCB_BASE_EDIT_FRAME } from '@ziroeda/pcbnew/pcb_base_edit_frame.js';
 import type { FOOTPRINT_EDITOR_SETTINGS_LIKE } from '@ziroeda/pcbnew/pcb_base_frame.js';
-import { type PCB_EDIT_FRAME, REACT_BOARD_LISTENER } from '@ziroeda/pcbnew/pcb_edit_frame.js';
-import { boardFromBOARD } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/board_view.js';
+import type { PCB_EDIT_FRAME } from '@ziroeda/pcbnew/pcb_edit_frame.js';
 import { PCB_IO_KICAD_SEXPR_PARSER } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_parser.js';
 import { PCBNEW_SETTINGS } from '@ziroeda/pcbnew/pcbnew_settings.js';
-import type { Board } from '@ziroeda/pcbnew/types.js';
-import { commitViewToBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/board_view_commit.js';
+import { SETTINGS_MANAGER } from '@ziroeda/common/settings/settings_manager.js';
 import { routeHeadless } from '@ziroeda/pcbnew/router/route_headless.js';
-import { applyPnsChanges } from '@ziroeda/pcbnew/router/router_tool.js';
 import { beforeAll, expect, it } from 'vitest';
 const F = fileURLToPath(new URL('../../data/pcbnew/resave/ecc83-pp.kicad_pcb', import.meta.url));
 class TF extends PCB_BASE_EDIT_FRAME {
@@ -54,13 +54,10 @@ beforeAll(async () => {
 it('a board-only mounting hole survives a route commit and Update PCB from Schematic', async () => {
   const kb = new PCB_IO_KICAD_SEXPR_PARSER(readFileSync(F, 'utf8'), F).Parse() as BOARD;
   kb.BuildConnectivity();
+  const manager = new SETTINGS_MANAGER();
+  manager.LoadProject('netlist_test.kicad_pro', {});
+  kb.SetProject(manager.Prj());
   const frame = new TF(kb);
-  let view: Board = boardFromBOARD(kb);
-  kb.AddListener(
-    new REACT_BOARD_LISTENER((u) => {
-      view = boardFromBOARD(kb, undefined, u ?? undefined);
-    }),
-  );
   // A stand-in library footprint: CI has no KiCad libraries installed.
   const lib = { k: kb.Footprints()[0] };
   const bridge = pcbBridge({
@@ -74,8 +71,8 @@ it('a board-only mounting hole survives a route commit and Update PCB from Schem
   expect((await bridge.run('add_mounting_hole', { x: 105, y: 55 }))?.text).toBe(
     'H1 (M3) at 105,55.',
   );
-  await new Promise((r) => setTimeout(r, 0));
-  // What a route does next: the editor's commitBoard, view -> live.
+  const live0 = () => kb.FindFootprintByReference('H1');
+  // What a route does next: a commit on the live board, through the frame.
   const net = kb
     .Footprints()
     .flatMap((f) => f.Pads())
@@ -83,51 +80,48 @@ it('a board-only mounting hole survives a route commit and Update PCB from Schem
   const pads = kb
     .Footprints()
     .flatMap((f) => f.Pads())
-    .filter((p) => p.GetNetCode() === net.GetNetCode());
+    // Two of the board's own pads: the hole is a copy of a footprint with nets.
+    .filter((p) => p.GetNetCode() === net.GetNetCode() && p.GetParentFootprint() !== live0());
   const rr = routeHeadless(
-    view,
+    kb,
     pads[0]!.GetPosition(),
     pads[1]!.GetPosition(),
     'F.Cu',
-    { trackWidth: 250000 },
+    { trackWidth: 250000, commitHost: frame },
     2,
     () => true,
     () => true,
   );
   expect(rr.ok).toBe(true);
-  const prevView = view;
-  commitViewToBoard(frame as never, prevView, applyPnsChanges(prevView, rr.changes), 'Route', 0);
-  await new Promise((r) => setTimeout(r, 0));
   const live = kb.FindFootprintByReference('H1');
-  const v = view.footprints.find((f) => f.reference === 'H1');
   expect(live?.IsBoardOnly()).toBe(true);
-  expect(v?.attributes).toContain('board_only');
   // A netlist made of the board's own parts, matched by path, as the schematic would send.
   const netlist = new NETLIST();
-  for (const f of view.footprints) {
-    if (!f.path) continue;
-    const parts = f.path.split('/').filter(Boolean);
+  for (const f of kb.Footprints()) {
+    const parts = f.GetPath().map(String);
+    if (parts.length === 0) continue;
     const base = parts.length > 1 ? `/${parts.slice(0, -1).join('/')}/` : '/';
-    const c = new COMPONENT(f.lib ?? '', f.reference ?? '', f.value ?? '', base, [
+    const c = new COMPONENT(f.GetFPID().Format(), f.GetReference(), f.GetValue(), base, [
       parts[parts.length - 1]!,
     ]);
-    for (const pad of f.pads)
-      if (pad.net !== undefined && pad.number)
-        c.AddNet(pad.number, view.nets.get(pad.net) ?? '', '', '');
+    for (const pad of f.Pads())
+      if (pad.GetNetCode() > 0 && pad.GetNumber())
+        c.AddNet(pad.GetNumber(), pad.GetNetname(), '', '');
     netlist.AddComponent(c);
   }
   const rep = new Reporter();
-  const r = new BOARD_NETLIST_UPDATER(
-    view,
-    rep,
-    (id) => view.footprints.find((f) => f.lib === id) ?? null,
-    {
-      deleteUnusedFootprints: true,
-      lookupByTimestamp: true,
-      replaceFootprints: true,
-      updateFields: true,
-    },
-  ).UpdateNetlist(netlist);
+  const updater = new BOARD_NETLIST_UPDATER(
+    // Deleting and relinking only: no footprint is exchanged or placed.
+    frame as unknown as NETLIST_UPDATER_FRAME,
+    kb,
+    () => null,
+  );
+  updater.SetReporter(rep);
+  updater.SetDeleteUnusedFootprints(true);
+  updater.SetLookupByTimestamp(true);
+  updater.SetReplaceFootprints(true);
+  updater.SetUpdateFields(true);
+  updater.UpdateNetlist(netlist);
   expect(rep.lines.map((l) => l.message)).not.toContain('Removed unused footprint H1.');
-  expect(r.board.footprints.some((f) => f.reference === 'H1')).toBe(true);
+  expect(kb.Footprints().some((f) => f.GetReference() === 'H1')).toBe(true);
 });

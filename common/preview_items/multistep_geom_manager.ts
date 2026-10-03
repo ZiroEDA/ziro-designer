@@ -28,7 +28,7 @@
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 /** `MULTISTEP_GEOM_MANAGER`, with `acceptPoint`/`getMaxStep` left to subclasses. */
-export abstract class MultistepGeomManager {
+export abstract class MULTISTEP_GEOM_MANAGER {
   private step_ = 0;
   private changed_ = false;
   private lastPoint_: Vec2 = { x: 0, y: 0 };
@@ -48,7 +48,7 @@ export abstract class MultistepGeomManager {
    * `AddPoint`: feed the cursor in. `lockIn` is false on a motion (update the
    * geometry, do not move the manager) and true on a click.
    */
-  addPoint(pt: Vec2, lockIn: boolean): void {
+  AddPoint(pt: Vec2, lockIn: boolean): void {
     // hold onto the raw point separately to the managed geometry
     this.lastPoint_ = pt;
 
@@ -60,25 +60,25 @@ export abstract class MultistepGeomManager {
   }
 
   /** `RemoveLastPoint`: back up a step, then re-accept the same raw point. */
-  removeLastPoint(): void {
+  RemoveLastPoint(): void {
     this.performStep(false);
     this.acceptPoint(this.lastPoint_);
     this.changed_ = true;
   }
 
   /** `IsReset`: nothing has been locked in yet. */
-  isReset(): boolean {
+  IsReset(): boolean {
     return this.step_ === 0;
   }
 
   /** `Reset`: back to the initial state. */
-  reset(): void {
+  Reset(): void {
     this.step_ = 0;
     this.changed_ = true;
   }
 
   /** `IsComplete`: the last step has been locked in. */
-  isComplete(): boolean {
+  IsComplete(): boolean {
     return this.step_ === this.getMaxStep();
   }
 
@@ -89,7 +89,7 @@ export abstract class MultistepGeomManager {
    * stores something else, which is why the assistant draws its cursor text off
    * this rather than off the shape.
    */
-  getLastPoint(): Vec2 {
+  GetLastPoint(): Vec2 {
     return this.lastPoint_;
   }
 
@@ -104,12 +104,12 @@ export abstract class MultistepGeomManager {
   }
 
   /** `HasGeometryChanged`: whether a client should redraw. */
-  hasGeometryChanged(): boolean {
+  HasGeometryChanged(): boolean {
     return this.changed_;
   }
 
   /** `ClearGeometryChanged`, called once the client has redrawn. */
-  clearGeometryChanged(): void {
+  ClearGeometryChanged(): void {
     this.changed_ = false;
   }
 
