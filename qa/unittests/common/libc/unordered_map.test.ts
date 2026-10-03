@@ -65,6 +65,15 @@ describe('std::unordered_map<std::string> iteration order', () => {
     });
   }
 
+  it('insert_or_assign gives an existing key its new value in its old place', () => {
+    const map = new STD_UNORDERED_MAP<number>();
+    for (const k of ['R', 'U', 'X-Y', 'C', 'J']) map.emplace(k, 0);
+    const before = [...map.keys()];
+    map.set(before[0]!, 7);
+    expect([...map.keys()]).toEqual(before);
+    expect(map.get(before[0]!)).toBe(7);
+  });
+
   it('does not insert a key twice, and keeps the first value', () => {
     const map = new STD_UNORDERED_MAP<number>();
     expect(map.emplace('R', 1)).toBe(true);
