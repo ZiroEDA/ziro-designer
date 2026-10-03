@@ -2152,6 +2152,12 @@ import { SCH_MARKER as SCH_MARKER_LIVE } from '../sch_marker.js';
 import type { SCH_MULTI_UNIT_REFERENCE_MAP } from '../sch_reference_list.js';
 import { SCH_SCREENS } from '../sch_screen.js';
 import type { SCH_SHEET } from '../sch_sheet.js';
+import type { SCH_PIN } from '../sch_pin.js';
+import type { SCH_SCREEN } from '../sch_screen.js';
+import { ElectricalPinTypeGetText } from '../pin_type.js';
+import { strNumCmp as strNumCmpLive } from '@ziroeda/common/string_utils.js';
+import { Distance } from '@ziroeda/kimath/src/math/vector2.js';
+import { ERC_SCH_PIN_CONTEXT } from './erc_sch_pin_context.js';
 import type { SCH_LINE } from '../sch_line.js';
 import type { SCH_BUS_WIRE_ENTRY } from '../sch_bus_entry.js';
 import type { SCH_SYMBOL } from '../sch_symbol.js';
@@ -2160,7 +2166,34 @@ import { SYMBOL_FILTER, type SCH_SHEET_LIST } from '../sch_sheet_path.js';
 import { SCH_CLEANUP_FLAGS, type SCHEMATIC } from '../schematic.js';
 import { KICAD_T as KICAD_T_LIVE } from '@ziroeda/core/typeinfo.js';
 import { ERC_ITEM } from './erc_item.js';
-import { ERCE_T as ERCE, type ERC_SETTINGS } from './erc_settings.js';
+import {
+  ERC_PIN_SORTING_METRIC,
+  ERCE_T as ERCE,
+  PIN_ERROR,
+  type ERC_SETTINGS,
+} from './erc_settings.js';
+
+// List of pin types that are considered drivers for usual input pins
+// i.e. pin type = ELECTRICAL_PINTYPE::PT_INPUT, but not PT_POWER_IN
+// that need only a PT_POWER_OUT pin type to be driven
+const DrivingPinTypes = new Set<ELECTRICAL_PINTYPE>([
+  ELECTRICAL_PINTYPE.PT_OUTPUT,
+  ELECTRICAL_PINTYPE.PT_POWER_OUT,
+  ELECTRICAL_PINTYPE.PT_PASSIVE,
+  ELECTRICAL_PINTYPE.PT_TRISTATE,
+  ELECTRICAL_PINTYPE.PT_BIDI,
+]);
+
+// List of pin types that are considered drivers for power pins
+// In fact only a ELECTRICAL_PINTYPE::PT_POWER_OUT pin type can drive
+// power input pins
+const DrivingPowerPinTypes = new Set<ELECTRICAL_PINTYPE>([ELECTRICAL_PINTYPE.PT_POWER_OUT]);
+
+// List of pin types that require a driver elsewhere on the net
+const DrivenPinTypes = new Set<ELECTRICAL_PINTYPE>([
+  ELECTRICAL_PINTYPE.PT_INPUT,
+  ELECTRICAL_PINTYPE.PT_POWER_IN,
+]);
 
 export class ERC_TESTER {
   private m_schematic: SCHEMATIC;
@@ -2222,6 +2255,233 @@ export class ERC_TESTER {
     }
 
     return err_count;
+  }
+
+  /**
+   * Check the pins of each net against the pin conflict map, and that a net whose pins need a
+   * driver has one.
+   *
+   * @return the error count
+   */
+  TestPinToPin(): number {
+    let errors = 0;
+
+    for (const [, subgraphs] of this.m_nets) {
+      const pins: ERC_SCH_PIN_CONTEXT[] = [];
+      const pinToScreenMap = new Map<SCH_PIN, SCH_SCREEN>();
+      let has_noconnect = false;
+
+      for (const subgraph of subgraphs) {
+        if (subgraph.GetNoConnect()) has_noconnect = true;
+
+        for (const item of subgraph.GetItems()) {
+          if (item.Type() === KICAD_T_LIVE.SCH_PIN_T) {
+            pins.push(new ERC_SCH_PIN_CONTEXT(item as SCH_PIN, subgraph.GetSheet()));
+            pinToScreenMap.set(item as SCH_PIN, subgraph.GetSheet().LastScreen()!);
+          }
+        }
+      }
+
+      // `ret = lhs < rhs`, upstream's hash fallback, is 0 or 1 and never less than 0: a full tie
+      // keeps its order (std::sort is an insertion sort below 16; Array.sort is stable).
+      pins.sort((lhs, rhs) => {
+        let ret = strNumCmpLive(
+          lhs.Pin()!.GetParentSymbol()!.GetRef(lhs.Sheet()),
+          rhs.Pin()!.GetParentSymbol()!.GetRef(rhs.Sheet()),
+        );
+
+        if (ret === 0) ret = strNumCmpLive(lhs.Pin()!.GetNumber(), rhs.Pin()!.GetNumber());
+
+        return ret < 0 ? -1 : ret > 0 ? 1 : 0;
+      });
+
+      let needsDriver = new ERC_SCH_PIN_CONTEXT();
+      let needsDriverType = ELECTRICAL_PINTYPE.PT_UNSPECIFIED;
+      let hasDriver = false;
+      const pinsNeedingDrivers: ERC_SCH_PIN_CONTEXT[] = [];
+      const nonPowerPinsNeedingDrivers: ERC_SCH_PIN_CONTEXT[] = [];
+      const powerInPinsNeedingDrivers: ERC_SCH_PIN_CONTEXT[] = [];
+
+      // We need different drivers for power nets and normal nets.
+      // A power net has at least one pin having the ELECTRICAL_PINTYPE::PT_POWER_IN
+      // and power nets can be driven only by ELECTRICAL_PINTYPE::PT_POWER_OUT pins
+      const ispowerNet = pins.some(
+        (refPin) => refPin.Pin()!.GetType() === ELECTRICAL_PINTYPE.PT_POWER_IN,
+      );
+
+      // Iterators are indices into pins.
+      const pin_mismatches: [number, number, PIN_ERROR][] = [];
+      const pin_mismatch_counts = new Map<number, number>();
+
+      for (let refIt = 0; refIt < pins.length; ++refIt) {
+        const refPin = pins[refIt]!;
+        const refType = refPin.Pin()!.GetType();
+
+        if (DrivenPinTypes.has(refType)) {
+          // needsDriver will be the pin shown in the error report eventually, so try to
+          // upgrade to a "better" pin if possible: something visible and only a power symbol
+          // if this net needs a power driver
+          pinsNeedingDrivers.push(refPin);
+
+          if (!refPin.Pin()!.IsPower()) nonPowerPinsNeedingDrivers.push(refPin);
+
+          if (refType === ELECTRICAL_PINTYPE.PT_POWER_IN) powerInPinsNeedingDrivers.push(refPin);
+
+          if (
+            !needsDriver.Pin() ||
+            (!needsDriver.Pin()!.IsVisible() && refPin.Pin()!.IsVisible()) ||
+            (ispowerNet !== (needsDriverType === ELECTRICAL_PINTYPE.PT_POWER_IN) &&
+              ispowerNet === (refType === ELECTRICAL_PINTYPE.PT_POWER_IN))
+          ) {
+            needsDriver = refPin;
+            needsDriverType = needsDriver.Pin()!.GetType();
+          }
+        }
+
+        if (ispowerNet) hasDriver ||= DrivingPowerPinTypes.has(refType);
+        else hasDriver ||= DrivingPinTypes.has(refType);
+
+        for (let testIt = refIt + 1; testIt < pins.length; ++testIt) {
+          const testPin = pins[testIt]!;
+
+          // Multiple pins in the same symbol that share a type,
+          // name and position are considered
+          // "stacked" and shouldn't trigger ERC errors
+          if (refPin.Pin()!.IsStacked(testPin.Pin()!) && refPin.Sheet().equals(testPin.Sheet()))
+            continue;
+
+          const testType = testPin.Pin()!.GetType();
+
+          if (ispowerNet) hasDriver ||= DrivingPowerPinTypes.has(testType);
+          else hasDriver ||= DrivingPinTypes.has(testType);
+
+          const erc = this.m_settings.GetPinMapValue(refType, testType);
+
+          if (erc !== PIN_ERROR.OK && this.m_settings.IsTestEnabled(ERCE.ERCE_PIN_TO_PIN_WARNING)) {
+            pin_mismatches.push([refIt, testIt, erc]);
+
+            if (this.m_settings.GetERCSortingMetric() === ERC_PIN_SORTING_METRIC.SM_HEURISTICS) {
+              pin_mismatch_counts.set(
+                refIt,
+                this.m_settings.GetPinTypeWeight(pins[refIt]!.Pin()!.GetType()),
+              );
+              pin_mismatch_counts.set(
+                testIt,
+                this.m_settings.GetPinTypeWeight(pins[testIt]!.Pin()!.GetType()),
+              );
+            } else {
+              pin_mismatch_counts.set(testIt, (pin_mismatch_counts.get(testIt) ?? 0) + 1);
+              pin_mismatch_counts.set(refIt, (pin_mismatch_counts.get(refIt) ?? 0) + 1);
+            }
+          }
+        }
+      }
+
+      // std::multimap<size_t, iterator_t, std::greater<size_t>> filled through std::inserter from
+      // the std::map (iterator order): count descending, equal counts in iterator order.
+      const pins_dsc = [...pin_mismatch_counts]
+        .sort((a, b) => a[0] - b[0])
+        .map(([it, count]) => [count, it] as const)
+        .sort((a, b) => b[0] - a[0]);
+
+      for (const [, pinIt] of pins_dsc) {
+        if (pin_mismatches.length === 0) break;
+
+        const pin = pins[pinIt]!.Pin()!;
+        const position = pin.GetPosition();
+
+        let nearest_pin = -1;
+        let smallest_distance = Number.POSITIVE_INFINITY;
+        let erc = PIN_ERROR.OK;
+
+        // std::erase_if
+        for (let i = 0; i < pin_mismatches.length; ) {
+          const tuple = pin_mismatches[i]!;
+          let other: number;
+
+          if (pinIt === tuple[0]) other = tuple[1];
+          else if (pinIt === tuple[1]) other = tuple[0];
+          else {
+            i++;
+            continue;
+          }
+
+          if (pins[pinIt]!.Sheet().Cmp(pins[other]!.Sheet()) !== 0) {
+            if (smallest_distance === Number.POSITIVE_INFINITY) {
+              nearest_pin = other;
+              erc = tuple[2];
+            }
+          } else {
+            const distance = Distance(position, pins[other]!.Pin()!.GetPosition());
+
+            if (smallest_distance === Number.POSITIVE_INFINITY || distance < smallest_distance) {
+              smallest_distance = distance;
+              nearest_pin = other;
+              erc = tuple[2];
+            }
+          }
+
+          pin_mismatches.splice(i, 1);
+        }
+
+        if (nearest_pin !== -1) {
+          const other_pin = pins[nearest_pin]!.Pin()!;
+
+          const ercItem = ERC_ITEM.Create(
+            erc === PIN_ERROR.WARNING ? ERCE.ERCE_PIN_TO_PIN_WARNING : ERCE.ERCE_PIN_TO_PIN_ERROR,
+          )!;
+          ercItem.SetItems(pin, other_pin);
+          ercItem.SetSheetSpecificPath(pins[pinIt]!.Sheet());
+          ercItem.SetItemsSheetPaths(pins[pinIt]!.Sheet(), pins[nearest_pin]!.Sheet());
+
+          ercItem.SetErrorMessage(
+            `Pins of type ${ElectricalPinTypeGetText(pin.GetType())} and ${ElectricalPinTypeGetText(other_pin.GetType())} are connected`,
+          );
+
+          const marker = new SCH_MARKER_LIVE(ercItem, pin.GetPosition());
+          pinToScreenMap.get(pin)!.Append(marker);
+          errors++;
+        }
+      }
+
+      if (needsDriver.Pin() && !hasDriver && !has_noconnect) {
+        const err_code = ispowerNet ? ERCE.ERCE_POWERPIN_NOT_DRIVEN : ERCE.ERCE_PIN_NOT_DRIVEN;
+
+        if (this.m_settings.IsTestEnabled(err_code)) {
+          let pinsToMark: ERC_SCH_PIN_CONTEXT[] = [];
+
+          // The marker should land on a pin matching the error message: for an
+          // ERCE_POWERPIN_NOT_DRIVEN error mark a PT_POWER_IN pin (which is what the
+          // error refers to), for ERCE_PIN_NOT_DRIVEN prefer a pin that is not on a
+          // power symbol so the marker is anchored to the consuming pin rather than
+          // a power flag.
+          if (this.m_showAllErrors) {
+            if (ispowerNet && powerInPinsNeedingDrivers.length > 0)
+              pinsToMark = powerInPinsNeedingDrivers;
+            else if (nonPowerPinsNeedingDrivers.length > 0) pinsToMark = nonPowerPinsNeedingDrivers;
+            else pinsToMark = pinsNeedingDrivers;
+          } else {
+            if (ispowerNet && powerInPinsNeedingDrivers.length > 0)
+              pinsToMark.push(powerInPinsNeedingDrivers[0]!);
+            else pinsToMark.push(needsDriver);
+          }
+
+          for (const pinCtx of pinsToMark) {
+            const ercItem = ERC_ITEM.Create(err_code)!;
+
+            ercItem.SetItems(pinCtx.Pin());
+            ercItem.SetSheetSpecificPath(pinCtx.Sheet());
+            ercItem.SetItemsSheetPaths(pinCtx.Sheet());
+
+            const marker = new SCH_MARKER_LIVE(ercItem, pinCtx.Pin()!.GetPosition());
+            pinToScreenMap.get(pinCtx.Pin()!)!.Append(marker);
+            errors++;
+          }
+        }
+      }
+    }
+
+    return errors;
   }
 
   /**
@@ -2315,7 +2575,18 @@ export class ERC_TESTER {
     this.m_schematic.ConnectionGraph().RunERC();
 
     // Pending, in upstream's order: TestMultiunitFootprints, TestMissingUnits,
-    // TestMultUnitPinConflicts, TestDuplicatePinNets, TestPinToPin, TestGroundPins,
+    // TestMultUnitPinConflicts, TestDuplicatePinNets (all before TestPinToPin).
+
+    // Test pins on each net against the pin connection table
+    if (
+      this.m_settings.IsTestEnabled(ERCE.ERCE_PIN_TO_PIN_ERROR) ||
+      this.m_settings.IsTestEnabled(ERCE.ERCE_POWERPIN_NOT_DRIVEN) ||
+      this.m_settings.IsTestEnabled(ERCE.ERCE_PIN_NOT_DRIVEN)
+    ) {
+      this.TestPinToPin();
+    }
+
+    // Pending, after TestPinToPin: TestGroundPins,
     // TestStackedPinNotation, TestSimilarLabels, TestSameLocalGlobalLabel, TestTextVars,
     // TestFieldNameWhitespace, TestSimModelIssues, TestNoConnectPins, TestLibSymbolIssues,
     // TestFootprintLinkIssues, TestFootprintFilters, TestFourWayJunction,
