@@ -762,6 +762,60 @@ export function wxStringSplit(text: string, splitter: string): string[] {
   return parts;
 }
 
+/**
+ * `PrintableCharCount` (common/string_utils.cpp:704): the characters a text shows, leaving out
+ * tabs and the `^{ }`, `_{ }` and `~{ }` markup.
+ */
+export function PrintableCharCount(aString: string): number {
+  let char_count = 0;
+  let overbarDepth = -1;
+  let superSubDepth = -1;
+  let braceNesting = 0;
+  const chars = [...aString];
+
+  for (let i = 0; i < chars.length; i++) {
+    const ch = chars[i];
+
+    if (ch === '\t') {
+      // We don't format tabs in bitmap text (where this is currently used), so just
+      // drop them from the count.
+      continue;
+    } else if ((ch === '^' || ch === '_') && superSubDepth === -1) {
+      if (chars[i + 1] === '{') {
+        i++;
+        superSubDepth = braceNesting;
+        braceNesting++;
+        continue;
+      }
+    } else if (ch === '~' && overbarDepth === -1) {
+      if (chars[i + 1] === '{') {
+        i++;
+        overbarDepth = braceNesting;
+        braceNesting++;
+        continue;
+      }
+    } else if (ch === '{') {
+      braceNesting++;
+    } else if (ch === '}') {
+      if (braceNesting > 0) braceNesting--;
+
+      if (braceNesting === superSubDepth) {
+        superSubDepth = -1;
+        continue;
+      }
+
+      if (braceNesting === overbarDepth) {
+        overbarDepth = -1;
+        continue;
+      }
+    }
+
+    char_count++;
+  }
+
+  return char_count;
+}
+
 /** `wxString::Capitalize`: first character upper, the REST lower. */
 const capitalize = (word: string): string =>
   word.length === 0 ? word : word[0]!.toUpperCase() + word.slice(1).toLowerCase();

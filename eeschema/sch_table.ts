@@ -5,7 +5,7 @@
  * `eeschema/sch_table.h` / `eeschema/sch_table.cpp`: `SCH_TABLE`, a grid of
  * `SCH_TABLECELL`s it owns.
  *
- * Not here: `DrawBorders` and `Plot` (drawing), `GetMsgPanelInfo`, `GetMenuImage`,
+ * Not here: `Plot` (drawing), `GetMsgPanelInfo`, `GetMenuImage`,
  * `Serialize`/`Deserialize`, `SCH_TABLE_DESC`.
  */
 
@@ -110,6 +110,66 @@ export class SCH_TABLE extends SCH_ITEM {
   }
   GetBorderStroke(): STROKE_PARAMS {
     return this.m_borderStroke;
+  }
+
+  /**
+   * `SCH_TABLE::DrawBorders` (sch_table.cpp:346): every border and separator line, with the
+   * stroke it is drawn in, for the painter and the plotter.
+   */
+  DrawBorders(aCallback: (aPt1: VECTOR2I, aPt2: VECTOR2I, aStroke: STROKE_PARAMS) => void): void {
+    const drawAngle = this.GetCell(0, 0)!.GetTextAngle();
+
+    const topLeft = this.GetCell(0, 0)!.GetCornersInSequence(drawAngle);
+    const bottomLeft = this.GetCell(this.GetRowCount() - 1, 0)!.GetCornersInSequence(drawAngle);
+    const topRight = this.GetCell(0, this.GetColCount() - 1)!.GetCornersInSequence(drawAngle);
+    const bottomRight = this.GetCell(
+      this.GetRowCount() - 1,
+      this.GetColCount() - 1,
+    )!.GetCornersInSequence(drawAngle);
+    let stroke: STROKE_PARAMS;
+
+    for (let col = 0; col < this.GetColCount() - 1; ++col) {
+      for (let row = 0; row < this.GetRowCount(); ++row) {
+        if (row === 0 && this.StrokeHeaderSeparator()) stroke = this.GetBorderStroke();
+        else if (this.StrokeColumns()) stroke = this.GetSeparatorsStroke();
+        else continue;
+
+        const cell = this.GetCell(row, col)!;
+
+        if (cell.GetColSpan() === 0) continue;
+
+        if (col + cell.GetColSpan() === this.GetColCount()) continue;
+
+        const corners = cell.GetCornersInSequence(drawAngle);
+
+        if (corners.length === 4) aCallback(corners[1]!, corners[2]!, stroke);
+      }
+    }
+
+    for (let row = 0; row < this.GetRowCount() - 1; ++row) {
+      if (row === 0 && this.StrokeHeaderSeparator()) stroke = this.GetBorderStroke();
+      else if (this.StrokeRows()) stroke = this.GetSeparatorsStroke();
+      else continue;
+
+      for (let col = 0; col < this.GetColCount(); ++col) {
+        const cell = this.GetCell(row, col)!;
+
+        if (cell.GetRowSpan() === 0) continue;
+
+        if (row + cell.GetRowSpan() === this.GetRowCount()) continue;
+
+        const corners = cell.GetCornersInSequence(drawAngle);
+
+        if (corners.length === 4) aCallback(corners[2]!, corners[3]!, stroke);
+      }
+    }
+
+    if (this.StrokeExternal() && this.GetBorderStroke().GetWidth() >= 0) {
+      aCallback(topLeft[0]!, topRight[1]!, this.GetBorderStroke());
+      aCallback(topRight[1]!, bottomRight[2]!, this.GetBorderStroke());
+      aCallback(bottomRight[2]!, bottomLeft[3]!, this.GetBorderStroke());
+      aCallback(bottomLeft[3]!, topLeft[0]!, this.GetBorderStroke());
+    }
   }
 
   SetBorderWidth(aWidth: number): void {

@@ -147,6 +147,7 @@ import {
 import { ClipLine } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
 import { type SHAPE, SHAPE_TYPE, SHAPE_TYPE_asString } from '@ziroeda/kimath/src/geometry/shape.js';
 import type { SHAPE_ARC } from '@ziroeda/kimath/src/geometry/shape_arc.js';
+import type { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_chain.js';
 import type { SHAPE_RECT } from '@ziroeda/kimath/src/geometry/shape_rect.js';
 import { SHAPE_SEGMENT } from '@ziroeda/kimath/src/geometry/shape_segment.js';
 import type { SHAPE_SIMPLE } from '@ziroeda/kimath/src/geometry/shape_simple.js';
@@ -388,6 +389,56 @@ export class STROKE_PARAMS {
           const seg = poly.GetSegment(ii);
           const line = new SHAPE_SEGMENT(seg.A, seg.B);
           STROKE_PARAMS.Stroke(line, aLineStyle, aWidth, aRenderSettings, aStroker);
+        }
+
+        break;
+      }
+
+      case SHAPE_TYPE.SH_LINE_CHAIN: {
+        const chain = aShape as SHAPE_LINE_CHAIN;
+
+        let patternLength = 0.0;
+
+        for (let ii = 0; ii < wrapAround; ++ii) patternLength += strokes[ii]!;
+
+        // A zero-width shape makes every element zero long, and the walk would never advance.
+        if (patternLength <= 0.0) break;
+
+        let element = 0;
+        let remaining = strokes[0]!;
+
+        for (let ii = 0; ii < chain.SegmentCount(); ++ii) {
+          const seg = chain.CSegment(ii);
+          const segVec = { x: seg.B.x - seg.A.x, y: seg.B.y - seg.A.y };
+          const segLength = Math.hypot(segVec.x, segVec.y);
+
+          if (segLength === 0.0) continue;
+
+          // The pattern carries across the vertices, so calculations MUST be done in
+          // doubles to keep from accumulating rounding errors along the chain.
+          const step = { x: segVec.x / segLength, y: segVec.y / segLength };
+          let start = { x: seg.A.x, y: seg.A.y };
+          let walked = 0.0;
+
+          while (walked < segLength) {
+            const length = Math.min(remaining, segLength - walked);
+            const next = { x: start.x + step.x * length, y: start.y + step.y * length };
+
+            if (element % 2 === 0)
+              aStroker(
+                { x: KiROUND(start.x), y: KiROUND(start.y) },
+                { x: KiROUND(next.x), y: KiROUND(next.y) },
+              );
+
+            walked += length;
+            remaining -= length;
+            start = next;
+
+            if (remaining <= 0.0) {
+              element++;
+              remaining = strokes[element % wrapAround]!;
+            }
+          }
         }
 
         break;

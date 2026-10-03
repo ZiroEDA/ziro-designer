@@ -12,6 +12,14 @@
  * follow KiCad's per-orientation direction.
  */
 
+import { PrintableCharCount } from '@ziroeda/common/string_utils.js';
+import { GetPenSizeForNormal } from '@ziroeda/common/gr_text.js';
+import { GAL_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { ROUNDRECT } from '@ziroeda/kimath/src/geometry/roundrect.js';
+import { SHAPE_RECT } from '@ziroeda/kimath/src/geometry/shape_rect.js';
+import type { SCH_BITMAP } from './sch_bitmap.js';
+import type { SCH_GROUP } from './sch_group.js';
+import type { SCH_TABLE } from './sch_table.js';
 import { ADVANCED_CFG } from '@ziroeda/common/advanced_config.js';
 import { ExpandTextVars } from '@ziroeda/common/common.js';
 import {
@@ -5380,6 +5388,22 @@ export class SCH_PAINTER extends PAINTER {
       case KICAD_T.SCH_MARKER_T:
         this.drawMarker(aItem as SCH_MARKER, aLayer);
         break;
+      case KICAD_T.SCH_SHAPE_T:
+      case KICAD_T.SCH_RULE_AREA_T:
+        this.drawShape(aItem as SCH_SHAPE, aLayer, aDimmed);
+        break;
+      case KICAD_T.SCH_TABLE_T:
+        this.drawTable(aItem as SCH_TABLE, aLayer, aDimmed);
+        break;
+      case KICAD_T.SCH_SHEET_T:
+        this.drawSheet(aItem as SCH_SHEET, aLayer);
+        break;
+      case KICAD_T.SCH_BITMAP_T:
+        this.drawBitmap(aItem as SCH_BITMAP, aLayer);
+        break;
+      case KICAD_T.SCH_GROUP_T:
+        this.drawGroup(aItem as SCH_GROUP, aLayer);
+        break;
       case KICAD_T.SCH_TEXT_T:
         this.drawText(aItem as SCH_TEXT, aLayer, aDimmed);
         break;
@@ -5404,7 +5428,6 @@ export class SCH_PAINTER extends PAINTER {
       case KICAD_T.SCH_SHEET_PIN_T:
         this.drawHierLabel(aItem as unknown as SCH_HIERLABEL, aLayer, aDimmed);
         break;
-      // The remaining kinds are ported in S4-4..S4-5 (docs/eeschema-live-s4.md).
       default:
         return;
     }
@@ -7824,6 +7847,501 @@ export class SCH_PAINTER extends PAINTER {
         this.gal.SetFillColor(marker_color);
         this.gal.DrawCurve(left, top, bottom, right, 1);
       });
+    }
+  }
+
+  protected drawShape(aShape: SCH_SHAPE, aLayer: number, aDimmed: boolean): void {
+    if (!this.isUnitAndConversionShown(aShape)) return;
+
+    if (aShape.IsPrivate() && !this.m_schSettings.m_IsSymbolEditor) return;
+
+    const drawingShadows = aLayer === SCH_LAYER_ID.LAYER_SELECTION_SHADOWS;
+
+    if (this.m_schSettings.IsPrinting() && drawingShadows) return;
+
+    const lineStyle = aShape.GetEffectiveLineStyle();
+    const color = this.getRenderColor(aShape, aLayer, drawingShadows, aDimmed);
+
+    if (drawingShadows && !(aShape.IsBrightened() || aShape.IsSelected())) return;
+
+    const drawIt = (shape: SCH_SHAPE): void => {
+      switch (shape.GetShape()) {
+        case SHAPE_T.ARC: {
+          const start = shape.GetStart();
+          const mid = shape.GetArcMid();
+          const end = shape.GetEnd();
+          const center = CalcArcCenter(start, mid, end);
+
+          const startAngle = EDA_ANGLE.fromVector({ x: start.x - center.x, y: start.y - center.y });
+          const midAngle = EDA_ANGLE.fromVector({ x: mid.x - center.x, y: mid.y - center.y });
+          const endAngle = EDA_ANGLE.fromVector({ x: end.x - center.x, y: end.y - center.y });
+
+          const angle1 = midAngle.sub(startAngle);
+          const angle2 = endAngle.sub(midAngle);
+
+          const angle = angle1.Normalize180().add(angle2.Normalize180());
+
+          this.gal.DrawArc(
+            center,
+            Math.hypot(start.x - center.x, start.y - center.y),
+            startAngle,
+            angle,
+          );
+          break;
+        }
+
+        case SHAPE_T.CIRCLE:
+          this.gal.DrawCircle(shape.GetPosition(), shape.GetRadius());
+          break;
+
+        case SHAPE_T.RECTANGLE:
+          if (shape.GetCornerRadius() > 0) {
+            // Creates a normalized ROUNDRECT item
+            // (GetRectangleWidth() and GetRectangleHeight() can be < 0 with transforms
+            const rr = new ROUNDRECT(
+              new SHAPE_RECT(
+                shape.GetPosition(),
+                shape.GetRectangleWidth(),
+                shape.GetRectangleHeight(),
+              ),
+              shape.GetCornerRadius(),
+              true /* normalize */,
+            );
+            const poly = new SHAPE_POLY_SET();
+            rr.TransformToPolygon(poly, shape.GetMaxError());
+            this.gal.DrawPolygon(poly);
+          } else {
+            this.gal.DrawRectangle(shape.GetPosition(), shape.GetEnd());
+          }
+          break;
+
+        case SHAPE_T.POLY: {
+          const polySegments = shape.MakeEffectiveShapes(true);
+
+          if (polySegments.length > 0) {
+            const pts: Vec2[] = [];
+
+            for (const polySegment of polySegments)
+              pts.push((polySegment as SHAPE_SEGMENT).GetSeg().A);
+
+            pts.push((polySegments.at(-1) as SHAPE_SEGMENT).GetSeg().B);
+
+            this.gal.DrawPolygon(pts);
+          }
+          break;
+        }
+
+        case SHAPE_T.BEZIER:
+          this.gal.DrawCurve(
+            shape.GetStart(),
+            shape.GetBezierC1(),
+            shape.GetBezierC2(),
+            shape.GetEnd(),
+          );
+          break;
+
+        default:
+          throw new Error(`SCH_PAINTER: unimplemented for ${shape.SHAPE_T_asString()}`);
+      }
+    };
+
+    if (aLayer === SCH_LAYER_ID.LAYER_SELECTION_SHADOWS) {
+      if (eeconfig()!.selection.fill_shapes) {
+        // Consider a NAND gate.  We have no idea which side of the arc is "inside"
+        // so we can't reliably fill.
+        if (aShape.GetShape() === SHAPE_T.ARC) this.gal.SetIsFill(aShape.IsSolidFill());
+        else this.gal.SetIsFill(true);
+
+        this.gal.SetFillColor(color);
+      } else {
+        this.gal.SetIsFill(false);
+      }
+
+      // We still always draw the stroke, as otherwise single-segment shapes
+      // (like a line) don't get a shadow, and special-casing them looks inconsistent.
+      this.gal.SetIsStroke(true);
+      this.gal.SetLineWidth(this.getLineWidth(aShape, true));
+      this.gal.SetStrokeColor(color);
+
+      drawIt(aShape);
+    } else if (
+      aLayer === SCH_LAYER_ID.LAYER_DEVICE_BACKGROUND ||
+      aLayer === SCH_LAYER_ID.LAYER_NOTES_BACKGROUND ||
+      aLayer === SCH_LAYER_ID.LAYER_SHAPES_BACKGROUND
+    ) {
+      switch (aShape.GetFillMode()) {
+        case FILL_T.NO_FILL:
+          break;
+
+        case FILL_T.FILLED_SHAPE:
+          // Fill in the foreground layer
+          break;
+
+        case FILL_T.HATCH:
+        case FILL_T.REVERSE_HATCH:
+        case FILL_T.CROSS_HATCH:
+          aShape.UpdateHatching();
+          this.gal.SetIsFill(false);
+          this.gal.SetIsStroke(true);
+          this.gal.SetStrokeColor(color);
+          this.gal.SetLineWidth(aShape.GetHatchLineWidth());
+
+          for (const seg of aShape.GetHatchLines()) this.gal.DrawLine(seg.A, seg.B);
+
+          break;
+
+        case FILL_T.FILLED_WITH_COLOR:
+        case FILL_T.FILLED_WITH_BG_BODYCOLOR:
+          // Do not fill the shape in B&W print mode, to avoid to visible items inside the shape
+          if (!this.m_schSettings.PrintBlackAndWhiteReq()) {
+            this.gal.SetIsFill(true);
+            this.gal.SetIsStroke(false);
+            this.gal.SetFillColor(color);
+
+            drawIt(aShape);
+          }
+          break;
+
+        default:
+          break; // wxFAIL_MSG( "Unsupported fill type" )
+      }
+    } else if (
+      aLayer === SCH_LAYER_ID.LAYER_DEVICE ||
+      aLayer === SCH_LAYER_ID.LAYER_NOTES ||
+      aLayer === SCH_LAYER_ID.LAYER_PRIVATE_NOTES ||
+      aLayer === SCH_LAYER_ID.LAYER_RULE_AREAS
+    ) {
+      // Shapes filled with the device colour must be filled in the foreground
+      if (aShape.GetFillMode() === FILL_T.FILLED_SHAPE) {
+        this.gal.SetIsFill(true);
+        this.gal.SetIsStroke(false);
+        this.gal.SetFillColor(color);
+
+        drawIt(aShape);
+      }
+
+      const lineWidth = this.getLineWidth(aShape, drawingShadows);
+
+      if (lineWidth > 0) {
+        this.gal.SetIsFill(false);
+        this.gal.SetIsStroke(true);
+        this.gal.SetLineWidth(lineWidth);
+        this.gal.SetStrokeColor(color);
+
+        if (lineStyle <= LINE_STYLE.SOLID /* FIRST_TYPE */ || drawingShadows) {
+          drawIt(aShape);
+        } else {
+          const shapes = aShape.MakeEffectiveShapesForStroking();
+
+          for (const shape of shapes) {
+            STROKE_PARAMS.Stroke(
+              shape,
+              lineStyle,
+              Math.round(lineWidth),
+              this.m_schSettings,
+              (a: VECTOR2I, b: VECTOR2I) => {
+                // DrawLine has problem with 0 length lines so enforce minimum
+                if (a.x === b.x && a.y === b.y) this.gal.DrawLine({ x: a.x + 1, y: a.y + 1 }, b);
+                else this.gal.DrawLine(a, b);
+              },
+            );
+          }
+        }
+      }
+    }
+  }
+
+  protected drawTable(aTable: SCH_TABLE, aLayer: number, aDimmed: boolean): void {
+    if (aTable.GetCells().length === 0) return;
+
+    for (const cell of aTable.GetCells()) this.drawTextBox(cell, aLayer, aDimmed);
+
+    if (aLayer === SCH_LAYER_ID.LAYER_SELECTION_SHADOWS) return;
+
+    aTable.DrawBorders((ptA: VECTOR2I, ptB: VECTOR2I, stroke: STROKE_PARAMS) => {
+      let lineWidth = stroke.GetWidth();
+      let color = stroke.GetColor();
+      let lineStyle = stroke.GetLineStyle();
+
+      if (lineWidth === 0) lineWidth = this.m_schSettings.GetDefaultPenWidth();
+
+      if (sameColor(color, COLOR4D_UNSPECIFIED))
+        color = this.m_schSettings.GetLayerColor(SCH_LAYER_ID.LAYER_NOTES);
+
+      if (lineStyle === LINE_STYLE.DEFAULT) lineStyle = LINE_STYLE.SOLID;
+
+      this.gal.SetIsFill(false);
+      this.gal.SetIsStroke(true);
+      this.gal.SetStrokeColor(color);
+      this.gal.SetLineWidth(lineWidth);
+
+      if (lineStyle <= LINE_STYLE.SOLID /* FIRST_TYPE */) {
+        this.gal.DrawLine(ptA, ptB);
+      } else {
+        const seg = new SHAPE_SEGMENT(ptA, ptB);
+        STROKE_PARAMS.Stroke(
+          seg,
+          lineStyle,
+          lineWidth,
+          this.m_schSettings,
+          (a: VECTOR2I, b: VECTOR2I) => {
+            // DrawLine has problem with 0 length lines so enforce minimum
+            if (a.x === b.x && a.y === b.y) this.gal.DrawLine({ x: a.x + 1, y: a.y + 1 }, b);
+            else this.gal.DrawLine(a, b);
+          },
+        );
+      }
+    });
+  }
+
+  protected drawSheet(aSheet: SCH_SHEET, aLayer: number): void {
+    let sheetPath: SCH_SHEET_PATH | null = null;
+    let variant = '';
+    let DNP = false;
+
+    if (this.m_schematic) {
+      sheetPath = this.m_schematic.CurrentSheet();
+      variant = this.m_schematic.GetCurrentVariant();
+      DNP = aSheet.GetDNP(sheetPath, variant);
+    }
+
+    const drawingShadows = aLayer === SCH_LAYER_ID.LAYER_SELECTION_SHADOWS;
+    const markExclusion =
+      eeconfig()!.appearance.mark_sim_exclusions && aSheet.GetExcludedFromSim(sheetPath, variant);
+
+    if (this.m_schSettings.IsPrinting() && drawingShadows) return;
+
+    if (!drawingShadows || eeconfig()!.selection.draw_selected_children) {
+      for (const field of aSheet.GetFields()) this.drawField(field, aLayer, DNP);
+
+      for (const sheetPin of aSheet.GetPins())
+        this.drawHierLabel(sheetPin as unknown as SCH_HIERLABEL, aLayer, DNP);
+    }
+
+    if (isFieldsLayer(aLayer)) return;
+
+    const pos = aSheet.GetPosition();
+    const size = aSheet.GetSize();
+    const end = { x: pos.x + size.x, y: pos.y + size.y };
+
+    if (aLayer === SCH_LAYER_ID.LAYER_SHEET_BACKGROUND) {
+      // Do not fill the shape in B&W print mode, to avoid to visible items
+      // inside the shape
+      if (!this.m_schSettings.PrintBlackAndWhiteReq()) {
+        let backgroundColor = aSheet.GetBackgroundColor();
+
+        if (
+          this.m_schSettings.m_OverrideItemColors ||
+          sameColor(backgroundColor, COLOR4D_UNSPECIFIED)
+        )
+          backgroundColor = this.m_schSettings.GetLayerColor(SCH_LAYER_ID.LAYER_SHEET_BACKGROUND);
+
+        // Only draw the background if it has a visible alpha value
+        if (backgroundColor.a > 0.0) {
+          this.gal.SetFillColor(
+            this.getRenderColor(aSheet, SCH_LAYER_ID.LAYER_SHEET_BACKGROUND, false),
+          );
+          this.gal.SetIsFill(true);
+          this.gal.SetIsStroke(false);
+
+          this.gal.DrawRectangle(pos, end);
+        }
+      }
+    }
+
+    if (aLayer === SCH_LAYER_ID.LAYER_SHEET || aLayer === SCH_LAYER_ID.LAYER_SELECTION_SHADOWS) {
+      this.gal.SetStrokeColor(
+        this.getRenderColor(aSheet, SCH_LAYER_ID.LAYER_SHEET, drawingShadows, DNP),
+      );
+      this.gal.SetIsStroke(true);
+      this.gal.SetLineWidth(this.getLineWidth(aSheet, drawingShadows));
+      this.gal.SetIsFill(false);
+
+      this.gal.DrawRectangle(pos, end);
+    }
+
+    if (DNP && aLayer === SCH_LAYER_ID.LAYER_SHEET) {
+      const layer = SCH_LAYER_ID.LAYER_DNP_MARKER;
+      const bbox = aSheet.GetBodyBoundingBox().Clone();
+      const pins = aSheet.GetBoundingBox();
+      const margins = {
+        x: Math.max(bbox.GetX() - pins.GetX(), pins.GetEnd().x - bbox.GetEnd().x),
+        y: Math.max(bbox.GetY() - pins.GetY(), pins.GetEnd().y - bbox.GetEnd().y),
+      };
+      const strokeWidth = 3 * liveIUScale.milsToIU(DEFAULT_LINE_WIDTH_MILS);
+
+      margins.x = Math.max(margins.x * 0.6, margins.y * 0.3);
+      margins.y = Math.max(margins.y * 0.6, margins.x * 0.3);
+      bbox.Inflate(Math.round(margins.x), Math.round(margins.y));
+
+      const pt1 = { ...bbox.GetOrigin() };
+      const pt2 = { ...bbox.GetEnd() };
+
+      GAL_SCOPED_ATTRS(this.gal, GAL_SCOPED_ATTRS_FLAGS.ALL_ATTRS, () => {
+        this.gal.AdvanceDepth();
+        this.gal.SetIsStroke(true);
+        this.gal.SetIsFill(true);
+        this.gal.SetStrokeColor(this.m_schSettings.GetLayerColor(layer));
+        this.gal.SetFillColor(this.m_schSettings.GetLayerColor(layer));
+
+        this.gal.DrawSegment(pt1, pt2, strokeWidth);
+        [pt1.x, pt2.x] = [pt2.x, pt1.x];
+        this.gal.DrawSegment(pt1, pt2, strokeWidth);
+      });
+    }
+
+    if (markExclusion) {
+      const layer = SCH_LAYER_ID.LAYER_EXCLUDED_FROM_SIM;
+      const bbox = aSheet.GetBodyBoundingBox().Clone();
+      const strokeWidth = liveIUScale.milsToIU(
+        ADVANCED_CFG.GetCfg().m_ExcludeFromSimulationLineWidth,
+      );
+
+      bbox.Inflate(Math.round(strokeWidth * 0.5));
+
+      GAL_SCOPED_ATTRS(this.gal, GAL_SCOPED_ATTRS_FLAGS.ALL_ATTRS, () => {
+        const half = withAlpha(this.m_schSettings.GetLayerColor(layer), 0.5);
+        this.gal.AdvanceDepth();
+        this.gal.SetIsStroke(true);
+        this.gal.SetIsFill(true);
+        this.gal.SetStrokeColor(half);
+        this.gal.SetFillColor(half);
+
+        const tr = { x: bbox.GetEnd().x, y: bbox.GetY() };
+        const bl = { x: bbox.GetX(), y: bbox.GetEnd().y };
+        this.gal.DrawSegment(bbox.GetPosition(), tr, strokeWidth);
+        this.gal.DrawSegment(tr, bbox.GetEnd(), strokeWidth);
+        this.gal.DrawSegment(bbox.GetEnd(), bl, strokeWidth);
+        this.gal.DrawSegment(bl, bbox.GetPosition(), strokeWidth);
+
+        const offset = 2 * strokeWidth;
+        const center = { x: bbox.GetEnd().x + offset + strokeWidth, y: bbox.GetEnd().y - offset };
+        const left = { x: center.x - offset, y: center.y };
+        const right = { x: center.x + offset, y: center.y };
+        const top = { x: center.x, y: center.y + offset };
+        const bottom = { x: center.x, y: center.y - offset };
+
+        this.gal.SetFillColor(withAlpha(this.m_schSettings.GetLayerColor(layer), 0.1));
+        this.gal.DrawCircle(center, offset);
+        this.gal.AdvanceDepth();
+        this.gal.SetFillColor(half);
+        this.gal.DrawCurve(left, top, bottom, right, 1);
+      });
+    }
+  }
+
+  protected drawBitmap(aBitmap: SCH_BITMAP, aLayer: number): void {
+    this.gal.Save();
+    this.gal.Translate(aBitmap.GetPosition());
+
+    const refImage = aBitmap.GetReferenceImage();
+
+    // When the image scale factor is not 1.0, we need to modify the actual as the image scale
+    // factor is similar to a local zoom
+    const img_scale = refImage.GetImageScale();
+
+    if (img_scale !== 1.0) this.gal.Scale({ x: img_scale, y: img_scale });
+
+    if (aLayer === GAL_LAYER_ID.LAYER_DRAW_BITMAPS) this.gal.DrawBitmap(refImage.GetImage());
+
+    if (aLayer === SCH_LAYER_ID.LAYER_SELECTION_SHADOWS) {
+      if (aBitmap.IsSelected() || aBitmap.IsBrightened()) {
+        const color = this.getRenderColor(aBitmap, GAL_LAYER_ID.LAYER_DRAW_BITMAPS, true);
+        this.gal.SetIsStroke(true);
+        this.gal.SetStrokeColor(color);
+        this.gal.SetLineWidth(this.getShadowWidth(aBitmap.IsBrightened()));
+        this.gal.SetIsFill(false);
+
+        // Draws a bounding box.
+        const size = refImage.GetSize();
+
+        // bm_size is the actual image size in UI.
+        // but m_canvas scale was previously set to img_scale
+        // so recalculate size relative to this image size.
+        const bm_size = { x: size.x / img_scale, y: size.y / img_scale };
+        const origin = { x: -bm_size.x / 2.0, y: -bm_size.y / 2.0 };
+        const end = { x: origin.x + bm_size.x, y: origin.y + bm_size.y };
+
+        this.gal.DrawRectangle(origin, end);
+      }
+    }
+
+    this.gal.Restore();
+  }
+
+  protected drawGroup(aGroup: SCH_GROUP, aLayer: number): void {
+    const drawingShadows = false;
+
+    if (aLayer === SCH_LAYER_ID.LAYER_SCHEMATIC_ANCHOR) {
+      const parent = aGroup.GetParent();
+
+      if (aGroup.IsSelected() && !(parent && parent.IsSelected())) {
+        // Selected on our own; draw enclosing box
+      } else if (aGroup.IsEntered()) {
+        // Entered group; draw enclosing box
+      } else {
+        // Neither selected nor entered; draw nothing at the group level (ie: only draw
+        // its members)
+        return;
+      }
+
+      const color = this.getRenderColor(
+        aGroup,
+        SCH_LAYER_ID.LAYER_SCHEMATIC_ANCHOR,
+        drawingShadows,
+      );
+
+      this.gal.SetStrokeColor(color);
+      this.gal.SetLineWidth(Math.fround(this.m_schSettings.GetOutlineWidth() * Math.fround(2.0)));
+
+      const bbox = aGroup.GetBoundingBox();
+      const topLeft = bbox.GetPosition();
+      const width = { x: bbox.GetWidth(), y: 0 };
+      const height = { x: 0, y: bbox.GetHeight() };
+      const add = (...v: Vec2[]): Vec2 => v.reduce((a, b) => ({ x: a.x + b.x, y: a.y + b.y }));
+
+      this.gal.DrawLine(topLeft, add(topLeft, width));
+      this.gal.DrawLine(add(topLeft, width), add(topLeft, width, height));
+      this.gal.DrawLine(add(topLeft, width, height), add(topLeft, height));
+      this.gal.DrawLine(add(topLeft, height), topLeft);
+
+      const name = aGroup.GetName();
+
+      if (name === '') return;
+
+      const ptSize = 12;
+      const scaledSize = Math.abs(
+        Math.round(this.gal.GetScreenWorldMatrix().GetScale().x * ptSize),
+      );
+      const unscaledSize = liveIUScale.milsToIU(ptSize);
+
+      // Scale by zoom a bit, but not too much
+      const textSize = Math.trunc((scaledSize + unscaledSize * 2) / 3);
+      const textOffset = { x: Math.round(width.x / 2.0), y: Math.round(-textSize * 0.5) };
+      const titleHeight = { x: 0, y: Math.round(textSize * 2.0) };
+      const sub = (a: Vec2, b: Vec2): Vec2 => ({ x: a.x - b.x, y: a.y - b.y });
+
+      if (PrintableCharCount(name) * textSize < bbox.GetWidth()) {
+        this.gal.DrawLine(topLeft, sub(topLeft, titleHeight));
+        this.gal.DrawLine(sub(topLeft, titleHeight), sub(add(topLeft, width), titleHeight));
+        this.gal.DrawLine(sub(add(topLeft, width), titleHeight), add(topLeft, width));
+
+        const attrs = new TEXT_ATTRIBUTES();
+        attrs.m_Italic = true;
+        attrs.m_Halign = GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_CENTER;
+        attrs.m_Valign = GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_BOTTOM;
+        attrs.m_Size = { x: textSize, y: textSize };
+        attrs.m_StrokeWidth = GetPenSizeForNormal(textSize);
+
+        FONT.GetFont().Draw(
+          this.gal,
+          aGroup.GetName(),
+          add(topLeft, textOffset),
+          { x: 0, y: 0 },
+          attrs,
+          aGroup.GetFontMetrics(),
+        );
+      }
     }
   }
 
