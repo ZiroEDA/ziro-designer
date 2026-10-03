@@ -74,6 +74,7 @@ import type { ZONE } from './zone.js';
 import type { wxTextValidator } from '@ziroeda/common/validators.js';
 import { DisplayErrorMessage } from '@ziroeda/common/confirm.js';
 import { MICROWAVE_TOOL, type MICROWAVE_HOST } from './microwave/microwave_tool.js';
+import { PCB_VIEWER_TOOLS } from './tools/pcb_viewer_tools.js';
 import type { PcbFootprint } from './types.js';
 import type { NETLIST } from './netlist_reader/pcb_netlist.js';
 import { type DIALOG_DRC_LIKE, DRC_TOOL } from './tools/drc_tool.js';
@@ -1311,6 +1312,7 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     this.m_toolManager.RegisterTool(new BOARD_EDITOR_CONTROL());
     this.m_toolManager.RegisterTool(new AUTOPLACE_TOOL());
     this.m_toolManager.RegisterTool(new MICROWAVE_TOOL());
+    this.m_toolManager.RegisterTool(new PCB_VIEWER_TOOLS());
     this.m_toolManager.RegisterTool(
       new WINDOW_ACTION_BRIDGE((aAction, aEvent) => this.hooks.windowAction?.(aAction, aEvent)),
     );

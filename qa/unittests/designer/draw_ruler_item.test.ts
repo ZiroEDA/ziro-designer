@@ -178,13 +178,21 @@ describe('drawRulerItem', () => {
 });
 
 describe('one ruler, three canvases', () => {
-  const CANVASES = ['../../pcbnew/pcb_edit_frame_ui.tsx', '../../pcbnew/pcb_draw_panel_gal_ui.tsx'];
+  // The board editor is not here any more: PCB_VIEWER_TOOLS::MeasureTool puts
+  // the RULER_ITEM itself on the VIEW (pcb_viewer_tools.test.ts drives it).
+  const CANVASES = ['../../pcbnew/pcb_draw_panel_gal_ui.tsx'];
 
   const read = (rel: string): string =>
     readFileSync(fileURLToPath(new URL(`../../../designer/src/${rel}`, import.meta.url)), 'utf8');
 
   it.each(CANVASES)('%s paints the ruler through the shared item', (rel) => {
     expect(read(rel)).toContain('drawRulerItem');
+  });
+
+  it('the board editor puts the one RULER_ITEM on its VIEW, from PCB_VIEWER_TOOLS', () => {
+    const tool = read('../../pcbnew/tools/pcb_viewer_tools.ts');
+    expect(tool).toContain('new RULER_ITEM(');
+    expect(read('../../pcbnew/pcb_edit_frame_ui.tsx')).not.toContain('drawRulerItem');
   });
 
   it('and none of them re-derives the readout or the graduations', () => {

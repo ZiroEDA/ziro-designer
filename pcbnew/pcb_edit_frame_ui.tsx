@@ -54,7 +54,6 @@ import { useStatusReadout } from '@ziroeda/common/use_status_readout.js';
  * A module constant so its identity is stable across renders.
  */
 const PCB_LOCAL_ORIGIN = { x: 0, y: 0 };
-import { drawRulerItem, rulerEnd } from '@ziroeda/common/preview_items/ruler_item.js';
 import { boardToolCursor } from './cursors.js';
 import { pickerSnapsToGridOnly } from './tools/pcb_picker_tool.js';
 import { appearanceLayerRows } from './widgets/appearance_controls.js';
@@ -905,6 +904,8 @@ const TOOL_MANAGER_TOOLS: Readonly<Record<string, TOOL_ACTION>> = {
   drawTextBox: PCB_ACTIONS.drawTextBox,
   placeBarcode: PCB_ACTIONS.placeBarcode,
   placeImportedGraphics: PCB_ACTIONS.placeImportedGraphics,
+  // PCB_VIEWER_TOOLS.
+  measureTool: ACTIONS.measureTool,
   // MICROWAVE_TOOL.
   microwaveCreateLine: PCB_ACTIONS.microwaveCreateLine,
   microwaveCreateGap: PCB_ACTIONS.microwaveCreateGap,
@@ -990,8 +991,7 @@ const PCB_TOOL_MSGS: Record<string, string> = {
 const isSelectTool = (t: string): boolean => t === 'selectSetRect' || t === 'selectSetLasso';
 
 // Tools that act on plain clicks and take no drag/box-select gestures.
-const isClickTool = (t: string): boolean =>
-  t === 'localRatsnestTool' || t === 'routeSingleTrack' || t === 'measureTool';
+const isClickTool = (t: string): boolean => t === 'localRatsnestTool' || t === 'routeSingleTrack';
 
 // The left toolbar's radio groups, its opening state and its reducer are in
 // `toggles.ts` rather than here, because `qa`'s tsconfig compiles `.ts` only:
@@ -2802,11 +2802,6 @@ export function PcbEditor({
     layers: readonly INPUT_LAYER_DESC[];
     done: (aMap: Map<string, MapLayersLayerId>, aKeep: boolean) => void;
   } | null>(null);
-  // Measure tool ruler: first point, and the frozen second point once clicked.
-  const measureRef = useRef<{
-    a: { x: number; y: number };
-    b: { x: number; y: number } | null;
-  } | null>(null);
   /** `DIALOG_ZONE_MANAGER`, open: `ShowQuasiModal()`'s answer. */
   const [zoneManager, setZoneManager] = useState<{
     resolve: (r: { ok: boolean; repour: boolean }) => void;
@@ -2840,10 +2835,9 @@ export function PcbEditor({
    * owner.
    */
   const [infoBarError, setInfoBarError] = useState<string | null>(null);
-  // Switching tools abandons what a window tool has in flight: the ruler, the
-  // route, the footprint on the cursor.
+  // Switching tools abandons what a window tool has in flight: the footprint
+  // chooser.
   useEffect(() => {
-    measureRef.current = null;
     fpChooserResolveRef.current?.(null);
     fpChooserResolveRef.current = null;
     setFpChooserOpen(false);
@@ -3477,31 +3471,6 @@ export function PcbEditor({
     // LAYER_SELECT_OVERLAY and 130 entries above LAYER_RATSNEST
     // (`pcb_draw_panel_gal.cpp:81`). The GL path draws it in its own layer, in
     // the same position, with KiCad's overlay blend that this one cannot do.
-    // `KIGFX::PREVIEW::RULER_ITEM`, the item ACTIONS::measureTool puts up.
-    // The shared painter, beside its own arithmetic: this frame used to draw a
-    // `rgba(120,230,255)` line with a 6px end tick and one invented
-    // `dist (dx dy)` string — no graduations, no LAYER_AUX_ITEMS colour, and
-    // no `x / y / r / theta` block, which are the four strings upstream shows.
-    {
-      const m = measureRef.current;
-      const cur0 = cursorRef.current;
-      if (m && (m.b || cur0)) {
-        drawRulerItem(ctx, {
-          origin: m.a,
-          end: m.b ?? rulerEnd(m.a, snapToGrid(cur0!), shiftDownRef.current ? 'deg45' : 'direct'),
-          toPx: (p) => ({ x: p.x * sx + v.tx, y: p.y * v.scale + v.ty }),
-          // The flipped board view carries a negative X scale; the painter
-          // takes the magnitude for the graduation spacing.
-          worldScale: v.scale,
-          iuPerMm: PCB_IU_PER_MM,
-          units: unitsRef.current,
-          color: drawOpts.theme?.special.auxItems ?? PCB_SPECIAL.auxItems,
-          devicePixelRatio: dpr,
-          canvasWidth: ctx.canvas.width,
-          canvasHeight: ctx.canvas.height,
-        });
-      }
-    }
     // The zoom tool's band (TRANSITIONAL until ZOOM_TOOL, #636 stage 3), in
     // `KIGFX::PREVIEW::SELECTION_AREA`'s colours. The selection tool's own band
     // and lasso are its SELECTION_AREA on the VIEW.
@@ -5979,24 +5948,6 @@ export function PcbEditor({
   const placeFromBrowserRef = useRef(placeFromBrowser);
   placeFromBrowserRef.current = placeFromBrowser;
 
-  // Measure tool (ACTIONS::measureTool): two clicks pin the ruler; the next
-  // click starts a new measurement.
-  const handleMeasureClick = (world: { x: number; y: number }): void => {
-    const p = snapToGrid(world);
-    const m = measureRef.current;
-    if (!m || m.b) measureRef.current = { a: p, b: null };
-    // `twoPtMgr.SetAngleSnap( evt->Modifier( MD_SHIFT ) ? LEADER_MODE::DEG45
-    // : LEADER_MODE::DIRECT )` — pcb_viewer_tools.cpp:383-388, set on every
-    // motion AND carried into the point the second click pins. Snapping the
-    // preview but not the commit would let go of a ruler that jumps.
-    else
-      measureRef.current = {
-        a: m.a,
-        b: rulerEnd(m.a, p, shiftDownRef.current ? 'deg45' : 'direct'),
-      };
-    requestDraw();
-  };
-
   /**
    * Place a snap point (`DRAWING_TOOL::PlacePoint`, drawing_tool.cpp:914-930).
    *
@@ -6402,9 +6353,6 @@ export function PcbEditor({
             const globalOn = objects.ratsnest && ratsnestMode !== 'off';
             setLocalRats((prev) => toggleLocalRatsnest(prev, globalOn, hit));
           }
-        } else if (activeToolRef.current === 'measureTool') {
-          const w = worldAt(e.clientX, e.clientY);
-          if (w) handleMeasureClick(w);
         }
         // A click in the selection tool is the tool's, through the dispatcher.
       }
@@ -6551,10 +6499,7 @@ export function PcbEditor({
       if (e.key === 'Escape') {
         // Escape cancels what a window tool has in flight, then leaves the
         // tool; in the selection tool it is Main's.
-        if (measureRef.current) {
-          measureRef.current = null;
-          requestDrawRef.current();
-        } else if (!isSelectTool(activeToolRef.current)) {
+        if (!isSelectTool(activeToolRef.current)) {
           // Esc in a tool returns to the selection tool (TOOL_MANAGER), in
           // whichever mode it was left in.
           // `PCB_PICKER_TOOL::Main`: `IsCancelInteractive()` is EVT_CANCEL,
