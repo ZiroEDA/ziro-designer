@@ -298,6 +298,9 @@ export class SCH_FILES_IO_MIXIN {
     this.RecomputeIntersheetRefs();
     this.GetCurrentSheet().UpdateAllScreenReferences();
 
+    // Ensure all items are redrawn (especially the drawing-sheet items):
+    this.GetCanvas()?.DisplaySheet(this.GetCurrentSheet().LastScreen());
+
     return true;
   }
 }

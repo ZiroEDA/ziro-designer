@@ -13,6 +13,10 @@ import { GAL_TYPE } from '@ziroeda/common/draw_panel_gal.js';
 import { GAL_LAYER_ID, SCH_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { SCH_DRAW_PANEL } from '@ziroeda/eeschema/sch_draw_panel.js';
 import { SCH_LAYER_ORDER, SCH_VIEW } from '@ziroeda/eeschema/sch_view.js';
+import { readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import { PGM_BASE, SETTINGS_MANAGER, SetPgm } from '@ziroeda/common/pgm_base.js';
+import { SCH_EDIT_FRAME, type SCH_EDIT_FRAME_HOOKS } from '@ziroeda/eeschema/sch_edit_frame.js';
 import { describe, expect, it } from 'vitest';
 
 class STUB_GAL extends GAL {
@@ -85,5 +89,38 @@ describe('SCH_DRAW_PANEL', () => {
     expect(layer(SCH_LAYER_ID.LAYER_NET_COLOR_HIGHLIGHT).displayOnly).toBe(true);
     expect(layer(SCH_LAYER_ID.LAYER_SCHEMATIC_ANCHOR).displayOnly).toBe(true);
     expect(layer(SCH_LAYER_ID.LAYER_WIRE).displayOnly).toBe(false);
+  });
+});
+
+describe('SCH_EDIT_FRAME::OpenProjectFiles and the canvas', () => {
+  const ORACLE = resolve(__dirname, '../../data/eeschema/netlist_oracle/complex_hierarchy');
+  const SHEETS = [
+    'complex_hierarchy.kicad_sch',
+    'ampli_ht.kicad_sch',
+    'complex_hierarchy.kicad_pro',
+  ];
+
+  it("shows the loaded root sheet on the frame's canvas (files-io.cpp:857)", () => {
+    SetPgm(new PGM_BASE(null, new SETTINGS_MANAGER()));
+    try {
+      const frame = new SCH_EDIT_FRAME({
+        crossProbingSettings: () =>
+          ({}) as ReturnType<SCH_EDIT_FRAME_HOOKS['crossProbingSettings']>,
+        highlightNet: () => {},
+        syncSelection: () => {},
+        assignFootprints: () => {},
+        saveProject: () => true,
+      });
+      const shown: unknown[] = [];
+      frame.SetCanvas({ DisplaySheet: (s: unknown) => shown.push(s) } as never);
+      frame.OpenProjectFiles([`/complex_hierarchy/${SHEETS[0]}`], 0, (p) => {
+        const n = SHEETS.find((s) => p === `/complex_hierarchy/${s}`);
+        return n ? readFileSync(join(ORACLE, n), 'utf8') : null;
+      });
+      expect(shown).toEqual([frame.GetScreen()]);
+      expect(shown[0]).not.toBe(null);
+    } finally {
+      SetPgm(null);
+    }
   });
 });

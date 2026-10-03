@@ -23,6 +23,7 @@
  *   `GetLibraryItemsForListDialog`, ported below; the modal loop around it is
  *   the window's.
  */
+import type { SCH_DRAW_PANEL } from './sch_draw_panel.js';
 import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import { EDA_DRAW_FRAME, SCH_EDIT_FRAME_NAME } from '@ziroeda/common/eda_draw_frame.js';
 import { schIUScale, type EdaIuScale, type EdaUnits } from '@ziroeda/common/eda_units.js';
@@ -174,6 +175,11 @@ export abstract class SCH_BASE_FRAME extends EDA_DRAW_FRAME {
   }
 
   /** `SCH_SCREEN* GetScreen() const override` (:185). */
+  /** `SCH_DRAW_PANEL* GetCanvas() const override`: the frame's canvas is a schematic panel. */
+  override GetCanvas(): SCH_DRAW_PANEL | null {
+    return super.GetCanvas() as SCH_DRAW_PANEL | null;
+  }
+
   override GetScreen(): SCH_SCREEN | null {
     return super.GetScreen() as SCH_SCREEN | null;
   }
