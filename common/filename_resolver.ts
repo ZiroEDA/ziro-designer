@@ -12,6 +12,7 @@
  * directory, the hosted 3D library at `${KICAD10_3DMODEL_DIR}`, embedded files
  * in the temp directory.
  */
+import { wxMatches } from './wx/wxstring.js';
 import { ExpandEnvVarSubstitutions, type TextVarResolverFn } from './common.js';
 import { DisplayErrorMessage } from './confirm.js';
 import { KiCadUriPrefix, type EMBEDDED_FILES } from './embedded_files.js';
@@ -42,15 +43,6 @@ const searchPath = (aAlias = '', aPathvar = '', aPathexp = ''): SEARCH_PATH => (
   m_Pathexp: aPathexp,
   m_Description: '',
 });
-
-/** `wxString::Matches`: `*` any run, `?` one character. */
-const wxMatches = (aText: string, aPattern: string): boolean =>
-  new RegExp(
-    `^${aPattern
-      .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-      .replace(/\*/g, '.*')
-      .replace(/\?/g, '.')}$`,
-  ).test(aText);
 
 /** `wxFileName::DirName( p ).GetPathWithSep()`. */
 const withSep = (aDir: string): string => (aDir.endsWith('/') ? aDir : `${aDir}/`);

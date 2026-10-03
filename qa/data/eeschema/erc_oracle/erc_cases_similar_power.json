@@ -1,0 +1,211 @@
+{
+ "$schema": "https://schemas.kicad.org/erc.v1.json",
+ "coordinate_units": "mm",
+ "ignored_checks": [
+  {
+   "description": "Global label only appears once in the schematic",
+   "key": "single_global_label"
+  },
+  {
+   "description": "Four connection points are joined together",
+   "key": "four_way_junction"
+  },
+  {
+   "description": "SPICE model issue",
+   "key": "simulation_model_issue"
+  },
+  {
+   "description": "Assigned footprint doesn't match footprint filters",
+   "key": "footprint_filter"
+  }
+ ],
+ "included_severities": [
+  "error",
+  "warning",
+  "exclusion"
+ ],
+ "kicad_version": "10.0.6",
+ "sheets": [
+  {
+   "path": "/",
+   "uuid_path": "/41111111-2222-3333-4444-555555555555",
+   "violations": [
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol #PWR01 Pin 1 [Power input, Line]",
+       "pos": {
+        "x": 0.508,
+        "y": 0.508
+       },
+       "uuid": "a1000000-0000-0000-0000-000000009999"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Input Power pin not driven by any Output Power pins",
+     "items": [
+      {
+       "description": "Symbol #PWR01 Pin 1 [Power input, Line]",
+       "pos": {
+        "x": 0.508,
+        "y": 0.508
+       },
+       "uuid": "a1000000-0000-0000-0000-000000009999"
+      }
+     ],
+     "severity": "error",
+     "type": "power_pin_not_driven"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol #PWR02 Pin 1 [Power input, Line]",
+       "pos": {
+        "x": 0.762,
+        "y": 0.508
+       },
+       "uuid": "a1000000-0000-0000-0000-00000000999a"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Input Power pin not driven by any Output Power pins",
+     "items": [
+      {
+       "description": "Symbol #PWR02 Pin 1 [Power input, Line]",
+       "pos": {
+        "x": 0.762,
+        "y": 0.508
+       },
+       "uuid": "a1000000-0000-0000-0000-00000000999a"
+      }
+     ],
+     "severity": "error",
+     "type": "power_pin_not_driven"
+    },
+    {
+     "description": "Label not connected",
+     "items": [
+      {
+       "description": "Label 'gnd'",
+       "pos": {
+        "x": 1.143,
+        "y": 0.762
+       },
+       "uuid": "a1000000-0000-0000-0000-000000000004"
+      }
+     ],
+     "severity": "error",
+     "type": "label_dangling"
+    },
+    {
+     "description": "Power pins are similar (lower/upper case difference only)",
+     "items": [
+      {
+       "description": "Symbol #PWR01 Pin 1 [Power input, Line]",
+       "pos": {
+        "x": 0.508,
+        "y": 0.508
+       },
+       "uuid": "a1000000-0000-0000-0000-000000009999"
+      },
+      {
+       "description": "Symbol #PWR02 Pin 1 [Power input, Line]",
+       "pos": {
+        "x": 0.762,
+        "y": 0.508
+       },
+       "uuid": "a1000000-0000-0000-0000-00000000999a"
+      }
+     ],
+     "severity": "warning",
+     "type": "similar_power"
+    },
+    {
+     "description": "Unconnected wire endpoint",
+     "items": [
+      {
+       "description": "Horizontal Wire, length 0.2540 mm",
+       "pos": {
+        "x": 1.016,
+        "y": 0.762
+       },
+       "uuid": "a1000000-0000-0000-0000-000000000003"
+      }
+     ],
+     "severity": "warning",
+     "type": "unconnected_wire_endpoint"
+    },
+    {
+     "description": "Power pin and label are similar (lower/upper case difference only)",
+     "items": [
+      {
+       "description": "Label 'gnd'",
+       "pos": {
+        "x": 1.143,
+        "y": 0.762
+       },
+       "uuid": "a1000000-0000-0000-0000-000000000004"
+      },
+      {
+       "description": "Symbol #PWR01 Pin 1 [Power input, Line]",
+       "pos": {
+        "x": 0.508,
+        "y": 0.508
+       },
+       "uuid": "a1000000-0000-0000-0000-000000009999"
+      }
+     ],
+     "severity": "warning",
+     "type": "similar_label_and_power"
+    },
+    {
+     "description": "Power pin and label are similar (lower/upper case difference only)",
+     "items": [
+      {
+       "description": "Label 'gnd'",
+       "pos": {
+        "x": 1.143,
+        "y": 0.762
+       },
+       "uuid": "a1000000-0000-0000-0000-000000000004"
+      },
+      {
+       "description": "Symbol #PWR02 Pin 1 [Power input, Line]",
+       "pos": {
+        "x": 0.762,
+        "y": 0.508
+       },
+       "uuid": "a1000000-0000-0000-0000-00000000999a"
+      }
+     ],
+     "severity": "warning",
+     "type": "similar_label_and_power"
+    },
+    {
+     "description": "Unconnected wire endpoint",
+     "items": [
+      {
+       "description": "Horizontal Wire, length 0.2540 mm",
+       "pos": {
+        "x": 1.016,
+        "y": 0.762
+       },
+       "uuid": "a1000000-0000-0000-0000-000000000003"
+      }
+     ],
+     "severity": "warning",
+     "type": "unconnected_wire_endpoint"
+    }
+   ]
+  }
+ ],
+ "source": "similar_power.kicad_sch"
+}

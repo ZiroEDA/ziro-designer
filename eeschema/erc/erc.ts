@@ -31,6 +31,7 @@
  * pin-to-pin warnings, the no-connect checks, and the single-pin label check.
  */
 
+import { wxMatches } from '@ziroeda/common/wx/wxstring.js';
 import {
   ExpandEnvVarSubstitutions,
   ResolveShownText,
@@ -177,19 +178,6 @@ const unitLabel = (unit: number): string => {
   } while (n > 0);
   return suffix;
 };
-
-/** wxString::Matches, an anchored glob where `*` is any run and `?` one char. */
-function wxMatches(text: string, pattern: string): boolean {
-  const escaped = pattern
-    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-    .replace(/\?/g, '.')
-    .replace(/\*/g, '.*');
-  try {
-    return new RegExp(`^${escaped}$`).test(text);
-  } catch {
-    return false;
-  }
-}
 
 /** A local and an off-sheet pin are never stacked (different screens). */
 const stacked2 = (_a: PinNode, _b: ExternalPin): boolean => false;
@@ -2153,6 +2141,8 @@ import { multiUnitEntries, type SCH_MULTI_UNIT_REFERENCE_MAP } from '../sch_refe
 import { SCH_SCREENS } from '../sch_screen.js';
 import type { SCH_SHEET } from '../sch_sheet.js';
 import type { SCH_PIN } from '../sch_pin.js';
+import { LIB_ID as LIB_ID_LIVE } from '@ziroeda/common/lib_id.js';
+import { wxCmp } from '@ziroeda/common/wx/wxstring.js';
 import type { SCH_LABEL_BASE } from '../sch_label.js';
 import type { SCH_FIELD } from '../sch_field.js';
 import type { SCH_SHEET_PATH as SCH_SHEET_PATH_LIVE } from '../sch_sheet_path.js';
@@ -2986,6 +2976,157 @@ export class ERC_TESTER {
   }
 
   /**
+   * Check for pins whose number uses the stacked-pin notation wrongly.
+   *
+   * @return the warning count
+   */
+  TestStackedPinNotation(): number {
+    let warnings = 0;
+
+    for (const sheet of this.m_sheetList) {
+      const screen = sheet.LastScreen()!;
+
+      for (const item of screen.Items().OfType(KICAD_T_LIVE.SCH_SYMBOL_T)) {
+        const symbol = item as SCH_SYMBOL;
+
+        for (const pin of symbol.GetPins(sheet)) {
+          const valid = { value: true };
+          pin.GetStackedPinNumbers(valid);
+
+          if (!valid.value) {
+            const ercItem = ERC_ITEM.Create(ERCE.ERCE_STACKED_PIN_SYNTAX)!;
+            ercItem.SetItems(pin);
+            ercItem.SetSheetSpecificPath(sheet);
+            ercItem.SetItemsSheetPaths(sheet);
+
+            const marker = new SCH_MARKER_LIVE(ercItem, pin.GetPosition());
+            screen.Append(marker);
+            warnings++;
+          }
+        }
+      }
+    }
+
+    return warnings;
+  }
+
+  /**
+   * Check for field names with leading or trailing whitespace, on symbols and sheets.
+   *
+   * @return the warning count
+   */
+  TestFieldNameWhitespace(): number {
+    let warnings = 0;
+
+    for (const sheet of this.m_sheetList) {
+      const screen = sheet.LastScreen()!;
+
+      const check = (aOwner: SCH_ITEM_LIVE, aFields: readonly SCH_FIELD[]) => {
+        for (const field of aFields) {
+          // wxString::Trim() then Trim( false ): spaces, tabs, line breaks.
+          const trimmedFieldName = field.GetName().replace(/^[ \t\r\n\f\v]+|[ \t\r\n\f\v]+$/g, '');
+
+          if (field.GetName() !== trimmedFieldName) {
+            const ercItem = ERC_ITEM.Create(ERCE.ERCE_FIELD_NAME_WHITESPACE)!;
+            ercItem.SetItems(aOwner, field);
+            ercItem.SetItemsSheetPaths(sheet, sheet);
+            ercItem.SetSheetSpecificPath(sheet);
+            ercItem.SetErrorMessage(
+              `Field name has leading or trailing whitespace: '${field.GetName()}'`,
+            );
+
+            const marker = new SCH_MARKER_LIVE(ercItem, field.GetPosition());
+            screen.Append(marker);
+            warnings++;
+          }
+        }
+      };
+
+      for (const item of screen.Items().OfType(KICAD_T_LIVE.SCH_SYMBOL_T))
+        check(item, (item as SCH_SYMBOL).GetFields());
+
+      for (const item of screen.Items().OfType(KICAD_T_LIVE.SCH_SHEET_T))
+        check(item, (item as unknown as SCH_SHEET).GetFields());
+    }
+
+    return warnings;
+  }
+
+  /**
+   * Check that pins sharing a number in one symbol (allowed when the library says they are
+   * not jumpers) are on one net.
+   *
+   * @return the error count
+   */
+  TestDuplicatePinNets(): number {
+    let errors = 0;
+
+    for (const sheet of this.m_sheetList) {
+      const screen = sheet.LastScreen()!;
+
+      for (const item of screen.Items().OfType(KICAD_T_LIVE.SCH_SYMBOL_T)) {
+        const symbol = item as SCH_SYMBOL;
+        const libSymbol = symbol.GetLibSymbolRef();
+
+        if (!libSymbol) continue;
+
+        if (libSymbol.GetDuplicatePinNumbersAreJumpers()) continue;
+
+        const pins = symbol.GetPins(sheet);
+
+        // std::map<wxString, ...>: by number, as wxString compares (code points).
+        const pinsByNumber = new Map<string, [SCH_PIN, string][]>();
+
+        for (const pin of pins) {
+          const conn = pin.Connection(sheet);
+          const netName = conn ? conn.GetNetName() : '';
+
+          pinsByNumber.set(pin.GetNumber(), [
+            ...(pinsByNumber.get(pin.GetNumber()) ?? []),
+            [pin, netName],
+          ]);
+        }
+
+        for (const [pinNumber, pinNetPairs] of [...pinsByNumber].sort((a, b) =>
+          wxCmp(a[0], b[0]),
+        )) {
+          if (pinNetPairs.length < 2) continue;
+
+          const firstNet = pinNetPairs[0]![1];
+          let hasDifferentNets = false;
+          let conflictPin: SCH_PIN | null = null;
+
+          for (let i = 1; i < pinNetPairs.length; i++) {
+            if (pinNetPairs[i]![1] !== firstNet) {
+              hasDifferentNets = true;
+              conflictPin = pinNetPairs[i]![0];
+              break;
+            }
+          }
+
+          if (hasDifferentNets) {
+            const ercItem = ERC_ITEM.Create(ERCE.ERCE_DUPLICATE_PIN_ERROR)!;
+            const second = pinNetPairs[1]![1];
+
+            ercItem.SetErrorMessage(
+              `Pin ${pinNumber} on symbol '${symbol.GetRef(sheet)}' is connected to different nets: ${firstNet === '' ? '<no net>' : firstNet} and ${second === '' ? '<no net>' : second}`,
+            );
+            ercItem.SetItems(pinNetPairs[0]![0], conflictPin);
+            ercItem.SetSheetSpecificPath(sheet);
+            ercItem.SetItemsSheetPaths(sheet, sheet);
+
+            const marker = new SCH_MARKER_LIVE(ercItem, pinNetPairs[0]![0].GetPosition());
+            screen.Append(marker);
+            errors++;
+          }
+        }
+      }
+    }
+
+    return errors;
+  }
+
+  /**
    * Check for global and local labels with the same name.
    *
    * @return the error count
@@ -3200,6 +3341,114 @@ export class ERC_TESTER {
   }
 
   /**
+   * Test if all units of each multiunit symbol have the same footprint assigned.
+   *
+   * @return the error count
+   */
+  TestMultiunitFootprints(): number {
+    let errors = 0;
+
+    for (const [, refList] of multiUnitEntries(this.m_refMap)) {
+      if (refList.GetCount() === 0) continue; // wxFAIL: it should not happen
+
+      // Reference footprint
+      let unit: SCH_SYMBOL | null = null;
+      let unitName = '';
+      let unitFP = '';
+
+      for (let ii = 0; ii < refList.GetCount(); ++ii) {
+        const sheetPath = refList.GetItem(ii).GetSheetPath();
+        unitFP = refList.GetItem(ii).GetFootprint();
+
+        if (unitFP !== '') {
+          unit = refList.GetItem(ii).GetSymbol();
+          unitName = unit.GetRef(sheetPath, true);
+          break;
+        }
+      }
+
+      for (let ii = 0; ii < refList.GetCount(); ++ii) {
+        const secondRef = refList.GetItem(ii);
+        const secondUnit = secondRef.GetSymbol();
+        const secondName = secondUnit.GetRef(secondRef.GetSheetPath(), true);
+        const secondFp = secondRef.GetFootprint();
+
+        if (unit && secondFp !== '' && unitFP !== secondFp) {
+          const ercItem = ERC_ITEM.Create(ERCE.ERCE_DIFFERENT_UNIT_FP)!;
+          ercItem.SetErrorMessage(`Different footprints assigned to ${unitName} and ${secondName}`);
+          ercItem.SetItems(unit, secondUnit);
+
+          const marker = new SCH_MARKER_LIVE(ercItem, secondUnit.GetPosition());
+          secondRef.GetSheetPath().LastScreen()!.Append(marker);
+
+          ++errors;
+        }
+      }
+    }
+
+    return errors;
+  }
+
+  /**
+   * Test symbols for footprint assignments that do not match their library symbol's footprint
+   * filters.
+   *
+   * @return the error count
+   */
+  TestFootprintFilters(): number {
+    let err_count = 0;
+
+    for (const sheet of this.m_sheetList) {
+      const markers: SCH_MARKER_LIVE[] = [];
+
+      for (const item of sheet.LastScreen()!.Items().OfType(KICAD_T_LIVE.SCH_SYMBOL_T)) {
+        const sch_symbol = item as SCH_SYMBOL;
+        const lib_symbol = sch_symbol.GetLibSymbolRef();
+
+        if (!lib_symbol) continue;
+
+        const filters = lib_symbol.GetFPFilters();
+
+        if (filters.length === 0) continue;
+
+        const lowerId = sch_symbol.GetFootprintFieldText(true, sheet, false).toLowerCase();
+        const footprint = new LIB_ID_LIVE();
+
+        if (footprint.Parse(lowerId) > 0) continue;
+
+        const lowerItemName = footprint.GetUniStringLibItemName().toLowerCase();
+        let found = false;
+
+        for (let filter of filters) {
+          filter = filter.toLowerCase();
+
+          // If the filter contains a ':' character, include the library name in the pattern
+          if (filter.includes(':')) found ||= wxMatches(lowerId, filter);
+          else found ||= wxMatches(lowerItemName, filter);
+
+          if (found) break;
+        }
+
+        if (!found) {
+          const ercItem = ERC_ITEM.Create(ERCE.ERCE_FOOTPRINT_FILTERS)!;
+          ercItem.SetErrorMessage(
+            `Assigned footprint (${footprint.GetUniStringLibItemName()}) doesn't match footprint filters (${filters.join(' ')})`,
+          );
+          ercItem.SetItems(sch_symbol);
+          markers.push(new SCH_MARKER_LIVE(ercItem, sch_symbol.GetPosition()));
+        }
+      }
+
+      for (const marker of markers) {
+        sheet.LastScreen()!.Append(marker);
+        err_count += 1;
+      }
+    }
+
+    return err_count;
+  }
+
+  /**
    * Test pins and wire ends for being off grid.
    *
    * @return the error count
@@ -3289,7 +3538,8 @@ export class ERC_TESTER {
 
     this.m_schematic.ConnectionGraph().RunERC();
 
-    // Pending: TestMultiunitFootprints.
+    // Test is all units of each multiunit symbol have the same footprint assigned.
+    if (this.m_settings.IsTestEnabled(ERCE.ERCE_DIFFERENT_UNIT_FP)) this.TestMultiunitFootprints();
 
     if (
       this.m_settings.IsTestEnabled(ERCE.ERCE_MISSING_UNIT) ||
@@ -3303,7 +3553,7 @@ export class ERC_TESTER {
     if (this.m_settings.IsTestEnabled(ERCE.ERCE_DIFFERENT_UNIT_NET))
       this.TestMultUnitPinConflicts();
 
-    // Pending: TestDuplicatePinNets.
+    if (this.m_settings.IsTestEnabled(ERCE.ERCE_DUPLICATE_PIN_ERROR)) this.TestDuplicatePinNets();
 
     // Test pins on each net against the pin connection table
     if (
@@ -3316,7 +3566,7 @@ export class ERC_TESTER {
 
     if (this.m_settings.IsTestEnabled(ERCE.ERCE_GROUND_PIN_NOT_GROUND)) this.TestGroundPins();
 
-    // Pending: TestStackedPinNotation.
+    if (this.m_settings.IsTestEnabled(ERCE.ERCE_STACKED_PIN_SYNTAX)) this.TestStackedPinNotation();
 
     // Test similar labels (i;e. labels which are identical when
     // using case insensitive comparisons)
@@ -3331,11 +3581,18 @@ export class ERC_TESTER {
     if (this.m_settings.IsTestEnabled(ERCE.ERCE_SAME_LOCAL_GLOBAL_LABEL))
       this.TestSameLocalGlobalLabel();
 
-    // Pending: TestTextVars, TestFieldNameWhitespace, TestSimModelIssues.
+    // Pending: TestTextVars.
+
+    if (this.m_settings.IsTestEnabled(ERCE.ERCE_FIELD_NAME_WHITESPACE))
+      this.TestFieldNameWhitespace();
+
+    // Pending: TestSimModelIssues.
 
     if (this.m_settings.IsTestEnabled(ERCE.ERCE_NOCONNECT_CONNECTED)) this.TestNoConnectPins();
 
-    // Pending: TestLibSymbolIssues, TestFootprintLinkIssues, TestFootprintFilters.
+    // Pending: TestLibSymbolIssues, TestFootprintLinkIssues.
+
+    if (this.m_settings.IsTestEnabled(ERCE.ERCE_FOOTPRINT_FILTERS)) this.TestFootprintFilters();
 
     if (this.m_settings.IsTestEnabled(ERCE.ERCE_ENDPOINT_OFF_GRID)) this.TestOffGridEndpoints();
 

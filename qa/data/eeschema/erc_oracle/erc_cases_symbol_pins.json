@@ -1,0 +1,173 @@
+{
+ "$schema": "https://schemas.kicad.org/erc.v1.json",
+ "coordinate_units": "mm",
+ "ignored_checks": [
+  {
+   "description": "Global label only appears once in the schematic",
+   "key": "single_global_label"
+  },
+  {
+   "description": "Four connection points are joined together",
+   "key": "four_way_junction"
+  },
+  {
+   "description": "SPICE model issue",
+   "key": "simulation_model_issue"
+  },
+  {
+   "description": "Assigned footprint doesn't match footprint filters",
+   "key": "footprint_filter"
+  }
+ ],
+ "included_severities": [
+  "error",
+  "warning",
+  "exclusion"
+ ],
+ "kicad_version": "10.0.6",
+ "sheets": [
+  {
+   "path": "/",
+   "uuid_path": "/51111111-2222-3333-4444-555555555555",
+   "violations": [
+    {
+     "description": "Pin 5 on symbol 'U1' is connected to different nets: /NA and /NB",
+     "items": [
+      {
+       "description": "Symbol U1 Pin 5 [Passive, Line]",
+       "pos": {
+        "x": 0.9652,
+        "y": 0.9906
+       },
+       "uuid": "b1000000-0000-0000-0000-0000000000a1"
+      },
+      {
+       "description": "Symbol U1 Pin 5 [Passive, Line]",
+       "pos": {
+        "x": 0.9652,
+        "y": 1.0414
+       },
+       "uuid": "b1000000-0000-0000-0000-0000000000a2"
+      }
+     ],
+     "severity": "error",
+     "type": "duplicate_pins"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol U1 Pin [1- [Passive, Line]",
+       "pos": {
+        "x": 1.0668,
+        "y": 0.9906
+       },
+       "uuid": "b1000000-0000-0000-0000-0000000000a3"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol U1 Pin 2 [Passive, Line]",
+       "pos": {
+        "x": 1.0668,
+        "y": 1.0414
+       },
+       "uuid": "b1000000-0000-0000-0000-0000000000a4"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Label connected to only one pin",
+     "items": [
+      {
+       "description": "Label 'NA'",
+       "pos": {
+        "x": 0.889,
+        "y": 0.9906
+       },
+       "uuid": "b1000000-0000-0000-0000-000000000012"
+      }
+     ],
+     "severity": "warning",
+     "type": "isolated_pin_label"
+    },
+    {
+     "description": "Label connected to only one pin",
+     "items": [
+      {
+       "description": "Label 'NB'",
+       "pos": {
+        "x": 0.889,
+        "y": 1.0414
+       },
+       "uuid": "b1000000-0000-0000-0000-000000000014"
+      }
+     ],
+     "severity": "warning",
+     "type": "isolated_pin_label"
+    },
+    {
+     "description": "The current configuration does not include the symbol library 'erc'",
+     "items": [
+      {
+       "description": "Symbol U1 [Q]",
+       "pos": {
+        "x": 1.016,
+        "y": 1.016
+       },
+       "uuid": "b1000000-0000-0000-0000-000000000001"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "Field name has leading or trailing whitespace: ' MPN'",
+     "items": [
+      {
+       "description": "Symbol U1 [Q]",
+       "pos": {
+        "x": 1.016,
+        "y": 1.016
+       },
+       "uuid": "b1000000-0000-0000-0000-000000000001"
+      },
+      {
+       "description": "Field  MPN 'X1'",
+       "pos": {
+        "x": 1.016,
+        "y": 1.0922
+       },
+       "uuid": "3af1f4ec-b790-4e38-8bde-3f4e35340aab"
+      }
+     ],
+     "severity": "warning",
+     "type": "field_name_whitespace"
+    },
+    {
+     "description": "Pin name resembles stacked pin",
+     "items": [
+      {
+       "description": "Symbol U1 Pin [1- [Passive, Line]",
+       "pos": {
+        "x": 1.0668,
+        "y": 0.9906
+       },
+       "uuid": "b1000000-0000-0000-0000-0000000000a3"
+      }
+     ],
+     "severity": "warning",
+     "type": "stacked_pin_name"
+    }
+   ]
+  }
+ ],
+ "source": "symbol_pins.kicad_sch"
+}
