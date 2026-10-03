@@ -29,6 +29,7 @@ export type CALL =
   | ({ op: 'arc'; c: Vec2; r: number; start: number; angle: number } & PEN)
   | ({ op: 'polygon'; points: Vec2[] } & PEN)
   | ({ op: 'polyline'; points: Vec2[] } & PEN)
+  | ({ op: 'segment'; a: Vec2; b: Vec2; width: number } & Omit<PEN, 'width'>)
   | ({ op: 'glyph' } & PEN)
   | ({ op: 'bitmap'; text: string; at: Vec2 } & PEN)
   | ({ op: 'curve'; a: Vec2; c1: Vec2; c2: Vec2; b: Vec2 } & PEN)
@@ -127,6 +128,16 @@ export class RECORDING_GAL extends GAL {
     }
 
     this.calls.push({ op: 'polygon', points, ...this.pen });
+  }
+  override DrawSegment(aStartPoint: Vec2, aEndPoint: Vec2, aWidth: number): void {
+    const { width: _w, ...pen } = this.pen;
+    this.calls.push({
+      op: 'segment',
+      a: { ...aStartPoint },
+      b: { ...aEndPoint },
+      width: aWidth,
+      ...pen,
+    });
   }
   override DrawPolyline(a: readonly Vec2[] | SHAPE_LINE_CHAIN): void {
     const points = Array.isArray(a)

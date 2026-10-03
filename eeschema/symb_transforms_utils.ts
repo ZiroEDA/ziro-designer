@@ -7,13 +7,13 @@
  * (`SCH_SCREEN::GetLabelOrientationForPoint`'s pin-facing rule), which is why
  * it lived there until this split.
  *
- * `OrientAndMirrorSymbolItems` and `RotateAndMirrorPin` are **not ported**:
- * nothing in this build calls them (no symbol-item mirror/rotate tool reaches
- * for this file's help — our symbol rotate/mirror tools transform the whole
- * symbol's placement instead of walking its items individually the way these
- * two do for the library editor).
+ * `OrientAndMirrorSymbolItems` and `RotateAndMirrorPin` are ported at the end: SCH_PAINTER's
+ * symbol draw turns a copy of the library symbol to the placed symbol's orientation with them.
  */
 
+import type { LIB_SYMBOL } from './lib_symbol.js';
+import type { SCH_PIN } from './sch_pin.js';
+import { SYMBOL_ORIENTATION_T } from './symbol.js';
 import type { LabelSpin } from './tools/label_properties.js';
 
 /**
@@ -56,4 +56,96 @@ export function pinSpinStyle(
   if (mirror === 'x') ret = ret === 'up' ? 'bottom' : ret === 'bottom' ? 'up' : ret;
   if (mirror === 'y') ret = ret === 'left' ? 'right' : ret === 'right' ? 'left' : ret;
   return ret;
+}
+
+interface ORIENT_MIRROR {
+  flag: number;
+  n_rots: number;
+  mirror_x: number;
+  mirror_y: number;
+}
+
+// symbols_orientations_list is the list of possible orientation+mirror values
+// like returned by SCH_SYMBOL::GetOrientation()
+// Some transforms are equivalent, like rotation 180 + mirror X = mirror Y
+// [data] KiCad's own table, its SYM_MIRROR_Y entry included twice (the
+// SYM_MIRROR_X + SYM_ORIENT_180 slot holds it).
+const symbols_orientations_list: readonly ORIENT_MIRROR[] = [
+  { flag: SYMBOL_ORIENTATION_T.SYM_ORIENT_0, n_rots: 0, mirror_x: 0, mirror_y: 0 },
+  { flag: SYMBOL_ORIENTATION_T.SYM_ORIENT_90, n_rots: 1, mirror_x: 0, mirror_y: 0 },
+  { flag: SYMBOL_ORIENTATION_T.SYM_ORIENT_180, n_rots: 2, mirror_x: 0, mirror_y: 0 },
+  { flag: SYMBOL_ORIENTATION_T.SYM_ORIENT_270, n_rots: 3, mirror_x: 0, mirror_y: 0 },
+  {
+    flag: SYMBOL_ORIENTATION_T.SYM_MIRROR_X + SYMBOL_ORIENTATION_T.SYM_ORIENT_0,
+    n_rots: 0,
+    mirror_x: 1,
+    mirror_y: 0,
+  },
+  {
+    flag: SYMBOL_ORIENTATION_T.SYM_MIRROR_X + SYMBOL_ORIENTATION_T.SYM_ORIENT_90,
+    n_rots: 1,
+    mirror_x: 1,
+    mirror_y: 0,
+  },
+  { flag: SYMBOL_ORIENTATION_T.SYM_MIRROR_Y, n_rots: 0, mirror_x: 0, mirror_y: 1 },
+  {
+    flag: SYMBOL_ORIENTATION_T.SYM_MIRROR_X + SYMBOL_ORIENTATION_T.SYM_ORIENT_270,
+    n_rots: 3,
+    mirror_x: 1,
+    mirror_y: 0,
+  },
+  {
+    flag: SYMBOL_ORIENTATION_T.SYM_MIRROR_Y + SYMBOL_ORIENTATION_T.SYM_ORIENT_0,
+    n_rots: 0,
+    mirror_x: 0,
+    mirror_y: 1,
+  },
+  {
+    flag: SYMBOL_ORIENTATION_T.SYM_MIRROR_Y + SYMBOL_ORIENTATION_T.SYM_ORIENT_90,
+    n_rots: 1,
+    mirror_x: 0,
+    mirror_y: 1,
+  },
+  {
+    flag: SYMBOL_ORIENTATION_T.SYM_MIRROR_Y + SYMBOL_ORIENTATION_T.SYM_ORIENT_180,
+    n_rots: 2,
+    mirror_x: 0,
+    mirror_y: 1,
+  },
+  {
+    flag: SYMBOL_ORIENTATION_T.SYM_MIRROR_Y + SYMBOL_ORIENTATION_T.SYM_ORIENT_270,
+    n_rots: 3,
+    mirror_x: 0,
+    mirror_y: 1,
+  },
+];
+
+const orientMirror = (aOrientation: number): ORIENT_MIRROR =>
+  symbols_orientations_list.find((i) => i.flag === aOrientation) ?? symbols_orientations_list[0]!;
+
+/**
+ * `OrientAndMirrorSymbolItems` (symb_transforms_utils.cpp:55): turn every draw item of a
+ * library symbol to a placed symbol's orientation, about the symbol origin.
+ */
+export function OrientAndMirrorSymbolItems(aSymbol: LIB_SYMBOL, aOrientation: number): void {
+  const o = orientMirror(aOrientation);
+
+  for (const item of aSymbol.GetDrawItems()) {
+    for (let i = 0; i < o.n_rots; i++) item.Rotate({ x: 0, y: 0 }, true);
+
+    if (o.mirror_x) item.MirrorVertically(0);
+
+    if (o.mirror_y) item.MirrorHorizontally(0);
+  }
+}
+
+/** `RotateAndMirrorPin` (:81): the same for one pin. */
+export function RotateAndMirrorPin(aPin: SCH_PIN, aOrientMirror: number): void {
+  const o = orientMirror(aOrientMirror);
+
+  for (let i = 0; i < o.n_rots; i++) aPin.RotatePin({ x: 0, y: 0 }, true);
+
+  if (o.mirror_x) aPin.MirrorVerticallyPin(0);
+
+  if (o.mirror_y) aPin.MirrorHorizontallyPin(0);
 }

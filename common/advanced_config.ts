@@ -214,6 +214,12 @@ export class ADVANCED_CFG {
    */
   m_MinPlotPenWidth = 0.0212;
 
+  /**
+   * The line width of the excluded-from-simulation marker, in mils.
+   * Setting name: "ExcludeFromSimulationLineWidth"; default 25 (advanced_config.cpp:326).
+   */
+  m_ExcludeFromSimulationLineWidth = 25;
+
   private static s_cfg: ADVANCED_CFG | null = null;
 
   /** Get the singleton instance's config, which is shared by all consumers. */

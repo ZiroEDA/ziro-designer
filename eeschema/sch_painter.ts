@@ -12,6 +12,14 @@
  * follow KiCad's per-orientation direction.
  */
 
+import { ADVANCED_CFG } from '@ziroeda/common/advanced_config.js';
+import { ExpandTextVars } from '@ziroeda/common/common.js';
+import {
+  GAL_SCOPED_ATTRS,
+  GAL_SCOPED_ATTRS_FLAGS,
+} from '@ziroeda/common/gal/graphics_abstraction_layer.js';
+import { LIB_SYMBOL } from './lib_symbol.js';
+import { OrientAndMirrorSymbolItems } from './symb_transforms_utils.js';
 import { ANGLE_180, ANGLE_270 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { IS_DANGLING } from '@ziroeda/common/eda_item_flags.js';
 import { METRICS as METRICS_CLASS } from '@ziroeda/common/font/font_metrics.js';
@@ -5346,6 +5354,12 @@ export class SCH_PAINTER extends PAINTER {
     let drawBoundingBox = this.m_schSettings.GetDrawBoundingBoxes();
 
     switch (aItem.Type()) {
+      case KICAD_T.LIB_SYMBOL_T:
+        this.drawLibSymbol(aItem as LIB_SYMBOL, aLayer);
+        break;
+      case KICAD_T.SCH_SYMBOL_T:
+        this.drawSymbol(aItem as LIVE_SCH_SYMBOL, aLayer);
+        break;
       case KICAD_T.SCH_PIN_T:
         drawBoundingBox = false;
         this.drawPin(aItem as SCH_PIN, aLayer, aDimmed);
@@ -7601,6 +7615,216 @@ export class SCH_PAINTER extends PAINTER {
 
     if (elecTypeInfo)
       drawTextInfo(elecTypeInfo, getColorForLayer(SCH_LAYER_ID.LAYER_PRIVATE_NOTES));
+  }
+
+  protected expandLibItemTextVars(aSourceText: string, aSymbolContext: LIVE_SCH_SYMBOL): string {
+    const symbolResolver = (token: OutStr): boolean => {
+      if (!this.m_schematic) return false;
+
+      return aSymbolContext.ResolveTextVar(this.m_schematic.CurrentSheet(), token);
+    };
+
+    return ExpandTextVars(aSourceText, symbolResolver);
+  }
+
+  protected drawLibSymbol(
+    aSymbol: LIB_SYMBOL,
+    aLayer: number,
+    aDrawFields = true,
+    aUnit = 0,
+    aBodyStyle = 0,
+    aDimmed = false,
+  ): void {
+    if (!aUnit) aUnit = this.m_schSettings.m_ShowUnit;
+
+    if (!aBodyStyle) aBodyStyle = this.m_schSettings.m_ShowBodyStyle;
+
+    const drawnSymbol = aSymbol.IsDerived() ? aSymbol.Flatten() : aSymbol;
+
+    // The parent must exist on the union of all its children's draw layers.  But that doesn't
+    // mean we want to draw each child on the union.
+    const childOnLayer = (item: SCH_ITEM, layer: number) => item.ViewGetLayers().includes(layer);
+
+    for (const item of drawnSymbol.GetDrawItems()) {
+      if (!aDrawFields && item.Type() === KICAD_T.SCH_FIELD_T) continue;
+
+      if (!childOnLayer(item, aLayer)) continue;
+
+      if (aUnit && item.GetUnit() && aUnit !== item.GetUnit()) continue;
+
+      if (aBodyStyle && item.GetBodyStyle() && aBodyStyle !== item.GetBodyStyle()) continue;
+
+      this.draw(item, aLayer, aDimmed);
+    }
+  }
+
+  protected drawSymbol(aSymbol: LIVE_SCH_SYMBOL, aLayer: number): void {
+    const drawingShadows = aLayer === SCH_LAYER_ID.LAYER_SELECTION_SHADOWS;
+
+    let sheetPath: SCH_SHEET_PATH | null = null;
+    let variantName = '';
+
+    if (this.m_schematic) {
+      sheetPath = this.m_schematic.CurrentSheet();
+      variantName = this.m_schematic.GetCurrentVariant();
+    }
+
+    const DNP = aSymbol.GetDNP(sheetPath, variantName);
+    const markExclusion =
+      eeconfig()!.appearance.mark_sim_exclusions &&
+      aSymbol.GetExcludedFromSim(sheetPath, variantName);
+
+    if (this.m_schSettings.IsPrinting() && drawingShadows) return;
+
+    if (!drawingShadows || eeconfig()!.selection.draw_selected_children) {
+      for (const field of aSymbol.GetFields()) this.drawField(field, aLayer, DNP);
+    }
+
+    if (isFieldsLayer(aLayer)) return;
+
+    // A shadow pass goes on for an unselected symbol: it may still have selected pins.
+
+    const unit = this.m_schematic ? aSymbol.GetUnitSelection(this.m_schematic.CurrentSheet()) : 1;
+    const bodyStyle = aSymbol.GetBodyStyle();
+
+    // Use dummy symbol if the actual couldn't be found (or couldn't be locked).
+    const originalSymbol = aSymbol.GetLibSymbolRef() ?? LIB_SYMBOL.GetDummy();
+    const originalPins = originalSymbol.GetGraphicalPins(unit, bodyStyle);
+
+    // Copy the source so we can re-orient and translate it.
+    const tempSymbol = LIB_SYMBOL.copyOf(originalSymbol, false);
+    const tempPins = tempSymbol.GetGraphicalPins(unit, bodyStyle);
+
+    tempSymbol.SetFlags(aSymbol.GetFlags());
+
+    OrientAndMirrorSymbolItems(tempSymbol, aSymbol.GetOrientation());
+
+    for (const tempItem of tempSymbol.GetDrawItems()) {
+      tempItem.SetFlags(aSymbol.GetFlags()); // SELECTED, HIGHLIGHTED, BRIGHTENED,
+      tempItem.Move(aSymbol.GetPosition());
+
+      if (tempItem.Type() === KICAD_T.SCH_TEXT_T) {
+        const textItem = tempItem as SCH_TEXT;
+
+        if (textItem.HasTextVars())
+          textItem.SetText(this.expandLibItemTextVars(textItem.GetText(), aSymbol));
+      } else if (tempItem.Type() === KICAD_T.SCH_TEXTBOX_T) {
+        const textboxItem = tempItem as SCH_TEXTBOX;
+
+        if (textboxItem.HasTextVars())
+          textboxItem.SetText(this.expandLibItemTextVars(textboxItem.GetText(), aSymbol));
+      }
+    }
+
+    // Copy the pin info from the symbol to the temp pins
+    for (let i = 0; i < tempPins.length; ++i) {
+      const symbolPin = aSymbol.GetPin(originalPins[i]!);
+      const tempPin = tempPins[i]!;
+
+      tempPin.SetFlipStackedTextSide(
+        originalPins[i]!.StackedTextSideFlipped(aSymbol.GetTransform()),
+      );
+
+      if (!symbolPin) continue;
+
+      tempPin.ClearFlags();
+      tempPin.SetFlags(symbolPin.GetFlags()); // SELECTED, HIGHLIGHTED, BRIGHTENED,
+      // IS_SHOWN_AS_BITMAP
+
+      tempPin.SetName(this.expandLibItemTextVars(symbolPin.GetShownName(), aSymbol));
+      tempPin.SetType(symbolPin.GetType());
+      tempPin.SetShape(symbolPin.GetShape());
+
+      if (symbolPin.IsDangling()) tempPin.SetFlags(IS_DANGLING);
+      else tempPin.ClearFlags(IS_DANGLING);
+
+      tempPin.SetOperatingPoint(symbolPin.GetOperatingPoint());
+    }
+
+    this.drawLibSymbol(tempSymbol, aLayer, false, aSymbol.GetUnit(), aSymbol.GetBodyStyle(), DNP);
+
+    for (let i = 0; i < tempPins.length; ++i) {
+      const symbolPin = aSymbol.GetPin(originalPins[i]!);
+      const tempPin = tempPins[i]!;
+
+      if (!symbolPin) continue;
+
+      symbolPin.ClearFlags();
+      tempPin.ClearFlags(IS_DANGLING); // Clear this temporary flag
+      symbolPin.SetFlags(tempPin.GetFlags()); // SELECTED, HIGHLIGHTED, BRIGHTENED,
+      // IS_SHOWN_AS_BITMAP
+    }
+
+    // Draw DNP and EXCLUDE from SIM markers.
+    // These drawings are associated to the symbol body, so draw them only when the LAYER_DEVICE
+    // is drawn (to avoid draw artifacts).
+    if (DNP && aLayer === SCH_LAYER_ID.LAYER_DEVICE) {
+      const marker_color = this.m_schSettings.GetLayerColor(SCH_LAYER_ID.LAYER_DNP_MARKER);
+      const bbox = aSymbol.GetBodyBoundingBox().Clone();
+      const pins = aSymbol.GetBodyAndPinsBoundingBox();
+      const margins = {
+        x: Math.max(bbox.GetX() - pins.GetX(), pins.GetEnd().x - bbox.GetEnd().x),
+        y: Math.max(bbox.GetY() - pins.GetY(), pins.GetEnd().y - bbox.GetEnd().y),
+      };
+      const strokeWidth = 3 * liveIUScale.milsToIU(DEFAULT_LINE_WIDTH_MILS);
+
+      margins.x = Math.max(margins.x * 0.6, margins.y * 0.3);
+      margins.y = Math.max(margins.y * 0.6, margins.x * 0.3);
+      bbox.Inflate(Math.round(margins.x), Math.round(margins.y));
+
+      const pt1 = { ...bbox.GetOrigin() };
+      const pt2 = { ...bbox.GetEnd() };
+
+      GAL_SCOPED_ATTRS(this.gal, GAL_SCOPED_ATTRS_FLAGS.ALL_ATTRS, () => {
+        this.gal.AdvanceDepth();
+        this.gal.SetIsStroke(true);
+        this.gal.SetIsFill(true);
+        this.gal.SetStrokeColor(marker_color);
+        this.gal.SetFillColor(marker_color);
+
+        this.gal.DrawSegment(pt1, pt2, strokeWidth);
+        [pt1.x, pt2.x] = [pt2.x, pt1.x];
+        this.gal.DrawSegment(pt1, pt2, strokeWidth);
+      });
+    }
+
+    if (markExclusion && aLayer === SCH_LAYER_ID.LAYER_DEVICE) {
+      const marker_color = this.m_schSettings.GetLayerColor(SCH_LAYER_ID.LAYER_EXCLUDED_FROM_SIM);
+      const bbox = aSymbol.GetBodyBoundingBox().Clone();
+      const strokeWidth = liveIUScale.milsToIU(
+        ADVANCED_CFG.GetCfg().m_ExcludeFromSimulationLineWidth,
+      );
+
+      bbox.Inflate(Math.round(strokeWidth * 0.5));
+
+      GAL_SCOPED_ATTRS(this.gal, GAL_SCOPED_ATTRS_FLAGS.ALL_ATTRS, () => {
+        this.gal.AdvanceDepth();
+        this.gal.SetIsStroke(true);
+        this.gal.SetIsFill(true);
+        this.gal.SetStrokeColor(marker_color);
+        this.gal.SetFillColor(marker_color);
+
+        const tr = { x: bbox.GetEnd().x, y: bbox.GetY() };
+        const bl = { x: bbox.GetX(), y: bbox.GetEnd().y };
+        this.gal.DrawSegment(bbox.GetPosition(), tr, strokeWidth);
+        this.gal.DrawSegment(tr, bbox.GetEnd(), strokeWidth);
+        this.gal.DrawSegment(bbox.GetEnd(), bl, strokeWidth);
+        this.gal.DrawSegment(bl, bbox.GetPosition(), strokeWidth);
+
+        const offset = 2 * strokeWidth;
+        const center = { x: bbox.GetEnd().x + offset + strokeWidth, y: bbox.GetEnd().y - offset };
+        const left = { x: center.x - offset, y: center.y };
+        const right = { x: center.x + offset, y: center.y };
+        const top = { x: center.x, y: center.y + offset };
+        const bottom = { x: center.x, y: center.y - offset };
+
+        this.gal.SetFillColor(withAlpha(marker_color, 0.1));
+        this.gal.DrawCircle(center, offset);
+        this.gal.AdvanceDepth();
+        this.gal.SetFillColor(marker_color);
+        this.gal.DrawCurve(left, top, bottom, right, 1);
+      });
+    }
   }
 
   protected drawLine(
