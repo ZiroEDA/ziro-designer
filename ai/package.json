@@ -1,0 +1,28 @@
+{
+  "name": "@ziroeda/ai",
+  "version": "0.0.0",
+  "description": "AI assistant, app side: the chat pane and the bridges that apply the agent's edits to the open design. The agent itself is a separate server.",
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ziroeda/common": "workspace:*",
+    "@ziroeda/eeschema": "workspace:*",
+    "@ziroeda/kimath": "workspace:*",
+    "@ziroeda/pcbnew": "workspace:*",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-markdown": "^9.1.0",
+    "remark-gfm": "^4.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.0",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "vite": "^6.0.7"
+  }
+}

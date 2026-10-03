@@ -1145,10 +1145,15 @@ export class BOARD_NETLIST_UPDATER {
               : g,
           ),
         };
-        // Indices of added footprints shift when earlier ones are removed.
-        this.m_addedFootprints = this.m_addedFootprints
-          .filter((i) => !drop.has(i))
-          .map((i) => i - toDelete.filter((d) => d < i).length);
+        // Indices shift when earlier footprints are removed: the added list,
+        // and the component -> footprint map testConnectivity reads next
+        // (upstream holds pointers, which nothing has to re-aim).
+        const shift = (i: number) => i - toDelete.filter((d) => d < i).length;
+        this.m_addedFootprints = this.m_addedFootprints.filter((i) => !drop.has(i)).map(shift);
+        for (const [component, i] of footprintMap) {
+          if (drop.has(i)) footprintMap.delete(component);
+          else footprintMap.set(component, shift(i));
+        }
       }
 
       this.testConnectivity(netlist, footprintMap);

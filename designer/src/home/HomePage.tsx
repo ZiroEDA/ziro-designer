@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+import { registerAiBridge } from '@ziroeda/ai';
+import { projectBridge } from '@ziroeda/ai/app_bridge.js';
+import { showDoc } from '@ziroeda/ai/doc_viewer.js';
 import type { Entry } from '../fs/filesystem.js';
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { preloadBundle } from '../libraryPreload.js';
@@ -187,6 +190,7 @@ export function HomePage({
   activeDemo,
   onDemoStateChange,
   onProjectIdChange,
+  onCloseProject,
   openDemoRequest,
   onSwitchProject,
 }: {
@@ -224,6 +228,8 @@ export function HomePage({
    * saying it four times invites the four to disagree.
    */
   onProjectIdChange?: (localId: string | null) => void;
+  /** File > Close Project: the app closes it for every editor, not just the tree. */
+  onCloseProject?: () => void;
   /**
    * `/demo/<id>` from the address bar, to open here.
    *
@@ -1176,6 +1182,58 @@ export function HomePage({
     );
   };
 
+  // The AI assistant's New Project: the same template selector path, by
+  // template id. Through a ref, so the once-registered bridge sees this
+  // render's templates and names.
+  const aiOpenAfter = useRef<{ name: string; resolve: () => void } | null>(null);
+  useEffect(() => {
+    const wanted = aiOpenAfter.current;
+    if (!wanted || !picked || !onOpenProject) return;
+    const pro = picked.find((f) => f.name.endsWith('.kicad_pro'));
+    if (!pro || basename(pro.name) !== `${wanted.name}.kicad_pro`) return;
+    aiOpenAfter.current = null;
+    onOpenProject(picked, undefined, null);
+    wanted.resolve();
+  }, [picked, onOpenProject]);
+  const aiProjectRef = useRef({ templates, createFromTpl, takenProjectNames });
+  aiProjectRef.current = { templates, createFromTpl, takenProjectNames };
+  useEffect(
+    () =>
+      registerAiBridge(
+        projectBridge({
+          templates: async () =>
+            aiProjectRef.current.templates.map((t) => ({
+              id: t.id,
+              title: t.title,
+              description: t.description,
+            })),
+          create: async (rawName, templateId) => {
+            const {
+              templates: list,
+              createFromTpl: create,
+              takenProjectNames: taken,
+            } = aiProjectRef.current;
+            const template = list.find((t) => t.id === (templateId ?? DEFAULT_TEMPLATE_ID));
+            if (!template) throw new Error(`no template "${templateId}"; see list_templates`);
+            const name = sanitizeProjectName(rawName);
+            if (!name) throw new Error(`"${rawName}" is not a usable project name`);
+            // The selector refuses a taken name; so does this.
+            if (taken.has(name.toLowerCase()))
+              throw new Error(`a project named "${name}" already exists`);
+            // Then open it in the editors, as the Schematic tile does, once
+            // the manager has it (`picked`): until then no editor has a project.
+            const opened = new Promise<void>((resolve) => {
+              aiOpenAfter.current = { name, resolve };
+            });
+            await create(template, name);
+            await Promise.race([opened, new Promise((r) => setTimeout(r, 8000))]);
+            return name;
+          },
+        }),
+      ),
+    [],
+  );
+
   // The two handlers the chooser's Demos and Templates places call. They are
   // written here rather than into the places themselves because the places are
   // built once, above, and these close over state that changes every render;
@@ -1630,6 +1688,12 @@ export function HomePage({
     treePath: string,
     projectFileName = rootLabel,
   ): void => {
+    // A Markdown file (the project's DESIGN.md) opens rendered, as a document
+    // is read; the tree's right-click menu keeps the plain-text viewer.
+    if (/\.md$/i.test(file.name)) {
+      showDoc({ title: basename(file.name), text: file.text });
+      return;
+    }
     runActivation(activationForFile(file.name, projectFileContext(file.name, projectFileName)), {
       loadProject: onSwitchProject ? () => onSwitchProject(file.name) : undefined,
       // One editor for all three schematic branches; see ActivationHandlers.
@@ -1768,7 +1832,10 @@ export function HomePage({
     selectProjectFiles: () => filesInputRef.current?.click(),
     openRecent: (id) => void openStored(id),
     clearRecent: () => void clearRecent(),
-    closeProject: () => setPicked(null),
+    closeProject: () => {
+      setPicked(null);
+      onCloseProject?.();
+    },
     restoreLocalHistory: () => setRestoreListOpen(true),
     hasLocalHistory: history.length > 0,
     saveAs: () => void saveAsProject(),

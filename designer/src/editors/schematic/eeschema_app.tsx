@@ -8,6 +8,9 @@
  * `cvpcb_app.tsx` for `CVPCB_APP`. `eeschema` never imports `designer`; this
  * is the one file that answers its interface.
  */
+import { registerAiBridge } from '@ziroeda/ai';
+import { schBridge } from '@ziroeda/ai/sch_bridge.js';
+import type { SchScriptApi } from '@ziroeda/eeschema';
 import { useMemo } from 'react';
 import type { EESCHEMA_APP } from '@ziroeda/eeschema/eeschema_app.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
@@ -142,6 +145,9 @@ export function useEeschemaApp(): EESCHEMA_APP {
   );
 }
 
+/** The AI pane drives whichever schematic frame is shown. */
+const registerAiScriptApi = (api: SchScriptApi) => registerAiBridge(schBridge(api));
+
 /**
  * The Schematic Editor's window with the program's own `EESCHEMA_APP` —
  * what `App.tsx` mounts, the way it mounts `PcbEditorMount`. Lazily loaded
@@ -151,5 +157,5 @@ export function SchematicEditorMount(
   props: Omit<ComponentProps<typeof SchematicEditor>, 'app'>,
 ): JSX.Element {
   const app = useEeschemaApp();
-  return <SchematicEditor app={app} {...props} />;
+  return <SchematicEditor app={app} registerScriptApi={registerAiScriptApi} {...props} />;
 }

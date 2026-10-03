@@ -395,13 +395,21 @@ export function setItemsHidden(
 ): void {
   const view = aPanel.GetView();
 
-  for (const item of aItems) {
+  const hide = (item: BOARD_ITEM): void => {
     // A selected item is hidden by the selection itself (drawn on its
     // overlay group), so the end of a move leaves it hidden.
-    if (!aHide && item.IsSelected()) continue;
+    if (aHide || !item.IsSelected()) {
+      if (view.HasItem(item)) view.Hide(item, aHide);
+    }
 
-    if (view.HasItem(item)) view.Hide(item, aHide);
-  }
+    // A footprint's pads, graphics and fields are VIEW items of their own
+    // (PCB_VIEW::Add adds them beside it), so hiding the footprint alone left
+    // them drawn where the part was while the drag carried its copy away -
+    // as PCB_SELECTION_TOOL::highlightInternal walks them, so does this.
+    item.RunOnChildren(hide, RECURSE_MODE.RECURSE);
+  };
+
+  for (const item of aItems) hide(item);
 }
 
 /**
