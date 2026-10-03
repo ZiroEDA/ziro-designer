@@ -8,6 +8,9 @@
  * `pcbnew` never imports `designer`; this is the one file that wires its
  * interface back to what designer actually has.
  */
+import { registerAiBridge } from '@ziroeda/ai';
+import { pcbBridge } from '@ziroeda/ai/pcb_bridge.js';
+import type { PcbScriptApi } from '@ziroeda/pcbnew/pcb_script_api.js';
 import { type ComponentProps, useMemo } from 'react';
 import type { PCBNEW_APP } from '@ziroeda/pcbnew/browser/pcbnew_app.js';
 import { PcbEditor } from '@ziroeda/pcbnew/pcb_edit_frame_ui.js';
@@ -89,7 +92,10 @@ export function usePcbnewApp(): PCBNEW_APP {
  * run while this is mounted, as `PcbEditor`'s own settings subscriptions did
  * before the move.
  */
+/** The AI pane drives the board editor while its frame exists. */
+const registerAiScriptApi = (api: PcbScriptApi) => registerAiBridge(pcbBridge(api));
+
 export function PcbEditorMount(props: Omit<ComponentProps<typeof PcbEditor>, 'app'>): JSX.Element {
   const app = usePcbnewApp();
-  return <PcbEditor app={app} {...props} />;
+  return <PcbEditor app={app} registerScriptApi={registerAiScriptApi} {...props} />;
 }

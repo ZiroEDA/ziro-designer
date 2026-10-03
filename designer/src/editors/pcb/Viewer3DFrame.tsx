@@ -36,6 +36,7 @@ import {
   useViewer3dSettings,
 } from '../../prefs/useSettings.js';
 import { VIEWER3D_DEFAULTS } from '../../prefs/settings.js';
+import { registerAiBridge } from '@ziroeda/ai';
 import { showHotkeyList } from '@ziroeda/common/hotkeys_basic.js';
 import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
 import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
@@ -544,6 +545,57 @@ export function Viewer3DFrame({
       movingSpeedMultiplier: camera3d.moving_speed_multiplier,
     });
   }, [camera3d]);
+
+  // The AI assistant looks at the board in 3D through this frame: a camera
+  // preset, then the same read-back as Export Current View.
+  useEffect(() => {
+    if (!ready) return;
+    const settle = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    return registerAiBridge({
+      kind: '3d',
+      read: () => '',
+      run: (name, args) => {
+        if (name !== 'view_3d') return null;
+        return (async () => {
+          const v = api.current;
+          if (!v)
+            return {
+              text: 'The 3D viewer is not ready.',
+              isError: true,
+              note: '3D viewer not ready',
+            };
+          const view = String(args.view ?? 'angled');
+          v.setView(view === 'bottom' ? 'bottom' : 'top');
+          // The camera animates a view change; read back once it has landed.
+          await settle(700);
+          if (view === 'angled') {
+            for (let i = 0; i < 4; i++) v.rotate('x', false);
+            await settle(700);
+          }
+          v.zoomFit();
+          await settle(700);
+          const blob = await v.snapshot();
+          if (!blob)
+            return {
+              text: 'The 3D view could not be captured.',
+              isError: true,
+              note: '3D capture failed',
+            };
+          const png = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () =>
+              resolve(String(reader.result).replace(/^data:image\/png;base64,/, ''));
+            reader.readAsDataURL(blob);
+          });
+          return {
+            text: `The board in 3D, ${view} view.`,
+            imagePng: png,
+            note: `looked at the board in 3D (${view})`,
+          };
+        })();
+      },
+    });
+  }, [ready]);
 
   // EDA_3D_ACTIONS::exportImage — "Export the Current View as an image file".
   const exportImage = useCallback((): void => {

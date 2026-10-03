@@ -16,6 +16,7 @@
     "@sentry/browser": "^10.68.0",
     "@supabase/supabase-js": "^2.110.0",
     "@ziroeda/3d-viewer": "workspace:*",
+    "@ziroeda/ai": "workspace:*",
     "@ziroeda/bitmap2component": "workspace:*",
     "@ziroeda/bitmaps_png": "workspace:*",
     "@ziroeda/common": "workspace:*",

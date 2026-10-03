@@ -7,6 +7,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import type { PCB_SHAPE } from '@ziroeda/pcbnew/pcb_shape.js';
 import { parse } from '@ziroeda/sexpr/index.js';
 import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import {
@@ -265,5 +266,30 @@ describe('addPads takes each pad’s margin from the live PAD', () => {
     // per-axis; addPads here still applies its x to both — see padMargin.)
     const b = build(0, -50_000, 0);
     expect(area(b.layers['F.Paste']!) / MM2).toBeCloseTo(1.71, 6);
+  });
+});
+
+describe('the 3D board body is the outline pcbnew builds', () => {
+  // A 20 x 20 mm board with 3 mm rounded corners (gr_rect radius).
+  const TEXT = `(kicad_pcb (version 20241229) (generator "test")
+  (general (thickness 1.6))
+  (layers (0 "F.Cu" signal) (2 "B.Cu" signal) (25 "Edge.Cuts" user))
+  (setup)
+  (net 0 "")
+  (gr_rect (start 0 0) (end 20 20) (radius 3) (stroke (width 0.1) (type default)) (fill no) (layer "Edge.Cuts")
+    (uuid "00000000-0000-4000-8000-0000000000e2"))
+)`;
+
+  it('keeps a rounded rectangle rounded (GetBoardPolygonOutlines, not a square)', () => {
+    const board = readBoard(parse(TEXT));
+    expect((board.k!.Drawings()[0] as PCB_SHAPE | undefined)?.GetCornerRadius()).toBe(3e6);
+    const built = buildBoard3dLayers(board, { minX: 0, minY: 0, maxX: 20e6, maxY: 20e6 });
+    const outline = built.boardPoly[0]?.[0] ?? [];
+    // A square has 4 corners; a rounded one is tessellated arcs.
+    expect(outline.length).toBeGreaterThan(8);
+    // Nothing reaches the square's corner: the arc stays (√2 − 1)·3 mm inside it.
+    const nearest = Math.min(...outline.map((p) => Math.hypot(p.x, p.y)));
+    expect(nearest).toBeGreaterThan(1.2e6);
+    expect(nearest).toBeLessThan(1.3e6);
   });
 });

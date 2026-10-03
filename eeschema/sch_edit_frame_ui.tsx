@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+import type { SchScriptApi } from './sch_script_api.js';
 import { GetAssociatedDocument } from '@ziroeda/common/eda_doc.js';
 import * as KIPLATFORM_UI from '@ziroeda/common/kiplatform/ui.js';
 import { STATUS_TEXT_POPUP } from '@ziroeda/common/status_popup.js';
@@ -479,6 +480,7 @@ import {
   plotDxf,
   plotPs,
   pageIU,
+  renderSheetToCanvas,
   type PlotOpts,
   type PlotSink,
 } from './sch_plotter.js';
@@ -763,7 +765,12 @@ export function SchematicEditor({
   projectName,
   rootPro,
   kiway,
+  registerScriptApi,
 }: {
+  /** Lets a host script this window while it is shown (the AI pane): read the
+   *  sheet on screen and run one undoable command on it. Returns the
+   *  unregister function. */
+  registerScriptApi?: (api: SchScriptApi) => () => void;
   /** What the program gives this window (`EESCHEMA_APP`, `eeschema_app.ts`):
    *  settings, the app's dialogs and canvas, the hosted libraries, the other
    *  KIWAY players. Built by designer's `useEeschemaApp()`. */
@@ -2454,11 +2461,33 @@ export function SchematicEditor({
     (cmd: EditCommand) => runProject(new Map([[currentFileRef.current, cmd]])),
     [runProject],
   );
+  const runCommandRef = useRef(runCommand);
+  runCommandRef.current = runCommand;
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: everything it reads goes through refs or stable callbacks
+  useEffect(() => {
+    // Registered for as long as the frame exists, shown or not: the AI
+    // works on the schematic while the board is on screen, and back.
+    if (!registerScriptApi) return;
+    return registerScriptApi({
+      doc: () => docRef.current,
+      runCommand: (cmd) => runCommandRef.current(cmd),
+      annotatePlacement: (sym, lib) => annotatePlacementRef.current(sym, lib),
+      loadSymbol: (library, name) => app.loadSymbol(library, name),
+      erc: () => ercNowRef.current(),
+      symbolIndex: () => app.loadIndex(),
+      footprintIndex: () => app.loadFootprintIndex(),
+      snapshot: () => snapshotRef.current(),
+      undo: () => undoRef.current(),
+    });
+  }, [registerScriptApi]);
 
   const undo = useCallback(
     () => setDoc((d) => (d ? foldStep(history.current.undo(docsWith(d)), d) : d)),
     [foldStep],
   );
+  const undoRef = useRef(undo);
+  undoRef.current = undo;
   const redo = useCallback(
     () => setDoc((d) => (d ? foldStep(history.current.redo(docsWith(d)), d) : d)),
     [foldStep],
@@ -4150,6 +4179,8 @@ export function SchematicEditor({
     },
     [setup, es.annotation.automatic, hierarchyLibs, currentFile],
   );
+  const annotatePlacementRef = useRef(annotatePlacement);
+  annotatePlacementRef.current = annotatePlacement;
 
   /**
    * `SCH_DRAWING_TOOLS::PlaceSymbol` autoplaces the fields of the symbol it is
@@ -5841,6 +5872,28 @@ export function SchematicEditor({
     },
     [doc, ercOptions],
   );
+  // The script API's ERC reads the doc through its ref: a host calls it
+  // right after its own command, before React has rendered the new doc.
+  // The script API's picture: the whole sheet through the plot path, in the
+  // editor's theme. 150 dpi keeps 1.27 mm text legible to a vision model.
+  const snapshotRef = useRef<() => string>(() => '');
+  snapshotRef.current = () => {
+    const d = docRef.current;
+    if (!d) return '';
+    const canvas = renderSheetToCanvas(
+      d,
+      theme,
+      { color: true, drawingSheet: true, background: true },
+      150,
+    );
+    return canvas.toDataURL('image/png').slice('data:image/png;base64,'.length);
+  };
+  const ercNowRef = useRef<() => ErcViolation[]>(() => []);
+  ercNowRef.current = () => {
+    const d = docRef.current;
+    if (!d) return [];
+    return runErc(d, new Map(d.libSymbols.map((l) => [l.libId, l])), setup.erc, ercOptions(setup));
+  };
 
   // The footprint library index (nickname -> footprint names) backing
   // TestFootprintLinkIssues; loaded on the first run, like upstream's

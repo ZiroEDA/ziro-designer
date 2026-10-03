@@ -10,6 +10,8 @@
  * viewer pipeline, layer/object controls and presets are fully functional.
  */
 
+import type { PcbScriptApi } from './pcb_script_api.js';
+import { DEFAULT_UPDATE_PCB_OPTIONS } from './dialogs/dialog_update_pcb.js';
 import type { OutStr } from '@ziroeda/common/eda_item.js';
 import { type ARC_EDIT_MODE, FRAME_T } from '@ziroeda/common/frame_type.js';
 import type { KIWAY } from '@ziroeda/common/kiway.js';
@@ -240,6 +242,7 @@ import {
 } from './tools/pcb_selection_conditions.js';
 import { Icon } from '@ziroeda/common/widgets/icons.js';
 import { applyPnsChanges, PnsSession } from './router/router_tool.js';
+import { routeHeadless } from './router/route_headless.js';
 import { PnsRouterMode } from './router/pns_router.js';
 import type { PnsDesignSettings } from './router/pns_kicad_iface.js';
 import { Infobar } from '@ziroeda/common/widgets/wx_infobar.js';
@@ -1582,6 +1585,7 @@ function layerDefaultsRows(aFrame: PCB_EDIT_FRAME): LAYER_DEFAULTS_ROW[] {
 }
 
 export function PcbEditor({
+  registerScriptApi,
   app,
   fileName,
   text,
@@ -1604,6 +1608,10 @@ export function PcbEditor({
   readOnlyNotice,
   readOnly,
 }: {
+  /** Lets a host script this window (the AI pane): the live board and frame,
+   *  Update PCB from Schematic, zone fill and a picture. Returns the
+   *  unregister function. */
+  registerScriptApi?: (api: PcbScriptApi) => () => void;
   /** What the program gives this window — PreferencesDialog, HomeLink,
    *  SaveAsDialog, the 3D viewer, the footprint chooser, the settings
    *  triad — the same seam `cvpcb`'s `CVPCB_APP` and `pagelayout_editor`'s
@@ -5296,6 +5304,7 @@ export function PcbEditor({
       data: { netlist: NETLIST; library: Map<string, PcbFootprint> },
       options: UpdatePcbOptions,
       dryRun: boolean,
+      followCursor = true,
     ): readonly ReportLine[] => {
       const brd = boardRef.current;
       if (!brd) return [];
@@ -5338,13 +5347,123 @@ export function PcbEditor({
         setSelectionRef.current(added);
         // `*aRunDragCommand = true` (`netlist.cpp:152`), acted on by the dialog's
         // destructor: the spread cluster follows the cursor until you click.
-        startPostUpdateMoveRef.current(added);
+        if (followCursor) startPostUpdateMoveRef.current(added);
       }
 
       return reporter.lines;
     },
     [commitBoard],
   );
+
+  // The script API reads everything through refs, so it is registered once
+  // for the life of the frame.
+  const scriptRef = useRef({
+    buildNetlistLibrary,
+    runNetlistUpdate,
+    projectFilesNow,
+    drawOpts,
+    visible,
+    commitBoard,
+    loadFootprint,
+  });
+  scriptRef.current = {
+    buildNetlistLibrary,
+    runNetlistUpdate,
+    projectFilesNow,
+    drawOpts,
+    visible,
+    commitBoard,
+    loadFootprint,
+  };
+  // The router's settings are built further down this component; that
+  // declaration fills this in each render.
+  const routeDepsRef = useRef<{ pnsDesignSettings: () => PnsDesignSettings } | null>(null);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: everything it reads goes through refs
+  useEffect(() => {
+    if (!registerScriptApi) return;
+    return registerScriptApi({
+      board: () => frameRef.current?.GetBoard() ?? null,
+      frame: () => frameRef.current,
+      updateFromSchematic: async () => {
+        const sc = scriptRef.current;
+        const files = sc.projectFilesNow();
+        const fetched = FetchNetlistFromSchematic(
+          frameRef.current?.Kiway() ?? null,
+          frameRef.current,
+          files,
+          'Updating PCB requires a fully annotated schematic.',
+          rootPro,
+        );
+        if (!fetched.ok)
+          return { ok: false, report: [fetched.error, fetched.details ?? ''].join('\n').trim() };
+        const library = await sc.buildNetlistLibrary(fetched.netlist, files);
+        // Update from the live board as it stands, not a view a scripted
+        // turn may have raced: the updater decides deletions (board-only
+        // footprints are kept) from what it is handed.
+        const kb = frameRef.current?.GetBoard();
+        if (kb)
+          boardRef.current = {
+            ...boardFromBOARD(kb, fileNameRef.current),
+            fileName: fileNameRef.current,
+          };
+        const lines = sc.runNetlistUpdate(
+          { netlist: fetched.netlist, library },
+          // "Delete footprints with no symbols" on: a part removed from the
+          // schematic leaves the board too.
+          { ...DEFAULT_UPDATE_PCB_OPTIONS, deleteExtraFootprints: true },
+          false,
+          false,
+        );
+        return { ok: true, report: lines.map((l) => l.message).join('\n') };
+      },
+      fillZones: () => frameRef.current?.GetToolManager()?.RunAction(PCB_ACTIONS.zoneFillAll),
+      show3D: () => setShow3D(true),
+      route: async (from, to, layer, through = []) => {
+        const brd = boardRef.current;
+        const kb = frameRef.current?.GetBoard();
+        if (!brd || !kb) return { ok: false, reason: 'no board open' };
+        const sc = scriptRef.current;
+        const routeDeps = routeDepsRef.current;
+        if (!routeDeps) return { ok: false, reason: 'the router is not ready' };
+        // Arrived means a new segment ends inside the pad at that end on a
+        // copper layer the pad has; with no pad there, on the point itself.
+        const arrivedAt = (at: { x: number; y: number }) => {
+          const pad = kb
+            .Footprints()
+            .flatMap((f) => f.Pads())
+            .find((p) => p.HitTest(at));
+          return (e: { x: number; y: number; layer: string }) =>
+            pad
+              ? pad.IsOnLayer(kb.GetLayerID(e.layer)) && pad.HitTest({ x: e.x, y: e.y })
+              : Math.hypot(e.x - at.x, e.y - at.y) < 1000;
+        };
+        const r = routeHeadless(
+          brd,
+          from,
+          to,
+          layer,
+          {
+            designSettings: routeDeps.pnsDesignSettings(),
+            isLayerVisible: (l) => sc.visible.has(l),
+          },
+          kb.GetCopperLayerCount(),
+          arrivedAt(from),
+          arrivedAt(to),
+          through,
+        );
+        if (!r.ok) return { ok: false, reason: r.reason };
+        sc.commitBoard(applyPnsChanges(brd, r.changes));
+        // The view follows the commit a microtask later; the next route
+        // has to start from it.
+        await new Promise((res) => setTimeout(res, 0));
+        return { ok: true, reason: '' };
+      },
+      loadFootprint: async (libId) => {
+        const lib = await scriptRef.current.loadFootprint(libId);
+        return lib?.k ? (lib.k.Duplicate(false) as FOOTPRINT) : null;
+      },
+    });
+  }, [registerScriptApi]);
 
   const performNetlistUpdate = useCallback(
     (options: UpdatePcbOptions, dryRun: boolean): readonly ReportLine[] =>
@@ -8446,6 +8565,7 @@ export function PcbEditor({
       })(),
     };
   };
+  routeDepsRef.current = { pnsDesignSettings };
 
   /**
    * `ROUTER_TOOL::performRouting`, one click at a time

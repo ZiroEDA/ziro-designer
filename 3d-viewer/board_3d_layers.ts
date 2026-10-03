@@ -34,6 +34,29 @@ import {
   transformRingToPolygon,
 } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
+import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
+
+/** A SHAPE_POLY_SET as outline-plus-holes polygons, in the same IU. */
+function polySetToPolygons(set: SHAPE_POLY_SET): Polygon[] {
+  const out: Polygon[] = [];
+  for (let i = 0; i < set.OutlineCount(); i++) {
+    const poly: Vec2[][] = [
+      set
+        .COutline(i)
+        .CPoints()
+        .map((p) => ({ x: p.x, y: p.y })),
+    ];
+    for (let h = 0; h < set.HoleCount(i); h++)
+      poly.push(
+        set
+          .CHole(i, h)
+          .CPoints()
+          .map((p) => ({ x: p.x, y: p.y })),
+      );
+    out.push(poly);
+  }
+  return out;
+}
 import type { Board } from '@ziroeda/pcbnew';
 import { barcodeGeometry } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/board_view.js';
 import { viaIsTented } from '@ziroeda/pcbnew/exporters/export_d356.js';
@@ -373,9 +396,23 @@ export function buildBoard3dLayers(
   // ----- the board -----------------------------------------------------------
   // `GetBoardPolygonOutlines`: the first loop is the outer boundary (largest
   // area, as `boardOutlineLoops` orders them), the rest are cutouts.
-  const loops = opts.empty ? [] : boardOutlineLoops(board, bbox);
-  let boardPoly: Polygon[] = loops.length ? simplify([[loops[0]!]]) : [];
-  for (const cut of loops.slice(1)) boardPoly = booleanSubtract(boardPoly, [[cut]]);
+  // BOARD_ADAPTER::createBoardPolygon (board_adapter.cpp:1029) asks the
+  // board itself - `GetBoardPolygonOutlines( m_board_poly, true, nullptr,
+  // false, true )` - which is the shared outline builder: rounded rectangle
+  // corners, arcs, every shape as pcbnew sees it. The view-only chainer
+  // below is kept for a view with no live BOARD behind it.
+  let boardPoly: Polygon[] = [];
+  const live = opts.empty ? null : board.k;
+  if (live) {
+    const set = new SHAPE_POLY_SET();
+    live.GetBoardPolygonOutlines(set, true, null, false, true);
+    boardPoly = polySetToPolygons(set);
+  }
+  if (!opts.empty && boardPoly.length === 0) {
+    const loops = boardOutlineLoops(board, bbox);
+    boardPoly = loops.length ? simplify([[loops[0]!]]) : [];
+    for (const cut of loops.slice(1)) boardPoly = booleanSubtract(boardPoly, [[cut]]);
+  }
 
   // ----- the holes -----------------------------------------------------------
   // create_layer_items.cpp:527-566 (vias) and :877-901 (pads).
