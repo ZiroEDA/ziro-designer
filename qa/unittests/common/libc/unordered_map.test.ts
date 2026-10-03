@@ -69,9 +69,10 @@ describe('std::unordered_map<std::string> iteration order', () => {
     const map = new STD_UNORDERED_MAP<number>();
     for (const k of ['R', 'U', 'X-Y', 'C', 'J']) map.emplace(k, 0);
     const before = [...map.keys()];
-    map.set(before[0]!, 7);
+    // The last key: re-inserting would put it at the front of the list.
+    map.set(before[before.length - 1]!, 7);
     expect([...map.keys()]).toEqual(before);
-    expect(map.get(before[0]!)).toBe(7);
+    expect(map.get(before[before.length - 1]!)).toBe(7);
   });
 
   it('does not insert a key twice, and keeps the first value', () => {
