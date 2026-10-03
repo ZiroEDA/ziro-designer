@@ -108,8 +108,6 @@ import {
   type SelectionFilter,
   BOARD_NETLIST_UPDATER,
   type NETLIST,
-  fillZones,
-  zoneClearanceOf,
   imageAt,
   type ImageValues,
   boardAuxOrigin,
@@ -407,7 +405,6 @@ import {
   type DimensionValues,
 } from './dialogs/dialog_dimension_properties.js';
 import { Reporter, type ReportLine } from '@ziroeda/common';
-import { netClassClearanceMM } from '@ziroeda/common';
 import {
   MenuBar,
   ContextMenu,
@@ -454,7 +451,6 @@ import {
   findProjectPro,
   type PCBNEW_JSON_SETTINGS_LIKE,
 } from './pcb_edit_frame.js';
-import { clampMaxErrorMM } from './board_settings.js';
 import { BoardSetupFromWindow, BoardSetupToWindow } from './dialogs/board_setup_transfer.js';
 import { DumpJson } from '@ziroeda/common/settings/json_dump.js';
 import type { BOARD } from './board.js';
@@ -659,7 +655,6 @@ import { drawPanelWindow } from '@ziroeda/common/gal/gal_window.js';
 import { GAL_TYPE } from '@ziroeda/common/draw_panel_gal.js';
 import { wxEVT_SIZE } from '@ziroeda/common/wx/wx_event.js';
 import {
-  boardToBOARD,
   pageInfoOfPaper,
   paperOfPageInfo,
   titleBlockView,
@@ -2323,7 +2318,6 @@ export function PcbEditor({
     ) => Promise<string | null>;
     polygonDialog: () => Promise<boolean>;
     showZoneManager: () => Promise<{ ok: boolean; repour: boolean }>;
-    fillZones: (aBoard: BOARD, aZones: ZONE[]) => boolean;
     fillAllZones: () => void;
   } | null>(null);
   /**
@@ -2438,7 +2432,6 @@ export function PcbEditor({
         mwWindowRef.current!.textEntry(aPrompt, aCaption, aValue, aValidator),
       mwavePolygonalShapeDialog: () => mwWindowRef.current!.polygonDialog(),
       showZoneManager: () => mwWindowRef.current!.showZoneManager(),
-      fillZones: (aBoard, aZones) => mwWindowRef.current!.fillZones(aBoard, aZones),
       // PCB_SELECTION_TOOL's window half: filled in below, once the editor's
       // state and callbacks exist (`selWindowRef`).
       showInfoBarWarning: (aMsg) => selWindowRef.current?.showInfoBarWarning(aMsg),
@@ -2552,8 +2545,6 @@ export function PcbEditor({
       showPadTableDialog: (aDialog) => setPadTableDlg(aDialog),
       dismissInfoBar: () => editWindowRef.current?.dismissInfoBar(),
       eventToWindow: (aEvent) => selWindowRef.current?.eventToWindow(aEvent) ?? false,
-      // TRANSITIONAL (#636 stage 3): ZONE_FILLER's view pour reads these.
-      zoneFillOptions: () => zoneFillOptionsRef.current,
       highlightChanged: () => refreshInspectionMirrorRef.current(),
       showBoardStatisticsDialog: () => setStatsOpen(true),
     });
@@ -2817,80 +2808,6 @@ export function PcbEditor({
       return { name: f.name, text: entry.text };
     });
   }, [projectFiles]);
-  // `BOARD_DESIGN_SETTINGS::m_ZoneLayerProperties` as the zone filler wants it:
-  // IU, keyed by canonical layer name. The Board Setup > Zone Hatch Offsets page
-  // edits it in mm, which is this module's convention for a settings slice.
-  const hatchingOffsets = useMemo(() => {
-    const out: Record<string, { x: number; y: number }> = {};
-    for (const [layer, props] of Object.entries(boardSetup.zoneLayerProperties)) {
-      if (props.hatchingOffset)
-        out[layer] = {
-          x: Math.round(props.hatchingOffset.x * MM),
-          y: Math.round(props.hatchingOffset.y * MM),
-        };
-    }
-    return out;
-  }, [boardSetup.zoneLayerProperties]);
-  /**
-   * ZONE_FILLER's options as `BOARD_DESIGN_SETTINGS` holds them, in IU.
-   *
-   * `m_MaxError` is Board Setup > Constraints' "Maximum allowed deviation".
-   * The filler was called without it and fell back to its own ARC_HIGH_DEF
-   * default, so the field moved nothing: every arc, circle and thermal relief
-   * in a pour was tessellated at 0.005 mm whatever the board asked for.
-   *
-   * `PANEL_SETUP_CONSTRAINTS::TransferDataFromWindow` clamps the value to
-   * [MINIMUM_ERROR_SIZE_MM, MAXIMUM_ERROR_SIZE_MM] before it reaches the
-   * settings (`panel_setup_constraints.cpp:161-165`), and zero would divide by
-   * zero in `GetArcToSegmentCount`, so the clamp is not cosmetic.
-   */
-  const zoneFillOptions = useMemo(
-    () => ({
-      hatchingOffsets,
-      maxError: Math.round(clampMaxErrorMM(boardSetup.constraints.maxDeviationMM) * MM),
-      // `EDGE_CLEARANCE_CONSTRAINT`, off Board Setup > Constraints. It is what
-      // insets a filled pour from Edge.Cuts, so it has to be the board's own
-      // number and not the filler's fallback.
-      edgeClearance: Math.round(boardSetup.constraints.copperToEdgeMM * MM),
-      // `HOLE_CLEARANCE_CONSTRAINT`, off the same page. For an NPTH it is the
-      // only ordinary clearance that reaches the hole at all.
-      holeClearance: Math.round(boardSetup.constraints.copperToHoleMM * MM),
-      // `m_MinClearance`, the floor under a pad's own clearance override.
-      minClearance: Math.round(boardSetup.constraints.minClearanceMM * MM),
-      // `m_HoleToHoleMin` and the worst netclass clearance: two of the terms
-      // of `GetBiggestClearanceValue`, which sizes the box the filler looks
-      // for knockouts in.
-      holeToHoleMin: Math.round(boardSetup.constraints.minHoleToHoleMM * MM),
-      worstNetClassClearance: Math.round(
-        Math.max(0, ...boardSetup.netClasses.classes.map((c) => Number(c.clearance) || 0)) * MM,
-      ),
-      // `CLEARANCE_CONSTRAINT`. Without this the pour used the zone's own
-      // `(connect_pads (clearance …))` alone, so a zone that states none — and
-      // plenty do — kept no gap at all from other nets.
-      clearanceOf: zoneClearanceOf({
-        minClearance: Math.round(boardSetup.constraints.minClearanceMM * MM),
-        // Read through the ref, not a captured board: the resolver is called
-        // during a fill, and the net table it needs is the one the board has
-        // then.
-        netClassClearance: (net: number) => {
-          const mm = netClassClearanceMM(
-            boardRef.current?.nets.get(net) ?? '',
-            boardSetup.netClasses,
-          );
-          return mm === undefined ? undefined : Math.round(mm * MM);
-        },
-      }),
-    }),
-    [
-      hatchingOffsets,
-      boardSetup.constraints.maxDeviationMM,
-      boardSetup.constraints.copperToEdgeMM,
-      boardSetup.constraints.copperToHoleMM,
-      boardSetup.constraints.minClearanceMM,
-      boardSetup.constraints.minHoleToHoleMM,
-      boardSetup.netClasses,
-    ],
-  );
   const boardSetupRef = useRef(boardSetup);
   boardSetupRef.current = boardSetup;
 
@@ -2982,8 +2899,6 @@ export function PcbEditor({
   const [mwPolygonOpen, setMwPolygonOpen] = useState<{ resolve: (ok: boolean) => void } | null>(
     null,
   );
-  /** `ZONE_FILLER::Fill` over the Zone Manager's clones; set once the fill options exist. */
-  const fillZoneClonesRef = useRef<(aBoard: BOARD, aZones: ZONE[]) => boolean>(() => false);
   /** `doInteractiveItemPlacement`'s `setCursor`: PLACE once `newItem` exists. */
   const [mwPlacing, setMwPlacing] = useState(false);
   /**
@@ -5062,10 +4977,6 @@ export function PcbEditor({
           return { resolve };
         });
       }),
-    // `m_filler->Fill( clones )` with the board's zone list swapped for them:
-    // the view-based pour runs on a view of the board with the clones in it, and
-    // is written back over the clones alone.
-    fillZones: (aBoard, aZones) => fillZoneClonesRef.current(aBoard, aZones),
     fillAllZones: () => fillAllZonesRef.current(),
   };
   selWindowRef.current = {
@@ -6603,28 +6514,9 @@ export function PcbEditor({
   const fillAllZones = useCallback(() => {
     frameRef.current?.GetToolManager()?.RunAction(PCB_ACTIONS.zoneFillAll);
   }, []);
-  const zoneFillOptionsRef = useRef(zoneFillOptions);
-  zoneFillOptionsRef.current = zoneFillOptions;
   // The global key handler is stable, so it reaches the action through a ref.
   const fillAllZonesRef = useRef(fillAllZones);
   fillAllZonesRef.current = fillAllZones;
-  fillZoneClonesRef.current = (aBoard, aZones) => {
-    // Swap the board's zone list for the clones, pour a view of that board,
-    // write the result back over the clones and restore the originals.
-    const original = [...aBoard.Zones()];
-    try {
-      aBoard.Zones().splice(0, aBoard.Zones().length, ...aZones);
-      const view = boardFromBOARD(aBoard, fileNameRef.current);
-      boardToBOARD(fillZones(view, zoneFillOptions));
-      return true;
-    } catch (err) {
-      console.error('Zone Manager fill failed:', err);
-      return false;
-    } finally {
-      aBoard.Zones().splice(0, aBoard.Zones().length, ...original);
-      aBoard.BuildConnectivity();
-    }
-  };
 
   /**
    * EDIT_TOOL::Properties: open Track & Via Properties on the selection.

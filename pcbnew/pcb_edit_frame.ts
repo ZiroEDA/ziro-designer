@@ -124,7 +124,7 @@ import type { DIALOG_OFFSET_ITEM } from './dialogs/dialog_offset_item.js';
 import { PAD_TOOL } from './tools/pad_tool.js';
 import { GLOBAL_EDIT_TOOL } from './tools/global_edit_tool.js';
 import { ZONE_FILLER_TOOL } from './tools/zone_filler_tool.js';
-import type { ZoneFillOptions } from './zone_filler.js';
+import { ZONE_FILLER } from './zone_filler.js';
 import type { RoutingSettings } from './router/pns_routing_settings.js';
 import type { VIA_DIMENSION } from './board_design_settings.js';
 
@@ -487,19 +487,10 @@ export interface PCB_EDIT_FRAME_HOOKS {
    */
   selectItem?(aItem: FOOTPRINT): void;
   /**
-   * `ZONE_FILLER( board, nullptr ).Fill( aZones )` for the Zone Manager's
-   * "Update Displayed Zones": the pour of the clones, with the board's zone
-   * list swapped for them. The pour is the window's (it is still view based);
-   * true when it ran to the end. Optional: absent answers false.
-   */
-  fillZones?(aBoard: BOARD, aZones: ZONE[]): boolean;
-  /**
    * `DIALOG_ZONE_MANAGER( editFrame ).ShowQuasiModal()`: true for wxID_OK,
    * with `GetRepourOnClose()`. Optional: absent answers cancel.
    */
   showZoneManager?(): Promise<{ ok: boolean; repour: boolean }>;
-  /** TRANSITIONAL (#636 stage 3): ZONE_FILLER's view-pour options. */
-  zoneFillOptions?(): ZoneFillOptions;
   /** The window's KiDialog: KIDIALOG::ShowModal. */
   askKiDialog?(aRequest: KiDialogRequest): Promise<KiDialogResult>;
   /**
@@ -1093,14 +1084,19 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     this.ShowInfoBarWarning('Zone fills may be inaccurate.  DRC rules contain errors.');
   }
 
+  /**
+   * ZONE_FILLER_TOOL::ZoneFillDirty's slow-refill note (zone_filler_tool.cpp:289-303).
+   * The "Open Preferences" link is not carried: the infobar takes text only.
+   */
+  ShowZoneAutoRefillSlowMessage(): void {
+    this.ShowInfoBarMsg(
+      'Automatic refill of zones can be turned off in Preferences if it becomes too slow.',
+    );
+  }
+
   /** `KIDIALOG( this, ... ).ShowModal()`, through the window's KiDialog host. */
   AskKiDialog(aRequest: KiDialogRequest): Promise<KiDialogResult> {
     return this.hooks.askKiDialog?.(aRequest) ?? Promise.resolve('cancel');
-  }
-
-  /** TRANSITIONAL (#636 stage 3): the view pour's options, from the window's Board Setup. */
-  GetZoneFillOptions(): ZoneFillOptions {
-    return this.hooks.zoneFillOptions?.() ?? {};
   }
 
   // ---- PAD_TOOL's window half (PAD_TOOL_FRAME) ------------------------------
@@ -1244,9 +1240,30 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     commit.Push(aCommitMessage);
   }
 
-  /** The window half of `ZONE_FILLER::Fill` over clones: see {@link PCB_EDIT_FRAME_HOOKS.fillZones}. */
+  /**
+   * `DIALOG_ZONE_MANAGER::OnUpdateDisplayedZonesClick`'s pour
+   * (dialog_zone_manager.cpp:495-519): the board's zone list swapped for the
+   * clones, `ZONE_FILLER( board, nullptr ).Fill` over them, and the originals
+   * restored. "Do not use a commit here since we're operating on cloned zones
+   * that are not owned by the board." The connectivity is rebuilt after the
+   * restore too, to drop its pointers to the clones. Here rather than in the
+   * dialog so the dialog's tests can stand in for the pour.
+   */
   FillZones(aBoard: BOARD, aZones: ZONE[]): boolean {
-    return this.hooks.fillZones?.(aBoard, aZones) ?? false;
+    const zones = aBoard.Zones();
+    const originalZones = [...zones];
+
+    zones.splice(0, zones.length, ...aZones);
+
+    try {
+      const filler = new ZONE_FILLER(aBoard, null);
+      const complete = filler.Fill(aBoard.Zones());
+      aBoard.BuildConnectivity();
+      return complete;
+    } finally {
+      zones.splice(0, zones.length, ...originalZones);
+      aBoard.BuildConnectivity();
+    }
   }
 
   /** `PCB_BASE_EDIT_FRAME::GetLayerPairSettings()` (`pcb_base_edit_frame.h:249`). */

@@ -118,6 +118,30 @@ export class ADVANCED_CFG {
   m_ExtraClearance = 0.0005;
 
   /**
+   * Dump the zone filler's intermediate poly sets onto the inner copper layers.
+   *
+   * Setting name: "DebugZoneFiller"
+   * Default value: false
+   */
+  m_DebugZoneFiller = false;
+
+  /**
+   * The simplification level VERTEX_SET uses when triangulating or connecting.
+   *
+   * Setting name: "TriangulateSimplificationLevel"
+   * Default value: 50
+   */
+  m_TriangulateSimplificationLevel = 50;
+
+  /**
+   * Refill zones that overlap ones whose islands were removed, until the fills converge.
+   *
+   * Setting name: "ZoneFillIterativeRefill"
+   * Default value: true
+   */
+  m_ZoneFillIterativeRefill = true;
+
+  /**
    * Enable the minimum slot width check for creepage
    *
    * Setting name: "EnableCreepageSlot"
