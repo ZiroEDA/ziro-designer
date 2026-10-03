@@ -1016,15 +1016,15 @@ export async function applyZschBatch(api: SchScriptApi, text: string): Promise<A
     if (pinsOps.length) deferred.push({ target, ops: pinsOps });
     done.push(`the lines for ${label}`);
   }
-  for (const { target, ops } of deferred) {
-    // `pins` before the labels on the pins it makes.
-    const ordered = [
-      ...ops.filter((h) => h.op.kind === 'pins'),
-      ...ops.filter((h) => h.op.kind !== 'pins'),
-    ];
-    const failed = runLive(target, ordered);
-    if (failed) return stop(failed);
-  }
+  // Every `pins` first, wherever it was written: a net on a sheet pin needs the pin to exist.
+  for (const kind of ['pins', 'sheetnet'] as const)
+    for (const { target, ops } of deferred) {
+      const failed = runLive(
+        target,
+        ops.filter((h) => h.op.kind === kind),
+      );
+      if (failed) return stop(failed);
+    }
   return { applied, errors: [], hints };
 }
 

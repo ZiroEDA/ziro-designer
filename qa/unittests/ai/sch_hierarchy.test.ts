@@ -28,6 +28,8 @@ const LIBS: Record<string, LibSymbol> = {
   'Device:R': lib('R.kicad_sym', 'Device:R'),
   'power:GND': lib('GND.kicad_sym', 'power:GND'),
 };
+// AB.kicad_sym: Device:R renamed, its pins named A and B, for a port named by pin name.
+LIBS['Test:AB'] = lib('AB.kicad_sym', 'Test:AB');
 
 beforeEach(() => SetPgm(new PGM_BASE(null, new SETTINGS_MANAGER())));
 afterEach(() => SetPgm(null));
@@ -216,5 +218,77 @@ describe('zsch hierarchy', () => {
     expect(power).toMatch(/sym R1 Device:R/);
     expect(power).toMatch(/port VIN in @/);
     expect((await bridge.run('read_schematic', { sheet: 'Nope' }))!.text).toBe('(no sheet Nope)');
+  });
+  it('runs every pins line before the nets on sheet pins, wherever they were written', async () => {
+    const { api, docs } = fakeWindow();
+    const r = await applyZschBatch(
+      api,
+      [
+        'sheet "Power" power.kicad_sch @50.8,50.8 38.1,30.48',
+        'net VIN Power.VIN',
+        'in "Power"',
+        'sym R1 Device:R @100,60',
+        'port VIN in R1.1',
+        'in root',
+        'pins "Power"',
+      ].join('\n'),
+    );
+    expect(r.errors).toEqual([]);
+    const root = docs.get('proj.kicad_sch')!;
+    expect(root.labels.some((l) => l.kind === 'label' && l.text === 'VIN')).toBe(true);
+  });
+
+  it('faces a sheet-pin label away from the sheet: left on the left edge, right on the right', async () => {
+    const { api, docs } = fakeWindow();
+    const r = await applyZschBatch(
+      api,
+      [
+        'sheet "Power" power.kicad_sch @50.8,50.8 38.1,30.48',
+        'in "Power"',
+        'sym R1 Device:R @100,60',
+        'port VIN in R1.1',
+        'port VOUT out R1.2',
+        'in root',
+        'pins "Power"',
+        'net VIN Power.VIN',
+        'net VOUT Power.VOUT',
+      ].join('\n'),
+    );
+    expect(r.errors).toEqual([]);
+    const root = docs.get('proj.kicad_sch')!;
+    const angle = (t: string) => root.labels.find((l) => l.kind === 'label' && l.text === t)!.angle;
+    expect(angle('VIN')).toBe(180);
+    expect(angle('VOUT')).toBe(0);
+  });
+
+  it('refuses a second sheet of the same name on one sheet', async () => {
+    const { api } = fakeWindow();
+    await applyZschBatch(api, 'sheet "S" s.kicad_sch @50,50 40,30');
+    const r = await applyZschBatch(api, 'sheet "S" t.kicad_sch @150,50 40,30');
+    expect(r.errors.some((e) => e.includes('a sheet S is already here'))).toBe(true);
+  });
+
+  it('leaves the frame on the sheet it was on', async () => {
+    const { api } = fakeWindow();
+    await applyZschBatch(
+      api,
+      'sheet "S" s.kicad_sch @50,50 40,30\nin "S"\nsym R1 Device:R @100,60\nport X in R1.1',
+    );
+    expect(api.readLive!((f) => f.GetCurrentSheet().size())).toBe(1);
+  });
+
+  it('finds a port pin by its name as well as its number', async () => {
+    const { api, docs } = fakeWindow();
+    const r = await applyZschBatch(
+      api,
+      'sheet "S" s.kicad_sch @50,50 40,30\nin "S"\nsym U1 Test:AB @100,60\nport X in U1.B',
+    );
+    expect(r.errors).toEqual([]);
+    const child = docs.get('s.kicad_sch')!;
+    const label = child.labels.find((l) => l.text === 'X')!;
+    const byNumber = await applyZschBatch(api, 'in "S"\nport Y in U1.2');
+    expect(byNumber.errors).toEqual([]);
+    const y = docs.get('s.kicad_sch')!.labels.find((l) => l.text === 'Y')!;
+    expect(label.at).toEqual(y.at);
   });
 });

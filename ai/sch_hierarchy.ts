@@ -191,7 +191,8 @@ export function runHierOps(
   aOps: readonly { line: string; op: HierOp }[],
 ): SCH_SCREEN[] {
   const schematic = aFrame.Schematic();
-  const before = schematic.CurrentSheet();
+  // A copy: SetCurrentSheet assigns into the schematic's own path (*m_currentSheet = aPath).
+  const before = schematic.CurrentSheet().Clone();
   const path = findSheetPath(aFrame, aPathName);
   if (!path) throw new Error(`in ${aPathName}: no such sheet`);
 
