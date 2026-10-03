@@ -1824,6 +1824,10 @@ export function PcbEditor({
     },
     [onViewer3DOpenChange],
   );
+  const show3DRef = useRef(show3D);
+  show3DRef.current = show3D;
+  const setShow3DRef = useRef(setShow3D);
+  setShow3DRef.current = setShow3D;
   const [inspectOpen, setInspectOpen] = useState(false);
   /** DIALOG_PASTE_SPECIAL, opened by PCB_CONTROL::Paste for `ACTIONS::pasteSpecial`. */
   const [pasteSpecialDlg, setPasteSpecialDlg] = useState<{
@@ -2367,6 +2371,8 @@ export function PcbEditor({
       // `Kiface().KifaceSettings()`: the one PCBNEW_SETTINGS installPgm keeps.
       settings: () => Pgm().GetSettingsManager().GetAppSettings<PCBNEW_SETTINGS>('pcbnew')!,
       storeSettings: () => storePcbnewSettingsRef.current(),
+      viewer3DShown: () => show3DRef.current,
+      showViewer3D: () => setShow3DRef.current(true),
       reCreateAuxiliaryToolbar: () => {
         const f = frameRef.current;
 
@@ -3131,7 +3137,7 @@ export function PcbEditor({
       // Display-mode toggles: on = sketch (outline) = fill off (m_Display*Fill).
       trackFill: !toggles.has('trackDisplayMode'),
       viaFill: !toggles.has('viaDisplayMode'),
-      padFill: !toggles.has('padDisplayMode'),
+      padFill: pcbCfg.pcb_display.pad_fill,
       filledShapeOpacity: opacity.filledShapes,
       contrastMode: contrast,
       // `m_hiContrastFactor = 1.0 - hicontrast_dimming_factor`
@@ -3163,7 +3169,7 @@ export function PcbEditor({
   );
 
   // The left-toolbar high-contrast button reflects the Layer Display mode.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `unitLabel` is the trigger - the frame's conditions are read through frameRef
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `unitLabel` and `pcbCfg` are the triggers - the frame's conditions are read through frameRef
   const leftToggles = useMemo(() => {
     const s = new Set(toggles);
     const frame = frameRef.current;
@@ -3177,7 +3183,7 @@ export function PcbEditor({
     if (highlightNets.size > 0) s.add('toggleNetHighlight');
     else s.delete('toggleNetHighlight');
     return s;
-  }, [toggles, contrast, objects.ratsnest, highlightNets, unitLabel]);
+  }, [toggles, contrast, objects.ratsnest, highlightNets, unitLabel, pcbCfg]);
 
   // `text` is live (see the `openNonce` prop): the host mirrors this editor's
   // own autosaved board back into the open project, so reading it as a
@@ -7689,7 +7695,7 @@ export function PcbEditor({
         void openUpdatePcb();
         break;
       case 'threeDViewer':
-        setShow3D(true);
+        runAction(ACTIONS.show3DViewer);
         break;
 
       /*
@@ -8046,6 +8052,9 @@ export function PcbEditor({
       showNetInspector: leftToggles.has('showNetInspector'),
       zoneDisplayFilled: leftToggles.has('zoneDisplayFilled'),
       zoneDisplayOutline: leftToggles.has('zoneDisplayOutline'),
+      padDisplayMode: leftToggles.has('padDisplayMode'),
+      graphicsOutlines: leftToggles.has('graphicsOutlines'),
+      textOutlines: leftToggles.has('textOutlines'),
     },
   );
 

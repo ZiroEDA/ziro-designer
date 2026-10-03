@@ -257,6 +257,12 @@ export interface PCBNEW_JSON_SETTINGS_LIKE {
     ratsnest_curved: boolean;
     ratsnest_thickness: number;
     show_page_borders: boolean;
+    graphic_items_fill: boolean;
+    graphics_fill: boolean;
+    text_fill: boolean;
+    pad_fill: boolean;
+    track_fill: boolean;
+    via_fill: boolean;
   };
   editing: {
     pcb_angle_snap_mode: 0 | 1 | 2;
@@ -357,6 +363,13 @@ export function loadPcbnewSettings(
   s.m_Display.m_DisplayRatsnestLinesCurved = d.ratsnest_curved;
   s.m_Display.m_RatsnestThickness = d.ratsnest_thickness;
   s.m_ShowPageLimits = d.show_page_borders;
+  // Two PARAMs over one value, read in m_params order: the second wins.
+  s.m_ViewersDisplay.m_DisplayGraphicsFill = d.graphic_items_fill;
+  s.m_ViewersDisplay.m_DisplayGraphicsFill = d.graphics_fill;
+  s.m_ViewersDisplay.m_DisplayTextFill = d.text_fill;
+  s.m_ViewersDisplay.m_DisplayPadFill = d.pad_fill;
+  s.m_Display.m_DisplayPcbTrackFill = d.track_fill;
+  s.m_Display.m_DisplayViaFill = d.via_fill;
   s.m_ColorTheme = json.appearance.color_theme;
 
   s.m_CrossProbing = { ...json.cross_probing };
@@ -480,6 +493,19 @@ export function storePcbnewSettings(s: PCBNEW_SETTINGS, json: PCBNEW_JSON_SETTIN
   if (d.show_page_borders !== s.m_ShowPageLimits) {
     d.show_page_borders = s.m_ShowPageLimits;
     changed = true;
+  }
+  for (const [key, value] of [
+    ['graphic_items_fill', s.m_ViewersDisplay.m_DisplayGraphicsFill],
+    ['graphics_fill', s.m_ViewersDisplay.m_DisplayGraphicsFill],
+    ['text_fill', s.m_ViewersDisplay.m_DisplayTextFill],
+    ['pad_fill', s.m_ViewersDisplay.m_DisplayPadFill],
+    ['track_fill', s.m_Display.m_DisplayPcbTrackFill],
+    ['via_fill', s.m_Display.m_DisplayViaFill],
+  ] as const) {
+    if (d[key] !== value) {
+      d[key] = value;
+      changed = true;
+    }
   }
   if (json.appearance.color_theme !== s.m_ColorTheme) {
     json.appearance.color_theme = s.m_ColorTheme;
@@ -611,6 +637,10 @@ export interface PCB_EDIT_FRAME_HOOKS {
   storeSettings?(): void;
   /** TRANSITIONAL (#636): the aux toolbar's track-width / via-size boxes are the window's. */
   reCreateAuxiliaryToolbar?(): void;
+  /** TRANSITIONAL (#636): whether the window's EDA_3D_VIEWER_FRAME is open. */
+  viewer3DShown?(): boolean;
+  /** TRANSITIONAL (#636): `CreateAndShow3D_Frame`, the window's 3D viewer raised. */
+  showViewer3D?(): void;
   /** `PCB_BASE_FRAME::OnModify`'s effect on the window: the dirty flag. */
   onModify(): void;
   /** `new DIALOG_DRC( m_editFrame, aParent )`: the window's DRC dialog. */
@@ -1046,6 +1076,8 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   private m_designRulesText: string | null = null;
   private m_inspectDrcErrorDlg: DIALOG_BOOK_REPORTER | null = null;
 
+  /** What {@link Get3DViewerFrame} answers while the window's 3D viewer is open. */
+  private readonly m_viewer3D = {};
   m_ShowLayerManagerTools = true;
   m_ShowSearch = false;
   m_ShowNetInspector = false;
@@ -1493,6 +1525,19 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
    */
   override ReCreateAuxiliaryToolbar(): void {
     this.hooks.reCreateAuxiliaryToolbar?.();
+  }
+
+  /**
+   * The window's 3D viewer has no frame object; a non-null answer means it is
+   * open, which is all `PCB_VIEWER_TOOLS::Show3DViewer` asks of it.
+   */
+  override Get3DViewerFrame(): object | null {
+    return this.hooks.viewer3DShown?.() ? this.m_viewer3D : null;
+  }
+
+  override CreateAndShow3D_Frame(): object | null {
+    this.hooks.showViewer3D?.();
+    return this.m_viewer3D;
   }
 
   override LoadSettings(aCfg: APP_SETTINGS_BASE): void {
@@ -3177,6 +3222,10 @@ export const PCB_CHECKED_ACTIONS: Readonly<Record<string, TOOL_ACTION>> = {
   unitsMm: ACTIONS.millimetersUnits,
   unitsInches: ACTIONS.inchesUnits,
   unitsMils: ACTIONS.milsUnits,
+  // PCB_VIEWER_TOOLS' display modes, `!cond.*FillDisplay()` (pcb_edit_frame.cpp:1065-1069).
+  padDisplayMode: PCB_ACTIONS.padDisplayMode,
+  graphicsOutlines: PCB_ACTIONS.graphicsOutlines,
+  textOutlines: PCB_ACTIONS.textOutlines,
 };
 
 /** The {@link PCB_CHECKED_ACTIONS} ids whose condition is checked now. */

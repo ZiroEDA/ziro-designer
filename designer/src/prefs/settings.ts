@@ -258,8 +258,8 @@ export interface PcbnewSettings {
    *
    * One JSON block because that is the file's shape, but THREE pages edit it —
    * Display Options, Origins & Axes and Editing Options — so a reset must name
-   * keys and never the block. The fills are View-menu toggles this app keeps in
-   * its own toggle set.
+   * keys and never the block. The fills are the View > Drawing Mode rows, which
+   * PCB_VIEWER_TOOLS and PCB_CONTROL flip in the settings object.
    */
   pcb_display: PcbDisplayOptions;
   /**
@@ -418,9 +418,28 @@ export interface PcbDisplayOptions {
   ratsnest_thickness: number;
   /** `pcb_display.show_page_borders` -> `m_ShowPageLimits`, true. */
   show_page_borders: boolean;
+
+  // ---- View > Drawing Mode -------------------------------------------------
+
+  /**
+   * `pcb_display.graphic_items_fill` (`pcbnew_settings.cpp:225-226`) and
+   * `pcb_display.graphics_fill` (`:231-232`): TWO PARAMs over one
+   * `m_ViewersDisplay.m_DisplayGraphicsFill`, true. Load reads them in that
+   * order, so the second wins; Save writes both.
+   */
+  graphic_items_fill: boolean;
+  graphics_fill: boolean;
+  /** `pcb_display.text_fill` -> `m_ViewersDisplay.m_DisplayTextFill`, true (`:234-235`). */
+  text_fill: boolean;
+  /** `pcb_display.pad_fill` -> `m_ViewersDisplay.m_DisplayPadFill`, true (`:246-247`). */
+  pad_fill: boolean;
+  /** `pcb_display.track_fill` -> `m_Display.m_DisplayPcbTrackFill`, true (`:267-268`). */
+  track_fill: boolean;
+  /** `pcb_display.via_fill` -> `m_Display.m_DisplayViaFill`, true (`:270-271`). */
+  via_fill: boolean;
 }
 
-/** `pcbnew_settings.cpp`'s own third argument for each of the seven. */
+/** `pcbnew_settings.cpp`'s own third argument for each key. */
 export const PCB_DISPLAY_DEFAULTS: PcbDisplayOptions = {
   net_names_mode: 3,
   pad_numbers: true,
@@ -436,6 +455,12 @@ export const PCB_DISPLAY_DEFAULTS: PcbDisplayOptions = {
   ratsnest_curved: false,
   ratsnest_thickness: 0.5,
   show_page_borders: true,
+  graphic_items_fill: true,
+  graphics_fill: true,
+  text_fill: true,
+  pad_fill: true,
+  track_fill: true,
+  via_fill: true,
 };
 
 export const PCBNEW_DEFAULTS: PcbnewSettings = {

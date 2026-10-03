@@ -124,6 +124,32 @@ describe('PCB_EDIT_FRAME settings', () => {
     expect([g.user_grid_x, g.user_grid_y]).toEqual(['', '']);
   });
 
+  it('Show3DViewer raises the window viewer, and reloads it only when it was open', () => {
+    let open = false;
+    let raised = 0;
+    const hooks = {
+      settings: () => new PCBNEW_SETTINGS(),
+      onModify: () => {},
+      viewer3DShown: () => open,
+      showViewer3D: () => {
+        raised++;
+        open = true;
+      },
+    } as unknown as PCB_EDIT_FRAME_HOOKS;
+    const f = new PCB_EDIT_FRAME(hooks);
+    f.SetBoard(new BOARD());
+    let reloads = 0;
+    f.Update3DView = () => {
+      reloads++;
+    };
+
+    f.GetToolManager()!.RunAction(ACTIONS.show3DViewer);
+    expect([raised, reloads]).toEqual([1, 0]);
+
+    f.GetToolManager()!.RunAction(ACTIONS.show3DViewer);
+    expect([raised, reloads]).toEqual([2, 1]);
+  });
+
   it('registers the common tools in setupTools order, after the window bridge', () => {
     const { f } = frame();
     const order = [...f.GetToolManager()!.Tools()].map((t) => t.constructor);

@@ -142,6 +142,15 @@ describe('the choices are KiCad’s, in KiCad’s order', () => {
       ratsnest_curved: false,
       ratsnest_thickness: 0.5,
       show_page_borders: true,
+      // …and the View > Drawing Mode fills, every one `true`
+      // (`pcbnew_settings.cpp:225-271`); `graphic_items_fill` and
+      // `graphics_fill` are two PARAMs over one `m_DisplayGraphicsFill`.
+      graphic_items_fill: true,
+      graphics_fill: true,
+      text_fill: true,
+      pad_fill: true,
+      track_fill: true,
+      via_fill: true,
     });
   });
 });

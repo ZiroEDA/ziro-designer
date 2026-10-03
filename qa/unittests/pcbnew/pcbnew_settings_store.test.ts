@@ -122,6 +122,21 @@ describe('PCBNEW_SETTINGS load / store over the pcbnew.json slice', () => {
       (c) => {
         c.m_AuiPanels.show_net_inspector = !c.m_AuiPanels.show_net_inspector;
       },
+      (c) => {
+        c.m_ViewersDisplay.m_DisplayGraphicsFill = false;
+      },
+      (c) => {
+        c.m_ViewersDisplay.m_DisplayTextFill = false;
+      },
+      (c) => {
+        c.m_ViewersDisplay.m_DisplayPadFill = false;
+      },
+      (c) => {
+        c.m_Display.m_DisplayPcbTrackFill = false;
+      },
+      (c) => {
+        c.m_Display.m_DisplayViaFill = false;
+      },
     ];
 
     for (const edit of edits) {
@@ -165,6 +180,33 @@ describe('PCBNEW_SETTINGS load / store over the pcbnew.json slice', () => {
     expect(cfg.m_Window.cursor.cross_hair_mode).toBe(CROSS_HAIR_MODE.FULLSCREEN_CROSS);
     expect(cfg.m_Window.cursor.always_show_cursor).toBe(false);
     expect([cfg.m_AuiPanels.show_search, cfg.m_AuiPanels.show_net_inspector]).toEqual([true, true]);
+  });
+
+  it('loads the fills; graphics_fill, read second, wins over graphic_items_fill', () => {
+    const json = fresh();
+    json.pcb_display.graphic_items_fill = true;
+    json.pcb_display.graphics_fill = false;
+    json.pcb_display.text_fill = false;
+    json.pcb_display.pad_fill = false;
+    json.pcb_display.track_fill = false;
+    json.pcb_display.via_fill = false;
+
+    const cfg = pcbnewSettingsOf(json);
+
+    expect(cfg.m_ViewersDisplay.m_DisplayGraphicsFill).toBe(false);
+    expect(cfg.m_ViewersDisplay.m_DisplayTextFill).toBe(false);
+    expect(cfg.m_ViewersDisplay.m_DisplayPadFill).toBe(false);
+    expect(cfg.m_Display.m_DisplayPcbTrackFill).toBe(false);
+    expect(cfg.m_Display.m_DisplayViaFill).toBe(false);
+
+    // Save writes the one value under both keys, each from the other value.
+    cfg.m_ViewersDisplay.m_DisplayGraphicsFill = true;
+    json.pcb_display.graphic_items_fill = false;
+    storePcbnewSettings(cfg, json);
+    expect([json.pcb_display.graphic_items_fill, json.pcb_display.graphics_fill]).toEqual([
+      true,
+      true,
+    ]);
   });
 
   it('loading fills the object it is given, so every holder sees the change', () => {

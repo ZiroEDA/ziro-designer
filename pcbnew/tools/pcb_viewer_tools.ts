@@ -4,11 +4,6 @@
 /**
  * `PCB_VIEWER_TOOLS` (pcbnew/tools/pcb_viewer_tools.{h,cpp}): the tools every
  * pcbnew frame shares - the measure tool, and the viewer display toggles.
- *
- * TRANSITIONAL (#636): the display toggles (ShowPadNumbers, PadDisplayMode,
- * GraphicOutlines, TextOutlines, NextLineMode), Show3DViewer and
- * FootprintAutoZoom are still the board editor window's, which keeps their
- * state; they move here with that state. MeasureTool is the whole tool.
  */
 import { KICURSOR } from '@ziroeda/common/gal/cursors.js';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
@@ -25,6 +20,10 @@ import { BUT_LEFT, BUT_RIGHT, MD_SHIFT, type TOOL_EVENT } from '@ziroeda/common/
 import type { VIEW_CONTROLS } from '@ziroeda/common/view/view_controls.js';
 import { VIEW_UPDATE_FLAGS } from '@ziroeda/common/view/view_item.js';
 import type { PCB_BASE_FRAME } from '../pcb_base_frame.js';
+import { PCB_VIEWERS_SETTINGS_BASE } from '../pcbnew_settings.js';
+import { BaseType, KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { SYNC_HANDLER } from '@ziroeda/common/tool/tool_interactive.js';
+import { PCB_ACTIONS } from './pcb_actions.js';
 import { PCB_GRID_HELPER } from './pcb_grid_helper.js';
 import { PCB_TOOL_BASE } from './pcb_tool_base.js';
 
@@ -224,7 +223,191 @@ export class PCB_VIEWER_TOOLS extends PCB_TOOL_BASE {
     return 0;
   }
 
+  /** `Show3DViewer` (pcb_viewer_tools.cpp:73-97). */
+  Show3DViewer(_aEvent: TOOL_EVENT): number {
+    const frame = this.frame<PCB_BASE_FRAME>();
+    let do_reload_board = true; // reload board flag
+
+    // At EDA_3D_VIEWER_FRAME creation, the current board is loaded, so disable loading
+    // the current board if the 3D frame is not yet created
+    if (frame.Get3DViewerFrame() === null) do_reload_board = false;
+
+    frame.CreateAndShow3D_Frame();
+
+    // KIPLATFORM::UI::ReparentModal( draw3DFrame ) for the footprint viewer and
+    // wizard: a page has no top-level window to re-parent.
+
+    // And load or update the current board (if needed)
+    if (do_reload_board) frame.Update3DView(true, true);
+
+    return 0;
+  }
+
+  /** `NextLineMode` (pcb_viewer_tools.cpp:106-148). */
+  NextLineMode(_aEvent: TOOL_EVENT): number {
+    const frame = this.frame<PCB_BASE_FRAME>();
+    const next = (aMode: LEADER_MODE): LEADER_MODE => {
+      switch (aMode) {
+        case LEADER_MODE.DIRECT:
+          return LEADER_MODE.DEG45;
+        case LEADER_MODE.DEG45:
+          return LEADER_MODE.DEG90;
+        default:
+          return LEADER_MODE.DIRECT;
+      }
+    };
+
+    // GetAppSettings<PCBNEW_SETTINGS>( "pcbnew" ) / <FOOTPRINT_EDITOR_SETTINGS>( "fpedit" ):
+    // the frame answers for its own app settings.
+    if (frame.IsType(FRAME_T.FRAME_PCB_EDITOR)) {
+      const settings = frame.GetPcbNewSettings();
+      settings.m_AngleSnapMode = next(settings.m_AngleSnapMode);
+    } else if (frame.IsType(FRAME_T.FRAME_FOOTPRINT_EDITOR)) {
+      const settings = frame.GetFootprintEditorSettings();
+      settings.m_AngleSnapMode = next(settings.m_AngleSnapMode);
+    } else {
+      const display = frame.GetViewerSettingsBase().m_ViewersDisplay;
+      display.m_AngleSnapMode = next(display.m_AngleSnapMode);
+    }
+
+    frame.UpdateStatusBar();
+
+    // Notify other tools/UI (toolbars) that the angle snap mode has changed
+    this.m_toolMgr!.RunAction(PCB_ACTIONS.angleSnapModeChanged);
+
+    return 0;
+  }
+
+  /** `ShowPadNumbers` (pcb_viewer_tools.cpp:151-165). */
+  ShowPadNumbers(_aEvent: TOOL_EVENT): number {
+    const cfg = this.frame<PCB_BASE_FRAME>().GetViewerSettingsBase();
+    cfg.m_ViewersDisplay.m_DisplayPadNumbers = !cfg.m_ViewersDisplay.m_DisplayPadNumbers;
+
+    for (const fp of this.board().Footprints()) {
+      for (const pad of fp.Pads()) this.view()?.Update(pad, VIEW_UPDATE_FLAGS.REPAINT);
+    }
+
+    this.canvas()?.Refresh();
+
+    return 0;
+  }
+
+  /** `PadDisplayMode` (pcb_viewer_tools.cpp:168-182). */
+  PadDisplayMode(_aEvent: TOOL_EVENT): number {
+    const cfg = this.frame<PCB_BASE_FRAME>().GetViewerSettingsBase();
+    cfg.m_ViewersDisplay.m_DisplayPadFill = !cfg.m_ViewersDisplay.m_DisplayPadFill;
+
+    for (const fp of this.board().Footprints()) {
+      for (const pad of fp.Pads()) this.view()?.Update(pad, VIEW_UPDATE_FLAGS.REPAINT);
+    }
+
+    this.canvas()?.Refresh();
+
+    return 0;
+  }
+
+  /** `GraphicOutlines` (pcb_viewer_tools.cpp:185-213). */
+  GraphicOutlines(_aEvent: TOOL_EVENT): number {
+    const cfg = this.frame<PCB_BASE_FRAME>().GetViewerSettingsBase();
+    cfg.m_ViewersDisplay.m_DisplayGraphicsFill = !cfg.m_ViewersDisplay.m_DisplayGraphicsFill;
+
+    for (const fp of this.board().Footprints()) {
+      for (const item of fp.GraphicalItems()) {
+        const t = item.Type();
+
+        if (t === KICAD_T.PCB_SHAPE_T || BaseType(t) === KICAD_T.PCB_DIMENSION_T)
+          this.view()?.Update(item, VIEW_UPDATE_FLAGS.REPAINT);
+      }
+    }
+
+    for (const item of this.board().Drawings()) {
+      const t = item.Type();
+
+      if (
+        t === KICAD_T.PCB_SHAPE_T ||
+        BaseType(t) === KICAD_T.PCB_DIMENSION_T ||
+        t === KICAD_T.PCB_TARGET_T
+      )
+        this.view()?.Update(item, VIEW_UPDATE_FLAGS.REPAINT);
+    }
+
+    this.canvas()?.Refresh();
+
+    return 0;
+  }
+
+  /** `TextOutlines` (pcb_viewer_tools.cpp:216-250). */
+  TextOutlines(_aEvent: TOOL_EVENT): number {
+    const cfg = this.frame<PCB_BASE_FRAME>().GetViewerSettingsBase();
+    cfg.m_ViewersDisplay.m_DisplayTextFill = !cfg.m_ViewersDisplay.m_DisplayTextFill;
+
+    for (const fp of this.board().Footprints()) {
+      for (const field of fp.GetFields()) this.view()?.Update(field, VIEW_UPDATE_FLAGS.REPAINT);
+
+      for (const item of fp.GraphicalItems()) {
+        if (item.Type() === KICAD_T.PCB_TEXT_T)
+          this.view()?.Update(item, VIEW_UPDATE_FLAGS.REPAINT);
+      }
+    }
+
+    for (const item of this.board().Drawings()) {
+      const t = item.Type();
+
+      if (
+        t === KICAD_T.PCB_TEXT_T ||
+        t === KICAD_T.PCB_TEXTBOX_T ||
+        BaseType(t) === KICAD_T.PCB_DIMENSION_T
+      )
+        this.view()?.Update(item, VIEW_UPDATE_FLAGS.REPAINT);
+    }
+
+    this.canvas()?.Refresh();
+
+    return 0;
+  }
+
+  /** `FootprintAutoZoom` (pcb_viewer_tools.cpp:459-469). */
+  FootprintAutoZoom(_aEvent: TOOL_EVENT): number {
+    const cfg = this.frame<PCB_BASE_FRAME>().config();
+
+    // Toggle the setting
+    if (cfg instanceof PCB_VIEWERS_SETTINGS_BASE)
+      cfg.m_FootprintViewerAutoZoomOnSelect = !cfg.m_FootprintViewerAutoZoomOnSelect;
+
+    return 0;
+  }
+
   protected override setTransitions(): void {
+    this.Go(SYNC_HANDLER<PCB_VIEWER_TOOLS>(this.Show3DViewer), ACTIONS.show3DViewer.MakeEvent());
+
+    this.Go(
+      SYNC_HANDLER<PCB_VIEWER_TOOLS>(this.NextLineMode),
+      PCB_ACTIONS.lineModeNext.MakeEvent(),
+    );
+
+    // Display modes
+    this.Go(
+      SYNC_HANDLER<PCB_VIEWER_TOOLS>(this.ShowPadNumbers),
+      PCB_ACTIONS.showPadNumbers.MakeEvent(),
+    );
+    this.Go(
+      SYNC_HANDLER<PCB_VIEWER_TOOLS>(this.PadDisplayMode),
+      PCB_ACTIONS.padDisplayMode.MakeEvent(),
+    );
+    this.Go(
+      SYNC_HANDLER<PCB_VIEWER_TOOLS>(this.GraphicOutlines),
+      PCB_ACTIONS.graphicsOutlines.MakeEvent(),
+    );
+    this.Go(
+      SYNC_HANDLER<PCB_VIEWER_TOOLS>(this.TextOutlines),
+      PCB_ACTIONS.textOutlines.MakeEvent(),
+    );
+
+    this.Go(
+      SYNC_HANDLER<PCB_VIEWER_TOOLS>(this.FootprintAutoZoom),
+      PCB_ACTIONS.fpAutoZoom.MakeEvent(),
+    );
+
     this.Go(this.MeasureTool, ACTIONS.measureTool.MakeEvent());
   }
 }

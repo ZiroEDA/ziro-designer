@@ -751,6 +751,19 @@ export abstract class PCB_BASE_FRAME extends EDA_DRAW_FRAME {
   /**
    * Update the 3D view, if the viewer is open.
    */
+  /**
+   * `Get3DViewerFrame()` (pcb_base_frame.cpp:148-153): the open 3D viewer, found
+   * by its qualified frame name, or null. A frame without one answers null.
+   */
+  Get3DViewerFrame(): object | null {
+    return null;
+  }
+
+  /** `CreateAndShow3D_Frame()` (pcb_base_frame.cpp:679-705): raise the 3D viewer, creating it first. */
+  CreateAndShow3D_Frame(): object | null {
+    return null;
+  }
+
   Update3DView(_aMarkDirty: boolean, _aRefresh: boolean, _aTitle: string | null = null): void {}
 
   /**
