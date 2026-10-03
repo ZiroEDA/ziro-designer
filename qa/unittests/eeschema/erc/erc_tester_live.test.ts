@@ -21,7 +21,8 @@ import { LoadSchematic } from '@ziroeda/eeschema/eeschema_helpers.js';
 import { ERC_TESTER } from '@ziroeda/eeschema/erc/erc.js';
 import { ERC_REPORT } from '@ziroeda/eeschema/erc/erc_report.js';
 import { ERCE_T, SHEETLIST_ERC_ITEMS_PROVIDER } from '@ziroeda/eeschema/erc/erc_settings.js';
-import type { SCH_MARKER } from '@ziroeda/eeschema/sch_marker.js';
+import { SCH_MARKER as SCH_MARKER_CLASS, type SCH_MARKER } from '@ziroeda/eeschema/sch_marker.js';
+import { ERC_ITEM } from '@ziroeda/eeschema/erc/erc_item.js';
 import type { SCH_SHEET } from '@ziroeda/eeschema/sch_sheet.js';
 import { describe, expect, it } from 'vitest';
 
@@ -180,6 +181,44 @@ describe('ERC_TESTER::RunTests and the report', () => {
     expect(excluded.map((m) => [m.SerializeToString(), m.GetComment()])).toEqual([
       [serialized, 'reviewed'],
     ]);
+  });
+
+  it('resolves exclusions recorded after the load against the markers it makes', () => {
+    // erc.cpp:2290: RunTests ends with ResolveERCExclusionsPostUpdate, so an exclusion the
+    // load did not see is matched to the marker this run makes.
+    const first = checked();
+    const provider = new SHEETLIST_ERC_ITEMS_PROVIDER(first);
+    provider.SetSeverities(RPT_SEVERITY_ERROR);
+    const serialized = (
+      provider.GetItem(0)!.GetParent() as unknown as SCH_MARKER
+    ).SerializeToString();
+
+    const schematic = load(undefined, 'netlist_oracle_graph/issue22694');
+    schematic.ErcSettings().m_ErcExclusions.add(serialized);
+    schematic.ErcSettings().m_ErcExclusionComments.set(serialized, 'later');
+    new ERC_TESTER(schematic).RunTests();
+
+    const matching = schematic
+      .Hierarchy()
+      .flatMap(
+        (p) => p.LastScreen()!.Items().OfType(KICAD_T.SCH_MARKER_T) as unknown as SCH_MARKER[],
+      )
+      .filter((m) => m.SerializeToString() === serialized);
+    expect(matching.map((m) => [m.IsExcluded(), m.GetComment()])).toEqual([[true, 'later']]);
+  });
+
+  it('shows a marker that is not sheet specific once, though its screen is used twice', () => {
+    // erc_settings.cpp:378: complex_hierarchy uses ampli_ht.kicad_sch for two sheets.
+    const schematic = load();
+    const vertical = schematic
+      .Hierarchy()
+      .find((p) => p.PathHumanReadable() === '/ampli_ht_vertical/')!;
+    const item = ERC_ITEM.Create(ERCE_T.ERCE_ENDPOINT_OFF_GRID)!;
+    vertical.LastScreen()!.Append(new SCH_MARKER_CLASS(item, { x: 1, y: 1 }));
+
+    const provider = new SHEETLIST_ERC_ITEMS_PROVIDER(schematic);
+    provider.SetSeverities(RPT_SEVERITY_ERROR | RPT_SEVERITY_WARNING);
+    expect(provider.GetCount()).toBe(1);
   });
 
   it('lists the ignored checks, and only the severities it was given', () => {
