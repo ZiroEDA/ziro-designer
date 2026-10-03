@@ -16,7 +16,11 @@
 import { SCH_ANNOTATE_MIXIN } from './annotate.js';
 import { SCH_NETLIST_GENERATOR_MIXIN } from './netlist_exporters/netlist_generator.js';
 import { NETLIST_EXPORTER_KICAD } from './netlist_exporters/netlist_exporter_kicad.js';
-import { GNL_ALL, GNL_T } from './netlist_exporters/netlist_exporter_xml.js';
+import {
+  GNL_ALL,
+  GNL_T,
+  type NETLIST_LIBRARY_URI,
+} from './netlist_exporters/netlist_exporter_xml.js';
 import { SCH_FILES_IO_MIXIN } from './files-io.js';
 import { SCH_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import type { SCH_GLOBALLABEL } from './sch_label.js';
@@ -83,6 +87,11 @@ export interface SCH_EDIT_FRAME_HOOKS {
   modalAnnotate?(aMessage: string): void;
   /** `IsOK( this, aMessage )`: a yes/no confirmation. */
   isOK?(aMessage: string): boolean;
+  /**
+   * `LIBRARY_MANAGER::GetFullURI( SYMBOL, nickname )`: the netlist's `(libraries …)` asks it.
+   * Without it no library is listed.
+   */
+  symbolLibraryUri?: NETLIST_LIBRARY_URI;
   /**
    * `SCH_SELECTION_TOOL::GetSelection()` on the live model (the design block
    * commands read it). Optional: a frame with no selection tool has none.
@@ -337,6 +346,8 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
 
         // (ADVANCED_CFG::m_IncrementalConnectivity is off by default: no recalculation here.)
         const exporter = new NETLIST_EXPORTER_KICAD(this.Schematic());
+
+        if (this.hooks.symbolLibraryUri) exporter.m_libraryUri = this.hooks.symbolLibraryUri;
 
         mail.SetPayload(exporter.Format(GNL_ALL | GNL_T.GNL_OPT_KICAD));
 

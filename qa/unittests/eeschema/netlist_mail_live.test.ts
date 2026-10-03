@@ -6,7 +6,7 @@
  * ReadyToNetlist (netlist_generator.cpp:202), then NETLIST_EXPORTER_KICAD. The nets are
  * kicad-cli's own `sch export netlist` of the same project.
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import { KIWAY_MAIL_EVENT } from '@ziroeda/common/kiway_mail.js';
@@ -14,6 +14,7 @@ import { MAIL_T } from '@ziroeda/common/mail_type.js';
 import { PGM_BASE, SETTINGS_MANAGER, SetPgm } from '@ziroeda/common/pgm_base.js';
 import { Reporter } from '@ziroeda/common/reporter.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { symbolLibraryUri } from '@ziroeda/eeschema/cross-probing.js';
 import { SCH_COMMIT } from '@ziroeda/eeschema/sch_commit.js';
 import { SCH_EDIT_FRAME, type SCH_EDIT_FRAME_HOOKS } from '@ziroeda/eeschema/sch_edit_frame.js';
 import {
@@ -41,6 +42,12 @@ function frameWith(hooks: Partial<SCH_EDIT_FRAME_HOOKS>) {
     saveProject: () => true,
     getNetlist: () => 'RECORD NETLIST',
     syncLiveSchematic: () => true,
+    // The project's sym-lib-table, as the window gives it.
+    symbolLibraryUri: symbolLibraryUri(
+      readdirSync(ORACLE)
+        .filter((n) => n === 'sym-lib-table')
+        .map((n) => ({ name: n, text: readFileSync(join(ORACLE, n), 'utf8') })),
+    ),
     ...hooks,
   });
   frame.OpenProjectFiles([`/complex_hierarchy/${SHEETS[0]}`], 0, (p) => {
@@ -56,15 +63,15 @@ const mail = (frame: SCH_EDIT_FRAME, aPayload: string) => {
   return payload.value;
 };
 
-/** From `(nets` to the end: the part with no date, tool or library paths in it. */
-const nets = (aNetlist: string) => aNetlist.slice(aNetlist.indexOf('\t(nets'));
+/** From `(components` to the end: everything after the design header's date and tool. */
+const body = (aNetlist: string) => aNetlist.slice(aNetlist.indexOf('\t(components'));
 
 describe('MAIL_SCH_GET_NETLIST from the live frame', () => {
-  it("answers with kicad-cli's nets", () => {
+  it("answers with kicad-cli's components, libparts, libraries and nets", () => {
     const answer = mail(frameWith({}), '');
     expect(answer.startsWith('(export')).toBe(true);
-    expect(nets(answer)).toBe(
-      nets(readFileSync(join(ORACLE, 'complex_hierarchy.kicad-cli.net'), 'utf8')),
+    expect(body(answer)).toBe(
+      body(readFileSync(join(ORACLE, 'complex_hierarchy.kicad-cli.net'), 'utf8')),
     );
   });
 

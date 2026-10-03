@@ -551,6 +551,7 @@ import { busJunctionIds as busJunctionIdsOf } from './connectivity/bus.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { applyToggle, DEFAULT_TOGGLES } from './toggles.js';
 import { LIVE_SCHEMATIC_MIRROR } from './sch_record_bridge.js';
+import { symbolLibraryUri } from './cross-probing.js';
 
 // What KiCad writes for File > New Schematic: an empty sheet on A4 paper.
 // Launching the editor without a project starts here (no bundled demo).
@@ -1839,6 +1840,11 @@ export function SchematicEditor({
   // TRANSITIONAL (S2-5b, gone at S7): the frame's live SCHEMATIC, rebuilt from the window's
   // records when one changed (sch_record_bridge.ts).
   const syncLiveRef = useRef<() => boolean>(() => false);
+  const liveFilesRef = useRef<{
+    rawFiles: readonly PickedFile[];
+    projectName?: string;
+    rootPro?: string;
+  }>({ rawFiles: [] });
   const modalAnnotateRef = useRef<(aMessage: string) => void>(() => {});
   /**
    * `SaveProject()` arriving in the same tick as the assignment it saves: the
@@ -1858,6 +1864,7 @@ export function SchematicEditor({
       modalAnnotate: (aMessage) => modalAnnotateRef.current(aMessage),
       // IsOK( this, … ) blocks for an answer, which a browser hook cannot wait for: no.
       isOK: () => false,
+      symbolLibraryUri: (aNickname) => symbolLibraryUri(liveFilesRef.current.rawFiles)(aNickname),
     });
   }
   const applyPcbSelectionRef = useRef<(parts: readonly string[]) => void>(() => {});
@@ -5393,7 +5400,6 @@ export function SchematicEditor({
   // open one with the edits its file only gets on the debounced save, opened through
   // OpenProjectFiles under the folder pcbnew loads the project from.
   const liveMirrorRef = useRef<LIVE_SCHEMATIC_MIRROR | null>(null);
-  const liveFilesRef = useRef({ rawFiles, projectName, rootPro });
   liveFilesRef.current = { rawFiles, projectName, rootPro };
   syncLiveRef.current = () => {
     liveMirrorRef.current ??= new LIVE_SCHEMATIC_MIRROR(schFrameRef.current!, () => {
