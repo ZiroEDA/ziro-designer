@@ -16,6 +16,7 @@ import { routeHeadless } from './router/route_headless.js';
 import { PnsDesignSettingsFromBds } from './router/pns_kicad_iface.js';
 import { DEFAULT_UPDATE_PCB_OPTIONS } from './dialogs/dialog_update_pcb.js';
 import { type ARC_EDIT_MODE, FRAME_T } from '@ziroeda/common/frame_type.js';
+import { MAIL_T } from '@ziroeda/common/mail_type.js';
 import type { KIWAY } from '@ziroeda/common/kiway.js';
 import type { PCBNEW_APP } from './browser/pcbnew_app.js';
 import { jsonFileWildcard, reportFileWildcard } from '@ziroeda/common/wildcards_and_files_ext.js';
@@ -73,7 +74,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, type JSX, type React
 import { parse } from '@ziroeda/sexpr';
 import {
   readBoard,
-  allBoardItemIds,
   boardItemBBox,
   parseBoardItemId,
   boardItemId,
@@ -85,19 +85,11 @@ import {
   type BoardItemKind,
   type PcbFootprint,
   boardGridOrigin,
-  modifiableLineCount,
-  booleanableShapeCount,
   type SelectionFilter,
   BOARD_NETLIST_UPDATER,
   type NETLIST,
   type ImageValues,
   boardAuxOrigin,
-  crossProbeSelection,
-  boardSyncSelectionParts,
-  crossProbeViewChange,
-  crossProbeFlashSelection,
-  CROSS_PROBE_FLASH_INTERVAL_MS,
-  CROSS_PROBE_FLASH_LAST_PHASE,
 } from './index.js';
 import {
   barcodePreview,
@@ -509,13 +501,9 @@ import type { DIALOG_PUSH_PAD_PROPERTIES } from './dialogs/dialog_push_pad_prope
 import type { DIALOG_ENUM_PADS } from './dialogs/dialog_enum_pads.js';
 import type { DIALOG_FP_EDIT_PAD_TABLE } from './dialogs/dialog_fp_edit_pad_table.js';
 import type { DIALOG_OFFSET_ITEM } from './dialogs/dialog_offset_item.js';
-import {
-  DialogBookReporter,
-  DialogBookReporterModeless,
-} from '@ziroeda/common/dialogs/dialog_book_reporter_ui.js';
+import { DialogBookReporterModeless } from '@ziroeda/common/dialogs/dialog_book_reporter_ui.js';
 import type { DIALOG_BOOK_REPORTER } from '@ziroeda/common/dialogs/dialog_book_reporter.js';
-import { inspectReport } from './tools/board_inspection_tool.js';
-import { netClassFor, netclassesForNet } from '@ziroeda/common/netclass_resolve.js';
+import { netClassFor } from '@ziroeda/common/netclass_resolve.js';
 // APPEARANCE_CONTROLS is ONE widget that PCB_EDIT_FRAME and
 // FOOTPRINT_EDIT_FRAME both construct, so the panel, its Objects table and its
 // presets live in `widgets/` and this frame supplies only its own data.
@@ -546,7 +534,6 @@ import { drawConstructionGeom } from '@ziroeda/common/preview_items/construction
 import { drawSnapIndicator } from '@ziroeda/common/preview_items/snap_indicator.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { type BoardCursorSnap, snapToBoardCopper } from './pcb_cursor_snap.js';
-import { parseDrcRules } from './drc/drc_rule_view.js';
 import { DialogTrackViaProperties } from './dialogs/dialog_track_via_properties_ui.js';
 import { DialogCopperZones } from './dialogs/dialog_copper_zones.js';
 import { PcbOneLayerSelector, SelectCopperLayerPairDialog } from './sel_layer.js';
@@ -1757,29 +1744,6 @@ export function PcbEditor({
     frameRef.current?.SendCrossProbeNetName(first === undefined ? '' : (brd.nets.get(first) ?? ''));
   }, [highlightNets]);
 
-  /**
-   * Send this selection to the schematic — `PCB_EDIT_FRAME::SendSelectItemsToSch`,
-   * which `PCB_SELECTION_TOOL` calls whenever the selection settles.
-   *
-   * A selection that has not changed has nothing to say: re-sending an
-   * identical packet is what upstream's `aForce` is for, and this side never
-   * forces. An empty selection sends nothing (`if( parts.empty() ) return;`),
-   * so clearing the board's selection leaves the schematic's alone.
-   *
-   * `lastPartsRef` is also `m_ProbingSchToPcb`, the recursion guard: a probe
-   * from the schematic records the parts of the selection it applied, so that
-   * selection is not mailed back.
-   */
-  const lastPartsRef = useRef<string>('');
-  useEffect(() => {
-    const brd = boardRef.current;
-    if (!brd) return;
-    const parts = boardSyncSelectionParts(brd, selection);
-    const key = parts.join(',');
-    if (key === lastPartsRef.current) return;
-    lastPartsRef.current = key;
-    frameRef.current?.SendSelectItemsToSch(parts, false);
-  }, [selection]);
   // `EDA_3D_VIEWER_FRAME`, shown by `CreateAndShow3D_Frame`. Owned here, but
   // mirrored to App when asked so the address can say `/pcb/3d`.
   const [show3DLocal, setShow3DLocal] = useState(false);
@@ -1795,7 +1759,6 @@ export function PcbEditor({
   show3DRef.current = show3D;
   const setShow3DRef = useRef(setShow3D);
   setShow3DRef.current = setShow3D;
-  const [inspectOpen, setInspectOpen] = useState(false);
   /** DIALOG_PASTE_SPECIAL, opened by PCB_CONTROL::Paste for `ACTIONS::pasteSpecial`. */
   const [pasteSpecialDlg, setPasteSpecialDlg] = useState<{
     showClearNets: boolean;
@@ -2524,6 +2487,7 @@ export function PcbEditor({
       settings: () => Pgm().GetSettingsManager().GetAppSettings<PCBNEW_SETTINGS>('pcbnew')!,
       storeSettings: () => storePcbnewSettingsRef.current(),
       updateDisplayOptions: () => updateDisplayOptionsRef.current(),
+      showFootprintAssociationsDialog: (aFootprint) => setFootprintAssociations(aFootprint),
       showAssignNetclassDialog: (aNames, aCandidates, aPreview) =>
         new Promise<boolean>((resolve) =>
           setNetclassDlg({ names: aNames, candidates: aCandidates, preview: aPreview, resolve }),
@@ -2595,7 +2559,6 @@ export function PcbEditor({
       // so the send-back below does not fire for it.
       // MAIL_SELECTION(_FORCE): the frame has checked `on_selection` already,
       // so the parts are applied as a forced probe.
-      syncSelection: (aParts) => applySyncSelectionRef.current(aParts, true),
       updatePcbFromSchematic: () => void openUpdatePcbRef.current(),
       // The Footprint Library Browser's Insert: `PlacingFootprint()` and the
       // placement it posts. Both read the placement state declared below.
@@ -2880,7 +2843,7 @@ export function PcbEditor({
   // Footprint Properties (DIALOG_FOOTPRINT_PROPERTIES), board side.
   const [fpPropsIndex, setFpPropsIndex] = useState<number | null>(null);
   // Footprint Associations (DIALOG_FOOTPRINT_ASSOCIATIONS), on the selected footprint.
-  const [footprintAssociationsIndex, setFootprintAssociationsIndex] = useState<number | null>(null);
+  const [footprintAssociations, setFootprintAssociations] = useState<FOOTPRINT | null>(null);
   // Pad Properties (DIALOG_PAD_PROPERTIES), board side.
   const [padPropsRef, setPadPropsRef] = useState<PadRef | null>(null);
   // Text / Shape properties for board graphics.
@@ -4384,34 +4347,30 @@ export function PcbEditor({
   );
 
   // ACTIONS::undo / redo: PCB_CONTROL::Undo / Redo, which run the frame's
-  // RestoreCopyFromUndoList / RedoList. The window's selection mirror is
-  // emptied as PCB_SELECTION_TOOL::RebuildSelection leaves it.
+  // RestoreCopyFromUndoList / RedoList; the window re-reads the selection the
+  // selection tool rebuilt.
   const undo = useCallback(() => {
     const frame = frameRef.current!;
     if (frame.GetUndoCommandCount() <= 0) return;
     runActionRef.current(ACTIONS.undo);
-    setSelectionRef.current(new Set());
+    refreshSelectionMirrorRef.current();
   }, []);
 
   const redo = useCallback(() => {
     const frame = frameRef.current!;
     if (frame.GetRedoCommandCount() <= 0) return;
     runActionRef.current(ACTIONS.redo);
-    setSelectionRef.current(new Set());
+    refreshSelectionMirrorRef.current();
   }, []);
 
   // Selection-filter predicate ref (assigned once passesFilter is defined), so
   // the stable Select All callback can honour the live filter.
   const passesFilterRef = useRef<(id: string) => boolean>(() => true);
 
-  // Select All / Unselect All (ACTIONS::selectAll / unselectAll). Select All
-  // honours the Selection Filter, like PCB_SELECTION_TOOL::selectAll.
-  const selectAllSel = useCallback(() => {
-    const brd = boardRef.current;
-    if (!brd) return;
-    setSelectionRef.current(new Set(allBoardItemIds(brd).filter(passesFilterRef.current)));
-  }, []);
-  const unselectAllSel = useCallback(() => setSelectionRef.current(new Set()), []);
+  // Select All / Unselect All: PCB_SELECTION_TOOL::SelectAll / UnselectAll,
+  // which honour the Selection Filter.
+  const selectAllSel = useCallback(() => runActionRef.current(ACTIONS.selectAll), []);
+  const unselectAllSel = useCallback(() => runActionRef.current(ACTIONS.unselectAll), []);
 
   /**
    * TRANSITIONAL (#636 stage 3): `PCB_SELECTION_TOOL::GetEnteredGroup()`'s
@@ -4518,103 +4477,6 @@ export function PcbEditor({
   const zoomToFit = useCallback(() => zoomToFitImpl('all'), [zoomToFitImpl]);
   const zoomFitObjects = useCallback(() => zoomToFitImpl('objects'), [zoomToFitImpl]);
 
-  // Select on PCB, arriving from the schematic frame: pcbnew's "$SELECT:"
-  // handler, `FindItemsFromSyncSelection` then `doSyncSelection` — replace the
-  // selection with what the parts name, then move the view onto it.
-  //
-  // Every step is one of pcbnew's own `cross_probing.*` settings, and it is
-  // *pcbnew's* copy that applies: upstream the frame that RECEIVES a probe is
-  // the one whose settings decide what it does (pcbnew/cross-probing.cpp:734
-  // reads `GetPcbNewSettings()`), so the schematic's copy has no say here.
-  //
-  // The flash run in progress (pcb_edit_frame.cpp:665-679): the ids to restore
-  // and the interval handle, kept out of state so a phase tick does not have to
-  // survive a re-render to be cancellable.
-  const flashRef = useRef<{ ids: readonly string[]; timer: number } | null>(null);
-  /**
-   * `PCB_EDIT_FRAME::ExecuteRemoteCommand`'s `$SELECT` — one handler, whichever
-   * frame mailed it: the schematic (`syncSelection`) or the 3D viewer's click
-   * (`EDA_3D_CANVAS::OnLeftUp`, eda_3d_canvas.cpp:1155-1161), which both go
-   * through `MAIL_SELECTION` and the same cross-probing settings.
-   */
-  const applySyncSelection = useCallback(
-    (parts: readonly string[], force = false) => {
-      const brd = boardRef.current;
-      const canvas = canvasRef.current;
-      if (!brd) return;
-      const cfg = pcbCfg.cross_probing;
-      // null is `case MAIL_SELECTION: if( !...on_selection ) break;` — the packet
-      // is dropped whole, so the existing selection stays as the user left it.
-      const ids = crossProbeSelection(cfg, brd, parts, force);
-      if (ids === null) return;
-      // `m_ProbingSchToPcb = true`: this selection came from the schematic, so
-      // it is not sent back to it.
-      lastPartsRef.current = boardSyncSelectionParts(brd, new Set(ids)).join(',');
-      setSelectionRef.current(new Set(ids));
-
-      // A fresh probe restarts any flash still running (`m_crossProbeFlashTimer.Stop()`).
-      if (flashRef.current) {
-        clearInterval(flashRef.current.timer);
-        flashRef.current = null;
-      }
-      if (cfg.flash_selection && ids.length > 0) {
-        let phase = 0;
-        const timer = window.setInterval(() => {
-          setSelectionRef.current(new Set(crossProbeFlashSelection(phase, ids)));
-          phase++;
-          if (phase > CROSS_PROBE_FLASH_LAST_PHASE) {
-            if (flashRef.current) clearInterval(flashRef.current.timer);
-            flashRef.current = null;
-            setSelectionRef.current(new Set(ids));
-          }
-        }, CROSS_PROBE_FLASH_INTERVAL_MS);
-        flashRef.current = { ids, timer };
-      }
-
-      if (ids.length === 0 || !canvas) return;
-
-      let box: BoardBBox | null = null;
-      for (const id of ids) {
-        const b = boardItemBBox(brd, id);
-        if (!b) continue;
-        box = box
-          ? {
-              minX: Math.min(box.minX, b.minX),
-              minY: Math.min(box.minY, b.minY),
-              maxX: Math.max(box.maxX, b.maxX),
-              maxY: Math.max(box.maxY, b.maxY),
-            }
-          : b;
-      }
-
-      const view = viewRef.current;
-      // Where the view is looking now. The zoom changes first and keeps this
-      // point (`VIEW::SetScale` scales about the centre), so it is read off the
-      // old scale and re-applied under the new one.
-      const next = crossProbeViewChange(
-        cfg,
-        box,
-        {
-          scale: view.scale,
-          cx: (canvas.width / 2 - view.tx) / (view.flipX ? -view.scale : view.scale),
-          cy: (canvas.height / 2 - view.ty) / view.scale,
-        },
-        { width: canvas.width, height: canvas.height },
-      );
-      if (!next) return;
-
-      viewRef.current = {
-        scale: next.scale,
-        flipX: view.flipX,
-        tx: canvas.width / 2 - next.cx * (view.flipX ? -next.scale : next.scale),
-        ty: canvas.height / 2 - next.cy * next.scale,
-      };
-      requestDraw();
-    },
-    [requestDraw, pcbCfg.cross_probing],
-  );
-  const applySyncSelectionRef = useRef(applySyncSelection);
-  applySyncSelectionRef.current = applySyncSelection;
   /** The footprint indices in the selection, for the 3D viewer's `IsSelected()`. */
   const selectedFootprints = useMemo(() => {
     const out = new Set<number>();
@@ -4624,14 +4486,6 @@ export function PcbEditor({
     });
     return out;
   }, [board, selection]);
-  // Never leave a flash interval behind when the board editor unmounts.
-  useEffect(
-    () => () => {
-      if (flashRef.current) clearInterval(flashRef.current.timer);
-      flashRef.current = null;
-    },
-    [],
-  );
 
   // DIALOG_FIND::search: collect hits in upstream order, footprint reference
   // designators, footprint values, other text items (footprint text, board
@@ -6147,22 +6001,6 @@ export function PcbEditor({
     });
   };
 
-  /**
-   * BOARD_INSPECTION_TOOL::ShowFootprintLinks (board_inspection_tool.cpp:1937-1957):
-   * `selection.Size() != 1 || selection.Front()->Type() != PCB_FOOTPRINT_T` is
-   * an infobar error, its exact string; otherwise the dialog opens on it.
-   */
-  const showFootprintAssociations = (): void => {
-    const brd = boardRef.current;
-    if (!brd) return;
-    const fpIdx = footprintAt(brd, selection);
-    if (fpIdx === null) {
-      setInfoBarError('Select a footprint for a footprint associations report.');
-      return;
-    }
-    setFootprintAssociationsIndex(fpIdx);
-  };
-
   const applyPreset = (name: string): void => {
     setPresetMRU((m) => touchMRU(m, name));
     const user = userPresets.find((x) => x.name === name);
@@ -6331,25 +6169,6 @@ export function PcbEditor({
   // the project's net_settings, updated live when the dialog commits). A blank
   // per-class cell inherits the Default class, which itself falls back to the
   // NETCLASS factory constants (netclass resolution).
-  /**
-   * The selection as Clearance / Constraints Resolution sections.
-   *
-   * Built from the same rule set DRC runs with, through the same walk, so the
-   * explanation cannot disagree with the markers it exists to explain.
-   */
-  const inspectReportPages = useMemo(() => {
-    if (!board || !inspectOpen) return null;
-
-    return inspectReport(board, selection, parseDrcRules(boardSetup.customRules.text), (net) =>
-      netclassesForNet(net, boardSetup.netClasses.assignments),
-    );
-  }, [
-    board,
-    inspectOpen,
-    selection,
-    boardSetup.customRules.text,
-    boardSetup.netClasses.assignments,
-  ]);
 
   const netclassInfo = useMemo(() => {
     const rows = boardSetup.netClasses.classes;
@@ -7329,13 +7148,15 @@ export function PcbEditor({
         // `PCB_ACTIONS::selectLayerPair` -> `ROUTER_TOOL::SelectCopperLayerPair`.
         frameRef.current?.SelectCopperLayerPair();
         break;
-      // Both resolution rows open the same DIALOG_BOARD_INSPECTOR; which report
-      // it shows is decided by the selection, which is also what gates the rows.
-      case 'inspectResolution':
-        setInspectOpen(true);
+      // BOARD_INSPECTION_TOOL's: the reports fill the frame's book reporters.
+      case 'inspectClearance':
+        runAction(PCB_ACTIONS.inspectClearance);
+        break;
+      case 'inspectConstraints':
+        runAction(PCB_ACTIONS.inspectConstraints);
         break;
       case 'showFootprintAssociations':
-        showFootprintAssociations();
+        runAction(PCB_ACTIONS.showFootprintAssociations);
         break;
       case 'importNetlist':
         setImportNetlistName(lastNetlistPathRef.current);
@@ -7438,9 +7259,6 @@ export function PcbEditor({
       showAbout: () => setAboutOpen(true),
     },
     {
-      selectionCount: selection.size,
-      polygonBooleanCount: board ? booleanableShapeCount(board, selection) : 0,
-      modifiableLineCount: board ? modifiableLineCount(board, selection) : 0,
       hasSchematic: !!onShowSchematic,
       hasFootprintEditor: !!onShowFootprintEditor,
       highContrast: contrast !== 'normal',
@@ -8105,7 +7923,23 @@ export function PcbEditor({
           imageBaseName={projectName || fileName.replace(/\.kicad_pcb$/i, '') || 'board'}
           onClose={() => setShow3D(false)}
           selectedFootprints={selectedFootprints}
-          onSelect={applySyncSelection}
+          // EDA_3D_CANVAS::OnLeftUp (eda_3d_canvas.cpp:1152-1162): the click is
+          // mailed to the board and schematic editors alike.
+          onSelect={(parts: readonly string[]) => {
+            const frame = frameRef.current;
+            const command = `$SELECT: 0,${parts.join(',')}`;
+            frame
+              ?.Kiway()
+              ?.ExpressMail(
+                FRAME_T.FRAME_PCB_EDITOR,
+                MAIL_T.MAIL_SELECTION,
+                { value: command },
+                frame,
+              );
+            frame
+              ?.Kiway()
+              ?.ExpressMail(FRAME_T.FRAME_SCH, MAIL_T.MAIL_SELECTION, { value: command }, frame);
+          }}
           netClassOf={netClassOf}
           // "Follow PCB Editor": IsLayerVisible / IsElementVisible off this frame
           pcbVisibility={{
@@ -8765,15 +8599,13 @@ export function PcbEditor({
           }}
         />
       )}
-      {footprintAssociationsIndex !== null &&
-        board?.footprints[footprintAssociationsIndex]?.k &&
-        frameRef.current && (
-          <DialogFootprintAssociations
-            footprint={board.footprints[footprintAssociationsIndex]!.k!}
-            adapter={frameRef.current.GetBoard()?.GetFootprintLibAdapter() ?? null}
-            onClose={() => setFootprintAssociationsIndex(null)}
-          />
-        )}
+      {footprintAssociations && frameRef.current && (
+        <DialogFootprintAssociations
+          footprint={footprintAssociations}
+          adapter={frameRef.current.GetBoard()?.GetFootprintLibAdapter() ?? null}
+          onClose={() => setFootprintAssociations(null)}
+        />
+      )}
       {zonePropsIndex !== null &&
         board?.zones[zonePropsIndex]?.k?.GetIsRuleArea() &&
         frameRef.current && (
@@ -9128,15 +8960,6 @@ export function PcbEditor({
       {bookReporters.map((d) => (
         <DialogBookReporterModeless key={d.GetName()} dialog={d} />
       ))}
-      {inspectOpen && board && inspectReportPages && (
-        // DIALOG_BOOK_REPORTER, as BOARD_INSPECTION_TOOL::InspectClearance /
-        // InspectConstraints fill it (the frame's Get...Dialog()).
-        <DialogBookReporter
-          title={inspectReportPages.title}
-          pages={inspectReportPages.pages}
-          onClose={() => setInspectOpen(false)}
-        />
-      )}
       {teardropsDlg && (
         <DialogGlobalEditTeardrops
           dialog={teardropsDlg}

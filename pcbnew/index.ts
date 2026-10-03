@@ -141,11 +141,8 @@ export {
   type PcbMsgPanelSelection,
 } from './msg_panel.js';
 export {
-  findItemsFromSyncSelection,
   crossProbeZoomScale,
   crossProbeViewChange,
-  crossProbeSelection,
-  boardSyncSelectionParts,
   crossProbeFlashSelection,
   CROSS_PROBE_FLASH_INTERVAL_MS,
   CROSS_PROBE_FLASH_LAST_PHASE,
@@ -425,16 +422,6 @@ export {
   setAllFilterItems,
   type SelectionFilter,
 } from './dialogs/dialog_filter_selection.js';
-
-export {
-  buildClearanceReport,
-  buildConstraintsReport,
-  formatInspectReport,
-  inspectPages,
-  type InspectItem,
-  type InspectPage,
-  type InspectSection,
-} from './tools/board_inspection_tool.js';
 
 export {
   ARROW_ANGLE_DEG,

@@ -86,6 +86,7 @@ import { RECURSE_MODE } from '@ziroeda/common/eda_item.js';
 import type { EDA_TEXT } from '@ziroeda/common/eda_text.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { collectItemsForSyncParts, sortedSyncParts } from './cross-probing.js';
 import type { ZONE } from './zone.js';
 import type { wxTextValidator } from '@ziroeda/common/validators.js';
 import { DisplayErrorMessage } from '@ziroeda/common/confirm.js';
@@ -136,7 +137,14 @@ import type { LIB_ID } from '@ziroeda/common/lib_id.js';
 import type { PCB_SELECTION_FILTER_OPTIONS } from '@ziroeda/common/project/board_project_settings.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import { TOOL_DISPATCHER } from '@ziroeda/common/tool/tool_dispatcher.js';
-import { type wxEvent, wxUpdateUIEvent } from '@ziroeda/common/wx/wx_event.js';
+import {
+  type wxEvent,
+  wxTimer,
+  type wxTimerEvent,
+  wxUpdateUIEvent,
+} from '@ziroeda/common/wx/wx_event.js';
+import { escapeIpc, unescapeString } from '@ziroeda/common/string_utils.js';
+import { type KIID, kiidPathAsString } from '@ziroeda/common/kiid.js';
 import type { EDA_BASE_FRAME } from '@ziroeda/common/eda_base_frame.js';
 import type { SelectionFilter } from './dialogs/dialog_filter_selection.js';
 import { PCB_POINT_EDITOR } from './tools/pcb_point_editor.js';
@@ -222,6 +230,8 @@ import {
 
 /** `INSPECT_DRC_ERROR_DIALOG_NAME` (pcb_edit_frame.cpp:160). */
 const INSPECT_DRC_ERROR_DIALOG_NAME = 'InspectDrcErrorDialog';
+const INSPECT_CLEARANCE_DIALOG_NAME = 'InspectClearanceDialog';
+const INSPECT_CONSTRAINTS_DIALOG_NAME = 'InspectConstraintsDialog';
 
 /**
  * The slice of the designer's `PcbnewSettings` (`prefs/settings.ts`)
@@ -642,6 +652,8 @@ export interface PCB_EDIT_FRAME_HOOKS {
   storeSettings?(): void;
   /** TRANSITIONAL (#636): the aux toolbar's track-width / via-size boxes are the window's. */
   reCreateAuxiliaryToolbar?(): void;
+  /** DIALOG_FOOTPRINT_ASSOCIATIONS on a footprint, modal. */
+  showFootprintAssociationsDialog?(aFootprint: FOOTPRINT): void;
   /** DIALOG_ASSIGN_NETCLASS: true when OK closed it, the pattern assigned. */
   showAssignNetclassDialog?(
     aNetNames: ReadonlySet<string>,
@@ -734,12 +746,6 @@ export interface PCB_EDIT_FRAME_HOOKS {
   highlightChanged?(): void;
   /** `DIALOG_BOARD_STATISTICS dialog( m_frame ); dialog.ShowModal()`. */
   showBoardStatisticsDialog?(): void;
-  /**
-   * `PCB_ACTIONS::syncSelection` / `syncSelectionWithNets` on the items
-   * `FindItemsFromSyncSelection` names: the editor owns the selection, so it
-   * resolves the parts and applies them. `on_selection` has been checked.
-   */
-  syncSelection(aParts: readonly string[], aSelectConnections: boolean): void;
   /** `m_toolManager->RunAction( ACTIONS::updatePcbFromSchematic )`: the editor's dialog. */
   updatePcbFromSchematic(): void;
   /**
@@ -1077,6 +1083,11 @@ function matchItemsBySimilarity<T extends BOARD_ITEM>(
 export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   /** Recursion guard when synchronizing selection from schematic. */
   m_ProbingSchToPcb = false;
+  /** The cross-probe flash (pcb_edit_frame.h): the timer, its items, its phase. */
+  m_crossProbeFlashTimer = new wxTimer((e) => this.OnCrossProbeFlashTimer(e));
+  m_crossProbeFlashItems: KIID[] = [];
+  m_crossProbeFlashPhase = 0;
+  m_crossProbeFlashing = false;
   protected readonly hooks: PCB_EDIT_FRAME_HOOKS;
 
   /**
@@ -1088,6 +1099,8 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   /** The project's .kicad_dru as last given to OnBoardLoaded: `GetDesignRulesPath()` and its text. */
   private m_designRulesText: string | null = null;
   private m_inspectDrcErrorDlg: DIALOG_BOOK_REPORTER | null = null;
+  private m_inspectClearanceDlg: DIALOG_BOOK_REPORTER | null = null;
+  private m_inspectConstraintsDlg: DIALOG_BOOK_REPORTER | null = null;
 
   /** What {@link Get3DViewerFrame} answers while the window's 3D viewer is open. */
   private readonly m_viewer3D = {};
@@ -1562,6 +1575,11 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
    */
   override OnDisplayOptionsChanged(): void {
     this.hooks.updateDisplayOptions?.();
+  }
+
+  /** `DIALOG_FOOTPRINT_ASSOCIATIONS dlg( this, aFootprint ); dlg.ShowModal()`, through the window. */
+  ShowFootprintAssociationsDialog(aFootprint: FOOTPRINT): void {
+    this.hooks.showFootprintAssociationsDialog?.(aFootprint);
   }
 
   /**
@@ -2170,9 +2188,41 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     return this.m_inspectDrcErrorDlg;
   }
 
+  /** `PCB_EDIT_FRAME::GetInspectClearanceDialog()` (pcb_edit_frame.cpp:3263-3272). */
+  GetInspectClearanceDialog(): DIALOG_BOOK_REPORTER {
+    if (!this.m_inspectClearanceDlg) {
+      this.m_inspectClearanceDlg = new DIALOG_BOOK_REPORTER(
+        INSPECT_CLEARANCE_DIALOG_NAME,
+        'Clearance Report',
+        (aName) => this.onCloseModelessBookReporterDialogs(aName),
+      );
+      this.m_bookReporterListener?.();
+    }
+
+    return this.m_inspectClearanceDlg;
+  }
+
+  /** `PCB_EDIT_FRAME::GetInspectConstraintsDialog()` (pcb_edit_frame.cpp:3275-3284). */
+  GetInspectConstraintsDialog(): DIALOG_BOOK_REPORTER {
+    if (!this.m_inspectConstraintsDlg) {
+      this.m_inspectConstraintsDlg = new DIALOG_BOOK_REPORTER(
+        INSPECT_CONSTRAINTS_DIALOG_NAME,
+        'Constraints Report',
+        (aName) => this.onCloseModelessBookReporterDialogs(aName),
+      );
+      this.m_bookReporterListener?.();
+    }
+
+    return this.m_inspectConstraintsDlg;
+  }
+
   /** The book-reporter dialogs alive now, for the window to draw. */
   GetBookReporterDialogs(): DIALOG_BOOK_REPORTER[] {
-    return this.m_inspectDrcErrorDlg ? [this.m_inspectDrcErrorDlg] : [];
+    return [
+      this.m_inspectDrcErrorDlg,
+      this.m_inspectClearanceDlg,
+      this.m_inspectConstraintsDlg,
+    ].filter((d): d is DIALOG_BOOK_REPORTER => d !== null);
   }
 
   /** The window's subscription to a book-reporter dialog being made or destroyed. */
@@ -2184,6 +2234,12 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   private onCloseModelessBookReporterDialogs(aName: string): void {
     if (this.m_inspectDrcErrorDlg && aName === INSPECT_DRC_ERROR_DIALOG_NAME) {
       this.m_inspectDrcErrorDlg = null;
+      this.m_bookReporterListener?.();
+    } else if (this.m_inspectClearanceDlg && aName === INSPECT_CLEARANCE_DIALOG_NAME) {
+      this.m_inspectClearanceDlg = null;
+      this.m_bookReporterListener?.();
+    } else if (this.m_inspectConstraintsDlg && aName === INSPECT_CONSTRAINTS_DIALOG_NAME) {
+      this.m_inspectConstraintsDlg = null;
       this.m_bookReporterListener?.();
     }
   }
@@ -2221,7 +2277,22 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
           // `paramStr.substr( modeEnd + 1 )`: npos + 1 wraps to 0, the whole string.
           const syncStr = paramStr.substring(modeEnd + 1);
 
-          this.hooks.syncSelection(syncStr.split(del), selectConnections);
+          const items = this.FindItemsFromSyncSelection(syncStr);
+
+          this.m_ProbingSchToPcb = true; // recursion guard
+
+          if (selectConnections)
+            this.GetToolManager()!.RunAction(PCB_ACTIONS.syncSelectionWithNets, items);
+          else this.GetToolManager()!.RunAction(PCB_ACTIONS.syncSelection, items);
+
+          // Update 3D viewer highlighting
+          this.Update3DView(false, this.GetPcbNewSettings().m_Display.m_Live3DRefresh);
+
+          this.m_ProbingSchToPcb = false;
+
+          if (this.GetPcbNewSettings().m_CrossProbing.flash_selection) {
+            if (items.length > 0) this.StartCrossProbeFlash(items);
+          }
         }
 
         break;
@@ -2368,27 +2439,185 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     this.GetCanvas()?.Refresh();
   }
 
-  /**
-   * `PCB_EDIT_FRAME::SendSelectItemsToSch` (pcbnew/cross-probing.cpp:349),
-   * over the parts `collectItemsForSyncParts` gives (`boardSyncSelectionParts`,
-   * sorted as upstream's `std::set`). The focus item is not sent: the
-   * selection tool does not yet tell a point select from the rest, so the mode
-   * is always 0. Nothing is sent for no parts, as upstream.
-   */
-  SendSelectItemsToSch(aParts: readonly string[], aForce: boolean): void {
+  /** `PCB_EDIT_FRAME::FindItemsFromSyncSelection` (pcbnew/cross-probing.cpp:615-692). */
+  FindItemsFromSyncSelection(syncStr: string): BOARD_ITEM[] {
+    // wxStringTokenize( syncStr, "," )
+    const syncArray = syncStr.split(',');
+
+    const orderPairs: [number, BOARD_ITEM][] = [];
+
+    for (const footprint of this.GetBoard()!.Footprints()) {
+      if (footprint === null) continue;
+
+      const pathStr = kiidPathAsString(footprint.GetPath().map((k) => k.toString()));
+      let fpSheetPath = pathStr.slice(0, Math.max(0, pathStr.lastIndexOf('/')));
+      const fpUUID = footprint.m_Uuid;
+
+      if (fpSheetPath === '') fpSheetPath += '/';
+
+      if (fpUUID === '') continue;
+
+      const fpRefEscaped = escapeIpc(footprint.GetReference());
+
+      for (let index = 0; index < syncArray.length; ++index) {
+        const syncEntry = syncArray[index]!;
+
+        if (syncEntry === '') continue;
+
+        const syncData = syncEntry.substring(1);
+
+        switch (syncEntry.charAt(0)) {
+          case 'S': // Select sheet with subsheets: S<Sheet path>
+            if (fpSheetPath.startsWith(syncData)) orderPairs.push([index, footprint]);
+            break;
+          case 'F': // Select footprint: F<Reference>
+            if (syncData === fpRefEscaped) orderPairs.push([index, footprint]);
+            break;
+          case 'P': {
+            // Select pad: P<Footprint reference>/<Pad number>
+            if (syncData.startsWith(fpRefEscaped)) {
+              const selectPadNumberEscaped = syncData.substring(fpRefEscaped.length + 1); // Skips the slash
+
+              const selectPadNumber = unescapeString(selectPadNumberEscaped);
+
+              for (const pad of footprint.Pads()) {
+                if (selectPadNumber === pad.GetNumber()) orderPairs.push([index, pad]);
+              }
+            }
+            break;
+          }
+          default:
+            break;
+        }
+      }
+    }
+
+    // std::sort is not stable; the indices are what it orders by.
+    orderPairs.sort((a, b) => a[0] - b[0]);
+
+    return orderPairs.map(([, item]) => item);
+  }
+
+  /** `PCB_EDIT_FRAME::StartCrossProbeFlash` (pcb_edit_frame.cpp:632-682). */
+  StartCrossProbeFlash(aItems: readonly BOARD_ITEM[]): void {
+    if (!this.GetPcbNewSettings().m_CrossProbing.flash_selection) return;
+
+    if (aItems.length === 0) return;
+
+    // Don't start flashing if any of the items are being moved. The flash timer toggles
+    // selection hide/show which corrupts the VIEW overlay state during an active move.
+    for (const item of aItems) {
+      if (item.IsMoving()) return;
+    }
+
+    if (this.m_crossProbeFlashing) this.m_crossProbeFlashTimer.Stop();
+
+    this.m_crossProbeFlashItems = aItems.map((it) => it.m_Uuid);
+
+    this.m_crossProbeFlashPhase = 0;
+    this.m_crossProbeFlashing = true;
+
+    this.m_crossProbeFlashTimer.Start(500); // 0.5s intervals -> 3s total for 6 phases
+  }
+
+  /** `PCB_EDIT_FRAME::OnCrossProbeFlashTimer` (pcb_edit_frame.cpp:685-752). */
+  OnCrossProbeFlashTimer(_aEvent: wxTimerEvent): void {
+    if (!this.m_crossProbeFlashing) return;
+
+    const selTool = this.GetToolManager()?.FindTool(
+      'common.InteractiveSelection',
+    ) as unknown as PCB_SELECTION_TOOL | null;
+
+    if (!selTool) return;
+
+    // Don't manipulate the selection while items are being moved. The move tool holds a
+    // live reference to the selection and toggling hide/show on selected items corrupts
+    // the VIEW overlay state, causing crashes.
+    for (const id of this.m_crossProbeFlashItems) {
+      const item = this.GetBoard()!.ResolveItem(id, true);
+
+      if (item?.IsMoving()) {
+        this.m_crossProbeFlashing = false;
+        this.m_crossProbeFlashTimer.Stop();
+        return;
+      }
+    }
+
+    // Prevent recursion / IPC during flashing
+    const prevGuard = this.m_ProbingSchToPcb;
+    this.m_ProbingSchToPcb = true;
+
+    if (this.m_crossProbeFlashPhase % 2 === 0) {
+      // Hide selection
+      selTool.ClearSelection(true);
+    } else {
+      // Restore selection
+      for (const id of this.m_crossProbeFlashItems) {
+        const item = this.GetBoard()!.ResolveItem(id, true);
+
+        if (item) selTool.AddItemToSel(item, true);
+      }
+    }
+
+    // Force a redraw even if the canvas / frame does not currently have focus (mouse elsewhere)
+    this.GetCanvas()?.ForceRefresh();
+
+    this.m_ProbingSchToPcb = prevGuard;
+
+    this.m_crossProbeFlashPhase++;
+
+    if (this.m_crossProbeFlashPhase > 6) {
+      // Ensure final state (selected)
+      for (const id of this.m_crossProbeFlashItems) {
+        const item = this.GetBoard()!.ResolveItem(id, true);
+
+        if (item) selTool.AddItemToSel(item, true);
+      }
+
+      this.m_crossProbeFlashing = false;
+      this.m_crossProbeFlashTimer.Stop();
+    }
+  }
+
+  /** `PCB_EDIT_FRAME::SendSelectItemsToSch` (pcbnew/cross-probing.cpp:349-399). */
+  SendSelectItemsToSch(
+    aItems: Iterable<EDA_ITEM>,
+    aFocusItem: EDA_ITEM | null,
+    aForce: boolean,
+  ): void {
     let command = '$SELECT: ';
 
-    command += '0,';
+    if (aFocusItem) {
+      const focusItems = [aFocusItem];
+      const focusParts = new Set<string>();
+      collectItemsForSyncParts(focusItems, focusParts);
 
-    if (aParts.length === 0) return;
+      if (focusParts.size > 0) {
+        command += '1,';
+        command += sortedSyncParts(focusParts)[0];
+        command += ',';
+      } else {
+        command += '0,';
+      }
+    } else {
+      command += '0,';
+    }
 
-    for (const part of aParts) {
+    const parts = new Set<string>();
+    collectItemsForSyncParts(aItems, parts);
+
+    if (parts.size === 0) return;
+
+    for (const part of sortedSyncParts(parts)) {
       command += part;
       command += ',';
     }
 
     command = command.slice(0, -1);
 
+    // Typically ExpressMail is going to be s-expression packets, but since
+    // we have existing interpreter of the selection packet on the other
+    // side in place, we use that here.
     this.Kiway()?.ExpressMail(
       FRAME_T.FRAME_SCH,
       aForce ? MAIL_T.MAIL_SELECTION_FORCE : MAIL_T.MAIL_SELECTION,

@@ -27,9 +27,6 @@ import type { Menu, MenuItem } from '@ziroeda/common/tool/action_menu_types.js';
 
 /** A board with nothing selected and both sibling editors reachable. */
 const STATE: PcbMenuState = {
-  selectionCount: 0,
-  polygonBooleanCount: 0,
-  modifiableLineCount: 0,
   hasSchematic: true,
   hasFootprintEditor: true,
   highContrast: false,
@@ -179,15 +176,11 @@ describe('Edit', () => {
   });
 
   it('has no row upstream puts in the context menu instead', () => {
-    // These three are the whole of the exception, and each names a
-    // `PCB_ACTIONS` that appears in `edit_tool.cpp` / `pcb_selection_tool.cpp`
-    // and nowhere in `menubar_pcb_editor.cpp`.
-    const extra = rows('Edit').slice(rows('Edit').indexOf('Global Deletions...') + 1);
-    expect(extra.filter((r) => r !== '---' && !r.startsWith('  '))).toEqual([
-      'Polygons',
-      'Modify Lines',
-      'Filter Selection...',
-    ]);
+    // Polygons, Modify Lines and Filter Selection are EDIT_TOOL's and
+    // PCB_SELECTION_TOOL's context-menu rows (edit_tool.cpp,
+    // pcb_selection_tool.cpp), in no row of menubar_pcb_editor.cpp; the
+    // canvas menu carries them.
+    expect(rows('Edit').at(-1)).toBe('Global Deletions...');
   });
 });
 
@@ -355,27 +348,12 @@ describe('the conditions gate the rows they are supposed to', () => {
     return item as MenuItem;
   };
 
-  it('Clearance Resolution wants exactly two items, Constraints exactly one', () => {
-    // `BOARD_INSPECTION_TOOL`'s two reports answer different questions: a
-    // clearance is between a PAIR, a constraint is about one item.
-    expect(row('Inspect', 'Clearance Resolution', { selectionCount: 2 }).disabled).toBeFalsy();
-    expect(row('Inspect', 'Clearance Resolution', { selectionCount: 1 }).disabled).toBe(true);
-    expect(row('Inspect', 'Constraints Resolution', { selectionCount: 1 }).disabled).toBeFalsy();
-    expect(row('Inspect', 'Constraints Resolution', { selectionCount: 2 }).disabled).toBe(true);
-  });
-
-  it('a polygon boolean wants two polygons, not two items', () => {
-    // Counted on what the selection actually HOLDS: two rectangles have
-    // nothing to merge, so the count is of booleanable shapes.
-    expect(row('Edit', 'Merge Polygons', { polygonBooleanCount: 2 }).disabled).toBeFalsy();
-    expect(
-      row('Edit', 'Merge Polygons', { selectionCount: 9, polygonBooleanCount: 1 }).disabled,
-    ).toBe(true);
-  });
-
-  it('a line modification wants two straight graphics', () => {
-    expect(row('Edit', 'Fillet Lines...', { modifiableLineCount: 2 }).disabled).toBeFalsy();
-    expect(row('Edit', 'Fillet Lines...', { modifiableLineCount: 1 }).disabled).toBe(true);
+  it('Clearance and Constraints Resolution are never greyed', () => {
+    // pcb_edit_frame.cpp sets no condition on either: with the wrong
+    // selection BOARD_INSPECTION_TOOL picks the items, or says why in the
+    // infobar (board_inspection_tool.cpp:895-968, 1639-1690).
+    for (const label of ['Clearance Resolution', 'Constraints Resolution'])
+      expect(row('Inspect', label, {}).disabled, label).toBeFalsy();
   });
 
   it('the schematic rows go with the schematic', () => {
@@ -468,11 +446,7 @@ describe('the seam between the module and the frame', () => {
    * tab.
    */
   const dispatched = (): string[] => {
-    const { menus, calls } = build({
-      selectionCount: 2,
-      polygonBooleanCount: 2,
-      modifiableLineCount: 2,
-    });
+    const { menus, calls } = build({});
     const press = (items: MenuItem[]): void => {
       for (const i of items) {
         i.action?.();

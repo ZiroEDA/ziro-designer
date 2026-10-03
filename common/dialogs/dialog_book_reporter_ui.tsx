@@ -17,7 +17,12 @@
 import { useEffect, useState, type JSX, type Ref } from 'react';
 import { WX_HTML_REPORT_BOX } from '../widgets/wx_html_report_box.js';
 import { useModalEscape } from '../dialog_shim.js';
-import type { BOOK_REPORTER_PAGE, DIALOG_BOOK_REPORTER } from './dialog_book_reporter.js';
+import { Combo } from '../widgets/wx_combobox.js';
+import type {
+  BOOK_REPORTER_PAGE,
+  BOOK_REPORTER_PANEL_ITEM,
+  DIALOG_BOOK_REPORTER,
+} from './dialog_book_reporter.js';
 
 export type { BOOK_REPORTER_PAGE };
 
@@ -67,10 +72,14 @@ export function DialogBookReporter({
             <div
               key={p.title}
               role="tabpanel"
-              className="ze-bookreporter-page"
+              className={p.panel ? 'ze-bookreporter-page blank' : 'ze-bookreporter-page'}
               data-nbhide={i === shown ? undefined : ''}
             >
-              <WX_HTML_REPORT_BOX messages={p.messages} />
+              {p.panel ? (
+                <BlankPagePanel items={p.panel} />
+              ) : (
+                <WX_HTML_REPORT_BOX messages={p.messages} />
+              )}
             </div>
           ))}
         </div>
@@ -81,6 +90,44 @@ export function DialogBookReporter({
         </button>
       </div>
     </div>
+  );
+}
+
+/**
+ * An `AddBlankPage` panel: its vbox stacks what the caller added. The
+ * clearance report's layer page adds a label (wxLEFT|wxRIGHT|wxTOP, 5), a
+ * wxChoice (wxEXPAND|wxALL, 5) and a report box (1, wxEXPAND|wxALL, 5)
+ * (board_inspection_tool.cpp:1269-1278).
+ */
+function BlankPagePanel({ items }: { items: readonly BOOK_REPORTER_PANEL_ITEM[] }): JSX.Element {
+  return (
+    <>
+      {items.map((item, i) => {
+        // biome-ignore lint/suspicious/noArrayIndexKey: the panel's widgets never reorder
+        const key = i;
+        if (item.kind === 'text')
+          return (
+            <span key={key} className="ze-bookreporter-label">
+              {item.text}
+            </span>
+          );
+        if (item.kind === 'choice')
+          return (
+            <Combo
+              key={key}
+              className="ze-bookreporter-choice"
+              value={String(item.selection)}
+              options={item.items.map((label, j) => ({ value: String(j), label }))}
+              onChange={(v) => item.select(Number(v))}
+            />
+          );
+        return (
+          <div key={key} className="ze-bookreporter-report">
+            <WX_HTML_REPORT_BOX messages={item.messages} />
+          </div>
+        );
+      })}
+    </>
   );
 }
 

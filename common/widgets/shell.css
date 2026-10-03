@@ -13172,6 +13172,22 @@ textarea.ze-ds-textedit {
   min-height: 0;
   padding: 5px; /* [data] sizer->Add( reporter, 1, wxEXPAND | wxALL, 5 ) */
 }
+/* An AddBlankPage panel: each widget carries its own sizer border instead. */
+.ze-bookreporter-page.blank {
+  padding: 0;
+}
+.ze-bookreporter-label {
+  margin: 5px 5px 0; /* [data] vbox->Add( layerLabel, 0, wxLEFT | wxRIGHT | wxTOP, 5 ) */
+}
+.ze-bookreporter-choice {
+  margin: 5px; /* [data] vbox->Add( choice, 0, wxEXPAND | wxALL, 5 ) */
+}
+.ze-bookreporter-report {
+  flex: 1 1 auto; /* [data] vbox->Add( reportBox, 1, wxEXPAND | wxALL, 5 ) */
+  display: flex;
+  flex-direction: column;
+  margin: 5px; /* [data] the same line */
+}
 
 /* wxStaticBox / wxStaticBoxSizer, once. `qa/probes/staticbox_inset_probe.cpp`
    asks wx: GetBordersForSizer reports 18 px on top (the label line) and 0 on

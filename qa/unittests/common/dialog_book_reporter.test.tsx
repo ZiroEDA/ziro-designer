@@ -10,7 +10,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DialogBookReporter } from '@ziroeda/common/dialogs/dialog_book_reporter_ui.js';
 import { DIALOG_BOOK_REPORTER } from '@ziroeda/common/dialogs/dialog_book_reporter.js';
 import { reportBoxHtml } from '@ziroeda/common/widgets/wx_html_report_box.js';
-import { inspectPages, type InspectSection } from '@ziroeda/pcbnew';
 
 afterEach(cleanup);
 
@@ -51,54 +50,50 @@ describe('DIALOG_BOOK_REPORTER', () => {
   });
 });
 
-describe('inspectPages (BOARD_INSPECTION_TOOL’s pages)', () => {
-  const sec = (type: InspectSection['type'], title: string): InspectSection => ({
-    type,
-    title,
-    subjects: ['Layer F.Cu', 'Track [<GND>] on F.Cu'],
-    lines: ['Resolved clearance: 0.2 mm.'],
+describe('AddBlankPage: a panel the caller fills (reportClearance, :1240-1302)', () => {
+  it('stacks the label, the choice and the report box in the order they were added', () => {
+    const dlg = new DIALOG_BOOK_REPORTER('N', 'T');
+    const panel = dlg.AddBlankPage('Clearance');
+    panel.AddStaticText('Layer:');
+    const choice = panel.AddChoice();
+    choice.Append('F.Cu');
+    choice.Append('B.Cu');
+    choice.SetSelection(0);
+    const box = panel.AddReportBox();
+    box.report('on F.Cu');
+    const [page] = dlg.GetPages();
+    expect(page!.title).toBe('Clearance');
+    expect(page!.panel!.map((i) => i.kind)).toEqual(['text', 'choice', 'report']);
+    expect(page!.panel![1]).toMatchObject({ items: ['F.Cu', 'B.Cu'], selection: 0 });
+    expect(page!.panel![2]).toMatchObject({ messages: ['on F.Cu'] });
   });
 
-  it('names a clearance page for its layer and shares the Zone page', () => {
-    const pages = inspectPages(
-      [
-        sec('clearance', 'Clearance resolution for:'),
-        sec('zone_connection', 'Zone connection resolution for:'),
-        sec('thermal_relief_gap', 'Thermal-relief gap resolution for:'),
-        sec('hole_clearance', 'Hole clearance resolution for:'),
-        sec('physical_clearance', 'Physical clearance resolution for:'),
-      ],
-      'clearance',
-      'F.Cu',
-    );
-    expect(pages.map((p) => p.title)).toEqual(['F.Cu', 'Zone', 'Hole', 'Physical Clearances']);
-    expect(pages[1]!.messages.filter((m) => m.startsWith('<h7>'))).toHaveLength(2);
+  it('a pick sets the choice, then runs its wxEVT_CHOICE handler', () => {
+    const dlg = new DIALOG_BOOK_REPORTER('N', 'T');
+    const panel = dlg.AddBlankPage('Clearance');
+    const choice = panel.AddChoice();
+    choice.Append('F.Cu');
+    choice.Append('B.Cu');
+    const seen: [number, number][] = [];
+    choice.Bind((sel) => seen.push([sel, choice.GetSelection()]));
+    const item = dlg.GetPages()[0]!.panel![0]!;
+    if (item.kind !== 'choice') throw new Error('choice');
+    item.select(1);
+    expect(seen).toEqual([[1, 1]]);
   });
 
-  it('writes reportHeader’s <h7> and <ul>, and escapes the board’s text', () => {
-    const [page] = inspectPages(
-      [sec('clearance', 'Clearance resolution for:')],
-      'clearance',
-      'F.Cu',
-    );
-    expect(page!.messages[0]).toBe('<h7>Clearance resolution for:</h7>');
-    expect(page!.messages[1]).toBe(
-      '<ul><li>Layer F.Cu</li><li>Track [&lt;GND&gt;] on F.Cu</li></ul>',
-    );
-  });
-
-  it('uses the constraints report’s captions for a single item', () => {
-    const pages = inspectPages(
-      [
-        sec('track_width', 'Track width resolution for:'),
-        sec('annular_width', 'Via annular width resolution for:'),
-        sec('text_height', 'Text height resolution for:'),
-        sec('text_thickness', 'Text thickness resolution for:'),
-      ],
-      'constraints',
-      'F.Cu',
-    );
-    expect(pages.map((p) => p.title)).toEqual(['Track Width', 'Via Annular Width', 'Text Size']);
+  it('draws the panel: the label, a Combo of the strings, and the report', () => {
+    const dlg = new DIALOG_BOOK_REPORTER('N', 'T');
+    const panel = dlg.AddBlankPage('Clearance');
+    panel.AddStaticText('Layer:');
+    const choice = panel.AddChoice();
+    choice.Append('F.Cu');
+    choice.SetSelection(0);
+    panel.AddReportBox().report('resolved');
+    render(<DialogBookReporter title="T" pages={dlg.GetPages()} onClose={() => {}} />);
+    expect(screen.getByText('Layer:')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'F.Cu' })).toBeTruthy();
+    expect(screen.getByText('resolved')).toBeTruthy();
   });
 });
 

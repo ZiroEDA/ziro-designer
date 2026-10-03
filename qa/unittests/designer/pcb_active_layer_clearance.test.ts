@@ -34,7 +34,6 @@ function makeFrame() {
     showExchangeFootprintsDialog: () => {},
     findDialogRects: () => [],
     setViewCenter: () => {},
-    syncSelection: () => {},
     editZoneParams: () => {},
     selectCopperLayerPair: () => {},
     updatePcbFromSchematic: () => {},

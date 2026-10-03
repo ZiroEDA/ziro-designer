@@ -2,99 +2,25 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * The board half of Select on PCB, `PCB_EDIT_FRAME::FindItemsFromSyncSelection`
- * (pcbnew/cross-probing.cpp:481).
- *
- * It reads back the parts `syncSelectionParts` builds and answers with the board
- * items they name. Three rules, none of them guessable from the outside:
- *
- *   - `F<ref>` is an *exact* match on the footprint's reference, escaped the
- *     same way, so a reference containing a comma still matches.
- *   - `S<path>` is a **prefix** match against the footprint's sheet path — which
- *     is the whole reason selecting a sheet selects everything on its subsheets
- *     as well, without anyone having to walk the hierarchy.
- *   - `P<ref>/<pad>` reaches a single pad, and selects the pad rather than the
- *     footprint it belongs to.
- *
- * The result keeps the *parts'* order, not the board's: upstream pairs each hit
- * with the index of the part that found it and sorts on that, because the first
- * item is the one the view gets centred on and it has to be the one the user's
- * selection started from.
+ * pcbnew/cross-probing.cpp's free functions: `collectItemsForSyncParts`, the
+ * parts a board selection names to the schematic, and the cross-probe view
+ * change and flash phases both editors share. `PCB_EDIT_FRAME`'s own halves -
+ * `FindItemsFromSyncSelection`, `SendSelectItemsToSch` - are the frame's.
  */
 import type { CROSS_PROBING_SETTINGS } from '@ziroeda/common/settings/app_settings.js';
 import { pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import { escapeIpc } from '@ziroeda/common/string_utils.js';
-import { boardItemId } from './edit-board.js';
-import type { Board } from './types.js';
+import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import type { FOOTPRINT } from './footprint.js';
+import type { PAD } from './pad.js';
+import type { PCB_GROUP } from './pcb_group.js';
 
 /** A view: the scale (canvas px per IU) and the world point at the canvas centre. */
 export interface CrossProbeView {
   scale: number;
   cx: number;
   cy: number;
-}
-
-/** A footprint's sheet path, `GetPath().AsString().BeforeLast( '/' )`. */
-function sheetPathOf(path: string | undefined): string {
-  const at = (path ?? '').lastIndexOf('/');
-  const prefix = at === -1 ? '' : (path ?? '').slice(0, at);
-  // An empty prefix means a footprint straight off the root sheet; upstream
-  // rewrites it to "/" so a root-sheet part can still prefix-match it.
-  return prefix === '' ? '/' : prefix;
-}
-
-/**
- * The board items `parts` names, as `boardItemId` strings, in the order the
- * parts gave them.
- *
- * Unknown part letters are ignored (`default: break`), so a packet from a newer
- * schematic selects what it can rather than nothing at all.
- */
-export function findItemsFromSyncSelection(board: Board, parts: readonly string[]): string[] {
-  const hits: { order: number; id: string }[] = [];
-
-  board.footprints.forEach((fp, fi) => {
-    const fpSheetPath = sheetPathOf(fp.path);
-    // References are compared in their escaped form, as the parts carry them;
-    // `escapeIpc` is injective, so this is the same test as unescaping both.
-    const ref = escapeIpc(fp.reference ?? '');
-
-    parts.forEach((part, order) => {
-      if (part === '') return;
-      const data = part.slice(1);
-
-      switch (part[0]) {
-        case 'S':
-          if (fpSheetPath.startsWith(data)) hits.push({ order, id: boardItemId('footprint', fi) });
-          break;
-        case 'F':
-          if (data === ref) hits.push({ order, id: boardItemId('footprint', fi) });
-          break;
-        case 'P': {
-          // `<ref>/<pad>`: the reference first, so the slash inside it is the
-          // separator and any slash of its own arrives escaped.
-          if (!data.startsWith(ref)) break;
-          const pad = unescapeIpc(data.slice(ref.length + 1));
-          fp.pads.forEach((p, pi) => {
-            if (p.number === pad) hits.push({ order, id: boardItemId('pad', fi, pi) });
-          });
-          break;
-        }
-        default:
-          break;
-      }
-    });
-  });
-
-  hits.sort((a, b) => a.order - b.order);
-  // One part can name a pad of a footprint another part already selected; the
-  // ids are what the caller sets as the selection, so they have to be unique.
-  return [...new Set(hits.map((h) => h.id))];
-}
-
-/** The three CTX_IPC escapes, undone. */
-function unescapeIpc(source: string): string {
-  return source.replaceAll('{slash}', '/').replaceAll('{comma}', ',').replaceAll('{dblquote}', '"');
 }
 
 /** DEFAULT_TEXT_SIZE, 1.0 mm, in PCB IU — the yardstick the ratio is bent against. */
@@ -264,50 +190,43 @@ export function crossProbeFlashSelection(phase: number, ids: readonly string[]):
 }
 
 /**
- * The board items a `$SELECT:` packet should select, or null when the packet is
- * refused and the selection must be left exactly as the user left it.
- *
- * `case MAIL_SELECTION: if( !...on_selection ) break;` (pcbnew/cross-probing.cpp:
- * 733-736). The check sits on `MAIL_SELECTION` alone and `MAIL_SELECTION_FORCE`
- * falls in below it, so a forced probe — the one the cross-probe menu commands
- * issue explicitly — is not subject to the preference.
+ * `collectItemsForSyncParts` (pcbnew/cross-probing.cpp:305-345): the `$SELECT:`
+ * parts naming `aItems` - `F<reference>` a footprint, `P<reference>/<pad>` a
+ * pad - with a group walked into its members. `aParts` is a `std::set`: each
+ * part once, and read back sorted.
  */
-export function crossProbeSelection(
-  cfg: CROSS_PROBING_SETTINGS,
-  board: Board,
-  parts: readonly string[],
-  force = false,
-): string[] | null {
-  if (!cfg.on_selection && !force) return null;
-  return findItemsFromSyncSelection(board, parts);
+export function collectItemsForSyncParts(aItems: Iterable<EDA_ITEM>, aParts: Set<string>): void {
+  for (const item of aItems) {
+    switch (item.Type()) {
+      case KICAD_T.PCB_GROUP_T: {
+        const group = item as unknown as PCB_GROUP;
+
+        collectItemsForSyncParts(group.GetItems(), aParts);
+        break;
+      }
+      case KICAD_T.PCB_FOOTPRINT_T: {
+        const footprint = item as unknown as FOOTPRINT;
+        const ref = footprint.GetReference();
+
+        aParts.add(`F${escapeIpc(ref)}`);
+        break;
+      }
+
+      case KICAD_T.PCB_PAD_T: {
+        const pad = item as unknown as PAD;
+        const ref = pad.GetParentFootprint()!.GetReference();
+
+        aParts.add(`P${escapeIpc(ref)}/${escapeIpc(pad.GetNumber())}`);
+        break;
+      }
+
+      default:
+        break;
+    }
+  }
 }
 
-/**
- * The `$SELECT:` parts a board selection sends TO the schematic —
- * `PCB_EDIT_FRAME::collectItemsForSyncParts` (`pcbnew/cross-probing.cpp:
- * 305-345`), the mirror of eeschema's `syncSelectionParts`.
- *
- *     F<reference>          a footprint
- *     P<reference>/<pad>    a pad, matched down to the pin on the other side
- *
- * There is no `S` here: a board has no sheets to name. Upstream also walks
- * `PCB_GROUP_T` into its members; this port has no board groups in the
- * selection, so that arm has nothing to walk.
- *
- * `parts` is a `std::set` upstream, so the packet carries each part once and in
- * sorted order; a Set here does the first half and the sort is explicit.
- */
-export function boardSyncSelectionParts(board: Board, selection: ReadonlySet<string>): string[] {
-  const parts = new Set<string>();
-
-  board.footprints.forEach((fp, fi) => {
-    const ref = escapeIpc(fp.reference ?? '');
-    if (selection.has(boardItemId('footprint', fi))) parts.add(`F${ref}`);
-    fp.pads.forEach((pad, pi) => {
-      if (selection.has(boardItemId('pad', fi, pi)))
-        parts.add(`P${ref}/${escapeIpc(pad.number ?? '')}`);
-    });
-  });
-
-  return [...parts].sort();
+/** A `std::set<wxString>`'s iteration order: by code point. */
+export function sortedSyncParts(aParts: ReadonlySet<string>): string[] {
+  return [...aParts].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
 }

@@ -93,9 +93,6 @@ class TEST_FRAME extends PCB_BASE_EDIT_FRAME {
 // ----- View > Panels ----------------------------------------------------------
 
 const STATE = {
-  selectionCount: 0,
-  polygonBooleanCount: 0,
-  modifiableLineCount: 0,
   hasSchematic: true,
   hasFootprintEditor: true,
   highContrast: false,

@@ -47,9 +47,6 @@ describe("pcbnew's View > Footprint Library Browser", () => {
   const menus = buildPcbMenus(
     handlers(calls),
     {
-      selectionCount: 0,
-      polygonBooleanCount: 0,
-      modifiableLineCount: 0,
       hasSchematic: true,
       hasFootprintEditor: true,
       highContrast: false,

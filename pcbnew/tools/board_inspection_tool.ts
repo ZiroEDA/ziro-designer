@@ -25,7 +25,14 @@ import { MALFORMED_COURTYARDS } from '@ziroeda/common/eda_item_flags.js';
 import { KICURSOR } from '@ziroeda/common/gal/cursors.js';
 import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import type { RC_ITEM } from '@ziroeda/common/rc_item.js';
-import type { Reporter } from '@ziroeda/common/reporter.js';
+import { Reporter } from '@ziroeda/common/reporter.js';
+import { STATUS_TEXT_POPUP } from '@ziroeda/common/status_popup.js';
+import * as KIPLATFORM_UI from '@ziroeda/common/kiplatform/ui.js';
+import type { COROUTINE_BODY } from '@ziroeda/common/tool/coroutine.js';
+import { IsCopperLayer, IsFrontLayer } from '@ziroeda/common/layer_id.js';
+import type { PCB_GROUP } from '../pcb_group.js';
+import type { ZONE } from '../zone.js';
+import { ZONE_CONNECTION } from '../zones.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { RENDER_TARGET } from '@ziroeda/common/gal/definitions.js';
 import type { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
@@ -57,18 +64,7 @@ import { DRC_ENGINE } from '../drc/drc_engine.js';
 import { PCB_DRC_CODE } from '../drc/drc_item.js';
 import { type DRC_CONSTRAINT, DRC_CONSTRAINT_T } from '../drc/drc_rule.js';
 import { PAD_ATTRIB } from '../padstack.js';
-import { pcbIuToMM as iuToMM } from '@ziroeda/common/eda_units.js';
-import { EscapeHTML, unescapeString } from '@ziroeda/common/string_utils.js';
-import type { DrcConstraintType, DrcRuleSet } from '../drc/drc_rule_view.js';
-import {
-  buildDrcRuleEngine,
-  type DrcEvalItem,
-  type DrcItemType,
-  type DrcRuleEngine,
-  reportDrcConstraint,
-} from '../drc/drc_rules_engine.js';
-import { parseBoardItemId } from '../edit-board.js';
-import type { Board } from '../types.js';
+import { EscapeHTML } from '@ziroeda/common/string_utils.js';
 
 /**
  * What BOARD_INSPECTION_TOOL asks of `PCB_EDIT_FRAME` beyond PCB_BASE_EDIT_FRAME.
@@ -84,6 +80,14 @@ export interface BOARD_INSPECTION_TOOL_FRAME {
   m_ProbingSchToPcb: boolean;
   /** `PCB_EDIT_FRAME::GetInspectDrcErrorDialog()`: "Violation Report", made on first use. */
   GetInspectDrcErrorDialog(): DIALOG_BOOK_REPORTER;
+  /** `PCB_EDIT_FRAME::GetInspectClearanceDialog()`: "Clearance Report". */
+  GetInspectClearanceDialog(): DIALOG_BOOK_REPORTER;
+  /** `PCB_EDIT_FRAME::GetInspectConstraintsDialog()`: "Constraints Report". */
+  GetInspectConstraintsDialog(): DIALOG_BOOK_REPORTER;
+  /** `EDA_BASE_FRAME::ShowInfoBarError`. */
+  ShowInfoBarError(aErrorMsg: string): void;
+  /** `DIALOG_FOOTPRINT_ASSOCIATIONS dlg( m_frame, aFootprint ); dlg.ShowModal()`. */
+  ShowFootprintAssociationsDialog(aFootprint: FOOTPRINT): void;
   /** `PCB_EDIT_FRAME::GetDesignRulesPath()`. */
   GetDesignRulesPath(): string;
   /** The rules file's text, which `InitEngine` reads here in place of the path. */
@@ -136,9 +140,21 @@ function reportMin(aStr: (aValue: number) => string, aConstraint: DRC_CONSTRAINT
   else return '<i>undefined</i>';
 }
 
+function reportOpt(aStr: (aValue: number) => string, aConstraint: DRC_CONSTRAINT): string {
+  if (aConstraint.m_Value.HasOpt()) return aStr(aConstraint.m_Value.Opt());
+  else return '<i>undefined</i>';
+}
+
 function reportMax(aStr: (aValue: number) => string, aConstraint: DRC_CONSTRAINT): string {
   if (aConstraint.m_Value.HasMax()) return aStr(aConstraint.m_Value.Max());
   else return '<i>undefined</i>';
+}
+
+/** The anonymous VECTOR_REPORTER: keeps every line, for a page drawn later. */
+class VECTOR_REPORTER extends Reporter {
+  get m_messages(): string[] {
+    return this.lines.map((l) => l.message);
+  }
 }
 
 export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
@@ -718,6 +734,1216 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
     dialog.Show(true);
   }
 
+  /**
+   * `filterCollectorForInspection` (board_inspection_tool.cpp:220-285): a
+   * group gives way to its children under the point, and a footprint to the
+   * pad or track it shares the point with.
+   */
+  private filterCollectorForInspection(aCollector: GENERAL_COLLECTOR, aPos: VECTOR2I): void {
+    const toAdd: BOARD_ITEM[] = [];
+
+    for (let i = 0; i < aCollector.GetCount(); ++i) {
+      if (aCollector.At(i)!.Type() === KICAD_T.PCB_GROUP_T) {
+        const group = aCollector.At(i) as unknown as PCB_GROUP;
+
+        group.RunOnChildren((child: BOARD_ITEM) => {
+          if (child.Type() === KICAD_T.PCB_GROUP_T) return;
+
+          if (!child.HitTest(aPos)) return;
+
+          toAdd.push(child);
+
+          if (child.Type() === KICAD_T.PCB_FOOTPRINT_T) {
+            for (const pad of (child as unknown as FOOTPRINT).Pads()) {
+              if (pad.HitTest(aPos)) toAdd.push(pad);
+            }
+          }
+        }, RECURSE_MODE.RECURSE);
+      }
+    }
+
+    for (const item of toAdd) aCollector.Append(item);
+
+    let hasPadOrTrack = false;
+
+    for (let i = 0; i < aCollector.GetCount(); ++i) {
+      const type = aCollector.At(i)!.Type();
+
+      if (
+        type === KICAD_T.PCB_PAD_T ||
+        type === KICAD_T.PCB_VIA_T ||
+        type === KICAD_T.PCB_TRACE_T ||
+        type === KICAD_T.PCB_ARC_T ||
+        type === KICAD_T.PCB_ZONE_T
+      ) {
+        hasPadOrTrack = true;
+        break;
+      }
+    }
+
+    for (let i = aCollector.GetCount() - 1; i >= 0; --i) {
+      const item = aCollector.At(i)!;
+
+      if (hasPadOrTrack && item.Type() === KICAD_T.PCB_FOOTPRINT_T) {
+        aCollector.Remove(i);
+        continue;
+      }
+
+      if (item.Type() === KICAD_T.PCB_GROUP_T) aCollector.Remove(i);
+    }
+  }
+
+  /** `pickItemForInspection` (board_inspection_tool.cpp:288-412). */
+  private *pickItemForInspection(
+    aEvent: TOOL_EVENT,
+    aPrompt: string,
+    aTypes: readonly KICAD_T[],
+    aLockedHighlight: BOARD_ITEM | null,
+  ): COROUTINE_BODY<BOARD_ITEM | null> {
+    const selTool = this.selTool();
+    const picker = this.m_toolMgr!.FindTool(
+      'pcbnew.InteractivePicker',
+    ) as unknown as PCB_PICKER_TOOL;
+    const statusPopup = new STATUS_TEXT_POPUP();
+    let pickedItem: BOARD_ITEM | null = null;
+    let highlightedItem: BOARD_ITEM | null = null;
+    let done = false;
+
+    statusPopup.SetText(aPrompt);
+
+    picker.SetCursor(KICURSOR.BULLSEYE);
+    picker.SetSnapping(false);
+    picker.ClearHandlers();
+
+    // `m_frame->GetCollectorsGuide()`, as the selection tool builds it.
+    const collectAt = (aPoint: VECTOR2I): GENERAL_COLLECTOR => {
+      const guide = selTool.getCollectorsGuide();
+      const collector = new GENERAL_COLLECTOR();
+
+      collector.Collect(this.m_frame!.GetBoard()!, aTypes, aPoint, guide);
+
+      for (let i = collector.GetCount() - 1; i >= 0; --i) {
+        if (!selTool.Selectable(collector.At(i) as unknown as BOARD_ITEM)) collector.Remove(i);
+      }
+
+      this.filterCollectorForInspection(collector, aPoint);
+
+      if (collector.GetCount() > 1) selTool.GuessSelectionCandidates(collector, aPoint);
+
+      return collector;
+    };
+
+    picker.SetClickHandler((aPoint: VECTOR2I): boolean => {
+      this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
+
+      const collector = collectAt(aPoint);
+
+      if (collector.GetCount() === 0) return true;
+
+      pickedItem = collector.At(0) as unknown as BOARD_ITEM;
+      statusPopup.Hide();
+
+      return false;
+    });
+
+    picker.SetMotionHandler((aPos: VECTOR2I): void => {
+      const at = KIPLATFORM_UI.GetMousePosition();
+      statusPopup.Move({ x: at.x + 20, y: at.y - 50 });
+
+      const collector = collectAt(aPos);
+      const item = collector.GetCount() >= 1 ? (collector.At(0) as unknown as BOARD_ITEM) : null;
+
+      if (highlightedItem !== item) {
+        if (highlightedItem && highlightedItem !== aLockedHighlight)
+          selTool.UnbrightenItem(highlightedItem);
+
+        highlightedItem = item;
+
+        if (highlightedItem && highlightedItem !== aLockedHighlight)
+          selTool.BrightenItem(highlightedItem);
+      }
+    });
+
+    picker.SetCancelHandler((): void => {
+      if (highlightedItem && highlightedItem !== aLockedHighlight)
+        selTool.UnbrightenItem(highlightedItem);
+
+      highlightedItem = null;
+      statusPopup.Hide();
+      done = true;
+    });
+
+    picker.SetFinalizeHandler((_aFinalState: number): void => {
+      if (highlightedItem && highlightedItem !== aLockedHighlight)
+        selTool.UnbrightenItem(highlightedItem);
+
+      highlightedItem = null;
+
+      if (!pickedItem) done = true;
+    });
+
+    const at = KIPLATFORM_UI.GetMousePosition();
+    statusPopup.Move({ x: at.x + 20, y: at.y - 50 });
+    statusPopup.Popup();
+    this.m_frame!.GetCanvas()?.SetStatusPopup({
+      HasFocus: () => {
+        const panel = statusPopup.GetPanel();
+        return !!panel && typeof document !== 'undefined' && panel.contains(document.activeElement);
+      },
+    });
+
+    this.m_toolMgr!.RunAction(ACTIONS.pickerTool, aEvent);
+
+    while (!done && !pickedItem) {
+      const evt = yield* this.Wait();
+
+      if (evt) evt.SetPassEvent();
+      else break;
+    }
+
+    picker.ClearHandlers();
+    this.m_frame!.GetCanvas()?.SetStatusPopup(null);
+
+    return pickedItem;
+  }
+
+  /** `InspectClearance` (board_inspection_tool.cpp:895-968). */
+  *InspectClearance(aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+    if (!this.m_frame) return 0;
+
+    const selTool = this.selTool();
+    const selection = selTool.GetSelection();
+    let firstItem: BOARD_ITEM | null = null;
+    let secondItem: BOARD_ITEM | null = null;
+
+    if (selection.Size() === 2) {
+      if (!selection.GetItem(0)!.IsBOARD_ITEM() || !selection.GetItem(1)!.IsBOARD_ITEM()) return 0;
+
+      firstItem = selection.GetItem(0) as unknown as BOARD_ITEM;
+      secondItem = selection.GetItem(1) as unknown as BOARD_ITEM;
+
+      this.reportClearance(firstItem, secondItem);
+      return 0;
+    }
+
+    // Selection size is not 2, so we need to use picker mode.
+    // If there is one item selected, use it as the first item.
+    if (selection.Size() === 1 && selection.GetItem(0)!.IsBOARD_ITEM())
+      firstItem = selection.GetItem(0) as unknown as BOARD_ITEM;
+
+    const clearanceTypes: readonly KICAD_T[] = [
+      KICAD_T.PCB_PAD_T,
+      KICAD_T.PCB_VIA_T,
+      KICAD_T.PCB_TRACE_T,
+      KICAD_T.PCB_ARC_T,
+      KICAD_T.PCB_ZONE_T,
+      KICAD_T.PCB_SHAPE_T,
+      KICAD_T.PCB_FOOTPRINT_T,
+      KICAD_T.PCB_GROUP_T,
+    ];
+
+    this.Activate();
+
+    if (!firstItem) {
+      firstItem = yield* this.pickItemForInspection(
+        aEvent,
+        'Select first item for clearance resolution...',
+        clearanceTypes,
+        null,
+      );
+
+      if (!firstItem) return 0;
+    }
+
+    // Keep the first item highlighted while selecting the second
+    selTool.BrightenItem(firstItem);
+
+    secondItem = yield* this.pickItemForInspection(
+      aEvent,
+      'Select second item for clearance resolution...',
+      clearanceTypes,
+      firstItem,
+    );
+
+    selTool.UnbrightenItem(firstItem);
+
+    if (!secondItem) return 0;
+
+    if (firstItem === secondItem) {
+      this.m_frame.ShowInfoBarError('Select two different items for clearance resolution.');
+      return 0;
+    }
+
+    this.reportClearance(firstItem, secondItem);
+
+    return 0;
+  }
+
+  /** `reportClearance` (board_inspection_tool.cpp:971-1636). */
+  private reportClearance(aItemA: BOARD_ITEM, aItemB: BOARD_ITEM): void {
+    if (!this.m_frame) return;
+
+    const frame = this.m_frame;
+    const board = frame.GetBoard()!;
+    const str = (aValue: number): string => frame.GetUnitsProvider().StringFromValue(aValue, true);
+    let a: BOARD_ITEM | null = aItemA;
+    let b: BOARD_ITEM | null = aItemB;
+
+    if (a.Type() === KICAD_T.PCB_GROUP_T) {
+      const ag = a as unknown as PCB_GROUP;
+
+      if (ag.GetItems().size === 0) {
+        frame.ShowInfoBarError('Cannot generate clearance report on empty group.');
+        return;
+      }
+
+      a = ag.GetItems().values().next().value as unknown as BOARD_ITEM;
+    }
+
+    if (b.Type() === KICAD_T.PCB_GROUP_T) {
+      const bg = b as unknown as PCB_GROUP;
+
+      if (bg.GetItems().size === 0) {
+        frame.ShowInfoBarError('Cannot generate clearance report on empty group.');
+        return;
+      }
+
+      b = bg.GetItems().values().next().value as unknown as BOARD_ITEM;
+    }
+
+    if (!a || !b) return;
+
+    const checkFootprint = (footprint: FOOTPRINT): BOARD_ITEM => {
+      let foundPad: PAD | null = null;
+
+      for (const pad of footprint.Pads()) {
+        if (!foundPad || pad.SameLogicalPadAs(foundPad)) foundPad = pad;
+        else return footprint;
+      }
+
+      if (!foundPad) return footprint;
+
+      return foundPad;
+    };
+
+    if (a.Type() === KICAD_T.PCB_FOOTPRINT_T) a = checkFootprint(a as unknown as FOOTPRINT);
+
+    if (b.Type() === KICAD_T.PCB_FOOTPRINT_T) b = checkFootprint(b as unknown as FOOTPRINT);
+
+    if (!a || !b) return;
+
+    const dialog = frame.GetInspectClearanceDialog();
+
+    dialog.DeleteAllPages();
+
+    if (a.Type() !== KICAD_T.PCB_ZONE_T && b.Type() === KICAD_T.PCB_ZONE_T) [a, b] = [b, a];
+    else if (!a.IsConnected() && b.IsConnected()) [a, b] = [b, a];
+
+    let r: Reporter | null = null;
+    const active = frame.GetActiveLayer();
+    const layerIntersection = a.GetLayerSet().and(b.GetLayerSet());
+    const copperIntersection = layerIntersection.and(LSET.AllCuMask());
+    const ac = a.IsConnected() ? (a as unknown as BOARD_CONNECTED_ITEM) : null;
+    const bc = b.IsConnected() ? (b as unknown as BOARD_CONNECTED_ITEM) : null;
+    const zone = a.Type() === KICAD_T.PCB_ZONE_T ? (a as unknown as ZONE) : null;
+    const pad = b.Type() === KICAD_T.PCB_PAD_T ? (b as unknown as PAD) : null;
+    const aFP = a.Type() === KICAD_T.PCB_FOOTPRINT_T ? (a as unknown as FOOTPRINT) : null;
+    const bFP = b.Type() === KICAD_T.PCB_FOOTPRINT_T ? (b as unknown as FOOTPRINT) : null;
+    let constraint: DRC_CONSTRAINT;
+    let clearance = 0;
+
+    const errors = { compile: false, courtyard: false };
+    const drcEngine = this.makeDRCEngine(errors);
+    const compileError = errors.compile;
+
+    if (copperIntersection.any() && zone && pad && zone.GetNetCode() === pad.GetNetCode()) {
+      let layer: PCB_LAYER_ID = PCB_LAYER_ID.UNDEFINED_LAYER;
+
+      if (zone.IsOnLayer(active)) layer = active;
+      else if (zone.GetLayerSet().count() > 0) layer = zone.GetLayerSet().Seq()[0]!;
+
+      r = dialog.AddHTMLPage('Zone');
+      this.reportHeader('Zone connection resolution for:', a, b, layer, r);
+
+      constraint = drcEngine.EvalZoneConnection(pad, zone, layer, r);
+
+      if (constraint.m_ZoneConnection === ZONE_CONNECTION.THERMAL) {
+        r.report('');
+        r.report('');
+        this.reportHeader('Thermal-relief gap resolution for:', a, b, layer, r);
+
+        constraint = drcEngine.EvalRules(
+          DRC_CONSTRAINT_T.THERMAL_RELIEF_GAP_CONSTRAINT,
+          pad,
+          zone,
+          layer,
+          r,
+        );
+        const gap = constraint.m_Value.Min();
+
+        if (compileError) this.reportCompileError(r);
+
+        r.report('');
+        r.report(`Resolved thermal relief gap: ${str(gap)}.`);
+
+        r.report('');
+        r.report('');
+        this.reportHeader('Thermal-relief spoke width resolution for:', a, b, layer, r);
+
+        constraint = drcEngine.EvalRules(
+          DRC_CONSTRAINT_T.THERMAL_SPOKE_WIDTH_CONSTRAINT,
+          pad,
+          zone,
+          layer,
+          r,
+        );
+        const width = constraint.m_Value.Opt();
+
+        if (compileError) this.reportCompileError(r);
+
+        r.report('');
+        r.report(`Resolved spoke width: ${str(width)}.`);
+
+        r.report('');
+        r.report('');
+        this.reportHeader('Thermal-relief min spoke count resolution for:', a, b, layer, r);
+
+        constraint = drcEngine.EvalRules(
+          DRC_CONSTRAINT_T.MIN_RESOLVED_SPOKES_CONSTRAINT,
+          pad,
+          zone,
+          layer,
+          r,
+        );
+        const minSpokes = constraint.m_Value.Min();
+
+        if (compileError) this.reportCompileError(r);
+
+        r.report('');
+        r.report(`Resolved min spoke count: ${minSpokes}.`);
+      } else if (constraint.m_ZoneConnection === ZONE_CONNECTION.NONE) {
+        r.report('');
+        r.report('');
+        this.reportHeader('Zone clearance resolution for:', a, b, layer, r);
+
+        clearance = zone.GetLocalClearance()!;
+        r.report('');
+        r.report(`Zone clearance: ${str(clearance)}.`);
+
+        constraint = drcEngine.EvalRules(
+          DRC_CONSTRAINT_T.PHYSICAL_CLEARANCE_CONSTRAINT,
+          pad,
+          zone,
+          layer,
+          r,
+        );
+
+        if (constraint.m_Value.Min() > clearance) {
+          clearance = constraint.m_Value.Min();
+
+          r.report('');
+          r.report(
+            `Overridden by larger physical clearance from ${EscapeHTML(constraint.GetName())};` +
+              `clearance: ${str(clearance)}.`,
+          );
+        }
+
+        if (!pad.FlashLayer(layer)) {
+          constraint = drcEngine.EvalRules(
+            DRC_CONSTRAINT_T.PHYSICAL_HOLE_CLEARANCE_CONSTRAINT,
+            pad,
+            zone,
+            layer,
+            r,
+          );
+
+          if (constraint.m_Value.Min() > clearance) {
+            clearance = constraint.m_Value.Min();
+
+            r.report('');
+            r.report(
+              'Overridden by larger physical hole clearance ' +
+                `from ${EscapeHTML(constraint.GetName())}; clearance: ${str(clearance)}.`,
+            );
+          }
+        }
+
+        if (compileError) this.reportCompileError(r);
+
+        r.report('');
+        r.report(`Resolved min clearance: ${str(clearance)}.`);
+      } else {
+        r.report('');
+        r.report('');
+        this.reportHeader('Zone clearance resolution for:', a, b, layer, r);
+
+        if (compileError) this.reportCompileError(r);
+
+        r.report('');
+        r.report(`Resolved min clearance: ${str(0)}.`);
+      }
+
+      (r as WX_HTML_REPORT_BOX_REPORTER).Flush();
+    } else if (copperIntersection.any() && !aFP && !bFP) {
+      const sameNet = !!ac && !!bc && ac.GetNetCode() > 0 && ac.GetNetCode() === bc.GetNetCode();
+
+      const layers: PCB_LAYER_ID[] = [];
+
+      if (copperIntersection.test(active)) layers.push(active);
+
+      for (const layer of copperIntersection.Seq()) {
+        if (layer !== active) layers.push(layer);
+      }
+
+      const fillReport = (layer: PCB_LAYER_ID, rep: Reporter): void => {
+        this.reportHeader('Clearance resolution for:', a, b, layer, rep);
+
+        if (sameNet) {
+          rep.report('Items belong to the same net. Min clearance is 0.');
+          return;
+        }
+
+        constraint = drcEngine.EvalRules(DRC_CONSTRAINT_T.CLEARANCE_CONSTRAINT, a, b, layer, rep);
+        clearance = constraint.m_Value.Min();
+
+        if (compileError) this.reportCompileError(rep);
+
+        rep.report('');
+
+        if (constraint.IsNull()) {
+          rep.report('Min clearance is 0.');
+        } else if (clearance < 0) {
+          rep.report(`Resolved clearance: ${str(clearance)}; clearance will not be tested.`);
+        } else {
+          rep.report(`Resolved min clearance: ${str(clearance)}.`);
+        }
+      };
+
+      if (layers.length === 1) {
+        const layer = layers[0]!;
+
+        const page = dialog.AddHTMLPage(board.GetLayerName(layer));
+        r = page;
+        fillReport(layer, page);
+        page.Flush();
+      } else {
+        const perLayerMessages: string[][] = [];
+
+        for (const layer of layers) {
+          const tmp = new VECTOR_REPORTER();
+          fillReport(layer, tmp);
+          perLayerMessages.push(tmp.m_messages);
+        }
+
+        const panel = dialog.AddBlankPage('Clearance');
+
+        panel.AddStaticText('Layer:');
+        const choice = panel.AddChoice();
+
+        for (const layer of layers) choice.Append(board.GetLayerName(layer));
+
+        choice.SetSelection(0);
+
+        const reportBox = panel.AddReportBox();
+
+        const refresh = (sel: number): void => {
+          reportBox.clear();
+
+          if (sel >= 0 && sel < perLayerMessages.length) {
+            for (const line of perLayerMessages[sel]!) reportBox.report(line);
+          }
+
+          reportBox.Flush();
+        };
+
+        choice.Bind((aSelection) => refresh(aSelection));
+
+        refresh(0);
+      }
+    }
+
+    if (ac && bc) {
+      const refNet = ac.GetNet()!;
+
+      const dp = DRC_ENGINE.MatchDpSuffix(refNet.GetNetname());
+
+      if (dp.polarity !== 0 && bc.GetNetname() === dp.complementNet) {
+        const dpIntersection = ac.GetLayerSet().and(bc.GetLayerSet()).and(LSET.AllCuMask());
+        let dpLayer = active;
+
+        if (!dpIntersection.test(dpLayer) && dpIntersection.any())
+          dpLayer = dpIntersection.Seq()[0]!;
+
+        r = dialog.AddHTMLPage('Diff Pair');
+        this.reportHeader(
+          'Diff-pair gap resolution for:',
+          ac as unknown as BOARD_ITEM,
+          bc as unknown as BOARD_ITEM,
+          dpLayer,
+          r,
+        );
+
+        constraint = drcEngine.EvalRules(
+          DRC_CONSTRAINT_T.DIFF_PAIR_GAP_CONSTRAINT,
+          ac as unknown as BOARD_ITEM,
+          bc as unknown as BOARD_ITEM,
+          dpLayer,
+          r,
+        );
+
+        r.report('');
+        r.report(
+          `Resolved gap constraints: min ${reportMin(str, constraint)}; ` +
+            `opt ${reportOpt(str, constraint)}; max ${reportMax(str, constraint)}.`,
+        );
+
+        r.report('');
+        r.report('');
+        r.report('');
+        this.reportHeader(
+          'Diff-pair max uncoupled length resolution for:',
+          ac as unknown as BOARD_ITEM,
+          bc as unknown as BOARD_ITEM,
+          dpLayer,
+          r,
+        );
+
+        if (!drcEngine.HasRulesForConstraintType(DRC_CONSTRAINT_T.MAX_UNCOUPLED_CONSTRAINT)) {
+          r.report('');
+          r.report("No 'diff_pair_uncoupled' constraints defined.");
+        } else {
+          constraint = drcEngine.EvalRules(
+            DRC_CONSTRAINT_T.MAX_UNCOUPLED_CONSTRAINT,
+            ac as unknown as BOARD_ITEM,
+            bc as unknown as BOARD_ITEM,
+            dpLayer,
+            r,
+          );
+
+          r.report('');
+          r.report(`Resolved max uncoupled length: ${reportMax(str, constraint)}.`);
+        }
+
+        (r as WX_HTML_REPORT_BOX_REPORTER).Flush();
+      }
+    }
+
+    const isOnCorrespondingLayer = (
+      aItem: BOARD_ITEM,
+      aLayer: PCB_LAYER_ID,
+      aWarning: { value: string },
+    ): boolean => {
+      if (aItem.IsOnLayer(aLayer)) return true;
+
+      const correspondingMask = IsFrontLayer(aLayer) ? PCB_LAYER_ID.F_Mask : PCB_LAYER_ID.B_Mask;
+      const correspondingCopper = IsFrontLayer(aLayer) ? PCB_LAYER_ID.F_Cu : PCB_LAYER_ID.B_Cu;
+
+      if (aItem.IsOnLayer(aLayer)) return true;
+
+      if (aItem.IsOnLayer(correspondingMask)) return true;
+
+      if (aItem.IsTented(correspondingMask) && aItem.IsOnLayer(correspondingCopper)) {
+        aWarning.value = `Note: ${this.getItemDescription(aItem)} is tented; clearance will only be applied to holes.`;
+        return true;
+      }
+
+      return false;
+    };
+
+    for (const layer of [PCB_LAYER_ID.F_SilkS, PCB_LAYER_ID.B_SilkS]) {
+      const warning = { value: '' };
+
+      if (
+        (a.IsOnLayer(layer) && isOnCorrespondingLayer(b, layer, warning)) ||
+        (b.IsOnLayer(layer) && isOnCorrespondingLayer(a, layer, warning))
+      ) {
+        r = dialog.AddHTMLPage(board.GetLayerName(layer));
+        this.reportHeader('Silkscreen clearance resolution for:', a, b, layer, r);
+
+        constraint = drcEngine.EvalRules(
+          DRC_CONSTRAINT_T.SILK_CLEARANCE_CONSTRAINT,
+          a,
+          b,
+          layer,
+          r,
+        );
+        clearance = constraint.m_Value.Min();
+
+        if (compileError) this.reportCompileError(r);
+
+        r.report('');
+
+        if (warning.value !== '') r.report(warning.value);
+
+        r.report(`Resolved min clearance: ${str(clearance)}.`);
+
+        (r as WX_HTML_REPORT_BOX_REPORTER).Flush();
+      }
+    }
+
+    for (const layer of [PCB_LAYER_ID.F_CrtYd, PCB_LAYER_ID.B_CrtYd]) {
+      const aCourtyard = !!aFP && !aFP.GetCourtyard(layer).IsEmpty();
+      const bCourtyard = !!bFP && !bFP.GetCourtyard(layer).IsEmpty();
+
+      if (aCourtyard && bCourtyard) {
+        r = dialog.AddHTMLPage(board.GetLayerName(layer));
+        this.reportHeader('Courtyard clearance resolution for:', a, b, layer, r);
+
+        constraint = drcEngine.EvalRules(
+          DRC_CONSTRAINT_T.COURTYARD_CLEARANCE_CONSTRAINT,
+          a,
+          b,
+          layer,
+          r,
+        );
+        clearance = constraint.m_Value.Min();
+
+        if (compileError) this.reportCompileError(r);
+
+        r.report('');
+        r.report(`Resolved min clearance: ${str(clearance)}.`);
+
+        (r as WX_HTML_REPORT_BOX_REPORTER).Flush();
+      }
+    }
+
+    if (a.HasHole() || b.HasHole()) {
+      let layer: PCB_LAYER_ID = PCB_LAYER_ID.UNDEFINED_LAYER;
+      let pageAdded = false;
+
+      if (a.HasHole() && b.IsOnLayer(active) && IsCopperLayer(active)) layer = active;
+      else if (b.HasHole() && a.IsOnLayer(active) && IsCopperLayer(active)) layer = active;
+      else if (a.HasHole() && b.IsOnCopperLayer()) layer = b.GetLayer();
+      else if (b.HasHole() && a.IsOnCopperLayer()) layer = a.GetLayer();
+
+      if (layer >= 0) {
+        r = dialog.AddHTMLPage('Hole');
+        pageAdded = true;
+
+        this.reportHeader('Hole clearance resolution for:', a, b, layer, r);
+
+        constraint = drcEngine.EvalRules(
+          DRC_CONSTRAINT_T.HOLE_CLEARANCE_CONSTRAINT,
+          a,
+          b,
+          layer,
+          r,
+        );
+        clearance = constraint.m_Value.Min();
+
+        if (compileError) this.reportCompileError(r);
+
+        r.report('');
+        r.report(`Resolved min clearance: ${str(clearance)}.`);
+
+        (r as WX_HTML_REPORT_BOX_REPORTER).Flush();
+      }
+
+      if (a.HasDrilledHole() || b.HasDrilledHole()) {
+        if (!pageAdded || !r) {
+          r = dialog.AddHTMLPage('Hole');
+          pageAdded = true;
+        } else {
+          r.report('');
+          r.report('');
+          r.report('');
+        }
+
+        this.reportHeader('Hole-to-hole clearance resolution for:', a, b, undefined, r);
+
+        constraint = drcEngine.EvalRules(
+          DRC_CONSTRAINT_T.HOLE_TO_HOLE_CONSTRAINT,
+          a,
+          b,
+          PCB_LAYER_ID.UNDEFINED_LAYER,
+          r,
+        );
+        clearance = constraint.m_Value.Min();
+
+        if (compileError) this.reportCompileError(r);
+
+        r.report('');
+        r.report(`Resolved min clearance: ${str(clearance)}.`);
+
+        (r as WX_HTML_REPORT_BOX_REPORTER).Flush();
+      }
+    }
+
+    for (const edgeLayer of [PCB_LAYER_ID.Edge_Cuts, PCB_LAYER_ID.Margin]) {
+      let layer: PCB_LAYER_ID = PCB_LAYER_ID.UNDEFINED_LAYER;
+
+      if (a.IsOnLayer(edgeLayer) && b.Type() !== KICAD_T.PCB_FOOTPRINT_T) {
+        if (b.IsOnLayer(active) && IsCopperLayer(active)) layer = active;
+        else if (IsCopperLayer(b.GetLayer())) layer = b.GetLayer();
+      } else if (b.IsOnLayer(edgeLayer) && a.Type() !== KICAD_T.PCB_FOOTPRINT_T) {
+        if (a.IsOnLayer(active) && IsCopperLayer(active)) layer = active;
+        else if (IsCopperLayer(a.GetLayer())) layer = a.GetLayer();
+      }
+
+      if (layer >= 0) {
+        const layerName = board.GetLayerName(edgeLayer);
+        r = dialog.AddHTMLPage(`${layerName} Clearance`);
+        this.reportHeader('Edge clearance resolution for:', a, b, layer, r);
+
+        constraint = drcEngine.EvalRules(
+          DRC_CONSTRAINT_T.EDGE_CLEARANCE_CONSTRAINT,
+          a,
+          b,
+          layer,
+          r,
+        );
+        clearance = constraint.m_Value.Min();
+
+        if (compileError) this.reportCompileError(r);
+
+        r.report('');
+        r.report(`Resolved min clearance: ${str(clearance)}.`);
+
+        (r as WX_HTML_REPORT_BOX_REPORTER).Flush();
+      }
+    }
+
+    const physical = dialog.AddHTMLPage('Physical Clearances');
+    r = physical;
+
+    if (compileError) {
+      this.reportCompileError(r);
+    } else if (
+      !drcEngine.HasRulesForConstraintType(DRC_CONSTRAINT_T.PHYSICAL_CLEARANCE_CONSTRAINT)
+    ) {
+      r.report('');
+      r.report("No 'physical_clearance' constraints defined.");
+    } else {
+      const reportLayers = new LSET(layerIntersection);
+      let reported = false;
+
+      if (a.IsOnLayer(PCB_LAYER_ID.Edge_Cuts)) {
+        const edgeInteractingLayers = bFP
+          ? new LSET([PCB_LAYER_ID.F_CrtYd, PCB_LAYER_ID.B_CrtYd])
+          : new LSET(b.GetLayerSet().and(LSET.PhysicalLayersMask()));
+        reportLayers.orAssign(edgeInteractingLayers);
+      }
+
+      if (b.IsOnLayer(PCB_LAYER_ID.Edge_Cuts)) {
+        const edgeInteractingLayers = aFP
+          ? new LSET([PCB_LAYER_ID.F_CrtYd, PCB_LAYER_ID.B_CrtYd])
+          : new LSET(a.GetLayerSet().and(LSET.PhysicalLayersMask()));
+        reportLayers.orAssign(edgeInteractingLayers);
+      }
+
+      for (const layer of reportLayers.Seq()) {
+        reported = true;
+        this.reportHeader('Physical clearance resolution for:', a, b, layer, r);
+
+        constraint = drcEngine.EvalRules(
+          DRC_CONSTRAINT_T.PHYSICAL_CLEARANCE_CONSTRAINT,
+          a,
+          b,
+          layer,
+          r,
+        );
+        clearance = constraint.m_Value.Min();
+
+        if (constraint.IsNull()) {
+          r.report('');
+          r.report(
+            `No 'physical_clearance' constraints in effect on ${board.GetLayerName(layer)}.`,
+          );
+        } else {
+          r.report('');
+          r.report(`Resolved min clearance: ${str(clearance)}.`);
+        }
+
+        r.report('');
+        r.report('');
+        r.report('');
+      }
+
+      if (!reported) {
+        this.reportHeader('Physical clearance resolution for:', a, b, undefined, r);
+        r.report('');
+        r.report(
+          "Items share no relevant layers.  No 'physical_clearance' constraints will be applied.",
+        );
+      }
+    }
+
+    if (a.HasHole() || b.HasHole()) {
+      let layer: PCB_LAYER_ID;
+
+      if (a.HasHole() && b.IsOnLayer(active)) layer = active;
+      else if (b.HasHole() && a.IsOnLayer(active)) layer = active;
+      else if (a.HasHole()) layer = b.GetLayer();
+      else layer = a.GetLayer();
+
+      this.reportHeader('Physical hole clearance resolution for:', a, b, layer, r);
+
+      constraint = drcEngine.EvalRules(
+        DRC_CONSTRAINT_T.PHYSICAL_HOLE_CLEARANCE_CONSTRAINT,
+        a,
+        b,
+        layer,
+        r,
+      );
+      clearance = constraint.m_Value.Min();
+
+      if (compileError) {
+        this.reportCompileError(r);
+      } else if (
+        !drcEngine.HasRulesForConstraintType(DRC_CONSTRAINT_T.PHYSICAL_HOLE_CLEARANCE_CONSTRAINT)
+      ) {
+        r.report('');
+        r.report("No 'physical_hole_clearance' constraints defined.");
+      } else {
+        r.report('');
+        r.report(`Resolved min clearance: ${str(clearance)}.`);
+      }
+    }
+
+    physical.Flush();
+
+    dialog.Show(true);
+  }
+
+  /** `InspectConstraints` (board_inspection_tool.cpp:1639-1904). */
+  *InspectConstraints(aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+    if (!this.m_frame) return 0;
+
+    const frame = this.m_frame;
+    const selTool = this.selTool();
+    const selection = selTool.GetSelection();
+    let item: BOARD_ITEM | null = null;
+    const str = (aValue: number): string => frame.GetUnitsProvider().StringFromValue(aValue, true);
+
+    if (selection.Size() === 1 && selection.GetItem(0)!.IsBOARD_ITEM()) {
+      item = selection.GetItem(0) as unknown as BOARD_ITEM;
+    } else if (selection.Size() === 0) {
+      const constraintTypes: readonly KICAD_T[] = [
+        KICAD_T.PCB_PAD_T,
+        KICAD_T.PCB_VIA_T,
+        KICAD_T.PCB_TRACE_T,
+        KICAD_T.PCB_ARC_T,
+        KICAD_T.PCB_ZONE_T,
+        KICAD_T.PCB_SHAPE_T,
+        KICAD_T.PCB_FOOTPRINT_T,
+        KICAD_T.PCB_FIELD_T,
+        KICAD_T.PCB_TEXT_T,
+        KICAD_T.PCB_TEXTBOX_T,
+        KICAD_T.PCB_GROUP_T,
+      ];
+
+      this.Activate();
+
+      item = yield* this.pickItemForInspection(
+        aEvent,
+        'Select item for constraints resolution...',
+        constraintTypes,
+        null,
+      );
+
+      if (!item) return 0;
+    } else {
+      frame.ShowInfoBarError('Select a single item for a constraints resolution report.');
+      return 0;
+    }
+
+    const dialog = frame.GetInspectConstraintsDialog();
+
+    dialog.DeleteAllPages();
+    let constraint: DRC_CONSTRAINT;
+
+    const errors = { compile: false, courtyard: false };
+    const drcEngine = this.makeDRCEngine(errors);
+    const compileError = errors.compile;
+    const courtyardError = errors.courtyard;
+
+    const EVAL_RULES = (
+      aConstraint: DRC_CONSTRAINT_T,
+      a: BOARD_ITEM,
+      b: BOARD_ITEM | null,
+      aLayer: PCB_LAYER_ID,
+      r: Reporter,
+    ): DRC_CONSTRAINT => drcEngine.EvalRules(aConstraint, a, b, aLayer, r);
+
+    let r: WX_HTML_REPORT_BOX_REPORTER;
+
+    if (item.Type() === KICAD_T.PCB_TRACE_T) {
+      r = dialog.AddHTMLPage('Track Width');
+      this.reportHeader('Track width resolution for:', item, undefined, undefined, r);
+
+      constraint = EVAL_RULES(
+        DRC_CONSTRAINT_T.TRACK_WIDTH_CONSTRAINT,
+        item,
+        null,
+        item.GetLayer(),
+        r,
+      );
+
+      if (compileError) this.reportCompileError(r);
+
+      r.report('');
+      r.report(
+        `Resolved width constraints: min ${reportMin(str, constraint)}; ` +
+          `opt ${reportOpt(str, constraint)}; max ${reportMax(str, constraint)}.`,
+      );
+
+      r.Flush();
+    }
+
+    if (item.Type() === KICAD_T.PCB_VIA_T) {
+      r = dialog.AddHTMLPage('Via Diameter');
+      this.reportHeader('Via diameter resolution for:', item, undefined, undefined, r);
+
+      // PADSTACKS TODO: once we have padstacks we'll need to run this per-layer....
+      constraint = EVAL_RULES(
+        DRC_CONSTRAINT_T.VIA_DIAMETER_CONSTRAINT,
+        item,
+        null,
+        PCB_LAYER_ID.UNDEFINED_LAYER,
+        r,
+      );
+
+      if (compileError) this.reportCompileError(r);
+
+      r.report('');
+      r.report(
+        `Resolved diameter constraints: min ${reportMin(str, constraint)}; ` +
+          `opt ${reportOpt(str, constraint)}; max ${reportMax(str, constraint)}.`,
+      );
+
+      r.Flush();
+
+      r = dialog.AddHTMLPage('Via Annular Width');
+      this.reportHeader('Via annular width resolution for:', item, undefined, undefined, r);
+
+      // PADSTACKS TODO: once we have padstacks we'll need to run this per-layer....
+      constraint = EVAL_RULES(
+        DRC_CONSTRAINT_T.ANNULAR_WIDTH_CONSTRAINT,
+        item,
+        null,
+        PCB_LAYER_ID.UNDEFINED_LAYER,
+        r,
+      );
+
+      if (compileError) this.reportCompileError(r);
+
+      r.report('');
+      r.report(
+        `Resolved annular width constraints: min ${reportMin(str, constraint)}; ` +
+          `opt ${reportOpt(str, constraint)}; max ${reportMax(str, constraint)}.`,
+      );
+
+      r.Flush();
+    }
+
+    if (
+      (item.Type() === KICAD_T.PCB_PAD_T && (item as unknown as PAD).GetDrillSize().x > 0) ||
+      item.Type() === KICAD_T.PCB_VIA_T
+    ) {
+      r = dialog.AddHTMLPage('Hole Size');
+      this.reportHeader('Hole size resolution for:', item, undefined, undefined, r);
+
+      constraint = EVAL_RULES(
+        DRC_CONSTRAINT_T.HOLE_SIZE_CONSTRAINT,
+        item,
+        null,
+        PCB_LAYER_ID.UNDEFINED_LAYER,
+        r,
+      );
+
+      if (compileError) this.reportCompileError(r);
+
+      r.report('');
+      r.report(
+        `Resolved hole size constraints: min ${reportMin(str, constraint)}; ` +
+          `opt ${reportOpt(str, constraint)}; max ${reportMax(str, constraint)}.`,
+      );
+
+      r.Flush();
+    }
+
+    // dynamic_cast<PCB_TRACK*>: a track, an arc or a via.
+    const isTrack =
+      item.Type() === KICAD_T.PCB_TRACE_T ||
+      item.Type() === KICAD_T.PCB_ARC_T ||
+      item.Type() === KICAD_T.PCB_VIA_T;
+
+    if (item.Type() === KICAD_T.PCB_PAD_T || item.Type() === KICAD_T.PCB_SHAPE_T || isTrack) {
+      r = dialog.AddHTMLPage('Solder Mask');
+      this.reportHeader('Solder mask expansion resolution for:', item, undefined, undefined, r);
+
+      constraint = EVAL_RULES(
+        DRC_CONSTRAINT_T.SOLDER_MASK_EXPANSION_CONSTRAINT,
+        item,
+        null,
+        PCB_LAYER_ID.UNDEFINED_LAYER,
+        r,
+      );
+
+      if (compileError) this.reportCompileError(r);
+
+      r.report('');
+      r.report(`Resolved solder mask expansion: ${reportOpt(str, constraint)}.`);
+
+      r.Flush();
+    }
+
+    if (item.Type() === KICAD_T.PCB_PAD_T) {
+      r = dialog.AddHTMLPage('Solder Paste');
+      this.reportHeader(
+        'Solder paste absolute clearance resolution for:',
+        item,
+        undefined,
+        undefined,
+        r,
+      );
+
+      constraint = EVAL_RULES(
+        DRC_CONSTRAINT_T.SOLDER_PASTE_ABS_MARGIN_CONSTRAINT,
+        item,
+        null,
+        PCB_LAYER_ID.UNDEFINED_LAYER,
+        r,
+      );
+
+      if (compileError) this.reportCompileError(r);
+
+      r.report('');
+      r.report(`Resolved solder paste absolute clearance: ${reportOpt(str, constraint)}.`);
+
+      this.reportHeader(
+        'Solder paste relative clearance resolution for:',
+        item,
+        undefined,
+        undefined,
+        r,
+      );
+
+      constraint = EVAL_RULES(
+        DRC_CONSTRAINT_T.SOLDER_PASTE_REL_MARGIN_CONSTRAINT,
+        item,
+        null,
+        PCB_LAYER_ID.UNDEFINED_LAYER,
+        r,
+      );
+
+      if (compileError) this.reportCompileError(r);
+
+      r.report('');
+      r.report('');
+      r.report('');
+      r.report(`Resolved solder paste relative clearance: ${reportOpt(str, constraint)}.`);
+
+      r.Flush();
+    }
+
+    if (
+      item.Type() === KICAD_T.PCB_FIELD_T ||
+      item.Type() === KICAD_T.PCB_TEXT_T ||
+      item.Type() === KICAD_T.PCB_TEXTBOX_T
+    ) {
+      r = dialog.AddHTMLPage('Text Size');
+      this.reportHeader('Text height resolution for:', item, undefined, undefined, r);
+
+      constraint = EVAL_RULES(
+        DRC_CONSTRAINT_T.TEXT_HEIGHT_CONSTRAINT,
+        item,
+        null,
+        PCB_LAYER_ID.UNDEFINED_LAYER,
+        r,
+      );
+
+      if (compileError) this.reportCompileError(r);
+
+      r.report('');
+      r.report(
+        `Resolved height constraints: min ${reportMin(str, constraint)}; ` +
+          `opt ${reportOpt(str, constraint)}; max ${reportMax(str, constraint)}.`,
+      );
+
+      r.report('');
+      r.report('');
+      r.report('');
+      this.reportHeader('Text thickness resolution for:', item, undefined, undefined, r);
+
+      constraint = EVAL_RULES(
+        DRC_CONSTRAINT_T.TEXT_THICKNESS_CONSTRAINT,
+        item,
+        null,
+        PCB_LAYER_ID.UNDEFINED_LAYER,
+        r,
+      );
+
+      if (compileError) this.reportCompileError(r);
+
+      r.report('');
+      r.report(
+        `Resolved thickness constraints: min ${reportMin(str, constraint)}; ` +
+          `opt ${reportOpt(str, constraint)}; max ${reportMax(str, constraint)}.`,
+      );
+
+      r.Flush();
+    }
+
+    const courtyardWarning =
+      'Report may be incomplete: some footprint courtyards are malformed.' +
+      '&nbsp;&nbsp;' +
+      "<a href='$DRC'>" +
+      'Run DRC for a full analysis.' +
+      '</a>';
+
+    r = dialog.AddHTMLPage('Keepouts');
+    this.reportHeader('Keepout resolution for:', item, undefined, undefined, r);
+
+    constraint = EVAL_RULES(DRC_CONSTRAINT_T.DISALLOW_CONSTRAINT, item, null, item.GetLayer(), r);
+
+    if (compileError) this.reportCompileError(r);
+
+    if (courtyardError) {
+      r.report('');
+      r.report(courtyardWarning);
+    }
+
+    r.report('');
+
+    if (constraint.m_DisallowFlags) r.report('Item <b>disallowed</b> at current location.');
+    else r.report('Item allowed at current location.');
+
+    r.Flush();
+
+    r = dialog.AddHTMLPage('Assertions');
+    this.reportHeader('Assertions for:', item, undefined, undefined, r);
+
+    if (compileError) this.reportCompileError(r);
+
+    if (courtyardError) {
+      r.report('');
+      r.report(courtyardWarning);
+    }
+
+    drcEngine.ProcessAssertions(item, () => {}, r);
+    r.Flush();
+
+    dialog.Show(true);
+    return 0;
+  }
+
+  /** `ShowFootprintLinks` (board_inspection_tool.cpp:1937-1958). */
+  ShowFootprintLinks(_aEvent: TOOL_EVENT): number {
+    if (!this.m_frame) return 0;
+
+    const selection = this.selTool().GetSelection();
+
+    if (selection.Size() !== 1 || selection.Front()!.Type() !== KICAD_T.PCB_FOOTPRINT_T) {
+      this.m_frame.ShowInfoBarError('Select a footprint for a footprint associations report.');
+      return 0;
+    }
+
+    this.m_frame.ShowFootprintAssociationsDialog(selection.Front() as unknown as FOOTPRINT);
+
+    return 0;
+  }
+
   /** @return true if a net or nets to highlight have been set */
   IsNetHighlightSet(): boolean {
     return this.m_currentlyHighlighted.size > 0;
@@ -1149,6 +2375,9 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
     this.Go(S(this.UpdateLocalRatsnest), PCB_ACTIONS.updateLocalRatsnest.MakeEvent());
 
     this.Go(S(this.ShowBoardStatistics), PCB_ACTIONS.boardStatistics.MakeEvent());
+    this.Go(this.InspectClearance, PCB_ACTIONS.inspectClearance.MakeEvent());
+    this.Go(this.InspectConstraints, PCB_ACTIONS.inspectConstraints.MakeEvent());
+    this.Go(S(this.ShowFootprintLinks), PCB_ACTIONS.showFootprintAssociations.MakeEvent());
     // TRANSITIONAL (#636 stage 3): inspectClearance, inspectConstraints,
     // diffFootprint and showFootprintAssociations are still the window's.
 
@@ -1162,375 +2391,4 @@ export class BOARD_INSPECTION_TOOL extends PCB_TOOL_BASE {
     this.Go(S(this.HideNetInRatsnest), PCB_ACTIONS.hideNetInRatsnest.MakeEvent());
     this.Go(S(this.ShowNetInRatsnest), PCB_ACTIONS.showNetInRatsnest.MakeEvent());
   }
-}
-
-// ---------------------------------------------------------------------------
-// TRANSITIONAL (#636 stage 3): the view-board report builders the frame still
-// uses for Clearance / Constraints Resolution, until InspectClearance and
-// InspectConstraints are ported on the live BOARD.
-// ---------------------------------------------------------------------------
-
-/** What a selection key resolves to, before it becomes an InspectItem. */
-interface Described {
-  desc: string;
-  type: DrcItemType;
-  layer: string;
-  net: number;
-}
-
-/**
- * The board item behind a selection key, described the way the report names
- * it. Kinds with no copper to resolve a clearance against — graphics, text,
- * groups — return nothing rather than a section that could say nothing useful.
- */
-export function describeSelected(board: Board, id: string): Described | null {
-  const ref = parseBoardItemId(id);
-  if (!ref) return null;
-
-  // Unescaped, like every other net name a person reads: `{slash}` is the file's
-  // encoding of a `/` inside a label name, not part of what the net is called
-  // (issue #626).
-  const netName = (net: number): string =>
-    unescapeString(board.nets.get(net) ?? '') || `net ${net}`;
-
-  switch (ref.kind) {
-    case 'track':
-    case 'arc': {
-      const t = ref.kind === 'track' ? board.tracks[ref.index] : board.arcs[ref.index];
-      if (!t) return null;
-      return {
-        desc: `Track [${netName(t.net)}] on ${t.layer}`,
-        type: ref.kind === 'track' ? 'Track' : 'Arc',
-        layer: t.layer,
-        net: t.net,
-      };
-    }
-
-    case 'via': {
-      const v = board.vias[ref.index];
-      if (!v) return null;
-      return { desc: `Via [${netName(v.net)}]`, type: 'Via', layer: v.layers[0], net: v.net };
-    }
-
-    case 'pad': {
-      const fp = board.footprints[ref.index];
-      const pad = fp?.pads[ref.sub ?? 0];
-      if (!fp || !pad) return null;
-      return {
-        desc: `Pad ${pad.number} of ${fp.reference ?? fp.lib}`,
-        type: 'Pad',
-        layer: pad.layers[0] ?? 'F.Cu',
-        net: pad.net ?? 0,
-      };
-    }
-
-    case 'zone': {
-      const z = board.zones[ref.index];
-      if (!z) return null;
-      return {
-        desc: z.name ? `Zone '${z.name}'` : `Zone [${netName(z.net)}]`,
-        type: 'Zone',
-        layer: z.layers[0] ?? 'F.Cu',
-        net: z.net,
-      };
-    }
-
-    default:
-      return null;
-  }
-}
-
-/**
- * The report for a selection: two items give a clearance resolution, one gives
- * a constraints resolution, anything else gives nothing.
- *
- * Upstream lets a user pick the items interactively when the selection is not
- * already a pair; here the menu entries are simply disabled until it is, which
- * says the same thing without a modal picker.
- */
-export function inspectSelection(
-  board: Board,
-  selection: Iterable<string>,
-  rules: DrcRuleSet,
-  netClassesOf: (netName: string) => readonly string[],
-): InspectSection[] {
-  const picked: Described[] = [];
-
-  for (const id of selection) {
-    const d = describeSelected(board, id);
-    if (d) picked.push(d);
-  }
-
-  const toItem = (d: Described): InspectItem => ({
-    desc: d.desc,
-    eval: {
-      type: d.type,
-      layer: d.layer,
-      netName: board.nets.get(d.net),
-      netClasses: [...netClassesOf(board.nets.get(d.net) ?? '')],
-    },
-  });
-
-  if (picked.length === 2)
-    return buildClearanceReport(rules, toItem(picked[0]!), toItem(picked[1]!), picked[0]!.layer);
-
-  if (picked.length === 1)
-    return buildConstraintsReport(rules, toItem(picked[0]!), picked[0]!.layer);
-
-  return [];
-}
-
-/**
- * The selection as the DIALOG_BOOK_REPORTER BOARD_INSPECTION_TOOL fills:
- * PCB_EDIT_FRAME::GetInspectClearanceDialog is titled "Clearance Report" and
- * GetInspectConstraintsDialog "Constraints Report" (pcb_edit_frame.cpp:3318,
- * :3330), and each constraint goes on its upstream page (`inspectPages`).
- * `null` when the selection is neither one item nor a pair.
- */
-export function inspectReport(
-  board: Board,
-  selection: Iterable<string>,
-  rules: DrcRuleSet,
-  netClassesOf: (netName: string) => readonly string[],
-): { title: string; pages: InspectPage[] } | null {
-  const ids = [...selection];
-  const sections = inspectSelection(board, ids, rules, netClassesOf);
-  if (sections.length === 0) return null;
-  const pair = ids.filter((id) => describeSelected(board, id) !== null).length === 2;
-  const layer = describeSelected(board, ids.find((id) => describeSelected(board, id))!)!.layer;
-  return pair
-    ? { title: 'Clearance Report', pages: inspectPages(sections, 'clearance', layer) }
-    : { title: 'Constraints Report', pages: inspectPages(sections, 'constraints', layer) };
-}
-
-/** One headed block of the report, as a dialog renders one page. */
-export interface InspectSection {
-  /** The constraint this section reports, which names its notebook page. */
-  type: DrcConstraintType;
-  /** "Clearance resolution for:" and the like. */
-  title: string;
-  /** The layer and the item descriptions the question was asked about. */
-  subjects: string[];
-  /** The engine's reasoning, one line per step. */
-  lines: string[];
-}
-
-export interface InspectItem {
-  /** How the item is named in the report. */
-  desc: string;
-  /** What the rule engine matches against. */
-  eval: DrcEvalItem;
-}
-
-const mm = (iu: number): string =>
-  `${iuToMM(iu).toFixed(4).replace(/0+$/, '').replace(/\.$/, '')} mm`;
-
-/**
- * The constraints upstream reports for a pair of items, in its order.
- *
- * A pad against a zone is the case with the most to say: the zone connection
- * decides whether the other three are even meaningful, so it comes first.
- */
-function constraintsFor(a: InspectItem, b: InspectItem): DrcConstraintType[] {
-  const kinds = [a.eval.type, b.eval.type];
-  const padToZone = kinds.includes('Pad') && kinds.includes('Zone');
-
-  if (padToZone)
-    return [
-      'zone_connection',
-      'thermal_relief_gap',
-      'thermal_spoke_width',
-      'min_resolved_spokes',
-      'clearance',
-    ];
-
-  return ['clearance'];
-}
-
-/** The human title for each constraint's section. */
-/** reportHeader's titles in InspectConstraints (board_inspection_tool.cpp:1701-1824). */
-const CONSTRAINT_TITLES: Partial<Record<DrcConstraintType, string>> = {
-  track_width: 'Track width resolution for:',
-  via_diameter: 'Via diameter resolution for:',
-  annular_width: 'Via annular width resolution for:',
-  hole_size: 'Hole size resolution for:',
-  text_height: 'Text height resolution for:',
-  text_thickness: 'Text thickness resolution for:',
-  track_angle: 'Track Angle resolution for:',
-  track_segment_length: 'Track segment length resolution for:',
-  clearance: 'Clearance resolution for:',
-};
-
-const TITLES: Partial<Record<DrcConstraintType, string>> = {
-  clearance: 'Clearance resolution for:',
-  zone_connection: 'Zone connection resolution for:',
-  thermal_relief_gap: 'Thermal-relief gap resolution for:',
-  thermal_spoke_width: 'Thermal-relief spoke width resolution for:',
-  min_resolved_spokes: 'Thermal-relief min spoke count resolution for:',
-  hole_clearance: 'Hole clearance resolution for:',
-  edge_clearance: 'Edge clearance resolution for:',
-  physical_clearance: 'Physical clearance resolution for:',
-};
-
-/**
- * `reportClearance`: why these two items resolve to the clearance they do.
- *
- * `localOverride` is the item's own clearance, which wins outright — the
- * report says so and stops, because consulting rules whose answer cannot be
- * used would suggest they were involved.
- */
-export function buildClearanceReport(
-  rules: DrcRuleSet | DrcRuleEngine,
-  a: InspectItem,
-  b: InspectItem,
-  layer: string,
-  localOverride?: number,
-): InspectSection[] {
-  const engine = 'byType' in rules ? rules : buildDrcRuleEngine([], rules);
-  const subjects = [`Layer ${layer}`, a.desc, b.desc];
-
-  return constraintsFor(a, b).map((type) => {
-    const { lines } = reportDrcConstraint(
-      engine,
-      type,
-      a.eval,
-      b.eval,
-      layer,
-      type === 'clearance' ? localOverride : undefined,
-    );
-
-    return { title: TITLES[type] ?? `${type} resolution for:`, subjects, lines, type };
-  });
-}
-
-/**
- * `InspectConstraints`: what every constraint resolves to for one item.
- *
- * Unlike the clearance report this asks about a single item, so the
- * constraints are the ones an item can carry on its own — the pairwise ones
- * have no second item to be measured against and are left out rather than
- * reported against nothing.
- */
-export function buildConstraintsReport(
-  rules: DrcRuleSet | DrcRuleEngine,
-  item: InspectItem,
-  layer: string,
-): InspectSection[] {
-  const engine = 'byType' in rules ? rules : buildDrcRuleEngine([], rules);
-  const subjects = [`Layer ${layer}`, item.desc];
-
-  const single: DrcConstraintType[] =
-    item.eval.type === 'Via'
-      ? ['via_diameter', 'hole_size', 'annular_width']
-      : item.eval.type === 'Track' || item.eval.type === 'Arc'
-        ? ['track_width', 'track_segment_length', 'track_angle']
-        : item.eval.type === 'Text'
-          ? ['text_height', 'text_thickness']
-          : ['clearance'];
-
-  return single.map((type) => {
-    const { lines } = reportDrcConstraint(engine, type, item.eval, undefined, layer);
-    return { title: CONSTRAINT_TITLES[type] ?? `${type} resolution for:`, subjects, lines, type };
-  });
-}
-
-/** The report as plain text, for a console, a clipboard or a snapshot. */
-export function formatInspectReport(sections: readonly InspectSection[]): string {
-  return sections
-    .map((s) =>
-      [s.title, ...s.subjects.map((x) => `  - ${x}`), ...s.lines.map((x) => `  ${x}`)].join('\n'),
-    )
-    .join('\n\n');
-}
-
-export { mm as formatInspectValue };
-
-/** One DIALOG_BOOK_REPORTER page: its tab caption and what was Report()ed. */
-export interface InspectPage {
-  title: string;
-  messages: string[];
-}
-
-/**
- * The notebook page each constraint is reported on, as
- * BOARD_INSPECTION_TOOL::InspectClearance (board_inspection_tool.cpp:1035-1530)
- * and InspectConstraints (:1686-1900) name them. A copper clearance goes on a
- * page named for its layer (`AddHTMLPage( GetLayerName( layer ) )`), and the
- * four zone checks share the one "Zone" page.
- *
- * `track_angle` and `track_segment_length` are not on upstream's constraints
- * report; they are InspectDRCError's pages (:638, :653), whose captions they
- * keep.
- */
-function pageTitle(
-  type: DrcConstraintType,
-  report: 'clearance' | 'constraints',
-  layerName: string,
-): string {
-  switch (type) {
-    case 'clearance':
-      return layerName;
-    case 'zone_connection':
-    case 'thermal_relief_gap':
-    case 'thermal_spoke_width':
-    case 'min_resolved_spokes':
-      return 'Zone';
-    case 'hole_clearance':
-      return 'Hole';
-    case 'edge_clearance':
-      return `${layerName} Clearance`;
-    case 'physical_clearance':
-      return 'Physical Clearances';
-    case 'track_width':
-      return 'Track Width';
-    case 'via_diameter':
-      return 'Via Diameter';
-    case 'annular_width':
-      return report === 'constraints' ? 'Via Annular Width' : 'Via Annulus';
-    case 'hole_size':
-      return 'Hole Size';
-    case 'text_height':
-    case 'text_thickness':
-      return report === 'constraints'
-        ? 'Text Size'
-        : type === 'text_height'
-          ? 'Text Height'
-          : 'Text Thickness';
-    case 'track_angle':
-      return 'Track Angle';
-    case 'track_segment_length':
-      return 'Track Segment Length';
-    default:
-      return type;
-  }
-}
-
-/**
- * The sections as BOARD_INSPECTION_TOOL writes them into the dialog: one
- * page per caption (sections sharing a caption share its page, in order), each
- * opened by `reportHeader` - `<h7>title</h7>` and the subjects as a `<ul>` -
- * then a blank line and the engine's reasoning. Every piece of text is
- * EscapeHTML()'d, as upstream escapes each item description: a net or
- * reference name is the board's, not markup.
- */
-export function inspectPages(
-  sections: readonly InspectSection[],
-  report: 'clearance' | 'constraints',
-  layerName: string,
-): InspectPage[] {
-  const pages: InspectPage[] = [];
-  for (const s of sections) {
-    const title = pageTitle(s.type, report, layerName);
-    let page = pages.find((p) => p.title === title);
-    if (!page) {
-      page = { title, messages: [] };
-      pages.push(page);
-    }
-    page.messages.push(`<h7>${EscapeHTML(s.title)}</h7>`);
-    page.messages.push(`<ul>${s.subjects.map((x) => `<li>${EscapeHTML(x)}</li>`).join('')}</ul>`);
-    page.messages.push('');
-    for (const line of s.lines) page.messages.push(EscapeHTML(line));
-    page.messages.push('');
-  }
-  return pages;
 }

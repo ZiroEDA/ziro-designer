@@ -456,6 +456,39 @@ export class BOARD_EDITOR_CONTROL extends PCB_TOOL_BASE {
     return true;
   }
 
+  /** `CrossProbeToSch` (board_editor_control.cpp:2083-2087). */
+  CrossProbeToSch(aEvent: TOOL_EVENT): number {
+    this.doCrossProbePcbToSch(aEvent, false);
+    return 0;
+  }
+
+  /** `ExplicitCrossProbeToSch` (board_editor_control.cpp:2090-2094). */
+  ExplicitCrossProbeToSch(aEvent: TOOL_EVENT): number {
+    this.doCrossProbePcbToSch(aEvent, true);
+    return 0;
+  }
+
+  /** `doCrossProbePcbToSch` (board_editor_control.cpp:2097-2114). */
+  private doCrossProbePcbToSch(aEvent: TOOL_EVENT, aForce: boolean): void {
+    const editFrame = this.m_frame as unknown as PCB_EDIT_FRAME;
+
+    // Don't get in an infinite loop PCB -> SCH -> PCB -> SCH -> ...
+    if (editFrame.m_ProbingSchToPcb) return;
+
+    const selTool = this.m_toolMgr!.FindTool(
+      'common.InteractiveSelection',
+    ) as unknown as PCB_SELECTION_TOOL;
+    const selection = selTool.GetSelection();
+    let focusItem: EDA_ITEM | null = null;
+
+    if (aEvent.Matches(EVENTS.PointSelectedEvent)) focusItem = selection.GetLastAddedItem();
+
+    editFrame.SendSelectItemsToSch(selection.GetItems(), focusItem, aForce);
+
+    // Update 3D viewer highlighting
+    editFrame.Update3DView(false, editFrame.GetPcbNewSettings().m_Display.m_Live3DRefresh);
+  }
+
   /** `AssignNetclass` (board_editor_control.cpp:2117-2190). */
   AssignNetclass(_aEvent: TOOL_EVENT): number {
     const selectionTool = this.m_toolMgr!.FindTool(
@@ -910,6 +943,15 @@ export class BOARD_EDITOR_CONTROL extends PCB_TOOL_BASE {
       PCB_ACTIONS.unlock.MakeEvent(),
     );
     this.Go(this.PageSettings, ACTIONS.pageSettings.MakeEvent());
+
+    this.Go(SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.CrossProbeToSch), EVENTS.PointSelectedEvent);
+    this.Go(SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.CrossProbeToSch), EVENTS.SelectedEvent);
+    this.Go(SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.CrossProbeToSch), EVENTS.UnselectedEvent);
+    this.Go(SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.CrossProbeToSch), EVENTS.ClearedEvent);
+    this.Go(
+      SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.ExplicitCrossProbeToSch),
+      PCB_ACTIONS.selectOnSchematic.MakeEvent(),
+    );
 
     this.Go(
       SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.AssignNetclass),

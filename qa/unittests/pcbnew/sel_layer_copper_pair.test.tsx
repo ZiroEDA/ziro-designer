@@ -37,7 +37,6 @@ const makeFrame = (selectCopperLayerPair: () => void = () => {}) =>
     showExchangeFootprintsDialog: () => {},
     findDialogRects: () => [],
     setViewCenter: () => {},
-    syncSelection: () => {},
     editZoneParams: () => {},
     selectCopperLayerPair,
     updatePcbFromSchematic: () => {},

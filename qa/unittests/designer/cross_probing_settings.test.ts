@@ -17,12 +17,7 @@
  * centring off must leave the zoom alone too, not merely skip the pan.
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { parse } from '@ziroeda/sexpr';
 import {
-  readBoard,
-  crossProbeSelection,
   crossProbeViewChange,
   crossProbeFlashSelection,
   CROSS_PROBE_FLASH_INTERVAL_MS,
@@ -33,24 +28,6 @@ import { CROSS_PROBING_SETTINGS } from '@ziroeda/common/settings/app_settings.js
 import { PCBNEW_DEFAULTS, deepMerge } from '@ziroeda/designer/src/prefs/settings.js';
 import { EESCHEMA_DEFAULTS } from '@ziroeda/eeschema/eeschema_settings.js';
 import { pcbnewSettingsOf } from '@ziroeda/pcbnew/pcb_edit_frame.js';
-
-const BOARD = `(kicad_pcb (version 20241229) (generator "pcbnew")
-  (general (thickness 1.6))
-  (paper "A4")
-  (layers (0 "F.Cu" signal) (31 "B.Cu" signal))
-  (net 0 "")
-  (net 1 "GND")
-  (net 2 "VCC")
-  (footprint "R_0402" (layer "F.Cu") (uuid "fp-1") (at 10 10)
-    (path "/sym-1")
-    (property "Reference" "R1" (at 0 0 0) (layer "F.SilkS") (uuid "t1")
-      (effects (font (size 1 1) (thickness 0.15)))))
-  (footprint "R_0402" (layer "F.Cu") (uuid "fp-2") (at 30 10)
-    (path "/sym-2")
-    (property "Reference" "R2" (at 0 0 0) (layer "F.SilkS") (uuid "t2")
-      (effects (font (size 1 1) (thickness 0.15))))))
-`;
-const board = readBoard(parse(BOARD));
 
 const cfg = (over: Partial<CROSS_PROBING_SETTINGS>): CROSS_PROBING_SETTINGS => ({
   ...new CROSS_PROBING_SETTINGS(),
@@ -93,29 +70,6 @@ describe('cross_probing settings round-trip', () => {
       cross_probing: { on_selection: 'yes' },
     }) as typeof PCBNEW_DEFAULTS;
     expect(merged.cross_probing.on_selection).toBe(true);
-  });
-});
-
-// ----- on_selection -----------------------------------------------------------
-
-describe('on_selection decides whether the packet is acted on at all', () => {
-  it('selects what the parts name when it is on', () => {
-    expect(crossProbeSelection(cfg({ on_selection: true }), board, ['FR1'])).toEqual([
-      'footprint:0',
-    ]);
-  });
-
-  it('refuses the packet when it is off, rather than clearing the selection', () => {
-    // `case MAIL_SELECTION: if( !on_selection ) break;` — cross-probing.cpp:734.
-    // null is "do not touch the selection", which is not the same answer as [].
-    expect(crossProbeSelection(cfg({ on_selection: false }), board, ['FR1'])).toBeNull();
-  });
-
-  it('still obeys an explicitly forced probe', () => {
-    // MAIL_SELECTION_FORCE falls in below the check (cross-probing.cpp:738).
-    expect(crossProbeSelection(cfg({ on_selection: false }), board, ['FR1'], true)).toEqual([
-      'footprint:0',
-    ]);
   });
 });
 
@@ -229,42 +183,10 @@ describe('flash_selection blinks the new selection three times', () => {
   });
 });
 
-// ----- the wiring in PcbEditor ------------------------------------------------
-
-/**
- * The pure functions above answer correctly; this checks the board editor
- * actually asks them, and asks with the right settings object.
- *
- * The file is read as text because `qa`'s tsconfig cannot compile a `.tsx`;
- * `clipboard_wired.test.ts` covers the same blind spot the same way. The failure
- * being guarded is silent: dropping a gate here leaves every unit test green
- * while the preference stops doing anything, which is how the group came to be
- * four disabled checkboxes in the first place.
- */
-const PCB_EDITOR = readFileSync(
-  fileURLToPath(new URL('../../../pcbnew/pcb_edit_frame_ui.tsx', import.meta.url)),
-  'utf8',
-);
-
-describe('PcbEditor routes its cross-probes through the settings', () => {
-  it('reads pcbnew’s copy, not the schematic’s', () => {
-    // Upstream the frame that RECEIVES the probe owns the settings that decide
-    // what it does (pcbnew/cross-probing.cpp:734 `GetPcbNewSettings()`), and
-    // Select on PCB is received here.
-    expect(PCB_EDITOR).toContain('pcbCfg.cross_probing');
-    expect(PCB_EDITOR).not.toContain('settings.eeschema.cross_probing');
-  });
-
-  it('asks crossProbeSelection rather than selecting the parts directly', () => {
-    // The settings have to arrive UNCHANGED. Naming the function is not enough:
-    // `crossProbeSelection({ ...cfg, on_selection: true }, ...)` still contains
-    // the name and still ignores the preference, and a first version of this
-    // test passed against exactly that mutant.
-    expect(PCB_EDITOR).toMatch(/crossProbeSelection\(\s*cfg\s*,/);
-    // The un-gated form must not survive anywhere in the editor.
-    expect(PCB_EDITOR).not.toContain('findItemsFromSyncSelection(');
-  });
-
+// The board editor's half - MAIL_SELECTION / _FORCE into PCB_EDIT_FRAME,
+// on_selection, FindItemsFromSyncSelection, the flash - runs on the frame
+// itself in pcb_cross_probe_mail.test.ts.
+describe('PCB_EDIT_FRAME reads pcbnew’s copy of the settings', () => {
   it("hands pcbnew's copy to the frame whose ExecuteRemoteCommand reads it", () => {
     // `$NET:` is received by PCB_EDIT_FRAME, which reads `GetPcbNewSettings()->
     // m_CrossProbing` (pcbnew/cross-probing.cpp:92).
@@ -276,24 +198,5 @@ describe('PcbEditor routes its cross-probes through the settings', () => {
       auto_highlight: false,
       zoom_to_fit: false,
     });
-  });
-
-  it('asks crossProbeViewChange rather than zooming unconditionally', () => {
-    expect(PCB_EDITOR).toMatch(/crossProbeViewChange\(\s*cfg\s*,/);
-    expect(PCB_EDITOR).not.toContain('crossProbeZoomScale(');
-  });
-
-  it('honours flash_selection on the timer it starts', () => {
-    // Spelled out with the `if (` so an inverted gate is a different string.
-    expect(PCB_EDITOR).toContain('if (cfg.flash_selection && ids.length > 0)');
-    expect(PCB_EDITOR).toContain('crossProbeFlashSelection(');
-    expect(PCB_EDITOR).toContain('CROSS_PROBE_FLASH_INTERVAL_MS');
-  });
-
-  it('passes no settings object it has doctored on the way', () => {
-    // The general form of all four mutants above: a spread that overrides one
-    // key at the call site reads exactly like the fix.
-    expect(PCB_EDITOR).not.toMatch(/\{\s*\.\.\.\s*cfg[,\s]/);
-    expect(PCB_EDITOR).not.toMatch(/\{\s*\.\.\.\s*settings\.pcbnew\.cross_probing[,\s]/);
   });
 });

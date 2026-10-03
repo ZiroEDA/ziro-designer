@@ -117,7 +117,6 @@ function makeHarness(): Harness {
     showExchangeFootprintsDialog: () => {},
     findDialogRects: (): BOX2D[] => [],
     setViewCenter: (_aPos: Vec2) => {},
-    syncSelection: () => {},
     editZoneParams: () => {},
     selectCopperLayerPair: () => {},
     updatePcbFromSchematic: () => {},

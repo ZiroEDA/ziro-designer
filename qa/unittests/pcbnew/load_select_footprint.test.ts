@@ -87,7 +87,6 @@ function setup(aHooks: Partial<PCB_EDIT_FRAME_HOOKS> = {}, aBoard: BOARD = board
     showExchangeFootprintsDialog: () => {},
     findDialogRects: () => [],
     setViewCenter: () => {},
-    syncSelection: () => {},
     editZoneParams: () => {},
     selectCopperLayerPair: () => {},
     updatePcbFromSchematic: () => {},

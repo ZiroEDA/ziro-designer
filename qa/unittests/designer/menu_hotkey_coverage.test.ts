@@ -764,9 +764,6 @@ const MENU_BUILDER: Readonly<Record<string, () => Menu[]>> = {
         // Every ENABLE() condition true, so a greyed row here is greyed on its
         // own merits (an unbuilt feature) and not on a condition -- which is
         // also what makes "a greyed row prints no accelerator" mean something.
-        selectionCount: 2,
-        polygonBooleanCount: 2,
-        modifiableLineCount: 2,
         hasSchematic: true,
         hasFootprintEditor: true,
         highContrast: false,

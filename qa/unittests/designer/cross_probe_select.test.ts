@@ -27,9 +27,14 @@ import {
   schCrossProbeZoomScale,
 } from '@ziroeda/eeschema/cross-probing.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
-import { boardSyncSelectionParts } from '@ziroeda/pcbnew/cross-probing.js';
+import { collectItemsForSyncParts, sortedSyncParts } from '@ziroeda/pcbnew/cross-probing.js';
+import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { readBoard } from '@ziroeda/pcbnew';
-import { findItemsFromSyncSelection, crossProbeZoomScale } from '@ziroeda/pcbnew';
+import { crossProbeZoomScale } from '@ziroeda/pcbnew';
+import { installPgm } from '@ziroeda/designer/src/editors/pcb/pcb_canvas.js';
+import { PCB_EDIT_FRAME, type PCB_EDIT_FRAME_HOOKS } from '@ziroeda/pcbnew/pcb_edit_frame.js';
+import { PCBNEW_SETTINGS } from '@ziroeda/pcbnew/pcbnew_settings.js';
 import { escapeIpc } from '@ziroeda/common/string_utils.js';
 import { pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import type { LibSymbol } from '@ziroeda/eeschema/types.js';
@@ -139,52 +144,84 @@ const BOARD = `(kicad_pcb (version 20241229) (generator "pcbnew")
 `;
 
 const board = readBoard(parse(BOARD));
+const kboard = ParseBoard(BOARD);
+const fp = (i: number): EDA_ITEM => kboard.Footprints()[i]!;
+const pad = (i: number, j: number): EDA_ITEM => kboard.Footprints()[i]!.Pads()[j]!;
+/** PCB_EDIT_FRAME::SendSelectItemsToSch's parts, in the std::set's order. */
+const partsOf = (...aItems: EDA_ITEM[]): string[] => {
+  const parts = new Set<string>();
+  collectItemsForSyncParts(aItems, parts);
+  return sortedSyncParts(parts);
+};
+
+/**
+ * `PCB_EDIT_FRAME::FindItemsFromSyncSelection` on the board, each item named as
+ * `footprint:<i>` / `pad:<i>:<j>` by its place on the board.
+ */
+const findItemsFromSyncSelection = (parts: readonly string[]): string[] => {
+  installPgm();
+  const settings = new PCBNEW_SETTINGS();
+  const frame = new PCB_EDIT_FRAME({
+    settings: () => settings,
+    onModify: () => {},
+  } as unknown as PCB_EDIT_FRAME_HOOKS);
+  frame.SetBoard(kboard, false);
+  return frame.FindItemsFromSyncSelection(parts.join(',')).map((item) => {
+    for (const [i, f] of kboard.Footprints().entries()) {
+      if (item === f) return `footprint:${i}`;
+      const j = f.Pads().indexOf(item as never);
+      if (j >= 0) return `pad:${i}:${j}`;
+    }
+    return '?';
+  });
+};
 
 describe('the board items those parts name', () => {
   it('matches a footprint by reference', () => {
-    expect(findItemsFromSyncSelection(board, ['FR1'])).toEqual(['footprint:0']);
+    expect(findItemsFromSyncSelection(['FR1'])).toEqual(['footprint:0']);
   });
 
   it('matches an escaped reference', () => {
-    expect(findItemsFromSyncSelection(board, ['FR{comma}2'])).toEqual(['footprint:1']);
+    expect(findItemsFromSyncSelection(['FR{comma}2'])).toEqual(['footprint:1']);
   });
 
   it('takes the subsheets with the sheet', () => {
     // fp-1 sits on /bbbbbbbb-0000-4000-8000-0000000000b1 and fp-3 on /bbbbbbbb-0000-4000-8000-0000000000b1/bbbbbbbb-0000-4000-8000-0000000000b2; the prefix test is the
     // only thing that reaches the second one.
-    expect(findItemsFromSyncSelection(board, ['S/bbbbbbbb-0000-4000-8000-0000000000b1'])).toEqual([
+    expect(findItemsFromSyncSelection(['S/bbbbbbbb-0000-4000-8000-0000000000b1'])).toEqual([
       'footprint:0',
       'footprint:2',
     ]);
   });
 
   it('leaves a footprint on another sheet alone', () => {
-    expect(
-      findItemsFromSyncSelection(board, ['S/bbbbbbbb-0000-4000-8000-0000000000b1']),
-    ).not.toContain('footprint:1');
+    expect(findItemsFromSyncSelection(['S/bbbbbbbb-0000-4000-8000-0000000000b1'])).not.toContain(
+      'footprint:1',
+    );
   });
 
   it('selects the pad, not its footprint', () => {
-    expect(findItemsFromSyncSelection(board, ['PR{comma}2/2'])).toEqual(['pad:1:1']);
+    expect(findItemsFromSyncSelection(['PR{comma}2/2'])).toEqual(['pad:1:1']);
   });
 
   it('keeps the order of the parts, not of the board', () => {
     // The first item is the one the view centres on, so it has to be the one
     // the user's selection started from.
-    expect(findItemsFromSyncSelection(board, ['FC3', 'FR1'])).toEqual([
-      'footprint:2',
-      'footprint:0',
-    ]);
+    expect(findItemsFromSyncSelection(['FC3', 'FR1'])).toEqual(['footprint:2', 'footprint:0']);
   });
 
   it('ignores a part it does not understand', () => {
-    expect(findItemsFromSyncSelection(board, ['XR1', 'FR1'])).toEqual(['footprint:0']);
+    expect(findItemsFromSyncSelection(['XR1', 'FR1'])).toEqual(['footprint:0']);
   });
 
-  it('returns each item once when two parts name it', () => {
-    expect(
-      findItemsFromSyncSelection(board, ['FR1', 'S/bbbbbbbb-0000-4000-8000-0000000000b1']),
-    ).toEqual(['footprint:0', 'footprint:2']);
+  it('returns an item once for each part that names it', () => {
+    // orderPairs takes one (index, item) per match and nothing dedupes it
+    // (cross-probing.cpp:615-692); selecting an item twice selects it once.
+    expect(findItemsFromSyncSelection(['FR1', 'S/bbbbbbbb-0000-4000-8000-0000000000b1'])).toEqual([
+      'footprint:0',
+      'footprint:0',
+      'footprint:2',
+    ]);
   });
 });
 
@@ -260,24 +297,20 @@ describe('how far the board zooms on a probe', () => {
  */
 describe('the parts a board selection sends', () => {
   it('names a footprint by its reference', () => {
-    expect(boardSyncSelectionParts(board, new Set(['footprint:0']))).toEqual(['FR1']);
+    expect(partsOf(fp(0))).toEqual(['FR1']);
   });
 
   it('escapes a reference the way the schematic escapes it', () => {
     // "R,2" — a comma is the packet's own separator, so it travels escaped.
-    expect(boardSyncSelectionParts(board, new Set(['footprint:1']))).toEqual([
-      `F${escapeIpc('R,2')}`,
-    ]);
+    expect(partsOf(fp(1))).toEqual([`F${escapeIpc('R,2')}`]);
   });
 
   it('names a pad as <reference>/<pad>', () => {
-    expect(boardSyncSelectionParts(board, new Set(['pad:1:0']))).toEqual([
-      `P${escapeIpc('R,2')}/1`,
-    ]);
+    expect(partsOf(pad(1, 0))).toEqual([`P${escapeIpc('R,2')}/1`]);
   });
 
   it('carries each part once, sorted, as a std::set does', () => {
-    const parts = boardSyncSelectionParts(board, new Set(['footprint:1', 'pad:1:0', 'pad:1:1']));
+    const parts = partsOf(fp(1), pad(1, 0), pad(1, 1), fp(1));
     expect(parts).toEqual([...new Set(parts)]);
     expect(parts).toEqual([...parts].sort());
   });
@@ -291,7 +324,7 @@ describe('the schematic items those parts name', () => {
   });
 
   it('matches the escaped reference, so a comma survives the round trip', () => {
-    const parts = boardSyncSelectionParts(board, new Set(['footprint:1']));
+    const parts = partsOf(fp(1));
     expect(findSymbolsFromSyncSelection(doc, parts, '/', libById)).toEqual([
       'aaaaaaaa-0000-4000-8000-0000000000a2',
     ]);
@@ -301,7 +334,7 @@ describe('the schematic items those parts name', () => {
     // A pin is not independently selectable here, so a pad probe selects the
     // SYMBOL — `select( item )`'s parent fallback (`sch_selection_tool.cpp:
     // 3506-3512`).
-    const parts = boardSyncSelectionParts(board, new Set(['pad:1:0']));
+    const parts = partsOf(pad(1, 0));
     expect(findSymbolsFromSyncSelection(doc, parts, '/', libById)).toEqual([
       'aaaaaaaa-0000-4000-8000-0000000000a2',
     ]);
@@ -321,7 +354,7 @@ describe('the schematic items those parts name', () => {
   });
 
   it('returns each id once even when two parts name the same symbol', () => {
-    const parts = boardSyncSelectionParts(board, new Set(['footprint:1', 'pad:1:0', 'pad:1:1']));
+    const parts = partsOf(fp(1), pad(1, 0), pad(1, 1), fp(1));
     expect(findSymbolsFromSyncSelection(doc, parts, '/', libById)).toEqual([
       'aaaaaaaa-0000-4000-8000-0000000000a2',
     ]);
@@ -331,9 +364,10 @@ describe('the schematic items those parts name', () => {
     // The pair's real contract: what the schematic sends, the board resolves,
     // and what the board sends back resolves to the same symbol.
     const out = syncSelectionParts(doc, ids('aaaaaaaa-0000-4000-8000-0000000000a1'), '/', libById);
-    const onBoard = findItemsFromSyncSelection(board, out);
+    const onBoard = findItemsFromSyncSelection(out);
     expect(onBoard).toEqual(['footprint:0']);
-    const back = boardSyncSelectionParts(board, new Set(onBoard));
+    // footprint:0 is the board's first footprint.
+    const back = partsOf(fp(0));
     expect(findSymbolsFromSyncSelection(doc, back, '/', libById)).toEqual([
       'aaaaaaaa-0000-4000-8000-0000000000a1',
     ]);

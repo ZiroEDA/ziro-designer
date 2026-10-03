@@ -49,7 +49,7 @@
  * (`ui/menu_hotkeys.ts`), which is `ACTION_CONDITIONS`' rule too.
  */
 
-import type { Menu, MenuItem } from '@ziroeda/common/tool/action_menu_types.js';
+import type { Menu } from '@ziroeda/common/tool/action_menu_types.js';
 import { browserSafeKey } from '@ziroeda/common/browser_reserved.js';
 import { addQuitOrClose } from '@ziroeda/common/tool/action_menu.js';
 import { standardHelpMenu } from '@ziroeda/common/eda_base_frame_help_menu.js';
@@ -75,17 +75,8 @@ export interface PcbMenuHandlers {
 /**
  * The `ACTION_CONDITIONS` a row is gated on — upstream's `.Enable( … )` and
  * `.Check( … )`, as data.
- *
- * Counts rather than the selection itself: what the conditions ask is "how
- * many", and passing the set would make this module know what a board item is.
  */
 export interface PcbMenuState {
-  /** `SELECTION_CONDITIONS::NotEmpty` and friends. */
-  selectionCount: number;
-  /** How many of the selection are polygons a boolean can be run on. */
-  polygonBooleanCount: number;
-  /** How many are straight graphics a fillet/chamfer can join. */
-  modifiableLineCount: number;
   /** `!Kiface().IsSingle()` — a schematic to update from and switch to. */
   hasSchematic: boolean;
   hasFootprintEditor: boolean;
@@ -289,71 +280,6 @@ export function buildPcbMenus(
         // what you click until it is cancelled. Not the same command as Delete.
         { label: 'Interactive Delete Tool', disabled: dis },
         { label: 'Global Deletions...', action: () => h.action('globalDeletions') },
-        { sep: true },
-        /*
-         * Below here is NOT KiCad's Edit menu.
-         *
-         * Every one of these hangs off the selection context menu upstream, and
-         * ours has all of them there EXCEPT these three — so removing them from
-         * here now would make three working features unreachable. They stay
-         * until the context menu carries them, at which point this block goes
-         * and the menu matches upstream exactly.
-         *
-         * (`mergePolygons`, `filletLines`, `chamferLines`, `dogboneCorners`,
-         * `extendLines` are all `edit_tool.cpp`; `filterSelection` is
-         * `pcb_selection_tool.cpp`. None of them appears in
-         * `menubar_pcb_editor.cpp`.)
-         */
-        {
-          label: 'Polygons',
-          submenu: [
-            {
-              label: 'Merge Polygons',
-              action: () => h.action('polygonmerge'),
-              disabled: st.polygonBooleanCount < 2,
-            },
-            {
-              label: 'Subtract Polygons',
-              action: () => h.action('polygonsubtract'),
-              disabled: st.polygonBooleanCount < 2,
-            },
-            {
-              label: 'Intersect Polygons',
-              action: () => h.action('polygonintersect'),
-              disabled: st.polygonBooleanCount < 2,
-            },
-          ],
-        },
-        {
-          label: 'Modify Lines',
-          submenu: [
-            {
-              label: 'Fillet Lines...',
-              action: () => h.action('linefillet'),
-              disabled: st.modifiableLineCount < 2,
-            },
-            {
-              label: 'Chamfer Lines...',
-              action: () => h.action('linechamfer'),
-              disabled: st.modifiableLineCount < 2,
-            },
-            {
-              label: 'Dogbone Corners...',
-              action: () => h.action('linedogbone'),
-              disabled: st.modifiableLineCount < 2,
-            },
-            {
-              label: 'Extend Lines to Meet',
-              action: () => h.action('lineextend'),
-              disabled: st.modifiableLineCount < 2,
-            },
-          ],
-        },
-        {
-          label: 'Filter Selection...',
-          action: () => h.action('filterSelection'),
-          disabled: st.selectionCount === 0,
-        },
       ],
     },
     {
@@ -810,16 +736,11 @@ export function buildPcbMenus(
         { label: 'Next Marker', disabled: dis },
         { label: 'Exclude Marker', disabled: dis },
         { sep: true },
-        {
-          label: 'Clearance Resolution',
-          disabled: st.selectionCount !== 2,
-          action: () => h.action('inspectResolution'),
-        },
-        {
-          label: 'Constraints Resolution',
-          disabled: st.selectionCount !== 1,
-          action: () => h.action('inspectResolution'),
-        },
+        // PCB_ACTIONS::inspectClearance / inspectConstraints: no enable
+        // condition upstream; with the wrong selection the tool picks, or
+        // says why in the infobar.
+        { label: 'Clearance Resolution', action: () => h.action('inspectClearance') },
+        { label: 'Constraints Resolution', action: () => h.action('inspectConstraints') },
         {
           label: 'Show Footprint Associations',
           disabled: dis,

@@ -5,7 +5,7 @@
  * (`pcbnew/cross-probing.cpp:83-240`), reached through KIWAY as the schematic
  * sends them, and `SendCrossProbeNetName` going the other way.
  */
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SetPgm } from '@ziroeda/common/pgm_base.js';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import { KIWAY } from '@ziroeda/common/kiway.js';
@@ -22,6 +22,12 @@ import { GAL } from '@ziroeda/common/gal/graphics_abstraction_layer.js';
 import type { PCB_DRAW_PANEL_GAL } from '@ziroeda/pcbnew/pcb_draw_panel_gal.js';
 import { PCB_PAINTER } from '@ziroeda/pcbnew/pcb_painter.js';
 import { PCB_VIEW } from '@ziroeda/pcbnew/pcb_view.js';
+import { PCB_ACTIONS } from '@ziroeda/pcbnew/tools/pcb_actions.js';
+import { EVENTS } from '@ziroeda/common/tool/actions.js';
+import type { FOOTPRINT } from '@ziroeda/pcbnew/footprint.js';
+import type { BOARD_ITEM } from '@ziroeda/pcbnew/board_item.js';
+import { PAD } from '@ziroeda/pcbnew/pad.js';
+import type { TOOL_ACTION } from '@ziroeda/common/tool/tool_action.js';
 
 class STUB_GAL extends GAL {
   override ResizeScreen(aWidth: number, aHeight: number): void {
@@ -37,6 +43,17 @@ const BOARD = `(kicad_pcb (version 20241229) (generator "pcbnew")
   (net 1 "GND")
   (net 2 "VCC")
   (net 3 "Net A")
+  (footprint "R" (layer "F.Cu") (at 10 10)
+    (property "Reference" "R1" (at 0 0 0) (layer "F.Cu") (effects (font (size 1 1) (thickness 0.15)))))
+  (footprint "R" (layer "F.Cu") (at 20 10)
+    (property "Reference" "R2" (at 0 0 0) (layer "F.Cu") (effects (font (size 1 1) (thickness 0.15)))))
+  (footprint "U" (layer "F.Cu") (at 30 10)
+    (property "Reference" "U1" (at 0 0 0) (layer "F.Cu") (effects (font (size 1 1) (thickness 0.15))))
+    (pad "3" smd rect (at 0 0) (size 1 1) (layers "F.Cu"))
+    (pad "A/B" smd rect (at 2 0) (size 1 1) (layers "F.Cu")))
+  (footprint "R" (layer "F.Cu") (at 40 10)
+    (path "/aaaaaaaa-0000-4000-8000-000000000001/aaaaaaaa-0000-4000-8000-000000000002/aaaaaaaa-0000-4000-8000-000000000003")
+    (property "Reference" "R9" (at 0 0 0) (layer "F.Cu") (effects (font (size 1 1) (thickness 0.15)))))
 )
 `;
 
@@ -61,8 +78,11 @@ interface Env {
    * (empty when off): ExecuteRemoteCommand writes it there itself.
    */
   highlight(): number[];
-  /** Every selection the frame asked the editor to sync: [parts, selectConnections]. */
-  synced: [string[], boolean][];
+  /**
+   * Every PCB_ACTIONS::syncSelection(WithNets) the frame ran, the items named
+   * as `$SELECT:` parts: [items, withNets, m_ProbingSchToPcb at the time].
+   */
+  synced: [string[], boolean, boolean][];
   /** How many times the frame ran Update PCB from Schematic. */
   updates(): number;
   probe(packet: string): void;
@@ -72,7 +92,7 @@ interface Env {
 function setup(): Env {
   installPgm();
   const settings = new PCBNEW_SETTINGS();
-  const synced: [string[], boolean][] = [];
+  const synced: [string[], boolean, boolean][] = [];
   let updates = 0;
   const frame = new PCB_EDIT_FRAME({
     settings: () => settings,
@@ -89,7 +109,6 @@ function setup(): Env {
     showExchangeFootprintsDialog: () => {},
     findDialogRects: () => [],
     setViewCenter: () => {},
-    syncSelection: (parts, conn) => synced.push([[...parts], conn]),
     editZoneParams: () => {},
     selectCopperLayerPair: () => {},
     updatePcbFromSchematic: () => {
@@ -124,6 +143,20 @@ function setup(): Env {
   });
   frame.SetKiway(kiway);
   kiway.SetPlayerFrame(FRAME_T.FRAME_PCB_EDITOR, frame);
+
+  const mgr = frame.GetToolManager()!;
+  const runAction = mgr.RunAction.bind(mgr);
+  mgr.RunAction = ((aAction: TOOL_ACTION, aParam?: unknown) => {
+    if (aAction === PCB_ACTIONS.syncSelection || aAction === PCB_ACTIONS.syncSelectionWithNets) {
+      const parts = (aParam as BOARD_ITEM[]).map((i) =>
+        i instanceof PAD
+          ? `P${i.GetParentFootprint()!.GetReference()}/${i.GetNumber()}`
+          : `F${(i as FOOTPRINT).GetReference()}`,
+      );
+      synced.push([parts, aAction === PCB_ACTIONS.syncSelectionWithNets, frame.m_ProbingSchToPcb]);
+    }
+    return runAction(aAction, aParam as never);
+  }) as typeof mgr.RunAction;
 
   return {
     kiway,
@@ -241,14 +274,17 @@ describe('the board probing a net on the schematic', () => {
 describe('the schematic syncing its selection to the board', () => {
   it('MAIL_SELECTION hands the parts after the mode to the selection', () => {
     const env = setup();
-    env.select('$SELECT: 0,FR1,PU1/3,S/abc/');
-    expect(env.synced).toEqual([[['FR1', 'PU1/3', 'S/abc/'], false]]);
+    // FindItemsFromSyncSelection, in the packet's order: R9 sits two sheets
+    // down, on /…01/…02, which the S entry names by prefix.
+    env.select('$SELECT: 0,FR1,PU1/3,S/aaaaaaaa-0000-4000-8000-000000000001/');
+    expect(env.synced).toEqual([[['FR1', 'PU1/3', 'FR9'], false, true]]);
+    expect(env.frame.m_ProbingSchToPcb).toBe(false);
   });
 
   it('mode 1 is "with connections"', () => {
     const env = setup();
     env.select('$SELECT: 1,FR1');
-    expect(env.synced).toEqual([[['FR1'], true]]);
+    expect(env.synced).toEqual([[['FR1'], true, true]]);
   });
 
   it('refuses MAIL_SELECTION when on_selection is off, but not MAIL_SELECTION_FORCE', () => {
@@ -257,7 +293,65 @@ describe('the schematic syncing its selection to the board', () => {
     env.settings.m_CrossProbing.on_selection = false;
     env.select('$SELECT: 0,FR1');
     env.select('$SELECT: 0,FR2', true);
-    expect(env.synced).toEqual([[['FR2'], false]]);
+    expect(env.synced).toEqual([[['FR2'], false, true]]);
+  });
+
+  it('selects what it found, and flashes it when flash_selection is on', () => {
+    // StartCrossProbeFlash / OnCrossProbeFlashTimer (pcb_edit_frame.cpp:632-752):
+    // cleared on even phases, restored on odd, selected for good after six.
+    vi.useFakeTimers();
+    try {
+      const env = setup();
+      env.settings.m_CrossProbing.flash_selection = true;
+      const sel = env.frame.GetSelectionTool();
+      const size = (): number => sel.GetSelection().Size();
+      env.select('$SELECT: 0,FR1,FR2');
+      expect(size()).toBe(2);
+      expect(env.frame.m_crossProbeFlashing).toBe(true);
+      vi.advanceTimersByTime(500);
+      expect(size()).toBe(0);
+      // The tick ran under the guard and put it back as it found it.
+      expect(env.frame.m_ProbingSchToPcb).toBe(false);
+      vi.advanceTimersByTime(500);
+      expect(size()).toBe(2);
+      vi.advanceTimersByTime(2500);
+      expect(env.frame.m_crossProbeFlashing).toBe(false);
+      expect(size()).toBe(2);
+      vi.advanceTimersByTime(1000);
+      expect(size()).toBe(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('names a pad by its escaped number, unescaped to match', () => {
+    const env = setup();
+    env.select('$SELECT: 0,PU1/A{slash}B');
+    expect(env.synced).toEqual([[['PU1/A/B'], false, true]]);
+  });
+
+  it('S/ takes every footprint, the root sheet’s own among them', () => {
+    // An empty sheet path is rewritten to "/" so that it prefix-matches.
+    const env = setup();
+    env.select('$SELECT: 0,S/');
+    expect(env.synced).toEqual([[['FR1', 'FR2', 'FU1', 'FR9'], false, true]]);
+  });
+
+  it('StartCrossProbeFlash itself refuses with flash_selection off', () => {
+    const env = setup();
+    env.settings.m_CrossProbing.flash_selection = false;
+    env.frame.StartCrossProbeFlash([env.frame.GetBoard()!.Footprints()[0]!]);
+    expect(env.frame.m_crossProbeFlashing).toBe(false);
+  });
+
+  it('does not flash with flash_selection off, or with nothing found', () => {
+    const env = setup();
+    env.settings.m_CrossProbing.flash_selection = false;
+    env.select('$SELECT: 0,FR1');
+    expect(env.frame.m_crossProbeFlashing).toBe(false);
+    env.settings.m_CrossProbing.flash_selection = true;
+    env.select('$SELECT: 0,FR404');
+    expect(env.frame.m_crossProbeFlashing).toBe(false);
   });
 
   it('ignores a packet without the $SELECT: prefix', () => {
@@ -270,18 +364,34 @@ describe('the schematic syncing its selection to the board', () => {
   it('with no comma after the mode, syncs the whole parameter string (npos + 1 is 0)', () => {
     const env = setup();
     env.select('$SELECT: FR1');
-    expect(env.synced).toEqual([[['FR1'], false]]);
+    expect(env.synced).toEqual([[['FR1'], false, true]]);
   });
 });
 
 describe('the board syncing its selection to the schematic', () => {
-  it('SendSelectItemsToSch mails $SELECT: 0,<parts> as MAIL_SELECTION, or _FORCE', () => {
+  // PCB_EDIT_FRAME::SendSelectItemsToSch (pcbnew/cross-probing.cpp:349-399).
+  const ITEMS = ParseBoard(`(kicad_pcb (version 20241229) (generator "pcbnew")
+    (general (thickness 1.6)) (paper "A4")
+    (layers (0 "F.Cu" signal) (31 "B.Cu" signal) (37 "F.SilkS" user))
+    (footprint "R" (layer "F.Cu") (at 10 10)
+      (property "Reference" "R1" (at 0 0 0) (layer "F.SilkS") (effects (font (size 1 1) (thickness 0.15))))
+      (pad "1" smd rect (at 0 0) (size 1 1) (layers "F.Cu")))
+    (footprint "R" (layer "F.Cu") (at 20 10)
+      (property "Reference" "R2" (at 0 0 0) (layer "F.SilkS") (effects (font (size 1 1) (thickness 0.15))))
+      (pad "1" smd rect (at 0 0) (size 1 1) (layers "F.Cu")))
+    (footprint "R" (layer "F.Cu") (at 30 10)
+      (property "Reference" "R3" (at 0 0 0) (layer "F.SilkS") (effects (font (size 1 1) (thickness 0.15)))))
+    (segment (start 0 0) (end 5 0) (width 0.25) (layer "F.Cu") (net 0)))`);
+  const [r1, r2, r3] = ITEMS.Footprints();
+  const track = ITEMS.Tracks()[0]!;
+
+  it('mails $SELECT: 0,<parts> as MAIL_SELECTION, or _FORCE, the parts sorted', () => {
     const env = setup();
     const sch = new SCH_STUB();
     env.kiway.SetPlayerFrame(FRAME_T.FRAME_SCH, sch);
 
-    env.frame.SendSelectItemsToSch(['FR1', 'PR2/1'], false);
-    env.frame.SendSelectItemsToSch(['FR3'], true);
+    env.frame.SendSelectItemsToSch([r2!.Pads()[0]!, r1!, track], null, false);
+    env.frame.SendSelectItemsToSch([r3!], null, true);
 
     expect(sch.received).toEqual([
       [MAIL_T.MAIL_SELECTION, '$SELECT: 0,FR1,PR2/1'],
@@ -289,12 +399,77 @@ describe('the board syncing its selection to the schematic', () => {
     ]);
   });
 
-  it('sends nothing for an empty selection, so the schematic keeps its own', () => {
+  it('names a focus item as mode 1, and a focus with no part as mode 0', () => {
     const env = setup();
     const sch = new SCH_STUB();
     env.kiway.SetPlayerFrame(FRAME_T.FRAME_SCH, sch);
-    env.frame.SendSelectItemsToSch([], false);
+
+    env.frame.SendSelectItemsToSch([r1!, r2!], r2!, false);
+    env.frame.SendSelectItemsToSch([r1!, track], track, false);
+
+    expect(sch.received).toEqual([
+      [MAIL_T.MAIL_SELECTION, '$SELECT: 1,FR2,FR1,FR2'],
+      [MAIL_T.MAIL_SELECTION, '$SELECT: 0,FR1'],
+    ]);
+  });
+
+  it('sends nothing for a selection with no parts, so the schematic keeps its own', () => {
+    const env = setup();
+    const sch = new SCH_STUB();
+    env.kiway.SetPlayerFrame(FRAME_T.FRAME_SCH, sch);
+    env.frame.SendSelectItemsToSch([], null, false);
+    env.frame.SendSelectItemsToSch([track], track, false);
     expect(sch.received).toEqual([]);
+  });
+});
+
+describe('BOARD_EDITOR_CONTROL::CrossProbeToSch, on the selection events', () => {
+  // board_editor_control.cpp:2097-2114, 2351-2355.
+  // Each test its own: a selected item keeps its SELECTED flag.
+  const R7 = (): FOOTPRINT =>
+    ParseBoard(`(kicad_pcb (version 20241229) (generator "pcbnew")
+    (general (thickness 1.6)) (paper "A4")
+    (layers (0 "F.Cu" signal) (31 "B.Cu" signal) (37 "F.SilkS" user))
+    (footprint "R" (layer "F.Cu") (at 10 10)
+      (property "Reference" "R7" (at 0 0 0) (layer "F.SilkS") (effects (font (size 1 1) (thickness 0.15))))))`).Footprints()[0]!;
+
+  it('mails the selection whenever it changes', () => {
+    const env = setup();
+    const r7 = R7();
+    const sch = new SCH_STUB();
+    env.kiway.SetPlayerFrame(FRAME_T.FRAME_SCH, sch);
+    env.frame.GetSelectionTool().AddItemToSel(r7, false);
+    expect(sch.received).toEqual([[MAIL_T.MAIL_SELECTION, '$SELECT: 0,FR7']]);
+  });
+
+  it('stays quiet while the selection is the schematic’s own probe', () => {
+    const env = setup();
+    const r7 = R7();
+    const sch = new SCH_STUB();
+    env.kiway.SetPlayerFrame(FRAME_T.FRAME_SCH, sch);
+    env.frame.m_ProbingSchToPcb = true;
+    env.frame.GetSelectionTool().AddItemToSel(r7, false);
+    expect(sch.received).toEqual([]);
+  });
+
+  it('names the clicked item as the focus on a point select', () => {
+    const env = setup();
+    const r7 = R7();
+    const sch = new SCH_STUB();
+    env.kiway.SetPlayerFrame(FRAME_T.FRAME_SCH, sch);
+    env.frame.GetSelectionTool().AddItemToSel(r7, true);
+    env.frame.GetToolManager()!.ProcessEvent(EVENTS.PointSelectedEvent);
+    expect(sch.received).toEqual([[MAIL_T.MAIL_SELECTION, '$SELECT: 1,FR7,FR7']]);
+  });
+
+  it('forces it for Select on Schematic', () => {
+    const env = setup();
+    const r7 = R7();
+    const sch = new SCH_STUB();
+    env.kiway.SetPlayerFrame(FRAME_T.FRAME_SCH, sch);
+    env.frame.GetSelectionTool().AddItemToSel(r7, true);
+    env.frame.GetToolManager()!.RunAction(PCB_ACTIONS.selectOnSchematic);
+    expect(sch.received).toEqual([[MAIL_T.MAIL_SELECTION_FORCE, '$SELECT: 0,FR7']]);
   });
 });
 

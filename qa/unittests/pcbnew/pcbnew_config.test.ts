@@ -88,7 +88,6 @@ function setup(aPro: JsonValue | null = {}, aPrl: JsonValue | null = null): Env 
     showExchangeFootprintsDialog: () => {},
     findDialogRects: () => [],
     setViewCenter: () => {},
-    syncSelection: () => {},
     editZoneParams: () => {},
     selectCopperLayerPair: () => {},
     updatePcbFromSchematic: () => {},
