@@ -12,6 +12,30 @@
  * follow KiCad's per-orientation direction.
  */
 
+import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
+import {
+  ANGLE_0,
+  ANGLE_90,
+  ANGLE_HORIZONTAL,
+  ANGLE_VERTICAL,
+} from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import { IS_SHOWN_AS_BITMAP } from '@ziroeda/common/eda_item_flags.js';
+import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
+import type { OutStr } from '@ziroeda/common/font/font.js';
+import type { GLYPH_LIKE } from '@ziroeda/common/font/glyph.js';
+import { FIELD_T } from '@ziroeda/common/template_fieldnames.js';
+import type { SCH_CONNECTION } from './sch_connection.js';
+import type {
+  SCH_DIRECTIVE_LABEL,
+  SCH_GLOBALLABEL,
+  SCH_HIERLABEL,
+  SCH_LABEL,
+} from './sch_label.js';
+import { LABEL_FLAG_SHAPE } from './sch_label.js';
+import type { SCH_SHEET_PATH } from './sch_sheet_path.js';
+import { SCH_SYMBOL as LIVE_SCH_SYMBOL } from './sch_symbol.js';
+import type { SCH_TABLECELL } from './sch_tablecell.js';
+import type { SCH_TEXT } from './sch_text.js';
 import { schIUScale as liveIUScale } from '@ziroeda/common/eda_units.js';
 import { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import { ENDPOINT, STARTPOINT } from '@ziroeda/common/eda_item_flags.js';
@@ -5064,6 +5088,121 @@ function knockoutText(
   aGal.DrawPolygon(finalPoly);
 }
 
+const isFieldsLayer = (aLayer: number): boolean =>
+  aLayer === SCH_LAYER_ID.LAYER_REFERENCEPART ||
+  aLayer === SCH_LAYER_ID.LAYER_VALUEPART ||
+  aLayer === SCH_LAYER_ID.LAYER_INTERSHEET_REFS ||
+  aLayer === SCH_LAYER_ID.LAYER_NETCLASS_REFS ||
+  aLayer === SCH_LAYER_ID.LAYER_FIELDS ||
+  aLayer === SCH_LAYER_ID.LAYER_SHEETNAME ||
+  aLayer === SCH_LAYER_ID.LAYER_SHEETFILENAME ||
+  aLayer === SCH_LAYER_ID.LAYER_SHEETFIELDS;
+
+/** `GetTextExtents` (sch_painter.cpp:557). */
+function GetTextExtents(
+  aText: string,
+  aPosition: VECTOR2I,
+  aFont: FONT,
+  aAttrs: TEXT_ATTRIBUTES,
+  aFontMetrics: METRICS,
+): BOX2I {
+  const extents = aFont.StringBoundaryLimits(
+    aText,
+    aAttrs.m_Size,
+    aAttrs.m_StrokeWidth,
+    aAttrs.m_Bold,
+    aAttrs.m_Italic,
+    aFontMetrics,
+  );
+  let box = new BOX2I(aPosition, { x: extents.x, y: aAttrs.m_Size.y });
+
+  switch (aAttrs.m_Halign) {
+    case GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT:
+      break;
+    case GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_CENTER:
+      box.SetX(box.GetX() - Math.trunc(box.GetWidth() / 2));
+      break;
+    case GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_RIGHT:
+      box.SetX(box.GetX() - box.GetWidth());
+      break;
+    default:
+      break; // wxFAIL_MSG( "Legal only in dialogs" )
+  }
+
+  switch (aAttrs.m_Valign) {
+    case GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_TOP:
+      break;
+    case GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_CENTER:
+      box.SetY(box.GetY() - Math.trunc(box.GetHeight() / 2));
+      break;
+    case GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_BOTTOM:
+      box.SetY(box.GetY() - box.GetHeight());
+      break;
+    default:
+      break; // wxFAIL_MSG( "Legal only in dialogs" )
+  }
+
+  box.Normalize(); // Make h and v sizes always >= 0
+  box = box.GetBoundingBoxRotated(aPosition, aAttrs.m_Angle);
+
+  return box;
+}
+
+/** `strokeText` (sch_painter.cpp:582). */
+function strokeText(
+  aGal: GAL,
+  aText: string,
+  aPosition: VECTOR2I,
+  aAttrs: TEXT_ATTRIBUTES,
+  aFontMetrics: METRICS,
+  aMousePos: VECTOR2I | null = null,
+  aActiveUrl: OutStr | null = null,
+): void {
+  const font =
+    aAttrs.m_Font ??
+    FONT.GetFont(eeconfig()?.appearance.default_font ?? '', aAttrs.m_Bold, aAttrs.m_Italic);
+
+  aGal.SetIsFill(font.IsOutline());
+  aGal.SetIsStroke(font.IsStroke());
+
+  font.Draw(aGal, aText, aPosition, { x: 0, y: 0 }, aAttrs, aFontMetrics, aMousePos, aActiveUrl);
+}
+
+/** `bitmapText` (sch_painter.cpp:597). */
+function bitmapText(aGal: GAL, aText: string, aPosition: VECTOR2I, aAttrs: TEXT_ATTRIBUTES): void {
+  // Bitmap font has different metrics from the stroke font so we compensate a bit before
+  // stroking
+  aGal.SetGlyphSize({ x: aAttrs.m_Size.x, y: Math.round(aAttrs.m_Size.y * 1.05) });
+  aGal.SetLineWidth(Math.fround(Math.fround(aAttrs.m_StrokeWidth) * Math.fround(1.35)));
+
+  aGal.SetHorizontalJustify(aAttrs.m_Halign);
+  aGal.SetVerticalJustify(aAttrs.m_Valign);
+
+  aGal.BitmapText(aText, aPosition, aAttrs.m_Angle);
+}
+
+/** `boxText` (sch_painter.cpp:661). */
+function boxText(
+  aGal: GAL,
+  aText: string,
+  aPosition: VECTOR2I,
+  aAttrs: TEXT_ATTRIBUTES,
+  aFontMetrics: METRICS,
+): void {
+  const font =
+    aAttrs.m_Font ??
+    FONT.GetFont(eeconfig()?.appearance.default_font ?? '', aAttrs.m_Bold, aAttrs.m_Italic);
+
+  const box = GetTextExtents(aText, aPosition, font, aAttrs, aFontMetrics);
+
+  // Give the highlight a bit of margin.
+  box.Inflate(Math.trunc(aAttrs.m_StrokeWidth / 2), aAttrs.m_StrokeWidth * 2);
+
+  aGal.SetIsFill(true);
+  aGal.SetIsStroke(false);
+  aGal.DrawRectangle(box.GetOrigin(), box.GetEnd());
+}
+
 export class SCH_PAINTER extends PAINTER {
   /** Item types whose selection shadow scales with zoom (sch_painter.cpp:84). */
   static g_ScaledSelectionTypes: KICAD_T[] = [
@@ -5136,9 +5275,32 @@ export class SCH_PAINTER extends PAINTER {
       case KICAD_T.SCH_MARKER_T:
         this.drawMarker(aItem as SCH_MARKER, aLayer);
         break;
-      // The remaining kinds are ported in S4-3..S4-5 (docs/eeschema-live-s4.md).
+      case KICAD_T.SCH_TEXT_T:
+        this.drawText(aItem as SCH_TEXT, aLayer, aDimmed);
+        break;
+      case KICAD_T.SCH_TEXTBOX_T:
+        this.drawTextBox(aItem as SCH_TEXTBOX, aLayer, aDimmed);
+        break;
+      case KICAD_T.SCH_LABEL_T:
+        this.drawLabel(aItem as SCH_LABEL, aLayer, aDimmed);
+        break;
+      case KICAD_T.SCH_DIRECTIVE_LABEL_T:
+        this.drawDirectiveLabel(aItem as SCH_DIRECTIVE_LABEL, aLayer, aDimmed);
+        break;
+      case KICAD_T.SCH_FIELD_T:
+        this.drawField(aItem as SCH_FIELD, aLayer, aDimmed);
+        break;
+      case KICAD_T.SCH_HIER_LABEL_T:
+        this.drawHierLabel(aItem as SCH_HIERLABEL, aLayer, aDimmed);
+        break;
+      case KICAD_T.SCH_GLOBAL_LABEL_T:
+        this.drawGlobalLabel(aItem as SCH_GLOBALLABEL, aLayer, aDimmed);
+        break;
+      case KICAD_T.SCH_SHEET_PIN_T:
+        this.drawHierLabel(aItem as unknown as SCH_HIERLABEL, aLayer, aDimmed);
+        break;
+      // The remaining kinds are ported in S4-4..S4-5 (docs/eeschema-live-s4.md).
       default:
-        void aDimmed;
         return;
     }
 
@@ -5822,6 +5984,877 @@ export class SCH_PAINTER extends PAINTER {
 
     this.gal.DrawPolygon(polygon);
     this.gal.Restore();
+  }
+
+  protected getFont(aItem: {
+    GetDrawFont(aSettings: SCH_RENDER_SETTINGS | null): FONT | null;
+    IsBold(): boolean;
+    IsItalic(): boolean;
+  }): FONT {
+    const font = aItem.GetDrawFont(this.m_schSettings);
+
+    if (font) return font;
+
+    return FONT.GetFont(this.m_schSettings.GetDefaultFont(), aItem.IsBold(), aItem.IsItalic());
+  }
+
+  protected drawText(aText: SCH_TEXT, aLayer: number, aDimmed: boolean): void {
+    if (!this.isUnitAndConversionShown(aText)) return;
+
+    if (aText.IsPrivate() && !this.m_schSettings.m_IsSymbolEditor) return;
+
+    const drawingShadows = aLayer === SCH_LAYER_ID.LAYER_SELECTION_SHADOWS;
+
+    if (this.m_schSettings.IsPrinting() && drawingShadows) return;
+
+    if (drawingShadows && !(aText.IsBrightened() || aText.IsSelected())) return;
+
+    switch (aText.Type()) {
+      case KICAD_T.SCH_SHEET_PIN_T:
+        aLayer = SCH_LAYER_ID.LAYER_SHEETLABEL;
+        break;
+      case KICAD_T.SCH_HIER_LABEL_T:
+        aLayer = SCH_LAYER_ID.LAYER_HIERLABEL;
+        break;
+      case KICAD_T.SCH_GLOBAL_LABEL_T:
+        aLayer = SCH_LAYER_ID.LAYER_GLOBLABEL;
+        break;
+      case KICAD_T.SCH_DIRECTIVE_LABEL_T:
+        aLayer = SCH_LAYER_ID.LAYER_NETCLASS_REFS;
+        break;
+      case KICAD_T.SCH_LABEL_T:
+        aLayer = SCH_LAYER_ID.LAYER_LOCLABEL;
+        break;
+      case KICAD_T.SCH_TEXT_T:
+        aLayer = aText.GetParentSymbol() ? SCH_LAYER_ID.LAYER_DEVICE : SCH_LAYER_ID.LAYER_NOTES;
+        break;
+      default:
+        aLayer = SCH_LAYER_ID.LAYER_NOTES;
+        break;
+    }
+
+    let color = this.getRenderColor(aText, aLayer, drawingShadows, aDimmed);
+
+    if (this.m_schematic) {
+      let conn: SCH_CONNECTION | null = null;
+
+      if (!aText.IsConnectivityDirty()) conn = aText.Connection();
+
+      if (conn?.IsBus())
+        color = this.getRenderColor(aText, SCH_LAYER_ID.LAYER_BUS, drawingShadows, aDimmed);
+    }
+
+    if (!(aText.IsVisible() || aText.IsForceVisible())) {
+      if (this.m_schSettings.m_IsSymbolEditor || eeconfig()!.appearance.show_hidden_fields)
+        color = this.getRenderColor(aText, SCH_LAYER_ID.LAYER_HIDDEN, drawingShadows);
+      else return;
+    }
+
+    // A zero-alpha color renders as an opaque artifact on some backends, so skip the glyphs.
+    // The selection anchor below must still draw so a selected transparent item stays visible.
+    const transparentColor = !drawingShadows && color.a <= 0.0;
+
+    this.gal.SetStrokeColor(color);
+    this.gal.SetFillColor(color);
+    this.gal.SetHoverColor(color);
+
+    const shownText = aText.GetShownText(true);
+    const text_offset = { ...aText.GetSchematicTextOffset(this.m_schSettings) };
+    const attrs = Object.assign(new TEXT_ATTRIBUTES(), aText.GetAttributes());
+    const font = this.getFont(aText);
+
+    attrs.m_Angle = aText.GetDrawRotation();
+    attrs.m_StrokeWidth = Math.round(this.getTextThickness(aText));
+
+    if (transparentColor) {
+      // Clear any hover URL so a hidden item leaves no stale clickable region behind.
+      aText.SetActiveUrl('');
+    } else if (drawingShadows && font.IsOutline()) {
+      // Trying to draw glyph-shaped shadows on outline text is a fool's errand.  Just box it.
+      // Use GetBoundingBox() which correctly handles multiline text dimensions.
+      const bbox = aText.GetBoundingBox();
+
+      bbox.Inflate(Math.trunc(attrs.m_StrokeWidth / 2), attrs.m_StrokeWidth * 2);
+
+      this.gal.SetIsFill(true);
+      this.gal.SetIsStroke(false);
+      this.gal.DrawRectangle(bbox.GetOrigin(), bbox.GetEnd());
+    } else if (aText.GetLayer() === SCH_LAYER_ID.LAYER_DEVICE) {
+      const bBox = aText.GetBoundingBox();
+      const pos = { ...bBox.Centre() };
+
+      // Due to the fact a shadow text can be drawn left or right aligned, it needs to be
+      // offset by shadowWidth/2 to be drawn at the same place as normal text.
+      let shadowOffset = 0.0;
+
+      if (drawingShadows) {
+        const shadowWidth = this.getShadowWidth(!aText.IsSelected());
+        // int += double truncates
+        attrs.m_StrokeWidth = Math.trunc(
+          attrs.m_StrokeWidth + this.getShadowWidth(!aText.IsSelected()),
+        );
+
+        const adjust = Math.fround(1.2); // Value chosen after tests
+        shadowOffset = (shadowWidth / 2.0) * adjust;
+      }
+
+      if (attrs.m_Angle.equals(ANGLE_VERTICAL)) {
+        switch (attrs.m_Halign) {
+          case GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT:
+            pos.y = bBox.GetBottom() + shadowOffset;
+            break;
+          case GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_CENTER:
+            pos.y = (bBox.GetTop() + bBox.GetBottom()) / 2.0;
+            break;
+          case GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_RIGHT:
+            pos.y = bBox.GetTop() - shadowOffset;
+            break;
+          default:
+            break; // wxFAIL_MSG( "Indeterminate state legal only in dialogs." )
+        }
+      } else {
+        switch (attrs.m_Halign) {
+          case GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT:
+            pos.x = bBox.GetLeft() - shadowOffset;
+            break;
+          case GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_CENTER:
+            pos.x = (bBox.GetLeft() + bBox.GetRight()) / 2.0;
+            break;
+          case GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_RIGHT:
+            pos.x = bBox.GetRight() + shadowOffset;
+            break;
+          default:
+            break; // wxFAIL_MSG( "Indeterminate state legal only in dialogs." )
+        }
+      }
+
+      // Because the text vertical position is the bounding box center, the text is drawn as
+      // vertically centered.
+      attrs.m_Valign = GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_CENTER;
+
+      strokeText(this.gal, shownText, pos, attrs, aText.GetFontMetrics());
+    } else if (drawingShadows) {
+      this.gal.SetIsFill(false);
+      this.gal.SetIsStroke(true);
+      attrs.m_StrokeWidth += Math.round(this.getShadowWidth(!aText.IsSelected()));
+      attrs.m_Underlined = false;
+
+      // Fudge factors to match 6.0 positioning
+      // New text stroking has width dependent offset but we need to center the shadow on the
+      // stroke.  NB this offset is in font.cpp also.
+      const fudge = Math.round(this.getShadowWidth(!aText.IsSelected()) / 1.52);
+
+      if (
+        attrs.m_Halign === GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT &&
+        attrs.m_Angle.equals(ANGLE_0)
+      )
+        text_offset.x -= fudge;
+      else if (
+        attrs.m_Halign === GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_RIGHT &&
+        attrs.m_Angle.equals(ANGLE_90)
+      )
+        text_offset.y -= fudge;
+      else if (
+        attrs.m_Halign === GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_RIGHT &&
+        attrs.m_Angle.equals(ANGLE_0)
+      )
+        text_offset.x += fudge;
+      else if (
+        attrs.m_Halign === GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT &&
+        attrs.m_Angle.equals(ANGLE_90)
+      )
+        text_offset.y += fudge;
+
+      const drawPos = aText.GetDrawPos();
+      strokeText(
+        this.gal,
+        shownText,
+        { x: drawPos.x + text_offset.x, y: drawPos.y + text_offset.y },
+        attrs,
+        aText.GetFontMetrics(),
+      );
+    } else {
+      const activeUrl: OutStr = { value: '' };
+
+      if (aText.IsRollover() && !aText.IsMoving()) {
+        // Highlight any urls found within the text
+        this.gal.SetHoverColor(this.m_schSettings.GetLayerColor(SCH_LAYER_ID.LAYER_HOVERED));
+
+        // Highlight the whole text if it has a link definition
+        if (aText.HasHyperlink()) {
+          attrs.m_Hover = true;
+          attrs.m_Underlined = true;
+          activeUrl.value = aText.GetHyperlink();
+        }
+      }
+
+      if (aText.Type() === KICAD_T.SCH_TEXT_T) {
+        const match = aText.GetOffsetToMatchSCH_FIELD(null);
+        text_offset.x += match.x;
+        text_offset.y += match.y;
+      }
+
+      const drawPos = aText.GetDrawPos();
+      const at = { x: drawPos.x + text_offset.x, y: drawPos.y + text_offset.y };
+
+      if (
+        SCH_PAINTER.nonCached(aText) &&
+        aText.RenderAsBitmap(this.gal.GetWorldScale()) &&
+        !shownText.includes('\n')
+      ) {
+        bitmapText(this.gal, shownText, at, attrs);
+        aText.SetFlags(IS_SHOWN_AS_BITMAP);
+      } else {
+        let cache: GLYPH_LIKE[] | null = null;
+
+        if (!aText.IsRollover() && font.IsOutline())
+          cache = aText.GetRenderCache(font, shownText, text_offset);
+
+        if (cache) {
+          this.gal.SetLineWidth(attrs.m_StrokeWidth);
+          this.gal.DrawGlyphs(cache);
+        } else {
+          strokeText(
+            this.gal,
+            shownText,
+            at,
+            attrs,
+            aText.GetFontMetrics(),
+            aText.GetRolloverPos(),
+            activeUrl,
+          );
+        }
+
+        aText.ClearFlags(IS_SHOWN_AS_BITMAP);
+      }
+
+      aText.SetActiveUrl(activeUrl.value);
+    }
+
+    // Draw anchor
+    if (aText.IsSelected()) {
+      let showAnchor: boolean;
+
+      switch (aText.Type()) {
+        case KICAD_T.SCH_TEXT_T:
+          showAnchor = true;
+          break;
+
+        case KICAD_T.SCH_LABEL_T:
+          // Don't clutter things up if we're already showing a dangling indicator
+          showAnchor = !(aText as SCH_LABEL).IsDangling();
+          break;
+
+        default:
+          // SCH_DIRECTIVE_LABEL_T, SCH_HIER_LABEL_T, SCH_GLOBAL_LABEL_T, SCH_SHEET_PIN_T:
+          // these all have shapes and so don't need anchors
+          showAnchor = false;
+          break;
+      }
+
+      if (showAnchor) this.drawAnchor(aText.GetPosition(), drawingShadows);
+    }
+  }
+
+  protected drawTextBox(aTextBox: SCH_TEXTBOX, aLayer: number, aDimmed: boolean): void {
+    if (aTextBox.Type() === KICAD_T.SCH_TABLECELL_T) {
+      const cell = aTextBox as SCH_TABLECELL;
+
+      if (cell.GetColSpan() === 0 || cell.GetRowSpan() === 0) return;
+    }
+
+    if (!this.isUnitAndConversionShown(aTextBox)) return;
+
+    if (aTextBox.IsPrivate() && !this.m_schSettings.m_IsSymbolEditor) return;
+
+    const drawingShadows = aLayer === SCH_LAYER_ID.LAYER_SELECTION_SHADOWS;
+
+    if (this.m_schSettings.IsPrinting() && drawingShadows) return;
+
+    const color = this.getRenderColor(aTextBox, aLayer, drawingShadows, aDimmed);
+    const bg = this.m_schSettings.GetLayerColor(SCH_LAYER_ID.LAYER_SCHEMATIC_BACKGROUND);
+    const borderWidth = this.getLineWidth(aTextBox, drawingShadows);
+    const font = this.getFont(aTextBox);
+
+    const drawText = (): void => {
+      const shownText = aTextBox.GetShownText(true);
+      const attrs = Object.assign(new TEXT_ATTRIBUTES(), aTextBox.GetAttributes());
+      const activeUrl: OutStr = { value: '' };
+
+      attrs.m_Angle = aTextBox.GetDrawRotation();
+      attrs.m_StrokeWidth = Math.round(this.getTextThickness(aTextBox));
+
+      if (aTextBox.IsRollover() && !aTextBox.IsMoving()) {
+        // Highlight any urls found within the text
+        this.gal.SetHoverColor(this.m_schSettings.GetLayerColor(SCH_LAYER_ID.LAYER_HOVERED));
+
+        // Highlight the whole text if it has a link definition
+        if (aTextBox.HasHyperlink()) {
+          attrs.m_Hover = true;
+          attrs.m_Underlined = true;
+          activeUrl.value = aTextBox.GetHyperlink();
+        }
+      }
+
+      let cache: GLYPH_LIKE[] | null = null;
+
+      if (!aTextBox.IsRollover() && font.IsOutline())
+        cache = aTextBox.GetRenderCache(font, shownText);
+
+      if (cache) {
+        this.gal.SetLineWidth(attrs.m_StrokeWidth);
+        this.gal.DrawGlyphs(cache);
+      } else {
+        strokeText(
+          this.gal,
+          shownText,
+          aTextBox.GetDrawPos(),
+          attrs,
+          aTextBox.GetFontMetrics(),
+          aTextBox.GetRolloverPos(),
+          activeUrl,
+        );
+      }
+
+      aTextBox.SetActiveUrl(activeUrl.value);
+    };
+
+    if (drawingShadows && !(aTextBox.IsBrightened() || aTextBox.IsSelected())) return;
+
+    const transparentColor = !drawingShadows && color.a <= 0.0;
+
+    this.gal.SetFillColor(color);
+    this.gal.SetStrokeColor(color);
+    this.gal.SetHoverColor(color);
+
+    if (aLayer === SCH_LAYER_ID.LAYER_SELECTION_SHADOWS) {
+      this.gal.SetIsFill(true);
+      this.gal.SetIsStroke(false);
+      this.gal.SetLineWidth(borderWidth);
+
+      this.gal.DrawRectangle(aTextBox.GetPosition(), aTextBox.GetEnd());
+    } else if (
+      aLayer === SCH_LAYER_ID.LAYER_DEVICE_BACKGROUND ||
+      aLayer === SCH_LAYER_ID.LAYER_NOTES_BACKGROUND ||
+      aLayer === SCH_LAYER_ID.LAYER_SHAPES_BACKGROUND
+    ) {
+      // Do not fill the shape in B&W print mode, to avoid to visible items
+      // inside the shape
+      if (
+        !transparentColor &&
+        aTextBox.IsSolidFill() &&
+        !this.m_schSettings.PrintBlackAndWhiteReq()
+      ) {
+        this.gal.SetIsFill(true);
+        this.gal.SetIsStroke(false);
+        this.gal.SetLineWidth(borderWidth);
+
+        this.gal.DrawRectangle(aTextBox.GetPosition(), aTextBox.GetEnd());
+      }
+    } else if (
+      aLayer === SCH_LAYER_ID.LAYER_DEVICE ||
+      aLayer === SCH_LAYER_ID.LAYER_NOTES ||
+      aLayer === SCH_LAYER_ID.LAYER_PRIVATE_NOTES
+    ) {
+      if (transparentColor) aTextBox.SetActiveUrl('');
+      else drawText();
+
+      if (aTextBox.Type() !== KICAD_T.SCH_TABLECELL_T && borderWidth > 0) {
+        let borderColor = aTextBox.GetStroke().GetColor();
+        const borderStyle = aTextBox.GetEffectiveLineStyle();
+        const transparency = aTextBox.GetForcedTransparency();
+
+        if (
+          this.m_schSettings.m_OverrideItemColors ||
+          aTextBox.IsBrightened() ||
+          sameColor(borderColor, COLOR4D_UNSPECIFIED)
+        ) {
+          borderColor = this.m_schSettings.GetLayerColor(aLayer);
+        }
+
+        if (transparency > 0.0)
+          borderColor = withAlpha(borderColor, borderColor.a * (1.0 - transparency));
+
+        if (aDimmed) borderColor = desaturate(mix(borderColor, bg, Math.fround(0.5)));
+
+        this.gal.SetIsFill(false);
+        this.gal.SetIsStroke(true);
+        this.gal.SetStrokeColor(borderColor);
+        this.gal.SetLineWidth(borderWidth);
+
+        if (borderStyle <= LINE_STYLE.SOLID /* FIRST_TYPE */ || drawingShadows) {
+          this.gal.DrawRectangle(aTextBox.GetPosition(), aTextBox.GetEnd());
+        } else {
+          const shapes = aTextBox.MakeEffectiveShapes(true);
+
+          for (const shape of shapes) {
+            STROKE_PARAMS.Stroke(
+              shape,
+              borderStyle,
+              Math.round(borderWidth),
+              this.m_schSettings,
+              (a: VECTOR2I, b: VECTOR2I) => {
+                // DrawLine has problem with 0 length lines so enforce minimum
+                if (a.x === b.x && a.y === b.y) this.gal.DrawLine({ x: a.x + 1, y: a.y + 1 }, b);
+                else this.gal.DrawLine(a, b);
+              },
+            );
+          }
+        }
+      }
+    }
+  }
+
+  protected drawField(aField: SCH_FIELD, aLayer: number, aDimmed: boolean): void {
+    const drawingShadows = aLayer === SCH_LAYER_ID.LAYER_SELECTION_SHADOWS;
+
+    if (this.m_schSettings.IsPrinting() && drawingShadows) return;
+
+    if (drawingShadows && !(aField.IsBrightened() || aField.IsSelected())) return;
+
+    if (!this.isUnitAndConversionShown(aField)) return;
+
+    if (aField.IsPrivate() && !this.m_schSettings.m_IsSymbolEditor) return;
+
+    // Must check layer as fields are sometimes drawn by their parent rather than directly
+    // from the view.
+    const layers = aField.ViewGetLayers();
+
+    if (!layers.includes(aLayer)) return;
+
+    aLayer = aField.GetLayer();
+
+    let color = this.getRenderColor(aField, aLayer, drawingShadows, aDimmed);
+
+    if (!(aField.IsVisible() || aField.IsForceVisible())) {
+      const force_show = this.m_schematic
+        ? eeconfig()!.appearance.show_hidden_fields
+        : this.m_schSettings.m_ShowHiddenFields;
+
+      if (force_show)
+        color = this.getRenderColor(aField, SCH_LAYER_ID.LAYER_HIDDEN, drawingShadows, aDimmed);
+      else return;
+    }
+
+    // A zero-alpha color renders as an opaque artifact on some backends, so skip the glyphs.
+    // The selection anchor and umbilical line below must still draw for a transparent field.
+    const transparentColor = !drawingShadows && color.a <= 0.0;
+
+    let sheetPath: SCH_SHEET_PATH | null = null;
+    let variant = '';
+
+    if (this.m_schematic) {
+      sheetPath = this.m_schematic.CurrentSheet();
+      variant = this.m_schematic.GetCurrentVariant();
+    }
+
+    const shownText = aField.GetShownText(sheetPath, true, 0, variant);
+
+    if (shownText === '') return;
+
+    // Calculate the text orientation according to the parent orientation.
+    let orient = aField.GetTextAngle();
+    const parentItem = aField.GetParent();
+
+    if (parentItem && parentItem.Type() === KICAD_T.SCH_SYMBOL_T) {
+      if ((parentItem as SCH_SYMBOL).GetTransform().y1) {
+        // Rotate symbol 90 degrees.
+        if (orient.IsHorizontal()) orient = ANGLE_VERTICAL;
+        else orient = ANGLE_HORIZONTAL;
+      }
+    }
+
+    /*
+     * Calculate the text justification, according to the symbol orientation/mirror.
+     * ... when symbol is mirrored, the text is not mirrored and justifications are complicated
+     * to calculate so the easier way is to use no justifications (centered text) and use
+     * GetBoundingBox to know the text coordinate considered as centered
+     */
+    const bbox = aField.GetBoundingBox().Clone();
+
+    if (parentItem && parentItem.Type() === KICAD_T.SCH_GLOBAL_LABEL_T) {
+      const label = parentItem as SCH_GLOBALLABEL;
+      bbox.Offset(label.GetSchematicTextOffset(this.m_schSettings));
+    }
+
+    if (this.m_schSettings.GetDrawBoundingBoxes()) this.drawItemBoundingBox(aField);
+
+    const attributes = Object.assign(new TEXT_ATTRIBUTES(), aField.GetAttributes());
+    attributes.m_StrokeWidth = Math.round(this.getTextThickness(aField));
+
+    this.gal.SetStrokeColor(color);
+    this.gal.SetFillColor(color);
+    this.gal.SetHoverColor(color);
+
+    if (transparentColor) {
+      // Skip glyph rendering; the anchor/umbilical drawing below still runs.
+    } else if (drawingShadows && this.getFont(aField).IsOutline()) {
+      // Trying to draw glyph-shaped shadows on outline text is a fool's errand.  Just box it.
+      const textpos = bbox.Centre();
+
+      attributes.m_Halign = GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_CENTER;
+      attributes.m_Valign = GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_CENTER;
+      attributes.m_Angle = orient;
+      boxText(this.gal, shownText, textpos, attributes, aField.GetFontMetrics());
+    } else {
+      const textpos = bbox.Centre();
+
+      attributes.m_Halign = GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_CENTER;
+      attributes.m_Valign = GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_CENTER;
+      attributes.m_Angle = orient;
+
+      // int += float truncates
+      if (drawingShadows)
+        attributes.m_StrokeWidth = Math.trunc(
+          attributes.m_StrokeWidth + this.getShadowWidth(!aField.IsSelected()),
+        );
+
+      if (aField.IsRollover() && !aField.IsMoving()) {
+        // Highlight any urls found within the text
+        this.gal.SetHoverColor(this.m_schSettings.GetLayerColor(SCH_LAYER_ID.LAYER_HOVERED));
+
+        // Highlight the whole text if it has a link definition
+        if (aField.HasHyperlink()) {
+          attributes.m_Hover = true;
+          attributes.m_Underlined = true;
+        }
+      }
+
+      if (SCH_PAINTER.nonCached(aField) && aField.RenderAsBitmap(this.gal.GetWorldScale())) {
+        bitmapText(this.gal, shownText, textpos, attributes);
+        aField.SetFlags(IS_SHOWN_AS_BITMAP);
+      } else {
+        // SCH_FIELD::GetRenderCache keeps outline-font glyphs only; the field has no cache yet
+        // (sch_field.ts), so an outline field is stroked through its font each time.
+        strokeText(
+          this.gal,
+          shownText,
+          textpos,
+          attributes,
+          aField.GetFontMetrics(),
+          aField.GetRolloverPos(),
+        );
+
+        aField.ClearFlags(IS_SHOWN_AS_BITMAP);
+      }
+    }
+
+    if (parentItem && parentItem.Type() === KICAD_T.SCH_SYMBOL_T) {
+      const parent = parentItem as SCH_SYMBOL;
+      const rotated = !orient.IsHorizontal();
+
+      let pos: Vec2;
+      let size = bbox.GetHeight() / 1.5;
+
+      if (rotated) {
+        pos = {
+          x: bbox.GetRight() - bbox.GetWidth() / 6.0,
+          y: bbox.GetBottom() + bbox.GetWidth() / 2.0,
+        };
+        size = bbox.GetWidth() / 1.5;
+      } else {
+        pos = {
+          x: bbox.GetLeft() - bbox.GetHeight() / 2.0,
+          y: bbox.GetBottom() - bbox.GetHeight() / 6.0,
+        };
+      }
+
+      if (
+        !transparentColor &&
+        parent.IsSymbolLikePowerLocalLabel() &&
+        aField.GetId() === FIELD_T.VALUE
+      ) {
+        this.drawLocalPowerIcon(pos, size, rotated, color, drawingShadows, aField.IsBrightened());
+      }
+    }
+
+    // Draw anchor or umbilical line.  The umbilical line shows independent motion of a field
+    // relative to its parent; suppress it when the parent is also moving (e.g. dragging the
+    // whole label) or its endpoints would span the entire label, drawing a long stray line.
+    const fieldParent = parentItem?.IsSCH_ITEM() ? (parentItem as SCH_ITEM) : null;
+    const parentMoving = !!fieldParent && fieldParent.IsMoving();
+
+    if (aField.IsMoving() && !parentMoving && this.m_schematic) {
+      const parentPos = aField.GetParentPosition();
+
+      this.gal.SetLineWidth(this.m_schSettings.GetOutlineWidth());
+      this.gal.SetStrokeColor(
+        this.getRenderColor(aField, SCH_LAYER_ID.LAYER_SCHEMATIC_ANCHOR, drawingShadows),
+      );
+      this.gal.DrawLine(aField.GetPosition(), parentPos);
+    } else if (aField.IsSelected() && !parentMoving) {
+      this.drawAnchor(aField.GetPosition(), drawingShadows);
+    }
+  }
+
+  protected drawLocalPowerIcon(
+    aPos: Vec2,
+    aSize: number,
+    aRotate: boolean,
+    aColor: Color4d,
+    aDrawingShadows: boolean,
+    aBrightened: boolean,
+  ): void {
+    let lineWidth = aSize / 10.0;
+
+    if (aDrawingShadows) lineWidth += this.getShadowWidth(aBrightened);
+
+    const shapeList: SCH_SHAPE[] = [];
+    LIVE_SCH_SYMBOL.BuildLocalPowerIconShape(shapeList, aPos, aSize, lineWidth, aRotate);
+
+    this.gal.SetLineWidth(lineWidth);
+    this.gal.SetIsStroke(true);
+    this.gal.SetStrokeColor(aColor);
+    this.gal.SetFillColor(aColor);
+
+    for (const shape of shapeList) {
+      // Currently there are only 2 shapes: BEZIER and CIRCLE
+      this.gal.SetIsFill(shape.GetFillMode() !== FILL_T.NO_FILL);
+
+      if (shape.GetShape() === SHAPE_T.BEZIER)
+        this.gal.DrawCurve(
+          shape.GetStart(),
+          shape.GetBezierC1(),
+          shape.GetBezierC2(),
+          shape.GetEnd(),
+        );
+      else if (shape.GetShape() === SHAPE_T.CIRCLE)
+        this.gal.DrawCircle(shape.getCenter(), shape.GetRadius());
+    }
+  }
+
+  /** The fields of a label, drawn by the label (the global, local, hierarchical and directive draws). */
+  private drawLabelFields(aLabel: SCH_LABEL_BASE, aLayer: number): void {
+    for (const field of aLabel.GetFields()) this.drawField(field, aLayer, false);
+  }
+
+  protected drawGlobalLabel(aLabel: SCH_GLOBALLABEL, aLayer: number, aDimmed: boolean): void {
+    const drawingShadows = aLayer === SCH_LAYER_ID.LAYER_SELECTION_SHADOWS;
+
+    if (this.m_schSettings.IsPrinting() && drawingShadows) return;
+
+    const drawingDangling = aLayer === SCH_LAYER_ID.LAYER_DANGLING;
+
+    if (!drawingShadows || eeconfig()!.selection.draw_selected_children)
+      this.drawLabelFields(aLabel, aLayer);
+
+    if (isFieldsLayer(aLayer)) return;
+
+    if (drawingShadows && !(aLabel.IsBrightened() || aLabel.IsSelected())) return;
+
+    const color = this.getRenderColor(
+      aLabel,
+      SCH_LAYER_ID.LAYER_GLOBLABEL,
+      drawingShadows,
+      aDimmed,
+      true,
+    );
+
+    if (drawingDangling) {
+      if (aLabel.IsDangling()) {
+        this.drawDanglingIndicator(
+          aLabel.GetTextPos(),
+          color,
+          liveIUScale.milsToIU(Math.trunc(DANGLING_SYMBOL_SIZE / 2)),
+          true,
+          drawingShadows,
+          aLabel.IsBrightened(),
+        );
+      }
+
+      return;
+    }
+
+    // Skip the flag shape when transparent, but still delegate to the SCH_TEXT draw so it can
+    // clear any stale hover URL on the now-hidden label.
+    const transparentColor = !drawingShadows && color.a <= 0.0;
+
+    if (!transparentColor) {
+      const pts: VECTOR2I[] = [];
+
+      aLabel.CreateGraphicShape(this.m_schSettings, pts, aLabel.GetTextPos());
+
+      this.gal.SetIsStroke(true);
+      this.gal.SetLineWidth(this.getLineWidth(aLabel, drawingShadows));
+      this.gal.SetStrokeColor(color);
+
+      if (drawingShadows) {
+        this.gal.SetIsFill(eeconfig()!.selection.fill_shapes);
+        this.gal.SetFillColor(color);
+        this.gal.DrawPolygon(pts);
+      } else {
+        this.gal.SetIsFill(false);
+        this.gal.DrawPolyline(pts);
+      }
+    }
+
+    this.drawText(aLabel, aLayer, false);
+  }
+
+  protected drawLabel(aLabel: SCH_LABEL, aLayer: number, aDimmed: boolean): void {
+    const drawingShadows = aLayer === SCH_LAYER_ID.LAYER_SELECTION_SHADOWS;
+
+    if (this.m_schSettings.IsPrinting() && drawingShadows) return;
+
+    const drawingDangling = aLayer === SCH_LAYER_ID.LAYER_DANGLING;
+
+    if (!drawingShadows || eeconfig()!.selection.draw_selected_children)
+      this.drawLabelFields(aLabel, aLayer);
+
+    if (isFieldsLayer(aLayer)) return;
+
+    if (drawingShadows && !(aLabel.IsBrightened() || aLabel.IsSelected())) return;
+
+    const color = this.getRenderColor(
+      aLabel,
+      SCH_LAYER_ID.LAYER_HIERLABEL,
+      drawingShadows,
+      aDimmed,
+      true,
+    );
+
+    if (drawingDangling) {
+      if (aLabel.IsDangling()) {
+        this.drawDanglingIndicator(
+          aLabel.GetTextPos(),
+          color,
+          liveIUScale.milsToIU(Math.trunc(DANGLING_SYMBOL_SIZE / 2)),
+          true,
+          drawingShadows,
+          aLabel.IsBrightened(),
+        );
+      }
+
+      return;
+    }
+
+    // Transparency is handled by the delegated SCH_TEXT draw, which also keeps the anchor visible
+    // for a selected local label.
+    this.drawText(aLabel, aLayer, false);
+  }
+
+  protected drawHierLabel(aLabel: SCH_HIERLABEL, aLayer: number, aDimmed: boolean): void {
+    const drawingShadows = aLayer === SCH_LAYER_ID.LAYER_SELECTION_SHADOWS;
+
+    if (this.m_schSettings.IsPrinting() && drawingShadows) return;
+
+    const drawingDangling = aLayer === SCH_LAYER_ID.LAYER_DANGLING;
+
+    if (!(drawingShadows || drawingDangling) || eeconfig()!.selection.draw_selected_children)
+      this.drawLabelFields(aLabel, aLayer);
+
+    if (isFieldsLayer(aLayer)) return;
+
+    if (drawingShadows && !(aLabel.IsBrightened() || aLabel.IsSelected())) return;
+
+    const color = this.getRenderColor(
+      aLabel,
+      SCH_LAYER_ID.LAYER_HIERLABEL,
+      drawingShadows,
+      aDimmed,
+      true,
+    );
+
+    if (drawingDangling) {
+      if (aLabel.IsDangling()) {
+        this.drawDanglingIndicator(
+          aLabel.GetTextPos(),
+          color,
+          liveIUScale.milsToIU(Math.trunc(DANGLING_SYMBOL_SIZE / 2)),
+          true,
+          drawingShadows,
+          aLabel.IsBrightened(),
+        );
+      }
+
+      return;
+    }
+
+    // Skip the flag shape when transparent, but still delegate to the SCH_TEXT draw so it can
+    // clear any stale hover URL on the now-hidden label.
+    const transparentColor = !drawingShadows && color.a <= 0.0;
+
+    if (!transparentColor) {
+      const i_pts: VECTOR2I[] = [];
+
+      aLabel.CreateGraphicShape(this.m_schSettings, i_pts, aLabel.GetTextPos());
+
+      this.gal.SetIsFill(true);
+      this.gal.SetFillColor(
+        this.m_schSettings.GetLayerColor(SCH_LAYER_ID.LAYER_SCHEMATIC_BACKGROUND),
+      );
+      this.gal.SetIsStroke(true);
+      this.gal.SetLineWidth(this.getLineWidth(aLabel, drawingShadows));
+      this.gal.SetStrokeColor(color);
+      this.gal.DrawPolyline(i_pts);
+    }
+
+    this.drawText(aLabel, aLayer, aDimmed);
+  }
+
+  protected drawDirectiveLabel(
+    aLabel: SCH_DIRECTIVE_LABEL,
+    aLayer: number,
+    aDimmed: boolean,
+  ): void {
+    if (!eeconfig()!.appearance.show_directive_labels && !aLabel.IsSelected()) return;
+
+    const drawingShadows = aLayer === SCH_LAYER_ID.LAYER_SELECTION_SHADOWS;
+
+    if (this.m_schSettings.IsPrinting() && drawingShadows) return;
+
+    if (!drawingShadows || eeconfig()!.selection.draw_selected_children)
+      this.drawLabelFields(aLabel, aLayer);
+
+    if (isFieldsLayer(aLayer)) return;
+
+    if (drawingShadows && !(aLabel.IsBrightened() || aLabel.IsSelected())) return;
+
+    const color = this.getRenderColor(
+      aLabel,
+      SCH_LAYER_ID.LAYER_NETCLASS_REFS,
+      drawingShadows,
+      aDimmed,
+      true,
+    );
+
+    if (aLayer === SCH_LAYER_ID.LAYER_DANGLING) {
+      if (aLabel.IsDangling()) {
+        this.drawDanglingIndicator(
+          aLabel.GetTextPos(),
+          color,
+          liveIUScale.milsToIU(Math.trunc(DANGLING_SYMBOL_SIZE / 2)),
+          true,
+          drawingShadows,
+          aLabel.IsBrightened(),
+        );
+      }
+
+      return;
+    }
+
+    if (!drawingShadows && color.a <= 0.0) return;
+
+    const pts: VECTOR2I[] = [];
+
+    aLabel.CreateGraphicShape(this.m_schSettings, pts, aLabel.GetTextPos());
+
+    this.gal.SetIsFill(false);
+    this.gal.SetFillColor(color);
+    this.gal.SetIsStroke(true);
+    this.gal.SetLineWidth(this.getLineWidth(aLabel, drawingShadows));
+    this.gal.SetStrokeColor(color);
+
+    if (aLabel.GetShape() === LABEL_FLAG_SHAPE.F_DOT) {
+      this.gal.DrawLine(pts[0]!, pts[1]!);
+      this.gal.SetIsFill(true);
+      this.gal.DrawCircle(pts[2]!, Math.hypot(pts[2]!.x - pts[1]!.x, pts[2]!.y - pts[1]!.y));
+    } else if (aLabel.GetShape() === LABEL_FLAG_SHAPE.F_ROUND) {
+      this.gal.DrawLine(pts[0]!, pts[1]!);
+      this.gal.DrawCircle(pts[2]!, Math.hypot(pts[2]!.x - pts[1]!.x, pts[2]!.y - pts[1]!.y));
+    } else {
+      this.gal.DrawPolyline(pts);
+    }
   }
 
   protected drawLine(

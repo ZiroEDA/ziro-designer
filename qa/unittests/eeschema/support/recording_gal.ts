@@ -8,7 +8,8 @@
 import type { Color4d } from '@ziroeda/common/gal/color4d.js';
 import { GAL_DISPLAY_OPTIONS } from '@ziroeda/common/gal/gal_display_options.js';
 import { GAL } from '@ziroeda/common/gal/graphics_abstraction_layer.js';
-import type { Vec2 } from '@ziroeda/kimath';
+import type { GLYPH_LIKE } from '@ziroeda/common/font/glyph.js';
+import type { Vec2, VECTOR2I } from '@ziroeda/kimath';
 import type { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_chain.js';
 import type { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
@@ -27,6 +28,10 @@ export type CALL =
   | ({ op: 'rect'; a: Vec2; b: Vec2 } & PEN)
   | ({ op: 'arc'; c: Vec2; r: number; start: number; angle: number } & PEN)
   | ({ op: 'polygon'; points: Vec2[] } & PEN)
+  | ({ op: 'polyline'; points: Vec2[] } & PEN)
+  | ({ op: 'glyph' } & PEN)
+  | ({ op: 'bitmap'; text: string; at: Vec2 } & PEN)
+  | ({ op: 'curve'; a: Vec2; c1: Vec2; c2: Vec2; b: Vec2 } & PEN)
   | { op: 'save' }
   | { op: 'restore' }
   | { op: 'translate'; t: Vec2 };
@@ -122,6 +127,28 @@ export class RECORDING_GAL extends GAL {
     }
 
     this.calls.push({ op: 'polygon', points, ...this.pen });
+  }
+  override DrawPolyline(a: readonly Vec2[] | SHAPE_LINE_CHAIN): void {
+    const points = Array.isArray(a)
+      ? a.map((p) => ({ ...p }))
+      : (a as SHAPE_LINE_CHAIN).CPoints().map((p) => ({ ...p }));
+    this.calls.push({ op: 'polyline', points, ...this.pen });
+  }
+  override DrawGlyph(_aGlyph: GLYPH_LIKE, _aNth = 0, _aTotal = 1): void {
+    this.calls.push({ op: 'glyph', ...this.pen });
+  }
+  override BitmapText(aText: string, aPosition: VECTOR2I, _aAngle: EDA_ANGLE): void {
+    this.calls.push({ op: 'bitmap', text: aText, at: { ...aPosition }, ...this.pen });
+  }
+  override DrawCurve(aStart: Vec2, aC1: Vec2, aC2: Vec2, aEnd: Vec2): void {
+    this.calls.push({
+      op: 'curve',
+      a: { ...aStart },
+      c1: { ...aC1 },
+      c2: { ...aC2 },
+      b: { ...aEnd },
+      ...this.pen,
+    });
   }
   override Save(): void {
     this.calls.push({ op: 'save' });
