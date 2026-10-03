@@ -1,0 +1,348 @@
+{
+ "$schema": "https://schemas.kicad.org/erc.v1.json",
+ "coordinate_units": "mm",
+ "ignored_checks": [
+  {
+   "description": "Global label only appears once in the schematic",
+   "key": "single_global_label"
+  },
+  {
+   "description": "Four connection points are joined together",
+   "key": "four_way_junction"
+  },
+  {
+   "description": "SPICE model issue",
+   "key": "simulation_model_issue"
+  },
+  {
+   "description": "Assigned footprint doesn't match footprint filters",
+   "key": "footprint_filter"
+  }
+ ],
+ "included_severities": [
+  "error",
+  "warning",
+  "exclusion"
+ ],
+ "kicad_version": "10.0.6",
+ "sheets": [
+  {
+   "path": "/",
+   "uuid_path": "/00000000-1111-2222-3333-444444444444",
+   "violations": [
+    {
+     "description": "Label not connected",
+     "items": [
+      {
+       "description": "Label 'D1'",
+       "pos": {
+        "x": 1.0414,
+        "y": 0.5588
+       },
+       "uuid": "ffffffff-0002-2222-3333-444444444444"
+      }
+     ],
+     "severity": "error",
+     "type": "label_dangling"
+    },
+    {
+     "description": "Label not connected",
+     "items": [
+      {
+       "description": "Label 'D1'",
+       "pos": {
+        "x": 1.0414,
+        "y": 0.9588
+       },
+       "uuid": "ffffffff-0004-2222-3333-444444444444"
+      }
+     ],
+     "severity": "error",
+     "type": "label_dangling"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol J1 Pin 2 [Pin_2, Passive, Line]",
+       "pos": {
+        "x": 1.143,
+        "y": 0.5334
+       },
+       "uuid": "22222222-0002-2222-3333-444444444444"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol J2 Pin 2 [Pin_2, Passive, Line]",
+       "pos": {
+        "x": 1.143,
+        "y": 0.9334
+       },
+       "uuid": "22222222-0004-2222-3333-444444444444"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Horizontal Bus, length 0.0508 mm",
+       "pos": {
+        "x": 0.9652,
+        "y": 0.908
+       },
+       "uuid": "dddddddd-0003-2222-3333-444444444444"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Net /Sheet1/D0 is graphically connected to bus /<NO NET> but is not a member of that bus",
+     "items": [
+      {
+       "description": "Bus to wire entry",
+       "pos": {
+        "x": 1.016,
+        "y": 0.4826
+       },
+       "uuid": "cccccccc-0001-2222-3333-444444444444"
+      },
+      {
+       "description": "Vertical Bus, length 0.0762 mm",
+       "pos": {
+        "x": 1.016,
+        "y": 0.4826
+       },
+       "uuid": "dddddddd-0002-2222-3333-444444444444"
+      }
+     ],
+     "severity": "warning",
+     "type": "net_not_bus_member"
+    },
+    {
+     "description": "Net /Sheet1/D1 is graphically connected to bus /<NO NET> but is not a member of that bus",
+     "items": [
+      {
+       "description": "Bus to wire entry",
+       "pos": {
+        "x": 1.016,
+        "y": 0.5334
+       },
+       "uuid": "cccccccc-0002-2222-3333-444444444444"
+      },
+      {
+       "description": "Vertical Bus, length 0.0762 mm",
+       "pos": {
+        "x": 1.016,
+        "y": 0.4826
+       },
+       "uuid": "dddddddd-0002-2222-3333-444444444444"
+      }
+     ],
+     "severity": "warning",
+     "type": "net_not_bus_member"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Bus to wire entry",
+       "pos": {
+        "x": 1.016,
+        "y": 0.8826
+       },
+       "uuid": "cccccccc-0003-2222-3333-444444444444"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Vertical Bus, length 0.0762 mm",
+       "pos": {
+        "x": 1.016,
+        "y": 0.8826
+       },
+       "uuid": "dddddddd-0004-2222-3333-444444444444"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Bus to wire entry",
+       "pos": {
+        "x": 1.016,
+        "y": 0.9334
+       },
+       "uuid": "cccccccc-0004-2222-3333-444444444444"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Bus to wire entry",
+       "pos": {
+        "x": 1.016,
+        "y": 0.8826
+       },
+       "uuid": "cccccccc-0003-2222-3333-444444444444"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Horizontal Wire, length 0.1016 mm",
+       "pos": {
+        "x": 1.0414,
+        "y": 0.908
+       },
+       "uuid": "eeeeeeee-0003-2222-3333-444444444444"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Bus to wire entry",
+       "pos": {
+        "x": 1.016,
+        "y": 0.9334
+       },
+       "uuid": "cccccccc-0004-2222-3333-444444444444"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Horizontal Wire, length 0.1016 mm",
+       "pos": {
+        "x": 1.0414,
+        "y": 0.9588
+       },
+       "uuid": "eeeeeeee-0004-2222-3333-444444444444"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Unconnected wire endpoint",
+     "items": [
+      {
+       "description": "Horizontal Wire, length 0.1016 mm",
+       "pos": {
+        "x": 1.0414,
+        "y": 0.5588
+       },
+       "uuid": "eeeeeeee-0002-2222-3333-444444444444"
+      }
+     ],
+     "severity": "warning",
+     "type": "unconnected_wire_endpoint"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Symbol J2 Pin 1 [Pin_1, Passive, Line]",
+       "pos": {
+        "x": 1.143,
+        "y": 0.908
+       },
+       "uuid": "22222222-0003-2222-3333-444444444444"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Unconnected wire endpoint",
+     "items": [
+      {
+       "description": "Horizontal Wire, length 0.1016 mm",
+       "pos": {
+        "x": 1.0414,
+        "y": 0.9588
+       },
+       "uuid": "eeeeeeee-0004-2222-3333-444444444444"
+      }
+     ],
+     "severity": "warning",
+     "type": "unconnected_wire_endpoint"
+    },
+    {
+     "description": "Symbol 'Conn_01x02' doesn't match copy in library 'Connector_Generic'",
+     "items": [
+      {
+       "description": "Symbol J1 [Conn_01x02]",
+       "pos": {
+        "x": 1.1938,
+        "y": 0.508
+       },
+       "uuid": "11111111-0001-2222-3333-444444444444"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_mismatch"
+    },
+    {
+     "description": "Symbol 'Conn_01x02' doesn't match copy in library 'Connector_Generic'",
+     "items": [
+      {
+       "description": "Symbol J2 [Conn_01x02]",
+       "pos": {
+        "x": 1.1938,
+        "y": 0.908
+       },
+       "uuid": "11111111-0002-2222-3333-444444444444"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_mismatch"
+    }
+   ]
+  },
+  {
+   "path": "/Sheet1/",
+   "uuid_path": "/00000000-1111-2222-3333-444444444444/33333333-0001-2222-3333-444444444444",
+   "violations": []
+  },
+  {
+   "path": "/Sheet2/",
+   "uuid_path": "/00000000-1111-2222-3333-444444444444/33333333-0002-2222-3333-444444444444",
+   "violations": []
+  }
+ ],
+ "source": "issue21798.kicad_sch"
+}

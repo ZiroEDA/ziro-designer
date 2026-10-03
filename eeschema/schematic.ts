@@ -97,11 +97,8 @@ export function schematicTextVarResolver(ctx: TextVarContext): TextVarResolverFn
 // the top-level sheets, the current sheet, the hierarchy, bus aliases, variants and the
 // schematic's embedded files. Everything above is the record model's resolver, untouched.
 //
-// Pending, marked in place: CleanUp and RecalculateConnections' incremental path (the
-// connection graph is always rebuilt whole; see RecalculateConnections), the ERC exclusions (ErcSettings() is a schematic-owned
-// ERC_SETTINGS, as Settings() below), the project
-// settings file (Settings() is a schematic-owned SCHEMATIC_SETTINGS, KiCad's no-project
-// answer), the PROPERTY_MANAGER listener that syncs other units' fields, SCH_REFERENCE_LIST
+// Pending, marked in place: RecalculateConnections' incremental path (the connection graph
+// is always rebuilt whole; see RecalculateConnections), the PROPERTY_MANAGER listener that syncs other units' fields, SCH_REFERENCE_LIST
 // uses (CacheExistingAnnotation, Contains, the refdes fallback of ResolveCrossReference,
 // ConvertRefsToKIIDs), fonts (GetFonts, EmbedFonts), SPICE_VALUE formatting of operating
 // points, RecomputeIntersheetRefs' field autoplacement, SaveToHistory.
@@ -115,8 +112,18 @@ import { KICAD_T as KICAD_T_E3 } from '@ziroeda/core/typeinfo.js';
 import { applyMixins } from '@ziroeda/core/mixins.js';
 import { BUS_ALIAS } from './bus_alias.js';
 import { CONNECTION_GRAPH, CONNECTION_SUBGRAPH } from './connection_graph.js';
-import { ERC_SETTINGS } from './erc/erc_settings.js';
-import type { SCH_ITEM } from './sch_item.js';
+import { ERC_SETTINGS, sortedExclusions } from './erc/erc_settings.js';
+import { SCH_MARKER } from './sch_marker.js';
+import type { SCH_GLOBALLABEL } from './sch_label.js';
+import type { SCHEMATIC_HOLDER } from './schematic_holder.js';
+import { AUTOPLACE_ALGO, type SCH_ITEM } from './sch_item.js';
+import { SCH_COMMIT } from './sch_commit.js';
+import type { SCH_JUNCTION } from './sch_junction.js';
+import type { SCH_LINE } from './sch_line.js';
+import type { SCH_NO_CONNECT } from './sch_no_connect.js';
+import { SELECTED_BY_DRAG, STRUCT_DELETED } from '@ziroeda/common/eda_item_flags.js';
+import { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
+import { SCH_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { SCH_RULE_AREA } from './sch_rule_area.js';
 import { SCH_SCREEN, SCH_SCREENS } from './sch_screen.js';
 import { SCH_SHEET } from './sch_sheet.js';
@@ -201,11 +208,13 @@ export class SCHEMATIC extends EDA_ITEM_E3 {
 
   private m_settingTopLevelSheets: boolean;
 
-  /// The project settings file's SCHEMATIC_SETTINGS stand-in (see the header note).
-  private m_settings: SCHEMATIC_SETTINGS;
+  /// The settings a schematic with no project (or a project with no file) answers with:
+  /// upstream dereferences the project file and has no such case.
+  private m_settings: SCHEMATIC_SETTINGS | null = null;
+  private m_ercSettings: ERC_SETTINGS | null = null;
 
-  /// The project file's ERC_SETTINGS stand-in, same reasoning as m_settings.
-  private m_ercSettings: ERC_SETTINGS;
+  /// `m_schematicHolder`: the editor the schematic calls back through (null headless).
+  private m_schematicHolder: SCHEMATIC_HOLDER | null = null;
 
   /// Holds and calculates connectivity information of this schematic.
   private m_connectionGraph: CONNECTION_GRAPH;
@@ -227,8 +236,6 @@ export class SCHEMATIC extends EDA_ITEM_E3 {
     this.m_currentVariant = '';
     this.m_variantNames = new Set();
     this.m_settingTopLevelSheets = false;
-    this.m_settings = new SCHEMATIC_SETTINGS();
-    this.m_ercSettings = new ERC_SETTINGS();
     this.m_connectionGraph = new CONNECTION_GRAPH(this);
 
     SCHEMATIC.m_IsSchematicExists = true;
@@ -267,12 +274,32 @@ export class SCHEMATIC extends EDA_ITEM_E3 {
     return this.m_project!;
   }
 
-  /**
-   * `SetProject`: the project's bus aliases are loaded.  The ERC and schematic settings
-   * upstream hangs on the project file are schematic-owned here (see the header note).
-   */
+  /** `SetProject` (schematic.cpp:180). */
   SetProject(aPrj: PROJECT | null): void {
+    const oldFile = this.m_project?.GetProjectFile() as PROJECT_FILE | null | undefined;
+
+    if (oldFile) {
+      // d'tor will save settings to file
+      if (oldFile.m_ErcSettings) oldFile.ReleaseNestedSettings(oldFile.m_ErcSettings);
+      oldFile.m_ErcSettings = null;
+
+      // d'tor will save settings to file
+      if (oldFile.m_SchematicSettings) oldFile.ReleaseNestedSettings(oldFile.m_SchematicSettings);
+      oldFile.m_SchematicSettings = null;
+    }
+
     this.m_project = aPrj;
+
+    const project = this.m_project?.GetProjectFile() as PROJECT_FILE | null | undefined;
+
+    if (project) {
+      project.m_ErcSettings = new ERC_SETTINGS(project, 'erc');
+      project.m_SchematicSettings = new SCHEMATIC_SETTINGS(project, 'schematic');
+
+      project.m_SchematicSettings.LoadFromFile();
+      // m_NgspiceSettings: no simulator here.
+      project.m_ErcSettings.LoadFromFile();
+    }
 
     if (this.m_project) this.loadBusAliasesFromProject();
   }
@@ -588,6 +615,12 @@ export class SCHEMATIC extends EDA_ITEM_E3 {
   }
 
   Settings(): SCHEMATIC_SETTINGS {
+    const project = this.m_project?.GetProjectFile() as PROJECT_FILE | null | undefined;
+
+    if (project?.m_SchematicSettings) return project.m_SchematicSettings as SCHEMATIC_SETTINGS;
+
+    if (!this.m_settings) this.m_settings = new SCHEMATIC_SETTINGS();
+
     return this.m_settings;
   }
 
@@ -617,23 +650,194 @@ export class SCHEMATIC extends EDA_ITEM_E3 {
   }
 
   /**
-   * Generate the connection data for the entire schematic hierarchy.
-   *
-   * Upstream first runs `CleanUp` (not on the live model yet: nothing is merged, split or
-   * given a junction here) and, when `ADVANCED_CFG::m_IncrementalConnectivity` is set and
-   * the change list is small, recalculates only the damaged part of the graph.  Here the
-   * graph is always rebuilt whole - upstream's GLOBAL_CLEANUP arm, the same answer as the
-   * incremental one, more slowly.
+   * `SCHEMATIC::CleanUp` (schematic.cpp:1525): on one screen, drop junctions that are no
+   * longer needed and duplicate junctions and no-connects, then repeatedly remove null and
+   * identical wires/buses and merge overlapping or colinear touching ones, recording every
+   * change in \a aCommit (and through the holder, on the screen and its view).
+   */
+  CleanUp(aCommit: SCH_COMMIT, aScreen: SCH_SCREEN | null = null): void {
+    const lines: SCH_LINE[] = [];
+    const junctions: SCH_JUNCTION[] = [];
+    const ncs: SCH_NO_CONNECT[] = [];
+    const items_to_remove: SCH_ITEM[] = [];
+    let changed = true;
+
+    const screen = aScreen ?? this.GetCurrentScreen()!;
+
+    // No SCH_SELECTION_TOOL on the live model yet (GetSelectionTool() is null), so the
+    // upstream selection bookkeeping in remove_item and the merge has nothing to update.
+    const remove_item = (aItem: SCH_ITEM): void => {
+      changed = true;
+
+      if (!(aItem.GetFlags() & STRUCT_DELETED)) {
+        aItem.SetFlags(STRUCT_DELETED);
+
+        if (this.m_schematicHolder) this.m_schematicHolder.RemoveFromScreen(aItem, screen);
+
+        aCommit.Removed(aItem, screen);
+      }
+    };
+
+    for (const item of screen.Items().OfType(KICAD_T_E3.SCH_JUNCTION_T)) {
+      if (!screen.IsExplicitJunction(item.GetPosition())) {
+        if (item.IsSelected() || item.HasFlag(SELECTED_BY_DRAG)) continue;
+
+        items_to_remove.push(item);
+      } else junctions.push(item as unknown as SCH_JUNCTION);
+    }
+
+    for (const item of items_to_remove) remove_item(item);
+
+    for (const item of screen.Items().OfType(KICAD_T_E3.SCH_NO_CONNECT_T))
+      ncs.push(item as unknown as SCH_NO_CONNECT);
+
+    // alg::for_all_pairs: each unordered pair once, first before second.
+    const samePos = (a: SCH_ITEM, b: SCH_ITEM) => {
+      const pa = a.GetPosition();
+      const pb = b.GetPosition();
+      return pa.x === pb.x && pa.y === pb.y;
+    };
+
+    for (let i = 0; i < junctions.length; i++)
+      for (let j = i + 1; j < junctions.length; j++) {
+        const aFirst = junctions[i]!;
+        const aSecond = junctions[j]!;
+
+        if (aFirst.GetEditFlags() & STRUCT_DELETED || aSecond.GetEditFlags() & STRUCT_DELETED)
+          continue;
+
+        if (samePos(aFirst, aSecond)) remove_item(aSecond);
+      }
+
+    for (let i = 0; i < ncs.length; i++)
+      for (let j = i + 1; j < ncs.length; j++) {
+        const aFirst = ncs[i]!;
+        const aSecond = ncs[j]!;
+
+        if (aFirst.GetEditFlags() & STRUCT_DELETED || aSecond.GetEditFlags() & STRUCT_DELETED)
+          continue;
+
+        if (samePos(aFirst, aSecond)) remove_item(aSecond);
+      }
+
+    const minX = (l: SCH_LINE) => Math.min(l.GetStartPoint().x, l.GetEndPoint().x);
+    const maxX = (l: SCH_LINE) => Math.max(l.GetStartPoint().x, l.GetEndPoint().x);
+    const minY = (l: SCH_LINE) => Math.min(l.GetStartPoint().y, l.GetEndPoint().y);
+    const maxY = (l: SCH_LINE) => Math.max(l.GetStartPoint().y, l.GetEndPoint().y);
+
+    // Would be nice to put lines in a canonical form here by swapping
+    //  start <-> end as needed but I don't know what swapping breaks.
+    while (changed) {
+      changed = false;
+      lines.length = 0;
+
+      for (const item of screen.Items().OfType(KICAD_T_E3.SCH_LINE_T)) {
+        if (
+          item.GetLayer() === SCH_LAYER_ID.LAYER_WIRE ||
+          item.GetLayer() === SCH_LAYER_ID.LAYER_BUS
+        )
+          lines.push(item as unknown as SCH_LINE);
+      }
+
+      // Sort by minimum X position. (std::sort is not stable; JS's sort is, so lines with
+      // the same left edge keep their screen order - one of the orders upstream allows.)
+      lines.sort((a, b) => minX(a) - minX(b));
+
+      outer: for (let it1 = 0; it1 < lines.length; it1++) {
+        const firstLine = lines[it1]!;
+
+        if (firstLine.GetEditFlags() & STRUCT_DELETED) continue;
+
+        if (firstLine.IsNull()) {
+          remove_item(firstLine);
+          continue;
+        }
+
+        const firstRightXEdge = maxX(firstLine);
+
+        for (let it2 = it1 + 1; it2 < lines.length; it2++) {
+          const secondLine = lines[it2]!;
+          const secondLeftXEdge = minX(secondLine);
+
+          // impossible to overlap remaining lines
+          if (secondLeftXEdge > firstRightXEdge) break;
+
+          // No Y axis overlap
+          if (
+            !(
+              Math.max(minY(firstLine), minY(secondLine)) <=
+              Math.min(maxY(firstLine), maxY(secondLine))
+            )
+          )
+            continue;
+
+          if (secondLine.GetFlags() & STRUCT_DELETED) continue;
+
+          if (
+            !secondLine.IsParallel(firstLine) ||
+            !secondLine.IsStrokeEquivalent(firstLine) ||
+            secondLine.GetLayer() !== firstLine.GetLayer()
+          )
+            continue;
+
+          // Remove identical lines
+          if (
+            firstLine.IsEndPoint(secondLine.GetStartPoint()) &&
+            firstLine.IsEndPoint(secondLine.GetEndPoint())
+          ) {
+            remove_item(secondLine);
+            continue;
+          }
+
+          // See if we can merge an overlap (or two colinear touching segments with
+          // no junction where they meet).
+          const mergedLine = secondLine.MergeOverlap(screen, firstLine, true);
+
+          if (mergedLine !== null) {
+            remove_item(firstLine);
+            remove_item(secondLine);
+
+            if (this.m_schematicHolder) this.m_schematicHolder.AddToScreen(mergedLine, screen);
+
+            aCommit.Added(mergedLine, screen);
+
+            continue outer; // upstream's `break` out of the inner loop
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * `SCHEMATIC::RecalculateConnections`: generate the connection data for the entire
+   * schematic hierarchy, after the `CleanUp` the flags ask for. When
+   * `ADVANCED_CFG::m_IncrementalConnectivity` is set and the change list is small,
+   * upstream recalculates only the damaged part of the graph; here the graph is always
+   * rebuilt whole - upstream's GLOBAL_CLEANUP arm, the same answer, more slowly. `aProgressReporter`, `aSchView` and `aLastChangeList` serve the incremental
+   * arm and the view, neither of which is here.
    */
   RecalculateConnections(
-    _aCommit: unknown,
-    _aCleanupFlags: SCH_CLEANUP_FLAGS,
+    aCommit: SCH_COMMIT | null,
+    aCleanupFlags: SCH_CLEANUP_FLAGS,
+    aToolManager: TOOL_MANAGER | null = null,
+    _aProgressReporter: unknown = null,
+    _aSchView: unknown = null,
     aChangedItemHandler: ((aItem: SCH_ITEM) => void) | null = null,
   ): void {
     this.RefreshHierarchy();
     const list = this.Hierarchy();
 
-    // if( Settings().m_IntersheetRefsShow ) RecomputeIntersheetRefs(): pending on the live model.
+    // SCH_COMMIT localCommit( aToolManager ): a headless caller passes no manager.
+    const commit = aCommit ?? new SCH_COMMIT(aToolManager ?? new TOOL_MANAGER());
+
+    // Ensure schematic graph is accurate
+    if (aCleanupFlags === SCH_CLEANUP_FLAGS.LOCAL_CLEANUP) {
+      this.CleanUp(commit, this.GetCurrentScreen());
+    } else if (aCleanupFlags === SCH_CLEANUP_FLAGS.GLOBAL_CLEANUP) {
+      for (const sheet of list) this.CleanUp(commit, sheet.LastScreen());
+    }
+
+    if (this.Settings().m_IntersheetRefsShow) this.RecomputeIntersheetRefs();
 
     // Clear all resolved netclass caches in case labels have changed
     this.m_project?.GetProjectFile().NetSettings().ClearAllCaches();
@@ -649,9 +853,132 @@ export class SCHEMATIC extends EDA_ITEM_E3 {
     this.m_connectionGraph.Recalculate(list, true, aChangedItemHandler);
   }
 
-  /** `ErcSettings()`: the project file's `m_ErcSettings` upstream; schematic-owned here. */
+  /** `ErcSettings()`: the project file's `m_ErcSettings`. */
   ErcSettings(): ERC_SETTINGS {
+    const project = this.m_project?.GetProjectFile() as PROJECT_FILE | null | undefined;
+
+    if (project?.m_ErcSettings) return project.m_ErcSettings as ERC_SETTINGS;
+
+    if (!this.m_ercSettings) this.m_ercSettings = new ERC_SETTINGS();
+
     return this.m_ercSettings;
+  }
+
+  /**
+   * `SCHEMATIC::ResolveERCExclusions` (schematic.cpp:557): match the recorded exclusions
+   * against the markers on the screens, and make markers for the ones that no longer have
+   * one (returned for the caller to place).
+   */
+  ResolveERCExclusions(): SCH_MARKER[] {
+    const sheetList = this.Hierarchy();
+    const settings = this.ErcSettings();
+
+    // Migrate legacy marker exclusions to new format to ensure exclusion matching functions across
+    // file versions. Silently drops any legacy exclusions which can not be mapped to the new format
+    // without risking an incorrect exclusion - this is preferable to silently dropping
+    // new ERC errors / warnings due to an incorrect match between a legacy and new
+    // marker serialization format
+    const migratedExclusions = new Set<string>();
+
+    for (const it of sortedExclusions(settings)) {
+      const testMarker = SCH_MARKER.DeserializeFromString(sheetList, it);
+
+      if (!testMarker) {
+        settings.m_ErcExclusions.delete(it);
+        continue;
+      }
+
+      if (testMarker.IsLegacyMarker()) {
+        const settingsKey = testMarker.GetRCItem()!.GetSettingsKey();
+
+        if (
+          settingsKey !== 'pin_to_pin' &&
+          settingsKey !== 'hier_label_mismatch' &&
+          settingsKey !== 'different_unit_net'
+        ) {
+          migratedExclusions.add(testMarker.SerializeToString());
+        }
+
+        settings.m_ErcExclusions.delete(it);
+      }
+    }
+
+    for (const m of migratedExclusions) settings.m_ErcExclusions.add(m);
+
+    // End of legacy exclusion removal / migrations
+
+    for (const sheet of sheetList) {
+      for (const item of sheet.LastScreen()!.Items().OfType(KICAD_T_E3.SCH_MARKER_T)) {
+        const marker = item as unknown as SCH_MARKER;
+        const serialized = marker.SerializeToString();
+
+        if (settings.m_ErcExclusions.has(serialized)) {
+          marker.SetExcluded(true, settings.m_ErcExclusionComments.get(serialized) ?? '');
+          settings.m_ErcExclusions.delete(serialized);
+        }
+      }
+    }
+
+    const newMarkers: SCH_MARKER[] = [];
+
+    for (const serialized of sortedExclusions(settings)) {
+      const marker = SCH_MARKER.DeserializeFromString(sheetList, serialized);
+
+      if (marker) {
+        marker.SetExcluded(true, settings.m_ErcExclusionComments.get(serialized) ?? '');
+        newMarkers.push(marker);
+      }
+    }
+
+    settings.m_ErcExclusions.clear();
+
+    return newMarkers;
+  }
+
+  /**
+   * `SCHEMATIC::RecordERCExclusions` (schematic.cpp:1349): every excluded marker on the
+   * screens, serialized with its comment, into the settings.
+   */
+  RecordERCExclusions(): void {
+    // Use a sorted sheetList to reduce file churn
+    const sheetList = this.Hierarchy();
+    const ercSettings = this.ErcSettings();
+
+    ercSettings.m_ErcExclusions.clear();
+    ercSettings.m_ErcExclusionComments.clear();
+
+    for (const sheet of sheetList) {
+      for (const item of sheet.LastScreen()!.Items().OfType(KICAD_T_E3.SCH_MARKER_T)) {
+        const marker = item as unknown as SCH_MARKER;
+
+        if (marker.IsExcluded()) {
+          const serialized = marker.SerializeToString();
+          ercSettings.m_ErcExclusions.add(serialized);
+          ercSettings.m_ErcExclusionComments.set(serialized, marker.GetComment());
+        }
+      }
+    }
+  }
+
+  /**
+   * `SCHEMATIC::ResolveERCExclusionsPostUpdate` (schematic.cpp:1375): place the markers
+   * the exclusions still need on the screen of the item they name, then record them so
+   * they are retained even before the schematic is saved.
+   */
+  ResolveERCExclusionsPostUpdate(): void {
+    const sheetList = this.Hierarchy();
+
+    for (const marker of this.ResolveERCExclusions()) {
+      const errorPath = new SCH_SHEET_PATH();
+      sheetList.ResolveItem(marker.GetRCItem()!.GetMainItemID(), errorPath);
+
+      if (errorPath.LastScreen()) errorPath.LastScreen()!.Append(marker);
+      else this.RootScreen()!.Append(marker);
+    }
+
+    // Once we have the ERC Exclusions, record them in the project file so that
+    // they are retained even before the schematic is saved (PCB Editor can also save the project)
+    this.RecordERCExclusions();
   }
 
   override GetEmbeddedFiles(): EMBEDDED_FILES {
@@ -778,6 +1105,73 @@ export class SCHEMATIC extends EDA_ITEM_E3 {
 
   GetPageRefsMap(): Map<string, Set<number>> {
     return this.m_labelToPageRefsMap;
+  }
+
+  /** `SetSchematicHolder()`. */
+  SetSchematicHolder(aHolder: SCHEMATIC_HOLDER | null): void {
+    this.m_schematicHolder = aHolder;
+  }
+
+  /** `GetSchematicHolder()`. */
+  GetSchematicHolder(): SCHEMATIC_HOLDER | null {
+    return this.m_schematicHolder;
+  }
+
+  /**
+   * `SCHEMATIC::RecomputeIntersheetRefs` (schematic.cpp:1196): rebuild the label-to-pages
+   * map from every global label in the hierarchy, then show or hide the current sheet's
+   * inter-sheet reference fields as the settings say.
+   */
+  RecomputeIntersheetRefs(): void {
+    const pageRefsMap = this.GetPageRefsMap();
+
+    pageRefsMap.clear();
+
+    for (const sheet of this.Hierarchy()) {
+      for (const item of sheet.LastScreen()!.Items().OfType(KICAD_T_E3.SCH_GLOBAL_LABEL_T)) {
+        const global = item as unknown as SCH_GLOBALLABEL;
+        const resolvedLabel = global.GetShownText(sheet, false);
+
+        const pages = pageRefsMap.get(resolvedLabel) ?? new Set<number>();
+        pages.add(sheet.GetVirtualPageNumber());
+        pageRefsMap.set(resolvedLabel, pages);
+      }
+    }
+
+    const show = this.Settings().m_IntersheetRefsShow;
+
+    // Refresh all visible global labels.  Note that we have to collect them first as the
+    // SCH_SCREEN::Update() call is going to invalidate the RTree iterator.
+    const currentSheetGlobalLabels = this.CurrentSheet()
+      .LastScreen()!
+      .Items()
+      .OfType(KICAD_T_E3.SCH_GLOBAL_LABEL_T)
+      .map((item) => item as unknown as SCH_GLOBALLABEL);
+
+    for (const globalLabel of currentSheetGlobalLabels) {
+      const fields = globalLabel.GetFields();
+
+      fields[0]?.SetVisible(show);
+
+      if (show) {
+        const pos = fields[0]?.GetTextPos();
+        const at = globalLabel.GetPosition();
+
+        if (fields.length === 1 && pos && pos.x === at.x && pos.y === at.y)
+          globalLabel.AutoplaceFields(
+            this.CurrentSheet().LastScreen(),
+            AUTOPLACE_ALGO.AUTOPLACE_AUTO,
+          );
+
+        this.CurrentSheet().LastScreen()!.Update(globalLabel);
+
+        for (const field of globalLabel.GetFields()) field.ClearBoundingBoxCache();
+
+        globalLabel.ClearBoundingBoxCache();
+
+        this.m_schematicHolder?.IntersheetRefUpdate?.(globalLabel);
+      }
+    }
   }
 
   /** The virtual page number of each sheet, to its name. */

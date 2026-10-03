@@ -16,6 +16,9 @@
  *
  * Adding a colour here means adding a layer to `SCH_LAYERS` below, never
  * typing an RGB value.
+ *
+ * The class itself, `SCH_RENDER_SETTINGS`, is at the end: what the live SCH_PAINTER asks.
+ * The record painter's `Theme`/`RenderOpts` above go with that painter (S4-7).
  */
 import {
   BUILTIN_CLASSIC_THEME,
@@ -25,6 +28,22 @@ import {
 } from '@ziroeda/common';
 import type { WksSheet } from '@ziroeda/common';
 import type { TextVarResolverFn } from '@ziroeda/common/common.js';
+import { ADVANCED_CFG } from '@ziroeda/common/advanced_config.js';
+import { schIUScale } from '@ziroeda/common/eda_units.js';
+import { brightness, COLOR4D_BLACK, COLOR4D_WHITE } from '@ziroeda/common/gal/color4d.js';
+import { GAL_LAYER_ID, SCH_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { RENDER_SETTINGS } from '@ziroeda/common/render_settings.js';
+import type { COLOR_SETTINGS } from '@ziroeda/common/settings/color_settings.js';
+import type { VIEW_ITEM } from '@ziroeda/common/view/view_item.js';
+import type { VECTOR2I } from '@ziroeda/kimath';
+import { TRANSFORM } from '@ziroeda/kimath/src/transform.js';
+import {
+  DEFAULT_LABEL_SIZE_RATIO,
+  DEFAULT_LINE_WIDTH_MILS,
+  DEFAULT_TEXT_OFFSET_RATIO,
+  DEFAULT_TEXT_SIZE,
+} from './default_values.js';
+import { currentEeschemaSettings } from './eeschema_settings.js';
 
 /**
  * Which `SCH_LAYER_ID` each field of `Theme` reads, so that the mapping from
@@ -507,3 +526,113 @@ export const DEFAULT_RENDER_OPTS: RenderOpts = {
   highlightThicknessMils: 2,
   grid: { show: true, sizeIU: 12700, style: 'dots', lineWidthPx: 1, minSpacingPx: 10 },
 };
+
+export class SCH_RENDER_SETTINGS extends RENDER_SETTINGS {
+  m_IsSymbolEditor = false;
+  m_ShowUnit = 0; // Show all units if 0
+  m_ShowBodyStyle = 0; // Show all body styles if 0
+  m_ShowPinsElectricalType = true;
+  m_ShowHiddenPins = true;
+  m_ShowHiddenFields = true;
+  m_ShowVisibleFields = true;
+  m_ShowPinNumbers = false; // Force showing of pin numbers (normally symbol-specific)
+  m_ShowPinNames = false; // Force showing of pin names (normally symbol-specific)
+  m_ShowPinAltIcons = false;
+  m_ShowDisabled = false;
+  m_ShowGraphicsDisabled = false;
+  m_ShowConnectionPoints = false;
+  m_OverrideItemColors = false;
+  m_LabelSizeRatio = DEFAULT_LABEL_SIZE_RATIO; // Proportion of font size to label box
+  // Proportion of font size to offset text above/below wires, buses, etc.
+  m_TextOffsetRatio = DEFAULT_TEXT_OFFSET_RATIO;
+  m_PinSymbolSize = (DEFAULT_TEXT_SIZE * schIUScale.IU_PER_MILS) / 2;
+  /** Override line widths for symbol drawing objects set to default line width. */
+  m_SymbolLineWidth = DEFAULT_LINE_WIDTH_MILS * schIUScale.IU_PER_MILS;
+  m_Transform = new TRANSFORM();
+
+  constructor() {
+    super();
+    this.SetDefaultPenWidth(DEFAULT_LINE_WIDTH_MILS * schIUScale.IU_PER_MILS);
+    this.SetDashLengthRatio(12); // From ISO 128-2
+    this.SetGapLengthRatio(3); // From ISO 128-2
+    this.m_minPenWidth = Math.round(ADVANCED_CFG.GetCfg().m_MinPlotPenWidth * schIUScale.IU_PER_MM);
+  }
+
+  override LoadColors(aSettings: COLOR_SETTINGS): void {
+    for (
+      let layer = SCH_LAYER_ID.SCH_LAYER_ID_START;
+      layer < SCH_LAYER_ID.SCH_LAYER_ID_END;
+      layer++
+    )
+      this.m_layerColors.set(layer, aSettings.GetColor(layer));
+
+    for (
+      let layer = GAL_LAYER_ID.GAL_LAYER_ID_START;
+      layer < GAL_LAYER_ID.GAL_LAYER_ID_END;
+      layer++
+    )
+      this.m_layerColors.set(layer, aSettings.GetColor(layer));
+
+    this.m_backgroundColor = aSettings.GetColor(SCH_LAYER_ID.LAYER_SCHEMATIC_BACKGROUND);
+
+    this.m_layerColors.set(
+      GAL_LAYER_ID.LAYER_AUX_ITEMS,
+      this.m_layerColors.get(SCH_LAYER_ID.LAYER_SCHEMATIC_AUX_ITEMS)!,
+    );
+
+    this.m_OverrideItemColors = aSettings.GetOverrideSchItemColors();
+  }
+
+  override GetColor(_aItem: VIEW_ITEM | null, aLayer: number): Color4d {
+    return this.m_layerColors.get(aLayer) ?? COLOR4D_WHITE;
+  }
+
+  override IsBackgroundDark(): boolean {
+    const it = this.m_layerColors.get(SCH_LAYER_ID.LAYER_SCHEMATIC_BACKGROUND);
+    return it !== undefined && brightness(it) < 0.5;
+  }
+
+  override GetBackgroundColor(): Color4d {
+    return this.m_layerColors.get(SCH_LAYER_ID.LAYER_SCHEMATIC_BACKGROUND) ?? COLOR4D_BLACK;
+  }
+
+  override SetBackgroundColor(aColor: Color4d): void {
+    this.m_layerColors.set(SCH_LAYER_ID.LAYER_SCHEMATIC_BACKGROUND, aColor);
+  }
+
+  GetDanglingIndicatorThickness(): number {
+    return Math.fround(Math.fround(this.m_defaultPenWidth) / 3.0);
+  }
+
+  // std::map::operator[] default-constructs a missing entry: COLOR4D() is 0,0,0,0.
+  override GetGridColor(): Color4d {
+    return this.layerColorOrInsert(SCH_LAYER_ID.LAYER_SCHEMATIC_GRID);
+  }
+
+  override GetCursorColor(): Color4d {
+    return this.layerColorOrInsert(SCH_LAYER_ID.LAYER_SCHEMATIC_CURSOR);
+  }
+
+  override GetShowPageLimits(): boolean {
+    const cfg = currentEeschemaSettings();
+    return !!cfg && cfg.appearance.show_page_limits && !this.IsPrinting();
+  }
+
+  TransformCoordinate(aPoint: VECTOR2I): VECTOR2I {
+    return this.m_Transform.TransformCoordinate(aPoint);
+  }
+
+  private layerColorOrInsert(aLayer: number): Color4d {
+    let c = this.m_layerColors.get(aLayer);
+    if (c === undefined) {
+      c = { r: 0, g: 0, b: 0, a: 0 };
+      this.m_layerColors.set(aLayer, c);
+    }
+    return c;
+  }
+}
+
+/** For the item code that takes a plain RENDER_SETTINGS: `dynamic_cast<const SCH_RENDER_SETTINGS*>`. */
+export const asSchRenderSettings = (
+  aSettings: RENDER_SETTINGS | null,
+): SCH_RENDER_SETTINGS | null => (aSettings instanceof SCH_RENDER_SETTINGS ? aSettings : null);

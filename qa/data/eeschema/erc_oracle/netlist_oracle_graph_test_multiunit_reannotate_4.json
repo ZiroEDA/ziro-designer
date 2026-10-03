@@ -1,0 +1,487 @@
+{
+ "$schema": "https://schemas.kicad.org/erc.v1.json",
+ "coordinate_units": "mm",
+ "ignored_checks": [
+  {
+   "description": "Global label only appears once in the schematic",
+   "key": "single_global_label"
+  },
+  {
+   "description": "Four connection points are joined together",
+   "key": "four_way_junction"
+  },
+  {
+   "description": "SPICE model issue",
+   "key": "simulation_model_issue"
+  },
+  {
+   "description": "Assigned footprint doesn't match footprint filters",
+   "key": "footprint_filter"
+  }
+ ],
+ "included_severities": [
+  "error",
+  "warning",
+  "exclusion"
+ ],
+ "kicad_version": "10.0.6",
+ "sheets": [
+  {
+   "path": "/",
+   "uuid_path": "/e63e39d7-6ac0-4ffd-8aa3-1841a4541b55",
+   "violations": [
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol U2 Pin 3 [+, Input, Line]",
+       "pos": {
+        "x": 0.9017,
+        "y": 0.8636
+       },
+       "uuid": "7e75e4cc-e0cb-4b98-b80b-d3c04ae9a412"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Input pin not driven by any Output pins",
+     "items": [
+      {
+       "description": "Symbol U2 Pin 3 [+, Input, Line]",
+       "pos": {
+        "x": 0.9017,
+        "y": 0.8636
+       },
+       "uuid": "7e75e4cc-e0cb-4b98-b80b-d3c04ae9a412"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_driven"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol U2 Pin 2 [-, Input, Line]",
+       "pos": {
+        "x": 0.9017,
+        "y": 0.9144
+       },
+       "uuid": "a72be1e0-9af1-4c8b-a80a-e23a2ce6ded3"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Input pin not driven by any Output pins",
+     "items": [
+      {
+       "description": "Symbol U2 Pin 2 [-, Input, Line]",
+       "pos": {
+        "x": 0.9017,
+        "y": 0.9144
+       },
+       "uuid": "a72be1e0-9af1-4c8b-a80a-e23a2ce6ded3"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_driven"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol U1 Pin 3 [+, Input, Line]",
+       "pos": {
+        "x": 0.9144,
+        "y": 0.5842
+       },
+       "uuid": "a0fa8234-8777-4a66-8b79-9ecbb37d6605"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Input pin not driven by any Output pins",
+     "items": [
+      {
+       "description": "Symbol U1 Pin 3 [+, Input, Line]",
+       "pos": {
+        "x": 0.9144,
+        "y": 0.5842
+       },
+       "uuid": "a0fa8234-8777-4a66-8b79-9ecbb37d6605"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_driven"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol U1 Pin 2 [-, Input, Line]",
+       "pos": {
+        "x": 0.9144,
+        "y": 0.635
+       },
+       "uuid": "0bb36be2-ca53-49e2-aeb3-4c5728e3d819"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Input pin not driven by any Output pins",
+     "items": [
+      {
+       "description": "Symbol U1 Pin 2 [-, Input, Line]",
+       "pos": {
+        "x": 0.9144,
+        "y": 0.635
+       },
+       "uuid": "0bb36be2-ca53-49e2-aeb3-4c5728e3d819"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_driven"
+    },
+    {
+     "description": "Symbol U2 has input power pins in units [ C ] that are not placed",
+     "items": [
+      {
+       "description": "Symbol U2 [LM2903]",
+       "pos": {
+        "x": 0.9779,
+        "y": 0.889
+       },
+       "uuid": "02fad080-98cd-46ab-9ee4-13a74595ac68"
+      }
+     ],
+     "severity": "error",
+     "type": "missing_power_pin"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol U2 Pin 1 [Open collector, Line]",
+       "pos": {
+        "x": 1.0541,
+        "y": 0.889
+       },
+       "uuid": "3e2733b2-429a-48e0-a5f6-9bc75cea3fb3"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol U1 Pin 1 [Open collector, Line]",
+       "pos": {
+        "x": 1.0668,
+        "y": 0.6096
+       },
+       "uuid": "b2837d6b-6cc1-45c4-aa75-fd2bb220208e"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol U? Pin 5 [+, Input, Line]",
+       "pos": {
+        "x": 1.2065,
+        "y": 0.8636
+       },
+       "uuid": "207c68d8-2bd6-401c-bbd5-e50fcc95bf20"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol U? Pin 6 [_, Input, Line]",
+       "pos": {
+        "x": 1.2065,
+        "y": 0.9144
+       },
+       "uuid": "4713b701-0d77-40e8-8184-3a11f9df2324"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol U1 Pin 5 [+, Input, Line]",
+       "pos": {
+        "x": 1.2192,
+        "y": 0.5715
+       },
+       "uuid": "9e9af72c-36cd-4137-88d9-d05214970ed2"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Input pin not driven by any Output pins",
+     "items": [
+      {
+       "description": "Symbol U1 Pin 5 [+, Input, Line]",
+       "pos": {
+        "x": 1.2192,
+        "y": 0.5715
+       },
+       "uuid": "9e9af72c-36cd-4137-88d9-d05214970ed2"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_driven"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol U1 Pin 6 [_, Input, Line]",
+       "pos": {
+        "x": 1.2192,
+        "y": 0.6223
+       },
+       "uuid": "b42b3d16-0988-4f7b-ad3f-dfc376005ee3"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Input pin not driven by any Output pins",
+     "items": [
+      {
+       "description": "Symbol U1 Pin 6 [_, Input, Line]",
+       "pos": {
+        "x": 1.2192,
+        "y": 0.6223
+       },
+       "uuid": "b42b3d16-0988-4f7b-ad3f-dfc376005ee3"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_driven"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol U? Pin 7 [Open collector, Line]",
+       "pos": {
+        "x": 1.3589,
+        "y": 0.889
+       },
+       "uuid": "14ae6814-97a1-417e-bec2-8de437fc055e"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol U1 Pin 7 [Open collector, Line]",
+       "pos": {
+        "x": 1.3716,
+        "y": 0.5969
+       },
+       "uuid": "7c15e983-d86d-4112-8b09-d22a0e2aa9db"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol U1 Pin 8 [V+, Power input, Line]",
+       "pos": {
+        "x": 1.5494,
+        "y": 0.5207
+       },
+       "uuid": "939d2085-ca84-435b-8eaa-0232903653b7"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Input Power pin not driven by any Output Power pins",
+     "items": [
+      {
+       "description": "Symbol U1 Pin 8 [V+, Power input, Line]",
+       "pos": {
+        "x": 1.5494,
+        "y": 0.5207
+       },
+       "uuid": "939d2085-ca84-435b-8eaa-0232903653b7"
+      }
+     ],
+     "severity": "error",
+     "type": "power_pin_not_driven"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol U1 Pin 4 [V-, Power input, Line]",
+       "pos": {
+        "x": 1.5494,
+        "y": 0.6731
+       },
+       "uuid": "55fea3d7-3338-41ba-9742-415078f59a75"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Input Power pin not driven by any Output Power pins",
+     "items": [
+      {
+       "description": "Symbol U1 Pin 4 [V-, Power input, Line]",
+       "pos": {
+        "x": 1.5494,
+        "y": 0.6731
+       },
+       "uuid": "55fea3d7-3338-41ba-9742-415078f59a75"
+      }
+     ],
+     "severity": "error",
+     "type": "power_pin_not_driven"
+    },
+    {
+     "description": "Symbol 'LM2903' doesn't match copy in library 'Comparator'",
+     "items": [
+      {
+       "description": "Symbol U2 [LM2903]",
+       "pos": {
+        "x": 0.9779,
+        "y": 0.889
+       },
+       "uuid": "02fad080-98cd-46ab-9ee4-13a74595ac68"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_mismatch"
+    },
+    {
+     "description": "Symbol U2 has input pins in units [ B ] that are not placed",
+     "items": [
+      {
+       "description": "Symbol U2 [LM2903]",
+       "pos": {
+        "x": 0.9779,
+        "y": 0.889
+       },
+       "uuid": "02fad080-98cd-46ab-9ee4-13a74595ac68"
+      }
+     ],
+     "severity": "warning",
+     "type": "missing_input_pin"
+    },
+    {
+     "description": "Symbol U2 has unplaced units [ B, C ]",
+     "items": [
+      {
+       "description": "Symbol U2 [LM2903]",
+       "pos": {
+        "x": 0.9779,
+        "y": 0.889
+       },
+       "uuid": "02fad080-98cd-46ab-9ee4-13a74595ac68"
+      }
+     ],
+     "severity": "warning",
+     "type": "missing_unit"
+    },
+    {
+     "description": "Symbol 'LM2903' doesn't match copy in library 'Comparator'",
+     "items": [
+      {
+       "description": "Symbol U1 [LM2903]",
+       "pos": {
+        "x": 0.9906,
+        "y": 0.6096
+       },
+       "uuid": "e09508cd-85e8-48bb-9bcb-9bab32279ab6"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_mismatch"
+    },
+    {
+     "description": "Symbol 'LM2903' doesn't match copy in library 'Comparator'",
+     "items": [
+      {
+       "description": "Symbol U? [LM2903]",
+       "pos": {
+        "x": 1.2827,
+        "y": 0.889
+       },
+       "uuid": "549455c3-ab6e-454e-94b0-5ca9e521ae0b"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_mismatch"
+    },
+    {
+     "description": "Symbol 'LM2903' doesn't match copy in library 'Comparator'",
+     "items": [
+      {
+       "description": "Symbol U1 [LM2903]",
+       "pos": {
+        "x": 1.2954,
+        "y": 0.5969
+       },
+       "uuid": "e0a3a04a-2f9e-4cce-bac0-1a7c08ef4522"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_mismatch"
+    },
+    {
+     "description": "Symbol 'LM2903' doesn't match copy in library 'Comparator'",
+     "items": [
+      {
+       "description": "Symbol U1 [LM2903]",
+       "pos": {
+        "x": 1.5748,
+        "y": 0.5969
+       },
+       "uuid": "4beb5b03-60d3-49da-ad35-51f275a031d5"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_mismatch"
+    }
+   ]
+  }
+ ],
+ "source": "test_multiunit_reannotate_4.kicad_sch"
+}

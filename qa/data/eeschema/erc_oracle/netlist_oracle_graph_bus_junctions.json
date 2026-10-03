@@ -1,0 +1,112 @@
+{
+ "$schema": "https://schemas.kicad.org/erc.v1.json",
+ "coordinate_units": "mm",
+ "ignored_checks": [
+  {
+   "description": "Global label only appears once in the schematic",
+   "key": "single_global_label"
+  },
+  {
+   "description": "Four connection points are joined together",
+   "key": "four_way_junction"
+  },
+  {
+   "description": "SPICE model issue",
+   "key": "simulation_model_issue"
+  },
+  {
+   "description": "Assigned footprint doesn't match footprint filters",
+   "key": "footprint_filter"
+  }
+ ],
+ "included_severities": [
+  "error",
+  "warning",
+  "exclusion"
+ ],
+ "kicad_version": "10.0.6",
+ "sheets": [
+  {
+   "path": "/",
+   "uuid_path": "/1404b8c9-c597-479c-b0e3-7581561d76f9",
+   "violations": [
+    {
+     "description": "Input Power pin not driven by any Output Power pins",
+     "items": [
+      {
+       "description": "Symbol #PWR? Hidden pin 1 [GND, Power input, Line]",
+       "pos": {
+        "x": 1.2827,
+        "y": 0.7366
+       },
+       "uuid": "172d0816-fd60-4ba1-805e-b69b99810601"
+      }
+     ],
+     "severity": "error",
+     "type": "power_pin_not_driven"
+    },
+    {
+     "description": "Symbol 'GND' doesn't match copy in library 'power'",
+     "items": [
+      {
+       "description": "Symbol #PWR? [GND]",
+       "pos": {
+        "x": 1.2827,
+        "y": 0.7366
+       },
+       "uuid": "5b5f14d2-321f-4cc3-b212-963f7c9ce9c1"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_mismatch"
+    },
+    {
+     "description": "Label connected to only one pin",
+     "items": [
+      {
+       "description": "Label 'D0'",
+       "pos": {
+        "x": 1.3335,
+        "y": 0.6604
+       },
+       "uuid": "50293c38-1e0a-49fd-9f46-da848230a9fe"
+      }
+     ],
+     "severity": "warning",
+     "type": "isolated_pin_label"
+    },
+    {
+     "description": "Label connected to only one pin",
+     "items": [
+      {
+       "description": "Label 'D1'",
+       "pos": {
+        "x": 1.4859,
+        "y": 0.6604
+       },
+       "uuid": "a7bffd28-1841-42e7-83c0-7fd45757f803"
+      }
+     ],
+     "severity": "warning",
+     "type": "isolated_pin_label"
+    },
+    {
+     "description": "Symbol 'GND' doesn't match copy in library 'power'",
+     "items": [
+      {
+       "description": "Symbol #PWR? [GND]",
+       "pos": {
+        "x": 1.524,
+        "y": 0.7366
+       },
+       "uuid": "80e533c6-0cf0-4e62-8ca1-9889f3b13a0b"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_mismatch"
+    }
+   ]
+  }
+ ],
+ "source": "bus_junctions.kicad_sch"
+}

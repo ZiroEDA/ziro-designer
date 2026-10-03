@@ -114,6 +114,15 @@ export class PROJECT_FILE extends JSON_SETTINGS {
    */
   m_BoardSettings: NESTED_SETTINGS | null = null;
 
+  /**
+   * The schematic's `ERC_SETTINGS` (nested at `erc`) and `SCHEMATIC_SETTINGS` (nested at
+   * `schematic`), made and loaded by `SCHEMATIC::SetProject`. `common/` does not import
+   * `eeschema/`, so the type is the base, as for m_BoardSettings.
+   */
+  m_ErcSettings: NESTED_SETTINGS | null = null;
+
+  m_SchematicSettings: NESTED_SETTINGS | null = null;
+
   /** Legacy schematic settings */
   m_LegacyLibDir = '';
 

@@ -10,7 +10,7 @@
 import { version as REACT_VERSION } from 'react';
 
 /** `KICAD_MAJOR_MINOR_PATCH_VERSION` of the reference build. */
-export const KICAD_MAJOR_MINOR_PATCH_VERSION = '10.0.5';
+export const KICAD_MAJOR_MINOR_PATCH_VERSION = '10.0.6';
 
 /** `KICAD_MAJOR_MINOR_VERSION` of the reference build. */
 export const KICAD_MAJOR_MINOR_VERSION = '10.0';
@@ -25,7 +25,7 @@ export function GetMajorMinorPatchVersion(): string {
 }
 
 export function GetMajorMinorPatchTuple(): readonly [number, number, number] {
-  return [10, 0, 5];
+  return [10, 0, 6];
 }
 
 /**

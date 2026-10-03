@@ -586,3 +586,14 @@ Divergences: no `FILE*` (`bytes()` / `text()`); the font is a
 CALLBACK_GAL; `SetPageSettings` takes `PLOTTER_PAGE_INFO`, which `PAGE_INFO`
 satisfies. A PNG plotter ported from KiCad master (no `PNG_plotter.cpp` in
 10.0.5) was deleted.
+
+## `libc/unordered_map.ts` (2026-10-03)
+
+`std::unordered_map<std::string, T>` with libstdc++'s iteration order, for KiCad output that
+is written in that order (`REFDES_TRACKER::Serialize` into the `.kicad_pro`). No KiCad file:
+it ports `_Hash_bytes` and the `_Hashtable` / `_Prime_rehash_policy` paths that decide order.
+The parts compiled into libstdc++.so (the prime table, the growth) were measured with
+`qa/probes/std_unordered_map_probe.cpp`; `qa/data/common/libc/std_unordered_map_probe.json`
+holds its answers and `qa/probes/std_unordered_map_gen.py` regenerates them.
+`template_fieldnames.ts` gained the `TEMPLATES` class (template_fieldnames.cpp) minus its
+s-expression `Format` / `parse`.

@@ -1,0 +1,213 @@
+{
+ "$schema": "https://schemas.kicad.org/erc.v1.json",
+ "coordinate_units": "mm",
+ "ignored_checks": [
+  {
+   "description": "Global label only appears once in the schematic",
+   "key": "single_global_label"
+  },
+  {
+   "description": "Four connection points are joined together",
+   "key": "four_way_junction"
+  },
+  {
+   "description": "SPICE model issue",
+   "key": "simulation_model_issue"
+  },
+  {
+   "description": "Assigned footprint doesn't match footprint filters",
+   "key": "footprint_filter"
+  }
+ ],
+ "included_severities": [
+  "error",
+  "warning",
+  "exclusion"
+ ],
+ "kicad_version": "10.0.6",
+ "sheets": [
+  {
+   "path": "/",
+   "uuid_path": "/4394464a-8613-4d36-8dd8-51c322850652",
+   "violations": [
+    {
+     "description": "Unconnected wire endpoint",
+     "items": [
+      {
+       "description": "Horizontal Wire, length 0.0635 mm",
+       "pos": {
+        "x": 0.9779,
+        "y": 0.5969
+       },
+       "uuid": "988169d6-c8bf-4dc6-9805-78a38c10c8fa"
+      }
+     ],
+     "severity": "warning",
+     "type": "unconnected_wire_endpoint"
+    },
+    {
+     "description": "Unconnected wire endpoint",
+     "items": [
+      {
+       "description": "Horizontal Wire, length 0.0635 mm",
+       "pos": {
+        "x": 0.9779,
+        "y": 0.6223
+       },
+       "uuid": "4bec303f-5ae0-47ac-bc71-5f0770a79bd4"
+      }
+     ],
+     "severity": "warning",
+     "type": "unconnected_wire_endpoint"
+    },
+    {
+     "description": "Symbol 'R' doesn't match copy in library 'Device'",
+     "items": [
+      {
+       "description": "Symbol R9 [R]",
+       "pos": {
+        "x": 1.2192,
+        "y": 0.8001
+       },
+       "uuid": "d36a4b33-8210-4fde-89c6-aaad0ce14f8d"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_mismatch"
+    },
+    {
+     "description": "Symbol 'R' doesn't match copy in library 'Device'",
+     "items": [
+      {
+       "description": "Symbol R10 [R]",
+       "pos": {
+        "x": 1.3208,
+        "y": 0.8001
+       },
+       "uuid": "c267dff7-c396-4284-8c96-73c56c7ab159"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_mismatch"
+    },
+    {
+     "description": "Symbol 'R' doesn't match copy in library 'Device'",
+     "items": [
+      {
+       "description": "Symbol R11 [R]",
+       "pos": {
+        "x": 1.4224,
+        "y": 0.8001
+       },
+       "uuid": "d4540062-78e2-458f-a96c-36bf33f0dedb"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_mismatch"
+    },
+    {
+     "description": "Symbol 'R' doesn't match copy in library 'Device'",
+     "items": [
+      {
+       "description": "Symbol R12 [R]",
+       "pos": {
+        "x": 1.524,
+        "y": 0.8001
+       },
+       "uuid": "3260dd27-58de-400a-bea7-b36b8f85f228"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_mismatch"
+    },
+    {
+     "description": "Symbol 'R' doesn't match copy in library 'Device'",
+     "items": [
+      {
+       "description": "Symbol R13 [R]",
+       "pos": {
+        "x": 1.6256,
+        "y": 0.8001
+       },
+       "uuid": "1045c5c3-5edf-4f0e-b238-03b0bf89127f"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_mismatch"
+    },
+    {
+     "description": "Symbol 'R' doesn't match copy in library 'Device'",
+     "items": [
+      {
+       "description": "Symbol R14 [R]",
+       "pos": {
+        "x": 1.7272,
+        "y": 0.8001
+       },
+       "uuid": "297a1b89-1abe-429d-bb1f-4c0eaec34a2e"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_mismatch"
+    },
+    {
+     "description": "Symbol 'R' doesn't match copy in library 'Device'",
+     "items": [
+      {
+       "description": "Symbol R15 [R]",
+       "pos": {
+        "x": 1.8288,
+        "y": 0.8001
+       },
+       "uuid": "de8ec828-caef-4d12-ac0b-e077a67a7451"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_mismatch"
+    },
+    {
+     "description": "Symbol 'R' doesn't match copy in library 'Device'",
+     "items": [
+      {
+       "description": "Symbol R16 [R]",
+       "pos": {
+        "x": 1.9304,
+        "y": 0.8001
+       },
+       "uuid": "3b56a157-77bd-49e5-9b18-c89e80fc8e5f"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_mismatch"
+    }
+   ]
+  },
+  {
+   "path": "/LED_A/",
+   "uuid_path": "/4394464a-8613-4d36-8dd8-51c322850652/0ed71495-8674-4a6e-a1f9-3d74c1903959",
+   "violations": [
+    {
+     "description": "Input Power pin not driven by any Output Power pins",
+     "items": [
+      {
+       "description": "Symbol #PWR01 Pin 1 [Power input, Line]",
+       "pos": {
+        "x": 1.2192,
+        "y": 0.9652
+       },
+       "uuid": "5e1eb6a8-2f5a-4f0d-996d-de7840a342b2"
+      }
+     ],
+     "severity": "error",
+     "type": "power_pin_not_driven"
+    }
+   ]
+  },
+  {
+   "path": "/LED_B/",
+   "uuid_path": "/4394464a-8613-4d36-8dd8-51c322850652/d76ab7e8-2535-479e-b494-91422b8e90c6",
+   "violations": []
+  }
+ ],
+ "source": "BusAndVectors.kicad_sch"
+}

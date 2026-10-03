@@ -24,6 +24,10 @@
  * and a path is split on slashes, so a reference containing either would tear
  * the packet apart.
  */
+import { FRAME_T } from '@ziroeda/common/frame_type.js';
+import { KIWAY_MAIL_EVENT } from '@ziroeda/common/kiway_mail.js';
+import { MAIL_T } from '@ziroeda/common/mail_type.js';
+import { SCH_EDIT_FRAME, type SCH_EDIT_FRAME_HOOKS } from './sch_edit_frame.js';
 import { escapeIpc } from '@ziroeda/common/string_utils.js';
 import { resolvePadNumbers, symbolField } from './netlist_exporters/netlist_exporter_base.js';
 import { schSymbolLibraryName } from './lib_symbol.js';
@@ -31,26 +35,19 @@ import { refId } from './tools/hittest.js';
 import type { LibSymbol, Schematic, SchSymbol } from './types.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
 import type { RawFile } from '@ziroeda/common';
-import { RPT_SEVERITY_ERROR } from '@ziroeda/common';
 import { ENV_VAR } from '@ziroeda/common/env_vars.js';
-import { niluuid } from '@ziroeda/common/kiid.js';
 import { PgmOrNull } from '@ziroeda/common/pgm_base.js';
 import type { JsonValue } from '@ziroeda/common/settings/json_settings.js';
 import type { NetlistTextResult } from '@ziroeda/common/mail_sch_get_netlist.js';
-import { parse } from '@ziroeda/sexpr';
-import { buildSheetTree, findRootFile, type SheetTreeNode } from './project.js';
 import { findProjectPro } from './project_settings.js';
 import { projectSymLibTable } from './project_sym_lib_table.js';
 import { GLOBAL_SYM_LIB_NICKNAMES } from './global_sym_lib_table.js';
-import { SheetInstanceView, UpdateSymbolInstanceData, sheetKiidPath } from './sch_sheet_path.js';
-import { readSchematic } from './sch_io/sexpr/read-schematic.js';
 import { GNL_ALL, GNL_T } from './netlist_exporters/netlist_exporter_xml.js';
 import { NETLIST_EXPORTER_KICAD } from './netlist_exporters/netlist_exporter_kicad.js';
 import { LoadSchematic } from './eeschema_helpers.js';
 import type { SCHEMATIC } from './schematic.js';
 import { PROJECT } from '@ziroeda/common/project.js';
 import { PROJECT_FILE } from '@ziroeda/common/project/project_file.js';
-import { checkAnnotation } from './sch_reference_list.js';
 
 /** `<symbolRefId>:pin<k>` -> its two halves; null for anything else. */
 function pinRef(id: string): { owner: string; index: number } | null {
@@ -338,28 +335,6 @@ export function schCrossProbeZoomScale(
 // directly (KiCad's pcbnew never links eeschema either — only through KIWAY).
 // ---------------------------------------------------------------------------
 
-/** One sheet instance of the record-model hierarchy, for the annotation check. */
-interface AnnotationSheet {
-  path: string;
-  file: string;
-  doc: Schematic;
-}
-
-/** SCH_SHEET_LIST order: the hierarchy flattened depth-first, one entry per sheet instance. */
-function flattenSheets(
-  root: SheetTreeNode,
-  docs: ReadonlyMap<string, Schematic>,
-): AnnotationSheet[] {
-  const out: AnnotationSheet[] = [];
-  const walk = (node: SheetTreeNode): void => {
-    const doc = docs.get(node.file);
-    if (doc) out.push({ path: node.path, file: node.file, doc });
-    for (const child of node.children) walk(child);
-  };
-  walk(root);
-  return out;
-}
-
 /**
  * `LIBRARY_MANAGER::GetFullURI( SYMBOL, nickname )`: the project's
  * `sym-lib-table` row first, then the global table - KiCad's default
@@ -387,39 +362,25 @@ const basename = (name: string): string => {
 };
 
 /**
- * `MAIL_SCH_GET_NETLIST` (cross-probing.cpp:1027): the project's schematic
- * sheets, read, checked for annotation (`ReadyToNetlist`,
- * netlist_generator.cpp) and exported as a KiCad netlist string
- * (`NETLIST_EXPORTER_KICAD::Format`). `annotateMessage` is the message
- * upstream passes for the "requires a fully annotated schematic" case; it
- * prefixes the annotation errors when the check fails.
+ * `MAIL_SCH_GET_NETLIST` with no schematic player running: what upstream does then.
+ * `PCB_EDIT_FRAME::TestStandalone` asks `Kiway().Player( FRAME_SCH, true )` for an off-screen
+ * `SCH_EDIT_FRAME`, which opens the project (`OpenProjectFiles`) and answers the mail
+ * (`ReadyToNetlist`, then `NETLIST_EXPORTER_KICAD`). A frame here mounts asynchronously, so
+ * this builds that frame itself: no window behind it, so no Annotate dialog and no
+ * confirmation; an unannotated schematic is refused with the annotate message alone, as
+ * upstream reports a payload that comes back unchanged.
  *
- * Text only — the board side (`pcbnew/netlist_from_schematic.ts`) parses it
- * into its own `NETLIST`, the same as the real KIWAY mail's payload is a
- * plain string both ways.
+ * The root sheet is the project's (`<project>.kicad_sch`); with no project file, the one sheet
+ * no other sheet names.
  */
 export function formatSchematicNetlist(
   files: readonly RawFile[],
   annotateMessage: string,
   rootPro?: string,
 ): NetlistTextResult {
-  // Every .kicad_sch of the project, parsed. A file that will not parse is fatal:
-  // an incomplete hierarchy would silently produce a partial netlist.
-  const docs = new Map<string, Schematic>();
-  for (const file of files) {
-    if (!/\.kicad_sch$/i.test(file.name)) continue;
-    try {
-      docs.set(basename(file.name), readSchematic(parse(file.text)));
-    } catch (err) {
-      return {
-        ok: false,
-        error: 'Received an error while reading the schematic.',
-        details: `${basename(file.name)}: ${String(err)}`,
-      };
-    }
-  }
+  const sheets = files.filter((f) => /\.kicad_sch$/i.test(f.name));
 
-  if (docs.size === 0) {
+  if (sheets.length === 0) {
     return {
       ok: false,
       error:
@@ -428,53 +389,55 @@ export function formatSchematicNetlist(
     };
   }
 
-  const rootFile = findRootFile(docs, rootPro);
-  const tree = buildSheetTree(docs, rootFile);
-  let loadedDocs: ReadonlyMap<string, Schematic> = docs;
-  const rootDoc = docs.get(rootFile);
-  // An older file has no (uuid): the parser gives the root a generated one
-  // (sch_io_kicad_sexpr_parser.cpp:3071) - any id does, it only has to be the
-  // same for the whole load.
-  const rootUuid = rootDoc ? (rootDoc.uuid ?? niluuid) : undefined;
+  const pro = findProjectPro(files, rootPro);
+  const names = sheets.map((f) => basename(f.name));
+  const proSheet = pro ? basename(pro.name).replace(/\.kicad_pro$/i, '.kicad_sch') : null;
+  let rootFile = proSheet && names.includes(proSheet) ? proSheet : null;
 
-  // SCH_SHEET_LIST::UpdateSymbolInstanceData: a file from before per-symbol
-  // (instances …) keeps every reference and unit in the root's symbol_instances.
-  if (rootUuid && rootDoc?.symbolInstances?.length) {
-    loadedDocs = UpdateSymbolInstanceData(
-      flattenSheets(tree, docs),
-      docs,
-      rootUuid,
-      rootDoc.symbolInstances,
-    );
+  if (!rootFile) {
+    const referenced = new Set<string>();
+
+    for (const f of sheets)
+      for (const m of f.text.matchAll(/\(property "Sheetfile" "([^"]*)"/g))
+        referenced.add(basename(m[1]!));
+
+    rootFile = names.find((n) => !referenced.has(n)) ?? names[0]!;
   }
 
-  // Each sheet instance as the exporters see it: GetRef( &sheet ) and
-  // GetUnitSelection( &sheet ), so a sheet used twice has its own references.
-  const sheets = flattenSheets(tree, loadedDocs).map((sheet) =>
-    rootUuid
-      ? { ...sheet, doc: SheetInstanceView(sheet.doc, sheetKiidPath(rootUuid, sheet.path)) }
-      : sheet,
-  );
+  const projectName = (pro ? basename(pro.name) : rootFile).replace(/\.[^.]*$/, '');
+  const dir = `/${projectName}`;
+  const byName = new Map(files.map((f) => [basename(f.name), f.text]));
 
-  const libsFor = (sheet: AnnotationSheet): Map<string, LibSymbol> =>
-    new Map(sheet.doc.libSymbols.map((l) => [l.libId, l]));
+  const frame = new SCH_EDIT_FRAME({
+    crossProbingSettings: () => ({}) as ReturnType<SCH_EDIT_FRAME_HOOKS['crossProbingSettings']>,
+    highlightNet: () => {},
+    syncSelection: () => {},
+    assignFootprints: () => {},
+    saveProject: () => false,
+    syncLiveSchematic: () => true,
+    symbolLibraryUri: symbolLibraryUri(files),
+  });
 
-  // ReadyToNetlist: the symbols must be annotated. Duplicate and unannotated
-  // references are reported per sheet, over the whole hierarchy (SCH_SCREENS).
-  const annotationErrors = checkAnnotation(
-    sheets.map((s) => s.doc),
-    new Map(sheets.flatMap((s) => [...libsFor(s)])),
-  ).filter((line) => line.severity === RPT_SEVERITY_ERROR);
-
-  if (annotationErrors.length > 0) {
+  if (
+    !frame.OpenProjectFiles(
+      [`${dir}/${rootFile}`],
+      0,
+      (p: string) => byName.get(basename(p)) ?? null,
+    )
+  ) {
     return {
       ok: false,
-      error: annotateMessage,
-      details: annotationErrors.map((l) => l.message).join('\n'),
+      error: 'Received an error while reading the schematic.',
+      details: rootFile,
     };
   }
 
-  return exportKicadNetlist(files, rootFile, rootPro);
+  const payload = { value: annotateMessage };
+  frame.KiwayMailIn(new KIWAY_MAIL_EVENT(FRAME_T.FRAME_SCH, MAIL_T.MAIL_SCH_GET_NETLIST, payload));
+
+  if (payload.value === annotateMessage) return { ok: false, error: annotateMessage };
+
+  return { ok: true, netlistText: payload.value };
 }
 
 /**

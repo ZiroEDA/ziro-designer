@@ -1,0 +1,267 @@
+{
+ "$schema": "https://schemas.kicad.org/erc.v1.json",
+ "coordinate_units": "mm",
+ "ignored_checks": [
+  {
+   "description": "Global label only appears once in the schematic",
+   "key": "single_global_label"
+  },
+  {
+   "description": "Four connection points are joined together",
+   "key": "four_way_junction"
+  },
+  {
+   "description": "SPICE model issue",
+   "key": "simulation_model_issue"
+  },
+  {
+   "description": "Assigned footprint doesn't match footprint filters",
+   "key": "footprint_filter"
+  }
+ ],
+ "included_severities": [
+  "error",
+  "warning",
+  "exclusion"
+ ],
+ "kicad_version": "10.0.6",
+ "sheets": [
+  {
+   "path": "/",
+   "uuid_path": "/f6c0ef12-181c-4566-b020-d29020e47b3e",
+   "violations": [
+    {
+     "description": "Label not connected",
+     "items": [
+      {
+       "description": "Global Label 'Glob_Lab_Main'",
+       "pos": {
+        "x": 1.1176,
+        "y": 0.9525
+       },
+       "uuid": "bcd38e9e-e732-44dc-bb46-98c911f0c5e3"
+      }
+     ],
+     "severity": "error",
+     "type": "label_dangling"
+    },
+    {
+     "description": "Unconnected wire endpoint",
+     "items": [
+      {
+       "description": "Horizontal Wire, length 0.0762 mm",
+       "pos": {
+        "x": 0.8001,
+        "y": 0.7112
+       },
+       "uuid": "08d1c03b-575f-4ce8-9a3f-ccdb5fb09b04"
+      }
+     ],
+     "severity": "warning",
+     "type": "unconnected_wire_endpoint"
+    },
+    {
+     "description": "Unconnected wire endpoint",
+     "items": [
+      {
+       "description": "Horizontal Wire, length 0.0762 mm",
+       "pos": {
+        "x": 0.8001,
+        "y": 0.7366
+       },
+       "uuid": "078cdc46-88dd-463b-b95c-154221e11019"
+      }
+     ],
+     "severity": "warning",
+     "type": "unconnected_wire_endpoint"
+    },
+    {
+     "description": "Label connected to only one pin",
+     "items": [
+      {
+       "description": "Hierarchical Label 'HL1'",
+       "pos": {
+        "x": 0.9271,
+        "y": 0.6731
+       },
+       "uuid": "3e0d799f-f3dc-4e46-86f7-3e2bad64bab2"
+      }
+     ],
+     "severity": "warning",
+     "type": "isolated_pin_label"
+    }
+   ]
+  },
+  {
+   "path": "/Subsheet 1/",
+   "uuid_path": "/f6c0ef12-181c-4566-b020-d29020e47b3e/5f507089-e358-470c-9943-96a68327be1c",
+   "violations": [
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol J2 Pin 7 [Pin_7, Passive, Line]",
+       "pos": {
+        "x": 0.9271,
+        "y": 0.8255
+       },
+       "uuid": "0ae9741b-266e-4398-b437-80dc525e0ce3"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol J2 Pin 8 [Pin_8, Passive, Line]",
+       "pos": {
+        "x": 0.9271,
+        "y": 0.8509
+       },
+       "uuid": "a15f0b12-8bcd-46a1-8eb6-3c8136aed849"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Both Global Label and HL2 are attached to the same items; Global Label will be used in the netlist",
+     "items": [
+      {
+       "description": "Global Label 'Global Label'",
+       "pos": {
+        "x": 1.1811,
+        "y": 0.6731
+       },
+       "uuid": "63f9d205-1f5a-471c-89d1-8663f7acddd5"
+      },
+      {
+       "description": "Hierarchical Label 'HL2'",
+       "pos": {
+        "x": 0.9271,
+        "y": 0.8001
+       },
+       "uuid": "5e52c63b-ddef-4842-a619-befd34d1a5d5"
+      }
+     ],
+     "severity": "warning",
+     "type": "multiple_net_names"
+    }
+   ]
+  },
+  {
+   "path": "/Untitled Sheet/",
+   "uuid_path": "/f6c0ef12-181c-4566-b020-d29020e47b3e/1df962ec-4622-4193-b2fd-a15e7eb70a3b",
+   "violations": [
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol J3 Pin 2 [Pin_2, Passive, Line]",
+       "pos": {
+        "x": 1.2827,
+        "y": 0.7366
+       },
+       "uuid": "86f0990d-1dd0-4950-abf9-1c24cb486821"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol J3 Pin 3 [Pin_3, Passive, Line]",
+       "pos": {
+        "x": 1.2827,
+        "y": 0.762
+       },
+       "uuid": "e238a228-b00c-408c-b654-a9a300a3ad97"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol J3 Pin 4 [Pin_4, Passive, Line]",
+       "pos": {
+        "x": 1.2827,
+        "y": 0.7874
+       },
+       "uuid": "ad601b26-1c64-4a86-95c4-faf0878c92f1"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol J3 Pin 5 [Pin_5, Passive, Line]",
+       "pos": {
+        "x": 1.2827,
+        "y": 0.8128
+       },
+       "uuid": "a5dbc53c-832a-4a2b-afa0-50bb6a253288"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol J3 Pin 6 [Pin_6, Passive, Line]",
+       "pos": {
+        "x": 1.2827,
+        "y": 0.8382
+       },
+       "uuid": "d2aa51ec-9127-44ed-bbd4-a10f04a5ec7c"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol J3 Pin 7 [Pin_7, Passive, Line]",
+       "pos": {
+        "x": 1.2827,
+        "y": 0.8636
+       },
+       "uuid": "b33a794f-3aac-4e4d-b137-8c563c6c2344"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol J3 Pin 8 [Pin_8, Passive, Line]",
+       "pos": {
+        "x": 1.2827,
+        "y": 0.889
+       },
+       "uuid": "8d65dd5f-2977-4059-aaf9-1597d79a98cb"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    }
+   ]
+  }
+ ],
+ "source": "issue22694.kicad_sch"
+}

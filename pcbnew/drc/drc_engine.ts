@@ -25,7 +25,7 @@ import { IsPcbLayer, type PCB_LAYER_ID, PCB_LAYER_ID as LAYER } from '@ziroeda/c
 import { LSET } from '@ziroeda/common/lset.js';
 import type { NETCLASS } from '@ziroeda/common/netclass.js';
 import type { PROGRESS_REPORTER } from '@ziroeda/common/progress_reporter.js';
-import { RPT_SEVERITY_ERROR, type Reporter } from '@ziroeda/common/reporter.js';
+import { RPT_SEVERITY_ERROR, Reporter } from '@ziroeda/common/reporter.js';
 import { EscapeHTML } from '@ziroeda/common/string_utils.js';
 import { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
 import { BaseType, KICAD_T } from '@ziroeda/core/typeinfo.js';
@@ -2644,30 +2644,7 @@ export class DRC_ENGINE extends UNITS_PROVIDER {
  * The `REPORTER error_semaphore` of `compileRules`: a sink whose
  * `HasMessageOfSeverity` is the only thing read.
  */
-class ReporterSemaphore implements Reporter {
-  readonly lines: Reporter['lines'] = [];
-
-  report(message: string, severity: Reporter['lines'][number]['severity'] = 0): this {
-    this.lines.push({ message, severity, location: 'body' });
-    return this;
-  }
-  reportHead(message: string, severity: Reporter['lines'][number]['severity'] = 0): this {
-    this.lines.push({ message, severity, location: 'head' });
-    return this;
-  }
-  reportTail(message: string, severity: Reporter['lines'][number]['severity'] = 0): this {
-    this.lines.push({ message, severity, location: 'tail' });
-    return this;
-  }
-  clear(): void {
-    this.lines.length = 0;
-  }
-  hasMessage(): boolean {
-    return this.lines.length > 0;
-  }
-  count(severityMask: number): number {
-    return this.lines.filter((l) => severityMask & l.severity).length;
-  }
+class ReporterSemaphore extends Reporter {
   HasMessageOfSeverity(aSeverityMask: number): boolean {
     return this.lines.some((l) => (l.severity & aSeverityMask) !== 0);
   }

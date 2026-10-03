@@ -25,7 +25,6 @@ import type { LibSymbol, Schematic } from './types.js';
 import type { CROSS_PROBING_SETTINGS } from '@ziroeda/common/settings/app_settings.js';
 import type { KIWAY } from '@ziroeda/common/kiway.js';
 import type { ProjectFile } from '@ziroeda/common/project_paths.js';
-import type { RawFile } from '@ziroeda/common';
 import type { CanvasController, SchematicCanvasProps } from './sch_draw_panel.js';
 import type { DialogSymbolChooserProps } from './picksymbol.js';
 import type { DialogRescueEachProps } from './project_rescue.js';
@@ -199,15 +198,6 @@ export interface EESCHEMA_APP {
     onSaveEquFiles?: (files: readonly string[], newFiles: readonly ProjectFile[]) => void;
     onClose: () => void;
   }) => ReactNode;
-  /**
-   * `PCB_EDIT_FRAME::FetchNetlistFromSchematic`'s headless path over a set of
-   * project files: the netlist text, when it reads back as a netlist.
-   */
-  fetchNetlistFromSchematic(
-    files: readonly RawFile[],
-    annotateMessage: string,
-    rootPro?: string,
-  ): { ok: true; netlistText: string } | { ok: false };
   /**
    * The cross-probe view decision both frames spell identically
    * (`SCH_SELECTION_TOOL::SyncSelection`, `PCB_SELECTION_TOOL::…`); the zoom

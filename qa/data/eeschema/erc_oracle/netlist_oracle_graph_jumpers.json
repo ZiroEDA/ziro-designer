@@ -1,0 +1,112 @@
+{
+ "$schema": "https://schemas.kicad.org/erc.v1.json",
+ "coordinate_units": "mm",
+ "ignored_checks": [
+  {
+   "description": "Global label only appears once in the schematic",
+   "key": "single_global_label"
+  },
+  {
+   "description": "Four connection points are joined together",
+   "key": "four_way_junction"
+  },
+  {
+   "description": "SPICE model issue",
+   "key": "simulation_model_issue"
+  },
+  {
+   "description": "Assigned footprint doesn't match footprint filters",
+   "key": "footprint_filter"
+  }
+ ],
+ "included_severities": [
+  "error",
+  "warning",
+  "exclusion"
+ ],
+ "kicad_version": "10.0.6",
+ "sheets": [
+  {
+   "path": "/",
+   "uuid_path": "/d45396f7-c490-44d7-ac97-22fa41f0bbb4",
+   "violations": [
+    {
+     "description": "Input Power pin not driven by any Output Power pins",
+     "items": [
+      {
+       "description": "Symbol #PWR01 Pin 1 [Power input, Line]",
+       "pos": {
+        "x": 1.397,
+        "y": 0.7874
+       },
+       "uuid": "cd61e087-1609-4677-b45e-7cbfed4a45ab"
+      }
+     ],
+     "severity": "error",
+     "type": "power_pin_not_driven"
+    },
+    {
+     "description": "Input Power pin not driven by any Output Power pins",
+     "items": [
+      {
+       "description": "Symbol #PWR02 Pin 1 [Power input, Line]",
+       "pos": {
+        "x": 1.5367,
+        "y": 0.8763
+       },
+       "uuid": "9edf9dd7-f9c4-4803-855f-64b819c6ed55"
+      }
+     ],
+     "severity": "error",
+     "type": "power_pin_not_driven"
+    },
+    {
+     "description": "Input Power pin not driven by any Output Power pins",
+     "items": [
+      {
+       "description": "Symbol #PWR03 Pin 1 [Power input, Line]",
+       "pos": {
+        "x": 1.778,
+        "y": 0.8382
+       },
+       "uuid": "72ce5a6c-dc4f-4e6a-9f2c-103d6d3e092b"
+      }
+     ],
+     "severity": "error",
+     "type": "power_pin_not_driven"
+    },
+    {
+     "description": "The current configuration does not include the symbol library 'JumperTest'",
+     "items": [
+      {
+       "description": "Symbol TB1 [TerminalBlock_2Level]",
+       "pos": {
+        "x": 1.4097,
+        "y": 0.9271
+       },
+       "uuid": "0aa9b267-04ec-4615-b424-0bb2ed02b625"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The current configuration does not include the symbol library 'JumperTest'",
+     "items": [
+      {
+       "description": "Symbol U1 [Matrix]",
+       "pos": {
+        "x": 1.8669,
+        "y": 0.9271
+       },
+       "uuid": "4d14d800-569a-495d-bb5a-a9e55a14d7c8"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    }
+   ]
+  }
+ ],
+ "source": "jumpers.kicad_sch"
+}

@@ -1,0 +1,382 @@
+{
+ "$schema": "https://schemas.kicad.org/erc.v1.json",
+ "coordinate_units": "mm",
+ "ignored_checks": [
+  {
+   "description": "Global label only appears once in the schematic",
+   "key": "single_global_label"
+  },
+  {
+   "description": "Four connection points are joined together",
+   "key": "four_way_junction"
+  },
+  {
+   "description": "SPICE model issue",
+   "key": "simulation_model_issue"
+  },
+  {
+   "description": "Assigned footprint doesn't match footprint filters",
+   "key": "footprint_filter"
+  }
+ ],
+ "included_severities": [
+  "error",
+  "warning",
+  "exclusion"
+ ],
+ "kicad_version": "10.0.6",
+ "sheets": [
+  {
+   "path": "/",
+   "uuid_path": "/bc9d1c5e-a887-4e72-af9f-7d5405947d97",
+   "violations": [
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol R3 Pin 1 [Passive, Line]",
+       "pos": {
+        "x": 0.7747,
+        "y": 1.0795
+       },
+       "uuid": "0be24e0d-0a24-4977-a2c5-2be675852aee"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol R7 Pin 1 [Passive, Line]",
+       "pos": {
+        "x": 0.7747,
+        "y": 1.2192
+       },
+       "uuid": "98d9c372-0032-41d3-9f7c-4cb8e6c7fdbb"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol R9 Pin 1 [Passive, Line]",
+       "pos": {
+        "x": 0.7747,
+        "y": 1.397
+       },
+       "uuid": "fadd3114-9e7a-4c73-9cb4-83674a3ab498"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol R11 Pin 1 [Passive, Line]",
+       "pos": {
+        "x": 0.7747,
+        "y": 1.6383
+       },
+       "uuid": "c9476fbd-19d9-45b7-bbc3-ad702dd3be09"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Netclass CLASS3 is not defined",
+     "items": [
+      {
+       "description": "Directive Label [Net Class CLASS3]",
+       "pos": {
+        "x": 0.9779,
+        "y": 0.5334
+       },
+       "uuid": "267fbc3d-1cc5-44cc-8b0b-0a0bcf1a5231"
+      }
+     ],
+     "severity": "error",
+     "type": "undefined_netclass"
+    },
+    {
+     "description": "Netclass CLASS4 is not defined",
+     "items": [
+      {
+       "description": "Directive Label [Net Class CLASS4]",
+       "pos": {
+        "x": 1.016,
+        "y": 0.7493
+       },
+       "uuid": "3f0ba5c8-6358-45d3-b5c7-713bb6a5348f"
+      }
+     ],
+     "severity": "error",
+     "type": "undefined_netclass"
+    },
+    {
+     "description": "Netclass CLASS4 is not defined",
+     "items": [
+      {
+       "description": "Directive Label [Net Class CLASS4]",
+       "pos": {
+        "x": 1.016,
+        "y": 1.3462
+       },
+       "uuid": "d621a8cb-a64e-4a49-9e1a-e53c70125578"
+      }
+     ],
+     "severity": "error",
+     "type": "undefined_netclass"
+    },
+    {
+     "description": "Netclass CLASS3 is not defined",
+     "items": [
+      {
+       "description": "Directive Label [Net Class CLASS3]",
+       "pos": {
+        "x": 1.016,
+        "y": 1.4478
+       },
+       "uuid": "fa18d4f0-df63-4616-a8a9-4b9de0d5b15e"
+      }
+     ],
+     "severity": "error",
+     "type": "undefined_netclass"
+    },
+    {
+     "description": "Netclass CLASS4 is not defined",
+     "items": [
+      {
+       "description": "Directive Label [Net Class CLASS4]",
+       "pos": {
+        "x": 1.016,
+        "y": 1.5875
+       },
+       "uuid": "b3cce970-5671-4671-ad74-60327667aeb2"
+      }
+     ],
+     "severity": "error",
+     "type": "undefined_netclass"
+    },
+    {
+     "description": "Netclass CLASS3 is not defined",
+     "items": [
+      {
+       "description": "Directive Label [Net Class CLASS3]",
+       "pos": {
+        "x": 1.016,
+        "y": 1.6891
+       },
+       "uuid": "246e7e52-5508-4c7c-a6cb-a19bdc658f61"
+      }
+     ],
+     "severity": "error",
+     "type": "undefined_netclass"
+    },
+    {
+     "description": "Netclass CLASS3 is not defined",
+     "items": [
+      {
+       "description": "Directive Label [Net Class CLASS3]",
+       "pos": {
+        "x": 1.1811,
+        "y": 1.0795
+       },
+       "uuid": "58ae08ae-b593-4ff6-a87c-8381a0141c98"
+      }
+     ],
+     "severity": "error",
+     "type": "undefined_netclass"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol R4 Pin 2 [Passive, Line]",
+       "pos": {
+        "x": 1.397,
+        "y": 1.0795
+       },
+       "uuid": "c09ddcdb-0c17-461d-8337-b41c88d7a692"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol R8 Pin 2 [Passive, Line]",
+       "pos": {
+        "x": 1.397,
+        "y": 1.2192
+       },
+       "uuid": "33e38591-72f7-4a42-8d77-bcaae9850ed4"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol R10 Pin 2 [Passive, Line]",
+       "pos": {
+        "x": 1.397,
+        "y": 1.397
+       },
+       "uuid": "9f31f861-ffe4-4c44-88d6-e7f3cf6ba540"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol R12 Pin 2 [Passive, Line]",
+       "pos": {
+        "x": 1.397,
+        "y": 1.6383
+       },
+       "uuid": "fb555104-eaba-4f66-9d02-1423fa23b904"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol R1 Pin 2 [Passive, Line]",
+       "pos": {
+        "x": 1.4351,
+        "y": 0.4191
+       },
+       "uuid": "020b2909-d985-465c-acb5-e6ce89547311"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol R2 Pin 2 [Passive, Line]",
+       "pos": {
+        "x": 1.4351,
+        "y": 0.5334
+       },
+       "uuid": "aa7ed66c-102b-4afc-a9c2-3d2972a4c82d"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol R5 Pin 2 [Passive, Line]",
+       "pos": {
+        "x": 1.4351,
+        "y": 0.6604
+       },
+       "uuid": "0291109b-6553-4aaf-a789-c4834c8c1eec"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol R6 Pin 2 [Passive, Line]",
+       "pos": {
+        "x": 1.4351,
+        "y": 0.7747
+       },
+       "uuid": "95d4942b-c109-429e-a8bf-ad08adf1eef6"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Label connected to only one pin",
+     "items": [
+      {
+       "description": "Label 'BUS.SIGNAL'",
+       "pos": {
+        "x": 1.2192,
+        "y": 0.4191
+       },
+       "uuid": "1e4c8a10-3be3-4c5b-beab-b9d6f33bf023"
+      }
+     ],
+     "severity": "warning",
+     "type": "isolated_pin_label"
+    },
+    {
+     "description": "Label connected to only one pin",
+     "items": [
+      {
+       "description": "Label 'BUS.A0'",
+       "pos": {
+        "x": 1.2192,
+        "y": 0.5334
+       },
+       "uuid": "c203e942-304a-4fe3-80f7-dcfd59b4cf0c"
+      }
+     ],
+     "severity": "warning",
+     "type": "isolated_pin_label"
+    },
+    {
+     "description": "Label connected to only one pin",
+     "items": [
+      {
+       "description": "Label 'BUS.A1'",
+       "pos": {
+        "x": 1.2192,
+        "y": 0.6604
+       },
+       "uuid": "0668f585-5e19-40f0-a821-bf3362514561"
+      }
+     ],
+     "severity": "warning",
+     "type": "isolated_pin_label"
+    },
+    {
+     "description": "Label connected to only one pin",
+     "items": [
+      {
+       "description": "Label 'BUS.A2'",
+       "pos": {
+        "x": 1.2192,
+        "y": 0.7747
+       },
+       "uuid": "cc36e759-9291-4227-a034-f31cf9376c94"
+      }
+     ],
+     "severity": "warning",
+     "type": "isolated_pin_label"
+    }
+   ]
+  }
+ ],
+ "source": "multinetclasses.kicad_sch"
+}

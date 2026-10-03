@@ -40,7 +40,6 @@ import type { SYMBOL_VIEWER_FRAME_APP } from '@ziroeda/eeschema/symbol_viewer_fr
 import { LibraryLoadingPanel } from '../../widgets/library_loading_panel.js';
 import { DialogRescueEach } from './dialogs/dialog_rescue_each.js';
 import { DialogChangeSymbols } from './dialogs/dialog_change_symbols.js';
-import { fetchNetlistFromSchematic } from '@ziroeda/pcbnew/netlist_from_schematic.js';
 import {
   CROSS_PROBE_FLASH_INTERVAL_MS,
   CROSS_PROBE_FLASH_LAST_PHASE,
@@ -134,10 +133,6 @@ export function useEeschemaApp(): EESCHEMA_APP {
       PresencePanel: (props) => <PresencePanel {...props} />,
 
       AssignFootprints: (props) => <AssignFootprintsWithApp {...props} />,
-      fetchNetlistFromSchematic: (files, annotateMessage, rootPro) => {
-        const r = fetchNetlistFromSchematic(files, annotateMessage, rootPro);
-        return r.ok ? { ok: true, netlistText: r.netlistText } : { ok: false };
-      },
       crossProbeViewChange,
       crossProbeFlashSelection,
       CROSS_PROBE_FLASH_INTERVAL_MS,

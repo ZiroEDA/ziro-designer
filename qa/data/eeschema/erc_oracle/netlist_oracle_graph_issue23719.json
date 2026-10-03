@@ -1,0 +1,99 @@
+{
+ "$schema": "https://schemas.kicad.org/erc.v1.json",
+ "coordinate_units": "mm",
+ "ignored_checks": [
+  {
+   "description": "Global label only appears once in the schematic",
+   "key": "single_global_label"
+  },
+  {
+   "description": "Four connection points are joined together",
+   "key": "four_way_junction"
+  },
+  {
+   "description": "SPICE model issue",
+   "key": "simulation_model_issue"
+  },
+  {
+   "description": "Assigned footprint doesn't match footprint filters",
+   "key": "footprint_filter"
+  }
+ ],
+ "included_severities": [
+  "error",
+  "warning",
+  "exclusion"
+ ],
+ "kicad_version": "10.0.6",
+ "sheets": [
+  {
+   "path": "/",
+   "uuid_path": "/0fa70987-ed5a-4034-b678-b51243918c4c",
+   "violations": []
+  },
+  {
+   "path": "/Sheet 1/",
+   "uuid_path": "/0fa70987-ed5a-4034-b678-b51243918c4c/9522d47d-258a-4aef-9e52-17c524e99187",
+   "violations": []
+  },
+  {
+   "path": "/Sheet 2/",
+   "uuid_path": "/0fa70987-ed5a-4034-b678-b51243918c4c/bb562c27-0eeb-40a3-8dc7-ffe47e8977cd",
+   "violations": [
+    {
+     "description": "Both P5V_IF_Rtn and P5V_IF_Rtn_Sense are attached to the same items; P5V_IF_Rtn will be used in the netlist",
+     "items": [
+      {
+       "description": "Global Label 'P5V_IF_Rtn'",
+       "pos": {
+        "x": 1.0795,
+        "y": 0.6223
+       },
+       "uuid": "3d21c3f4-cde5-4053-bc52-a33ff405f81f"
+      },
+      {
+       "description": "Global Label 'P5V_IF_Rtn_Sense'",
+       "pos": {
+        "x": 1.0795,
+        "y": 0.6731
+       },
+       "uuid": "df77cd2b-a55e-4798-a14a-8ba73362cc14"
+      }
+     ],
+     "severity": "warning",
+     "type": "multiple_net_names"
+    }
+   ]
+  },
+  {
+   "path": "/Sheet 3/",
+   "uuid_path": "/0fa70987-ed5a-4034-b678-b51243918c4c/b49d284f-aefd-4926-88e4-c690117382a2",
+   "violations": [
+    {
+     "description": "Both P4 and P5V_IF_Rtn are attached to the same items; P4 will be used in the netlist",
+     "items": [
+      {
+       "description": "Global Label 'P4'",
+       "pos": {
+        "x": 1.7399,
+        "y": 0.7112
+       },
+       "uuid": "308e5be6-9749-49ee-88fd-0471c5a4ae32"
+      },
+      {
+       "description": "Global Label 'P5V_IF_Rtn'",
+       "pos": {
+        "x": 1.4859,
+        "y": 0.7112
+       },
+       "uuid": "e02f79fa-f8e3-4e21-bab6-55898d523d04"
+      }
+     ],
+     "severity": "warning",
+     "type": "multiple_net_names"
+    }
+   ]
+  }
+ ],
+ "source": "issue23719.kicad_sch"
+}

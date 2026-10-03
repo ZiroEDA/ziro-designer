@@ -1,0 +1,82 @@
+{
+ "$schema": "https://schemas.kicad.org/erc.v1.json",
+ "coordinate_units": "mm",
+ "ignored_checks": [
+  {
+   "description": "Global label only appears once in the schematic",
+   "key": "single_global_label"
+  },
+  {
+   "description": "Four connection points are joined together",
+   "key": "four_way_junction"
+  },
+  {
+   "description": "SPICE model issue",
+   "key": "simulation_model_issue"
+  },
+  {
+   "description": "Assigned footprint doesn't match footprint filters",
+   "key": "footprint_filter"
+  }
+ ],
+ "included_severities": [
+  "error",
+  "warning",
+  "exclusion"
+ ],
+ "kicad_version": "10.0.6",
+ "sheets": [
+  {
+   "path": "/",
+   "uuid_path": "/e86405a1-e358-478f-90bf-447f3b460c16",
+   "violations": [
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol SW1 Pin 1 [A, Passive, Line]",
+       "pos": {
+        "x": 1.5113,
+        "y": 0.6223
+       },
+       "uuid": "e6621a2c-4e75-4959-8270-75beb7c4b27d"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol SW1 Pin 2 [B, Passive, Line]",
+       "pos": {
+        "x": 1.6129,
+        "y": 0.6223
+       },
+       "uuid": "8b5724a2-9d87-49b3-a785-12ccd524c31e"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Symbol 'SW_SPST' doesn't match copy in library 'Switch'",
+     "items": [
+      {
+       "description": "Symbol SW1 [SW_SPST]",
+       "pos": {
+        "x": 1.5621,
+        "y": 0.6223
+       },
+       "uuid": "aae2f044-814d-4e83-b1b1-c5e07aa61ebd"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_mismatch"
+    }
+   ]
+  }
+ ],
+ "source": "issue23058.kicad_sch"
+}

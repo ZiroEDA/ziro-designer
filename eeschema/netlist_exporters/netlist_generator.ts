@@ -10,8 +10,8 @@
  * Not ported: the SPICE arms (the dialog still calls `generateSpiceNetlist`,
  * netlist_exporter_spice.ts), the external command-line generator path
  * (desktop-only, see `dialog_export_netlist.tsx`), and
- * `AnnotatePowerSymbols`/`ReadyToNetlist` (annotation is enforced upstream
- * of the dialog here, not inside the write step). There is no file to open:
+ * `AnnotatePowerSymbols` inside the write step (ReadyToNetlist, below, runs it before the
+ * netlist mail). There is no file to open:
  * the text comes back, and the caller writes it.
  */
 
@@ -55,5 +55,59 @@ export function WriteNetListText(
       return new NETLIST_EXPORTER_ALLEGRO(aSchematic).WriteFiles(aFileName);
     default:
       return [{ path: aFileName, text: new NETLIST_EXPORTER_ORCADPCB2(aSchematic).Format() }];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// netlist_generator.cpp's SCH_EDIT_FRAME member, mixed into SCH_EDIT_FRAME as files-io.ts'
+// are. The annotate dialog and the confirmation are the window's (SCH_EDIT_FRAME_HOOKS).
+// ---------------------------------------------------------------------------
+
+import { ANNOTATE_SCOPE_T } from '../sch_reference_list.js';
+import { SYMBOL_FILTER } from '../sch_sheet_path.js';
+import type { SCH_EDIT_FRAME } from '../sch_edit_frame.js';
+import { ERC_TESTER } from '../erc/erc.js';
+
+export class SCH_NETLIST_GENERATOR_MIXIN {
+  /**
+   * Check if we are ready to write a netlist file for the current schematic: power symbols
+   * annotated, every other symbol annotated (asking through the annotate dialog first), and
+   * no duplicate sheet names unless the user goes on anyway.
+   */
+  ReadyToNetlist(this: SCH_EDIT_FRAME, aAnnotateMessage: string): boolean {
+    // Ensure all power symbols have a valid reference
+    this.Schematic().Hierarchy().AnnotatePowerSymbols();
+
+    // Symbols must be annotated
+    if (
+      this.CheckAnnotate(
+        () => {},
+        ANNOTATE_SCOPE_T.ANNOTATE_ALL,
+        true,
+        SYMBOL_FILTER.SYMBOL_FILTER_NON_POWER,
+      )
+    ) {
+      // Schematic must be annotated: call Annotate dialog and tell the user why.
+      this.ModalAnnotate(aAnnotateMessage);
+
+      if (
+        this.CheckAnnotate(
+          () => {},
+          ANNOTATE_SCOPE_T.ANNOTATE_ALL,
+          true,
+          SYMBOL_FILTER.SYMBOL_FILTER_NON_POWER,
+        )
+      )
+        return false;
+    }
+
+    // Test duplicate sheet names:
+    const erc = new ERC_TESTER(this.Schematic());
+
+    if (erc.TestDuplicateSheetNames(false) > 0) {
+      if (!this.IsOK('Error: duplicate sheet names. Continue?')) return false;
+    }
+
+    return true;
   }
 }

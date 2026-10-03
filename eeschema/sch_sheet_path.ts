@@ -239,9 +239,7 @@ export function SheetInstanceView(doc: Schematic, aInstancePath: string): Schema
 // `SCH_SHEET_PATH`, `SCH_SHEET_LIST` and the instance records: the live-model classes
 // (eeschema stage E3). Everything above is the record model's helpers, untouched.
 //
-// Not here (pending, with SCH_REFERENCE_LIST, which is fused into annotate.ts):
-// `GetSymbols`, `AppendSymbol`, `GetMultiUnitSymbols`, `AppendMultiUnitSymbol`,
-// `GetSymbolsWithinPath`, `AnnotatePowerSymbols`. `TestForRecursion` and
+// `TestForRecursion` and
 // `MakeFilePathRelativeToParentSheet` compare file names as the paths are written (there
 // is no wxFileName::MakeAbsolute against a disk here).
 //
@@ -262,12 +260,33 @@ import { AUTOPLACE_ALGO, SCH_ITEM } from './sch_item.js';
 import type { SCH_SCREEN } from './sch_screen.js';
 import type { SCH_SHEET } from './sch_sheet.js';
 import type { SCH_SYMBOL } from './sch_symbol.js';
+import {
+  SCH_REFERENCE,
+  SCH_REFERENCE_LIST,
+  multiUnitEntries,
+  type SCH_MULTI_UNIT_REFERENCE_MAP,
+} from './sch_reference_list.js';
 
 /** `SYMBOL_FILTER`. */
 export enum SYMBOL_FILTER {
   SYMBOL_FILTER_NON_POWER,
   SYMBOL_FILTER_POWER,
   SYMBOL_FILTER_ALL,
+}
+
+function matchesSymbolFilter(aReference: string, aSymbolFilter: SYMBOL_FILTER): boolean {
+  const isPowerSymbol = aReference !== '' && aReference[0] === '#';
+
+  switch (aSymbolFilter) {
+    case SYMBOL_FILTER.SYMBOL_FILTER_POWER:
+      return isPowerSymbol;
+
+    case SYMBOL_FILTER.SYMBOL_FILTER_ALL:
+      return true;
+
+    default:
+      return !isPowerSymbol;
+  }
 }
 
 /** `VARIANT`: a design variant's overrides of one symbol or sheet instance. */
@@ -991,6 +1010,83 @@ export class SCH_SHEET_PATH {
   }
 
   /**
+   * Adds #SCH_REFERENCE object to \a aReferences for each symbol in the sheet.
+   *
+   * @param aSymbolFilter which symbols to add (power, non-power or all).
+   * @param aForceIncludeOrphanSymbols set to true to include symbols having no symbol found
+   *                                   in lib.  The normal option is false, and set to true
+   *                                   only to build the full list of symbols.
+   */
+  GetSymbols(
+    aReferences: SCH_REFERENCE_LIST,
+    aSymbolFilter: SYMBOL_FILTER,
+    aForceIncludeOrphanSymbols = false,
+  ): void {
+    for (const item of this.LastScreen()!.Items().OfType(KICAD_T.SCH_SYMBOL_T))
+      this.AppendSymbol(aReferences, item as SCH_SYMBOL, aSymbolFilter, aForceIncludeOrphanSymbols);
+  }
+
+  /** Append a #SCH_REFERENCE object to \a aReferences based on \a aSymbol. */
+  AppendSymbol(
+    aReferences: SCH_REFERENCE_LIST,
+    aSymbol: SCH_SYMBOL,
+    aSymbolFilter: SYMBOL_FILTER,
+    aForceIncludeOrphanSymbols = false,
+  ): void {
+    // Skip pseudo-symbols, which have a reference starting with #.  This mainly
+    // affects power symbols.
+    if (matchesSymbolFilter(aSymbol.GetRef(this), aSymbolFilter)) {
+      if (aSymbol.GetLibSymbolRef() || aForceIncludeOrphanSymbols) {
+        const schReference = new SCH_REFERENCE(aSymbol, this);
+
+        schReference.SetSheetNumber(this.GetPageNumberAsInt());
+        aReferences.AddItem(schReference);
+      }
+    }
+  }
+
+  /**
+   * Add a #SCH_REFERENCE_LIST object to \a aRefList for each same-reference set of
+   * multi-unit parts in the sheet. The map key for each element will be the reference
+   * designator.
+   */
+  GetMultiUnitSymbols(aRefList: SCH_MULTI_UNIT_REFERENCE_MAP, aSymbolFilter: SYMBOL_FILTER): void {
+    for (const item of this.LastScreen()!.Items().OfType(KICAD_T.SCH_SYMBOL_T))
+      this.AppendMultiUnitSymbol(aRefList, item as SCH_SYMBOL, aSymbolFilter);
+  }
+
+  /** Append a #SCH_REFERENCE_LIST object to \a aRefList based on \a aSymbol, if multi-unit. */
+  AppendMultiUnitSymbol(
+    aRefList: SCH_MULTI_UNIT_REFERENCE_MAP,
+    aSymbol: SCH_SYMBOL,
+    aSymbolFilter: SYMBOL_FILTER,
+  ): void {
+    // Skip pseudo-symbols, which have a reference starting with #.  This mainly
+    // affects power symbols.
+    if (!matchesSymbolFilter(aSymbol.GetRef(this), aSymbolFilter)) return;
+
+    const symbol = aSymbol.GetLibSymbolRef();
+
+    if (symbol && symbol.GetUnitCount() > 1) {
+      const schReference = new SCH_REFERENCE(aSymbol, this);
+      schReference.SetSheetNumber(this.GetPageNumberAsInt());
+      const reference_str = schReference.GetRef();
+
+      // Never lock unassigned references
+      if (reference_str[reference_str.length - 1] === '?') return;
+
+      let list = aRefList.get(reference_str);
+
+      if (!list) {
+        list = new SCH_REFERENCE_LIST();
+        aRefList.set(reference_str, list);
+      }
+
+      list.AddItem(schReference);
+    }
+  }
+
+  /**
    * Test the SCH_SHEET_PATH file names to check adding the sheet stored in the file
    * \a aSrcFileName to the sheet stored in file \a aDestFileName  will cause a sheet
    * path recursion.
@@ -1257,6 +1353,106 @@ export class SCH_SHEET_LIST extends Array<SCH_SHEET_PATH> {
     }
   }
 
+  /**
+   * Silently annotate the not yet annotated power symbols of the entire hierarchy of the
+   * sheet path list.
+   *
+   * It is called before creating a netlist, to annotate power symbols only. This is
+   * mandatory to keep power symbols out of the list of symbols with no reference.
+   */
+  AnnotatePowerSymbols(): void {
+    // List of reference for power symbols
+    const references = new SCH_REFERENCE_LIST();
+
+    // Build the list of power symbols:
+    for (const sheet of this) {
+      for (const item of sheet.LastScreen()!.Items().OfType(KICAD_T.SCH_SYMBOL_T)) {
+        const symbol = item as SCH_SYMBOL;
+        const libSymbol = symbol.GetLibSymbolRef();
+
+        if (libSymbol?.IsPower()) {
+          const schReference = new SCH_REFERENCE(symbol, sheet);
+          references.AddItem(schReference);
+        }
+      }
+    }
+
+    // Find duplicate, and silently clear annotation of duplicate
+    const ref_list = new Map<string, number>(); // stores the existing references
+
+    for (let ii = 0; ii < references.GetCount(); ++ii) {
+      let curr_ref = references.at(ii).GetRef();
+
+      if (curr_ref === '') continue;
+
+      if (!ref_list.has(curr_ref)) {
+        ref_list.set(curr_ref, ii);
+        continue;
+      }
+
+      // Possible duplicate, if the ref ends by a number. (Upstream's test is
+      // `Last() < '0' && Last() > '9'`, which is never true; kept as it is.)
+      const last = curr_ref[curr_ref.length - 1]!;
+
+      if (last < '0' && last > '9') continue; // not annotated
+
+      // Duplicate: clear annotation by removing the number ending the ref
+      while (
+        curr_ref !== '' &&
+        curr_ref[curr_ref.length - 1]! >= '0' &&
+        curr_ref[curr_ref.length - 1]! <= '9'
+      )
+        curr_ref = curr_ref.slice(0, -1);
+
+      references.at(ii).SetRef(curr_ref);
+    }
+
+    // Break full symbol reference into name (prefix) and number:
+    // example: IC1 become IC, and 1
+    references.SplitReferences();
+
+    // Ensure all power symbols have the reference starting by '#'
+    // (Not sure this is really useful)
+    for (let ii = 0; ii < references.GetCount(); ++ii) {
+      const ref_unit = references.at(ii);
+
+      if (ref_unit.GetRef()[0] !== '#') {
+        const new_ref = `#${ref_unit.GetRef()}`;
+        ref_unit.SetRef(new_ref);
+        ref_unit.SetRefNum(ii);
+      }
+    }
+  }
+
+  /**
+   * Add a #SCH_REFERENCE object to \a aReferences for each symbol in the list of sheets.
+   *
+   * @param aSymbolFilter which symbols to add (power, non-power or all).
+   * @param aForceIncludeOrphanSymbols set to true to include symbols having no symbol found
+   *                                   in lib.
+   */
+  GetSymbols(
+    aReferences: SCH_REFERENCE_LIST,
+    aSymbolFilter: SYMBOL_FILTER,
+    aForceIncludeOrphanSymbols = false,
+  ): void {
+    for (const sheet of this)
+      sheet.GetSymbols(aReferences, aSymbolFilter, aForceIncludeOrphanSymbols);
+  }
+
+  /** Add a #SCH_REFERENCE object to \a aReferences for each symbol within \a aSheetPath. */
+  GetSymbolsWithinPath(
+    aReferences: SCH_REFERENCE_LIST,
+    aSheetPath: SCH_SHEET_PATH,
+    aSymbolFilter: SYMBOL_FILTER,
+    aForceIncludeOrphanSymbols = false,
+  ): void {
+    for (const sheet of this) {
+      if (sheet.IsContainedWithin(aSheetPath))
+        sheet.GetSymbols(aReferences, aSymbolFilter, aForceIncludeOrphanSymbols);
+    }
+  }
+
   /** Return a list of sheet paths contained within \a aSheetPath. */
   GetSheetsWithinPath(aSheets: SCH_SHEET_PATH[], aSheetPath: SCH_SHEET_PATH): void {
     for (const sheet of this) {
@@ -1279,6 +1475,30 @@ export class SCH_SHEET_LIST extends Array<SCH_SHEET_PATH> {
     }
 
     return undefined;
+  }
+
+  /**
+   * Add a #SCH_REFERENCE_LIST object to \a aRefList for each same-reference set of
+   * multi-unit parts in the list of sheets. The map key for each element will be the
+   * reference designator.
+   */
+  GetMultiUnitSymbols(aRefList: SCH_MULTI_UNIT_REFERENCE_MAP, aSymbolFilter: SYMBOL_FILTER): void {
+    for (const sheet of this) {
+      const tempMap: SCH_MULTI_UNIT_REFERENCE_MAP = new Map();
+      sheet.GetMultiUnitSymbols(tempMap, aSymbolFilter);
+
+      for (const [key, refs] of multiUnitEntries(tempMap)) {
+        // Merge this list into the main one
+        let list = aRefList.get(key);
+
+        if (!list) {
+          list = new SCH_REFERENCE_LIST();
+          aRefList.set(key, list);
+        }
+
+        for (let thisRef = 0; thisRef < refs.GetCount(); ++thisRef) list.AddItem(refs.at(thisRef));
+      }
+    }
   }
 
   /**

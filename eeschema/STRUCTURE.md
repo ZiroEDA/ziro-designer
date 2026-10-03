@@ -893,3 +893,46 @@ Root EXTRA count (this file's own `.ts`/`.tsx` root files with no KiCad root
 `SAME` 138 → 141 (the small residual delta between "23 fewer EXTRA" and "3
 higher SAME" is other agents' concurrent commits on this branch during the
 same window, not this pass's own miscount).
+
+## Stage S1 (2026-10-03): the editor onto the live model
+
+Plan and inventory: `docs/eeschema-live-stage0.md`. Structure follows KiCad 10.0.6 itself.
+
+- `schematic_holder.ts` — `schematic_holder.h` (`SCHEMATIC_HOLDER`); `SCH_EDIT_FRAME`
+  implements it and registers in `SetSchematic` (sch_edit_frame.cpp:179).
+- `schematic.ts` gained `CleanUp`, `RecomputeIntersheetRefs`, `ResolveERCExclusions`,
+  `RecordERCExclusions`, `ResolveERCExclusionsPostUpdate`, and `RecalculateConnections`
+  takes upstream's arguments in upstream's order. Divergence: the graph is always rebuilt
+  whole (upstream's GLOBAL_CLEANUP arm); no `SCH_SELECTION_TOOL` on the live model yet, so
+  `CleanUp`'s selection bookkeeping has nothing to update.
+- `files-io.ts` gained `SCH_FILES_IO_MIXIN.OpenProjectFiles` (files-io.cpp:98-790),
+  mixed into `SCH_EDIT_FRAME` as `schematic_undo_redo.ts` is. Left to the window: lock
+  file, save prompt, the create question (as `KICTL_CREATE`), progress, info bar, autosave,
+  window state, saving the outgoing project's local settings, `DIALOG_MIGRATE_BUSES`. Not
+  live yet: the legacy plugin, `MigrateSimModels`, `LoadProjectSettings`/`LoadDrawingSheet`.
+- `sch_record_bridge.ts` — **transitional, no KiCad counterpart, deleted at S7.** Opens the
+  window's records through `OpenProjectFiles` (rebuilt on demand when a record changed), as
+  pcbnew's `commitViewToBoard` bridged its view during #636.
+- `sch_io/kicad_sexpr/sch_io_kicad_sexpr.ts` exports its `PosixPath` (`wxFileName` on
+  POSIX paths) for `files-io.ts`.
+
+## Stage S2 (2026-10-03): annotation core and the project's settings
+
+- `sch_reference_list.ts` gained the live `SCH_REFERENCE` / `SCH_REFERENCE_LIST`
+  (sch_reference_list.cpp), beside the record functions until S7. Divergence:
+  `SortBySymbolPtr` groups by first appearance (upstream orders by address, which only groups).
+- `refdes_tracker.ts`: the class is `REFDES_TRACKER`, as upstream. Its `m_prefixData` is a
+  `std::unordered_map`, and `Serialize` writes it in that map's order, so it is held in
+  `common/libc/unordered_map.ts` (libstdc++'s order, measured) rather than a sorted Map.
+- `sch_sheet_path.ts` gained `GetSymbols`, `AppendSymbol`, `GetMultiUnitSymbols`,
+  `AppendMultiUnitSymbol`, `GetSymbolsWithinPath` and `AnnotatePowerSymbols`.
+- `schematic_settings.ts` / `erc/erc_settings.ts`: `SCHEMATIC_SETTINGS` and `ERC_SETTINGS` are
+  `NESTED_SETTINGS` at `schematic` and `erc` of the `PROJECT_FILE`, made and loaded by
+  `SCHEMATIC::SetProject`, and `Settings()` / `ErcSettings()` answer the project's (a
+  schematic with no project file gets an unparented default, a case upstream does not have).
+  Not here: `NGSPICE_SETTINGS`, and the `EESCHEMA_SETTINGS` app config the constructor takes
+  its defaults from. The BOM parameters go through `common/settings/bom_settings.ts`'
+  `to_json` / `from_json` ports.
+- `erc/erc_item.ts`: the item templates are built on first read. `ERCE_T` is in
+  `erc_settings.ts` (erc_settings.h) and that module imports this one for `rule_severities`;
+  built at load, a template would read `ERCE_T` before its module had run.

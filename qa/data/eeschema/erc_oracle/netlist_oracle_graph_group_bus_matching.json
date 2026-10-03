@@ -1,0 +1,93 @@
+{
+ "$schema": "https://schemas.kicad.org/erc.v1.json",
+ "coordinate_units": "mm",
+ "ignored_checks": [
+  {
+   "description": "Global label only appears once in the schematic",
+   "key": "single_global_label"
+  },
+  {
+   "description": "Four connection points are joined together",
+   "key": "four_way_junction"
+  },
+  {
+   "description": "SPICE model issue",
+   "key": "simulation_model_issue"
+  },
+  {
+   "description": "Assigned footprint doesn't match footprint filters",
+   "key": "footprint_filter"
+  }
+ ],
+ "included_severities": [
+  "error",
+  "warning",
+  "exclusion"
+ ],
+ "kicad_version": "10.0.6",
+ "sheets": [
+  {
+   "path": "/",
+   "uuid_path": "/8a6872d1-098e-4602-a955-6a22bf8ccc48",
+   "violations": [
+    {
+     "description": "Symbol 'GND' doesn't match copy in library 'power'",
+     "items": [
+      {
+       "description": "Symbol #PWR02 [GND]",
+       "pos": {
+        "x": 1.5113,
+        "y": 0.9779
+       },
+       "uuid": "1ab5160b-c46e-4dfc-97f9-e49d72bc401d"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_mismatch"
+    },
+    {
+     "description": "Symbol 'GND' doesn't match copy in library 'power'",
+     "items": [
+      {
+       "description": "Symbol #PWR01 [GND]",
+       "pos": {
+        "x": 1.778,
+        "y": 0.9017
+       },
+       "uuid": "2d52877c-5f64-4e9b-8318-550f62b8b212"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_mismatch"
+    }
+   ]
+  },
+  {
+   "path": "/Subsheet1/",
+   "uuid_path": "/8a6872d1-098e-4602-a955-6a22bf8ccc48/04eb80a5-3d22-464b-8fb7-e70e01da2cf4",
+   "violations": [
+    {
+     "description": "Input Power pin not driven by any Output Power pins",
+     "items": [
+      {
+       "description": "Symbol #PWR02 Hidden pin 1 [GND, Power input, Line]",
+       "pos": {
+        "x": 1.5113,
+        "y": 0.9779
+       },
+       "uuid": "60f56d26-2d14-430a-b08d-29bd0a4dbff1"
+      }
+     ],
+     "severity": "error",
+     "type": "power_pin_not_driven"
+    }
+   ]
+  },
+  {
+   "path": "/Subsheet2/",
+   "uuid_path": "/8a6872d1-098e-4602-a955-6a22bf8ccc48/8903cf94-5bbd-4df7-9bc9-ca711b28d97a",
+   "violations": []
+  }
+ ],
+ "source": "group_bus_matching.kicad_sch"
+}

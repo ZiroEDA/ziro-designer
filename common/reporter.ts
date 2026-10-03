@@ -51,6 +51,21 @@ export class Reporter {
     return this;
   }
 
+  /** `REPORTER::Report`: a message in the body. */
+  Report(aText: string, aSeverity: Severity = RPT_SEVERITY_UNDEFINED): this {
+    return this.report(aText, aSeverity);
+  }
+
+  /** `REPORTER::ReportHead`: a message placed before the body. */
+  ReportHead(aText: string, aSeverity: Severity = RPT_SEVERITY_UNDEFINED): this {
+    return this.reportHead(aText, aSeverity);
+  }
+
+  /** `REPORTER::ReportTail`: a message placed after the body. */
+  ReportTail(aText: string, aSeverity: Severity = RPT_SEVERITY_UNDEFINED): this {
+    return this.reportTail(aText, aSeverity);
+  }
+
   clear(): void {
     this.lines.length = 0;
   }
@@ -110,7 +125,7 @@ export function SeverityToString(aSeverity: Severity): string {
 export class WX_STRING_REPORTER extends Reporter {
   private m_string = '';
 
-  Report(aText: string, aSeverity: Severity = RPT_SEVERITY_UNDEFINED): this {
+  override Report(aText: string, aSeverity: Severity = RPT_SEVERITY_UNDEFINED): this {
     super.report(aText, aSeverity);
     this.m_string += `${aText}\n`;
     return this;

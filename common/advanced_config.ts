@@ -208,6 +208,12 @@ export class ADVANCED_CFG {
    */
   m_PcbImportMinObjectSizeNm = 1000;
 
+  /**
+   * The thinnest pen a plot (and the schematic's render settings) draws, in mm: 1 pixel at
+   * 1200 dpi. Setting name: "MinPlotPenWidth"; default 0.0212 (advanced_config.cpp:256).
+   */
+  m_MinPlotPenWidth = 0.0212;
+
   private static s_cfg: ADVANCED_CFG | null = null;
 
   /** Get the singleton instance's config, which is shared by all consumers. */

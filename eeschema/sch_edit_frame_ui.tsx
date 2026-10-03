@@ -448,7 +448,7 @@ import type { Netlist } from './connectivity/nets.js';
 import { DEFAULT_WIRE_WIDTH } from './sch_painter.js';
 import { computeNetClassOverrides } from './net_overrides.js';
 import {
-  RefDesTracker,
+  REFDES_TRACKER,
   buildPageRefsMap,
   connectionName,
   equivalentBusNames,
@@ -550,6 +550,8 @@ import { schSymbolLibraryName } from './index.js';
 import { busJunctionIds as busJunctionIdsOf } from './connectivity/bus.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { applyToggle, DEFAULT_TOGGLES } from './toggles.js';
+import { LIVE_SCHEMATIC_MIRROR } from './sch_record_bridge.js';
+import { symbolLibraryUri } from './cross-probing.js';
 
 // What KiCad writes for File > New Schematic: an empty sheet on A4 paper.
 // Launching the editor without a project starts here (no bundled demo).
@@ -897,7 +899,6 @@ export function SchematicEditor({
     useAuth,
     PresencePanel,
     AssignFootprints,
-    fetchNetlistFromSchematic,
     crossProbeViewChange,
     crossProbeFlashSelection,
     CROSS_PROBE_FLASH_INTERVAL_MS,
@@ -1836,7 +1837,15 @@ export function SchematicEditor({
   // project edit and the save they call exist.
   const assignFootprintsRef = useRef<(aPayload: string) => void>(() => {});
   const saveProjectRef = useRef<() => boolean>(() => false);
-  const getNetlistRef = useRef<(aAnnotateMessage: string) => string | null>(() => null);
+  // TRANSITIONAL (S2-5b, gone at S7): the frame's live SCHEMATIC, rebuilt from the window's
+  // records when one changed (sch_record_bridge.ts).
+  const syncLiveRef = useRef<() => boolean>(() => false);
+  const liveFilesRef = useRef<{
+    rawFiles: readonly PickedFile[];
+    projectName?: string;
+    rootPro?: string;
+  }>({ rawFiles: [] });
+  const modalAnnotateRef = useRef<(aMessage: string) => void>(() => {});
   /**
    * `SaveProject()` arriving in the same tick as the assignment it saves: the
    * assignment's step folds on the next render, so it is marked to be written
@@ -1851,7 +1860,11 @@ export function SchematicEditor({
       syncSelection: (aParts) => applyPcbSelectionRef.current(aParts),
       assignFootprints: (aPayload) => assignFootprintsRef.current(aPayload),
       saveProject: () => saveProjectRef.current(),
-      getNetlist: (aAnnotateMessage) => getNetlistRef.current(aAnnotateMessage),
+      syncLiveSchematic: () => syncLiveRef.current(),
+      modalAnnotate: (aMessage) => modalAnnotateRef.current(aMessage),
+      // IsOK( this, … ) blocks for an answer, which a browser hook cannot wait for: no.
+      isOK: () => false,
+      symbolLibraryUri: (aNickname) => symbolLibraryUri(liveFilesRef.current.rawFiles)(aNickname),
     });
   }
   const applyPcbSelectionRef = useRef<(parts: readonly string[]) => void>(() => {});
@@ -3349,9 +3362,9 @@ export function SchematicEditor({
    */
   const pasteOptions = useCallback(
     (mode?: PasteMode): PasteOptions => {
-      const tracker = new RefDesTracker();
-      tracker.deserialize(setup.usedDesignators);
-      tracker.reuseRefDes = setup.annotation.allowReuse;
+      const tracker = new REFDES_TRACKER();
+      tracker.Deserialize(setup.usedDesignators);
+      tracker.SetReuseRefDes(setup.annotation.allowReuse);
       const defaultMode: PasteMode = es.annotation.automatic ? 'unique' : 'remove';
       const page = flatSheets.findIndex((s) => s.path === currentPath);
       return {
@@ -4096,9 +4109,9 @@ export function SchematicEditor({
       const alwaysAnnotate = lib.isPower === true || reference.startsWith('#');
       if (!es.annotation.automatic && !alwaysAnnotate) return sym;
 
-      const tracker = new RefDesTracker();
-      tracker.deserialize(setup.usedDesignators);
-      tracker.reuseRefDes = setup.annotation.allowReuse;
+      const tracker = new REFDES_TRACKER();
+      tracker.Deserialize(setup.usedDesignators);
+      tracker.SetReuseRefDes(setup.annotation.allowReuse);
 
       // Annotate it in a document that already holds it, scoped to it alone, so
       // every existing reference on the sheet is seen as taken.
@@ -4182,9 +4195,9 @@ export function SchematicEditor({
   // by the project's reuse_designators, and persists back after the run.
   const runAnnotate = useCallback(
     (opts: AnnotateRun) => {
-      const tracker = new RefDesTracker();
-      tracker.deserialize(setup.usedDesignators);
-      tracker.reuseRefDes = setup.annotation.allowReuse;
+      const tracker = new REFDES_TRACKER();
+      tracker.Deserialize(setup.usedDesignators);
+      tracker.SetReuseRefDes(setup.annotation.allowReuse);
 
       const sheets = annotateSheets(opts.scope, opts.recursive);
       const libs = hierarchyLibs(sheets);
@@ -4221,7 +4234,7 @@ export function SchematicEditor({
         });
       setAnnotateMessages(lines);
 
-      const usedDesignators = tracker.serialize();
+      const usedDesignators = tracker.Serialize();
       if (usedDesignators !== setup.usedDesignators) commitSetup({ ...setup, usedDesignators });
     },
     [
@@ -5382,26 +5395,33 @@ export function SchematicEditor({
     assignPendingRef.current = true;
     runProject(commands);
   };
-  // MAIL_SCH_GET_NETLIST: ReadyToNetlist and NETLIST_EXPORTER_KICAD over the
-  // live sheets - the open one included, whose edits the project's files only
-  // get on the debounced save - with the project's other files as they are.
-  getNetlistRef.current = (aAnnotateMessage) => {
-    const live = new Map<string, string>();
-    try {
-      for (const [file, sheet] of project.current.docs) live.set(file, serializeSchematic(sheet));
-      if (docRef.current) live.set(currentFileRef.current, serializeSchematic(docRef.current));
-    } catch {
-      return null;
-    }
-    const baseOf = (name: string): string =>
-      name.slice(Math.max(name.lastIndexOf('/'), name.lastIndexOf('\\')) + 1);
-    const files = rawFiles.map((f) => {
-      const text = live.get(baseOf(f.name));
-      return text === undefined ? f : { name: f.name, text };
+  // MAIL_SCH_GET_NETLIST is answered by the frame from its live SCHEMATIC (ReadyToNetlist,
+  // NETLIST_EXPORTER_KICAD); this keeps that schematic the window's: every sheet's record, the
+  // open one with the edits its file only gets on the debounced save, opened through
+  // OpenProjectFiles under the folder pcbnew loads the project from.
+  const liveMirrorRef = useRef<LIVE_SCHEMATIC_MIRROR | null>(null);
+  liveFilesRef.current = { rawFiles, projectName, rootPro };
+  syncLiveRef.current = () => {
+    liveMirrorRef.current ??= new LIVE_SCHEMATIC_MIRROR(schFrameRef.current!, () => {
+      const docs = new Map(project.current.docs);
+      if (docRef.current) docs.set(currentFileRef.current, docRef.current);
+      if (docs.size === 0) return null;
+      const { rawFiles: files, projectName: name } = liveFilesRef.current;
+      const root = project.current.root;
+      return {
+        dir: `/${name ?? root.replace(/\.[^.]*$/, '')}`,
+        docs,
+        root,
+        files: files
+          .filter((f) => /\.kicad_(pro|prl)$/i.test(f.name))
+          .map((f) => ({ name: f.name, text: f.text })),
+      };
     });
-    const fetched = fetchNetlistFromSchematic(files, aAnnotateMessage, rootPro);
-    return fetched.ok ? fetched.netlistText : null;
+    return liveMirrorRef.current.get() !== null;
   };
+  // ModalAnnotate: the Annotate dialog, which cannot block the mail here; the user annotates
+  // and updates the board again.
+  modalAnnotateRef.current = () => setAnnotateOpen(true);
   // `SaveProject()`: an assignment from this same mail round is written as it
   // folds; with nothing pending, the open sheet is saved now.
   saveProjectRef.current = () => {
