@@ -8,9 +8,13 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
-  drawCentrelineRectItem,
+  CENTRELINE_RECT_ITEM,
   getRectangleAlongCentreLine,
 } from '@ziroeda/common/preview_items/centreline_rect_item.js';
+import { TWO_POINT_GEOMETRY_MANAGER } from '@ziroeda/common/preview_items/two_point_geom_manager.js';
+import { GAL_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import type { VIEW } from '@ziroeda/common/view/view.js';
+import type { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 
 describe('getRectangleAlongCentreLine', () => {
   it('lays the rectangle out as the C++ diagram says, for a horizontal centre line', () => {
@@ -41,57 +45,55 @@ describe('getRectangleAlongCentreLine', () => {
   });
 });
 
-describe('drawCentrelineRectItem', () => {
-  it('draws the centre line first and the outline second, with the item pen', () => {
+describe('CENTRELINE_RECT_ITEM, the VIEW item', () => {
+  const recording = () => {
     const calls: string[] = [];
-    const ctx = {
-      save: () => calls.push('save'),
-      restore: () => calls.push('restore'),
-      setTransform: () => {},
-      beginPath: () => calls.push('begin'),
-      moveTo: (x: number, y: number) => calls.push(`M${x},${y}`),
-      lineTo: (x: number, y: number) => calls.push(`L${x},${y}`),
-      closePath: () => calls.push('close'),
-      stroke: () => calls.push('stroke'),
-      fill: () => calls.push('fill'),
-      set lineWidth(w: number) {
-        calls.push(`w${w}`);
-      },
-      set strokeStyle(c: string) {
-        calls.push(`s:${c}`);
-      },
-      set fillStyle(c: string) {
-        calls.push(`f:${c}`);
-      },
-    } as unknown as CanvasRenderingContext2D;
-    drawCentrelineRectItem(ctx, {
-      origin: { x: 0, y: 0 },
-      end: { x: 100, y: 0 },
-      aspect: 0.5,
-      toPx: (p) => ({ x: p.x, y: p.y }),
-      strokeColor: 'S',
-      fillColor: 'F',
-      linePx: 0.2,
-    });
-    // The pen floor is one whole device pixel; the line goes first.
-    expect(calls).toEqual([
-      'save',
-      'w1',
-      's:S',
-      'f:F',
-      'begin',
-      'M0,0',
-      'L100,0',
-      'stroke',
-      'begin',
-      'M0,25',
-      'L100,25',
-      'L100,-25',
-      'L0,-25',
-      'close',
-      'fill',
-      'stroke',
-      'restore',
-    ]);
+    const gal = {
+      SetLineWidth: (w: number) => calls.push(`w${w}`),
+      SetStrokeColor: (c: { r: number }) => calls.push(`s${c.r}`),
+      SetFillColor: (c: { r: number }) => calls.push(`f${c.r}`),
+      SetIsStroke: () => {},
+      SetIsFill: () => {},
+      DrawLine: (a: { x: number; y: number }, b: { x: number; y: number }) =>
+        calls.push(`L${a.x},${a.y}-${b.x},${b.y}`),
+      DrawPolygon: (p: SHAPE_POLY_SET) =>
+        calls.push(
+          `P${p
+            .Outline(0)
+            .CPoints()
+            .map((q) => `${q.x},${q.y}`)
+            .join(' ')}`,
+        ),
+    };
+    return { calls, view: { GetGAL: () => gal } as unknown as VIEW };
+  };
+
+  it('draws the centre line first and the outline second, with the item pen', () => {
+    const mgr = new TWO_POINT_GEOMETRY_MANAGER();
+    mgr.SetOrigin({ x: 0, y: 0 });
+    mgr.SetEnd({ x: 100, y: 0 });
+    const item = new CENTRELINE_RECT_ITEM(mgr, 0.5);
+    item.SetStrokeColor({ r: 0.4, g: 1, b: 1, a: 1 });
+    item.SetFillColor({ r: 0.3, g: 0.3, b: 0.5, a: 0.3 });
+    item.SetLineWidth(1);
+
+    const { calls, view } = recording();
+    item.ViewDraw(0, view);
+
+    expect(calls).toEqual(['w1', 's0.4', 'f0.3', 'L0,0-100,0', 'P0,25 100,25 100,-25 0,-25']);
+  });
+
+  it("follows the geometry manager, and its box is the outline's", () => {
+    const mgr = new TWO_POINT_GEOMETRY_MANAGER();
+    const item = new CENTRELINE_RECT_ITEM(mgr, 0.5);
+    mgr.SetOrigin({ x: 10, y: 10 });
+    mgr.SetEnd({ x: 10, y: 110 });
+    const box = item.ViewBBox();
+    expect([box.GetX(), box.GetY(), box.GetWidth(), box.GetHeight()]).toEqual([-15, 10, 50, 100]);
+  });
+
+  it('is on the GP overlay, as every SIMPLE_OVERLAY_ITEM', () => {
+    const item = new CENTRELINE_RECT_ITEM(new TWO_POINT_GEOMETRY_MANAGER(), 0.5);
+    expect(item.ViewGetLayers()).toEqual([GAL_LAYER_ID.LAYER_GP_OVERLAY]);
   });
 });

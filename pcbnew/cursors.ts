@@ -11,15 +11,6 @@
 import { kiCursor } from '@ziroeda/common/gal/kicursors.js';
 import { toolCursorCss } from '@ziroeda/common/tool/tool_cursors.js';
 
-/** What the board canvas needs to know beyond the tool id. */
-export interface BoardCursorState {
-  /**
-   * `doInteractiveItemPlacement`'s `setCursor`: a `MICROWAVE_TOOL` footprint
-   * (`newItem`) is on the pointer.
-   */
-  microwavePlacing?: boolean;
-}
-
 /**
  * `ui/tool_cursors.ts` answers for every action another editor also has; what
  * is left here is this frame's own.
@@ -31,19 +22,13 @@ export interface BoardCursorState {
  * cursor of its own" and showed a crosshair; that was a misreading of the
  * source, not a measurement. Everything unarmed is the plain arrow.
  */
-export const boardToolCursor = (tool: string, state: BoardCursorState = {}): string => {
+export const boardToolCursor = (tool: string): string => {
   if (tool === 'localRatsnestTool') return kiCursor('BULLSEYE');
   // `BOARD_EDITOR_CONTROL::PlaceFootprint`'s `setCursor` is one unconditional
   // line, `SetCurrentCursor( KICURSOR::PENCIL )` (board_editor_control.cpp:1370),
   // before and while a footprint rides the pointer alike. This frame's own:
   // the footprint editor has no such tool.
   if (tool === 'placeFootprint') return kiCursor('PENCIL');
-  // `MICROWAVE_TOOL::drawMicrowaveInductor`'s `setCursor` is `PENCIL` on every
-  // event; `doInteractiveItemPlacement`'s, for the four footprint tools, is
-  // `PENCIL` until `newItem` exists and `PLACE` after.
-  if (tool === 'microwaveCreateLine') return kiCursor('PENCIL');
-  if (tool.startsWith('microwaveCreate'))
-    return kiCursor(state.microwavePlacing ? 'PLACE' : 'PENCIL');
   // `ROUTER_TOOL::MainLoop`'s `setCursor` (router_tool.cpp:1950-1953) is one
   // line, `SetCurrentCursor( KICURSOR::PENCIL )`, run on arming and on every
   // event — idle and mid-route alike, single track and differential pair

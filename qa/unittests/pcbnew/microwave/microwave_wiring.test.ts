@@ -84,26 +84,15 @@ describe('Place > Draw Microwave Shapes', () => {
     for (const row of submenu) expect(row.shortcut).toBeUndefined();
   });
 
-  it.each(ROWS)('the frame knows tool %s: status text, click tool, shape table', (_l, id) => {
+  it.each(ROWS)('the frame knows tool %s: status text, and the TOOL_MANAGER runs it', (_l, id) => {
     // The "Current Tool" pane says the action's friendly name.
     expect(FRAME).toMatch(new RegExp(`\\b${id}: '[^']+',`));
-    // The four footprint tools carry their MICROWAVE_FOOTPRINT_SHAPE; the fifth is the inductor.
-    if (id !== 'microwaveCreateLine')
-      expect(FRAME).toMatch(new RegExp(`\\b${id}: MICROWAVE_FOOTPRINT_SHAPE\\.`));
+    // Arming the row runs the action on the TOOL_MANAGER, where MICROWAVE_TOOL
+    // is registered (microwave_tool_manager.test.ts drives it).
+    expect(FRAME).toContain(`${id}: PCB_ACTIONS.${id},`);
   });
 
-  it('the frame maps each tool to the shape MICROWAVE_TOOL::setTransitions binds it to', () => {
-    const table = /MICROWAVE_PLACE_TOOLS[^=]*=\s*\{([\s\S]*?)\};/.exec(FRAME)![1]!;
-    const pairs = [...table.matchAll(/(\w+): MICROWAVE_FOOTPRINT_SHAPE\.(\w+)/g)].map((m) => [
-      m[1],
-      m[2],
-    ]);
-    expect(pairs).toEqual([
-      ['microwaveCreateGap', 'GAP'],
-      ['microwaveCreateStub', 'STUB'],
-      ['microwaveCreateStubArc', 'STUB_ARC'],
-      ['microwaveCreateFunctionShape', 'FUNCTION_SHAPE'],
-    ]);
+  it('each footprint action carries the shape MICROWAVE_TOOL::setTransitions reads', () => {
     // ...which are the parameters the TOOL_ACTIONs carry.
     expect(PCB_ACTIONS.microwaveCreateGap.MakeEvent().Parameter<MICROWAVE_FOOTPRINT_SHAPE>()).toBe(
       MICROWAVE_FOOTPRINT_SHAPE.GAP,

@@ -1190,54 +1190,36 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     this.hooks.updateProperties?.();
   }
 
-  /** `MICROWAVE_TOOL` (`pcbnew.MicrowaveTool`): built on first use, over this frame. */
-  private m_microwaveTool: MICROWAVE_TOOL | null = null;
-
   /**
-   * `GetToolManager()->GetTool<MICROWAVE_TOOL>()`. The tool asks this frame for
-   * what its C++ asks `PCB_EDIT_FRAME` for: the dialogs, the current track
-   * width, unit conversion, a blank footprint on this board and the commit.
+   * What `MICROWAVE_TOOL` asks `PCB_EDIT_FRAME` for: the dialogs, the current
+   * track width, unit conversion, a blank footprint on this board and the
+   * commit.
    */
-  MicrowaveTool(): MICROWAVE_TOOL {
-    if (!this.m_microwaveTool) {
-      const host: MICROWAVE_HOST = {
-        GetCurrentTrackWidth: () => this.GetDesignSettings().GetCurrentTrackWidth(),
-        StringFromValue: (aIU) => this.GetUnitsProvider().StringFromValue(aIU),
-        ValueFromString: (aText) => this.GetUnitsProvider().ValueFromString(aText),
-        CreateNewFootprint: (aName, aLib) => this.CreateNewFootprint(aName, aLib),
-        OnModify: () => this.OnModify(),
-        ShowInfoBarError: (aMessage) => this.ShowInfoBarError(aMessage),
-        DisplayError: (aMessage) => DisplayErrorMessage(aMessage),
-        TextEntry: (aPrompt, aCaption, aValue, aValidator) =>
-          this.hooks.textEntry?.(aPrompt, aCaption, aValue, aValidator) ?? Promise.resolve(null),
-        PolygonShapeDialog: () =>
-          this.hooks.mwavePolygonalShapeDialog?.() ?? Promise.resolve(false),
-        AddInductor: (aFootprint) => {
-          this.m_toolManager!.RunAction<EDA_ITEM | null>(ACTIONS.selectItem, aFootprint);
+  MicrowaveHost(): MICROWAVE_HOST {
+    return {
+      GetCurrentTrackWidth: () => this.GetDesignSettings().GetCurrentTrackWidth(),
+      StringFromValue: (aIU) => this.GetUnitsProvider().StringFromValue(aIU),
+      ValueFromString: (aText) => this.GetUnitsProvider().ValueFromString(aText),
+      CreateNewFootprint: (aName, aLib) => this.CreateNewFootprint(aName, aLib),
+      OnModify: () => this.OnModify(),
+      ShowInfoBarError: (aMessage) => this.ShowInfoBarError(aMessage),
+      DisplayError: (aMessage) => DisplayErrorMessage(aMessage),
+      TextEntry: (aPrompt, aCaption, aValue, aValidator) =>
+        this.hooks.textEntry?.(aPrompt, aCaption, aValue, aValidator) ?? Promise.resolve(null),
+      PolygonShapeDialog: () => this.hooks.mwavePolygonalShapeDialog?.() ?? Promise.resolve(false),
+      AddInductor: (aFootprint) => {
+        this.m_toolManager!.RunAction<EDA_ITEM | null>(ACTIONS.selectItem, aFootprint);
 
-          const commit = new BOARD_COMMIT(this);
-          commit.Add(aFootprint);
-          commit.Push('Add Microwave Inductor');
-        },
-      };
-
-      this.m_microwaveTool = new MICROWAVE_TOOL(host);
-    }
-
-    return this.m_microwaveTool;
+        const commit = new BOARD_COMMIT(this);
+        commit.Add(aFootprint);
+        commit.Push('Add Microwave Inductor');
+      },
+    };
   }
 
-  /**
-   * `doInteractiveItemPlacement`'s left click on an item riding the cursor:
-   * `aPlacer->PlaceItem( newBoardItem, commit )` is `commit.Add( aItem )`, then
-   * `commit.Push( aCommitMessage )`. The item is at the click already.
-   */
-  PlaceInteractiveItem(aItem: FOOTPRINT, aCommitMessage: string): void {
-    aItem.ClearFlags();
-
-    const commit = new BOARD_COMMIT(this);
-    commit.Add(aItem);
-    commit.Push(aCommitMessage);
+  /** `GetToolManager()->GetTool<MICROWAVE_TOOL>()`. */
+  MicrowaveTool(): MICROWAVE_TOOL {
+    return this.m_toolManager!.FindTool(MICROWAVE_TOOL.NAME) as unknown as MICROWAVE_TOOL;
   }
 
   /**
@@ -1328,6 +1310,7 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     this.m_toolManager.RegisterTool(new PCB_CONTROL());
     this.m_toolManager.RegisterTool(new BOARD_EDITOR_CONTROL());
     this.m_toolManager.RegisterTool(new AUTOPLACE_TOOL());
+    this.m_toolManager.RegisterTool(new MICROWAVE_TOOL());
     this.m_toolManager.RegisterTool(
       new WINDOW_ACTION_BRIDGE((aAction, aEvent) => this.hooks.windowAction?.(aAction, aEvent)),
     );
