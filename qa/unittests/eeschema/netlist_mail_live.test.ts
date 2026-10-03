@@ -138,6 +138,17 @@ describe('MAIL_SCH_GET_NETLIST from the live frame', () => {
     ]);
   });
 
+  it('with no window to ask, does not go on past duplicate sheet names', () => {
+    const frame = frameWith({});
+    const [a, b] = frame
+      .Schematic()
+      .RootScreen()!
+      .Items()
+      .OfType(KICAD_T.SCH_SHEET_T) as unknown as SCH_SHEET[];
+    b!.SetName(a!.GetName());
+    expect(mail(frame, 'annotate')).toBe('annotate');
+  });
+
   it('skips ReadyToNetlist for an empty payload, as upstream does', () => {
     const asked: string[] = [];
     const frame = frameWith({ modalAnnotate: (m) => asked.push(m) });
