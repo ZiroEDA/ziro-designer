@@ -8,29 +8,10 @@
  * project, pick a format plugin, parse the file, migrate/prune/annotate the
  * loaded sheets, then rebuild the connection graph.
  *
- * We have no CLI and no out-of-process API boundary for this to serve (no
- * `eeschema/api/`, per `eeschema/STRUCTURE.md`'s own table), so the bulk of
- * `LoadSchematic` — the `SETTINGS_MANAGER`/`PROJECT` resolution, the actual
- * `SCH_IO` plugin parse, the `SCH_SHEET_LIST`/`SCH_SCREENS` migration walk,
- * `TOOL_MANAGER`/`SCH_COMMIT` wiring for `RecalculateConnections` — has no
- * caller here, the way `STRUCTURE.md` already noted before this file
- * existed. That whole pipeline also currently reaches into
- * `SCHEMATIC`/`connection_graph`/`sch_io/kicad_sexpr`, which are mid-port by
- * other work in this same tree; wiring it up now would mean depending on
- * classes whose shape is still moving.
- *
- * What's ported here instead are `LoadSchematic`'s two genuinely pure,
- * caller-independent pieces, each usable (and tested) on their own once a
- * real caller exists:
- *
- * - the format-dispatch overload (`LoadSchematic(aFileName, aSetActive,
- *   aForceDefaultProject, …)`, which picks a `SCH_IO_MGR::SCH_FILE_T` by
- *   `aFileName`'s extension before calling the format-specific overload) —
- *   `chooseSchFileFormat`;
- * - the root-sheet display-name resolution (`rootSheet->GetName().IsEmpty()`
- *   branch, matching the loaded file against
- *   `PROJECT_FILE::GetTopLevelSheets()`'s entries by absolute path) —
- *   `resolveRootSheetName`.
+ * `LoadSchematic` is the load `kicad-cli` runs before `sch erc` and `sch export
+ * netlist`, so it is what the kicad-cli oracles here are compared through. Not here:
+ * the `SETTINGS_MANAGER` project resolution (the caller hands in the PROJECT), the
+ * legacy plugin, and `MigrateSimModels` (no simulator).
  *
  * `SetSchEditFrame`'s "is the project already the live one" shortcut
  * (`s_SchEditFrame && project == &mgr.Prj()`) is not ported: it exists to
@@ -118,9 +99,7 @@ export function resolveRootSheetName(
  * beside the file. Files are read through `aReadFile` (absolute path -> text), since
  * there is no disk.
  *
- * Not run, because the live model has no counterpart yet: `MigrateSimModels`,
- * `AnnotatePowerSymbols`, `ResolveERCExclusionsPostUpdate`, `RecomputeIntersheetRefs`.
- * None of them changes connectivity.
+ * Not run: `MigrateSimModels` (no simulator).
  *
  * @return the schematic, or null when the root file will not load.
  */
@@ -173,24 +152,6 @@ export function LoadSchematic(
 
   if (rootScreen.GetFileFormatVersionAtLoad() < 20230221) screens.FixLegacyPowerSymbolMismatches();
 
-  // SCHEMATIC_SETTINGS is the project file's nested "schematic" settings upstream; here it
-  // is still the schematic's own, so the one value this load reads from the project -
-  // m_VariantDescriptions, the `schematic.variants` list (schematic_settings.cpp) - is
-  // copied across before LoadVariants() merges it.
-  const variants = project.GetProjectFile().GetJson('schematic.variants');
-
-  if (Array.isArray(variants)) {
-    for (const v of variants as { name?: unknown; description?: unknown }[]) {
-      if (v && typeof v.name === 'string' && v.name !== '')
-        schematic
-          .Settings()
-          .m_VariantDescriptions.set(
-            v.name,
-            typeof v.description === 'string' ? v.description : '',
-          );
-    }
-  }
-
   schematic.LoadVariants();
 
   let projectName = project.GetProjectName();
@@ -206,6 +167,8 @@ export function LoadSchematic(
   screens.PruneOrphanedSymbolInstances(projectName, sheetList);
   screens.PruneOrphanedSheetInstances(projectName, sheetList);
 
+  sheetList.AnnotatePowerSymbols();
+
   if (sheetList.AllSheetPageNumbersEmpty()) sheetList.SetInitialPageNumbers();
   else sheetList.RepairPageNumbers();
 
@@ -215,7 +178,10 @@ export function LoadSchematic(
   if (aCalculateConnectivity)
     schematic.RecalculateConnections(null, SCH_CLEANUP_FLAGS.GLOBAL_CLEANUP);
 
+  schematic.ResolveERCExclusionsPostUpdate();
+
   schematic.SetSheetNumberAndCount();
+  schematic.RecomputeIntersheetRefs();
 
   for (const sheet of sheetList) {
     sheet.UpdateAllScreenReferences();
