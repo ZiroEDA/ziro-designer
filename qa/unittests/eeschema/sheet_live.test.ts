@@ -150,3 +150,23 @@ describe('SCH_EDIT_FRAME::ChangeSheetFile', () => {
     expect(sheet.Type()).toBe(KICAD_T.SCH_SHEET_T);
   });
 });
+
+describe('SCH_SHEET_PATH::TestForRecursion', () => {
+  it('compares a relative sheet file name with an absolute screen path (sch_sheet_path.cpp:700)', () => {
+    const { frame } = openFrame();
+    const sub = frame
+      .Schematic()
+      .Hierarchy()
+      .find((p) => p.size() === 2)!;
+    // The sub-sheet's own file field is relative ("ampli_ht.kicad_sch"); the destination is the
+    // absolute screen path. Linking the root's file under it recurses.
+    expect(sub.Last()!.GetFileName()).toBe('ampli_ht.kicad_sch');
+    expect(
+      sub.TestForRecursion('complex_hierarchy.kicad_sch', '/complex_hierarchy/ampli_ht.kicad_sch'),
+    ).toBe(true);
+    // A file that is not a parent does not.
+    expect(sub.TestForRecursion('other.kicad_sch', '/complex_hierarchy/ampli_ht.kicad_sch')).toBe(
+      false,
+    );
+  });
+});

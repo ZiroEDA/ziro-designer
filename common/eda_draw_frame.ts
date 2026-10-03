@@ -38,7 +38,7 @@ import type { EDA_DRAW_FRAME_LIKE, EDA_ITEM } from './eda_item.js';
 import type { ORIGIN_TRANSFORMS } from './origin_transforms.js';
 import type { BASE_SCREEN } from './base_screen.js';
 import { DS_DRAW_ITEM_LIST } from './drawing_sheet/ds_draw_item.js';
-import { unityScale } from './eda_units.js';
+import { DoubleValueFromStringIn, unityScale } from './eda_units.js';
 import type { PAGE_INFO } from './page_info.js';
 import type { RENDER_SETTINGS } from './render_settings.js';
 import type { PROJECT_TEXT_VARS, TITLE_BLOCK } from './title_block.js';
@@ -653,6 +653,31 @@ export abstract class EDA_DRAW_FRAME extends KIWAY_PLAYER {
   }
 
   /**
+   * `GetCanvas()->GetGAL()->GetGridSize()`. A frame driven without a canvas (the headless
+   * netlister, the AI's edits before the window hosts a GAL canvas) has none to ask, so it takes
+   * the grid COMMON_TOOLS::OnGridChanged would have handed the GAL: the window settings' current
+   * preset (common_tools.cpp Reset), in this frame's units.
+   */
+  private galGridSize(): Vec2 {
+    const gal = this.GetCanvas()?.GetGAL();
+
+    if (gal) return gal.GetGridSize();
+
+    const cfg = this.config();
+    const grid = cfg ? this.GetWindowSettings(cfg).grid : null;
+    const grids = grid && grid.grids.length > 0 ? grid.grids : (cfg?.DefaultGridSizeList() ?? []);
+    const def = grids[Math.max(0, Math.min(grid?.last_size_idx ?? 0, grids.length - 1))];
+
+    if (!def) return { x: 1, y: 1 };
+
+    const scale = this.GetIuScale();
+    return {
+      x: KiROUND(DoubleValueFromStringIn(scale, 'mm', def.x)),
+      y: KiROUND(DoubleValueFromStringIn(scale, 'mm', def.y)),
+    };
+  }
+
+  /**
    * Return the nearest \a aGridSize location to \a aPosition.
    *
    * @param aPosition The position to check.
@@ -660,7 +685,7 @@ export abstract class EDA_DRAW_FRAME extends KIWAY_PLAYER {
    */
   GetNearestGridPosition(aPosition: VECTOR2I): VECTOR2I {
     const gridOrigin = this.GetGridOrigin();
-    const gridSize = this.GetCanvas()!.GetGAL()!.GetGridSize();
+    const gridSize = this.galGridSize();
 
     const xOffset = gridOrigin.x % gridSize.x;
     const x = KiROUND((aPosition.x - xOffset) / gridSize.x);
