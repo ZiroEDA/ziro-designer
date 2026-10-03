@@ -84,6 +84,11 @@ export interface APPEARANCE_CONTROLS_LIKE {
   SetObjectVisible?(aLayer: number, isVisible: boolean): void;
 }
 
+/** `PCB_VERTEX_EDITOR_PANE` as the frame calls it (`pcbnew/widgets/vertex_editor_pane.h`). */
+export interface PCB_VERTEX_EDITOR_PANE_LIKE {
+  OnSelectionChanged(aItem: BOARD_ITEM | null): void;
+}
+
 /** `PANEL_SELECTION_FILTER` as the frame calls it (`pcbnew/widgets/panel_selection_filter.h`). */
 export interface PANEL_SELECTION_FILTER_LIKE {
   SetCheckboxesFromFilter(aOptions: PCB_SELECTION_FILTER_OPTIONS): void;
@@ -101,6 +106,21 @@ export abstract class PCB_BASE_EDIT_FRAME extends PCB_BASE_FRAME {
   m_selectionFilterPanel: PANEL_SELECTION_FILTER_LIKE | null = null;
   /** `m_appearancePanel` (pcb_base_edit_frame.h:282): set by the window that docks it. */
   m_appearancePanel: APPEARANCE_CONTROLS_LIKE | null = null;
+  /**
+   * `m_vertexEditorPane` (pcb_base_edit_frame.h:285): the floating Edit Vertices
+   * pane, which the window creates and floats.
+   */
+  m_vertexEditorPane: PCB_VERTEX_EDITOR_PANE_LIKE | null = null;
+
+  /** `UpdateVertexEditorSelection( aItem )` (pcb_base_edit_frame.cpp:470-474). */
+  UpdateVertexEditorSelection(aItem: BOARD_ITEM | null): void {
+    if (this.m_vertexEditorPane) this.m_vertexEditorPane.OnSelectionChanged(aItem);
+  }
+
+  /** `OnVertexEditorPaneClosed( aPane )` (pcb_base_edit_frame.cpp:476-480). */
+  OnVertexEditorPaneClosed(aPane: PCB_VERTEX_EDITOR_PANE_LIKE): void {
+    if (this.m_vertexEditorPane === aPane) this.m_vertexEditorPane = null;
+  }
 
   protected override unitsChangeRefresh(): void {
     super.unitsChangeRefresh();

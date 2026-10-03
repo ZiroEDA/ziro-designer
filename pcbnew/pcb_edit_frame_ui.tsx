@@ -74,7 +74,6 @@ import {
   allBoardItemIds,
   boardItemBBox,
   parseBoardItemId,
-  pcbMsgPanelInfo,
   boardItemId,
   subsetBoardItems,
   isBoardItemLocked,
@@ -402,6 +401,7 @@ import {
 } from '@ziroeda/common/dialogs/dialog_paste_special.js';
 import { KiStatusBar } from '@ziroeda/common/widgets/kistatusbar.js';
 import { MsgPanel, type MsgPanelItem } from '@ziroeda/common/widgets/msgpanel_ui.js';
+import type { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
 import {
   gridMsg,
   messageTextFromValue,
@@ -582,7 +582,6 @@ import {
   footprintAt,
   type FootprintValues,
 } from './dialogs/dialog_footprint_properties.js';
-import { zoneItemDescription } from './item_description.js';
 import { DialogPadProperties } from './dialogs/dialog_pad_properties_ui.js';
 import { DialogShapeProperties } from './dialogs/dialog_graphic_properties.js';
 import { DialogTextProperties } from './dialogs/dialog_text_properties_ui.js';
@@ -2238,6 +2237,7 @@ export function PcbEditor({
   const setDirtyRef = useRef(setDirty);
   setDirtyRef.current = setDirty;
   const frameRef = useRef<PCB_EDIT_FRAME | null>(null);
+  const [frameMsgItems, setFrameMsgItems] = useState<readonly MSG_PANEL_ITEM[]>([]);
   // HOTKEY_CYCLE_POPUP, this frame's one instance (EDA_DRAW_FRAME::m_hotkeyPopup).
   // Its expiry hands the keyboard back with `m_drawFrame->GetCanvas()->SetFocus()`
   // (common/dialogs/hotkey_cycle_popup.cpp:48).
@@ -4933,6 +4933,14 @@ export function PcbEditor({
       return !isSelectTool(activeToolRef.current);
     },
   };
+  // The frame's message panel is this window's MsgPanel.
+  useEffect(() => {
+    const frame = frameRef.current;
+    if (!frame) return;
+    setFrameMsgItems([...frame.GetMsgPanelItems()]);
+    frame.SetMsgPanelSink((aItems) => setFrameMsgItems([...aItems]));
+    return () => frame.SetMsgPanelSink(null);
+  }, []);
   // `wxWindow::PopupMenu` for the frame: PCB_SELECTION_TOOL's context menu, and
   // any other ACTION_MENU a tool puts up (the disambiguation menu).
   useEffect(() => {
@@ -7383,11 +7391,6 @@ export function PcbEditor({
     [viewports],
   );
 
-  // `BOARD::GetMsgPanelInfo`'s "Unrouted": `GetConnectivity()->GetUnconnectedCount( true )`.
-  // Asked of the BOARD, not of a count of drawn airwires: connectivity is
-  // built by the load, so this answers before the panel does.
-  const unconnectedCount = board?.k ? board.k.GetConnectivity().GetUnconnectedCount(true) : 0;
-
   // Nets of the current selection, their airwires are always shown (even when
   // the global ratsnest is off), so clicking a pad/footprint/track reveals the
   // thin airwires to what it connects to (PCB_SELECTION_TOOL local ratsnest).
@@ -7636,26 +7639,18 @@ export function PcbEditor({
           frame,
           () => requestDrawRef.current(),
           (closed) => {
+            frame.OnVertexEditorPaneClosed(closed);
             if (vertexPaneRef.current === closed) setVertexPane(null);
           },
         ),
       );
+      // `m_vertexEditorPane`: PCB_CONTROL::UpdateMessagePanel's tail keeps it
+      // on the selected item (UpdateVertexEditorSelection).
+      frame.m_vertexEditorPane = pane;
       setVertexPane(pane);
     }
     pane.SetItem(item);
   };
-
-  // `PCB_CONTROL::UpdateMessagePanel`'s tail (`pcb_control.cpp:2872-2880`): the
-  // pane follows a single selected item, and anything else clears it.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `board` is only the trigger; the ids are re-read through boardRef
-  useEffect(() => {
-    const brd = boardRef.current;
-    if (!vertexPane || !brd) return;
-
-    vertexPane.OnSelectionChanged(
-      selection.size === 1 ? liveItemOfId(brd, [...selection][0]!) : null,
-    );
-  }, [selection, vertexPane, board]);
 
   // ----- toolbar handlers -----------------------------------------------------
 
@@ -8261,35 +8256,15 @@ export function PcbEditor({
   // `SetStatusText( msg, 7 )` does not reach this field yet.
   const constraintMsg = '';
   /**
-   * `PCB_CONTROL::UpdateMessagePanel` (pcbnew/tools/pcb_control.cpp:2377) and
-   * the `GetMsgPanelInfo` virtuals it dispatches to — all of them in
-   * `pcbnew/msg_panel.ts`, because upstream they hang off the board items
-   * and not off the frame. The footprint editor reaches the same module with
-   * `frame: 'footprint_edit'`, which is how a footprint gets Library /
-   * Footprint Name / Pads there and Board Side / Rotation / Status here off
-   * one implementation.
+   * The frame's message panel (`EDA_DRAW_FRAME::m_messagePanel`), which
+   * `PCB_CONTROL::UpdateMessagePanel` (pcb_control.cpp:2378-2884) fills on
+   * every selection and connectivity change, and `OnBoardLoaded` with the
+   * board's own info.
    */
-  const messagePanelItems: MsgPanelItem[] = useMemo(() => {
-    if (!board)
-      return [
-        { upper: 'Pads', lower: '0' },
-        { upper: 'Vias', lower: '0' },
-        { upper: 'Track Segments', lower: '0' },
-        { upper: 'Nets', lower: '0' },
-        { upper: 'Unrouted', lower: '0' },
-      ];
-
-    return pcbMsgPanelInfo(
-      {
-        board,
-        units: unitLabel,
-        frame: 'pcb_edit',
-        netClassOf,
-        unconnectedCount,
-      },
-      { ids: [...selection], describe: (id) => describeBoardItem(board, id) },
-    );
-  }, [board, unconnectedCount, selection, netClassOf, unitLabel]);
+  const messagePanelItems: MsgPanelItem[] = frameMsgItems.map((i) => ({
+    upper: i.GetUpperText(),
+    lower: i.GetLowerText(),
+  }));
 
   // Top-toolbar enablement. Save follows the dirty flag; the toolbar's Group /
   // Ungroup grey out per GROUP_TOOL::update, Group needs >= 2 selected items,
@@ -10284,104 +10259,4 @@ export function PcbEditor({
       />
     </div>
   );
-}
-
-/** One-line label for a board item, the disambiguation menu row text
- *  (KiCad's EDA_ITEM::GetItemDescription). */
-function describeBoardItem(board: Board, id: string): string {
-  const r = parseBoardItemId(id);
-  if (!r) return id;
-  const net = (c: number): string => board.nets.get(c) || `net ${c}`;
-  switch (r.kind) {
-    case 'track': {
-      const t = board.tracks[r.index];
-      return t ? `Track ${t.layer} · ${net(t.net)}` : 'Track';
-    }
-    case 'arc': {
-      const a = board.arcs[r.index];
-      return a ? `Arc ${a.layer} · ${net(a.net)}` : 'Arc';
-    }
-    case 'via': {
-      const v = board.vias[r.index];
-      return v ? `Via · ${net(v.net)}` : 'Via';
-    }
-    case 'footprint': {
-      const f = board.footprints[r.index];
-      return f ? `Footprint ${f.reference || f.lib}` : 'Footprint';
-    }
-    case 'zone': {
-      // ZONE::GetItemDescription — net, layers *and* priority. Three pours of
-      // the same net stacked through a board are one menu row repeated three
-      // times without the last two.
-      const z = board.zones[r.index];
-      return z ? zoneItemDescription(board, z) : 'Zone';
-    }
-    case 'shape': {
-      const s = board.shapes[r.index];
-      return s ? `Graphic (${s.kind}) · ${s.layer}` : 'Graphic';
-    }
-    case 'text': {
-      const t = board.texts[r.index];
-      return t ? `Text "${t.text}"` : 'Text';
-    }
-    case 'fptext': {
-      const f = board.footprints[r.index];
-      const t = f?.texts[r.sub ?? 0];
-      if (!t) return 'Text';
-      const label = t.kind === 'reference' ? 'Reference' : t.kind === 'value' ? 'Value' : 'Text';
-      return `${label} "${t.text}"${f?.reference ? ` of ${f.reference}` : ''}`;
-    }
-    case 'pad': {
-      const f = board.footprints[r.index];
-      const p = f?.pads[r.sub ?? 0];
-      if (!p) return 'Pad';
-      return `Pad ${p.number}${f?.reference ? ` of ${f.reference}` : ''} · ${net(p.net ?? 0)}`;
-    }
-    case 'textbox': {
-      // PCB_TEXTBOX::GetItemDescription: "PCB text box '<text>' on <layer>",
-      // lowercase as upstream spells it.
-      const t = board.textBoxes[r.index];
-      return t ? `PCB text box '${t.text}' on ${t.layer}` : 'PCB text box';
-    }
-    case 'table': {
-      // PCB_TABLE::GetItemDescription: "%d column table", lowercase as
-      // upstream spells it.
-      const t = board.tables[r.index];
-      return t ? `${t.columnCount} column table` : 'table';
-    }
-    case 'image': {
-      // PCB_REFERENCE_IMAGE::GetItemDescription is the bare string, with no
-      // layer and no filename — there is nothing else it can usefully say.
-      return 'Reference Image';
-    }
-    case 'dimension': {
-      // PCB_DIMENSION_BASE::GetItemDescription: "Dimension '<text>' on <layer>".
-      // A centre dimension carries no text, so the quotes come out empty, which
-      // is what upstream does too.
-      const d = board.dimensions[r.index];
-      return d ? `Dimension '${d.text?.text ?? ''}' on ${d.layer}` : 'Dimension';
-    }
-    case 'point':
-      // `PCB_POINT::GetItemDescription` returns `_( "Point" )` and nothing
-      // else — no layer, no position. Two snap points on the same spot are
-      // therefore two identical rows in the disambiguation menu, which is what
-      // upstream shows.
-      return 'Point';
-    case 'barcode': {
-      const bc = board.barcodes[r.index];
-      // `PCB_BARCODE::GetItemDescription` (`pcb_barcode.cpp:633-636`):
-      // `_( "Barcode '%s' on %s" )` with `GetText()` — the raw text, variable
-      // references and all, not `GetShownText()`.
-      return bc ? `Barcode '${bc.text}' on ${bc.layer}` : 'Barcode';
-    }
-    case 'group': {
-      const g = board.groups[r.index];
-      // EDA_GROUP::GetItemDescription: 'Group "<name>" with N members' /
-      // "Anonymous Group with N members".
-      if (!g) return 'Group';
-      return g.name
-        ? `Group "${g.name}" with ${g.members.length} members`
-        : `Anonymous Group with ${g.members.length} members`;
-    }
-  }
 }

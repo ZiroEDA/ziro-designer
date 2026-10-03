@@ -23,9 +23,9 @@ import { UNDO_REDO } from '@ziroeda/common/undo_redo_container.js';
 import type { VIEW } from '@ziroeda/common/view/view.js';
 import type { VIEW_CONTROLS } from '@ziroeda/common/view/view_controls.js';
 import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
-import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
+import { INT_MAX, KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { Vec2 as VECTOR2D } from '@ziroeda/kimath/src/math/vector2.js';
-import type { BOARD_ITEM } from '../board_item.js';
+import { BOARD_ITEM } from '../board_item.js';
 import { GENERAL_COLLECTOR } from '../collectors.js';
 import type { PCB_BASE_EDIT_FRAME } from '../pcb_base_edit_frame.js';
 import type { PCB_BASE_FRAME } from '../pcb_base_frame.js';
@@ -44,7 +44,7 @@ import { CLIPBOARD_IO } from '../kicad_clipboard.js';
 import { NETINFO_LIST } from '../netinfo.js';
 import { PCB_REFERENCE_IMAGE } from '../pcb_reference_image.js';
 import { PCB_TEXT } from '../pcb_text.js';
-import type { PCB_VIA } from '../pcb_track.js';
+import { PCB_TRACK, type PCB_VIA } from '../pcb_track.js';
 import type { PASTE_MODE } from '../pcb_base_edit_frame.js';
 import { PCB_ACTIONS, PCB_EVENTS } from './pcb_actions.js';
 import { BOARD_COMMIT } from '../board_commit.js';
@@ -58,8 +58,24 @@ import { EVENTS } from '@ziroeda/common/tool/actions.js';
 import type { COROUTINE_BODY } from '@ziroeda/common/tool/coroutine.js';
 import { BaseType, KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { DoSetGridOrigin } from './pcb_origins.js';
+import { GetMsgPanelDisplayUuid, MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
+import { SEG } from '@ziroeda/kimath/src/geometry/seg.js';
+import { DRC_CONSTRAINT_T } from '../drc/drc_rule.js';
+import { BOARD_CONNECTED_ITEM } from '../board_connected_item.js';
+import {
+  SHAPE_POLY_SET,
+  TransformCircleToPolygon,
+} from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
+import { ARC_LOW_DEF } from '@ziroeda/kimath/src/base_units.js';
+import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
+import { PADSTACK } from '../padstack.js';
+import type { PAD } from '../pad.js';
+import { PCB_GROUP } from '../pcb_group.js';
+import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
+import { unescapeString } from '@ziroeda/common/string_utils.js';
 import {
   GAL_LAYER_ID,
+  UNDEFINED_LAYER,
   GetNetnameLayer,
   IsCopperLayer,
   PCB_LAYER_ID,
@@ -1354,6 +1370,490 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
     return 0;
   }
 
+  /**
+   * `UpdateMessagePanel` (pcb_control.cpp:2378-2884): the message panel for
+   * the selection - the item's own info for one, the clearances between a
+   * pair, and for any selection the type counts, net, length and area.
+   */
+  UpdateMessagePanel(_aEvent: TOOL_EVENT): number {
+    const frame = this.m_frame!;
+    const selTool = this.m_toolMgr!.FindTool('common.InteractiveSelection') as unknown as {
+      GetSelection(): PCB_SELECTION;
+    } | null;
+    const routerTool = this.m_toolMgr!.FindTool('pcbnew.InteractiveRouter') as unknown as {
+      RoutingInProgress(): boolean;
+      UpdateMessagePanel(): void;
+    } | null;
+    const selection = selTool!.GetSelection();
+    const pcbFrame = this.editFrame();
+    const units = frame.GetUnitsProvider();
+    const drcEngine = frame.GetBoard()!.GetDesignSettings().m_DRCEngine;
+
+    const msgItems: MSG_PANEL_ITEM[] = [];
+
+    if (routerTool && routerTool.RoutingInProgress()) {
+      routerTool.UpdateMessagePanel();
+      return 0;
+    }
+
+    if (!pcbFrame && !frame.GetModel()) return 0;
+
+    if (selection.Empty()) {
+      if (!pcbFrame) {
+        const fp = frame.GetModel() as unknown as FOOTPRINT;
+        fp.GetMsgPanelInfo(frame.AsDrawFrameLike(), msgItems);
+      } else {
+        frame.SetMsgPanel(frame.GetBoard()!);
+      }
+    } else if (selection.GetSize() === 1) {
+      const item = selection.Front()!;
+
+      const uuid = GetMsgPanelDisplayUuid(item.m_Uuid);
+
+      if (uuid !== undefined) msgItems.push(new MSG_PANEL_ITEM('UUID', uuid));
+
+      item.GetMsgPanelInfo(frame.AsDrawFrameLike(), msgItems);
+
+      const track = item instanceof PCB_TRACK ? item : null;
+      const net = track ? track.GetNet() : null;
+      const coupledNet = net ? frame.GetBoard()!.DpCoupledNet(net) : null;
+
+      if (coupledNet && drcEngine) {
+        const trackSeg = new SEG(track!.GetStart(), track!.GetEnd());
+        let coupledItem: PCB_TRACK | null = null;
+        let closestDist_sq = 0;
+
+        for (const candidate of frame.GetBoard()!.Tracks()) {
+          if (candidate.GetNet() !== coupledNet) continue;
+
+          const dist_sq = trackSeg.SquaredDistance(
+            new SEG(candidate.GetStart(), candidate.GetEnd()),
+          );
+
+          if (!coupledItem || dist_sq < closestDist_sq) {
+            coupledItem = candidate;
+            closestDist_sq = dist_sq;
+          }
+        }
+
+        let constraint = drcEngine.EvalRules(
+          DRC_CONSTRAINT_T.DIFF_PAIR_GAP_CONSTRAINT,
+          track,
+          coupledItem,
+          track!.GetLayer(),
+        );
+
+        let msg = units.MessageTextFromMinOptMax(constraint.Value());
+
+        if (msg !== '')
+          msgItems.push(
+            new MSG_PANEL_ITEM(`DP Gap Constraints: ${msg}`, `(from ${constraint.GetName()})`),
+          );
+
+        constraint = drcEngine.EvalRules(
+          DRC_CONSTRAINT_T.MAX_UNCOUPLED_CONSTRAINT,
+          track,
+          coupledItem,
+          track!.GetLayer(),
+        );
+
+        if (constraint.Value().HasMax()) {
+          msg = units.MessageTextFromValue(constraint.Value().Max());
+          msgItems.push(
+            new MSG_PANEL_ITEM(`DP Max Uncoupled-length: ${msg}`, `(from ${constraint.GetName()})`),
+          );
+        }
+      }
+    } else if (pcbFrame && selection.GetSize() === 2) {
+      // Pair selection broken into multiple, optional data, starting with the selected item
+      // names
+
+      const a = selection.Items()[0] as BOARD_ITEM | undefined;
+      const b = selection.Items()[1] as BOARD_ITEM | undefined;
+
+      if (a && b)
+        msgItems.push(
+          new MSG_PANEL_ITEM(
+            a.GetItemDescription(units, false),
+            b.GetItemDescription(units, false),
+          ),
+        );
+
+      const a_conn = a instanceof BOARD_CONNECTED_ITEM ? a : null;
+      const b_conn = b instanceof BOARD_CONNECTED_ITEM ? b : null;
+
+      if (a_conn && b_conn) {
+        const overlap = a_conn.GetLayerSet().and(b_conn.GetLayerSet()).and(LSET.AllCuMask());
+        const a_netcode = a_conn.GetNetCode();
+        const b_netcode = b_conn.GetNetCode();
+
+        if (overlap.count() > 0) {
+          const layer = overlap.CuStack()[0]!;
+
+          if ((a_netcode !== b_netcode || a_netcode < 0 || b_netcode < 0) && drcEngine) {
+            const constraint = drcEngine.EvalRules(
+              DRC_CONSTRAINT_T.CLEARANCE_CONSTRAINT,
+              a!,
+              b!,
+              layer,
+            );
+            msgItems.push(
+              new MSG_PANEL_ITEM(
+                'Resolved Clearance',
+                units.MessageTextFromValue(constraint.m_Value.Min()),
+              ),
+            );
+          }
+
+          const a_shape = a_conn.GetEffectiveShape(layer);
+          const b_shape = b_conn.GetEffectiveShape(layer);
+
+          const actual_clearance = a_shape.GetClearance(b_shape);
+
+          if (actual_clearance > -1 && actual_clearance < INT_MAX)
+            msgItems.push(
+              new MSG_PANEL_ITEM('Actual Clearance', units.MessageTextFromValue(actual_clearance)),
+            );
+        }
+      }
+
+      if (a && b && (a.HasHole() || b.HasHole())) {
+        const active = frame.GetActiveLayer();
+        let layer: PCB_LAYER_ID = UNDEFINED_LAYER;
+
+        if (b.IsOnLayer(active) && IsCopperLayer(active)) layer = active;
+        else if (b.HasHole() && a.IsOnLayer(active) && IsCopperLayer(active)) layer = active;
+        else if (a.HasHole() && b.IsOnCopperLayer()) layer = b.GetLayer();
+        else if (b.HasHole() && a.IsOnCopperLayer()) layer = a.GetLayer();
+
+        if (IsCopperLayer(layer)) {
+          let actual = INT_MAX;
+
+          if (a.HasHole() && b.IsOnCopperLayer()) {
+            const hole = a.GetEffectiveHoleShape()!;
+            const other = b.GetEffectiveShape(layer);
+
+            actual = Math.min(actual, hole.GetClearance(other));
+          }
+
+          if (b.HasHole() && a.IsOnCopperLayer()) {
+            const hole = b.GetEffectiveHoleShape()!;
+            const other = a.GetEffectiveShape(layer);
+
+            actual = Math.min(actual, hole.GetClearance(other));
+          }
+
+          if (actual < INT_MAX && drcEngine) {
+            const constraint = drcEngine.EvalRules(
+              DRC_CONSTRAINT_T.HOLE_CLEARANCE_CONSTRAINT,
+              a,
+              b,
+              layer,
+            );
+            msgItems.push(
+              new MSG_PANEL_ITEM(
+                'Resolved Hole Clearance',
+                units.MessageTextFromValue(constraint.m_Value.Min()),
+              ),
+            );
+
+            if (actual > -1 && actual < INT_MAX)
+              msgItems.push(
+                new MSG_PANEL_ITEM('Actual Hole Clearance', units.MessageTextFromValue(actual)),
+              );
+          }
+        }
+      }
+
+      if (a && b) {
+        for (const edgeLayer of [PCB_LAYER_ID.Edge_Cuts, PCB_LAYER_ID.Margin]) {
+          const active = frame.GetActiveLayer();
+          let layer: PCB_LAYER_ID = UNDEFINED_LAYER;
+
+          if (a.IsOnLayer(edgeLayer) && b.Type() !== KICAD_T.PCB_FOOTPRINT_T) {
+            if (b.IsOnLayer(active) && IsCopperLayer(active)) layer = active;
+            else if (IsCopperLayer(b.GetLayer())) layer = b.GetLayer();
+          } else if (b.IsOnLayer(edgeLayer) && a.Type() !== KICAD_T.PCB_FOOTPRINT_T) {
+            if (a.IsOnLayer(active) && IsCopperLayer(active)) layer = active;
+            else if (IsCopperLayer(a.GetLayer())) layer = a.GetLayer();
+          }
+
+          if (layer >= 0 && drcEngine) {
+            const constraint = drcEngine.EvalRules(
+              DRC_CONSTRAINT_T.EDGE_CLEARANCE_CONSTRAINT,
+              a,
+              b,
+              layer,
+            );
+
+            if (edgeLayer === PCB_LAYER_ID.Edge_Cuts)
+              msgItems.push(
+                new MSG_PANEL_ITEM(
+                  'Resolved Edge Clearance',
+                  units.MessageTextFromValue(constraint.m_Value.Min()),
+                ),
+              );
+            else
+              msgItems.push(
+                new MSG_PANEL_ITEM(
+                  'Resolved Margin Clearance',
+                  units.MessageTextFromValue(constraint.m_Value.Min()),
+                ),
+              );
+          }
+        }
+      }
+    }
+
+    if (selection.GetSize()) {
+      if (msgItems.length === 0) {
+        // Count items by type, in KICAD_T order (a std::map's)
+        const typeCounts = new Map<KICAD_T, number>();
+
+        for (const item of selection.Items())
+          typeCounts.set(item.Type(), (typeCounts.get(item.Type()) ?? 0) + 1);
+
+        const types = [...typeCounts.keys()].sort((x, y) => x - y);
+
+        // Check if all items are the same type
+        const allSameType = types.length === 1;
+        const commonType = allSameType ? types[0]! : KICAD_T.NOT_USED;
+
+        if (allSameType) {
+          // Show "Type: N" for homogeneous selections
+          const typeName = selection.Front()!.GetFriendlyName();
+          msgItems.push(new MSG_PANEL_ITEM(typeName, `${selection.GetSize()}`));
+
+          // For pads, show common properties
+          if (commonType === KICAD_T.PCB_PAD_T) {
+            const layers = new Set<string>();
+            const shapes = new Set<number>();
+            const sizes = new Set<string>();
+
+            for (const item of selection.Items()) {
+              const pad = item as unknown as PAD;
+              layers.add(pad.LayerMaskDescribe());
+              shapes.add(pad.GetShape(PADSTACK.ALL_LAYERS));
+              const size = pad.GetSize(PADSTACK.ALL_LAYERS);
+              sizes.add(`${size.x},${size.y}`);
+            }
+
+            if (layers.size === 1) msgItems.push(new MSG_PANEL_ITEM('Layer', [...layers][0]!));
+
+            if (shapes.size === 1) {
+              const firstPad = selection.Front() as unknown as PAD;
+              msgItems.push(
+                new MSG_PANEL_ITEM('Pad Shape', firstPad.ShowPadShape(PADSTACK.ALL_LAYERS)),
+              );
+            }
+
+            if (sizes.size === 1) {
+              const size = (selection.Front() as unknown as PAD).GetSize(PADSTACK.ALL_LAYERS);
+              msgItems.push(
+                new MSG_PANEL_ITEM(
+                  'Pad Size',
+                  `${units.MessageTextFromValue(size.x)} x ${units.MessageTextFromValue(size.y)}`,
+                ),
+              );
+            }
+          }
+        } else {
+          // Show type breakdown for mixed selections
+          let breakdown = '';
+
+          for (const type of types) {
+            if (breakdown !== '') breakdown += ', ';
+
+            // Get friendly name from first item of this type
+            let typeName = '';
+
+            for (const item of selection.Items()) {
+              if (item.Type() === type) {
+                typeName = item.GetFriendlyName();
+                break;
+              }
+            }
+
+            breakdown += `${typeName}: ${typeCounts.get(type)}`;
+          }
+
+          msgItems.push(
+            new MSG_PANEL_ITEM('Selected Items', `${selection.GetSize()} (${breakdown})`),
+          );
+        }
+
+        if (this.m_isBoardEditor) {
+          const netNames = new Set<string>();
+          const netClasses = new Set<string>();
+
+          for (const item of selection.Items()) {
+            if (item instanceof BOARD_CONNECTED_ITEM) {
+              const bci = item;
+
+              if (!bci.GetNet() || bci.GetNetCode() <= NETINFO_LIST.UNCONNECTED) continue;
+
+              netNames.add(unescapeString(bci.GetNetname()));
+              netClasses.add(unescapeString(bci.GetEffectiveNetClass().GetHumanReadableName()));
+
+              if (netNames.size > 1 && netClasses.size > 1) break;
+            }
+          }
+
+          if (netNames.size === 1) msgItems.push(new MSG_PANEL_ITEM('Net', [...netNames][0]!));
+
+          if (netClasses.size === 1)
+            msgItems.push(new MSG_PANEL_ITEM('Resolved Netclass', [...netClasses][0]!));
+        }
+      }
+
+      if (selection.GetSize() >= 2) {
+        let lengthValid = true;
+        let selectedLength = 0;
+
+        // Lambda to accumulate track length if item is a track or arc, otherwise mark invalid
+        const accumulateTrackLength = (aItem: EDA_ITEM): void => {
+          if (aItem.Type() === KICAD_T.PCB_TRACE_T || aItem.Type() === KICAD_T.PCB_ARC_T) {
+            selectedLength += (aItem as unknown as PCB_TRACK).GetLength();
+          } else if (aItem.Type() === KICAD_T.PCB_VIA_T) {
+            // zero 2D length
+          } else if (aItem.Type() === KICAD_T.PCB_SHAPE_T) {
+            const shape = aItem as unknown as PCB_SHAPE;
+
+            if (
+              shape.GetShape() === SHAPE_T.SEGMENT ||
+              shape.GetShape() === SHAPE_T.ARC ||
+              shape.GetShape() === SHAPE_T.BEZIER
+            )
+              selectedLength += shape.GetLength();
+            else lengthValid = false;
+          }
+          // Use dynamic_cast to include PCB_GENERATORs.
+          else if (aItem instanceof PCB_GROUP) {
+            aItem.RunOnChildren(accumulateTrackLength, RECURSE_MODE.RECURSE);
+          } else {
+            lengthValid = false;
+          }
+        };
+
+        for (const item of selection.Items()) {
+          if (lengthValid) accumulateTrackLength(item);
+        }
+
+        if (lengthValid)
+          msgItems.push(
+            new MSG_PANEL_ITEM('Selected 2D Length', units.MessageTextFromValue(selectedLength)),
+          );
+      }
+
+      if (selection.GetSize() >= 2 && selection.GetSize() < 100) {
+        const enabledLayers = frame.GetBoard()!.GetEnabledLayers();
+        const enabledCopper = LSET.AllCuMask(frame.GetBoard()!.GetCopperLayerCount());
+        let areaValid = true;
+        let hasCopper = false;
+        let hasNonCopper = false;
+
+        const layerPolys = new Map<PCB_LAYER_ID, SHAPE_POLY_SET>();
+        const holes = new SHAPE_POLY_SET();
+
+        const accumulateArea = (aItem: EDA_ITEM): void => {
+          if (aItem.Type() === KICAD_T.PCB_FOOTPRINT_T || aItem.Type() === KICAD_T.PCB_MARKER_T) {
+            areaValid = false;
+            return;
+          }
+
+          if (aItem instanceof PCB_GROUP) {
+            aItem.RunOnChildren(accumulateArea, RECURSE_MODE.RECURSE);
+            return;
+          }
+
+          if (aItem instanceof BOARD_ITEM) {
+            const boardItem = aItem;
+            boardItem.RunOnChildren(accumulateArea, RECURSE_MODE.NO_RECURSE);
+
+            const itemLayers = boardItem.GetLayerSet().and(enabledLayers);
+
+            for (const layer of itemLayers.Seq()) {
+              let poly = layerPolys.get(layer);
+
+              if (!poly) {
+                poly = new SHAPE_POLY_SET();
+                layerPolys.set(layer, poly);
+              }
+
+              boardItem.TransformShapeToPolySet(
+                poly,
+                layer,
+                0,
+                ARC_LOW_DEF,
+                ERROR_LOC.ERROR_INSIDE,
+              );
+
+              if (enabledCopper.Contains(layer)) hasCopper = true;
+              else hasNonCopper = true;
+            }
+
+            if (aItem.Type() === KICAD_T.PCB_PAD_T && (aItem as unknown as PAD).HasHole()) {
+              (aItem as unknown as PAD).TransformHoleToPolygon(
+                holes,
+                0,
+                ARC_LOW_DEF,
+                ERROR_LOC.ERROR_OUTSIDE,
+              );
+            } else if (aItem.Type() === KICAD_T.PCB_VIA_T) {
+              const via = aItem as unknown as PCB_VIA;
+              const center = via.GetPosition();
+              const R = Math.trunc(via.GetDrillValue() / 2);
+
+              TransformCircleToPolygon(holes, center, R, ARC_LOW_DEF, ERROR_LOC.ERROR_OUTSIDE);
+            }
+          }
+        };
+
+        for (const item of selection.Items()) {
+          if (areaValid) accumulateArea(item);
+        }
+
+        if (areaValid) {
+          let area = 0.0;
+
+          for (const [layer, layerPoly] of [...layerPolys].sort((x, y) => x[0] - y[0])) {
+            // Only subtract holes from copper layers
+            if (enabledCopper.Contains(layer)) layerPoly.BooleanSubtract(holes);
+
+            area += layerPoly.Area();
+          }
+
+          // Choose appropriate label based on what layers are involved
+          let areaLabel: string;
+
+          if (hasCopper && !hasNonCopper) areaLabel = 'Selected 2D Copper Area';
+          else if (!hasCopper && hasNonCopper) areaLabel = 'Selected 2D Area';
+          else areaLabel = 'Selected 2D Total Area';
+
+          msgItems.push(
+            new MSG_PANEL_ITEM(areaLabel, units.MessageTextFromValue(area, true, 'area')),
+          );
+        }
+      }
+    } else {
+      frame.GetBoard()!.GetMsgPanelInfo(frame.AsDrawFrameLike(), msgItems);
+    }
+
+    frame.SetMsgPanel(msgItems);
+
+    // Update vertex editor if it exists
+    if (frame.IsType(FRAME_T.FRAME_PCB_EDITOR) || frame.IsType(FRAME_T.FRAME_FOOTPRINT_EDITOR)) {
+      const editFrame = frame as unknown as PCB_BASE_EDIT_FRAME;
+      const selectedItem =
+        selection.GetSize() === 1 && selection.Front()! instanceof BOARD_ITEM
+          ? (selection.Front() as BOARD_ITEM)
+          : null;
+      editFrame.UpdateVertexEditorSelection(selectedItem);
+    }
+
+    return 0;
+  }
+
   /** `FlipPcbView` (pcb_control.cpp:2946-2953). */
   FlipPcbView(_aEvent: TOOL_EVENT): number {
     const opts = Object.assign(new PCB_DISPLAY_OPTIONS(), this.m_frame!.GetDisplayOptions());
@@ -1494,6 +1994,16 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
       SYNC_HANDLER<PCB_CONTROL>(this.LayerPresetFeedback),
       PCB_EVENTS.LayerPairPresetChangedByKeyEvent(),
     );
+
+    for (const event of [
+      EVENTS.PointSelectedEvent,
+      EVENTS.SelectedEvent,
+      EVENTS.UnselectedEvent,
+      EVENTS.ClearedEvent,
+      EVENTS.SelectedItemsModified,
+      EVENTS.ConnectivityChangedEvent,
+    ])
+      this.Go(SYNC_HANDLER<PCB_CONTROL>(this.UpdateMessagePanel), event);
 
     this.Go(SYNC_HANDLER<PCB_CONTROL>(this.Undo), ACTIONS.undo.MakeEvent());
     this.Go(SYNC_HANDLER<PCB_CONTROL>(this.Redo), ACTIONS.redo.MakeEvent());

@@ -1473,7 +1473,6 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     return this.hooks.showConnectedPadDialog?.(aTitle, aMessage, aDetails) ?? Promise.resolve(null);
   }
 
-  /** `PCB_BASE_EDIT_FRAME::OpenVertexEditor( aItem )`. */
   /** `DIALOG_PNS_SETTINGS::ShowModal`, through the window. */
   ShowPnsSettingsDialog(aSettings: RoutingSettings): Promise<void> {
     return this.hooks.showPnsSettingsDialog?.(aSettings) ?? Promise.resolve();
@@ -1491,6 +1490,11 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     return this.hooks.showTrackViaSizeDialog?.(aValue) ?? Promise.resolve(null);
   }
 
+  /**
+   * `PCB_BASE_EDIT_FRAME::OpenVertexEditor( aItem )` (pcb_base_edit_frame.cpp:
+   * 439-462): the pane is a floating window the page renders, so the window
+   * creates it and sets `m_vertexEditorPane`.
+   */
   OpenVertexEditor(aItem: BOARD_ITEM): void {
     this.hooks.openVertexEditor?.(aItem);
   }
