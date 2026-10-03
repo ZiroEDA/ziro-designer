@@ -1,0 +1,618 @@
+{
+ "$schema": "https://schemas.kicad.org/erc.v1.json",
+ "coordinate_units": "mm",
+ "ignored_checks": [
+  {
+   "description": "Global label only appears once in the schematic",
+   "key": "single_global_label"
+  },
+  {
+   "description": "Four connection points are joined together",
+   "key": "four_way_junction"
+  },
+  {
+   "description": "Assigned footprint doesn't match footprint filters",
+   "key": "footprint_filter"
+  }
+ ],
+ "included_severities": [
+  "error",
+  "warning",
+  "exclusion"
+ ],
+ "kicad_version": "10.0.6",
+ "sheets": [
+  {
+   "path": "/",
+   "uuid_path": "/3082b26f-b83d-4458-bb0e-9c16987db84d",
+   "violations": [
+    {
+     "description": "Label not connected",
+     "items": [
+      {
+       "description": "Label 'test.y'",
+       "pos": {
+        "x": 1.14935,
+        "y": 0.62865
+       },
+       "uuid": "45c6ede6-8190-4988-bc48-67133564f0e5"
+      }
+     ],
+     "severity": "error",
+     "type": "label_dangling"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Horizontal Bus, length 0.2794 mm",
+       "pos": {
+        "x": 0.85725,
+        "y": 0.4826
+       },
+       "uuid": "6a3f32a3-fa94-40d4-b2c7-ea69521bd6e2"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "The current configuration does not include the symbol library '~ Connector_Generic'",
+     "items": [
+      {
+       "description": "Symbol J1 [Conn_01x03]",
+       "pos": {
+        "x": 0.69215,
+        "y": 0.4953
+       },
+       "uuid": "b606574e-10df-4dfe-9667-bc4a052fb03b"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Symbol J1 Pin 1 [Pin_1, Passive, Line]",
+       "pos": {
+        "x": 0.74295,
+        "y": 0.4699
+       },
+       "uuid": "54680977-9c2b-43fe-96e3-95cd1de0091b"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Horizontal Wire, length 0.1968 mm",
+       "pos": {
+        "x": 0.74295,
+        "y": 0.4699
+       },
+       "uuid": "5630bc71-58d3-4869-a158-8f363547975f"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Horizontal Wire, length 0.2349 mm",
+       "pos": {
+        "x": 0.74295,
+        "y": 0.4953
+       },
+       "uuid": "0794b1de-3f74-42d6-8eec-5e4f7d432643"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Horizontal Wire, length 0.3239 mm",
+       "pos": {
+        "x": 0.74295,
+        "y": 0.5207
+       },
+       "uuid": "f8e1eb65-4c18-4582-8471-178984b3b373"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Horizontal Bus, length 0.1842 mm",
+       "pos": {
+        "x": 0.9652,
+        "y": 0.4445
+       },
+       "uuid": "0dfc5bc1-999f-4a77-9576-ff0db5ad0680"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Horizontal Bus, length 0.0571 mm",
+       "pos": {
+        "x": 1.14935,
+        "y": 0.4445
+       },
+       "uuid": "a58ab488-7e75-430f-8acd-861726ee59ac"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Horizontal Bus, length 0.2731 mm",
+       "pos": {
+        "x": 0.5842,
+        "y": 0.5588
+       },
+       "uuid": "df7258c0-53f9-48b3-afcd-dffad21b67e1"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Horizontal Bus, length 0.2858 mm",
+       "pos": {
+        "x": 1.11125,
+        "y": 0.5461
+       },
+       "uuid": "6997dea3-a1bb-4070-8e43-0a60adb64917"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Horizontal Bus, length 0.1397 mm",
+       "pos": {
+        "x": 1.11125,
+        "y": 0.60325
+       },
+       "uuid": "9db4f7b4-6417-4133-8c2e-58f8aa4b978d"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Bus to wire entry",
+       "pos": {
+        "x": 1.25095,
+        "y": 0.60325
+       },
+       "uuid": "2cfa0c33-3a80-46bf-be1f-9e5e2543d076"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Horizontal Wire, length 0.0762 mm",
+       "pos": {
+        "x": 1.22555,
+        "y": 0.62865
+       },
+       "uuid": "4714ee9d-d58e-4b5e-a14d-1ecea4ec0ed4"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Bus to wire entry",
+       "pos": {
+        "x": 1.25095,
+        "y": 0.60325
+       },
+       "uuid": "2cfa0c33-3a80-46bf-be1f-9e5e2543d076"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Horizontal Bus, length 0.1461 mm",
+       "pos": {
+        "x": 1.25095,
+        "y": 0.60325
+       },
+       "uuid": "fe0aac26-1edf-483b-92d6-7bc528cf128d"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "The current configuration does not include the symbol library '~ Connector_Generic'",
+     "items": [
+      {
+       "description": "Symbol J2 [Conn_01x03]",
+       "pos": {
+        "x": 0.60325,
+        "y": 0.55245
+       },
+       "uuid": "7237f2f6-7a70-470a-83e2-356d7d23087b"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Horizontal Wire, length 0.3048 mm",
+       "pos": {
+        "x": 0.65405,
+        "y": 0.52705
+       },
+       "uuid": "95c7c359-76de-4ccb-a611-d72b625445bc"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Symbol J2 Pin 1 [Pin_1, Passive, Line]",
+       "pos": {
+        "x": 0.65405,
+        "y": 0.52705
+       },
+       "uuid": "e8152456-44bc-40e6-beab-169440849142"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Horizontal Wire, length 0.0698 mm",
+       "pos": {
+        "x": 0.65405,
+        "y": 0.55245
+       },
+       "uuid": "60c6901a-ee12-4adc-a4a9-900daa3c1d3c"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Horizontal Wire, length 0.0508 mm",
+       "pos": {
+        "x": 0.65405,
+        "y": 0.57785
+       },
+       "uuid": "7347a216-d108-44de-ba7a-ae236d6bdc99"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Vertical Wire, length 0.1080 mm",
+       "pos": {
+        "x": 0.70485,
+        "y": 0.57785
+       },
+       "uuid": "489778e1-01ed-4742-9c6f-fd77c10d7bcb"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Horizontal Wire, length 0.3810 mm",
+       "pos": {
+        "x": 0.70485,
+        "y": 0.6858
+       },
+       "uuid": "c663a086-81a8-42a1-a455-2639e13f24ce"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Vertical Wire, length 0.1080 mm",
+       "pos": {
+        "x": 0.7239,
+        "y": 0.55245
+       },
+       "uuid": "e0d86b2d-3926-41bc-be33-0cb97efda5cb"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Bus to wire entry",
+       "pos": {
+        "x": 0.98425,
+        "y": 0.50165
+       },
+       "uuid": "85d4833f-eb40-430d-8a9f-08a5572cc531"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Horizontal Bus, length 0.1842 mm",
+       "pos": {
+        "x": 0.98425,
+        "y": 0.50165
+       },
+       "uuid": "7c38bae9-4512-42bf-bdc9-28421ee84941"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Bus to wire entry",
+       "pos": {
+        "x": 0.98425,
+        "y": 0.50165
+       },
+       "uuid": "85d4833f-eb40-430d-8a9f-08a5572cc531"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Horizontal Bus, length 0.1842 mm",
+       "pos": {
+        "x": 0.98425,
+        "y": 0.50165
+       },
+       "uuid": "e267daec-e366-4386-b62f-e6dc27de20f6"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Bus to wire entry",
+       "pos": {
+        "x": 1.02235,
+        "y": 0.6096
+       },
+       "uuid": "3b511746-2bc6-475f-86a1-1d3f9104a48a"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Vertical Wire, length 0.0254 mm",
+       "pos": {
+        "x": 0.99695,
+        "y": 0.635
+       },
+       "uuid": "d7de1da6-5a37-4b58-b8dc-ed9ab31d7e31"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Horizontal Wire, length 0.2731 mm",
+       "pos": {
+        "x": 0.7239,
+        "y": 0.6604
+       },
+       "uuid": "bf1ebdaf-06e1-471d-9578-e11273a9dcbf"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Bus to wire entry",
+       "pos": {
+        "x": 1.02235,
+        "y": 0.6096
+       },
+       "uuid": "3b511746-2bc6-475f-86a1-1d3f9104a48a"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Horizontal Bus, length 0.2223 mm",
+       "pos": {
+        "x": 0.8001,
+        "y": 0.6096
+       },
+       "uuid": "7ad7c6ef-6b7c-4762-bc3c-ddbf9a703eea"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Vertical Wire, length 0.0508 mm",
+       "pos": {
+        "x": 1.08585,
+        "y": 0.635
+       },
+       "uuid": "17aa2347-e3d1-4a22-9cd5-135fed5df610"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Bus to wire entry",
+       "pos": {
+        "x": 1.11125,
+        "y": 0.6096
+       },
+       "uuid": "72af7004-c121-4a1c-b459-4ea3e5468598"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Bus to wire entry",
+       "pos": {
+        "x": 1.11125,
+        "y": 0.6096
+       },
+       "uuid": "72af7004-c121-4a1c-b459-4ea3e5468598"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Horizontal Bus, length 0.0889 mm",
+       "pos": {
+        "x": 1.11125,
+        "y": 0.6096
+       },
+       "uuid": "7ca2c0d9-073c-460e-8a30-0b7b73ab96c6"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Horizontal Bus, length 0.0571 mm",
+       "pos": {
+        "x": 1.1684,
+        "y": 0.6096
+       },
+       "uuid": "f48ae99f-9e30-4937-803d-8e15eee62273"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    }
+   ]
+  },
+  {
+   "path": "/a/",
+   "uuid_path": "/3082b26f-b83d-4458-bb0e-9c16987db84d/409e30f5-e026-4121-aa4f-ead0fa3cc75d",
+   "violations": []
+  },
+  {
+   "path": "/a2/",
+   "uuid_path": "/3082b26f-b83d-4458-bb0e-9c16987db84d/8e047953-57e8-499d-89c7-aaeb7ad61c51",
+   "violations": []
+  },
+  {
+   "path": "/a2/b/",
+   "uuid_path": "/3082b26f-b83d-4458-bb0e-9c16987db84d/8e047953-57e8-499d-89c7-aaeb7ad61c51/2866a517-6cac-46c4-af83-6d16fab5045c",
+   "violations": []
+  }
+ ],
+ "source": "bus_connection.kicad_sch"
+}

@@ -13,6 +13,18 @@
  * live items: the frame methods `SCH_COMMIT` and `schematic_undo_redo.ts`
  * (`SCH_UNDO_REDO_MIXIN`, mixed in below) need.
  */
+import { SCH_ANNOTATE_MIXIN } from './annotate.js';
+import { SCH_NETLIST_GENERATOR_MIXIN } from './netlist_exporters/netlist_generator.js';
+import { NETLIST_EXPORTER_KICAD } from './netlist_exporters/netlist_exporter_kicad.js';
+import {
+  GNL_ALL,
+  GNL_T,
+  type NETLIST_LIBRARY_URI,
+} from './netlist_exporters/netlist_exporter_xml.js';
+import { SCH_FILES_IO_MIXIN } from './files-io.js';
+import { SCH_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import type { SCH_GLOBALLABEL } from './sch_label.js';
+import type { SCHEMATIC_HOLDER } from './schematic_holder.js';
 import {
   frameTitle,
   type FrameTitleParts,
@@ -65,7 +77,21 @@ export interface SCH_EDIT_FRAME_HOOKS {
    * `NETLIST_EXPORTER_KICAD::Format( GNL_ALL | GNL_OPT_KICAD )`. Null when the
    * schematic is not ready to netlist, which leaves the payload unchanged.
    */
-  getNetlist(aAnnotateMessage: string): string | null;
+  getNetlist?(aAnnotateMessage: string): string | null;
+  /**
+   * TRANSITIONAL (S2-5b, deleted at S7): bring this frame's live `Schematic()` up to the
+   * window's records. When given, the netlist mail is answered from the live model.
+   */
+  syncLiveSchematic?(): boolean;
+  /** `ModalAnnotate( aMessage )`: the Annotate dialog, opened to fix annotation. */
+  modalAnnotate?(aMessage: string): void;
+  /** `IsOK( this, aMessage )`: a yes/no confirmation. */
+  isOK?(aMessage: string): boolean;
+  /**
+   * `LIBRARY_MANAGER::GetFullURI( SYMBOL, nickname )`: the netlist's `(libraries …)` asks it.
+   * Without it no library is listed.
+   */
+  symbolLibraryUri?: NETLIST_LIBRARY_URI;
   /**
    * `SCH_SELECTION_TOOL::GetSelection()` on the live model (the design block
    * commands read it). Optional: a frame with no selection tool has none.
@@ -79,10 +105,15 @@ export interface SCH_EDIT_FRAME_HOOKS {
 }
 
 // biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (SCH_UNDO_REDO_MIXIN, see libs/core/mixins.ts)
-export interface SCH_EDIT_FRAME extends SCH_UNDO_REDO_MIXIN, SCH_DESIGN_BLOCK_UTILS_MIXIN {}
+export interface SCH_EDIT_FRAME
+  extends SCH_UNDO_REDO_MIXIN,
+    SCH_DESIGN_BLOCK_UTILS_MIXIN,
+    SCH_FILES_IO_MIXIN,
+    SCH_ANNOTATE_MIXIN,
+    SCH_NETLIST_GENERATOR_MIXIN {}
 
 // biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (SCH_UNDO_REDO_MIXIN, see libs/core/mixins.ts)
-export class SCH_EDIT_FRAME extends SCH_BASE_FRAME {
+export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
   private readonly hooks: SCH_EDIT_FRAME_HOOKS;
 
   /// The live-model schematic this frame edits (null until one is set).
@@ -138,6 +169,9 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME {
     if (!this.m_toolManager) this.m_toolManager = new TOOL_MANAGER();
 
     this.m_toolManager.SetEnvironment(aSchematic, null, null, null, this);
+
+    // sch_edit_frame.cpp:179 / :3051: the schematic calls back through its editor.
+    aSchematic?.SetSchematicHolder(this);
   }
 
   Schematic(): SCHEMATIC {
@@ -157,14 +191,58 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME {
     return this.m_schematic!.CurrentSheet();
   }
 
+  /** `SCH_EDIT_FRAME::GetScreenDesc` (sch_edit_frame.cpp:1054): the current sheet's name. */
+  override GetScreenDesc(): string {
+    return this.GetCurrentSheet().Last()!.GetName();
+  }
+
+  /** `SCH_EDIT_FRAME::GetFullScreenDesc` (:1060): the current sheet's human-readable path. */
+  override GetFullScreenDesc(): string {
+    return this.GetCurrentSheet().PathHumanReadable();
+  }
+
   /**
    * `SCH_EDIT_FRAME::RecalculateConnections`: the schematic's, with the change handler that
    * flags a changed highlighted net.  The view refresh upstream does after is left out.
    */
   RecalculateConnections(aCommit: SCH_COMMIT | null, aCleanupFlags: SCH_CLEANUP_FLAGS): void {
-    this.m_schematic!.RecalculateConnections(aCommit, aCleanupFlags, () => {
-      this.m_highlightedConnChanged = true;
-    });
+    this.m_schematic!.RecalculateConnections(
+      aCommit,
+      aCleanupFlags,
+      this.m_toolManager,
+      null,
+      null,
+      () => {
+        this.m_highlightedConnChanged = true;
+      },
+    );
+  }
+
+  /** `RecomputeIntersheetRefs()` (sch_edit_frame.cpp:1966). */
+  RecomputeIntersheetRefs(): void {
+    this.Schematic().RecomputeIntersheetRefs();
+  }
+
+  /** `IntersheetRefUpdate()` (sch_edit_frame.cpp:1972): repaint the label's references. */
+  IntersheetRefUpdate(aItem: SCH_GLOBALLABEL): void {
+    this.GetCanvas()?.GetView().Update(aItem);
+  }
+
+  /** `ShowAllIntersheetRefs()` (sch_edit_frame.cpp:1978). */
+  ShowAllIntersheetRefs(aShow: boolean): void {
+    this.RecomputeIntersheetRefs();
+
+    this.GetCanvas()?.GetView().SetLayerVisible(SCH_LAYER_ID.LAYER_INTERSHEET_REFS, aShow);
+  }
+
+  /** `ModalAnnotate( aMessage )` (dialog_annotate.cpp): the window's Annotate dialog. */
+  ModalAnnotate(aMessage: string): void {
+    this.hooks.modalAnnotate?.(aMessage);
+  }
+
+  /** `IsOK( this, aMessage )` (confirm.cpp): no window to ask is a no. */
+  IsOK(aMessage: string): boolean {
+    return this.hooks.isOK?.(aMessage) ?? false;
   }
 
   SetSheetNumberAndCount(): void {
@@ -260,9 +338,28 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME {
         break;
 
       case MAIL_T.MAIL_SCH_GET_NETLIST: {
-        const netlist = this.hooks.getNetlist(payload);
+        if (!this.hooks.syncLiveSchematic) {
+          // TRANSITIONAL: the record model's netlist, until the window keeps a live schematic.
+          const netlist = this.hooks.getNetlist?.(payload) ?? null;
 
-        if (netlist !== null) mail.SetPayload(netlist);
+          if (netlist !== null) mail.SetPayload(netlist);
+
+          break;
+        }
+
+        if (!this.hooks.syncLiveSchematic()) break;
+
+        if (payload !== '') {
+          // Ensure schematic is OK for netlist creation (especially that it is fully annotated):
+          if (!this.ReadyToNetlist(payload)) break;
+        }
+
+        // (ADVANCED_CFG::m_IncrementalConnectivity is off by default: no recalculation here.)
+        const exporter = new NETLIST_EXPORTER_KICAD(this.Schematic());
+
+        if (this.hooks.symbolLibraryUri) exporter.m_libraryUri = this.hooks.symbolLibraryUri;
+
+        mail.SetPayload(exporter.Format(GNL_ALL | GNL_T.GNL_OPT_KICAD));
 
         break;
       }
@@ -657,7 +754,13 @@ export const SCH_BOTTOM_DOCK = {
   minHeight: 60,
 } as const;
 
-applyMixins(SCH_EDIT_FRAME, [SCH_UNDO_REDO_MIXIN, SCH_DESIGN_BLOCK_UTILS_MIXIN]);
+applyMixins(SCH_EDIT_FRAME, [
+  SCH_UNDO_REDO_MIXIN,
+  SCH_DESIGN_BLOCK_UTILS_MIXIN,
+  SCH_FILES_IO_MIXIN,
+  SCH_ANNOTATE_MIXIN,
+  SCH_NETLIST_GENERATOR_MIXIN,
+]);
 
 /**
  * `SCH_EDIT_FRAME::updateTitle` (eeschema/sch_edit_frame.cpp:1819-1862).

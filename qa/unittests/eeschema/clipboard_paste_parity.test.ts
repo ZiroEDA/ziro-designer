@@ -13,7 +13,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
-import { readSchematic, schSymbolLibraryName, RefDesTracker } from '@ziroeda/eeschema';
+import { readSchematic, schSymbolLibraryName, REFDES_TRACKER } from '@ziroeda/eeschema';
 import type { Schematic } from '@ziroeda/eeschema';
 import {
   copySelectionText,
@@ -291,9 +291,9 @@ describe('re-annotation honours the project annotation settings', () => {
   it('and skips a designator the REFDES_TRACKER has retired', () => {
     // REFDES_TRACKER with reuse off: a number that was used once is never
     // handed out again, even though nothing currently holds it.
-    const tracker = new RefDesTracker();
-    tracker.reuseRefDes = false;
-    tracker.insert('R6');
+    const tracker = new REFDES_TRACKER();
+    tracker.SetReuseRefDes(false);
+    tracker.Insert('R6');
     const next = copyPaste(src(), 0, dest(), { annotate: { tracker } });
     expect(refOf(next, 1)).toBe('R7');
   });

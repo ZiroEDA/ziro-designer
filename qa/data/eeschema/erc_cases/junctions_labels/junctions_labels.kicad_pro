@@ -1,0 +1,1 @@
+{ "erc": { "rule_severities": { "four_way_junction": "warning" } }, "meta": { "filename": "junctions_labels.kicad_pro", "version": 3 } }

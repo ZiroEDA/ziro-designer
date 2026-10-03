@@ -25,7 +25,7 @@ import {
   FormatStreamData,
   FormatUuid,
 } from '@ziroeda/common/io/kicad/kicad_io_utils.js';
-import { type KIID, KIID_PATH, niluuid } from '@ziroeda/common/kiid.js';
+import { type KIID, type KIID_PATH, niluuid } from '@ziroeda/common/kiid.js';
 import { SCH_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { type OUTPUTFORMATTER, PRETTIFIED_STRING_FORMATTER } from '@ziroeda/common/richio.js';
 import { LINE_STYLE, STROKE_PARAMS } from '@ziroeda/common/stroke_params.js';
@@ -97,7 +97,7 @@ const kiidPathCmp = (a: KIID_PATH, b: KIID_PATH): number =>
   a.lessThan(b) ? -1 : b.lessThan(a) ? 1 : 0;
 
 /** `wxFileName` on POSIX paths, the parts the loader uses. */
-const PosixPath = {
+export const PosixPath = {
   isAbsolute: (p: string): boolean => p.startsWith('/'),
   dirname: (p: string): string => {
     const i = p.lastIndexOf('/');

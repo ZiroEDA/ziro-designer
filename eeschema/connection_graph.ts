@@ -25,6 +25,7 @@
  * reporter.
  */
 
+import { STD_UNORDERED_MAP, hashInt, hashWString } from '@ziroeda/common/libc/unordered_map.js';
 import { RECURSE_MODE } from '@ziroeda/common/eda_item.js';
 import { CONNECTIVITY_CANDIDATE } from '@ziroeda/common/eda_item_flags.js';
 import { SCH_LAYER_ID } from '@ziroeda/common/layer_id.js';
@@ -718,51 +719,65 @@ export interface NET_NAME_CODE_CACHE_KEY {
 }
 
 /**
- * `NET_MAP`: associate a #NET_CODE_NAME with all the subgraphs in that net.  The
- * `unordered_map` keyed by the (name, code) pair; iteration is insertion order.
+ * `std::hash<NET_NAME_CODE_CACHE_KEY>` (connection_graph.h:351): the name's wxString hash xor
+ * the code's hash times 19937.
+ */
+function netKeyHash(k: NET_NAME_CODE_CACHE_KEY): bigint {
+  const prime = 19937n;
+
+  return hashWString(k.Name) ^ BigInt.asUintN(64, hashInt(k.Netcode) * prime);
+}
+
+/**
+ * `NET_MAP`: associate a #NET_CODE_NAME with all the subgraphs in that net. A
+ * `std::unordered_map` upstream, and ERC reports follow its iteration order
+ * (TestMultUnitPinConflicts names the net it meets first), so it is libstdc++'s order here.
  */
 export class NET_MAP {
-  private m_map = new Map<string, [NET_NAME_CODE_CACHE_KEY, CONNECTION_SUBGRAPH[]]>();
+  private m_map = new STD_UNORDERED_MAP<CONNECTION_SUBGRAPH[], NET_NAME_CODE_CACHE_KEY>(
+    netKeyHash,
+    (a, b) => a.Name === b.Name && a.Netcode === b.Netcode,
+  );
 
-  private static key(aKey: NET_NAME_CODE_CACHE_KEY): string {
-    return `${aKey.Netcode}\u0000${aKey.Name}`;
+  private static copy(aKey: NET_NAME_CODE_CACHE_KEY): NET_NAME_CODE_CACHE_KEY {
+    return { Name: aKey.Name, Netcode: aKey.Netcode };
   }
 
   /** `operator[]`: the subgraph vector for the key, created empty if absent. */
   at(aKey: NET_NAME_CODE_CACHE_KEY): CONNECTION_SUBGRAPH[] {
-    const k = NET_MAP.key(aKey);
-    let entry = this.m_map.get(k);
+    const value = this.m_map.get(aKey);
 
-    if (!entry) {
-      entry = [{ Name: aKey.Name, Netcode: aKey.Netcode }, []];
-      this.m_map.set(k, entry);
-    }
+    if (value) return value;
 
-    return entry[1];
+    const created: CONNECTION_SUBGRAPH[] = [];
+    this.m_map.emplace(NET_MAP.copy(aKey), created);
+    return created;
   }
 
   get(aKey: NET_NAME_CODE_CACHE_KEY): CONNECTION_SUBGRAPH[] | undefined {
-    return this.m_map.get(NET_MAP.key(aKey))?.[1];
+    return this.m_map.get(aKey);
   }
 
+  /** `insert_or_assign`. */
   set(aKey: NET_NAME_CODE_CACHE_KEY, aValue: CONNECTION_SUBGRAPH[]): void {
-    this.m_map.set(NET_MAP.key(aKey), [{ Name: aKey.Name, Netcode: aKey.Netcode }, aValue]);
+    this.m_map.set(NET_MAP.copy(aKey), aValue);
   }
 
   delete(aKey: NET_NAME_CODE_CACHE_KEY): void {
-    this.m_map.delete(NET_MAP.key(aKey));
+    this.m_map.erase(aKey);
   }
 
+  /** `clear()`: the bucket count and the rehash state are kept, as libstdc++ keeps them. */
   clear(): void {
     this.m_map.clear();
   }
 
   get size(): number {
-    return this.m_map.size;
+    return this.m_map.size();
   }
 
   *[Symbol.iterator](): IterableIterator<[NET_NAME_CODE_CACHE_KEY, CONNECTION_SUBGRAPH[]]> {
-    for (const entry of this.m_map.values()) yield entry;
+    yield* this.m_map;
   }
 }
 

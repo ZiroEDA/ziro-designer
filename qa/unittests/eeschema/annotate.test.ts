@@ -10,7 +10,7 @@ import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic } from '@ziroeda/eeschema';
 import {
-  RefDesTracker,
+  REFDES_TRACKER,
   annotateHierarchy,
   annotateSymbols,
   annotationReport,
@@ -349,24 +349,26 @@ describe('clearAnnotationCommand', () => {
 
 // REFDES_TRACKER (schematic.used_designators): serialization round-trip and
 // the reuse gate in annotation numbering.
-describe('RefDesTracker', () => {
+describe('REFDES_TRACKER', () => {
   it('serializes ranges and escapes, and round-trips', () => {
-    const t = new RefDesTracker();
-    for (const r of ['R1', 'R2', 'R3', 'R7', 'U1', 'X-Y2']) t.insert(r);
-    const text = t.serialize();
-    expect(text).toBe('R1-3,R7,U1,X\\-Y2');
-    const t2 = new RefDesTracker();
-    expect(t2.deserialize(text)).toBe(true);
-    expect(t2.contains('R2')).toBe(true);
-    expect(t2.contains('X-Y2')).toBe(true);
-    expect(t2.contains('R4')).toBe(false);
+    const t = new REFDES_TRACKER();
+    for (const r of ['R1', 'R2', 'R3', 'R7', 'U1', 'X-Y2']) t.Insert(r);
+    const text = t.Serialize();
+    // The prefixes in libstdc++'s unordered_map order for inserting R, U, X-Y: U, X-Y, R
+    // (`std_unordered_map_probe order R U X-Y`).
+    expect(text).toBe('U1,X\\-Y2,R1-3,R7');
+    const t2 = new REFDES_TRACKER();
+    expect(t2.Deserialize(text)).toBe(true);
+    expect(t2.Contains('R2')).toBe(true);
+    expect(t2.Contains('X-Y2')).toBe(true);
+    expect(t2.Contains('R4')).toBe(false);
   });
 
   it('rejects malformed data and clears', () => {
-    const t = new RefDesTracker();
-    t.insert('R1');
-    expect(t.deserialize('R0')).toBe(false); // non-positive number fails parsePositiveInt
-    expect(t.size).toBe(0);
+    const t = new REFDES_TRACKER();
+    t.Insert('R1');
+    expect(t.Deserialize('R0')).toBe(false); // non-positive number fails parsePositiveInt
+    expect(t.Size()).toBe(0);
   });
 });
 
@@ -377,22 +379,22 @@ describe('annotate with a REFDES_TRACKER', () => {
   const libById = new Map(doc.libSymbols.map((l) => [l.libId, l]));
 
   it('skips previously used numbers when reuse is off', () => {
-    const tracker = new RefDesTracker();
-    tracker.reuseRefDes = false;
-    tracker.deserialize('R1,R3'); // freed earlier in the project's history
+    const tracker = new REFDES_TRACKER();
+    tracker.SetReuseRefDes(false);
+    tracker.Deserialize('R1,R3'); // freed earlier in the project's history
     const next = annotateSymbols(doc, libById, opts({ order: 'x', tracker }));
     // R2 is taken on-sheet; R1/R3 are gated -> the two R? become R4 and R5.
     expect(refOf(next.find((s) => s.uuid === 'u-b')!)).toBe('R4');
     expect(refOf(next.find((s) => s.uuid === 'u-a')!)).toBe('R5');
     // Every assignment is recorded for the next run.
-    expect(tracker.contains('R4')).toBe(true);
-    expect(tracker.contains('R5')).toBe(true);
+    expect(tracker.Contains('R4')).toBe(true);
+    expect(tracker.Contains('R5')).toBe(true);
   });
 
   it('reuses freed numbers when reuse is on', () => {
-    const tracker = new RefDesTracker();
-    tracker.reuseRefDes = true;
-    tracker.deserialize('R1,R3');
+    const tracker = new REFDES_TRACKER();
+    tracker.SetReuseRefDes(true);
+    tracker.Deserialize('R1,R3');
     const next = annotateSymbols(doc, libById, opts({ order: 'x', tracker }));
     expect(refOf(next.find((s) => s.uuid === 'u-b')!)).toBe('R1');
     expect(refOf(next.find((s) => s.uuid === 'u-a')!)).toBe('R3');

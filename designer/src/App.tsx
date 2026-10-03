@@ -2,6 +2,8 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
+import { AiDock, aiEnabled, registerAiBridge } from '@ziroeda/ai';
+import { appBridge, designDocName } from '@ziroeda/ai/app_bridge.js';
 import { MAIL_T } from '@ziroeda/common/mail_type.js';
 import { KIWAY } from '@ziroeda/common/kiway.js';
 import {
@@ -898,11 +900,7 @@ export function App(): JSX.Element {
         // forever. Closing is also what the address describes, and it is the
         // same thing File > Close Project does; the files are already saved.
         if (!first) {
-          openProjectFiles(null);
-          setOpenUid(null);
-          setStartFile(null);
-          setDemoRoute(null);
-          setView('home');
+          closeProjectRef.current();
           return;
         }
         const sess = loadSession();
@@ -1477,6 +1475,18 @@ export function App(): JSX.Element {
     />
   ) : null;
 
+  /** File > Close Project, for the whole app: the editors drop the project too,
+   *  not only the manager's tree. */
+  const closeProject = useCallback(() => {
+    openProjectFiles(null);
+    setOpenUid(null);
+    setStartFile(null);
+    setDemoRoute(null);
+    setView('home');
+  }, [openProjectFiles]);
+  const closeProjectRef = useRef(closeProject);
+  closeProjectRef.current = closeProject;
+
   const goHome = useCallback(() => {
     flushSaves(); // persist pending edits before the tree/reopen can read them
     setView('home');
@@ -1580,6 +1590,82 @@ export function App(): JSX.Element {
     setView('calculator');
   }, []);
 
+  // The AI assistant switches editors through the same openers the menus use,
+  // and keeps the project's design doc (DESIGN.md beside the .kicad_pro).
+  // Read through a ref, so the bridge registered once always calls this
+  // render's openers and sees this render's view.
+  const aiAppRef = useRef({
+    showSchematic,
+    showPcb,
+    showSymbolEditor,
+    showFootprintEditor,
+    view,
+    projectName,
+    persistFilesNow,
+    goHome,
+  });
+  aiAppRef.current = {
+    showSchematic,
+    showPcb,
+    showSymbolEditor,
+    showFootprintEditor,
+    view,
+    projectName,
+    persistFilesNow,
+    goHome,
+  };
+  useEffect(
+    () =>
+      registerAiBridge(
+        appBridge({
+          open: (editor) => {
+            const r = aiAppRef.current;
+            ({
+              schematic: r.showSchematic,
+              pcb: r.showPcb,
+              symbol_editor: r.showSymbolEditor,
+              footprint_editor: r.showFootprintEditor,
+            })[editor]();
+          },
+          goHome: () => aiAppRef.current.goHome(),
+          describe: () =>
+            `On screen: ${aiAppRef.current.view}; project: ${aiAppRef.current.projectName || 'none'}.`,
+          workspace: () => {
+            const files = projectFilesRef.current;
+            const pro = files?.find((f) => f.name.endsWith('.kicad_pro'));
+            if (!files || !pro)
+              return { project: null, onScreen: aiAppRef.current.view, files: [], designDoc: null };
+            const doc = files.find((f) => f.name === designDocName(pro.name));
+            return {
+              project:
+                aiAppRef.current.projectName ||
+                pro.name.replace(/^.*\//, '').replace(/\.kicad_pro$/, ''),
+              onScreen: aiAppRef.current.view,
+              files: files.map((f) => f.name),
+              designDoc: doc ? doc.text : null,
+            };
+          },
+          writeDesignDoc: (text) => {
+            const files = projectFilesRef.current;
+            const pro = files?.find((f) => f.name.endsWith('.kicad_pro'));
+            if (!files || !pro) throw new Error('no project is open');
+            const file = { name: designDocName(pro.name), text };
+            // Joins the project like any file an editor saves: the session's
+            // list (the home tree shows it) and the project store.
+            setProjectFiles((prev) =>
+              prev
+                ? prev.some((f) => f.name === file.name)
+                  ? prev.map((f) => (f.name === file.name ? file : f))
+                  : [...prev, file]
+                : prev,
+            );
+            aiAppRef.current.persistFilesNow([file]);
+          },
+        }),
+      ),
+    [],
+  );
+
   // The symbol editor's SCH_ACTIONS::addSymbolToSchematic: switch to eeschema
   // with the symbol attached to the cursor for placement.
   const addSymbolToSchematic = useCallback((lib: LibSymbol) => {
@@ -1634,6 +1720,7 @@ export function App(): JSX.Element {
         activePro={activeProName ?? undefined}
         activeDemo={demoSource}
         onSwitchProject={switchProject}
+        onCloseProject={closeProject}
         onOpenSchematic={() => {
           openProjectFiles(null);
           setStandalonePcb(null);
@@ -1744,6 +1831,7 @@ export function App(): JSX.Element {
     <ProjectSyncProvider projectName={projectName} projectUid={openUid} view={syncView}>
       {manager}
       {view !== 'home' && <SaveIndicator />}
+      {aiEnabled() && <AiDock />}
       {schMounted && (
         <div style={frameStyle(view === 'schematic')}>
           <Frozen shown={view === 'schematic'}>

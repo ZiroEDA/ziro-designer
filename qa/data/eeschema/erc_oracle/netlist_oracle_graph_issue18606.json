@@ -1,0 +1,145 @@
+{
+ "$schema": "https://schemas.kicad.org/erc.v1.json",
+ "coordinate_units": "mm",
+ "ignored_checks": [
+  {
+   "description": "Pin not connected",
+   "key": "pin_not_connected"
+  },
+  {
+   "description": "Global label only appears once in the schematic",
+   "key": "single_global_label"
+  },
+  {
+   "description": "Four connection points are joined together",
+   "key": "four_way_junction"
+  },
+  {
+   "description": "SPICE model issue",
+   "key": "simulation_model_issue"
+  },
+  {
+   "description": "Assigned footprint doesn't match footprint filters",
+   "key": "footprint_filter"
+  }
+ ],
+ "included_severities": [
+  "error",
+  "warning",
+  "exclusion"
+ ],
+ "kicad_version": "10.0.6",
+ "sheets": [
+  {
+   "path": "/",
+   "uuid_path": "/a762d6aa-3004-4a46-aea9-50946c64404d",
+   "violations": [
+    {
+     "description": "Label connected to only one pin",
+     "items": [
+      {
+       "description": "Label 'A0'",
+       "pos": {
+        "x": 0.6731,
+        "y": 0.635
+       },
+       "uuid": "236d439a-1a80-4ebc-a8d7-adcb0be5256c"
+      }
+     ],
+     "severity": "warning",
+     "type": "isolated_pin_label"
+    },
+    {
+     "description": "Label connected to only one pin",
+     "items": [
+      {
+       "description": "Label 'A1'",
+       "pos": {
+        "x": 0.6731,
+        "y": 0.6604
+       },
+       "uuid": "8c81cdb4-e8df-42c6-bcb1-7d452b3a4144"
+      }
+     ],
+     "severity": "warning",
+     "type": "isolated_pin_label"
+    },
+    {
+     "description": "Label connected to only one pin",
+     "items": [
+      {
+       "description": "Label 'A2'",
+       "pos": {
+        "x": 0.6731,
+        "y": 0.6858
+       },
+       "uuid": "7da22826-336b-4714-a25b-a04e36fc98d5"
+      }
+     ],
+     "severity": "warning",
+     "type": "isolated_pin_label"
+    },
+    {
+     "description": "Label connected to only one pin",
+     "items": [
+      {
+       "description": "Label 'A3'",
+       "pos": {
+        "x": 0.6731,
+        "y": 0.7112
+       },
+       "uuid": "b7b2f483-9221-46b7-853c-f5bf813d620f"
+      }
+     ],
+     "severity": "warning",
+     "type": "isolated_pin_label"
+    },
+    {
+     "description": "The current configuration does not include the symbol library 'Resistors'",
+     "items": [
+      {
+       "description": "Symbol R201 [RES]",
+       "pos": {
+        "x": 0.7874,
+        "y": 0.7747
+       },
+       "uuid": "fb6e0d17-fd1a-411c-83f5-fb843a5a08f1"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    }
+   ]
+  },
+  {
+   "path": "/test/",
+   "uuid_path": "/a762d6aa-3004-4a46-aea9-50946c64404d/3a95e766-3c8c-4bb3-9c77-13854beaa270",
+   "violations": [
+    {
+     "description": "Both A0 and A1 are attached to the same items; A0 will be used in the netlist",
+     "items": [
+      {
+       "description": "Label 'A0'",
+       "pos": {
+        "x": 0.6731,
+        "y": 0.635
+       },
+       "uuid": "236d439a-1a80-4ebc-a8d7-adcb0be5256c"
+      },
+      {
+       "description": "Label 'A1'",
+       "pos": {
+        "x": 0.6731,
+        "y": 0.6604
+       },
+       "uuid": "8c81cdb4-e8df-42c6-bcb1-7d452b3a4144"
+      }
+     ],
+     "severity": "warning",
+     "type": "multiple_net_names"
+    }
+   ]
+  }
+ ],
+ "source": "issue18606.kicad_sch"
+}

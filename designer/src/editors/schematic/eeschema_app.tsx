@@ -8,6 +8,9 @@
  * `cvpcb_app.tsx` for `CVPCB_APP`. `eeschema` never imports `designer`; this
  * is the one file that answers its interface.
  */
+import { registerAiBridge } from '@ziroeda/ai';
+import { schBridge } from '@ziroeda/ai/sch_bridge.js';
+import type { SchScriptApi } from '@ziroeda/eeschema';
 import { useMemo } from 'react';
 import type { EESCHEMA_APP } from '@ziroeda/eeschema/eeschema_app.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
@@ -40,7 +43,6 @@ import type { SYMBOL_VIEWER_FRAME_APP } from '@ziroeda/eeschema/symbol_viewer_fr
 import { LibraryLoadingPanel } from '../../widgets/library_loading_panel.js';
 import { DialogRescueEach } from './dialogs/dialog_rescue_each.js';
 import { DialogChangeSymbols } from './dialogs/dialog_change_symbols.js';
-import { fetchNetlistFromSchematic } from '@ziroeda/pcbnew/netlist_from_schematic.js';
 import {
   CROSS_PROBE_FLASH_INTERVAL_MS,
   CROSS_PROBE_FLASH_LAST_PHASE,
@@ -134,10 +136,6 @@ export function useEeschemaApp(): EESCHEMA_APP {
       PresencePanel: (props) => <PresencePanel {...props} />,
 
       AssignFootprints: (props) => <AssignFootprintsWithApp {...props} />,
-      fetchNetlistFromSchematic: (files, annotateMessage, rootPro) => {
-        const r = fetchNetlistFromSchematic(files, annotateMessage, rootPro);
-        return r.ok ? { ok: true, netlistText: r.netlistText } : { ok: false };
-      },
       crossProbeViewChange,
       crossProbeFlashSelection,
       CROSS_PROBE_FLASH_INTERVAL_MS,
@@ -146,6 +144,9 @@ export function useEeschemaApp(): EESCHEMA_APP {
     [symbolViewerApp],
   );
 }
+
+/** The AI pane drives whichever schematic frame is shown. */
+const registerAiScriptApi = (api: SchScriptApi) => registerAiBridge(schBridge(api));
 
 /**
  * The Schematic Editor's window with the program's own `EESCHEMA_APP` —
@@ -156,5 +157,5 @@ export function SchematicEditorMount(
   props: Omit<ComponentProps<typeof SchematicEditor>, 'app'>,
 ): JSX.Element {
   const app = useEeschemaApp();
-  return <SchematicEditor app={app} {...props} />;
+  return <SchematicEditor app={app} registerScriptApi={registerAiScriptApi} {...props} />;
 }

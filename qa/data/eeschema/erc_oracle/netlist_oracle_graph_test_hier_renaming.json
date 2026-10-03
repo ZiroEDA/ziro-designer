@@ -1,0 +1,318 @@
+{
+ "$schema": "https://schemas.kicad.org/erc.v1.json",
+ "coordinate_units": "mm",
+ "ignored_checks": [
+  {
+   "description": "Global label only appears once in the schematic",
+   "key": "single_global_label"
+  },
+  {
+   "description": "Four connection points are joined together",
+   "key": "four_way_junction"
+  },
+  {
+   "description": "SPICE model issue",
+   "key": "simulation_model_issue"
+  },
+  {
+   "description": "Assigned footprint doesn't match footprint filters",
+   "key": "footprint_filter"
+  }
+ ],
+ "included_severities": [
+  "error",
+  "warning",
+  "exclusion"
+ ],
+ "kicad_version": "10.0.6",
+ "sheets": [
+  {
+   "path": "/",
+   "uuid_path": "/57481ac2-136c-4c24-b279-744522537ff9",
+   "violations": [
+    {
+     "description": "Footprint '788xHG' not found in library 'Display'",
+     "items": [
+      {
+       "description": "Symbol DS2 [788xHG]",
+       "pos": {
+        "x": 2.032,
+        "y": 0.6096
+       },
+       "uuid": "e63356eb-7345-434d-8464-3fa9dc47789a"
+      }
+     ],
+     "severity": "warning",
+     "type": "footprint_link_issues"
+    },
+    {
+     "description": "Symbol '788xHG' not found in symbol library 'Display_Graphic'",
+     "items": [
+      {
+       "description": "Symbol DS2 [788xHG]",
+       "pos": {
+        "x": 2.032,
+        "y": 0.6096
+       },
+       "uuid": "e63356eb-7345-434d-8464-3fa9dc47789a"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    }
+   ]
+  },
+  {
+   "path": "/matrixes2/",
+   "uuid_path": "/57481ac2-136c-4c24-b279-744522537ff9/8fe7e2b2-e224-440a-ae87-ac0912bb533a",
+   "violations": []
+  },
+  {
+   "path": "/matrixes1/",
+   "uuid_path": "/57481ac2-136c-4c24-b279-744522537ff9/0c777b0f-2f12-4510-99ee-a28b103b057a",
+   "violations": [
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol DS1 Pin 17 [COL1R, Passive, Line]",
+       "pos": {
+        "x": 1.9558,
+        "y": 0.4318
+       },
+       "uuid": "65dcbd5e-5b1c-4bb9-ad14-b423f3d2f4d2"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol DS1 Pin 1 [COL1G, Passive, Line]",
+       "pos": {
+        "x": 1.9558,
+        "y": 0.8128
+       },
+       "uuid": "17ab1edf-2db6-48b9-ba71-a10c26b110a3"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol DS1 Pin 18 [COL2R, Passive, Line]",
+       "pos": {
+        "x": 1.9812,
+        "y": 0.4318
+       },
+       "uuid": "382c052c-5f04-4751-a542-60812268c7ed"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol DS1 Pin 2 [COL2G, Passive, Line]",
+       "pos": {
+        "x": 1.9812,
+        "y": 0.8128
+       },
+       "uuid": "253311b1-a362-468b-8026-29beba4daddc"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol DS1 Pin 19 [COL3R, Passive, Line]",
+       "pos": {
+        "x": 2.0066,
+        "y": 0.4318
+       },
+       "uuid": "a5fdd608-b66a-4720-82b4-f093ddeb0f09"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol DS1 Pin 3 [COL3G, Passive, Line]",
+       "pos": {
+        "x": 2.0066,
+        "y": 0.8128
+       },
+       "uuid": "2e68cf42-36ab-4565-a8f9-b1143c41c9cb"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol DS1 Pin 20 [COL4R, Passive, Line]",
+       "pos": {
+        "x": 2.032,
+        "y": 0.4318
+       },
+       "uuid": "bbe5a3da-77d1-4be9-8c42-de062ec37874"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol DS1 Pin 4 [COL4G, Passive, Line]",
+       "pos": {
+        "x": 2.032,
+        "y": 0.8128
+       },
+       "uuid": "0019a3dd-d375-4a7f-a844-893bd8f19e37"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol DS1 Pin 21 [COL5R, Passive, Line]",
+       "pos": {
+        "x": 2.0574,
+        "y": 0.4318
+       },
+       "uuid": "60f7cbfd-b651-40d3-8c5e-26a4309ebc95"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol DS1 Pin 5 [COL5G, Passive, Line]",
+       "pos": {
+        "x": 2.0574,
+        "y": 0.8128
+       },
+       "uuid": "ee3060db-333e-4fee-aa0a-cedcd12d6547"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol DS1 Pin 22 [COL6R, Passive, Line]",
+       "pos": {
+        "x": 2.0828,
+        "y": 0.4318
+       },
+       "uuid": "4cec4af9-f57b-4334-b104-e541a7df360b"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol DS1 Pin 6 [COL6G, Passive, Line]",
+       "pos": {
+        "x": 2.0828,
+        "y": 0.8128
+       },
+       "uuid": "11b8b7c0-17ad-4e99-88f5-c840cdb67974"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol DS1 Pin 23 [COL7R, Passive, Line]",
+       "pos": {
+        "x": 2.1082,
+        "y": 0.4318
+       },
+       "uuid": "d54ad3e6-4c67-47fd-bc63-599683bbac78"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol DS1 Pin 7 [COL7G, Passive, Line]",
+       "pos": {
+        "x": 2.1082,
+        "y": 0.8128
+       },
+       "uuid": "50bc3f1d-b2ec-4e02-bc4d-418b5babe2bb"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol DS1 Pin 24 [COL8R, Passive, Line]",
+       "pos": {
+        "x": 2.1336,
+        "y": 0.4318
+       },
+       "uuid": "de976161-c0e0-4198-9df0-22acb33383a4"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol DS1 Pin 8 [COL8G, Passive, Line]",
+       "pos": {
+        "x": 2.1336,
+        "y": 0.8128
+       },
+       "uuid": "6d313eff-d474-4f1b-bc19-158db603b317"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    }
+   ]
+  }
+ ],
+ "source": "test_hier_renaming.kicad_sch"
+}

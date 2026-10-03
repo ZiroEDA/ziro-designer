@@ -39,3 +39,16 @@ export function wxLess(a: string, b: string): boolean {
 export function wxCmpNoCase(a: string, b: string): number {
   return wxCmp(a.toLowerCase(), b.toLowerCase());
 }
+
+/**
+ * `wxString::Matches( aPattern )`: the whole of \a aText against \a aPattern, where `*` is any
+ * run of characters and `?` any one.
+ */
+export function wxMatches(aText: string, aPattern: string): boolean {
+  const re = aPattern
+    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+    .replace(/\*/g, '[\\s\\S]*')
+    .replace(/\?/g, '[\\s\\S]');
+
+  return new RegExp(`^${re}$`, 'u').test(aText);
+}

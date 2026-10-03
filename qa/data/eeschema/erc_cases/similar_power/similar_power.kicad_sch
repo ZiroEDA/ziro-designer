@@ -1,0 +1,168 @@
+(kicad_sch
+	(version 20250114)
+	(generator "eeschema")
+	(generator_version "10.0")
+	(uuid "41111111-2222-3333-4444-555555555555")
+	(paper "A4")
+	(lib_symbols
+		(symbol "power:GND"
+			(power global)
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(offset 0)
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "#PWR"
+				(at 0 -6.35 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "GND"
+				(at 0 -3.81 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "global power"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "GND_0_1"
+				(polyline
+					(pts
+						(xy 0 0) (xy 0 -1.27) (xy 1.27 -1.27) (xy 0 -2.54) (xy -1.27 -1.27) (xy 0 -1.27)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "GND_1_1"
+				(pin power_in line
+					(at 0 0 270)
+					(length 0)
+					(name ""
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "erc:PART"
+			(exclude_from_sim no) (in_bom yes) (on_board yes)
+			(property "Reference" "U" (at 0 5.08 0) (effects (font (size 1.27 1.27))))
+			(property "Value" "PART" (at 0 -5.08 0) (effects (font (size 1.27 1.27))))
+			(property "Footprint" "" (at 0 0 0) (hide yes) (effects (font (size 1.27 1.27))))
+			(property "Datasheet" "" (at 0 0 0) (hide yes) (effects (font (size 1.27 1.27))))
+			(symbol "PART_1_1"
+				(pin passive line (at -5.08 0 0) (length 2.54)
+					(name "~" (effects (font (size 1.27 1.27))))
+					(number "1" (effects (font (size 1.27 1.27))))
+				)
+			)
+			(embedded_fonts no)
+		)
+	)
+	(symbol (lib_id "power:GND") (at 50.8 50.8 0) (unit 1) (body_style 1) (exclude_from_sim no) (in_bom yes) (on_board yes) (dnp no)
+		(uuid "a1000000-0000-0000-0000-000000000001")
+		(property "Reference" "#PWR01" (at 50.8 57.15 0) (hide yes) (effects (font (size 1.27 1.27))))
+		(property "Value" "GND" (at 50.8 54.61 0) (effects (font (size 1.27 1.27))))
+		(property "Footprint" "" (at 50.8 50.8 0) (hide yes) (effects (font (size 1.27 1.27))))
+		(property "Datasheet" "" (at 50.8 50.8 0) (hide yes) (effects (font (size 1.27 1.27))))
+		(pin "1" (uuid "a1000000-0000-0000-0000-000000009999"))
+		(instances (project "similar_power" (path "/41111111-2222-3333-4444-555555555555" (reference "#PWR01") (unit 1))))
+	)
+	(symbol (lib_id "power:GND") (at 76.2 50.8 0) (unit 1) (body_style 1) (exclude_from_sim no) (in_bom yes) (on_board yes) (dnp no)
+		(uuid "a1000000-0000-0000-0000-000000000002")
+		(property "Reference" "#PWR02" (at 76.2 57.15 0) (hide yes) (effects (font (size 1.27 1.27))))
+		(property "Value" "Gnd" (at 76.2 54.61 0) (effects (font (size 1.27 1.27))))
+		(property "Footprint" "" (at 76.2 50.8 0) (hide yes) (effects (font (size 1.27 1.27))))
+		(property "Datasheet" "" (at 76.2 50.8 0) (hide yes) (effects (font (size 1.27 1.27))))
+		(pin "1" (uuid "a1000000-0000-0000-0000-000000009999"))
+		(instances (project "similar_power" (path "/41111111-2222-3333-4444-555555555555" (reference "#PWR02") (unit 1))))
+	)
+	(wire (pts (xy 101.6 76.2) (xy 127 76.2)) (stroke (width 0) (type default)) (uuid "a1000000-0000-0000-0000-000000000003"))
+	(label "gnd" (at 114.3 76.2 0) (effects (font (size 1.27 1.27)) (justify left bottom)) (uuid "a1000000-0000-0000-0000-000000000004"))
+	(symbol (lib_id "erc:PART") (at 152.4 101.6 0) (unit 1) (body_style 1) (exclude_from_sim no) (in_bom yes) (on_board yes) (dnp no)
+		(uuid "a1000000-0000-0000-0000-000000000021")
+		(property "Reference" "U1" (at 152.4 96.52 0) (effects (font (size 1.27 1.27))))
+		(property "Value" "gnd" (at 152.4 106.68 0) (effects (font (size 1.27 1.27))))
+		(property "Footprint" "" (at 152.4 101.6 0) (hide yes) (effects (font (size 1.27 1.27))))
+		(property "Datasheet" "" (at 152.4 101.6 0) (hide yes) (effects (font (size 1.27 1.27))))
+		(pin "1" (uuid "a1000000-0000-0000-0000-000000000022"))
+		(instances (project "similar_power" (path "/41111111-2222-3333-4444-555555555555" (reference "U1") (unit 1))))
+	)
+	(sheet_instances (path "/" (page "1")))
+)

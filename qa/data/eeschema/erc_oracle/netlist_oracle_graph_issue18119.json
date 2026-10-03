@@ -1,0 +1,88 @@
+{
+ "$schema": "https://schemas.kicad.org/erc.v1.json",
+ "coordinate_units": "mm",
+ "ignored_checks": [
+  {
+   "description": "Global label only appears once in the schematic",
+   "key": "single_global_label"
+  },
+  {
+   "description": "Four connection points are joined together",
+   "key": "four_way_junction"
+  },
+  {
+   "description": "SPICE model issue",
+   "key": "simulation_model_issue"
+  },
+  {
+   "description": "Assigned footprint doesn't match footprint filters",
+   "key": "footprint_filter"
+  }
+ ],
+ "included_severities": [
+  "error",
+  "warning",
+  "exclusion"
+ ],
+ "kicad_version": "10.0.6",
+ "sheets": [
+  {
+   "path": "/",
+   "uuid_path": "/d0b5cf99-8dde-4608-b39a-61041d846baa",
+   "violations": []
+  },
+  {
+   "path": "/sub/",
+   "uuid_path": "/d0b5cf99-8dde-4608-b39a-61041d846baa/54b12394-7f47-4383-b307-88001ea40aba",
+   "violations": [
+    {
+     "description": "Both SUB_BUS0 and OUT_0 are attached to the same items; SUB_BUS0 will be used in the netlist",
+     "items": [
+      {
+       "description": "Label 'SUB_BUS0'",
+       "pos": {
+        "x": 1.4224,
+        "y": 1.0541
+       },
+       "uuid": "0d6cd68d-c260-49ae-ab49-0dc14da6556b"
+      },
+      {
+       "description": "Hierarchical Label 'OUT_0'",
+       "pos": {
+        "x": 1.5494,
+        "y": 1.0541
+       },
+       "uuid": "1e74f22e-12b6-4aff-a864-9ba5b52ddb78"
+      }
+     ],
+     "severity": "warning",
+     "type": "multiple_net_names"
+    },
+    {
+     "description": "Both SUB_BUS1 and OUT_1 are attached to the same items; SUB_BUS1 will be used in the netlist",
+     "items": [
+      {
+       "description": "Label 'SUB_BUS1'",
+       "pos": {
+        "x": 1.4224,
+        "y": 1.1049
+       },
+       "uuid": "0dc555b2-95b2-4870-9392-1039c7ccfafb"
+      },
+      {
+       "description": "Hierarchical Label 'OUT_1'",
+       "pos": {
+        "x": 1.5494,
+        "y": 1.1049
+       },
+       "uuid": "4b623e0d-0140-47a0-b30b-c072a18787c3"
+      }
+     ],
+     "severity": "warning",
+     "type": "multiple_net_names"
+    }
+   ]
+  }
+ ],
+ "source": "issue18119.kicad_sch"
+}

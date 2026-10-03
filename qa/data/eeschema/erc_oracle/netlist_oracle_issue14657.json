@@ -1,0 +1,74 @@
+{
+ "$schema": "https://schemas.kicad.org/erc.v1.json",
+ "coordinate_units": "mm",
+ "ignored_checks": [
+  {
+   "description": "Global label only appears once in the schematic",
+   "key": "single_global_label"
+  },
+  {
+   "description": "Four connection points are joined together",
+   "key": "four_way_junction"
+  },
+  {
+   "description": "Conflict problem between pins",
+   "key": "pin_to_pin"
+  },
+  {
+   "description": "SPICE model issue",
+   "key": "simulation_model_issue"
+  },
+  {
+   "description": "Assigned footprint doesn't match footprint filters",
+   "key": "footprint_filter"
+  }
+ ],
+ "included_severities": [
+  "error",
+  "warning",
+  "exclusion"
+ ],
+ "kicad_version": "10.0.6",
+ "sheets": [
+  {
+   "path": "/",
+   "uuid_path": "/c559a370-1b70-4fd6-97f7-7b50807e9d63",
+   "violations": []
+  },
+  {
+   "path": "/subsheet1/",
+   "uuid_path": "/c559a370-1b70-4fd6-97f7-7b50807e9d63/00000000-0000-0000-0000-00005adb3077",
+   "violations": [
+    {
+     "description": "Both GPIO1_14__46 and REG_ENABLE are attached to the same items; GPIO1_14__46 will be used in the netlist",
+     "items": [
+      {
+       "description": "Global Label 'GPIO1_14__46'",
+       "pos": {
+        "x": 0.9525,
+        "y": 2.2987
+       },
+       "uuid": "ab3b04ea-7320-437f-91d8-0dbd1001f3f9"
+      },
+      {
+       "description": "Global Label 'REG_ENABLE'",
+       "pos": {
+        "x": 1.016,
+        "y": 2.2987
+       },
+       "uuid": "24390c04-0f13-48b6-ae5a-ba48240c3289"
+      }
+     ],
+     "severity": "warning",
+     "type": "multiple_net_names"
+    }
+   ]
+  },
+  {
+   "path": "/subsheet2/",
+   "uuid_path": "/c559a370-1b70-4fd6-97f7-7b50807e9d63/00000000-0000-0000-0000-000062a0fb2f",
+   "violations": []
+  }
+ ],
+ "source": "issue14657.kicad_sch"
+}

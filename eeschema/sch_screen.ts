@@ -18,7 +18,7 @@ import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import { RECURSE_MODE } from '@ziroeda/common/eda_item.js';
 import { IS_DELETED, IS_MOVING } from '@ziroeda/common/eda_item_flags.js';
 import { schIUScale } from '@ziroeda/common/eda_units.js';
-import { KIID_PATH, newKiid, type KIID } from '@ziroeda/common/kiid.js';
+import { type KIID_PATH, newKiid, type KIID } from '@ziroeda/common/kiid.js';
 import { SCH_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import type { LIB_ID } from '@ziroeda/common/lib_id.js';
 import { PAGE_INFO, PAGE_SIZE_TYPE } from '@ziroeda/common/page_info.js';
@@ -31,6 +31,7 @@ import { IsPointOnSegment } from '@ziroeda/kimath/src/trigo.js';
 import { AnalyzePoint } from './junction_helpers.js';
 import { LIB_SYMBOL } from './lib_symbol.js';
 import { DANGLING_END_ITEM_HELPER, type DANGLING_END_ITEM, type SCH_ITEM } from './sch_item.js';
+import type { SCH_MARKER } from './sch_marker.js';
 import type { BUS_ALIAS } from './bus_alias.js';
 import type { SCH_LABEL_BASE } from './sch_label.js';
 import type { SCH_LINE } from './sch_line.js';
@@ -1553,6 +1554,18 @@ export class SCH_SCREENS {
     if (this.m_index < this.m_screens.length) this.m_index++;
 
     return this.GetScreen(this.m_index);
+  }
+
+  /** Delete a specific marker. */
+  DeleteMarker(aMarker: SCH_MARKER): void {
+    for (let screen = this.GetFirst(); screen; screen = this.GetNext()) {
+      for (const item of screen.Items().OfType(KICAD_T.SCH_MARKER_T)) {
+        if (item === (aMarker as unknown as SCH_ITEM)) {
+          screen.DeleteItem(item);
+          return;
+        }
+      }
+    }
   }
 
   GetScreen(aIndex: number): SCH_SCREEN | null {

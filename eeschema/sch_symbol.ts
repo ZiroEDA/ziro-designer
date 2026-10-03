@@ -78,7 +78,7 @@ export function AddHierarchicalReference(
 // ---------------------------------------------------------------------------
 
 import {
-  EDA_ITEM as EDA_ITEM_E3,
+  type EDA_ITEM as EDA_ITEM_E3,
   INSPECT_RESULT,
   type INSPECTOR,
   type OutStr,
@@ -103,6 +103,9 @@ import { KIGEOM_BoxHitTestChain } from '@ziroeda/kimath/src/geometry/geometry_ut
 import type { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_chain.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+import type { Vec2 } from '@ziroeda/kimath';
+import { FILL_T, SHAPE_T } from '@ziroeda/common/eda_shape.js';
+import { SCH_SHAPE } from './sch_shape.js';
 import { MIRRORVAL } from '@ziroeda/kimath/src/core/mirror.js';
 import { TRANSFORM } from '@ziroeda/kimath/src/transform.js';
 import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
@@ -113,7 +116,7 @@ import {
   DANGLING_END_ITEM,
   DANGLING_END_ITEM_HELPER,
   DANGLING_END_T,
-  SCH_ITEM,
+  type SCH_ITEM,
 } from './sch_item.js';
 import { SCH_PIN, type SCH_PIN_ALT } from './sch_pin.js';
 import type { PICKED_SYMBOL } from './sch_screen.js';
@@ -2834,6 +2837,59 @@ export class SCH_SYMBOL extends SYMBOL {
     if (pin_list.length !== 1) return false;
 
     return pin_list[0]!.GetType() === ELECTRICAL_PINTYPE.PT_POWER_IN;
+  }
+
+  /**
+   * `SCH_SYMBOL::BuildLocalPowerIconShape` (sch_symbol.cpp:3853): the local-power flag drawn
+   * beside a local power symbol's value, three Béziers and a dot, at `aPos`.
+   */
+  static BuildLocalPowerIconShape(
+    aShapeList: SCH_SHAPE[],
+    aPos: Vec2,
+    aSize: number,
+    aLineWidth: number,
+    aHorizontal: boolean,
+  ): void {
+    const layer = SCH_LAYER_ID.LAYER_DEVICE; //dummy param
+    // VECTOR2I( VECTOR2D ) rounds (KiROUND), as each setter below converts.
+    const I = (p: Vec2): VECTOR2I => ({ x: Math.round(p.x), y: Math.round(p.y) });
+
+    const x_right = aSize / 1.6180339887;
+    const x_middle = x_right / 2.0;
+
+    const bottomPt = { x: x_middle, y: 0 };
+    const leftPt = { x: 0, y: (2.0 * -aSize) / 3.0 };
+    const rightPt = { x: x_right, y: (2.0 * -aSize) / 3.0 };
+
+    const bottomAnchorPt = { x: x_middle, y: -aSize / 4.0 };
+    const leftSideAnchorPt1 = { x: 0, y: -aSize / 2.5 };
+    const leftSideAnchorPt2 = { x: 0, y: -aSize * 1.15 };
+    const rightSideAnchorPt1 = { x: x_right, y: -aSize / 2.5 };
+    const rightSideAnchorPt2 = { x: x_right, y: -aSize * 1.15 };
+
+    const bezier = (a: Vec2, c1: Vec2, c2: Vec2, b: Vec2) => {
+      const shape = new SCH_SHAPE(SHAPE_T.BEZIER, layer, aLineWidth, FILL_T.NO_FILL);
+      shape.SetStart(I(a));
+      shape.SetBezierC1(I(c1));
+      shape.SetBezierC2(I(c2));
+      shape.SetEnd(I(b));
+      aShapeList.push(shape);
+    };
+
+    bezier(bottomPt, bottomAnchorPt, leftSideAnchorPt1, leftPt);
+    bezier(leftPt, leftSideAnchorPt2, rightSideAnchorPt2, rightPt);
+    bezier(rightPt, rightSideAnchorPt1, bottomAnchorPt, bottomPt);
+
+    const dot = new SCH_SHAPE(SHAPE_T.CIRCLE, layer, 0, FILL_T.FILLED_SHAPE);
+    dot.SetCenter(I({ x: (leftPt.x + rightPt.x) / 2.0, y: (leftPt.y + rightPt.y) / 2.0 }));
+    dot.SetRadius(Math.round(aSize / 15.0));
+    aShapeList.push(dot);
+
+    for (const shape of aShapeList) {
+      if (aHorizontal) shape.Rotate({ x: 0, y: 0 }, true);
+
+      shape.Move(I(aPos));
+    }
   }
 
   IsSymbolLikePowerLocalLabel(): boolean {

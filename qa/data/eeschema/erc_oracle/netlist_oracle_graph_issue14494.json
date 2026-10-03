@@ -1,0 +1,91 @@
+{
+ "$schema": "https://schemas.kicad.org/erc.v1.json",
+ "coordinate_units": "mm",
+ "ignored_checks": [
+  {
+   "description": "Pin not connected",
+   "key": "pin_not_connected"
+  },
+  {
+   "description": "Global label only appears once in the schematic",
+   "key": "single_global_label"
+  },
+  {
+   "description": "Four connection points are joined together",
+   "key": "four_way_junction"
+  },
+  {
+   "description": "Library symbol issue",
+   "key": "lib_symbol_issues"
+  },
+  {
+   "description": "Assigned footprint doesn't match footprint filters",
+   "key": "footprint_filter"
+  }
+ ],
+ "included_severities": [
+  "error",
+  "warning",
+  "exclusion"
+ ],
+ "kicad_version": "10.0.6",
+ "sheets": [
+  {
+   "path": "/",
+   "uuid_path": "/9c65c6c4-f8a1-4869-9ee5-38624b40fdf6",
+   "violations": [
+    {
+     "description": "The current configuration does not include the footprint library '0IBF_RCL'",
+     "items": [
+      {
+       "description": "Symbol R2 [R]",
+       "pos": {
+        "x": 1.9812,
+        "y": 0.9652
+       },
+       "uuid": "1dd3c410-9299-41f8-a85a-cbefc6359e42"
+      }
+     ],
+     "severity": "warning",
+     "type": "footprint_link_issues"
+    },
+    {
+     "description": "The current configuration does not include the footprint library '0IBF_RCL'",
+     "items": [
+      {
+       "description": "Symbol R4 [R]",
+       "pos": {
+        "x": 2.159,
+        "y": 1.5494
+       },
+       "uuid": "ffa8d79a-2371-411f-8da8-c03e956d0004"
+      }
+     ],
+     "severity": "warning",
+     "type": "footprint_link_issues"
+    },
+    {
+     "description": "The current configuration does not include the footprint library '0IBF_RCL'",
+     "items": [
+      {
+       "description": "Symbol R3 [R]",
+       "pos": {
+        "x": 1.0922,
+        "y": 1.0922
+       },
+       "uuid": "0663dc95-1d72-4e0a-ad4b-87388dcd2ed9"
+      }
+     ],
+     "severity": "warning",
+     "type": "footprint_link_issues"
+    }
+   ]
+  },
+  {
+   "path": "/subsheet_01/",
+   "uuid_path": "/9c65c6c4-f8a1-4869-9ee5-38624b40fdf6/6b22bc55-3b0d-4d96-9827-112a2df8c14e",
+   "violations": []
+  }
+ ],
+ "source": "issue14494.kicad_sch"
+}

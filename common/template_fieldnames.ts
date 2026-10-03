@@ -271,3 +271,106 @@ export const MANDATORY_FIELD_NAMES: readonly string[] = [
 export function templateNamesNeedingTrim(rows: readonly TemplateFieldname[]): string[] {
   return rows.filter((r) => r.name !== '' && r.name !== r.name.trim()).map((r) => r.name);
 }
+
+// ---- TEMPLATES, the class (template_fieldnames.h / .cpp) ----
+
+/** `TEMPLATE_FIELDNAME`, under KiCad's member names. */
+export interface TEMPLATE_FIELDNAME {
+  m_Name: string;
+  m_Visible: boolean;
+  m_URL: boolean;
+}
+
+/**
+ * `TEMPLATES`: the global and the project field name templates, and the resolved list.
+ *
+ * Not here: `Format`, `parse` and `AddTemplateFieldNames( aSerializedFieldNames )`, the
+ * s-expression form `eeschema.json` keeps the global list in (no app config is read here).
+ */
+export class TEMPLATES {
+  private m_globals: TEMPLATE_FIELDNAME[] = [];
+  private m_project: TEMPLATE_FIELDNAME[] = [];
+
+  // Combined list.  Project templates override global ones.
+  private m_resolved: TEMPLATE_FIELDNAME[] = [];
+  private m_resolvedDirty = true;
+
+  /**
+   * Insert or append a wanted symbol field name into the field names template.
+   *
+   * Should be used for any symbol property editor.  If the name already exists, it
+   * overwrites the same name.
+   */
+  AddTemplateFieldName(aFieldName: TEMPLATE_FIELDNAME, aGlobal: boolean): void {
+    // Reject any case variant of a mandatory fieldname; the s-expression parser folds those
+    // onto the canonical mandatory field, so they can never become a distinct user field.
+    for (const fieldId of MANDATORY_FIELDS) {
+      if (GetCanonicalFieldName(fieldId).toLowerCase() === aFieldName.m_Name.toLowerCase()) return;
+    }
+
+    const target = aGlobal ? this.m_globals : this.m_project;
+
+    // ensure uniqueness, overwrite any template fieldname by the same name.
+    for (let i = 0; i < target.length; i++) {
+      if (target[i]!.m_Name === aFieldName.m_Name) {
+        target[i] = { ...aFieldName };
+        this.m_resolvedDirty = true;
+        return;
+      }
+    }
+
+    // the name is legal and not previously added to the config container, append it.
+    target.push({ ...aFieldName });
+    this.m_resolvedDirty = true;
+  }
+
+  /** Delete the entire contents. */
+  DeleteAllFieldNameTemplates(aGlobal: boolean): void {
+    if (aGlobal) {
+      this.m_globals = [];
+      this.m_resolved = [...this.m_project];
+    } else {
+      this.m_project = [];
+      this.m_resolved = [...this.m_globals];
+    }
+
+    this.m_resolvedDirty = false;
+  }
+
+  /**
+   * With no argument, the resolved list (project templates first, then every global one
+   * whose name no project template took); with \a aGlobal, that list alone.
+   */
+  GetTemplateFieldNames(aGlobal?: boolean): readonly TEMPLATE_FIELDNAME[] {
+    if (aGlobal === undefined) {
+      if (this.m_resolvedDirty) this.resolveTemplates();
+
+      return this.m_resolved;
+    }
+
+    return aGlobal ? this.m_globals : this.m_project;
+  }
+
+  /** Search for \a aName in the template field name list. */
+  GetFieldName(aName: string): TEMPLATE_FIELDNAME | null {
+    if (this.m_resolvedDirty) this.resolveTemplates();
+
+    return this.m_resolved.find((field) => field.m_Name === aName) ?? null;
+  }
+
+  private resolveTemplates(): void {
+    this.m_resolved = [...this.m_project];
+
+    // Note: order N^2 algorithm.  Would need changing if fieldname template sets ever
+    // get large.
+    for (const global of this.m_globals) {
+      const overriddenInProject = this.m_project.some(
+        (project) => global.m_Name === project.m_Name,
+      );
+
+      if (!overriddenInProject) this.m_resolved.push(global);
+    }
+
+    this.m_resolvedDirty = false;
+  }
+}

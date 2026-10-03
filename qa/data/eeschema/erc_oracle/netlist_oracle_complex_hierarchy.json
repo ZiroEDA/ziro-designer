@@ -1,0 +1,1180 @@
+{
+ "$schema": "https://schemas.kicad.org/erc.v1.json",
+ "coordinate_units": "mm",
+ "ignored_checks": [
+  {
+   "description": "Global label only appears once in the schematic",
+   "key": "single_global_label"
+  },
+  {
+   "description": "Four connection points are joined together",
+   "key": "four_way_junction"
+  },
+  {
+   "description": "SPICE model issue",
+   "key": "simulation_model_issue"
+  },
+  {
+   "description": "Assigned footprint doesn't match footprint filters",
+   "key": "footprint_filter"
+  }
+ ],
+ "included_severities": [
+  "error",
+  "warning",
+  "exclusion"
+ ],
+ "kicad_version": "10.0.6",
+ "sheets": [
+  {
+   "path": "/",
+   "uuid_path": "/dbc60811-0c2c-4d5c-bf3e-eba76bae443f",
+   "violations": [
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol P1 [CONN_2]",
+       "pos": {
+        "x": 0.4191,
+        "y": 0.3556
+       },
+       "uuid": "00000000-0000-0000-0000-00004b3a12f4"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol P2 [CONN_2]",
+       "pos": {
+        "x": 0.4191,
+        "y": 0.6604
+       },
+       "uuid": "00000000-0000-0000-0000-00004ad71b06"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol #PWR018 [GND]",
+       "pos": {
+        "x": 0.5334,
+        "y": 0.7112
+       },
+       "uuid": "00000000-0000-0000-0000-00004ad71b8e"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol #U012 [PWR_FLAG]",
+       "pos": {
+        "x": 0.5588,
+        "y": 0.3175
+       },
+       "uuid": "00000000-0000-0000-0000-00004b03caa3"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol #U015 [PWR_FLAG]",
+       "pos": {
+        "x": 0.5588,
+        "y": 0.4191
+       },
+       "uuid": "00000000-0000-0000-0000-00004ae17c31"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol #PWR07 [GND]",
+       "pos": {
+        "x": 0.5588,
+        "y": 0.4445
+       },
+       "uuid": "00000000-0000-0000-0000-00004b3a1302"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol #PWR08 [HT]",
+       "pos": {
+        "x": 0.635,
+        "y": 0.3175
+       },
+       "uuid": "00000000-0000-0000-0000-00004b0fa68b"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol C9 [CP]",
+       "pos": {
+        "x": 0.635,
+        "y": 0.381
+       },
+       "uuid": "00000000-0000-0000-0000-00004b3a1558"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol #PWR06 [GND]",
+       "pos": {
+        "x": 0.635,
+        "y": 0.4318
+       },
+       "uuid": "00000000-0000-0000-0000-00004b3a1557"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol D1 [D_Small]",
+       "pos": {
+        "x": 0.6858,
+        "y": 0.635
+       },
+       "uuid": "00000000-0000-0000-0000-00004ae172f4"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol #U013 [PWR_FLAG]",
+       "pos": {
+        "x": 0.762,
+        "y": 0.6223
+       },
+       "uuid": "00000000-0000-0000-0000-00004b03c9f9"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol C2 [CP]",
+       "pos": {
+        "x": 0.8128,
+        "y": 0.6985
+       },
+       "uuid": "00000000-0000-0000-0000-00004ae173cf"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol #PWR017 [GND]",
+       "pos": {
+        "x": 0.8128,
+        "y": 0.762
+       },
+       "uuid": "00000000-0000-0000-0000-00004ae173d0"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol #U016 [+12V]",
+       "pos": {
+        "x": 0.9017,
+        "y": 0.6223
+       },
+       "uuid": "00000000-0000-0000-0000-00004ae173ef"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "Both +12C and +12V are attached to the same items; +12C will be used in the netlist",
+     "items": [
+      {
+       "description": "Symbol #PWR014 Hidden pin 1 [+12C, Power input, Line]",
+       "pos": {
+        "x": 0.9652,
+        "y": 0.6223
+       },
+       "uuid": "8e79dd57-12b7-4404-b7fc-c242edce5310"
+      },
+      {
+       "description": "Symbol #U016 Hidden pin 1 [+12V, Power input, Line]",
+       "pos": {
+        "x": 0.9017,
+        "y": 0.6223
+       },
+       "uuid": "724c73d9-3c79-4ff3-a834-ef0b28e36c9e"
+      }
+     ],
+     "severity": "warning",
+     "type": "multiple_net_names"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol #PWR014 [+12C]",
+       "pos": {
+        "x": 0.9652,
+        "y": 0.6223
+       },
+       "uuid": "00000000-0000-0000-0000-00004b03c68d"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol C10 [CP]",
+       "pos": {
+        "x": 1.6891,
+        "y": 0.6985
+       },
+       "uuid": "00000000-0000-0000-0000-00004b4b15e7"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol #PWR011 [+12C]",
+       "pos": {
+        "x": 1.8796,
+        "y": 0.3175
+       },
+       "uuid": "00000000-0000-0000-0000-00004b03ce6c"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol U2 [7805]",
+       "pos": {
+        "x": 2.0066,
+        "y": 0.3429
+       },
+       "uuid": "00000000-0000-0000-0000-00004b4b1532"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol #PWR010 [GND]",
+       "pos": {
+        "x": 2.0066,
+        "y": 0.4191
+       },
+       "uuid": "00000000-0000-0000-0000-00004b03ce88"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol #PWR03 [VCC]",
+       "pos": {
+        "x": 2.0066,
+        "y": 0.5588
+       },
+       "uuid": "00000000-0000-0000-0000-00004b4b1253"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol #PWR05 [GND]",
+       "pos": {
+        "x": 2.0066,
+        "y": 0.9144
+       },
+       "uuid": "00000000-0000-0000-0000-00004b4b1237"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol U1 [ICL7660]",
+       "pos": {
+        "x": 2.0193,
+        "y": 0.7366
+       },
+       "uuid": "00000000-0000-0000-0000-00004b4b1230"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol #PWR01 [GND]",
+       "pos": {
+        "x": 2.2987,
+        "y": 0.5842
+       },
+       "uuid": "00000000-0000-0000-0000-00004b4b15da"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol #PWR04 [VCC]",
+       "pos": {
+        "x": 2.3368,
+        "y": 0.3175
+       },
+       "uuid": "00000000-0000-0000-0000-00004b4b124e"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol C1 [CP]",
+       "pos": {
+        "x": 2.3368,
+        "y": 0.4064
+       },
+       "uuid": "00000000-0000-0000-0000-00004b03cec2"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol #PWR09 [GND]",
+       "pos": {
+        "x": 2.3368,
+        "y": 0.4572
+       },
+       "uuid": "00000000-0000-0000-0000-00004b03cec1"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol C11 [CP]",
+       "pos": {
+        "x": 2.3368,
+        "y": 0.635
+       },
+       "uuid": "00000000-0000-0000-0000-00004b4b15d9"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol #PWR02 [-VAA]",
+       "pos": {
+        "x": 2.3749,
+        "y": 0.6985
+       },
+       "uuid": "00000000-0000-0000-0000-00004b4b1578"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol P6 [CONN_2]",
+       "pos": {
+        "x": 0.3429,
+        "y": 0.5334
+       },
+       "uuid": "00000000-0000-0000-0000-00004b3a1367"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol #PWR027 [GND]",
+       "pos": {
+        "x": 0.4572,
+        "y": 0.5715
+       },
+       "uuid": "00000000-0000-0000-0000-00004b3a136a"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol R24 [R]",
+       "pos": {
+        "x": 0.6223,
+        "y": 0.508
+       },
+       "uuid": "00000000-0000-0000-0000-00004b4f363e"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol C14 [C]",
+       "pos": {
+        "x": 0.7239,
+        "y": 0.5715
+       },
+       "uuid": "00000000-0000-0000-0000-00004b4f3641"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol #PWR020 [GND]",
+       "pos": {
+        "x": 0.7239,
+        "y": 0.6223
+       },
+       "uuid": "00000000-0000-0000-0000-00004b4f364a"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol R16 [R]",
+       "pos": {
+        "x": 0.8255,
+        "y": 0.508
+       },
+       "uuid": "00000000-0000-0000-0000-00004b3a136b"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol R17 [R]",
+       "pos": {
+        "x": 1.0033,
+        "y": 0.508
+       },
+       "uuid": "00000000-0000-0000-0000-00004b3a1359"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol C7 [C]",
+       "pos": {
+        "x": 1.016,
+        "y": 0.6477
+       },
+       "uuid": "00000000-0000-0000-0000-00004b3a1366"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol #PWR028 [GND]",
+       "pos": {
+        "x": 1.016,
+        "y": 0.6985
+       },
+       "uuid": "00000000-0000-0000-0000-00004b3a1369"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol C6 [C]",
+       "pos": {
+        "x": 1.1049,
+        "y": 0.4064
+       },
+       "uuid": "00000000-0000-0000-0000-00004b3a1358"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol #U034 [+12V]",
+       "pos": {
+        "x": 1.2065,
+        "y": 0.4953
+       },
+       "uuid": "00000000-0000-0000-0000-00004b3a135b"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol #PWR022 [-VAA]",
+       "pos": {
+        "x": 1.2065,
+        "y": 0.7239
+       },
+       "uuid": "00000000-0000-0000-0000-00004b4b1080"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol U4 [LM358N]",
+       "pos": {
+        "x": 1.2319,
+        "y": 0.6096
+       },
+       "uuid": "00000000-0000-0000-0000-00004b3a135c"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol #PWR030 [GND]",
+       "pos": {
+        "x": 1.2827,
+        "y": 1.6256
+       },
+       "uuid": "00000000-0000-0000-0000-00004b3a1361"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol R21 [R]",
+       "pos": {
+        "x": 1.3335,
+        "y": 1.6256
+       },
+       "uuid": "00000000-0000-0000-0000-00004b3a1362"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol RV2 [POT]",
+       "pos": {
+        "x": 1.4859,
+        "y": 1.6256
+       },
+       "uuid": "00000000-0000-0000-0000-00004b3a1357"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol #U026 [+12V]",
+       "pos": {
+        "x": 1.6002,
+        "y": 1.2573
+       },
+       "uuid": "00000000-0000-0000-0000-00004b3a136f"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol #PWR021 [-VAA]",
+       "pos": {
+        "x": 1.6002,
+        "y": 1.4859
+       },
+       "uuid": "00000000-0000-0000-0000-00004b4b1086"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol U4 [LM358N]",
+       "pos": {
+        "x": 1.6256,
+        "y": 1.3716
+       },
+       "uuid": "00000000-0000-0000-0000-00004b3a1368"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol #PWR024 [GND]",
+       "pos": {
+        "x": 1.778,
+        "y": 1.3208
+       },
+       "uuid": "00000000-0000-0000-0000-00004b3a1378"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol R18 [R]",
+       "pos": {
+        "x": 1.8415,
+        "y": 1.2954
+       },
+       "uuid": "00000000-0000-0000-0000-00004b3a1371"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol #PWR031 [HT]",
+       "pos": {
+        "x": 1.8542,
+        "y": 0.6731
+       },
+       "uuid": "00000000-0000-0000-0000-00004b3a135f"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol D5 [D_Small]",
+       "pos": {
+        "x": 1.8542,
+        "y": 0.7112
+       },
+       "uuid": "00000000-0000-0000-0000-00004b3a1375"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol D6 [D_Small]",
+       "pos": {
+        "x": 1.8542,
+        "y": 0.7874
+       },
+       "uuid": "00000000-0000-0000-0000-00004b3a1377"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol R14 [R]",
+       "pos": {
+        "x": 1.8542,
+        "y": 0.9144
+       },
+       "uuid": "00000000-0000-0000-0000-00004b3a1374"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol #PWR025 [GND]",
+       "pos": {
+        "x": 1.8542,
+        "y": 0.9779
+       },
+       "uuid": "00000000-0000-0000-0000-00004b3a1373"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol R19 [R]",
+       "pos": {
+        "x": 1.8796,
+        "y": 1.3716
+       },
+       "uuid": "00000000-0000-0000-0000-00004b3a136d"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol Q5 [MPSA92]",
+       "pos": {
+        "x": 1.9812,
+        "y": 0.8382
+       },
+       "uuid": "00000000-0000-0000-0000-00004b3a1360"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol Q8 [MPSA42]",
+       "pos": {
+        "x": 1.9812,
+        "y": 1.2954
+       },
+       "uuid": "00000000-0000-0000-0000-00004b3a1379"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol #PWR032 [HT]",
+       "pos": {
+        "x": 2.0066,
+        "y": 0.6477
+       },
+       "uuid": "00000000-0000-0000-0000-00004b3a135e"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol R13 [R]",
+       "pos": {
+        "x": 2.0066,
+        "y": 0.6985
+       },
+       "uuid": "00000000-0000-0000-0000-00004b3a1376"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol D9 [D_Small]",
+       "pos": {
+        "x": 2.0066,
+        "y": 1.016
+       },
+       "uuid": "00000000-0000-0000-0000-00004b616afa"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol D7 [D_Small]",
+       "pos": {
+        "x": 2.0066,
+        "y": 1.143
+       },
+       "uuid": "00000000-0000-0000-0000-00004b3a137b"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol R20 [R]",
+       "pos": {
+        "x": 2.0574,
+        "y": 1.3335
+       },
+       "uuid": "00000000-0000-0000-0000-00004b61688c"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol C8 [C]",
+       "pos": {
+        "x": 2.0574,
+        "y": 1.4605
+       },
+       "uuid": "00000000-0000-0000-0000-00004b3a1365"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol #PWR019 [GND]",
+       "pos": {
+        "x": 2.0574,
+        "y": 1.5113
+       },
+       "uuid": "00000000-0000-0000-0000-00004b6168a3"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol Q6 [MPSA42]",
+       "pos": {
+        "x": 2.159,
+        "y": 0.9398
+       },
+       "uuid": "00000000-0000-0000-0000-00004b3a137d"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol Q7 [MPSA92]",
+       "pos": {
+        "x": 2.159,
+        "y": 1.2192
+       },
+       "uuid": "00000000-0000-0000-0000-00004b3a137c"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol #PWR033 [HT]",
+       "pos": {
+        "x": 2.1844,
+        "y": 0.8382
+       },
+       "uuid": "00000000-0000-0000-0000-00004b3a135d"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol #PWR023 [GND]",
+       "pos": {
+        "x": 2.1844,
+        "y": 1.3462
+       },
+       "uuid": "00000000-0000-0000-0000-00004b3a137a"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol R22 [R]",
+       "pos": {
+        "x": 2.2606,
+        "y": 1.2954
+       },
+       "uuid": "00000000-0000-0000-0000-00004b3a1370"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol R28 [R]",
+       "pos": {
+        "x": 2.3114,
+        "y": 1.2954
+       },
+       "uuid": "00000000-0000-0000-0000-00004b617b88"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol R15 [R]",
+       "pos": {
+        "x": 2.4003,
+        "y": 1.0541
+       },
+       "uuid": "00000000-0000-0000-0000-00004b3a1364"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol R27 [R]",
+       "pos": {
+        "x": 2.4003,
+        "y": 1.1303
+       },
+       "uuid": "00000000-0000-0000-0000-00004b616b96"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol #PWR029 [GND]",
+       "pos": {
+        "x": 2.6035,
+        "y": 1.1557
+       },
+       "uuid": "00000000-0000-0000-0000-00004b3a1363"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'complex_hierarchy_schlib' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/complex_hierarchy/complex_hierarchy_schlib.lib'",
+     "items": [
+      {
+       "description": "Symbol P5 [CONN_2]",
+       "pos": {
+        "x": 2.7305,
+        "y": 1.1176
+       },
+       "uuid": "00000000-0000-0000-0000-00004b3a136c"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    }
+   ]
+  },
+  {
+   "path": "/ampli_ht_vertical/",
+   "uuid_path": "/dbc60811-0c2c-4d5c-bf3e-eba76bae443f/00000000-0000-0000-0000-00004b3a1333",
+   "violations": []
+  },
+  {
+   "path": "/ampli_ht_horizontal/",
+   "uuid_path": "/dbc60811-0c2c-4d5c-bf3e-eba76bae443f/00000000-0000-0000-0000-00004b3a13a4",
+   "violations": []
+  }
+ ],
+ "source": "complex_hierarchy.kicad_sch"
+}

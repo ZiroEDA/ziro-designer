@@ -16,7 +16,15 @@
  */
 import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, afterEach, beforeEach } from 'vitest';
+import { PGM_BASE, SETTINGS_MANAGER, SetPgm } from '@ziroeda/common/pgm_base.js';
+
+// The off-screen SCH_EDIT_FRAME the headless netlist opens needs the program's settings
+// manager, as the app has from InitPgm.
+// The describe blocks fetch while collecting, before any beforeEach runs.
+SetPgm(new PGM_BASE(null, new SETTINGS_MANAGER()));
+beforeEach(() => SetPgm(new PGM_BASE(null, new SETTINGS_MANAGER())));
+afterEach(() => SetPgm(null));
 import { parse } from '@ziroeda/sexpr';
 import { Reporter, RPT_SEVERITY_ACTION } from '@ziroeda/common';
 import { formatSchematicNetlist } from '@ziroeda/eeschema/cross-probing.js';
@@ -152,7 +160,9 @@ describe('fetchNetlistFromSchematic over the Arduino_Uno template', () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.error).toBe('Updating PCB requires a fully annotated schematic.');
-    expect(result.details).toContain('not annotated');
+    // FetchNetlistFromSchematic (pcb_edit_frame.cpp:2352) reports a payload that comes back
+    // unchanged as the annotate message alone: no list of what is unannotated.
+    expect(result.details).toBeUndefined();
   });
 });
 

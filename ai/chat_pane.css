@@ -1,0 +1,580 @@
+/* The AI pane, docked like a KiCad AUI pane (Properties, Appearance): a
+   .ze-panel with its 17px caption, a DockSash on its inner edge. Every value
+   is a shell token (chrome); the one literal is the pane width, which is
+   ours - KiCad has no such pane. Form controls take their look from the
+   shared `.ze-app` rules, which is why the dock root carries that class. */
+:root {
+  --ai-pane-width: 380px; /* [ours] set from the dock's stored width */
+}
+html.ze-ai-open #root {
+  width: calc(100% - var(--ai-pane-width));
+}
+/* (0,2,0) on purpose: the dock IS a .ze-app root and its pane IS a
+   .ze-panel, and those shared rules (column flow, height 100%, a 220px pane)
+   must not win by stylesheet order. */
+.ze-app.ze-ai-dock {
+  position: fixed;
+  /* Below the frame's title bar, which spans the window (see below). */
+  top: var(--titlebar-height);
+  right: 0;
+  bottom: var(--ai-dock-bottom, 0px);
+  width: var(--ai-pane-width);
+  display: flex;
+  flex-direction: row;
+  /* The sash sits between the editor and the pane, as the AUI sash does. */
+  background: var(--aui-sash);
+  height: auto;
+  z-index: 10;
+}
+.ze-panel.ze-ai-pane {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  height: 100%;
+}
+.ze-ai-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+.ze-ai-cost {
+  flex: 1 1 auto;
+  color: var(--chrome-fg-muted);
+  font-size: var(--ui-font-size-small);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ze-ai-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  /* The conversation sits on the pane's own face; only the composer is an
+     entry. */
+  background: transparent;
+}
+.ze-ai-empty {
+  color: var(--chrome-fg-muted);
+  margin: auto 8px;
+  text-align: center;
+}
+.ze-ai-msg {
+  overflow-wrap: anywhere;
+}
+.ze-ai-user {
+  white-space: pre-wrap;
+  padding: 4px 8px;
+  border: 1px solid var(--ctl-border);
+  border-radius: var(--ctl-radius);
+  background: var(--ctl-face);
+}
+.ze-ai-note {
+  white-space: pre-wrap;
+  color: var(--chrome-fg-muted);
+  font-size: var(--ui-font-size-small);
+}
+/* The frame's title bar spans the whole window, over the pane too, the way
+   a WM title bar spans its window whatever the client area holds. */
+html.ze-ai-open .ze-titlebar,
+html.ze-ai-open #root .ze-statusbar {
+  margin-right: calc(-1 * var(--ai-pane-width));
+}
+/* The toggle, at the right end of the title bar while the pane is closed;
+   the bar keeps room for it so nothing in .ze-titlebar-right sits under it. */
+.ze-titlebar {
+  padding-right: calc(var(--titlebar-height) + 8px);
+}
+.ze-ai-toggle.on {
+  color: var(--chrome-fg);
+  background: var(--chrome-hover);
+}
+.ze-ai-toggle {
+  position: fixed;
+  top: 0;
+  right: 4px;
+  width: var(--titlebar-height);
+  height: var(--titlebar-height);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--chrome-fg);
+  cursor: pointer;
+  z-index: 10;
+}
+.ze-ai-toggle:hover {
+  background: var(--chrome-hover);
+}
+/* The sash between editor and pane carries a pane border on each side,
+   the token a right-docked AUI pane draws on its edge (.ze-leftdock.on-right),
+   so it reads as a resizer the way the manager's splitter does. */
+.ze-ai-dock .ze-dock-sash {
+  border-left: var(--aui-pane-border-size) solid var(--aui-pane-border);
+  border-right: var(--aui-pane-border-size) solid var(--aui-pane-border);
+}
+/* ---- Markdown (markdown.tsx), with github-markdown-css's metrics ----
+   GitHub's `.markdown-body` sizes in px at a 16px base; here every one is
+   the same ratio in em, so the spec viewer (16px, as GitHub) matches it and
+   chat replies keep the proportions at the UI font size. Colours are the
+   shell's tokens. */
+.ze-md {
+  line-height: 1.5;
+  overflow-wrap: break-word;
+}
+.ze-md > :first-child {
+  margin-top: 0 !important;
+}
+.ze-md > :last-child {
+  margin-bottom: 0 !important;
+}
+.ze-md p,
+.ze-md blockquote,
+.ze-md ul,
+.ze-md ol,
+.ze-md dl,
+.ze-md table,
+.ze-md pre,
+.ze-md details {
+  margin-top: 0;
+  margin-bottom: 1em;
+}
+.ze-md h1,
+.ze-md h2,
+.ze-md h3,
+.ze-md h4,
+.ze-md h5,
+.ze-md h6 {
+  margin-top: 1.5em;
+  margin-bottom: 1em;
+  font-weight: 600;
+  line-height: 1.25;
+}
+.ze-md h1 {
+  font-size: 2em;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid var(--ctl-border);
+}
+.ze-md h2 {
+  font-size: 1.5em;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid var(--ctl-border);
+}
+.ze-md h3 {
+  font-size: 1.25em;
+}
+.ze-md h4 {
+  font-size: 1em;
+}
+.ze-md h5 {
+  font-size: 0.875em;
+}
+.ze-md h6 {
+  font-size: 0.85em;
+  color: var(--chrome-fg-muted);
+}
+.ze-md strong {
+  font-weight: 600;
+}
+.ze-md ul,
+.ze-md ol {
+  padding-left: 2em;
+}
+.ze-md ul ul,
+.ze-md ul ol,
+.ze-md ol ol,
+.ze-md ol ul {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+.ze-md li + li {
+  margin-top: 0.25em;
+}
+.ze-md li > p {
+  margin-top: 1em;
+}
+.ze-md code {
+  padding: 0.2em 0.4em;
+  margin: 0;
+  font-family: monospace;
+  font-size: 85%;
+  white-space: break-spaces;
+  border-radius: var(--ctl-radius);
+  background: var(--chrome-bg2);
+}
+.ze-md pre {
+  padding: 1em;
+  overflow: auto;
+  font-size: 85%;
+  line-height: 1.45;
+  border-radius: var(--ctl-radius);
+  background: var(--chrome-bg2);
+}
+.ze-md pre code {
+  padding: 0;
+  font-size: 100%;
+  white-space: pre;
+  background: transparent;
+}
+.ze-md blockquote {
+  padding: 0 1em;
+  color: var(--chrome-fg-muted);
+  border-left: 0.25em solid var(--ctl-border);
+}
+.ze-md hr {
+  height: 0.25em;
+  padding: 0;
+  margin: 1.5em 0;
+  border: 0;
+  background: var(--ctl-border);
+}
+.ze-md table {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow: auto;
+  border-spacing: 0;
+  border-collapse: collapse;
+}
+.ze-md th,
+.ze-md td {
+  padding: 0.375em 0.8125em;
+  border: 1px solid var(--ctl-border);
+}
+.ze-md th {
+  font-weight: 600;
+}
+.ze-md tr {
+  background: var(--content-bg);
+  border-top: 1px solid var(--ctl-border);
+}
+.ze-md tr:nth-child(2n) {
+  background: var(--chrome-bg2);
+}
+.ze-md a {
+  color: var(--link-fg);
+  text-decoration: none;
+}
+.ze-md a:hover {
+  text-decoration: underline;
+}
+.ze-md del {
+  color: var(--chrome-fg-muted);
+}
+.ze-md li.task-list-item {
+  list-style: none;
+}
+.ze-md li.task-list-item input {
+  margin: 0 0.2em 0.25em -1.4em;
+  vertical-align: middle;
+}
+/* The spec reads at GitHub's size and measure. */
+.ze-md-doc {
+  max-width: 980px; /* [ours] GitHub's readme column, 1012px less padding */
+  margin: 0 auto;
+  font-size: 16px; /* [data] github-markdown-css .markdown-body */
+}
+
+/* ---- Tool steps: live while working, folded to one line after ---- */
+.ze-ai-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  color: var(--chrome-fg-muted);
+  font-size: var(--ui-font-size-small);
+}
+.ze-ai-steps-head {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.ze-ai-steps-head:hover {
+  color: var(--chrome-fg);
+}
+.ze-ai-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding-left: 2px;
+}
+.ze-ai-step > span:last-child {
+  overflow-wrap: anywhere;
+}
+.ze-ai-step.running {
+  color: var(--chrome-fg);
+}
+.ze-ai-step.error {
+  color: var(--error-ink);
+}
+.ze-ai-step-icon,
+.ze-ai-spinner {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+.ze-ai-spinner {
+  width: 10px;
+  height: 10px;
+  margin-left: 1px;
+  margin-right: 1px;
+  border: 1.5px solid var(--ctl-border);
+  border-top-color: var(--chrome-fg);
+  border-radius: 50%;
+  animation: ze-ai-spin 0.8s linear infinite;
+}
+@keyframes ze-ai-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+/* Thinking: shown only while the model thinks, a soft pulse. */
+.ze-ai-thinking {
+  color: var(--chrome-fg-muted);
+  font-size: var(--ui-font-size-small);
+  animation: ze-ai-pulse 1.6s ease-in-out infinite;
+}
+@keyframes ze-ai-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* ---- The spec viewer (doc_viewer.tsx): a KiCad dialog over the free area ---- */
+.ze-ai-docview-scrim {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5); /* the shell's .ze-modal-backdrop */
+  z-index: 19;
+}
+/* .ze-app is height: 100%; this root is exactly the box it is given, and
+   clips, so a long spec scrolls inside rather than growing the dialog. */
+.ze-app.ze-ai-docview {
+  position: fixed;
+  height: auto;
+  z-index: 20;
+  display: flex;
+  overflow: hidden;
+}
+/* (0,2,0): .ze-modal sizes to its content; this one is the box it is given. */
+.ze-modal.ze-ai-docview-dialog {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  width: auto;
+  height: auto;
+  max-width: none;
+  max-height: none;
+}
+.ze-ai-docview-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 32px; /* [data] github-markdown-css .markdown-body padding */
+  /* The central area's own face (the launcher pane's), not an entry's. */
+  background: var(--content-bg);
+}
+
+/* ---- The pane's head: a strip the menu bar's height, no caption ---- */
+.ze-ai-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: var(--menu-row);
+  padding: 0 6px;
+  background: var(--chrome-bg);
+  border-bottom: 1px solid var(--chrome-border);
+  flex: 0 0 auto;
+}
+.ze-ai-head-fill {
+  flex: 1 1 auto;
+}
+.ze-ai-iconbtn,
+.ze-ai-textbtn,
+.ze-ai-roundbtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--chrome-fg);
+  font: inherit;
+  cursor: pointer;
+}
+.ze-ai-iconbtn {
+  width: calc(var(--menu-row) - 4px);
+  height: calc(var(--menu-row) - 4px);
+  border-radius: var(--ctl-radius);
+}
+.ze-ai-textbtn {
+  height: calc(var(--menu-row) - 4px);
+  padding: 0 8px;
+  border-radius: var(--ctl-radius);
+}
+.ze-ai-iconbtn:hover,
+.ze-ai-textbtn:hover {
+  background: var(--chrome-hover);
+}
+.ze-ai-head .ze-ai-cost {
+  flex: 0 0 auto;
+  color: var(--chrome-fg-muted);
+}
+.ze-ai-menu-anchor {
+  position: relative;
+}
+/* The chats menu is the app's popup (.ze-dropdown), as a plain column. */
+.ze-dropdown.ze-ai-menu {
+  display: flex;
+  flex-direction: column;
+  min-width: 240px;
+  max-width: 320px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+.ze-ai-menu-item {
+  padding: 4px 12px;
+  border: 0;
+  background: none;
+  color: var(--chrome-fg);
+  font: inherit;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: default;
+}
+.ze-ai-menu-item:hover:not(:disabled) {
+  background: var(--chrome-hover);
+}
+.ze-ai-menu-item.current {
+  font-weight: bold;
+}
+.ze-ai-menu-sep {
+  margin: 4px 0;
+  border-top: 1px solid var(--chrome-border);
+}
+
+/* ---- The composer: one rounded box holding the text and its buttons ---- */
+.ze-ai-composer {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--ctl-border);
+  border-radius: calc(2 * var(--window-radius));
+  /* A button's face, a step lighter than the pane, so the box reads as
+     the place to type. */
+  background: var(--ctl-face);
+}
+.ze-ai-composer:focus-within {
+  border-color: var(--chrome-fg-muted);
+}
+/* (0,2,1): the shell's entry rule (.ze-app textarea) frames every text
+   box; inside the composer the box itself is the frame. */
+.ze-app .ze-ai-composer textarea {
+  min-height: 40px;
+  max-height: 200px;
+  resize: none;
+  padding: 2px;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--chrome-fg);
+  font: inherit;
+  box-shadow: none;
+}
+.ze-ai-composer-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ze-ai-roundbtn {
+  width: 28px; /* [ours] KiCad has no such control */
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--ctl-border);
+  color: var(--chrome-fg-muted);
+}
+.ze-ai-roundbtn:hover:not(:disabled) {
+  background: var(--chrome-hover);
+  color: var(--chrome-fg);
+}
+.ze-ai-roundbtn.live {
+  color: var(--error-ink);
+  border-color: var(--error-ink);
+}
+.ze-ai-roundbtn.send {
+  border-color: transparent;
+  background: var(--chrome-fg);
+  color: var(--ctl-face);
+}
+.ze-ai-pillbtn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--ctl-border);
+  border-radius: 14px;
+  background: transparent;
+  color: var(--chrome-fg-muted);
+  font: inherit;
+  cursor: pointer;
+}
+.ze-ai-pillbtn:hover {
+  background: var(--chrome-hover);
+  color: var(--chrome-fg);
+}
+.ze-ai-roundbtn.send:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.ze-ai-thumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ze-ai-thumbs img {
+  max-width: 96px;
+  max-height: 72px;
+  border-radius: var(--ctl-radius);
+  object-fit: cover;
+}
+.ze-ai-thumb {
+  position: relative;
+}
+.ze-ai-thumb button {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--chrome-bg);
+  color: var(--chrome-fg);
+  line-height: 18px;
+  cursor: pointer;
+}
+/* …and its focus ring: the composer's own border answers focus instead. */
+.ze-app .ze-ai-composer textarea:focus {
+  border: 0;
+  outline: none;
+  box-shadow: none;
+}

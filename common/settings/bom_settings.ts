@@ -175,3 +175,93 @@ export const BOM_FMT_PRESET = {
     return [BOM_FMT_PRESET.CSV(), BOM_FMT_PRESET.TSV(), BOM_FMT_PRESET.Semicolons()];
   },
 };
+
+// ---- to_json / from_json (bom_settings.cpp:47-258) ----
+
+type Json = { [k: string]: unknown };
+
+/** `j.at( key )`: the value, or throw as nlohmann does for a missing key or a wrong type. */
+function at<T>(j: unknown, key: string, type: 'string' | 'boolean'): T {
+  if (j === null || typeof j !== 'object' || Array.isArray(j) || !(key in (j as Json)))
+    throw new Error(`key '${key}' not found`);
+
+  const v = (j as Json)[key];
+
+  if (typeof v !== type) throw new Error(`type must be ${type}`);
+
+  return v as T;
+}
+
+export function BOM_FIELD_to_json(f: BOM_FIELD): Json {
+  return { name: f.name, label: f.label, show: f.show, group_by: f.groupBy };
+}
+
+export function BOM_FIELD_from_json(j: unknown): BOM_FIELD {
+  return {
+    name: at(j, 'name', 'string'),
+    label: at(j, 'label', 'string'),
+    show: at(j, 'show', 'boolean'),
+    groupBy: at(j, 'group_by', 'boolean'),
+  };
+}
+
+export function BOM_PRESET_to_json(p: BOM_PRESET): Json {
+  const j: Json = {
+    name: p.name,
+    sort_field: p.sortField,
+    sort_asc: p.sortAsc,
+    filter_string: p.filterString,
+    group_symbols: p.groupSymbols,
+    exclude_dnp: p.excludeDNP,
+    include_excluded_from_bom: p.includeExcludedFromBOM,
+  };
+
+  if (p.fieldsOrdered.length > 0) j.fields_ordered = p.fieldsOrdered.map(BOM_FIELD_to_json);
+
+  return j;
+}
+
+export function BOM_PRESET_from_json(j: unknown): BOM_PRESET {
+  const name = at<string>(j, 'name', 'string');
+  const fields = (j as Json).fields_ordered;
+
+  if (!Array.isArray(fields)) throw new Error("key 'fields_ordered' not found");
+
+  const include = (j as Json).include_excluded_from_bom;
+
+  return {
+    name,
+    fieldsOrdered: fields.map(BOM_FIELD_from_json),
+    sortField: at(j, 'sort_field', 'string'),
+    sortAsc: at(j, 'sort_asc', 'boolean'),
+    filterString: at(j, 'filter_string', 'string'),
+    groupSymbols: at(j, 'group_symbols', 'boolean'),
+    excludeDNP: at(j, 'exclude_dnp', 'boolean'),
+    // Was not present in initial BOM settings in 8.0, so default to false if not found
+    includeExcludedFromBOM: typeof include === 'boolean' ? include : false,
+  };
+}
+
+export function BOM_FMT_PRESET_to_json(p: BOM_FMT_PRESET): Json {
+  return {
+    name: p.name,
+    field_delimiter: p.fieldDelimiter,
+    string_delimiter: p.stringDelimiter,
+    ref_delimiter: p.refDelimiter,
+    ref_range_delimiter: p.refRangeDelimiter,
+    keep_tabs: p.keepTabs,
+    keep_line_breaks: p.keepLineBreaks,
+  };
+}
+
+export function BOM_FMT_PRESET_from_json(j: unknown): BOM_FMT_PRESET {
+  return {
+    name: at(j, 'name', 'string'),
+    fieldDelimiter: at(j, 'field_delimiter', 'string'),
+    stringDelimiter: at(j, 'string_delimiter', 'string'),
+    refDelimiter: at(j, 'ref_delimiter', 'string'),
+    refRangeDelimiter: at(j, 'ref_range_delimiter', 'string'),
+    keepTabs: at(j, 'keep_tabs', 'boolean'),
+    keepLineBreaks: at(j, 'keep_line_breaks', 'boolean'),
+  };
+}

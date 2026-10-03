@@ -24,6 +24,10 @@ import { EDA_ITEM as EDA_ITEM_CLASS } from '@ziroeda/common/eda_item.js';
 import { SHOW_ELEC_TYPE, SKIP_STRUCT, STRUCT_DELETED } from '@ziroeda/common/eda_item_flags.js';
 import { type EDA_SEARCH_DATA, SCH_SEARCH_DATA } from '@ziroeda/common/eda_search_data.js';
 import { schIUScale } from '@ziroeda/common/eda_units.js';
+import type { FONT } from '@ziroeda/common/font/font.js';
+import type { METRICS } from '@ziroeda/common/font/font_metrics.js';
+import { GetPenSizeForNormal } from '@ziroeda/common/gr_text.js';
+import { wxStringSplit } from '@ziroeda/common/string_utils.js';
 import type { KIID } from '@ziroeda/common/kiid.js';
 import { SCH_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import {
@@ -152,6 +156,57 @@ interface PIN_PARENT_SYMBOL {
   GetValue(aResolve: boolean, aPath: SCH_SHEET_PATH | null, aAllowExtraText: boolean): string;
   GetPins(aSheet?: SCH_SHEET_PATH | null): SCH_PIN[];
   GetField(aFieldType: FIELD_T): { GetText(): string } | null;
+}
+
+/**
+ * `FormatStackedPinForDisplay` (sch_pin.cpp:45): a stacked pin number `[A,B,C]` too wide for
+ * its pin, broken into one trimmed name per line inside the brackets.
+ */
+export function FormatStackedPinForDisplay(
+  aPinNumber: string,
+  aPinLength: number,
+  aTextSize: number,
+  aFont: FONT,
+  aFontMetrics: METRICS,
+): string {
+  // Check if this is stacked pin notation: [A,B,C]
+  if (!aPinNumber.startsWith('[') || !aPinNumber.endsWith(']')) return aPinNumber;
+
+  const minPinTextWidth = schIUScale.milsToIU(50);
+  const maxPinTextWidth = Math.max(aPinLength, minPinTextWidth);
+
+  const fontSize = { x: aTextSize, y: aTextSize };
+  const penWidth = GetPenSizeForNormal(aTextSize);
+  const textExtents = aFont.StringBoundaryLimits(
+    aPinNumber,
+    fontSize,
+    penWidth,
+    false,
+    false,
+    aFontMetrics,
+  );
+
+  if (textExtents.x <= maxPinTextWidth) return aPinNumber; // Fits already
+
+  // Strip brackets and split by comma
+  const inner = aPinNumber.slice(1, aPinNumber.length - 1);
+  const parts = wxStringSplit(inner, ',');
+
+  if (parts.length === 0) return aPinNumber; // malformed; fallback
+
+  // Build multi-line representation inside braces, each line trimmed
+  let result = '[';
+
+  for (let i = 0; i < parts.length; ++i) {
+    const line = parts[i]!.trim();
+
+    if (i > 0) result += '\n';
+
+    result += line;
+  }
+
+  result += ']';
+  return result;
 }
 
 export class SCH_PIN extends SCH_ITEM {

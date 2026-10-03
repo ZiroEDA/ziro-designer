@@ -81,7 +81,20 @@ import type { METRICS } from '@ziroeda/common/font/font_metrics.js';
 import { GetPenSizeForNormal } from '@ziroeda/common/gr_text.js';
 import { GRAPHIC_PINSHAPE, PIN_ORIENTATION } from '@ziroeda/common/pin_type.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
-import { ANGLE_90 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import {
+  ANGLE_90,
+  ANGLE_HORIZONTAL,
+  ANGLE_VERTICAL,
+  type EDA_ANGLE,
+} from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import {
+  GetFlippedHAlignment,
+  GR_TEXT_H_ALIGN_T,
+  GR_TEXT_V_ALIGN_T,
+} from '@ziroeda/common/font/text_attributes.js';
+import { wxStringSplit } from '@ziroeda/common/string_utils.js';
+import { currentEeschemaSettings } from './eeschema_settings.js';
+import { FormatStackedPinForDisplay } from './sch_pin.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
@@ -365,9 +378,8 @@ export function libPinBoundingBox(pin: LibPin, lib: LibSymbol): BBox {
 // ---------------------------------------------------------------------------
 // `PIN_LAYOUT_CACHE`, the live-model class (eeschema stage E3b): the bounding-box half,
 // on `SCH_PIN` itself.  Everything above is the record model's copy of the same
-// arithmetic, untouched.  Not here yet: the render-text half (`GetPinNameInfo`,
-// `GetPinNumberInfo`, `GetPinElectricalTypeInfo`, `transformTextForPin`), the drawing
-// path's.
+// arithmetic, untouched.  The render-text half (`GetPinNameInfo`, `GetPinNumberInfo`,
+// `GetPinElectricalTypeInfo`, `transformTextForPin`) is SCH_PAINTER's (S4-4a).
 // ---------------------------------------------------------------------------
 
 /** What `PIN_LAYOUT_CACHE` reads of the pin (a type-only view: `sch_pin.ts` imports this file). */
@@ -389,6 +401,8 @@ interface LAYOUT_PIN {
   IsVisible(): boolean;
   IsDangling(): boolean;
   PinDrawOrient(aTransform: TRANSFORM): PIN_ORIENTATION;
+  GetFlipStackedTextSide(): boolean;
+  StackedTextSideFlipped(aTransform: TRANSFORM): boolean;
   GetBoundingBox(
     aIncludeLabelsOnInvisiblePins?: boolean,
     aIncludeNameAndNumber?: boolean,
@@ -403,6 +417,18 @@ interface LAYOUT_SYMBOL {
   GetPinNameOffset(): number;
   GetTransform(): TRANSFORM;
   GetPosition(): VECTOR2I;
+  GetPins(): readonly LAYOUT_PIN[];
+}
+
+/** `PIN_LAYOUT_CACHE::TEXT_INFO` (pin_layout_cache.h:97): one piece of pin text, laid out. */
+export interface TEXT_INFO {
+  m_Text: string;
+  m_TextSize: number;
+  m_Thickness: number;
+  m_TextPosition: VECTOR2I;
+  m_HAlign: GR_TEXT_H_ALIGN_T;
+  m_VAlign: GR_TEXT_V_ALIGN_T;
+  m_Angle: EDA_ANGLE;
 }
 
 interface TEXT_EXTENTS_CACHE {
@@ -501,6 +527,274 @@ export class PIN_LAYOUT_CACHE {
     this.m_numberThickness = aNumberThickness;
     this.m_showElectricalType = aShowElectricalType;
     this.m_showAltIcons = aShowAltIcons;
+  }
+  /** `PIN_LAYOUT_CACHE::GetPinNumberInfo` (pin_layout_cache.cpp:38). */
+  GetPinNumberInfo(_aShadowWidth: number): TEXT_INFO | null {
+    this.recomputeCaches();
+
+    const number = this.m_pin.GetShownNumber();
+
+    if (number === '' || !this.m_pin.GetParentSymbol()!.GetShowPinNumbers()) return null;
+
+    // Format stacked representation if necessary
+    const font = FONT.GetFont(currentEeschemaSettings()?.appearance.default_font ?? '');
+    const metrics = this.m_pin.GetFontMetrics();
+    const length = this.m_pin.GetLength();
+    const num_size = this.m_pin.GetNumberTextSize();
+    const formatted = FormatStackedPinForDisplay(number, length, num_size, font, metrics);
+
+    const info: TEXT_INFO = {
+      m_Text: formatted,
+      m_TextSize: num_size,
+      m_Thickness: this.m_numberThickness,
+      m_TextPosition: { x: 0, y: 0 },
+      m_HAlign: GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_CENTER,
+      m_VAlign: GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_CENTER,
+      m_Angle: ANGLE_HORIZONTAL,
+    };
+
+    const orient = this.m_pin.PinDrawOrient(DefaultTransform);
+
+    const parentSym = this.m_pin.GetParentSymbol();
+
+    const clearance = this.getPinTextOffset() + schIUScale.milsToIU(PIN_TEXT_MARGIN);
+    const pinPos = this.m_pin.GetPosition();
+    const halfLength = Math.trunc(this.m_pin.GetLength() / 2);
+    const verticalOrient = orient === PIN_ORIENTATION.PIN_UP || orient === PIN_ORIENTATION.PIN_DOWN;
+
+    // Nominal size, not the measured glyph bbox, which stroke fonts inflate for descenders
+    // digits never have; using it kept the gap constant across rotations without the extra push
+    let perpHeight = num_size;
+
+    if (formatted.includes('\n')) {
+      const lines = wxStringSplit(formatted, '\n');
+      perpHeight = lines.length * Math.round(num_size * 1.3);
+    }
+
+    const perpendicularHalf = Math.trunc(perpHeight / 2);
+
+    // Keep a multi-line stacked block on the authored side of a mirrored symbol (issue 24894)
+    const flipStacked =
+      formatted.includes('\n') &&
+      this.m_pin.GetFlipStackedTextSide() !== this.m_pin.StackedTextSideFlipped(DefaultTransform);
+
+    // Check if both name and number are displayed
+    const showBothNameAndNumber =
+      this.m_pin.GetShownName() !== '' &&
+      !!parentSym &&
+      parentSym.GetShowPinNames() &&
+      parentSym.GetPinNameOffset() === 0; // name is outside
+
+    if (verticalOrient) {
+      // Vertical pins: text is rotated vertical so that it reads bottom->top.
+      const perpendicularOffset = clearance + perpendicularHalf + this.m_numberThickness;
+
+      let centerX: number;
+
+      if (showBothNameAndNumber) {
+        // When both are shown: name goes to the left, number goes to the right
+        centerX = pinPos.x + perpendicularOffset;
+      } else {
+        // When only number is shown: place it to the left of the pin (right when mirrored)
+        centerX = flipStacked ? pinPos.x + perpendicularOffset : pinPos.x - perpendicularOffset;
+      }
+
+      info.m_TextPosition.x = centerX;
+
+      if (orient === PIN_ORIENTATION.PIN_DOWN) info.m_TextPosition.y = pinPos.y + halfLength;
+      else info.m_TextPosition.y = pinPos.y - halfLength;
+
+      info.m_Angle = ANGLE_VERTICAL;
+    } else {
+      // Horizontal pins: "above" means negative Y direction.
+      let centerY: number;
+
+      if (showBothNameAndNumber) {
+        // When both are shown: name goes above, number goes below (top-aligned)
+        centerY = pinPos.y + clearance + perpendicularHalf + this.m_numberThickness;
+      } else {
+        // When only number is shown: place it above the pin (below when mirrored)
+        centerY = flipStacked
+          ? pinPos.y + (perpendicularHalf + clearance + this.m_numberThickness)
+          : pinPos.y - (perpendicularHalf + clearance + this.m_numberThickness);
+      }
+
+      if (orient === PIN_ORIENTATION.PIN_LEFT)
+        info.m_TextPosition.x = pinPos.x - halfLength; // centered horizontally along pin
+      else info.m_TextPosition.x = pinPos.x + halfLength; // centered horizontally along pin
+
+      info.m_TextPosition.y = centerY;
+      info.m_Angle = ANGLE_HORIZONTAL;
+    }
+
+    return info;
+  }
+
+  /** `PIN_LAYOUT_CACHE::transformTextForPin` (:358). */
+  private transformTextForPin(aInfo: TEXT_INFO): void {
+    // Local nominal position for a PIN_RIGHT orientation.
+    const baseLocal = aInfo.m_TextPosition;
+
+    // We apply a rotation/mirroring depending on the pin orientation so that the text anchor
+    // maintains a constant perpendicular offset from the pin origin regardless of rotation.
+    let rotated = { ...baseLocal };
+    let finalAngle = aInfo.m_Angle;
+
+    switch (this.m_pin.PinDrawOrient(DefaultTransform)) {
+      case PIN_ORIENTATION.PIN_RIGHT: // identity
+        break;
+      case PIN_ORIENTATION.PIN_LEFT:
+        rotated = { x: -rotated.x, y: -rotated.y };
+        aInfo.m_HAlign = GetFlippedHAlignment(aInfo.m_HAlign);
+        break;
+      case PIN_ORIENTATION.PIN_UP: // rotate +90 (x,y)->(y,-x) and vertical text
+        rotated = { x: baseLocal.y, y: -baseLocal.x };
+        finalAngle = ANGLE_VERTICAL;
+        break;
+      case PIN_ORIENTATION.PIN_DOWN: // rotate -90 (x,y)->(-y,x) and vertical text, flip h-align
+        rotated = { x: -baseLocal.y, y: baseLocal.x };
+        finalAngle = ANGLE_VERTICAL;
+        aInfo.m_HAlign = GetFlippedHAlignment(aInfo.m_HAlign);
+        break;
+      default:
+        break;
+    }
+
+    const pos = this.m_pin.GetPosition();
+    aInfo.m_TextPosition = { x: rotated.x + pos.x, y: rotated.y + pos.y };
+    aInfo.m_Angle = finalAngle;
+  }
+
+  /** `PIN_LAYOUT_CACHE::GetPinNameInfo` (:748). */
+  GetPinNameInfo(aShadowWidth: number): TEXT_INFO | null {
+    this.recomputeCaches();
+    const name = this.m_pin.GetShownName();
+
+    if (name === '' || !this.m_pin.GetParentSymbol()!.GetShowPinNames()) return null;
+
+    const info: TEXT_INFO = {
+      m_Text: name,
+      m_TextSize: this.m_pin.GetNameTextSize(),
+      m_Thickness: this.m_nameThickness,
+      m_TextPosition: { x: 0, y: 0 },
+      m_HAlign: GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_CENTER,
+      m_VAlign: GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_CENTER,
+      m_Angle: ANGLE_HORIZONTAL,
+    };
+
+    const nameInside = this.m_pin.GetParentSymbol()!.GetPinNameOffset() > 0;
+
+    if (nameInside) {
+      // This means name inside the pin
+      const pos = {
+        x: this.m_pin.GetLength() + this.m_pin.GetParentSymbol()!.GetPinNameOffset(),
+        y: 0,
+      };
+      const shadowOffset = Math.trunc(Math.round(aShadowWidth * this.m_shadowOffsetAdjust) / 2);
+
+      info.m_TextPosition = { x: pos.x - shadowOffset, y: pos.y };
+      info.m_HAlign = GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT;
+      info.m_VAlign = GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_CENTER;
+      this.transformTextForPin(info);
+    } else {
+      // The pin name is always over the pin
+      info.m_TextPosition = {
+        x: Math.trunc(this.m_pin.GetLength() / 2),
+        y: -this.getPinTextOffset() - Math.trunc(info.m_Thickness / 2),
+      };
+      info.m_HAlign = GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_CENTER;
+      info.m_VAlign = GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_CENTER;
+
+      // New policy: names follow same positioning semantics as numbers except when
+      // specified as inside.  When names are inside, they should not overlap with the
+      // number position.
+      const parentSym = this.m_pin.GetParentSymbol();
+
+      if (parentSym) {
+        let maxHalfHeight = 0;
+
+        for (const p of parentSym.GetPins()) {
+          const n = p.GetShownName();
+
+          if (n === '') continue;
+
+          maxHalfHeight = Math.max(maxHalfHeight, Math.trunc(p.GetNameTextSize() / 2));
+        }
+
+        const clearance = this.getPinTextOffset() + schIUScale.milsToIU(PIN_TEXT_MARGIN);
+        const pinPos = this.m_pin.GetPosition();
+        const halfLength = Math.trunc(this.m_pin.GetLength() / 2);
+        const orient = this.m_pin.PinDrawOrient(DefaultTransform);
+        const verticalOrient =
+          orient === PIN_ORIENTATION.PIN_UP || orient === PIN_ORIENTATION.PIN_DOWN;
+
+        if (verticalOrient) {
+          // Vertical pins: name mirrors number placement (left + rotated) for visual consistency.
+          // Use text HEIGHT (not width) for perpendicular offset - same as horizontal pins.
+          const perpendicularOffset =
+            clearance + Math.trunc(info.m_TextSize / 2) + info.m_Thickness;
+          const centerX = pinPos.x - perpendicularOffset;
+          info.m_TextPosition = { x: centerX, y: pinPos.y };
+
+          if (orient === PIN_ORIENTATION.PIN_DOWN) info.m_TextPosition.y += halfLength;
+          else info.m_TextPosition.y -= halfLength;
+
+          info.m_Angle = ANGLE_VERTICAL;
+          info.m_HAlign = GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_CENTER;
+          info.m_VAlign = GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_CENTER;
+        } else {
+          // Horizontal pins: name above (negative Y) aligned to same Y offset logic as numbers.
+          info.m_TextPosition = {
+            x: pinPos.x,
+            y: pinPos.y - (maxHalfHeight + clearance + info.m_Thickness),
+          };
+
+          if (orient === PIN_ORIENTATION.PIN_LEFT) info.m_TextPosition.x -= halfLength;
+          else info.m_TextPosition.x += halfLength;
+
+          info.m_Angle = ANGLE_HORIZONTAL;
+          info.m_HAlign = GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_CENTER;
+          info.m_VAlign = GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_CENTER;
+        }
+      }
+    }
+
+    return info;
+  }
+
+  /** `PIN_LAYOUT_CACHE::GetPinElectricalTypeInfo` (:857). */
+  GetPinElectricalTypeInfo(aShadowWidth: number): TEXT_INFO | null {
+    this.recomputeCaches();
+
+    if (!this.m_showElectricalType) return null;
+
+    const textSize = Math.max(
+      Math.trunc((this.m_pin.GetNameTextSize() * 3) / 4),
+      schIUScale.mmToIU(0.7),
+    );
+    const thickness = Math.trunc(textSize / 8);
+    const info: TEXT_INFO = {
+      m_Text: this.m_pin.GetElectricalTypeName(),
+      m_TextSize: textSize,
+      m_Angle: ANGLE_HORIZONTAL,
+      m_Thickness: thickness,
+      m_TextPosition: {
+        x:
+          -this.getPinTextOffset() -
+          Math.trunc(thickness / 2) +
+          Math.trunc(Math.round(aShadowWidth * this.m_shadowOffsetAdjust) / 2),
+        y: 0,
+      },
+      m_HAlign: GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_RIGHT,
+      m_VAlign: GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_CENTER,
+    };
+
+    info.m_TextPosition.x -= TARGET_PIN_RADIUS;
+
+    if (this.m_pin.IsDangling()) info.m_TextPosition.x -= Math.trunc(TARGET_PIN_RADIUS / 2);
+
+    this.transformTextForPin(info);
+    return info;
   }
 
   /**

@@ -369,6 +369,19 @@ export interface PnsSessionOptions {
   enteredGroup?: () => EDA_GROUP | null;
 }
 
+/**
+ * The session's interface, keeping every item the router hands it to add -
+ * which is what a route WOULD put on the board, commit host or none.
+ */
+class RECORDING_PNS_KICAD_IFACE extends PNS_KICAD_IFACE {
+  readonly m_added: PnsItem[] = [];
+
+  override addItem(aItem: PnsItem): void {
+    this.m_added.push(aItem);
+    super.addItem(aItem);
+  }
+}
+
 /** What a session did to the board, once it finished. */
 export interface PnsSessionResult {
   /** Whether the route was placed at all. */
@@ -385,7 +398,7 @@ export interface PnsSessionResult {
  * leaves the board exactly as it was.
  */
 export class PnsSession {
-  private readonly iface: PNS_KICAD_IFACE;
+  private readonly iface: RECORDING_PNS_KICAD_IFACE;
   private readonly router: PnsRouter;
   private readonly settings: RoutingSettings;
   private readonly maxSlopRadius: number;
@@ -398,7 +411,7 @@ export class PnsSession {
     this.settings = aOptions.settings ?? { ...DEFAULT_ROUTING_SETTINGS };
     this.maxSlopRadius = aOptions.maxSlopRadius ?? 250_000;
 
-    this.iface = new PNS_KICAD_IFACE(board, {
+    this.iface = new RECORDING_PNS_KICAD_IFACE(board, {
       isLayerVisible: aOptions.isLayerVisible,
       designSettings: aOptions.designSettings ?? null,
       view: aOptions.view ?? null,
@@ -611,6 +624,14 @@ export class PnsSession {
     this.iface.Dispose();
 
     return { ok: this.iface.pushedCommits() > 0, reason: this.router.failureReason() };
+  }
+
+  /**
+   * The items the router has added so far - committed to the board when the
+   * session has a commit host, and only recorded when it has none.
+   */
+  addedItems(): readonly PnsItem[] {
+    return this.iface.m_added;
   }
 
   /** `ROUTER::StopRouting` — throw the route away, board untouched. */

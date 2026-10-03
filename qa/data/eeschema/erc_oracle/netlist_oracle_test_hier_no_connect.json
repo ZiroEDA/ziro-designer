@@ -1,0 +1,161 @@
+{
+ "$schema": "https://schemas.kicad.org/erc.v1.json",
+ "coordinate_units": "mm",
+ "ignored_checks": [
+  {
+   "description": "Global label only appears once in the schematic",
+   "key": "single_global_label"
+  },
+  {
+   "description": "Four connection points are joined together",
+   "key": "four_way_junction"
+  },
+  {
+   "description": "Assigned footprint doesn't match footprint filters",
+   "key": "footprint_filter"
+  }
+ ],
+ "included_severities": [
+  "error",
+  "warning",
+  "exclusion"
+ ],
+ "kicad_version": "10.0.6",
+ "sheets": [
+  {
+   "path": "/",
+   "uuid_path": "/a68fb8f1-2acf-4e52-8498-fd8a9cae28e4",
+   "violations": [
+    {
+     "description": "A pin with a \"no connection\" flag is connected",
+     "items": [
+      {
+       "description": "Symbol U5 Pin 2 [PIN2, Input, Line]",
+       "pos": {
+        "x": 1.1811,
+        "y": 0.889
+       },
+       "uuid": "ab340800-9429-4192-9d41-061da2e17579"
+      },
+      {
+       "description": "No Connect",
+       "pos": {
+        "x": 1.0795,
+        "y": 0.8636
+       },
+       "uuid": "c9de5403-845f-4338-86fc-8422c97cb788"
+      }
+     ],
+     "severity": "warning",
+     "type": "no_connect_connected"
+    },
+    {
+     "description": "The symbol library 'TEST_LIB' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/test_hier_no_connect/TEST_LIB.kicad_sym'",
+     "items": [
+      {
+       "description": "Symbol U2 [TEST_STACKED]",
+       "pos": {
+        "x": 1.1938,
+        "y": 0.5969
+       },
+       "uuid": "e925c8ad-ec08-437c-834b-98d5bc471e84"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'TEST_LIB' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/test_hier_no_connect/TEST_LIB.kicad_sym'",
+     "items": [
+      {
+       "description": "Symbol U6 [TEST_STACKED]",
+       "pos": {
+        "x": 1.1938,
+        "y": 0.6985
+       },
+       "uuid": "c27d8823-b16a-4039-8b30-60b56b1d2929"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'TEST_LIB' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/test_hier_no_connect/TEST_LIB.kicad_sym'",
+     "items": [
+      {
+       "description": "Symbol U5 [TEST_DOUBLE]",
+       "pos": {
+        "x": 1.2192,
+        "y": 0.8128
+       },
+       "uuid": "9aac22d0-4d93-4d78-b01c-00c820843aee"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'TEST_LIB' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/test_hier_no_connect/TEST_LIB.kicad_sym'",
+     "items": [
+      {
+       "description": "Symbol U3 [TEST_STACKED]",
+       "pos": {
+        "x": 1.3462,
+        "y": 0.635
+       },
+       "uuid": "a7ece548-fdfc-4869-9739-000253755521"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'TEST_LIB' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/test_hier_no_connect/TEST_LIB.kicad_sym'",
+     "items": [
+      {
+       "description": "Symbol U1 [TEST_SINGLE]",
+       "pos": {
+        "x": 1.3081,
+        "y": 0.635
+       },
+       "uuid": "4de6e629-b0b3-4928-9859-b3e6bfe3cfc6"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The symbol library 'TEST_LIB' was not found at '/home/akshay/wt-eeschema/qa/data/eeschema/netlist_oracle/test_hier_no_connect/TEST_LIB.kicad_sym'",
+     "items": [
+      {
+       "description": "Symbol U4 [TEST_DOUBLE]",
+       "pos": {
+        "x": 1.397,
+        "y": 0.6223
+       },
+       "uuid": "e7a02164-c941-4fff-917a-609c220ed064"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    }
+   ]
+  },
+  {
+   "path": "/sub1/",
+   "uuid_path": "/a68fb8f1-2acf-4e52-8498-fd8a9cae28e4/fa05dc48-d19c-4e83-a3cd-8e95fa1e59b1",
+   "violations": []
+  },
+  {
+   "path": "/sub2/",
+   "uuid_path": "/a68fb8f1-2acf-4e52-8498-fd8a9cae28e4/ac073b00-33b3-4c40-9adc-0d2ac39cf8ef",
+   "violations": []
+  },
+  {
+   "path": "/sub3/",
+   "uuid_path": "/a68fb8f1-2acf-4e52-8498-fd8a9cae28e4/701adb8c-f139-4a93-a927-02c9f06ca5b2",
+   "violations": []
+  }
+ ],
+ "source": "test_hier_no_connect.kicad_sch"
+}
