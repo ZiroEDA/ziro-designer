@@ -12,6 +12,56 @@
  * follow KiCad's per-orientation direction.
  */
 
+import { schIUScale as liveIUScale } from '@ziroeda/common/eda_units.js';
+import { EDA_ITEM } from '@ziroeda/common/eda_item.js';
+import { ENDPOINT, STARTPOINT } from '@ziroeda/common/eda_item_flags.js';
+import { FILL_T } from '@ziroeda/common/eda_shape.js';
+import type { EDA_TEXT } from '@ziroeda/common/eda_text.js';
+import { CALLBACK_GAL } from '@ziroeda/common/callback_gal.js';
+import { FONT } from '@ziroeda/common/font/font.js';
+import type { METRICS } from '@ziroeda/common/font/font_metrics.js';
+import { TEXT_ATTRIBUTES } from '@ziroeda/common/font/text_attributes.js';
+import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/font/text_attributes.js';
+import {
+  COLOR4D_UNSPECIFIED,
+  type Color4d,
+  darkened,
+  withAlpha,
+} from '@ziroeda/common/gal/color4d.js';
+import type { VECTOR2I } from '@ziroeda/kimath';
+import type { GAL } from '@ziroeda/common/gal/graphics_abstraction_layer.js';
+import { PAINTER } from '@ziroeda/common/gal/painter.js';
+import { GetPenSizeForDemiBold } from '@ziroeda/common/gr_text.js';
+import { SCH_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { LINE_STYLE, STROKE_PARAMS } from '@ziroeda/common/stroke_params.js';
+import type { VIEW_ITEM } from '@ziroeda/common/view/view_item.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_chain.js';
+import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
+import { SHAPE_SEGMENT } from '@ziroeda/kimath/src/geometry/shape_segment.js';
+import {
+  DANGLING_SYMBOL_SIZE,
+  DEFAULT_LINE_WIDTH_MILS,
+  TEXT_ANCHOR_SIZE,
+  UNSELECTED_END_SIZE,
+} from './default_values.js';
+import { currentEeschemaSettings, type EeschemaSettings } from './eeschema_settings.js';
+import type { SCH_BUS_ENTRY_BASE, SCH_BUS_WIRE_ENTRY } from './sch_bus_entry.js';
+import { TARGET_BUSENTRY_RADIUS } from './sch_bus_entry.js';
+import type { SCH_FIELD } from './sch_field.js';
+import type { SCH_ITEM } from './sch_item.js';
+import type { SCH_JUNCTION } from './sch_junction.js';
+import type { SCH_LABEL_BASE } from './sch_label.js';
+import { SCH_LINE } from './sch_line.js';
+import type { SCH_MARKER } from './sch_marker.js';
+import type { SCH_NO_CONNECT } from './sch_no_connect.js';
+import { SCH_RENDER_SETTINGS } from './sch_render_settings.js';
+import type { SCH_SHAPE } from './sch_shape.js';
+import type { SCH_SHEET } from './sch_sheet.js';
+import type { SCH_SYMBOL } from './sch_symbol.js';
+import type { SCH_TEXTBOX } from './sch_textbox.js';
+import type { SCHEMATIC } from './schematic.js';
 import { CalcArcCenter, type Vec2 } from '@ziroeda/kimath';
 import { zoomFitView } from '@ziroeda/common/ui/view_controls.js';
 import {
@@ -4949,4 +4999,854 @@ export function drawAltPinModesIcon(
   arc(topX - (size - lineYOffset * 2), topY + lineYOffset, lineYOffset, 180, 90);
 
   ctx.restore();
+}
+
+// ---------------------------------------------------------------------------
+// The live SCH_PAINTER (sch_painter.cpp), drawing SCH_* items through the GAL. Everything
+// above this line is the record painter, which the canvas switch (S4-6) retires.
+// ---------------------------------------------------------------------------
+
+/** `eeconfig()` (sch_painter.cpp:78): the live eeschema.json. */
+function eeconfig(): EeschemaSettings | null {
+  return currentEeschemaSettings();
+}
+
+const isBackgroundLayer = (layer: number): boolean =>
+  layer === SCH_LAYER_ID.LAYER_DEVICE_BACKGROUND ||
+  layer === SCH_LAYER_ID.LAYER_NOTES_BACKGROUND ||
+  layer === SCH_LAYER_ID.LAYER_SHAPES_BACKGROUND ||
+  layer === SCH_LAYER_ID.LAYER_SHEET_BACKGROUND;
+
+const sameColor = (a: Color4d, b: Color4d): boolean =>
+  a.r === b.r && a.g === b.g && a.b === b.b && a.a === b.a;
+
+/** `knockoutText` (sch_painter.cpp:611): the text cut out of a filled box. */
+function knockoutText(
+  aGal: GAL,
+  aText: string,
+  aPosition: VECTOR2I,
+  aAttrs: TEXT_ATTRIBUTES,
+  aFontMetrics: METRICS,
+): void {
+  const attrs = Object.assign(new TEXT_ATTRIBUTES(), aAttrs); // TEXT_ATTRIBUTES attrs( aAttrs )
+  const font =
+    aAttrs.m_Font ??
+    FONT.GetFont(eeconfig()?.appearance.default_font ?? '', attrs.m_Bold, attrs.m_Italic);
+
+  const knockouts = new SHAPE_POLY_SET();
+  const callback_gal = new CALLBACK_GAL(
+    // Polygon callback
+    (aPoly: SHAPE_LINE_CHAIN) => {
+      knockouts.AddOutline(aPoly);
+    },
+  );
+
+  callback_gal.SetIsFill(false);
+  callback_gal.SetIsStroke(true);
+  callback_gal.SetLineWidth(attrs.m_StrokeWidth);
+  font.Draw(callback_gal, aText, aPosition, { x: 0, y: 0 }, attrs, aFontMetrics);
+
+  const bbox = knockouts.BBox(attrs.m_StrokeWidth * 2);
+  const finalPoly = new SHAPE_POLY_SET();
+
+  finalPoly.NewOutline();
+  finalPoly.Append(bbox.GetLeft(), bbox.GetTop());
+  finalPoly.Append(bbox.GetRight(), bbox.GetTop());
+  finalPoly.Append(bbox.GetRight(), bbox.GetBottom());
+  finalPoly.Append(bbox.GetLeft(), bbox.GetBottom());
+
+  finalPoly.BooleanSubtract(knockouts);
+  finalPoly.Fracture();
+
+  aGal.SetIsStroke(false);
+  aGal.SetIsFill(true);
+  aGal.SetFillColor(attrs.m_Color);
+  aGal.DrawPolygon(finalPoly);
+}
+
+export class SCH_PAINTER extends PAINTER {
+  /** Item types whose selection shadow scales with zoom (sch_painter.cpp:84). */
+  static g_ScaledSelectionTypes: KICAD_T[] = [
+    KICAD_T.SCH_MARKER_T,
+    KICAD_T.SCH_JUNCTION_T,
+    KICAD_T.SCH_NO_CONNECT_T,
+    KICAD_T.SCH_BUS_WIRE_ENTRY_T,
+    KICAD_T.SCH_BUS_BUS_ENTRY_T,
+    KICAD_T.SCH_LINE_T,
+    KICAD_T.SCH_SHAPE_T,
+    KICAD_T.SCH_RULE_AREA_T,
+    KICAD_T.SCH_BITMAP_T,
+    KICAD_T.SCH_TEXT_T,
+    KICAD_T.SCH_GLOBAL_LABEL_T,
+    KICAD_T.SCH_DIRECTIVE_LABEL_T,
+    KICAD_T.SCH_FIELD_T,
+    KICAD_T.SCH_HIER_LABEL_T,
+    KICAD_T.SCH_SHEET_PIN_T,
+    KICAD_T.LIB_SYMBOL_T,
+    KICAD_T.SCH_SYMBOL_T,
+    KICAD_T.SCH_SHEET_T,
+    KICAD_T.SCH_PIN_T,
+  ];
+
+  protected m_schSettings = new SCH_RENDER_SETTINGS();
+  protected m_schematic: SCHEMATIC | null = null;
+
+  constructor(aGal: GAL | null) {
+    super(aGal);
+  }
+
+  override GetSettings(): SCH_RENDER_SETTINGS {
+    return this.m_schSettings;
+  }
+
+  SetSchematic(aSchematic: SCHEMATIC | null): void {
+    this.m_schematic = aSchematic;
+  }
+
+  private get gal(): GAL {
+    return this.m_gal!;
+  }
+
+  override Draw(aItem: VIEW_ITEM, aLayer: number): boolean {
+    if (!(aItem instanceof EDA_ITEM)) return false;
+
+    this.draw(aItem, aLayer, false);
+
+    return false;
+  }
+
+  protected draw(aItem: EDA_ITEM, aLayer: number, aDimmed: boolean): void {
+    // Enable draw bounding box on request. Some bboxes are handled locally.
+    const drawBoundingBox = this.m_schSettings.GetDrawBoundingBoxes();
+
+    switch (aItem.Type()) {
+      case KICAD_T.SCH_JUNCTION_T:
+        this.drawJunction(aItem as SCH_JUNCTION, aLayer);
+        break;
+      case KICAD_T.SCH_LINE_T:
+        this.drawLineItem(aItem as SCH_LINE, aLayer);
+        break;
+      case KICAD_T.SCH_NO_CONNECT_T:
+        this.drawNoConnect(aItem as SCH_NO_CONNECT, aLayer);
+        break;
+      case KICAD_T.SCH_BUS_WIRE_ENTRY_T:
+      case KICAD_T.SCH_BUS_BUS_ENTRY_T:
+        this.drawBusEntry(aItem as SCH_BUS_ENTRY_BASE, aLayer);
+        break;
+      case KICAD_T.SCH_MARKER_T:
+        this.drawMarker(aItem as SCH_MARKER, aLayer);
+        break;
+      // The remaining kinds are ported in S4-3..S4-5 (docs/eeschema-live-s4.md).
+      default:
+        void aDimmed;
+        return;
+    }
+
+    if (drawBoundingBox) this.drawItemBoundingBox(aItem);
+  }
+
+  protected drawItemBoundingBox(aItem: EDA_ITEM): void {
+    if (aItem.IsSCH_ITEM()) {
+      const item = aItem as SCH_ITEM;
+
+      if (item.IsPrivate() && !this.m_schSettings.m_IsSymbolEditor) return;
+    }
+
+    let box = aItem.GetBoundingBox();
+
+    if (aItem.Type() === KICAD_T.SCH_SYMBOL_T) box = (aItem as SCH_SYMBOL).GetBodyBoundingBox();
+
+    this.gal.SetIsFill(false);
+    this.gal.SetIsStroke(true);
+    this.gal.SetStrokeColor(
+      aItem.IsSelected() ? { r: 1.0, g: 0.2, b: 0.2, a: 1 } : { r: 0.2, g: 0.2, b: 0.2, a: 1 },
+    );
+    this.gal.SetLineWidth(liveIUScale.milsToIU(3));
+    this.gal.DrawRectangle(box.GetOrigin(), box.GetEnd());
+  }
+
+  protected static nonCached(aItem: EDA_ITEM): boolean {
+    // TODO: it would be nice to have a more definitive test for this, but we've currently got
+    // no access to the VIEW_GROUP to see if it's cached or not.
+    return aItem.IsSelected();
+  }
+
+  protected isUnitAndConversionShown(aItem: SCH_ITEM): boolean {
+    if (
+      this.m_schSettings.m_ShowUnit && // showing a specific unit
+      aItem.GetUnit() && // item is unit-specific
+      aItem.GetUnit() !== this.m_schSettings.m_ShowUnit
+    ) {
+      return false;
+    }
+
+    if (
+      this.m_schSettings.m_ShowBodyStyle && // showing a specific body style
+      aItem.GetBodyStyle() && // item is body-style-specific
+      aItem.GetBodyStyle() !== this.m_schSettings.m_ShowBodyStyle
+    ) {
+      return false;
+    }
+
+    return true;
+  }
+
+  protected getShadowWidth(aForHighlight: boolean): number {
+    const matrix = this.gal.GetScreenWorldMatrix();
+    const cfg = eeconfig()!;
+
+    const milsWidth = aForHighlight ? cfg.selection.highlight_thickness : cfg.selection.thickness;
+
+    // For best visuals the selection width must be a cross between the zoom level and the
+    // default line width.
+    return Math.fround(Math.abs(matrix.GetScale().x * milsWidth) + liveIUScale.milsToIU(milsWidth));
+  }
+
+  protected getRenderColor(
+    aItem: SCH_ITEM,
+    aLayer: number,
+    aDrawingShadows: boolean,
+    aDimmed = false,
+    aIgnoreNets = false,
+  ): Color4d {
+    let color = this.m_schSettings.GetLayerColor(aLayer);
+
+    // Graphic items of a SYMBOL frequently use the LAYER_DEVICE layer color
+    // (i.e. when no specific color is set)
+    const isSymbolChild = aItem.GetParentSymbol() !== null;
+
+    if (!this.m_schSettings.m_OverrideItemColors) {
+      if (aItem.Type() === KICAD_T.SCH_LINE_T) {
+        color = (aItem as SCH_LINE).GetLineColor();
+      } else if (aItem.Type() === KICAD_T.SCH_BUS_WIRE_ENTRY_T) {
+        color = (aItem as SCH_BUS_WIRE_ENTRY).GetBusEntryColor();
+      } else if (aItem.Type() === KICAD_T.SCH_JUNCTION_T) {
+        color = (aItem as SCH_JUNCTION).GetJunctionColor();
+      } else if (aItem.Type() === KICAD_T.SCH_SHEET_T) {
+        const sheet = aItem as SCH_SHEET;
+
+        if (isBackgroundLayer(aLayer)) color = sheet.GetBackgroundColor();
+        else color = sheet.GetBorderColor();
+      } else if (aItem.Type() === KICAD_T.SCH_SHAPE_T || aItem.Type() === KICAD_T.SCH_RULE_AREA_T) {
+        const shape = aItem as SCH_SHAPE;
+
+        if (isBackgroundLayer(aLayer)) {
+          switch (shape.GetFillMode()) {
+            case FILL_T.NO_FILL:
+              break;
+
+            case FILL_T.FILLED_SHAPE:
+              color = shape.GetStroke().GetColor();
+              break;
+
+            case FILL_T.HATCH:
+            case FILL_T.REVERSE_HATCH:
+            case FILL_T.CROSS_HATCH:
+            case FILL_T.FILLED_WITH_COLOR:
+              color = shape.GetFillColor();
+              break;
+
+            case FILL_T.FILLED_WITH_BG_BODYCOLOR:
+              color = this.m_schSettings.GetLayerColor(SCH_LAYER_ID.LAYER_DEVICE_BACKGROUND);
+              break;
+
+            default:
+              break; // wxFAIL_MSG( "Unsupported fill type" )
+          }
+
+          // A filled shape means filled; if they didn't specify a fill colour then use
+          // the border colour.
+          if (shape.GetFillMode() !== FILL_T.NO_FILL && sameColor(color, COLOR4D_UNSPECIFIED)) {
+            if (aItem.Type() === KICAD_T.SCH_RULE_AREA_T)
+              color = this.m_schSettings.GetLayerColor(SCH_LAYER_ID.LAYER_RULE_AREAS);
+            else if (isSymbolChild)
+              color = this.m_schSettings.GetLayerColor(SCH_LAYER_ID.LAYER_DEVICE);
+            else color = this.m_schSettings.GetLayerColor(SCH_LAYER_ID.LAYER_NOTES);
+          }
+        } else {
+          color = shape.GetStroke().GetColor();
+        }
+      } else if (aItem.IsType([KICAD_T.SCH_LABEL_LOCATE_ANY_T])) {
+        const label = aItem as SCH_LABEL_BASE;
+
+        if (!sameColor(label.GetTextColor(), COLOR4D_UNSPECIFIED))
+          color = label.GetTextColor(); // override color
+        else if (aIgnoreNets)
+          color = this.m_schSettings.GetLayerColor(aLayer); // layer color
+        else color = label.GetLabelColor(); // net/netclass color
+      } else if (aItem.Type() === KICAD_T.SCH_FIELD_T) {
+        color = (aItem as SCH_FIELD).GetFieldColor();
+      } else if (
+        aItem.Type() === KICAD_T.SCH_TEXTBOX_T ||
+        aItem.Type() === KICAD_T.SCH_TABLECELL_T
+      ) {
+        const textBox = aItem as SCH_TEXTBOX;
+
+        if (isBackgroundLayer(aLayer)) color = textBox.GetFillColor();
+        else if (!isSymbolChild || !sameColor(textBox.GetTextColor(), COLOR4D_UNSPECIFIED))
+          color = textBox.GetTextColor();
+      } else {
+        const otherTextItem = aItem as unknown as Partial<EDA_TEXT>;
+
+        if (typeof otherTextItem.GetTextColor === 'function') {
+          const textColor = otherTextItem.GetTextColor();
+
+          if (!isSymbolChild || !sameColor(textColor, COLOR4D_UNSPECIFIED)) color = textColor;
+        }
+      }
+
+      // `color.m_text` (a colour held as a text variable) is not carried by our COLOR4D.
+    } /* overrideItemColors */ else {
+      // If we ARE overriding the item colors, what do we do with non-item-color fills?
+      // There are two theories: we should leave them untouched, or we should drop them entirely.
+      // We currently implment the first.
+      if (isBackgroundLayer(aLayer)) {
+        if (aItem.Type() === KICAD_T.SCH_SHAPE_T || aItem.Type() === KICAD_T.SCH_RULE_AREA_T) {
+          const shape = aItem as SCH_SHAPE;
+
+          if (shape.GetFillMode() === FILL_T.FILLED_WITH_COLOR) color = shape.GetFillColor();
+        } else if (aItem.Type() === KICAD_T.SCH_SHEET_T) {
+          color = (aItem as SCH_SHEET).GetBackgroundColor();
+        }
+      }
+    }
+
+    if (sameColor(color, COLOR4D_UNSPECIFIED)) color = this.m_schSettings.GetLayerColor(aLayer);
+
+    if (aItem.IsBrightened()) {
+      // Selection disambiguation, net highlighting, etc.
+      color = this.m_schSettings.GetLayerColor(SCH_LAYER_ID.LAYER_BRIGHTENED);
+
+      if (aDrawingShadows) {
+        if (aItem.IsSelected())
+          color = this.m_schSettings.GetLayerColor(SCH_LAYER_ID.LAYER_SELECTION_SHADOWS);
+        else color = withAlpha(color, 0.15);
+      } else if (isBackgroundLayer(aLayer)) {
+        color = withAlpha(color, 0.2);
+      }
+    } else if (aItem.IsSelected() && aDrawingShadows) {
+      color = this.m_schSettings.GetLayerColor(SCH_LAYER_ID.LAYER_SELECTION_SHADOWS);
+    } else if (aItem.IsSelected() && isBackgroundLayer(aLayer)) {
+      // Selected items will be painted over all other items, so make backgrounds translucent so
+      // that non-selected overlapping objects are visible
+      color = withAlpha(color, 0.5);
+    }
+
+    if (
+      this.m_schSettings.m_ShowDisabled ||
+      (this.m_schSettings.m_ShowGraphicsDisabled && aItem.Type() !== KICAD_T.SCH_FIELD_T)
+    ) {
+      color = darkened(color, Math.fround(0.5));
+    }
+
+    if (aDimmed && !(aItem.IsSelected() && aDrawingShadows)) {
+      const sheetColour = this.m_schSettings.GetLayerColor(SCH_LAYER_ID.LAYER_SCHEMATIC_BACKGROUND);
+      color = mix(desaturate(color), sheetColour, Math.fround(0.5));
+    }
+
+    if (aItem.GetForcedTransparency() > 0.0)
+      color = withAlpha(color, color.a * (1.0 - aItem.GetForcedTransparency()));
+
+    return color;
+  }
+
+  protected getLineWidth(
+    aItem: SCH_ITEM,
+    aDrawingShadows: boolean,
+    aDrawingWireColorHighlights = false,
+  ): number {
+    const pen = aItem.GetEffectivePenWidth(this.m_schSettings);
+    let width = Math.fround(pen);
+
+    if (aItem.IsBrightened() || aItem.IsSelected()) {
+      if (aDrawingShadows && aItem.IsType(SCH_PAINTER.g_ScaledSelectionTypes))
+        width = Math.fround(width + this.getShadowWidth(aItem.IsBrightened()));
+    }
+
+    if (aDrawingWireColorHighlights) {
+      let colorHighlightWidth = Math.fround(liveIUScale.milsToIU(15.0));
+      const eeschemaCfg = eeconfig();
+
+      if (eeschemaCfg)
+        colorHighlightWidth = Math.fround(
+          liveIUScale.milsToIU(eeschemaCfg.selection.highlight_netclass_colors_thickness),
+        );
+
+      width = Math.fround(width + colorHighlightWidth);
+    }
+
+    return width;
+  }
+
+  protected getTextThickness(aItem: SCH_ITEM): number {
+    let pen = this.m_schSettings.GetDefaultPenWidth();
+
+    switch (aItem.Type()) {
+      case KICAD_T.SCH_FIELD_T:
+      case KICAD_T.SCH_TEXT_T:
+      case KICAD_T.SCH_LABEL_T:
+      case KICAD_T.SCH_DIRECTIVE_LABEL_T:
+      case KICAD_T.SCH_GLOBAL_LABEL_T:
+      case KICAD_T.SCH_HIER_LABEL_T:
+      case KICAD_T.SCH_SHEET_PIN_T:
+      case KICAD_T.SCH_TEXTBOX_T:
+      case KICAD_T.SCH_TABLECELL_T:
+        pen = (aItem as unknown as EDA_TEXT).GetEffectiveTextPenWidth(pen);
+        break;
+
+      default:
+        throw new Error(`SCH_PAINTER::getTextThickness: unimplemented for ${aItem.GetClass()}`);
+    }
+
+    return Math.fround(pen);
+  }
+
+  protected getOperatingPointTextSize(): number {
+    const docTextSize = liveIUScale.milsToIU(50);
+    const screenTextSize = Math.abs(Math.trunc(this.gal.GetScreenWorldMatrix().GetScale().y) * 7);
+
+    // 66% zoom-relative
+    return Math.round((docTextSize + screenTextSize * 2) / 3.0);
+  }
+
+  protected drawAnchor(aPos: VECTOR2I, aDrawingShadows: boolean): void {
+    if (this.m_schSettings.IsPrinting()) return;
+
+    // In order for the anchors to be visible but unobtrusive, their size must factor in the
+    // current zoom level.
+    const matrix = this.gal.GetScreenWorldMatrix();
+    const radius =
+      Math.round(Math.abs(matrix.GetScale().x * TEXT_ANCHOR_SIZE) / 25.0) +
+      liveIUScale.milsToIU(TEXT_ANCHOR_SIZE);
+
+    const color = aDrawingShadows
+      ? this.m_schSettings.GetLayerColor(SCH_LAYER_ID.LAYER_SELECTION_SHADOWS)
+      : this.m_schSettings.GetLayerColor(SCH_LAYER_ID.LAYER_SCHEMATIC_ANCHOR);
+
+    this.gal.SetStrokeColor(color);
+    this.gal.SetIsStroke(true);
+    this.gal.SetLineWidth(
+      aDrawingShadows
+        ? this.getShadowWidth(false)
+        : this.m_schSettings.GetDanglingIndicatorThickness(),
+    );
+
+    this.gal.DrawLine({ x: aPos.x - radius, y: aPos.y }, { x: aPos.x + radius, y: aPos.y });
+    this.gal.DrawLine({ x: aPos.x, y: aPos.y - radius }, { x: aPos.x, y: aPos.y + radius });
+  }
+
+  protected drawDanglingIndicator(
+    aPos: VECTOR2I,
+    aColor: Color4d,
+    aWidth: number,
+    aDangling: boolean,
+    aDrawingShadows: boolean,
+    aBrightened: boolean,
+  ): void {
+    if (this.m_schSettings.IsPrinting()) return;
+
+    const size = aDangling ? DANGLING_SYMBOL_SIZE : UNSELECTED_END_SIZE;
+
+    if (!aDangling) aWidth = Math.trunc(aWidth / 2);
+
+    const r = aWidth + liveIUScale.milsToIU(Math.trunc(size / 2));
+
+    // Dangling symbols must be drawn in a slightly different colour so they can be seen when
+    // they overlap with a junction dot.
+    this.gal.SetStrokeColor(brightened(aColor, 0.3));
+    this.gal.SetIsStroke(true);
+    this.gal.SetIsFill(false);
+    this.gal.SetLineWidth(
+      aDrawingShadows
+        ? this.getShadowWidth(aBrightened)
+        : this.m_schSettings.GetDanglingIndicatorThickness(),
+    );
+
+    this.gal.DrawRectangle({ x: aPos.x - r, y: aPos.y - r }, { x: aPos.x + r, y: aPos.y + r });
+  }
+
+  protected drawJunction(aJct: SCH_JUNCTION, aLayer: number): void {
+    let highlightNetclassColors = false;
+    const eeschemaCfg = eeconfig();
+
+    if (eeschemaCfg) highlightNetclassColors = eeschemaCfg.selection.highlight_netclass_colors;
+
+    const drawingShadows = aLayer === SCH_LAYER_ID.LAYER_SELECTION_SHADOWS;
+
+    if (this.m_schSettings.IsPrinting() && drawingShadows) return;
+
+    if (drawingShadows && !(aJct.IsBrightened() || aJct.IsSelected())) return;
+
+    let color: Color4d;
+
+    if (highlightNetclassColors && aLayer === aJct.GetLayer())
+      color = this.m_schSettings.GetLayerColor(aJct.GetLayer());
+    else color = this.getRenderColor(aJct, aJct.GetLayer(), drawingShadows);
+
+    const junctionSize = Math.trunc(aJct.GetEffectiveDiameter() / 2);
+
+    if (junctionSize > 1) {
+      this.gal.SetIsStroke(drawingShadows);
+      this.gal.SetLineWidth(this.getLineWidth(aJct, drawingShadows));
+      this.gal.SetStrokeColor(color);
+      this.gal.SetIsFill(!drawingShadows);
+      this.gal.SetFillColor(color);
+      this.gal.DrawCircle(aJct.GetPosition(), junctionSize);
+    }
+  }
+
+  protected drawLineItem(aLine: SCH_LINE, aLayer: number): void {
+    const drawingShadows = aLayer === SCH_LAYER_ID.LAYER_SELECTION_SHADOWS;
+    const drawingNetColorHighlights = aLayer === SCH_LAYER_ID.LAYER_NET_COLOR_HIGHLIGHT;
+    const drawingWires = aLayer === SCH_LAYER_ID.LAYER_WIRE;
+    const drawingBusses = aLayer === SCH_LAYER_ID.LAYER_BUS;
+    const drawingDangling = aLayer === SCH_LAYER_ID.LAYER_DANGLING;
+    const drawingOP = aLayer === SCH_LAYER_ID.LAYER_OP_VOLTAGES;
+
+    let highlightNetclassColors = false;
+    let highlightAlpha = 0.6;
+    const eeschemaCfg = eeconfig();
+    let hopOverScale = 0.0;
+    let defaultLineWidth = liveIUScale.milsToIU(DEFAULT_LINE_WIDTH_MILS);
+
+    if (aLine.Schematic()) {
+      // Can be nullptr when run from the color selection panel
+      hopOverScale = aLine.Schematic()!.Settings().GetHopOverScale();
+      defaultLineWidth = aLine.Schematic()!.Settings().m_DefaultLineWidth;
+    }
+
+    if (eeschemaCfg) {
+      highlightNetclassColors = eeschemaCfg.selection.highlight_netclass_colors;
+      highlightAlpha = eeschemaCfg.selection.highlight_netclass_colors_alpha;
+    }
+
+    if (!highlightNetclassColors && drawingNetColorHighlights) return;
+
+    if (drawingNetColorHighlights && !(aLine.IsWire() || aLine.IsBus())) return;
+
+    if (this.m_schSettings.m_OverrideItemColors && drawingNetColorHighlights) return;
+
+    if (this.m_schSettings.IsPrinting() && drawingShadows) return;
+
+    if (drawingShadows && !(aLine.IsBrightened() || aLine.IsSelected())) return;
+
+    // Line end dangling status isn't updated until the line is finished drawing, so don't warn
+    // them about ends that are probably connected
+    if (aLine.IsNew() && drawingDangling) return;
+
+    let color = this.getRenderColor(aLine, aLine.GetLayer(), drawingShadows);
+    const width = this.getLineWidth(aLine, drawingShadows, drawingNetColorHighlights);
+    const lineStyle = aLine.GetEffectiveLineStyle();
+
+    if (highlightNetclassColors) {
+      // Force default color for nets we are going to highlight
+      if (drawingWires) color = this.m_schSettings.GetLayerColor(SCH_LAYER_ID.LAYER_WIRE);
+      else if (drawingBusses) color = this.m_schSettings.GetLayerColor(SCH_LAYER_ID.LAYER_BUS);
+    }
+
+    if (drawingNetColorHighlights) {
+      // Don't draw highlights for default-colored nets
+      if (
+        (aLine.IsWire() &&
+          sameColor(color, this.m_schSettings.GetLayerColor(SCH_LAYER_ID.LAYER_WIRE))) ||
+        (aLine.IsBus() &&
+          sameColor(color, this.m_schSettings.GetLayerColor(SCH_LAYER_ID.LAYER_BUS)))
+      ) {
+        return;
+      }
+
+      color = withAlpha(color, color.a * highlightAlpha);
+    }
+
+    if ((drawingDangling || drawingShadows) && !aLine.IsNew()) {
+      if (
+        (aLine.IsWire() && aLine.IsStartDangling()) ||
+        (drawingShadows && aLine.IsSelected() && !aLine.HasFlag(STARTPOINT))
+      ) {
+        let indicatorColor = color;
+
+        if (drawingShadows && !aLine.HasFlag(STARTPOINT)) indicatorColor = inverted(indicatorColor);
+
+        this.drawDanglingIndicator(
+          aLine.GetStartPoint(),
+          indicatorColor,
+          Math.round(width),
+          aLine.IsWire() && aLine.IsStartDangling(),
+          drawingShadows,
+          aLine.IsBrightened(),
+        );
+      }
+
+      if (
+        (aLine.IsWire() && aLine.IsEndDangling()) ||
+        (drawingShadows && aLine.IsSelected() && !aLine.HasFlag(ENDPOINT))
+      ) {
+        let indicatorColor = color;
+
+        if (drawingShadows && !aLine.HasFlag(ENDPOINT)) indicatorColor = inverted(indicatorColor);
+
+        this.drawDanglingIndicator(
+          aLine.GetEndPoint(),
+          indicatorColor,
+          Math.round(width),
+          aLine.IsWire() && aLine.IsEndDangling(),
+          drawingShadows,
+          aLine.IsBrightened(),
+        );
+      }
+    }
+
+    if (drawingDangling) return;
+
+    if (drawingOP && aLine.GetOperatingPoint() !== '') {
+      const textSize = this.getOperatingPointTextSize();
+      const pos = { ...aLine.GetMidPoint() };
+      const textOffset = Math.round(textSize * 0.22);
+      const attrs = new TEXT_ATTRIBUTES();
+
+      if (aLine.GetStartPoint().y === aLine.GetEndPoint().y) {
+        pos.y -= textOffset;
+        attrs.m_Halign = GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_CENTER;
+        attrs.m_Valign = GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_BOTTOM;
+      } else {
+        pos.x += Math.round(textOffset * 1.2);
+        attrs.m_Halign = GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT;
+        attrs.m_Valign = GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_CENTER;
+      }
+
+      attrs.m_Font = FONT.GetFont(); // always use stroke font for performance
+      attrs.m_Size = { x: textSize, y: textSize };
+      attrs.m_StrokeWidth = GetPenSizeForDemiBold(textSize);
+      attrs.m_Color = this.m_schSettings.GetLayerColor(SCH_LAYER_ID.LAYER_OP_VOLTAGES);
+
+      knockoutText(this.gal, aLine.GetOperatingPoint(), pos, attrs, aLine.GetFontMetrics());
+    }
+
+    if (drawingOP) return;
+
+    this.gal.SetIsStroke(true);
+    this.gal.SetIsFill(false);
+    this.gal.SetStrokeColor(color);
+    this.gal.SetLineWidth(width);
+
+    let curr_wire_shape: { x: number; y: number; z: number }[];
+
+    if ((aLine.IsWire() || aLine.IsBus()) && hopOverScale > 0.0) {
+      const arcRadius = defaultLineWidth * hopOverScale;
+      curr_wire_shape = aLine.BuildWireWithHopShape(
+        aLine.Schematic()!.GetCurrentScreen()!,
+        arcRadius,
+      );
+    } else {
+      curr_wire_shape = [
+        { x: aLine.GetStartPoint().x, y: aLine.GetStartPoint().y, z: 0 },
+        { x: aLine.GetEndPoint().x, y: aLine.GetEndPoint().y, z: 0 },
+      ];
+    }
+
+    for (let ii = 1; ii < curr_wire_shape.length; ii++) {
+      const start = { x: curr_wire_shape[ii - 1]!.x, y: curr_wire_shape[ii - 1]!.y };
+
+      if (curr_wire_shape[ii - 1]!.z === 0) {
+        // This is the start point of a segment
+        // there are always 2 points in list for a segment
+        const end = { x: curr_wire_shape[ii]!.x, y: curr_wire_shape[ii]!.y };
+        this.drawLine(
+          start,
+          end,
+          lineStyle,
+          lineStyle <= LINE_STYLE.SOLID || drawingShadows, // FIRST_TYPE = SOLID
+          width,
+        );
+      } else {
+        // This is the start point of a arc. there are always 3 points in list for an arc
+        // Hop are a small arc, so use a solid line style gives best results
+        const arc_middle = { x: curr_wire_shape[ii]!.x, y: curr_wire_shape[ii]!.y };
+        ii++;
+        const arc_end = { x: curr_wire_shape[ii]!.x, y: curr_wire_shape[ii]!.y };
+        ii++;
+
+        const center = CalcArcCenter(start, arc_middle, arc_end);
+
+        const startAngle = EDA_ANGLE.fromVector({ x: start.x - center.x, y: start.y - center.y });
+        const midAngle = EDA_ANGLE.fromVector({
+          x: arc_middle.x - center.x,
+          y: arc_middle.y - center.y,
+        });
+        const endAngle = EDA_ANGLE.fromVector({ x: arc_end.x - center.x, y: arc_end.y - center.y });
+
+        const angle1 = midAngle.sub(startAngle);
+        const angle2 = endAngle.sub(midAngle);
+
+        const angle = angle1.Normalize180().add(angle2.Normalize180());
+
+        this.gal.DrawArc(
+          center,
+          Math.hypot(start.x - center.x, start.y - center.y),
+          startAngle,
+          angle,
+        );
+      }
+    }
+  }
+
+  protected drawNoConnect(aNC: SCH_NO_CONNECT, aLayer: number): void {
+    const drawingShadows = aLayer === SCH_LAYER_ID.LAYER_SELECTION_SHADOWS;
+
+    if (this.m_schSettings.IsPrinting() && drawingShadows) return;
+
+    if (drawingShadows && !(aNC.IsBrightened() || aNC.IsSelected())) return;
+
+    this.gal.SetIsStroke(true);
+    this.gal.SetLineWidth(this.getLineWidth(aNC, drawingShadows));
+    this.gal.SetStrokeColor(this.getRenderColor(aNC, SCH_LAYER_ID.LAYER_NOCONNECT, drawingShadows));
+    this.gal.SetIsFill(false);
+
+    const p = aNC.GetPosition();
+    const delta = Math.trunc(
+      Math.max(aNC.GetSize(), this.m_schSettings.GetDefaultPenWidth() * 3) / 2,
+    );
+
+    this.gal.DrawLine({ x: p.x - delta, y: p.y - delta }, { x: p.x + delta, y: p.y + delta });
+    this.gal.DrawLine({ x: p.x - delta, y: p.y + delta }, { x: p.x + delta, y: p.y - delta });
+  }
+
+  protected drawBusEntry(aEntry: SCH_BUS_ENTRY_BASE, aLayer: number): void {
+    const layer =
+      aEntry.Type() === KICAD_T.SCH_BUS_WIRE_ENTRY_T
+        ? SCH_LAYER_ID.LAYER_WIRE
+        : SCH_LAYER_ID.LAYER_BUS;
+    const line = new SCH_LINE({ x: 0, y: 0 }, layer);
+    const drawingShadows = aLayer === SCH_LAYER_ID.LAYER_SELECTION_SHADOWS;
+    const drawingNetColorHighlights = aLayer === SCH_LAYER_ID.LAYER_NET_COLOR_HIGHLIGHT;
+    const drawingDangling = aLayer === SCH_LAYER_ID.LAYER_DANGLING;
+    const drawingWires = aLayer === SCH_LAYER_ID.LAYER_WIRE;
+    const drawingBusses = aLayer === SCH_LAYER_ID.LAYER_BUS;
+
+    if (this.m_schSettings.IsPrinting() && drawingShadows) return;
+
+    let highlightNetclassColors = false;
+    const eeschemaCfg = eeconfig();
+
+    if (eeschemaCfg) highlightNetclassColors = eeschemaCfg.selection.highlight_netclass_colors;
+
+    if (!highlightNetclassColors && drawingNetColorHighlights) return;
+
+    if (this.m_schSettings.m_OverrideItemColors && drawingNetColorHighlights) return;
+
+    if (drawingShadows && !(aEntry.IsBrightened() || aEntry.IsSelected())) return;
+
+    if (aEntry.IsSelected()) {
+      line.SetSelected();
+
+      // Never show unselected endpoints on bus entries
+      line.SetFlags(STARTPOINT | ENDPOINT);
+    } else if (aEntry.IsBrightened()) {
+      line.SetBrightened();
+    }
+
+    line.SetStartPoint(aEntry.GetPosition());
+    line.SetEndPoint(aEntry.GetEnd());
+    line.SetStroke(aEntry.GetStroke());
+    line.SetLineWidth(Math.round(this.getLineWidth(aEntry, false)));
+
+    let color = this.getRenderColor(aEntry, SCH_LAYER_ID.LAYER_WIRE, drawingShadows);
+
+    if (aEntry.Type() === KICAD_T.SCH_BUS_BUS_ENTRY_T)
+      color = this.getRenderColor(aEntry, SCH_LAYER_ID.LAYER_BUS, drawingShadows);
+
+    if (highlightNetclassColors) {
+      // Force default color for nets we are going to highlight
+      if (drawingWires) color = this.m_schSettings.GetLayerColor(SCH_LAYER_ID.LAYER_WIRE);
+      else if (drawingBusses) color = this.m_schSettings.GetLayerColor(SCH_LAYER_ID.LAYER_BUS);
+    }
+
+    if (drawingNetColorHighlights) {
+      // Don't draw highlights for default-colored nets
+      if (
+        (aEntry.Type() === KICAD_T.SCH_BUS_WIRE_ENTRY_T &&
+          sameColor(color, this.m_schSettings.GetLayerColor(SCH_LAYER_ID.LAYER_WIRE))) ||
+        (aEntry.Type() === KICAD_T.SCH_BUS_BUS_ENTRY_T &&
+          sameColor(color, this.m_schSettings.GetLayerColor(SCH_LAYER_ID.LAYER_BUS)))
+      ) {
+        return;
+      }
+    }
+
+    if (drawingDangling) {
+      this.gal.SetIsFill(false);
+      this.gal.SetIsStroke(true);
+      this.gal.SetStrokeColor(brightened(color, 0.3));
+      this.gal.SetLineWidth(this.m_schSettings.GetDanglingIndicatorThickness());
+
+      if (aEntry.IsStartDangling()) {
+        this.gal.DrawCircle(
+          aEntry.GetPosition(),
+          aEntry.GetPenWidth() + Math.round(TARGET_BUSENTRY_RADIUS / 2.0),
+        );
+      }
+
+      if (aEntry.IsEndDangling()) {
+        this.gal.DrawCircle(
+          aEntry.GetEnd(),
+          aEntry.GetPenWidth() + Math.round(TARGET_BUSENTRY_RADIUS / 2.0),
+        );
+      }
+    } else {
+      line.SetLineColor(color);
+      line.SetLineStyle(aEntry.GetEffectiveLineStyle());
+
+      this.drawLineItem(line, aLayer);
+    }
+  }
+
+  protected drawMarker(aMarker: SCH_MARKER, aLayer: number): void {
+    const drawingShadows = aLayer === SCH_LAYER_ID.LAYER_SELECTION_SHADOWS;
+
+    if (this.m_schSettings.IsPrinting() && drawingShadows) return;
+
+    if (drawingShadows && !(aMarker.IsBrightened() || aMarker.IsSelected())) return;
+
+    const color = this.getRenderColor(aMarker, aMarker.GetColorLayer(), drawingShadows);
+
+    this.gal.Save();
+    this.gal.Translate(aMarker.GetPosition());
+    this.gal.SetIsFill(!drawingShadows);
+    this.gal.SetFillColor(color);
+    this.gal.SetIsStroke(drawingShadows);
+    this.gal.SetLineWidth(this.getLineWidth(aMarker, drawingShadows));
+    this.gal.SetStrokeColor(color);
+
+    const polygon = new SHAPE_LINE_CHAIN();
+    aMarker.ShapeToPolygon(polygon);
+
+    this.gal.DrawPolygon(polygon);
+    this.gal.Restore();
+  }
+
+  protected drawLine(
+    aStartPoint: VECTOR2I,
+    aEndPoint: VECTOR2I,
+    aLineStyle: LINE_STYLE,
+    aDrawDirectLine: boolean,
+    aWidth: number,
+  ): void {
+    if (aDrawDirectLine) {
+      this.gal.DrawLine(aStartPoint, aEndPoint);
+    } else {
+      const segment = new SHAPE_SEGMENT(aStartPoint, aEndPoint);
+
+      STROKE_PARAMS.Stroke(
+        segment,
+        aLineStyle,
+        Math.round(aWidth),
+        this.m_schSettings,
+        (start: VECTOR2I, end: VECTOR2I) => {
+          if (start.x === end.x && start.y === end.y)
+            this.gal.DrawLine({ x: start.x + 1, y: start.y + 1 }, end);
+          else this.gal.DrawLine(start, end);
+        },
+      );
+    }
+  }
 }
