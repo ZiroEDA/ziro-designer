@@ -24,6 +24,7 @@ import { EDA_VIEW_SWITCHER } from '@ziroeda/common/dialogs/eda_view_switcher.js'
 import { WxTextEntryDialog } from '@ziroeda/common/wx/textdlg.js';
 import { WX_TEXT_ENTRY_DIALOG } from '@ziroeda/common/dialogs/dialog_text_entry.js';
 import { Pgm } from '@ziroeda/common/pgm_base.js';
+import type { PCBNEW_SETTINGS } from './pcbnew_settings.js';
 import { PCB_IU_PER_MM } from '@ziroeda/common/eda_units.js';
 import {
   drawSelectionArea,
@@ -634,7 +635,12 @@ import { BOX2D } from '@ziroeda/kimath/src/math/box2.js';
 import type { Vec2 as KVec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { DIALOG_DRC, type DIALOG_DRC_WINDOW } from './dialogs/dialog_drc_model.js';
 import { MessageDialogYesNoCancel } from '@ziroeda/common/dialogs/dialog_message.js';
-import { PCB_EDIT_FRAME, REACT_BOARD_LISTENER, pcbnewSettingsOf } from './pcb_edit_frame.js';
+import {
+  loadPcbnewSettings,
+  PCB_EDIT_FRAME,
+  REACT_BOARD_LISTENER,
+  storePcbnewSettings,
+} from './pcb_edit_frame.js';
 import { FetchNetlistFromSchematic } from './netlist_from_schematic.js';
 import { LIB_ID } from '@ziroeda/common/lib_id.js';
 import type { BOARD_EDITOR_CONTROL } from './tools/board_editor_control.js';
@@ -2153,6 +2159,28 @@ export function PcbEditor({
    */
   const pcbCfgRef = useRef(pcbCfg);
   pcbCfgRef.current = pcbCfg;
+  /**
+   * `SaveSettings( config() )` then the manager's save: what a tool changed in
+   * the PCBNEW_SETTINGS object, written into the `pcbnew.json` slice. Only a
+   * changed object writes, so an idle pass costs a compare.
+   */
+  const storePcbnewSettingsRef = useRef((): void => {
+    const cfg = Pgm().GetSettingsManager().GetAppSettings<PCBNEW_SETTINGS>('pcbnew');
+
+    if (!cfg) return;
+
+    if (!storePcbnewSettings(cfg, structuredClone(pcbCfgRef.current))) return;
+
+    updatePcbnewSettings((json) => {
+      storePcbnewSettings(cfg, json);
+    });
+  });
+  // `JSON_SETTINGS::Load`: a preference changed in the slice reaches the object.
+  useEffect(() => {
+    const cfg = Pgm().GetSettingsManager().GetAppSettings<PCBNEW_SETTINGS>('pcbnew');
+
+    if (cfg) loadPcbnewSettings(cfg, pcbCfg);
+  }, [pcbCfg]);
   const setDirtyRef = useRef(setDirty);
   setDirtyRef.current = setDirty;
   const frameRef = useRef<PCB_EDIT_FRAME | null>(null);
@@ -2160,6 +2188,7 @@ export function PcbEditor({
   const runAction = (aAction: TOOL_ACTION): void => {
     frameRef.current?.GetToolManager()?.RunAction(aAction);
     refreshInspectionMirrorRef.current();
+    storePcbnewSettingsRef.current();
   };
   /** The same, for listeners installed once (the clipboard events). */
   const runActionRef = useRef(runAction);
@@ -2300,7 +2329,9 @@ export function PcbEditor({
     // was set" whenever the PCB editor was the first frame to open.
     installPgm();
     frameRef.current = new PCB_EDIT_FRAME({
-      settings: () => pcbnewSettingsOf(pcbCfgRef.current),
+      // `Kiface().KifaceSettings()`: the one PCBNEW_SETTINGS installPgm keeps.
+      settings: () => Pgm().GetSettingsManager().GetAppSettings<PCBNEW_SETTINGS>('pcbnew')!,
+      storeSettings: () => storePcbnewSettingsRef.current(),
       onModify: () => {
         setDirtyRef.current(true);
         syncOriginsRef.current();

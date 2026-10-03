@@ -295,10 +295,14 @@ export interface PCBNEW_JSON_SETTINGS_LIKE {
 /**
  * `PCBNEW_SETTINGS`' PARAM list, the part of it the frame, the commit and the
  * undo code read, from the designer's `pcbnew.json` slice
- * (`pcbnew_settings.cpp`'s `pcb_display.*` and `editing.*` rows).
+ * (`pcbnew_settings.cpp`'s `pcb_display.*` and `editing.*` rows), into the
+ * one settings object `Kiface().KifaceSettings()` hands out: `JSON_SETTINGS::
+ * Load` filling the PARAMs of an object that lives as long as the program.
  */
-export function pcbnewSettingsOf(json: PCBNEW_JSON_SETTINGS_LIKE): PCBNEW_SETTINGS {
-  const s = new PCBNEW_SETTINGS();
+export function loadPcbnewSettings(
+  s: PCBNEW_SETTINGS,
+  json: PCBNEW_JSON_SETTINGS_LIKE,
+): PCBNEW_SETTINGS {
   const d = json.pcb_display;
   const e = json.editing;
 
@@ -342,9 +346,179 @@ export function pcbnewSettingsOf(json: PCBNEW_JSON_SETTINGS_LIKE): PCBNEW_SETTIN
   return s;
 }
 
+/** {@link loadPcbnewSettings} into a new object. */
+export function pcbnewSettingsOf(json: PCBNEW_JSON_SETTINGS_LIKE): PCBNEW_SETTINGS {
+  return loadPcbnewSettings(new PCBNEW_SETTINGS(), json);
+}
+
+/**
+ * `JSON_SETTINGS::Store()` for the same PARAMs: what a tool changed in the
+ * settings object, written back into the `pcbnew.json` slice. True when
+ * anything moved.
+ */
+export function storePcbnewSettings(s: PCBNEW_SETTINGS, json: PCBNEW_JSON_SETTINGS_LIKE): boolean {
+  const d = json.pcb_display;
+  const e = json.editing;
+  let changed = false;
+
+  if (d.net_names_mode !== s.m_Display.m_NetNames) {
+    // `m_NetNames` is the int PARAM; the slice types its four values.
+    d.net_names_mode = s.m_Display.m_NetNames as 0 | 1 | 2 | 3;
+    changed = true;
+  }
+  if (d.pad_numbers !== s.m_ViewersDisplay.m_DisplayPadNumbers) {
+    d.pad_numbers = s.m_ViewersDisplay.m_DisplayPadNumbers;
+    changed = true;
+  }
+  if (d.track_clearance_mode !== s.m_Display.m_TrackClearance) {
+    d.track_clearance_mode = s.m_Display.m_TrackClearance;
+    changed = true;
+  }
+  if (d.pad_clearance !== s.m_Display.m_PadClearance) {
+    d.pad_clearance = s.m_Display.m_PadClearance;
+    changed = true;
+  }
+  if (
+    d.pad_use_via_color_for_normal_th_padstacks !== s.m_Display.m_UseViaColorForNormalTHPadstacks
+  ) {
+    d.pad_use_via_color_for_normal_th_padstacks = s.m_Display.m_UseViaColorForNormalTHPadstacks;
+    changed = true;
+  }
+  if (d.force_show_fields_when_fp_selected !== s.m_Display.m_ForceShowFieldsWhenFPSelected) {
+    d.force_show_fields_when_fp_selected = s.m_Display.m_ForceShowFieldsWhenFPSelected;
+    changed = true;
+  }
+  if (d.live_3d_refresh !== s.m_Display.m_Live3DRefresh) {
+    d.live_3d_refresh = s.m_Display.m_Live3DRefresh;
+    changed = true;
+  }
+  if (d.origin_mode !== s.m_Display.m_DisplayOrigin) {
+    d.origin_mode = s.m_Display.m_DisplayOrigin;
+    changed = true;
+  }
+  if (d.origin_invert_x_axis !== s.m_Display.m_DisplayInvertXAxis) {
+    d.origin_invert_x_axis = s.m_Display.m_DisplayInvertXAxis;
+    changed = true;
+  }
+  if (d.origin_invert_y_axis !== s.m_Display.m_DisplayInvertYAxis) {
+    d.origin_invert_y_axis = s.m_Display.m_DisplayInvertYAxis;
+    changed = true;
+  }
+  if (d.ratsnest_footprint !== s.m_Display.m_ShowModuleRatsnest) {
+    d.ratsnest_footprint = s.m_Display.m_ShowModuleRatsnest;
+    changed = true;
+  }
+  if (d.ratsnest_curved !== s.m_Display.m_DisplayRatsnestLinesCurved) {
+    d.ratsnest_curved = s.m_Display.m_DisplayRatsnestLinesCurved;
+    changed = true;
+  }
+  if (d.ratsnest_thickness !== s.m_Display.m_RatsnestThickness) {
+    d.ratsnest_thickness = s.m_Display.m_RatsnestThickness;
+    changed = true;
+  }
+  if (d.show_page_borders !== s.m_ShowPageLimits) {
+    d.show_page_borders = s.m_ShowPageLimits;
+    changed = true;
+  }
+  if (json.appearance.color_theme !== s.m_ColorTheme) {
+    json.appearance.color_theme = s.m_ColorTheme;
+    changed = true;
+  }
+  if (json.DRC.report_all_track_errors !== s.m_DRCDialog.report_all_track_errors) {
+    json.DRC.report_all_track_errors = s.m_DRCDialog.report_all_track_errors;
+    changed = true;
+  }
+  if (json.DRC.crossprobe !== s.m_DRCDialog.crossprobe) {
+    json.DRC.crossprobe = s.m_DRCDialog.crossprobe;
+    changed = true;
+  }
+  if (json.DRC.scroll_on_crossprobe !== s.m_DRCDialog.scroll_on_crossprobe) {
+    json.DRC.scroll_on_crossprobe = s.m_DRCDialog.scroll_on_crossprobe;
+    changed = true;
+  }
+  if (e.pcb_angle_snap_mode !== s.m_AngleSnapMode) {
+    e.pcb_angle_snap_mode = s.m_AngleSnapMode;
+    changed = true;
+  }
+  if (e.arc_edit_mode !== s.m_ArcEditMode) {
+    e.arc_edit_mode = s.m_ArcEditMode;
+    changed = true;
+  }
+  if (e.track_drag_action !== s.m_TrackDragAction) {
+    e.track_drag_action = s.m_TrackDragAction;
+    changed = true;
+  }
+  if (e.allow_free_pads !== s.m_AllowFreePads) {
+    e.allow_free_pads = s.m_AllowFreePads;
+    changed = true;
+  }
+  if (e.auto_fill_zones !== s.m_AutoRefillZones) {
+    e.auto_fill_zones = s.m_AutoRefillZones;
+    changed = true;
+  }
+  if (e.magnetic_pads !== s.m_MagneticItems.pads) {
+    e.magnetic_pads = s.m_MagneticItems.pads;
+    changed = true;
+  }
+  if (e.magnetic_tracks !== s.m_MagneticItems.tracks) {
+    e.magnetic_tracks = s.m_MagneticItems.tracks;
+    changed = true;
+  }
+  if (e.magnetic_graphics !== s.m_MagneticItems.graphics) {
+    e.magnetic_graphics = s.m_MagneticItems.graphics;
+    changed = true;
+  }
+  if (e.esc_clears_net_highlight !== s.m_ESCClearsNetHighlight) {
+    e.esc_clears_net_highlight = s.m_ESCClearsNetHighlight;
+    changed = true;
+  }
+  if (e.show_courtyard_collisions !== s.m_ShowCourtyardCollisions) {
+    e.show_courtyard_collisions = s.m_ShowCourtyardCollisions;
+    changed = true;
+  }
+  if (e.ctrl_click_highlight !== s.m_CtrlClickHighlight) {
+    e.ctrl_click_highlight = s.m_CtrlClickHighlight;
+    changed = true;
+  }
+  if (e.polar_coords !== s.m_PolarCoords) {
+    e.polar_coords = s.m_PolarCoords;
+    changed = true;
+  }
+
+  for (const [k, v] of Object.entries(s.m_CrossProbing)) {
+    const cp = json.cross_probing as unknown as Record<string, unknown>;
+
+    if (cp[k] !== v) {
+      cp[k] = v;
+      changed = true;
+    }
+  }
+
+  const rotation = s.m_RotationAngle.AsTenthsOfADegree();
+
+  if (e.rotation_angle !== rotation) {
+    e.rotation_angle = rotation;
+    changed = true;
+  }
+
+  const flipLeftRight = s.m_FlipDirection === FLIP_DIRECTION.LEFT_RIGHT;
+
+  if (e.flip_left_right !== flipLeftRight) {
+    e.flip_left_right = flipLeftRight;
+    changed = true;
+  }
+
+  return changed;
+}
+
 export interface PCB_EDIT_FRAME_HOOKS {
   /** `PCBNEW_SETTINGS`, read on every access so a changed preference is seen. */
   settings(): PCBNEW_SETTINGS;
+  /**
+   * TRANSITIONAL (#636): `SaveSettings( config() )` and the settings manager's
+   * save - the settings object, written to the window's store.
+   */
+  storeSettings?(): void;
   /** `PCB_BASE_FRAME::OnModify`'s effect on the window: the dirty flag. */
   onModify(): void;
   /** `new DIALOG_DRC( m_editFrame, aParent )`: the window's DRC dialog. */
@@ -1178,6 +1352,8 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   override OnIdle(): void {
     super.OnIdle();
     this.hooks.highlightChanged?.();
+    // What a tool changed in config(): the settings manager saves it.
+    this.hooks.storeSettings?.();
   }
 
   /** `DIALOG_BOARD_STATISTICS dialog( this ); dialog.ShowModal()`. */
