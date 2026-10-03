@@ -2,8 +2,9 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * `eeschema/symb_transforms_utils.cpp`. Only `GetPinSpinStyle` is ported, as
- * {@link pinSpinStyle}; it is called from `tools/label_properties.ts`
+ * `eeschema/symb_transforms_utils.cpp`. `GetPinSpinStyle` is ported twice: on the record
+ * model as {@link pinSpinStyle} (dies with the records, S7), and on the live model at the end;
+ * the record one is called from `tools/label_properties.ts`
  * (`SCH_SCREEN::GetLabelOrientationForPoint`'s pin-facing rule), which is why
  * it lived there until this split.
  *
@@ -13,6 +14,9 @@
 
 import type { LIB_SYMBOL } from './lib_symbol.js';
 import type { SCH_PIN } from './sch_pin.js';
+import type { SCH_SYMBOL } from './sch_symbol.js';
+import { SPIN_STYLE } from './sch_label.js';
+import { PIN_ORIENTATION } from '@ziroeda/common/pin_type.js';
 import { SYMBOL_ORIENTATION_T } from './symbol.js';
 import type { LabelSpin } from './tools/label_properties.js';
 
@@ -148,4 +152,70 @@ export function RotateAndMirrorPin(aPin: SCH_PIN, aOrientMirror: number): void {
   if (o.mirror_x) aPin.MirrorVerticallyPin(0);
 
   if (o.mirror_y) aPin.MirrorHorizontallyPin(0);
+}
+
+/**
+ * `GetPinSpinStyle` (symb_transforms_utils.cpp:108): the spin of a label on \a aPin, facing away
+ * from the body, then turned and mirrored with \a aSymbol.
+ */
+export function GetPinSpinStyle(aPin: SCH_PIN, aSymbol: SCH_SYMBOL): SPIN_STYLE {
+  const { UP, BOTTOM, LEFT, RIGHT } = SPIN_STYLE;
+  let ret: number = UP;
+
+  if (aPin.GetOrientation() === PIN_ORIENTATION.PIN_RIGHT) ret = LEFT;
+  else if (aPin.GetOrientation() === PIN_ORIENTATION.PIN_LEFT) ret = RIGHT;
+  else if (aPin.GetOrientation() === PIN_ORIENTATION.PIN_UP) ret = BOTTOM;
+  else if (aPin.GetOrientation() === PIN_ORIENTATION.PIN_DOWN) ret = UP;
+
+  const { SYM_MIRROR_X, SYM_MIRROR_Y } = SYMBOL_ORIENTATION_T;
+  const orientation = aSymbol.GetOrientation();
+
+  const mirror = () => {
+    if (orientation & SYM_MIRROR_X) {
+      if (ret === UP) ret = BOTTOM;
+      else if (ret === BOTTOM) ret = UP;
+    }
+
+    if (orientation & SYM_MIRROR_Y) {
+      if (ret === LEFT) ret = RIGHT;
+      else if (ret === RIGHT) ret = LEFT;
+    }
+  };
+
+  switch (orientation & ~(SYM_MIRROR_X | SYM_MIRROR_Y)) {
+    case SYMBOL_ORIENTATION_T.SYM_ROTATE_CLOCKWISE:
+    case SYMBOL_ORIENTATION_T.SYM_ORIENT_90:
+      if (ret === UP) ret = LEFT;
+      else if (ret === BOTTOM) ret = RIGHT;
+      else if (ret === LEFT) ret = BOTTOM;
+      else if (ret === RIGHT) ret = UP;
+
+      mirror();
+      break;
+
+    case SYMBOL_ORIENTATION_T.SYM_ROTATE_COUNTERCLOCKWISE:
+    case SYMBOL_ORIENTATION_T.SYM_ORIENT_270:
+      if (ret === UP) ret = RIGHT;
+      else if (ret === BOTTOM) ret = LEFT;
+      else if (ret === LEFT) ret = UP;
+      else if (ret === RIGHT) ret = BOTTOM;
+
+      mirror();
+      break;
+
+    case SYMBOL_ORIENTATION_T.SYM_ORIENT_180:
+      if (ret === UP) ret = BOTTOM;
+      else if (ret === BOTTOM) ret = UP;
+      else if (ret === LEFT) ret = RIGHT;
+      else if (ret === RIGHT) ret = LEFT;
+
+      mirror();
+      break;
+
+    default:
+      mirror();
+      break;
+  }
+
+  return new SPIN_STYLE(ret);
 }

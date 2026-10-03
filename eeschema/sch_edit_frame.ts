@@ -13,6 +13,7 @@
  * live items: the frame methods `SCH_COMMIT` and `schematic_undo_redo.ts`
  * (`SCH_UNDO_REDO_MIXIN`, mixed in below) need.
  */
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { SCH_SHEET_MIXIN } from './sheet.js';
 import { SCH_ANNOTATE_MIXIN } from './annotate.js';
 import { SCH_NETLIST_GENERATOR_MIXIN } from './netlist_exporters/netlist_generator.js';
@@ -24,7 +25,7 @@ import {
 } from './netlist_exporters/netlist_exporter_xml.js';
 import { SCH_FILES_IO_MIXIN } from './files-io.js';
 import { SCH_LAYER_ID } from '@ziroeda/common/layer_id.js';
-import type { SCH_GLOBALLABEL } from './sch_label.js';
+import type { SCH_GLOBALLABEL, SCH_LABEL_BASE } from './sch_label.js';
 import type { SCHEMATIC_HOLDER } from './schematic_holder.js';
 import {
   frameTitle,
@@ -42,7 +43,7 @@ import { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
 import { applyMixins } from '@ziroeda/core/mixins.js';
 import { SCH_BASE_FRAME } from './sch_base_frame.js';
 import type { SCH_COMMIT } from './sch_commit.js';
-import type { SCH_ITEM } from './sch_item.js';
+import { AUTOPLACE_ALGO, type SCH_ITEM } from './sch_item.js';
 import type { SCH_SCREEN } from './sch_screen.js';
 import type { SCH_SHEET_PATH } from './sch_sheet_path.js';
 import type { SCH_CLEANUP_FLAGS, SCHEMATIC } from './schematic.js';
@@ -286,6 +287,36 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
   /** `wxFileExists( aPath )` in the project the frame has open. */
   FileExists(aPath: string): boolean {
     return this.hooks.fileExists?.(aPath) ?? false;
+  }
+
+  /**
+   * `AutoRotateItem` (sch_edit_frame.cpp:1792): a global or hierarchical label set to turn on
+   * placement takes the spin of what it landed on, and the global labels of the same name
+   * re-place their fields.
+   */
+  AutoRotateItem(aScreen: SCH_SCREEN, aItem: SCH_ITEM): void {
+    if (aItem.Type() === KICAD_T.SCH_GLOBAL_LABEL_T || aItem.Type() === KICAD_T.SCH_HIER_LABEL_T) {
+      const label = aItem as SCH_LABEL_BASE;
+
+      if (label.AutoRotateOnPlacement()) {
+        const spin = aScreen.GetLabelOrientationForPoint(
+          label.GetPosition(),
+          label.GetSpinStyle(),
+          this.GetCurrentSheet(),
+        );
+
+        if (!spin.equals(label.GetSpinStyle())) {
+          label.SetSpinStyle(spin);
+
+          for (const item of aScreen.Items().OfType(KICAD_T.SCH_GLOBAL_LABEL_T)) {
+            const otherLabel = item as SCH_LABEL_BASE;
+
+            if (otherLabel !== label && otherLabel.GetText() === label.GetText())
+              otherLabel.AutoplaceFields(aScreen, AUTOPLACE_ALGO.AUTOPLACE_AUTO);
+          }
+        }
+      }
+    }
   }
 
   SetSheetNumberAndCount(): void {

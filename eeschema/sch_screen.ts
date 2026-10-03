@@ -8,7 +8,7 @@
  *
  * Pending, marked in place: Plot (the plotters), UpdateSymbolLinks (the symbol library
  * adapter), MigrateSimModels (SIM_MODEL), the font half of FixupEmbeddedData
- * (EDA_TEXT::ResolveFont), GetLabelOrientationForPoint (GetPinSpinStyle), InProjectPath
+ * (EDA_TEXT::ResolveFont), InProjectPath
  * (wxFileName on a disk), Show (debug), and SCH_SCREENS' marker deletion (SCH_MARKER,
  * RC_ITEM) and connection-graph recalculation.
  */
@@ -16,7 +16,7 @@
 import { BASE_SCREEN } from '@ziroeda/common/base_screen.js';
 import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import { RECURSE_MODE } from '@ziroeda/common/eda_item.js';
-import { IS_DELETED, IS_MOVING } from '@ziroeda/common/eda_item_flags.js';
+import { IS_DELETED, IS_MOVING, STRUCT_DELETED } from '@ziroeda/common/eda_item_flags.js';
 import { schIUScale } from '@ziroeda/common/eda_units.js';
 import { type KIID_PATH, newKiid, type KIID } from '@ziroeda/common/kiid.js';
 import { SCH_LAYER_ID } from '@ziroeda/common/layer_id.js';
@@ -33,7 +33,9 @@ import { LIB_SYMBOL } from './lib_symbol.js';
 import { DANGLING_END_ITEM_HELPER, type DANGLING_END_ITEM, type SCH_ITEM } from './sch_item.js';
 import type { SCH_MARKER } from './sch_marker.js';
 import type { BUS_ALIAS } from './bus_alias.js';
-import type { SCH_LABEL_BASE } from './sch_label.js';
+import { type SCH_LABEL_BASE, SPIN_STYLE } from './sch_label.js';
+import type { SCH_BUS_WIRE_ENTRY } from './sch_bus_entry.js';
+import { GetPinSpinStyle } from './symb_transforms_utils.js';
 import type { SCH_LINE } from './sch_line.js';
 import type { SCH_PIN } from './sch_pin.js';
 import { EE_RTREE } from './sch_rtree.js';
@@ -663,6 +665,86 @@ export class SCH_SCREEN extends BASE_SCREEN {
     const info = AnalyzePoint(this.Items(), aPosition, true);
 
     return info.isJunction && (!info.hasBusEntry || info.hasBusEntryToMultipleWires);
+  }
+
+  /**
+   * `GetLabelOrientationForPoint` (sch_screen.cpp:563): the spin a label at \a aPosition takes
+   * from what it lands on - away from a pin, along a wire's end, beside a bus entry's bus.
+   */
+  GetLabelOrientationForPoint(
+    aPosition: VECTOR2I,
+    aDefaultOrientation: SPIN_STYLE,
+    aSheet: SCH_SHEET_PATH | null,
+  ): SPIN_STYLE {
+    let ret = aDefaultOrientation;
+
+    for (const item of this.Items().Overlapping(aPosition)) {
+      if (item.GetEditFlags() & STRUCT_DELETED) continue;
+
+      switch (item.Type()) {
+        case KICAD_T.SCH_BUS_WIRE_ENTRY_T: {
+          const busEntry = item as SCH_BUS_WIRE_ENTRY;
+
+          if (busEntry.m_connected_bus_item) {
+            // bus connected, take the bus direction into consideration only if it is
+            // vertical or horizontal
+            const bus = busEntry.m_connected_bus_item as SCH_LINE;
+
+            if (bus.Angle().AsDegrees() === 90.0) {
+              // bus is vertical -> label shall be horizontal and
+              // shall be placed to the side where the bus entry is
+              if (aPosition.x < bus.GetPosition().x) ret = new SPIN_STYLE(SPIN_STYLE.LEFT);
+              else if (aPosition.x > bus.GetPosition().x) ret = new SPIN_STYLE(SPIN_STYLE.RIGHT);
+            } else if (bus.Angle().AsDegrees() === 0.0) {
+              // bus is horizontal -> label shall be vertical and
+              // shall be placed to the side where the bus entry is
+              if (aPosition.y < bus.GetPosition().y) ret = new SPIN_STYLE(SPIN_STYLE.UP);
+              else if (aPosition.y > bus.GetPosition().y) ret = new SPIN_STYLE(SPIN_STYLE.BOTTOM);
+            }
+          }
+
+          break;
+        }
+
+        case KICAD_T.SCH_LINE_T: {
+          const line = item as SCH_LINE;
+          // line angles goes between -90 and 90 degrees, but normalize
+          const angle = line.Angle().Normalize90().AsDegrees();
+          const atEnd =
+            line.GetEndPoint().x === aPosition.x && line.GetEndPoint().y === aPosition.y;
+
+          if (-45 < angle && angle <= 45) {
+            if (line.GetStartPoint().x <= line.GetEndPoint().x)
+              ret = new SPIN_STYLE(atEnd ? SPIN_STYLE.RIGHT : SPIN_STYLE.LEFT);
+            else ret = new SPIN_STYLE(atEnd ? SPIN_STYLE.LEFT : SPIN_STYLE.RIGHT);
+          } else {
+            if (line.GetStartPoint().y <= line.GetEndPoint().y)
+              ret = new SPIN_STYLE(atEnd ? SPIN_STYLE.BOTTOM : SPIN_STYLE.UP);
+            else ret = new SPIN_STYLE(atEnd ? SPIN_STYLE.UP : SPIN_STYLE.BOTTOM);
+          }
+
+          break;
+        }
+
+        case KICAD_T.SCH_SYMBOL_T: {
+          const symbol = item as SCH_SYMBOL;
+
+          for (const pin of symbol.GetPins(aSheet)) {
+            if (pin.GetPosition().x === aPosition.x && pin.GetPosition().y === aPosition.y) {
+              ret = GetPinSpinStyle(pin, symbol);
+              break;
+            }
+          }
+
+          break;
+        }
+
+        default:
+          break;
+      }
+    }
+
+    return ret;
   }
 
   /**
