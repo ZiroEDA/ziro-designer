@@ -552,7 +552,7 @@ import { schSymbolLibraryName } from './index.js';
 import { busJunctionIds as busJunctionIdsOf } from './connectivity/bus.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { applyToggle, DEFAULT_TOGGLES } from './toggles.js';
-import { LIVE_SCHEMATIC_MIRROR } from './sch_record_bridge.js';
+import { LIVE_SCHEMATIC_MIRROR, liveScreensToRecords } from './sch_record_bridge.js';
 import { symbolLibraryUri } from './cross-probing.js';
 
 // What KiCad writes for File > New Schematic: an empty sheet on A4 paper.
@@ -1847,6 +1847,7 @@ export function SchematicEditor({
   // TRANSITIONAL (S2-5b, gone at S7): the frame's live SCHEMATIC, rebuilt from the window's
   // records when one changed (sch_record_bridge.ts).
   const syncLiveRef = useRef<() => boolean>(() => false);
+  const editLiveRef = useRef<NonNullable<SchScriptApi['editLive']>>(() => null);
   const liveFilesRef = useRef<{
     rawFiles: readonly PickedFile[];
     projectName?: string;
@@ -2463,6 +2464,8 @@ export function SchematicEditor({
   );
   const runCommandRef = useRef(runCommand);
   runCommandRef.current = runCommand;
+  const runProjectRef = useRef(runProject);
+  runProjectRef.current = runProject;
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: everything it reads goes through refs or stable callbacks
   useEffect(() => {
@@ -2479,6 +2482,14 @@ export function SchematicEditor({
       footprintIndex: () => app.loadFootprintIndex(),
       snapshot: () => snapshotRef.current(),
       undo: () => undoRef.current(),
+      docs: () => {
+        const docs = new Map(project.current.docs);
+        if (docRef.current) docs.set(currentFileRef.current, docRef.current);
+        return docs;
+      },
+      currentFile: () => currentFileRef.current,
+      runCommandOn: (file, cmd) => runProjectRef.current(new Map([[file, cmd]])),
+      editLive: (aEdit) => editLiveRef.current(aEdit),
     });
   }, [registerScriptApi]);
 
@@ -5449,6 +5460,32 @@ export function SchematicEditor({
       };
     });
     return liveMirrorRef.current.get() !== null;
+  };
+  // SchScriptApi.editLive: an edit on the live model, its screens written back into the window
+  // as one undo step (sch_record_bridge.ts liveScreensToRecords; TRANSITIONAL until S7).
+  editLiveRef.current = (aEdit) => {
+    if (!syncLiveRef.current()) return null;
+    const frame = schFrameRef.current!;
+    const { result: screens, messages } = frame.WithoutDialogs(true, () => aEdit(frame));
+    if (!screens) return messages.length ? messages : ['nothing was changed'];
+    const name = liveFilesRef.current.projectName;
+    const dir = `/${name ?? project.current.root.replace(/\.[^.]*$/, '')}`;
+    const docs = liveScreensToRecords(frame, screens, dir);
+    const cmds = new Map<string, EditCommand>();
+    const replaceWith = (target: Schematic): EditCommand => ({
+      label: 'Edit',
+      apply: () => target,
+      invert: (before) => replaceWith(before),
+    });
+    for (const [file, d] of docs) {
+      if (file === currentFileRef.current || project.current.docs.has(file))
+        cmds.set(file, replaceWith(d));
+      // A new sheet's file: the project gains it, as initSheetDocument does for a drawn sheet.
+      else project.current.docs.set(file, d);
+    }
+    if (cmds.size) runProject(cmds);
+    liveMirrorRef.current?.Adopt(docs);
+    return messages;
   };
   // ModalAnnotate: the Annotate dialog, which cannot block the mail here; the user annotates
   // and updates the board again.

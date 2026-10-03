@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
+import type { SCH_EDIT_FRAME } from './sch_edit_frame.js';
+import type { SCH_SCREEN } from './sch_screen.js';
 import type { ErcViolation } from './erc/erc.js';
 import type { EditCommand } from './tools/command.js';
 import type { LibSymbol, SchSymbol, Schematic } from './types.js';
@@ -20,4 +22,17 @@ export interface SchScriptApi {
   snapshot(): string;
   /** Edit > Undo: the last edit on the sheet, whoever made it. */
   undo(): void;
+  /** Every sheet file's record (the one on screen as it is now), by its project file name. */
+  docs?(): ReadonlyMap<string, Schematic>;
+  /** The file name of the sheet on screen. */
+  currentFile?(): string;
+  /** An edit on another sheet's file, as one undo step. */
+  runCommandOn?(file: string, cmd: EditCommand): void;
+  /**
+   * An edit on the live model (KiCad's own classes): the frame brought up to date with the
+   * window, \a aEdit run on it with its questions answered yes and its messages collected, and
+   * the screens it returns written back into the window as one undo step. Returns what the
+   * frame said (empty when all went well), or null when there is no live model to edit.
+   */
+  editLive?(aEdit: (aFrame: SCH_EDIT_FRAME) => Iterable<SCH_SCREEN> | null): string[] | null;
 }

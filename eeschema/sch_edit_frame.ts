@@ -248,13 +248,39 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
 
   /** `IsOK( this, aMessage )` (confirm.cpp): no window to ask is a no. */
   IsOK(aMessage: string): boolean {
+    if (this.m_capture) {
+      this.m_capture.messages.push(aMessage);
+      return this.m_capture.answer;
+    }
+
     return this.hooks.isOK?.(aMessage) ?? false;
   }
 
   /** `DisplayError( this, aMessage )`. */
   DisplayError(aMessage: string): void {
-    if (this.hooks.displayError) this.hooks.displayError(aMessage);
+    if (this.m_capture) this.m_capture.messages.push(aMessage);
+    else if (this.hooks.displayError) this.hooks.displayError(aMessage);
     else console.warn(aMessage);
+  }
+
+  /** Messages and answers while a caller with no dialog (the AI) drives the frame. */
+  private m_capture: { messages: string[]; answer: boolean } | null = null;
+
+  /**
+   * Run \a aEdit with the frame's questions answered \a aAnswer and its errors collected
+   * rather than shown: what a caller that drives the frame without a window gets in place of
+   * the dialogs. Returns the edit's result and what the frame said.
+   */
+  WithoutDialogs<T>(aAnswer: boolean, aEdit: () => T): { result: T; messages: string[] } {
+    const outer = this.m_capture;
+    const capture = { messages: [] as string[], answer: aAnswer };
+    this.m_capture = capture;
+
+    try {
+      return { result: aEdit(), messages: capture.messages };
+    } finally {
+      this.m_capture = outer;
+    }
   }
 
   /** `wxFileExists( aPath )` in the project the frame has open. */
