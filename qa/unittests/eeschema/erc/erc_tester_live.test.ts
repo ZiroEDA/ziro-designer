@@ -130,6 +130,43 @@ describe('ERC_TESTER::TestOffGridEndpoints', () => {
   });
 });
 
+describe('ERC_TESTER::TestMissingUnits', () => {
+  it('lists at most three missing units, and their bidirectional pins', () => {
+    // erc.cpp:631: a fourth missing unit is written "...", then the Truncate meant for the
+    // last ", " cuts two of its dots, so KiCad prints "[ B, C, D, . ]". A unit holding a
+    // PT_BIDI pin is reported as ERCE_MISSING_BIDI_PIN.
+    const schematic = load();
+    const root = schematic.Hierarchy()[0]!;
+    const lib = new LIB_SYMBOL('FIVE');
+    lib.SetUnitCount(5, false);
+    for (let unit = 1; unit <= 5; unit++) {
+      const libPin = new SCH_PIN(lib);
+      libPin.SetNumber(String(unit));
+      libPin.SetType(ELECTRICAL_PINTYPE.PT_BIDI);
+      libPin.SetUnit(unit);
+      libPin.SetPosition({ x: unit * 2540, y: 0 });
+      lib.AddDrawItem(libPin);
+    }
+    const symbol = new SCH_SYMBOL(lib, lib.GetLibId(), root, 1, 0, { x: 0, y: 0 });
+    symbol.SetRef(root, 'U99');
+    symbol.UpdatePins();
+    root.LastScreen()!.Append(symbol);
+
+    new ERC_TESTER(schematic).TestMissingUnits();
+    const messages = markersOn(schematic).map((m) => [
+      m.GetRCItem()!.GetErrorCode(),
+      m.GetRCItem()!.GetErrorMessage(false),
+    ]);
+    expect(messages).toEqual([
+      [ERCE_T.ERCE_MISSING_UNIT, 'Symbol U99 has unplaced units [ B, C, D, . ]'],
+      [
+        ERCE_T.ERCE_MISSING_BIDI_PIN,
+        'Symbol U99 has bidirectional pins in units [ B, C, D, . ] that are not placed',
+      ],
+    ]);
+  });
+});
+
 describe('SHEETLIST_ERC_ITEMS_PROVIDER', () => {
   it('counts by severity, and keeps only the asked severities, errors first', () => {
     const schematic = checked();
