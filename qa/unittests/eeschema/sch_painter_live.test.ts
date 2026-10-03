@@ -275,7 +275,8 @@ describe('SCH_PAINTER: render colours', () => {
     p.GetSettings().m_ShowDisabled = true;
     p.Draw(wire(0, 0, 10000, 0), SCH_LAYER_ID.LAYER_WIRE);
     const w = layer(SCH_LAYER_ID.LAYER_WIRE);
-    expect(gal.draws[0]!.strokeColor.r).toBeCloseTo(w.r * 0.5, 6);
+    expect(w.g).toBeGreaterThan(0); // the default wire colour is (0, 150, 0)
+    expect(gal.draws[0]!.strokeColor.g).toBeCloseTo(w.g * 0.5, 6);
   });
 
   it('widens a selected scaled-selection item by the shadow width', () => {
