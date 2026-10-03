@@ -7,6 +7,7 @@
  * and owns the library tree and canvas each command changes, so the frame
  * reaches them through {@link SYMBOL_EDIT_FRAME_HOOKS}.
  */
+import type { APP_SETTINGS_BASE } from '@ziroeda/common/settings/app_settings.js';
 import { LIB_EDIT_FRAME_NAME } from '@ziroeda/common/eda_draw_frame.js';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import type { KIWAY_MAIL_EVENT } from '@ziroeda/common/kiway_mail.js';
@@ -23,6 +24,15 @@ export interface SYMBOL_EDIT_FRAME_HOOKS {
 }
 
 export class SYMBOL_EDIT_FRAME extends SCH_BASE_FRAME {
+  /**
+   * `Kiface().KifaceSettings()` is SYMBOL_EDITOR_SETTINGS upstream, which is not an
+   * APP_SETTINGS_BASE here yet (symbol_editor_settings.ts is the JSON slice); none until it is,
+   * as before SCH_BASE_FRAME answered EESCHEMA_SETTINGS.
+   */
+  override config(): APP_SETTINGS_BASE | null {
+    return null;
+  }
+
   private readonly hooks: SYMBOL_EDIT_FRAME_HOOKS;
 
   constructor(hooks: SYMBOL_EDIT_FRAME_HOOKS) {

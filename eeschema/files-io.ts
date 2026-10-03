@@ -294,6 +294,8 @@ export class SCH_FILES_IO_MIXIN {
     }
 
     this.Schematic().ResolveERCExclusionsPostUpdate();
+
+    this.initScreenZoom();
     this.SetSheetNumberAndCount();
     this.RecomputeIntersheetRefs();
     this.GetCurrentSheet().UpdateAllScreenReferences();

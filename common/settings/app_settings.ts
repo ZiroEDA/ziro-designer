@@ -417,3 +417,70 @@ export class APP_SETTINGS_BASE {
     aWindow.cursor.cross_hair_mode = CROSS_HAIR_MODE.SMALL_CROSS;
   }
 }
+
+/**
+ * The slice of an app's JSON settings that holds APP_SETTINGS_BASE's own PARAMs
+ * (`app_settings.cpp`: `system.units`, `system.last_*_units`, `window.grid.*`,
+ * `window.cursor.*`), as each editor's settings store spells them.
+ */
+export interface APP_SETTINGS_BASE_JSON {
+  system: { units: EdaUnits; last_metric_units: EdaUnits; last_imperial_units: EdaUnits };
+  window: {
+    grid: {
+      sizes: readonly { name: string; x: string; y: string }[];
+      last_size_idx: number;
+      fast_grid_1: number;
+      fast_grid_2: number;
+      style: 'dots' | 'lines' | 'crosses';
+      line_width: number;
+      min_spacing: number;
+      snap: number;
+      show: boolean;
+      overrides_enabled: boolean;
+    };
+    cursor: { crosshair: 'small' | 'full' | '45'; always_show_cursor: boolean };
+  };
+}
+
+/** `grid.style`'s stored integers (`common/settings/app_settings.cpp`): 0 dots, 1 lines, 2 crosses. */
+const GRID_STYLE_NAMES: readonly APP_SETTINGS_BASE_JSON['window']['grid']['style'][] = [
+  'dots',
+  'lines',
+  'crosses',
+];
+
+/** `window.cursor.cross_hair_mode`, as the stores spell it. */
+const CROSS_HAIR_MODE_OF: Record<
+  APP_SETTINGS_BASE_JSON['window']['cursor']['crosshair'],
+  CROSS_HAIR_MODE
+> = {
+  small: CROSS_HAIR_MODE.SMALL_CROSS,
+  full: CROSS_HAIR_MODE.FULLSCREEN_CROSS,
+  '45': CROSS_HAIR_MODE.FULLSCREEN_DIAGONAL,
+};
+
+/**
+ * `JSON_SETTINGS::Load` for APP_SETTINGS_BASE's own PARAMs, from an editor's JSON slice into
+ * its settings object: the units, and the window's grid and cursor.
+ */
+export function loadAppSettingsBase(s: APP_SETTINGS_BASE, json: APP_SETTINGS_BASE_JSON): void {
+  s.m_System.units = EdaUnitsToInt(json.system.units);
+  s.m_System.last_metric_units = EdaUnitsToInt(json.system.last_metric_units);
+  s.m_System.last_imperial_units = EdaUnitsToInt(json.system.last_imperial_units);
+
+  const g = s.m_Window.grid;
+  const jg = json.window.grid;
+  g.grids = jg.sizes.map((aEntry) => new GRID(aEntry.name, aEntry.x, aEntry.y));
+  g.last_size_idx = jg.last_size_idx;
+  g.fast_grid_1 = jg.fast_grid_1;
+  g.fast_grid_2 = jg.fast_grid_2;
+  g.style = Math.max(0, GRID_STYLE_NAMES.indexOf(jg.style));
+  g.line_width = jg.line_width;
+  g.min_spacing = jg.min_spacing;
+  g.snap = jg.snap;
+  g.show = jg.show;
+  g.overrides_enabled = jg.overrides_enabled;
+
+  s.m_Window.cursor.cross_hair_mode = CROSS_HAIR_MODE_OF[json.window.cursor.crosshair];
+  s.m_Window.cursor.always_show_cursor = json.window.cursor.always_show_cursor;
+}

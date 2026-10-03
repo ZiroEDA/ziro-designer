@@ -23,6 +23,8 @@
  *   `GetLibraryItemsForListDialog`, ported below; the modal loop around it is
  *   the window's.
  */
+import type { APP_SETTINGS_BASE } from '@ziroeda/common/settings/app_settings.js';
+import { eeschemaKifaceSettings } from './eeschema_settings.js';
 import type { SCH_DRAW_PANEL } from './sch_draw_panel.js';
 import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import { EDA_DRAW_FRAME, SCH_EDIT_FRAME_NAME } from '@ziroeda/common/eda_draw_frame.js';
@@ -158,6 +160,11 @@ export function GetLibraryItemsForListDialog(
 }
 
 export abstract class SCH_BASE_FRAME extends EDA_DRAW_FRAME {
+  /** `Kiface().KifaceSettings()`: EESCHEMA_SETTINGS (the symbol editor overrides it). */
+  override config(): APP_SETTINGS_BASE | null {
+    return eeschemaKifaceSettings();
+  }
+
   /** `ORIGIN_TRANSFORMS`: the schematic has no user origin, so the identity. */
   private readonly m_originTransforms = new ORIGIN_TRANSFORMS();
 

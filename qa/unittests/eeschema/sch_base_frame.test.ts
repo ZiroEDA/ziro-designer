@@ -209,7 +209,8 @@ describe('the item bookkeeping', () => {
     const { frame } = setup();
     const { canvas, calls } = recordingCanvas();
     frame.SetCanvas(canvas);
-    frame.HardRedraw();
+    // SCH_BASE_FRAME's own (sch_base_frame.cpp:304); SCH_EDIT_FRAME overrides it (:1105).
+    SCH_BASE_FRAME.prototype.HardRedraw.call(frame);
     frame.SyncView();
     expect(calls).toEqual([
       `all ${VIEW_UPDATE_FLAGS.ALL}`,

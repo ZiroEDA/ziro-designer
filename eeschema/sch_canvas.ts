@@ -41,6 +41,9 @@ export function createSchDrawPanel(
 
   aFrame.SetCanvas(panel);
 
+  // The constructor's next step upstream, once the canvas exists.
+  aFrame.setupTools();
+
   return panel;
 }
 

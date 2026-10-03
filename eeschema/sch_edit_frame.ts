@@ -13,6 +13,9 @@
  * live items: the frame methods `SCH_COMMIT` and `schematic_undo_redo.ts`
  * (`SCH_UNDO_REDO_MIXIN`, mixed in below) need.
  */
+import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
+import { schIUScale } from '@ziroeda/common/eda_units.js';
+import { RESET_REASON } from '@ziroeda/common/tool/tool_base.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { SCH_SHEET_MIXIN } from './sheet.js';
 import { SCH_ANNOTATE_MIXIN } from './annotate.js';
@@ -39,6 +42,11 @@ import { MAIL_T } from '@ziroeda/common/mail_type.js';
 import type { CROSS_PROBING_SETTINGS } from '@ziroeda/common/settings/app_settings.js';
 import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import { SELECTION } from '@ziroeda/common/tool/selection.js';
+import { ACTIONS } from '@ziroeda/common/tool/actions.js';
+import { COMMON_CONTROL } from '@ziroeda/common/tool/common_control.js';
+import { COMMON_TOOLS } from '@ziroeda/common/tool/common_tools.js';
+import { TOOL_DISPATCHER } from '@ziroeda/common/tool/tool_dispatcher.js';
+import { ZOOM_TOOL } from '@ziroeda/common/tool/zoom_tool.js';
 import { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
 import { applyMixins } from '@ziroeda/core/mixins.js';
 import { SCH_BASE_FRAME } from './sch_base_frame.js';
@@ -175,10 +183,22 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
 
     if (!this.m_toolManager) this.m_toolManager = new TOOL_MANAGER();
 
-    this.m_toolManager.SetEnvironment(aSchematic, null, null, null, this);
-
     // sch_edit_frame.cpp:179 / :3051: the schematic calls back through its editor.
     aSchematic?.SetSchematicHolder(this);
+
+    // sch_edit_frame.cpp:3053-3056 (a frame without a canvas has no view to give).
+    const canvas = this.GetCanvas();
+    const painter = canvas?.GetView().GetPainter() as {
+      SetSchematic?(s: SCHEMATIC | null): void;
+    } | null;
+    painter?.SetSchematic?.(aSchematic);
+    this.m_toolManager.SetEnvironment(
+      aSchematic,
+      canvas?.GetView() ?? null,
+      canvas?.GetViewControls() ?? null,
+      this.config(),
+      this,
+    );
   }
 
   Schematic(): SCHEMATIC {
@@ -196,6 +216,151 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
 
   GetCurrentSheet(): SCH_SHEET_PATH {
     return this.m_schematic!.CurrentSheet();
+  }
+
+  /**
+   * `SCH_EDIT_FRAME::SetCurrentSheet` (sch_edit_frame.cpp:1085): go to \a aSheet and show it.
+   */
+  SetCurrentSheet(aSheet: SCH_SHEET_PATH): void {
+    if (!aSheet.equals(this.GetCurrentSheet())) {
+      this.ClearFocus();
+
+      this.Schematic().SetCurrentSheet(aSheet);
+      this.SetSheetNumberAndCount();
+      this.GetCanvas()?.DisplaySheet(aSheet.LastScreen());
+    }
+  }
+
+  /**
+   * `SCH_EDIT_FRAME::setupTools` (sch_edit_frame.cpp:679). Upstream's constructor builds the
+   * canvas and then this; here the window hands the canvas over later
+   * (sch_canvas.ts createSchDrawPanel), which runs it. A frame with no canvas (the headless
+   * netlister) keeps the bare manager SetSchematic gives its commits.
+   */
+  setupTools(): void {
+    const canvas = this.GetCanvas()!;
+
+    // Create the manager and dispatcher & route draw panel events to the dispatcher
+    this.m_toolManager = new TOOL_MANAGER();
+    this.m_toolManager.SetEnvironment(
+      this.m_schematic,
+      canvas.GetView(),
+      canvas.GetViewControls(),
+      this.config(),
+      this,
+    );
+    // m_actions = new SCH_ACTIONS(): the actions are static members here (tools/sch_actions.ts).
+    this.m_toolDispatcher = new TOOL_DISPATCHER(this.m_toolManager);
+
+    // Register tools
+    this.m_toolManager.RegisterTool(new COMMON_CONTROL());
+    this.m_toolManager.RegisterTool(new COMMON_TOOLS());
+    this.m_toolManager.RegisterTool(new ZOOM_TOOL());
+    // Not ported yet (S5, one KiCad file per step): SCH_SELECTION_TOOL, PICKER_TOOL,
+    // SCH_DRAWING_TOOLS (its hierarchy members are, as a class the AI drives),
+    // SCH_LINE_WIRE_BUS_TOOL, SCH_MOVE_TOOL, SCH_ALIGN_TOOL, SCH_EDIT_TOOL, SCH_EDIT_TABLE_TOOL,
+    // SCH_GROUP_TOOL, SCH_INSPECTION_TOOL, SCH_DESIGN_BLOCK_CONTROL, SCH_EDITOR_CONTROL,
+    // SCH_FIND_REPLACE_TOOL, SCH_POINT_EDITOR, SCH_NAVIGATE_TOOL, PROPERTIES_TOOL, EMBED_TOOL.
+    this.m_toolManager.InitTools();
+
+    // Run the selection tool, it is supposed to be always active
+    // (ACTIONS::selectionActivate: no SCH_SELECTION_TOOL yet.)
+
+    canvas.SetEventDispatcher(this.m_toolDispatcher);
+  }
+
+  /** `SCH_EDIT_FRAME::initScreenZoom` (sch_edit_frame.cpp:1866). */
+  initScreenZoom(): void {
+    this.m_toolManager?.RunAction(ACTIONS.zoomFitScreen);
+
+    const screen = this.GetScreen();
+
+    if (screen) screen.m_zoomInitialized = true;
+  }
+
+  /**
+   * `SCH_EDIT_FRAME::GetDocumentExtents` (sch_edit_frame.cpp:2130): the page, or the items on
+   * the current screen.
+   */
+  override GetDocumentExtents(aIncludeAllVisible = true): BOX2I {
+    let bBoxDoc = new BOX2I();
+    const screen = this.GetScreen();
+
+    if (!screen) return bBoxDoc;
+
+    if (aIncludeAllVisible) {
+      // Get the whole page size and return that
+      const sizeX = screen.GetPageSettings().GetWidthIU(schIUScale.IU_PER_MILS);
+      const sizeY = screen.GetPageSettings().GetHeightIU(schIUScale.IU_PER_MILS);
+      bBoxDoc = new BOX2I({ x: 0, y: 0 }, { x: sizeX, y: sizeY });
+    } else {
+      // Calc the bounding box of all items on screen except the page border (the drawing
+      // sheet is the view's, not the screen's, here)
+      for (const item of screen.Items()) bBoxDoc.Merge(item.GetBoundingBox());
+    }
+
+    return bBoxDoc;
+  }
+
+  /** `SCH_EDIT_FRAME::HardRedraw` (sch_edit_frame.cpp:1105). */
+  override HardRedraw(): void {
+    const screen = this.GetCurrentSheet().LastScreen();
+
+    if (!screen) return;
+
+    for (const item of screen.Items()) item.ClearCaches();
+
+    for (const libSymbol of screen.GetLibSymbols().values()) libSymbol.ClearCaches();
+
+    if (this.Schematic().Settings().m_IntersheetRefsShow) this.RecomputeIntersheetRefs();
+
+    this.ClearFocus();
+
+    this.GetCanvas()?.DisplaySheet(screen);
+
+    // SCH_SELECTION_TOOL::Reset( REDRAW ): no selection tool yet.
+
+    this.GetCanvas()?.ForceRefresh();
+  }
+
+  /**
+   * `SCH_EDIT_FRAME::DisplayCurrentSheet` (sch_edit_frame.cpp:2320), as far as the ported tools
+   * reach: the find dialog's brightening, the operating-point display and SCH_EDITOR_CONTROL's
+   * net-highlight refresh wait for their tools.
+   */
+  DisplayCurrentSheet(): void {
+    if (!this.m_toolManager) return;
+
+    this.m_toolManager.RunAction(ACTIONS.cancelInteractive);
+    this.m_toolManager.RunAction(ACTIONS.selectionClear);
+    const screen = this.GetCurrentSheet().LastScreen();
+
+    if (!screen) return;
+
+    this.SetSheetNumberAndCount(); // will also update CurrentScreen()'s sheet number info
+
+    this.m_toolManager.ResetTools(RESET_REASON.MODEL_RELOAD);
+
+    // update the references, units, and intersheet-refs
+    this.GetCurrentSheet().UpdateAllScreenReferences();
+
+    // dangling state can also have changed if different units with different pin locations are
+    // used
+    screen.TestDanglingEnds();
+
+    if (!screen.m_zoomInitialized) {
+      this.initScreenZoom();
+    } else {
+      // Set zoom to last used in this screen
+      const view = this.GetCanvas()?.GetView();
+      view?.SetScale(screen.m_LastZoomLevel);
+      view?.SetCenter(screen.m_ScrollCenter);
+    }
+
+    this.HardRedraw(); // Ensure all items are redrawn (especially the drawing-sheet items)
+
+    // Allow tools to re-add their VIEW_ITEMs after the last call to Clear in HardRedraw
+    this.m_toolManager.ResetTools(RESET_REASON.MODEL_RELOAD);
   }
 
   /** `SCH_EDIT_FRAME::GetScreenDesc` (sch_edit_frame.cpp:1054): the current sheet's name. */

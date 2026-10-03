@@ -16,7 +16,7 @@ import { SCH_LAYER_ORDER, SCH_VIEW } from '@ziroeda/eeschema/sch_view.js';
 import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { PGM_BASE, SETTINGS_MANAGER, SetPgm } from '@ziroeda/common/pgm_base.js';
-import { SCH_EDIT_FRAME, type SCH_EDIT_FRAME_HOOKS } from '@ziroeda/eeschema/sch_edit_frame.js';
+import { schToolHarness } from './support/sch_tool_harness.js';
 import { describe, expect, it } from 'vitest';
 
 class STUB_GAL extends GAL {
@@ -103,16 +103,7 @@ describe('SCH_EDIT_FRAME::OpenProjectFiles and the canvas', () => {
   it("shows the loaded root sheet on the frame's canvas (files-io.cpp:857)", () => {
     SetPgm(new PGM_BASE(null, new SETTINGS_MANAGER()));
     try {
-      const frame = new SCH_EDIT_FRAME({
-        crossProbingSettings: () =>
-          ({}) as ReturnType<SCH_EDIT_FRAME_HOOKS['crossProbingSettings']>,
-        highlightNet: () => {},
-        syncSelection: () => {},
-        assignFootprints: () => {},
-        saveProject: () => true,
-      });
-      const shown: unknown[] = [];
-      frame.SetCanvas({ DisplaySheet: (s: unknown) => shown.push(s) } as never);
+      const { frame, shown } = schToolHarness();
       frame.OpenProjectFiles([`/complex_hierarchy/${SHEETS[0]}`], 0, (p) => {
         const n = SHEETS.find((s) => p === `/complex_hierarchy/${s}`);
         return n ? readFileSync(join(ORACLE, n), 'utf8') : null;

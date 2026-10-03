@@ -553,11 +553,18 @@ import { busJunctionIds as busJunctionIdsOf } from './connectivity/bus.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { applyToggle, DEFAULT_TOGGLES } from './toggles.js';
 import { LIVE_SCHEMATIC_MIRROR, liveScreensToRecords } from './sch_record_bridge.js';
+import { createSchDrawPanel } from './sch_canvas.js';
+import type { SCH_DRAW_PANEL } from './sch_draw_panel.js';
+import { loadBitmapFontImage } from '@ziroeda/common/gal/gal_window.js';
 import type { SCH_SCREEN } from './sch_screen.js';
 import { symbolLibraryUri } from './cross-probing.js';
 
 // What KiCad writes for File > New Schematic: an empty sheet on A4 paper.
 // Launching the editor without a project starts here (no bundled demo).
+/** `?schgal=1`: KiCad's canvas on the live model over the window's (TRANSITIONAL, S4-6c). */
+const SCH_GAL =
+  typeof location !== 'undefined' && new URLSearchParams(location.search).has('schgal');
+
 const EMPTY_SCH =
   '(kicad_sch (version 20231120) (generator "ziroeda") (paper "A4")\n  (lib_symbols)\n)\n';
 
@@ -5463,6 +5470,71 @@ export function SchematicEditor({
     });
     return liveMirrorRef.current.get() !== null;
   };
+  // `?schgal=1` (TRANSITIONAL, S4-6c/S5): KiCad's own canvas - SCH_DRAW_PANEL on the live model,
+  // its VIEW and WX_VIEW_CONTROLS owning zoom and pan - over the window's, read only until the
+  // tools (SCH_SELECTION_TOOL onward) run on it. The live model follows the records.
+  const glCanvasRef = useRef<HTMLCanvasElement>(null);
+  const schPanelRef = useRef<SCH_DRAW_PANEL | null>(null);
+  const [schFontImage, setSchFontImage] = useState<ImageBitmap | null>(null);
+  const showLiveRef = useRef<() => void>(() => {});
+  const schShownRef = useRef(false);
+  showLiveRef.current = () => {
+    const panel = schPanelRef.current;
+    const frame = schFrameRef.current;
+    if (!panel || !frame) return;
+    // A rebuild of the live model zooms to fit (initScreenZoom); after the first showing, keep
+    // where the user was.
+    const view = panel.GetView();
+    const had = schShownRef.current ? { scale: view.GetScale(), center: view.GetCenter() } : null;
+    if (!syncLiveRef.current()) return;
+    schShownRef.current = true;
+    const file = currentFileRef.current;
+    const path = frame
+      .Schematic()
+      .Hierarchy()
+      .find((p) => p.LastScreen()?.GetFileName().endsWith(`/${file}`));
+    if (path && !path.equals(frame.GetCurrentSheet())) frame.SetCurrentSheet(path);
+    else panel.DisplaySheet(frame.GetScreen());
+    if (had) {
+      view.SetScale(had.scale);
+      view.SetCenter(had.center);
+    }
+    panel.ForceRefresh();
+  };
+  useEffect(() => {
+    if (!SCH_GAL) return;
+    let cancelled = false;
+    loadBitmapFontImage().then(
+      (img) => {
+        if (!cancelled) setSchFontImage(img);
+      },
+      (err: unknown) => console.warn(`Could not use OpenGL: ${(err as Error).message}`),
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a changed sheet or record is the trigger; the panel reads them through refs
+  useEffect(() => {
+    if (SCH_GAL) showLiveRef.current();
+  }, [doc, currentFile]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the font atlas is the trigger; the rest are refs
+  useEffect(() => {
+    const canvas = glCanvasRef.current;
+    const frame = schFrameRef.current;
+    if (!SCH_GAL || !canvas || !frame || !schFontImage || schPanelRef.current) return;
+    const panel = createSchDrawPanel(frame, canvas, schFontImage);
+    if (!panel) return;
+    schPanelRef.current = panel;
+    frame.ActivateGalCanvas();
+    showLiveRef.current();
+    return () => {
+      panel.Destroy();
+      schPanelRef.current = null;
+      frame.SetCanvas(null);
+    };
+  }, [schFontImage]);
+
   // SchScriptApi.editLive: an edit on the live model, its screens written back into the window
   // as one undo step (sch_record_bridge.ts liveScreensToRecords; TRANSITIONAL until S7).
   editLiveRef.current = (aEdit) => {
@@ -10063,6 +10135,20 @@ export function SchematicEditor({
               lockedIds={remoteLockedIds}
               onScaleChange={onScaleChange}
             />
+            {SCH_GAL && (
+              <canvas
+                ref={glCanvasRef}
+                // biome-ignore lint/a11y/noNoninteractiveTabindex: the canvas takes the keys, as the wxGLCanvas does
+                tabIndex={0}
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  outline: 'none',
+                  width: '100%',
+                  height: '100%',
+                }}
+              />
+            )}
             {ctxMenu && (
               <ContextMenu
                 x={ctxMenu.x}

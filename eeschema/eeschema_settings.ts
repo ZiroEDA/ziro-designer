@@ -7,6 +7,8 @@
  * settings.ts`, which still owns the store (load, merge, persist) and reads
  * this slice's type and defaults from here.
  */
+import { APP_SETTINGS_BASE, loadAppSettingsBase } from '@ziroeda/common/settings/app_settings.js';
+import { PgmOrNull } from '@ziroeda/common/pgm_base.js';
 import {
   REMOTE_PROVIDER_SETTINGS,
   type REMOTE_PROVIDER_SETTINGS_JSON,
@@ -540,4 +542,45 @@ export function setEeschemaSettingsProvider(fn: () => EeschemaSettings): void {
 /** The live `eeschema.json`. */
 export function currentEeschemaSettings(): EeschemaSettings {
   return eeschemaSettingsProvider();
+}
+
+/** `eeschemaSchemaVersion` (eeschema_settings.cpp:46). */
+const eeschemaSchemaVersion = 3;
+
+/**
+ * `EESCHEMA_SETTINGS` (eeschema_settings.h), as an APP_SETTINGS_BASE: the object
+ * `Kiface().KifaceSettings()` hands the schematic frames, whose base PARAMs (units, the window's
+ * grid and cursor) the common tools read. Its eeschema rows are still read off the JSON slice
+ * ({@link currentEeschemaSettings}) by the code that wants them.
+ */
+export class EESCHEMA_SETTINGS extends APP_SETTINGS_BASE {
+  constructor() {
+    super('eeschema', eeschemaSchemaVersion);
+  }
+}
+
+/** The one EESCHEMA_SETTINGS when no program object exists (the tests, a headless frame). */
+let unregistered: EESCHEMA_SETTINGS | null = null;
+
+/**
+ * `Kiface().KifaceSettings()` for eeschema: ONE EESCHEMA_SETTINGS for the life of the program,
+ * registered with the settings manager as "eeschema", reloaded in place from the live
+ * `eeschema.json` on every ask (`JSON_SETTINGS::Load`) so a changed preference is seen.
+ */
+export function eeschemaKifaceSettings(): EESCHEMA_SETTINGS {
+  const mgr = PgmOrNull()?.GetSettingsManager() ?? null;
+  let s = mgr?.GetAppSettings<EESCHEMA_SETTINGS>('eeschema') ?? null;
+
+  if (!(s instanceof EESCHEMA_SETTINGS)) {
+    if (mgr) {
+      s = new EESCHEMA_SETTINGS();
+      mgr.RegisterSettings('eeschema', s);
+    } else {
+      unregistered ??= new EESCHEMA_SETTINGS();
+      s = unregistered;
+    }
+  }
+
+  loadAppSettingsBase(s, currentEeschemaSettings());
+  return s;
 }

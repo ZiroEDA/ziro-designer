@@ -93,7 +93,7 @@ export class SCH_SCREEN extends BASE_SCREEN {
 
   private m_modification_sync: number; // Inequality with SYMBOL_LIBS::GetModificationHash()
   // allows resynchronization.
-  private m_zoomInitialized: boolean; // Set to true once the zoom value is initialized with
+  m_zoomInitialized: boolean; // Set to true once the zoom value is initialized with
   // `InitZoom()`.
 
   private m_isReadOnly: boolean; ///< Read only status of the screen file.
