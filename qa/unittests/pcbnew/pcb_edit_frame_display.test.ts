@@ -28,6 +28,8 @@ import type { PCB_DRAW_PANEL_GAL } from '@ziroeda/pcbnew/pcb_draw_panel_gal.js';
 import { PCB_DISPLAY_OPTIONS } from '@ziroeda/pcbnew/pcb_painter.js';
 import { PCBNEW_SETTINGS } from '@ziroeda/pcbnew/pcbnew_settings.js';
 import { PCB_ACTIONS } from '@ziroeda/pcbnew/tools/pcb_actions.js';
+import { BOARD_COMMIT } from '@ziroeda/pcbnew/board_commit.js';
+import { PCB_SHAPE } from '@ziroeda/pcbnew/pcb_shape.js';
 
 beforeAll(() => {
   installPgm();
@@ -196,6 +198,54 @@ describe('the layer pair presets (pcb_control.cpp:680-754)', () => {
 
     const pair = settings.GetCurrentLayerPair();
     expect([pair.GetLayerA(), pair.GetLayerB()]).toEqual([PCB_LAYER_ID.F_Cu, PCB_LAYER_ID.B_Cu]);
+  });
+});
+
+describe('PCB_CONTROL undo, redo and snapping (pcb_control.cpp:2311-2375)', () => {
+  it('Undo and Redo run the frame lists', () => {
+    const { f } = frame();
+    const shape = new PCB_SHAPE(f.GetBoard());
+    shape.SetLayer(PCB_LAYER_ID.F_SilkS);
+    const commit = new BOARD_COMMIT(f);
+    commit.Add(shape);
+    commit.Push('add');
+    expect(f.GetBoard()!.Drawings()).toContain(shape);
+
+    f.GetToolManager()!.RunAction(ACTIONS.undo);
+    expect(f.GetBoard()!.Drawings()).not.toContain(shape);
+    expect(f.GetRedoCommandCount()).toBe(1);
+
+    f.GetToolManager()!.RunAction(ACTIONS.redo);
+    expect(f.GetBoard()!.Drawings()).toContain(shape);
+    expect(f.GetUndoCommandCount()).toBe(1);
+  });
+
+  it('the snap actions set, set and flip all-layers snapping, and pop the mode', () => {
+    const { f, settings } = frame();
+    const popups: [string, readonly string[], number][] = [];
+    f.SetHotkeyPopup({ Popup: (t, items, sel) => popups.push([t, items, sel]) });
+    const common = PgmOrNull()!.GetCommonSettings()!;
+    const was = common.m_Input.hotkey_feedback;
+    common.m_Input.hotkey_feedback = true;
+    const mgr = f.GetToolManager()!;
+    const seen: boolean[] = [];
+
+    mgr.RunAction(PCB_ACTIONS.magneticSnapAllLayers);
+    seen.push(settings.m_MagneticItems.allLayers);
+    mgr.RunAction(PCB_ACTIONS.magneticSnapActiveLayer);
+    seen.push(settings.m_MagneticItems.allLayers);
+    mgr.RunAction(PCB_ACTIONS.magneticSnapToggle);
+    seen.push(settings.m_MagneticItems.allLayers);
+
+    common.m_Input.hotkey_feedback = was;
+
+    expect(seen).toEqual([true, false, true]);
+    const labels = ['Active Layer', 'All Layers'];
+    expect(popups).toEqual([
+      ['Object Snapping', labels, 1],
+      ['Object Snapping', labels, 0],
+      ['Object Snapping', labels, 1],
+    ]);
   });
 });
 

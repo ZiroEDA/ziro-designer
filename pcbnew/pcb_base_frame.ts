@@ -66,6 +66,11 @@ export interface FOOTPRINT_EDITOR_SETTINGS_LIKE {
   m_AngleSnapMode: LEADER_MODE;
   /** `m_ArcEditMode` (footprint_editor_settings.h:79); KEEP_CENTER_ADJUST_ANGLE_RADIUS when absent. */
   m_ArcEditMode?: ARC_EDIT_MODE;
+  /**
+   * `m_MagneticItems` (footprint_editor_settings.h); absent where the frame's
+   * footprint editor settings are not the editor's own.
+   */
+  m_MagneticItems?: MAGNETIC_SETTINGS;
 }
 
 export abstract class PCB_BASE_FRAME extends EDA_DRAW_FRAME {

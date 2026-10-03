@@ -4441,20 +4441,20 @@ export function PcbEditor({
     [buildNetlistLibrary, projectFilesNow, runNetlistUpdate],
   );
 
-  // PCB_BASE_EDIT_FRAME::RestoreCopyFromUndoList / RestoreCopyFromRedoList; the
-  // listener re-derives the view, and the selection is rebuilt as
-  // PCB_SELECTION_TOOL::RebuildSelection does — empty, until the tool lands.
+  // ACTIONS::undo / redo: PCB_CONTROL::Undo / Redo, which run the frame's
+  // RestoreCopyFromUndoList / RedoList. The window's selection mirror is
+  // emptied as PCB_SELECTION_TOOL::RebuildSelection leaves it.
   const undo = useCallback(() => {
     const frame = frameRef.current!;
     if (frame.GetUndoCommandCount() <= 0) return;
-    frame.RestoreCopyFromUndoList();
+    runActionRef.current(ACTIONS.undo);
     setSelectionRef.current(new Set());
   }, []);
 
   const redo = useCallback(() => {
     const frame = frameRef.current!;
     if (frame.GetRedoCommandCount() <= 0) return;
-    frame.RestoreCopyFromRedoList();
+    runActionRef.current(ACTIONS.redo);
     setSelectionRef.current(new Set());
   }, []);
 

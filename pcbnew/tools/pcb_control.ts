@@ -80,6 +80,7 @@ import { VIEW_UPDATE_FLAGS } from '@ziroeda/common/view/view_item.js';
 import type { PCB_EDIT_FRAME } from '../pcb_edit_frame.js';
 import type { PCB_SHAPE } from '../pcb_shape.js';
 import { PCB_DISPLAY_OPTIONS } from '../pcb_painter.js';
+import { MAGNETIC_SETTINGS } from '../pcbnew_settings.js';
 
 /** `HITTEST_THRESHOLD_PIXELS` (pcb_control.cpp:817). */
 // It'd be nice to share the min/max with the DIALOG_COLOR_PICKER, but those are
@@ -1293,6 +1294,66 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
     return 0;
   }
 
+  /** `Undo` (pcb_control.cpp:2311-2320). */
+  Undo(_aEvent: TOOL_EVENT): number {
+    const editFrame = this.m_frame as unknown as PCB_BASE_EDIT_FRAME | null;
+
+    if (editFrame && 'RestoreCopyFromUndoList' in editFrame) editFrame.RestoreCopyFromUndoList();
+
+    return 0;
+  }
+
+  /** `Redo` (pcb_control.cpp:2323-2332). */
+  Redo(_aEvent: TOOL_EVENT): number {
+    const editFrame = this.m_frame as unknown as PCB_BASE_EDIT_FRAME | null;
+
+    if (editFrame && 'RestoreCopyFromRedoList' in editFrame) editFrame.RestoreCopyFromRedoList();
+
+    return 0;
+  }
+
+  /** The editor's `MAGNETIC_SETTINGS`, the footprint editor's or the board editor's. */
+  private magneticSettings(): MAGNETIC_SETTINGS {
+    if (!this.m_isFootprintEditor) return this.m_frame!.GetPcbNewSettings().m_MagneticItems;
+
+    const fpSettings = this.m_frame!.GetFootprintEditorSettings();
+
+    // A frame whose footprint editor settings carry none snaps with the defaults.
+    fpSettings.m_MagneticItems ??= new MAGNETIC_SETTINGS();
+
+    return fpSettings.m_MagneticItems;
+  }
+
+  /** `SnapMode` (pcb_control.cpp:2335-2351): snap to the active layer, all layers, or flip. */
+  SnapMode(aEvent: TOOL_EVENT): number {
+    const settings = this.magneticSettings();
+
+    if (aEvent.IsAction(PCB_ACTIONS.magneticSnapActiveLayer)) settings.allLayers = false;
+    else if (aEvent.IsAction(PCB_ACTIONS.magneticSnapAllLayers)) settings.allLayers = true;
+    else settings.allLayers = !settings.allLayers;
+
+    this.m_toolMgr!.PostEvent(PCB_EVENTS.SnappingModeChangedByKeyEvent());
+
+    return 0;
+  }
+
+  /** `SnapModeFeedback` (pcb_control.cpp:2354-2375). */
+  SnapModeFeedback(_aEvent: TOOL_EVENT): number {
+    if (!PgmOrNull()?.GetCommonSettings()?.m_Input.hotkey_feedback) return 0;
+
+    const labels = ['Active Layer', 'All Layers'];
+
+    if (!this.m_frame!.GetHotkeyPopup()) this.m_frame!.CreateHotkeyPopup();
+
+    const popup = this.m_frame!.GetHotkeyPopup();
+
+    const settings = this.magneticSettings();
+
+    if (popup) popup.Popup('Object Snapping', labels, settings.allLayers ? 1 : 0);
+
+    return 0;
+  }
+
   /** `FlipPcbView` (pcb_control.cpp:2946-2953). */
   FlipPcbView(_aEvent: TOOL_EVENT): number {
     const opts = Object.assign(new PCB_DISPLAY_OPTIONS(), this.m_frame!.GetDisplayOptions());
@@ -1432,6 +1493,24 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
     this.Go(
       SYNC_HANDLER<PCB_CONTROL>(this.LayerPresetFeedback),
       PCB_EVENTS.LayerPairPresetChangedByKeyEvent(),
+    );
+
+    this.Go(SYNC_HANDLER<PCB_CONTROL>(this.Undo), ACTIONS.undo.MakeEvent());
+    this.Go(SYNC_HANDLER<PCB_CONTROL>(this.Redo), ACTIONS.redo.MakeEvent());
+
+    // Snapping control
+    this.Go(
+      SYNC_HANDLER<PCB_CONTROL>(this.SnapMode),
+      PCB_ACTIONS.magneticSnapActiveLayer.MakeEvent(),
+    );
+    this.Go(
+      SYNC_HANDLER<PCB_CONTROL>(this.SnapMode),
+      PCB_ACTIONS.magneticSnapAllLayers.MakeEvent(),
+    );
+    this.Go(SYNC_HANDLER<PCB_CONTROL>(this.SnapMode), PCB_ACTIONS.magneticSnapToggle.MakeEvent());
+    this.Go(
+      SYNC_HANDLER<PCB_CONTROL>(this.SnapModeFeedback),
+      PCB_EVENTS.SnappingModeChangedByKeyEvent(),
     );
 
     this.Go(SYNC_HANDLER<PCB_CONTROL>(this.GridPlaceOrigin), ACTIONS.gridSetOrigin.MakeEvent());
