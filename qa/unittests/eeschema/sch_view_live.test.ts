@@ -21,6 +21,8 @@ import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { LIB_SYMBOL } from '@ziroeda/eeschema/lib_symbol.js';
 import { SCH_EDIT_FRAME, type SCH_EDIT_FRAME_HOOKS } from '@ziroeda/eeschema/sch_edit_frame.js';
 import type { SCH_ITEM } from '@ziroeda/eeschema/sch_item.js';
+import { SCH_TABLE } from '@ziroeda/eeschema/sch_table.js';
+import { SCH_TABLECELL } from '@ziroeda/eeschema/sch_tablecell.js';
 import { SCH_SHAPE } from '@ziroeda/eeschema/sch_shape.js';
 import type { SCH_SYMBOL } from '@ziroeda/eeschema/sch_symbol.js';
 import { SCH_LAYER_ORDER, SCH_VIEW, type SCH_VIEW_FRAME } from '@ziroeda/eeschema/sch_view.js';
@@ -194,6 +196,23 @@ describe('SCH_VIEW', () => {
     view.Update(symbol, VIEW_UPDATE_FLAGS.COLOR);
     for (const c of children)
       expect(c.viewPrivData()!.requiredUpdate()).toBe(VIEW_UPDATE_FLAGS.COLOR);
+  });
+
+  it('repaints a whole table for one of its cells', () => {
+    const view = newView(null);
+    const table = new SCH_TABLE();
+    table.SetColCount(1);
+    const cell = new SCH_TABLECELL();
+    table.AddCell(cell);
+    view.Add(table);
+    view.Add(cell);
+    table.viewPrivData()!.clearUpdateFlags();
+    cell.viewPrivData()!.clearUpdateFlags();
+
+    view.Update(cell, VIEW_UPDATE_FLAGS.COLOR);
+    // SCH_VIEW::Update hands the parent table to VIEW::Update with ALL, then the cell itself.
+    expect(table.viewPrivData()!.requiredUpdate()).toBe(VIEW_UPDATE_FLAGS.ALL);
+    expect(cell.viewPrivData()!.requiredUpdate()).toBe(VIEW_UPDATE_FLAGS.COLOR);
   });
 
   it("shows a derived symbol with its own fields and its root symbol's graphics", () => {

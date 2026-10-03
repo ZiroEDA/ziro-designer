@@ -94,7 +94,7 @@ describe('SCH_RENDER_SETTINGS', () => {
     expect(s.IsBackgroundDark()).toBe(false);
     s.SetBackgroundColor({ r: 0.2, g: 0.2, b: 0.2, a: 1 });
     expect(s.IsBackgroundDark()).toBe(true);
-    s.SetBackgroundColor({ r: 0.5, g: 0.5, b: 0.5, a: 1 }); // 0.5 * 1.003: not below
+    s.SetBackgroundColor({ r: 0.938, g: 0.374, b: 0, a: 1 }); // brightness exactly 0.5: not below
     expect(s.IsBackgroundDark()).toBe(false);
   });
 
