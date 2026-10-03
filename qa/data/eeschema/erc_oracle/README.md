@@ -16,3 +16,6 @@ Regenerate from `qa/data/eeschema`:
     done
 
 then strip `date` and base-name `source`.
+
+`erc_cases_<name>.json` is the same command over `erc_cases/<name>/`, small schematics written
+to reach ERC tests no netlist oracle project does (each project file enables what it needs).

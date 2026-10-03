@@ -2201,6 +2201,43 @@ const DrivenPinTypes = new Set<ELECTRICAL_PINTYPE>([
   ELECTRICAL_PINTYPE.PT_POWER_IN,
 ]);
 
+/**
+ * `std::map<VECTOR2I, T>`: VECTOR2::operator< compares x² + y², so points at one distance from
+ * the origin are ONE key (the first point inserted is the key kept) and iteration is by that
+ * distance. erc.cpp keys its connection maps this way.
+ */
+class VECTOR2I_MAP<T> {
+  private m_map = new Map<number, { key: VECTOR2I; value: T }>();
+
+  constructor(private readonly m_make: () => T) {}
+
+  private static norm(aPt: VECTOR2I): number {
+    return aPt.x * aPt.x + aPt.y * aPt.y;
+  }
+
+  /** `operator[]`. */
+  at(aPt: VECTOR2I): T {
+    const n = VECTOR2I_MAP.norm(aPt);
+    let entry = this.m_map.get(n);
+
+    if (!entry) {
+      entry = { key: aPt, value: this.m_make() };
+      this.m_map.set(n, entry);
+    }
+
+    return entry.value;
+  }
+
+  /** `count( aPt )`. */
+  has(aPt: VECTOR2I): boolean {
+    return this.m_map.has(VECTOR2I_MAP.norm(aPt));
+  }
+
+  *[Symbol.iterator](): Iterator<[VECTOR2I, T]> {
+    for (const [, e] of [...this.m_map].sort((a, b) => a[0] - b[0])) yield [e.key, e.value];
+  }
+}
+
 export class ERC_TESTER {
   private m_schematic: SCHEMATIC;
   private m_settings: ERC_SETTINGS;
@@ -2687,33 +2724,17 @@ export class ERC_TESTER {
     let err_count = 0;
 
     for (const sheet of this.m_sheetList) {
-      // std::map<VECTOR2I, ...> orders keys by VECTOR2::operator<, which compares x² + y²: points
-      // at the same distance from the origin are ONE key (the first point inserted keeps it),
-      // and the map iterates by that distance.
-      const pinMap = new Map<number, { pt: VECTOR2I; items: SCH_ITEM_LIVE[] }>();
-      const norm = (pt: VECTOR2I) => pt.x * pt.x + pt.y * pt.y;
+      const pinMap = new VECTOR2I_MAP<SCH_ITEM_LIVE[]>(() => []);
 
       const addOther = (pt: VECTOR2I, aOther: SCH_ITEM_LIVE) => {
-        const entry = pinMap.get(norm(pt));
-
-        if (entry) entry.items.push(aOther);
+        if (pinMap.has(pt)) pinMap.at(pt).push(aOther);
       };
 
       for (const item of sheet.LastScreen()!.Items().OfType(KICAD_T_LIVE.SCH_SYMBOL_T)) {
         const symbol = item as SCH_SYMBOL;
 
         for (const pin of symbol.GetPins(sheet)) {
-          if (pin.GetType() === ELECTRICAL_PINTYPE.PT_NC) {
-            const pos = pin.GetPosition();
-            let entry = pinMap.get(norm(pos));
-
-            if (!entry) {
-              entry = { pt: pos, items: [] };
-              pinMap.set(norm(pos), entry);
-            }
-
-            entry.items.push(pin);
-          }
+          if (pin.GetType() === ELECTRICAL_PINTYPE.PT_NC) pinMap.at(pin.GetPosition()).push(pin);
         }
       }
 
@@ -2729,11 +2750,11 @@ export class ERC_TESTER {
         }
       }
 
-      for (const [, pair] of [...pinMap].sort((a, b) => a[0] - b[0])) {
-        if (pair.items.length > 1) {
+      for (const [pt, items] of pinMap) {
+        if (items.length > 1) {
           let all_nc = true;
 
-          for (const item of pair.items) {
+          for (const item of items) {
             if (item.Type() !== KICAD_T_LIVE.SCH_PIN_T) {
               all_nc = false;
               break;
@@ -2754,15 +2775,15 @@ export class ERC_TESTER {
           const ercItem = ERC_ITEM.Create(ERCE.ERCE_NOCONNECT_CONNECTED)!;
 
           ercItem.SetItems(
-            pair.items[0]!,
-            pair.items[1]!,
-            pair.items.length > 2 ? pair.items[2]! : null,
-            pair.items.length > 3 ? pair.items[3]! : null,
+            items[0]!,
+            items[1]!,
+            items.length > 2 ? items[2]! : null,
+            items.length > 3 ? items[3]! : null,
           );
           ercItem.SetErrorMessage("Pin with 'no connection' type is connected");
           ercItem.SetSheetSpecificPath(sheet);
 
-          const marker = new SCH_MARKER_LIVE(ercItem, pair.pt);
+          const marker = new SCH_MARKER_LIVE(ercItem, pt);
           sheet.LastScreen()!.Append(marker);
         }
       }
@@ -2936,6 +2957,122 @@ export class ERC_TESTER {
   }
 
   /**
+   * Test to see if there are potentially confusing 4-way junctions in the schematic.
+   *
+   * @return the error count
+   */
+  TestFourWayJunction(): number {
+    let err_count = 0;
+
+    const pinStackAlreadyRepresented = (pin: SCH_PIN, collection: SCH_ITEM_LIVE[]): boolean => {
+      for (let i = 0; i < collection.length; i++) {
+        const item = collection[i]!;
+
+        if (
+          item.Type() === KICAD_T_LIVE.SCH_PIN_T &&
+          item.GetParentSymbol() === pin.GetParentSymbol()
+        ) {
+          if (pin.IsVisible() && !(item as SCH_PIN).IsVisible()) collection[i] = pin;
+
+          return true;
+        }
+      }
+
+      return false;
+    };
+
+    for (const sheet of this.m_sheetList) {
+      const connMap = new VECTOR2I_MAP<SCH_ITEM_LIVE[]>(() => []);
+      const screen = sheet.LastScreen()!;
+
+      for (const item of screen.Items().OfType(KICAD_T_LIVE.SCH_SYMBOL_T)) {
+        const symbol = item as SCH_SYMBOL;
+
+        for (const pin of symbol.GetPins(sheet)) {
+          const entry = connMap.at(pin.GetPosition());
+
+          // Only one pin per pin-stack.
+          if (pinStackAlreadyRepresented(pin, entry)) continue;
+
+          entry.push(pin);
+        }
+      }
+
+      for (const item of screen.Items().OfType(KICAD_T_LIVE.SCH_LINE_T)) {
+        const line = item as SCH_LINE;
+
+        if (line.IsGraphicLine()) continue;
+
+        for (const pt of line.GetConnectionPoints()) connMap.at(pt).push(line);
+      }
+
+      for (const [pt, items] of connMap) {
+        if (items.length >= 4) {
+          err_count++;
+
+          const ercItem = ERC_ITEM.Create(ERCE.ERCE_FOUR_WAY_JUNCTION)!;
+
+          ercItem.SetItems(items[0]!, items[1]!, items[2]!, items[3]!);
+          ercItem.SetErrorMessage(`Four items connected at ${pt.x}, ${pt.y}`);
+          ercItem.SetSheetSpecificPath(sheet);
+
+          const marker = new SCH_MARKER_LIVE(ercItem, pt);
+          sheet.LastScreen()!.Append(marker);
+        }
+      }
+    }
+
+    return err_count;
+  }
+
+  /**
+   * Test for a label that connects to more than one wire.
+   *
+   * @return the error count
+   */
+  TestLabelMultipleWires(): number {
+    let err_count = 0;
+
+    for (const sheet of this.m_sheetList) {
+      const connMap = new VECTOR2I_MAP<SCH_ITEM_LIVE[]>(() => []);
+
+      for (const item of sheet.LastScreen()!.Items().OfType(KICAD_T_LIVE.SCH_LABEL_T)) {
+        for (const pt of item.GetConnectionPoints()) connMap.at(pt).push(item);
+      }
+
+      for (const [pt, labels] of connMap) {
+        const lines: (SCH_ITEM_LIVE | null)[] = [];
+
+        for (const item of sheet.LastScreen()!.Items().Overlapping(KICAD_T_LIVE.SCH_LINE_T, pt)) {
+          const line = item as SCH_LINE;
+
+          if (line.IsGraphicLine()) continue;
+
+          // If the line is connected at the endpoint, then there will be a junction
+          if (!line.IsEndPoint(pt)) lines.push(line);
+        }
+
+        if (lines.length > 1) {
+          err_count++;
+          // Only show the first 3 lines and if there are only two, adds a nullptr
+          lines.length = 3;
+
+          const ercItem = ERC_ITEM.Create(ERCE.ERCE_LABEL_MULTIPLE_WIRES)!;
+
+          ercItem.SetItems(labels[0]!, lines[0] ?? null, lines[1] ?? null, lines[2] ?? null);
+          ercItem.SetErrorMessage(`Label connects more than one wire at ${pt.x}, ${pt.y}`);
+          ercItem.SetSheetSpecificPath(sheet);
+
+          const marker = new SCH_MARKER_LIVE(ercItem, pt);
+          sheet.LastScreen()!.Append(marker);
+        }
+      }
+    }
+
+    return err_count;
+  }
+
+  /**
    * Test pins and wire ends for being off grid.
    *
    * @return the error count
@@ -3065,7 +3202,10 @@ export class ERC_TESTER {
 
     if (this.m_settings.IsTestEnabled(ERCE.ERCE_ENDPOINT_OFF_GRID)) this.TestOffGridEndpoints();
 
-    // Pending: TestFourWayJunction, TestLabelMultipleWires.
+    if (this.m_settings.IsTestEnabled(ERCE.ERCE_FOUR_WAY_JUNCTION)) this.TestFourWayJunction();
+
+    if (this.m_settings.IsTestEnabled(ERCE.ERCE_LABEL_MULTIPLE_WIRES))
+      this.TestLabelMultipleWires();
 
     if (this.m_settings.IsTestEnabled(ERCE.ERCE_UNDEFINED_NETCLASS)) this.TestMissingNetclasses();
 

@@ -42,8 +42,6 @@ const PENDING = new Set([
   'lib_symbol_mismatch',
   'footprint_link_issues',
   'footprint_filter',
-  'four_way_junction',
-  'label_multiple_wires',
 ]);
 
 /**
@@ -125,6 +123,8 @@ function keys(aReport: Report): string[] {
 
 function directoryOf(aOracleFile: string): string {
   const stem = aOracleFile.replace(/\.json$/, '');
+  if (stem.startsWith('erc_cases_')) return join(DATA, 'erc_cases', stem.slice('erc_cases_'.length));
+
   return stem.startsWith('netlist_oracle_graph_')
     ? join(DATA, 'netlist_oracle_graph', stem.slice('netlist_oracle_graph_'.length))
     : join(DATA, 'netlist_oracle', stem.slice('netlist_oracle_'.length));
@@ -152,7 +152,7 @@ function runErc(aDir: string, aSource: string): Report {
 const FILES = readdirSync(ORACLE).filter((f) => f.endsWith('.json'));
 
 describe('ERC_TESTER against kicad-cli sch erc', () => {
-  it('has the oracle', () => expect(FILES.length).toBe(43));
+  it('has the oracle', () => expect(FILES.length).toBe(44));
 
   for (const f of FILES) {
     it(f, { timeout: 120_000 }, () => {
