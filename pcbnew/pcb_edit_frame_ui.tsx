@@ -17,6 +17,7 @@ import { PnsDesignSettingsFromBds } from './router/pns_kicad_iface.js';
 import { DEFAULT_UPDATE_PCB_OPTIONS } from './dialogs/dialog_update_pcb.js';
 import { type ARC_EDIT_MODE, FRAME_T } from '@ziroeda/common/frame_type.js';
 import { MAIL_T } from '@ziroeda/common/mail_type.js';
+import type { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
 import type { KIWAY } from '@ziroeda/common/kiway.js';
 import type { PCBNEW_APP } from './browser/pcbnew_app.js';
 import { jsonFileWildcard, reportFileWildcard } from '@ziroeda/common/wildcards_and_files_ext.js';
@@ -533,7 +534,6 @@ import { PCB_GRID_HELPER, type PcbGridState } from './tools/pcb_grid_helper.js';
 import { drawConstructionGeom } from '@ziroeda/common/preview_items/construction_geom.js';
 import { drawSnapIndicator } from '@ziroeda/common/preview_items/snap_indicator.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
-import { type BoardCursorSnap, snapToBoardCopper } from './pcb_cursor_snap.js';
 import { DialogTrackViaProperties } from './dialogs/dialog_track_via_properties_ui.js';
 import { DialogCopperZones } from './dialogs/dialog_copper_zones.js';
 import { PcbOneLayerSelector, SelectCopperLayerPairDialog } from './sel_layer.js';
@@ -1970,14 +1970,22 @@ export function PcbEditor({
    * `SetUseGrid` / `SetSnap` / `SetAuxAxes` on the long-lived one.
    */
   const gridHelperRef = useRef<PCB_GRID_HELPER | null>(null);
+  const gridHelperMgrRef = useRef<TOOL_MANAGER | null>(null);
   const gridHelper = (): PCB_GRID_HELPER => {
-    if (!gridHelperRef.current) {
-      gridHelperRef.current = new PCB_GRID_HELPER();
+    const mgr = frameRef.current?.GetToolManager() ?? null;
+    if (!gridHelperRef.current || gridHelperMgrRef.current !== mgr) {
+      // `PCB_GRID_HELPER( m_toolMgr, frame()->GetMagneticItemsSettings() )`, as
+      // every tool makes it: the grid and the items come from the frame's VIEW
+      // and live BOARD. Before the frame exists, a stateless one for the grid.
+      gridHelperRef.current = mgr
+        ? new PCB_GRID_HELPER(mgr, frameRef.current!.GetMagneticItemsSettings())
+        : new PCB_GRID_HELPER();
+      gridHelperMgrRef.current = mgr;
       // The canvas is the helper's VIEW: its snap point and construction
       // preview are drawn on the overlay, which repaints when they change.
       gridHelperRef.current.AttachView(() => requestDrawRef.current());
     }
-    return gridHelperRef.current.SetState(gridState());
+    return mgr ? gridHelperRef.current : gridHelperRef.current.SetState(gridState());
   };
 
   // Every grid snap in the editor, through the one function upstream uses.
@@ -2014,28 +2022,11 @@ export function PcbEditor({
     // The pickers that `SetSnapping( false )` — see `picker_snap.ts`.
     if (pickerSnapsToGridOnly(activeToolRef.current)) return snapToGrid(w);
 
-    const brd = boardRef.current;
+    if (!frameRef.current?.GetToolManager()) return snapToGrid(w);
 
-    if (!brd) return snapToGrid(w);
-
-    return gridHelper().BestSnapAnchor(brd, w, {
-      // `view->ToWorld( 25 )` and `view->ToWorld( m_SnapHysteresis )`.
-      snapScale: 25 / viewRef.current.scale,
-      hysteresis: 5 / viewRef.current.scale,
-      visibleGrid: gridIURef.current,
-      layer: activeLayerRef.current,
-      // `MAGNETIC_SETTINGS` — Preferences > PCB Editor > Editing Options'
-      // Magnetic Points group. `bestSnapAnchor` already took these three and
-      // defaulted them to CAPTURE_ALWAYS, so "Snap to pads: Never" captured
-      // anyway; this is the frame finally passing what it was asked.
-      //
-      // The intermediate value is CAPTURE_CURSOR_IN_TRACK_TOOL, and this is
-      // NOT the track tool — the router has its own snap path
-      // (`routeSnapRef`) — so it reads here as off, which is what
-      // `PCB_GRID_HELPER::computeAnchors`' `== CAPTURE_ALWAYS` test does.
-      magneticPads: magneticRef.current.pads,
-      magneticTracks: magneticRef.current.tracks,
-    });
+    // `BestSnapAnchor( aOrigin, nullptr )` (pcb_grid_helper.cpp:568-590): the
+    // frame's active layer, its magnetic settings and the view's snap radius.
+    return gridHelper().BestSnapAnchor(w, null);
   };
   // TOP_AUX track-width / via-size selections: index 0 = "use netclass",
   // 1.. = the pre-defined list entries (BOARD_DESIGN_SETTINGS m_TrackWidthList /
@@ -5146,8 +5137,6 @@ export function PcbEditor({
   };
   passesFilterRef.current = passesFilter;
 
-  const tolOf = (): number => (5 * dpr) / viewRef.current.scale; // ~5px, like COLLECTORS_GUIDE
-
   /**
    * The browser's own menu never opens on the canvas: a right click is
    * PCB_SELECTION_TOOL::Main's (`m_menu->ShowContextMenu( m_selection )`,
@@ -5219,23 +5208,12 @@ export function PcbEditor({
 
   // ----- interactive routing (ROUTER_TOOL, highlight mode) --------------------
 
-  // Net + snap point of the copper item under the cursor —
-  // `TOOL_BASE::updateStartItem` / `updateEndItem`. The decision itself lives
-  // in pcbnew so it can be tested against a real board; this is only the
-  // component's view of the world handed to it.
-  const copperAt = (w: { x: number; y: number }): BoardCursorSnap | null => {
-    const brd = boardRef.current;
-    if (!brd) return null;
-    return snapToBoardCopper(brd, w, gridHelper(), {
-      tol: tolOf(),
-      // `pickSingleItem`'s `tl`, the view's top layer. A preference, not a
-      // filter: an item elsewhere is still picked when this layer has none.
-      layer: /\.Cu$/.test(activeLayerRef.current) ? activeLayerRef.current : undefined,
-    });
-  };
-
-  // `copperAt` exists now, so the crosshair can reach it (see `routeSnapRef`).
-  routeSnapRef.current = (w) => copperAt(w)?.snap ?? snapToGrid(w);
+  // While routing the crosshair is where ROUTER_TOOL put it:
+  // `controls()->ForceCursorPosition( true, m_endSnapPoint )` at the end of
+  // `TOOL_BASE::updateEndItem`, read back as EDA_DRAW_PANEL_GAL draws the
+  // cursor (`m_viewControls->GetCursorPosition()`, draw_panel_gal.cpp:299).
+  routeSnapRef.current = (w) =>
+    frameRef.current?.GetCanvas()?.GetViewControls().GetCursorPosition() ?? snapToGrid(w);
 
   /**
    * The two controls the *board's* table dialog has and the schematic's does

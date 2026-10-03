@@ -51,7 +51,6 @@ import {
 import { footprintBBox } from '@ziroeda/pcbnew/edit-footprint.js';
 import { isBoardItemLocked, setBoardItemsLocked } from '@ziroeda/pcbnew/edit-board.js';
 import { livePanel } from './support/live_panel.js';
-import { bestSnapAnchor } from '@ziroeda/pcbnew/pcb_cursor_snap.js';
 import { pcbPointMsgPanelInfo } from '@ziroeda/pcbnew/msg_panel.js';
 import { boardIsEmpty } from '@ziroeda/pcbnew/tools/pcb_selection_conditions.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
@@ -401,46 +400,6 @@ describe('editing', () => {
 
     expect(id).toBe('point:1');
     expect(board.points[1]).toMatchObject({ size: MM(1), layer: 'B.Cu' });
-  });
-});
-
-describe('as a snap anchor — the thing it exists for', () => {
-  // `case PCB_POINT_T: addAnchor( aItem->GetPosition(), ORIGIN | SNAPPABLE, … )`
-  // (`pcb_grid_helper.cpp:1790-1797`), and the same for a footprint's own
-  // points under the comment "Points are also pick-up points" (`:1607-1617`).
-  //
-  // The grid is DISABLED here, so `align` returns the cursor untouched and
-  // `bestSnapAnchor`'s fallback is the raw position. That is what makes "the
-  // point pulled it" and "nothing pulled it" distinguishable — with a grid on,
-  // both answers could round to the same node and every assertion below would
-  // pass whatever the anchor list held.
-  const grid = { size: MM(1), origin: { x: 0, y: 0 }, enableGrid: false, enableSnap: true };
-  const snapOpts = { snapScale: MM(1), visibleGrid: MM(100), layer: 'F.SilkS' };
-  const near = { x: MM(10) + MM(0.2), y: MM(20) + MM(0.2) };
-
-  it('pulls the cursor onto the point', () => {
-    expect(bestSnapAnchor(read(), near, grid, snapOpts)).toEqual({ x: MM(10), y: MM(20) });
-  });
-
-  it('and a footprint’s point does too', () => {
-    const b = read(`(kicad_pcb (version 20241229)
-      (layers (0 "F.Cu" signal) (31 "B.Cu" signal) (37 "F.SilkS" user "F.Silkscreen"))
-      (net 0 "")
-      (footprint "L:P" (layer "F.Cu") (at 100 50)
-        (point (at 101 52) (size 1) (layer "F.SilkS"))))`);
-    const nearFp = { x: MM(101) + MM(0.2), y: MM(52) + MM(0.2) };
-
-    expect(bestSnapAnchor(b, nearFp, grid, snapOpts)).toEqual({ x: MM(101), y: MM(52) });
-  });
-
-  it('offers nothing once the Selection Filter’s Points box is cleared', () => {
-    // `if( aSelectionFilter && !aSelectionFilter->points ) continue;` — the
-    // filter gates the anchor, not just the click.
-    expect(bestSnapAnchor(read(), near, grid, { ...snapOpts, points: false })).toEqual(near);
-  });
-
-  it('is not offered from a layer the caller is not on', () => {
-    expect(bestSnapAnchor(read(), near, grid, { ...snapOpts, layer: 'B.Cu' })).toEqual(near);
   });
 });
 

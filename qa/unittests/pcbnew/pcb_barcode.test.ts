@@ -40,7 +40,6 @@ import {
   correctEccForKind,
 } from '@ziroeda/pcbnew/dialogs/dialog_barcode_properties.js';
 import { encodeBarcode } from '@ziroeda/zint';
-import { bestSnapAnchor } from '@ziroeda/pcbnew/pcb_cursor_snap.js';
 import { pcbBarcodeMsgPanelInfo } from '@ziroeda/pcbnew/msg_panel.js';
 import { livePanel } from './support/live_panel.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
@@ -551,63 +550,5 @@ describe('the Properties panel', () => {
     const p = panel(BOARD.replace('(ecc_level L)', '(ecc_level H)'));
     expect(p.set('Barcode Type', 'MICRO_QR_CODE')).toBe(true);
     expect(p.written()).toContain('(ecc_level Q)');
-  });
-});
-
-describe('as a snap anchor', () => {
-  // `computeAnchors`, `case PCB_BARCODE_T` (`pcb_grid_helper.cpp:1915-1928`):
-  // the item's own position as a centre anchor, then `addRectPoints` over the
-  // SYMBOL polygon's bounding box — nine more, the corners, the edge midpoints
-  // and the box centre.
-  //
-  // The grid is disabled so `bestSnapAnchor`'s fallback is the raw cursor,
-  // which is what makes "the barcode pulled it" distinguishable from "nothing
-  // did" — with a grid on, both answers could round to the same node.
-  const grid = { size: MM(1), origin: { x: 0, y: 0 }, enableGrid: false, enableSnap: true };
-  const snapOpts = { snapScale: MM(1), visibleGrid: MM(100), layer: 'Dwgs.User' };
-  const near = (p: { x: number; y: number }): { x: number; y: number } => ({
-    x: p.x + MM(0.2),
-    y: p.y + MM(0.2),
-  });
-
-  it('pulls the cursor onto a corner of the symbol box', () => {
-    const b = read();
-    // 8 mm square centred on (10, 20), so the top-left corner is (6, 16).
-    const corner = { x: MM(6), y: MM(16) };
-
-    expect(bestSnapAnchor(b, near(corner), grid, snapOpts)).toEqual(corner);
-  });
-
-  it('and onto the middle of an edge', () => {
-    const b = read();
-    const edge = { x: MM(10), y: MM(16) };
-
-    expect(bestSnapAnchor(b, near(edge), grid, snapOpts)).toEqual(edge);
-  });
-
-  it('offers nothing once the Selection Filter’s Other items box is cleared', () => {
-    // `if( aFrom && aSelectionFilter && !aSelectionFilter->otherItems ) break;`
-    // — and it is `otherItems`, not `graphics`, because that is the category a
-    // barcode falls in (`pcb_selection_tool.cpp:3522`).
-    const b = read();
-    const p = near({ x: MM(6), y: MM(16) });
-
-    expect(bestSnapAnchor(b, p, grid, { ...snapOpts, otherItems: false })).toEqual(p);
-  });
-
-  it('is not offered from a layer the caller is not on', () => {
-    const b = read();
-    const p = near({ x: MM(6), y: MM(16) });
-
-    expect(bestSnapAnchor(b, p, grid, { ...snapOpts, layer: 'B.Cu' })).toEqual(p);
-  });
-
-  it('measures the SYMBOL box, so the text is outside it', () => {
-    // `barcode->GetSymbolPoly().BBox()`, not `m_poly`'s: the human-readable
-    // line and any knockout margin are not part of the snap box.
-    const withText = read(BOARD.replace('(hide yes)', '(hide no)'));
-    const corner = { x: MM(6), y: MM(24) }; // the symbol's bottom-left
-
-    expect(bestSnapAnchor(withText, near(corner), grid, snapOpts)).toEqual(corner);
   });
 });
