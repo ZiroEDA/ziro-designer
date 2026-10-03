@@ -190,6 +190,9 @@ describe('ERC_TESTER::TestGroundPins', () => {
     symbol(0, [PT_POWER_IN, PT_PASSIVE, PT_POWER_IN], false, false, ['GND', 'GND', 'EARTH_A']);
     wire(0, -2540);
     label(-2540, 'GND');
+    // Pin 2 needs a named net: left alone it would be unconnected-(U1-GND-Pad2), which reads
+    // as a ground.
+    label(2540, 'SIG');
     expect(runGround()).toEqual([
       [ERCE_T.ERCE_GROUND_PIN_NOT_GROUND, 'Pin EARTH_A not connected to ground net'],
     ]);
