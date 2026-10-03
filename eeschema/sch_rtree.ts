@@ -2,30 +2,34 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * `eeschema/sch_rtree.h`: `EE_RTREE`, the container a `SCH_SCREEN` keeps its items in
- * (eeschema stage E3).
+ * `eeschema/sch_rtree.h`: `EE_RTREE`, the container a `SCH_SCREEN` keeps its items in: a
+ * 3-D R-tree (`RTree<SCH_ITEM*, int, 3, double>`) keyed on (type, x, y) over each item's
+ * bounding box inflated by its pen width, taken when the item is inserted. An item moved
+ * without `SCH_SCREEN::Update` is found where it was, as upstream; `remove` searches the
+ * whole tree when the item is not at its box any more.
  *
- * Upstream is a 3-D R-tree keyed on (type, x, y) over each item's bounding box inflated
- * by its pen width, taken when the item is inserted. Here the items are kept per type in
- * insertion order, and a spatial query tests each item's box when it is asked; so a
- * query sees where an item is now, not where it was when it was inserted (upstream's
- * `remove` searches the whole tree for exactly that reason). Whole-tree iteration is by
- * type, then insertion order; upstream's is the tree's node order, which nothing that is
- * written to a file depends on (the writer sorts).
+ * Iteration is the tree's node order (depth first, branches in order), which ERC reports
+ * follow: TestMissingUnits, for one, reports on the first unit of a reference it meets.
  */
-
-import type { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { BaseType, KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { RTree } from '@ziroeda/kimath/src/thirdparty/rtree.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import type { SCH_ITEM } from './sch_item.js';
 
-/** The item's box as the tree stores it: inflated by the pen width. */
-function treeBox(aItem: SCH_ITEM): BOX2I {
-  const bbox = aItem.GetBoundingBox();
+const INT_MIN = -2147483648;
+const INT_MAX = 2147483647;
 
+/** The item's (type, x, y) box as the tree stores it: inflated by the pen width. */
+function treeRect(aItem: SCH_ITEM): [number[], number[]] {
+  const bbox = aItem.GetBoundingBox();
   // Inflate a bit for safety, selection shadows, etc.
   bbox.Inflate(aItem.GetPenWidth());
-  return bbox;
+  const type = aItem.Type() as number;
+  return [
+    [type, bbox.GetX(), bbox.GetY()],
+    [type, bbox.GetRight(), bbox.GetBottom()],
+  ];
 }
 
 /**
@@ -33,19 +37,13 @@ function treeBox(aItem: SCH_ITEM): BOX2I {
  * Non-owning.
  */
 export class EE_RTREE implements Iterable<SCH_ITEM> {
-  private m_tree = new Map<KICAD_T, SCH_ITEM[]>();
+  private m_tree = new RTree<SCH_ITEM>(3);
   private m_count = 0;
 
   /** Insert an item into the tree. */
   insert(aItem: SCH_ITEM): void {
-    let bucket = this.m_tree.get(aItem.Type());
-
-    if (!bucket) {
-      bucket = [];
-      this.m_tree.set(aItem.Type(), bucket);
-    }
-
-    bucket.push(aItem);
+    const [mmin, mmax] = treeRect(aItem);
+    this.m_tree.Insert(mmin, mmax, aItem);
     this.m_count++;
   }
 
@@ -55,28 +53,60 @@ export class EE_RTREE implements Iterable<SCH_ITEM> {
    * Removal is done by comparing pointers, attempting to remove a copy of the item will fail.
    */
   remove(aItem: SCH_ITEM): boolean {
-    const bucket = this.m_tree.get(aItem.Type());
-    const i = bucket ? bucket.indexOf(aItem) : -1;
+    // First, attempt to remove the item using its given BBox
+    const [mmin, mmax] = treeRect(aItem);
 
-    if (i < 0) return false;
+    // If we are not successful ( true == not found ), then we expand
+    // the search to the full tree
+    if (this.m_tree.Remove(mmin, mmax, aItem)) {
+      // N.B. We must search the whole tree for the pointer to remove
+      // because the item may have been moved before we have the chance to
+      // delete it from the tree
+      if (this.m_tree.Remove([INT_MIN, INT_MIN, INT_MIN], [INT_MAX, INT_MAX, INT_MAX], aItem))
+        return false;
+    }
 
-    bucket!.splice(i, 1);
     this.m_count--;
     return true;
   }
 
   /** Remove all items from the RTree. */
   clear(): void {
-    this.m_tree.clear();
+    this.m_tree.RemoveAll();
     this.m_count = 0;
   }
 
   /**
-   * Determine if a given item exists in the tree.  Upstream's non-robust test only
-   * looks inside the item's box, which is where it always is here.
+   * Determine if a given item exists in the tree.  Note that this does not search the full
+   * tree so if the item has been moved, this will return false when it should be true.
+   *
+   * @param aItem Item that may potentially exist in the tree.
+   * @param aRobust If true, search the whole tree, not just the bounding box.
    */
-  contains(aItem: SCH_ITEM, _aRobust = false): boolean {
-    return this.m_tree.get(aItem.Type())?.includes(aItem) ?? false;
+  contains(aItem: SCH_ITEM, aRobust = false): boolean {
+    const [mmin, mmax] = treeRect(aItem);
+    let found = false;
+
+    const search = (aSearchItem: SCH_ITEM) => {
+      if (aSearchItem === aItem) {
+        found = true;
+        return false;
+      }
+
+      return true;
+    };
+
+    this.m_tree.Search(mmin, mmax, search);
+
+    if (!found && aRobust) {
+      // N.B. We must search the whole tree for the pointer to remove
+      // because the item may have been moved.  We do not expand the item
+      // type search as this should not change.
+      const type = aItem.Type() as number;
+      this.m_tree.Search([type, INT_MIN, INT_MIN], [type, INT_MAX, INT_MAX], search);
+    }
+
+    return found;
   }
 
   /** Return the number of items in the tree. */
@@ -88,9 +118,33 @@ export class EE_RTREE implements Iterable<SCH_ITEM> {
     return this.m_count === 0;
   }
 
-  /** Return the items of one type. */
+  /** `EE_TYPE`: the items of \a aType (SCH_LOCATE_ANY_T: every type) whose box meets \a aRect. */
+  private eeType(aType: KICAD_T, aRect: BOX2I | null): SCH_ITEM[] {
+    const type = BaseType(aType);
+    const any = type === KICAD_T.SCH_LOCATE_ANY_T;
+    const mmin = [
+      any ? INT_MIN : type,
+      aRect ? aRect.GetX() : INT_MIN,
+      aRect ? aRect.GetY() : INT_MIN,
+    ];
+    const mmax = [
+      any ? INT_MAX : type,
+      aRect ? aRect.GetRight() : INT_MAX,
+      aRect ? aRect.GetBottom() : INT_MAX,
+    ];
+    const out: SCH_ITEM[] = [];
+
+    this.m_tree.Search(mmin, mmax, (aItem) => {
+      out.push(aItem);
+      return true;
+    });
+
+    return out;
+  }
+
+  /** Return the items of one type, in the tree's order. */
   OfType(aType: KICAD_T): SCH_ITEM[] {
-    return [...(this.m_tree.get(aType) ?? [])];
+    return this.eeType(aType, null);
   }
 
   /**
@@ -132,19 +186,11 @@ export class EE_RTREE implements Iterable<SCH_ITEM> {
       rect.Inflate(accuracy);
     }
 
-    const out: SCH_ITEM[] = [];
-
-    for (const item of aType === null ? this : (this.m_tree.get(aType) ?? [])) {
-      if (treeBox(item).Intersects(rect)) out.push(item);
-    }
-
-    return out;
+    return this.eeType(aType ?? KICAD_T.SCH_LOCATE_ANY_T, rect);
   }
 
   *[Symbol.iterator](): Iterator<SCH_ITEM> {
-    const types = [...this.m_tree.keys()].sort((x, y) => x - y);
-
-    for (const type of types) yield* [...this.m_tree.get(type)!];
+    yield* this.eeType(KICAD_T.SCH_LOCATE_ANY_T, null);
   }
 }
 

@@ -53,53 +53,30 @@ const PENDING = new Set([
 const GRAPH_NO_CONNECT = 'A pin with a "no connection" flag is connected';
 
 /**
- * Where kicad-cli's answer follows pointer order and ours insertion order: these are
- * deterministic in KiCad (a symbol's pins, and symbols, are allocated in load order, and a
- * std::set<SCH_ITEM*> iterates by address) but not yet emulated here.
- *  - ercCheckNoConnects reports the last pin of CONNECTION_SUBGRAPH::m_items.
- *  - ResolveDrivers ranks equal candidates (same name) in m_drivers order: std::sort on fewer
- *    than 16 is an insertion sort, so the first in pointer order wins.
- * Each entry names KiCad's key and the one reported here instead.
+ * Where kicad-cli's answer follows pointer order: ResolveDrivers ranks equal candidates (same
+ * name) in CONNECTION_SUBGRAPH::m_drivers order, a std::set<SCH_ITEM*> iterated by address,
+ * and std::sort on fewer than 16 is an insertion sort, so the first by address wins. KiCad's
+ * pick is stable here (a symbol's pins are allocated in load order) but not emulated.
  */
 const POINTER_ORDER: Record<string, { want: string[]; got: string[] }> = {
-  'netlist_oracle_test_hier_no_connect.json': {
-    want: [
-      '/ | no_connect_connected | warning | A pin with a "no connection" flag is connected | 1.1811,0.889 Symbol U5 Pin 2 [PIN2, Input, Line] & 1.0795,0.8636 No Connect',
-    ],
-    got: [
-      '/ | no_connect_connected | warning | A pin with a "no connection" flag is connected | 1.1811,0.8509 Symbol U5 Pin 1 [PIN1, Input, Line] & 1.0795,0.8636 No Connect',
-    ],
-  },
   'netlist_oracle_graph_video.json': {
     want: [
       '/buspci.sch/ | multiple_net_names | warning |  | 0.5461,1.2319 Symbol #GND092 Hidden pin 1 [GND, Power input, Line]',
       '/buspci.sch/ | multiple_net_names | warning |  | 1.6637,2.2479 Symbol #+0118 Hidden pin 1 [+5V, Power input, Line]',
     ],
     got: [
-      '/buspci.sch/ | multiple_net_names | warning |  | 0.1778,2.2352 Symbol #+0129 Hidden pin 1 [+5V, Power input, Line]',
       '/buspci.sch/ | multiple_net_names | warning |  | 0.2667,2.7432 Symbol #GND083 Hidden pin 1 [GND, Power input, Line]',
+      '/buspci.sch/ | multiple_net_names | warning |  | 0.4826,2.5781 Symbol #+0123 Hidden pin 1 [+5V, Power input, Line]',
     ],
   },
 };
 
 /**
- * Where kicad-cli's answer follows an order not yet emulated here (S2-4c):
- *  - TestMissingUnits reports on the first unit of a reference in screen item order, which is
- *    the R-tree's node order upstream and insertion order here (sch_rtree.ts).
- *  - TestMultUnitPinConflicts names the net it meets first; CONNECTION_GRAPH::m_net_code_to
- *    subgraphs_map is a std::unordered_map, iterated in libstdc++'s hash order upstream.
+ * Where kicad-cli's answer follows an order not yet emulated here (S2-4c-2):
+ * TestMultUnitPinConflicts names the net it meets first, and CONNECTION_GRAPH's net map is a
+ * std::unordered_map, iterated in libstdc++'s hash order upstream.
  */
 const ITEM_ORDER: Record<string, { want: string[]; got: string[] }> = {
-  'netlist_oracle_graph_test_multiunit_reannotate.json': {
-    want: [
-      '/ | missing_input_pin | warning | Symbol U2 has input pins in units [ B ] that are not placed | 0.9906,0.9271 Symbol U2 [LM2903]',
-      '/ | missing_unit | warning | Symbol U2 has unplaced units [ B ] | 0.9906,0.9271 Symbol U2 [LM2903]',
-    ],
-    got: [
-      '/ | missing_input_pin | warning | Symbol U2 has input pins in units [ B ] that are not placed | 1.5748,0.9144 Symbol U2 [LM2903]',
-      '/ | missing_unit | warning | Symbol U2 has unplaced units [ B ] | 1.5748,0.9144 Symbol U2 [LM2903]',
-    ],
-  },
   'netlist_oracle_graph_test_multiunit_reannotate_5.json': {
     want: [
       '/ | different_unit_net | error | Pin 1 is connected to both unconnected-(U2-Pad1)_1 and unconnected-(U2-Pad1) | 1.0668,0.9271 Symbol U2 Pin 1 [Open collector, Line] & 1.0668,1.2065 Symbol U2 Pin 1 [Open collector, Line]',
@@ -112,24 +89,14 @@ const ITEM_ORDER: Record<string, { want: string[]; got: string[] }> = {
       '/ | different_unit_net | error | Pin 8 is connected to both unconnected-(U2C-V+-Pad8)_1 and unconnected-(U2C-V+-Pad8) | 1.5494,0.8382 Symbol U2 Pin 8 [V+, Power input, Line] & 1.5494,1.1176 Symbol U2 Pin 8 [V+, Power input, Line]',
     ],
     got: [
-      '/ | different_unit_net | error | Pin 1 is connected to both unconnected-(U2-Pad1) and unconnected-(U2-Pad1)_1 | 1.0668,0.9271 Symbol U2 Pin 1 [Open collector, Line] & 1.0668,1.2065 Symbol U2 Pin 1 [Open collector, Line]',
-      '/ | different_unit_net | error | Pin 2 is connected to both unconnected-(U2A---Pad2) and unconnected-(U2A---Pad2)_1 | 0.9144,0.9525 Symbol U2 Pin 2 [-, Input, Line] & 0.9144,1.2319 Symbol U2 Pin 2 [-, Input, Line]',
-      '/ | different_unit_net | error | Pin 3 is connected to both unconnected-(U2A-+-Pad3) and unconnected-(U2A-+-Pad3)_1 | 0.9144,0.9017 Symbol U2 Pin 3 [+, Input, Line] & 0.9144,1.1811 Symbol U2 Pin 3 [+, Input, Line]',
+      '/ | different_unit_net | error | Pin 1 is connected to both unconnected-(U2-Pad1) and unconnected-(U2-Pad1)_1 | 1.0668,1.2065 Symbol U2 Pin 1 [Open collector, Line] & 1.0668,0.9271 Symbol U2 Pin 1 [Open collector, Line]',
+      '/ | different_unit_net | error | Pin 2 is connected to both unconnected-(U2A---Pad2) and unconnected-(U2A---Pad2)_1 | 0.9144,1.2319 Symbol U2 Pin 2 [-, Input, Line] & 0.9144,0.9525 Symbol U2 Pin 2 [-, Input, Line]',
+      '/ | different_unit_net | error | Pin 3 is connected to both unconnected-(U2A-+-Pad3) and unconnected-(U2A-+-Pad3)_1 | 0.9144,1.1811 Symbol U2 Pin 3 [+, Input, Line] & 0.9144,0.9017 Symbol U2 Pin 3 [+, Input, Line]',
       '/ | different_unit_net | error | Pin 4 is connected to both unconnected-(U2C-V--Pad4) and unconnected-(U2C-V--Pad4)_1 | 1.5494,1.27 Symbol U2 Pin 4 [V-, Power input, Line] & 1.5494,0.9906 Symbol U2 Pin 4 [V-, Power input, Line]',
       '/ | different_unit_net | error | Pin 5 is connected to both unconnected-(U2B-+-Pad5) and unconnected-(U2B-+-Pad5)_1 | 1.2192,1.1684 Symbol U2 Pin 5 [+, Input, Line] & 1.2192,0.9017 Symbol U2 Pin 5 [+, Input, Line]',
       '/ | different_unit_net | error | Pin 6 is connected to both unconnected-(U2B-_-Pad6) and unconnected-(U2B-_-Pad6)_1 | 1.2192,1.2192 Symbol U2 Pin 6 [_, Input, Line] & 1.2192,0.9525 Symbol U2 Pin 6 [_, Input, Line]',
       '/ | different_unit_net | error | Pin 7 is connected to both unconnected-(U2-Pad7) and unconnected-(U2-Pad7)_1 | 1.3716,1.1938 Symbol U2 Pin 7 [Open collector, Line] & 1.3716,0.9271 Symbol U2 Pin 7 [Open collector, Line]',
       '/ | different_unit_net | error | Pin 8 is connected to both unconnected-(U2C-V+-Pad8) and unconnected-(U2C-V+-Pad8)_1 | 1.5494,1.1176 Symbol U2 Pin 8 [V+, Power input, Line] & 1.5494,0.8382 Symbol U2 Pin 8 [V+, Power input, Line]',
-    ],
-  },
-  'netlist_oracle_test_multiunit_reannotate_3.json': {
-    want: [
-      '/ | missing_input_pin | warning | Symbol U2 has input pins in units [ B ] that are not placed | 0.9906,0.9271 Symbol U2 [LM2903]',
-      '/ | missing_unit | warning | Symbol U2 has unplaced units [ B ] | 0.9906,0.9271 Symbol U2 [LM2903]',
-    ],
-    got: [
-      '/ | missing_input_pin | warning | Symbol U2 has input pins in units [ B ] that are not placed | 1.5748,0.9144 Symbol U2 [LM2903]',
-      '/ | missing_unit | warning | Symbol U2 has unplaced units [ B ] | 1.5748,0.9144 Symbol U2 [LM2903]',
     ],
   },
 };
