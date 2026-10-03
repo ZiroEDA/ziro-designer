@@ -32,9 +32,6 @@ const PENDING = new Set([
   'different_unit_footprint',
   'duplicate_pins',
   'stacked_pin_name',
-  'similar_labels',
-  'similar_power',
-  'similar_label_and_power',
   'unresolved_variable',
   'field_name_whitespace',
   'simulation_model_issue',
@@ -152,7 +149,7 @@ function runErc(aDir: string, aSource: string): Report {
 const FILES = readdirSync(ORACLE).filter((f) => f.endsWith('.json'));
 
 describe('ERC_TESTER against kicad-cli sch erc', () => {
-  it('has the oracle', () => expect(FILES.length).toBe(45));
+  it('has the oracle', () => expect(FILES.length).toBe(46));
 
   for (const f of FILES) {
     it(f, { timeout: 120_000 }, () => {

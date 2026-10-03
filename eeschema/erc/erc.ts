@@ -2863,6 +2863,129 @@ export class ERC_TESTER {
   }
 
   /**
+   * Check for labels, and power symbols' values, that differ only in letter case.
+   *
+   * @return the error count
+   */
+  TestSimilarLabels(): number {
+    let errors = 0;
+    // std::unordered_map<wxString, ...>: only lookup by the normalized text is observable.
+    const generalMap = new Map<string, [string, SCH_ITEM_LIVE, SCH_SHEET_PATH_LIVE][]>();
+
+    const logError = (
+      item: SCH_ITEM_LIVE,
+      sheet: SCH_SHEET_PATH_LIVE,
+      other: [string, SCH_ITEM_LIVE, SCH_SHEET_PATH_LIVE],
+    ) => {
+      const [, otherItem, otherSheet] = other;
+      let typeOfWarning = ERCE.ERCE_SIMILAR_LABELS;
+
+      if (item.Type() === KICAD_T_LIVE.SCH_PIN_T && otherItem.Type() === KICAD_T_LIVE.SCH_PIN_T) {
+        //Two Pins
+        typeOfWarning = ERCE.ERCE_SIMILAR_POWER;
+      } else if (
+        item.Type() === KICAD_T_LIVE.SCH_PIN_T ||
+        otherItem.Type() === KICAD_T_LIVE.SCH_PIN_T
+      ) {
+        //Pin and Label
+        typeOfWarning = ERCE.ERCE_SIMILAR_LABEL_AND_POWER;
+      } else {
+        //Two Labels
+        typeOfWarning = ERCE.ERCE_SIMILAR_LABELS;
+      }
+
+      const ercItem = ERC_ITEM.Create(typeOfWarning)!;
+      ercItem.SetItems(item, otherItem);
+      ercItem.SetSheetSpecificPath(sheet);
+      ercItem.SetItemsSheetPaths(sheet, otherSheet);
+
+      const marker = new SCH_MARKER_LIVE(ercItem, item.GetPosition());
+      sheet.LastScreen()!.Append(marker);
+    };
+
+    const entries = (normalized: string) => {
+      let list = generalMap.get(normalized);
+
+      if (!list) {
+        list = [];
+        generalMap.set(normalized, list);
+      }
+
+      return list;
+    };
+
+    for (const [, subgraphs] of this.m_nets) {
+      for (const subgraph of subgraphs) {
+        const sheet = subgraph.GetSheet();
+
+        for (const item of subgraph.GetItems()) {
+          switch (item.Type()) {
+            case KICAD_T_LIVE.SCH_LABEL_T:
+            case KICAD_T_LIVE.SCH_HIER_LABEL_T:
+            case KICAD_T_LIVE.SCH_GLOBAL_LABEL_T: {
+              const label = item as SCH_LABEL_BASE;
+              const unnormalized = label.GetShownText(sheet, false);
+              const normalized = unnormalized.toLowerCase();
+              const list = entries(normalized);
+
+              list.push([unnormalized, label, sheet]);
+
+              for (const otherTuple of [...list]) {
+                const [otherText, otherItem, otherSheet] = otherTuple;
+
+                if (unnormalized !== otherText) {
+                  // Similar local labels on different sheets are fine
+                  if (
+                    item.Type() === KICAD_T_LIVE.SCH_LABEL_T &&
+                    otherItem.Type() === KICAD_T_LIVE.SCH_LABEL_T &&
+                    !sheet.equals(otherSheet)
+                  ) {
+                    continue;
+                  }
+
+                  logError(label, sheet, otherTuple);
+                  errors += 1;
+                }
+              }
+
+              break;
+            }
+
+            case KICAD_T_LIVE.SCH_PIN_T: {
+              const pin = item as SCH_PIN;
+
+              if (!pin.IsPower()) continue;
+
+              const symbol = pin.GetParentSymbol() as unknown as SCH_SYMBOL;
+              const unnormalized = symbol.GetValue(true, sheet, false);
+              const normalized = unnormalized.toLowerCase();
+              const list = entries(normalized);
+
+              list.push([unnormalized, pin, sheet]);
+
+              for (const otherTuple of [...list]) {
+                const [otherText] = otherTuple;
+
+                if (unnormalized !== otherText) {
+                  logError(pin, sheet, otherTuple);
+                  errors += 1;
+                }
+              }
+
+              break;
+            }
+
+            default:
+              break;
+          }
+        }
+      }
+    }
+
+    return errors;
+  }
+
+  /**
    * Check for global and local labels with the same name.
    *
    * @return the error count
@@ -3193,7 +3316,17 @@ export class ERC_TESTER {
 
     if (this.m_settings.IsTestEnabled(ERCE.ERCE_GROUND_PIN_NOT_GROUND)) this.TestGroundPins();
 
-    // Pending: TestStackedPinNotation, TestSimilarLabels.
+    // Pending: TestStackedPinNotation.
+
+    // Test similar labels (i;e. labels which are identical when
+    // using case insensitive comparisons)
+    if (
+      this.m_settings.IsTestEnabled(ERCE.ERCE_SIMILAR_LABELS) ||
+      this.m_settings.IsTestEnabled(ERCE.ERCE_SIMILAR_POWER) ||
+      this.m_settings.IsTestEnabled(ERCE.ERCE_SIMILAR_LABEL_AND_POWER)
+    ) {
+      this.TestSimilarLabels();
+    }
 
     if (this.m_settings.IsTestEnabled(ERCE.ERCE_SAME_LOCAL_GLOBAL_LABEL))
       this.TestSameLocalGlobalLabel();
