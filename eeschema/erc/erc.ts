@@ -2152,6 +2152,10 @@ import { SCH_MARKER as SCH_MARKER_LIVE } from '../sch_marker.js';
 import type { SCH_MULTI_UNIT_REFERENCE_MAP } from '../sch_reference_list.js';
 import { SCH_SCREENS } from '../sch_screen.js';
 import type { SCH_SHEET } from '../sch_sheet.js';
+import type { SCH_LINE } from '../sch_line.js';
+import type { SCH_BUS_WIRE_ENTRY } from '../sch_bus_entry.js';
+import type { SCH_SYMBOL } from '../sch_symbol.js';
+import { ELECTRICAL_PINTYPE } from '@ziroeda/common/pin_type.js';
 import { SYMBOL_FILTER, type SCH_SHEET_LIST } from '../sch_sheet_path.js';
 import { SCH_CLEANUP_FLAGS, type SCHEMATIC } from '../schematic.js';
 import { KICAD_T as KICAD_T_LIVE } from '@ziroeda/core/typeinfo.js';
@@ -2221,6 +2225,77 @@ export class ERC_TESTER {
   }
 
   /**
+   * Test pins and wire ends for being off grid.
+   *
+   * @return the error count
+   */
+  TestOffGridEndpoints(): number {
+    const gridSize = this.m_schematic.Settings().m_ConnectionGridSize;
+    let err_count = 0;
+
+    for (let screen = this.m_screens.GetFirst(); screen; screen = this.m_screens.GetNext()) {
+      const markers: SCH_MARKER_LIVE[] = [];
+
+      for (const item of screen.Items()) {
+        if (item.Type() === KICAD_T_LIVE.SCH_LINE_T && item.IsConnectable()) {
+          const line = item as SCH_LINE;
+
+          if (line.GetStartPoint().x % gridSize !== 0 || line.GetStartPoint().y % gridSize !== 0) {
+            const ercItem = ERC_ITEM.Create(ERCE.ERCE_ENDPOINT_OFF_GRID)!;
+            ercItem.SetItems(line);
+
+            markers.push(new SCH_MARKER_LIVE(ercItem, line.GetStartPoint()));
+          } else if (
+            line.GetEndPoint().x % gridSize !== 0 ||
+            line.GetEndPoint().y % gridSize !== 0
+          ) {
+            const ercItem = ERC_ITEM.Create(ERCE.ERCE_ENDPOINT_OFF_GRID)!;
+            ercItem.SetItems(line);
+
+            markers.push(new SCH_MARKER_LIVE(ercItem, line.GetEndPoint()));
+          }
+        }
+
+        if (item.Type() === KICAD_T_LIVE.SCH_BUS_WIRE_ENTRY_T) {
+          const entry = item as SCH_BUS_WIRE_ENTRY;
+
+          for (const point of entry.GetConnectionPoints()) {
+            if (point.x % gridSize !== 0 || point.y % gridSize !== 0) {
+              const ercItem = ERC_ITEM.Create(ERCE.ERCE_ENDPOINT_OFF_GRID)!;
+              ercItem.SetItems(entry);
+
+              markers.push(new SCH_MARKER_LIVE(ercItem, point));
+            }
+          }
+        } else if (item.Type() === KICAD_T_LIVE.SCH_SYMBOL_T) {
+          const symbol = item as SCH_SYMBOL;
+
+          for (const pin of symbol.GetPins(null)) {
+            if (pin.GetType() === ELECTRICAL_PINTYPE.PT_NC) continue;
+
+            const pinPos = pin.GetPosition();
+
+            if (pinPos.x % gridSize !== 0 || pinPos.y % gridSize !== 0) {
+              const ercItem = ERC_ITEM.Create(ERCE.ERCE_ENDPOINT_OFF_GRID)!;
+              ercItem.SetItems(pin);
+
+              markers.push(new SCH_MARKER_LIVE(ercItem, pinPos));
+              break;
+            }
+          }
+        }
+      }
+
+      for (const marker of markers) {
+        screen.Append(marker);
+        err_count += 1;
+      }
+    }
+
+    return err_count;
+  }
+
+  /**
    * Run the ERC tests the settings enable. \a aEditFrame, when given, rebuilds connectivity
    * first. Not here: the drawing sheet (TestTextVars), CvPcb (TestFootprintLinkIssues) and
    * the progress reporter.
@@ -2243,8 +2318,10 @@ export class ERC_TESTER {
     // TestMultUnitPinConflicts, TestDuplicatePinNets, TestPinToPin, TestGroundPins,
     // TestStackedPinNotation, TestSimilarLabels, TestSameLocalGlobalLabel, TestTextVars,
     // TestFieldNameWhitespace, TestSimModelIssues, TestNoConnectPins, TestLibSymbolIssues,
-    // TestFootprintLinkIssues, TestFootprintFilters, TestOffGridEndpoints, TestFourWayJunction,
+    // TestFootprintLinkIssues, TestFootprintFilters, TestFourWayJunction,
     // TestLabelMultipleWires, TestMissingNetclasses.
+
+    if (this.m_settings.IsTestEnabled(ERCE.ERCE_ENDPOINT_OFF_GRID)) this.TestOffGridEndpoints();
 
     this.m_schematic.ResolveERCExclusionsPostUpdate();
   }

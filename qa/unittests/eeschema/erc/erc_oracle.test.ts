@@ -52,7 +52,6 @@ const PENDING = new Set([
   'lib_symbol_mismatch',
   'footprint_link_issues',
   'footprint_filter',
-  'endpoint_off_grid',
   'four_way_junction',
   'label_multiple_wires',
   'undefined_netclass',
