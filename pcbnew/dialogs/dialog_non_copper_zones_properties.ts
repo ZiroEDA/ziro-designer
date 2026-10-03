@@ -191,20 +191,38 @@ const SMOOTHING: readonly NonCopperZoneValues['cornerSmoothing'][] = ['none', 'c
  */
 export class DIALOG_NON_COPPER_ZONES_EDITOR {
   private readonly m_frame: PCB_BASE_EDIT_FRAME;
-  private readonly m_zone: ZONE;
+  private readonly m_zone: ZONE | null;
   private readonly m_settings: ZONE_SETTINGS;
+  /** `m_ptr`: the caller's settings, written on OK when there is no zone. */
+  private readonly m_ptr: ZONE_SETTINGS | null;
 
-  constructor(aFrame: PCB_BASE_EDIT_FRAME, aZone: ZONE) {
+  /**
+   * On a live zone, as `Edit_Zone_Params` opens it; or, with `aZone` null, on
+   * `aSettings` alone, as `InvokeNonCopperZonesEditor( frame, &zoneInfo )` does
+   * for ZONE_CREATE_HELPER - no commit, the settings come back through `*m_ptr`.
+   */
+  constructor(
+    aFrame: PCB_BASE_EDIT_FRAME,
+    aZone: ZONE | null,
+    aSettings: ZONE_SETTINGS | null = null,
+  ) {
     this.m_frame = aFrame;
     this.m_zone = aZone;
-    this.m_settings = aFrame.GetDesignSettings().GetDefaultZoneSettings().clone();
-    this.m_settings.importFrom(aZone);
+    this.m_ptr = aSettings;
+
+    if (aZone) {
+      this.m_settings = aFrame.GetDesignSettings().GetDefaultZoneSettings().clone();
+      this.m_settings.importFrom(aZone);
+    } else {
+      this.m_settings = aSettings!.clone();
+    }
   }
 
   TransferDataToWindow(): NonCopperZoneValues {
     const s = this.m_settings;
     const layers = s.m_Layers;
-    const copperLayerCount = this.m_zone.GetBoard()?.GetCopperLayerCount() ?? 2;
+    const copperLayerCount =
+      (this.m_zone?.GetBoard() ?? this.m_frame.GetBoard())?.GetCopperLayerCount() ?? 2;
 
     // Gives a reasonable value to grid style parameters, if currently there are no defined
     // parameters for grid pattern thickness and gap (if the value is 0)
@@ -271,7 +289,8 @@ export class DIALOG_NON_COPPER_ZONES_EDITOR {
 
     if (s.m_Layers.none()) return { ok: false, message: NO_LAYER_SELECTED };
 
-    editZoneParamsCommit(this.m_frame, this.m_zone, s);
+    if (this.m_zone) editZoneParamsCommit(this.m_frame, this.m_zone, s);
+    else this.m_ptr!.CopyFrom(s, true);
 
     return { ok: true };
   }

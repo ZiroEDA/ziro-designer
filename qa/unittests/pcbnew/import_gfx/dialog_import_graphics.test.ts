@@ -6,6 +6,7 @@
  * (`pcbnew/import_gfx/dialog_import_graphics.cpp:196-227`) minus the two
  * `wxMessageBox` validations, which the dialog component checks itself.
  */
+import { importedRecords } from '../support/imported_records.js';
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_PARAMS,
@@ -31,27 +32,27 @@ const oneLine = entities([
 
 describe('runImport', () => {
   it('refuses a file whose extension no plugin handles', () => {
-    const got = runImport('board.pdf', 'whatever', DEFAULT_PARAMS, false, false, 'Dwgs.User');
+    const got = runImport('board.pdf', 'whatever', DEFAULT_PARAMS, false, false, 'Dwgs.User', null);
     expect(got.error).toBe('There is no plugin to handle this file type.');
-    expect(got.items).toEqual([]);
+    expect(importedRecords(got.items)).toEqual([]);
   });
 
   it('imports a DXF entity into board internal units', () => {
-    const got = runImport('outline.dxf', oneLine, DEFAULT_PARAMS, false, false, 'Dwgs.User');
+    const got = runImport('outline.dxf', oneLine, DEFAULT_PARAMS, false, false, 'Dwgs.User', null);
     expect(got.error).toBeUndefined();
-    expect(got.items).toHaveLength(1);
-    expect(got.items[0]).toMatchObject({ type: 'shape' });
+    expect(importedRecords(got.items)).toHaveLength(1);
+    expect(importedRecords(got.items)[0]).toMatchObject({ type: 'shape' });
   });
 
   it('reports the empty-import case the dialog turns into "No graphic items found in file."', () => {
     const empty = entities([]);
-    const got = runImport('empty.dxf', empty, DEFAULT_PARAMS, false, false, 'Dwgs.User');
+    const got = runImport('empty.dxf', empty, DEFAULT_PARAMS, false, false, 'Dwgs.User', null);
     expect(got.error).toBeUndefined();
-    expect(got.items).toHaveLength(0);
+    expect(importedRecords(got.items)).toHaveLength(0);
   });
 
   it('applies the scale before mapping coordinates', () => {
-    const unit = runImport('a.dxf', oneLine, DEFAULT_PARAMS, false, false, 'Dwgs.User');
+    const unit = runImport('a.dxf', oneLine, DEFAULT_PARAMS, false, false, 'Dwgs.User', null);
     const doubled = runImport(
       'a.dxf',
       oneLine,
@@ -59,10 +60,11 @@ describe('runImport', () => {
       false,
       false,
       'Dwgs.User',
+      null,
     );
 
-    const u = unit.items[0]!;
-    const d = doubled.items[0]!;
+    const u = importedRecords(unit.items)[0]!;
+    const d = importedRecords(doubled.items)[0]!;
     if (u.type !== 'shape' || d.type !== 'shape') throw new Error('expected a shape');
     // 10 mm at 1x vs 2x: the end X doubles.
     expect(d.shape.end!.x).toBe(2 * u.shape.end!.x);
@@ -76,8 +78,9 @@ describe('runImport', () => {
       false,
       false,
       'Dwgs.User',
+      null,
     );
-    const item = got.items[0]!;
+    const item = importedRecords(got.items)[0]!;
     if (item.type !== 'shape') throw new Error('expected a shape');
     expect(item.shape.layer).toBe('F.SilkS');
   });
@@ -90,8 +93,9 @@ describe('runImport', () => {
       false,
       false,
       'B.Cu',
+      null,
     );
-    const item = got.items[0]!;
+    const item = importedRecords(got.items)[0]!;
     if (item.type !== 'shape') throw new Error('expected a shape');
     expect(item.shape.layer).toBe('B.Cu');
   });
@@ -104,6 +108,7 @@ describe('runImport', () => {
       false,
       false,
       'Dwgs.User',
+      null,
     );
     const placed = runImport(
       'a.dxf',
@@ -112,10 +117,11 @@ describe('runImport', () => {
       false,
       false,
       'Dwgs.User',
+      null,
     );
 
-    const i0 = interactive.items[0]!;
-    const p0 = placed.items[0]!;
+    const i0 = importedRecords(interactive.items)[0]!;
+    const p0 = importedRecords(placed.items)[0]!;
     if (i0.type !== 'shape' || p0.type !== 'shape') throw new Error('expected a shape');
     // The DXF line's own start is (0,0): unplaced, it lands at the model
     // origin regardless of what the (disabled) X/Y fields say; placed, the
@@ -126,11 +132,11 @@ describe('runImport', () => {
 
   it("flips the placed origin with the display's inverted axes, same as `xscale *= -1`", () => {
     const params: Params = { ...DEFAULT_PARAMS, placeAt: true, originMM: { x: 10, y: 0 } };
-    const normal = runImport('a.dxf', oneLine, params, false, false, 'Dwgs.User');
-    const inverted = runImport('a.dxf', oneLine, params, true, false, 'Dwgs.User');
+    const normal = runImport('a.dxf', oneLine, params, false, false, 'Dwgs.User', null);
+    const inverted = runImport('a.dxf', oneLine, params, true, false, 'Dwgs.User', null);
 
-    const n = normal.items[0]!;
-    const inv = inverted.items[0]!;
+    const n = importedRecords(normal.items)[0]!;
+    const inv = importedRecords(inverted.items)[0]!;
     if (n.type !== 'shape' || inv.type !== 'shape') throw new Error('expected a shape');
     expect(inv.shape.start!.x).toBe(-n.shape.start!.x);
   });
@@ -145,8 +151,9 @@ describe('runImport', () => {
       false,
       false,
       'Dwgs.User',
+      null,
     );
-    const item = got.items[0]!;
+    const item = importedRecords(got.items)[0]!;
     if (item.type !== 'shape') throw new Error('expected a shape');
     expect(item.shape.width).toBe(500_000);
   });
@@ -161,6 +168,7 @@ describe('runImport', () => {
       false,
       false,
       'Dwgs.User',
+      null,
     );
     const inch = runImport(
       'a.dxf',
@@ -169,9 +177,10 @@ describe('runImport', () => {
       false,
       false,
       'Dwgs.User',
+      null,
     );
-    const mmItem = mm.items[0]!;
-    const inchItem = inch.items[0]!;
+    const mmItem = importedRecords(mm.items)[0]!;
+    const inchItem = importedRecords(inch.items)[0]!;
     if (mmItem.type !== 'shape' || inchItem.type !== 'shape') throw new Error('expected a shape');
     // 10 "units" read as mm is 10 mm; read as inches is 254 mm — 25.4x bigger.
     expect(inchItem.shape.end!.x).toBe(25.4 * mmItem.shape.end!.x);

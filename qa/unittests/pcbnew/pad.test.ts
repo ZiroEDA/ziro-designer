@@ -17,6 +17,7 @@ import { SHAPE_COMPOUND } from '@ziroeda/kimath/src/geometry/shape_compound.js';
 import { SHAPE_SEGMENT } from '@ziroeda/kimath/src/geometry/shape_segment.js';
 import { BOARD } from '@ziroeda/pcbnew/board.js';
 import { PAD, PAD_ATTRIB, PAD_SHAPE } from '@ziroeda/pcbnew/pad.js';
+import { PAD_DRILL_SHAPE } from '@ziroeda/pcbnew/padstack.js';
 
 const bbox = (p: PAD): [number, number, number, number] => {
   const r = p.GetBoundingBox();
@@ -146,5 +147,57 @@ describe('PAD', () => {
     q.ImportSettingsFrom(p);
     expect(q.GetSize(PCB_LAYER_ID.F_Cu)).toEqual({ x: 300000, y: 200000 });
     expect(q.GetShape(PCB_LAYER_ID.F_Cu)).toBe(PAD_SHAPE.RECTANGLE);
+  });
+});
+
+describe('`VECTOR2I / 2` rounds (vector2d.h operator/( double ): KiROUND)', () => {
+  // Values from KiCad 10.0.6's own pcbnew module, same pads.
+  const oddOval = (): PAD => {
+    const p = new PAD(new BOARD());
+    p.SetAttribute(PAD_ATTRIB.PTH);
+    p.SetShape(PCB_LAYER_ID.F_Cu, PAD_SHAPE.OVAL);
+    p.SetSize(PCB_LAYER_ID.F_Cu, { x: 860001, y: 1799999 });
+    p.SetDrillShape(PAD_DRILL_SHAPE.OBLONG);
+    p.SetDrillSize({ x: 500024, y: 1399997 });
+    return p;
+  };
+  const box = (b: { GetX(): number; GetY(): number; GetWidth(): number; GetHeight(): number }) => [
+    b.GetX(),
+    b.GetY(),
+    b.GetWidth(),
+    b.GetHeight(),
+  ];
+
+  it('an oval pad of odd size: `size / 2` (pad.cpp:1178)', () => {
+    expect(box(oddOval().GetBoundingBox(PCB_LAYER_ID.F_Cu))).toEqual([
+      -430001, -900000, 860002, 1800000,
+    ]);
+  });
+
+  it('an oblong hole of odd size: `Drill().size / 2` (pad.cpp:1121)', () => {
+    // CM5_MINIMA_3's J101: a 0.500024 x 1.399997 slot. Truncating put every
+    // vertex of its zone knockout 1 IU inside KiCad's.
+    expect(box(oddOval().GetEffectiveHoleShape().BBox())).toEqual([
+      -250012, -699999, 500024, 1399998,
+    ]);
+  });
+
+  it('a trapezoid of odd delta: `TrapezoidDeltaSize( aLayer ) / 2` (pad.cpp:1211)', () => {
+    const p = new PAD(new BOARD());
+    p.SetShape(PCB_LAYER_ID.F_Cu, PAD_SHAPE.TRAPEZOID);
+    p.SetSize(PCB_LAYER_ID.F_Cu, { x: 1000000, y: 600000 });
+    p.SetDelta(PCB_LAYER_ID.F_Cu, { x: 0, y: 100001 });
+    p.SetAttribute(PAD_ATTRIB.SMD);
+    p.SetLayerSet(PAD.SMDMask());
+    expect(box(p.GetBoundingBox(PCB_LAYER_ID.F_Cu))).toEqual([-550001, -300000, 1100002, 600000]);
+  });
+
+  it('a rectangle halves each int on its own, which truncates (pad.cpp:1192)', () => {
+    const p = new PAD(new BOARD());
+    p.SetShape(PCB_LAYER_ID.F_Cu, PAD_SHAPE.RECTANGLE);
+    p.SetSize(PCB_LAYER_ID.F_Cu, { x: 1000001, y: 600001 });
+    p.SetAttribute(PAD_ATTRIB.SMD);
+    p.SetLayerSet(PAD.SMDMask());
+    expect(box(p.GetBoundingBox(PCB_LAYER_ID.F_Cu))).toEqual([-500000, -300000, 1000000, 600000]);
   });
 });

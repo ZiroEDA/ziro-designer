@@ -17,21 +17,9 @@ import { measureText } from '@ziroeda/common/font/stroke_font.js';
 import { kiRound } from '@ziroeda/common/font/text_box.js';
 import { fpItemBBox, fpItemId, hitTestFootprint } from '@ziroeda/pcbnew/edit-footprint.js';
 import { boardItemBBox, boardItemId } from '@ziroeda/pcbnew/edit-board.js';
-import { footprintExtent } from '@ziroeda/pcbnew/autorouter/ar_autoplacer.js';
-import type { Board, PcbFootprint, PcbPad, PcbTextItem } from '@ziroeda/pcbnew/types.js';
+import type { Board, PcbFootprint, PcbTextItem } from '@ziroeda/pcbnew/types.js';
 
 /** A 1 mm pad at the origin, so a footprint has drawable geometry. */
-const padAt = (): PcbPad => ({
-  number: '1',
-  type: 'smd',
-  shape: 'rect',
-  at: { x: 0, y: 0 },
-  angle: 0,
-  size: { x: MM, y: MM },
-  layers: ['F.Cu'],
-  net: 0,
-});
-
 const MM = 1e6;
 const SIZE = { x: MM, y: MM };
 const THICK = 0.15 * MM;
@@ -270,32 +258,5 @@ describe('edit-board.ts boardItemBBox (board text selection)', () => {
     const narrow = boardItemBBox(board([text({ text: 'IIII' })]), boardItemId('text', 0))!;
     const wide = boardItemBBox(board([text({ text: 'WWWW' })]), boardItemId('text', 0))!;
     expect(wide.maxX - wide.minX).toBeGreaterThan(2 * (narrow.maxX - narrow.minX));
-  });
-});
-
-describe('autoplace_footprints.ts footprintExtent (how much room a part needs)', () => {
-  // FOOTPRINT::GetBoundingBox merges text only when there is nothing else at
-  // all (`noDrawItems`), so this is the text-only footprint upstream describes
-  // as "likely to be nothing *but* annotations".
-  it('measures a text-only footprint by its glyphs', () => {
-    const t = text({ text: 'IIII', at: { x: 0, y: 0 } });
-    const ext = footprintExtent(footprint({ texts: [t] }));
-    const want = textItemBBox(t);
-    // Merged with the 0.25 mm anchor seed, so the box is the wider of the two.
-    // (footprintExtent works in whole internal units, so allow a 1 nm rounding.)
-    expect(ext.w).toBeCloseTo(
-      Math.max(want.x + want.w, 0.25 * MM) - Math.min(want.x, -0.25 * MM),
-      -1,
-    );
-    // The guess claimed 4.8 mm of clearance for text that is 2.15 mm wide:
-    // enough to push a neighbouring part more than a millimetre away.
-    expect(ext.w).toBeLessThan(2 * oldHalfWidth('IIII'));
-  });
-
-  it('ignores text once the footprint has a pad', () => {
-    const t = text({ text: 'Conn_01x08_Pin_Header' });
-    const withText = footprintExtent(footprint({ texts: [t], pads: [padAt()] }));
-    const without = footprintExtent(footprint({ pads: [padAt()] }));
-    expect(withText).toEqual(without);
   });
 });

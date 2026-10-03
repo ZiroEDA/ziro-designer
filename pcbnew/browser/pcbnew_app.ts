@@ -15,7 +15,10 @@
  */
 import type { ReactNode } from 'react';
 import type { PCBNEW_JSON_SETTINGS_LIKE } from '../pcb_edit_frame.js';
-import type { COMMON_SETTINGS_LIKE } from '@ziroeda/common/pgm_base.js';
+import type {
+  COMMON_SETTINGS_DO_NOT_SHOW_AGAIN,
+  COMMON_SETTINGS_LIKE,
+} from '@ziroeda/common/pgm_base.js';
 import type { WINDOW_SETTINGS } from '@ziroeda/common/settings/app_settings.js';
 import type { ChooserFilter } from '@ziroeda/common/wx/filedlg.js';
 import type { ToolbarDefaults, ToolbarLoc } from '@ziroeda/common/tool/ui/toolbar_configuration.js';
@@ -64,6 +67,8 @@ export interface PcbnewCommonSettingsLike {
     search_hidden_fields: boolean;
     search_metadata: boolean;
   };
+  /** `COMMON_SETTINGS::m_DoNotShowAgain`'s slice, `do_not_show_again.*`. */
+  do_not_show_again: COMMON_SETTINGS_DO_NOT_SHOW_AGAIN;
 }
 
 /** The designer's grid and cursor preferences, the half of `m_Window` the GAL reads. */
@@ -115,6 +120,11 @@ export interface PCBNEW_APP {
   commonInputImmediateActionsLive(): boolean;
   /** `PGM_BASE::InitPgm` (`Pgm().GetCommonSettings()`), live, for the GAL. */
   commonSettingsOf(): COMMON_SETTINGS_LIKE;
+  /** `JSON_SETTINGS::Store` for `COMMON_SETTINGS::m_DoNotShowAgain`: true when the slice changed. */
+  storeCommonDoNotShowAgain(
+    aCfg: COMMON_SETTINGS_LIKE,
+    aJson: COMMON_SETTINGS_DO_NOT_SHOW_AGAIN,
+  ): boolean;
   /** `APP_SETTINGS_BASE::m_Window.grid`/`.cursor`, from a `WindowGridCursorPrefs`-shaped object. */
   windowSettingsOf(prefs: WindowGridCursorPrefsLike): WINDOW_SETTINGS;
   /** `PGM_BASE::InitPgm` + pcbnew's KIFACE settings registration. */

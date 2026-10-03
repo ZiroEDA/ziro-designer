@@ -20,6 +20,7 @@ import {
 } from '@ziroeda/common/tool/tool_event.js';
 import { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
 import { installPgm } from '@ziroeda/designer/src/editors/pcb/pcb_canvas.js';
+import { BOARD } from '@ziroeda/pcbnew/board.js';
 import { PCB_EDIT_FRAME } from '@ziroeda/pcbnew/pcb_edit_frame.js';
 import { PCBNEW_SETTINGS } from '@ziroeda/pcbnew/pcbnew_settings.js';
 
@@ -102,7 +103,10 @@ describe('PCB_EDIT_FRAME registers PROPERTIES_TOOL (pcb_edit_frame.cpp:976)', ()
   it('a selection event reaches the frame panel', () => {
     installPgm();
     const settings = new PCBNEW_SETTINGS();
-    const frame = new PCB_EDIT_FRAME({ settings: () => settings } as never);
+    const frame = new PCB_EDIT_FRAME({ settings: () => settings, onModify: () => {} } as never);
+    // `SetBoard( new BOARD() )` (pcb_edit_frame.cpp:250): the frame always has
+    // one, and PCB_CONTROL::UpdateMessagePanel reads it on the same event.
+    frame.SetBoard(new BOARD());
     let updates = 0;
     frame.SetPropertiesPanel({ IsShownOnScreen: () => true, UpdateData: () => updates++ });
     frame.GetToolManager()!.ProcessEvent(EVENTS.SelectedEvent);

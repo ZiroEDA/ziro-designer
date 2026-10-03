@@ -81,27 +81,64 @@ import {
   type NEARABLE_GEOM,
 } from '@ziroeda/kimath/src/geometry/nearest.js';
 import {
+  PT_CENTER,
+  PT_CORNER,
+  PT_END,
   PT_INTERSECTION,
+  PT_MID,
   PT_NONE,
   PT_ON_ELEMENT,
+  PT_QUADRANT,
   TYPED_POINT2I,
 } from '@ziroeda/kimath/src/geometry/point_types.js';
+import { BOX2ISafe } from '@ziroeda/kimath/src/math/box2.js';
+import { KIGEOM_GetOvalKeyPoints, OVAL_KEY_POINTS } from '@ziroeda/kimath/src/geometry/oval.js';
+import { SHAPE_SEGMENT } from '@ziroeda/kimath/src/geometry/shape_segment.js';
+import { SHAPE_LINE_CHAIN } from '@ziroeda/kimath/src/geometry/shape_line_chain.js';
+import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
+import { ANGLE_90 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import { ERROR_LOC } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
+import { RECURSE_MODE } from '@ziroeda/common/eda_item.js';
+import type { LAYER_ITEM_PAIR } from '@ziroeda/common/view/view.js';
+import {
+  GAL_LAYER_ID,
+  IsCopperLayer,
+  IsInnerCopperLayer,
+  IsPcbLayer,
+  PCB_LAYER_ID,
+} from '@ziroeda/common/layer_id.js';
+import { PAD_SHAPE, PADSTACK, PADSTACK_MODE } from '../padstack.js';
+import type { FOOTPRINT } from '../footprint.js';
+import type { PCB_ARC, PCB_TRACK } from '../pcb_track.js';
+import type { PCB_TABLE } from '../pcb_table.js';
+import type { ZONE } from '../zone.js';
+import type {
+  PCB_DIM_ALIGNED,
+  PCB_DIM_CENTER,
+  PCB_DIM_LEADER,
+  PCB_DIM_RADIAL,
+} from '../pcb_dimension.js';
+import type { PCB_BARCODE } from '../pcb_barcode.js';
+import type { PCB_GROUP } from '../pcb_group.js';
 import type { Board, PcbBarcode, PcbShape } from '../types.js';
 import { parseBoardItemId, rotatePcb } from '../edit-board.js';
 import { footprintBBox, padBBox } from '../edit-footprint.js';
-import {
-  barcodeGeometry,
-  type BarcodeGeometry,
-  viewIdOfBoardItem,
-} from '../pcb_io/kicad_sexpr/board_view.js';
+import { barcodeGeometry, type BarcodeGeometry } from '../pcb_io/kicad_sexpr/board_view.js';
 import type { BOARD_ITEM } from '../board_item.js';
+import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import {
+  KIGEOM_BoxToSegs,
+  KIGEOM_GetCircleKeyPoints,
+} from '@ziroeda/kimath/src/geometry/shape_utils.js';
+import type { PCB_REFERENCE_IMAGE } from '../pcb_reference_image.js';
+import type { PCB_SHAPE } from '../pcb_shape.js';
 import type { PAD } from '../pad.js';
 import type { MAGNETIC_SETTINGS } from '../pcbnew_settings.js';
 import { LSET } from '@ziroeda/common/lset.js';
-import type { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import type { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
 import { GRID_HELPER_GRIDS } from '@ziroeda/common/tool/grid_helper.js';
-import { PnsMagneticOption } from '../router/pns_tool_base.js';
+import { MAGNETIC_OPTIONS } from '../pcbnew_settings.js';
 import { arcSliceContainsPoint } from '@ziroeda/kimath/src/geometry/shape_collisions.js';
 import { arcCenterI } from '@ziroeda/kimath/src/geometry/shape_arc.js';
 
@@ -280,8 +317,8 @@ export interface BestSnapOptions {
   /** The active layer — `BestSnapAnchor`'s `aLayers`. */
   layer?: string;
   /** `MAGNETIC_SETTINGS::pads` / `::tracks`. */
-  magneticPads?: PnsMagneticOption;
-  magneticTracks?: PnsMagneticOption;
+  magneticPads?: MAGNETIC_OPTIONS;
+  magneticTracks?: MAGNETIC_OPTIONS;
   /** `MAGNETIC_SETTINGS::allLayers`, which defeats the layer filter. */
   allLayers?: boolean;
   /**
@@ -439,6 +476,104 @@ function shapeCenter(aShape: PcbShape): Vec2 | null {
     };
 
   return null;
+}
+
+/** The `PCB_SELECTION_FILTER_OPTIONS` members `computeAnchors` reads. */
+export interface SELECTION_FILTER_LIKE {
+  pads: boolean;
+  text: boolean;
+  graphics: boolean;
+  tracks: boolean;
+  vias: boolean;
+  zones: boolean;
+  dimensions: boolean;
+  points: boolean;
+  footprints: boolean;
+  otherItems: boolean;
+}
+
+/**
+ * `GetBoardIntersectable( const BOARD_ITEM& )` (cpp:73-112): the idealised
+ * geometry - a zero-width line, circle, arc or box - of a graphic shape, a
+ * track, an arc or a reference image.
+ */
+export function GetBoardIntersectable(aItem: BOARD_ITEM): INTERSECTABLE_GEOM | null {
+  switch (aItem.Type()) {
+    case KICAD_T.PCB_SHAPE_T: {
+      const shape = aItem as unknown as PCB_SHAPE;
+
+      switch (shape.GetShape()) {
+        case SHAPE_T.SEGMENT:
+          return new SEG(shape.GetStart(), shape.GetEnd());
+        case SHAPE_T.CIRCLE:
+          return new CIRCLE(shape.GetCenter(), shape.GetRadius());
+        case SHAPE_T.ARC:
+          return new SHAPE_ARC(shape.GetStart(), shape.GetArcMid(), shape.GetEnd(), 0);
+        case SHAPE_T.RECTANGLE:
+          return BOX2I.ByCorners(shape.GetStart(), shape.GetEnd());
+        default:
+          break;
+      }
+
+      break;
+    }
+
+    case KICAD_T.PCB_TRACE_T: {
+      const track = aItem as unknown as PCB_TRACK;
+      return new SEG(track.GetStart(), track.GetEnd());
+    }
+
+    case KICAD_T.PCB_ARC_T: {
+      const arc = aItem as unknown as PCB_ARC;
+      return new SHAPE_ARC(arc.GetStart(), arc.GetMid(), arc.GetEnd(), 0);
+    }
+
+    case KICAD_T.PCB_REFERENCE_IMAGE_T:
+      return (aItem as unknown as PCB_REFERENCE_IMAGE).GetBoundingBox();
+
+    default:
+      break;
+  }
+
+  return null;
+}
+
+/**
+ * `PadstackUniqueLayerAppliesToLayer` (cpp:1272-1307): whether one of a
+ * padstack's unique layers stands for a given real layer.
+ */
+function PadstackUniqueLayerAppliesToLayer(
+  aPadStack: PADSTACK,
+  aPadstackUniqueLayer: PCB_LAYER_ID,
+  aRealLayer: PCB_LAYER_ID,
+): boolean {
+  switch (aPadStack.Mode()) {
+    case PADSTACK_MODE.NORMAL:
+      // Normal mode padstacks are the same on every layer, so they'll apply to any
+      // "real" copper layer.
+      return IsCopperLayer(aRealLayer);
+
+    case PADSTACK_MODE.FRONT_INNER_BACK:
+      switch (aPadstackUniqueLayer) {
+        case PCB_LAYER_ID.F_Cu:
+        case PCB_LAYER_ID.B_Cu:
+          // The outer-layer unique layers only apply to those exact "real" layers
+          return aPadstackUniqueLayer === aRealLayer;
+        case PADSTACK.INNER_LAYERS:
+          // But the inner layers apply to any inner layer
+          return IsInnerCopperLayer(aRealLayer);
+        default:
+          break;
+      }
+
+      break;
+
+    case PADSTACK_MODE.CUSTOM:
+      // Custom modes are unique per layer, so it's 1:1
+      return aRealLayer === aPadstackUniqueLayer;
+  }
+
+  return false;
 }
 
 export class PCB_GRID_HELPER extends GRID_HELPER {
@@ -843,6 +978,17 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
    * contributes its position as an `ORIGIN | SNAPPABLE` anchor (`handlePadShape`,
    * cpp:1372; `aFrom` returns before the outline points).
    */
+  /** `PCB_GRID_HELPER::GetSnapped` (pcb_grid_helper.cpp:933-944): the snapped anchor's first item. */
+  GetSnapped(): BOARD_ITEM | null {
+    if (!this.m_snapItem) return null;
+
+    // The snap anchor doesn't have an item associated with it
+    // (odd, could it be entirely made of construction geometry?)
+    if (this.m_snapItem.items.length === 0) return null;
+
+    return this.m_snapItem.items[0] as BOARD_ITEM;
+  }
+
   SnapToPad(aMousePos: Vec2, aPads: readonly PAD[]): Vec2 {
     this.clearAnchors();
 
@@ -873,11 +1019,7 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
       if (!pad.HitTest(aMousePos)) continue;
 
       if (checkVisibility(pad))
-        this.addAnchor(
-          pad.GetPosition(),
-          ANCHOR_FLAGS.ORIGIN | ANCHOR_FLAGS.SNAPPABLE,
-          this.itemToken(pad.m_Uuid),
-        );
+        this.addAnchor(pad.GetPosition(), ANCHOR_FLAGS.ORIGIN | ANCHOR_FLAGS.SNAPPABLE, [pad]);
     }
 
     let minDist = Number.MAX_VALUE;
@@ -917,8 +1059,8 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
   ): void {
     const add = (aPos: Vec2, aFlags: number, aId: string): void =>
       this.addAnchor(aPos, aFlags, this.itemToken(aId));
-    const pads = aOpts.magneticPads ?? PnsMagneticOption.CAPTURE_ALWAYS;
-    const tracks = aOpts.magneticTracks ?? PnsMagneticOption.CAPTURE_ALWAYS;
+    const pads = aOpts.magneticPads ?? MAGNETIC_OPTIONS.CAPTURE_ALWAYS;
+    const tracks = aOpts.magneticTracks ?? MAGNETIC_OPTIONS.CAPTURE_ALWAYS;
 
     // `queryVisible`'s horizon: upstream builds a box of `snapRange` about the
     // cursor and asks the view for what is inside it.
@@ -931,7 +1073,7 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
     const skipped = (kind: string, index: number): boolean =>
       aOpts.avoid?.has(`${kind}:${index}`) ?? false;
 
-    if (pads === PnsMagneticOption.CAPTURE_ALWAYS) {
+    if (pads === MAGNETIC_OPTIONS.CAPTURE_ALWAYS) {
       for (const [fpIndex, fp] of aBoard.footprints.entries()) {
         if (skipped('footprint', fpIndex)) continue;
 
@@ -945,7 +1087,7 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
       }
     }
 
-    if (tracks === PnsMagneticOption.CAPTURE_ALWAYS) {
+    if (tracks === MAGNETIC_OPTIONS.CAPTURE_ALWAYS) {
       for (const [i, v] of aBoard.vias.entries()) {
         if (skipped('via', i)) continue;
 
@@ -1095,7 +1237,9 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
       let distToNearestItem = Number.POSITIVE_INFINITY;
 
       for (const item of anchor.items) {
-        const geom = this.intersectableOf(this.itemIdOf(item));
+        const geom = item?.IsBOARD_ITEM?.()
+          ? GetBoardIntersectable(item as BOARD_ITEM)
+          : this.intersectableOf(this.itemIdOf(item));
 
         if (geom) {
           const d = squaredDist(GetNearestPoint(geom, aPos), aPos);
@@ -1152,7 +1296,13 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
   ): Vec2 {
     if ('footprints' in a) return this.bestSnapAnchorOn(a, b as Vec2, c as BestSnapOptions);
 
-    if (b instanceof LSET) return this.bestSnapAnchorLive(a, b, d ?? []);
+    if (b instanceof LSET)
+      return this.bestSnapAnchorLive(
+        a,
+        b,
+        (c as GRID_HELPER_GRIDS | undefined) ?? GRID_HELPER_GRIDS.GRID_CURRENT,
+        d ?? [],
+      );
 
     let layers: LSET;
     const item: BOARD_ITEM[] = [];
@@ -1167,52 +1317,854 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
       layers = LSET.AllLayersMask();
     }
 
-    return this.bestSnapAnchorLive(a, layers, item);
+    return this.bestSnapAnchorLive(
+      a,
+      layers,
+      (c as GRID_HELPER_GRIDS | undefined) ?? GRID_HELPER_GRIDS.GRID_CURRENT,
+      item,
+    );
   }
 
   /**
-   * TRANSITIONAL (#636 stage 3): the live-BOARD form of `BestSnapAnchor`, run
-   * on the view board the frame still keeps, whose items the anchors are
-   * computed from. The skip list and layers are turned into what that form
-   * reads (view ids, a layer name). Deleted when PCB_GRID_HELPER's
-   * `computeAnchors` walks the BOARD itself.
+   * `BestSnapAnchor( aOrigin, aLayers, aGrid, aSkip )` (cpp:593-930) over the
+   * live BOARD: the items the VIEW has round the cursor (`queryVisible`), their
+   * anchors and intersections on `aLayers`, and the snap decision.
    */
-  private bestSnapAnchorLive(aOrigin: Vec2, aLayers: LSET, aSkip: readonly BOARD_ITEM[]): Vec2 {
+  private bestSnapAnchorLive(
+    aOrigin: Vec2,
+    aLayers: LSET,
+    aGrid: GRID_HELPER_GRIDS,
+    aSkip: readonly BOARD_ITEM[],
+  ): Vec2 {
     const view = this.m_toolMgr!.GetView()!;
-    const board = this.toolFrame()?.GetTransitionalBoardView?.() ?? null;
 
-    if (!board) return this.Align(aOrigin);
+    // Tuning constant: snap radius in screen space
+    const snapSize = 25;
 
-    const avoid = new Set<string>();
+    // Snapping distance is in screen space, clamped to the current grid to ensure that the grid
+    // points that are visible can always be snapped to.
+    const snapScale = view.ToWorld(snapSize);
+    const snapRange = KiROUND(
+      this.m_enableGrid ? Math.min(snapScale, this.GetVisibleGrid().x) : snapScale,
+    );
 
-    for (const item of aSkip) {
-      const id = viewIdOfBoardItem(board, item);
+    // Respect limits of coordinates representation
+    const visibilityHorizon = BOX2ISafe(
+      { x: aOrigin.x - snapRange / 2.0, y: aOrigin.y - snapRange / 2.0 },
+      { x: snapRange, y: snapRange },
+    );
 
-      if (id !== null) avoid.add(id);
+    this.clearAnchors();
+
+    const visibleItems = this.queryVisible(visibilityHorizon, aSkip);
+    this.computeAnchorsOfItems(visibleItems, aOrigin, false, null, aLayers, false);
+
+    const nearest = this.nearestAnchor(aOrigin, ANCHOR_FLAGS.SNAPPABLE);
+    const nearestGrid = this.Align(aOrigin, aGrid);
+    const gridSize = this.GetGridSize(aGrid);
+
+    const hysteresisWorld = KiROUND(view.ToWorld(ADVANCED_CFG.GetCfg().m_SnapHysteresis));
+
+    return this.resolveSnap(
+      aOrigin,
+      snapRange,
+      nearest,
+      nearestGrid,
+      gridSize,
+      hysteresisWorld,
+      (aItems) => {
+        // Add any involved item as a temporary construction item
+        // (de-duplication with existing construction items is handled later)
+        const items: BOARD_ITEM[] = [];
+
+        for (const item of aItems) {
+          // Null items are allowed to arrive here as they represent geometry that isn't
+          // specifically tied to a board item. For example snap lines from some
+          // other anchor. But they don't produce new construction items.
+          if (!item?.IsBOARD_ITEM()) continue;
+
+          const boardItem = item as BOARD_ITEM;
+
+          if (
+            (this.m_magneticSettings?.allLayers ?? false) ||
+            aLayers.and(boardItem.GetLayerSet()).any()
+          )
+            items.push(boardItem);
+        }
+
+        // Temporary construction items are not persistent and don't
+        // overlay the items themselves (as the items will not be moved)
+        this.addConstructionItemsLive(items, true, false);
+      },
+      () => {
+        // An exact hit on an item, even if not near a snap point
+        // If it's tool hard to hit by hover, this can be increased
+        // to make it non-exact.
+        const hoverAccuracy = 0;
+
+        for (const item of visibleItems) {
+          if (item.HitTest(aOrigin, hoverAccuracy)) return item;
+        }
+
+        return null;
+      },
+    );
+  }
+
+  /**
+   * `checkVisibility` of `computeAnchors( BOARD_ITEM*, … )` (cpp:1338-1361):
+   * shown in the view (or moving), on a shown or - in high contrast - active
+   * layer, and below its LOD.
+   */
+  private checkVisibility(aItem: BOARD_ITEM): boolean {
+    const view = this.m_toolMgr!.GetView()!;
+    const settings = view.GetPainter().GetSettings();
+    const activeLayers = settings.GetHighContrastLayers();
+    const isHighContrast = settings.GetHighContrast();
+
+    // New moved items don't yet have view flags so VIEW will call them invisible
+    if (!view.IsVisible(aItem) && !aItem.IsMoving()) return false;
+
+    let onActiveLayer = !isHighContrast;
+    let isLODVisible = false;
+
+    for (const layer of aItem.GetLayerSet().Seq()) {
+      if (!onActiveLayer && activeLayers.has(layer)) onActiveLayer = true;
+
+      if (!isLODVisible && aItem.ViewGetLOD(layer, view) < view.GetScale()) isLODVisible = true;
+
+      if (onActiveLayer && isLODVisible) return true;
     }
 
-    const seq = aLayers.Seq();
+    return false;
+  }
+
+  /** The current tool, for `IsFootprintEditor()` (cpp:1041). */
+  private isFootprintEditor(): boolean {
+    const tool = this.m_toolMgr?.GetCurrentTool() as unknown as {
+      IsFootprintEditor?(): boolean;
+    } | null;
+
+    return tool?.IsFootprintEditor?.() ?? false;
+  }
+
+  /** `queryVisible( aArea, aSkip )` (cpp:1034-1095). */
+  private queryVisible(aArea: BOX2I, aSkip: readonly BOARD_ITEM[]): BOARD_ITEM[] {
+    const items = new Set<BOARD_ITEM>();
+    const visibleItems: LAYER_ITEM_PAIR[] = [];
+
+    const view = this.m_toolMgr!.GetView()!;
+    const settings = view.GetPainter().GetSettings();
+    const activeLayers = settings.GetHighContrastLayers();
+    const isHighContrast = settings.GetHighContrast();
+
+    view.Query(aArea, visibleItems);
+
+    for (const [viewItem, layer] of visibleItems) {
+      if (!viewItem.IsBOARD_ITEM()) continue;
+
+      const boardItem = viewItem as unknown as BOARD_ITEM;
+
+      if (this.isFootprintEditor()) {
+        // If we are in the footprint editor, don't use the footprint itself
+        if (boardItem.Type() === KICAD_T.PCB_FOOTPRINT_T) continue;
+      } else {
+        // If we are not in the footprint editor, don't use footprint-editor-private items
+        const parentFP = boardItem.GetParentFootprint();
+
+        if (parentFP && IsPcbLayer(layer) && parentFP.GetPrivateLayers().Contains(layer)) continue;
+      }
+
+      // The boardItem must be visible and on an active layer
+      if (
+        view.IsVisible(boardItem) &&
+        (!isHighContrast || activeLayers.has(layer)) &&
+        boardItem.ViewGetLOD(layer, view) < view.GetScale()
+      ) {
+        items.add(boardItem);
+      }
+    }
+
+    const skipItem = (aItem: BOARD_ITEM): void => {
+      items.delete(aItem);
+
+      aItem.RunOnChildren((aChild: BOARD_ITEM) => skipItem(aChild), RECURSE_MODE.RECURSE);
+    };
+
+    for (const item of aSkip) skipItem(item);
+
+    return [...items];
+  }
+
+  /**
+   * `computeAnchors( const std::vector<BOARD_ITEM*>&, aRefPos, aFrom,
+   * aSelectionFilter, aMatchLayers, aForDrag )` (cpp:1115-1270).
+   */
+  private computeAnchorsOfItems(
+    aItems: readonly BOARD_ITEM[],
+    aRefPos: Vec2,
+    aFrom: boolean,
+    aSelectionFilter: SELECTION_FILTER_LIKE | null,
+    aMatchLayers: LSET | null,
+    aForDrag: boolean,
+  ): void {
+    const intersectables: { item: BOARD_ITEM | null; geom: INTERSECTABLE_GEOM }[] = [];
+
+    // These could come from a more granular snap mode filter
+    // But when looking for drag points, we don't want construction geometry
+    const computeIntersections = !aForDrag;
+    const computePointsOnElements = !aForDrag;
+    const excludeGraphics = !!aSelectionFilter && !aSelectionFilter.graphics;
+    const excludeTracks = !!aSelectionFilter && !aSelectionFilter.tracks;
+
+    const itemIsSnappable = (aItem: BOARD_ITEM): boolean => {
+      // If we are filtering by layers, check if the item matches
+      if (aMatchLayers)
+        return (
+          (this.m_magneticSettings?.allLayers ?? false) ||
+          aMatchLayers.and(aItem.GetLayerSet()).any()
+        );
+
+      return true;
+    };
+
+    const processItem = (item: BOARD_ITEM): void => {
+      // Don't even process the item if it doesn't match the layers
+      if (!itemIsSnappable(item)) return;
+
+      // First, add all the key points of the item itself
+      this.computeItemAnchors(item, aRefPos, aFrom, aSelectionFilter);
+
+      // If we are computing intersections, construct the relevant intersectables
+      // Points on elements also use the intersectables.
+      if (computeIntersections || computePointsOnElements) {
+        let intersectableGeom: INTERSECTABLE_GEOM | null = null;
+
+        if (
+          !excludeGraphics &&
+          (item.Type() === KICAD_T.PCB_SHAPE_T || item.Type() === KICAD_T.PCB_REFERENCE_IMAGE_T)
+        ) {
+          intersectableGeom = GetBoardIntersectable(item);
+        } else if (
+          !excludeTracks &&
+          (item.Type() === KICAD_T.PCB_TRACE_T || item.Type() === KICAD_T.PCB_ARC_T)
+        ) {
+          intersectableGeom = GetBoardIntersectable(item);
+        }
+
+        if (intersectableGeom) intersectables.push({ item, geom: intersectableGeom });
+      }
+    };
+
+    for (const item of aItems) processItem(item);
+
+    for (const batch of this.getSnapManager().GetConstructionItems()) {
+      for (const constructionItem of batch) {
+        const involvedItem = constructionItem.Item as BOARD_ITEM | null;
+
+        for (const drawable of constructionItem.Constructions) {
+          const d = drawable.Drawable;
+
+          if (
+            d instanceof LINE ||
+            d instanceof CIRCLE ||
+            d instanceof HALF_LINE ||
+            d instanceof SHAPE_ARC
+          ) {
+            intersectables.push({ item: involvedItem, geom: d });
+          } else if (!(d instanceof SEG)) {
+            // Add any free-floating points as snap points.
+            this.addAnchor(
+              { x: d.x, y: d.y },
+              ANCHOR_FLAGS.SNAPPABLE | ANCHOR_FLAGS.CONSTRUCTED,
+              involvedItem ? [involvedItem] : [],
+              PT_NONE,
+            );
+          }
+        }
+      }
+    }
+
+    // Now, add all the intersections between the items
+    if (computeIntersections) {
+      for (let ii = 0; ii < intersectables.length; ++ii) {
+        const a = intersectables[ii]!;
+
+        for (let jj = ii + 1; jj < intersectables.length; ++jj) {
+          const b = intersectables[jj]!;
+
+          // An item and its own extension will often have intersections (as they are on top
+          // of each other), but they not useful points to snap to
+          if (a.item === b.item) continue;
+
+          const intersections: Vec2[] = [];
+          new INTERSECTION_VISITOR(a.geom, intersections).visit(b.geom);
+
+          // For each intersection, add an intersection snap anchor
+          for (const intersection of intersections) {
+            this.addAnchor(
+              intersection,
+              ANCHOR_FLAGS.SNAPPABLE | ANCHOR_FLAGS.CONSTRUCTED,
+              [a.item, b.item] as EDA_ITEM[],
+              PT_INTERSECTION,
+            );
+          }
+        }
+      }
+    }
+
+    // The intersectables can also be used for fall-back snapping to "point on line"
+    // snaps if no other snap is found
+    this.m_pointOnLineCandidates = [];
+
+    if (computePointsOnElements) this.m_pointOnLineCandidates = intersectables.map((it) => it.geom);
+  }
+
+  /**
+   * `computeAnchors( BOARD_ITEM* aItem, aRefPos, aFrom, aSelectionFilter )`
+   * (cpp:1329-1963): the key points one item offers.
+   */
+  private computeItemAnchors(
+    aItem: BOARD_ITEM,
+    aRefPos: Vec2,
+    aFrom: boolean,
+    aSelectionFilter: SELECTION_FILTER_LIKE | null,
+  ): void {
+    const view = this.m_toolMgr!.GetView()!;
+    const settings = view.GetPainter().GetSettings();
+    const activeHighContrastPrimaryLayer = settings.GetPrimaryHighContrastLayer();
+    const isHighContrast = settings.GetHighContrast();
     const mag = this.m_magneticSettings;
 
-    return this.bestSnapAnchorOn(board, aOrigin, {
-      // Tuning constant: snap radius in screen space (cpp:601)
-      snapScale: view.ToWorld(25),
-      visibleGrid: this.GetVisibleGrid().x,
-      hysteresis: view.ToWorld(ADVANCED_CFG.GetCfg().m_SnapHysteresis),
-      layer: seq.length === 1 ? LSET.Name(seq[0]!) : undefined,
-      allLayers: seq.length !== 1 || (mag?.allLayers ?? false),
-      magneticPads: (mag?.pads ?? PnsMagneticOption.CAPTURE_ALWAYS) as number as PnsMagneticOption,
-      magneticTracks: (mag?.tracks ??
-        PnsMagneticOption.CAPTURE_ALWAYS) as number as PnsMagneticOption,
-      avoid,
+    const { ORIGIN, CORNER, OUTLINE, SNAPPABLE } = ANCHOR_FLAGS;
+
+    const checkVisibility = (aIt: BOARD_ITEM): boolean => this.checkVisibility(aIt);
+    const add = (aPos: Vec2, aFlags: number, aIt: EDA_ITEM, aType = PT_NONE): void =>
+      this.addAnchor({ x: aPos.x, y: aPos.y }, aFlags, [aIt], aType);
+
+    // As defaults, these are probably reasonable to avoid spamming key points
+    const ovalKeyPointFlags =
+      OVAL_KEY_POINTS.OVAL_CENTER |
+      OVAL_KEY_POINTS.OVAL_CAP_TIPS |
+      OVAL_KEY_POINTS.OVAL_SIDE_MIDPOINTS |
+      OVAL_KEY_POINTS.OVAL_CARDINAL_EXTREMES;
+
+    const handlePadShape = (aPad: PAD, aLayer: PCB_LAYER_ID): void => {
+      add(aPad.GetPosition(), ORIGIN | SNAPPABLE, aPad, PT_CENTER);
+
+      /// If we are getting a drag point, we don't want to center the edge of pads
+      if (aFrom) return;
+
+      switch (aPad.GetShape(aLayer)) {
+        case PAD_SHAPE.CIRCLE: {
+          const circle = new CIRCLE(aPad.ShapePos(aLayer), Math.trunc(aPad.GetSizeX() / 2));
+
+          for (const pt of KIGEOM_GetCircleKeyPoints(circle, false))
+            add(pt.m_point, OUTLINE | SNAPPABLE, aPad, pt.m_types);
+
+          break;
+        }
+        case PAD_SHAPE.OVAL: {
+          const oval = SHAPE_SEGMENT.BySizeAndCenter(
+            aPad.GetSize(aLayer),
+            aPad.GetPosition(),
+            aPad.GetOrientation(),
+          );
+
+          for (const pt of KIGEOM_GetOvalKeyPoints(oval, ovalKeyPointFlags))
+            add(pt.m_point, OUTLINE | SNAPPABLE, aPad, pt.m_types);
+
+          break;
+        }
+        case PAD_SHAPE.RECTANGLE:
+        case PAD_SHAPE.TRAPEZOID:
+        case PAD_SHAPE.ROUNDRECT:
+        case PAD_SHAPE.CHAMFERED_RECT: {
+          const size = aPad.GetSize(aLayer);
+          const half_size = { x: Math.trunc(size.x / 2), y: Math.trunc(size.y / 2) };
+          let trap_delta = { x: 0, y: 0 };
+
+          if (aPad.GetShape(aLayer) === PAD_SHAPE.TRAPEZOID) {
+            const delta = aPad.GetDelta(aLayer);
+            trap_delta = { x: Math.trunc(delta.x / 2), y: Math.trunc(delta.y / 2) };
+          }
+
+          const corners = new SHAPE_LINE_CHAIN();
+
+          corners.Append(-half_size.x - trap_delta.y, half_size.y + trap_delta.x);
+          corners.Append(half_size.x + trap_delta.y, half_size.y - trap_delta.x);
+          corners.Append(half_size.x - trap_delta.y, -half_size.y + trap_delta.x);
+          corners.Append(-half_size.x + trap_delta.y, -half_size.y - trap_delta.x);
+          corners.SetClosed(true);
+
+          corners.Rotate(aPad.GetOrientation());
+          corners.Move(aPad.ShapePos(aLayer));
+
+          for (let ii = 0; ii < corners.GetSegmentCount(); ++ii) {
+            const seg = corners.GetSegment(ii);
+            add(seg.A, OUTLINE | SNAPPABLE, aPad, PT_CORNER);
+            add(seg.Center(), OUTLINE | SNAPPABLE, aPad, PT_MID);
+
+            if (ii === corners.GetSegmentCount() - 1)
+              add(seg.B, OUTLINE | SNAPPABLE, aPad, PT_CORNER);
+          }
+
+          break;
+        }
+        default: {
+          const outline = aPad.GetEffectivePolygon(aLayer, ERROR_LOC.ERROR_INSIDE);
+
+          if (!outline.IsEmpty()) {
+            for (const pt of outline.Outline(0).CPoints()) add(pt, OUTLINE | SNAPPABLE, aPad);
+          }
+
+          break;
+        }
+      }
+
+      if (aPad.HasHole()) {
+        // Holes are at the pad centre (it's the shape that may be offset)
+        const hole_pos = aPad.GetPosition();
+        const hole_size = aPad.GetDrillSize();
+
+        let snap_pts: TYPED_POINT2I[];
+
+        if (hole_size.x === hole_size.y) {
+          // Circle
+          const circle = new CIRCLE(hole_pos, Math.trunc(hole_size.x / 2));
+          snap_pts = KIGEOM_GetCircleKeyPoints(circle, true);
+        } else {
+          // Oval
+          const oval = SHAPE_SEGMENT.BySizeAndCenter(hole_size, hole_pos, aPad.GetOrientation());
+          snap_pts = KIGEOM_GetOvalKeyPoints(oval, ovalKeyPointFlags);
+        }
+
+        for (const snap_pt of snap_pts)
+          add(snap_pt.m_point, OUTLINE | SNAPPABLE, aPad, snap_pt.m_types);
+      }
+    };
+
+    const handlePad = (aPad: PAD): void => {
+      aPad.Padstack().ForEachUniqueLayer((aLayer: PCB_LAYER_ID) => {
+        if (
+          !isHighContrast ||
+          PadstackUniqueLayerAppliesToLayer(aPad.Padstack(), aLayer, activeHighContrastPrimaryLayer)
+        ) {
+          handlePadShape(aPad, aLayer);
+        }
+      });
+    };
+
+    const addRectPoints = (aBox: BOX2I, aRelatedItem: EDA_ITEM): void => {
+      const topRight = { x: aBox.GetRight(), y: aBox.GetTop() };
+      const bottomLeft = { x: aBox.GetLeft(), y: aBox.GetBottom() };
+
+      const first = new SEG(aBox.GetOrigin(), topRight);
+      const second = new SEG(topRight, aBox.GetEnd());
+      const third = new SEG(aBox.GetEnd(), bottomLeft);
+      const fourth = new SEG(bottomLeft, aBox.GetOrigin());
+
+      const snapFlags = CORNER | SNAPPABLE;
+
+      add(aBox.GetCenter(), snapFlags, aRelatedItem, PT_CENTER);
+
+      add(first.A, snapFlags, aRelatedItem, PT_CORNER);
+      add(first.Center(), snapFlags, aRelatedItem, PT_MID);
+      add(second.A, snapFlags, aRelatedItem, PT_CORNER);
+      add(second.Center(), snapFlags, aRelatedItem, PT_MID);
+      add(third.A, snapFlags, aRelatedItem, PT_CORNER);
+      add(third.Center(), snapFlags, aRelatedItem, PT_MID);
+      add(fourth.A, snapFlags, aRelatedItem, PT_CORNER);
+      add(fourth.Center(), snapFlags, aRelatedItem, PT_MID);
+    };
+
+    const handleShape = (shape: PCB_SHAPE): void => {
+      const start = shape.GetStart();
+      const end = shape.GetEnd();
+
+      switch (shape.GetShape()) {
+        case SHAPE_T.CIRCLE: {
+          const r = KiROUND(Math.hypot(start.x - end.x, start.y - end.y));
+
+          add(start, ORIGIN | SNAPPABLE, shape, PT_CENTER);
+
+          add({ x: start.x - r, y: start.y }, OUTLINE | SNAPPABLE, shape, PT_QUADRANT);
+          add({ x: start.x + r, y: start.y }, OUTLINE | SNAPPABLE, shape, PT_QUADRANT);
+          add({ x: start.x, y: start.y - r }, OUTLINE | SNAPPABLE, shape, PT_QUADRANT);
+          add({ x: start.x, y: start.y + r }, OUTLINE | SNAPPABLE, shape, PT_QUADRANT);
+          break;
+        }
+
+        case SHAPE_T.ARC:
+          add(shape.GetStart(), CORNER | SNAPPABLE, shape, PT_END);
+          add(shape.GetEnd(), CORNER | SNAPPABLE, shape, PT_END);
+          add(shape.GetArcMid(), CORNER | SNAPPABLE, shape, PT_MID);
+          add(shape.GetCenter(), ORIGIN | SNAPPABLE, shape, PT_CENTER);
+          break;
+
+        case SHAPE_T.RECTANGLE:
+          addRectPoints(BOX2I.ByCorners(start, end), shape);
+          break;
+
+        case SHAPE_T.SEGMENT:
+          add(start, CORNER | SNAPPABLE, shape, PT_END);
+          add(end, CORNER | SNAPPABLE, shape, PT_END);
+          add(shape.GetCenter(), CORNER | SNAPPABLE, shape, PT_MID);
+          break;
+
+        case SHAPE_T.POLY: {
+          const lc = new SHAPE_LINE_CHAIN();
+          lc.SetClosed(true);
+
+          for (const p of shape.GetPolyPoints()) {
+            add(p, CORNER | SNAPPABLE, shape, PT_CORNER);
+            lc.Append(p);
+          }
+
+          add(lc.NearestPoint(aRefPos), OUTLINE, aItem);
+          break;
+        }
+
+        case SHAPE_T.BEZIER:
+          add(start, CORNER | SNAPPABLE, shape, PT_END);
+          add(end, CORNER | SNAPPABLE, shape, PT_END);
+          add(shape.GetPosition(), ORIGIN | SNAPPABLE, shape);
+          break;
+
+        default:
+          add(shape.GetPosition(), ORIGIN | SNAPPABLE, shape);
+          break;
+      }
+    };
+
+    switch (aItem.Type()) {
+      case KICAD_T.PCB_FOOTPRINT_T: {
+        const footprint = aItem as unknown as FOOTPRINT;
+        const footprintVisible = checkVisibility(aItem);
+
+        for (const pad of footprint.Pads()) {
+          if (aFrom) {
+            if (aSelectionFilter && !aSelectionFilter.pads) continue;
+          } else if (mag?.pads !== MAGNETIC_OPTIONS.CAPTURE_ALWAYS) {
+            continue;
+          }
+
+          if (!checkVisibility(pad)) continue;
+
+          if (!pad.GetBoundingBox().Contains(aRefPos)) continue;
+
+          handlePad(pad);
+        }
+
+        // Points are also pick-up points
+        for (const pt of footprint.Points()) {
+          if (aSelectionFilter && !aSelectionFilter.points) continue;
+
+          if (!checkVisibility(pt)) continue;
+
+          add(pt.GetPosition(), ORIGIN | SNAPPABLE, aItem, PT_CENTER);
+        }
+
+        // When computing drag origins (aFrom=true), always proceed to add the footprint
+        // position anchor regardless of the visibility state.
+        if (!footprintVisible && !aFrom) break;
+
+        if (aFrom && aSelectionFilter && !aSelectionFilter.footprints) break;
+
+        // Snap to the footprint origin so that move operations keep the part aligned to
+        // the grid regardless of anchor layer visibility, but not when the footprint's
+        // side is hidden.
+        const fpRenderLayer =
+          footprint.GetLayer() === PCB_LAYER_ID.F_Cu
+            ? GAL_LAYER_ID.LAYER_FOOTPRINTS_FR
+            : footprint.GetLayer() === PCB_LAYER_ID.B_Cu
+              ? GAL_LAYER_ID.LAYER_FOOTPRINTS_BK
+              : GAL_LAYER_ID.LAYER_ANCHOR;
+
+        if (!view.IsLayerVisible(fpRenderLayer)) break;
+
+        const position = footprint.GetPosition();
+        const center = footprint.GetBoundingBox(false).Centre();
+        const grid = this.GetGrid();
+
+        add(position, ORIGIN | SNAPPABLE, aItem, PT_CENTER);
+
+        if (squaredDist(center, position) > grid.x * grid.x + grid.y * grid.y)
+          add(center, ORIGIN | SNAPPABLE, aItem, PT_CENTER);
+
+        break;
+      }
+
+      case KICAD_T.PCB_PAD_T:
+        if (aFrom) {
+          if (aSelectionFilter && !aSelectionFilter.pads) break;
+        } else if (mag?.pads !== MAGNETIC_OPTIONS.CAPTURE_ALWAYS) {
+          break;
+        }
+
+        if (checkVisibility(aItem)) handlePad(aItem as unknown as PAD);
+
+        break;
+
+      case KICAD_T.PCB_TEXTBOX_T:
+        if (aFrom) {
+          if (aSelectionFilter && !aSelectionFilter.text) break;
+        } else if (!mag?.graphics) {
+          break;
+        }
+
+        if (checkVisibility(aItem)) handleShape(aItem as unknown as PCB_SHAPE);
+
+        break;
+
+      case KICAD_T.PCB_TABLE_T:
+        if (aFrom) {
+          if (aSelectionFilter && !aSelectionFilter.text) break;
+        } else if (!mag?.graphics) {
+          break;
+        }
+
+        if (checkVisibility(aItem)) {
+          const table = aItem as unknown as PCB_TABLE;
+
+          const drawAngle = table.GetCell(0, 0)!.GetDrawRotation();
+          const topLeft = table.GetCell(0, 0)!.GetCornersInSequence(drawAngle)[0]!;
+          const bottomLeft = table
+            .GetCell(table.GetRowCount() - 1, 0)!
+            .GetCornersInSequence(drawAngle)[3]!;
+          const topRight = table
+            .GetCell(0, table.GetColCount() - 1)!
+            .GetCornersInSequence(drawAngle)[1]!;
+          const bottomRight = table
+            .GetCell(table.GetRowCount() - 1, table.GetColCount() - 1)!
+            .GetCornersInSequence(drawAngle)[2]!;
+
+          add(topLeft, CORNER | SNAPPABLE, aItem, PT_END);
+          add(bottomLeft, CORNER | SNAPPABLE, aItem, PT_END);
+          add(topRight, CORNER | SNAPPABLE, aItem, PT_END);
+          add(bottomRight, CORNER | SNAPPABLE, aItem, PT_END);
+
+          add(table.GetCenter(), ORIGIN, aItem, PT_MID);
+        }
+
+        break;
+
+      case KICAD_T.PCB_SHAPE_T:
+        if (aFrom) {
+          if (aSelectionFilter && !aSelectionFilter.graphics) break;
+        } else if (!mag?.graphics) {
+          break;
+        }
+
+        if (checkVisibility(aItem)) handleShape(aItem as unknown as PCB_SHAPE);
+
+        break;
+
+      case KICAD_T.PCB_TRACE_T:
+      case KICAD_T.PCB_ARC_T:
+        if (aFrom) {
+          if (aSelectionFilter && !aSelectionFilter.tracks) break;
+        } else if (mag?.tracks !== MAGNETIC_OPTIONS.CAPTURE_ALWAYS) {
+          break;
+        }
+
+        if (checkVisibility(aItem)) {
+          const track = aItem as unknown as PCB_TRACK;
+
+          add(track.GetStart(), CORNER | SNAPPABLE, aItem, PT_END);
+          add(track.GetEnd(), CORNER | SNAPPABLE, aItem, PT_END);
+
+          if (aItem.Type() === KICAD_T.PCB_ARC_T) {
+            for (const spec of PCB_GRID_HELPER.GetArcAnchors(aItem as unknown as PCB_ARC, aFrom))
+              add(spec.pos, spec.flags, aItem, spec.pointType);
+          } else {
+            add(track.GetCenter(), ORIGIN, aItem, PT_MID);
+          }
+        }
+
+        break;
+
+      case KICAD_T.PCB_MARKER_T:
+      case KICAD_T.PCB_TARGET_T:
+        add(aItem.GetPosition(), ORIGIN | CORNER | SNAPPABLE, aItem, PT_CENTER);
+        break;
+
+      case KICAD_T.PCB_POINT_T:
+        if (aSelectionFilter && !aSelectionFilter.points) break;
+
+        if (checkVisibility(aItem)) add(aItem.GetPosition(), ORIGIN | SNAPPABLE, aItem, PT_CENTER);
+
+        break;
+
+      case KICAD_T.PCB_VIA_T:
+        if (aFrom) {
+          if (aSelectionFilter && !aSelectionFilter.vias) break;
+        } else if (mag?.tracks !== MAGNETIC_OPTIONS.CAPTURE_ALWAYS) {
+          break;
+        }
+
+        if (checkVisibility(aItem))
+          add(aItem.GetPosition(), ORIGIN | CORNER | SNAPPABLE, aItem, PT_CENTER);
+
+        break;
+
+      case KICAD_T.PCB_ZONE_T:
+        if (aFrom && aSelectionFilter && !aSelectionFilter.zones) break;
+
+        if (checkVisibility(aItem)) {
+          const outline = (aItem as unknown as ZONE).Outline();
+
+          const lc = new SHAPE_LINE_CHAIN();
+          lc.SetClosed(true);
+
+          for (const pt of outline.CIterateWithHoles()) {
+            add(pt, CORNER | SNAPPABLE, aItem, PT_CORNER);
+            lc.Append(pt);
+          }
+
+          add(lc.NearestPoint(aRefPos), OUTLINE, aItem);
+        }
+
+        break;
+
+      case KICAD_T.PCB_DIM_ALIGNED_T:
+      case KICAD_T.PCB_DIM_ORTHOGONAL_T:
+        if (aFrom && aSelectionFilter && !aSelectionFilter.dimensions) break;
+
+        if (checkVisibility(aItem)) {
+          const dim = aItem as unknown as PCB_DIM_ALIGNED;
+          add(dim.GetCrossbarStart(), CORNER | SNAPPABLE, aItem);
+          add(dim.GetCrossbarEnd(), CORNER | SNAPPABLE, aItem);
+          add(dim.GetStart(), CORNER | SNAPPABLE, aItem);
+          add(dim.GetEnd(), CORNER | SNAPPABLE, aItem);
+        }
+
+        break;
+
+      case KICAD_T.PCB_DIM_CENTER_T:
+        if (aFrom && aSelectionFilter && !aSelectionFilter.dimensions) break;
+
+        if (checkVisibility(aItem)) {
+          const dim = aItem as unknown as PCB_DIM_CENTER;
+          add(dim.GetStart(), CORNER | SNAPPABLE, aItem);
+          add(dim.GetEnd(), CORNER | SNAPPABLE, aItem);
+
+          const start = dim.GetStart();
+          let radial = { x: dim.GetEnd().x - start.x, y: dim.GetEnd().y - start.y };
+
+          for (let i = 0; i < 2; i++) {
+            radial = RotatePoint(radial, ANGLE_90.negate());
+            add({ x: start.x + radial.x, y: start.y + radial.y }, CORNER | SNAPPABLE, aItem);
+          }
+        }
+
+        break;
+
+      case KICAD_T.PCB_DIM_RADIAL_T:
+        if (aFrom && aSelectionFilter && !aSelectionFilter.dimensions) break;
+
+        if (checkVisibility(aItem)) {
+          const radialDim = aItem as unknown as PCB_DIM_RADIAL;
+          add(radialDim.GetStart(), CORNER | SNAPPABLE, aItem);
+          add(radialDim.GetEnd(), CORNER | SNAPPABLE, aItem);
+          add(radialDim.GetKnee(), CORNER | SNAPPABLE, aItem);
+          add(radialDim.GetTextPos(), CORNER | SNAPPABLE, aItem);
+        }
+
+        break;
+
+      case KICAD_T.PCB_DIM_LEADER_T:
+        if (aFrom && aSelectionFilter && !aSelectionFilter.dimensions) break;
+
+        if (checkVisibility(aItem)) {
+          const leader = aItem as unknown as PCB_DIM_LEADER;
+          add(leader.GetStart(), CORNER | SNAPPABLE, aItem);
+          add(leader.GetEnd(), CORNER | SNAPPABLE, aItem);
+          add(leader.GetTextPos(), CORNER | SNAPPABLE, aItem);
+        }
+
+        break;
+
+      case KICAD_T.PCB_FIELD_T:
+      case KICAD_T.PCB_TEXT_T:
+        if (aFrom && aSelectionFilter && !aSelectionFilter.text) break;
+
+        if (checkVisibility(aItem)) add(aItem.GetPosition(), ORIGIN, aItem);
+
+        break;
+
+      case KICAD_T.PCB_BARCODE_T:
+        if (aFrom && aSelectionFilter && !aSelectionFilter.otherItems) break;
+
+        if (checkVisibility(aItem)) {
+          const barcode = aItem as unknown as PCB_BARCODE;
+          const bbox = barcode.GetSymbolPoly().BBox();
+
+          add(aItem.GetPosition(), ORIGIN, aItem, PT_CENTER);
+          addRectPoints(bbox, aItem);
+        }
+
+        break;
+
+      case KICAD_T.PCB_GROUP_T:
+        for (const item of (aItem as unknown as PCB_GROUP).GetBoardItems()) {
+          if (checkVisibility(item)) this.computeItemAnchors(item, aRefPos, aFrom, null);
+        }
+
+        break;
+
+      case KICAD_T.PCB_REFERENCE_IMAGE_T:
+        if (aFrom && aSelectionFilter && !aSelectionFilter.graphics) break;
+
+        if (checkVisibility(aItem)) {
+          const image = aItem as unknown as PCB_REFERENCE_IMAGE;
+          const refImg = image.GetReferenceImage();
+          const bbox = refImg.GetBoundingBox();
+
+          addRectPoints(bbox, aItem);
+
+          const offset = refImg.GetTransformOriginOffset();
+
+          if (offset.x !== 0 || offset.y !== 0) {
+            const pos = image.GetPosition();
+            add({ x: pos.x + offset.x, y: pos.y + offset.y }, ORIGIN, aItem, PT_CENTER);
+          }
+        }
+
+        break;
+
+      default:
+        break;
+    }
+  }
+
+  /** `GetArcAnchors( const PCB_ARC&, bool aFrom )` (cpp:1310-1327). */
+  static GetArcAnchors(
+    aArc: PCB_ARC,
+    aFrom: boolean,
+  ): { pos: Vec2; flags: number; pointType: number }[] {
+    const anchors: { pos: Vec2; flags: number; pointType: number }[] = [];
+
+    // The stored midpoint is grid-aligned when the arc is; expose it alongside the endpoints so
+    // BestDragOrigin picks a grid-aligned corner as the drag/paste reference.
+    anchors.push({
+      pos: aArc.GetMid(),
+      flags: ANCHOR_FLAGS.CORNER | ANCHOR_FLAGS.SNAPPABLE,
+      pointType: PT_MID,
     });
+
+    // The derived geometric center is rarely grid-aligned. It stays available as a drag origin
+    // for other items (aFrom=false) but is never offered as this arc's own origin.
+    if (!aFrom)
+      anchors.push({ pos: aArc.GetCenter(), flags: ANCHOR_FLAGS.ORIGIN, pointType: PT_CENTER });
+
+    return anchors;
   }
 
   /** The tool holder, as the PCB frame the live forms read. */
   private toolFrame(): {
     GetScreen(): unknown;
     GetActiveLayer(): PCB_LAYER_ID;
-    GetTransitionalBoardView?(): Board | null;
   } | null {
     return (this.m_toolMgr?.GetToolHolder() as never) ?? null;
   }
@@ -1233,6 +2185,53 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
     const nearestGrid = this.Align(aWhere);
     const gridSize = this.GetGridSize(0);
     const hysteresisWorld = KiROUND(aOpts.hysteresis ?? 0);
+
+    return this.resolveSnap(
+      aWhere,
+      snapRange,
+      nearest,
+      nearestGrid,
+      gridSize,
+      hysteresisWorld,
+      (aItems) => {
+        // Null items represent geometry that isn't tied to a board item (a snap
+        // line from another anchor) and produce no construction items.
+        const ids: string[] = [];
+
+        for (const item of aItems) {
+          const id = this.itemIdOf(item);
+
+          if (id !== undefined && this.itemOnLayers(aBoard, id, aOpts)) ids.push(id);
+        }
+
+        this.AddConstructionItems(aBoard, ids, true, false);
+      },
+      () => {
+        const hit = this.hoverHit(aBoard, aWhere, snapRange, aOpts);
+
+        return hit !== null ? this.itemToken(hit)[0]! : null;
+      },
+    );
+  }
+
+  /**
+   * The decision half of `BestSnapAnchor` (cpp:643-930), once the anchors are
+   * computed: snap lines first, the held snap until `snapOut`, a new anchor
+   * inside `snapIn`, the item under the cursor proposed on hover, a point on an
+   * element with the grid off, else the grid. `aPropose` is the
+   * `proposeConstructionForItems` lambda and `aHoverHit` the hit test over the
+   * visible items; both depend on what the anchors were computed from.
+   */
+  private resolveSnap(
+    aWhere: Vec2,
+    snapRange: number,
+    nearest: ANCHOR | null,
+    nearestGrid: Vec2,
+    gridSize: Vec2,
+    hysteresisWorld: number,
+    proposeConstructionForItems: (aItems: readonly (EDA_ITEM | null)[]) => void,
+    aHoverHit: () => EDA_ITEM | null,
+  ): Vec2 {
     const snapIn = Math.max(0, snapRange - hysteresisWorld);
     const snapOut = snapRange + hysteresisWorld;
 
@@ -1251,20 +2250,6 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
     const snapLineManager = snapManager.GetSnapLineManager();
     const ptIsReferenceOnly = (aPt: Vec2): boolean =>
       snapManager.GetReferenceOnlyPoints().some((p) => p.x === aPt.x && p.y === aPt.y);
-
-    const proposeConstructionForItems = (aItems: readonly (EDA_ITEM | null)[]): void => {
-      // Null items represent geometry that isn't tied to a board item (a snap
-      // line from another anchor) and produce no construction items.
-      const ids: string[] = [];
-
-      for (const item of aItems) {
-        const id = this.itemIdOf(item);
-
-        if (id !== undefined && this.itemOnLayers(aBoard, id, aOpts)) ids.push(id);
-      }
-
-      this.AddConstructionItems(aBoard, ids, true, false);
-    };
 
     let snapValid = false;
 
@@ -1349,10 +2334,10 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
         snapValid = true;
       } else if (ADVANCED_CFG.GetCfg().m_ExtensionSnapActivateOnHover) {
         // An exact hit on an item, even if not near a snap point
-        const hit = this.hoverHit(aBoard, aWhere, snapRange, aOpts);
+        const hit = aHoverHit();
 
         if (hit !== null) {
-          proposeConstructionForItems([this.itemToken(hit)[0]!]);
+          proposeConstructionForItems([hit]);
           snapValid = true;
         }
       }
@@ -1403,7 +2388,32 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
     aItemIds: readonly string[],
     aExtensionOnly: boolean,
     aIsPersistent: boolean,
+  ): void;
+  /**
+   * `PCB_GRID_HELPER::AddConstructionItems( std::vector<BOARD_ITEM*>, bool, bool )`
+   * (cpp:204-343) on live items, each proposed under its own pointer.
+   */
+  AddConstructionItems(
+    aItems: readonly BOARD_ITEM[],
+    aExtensionOnly: boolean,
+    aIsPersistent: boolean,
+  ): void;
+  AddConstructionItems(
+    a: Board | readonly BOARD_ITEM[],
+    b: readonly string[] | boolean,
+    c: boolean,
+    d?: boolean,
   ): void {
+    if (Array.isArray(a)) {
+      this.addConstructionItemsLive(a as readonly BOARD_ITEM[], b as boolean, c);
+      return;
+    }
+
+    const aBoard = a as Board;
+    const aItemIds = b as readonly string[];
+    const aExtensionOnly = c;
+    const aIsPersistent = d!;
+
     if (!ADVANCED_CFG.GetCfg().m_EnableExtensionSnaps) return;
 
     const batch: CONSTRUCTION_ITEM_BATCH = [];
@@ -1462,6 +2472,126 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
         Source: CONSTRUCTION_MANAGER_SOURCE.FROM_ITEMS,
         Item: this.itemToken(id)[0]!,
         Constructions: drawables.map((d) => ({ Drawable: d, LineWidth: 1 })),
+      });
+    }
+
+    if (referenceOnlyPoints.length)
+      this.getSnapManager().SetReferenceOnlyPoints(referenceOnlyPoints);
+
+    this.getSnapManager().GetConstructionManager().ProposeConstructionItems(batch, aIsPersistent);
+  }
+
+  private addConstructionItemsLive(
+    aItems: readonly BOARD_ITEM[],
+    aExtensionOnly: boolean,
+    aIsPersistent: boolean,
+  ): void {
+    if (!ADVANCED_CFG.GetCfg().m_EnableExtensionSnaps) return;
+
+    // For all the elements that get drawn construction geometry,
+    // add something suitable to the construction helper.
+    // This can be nothing.
+    const batch: CONSTRUCTION_ITEM_BATCH = [];
+    const referenceOnlyPoints: Vec2[] = [];
+
+    for (const item of aItems) {
+      const drawables: CONSTRUCTION_GEOM_DRAWABLE[] = [];
+
+      switch (item.Type()) {
+        case KICAD_T.PCB_SHAPE_T: {
+          const shape = item as unknown as PCB_SHAPE;
+
+          switch (shape.GetShape()) {
+            case SHAPE_T.SEGMENT: {
+              const start = shape.GetStart();
+              const end = shape.GetEnd();
+
+              if (!aExtensionOnly) {
+                drawables.push(new LINE(start, end));
+              } else {
+                // Two rays, extending from the segment ends
+                const segVec = { x: end.x - start.x, y: end.y - start.y };
+                drawables.push(
+                  new HALF_LINE(start, { x: start.x - segVec.x, y: start.y - segVec.y }),
+                );
+                drawables.push(new HALF_LINE(end, { x: end.x + segVec.x, y: end.y + segVec.y }));
+              }
+
+              if (aIsPersistent) {
+                // include the original endpoints as construction items
+                // (this allows H/V snapping), but mark them as references, so
+                // they don't get snapped to themselves
+                drawables.push({ ...start }, { ...end });
+                referenceOnlyPoints.push({ ...start }, { ...end });
+              }
+
+              break;
+            }
+
+            case SHAPE_T.ARC: {
+              const center = shape.GetCenter();
+
+              if (!aExtensionOnly) {
+                drawables.push(new CIRCLE(center, shape.GetRadius()));
+              } else {
+                // The rest of the circle is the arc through the opposite point to the midpoint
+                const arcMid = shape.GetArcMid();
+                const oppositeMid = {
+                  x: center.x + (center.x - arcMid.x),
+                  y: center.y + (center.y - arcMid.y),
+                };
+                drawables.push(new SHAPE_ARC(shape.GetStart(), oppositeMid, shape.GetEnd(), 0));
+              }
+
+              drawables.push({ ...center });
+
+              if (aIsPersistent) {
+                drawables.push({ ...shape.GetStart() }, { ...shape.GetEnd() });
+                referenceOnlyPoints.push({ ...shape.GetStart() }, { ...shape.GetEnd() });
+              }
+
+              break;
+            }
+
+            case SHAPE_T.CIRCLE:
+            case SHAPE_T.RECTANGLE:
+              drawables.push({ ...shape.GetCenter() });
+              break;
+
+            default:
+              // This shape doesn't have any construction geometry to draw
+              break;
+          }
+
+          break;
+        }
+
+        case KICAD_T.PCB_REFERENCE_IMAGE_T: {
+          const refImg = (item as unknown as PCB_REFERENCE_IMAGE).GetReferenceImage();
+          const pos = refImg.GetPosition();
+          const offset = refImg.GetTransformOriginOffset();
+
+          drawables.push({ ...pos });
+
+          if (offset.x !== 0 || offset.y !== 0)
+            drawables.push({ x: pos.x + offset.x, y: pos.y + offset.y });
+
+          for (const seg of KIGEOM_BoxToSegs(refImg.GetBoundingBox())) drawables.push(seg);
+
+          break;
+        }
+
+        default:
+          // This item doesn't have any construction geometry to draw
+          break;
+      }
+
+      // constructionDrawables can be empty, which is fine: the item is still
+      // going to be proposed for activation
+      batch.push({
+        Source: CONSTRUCTION_MANAGER_SOURCE.FROM_ITEMS,
+        Item: item,
+        Constructions: drawables.map((dr) => ({ Drawable: dr, LineWidth: 1 })),
       });
     }
 
@@ -1623,22 +2753,52 @@ export class PCB_GRID_HELPER extends GRID_HELPER {
     if ('footprints' in a)
       return this.bestDragOriginOn(a, b as Iterable<string>, c as Vec2, d as DragOriginOptions);
 
-    const board = this.toolFrame()?.GetTransitionalBoardView?.() ?? null;
+    return this.bestDragOriginLive(
+      a,
+      b as readonly BOARD_ITEM[],
+      d as SELECTION_FILTER_LIKE | null,
+    );
+  }
 
-    if (!board) return { x: a.x, y: a.y };
+  /** `BestDragOrigin( aMousePos, aItems, aGrid, aSelectionFilter )` (cpp:507-565). */
+  private bestDragOriginLive(
+    aMousePos: Vec2,
+    aItems: readonly BOARD_ITEM[],
+    aSelectionFilter: SELECTION_FILTER_LIKE | null,
+  ): Vec2 {
+    this.clearAnchors();
 
-    const ids: string[] = [];
+    this.computeAnchorsOfItems(aItems, aMousePos, true, aSelectionFilter ?? null, null, true);
 
-    for (const item of b as readonly BOARD_ITEM[]) {
-      const id = viewIdOfBoardItem(board, item);
+    const lineSnapMinCornerDistance = this.m_toolMgr!.GetView()!.ToWorld(50);
 
-      if (id !== null) ids.push(id);
+    const nearestOutline = this.nearestAnchor(aMousePos, ANCHOR_FLAGS.OUTLINE);
+    const nearestCorner = this.nearestAnchor(aMousePos, ANCHOR_FLAGS.CORNER);
+    const nearestOrigin = this.nearestAnchor(aMousePos, ANCHOR_FLAGS.ORIGIN);
+    let best: ANCHOR | null = null;
+    let minDist = Number.MAX_VALUE;
+
+    if (nearestOrigin) {
+      minDist = nearestOrigin.Distance(aMousePos);
+      best = nearestOrigin;
     }
 
-    return this.bestDragOriginOn(board, ids, a, {
-      gridSize: this.GetGrid().x,
-      lineSnapMinCornerDistance: this.m_toolMgr!.GetView()!.ToWorld(50),
-    });
+    if (nearestCorner) {
+      const dist = nearestCorner.Distance(aMousePos);
+
+      if (dist < minDist) {
+        minDist = dist;
+        best = nearestCorner;
+      }
+    }
+
+    if (nearestOutline) {
+      const dist = nearestOutline.Distance(aMousePos);
+
+      if (minDist > lineSnapMinCornerDistance && dist < minDist) best = nearestOutline;
+    }
+
+    return best ? { ...best.pos } : { x: aMousePos.x, y: aMousePos.y };
   }
 
   private bestDragOriginOn(

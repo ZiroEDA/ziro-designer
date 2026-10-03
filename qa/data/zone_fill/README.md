@@ -68,6 +68,25 @@ pipeline was matched stage by stage.
   board showed the worker can start popping before every task is queued,
   which prunes N2 and N4 instead), and multi-threaded runs vary further.
 
+- `waveorder_1006_kicad_cli.kicad_pcb`: the same board refilled by KiCad
+  **10.0.6** (`kicad-cli pcb drc --refill-zones --save-board`,
+  `MaximumThreads=1`). 10.0.6's `Fill` no longer runs the zones in waves: it
+  walks the dependency DAG and releases a zone's dependents the moment its fill
+  publishes, so three of the seven zone-layers differ from the 10.0.5 file
+  above. Every other board here refills byte-identically under 10.0.6. The
+  live-BOARD pour (`zone_fill_kicad_exact_live.test.ts`) is held to this one;
+  the 10.0.5 file stays for the view pour's test until that pour is deleted.
+
+- `fillpaths_kicad_cli.kicad_pcb` + `make_fillpaths_board.py`: one area per
+  path of `ZONE_FILLER::Fill` that neither these boards nor thirteen demo
+  boards take (each was a surviving mutant): a via whose flashing the
+  after-pour re-check (issue 22010) takes back, a same-net higher-priority
+  pour with a larger clearance (outline subtraction, then the same-net refill
+  seed of issue 23790), a pour on a net with nothing else on it, and a
+  lower-priority pour listed before the different-net pour it must wait for.
+  Built through KiCad's pcbnew module, refilled by kicad-cli 10.0.6 with
+  `MaximumThreads=1`.
+
 - `flashing_kicad_cli.kicad_pcb` + `make_flashing_board.py`: the conditional
   via/pad flashing fixture. The script builds the board through KiCad's own
   `pcbnew` Python module and the refill is `kicad-cli pcb drc --refill-zones

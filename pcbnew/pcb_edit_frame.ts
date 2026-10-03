@@ -10,17 +10,29 @@
  * The listener is `BOARD_LISTENER` as the React side subscribes to it: every
  * notification schedules one re-derivation of the view from the BOARD.
  */
+import { ROUTER_TOOL } from './router/router_tool.js';
+import { PCB_ACTIONS } from './tools/pcb_actions.js';
+import { AUTOPLACE_TOOL } from './autorouter/autoplace_tool.js';
+import type { BOARD_NETLIST_UPDATER } from './netlist_reader/board_netlist_updater.js';
+import { PCB_TRACK } from './pcb_track.js';
+import { SpreadFootprints } from './autorouter/spread_footprints.js';
+import { PCB_CONTROL } from './tools/pcb_control.js';
+import { BOARD_EDITOR_CONTROL } from './tools/board_editor_control.js';
 import { PARSE_ERROR } from '@ziroeda/common/dsnlexer.js';
-import { PCB_EDIT_FRAME_NAME } from '@ziroeda/common/eda_draw_frame.js';
+import { EDA_DRAW_FRAME, PCB_EDIT_FRAME_NAME } from '@ziroeda/common/eda_draw_frame.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { ENUM_MAP } from '@ziroeda/common/properties/property.js';
-import { FRAME_T } from '@ziroeda/common/frame_type.js';
+import { ARC_EDIT_MODE, FRAME_T } from '@ziroeda/common/frame_type.js';
 import {
   CLEARANCE_LAYER_FOR,
+  GAL_LAYER_ID,
   IsCopperLayer,
   PCB_LAYER_ID,
   UNDEFINED_LAYER,
 } from '@ziroeda/common/layer_id.js';
+import { COMMON_CONTROL } from '@ziroeda/common/tool/common_control.js';
+import { COMMON_TOOLS } from '@ziroeda/common/tool/common_tools.js';
+import { ZOOM_TOOL } from '@ziroeda/common/tool/zoom_tool.js';
 import { EMBED_TOOL } from '@ziroeda/common/tool/embed_tool.js';
 import { PROPERTIES_TOOL } from '@ziroeda/common/tool/properties_tool.js';
 import { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
@@ -30,16 +42,32 @@ import { LeaderMode as LEADER_MODE } from '@ziroeda/kimath/src/geometry/geometry
 import { EDA_ANGLE, EDA_ANGLE_T } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import type { BOARD } from './board.js';
 import { BOARD_ITEM } from './board_item.js';
-import type { BOARD_CONNECTED_ITEM } from './board_connected_item.js';
+import { BOARD_CONNECTED_ITEM } from './board_connected_item.js';
 import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
 import type { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
 import type { BOARD_ITEM_CONTAINER } from './board_item_container.js';
 import { BOARD_LISTENER } from './board.js';
-import { HIGH_CONTRAST_MODE } from '@ziroeda/common/project/board_project_settings.js';
+import {
+  HIGH_CONTRAST_MODE,
+  ZONE_DISPLAY_MODE,
+} from '@ziroeda/common/project/board_project_settings.js';
+import { ACTION_CONDITIONS } from '@ziroeda/common/tool/action_manager.js';
+import {
+  type SELECTION_CONDITION,
+  SELECTION_CONDITIONS,
+} from '@ziroeda/common/tool/selection_conditions.js';
+import type { TOOL_ACTION } from '@ziroeda/common/tool/tool_action.js';
+import { PCB_EDITOR_CONDITIONS } from './tools/pcb_editor_conditions.js';
+import { PCB_SELECTION_CONDITIONS } from './tools/pcb_selection_conditions.js';
+import { PnsMode, type RoutingSettings } from './router/pns_routing_settings.js';
 import { PAD } from './pad.js';
 import { PCB_VIA, VIATYPE } from './pcb_track.js';
 import type { PROGRESS_REPORTER_LIKE } from './connectivity/connectivity_algo.js';
-import { PCB_BASE_EDIT_FRAME } from './pcb_base_edit_frame.js';
+import {
+  PCB_BASE_EDIT_FRAME,
+  type IMPORT_GRAPHICS_RESULT,
+  type PASTE_MODE,
+} from './pcb_base_edit_frame.js';
 import { STRTOK, strncpyLine } from '@ziroeda/common/libc/string.js';
 import type { KIWAY_MAIL_EVENT } from '@ziroeda/common/kiway_mail.js';
 import { MAIL_T } from '@ziroeda/common/mail_type.js';
@@ -62,7 +90,8 @@ import type { ZONE } from './zone.js';
 import type { wxTextValidator } from '@ziroeda/common/validators.js';
 import { DisplayErrorMessage } from '@ziroeda/common/confirm.js';
 import { MICROWAVE_TOOL, type MICROWAVE_HOST } from './microwave/microwave_tool.js';
-import type { Board, PcbFootprint } from './types.js';
+import { PCB_VIEWER_TOOLS } from './tools/pcb_viewer_tools.js';
+import type { PcbFootprint } from './types.js';
 import type { NETLIST } from './netlist_reader/pcb_netlist.js';
 import { type DIALOG_DRC_LIKE, DRC_TOOL } from './tools/drc_tool.js';
 import type { DRC_JOB_HOOKS, DRC_JOB_REQUEST } from './browser/drc_job.js';
@@ -72,14 +101,23 @@ import { MARKER_T } from '@ziroeda/common/marker_base.js';
 import { RPT_SEVERITY_EXCLUSION } from '@ziroeda/common/reporter.js';
 import type { BOX2D } from '@ziroeda/kimath/src/math/box2.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-import type { CROSS_PROBING_SETTINGS } from '@ziroeda/common/settings/app_settings.js';
+import {
+  type APP_SETTINGS_BASE,
+  type CROSS_PROBING_SETTINGS,
+  EdaUnitsFromInt,
+  EdaUnitsToInt,
+} from '@ziroeda/common/settings/app_settings.js';
+import { type EdaUnits, pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { PAGE_INFO, PAGE_SIZE_TYPE } from '@ziroeda/common/page_info.js';
+import { PCB_SCREEN } from './pcb_screen.js';
+import { CROSS_HAIR_MODE } from '@ziroeda/common/gal/gal_display_options.js';
+import { GRID } from '@ziroeda/common/settings/grid_settings.js';
 import type { GridEntry } from '@ziroeda/common/settings/grid_settings_ui.js';
 import {
   frameTitle,
   type FrameTitleParts,
   READ_ONLY_SUFFIX,
 } from '@ziroeda/common/use_document_title.js';
-import { defaultUnitsToggle } from '@ziroeda/common/settings/app_settings_units.js';
 import type { CrosshairMode } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
 import type { RawFile } from '@ziroeda/common';
 import { applyMixins } from '@ziroeda/core/mixins.js';
@@ -98,11 +136,12 @@ import type { LIB_ID } from '@ziroeda/common/lib_id.js';
 import type { PCB_SELECTION_FILTER_OPTIONS } from '@ziroeda/common/project/board_project_settings.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import { TOOL_DISPATCHER } from '@ziroeda/common/tool/tool_dispatcher.js';
-import type { wxEvent } from '@ziroeda/common/wx/wx_event.js';
+import { type wxEvent, wxUpdateUIEvent } from '@ziroeda/common/wx/wx_event.js';
+import type { EDA_BASE_FRAME } from '@ziroeda/common/eda_base_frame.js';
 import type { SelectionFilter } from './dialogs/dialog_filter_selection.js';
 import { PCB_POINT_EDITOR } from './tools/pcb_point_editor.js';
 import { PCB_SELECTION_TOOL } from './tools/pcb_selection_tool.js';
-import { EDIT_TOOL, type MOVE_EXACT_VALUES, type ROUTER_TOOL_LIKE } from './tools/edit_tool.js';
+import { EDIT_TOOL, type MOVE_EXACT_VALUES } from './tools/edit_tool.js';
 import type { DOGBONE_PARAMETERS } from './tools/item_modification_routine.js';
 import { ALIGN_DISTRIBUTE_TOOL } from './tools/align_distribute_tool.js';
 import { BOARD_INSPECTION_TOOL } from './tools/board_inspection_tool.js';
@@ -112,7 +151,25 @@ import type { DIALOG_OFFSET_ITEM } from './dialogs/dialog_offset_item.js';
 import { PAD_TOOL } from './tools/pad_tool.js';
 import { GLOBAL_EDIT_TOOL } from './tools/global_edit_tool.js';
 import { ZONE_FILLER_TOOL } from './tools/zone_filler_tool.js';
-import type { ZoneFillOptions } from './zone_filler.js';
+import { ZONE_FILLER } from './zone_filler.js';
+import type { VIA_DIMENSION } from './board_design_settings.js';
+
+/**
+ * `dialog_pns_diff_pair_dimensions.tsx`'s value, restated: qa typechecks this
+ * module without JSX, so it cannot import a type from a `.tsx`.
+ */
+interface DiffPairDimensionsValue {
+  width: number;
+  gap: number;
+  viaGap: number;
+  viaGapSameAsTraceGap: boolean;
+}
+
+/** `dialog_track_via_size.tsx`'s value, restated for the same reason. */
+interface CustomTrackViaSize {
+  trackWidth: number;
+  via: VIA_DIMENSION;
+}
 import type { KiDialogRequest } from '@ziroeda/common/kidialog.js';
 import type { KiDialogResult } from '@ziroeda/common/kidialog_do_not_show.js';
 import type { DIALOG_SWAP_LAYERS } from './dialogs/dialog_swap_layers.js';
@@ -134,6 +191,17 @@ import type { OUTSET_PARAMETERS } from './tools/item_modification_routine.js';
 import type { CONVERT_SETTINGS } from './pcbnew_settings.js';
 import type { ZONE_SETTINGS } from './zone_settings.js';
 import { PCB_GROUP_TOOL } from './tools/pcb_group_tool.js';
+import { DRAWING_MODE, DRAWING_TOOL } from './tools/drawing_tool.js';
+import type { TOOL_EVENT } from '@ziroeda/common/tool/tool_event.js';
+import type { DIALOG_TEXT_PROPERTIES } from './dialogs/dialog_text_properties.js';
+import { DIALOG_TABLE_PROPERTIES } from './dialogs/dialog_table_properties.js';
+import type { PCB_TEXTBOX } from './pcb_textbox.js';
+import { DIALOG_TEXTBOX_PROPERTIES } from './dialogs/dialog_textbox_properties.js';
+import { DIALOG_BARCODE_PROPERTIES } from './dialogs/dialog_barcode_properties.js';
+import type { PCB_BARCODE } from './pcb_barcode.js';
+import type { DIALOG_NON_COPPER_ZONES_EDITOR } from './dialogs/dialog_non_copper_zones_properties.js';
+import type { DIALOG_COPPER_ZONE } from './dialogs/panel_zone_properties.js';
+import type { DIALOG_RULE_AREA_PROPERTIES } from './dialogs/dialog_rule_area_properties.js';
 import { PCB_PICKER_TOOL } from './tools/pcb_picker_tool.js';
 import type { PCB_SELECTION } from './tools/pcb_selection.js';
 import type { PCB_TABLE } from './pcb_table.js';
@@ -187,10 +255,17 @@ export interface PCBNEW_JSON_SETTINGS_LIKE {
     origin_mode: 0 | 1 | 2;
     origin_invert_x_axis: boolean;
     origin_invert_y_axis: boolean;
+    ratsnest_global: boolean;
     ratsnest_footprint: boolean;
     ratsnest_curved: boolean;
     ratsnest_thickness: number;
     show_page_borders: boolean;
+    graphic_items_fill: boolean;
+    graphics_fill: boolean;
+    text_fill: boolean;
+    pad_fill: boolean;
+    track_fill: boolean;
+    via_fill: boolean;
   };
   editing: {
     pcb_angle_snap_mode: 0 | 1 | 2;
@@ -220,10 +295,19 @@ export interface PCBNEW_JSON_SETTINGS_LIKE {
    * spreads together with `pcb_display` into a `windowSettingsOf`-shaped
    * object.
    */
+  /** `APP_SETTINGS_BASE::m_System`'s units (app_settings.cpp:223-245). */
+  system: {
+    units: EdaUnits;
+    last_metric_units: EdaUnits;
+    last_imperial_units: EdaUnits;
+  };
   window: {
     grid: {
       sizes: GridEntry[];
       last_size_idx: number;
+      fast_grid_1: number;
+      fast_grid_2: number;
+      overrides_enabled: boolean;
       show: boolean;
       style: 'dots' | 'lines' | 'crosses';
       line_width: number;
@@ -237,13 +321,34 @@ export interface PCBNEW_JSON_SETTINGS_LIKE {
   };
 }
 
+/** `grid.style`'s stored integers (`common/settings/app_settings.cpp`): 0 dots, 1 lines, 2 crosses. */
+const GRID_STYLE_NAMES: readonly PCBNEW_JSON_SETTINGS_LIKE['window']['grid']['style'][] = [
+  'dots',
+  'lines',
+  'crosses',
+];
+
+/** `window.cursor.cross_hair_mode`, as the slice spells it. */
+const CROSS_HAIR_MODE_OF: Record<
+  PCBNEW_JSON_SETTINGS_LIKE['window']['cursor']['crosshair'],
+  CROSS_HAIR_MODE
+> = {
+  small: CROSS_HAIR_MODE.SMALL_CROSS,
+  full: CROSS_HAIR_MODE.FULLSCREEN_CROSS,
+  '45': CROSS_HAIR_MODE.FULLSCREEN_DIAGONAL,
+};
+
 /**
  * `PCBNEW_SETTINGS`' PARAM list, the part of it the frame, the commit and the
  * undo code read, from the designer's `pcbnew.json` slice
- * (`pcbnew_settings.cpp`'s `pcb_display.*` and `editing.*` rows).
+ * (`pcbnew_settings.cpp`'s `pcb_display.*` and `editing.*` rows), into the
+ * one settings object `Kiface().KifaceSettings()` hands out: `JSON_SETTINGS::
+ * Load` filling the PARAMs of an object that lives as long as the program.
  */
-export function pcbnewSettingsOf(json: PCBNEW_JSON_SETTINGS_LIKE): PCBNEW_SETTINGS {
-  const s = new PCBNEW_SETTINGS();
+export function loadPcbnewSettings(
+  s: PCBNEW_SETTINGS,
+  json: PCBNEW_JSON_SETTINGS_LIKE,
+): PCBNEW_SETTINGS {
   const d = json.pcb_display;
   const e = json.editing;
 
@@ -257,10 +362,18 @@ export function pcbnewSettingsOf(json: PCBNEW_JSON_SETTINGS_LIKE): PCBNEW_SETTIN
   s.m_Display.m_DisplayOrigin = d.origin_mode;
   s.m_Display.m_DisplayInvertXAxis = d.origin_invert_x_axis;
   s.m_Display.m_DisplayInvertYAxis = d.origin_invert_y_axis;
+  s.m_Display.m_ShowGlobalRatsnest = d.ratsnest_global;
   s.m_Display.m_ShowModuleRatsnest = d.ratsnest_footprint;
   s.m_Display.m_DisplayRatsnestLinesCurved = d.ratsnest_curved;
   s.m_Display.m_RatsnestThickness = d.ratsnest_thickness;
   s.m_ShowPageLimits = d.show_page_borders;
+  // Two PARAMs over one value, read in m_params order: the second wins.
+  s.m_ViewersDisplay.m_DisplayGraphicsFill = d.graphic_items_fill;
+  s.m_ViewersDisplay.m_DisplayGraphicsFill = d.graphics_fill;
+  s.m_ViewersDisplay.m_DisplayTextFill = d.text_fill;
+  s.m_ViewersDisplay.m_DisplayPadFill = d.pad_fill;
+  s.m_Display.m_DisplayPcbTrackFill = d.track_fill;
+  s.m_Display.m_DisplayViaFill = d.via_fill;
   s.m_ColorTheme = json.appearance.color_theme;
 
   s.m_CrossProbing = { ...json.cross_probing };
@@ -284,18 +397,293 @@ export function pcbnewSettingsOf(json: PCBNEW_JSON_SETTINGS_LIKE): PCBNEW_SETTIN
   s.m_CtrlClickHighlight = e.ctrl_click_highlight;
   s.m_PolarCoords = e.polar_coords;
 
+  // `APP_SETTINGS_BASE`'s own PARAMs: the units and the window's grid and cursor.
+  s.m_System.units = EdaUnitsToInt(json.system.units);
+  s.m_System.last_metric_units = EdaUnitsToInt(json.system.last_metric_units);
+  s.m_System.last_imperial_units = EdaUnitsToInt(json.system.last_imperial_units);
+
+  const g = s.m_Window.grid;
+  const jg = json.window.grid;
+  g.grids = jg.sizes.map((aEntry) => new GRID(aEntry.name, aEntry.x, aEntry.y));
+  g.last_size_idx = jg.last_size_idx;
+  g.fast_grid_1 = jg.fast_grid_1;
+  g.fast_grid_2 = jg.fast_grid_2;
+  g.style = Math.max(0, GRID_STYLE_NAMES.indexOf(jg.style));
+  g.line_width = jg.line_width;
+  g.min_spacing = jg.min_spacing;
+  g.snap = jg.snap;
+  g.show = jg.show;
+  g.overrides_enabled = jg.overrides_enabled;
+
+  s.m_Window.cursor.cross_hair_mode = CROSS_HAIR_MODE_OF[json.window.cursor.crosshair];
+  s.m_Window.cursor.always_show_cursor = json.window.cursor.always_show_cursor;
+
+  s.m_AuiPanels.show_search = json.aui.show_search;
+  s.m_AuiPanels.show_net_inspector = json.aui.show_net_inspector;
+
   return s;
+}
+
+/** {@link loadPcbnewSettings} into a new object. */
+export function pcbnewSettingsOf(json: PCBNEW_JSON_SETTINGS_LIKE): PCBNEW_SETTINGS {
+  return loadPcbnewSettings(new PCBNEW_SETTINGS(), json);
+}
+
+/**
+ * `JSON_SETTINGS::Store()` for the same PARAMs: what a tool changed in the
+ * settings object, written back into the `pcbnew.json` slice. True when
+ * anything moved.
+ */
+export function storePcbnewSettings(s: PCBNEW_SETTINGS, json: PCBNEW_JSON_SETTINGS_LIKE): boolean {
+  const d = json.pcb_display;
+  const e = json.editing;
+  let changed = false;
+
+  if (d.net_names_mode !== s.m_Display.m_NetNames) {
+    // `m_NetNames` is the int PARAM; the slice types its four values.
+    d.net_names_mode = s.m_Display.m_NetNames as 0 | 1 | 2 | 3;
+    changed = true;
+  }
+  if (d.pad_numbers !== s.m_ViewersDisplay.m_DisplayPadNumbers) {
+    d.pad_numbers = s.m_ViewersDisplay.m_DisplayPadNumbers;
+    changed = true;
+  }
+  if (d.track_clearance_mode !== s.m_Display.m_TrackClearance) {
+    d.track_clearance_mode = s.m_Display.m_TrackClearance;
+    changed = true;
+  }
+  if (d.pad_clearance !== s.m_Display.m_PadClearance) {
+    d.pad_clearance = s.m_Display.m_PadClearance;
+    changed = true;
+  }
+  if (
+    d.pad_use_via_color_for_normal_th_padstacks !== s.m_Display.m_UseViaColorForNormalTHPadstacks
+  ) {
+    d.pad_use_via_color_for_normal_th_padstacks = s.m_Display.m_UseViaColorForNormalTHPadstacks;
+    changed = true;
+  }
+  if (d.force_show_fields_when_fp_selected !== s.m_Display.m_ForceShowFieldsWhenFPSelected) {
+    d.force_show_fields_when_fp_selected = s.m_Display.m_ForceShowFieldsWhenFPSelected;
+    changed = true;
+  }
+  if (d.live_3d_refresh !== s.m_Display.m_Live3DRefresh) {
+    d.live_3d_refresh = s.m_Display.m_Live3DRefresh;
+    changed = true;
+  }
+  if (d.origin_mode !== s.m_Display.m_DisplayOrigin) {
+    d.origin_mode = s.m_Display.m_DisplayOrigin;
+    changed = true;
+  }
+  if (d.origin_invert_x_axis !== s.m_Display.m_DisplayInvertXAxis) {
+    d.origin_invert_x_axis = s.m_Display.m_DisplayInvertXAxis;
+    changed = true;
+  }
+  if (d.origin_invert_y_axis !== s.m_Display.m_DisplayInvertYAxis) {
+    d.origin_invert_y_axis = s.m_Display.m_DisplayInvertYAxis;
+    changed = true;
+  }
+  if (d.ratsnest_footprint !== s.m_Display.m_ShowModuleRatsnest) {
+    d.ratsnest_footprint = s.m_Display.m_ShowModuleRatsnest;
+    changed = true;
+  }
+  if (d.ratsnest_curved !== s.m_Display.m_DisplayRatsnestLinesCurved) {
+    d.ratsnest_curved = s.m_Display.m_DisplayRatsnestLinesCurved;
+    changed = true;
+  }
+  if (d.ratsnest_thickness !== s.m_Display.m_RatsnestThickness) {
+    d.ratsnest_thickness = s.m_Display.m_RatsnestThickness;
+    changed = true;
+  }
+  if (d.show_page_borders !== s.m_ShowPageLimits) {
+    d.show_page_borders = s.m_ShowPageLimits;
+    changed = true;
+  }
+  for (const [key, value] of [
+    ['graphic_items_fill', s.m_ViewersDisplay.m_DisplayGraphicsFill],
+    ['graphics_fill', s.m_ViewersDisplay.m_DisplayGraphicsFill],
+    ['text_fill', s.m_ViewersDisplay.m_DisplayTextFill],
+    ['pad_fill', s.m_ViewersDisplay.m_DisplayPadFill],
+    ['track_fill', s.m_Display.m_DisplayPcbTrackFill],
+    ['via_fill', s.m_Display.m_DisplayViaFill],
+    ['ratsnest_global', s.m_Display.m_ShowGlobalRatsnest],
+  ] as const) {
+    if (d[key] !== value) {
+      d[key] = value;
+      changed = true;
+    }
+  }
+  if (json.appearance.color_theme !== s.m_ColorTheme) {
+    json.appearance.color_theme = s.m_ColorTheme;
+    changed = true;
+  }
+  if (json.DRC.report_all_track_errors !== s.m_DRCDialog.report_all_track_errors) {
+    json.DRC.report_all_track_errors = s.m_DRCDialog.report_all_track_errors;
+    changed = true;
+  }
+  if (json.DRC.crossprobe !== s.m_DRCDialog.crossprobe) {
+    json.DRC.crossprobe = s.m_DRCDialog.crossprobe;
+    changed = true;
+  }
+  if (json.DRC.scroll_on_crossprobe !== s.m_DRCDialog.scroll_on_crossprobe) {
+    json.DRC.scroll_on_crossprobe = s.m_DRCDialog.scroll_on_crossprobe;
+    changed = true;
+  }
+  if (e.pcb_angle_snap_mode !== s.m_AngleSnapMode) {
+    e.pcb_angle_snap_mode = s.m_AngleSnapMode;
+    changed = true;
+  }
+  if (e.arc_edit_mode !== s.m_ArcEditMode) {
+    e.arc_edit_mode = s.m_ArcEditMode;
+    changed = true;
+  }
+  if (e.track_drag_action !== s.m_TrackDragAction) {
+    e.track_drag_action = s.m_TrackDragAction;
+    changed = true;
+  }
+  if (e.allow_free_pads !== s.m_AllowFreePads) {
+    e.allow_free_pads = s.m_AllowFreePads;
+    changed = true;
+  }
+  if (e.auto_fill_zones !== s.m_AutoRefillZones) {
+    e.auto_fill_zones = s.m_AutoRefillZones;
+    changed = true;
+  }
+  if (e.magnetic_pads !== s.m_MagneticItems.pads) {
+    e.magnetic_pads = s.m_MagneticItems.pads;
+    changed = true;
+  }
+  if (e.magnetic_tracks !== s.m_MagneticItems.tracks) {
+    e.magnetic_tracks = s.m_MagneticItems.tracks;
+    changed = true;
+  }
+  if (e.magnetic_graphics !== s.m_MagneticItems.graphics) {
+    e.magnetic_graphics = s.m_MagneticItems.graphics;
+    changed = true;
+  }
+  if (e.esc_clears_net_highlight !== s.m_ESCClearsNetHighlight) {
+    e.esc_clears_net_highlight = s.m_ESCClearsNetHighlight;
+    changed = true;
+  }
+  if (e.show_courtyard_collisions !== s.m_ShowCourtyardCollisions) {
+    e.show_courtyard_collisions = s.m_ShowCourtyardCollisions;
+    changed = true;
+  }
+  if (e.ctrl_click_highlight !== s.m_CtrlClickHighlight) {
+    e.ctrl_click_highlight = s.m_CtrlClickHighlight;
+    changed = true;
+  }
+  if (e.polar_coords !== s.m_PolarCoords) {
+    e.polar_coords = s.m_PolarCoords;
+    changed = true;
+  }
+
+  for (const [k, v] of Object.entries(s.m_CrossProbing)) {
+    const cp = json.cross_probing as unknown as Record<string, unknown>;
+
+    if (cp[k] !== v) {
+      cp[k] = v;
+      changed = true;
+    }
+  }
+
+  const rotation = s.m_RotationAngle.AsTenthsOfADegree();
+
+  if (e.rotation_angle !== rotation) {
+    e.rotation_angle = rotation;
+    changed = true;
+  }
+
+  const flipLeftRight = s.m_FlipDirection === FLIP_DIRECTION.LEFT_RIGHT;
+
+  if (e.flip_left_right !== flipLeftRight) {
+    e.flip_left_right = flipLeftRight;
+    changed = true;
+  }
+
+  const set = <T extends object, K extends keyof T>(aObj: T, aKey: K, aValue: T[K]): void => {
+    if (aObj[aKey] !== aValue) {
+      aObj[aKey] = aValue;
+      changed = true;
+    }
+  };
+
+  set(json.system, 'units', EdaUnitsFromInt(s.m_System.units));
+  set(json.system, 'last_metric_units', EdaUnitsFromInt(s.m_System.last_metric_units));
+  set(json.system, 'last_imperial_units', EdaUnitsFromInt(s.m_System.last_imperial_units));
+
+  const g = s.m_Window.grid;
+  set(json.window.grid, 'last_size_idx', g.last_size_idx);
+  set(json.window.grid, 'fast_grid_1', g.fast_grid_1);
+  set(json.window.grid, 'fast_grid_2', g.fast_grid_2);
+  set(json.window.grid, 'show', g.show);
+  set(json.window.grid, 'overrides_enabled', g.overrides_enabled);
+
+  const crosshair = (Object.keys(CROSS_HAIR_MODE_OF) as (keyof typeof CROSS_HAIR_MODE_OF)[]).find(
+    (k) => CROSS_HAIR_MODE_OF[k] === s.m_Window.cursor.cross_hair_mode,
+  );
+
+  if (crosshair) set(json.window.cursor, 'crosshair', crosshair);
+
+  set(json.window.cursor, 'always_show_cursor', s.m_Window.cursor.always_show_cursor);
+
+  set(json.aui, 'show_search', s.m_AuiPanels.show_search);
+  set(json.aui, 'show_net_inspector', s.m_AuiPanels.show_net_inspector);
+
+  return changed;
 }
 
 export interface PCB_EDIT_FRAME_HOOKS {
   /** `PCBNEW_SETTINGS`, read on every access so a changed preference is seen. */
   settings(): PCBNEW_SETTINGS;
+  /**
+   * TRANSITIONAL (#636): `SaveSettings( config() )` and the settings manager's
+   * save - the settings object, written to the window's store.
+   */
+  storeSettings?(): void;
+  /** TRANSITIONAL (#636): the aux toolbar's track-width / via-size boxes are the window's. */
+  reCreateAuxiliaryToolbar?(): void;
+  /** DIALOG_ASSIGN_NETCLASS: true when OK closed it, the pattern assigned. */
+  showAssignNetclassDialog?(
+    aNetNames: ReadonlySet<string>,
+    aCandidates: ReadonlySet<string>,
+    aPreviewer: (aNetNames: readonly string[]) => void,
+  ): Promise<boolean>;
+  /** TRANSITIONAL (#636): `m_appearancePanel->UpdateDisplayOptions()`; the panel is the window's. */
+  updateDisplayOptions?(): void;
+  /** TRANSITIONAL (#636): whether the window's EDA_3D_VIEWER_FRAME is open. */
+  viewer3DShown?(): boolean;
+  /** TRANSITIONAL (#636): `CreateAndShow3D_Frame`, the window's 3D viewer raised. */
+  showViewer3D?(): void;
   /** `PCB_BASE_FRAME::OnModify`'s effect on the window: the dirty flag. */
   onModify(): void;
   /** `new DIALOG_DRC( m_editFrame, aParent )`: the window's DRC dialog. */
   createDrcDialog(aTool: DRC_TOOL, aParent: unknown): DIALOG_DRC_LIKE;
   /** `Kiface().IsSingle()`: no schematic to test parity against. */
   isSingle(): boolean;
+  /** DIALOG_PASTE_SPECIAL: the chosen mode and clear-nets, or null for Cancel. */
+  showPasteSpecialDialog?(
+    aShowClearNets: boolean,
+  ): Promise<{ mode: PASTE_MODE; clearNets: boolean } | null>;
+  /** DIALOG_PAGES_SETTINGS: true when OK wrote the page and title block into the frame. */
+  showPageSettingsDialog?(): Promise<boolean>;
+  /** DIALOG_IMPORT_GRAPHICS: what OK read off it, or null. */
+  showImportGraphicsDialog?(aFilenameOverride?: string): Promise<IMPORT_GRAPHICS_RESULT | null>;
+  /** DIALOG_BARCODE_PROPERTIES on a live barcode, new or not; true when OK closed it. */
+  showBarcodePropertiesDialog?(aDialog: DIALOG_BARCODE_PROPERTIES): Promise<boolean>;
+  /** DIALOG_TEXTBOX_PROPERTIES on a live text box, new or not; true when OK closed it. */
+  showTextBoxPropertiesDialog?(aDialog: DIALOG_TEXTBOX_PROPERTIES): Promise<boolean>;
+  /** The "Choose Image" file dialog: the bytes chosen, or null for Cancel. */
+  showImageFileDialog?(): Promise<Uint8Array | null>;
+  /** DIALOG_TABLE_PROPERTIES on a live table, new or not; true when OK closed it. */
+  showTablePropertiesDialog?(aDialog: DIALOG_TABLE_PROPERTIES): Promise<boolean>;
+  /** A zone's properties dialog on a ZONE_SETTINGS alone; true when OK closed it. */
+  showZoneSettingsDialog?(
+    aDialog: DIALOG_COPPER_ZONE | DIALOG_NON_COPPER_ZONES_EDITOR | DIALOG_RULE_AREA_PROPERTIES,
+  ): Promise<boolean>;
+  /** DIALOG_TEXT_PROPERTIES shown quasi-modally; true when OK closed it. */
+  showTextPropertiesDialog?(aDialog: DIALOG_TEXT_PROPERTIES): Promise<boolean>;
+  /** The tool stack changed (`PushTool` / `PopTool`): the window's toolbar follows it. */
+  toolStackChanged?(): void;
   /** `PCB_EDIT_FRAME::FetchNetlistFromSchematic`: fills aNetlist, false on failure. */
   fetchNetlistFromSchematic(aNetlist: NETLIST, aAnnotateMessage: string): boolean;
   /**
@@ -370,6 +758,14 @@ export interface PCB_EDIT_FRAME_HOOKS {
    */
   showInfoBarError?(aErrorMsg: string, aShowCloseButton: boolean): void;
   /**
+   * `m_appearancePanel->OnLayerChanged()` and the layer box's `SetLayerSelection`
+   * in `PCB_EDIT_FRAME::SetActiveLayer` (pcb_edit_frame.cpp:1823-1870): the
+   * window's layer combo and Appearance row follow a layer a tool chose (the
+   * router's via, its layer commands). Optional: a frame with no window has
+   * neither.
+   */
+  activeLayerChanged?(aLayer: PCB_LAYER_ID): void;
+  /**
    * `KISTATUSBAR::AddWarningMessages( aKey, aMessages )`: the status bar's
    * warning icon, which `reconcileImportedFootprintLibraries` fills. Optional:
    * a frame with no window shows nothing.
@@ -413,19 +809,15 @@ export interface PCB_EDIT_FRAME_HOOKS {
    */
   selectItem?(aItem: FOOTPRINT): void;
   /**
-   * `ZONE_FILLER( board, nullptr ).Fill( aZones )` for the Zone Manager's
-   * "Update Displayed Zones": the pour of the clones, with the board's zone
-   * list swapped for them. The pour is the window's (it is still view based);
-   * true when it ran to the end. Optional: absent answers false.
-   */
-  fillZones?(aBoard: BOARD, aZones: ZONE[]): boolean;
-  /**
    * `DIALOG_ZONE_MANAGER( editFrame ).ShowQuasiModal()`: true for wxID_OK,
    * with `GetRepourOnClose()`. Optional: absent answers cancel.
    */
   showZoneManager?(): Promise<{ ok: boolean; repour: boolean }>;
-  /** TRANSITIONAL (#636 stage 3): ZONE_FILLER's view-pour options. */
-  zoneFillOptions?(): ZoneFillOptions;
+  /**
+   * TRANSITIONAL (#636): `m_auimgr.GetPane( aName ).IsShown()`. The docked
+   * panes are still the window's, which knows which are shown.
+   */
+  paneShown?(aName: string): boolean;
   /** The window's KiDialog: KIDIALOG::ShowModal. */
   askKiDialog?(aRequest: KiDialogRequest): Promise<KiDialogResult>;
   /**
@@ -502,16 +894,14 @@ export interface PCB_EDIT_FRAME_HOOKS {
   ): Promise<'ignore' | 'all' | null>;
   /** `PCB_BASE_EDIT_FRAME::OpenVertexEditor( aItem )`. */
   openVertexEditor?(aItem: BOARD_ITEM): void;
-  /**
-   * TRANSITIONAL (#636 stage 3): the window's view board, which PCB_GRID_HELPER
-   * still computes its anchors from (`GetTransitionalBoardView`).
-   */
-  boardView?(): Board | null;
-  /**
-   * TRANSITIONAL (#636 stage 3): ROUTER_TOOL's state, while the router is the
-   * window's (`WINDOW_ACTION_BRIDGE::Router`).
-   */
-  router?(): ROUTER_TOOL_LIKE | null;
+  /** `DIALOG_PNS_SETTINGS( frame(), aSettings ).ShowModal()`; resolves when it closes. */
+  showPnsSettingsDialog?(aSettings: RoutingSettings): Promise<void>;
+  /** `DIALOG_PNS_DIFF_PAIR_DIMENSIONS( frame(), sizes ).ShowModal()`: the values, or null on cancel. */
+  showDiffPairDimensionsDialog?(
+    aValue: DiffPairDimensionsValue,
+  ): Promise<DiffPairDimensionsValue | null>;
+  /** `DIALOG_TRACK_VIA_SIZE( frame(), bds ).ShowModal()`: the values, or null on cancel. */
+  showTrackViaSizeDialog?(aValue: CustomTrackViaSize): Promise<CustomTrackViaSize | null>;
   /**
    * `DIALOG_FILTER_SELECTION( frame, aOptions ).ShowModal() == wxID_OK`, the
    * dialog editing `aOptions` in place. Optional: absent answers cancel.
@@ -699,6 +1089,12 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   private m_designRulesText: string | null = null;
   private m_inspectDrcErrorDlg: DIALOG_BOOK_REPORTER | null = null;
 
+  /** What {@link Get3DViewerFrame} answers while the window's 3D viewer is open. */
+  private readonly m_viewer3D = {};
+  m_ShowLayerManagerTools = true;
+  m_ShowSearch = false;
+  m_ShowNetInspector = false;
+
   /** `m_ZoneFillsDirty`: the board has been modified since the last zone fill. */
   m_ZoneFillsDirty = true;
   private m_bookReporterListener: (() => void) | null = null;
@@ -715,6 +1111,22 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   constructor(hooks: PCB_EDIT_FRAME_HOOKS) {
     super(FRAME_T.FRAME_PCB_EDITOR);
     this.hooks = hooks;
+
+    // LoadSettings() *after* creating m_LayersManager, because LoadSettings()
+    // initialize parameters in m_LayersManager. The canvas is the window's and
+    // arrives later (`ActivateGalCanvas`).
+    this.LoadSettings(this.config());
+
+    // SetScreen( new PCB_SCREEN( GetPageSettings().GetSizeIU( pcbIUScale.IU_PER_MILS ) ) ):
+    // the window hands the frame its empty board after the constructor, so the
+    // page is that board's default - `m_paper( PAGE_SIZE_TYPE::A4 )` (board.cpp:99).
+    this.SetScreen(
+      new PCB_SCREEN(new PAGE_INFO(PAGE_SIZE_TYPE.A4).GetSizeIU(pcbIUScale.IU_PER_MILS)),
+    );
+
+    // PCB drawings start in the upper left corner.
+    this.GetScreen()!.m_Center = false;
+
     this.setupTools();
 
     // `pcb_edit_frame.cpp:479-489`. Not ported: `PrepareLayerIndicator()`'s
@@ -813,10 +1225,117 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     return Promise.resolve(true);
   }
 
-  /** `DIALOG_TABLE_PROPERTIES( frame, table ).ShowQuasiModal()`: the table's edit request. */
-  ShowTablePropertiesDialog(aTable: PCB_TABLE): Promise<void> {
-    this.OnEditItemRequest(aTable);
-    return Promise.resolve();
+  /**
+   * `PCB_EDIT_FRAME::OnNetlistChanged( aUpdater, aRunDragCommand )`
+   * (netlist_reader/netlist.cpp:90-164): after a real netlist update, re-sync
+   * the nets, classes and rules, repaint what shows net names, then spread the
+   * new footprints at the origin and select them for the drag that follows.
+   */
+  OnNetlistChanged(aUpdater: BOARD_NETLIST_UPDATER, aRunDragCommand: { value: boolean }): void {
+    const board = this.GetBoard()!;
+
+    this.SetMsgPanel(board);
+
+    // Re-sync nets and  netclasses
+    board.SynchronizeNetsAndNetClasses(false);
+
+    // Recompute component classes
+    board.GetComponentClassManager().InvalidateComponentClasses();
+    board.GetComponentClassManager().RebuildRequiredCaches();
+
+    // Resync DRC rules to account for new aggregate netclass / component class rules
+    try {
+      board
+        .GetDesignSettings()
+        .m_DRCEngine?.InitEngine(this.m_designRulesText, this.m_designRulesPath);
+    } catch (e) {
+      if (!(e instanceof PARSE_ERROR)) throw e;
+    }
+
+    // Update rendered track/via/pad net labels, and any text items that might reference a
+    // netName or netClass
+    const netNamesCfg = this.GetPcbNewSettings().m_Display.m_NetNames;
+
+    this.GetCanvas()
+      ?.GetView()
+      ?.UpdateAllItemsConditionally((aItem: VIEW_ITEM): number => {
+        if (aItem instanceof PCB_TRACK) {
+          if (netNamesCfg === 2 || netNamesCfg === 3) return VIEW_UPDATE_FLAGS.REPAINT;
+        } else if (aItem instanceof PAD) {
+          if (netNamesCfg === 1 || netNamesCfg === 3) return VIEW_UPDATE_FLAGS.REPAINT;
+        }
+
+        const text = aItem as unknown as Partial<EDA_TEXT>;
+
+        if (text.HasTextVars?.()) {
+          text.ClearRenderCache!();
+          text.ClearBoundingBoxCache!();
+          return VIEW_UPDATE_FLAGS.GEOMETRY | VIEW_UPDATE_FLAGS.REPAINT;
+        }
+
+        return 0;
+      });
+
+    // Spread new footprints.
+    const newFootprints = aUpdater.GetAddedFootprints();
+
+    this.GetToolManager()!.RunAction(ACTIONS.selectionClear);
+
+    SpreadFootprints(newFootprints, { x: 0, y: 0 }, true);
+
+    // Start drag command for new footprints
+    if (newFootprints.length > 0) {
+      const items: EDA_ITEM[] = [...newFootprints];
+      this.GetToolManager()!.RunAction(ACTIONS.selectItems, items);
+
+      aRunDragCommand.value = true;
+    }
+
+    this.Compile_Ratsnest(true);
+
+    this.GetCanvas()?.Refresh();
+  }
+
+  override ShowPasteSpecialDialog(
+    aShowClearNets: boolean,
+  ): Promise<{ mode: PASTE_MODE; clearNets: boolean } | null> {
+    return this.hooks.showPasteSpecialDialog?.(aShowClearNets) ?? Promise.resolve(null);
+  }
+
+  override ShowPageSettingsDialog(): Promise<boolean> {
+    return this.hooks.showPageSettingsDialog?.() ?? Promise.resolve(false);
+  }
+
+  override ShowImportGraphicsDialog(
+    aFilenameOverride?: string,
+  ): Promise<IMPORT_GRAPHICS_RESULT | null> {
+    return this.hooks.showImportGraphicsDialog?.(aFilenameOverride) ?? Promise.resolve(null);
+  }
+
+  override ShowBarcodePropertiesDialog(aBarcode: PCB_BARCODE): Promise<boolean> {
+    return (
+      this.hooks.showBarcodePropertiesDialog?.(new DIALOG_BARCODE_PROPERTIES(this, aBarcode)) ??
+      Promise.resolve(false)
+    );
+  }
+
+  override ShowTextBoxPropertiesDialog(aTextBox: PCB_TEXTBOX): Promise<boolean> {
+    return (
+      this.hooks.showTextBoxPropertiesDialog?.(new DIALOG_TEXTBOX_PROPERTIES(this, aTextBox)) ??
+      Promise.resolve(false)
+    );
+  }
+
+  override ShowImageFileDialog(): Promise<Uint8Array | null> {
+    return this.hooks.showImageFileDialog?.() ?? Promise.resolve(null);
+  }
+
+  /** `DIALOG_TABLE_PROPERTIES( frame, table ).ShowQuasiModal() == wxID_OK`, on the live table. */
+  override ShowTablePropertiesDialog(aTable: PCB_TABLE): Promise<boolean> {
+    return (
+      this.hooks.showTablePropertiesDialog?.(new DIALOG_TABLE_PROPERTIES(this, aTable)) ??
+      Promise.resolve(false)
+    );
   }
 
   // ---- CONVERT_TOOL's window half (CONVERT_TOOL_FRAME) ---------------------
@@ -914,14 +1433,19 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     this.ShowInfoBarWarning('Zone fills may be inaccurate.  DRC rules contain errors.');
   }
 
+  /**
+   * ZONE_FILLER_TOOL::ZoneFillDirty's slow-refill note (zone_filler_tool.cpp:289-303).
+   * The "Open Preferences" link is not carried: the infobar takes text only.
+   */
+  ShowZoneAutoRefillSlowMessage(): void {
+    this.ShowInfoBarMsg(
+      'Automatic refill of zones can be turned off in Preferences if it becomes too slow.',
+    );
+  }
+
   /** `KIDIALOG( this, ... ).ShowModal()`, through the window's KiDialog host. */
   AskKiDialog(aRequest: KiDialogRequest): Promise<KiDialogResult> {
     return this.hooks.askKiDialog?.(aRequest) ?? Promise.resolve('cancel');
-  }
-
-  /** TRANSITIONAL (#636 stage 3): the view pour's options, from the window's Board Setup. */
-  GetZoneFillOptions(): ZoneFillOptions {
-    return this.hooks.zoneFillOptions?.() ?? {};
   }
 
   // ---- PAD_TOOL's window half (PAD_TOOL_FRAME) ------------------------------
@@ -955,14 +1479,30 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     return this.hooks.showConnectedPadDialog?.(aTitle, aMessage, aDetails) ?? Promise.resolve(null);
   }
 
-  /** `PCB_BASE_EDIT_FRAME::OpenVertexEditor( aItem )`. */
-  OpenVertexEditor(aItem: BOARD_ITEM): void {
-    this.hooks.openVertexEditor?.(aItem);
+  /** `DIALOG_PNS_SETTINGS::ShowModal`, through the window. */
+  ShowPnsSettingsDialog(aSettings: RoutingSettings): Promise<void> {
+    return this.hooks.showPnsSettingsDialog?.(aSettings) ?? Promise.resolve();
   }
 
-  /** TRANSITIONAL (#636 stage 3): see the `boardView` hook. */
-  GetTransitionalBoardView(): Board | null {
-    return this.hooks.boardView?.() ?? null;
+  /** `DIALOG_PNS_DIFF_PAIR_DIMENSIONS::ShowModal`, through the window. */
+  ShowDiffPairDimensionsDialog(
+    aValue: DiffPairDimensionsValue,
+  ): Promise<DiffPairDimensionsValue | null> {
+    return this.hooks.showDiffPairDimensionsDialog?.(aValue) ?? Promise.resolve(null);
+  }
+
+  /** `DIALOG_TRACK_VIA_SIZE::ShowModal`, through the window. */
+  ShowTrackViaSizeDialog(aValue: CustomTrackViaSize): Promise<CustomTrackViaSize | null> {
+    return this.hooks.showTrackViaSizeDialog?.(aValue) ?? Promise.resolve(null);
+  }
+
+  /**
+   * `PCB_BASE_EDIT_FRAME::OpenVertexEditor( aItem )` (pcb_base_edit_frame.cpp:
+   * 439-462): the pane is a floating window the page renders, so the window
+   * creates it and sets `m_vertexEditorPane`.
+   */
+  OpenVertexEditor(aItem: BOARD_ITEM): void {
+    this.hooks.openVertexEditor?.(aItem);
   }
 
   /**
@@ -973,6 +1513,8 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   override OnIdle(): void {
     super.OnIdle();
     this.hooks.highlightChanged?.();
+    // What a tool changed in config(): the settings manager saves it.
+    this.hooks.storeSettings?.();
   }
 
   /** `DIALOG_BOARD_STATISTICS dialog( this ); dialog.ShowModal()`. */
@@ -1003,59 +1545,505 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     this.hooks.updateProperties?.();
   }
 
-  /** `MICROWAVE_TOOL` (`pcbnew.MicrowaveTool`): built on first use, over this frame. */
-  private m_microwaveTool: MICROWAVE_TOOL | null = null;
+  /**
+   * `PCB_EDIT_FRAME::ReCreateAuxiliaryToolbar` (toolbars_pcb_editor.cpp:843-847):
+   * the track-width and via-size boxes, re-listed in the new units. Those boxes
+   * are the window's, so it rebuilds them.
+   */
+  override ReCreateAuxiliaryToolbar(): void {
+    this.hooks.reCreateAuxiliaryToolbar?.();
+  }
 
   /**
-   * `GetToolManager()->GetTool<MICROWAVE_TOOL>()`. The tool asks this frame for
-   * what its C++ asks `PCB_EDIT_FRAME` for: the dialogs, the current track
-   * width, unit conversion, a blank footprint on this board and the commit.
+   * `OnDisplayOptionsChanged()` (pcb_edit_frame.cpp:2012-2015):
+   * `m_appearancePanel->UpdateDisplayOptions()`. The Appearance panel is the
+   * window's, which re-reads the frame's display options and the board's
+   * element visibility.
    */
-  MicrowaveTool(): MICROWAVE_TOOL {
-    if (!this.m_microwaveTool) {
-      const host: MICROWAVE_HOST = {
-        GetCurrentTrackWidth: () => this.GetDesignSettings().GetCurrentTrackWidth(),
-        StringFromValue: (aIU) => this.GetUnitsProvider().StringFromValue(aIU),
-        ValueFromString: (aText) => this.GetUnitsProvider().ValueFromString(aText),
-        CreateNewFootprint: (aName, aLib) => this.CreateNewFootprint(aName, aLib),
-        OnModify: () => this.OnModify(),
-        ShowInfoBarError: (aMessage) => this.ShowInfoBarError(aMessage),
-        DisplayError: (aMessage) => DisplayErrorMessage(aMessage),
-        TextEntry: (aPrompt, aCaption, aValue, aValidator) =>
-          this.hooks.textEntry?.(aPrompt, aCaption, aValue, aValidator) ?? Promise.resolve(null),
-        PolygonShapeDialog: () =>
-          this.hooks.mwavePolygonalShapeDialog?.() ?? Promise.resolve(false),
-        AddInductor: (aFootprint) => {
-          this.m_toolManager!.RunAction<EDA_ITEM | null>(ACTIONS.selectItem, aFootprint);
+  override OnDisplayOptionsChanged(): void {
+    this.hooks.updateDisplayOptions?.();
+  }
 
-          const commit = new BOARD_COMMIT(this);
-          commit.Add(aFootprint);
-          commit.Push('Add Microwave Inductor');
-        },
-      };
+  /**
+   * `DIALOG_ASSIGN_NETCLASS dlg( m_frame, netNames, candidates, previewer );
+   * dlg.ShowModal() == wxID_OK`, through the window.
+   */
+  ShowAssignNetclassDialog(
+    aNetNames: ReadonlySet<string>,
+    aCandidates: ReadonlySet<string>,
+    aPreviewer: (aNetNames: readonly string[]) => void,
+  ): Promise<boolean> {
+    return (
+      this.hooks.showAssignNetclassDialog?.(aNetNames, aCandidates, aPreviewer) ??
+      Promise.resolve(false)
+    );
+  }
 
-      this.m_microwaveTool = new MICROWAVE_TOOL(host);
+  /** `SetElementVisibility( aElement, aNewState )` (pcb_edit_frame.cpp:2024-2033). */
+  SetElementVisibility(aElement: GAL_LAYER_ID, aNewState: boolean): void {
+    const view = this.GetCanvas()?.GetView();
+
+    // Force the RATSNEST visible
+    if (aElement === GAL_LAYER_ID.LAYER_RATSNEST) view?.SetLayerVisible(aElement, true);
+    else view?.SetLayerVisible(aElement, aNewState);
+
+    this.GetBoard()!.SetElementVisibility(aElement, aNewState);
+  }
+
+  /**
+   * The window's 3D viewer has no frame object; a non-null answer means it is
+   * open, which is all `PCB_VIEWER_TOOLS::Show3DViewer` asks of it.
+   */
+  override Get3DViewerFrame(): object | null {
+    return this.hooks.viewer3DShown?.() ? this.m_viewer3D : null;
+  }
+
+  override CreateAndShow3D_Frame(): object | null {
+    this.hooks.showViewer3D?.();
+    return this.m_viewer3D;
+  }
+
+  override LoadSettings(aCfg: APP_SETTINGS_BASE): void {
+    super.LoadSettings(aCfg);
+
+    if (aCfg instanceof PCBNEW_SETTINGS) {
+      this.m_ShowLayerManagerTools = aCfg.m_AuiPanels.show_layer_manager;
+      this.m_ShowSearch = aCfg.m_AuiPanels.show_search;
+      this.m_ShowNetInspector = aCfg.m_AuiPanels.show_net_inspector;
     }
-
-    return this.m_microwaveTool;
   }
 
   /**
-   * `doInteractiveItemPlacement`'s left click on an item riding the cursor:
-   * `aPlacer->PlaceItem( newBoardItem, commit )` is `commit.Add( aItem )`, then
-   * `commit.Push( aCommitMessage )`. The item is at the click already.
+   * `PCB_EDIT_FRAME::SaveSettings` (pcb_edit_frame.cpp:1745-1800). The panes'
+   * sizes, splitters, tabs and dock directions are the window's and are not
+   * written here; their visibility is `m_auimgr.GetPane( name ).IsShown()`.
    */
-  PlaceInteractiveItem(aItem: FOOTPRINT, aCommitMessage: string): void {
-    aItem.ClearFlags();
+  override SaveSettings(aCfg: APP_SETTINGS_BASE): void {
+    super.SaveSettings(aCfg);
 
-    const commit = new BOARD_COMMIT(this);
-    commit.Add(aItem);
-    commit.Push(aCommitMessage);
+    if (aCfg instanceof PCBNEW_SETTINGS) {
+      const isShown = (aName: string): boolean => this.hooks.paneShown?.(aName) ?? false;
+
+      aCfg.m_AuiPanels.show_layer_manager = isShown(EDA_DRAW_FRAME.AppearancePanelName());
+      aCfg.m_AuiPanels.show_properties = isShown(EDA_DRAW_FRAME.PropertiesPaneName());
+
+      // ensure m_ShowSearch is up to date (the pane can be closed)
+      this.m_ShowSearch = isShown(PCB_EDIT_FRAME.SearchPaneName());
+      aCfg.m_AuiPanels.show_search = this.m_ShowSearch;
+
+      this.m_ShowNetInspector = isShown(EDA_DRAW_FRAME.NetInspectorPanelName());
+      aCfg.m_AuiPanels.show_net_inspector = this.m_ShowNetInspector;
+
+      aCfg.m_AuiPanels.design_blocks_show = isShown(EDA_DRAW_FRAME.DesignBlocksPaneName());
+    }
   }
 
-  /** The window half of `ZONE_FILLER::Fill` over clones: see {@link PCB_EDIT_FRAME_HOOKS.fillZones}. */
+  /** `SearchPaneName()` (pcb_edit_frame.h:148). */
+  static SearchPaneName(): string {
+    return 'Search';
+  }
+
+  /** `LayerManagerShown()` (pcb_edit_frame.cpp:3216-3219). */
+  LayerManagerShown(): boolean {
+    return this.hooks.paneShown?.('LayersManager') ?? false;
+  }
+
+  /** `PropertiesShown()` (pcb_edit_frame.cpp:3222-3225). */
+  PropertiesShown(): boolean {
+    return this.hooks.paneShown?.(EDA_DRAW_FRAME.PropertiesPaneName()) ?? false;
+  }
+
+  /** `NetInspectorShown()` (pcb_edit_frame.cpp:3228-3231). */
+  NetInspectorShown(): boolean {
+    return this.hooks.paneShown?.(EDA_DRAW_FRAME.NetInspectorPanelName()) ?? false;
+  }
+
+  /** `setupUIConditions()` (pcb_edit_frame.cpp:995-1367). */
+  protected override setupUIConditions(): void {
+    super.setupUIConditions();
+
+    const mgr = this.m_toolManager!.GetActionManager();
+    const cond = new PCB_EDITOR_CONDITIONS(this);
+
+    const undoCond = (_aSel: SELECTION): boolean => {
+      const drawingTool = this.m_toolManager!.GetTool(DRAWING_TOOL);
+
+      if (drawingTool && drawingTool.GetDrawingMode() !== DRAWING_MODE.NONE) return true;
+
+      const routerTool = this.m_toolManager!.GetTool(ROUTER_TOOL);
+
+      if (routerTool && routerTool.RoutingInProgress()) return true;
+
+      return this.GetUndoCommandCount() > 0;
+    };
+
+    const groupWithDesignBlockLink = (aSel: SELECTION): boolean => {
+      if (aSel.Size() !== 1) return false;
+
+      if (aSel.Front()!.Type() !== KICAD_T.PCB_GROUP_T) return false;
+
+      const group = aSel.GetItem(0) as unknown as PCB_GROUP;
+
+      return group.HasDesignBlockLink();
+    };
+
+    const ENABLE = (x: SELECTION_CONDITION): ACTION_CONDITIONS => new ACTION_CONDITIONS().Enable(x);
+    const CHECK = (x: SELECTION_CONDITION): ACTION_CONDITIONS => new ACTION_CONDITIONS().Check(x);
+    const { And, Not, ShowAlways, Idle } = {
+      And: SELECTION_CONDITIONS.And,
+      Not: SELECTION_CONDITIONS.Not,
+      ShowAlways: SELECTION_CONDITIONS.ShowAlways,
+      Idle: SELECTION_CONDITIONS.Idle,
+    };
+
+    mgr.SetConditions(ACTIONS.save, ENABLE(ShowAlways));
+    mgr.SetConditions(ACTIONS.undo, ENABLE(undoCond));
+    mgr.SetConditions(ACTIONS.redo, ENABLE(cond.RedoAvailable()));
+
+    mgr.SetConditions(ACTIONS.toggleGrid, CHECK(cond.GridVisible()));
+    mgr.SetConditions(ACTIONS.toggleGridOverrides, CHECK(cond.GridOverrides()));
+    mgr.SetConditions(ACTIONS.togglePolarCoords, CHECK(cond.PolarCoordinates()));
+
+    mgr.SetConditions(ACTIONS.cut, ENABLE(cond.HasItems()));
+    mgr.SetConditions(ACTIONS.copy, ENABLE(cond.HasItems()));
+    mgr.SetConditions(ACTIONS.paste, ENABLE(And(Idle, cond.NoActiveTool())));
+    mgr.SetConditions(ACTIONS.pasteSpecial, ENABLE(And(Idle, cond.NoActiveTool())));
+    mgr.SetConditions(ACTIONS.selectAll, ENABLE(cond.HasItems()));
+    mgr.SetConditions(ACTIONS.unselectAll, ENABLE(cond.HasItems()));
+    mgr.SetConditions(ACTIONS.doDelete, ENABLE(cond.HasItems()));
+    mgr.SetConditions(ACTIONS.duplicate, ENABLE(cond.HasItems()));
+
+    const groupTypes = [KICAD_T.PCB_GROUP_T, KICAD_T.PCB_GENERATOR_T];
+
+    mgr.SetConditions(ACTIONS.group, ENABLE(SELECTION_CONDITIONS.MoreThan(1)));
+    mgr.SetConditions(ACTIONS.ungroup, ENABLE(SELECTION_CONDITIONS.HasTypes(groupTypes)));
+    mgr.SetConditions(PCB_ACTIONS.lock, ENABLE(PCB_SELECTION_CONDITIONS.HasUnlockedItems));
+    mgr.SetConditions(PCB_ACTIONS.unlock, ENABLE(PCB_SELECTION_CONDITIONS.HasLockedItems));
+
+    mgr.SetConditions(PCB_ACTIONS.placeLinkedDesignBlock, ENABLE(groupWithDesignBlockLink));
+    mgr.SetConditions(PCB_ACTIONS.saveToLinkedDesignBlock, ENABLE(groupWithDesignBlockLink));
+
+    mgr.SetConditions(PCB_ACTIONS.padDisplayMode, CHECK(Not(cond.PadFillDisplay())));
+    mgr.SetConditions(PCB_ACTIONS.viaDisplayMode, CHECK(Not(cond.ViaFillDisplay())));
+    mgr.SetConditions(PCB_ACTIONS.trackDisplayMode, CHECK(Not(cond.TrackFillDisplay())));
+    mgr.SetConditions(PCB_ACTIONS.graphicsOutlines, CHECK(Not(cond.GraphicsFillDisplay())));
+    mgr.SetConditions(PCB_ACTIONS.textOutlines, CHECK(Not(cond.TextFillDisplay())));
+
+    // `if( SCRIPTING::IsWxAvailable() )`: there is no Python console in the browser.
+
+    const enableZoneControlCondition = (_aSel: SELECTION): boolean => {
+      const board = this.GetBoard();
+
+      return (
+        !!board &&
+        board.GetVisibleElements().Contains(GAL_LAYER_ID.LAYER_ZONES) &&
+        this.GetDisplayOptions().m_ZoneOpacity > 0.0
+      );
+    };
+
+    mgr.SetConditions(
+      PCB_ACTIONS.zoneDisplayFilled,
+      ENABLE(enableZoneControlCondition).Check(cond.ZoneDisplayMode(ZONE_DISPLAY_MODE.SHOW_FILLED)),
+    );
+    mgr.SetConditions(
+      PCB_ACTIONS.zoneDisplayOutline,
+      ENABLE(enableZoneControlCondition).Check(
+        cond.ZoneDisplayMode(ZONE_DISPLAY_MODE.SHOW_ZONE_OUTLINE),
+      ),
+    );
+    mgr.SetConditions(
+      PCB_ACTIONS.zoneDisplayFractured,
+      ENABLE(enableZoneControlCondition).Check(
+        cond.ZoneDisplayMode(ZONE_DISPLAY_MODE.SHOW_FRACTURE_BORDERS),
+      ),
+    );
+    mgr.SetConditions(
+      PCB_ACTIONS.zoneDisplayTriangulated,
+      ENABLE(enableZoneControlCondition).Check(
+        cond.ZoneDisplayMode(ZONE_DISPLAY_MODE.SHOW_TRIANGULATION),
+      ),
+    );
+
+    mgr.SetConditions(ACTIONS.toggleBoundingBoxes, CHECK(cond.BoundingBoxes()));
+
+    const hasElements = (aSel: SELECTION): boolean => {
+      const board = this.GetBoard();
+
+      return !!board && (!board.IsEmpty() || !Idle(aSel));
+    };
+
+    const boardFlippedCond = (_aSel: SELECTION): boolean =>
+      this.GetDisplayOptions().m_FlipBoardView;
+
+    const layerManagerCond = (_aSel: SELECTION): boolean => this.LayerManagerShown();
+
+    const propertiesCond = (_aSel: SELECTION): boolean => this.PropertiesShown();
+
+    const netInspectorCond = (_aSel: SELECTION): boolean => this.NetInspectorShown();
+
+    const searchPaneCond = (_aSel: SELECTION): boolean =>
+      this.hooks.paneShown?.(PCB_EDIT_FRAME.SearchPaneName()) ?? false;
+
+    const designBlockCond = (_aSel: SELECTION): boolean =>
+      this.hooks.paneShown?.(EDA_DRAW_FRAME.DesignBlocksPaneName()) ?? false;
+
+    const highContrastCond = (_aSel: SELECTION): boolean =>
+      this.GetDisplayOptions().m_ContrastModeDisplay !== HIGH_CONTRAST_MODE.NORMAL;
+
+    const globalRatsnestCond = (_aSel: SELECTION): boolean => {
+      const cfg = this.GetPcbNewSettings();
+      return !!cfg && cfg.m_Display.m_ShowGlobalRatsnest;
+    };
+
+    const curvedRatsnestCond = (_aSel: SELECTION): boolean => {
+      const cfg = this.GetPcbNewSettings();
+      return !!cfg && cfg.m_Display.m_DisplayRatsnestLinesCurved;
+    };
+
+    const netHighlightCond = (_aSel: SELECTION): boolean => {
+      const settings = this.GetCanvas()?.GetView()?.GetPainter()?.GetSettings();
+
+      if (settings) return settings.GetHighlightNetCodes().size > 0;
+
+      return false;
+    };
+
+    const enableNetHighlightCond = (_aSel: SELECTION): boolean => {
+      const tool = this.m_toolManager!.GetTool(BOARD_INSPECTION_TOOL);
+      return !!tool && tool.IsNetHighlightSet();
+    };
+
+    mgr.SetConditions(ACTIONS.highContrastMode, CHECK(highContrastCond));
+    mgr.SetConditions(PCB_ACTIONS.flipBoard, CHECK(boardFlippedCond));
+    mgr.SetConditions(PCB_ACTIONS.showLayersManager, CHECK(layerManagerCond));
+    mgr.SetConditions(PCB_ACTIONS.showRatsnest, CHECK(globalRatsnestCond));
+    mgr.SetConditions(PCB_ACTIONS.ratsnestLineMode, CHECK(curvedRatsnestCond));
+    mgr.SetConditions(
+      PCB_ACTIONS.toggleNetHighlight,
+      CHECK(netHighlightCond).Enable(enableNetHighlightCond),
+    );
+    mgr.SetConditions(ACTIONS.showProperties, CHECK(propertiesCond));
+    mgr.SetConditions(PCB_ACTIONS.showNetInspector, CHECK(netInspectorCond));
+    mgr.SetConditions(ACTIONS.showSearch, CHECK(searchPaneCond));
+    mgr.SetConditions(PCB_ACTIONS.showDesignBlockPanel, CHECK(designBlockCond));
+
+    mgr.SetConditions(PCB_ACTIONS.saveBoardAsDesignBlock, ENABLE(hasElements));
+    mgr.SetConditions(
+      PCB_ACTIONS.saveSelectionAsDesignBlock,
+      ENABLE(SELECTION_CONDITIONS.NotEmpty),
+    );
+
+    const isArcKeepCenterMode = (_aSel: SELECTION): boolean => {
+      const cfg = this.GetPcbNewSettings();
+      return !!cfg && cfg.m_ArcEditMode === ARC_EDIT_MODE.KEEP_CENTER_ADJUST_ANGLE_RADIUS;
+    };
+
+    const isArcKeepEndpointMode = (_aSel: SELECTION): boolean => {
+      const cfg = this.GetPcbNewSettings();
+      return !!cfg && cfg.m_ArcEditMode === ARC_EDIT_MODE.KEEP_ENDPOINTS_OR_START_DIRECTION;
+    };
+
+    const isArcKeepRadiusMode = (_aSel: SELECTION): boolean => {
+      const cfg = this.GetPcbNewSettings();
+      return !!cfg && cfg.m_ArcEditMode === ARC_EDIT_MODE.KEEP_CENTER_ENDS_ADJUST_ANGLE;
+    };
+
+    mgr.SetConditions(ACTIONS.pointEditorArcKeepCenter, CHECK(isArcKeepCenterMode));
+    mgr.SetConditions(ACTIONS.pointEditorArcKeepEndpoint, CHECK(isArcKeepEndpointMode));
+    mgr.SetConditions(ACTIONS.pointEditorArcKeepRadius, CHECK(isArcKeepRadiusMode));
+
+    const isHighlightMode = (_aSel: SELECTION): boolean => {
+      const tool = this.m_toolManager!.GetTool(ROUTER_TOOL);
+      return !!tool && tool.GetRouterMode() === PnsMode.RM_MarkObstacles;
+    };
+
+    const isShoveMode = (_aSel: SELECTION): boolean => {
+      const tool = this.m_toolManager!.GetTool(ROUTER_TOOL);
+      return !!tool && tool.GetRouterMode() === PnsMode.RM_Shove;
+    };
+
+    const isWalkaroundMode = (_aSel: SELECTION): boolean => {
+      const tool = this.m_toolManager!.GetTool(ROUTER_TOOL);
+      return !!tool && tool.GetRouterMode() === PnsMode.RM_Walkaround;
+    };
+
+    mgr.SetConditions(PCB_ACTIONS.routerHighlightMode, CHECK(isHighlightMode));
+    mgr.SetConditions(PCB_ACTIONS.routerShoveMode, CHECK(isShoveMode));
+    mgr.SetConditions(PCB_ACTIONS.routerWalkaroundMode, CHECK(isWalkaroundMode));
+
+    const isAutoTrackWidth = (_aSel: SELECTION): boolean =>
+      this.GetDesignSettings().m_UseConnectedTrackWidth;
+
+    mgr.SetConditions(PCB_ACTIONS.autoTrackWidth, CHECK(isAutoTrackWidth));
+
+    const haveNetCond = (aSel: SELECTION): boolean => {
+      for (const item of aSel) {
+        if (item instanceof BOARD_CONNECTED_ITEM && item.GetNetCode() > 0) return true;
+      }
+
+      return false;
+    };
+
+    mgr.SetConditions(PCB_ACTIONS.showNetInRatsnest, ENABLE(haveNetCond));
+    mgr.SetConditions(PCB_ACTIONS.hideNetInRatsnest, ENABLE(haveNetCond));
+    mgr.SetConditions(PCB_ACTIONS.highlightNet, ENABLE(ShowAlways));
+    mgr.SetConditions(PCB_ACTIONS.highlightNetSelection, ENABLE(ShowAlways));
+
+    const trackTypes = [KICAD_T.PCB_TRACE_T, KICAD_T.PCB_ARC_T, KICAD_T.PCB_VIA_T];
+    const padOwnerTypes = [KICAD_T.PCB_FOOTPRINT_T, KICAD_T.PCB_PAD_T];
+    const footprintTypes = [KICAD_T.PCB_FOOTPRINT_T];
+    const crossProbeTypes = [KICAD_T.PCB_PAD_T, KICAD_T.PCB_FOOTPRINT_T, KICAD_T.PCB_GROUP_T];
+    const zoneTypes = [KICAD_T.PCB_ZONE_T];
+
+    mgr.SetConditions(PCB_ACTIONS.selectNet, ENABLE(SELECTION_CONDITIONS.OnlyTypes(trackTypes)));
+    mgr.SetConditions(PCB_ACTIONS.deselectNet, ENABLE(SELECTION_CONDITIONS.OnlyTypes(trackTypes)));
+    mgr.SetConditions(
+      PCB_ACTIONS.selectUnconnected,
+      ENABLE(SELECTION_CONDITIONS.OnlyTypes(padOwnerTypes)),
+    );
+    mgr.SetConditions(
+      PCB_ACTIONS.selectSameSheet,
+      ENABLE(SELECTION_CONDITIONS.OnlyTypes(footprintTypes)),
+    );
+    mgr.SetConditions(
+      PCB_ACTIONS.selectOnSchematic,
+      ENABLE(SELECTION_CONDITIONS.HasTypes(crossProbeTypes)),
+    );
+
+    const singleZoneCond = And(
+      SELECTION_CONDITIONS.Count(1),
+      SELECTION_CONDITIONS.OnlyTypes(zoneTypes),
+    );
+
+    const zoneMergeCond = And(
+      SELECTION_CONDITIONS.MoreThan(1),
+      SELECTION_CONDITIONS.OnlyTypes(zoneTypes),
+    );
+
+    mgr.SetConditions(PCB_ACTIONS.zoneDuplicate, ENABLE(singleZoneCond));
+    mgr.SetConditions(PCB_ACTIONS.drawZoneCutout, ENABLE(singleZoneCond));
+    mgr.SetConditions(PCB_ACTIONS.drawSimilarZone, ENABLE(singleZoneCond));
+    mgr.SetConditions(PCB_ACTIONS.zoneMerge, ENABLE(zoneMergeCond));
+
+    mgr.SetConditions(ACTIONS.selectSetRect, CHECK(cond.CurrentTool(ACTIONS.selectionTool)));
+    mgr.SetConditions(ACTIONS.selectSetLasso, CHECK(cond.CurrentTool(ACTIONS.selectionTool)));
+
+    const CURRENT_TOOL = (action: TOOL_ACTION): void =>
+      mgr.SetConditions(action, CHECK(cond.CurrentTool(action)));
+
+    // These tools can be used at any time to inspect the board
+    CURRENT_TOOL(ACTIONS.zoomTool);
+    CURRENT_TOOL(ACTIONS.measureTool);
+    CURRENT_TOOL(ACTIONS.selectionTool);
+    CURRENT_TOOL(PCB_ACTIONS.localRatsnestTool);
+
+    const isDRCIdle = (_aSel: SELECTION): boolean => {
+      const tool = this.m_toolManager!.GetTool(DRC_TOOL);
+      return !(tool && tool.IsDRCRunning());
+    };
+
+    const CURRENT_EDIT_TOOL = (action: TOOL_ACTION): void =>
+      mgr.SetConditions(
+        action,
+        new ACTION_CONDITIONS().Check(cond.CurrentTool(action)).Enable(isDRCIdle),
+      );
+
+    // These tools edit the board, so they must be disabled during some operations
+    CURRENT_EDIT_TOOL(ACTIONS.embeddedFiles);
+    CURRENT_EDIT_TOOL(ACTIONS.deleteTool);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.placeFootprint);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.placeDesignBlock);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.routeSingleTrack);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.routeDiffPair);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.tuneSingleTrack);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.tuneDiffPair);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.tuneSkew);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.drawVia);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.drawZone);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.drawRuleArea);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.drawLine);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.drawRectangle);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.drawCircle);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.drawArc);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.drawPolygon);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.drawBezier);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.placePoint);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.placeReferenceImage);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.placeText);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.drawTextBox);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.drawTable);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.drawAlignedDimension);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.drawOrthogonalDimension);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.drawCenterDimension);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.drawRadialDimension);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.drawLeader);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.drillOrigin);
+    CURRENT_EDIT_TOOL(ACTIONS.gridSetOrigin);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.createArray);
+
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.microwaveCreateLine);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.microwaveCreateGap);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.microwaveCreateStub);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.microwaveCreateStubArc);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.microwaveCreateFunctionShape);
+  }
+
+  /**
+   * What `MICROWAVE_TOOL` asks `PCB_EDIT_FRAME` for: the dialogs, the current
+   * track width, unit conversion, a blank footprint on this board and the
+   * commit.
+   */
+  MicrowaveHost(): MICROWAVE_HOST {
+    return {
+      GetCurrentTrackWidth: () => this.GetDesignSettings().GetCurrentTrackWidth(),
+      StringFromValue: (aIU) => this.GetUnitsProvider().StringFromValue(aIU),
+      ValueFromString: (aText) => this.GetUnitsProvider().ValueFromString(aText),
+      CreateNewFootprint: (aName, aLib) => this.CreateNewFootprint(aName, aLib),
+      OnModify: () => this.OnModify(),
+      ShowInfoBarError: (aMessage) => this.ShowInfoBarError(aMessage),
+      DisplayError: (aMessage) => DisplayErrorMessage(aMessage),
+      TextEntry: (aPrompt, aCaption, aValue, aValidator) =>
+        this.hooks.textEntry?.(aPrompt, aCaption, aValue, aValidator) ?? Promise.resolve(null),
+      PolygonShapeDialog: () => this.hooks.mwavePolygonalShapeDialog?.() ?? Promise.resolve(false),
+      AddInductor: (aFootprint) => {
+        this.m_toolManager!.RunAction<EDA_ITEM | null>(ACTIONS.selectItem, aFootprint);
+
+        const commit = new BOARD_COMMIT(this);
+        commit.Add(aFootprint);
+        commit.Push('Add Microwave Inductor');
+      },
+    };
+  }
+
+  /** `GetToolManager()->GetTool<MICROWAVE_TOOL>()`. */
+  MicrowaveTool(): MICROWAVE_TOOL {
+    return this.m_toolManager!.FindTool(MICROWAVE_TOOL.NAME) as unknown as MICROWAVE_TOOL;
+  }
+
+  /**
+   * `DIALOG_ZONE_MANAGER::OnUpdateDisplayedZonesClick`'s pour
+   * (dialog_zone_manager.cpp:495-519): the board's zone list swapped for the
+   * clones, `ZONE_FILLER( board, nullptr ).Fill` over them, and the originals
+   * restored. "Do not use a commit here since we're operating on cloned zones
+   * that are not owned by the board." The connectivity is rebuilt after the
+   * restore too, to drop its pointers to the clones. Here rather than in the
+   * dialog so the dialog's tests can stand in for the pour.
+   */
   FillZones(aBoard: BOARD, aZones: ZONE[]): boolean {
-    return this.hooks.fillZones?.(aBoard, aZones) ?? false;
+    const zones = aBoard.Zones();
+    const originalZones = [...zones];
+
+    zones.splice(0, zones.length, ...aZones);
+
+    try {
+      const filler = new ZONE_FILLER(aBoard, null);
+      const complete = filler.Fill(aBoard.Zones());
+      aBoard.BuildConnectivity();
+      return complete;
+    } finally {
+      zones.splice(0, zones.length, ...originalZones);
+      aBoard.BuildConnectivity();
+    }
   }
 
   /** `PCB_BASE_EDIT_FRAME::GetLayerPairSettings()` (`pcb_base_edit_frame.h:249`). */
@@ -1088,7 +2076,7 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   private setupTools(): void {
     // Create the manager and dispatcher & route draw panel events to the dispatcher
     this.m_toolManager = new TOOL_MANAGER();
-    this.m_toolManager.SetEnvironment(this.m_pcb, null, null, this.hooks.settings(), this);
+    this.m_toolManager.SetEnvironment(this.m_pcb, null, null, this.config(), this);
     const dispatcher = new TOOL_DISPATCHER(this.m_toolManager);
 
     // TRANSITIONAL (#636 stage 3): an event one of the window's own tools owns
@@ -1099,28 +2087,47 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
       () => this.OnIdle(),
     ) as unknown as TOOL_DISPATCHER;
 
+    // TRANSITIONAL (#636): not a KiCad tool. The actions it hands the window -
+    // zoomFitScreen and zoomFitObjects while the window still owns its view
+    // transform, createArray until ARRAY_TOOL is a TOOL - are commands, which
+    // only the first tool with a transition gets, so it is registered first.
+    this.m_toolManager.RegisterTool(
+      new WINDOW_ACTION_BRIDGE((aAction, aEvent) => this.hooks.windowAction?.(aAction, aEvent)),
+    );
+
     // Register tools
+    this.m_toolManager.RegisterTool(new COMMON_CONTROL());
+    this.m_toolManager.RegisterTool(new COMMON_TOOLS());
     this.m_toolManager.RegisterTool(new PCB_SELECTION_TOOL());
+    this.m_toolManager.RegisterTool(new ZOOM_TOOL());
+    this.m_toolManager.RegisterTool(new PCB_PICKER_TOOL());
+    this.m_toolManager.RegisterTool(new ROUTER_TOOL());
     this.m_toolManager.RegisterTool(new EDIT_TOOL());
+    // Not ported: PCB_EDIT_TABLE_TOOL.
     this.m_toolManager.RegisterTool(new GLOBAL_EDIT_TOOL());
     this.m_toolManager.RegisterTool(new PAD_TOOL());
+    this.m_toolManager.RegisterTool(new DRAWING_TOOL());
     this.m_toolManager.RegisterTool(new PCB_POINT_EDITOR());
+    this.m_toolManager.RegisterTool(new PCB_CONTROL());
+    // Not ported: PCB_DESIGN_BLOCK_CONTROL.
+    this.m_toolManager.RegisterTool(new BOARD_EDITOR_CONTROL());
     this.m_toolManager.RegisterTool(new BOARD_INSPECTION_TOOL());
+    // Not yet a TOOL: BOARD_REANNOTATE_TOOL (the dialog drives its class directly).
     this.m_toolManager.RegisterTool(new ALIGN_DISTRIBUTE_TOOL());
+    this.m_toolManager.RegisterTool(new MICROWAVE_TOOL());
     this.m_toolManager.RegisterTool(new POSITION_RELATIVE_TOOL());
+    // Not yet a TOOL: ARRAY_TOOL.
     this.m_toolManager.RegisterTool(new ZONE_FILLER_TOOL());
+    this.m_toolManager.RegisterTool(new AUTOPLACE_TOOL());
     this.m_toolManager.RegisterTool(new DRC_TOOL());
+    this.m_toolManager.RegisterTool(new PCB_VIEWER_TOOLS());
     this.m_toolManager.RegisterTool(new CONVERT_TOOL());
     this.m_toolManager.RegisterTool(new PCB_GROUP_TOOL());
+    // Not ported: GENERATOR_TOOL; SCRIPTING_TOOL (no Python in the browser).
     this.m_toolManager.RegisterTool(new PROPERTIES_TOOL());
+    // Not ported: MULTICHANNEL_TOOL.
     this.m_toolManager.RegisterTool(new EMBED_TOOL());
-    this.m_toolManager.RegisterTool(new PCB_PICKER_TOOL());
-    this.m_toolManager.RegisterTool(
-      new WINDOW_ACTION_BRIDGE(
-        (aAction, aEvent) => this.hooks.windowAction?.(aAction, aEvent),
-        () => this.hooks.router?.() ?? null,
-      ),
-    );
+    // Not ported: DRC_RULE_EDITOR_TOOL.
     this.m_toolManager.InitTools();
 
     // `EDA_BASE_FRAME::LoadWindowSettings` ends with `TOOLS_HOLDER::CommonSettingsChanged()`:
@@ -1132,6 +2139,8 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     for (const tool of this.m_toolManager.Tools()) {
       if (tool instanceof PCB_TOOL_BASE) tool.SetIsBoardEditor(true);
     }
+
+    this.setupUIConditions();
 
     // Run the selection tool, it is supposed to be always active
     this.m_toolManager.InvokeTool('common.InteractiveSelection');
@@ -1430,6 +2439,28 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   }
 
   /** `ShowExchangeFootprintsDialog`: `DIALOG_EXCHANGE_FOOTPRINTS( ... ).ShowQuasiModal()`. */
+  override ShowZoneSettingsDialog(
+    aDialog: DIALOG_COPPER_ZONE | DIALOG_NON_COPPER_ZONES_EDITOR | DIALOG_RULE_AREA_PROPERTIES,
+  ): Promise<boolean> {
+    return this.hooks.showZoneSettingsDialog?.(aDialog) ?? Promise.resolve(false);
+  }
+
+  override ShowTextPropertiesDialog(aDialog: DIALOG_TEXT_PROPERTIES): Promise<boolean> {
+    return this.hooks.showTextPropertiesDialog?.(aDialog) ?? Promise.resolve(false);
+  }
+
+  /** `TOOLS_HOLDER::PushTool`, and the window's toolbar told (KiCad's toolbar asks on update-UI). */
+  override PushTool(aEvent: TOOL_EVENT): void {
+    super.PushTool(aEvent);
+    this.hooks.toolStackChanged?.();
+  }
+
+  /** `TOOLS_HOLDER::PopTool`, and the window's toolbar told. */
+  override PopTool(aEvent: TOOL_EVENT): void {
+    super.PopTool(aEvent);
+    this.hooks.toolStackChanged?.();
+  }
+
   ShowExchangeFootprintsDialog(
     aFootprint: FOOTPRINT | null,
     aUpdateMode: boolean,
@@ -1871,8 +2902,8 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
 
   /**
    * `PCB_EDIT_FRAME::SetActiveLayer( aLayer, aForceRedraw )` (pcb_edit_frame.cpp:1823):
-   * the canvas half. The Appearance panel's `OnLayerChanged` is the React
-   * state's, and `PCB_ACTIONS::layerChanged` is stage 3's.
+   * the canvas half; the Appearance panel's `OnLayerChanged` is the window's,
+   * through `activeLayerChanged`.
    */
   override SetActiveLayer(aLayer: PCB_LAYER_ID, aForceRedraw = false): void {
     const oldLayer = this.GetActiveLayer();
@@ -1880,6 +2911,10 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     if (oldLayer === aLayer && !aForceRedraw) return;
 
     super.SetActiveLayer(aLayer);
+
+    this.hooks.activeLayerChanged?.(aLayer);
+
+    this.m_toolManager?.PostAction(PCB_ACTIONS.layerChanged); // notify other tools
 
     const canvas = this.GetCanvas();
 
@@ -2107,77 +3142,6 @@ export class REACT_BOARD_LISTENER extends BOARD_LISTENER {
   }
 }
 
-// --- PCB_EDIT_FRAME's grid + snap arithmetic (was pcb_grid.ts) ---
-
-/**
- * Where the grid is, and how a point snaps onto it.
- *
- * A board carries its own grid origin — `(setup (grid_origin x y))`,
- * `BOARD_DESIGN_SETTINGS::GetGridOrigin` — and pcbnew installs it on the GAL the
- * moment a board is opened (`pcb_base_edit_frame.cpp`:
- * `GetGAL()->SetGridOrigin( aBoard->GetDesignSettings().GetGridOrigin() )`).
- * Everything that touches the grid then works relative to it: `CAIRO_GAL_BASE::
- * DrawGrid` offsets every dot by `m_gridOrigin`, and `GRID_HELPER::AlignGrid`
- * rounds about `GRID_HELPER::GetOrigin()`, which reads the same value back off
- * the GAL.
- *
- * We had it hardcoded to (0, 0) in both places. That is invisible on a board
- * whose origin happens to be a whole number of grid steps from the world origin
- * — most of them, which is why it survived — and plainly wrong on one where it
- * is not: the dots sit at a fixed fraction of a step away from every track and
- * pad that KiCad placed on them.
- *
- * Lives in its own module rather than in `PcbEditor.tsx` so the qa package can
- * typecheck it; qa's tsc has no `--jsx`, so anything imported from a `.tsx`
- * fails the workspace typecheck even though vitest runs it happily.
- */
-
-/** A point in internal units. */
-export interface GridPoint {
-  x: number;
-  y: number;
-}
-
-/**
- * `EDIT_TOOL::Move`'s movement, for one frame (edit_tool_move_fct.cpp:1144-1177).
- *
- *     m_cursor = grid.BestSnapAnchor( mousePos, layers, selectionGrid, sel_items );
- *     movement = m_cursor - prevPos;
- *     …
- *     prevPos  = m_cursor;
- *
- * `prevPos` is seeded to the drag origin — `grid.BestDragOrigin(…)`, an anchor
- * *on the selection*, with the pointer warped onto it (:1311-1351). Summed over
- * the gesture the telescoping leaves `anchor + Σmovement = BestSnapAnchor(…)`,
- * so what is really being placed is the **anchor**, absolutely, at the snapped
- * cursor. That is the whole of why two parts dragged in KiCad line up with each
- * other: each one's anchor lands on a grid node rather than keeping whatever
- * fraction of a grid step it had.
- *
- * `snap` is `BestSnapAnchor`, taken as an argument because it needs the board,
- * the view scale and the moving items to skip — none of which this arithmetic
- * has any business knowing.
- *
- * The browser cannot warp the pointer. It does not need to: with the warp,
- * upstream's `mousePos` is the anchor plus the pointer's motion since the grab,
- * which is what the first line reconstructs. Called with `anchor === grabOrigin`
- * — a selection that offers no anchor at all, where `BestDragOrigin` returns the
- * mouse position — it degenerates to exactly upstream's own answer for that case.
- */
-export function moveDelta(
-  anchor: GridPoint,
-  grabOrigin: GridPoint,
-  cursor: GridPoint,
-  snap: (p: GridPoint) => GridPoint,
-): GridPoint {
-  const to = snap({
-    x: anchor.x + (cursor.x - grabOrigin.x),
-    y: anchor.y + (cursor.y - grabOrigin.y),
-  });
-
-  return { x: to.x - anchor.x, y: to.y - anchor.y };
-}
-
 // --- PCB_EDIT_FRAME::UpdateTitle (was frame_title.ts) ---
 
 /** `_( "PCB Editor" )`, the half after the dash. */
@@ -2305,21 +3269,54 @@ type PcbnewSettings = PCBNEW_JSON_SETTINGS_LIKE;
  * `ZONE_DISPLAY_MODE`, so only one can be in force.
  */
 export const RADIO_GROUPS: readonly (readonly string[])[] = [
-  ['unitsMm', 'unitsInches', 'unitsMils'],
   ['crosshairSmall', 'crosshairFull', 'crosshair45'],
   ['lineModeFree', 'lineMode90', 'lineMode45'],
   ['zoneDisplayFilled', 'zoneDisplayOutline'],
 ];
 
 /**
+ * The toolbar ids whose check is the frame's own: `ACTION_MANAGER`'s condition
+ * for the action, asked the way wx asks before it draws a control
+ * (`EDA_BASE_FRAME::HandleUpdateUIEvent`). The units group is here because the
+ * frame's units are `UNITS_PROVIDER` state that `COMMON_TOOLS` changes and
+ * `SaveSettings` persists (`cond.Units`, eda_draw_frame.cpp:1368-1370).
+ */
+export const PCB_CHECKED_ACTIONS: Readonly<Record<string, TOOL_ACTION>> = {
+  unitsMm: ACTIONS.millimetersUnits,
+  unitsInches: ACTIONS.inchesUnits,
+  unitsMils: ACTIONS.milsUnits,
+  // PCB_VIEWER_TOOLS' display modes, `!cond.*FillDisplay()` (pcb_edit_frame.cpp:1065-1069).
+  padDisplayMode: PCB_ACTIONS.padDisplayMode,
+  graphicsOutlines: PCB_ACTIONS.graphicsOutlines,
+  textOutlines: PCB_ACTIONS.textOutlines,
+  // PCB_CONTROL's (pcb_edit_frame.cpp:1065-1092, 1176-1188).
+  viaDisplayMode: PCB_ACTIONS.viaDisplayMode,
+  trackDisplayMode: PCB_ACTIONS.trackDisplayMode,
+  zoneDisplayFilled: PCB_ACTIONS.zoneDisplayFilled,
+  zoneDisplayOutline: PCB_ACTIONS.zoneDisplayOutline,
+  highContrast: ACTIONS.highContrastMode,
+  showRatsnest: PCB_ACTIONS.showRatsnest,
+  ratsnestLineMode: PCB_ACTIONS.ratsnestLineMode,
+};
+
+/** The {@link PCB_CHECKED_ACTIONS} ids whose condition is checked now. */
+export function pcbCheckedSet(aFrame: EDA_BASE_FRAME): Set<string> {
+  const out = new Set<string>();
+
+  for (const [id, action] of Object.entries(PCB_CHECKED_ACTIONS)) {
+    const event = new wxUpdateUIEvent(action.GetUIId());
+
+    if (aFrame.ProcessUpdateUI(event) && event.GetChecked()) out.add(id);
+  }
+
+  return out;
+}
+
+/**
  * What a fresh PCB_EDIT_FRAME shows, entry by entry:
  *
  * - `toggleGrid` — `window.grid.show`, default `true`
  *   (`common/settings/app_settings.cpp:555-556`).
- * - the units button — the `APP_SETTINGS_BASE` branch
- *   (`app_settings.cpp:228-238`). `PCBNEW_SETTINGS` passes the filename
- *   `"pcbnew"` (`pcbnew/pcbnew_settings.cpp:50`), which is on neither imperial
- *   name, so the board opens in millimetres.
  * - `crosshairSmall` — `m_crossHairMode( CROSS_HAIR_MODE::SMALL_CROSS )`
  *   (`common/gal/gal_display_options.cpp:52`).
  * - `lineModeFree` — `m_AngleSnapMode( LEADER_MODE::DIRECT )`
@@ -2346,7 +3343,6 @@ export const RADIO_GROUPS: readonly (readonly string[])[] = [
  */
 export const DEFAULT_TOGGLES: ReadonlySet<string> = new Set([
   'toggleGrid',
-  defaultUnitsToggle('pcbnew'),
   'crosshairSmall',
   'lineModeFree',
   'zoneDisplayFilled',
@@ -2410,12 +3406,6 @@ export function pcbTogglesFromSettings(cfg: PcbnewSettings): Set<string> {
   if (cfg.aui.show_search) out.add('showSearch');
   if (cfg.aui.show_net_inspector) out.add('showNetInspector');
 
-  // `curvedRatsnestCond` reads `m_Display.m_DisplayRatsnestLinesCurved`
-  // (`pcbnew/pcb_edit_frame.cpp:1150-1155`), which Preferences > PCB Editor >
-  // Editing Options is the other control over.
-  out.delete('ratsnestLineMode');
-  if (cfg.pcb_display.ratsnest_curved) out.add('ratsnestLineMode');
-
   // `BOARD_EDITOR_CONTROL::OnAngleSnapModeChanged` maps `m_AngleSnapMode` onto
   // one of the three Line mode buttons (`board_editor_control.cpp:360-368`), so
   // the toolbar group and Editing Options' "Constrain actions to H, V, 45
@@ -2431,13 +3421,15 @@ export function lineModeToggleId(mode: number): string {
   return mode === 1 ? 'lineMode45' : mode === 2 ? 'lineMode90' : 'lineModeFree';
 }
 
-/** …and back. */
-export function lineModeOf(id: string): 0 | 1 | 2 | null {
-  if (id === 'lineModeFree') return 0;
-  if (id === 'lineMode45') return 1;
-  if (id === 'lineMode90') return 2;
-  return null;
-}
+/**
+ * The Line modes group's buttons, as BOARD_EDITOR_CONTROL::ChangeLineMode's
+ * actions; `SelectToolbarAction` names one of them back.
+ */
+export const PCB_LINE_MODE_ACTIONS: Readonly<Record<string, TOOL_ACTION>> = {
+  lineModeFree: PCB_ACTIONS.lineModeFree,
+  lineMode45: PCB_ACTIONS.lineMode45,
+  lineMode90: PCB_ACTIONS.lineMode90,
+};
 
 /** `CROSS_HAIR_MODE` -> the left toolbar's button id. */
 export function crosshairToggleId(mode: CrosshairMode): string {
@@ -2470,20 +3462,8 @@ export function foldPcbToggle(cfg: PcbnewSettings, id: string): boolean {
     return true;
   }
 
-  const line = lineModeOf(id);
-
-  if (line !== null) {
-    cfg.editing.pcb_angle_snap_mode = line;
-    return true;
-  }
-
   if (id === 'toggleGrid') {
     cfg.window.grid.show = !cfg.window.grid.show;
-    return true;
-  }
-
-  if (id === 'ratsnestLineMode') {
-    cfg.pcb_display.ratsnest_curved = !cfg.pcb_display.ratsnest_curved;
     return true;
   }
 
@@ -2512,9 +3492,7 @@ export function foldPcbToggle(cfg: PcbnewSettings, id: string): boolean {
 export function isStoredPcbToggle(id: string): boolean {
   return (
     crosshairModeOf(id) !== null ||
-    lineModeOf(id) !== null ||
     id === 'toggleGrid' ||
-    id === 'ratsnestLineMode' ||
     id === 'togglePolarCoords' ||
     id === 'showSearch' ||
     id === 'showNetInspector'

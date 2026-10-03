@@ -49,17 +49,17 @@ import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 export { LeaderMode };
 
 /** `POLYGON_GEOM_MANAGER::CLIENT`, the tool the manager reports back to. */
-export interface PolygonGeomClient {
+export interface POLYGON_GEOM_MANAGER_CLIENT {
   /**
    * Called before the very first corner is locked in. Return false to refuse
    * to start — `ZONE_CREATE_HELPER::OnFirstPoint` does exactly that when the
    * zone properties dialog comes back cancelled.
    */
-  onFirstPoint(mgr: PolygonGeomManager): boolean;
+  OnFirstPoint(mgr: POLYGON_GEOM_MANAGER): boolean;
   /** Called whenever any of the three chains changed. */
-  onGeometryChange(mgr: PolygonGeomManager): void;
+  OnGeometryChange(mgr: POLYGON_GEOM_MANAGER): void;
   /** Called when the outline is closed; the client builds the real item. */
-  onComplete(mgr: PolygonGeomManager): void;
+  OnComplete(mgr: POLYGON_GEOM_MANAGER): void;
 }
 
 /**
@@ -150,15 +150,15 @@ function build90DegLeader(endPoint: Vec2, lastPoints: readonly Vec2[]): Vec2[] {
 }
 
 /** `POLYGON_GEOM_MANAGER`. */
-export class PolygonGeomManager {
-  private readonly client_: PolygonGeomClient;
+export class POLYGON_GEOM_MANAGER {
+  private readonly client_: POLYGON_GEOM_MANAGER_CLIENT;
   private lockedPoints_: Vec2[] = [];
   private leaderPts_: Vec2[] = [];
   private loopPts_: Vec2[] = [];
   private leaderMode_: LeaderMode = LeaderMode.DIRECT;
   private intersectionsAllowed_ = true;
 
-  constructor(client: PolygonGeomClient) {
+  constructor(client: POLYGON_GEOM_MANAGER_CLIENT) {
     this.client_ = client;
   }
 
@@ -171,8 +171,8 @@ export class PolygonGeomManager {
    * Returns false if the client vetoed the first point, or if the corner would
    * self-intersect an outline that does not allow it.
    */
-  addPoint(pt: Vec2): boolean {
-    if (!this.isPolygonInProgress() && !this.client_.onFirstPoint(this)) return false;
+  AddPoint(pt: Vec2): boolean {
+    if (!this.IsPolygonInProgress() && !this.client_.OnFirstPoint(this)) return false;
 
     if (this.leaderPts_.length > 1) {
       appendPoint(this.lockedPoints_, this.leaderPts_[this.leaderPts_.length - 2]!);
@@ -181,39 +181,39 @@ export class PolygonGeomManager {
       appendPoint(this.lockedPoints_, pt);
     }
 
-    if (!this.intersectionsAllowed_ && this.isSelfIntersecting(false)) {
+    if (!this.intersectionsAllowed_ && this.IsSelfIntersecting(false)) {
       this.lockedPoints_.pop();
       return false;
     }
 
     if (this.lockedPoints_.length > 0) this.updateTemporaryLines(pt);
 
-    this.client_.onGeometryChange(this);
+    this.client_.OnGeometryChange(this);
     return true;
   }
 
   /** `SetFinished`: hand the outline to the client to build the real item. */
-  setFinished(): void {
-    this.client_.onComplete(this);
+  SetFinished(): void {
+    this.client_.OnComplete(this);
   }
 
   /** `SetLeaderMode`. */
-  setLeaderMode(mode: LeaderMode): void {
+  SetLeaderMode(mode: LeaderMode): void {
     this.leaderMode_ = mode;
   }
 
   /** `GetLeaderMode`. */
-  getLeaderMode(): LeaderMode {
+  GetLeaderMode(): LeaderMode {
     return this.leaderMode_;
   }
 
   /** `AllowIntersections`. pcbnew never turns it off; the footprint wizard does. */
-  allowIntersections(enabled: boolean): void {
+  AllowIntersections(enabled: boolean): void {
     this.intersectionsAllowed_ = enabled;
   }
 
   /** `IntersectionsAllowed`. */
-  intersectionsAllowed(): boolean {
+  IntersectionsAllowed(): boolean {
     return this.intersectionsAllowed_;
   }
 
@@ -232,7 +232,7 @@ export class PolygonGeomManager {
    * a reimplementation at a call site would be the copy this module exists to
    * prevent.
    */
-  isSelfIntersecting(includeLeaderPts: boolean): boolean {
+  IsSelfIntersecting(includeLeaderPts: boolean): boolean {
     const pts: Vec2[] = this.lockedPoints_.map((p) => ({ x: p.x, y: p.y }));
 
     if (includeLeaderPts) {
@@ -273,17 +273,17 @@ export class PolygonGeomManager {
   }
 
   /** `SetCursorPosition`: a motion event; only meaningful once started. */
-  setCursorPosition(pos: Vec2): void {
+  SetCursorPosition(pos: Vec2): void {
     if (this.lockedPoints_.length > 0) this.updateTemporaryLines(pos);
   }
 
   /** `IsPolygonInProgress`. */
-  isPolygonInProgress(): boolean {
+  IsPolygonInProgress(): boolean {
     return this.lockedPoints_.length > 0;
   }
 
   /** `PolygonPointCount`. */
-  polygonPointCount(): number {
+  PolygonPointCount(): number {
     return this.lockedPoints_.length;
   }
 
@@ -295,7 +295,7 @@ export class PolygonGeomManager {
    * the same grid node, and a radius here would instead steal clicks that were
    * meant to place a corner near the start.
    */
-  newPointClosesOutline(pt: Vec2): boolean {
+  NewPointClosesOutline(pt: Vec2): boolean {
     const first = this.lockedPoints_[0];
     return !!first && first.x === pt.x && first.y === pt.y;
   }
@@ -304,7 +304,7 @@ export class PolygonGeomManager {
    * `DeleteLastCorner`: drop the most recent corner and return it, so the
    * caller can warp the cursor back onto it. Returns null when there was none.
    */
-  deleteLastCorner(): Vec2 | null {
+  DeleteLastCorner(): Vec2 | null {
     let last: Vec2 | null = null;
 
     if (this.lockedPoints_.length > 0) last = this.lockedPoints_.pop() ?? null;
@@ -314,31 +314,31 @@ export class PolygonGeomManager {
     const leaderLast = this.leaderPts_[this.leaderPts_.length - 1];
     if (this.lockedPoints_.length > 0 && leaderLast) this.updateTemporaryLines(leaderLast);
 
-    this.client_.onGeometryChange(this);
+    this.client_.OnGeometryChange(this);
     return last;
   }
 
   /** `Reset`: throw the outline away. */
-  reset(): void {
+  Reset(): void {
     this.lockedPoints_ = [];
     this.leaderPts_ = [];
     this.loopPts_ = [];
 
-    this.client_.onGeometryChange(this);
+    this.client_.OnGeometryChange(this);
   }
 
   /** `GetLockedInPoints`. */
-  getLockedInPoints(): readonly Vec2[] {
+  GetLockedInPoints(): readonly Vec2[] {
     return this.lockedPoints_;
   }
 
   /** `GetLeaderLinePoints`. */
-  getLeaderLinePoints(): readonly Vec2[] {
+  GetLeaderLinePoints(): readonly Vec2[] {
     return this.leaderPts_;
   }
 
   /** `GetLoopLinePoints`. */
-  getLoopLinePoints(): readonly Vec2[] {
+  GetLoopLinePoints(): readonly Vec2[] {
     return this.loopPts_;
   }
 
@@ -365,6 +365,6 @@ export class PolygonGeomManager {
       this.loopPts_ = [];
     }
 
-    this.client_.onGeometryChange(this);
+    this.client_.OnGeometryChange(this);
   }
 }

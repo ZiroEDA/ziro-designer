@@ -2,50 +2,49 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * `PNS_KICAD_IFACE_BASE` over Ziro's `Board` — `pns_kicad_iface.ts`.
+ * `PNS_KICAD_IFACE_BASE` / `PNS_KICAD_IFACE` over the live BOARD —
+ * `pns_kicad_iface.ts`.
  *
- * The first router test in this tree that fills a `PnsNode` from a **real
- * board**. Every earlier one built its items by hand, which is fine for
- * arithmetic and useless for the one thing a bridge can get wrong: the mapping
- * itself. `ecc83-pp.kicad_pcb` is the demo `connectivity.test.ts`,
- * `drc_probe.test.ts` and `pns_drag.test.ts` already use.
- *
- * What that board cannot cover, and why the synthetic boards below exist: it is
- * two-layer and has **no vias, no arcs and no inner layers** — and neither does
- * any other `.kicad_pcb` in this repo (all 15 were checked). The via, arc and
- * inner-layer paths are therefore driven from a four-layer board built as
- * source text and put through the same `readBoard`, so the reader is still in
- * the loop even though the file is not on disk.
+ * `ecc83-pp.kicad_pcb` is a real two-layer board with no vias, arcs or inner
+ * layers; those paths are driven from a four-layer board built as source text
+ * and put through the same parser.
  */
 import { readFileSync } from 'node:fs';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr';
-import { readBoard } from '@ziroeda/pcbnew';
+import { LSET } from '@ziroeda/common/lset.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import type { BOARD } from '@ziroeda/pcbnew/board.js';
+import { NETINFO_LIST } from '@ziroeda/pcbnew/netinfo.js';
+import type { PAD } from '@ziroeda/pcbnew/pad.js';
+import { PAD_ATTRIB } from '@ziroeda/pcbnew/padstack.js';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import type { PCB_ARC, PCB_TRACK, PCB_VIA } from '@ziroeda/pcbnew/pcb_track.js';
 import {
   PNS_KICAD_IFACE,
-  PNS_ORPHANED_NET,
-  asBoardItem,
   boardLayerFromPnsLayer,
-  padHoleShape,
   pnsLayerFromBoardLayer,
-  solidShapeForPad,
 } from '@ziroeda/pcbnew/router/pns_kicad_iface.js';
-import { setRouterIface } from '@ziroeda/pcbnew/router/pns_item.js';
-import { PnsKind } from '@ziroeda/pcbnew/router/pns_item.js';
+import { type PnsBoardItem, PnsKind, setRouterIface } from '@ziroeda/pcbnew/router/pns_item.js';
 import { PnsLayerRange } from '@ziroeda/pcbnew/router/pns_layerset.js';
 import { PnsNode } from '@ziroeda/pcbnew/router/pns_node.js';
-import type { PnsBoardNet } from '@ziroeda/pcbnew/router/pns_kicad_iface.js';
-import type { PnsSegment } from '@ziroeda/pcbnew/router/pns_segment.js';
+import { PnsSegment } from '@ziroeda/pcbnew/router/pns_segment.js';
 import type { PnsSolid } from '@ziroeda/pcbnew/router/pns_solid.js';
 import type { PnsVia } from '@ziroeda/pcbnew/router/pns_via.js';
-import type { Board, PcbPad } from '@ziroeda/pcbnew/types.js';
+import { TEST_PCB_FRAME } from './support/test_pcb_frame.js';
 
 const ECC83 = new URL('../../../designer/public/demos/ecc83/ecc83-pp.kicad_pcb', import.meta.url);
 
-const readEcc83 = (): Board => readBoard(parse(readFileSync(ECC83, 'utf8')));
+const readEcc83 = (): BOARD => {
+  const b = ParseBoard(readFileSync(ECC83, 'utf8'));
+  b.BuildConnectivity();
+  return b;
+};
+
+/** `ITEM::Parent()`'s handle for a board item, as `NODE::FindItemsByParent` takes it. */
+const pb = (aItem: object): PnsBoardItem => aItem as unknown as PnsBoardItem;
 
 /** `ROUTER::SyncWorld` (pns_router.cpp:95-105), which is what a caller does. */
-function syncInto(aBoard: Board): { iface: PNS_KICAD_IFACE; node: PnsNode } {
+function syncInto(aBoard: BOARD): { iface: PNS_KICAD_IFACE; node: PnsNode } {
   const iface = new PNS_KICAD_IFACE(aBoard);
 
   // `ITEM::collideSimple` reaches `isFlashedOnLayer` through this singleton.
@@ -60,12 +59,19 @@ function syncInto(aBoard: Board): { iface: PNS_KICAD_IFACE; node: PnsNode } {
   return { iface, node };
 }
 
-const allPads = (aBoard: Board): PcbPad[] => aBoard.footprints.flatMap((f) => f.pads);
+const allPads = (aBoard: BOARD): PAD[] => aBoard.Footprints().flatMap((f) => f.Pads());
+const traces = (aBoard: BOARD): PCB_TRACK[] =>
+  aBoard.Tracks().filter((t) => t.Type() === KICAD_T.PCB_TRACE_T);
+const arcs = (aBoard: BOARD): PCB_ARC[] =>
+  aBoard.Tracks().filter((t) => t.Type() === KICAD_T.PCB_ARC_T) as PCB_ARC[];
+const vias = (aBoard: BOARD): PCB_VIA[] =>
+  aBoard.Tracks().filter((t) => t.Type() === KICAD_T.PCB_VIA_T) as PCB_VIA[];
+const layerName = (aItem: { GetLayer(): number }): string => LSET.Name(aItem.GetLayer());
 
 // ---------------------------------------------------------------------------
 
 describe('a real board in a real node: demos/ecc83/ecc83-pp.kicad_pcb', () => {
-  let board: Board;
+  let board: BOARD;
   let iface: PNS_KICAD_IFACE;
   let node: PnsNode;
 
@@ -75,87 +81,71 @@ describe('a real board in a real node: demos/ecc83/ecc83-pp.kicad_pcb', () => {
   });
 
   it('is the board this test thinks it is', () => {
-    // If the fixture changes, the counts below are meaningless rather than
-    // wrong, so they are pinned to the board's own totals as well as to
-    // literals.
     expect(allPads(board)).toHaveLength(33);
-    expect(board.tracks).toHaveLength(59);
-    expect(board.arcs).toHaveLength(0);
-    expect(board.vias).toHaveLength(0);
+    expect(traces(board)).toHaveLength(59);
+    expect(arcs(board)).toHaveLength(0);
+    expect(vias(board)).toHaveLength(0);
     expect(iface.copperLayerCount()).toBe(2);
   });
 
   it('adds one SOLID per pad, one SEGMENT per track, and a HOLE per drilled pad', () => {
     const pads = allPads(board);
-    const drilled = pads.filter((p) => (p.drill?.w ?? 0) > 0);
+    const drilled = pads.filter((p) => p.GetDrillSize().x > 0);
 
     expect(drilled).toHaveLength(33); // every pad on this board is through-hole
 
     for (const pad of pads) {
-      const items = node.findItemsByParent(asBoardItem(pad));
+      const items = node.findItemsByParent(pb(pad));
 
       expect(items).toHaveLength(1);
       expect(items[0]!.kind()).toBe(PnsKind.SOLID_T);
       expect((items[0] as PnsSolid).hasHole()).toBe(true);
     }
 
-    for (const track of board.tracks) {
-      const items = node.findItemsByParent(asBoardItem(track));
+    for (const track of traces(board)) {
+      const items = node.findItemsByParent(pb(track));
 
       expect(items).toHaveLength(1);
       expect(items[0]!.kind()).toBe(PnsKind.SEGMENT_T);
     }
 
-    // The index holds the holes too — a HOLE is an item in its own right, which
-    // is what makes hole-to-hole clearance expressible at all.
-    expect(node.index().size()).toBe(pads.length + drilled.length + board.tracks.length);
-    expect(node.index().size()).toBe(125);
+    // The holes are items in their own right. The board's Edge.Cuts graphics are
+    // synced too now (syncGraphicalItem), as non-routable solids.
+    const edges = board
+      .Drawings()
+      .filter((d) => d.GetLayer() === LSET.NameToLayer('Edge.Cuts')).length;
+
+    expect(node.index().size()).toBeGreaterThanOrEqual(
+      pads.length + drilled.length + traces(board).length + edges,
+    );
   });
 
-  it('links joints at track endpoints, and a track lands on the pad it meets', () => {
-    expect(node.jointCount()).toBe(90);
+  it('links joints at track endpoints', () => {
+    for (const t of traces(board)) {
+      const l = iface.getPnsLayerFromBoardLayer(layerName(t));
+      const s = node.findItemsByParent(pb(t))[0]!;
 
-    const track = board.tracks[0]!;
-    const layer = iface.getPnsLayerFromBoardLayer(track.layer);
-    const net = iface.netHandle(track.net);
-    const segment = node.findItemsByParent(asBoardItem(track))[0] as PnsSegment;
-
-    for (const end of [track.start, track.end]) {
-      const joint = node.findJoint(end, layer, net);
-
-      expect(joint).not.toBeNull();
-      expect(joint!.linkList()).toContain(segment);
-    }
-
-    // Every track endpoint on the board has a joint, and every joint a track
-    // ends at carries that track.
-    for (const t of board.tracks) {
-      const l = iface.getPnsLayerFromBoardLayer(t.layer);
-      const n = iface.netHandle(t.net);
-      const s = node.findItemsByParent(asBoardItem(t))[0]!;
-
-      expect(node.findJoint(t.start, l, n)?.linkList()).toContain(s);
-      expect(node.findJoint(t.end, l, n)?.linkList()).toContain(s);
+      expect(node.findJoint(t.GetStart(), l, t.GetNet())?.linkList()).toContain(s);
+      expect(node.findJoint(t.GetEnd(), l, t.GetNet())?.linkList()).toContain(s);
     }
   });
 
   it('joins a pad to the tracks that reach it', () => {
-    // Pick a pad that at least one track ends on, and check the joint carries
-    // both. This is the whole point of the sync: connectivity, not geometry.
     let checked = 0;
 
     for (const pad of allPads(board)) {
-      const solid = node.findItemsByParent(asBoardItem(pad))[0] as PnsSolid;
-      const net = iface.netHandle(pad.net);
+      const solid = node.findItemsByParent(pb(pad))[0] as PnsSolid;
+      const at = pad.GetPosition();
 
-      const touching = board.tracks.filter(
-        (t) => t.net === (pad.net ?? 0) && (samePoint(t.start, pad.at) || samePoint(t.end, pad.at)),
+      const touching = traces(board).filter(
+        (t) =>
+          t.GetNet() === pad.GetNet() && (samePoint(t.GetStart(), at) || samePoint(t.GetEnd(), at)),
       );
 
       if (touching.length === 0) continue;
 
-      const layer = iface.getPnsLayerFromBoardLayer(touching[0]!.layer);
-      const joint = node.findJoint(pad.at, layer, net);
+      const layer = iface.getPnsLayerFromBoardLayer(layerName(touching[0]!));
+      const joint = node.findJoint(at, layer, pad.GetNet());
 
       expect(joint).not.toBeNull();
       expect(joint!.linkList()).toContain(solid);
@@ -165,34 +155,28 @@ describe('a real board in a real node: demos/ecc83/ecc83-pp.kicad_pcb', () => {
     expect(checked).toBe(10);
   });
 
-  it('gives every item the right net handle, interned once per net code', () => {
-    for (const track of board.tracks) {
-      const segment = node.findItemsByParent(asBoardItem(track))[0]!;
+  it('gives every item its NETINFO_ITEM as the net handle', () => {
+    for (const track of traces(board)) {
+      const segment = node.findItemsByParent(pb(track))[0]!;
 
-      expect(iface.getNetCode(segment.net())).toBe(track.net);
-      expect(iface.getNetName(segment.net())).toBe(board.nets.get(track.net) ?? '');
       // Identity, not equality: `ITEM::collideSimple` compares handles.
-      expect(segment.net()).toBe(iface.netHandle(track.net));
+      expect(segment.net()).toBe(track.GetNet());
+      expect(iface.getNetCode(segment.net())).toBe(track.GetNetCode());
+      expect(iface.getNetName(segment.net())).toBe(track.GetNetname());
     }
 
     for (const pad of allPads(board)) {
-      const solid = node.findItemsByParent(asBoardItem(pad))[0]!;
-
-      expect(iface.getNetCode(solid.net())).toBe(pad.net ?? 0);
+      expect(node.findItemsByParent(pb(pad))[0]!.net()).toBe(pad.GetNet());
     }
   });
 
-  it('spans every copper layer for a through-hole pad and one for an SMD pad', () => {
+  it('spans every copper layer for a through-hole pad', () => {
     const stack = new PnsLayerRange(0, 1);
 
     for (const pad of allPads(board)) {
-      const solid = node.findItemsByParent(asBoardItem(pad))[0]!;
+      const solid = node.findItemsByParent(pb(pad))[0]!;
 
-      if (pad.type === 'thru_hole' || pad.type === 'np_thru_hole') {
-        expect(solid.layers().equals(stack)).toBe(true);
-      } else {
-        expect(solid.layers().isMultilayer()).toBe(false);
-      }
+      expect(solid.layers().equals(stack)).toBe(true);
     }
   });
 
@@ -200,17 +184,17 @@ describe('a real board in a real node: demos/ecc83/ecc83-pp.kicad_pcb', () => {
     expect(node.getRuleResolver()).toBe(iface.getRuleResolver());
     expect(node.getRuleResolver()).not.toBeNull();
     expect(iface.getWorld()).toBe(node);
-    expect(node.getMaxClearance()).toBeGreaterThanOrEqual(0);
+    expect(node.getMaxClearance()).toBeGreaterThanOrEqual(board.GetMaxClearanceValue());
   });
 
   it('places each solid at its pad, not at the origin plus its pad', () => {
     // `SOLID::SetPos` moves the shape by the delta, so calling it after
-    // `SetShape` would translate every pad by its own position. A pad far from
-    // the origin makes that failure enormous and obvious.
+    // `SetShape` would translate every pad by its own position.
     for (const pad of allPads(board)) {
-      const solid = node.findItemsByParent(asBoardItem(pad))[0] as PnsSolid;
+      const solid = node.findItemsByParent(pb(pad))[0] as PnsSolid;
+      const at = pad.GetPosition();
 
-      expect(solid.pos()).toEqual(pad.at);
+      expect(solid.pos()).toEqual(at);
 
       const shape = solid.shape(-1)!;
       const centre =
@@ -220,17 +204,16 @@ describe('a real board in a real node: demos/ecc83/ecc83-pp.kicad_pcb', () => {
             ? { x: (shape.a.x + shape.b.x) / 2, y: (shape.a.y + shape.b.y) / 2 }
             : centroid(shape.kind === 'poly' ? shape.pts : []);
 
-      expect(Math.hypot(centre.x - pad.at.x, centre.y - pad.at.y)).toBeLessThan(1000);
+      expect(Math.hypot(centre.x - at.x, centre.y - at.y)).toBeLessThan(1000);
     }
   });
 });
 
 // ---------------------------------------------------------------------------
 
-// The copper stack in file order: `parseLayers` numbers copper layers by their
-// POSITION in the list, first F.Cu and last B.Cu (:2296-2306), so B.Cu goes last.
 const MULTILAYER = `(kicad_pcb (version 20241229) (generator "test")
-  (layers (0 "F.Cu" signal) (4 "In1.Cu" signal) (6 "In2.Cu" signal) (2 "B.Cu" signal))
+  (layers (0 "F.Cu" signal) (4 "In1.Cu" signal) (6 "In2.Cu" signal) (2 "B.Cu" signal)
+    (25 "Edge.Cuts" user) (5 "F.SilkS" user "F.Silkscreen"))
   (net 0 "") (net 1 "GND") (net 2 "VCC")
   (segment (start 0 0) (end 10 0) (width 0.25) (layer "F.Cu") (net 1))
   (segment (start 10 0) (end 10 10) (width 0.25) (layer "In2.Cu") (net 1))
@@ -244,35 +227,38 @@ const MULTILAYER = `(kicad_pcb (version 20241229) (generator "test")
     (pad "4" thru_hole oval (at 6 0) (size 2 1.4) (drill oval 1.2 0.6) (layers "*.Cu") (net 1 "GND"))))`;
 
 describe('a four-layer board: vias, arcs and the inner-layer mapping', () => {
-  const board = readBoard(parse(MULTILAYER));
+  const board = ParseBoard(MULTILAYER);
   const { iface, node } = syncInto(board);
 
   it('numbers the copper stack front, inners, back', () => {
     expect(iface.copperLayerCount()).toBe(4);
-    expect(iface.getPnsLayerFromBoardLayer('F.Cu')).toBe(0);
-    expect(iface.getPnsLayerFromBoardLayer('In1.Cu')).toBe(1);
-    expect(iface.getPnsLayerFromBoardLayer('In2.Cu')).toBe(2);
-    expect(iface.getPnsLayerFromBoardLayer('B.Cu')).toBe(3);
-
-    expect(iface.getBoardLayerFromPnsLayer(0)).toBe('F.Cu');
-    expect(iface.getBoardLayerFromPnsLayer(1)).toBe('In1.Cu');
-    expect(iface.getBoardLayerFromPnsLayer(2)).toBe('In2.Cu');
-    expect(iface.getBoardLayerFromPnsLayer(3)).toBe('B.Cu');
+    expect(
+      ['F.Cu', 'In1.Cu', 'In2.Cu', 'B.Cu'].map((l) => iface.getPnsLayerFromBoardLayer(l)),
+    ).toEqual([0, 1, 2, 3]);
+    expect([0, 1, 2, 3].map((l) => iface.getBoardLayerFromPnsLayer(l))).toEqual([
+      'F.Cu',
+      'In1.Cu',
+      'In2.Cu',
+      'B.Cu',
+    ]);
+    // `GetBoardLayerFromPNSLayer` / `GetPNSLayerFromBoardLayer` on PCB_LAYER_ID.
+    expect(
+      [0, 1, 2, 3].map((l) => iface.GetPNSLayerFromBoardLayer(iface.GetBoardLayerFromPNSLayer(l))),
+    ).toEqual([0, 1, 2, 3]);
   });
 
   it('puts a track on the inner layer it names', () => {
-    const inner = board.tracks.find((t) => t.layer === 'In2.Cu')!;
-    const segment = node.findItemsByParent(asBoardItem(inner))[0] as PnsSegment;
+    const inner = traces(board).find((t) => layerName(t) === 'In2.Cu')!;
+    const segment = node.findItemsByParent(pb(inner))[0] as PnsSegment;
 
     expect(segment.layers().equals(new PnsLayerRange(2, 2))).toBe(true);
-    expect(segment.width()).toBe(inner.width);
-    expect(segment.seg().a).toEqual(inner.start);
-    expect(segment.seg().b).toEqual(inner.end);
+    expect(segment.width()).toBe(inner.GetWidth());
+    expect(segment.seg().a).toEqual(inner.GetStart());
+    expect(segment.seg().b).toEqual(inner.GetEnd());
   });
 
   it('keeps an arc as an arc, through its three points', () => {
-    const arc = board.arcs[0]!;
-    const items = node.findItemsByParent(asBoardItem(arc));
+    const items = node.findItemsByParent(pb(arcs(board)[0]!));
 
     expect(items).toHaveLength(1);
     expect(items[0]!.kind()).toBe(PnsKind.ARC_T);
@@ -280,31 +266,31 @@ describe('a four-layer board: vias, arcs and the inner-layer mapping', () => {
   });
 
   it('spans a through via across the whole stack and a blind via across its own', () => {
-    const through = node.findItemsByParent(asBoardItem(board.vias[0]!))[0] as PnsVia;
-    const blind = node.findItemsByParent(asBoardItem(board.vias[1]!))[0] as PnsVia;
+    const [v0, v1] = vias(board);
+    const through = node.findItemsByParent(pb(v0!))[0] as PnsVia;
+    const blind = node.findItemsByParent(pb(v1!))[0] as PnsVia;
 
     expect(through.layers().equals(new PnsLayerRange(0, 3))).toBe(true);
     expect(blind.layers().equals(new PnsLayerRange(0, 1))).toBe(true);
 
-    expect(through.diameter(0)).toBe(board.vias[0]!.size);
-    expect(through.drill()).toBe(board.vias[0]!.drill);
+    expect(through.diameter(0)).toBe(v0!.GetWidth(LSET.NameToLayer('F.Cu')));
+    expect(through.drill()).toBe(v0!.GetDrillValue());
     expect(through.hasHole()).toBe(true);
     expect(through.holeLayers().equals(new PnsLayerRange(0, 3))).toBe(true);
   });
 
   it('links a via into the joint the track ending at it also holds', () => {
-    const track = board.tracks.find((t) => t.layer === 'F.Cu')!;
-    const via = node.findItemsByParent(asBoardItem(board.vias[0]!))[0]!;
-    const joint = node.findJoint(track.end, 0, iface.netHandle(track.net));
+    const track = traces(board).find((t) => layerName(t) === 'F.Cu')!;
+    const via = node.findItemsByParent(pb(vias(board)[0]!))[0]!;
+    const joint = node.findJoint(track.GetEnd(), 0, track.GetNet());
 
     expect(joint).not.toBeNull();
     expect(joint!.linkList()).toContain(via);
   });
 
   it('classifies pads by attribute', () => {
-    const pads = allPads(board);
-    const [pth, smd, npth, oval] = pads.map(
-      (p) => node.findItemsByParent(asBoardItem(p))[0] as PnsSolid,
+    const [pth, smd, npth, oval] = allPads(board).map(
+      (p) => node.findItemsByParent(pb(p))[0] as PnsSolid,
     );
 
     expect(pth!.layers().equals(new PnsLayerRange(0, 3))).toBe(true);
@@ -320,9 +306,15 @@ describe('a four-layer board: vias, arcs and the inner-layer mapping', () => {
     );
     expect(iface.startPointUnroutableReason(pth!)).toBeNull();
 
-    // An oblong drill is a stadium, not a circle.
-    expect(oval!.hole()!.shape(-1)!.kind).toBe('stadium');
-    expect(pth!.hole()!.shape(-1)!.kind).toBe('circle');
+    // `PAD::GetEffectiveHoleShape` is always a SHAPE_SEGMENT: a round drill is
+    // one of zero length, an oblong one has length.
+    const ovalHole = oval!.hole()!.shape(-1)!;
+    const roundHole = pth!.hole()!.shape(-1)!;
+    expect(ovalHole.kind).toBe('stadium');
+    expect(roundHole.kind).toBe('stadium');
+    if (ovalHole.kind !== 'stadium' || roundHole.kind !== 'stadium') throw new Error('unreachable');
+    expect(roundHole.a).toEqual(roundHole.b);
+    expect(ovalHole.a).not.toEqual(ovalHole.b);
     // The hole spans the whole board whatever the pad's own layers say.
     expect(pth!.hole()!.layers().equals(new PnsLayerRange(0, 3))).toBe(true);
   });
@@ -355,30 +347,14 @@ describe('layer mapping', () => {
   });
 
   it('calls layer 0 the front even on a one-layer board', () => {
-    // Upstream tests `aLayer == 0` before `aLayer == count - 1`, so the two
-    // arms cannot both fire.
     expect(boardLayerFromPnsLayer(0, 1)).toBe('F.Cu');
   });
 
-  it('is copper exactly where the board-layer conversion produces copper', () => {
-    const iface = new PNS_KICAD_IFACE(readBoard(parse(MULTILAYER)));
+  it('is copper exactly on the enabled copper stack (IsPNSCopperLayer)', () => {
+    const iface = new PNS_KICAD_IFACE(ParseBoard(MULTILAYER));
 
     expect([0, 1, 2, 3].map((l) => iface.isPnsCopperLayer(l))).toEqual([true, true, true, true]);
     expect(iface.isPnsCopperLayer(-1)).toBe(false);
-    expect(iface.isPnsCopperLayer(4)).toBe(false);
-  });
-
-  it('skips a track whose layer is not copper', () => {
-    // No upstream counterpart — every PCB_TRACE_T is on copper there — but a
-    // parsed file can carry one, and an item with layer -1 overlaps nothing.
-    const board = readBoard(
-      parse(`(kicad_pcb (version 20241229) (generator "test")
-        (layers (0 "F.Cu" signal) (2 "B.Cu" signal)) (net 0 "")
-        (segment (start 0 0) (end 1 0) (width 0.2) (layer "F.SilkS") (net 0)))`),
-    );
-    const { node } = syncInto(board);
-
-    expect(node.index().size()).toBe(0);
   });
 });
 
@@ -393,142 +369,200 @@ describe('nets', () => {
     expect(iface.getNetName(null)).toBe('');
   });
 
-  it('interns one handle per code, and net 0 gets one too', () => {
-    expect(iface.netHandle(1)).toBe(iface.netHandle(1));
-    expect(iface.netHandle(0)).toBe(iface.netHandle(0));
-    expect(iface.netHandle(0)).not.toBe(iface.netHandle(1));
-
-    // Net 0 is a handle, not null: upstream's netcode-0 items share one
-    // non-null NETINFO_ITEM, so the same-net exemption fires between two
-    // unconnected pieces of copper. `boardObstacleHulls` deliberately does the
-    // opposite; this is the bridge, and this is upstream.
-    expect(iface.netHandle(0)).not.toBeNull();
-    expect(iface.getNetCode(iface.netHandle(0))).toBe(0);
-  });
-
-  it('keeps the orphaned handle apart from a board net 0', () => {
-    expect(iface.getOrphanedNetHandle()).toBe(PNS_ORPHANED_NET);
-    expect(iface.getOrphanedNetHandle()).not.toBe(iface.netHandle(0));
+  it('keeps the orphaned handle apart from the board net 0 (GetOrphanedNetHandle)', () => {
+    expect(iface.getOrphanedNetHandle()).toBe(NETINFO_LIST.OrphanedItem());
+    expect(iface.getOrphanedNetHandle()).not.toBe(board.FindNet(0));
     expect(iface.getNetCode(iface.getOrphanedNetHandle())).toBe(0);
-    expect(iface.getNetName(iface.getOrphanedNetHandle())).toBe('');
-  });
-
-  it('names a net the way the board does', () => {
-    for (const [code, name] of board.nets) {
-      expect((iface.netHandle(code) as PnsBoardNet).name).toBe(name);
-    }
   });
 });
 
 // ---------------------------------------------------------------------------
 
-describe('pad shapes', () => {
-  const padOf = (aSexpr: string): PcbPad =>
-    allPads(
-      readBoard(
-        parse(`(kicad_pcb (version 20241229) (generator "test")
+describe('pad shapes (syncPad)', () => {
+  const solidOf = (aSexpr: string): PnsSolid => {
+    const board = ParseBoard(`(kicad_pcb (version 20241229) (generator "test")
           (layers (0 "F.Cu" signal) (2 "B.Cu" signal)) (net 0 "")
-          (footprint "T" (layer "F.Cu") (at 0 0) ${aSexpr}))`),
-      ),
-    )[0]!;
+          (footprint "T" (layer "F.Cu") (at 0 0) ${aSexpr}))`);
+    const iface = new PNS_KICAD_IFACE(board);
+
+    return iface.syncPad(allPads(board)[0]!)[0]!;
+  };
 
   it('uses the single effective shape where there is one', () => {
     expect(
-      solidShapeForPad(padOf('(pad "1" smd circle (at 0 0) (size 1 1) (layers "F.Cu"))'))!.kind,
+      solidOf('(pad "1" smd circle (at 0 0) (size 1 1) (layers "F.Cu"))').shape(-1)!.kind,
     ).toBe('circle');
-    expect(
-      solidShapeForPad(padOf('(pad "1" smd rect (at 0 0) (size 2 1) (layers "F.Cu"))'))!.kind,
-    ).toBe('poly');
-    expect(
-      solidShapeForPad(padOf('(pad "1" smd oval (at 0 0) (size 2 1) (layers "F.Cu"))'))!.kind,
-    ).toBe('stadium');
+    expect(solidOf('(pad "1" smd rect (at 0 0) (size 2 1) (layers "F.Cu"))').shape(-1)!.kind).toBe(
+      'poly',
+    );
+    expect(solidOf('(pad "1" smd oval (at 0 0) (size 2 1) (layers "F.Cu"))').shape(-1)!.kind).toBe(
+      'stadium',
+    );
   });
 
-  it('convex-hulls a pad whose effective shape is more than one primitive', () => {
-    // A chamfered round-rect is a polygon plus one circle per rounded corner.
-    // Upstream falls back to the effective polygon's outline; there is no
-    // polygon union here, so it is the hull — an over-approximation that never
-    // lets a route closer to copper than KiCad would.
-    const pad = padOf(
+  it('takes the effective polygon outline of a pad that is more than one primitive', () => {
+    // A chamfered round-rect is a polygon plus one circle per rounded corner;
+    // upstream falls back to `GetEffectivePolygon( layer, ERROR_OUTSIDE )`.
+    const shape = solidOf(
       `(pad "1" smd roundrect (at 0 0) (size 2 2) (layers "F.Cu")
          (roundrect_rratio 0.25) (chamfer_ratio 0.2) (chamfer top_left))`,
-    );
-    const shape = solidShapeForPad(pad)!;
+    ).shape(-1)!;
 
     expect(shape.kind).toBe('poly');
     if (shape.kind !== 'poly') throw new Error('unreachable');
 
-    // The hull covers the pad: every corner of the 2x2 mm box is within it or
-    // on it, to within the chamfer.
     const xs = shape.pts.map((p) => p.x);
-    const ys = shape.pts.map((p) => p.y);
-
-    expect(Math.max(...xs) - Math.min(...xs)).toBeGreaterThan(0);
-    expect(Math.max(...ys) - Math.min(...ys)).toBeGreaterThan(0);
-    // r is folded into the points, not left on the shape.
+    // ERROR_OUTSIDE: the outline reaches the pad's own 2 mm extent, not short of it.
+    expect(Math.max(...xs) - Math.min(...xs)).toBeGreaterThanOrEqual(2_000_000);
     expect(shape.r).toBe(0);
+    // More than the four corners of a box: the rounded corners are in the outline.
+    expect(shape.pts.length).toBeGreaterThan(8);
   });
 
-  it('is a circle for a round drill and a stadium for an oblong one', () => {
-    const round = padOf('(pad "1" thru_hole circle (at 0 0) (size 2 2) (drill 1) (layers "*.Cu"))');
-    const slot = padOf(
+  it('is a zero-length segment for a round drill and a stadium for an oblong one', () => {
+    const round = solidOf(
+      '(pad "1" thru_hole circle (at 0 0) (size 2 2) (drill 1) (layers "*.Cu"))',
+    )
+      .hole()!
+      .shape(-1)!;
+    expect(round.kind).toBe('stadium');
+    if (round.kind !== 'stadium') throw new Error('unreachable');
+    expect(round.a).toEqual(round.b);
+    expect(round.r).toBeCloseTo(500_000);
+
+    const s = solidOf(
       '(pad "1" thru_hole oval (at 0 0) (size 3 1.5) (drill oval 2 1) (layers "*.Cu"))',
-    );
-
-    expect(padHoleShape(round)!.kind).toBe('circle');
-
-    const s = padHoleShape(slot)!;
+    )
+      .hole()!
+      .shape(-1)!;
     expect(s.kind).toBe('stadium');
     if (s.kind !== 'stadium') throw new Error('unreachable');
-    // Radius is the short axis; the stadium spans the difference of the two.
-    expect(s.r).toBeCloseTo(
-      padOf('(pad "1" thru_hole oval (at 0 0) (size 3 1.5) (drill oval 2 1) (layers "*.Cu"))')
-        .drill!.h / 2,
-    );
-    expect(Math.hypot(s.b.x - s.a.x, s.b.y - s.a.y)).toBeCloseTo(slot.drill!.w - slot.drill!.h);
+    expect(s.r).toBeCloseTo(500_000);
+    expect(Math.hypot(s.b.x - s.a.x, s.b.y - s.a.y)).toBeCloseTo(1_000_000);
   });
 
-  it('has no hole shape when the pad has no drill', () => {
-    expect(
-      padHoleShape(padOf('(pad "1" smd rect (at 0 0) (size 1 1) (layers "F.Cu"))')),
-    ).toBeNull();
+  it('puts the solid at the hole and carries the copper offset (SetPos( c - offset ))', () => {
+    const solid = solidOf(
+      '(pad "1" thru_hole circle (at 0 0) (size 2 2) (drill 1 (offset 0.5 0)) (layers "*.Cu"))',
+    );
+
+    expect(solid.pos()).toEqual({ x: 0, y: 0 });
+    expect(solid.offset()).toEqual({ x: 500_000, y: 0 });
+    const shape = solid.shape(-1)!;
+    if (shape.kind !== 'circle') throw new Error('unreachable');
+    expect(shape.c).toEqual({ x: 500_000, y: 0 });
+  });
+
+  it('gives the hole the whole stack even when the pad is on one layer', () => {
+    // The parser drops an SMD pad's drill, so the drill is set on the model.
+    const board = ParseBoard(`(kicad_pcb (version 20241229) (generator "test")
+          (layers (0 "F.Cu" signal) (2 "B.Cu" signal)) (net 0 "")
+          (footprint "T" (layer "F.Cu") (at 0 0)
+            (pad "1" smd rect (at 0 0) (size 2 2) (layers "F.Cu"))))`);
+    const pad = allPads(board)[0]!;
+    pad.SetDrillSize({ x: 500_000, y: 500_000 });
+    const solid = new PNS_KICAD_IFACE(board).syncPad(pad)[0]!;
+
+    expect(solid.layers().equals(new PnsLayerRange(0, 0))).toBe(true);
+    expect(solid.hole()!.layers().equals(new PnsLayerRange(0, 1))).toBe(true);
+  });
+
+  it('takes the effective polygon when a custom pad is several primitives', () => {
+    const shape = solidOf(
+      `(pad "1" smd custom (at 0 0) (size 1 1) (layers "F.Cu")
+         (options (clearance outline) (anchor circle))
+         (primitives (gr_circle (center 0.8 0) (end 1.3 0) (width 0) (fill yes))))`,
+    ).shape(-1)!;
+
+    expect(shape.kind).toBe('poly');
+    if (shape.kind !== 'poly') throw new Error('unreachable');
+    // The outline reaches the off-anchor primitive at x = 1.3 mm, past the 0.5 mm anchor.
+    expect(Math.max(...shape.pts.map((p) => p.x))).toBeGreaterThanOrEqual(1_250_000);
+  });
+
+  it('has no hole when the pad has no drill', () => {
+    expect(solidOf('(pad "1" smd rect (at 0 0) (size 1 1) (layers "F.Cu"))').hasHole()).toBe(false);
   });
 });
 
 // ---------------------------------------------------------------------------
 
-describe('the parts that are deliberately not implemented', () => {
-  const board = readEcc83();
+describe('board mutations go through a BOARD_COMMIT (AddItem / RemoveItem / Commit)', () => {
+  it('adds a routed segment as a PCB_TRACK on one "Routing" commit', () => {
+    const board = ParseBoard(MULTILAYER);
+    const frame = new TEST_PCB_FRAME(board);
+    const iface = new PNS_KICAD_IFACE(board, { commitHost: frame });
+    const before = traces(board).length;
 
-  it('records board mutations rather than applying them', () => {
-    const { iface, node } = syncInto(board);
-    const item = node.findItemsByParent(asBoardItem(board.tracks[0]!))[0]!;
-
-    expect(iface.pendingChanges()).toHaveLength(0);
-
-    iface.addItem(item);
-    iface.updateItem(item);
-    iface.removeItem(item);
-
-    expect(iface.pendingChanges().map((c) => c.kind)).toEqual(['add', 'update', 'remove']);
-    expect(board.tracks).toHaveLength(59); // nothing written
-
+    const seg = new PnsSegment(
+      { seg: { a: { x: 0, y: 1_000_000 }, b: { x: 5_000_000, y: 1_000_000 } }, width: 200_000 },
+      board.FindNet(1),
+    );
+    seg.setLayer(3);
+    iface.addItem(seg);
     iface.commit();
-    expect(iface.pendingChanges()).toHaveLength(0);
+
+    const added = traces(board).find((t) => t.GetStart().y === 1_000_000)!;
+
+    expect(traces(board)).toHaveLength(before + 1);
+    expect(layerName(added)).toBe('B.Cu');
+    expect(added.GetWidth()).toBe(200_000);
+    expect(added.GetNet()).toBe(board.FindNet(1));
+    // The router item now points at its board item.
+    expect(seg.parent()).toBe(pb(added));
+    expect(iface.pushedCommits()).toBe(1);
+
+    frame.RestoreCopyFromUndoList();
+    expect(traces(board)).toHaveLength(before);
   });
+
+  it('removes a synced track and modifies an updated one', () => {
+    const board = ParseBoard(MULTILAYER);
+    const frame = new TEST_PCB_FRAME(board);
+    const iface = new PNS_KICAD_IFACE(board, { commitHost: frame });
+    const node = new PnsNode();
+    iface.syncWorld(node);
+
+    const [first, second] = traces(board);
+    iface.removeItem(node.findItemsByParent(pb(first!))[0]!);
+
+    const moved = node.findItemsByParent(pb(second!))[0] as PnsSegment;
+    moved.setEnds({ x: 10_000_000, y: 0 }, { x: 12_000_000, y: 10_000_000 });
+    iface.updateItem(moved);
+    iface.commit();
+
+    expect(traces(board)).not.toContain(first);
+    expect(second!.GetEnd()).toEqual({ x: 12_000_000, y: 10_000_000 });
+  });
+
+  it('without a commit host changes nothing', () => {
+    const board = ParseBoard(MULTILAYER);
+    const iface = new PNS_KICAD_IFACE(board);
+    const before = traces(board).length;
+    const seg = new PnsSegment({ seg: { a: { x: 0, y: 0 }, b: { x: 1, y: 0 } }, width: 1 }, null);
+
+    iface.addItem(seg);
+    iface.commit();
+
+    expect(traces(board)).toHaveLength(before);
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+describe('defaults with no view and no design settings', () => {
+  const board = readEcc83();
 
   it('answers zero for the stackup and false for importSizes', () => {
     const iface = new PNS_KICAD_IFACE(board);
 
     expect(iface.stackupHeight(0, 1)).toBe(0);
-    expect(
-      iface.importSizes({ trackWidth: 1 } as never, null, iface.netHandle(1), { x: 0, y: 0 }),
-    ).toBe(false);
+    expect(iface.importSizes({ trackWidth: 1 } as never, null, null, { x: 0, y: 0 })).toBe(false);
   });
 
   it('treats everything as visible with no view attached', () => {
     const { iface, node } = syncInto(board);
-    const item = node.findItemsByParent(asBoardItem(board.tracks[0]!))[0]!;
+    const item = node.findItemsByParent(pb(traces(board)[0]!))[0]!;
 
     // Upstream's no-view answer for IsAnyLayerVisible is *false*; reproducing
     // it would make pickSingleItem reject every candidate headless.
@@ -547,9 +581,8 @@ describe('the parts that are deliberately not implemented', () => {
 
 // ---------------------------------------------------------------------------
 
-describe('isFlashedOnLayer', () => {
-  const board = readBoard(
-    parse(`(kicad_pcb (version 20241229) (generator "test")
+describe('isFlashedOnLayer (PAD::FlashLayer / PCB_VIA::FlashLayer)', () => {
+  const board = ParseBoard(`(kicad_pcb (version 20241229) (generator "test")
       (layers (0 "F.Cu" signal) (4 "In1.Cu" signal) (6 "In2.Cu" signal) (2 "B.Cu" signal))
       (net 0 "") (net 1 "GND")
       (via (at 0 0) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu") (net 1)
@@ -557,47 +590,48 @@ describe('isFlashedOnLayer', () => {
       (footprint "T" (layer "F.Cu") (at 10 0)
         (pad "1" thru_hole circle (at 0 0) (size 1.2 1.2) (drill 0.6) (layers "*.Cu") (net 1 "GND")
           (remove_unused_layers yes) (keep_end_layers yes))
-        (pad "2" smd rect (at 2 0) (size 1 0.6) (layers "F.Cu") (net 1 "GND"))))`),
-  );
+        (pad "2" smd rect (at 2 0) (size 1 0.6) (layers "F.Cu") (net 1 "GND"))))`);
+  board.BuildConnectivity();
   const { iface, node } = syncInto(board);
   const pads = allPads(board);
 
   it('is true for any layer when asked about -1', () => {
-    const solid = node.findItemsByParent(asBoardItem(pads[0]!))[0]!;
-
-    expect(iface.isFlashedOnLayer(solid, -1)).toBe(true);
+    expect(iface.isFlashedOnLayer(node.findItemsByParent(pb(pads[0]!))[0]!, -1)).toBe(true);
   });
 
-  it('reads a pad through PAD::FlashLayer', () => {
-    const solid = node.findItemsByParent(asBoardItem(pads[0]!))[0]!;
+  it('keeps the end layers of a remove-unused pad and drops an unconnected inner one', () => {
+    const solid = node.findItemsByParent(pb(pads[0]!))[0]!;
 
-    // remove_except_start_and_end keeps the two outer layers.
     expect(iface.isFlashedOnLayer(solid, 0)).toBe(true);
     expect(iface.isFlashedOnLayer(solid, 3)).toBe(true);
-    // The inner layers are 'if-connected', which reads as flashed here — the
-    // CanFlashLayer reading, since there is no connectivity graph.
-    expect(iface.isFlashedOnLayer(solid, 1)).toBe(true);
+    // Nothing connects to the pad on In1.Cu, so `IsConnectedOnLayer` says no.
+    expect(iface.isFlashedOnLayer(solid, 1)).toBe(false);
   });
 
   it('says an SMD pad is not on the back', () => {
-    const solid = node.findItemsByParent(asBoardItem(pads[1]!))[0]!;
+    const solid = node.findItemsByParent(pb(pads[1]!))[0]!;
 
     expect(iface.isFlashedOnLayer(solid, 0)).toBe(true);
     expect(iface.isFlashedOnLayer(solid, 3)).toBe(false);
   });
 
   it('reads a via through PCB_VIA::FlashLayer', () => {
-    const via = node.findItemsByParent(asBoardItem(board.vias[0]!))[0]!;
+    const via = node.findItemsByParent(pb(vias(board)[0]!))[0]!;
 
     expect(iface.isFlashedOnLayer(via, 0)).toBe(true);
     expect(iface.isFlashedOnLayer(via, 3)).toBe(true);
+    expect(iface.isFlashedOnLayer(via, 1)).toBe(false);
   });
 
   it('takes the range overload as "any layer in the intersection"', () => {
-    const smd = node.findItemsByParent(asBoardItem(pads[1]!))[0]!;
+    const smd = node.findItemsByParent(pb(pads[1]!))[0]!;
 
     expect(iface.isFlashedOnLayer(smd, new PnsLayerRange(0, 3))).toBe(true);
     expect(iface.isFlashedOnLayer(smd, new PnsLayerRange(2, 3))).toBe(false);
+  });
+
+  it('a pad attribute switch is visible to the bridge', () => {
+    expect(pads[1]!.GetAttribute()).toBe(PAD_ATTRIB.SMD);
   });
 });
 

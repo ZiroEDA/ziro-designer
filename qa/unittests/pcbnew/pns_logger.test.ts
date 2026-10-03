@@ -6,6 +6,7 @@
  * text (`pns_logger.cpp:108-130`), and `ParseEvent`'s matching, quirky
  * (sizes-dropping) inverse (`cpp:133-153`).
  */
+import { VIATYPE } from '@ziroeda/pcbnew/pcb_track_types.js';
 import { describe, expect, it } from 'vitest';
 import { PnsSolid } from '@ziroeda/pcbnew/router/pns_solid.js';
 import { PnsLayerRange } from '@ziroeda/pcbnew/router/pns_layerset.js';
@@ -66,7 +67,7 @@ describe('PnsLogger', () => {
     logger.logM(PnsLoggerEventType.EVT_TOGGLE_VIA);
     const ent = logger.getEvents()[0]!;
     expect(ent.sizes.trackWidth()).toBe(0);
-    expect(ent.sizes.viaType()).toBe('through');
+    expect(ent.sizes.viaType()).toBe(VIATYPE.THROUGH);
   });
 });
 
@@ -79,7 +80,7 @@ describe('PnsLogger.formatEvent (LOGGER::FormatEvent)', () => {
     sizes.setTrackWidthIsExplicit(true);
     sizes.setLayerBottom(31);
     sizes.setLayerTop(0);
-    sizes.setViaType('through');
+    sizes.setViaType(VIATYPE.THROUGH);
     const ent: PnsLoggerEventEntry = {
       p: { x: 1000, y: -2000 },
       type: PnsLoggerEventType.EVT_MOVE,
@@ -106,7 +107,7 @@ describe('PnsLogger.formatEvent (LOGGER::FormatEvent)', () => {
   it('writes 0 for a non-explicit track width and the micro via-type int', () => {
     const sizes = new PnsSizesSettings();
     sizes.setTrackWidthIsExplicit(false);
-    sizes.setViaType('micro');
+    sizes.setViaType(VIATYPE.MICROVIA);
     const ent: PnsLoggerEventEntry = {
       p: { x: 0, y: 0 },
       type: PnsLoggerEventType.EVT_UNFIX,

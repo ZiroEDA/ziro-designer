@@ -14,7 +14,7 @@ import { pcbMmToIU as mmToIU } from '@ziroeda/common';
 import { fromPaperToken, pageSizeMM } from '@ziroeda/common/dialogs/dialog_page_settings.js';
 import type { EdaUnits } from '@ziroeda/common/eda_units.js';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
-import type { FRAME_T } from '@ziroeda/common/frame_type.js';
+import { type ARC_EDIT_MODE, FRAME_T } from '@ziroeda/common/frame_type.js';
 import type { KIID } from '@ziroeda/common/kiid.js';
 import { RPT_SEVERITY_ACTION, type Severity } from '@ziroeda/common/reporter.js';
 import type { LeaderMode as LEADER_MODE } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
@@ -36,16 +36,13 @@ import type { ZONE } from './zone.js';
 import type { APP_SETTINGS_BASE } from '@ziroeda/common/settings/app_settings.js';
 import type { COLOR_SETTINGS } from '@ziroeda/common/settings/color_settings.js';
 import type { TOOL_DISPATCHER } from '@ziroeda/common/draw_panel_gal.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
-import { RESET_REASON } from '@ziroeda/common/tool/tool_base.js';
-import { type VIEW_ITEM, VIEW_UPDATE_FLAGS } from '@ziroeda/common/view/view_item.js';
-import type { BOARD } from './board.js';
+import { IsCopperLayer, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { HIGH_CONTRAST_MODE } from '@ziroeda/common/project/board_project_settings.js';
-import { PAD } from './pad.js';
+import { RESET_REASON } from '@ziroeda/common/tool/tool_base.js';
+import type { BOARD } from './board.js';
 import { PCB_DISPLAY_OPTIONS, type PCB_PAINTER } from './pcb_painter.js';
 import type { PCB_DRAW_PANEL_GAL } from './pcb_draw_panel_gal.js';
 import type { PCB_SCREEN } from './pcb_screen.js';
-import { PCB_VIA, VIATYPE } from './pcb_track.js';
 import type { PROGRESS_REPORTER_LIKE } from './connectivity/connectivity_algo.js';
 import type { BOARD_DESIGN_SETTINGS } from './board_design_settings.js';
 import { type BOARD_ITEM, DELETED_BOARD_ITEM } from './board_item.js';
@@ -54,8 +51,10 @@ import { PCB_ORIGIN_TRANSFORMS } from './pcb_origin_transforms.js';
 import {
   type MAGNETIC_SETTINGS,
   PCB_DISPLAY_ORIGIN,
-  type PCBNEW_SETTINGS,
+  PCBNEW_SETTINGS,
+  type PCB_VIEWERS_SETTINGS_BASE,
 } from './pcbnew_settings.js';
+import { GRID } from '@ziroeda/common/settings/grid_settings.js';
 
 /**
  * `FOOTPRINT_EDITOR_SETTINGS` as the base frame reads it; the class lands with
@@ -65,6 +64,13 @@ export interface FOOTPRINT_EDITOR_SETTINGS_LIKE {
   m_DisplayInvertXAxis: boolean;
   m_DisplayInvertYAxis: boolean;
   m_AngleSnapMode: LEADER_MODE;
+  /** `m_ArcEditMode` (footprint_editor_settings.h:79); KEEP_CENTER_ADJUST_ANGLE_RADIUS when absent. */
+  m_ArcEditMode?: ARC_EDIT_MODE;
+  /**
+   * `m_MagneticItems` (footprint_editor_settings.h); absent where the frame's
+   * footprint editor settings are not the editor's own.
+   */
+  m_MagneticItems?: MAGNETIC_SETTINGS;
 }
 
 export abstract class PCB_BASE_FRAME extends EDA_DRAW_FRAME {
@@ -125,61 +131,73 @@ export abstract class PCB_BASE_FRAME extends EDA_DRAW_FRAME {
   }
 
   /**
-   * Update the display options and refresh the canvas.
+   * `displayOptionsRequireRecache( aOld, aNew )` (pcb_base_frame.cpp:1067-1074):
+   * only the zone mode and the board flip change geometry; colour, opacity and
+   * contrast are recolour only.
+   */
+  protected displayOptionsRequireRecache(
+    aOld: PCB_DISPLAY_OPTIONS,
+    aNew: PCB_DISPLAY_OPTIONS,
+  ): boolean {
+    return (
+      aOld.m_ZoneDisplayMode !== aNew.m_ZoneDisplayMode ||
+      aOld.m_FlipBoardView !== aNew.m_FlipBoardView
+    );
+  }
+
+  /**
+   * Update the display options and refresh the canvas
+   * (`SetDisplayOptions`, pcb_base_frame.cpp:1077-1097).
    */
   SetDisplayOptions(aOptions: PCB_DISPLAY_OPTIONS, aRefresh = true): void {
-    const hcChanged =
-      this.m_displayOptions.m_ContrastModeDisplay !== aOptions.m_ContrastModeDisplay;
-    const hcVisChanged =
-      this.m_displayOptions.m_ContrastModeDisplay === HIGH_CONTRAST_MODE.HIDDEN ||
-      aOptions.m_ContrastModeDisplay === HIGH_CONTRAST_MODE.HIDDEN;
+    const needsRecache = this.displayOptionsRequireRecache(this.m_displayOptions, aOptions);
     this.m_displayOptions = aOptions;
 
-    const canvas = this.GetCanvas()!;
-    const view = canvas.GetView();
+    // The window attaches the canvas after the constructor; until it does
+    // there is no view to tell.
+    const canvas = this.GetCanvas();
 
-    view.UpdateDisplayOptions(aOptions);
-    view.SetMirror(aOptions.m_FlipBoardView, view.IsMirroredY());
-    view.RecacheAllItems();
+    if (canvas) {
+      const view = canvas.GetView();
 
-    canvas.SetHighContrastLayer(this.GetActiveLayer());
-    this.OnDisplayOptionsChanged();
+      view.UpdateDisplayOptions(aOptions);
+      view.SetMirror(aOptions.m_FlipBoardView, view.IsMirroredY());
 
-    // Vias on a restricted layer set must be redrawn when high contrast mode is changed
-    if (hcChanged) {
-      let showNetNames = false;
+      // skip recache for colour/alpha-only changes handled by the recolour below
+      if (needsRecache) view.RecacheAllItems();
 
-      const config = this.config() as PCBNEW_SETTINGS;
-
-      if (config?.m_Display) showNetNames = config.m_Display.m_NetNames > 0;
-
-      // Note: KIGFX::REPAINT isn't enough for things that go from invisible to visible as
-      // they won't be found in the view layer's itemset for re-painting.
-      this.GetCanvas()!
-        .GetView()
-        .UpdateAllItemsConditionally((aItem: VIEW_ITEM): number => {
-          if (aItem instanceof PCB_VIA) {
-            if (
-              aItem.GetViaType() !== VIATYPE.THROUGH ||
-              aItem.GetRemoveUnconnected() ||
-              showNetNames
-            ) {
-              return hcVisChanged ? VIEW_UPDATE_FLAGS.ALL : VIEW_UPDATE_FLAGS.REPAINT;
-            }
-          } else if (aItem instanceof PAD) {
-            if (aItem.GetRemoveUnconnected() || showNetNames) {
-              return hcVisChanged ? VIEW_UPDATE_FLAGS.ALL : VIEW_UPDATE_FLAGS.REPAINT;
-            }
-          }
-
-          return 0;
-        });
+      canvas.SetHighContrastLayer(this.GetActiveLayer());
     }
 
-    if (aRefresh) canvas.Refresh();
+    this.OnDisplayOptionsChanged();
+
+    if (aRefresh) canvas?.Refresh();
   }
 
   OnDisplayOptionsChanged(): void {}
+
+  /** `SwitchLayer( aLayer )` (pcb_base_frame.cpp:711-735): the board editor overrides it. */
+  SwitchLayer(layer: PCB_LAYER_ID): void {
+    const preslayer = this.GetActiveLayer();
+    const displ_opts = this.GetDisplayOptions();
+
+    // Check if the specified layer matches the present layer
+    if (layer === preslayer) return;
+
+    // Copper layers cannot be selected unconditionally; how many of those layers are
+    // currently enabled needs to be checked.
+    if (IsCopperLayer(layer)) {
+      if (layer > this.m_pcb!.GetCopperLayerStackMaxId()) return;
+    }
+
+    // Is yet more checking required? E.g. when the layer to be selected is a non-copper
+    // layer, or when switching between a copper layer and a non-copper layer, or vice-versa?
+    // ...
+
+    this.SetActiveLayer(layer);
+
+    if (displ_opts.m_ContrastModeDisplay !== HIGH_CONTRAST_MODE.NORMAL) this.GetCanvas()?.Refresh();
+  }
 
   SetActiveLayer(aLayer: PCB_LAYER_ID): void {
     this.GetScreen()!.m_Active_Layer = aLayer;
@@ -187,6 +205,53 @@ export abstract class PCB_BASE_FRAME extends EDA_DRAW_FRAME {
 
   GetActiveLayer(): PCB_LAYER_ID {
     return this.GetScreen()!.m_Active_Layer;
+  }
+
+  protected override unitsChangeRefresh(): void {
+    super.unitsChangeRefresh(); // Update the status bar.
+
+    const board = this.GetBoard();
+
+    if (board) board.SetUserUnits(this.GetUserUnits());
+
+    this.UpdateGridSelectBox();
+  }
+
+  override LoadSettings(aCfg: APP_SETTINGS_BASE): void {
+    super.LoadSettings(aCfg);
+
+    // Move legacy user grids to grid list
+    if (aCfg.m_Window.grid.user_grid_x !== '') {
+      aCfg.m_Window.grid.grids.push(
+        new GRID('User Grid', aCfg.m_Window.grid.user_grid_x, aCfg.m_Window.grid.user_grid_y),
+      );
+      aCfg.m_Window.grid.user_grid_x = '';
+      aCfg.m_Window.grid.user_grid_y = '';
+    }
+
+    // Some, but not all, derived classes have a PCBNEW_SETTINGS.
+    if (aCfg instanceof PCBNEW_SETTINGS) this.m_polarCoords = aCfg.m_PolarCoords;
+
+    // wxASSERT( GetCanvas() ) upstream: here the window attaches the canvas
+    // after the constructor's LoadSettings, so the guard below is what runs.
+    const canvas = this.GetCanvas();
+
+    if (canvas) {
+      const rs = canvas.GetView().GetPainter().GetSettings();
+
+      if (rs) {
+        rs.SetHighlightFactor(aCfg.m_Graphics.highlight_factor);
+        rs.SetSelectFactor(aCfg.m_Graphics.select_factor);
+        rs.SetDefaultFont(''); // Always the KiCad font for PCBs
+      }
+    }
+  }
+
+  override SaveSettings(aCfg: APP_SETTINGS_BASE): void {
+    super.SaveSettings(aCfg);
+
+    // Some, but not all derived classes have a PCBNEW_SETTINGS.
+    if (aCfg instanceof PCBNEW_SETTINGS) aCfg.m_PolarCoords = this.m_polarCoords;
   }
 
   override ActivateGalCanvas(): void {
@@ -281,6 +346,14 @@ export abstract class PCB_BASE_FRAME extends EDA_DRAW_FRAME {
    */
   override GetOriginTransforms(): PCB_ORIGIN_TRANSFORMS {
     return this.m_originTransforms;
+  }
+
+  SetPageSettings(aPageSettings: PAGE_INFO): void {
+    this.m_pcb!.SetPageSettings(aPageSettings);
+
+    const screen = this.GetScreen();
+
+    if (screen) screen.InitDataPoints(aPageSettings.GetSizeIU(pcbIUScale.IU_PER_MILS));
   }
 
   GetTitleBlock(): TITLE_BLOCK {
@@ -446,6 +519,24 @@ export abstract class PCB_BASE_FRAME extends EDA_DRAW_FRAME {
    * `Pgm().GetSettingsManager().GetAppSettings<FOOTPRINT_EDITOR_SETTINGS>( "fpedit" )`.
    */
   abstract GetFootprintEditorSettings(): FOOTPRINT_EDITOR_SETTINGS_LIKE;
+
+  /**
+   * `GetViewerSettingsBase()` (pcb_base_frame.cpp:897-917): the settings whose
+   * VIEWERS_DISPLAY_OPTIONS this frame displays with.
+   *
+   * The CVPCB frames' arm (`GetAppSettings<CVPCB_SETTINGS>( "cvpcb" )`) has no
+   * subclass of this frame to reach it here: they answer the default's.
+   */
+  GetViewerSettingsBase(): PCB_VIEWERS_SETTINGS_BASE {
+    switch (this.GetFrameType()) {
+      case FRAME_T.FRAME_FOOTPRINT_EDITOR:
+      case FRAME_T.FRAME_FOOTPRINT_WIZARD:
+        return this.GetFootprintEditorSettings() as unknown as PCB_VIEWERS_SETTINGS_BASE;
+
+      default:
+        return this.GetPcbNewSettings();
+    }
+  }
 
   /** `static std::vector<KIID> lastBrightenedItemIDs` of FocusOnItems. */
   private static lastBrightenedItemIDs: KIID[] = [];
@@ -674,6 +765,19 @@ export abstract class PCB_BASE_FRAME extends EDA_DRAW_FRAME {
   /**
    * Update the 3D view, if the viewer is open.
    */
+  /**
+   * `Get3DViewerFrame()` (pcb_base_frame.cpp:148-153): the open 3D viewer, found
+   * by its qualified frame name, or null. A frame without one answers null.
+   */
+  Get3DViewerFrame(): object | null {
+    return null;
+  }
+
+  /** `CreateAndShow3D_Frame()` (pcb_base_frame.cpp:679-705): raise the 3D viewer, creating it first. */
+  CreateAndShow3D_Frame(): object | null {
+    return null;
+  }
+
   Update3DView(_aMarkDirty: boolean, _aRefresh: boolean, _aTitle: string | null = null): void {}
 
   /**

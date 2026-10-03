@@ -23,10 +23,12 @@
  * real thing, the two strings upstream keeps side by side, so the dialog's
  * "Changes to Be Applied" and "Changes Applied to PCB" read correctly.
  *
- * Differences from upstream, all because the board model has no counterpart yet:
- * component classes, design variants, design-block layouts and net chains are not
- * updated, and there is no undo commit, the caller gets a new Board value back and
- * pushes it onto its own undo stack.
+ * On the live BOARD through one BOARD_COMMIT, "Update Netlist", as upstream.
+ * Design variants are not modeled in the netlist yet, so their branches are
+ * absent; with no variants they do nothing upstream either.
+ *
+ * TRANSITIONAL: `placeFootprint` / `exchangeFootprint` at the end are the view
+ * board's helpers, kept for their remaining callers.
  */
 
 import {
@@ -34,1164 +36,1611 @@ import {
   RPT_SEVERITY_ERROR,
   RPT_SEVERITY_INFO,
   RPT_SEVERITY_WARNING,
-  type Reporter,
+  Reporter,
 } from '@ziroeda/common/reporter.js';
-import { pcbIuToMM as iuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
-import { unescapeString } from '@ziroeda/common/string_utils.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { messageTextFromValue } from '@ziroeda/common/eda_units.js';
+import { EscapeHTML, unescapeString as UnescapeString } from '@ziroeda/common/string_utils.js';
+import {
+  kiidFromName as KIID_FromName,
+  kiidPathAsString,
+  niluuid,
+  type KIID,
+} from '@ziroeda/common/kiid.js';
+import { LIB_ID } from '@ziroeda/common/lib_id.js';
+import { RECURSE_MODE } from '@ziroeda/common/eda_item.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { FIELD_T, GetCanonicalFieldName } from '@ziroeda/common/template_fieldnames.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { BOARD_COMMIT, ZONE_FILL_OP } from '../board_commit.js';
+import type { BOARD } from '../board.js';
+import type { BOARD_ITEM } from '../board_item.js';
+import {
+  FP_BOARD_ONLY,
+  FP_DNP,
+  FP_EXCLUDE_FROM_BOM,
+  FP_EXCLUDE_FROM_POS_FILES,
+  FP_JUST_ADDED,
+  type FOOTPRINT,
+  type FP_UNIT_INFO,
+} from '../footprint.js';
+import { NETINFO_ITEM } from '../netinfo_item.js';
+import { NETINFO_LIST } from '../netinfo_list.js';
+import type { PAD } from '../pad.js';
+import type { PCB_BASE_EDIT_FRAME } from '../pcb_base_edit_frame.js';
+import { PCB_FIELD } from '../pcb_field.js';
+import { PCB_GROUP } from '../pcb_group.js';
+import type { ZONE } from '../zone.js';
+import type { COMPONENT_CLASS } from '../component_classes/component_class.js';
+import { COMPONENT_CLASS_MANAGER } from '../component_classes/component_class_manager.js';
 import { kiidFromString, newKiid } from '@ziroeda/common/kiid.js';
 import { FLIP_DIRECTION } from '@ziroeda/core/mirror.js';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { footprintViewOfBoard } from '../pcb_io/kicad_sexpr/board_view.js';
 import { LSET_NameToLayer } from '@ziroeda/common/layer_ids.js';
-import { boardItemBBox } from '../edit-board.js';
-import { setFootprintReference, setFootprintValue } from '../edit-footprint.js';
-import { appendNet, findNet, removeUnusedNets, UNCONNECTED_NET } from '../netinfo.js';
-import {
-  RESERVED_FOOTPRINT_PROPERTIES,
-  type Board,
-  type PcbFootprint,
-  type PcbFootprintField,
-  type PcbGroup,
-  type PcbPad,
-  type PcbZone,
-} from '../types.js';
+import { type PcbFootprint } from '../types.js';
 import { fpidIsLegacy, fpidItemName, type COMPONENT, type NETLIST } from './pcb_netlist.js';
 
-// ----- options and result -----------------------------------------------------
-
-export interface BoardNetlistUpdaterOptions {
-  /** Report only; leave the board untouched (SetIsDryRun). */
-  isDryRun?: boolean;
-  /** Replace footprints with those the symbols specify (SetReplaceFootprints). */
-  replaceFootprints?: boolean;
-  /** Delete unlocked footprints with no symbol behind them (SetDeleteUnusedFootprints). */
-  deleteUnusedFootprints?: boolean;
-  /** Match footprints to symbols by UUID rather than reference (SetLookupByTimestamp). */
-  lookupByTimestamp?: boolean;
-  /** Act on locked footprints too (SetOverrideLocks). */
-  overrideLocks?: boolean;
-  /** Copy symbol fields onto the footprints (SetUpdateFields). */
-  updateFields?: boolean;
-  /** Drop footprint fields the symbol does not have (SetRemoveExtraFields). */
-  removeExtraFields?: boolean;
-  /** Mirror symbol groups onto PCB groups (SetTransferGroups). */
-  transferGroups?: boolean;
-}
-
-export interface BoardNetlistUpdateResult {
-  /** The updated board, the input board unchanged when this was a dry run. */
-  board: Board;
-  /** Indices into `board.footprints` of the footprints this run added. */
-  addedFootprints: number[];
-  /** UUIDs of the PCB groups this run created. */
-  addedGroups: string[];
-  errorCount: number;
-  warningCount: number;
-  /** New footprints, either really new or replaced by new (m_newFootprintsCount). */
-  newFootprintCount: number;
+/**
+ * The frame half BOARD_NETLIST_UPDATER asks for. Upstream's `m_frame` is the
+ * PCB_EDIT_FRAME; a test can hand any frame that answers these.
+ */
+export interface NETLIST_UPDATER_FRAME extends PCB_BASE_EDIT_FRAME {
+  /**
+   * `PCB_EDIT_FRAME::ExchangeFootprint( aExisting, aNew, aCommit )`, with its
+   * defaults (every reset on).
+   */
+  ExchangeFootprint(
+    aExisting: FOOTPRINT,
+    aNew: FOOTPRINT,
+    aCommit: BOARD_COMMIT,
+    deleteExtraTexts: boolean,
+    resetTextLayers: boolean,
+    resetTextEffects: boolean,
+    resetTextPositions: boolean,
+    resetTextContent: boolean,
+    resetFabricationAttrs: boolean,
+    resetClearanceOverrides: boolean,
+    reset3DModels: boolean,
+    updated?: { value: boolean },
+  ): void;
 }
 
 /**
- * How the updater gets at the footprint libraries. `LoadFootprintFromProject`
- * reaches the project's footprint library table; in the browser the caller has
- * already fetched and parsed what the netlist asks for, so it passes a lookup.
+ * `m_frame->LoadFootprint( aFootprintId )`, answered synchronously: a browser
+ * reads its libraries asynchronously, so the caller loads every footprint the
+ * netlist names before the update runs, and hands each one out fresh.
  */
-export type FootprintLoader = (fpid: string) => PcbFootprint | null | undefined;
-
-/** Replace one footprint of a board by index. */
-const replaceFp = (board: Board, index: number, fp: PcbFootprint): Board => ({
-  ...board,
-  footprints: board.footprints.map((f, i) => (i === index ? fp : f)),
-});
-
-const escapeHtml = (text: string): string =>
-  text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-// ----- attributes -------------------------------------------------------------
-
-/** FOOTPRINT_ATTR_T flags, as they are spelled in the file's `(attr …)`. */
-const FP_EXCLUDE_FROM_BOM = 'exclude_from_bom';
-const FP_EXCLUDE_FROM_POS_FILES = 'exclude_from_pos_files';
-const FP_DNP = 'dnp';
-const FP_BOARD_ONLY = 'board_only';
-
-const hasAttribute = (fp: PcbFootprint, flag: string): boolean =>
-  (fp.attributes ?? []).includes(flag);
-
-function withAttribute(fp: PcbFootprint, flag: string, on: boolean): PcbFootprint {
-  const current = fp.attributes ?? [];
-  if (on === current.includes(flag)) return fp;
-  const attributes = on ? [...current, flag] : current.filter((a) => a !== flag);
-  return { ...fp, attributes };
-}
-
-// ----- pad helpers ------------------------------------------------------------
-
-/** PAD::IsOnCopperLayer. */
-const padIsOnCopperLayer = (pad: PcbPad): boolean =>
-  pad.layers.some((l) => l === '*.Cu' || l.endsWith('.Cu'));
-
-/** PAD::IsNoConnectPad, an unnumbered pad cannot be matched to a pin. */
-const padIsNoConnect = (pad: PcbPad): boolean => pad.number === '';
-
-// ----- the updater ------------------------------------------------------------
+export type NETLIST_FOOTPRINT_LOADER = (aFootprintId: LIB_ID) => FOOTPRINT | null;
 
 /**
- * BOARD_NETLIST_UPDATER, one instance per run, exactly as upstream: construct,
- * set the options, call {@link UpdateNetlist}, read the counts back.
+ * `BOARD_NETLIST_UPDATER` (board_netlist_updater.cpp): update the BOARD with a
+ * new netlist, through one BOARD_COMMIT, "Update Netlist".
+ *
+ * Design variants (`COMPONENT::GetVariants`, the board's variant registry and
+ * `applyComponentVariants`) are not modeled in the netlist yet; with no
+ * variants every one of those branches is a no-op upstream too.
  */
-/** `PCB_FIELD::IsMandatory()` for the two mandatory fields that are not the reference or value. */
-const MANDATORY_FIELD_NAMES: ReadonlySet<string> = new Set(['Datasheet', 'Description']);
-
 export class BOARD_NETLIST_UPDATER {
-  private m_board: Board;
-  private readonly m_reporter: Reporter;
-  private readonly m_loadFootprint: FootprintLoader;
-  private readonly m_options: Required<BoardNetlistUpdaterOptions>;
+  private m_frame: NETLIST_UPDATER_FRAME;
+  private m_commit: BOARD_COMMIT;
+  private m_board: BOARD;
+  private m_reporter: Reporter = new Reporter();
+  private readonly m_loadFootprint: NETLIST_FOOTPRINT_LOADER;
 
-  /** Pad net names as this run has set them, for dry-run inspection (m_padNets). */
-  private m_padNets = new Map<string, string>();
-  /** Old net name -> new net name, for the zone/via rescue (m_oldToNewNets). */
+  private m_padNets = new Map<PAD, string>();
+  private m_padPinFunctions = new Map<PAD, string>();
+  private m_addedFootprints: FOOTPRINT[] = [];
+  private m_addedNets = new Map<string, NETINFO_ITEM>();
+  private m_addedGroups: PCB_GROUP[] = [];
   private m_oldToNewNets = new Map<string, string>();
-  /** Nets this run added, by name (m_addedNets). */
-  private m_addedNets = new Set<string>();
-  /** Every net name the schematic knows, for NC-pad de-duplication. */
   private m_schematicNetNames = new Set<string>();
-  /** Zone index -> the net names of the pads connected to it (m_zoneConnectionsCache). */
-  private m_zoneConnectionsCache = new Map<number, string[]>();
+  private m_zoneConnectionsCache = new Map<ZONE, PAD[]>();
 
-  private m_addedFootprints: number[] = [];
-  private m_addedGroups: string[] = [];
-  private m_errorCount = 0;
+  private m_deleteUnusedFootprints = false;
+  private m_isDryRun = false;
+  private m_replaceFootprints = true;
+  private m_lookupByTimestamp = false;
+  private m_transferGroups = false;
+  private m_overrideLocks = false;
+  private m_updateFields = false;
+  private m_removeExtraFields = false;
+
   private m_warningCount = 0;
+  private m_errorCount = 0;
   private m_newFootprintsCount = 0;
 
   constructor(
-    board: Board,
-    reporter: Reporter,
-    loadFootprint: FootprintLoader,
-    options: BoardNetlistUpdaterOptions = {},
+    aFrame: NETLIST_UPDATER_FRAME,
+    aBoard: BOARD,
+    aLoadFootprint: NETLIST_FOOTPRINT_LOADER,
   ) {
-    this.m_board = board;
-    this.m_reporter = reporter;
-    this.m_loadFootprint = loadFootprint;
-    this.m_options = {
-      isDryRun: false,
-      replaceFootprints: true,
-      deleteUnusedFootprints: false,
-      lookupByTimestamp: false,
-      overrideLocks: false,
-      updateFields: false,
-      removeExtraFields: false,
-      transferGroups: false,
-      ...options,
-    };
+    this.m_frame = aFrame;
+    this.m_commit = new BOARD_COMMIT(aFrame);
+    this.m_board = aBoard;
+    this.m_loadFootprint = aLoadFootprint;
   }
 
-  private report(message: string, severity: number): void {
-    this.m_reporter.report(message, severity);
+  SetReporter(aReporter: Reporter): void {
+    this.m_reporter = aReporter;
   }
 
-  private get dryRun(): boolean {
-    return this.m_options.isDryRun;
+  /** Enable dry run mode (just report, no changes to PCB). */
+  SetIsDryRun(aEnabled: boolean): void {
+    this.m_isDryRun = aEnabled;
   }
 
-  /** getNetname, during a dry run, the net this run has already assigned. */
-  private getNetname(padKey: string, pad: PcbPad): string {
-    if (this.dryRun && this.m_padNets.has(padKey)) return this.m_padNets.get(padKey)!;
-    return pad.net === undefined ? '' : (this.m_board.nets.get(pad.net) ?? '');
+  SetReplaceFootprints(aEnabled: boolean): void {
+    this.m_replaceFootprints = aEnabled;
   }
 
-  /**
-   * estimateFootprintInsertionPosition, below any existing board features, or the
-   * centre of the page when the board is empty.
-   */
-  private estimateFootprintInsertionPosition(): { x: number; y: number } {
-    const bbox = this.boardEdgesBoundingBox();
-    if (bbox) {
-      return {
-        x: Math.round((bbox.minX + bbox.maxX) / 2),
-        y: bbox.maxY + mmToIU(10),
-      };
-    }
-    // BOARD::GetPageSettings().GetSizeIU, A4 landscape is KiCad's default page.
-    const page = pageSizeIU(this.m_board.paper);
-    return { x: Math.round(page.x / 2), y: Math.round(page.y / 2) };
+  SetTransferGroups(aEnabled: boolean): void {
+    this.m_transferGroups = aEnabled;
   }
 
-  /** BOARD::GetBoardEdgesBoundingBox, the Edge.Cuts outline's extents. */
-  private boardEdgesBoundingBox(): {
-    minX: number;
-    minY: number;
-    maxX: number;
-    maxY: number;
-  } | null {
-    let box: { minX: number; minY: number; maxX: number; maxY: number } | null = null;
-    this.m_board.shapes.forEach((shape, i) => {
-      if (shape.layer !== 'Edge.Cuts') return;
-      const b = boardItemBBox(this.m_board, `shape:${i}`);
-      if (!b) return;
-      box = box
-        ? {
-            minX: Math.min(box.minX, b.minX),
-            minY: Math.min(box.minY, b.minY),
-            maxX: Math.max(box.maxX, b.maxX),
-            maxY: Math.max(box.maxY, b.maxY),
-          }
-        : { minX: b.minX, minY: b.minY, maxX: b.maxX, maxY: b.maxY };
-    });
-    return box;
+  SetOverrideLocks(aOverride: boolean): void {
+    this.m_overrideLocks = aOverride;
   }
 
-  /**
-   * addNewFootprint, load the component's footprint from the libraries and place
-   * it on the board. Returns the index of the new footprint, or -1.
-   */
-  private addNewFootprint(component: COMPONENT, footprintId: string): number {
-    const reference = component.GetReference();
+  SetUpdateFields(aEnabled: boolean): void {
+    this.m_updateFields = aEnabled;
+  }
 
-    if (footprintId === '') {
-      this.report(`Cannot add ${reference} (no footprint assigned).`, RPT_SEVERITY_ERROR);
-      this.m_errorCount++;
-      return -1;
-    }
+  SetRemoveExtraFields(aEnabled: boolean): void {
+    this.m_removeExtraFields = aEnabled;
+  }
 
-    const libFootprint = this.m_loadFootprint(footprintId);
+  SetDeleteUnusedFootprints(aEnabled: boolean): void {
+    this.m_deleteUnusedFootprints = aEnabled;
+  }
 
-    if (!libFootprint) {
-      this.report(
-        `Cannot add ${reference} (footprint '${escapeHtml(footprintId)}' not found).`,
-        RPT_SEVERITY_ERROR,
-      );
-      this.m_errorCount++;
-      return -1;
+  SetLookupByTimestamp(aEnabled: boolean): void {
+    this.m_lookupByTimestamp = aEnabled;
+  }
+
+  GetAddedFootprints(): FOOTPRINT[] {
+    return this.m_addedFootprints;
+  }
+
+  GetErrorCount(): number {
+    return this.m_errorCount;
+  }
+
+  GetWarningCount(): number {
+    return this.m_warningCount;
+  }
+
+  // These functions allow inspection of pad nets during dry runs by keeping a cache of
+  // current pad netnames indexed by pad.
+
+  private cacheNetname(aPad: PAD, aNetname: string): void {
+    this.m_padNets.set(aPad, aNetname);
+  }
+
+  private getNetname(aPad: PAD): string {
+    if (this.m_isDryRun && this.m_padNets.has(aPad)) return this.m_padNets.get(aPad)!;
+    else return aPad.GetNetname();
+  }
+
+  private cachePinFunction(aPad: PAD, aPinFunction: string): void {
+    this.m_padPinFunctions.set(aPad, aPinFunction);
+  }
+
+  private estimateFootprintInsertionPosition(): VECTOR2I {
+    const bestPosition = { x: 0, y: 0 };
+
+    if (!this.m_board.IsEmpty()) {
+      // Position new components below any existing board features.
+      const bbox = this.m_board.GetBoardEdgesBoundingBox();
+
+      if (bbox.GetWidth() || bbox.GetHeight()) {
+        bestPosition.x = bbox.Centre().x;
+        bestPosition.y = bbox.GetBottom() + pcbIUScale.mmToIU(10);
+      }
+    } else {
+      // Position new components in the center of the page when the board is empty.
+      const pageSize = this.m_board.GetPageSettings().GetSizeIU(pcbIUScale.IU_PER_MILS);
+
+      bestPosition.x = Math.trunc(pageSize.x / 2);
+      bestPosition.y = Math.trunc(pageSize.y / 2);
     }
 
-    if (this.dryRun) {
-      this.report(
-        `Add ${reference} (footprint '${escapeHtml(footprintId)}').`,
-        RPT_SEVERITY_ACTION,
-      );
-      this.m_newFootprintsCount++;
-      return -1;
+    return bestPosition;
+  }
+
+  private addNewFootprint(aComponent: COMPONENT, aFootprintId: LIB_ID): FOOTPRINT | null {
+    let msg: string;
+
+    if (aFootprintId.empty()) {
+      msg = `Cannot add ${aComponent.GetReference()} (no footprint assigned).`;
+      this.m_reporter.report(msg, RPT_SEVERITY_ERROR);
+      ++this.m_errorCount;
+      return null;
     }
 
-    const placed = placeFootprint(libFootprint, {
-      fpid: footprintId,
-      at: this.estimateFootprintInsertionPosition(),
-      uuid: newKiid(),
-      path: componentPath(component),
-    });
+    let footprint = this.m_loadFootprint(aFootprintId);
 
-    if (!placed) {
-      this.report(
-        `Cannot add ${reference} (footprint '${escapeHtml(footprintId)}' not found).`,
-        RPT_SEVERITY_ERROR,
-      );
-      this.m_errorCount++;
-      return -1;
+    if (footprint === null) {
+      msg = `Cannot add ${aComponent.GetReference()} (footprint '${EscapeHTML(aFootprintId.Format())}' not found).`;
+      this.m_reporter.report(msg, RPT_SEVERITY_ERROR);
+      ++this.m_errorCount;
+      return null;
     }
 
-    const index = this.m_board.footprints.length;
-    this.m_board = { ...this.m_board, footprints: [...this.m_board.footprints, placed] };
-    this.m_addedFootprints.push(index);
-
-    this.report(
-      `Added ${reference} (footprint '${escapeHtml(footprintId)}').`,
-      RPT_SEVERITY_ACTION,
+    footprint.SetStaticComponentClass(
+      this.m_board.GetComponentClassManager().GetNoneComponentClass(),
     );
+
+    if (this.m_isDryRun) {
+      msg = `Add ${aComponent.GetReference()} (footprint '${EscapeHTML(aFootprintId.Format())}').`;
+
+      footprint = null;
+    } else {
+      for (const pad of footprint.Pads()) {
+        // Set the pads ratsnest settings to the global settings
+        pad.SetLocalRatsnestVisible(
+          this.m_frame.GetPcbNewSettings().m_Display.m_ShowGlobalRatsnest,
+        );
+
+        // Pads in the library all have orphaned nets.  Replace with Default.
+        pad.SetNetCode(0);
+      }
+
+      footprint.SetParent(this.m_board as unknown as BOARD_ITEM);
+      footprint.SetPosition(this.estimateFootprintInsertionPosition());
+
+      // This flag is used to prevent connectivity from considering the footprint during its
+      // initial build after the footprint is committed, because we're going to immediately start
+      // a move operation on the footprint and don't want its pads to drive nets onto vias/tracks
+      // it happens to land on at the initial position.
+      footprint.SetAttributes(footprint.GetAttributes() | FP_JUST_ADDED);
+
+      this.m_addedFootprints.push(footprint);
+      this.m_commit.Add(footprint);
+
+      msg = `Added ${aComponent.GetReference()} (footprint '${EscapeHTML(aFootprintId.Format())}').`;
+    }
+
+    this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
     this.m_newFootprintsCount++;
-    return index;
+    return footprint;
   }
 
-  /**
-   * replaceFootprint, swap a board footprint for the one the symbol now names.
-   * Returns the (unchanged) index on success, -1 when nothing was replaced.
-   */
-  private replaceFootprint(index: number, component: COMPONENT): number {
-    const footprint = this.m_board.footprints[index]!;
-    const reference = footprint.reference ?? '';
-    const newFpid = component.GetFPID();
-    const oldFpid = escapeHtml(footprint.lib);
+  private updateComponentClass(aFootprint: FOOTPRINT, aNewComponent: COMPONENT): boolean {
+    let curClassName = '';
+    let newClassName: string;
+    let newClass: COMPONENT_CLASS | null = null;
 
-    if (newFpid === '') {
-      this.report(
-        `Cannot update ${component.GetReference()} (no footprint assigned).`,
-        RPT_SEVERITY_ERROR,
+    const curClass = aFootprint.GetStaticComponentClass();
+
+    if (curClass) curClassName = curClass.GetName();
+
+    // Calculate the new component class
+    if (this.m_isDryRun) {
+      newClassName = COMPONENT_CLASS_MANAGER.GetFullClassNameForConstituents(
+        aNewComponent.GetComponentClassNames(),
       );
-      this.m_errorCount++;
-      return -1;
+    } else {
+      newClass = this.m_board
+        .GetComponentClassManager()
+        .GetEffectiveStaticComponentClass(aNewComponent.GetComponentClassNames());
+      newClassName = newClass!.GetName();
     }
 
-    const libFootprint = this.m_loadFootprint(newFpid);
+    if (curClassName === newClassName) return false;
 
-    if (!libFootprint) {
-      this.report(
-        `Cannot update ${component.GetReference()} (footprint '${escapeHtml(newFpid)}' not found).`,
-        RPT_SEVERITY_ERROR,
-      );
-      this.m_errorCount++;
-      return -1;
+    // Create a copy for undo if the footprint has not been added during this update
+    let copy: FOOTPRINT | null = null;
+
+    if (!this.m_isDryRun && !this.m_commit.GetStatus(aFootprint)) {
+      copy = aFootprint.Clone() as FOOTPRINT;
+      copy.SetParentGroup(null);
     }
 
-    if (footprint.locked && !this.m_options.overrideLocks) {
-      this.report(
-        this.dryRun
-          ? `Cannot change ${reference} footprint from '${oldFpid}' to '${escapeHtml(newFpid)}' (footprint is locked).`
-          : `Could not change ${reference} footprint from '${oldFpid}' to '${escapeHtml(newFpid)}' (footprint is locked).`,
-        RPT_SEVERITY_WARNING,
-      );
-      this.m_warningCount++;
-      return -1;
+    let msg: string;
+    const ref = aFootprint.GetReference();
+
+    if (this.m_isDryRun) {
+      if (curClassName === '' && newClassName !== '')
+        msg = `Change ${ref} component class to '${EscapeHTML(newClassName)}'.`;
+      else if (curClassName !== '' && newClassName === '')
+        msg = `Remove ${ref} component class (currently '${EscapeHTML(curClassName)}').`;
+      else
+        msg = `Change ${ref} component class from '${EscapeHTML(curClassName)}' to '${EscapeHTML(newClassName)}'.`;
+    } else {
+      aFootprint.SetStaticComponentClass(newClass);
+
+      if (curClassName === '' && newClassName !== '')
+        msg = `Changed ${ref} component class to '${EscapeHTML(newClassName)}'.`;
+      else if (curClassName !== '' && newClassName === '')
+        msg = `Removed ${ref} component class (was '${EscapeHTML(curClassName)}').`;
+      else
+        msg = `Changed ${ref} component class from '${EscapeHTML(curClassName)}' to '${EscapeHTML(newClassName)}'.`;
     }
 
-    if (this.dryRun) {
-      this.report(
-        `Change ${reference} footprint from '${oldFpid}' to '${escapeHtml(newFpid)}'.`,
-        RPT_SEVERITY_ACTION,
-      );
-      this.m_newFootprintsCount++;
-      return -1;
-    }
+    this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
 
-    const exchanged = exchangeFootprint(footprint, libFootprint, newFpid);
-    if (!exchanged) return -1;
+    if (copy) this.m_commit.Modified(aFootprint, copy);
 
-    this.m_board = replaceFp(this.m_board, index, exchanged);
-    this.report(
-      `Changed ${reference} footprint from '${oldFpid}' to '${escapeHtml(newFpid)}'.`,
-      RPT_SEVERITY_ACTION,
-    );
-    this.m_newFootprintsCount++;
-    return index;
+    return true;
   }
 
-  /**
-   * updateFootprintParameters, reference, value, symbol link, fields, sheet name
-   * and file, and the fabrication attributes the netlist carries.
-   */
-  private updateFootprintParameters(index: number, component: COMPONENT): void {
-    let footprint = this.m_board.footprints[index]!;
-    const reference = footprint.reference ?? '';
+  private replaceFootprint(
+    _aNetlist: NETLIST,
+    aFootprint: FOOTPRINT,
+    aNewComponent: COMPONENT,
+  ): FOOTPRINT | null {
+    let msg: string;
+    const newFpid = componentFpid(aNewComponent);
+
+    if (newFpid.empty()) {
+      msg = `Cannot update ${aNewComponent.GetReference()} (no footprint assigned).`;
+      this.m_reporter.report(msg, RPT_SEVERITY_ERROR);
+      ++this.m_errorCount;
+      return null;
+    }
+
+    const newFootprint = this.m_loadFootprint(newFpid);
+
+    if (newFootprint === null) {
+      msg = `Cannot update ${aNewComponent.GetReference()} (footprint '${EscapeHTML(newFpid.Format())}' not found).`;
+      this.m_reporter.report(msg, RPT_SEVERITY_ERROR);
+      ++this.m_errorCount;
+      return null;
+    }
+
+    const ref = aFootprint.GetReference();
+    const from = EscapeHTML(aFootprint.GetFPID().Format());
+    const to = EscapeHTML(newFpid.Format());
+
+    if (this.m_isDryRun) {
+      if (aFootprint.IsLocked() && !this.m_overrideLocks) {
+        msg = `Cannot change ${ref} footprint from '${from}' to '${to}' (footprint is locked).`;
+        this.m_reporter.report(msg, RPT_SEVERITY_WARNING);
+        ++this.m_warningCount;
+        return null;
+      } else {
+        msg = `Change ${ref} footprint from '${from}' to '${to}'.`;
+        this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
+        ++this.m_newFootprintsCount;
+        return null;
+      }
+    } else {
+      if (aFootprint.IsLocked() && !this.m_overrideLocks) {
+        msg = `Could not change ${ref} footprint from '${from}' to '${to}' (footprint is locked).`;
+        this.m_reporter.report(msg, RPT_SEVERITY_WARNING);
+        ++this.m_warningCount;
+        return null;
+      } else {
+        // Expand the footprint pad layers
+        newFootprint.FixUpPadsForBoard(this.m_board);
+
+        this.m_frame.ExchangeFootprint(
+          aFootprint,
+          newFootprint,
+          this.m_commit,
+          true,
+          true,
+          true,
+          true,
+          false,
+          true,
+          true,
+          true,
+        );
+
+        msg = `Changed ${ref} footprint from '${from}' to '${to}'.`;
+        this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
+        ++this.m_newFootprintsCount;
+        return newFootprint;
+      }
+    }
+  }
+
+  private updateFootprintParameters(aFootprint: FOOTPRINT, aNetlistComponent: COMPONENT): boolean {
+    let msg: string;
+
+    // `firstAssociatedVariant`: design variants are not modeled (no variant names a footprint).
+
+    // Create a copy only if the footprint has not been added during this update
+    let copy: FOOTPRINT | null = null;
+
+    if (!this.m_commit.GetStatus(aFootprint)) {
+      copy = aFootprint.Clone() as FOOTPRINT;
+      copy.SetParentGroup(null);
+    }
+
+    let changed = false;
 
     // Test for reference designator field change.
-    if (reference !== component.GetReference()) {
-      this.report(
-        this.dryRun
-          ? `Change ${reference} reference designator to ${component.GetReference()}.`
-          : `Changed ${reference} reference designator to ${component.GetReference()}.`,
-        RPT_SEVERITY_ACTION,
-      );
-      if (!this.dryRun) footprint = setFootprintReference(footprint, component.GetReference());
+    if (aFootprint.GetReference() !== aNetlistComponent.GetReference()) {
+      if (this.m_isDryRun) {
+        msg = `Change ${aFootprint.GetReference()} reference designator to ${aNetlistComponent.GetReference()}.`;
+      } else {
+        msg = `Changed ${aFootprint.GetReference()} reference designator to ${aNetlistComponent.GetReference()}.`;
+
+        changed = true;
+        aFootprint.SetReference(aNetlistComponent.GetReference());
+      }
+
+      this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
     }
 
     // Test for value field change.
-    const netlistValue = component.GetValue();
-    if ((footprint.value ?? '') !== netlistValue) {
-      this.report(
-        this.dryRun
-          ? `Change ${reference} value from ${escapeHtml(footprint.value ?? '')} to ${escapeHtml(netlistValue)}.`
-          : `Changed ${reference} value from ${escapeHtml(footprint.value ?? '')} to ${escapeHtml(netlistValue)}.`,
-        RPT_SEVERITY_ACTION,
-      );
-      if (!this.dryRun) footprint = setFootprintValue(footprint, netlistValue);
-    }
+    const netlistValue = aNetlistComponent.GetValue();
 
-    // Test for symbol link (time stamp) change.
-    const newPath = componentPath(component);
-    if ((footprint.path ?? '') !== newPath) {
-      this.report(
-        this.dryRun
-          ? `Update ${reference} symbol association from ${escapeHtml(footprint.path ?? '')} to ${escapeHtml(newPath)}.`
-          : `Updated ${reference} symbol association from ${escapeHtml(footprint.path ?? '')} to ${escapeHtml(newPath)}.`,
-        RPT_SEVERITY_ACTION,
-      );
-      if (!this.dryRun) {
-        footprint = {
-          ...footprint,
-          path: newPath,
-        };
+    if (aFootprint.GetValue() !== netlistValue) {
+      if (this.m_isDryRun) {
+        msg = `Change ${aFootprint.GetReference()} value from ${EscapeHTML(aFootprint.GetValue())} to ${EscapeHTML(netlistValue)}.`;
+      } else {
+        msg = `Changed ${aFootprint.GetReference()} value from ${EscapeHTML(aFootprint.GetValue())} to ${EscapeHTML(netlistValue)}.`;
+
+        changed = true;
+        aFootprint.SetValue(netlistValue);
       }
+
+      this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
     }
 
-    footprint = this.updateFootprintFields(footprint, component, reference);
+    // Test for time stamp change.
+    const new_path = componentSymbolPath(aNetlistComponent);
 
-    // Sheet name / sheet file / footprint filters.
-    const humanSheetPath = component.GetHumanReadablePath();
-    const sheetname =
-      humanSheetPath !== '' ? humanSheetPath : (component.GetProperties().get('Sheetname') ?? '');
-    const sheetfile = component.GetProperties().get('Sheetfile') ?? '';
-    const fpFilters = component.GetProperties().get('ki_fp_filters') ?? '';
+    if (!samePath(aFootprint.GetPath(), new_path)) {
+      const fromPath = EscapeHTML(kiidPathAsString(aFootprint.GetPath()));
+      const toPath = EscapeHTML(kiidPathAsString(new_path));
 
-    if (sheetname !== (footprint.sheetname ?? '')) {
-      this.report(
-        this.dryRun
-          ? `Update ${reference} sheetname to '${escapeHtml(sheetname)}'.`
-          : `Updated ${reference} sheetname to '${escapeHtml(sheetname)}'.`,
-        RPT_SEVERITY_ACTION,
-      );
-      if (!this.dryRun) footprint = setSheetInfo(footprint, 'sheetname', sheetname);
+      if (this.m_isDryRun) {
+        msg = `Update ${aFootprint.GetReference()} symbol association from ${fromPath} to ${toPath}.`;
+      } else {
+        msg = `Updated ${aFootprint.GetReference()} symbol association from ${fromPath} to ${toPath}.`;
+
+        changed = true;
+        aFootprint.SetPath(new_path);
+      }
+
+      this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
     }
 
-    if (sheetfile !== (footprint.sheetfile ?? '')) {
-      this.report(
-        this.dryRun
-          ? `Update ${reference} sheetfile to '${escapeHtml(sheetfile)}'.`
-          : `Updated ${reference} sheetfile to '${escapeHtml(sheetfile)}'.`,
-        RPT_SEVERITY_ACTION,
-      );
-      if (!this.dryRun) footprint = setSheetInfo(footprint, 'sheetfile', sheetfile);
+    const fpFieldsAsMap = new Map<string, string>();
+
+    for (const field of aFootprint.GetFields()) {
+      if (!field) continue;
+
+      // These fields are individually checked above
+      if (field.IsReference() || field.IsValue() || field.IsComponentClass()) continue;
+
+      fpFieldsAsMap.set(field.GetName(), field.GetText());
     }
 
-    if (fpFilters !== (footprint.filters ?? '')) {
-      this.report(
-        this.dryRun
-          ? `Update ${reference} footprint filters to '${escapeHtml(fpFilters)}'.`
-          : `Updated ${reference} footprint filters to '${escapeHtml(fpFilters)}'.`,
-        RPT_SEVERITY_ACTION,
-      );
-      if (!this.dryRun) footprint = setFootprintFilters(footprint, fpFilters);
-    }
+    // Remove the ref/value/footprint fields that are individually handled
+    const compFields = new Map(aNetlistComponent.GetFields());
+    compFields.delete(GetCanonicalFieldName(FIELD_T.REFERENCE));
+    compFields.delete(GetCanonicalFieldName(FIELD_T.VALUE));
+    compFields.delete(GetCanonicalFieldName(FIELD_T.FOOTPRINT));
 
-    footprint = this.updateFabricationAttributes(footprint, component, reference);
-
-    this.m_board = replaceFp(this.m_board, index, footprint);
-  }
-
-  /** The `(property …)` fields part of updateFootprintParameters. */
-  private updateFootprintFields(
-    footprint: PcbFootprint,
-    component: COMPONENT,
-    reference: string,
-  ): PcbFootprint {
-    // Reference, Value and Footprint are handled individually above.
-    const compFields = new Map(component.GetFields());
-    compFields.delete('Reference');
-    compFields.delete('Value');
-    compFields.delete('Footprint');
-    // Component class fields are not editable in the pcb editor.
+    // Remove any component class fields - these are not editable in the pcb editor
     compFields.delete('Component Class');
 
-    // The footprint's *user* fields: a reserved property is not one (see
-    // RESERVED_FOOTPRINT_PROPERTIES), so a legacy board's Sheetname / Sheetfile /
-    // ki_description properties must not read as fields the symbol is missing.
-    // The mandatory Datasheet and Description fields are compared like the
-    // C++ does (`fpFieldsAsMap` holds every field but reference and value) but
-    // `IsMandatory()` keeps them from ever being removed as extra.
-    const userFields = (footprint.fields ?? []).filter(
-      (f) => !RESERVED_FOOTPRINT_PROPERTIES.has(f.name),
-    );
-    const fpFields = new Map(userFields.map((f) => [f.name, f.value]));
-
+    // Fields are stored as an ordered map, but we don't (yet) support reordering the footprint fields to
+    // match the symbol, so we manually check the fields in the order they are stored in the symbol.
     let same = true;
-    let removeOnly = true;
+    let remove_only = true;
 
     for (const [name, value] of compFields) {
-      if (!fpFields.has(name) || fpFields.get(name) !== value) {
+      if (!fpFieldsAsMap.has(name) || fpFieldsAsMap.get(name) !== value) {
         same = false;
-        removeOnly = false;
+        remove_only = false;
         break;
       }
     }
-    if (same) {
-      for (const name of fpFields.keys()) {
-        if (!compFields.has(name)) {
-          same = false;
-          break;
+
+    for (const name of fpFieldsAsMap.keys()) {
+      if (!compFields.has(name)) {
+        same = false;
+        break;
+      }
+    }
+
+    if (!same) {
+      if (this.m_isDryRun) {
+        if (this.m_updateFields && (!remove_only || this.m_removeExtraFields)) {
+          msg = `Update ${aFootprint.GetReference()} fields.`;
+          this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
+        }
+
+        // Remove fields that aren't present in the symbol
+        for (const field of aFootprint.GetFields()) {
+          if (!field || field.IsMandatory()) continue;
+
+          if (!compFields.has(field.GetName())) {
+            if (this.m_removeExtraFields) {
+              msg = `Remove ${aFootprint.GetReference()} footprint fields not in symbol.`;
+              this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
+            }
+
+            break;
+          }
+        }
+      } else {
+        if (this.m_updateFields && (!remove_only || this.m_removeExtraFields)) {
+          msg = `Updated ${aFootprint.GetReference()} fields.`;
+          this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
+
+          changed = true;
+
+          // Add or change field value
+          for (const [name, value] of compFields) {
+            if (aFootprint.HasField(name)) {
+              aFootprint.GetField(name)!.SetText(value);
+            } else {
+              const newField = new PCB_FIELD(aFootprint, FIELD_T.USER);
+              aFootprint.Add(newField);
+
+              newField.SetName(name);
+              newField.SetText(value);
+              newField.SetVisible(false);
+              newField.SetLayer(
+                aFootprint.GetLayer() === PCB_LAYER_ID.F_Cu
+                  ? PCB_LAYER_ID.F_Fab
+                  : PCB_LAYER_ID.B_Fab,
+              );
+
+              // Give the relative position (0,0) in footprint
+              newField.SetPosition(aFootprint.GetPosition());
+              // Give the footprint orientation
+              newField.Rotate(aFootprint.GetPosition(), aFootprint.GetOrientation());
+
+              newField.StyleFromSettings(this.m_frame.GetDesignSettings(), true);
+            }
+          }
+        }
+
+        if (this.m_removeExtraFields) {
+          let warned = false;
+
+          const fieldList: PCB_FIELD[] = [];
+          aFootprint.GetFields(fieldList, false);
+
+          for (const field of fieldList) {
+            if (field.IsMandatory()) continue;
+
+            if (!compFields.has(field.GetName())) {
+              if (!warned) {
+                warned = true;
+                msg = `Removed ${aFootprint.GetReference()} footprint fields not in symbol.`;
+                this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
+              }
+
+              aFootprint.Remove(field);
+
+              this.m_frame.GetCanvas()?.GetView()?.Remove(field);
+            }
+          }
         }
       }
     }
 
-    if (same) return footprint;
+    let sheetname = '';
+    let sheetfile = '';
+    let fpFilters = '';
 
-    const wantsUpdate =
-      this.m_options.updateFields && (!removeOnly || this.m_options.removeExtraFields);
-    const extraFields = [...fpFields.keys()].filter(
-      (name) => !compFields.has(name) && !MANDATORY_FIELD_NAMES.has(name),
+    const humanSheetPath = aNetlistComponent.GetHumanReadablePath();
+    const props = aNetlistComponent.GetProperties();
+
+    if (humanSheetPath !== '') sheetname = humanSheetPath;
+    else if (props.has('Sheetname')) sheetname = props.get('Sheetname')!;
+
+    if (props.has('Sheetfile')) sheetfile = props.get('Sheetfile')!;
+
+    if (props.has('ki_fp_filters')) fpFilters = props.get('ki_fp_filters')!;
+
+    if (sheetname !== aFootprint.GetSheetname()) {
+      if (this.m_isDryRun) {
+        msg = `Update ${aFootprint.GetReference()} sheetname to '${EscapeHTML(sheetname)}'.`;
+      } else {
+        aFootprint.SetSheetname(sheetname);
+        msg = `Updated ${aFootprint.GetReference()} sheetname to '${EscapeHTML(sheetname)}'.`;
+      }
+
+      this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
+    }
+
+    if (sheetfile !== aFootprint.GetSheetfile()) {
+      if (this.m_isDryRun) {
+        msg = `Update ${aFootprint.GetReference()} sheetfile to '${EscapeHTML(sheetfile)}'.`;
+      } else {
+        aFootprint.SetSheetfile(sheetfile);
+        msg = `Updated ${aFootprint.GetReference()} sheetfile to '${EscapeHTML(sheetfile)}'.`;
+      }
+
+      this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
+    }
+
+    if (fpFilters !== aFootprint.GetFilters()) {
+      if (this.m_isDryRun) {
+        msg = `Update ${aFootprint.GetReference()} footprint filters to '${EscapeHTML(fpFilters)}'.`;
+      } else {
+        aFootprint.SetFilters(fpFilters);
+        msg = `Updated ${aFootprint.GetReference()} footprint filters to '${EscapeHTML(fpFilters)}'.`;
+      }
+
+      this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
+    }
+
+    const attribute = (aFlag: number, aWanted: boolean, aName: string): void => {
+      if (!this.m_updateFields || aWanted === (aFootprint.GetAttributes() & aFlag) > 0) return;
+
+      const ref = aFootprint.GetReference();
+
+      if (this.m_isDryRun) {
+        msg = aWanted
+          ? `Add ${ref} '${aName}' fabrication attribute.`
+          : `Remove ${ref} '${aName}' fabrication attribute.`;
+      } else {
+        let attributes = aFootprint.GetAttributes();
+
+        if (aWanted) {
+          attributes |= aFlag;
+          msg = `Added ${ref} '${aName}' fabrication attribute.`;
+        } else {
+          attributes &= ~aFlag;
+          msg = `Removed ${ref} '${aName}' fabrication attribute.`;
+        }
+
+        changed = true;
+        aFootprint.SetAttributes(attributes);
+      }
+
+      this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
+    };
+
+    attribute(FP_EXCLUDE_FROM_BOM, props.has('exclude_from_bom'), 'exclude from BOM');
+    attribute(FP_DNP, props.has('dnp'), 'Do not place');
+    attribute(
+      FP_EXCLUDE_FROM_POS_FILES,
+      props.has('exclude_from_pos_files'),
+      'exclude from position files',
     );
 
-    if (this.dryRun) {
-      if (wantsUpdate) this.report(`Update ${reference} fields.`, RPT_SEVERITY_ACTION);
-      if (this.m_options.removeExtraFields && extraFields.length > 0)
-        this.report(`Remove ${reference} footprint fields not in symbol.`, RPT_SEVERITY_ACTION);
-      return footprint;
+    if (
+      this.m_updateFields &&
+      aNetlistComponent.GetDuplicatePadNumbersAreJumpers() !==
+        aFootprint.GetDuplicatePadNumbersAreJumpers()
+    ) {
+      const value = aNetlistComponent.GetDuplicatePadNumbersAreJumpers();
+      const ref = aFootprint.GetReference();
+
+      if (!this.m_isDryRun) {
+        changed = true;
+        aFootprint.SetDuplicatePadNumbersAreJumpers(value);
+
+        msg = value
+          ? `Added ${ref} 'duplicate pad numbers are jumpers' attribute.`
+          : `Removed ${ref} 'duplicate pad numbers are jumpers' attribute.`;
+      } else {
+        msg = value
+          ? `Add ${ref} 'duplicate pad numbers are jumpers' attribute.`
+          : `Remove ${ref} 'duplicate pad numbers are jumpers' attribute.`;
+      }
+
+      this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
     }
 
-    let fields: PcbFootprintField[] = [...(footprint.fields ?? [])];
+    if (
+      this.m_updateFields &&
+      !sameJumperGroups(aNetlistComponent.JumperPadGroups(), aFootprint.JumperPadGroups())
+    ) {
+      if (!this.m_isDryRun) {
+        changed = true;
+        const groups = aFootprint.JumperPadGroups();
+        groups.length = 0;
+        for (const g of aNetlistComponent.JumperPadGroups()) groups.push(new Set(g));
+        msg = `Updated ${aFootprint.GetReference()} jumper pad groups`;
+      } else {
+        msg = `Update ${aFootprint.GetReference()} jumper pad groups`;
+      }
 
-    if (wantsUpdate) {
-      this.report(`Updated ${reference} fields.`, RPT_SEVERITY_ACTION);
-      for (const [name, value] of compFields) {
-        const existing = fields.findIndex((f) => f.name === name);
-        if (existing >= 0) {
-          const field = fields[existing]!;
-          fields[existing] = { ...field, value };
-        } else {
-          // A brand-new field: the writer builds its PCB_FIELD from the model
-          // (invisible, on the fab layer, at the footprint anchor).
-          fields.push({ name, value });
+      this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
+    }
+
+    if (changed && copy) this.m_commit.Modified(aFootprint, copy);
+
+    return true;
+  }
+
+  private updateFootprintGroup(aPcbFootprint: FOOTPRINT, aNetlistComponent: COMPONENT): boolean {
+    if (!this.m_transferGroups) return false;
+
+    let msg: string;
+
+    // Create a copy only if the footprint has not been added during this update
+    let copy: FOOTPRINT | null = null;
+
+    if (!this.m_commit.GetStatus(aPcbFootprint)) {
+      copy = aPcbFootprint.Clone() as FOOTPRINT;
+      copy.SetParentGroup(null);
+    }
+
+    let changed = false;
+
+    // These hold the info for group and group KIID coming from the netlist
+    // newGroup may point to an existing group on the board if we find an
+    // incoming group UUID that matches an existing group
+    let newGroup: PCB_GROUP | null = null;
+    const netlistGroup = aNetlistComponent.GetGroup();
+    const newGroupKIID = netlistGroup ? kiidFromString(netlistGroup.uuid) : niluuid;
+
+    const existingGroup = aPcbFootprint.GetParentGroup() as unknown as PCB_GROUP | null;
+    const existingGroupKIID = existingGroup ? existingGroup.m_Uuid : niluuid;
+
+    // Find existing group based on matching UUIDs
+    const it = this.m_board.Groups().find((group) => group.m_Uuid === newGroupKIID);
+
+    // If we find a group with the same UUID, use it
+    if (it) newGroup = it;
+
+    // No changes, nothing to do
+    if (newGroupKIID === existingGroupKIID) return changed;
+
+    // Remove from existing group
+    if (existingGroupKIID !== niluuid) {
+      if (this.m_isDryRun) {
+        msg = `Remove ${aPcbFootprint.GetReference()} from group '${EscapeHTML(existingGroup!.GetName())}'.`;
+      } else {
+        msg = `Removed ${aPcbFootprint.GetReference()} from group '${EscapeHTML(existingGroup!.GetName())}'.`;
+
+        changed = true;
+        this.m_commit.Modify(existingGroup!, null, RECURSE_MODE.NO_RECURSE);
+        existingGroup!.RemoveItem(aPcbFootprint);
+
+        if (existingGroup!.GetItems().size < 2) {
+          existingGroup!.RemoveAll();
+          this.m_commit.Remove(existingGroup!);
         }
       }
+
+      this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
     }
 
-    if (this.m_options.removeExtraFields && extraFields.length > 0) {
-      this.report(`Removed ${reference} footprint fields not in symbol.`, RPT_SEVERITY_ACTION);
-      // A reserved property is not a field, so it is never removed as "extra";
-      // a mandatory field never is either (`field->IsMandatory()`).
-      fields = fields.filter(
-        (f) =>
-          compFields.has(f.name) ||
-          RESERVED_FOOTPRINT_PROPERTIES.has(f.name) ||
-          MANDATORY_FIELD_NAMES.has(f.name),
-      );
-    }
-
-    return { ...footprint, fields };
-  }
-
-  /** The fabrication-attribute part of updateFootprintParameters. */
-  private updateFabricationAttributes(
-    footprint: PcbFootprint,
-    component: COMPONENT,
-    reference: string,
-  ): PcbFootprint {
-    if (!this.m_options.updateFields) return footprint;
-
-    const flags: { property: string; flag: string; label: string }[] = [
-      { property: 'exclude_from_bom', flag: FP_EXCLUDE_FROM_BOM, label: "'exclude from BOM'" },
-      { property: 'dnp', flag: FP_DNP, label: "'Do not place'" },
-      {
-        property: 'exclude_from_pos_files',
-        flag: FP_EXCLUDE_FROM_POS_FILES,
-        label: "'exclude from position files'",
-      },
-    ];
-
-    let out = footprint;
-
-    for (const { property, flag, label } of flags) {
-      const wanted = component.GetProperties().has(property);
-      if (wanted === hasAttribute(out, flag)) continue;
-
-      if (this.dryRun) {
-        this.report(
-          wanted
-            ? `Add ${reference} ${label} fabrication attribute.`
-            : `Remove ${reference} ${label} fabrication attribute.`,
-          RPT_SEVERITY_ACTION,
-        );
+    // Add to new group
+    if (newGroupKIID !== niluuid) {
+      if (this.m_isDryRun) {
+        msg = `Add ${aPcbFootprint.GetReference()} to group '${EscapeHTML(netlistGroup!.name)}'.`;
       } else {
-        out = withAttribute(out, flag, wanted);
-        this.report(
-          wanted
-            ? `Added ${reference} ${label} fabrication attribute.`
-            : `Removed ${reference} ${label} fabrication attribute.`,
-          RPT_SEVERITY_ACTION,
-        );
+        msg = `Added ${aPcbFootprint.GetReference()} to group '${EscapeHTML(netlistGroup!.name)}'.`;
+
+        changed = true;
+
+        if (newGroup === null) {
+          newGroup = new PCB_GROUP(this.m_board as unknown as BOARD_ITEM);
+          newGroup.SetUuidDirect(newGroupKIID);
+          newGroup.SetName(netlistGroup!.name);
+
+          // Add the group to the board manually so we can find it by checking
+          // board groups for later footprints that are checking for existing groups
+          this.m_board.Add(newGroup);
+          this.m_commit.Added(newGroup);
+          this.m_addedGroups.push(newGroup);
+        } else {
+          this.m_commit.Modify(newGroup, null, RECURSE_MODE.NO_RECURSE);
+        }
+
+        newGroup.AddItem(aPcbFootprint);
       }
+
+      this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
     }
 
-    return out;
+    if (changed && copy) this.m_commit.Modified(aPcbFootprint, copy);
+
+    return changed;
   }
 
-  /**
-   * updateComponentPadConnections, the heart of the update: every pad's net, pin
-   * function and pin type, taken from the component's netlist entry.
-   */
-  private updateComponentPadConnections(index: number, component: COMPONENT): void {
-    let footprint = this.m_board.footprints[index]!;
-    const reference = footprint.reference ?? '';
+  private updateComponentPadConnections(aFootprint: FOOTPRINT, aNewComponent: COMPONENT): boolean {
+    let msg: string;
+
+    // Create a copy only if the footprint has not been added during this update
+    let copy: FOOTPRINT | null = null;
+
+    if (!this.m_isDryRun && !this.m_commit.GetStatus(aFootprint)) {
+      copy = aFootprint.Clone() as FOOTPRINT;
+      copy.SetParentGroup(null);
+    }
+
+    let changed = false;
+
+    // At this point, the component footprint is updated.  Now update the nets.
+    const pads = [...aFootprint.Pads()];
     const padNetnames = new Set<string>();
 
-    // Pads are visited in UUID order, as upstream sorts them, so the "_N" suffixes
-    // a no-connect pad group gets are stable across runs.
-    const order = footprint.pads
-      .map((pad, padIndex) => ({ pad, padIndex }))
-      .sort((a, b) => (a.pad.uuid ?? '').localeCompare(b.pad.uuid ?? ''));
+    pads.sort((a, b) => (a.m_Uuid < b.m_Uuid ? -1 : a.m_Uuid > b.m_Uuid ? 1 : 0));
 
-    const pads = [...footprint.pads];
+    const ref = aFootprint.GetReference();
 
-    for (const { pad, padIndex } of order) {
-      const padKey = `${index}:${padIndex}`;
-      const net = component.GetNet(pad.number);
-      const pinFunction = net.IsValid() ? net.pinFunction : '';
-      const pinType = net.IsValid() ? net.pinType : '';
-      const currentNetname = this.getNetname(padKey, pad);
+    for (const pad of pads) {
+      const net = aNewComponent.GetNet(pad.GetNumber());
 
-      // Test if the pad has no net (pads not on copper layers have no net).
-      if (!net.IsValid() || !padIsOnCopperLayer(pad)) {
-        if (currentNetname !== '') {
-          this.report(
-            this.dryRun
-              ? `Disconnect ${reference} pin ${escapeHtml(pad.number)}.`
-              : `Disconnected ${reference} pin ${escapeHtml(pad.number)}.`,
-            RPT_SEVERITY_ACTION,
-          );
-        } else if (padIsOnCopperLayer(pad) && pad.number !== '') {
-          // The pad is connectable but has no net found in the netlist.
-          this.report(
-            `No net found for component ${reference} pad ${escapeHtml(pad.number)} (no pin ${escapeHtml(pad.number)} in symbol).`,
-            RPT_SEVERITY_WARNING,
-          );
-          this.m_warningCount++;
-        }
+      let pinFunction = '';
+      let pinType = '';
 
-        if (this.dryRun) {
-          this.m_padNets.set(padKey, '');
-        } else {
-          pads[padIndex] = {
-            ...pad,
-            net: UNCONNECTED_NET,
-            // A pad with no net from the netlist cannot have a pin function.
-            pinFunction: currentNetname === '' ? '' : pinFunction,
-            pinType,
-          };
-        }
-        continue;
+      if (net.IsValid()) {
+        // i.e. the pad has a name
+        pinFunction = net.GetPinFunction();
+        pinType = net.GetPinType();
       }
 
-      // The pad has a net. A no-connect pad gets its own net per pad, suffixed so
-      // two unconnected pads never end up shorted together.
-      let netName = net.netName;
-
-      if (padIsNoConnect(pad)) {
-        let suffix = 1;
-        while (
-          !insertUnique(padNetnames, netName) ||
-          (netName !== net.netName && this.m_schematicNetNames.has(netName))
-        ) {
-          netName = `${net.netName}_${suffix}`;
-          suffix++;
+      if (!this.m_isDryRun) {
+        if (pad.GetPinFunction() !== pinFunction) {
+          changed = true;
+          pad.SetPinFunction(pinFunction);
         }
-      }
 
-      if (currentNetname === netName) continue;
-
-      let code = findNet(this.m_board, netName);
-
-      if (code === undefined) {
-        if (this.dryRun) {
-          this.m_addedNets.add(netName);
-        } else {
-          const appended = appendNet(this.m_board, netName);
-          this.m_board = appended.board;
-          code = appended.code;
-          this.m_addedNets.add(netName);
+        if (pad.GetPinType() !== pinType) {
+          changed = true;
+          pad.SetPinType(pinType);
         }
-        this.report(`Add net ${escapeHtml(unescapeString(netName))}.`, RPT_SEVERITY_ACTION);
-      }
-
-      if (currentNetname !== '') {
-        this.m_oldToNewNets.set(currentNetname, netName);
-        this.report(
-          this.dryRun
-            ? `Reconnect ${reference} pin ${escapeHtml(pad.number)} from ${escapeHtml(unescapeString(currentNetname))} to ${escapeHtml(unescapeString(netName))}.`
-            : `Reconnected ${reference} pin ${escapeHtml(pad.number)} from ${escapeHtml(unescapeString(currentNetname))} to ${escapeHtml(unescapeString(netName))}.`,
-          RPT_SEVERITY_ACTION,
-        );
       } else {
-        this.report(
-          this.dryRun
-            ? `Connect ${reference} pin ${escapeHtml(pad.number)} to ${escapeHtml(unescapeString(netName))}.`
-            : `Connected ${reference} pin ${escapeHtml(pad.number)} to ${escapeHtml(unescapeString(netName))}.`,
-          RPT_SEVERITY_ACTION,
-        );
+        this.cachePinFunction(pad, pinFunction);
       }
 
-      if (this.dryRun) {
-        this.m_padNets.set(padKey, netName);
-      } else {
-        pads[padIndex] = {
-          ...pad,
-          net: code,
-          pinFunction,
-          pinType,
-        };
-      }
-    }
+      // Test if new footprint pad has no net (pads not on copper layers have no net).
+      if (!net.IsValid() || !pad.IsOnCopperLayer()) {
+        if (pad.GetNetname() !== '') {
+          if (this.m_isDryRun) msg = `Disconnect ${ref} pin ${EscapeHTML(pad.GetNumber())}.`;
+          else msg = `Disconnected ${ref} pin ${EscapeHTML(pad.GetNumber())}.`;
 
-    if (!this.dryRun) {
-      footprint = { ...footprint, pads };
-      this.m_board = replaceFp(this.m_board, index, footprint);
-    }
-  }
+          this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
+        } else if (pad.IsOnCopperLayer() && pad.GetNumber() !== '') {
+          // pad is connectable but has no net found in netlist
+          msg = `No net found for component ${ref} pad ${EscapeHTML(pad.GetNumber())} (no pin ${EscapeHTML(pad.GetNumber())} in symbol).`;
+          this.m_reporter.report(msg, RPT_SEVERITY_WARNING);
+          ++this.m_warningCount;
+        }
 
-  /**
-   * updateFootprintGroup, move a footprint into the PCB group that mirrors its
-   * symbol's group, creating that group when the board has none with its UUID.
-   */
-  private updateFootprintGroup(index: number, component: COMPONENT): void {
-    if (!this.m_options.transferGroups) return;
+        if (!this.m_isDryRun) {
+          changed = true;
+          pad.SetNetCode(NETINFO_LIST.UNCONNECTED);
 
-    const footprint = this.m_board.footprints[index]!;
-    const uuid = footprint.uuid;
-    if (!uuid) return;
-
-    const reference = footprint.reference ?? '';
-    const netlistGroup = component.GetGroup();
-    const newGroupUuid = netlistGroup ? netlistGroup.uuid : '';
-
-    const existingIndex = this.m_board.groups.findIndex((g) => g.members.includes(uuid));
-    const existingGroup = existingIndex >= 0 ? this.m_board.groups[existingIndex]! : null;
-    const existingGroupUuid = existingGroup?.uuid ?? '';
-
-    if (newGroupUuid === existingGroupUuid) return;
-
-    if (existingGroup && existingGroupUuid !== '') {
-      this.report(
-        this.dryRun
-          ? `Remove ${reference} from group '${escapeHtml(existingGroup.name)}'.`
-          : `Removed ${reference} from group '${escapeHtml(existingGroup.name)}'.`,
-        RPT_SEVERITY_ACTION,
-      );
-      if (!this.dryRun) {
-        const members = existingGroup.members.filter((m) => m !== uuid);
-        // A group with fewer than two items left is dissolved.
-        this.m_board = {
-          ...this.m_board,
-          groups: this.m_board.groups.map((g, i) =>
-            i === existingIndex ? withGroupMembers(g, members.length < 2 ? [] : members) : g,
-          ),
-        };
-      }
-    }
-
-    if (netlistGroup && newGroupUuid !== '') {
-      this.report(
-        this.dryRun
-          ? `Add ${reference} to group '${escapeHtml(netlistGroup.name)}'.`
-          : `Added ${reference} to group '${escapeHtml(netlistGroup.name)}'.`,
-        RPT_SEVERITY_ACTION,
-      );
-      if (!this.dryRun) {
-        const targetIndex = this.m_board.groups.findIndex((g) => g.uuid === newGroupUuid);
-        if (targetIndex >= 0) {
-          const target = this.m_board.groups[targetIndex]!;
-          this.m_board = {
-            ...this.m_board,
-            groups: this.m_board.groups.map((g, i) =>
-              i === targetIndex ? withGroupMembers(target, [...target.members, uuid]) : g,
-            ),
-          };
+          // If the pad has no net from netlist (i.e. not in netlist
+          // it cannot have a pin function
+          if (pad.GetNetname() === '') pad.SetPinFunction('');
         } else {
-          const group: PcbGroup = {
-            name: netlistGroup.name,
-            uuid: newGroupUuid,
-            members: [uuid],
-          };
-          this.m_board = { ...this.m_board, groups: [...this.m_board.groups, group] };
-          this.m_addedGroups.push(newGroupUuid);
+          this.cacheNetname(pad, '');
+        }
+      } else {
+        // New footprint pad has a net.
+        let netName = net.GetNetName();
+
+        if (pad.IsNoConnectPad()) {
+          netName = net.GetNetName();
+
+          for (
+            let jj = 1;
+            padNetnames.has(netName) ||
+            (netName !== net.GetNetName() && this.m_schematicNetNames.has(netName));
+            jj++
+          ) {
+            netName = `${net.GetNetName()}_${jj}`;
+          }
+
+          padNetnames.add(netName);
+        }
+
+        let netinfo = this.m_board.FindNet(netName);
+
+        if (netinfo && !this.m_isDryRun) netinfo.SetIsCurrent(true);
+
+        if (pad.GetNetname() !== netName) {
+          if (netinfo === null) {
+            // It might be a new net that has not been added to the board yet
+            if (this.m_addedNets.has(netName)) netinfo = this.m_addedNets.get(netName)!;
+          }
+
+          if (netinfo === null) {
+            netinfo = new NETINFO_ITEM(this.m_board, netName);
+
+            // It is a new net, we have to add it
+            if (!this.m_isDryRun) {
+              changed = true;
+              this.m_commit.Add(netinfo);
+            }
+
+            this.m_addedNets.set(netName, netinfo);
+            msg = `Add net ${EscapeHTML(UnescapeString(netName))}.`;
+            this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
+          }
+
+          const pin = EscapeHTML(pad.GetNumber());
+          const to = EscapeHTML(UnescapeString(netName));
+
+          if (pad.GetNetname() !== '') {
+            this.m_oldToNewNets.set(pad.GetNetname(), netName);
+
+            const from = EscapeHTML(UnescapeString(pad.GetNetname()));
+
+            if (this.m_isDryRun) msg = `Reconnect ${ref} pin ${pin} from ${from} to ${to}.`;
+            else msg = `Reconnected ${ref} pin ${pin} from ${from} to ${to}.`;
+          } else {
+            if (this.m_isDryRun) msg = `Connect ${ref} pin ${pin} to ${to}.`;
+            else msg = `Connected ${ref} pin ${pin} to ${to}.`;
+          }
+
+          this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
+
+          if (!this.m_isDryRun) {
+            changed = true;
+            pad.SetNet(netinfo);
+          } else {
+            this.cacheNetname(pad, netName);
+          }
         }
       }
     }
+
+    if (changed && copy) this.m_commit.Modified(aFootprint, copy);
+
+    return true;
   }
 
-  /** updateGroups, a PCB group's name follows its netlist group's name. */
-  private updateGroups(netlist: NETLIST): void {
-    if (!this.m_options.transferGroups) return;
+  private updateComponentUnits(aFootprint: FOOTPRINT, aNewComponent: COMPONENT): boolean {
+    // Build the footprint-side representation from the netlist component
+    const newUnits: FP_UNIT_INFO[] = aNewComponent
+      .GetUnitInfo()
+      .map((u) => ({ m_unitName: u.unitName, m_pins: [...u.pins] }));
 
-    this.m_board.groups.forEach((pcbGroup, i) => {
-      const netlistGroup = pcbGroup.uuid ? netlist.GetGroupByUuid(pcbGroup.uuid) : null;
-      if (!netlistGroup) return;
-      if (netlistGroup.name === pcbGroup.name) return;
+    const curUnits = aFootprint.GetUnitInfo();
 
-      this.report(
-        this.dryRun
-          ? `Change group name from '${escapeHtml(pcbGroup.name)}' to '${escapeHtml(netlistGroup.name)}'.`
-          : `Changed group name from '${escapeHtml(pcbGroup.name)}' to '${escapeHtml(netlistGroup.name)}'.`,
-        RPT_SEVERITY_ACTION,
-      );
+    const unitsEqual = (a: readonly FP_UNIT_INFO[], b: readonly FP_UNIT_INFO[]): boolean => {
+      if (a.length !== b.length) return false;
 
-      if (!this.dryRun) {
-        this.m_board = {
-          ...this.m_board,
-          groups: this.m_board.groups.map((g, j) =>
-            j === i ? { ...g, name: netlistGroup.name } : g,
-          ),
-        };
+      for (let i = 0; i < a.length; ++i) {
+        if (a[i]!.m_unitName !== b[i]!.m_unitName) return false;
+
+        const ap = a[i]!.m_pins;
+        const bp = b[i]!.m_pins;
+
+        if (ap.length !== bp.length || ap.some((p, j) => p !== bp[j])) return false;
       }
-    });
+
+      return true;
+    };
+
+    if (unitsEqual(curUnits, newUnits)) return false;
+
+    let msg: string;
+
+    if (this.m_isDryRun) {
+      msg = `Update ${aFootprint.GetReference()} unit metadata.`;
+      this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
+      return false; // no actual change on board during dry run
+    }
+
+    // Create a copy only if the footprint has not been added during this update
+    let copy: FOOTPRINT | null = null;
+
+    if (!this.m_commit.GetStatus(aFootprint)) {
+      copy = aFootprint.Clone() as FOOTPRINT;
+      copy.SetParentGroup(null);
+    }
+
+    aFootprint.SetUnitInfo(newUnits);
+
+    msg = `Updated ${aFootprint.GetReference()} unit metadata.`;
+    this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
+
+    if (copy) this.m_commit.Modified(aFootprint, copy);
+
+    return true;
   }
 
-  /** cacheCopperZoneConnections, the pads each copper zone touches, before any edit. */
   private cacheCopperZoneConnections(): void {
-    this.m_board.zones.forEach((zone, zoneIndex) => {
-      if (!zoneIsOnCopperLayer(zone)) return;
-      const padKeys: string[] = [];
-      this.m_board.footprints.forEach((fp, fpIndex) => {
-        fp.pads.forEach((pad, padIndex) => {
-          if (pad.net === undefined || pad.net === UNCONNECTED_NET) return;
-          if (pad.net !== zone.net) return;
-          padKeys.push(`${fpIndex}:${padIndex}`);
-        });
-      });
-      this.m_zoneConnectionsCache.set(zoneIndex, padKeys);
-    });
+    for (const zone of this.m_board.Zones()) {
+      if (!zone.IsOnCopperLayer() || zone.GetIsRuleArea()) continue;
+
+      this.m_zoneConnectionsCache.set(
+        zone,
+        this.m_board.GetConnectivity().GetConnectedPads(zone) as PAD[],
+      );
+    }
   }
 
-  /**
-   * updateCopperZoneNets, stitching vias and copper zones sitting on a net the
-   * netlist no longer has are moved to the net their pads went to, so a rename does
-   * not leave dead copper behind.
-   */
-  private updateCopperZoneNets(netlist: NETLIST): void {
+  private updateCopperZoneNets(aNetlist: NETLIST): boolean {
+    let msg: string;
     const netlistNetnames = new Set<string>();
-    for (const component of netlist.Components()) {
-      for (let i = 0; i < component.GetNetCount(); i++)
-        netlistNetnames.add(component.GetNetAt(i).netName);
+
+    for (let ii = 0; ii < aNetlist.GetCount(); ii++) {
+      const component = aNetlist.GetComponent(ii)!;
+
+      for (let jj = 0; jj < component.GetNetCount(); jj++) {
+        const net = component.GetNetAt(jj);
+        netlistNetnames.add(net.GetNetName());
+      }
     }
 
-    // Vias first.
-    this.m_board.vias.forEach((via, i) => {
-      const viaNetname = this.m_board.nets.get(via.net) ?? '';
-      if (netlistNetnames.has(viaNetname)) return;
+    for (const via of this.m_board.Tracks()) {
+      if (via.Type() !== KICAD_T.PCB_VIA_T) continue;
 
-      // Take the via's name from the name-change map if it did not match a new pad
-      // (useful for stitching vias that do not connect to tracks).
-      const updatedNetname = this.m_oldToNewNets.get(viaNetname) ?? '';
+      if (!netlistNetnames.has(via.GetNetname())) {
+        let updatedNetname = '';
 
-      if (updatedNetname === '') {
-        this.report(
-          `Via connected to unknown net (${escapeHtml(unescapeString(viaNetname))}).`,
-          RPT_SEVERITY_WARNING,
-        );
-        this.m_warningCount++;
-        return;
-      }
+        // Take via name from name change map if it didn't match to a new pad
+        // (this is useful for stitching vias that don't connect to tracks)
+        if (this.m_oldToNewNets.has(via.GetNetname()))
+          updatedNetname = this.m_oldToNewNets.get(via.GetNetname())!;
 
-      this.report(
-        this.dryRun
-          ? `Reconnect via from ${escapeHtml(unescapeString(viaNetname))} to ${escapeHtml(unescapeString(updatedNetname))}.`
-          : `Reconnected via from ${escapeHtml(unescapeString(viaNetname))} to ${escapeHtml(unescapeString(updatedNetname))}.`,
-        RPT_SEVERITY_ACTION,
-      );
+        if (updatedNetname !== '') {
+          if (this.m_isDryRun) {
+            const originalNetname = via.GetNetname();
 
-      if (this.dryRun) return;
-      const code = findNet(this.m_board, updatedNetname);
-      if (code === undefined) return;
-      this.m_board = {
-        ...this.m_board,
-        vias: this.m_board.vias.map((v, j) => (j === i ? { ...v, net: code } : v)),
-      };
-    });
+            msg = `Reconnect via from ${EscapeHTML(UnescapeString(originalNetname))} to ${EscapeHTML(UnescapeString(updatedNetname))}.`;
 
-    /**
-     * Board connectivity net names are not the same as schematic net names:
-     * footprints with several overlapping pads of the same number get a "_N" suffix
-     * for internal use, and those pseudo names ended up in the zone net name list.
-     */
-    const isInNetlist = (netName: string): boolean =>
-      netlistNetnames.has(netName) || [...netlistNetnames].some((n) => netName.startsWith(n));
+            this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
+          } else {
+            const netinfo =
+              this.m_board.FindNet(updatedNetname) ?? this.m_addedNets.get(updatedNetname) ?? null;
 
-    this.m_board.zones.forEach((zone, i) => {
-      if (!zoneIsOnCopperLayer(zone)) return;
-      const zoneNetname = this.m_board.nets.get(zone.net) ?? zone.netName ?? '';
-      if (isInNetlist(zoneNetname)) return;
+            if (netinfo) {
+              const originalNetname = via.GetNetname();
 
-      // Look for a pad in the zone's connected-pad cache that has been updated to a
-      // new net and use that. While this will not always be the right net, the dead
-      // net is guaranteed to be wrong.
-      let updatedNetname = '';
-      for (const padKey of this.m_zoneConnectionsCache.get(i) ?? []) {
-        const [fpIndex, padIndex] = padKey.split(':').map(Number);
-        const pad = this.m_board.footprints[fpIndex!]?.pads[padIndex!];
-        if (!pad) continue;
-        const padNetname = this.getNetname(padKey, pad);
-        if (padNetname !== zoneNetname) {
-          updatedNetname = padNetname;
-          break;
+              this.m_commit.Modify(via);
+              via.SetNet(netinfo);
+
+              msg = `Reconnected via from ${EscapeHTML(UnescapeString(originalNetname))} to ${EscapeHTML(UnescapeString(updatedNetname))}.`;
+
+              this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
+            }
+          }
+        } else {
+          msg = `Via connected to unknown net (${EscapeHTML(UnescapeString(via.GetNetname()))}).`;
+          this.m_reporter.report(msg, RPT_SEVERITY_WARNING);
+          ++this.m_warningCount;
         }
       }
+    }
 
-      // Take the zone's name from the name-change map if it did not match a new pad
-      // (useful for zones on internal layers).
-      if (updatedNetname === '') updatedNetname = this.m_oldToNewNets.get(zoneNetname) ?? '';
+    // Board connectivity net names are not the same as schematic connectivity net names.
+    // Footprints that contain multiple overlapping pads with the same number are suffixed
+    // with "_N" for internal use.  Somewhere along the line, these pseudo net names were
+    // exposed in the zone net name list.
+    const isInNetlist = (aNetName: string): boolean => {
+      if (netlistNetnames.has(aNetName)) return true;
 
-      if (updatedNetname === '') {
-        const layerNames = zone.layers.join(', ');
-        this.report(
-          `Copper zone on ${escapeHtml(layerNames)} at (${iuToMM(zone.outline?.[0]?.x ?? 0).toFixed(4)}, ${iuToMM(zone.outline?.[0]?.y ?? 0).toFixed(4)}) has no pads connected to net "${escapeHtml(zoneNetname)}".`,
-          RPT_SEVERITY_WARNING,
-        );
-        this.m_warningCount++;
-        return;
+      // If the zone net name is a pseudo net name, check if the root net name is in the net
+      // list.  If so, then this is a valid net.
+      for (const netName of netlistNetnames) {
+        if (aNetName.startsWith(netName)) return true;
       }
 
-      this.report(
-        this.dryRun
-          ? `Reconnect copper zone from ${escapeHtml(unescapeString(zoneNetname))} to ${escapeHtml(unescapeString(updatedNetname))}.`
-          : `Reconnected copper zone from ${escapeHtml(unescapeString(zoneNetname))} to ${escapeHtml(unescapeString(updatedNetname))}.`,
-        RPT_SEVERITY_ACTION,
-      );
+      return false;
+    };
 
-      if (this.dryRun) return;
-      const code = findNet(this.m_board, updatedNetname);
-      if (code === undefined) return;
-      this.m_board = {
-        ...this.m_board,
-        zones: this.m_board.zones.map((z, j) =>
-          j === i
-            ? {
-                ...z,
-                net: code,
-                netName: updatedNetname,
-              }
-            : z,
-        ),
-      };
-    });
+    // Test copper zones to detect "dead" nets (nets without any pad):
+    for (const zone of this.m_board.Zones()) {
+      if (!zone.IsOnCopperLayer() || zone.GetIsRuleArea()) continue;
+
+      if (!isInNetlist(zone.GetNetname())) {
+        // Look for a pad in the zone's connected-pad-cache which has been updated to
+        // a new net and use that. While this won't always be the right net, the dead
+        // net is guaranteed to be wrong.
+        let updatedNetname = '';
+
+        for (const pad of this.m_zoneConnectionsCache.get(zone) ?? []) {
+          if (this.getNetname(pad) !== zone.GetNetname()) {
+            updatedNetname = this.getNetname(pad);
+            break;
+          }
+        }
+
+        // Take zone name from name change map if it didn't match to a new pad
+        // (this is useful for zones on internal layers)
+        if (updatedNetname === '' && this.m_oldToNewNets.has(zone.GetNetname()))
+          updatedNetname = this.m_oldToNewNets.get(zone.GetNetname())!;
+
+        if (updatedNetname !== '') {
+          const from = EscapeHTML(UnescapeString(zone.GetNetname()));
+          const to = EscapeHTML(UnescapeString(updatedNetname));
+
+          if (this.m_isDryRun) {
+            if (zone.GetZoneName() !== '')
+              msg = `Reconnect copper zone '${zone.GetZoneName()}' from ${from} to ${to}.`;
+            else msg = `Reconnect copper zone from ${from} to ${to}.`;
+
+            this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
+          } else {
+            const netinfo =
+              this.m_board.FindNet(updatedNetname) ?? this.m_addedNets.get(updatedNetname) ?? null;
+
+            if (netinfo) {
+              this.m_commit.Modify(zone);
+              zone.SetNet(netinfo);
+
+              if (zone.GetZoneName() !== '')
+                msg = `Reconnected copper zone '${EscapeHTML(zone.GetZoneName())}' from ${from} to ${to}.`;
+              else msg = `Reconnected copper zone from ${from} to ${to}.`;
+
+              this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
+            }
+          }
+        } else {
+          if (zone.GetZoneName() !== '') {
+            msg = `Copper zone '${EscapeHTML(zone.GetZoneName())}' has no pads connected.`;
+          } else {
+            const layerNames = zone.LayerMaskDescribe();
+            const pt = { ...zone.GetPosition() };
+            const display = this.m_frame.GetPcbNewSettings().m_Display;
+
+            if (display.m_DisplayInvertXAxis) pt.x *= -1;
+
+            if (display.m_DisplayInvertYAxis) pt.y *= -1;
+
+            // `m_frame->MessageTextFromValue( … )`, in the frame's units.
+            const text = (v: number): string =>
+              messageTextFromValue(pcbIUScale, this.m_frame.GetUserUnits(), v);
+
+            msg = `Copper zone on ${EscapeHTML(layerNames)} at (${text(pt.x)}, ${text(pt.y)}) has no pads connected to net "${zone.GetNetname()}".`;
+          }
+
+          this.m_reporter.report(msg, RPT_SEVERITY_WARNING);
+          ++this.m_warningCount;
+        }
+      }
+    }
+
+    return true;
   }
 
-  /**
-   * testConnectivity, verify the board carries every pad the netlist mentions: if
-   * it does not, the footprints are wrong or the symbol's pins are unnumbered.
-   */
-  private testConnectivity(netlist: NETLIST, footprintMap: Map<COMPONENT, number>): void {
-    for (const component of netlist.Components()) {
-      const index = footprintMap.get(component);
-      if (index === undefined) continue; // It can be missing in partial designs.
-      const footprint = this.m_board.footprints[index];
-      if (!footprint) continue;
+  private updateGroups(aNetlist: NETLIST): boolean {
+    if (!this.m_transferGroups) return false;
 
-      for (let i = 0; i < component.GetNetCount(); i++) {
-        const padNumber = component.GetNetAt(i).pinName;
+    let msg: string;
+
+    for (const pcbGroup of this.m_board.Groups()) {
+      const netlistGroup = aNetlist.GetGroupByUuid(pcbGroup.m_Uuid);
+
+      if (netlistGroup === null) continue;
+
+      if (netlistGroup.name !== pcbGroup.GetName()) {
+        if (this.m_isDryRun) {
+          msg = `Change group name from '${EscapeHTML(pcbGroup.GetName())}' to '${EscapeHTML(netlistGroup.name)}'.`;
+        } else {
+          msg = `Changed group name from '${EscapeHTML(pcbGroup.GetName())}' to '${EscapeHTML(netlistGroup.name)}'.`;
+          this.m_commit.Modify(pcbGroup, null, RECURSE_MODE.NO_RECURSE);
+          pcbGroup.SetName(netlistGroup.name);
+        }
+
+        this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
+      }
+
+      const libId = new LIB_ID();
+      libId.Parse(netlistGroup.libId);
+
+      if (libId.Format() !== pcbGroup.GetDesignBlockLibId().Format()) {
+        if (this.m_isDryRun) {
+          msg = `Change group library link from '${EscapeHTML(pcbGroup.GetDesignBlockLibId().GetUniStringLibId())}' to '${EscapeHTML(libId.GetUniStringLibId())}'.`;
+        } else {
+          msg = `Changed group library link from '${EscapeHTML(pcbGroup.GetDesignBlockLibId().GetUniStringLibId())}' to '${EscapeHTML(libId.GetUniStringLibId())}'.`;
+          this.m_commit.Modify(pcbGroup, null, RECURSE_MODE.NO_RECURSE);
+          pcbGroup.SetDesignBlockLibId(libId);
+        }
+
+        this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
+      }
+
+      // A group member may be another group's uuid (a nested group).  Restore that
+      // parent/child relationship on the board.
+      for (const member of netlistGroup.members) {
+        const steps = member.split('/').filter((s) => s !== '');
+
+        if (steps.length === 0) continue;
+
+        const memberGroupUuid =
+          steps.length === 1 ? kiidFromString(steps[0]!) : KIID_FromName(kiidPathAsString(steps));
+
+        const childGroup = this.m_board.Groups().find((c) => c.m_Uuid === memberGroupUuid) ?? null;
+
+        if (
+          !childGroup ||
+          childGroup === pcbGroup ||
+          (childGroup.GetParentGroup() as unknown) === pcbGroup
+        )
+          continue;
+
+        if (this.m_isDryRun) {
+          msg = `Add group '${EscapeHTML(childGroup.GetName())}' to group '${EscapeHTML(pcbGroup.GetName())}'.`;
+        } else {
+          msg = `Added group '${EscapeHTML(childGroup.GetName())}' to group '${EscapeHTML(pcbGroup.GetName())}'.`;
+          this.m_commit.Modify(pcbGroup, null, RECURSE_MODE.NO_RECURSE);
+          this.m_commit.Modify(childGroup, null, RECURSE_MODE.NO_RECURSE);
+          pcbGroup.AddItem(childGroup);
+        }
+
+        this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
+      }
+    }
+
+    return true;
+  }
+
+  private testConnectivity(aNetlist: NETLIST, aFootprintMap: Map<COMPONENT, FOOTPRINT>): boolean {
+    // Verify that board contains all pads in netlist: if it doesn't then footprints are
+    // wrong or missing.
+
+    let msg: string;
+
+    for (let i = 0; i < aNetlist.GetCount(); i++) {
+      const component = aNetlist.GetComponent(i)!;
+      const footprint = aFootprintMap.get(component);
+
+      if (!footprint)
+        // It can be missing in partial designs
+        continue;
+
+      // Explore all pins/pads in component
+      for (let jj = 0; jj < component.GetNetCount(); jj++) {
+        const padNumber = component.GetNetAt(jj).GetPinName();
 
         if (padNumber === '') {
-          this.report(
-            `Symbol ${component.GetReference()} has pins with no number.  These pins can not be matched to pads in ${escapeHtml(footprint.lib)}.`,
-            RPT_SEVERITY_ERROR,
-          );
-          this.m_errorCount++;
-        } else if (!footprint.pads.some((pad) => pad.number === padNumber)) {
-          this.report(
-            `${component.GetReference()} pad ${escapeHtml(padNumber)} not found in ${escapeHtml(footprint.lib)}.`,
-            RPT_SEVERITY_ERROR,
-          );
-          this.m_errorCount++;
+          // bad symbol, report error
+          msg = `Symbol ${component.GetReference()} has pins with no number.  These pins can not be matched to pads in ${EscapeHTML(footprint.GetFPID().Format())}.`;
+          this.m_reporter.report(msg, RPT_SEVERITY_ERROR);
+          ++this.m_errorCount;
+        } else if (!footprint.FindPadByNumber(padNumber)) {
+          // not found: bad footprint, report error
+          msg = `${component.GetReference()} pad ${EscapeHTML(padNumber)} not found in ${EscapeHTML(footprint.GetFPID().Format())}.`;
+          this.m_reporter.report(msg, RPT_SEVERITY_ERROR);
+          ++this.m_errorCount;
         }
       }
     }
+
+    return true;
   }
 
   /**
-   * BOARD_NETLIST_UPDATER::UpdateNetlist, the whole process, in upstream's order.
+   * Update the board's components according to the new netlist.
+   * See BOARD_NETLIST_UPDATER class description for the details of the process.
+   *
+   * @param aNetlist the new netlist
+   * @return true if process was completed successfully
    */
-  UpdateNetlist(netlist: NETLIST): BoardNetlistUpdateResult {
+  UpdateNetlist(aNetlist: NETLIST): boolean {
+    let lastPreexistingFootprint: FOOTPRINT | null = null;
+    let component: COMPONENT | null = null;
+    let msg: string;
+    const sheetPaths = new Set<string>();
+    const usedFootprints = new Set<FOOTPRINT>();
+
     this.m_errorCount = 0;
     this.m_warningCount = 0;
     this.m_newFootprintsCount = 0;
-    this.m_addedFootprints = [];
-    this.m_addedGroups = [];
 
-    const footprintMap = new Map<COMPONENT, number>();
-    const usedFootprints = new Set<number>();
-    /** Footprints that existed before this run, so new ones are not re-matched. */
-    const lastPreexistingFootprint = this.m_board.footprints.length - 1;
+    const footprintMap = new Map<COMPONENT, FOOTPRINT>();
+
+    if (this.m_board.Footprints().length > 0)
+      lastPreexistingFootprint = this.m_board.Footprints().at(-1)!;
 
     this.cacheCopperZoneConnections();
 
-    // Collect all schematic net names so NC pad de-duplication can avoid collisions.
-    for (const component of netlist.Components()) {
-      for (let i = 0; i < component.GetNetCount(); i++)
-        this.m_schematicNetNames.add(component.GetNetAt(i).netName);
+    // First mark all nets (except <no net>) as stale; we'll update those which are current
+    // in the following two loops. Also prepare the component class manager for updates.
+    //
+    if (!this.m_isDryRun) {
+      for (const net of this.m_board.GetNetInfo()) net.SetIsCurrent(net.GetNetCode() === 0);
+
+      this.m_board.GetComponentClassManager().InitNetlistUpdate();
     }
 
-    // Go through the netlist updating all board footprints which have matching
-    // component entries and adding new footprints for those that don't.
-    for (const component of netlist.Components()) {
+    // Collect all schematic net names so NC pad deduplication can avoid collisions
+    for (let ii = 0; ii < aNetlist.GetCount(); ii++) {
+      const comp = aNetlist.GetComponent(ii)!;
+
+      for (let jj = 0; jj < comp.GetNetCount(); jj++)
+        this.m_schematicNetNames.add(comp.GetNetAt(jj).GetNetName());
+    }
+
+    // Next go through the netlist updating all board footprints which have matching component
+    // entries and adding new footprints for those that don't.
+    //
+    for (let i = 0; i < aNetlist.GetCount(); i++) {
+      component = aNetlist.GetComponent(i)!;
+
       if (component.GetProperties().has('exclude_from_board')) continue;
 
-      this.report(
-        `Processing symbol '${component.GetReference()}:${escapeHtml(component.GetFPID())}'.`,
-        RPT_SEVERITY_INFO,
-      );
+      const baseFpid = componentFpid(component);
 
-      const baseFpid = component.GetFPID();
+      msg = `Processing symbol '${component.GetReference()}:${EscapeHTML(baseFpid.Format())}'.`;
+      this.m_reporter.report(msg, RPT_SEVERITY_INFO);
 
-      if (fpidIsLegacy(baseFpid)) {
-        this.report(
-          `Warning: ${component.GetReference()} footprint '${escapeHtml(baseFpid)}' is missing a library name. Use the full 'Library:Footprint' format to avoid repeated update notifications.`,
-          RPT_SEVERITY_WARNING,
-        );
-        this.m_warningCount++;
+      const hasBaseFpid = !baseFpid.empty();
+
+      if (baseFpid.IsLegacy()) {
+        msg = `Warning: ${component.GetReference()} footprint '${EscapeHTML(baseFpid.Format())}' is missing a library name. Use the full 'Library:Footprint' format to avoid repeated update notifications.`;
+        this.m_reporter.report(msg, RPT_SEVERITY_WARNING);
+        ++this.m_warningCount;
       }
 
-      // The board footprints that match this component, by UUID path or reference.
-      const matching: number[] = [];
-      for (let i = 0; i <= lastPreexistingFootprint; i++) {
-        const footprint = this.m_board.footprints[i]!;
+      const matchingFootprints: FOOTPRINT[] = [];
+
+      for (const footprint of this.m_board.Footprints()) {
         let match = false;
 
-        if (this.m_options.lookupByTimestamp) {
-          match = (footprint.path ?? '') === componentPath(component);
-          if (!match) {
-            match = component.kiids.some(
-              (uuid) => (footprint.path ?? '') === joinPath(component.path, uuid),
-            );
+        if (this.m_lookupByTimestamp) {
+          for (const uuid of component.kiids) {
+            const base = [...componentSheetPath(component), uuid];
+
+            if (samePath(footprint.GetPath(), base)) {
+              match = true;
+              break;
+            }
           }
         } else {
-          match =
-            (footprint.reference ?? '').toLowerCase() === component.GetReference().toLowerCase();
+          // `CmpNoCase( … ) == 0`
+          match = footprint.GetReference().toLowerCase() === component.GetReference().toLowerCase();
         }
 
-        if (match) matching.push(i);
-      }
+        if (match) matchingFootprints.push(footprint);
 
-      let index = matching.find(
-        (i) => !usedFootprints.has(i) && fpidsEquivalent(this.m_board.footprints[i]!.lib, baseFpid),
-      );
-
-      if (index === undefined && baseFpid === '' && matching.length > 0) {
-        index = matching[0];
-      }
-
-      // A footprint that matches by reference but carries a different footprint id
-      // is the one to replace (or to keep, when replacement is off).
-      if (index === undefined && matching.length > 0) {
-        const candidate = matching.find(
-          (i) =>
-            !usedFootprints.has(i) && !fpidsEquivalent(this.m_board.footprints[i]!.lib, baseFpid),
-        );
-        if (candidate !== undefined) {
-          if (this.m_options.replaceFootprints) {
-            const replaced = this.replaceFootprint(candidate, component);
-            index = replaced >= 0 ? replaced : candidate;
-          } else {
-            index = candidate;
-          }
+        if (footprint === lastPreexistingFootprint) {
+          // No sense going through the newly-created footprints: end of loop
+          break;
         }
       }
 
-      if (index === undefined) {
-        const added = this.addNewFootprint(component, baseFpid);
-        if (added >= 0) index = added;
+      const expectedFpids: LIB_ID[] = [];
+      const expectedFpidKeys = new Set<string>();
+
+      const addExpectedFpid = (aFpid: LIB_ID): void => {
+        if (aFpid.empty()) return;
+
+        const key = aFpid.Format();
+
+        if (!expectedFpidKeys.has(key)) {
+          expectedFpidKeys.add(key);
+          expectedFpids.push(aFpid);
+        }
+      };
+
+      addExpectedFpid(baseFpid);
+
+      // `component->GetVariants()`: not modeled, so no variant names another footprint.
+
+      const isExpectedFpid = (aFpid: LIB_ID): boolean => {
+        if (aFpid.empty()) return false;
+
+        if (expectedFpidKeys.has(aFpid.Format())) return true;
+
+        for (const expected of expectedFpids) {
+          if (fpidsEquivalentLib(aFpid, expected)) return true;
+        }
+
+        return false;
+      };
+
+      const takeMatchingFootprint = (aFpid: LIB_ID): FOOTPRINT | null => {
+        for (const footprint of matchingFootprints) {
+          if (usedFootprints.has(footprint)) continue;
+
+          if (fpidsEquivalentLib(footprint.GetFPID(), aFpid)) return footprint;
+        }
+
+        return null;
+      };
+
+      const componentFootprints: FOOTPRINT[] = [];
+      let baseFootprint: FOOTPRINT | null = null;
+
+      if (hasBaseFpid) baseFootprint = takeMatchingFootprint(baseFpid);
+      else if (matchingFootprints.length > 0) baseFootprint = matchingFootprints[0]!;
+
+      if (!baseFootprint && this.m_replaceFootprints && matchingFootprints.length > 0) {
+        let replaceCandidate: FOOTPRINT | null = null;
+
+        for (const footprint of matchingFootprints) {
+          if (usedFootprints.has(footprint)) continue;
+
+          if (isExpectedFpid(footprint.GetFPID())) continue;
+
+          replaceCandidate = footprint;
+          break;
+        }
+
+        if (replaceCandidate) {
+          const replaced = this.replaceFootprint(aNetlist, replaceCandidate, component);
+
+          if (replaced) baseFootprint = replaced;
+          else baseFootprint = replaceCandidate;
+        }
       }
 
-      if (index === undefined) continue;
+      if (!baseFootprint && !this.m_replaceFootprints) {
+        for (const footprint of matchingFootprints) {
+          if (usedFootprints.has(footprint)) continue;
 
-      usedFootprints.add(index);
-      footprintMap.set(component, index);
+          if (isExpectedFpid(footprint.GetFPID())) continue;
 
-      this.updateFootprintParameters(index, component);
-      this.updateFootprintGroup(index, component);
-      this.updateComponentPadConnections(index, component);
+          baseFootprint = footprint;
+          break;
+        }
+      }
+
+      if (!baseFootprint && (hasBaseFpid || expectedFpids.length === 0))
+        baseFootprint = this.addNewFootprint(component, baseFpid);
+
+      if (baseFootprint) {
+        componentFootprints.push(baseFootprint);
+        usedFootprints.add(baseFootprint);
+        footprintMap.set(component, baseFootprint);
+      }
+
+      for (const fpid of expectedFpids) {
+        // Both IDs are schematic-derived, so either side may be legacy; compare in both
+        // directions so a bare base name and a qualified variant name for the same
+        // footprint are not split into a duplicate.
+        if (fpidsEquivalentLib(fpid, baseFpid) || fpidsEquivalentLib(baseFpid, fpid)) continue;
+
+        const footprint = takeMatchingFootprint(fpid) ?? this.addNewFootprint(component, fpid);
+
+        if (footprint) {
+          componentFootprints.push(footprint);
+          usedFootprints.add(footprint);
+        }
+      }
+
+      for (const footprint of componentFootprints) {
+        this.updateFootprintParameters(footprint, component);
+        this.updateFootprintGroup(footprint, component);
+        this.updateComponentPadConnections(footprint, component);
+        this.updateComponentClass(footprint, component);
+        this.updateComponentUnits(footprint, component);
+
+        sheetPaths.add(footprint.GetSheetname());
+      }
+
+      // `applyComponentVariants( component, componentFootprints, baseFpid )`: no variants.
     }
 
-    this.updateCopperZoneNets(netlist);
-    this.updateGroups(netlist);
+    this.updateCopperZoneNets(aNetlist);
+    this.updateGroups(aNetlist);
 
-    // Finally go through the board footprints and update all those that *don't*
-    // have matching component entries.
-    const toDelete: number[] = [];
+    // Finally go through the board footprints and update all those that *don't* have matching
+    // component entries.
+    //
+    for (const footprint of this.m_board.Footprints()) {
+      let matched = false;
+      let doDelete = this.m_deleteUnusedFootprints;
 
-    this.m_board.footprints.forEach((footprint, i) => {
-      let matched = usedFootprints.has(i);
-      let doDelete = this.m_options.deleteUnusedFootprints;
+      if ((footprint.GetAttributes() & FP_BOARD_ONLY) > 0) doDelete = false;
 
-      if (hasAttribute(footprint, FP_BOARD_ONLY)) doDelete = false;
+      if (usedFootprints.has(footprint)) {
+        matched = true;
+      } else {
+        if (this.m_lookupByTimestamp)
+          component = aNetlist.GetComponentByPath(kiidPathAsString(footprint.GetPath()));
+        else component = aNetlist.GetComponentByReference(footprint.GetReference());
 
-      if (!matched) {
-        const component = this.m_options.lookupByTimestamp
-          ? netlist.GetComponentByPath(footprint.path ?? '')
-          : netlist.GetComponentByReference(footprint.reference ?? '');
+        // `m_replaceFootprints && !component->GetVariants().empty()`: no variants, so a
+        // footprint matched by its component is never a stale variant footprint.
         if (component && !component.GetProperties().has('exclude_from_board')) matched = true;
       }
 
-      if (doDelete && !matched && footprint.locked && !this.m_options.overrideLocks) {
-        this.report(
-          this.dryRun
-            ? `Cannot remove unused footprint ${footprint.reference ?? ''} (footprint is locked).`
-            : `Could not remove unused footprint ${footprint.reference ?? ''} (footprint is locked).`,
-          RPT_SEVERITY_WARNING,
-        );
+      if (doDelete && !matched && footprint.IsLocked() && !this.m_overrideLocks) {
+        if (this.m_isDryRun)
+          msg = `Cannot remove unused footprint ${footprint.GetReference()} (footprint is locked).`;
+        else
+          msg = `Could not remove unused footprint ${footprint.GetReference()} (footprint is locked).`;
+
+        this.m_reporter.report(msg, RPT_SEVERITY_WARNING);
         this.m_warningCount++;
         doDelete = false;
       }
 
       if (doDelete && !matched) {
-        this.report(
-          this.dryRun
-            ? `Remove unused footprint ${footprint.reference ?? ''}.`
-            : `Removed unused footprint ${footprint.reference ?? ''}.`,
-          RPT_SEVERITY_ACTION,
-        );
-        if (!this.dryRun) toDelete.push(i);
-      } else if (!this.dryRun && !matched) {
-        // An unmatched footprint that stays loses its symbol link.
-        this.m_board = replaceFp(this.m_board, i, {
-          ...footprint,
-          path: undefined,
-        });
-      }
-    });
+        if (this.m_isDryRun) {
+          msg = `Remove unused footprint ${footprint.GetReference()}.`;
+        } else {
+          this.m_commit.Remove(footprint);
+          msg = `Removed unused footprint ${footprint.GetReference()}.`;
+        }
 
-    if (!this.dryRun) {
-      if (toDelete.length > 0) {
-        const drop = new Set(toDelete);
-        const droppedUuids = new Set(
-          toDelete.map((i) => this.m_board.footprints[i]?.uuid).filter(Boolean) as string[],
-        );
-        this.m_board = {
-          ...this.m_board,
-          footprints: this.m_board.footprints.filter((_, i) => !drop.has(i)),
-          // A deleted footprint must not stay a group member.
-          groups: this.m_board.groups.map((g) =>
-            g.members.some((m) => droppedUuids.has(m))
-              ? withGroupMembers(
-                  g,
-                  g.members.filter((m) => !droppedUuids.has(m)),
-                )
-              : g,
-          ),
-        };
-        // Indices shift when earlier footprints are removed: the added list,
-        // and the component -> footprint map testConnectivity reads next
-        // (upstream holds pointers, which nothing has to re-aim).
-        const shift = (i: number) => i - toDelete.filter((d) => d < i).length;
-        this.m_addedFootprints = this.m_addedFootprints.filter((i) => !drop.has(i)).map(shift);
-        for (const [component, i] of footprintMap) {
-          if (drop.has(i)) footprintMap.delete(component);
-          else footprintMap.set(component, shift(i));
+        this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
+      } else if (!this.m_isDryRun) {
+        if (!matched) footprint.SetPath([]);
+
+        for (const pad of footprint.Pads()) {
+          if (pad.GetNet()) pad.GetNet()!.SetIsCurrent(true);
+        }
+      }
+    }
+
+    if (!this.m_isDryRun) {
+      // Finalise the component class manager
+      this.m_board.GetComponentClassManager().FinishNetlistUpdate();
+      this.m_board.SynchronizeComponentClasses(sheetPaths);
+
+      this.m_board.BuildConnectivity();
+      this.testConnectivity(aNetlist, footprintMap);
+
+      for (const net of this.m_board.GetNetInfo()) {
+        if (!net.IsCurrent()) {
+          msg = `Removed unused net ${EscapeHTML(net.GetNetname())}.`;
+          this.m_reporter.report(msg, RPT_SEVERITY_ACTION);
         }
       }
 
-      this.testConnectivity(netlist, footprintMap);
+      this.m_board.RemoveUnusedNets(this.m_commit);
 
-      // Nets with nothing on them are dropped (BOARD::RemoveUnusedNets, driven by
-      // NETINFO_ITEM::IsCurrent).
-      const usedNets = new Set<number>();
-      for (const footprint of this.m_board.footprints)
-        for (const pad of footprint.pads) if (pad.net !== undefined) usedNets.add(pad.net);
-      for (const track of this.m_board.tracks) usedNets.add(track.net);
-      for (const arc of this.m_board.arcs) usedNets.add(arc.net);
-      for (const via of this.m_board.vias) usedNets.add(via.net);
-      for (const zone of this.m_board.zones) usedNets.add(zone.net);
+      // The board's variant registry from the netlist: not modeled (no netlist variants).
 
-      for (const [code, name] of this.m_board.nets) {
-        if (code !== UNCONNECTED_NET && !usedNets.has(code))
-          this.report(`Removed unused net ${escapeHtml(name)}.`, RPT_SEVERITY_ACTION);
-      }
+      // When new footprints are added, the automatic zone refill is disabled because:
+      // * it creates crashes when calculating dynamic ratsnests if auto refill is enabled.
+      // (the auto refills rebuild the connectivity with incomplete data)
+      // * it is useless because zones will be refilled after placing new footprints
+      this.m_commit.Push('Update Netlist', this.m_newFootprintsCount ? ZONE_FILL_OP : 0);
 
-      this.m_board = removeUnusedNets(this.m_board, usedNets);
+      // Update net, netcode and netclass data after commiting the netlist
+      this.m_board.SynchronizeNetsAndNetClasses(true);
+      this.m_board.GetConnectivity().RefreshNetcodeMap(this.m_board);
+
+      // Although m_commit will probably also set this, it's not guaranteed, and we need to make
+      // sure any modification to netclasses gets persisted to project settings through a save.
+      this.m_frame.OnModify();
     }
 
-    this.m_reporter.reportTail('', RPT_SEVERITY_ACTION);
-    this.m_reporter.reportTail('', RPT_SEVERITY_ACTION);
-    this.m_reporter.reportTail(
-      `Total warnings: ${this.m_warningCount}, errors: ${this.m_errorCount}.`,
-      RPT_SEVERITY_INFO,
-    );
+    if (this.m_isDryRun) this.m_addedNets.clear();
 
-    return {
-      board: this.m_board,
-      addedFootprints: this.m_addedFootprints,
-      addedGroups: this.m_addedGroups,
-      errorCount: this.m_errorCount,
-      warningCount: this.m_warningCount,
-      newFootprintCount: this.m_newFootprintsCount,
-    };
+    // Update the ratsnest
+    this.m_reporter.reportTail('', RPT_SEVERITY_ACTION);
+    this.m_reporter.reportTail('', RPT_SEVERITY_ACTION);
+
+    msg = `Total warnings: ${this.m_warningCount}, errors: ${this.m_errorCount}.`;
+    this.m_reporter.reportTail(msg, RPT_SEVERITY_INFO);
+
+    return true;
   }
+}
+
+/** `BOARD_NETLIST_UPDATER::fpidsEquivalent` (board_netlist_updater.cpp:1324-1330). */
+function fpidsEquivalentLib(aBoardFpid: LIB_ID, aSchematicFpid: LIB_ID): boolean {
+  if (aSchematicFpid.IsLegacy())
+    return aBoardFpid.GetLibItemName() === aSchematicFpid.GetLibItemName();
+
+  return aBoardFpid.Format() === aSchematicFpid.Format();
+}
+
+/** `COMPONENT::GetFPID()` as the LIB_ID it is upstream. */
+function componentFpid(aComponent: COMPONENT): LIB_ID {
+  const fpid = new LIB_ID();
+  if (aComponent.GetFPID() !== '') fpid.Parse(aComponent.GetFPID(), true);
+  return fpid;
+}
+
+/** `COMPONENT::GetPath()`: the sheet path, as KIIDs. */
+function componentSheetPath(aComponent: COMPONENT): KIID[] {
+  return aComponent.path
+    .split('/')
+    .filter((s) => s !== '')
+    .map(kiidFromString);
+}
+
+/** `GetPath()` plus the first of `GetKIIDs()`: the footprint's symbol association. */
+function componentSymbolPath(aComponent: COMPONENT): KIID[] {
+  const path = componentSheetPath(aComponent);
+  if (aComponent.kiids.length > 0) path.push(kiidFromString(aComponent.kiids[0]!));
+  return path;
+}
+
+function samePath(a: readonly KIID[], b: readonly KIID[]): boolean {
+  return a.length === b.length && a.every((k, i) => k === b[i]);
+}
+
+function sameJumperGroups(a: readonly Set<string>[], b: readonly Set<string>[]): boolean {
+  if (a.length !== b.length) return false;
+
+  return a.every((g, i) => {
+    const h = b[i]!;
+    return g.size === h.size && [...g].every((p) => h.has(p));
+  });
 }
 
 // ----- free functions ---------------------------------------------------------
@@ -1208,91 +1657,16 @@ export function fpidsEquivalent(boardFpid: string, schematicFpid: string): boole
 }
 
 /** The full KIID_PATH of a component: its sheet path plus its primary symbol UUID. */
-function componentPath(component: COMPONENT): string {
-  const primary = component.kiids[0];
-  return primary ? joinPath(component.path, primary) : component.path;
-}
 
 /** KIID_PATH::push_back, append a UUID to a "/a/b/" style path. */
-function joinPath(path: string, uuid: string): string {
-  const base = path === '' || path === '/' ? '/' : path.endsWith('/') ? path : `${path}/`;
-  return `${base}${uuid}`;
-}
 
 /** std::set::insert's "was it new?" result. */
-function insertUnique(set: Set<string>, value: string): boolean {
-  if (set.has(value)) return false;
-  set.add(value);
-  return true;
-}
 
 /** ZONE::IsOnCopperLayer, and not a rule area. */
-const zoneIsOnCopperLayer = (zone: PcbZone): boolean =>
-  zone.layers.some((l) => l === '*.Cu' || l.endsWith('.Cu'));
-
-/**
- * Set a footprint's sheet name or file. A board written before PCB fields keeps these
- * in `(property "Sheetname" …)` rather than the `(sheetname …)` token, so the value is
- * rewritten wherever it actually lives, writing the modern token next to a stale
- * legacy property would leave the footprint carrying two different answers.
- */
-function setSheetInfo(
-  fp: PcbFootprint,
-  which: 'sheetname' | 'sheetfile',
-  value: string,
-): PcbFootprint {
-  const legacyNames =
-    which === 'sheetname' ? ['Sheetname', 'Sheet name'] : ['Sheetfile', 'Sheet file'];
-  const fields = fp.fields ?? [];
-  const legacyIndex = fields.findIndex((f) => legacyNames.includes(f.name));
-
-  if (legacyIndex >= 0) {
-    const field = fields[legacyIndex]!;
-    return {
-      ...fp,
-      [which]: value,
-      fields: fields.map((f, i) => (i === legacyIndex ? { ...field, value } : f)),
-    };
-  }
-
-  return { ...fp, [which]: value };
-}
 
 /** Set (or drop) a footprint's `(property ki_fp_filters "…")`. */
-function setFootprintFilters(fp: PcbFootprint, filters: string): PcbFootprint {
-  return { ...fp, filters: filters || undefined };
-}
 
 /** `PCB_GROUP`'s member list. */
-function withGroupMembers(group: PcbGroup, members: string[]): PcbGroup {
-  return { ...group, members };
-}
-
-/**
- * PAGE_INFO::GetSizeIU for the board's paper token. A4 is KiCad's default; the
- * exact figure only decides where new footprints land on an empty board.
- */
-function pageSizeIU(paper: string | undefined): { x: number; y: number } {
-  const sizes: Record<string, [number, number]> = {
-    A5: [210, 148],
-    A4: [297, 210],
-    A3: [420, 297],
-    A2: [594, 420],
-    A1: [841, 594],
-    A0: [1189, 841],
-    A: [279.4, 215.9],
-    B: [431.8, 279.4],
-    C: [558.8, 431.8],
-    D: [863.6, 558.8],
-    E: [1117.6, 863.6],
-    USLetter: [279.4, 215.9],
-    USLegal: [355.6, 215.9],
-    USLedger: [431.8, 279.4],
-  };
-  const token = (paper ?? 'A4').split(/\s+/)[0] ?? 'A4';
-  const [w, h] = sizes[token] ?? sizes.A4!;
-  return { x: mmToIU(w!), y: mmToIU(h!) };
-}
 
 // ----- placing and exchanging a footprint ------------------------------------
 //

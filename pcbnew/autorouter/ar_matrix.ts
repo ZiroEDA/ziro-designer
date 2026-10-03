@@ -27,9 +27,14 @@
 import { EDA_ANGLE, EDA_ANGLE_T } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
-import { EuclideanNormI } from '@ziroeda/kimath/src/math/vector2.js';
-import type { PcbPad, PcbShape } from '../types.js';
-import { arcCenter } from '../edit-board.js';
+import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
+import { EuclideanNormI, type VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import type { LSET } from '@ziroeda/common/lset.js';
+import type { PAD } from '../pad.js';
+import { PAD_SHAPE, PADSTACK } from '../padstack.js';
+import type { PCB_SHAPE } from '../pcb_shape.js';
 
 /** C++ integer division: truncate towards zero, not `Math.floor`. */
 export const idiv = (a: number, b: number): number => Math.trunc(a / b);
@@ -51,105 +56,35 @@ export const CELL_IS_ZONE = 0x80;
 export const AR_SIDE_TOP = 0;
 export const AR_SIDE_BOTTOM = 1;
 
-/** How {@link ArMatrix.writeCell} combines the new value with the old. */
-export type CellOp = 'write' | 'or' | 'xor' | 'and' | 'add';
-
-/**
- * `BOX2I`: an origin and a size rather than two corners, because upstream's
- * `SetX`/`SetY` move the origin and drag the end along with it, and
- * `ComputeMatrixSize` depends on exactly that.
- */
-export interface Box2 {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
+/** `AR_MATRIX::CELL_OP`: how {@link AR_MATRIX.WriteCell} combines the new value with the old. */
+export enum CELL_OP {
+  WRITE_CELL,
+  WRITE_OR_CELL,
+  WRITE_XOR_CELL,
+  WRITE_AND_CELL,
+  WRITE_ADD_CELL,
 }
 
-export const boxRight = (b: Box2): number => b.x + b.w;
-export const boxBottom = (b: Box2): number => b.y + b.h;
-export const boxEnd = (b: Box2): { x: number; y: number } => ({ x: b.x + b.w, y: b.y + b.h });
-
-/** `BOX2I::Inflate( d )`. */
-export const boxInflate = (b: Box2, d: number): Box2 => ({
-  x: b.x - d,
-  y: b.y - d,
-  w: b.w + 2 * d,
-  h: b.h + 2 * d,
-});
-
-/** `BOX2I::Move( v )`: shift the origin, keep the size. */
-export const boxMove = (b: Box2, dx: number, dy: number): Box2 => ({
-  x: b.x + dx,
-  y: b.y + dy,
-  w: b.w,
-  h: b.h,
-});
-
-/** `BOX2I::Contains( pt )`, inclusive on all four edges. */
-export const boxContains = (b: Box2, x: number, y: number): boolean =>
-  x >= b.x && x <= boxRight(b) && y >= b.y && y <= boxBottom(b);
-
-/**
- * `LSET` membership for the only two layers the matrix knows about. A pad whose
- * layer list carries `*.Cu` is on both, which is how a through-hole pad blocks
- * the far side as well as its own.
- */
-export const onLayer = (layers: readonly string[], layer: string): boolean =>
-  layers.includes(layer) || layers.includes('*.Cu');
-
-/** The layer mask of a footprint: `F_Cu` or `B_Cu`, never both. */
-export const sideMask = (layer: string): string[] =>
-  layer === 'F.Cu' ? ['F.Cu'] : layer === 'B.Cu' ? ['B.Cu'] : [];
-
-/**
- * `EDA_SHAPE::GetArcAngle`: the sweep from start to end about the centre. The
- * mid point plays no part — upstream normalises the end angle upwards until it
- * is at least the start angle, so the sweep is always positive.
- */
-export function arcSweepDegrees(
-  centre: { x: number; y: number },
-  start: { x: number; y: number },
-  end: { x: number; y: number },
-): number {
-  const startAngle = EDA_ANGLE.fromVector({ x: start.x - centre.x, y: start.y - centre.y });
-  let endAngle = EDA_ANGLE.fromVector({ x: end.x - centre.x, y: end.y - centre.y });
-
-  // A ring, not a null arc.
-  if (endAngle.equals(startAngle)) endAngle = startAngle.add(new EDA_ANGLE(360));
-  while (endAngle.lt(startAngle)) endAngle = endAngle.add(new EDA_ANGLE(360));
-
-  return endAngle.sub(startAngle).AsDegrees();
-}
-
-/** `EDA_ANGLE::IsCardinal`: a whole multiple of 90 degrees. */
-export function isCardinal(degrees: number): boolean {
-  let test = degrees;
-  while (test < 0.0) test += 90.0;
-  while (test >= 90.0) test -= 90.0;
-  return test === 0.0;
-}
-
-export class ArMatrix {
+export class AR_MATRIX {
   /** Size of the grid for autoplace/autoroute, in IU. */
-  gridRouting = 0;
+  m_GridRouting = 0;
   /** 1 or 2. The autoplacer always uses 2; several methods branch on it. */
-  routingLayersCount = 1;
+  m_RoutingLayersCount = 1;
   /** The board bounding box, snapped onto the routing grid. */
-  brdBox: Box2 = { x: 0, y: 0, w: 0, h: 0 };
-  nrows = 0;
-  ncols = 0;
-  routeLayerTop = 'F.Cu';
-  routeLayerBottom = 'B.Cu';
+  m_BrdBox = new BOX2I();
+  m_Nrows = 0;
+  m_Ncols = 0;
+  m_routeLayerTop: PCB_LAYER_ID = PCB_LAYER_ID.F_Cu;
+  m_routeLayerBottom: PCB_LAYER_ID = PCB_LAYER_ID.B_Cu;
 
   /** Cell flags, indexed [side][row * ncols + col]. */
-  private boardSide: [Uint8Array, Uint8Array] = [new Uint8Array(0), new Uint8Array(0)];
+  private m_BoardSide: [Uint8Array, Uint8Array] = [new Uint8Array(0), new Uint8Array(0)];
   /** Placement cost, same indexing. */
-  private distSide: [Int32Array, Int32Array] = [new Int32Array(0), new Int32Array(0)];
+  private m_DistSide: [Int32Array, Int32Array] = [new Int32Array(0), new Int32Array(0)];
 
   /** `GetBrdCoordOrigin()`, the board coordinate of cell (0, 0). */
-  get brdCoordOrigin(): { x: number; y: number } {
-    return { x: this.brdBox.x, y: this.brdBox.y };
+  GetBrdCoordOrigin(): VECTOR2I {
+    return this.m_BrdBox.GetOrigin();
   }
 
   /**
@@ -158,97 +93,93 @@ export class ArMatrix {
    * zero) while a positive one snaps outwards. The end is then snapped down and
    * pushed out by one whole grid step, and one spare row and column are added.
    */
-  computeMatrixSize(aBoundingBox: Box2): void {
-    const g = this.gridRouting;
-    const box: Box2 = { ...aBoundingBox };
+  ComputeMatrixSize(aBoundingBox: BOX2I): void {
+    const g = this.m_GridRouting;
+    // The boundary coordinates must be multiples of m_GridRouting.
+    this.m_BrdBox = aBoundingBox.Clone();
+    this.m_BrdBox.SetX(this.m_BrdBox.GetX() - (this.m_BrdBox.GetX() % g));
+    this.m_BrdBox.SetY(this.m_BrdBox.GetY() - (this.m_BrdBox.GetY() % g));
 
-    // SetX / SetY move the origin and take the end with them.
-    box.x = box.x - (box.x % g);
-    box.y = box.y - (box.y % g);
-
-    let endX = boxRight(box);
-    let endY = boxBottom(box);
-
+    const end = this.m_BrdBox.GetEnd();
+    let endX = end.x;
+    let endY = end.y;
     endX -= endX % g;
     endX += g;
     endY -= endY % g;
     endY += g;
+    this.m_BrdBox.SetEnd(endX, endY);
 
-    box.w = endX - box.x;
-    box.h = endY - box.y;
-    this.brdBox = box;
-
-    this.nrows = idiv(box.h, g);
-    this.ncols = idiv(box.w, g);
+    this.m_Nrows = idiv(this.m_BrdBox.GetHeight(), g);
+    this.m_Ncols = idiv(this.m_BrdBox.GetWidth(), g);
 
     // Gives a small margin.
-    this.ncols += 1;
-    this.nrows += 1;
+    this.m_Ncols += 1;
+    this.m_Nrows += 1;
   }
 
   /** `InitRoutingMatrix`: allocate both sides, everything empty. */
-  initRoutingMatrix(): boolean {
-    if (this.nrows <= 0 || this.ncols <= 0) return false;
+  InitRoutingMatrix(): boolean {
+    if (this.m_Nrows <= 0 || this.m_Ncols <= 0) return false;
 
     // Upstream gives a small margin for memory allocation.
-    const n = (this.nrows + 1) * (this.ncols + 1);
-    this.boardSide = [new Uint8Array(n), new Uint8Array(n)];
-    this.distSide = [new Int32Array(n), new Int32Array(n)];
+    const n = (this.m_Nrows + 1) * (this.m_Ncols + 1);
+    this.m_BoardSide = [new Uint8Array(n), new Uint8Array(n)];
+    this.m_DistSide = [new Int32Array(n), new Int32Array(n)];
     return true;
   }
 
   /** `UnInitRoutingMatrix`. */
-  unInitRoutingMatrix(): void {
-    this.boardSide = [new Uint8Array(0), new Uint8Array(0)];
-    this.distSide = [new Int32Array(0), new Int32Array(0)];
-    this.nrows = 0;
-    this.ncols = 0;
+  UnInitRoutingMatrix(): void {
+    this.m_BoardSide = [new Uint8Array(0), new Uint8Array(0)];
+    this.m_DistSide = [new Int32Array(0), new Int32Array(0)];
+    this.m_Nrows = 0;
+    this.m_Ncols = 0;
   }
 
   private at(row: number, col: number): number {
-    if (row < 0 || col < 0 || row >= this.nrows || col >= this.ncols) return -1;
-    return row * this.ncols + col;
+    if (row < 0 || col < 0 || row >= this.m_Nrows || col >= this.m_Ncols) return -1;
+    return row * this.m_Ncols + col;
   }
 
-  getCell(row: number, col: number, side: number): number {
+  GetCell(row: number, col: number, side: number): number {
     const i = this.at(row, col);
-    return i < 0 ? 0 : this.boardSide[side === AR_SIDE_TOP ? 0 : 1]![i]!;
+    return i < 0 ? 0 : this.m_BoardSide[side === AR_SIDE_TOP ? 0 : 1]![i]!;
   }
 
-  setCell(row: number, col: number, side: number, value: number): void {
+  SetCell(row: number, col: number, side: number, value: number): void {
     const i = this.at(row, col);
-    if (i >= 0) this.boardSide[side === AR_SIDE_TOP ? 0 : 1]![i] = value;
+    if (i >= 0) this.m_BoardSide[side === AR_SIDE_TOP ? 0 : 1]![i] = value;
   }
 
-  getDist(row: number, col: number, side: number): number {
+  GetDist(row: number, col: number, side: number): number {
     const i = this.at(row, col);
-    return i < 0 ? 0 : this.distSide[side === AR_SIDE_TOP ? 0 : 1]![i]!;
+    return i < 0 ? 0 : this.m_DistSide[side === AR_SIDE_TOP ? 0 : 1]![i]!;
   }
 
-  setDist(row: number, col: number, side: number, value: number): void {
+  SetDist(row: number, col: number, side: number, value: number): void {
     const i = this.at(row, col);
-    if (i >= 0) this.distSide[side === AR_SIDE_TOP ? 0 : 1]![i] = value;
+    if (i >= 0) this.m_DistSide[side === AR_SIDE_TOP ? 0 : 1]![i] = value;
   }
 
   /** `WriteCell` through the operation `SetCellOperation` selected. */
-  writeCell(row: number, col: number, side: number, value: number, op: CellOp): void {
+  WriteCell(row: number, col: number, side: number, value: number, op: CELL_OP): void {
     const i = this.at(row, col);
     if (i < 0) return;
-    const buf = this.boardSide[side === AR_SIDE_TOP ? 0 : 1]!;
+    const buf = this.m_BoardSide[side === AR_SIDE_TOP ? 0 : 1]!;
     switch (op) {
-      case 'write':
+      case CELL_OP.WRITE_CELL:
         buf[i] = value;
         break;
-      case 'or':
+      case CELL_OP.WRITE_OR_CELL:
         buf[i]! |= value;
         break;
-      case 'xor':
+      case CELL_OP.WRITE_XOR_CELL:
         buf[i]! ^= value;
         break;
-      case 'and':
+      case CELL_OP.WRITE_AND_CELL:
         buf[i]! &= value;
         break;
-      case 'add':
+      case CELL_OP.WRITE_ADD_CELL:
         buf[i]! += value;
         break;
     }
@@ -256,21 +187,23 @@ export class ArMatrix {
 
   /** Copy one side's cell map onto the other (the `memcpy` in genPlacementRoutingMatrix). */
   copySide(from: number, to: number): void {
-    this.boardSide[to === AR_SIDE_TOP ? 0 : 1]!.set(this.boardSide[from === AR_SIDE_TOP ? 0 : 1]!);
+    this.m_BoardSide[to === AR_SIDE_TOP ? 0 : 1]!.set(
+      this.m_BoardSide[from === AR_SIDE_TOP ? 0 : 1]!,
+    );
   }
 
   /**
    * `OP_CELL`: an undefined layer writes both sides, otherwise only the side
    * whose route layer the shape is on.
    */
-  private opCell(layer: string | null, row: number, col: number, color: number, op: CellOp): void {
-    if (layer === null) {
-      this.writeCell(row, col, AR_SIDE_BOTTOM, color, op);
-      if (this.routingLayersCount > 1) this.writeCell(row, col, AR_SIDE_TOP, color, op);
+  private opCell(layer: PCB_LAYER_ID, row: number, col: number, color: number, op: CELL_OP): void {
+    if (layer === PCB_LAYER_ID.UNDEFINED_LAYER) {
+      this.WriteCell(row, col, AR_SIDE_BOTTOM, color, op);
+      if (this.m_RoutingLayersCount > 1) this.WriteCell(row, col, AR_SIDE_TOP, color, op);
     } else {
-      if (layer === this.routeLayerBottom) this.writeCell(row, col, AR_SIDE_BOTTOM, color, op);
-      if (this.routingLayersCount > 1 && layer === this.routeLayerTop)
-        this.writeCell(row, col, AR_SIDE_TOP, color, op);
+      if (layer === this.m_routeLayerBottom) this.WriteCell(row, col, AR_SIDE_BOTTOM, color, op);
+      if (this.m_RoutingLayersCount > 1 && layer === this.m_routeLayerTop)
+        this.WriteCell(row, col, AR_SIDE_TOP, color, op);
     }
   }
 
@@ -284,9 +217,9 @@ export class ArMatrix {
     ux1in: number,
     uy1in: number,
     lg: number,
-    layer: string | null,
+    layer: PCB_LAYER_ID,
     color: number,
-    op: CellOp,
+    op: CELL_OP,
   ): void {
     let ux0 = ux0in;
     let uy0 = uy0in;
@@ -300,39 +233,39 @@ export class ArMatrix {
     }
 
     const inc = uy1 < uy0 ? -1 : 1;
-    const demiPas = idiv(this.gridRouting, 2);
+    const demiPas = idiv(this.m_GridRouting, 2);
 
-    let colMin = idiv(ux0 - lg, this.gridRouting);
+    let colMin = idiv(ux0 - lg, this.m_GridRouting);
     if (colMin < 0) colMin = 0;
 
-    let colMax = idiv(ux1 + lg + demiPas, this.gridRouting);
-    if (colMax > this.ncols - 1) colMax = this.ncols - 1;
+    let colMax = idiv(ux1 + lg + demiPas, this.m_GridRouting);
+    if (colMax > this.m_Ncols - 1) colMax = this.m_Ncols - 1;
 
     let rowMin: number;
     let rowMax: number;
 
     if (inc > 0) {
-      rowMin = idiv(uy0 - lg, this.gridRouting);
-      rowMax = idiv(uy1 + lg + demiPas, this.gridRouting);
+      rowMin = idiv(uy0 - lg, this.m_GridRouting);
+      rowMax = idiv(uy1 + lg + demiPas, this.m_GridRouting);
     } else {
-      rowMin = idiv(uy1 - lg, this.gridRouting);
-      rowMax = idiv(uy0 + lg + demiPas, this.gridRouting);
+      rowMin = idiv(uy1 - lg, this.m_GridRouting);
+      rowMax = idiv(uy0 + lg + demiPas, this.m_GridRouting);
     }
 
     if (rowMin < 0) rowMin = 0;
-    if (rowMin > this.nrows - 1) rowMin = this.nrows - 1;
+    if (rowMin > this.m_Nrows - 1) rowMin = this.m_Nrows - 1;
     if (rowMax < 0) rowMax = 0;
-    if (rowMax > this.nrows - 1) rowMax = this.nrows - 1;
+    if (rowMax > this.m_Nrows - 1) rowMax = this.m_Nrows - 1;
 
     const angle = EDA_ANGLE.fromVector({ x: ux1 - ux0, y: uy1 - uy0 });
     // Rotated so the segment lies along +X: dx becomes its length, dy zero.
     const dx = RotatePoint({ x: ux1 - ux0, y: uy1 - uy0 }, angle).x;
 
     for (let col = colMin; col <= colMax; col++) {
-      const cxr = col * this.gridRouting - ux0;
+      const cxr = col * this.m_GridRouting - ux0;
 
       for (let row = rowMin; row <= rowMax; row++) {
-        const rotated = RotatePoint({ x: cxr, y: row * this.gridRouting - uy0 }, angle);
+        const rotated = RotatePoint({ x: cxr, y: row * this.m_GridRouting - uy0 }, angle);
         const cx = rotated.x;
         const cy = rotated.y;
 
@@ -366,9 +299,9 @@ export class ArMatrix {
     ux1: number,
     uy1: number,
     lgIn: number,
-    layer: string | null,
+    layer: PCB_LAYER_ID,
     color: number,
-    op: CellOp,
+    op: CELL_OP,
   ): void {
     const radius = EuclideanNormI({ x: ux0 - ux1, y: uy0 - uy1 });
     const lg = lgIn < 1 ? 1 : lgIn;
@@ -410,9 +343,9 @@ export class ArMatrix {
     uy1: number,
     arcAngleDegrees: number,
     lgIn: number,
-    layer: string | null,
+    layer: PCB_LAYER_ID,
     color: number,
-    op: CellOp,
+    op: CELL_OP,
   ): void {
     const radius = EuclideanNormI({ x: ux0 - ux1, y: uy0 - uy1 });
     const lg = lgIn < 1 ? 1 : lgIn;
@@ -442,32 +375,32 @@ export class ArMatrix {
     cxIn: number,
     cyIn: number,
     radius: number,
-    layerMask: readonly string[],
+    aLayerMask: LSET,
     color: number,
-    op: CellOp,
+    op: CELL_OP,
   ): void {
     let trace = 0;
-    if (onLayer(layerMask, this.routeLayerBottom)) trace = 1;
-    if (onLayer(layerMask, this.routeLayerTop) && this.routingLayersCount > 1) trace |= 2;
+    if (aLayerMask.Contains(this.m_routeLayerBottom)) trace = 1;
+    if (aLayerMask.Contains(this.m_routeLayerTop) && this.m_RoutingLayersCount > 1) trace |= 2;
     if (trace === 0) return;
 
-    const cx = cxIn - this.brdCoordOrigin.x;
-    const cy = cyIn - this.brdCoordOrigin.y;
+    const cx = cxIn - this.GetBrdCoordOrigin().x;
+    const cy = cyIn - this.GetBrdCoordOrigin().y;
 
     const ux0 = cx - radius;
     const uy0 = cy - radius;
     const ux1 = cx + radius;
     const uy1 = cy + radius;
 
-    let rowMax = idiv(uy1, this.gridRouting);
-    let colMax = idiv(ux1, this.gridRouting);
-    let rowMin = idiv(uy0, this.gridRouting);
-    let colMin = idiv(ux0, this.gridRouting);
+    let rowMax = idiv(uy1, this.m_GridRouting);
+    let colMax = idiv(ux1, this.m_GridRouting);
+    let rowMin = idiv(uy0, this.m_GridRouting);
+    let colMin = idiv(ux0, this.m_GridRouting);
 
     if (rowMin < 0) rowMin = 0;
-    if (rowMax >= this.nrows - 1) rowMax = this.nrows - 1;
+    if (rowMax >= this.m_Nrows - 1) rowMax = this.m_Nrows - 1;
     if (colMin < 0) colMin = 0;
-    if (colMax >= this.ncols - 1) colMax = this.ncols - 1;
+    if (colMax >= this.m_Ncols - 1) colMax = this.m_Ncols - 1;
     if (rowMin > rowMax) rowMax = rowMin;
     if (colMin > colMax) colMax = colMin;
 
@@ -475,14 +408,14 @@ export class ArMatrix {
     let tstwrite = false;
 
     for (let row = rowMin; row <= rowMax; row++) {
-      const fdisty = (cy - row * this.gridRouting) ** 2;
+      const fdisty = (cy - row * this.m_GridRouting) ** 2;
 
       for (let col = colMin; col <= colMax; col++) {
-        const fdistx = (cx - col * this.gridRouting) ** 2;
+        const fdistx = (cx - col * this.m_GridRouting) ** 2;
         if (fdistmin <= fdistx + fdisty) continue;
 
-        if (trace & 1) this.writeCell(row, col, AR_SIDE_BOTTOM, color, op);
-        if (trace & 2) this.writeCell(row, col, AR_SIDE_TOP, color, op);
+        if (trace & 1) this.WriteCell(row, col, AR_SIDE_BOTTOM, color, op);
+        if (trace & 2) this.WriteCell(row, col, AR_SIDE_TOP, color, op);
         tstwrite = true;
       }
     }
@@ -491,59 +424,59 @@ export class ArMatrix {
 
     // Nothing was written: a pad off grid, in the centre of its four diagonal
     // neighbours. Claim them instead.
-    const distmin = idiv(this.gridRouting, 2) + 1;
+    const distmin = idiv(this.m_GridRouting, 2) + 1;
     fdistmin = distmin * distmin * 2;
 
     for (let row = rowMin; row <= rowMax; row++) {
-      const fdisty = (cy - row * this.gridRouting) ** 2;
+      const fdisty = (cy - row * this.m_GridRouting) ** 2;
 
       for (let col = colMin; col <= colMax; col++) {
-        const fdistx = (cx - col * this.gridRouting) ** 2;
+        const fdistx = (cx - col * this.m_GridRouting) ** 2;
         if (fdistmin <= fdistx + fdisty) continue;
 
-        if (trace & 1) this.writeCell(row, col, AR_SIDE_BOTTOM, color, op);
-        if (trace & 2) this.writeCell(row, col, AR_SIDE_TOP, color, op);
+        if (trace & 1) this.WriteCell(row, col, AR_SIDE_BOTTOM, color, op);
+        if (trace & 2) this.WriteCell(row, col, AR_SIDE_TOP, color, op);
       }
     }
   }
 
   /** `TraceFilledRectangle`, the axis-aligned overload. Board coordinates. */
-  traceFilledRectangle(
+  TraceFilledRectangle(
     ux0In: number,
     uy0In: number,
     ux1In: number,
     uy1In: number,
-    layerMask: readonly string[],
+    aLayerMask: LSET,
     color: number,
-    op: CellOp,
+    op: CELL_OP,
   ): void {
     let trace = 0;
-    if (onLayer(layerMask, this.routeLayerBottom)) trace = 1;
-    if (onLayer(layerMask, this.routeLayerTop) && this.routingLayersCount > 1) trace |= 2;
+    if (aLayerMask.Contains(this.m_routeLayerBottom)) trace = 1;
+    if (aLayerMask.Contains(this.m_routeLayerTop) && this.m_RoutingLayersCount > 1) trace |= 2;
     if (trace === 0) return;
 
-    const org = this.brdCoordOrigin;
+    const org = this.GetBrdCoordOrigin();
     const ux0 = ux0In - org.x;
     const uy0 = uy0In - org.y;
     const ux1 = ux1In - org.x;
     const uy1 = uy1In - org.y;
 
-    let rowMax = idiv(uy1, this.gridRouting);
-    let colMax = idiv(ux1, this.gridRouting);
-    let rowMin = idiv(uy0, this.gridRouting);
-    if (uy0 > rowMin * this.gridRouting) rowMin++;
-    let colMin = idiv(ux0, this.gridRouting);
-    if (ux0 > colMin * this.gridRouting) colMin++;
+    let rowMax = idiv(uy1, this.m_GridRouting);
+    let colMax = idiv(ux1, this.m_GridRouting);
+    let rowMin = idiv(uy0, this.m_GridRouting);
+    if (uy0 > rowMin * this.m_GridRouting) rowMin++;
+    let colMin = idiv(ux0, this.m_GridRouting);
+    if (ux0 > colMin * this.m_GridRouting) colMin++;
 
     if (rowMin < 0) rowMin = 0;
-    if (rowMax >= this.nrows - 1) rowMax = this.nrows - 1;
+    if (rowMax >= this.m_Nrows - 1) rowMax = this.m_Nrows - 1;
     if (colMin < 0) colMin = 0;
-    if (colMax >= this.ncols - 1) colMax = this.ncols - 1;
+    if (colMax >= this.m_Ncols - 1) colMax = this.m_Ncols - 1;
 
     for (let row = rowMin; row <= rowMax; row++) {
       for (let col = colMin; col <= colMax; col++) {
-        if (trace & 1) this.writeCell(row, col, AR_SIDE_BOTTOM, color, op);
-        if (trace & 2) this.writeCell(row, col, AR_SIDE_TOP, color, op);
+        if (trace & 1) this.WriteCell(row, col, AR_SIDE_BOTTOM, color, op);
+        if (trace & 2) this.WriteCell(row, col, AR_SIDE_TOP, color, op);
       }
     }
   }
@@ -553,22 +486,22 @@ export class ArMatrix {
    * degree, and each candidate cell is rotated *back* into the rectangle's frame
    * before being tested against its bounds (exclusively on all four sides).
    */
-  traceFilledRectangleAngled(
+  TraceFilledRectangleAngled(
     ux0In: number,
     uy0In: number,
     ux1In: number,
     uy1In: number,
     angleTenths: number,
-    layerMask: readonly string[],
+    aLayerMask: LSET,
     color: number,
-    op: CellOp,
+    op: CELL_OP,
   ): void {
     let trace = 0;
-    if (onLayer(layerMask, this.routeLayerBottom)) trace = 1;
-    if (onLayer(layerMask, this.routeLayerTop) && this.routingLayersCount > 1) trace |= 2;
+    if (aLayerMask.Contains(this.m_routeLayerBottom)) trace = 1;
+    if (aLayerMask.Contains(this.m_routeLayerTop) && this.m_RoutingLayersCount > 1) trace |= 2;
     if (trace === 0) return;
 
-    const org = this.brdCoordOrigin;
+    const org = this.GetBrdCoordOrigin();
     const ux0 = ux0In - org.x;
     const uy0 = uy0In - org.y;
     const ux1 = ux1In - org.x;
@@ -578,24 +511,24 @@ export class ArMatrix {
     const cy = idiv(uy0 + uy1, 2);
     const radius = EuclideanNormI({ x: ux0 - cx, y: uy0 - cy });
 
-    let rowMax = idiv(cy + radius, this.gridRouting);
-    let colMax = idiv(cx + radius, this.gridRouting);
-    let rowMin = idiv(cy - radius, this.gridRouting);
-    if (uy0 > rowMin * this.gridRouting) rowMin++;
-    let colMin = idiv(cx - radius, this.gridRouting);
-    if (ux0 > colMin * this.gridRouting) colMin++;
+    let rowMax = idiv(cy + radius, this.m_GridRouting);
+    let colMax = idiv(cx + radius, this.m_GridRouting);
+    let rowMin = idiv(cy - radius, this.m_GridRouting);
+    if (uy0 > rowMin * this.m_GridRouting) rowMin++;
+    let colMin = idiv(cx - radius, this.m_GridRouting);
+    if (ux0 > colMin * this.m_GridRouting) colMin++;
 
     if (rowMin < 0) rowMin = 0;
-    if (rowMax >= this.nrows - 1) rowMax = this.nrows - 1;
+    if (rowMax >= this.m_Nrows - 1) rowMax = this.m_Nrows - 1;
     if (colMin < 0) colMin = 0;
-    if (colMax >= this.ncols - 1) colMax = this.ncols - 1;
+    if (colMax >= this.m_Ncols - 1) colMax = this.m_Ncols - 1;
 
     const angle = new EDA_ANGLE(angleTenths, EDA_ANGLE_T.TENTHS_OF_A_DEGREE_T).negate();
 
     for (let row = rowMin; row <= rowMax; row++) {
       for (let col = colMin; col <= colMax; col++) {
         const r = RotatePoint(
-          { x: col * this.gridRouting, y: row * this.gridRouting },
+          { x: col * this.m_GridRouting, y: row * this.m_GridRouting },
           { x: cx, y: cy },
           angle,
         );
@@ -605,8 +538,8 @@ export class ArMatrix {
         if (r.x <= ux0) continue;
         if (r.x >= ux1) continue;
 
-        if (trace & 1) this.writeCell(row, col, AR_SIDE_BOTTOM, color, op);
-        if (trace & 2) this.writeCell(row, col, AR_SIDE_TOP, color, op);
+        if (trace & 1) this.WriteCell(row, col, AR_SIDE_BOTTOM, color, op);
+        if (trace & 2) this.WriteCell(row, col, AR_SIDE_TOP, color, op);
       }
     }
   }
@@ -616,49 +549,36 @@ export class ArMatrix {
    * polygon or bezier on a non-`Edge.Cuts` layer is no obstacle at all as far as
    * the autoplacer is concerned, which is upstream's behaviour, not an omission.
    */
-  tracePcbShape(shape: PcbShape, color: number, margin: number, op: CellOp): void {
-    const halfWidth = idiv(shape.width, 2) + margin;
-    const org = this.brdCoordOrigin;
+  TracePcbShape(aShape: PCB_SHAPE, aColor: number, aMargin: number, op: CELL_OP): void {
+    const halfWidth = idiv(aShape.GetWidth(), 2) + aMargin;
+    const org = this.GetBrdCoordOrigin();
     // Draw on all layers.
-    const layer = null;
+    const layer = PCB_LAYER_ID.UNDEFINED_LAYER;
 
-    if (shape.kind === 'circle') {
-      if (!shape.center || !shape.end) return;
-      this.traceCircle(
-        shape.center.x - org.x,
-        shape.center.y - org.y,
-        shape.end.x - org.x,
-        shape.end.y - org.y,
-        halfWidth,
-        layer,
-        color,
-        op,
-      );
-    } else if (shape.kind === 'line') {
-      if (!shape.start || !shape.end) return;
-      this.drawSegmentQcq(
-        shape.start.x - org.x,
-        shape.start.y - org.y,
-        shape.end.x - org.x,
-        shape.end.y - org.y,
-        halfWidth,
-        layer,
-        color,
-        op,
-      );
-    } else if (shape.kind === 'arc') {
-      if (!shape.start || !shape.mid || !shape.end) return;
-      const centre = arcCenter(shape.start, shape.mid, shape.end);
-      if (!centre) return;
+    if (aShape.GetShape() === SHAPE_T.CIRCLE || aShape.GetShape() === SHAPE_T.SEGMENT) {
+      const ux0 = aShape.GetStart().x - org.x;
+      const uy0 = aShape.GetStart().y - org.y;
+      const ux1 = aShape.GetEnd().x - org.x;
+      const uy1 = aShape.GetEnd().y - org.y;
+
+      if (aShape.GetShape() === SHAPE_T.CIRCLE)
+        this.traceCircle(ux0, uy0, ux1, uy1, halfWidth, layer, aColor, op);
+      else this.drawSegmentQcq(ux0, uy0, ux1, uy1, halfWidth, layer, aColor, op);
+    } else if (aShape.GetShape() === SHAPE_T.ARC) {
+      const ux0 = aShape.GetCenter().x - org.x;
+      const uy0 = aShape.GetCenter().y - org.y;
+      const ux1 = aShape.GetStart().x - org.x;
+      const uy1 = aShape.GetStart().y - org.y;
+
       this.traceArc(
-        Math.round(centre.x) - org.x,
-        Math.round(centre.y) - org.y,
-        shape.start.x - org.x,
-        shape.start.y - org.y,
-        arcSweepDegrees(centre, shape.start, shape.end),
+        ux0,
+        uy0,
+        ux1,
+        uy1,
+        aShape.GetArcAngle().AsDegrees(),
         halfWidth,
         layer,
-        color,
+        aColor,
         op,
       );
     }
@@ -675,41 +595,41 @@ export class ArMatrix {
    * does not). A footprint on the back of a busy board therefore sees a
    * different cost surface from the same footprint on the front.
    */
-  createKeepOutRectangle(
+  CreateKeepOutRectangle(
     ux0In: number,
     uy0In: number,
     ux1In: number,
     uy1In: number,
     marge: number,
     aKeepOut: number,
-    layerMask: readonly string[],
+    aLayerMask: LSET,
   ): void {
     let trace = 0;
-    if (onLayer(layerMask, this.routeLayerBottom)) trace = 1;
+    if (aLayerMask.Contains(this.m_routeLayerBottom)) trace = 1;
     // Note the truthiness test on the layer count, where every other tracer
     // here asks for `> 1`.
-    if (onLayer(layerMask, this.routeLayerTop) && this.routingLayersCount) trace |= 2;
+    if (aLayerMask.Contains(this.m_routeLayerTop) && this.m_RoutingLayersCount) trace |= 2;
     if (trace === 0) return;
 
-    const ux0 = ux0In - this.brdBox.x - marge;
-    const uy0 = uy0In - this.brdBox.y - marge;
-    const ux1 = ux1In - this.brdBox.x + marge;
-    const uy1 = uy1In - this.brdBox.y + marge;
+    const ux0 = ux0In - this.m_BrdBox.GetX() - marge;
+    const uy0 = uy0In - this.m_BrdBox.GetY() - marge;
+    const ux1 = ux1In - this.m_BrdBox.GetX() + marge;
+    const uy1 = uy1In - this.m_BrdBox.GetY() + marge;
 
-    let pmarge = idiv(marge, this.gridRouting);
+    let pmarge = idiv(marge, this.m_GridRouting);
     if (pmarge < 1) pmarge = 1;
 
-    let rowMax = idiv(uy1, this.gridRouting);
-    let colMax = idiv(ux1, this.gridRouting);
-    let rowMin = idiv(uy0, this.gridRouting);
-    if (uy0 > rowMin * this.gridRouting) rowMin++;
-    let colMin = idiv(ux0, this.gridRouting);
-    if (ux0 > colMin * this.gridRouting) colMin++;
+    let rowMax = idiv(uy1, this.m_GridRouting);
+    let colMax = idiv(ux1, this.m_GridRouting);
+    let rowMin = idiv(uy0, this.m_GridRouting);
+    if (uy0 > rowMin * this.m_GridRouting) rowMin++;
+    let colMin = idiv(ux0, this.m_GridRouting);
+    if (ux0 > colMin * this.m_GridRouting) colMin++;
 
     if (rowMin < 0) rowMin = 0;
-    if (rowMax >= this.nrows - 1) rowMax = this.nrows - 1;
+    if (rowMax >= this.m_Nrows - 1) rowMax = this.m_Nrows - 1;
     if (colMin < 0) colMin = 0;
-    if (colMax >= this.ncols - 1) colMax = this.ncols - 1;
+    if (colMax >= this.m_Ncols - 1) colMax = this.m_Ncols - 1;
 
     for (let row = rowMin; row <= rowMax; row++) {
       let lgain = 256;
@@ -728,20 +648,20 @@ export class ArMatrix {
         if (cgain !== 256) localKeepOut = idiv(localKeepOut * cgain, 256);
 
         if (trace & 1) {
-          this.setDist(
+          this.SetDist(
             row,
             col,
             AR_SIDE_BOTTOM,
-            this.getDist(row, col, AR_SIDE_BOTTOM) + localKeepOut,
+            this.GetDist(row, col, AR_SIDE_BOTTOM) + localKeepOut,
           );
         }
 
         if (trace & 2) {
-          this.setDist(
+          this.SetDist(
             row,
             col,
             AR_SIDE_TOP,
-            Math.max(this.getDist(row, col, AR_SIDE_TOP), localKeepOut),
+            Math.max(this.GetDist(row, col, AR_SIDE_TOP), localKeepOut),
           );
         }
       }
@@ -754,52 +674,50 @@ export class ArMatrix {
    * size, which is upstream's approximation, not a gap in this port. A
    * trapezoid grows by half its delta on each axis.
    */
-  placePad(pad: PcbPad, color: number, marge: number, op: CellOp): void {
-    // `ShapePos`: the pad centre plus its shape offset. This model carries no
-    // shape offset, so the centre is the shape position.
-    const shapePos = pad.at;
+  PlacePad(aPad: PAD, color: number, marge: number, op: CELL_OP): void {
+    const shapePos = aPad.ShapePos(PADSTACK.ALL_LAYERS);
 
-    let dx = idiv(pad.size.x, 2) + marge;
+    // TODO(JE) padstacks
+    let dx = idiv(aPad.GetSize(PADSTACK.ALL_LAYERS).x, 2);
+    dx += marge;
 
-    if (pad.shape === 'circle') {
-      this.traceFilledCircle(shapePos.x, shapePos.y, dx, pad.layers, color, op);
+    if (aPad.GetShape(PADSTACK.ALL_LAYERS) === PAD_SHAPE.CIRCLE) {
+      this.traceFilledCircle(shapePos.x, shapePos.y, dx, aPad.GetLayerSet(), color, op);
       return;
     }
 
-    let dy = idiv(pad.size.y, 2) + marge;
+    let dy = idiv(aPad.GetSize(PADSTACK.ALL_LAYERS).y, 2);
+    dy += marge;
 
-    if (pad.shape === 'trapezoid') {
-      dx += idiv(Math.abs(pad.delta?.y ?? 0), 2);
-      dy += idiv(Math.abs(pad.delta?.x ?? 0), 2);
+    if (aPad.GetShape(PADSTACK.ALL_LAYERS) === PAD_SHAPE.TRAPEZOID) {
+      dx += idiv(Math.abs(aPad.GetDelta(PADSTACK.ALL_LAYERS).y), 2);
+      dy += idiv(Math.abs(aPad.GetDelta(PADSTACK.ALL_LAYERS).x), 2);
     }
 
-    if (isCardinal(pad.angle)) {
-      // Upstream compares the raw angle against 90 and 270 with `operator==`,
-      // which is an exact comparison of the stored degrees and not a normalised
-      // one. A pad at -90 is cardinal, so it takes this branch, but does *not*
-      // swap its axes — it is traced with its width and height the wrong way
-      // round. Reproduced rather than corrected.
-      if (pad.angle === 90 || pad.angle === 270) {
-        [dx, dy] = [dy, dx];
-      }
+    // The pad is a rectangle (horizontal or vertical).
+    if (aPad.GetOrientation().IsCardinal()) {
+      // Orientation turned 90 deg.
+      const degrees = aPad.GetOrientation().AsDegrees();
 
-      this.traceFilledRectangle(
+      if (degrees === 90 || degrees === 270) [dx, dy] = [dy, dx];
+
+      this.TraceFilledRectangle(
         shapePos.x - dx,
         shapePos.y - dy,
         shapePos.x + dx,
         shapePos.y + dy,
-        pad.layers,
+        aPad.GetLayerSet(),
         color,
         op,
       );
     } else {
-      this.traceFilledRectangleAngled(
+      this.TraceFilledRectangleAngled(
         shapePos.x - dx,
         shapePos.y - dy,
         shapePos.x + dx,
         shapePos.y + dy,
-        new EDA_ANGLE(pad.angle).AsTenthsOfADegree(),
-        pad.layers,
+        aPad.GetOrientation().AsTenthsOfADegree(),
+        aPad.GetLayerSet(),
         color,
         op,
       );

@@ -19,6 +19,7 @@ import { ENV_VAR_MAP } from '@ziroeda/common/settings/environment.js';
 import { MOUSE_DRAG_ACTION } from '@ziroeda/common/mouse_drag_action.js';
 import {
   type COMMON_SETTINGS_INPUT,
+  type COMMON_SETTINGS_DO_NOT_SHOW_AGAIN,
   type COMMON_SETTINGS_LIKE,
   PGM_BASE,
   PgmOrNull,
@@ -104,7 +105,28 @@ export function commonSettingsOf(): COMMON_SETTINGS_LIKE {
     m_Graphics: { aa_mode: c.graphics.antialiasing_mode },
     m_Input,
     m_Env: s_env,
+    m_DoNotShowAgain: { ...c.do_not_show_again },
   };
+}
+
+/**
+ * `JSON_SETTINGS::Store` for the `do_not_show_again.*` PARAMs: what a tool set
+ * in the object, back into the slice. Returns whether anything changed.
+ */
+export function storeCommonDoNotShowAgain(
+  aCfg: COMMON_SETTINGS_LIKE,
+  aJson: COMMON_SETTINGS_DO_NOT_SHOW_AGAIN,
+): boolean {
+  let changed = false;
+
+  for (const key of Object.keys(aJson) as (keyof COMMON_SETTINGS_DO_NOT_SHOW_AGAIN)[]) {
+    if (aJson[key] !== aCfg.m_DoNotShowAgain[key]) {
+      aJson[key] = aCfg.m_DoNotShowAgain[key];
+      changed = true;
+    }
+  }
+
+  return changed;
 }
 
 /**

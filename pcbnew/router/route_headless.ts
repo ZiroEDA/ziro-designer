@@ -21,9 +21,9 @@
  *   stub. Scripted, that would litter the board, so a result is refused
  *   unless a new segment ends on the far end.
  */
-import type { Board } from '../types.js';
-import { boardLayerFromPnsLayer, type PnsPendingChange } from './pns_kicad_iface.js';
-import { PnsKind } from './pns_item.js';
+import type { BOARD } from '../board.js';
+import { boardLayerFromPnsLayer } from './pns_kicad_iface.js';
+import { PnsKind, type PnsItem } from './pns_item.js';
 import { DEFAULT_ROUTING_SETTINGS, PnsMode } from './pns_routing_settings.js';
 import type { PnsSegment } from './pns_segment.js';
 import { PnsSession, type PnsSessionOptions } from './router_tool.js';
@@ -38,7 +38,8 @@ export interface RouteEnd extends Vec2 {
 export interface HeadlessRoute {
   ok: boolean;
   reason: string;
-  changes: readonly PnsPendingChange[];
+  /** The ends of the segments the route added; empty when it was refused. */
+  ends: readonly RouteEnd[];
 }
 
 /**
@@ -48,12 +49,12 @@ export interface HeadlessRoute {
  */
 export const SCRIPTED_WALKAROUND_ITERATIONS = 200;
 
-/** The endpoints of the segments a route adds. */
-export function routeEnds(changes: readonly PnsPendingChange[], copperLayers: number): RouteEnd[] {
+/** The endpoints of the segments among `items`. */
+export function routeEnds(items: readonly PnsItem[], copperLayers: number): RouteEnd[] {
   const out: RouteEnd[] = [];
-  for (const c of changes) {
-    if (c.kind !== 'add' || c.item.kind() !== PnsKind.SEGMENT_T) continue;
-    const seg = c.item as PnsSegment;
+  for (const item of items) {
+    if (item.kind() !== PnsKind.SEGMENT_T) continue;
+    const seg = item as PnsSegment;
     const layer = boardLayerFromPnsLayer(seg.layers().start(), copperLayers);
     const s = seg.seg();
     out.push({ x: s.a.x, y: s.a.y, layer }, { x: s.b.x, y: s.b.y, layer });
@@ -61,9 +62,12 @@ export function routeEnds(changes: readonly PnsPendingChange[], copperLayers: nu
   return out;
 }
 
-/** One session: start at `from`, click each waypoint, finish at `to`. */
+/**
+ * One session: start at `from`, click each waypoint, finish at `to`. With no
+ * commit host in `opts` it only records what the router would add.
+ */
 function attempt(
-  board: Board,
+  board: BOARD,
   from: Vec2,
   through: readonly Vec2[],
   to: Vec2,
@@ -78,7 +82,7 @@ function attempt(
       return {
         ok: false,
         reason: session.failureReason || 'the start point violates DRC',
-        changes: [],
+        ends: [],
       };
     for (const p of through) {
       session.move(p);
@@ -87,11 +91,14 @@ function attempt(
     }
     session.move(to);
     session.fix(to, true);
-    const result = session.commit();
-    if (!result.ok) return { ok: false, reason: result.reason || 'no path found', changes: [] };
-    if (!routeEnds(result.changes, copperLayers).some(arrived))
-      return { ok: false, reason: 'the router could not reach the target (blocked)', changes: [] };
-    return { ok: true, reason: '', changes: result.changes };
+    const reason = session.failureReason;
+    session.commit();
+    const added = session.addedItems();
+    if (added.length === 0) return { ok: false, reason: reason || 'no path found', ends: [] };
+    const ends = routeEnds(added, copperLayers);
+    if (!ends.some(arrived))
+      return { ok: false, reason: 'the router could not reach the target (blocked)', ends: [] };
+    return { ok: true, reason: '', ends };
   } finally {
     session.dispose();
   }
@@ -101,10 +108,12 @@ function attempt(
  * Route between `from` and `to` on `layer`, through `through` in order.
  * `atFrom` / `atTo` say whether a segment end is on that end (the caller
  * knows what is there: a pad, and on which layers). Tries walkaround both
- * ways, then shove both ways; the first that arrives wins.
+ * ways, then shove both ways; the first that arrives wins, and is then routed
+ * again through `opts.commitHost` - so a route that does not arrive never
+ * reaches the board.
  */
 export function routeHeadless(
-  board: Board,
+  board: BOARD,
   from: Vec2,
   to: Vec2,
   layer: string,
@@ -115,6 +124,7 @@ export function routeHeadless(
   through: readonly Vec2[] = [],
 ): HeadlessRoute {
   const base = opts.settings ?? DEFAULT_ROUTING_SETTINGS;
+  const { commitHost, ...dry } = opts;
   const reasons: string[] = [];
   for (const routingMode of [PnsMode.RM_Walkaround, PnsMode.RM_Shove]) {
     const settings = {
@@ -130,8 +140,13 @@ export function routeHeadless(
       [to, [...through].reverse(), from, atFrom],
     ];
     for (const [a, via, b, arrived] of ways) {
-      const r = attempt(board, a, via, b, layer, { ...opts, settings }, copperLayers, arrived);
-      if (r.ok) return r;
+      const r = attempt(board, a, via, b, layer, { ...dry, settings }, copperLayers, arrived);
+      if (r.ok) {
+        // The same route again, this time onto the board.
+        if (commitHost)
+          attempt(board, a, via, b, layer, { ...dry, settings, commitHost }, copperLayers, arrived);
+        return r;
+      }
       reasons.push(r.reason);
     }
   }
@@ -142,5 +157,5 @@ export function routeHeadless(
     (reasons.some(blocked)
       ? 'the router could not reach the target in walkaround or shove (blocked: move parts, add waypoints, use the other layer or a via)'
       : 'no path found in walkaround or shove (move parts, add waypoints, use the other layer or a via)');
-  return { ok: false, reason, changes: [] };
+  return { ok: false, reason, ends: [] };
 }

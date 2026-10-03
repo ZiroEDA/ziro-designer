@@ -13,7 +13,7 @@ import type { Color4d } from '@ziroeda/common/gal/color4d.js';
 import { NET_COLOR_MODE } from '@ziroeda/common/project/board_project_settings.js';
 import type { VIEW } from '@ziroeda/common/view/view.js';
 import type { VIEW_ITEM } from '@ziroeda/common/view/view_item.js';
-import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { fakeView } from './pns_preview_view.js';
 import { PnsSession, updateDragStatus } from '@ziroeda/pcbnew/router/router_tool.js';
 import { ROUTER_PREVIEW_ITEM } from '@ziroeda/pcbnew/router/router_preview_item.js';
@@ -21,8 +21,8 @@ import { ROUTER_PREVIEW_ITEM } from '@ziroeda/pcbnew/router/router_preview_item.
 const MM = 1e6;
 
 const board = () =>
-  readBoard(
-    parse(`(kicad_pcb (version 20241229) (generator "test")
+  ParseBoard(
+    `(kicad_pcb (version 20241229) (generator "test")
   (general (thickness 1.6))
   (layers (0 "F.Cu" signal) (31 "B.Cu" signal) (44 "Edge.Cuts" user))
   (net 0 "")
@@ -31,7 +31,7 @@ const board = () =>
     (pad "1" smd rect (at 0 0) (size 1 1) (layers "F.Cu") (net 1 "N1")))
   (footprint "R2" (layer "F.Cu") (at 110 100)
     (pad "1" smd rect (at 0 0) (size 1 1) (layers "F.Cu") (net 1 "N1")))
-)`),
+)`,
   );
 
 const start = (v: VIEW | null, extra = {}) => {

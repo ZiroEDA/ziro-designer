@@ -204,6 +204,11 @@ export class DIALOG_TABLE_PROPERTIES {
       : t.GetCell(aRow, aCol);
   }
 
+  /** The table the dialog edits. */
+  GetTable(): PCB_TABLE {
+    return this.m_table;
+  }
+
   TransferDataToWindow(): TableValues {
     const board = this.m_frame.GetBoard()!;
     const t = this.m_table;

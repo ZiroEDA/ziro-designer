@@ -13,10 +13,14 @@ import { parse } from '@ziroeda/sexpr';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common';
 import { Reporter, RPT_SEVERITY_ERROR, RPT_SEVERITY_WARNING } from '@ziroeda/common';
 import {
-  BOARD_NETLIST_UPDATER,
+  libraryLoader,
+  runLiveUpdate,
+  type UpdateOptions,
+  type UpdateResult,
+} from './support/netlist_update_harness.js';
+import {
   loadKicadNetlist,
   readBoard,
-  readFootprintFile,
   serializeBoard,
   type Board,
   type PcbFootprint,
@@ -62,25 +66,12 @@ const C_0805 = `(footprint "C_0805"
     (roundrect_rratio 0.25) (uuid "22222222-0000-4000-8000-000000000012"))
 )`;
 
-const LIBRARY = new Map<string, PcbFootprint>([
-  ['Resistor_SMD:R_0805', readFootprintFile(parse(R_0805))!],
-  ['Capacitor_SMD:C_0805', readFootprintFile(parse(C_0805))!],
+const LIBRARY = new Map<string, string>([
+  ['Resistor_SMD:R_0805', R_0805],
+  ['Capacitor_SMD:C_0805', C_0805],
 ]);
 
-/**
- * FOOTPRINT_LIBRARY_ADAPTER::LoadFootprintWithOptionalNickname: a qualified id is
- * looked up directly; a bare name searches every library alphabetically for the
- * first match, which is how legacy Footprint fields still resolve.
- */
-const loadFootprint = (fpid: string): PcbFootprint | null => {
-  const direct = LIBRARY.get(fpid);
-  if (direct) return direct;
-  if (fpid.includes(':')) return null;
-  for (const key of [...LIBRARY.keys()].sort()) {
-    if (key.slice(key.indexOf(':') + 1) === fpid) return LIBRARY.get(key) ?? null;
-  }
-  return null;
-};
+const loadFootprint = libraryLoader(LIBRARY);
 
 /** An empty A4 board with an Edge.Cuts rectangle, so insertion lands below it. */
 const EMPTY_BOARD = `(kicad_pcb (version 20241229) (generator "pcbnew") (generator_version "9.0")
@@ -151,7 +142,7 @@ const NETLIST = `(export (version "E")
 function update(
   boardText: string,
   netlistText: string,
-  options: Parameters<typeof runUpdate>[2] = {},
+  options: UpdateOptions = {},
 ): ReturnType<typeof runUpdate> {
   return runUpdate(readBoard(parse(boardText)), loadKicadNetlist(netlistText), options);
 }
@@ -159,14 +150,9 @@ function update(
 function runUpdate(
   board: Board,
   netlist: ReturnType<typeof loadKicadNetlist>,
-  options: ConstructorParameters<typeof BOARD_NETLIST_UPDATER>[3] = {},
-): {
-  reporter: Reporter;
-  result: ReturnType<BOARD_NETLIST_UPDATER['UpdateNetlist']>;
-} {
-  const reporter = new Reporter();
-  const updater = new BOARD_NETLIST_UPDATER(board, reporter, loadFootprint, options);
-  return { reporter, result: updater.UpdateNetlist(netlist) };
+  options: UpdateOptions = {},
+): { reporter: Reporter; result: UpdateResult } {
+  return runLiveUpdate(board, netlist, loadFootprint, options);
 }
 
 const messages = (reporter: Reporter): string[] => reporter.lines.map((l) => l.message);
@@ -243,8 +229,11 @@ describe('BOARD_NETLIST_UPDATER on an empty board', () => {
     const { reporter, result } = update(EMPTY_BOARD, NETLIST);
     const board = result.board;
 
-    expect(board.footprints.map((f) => f.reference)).toEqual(['C1', 'R1', 'R2']);
-    expect(result.addedFootprints).toEqual([0, 1, 2]);
+    // BOARD_COMMIT::Push adds with ADD_MODE::BULK_INSERT and BOARD::Add puts an
+    // inserted footprint at the FRONT (board.cpp:1372-1380): the last added is first.
+    expect(board.footprints.map((f) => f.reference)).toEqual(['R2', 'R1', 'C1']);
+    // added in netlist order C1, R1, R2, each one inserted in front of the last
+    expect(result.addedFootprints).toEqual([2, 1, 0]);
     expect(result.errorCount).toBe(0);
     expect(result.warningCount).toBe(0);
 
@@ -300,7 +289,7 @@ describe('BOARD_NETLIST_UPDATER on an empty board', () => {
     expect(result.errorCount).toBeGreaterThan(0);
     expect(messages(reporter)).toContain("Cannot add R1 (footprint 'Nope:Missing' not found).");
     // Only R1's footprint was replaced in the netlist text, so R2 still lands.
-    expect(result.board.footprints.map((f) => f.reference)).toEqual(['C1', 'R2']);
+    expect(result.board.footprints.map((f) => f.reference)).toEqual(['R2', 'C1']);
   });
 
   it('errors when a symbol has a pin the footprint has no pad for', () => {
@@ -322,7 +311,7 @@ describe('BOARD_NETLIST_UPDATER on an empty board', () => {
       messages(reporter).some((m) => m.includes("footprint 'R_0805' is missing a library name")),
     ).toBe(true);
     // Legacy ids still resolve, so the footprints are added.
-    expect(result.board.footprints.map((f) => f.reference)).toEqual(['C1', 'R1', 'R2']);
+    expect(result.board.footprints.map((f) => f.reference)).toEqual(['R2', 'R1', 'C1']);
   });
 });
 
@@ -428,7 +417,7 @@ describe('BOARD_NETLIST_UPDATER on a populated board', () => {
       deleteUnusedFootprints: true,
     });
     expect(messages(deleted.reporter)).toContain('Removed unused footprint R2.');
-    expect(deleted.result.board.footprints.map((f) => f.reference)).toEqual(['C1', 'R1']);
+    expect(deleted.result.board.footprints.map((f) => f.reference)).toEqual(['R1', 'C1']);
   });
 
   it('keeps a board-only footprint even when deleting extras', () => {
@@ -471,6 +460,19 @@ describe('BOARD_NETLIST_UPDATER on a populated board', () => {
     expect(userFields(readBoard(text).footprints.find((f) => f.reference === 'C1')!)).toEqual([
       { name: 'MPN', value: 'CAP-100N' },
     ]);
+  });
+
+  it('changes the value of a field the footprint already has (:563-567)', () => {
+    const withField = runUpdate(populated(), loadKicadNetlist(NETLIST), {
+      updateFields: true,
+    }).result.board;
+    const changed = NETLIST.replaceAll('CAP-100N', 'CAP-220N');
+    const { reporter, result } = runUpdate(withField, loadKicadNetlist(changed), {
+      updateFields: true,
+    });
+    expect(messages(reporter)).toContain('Updated C1 fields.');
+    const c1 = result.board.footprints.find((f) => f.reference === 'C1')!;
+    expect(c1.fields?.find((f) => f.name === 'MPN')?.value).toBe('CAP-220N');
   });
 
   it('removes footprint fields the symbol no longer has, with Remove Extra Fields', () => {
@@ -526,7 +528,8 @@ describe('BOARD_NETLIST_UPDATER on a populated board', () => {
     expect(msgs).toContain('Disconnected R1 pin 1.');
     expect(msgs).toContain('Removed unused net VIN.');
     const r1 = result.board.footprints.find((f) => f.reference === 'R1')!;
-    expect(r1.pads.find((p) => p.number === '1')!.net).toBe(0);
+    // NETINFO_LIST::UNCONNECTED: the view lists no net for it.
+    expect(r1.pads.find((p) => p.number === '1')!.net ?? 0).toBe(0);
   });
 
   it('matches by UUID when Re-link Footprints is off', () => {

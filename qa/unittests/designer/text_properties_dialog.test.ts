@@ -32,7 +32,6 @@ const read = (rel: string): string =>
 
 const DIALOG = read('../../pcbnew/dialogs/dialog_text_properties_ui.tsx');
 const CSS = read('../../common/widgets/shell.css');
-const EDITOR = read('../../pcbnew/pcb_edit_frame_ui.tsx');
 /**
  * The dialog with every comment stripped.
  *
@@ -209,39 +208,6 @@ describe('the two heights, both measured with the widget wx builds', () => {
     for (const cls of ['.ze-tbp-w-ctl', '.ze-tbp-bw-ctl']) {
       expect(rule(cls), cls).toMatch(/height:\s*var\(--ctl-height\)/);
     }
-  });
-});
-
-describe('the Draw Text tool opens this dialog, and opens it on activation', () => {
-  it('shows DialogTextProperties for a placement, not a second smaller one', () => {
-    expect(EDITOR).toContain('initial={newTextValues(textDialog)}');
-    // `textDraft` was the state the hand-rolled div held its one field in, and
-    // nothing else ever read it: its absence is the div's absence.
-    //
-    // Not a scan for the colours it carried. `#2a2c30` and `1px solid #444` are
-    // still in this file three more times — the canvas context menu and the
-    // zone dialog are hand-rolled too — and a test that failed on those would
-    // be reporting somebody else's drift as this one's.
-    expect(EDITOR).not.toContain('textDraft');
-  });
-
-  it('primes the tool the moment it is picked, as PrimeTool does', () => {
-    // `m_toolMgr->PrimeTool( { 0, 0 } )` with `ignorePrimePosition = true`
-    // (`drawing_tool.cpp:1049-1058`): a synthetic click that runs the tool's own
-    // click arm, which is what opens the dialog. The position is discarded, so
-    // the text takes the cursor's.
-    expect(EDITOR).toMatch(/if \(activeTool !== 'placeText'\) return;/);
-    expect(EDITOR).toContain('setTextDialog(snapToGrid(cursorRef.current ?? { x: 0, y: 0 }))');
-  });
-
-  it('starts the new text from the active layer’s Board Setup row', () => {
-    // `textAttrs.m_Size = bds.GetTextSize( layer )` and friends
-    // (`drawing_tool.cpp:124-131`) — the layer class's row, not EDA_TEXT's
-    // defaults, and mirrored from the outset on a back layer.
-    expect(EDITOR).toContain('const row = layerClassRow(activeLayer);');
-    expect(EDITOR).toContain('mirrored: isBackLayer(activeLayer)');
-    expect(EDITOR).toMatch(/hJustify: 'left'/);
-    expect(EDITOR).toMatch(/vJustify: 'bottom'/);
   });
 });
 

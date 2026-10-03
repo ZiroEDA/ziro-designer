@@ -12,20 +12,6 @@ export {
   type RatsnestEdge,
 } from './ratsnest/ratsnest.js';
 export {
-  airwireShown,
-  localRatsnestKey,
-  toggleLocalRatsnest,
-  type LocalRatsnestHit,
-  type LocalRatsnestOverrides,
-} from './local_ratsnest.js';
-export {
-  beginCourtyardConflicts,
-  conflictShadowRings,
-  courtyardConflictsAt,
-  type CourtyardConflicts,
-  type CourtyardConflictSession,
-} from './courtyard_collision.js';
-export {
   readBoard,
   readFootprintFile,
   serializeFootprint,
@@ -33,7 +19,7 @@ export {
   type SerializeFootprintOptions,
 } from './pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 export { DEFAULT_POINT_SIZE } from './pcb_point.js';
-export { arcSweepDegrees } from './autorouter/ar_matrix.js';
+export { arcSweepDegrees } from './edit-board.js';
 export {
   fpItemId,
   parseFpItemId,
@@ -211,9 +197,8 @@ export {
 export {
   BOARD_NETLIST_UPDATER,
   fpidsEquivalent,
-  type BoardNetlistUpdaterOptions,
-  type BoardNetlistUpdateResult,
-  type FootprintLoader,
+  type NETLIST_FOOTPRINT_LOADER,
+  type NETLIST_UPDATER_FRAME,
 } from './netlist_reader/board_netlist_updater.js';
 export {
   appendNet,
@@ -244,12 +229,7 @@ export {
 } from './autorouter/spread_footprints.js';
 
 // Footprint autoplacement (pcbnew/autorouter: AR_AUTOPLACER + AR_MATRIX).
-export {
-  autoplaceFootprints,
-  AR_STEP_MM,
-  type AutoplaceOptions,
-  type AutoplaceResult,
-} from './autorouter/ar_autoplacer.js';
+export { AR_AUTOPLACER, AR_RESULT } from './autorouter/ar_autoplacer.js';
 
 // Zone filling (pcbnew/zone_filler.cpp: ZONE_FILLER).
 export {
@@ -261,16 +241,6 @@ export {
 } from './zone_filler.js';
 
 // Track dragging (pcbnew/router: PNS::DRAGGER + PNS::LINE geometry).
-export {
-  assembleLine,
-  startTrackDrag,
-  updateTrackDrag,
-  trackDragSegments,
-  applyTrackDrag,
-  type AssembledLine,
-  type TrackDrag,
-  type DragMode,
-} from './router/pns_dragger.js';
 
 // Edit Teardrops (pcbnew/dialogs/dialog_global_edit_teardrops.cpp).
 export {
@@ -413,18 +383,6 @@ export {
   type BezierClick,
   type BezierPoints,
 } from './tools/drawing_tool.js';
-
-export {
-  boardEditHandles,
-  boardIndicatorLines,
-  dragBoardHandle,
-  hasEditPoints,
-  editablePointItems,
-  arcHandleCentre,
-  type BoardEditHandle,
-  type BoardIndicatorLine,
-  type HandleKind,
-} from './tools/pcb_point_editor.js';
 
 export {
   createArray,
@@ -891,9 +849,6 @@ export {
 
 export {
   GRAPHICS_IMPORTER_PCBNEW,
-  DEFAULT_IMPORT_LAYER,
-  lineStyleToStrokeType,
-  type IMPORTED_ITEM,
   type LayerMapTarget,
 } from './import_gfx/graphics_importer_pcbnew.js';
 export { PnsLayerRange } from './router/pns_layerset.js';
@@ -1164,7 +1119,7 @@ export {
 // `ARC_LOW_DEF`/`arcHull`/`buildHullForPrimitiveShape`/`convexHull` are already
 // exported above, from the `pns_utils.js` block.
 export { itemHull } from './router/pns_utils.js';
-export { PNS_PCBNEW_RULE_RESOLVER, type PnsResolverHost } from './router/pns_kicad_iface.js';
+export { PNS_PCBNEW_RULE_RESOLVER } from './router/pns_kicad_iface.js';
 
 export {
   DEFAULT_ROUTING_SETTINGS,
@@ -1417,7 +1372,6 @@ export {
 // explicit context fields.
 export {
   PNS_COORDS_PADDING,
-  PnsMagneticOption,
   checkSnap,
   pickSingleItem,
   snapToItem,
@@ -1451,17 +1405,12 @@ export {
 // above, from the routing-settings block this port builds on.
 export { PnsSizesSettings, type PnsViaTypeSetting } from './router/pns_sizes_settings.js';
 // `ChainIntersection` is already exported above, from the `pns_line.js` block.
-// The board bridge — `PNS_KICAD_IFACE` over this repo's `Board`.
+// The board bridge — `PNS_KICAD_IFACE` over the live BOARD.
 export {
   PNS_KICAD_IFACE,
-  PNS_ORPHANED_NET,
-  asBoardItem,
   boardLayerFromPnsLayer,
-  padHoleShape,
   pnsLayerFromBoardLayer,
-  solidShapeForPad,
+  pnsShapeOf,
   type PNS_KICAD_IFACE_DEPS,
-  type PnsBoardNet,
-  type PnsPendingChange,
 } from './router/pns_kicad_iface.js';
 export { DIALOG_EXCHANGE_FOOTPRINTS } from './dialogs/dialog_exchange_footprints.js';

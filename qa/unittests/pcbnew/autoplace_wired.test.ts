@@ -14,6 +14,7 @@ const read = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 const MENUBAR = read('../../../pcbnew/menubar_pcb_editor.ts');
 const EDITOR = read('../../../pcbnew/pcb_edit_frame_ui.tsx');
+const FRAME = read('../../../pcbnew/pcb_edit_frame.ts');
 
 describe('Place > Auto-Place Footprints', () => {
   it('both rows dispatch, in KiCad order (off-board first)', () => {
@@ -24,14 +25,16 @@ describe('Place > Auto-Place Footprints', () => {
     expect(MENUBAR).not.toMatch(/Place (Off-Board|Selected) Footprints', disabled/);
   });
 
-  it('each action runs the matching AUTOPLACE_TOOL entry point', () => {
-    expect(EDITOR).toContain("case 'autoplaceSelected':");
-    expect(EDITOR).toContain("case 'autoplaceOffboard':");
-    expect(EDITOR).toContain('new AUTOPLACE_TOOL(');
-    expect(EDITOR).toContain('tool.autoplaceSelected(brd, selection)');
-    expect(EDITOR).toContain('tool.autoplaceOffboard(brd)');
-    // The tool's infobar error is shown, a completed run is committed.
-    expect(EDITOR).toContain('if (r.error) setInfoBarError(r.error)');
-    expect(EDITOR).toContain('commitBoard(r.board');
+  it('each row runs the matching PCB_ACTIONS action, which AUTOPLACE_TOOL takes', () => {
+    // The tool itself (selection, locks, off-board, the infobar error, the
+    // commit) is pinned in ar_autoplacer.test.ts through TOOL_MANAGER.
+    expect(EDITOR).toMatch(
+      /case 'autoplaceSelected':\s*runAction\(PCB_ACTIONS\.autoplaceSelectedComponents\);/,
+    );
+    expect(EDITOR).toMatch(
+      /case 'autoplaceOffboard':\s*runAction\(PCB_ACTIONS\.autoplaceOffboardComponents\);/,
+    );
+    // `m_toolManager->RegisterTool( new AUTOPLACE_TOOL )` (pcb_edit_frame.cpp:971).
+    expect(FRAME).toContain('this.m_toolManager.RegisterTool(new AUTOPLACE_TOOL());');
   });
 });

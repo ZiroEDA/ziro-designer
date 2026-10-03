@@ -60,18 +60,31 @@ export enum INTERACTIVE_PLACEMENT_OPTIONS {
  * `INTERACTIVE_PLACER_BASE` (pcb_tool_base.h:53): what `doInteractiveItemPlacement`
  * asks a placing tool for - the item to create, how it snaps, and how it is placed.
  */
+/** A created item, as opposed to the coroutine that will create one. */
+const isBoardItem = (a: object): a is BOARD_ITEM => typeof (a as BOARD_ITEM).Type === 'function';
+
 export abstract class INTERACTIVE_PLACER_BASE {
   m_frame!: PCB_BASE_EDIT_FRAME_T;
   m_board!: BOARD;
   m_modifiers = 0;
 
-  abstract CreateItem(): BOARD_ITEM | null;
+  /**
+   * A placer whose item comes out of a dialog (MICROWAVE_PLACER: the
+   * dialogs are modal inside CreateItem upstream) answers a coroutine, which
+   * the placement loop runs with `yield*`.
+   */
+  abstract CreateItem(): BOARD_ITEM | null | COROUTINE_BODY<BOARD_ITEM | null>;
 
   SnapItem(_aItem: BOARD_ITEM): void {
     // Base implementation performs no snapping
   }
 
-  PlaceItem(aItem: BOARD_ITEM, aCommit: BOARD_COMMIT): boolean {
+  /**
+   * A placer that must wait on the user mid-placement (VIA_PLACER's net menu
+   * runs its own event loop inside PlaceItem upstream) answers a coroutine,
+   * which the placement loop runs with `yield*`.
+   */
+  PlaceItem(aItem: BOARD_ITEM, aCommit: BOARD_COMMIT): boolean | COROUTINE_BODY<boolean> {
     aCommit.Add(aItem);
     return true;
   }
@@ -188,8 +201,12 @@ export abstract class PCB_TOOL_BASE extends TOOL_INTERACTIVE {
     aPlacer.m_frame = frame;
     aPlacer.m_modifiers = 0;
 
-    const makeNewItem = (aPosition: VECTOR2I): void => {
-      if (frame.GetModel()) newItem = aPlacer.CreateItem();
+    const makeNewItem = function* (aPosition: VECTOR2I): COROUTINE_BODY<void> {
+      if (frame.GetModel()) {
+        const created = aPlacer.CreateItem();
+
+        newItem = created === null || isBoardItem(created) ? created : yield* created;
+      }
 
       if (newItem) {
         newItem.SetPosition(aPosition);
@@ -205,7 +222,7 @@ export abstract class PCB_TOOL_BASE extends TOOL_INTERACTIVE {
     };
 
     if (aOptions & INTERACTIVE_PLACEMENT_OPTIONS.IPO_SINGLE_CLICK)
-      makeNewItem(controls.GetCursorPosition());
+      yield* makeNewItem(controls.GetCursorPosition());
 
     const setCursor = (): void => {
       if (!newItem) frame.GetCanvas()!.SetCurrentCursor(KICURSOR.PENCIL);
@@ -267,7 +284,7 @@ export abstract class PCB_TOOL_BASE extends TOOL_INTERACTIVE {
       } else if (evt.IsClick(BUT_LEFT) || evt.IsDblClick(BUT_LEFT)) {
         if (!newItem) {
           // create the item if possible
-          makeNewItem(cursorPos);
+          yield* makeNewItem(cursorPos);
 
           // no item created, so wait for another click
           if (!newItem) continue;
@@ -281,7 +298,9 @@ export abstract class PCB_TOOL_BASE extends TOOL_INTERACTIVE {
 
           newBoardItem.ClearFlags();
 
-          if (!aPlacer.PlaceItem(newBoardItem, commit)) {
+          const placed = aPlacer.PlaceItem(newBoardItem, commit);
+
+          if (!(typeof placed === 'boolean' ? placed : yield* placed)) {
             newBoardItem.SetFlags(oldFlags);
             newItem = newBoardItem;
             continue;
@@ -297,7 +316,7 @@ export abstract class PCB_TOOL_BASE extends TOOL_INTERACTIVE {
           if (!(aOptions & INTERACTIVE_PLACEMENT_OPTIONS.IPO_REPEAT)) break;
 
           if (aOptions & INTERACTIVE_PLACEMENT_OPTIONS.IPO_SINGLE_CLICK)
-            makeNewItem(controls.GetCursorPosition());
+            yield* makeNewItem(controls.GetCursorPosition());
 
           setCursor();
         }
@@ -331,7 +350,7 @@ export abstract class PCB_TOOL_BASE extends TOOL_INTERACTIVE {
           preview.Clear();
           newItem = null;
 
-          makeNewItem(cursorPos);
+          yield* makeNewItem(cursorPos);
           aPlacer.SnapItem(newItem as unknown as BOARD_ITEM);
           this.getView()!.Update(preview);
         } else {

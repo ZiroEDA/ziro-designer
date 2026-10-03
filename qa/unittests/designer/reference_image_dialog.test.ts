@@ -22,8 +22,6 @@ const read = (rel: string): string =>
 
 const DIALOG = read('../../pcbnew/dialogs/dialog_reference_image_properties_ui.tsx');
 const CSS = read('../../common/widgets/shell.css');
-const EDITOR = read('../../pcbnew/pcb_edit_frame_ui.tsx');
-const CURSORS = read('../../pcbnew/cursors.ts');
 /** Comments are prose, and this file's name the controls it does NOT have. */
 const code = DIALOG.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 // PANEL_IMAGE_EDITOR is common/dialogs' since 09-26, shared with the schematic.
@@ -142,27 +140,5 @@ describe('the four distances follow the frame, as UNIT_BINDERs', () => {
     expect(code).toContain('stringFromValue(');
     expect(code).toContain('parseUnitValue(');
     expect(code).not.toMatch(/Number\(e\.target\.value\)\s*;[\s\S]{0,80}pcbMmToIU/);
-  });
-});
-
-describe('the tool, which asks for the file before any click', () => {
-  it('primes on activation, as PrimeTool does', () => {
-    // `m_toolMgr->PrimeTool( { 0, 0 } )` with `ignorePrimePosition = true`
-    // (`drawing_tool.cpp:132-140`). The manual describes the order: "use the
-    // button on the right toolbar and browse to the desired reference image
-    // file. Click in the canvas to place the image."
-    expect(EDITOR).toMatch(/if \(activeTool !== 'placeReferenceImage'\) return;/);
-    expect(EDITOR).toContain('chooseImageFile(snapToGrid(cursorRef.current ?? { x: 0, y: 0 }))');
-  });
-
-  it('wears MOVING while the image rides the cursor, ARROW before', () => {
-    // `if( image ) MOVING else ARROW` (`drawing_tool.cpp:105-112`) — the same
-    // two-arm chain the table tool has, so the tool id alone cannot answer it.
-    // ARROW is this frame's fallback, which is why `placeReferenceImage` has no
-    // entry in the shared table.
-    expect(CURSORS).toContain("if (tool === 'placeReferenceImage' && state.imagePlacing)");
-    expect(CURSORS).toContain('imagePlacing?: boolean;');
-    // The frame passes both flags to boardToolCursor (4a6addfc added the microwave one).
-    expect(EDITOR).toMatch(/boardToolCursor\(activeTool, \{\s*tableDragging,\s*imagePlacing,/);
   });
 });

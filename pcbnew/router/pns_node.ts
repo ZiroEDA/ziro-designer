@@ -2294,12 +2294,31 @@ export class PnsNode implements CollisionNode {
   /**
    * Every item made from a given board item. Local index only — never the root,
    * so on a fresh branch (whose index is empty) this is always empty.
-   *
-   * `FindItemByParent` — its single-result sibling — is **not** ported: it
-   * narrows by `BOARD_ITEM::IsConnected()` and `GetNet()`, neither of which
-   * `PnsBoardItem` models here, and scanning the whole index instead would find
-   * net-null items that upstream's net-map narrowing misses.
    */
+  /**
+   * `NODE::FindItemByParent` (pns_node.cpp:1804-1822): the first item made
+   * from a connected board item, looked up through its net's list — so an
+   * unconnected parent (a graphic, a keepout) finds nothing.
+   */
+  findItemByParent(aParent: PnsBoardItem | null): PnsItem | null {
+    const cItem = aParent as {
+      IsConnected?(): boolean;
+      GetNet?(): NetHandle;
+    } | null;
+
+    if (cItem?.IsConnected?.()) {
+      const l_cur = this.mIndex.getItemsForNet(cItem.GetNet!());
+
+      if (l_cur) {
+        for (const item of l_cur) {
+          if (item.parent() === aParent) return item;
+        }
+      }
+    }
+
+    return null;
+  }
+
   findItemsByParent(aParent: PnsBoardItem | null): PnsItem[] {
     const ret: PnsItem[] = [];
 

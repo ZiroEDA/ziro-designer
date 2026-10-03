@@ -28,6 +28,7 @@ import type { PCB_BASE_FRAME } from '../pcb_base_frame.js';
 import { BARCODE_ECC_T, BARCODE_T, PCB_BARCODE } from '../pcb_barcode.js';
 import { barcodeGeometry } from '../pcb_io/kicad_sexpr/board_view.js';
 import type { TransferResult } from './dialog_text_properties.js';
+import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { parseBoardItemId } from '../edit-board.js';
 import type { BarcodeEcc, BarcodeKind, Board, PcbBarcode } from '../types.js';
 
@@ -201,6 +202,29 @@ const ECC_T: readonly BARCODE_ECC_T[] = [
   BARCODE_ECC_T.H,
 ];
 
+/** What the dialog's preview canvas draws: the item's polygon rings and its box. */
+export interface BarcodePreview {
+  rings: readonly (readonly Vec2[])[];
+  bbox: { x1: number; y1: number; x2: number; y2: number };
+}
+
+/** `refreshPreview`'s item: `GetPolyShape()` (symbol, text, knockout) and `GetBoundingBox()`. */
+export function barcodePreview(aBarcode: PCB_BARCODE): BarcodePreview {
+  const poly = aBarcode.GetPolyShape();
+  const rings: Vec2[][] = [];
+
+  for (let i = 0; i < poly.OutlineCount(); i++) {
+    rings.push([...poly.COutline(i).CPoints()]);
+
+    for (let j = 0; j < poly.HoleCount(i); j++) rings.push([...poly.CHole(i, j).CPoints()]);
+  }
+
+  const box = aBarcode.GetBoundingBox();
+  const end = box.GetEnd();
+
+  return { rings, bbox: { x1: box.GetX(), y1: box.GetY(), x2: end.x, y2: end.y } };
+}
+
 /**
  * `DIALOG_BARCODE_PROPERTIES` (dialog_barcode_properties.cpp) on a live
  * PCB_BARCODE. OK first assembles the values on a dummy barcode and refuses
@@ -270,13 +294,37 @@ export class DIALOG_BARCODE_PROPERTIES {
     aBarcode.AssembleBarcode();
   }
 
-  TransferDataFromWindow(v: BarcodeValues): TransferResult {
+  /**
+   * `m_dummyBarcode` after `transferDataToBarcode`: what `refreshPreview`
+   * draws (`:322-343`) and what OK checks before touching the real item.
+   */
+  Preview(v: BarcodeValues): PCB_BARCODE {
     const dummy = new PCB_BARCODE(this.m_parent.GetBoard());
     dummy.assignBarcode(this.m_currentBarcode);
     this.transferDataToBarcode(dummy, v);
+    return dummy;
+  }
 
+  /** The "Barcode Error" message OK would put up, or '' (`:241-245`). */
+  CommitError(v: BarcodeValues): string {
+    const dummy = this.Preview(v);
     if (dummy.GetText() !== '' && dummy.GetSymbolPoly().OutlineCount() === 0)
-      return { ok: false, message: dummy.GetLastError() };
+      return dummy.GetLastError();
+    return '';
+  }
+
+  TransferDataFromWindow(v: BarcodeValues): TransferResult {
+    const message = this.CommitError(v);
+
+    if (message) return { ok: false, message };
+
+    // A new barcode (DrawBarcode's, IS_NEW) is not on the board yet; the tool
+    // commits it as 'Draw Barcode'. Upstream's `commit.Modify` of it here
+    // would push a second undo step for an item no board holds.
+    if (this.m_currentBarcode.IsNew()) {
+      this.transferDataToBarcode(this.m_currentBarcode, v);
+      return { ok: true };
+    }
 
     const commit = new BOARD_COMMIT(this.m_parent);
     commit.Modify(this.m_currentBarcode);

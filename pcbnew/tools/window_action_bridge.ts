@@ -5,8 +5,8 @@
  *
  * PCB_SELECTION_TOOL and EDIT_TOOL are ported whole and run on the live
  * BOARD, but some of the actions they run belong to tools that are not ported
- * yet: a router drag `PCB_ACTIONS::routerInlineDrag` (ROUTER_TOOL), a middle
- * double click `ACTIONS::zoomFitScreen` (COMMON_TOOLS). Until each of
+ * yet: `PCB_ACTIONS::createArray` (ARRAY_TOOL), a middle double click
+ * `ACTIONS::zoomFitScreen` (COMMON_TOOLS). Until each of
  * those tools lands, this tool answers its actions by handing them to the
  * window, which still implements them.
  *
@@ -27,17 +27,12 @@ import {
   wxEVT_RIGHT_UP,
 } from '@ziroeda/common/wx/wx_event.js';
 import { PCB_ACTIONS } from './pcb_actions.js';
-import type { ROUTER_TOOL_LIKE } from './edit_tool.js';
 
 /** The window's implementation of an action whose tool is not ported. */
 export type WINDOW_ACTION_HANDLER = (aAction: TOOL_ACTION, aEvent: TOOL_EVENT) => void;
 
 /** The actions the window still answers, by the tool that will take each over. */
 export const WINDOW_BRIDGED_ACTIONS: readonly TOOL_ACTION[] = [
-  // ROUTER_TOOL: EDIT_TOOL::invokeInlineRouter's drag
-  PCB_ACTIONS.routerInlineDrag,
-  // BOARD_EDITOR_CONTROL::PageSettings
-  ACTIONS.pageSettings,
   // ARRAY_TOOL::CreateArray, run from CONVERT_TOOL's "Create from Selection"
   PCB_ACTIONS.createArray,
   // COMMON_TOOLS
@@ -47,20 +42,10 @@ export const WINDOW_BRIDGED_ACTIONS: readonly TOOL_ACTION[] = [
 
 export class WINDOW_ACTION_BRIDGE extends TOOL_INTERACTIVE {
   private readonly m_handler: WINDOW_ACTION_HANDLER;
-  private readonly m_router: () => ROUTER_TOOL_LIKE | null;
 
-  constructor(
-    aHandler: WINDOW_ACTION_HANDLER,
-    aRouter: () => ROUTER_TOOL_LIKE | null = () => null,
-  ) {
+  constructor(aHandler: WINDOW_ACTION_HANDLER) {
     super('pcbnew.WindowActionBridge');
     this.m_handler = aHandler;
-    this.m_router = aRouter;
-  }
-
-  /** ROUTER_TOOL's state, as EDIT_TOOL asks it, while the router is the window's. */
-  Router(): ROUTER_TOOL_LIKE | null {
-    return this.m_router();
   }
 
   override Reset(_aReason: RESET_REASON): void {}
@@ -76,6 +61,18 @@ export class WINDOW_ACTION_BRIDGE extends TOOL_INTERACTIVE {
       );
     }
   }
+}
+
+/**
+ * The gated TOOL_DISPATCHER, and its ungated entry: a key the window's own key
+ * chain and the menus leave is the dispatcher's, as the frame's char hook
+ * (`EDA_BASE_FRAME::OnCharHook`, which only skips) passes every key on.
+ */
+export interface GATED_DISPATCHER {
+  DispatchWxEvent(aEvent: wxEvent): void;
+  /** TRANSITIONAL (#636): past the gate, for a key the window's chain did not claim. */
+  DispatchToTools(aEvent: wxEvent): void;
+  ResetState(): void;
 }
 
 /**
@@ -96,8 +93,12 @@ export function makeGatedDispatcher(
   aDispatcher: { DispatchWxEvent(aEvent: wxEvent): void; ResetState(): void },
   aToWindow: (aEvent: wxEvent) => boolean,
   aAfter: () => void = () => {},
-): { DispatchWxEvent(aEvent: wxEvent): void; ResetState(): void } {
+): GATED_DISPATCHER {
   return {
+    DispatchToTools: (aEvent: wxEvent): void => {
+      aDispatcher.DispatchWxEvent(aEvent);
+      aAfter();
+    },
     DispatchWxEvent: (aEvent: wxEvent): void => {
       if (aToWindow(aEvent)) {
         if (BUTTON_UP_EVENTS.includes(aEvent.GetEventType())) aDispatcher.ResetState();

@@ -1,6 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+import {
+  importedRecords,
+  layerMap,
+  strokeTypeOf,
+  type IMPORTED_RECORD,
+} from './support/imported_records.js';
+import { LSET_NameToLayer } from '@ziroeda/common/layer_ids.js';
 import { describe, it, expect } from 'vitest';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { BOX2D } from '@ziroeda/kimath/src/math/box2.js';
@@ -18,22 +25,21 @@ import {
   type MATRIX3x3D,
 } from '@ziroeda/common/import_gfx/graphics_importer.js';
 import { setupSplineOrLine } from '@ziroeda/common/import_gfx/graphics_importer.js';
-import type { IMPORTED_ITEM } from '@ziroeda/pcbnew/import_gfx/graphics_importer_pcbnew.js';
 import { GRAPHICS_IMPORTER_PCBNEW } from '@ziroeda/pcbnew/import_gfx/graphics_importer_pcbnew.js';
 
 /** A stroke the parsers would build: width in mm, plus a line style. */
 const stroke = (width: number, style = LINE_STYLE.SOLID): IMPORTED_STROKE =>
   new IMPORTED_STROKE(width, style, COLOR4D_UNSPECIFIED);
 
-const shapesOf = (items: IMPORTED_ITEM[]) =>
+const shapesOf = (items: IMPORTED_RECORD[]) =>
   items.filter((i) => i.type === 'shape').map((i) => i.shape);
 
-const textsOf = (items: IMPORTED_ITEM[]) =>
+const textsOf = (items: IMPORTED_RECORD[]) =>
   items.filter((i) => i.type === 'text').map((i) => i.text);
 
 describe('GRAPHICS_IMPORTER_PCBNEW: the placement model', () => {
   it('scales, then offsets, then converts to internal units', () => {
-    const imp = new GRAPHICS_IMPORTER_PCBNEW();
+    const imp = new GRAPHICS_IMPORTER_PCBNEW(null);
     imp.SetScale({ x: 2, y: 2 });
     imp.SetImportOffsetMM({ x: 5, y: -5 });
 
@@ -43,7 +49,7 @@ describe('GRAPHICS_IMPORTER_PCBNEW: the placement model', () => {
   });
 
   it('leaves the offset meaning the same when the scale changes', () => {
-    const half = new GRAPHICS_IMPORTER_PCBNEW();
+    const half = new GRAPHICS_IMPORTER_PCBNEW(null);
     half.SetScale({ x: 0.5, y: 0.5 });
     half.SetImportOffsetMM({ x: 100, y: 100 });
 
@@ -53,7 +59,7 @@ describe('GRAPHICS_IMPORTER_PCBNEW: the placement model', () => {
   });
 
   it('rounds coordinates but truncates widths', () => {
-    const imp = new GRAPHICS_IMPORTER_PCBNEW();
+    const imp = new GRAPHICS_IMPORTER_PCBNEW(null);
 
     // 0.0000005 mm is half an internal unit: KiROUND takes it away from zero,
     // while MapLineWidth's int() cast drops it. Swapping either one for the
@@ -63,7 +69,7 @@ describe('GRAPHICS_IMPORTER_PCBNEW: the placement model', () => {
   });
 
   it('averages the two scale factors for a line width', () => {
-    const imp = new GRAPHICS_IMPORTER_PCBNEW();
+    const imp = new GRAPHICS_IMPORTER_PCBNEW(null);
     imp.SetScale({ x: 1, y: 3 });
 
     // A stroke has no direction, so it gets (1 + 3) / 2 = 2 million IU per mm.
@@ -72,40 +78,48 @@ describe('GRAPHICS_IMPORTER_PCBNEW: the placement model', () => {
   });
 
   it('falls back to the default line width for any non-positive width but -1', () => {
-    const imp = new GRAPHICS_IMPORTER_PCBNEW();
+    const imp = new GRAPHICS_IMPORTER_PCBNEW(null);
     imp.SetLineWidthMM(0.25);
 
     // -1 is the parsers' "no stroke", and must survive as zero width.
-    expect(imp.MapStrokeParams(stroke(-1)).width).toBe(0);
+    expect(imp.MapStrokeParams(stroke(-1)).GetWidth()).toBe(0);
     // Everything else non-positive means "the file did not say" and picks up
     // the default. Collapsing the two would silently stroke a fill-only shape.
-    expect(imp.MapStrokeParams(stroke(0)).width).toBe(250_000);
-    expect(imp.MapStrokeParams(stroke(-2)).width).toBe(250_000);
-    expect(imp.MapStrokeParams(stroke(0.5)).width).toBe(500_000);
+    expect(imp.MapStrokeParams(stroke(0)).GetWidth()).toBe(250_000);
+    expect(imp.MapStrokeParams(stroke(-2)).GetWidth()).toBe(250_000);
+    expect(imp.MapStrokeParams(stroke(0.5)).GetWidth()).toBe(500_000);
   });
 
   it('carries the line style through to the board stroke type', () => {
-    const imp = new GRAPHICS_IMPORTER_PCBNEW();
+    const imp = new GRAPHICS_IMPORTER_PCBNEW(null);
 
-    expect(imp.MapStrokeParams(stroke(1, LINE_STYLE.DEFAULT)).plotStyle).toBe('default');
-    expect(imp.MapStrokeParams(stroke(1, LINE_STYLE.DASH)).plotStyle).toBe('dash');
-    expect(imp.MapStrokeParams(stroke(1, LINE_STYLE.DOT)).plotStyle).toBe('dot');
-    expect(imp.MapStrokeParams(stroke(1, LINE_STYLE.DASHDOT)).plotStyle).toBe('dash_dot');
-    expect(imp.MapStrokeParams(stroke(1, LINE_STYLE.DASHDOTDOT)).plotStyle).toBe('dash_dot_dot');
+    expect(strokeTypeOf(imp.MapStrokeParams(stroke(1, LINE_STYLE.DEFAULT)).GetLineStyle())).toBe(
+      'default',
+    );
+    expect(strokeTypeOf(imp.MapStrokeParams(stroke(1, LINE_STYLE.DASH)).GetLineStyle())).toBe(
+      'dash',
+    );
+    expect(strokeTypeOf(imp.MapStrokeParams(stroke(1, LINE_STYLE.DOT)).GetLineStyle())).toBe('dot');
+    expect(strokeTypeOf(imp.MapStrokeParams(stroke(1, LINE_STYLE.DASHDOT)).GetLineStyle())).toBe(
+      'dash_dot',
+    );
+    expect(strokeTypeOf(imp.MapStrokeParams(stroke(1, LINE_STYLE.DASHDOTDOT)).GetLineStyle())).toBe(
+      'dash_dot_dot',
+    );
   });
 });
 
 describe('GRAPHICS_IMPORTER_PCBNEW: entity to board graphic', () => {
   it('drops a segment whose ends round to the same internal unit', () => {
-    const imp = new GRAPHICS_IMPORTER_PCBNEW();
+    const imp = new GRAPHICS_IMPORTER_PCBNEW(null);
 
     // A tenth of a nanometre apart in the source is the same point on the
     // board, and a zero-length graphic is invisible and unselectable.
     imp.AddLine({ x: 0, y: 0 }, { x: 0.0000001, y: 0 }, stroke(0.1));
-    expect(imp.GetItems()).toHaveLength(0);
+    expect(importedRecords(imp.GetItems())).toHaveLength(0);
 
     imp.AddLine({ x: 0, y: 0 }, { x: 0.000001, y: 0 }, stroke(0.1));
-    expect(shapesOf(imp.GetItems())).toEqual([
+    expect(shapesOf(importedRecords(imp.GetItems()))).toEqual([
       {
         kind: 'line',
         start: { x: 0, y: 0 },
@@ -119,14 +133,14 @@ describe('GRAPHICS_IMPORTER_PCBNEW: entity to board graphic', () => {
   });
 
   it('gives a circle a centre and a point one radius away along +X', () => {
-    const imp = new GRAPHICS_IMPORTER_PCBNEW();
+    const imp = new GRAPHICS_IMPORTER_PCBNEW(null);
     imp.SetImportOffsetMM({ x: 10, y: 0 });
     imp.AddCircle({ x: 1, y: 2 }, 3, stroke(0.1), true, COLOR4D_UNSPECIFIED);
 
     // The radius point goes through MapCoordinate, so it carries the offset
     // too — the *difference* is the radius. Mapping the radius as a length
     // would put the end point at 3 mm rather than 14 mm.
-    expect(shapesOf(imp.GetItems())[0]).toMatchObject({
+    expect(shapesOf(importedRecords(imp.GetItems()))[0]).toMatchObject({
       kind: 'circle',
       center: { x: 11_000_000, y: 2_000_000 },
       end: { x: 14_000_000, y: 2_000_000 },
@@ -135,29 +149,34 @@ describe('GRAPHICS_IMPORTER_PCBNEW: entity to board graphic', () => {
   });
 
   it('rotates an arc in floating point before it meets the unit grid', () => {
-    const imp = new GRAPHICS_IMPORTER_PCBNEW();
+    const imp = new GRAPHICS_IMPORTER_PCBNEW(null);
     imp.AddArc({ x: 0, y: 0 }, { x: 10, y: 0 }, new EDA_ANGLE(-90), stroke(0.1));
 
     // The mid point is the start rotated by half the (negated) angle, at
     // millimetre scale. Rounding to internal units first, then rotating, would
     // land somewhere else entirely; 7071068 is 10·cos45° in nanometres.
-    expect(shapesOf(imp.GetItems())[0]).toMatchObject({
+    //
+    // Handed start (10, 0) and end (0, -10), the PCB_SHAPE holds them the
+    // other way round: `EDA_SHAPE::SetArcGeometry` swaps the ends when the
+    // input winds against its own (eda_shape.cpp, `m_endsSwapped`), and this
+    // arc does.
+    expect(shapesOf(importedRecords(imp.GetItems()))[0]).toMatchObject({
       kind: 'arc',
-      start: { x: 10_000_000, y: 0 },
+      start: { x: 0, y: -10_000_000 },
       mid: { x: 7_071_068, y: -7_071_068 },
-      end: { x: 0, y: -10_000_000 },
+      end: { x: 10_000_000, y: 0 },
       fillMode: 'none',
     });
   });
 
   it('degrades an arc too large for the coordinate range to its chord', () => {
-    const imp = new GRAPHICS_IMPORTER_PCBNEW();
+    const imp = new GRAPHICS_IMPORTER_PCBNEW(null);
     // 2000 mm of radius is 2e9 IU, past half the 32-bit coordinate range.
     imp.AddArc({ x: 0, y: 0 }, { x: 2000, y: 0 }, new EDA_ANGLE(-90), stroke(0.1));
 
     // A segment, not a dropped shape — and its ends are the arc's own, which
     // means the *unmapped* start and the rotated end were handed to AddLine.
-    expect(shapesOf(imp.GetItems())).toEqual([
+    expect(shapesOf(importedRecords(imp.GetItems()))).toEqual([
       {
         kind: 'line',
         start: { x: 2_000_000_000, y: 0 },
@@ -171,7 +190,7 @@ describe('GRAPHICS_IMPORTER_PCBNEW: entity to board graphic', () => {
   });
 
   it('refuses a polygon of two points or fewer', () => {
-    const imp = new GRAPHICS_IMPORTER_PCBNEW();
+    const imp = new GRAPHICS_IMPORTER_PCBNEW(null);
 
     // IsPolyShapeValid: an outline needs more than two points to enclose
     // anything, and a two-point "polygon" would be written to the file.
@@ -184,7 +203,7 @@ describe('GRAPHICS_IMPORTER_PCBNEW: entity to board graphic', () => {
       true,
       COLOR4D_UNSPECIFIED,
     );
-    expect(imp.GetItems()).toHaveLength(0);
+    expect(importedRecords(imp.GetItems())).toHaveLength(0);
 
     imp.AddPolygon(
       [
@@ -196,7 +215,7 @@ describe('GRAPHICS_IMPORTER_PCBNEW: entity to board graphic', () => {
       true,
       COLOR4D_UNSPECIFIED,
     );
-    expect(shapesOf(imp.GetItems())[0]).toMatchObject({
+    expect(shapesOf(importedRecords(imp.GetItems()))[0]).toMatchObject({
       kind: 'poly',
       pts: [
         { x: 0, y: 0 },
@@ -208,7 +227,7 @@ describe('GRAPHICS_IMPORTER_PCBNEW: entity to board graphic', () => {
   });
 
   it('truncates text size and maps its thickness like a line width', () => {
-    const imp = new GRAPHICS_IMPORTER_PCBNEW();
+    const imp = new GRAPHICS_IMPORTER_PCBNEW(null);
     imp.AddText(
       { x: 1, y: 2 },
       'ABC',
@@ -223,7 +242,7 @@ describe('GRAPHICS_IMPORTER_PCBNEW: entity to board graphic', () => {
 
     // .9 of an internal unit is dropped on both axes: these are int setters fed
     // a double. Rounding them would give 2000001 / 1000001.
-    expect(textsOf(imp.GetItems())[0]).toEqual({
+    expect(textsOf(importedRecords(imp.GetItems()))[0]).toEqual({
       kind: 'user',
       text: 'ABC',
       at: { x: 1_000_000, y: 2_000_000 },
@@ -236,7 +255,7 @@ describe('GRAPHICS_IMPORTER_PCBNEW: entity to board graphic', () => {
   });
 
   it('takes the default line width for text of unspecified thickness', () => {
-    const imp = new GRAPHICS_IMPORTER_PCBNEW();
+    const imp = new GRAPHICS_IMPORTER_PCBNEW(null);
     imp.SetLineWidthMM(0.3);
     imp.AddText(
       { x: 0, y: 0 },
@@ -252,11 +271,11 @@ describe('GRAPHICS_IMPORTER_PCBNEW: entity to board graphic', () => {
 
     // Text thickness goes through MapLineWidth, not MapStrokeParams, so -1 is
     // "unspecified" here rather than "no stroke": it must not become zero.
-    expect(textsOf(imp.GetItems())[0]?.thickness).toBe(300_000);
+    expect(textsOf(importedRecords(imp.GetItems()))[0]?.thickness).toBe(300_000);
   });
 
   it('writes only the non-centre justification words, on both axes', () => {
-    const imp = new GRAPHICS_IMPORTER_PCBNEW();
+    const imp = new GRAPHICS_IMPORTER_PCBNEW(null);
     const add = (h: GR_TEXT_H_ALIGN_T, v: GR_TEXT_V_ALIGN_T): void =>
       imp.AddText({ x: 0, y: 0 }, 'A', 1, 1, 0.1, 0, h, v, COLOR4D_UNSPECIFIED);
 
@@ -268,7 +287,7 @@ describe('GRAPHICS_IMPORTER_PCBNEW: entity to board graphic', () => {
     // `center` may: KiCad never writes it, so emitting one changes the file on
     // every save. Left/right and top/bottom are checked in both directions
     // because swapping a single arm of either ternary is otherwise invisible.
-    expect(textsOf(imp.GetItems()).map((t) => t.justify)).toEqual([
+    expect(textsOf(importedRecords(imp.GetItems())).map((t) => t.justify)).toEqual([
       ['left', 'bottom'],
       ['right', 'top'],
       [],
@@ -319,10 +338,10 @@ describe('setupSplineOrLine', () => {
 
 describe('GRAPHICS_IMPORTER_PCBNEW: splines', () => {
   it('imports a bending spline as its four control points', () => {
-    const imp = new GRAPHICS_IMPORTER_PCBNEW();
+    const imp = new GRAPHICS_IMPORTER_PCBNEW(null);
     imp.AddSpline({ x: 0, y: 0 }, { x: 0, y: 10 }, { x: 10, y: 10 }, { x: 10, y: 0 }, stroke(0.1));
 
-    expect(shapesOf(imp.GetItems())[0]).toEqual({
+    expect(shapesOf(importedRecords(imp.GetItems()))[0]).toEqual({
       kind: 'curve',
       pts: [
         { x: 0, y: 0 },
@@ -338,10 +357,10 @@ describe('GRAPHICS_IMPORTER_PCBNEW: splines', () => {
   });
 
   it('imports a straight spline as a segment, losing the control points', () => {
-    const imp = new GRAPHICS_IMPORTER_PCBNEW();
+    const imp = new GRAPHICS_IMPORTER_PCBNEW(null);
     imp.AddSpline({ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 2, y: 0 }, { x: 3, y: 0 }, stroke(0.1));
 
-    expect(shapesOf(imp.GetItems())[0]).toEqual({
+    expect(shapesOf(importedRecords(imp.GetItems()))[0]).toEqual({
       kind: 'line',
       start: { x: 0, y: 0 },
       end: { x: 3_000_000, y: 0 },
@@ -353,7 +372,7 @@ describe('GRAPHICS_IMPORTER_PCBNEW: splines', () => {
   });
 
   it('drops a spline that collapses to nothing', () => {
-    const imp = new GRAPHICS_IMPORTER_PCBNEW();
+    const imp = new GRAPHICS_IMPORTER_PCBNEW(null);
     imp.AddSpline(
       { x: 0, y: 0 },
       { x: 0.000005, y: 0 },
@@ -362,29 +381,31 @@ describe('GRAPHICS_IMPORTER_PCBNEW: splines', () => {
       stroke(0.1),
     );
 
-    expect(imp.GetItems()).toHaveLength(0);
+    expect(importedRecords(imp.GetItems())).toHaveLength(0);
   });
 });
 
 describe('GRAPHICS_IMPORTER_PCBNEW: the source-layer map', () => {
   it('imports everything onto the target layer when no map is set', () => {
-    const imp = new GRAPHICS_IMPORTER_PCBNEW();
-    imp.SetLayer('F.SilkS');
+    const imp = new GRAPHICS_IMPORTER_PCBNEW(null);
+    imp.SetLayer(LSET_NameToLayer('F.SilkS'));
 
     // Without a map the importer knows nothing about DXF layer names, so every
     // one of them is importable and they all land on the chosen layer.
     expect(imp.CanImportSourceLayer('anything')).toBe(true);
     imp.SetCurrentSourceLayer('anything');
-    expect(imp.GetLayer()).toBe('F.SilkS');
+    expect(imp.GetLayer()).toBe(LSET_NameToLayer('F.SilkS'));
   });
 
   it('refuses an unmapped or unassigned source layer once a map is set', () => {
-    const imp = new GRAPHICS_IMPORTER_PCBNEW();
+    const imp = new GRAPHICS_IMPORTER_PCBNEW(null);
     imp.SetLayerMap(
-      new Map([
-        ['outline', 'Edge.Cuts'],
-        ['notes', null],
-      ]),
+      layerMap(
+        new Map([
+          ['outline', 'Edge.Cuts'],
+          ['notes', null],
+        ]),
+      ),
     );
 
     expect(imp.CanImportSourceLayer('outline')).toBe(true);
@@ -396,22 +417,22 @@ describe('GRAPHICS_IMPORTER_PCBNEW: the source-layer map', () => {
   });
 
   it('resets to the default layer before consulting the map', () => {
-    const imp = new GRAPHICS_IMPORTER_PCBNEW();
-    imp.SetLayer('Cmts.User');
-    imp.SetLayerMap(new Map([['outline', 'Edge.Cuts']]));
+    const imp = new GRAPHICS_IMPORTER_PCBNEW(null);
+    imp.SetLayer(LSET_NameToLayer('Cmts.User'));
+    imp.SetLayerMap(layerMap(new Map([['outline', 'Edge.Cuts']])));
 
     imp.SetCurrentSourceLayer('outline');
-    expect(imp.GetLayer()).toBe('Edge.Cuts');
+    expect(imp.GetLayer()).toBe(LSET_NameToLayer('Edge.Cuts'));
 
     // Without the reset, an unmapped layer would inherit Edge.Cuts from the
     // shape before it and put a stray graphic on the board outline.
     imp.SetCurrentSourceLayer('somewhere-else');
-    expect(imp.GetLayer()).toBe('Cmts.User');
+    expect(imp.GetLayer()).toBe(LSET_NameToLayer('Cmts.User'));
   });
 
   it('clears the map back to importing everything', () => {
-    const imp = new GRAPHICS_IMPORTER_PCBNEW();
-    imp.SetLayerMap(new Map([['outline', 'Edge.Cuts']]));
+    const imp = new GRAPHICS_IMPORTER_PCBNEW(null);
+    imp.SetLayerMap(layerMap(new Map([['outline', 'Edge.Cuts']])));
     imp.ClearLayerMap();
 
     expect(imp.CanImportSourceLayer('hidden')).toBe(true);
@@ -424,10 +445,13 @@ describe('GRAPHICS_IMPORTER_BUFFER', () => {
     buffer.AddLine({ x: 0, y: 0 }, { x: 10, y: 0 }, stroke(0.1));
     buffer.AddCircle({ x: 0, y: 0 }, 5, stroke(0.1), false);
 
-    const imp = new GRAPHICS_IMPORTER_PCBNEW();
+    const imp = new GRAPHICS_IMPORTER_PCBNEW(null);
     buffer.ImportTo(imp);
 
-    expect(shapesOf(imp.GetItems()).map((s) => s.kind)).toEqual(['line', 'circle']);
+    expect(shapesOf(importedRecords(imp.GetItems())).map((s) => s.kind)).toEqual([
+      'line',
+      'circle',
+    ]);
   });
 
   it('lists each source layer once, in the order first seen', () => {
@@ -488,19 +512,19 @@ describe('GRAPHICS_IMPORTER_BUFFER.ImportTo: fitting the drawing in 32-bit units
   };
 
   it('imports nothing at all from an empty buffer', () => {
-    const imp = new GRAPHICS_IMPORTER_PCBNEW();
+    const imp = new GRAPHICS_IMPORTER_PCBNEW(null);
     new GRAPHICS_IMPORTER_BUFFER().ImportTo(imp);
 
-    expect(imp.GetItems()).toHaveLength(0);
+    expect(importedRecords(imp.GetItems())).toHaveLength(0);
     expect(imp.GetMessages()).toBe('');
   });
 
   it('refuses a drawing wider than the coordinate range, and says how much to shrink', () => {
-    const imp = new GRAPHICS_IMPORTER_PCBNEW();
+    const imp = new GRAPHICS_IMPORTER_PCBNEW(null);
     boxBuffer(0, 0, 3000, 10).ImportTo(imp);
 
     // 3000 mm is 3e9 IU, past INT_MAX. Nothing is imported...
-    expect(imp.GetItems()).toHaveLength(0);
+    expect(importedRecords(imp.GetItems())).toHaveLength(0);
     // ...and the message quotes a scale derived from the *smaller* dimension:
     // upstream takes the max of the two candidate ratios, which for anything
     // but a square is the one that does not fit. Reported verbatim, six
@@ -512,28 +536,28 @@ describe('GRAPHICS_IMPORTER_BUFFER.ImportTo: fitting the drawing in 32-bit units
   });
 
   it('measures the scaled drawing, not the source one', () => {
-    const imp = new GRAPHICS_IMPORTER_PCBNEW();
+    const imp = new GRAPHICS_IMPORTER_PCBNEW(null);
     imp.SetScale({ x: 3, y: 3 });
     boxBuffer(0, 0, 1000, 10).ImportTo(imp);
 
     // 1000 mm fits; 1000 mm at 3x does not. Checking the unscaled extent would
     // let this one through and produce coordinates that overflow.
-    expect(imp.GetItems()).toHaveLength(0);
+    expect(importedRecords(imp.GetItems())).toHaveLength(0);
     expect(imp.GetMessages()).toContain('too large');
   });
 
   it('recentres a small drawing that sits outside the coordinate range', () => {
-    const imp = new GRAPHICS_IMPORTER_PCBNEW();
+    const imp = new GRAPHICS_IMPORTER_PCBNEW(null);
     boxBuffer(3000, 3000, 3100, 3100).ImportTo(imp);
 
     // The drawing is only 100 mm across, so it is not too large — it is merely
     // in the wrong place, and the unset offset is set to bring it to the origin.
     expect(imp.GetImportOffsetMM()).toEqual({ x: -3000, y: -3000 });
-    expect(shapesOf(imp.GetItems())[0]).toMatchObject({ start: { x: 0, y: 0 } });
+    expect(shapesOf(importedRecords(imp.GetItems()))[0]).toMatchObject({ start: { x: 0, y: 0 } });
   });
 
   it('leaves the offset alone when the drawing already fits', () => {
-    const imp = new GRAPHICS_IMPORTER_PCBNEW();
+    const imp = new GRAPHICS_IMPORTER_PCBNEW(null);
     boxBuffer(0, 0, 100, 100).ImportTo(imp);
 
     // The user did not ask for an offset and does not need one; inventing one
@@ -543,7 +567,7 @@ describe('GRAPHICS_IMPORTER_BUFFER.ImportTo: fitting the drawing in 32-bit units
   });
 
   it('walks a user-chosen offset back until the drawing fits, and says so', () => {
-    const imp = new GRAPHICS_IMPORTER_PCBNEW();
+    const imp = new GRAPHICS_IMPORTER_PCBNEW(null);
     imp.SetImportOffsetMM({ x: 3000, y: 0 });
     boxBuffer(0, 0, 100, 100).ImportTo(imp);
 
@@ -557,7 +581,7 @@ describe('GRAPHICS_IMPORTER_BUFFER.ImportTo: fitting the drawing in 32-bit units
   });
 
   it('treats a half-set offset as chosen', () => {
-    const imp = new GRAPHICS_IMPORTER_PCBNEW();
+    const imp = new GRAPHICS_IMPORTER_PCBNEW(null);
     imp.SetImportOffsetMM({ x: 0, y: 5 });
     boxBuffer(3000, 3000, 3100, 3100).ImportTo(imp);
 
@@ -574,7 +598,7 @@ describe('GRAPHICS_IMPORTER_BUFFER.ImportTo: fitting the drawing in 32-bit units
     buffer.AddLine({ x: 3000, y: 3000 }, { x: 3100, y: 3100 }, stroke(0.1));
     buffer.AddPolygon([], stroke(0.1), false);
 
-    const imp = new GRAPHICS_IMPORTER_PCBNEW();
+    const imp = new GRAPHICS_IMPORTER_PCBNEW(null);
     buffer.ImportTo(imp);
 
     // A vertex-less polygon has an *uninitialised* box, and BOX2D::Merge reads
@@ -592,19 +616,21 @@ describe('GRAPHICS_IMPORTER_BUFFER.ImportTo: fitting the drawing in 32-bit units
     buffer.SetCurrentSourceLayer('drop');
     buffer.AddLine({ x: 0, y: 0 }, { x: 3000, y: 3000 }, stroke(0.1));
 
-    const imp = new GRAPHICS_IMPORTER_PCBNEW();
+    const imp = new GRAPHICS_IMPORTER_PCBNEW(null);
     imp.SetLayerMap(
-      new Map([
-        ['keep', 'F.SilkS'],
-        ['drop', null],
-      ]),
+      layerMap(
+        new Map([
+          ['keep', 'F.SilkS'],
+          ['drop', null],
+        ]),
+      ),
     );
     buffer.ImportTo(imp);
 
     // The refused line is 3000 mm long. Had it been measured, the whole import
     // would have been refused as too large instead of yielding one segment.
-    expect(shapesOf(imp.GetItems())).toHaveLength(1);
-    expect(shapesOf(imp.GetItems())[0]?.layer).toBe('F.SilkS');
+    expect(shapesOf(importedRecords(imp.GetItems()))).toHaveLength(1);
+    expect(shapesOf(importedRecords(imp.GetItems()))[0]?.layer).toBe('F.SilkS');
   });
 
   it('clears the current source layer once the replay is done', () => {
@@ -612,14 +638,14 @@ describe('GRAPHICS_IMPORTER_BUFFER.ImportTo: fitting the drawing in 32-bit units
     buffer.SetCurrentSourceLayer('outline');
     buffer.AddLine({ x: 0, y: 0 }, { x: 1, y: 0 }, stroke(0.1));
 
-    const imp = new GRAPHICS_IMPORTER_PCBNEW();
-    imp.SetLayer('Cmts.User');
-    imp.SetLayerMap(new Map([['outline', 'Edge.Cuts']]));
+    const imp = new GRAPHICS_IMPORTER_PCBNEW(null);
+    imp.SetLayer(LSET_NameToLayer('Cmts.User'));
+    imp.SetLayerMap(layerMap(new Map([['outline', 'Edge.Cuts']])));
     buffer.ImportTo(imp);
 
     // Leaving the importer on Edge.Cuts would put whatever is drawn next on the
     // board outline.
-    expect(imp.GetLayer()).toBe('Cmts.User');
+    expect(imp.GetLayer()).toBe(LSET_NameToLayer('Cmts.User'));
   });
 });
 

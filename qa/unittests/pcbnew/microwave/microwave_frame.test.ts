@@ -143,7 +143,7 @@ describe('PCB_BASE_FRAME::CreateNewFootprint on the live BOARD', () => {
 describe('MICROWAVE_TOOL through the frame', () => {
   it('a gap asks "Gap Size:" and builds two track-wide pads on the live board', async () => {
     const { frame, ans } = fresh(['1']);
-    const fp = await frame.MicrowaveTool().addMicrowaveFootprint(MICROWAVE_FOOTPRINT_SHAPE.GAP);
+    const fp = await frame.MicrowaveTool().createMicrowaveFeature(MICROWAVE_FOOTPRINT_SHAPE.GAP);
 
     expect(ans.asked).toEqual(['Gap Size:']);
     expect(fp).not.toBeNull();
@@ -157,7 +157,7 @@ describe('MICROWAVE_TOOL through the frame', () => {
 
   it('a gap read as 1 mm puts the pads at -(gap+w)/2 and +(gap+w)/2', async () => {
     const { frame } = fresh(['1']);
-    const fp = await frame.MicrowaveTool().addMicrowaveFootprint(MICROWAVE_FOOTPRINT_SHAPE.GAP);
+    const fp = await frame.MicrowaveTool().createMicrowaveFeature(MICROWAVE_FOOTPRINT_SHAPE.GAP);
     const pads = fp!.Pads();
 
     // offsetX = -( 1000000 + 250000 ) / 2 = -625000; pad 2 sits at offsetX + gap + w.
@@ -168,7 +168,7 @@ describe('MICROWAVE_TOOL through the frame', () => {
   it('cancelling the length dialog makes nothing', async () => {
     const { frame } = fresh([null]);
     expect(
-      await frame.MicrowaveTool().addMicrowaveFootprint(MICROWAVE_FOOTPRINT_SHAPE.STUB),
+      await frame.MicrowaveTool().createMicrowaveFeature(MICROWAVE_FOOTPRINT_SHAPE.STUB),
     ).toBeNull();
   });
 
@@ -177,7 +177,7 @@ describe('MICROWAVE_TOOL through the frame', () => {
     ans.polygon = false;
     g_PolyEdges.push({ x: 1, y: 1 });
     expect(
-      await frame.MicrowaveTool().addMicrowaveFootprint(MICROWAVE_FOOTPRINT_SHAPE.FUNCTION_SHAPE),
+      await frame.MicrowaveTool().createMicrowaveFeature(MICROWAVE_FOOTPRINT_SHAPE.FUNCTION_SHAPE),
     ).toBeNull();
     // `g_PolyEdges.clear()` on cancel.
     expect(g_PolyEdges).toHaveLength(0);
@@ -210,22 +210,5 @@ describe('MICROWAVE_TOOL through the frame', () => {
     expect(errors).toEqual(['Requested length < minimum length']);
     expect(board.Footprints()).toHaveLength(0);
     expect(frame.GetUndoCommandCount()).toBe(0);
-  });
-});
-
-describe("PlaceInteractiveItem: doInteractiveItemPlacement's left click", () => {
-  it('adds the footprint and pushes "Place microwave feature" as one undoable commit', async () => {
-    const { frame, board } = fresh(['1']);
-    const fp = (await frame.MicrowaveTool().addMicrowaveFootprint(MICROWAVE_FOOTPRINT_SHAPE.GAP))!;
-    fp.SetPosition({ x: 3000000, y: 2000000 });
-    const push = vi.spyOn(BOARD_COMMIT.prototype, 'Push');
-
-    frame.PlaceInteractiveItem(fp, 'Place microwave feature');
-
-    expect(push.mock.calls.map((c) => c[0])).toEqual(['Place microwave feature']);
-    expect(board.Footprints()).toEqual([fp]);
-    // The pads moved with the anchor: -625000 + 3000000.
-    expect(fp.Pads()[0]!.GetPosition()).toEqual({ x: 2375000, y: 2000000 });
-    expect(frame.GetUndoCommandCount()).toBe(1);
   });
 });

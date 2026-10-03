@@ -184,6 +184,17 @@ export interface PcbnewSettings {
     pns: RoutingSettingsJson;
   };
   /**
+   * `APP_SETTINGS_BASE::m_System` for pcbnew (`common/settings/app_settings.cpp:
+   * 223-245`): the units the frame opens in and the last of each kind, which
+   * `COMMON_TOOLS::ToggleUnits` swaps between. pcbnew persisted no units at
+   * all before; the left toolbar's choice was a React toggle that reset to mm.
+   */
+  system: {
+    units: EdaUnits;
+    last_metric_units: EdaUnits;
+    last_imperial_units: EdaUnits;
+  };
+  /**
    * `APP_SETTINGS_BASE::m_Window.grid` for pcbnew — the slice
    * `PANEL_GRID_SETTINGS` edits and the canvas snaps to
    * (`common/settings/app_settings.cpp:463-560`). Same shape as the Drawing
@@ -247,8 +258,8 @@ export interface PcbnewSettings {
    *
    * One JSON block because that is the file's shape, but THREE pages edit it —
    * Display Options, Origins & Axes and Editing Options — so a reset must name
-   * keys and never the block. The fills are View-menu toggles this app keeps in
-   * its own toggle set.
+   * keys and never the block. The fills are the View > Drawing Mode rows, which
+   * PCB_VIEWER_TOOLS and PCB_CONTROL flip in the settings object.
    */
   pcb_display: PcbDisplayOptions;
   /**
@@ -399,6 +410,12 @@ export interface PcbDisplayOptions {
 
   // ---- Editing Options' four neighbours in this block ---------------------
 
+  /**
+   * `pcb_display.ratsnest_global` -> `m_ShowGlobalRatsnest`, true
+   * (`pcbnew_settings.cpp:252-253`): the Appearance panel's ratsnest checkbox
+   * and its "None" radio, and PCB_CONTROL's Show Ratsnest.
+   */
+  ratsnest_global: boolean;
   /** `pcb_display.ratsnest_footprint` -> `m_ShowModuleRatsnest`, true. */
   ratsnest_footprint: boolean;
   /** `pcb_display.ratsnest_curved` -> `m_DisplayRatsnestLinesCurved`, false. */
@@ -407,9 +424,28 @@ export interface PcbDisplayOptions {
   ratsnest_thickness: number;
   /** `pcb_display.show_page_borders` -> `m_ShowPageLimits`, true. */
   show_page_borders: boolean;
+
+  // ---- View > Drawing Mode -------------------------------------------------
+
+  /**
+   * `pcb_display.graphic_items_fill` (`pcbnew_settings.cpp:225-226`) and
+   * `pcb_display.graphics_fill` (`:231-232`): TWO PARAMs over one
+   * `m_ViewersDisplay.m_DisplayGraphicsFill`, true. Load reads them in that
+   * order, so the second wins; Save writes both.
+   */
+  graphic_items_fill: boolean;
+  graphics_fill: boolean;
+  /** `pcb_display.text_fill` -> `m_ViewersDisplay.m_DisplayTextFill`, true (`:234-235`). */
+  text_fill: boolean;
+  /** `pcb_display.pad_fill` -> `m_ViewersDisplay.m_DisplayPadFill`, true (`:246-247`). */
+  pad_fill: boolean;
+  /** `pcb_display.track_fill` -> `m_Display.m_DisplayPcbTrackFill`, true (`:267-268`). */
+  track_fill: boolean;
+  /** `pcb_display.via_fill` -> `m_Display.m_DisplayViaFill`, true (`:270-271`). */
+  via_fill: boolean;
 }
 
-/** `pcbnew_settings.cpp`'s own third argument for each of the seven. */
+/** `pcbnew_settings.cpp`'s own third argument for each key. */
 export const PCB_DISPLAY_DEFAULTS: PcbDisplayOptions = {
   net_names_mode: 3,
   pad_numbers: true,
@@ -421,10 +457,17 @@ export const PCB_DISPLAY_DEFAULTS: PcbDisplayOptions = {
   origin_mode: 0,
   origin_invert_x_axis: false,
   origin_invert_y_axis: false,
+  ratsnest_global: true,
   ratsnest_footprint: true,
   ratsnest_curved: false,
   ratsnest_thickness: 0.5,
   show_page_borders: true,
+  graphic_items_fill: true,
+  graphics_fill: true,
+  text_fill: true,
+  pad_fill: true,
+  track_fill: true,
+  via_fill: true,
 };
 
 export const PCBNEW_DEFAULTS: PcbnewSettings = {
@@ -460,6 +503,12 @@ export const PCBNEW_DEFAULTS: PcbnewSettings = {
     pagination: 1,
     edge_cuts_on_all_pages: true,
     as_item_checkboxes: false,
+  },
+  system: {
+    // The `app_settings.cpp:228-238` branch, asked rather than restated.
+    units: defaultUnits('pcbnew'),
+    last_metric_units: 'mm',
+    last_imperial_units: 'mils',
   },
   window: {
     grid: {

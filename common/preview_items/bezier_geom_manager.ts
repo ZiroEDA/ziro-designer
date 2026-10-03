@@ -17,7 +17,7 @@
  *   4. click the end, then the cursor drags C2 and the far half pulls into an S;
  *   5. click C2, and the curve is done.
  *
- * The one thing that is not obvious is {@link BezierGeomManager.getControlC2}:
+ * The one thing that is not obvious is {@link BEZIER_GEOM_MANAGER.getControlC2}:
  * the point the user clicks is *reflected about the end point* to give the real
  * C2. Upstream's comment says why — "so that the cursor will be on the C1 point
  * of the next bezier" — which is the whole of the chaining rule in
@@ -37,10 +37,10 @@
  */
 
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-import { MultistepGeomManager } from './multistep_geom_manager.js';
+import { MULTISTEP_GEOM_MANAGER } from './multistep_geom_manager.js';
 
 /** `BEZIER_GEOM_MANAGER::BEZIER_STEPS`. */
-export enum BezierStep {
+export enum BEZIER_STEPS {
   /** Waiting to lock in the start point. */
   SET_START = 0,
   /** Waiting to lock in the first control point. */
@@ -52,45 +52,45 @@ export enum BezierStep {
   COMPLETE = 4,
 }
 
-export class BezierGeomManager extends MultistepGeomManager {
+export class BEZIER_GEOM_MANAGER extends MULTISTEP_GEOM_MANAGER {
   private start_: Vec2 = { x: 0, y: 0 };
   private controlC1_: Vec2 = { x: 0, y: 0 };
   private end_: Vec2 = { x: 0, y: 0 };
   private controlC2_: Vec2 = { x: 0, y: 0 };
 
   protected getMaxStep(): number {
-    return BezierStep.COMPLETE;
+    return BEZIER_STEPS.COMPLETE;
   }
 
   /** `GetStep()`. */
-  getBezierStep(): BezierStep {
-    return this.getStep() as BezierStep;
+  GetStep(): BEZIER_STEPS {
+    return this.getStep() as BEZIER_STEPS;
   }
 
   protected acceptPoint(pt: Vec2): boolean {
-    switch (this.getBezierStep()) {
-      case BezierStep.SET_START:
+    switch (this.GetStep()) {
+      case BEZIER_STEPS.SET_START:
         return this.setStart(pt);
-      case BezierStep.SET_CONTROL1:
+      case BEZIER_STEPS.SET_CONTROL1:
         return this.setControlC1(pt);
-      case BezierStep.SET_END:
+      case BEZIER_STEPS.SET_END:
         return this.setEnd(pt);
-      case BezierStep.SET_CONTROL2:
+      case BEZIER_STEPS.SET_CONTROL2:
         return this.setControlC2(pt);
-      case BezierStep.COMPLETE:
+      case BEZIER_STEPS.COMPLETE:
         return false;
     }
   }
 
-  getStart(): Vec2 {
+  GetStart(): Vec2 {
     return this.start_;
   }
 
-  getControlC1(): Vec2 {
+  GetControlC1(): Vec2 {
     return this.controlC1_;
   }
 
-  getEnd(): Vec2 {
+  GetEnd(): Vec2 {
     return this.end_;
   }
 
@@ -99,7 +99,7 @@ export class BezierGeomManager extends MultistepGeomManager {
    *
    * `return m_end - ( m_controlC2 - m_end )`, i.e. `2 * end - clicked`.
    */
-  getControlC2(): Vec2 {
+  GetControlC2(): Vec2 {
     return {
       x: this.end_.x - (this.controlC2_.x - this.end_.x),
       y: this.end_.y - (this.controlC2_.y - this.end_.y),

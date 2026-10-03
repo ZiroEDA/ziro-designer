@@ -3135,9 +3135,10 @@ export class PAD extends BOARD_CONNECTED_ITEM {
     // Hole shape
     drawCache.m_effectiveHoleShape = null;
 
+    // `Drill().size / 2`: `VECTOR2I::operator/( double )`, which KiROUNDs.
     const half_size: VECTOR2I = {
-      x: Math.trunc(this.m_padStack.Drill().size.x / 2),
-      y: Math.trunc(this.m_padStack.Drill().size.y / 2),
+      x: KiROUND(this.m_padStack.Drill().size.x / 2),
+      y: KiROUND(this.m_padStack.Drill().size.y / 2),
     };
     let half_width: number;
     let half_len: VECTOR2I = { x: 0, y: 0 };
@@ -3187,7 +3188,9 @@ export class PAD extends BOARD_CONNECTED_ITEM {
           // the oval pad is in fact a circle
           add_(new SHAPE_CIRCLE(shapePos, Math.trunc(size.x / 2)));
         } else {
-          const half_size: VECTOR2I = { x: Math.trunc(size.x / 2), y: Math.trunc(size.y / 2) };
+          // `size / 2`, KiROUNDed (`VECTOR2I::operator/( double )`); the rectangle
+          // below halves each int on its own, which truncates.
+          const half_size: VECTOR2I = { x: KiROUND(size.x / 2), y: KiROUND(size.y / 2) };
           const half_width = Math.min(half_size.x, half_size.y);
           let half_len: VECTOR2I = { x: half_size.x - half_width, y: half_size.y - half_width };
           half_len = RotatePoint(half_len, this.GetOrientation());
@@ -3218,7 +3221,7 @@ export class PAD extends BOARD_CONNECTED_ITEM {
           }
         } else if (effectiveShape === PAD_SHAPE.TRAPEZOID) {
           const d = this.m_padStack.TrapezoidDeltaSizeConst(aLayer);
-          trap_delta = { x: Math.trunc(d.x / 2), y: Math.trunc(d.y / 2) };
+          trap_delta = { x: KiROUND(d.x / 2), y: KiROUND(d.y / 2) };
         }
 
         const corners = new SHAPE_LINE_CHAIN();
