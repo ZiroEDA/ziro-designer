@@ -73,7 +73,7 @@ export interface SCH_EDIT_FRAME_HOOKS {
    * `NETLIST_EXPORTER_KICAD::Format( GNL_ALL | GNL_OPT_KICAD )`. Null when the
    * schematic is not ready to netlist, which leaves the payload unchanged.
    */
-  getNetlist(aAnnotateMessage: string): string | null;
+  getNetlist?(aAnnotateMessage: string): string | null;
   /**
    * TRANSITIONAL (S2-5b, deleted at S7): bring this frame's live `Schematic()` up to the
    * window's records. When given, the netlist mail is answered from the live model.
@@ -321,7 +321,7 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
       case MAIL_T.MAIL_SCH_GET_NETLIST: {
         if (!this.hooks.syncLiveSchematic) {
           // TRANSITIONAL: the record model's netlist, until the window keeps a live schematic.
-          const netlist = this.hooks.getNetlist(payload);
+          const netlist = this.hooks.getNetlist?.(payload) ?? null;
 
           if (netlist !== null) mail.SetPayload(netlist);
 
