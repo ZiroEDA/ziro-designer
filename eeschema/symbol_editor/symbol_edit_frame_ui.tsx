@@ -54,7 +54,7 @@ import {
   SYM_RIGHT_TOOLBAR,
   SYM_DEFAULT_TOOLBARS,
 } from './toolbars_symbol_editor.js';
-import { type SymbolCanvasController } from '../sch_draw_panel.js';
+import type { SymbolCanvasController } from '../sch_draw_panel.js';
 import { SymbolLibraryManager, type ManagedLibrary } from '../symbol_library_manager.js';
 import { findSymLibRowByUri, resolvedProjectSymLibs } from '../project_sym_lib_table.js';
 import { unescapeString } from '@ziroeda/common/string_utils.js';
