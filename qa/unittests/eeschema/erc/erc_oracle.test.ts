@@ -115,7 +115,8 @@ function keys(aReport: Report): string[] {
 
 function directoryOf(aOracleFile: string): string {
   const stem = aOracleFile.replace(/\.json$/, '');
-  if (stem.startsWith('erc_cases_')) return join(DATA, 'erc_cases', stem.slice('erc_cases_'.length));
+  if (stem.startsWith('erc_cases_'))
+    return join(DATA, 'erc_cases', stem.slice('erc_cases_'.length));
 
   return stem.startsWith('netlist_oracle_graph_')
     ? join(DATA, 'netlist_oracle_graph', stem.slice('netlist_oracle_graph_'.length))
