@@ -7,7 +7,13 @@
  * kicad-cli 10.0.5 wrote.
  */
 import { readFileSync } from 'node:fs';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, afterEach, beforeEach } from 'vitest';
+import { PGM_BASE, SETTINGS_MANAGER, SetPgm } from '@ziroeda/common/pgm_base.js';
+
+// The off-screen SCH_EDIT_FRAME the headless netlist opens needs the program's settings
+// manager, as the app has from InitPgm.
+beforeEach(() => SetPgm(new PGM_BASE(null, new SETTINGS_MANAGER())));
+afterEach(() => SetPgm(null));
 import { CROSS_PROBING_SETTINGS } from '@ziroeda/common/settings/app_settings.js';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import { KIWAY } from '@ziroeda/common/kiway.js';

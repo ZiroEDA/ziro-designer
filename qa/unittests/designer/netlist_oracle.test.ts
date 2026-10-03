@@ -23,7 +23,13 @@ import {
   fetchNetlistFromSchematic,
   setHeadlessNetlistProvider,
 } from '@ziroeda/pcbnew/netlist_from_schematic.js';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, afterEach, beforeEach } from 'vitest';
+import { PGM_BASE, SETTINGS_MANAGER, SetPgm } from '@ziroeda/common/pgm_base.js';
+
+// The off-screen SCH_EDIT_FRAME the headless netlist opens needs the program's settings
+// manager, as the app has from InitPgm.
+beforeEach(() => SetPgm(new PGM_BASE(null, new SETTINGS_MANAGER())));
+afterEach(() => SetPgm(null));
 
 // The app registers the headless MAIL_SCH_GET_NETLIST answer at startup
 // (pgm_app.ts: `setHeadlessNetlistProvider(formatSchematicNetlist)`), since
@@ -55,6 +61,33 @@ const RTREE_ORDER_GAP = new Set([
   'test_multiunit_reannotate_same_value',
 ]);
 
+/**
+ * Update PCB's netlist comes from the editor's own load (SCH_EDIT_FRAME::OpenProjectFiles),
+ * not kicad-cli's (EESCHEMA_HELPERS::LoadSchematic), and the two name the root differently:
+ * the editor gives a top-level sheet the name its `schematic.top_level_sheets` entry holds
+ * (files-io.cpp:327), kicad-cli calls an unnamed root "Root". So where that entry's name is
+ * empty, the editor's netlist says `(property (name "Sheetname") (value ""))` for the root.
+ */
+const guiRootName = (
+  files: readonly { name: string; text: string }[],
+  aCliText: string,
+): string => {
+  const pro = files.find((f) => f.name.endsWith('.kicad_pro'));
+  const tops = pro ? JSON.parse(pro.text)?.schematic?.top_level_sheets : undefined;
+
+  if (!Array.isArray(tops) || tops.length === 0 || tops[0].name !== '') return aCliText;
+
+  return aCliText.replace(/(\(name "Sheetname"\)\s*\(value )"Root"\)/g, '$1"")');
+};
+
+/**
+ * Designs whose sheets' page numbers are blank and get repaired on load: the editor repairs
+ * them in hierarchy order (files-io.cpp:443, `Schematic().Hierarchy()`), kicad-cli in page
+ * order (eeschema_helpers.cpp:155, `BuildSheetListSortedByPageNumbers()`), so KiCad's own
+ * Update PCB netlist lists the sheets (and what follows their order) unlike kicad-cli's.
+ */
+const PAGE_REPAIR_ORDER = new Set(['test_hier_renaming']);
+
 /** Every `(tstamps "…" …)` of a component, its UUIDs sorted. */
 const sortTstamps = (text: string): string =>
   text.replace(/\(tstamps ((?:"[0-9a-f-]{36}"\s*)+)\)/g, (_m, list: string) => {
@@ -83,7 +116,15 @@ describe('the KiCad netlist, against kicad-cli', () => {
         // Update PCB's path (MAIL_SCH_GET_NETLIST) writes the same text, or refuses an
         // unannotated design outright (ReadyToNetlist) - it never writes a different one.
         const mail = fetchNetlistFromSchematic(files, 'annotate', name);
-        if (mail.ok) expect(normalise(mail.netlistText)).toBe(normalise(r.netlistText));
+        if (mail.ok && PAGE_REPAIR_ORDER.has(name)) {
+          // Same lines, another sheet order (see PAGE_REPAIR_ORDER).
+          const lines = (t: string) => t.split('\n').sort();
+          expect(normalise(mail.netlistText)).not.toBe(normalise(r.netlistText));
+          expect(lines(normalise(mail.netlistText))).toEqual(
+            lines(guiRootName(files, normalise(r.netlistText))),
+          );
+        } else if (mail.ok)
+          expect(normalise(mail.netlistText)).toBe(guiRootName(files, normalise(r.netlistText)));
         else expect(mail.error).toBe('annotate');
 
         let wantText = normalise(readFileSync(`${dir}${name}.kicad-cli.net`, 'utf8'));
