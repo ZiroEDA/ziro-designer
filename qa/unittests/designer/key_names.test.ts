@@ -196,7 +196,8 @@ describe('the menu rows print the accelerator, character for character', () => {
     // binding beside the row, and `menu_hotkey_coverage.test.ts` rejects that
     // restatement -- upstream a menu accelerator IS the binding.
     '../../eeschema/symbol_editor/menubar_symbol_editor.ts',
-    '../../pcbnew/pcb_edit_frame_ui.tsx',
+    // The board editor's Edit > Delete row (its canvas menu is the tools').
+    '../../pcbnew/menubar_pcb_editor.ts',
     '../../pcbnew/footprint_edit_frame_ui.tsx',
     '../../cvpcb/cvpcb_mainframe_ui.tsx',
     '../../eeschema/menubar.ts',

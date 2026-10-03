@@ -297,7 +297,6 @@ describe('pcbnew/pcb_edit_frame_ui.tsx seeds its toolbar from the settings file'
     //
     //   toggleGrid              window.grid.show              app_settings.cpp:555
     //   crosshairSmall/Full/45  window.cursor.cross_hair_mode app_settings.cpp:567
-    //   lineModeFree/45/90      editing.pcb_angle_snap_mode   pcbnew_settings.cpp:190
     //   togglePolarCoords       editing.polar_coords          pcbnew_settings.cpp:176
     //
     // — and for nothing else, because `updatePcbnew` persists and wakes the
@@ -308,9 +307,6 @@ describe('pcbnew/pcb_edit_frame_ui.tsx seeds its toolbar from the settings file'
       'crosshairSmall',
       'crosshairFull',
       'crosshair45',
-      'lineModeFree',
-      'lineMode45',
-      'lineMode90',
       'togglePolarCoords',
     ])
       expect(isStoredPcbToggle(id), id).toBe(true);
@@ -318,9 +314,14 @@ describe('pcbnew/pcb_edit_frame_ui.tsx seeds its toolbar from the settings file'
     // curved`, pcbnew_settings.cpp:258) ARE PARAMs, but not folded here: their
     // buttons run COMMON_TOOLS::SwitchUnits and PCB_CONTROL::ToggleRatsnest on
     // the settings object, which the settings store writes back.
+    // The Line modes buttons are BOARD_EDITOR_CONTROL::ChangeLineMode's
+    // (`editing.pcb_angle_snap_mode`, pcbnew_settings.cpp:190), on the object.
     for (const id of [
       'unitsMm',
       'ratsnestLineMode',
+      'lineModeFree',
+      'lineMode45',
+      'lineMode90',
       'zoneDisplayOutline',
       'zoneDisplayFilled',
       'showLayersManager',

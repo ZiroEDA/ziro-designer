@@ -503,13 +503,15 @@ describe('the left toolbar and Editing Options are one value', () => {
 
   it('folds each of them back, and nothing that is not a PARAM upstream', () => {
     const cfg = structuredClone(PCBNEW_DEFAULTS);
-    expect(foldPcbToggle(cfg, 'lineMode90')).toBe(true);
-    expect(cfg.editing.pcb_angle_snap_mode).toBe(2);
-    // The curved ratsnest button runs PCB_CONTROL::ToggleRatsnest on the
-    // settings object; the settings store writes it back to the file.
+    // The Line modes buttons run BOARD_EDITOR_CONTROL::ChangeLineMode and the
+    // curved ratsnest button PCB_CONTROL::ToggleRatsnest, each on the settings
+    // object; the settings store writes them back to the file.
     const s = pcbnewSettingsOf(cfg);
-    frameOver(s).GetToolManager()!.RunAction(PCB_ACTIONS.ratsnestLineMode);
+    const mgr = frameOver(s).GetToolManager()!;
+    mgr.RunAction(PCB_ACTIONS.lineMode90);
+    mgr.RunAction(PCB_ACTIONS.ratsnestLineMode);
     expect(storePcbnewSettings(s, cfg)).toBe(true);
+    expect(cfg.editing.pcb_angle_snap_mode).toBe(2);
     expect(cfg.pcb_display.ratsnest_curved).toBe(true);
     expect(foldPcbToggle(cfg, 'togglePolarCoords')).toBe(true);
     expect(cfg.editing.polar_coords).toBe(true);
@@ -518,7 +520,7 @@ describe('the left toolbar and Editing Options are one value', () => {
     for (const id of ['zoneDisplayOutline', 'showLayersManager', 'showProperties', 'highContrast'])
       expect(foldPcbToggle(cfg, id), id).toBe(false);
     expect(JSON.stringify(cfg)).toBe(before);
-    expect(isStoredPcbToggle('lineMode45')).toBe(true);
+    expect(isStoredPcbToggle('lineMode45')).toBe(false);
     expect(isStoredPcbToggle('zoneDisplayFilled')).toBe(false);
   });
 

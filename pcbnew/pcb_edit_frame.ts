@@ -642,6 +642,12 @@ export interface PCB_EDIT_FRAME_HOOKS {
   storeSettings?(): void;
   /** TRANSITIONAL (#636): the aux toolbar's track-width / via-size boxes are the window's. */
   reCreateAuxiliaryToolbar?(): void;
+  /** DIALOG_ASSIGN_NETCLASS: true when OK closed it, the pattern assigned. */
+  showAssignNetclassDialog?(
+    aNetNames: ReadonlySet<string>,
+    aCandidates: ReadonlySet<string>,
+    aPreviewer: (aNetNames: readonly string[]) => void,
+  ): Promise<boolean>;
   /** TRANSITIONAL (#636): `m_appearancePanel->UpdateDisplayOptions()`; the panel is the window's. */
   updateDisplayOptions?(): void;
   /** TRANSITIONAL (#636): whether the window's EDA_3D_VIEWER_FRAME is open. */
@@ -1556,6 +1562,21 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
    */
   override OnDisplayOptionsChanged(): void {
     this.hooks.updateDisplayOptions?.();
+  }
+
+  /**
+   * `DIALOG_ASSIGN_NETCLASS dlg( m_frame, netNames, candidates, previewer );
+   * dlg.ShowModal() == wxID_OK`, through the window.
+   */
+  ShowAssignNetclassDialog(
+    aNetNames: ReadonlySet<string>,
+    aCandidates: ReadonlySet<string>,
+    aPreviewer: (aNetNames: readonly string[]) => void,
+  ): Promise<boolean> {
+    return (
+      this.hooks.showAssignNetclassDialog?.(aNetNames, aCandidates, aPreviewer) ??
+      Promise.resolve(false)
+    );
   }
 
   /** `SetElementVisibility( aElement, aNewState )` (pcb_edit_frame.cpp:2024-2033). */
@@ -3400,13 +3421,15 @@ export function lineModeToggleId(mode: number): string {
   return mode === 1 ? 'lineMode45' : mode === 2 ? 'lineMode90' : 'lineModeFree';
 }
 
-/** …and back. */
-export function lineModeOf(id: string): 0 | 1 | 2 | null {
-  if (id === 'lineModeFree') return 0;
-  if (id === 'lineMode45') return 1;
-  if (id === 'lineMode90') return 2;
-  return null;
-}
+/**
+ * The Line modes group's buttons, as BOARD_EDITOR_CONTROL::ChangeLineMode's
+ * actions; `SelectToolbarAction` names one of them back.
+ */
+export const PCB_LINE_MODE_ACTIONS: Readonly<Record<string, TOOL_ACTION>> = {
+  lineModeFree: PCB_ACTIONS.lineModeFree,
+  lineMode45: PCB_ACTIONS.lineMode45,
+  lineMode90: PCB_ACTIONS.lineMode90,
+};
 
 /** `CROSS_HAIR_MODE` -> the left toolbar's button id. */
 export function crosshairToggleId(mode: CrosshairMode): string {
@@ -3436,13 +3459,6 @@ export function foldPcbToggle(cfg: PcbnewSettings, id: string): boolean {
 
   if (mode !== null) {
     cfg.window.cursor.crosshair = mode;
-    return true;
-  }
-
-  const line = lineModeOf(id);
-
-  if (line !== null) {
-    cfg.editing.pcb_angle_snap_mode = line;
     return true;
   }
 
@@ -3476,7 +3492,6 @@ export function foldPcbToggle(cfg: PcbnewSettings, id: string): boolean {
 export function isStoredPcbToggle(id: string): boolean {
   return (
     crosshairModeOf(id) !== null ||
-    lineModeOf(id) !== null ||
     id === 'toggleGrid' ||
     id === 'togglePolarCoords' ||
     id === 'showSearch' ||

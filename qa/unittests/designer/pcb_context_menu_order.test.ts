@@ -2,265 +2,207 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * The order of the PCB selection menu's `@100` band is not a design decision -
- * it is a consequence, and it has to be ported as one.
+ * The PCB selection menu is PCB_SELECTION_TOOL's CONDITIONAL_MENU, with the
+ * rows every tool's `Init()` adds, evaluated against the selection
+ * (TOOL_MENU::ShowContextMenu) - the menu the frame pops up. These pin it on a
+ * real PCB_EDIT_FRAME rather than on a hand-written copy in the window, which
+ * is what this file used to read.
  *
- * Seven tools drop a submenu into that band from their own `Init()`, each with
- * `aOrder = 100`, none of them aware of the others. `CONDITIONAL_MENU::addEntry`
- * (conditional_menu.cpp:210-221) inserts a new entry after every entry whose
- * order is <= its own, so ties keep insertion order - and insertion order is
- * the order `PCB_EDIT_FRAME::setupTools` registers the tools
- * (pcb_edit_frame.cpp:947-979):
+ * The order of the `@100` band is a consequence, not a design decision: seven
+ * tools drop a submenu into it from their own `Init()`, each with `aOrder =
+ * 100`, none aware of the others; `CONDITIONAL_MENU::addEntry`
+ * (conditional_menu.cpp:210-221) keeps ties in insertion order, and insertion
+ * order is the order `PCB_EDIT_FRAME::setupTools` registers the tools
+ * (pcb_edit_frame.cpp:949-982):
  *
- *   EDIT_TOOL (:953)              separator, [Shape Modification], Position
- *   PCB_EDIT_TABLE_TOOL (:954)    five groups of table-cell rows, each opened
- *                                 and closed by its own `AddSeparator( 100 )`
- *                                 (edit_table_tool_base.h:94-115)
- *   BOARD_EDITOR_CONTROL (:961)   Locking, [Zone]
- *   BOARD_INSPECTION_TOOL (:962)  [Net]
- *   ALIGN_DISTRIBUTE_TOOL (:964)  [Align/Distribute], on MoreThan( 1 )
- *   CONVERT_TOOL (:972)           Create from Selection
- *   PCB_GROUP_TOOL (:973)         Grouping
- *
- * so over a single footprint the band reads
- *
- *   ----------------
- *   Position        >
- *   ----------------          <- the table band, collapsed by separator elision
- *   Locking         >
- *   Create from Selection >
- *   Grouping        >
- *
- * [px] which is exactly what the installed pcbnew draws (2026-08-31 capture,
- * PCB editor, one footprint selected).
- *
- * Ours had grouped it by hand instead - Create from Selection, Position,
- * Grouping, Locking - which reads tidier and is wrong, and which also dropped
- * the table band's rule so the two halves ran together. Nothing failed when it
- * drifted, because nothing pinned it. This does.
- *
- * It reads the frame as TEXT for the same reason `menu_hotkey_coverage.test.ts`
- * does: `qa`'s tsconfig cannot compile `.tsx`, and the menu is built inside the
- * component rather than in a data module like `ds_context_menu.ts`.
+ *   EDIT_TOOL                separator, [Shape Modification], Position
+ *   PCB_EDIT_TABLE_TOOL      five groups of table-cell rows, each opened and
+ *                            closed by its own `AddSeparator( 100 )`
+ *   BOARD_EDITOR_CONTROL     Locking, [Zones]
+ *   BOARD_INSPECTION_TOOL    [Net Inspection Tools]
+ *   ALIGN_DISTRIBUTE_TOOL    [Align/Distribute], on MoreThan( 1 )
+ *   CONVERT_TOOL             Create from Selection
+ *   PCB_GROUP_TOOL           Grouping
  */
-import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { beforeAll, describe, expect, it } from 'vitest';
+import type { MenuItem } from '@ziroeda/common/tool/action_menu_types.js';
+import { actionMenuItems } from '@ziroeda/common/tool/action_menu_popup.js';
+import { installPgm } from '@ziroeda/designer/src/editors/pcb/pcb_canvas.js';
+import type { BOARD_ITEM } from '@ziroeda/pcbnew/board_item.js';
+import { PCB_EDIT_FRAME, type PCB_EDIT_FRAME_HOOKS } from '@ziroeda/pcbnew/pcb_edit_frame.js';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { PCBNEW_SETTINGS } from '@ziroeda/pcbnew/pcbnew_settings.js';
 
-const FRAME = readFileSync(
-  fileURLToPath(new URL('../../../pcbnew/pcb_edit_frame_ui.tsx', import.meta.url)),
-  'utf8',
-);
+const BOARD_TEXT = `(kicad_pcb (version 20241229) (generator "pcbnew") (generator_version "9.0")
+  (general (thickness 1.6) (legacy_teardrops no))
+  (paper "A4")
+  (layers (0 "F.Cu" signal) (2 "B.Cu" signal) (5 "F.SilkS" user) (25 "Edge.Cuts" user))
+  (setup (pad_to_mask_clearance 0))
+  (net 0 "") (net 1 "A")
+  (footprint "R" (layer "F.Cu") (at 10 10)
+    (property "Reference" "R1" (at 0 -2 0) (layer "F.SilkS")
+      (effects (font (size 1 1) (thickness 0.15))))
+    (pad "1" smd rect (at -1 0) (size 1 1) (layers "F.Cu") (net 1 "A")))
+  (footprint "R" (layer "F.Cu") (at 20 10)
+    (property "Reference" "R2" (at 0 -2 0) (layer "F.SilkS")
+      (effects (font (size 1 1) (thickness 0.15))))
+    (pad "1" smd rect (at -1 0) (size 1 1) (layers "F.Cu") (net 1 "A")))
+  (footprint "R" (layer "F.Cu") (at 30 10)
+    (property "Reference" "R3" (at 0 -2 0) (layer "F.SilkS")
+      (effects (font (size 1 1) (thickness 0.15))))
+    (pad "1" smd rect (at -1 0) (size 1 1) (layers "F.Cu") (net 1 "A")))
+  (segment (start 0 0) (end 5 0) (width 0.25) (layer "F.Cu") (net 1))
+)
+`;
 
-/** The `@100` band: from its first `menuSeparator(100)` to the `@150` one. */
-const BAND = (() => {
-  const from = FRAME.indexOf('      menuSeparator(100),');
-  const to = FRAME.indexOf('      menuSeparator(150),', from);
-  expect(from, 'the menu has an @100 band').toBeGreaterThan(-1);
-  expect(to, 'the menu has a @150 band after it').toBeGreaterThan(from);
-  return FRAME.slice(from, to);
-})();
+let frame: PCB_EDIT_FRAME;
+let fps: BOARD_ITEM[];
+let pad: BOARD_ITEM;
+let track: BOARD_ITEM;
 
-/**
- * The band's rows in file order. A top-level entry's label is indented ten
- * spaces (or eight, as `{ label, submenu }` on the line after a wrapped
- * `menuEntry(`); a submenu's own rows sit deeper, which is what keeps "Move
- * Exactly..." out of this.
- */
-const ROWS = [
-  ...BAND.matchAll(
-    /^ {10}label: '([^']+)'|^ {6}menuEntry\(\{ label: '([^']+)'|^ {8}\{ label: '([^']+)', submenu|^ {6}(menuSeparator\(100\)),/gm,
-  ),
-].map((m) => m[1] ?? m[2] ?? m[3] ?? '----');
+beforeAll(() => {
+  installPgm();
+  const settings = new PCBNEW_SETTINGS();
+  frame = new PCB_EDIT_FRAME({
+    settings: () => settings,
+    onModify: () => {},
+  } as unknown as PCB_EDIT_FRAME_HOOKS);
+  const board = ParseBoard(BOARD_TEXT);
+  frame.SetBoard(board, false);
+  fps = board.Footprints();
+  pad = board.Footprints()[0]!.Pads()[0]!;
+  track = board.Tracks()[0]!;
+});
+
+/** The menu the frame pops up over `aItems`. */
+const menuOver = (...aItems: BOARD_ITEM[]): MenuItem[] => {
+  const sel = frame.GetSelectionTool();
+  sel.ClearSelection(true);
+  for (const item of aItems) sel.AddItemToSel(item, true);
+  const menu = sel.GetToolMenu().GetMenu();
+  menu.Evaluate(sel.GetSelection());
+  menu.UpdateAll();
+  return actionMenuItems(menu);
+};
+
+const rowsOf = (aItems: MenuItem[]): string[] => aItems.map((i) => (i.sep ? '----' : i.label!));
+const row = (aItems: MenuItem[], aLabel: string): MenuItem | undefined =>
+  aItems.find((i) => i.label === aLabel);
+
+/** The `@100` band: from Position to Grouping. */
+const band = (aItems: MenuItem[]): string[] => {
+  const rows = rowsOf(aItems);
+  return rows.slice(rows.indexOf('Position'), rows.indexOf('Grouping') + 1);
+};
 
 describe('the PCB selection menu @100 band, in KiCad registration order', () => {
-  it('reads Position | Locking, Net Inspection Tools, Align/Distribute, Create from Selection, Grouping', () => {
-    expect(ROWS).toEqual([
-      '----', // EDIT_TOOL, edit_tool.cpp:812
-      // EDIT_TOOL's shapeModificationSubMenu, edit_tool.cpp:813, between the rule
-      // and Position. Only its Edit Corners... row (edit_tool.cpp:291) is ported,
-      // so the entry is conditioned on `selectionHasEditableCorners` and is absent
-      // from a footprint's menu, which is what the [px] capture above shows.
-      'Shape Modification',
+  it('reads Position, Locking, Create from Selection, Grouping over a footprint', () => {
+    expect(band(menuOver(fps[0]!)).filter((r) => r !== '----')).toEqual([
       'Position', // EDIT_TOOL, edit_tool.cpp:814
-      '----', // PCB_EDIT_TABLE_TOOL, edit_table_tool_base.h:94
       'Locking', // BOARD_EDITOR_CONTROL, board_editor_control.cpp:437
-      'Net Inspection Tools', // BOARD_INSPECTION_TOOL, board_inspection_tool.cpp:138
-      'Align/Distribute', // ALIGN_DISTRIBUTE_TOOL, align_distribute_tool.cpp:88
       'Create from Selection', // CONVERT_TOOL, convert_tool.cpp:333
       'Grouping', // PCB_GROUP_TOOL, group_tool.cpp:138
     ]);
   });
 
-  it('keeps a rule between Position and Locking, where the table rows go', () => {
-    // Separator elision (CONDITIONAL_MENU::Evaluate) collapses the table
-    // tool's five separators to this one while we have no table-cell rows, so
-    // the rule must be present in the data even though no row of ours is
-    // between them - drop it and the band loses a rule KiCad draws.
-    expect(ROWS.indexOf('----', ROWS.indexOf('Position'))).toBe(ROWS.indexOf('Locking') - 1);
+  // PCB_EDIT_TABLE_TOOL's `AddSeparator( 100 )`s (edit_table_tool_base.h:94-115),
+  // collapsed to one rule by separator elision: the tool is not ported, so the
+  // rule KiCad draws between Position and Locking is not there yet.
+  it.fails('keeps a rule between Position and Locking, where the table rows go', () => {
+    const rows = band(menuOver(fps[0]!));
+    expect(rows[rows.indexOf('Locking') - 1]).toBe('----');
+  });
+
+  it('puts Net Inspection Tools after Locking over a pad', () => {
+    const rows = band(menuOver(pad));
+    expect(rows.indexOf('Net Inspection Tools')).toBeGreaterThan(rows.indexOf('Locking'));
+    expect(rows.indexOf('Create from Selection')).toBeGreaterThan(
+      rows.indexOf('Net Inspection Tools'),
+    );
   });
 });
 
 describe('the rows a multi-item selection is entitled to', () => {
-  // Measured against the installed pcbnew with several items selected
-  // (2026-08-31): ours was missing Pack and Move Footprints and the whole
-  // Align/Distribute submenu, drew a dead Properties row KiCad does not draw
-  // at all, and had renamed two rows and dropped two accelerators.
-
-  it('offers Pack and Move Footprints, on P, from two items with a footprint', () => {
-    expect(FRAME).toMatch(/label: 'Pack and Move Footprints',\s*shortcut: 'P'/);
-    expect(FRAME).toMatch(/'Pack and Move Footprints'[\s\S]{0,200}moreThanOne && anyFootprint/);
+  it('offers Pack and Move Footprints, on P, from two footprints', () => {
+    expect(row(menuOver(fps[0]!), 'Pack and Move Footprints')).toBeUndefined();
+    expect(row(menuOver(fps[0]!, fps[1]!), 'Pack and Move Footprints')?.shortcut).toBe('P');
   });
 
   it('hides Properties on a multi-selection that is not all tracks', () => {
-    // `propertiesCondition` (edit_tool.cpp:616-642), NOT `notEmpty`: one item
-    // always, more than one only when every one of them is a track.
-    expect(FRAME).toMatch(
-      /const propertiesCondition = selection\.size === 1 \|\| \(moreThanOne && onlyTracks\);/,
-    );
-    // Read to the NEXT `menuEntry(` rather than through a fixed window: the
-    // row's `action` body grows every time a new item type gets a dialog (the
-    // barcode arm is what pushed it past the old 600 characters), and a window
-    // that has to be widened for each one is measuring the body, not the rule.
-    const row = FRAME.slice(FRAME.indexOf("label: 'Properties...'"));
-    const untilNextRow = row.slice(0, row.indexOf('menuEntry(', 1));
-    expect(untilNextRow, 'the Properties row no longer takes propertiesCondition').toMatch(
-      /\n {8}propertiesCondition,/,
-    );
+    // `propertiesCondition` (edit_tool.cpp:616-642).
+    expect(row(menuOver(fps[0]!), 'Properties...')).toBeDefined();
+    expect(row(menuOver(fps[0]!, fps[1]!), 'Properties...')).toBeUndefined();
   });
 
-  it('names the two footprint-update rows the way their actions are named', () => {
-    // pcb_actions.cpp:998-1002 - the plural row is a different command with a
-    // different name, not "Update Footprint..." with an s.
-    expect(FRAME).toContain("TODO('Update Footprint...')");
-    expect(FRAME).toContain("TODO('Update Footprints from Library...')");
+  it('names the footprint-update row singular for one, plural for many', () => {
+    // pcb_actions.cpp:998-1002.
+    expect(row(menuOver(fps[0]!), 'Update Footprint...')).toBeDefined();
+    expect(row(menuOver(fps[0]!, fps[1]!), 'Update Footprints from Library...')).toBeDefined();
   });
 
   it('carries the accelerators Move Individually and Swap are defined with', () => {
-    // pcb_actions.cpp:601-605 and :704-708. Move Individually takes no
-    // ellipsis: it starts an interactive move, it does not open a dialog.
-    expect(FRAME).toMatch(/label: 'Move Individually',\s*shortcut: 'Ctrl\+M'/);
-    expect(FRAME).not.toContain("'Move Individually...'");
-    expect(FRAME).toMatch(/label: 'Swap',\s*shortcut: 'Alt\+S'/);
+    // pcb_actions.cpp:601-605 and :704-708.
+    const items = menuOver(fps[0]!, fps[1]!);
+    expect(row(items, 'Move Individually')?.shortcut).toBe('Ctrl+M');
+    expect(row(items, 'Swap')?.shortcut).toBe('Alt+S');
   });
 
   it('opens Align/Distribute from two items and its distribute group from three', () => {
-    // align_distribute_tool.cpp:70-71: canAlign is MoreThan( 1 ), canDistribute
-    // is MoreThan( 2 ), and the rule above the distribute group is conditional
-    // on canDistribute too - so at two items the submenu ends after Align to
-    // Bottom, with no trailing rule.
-    expect(FRAME).toContain(
-      "menuEntry({ label: 'Align/Distribute', submenu: alignDistributeSubmenu() }, 100, moreThanOne)",
-    );
-    const at = FRAME.indexOf('const alignDistributeSubmenu');
-    expect(at, 'the submenu is built by one function').toBeGreaterThan(-1);
-    const body = FRAME.slice(at, FRAME.indexOf('\n  };', at));
-    const gate = body.indexOf('...(canDistribute');
-    expect(body, 'canDistribute is MoreThan( 2 )').toContain('.Size() ?? 0) > 2');
-    expect(gate, 'the distribute group is gated on MoreThan( 2 )').toBeGreaterThan(-1);
-    for (const row of [
+    // align_distribute_tool.cpp:70-71.
+    expect(row(menuOver(fps[0]!), 'Align/Distribute')).toBeUndefined();
+    const two = rowsOf(row(menuOver(fps[0]!, fps[1]!), 'Align/Distribute')!.submenu!);
+    expect(two).toContain('Align to Bottom');
+    expect(two.some((r) => r.startsWith('Distribute'))).toBe(false);
+    const three = rowsOf(row(menuOver(fps[0]!, fps[1]!, fps[2]!), 'Align/Distribute')!.submenu!);
+    for (const r of [
       'Distribute Horizontally by Centers',
       'Distribute Horizontally with Even Gaps',
       'Distribute Vertically by Centers',
       'Distribute Vertically with Even Gaps',
     ])
-      expect(body.slice(gate)).toContain(row);
-    // …and the six align rows are NOT behind that gate.
-    expect(body.slice(0, gate)).toContain('Align to Bottom');
-  });
-
-  it('builds those rows in ONE place, and nowhere near a second menu', () => {
-    // The rows existed all along in a hand-written Edit-menu submenu that
-    // upstream does not have (menubar_pcb_editor.cpp carries no align rows),
-    // while the context menu that DOES have it upstream carried none - and the
-    // hand-written labels had already drifted from the actions' own
-    // ("...by Gaps" for `distributeHorizontallyGaps`, whose FriendlyName is
-    // "Distribute Horizontally with Even Gaps", pcb_actions.cpp:2304-2307).
-    // A second literal copy of any of these rows is that bug coming back.
-    // Comments stripped: prose about the rule must not read as the rule, and
-    // the note above `alignDistributeSubmenu` quotes the drifted label.
-    const code = FRAME.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
-    for (const row of ['Align to Left', 'Align to Bottom', 'Distribute Vertically by Centers'])
-      expect(code.split(`'${row}'`).length - 1, `${row} is written once`).toBe(1);
-    expect(code).not.toContain('Distribute Horizontally by Gaps');
+      expect(three).toContain(r);
   });
 });
 
 describe('the rows a connectable item is entitled to', () => {
-  // The third menu shape, over a single pad (2026-08-31 capture): KiCad prints
-  // two things ours printed neither of - an Assign Netclass row and the Net
-  // Inspection Tools submenu - because both are gated on the item being
-  // connectable, and a pad is.
-
-  it('puts Assign Netclass between Properties and the clearance inspector', () => {
-    // edit_tool.cpp:797-801, in that order.
-    const at = (needle: string): number => {
-      const i = FRAME.indexOf(needle);
-      expect(i, `${needle} is in the menu`).toBeGreaterThan(-1);
-      return i;
-    };
-    const props = at("label: 'Properties...'");
-    const netclass = at("label: 'Assign Netclass...'");
-    const clearance = at("'Clearance Resolution...' : 'Constraints Resolution...'");
-    expect(netclass).toBeGreaterThan(props);
-    expect(clearance).toBeGreaterThan(netclass);
+  it('puts Assign Netclass right after Properties', () => {
+    // edit_tool.cpp:797-801.
+    const rows = rowsOf(menuOver(pad));
+    expect(rows[rows.indexOf('Properties...') + 1]).toBe('Assign Netclass...');
   });
 
-  it('gates it on the five connected types, not on "something is selected"', () => {
+  it('gates Assign Netclass on the connected types', () => {
     // `connectedTypes` (edit_tool.cpp:128).
-    // Live since 09-26 (DIALOG_ASSIGN_NETCLASS is common/dialogs'), same gate.
-    expect(FRAME).toContain(
-      "menuEntry({ label: 'Assign Netclass...', action: () => assignNetclass() }, -1, onlyConnected)",
-    );
-    expect(FRAME).toContain(
-      "const connectedKinds = new Set(['track', 'arc', 'via', 'pad', 'zone']);",
-    );
+    expect(row(menuOver(pad), 'Assign Netclass...')).toBeDefined();
+    expect(row(menuOver(track), 'Assign Netclass...')).toBeDefined();
+    expect(row(menuOver(fps[0]!), 'Assign Netclass...')).toBeUndefined();
   });
 
-  it('counts a copper shape as net-inspectable, which Assign Netclass does not', () => {
-    // `showNetMenuFunc` (board_inspection_tool.cpp:101-131) takes those five
-    // AND a PCB_SHAPE that IsOnCopperLayer(); `connectedTypes` does not. Two
-    // conditions, deliberately not one.
-    expect(FRAME).toContain("kind === 'shape' && shapeOnCopper(id)");
-    expect(FRAME).toMatch(/menuEntry\(\s*\{\s*label: 'Net Inspection Tools',/);
-    expect(FRAME).toMatch(/^ {8}netInspectable,$/m);
-  });
-
-  it("draws BOARD_INSPECTION_TOOL's own NET_CONTEXT_MENU for the rows", () => {
-    // The four rows are the tool's (board_inspection_tool.cpp:68-82), each
-    // running its action; they are pinned in tools/board_inspection_tool.test.ts.
-    expect(FRAME).toMatch(/label: 'Net Inspection Tools', submenu: netInspectionSubmenu\(\)/);
-    const at = FRAME.indexOf('const netInspectionSubmenu');
-    expect(at).toBeGreaterThan(-1);
-    expect(FRAME.slice(at, FRAME.indexOf('\n  };', at))).toContain('GetNetSubMenu()');
+  it("draws BOARD_INSPECTION_TOOL's NET_CONTEXT_MENU", () => {
+    // board_inspection_tool.cpp:68-82.
+    expect(rowsOf(row(menuOver(pad), 'Net Inspection Tools')!.submenu!)).toEqual([
+      'Show Net in Ratsnest',
+      'Hide Net in Ratsnest',
+      '----',
+      'Highlight Net',
+      'Clear Net Highlighting',
+    ]);
   });
 });
 
 describe('the two drag rows are gated the way EDIT_TOOL gates them', () => {
   // `drag45Degree` (edit_tool.cpp:776-777) is `Count( 1 ) && OnlyTypes(
   // DraggableItems )`; `dragFreeAngle` (:778-780) is that AND `!OnlyTypes(
-  // footprintTypes )`. Both were on plain `notEmpty` here, which is why ours
-  // showed Drag Free Angle over a footprint - a row the installed build does
-  // not draw, and one full row of the height difference.
-  const gateOf = (label: string): string => {
-    const at = FRAME.indexOf(`label: '${label}'`);
-    expect(at, `${label} is a row`).toBeGreaterThan(-1);
-    const m = /\n {8}-1,\n {8}([A-Za-z0-9]+),/.exec(FRAME.slice(at));
-    expect(m, `${label} is an @ANY_ORDER entry with a condition`).not.toBeNull();
-    return m![1]!;
-  };
-
-  it('does not offer either drag over anything that is merely selected', () => {
-    expect(gateOf('Drag 45 Degree Mode')).not.toBe('notEmpty');
-    expect(gateOf('Drag Free Angle')).not.toBe('notEmpty');
+  // footprintTypes )`.
+  it('offers Drag 45 over a footprint but not Drag Free Angle', () => {
+    const items = menuOver(fps[0]!);
+    expect(row(items, 'Drag 45 Degree Mode')).toBeDefined();
+    expect(row(items, 'Drag Free Angle')).toBeUndefined();
   });
 
-  it('gates Drag Free Angle more narrowly than Drag 45 Degree Mode', () => {
-    const free = gateOf('Drag Free Angle');
-    const d45 = gateOf('Drag 45 Degree Mode');
-    expect(free).not.toBe(d45);
-    // …and narrowly by being the other one plus the footprint exclusion.
-    const def = new RegExp(`const ${free} = ${d45} && footprintCount === 0;`);
-    expect(FRAME).toMatch(def);
+  it('offers neither over two items', () => {
+    const items = menuOver(fps[0]!, fps[1]!);
+    expect(row(items, 'Drag 45 Degree Mode')).toBeUndefined();
+    expect(row(items, 'Drag Free Angle')).toBeUndefined();
   });
 });

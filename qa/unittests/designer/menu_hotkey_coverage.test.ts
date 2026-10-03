@@ -1481,22 +1481,11 @@ function rowsWithShortcut(
  * nothing because the row has no `action` for `invocable` to find.
  */
 const UNPRESSABLE: Readonly<Record<string, readonly string[]>> = {
-  '../../pcbnew/pcb_edit_frame_ui.tsx': [
-    // Canvas context-menu rows for commands that are not built. The row is
-    // KiCad's and prints KiCad's key; there is nothing yet to run.
-    'Route Selected',
-    'Route Selected From Other End',
-    'Unroute Segment',
-    'Attempt Finish Selected (Autoroute)',
-    // Rotate is live in this frame's own canvas key chain with a `kept` entry
-    // in the table above — the row and the key run the same thing, by two
-    // routes. The rows are built from a helper, so they scrape without a label.
-    'R',
-    'Shift+R',
-    // Open in Footprint Editor: reaches the frame, but not through the
-    // dispatcher.
-    'Ctrl+E',
-  ],
+  // The board editor's canvas context menu is PCB_SELECTION_TOOL's
+  // CONDITIONAL_MENU now, each row its tool's action: the rows excused here -
+  // the router's, Rotate's, Open in Footprint Editor's - left the window with
+  // the hand-written copy, and pcb_context_menu_order.test.ts pins the real one.
+  '../../pcbnew/pcb_edit_frame_ui.tsx': [],
 };
 
 describe('a row that prints a key can be pressed', () => {

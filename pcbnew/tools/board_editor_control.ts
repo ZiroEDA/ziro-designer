@@ -50,6 +50,19 @@ import type { COROUTINE_BODY } from '@ziroeda/common/tool/coroutine.js';
 import { ITEM_PICKER, PICKED_ITEMS_LIST } from '@ziroeda/common/undo_redo_container.js';
 import { VIEW_UPDATE_FLAGS, type VIEW_ITEM } from '@ziroeda/common/view/view_item.js';
 import { DoSetDrillOrigin } from './pcb_origins.js';
+import { ACTION_MENU, type TOOL_INTERACTIVE_LIKE } from '@ziroeda/common/tool/action_menu.js';
+import { CONDITIONAL_MENU } from '@ziroeda/common/tool/conditional_menu.js';
+import { BITMAPS } from '@ziroeda/common/bitmaps/bitmaps_list.js';
+import { SELECTION_CONDITIONS } from '@ziroeda/common/tool/selection_conditions.js';
+import type { SELECTION } from '@ziroeda/common/tool/selection.js';
+import { PCB_SELECTION_CONDITIONS } from './pcb_selection_conditions.js';
+import { ZONE } from '../zone.js';
+import { BOARD_CONNECTED_ITEM } from '../board_connected_item.js';
+import type { PCB_EDIT_FRAME } from '../pcb_edit_frame.js';
+import type { BOARD } from '../board.js';
+import { FRAME_T } from '@ziroeda/common/frame_type.js';
+import { LeaderMode as LEADER_MODE } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
+import { DRAWING_MODE, type DRAWING_TOOL } from './drawing_tool.js';
 
 /**
  * `BOARD_EDITOR_CONTROL::TrackWidthInc` / `TrackWidthDec`
@@ -161,6 +174,138 @@ enum MODIFY_MODE {
   TOGGLE,
 }
 
+/** `getOverlappingZones( aBoard, aZone )` (board_editor_control.cpp:99-131). */
+function getOverlappingZones(aBoard: BOARD, aZone: ZONE): ZONE[] {
+  const overlapping: ZONE[] = [];
+  const bbox = aZone.GetBoundingBox();
+
+  for (const candidate of aBoard.Zones()) {
+    if (candidate === aZone) continue;
+
+    if (candidate.GetIsRuleArea() || candidate.IsTeardropArea()) continue;
+
+    if (!candidate.GetLayerSet().and(aZone.GetLayerSet()).any()) continue;
+
+    if (!candidate.GetBoundingBox().Intersects(bbox)) continue;
+
+    // Check edge collision and containment (one zone entirely inside another)
+    if (
+      aZone.Outline().Collide(candidate.Outline()) ||
+      (candidate.Outline().TotalVertices() > 0 &&
+        aZone.Outline().Contains(candidate.Outline().CVertex(0))) ||
+      (aZone.Outline().TotalVertices() > 0 &&
+        candidate.Outline().Contains(aZone.Outline().CVertex(0)))
+    ) {
+      overlapping.push(candidate);
+    }
+  }
+
+  return overlapping;
+}
+
+/** `ZONE_PRIORITY_CONTEXT_MENU` (board_editor_control.cpp:205-262). */
+class ZONE_PRIORITY_CONTEXT_MENU extends ACTION_MENU {
+  constructor() {
+    super(true);
+
+    this.SetIcon(BITMAPS.swap);
+    this.SetTitle('Zone Priority');
+
+    this.Add(PCB_ACTIONS.zonePriorityMoveToTop);
+    this.Add(PCB_ACTIONS.zonePriorityRaise);
+    this.Add(PCB_ACTIONS.zonePriorityLower);
+    this.Add(PCB_ACTIONS.zonePriorityMoveToBottom);
+  }
+
+  protected override create(): ACTION_MENU {
+    return new ZONE_PRIORITY_CONTEXT_MENU();
+  }
+
+  protected override update(): void {
+    const selTool = this.getToolManager()?.FindTool(
+      'common.InteractiveSelection',
+    ) as unknown as PCB_SELECTION_TOOL | null;
+
+    if (!selTool) return;
+
+    const selection = selTool.GetSelection();
+    let canRaise = false;
+    let canLower = false;
+
+    if (selection.Size() === 1) {
+      const zone = selection.Front() instanceof ZONE ? (selection.Front() as ZONE) : null;
+
+      if (zone && !zone.GetIsRuleArea() && !zone.IsTeardropArea()) {
+        const board = zone.GetBoard()!;
+        const overlapping = getOverlappingZones(board, zone);
+
+        for (const other of overlapping) {
+          if (other.GetAssignedPriority() > zone.GetAssignedPriority()) canRaise = true;
+
+          if (other.GetAssignedPriority() < zone.GetAssignedPriority()) canLower = true;
+        }
+      }
+    }
+
+    this.Enable(PCB_ACTIONS.zonePriorityMoveToTop.GetUIId(), canRaise);
+    this.Enable(PCB_ACTIONS.zonePriorityRaise.GetUIId(), canRaise);
+    this.Enable(PCB_ACTIONS.zonePriorityLower.GetUIId(), canLower);
+    this.Enable(PCB_ACTIONS.zonePriorityMoveToBottom.GetUIId(), canLower);
+  }
+}
+
+/** `ZONE_CONTEXT_MENU` (board_editor_control.cpp:265-300). */
+class ZONE_CONTEXT_MENU extends ACTION_MENU {
+  constructor() {
+    super(true);
+
+    this.SetIcon(BITMAPS.add_zone);
+    this.SetTitle('Zones');
+
+    this.Add(PCB_ACTIONS.zoneFill);
+    this.Add(PCB_ACTIONS.zoneFillAll);
+    this.Add(PCB_ACTIONS.zoneUnfill);
+    this.Add(PCB_ACTIONS.zoneUnfillAll);
+
+    this.AppendSeparator();
+
+    this.Add(PCB_ACTIONS.zoneMerge);
+    this.Add(PCB_ACTIONS.zoneDuplicate);
+    this.Add(PCB_ACTIONS.drawZoneCutout);
+    this.Add(PCB_ACTIONS.drawSimilarZone);
+
+    this.AppendSeparator();
+
+    this.Add(new ZONE_PRIORITY_CONTEXT_MENU());
+
+    this.AppendSeparator();
+
+    this.Add(PCB_ACTIONS.zonesManager);
+  }
+
+  protected override create(): ACTION_MENU {
+    return new ZONE_CONTEXT_MENU();
+  }
+}
+
+/** `LOCK_CONTEXT_MENU` (board_editor_control.cpp:303-323). */
+class LOCK_CONTEXT_MENU extends CONDITIONAL_MENU {
+  constructor(aTool: TOOL_INTERACTIVE_LIKE | null) {
+    super(aTool);
+
+    this.SetIcon(BITMAPS.locked);
+    this.SetTitle('Locking');
+
+    this.AddItem(PCB_ACTIONS.lock, PCB_SELECTION_CONDITIONS.HasUnlockedItems);
+    this.AddItem(PCB_ACTIONS.unlock, PCB_SELECTION_CONDITIONS.HasLockedItems);
+    this.AddItem(PCB_ACTIONS.toggleLock, SELECTION_CONDITIONS.ShowAlways);
+  }
+
+  protected override create(): ACTION_MENU {
+    return new LOCK_CONTEXT_MENU(this.m_tool);
+  }
+}
+
 export class BOARD_EDITOR_CONTROL extends PCB_TOOL_BASE {
   private m_frame: PCB_BASE_FRAME | null = null;
   /** Place & drill origin marker. */
@@ -196,6 +341,197 @@ export class BOARD_EDITOR_CONTROL extends PCB_TOOL_BASE {
       // getView()->Remove / Add( m_placeOrigin ): TRANSITIONAL, the board
       // canvas draws the marker itself (see ORIGIN_VIEWITEM).
     }
+  }
+
+  /**
+   * `OnAngleSnapModeChanged` (board_editor_control.cpp:353-370): the left
+   * toolbar's Line modes group shows the current mode.
+   */
+  OnAngleSnapModeChanged(_aEvent: TOOL_EVENT): number {
+    if (!this.m_frame?.IsType(FRAME_T.FRAME_PCB_EDITOR)) return 0;
+
+    const f = this.m_frame;
+    const mode = f.GetPcbNewSettings().m_AngleSnapMode;
+
+    switch (mode) {
+      case LEADER_MODE.DIRECT:
+        f.SelectToolbarAction(PCB_ACTIONS.lineModeFree);
+        break;
+      case LEADER_MODE.DEG90:
+        f.SelectToolbarAction(PCB_ACTIONS.lineMode90);
+        break;
+      default:
+        f.SelectToolbarAction(PCB_ACTIONS.lineMode45);
+        break;
+    }
+
+    return 0;
+  }
+
+  /** `ChangeLineMode` (board_editor_control.cpp:373-380). */
+  ChangeLineMode(aEvent: TOOL_EVENT): number {
+    const mode = aEvent.Parameter<LEADER_MODE>();
+    this.m_frame!.GetPcbNewSettings().m_AngleSnapMode = mode;
+    this.m_toolMgr!.PostAction(ACTIONS.refreshPreview);
+    this.m_toolMgr!.RunAction(PCB_ACTIONS.angleSnapModeChanged);
+    return 0;
+  }
+
+  /** `Init()` (board_editor_control.cpp:383-470). */
+  override Init(): boolean {
+    this.m_frame = this.getEditFrame<PCB_BASE_FRAME>();
+    const frame = this.m_frame;
+
+    const activeToolCondition = (_aSel: SELECTION): boolean => !frame.ToolStackIsEmpty();
+
+    const inactiveStateCondition = (aSel: SELECTION): boolean =>
+      frame.ToolStackIsEmpty() && aSel.Size() === 0;
+
+    const placeModuleCondition = (aSel: SELECTION): boolean =>
+      frame.IsCurrentTool(PCB_ACTIONS.placeFootprint) && aSel.GetSize() === 0;
+
+    const ctxMenu = this.m_menu.GetMenu();
+
+    // "Cancel" goes at the top of the context menu when a tool is active
+    ctxMenu.AddItem(ACTIONS.cancelInteractive, activeToolCondition, 1);
+    ctxMenu.AddSeparator(1);
+
+    // "Get and Place Footprint" should be available for Place Footprint tool
+    ctxMenu.AddItem(PCB_ACTIONS.getAndPlace, placeModuleCondition, 1000);
+    ctxMenu.AddSeparator(1000);
+
+    // Finally, add the standard zoom & grid items
+    frame.AddStandardSubMenus(this.m_menu);
+
+    const zoneMenu = new ZONE_CONTEXT_MENU();
+    zoneMenu.SetTool(this);
+
+    const lockMenu = new LOCK_CONTEXT_MENU(this);
+
+    // Add the PCB control menus to relevant other tools
+
+    const selTool = this.m_toolMgr!.FindTool(
+      'common.InteractiveSelection',
+    ) as unknown as PCB_SELECTION_TOOL | null;
+
+    if (selTool) {
+      const toolMenu = selTool.GetToolMenu();
+      const menu = toolMenu.GetMenu();
+
+      // Add "Get and Place Footprint" when Selection tool is in an inactive state
+      menu.AddItem(PCB_ACTIONS.getAndPlace, inactiveStateCondition);
+      menu.AddSeparator();
+
+      toolMenu.RegisterSubMenu(zoneMenu);
+      toolMenu.RegisterSubMenu(lockMenu);
+
+      menu.AddMenu(lockMenu, SELECTION_CONDITIONS.NotEmpty, 100);
+
+      menu.AddMenu(zoneMenu, SELECTION_CONDITIONS.OnlyTypes([KICAD_T.PCB_ZONE_T]), 100);
+    }
+
+    const drawingTool = this.m_toolMgr!.FindTool(
+      'pcbnew.InteractiveDrawing',
+    ) as unknown as DRAWING_TOOL | null;
+
+    if (drawingTool) {
+      const toolMenu = drawingTool.GetToolMenu();
+      const menu = toolMenu.GetMenu();
+
+      toolMenu.RegisterSubMenu(zoneMenu);
+
+      // Functor to say if the PCB_EDIT_FRAME is in a given mode
+      // Capture the tool pointer and tool mode by value
+      const toolActiveFunctor =
+        (aMode: DRAWING_MODE) =>
+        (_sel: SELECTION): boolean =>
+          drawingTool.GetDrawingMode() === aMode;
+
+      menu.AddMenu(zoneMenu, toolActiveFunctor(DRAWING_MODE.ZONE), 300);
+    }
+
+    // Ensure the left toolbar's Line modes group reflects the current setting at startup
+    if (this.m_toolMgr) this.m_toolMgr.RunAction(PCB_ACTIONS.angleSnapModeChanged);
+
+    return true;
+  }
+
+  /** `AssignNetclass` (board_editor_control.cpp:2117-2190). */
+  AssignNetclass(_aEvent: TOOL_EVENT): number {
+    const selectionTool = this.m_toolMgr!.FindTool(
+      'common.InteractiveSelection',
+    ) as unknown as PCB_SELECTION_TOOL;
+
+    const selection = selectionTool.RequestSelection((_aPt, aCollector, sTool) => {
+      // Iterate from the back so we don't have to worry about removals.
+      for (let i = aCollector.GetCount() - 1; i >= 0; --i) {
+        const item = aCollector.At(i)!;
+
+        if (!(item instanceof BOARD_CONNECTED_ITEM)) aCollector.Remove(item);
+      }
+
+      sTool.FilterCollectorForLockedItems(aCollector);
+    });
+
+    if (selectionTool.ReportFilteredLockedItems()) return 0;
+
+    const netNames = new Set<string>();
+    const netCodes = new Set<number>();
+
+    for (const item of selection.Items()) {
+      const net = (item as unknown as BOARD_CONNECTED_ITEM).GetNet()!;
+
+      if (!net.HasAutoGeneratedNetname()) {
+        netNames.add(net.GetNetname());
+        netCodes.add(net.GetNetCode());
+      }
+    }
+
+    if (netNames.size === 0) {
+      (this.m_frame as unknown as PCB_EDIT_FRAME).ShowInfoBarError(
+        'Selection contains no items with labeled nets.',
+      );
+      return 0;
+    }
+
+    selectionTool.ClearSelection();
+
+    for (const code of netCodes) this.m_toolMgr!.RunAction(PCB_ACTIONS.selectNet, code);
+
+    this.canvas()?.ForceRefresh();
+
+    const editFrame = this.m_frame as unknown as PCB_EDIT_FRAME;
+
+    void editFrame
+      .ShowAssignNetclassDialog(
+        netNames,
+        this.board().GetNetClassAssignmentCandidates(),
+        (aNetNames: readonly string[]) => {
+          const selTool = this.m_toolMgr!.FindTool(
+            'common.InteractiveSelection',
+          ) as unknown as PCB_SELECTION_TOOL;
+          selTool.ClearSelection();
+
+          for (const curr_netName of aNetNames) {
+            const curr_netCode =
+              this.board().GetNetInfo().GetNetItem(curr_netName)?.GetNetCode() ?? 0;
+
+            if (curr_netCode > 0) selTool.SelectAllItemsOnNet(curr_netCode);
+          }
+
+          this.canvas()?.ForceRefresh();
+          this.m_frame!.UpdateMsgPanel();
+        },
+      )
+      .then((aOk) => {
+        if (aOk) {
+          this.board().SynchronizeNetsAndNetClasses(false);
+          // Refresh UI that depends on netclasses, such as the properties panel
+          this.m_toolMgr!.ProcessEvent(EVENTS.SelectedItemsModified);
+        }
+      });
+
+    return 0;
   }
 
   static DoSetDrillOrigin(
@@ -574,6 +910,28 @@ export class BOARD_EDITOR_CONTROL extends PCB_TOOL_BASE {
       PCB_ACTIONS.unlock.MakeEvent(),
     );
     this.Go(this.PageSettings, ACTIONS.pageSettings.MakeEvent());
+
+    this.Go(
+      SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.AssignNetclass),
+      PCB_ACTIONS.assignNetClass.MakeEvent(),
+    );
+
+    this.Go(
+      SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.ChangeLineMode),
+      PCB_ACTIONS.lineModeFree.MakeEvent(),
+    );
+    this.Go(
+      SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.ChangeLineMode),
+      PCB_ACTIONS.lineMode90.MakeEvent(),
+    );
+    this.Go(
+      SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.ChangeLineMode),
+      PCB_ACTIONS.lineMode45.MakeEvent(),
+    );
+    this.Go(
+      SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.OnAngleSnapModeChanged),
+      PCB_ACTIONS.angleSnapModeChanged.MakeEvent(),
+    );
     this.Go(this.PlaceFootprint, PCB_ACTIONS.placeFootprint.MakeEvent());
   }
 }

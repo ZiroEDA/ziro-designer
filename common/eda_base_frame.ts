@@ -118,6 +118,22 @@ export abstract class EDA_BASE_FRAME
     return this.m_infoBar;
   }
 
+  /**
+   * `SelectToolbarAction( aAction )` (eda_base_frame.cpp): each toolbar shows
+   * `aAction` as its group's current entry. The toolbars are the window's,
+   * which installs the sink.
+   */
+  SelectToolbarAction(aAction: TOOL_ACTION): void {
+    this.m_selectToolbarActionSink?.(aAction);
+  }
+
+  private m_selectToolbarActionSink: ((aAction: TOOL_ACTION) => void) | null = null;
+
+  /** The window's ACTION_TOOLBAR::SelectAction, for {@link SelectToolbarAction}. */
+  SetSelectToolbarActionSink(aSink: ((aAction: TOOL_ACTION) => void) | null): void {
+    this.m_selectToolbarActionSink = aSink;
+  }
+
   /** The window's WX_INFOBAR, which it renders; null when it unmounts. */
   SetInfoBar(aInfoBar: WX_INFOBAR | null): void {
     this.m_infoBar = aInfoBar;

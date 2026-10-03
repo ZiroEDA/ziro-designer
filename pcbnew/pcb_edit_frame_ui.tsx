@@ -18,7 +18,6 @@ import { jsonFileWildcard, reportFileWildcard } from '@ziroeda/common/wildcards_
 import { type ChooserFilter, WxFileDialog } from '@ziroeda/common/wx/filedlg.js';
 import { KICTL_NONKICAD_ONLY } from '@ziroeda/common/kiway_player.js';
 import { DialogAssignNetclass } from '@ziroeda/common/dialogs/dialog_assign_netclass.js';
-import { connectedItemIdsOnNets } from './edit-board.js';
 import { EDA_VIEW_SWITCHER } from '@ziroeda/common/dialogs/eda_view_switcher.js';
 import { WxTextEntryDialog } from '@ziroeda/common/wx/textdlg.js';
 import { WX_TEXT_ENTRY_DIALOG } from '@ziroeda/common/dialogs/dialog_text_entry.js';
@@ -75,7 +74,6 @@ import {
   parseBoardItemId,
   boardItemId,
   isBoardItemLocked,
-  isCopperLayerName,
   serializeBoard,
   serializeBoardAsync,
   type Board,
@@ -98,7 +96,6 @@ import {
   CROSS_PROBE_FLASH_LAST_PHASE,
 } from './index.js';
 import {
-  barcodeAt,
   barcodePreview,
   DIALOG_BARCODE_PROPERTIES,
   type BarcodePreview,
@@ -107,11 +104,7 @@ import {
 import { DialogBarcodeProperties } from './dialogs/dialog_barcode_properties_ui.js';
 import { DialogImportGraphics } from './import_gfx/dialog_import_graphics.js';
 import { GetLayerName, IsCopperLayer } from '@ziroeda/common/layer_ids.js';
-import {
-  boardIsEmpty,
-  hasLockedItems,
-  hasUnlockedItems,
-} from './tools/pcb_selection_conditions.js';
+import { hasLockedItems, hasUnlockedItems } from './tools/pcb_selection_conditions.js';
 import { Infobar } from '@ziroeda/common/widgets/wx_infobar.js';
 import { useHotkeyCyclePopup } from '@ziroeda/common/dialogs/hotkey_cycle_popup_ui.js';
 import type { WX_INFOBAR, WX_INFOBAR_HYPERLINK } from '@ziroeda/common/eda_base_frame.js';
@@ -381,12 +374,7 @@ import {
   type DimensionValues,
 } from './dialogs/dialog_dimension_properties.js';
 import { Reporter, type ReportLine } from '@ziroeda/common';
-import {
-  MenuBar,
-  ContextMenu,
-  type Menu,
-  type MenuItem,
-} from '@ziroeda/common/tool/action_menu_bar.js';
+import { MenuBar, ContextMenu, type Menu } from '@ziroeda/common/tool/action_menu_bar.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { layerBoxLabel } from './pcb_layer_box_selector.js';
 import { Toolbar } from '@ziroeda/common/tool/action_toolbar.js';
@@ -448,8 +436,6 @@ import type { GATED_DISPATCHER, WINDOW_ACTION_HANDLER } from './tools/window_act
 import type { ACTION_MENU } from '@ziroeda/common/tool/action_menu.js';
 import { actionMenuItems } from '@ziroeda/common/tool/action_menu_popup.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
-import { GroupMenuState } from '@ziroeda/common/tool/group_tool.js';
-import { CONDITIONAL_MENU } from '@ziroeda/common/tool/conditional_menu.js';
 import { EVENTS } from '@ziroeda/common/tool/tool_event.js';
 import * as KIPLATFORM_UI from '@ziroeda/common/kiplatform/ui.js';
 import { wxMenuEvent, wxMenuEventType } from '@ziroeda/common/wx/menu.js';
@@ -475,8 +461,6 @@ import { DialogOutsetItems } from './dialogs/dialog_outset_items_ui.js';
 import { DIALOG_OUTSET_ITEMS } from './dialogs/dialog_outset_items.js';
 import { CONVERT_SETTINGS_DIALOG } from './tools/convert_settings_dialog.js';
 import { ConvertSettingsDialog } from './tools/convert_settings_dialog_ui.js';
-import type { CONVERT_TOOL } from './tools/convert_tool.js';
-import type { BOARD_INSPECTION_TOOL } from './tools/board_inspection_tool.js';
 import type { OUTSET_PARAMETERS } from './tools/item_modification_routine.js';
 import type { CONVERT_SETTINGS } from './pcbnew_settings.js';
 import type { ZONE_SETTINGS } from './zone_settings.js';
@@ -526,7 +510,7 @@ import {
   DialogBookReporterModeless,
 } from '@ziroeda/common/dialogs/dialog_book_reporter_ui.js';
 import type { DIALOG_BOOK_REPORTER } from '@ziroeda/common/dialogs/dialog_book_reporter.js';
-import { inspectReport, describeSelected } from './tools/board_inspection_tool.js';
+import { inspectReport } from './tools/board_inspection_tool.js';
 import { netClassFor, netclassesForNet } from '@ziroeda/common/netclass_resolve.js';
 // APPEARANCE_CONTROLS is ONE widget that PCB_EDIT_FRAME and
 // FOOTPRINT_EDIT_FRAME both construct, so the panel, its Objects table and its
@@ -699,6 +683,7 @@ import {
   isStoredPcbToggle,
   lineModeToggleId,
   PCB_CHECKED_ACTIONS,
+  PCB_LINE_MODE_ACTIONS,
   pcbCheckedSet,
   pcbTogglesFromSettings,
 } from './pcb_edit_frame.js';
@@ -736,18 +721,7 @@ import type { PcbSearchWiring } from './widgets/search_handlers.js';
 import { PCB_VERTEX_EDITOR_PANE } from './widgets/vertex_editor_pane.js';
 import { VertexEditorWindow } from './pcb_base_edit_frame_ui.js';
 import { drawCrosshair, gridSnappingEnabled } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
-import {
-  GRID_SIZE_LIST,
-  gridEntryOf,
-  gridSizeToIU,
-  gridSizesIU,
-} from '@ziroeda/common/settings/grid_settings_ui.js';
-import {
-  evaluateConditionalMenu,
-  menuEntry,
-  menuSeparator,
-} from '@ziroeda/common/tool/conditional_menu.js';
-import { standardSubMenuEntries } from '@ziroeda/common/eda_draw_frame_submenus.js';
+import { gridSizeToIU, gridSizesIU } from '@ziroeda/common/settings/grid_settings_ui.js';
 import { PCB_CONTROL, PCB_DEFAULT_TOOLBARS } from './toolbars_pcb_editor.js';
 import '@ziroeda/common/widgets/shell.css';
 import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
@@ -1658,7 +1632,12 @@ export function PcbEditor({
   const [viewportSel, setViewportSel] = useState('---');
   // BOARD_EDITOR_CONTROL::AssignNetclass: the labelled nets of the selection,
   // while DIALOG_ASSIGN_NETCLASS is up.
-  const [netclassNets, setNetclassNets] = useState<Set<string> | null>(null);
+  const [netclassDlg, setNetclassDlg] = useState<{
+    names: ReadonlySet<string>;
+    candidates: ReadonlySet<string>;
+    preview: (aNetNames: readonly string[]) => void;
+    resolve: (aOk: boolean) => void;
+  } | null>(null);
   // "Delete preset/viewport..." chooser popup.
   const [deleteChooser, setDeleteChooser] = useState<'presets' | 'viewports' | null>(null);
   // APPEARANCE_CONTROLS::m_presetMRU / m_viewportMRU: most recent first. The
@@ -2536,6 +2515,10 @@ export function PcbEditor({
       settings: () => Pgm().GetSettingsManager().GetAppSettings<PCBNEW_SETTINGS>('pcbnew')!,
       storeSettings: () => storePcbnewSettingsRef.current(),
       updateDisplayOptions: () => updateDisplayOptionsRef.current(),
+      showAssignNetclassDialog: (aNames, aCandidates, aPreview) =>
+        new Promise<boolean>((resolve) =>
+          setNetclassDlg({ names: aNames, candidates: aCandidates, preview: aPreview, resolve }),
+        ),
       viewer3DShown: () => show3DRef.current,
       showViewer3D: () => setShow3DRef.current(true),
       reCreateAuxiliaryToolbar: () => {
@@ -4335,20 +4318,7 @@ export function PcbEditor({
    */
   const enteredGroupRef = useRef<string | null>(null);
 
-  /**
-   * PCB_SELECTION_TOOL's context menu (`m_menu->ShowContextMenu( m_selection )`)
-   * at the pointer, with the close the tool manager waits for.
-   *
-   * TRANSITIONAL (#636 stage 3): upstream every tool's `Init()` adds its rows to
-   * the selection tool's CONDITIONAL_MENU. Only PCB_SELECTION_TOOL's `Init` is
-   * ported, so the rows are still `buildPcbContextMenu`'s, which states all
-   * four `Init()`s' rows with their order numbers and conditions. Each tool's
-   * rows move into its `Init()` with that tool.
-   */
-  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; onClose: () => void } | null>(
-    null,
-  );
-  /** Any other ACTION_MENU a tool pops up (the disambiguation menu), with its close. */
+  /** The ACTION_MENU a tool pops up - the selection tool's context menu, the disambiguation menu - with its close. */
   const [toolPopup, setToolPopup] = useState<{
     menu: ACTION_MENU;
     x: number;
@@ -4394,53 +4364,6 @@ export function PcbEditor({
    * `OnMenuEvent`, which runs the action through the tool manager.
    */
   /** BOARD_INSPECTION_TOOL's NET_CONTEXT_MENU, its rows the tool's actions. */
-  const netInspectionSubmenu = (): MenuItem[] => {
-    const tool = frameRef.current
-      ?.GetToolManager()
-      ?.FindTool('pcbnew.InspectionTool') as BOARD_INSPECTION_TOOL | null;
-    const menu = tool?.GetNetSubMenu();
-    if (!menu) return [];
-    menu.UpdateAll();
-    return actionMenuItems(menu);
-  };
-
-  const convertSubmenu = (): MenuItem[] => {
-    const frame = frameRef.current;
-    const tool = frame?.GetToolManager()?.FindTool('pcbnew.Convert') as CONVERT_TOOL | null;
-    const menu = tool?.GetMenu();
-    if (!frame || !menu) return [];
-    menu.Evaluate(frame.GetSelectionTool().GetSelection());
-    menu.UpdateAll();
-    return actionMenuItems(menu);
-  };
-
-  const alignDistributeSubmenu = (): MenuItem[] => {
-    const row = (label: string, action: TOOL_ACTION): MenuItem => ({
-      label,
-      action: () => runAction(action),
-    });
-    // `canDistribute = SELECTION_CONDITIONS::MoreThan( 2 )` over the selection
-    // tool's selection, whose rows run ALIGN_DISTRIBUTE_TOOL's actions.
-    const canDistribute = (frameRef.current?.GetSelectionTool().GetSelection().Size() ?? 0) > 2;
-    return [
-      row('Align to Left', PCB_ACTIONS.alignLeft),
-      row('Align to Horizontal Center', PCB_ACTIONS.alignCenterX),
-      row('Align to Right', PCB_ACTIONS.alignRight),
-      { sep: true },
-      row('Align to Top', PCB_ACTIONS.alignTop),
-      row('Align to Vertical Center', PCB_ACTIONS.alignCenterY),
-      row('Align to Bottom', PCB_ACTIONS.alignBottom),
-      ...(canDistribute
-        ? [
-            { sep: true } as MenuItem,
-            row('Distribute Horizontally by Centers', PCB_ACTIONS.distributeHorizontallyCenters),
-            row('Distribute Horizontally with Even Gaps', PCB_ACTIONS.distributeHorizontallyGaps),
-            row('Distribute Vertically by Centers', PCB_ACTIONS.distributeVerticallyCenters),
-            row('Distribute Vertically with Even Gaps', PCB_ACTIONS.distributeVerticallyGaps),
-          ]
-        : []),
-    ];
-  };
 
   // Fit the view to a world-space box (shared by Zoom-to-Fit variants and the
   // interactive zoom tool).
@@ -4790,6 +4713,19 @@ export function PcbEditor({
       return !isSelectTool(activeToolRef.current);
     },
   };
+  // EDA_BASE_FRAME::SelectToolbarAction: a toolbar group shows the action a
+  // tool names (the Line modes group, from OnAngleSnapModeChanged).
+  useEffect(() => {
+    const frame = frameRef.current;
+    if (!frame) return;
+    frame.SetSelectToolbarActionSink((aAction) => {
+      const id = Object.keys(PCB_LINE_MODE_ACTIONS).find(
+        (k) => PCB_LINE_MODE_ACTIONS[k] === aAction,
+      );
+      if (id) setToggles((prev) => applyToggle(prev, id));
+    });
+    return () => frame.SetSelectToolbarActionSink(null);
+  }, []);
   // The frame's message panel is this window's MsgPanel.
   useEffect(() => {
     const frame = frameRef.current;
@@ -4806,16 +4742,9 @@ export function PcbEditor({
     frame.SetPopupMenuPresenter((aMenu, aOnClose) => {
       const at = KIPLATFORM_UI.GetMousePosition();
       aMenu.OnMenuEvent(new wxMenuEvent(wxMenuEventType.wxEVT_MENU_OPEN, 0, aMenu));
-      // TRANSITIONAL (#636 stage 3): a TOOL_MENU (a CONDITIONAL_MENU) is the
-      // selection tool's context menu - the only tool with one so far - which
-      // shows the rows every tool's `Init()` adds, still stated by the window
-      // (`buildPcbContextMenu`); see `ctxMenu`.
-      if (aMenu instanceof CONDITIONAL_MENU) {
-        refreshSelectionMirrorRef.current();
-        setCtxMenu({ x: at.x, y: at.y, onClose: aOnClose });
-      } else {
-        setToolPopup({ menu: aMenu, x: at.x, y: at.y, onClose: aOnClose });
-      }
+      // A TOOL_MENU's CONDITIONAL_MENU arrives evaluated against the selection
+      // (TOOL_MENU::ShowContextMenu): the rows every tool's Init() added.
+      setToolPopup({ menu: aMenu, x: at.x, y: at.y, onClose: aOnClose });
     });
     return () => frame.SetPopupMenuPresenter(null);
   }, []);
@@ -5329,599 +5258,6 @@ export function PcbEditor({
       document.removeEventListener('paste', onPaste);
     };
   }, []);
-
-  /**
-   * The canvas context menu. Four `Init()`s feed one `CONDITIONAL_MENU`
-   * upstream, and this states their rows with the same order numbers and
-   * conditions rather than with the evaluated shape, so
-   * `evaluateConditionalMenu` decides which rows and which rules survive:
-   *
-   *   BOARD_EDITOR_CONTROL::Init (board_editor_control.cpp:430-440), into the
-   *       SELECTION tool's menu: getAndPlace (inactiveStateCondition) and a
-   *       separator at the default order, then LOCK_CONTEXT_MENU @100 and
-   *       ZONE_CONTEXT_MENU @100
-   *   EDIT_TOOL::Init (edit_tool.cpp:750-832): properties, the rotate/mirror
-   *       rows and the footprint rows at the default order; separator @100 and
-   *       the shape-modification / positioning submenus @100; separator @150
-   *       with cut / copy / paste / pasteSpecial / duplicate / doDelete; then
-   *       separator @150 with selectAll / unselectAll
-   *   PCB_SELECTION_TOOL::Init (pcb_selection_tool.cpp:214-235): separator @1
-   *       and the @1/@2 rows, then AddStandardSubMenus
-   *   EDA_DRAW_FRAME::AddStandardSubMenus (eda_draw_frame.cpp:709-726):
-   *       separator @1000 and the Zoom and Grid submenus @1000
-   *
-   * `CONDITIONAL_MENU::ANY_ORDER` is **-1** (conditional_menu.h:45), so the
-   * un-numbered rows sort BEFORE the numbered ones — which is why upstream's
-   * empty-canvas menu opens on Get and Move Footprint and not on Paste.
-   *
-   * What ours had: Select All and Unselect All and nothing else on an empty
-   * canvas, with no Zoom or Grid submenu anywhere, and Unselect All greyed on
-   * an empty selection. That last one is not upstream's condition —
-   * `noItemsCondition` (edit_tool.cpp:732-735) is
-   * `frame()->GetBoard() && !frame()->GetBoard()->IsEmpty()`, about the BOARD
-   * and not about the selection, and it gates both rows identically.
-   */
-  const buildPcbContextMenu = (): MenuItem[] => {
-    const brd = board;
-    let anyLocked = false;
-    let anyUnlocked = false;
-    for (const id of selection) {
-      const r = parseBoardItemId(id);
-      if (!r) continue;
-      if (brd) {
-        if (isBoardItemLocked(brd, id)) anyLocked = true;
-        else anyUnlocked = true;
-      }
-    }
-    const groupMenu = GroupMenuState(frameRef.current?.GetSelectionTool().GetSelection() ?? null);
-    const A = (label: string, actionId: string, disabled?: boolean): MenuItem => ({
-      label,
-      icon: actionId,
-      disabled,
-      action: () => onTopAction(actionId),
-    });
-
-    // ---- the conditions the upstream rows are gated on -------------------
-    const notEmpty = selection.size > 0;
-    const moreThanOne = selection.size > 1;
-    // `noItemsCondition` (edit_tool.cpp:732-735): the BOARD has items. It is
-    // not about the selection, and it gates Select All and Unselect All alike.
-    const boardHasItems = brd !== null && !boardIsEmpty(brd);
-    const zoneIdx = brd ? zoneAt(brd, selection) : null;
-    const fpIdx = brd ? footprintAt(brd, selection) : null;
-    const padIdx = brd ? selectedPadAt(brd, selection) : null;
-    const textIdx = brd ? textAt(brd, selection) : null;
-    const shapeIdx = brd ? shapeAt(brd, selection) : null;
-    const barcodeIdx = brd ? barcodeAt(brd, selection) : null;
-    const copper = brd ? hasTrackOrVia(trackViaSelection(brd, selection)) : false;
-    // `propertiesCondition` — something the properties dialog can open on.
-    const editable =
-      copper ||
-      zoneIdx !== null ||
-      fpIdx !== null ||
-      padIdx !== null ||
-      textIdx !== null ||
-      shapeIdx !== null ||
-      // `EDIT_TOOL::Properties` lists `PCB_BARCODE_T` with the items whose
-      // dialog it opens (`edit_tool.cpp:2785`).
-      barcodeIdx !== null;
-    // `singleFootprintCondition` / `multipleFootprintsCondition`
-    // (edit_tool.cpp), which gate the whole footprint block.
-    let footprintCount = 0;
-    for (const id of selection) if (parseBoardItemId(id)?.kind === 'footprint') footprintCount++;
-    const oneFootprint = footprintCount === 1;
-    const anyFootprint = footprintCount > 0;
-    // `frame()->ToolStackIsEmpty()` — no tool has been pushed, so the
-    // selection tool is all that is running. Ours spells the idle state as the
-    // `selectSetRect` tool id, NOT `select`: every other id here is a pushed
-    // tool. This gates Paste, Paste Special and Get and Move Footprint, and
-    // comparing against the wrong id hides all three at once.
-    const toolStackIsEmpty = isSelectTool(activeTool);
-    /**
-     * `isRoutable` (edit_tool.cpp:742-743):
-     * `NotEmpty && HasTypes( routableTypes ) && notMoving && !inFootprintEditor`,
-     * where `routableTypes` (edit_tool.cpp:130) is
-     * `{ PCB_TRACE_T, PCB_ARC_T, PCB_VIA_T, PCB_PAD_T, PCB_FOOTPRINT_T }`.
-     *
-     * `HasTypes` is ANY, not ONLY — and a FOOTPRINT is in the list, which is
-     * why KiCad offers Route Selected on a footprint. Reading this as "copper
-     * is selected" would have hidden all five router rows on the one selection
-     * a user reaches for most.
-     */
-    const routableKinds = new Set(['track', 'arc', 'via', 'pad', 'footprint']);
-    let routable = false;
-    /**
-     * `canMirror` (edit_tool.cpp:649-655): false when the selection is ONLY
-     * pads, else `selectionMirrorable` — at least one item whose type is in
-     * `EDIT_TOOL::MirrorableItems` (edit_tool.cpp:2417-2420):
-     *
-     *     PCB_SHAPE_T, PCB_FIELD_T, PCB_TEXT_T, PCB_TEXTBOX_T, PCB_ZONE_T,
-     *     PCB_PAD_T, PCB_TRACE_T, PCB_ARC_T, PCB_VIA_T, PCB_GROUP_T,
-     *     PCB_GENERATOR_T, PCB_POINT_T, PCB_TABLE_T
-     *
-     * A FOOTPRINT is deliberately not in it — `nonMirrorableTypes`
-     * (edit_tool.cpp:135-137) names it — so KiCad shows no Mirror row on a
-     * selected footprint. Ours used a `hasNonPad` flag that was true for a
-     * footprint and so offered both.
-     */
-    const mirrorableKinds = new Set([
-      'shape',
-      'fptext',
-      'text',
-      'textbox',
-      'zone',
-      'pad',
-      'track',
-      'arc',
-      'via',
-      'group',
-      'table',
-    ]);
-    /**
-     * `GENERAL_COLLECTOR::DraggableItems` (collectors.cpp:145-150), exactly:
-     * `{ PCB_TRACE_T, PCB_VIA_T, PCB_FOOTPRINT_T, PCB_ARC_T }`. A pad, a zone,
-     * a text or a shape is not draggable, so neither drag row belongs on one.
-     */
-    const draggableKinds = new Set(['track', 'via', 'footprint', 'arc']);
-    /**
-     * `propertiesCondition` (edit_tool.cpp:616-642) reads a good deal narrower
-     * than "something is selected": one item always qualifies, but a MULTI
-     * selection qualifies only when every item is a `PCB_TRACK` — and PCB_ARC
-     * and PCB_VIA both derive from it, which is why the `dynamic_cast` there
-     * takes all three. Anything else and the row is GONE, not greyed; KiCad
-     * draws no Properties row over seven footprints, and ours drew a dead one.
-     */
-    const trackKinds = new Set(['track', 'arc', 'via']);
-    /**
-     * Two conditions that both mean "connectable", and are NOT the same list.
-     *
-     * `connectedTypes` (edit_tool.cpp:128) — `{ PCB_TRACE_T, PCB_ARC_T,
-     * PCB_VIA_T, PCB_PAD_T, PCB_ZONE_T }` — gates Assign Netclass.
-     * `showNetMenuFunc` (board_inspection_tool.cpp:101-131) takes those five
-     * AND a `PCB_SHAPE` that `IsOnCopperLayer()`, and gates the Net Inspection
-     * Tools submenu. A pad satisfies both, which is why KiCad's menu over a pad
-     * carries two rows ours had neither of.
-     */
-    const connectedKinds = new Set(['track', 'arc', 'via', 'pad', 'zone']);
-    const shapeOnCopper = (id: string): boolean => {
-      const idx = parseBoardItemId(id)?.index;
-      const shape = idx === undefined ? undefined : brd?.shapes[idx];
-      return !!shape && isCopperLayerName(shape.layer);
-    };
-    let anyMirrorable = false;
-    let onlyPads = selection.size > 0;
-    let onlyDraggable = selection.size > 0;
-    let onlyTracks = selection.size > 0;
-    let onlyConnected = selection.size > 0;
-    let netInspectable = selection.size > 0;
-    for (const id of selection) {
-      const kind = parseBoardItemId(id)?.kind;
-      if (kind === undefined) continue;
-      if (!connectedKinds.has(kind)) {
-        onlyConnected = false;
-        if (!(kind === 'shape' && shapeOnCopper(id))) netInspectable = false;
-      }
-      if (routableKinds.has(kind)) routable = true;
-      if (mirrorableKinds.has(kind)) anyMirrorable = true;
-      if (kind !== 'pad') onlyPads = false;
-      if (!draggableKinds.has(kind)) onlyDraggable = false;
-      if (!trackKinds.has(kind)) onlyTracks = false;
-    }
-    // The empty case is upstream's drawing-sheet hit test, which we have no
-    // properties dialog for, so it stays false here.
-    const propertiesCondition = selection.size === 1 || (moreThanOne && onlyTracks);
-    const canMirror = !onlyPads && anyMirrorable;
-    /**
-     * `drag45Degree` (edit_tool.cpp:776-777) is `Count( 1 ) && OnlyTypes(
-     * DraggableItems )`. `dragFreeAngle` (edit_tool.cpp:778-780) is that AND
-     * `!OnlyTypes( footprintTypes )` (edit_tool.cpp:120) — a footprint drags on
-     * 45s only, so over one KiCad offers Drag 45 Degree Mode and no Drag Free
-     * Angle. Both rows were gated on `notEmpty` here, which is [px] the extra
-     * row our menu carried against the installed build's over a footprint, and
-     * two rows that should not appear at all over a pad or a zone.
-     */
-    const canDrag45 = selection.size === 1 && onlyDraggable;
-    const canDragFree = canDrag45 && footprintCount === 0;
-
-    /**
-     * Shown in its upstream position, greyed until the command exists — the
-     * same thing this frame does with Grid Origin and Route > Single Track.
-     *
-     * The accelerator is deliberately NOT a parameter here. It has to stay a
-     * literal at the row, because `menu_hotkey_coverage.test.ts` scrapes this
-     * file as TEXT for the accelerator field, and a key funnelled through a
-     * parameter is one that ratchet cannot see — which is the silent drift it
-     * exists to catch. It caught this helper's first draft, and then caught
-     * the field name written out inside this very comment.
-     */
-    const TODO = (label: string): MenuItem => ({ label, disabled: true });
-
-    return evaluateConditionalMenu([
-      // ---- PCB_SELECTION_TOOL::Init (pcb_selection_tool.cpp:214) ---------
-      menuEntry(
-        {
-          label: 'Select',
-          submenu: [
-            TODO('Filter Selected Items...'),
-            { sep: true },
-            TODO('Items in Same Hierarchical Sheet'),
-            TODO('Items with Same Component Class'),
-            TODO('All Tracks in Net'),
-          ],
-        },
-        -1,
-        notEmpty,
-      ),
-
-      // ---- BOARD_EDITOR_CONTROL::Init (board_editor_control.cpp:431-432) -
-      // `inactiveStateCondition`: the tool stack is empty AND nothing is
-      // selected, which is why this heads the empty-canvas menu and vanishes
-      // the moment something is picked.
-      menuEntry(
-        {
-          label: 'Get and Move Footprint',
-          shortcut: 'T',
-          action: () => runAction(PCB_ACTIONS.getAndPlace),
-        },
-        -1,
-        toolStackIsEmpty && !notEmpty,
-      ),
-      menuSeparator(-1),
-
-      // ---- EDIT_TOOL::Init (edit_tool.cpp:763-810) -----------------------
-      menuEntry(
-        { label: 'Move', shortcut: 'M', action: () => runAction(PCB_ACTIONS.move) },
-        -1,
-        notEmpty,
-      ),
-      menuEntry(
-        { label: 'Move with Reference...', action: () => runAction(PCB_ACTIONS.moveWithReference) },
-        -1,
-        notEmpty,
-      ),
-      // `PCB_ACTIONS::moveIndividually` (pcb_actions.cpp:601-605): the friendly
-      // name carries NO ellipsis - it starts an interactive move, it does not
-      // open a dialog - and it does carry Ctrl+M.
-      menuEntry(
-        {
-          label: 'Move Individually',
-          shortcut: 'Ctrl+M',
-          action: () => runAction(PCB_ACTIONS.moveIndividually),
-        },
-        -1,
-        moreThanOne,
-      ),
-
-      menuEntry({ label: 'Route Selected', shortcut: 'Shift+X', disabled: true }, -1, routable),
-      menuEntry(
-        { label: 'Route Selected From Other End', shortcut: 'Shift+E', disabled: true },
-        -1,
-        routable,
-      ),
-      menuEntry(TODO('Unroute Selected'), -1, routable),
-      menuEntry({ label: 'Unroute Segment', shortcut: 'Backspace', disabled: true }, -1, routable),
-      menuEntry(
-        { label: 'Attempt Finish Selected (Autoroute)', shortcut: 'Shift+F', disabled: true },
-        -1,
-        routable,
-      ),
-
-      menuEntry(
-        {
-          label: 'Drag 45 Degree Mode',
-          shortcut: 'D',
-          action: () => runAction(PCB_ACTIONS.drag45Degree),
-        },
-        -1,
-        canDrag45,
-      ),
-      menuEntry(
-        {
-          label: 'Drag Free Angle',
-          shortcut: 'G',
-          action: () => runAction(PCB_ACTIONS.dragFreeAngle),
-        },
-        -1,
-        canDragFree,
-      ),
-
-      menuEntry({ ...A('Rotate Counterclockwise', 'rotateCCW'), shortcut: 'R' }, -1, notEmpty),
-      menuEntry({ ...A('Rotate Clockwise', 'rotateCW'), shortcut: 'Shift+R' }, -1, notEmpty),
-      menuEntry(
-        { label: 'Change Side / Flip', shortcut: 'F', action: () => runAction(PCB_ACTIONS.flip) },
-        -1,
-        notEmpty,
-      ),
-      menuEntry(A('Mirror Horizontally', 'mirrorH'), -1, canMirror),
-      menuEntry(A('Mirror Vertically', 'mirrorV'), -1, canMirror),
-      // `PCB_ACTIONS::swap` carries Alt+S (pcb_actions.cpp:704-708).
-      menuEntry(
-        { label: 'Swap', shortcut: 'Alt+S', action: () => runAction(PCB_ACTIONS.swap) },
-        -1,
-        moreThanOne,
-      ),
-      // `packAndMoveFootprints` (edit_tool.cpp:794-795), on
-      // `MoreThan( 1 ) && HasType( PCB_FOOTPRINT_T )` — ANY footprint in the
-      // selection, not only footprints. P (pcb_actions.cpp:727-731).
-      menuEntry(
-        {
-          label: 'Pack and Move Footprints',
-          shortcut: 'P',
-          action: () => runAction(PCB_ACTIONS.packAndMoveFootprints),
-        },
-        -1,
-        moreThanOne && anyFootprint,
-      ),
-
-      menuEntry(
-        {
-          label: 'Properties...',
-          shortcut: 'E',
-          disabled: !editable,
-          action: () => {
-            if (copper) setTrackViaOpen(true);
-            else if (zoneIdx !== null) frameRef.current?.Edit_Zone_Params(zoneIdx);
-            else if (padIdx !== null) setPadPropsRef(padIdx);
-            else if (textIdx !== null) setTextPropsIndex(textIdx);
-            else if (shapeIdx !== null) setShapePropsIndex(shapeIdx);
-            else if (barcodeIdx !== null) setBarcodePropsIndex(barcodeIdx);
-            else setFpPropsIndex(fpIdx);
-          },
-        },
-        -1,
-        propertiesCondition,
-      ),
-      // `assignNetClass` (edit_tool.cpp:799-800), between Properties and the
-      // clearance inspector, on `OnlyTypes( connectedTypes ) &&
-      // !inFootprintEditor`: BOARD_EDITOR_CONTROL::AssignNetclass.
-      menuEntry({ label: 'Assign Netclass...', action: () => assignNetclass() }, -1, onlyConnected),
-      menuEntry(
-        {
-          label: selection.size === 2 ? 'Clearance Resolution...' : 'Constraints Resolution...',
-          action: () => setInspectOpen(true),
-        },
-        -1,
-        selection.size === 2,
-      ),
-
-      // The footprint block (edit_tool.cpp:803-809), after its own separator.
-      menuSeparator(-1),
-      menuEntry(
-        { ...A('Open in Footprint Editor', 'footprintEditor'), shortcut: 'Ctrl+E' },
-        -1,
-        oneFootprint,
-      ),
-      menuEntry(TODO('Update Footprint...'), -1, oneFootprint),
-      // `PCB_ACTIONS::updateFootprints` (pcb_actions.cpp:998-1002) is
-      // "Update Footprints from Library...", not the plural of the single-item
-      // row above it — the two rows are different commands with different
-      // names, and only the singular one is "Update Footprint...".
-      menuEntry(TODO('Update Footprints from Library...'), -1, anyFootprint && !oneFootprint),
-      menuEntry(TODO('Change Footprint...'), -1, oneFootprint),
-      menuEntry(TODO('Change Footprints...'), -1, anyFootprint && !oneFootprint),
-      menuEntry(
-        {
-          label: 'Attributes',
-          submenu: [TODO('Exclude from Bill of Materials'), TODO('Exclude from Position Files')],
-        },
-        -1,
-        anyFootprint,
-      ),
-
-      // ---- the @100 band ------------------------------------------------
-      // Nobody owns this band. Seven different tools drop a submenu into it
-      // from their own Init(), and because ties keep their insertion order
-      // (conditional_menu.cpp:210-221, and our own evaluateConditionalMenu),
-      // the on-screen order is the order those tools are REGISTERED in
-      // `PCB_EDIT_FRAME::setupTools` (pcb_edit_frame.cpp:947-979):
-      //
-      //   EDIT_TOOL (:953)             separator, [Shape Modification],
-      //                                Position          (edit_tool.cpp:812-814)
-      //   PCB_EDIT_TABLE_TOOL (:954)   seven separators with the table-cell rows
-      //                                between them  (edit_table_tool_base.h:94-115)
-      //   BOARD_EDITOR_CONTROL (:961)  Locking, [Zone]
-      //                                       (board_editor_control.cpp:437-439)
-      //   BOARD_INSPECTION_TOOL (:962) Net Inspection Tools
-      //   ALIGN_DISTRIBUTE_TOOL (:964) [Align/Distribute], on MoreThan( 1 )
-      //   CONVERT_TOOL (:972)          Create from Selection (convert_tool.cpp:333)
-      //   PCB_GROUP_TOOL (:973)        Grouping           (group_tool.cpp:138)
-      //
-      // So it reads Position | Locking, Create from Selection, Grouping — not
-      // the tidier grouping ours had invented (Create from Selection, Position,
-      // Grouping, Locking), which put the two footprint-placement submenus on
-      // opposite sides of the band. [px] confirmed against the installed
-      // pcbnew, one footprint selected (2026-08-31).
-      menuSeparator(100),
-      // EDIT_TOOL's `shapeModificationSubMenu` (`edit_tool.cpp:255-291`), on
-      // `shapeModificationCondition`. Only its Edit Corners... row is ported, and
-      // that row is itself gated on `selectionHasEditableCorners`, so the submenu
-      // exists exactly when it has a row.
-      menuEntry(
-        {
-          label: 'Shape Modification',
-          submenu: [A('Edit Corners...', 'editVertices')],
-        },
-        100,
-        !!brd && selectionHasEditableCorners(brd, selection),
-      ),
-      menuEntry(
-        {
-          label: 'Position',
-          submenu: [
-            {
-              label: 'Move Exactly...',
-              shortcut: 'Shift+M',
-              action: () => runAction(PCB_ACTIONS.moveExact),
-            },
-            {
-              label: 'Position Relative To...',
-              shortcut: 'Shift+P',
-              action: () => runAction(PCB_ACTIONS.positionRelative),
-            },
-            {
-              label: 'Outset Items...',
-              action: () => runAction(PCB_ACTIONS.outsetItems),
-            },
-          ],
-        },
-        100,
-        notEmpty,
-      ),
-      // EDIT_TABLE_TOOL_BASE::addMenus (edit_table_tool_base.h:94-115) opens
-      // and closes each of its five groups with its own `AddSeparator( 100 )`.
-      // We have no table-cell editing in the PCB editor, so all its ROWS
-      // condition away and separator elision collapses the whole band to the
-      // single rule this stands for — which is exactly what the installed
-      // build draws between Position and Locking over a footprint. It is a
-      // real KiCad rule, not decoration: when the table rows land they go
-      // here, between these separators.
-      menuSeparator(100),
-      // LOCK_CONTEXT_MENU (board_editor_control.cpp:303), @100 on NotEmpty.
-      menuEntry(
-        {
-          label: 'Locking',
-          icon: 'lock',
-          submenu: [
-            A('Lock', 'lock', !anyUnlocked),
-            A('Unlock', 'unlock', !anyLocked),
-            A('Toggle Lock', 'toggleLock'),
-          ],
-        },
-        100,
-        notEmpty,
-      ),
-      // ALIGN_DISTRIBUTE_TOOL::Init (align_distribute_tool.cpp:66-88). Its own
-      // rows split into three groups: align X, align Y, and distribute — and
-      // the two rules between them are conditional, `AddSeparator( canAlign )`
-      // and `AddSeparator( canDistribute )`, so the distribute group and the
-      // rule above it appear only from THREE items up (`MoreThan( 2 )`) while
-      // the submenu itself opens from two (`MoreThan( 1 )`).
-      //
-      // NET_CONTEXT_MENU (board_inspection_tool.cpp:68-82), @100 on
-      // `showNetMenuFunc` — every selected item connectable. Four rows around
-      // one rule; Clear Net Highlighting carries `~` (pcb_actions.cpp:1575).
-      menuEntry(
-        { label: 'Net Inspection Tools', submenu: netInspectionSubmenu() },
-        100,
-        netInspectable,
-      ),
-      // The rows are the real ones: the engine has been here all along, wired
-      // to an Edit-menu submenu that upstream does not have. See
-      // `alignDistributeSubmenu`.
-      menuEntry({ label: 'Align/Distribute', submenu: alignDistributeSubmenu() }, 100, moreThanOne),
-      // CONVERT_TOOL::Init's CONDITIONAL_MENU (convert_tool.cpp:291-333),
-      // evaluated over the selection tool's selection as the tool's own menu is.
-      menuEntry({ label: 'Create from Selection', submenu: convertSubmenu() }, 100, notEmpty),
-      menuEntry(
-        {
-          label: 'Grouping',
-          icon: 'group',
-          // GROUP_CONTEXT_MENU (group_tool.cpp:40-105), which PCB_GROUP_TOOL's
-          // Init adds; its enables read the selection tool's selection.
-          submenu: [
-            A('Group Items', 'group', !groupMenu.group),
-            A('Ungroup Items', 'ungroup', !groupMenu.ungroup),
-            A('Add Items', 'addToGroup', !groupMenu.addToGroup),
-            A('Remove Items', 'removeFromGroup', !groupMenu.removeFromGroup),
-          ],
-        },
-        100,
-        notEmpty,
-      ),
-
-      // ---- EDIT_TOOL's @150 clipboard group (edit_tool.cpp:817-827) ------
-      menuSeparator(150),
-      menuEntry(
-        { label: 'Cut', icon: 'cut', shortcut: 'Ctrl+X', action: () => runAction(ACTIONS.cut) },
-        150,
-        notEmpty,
-      ),
-      menuEntry(
-        { label: 'Copy', icon: 'copy', shortcut: 'Ctrl+C', action: () => runAction(ACTIONS.copy) },
-        150,
-        notEmpty,
-      ),
-      menuEntry(TODO('Copy with Reference...'), 150, notEmpty),
-      // `noActiveToolCondition` — Paste is offered whatever is selected, and
-      // only hidden while another tool is running.
-      menuEntry(
-        {
-          label: 'Paste',
-          icon: 'paste',
-          shortcut: 'Ctrl+V',
-          // Ctrl+V itself is the browser's own paste event, not ours — see
-          // MenuItem.nativeShortcut, the same as the drawing sheet's row.
-          nativeShortcut: true,
-          action: () => pasteFromSystemClipboard(ACTIONS.paste),
-        },
-        150,
-        toolStackIsEmpty,
-      ),
-      menuEntry(
-        {
-          label: 'Paste Special...',
-          shortcut: 'Ctrl+Shift+V',
-          action: () => pasteFromSystemClipboard(ACTIONS.pasteSpecial),
-        },
-        150,
-        toolStackIsEmpty,
-      ),
-      menuEntry(
-        {
-          ...A('Duplicate', 'duplicate'),
-          shortcut: 'Ctrl+D',
-          action: () => runAction(ACTIONS.duplicate),
-        },
-        150,
-        notEmpty,
-      ),
-      menuEntry(
-        {
-          label: 'Delete',
-          icon: 'delete',
-          shortcut: 'Delete',
-          action: () => runAction(ACTIONS.doDelete),
-        },
-        150,
-        notEmpty,
-      ),
-
-      // ---- EDIT_TOOL::Init (edit_tool.cpp:829-831) -----------------------
-      menuSeparator(150),
-      menuEntry(
-        { label: 'Select All', shortcut: 'Ctrl+A', action: selectAllSel },
-        150,
-        boardHasItems,
-      ),
-      menuEntry(
-        { label: 'Unselect All', shortcut: 'Ctrl+Shift+A', action: unselectAllSel },
-        150,
-        boardHasItems,
-      ),
-
-      // ---- EDA_DRAW_FRAME::AddStandardSubMenus, from the shared module ---
-      ...standardSubMenuEntries({
-        zoomApp: 'pcbnew',
-        zoom: zoomNow,
-        setZoom: setZoomPreset,
-        gridSizes: GRID_SIZE_LIST.pcbnew.map(gridEntryOf),
-        gridIndex: PCB_GRIDS.indexOf(gridIU),
-        primaryUnits: unitLabel,
-        iuPerMM: MM,
-        // `COMMON_TOOLS::GridOrigin` is a WX_PT_ENTRY_DIALOG we do not have;
-        // shown in its upstream position and greyed, which is what the Place
-        // menu's own Grid Origin row and the Show Grid button's menu do.
-        gridOrigin: () => {},
-        setGrid: (i) => {
-          const iu = PCB_GRIDS[i];
-          if (iu !== undefined) {
-            setGridIUStored(iu);
-            requestDraw();
-          }
-        },
-      }),
-    ]);
-  };
 
   // ----- graphic shape drawing (DRAWING_TOOL) ---------------------------------
 
@@ -6710,36 +6046,6 @@ export function PcbEditor({
   };
 
   /**
-   * BOARD_EDITOR_CONTROL::AssignNetclass (board_editor_control.cpp:2159-2230):
-   * the selection's nets, skipping any whose name was generated rather than
-   * given (NETINFO_ITEM::HasAutoGeneratedNetname - the short name starting
-   * `Net-(` or `unconnected-(`); none left is an infobar error. The nets are
-   * selected (selectNet), and the dialog opens on them.
-   */
-  const assignNetclass = (): void => {
-    const brd = boardRef.current;
-    if (!brd) return;
-    const names = new Set<string>();
-    const codes = new Set<number>();
-    for (const id of selection) {
-      const d = describeSelected(brd, id);
-      if (!d) continue;
-      const name = brd.nets.get(d.net);
-      if (!name) continue;
-      const short = name.slice(name.lastIndexOf('/') + 1);
-      if (short.startsWith('Net-(') || short.startsWith('unconnected-(')) continue;
-      names.add(name);
-      codes.add(d.net);
-    }
-    if (names.size === 0) {
-      setInfoBarError('Selection contains no items with labeled nets.');
-      return;
-    }
-    setSelectionRef.current(new Set(connectedItemIdsOnNets(brd, codes)));
-    setNetclassNets(names);
-  };
-
-  /**
    * BOARD_INSPECTION_TOOL::ShowFootprintLinks (board_inspection_tool.cpp:1937-1957):
    * `selection.Size() != 1 || selection.Front()->Type() != PCB_FOOTPRINT_T` is
    * an infobar error, its exact string; otherwise the dialog opens on it.
@@ -7487,6 +6793,13 @@ export function PcbEditor({
     // so the dialog opens without naming one.
     if (id === 'gridProperties') {
       setPrefsOpen(true);
+      return;
+    }
+    // PCB_ACTIONS::lineModeFree / 45 / 90: BOARD_EDITOR_CONTROL::ChangeLineMode,
+    // whose OnAngleSnapModeChanged selects the group's button back.
+    const lineModeAction = PCB_LINE_MODE_ACTIONS[id];
+    if (lineModeAction) {
+      runAction(lineModeAction);
       return;
     }
     // ACTIONS::millimetersUnits / inchesUnits / milsUnits: COMMON_TOOLS::SwitchUnits.
@@ -8495,18 +7808,6 @@ export function PcbEditor({
               ref={canvasRef}
               style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
             />
-            {ctxMenu && (
-              <ContextMenu
-                x={ctxMenu.x}
-                y={ctxMenu.y}
-                items={buildPcbContextMenu()}
-                onClose={() => {
-                  const close = ctxMenu.onClose;
-                  setCtxMenu(null);
-                  queueMicrotask(close);
-                }}
-              />
-            )}
             {error && (
               <div
                 style={{
@@ -9793,29 +9094,23 @@ export function PcbEditor({
           }}
         />
       )}
-      {netclassNets && board && (
+      {netclassDlg && (
         <DialogAssignNetclass
           frame="pcb"
-          netNames={netclassNets}
-          // BOARD::GetNetClassAssignmentCandidates: every non-empty net name.
-          candidateNetNames={[...new Set([...board.nets.values()].filter((n) => n !== ''))].sort()}
+          netNames={netclassDlg.names}
+          candidateNetNames={[...netclassDlg.candidates].sort()}
           netClasses={boardSetup.netClasses.classes
             .map((c) => c.name)
             .filter((n) => n !== 'Default')
             .sort()}
-          // The previewer: SelectAllItemsOnNet for each matching net.
-          onPreview={(names) => {
-            const brd = boardRef.current;
-            if (!brd) return;
-            const want = new Set(names);
-            const codes = new Set(
-              [...brd.nets.entries()].filter(([, n]) => want.has(n)).map(([c]) => c),
-            );
-            setSelectionRef.current(new Set(connectedItemIdsOnNets(brd, codes)));
+          // BOARD_EDITOR_CONTROL::AssignNetclass's previewer.
+          onPreview={(names) => netclassDlg.preview(names)}
+          onCancel={() => {
+            setNetclassDlg(null);
+            netclassDlg.resolve(false);
           }}
-          onCancel={() => setNetclassNets(null)}
           onOk={(pattern, netClass) => {
-            setNetclassNets(null);
+            setNetclassDlg(null);
             // SetNetclassPatternAssignment, then SynchronizeNetsAndNetClasses
             // (commitBoardSetup does the sync).
             commitBoardSetup({
@@ -9829,6 +9124,7 @@ export function PcbEditor({
                 ),
               },
             });
+            netclassDlg.resolve(true);
           }}
         />
       )}
