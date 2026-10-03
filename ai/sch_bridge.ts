@@ -5,6 +5,7 @@
  *
  * Pilot scope: the current sheet only, no buses, no hierarchy.
  */
+import { pageSizeMM } from '@ziroeda/common/page_info.js';
 import {
   type EditCommand,
   type LibGraphic,
@@ -86,6 +87,13 @@ export function readZsch(doc: Schematic): string {
   const libs = libMap(doc);
   const lines: string[] = [];
   const ps = getPageSettings(doc);
+  // The paper first: it is how much room the sheet has (pageSizeMM gives the drawing area).
+  const size = pageSizeMM(ps.paper);
+  lines.push(
+    size
+      ? `page ${ps.paper} ; ${Math.round(size.w)} x ${Math.round(size.h)} mm`
+      : `page ${ps.paper}`,
+  );
   if (ps.title || ps.rev || ps.company) {
     let t = `title ${JSON.stringify(ps.title)}`;
     if (ps.rev) t += ` rev=${JSON.stringify(ps.rev)}`;
@@ -463,6 +471,41 @@ async function footprintIndex(api: SchScriptApi): Promise<LibIndex> {
   return (await api.footprintIndex()).map((l) => ({ name: l.name, items: l.footprints }));
 }
 
+/** The paper sizes `page` takes (PAGE_INFO's standard sizes). */
+const PAPER_SIZES = new Set([
+  'A5',
+  'A4',
+  'A3',
+  'A2',
+  'A1',
+  'A0',
+  'A',
+  'B',
+  'C',
+  'D',
+  'E',
+  'USLetter',
+  'USLegal',
+  'USLedger',
+]);
+
+/** The batch's lines, a quoted string that runs over a line break kept as one line. */
+export function joinQuotedLines(text: string): string[] {
+  const out: string[] = [];
+  let pending: string | null = null;
+  for (const raw of text.split('\n')) {
+    const line: string = pending === null ? raw : `${pending}\\n${raw}`;
+    const quotes = (line.replace(/;.*$/, '').match(/"/g) ?? []).length;
+    if (quotes % 2 === 1) pending = line;
+    else {
+      out.push(line);
+      pending = null;
+    }
+  }
+  if (pending !== null) out.push(pending);
+  return out;
+}
+
 export async function applyZsch(api: SchScriptApi, text: string): Promise<ApplyResult> {
   const doc = api.doc();
   if (!doc) return { applied: 0, errors: ['no schematic open'] };
@@ -490,7 +533,7 @@ export async function applyZsch(api: SchScriptApi, text: string): Promise<ApplyR
       ?.slice(key.length + 1)
       .replace(/^"(.*)"$/, '$1');
 
-  for (const raw of text.split('\n')) {
+  for (const raw of joinQuotedLines(text)) {
     const line = raw.replace(/;.*$/, '').trim();
     if (!line) continue;
     const [kw, ...tokens] = tokenize(line);
@@ -579,17 +622,22 @@ export async function applyZsch(api: SchScriptApi, text: string): Promise<ApplyR
         const ids = new Set(strays(staged).map((x) => x.id));
         if (ids.size) stage(deleteByIds(ids));
       } else if (kw === 'del' && tokens[0] === 'label') {
+        // `del label NAME` takes every label of that name; `del label NAME @x,y` the one there,
+        // within a grid step (a position read before an undo can be one step off).
         const [, name, where] = tokens;
-        const m = /^@(-?[\d.]+),(-?[\d.]+)$/.exec(where ?? '');
-        if (!name || !m) throw new Error('del label needs NAME @x,y');
-        const x = toIU(m[1] ?? '0');
-        const y = toIU(m[2] ?? '0');
+        if (!name) throw new Error('del label needs NAME [@x,y]');
+        const m = where ? /^@(-?[\d.]+),(-?[\d.]+)$/.exec(where) : null;
+        if (where && !m) throw new Error('del label needs NAME [@x,y]');
+        const x = m ? toIU(m[1] ?? '0') : 0;
+        const y = m ? toIU(m[2] ?? '0') : 0;
         const ids = new Set<string>();
         staged.labels.forEach((l, i) => {
-          if (l.kind !== 'text' && l.text === name && l.at.x === x && l.at.y === y)
+          if (l.kind === 'text' || l.text !== name) return;
+          if (!m || (Math.abs(l.at.x - x) <= GRID && Math.abs(l.at.y - y) <= GRID))
             ids.add(refId('label', l.uuid, i));
         });
-        if (!ids.size) throw new Error(`no label ${name} at @${m[1]},${m[2]}`);
+        if (!ids.size)
+          throw new Error(m ? `no label ${name} at @${m[1]},${m[2]}` : `no label ${name}`);
         stage(deleteByIds(ids));
       } else if (kw === 'del') {
         // In order, so a later `sym` line with the same REF makes a new part.
@@ -602,6 +650,18 @@ export async function applyZsch(api: SchScriptApi, text: string): Promise<ApplyR
           makeLabel('text', body.replace(/^"(.*)"$/, '$1').replace(/\\n/g, '\n'), {
             x: toIU(m[1] ?? '0'),
             y: toIU(m[2] ?? '0'),
+          }),
+        );
+      } else if (kw === 'page') {
+        // The sheet's paper: A4..A0, A..E, USLetter, USLegal, USLedger, optionally portrait.
+        const [size, orient] = tokens;
+        if (!size || !PAPER_SIZES.has(size))
+          throw new Error(`page needs one of ${[...PAPER_SIZES].join(' ')}`);
+        if (orient && orient !== 'portrait') throw new Error('page SIZE [portrait]');
+        stage(
+          setPageSettingsCommand({
+            ...getPageSettings(staged),
+            paper: orient ? `${size} portrait` : size,
           }),
         );
       } else if (kw === 'title') {
@@ -620,7 +680,8 @@ export async function applyZsch(api: SchScriptApi, text: string): Promise<ApplyR
       } else if (kw === 'box') {
         const [heading, at, size] = tokens;
         const m = /^@(-?[\d.]+),(-?[\d.]+)$/.exec(at ?? '');
-        const z = /^([\d.]+),([\d.]+)$/.exec(size ?? '');
+        // w,h - also as `w80,47` or `80x47`, the spellings a model writes for it
+        const z = /^w?([\d.]+)[,x]h?([\d.]+)$/.exec(size ?? '');
         if (!heading || !m || !z) throw new Error('box needs "TITLE" @x,y w,h');
         const x = toIU(m[1] ?? '0');
         const y = toIU(m[2] ?? '0');
@@ -765,6 +826,19 @@ export async function applyZsch(api: SchScriptApi, text: string): Promise<ApplyR
       else errors.push(`nc: no pin ${r}`);
     }
 
+  // All or nothing: a batch with a failed line changes nothing, so sending it again (fixed)
+  // cannot draw anything twice.
+  if (errors.length)
+    return {
+      applied: 0,
+      errors: [
+        ...errors,
+        'Nothing was applied: fix the lines above and send the whole batch again.',
+      ],
+      // The pins of parts the batch itself placed, so read from the staged sheet.
+      hints: [...hints, ...pinHintsIn(staged, errors)],
+    };
+
   const cmds = [...phase1, ...powerParts.map(({ lib, sym }) => placeSymbolInstance(lib, sym))];
   for (const { sym } of powerParts) touched.add(reference(sym));
   if (wires.length || labels.length || ncs.length || graphics.length || texts.length)
@@ -793,7 +867,11 @@ export async function applyZsch(api: SchScriptApi, text: string): Promise<ApplyR
 /** The real pin list of every part a failed line named (usually a guessed pin). */
 export function pinHints(api: SchScriptApi, applyErrors: readonly string[]): string[] {
   const doc = api.doc();
-  if (!doc) return [];
+  return doc ? pinHintsIn(doc, applyErrors) : [];
+}
+
+/** {@link pinHints} on a given sheet: the batch's own staged one, when nothing was applied. */
+function pinHintsIn(doc: Schematic, applyErrors: readonly string[]): string[] {
   const pins = enumeratePins(doc, libMap(doc));
   const named = new Set<string>();
   for (const e of applyErrors)
@@ -859,7 +937,7 @@ export function schBridge(api: SchScriptApi): AiBridge {
       const after = api.doc();
       // Layout, as text: what collides and what connects to nothing.
       const layout = after ? [...overlaps(after), ...strays(after).map((x) => x.text)] : [];
-      const hints = [...(r.hints ?? []), ...pinHints(api, r.errors), ...layout];
+      const hints = [...(r.hints ?? []), ...layout];
       const failed = r.errors.length ? `\n${r.errors.length} failed:\n${r.errors.join('\n')}` : '';
       return {
         text: `Applied ${r.applied} lines.${failed}${hints.length ? `\n${hints.join('\n')}` : ''}`,

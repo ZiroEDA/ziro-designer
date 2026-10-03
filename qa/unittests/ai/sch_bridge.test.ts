@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {
+  joinQuotedLines,
   applyZsch,
   symbolPins,
   ercText,
@@ -136,8 +137,14 @@ describe('zsch over the live schematic', () => {
   it('updates an existing part in place and reports unknown symbols', async () => {
     const ed = fakeEditor();
     await applyZsch(ed, 'sym R1 Device:R @50.8,50.8 val=10k');
+    // All or nothing: the bad line stops the good one too, so a resend cannot double anything.
     const r = await applyZsch(ed, 'sym R1 Device:R val=22k\nsym U9 Nope:Thing @10,10');
-    expect(r.errors).toEqual(['sym U9 Nope:Thing @10,10: unknown symbol Nope:Thing']);
+    expect(r.errors).toEqual([
+      'sym U9 Nope:Thing @10,10: unknown symbol Nope:Thing',
+      'Nothing was applied: fix the lines above and send the whole batch again.',
+    ]);
+    expect(readZsch(ed.doc() as Schematic)).toContain('val=10k');
+    expect((await applyZsch(ed, 'sym R1 Device:R val=22k')).errors).toEqual([]);
     expect(readZsch(ed.doc() as Schematic)).toContain(
       'sym R1 Device:R @50.8,50.8 size 2.29x7.62 val=22k',
     );
@@ -211,8 +218,12 @@ describe('zsch over the live schematic', () => {
   it('names the real pins of a part a failed line guessed at', async () => {
     const ed = fakeEditor();
     const r = await applyZsch(ed, 'sym R1 Device:R @50.8,50.8\nnet GND R1.1\nnet SIG R1.A');
-    expect(r.errors).toEqual(['net SIG: no pin R1.A']);
-    expect(pinHints(ed, r.errors)).toEqual(['pins R1: 1=~ 2=~']);
+    expect(r.errors).toEqual([
+      'net SIG: no pin R1.A',
+      'Nothing was applied: fix the lines above and send the whole batch again.',
+    ]);
+    // R1 was placed by the failed batch itself: its pins come from the batch's staged sheet.
+    expect(r.hints).toContain('pins R1: 1=~ 2=~');
   });
 
   it('run_erc reports the floating pin as REF.PIN, and a clean sheet as clean', async () => {
@@ -234,6 +245,7 @@ describe('zsch over the live schematic', () => {
     const r = await applyZsch(ed, 'sym R1 Device:R @50.8,50.8 fp=Resistor_SMD:R_0603');
     expect(r.errors).toEqual([
       'sym R1 Device:R @50.8,50.8 fp=Resistor_SMD:R_0603: unknown footprint Resistor_SMD:R_0603; similar: Resistor_SMD:R_0603_1608Metric',
+      'Nothing was applied: fix the lines above and send the whole batch again.',
     ]);
     expect((ed.doc() as Schematic).symbols).toHaveLength(0);
   });
@@ -414,5 +426,64 @@ describe('zsch over the live schematic', () => {
     // Pin A is at x 48.26 (50.8 - 2.54) facing left: the label 2.54 mm further left, same y.
     expect(label.at).toEqual({ x: 482600 - 25400, y: 508000 - 63500 });
     expect((label.effects?.justify ?? [])[0]).toBe('right');
+  });
+});
+
+describe('zsch: the page, and the spellings a model writes', () => {
+  it('reports the paper first, and changes it with a page line', async () => {
+    const ed = fakeEditor();
+    expect(readZsch(ed.doc() as Schematic).split('\n')[0]).toBe('page A4 ; 297 x 210 mm');
+    expect((await applyZsch(ed, 'page A3')).errors).toEqual([]);
+    expect(readZsch(ed.doc() as Schematic).split('\n')[0]).toBe('page A3 ; 420 x 297 mm');
+    expect((await applyZsch(ed, 'page A2 portrait')).errors).toEqual([]);
+    expect(readZsch(ed.doc() as Schematic).split('\n')[0]).toMatch(
+      /^page A2 portrait ; 420 x 594 mm$/,
+    );
+  });
+
+  it('refuses a paper size it does not know, naming the ones it does', async () => {
+    const ed = fakeEditor();
+    const r = await applyZsch(ed, 'page A9');
+    expect(r.errors[0]).toMatch(/^page A9: page needs one of A5 A4 A3/);
+  });
+
+  it('takes a box size as w,h, w80,47 or 80x47', async () => {
+    for (const size of ['80,47', 'w80,47', '80x47']) {
+      const ed = fakeEditor();
+      expect((await applyZsch(ed, `box "RELAY" @10,10 ${size}`)).errors).toEqual([]);
+      expect(readZsch(ed.doc() as Schematic)).toContain('box "RELAY" @10.16,10.16 80.01,46.99');
+    }
+  });
+
+  it('keeps a quoted note whole across a line break', async () => {
+    const ed = fakeEditor();
+    const r = await applyZsch(ed, 'note "POWER: 12 V in\nRELAY: low side" @20,20');
+    expect(r.errors).toEqual([]);
+    const notes = (ed.doc() as Schematic).labels.filter((l) => l.kind === 'text');
+    expect(notes.map((n) => n.text)).toEqual(['POWER: 12 V in\nRELAY: low side']);
+  });
+
+  it('deletes every label of a name, or the one near a position within a grid step', async () => {
+    const ed = fakeEditor();
+    await applyZsch(
+      ed,
+      'sym R1 Device:R @50.8,50.8\nsym R2 Device:R @101.6,50.8\nnet SIG R1.1 R2.1',
+    );
+    const sig = () => (ed.doc() as Schematic).labels.filter((l) => l.text === 'SIG');
+    expect(sig()).toHaveLength(2);
+    const first = sig()[0]!;
+    // one grid step (1.27 mm) off the label still finds it
+    const x = first.at.x / 10000 + 1.27;
+    const y = first.at.y / 10000;
+    expect((await applyZsch(ed, `del label SIG @${x},${y}`)).errors).toEqual([]);
+    expect(sig()).toHaveLength(1);
+    expect((await applyZsch(ed, 'del label SIG')).errors).toEqual([]);
+    expect(sig()).toHaveLength(0);
+  });
+});
+
+describe('joinQuotedLines', () => {
+  it('joins a quote that runs over a line break, and leaves other lines alone', () => {
+    expect(joinQuotedLines('a\nnote "x\ny" @1,2\nb')).toEqual(['a', 'note "x\\ny" @1,2', 'b']);
   });
 });
