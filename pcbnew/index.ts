@@ -12,13 +12,6 @@ export {
   type RatsnestEdge,
 } from './ratsnest/ratsnest.js';
 export {
-  airwireShown,
-  localRatsnestKey,
-  toggleLocalRatsnest,
-  type LocalRatsnestHit,
-  type LocalRatsnestOverrides,
-} from './local_ratsnest.js';
-export {
   readBoard,
   readFootprintFile,
   serializeFootprint,

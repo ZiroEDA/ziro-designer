@@ -70,20 +70,16 @@ import { useCallback, useEffect, useMemo, useRef, useState, type JSX, type React
 import { parse } from '@ziroeda/sexpr';
 import {
   readBoard,
-  boardHitCandidates,
   allBoardItemIds,
   boardItemBBox,
   parseBoardItemId,
   pcbMsgPanelInfo,
   boardItemId,
   subsetBoardItems,
-  groupContaining,
   isBoardItemLocked,
   isCopperLayerName,
   serializeBoard,
   serializeBoardAsync,
-  toggleLocalRatsnest,
-  type LocalRatsnestHit,
   type Board,
   type BoardBBox,
   type BoardItemKind,
@@ -906,6 +902,8 @@ const TOOL_MANAGER_TOOLS: Readonly<Record<string, TOOL_ACTION>> = {
   placeImportedGraphics: PCB_ACTIONS.placeImportedGraphics,
   // PCB_VIEWER_TOOLS.
   measureTool: ACTIONS.measureTool,
+  // BOARD_INSPECTION_TOOL, through PCB_PICKER_TOOL.
+  localRatsnestTool: PCB_ACTIONS.localRatsnestTool,
   // MICROWAVE_TOOL.
   microwaveCreateLine: PCB_ACTIONS.microwaveCreateLine,
   microwaveCreateGap: PCB_ACTIONS.microwaveCreateGap,
@@ -991,7 +989,7 @@ const PCB_TOOL_MSGS: Record<string, string> = {
 const isSelectTool = (t: string): boolean => t === 'selectSetRect' || t === 'selectSetLasso';
 
 // Tools that act on plain clicks and take no drag/box-select gestures.
-const isClickTool = (t: string): boolean => t === 'localRatsnestTool' || t === 'routeSingleTrack';
+const isClickTool = (t: string): boolean => t === 'routeSingleTrack';
 
 // The left toolbar's radio groups, its opening state and its reducer are in
 // `toggles.ts` rather than here, because `qa`'s tsconfig compiles `.ts` only:
@@ -1690,12 +1688,6 @@ export function PcbEditor({
   // PAD level (BOARD_INSPECTION_TOOL::LocalRatsnestTool toggles
   // PAD::SetLocalRatsnestVisible; a footprint click sets all its pads).
   //
-  // Write-only on purpose: the picker's own semantics are ported and pinned
-  // (`local_ratsnest.ts`), but the airwires it asks for are drawn by
-  // `RATSNEST_VIEW_ITEM` out of `CONNECTIVITY_DATA::ComputeLocalRatsnest`, and
-  // the tool that calls that is stage 3's (#636). Until then the set
-  // accumulates and nothing reads it back.
-  const [, setLocalRats] = useState<ReadonlySet<string>>(new Set());
   // PROJECT_LOCAL_SETTINGS' `board.selection_filter` defaults, which are the
   // shared table's: everything but "Locked items"
   // (common/project/project_local_settings.cpp:160-172). Ours ticked all
@@ -5144,46 +5136,6 @@ export function PcbEditor({
   };
   passesFilterRef.current = passesFilter;
 
-  // Hit candidates at a board point, KiCad's selectPoint pipeline: collect
-  // with exact hit distances, Selection Filter, then GuessSelectionCandidates
-  // (slop pruning, the 1.5× coverage-area heuristic, active-layer preference),
-  // all transcribed in boardHitCandidates. One id = unambiguous click; several
-  // = KiCad would pop the disambiguation menu. Finally, a hit on a group
-  // member resolves to its top-level group (PCB_GROUP::TopLevelGroup).
-  /**
-   * `clientKind` is `selectPoint`'s `aClientFilter` — `EDIT_TOOL::PadFilter`,
-   * `FootprintFilter` — which runs AFTER the Selection Filter and BEFORE
-   * `GuessSelectionCandidates` (`pcb_selection_tool.cpp`). The order is the
-   * point: at the centre of a resistor with a track under its body the
-   * heuristics prefer the track, so a caller that filtered the heuristics'
-   * output for a footprint would find none. Upstream never sees the track.
-   */
-  const hitCandidates = (
-    w: { x: number; y: number },
-    excludeZoneFills = false,
-    clientKind?: 'pad' | 'footprint',
-  ): string[] => {
-    const brd = boardRef.current;
-    if (!brd) return [];
-    const canvas = canvasRef.current;
-    const v = viewRef.current;
-    const cands = boardHitCandidates(brd, w, tolOf(), {
-      filter: clientKind
-        ? (id) => passesFilter(id) && parseBoardItemId(id)?.kind === clientKind
-        : passesFilter,
-      activeLayer,
-      visibleLayers: visible,
-      viewportIU: canvas ? { w: canvas.width / v.scale, h: canvas.height / v.scale } : undefined,
-      excludeZoneFills,
-    });
-    const out: string[] = [];
-    for (const id of cands) {
-      const resolved = groupContaining(brd, id, enteredGroupRef.current ?? undefined) ?? id;
-      if (!out.includes(resolved)) out.push(resolved);
-    }
-    return out;
-  };
-
   const tolOf = (): number => (5 * dpr) / viewRef.current.scale; // ~5px, like COLLECTORS_GUIDE
 
   /**
@@ -6320,40 +6272,6 @@ export function PcbEditor({
         return;
       }
       if (!d.moved) {
-        if (activeToolRef.current === 'localRatsnestTool') {
-          // BOARD_INSPECTION_TOOL::LocalRatsnestTool's click handler
-          // (board_inspection_tool.cpp:2299-2351): `selectionClear`, then
-          // `selectionCursor` with `EDIT_TOOL::PadFilter`, and with
-          // `FootprintFilter` if that found nothing. The hit is SELECTED, not
-          // merely toggled — that selection is the highlight KiCad shows on
-          // the clicked part, and ours never made one. Clicking empty space
-          // leaves the selection empty and puts every pad back to the global
-          // ratsnest setting.
-          const w = worldAt(e.clientX, e.clientY);
-          const brd = boardRef.current;
-          if (w && brd) {
-            // Two `selectionCursor` calls, each with its own client filter,
-            // the second only if the first selected nothing.
-            const padIds = hitCandidates(w, false, 'pad');
-            const fpIds = padIds.length > 0 ? [] : hitCandidates(w, false, 'footprint');
-            const picked = padIds[0] ?? fpIds[0];
-            const ref = picked ? parseBoardItemId(picked) : null;
-            const padHit2 = ref?.kind === 'pad' ? ref : undefined;
-            const fpHit = ref?.kind === 'footprint' ? ref : undefined;
-            setSelectionRef.current(picked ? new Set([picked]) : new Set());
-            const hit: LocalRatsnestHit = padHit2
-              ? { kind: 'pad', footprint: padHit2.index, pad: padHit2.sub ?? 0 }
-              : fpHit
-                ? {
-                    kind: 'footprint',
-                    footprint: fpHit.index,
-                    padCount: brd.footprints[fpHit.index]?.pads.length ?? 0,
-                  }
-                : null;
-            const globalOn = objects.ratsnest && ratsnestMode !== 'off';
-            setLocalRats((prev) => toggleLocalRatsnest(prev, globalOn, hit));
-          }
-        }
         // A click in the selection tool is the tool's, through the dispatcher.
       }
     }
@@ -6505,7 +6423,6 @@ export function PcbEditor({
           // `PCB_PICKER_TOOL::Main`: `IsCancelInteractive()` is EVT_CANCEL,
           // and the ratsnest picker's finalize handler resets every pad's
           // local override on anything but END_ACTIVATE.
-          if (activeToolRef.current === 'localRatsnestTool') setLocalRats(new Set());
           setActiveTool(selectModeRef.current);
         } else {
           setShow3D(false);
@@ -7299,11 +7216,6 @@ export function PcbEditor({
   // PCB_RENDER_SETTINGS itself. What stood here was a second copy of that rule
   // over a list of airwires the raster path had built, and only the raster
   // path drew it.
-  //
-  // `localRats` - the set the Local Ratsnest picker accumulates
-  // (`local_ratsnest.ts`, and it is pinned there) - is what still has no
-  // reader: it wants `CONNECTIVITY_DATA::ComputeLocalRatsnest`, which
-  // BOARD_INSPECTION_TOOL calls and we do not have yet (#636 stage 3).
 
   // Net colours in mode "All" are the VIEW's: `PCB_RENDER_SETTINGS::GetColor`
   // takes them from NET_SETTINGS when `NET_COLOR_MODE::ALL` is set
@@ -7503,7 +7415,6 @@ export function PcbEditor({
       // every track, pad and zone (`board.cpp:1057-1073`), so no pad differs
       // from it any more: the Local Ratsnest overrides go with the toggle.
       setObjects((p) => ({ ...p, ratsnest: !p.ratsnest }));
-      setLocalRats(new Set());
       return;
     }
     // Toggle Net Highlight: show/hide the last-highlighted net set.
@@ -8613,9 +8524,6 @@ export function PcbEditor({
                   onLayerContextMenu={(x, y) => setLayerMenu({ x, y })}
                   objects={objects}
                   onToggleObject={(key) => {
-                    // The Objects tab's Ratsnest row is the same
-                    // `SetElementVisibility( LAYER_RATSNEST )` as the button.
-                    if (key === 'ratsnest') setLocalRats(new Set());
                     setObjects((p) => toggleObject(p, key));
                   }}
                   objectColor={(key) => PCB_OBJECT_COLORS[key]}
