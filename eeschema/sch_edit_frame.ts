@@ -191,6 +191,16 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
     return this.m_schematic!.CurrentSheet();
   }
 
+  /** `SCH_EDIT_FRAME::GetScreenDesc` (sch_edit_frame.cpp:1054): the current sheet's name. */
+  override GetScreenDesc(): string {
+    return this.GetCurrentSheet().Last()!.GetName();
+  }
+
+  /** `SCH_EDIT_FRAME::GetFullScreenDesc` (:1060): the current sheet's human-readable path. */
+  override GetFullScreenDesc(): string {
+    return this.GetCurrentSheet().PathHumanReadable();
+  }
+
   /**
    * `SCH_EDIT_FRAME::RecalculateConnections`: the schematic's, with the change handler that
    * flags a changed highlighted net.  The view refresh upstream does after is left out.
