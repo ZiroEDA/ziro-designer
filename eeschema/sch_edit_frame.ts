@@ -14,6 +14,9 @@
  * (`SCH_UNDO_REDO_MIXIN`, mixed in below) need.
  */
 import { SCH_ANNOTATE_MIXIN } from './annotate.js';
+import { SCH_NETLIST_GENERATOR_MIXIN } from './netlist_exporters/netlist_generator.js';
+import { NETLIST_EXPORTER_KICAD } from './netlist_exporters/netlist_exporter_kicad.js';
+import { GNL_ALL, GNL_T } from './netlist_exporters/netlist_exporter_xml.js';
 import { SCH_FILES_IO_MIXIN } from './files-io.js';
 import { SCH_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import type { SCH_GLOBALLABEL } from './sch_label.js';
@@ -72,6 +75,15 @@ export interface SCH_EDIT_FRAME_HOOKS {
    */
   getNetlist(aAnnotateMessage: string): string | null;
   /**
+   * TRANSITIONAL (S2-5b, deleted at S7): bring this frame's live `Schematic()` up to the
+   * window's records. When given, the netlist mail is answered from the live model.
+   */
+  syncLiveSchematic?(): boolean;
+  /** `ModalAnnotate( aMessage )`: the Annotate dialog, opened to fix annotation. */
+  modalAnnotate?(aMessage: string): void;
+  /** `IsOK( this, aMessage )`: a yes/no confirmation. */
+  isOK?(aMessage: string): boolean;
+  /**
    * `SCH_SELECTION_TOOL::GetSelection()` on the live model (the design block
    * commands read it). Optional: a frame with no selection tool has none.
    */
@@ -88,7 +100,8 @@ export interface SCH_EDIT_FRAME
   extends SCH_UNDO_REDO_MIXIN,
     SCH_DESIGN_BLOCK_UTILS_MIXIN,
     SCH_FILES_IO_MIXIN,
-    SCH_ANNOTATE_MIXIN {}
+    SCH_ANNOTATE_MIXIN,
+    SCH_NETLIST_GENERATOR_MIXIN {}
 
 // biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (SCH_UNDO_REDO_MIXIN, see libs/core/mixins.ts)
 export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
@@ -203,6 +216,16 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
     this.GetCanvas()?.GetView().SetLayerVisible(SCH_LAYER_ID.LAYER_INTERSHEET_REFS, aShow);
   }
 
+  /** `ModalAnnotate( aMessage )` (dialog_annotate.cpp): the window's Annotate dialog. */
+  ModalAnnotate(aMessage: string): void {
+    this.hooks.modalAnnotate?.(aMessage);
+  }
+
+  /** `IsOK( this, aMessage )` (confirm.cpp): no window to ask is a no. */
+  IsOK(aMessage: string): boolean {
+    return this.hooks.isOK?.(aMessage) ?? false;
+  }
+
   SetSheetNumberAndCount(): void {
     this.m_schematic!.SetSheetNumberAndCount();
   }
@@ -296,9 +319,26 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
         break;
 
       case MAIL_T.MAIL_SCH_GET_NETLIST: {
-        const netlist = this.hooks.getNetlist(payload);
+        if (!this.hooks.syncLiveSchematic) {
+          // TRANSITIONAL: the record model's netlist, until the window keeps a live schematic.
+          const netlist = this.hooks.getNetlist(payload);
 
-        if (netlist !== null) mail.SetPayload(netlist);
+          if (netlist !== null) mail.SetPayload(netlist);
+
+          break;
+        }
+
+        if (!this.hooks.syncLiveSchematic()) break;
+
+        if (payload !== '') {
+          // Ensure schematic is OK for netlist creation (especially that it is fully annotated):
+          if (!this.ReadyToNetlist(payload)) break;
+        }
+
+        // (ADVANCED_CFG::m_IncrementalConnectivity is off by default: no recalculation here.)
+        const exporter = new NETLIST_EXPORTER_KICAD(this.Schematic());
+
+        mail.SetPayload(exporter.Format(GNL_ALL | GNL_T.GNL_OPT_KICAD));
 
         break;
       }
@@ -698,6 +738,7 @@ applyMixins(SCH_EDIT_FRAME, [
   SCH_DESIGN_BLOCK_UTILS_MIXIN,
   SCH_FILES_IO_MIXIN,
   SCH_ANNOTATE_MIXIN,
+  SCH_NETLIST_GENERATOR_MIXIN,
 ]);
 
 /**
