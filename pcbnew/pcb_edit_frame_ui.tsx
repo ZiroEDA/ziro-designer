@@ -42,7 +42,6 @@ import { TWO_POINT_GEOMETRY_MANAGER } from '@ziroeda/common/preview_items/two_po
 import { LeaderMode } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
 import { zoomFitScale } from '@ziroeda/common/ui/view_controls.js';
 import { DockSash } from '@ziroeda/common/widgets/wx_aui_sash.js';
-import { galPenWidth } from '@ziroeda/common/gal_pixel_grid.js';
 import { onOutlineFontsChanged } from '@ziroeda/common/font/outline_fonts.js';
 import {
   applyCanvasSize,
@@ -60,12 +59,6 @@ const PCB_LOCAL_ORIGIN = { x: 0, y: 0 };
 import { drawRulerItem, rulerEnd } from '@ziroeda/common/preview_items/ruler_item.js';
 import { boardToolCursor } from './cursors.js';
 import { pickerSnapsToGridOnly } from './tools/pcb_picker_tool.js';
-import {
-  groupBoxSegments,
-  groupLabelAnchor,
-  groupLabelFits,
-  groupLabelTextSize,
-} from './group_box.js';
 import { appearanceLayerRows } from './widgets/appearance_controls.js';
 import {
   ZOOM_AUTO_LABEL,
@@ -87,7 +80,6 @@ import {
   pcbMsgPanelInfo,
   boardItemId,
   subsetBoardItems,
-  expandGroupIds,
   groupContaining,
   isBoardItemLocked,
   isCopperLayerName,
@@ -100,18 +92,14 @@ import {
   type BoardItemKind,
   type PcbFootprint,
   type PcbShape,
-  type PcbPad,
-  boardSelectionBBox,
   boardGridOrigin,
   modifiableLineCount,
   booleanableShapeCount,
   type SelectionFilter,
   BOARD_NETLIST_UPDATER,
   type NETLIST,
-  imageAt,
   type ImageValues,
   boardAuxOrigin,
-  imageBBox,
   crossProbeSelection,
   boardSyncSelectionParts,
   crossProbeViewChange,
@@ -140,21 +128,11 @@ import { DialogDimensionProperties } from './dialogs/dialog_dimension_properties
 import { DialogTextBoxProperties } from './dialogs/dialog_textbox_properties_ui.js';
 import { DialogReferenceImageProperties } from './dialogs/dialog_reference_image_properties_ui.js';
 import { DialogTableProperties } from '@ziroeda/common/dialogs/dialog_table_properties.js';
-import {
-  DIALOG_TABLE_PROPERTIES,
-  tableAt,
-  type TableValues,
-} from './dialogs/dialog_table_properties.js';
+import { DIALOG_TABLE_PROPERTIES, type TableValues } from './dialogs/dialog_table_properties.js';
 import {
   DIALOG_TEXTBOX_PROPERTIES,
-  textBoxAt,
   type TextBoxValues,
 } from './dialogs/dialog_textbox_properties.js';
-
-/** An empty source node, for an item that has not been saved yet. */
-
-/** Stable empty/`toggleOrtho`-only sets for the 3D toolbar's `toggled` prop. */
-const EMPTY_IDS: ReadonlySet<string> = new Set();
 
 /**
  * The editor's selection (view ids) as the live PCB_SELECTION the tools take,
@@ -398,10 +376,8 @@ export function makePcbSearchWiring(aDeps: PcbSearchWiringDeps): PcbSearchWiring
   };
 }
 
-const ORTHO_ON: ReadonlySet<string> = new Set(['toggleOrtho']);
 import {
   DIALOG_DIMENSION_PROPERTIES,
-  dimensionAt,
   type DimensionValues,
 } from './dialogs/dialog_dimension_properties.js';
 import { Reporter, type ReportLine } from '@ziroeda/common';
@@ -677,7 +653,6 @@ import {
   buildScene,
   drawBoard,
   drawOriginMarkers,
-  boardTextPath,
   PCB_DEFAULT_GRID_IU,
   PCB_DEFAULT_GRID_ORIGIN,
   DEFAULT_DRAW_OPTIONS,
@@ -2200,10 +2175,6 @@ export function PcbEditor({
   selForDrawRef.current = selection;
   // The in-progress rubber-band marquee (world coords), read by the overlay pass.
   const boxRef = useRef<{ a: { x: number; y: number }; b: { x: number; y: number } } | null>(null);
-  // Selected items, compiled on their own so they can be repainted brightened
-  // over the raster, KiCad's selection is the item's colour Brightened(0.8),
-  // not a bounding box (pcb_painter.cpp getColor).
-  const selSceneRef = useRef<BoardScene | null>(null);
   /**
    * The frame's non-window half: the BOARD, the tool manager and the
    * undo/redo stacks (`PCB_BASE_EDIT_FRAME`). Every edit is a BOARD_COMMIT on
@@ -2730,11 +2701,6 @@ export function PcbEditor({
     resolve?: (aOk: boolean) => void;
   } | null>(null);
   /** Properties on the view board's text box `aIndex`. */
-  const setTextBoxPropsIndex = useCallback((aIndex: number | null): void => {
-    const k = aIndex === null ? undefined : boardRef.current?.textBoxes[aIndex]?.k;
-    const f = frameRef.current;
-    setTextBoxPropsDlg(k && f ? { dialog: new DIALOG_TEXTBOX_PROPERTIES(f, k) } : null);
-  }, []);
   const [imagePropsIndex, setImagePropsIndex] = useState<number | null>(null);
   /**
    * DIALOG_TABLE_PROPERTIES on a live PCB_TABLE: the board's own, or
@@ -2746,11 +2712,6 @@ export function PcbEditor({
     resolve?: (aOk: boolean) => void;
   } | null>(null);
   /** Properties on the view board's table `aIndex`. */
-  const setTablePropsIndex = useCallback((aIndex: number | null): void => {
-    const k = aIndex === null ? undefined : boardRef.current?.tables[aIndex]?.k;
-    const f = frameRef.current;
-    setTablePropsDlg(k && f ? { dialog: new DIALOG_TABLE_PROPERTIES(f, k), table: k } : null);
-  }, []);
   // Update PCB from Schematic (DIALOG_UPDATE_PCB). The netlist is fetched from the
   // project's schematic before the dialog opens, together with every footprint it
   // names, the updater itself is synchronous, exactly like upstream, so the
@@ -2965,19 +2926,7 @@ export function PcbEditor({
   /** What `applyDisplayState` last pushed into the frame, for its diffs. */
   const displayStateRef = useRef<EditorDisplayState | null>(null);
   const glOkRef = useRef(false);
-  /**
-   * This board carries a reference image, so it stays on the 2D canvas.
-   *
-   * `GlRecorder.drawImage` is a no-op — the recorder has no way to put a bitmap
-   * in a vertex buffer — so a board with a picture on it would simply lose the
-   * picture. One-way on purpose: deleting the last image does not hand the
-   * board back to the GPU until the editor is reopened, which is worth it to
-   * keep every scene rebuild a single compile rather than a speculative one
-   * followed by a corrective one.
-   */
-  const glBlockedRef = useRef(false);
   /** Whether the scene on hand was compiled with GL paths (drawn by the GPU). */
-  const sceneIsGlRef = useRef(false);
   const sceneFactory = (): ScenePathFactory => DOM_PATH_FACTORY;
   /**
    * Compile the board for whichever backend is drawing it.
@@ -3599,135 +3548,6 @@ export function PcbEditor({
     // LAYER_SELECT_OVERLAY and 130 entries above LAYER_RATSNEST
     // (`pcb_draw_panel_gal.cpp:81`). The GL path draws it in its own layer, in
     // the same position, with KiCad's overlay blend that this one cannot do.
-    // Umbilical lines (pcb_painter.cpp draw(PCB_TEXT): "Draw the umbilical
-    // line for texts in footprints"): every SELECTED footprint text draws a
-    // solid line in the LAYER_ANCHOR color (the theme's pink) back to its
-    // parent footprint's position. Selecting a footprint selects its child
-    // texts too, so clicking a footprint shows the umbilicals to its
-    // reference/value/other texts. Follows an in-flight drag.
-    {
-      const sel = selForDrawRef.current;
-      const brd = boardRef.current;
-      if (brd) {
-        const off = { x: 0, y: 0 };
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.strokeStyle = PCB_SPECIAL.anchor;
-        ctx.lineWidth = Math.max(1, dpr);
-        ctx.beginPath();
-        const umbilical = (fp: PcbFootprint, t: PcbFootprint['texts'][number]): void => {
-          if (t.hide) return;
-          ctx.moveTo((t.at.x + off.x) * sx + v.tx, (t.at.y + off.y) * v.scale + v.ty);
-          ctx.lineTo((fp.at.x + off.x) * sx + v.tx, (fp.at.y + off.y) * v.scale + v.ty);
-        };
-        for (const id of sel) {
-          const r = parseBoardItemId(id);
-          if (r?.kind === 'fptext') {
-            const fp = brd.footprints[r.index];
-            const t = fp?.texts[r.sub ?? 0];
-            // An individually selected text keeps its own anchor: only the text
-            // end follows the drag, not the footprint position.
-            if (fp && t && !t.hide) {
-              ctx.moveTo((t.at.x + off.x) * sx + v.tx, (t.at.y + off.y) * v.scale + v.ty);
-              ctx.lineTo(fp.at.x * sx + v.tx, fp.at.y * v.scale + v.ty);
-            }
-          } else if (r?.kind === 'footprint') {
-            const fp = brd.footprints[r.index];
-            if (fp) for (const t of fp.texts) umbilical(fp, t);
-          }
-        }
-        ctx.stroke();
-      }
-    }
-    // A selected reference image gets a BOUNDING BOX, which is the one item
-    // whose selection is not "repaint it brightened": a raster has no stroke to
-    // brighten, so `draw( const PCB_REFERENCE_IMAGE* )` does this instead —
-    //
-    //     if( aBitmap->IsSelected() || aBitmap->IsBrightened() )
-    //     {
-    //         COLOR4D color = m_pcbSettings.GetColor( aBitmap, LAYER_ANCHOR );
-    //         m_gal->SetLineWidth( m_pcbSettings.m_outlineWidth * 2.0f );
-    //         …  // draws a bounding box
-    //     }
-    //                                        (`pcb_painter.cpp`)
-    //
-    // LAYER_ANCHOR's colour and twice the minimum pen, both of them upstream's.
-    {
-      const brd = boardRef.current;
-      // The same single-selected item the point editor is showing handles for,
-      // which is exactly when upstream's `IsSelected()` branch fires.
-      const selected = selForDrawRef.current;
-      const ref = selected.size === 1 ? parseBoardItemId([...selected][0]!) : null;
-      const img = brd && ref?.kind === 'image' ? brd.images[ref.index] : null;
-      if (img) {
-        const box = imageBBox(img);
-        ctx.save();
-        ctx.setTransform(sx, 0, 0, v.scale, v.tx, v.ty);
-        ctx.strokeStyle = drawOpts.theme?.special.anchor ?? PCB_SPECIAL.anchor;
-        ctx.lineWidth = (2 * Math.max(1, dpr)) / v.scale;
-        ctx.strokeRect(box.minX, box.minY, box.maxX - box.minX, box.maxY - box.minY);
-        ctx.restore();
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-      }
-    }
-    // A selected group's own frame and name tab (`PCB_PAINTER::draw( const
-    // PCB_GROUP* )`, the LAYER_ANCHOR arm). The members are already brightened
-    // by the overlay above; this is what the *group* draws, and without it
-    // selecting one looked like nothing had happened at all.
-    {
-      const brd = boardRef.current;
-      const sel = selForDrawRef.current;
-      if (brd && sel.size > 0) {
-        const groups = [...sel]
-          .map((id) => parseBoardItemId(id))
-          .filter((r) => r?.kind === 'group')
-          .map((r) => ({ idx: r!.index, g: brd.groups[r!.index] }))
-          .filter((x) => x.g);
-        if (groups.length > 0) {
-          // `SetLineWidth( m_outlineWidth * 2.0f )` with `m_outlineWidth = 1`
-          // *internal unit* (`render_settings.cpp:43`) — nothing at any zoom, so
-          // what reaches the screen is GAL's one-device-pixel minimum.
-          const pen = galPenWidth(Math.max(1, dpr));
-          const textSize = groupLabelTextSize(1 / v.scale);
-          ctx.save();
-          ctx.setTransform(sx, 0, 0, v.scale, v.tx, v.ty);
-          ctx.strokeStyle = drawOpts.theme?.special.anchor ?? PCB_SPECIAL.anchor;
-          ctx.lineWidth = pen / v.scale;
-          for (const { idx, g } of groups) {
-            const members = expandGroupIds(brd, new Set([boardItemId('group', idx)]));
-            const box = boardSelectionBBox(brd, members);
-            if (!box) continue;
-            ctx.beginPath();
-            for (const seg of groupBoxSegments(box, g!.name ?? '', textSize)) {
-              ctx.moveTo(seg.a.x, seg.a.y);
-              ctx.lineTo(seg.b.x, seg.b.y);
-            }
-            ctx.stroke();
-
-            if (groupLabelFits(g!.name ?? '', box, textSize)) {
-              const at = groupLabelAnchor(box, textSize);
-              // `attrs.m_Italic = true`, centre/bottom, `GetPenSizeForNormal`.
-              const label = boardTextPath({
-                kind: 'user',
-                text: g!.name ?? '',
-                at,
-                angle: 0,
-                layer: 'F.Cu',
-                size: { x: textSize, y: textSize },
-                italic: true,
-                justify: ['bottom'],
-              });
-              if (label) {
-                ctx.lineWidth = Math.max(label.thickness, pen / v.scale);
-                ctx.stroke(label.path);
-                ctx.lineWidth = pen / v.scale;
-              }
-            }
-          }
-          ctx.restore();
-          ctx.setTransform(1, 0, 0, 1, 0, 0);
-        }
-      }
-    }
     // `drawMicrowaveInductor`'s `previewRect`: shown from the first click, when
     // `view.SetVisible( &previewRect, true )` follows the first motion.
     {
@@ -3792,7 +3612,6 @@ export function PcbEditor({
         });
       }
     }
-    const brd = boardRef.current;
     // The zoom tool's band (TRANSITIONAL until ZOOM_TOOL, #636 stage 3), in
     // `KIGFX::PREVIEW::SELECTION_AREA`'s colours. The selection tool's own band
     // and lasso are its SELECTION_AREA on the VIEW.
@@ -3931,34 +3750,14 @@ export function PcbEditor({
     requestDraw();
   }, [visible, drawOpts, requestDraw]);
 
-  // Recompile the selected items into their own scene, so the overlay can paint
-  // them brightened over the raster (KiCad's selection look).
-  //
-  // Through `expandGroupIds`, like every *editing* command already was. A group
-  // id names no item of its own, so `subsetBoardItems` matched nothing for one
-  // and the overlay came out empty: selecting a group — the board stackup table,
-  // say — highlighted nothing at all, while KiCad brightens all 153 members.
-  // `PCB_SELECTION_TOOL::select` puts the members in the selection too
-  // (`GROUP::RunOnChildren`), so the drawing and the editing want the same set.
-  const rebuildSelScene = useCallback(() => {
-    const brd = boardRef.current;
-    const sel = brd ? expandGroupIds(brd, selForDrawRef.current) : selForDrawRef.current;
-    selSceneRef.current =
-      brd && sel.size > 0
-        ? buildScene(subsetBoardItems(brd, sel), {
-            hideFrontFootprints: !objects.footprintsFront,
-            hideBackFootprints: !objects.footprintsBack,
-          })
-        : null;
-  }, [objects.footprintsFront, objects.footprintsBack]);
-
   // The selection lives on the VIEW (PCB_SELECTION_TOOL's `m_selection` on
-  // LAYER_SELECT_OVERLAY); the window's overlay keeps a copy of it only for a
-  // gesture of its own in flight (a move, a point edit), so recompile that.
+  // LAYER_SELECT_OVERLAY), and PCB_PAINTER draws what a selected item adds - an
+  // umbilical, a reference image's box, a group's frame. A change only asks
+  // for the frame.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the selection is the trigger
   useEffect(() => {
-    rebuildSelScene();
     requestDraw();
-  }, [selection, requestDraw, rebuildSelScene]);
+  }, [selection, requestDraw]);
 
   // ----- board model mutation (edits + undo/redo) -----------------------------
 
@@ -3979,10 +3778,9 @@ export function PcbEditor({
         hideFrontFootprints: !objects.footprintsFront,
         hideBackFootprints: !objects.footprintsBack,
       });
-      rebuildSelScene();
       requestDraw();
     },
-    [objects.footprintsFront, objects.footprintsBack, requestDraw, rebuildSelScene],
+    [objects.footprintsFront, objects.footprintsBack, requestDraw],
   );
 
   const rebuildSceneRef = useRef(rebuildScene);
@@ -6218,20 +6016,6 @@ export function PcbEditor({
 
   // ----- interactive routing (ROUTER_TOOL, highlight mode) --------------------
 
-  // The pad under a board point (board-absolute centres), for net pickup and
-  // snapping route ends onto pads.
-  const padAt = (w: { x: number; y: number }): PcbPad | null => {
-    const brd = boardRef.current;
-    if (!brd) return null;
-    for (const fp of brd.footprints) {
-      for (const pad of fp.pads) {
-        if (Math.hypot(w.x - pad.at.x, w.y - pad.at.y) <= Math.max(pad.size.x, pad.size.y) / 2)
-          return pad;
-      }
-    }
-    return null;
-  };
-
   // Net + snap point of the copper item under the cursor —
   // `TOOL_BASE::updateStartItem` / `updateEndItem`. The decision itself lives
   // in pcbnew so it can be tested against a real board; this is only the
@@ -6518,71 +6302,6 @@ export function PcbEditor({
   const fillAllZonesRef = useRef(fillAllZones);
   fillAllZonesRef.current = fillAllZones;
 
-  /**
-   * EDIT_TOOL::Properties: open Track & Via Properties on the selection.
-   * Upstream refuses when the selection has nothing it can edit.
-   */
-  const openTrackViaProperties = useCallback(() => {
-    const brd = boardRef.current;
-    if (!brd) return;
-    const sel = selForDrawRef.current;
-
-    if (hasTrackOrVia(trackViaSelection(brd, sel))) {
-      setTrackViaOpen(true);
-      return;
-    }
-
-    const zi = zoneAt(brd, sel);
-    if (zi !== null) {
-      frameRef.current?.Edit_Zone_Params(zi);
-      return;
-    }
-
-    const pi = selectedPadAt(brd, sel);
-    if (pi !== null) {
-      setPadPropsRef(pi);
-      return;
-    }
-
-    const ti = textAt(brd, sel);
-    if (ti !== null) {
-      setTextPropsIndex(ti);
-      return;
-    }
-
-    const si = shapeAt(brd, sel);
-    if (si !== null) {
-      setShapePropsIndex(si);
-      return;
-    }
-
-    const di = dimensionAt(brd, sel);
-    if (di !== null) {
-      setDimensionPropsIndex(di);
-      return;
-    }
-
-    const bi = textBoxAt(brd, sel);
-    if (bi !== null) {
-      setTextBoxPropsIndex(bi);
-      return;
-    }
-
-    const tbi = tableAt(brd, sel);
-    if (tbi !== null) {
-      setTablePropsIndex(tbi);
-      return;
-    }
-
-    const ii = imageAt(brd, sel);
-    if (ii !== null) {
-      setImagePropsIndex(ii);
-      return;
-    }
-
-    const fi = footprintAt(brd, sel);
-    if (fi !== null) setFpPropsIndex(fi);
-  }, [setTablePropsIndex, setTextBoxPropsIndex, setTextPropsIndex]);
   /** DIALOG_TRACK_VIA_PROPERTIES::TransferDataFromWindow. */
   const applyTrackViaEdit = useCallback(
     (values: TrackViaValues) => {
@@ -6851,7 +6570,6 @@ export function PcbEditor({
   const onPointerDown = (e: React.PointerEvent): void => {
     if (e.button === 0) {
       const w = worldAt(e.clientX, e.clientY);
-      const brd = boardRef.current;
       downRef.current = {
         x: e.clientX,
         y: e.clientY,
@@ -8643,14 +8361,6 @@ export function PcbEditor({
 
   // ----- menus (menubar_pcb_editor.cpp structure, working subset active) ------
 
-  const dis = true;
-  // The corner operations work on pairs of straight graphics, so the count that
-  // matters is how many of the selection actually are ones — a selection of two
-  // rectangles has nothing to fillet.
-  const lineModDisabled = !board || modifiableLineCount(board, selection) < 2;
-  // Likewise counted on what the selection actually holds: two polygons, not
-  // two items.
-  const polyBoolDisabled = !board || booleanableShapeCount(board, selection) < 2;
   /**
    * `PCB_EDIT_FRAME::doReCreateMenuBar`, which lives in
    * `editors/pcb/menubar.ts` — a `.ts`, so `qa` can build the tree and press

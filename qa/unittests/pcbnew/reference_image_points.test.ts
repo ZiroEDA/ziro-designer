@@ -19,6 +19,7 @@ describe('and the canvas draws what a selected or half-placed image needs', () =
     'utf8',
   );
 
+  // A selected image's LAYER_ANCHOR box is PCB_PAINTER's: pcb_painter.test.ts.
   it('dims a placed image by the image opacity, as the painter does', () => {
     // `color.a *= m_imageOpacity` (`pcb_painter.cpp:578`). Appearance > Objects
     // has had the slider all along and `DEFAULT_OPACITY.images` has been 0.6;
@@ -27,13 +28,6 @@ describe('and the canvas draws what a selected or half-placed image needs', () =
     expect(RENDER).toContain('imageOpacity: number;');
     expect(RENDER).toContain('opts.imageOpacity * la');
     expect(EDITOR).toContain('imageOpacity: opacity.images,');
-  });
-
-  it('boxes a selected one in LAYER_ANCHOR, which is what selection means here', () => {
-    // A raster has no stroke to brighten, so `draw( PCB_REFERENCE_IMAGE )` draws
-    // a bounding box instead — the one item whose selection is not "repaint it
-    // brightened".
-    expect(EDITOR).toContain('drawOpts.theme?.special.anchor');
   });
 });
 

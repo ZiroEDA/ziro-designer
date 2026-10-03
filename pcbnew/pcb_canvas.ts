@@ -48,8 +48,9 @@ export { loadBitmapFontImage } from '@ziroeda/common/gal/gal_window.js';
  * `PCB_EDIT_FRAME::PCB_EDIT_FRAME`'s canvas construction: the panel on the
  * element, the frame's screen and canvas, the drawing sheet proxy item.
  *
- * @return the panel, or null when WebGL2 is unavailable (there is no Cairo
- *         here; the editor keeps its raster path for that).
+ * @return the panel, or null when it could not be built at all. Without WebGL2
+ *         the panel is the same VIEW on CAIRO_GAL (`EDA_DRAW_PANEL_GAL::GAL_FALLBACK`),
+ *         as pcbnew is without OpenGL.
  */
 export function createPcbDrawPanel(
   aFrame: PCB_EDIT_FRAME,
@@ -64,11 +65,6 @@ export function createPcbDrawPanel(
     panel = new PCB_DRAW_PANEL_GAL(aFrame, window, aFrame.GetGalDisplayOptions());
   } catch (err) {
     console.warn(`Could not use OpenGL: ${(err as Error).message}`);
-    return null;
-  }
-
-  if (panel.GetBackend() !== 1 /* GAL_TYPE_OPENGL */) {
-    panel.Destroy();
     return null;
   }
 

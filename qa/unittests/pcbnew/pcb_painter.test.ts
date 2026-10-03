@@ -59,6 +59,7 @@ import {
   PCB_RENDER_SETTINGS,
 } from '@ziroeda/pcbnew/pcb_painter.js';
 import { PCB_TRACK, PCB_VIA } from '@ziroeda/pcbnew/pcb_track.js';
+import { PCB_REFERENCE_IMAGE } from '@ziroeda/pcbnew/pcb_reference_image.js';
 import { PCBNEW_SETTINGS } from '@ziroeda/pcbnew/pcbnew_settings.js';
 import { ZONE } from '@ziroeda/pcbnew/zone.js';
 import { SELECTED, BRIGHTENED } from '@ziroeda/common/eda_item_flags.js';
@@ -655,5 +656,56 @@ describe('PCB_RENDER_SETTINGS::GetColor', () => {
     expect(settings.GetColor(pad, PAD_COPPER_LAYER_FOR(B_Cu))).toEqual({ r: 1, g: 0, b: 1, a: 0 });
     // ...while LAYER_PADS stays active for a pad that is simply not on the primary layer
     expect(settings.GetColor(pad, LAYER_PADS)).toEqual(settings.GetLayerColor(LAYER_PADS));
+  });
+});
+
+describe('what a selected item adds (the board editor no longer draws these itself)', () => {
+  it('a selected footprint text draws its umbilical line back to the footprint (pcb_painter.cpp)', () => {
+    const { gal, painter, settings } = makePainter();
+    const board = new BOARD();
+    const fp = new FOOTPRINT(board);
+    fp.SetPosition({ x: mm(10), y: mm(10) });
+    board.Add(fp);
+    const ref = fp.Reference();
+    ref.SetText('R1');
+    ref.SetLayer(PCB_LAYER_ID.F_SilkS);
+    ref.SetTextPos({ x: mm(12), y: mm(11) });
+
+    const umbilical = () =>
+      gal.calls.filter(
+        (c) =>
+          c.op === 'DrawLine' &&
+          JSON.stringify(c.args.slice(0, 2)) ===
+            JSON.stringify([
+              { x: mm(12), y: mm(11) },
+              { x: mm(10), y: mm(10) },
+            ]),
+      );
+
+    painter.Draw(ref, PCB_LAYER_ID.F_SilkS);
+    expect(umbilical()).toHaveLength(0);
+
+    ref.SetFlags(SELECTED);
+    painter.Draw(ref, PCB_LAYER_ID.F_SilkS);
+    expect(umbilical()).toHaveLength(1);
+    expect(gal.strokeColor).toEqual(settings.GetColorForBoardItem(null, LAYER_ANCHOR));
+  });
+
+  it('a selected reference image draws its box in LAYER_ANCHOR at twice the outline width', () => {
+    const { gal, painter, settings } = makePainter();
+    const board = new BOARD();
+    const img = new PCB_REFERENCE_IMAGE(board, { x: mm(5), y: mm(5) }, PCB_LAYER_ID.F_SilkS);
+    board.Add(img);
+
+    const boxes = () => gal.calls.filter((c) => c.op === 'DrawRectangle');
+
+    painter.Draw(img, PCB_LAYER_ID.F_SilkS);
+    expect(boxes()).toHaveLength(0);
+
+    img.SetFlags(SELECTED);
+    painter.Draw(img, PCB_LAYER_ID.F_SilkS);
+    expect(boxes()).toHaveLength(1);
+    expect(gal.strokeColor).toEqual(settings.GetColorForBoardItem(img, LAYER_ANCHOR));
+    expect(gal.lineWidth).toBe(settings.GetOutlineWidth() * 2.0);
   });
 });
