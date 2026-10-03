@@ -14,6 +14,7 @@ import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { ERC_TESTER } from '@ziroeda/eeschema/erc/erc.js';
 import { ERCE_T } from '@ziroeda/eeschema/erc/erc_settings.js';
 import { LIB_SYMBOL } from '@ziroeda/eeschema/lib_symbol.js';
+import { SCH_LABEL } from '@ziroeda/eeschema/sch_label.js';
 import { SCH_LINE } from '@ziroeda/eeschema/sch_line.js';
 import type { SCH_ITEM } from '@ziroeda/eeschema/sch_item.js';
 import type { SCH_MARKER } from '@ziroeda/eeschema/sch_marker.js';
@@ -33,14 +34,20 @@ function sheet() {
   let n = 0;
 
   /** A symbol at \a x whose pins (all at its origin) have \a aTypes, named alike when \a aSameName. */
-  const symbol = (x: number, aTypes: ELECTRICAL_PINTYPE[], aSameName = false, aHidden = false) => {
+  const symbol = (
+    x: number,
+    aTypes: ELECTRICAL_PINTYPE[],
+    aSameName = false,
+    aHidden = false,
+    aNames: string[] = [],
+  ) => {
     const lib = new LIB_SYMBOL(`L${++n}`);
     aTypes.forEach((t, i) => {
       const libPin = new SCH_PIN(lib);
       libPin.SetNumber(String(i + 1));
-      libPin.SetName(aSameName ? 'P' : `P${i + 1}`);
+      libPin.SetName(aNames[i] ?? (aSameName ? 'P' : `P${i + 1}`));
       libPin.SetType(t);
-      libPin.SetPosition({ x: 0, y: 0 });
+      libPin.SetPosition({ x: aNames.length ? i * 2540 : 0, y: 0 });
       if (aHidden) libPin.SetVisible(false);
       lib.AddDrawItem(libPin);
     });
@@ -84,10 +91,26 @@ function sheet() {
       .sort((a, b) => a[0]! - b[0]!);
   };
 
-  return { symbol, wire, run, partners };
+  const label = (x: number, aText: string) => {
+    const l = new SCH_LABEL({ x, y: 0 }, aText);
+    screen.Append(l);
+  };
+
+  /** TestGroundPins' markers, as [error code, message]. */
+  const runGround = () => {
+    schematic.RecalculateConnections(null, SCH_CLEANUP_FLAGS.NO_CLEANUP);
+    new ERC_TESTER(schematic).TestGroundPins();
+    return (screen.Items().OfType(KICAD_T.SCH_MARKER_T) as unknown as SCH_MARKER[]).map((m) => [
+      m.GetRCItem()!.GetErrorCode(),
+      m.GetRCItem()!.GetErrorMessage(false),
+    ]);
+  };
+
+  return { symbol, wire, run, partners, label, runGround };
 }
 
-const { PT_OUTPUT, PT_TRISTATE, PT_UNSPECIFIED, PT_INPUT } = ELECTRICAL_PINTYPE;
+const { PT_OUTPUT, PT_TRISTATE, PT_UNSPECIFIED, PT_INPUT, PT_POWER_IN, PT_PASSIVE } =
+  ELECTRICAL_PINTYPE;
 
 describe('ERC_TESTER::TestPinToPin, conflicts', () => {
   it('two outputs on a net are an error', () => {
@@ -155,5 +178,20 @@ describe('ERC_TESTER::TestPinToPin, conflicts', () => {
     symbol(0, [PT_INPUT]);
     symbol(0, [PT_INPUT]);
     expect(run().markers.map((m) => m[0])).toEqual([ERCE_T.ERCE_PIN_NOT_DRIVEN]);
+  });
+});
+
+describe('ERC_TESTER::TestGroundPins', () => {
+  it('reports ground-named power pins off ground, in a symbol that has a ground net', () => {
+    // erc.cpp:1421: only power pins count; "EARTH_" prefixes a ground name. Pin 1 (power in,
+    // GND) is on the GND net; pin 2 is passive, so its name is not looked at; pin 3 (power
+    // in, EARTH_A) is on a net of its own.
+    const { symbol, wire, label, runGround } = sheet();
+    symbol(0, [PT_POWER_IN, PT_PASSIVE, PT_POWER_IN], false, false, ['GND', 'GND', 'EARTH_A']);
+    wire(0, -2540);
+    label(-2540, 'GND');
+    expect(runGround()).toEqual([
+      [ERCE_T.ERCE_GROUND_PIN_NOT_GROUND, 'Pin EARTH_A not connected to ground net'],
+    ]);
   });
 });
