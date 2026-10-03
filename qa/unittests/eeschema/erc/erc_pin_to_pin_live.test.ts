@@ -15,6 +15,7 @@ import { ERC_TESTER } from '@ziroeda/eeschema/erc/erc.js';
 import { ERCE_T } from '@ziroeda/eeschema/erc/erc_settings.js';
 import { LIB_SYMBOL } from '@ziroeda/eeschema/lib_symbol.js';
 import { SCH_LINE } from '@ziroeda/eeschema/sch_line.js';
+import type { SCH_ITEM } from '@ziroeda/eeschema/sch_item.js';
 import type { SCH_MARKER } from '@ziroeda/eeschema/sch_marker.js';
 import { SCH_PIN } from '@ziroeda/eeschema/sch_pin.js';
 import { SCH_SYMBOL } from '@ziroeda/eeschema/sch_symbol.js';
@@ -68,7 +69,22 @@ function sheet() {
     return { errors, markers: markers.sort((a, b) => (a[2] as number) - (b[2] as number)) };
   };
 
-  return { symbol, wire, run };
+  /** Each pin-to-pin marker's pin and partner, by x. */
+  const partners = () => {
+    const items = new Map<string, SCH_ITEM>();
+    schematic.Hierarchy().FillItemMap(items);
+    return (screen.Items().OfType(KICAD_T.SCH_MARKER_T) as unknown as SCH_MARKER[])
+      .map((m) => {
+        const item = m.GetRCItem()!;
+        return [
+          items.get(item.GetMainItemID())!.GetPosition().x,
+          items.get(item.GetAuxItemID())?.GetPosition().x,
+        ];
+      })
+      .sort((a, b) => a[0]! - b[0]!);
+  };
+
+  return { symbol, wire, run, partners };
 }
 
 const { PT_OUTPUT, PT_TRISTATE, PT_UNSPECIFIED, PT_INPUT } = ELECTRICAL_PINTYPE;
@@ -96,7 +112,7 @@ describe('ERC_TESTER::TestPinToPin, conflicts', () => {
     // X is unspecified (weight 10, a warning against any output), Y an output 1000 IU away
     // and Z an output 5000 IU away (Y-Z an error). X takes X-Y and X-Z and reports the nearer,
     // Y; Y then takes Y-Z.
-    const { symbol, wire, run } = sheet();
+    const { symbol, wire, run, partners } = sheet();
     symbol(0, [PT_UNSPECIFIED]);
     symbol(1000, [PT_OUTPUT]);
     symbol(5000, [PT_OUTPUT]);
@@ -110,6 +126,11 @@ describe('ERC_TESTER::TestPinToPin, conflicts', () => {
         [ERCE_T.ERCE_PIN_TO_PIN_ERROR, 'Pins of type Output and Output are connected', 1000],
       ],
     });
+    // X against its nearer partner Y (x 1000), not Z; Y against Z (x 5000).
+    expect(partners()).toEqual([
+      [0, 1000],
+      [1000, 5000],
+    ]);
   });
 
   it('does not set stacked pins of one symbol against each other', () => {
