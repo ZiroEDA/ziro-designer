@@ -17,6 +17,10 @@ import {
   RPT_SEVERITY_WARNING,
 } from '@ziroeda/common/reporter.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { ELECTRICAL_PINTYPE } from '@ziroeda/common/pin_type.js';
+import { LIB_SYMBOL } from '@ziroeda/eeschema/lib_symbol.js';
+import { SCH_PIN } from '@ziroeda/eeschema/sch_pin.js';
+import { SCH_SYMBOL } from '@ziroeda/eeschema/sch_symbol.js';
 import { LoadSchematic } from '@ziroeda/eeschema/eeschema_helpers.js';
 import { ERC_TESTER } from '@ziroeda/eeschema/erc/erc.js';
 import { ERC_REPORT } from '@ziroeda/eeschema/erc/erc_report.js';
@@ -95,6 +99,36 @@ function checked(aEdit?: Edit) {
   new ERC_TESTER(schematic).RunTests();
   return schematic;
 }
+
+describe('ERC_TESTER::TestOffGridEndpoints', () => {
+  /** A one-pin symbol of \a aType on the root screen, its pin 10 IU off the 50 mil grid. */
+  const offGrid = (aType: ELECTRICAL_PINTYPE) => {
+    const schematic = load();
+    const root = schematic.Hierarchy()[0]!;
+    const lib = new LIB_SYMBOL('ONE');
+    const libPin = new SCH_PIN(lib);
+    libPin.SetNumber('1');
+    libPin.SetType(aType);
+    libPin.SetPosition({ x: 10, y: 0 });
+    lib.AddDrawItem(libPin);
+    const symbol = new SCH_SYMBOL(lib, lib.GetLibId(), root, 1, 0, { x: 0, y: 0 });
+    symbol.SetRef(root, 'X1');
+    symbol.UpdatePins();
+    root.LastScreen()!.Append(symbol);
+    const before = new ERC_TESTER(load()).TestOffGridEndpoints();
+    return [new ERC_TESTER(schematic).TestOffGridEndpoints() - before, markersOn(schematic)];
+  };
+
+  it('marks an off-grid pin, at the pin', () => {
+    const [added, markers] = offGrid(ELECTRICAL_PINTYPE.PT_PASSIVE) as [number, SCH_MARKER[]];
+    expect(added).toBe(1);
+    expect(markers.some((m) => m.GetPosition().x === 10 && m.GetPosition().y === 0)).toBe(true);
+  });
+
+  it('leaves a no-connect pin alone', () => {
+    expect(offGrid(ELECTRICAL_PINTYPE.PT_NC)[0]).toBe(0);
+  });
+});
 
 describe('SHEETLIST_ERC_ITEMS_PROVIDER', () => {
   it('counts by severity, and keeps only the asked severities, errors first', () => {
