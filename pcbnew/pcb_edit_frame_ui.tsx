@@ -11,7 +11,6 @@
  */
 
 import { ParseFootprintFile } from './pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import type { OutStr } from '@ziroeda/common/eda_item.js';
 import { type ARC_EDIT_MODE, FRAME_T } from '@ziroeda/common/frame_type.js';
 import type { KIWAY } from '@ziroeda/common/kiway.js';
 import type { PCBNEW_APP } from './browser/pcbnew_app.js';
@@ -75,7 +74,6 @@ import {
   boardItemBBox,
   parseBoardItemId,
   boardItemId,
-  subsetBoardItems,
   isBoardItemLocked,
   isCopperLayerName,
   serializeBoard,
@@ -656,16 +654,11 @@ import { LIB_ID } from '@ziroeda/common/lib_id.js';
 import type { BOARD_EDITOR_CONTROL } from './tools/board_editor_control.js';
 import type { FOOTPRINT } from './footprint.js';
 import {
-  buildScene,
   drawOriginMarkers,
   PCB_DEFAULT_GRID_IU,
   PCB_DEFAULT_GRID_ORIGIN,
   DEFAULT_DRAW_OPTIONS,
-  DOM_PATH_FACTORY,
-  type BoardScene,
   type PcbDrawOptions,
-  type ScenePathFactory,
-  type SceneFilter,
 } from './renderBoard.js';
 import {
   applyDisplayState,
@@ -1064,23 +1057,6 @@ const DEFAULT_CLASS_DIMS: ClassDims = {
 //   * the colours were a hardcoded white fill with two grey borders, which is
 //     what `editPointColors` happens to derive for a white LAYER_AUX_ITEMS — so
 //     the handles ignored the board theme entirely.
-
-/** The board's metadata with none of its items, the shell an overlay is drawn in. */
-function emptyBoardLike(board: Board): Board {
-  return {
-    ...board,
-    footprints: [],
-    tracks: [],
-    arcs: [],
-    vias: [],
-    zones: [],
-    shapes: [],
-    texts: [],
-    textBoxes: [],
-    tables: [],
-    groups: [],
-  };
-}
 
 /**
  * `PCB_EDIT_FRAME::SyncProjectSettingsIntoBoard` (`files.ts`, `pcbnew/
@@ -3113,7 +3089,6 @@ export function PcbEditor({
     fpChooserResolveRef.current = null;
     setFpChooserOpen(false);
   }, [activeTool]);
-  const sceneRef = useRef<BoardScene | null>(null);
   /**
    * The WebGL layer, and whether it is the one drawing.
    *
@@ -3140,65 +3115,6 @@ export function PcbEditor({
   const [panelGeneration, setPanelGeneration] = useState(0);
   /** What `applyDisplayState` last pushed into the frame, for its diffs. */
   const displayStateRef = useRef<EditorDisplayState | null>(null);
-  const glOkRef = useRef(false);
-  /** Whether the scene on hand was compiled with GL paths (drawn by the GPU). */
-  const sceneFactory = (): ScenePathFactory => DOM_PATH_FACTORY;
-  /**
-   * Compile the board for whichever backend is drawing it.
-   *
-   * Only the *main* scene goes through this. The selection, move, highlight and
-   * net-colour scenes stay `Path2D`: they are painted onto the 2D overlay, they
-   * are small subsets, and the move overlay needs a translated view that the
-   * retained buffer has no way to express.
-   */
-  /**
-   * GetOwnClearance for the pad-clearance outlines, the common-case rule: the
-   * net's class clearance (first matching assignment, else Default), floored
-   * by the board's minimum-clearance rule. Values come from Board Setup, so
-   * boards whose Default class is not netclass.cpp's 0.2 mm draw their rings
-   * at the size pcbnew does (this demo's Default says 0.15 mm).
-   */
-  const clearanceForNet = (netName: string): number => {
-    const nc = boardSetupRef.current.netClasses;
-    const minClr = (boardSetupRef.current.constraints.minClearanceMM ?? 0) * MM;
-    const className = netClassFor(netName, nc.assignments);
-    const cls = nc.classes.find((c) => c.name === className) ?? nc.classes[0];
-    const clr = Number.parseFloat(cls?.clearance ?? '');
-    return Math.max(Number.isFinite(clr) ? clr * MM : 0.2 * MM, minClr);
-  };
-  /**
-   * `BOARD::ResolveTextVar` (`pcbnew/board.cpp`), reached from
-   * `PCB_TEXT::GetShownText`: the project's text variables — the Text Variables
-   * page's rows — plus the two board tokens that need no title block.
-   * An unanswered name is left verbatim by `ResolveTextVars`, as upstream
-   * leaves it.
-   *
-   * Not resolved here: the title-block tokens (ISSUE_DATE, REVISION, COMPANY,
-   * COMMENT1-9) and `LAYER`, which is per drawn item rather than per board.
-   */
-  const resolveTextVar = (token: OutStr): boolean => {
-    const vars = boardSetupRef.current.textVars;
-    const hit = vars.find((v) => v.name === token.value);
-    let value: string | undefined;
-    if (hit) value = hit.value;
-    else if (token.value === 'PROJECTNAME') value = projectName || undefined;
-    else if (token.value === 'FILENAME') value = fileName || undefined;
-    if (value === undefined) return false;
-    token.value = value;
-    return true;
-  };
-
-  const buildBoardScene = (b: Board, filter: SceneFilter = {}): BoardScene => {
-    if (!filter.clearanceForNet) filter = { ...filter, clearanceForNet };
-    if (!filter.resolveTextVar) filter = { ...filter, resolveTextVar };
-    // With the KiCad canvas up, the VIEW draws the board and nothing reads a
-    // raster scene of it: the shell alone (the paper, the setup) is kept for
-    // the parts of the 2D path that still ask a scene for them. The whole-board
-    // compile — 7.3 s and a Path2D per item on the jetson demo — is what the
-    // raster fallback pays, and only it.
-    if (glOkRef.current) return buildScene(emptyBoardLike(b), filter, sceneFactory());
-    return buildScene(b, filter, sceneFactory());
-  };
 
   /**
    * `PCB_BASE_FRAME::GetBoardBoundingBox( false )`'s `m_pcb->GetBoundingBox()`:
@@ -3207,7 +3123,7 @@ export function PcbEditor({
   const boardItemsBox = (): ExtentsBox | null => {
     const kb = boardRef.current?.k;
 
-    if (!kb) return sceneRef.current?.bbox ?? null;
+    if (!kb) return null;
 
     const area = kb.GetBoundingBox();
 
@@ -3227,7 +3143,7 @@ export function PcbEditor({
   const boardEdgesBox = (): ExtentsBox | null => {
     const kb = boardRef.current?.k;
 
-    if (!kb) return sceneRef.current?.bbox ?? null;
+    if (!kb) return null;
 
     const area = kb.GetBoardEdgesBoundingBox();
 
@@ -3416,7 +3332,6 @@ export function PcbEditor({
     // has parsed, as pcbnew keeps the old board up until `SetBoard`.
     if (!boardRef.current) {
       boardRef.current = emptyBoard;
-      sceneRef.current = buildBoardScene(emptyBoard);
       requestDrawRef.current();
     }
     // Not on screen: nothing to do yet. The open is read when the frame is
@@ -3485,11 +3400,6 @@ export function PcbEditor({
           if (cancelled) return;
         }
         boardRef.current = b;
-        sceneRef.current = buildBoardScene(b);
-        wxLogTrace(
-          traceAllegroPerf,
-          () => `Post-load scene: ${postLoadTimer.msecs(true).toFixed(3)} ms`,
-        );
         // OpenProjectFiles, the board loaded: `AdvancePhase( _( "Finalizing
         // board" ) )`, `SetBoard( loadedBoard, false )` — through the canvas,
         // so the VIEW takes every item here — then "Rebuild list of nets
@@ -3614,17 +3524,6 @@ export function PcbEditor({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setupSourceKey, rootPro, openNonce]);
-
-  // "Footprints Front/Back" hide whole footprints: rebuild the scene.
-  useEffect(() => {
-    if (!boardRef.current) return;
-    sceneRef.current = buildBoardScene(boardRef.current, {
-      hideFrontFootprints: !objects.footprintsFront,
-      hideBackFootprints: !objects.footprintsBack,
-    });
-    requestDraw();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [objects.footprintsFront, objects.footprintsBack]);
 
   /**
    * The board's drill/place file origin, cached per board object.
@@ -3872,43 +3771,10 @@ export function PcbEditor({
 
   // ----- board model mutation (edits + undo/redo) -----------------------------
 
-  /**
-   * Generation counter for the off-critical-path scene rebuild a drag starts.
-   * Any newer rebuild supersedes an older one, so a stale result cannot land
-   * on top of a committed edit and two drags cannot race.
-   */
-  const baseRebuildRef = useRef(0);
-
-  // Recompile the render scene for a new board and repaint (edits change geometry).
-  const rebuildScene = useCallback(
-    (b: Board) => {
-      // Supersede anything a drag left in flight, so it cannot land on top of
-      // this scene a moment later.
-      baseRebuildRef.current++;
-      sceneRef.current = buildBoardScene(b, {
-        hideFrontFootprints: !objects.footprintsFront,
-        hideBackFootprints: !objects.footprintsBack,
-      });
-      requestDraw();
-    },
-    [objects.footprintsFront, objects.footprintsBack, requestDraw],
-  );
-
-  const rebuildSceneRef = useRef(rebuildScene);
-  rebuildSceneRef.current = rebuildScene;
-
-  // A board text in an outline face is compiled as the stroke font until its
-  // face has been fetched (`FONT::GetFont` loads off the disk synchronously;
-  // ours cannot). When the face lands, the scene is rebuilt so the text is
-  // recompiled as its glyph rings — the board is unchanged, so nothing else
-  // would.
-  useEffect(
-    () =>
-      onOutlineFontsChanged(() => {
-        if (boardRef.current) rebuildSceneRef.current(boardRef.current);
-      }),
-    [],
-  );
+  // A board text in an outline face draws as the stroke font until its face
+  // has been fetched (`FONT::GetFont` loads off the disk synchronously; ours
+  // cannot). When the face lands the canvas repaints.
+  useEffect(() => onOutlineFontsChanged(() => requestDrawRef.current()), []);
 
   /**
    * The bitmap font atlas the GAL draws BitmapText with, decoded once. The
@@ -3947,7 +3813,6 @@ export function PcbEditor({
     // *Pgm().GetCommonSettings(), this )` before the canvas is built.
     frame.GetGalDisplayOptions().ReadCommonConfig(commonSettingsOf(), window);
     const panel = createPcbDrawPanel(frame, canvas, fontImage);
-    glOkRef.current = panel !== null;
     if (!panel) {
       console.warn('WebGL2 unavailable; drawing the board with Canvas2D');
       return;
@@ -3984,22 +3849,15 @@ export function PcbEditor({
     syncViewTransform(panel, viewRef.current, dpr);
     displayStateRef.current = null;
     setPanelReady(true);
-    // A restored context: the whole-board scene the raster path built in the
-    // meantime is no longer read; the shell replaces it.
-    if (kb && boardRef.current) rebuildSceneRef.current(boardRef.current);
-    // A lost context: the panel's GAL is gone with it; the raster path draws
-    // until the context is restored and the panel rebuilt.
+    // A lost context: the panel's GAL is gone with it until the context is
+    // restored and the panel rebuilt.
     const onLost = (e: Event): void => {
       e.preventDefault();
       panelRef.current?.Destroy();
       panelRef.current = null;
       frame.SetCanvas(null);
-      glOkRef.current = false;
       setPanelReady(false);
-      // The raster path draws from a scene of the whole board; under the GL
-      // panel only the shell was kept.
-      if (boardRef.current) rebuildSceneRef.current(boardRef.current);
-      else requestDrawRef.current();
+      requestDrawRef.current();
     };
     const onRestored = (): void => {
       setPanelGeneration((g) => g + 1);
@@ -4012,7 +3870,6 @@ export function PcbEditor({
       panelRef.current?.Destroy();
       panelRef.current = null;
       frame.SetCanvas(null);
-      glOkRef.current = false;
     };
   }, [fontImage, panelGeneration]);
 
@@ -4020,9 +3877,9 @@ export function PcbEditor({
     (b: Board) => {
       boardRef.current = b;
       setBoard(b);
-      rebuildScene(b);
+      requestDraw();
     },
-    [rebuildScene],
+    [requestDraw],
   );
 
   /**
@@ -5290,7 +5147,7 @@ export function PcbEditor({
       // size too, and a fit taken there is to a viewport the user never sees.
       // `PCB_EDIT_FRAME::onSize` runs its zoomFitScreen `if( IsShownOnScreen() )`
       // and not before.
-      if (!fittedRef.current && sceneRef.current && isMeasured(size) && shownRef.current) {
+      if (!fittedRef.current && boardRef.current && isMeasured(size) && shownRef.current) {
         fittedRef.current = true;
         zoomToFit();
       } else if (changed) {
@@ -5310,7 +5167,7 @@ export function PcbEditor({
     if (!board) return;
     let raf = 0;
     const tryFit = (): void => {
-      if (fittedRef.current || !sceneRef.current) return;
+      if (fittedRef.current || !boardRef.current) return;
       const r = wrapRef.current?.getBoundingClientRect();
       if (!r || r.width === 0 || r.height === 0 || !shownRef.current) return;
       fittedRef.current = true;
@@ -7440,44 +7297,10 @@ export function PcbEditor({
     return s;
   }, [selectedNets, highlightNets]);
 
-  // Highlight scene: every copper item on the highlighted nets, painted
-  // Brightened(0.5) over the dimmed board, BOARD_INSPECTION_TOOL net highlight
-  // (pcb_painter.cpp: highlighted items brighten, the rest darken).
-  //
-  // "Every copper item" includes the *pads*: PAD is a BOARD_CONNECTED_ITEM and
-  // draw(PAD) runs the same GetColor, so the net's pads lift with its tracks.
-  // Leaving them out was what made a highlighted net look half-lit.
-  const highlightSceneRef = useRef<BoardScene | null>(null);
+  // A net highlight is the VIEW's (PCB_RENDER_SETTINGS::GetColor brightens the
+  // highlighted nets and darkens the rest); the canvas only repaints.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `highlightNets` is the trigger
   useEffect(() => {
-    const brd = boardRef.current;
-    if (!brd || highlightNets.size === 0) {
-      highlightSceneRef.current = null;
-      requestDraw();
-      return;
-    }
-    const ids = new Set<string>();
-    brd.tracks.forEach((t, i) => {
-      if (highlightNets.has(t.net)) ids.add(boardItemId('track', i));
-    });
-    brd.arcs.forEach((a, i) => {
-      if (highlightNets.has(a.net)) ids.add(boardItemId('arc', i));
-    });
-    brd.vias.forEach((vv, i) => {
-      if (highlightNets.has(vv.net)) ids.add(boardItemId('via', i));
-    });
-    brd.zones.forEach((z, i) => {
-      if (highlightNets.has(z.net)) ids.add(boardItemId('zone', i));
-    });
-    brd.footprints.forEach((fp, fi) => {
-      fp.pads.forEach((p, pi) => {
-        if (p.net !== undefined && highlightNets.has(p.net)) ids.add(boardItemId('pad', fi, pi));
-      });
-    });
-    highlightSceneRef.current = ids.size > 0 ? buildScene(subsetBoardItems(brd, ids)) : null;
-    // The dimming of everything NOT on the net is the VIEW's:
-    // `PCB_RENDER_SETTINGS::GetColor` darkens by `1 - m_highlightFactor` for
-    // any item the highlight set does not name, so there is no second picture
-    // to re-render when the highlight comes and goes.
     requestDraw();
   }, [highlightNets, requestDraw]);
 
