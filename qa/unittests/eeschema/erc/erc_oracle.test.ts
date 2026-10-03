@@ -152,7 +152,7 @@ function runErc(aDir: string, aSource: string): Report {
 const FILES = readdirSync(ORACLE).filter((f) => f.endsWith('.json'));
 
 describe('ERC_TESTER against kicad-cli sch erc', () => {
-  it('has the oracle', () => expect(FILES.length).toBe(44));
+  it('has the oracle', () => expect(FILES.length).toBe(45));
 
   for (const f of FILES) {
     it(f, { timeout: 120_000 }, () => {

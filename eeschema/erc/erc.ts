@@ -2202,27 +2202,27 @@ const DrivenPinTypes = new Set<ELECTRICAL_PINTYPE>([
 ]);
 
 /**
- * `std::map<VECTOR2I, T>`: VECTOR2::operator< compares x² + y², so points at one distance from
- * the origin are ONE key (the first point inserted is the key kept) and iteration is by that
- * distance. erc.cpp keys its connection maps this way.
+ * `std::map<VECTOR2I, T>`: keyed on the exact point, iterated by x then y, as KiCad's
+ * `std::less<VECTOR2I>` specialization (libs/kimath/src/math/vector2.cpp) orders it. (Not
+ * VECTOR2::operator<, which compares x² + y²; the specialization is what std::map uses.)
  */
 class VECTOR2I_MAP<T> {
-  private m_map = new Map<number, { key: VECTOR2I; value: T }>();
+  private m_map = new Map<string, { key: VECTOR2I; value: T }>();
 
   constructor(private readonly m_make: () => T) {}
 
-  private static norm(aPt: VECTOR2I): number {
-    return aPt.x * aPt.x + aPt.y * aPt.y;
+  private static id(aPt: VECTOR2I): string {
+    return `${aPt.x},${aPt.y}`;
   }
 
   /** `operator[]`. */
   at(aPt: VECTOR2I): T {
-    const n = VECTOR2I_MAP.norm(aPt);
-    let entry = this.m_map.get(n);
+    const id = VECTOR2I_MAP.id(aPt);
+    let entry = this.m_map.get(id);
 
     if (!entry) {
-      entry = { key: aPt, value: this.m_make() };
-      this.m_map.set(n, entry);
+      entry = { key: { x: aPt.x, y: aPt.y }, value: this.m_make() };
+      this.m_map.set(id, entry);
     }
 
     return entry.value;
@@ -2230,11 +2230,15 @@ class VECTOR2I_MAP<T> {
 
   /** `count( aPt )`. */
   has(aPt: VECTOR2I): boolean {
-    return this.m_map.has(VECTOR2I_MAP.norm(aPt));
+    return this.m_map.has(VECTOR2I_MAP.id(aPt));
   }
 
   *[Symbol.iterator](): Iterator<[VECTOR2I, T]> {
-    for (const [, e] of [...this.m_map].sort((a, b) => a[0] - b[0])) yield [e.key, e.value];
+    const entries = [...this.m_map.values()].sort((a, b) =>
+      a.key.x === b.key.x ? a.key.y - b.key.y : a.key.x - b.key.x,
+    );
+
+    for (const e of entries) yield [e.key, e.value];
   }
 }
 
