@@ -578,3 +578,18 @@ html.ze-ai-open #root .ze-statusbar {
   outline: none;
   box-shadow: none;
 }
+
+/* The agent link line: how to connect, or what is connected (ai/agent_link.tsx). Ours, not a
+   KiCad control: it takes the chrome tokens like the rest of the pane. */
+.ze-ai-agent {
+  flex: 0 0 auto;
+  padding: 4px 6px;
+  font-size: var(--ui-font-size-small);
+  color: var(--chrome-fg-muted);
+  background: var(--chrome-bg2);
+  border-bottom: 1px solid var(--chrome-border);
+}
+
+.ze-ai-agent code {
+  color: var(--chrome-fg);
+}

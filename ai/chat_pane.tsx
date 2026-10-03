@@ -9,7 +9,8 @@
  * commit in that editor.
  */
 import { useEffect, useRef, useState } from 'react';
-import { aiBridge, allBridges, type EditorKind, type ToolOutput } from './ai_bridge.js';
+import { aiBridge, allBridges, type EditorKind, runAiTool, type ToolOutput } from './ai_bridge.js';
+import { AgentStatus, useAgentLink } from './agent_link.js';
 import { hideDoc, showDoc } from './doc_viewer.js';
 import { Markdown } from './markdown.js';
 import { AI_AGENT_URL } from './ai_flag.js';
@@ -110,6 +111,7 @@ export function AiChatPane(): JSX.Element {
   const fileRef = useRef<HTMLInputElement>(null);
   const session = useRef<string | undefined>(undefined);
   const lastSeen = useRef(new Map<EditorKind, string>());
+  const agent = useAgentLink();
   const abort = useRef<AbortController | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -235,28 +237,10 @@ export function AiChatPane(): JSX.Element {
 
   /** Run one tool call from the model on whichever editor owns that tool. */
   const runTool = async (name: string, args: Record<string, unknown>): Promise<ToolOutput> => {
-    for (const b of allBridges()) {
-      const refused = b.guard?.(name);
-      if (refused) return refused;
-    }
-    for (const b of [...allBridges()].sort(
-      (x, y) => Number(y.kind === 'app') - Number(x.kind === 'app'),
-    )) {
-      const out = b.run(name, args);
-      if (out) {
-        // The editor doing the work is the one on screen.
-        if (b.kind === 'sch' || b.kind === 'pcb') aiBridge('app')?.show?.(b.kind);
-        const r = await out;
-        // What the model just read is what it has seen.
-        if (name.startsWith('read_')) lastSeen.current.set(b.kind, r.text);
-        return r;
-      }
-    }
-    return {
-      text: `Nothing open can run ${name} right now: open the editor it belongs to (open_editor) first.`,
-      isError: true,
-      note: `${name}: its editor is not open`,
-    };
+    const { out, kind } = await runAiTool(name, args);
+    // What the model just read is what it has seen.
+    if (kind && name.startsWith('read_')) lastSeen.current.set(kind, out.text);
+    return out;
   };
 
   const send = async (override?: string) => {
@@ -438,6 +422,7 @@ export function AiChatPane(): JSX.Element {
 
   return (
     <div className="ze-panel ze-ai-pane" data-testid="ai-pane">
+      <AgentStatus agent={agent} />
       <div className="ze-ai-head">
         <div className="ze-ai-menu-anchor">
           <button
