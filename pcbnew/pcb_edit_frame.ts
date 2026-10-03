@@ -19,12 +19,13 @@ import { SpreadFootprints } from './autorouter/spread_footprints.js';
 import { PCB_CONTROL } from './tools/pcb_control.js';
 import { BOARD_EDITOR_CONTROL } from './tools/board_editor_control.js';
 import { PARSE_ERROR } from '@ziroeda/common/dsnlexer.js';
-import { PCB_EDIT_FRAME_NAME } from '@ziroeda/common/eda_draw_frame.js';
+import { EDA_DRAW_FRAME, PCB_EDIT_FRAME_NAME } from '@ziroeda/common/eda_draw_frame.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { ENUM_MAP } from '@ziroeda/common/properties/property.js';
-import { FRAME_T } from '@ziroeda/common/frame_type.js';
+import { ARC_EDIT_MODE, FRAME_T } from '@ziroeda/common/frame_type.js';
 import {
   CLEARANCE_LAYER_FOR,
+  GAL_LAYER_ID,
   IsCopperLayer,
   PCB_LAYER_ID,
   UNDEFINED_LAYER,
@@ -38,12 +39,24 @@ import { LeaderMode as LEADER_MODE } from '@ziroeda/kimath/src/geometry/geometry
 import { EDA_ANGLE, EDA_ANGLE_T } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import type { BOARD } from './board.js';
 import { BOARD_ITEM } from './board_item.js';
-import type { BOARD_CONNECTED_ITEM } from './board_connected_item.js';
+import { BOARD_CONNECTED_ITEM } from './board_connected_item.js';
 import type { EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
 import type { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
 import type { BOARD_ITEM_CONTAINER } from './board_item_container.js';
 import { BOARD_LISTENER } from './board.js';
-import { HIGH_CONTRAST_MODE } from '@ziroeda/common/project/board_project_settings.js';
+import {
+  HIGH_CONTRAST_MODE,
+  ZONE_DISPLAY_MODE,
+} from '@ziroeda/common/project/board_project_settings.js';
+import { ACTION_CONDITIONS } from '@ziroeda/common/tool/action_manager.js';
+import {
+  type SELECTION_CONDITION,
+  SELECTION_CONDITIONS,
+} from '@ziroeda/common/tool/selection_conditions.js';
+import type { TOOL_ACTION } from '@ziroeda/common/tool/tool_action.js';
+import { PCB_EDITOR_CONDITIONS } from './tools/pcb_editor_conditions.js';
+import { PCB_SELECTION_CONDITIONS } from './tools/pcb_selection_conditions.js';
+import { PnsMode, type RoutingSettings } from './router/pns_routing_settings.js';
 import { PAD } from './pad.js';
 import { PCB_VIA, VIATYPE } from './pcb_track.js';
 import type { PROGRESS_REPORTER_LIKE } from './connectivity/connectivity_algo.js';
@@ -126,7 +139,6 @@ import { PAD_TOOL } from './tools/pad_tool.js';
 import { GLOBAL_EDIT_TOOL } from './tools/global_edit_tool.js';
 import { ZONE_FILLER_TOOL } from './tools/zone_filler_tool.js';
 import { ZONE_FILLER } from './zone_filler.js';
-import type { RoutingSettings } from './router/pns_routing_settings.js';
 import type { VIA_DIMENSION } from './board_design_settings.js';
 
 /**
@@ -166,7 +178,7 @@ import type { OUTSET_PARAMETERS } from './tools/item_modification_routine.js';
 import type { CONVERT_SETTINGS } from './pcbnew_settings.js';
 import type { ZONE_SETTINGS } from './zone_settings.js';
 import { PCB_GROUP_TOOL } from './tools/pcb_group_tool.js';
-import { DRAWING_TOOL } from './tools/drawing_tool.js';
+import { DRAWING_MODE, DRAWING_TOOL } from './tools/drawing_tool.js';
 import type { TOOL_EVENT } from '@ziroeda/common/tool/tool_event.js';
 import type { DIALOG_TEXT_PROPERTIES } from './dialogs/dialog_text_properties.js';
 import { DIALOG_TABLE_PROPERTIES } from './dialogs/dialog_table_properties.js';
@@ -492,6 +504,11 @@ export interface PCB_EDIT_FRAME_HOOKS {
    * with `GetRepourOnClose()`. Optional: absent answers cancel.
    */
   showZoneManager?(): Promise<{ ok: boolean; repour: boolean }>;
+  /**
+   * TRANSITIONAL (#636): `m_auimgr.GetPane( aName ).IsShown()`. The docked
+   * panes are still the window's, which knows which are shown.
+   */
+  paneShown?(aName: string): boolean;
   /** The window's KiDialog: KIDIALOG::ShowModal. */
   askKiDialog?(aRequest: KiDialogRequest): Promise<KiDialogResult>;
   /**
@@ -1191,6 +1208,356 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     this.hooks.updateProperties?.();
   }
 
+  /** `SearchPaneName()` (pcb_edit_frame.h:148). */
+  static SearchPaneName(): string {
+    return 'Search';
+  }
+
+  /** `LayerManagerShown()` (pcb_edit_frame.cpp:3216-3219). */
+  LayerManagerShown(): boolean {
+    return this.hooks.paneShown?.('LayersManager') ?? false;
+  }
+
+  /** `PropertiesShown()` (pcb_edit_frame.cpp:3222-3225). */
+  PropertiesShown(): boolean {
+    return this.hooks.paneShown?.(EDA_DRAW_FRAME.PropertiesPaneName()) ?? false;
+  }
+
+  /** `NetInspectorShown()` (pcb_edit_frame.cpp:3228-3231). */
+  NetInspectorShown(): boolean {
+    return this.hooks.paneShown?.(EDA_DRAW_FRAME.NetInspectorPanelName()) ?? false;
+  }
+
+  /** `setupUIConditions()` (pcb_edit_frame.cpp:995-1367). */
+  protected override setupUIConditions(): void {
+    super.setupUIConditions();
+
+    const mgr = this.m_toolManager!.GetActionManager();
+    const cond = new PCB_EDITOR_CONDITIONS(this);
+
+    const undoCond = (_aSel: SELECTION): boolean => {
+      const drawingTool = this.m_toolManager!.GetTool(DRAWING_TOOL);
+
+      if (drawingTool && drawingTool.GetDrawingMode() !== DRAWING_MODE.NONE) return true;
+
+      const routerTool = this.m_toolManager!.GetTool(ROUTER_TOOL);
+
+      if (routerTool && routerTool.RoutingInProgress()) return true;
+
+      return this.GetUndoCommandCount() > 0;
+    };
+
+    const groupWithDesignBlockLink = (aSel: SELECTION): boolean => {
+      if (aSel.Size() !== 1) return false;
+
+      if (aSel.Front()!.Type() !== KICAD_T.PCB_GROUP_T) return false;
+
+      const group = aSel.GetItem(0) as unknown as PCB_GROUP;
+
+      return group.HasDesignBlockLink();
+    };
+
+    const ENABLE = (x: SELECTION_CONDITION): ACTION_CONDITIONS => new ACTION_CONDITIONS().Enable(x);
+    const CHECK = (x: SELECTION_CONDITION): ACTION_CONDITIONS => new ACTION_CONDITIONS().Check(x);
+    const { And, Not, ShowAlways, Idle } = {
+      And: SELECTION_CONDITIONS.And,
+      Not: SELECTION_CONDITIONS.Not,
+      ShowAlways: SELECTION_CONDITIONS.ShowAlways,
+      Idle: SELECTION_CONDITIONS.Idle,
+    };
+
+    mgr.SetConditions(ACTIONS.save, ENABLE(ShowAlways));
+    mgr.SetConditions(ACTIONS.undo, ENABLE(undoCond));
+    mgr.SetConditions(ACTIONS.redo, ENABLE(cond.RedoAvailable()));
+
+    mgr.SetConditions(ACTIONS.toggleGrid, CHECK(cond.GridVisible()));
+    mgr.SetConditions(ACTIONS.toggleGridOverrides, CHECK(cond.GridOverrides()));
+    mgr.SetConditions(ACTIONS.togglePolarCoords, CHECK(cond.PolarCoordinates()));
+
+    mgr.SetConditions(ACTIONS.cut, ENABLE(cond.HasItems()));
+    mgr.SetConditions(ACTIONS.copy, ENABLE(cond.HasItems()));
+    mgr.SetConditions(ACTIONS.paste, ENABLE(And(Idle, cond.NoActiveTool())));
+    mgr.SetConditions(ACTIONS.pasteSpecial, ENABLE(And(Idle, cond.NoActiveTool())));
+    mgr.SetConditions(ACTIONS.selectAll, ENABLE(cond.HasItems()));
+    mgr.SetConditions(ACTIONS.unselectAll, ENABLE(cond.HasItems()));
+    mgr.SetConditions(ACTIONS.doDelete, ENABLE(cond.HasItems()));
+    mgr.SetConditions(ACTIONS.duplicate, ENABLE(cond.HasItems()));
+
+    const groupTypes = [KICAD_T.PCB_GROUP_T, KICAD_T.PCB_GENERATOR_T];
+
+    mgr.SetConditions(ACTIONS.group, ENABLE(SELECTION_CONDITIONS.MoreThan(1)));
+    mgr.SetConditions(ACTIONS.ungroup, ENABLE(SELECTION_CONDITIONS.HasTypes(groupTypes)));
+    mgr.SetConditions(PCB_ACTIONS.lock, ENABLE(PCB_SELECTION_CONDITIONS.HasUnlockedItems));
+    mgr.SetConditions(PCB_ACTIONS.unlock, ENABLE(PCB_SELECTION_CONDITIONS.HasLockedItems));
+
+    mgr.SetConditions(PCB_ACTIONS.placeLinkedDesignBlock, ENABLE(groupWithDesignBlockLink));
+    mgr.SetConditions(PCB_ACTIONS.saveToLinkedDesignBlock, ENABLE(groupWithDesignBlockLink));
+
+    mgr.SetConditions(PCB_ACTIONS.padDisplayMode, CHECK(Not(cond.PadFillDisplay())));
+    mgr.SetConditions(PCB_ACTIONS.viaDisplayMode, CHECK(Not(cond.ViaFillDisplay())));
+    mgr.SetConditions(PCB_ACTIONS.trackDisplayMode, CHECK(Not(cond.TrackFillDisplay())));
+    mgr.SetConditions(PCB_ACTIONS.graphicsOutlines, CHECK(Not(cond.GraphicsFillDisplay())));
+    mgr.SetConditions(PCB_ACTIONS.textOutlines, CHECK(Not(cond.TextFillDisplay())));
+
+    // `if( SCRIPTING::IsWxAvailable() )`: there is no Python console in the browser.
+
+    const enableZoneControlCondition = (_aSel: SELECTION): boolean => {
+      const board = this.GetBoard();
+
+      return (
+        !!board &&
+        board.GetVisibleElements().Contains(GAL_LAYER_ID.LAYER_ZONES) &&
+        this.GetDisplayOptions().m_ZoneOpacity > 0.0
+      );
+    };
+
+    mgr.SetConditions(
+      PCB_ACTIONS.zoneDisplayFilled,
+      ENABLE(enableZoneControlCondition).Check(cond.ZoneDisplayMode(ZONE_DISPLAY_MODE.SHOW_FILLED)),
+    );
+    mgr.SetConditions(
+      PCB_ACTIONS.zoneDisplayOutline,
+      ENABLE(enableZoneControlCondition).Check(
+        cond.ZoneDisplayMode(ZONE_DISPLAY_MODE.SHOW_ZONE_OUTLINE),
+      ),
+    );
+    mgr.SetConditions(
+      PCB_ACTIONS.zoneDisplayFractured,
+      ENABLE(enableZoneControlCondition).Check(
+        cond.ZoneDisplayMode(ZONE_DISPLAY_MODE.SHOW_FRACTURE_BORDERS),
+      ),
+    );
+    mgr.SetConditions(
+      PCB_ACTIONS.zoneDisplayTriangulated,
+      ENABLE(enableZoneControlCondition).Check(
+        cond.ZoneDisplayMode(ZONE_DISPLAY_MODE.SHOW_TRIANGULATION),
+      ),
+    );
+
+    mgr.SetConditions(ACTIONS.toggleBoundingBoxes, CHECK(cond.BoundingBoxes()));
+
+    const hasElements = (aSel: SELECTION): boolean => {
+      const board = this.GetBoard();
+
+      return !!board && (!board.IsEmpty() || !Idle(aSel));
+    };
+
+    const boardFlippedCond = (_aSel: SELECTION): boolean =>
+      this.GetDisplayOptions().m_FlipBoardView;
+
+    const layerManagerCond = (_aSel: SELECTION): boolean => this.LayerManagerShown();
+
+    const propertiesCond = (_aSel: SELECTION): boolean => this.PropertiesShown();
+
+    const netInspectorCond = (_aSel: SELECTION): boolean => this.NetInspectorShown();
+
+    const searchPaneCond = (_aSel: SELECTION): boolean =>
+      this.hooks.paneShown?.(PCB_EDIT_FRAME.SearchPaneName()) ?? false;
+
+    const designBlockCond = (_aSel: SELECTION): boolean =>
+      this.hooks.paneShown?.(EDA_DRAW_FRAME.DesignBlocksPaneName()) ?? false;
+
+    const highContrastCond = (_aSel: SELECTION): boolean =>
+      this.GetDisplayOptions().m_ContrastModeDisplay !== HIGH_CONTRAST_MODE.NORMAL;
+
+    const globalRatsnestCond = (_aSel: SELECTION): boolean => {
+      const cfg = this.GetPcbNewSettings();
+      return !!cfg && cfg.m_Display.m_ShowGlobalRatsnest;
+    };
+
+    const curvedRatsnestCond = (_aSel: SELECTION): boolean => {
+      const cfg = this.GetPcbNewSettings();
+      return !!cfg && cfg.m_Display.m_DisplayRatsnestLinesCurved;
+    };
+
+    const netHighlightCond = (_aSel: SELECTION): boolean => {
+      const settings = this.GetCanvas()?.GetView()?.GetPainter()?.GetSettings();
+
+      if (settings) return settings.GetHighlightNetCodes().size > 0;
+
+      return false;
+    };
+
+    const enableNetHighlightCond = (_aSel: SELECTION): boolean => {
+      const tool = this.m_toolManager!.GetTool(BOARD_INSPECTION_TOOL);
+      return !!tool && tool.IsNetHighlightSet();
+    };
+
+    mgr.SetConditions(ACTIONS.highContrastMode, CHECK(highContrastCond));
+    mgr.SetConditions(PCB_ACTIONS.flipBoard, CHECK(boardFlippedCond));
+    mgr.SetConditions(PCB_ACTIONS.showLayersManager, CHECK(layerManagerCond));
+    mgr.SetConditions(PCB_ACTIONS.showRatsnest, CHECK(globalRatsnestCond));
+    mgr.SetConditions(PCB_ACTIONS.ratsnestLineMode, CHECK(curvedRatsnestCond));
+    mgr.SetConditions(
+      PCB_ACTIONS.toggleNetHighlight,
+      CHECK(netHighlightCond).Enable(enableNetHighlightCond),
+    );
+    mgr.SetConditions(ACTIONS.showProperties, CHECK(propertiesCond));
+    mgr.SetConditions(PCB_ACTIONS.showNetInspector, CHECK(netInspectorCond));
+    mgr.SetConditions(ACTIONS.showSearch, CHECK(searchPaneCond));
+    mgr.SetConditions(PCB_ACTIONS.showDesignBlockPanel, CHECK(designBlockCond));
+
+    mgr.SetConditions(PCB_ACTIONS.saveBoardAsDesignBlock, ENABLE(hasElements));
+    mgr.SetConditions(
+      PCB_ACTIONS.saveSelectionAsDesignBlock,
+      ENABLE(SELECTION_CONDITIONS.NotEmpty),
+    );
+
+    const isArcKeepCenterMode = (_aSel: SELECTION): boolean => {
+      const cfg = this.GetPcbNewSettings();
+      return !!cfg && cfg.m_ArcEditMode === ARC_EDIT_MODE.KEEP_CENTER_ADJUST_ANGLE_RADIUS;
+    };
+
+    const isArcKeepEndpointMode = (_aSel: SELECTION): boolean => {
+      const cfg = this.GetPcbNewSettings();
+      return !!cfg && cfg.m_ArcEditMode === ARC_EDIT_MODE.KEEP_ENDPOINTS_OR_START_DIRECTION;
+    };
+
+    const isArcKeepRadiusMode = (_aSel: SELECTION): boolean => {
+      const cfg = this.GetPcbNewSettings();
+      return !!cfg && cfg.m_ArcEditMode === ARC_EDIT_MODE.KEEP_CENTER_ENDS_ADJUST_ANGLE;
+    };
+
+    mgr.SetConditions(ACTIONS.pointEditorArcKeepCenter, CHECK(isArcKeepCenterMode));
+    mgr.SetConditions(ACTIONS.pointEditorArcKeepEndpoint, CHECK(isArcKeepEndpointMode));
+    mgr.SetConditions(ACTIONS.pointEditorArcKeepRadius, CHECK(isArcKeepRadiusMode));
+
+    const isHighlightMode = (_aSel: SELECTION): boolean => {
+      const tool = this.m_toolManager!.GetTool(ROUTER_TOOL);
+      return !!tool && tool.GetRouterMode() === PnsMode.RM_MarkObstacles;
+    };
+
+    const isShoveMode = (_aSel: SELECTION): boolean => {
+      const tool = this.m_toolManager!.GetTool(ROUTER_TOOL);
+      return !!tool && tool.GetRouterMode() === PnsMode.RM_Shove;
+    };
+
+    const isWalkaroundMode = (_aSel: SELECTION): boolean => {
+      const tool = this.m_toolManager!.GetTool(ROUTER_TOOL);
+      return !!tool && tool.GetRouterMode() === PnsMode.RM_Walkaround;
+    };
+
+    mgr.SetConditions(PCB_ACTIONS.routerHighlightMode, CHECK(isHighlightMode));
+    mgr.SetConditions(PCB_ACTIONS.routerShoveMode, CHECK(isShoveMode));
+    mgr.SetConditions(PCB_ACTIONS.routerWalkaroundMode, CHECK(isWalkaroundMode));
+
+    const isAutoTrackWidth = (_aSel: SELECTION): boolean =>
+      this.GetDesignSettings().m_UseConnectedTrackWidth;
+
+    mgr.SetConditions(PCB_ACTIONS.autoTrackWidth, CHECK(isAutoTrackWidth));
+
+    const haveNetCond = (aSel: SELECTION): boolean => {
+      for (const item of aSel) {
+        if (item instanceof BOARD_CONNECTED_ITEM && item.GetNetCode() > 0) return true;
+      }
+
+      return false;
+    };
+
+    mgr.SetConditions(PCB_ACTIONS.showNetInRatsnest, ENABLE(haveNetCond));
+    mgr.SetConditions(PCB_ACTIONS.hideNetInRatsnest, ENABLE(haveNetCond));
+    mgr.SetConditions(PCB_ACTIONS.highlightNet, ENABLE(ShowAlways));
+    mgr.SetConditions(PCB_ACTIONS.highlightNetSelection, ENABLE(ShowAlways));
+
+    const trackTypes = [KICAD_T.PCB_TRACE_T, KICAD_T.PCB_ARC_T, KICAD_T.PCB_VIA_T];
+    const padOwnerTypes = [KICAD_T.PCB_FOOTPRINT_T, KICAD_T.PCB_PAD_T];
+    const footprintTypes = [KICAD_T.PCB_FOOTPRINT_T];
+    const crossProbeTypes = [KICAD_T.PCB_PAD_T, KICAD_T.PCB_FOOTPRINT_T, KICAD_T.PCB_GROUP_T];
+    const zoneTypes = [KICAD_T.PCB_ZONE_T];
+
+    mgr.SetConditions(PCB_ACTIONS.selectNet, ENABLE(SELECTION_CONDITIONS.OnlyTypes(trackTypes)));
+    mgr.SetConditions(PCB_ACTIONS.deselectNet, ENABLE(SELECTION_CONDITIONS.OnlyTypes(trackTypes)));
+    mgr.SetConditions(
+      PCB_ACTIONS.selectUnconnected,
+      ENABLE(SELECTION_CONDITIONS.OnlyTypes(padOwnerTypes)),
+    );
+    mgr.SetConditions(
+      PCB_ACTIONS.selectSameSheet,
+      ENABLE(SELECTION_CONDITIONS.OnlyTypes(footprintTypes)),
+    );
+    mgr.SetConditions(
+      PCB_ACTIONS.selectOnSchematic,
+      ENABLE(SELECTION_CONDITIONS.HasTypes(crossProbeTypes)),
+    );
+
+    const singleZoneCond = And(
+      SELECTION_CONDITIONS.Count(1),
+      SELECTION_CONDITIONS.OnlyTypes(zoneTypes),
+    );
+
+    const zoneMergeCond = And(
+      SELECTION_CONDITIONS.MoreThan(1),
+      SELECTION_CONDITIONS.OnlyTypes(zoneTypes),
+    );
+
+    mgr.SetConditions(PCB_ACTIONS.zoneDuplicate, ENABLE(singleZoneCond));
+    mgr.SetConditions(PCB_ACTIONS.drawZoneCutout, ENABLE(singleZoneCond));
+    mgr.SetConditions(PCB_ACTIONS.drawSimilarZone, ENABLE(singleZoneCond));
+    mgr.SetConditions(PCB_ACTIONS.zoneMerge, ENABLE(zoneMergeCond));
+
+    mgr.SetConditions(ACTIONS.selectSetRect, CHECK(cond.CurrentTool(ACTIONS.selectionTool)));
+    mgr.SetConditions(ACTIONS.selectSetLasso, CHECK(cond.CurrentTool(ACTIONS.selectionTool)));
+
+    const CURRENT_TOOL = (action: TOOL_ACTION): void =>
+      mgr.SetConditions(action, CHECK(cond.CurrentTool(action)));
+
+    // These tools can be used at any time to inspect the board
+    CURRENT_TOOL(ACTIONS.zoomTool);
+    CURRENT_TOOL(ACTIONS.measureTool);
+    CURRENT_TOOL(ACTIONS.selectionTool);
+    CURRENT_TOOL(PCB_ACTIONS.localRatsnestTool);
+
+    const isDRCIdle = (_aSel: SELECTION): boolean => {
+      const tool = this.m_toolManager!.GetTool(DRC_TOOL);
+      return !(tool && tool.IsDRCRunning());
+    };
+
+    const CURRENT_EDIT_TOOL = (action: TOOL_ACTION): void =>
+      mgr.SetConditions(
+        action,
+        new ACTION_CONDITIONS().Check(cond.CurrentTool(action)).Enable(isDRCIdle),
+      );
+
+    // These tools edit the board, so they must be disabled during some operations
+    CURRENT_EDIT_TOOL(ACTIONS.embeddedFiles);
+    CURRENT_EDIT_TOOL(ACTIONS.deleteTool);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.placeFootprint);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.placeDesignBlock);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.routeSingleTrack);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.routeDiffPair);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.tuneSingleTrack);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.tuneDiffPair);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.tuneSkew);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.drawVia);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.drawZone);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.drawRuleArea);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.drawLine);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.drawRectangle);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.drawCircle);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.drawArc);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.drawPolygon);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.drawBezier);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.placePoint);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.placeReferenceImage);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.placeText);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.drawTextBox);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.drawTable);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.drawAlignedDimension);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.drawOrthogonalDimension);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.drawCenterDimension);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.drawRadialDimension);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.drawLeader);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.drillOrigin);
+    CURRENT_EDIT_TOOL(ACTIONS.gridSetOrigin);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.createArray);
+
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.microwaveCreateLine);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.microwaveCreateGap);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.microwaveCreateStub);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.microwaveCreateStubArc);
+    CURRENT_EDIT_TOOL(PCB_ACTIONS.microwaveCreateFunctionShape);
+  }
+
   /**
    * What `MICROWAVE_TOOL` asks `PCB_EDIT_FRAME` for: the dialogs, the current
    * track width, unit conversion, a blank footprint on this board and the
@@ -1327,6 +1694,8 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     for (const tool of this.m_toolManager.Tools()) {
       if (tool instanceof PCB_TOOL_BASE) tool.SetIsBoardEditor(true);
     }
+
+    this.setupUIConditions();
 
     // Run the selection tool, it is supposed to be always active
     this.m_toolManager.InvokeTool('common.InteractiveSelection');

@@ -143,6 +143,26 @@ export const FOOTPRINT_VIEWER_FRAME_NAME = 'ModViewFrame';
 export const PCB_EDIT_FRAME_NAME = 'PcbFrame';
 
 export abstract class EDA_DRAW_FRAME extends KIWAY_PLAYER {
+  /** `PropertiesPaneName()` (eda_draw_frame.h:437). */
+  static PropertiesPaneName(): string {
+    return 'PropertiesManager';
+  }
+
+  /** `NetInspectorPanelName()` (eda_draw_frame.h:439). */
+  static NetInspectorPanelName(): string {
+    return 'NetInspector';
+  }
+
+  /** `DesignBlocksPaneName()` (eda_draw_frame.h:441). */
+  static DesignBlocksPaneName(): string {
+    return 'DesignBlocks';
+  }
+
+  /** `AppearancePanelName()` (eda_draw_frame.h:445). */
+  static AppearancePanelName(): string {
+    return 'LayersManager';
+  }
+
   protected m_canvas: EDA_DRAW_PANEL_GAL | null = null;
   protected m_propertiesPanel: PROPERTIES_PANEL | null = null;
   protected m_currentScreen: BASE_SCREEN | null = null; ///< current used SCREEN

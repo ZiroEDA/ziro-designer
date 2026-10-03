@@ -14,7 +14,7 @@ import { pcbMmToIU as mmToIU } from '@ziroeda/common';
 import { fromPaperToken, pageSizeMM } from '@ziroeda/common/dialogs/dialog_page_settings.js';
 import type { EdaUnits } from '@ziroeda/common/eda_units.js';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
-import type { ARC_EDIT_MODE, FRAME_T } from '@ziroeda/common/frame_type.js';
+import { type ARC_EDIT_MODE, FRAME_T } from '@ziroeda/common/frame_type.js';
 import type { KIID } from '@ziroeda/common/kiid.js';
 import { RPT_SEVERITY_ACTION, type Severity } from '@ziroeda/common/reporter.js';
 import type { LeaderMode as LEADER_MODE } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
@@ -55,6 +55,7 @@ import {
   type MAGNETIC_SETTINGS,
   PCB_DISPLAY_ORIGIN,
   type PCBNEW_SETTINGS,
+  type PCB_VIEWERS_SETTINGS_BASE,
 } from './pcbnew_settings.js';
 
 /**
@@ -456,6 +457,24 @@ export abstract class PCB_BASE_FRAME extends EDA_DRAW_FRAME {
    * `Pgm().GetSettingsManager().GetAppSettings<FOOTPRINT_EDITOR_SETTINGS>( "fpedit" )`.
    */
   abstract GetFootprintEditorSettings(): FOOTPRINT_EDITOR_SETTINGS_LIKE;
+
+  /**
+   * `GetViewerSettingsBase()` (pcb_base_frame.cpp:897-917): the settings whose
+   * VIEWERS_DISPLAY_OPTIONS this frame displays with.
+   *
+   * The CVPCB frames' arm (`GetAppSettings<CVPCB_SETTINGS>( "cvpcb" )`) has no
+   * subclass of this frame to reach it here: they answer the default's.
+   */
+  GetViewerSettingsBase(): PCB_VIEWERS_SETTINGS_BASE {
+    switch (this.GetFrameType()) {
+      case FRAME_T.FRAME_FOOTPRINT_EDITOR:
+      case FRAME_T.FRAME_FOOTPRINT_WIZARD:
+        return this.GetFootprintEditorSettings() as unknown as PCB_VIEWERS_SETTINGS_BASE;
+
+      default:
+        return this.GetPcbNewSettings();
+    }
+  }
 
   /** `static std::vector<KIID> lastBrightenedItemIDs` of FocusOnItems. */
   private static lastBrightenedItemIDs: KIID[] = [];
