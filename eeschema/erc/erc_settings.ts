@@ -15,10 +15,17 @@ import type { JSON_SETTINGS } from '@ziroeda/common/settings/json_settings.js';
 import type { JsonValue } from '@ziroeda/common/settings/json_settings_internals.js';
 import { PARAM_LAMBDA } from '@ziroeda/common/settings/parameters.js';
 import { ERC_ITEM } from './erc_item.js';
+import { MARKER_T } from '@ziroeda/common/marker_base.js';
+import { RC_ITEMS_PROVIDER, type RC_ITEM } from '@ziroeda/common/rc_item.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import type { SCH_MARKER } from '../sch_marker.js';
+import { SCH_SCREENS } from '../sch_screen.js';
+import type { SCHEMATIC } from '../schematic.js';
 import {
   SeverityFromString,
   SeverityToString,
   RPT_SEVERITY_ERROR,
+  RPT_SEVERITY_EXCLUSION,
   RPT_SEVERITY_IGNORE,
   RPT_SEVERITY_UNDEFINED,
   RPT_SEVERITY_WARNING,
@@ -799,4 +806,176 @@ export class ERC_SETTINGS extends NESTED_SETTINGS {
 /** `ERC_SETTINGS::m_ErcExclusions` in `std::set<wxString>` order (by code point). */
 export function sortedExclusions(aSettings: ERC_SETTINGS): string[] {
   return [...aSettings.m_ErcExclusions].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+}
+
+/**
+ * An implementation of the RC_ITEM_LIST interface which uses the global SHEETLIST to fulfill
+ * the contract.
+ */
+export class SHEETLIST_ERC_ITEMS_PROVIDER extends RC_ITEMS_PROVIDER {
+  private m_schematic: SCHEMATIC;
+  private m_severities = 0;
+  private m_filteredMarkers: SCH_MARKER[] = [];
+
+  private m_errorCount = 0;
+  private m_warningCount = 0;
+  private m_exclusionCount = 0;
+
+  constructor(aSchematic: SCHEMATIC) {
+    super();
+    this.m_schematic = aSchematic;
+  }
+
+  /** `CompareMarkers`: by position (x, then y), then by serialization. */
+  private static compareMarkers(item1: SCH_MARKER, item2: SCH_MARKER): number {
+    const p1 = item1.GetPosition();
+    const p2 = item2.GetPosition();
+
+    if (p1.x === p2.x && p1.y === p2.y) {
+      const s1 = item1.SerializeToString();
+      const s2 = item2.SerializeToString();
+      return s1 < s2 ? -1 : s1 > s2 ? 1 : 0;
+    }
+
+    // VECTOR2::operator< orders by squared magnitude, which is not a strict
+    // weak ordering: mirrored points like (a, b) and (b, a) compare equal
+    // and collide in the std::set below, silently dropping one marker.
+    return p1.x < p2.x || (p1.x === p2.x && p1.y < p2.y) ? -1 : 1;
+  }
+
+  private visitMarkers(aVisitor: (aMarker: SCH_MARKER) => void): void {
+    const seenScreens = new Set<unknown>();
+
+    for (const sheet of this.m_schematic.BuildUnorderedSheetList()) {
+      const firstTime = !seenScreens.has(sheet.LastScreen());
+
+      if (firstTime) seenScreens.add(sheet.LastScreen());
+
+      // std::set<SCH_MARKER*, CompareMarkers>: sorted, and an equal marker is not inserted twice.
+      const orderedMarkers: SCH_MARKER[] = [];
+
+      for (const item of sheet.LastScreen()!.Items().OfType(KICAD_T.SCH_MARKER_T)) {
+        const marker = item as unknown as SCH_MARKER;
+
+        if (
+          !orderedMarkers.some((m) => SHEETLIST_ERC_ITEMS_PROVIDER.compareMarkers(m, marker) === 0)
+        )
+          orderedMarkers.push(marker);
+      }
+
+      orderedMarkers.sort(SHEETLIST_ERC_ITEMS_PROVIDER.compareMarkers);
+
+      for (const marker of orderedMarkers) {
+        if (marker.GetMarkerType() !== MARKER_T.MARKER_ERC) continue;
+
+        const ercItem = marker.GetRCItem() as ERC_ITEM;
+
+        // Only show sheet-specific markers on the owning sheet
+        if (ercItem.IsSheetSpecific()) {
+          if (!ercItem.GetSpecificSheetPath().equals(sheet)) continue;
+        }
+
+        // Don't show non-specific markers more than once
+        if (!firstTime && !ercItem.IsSheetSpecific()) continue;
+
+        aVisitor(marker);
+      }
+    }
+  }
+
+  private markerSeverity(aMarker: SCH_MARKER): Severity {
+    if (aMarker.IsExcluded()) return RPT_SEVERITY_EXCLUSION;
+
+    return this.m_schematic.ErcSettings().GetSeverity(aMarker.GetRCItem()!.GetErrorCode());
+  }
+
+  private adjustCount(aSeverity: Severity, aDelta: number): void {
+    switch (aSeverity) {
+      case RPT_SEVERITY_ERROR:
+        this.m_errorCount += aDelta;
+        break;
+      case RPT_SEVERITY_WARNING:
+        this.m_warningCount += aDelta;
+        break;
+      case RPT_SEVERITY_EXCLUSION:
+        this.m_exclusionCount += aDelta;
+        break;
+      default:
+        break;
+    }
+  }
+
+  SetSeverities(aSeverities: number): void {
+    this.m_severities = aSeverities;
+
+    this.m_filteredMarkers = [];
+    this.m_errorCount = 0;
+    this.m_warningCount = 0;
+    this.m_exclusionCount = 0;
+
+    this.visitMarkers((aMarker) => {
+      const severity = this.markerSeverity(aMarker);
+
+      this.adjustCount(severity, 1);
+
+      if (severity & this.m_severities) this.m_filteredMarkers.push(aMarker);
+    });
+
+    // Sort markers so that errors appear before warnings (Array.sort is stable).
+    this.m_filteredMarkers.sort((a, b) => b.GetSeverity() - a.GetSeverity());
+  }
+
+  GetSeverities(): number {
+    return this.m_severities;
+  }
+
+  GetCount(aSeverity = -1): number {
+    if (aSeverity < 0) return this.m_filteredMarkers.length;
+
+    let count = 0;
+
+    if (aSeverity & RPT_SEVERITY_ERROR) count += this.m_errorCount;
+
+    if (aSeverity & RPT_SEVERITY_WARNING) count += this.m_warningCount;
+
+    if (aSeverity & RPT_SEVERITY_EXCLUSION) count += this.m_exclusionCount;
+
+    return count;
+  }
+
+  GetERCItem(aIndex: number): ERC_ITEM | null {
+    const marker = this.m_filteredMarkers[aIndex];
+
+    return marker ? (marker.GetRCItem() as ERC_ITEM) : null;
+  }
+
+  GetItem(aIndex: number): RC_ITEM | null {
+    return this.GetERCItem(aIndex);
+  }
+
+  /** Set the exclusion state of a marker while keeping the cached severity counts in sync. */
+  SetMarkerExcluded(aMarker: SCH_MARKER, aExcluded: boolean, aComment = ''): void {
+    // Toggling the exclusion moves the marker between the exclusion bucket and its error/warning
+    // bucket, so the cached counts must follow the transition.
+    if (aMarker.IsExcluded() === aExcluded) {
+      aMarker.SetExcluded(aExcluded, aComment);
+      return;
+    }
+
+    this.adjustCount(this.markerSeverity(aMarker), -1);
+    aMarker.SetExcluded(aExcluded, aComment);
+    this.adjustCount(this.markerSeverity(aMarker), 1);
+  }
+
+  DeleteItem(aIndex: number, aDeep: boolean): void {
+    const marker = this.m_filteredMarkers[aIndex]!;
+    this.m_filteredMarkers.splice(aIndex, 1);
+
+    this.adjustCount(this.markerSeverity(marker), -1);
+
+    if (aDeep) {
+      const screens = new SCH_SCREENS(this.m_schematic.Root());
+      screens.DeleteMarker(marker);
+    }
+  }
 }

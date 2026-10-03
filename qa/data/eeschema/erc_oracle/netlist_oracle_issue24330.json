@@ -1,0 +1,112 @@
+{
+ "$schema": "https://schemas.kicad.org/erc.v1.json",
+ "coordinate_units": "mm",
+ "ignored_checks": [
+  {
+   "description": "Global label only appears once in the schematic",
+   "key": "single_global_label"
+  },
+  {
+   "description": "Four connection points are joined together",
+   "key": "four_way_junction"
+  },
+  {
+   "description": "SPICE model issue",
+   "key": "simulation_model_issue"
+  },
+  {
+   "description": "Assigned footprint doesn't match footprint filters",
+   "key": "footprint_filter"
+  }
+ ],
+ "included_severities": [
+  "error",
+  "warning",
+  "exclusion"
+ ],
+ "kicad_version": "10.0.6",
+ "sheets": [
+  {
+   "path": "/",
+   "uuid_path": "/5488a140-351c-4dd2-9935-31b4fb210bb7",
+   "violations": [
+    {
+     "description": "The current configuration does not include the symbol library 'Local'",
+     "items": [
+      {
+       "description": "Symbol U1 [BGA_TEST]",
+       "pos": {
+        "x": 1.4986,
+        "y": 1.0668
+       },
+       "uuid": "af06e391-97a5-4828-9343-f3162acaa60a"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "Unconnected wire endpoint",
+     "items": [
+      {
+       "description": "Horizontal Wire, length 0.1016 mm",
+       "pos": {
+        "x": 1.9558,
+        "y": 0.9398
+       },
+       "uuid": "1b436963-81fa-4228-96ef-8855a3a5beb2"
+      }
+     ],
+     "severity": "warning",
+     "type": "unconnected_wire_endpoint"
+    },
+    {
+     "description": "Unconnected wire endpoint",
+     "items": [
+      {
+       "description": "Horizontal Wire, length 0.1016 mm",
+       "pos": {
+        "x": 1.9558,
+        "y": 0.9906
+       },
+       "uuid": "cf86f717-1faa-46c2-b4e7-6cea6c89ef86"
+      }
+     ],
+     "severity": "warning",
+     "type": "unconnected_wire_endpoint"
+    },
+    {
+     "description": "Unconnected wire endpoint",
+     "items": [
+      {
+       "description": "Horizontal Wire, length 0.1016 mm",
+       "pos": {
+        "x": 1.9558,
+        "y": 1.0414
+       },
+       "uuid": "96e8268c-100b-42f8-baa6-ed1e454f9af3"
+      }
+     ],
+     "severity": "warning",
+     "type": "unconnected_wire_endpoint"
+    },
+    {
+     "description": "The current configuration does not include the symbol library 'Local'",
+     "items": [
+      {
+       "description": "Symbol U2 [BGA_TEST]",
+       "pos": {
+        "x": 2.159,
+        "y": 1.0668
+       },
+       "uuid": "bf06e391-97a5-4828-9343-f3162acaa60b"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    }
+   ]
+  }
+ ],
+ "source": "issue24330.kicad_sch"
+}

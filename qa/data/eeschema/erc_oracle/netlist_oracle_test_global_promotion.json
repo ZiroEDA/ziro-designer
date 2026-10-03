@@ -1,0 +1,149 @@
+{
+ "$schema": "https://schemas.kicad.org/erc.v1.json",
+ "coordinate_units": "mm",
+ "ignored_checks": [
+  {
+   "description": "Global label only appears once in the schematic",
+   "key": "single_global_label"
+  },
+  {
+   "description": "Four connection points are joined together",
+   "key": "four_way_junction"
+  },
+  {
+   "description": "SPICE model issue",
+   "key": "simulation_model_issue"
+  },
+  {
+   "description": "Assigned footprint doesn't match footprint filters",
+   "key": "footprint_filter"
+  }
+ ],
+ "included_severities": [
+  "error",
+  "warning",
+  "exclusion"
+ ],
+ "kicad_version": "10.0.6",
+ "sheets": [
+  {
+   "path": "/",
+   "uuid_path": "/9c1c48a9-230a-4b0d-bf62-609cd3e09a67",
+   "violations": [
+    {
+     "description": "Input Power pin not driven by any Output Power pins",
+     "items": [
+      {
+       "description": "Symbol #PWR0101 Hidden pin 1 [GND, Power input, Line]",
+       "pos": {
+        "x": 0.9271,
+        "y": 0.5715
+       },
+       "uuid": "65a2d8dc-ea31-46af-bfeb-c2898cc90310"
+      }
+     ],
+     "severity": "error",
+     "type": "power_pin_not_driven"
+    },
+    {
+     "description": "Label not connected",
+     "items": [
+      {
+       "description": "Label '5V'",
+       "pos": {
+        "x": 1.0287,
+        "y": 0.508
+       },
+       "uuid": "4c2348ef-fb29-4c13-bba5-458abee03d6e"
+      }
+     ],
+     "severity": "error",
+     "type": "label_dangling"
+    },
+    {
+     "description": "Label connected to only one pin",
+     "items": [
+      {
+       "description": "Global Label '5V'",
+       "pos": {
+        "x": 0.762,
+        "y": 0.4318
+       },
+       "uuid": "be2bcbad-c2c2-44a7-aab4-66486b4f3f61"
+      }
+     ],
+     "severity": "warning",
+     "type": "isolated_pin_label"
+    },
+    {
+     "description": "Local and global labels have same name",
+     "items": [
+      {
+       "description": "Global Label '5V'",
+       "pos": {
+        "x": 0.762,
+        "y": 0.4318
+       },
+       "uuid": "be2bcbad-c2c2-44a7-aab4-66486b4f3f61"
+      },
+      {
+       "description": "Label '5V'",
+       "pos": {
+        "x": 1.0287,
+        "y": 0.508
+       },
+       "uuid": "4c2348ef-fb29-4c13-bba5-458abee03d6e"
+      }
+     ],
+     "severity": "warning",
+     "type": "same_local_global_label"
+    },
+    {
+     "description": "Symbol 'GND' doesn't match copy in library 'power'",
+     "items": [
+      {
+       "description": "Symbol #PWR0101 [GND]",
+       "pos": {
+        "x": 0.9271,
+        "y": 0.5715
+       },
+       "uuid": "00000000-0000-0000-0000-00005e68ce9f"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_mismatch"
+    }
+   ]
+  },
+  {
+   "path": "/Subcircuit/",
+   "uuid_path": "/9c1c48a9-230a-4b0d-bf62-609cd3e09a67/00000000-0000-0000-0000-00005e68e19b",
+   "violations": [
+    {
+     "description": "Both 5Vanalog and 5V are attached to the same items; 5Vanalog will be used in the netlist",
+     "items": [
+      {
+       "description": "Global Label '5Vanalog'",
+       "pos": {
+        "x": 0.7239,
+        "y": 0.508
+       },
+       "uuid": "e9e780fb-64ae-431e-98ec-2b7db0f185b9"
+      },
+      {
+       "description": "Label '5V'",
+       "pos": {
+        "x": 1.0287,
+        "y": 0.508
+       },
+       "uuid": "4c2348ef-fb29-4c13-bba5-458abee03d6e"
+      }
+     ],
+     "severity": "warning",
+     "type": "multiple_net_names"
+    }
+   ]
+  }
+ ],
+ "source": "test_global_promotion.kicad_sch"
+}

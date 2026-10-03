@@ -1,0 +1,133 @@
+{
+ "$schema": "https://schemas.kicad.org/erc.v1.json",
+ "coordinate_units": "mm",
+ "ignored_checks": [
+  {
+   "description": "Global label only appears once in the schematic",
+   "key": "single_global_label"
+  },
+  {
+   "description": "Four connection points are joined together",
+   "key": "four_way_junction"
+  },
+  {
+   "description": "SPICE model issue",
+   "key": "simulation_model_issue"
+  },
+  {
+   "description": "Assigned footprint doesn't match footprint filters",
+   "key": "footprint_filter"
+  }
+ ],
+ "included_severities": [
+  "error",
+  "warning",
+  "exclusion"
+ ],
+ "kicad_version": "10.0.6",
+ "sheets": [
+  {
+   "path": "/",
+   "uuid_path": "/5672ff1e-f039-4e2f-acbb-4f76696b12eb",
+   "violations": [
+    {
+     "description": "Label connected to only one pin",
+     "items": [
+      {
+       "description": "Label 'S0.BOOT.SDA'",
+       "pos": {
+        "x": 1.4605,
+        "y": 0.381
+       },
+       "uuid": "6d41d209-62fd-4967-8238-8314aefa2934"
+      }
+     ],
+     "severity": "warning",
+     "type": "isolated_pin_label"
+    },
+    {
+     "description": "Label connected to only one pin",
+     "items": [
+      {
+       "description": "Label 'S1.BOOT.SDA'",
+       "pos": {
+        "x": 1.4605,
+        "y": 0.8255
+       },
+       "uuid": "9a2a61da-1e57-4e04-b799-525fb83cb56d"
+      }
+     ],
+     "severity": "warning",
+     "type": "isolated_pin_label"
+    },
+    {
+     "description": "Label connected to only one pin",
+     "items": [
+      {
+       "description": "Label 'SDA'",
+       "pos": {
+        "x": 1.7145,
+        "y": 1.1049
+       },
+       "uuid": "5d0ec16a-814f-4e24-86ff-1f6d6123c082"
+      }
+     ],
+     "severity": "warning",
+     "type": "isolated_pin_label"
+    },
+    {
+     "description": "Label connected to only one pin",
+     "items": [
+      {
+       "description": "Label 'SCL'",
+       "pos": {
+        "x": 1.7145,
+        "y": 1.1938
+       },
+       "uuid": "d4c629f7-ca26-40b6-996b-efe52c8ca0ab"
+      }
+     ],
+     "severity": "warning",
+     "type": "isolated_pin_label"
+    }
+   ]
+  },
+  {
+   "path": "/First Subsheet/",
+   "uuid_path": "/5672ff1e-f039-4e2f-acbb-4f76696b12eb/3a86a621-3e65-4c1c-be9d-3981f7bcf11c",
+   "violations": []
+  },
+  {
+   "path": "/Second Subsheet/",
+   "uuid_path": "/5672ff1e-f039-4e2f-acbb-4f76696b12eb/ec16d119-285d-4e27-ba80-c46f40ad7d3d",
+   "violations": []
+  },
+  {
+   "path": "/First Subsheet/Sub2/",
+   "uuid_path": "/5672ff1e-f039-4e2f-acbb-4f76696b12eb/3a86a621-3e65-4c1c-be9d-3981f7bcf11c/5d358b80-b2c6-4077-a589-f28265c82400",
+   "violations": [
+    {
+     "description": "Input Power pin not driven by any Output Power pins",
+     "items": [
+      {
+       "description": "Symbol #PWR0101 Hidden pin 1 [GND, Power input, Line]",
+       "pos": {
+        "x": 1.4859,
+        "y": 1.1049
+       },
+       "uuid": "d0c0b4c6-a855-4ffc-8dff-292d4908ad69"
+      }
+     ],
+     "severity": "error",
+     "type": "power_pin_not_driven"
+    }
+   ]
+  },
+  {
+   "path": "/Second Subsheet/Sub2/",
+   "uuid_path": "/5672ff1e-f039-4e2f-acbb-4f76696b12eb/ec16d119-285d-4e27-ba80-c46f40ad7d3d/5d358b80-b2c6-4077-a589-f28265c82400",
+   "violations": []
+  }
+ ],
+ "source": "hierarchy_aliases.kicad_sch"
+}

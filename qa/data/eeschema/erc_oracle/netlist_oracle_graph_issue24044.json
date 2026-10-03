@@ -1,0 +1,62 @@
+{
+ "$schema": "https://schemas.kicad.org/erc.v1.json",
+ "coordinate_units": "mm",
+ "ignored_checks": [
+  {
+   "description": "Global label only appears once in the schematic",
+   "key": "single_global_label"
+  },
+  {
+   "description": "Four connection points are joined together",
+   "key": "four_way_junction"
+  },
+  {
+   "description": "SPICE model issue",
+   "key": "simulation_model_issue"
+  },
+  {
+   "description": "Assigned footprint doesn't match footprint filters",
+   "key": "footprint_filter"
+  }
+ ],
+ "included_severities": [
+  "error",
+  "warning",
+  "exclusion"
+ ],
+ "kicad_version": "10.0.6",
+ "sheets": [
+  {
+   "path": "/",
+   "uuid_path": "/cc76f9b5-a4ba-411a-abfb-6f2cae6f1743",
+   "violations": []
+  },
+  {
+   "path": "/Channels 0-1/",
+   "uuid_path": "/cc76f9b5-a4ba-411a-abfb-6f2cae6f1743/b30ffb0d-9c4d-4308-a7a1-3c4ea039ebd9",
+   "violations": [
+    {
+     "description": "Input Power pin not driven by any Output Power pins",
+     "items": [
+      {
+       "description": "Symbol #PWR01 Pin 1 [Power input, Line]",
+       "pos": {
+        "x": 0.8128,
+        "y": 0.635
+       },
+       "uuid": "fd003dec-0b11-46c6-ad6b-dbbb1f3b4a7d"
+      }
+     ],
+     "severity": "error",
+     "type": "power_pin_not_driven"
+    }
+   ]
+  },
+  {
+   "path": "/Channels 2-3/",
+   "uuid_path": "/cc76f9b5-a4ba-411a-abfb-6f2cae6f1743/1b0e244c-843d-4683-83c0-f3d4695847cb",
+   "violations": []
+  }
+ ],
+ "source": "issue24044.kicad_sch"
+}

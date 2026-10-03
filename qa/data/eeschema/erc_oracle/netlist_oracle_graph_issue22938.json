@@ -1,0 +1,617 @@
+{
+ "$schema": "https://schemas.kicad.org/erc.v1.json",
+ "coordinate_units": "mm",
+ "ignored_checks": [
+  {
+   "description": "Pin not connected",
+   "key": "pin_not_connected"
+  },
+  {
+   "description": "Global label only appears once in the schematic",
+   "key": "single_global_label"
+  },
+  {
+   "description": "Four connection points are joined together",
+   "key": "four_way_junction"
+  },
+  {
+   "description": "SPICE model issue",
+   "key": "simulation_model_issue"
+  },
+  {
+   "description": "Assigned footprint doesn't match footprint filters",
+   "key": "footprint_filter"
+  }
+ ],
+ "included_severities": [
+  "error",
+  "warning",
+  "exclusion"
+ ],
+ "kicad_version": "10.0.6",
+ "sheets": [
+  {
+   "path": "/",
+   "uuid_path": "/9c65c6c4-f8a1-4869-9ee5-38624b40fdf6",
+   "violations": [
+    {
+     "description": "Input Power pin not driven by any Output Power pins",
+     "items": [
+      {
+       "description": "Symbol #PWR0302 Hidden pin 1 [+48V, Power input, Line]",
+       "pos": {
+        "x": 2.2352,
+        "y": 2.4638
+       },
+       "uuid": "5616adfc-338e-4320-b7bc-83172f5c9a37"
+      }
+     ],
+     "severity": "error",
+     "type": "power_pin_not_driven"
+    },
+    {
+     "description": "Input Power pin not driven by any Output Power pins",
+     "items": [
+      {
+       "description": "Symbol #PWR03 Hidden pin 1 [+12V, Power input, Line]",
+       "pos": {
+        "x": 3.8354,
+        "y": 1.9304
+       },
+       "uuid": "73f64fa3-5b59-4537-ad9c-24c0359f75ea"
+      }
+     ],
+     "severity": "error",
+     "type": "power_pin_not_driven"
+    },
+    {
+     "description": "Input Power pin not driven by any Output Power pins",
+     "items": [
+      {
+       "description": "Symbol #PWR06 Hidden pin 1 [+7V, Power input, Line]",
+       "pos": {
+        "x": 3.8354,
+        "y": 2.2098
+       },
+       "uuid": "d39a6f7d-897b-4afd-8b12-21912c35b964"
+      }
+     ],
+     "severity": "error",
+     "type": "power_pin_not_driven"
+    },
+    {
+     "description": "The current configuration does not include the footprint library '0IBF_Mechanik'",
+     "items": [
+      {
+       "description": "Symbol H7 [MountingHole]",
+       "pos": {
+        "x": 1.1684,
+        "y": 2.7178
+       },
+       "uuid": "5c09d325-5819-4492-a5ab-a2d3b8c19b95"
+      }
+     ],
+     "severity": "warning",
+     "type": "footprint_link_issues"
+    },
+    {
+     "description": "The current configuration does not include the symbol library '0IBF_Mechanik'",
+     "items": [
+      {
+       "description": "Symbol H7 [MountingHole]",
+       "pos": {
+        "x": 1.1684,
+        "y": 2.7178
+       },
+       "uuid": "5c09d325-5819-4492-a5ab-a2d3b8c19b95"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The current configuration does not include the footprint library '0IBF_Mechanik'",
+     "items": [
+      {
+       "description": "Symbol H8 [MountingHole]",
+       "pos": {
+        "x": 1.1684,
+        "y": 2.794
+       },
+       "uuid": "ff30941b-b1db-4f03-953e-8e99575ace64"
+      }
+     ],
+     "severity": "warning",
+     "type": "footprint_link_issues"
+    },
+    {
+     "description": "The current configuration does not include the symbol library '0IBF_Mechanik'",
+     "items": [
+      {
+       "description": "Symbol H8 [MountingHole]",
+       "pos": {
+        "x": 1.1684,
+        "y": 2.794
+       },
+       "uuid": "ff30941b-b1db-4f03-953e-8e99575ace64"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The current configuration does not include the footprint library '0IBF_Mechanik'",
+     "items": [
+      {
+       "description": "Symbol H9 [MountingHole]",
+       "pos": {
+        "x": 1.2446,
+        "y": 2.7178
+       },
+       "uuid": "9f0a11db-1ccf-4d3e-8af9-87ca9a745007"
+      }
+     ],
+     "severity": "warning",
+     "type": "footprint_link_issues"
+    },
+    {
+     "description": "The current configuration does not include the symbol library '0IBF_Mechanik'",
+     "items": [
+      {
+       "description": "Symbol H9 [MountingHole]",
+       "pos": {
+        "x": 1.2446,
+        "y": 2.7178
+       },
+       "uuid": "9f0a11db-1ccf-4d3e-8af9-87ca9a745007"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The current configuration does not include the footprint library '0IBF_Mechanik'",
+     "items": [
+      {
+       "description": "Symbol H10 [MountingHole]",
+       "pos": {
+        "x": 1.2446,
+        "y": 2.794
+       },
+       "uuid": "02875f25-5266-4e52-88b8-b2f4169487b9"
+      }
+     ],
+     "severity": "warning",
+     "type": "footprint_link_issues"
+    },
+    {
+     "description": "The current configuration does not include the symbol library '0IBF_Mechanik'",
+     "items": [
+      {
+       "description": "Symbol H10 [MountingHole]",
+       "pos": {
+        "x": 1.2446,
+        "y": 2.794
+       },
+       "uuid": "02875f25-5266-4e52-88b8-b2f4169487b9"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The current configuration does not include the footprint library '0IBF_Mechanik'",
+     "items": [
+      {
+       "description": "Symbol H11 [MountingHole]",
+       "pos": {
+        "x": 1.3208,
+        "y": 2.7178
+       },
+       "uuid": "29ea35d1-2a52-4c53-a9f1-75e5be4b8199"
+      }
+     ],
+     "severity": "warning",
+     "type": "footprint_link_issues"
+    },
+    {
+     "description": "The current configuration does not include the symbol library '0IBF_Mechanik'",
+     "items": [
+      {
+       "description": "Symbol H11 [MountingHole]",
+       "pos": {
+        "x": 1.3208,
+        "y": 2.7178
+       },
+       "uuid": "29ea35d1-2a52-4c53-a9f1-75e5be4b8199"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The current configuration does not include the footprint library '0IBF_Mechanik'",
+     "items": [
+      {
+       "description": "Symbol H12 [MountingHole]",
+       "pos": {
+        "x": 1.3208,
+        "y": 2.794
+       },
+       "uuid": "0a5c2d71-ed1f-41d5-8d9c-0301edd0e77c"
+      }
+     ],
+     "severity": "warning",
+     "type": "footprint_link_issues"
+    },
+    {
+     "description": "The current configuration does not include the symbol library '0IBF_Mechanik'",
+     "items": [
+      {
+       "description": "Symbol H12 [MountingHole]",
+       "pos": {
+        "x": 1.3208,
+        "y": 2.794
+       },
+       "uuid": "0a5c2d71-ed1f-41d5-8d9c-0301edd0e77c"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The current configuration does not include the footprint library '0IBF_RCL'",
+     "items": [
+      {
+       "description": "Symbol C37 [_C]",
+       "pos": {
+        "x": 1.9812,
+        "y": 2.5908
+       },
+       "uuid": "bcefbf3f-7741-4735-83dc-02da2ba9efc9"
+      }
+     ],
+     "severity": "warning",
+     "type": "footprint_link_issues"
+    },
+    {
+     "description": "The current configuration does not include the symbol library '0IBF_RCL'",
+     "items": [
+      {
+       "description": "Symbol C37 [_C]",
+       "pos": {
+        "x": 1.9812,
+        "y": 2.5908
+       },
+       "uuid": "bcefbf3f-7741-4735-83dc-02da2ba9efc9"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "Symbol 'GND' doesn't match copy in library 'power'",
+     "items": [
+      {
+       "description": "Symbol #PWR070 [GND]",
+       "pos": {
+        "x": 1.9812,
+        "y": 2.6924
+       },
+       "uuid": "44905139-5ce8-4031-98c1-218f9b8000e6"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_mismatch"
+    },
+    {
+     "description": "The current configuration does not include the symbol library '0IBF_Supply'",
+     "items": [
+      {
+       "description": "Symbol #PWR0302 [+48V]",
+       "pos": {
+        "x": 2.2352,
+        "y": 2.4638
+       },
+       "uuid": "eb925b76-f3d9-48d8-acf9-5d9124c60541"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The current configuration does not include the footprint library '0IBF_Connector_PinHeader_2.54'",
+     "items": [
+      {
+       "description": "Symbol J4 [Conn_01x06]",
+       "pos": {
+        "x": 2.3622,
+        "y": 2.5654
+       },
+       "uuid": "ab9b3555-60ec-40b4-92a5-6769e3cb64e7"
+      }
+     ],
+     "severity": "warning",
+     "type": "footprint_link_issues"
+    },
+    {
+     "description": "The current configuration does not include the symbol library 'IBF_supply'",
+     "items": [
+      {
+       "description": "Symbol #PWR03 [+12V]",
+       "pos": {
+        "x": 3.8354,
+        "y": 1.9304
+       },
+       "uuid": "4c4ef7c2-c751-43ea-8c6a-8961ba5af4d1"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The current configuration does not include the symbol library 'IBF_supply'",
+     "items": [
+      {
+       "description": "Symbol #PWR06 [+7V]",
+       "pos": {
+        "x": 3.8354,
+        "y": 2.2098
+       },
+       "uuid": "78477461-d0c4-422b-b48b-d3a4a9b65ba2"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The current configuration does not include the symbol library 'IBF_supply'",
+     "items": [
+      {
+       "description": "Symbol #PWR04 [+12V]",
+       "pos": {
+        "x": 0.508,
+        "y": 1.524
+       },
+       "uuid": "185f9c1c-7208-46c9-8436-74c6a5b46af9"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The current configuration does not include the footprint library '0IBF_RCL'",
+     "items": [
+      {
+       "description": "Symbol C34 [_C]",
+       "pos": {
+        "x": 0.7366,
+        "y": 0.6604
+       },
+       "uuid": "6a3634de-6dce-41e8-b3b2-cf93df102087"
+      }
+     ],
+     "severity": "warning",
+     "type": "footprint_link_issues"
+    },
+    {
+     "description": "The current configuration does not include the symbol library '0IBF_RCL'",
+     "items": [
+      {
+       "description": "Symbol C34 [_C]",
+       "pos": {
+        "x": 0.7366,
+        "y": 0.6604
+       },
+       "uuid": "6a3634de-6dce-41e8-b3b2-cf93df102087"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "Symbol 'GND' doesn't match copy in library 'power'",
+     "items": [
+      {
+       "description": "Symbol #PWR01 [GND]",
+       "pos": {
+        "x": 0.7366,
+        "y": 0.762
+       },
+       "uuid": "b56807d9-759f-444b-8974-b451a33c5a46"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_mismatch"
+    },
+    {
+     "description": "The current configuration does not include the symbol library '0IBF_Supply'",
+     "items": [
+      {
+       "description": "Symbol #PWR02 [+48V]",
+       "pos": {
+        "x": 0.9906,
+        "y": 0.5334
+       },
+       "uuid": "ac676886-24cd-4845-8735-b57e4de593ae"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The current configuration does not include the footprint library '0IBF_Connector_PinHeader_2.54'",
+     "items": [
+      {
+       "description": "Symbol J66 [Conn_01x06]",
+       "pos": {
+        "x": 1.1176,
+        "y": 0.635
+       },
+       "uuid": "457d158c-cbce-4104-a988-68c305945ae1"
+      }
+     ],
+     "severity": "warning",
+     "type": "footprint_link_issues"
+    },
+    {
+     "description": "The current configuration does not include the footprint library '0IBF_RCL'",
+     "items": [
+      {
+       "description": "Symbol C38 [_C]",
+       "pos": {
+        "x": 1.27,
+        "y": 1.0668
+       },
+       "uuid": "cbf252d6-2a18-4fd8-ae0c-2fa864a3435c"
+      }
+     ],
+     "severity": "warning",
+     "type": "footprint_link_issues"
+    },
+    {
+     "description": "The current configuration does not include the symbol library '0IBF_RCL'",
+     "items": [
+      {
+       "description": "Symbol C38 [_C]",
+       "pos": {
+        "x": 1.27,
+        "y": 1.0668
+       },
+       "uuid": "cbf252d6-2a18-4fd8-ae0c-2fa864a3435c"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "Symbol 'GND' doesn't match copy in library 'power'",
+     "items": [
+      {
+       "description": "Symbol #PWR071 [GND]",
+       "pos": {
+        "x": 1.27,
+        "y": 1.1684
+       },
+       "uuid": "2919262f-0672-49e3-9f97-0e2359e1c231"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_mismatch"
+    },
+    {
+     "description": "The current configuration does not include the symbol library '0IBF_Supply'",
+     "items": [
+      {
+       "description": "Symbol #PWR0303 [+48V]",
+       "pos": {
+        "x": 1.524,
+        "y": 0.9398
+       },
+       "uuid": "070739ae-5ee6-40df-af31-af51d7557481"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The current configuration does not include the symbol library 'IBF_supply'",
+     "items": [
+      {
+       "description": "Symbol #PWR05 [+7V]",
+       "pos": {
+        "x": 1.5494,
+        "y": 1.4478
+       },
+       "uuid": "6d6a2f6b-8fd4-422e-b5e6-6a806e458be0"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The current configuration does not include the footprint library '0IBF_Connector_PinHeader_2.54'",
+     "items": [
+      {
+       "description": "Symbol J5 [Conn_01x06]",
+       "pos": {
+        "x": 1.651,
+        "y": 1.0414
+       },
+       "uuid": "d8ae7d05-511d-4791-93eb-efb7310c0762"
+      }
+     ],
+     "severity": "warning",
+     "type": "footprint_link_issues"
+    }
+   ]
+  },
+  {
+   "path": "/Spannungsversorgung/",
+   "uuid_path": "/9c65c6c4-f8a1-4869-9ee5-38624b40fdf6/91851cc4-7b7c-43c1-a5a8-9a31f107ad77",
+   "violations": [
+    {
+     "description": "Input Power pin not driven by any Output Power pins",
+     "items": [
+      {
+       "description": "Symbol #PWR01 Hidden pin 1 [GND, Power input, Line]",
+       "pos": {
+        "x": 0.7366,
+        "y": 0.762
+       },
+       "uuid": "d9c19640-5850-4775-9c43-c7b1a8024347"
+      }
+     ],
+     "severity": "error",
+     "type": "power_pin_not_driven"
+    },
+    {
+     "description": "Input Power pin not driven by any Output Power pins",
+     "items": [
+      {
+       "description": "Symbol #PWR02 Hidden pin 1 [+48V, Power input, Line]",
+       "pos": {
+        "x": 0.9906,
+        "y": 0.5334
+       },
+       "uuid": "0600e361-70c7-439d-8210-1ed0008a59e4"
+      }
+     ],
+     "severity": "error",
+     "type": "power_pin_not_driven"
+    },
+    {
+     "description": "Input Power pin not driven by any Output Power pins",
+     "items": [
+      {
+       "description": "Symbol #PWR05 Hidden pin 1 [+7V, Power input, Line]",
+       "pos": {
+        "x": 1.5494,
+        "y": 1.4478
+       },
+       "uuid": "d05ad26f-7a8e-4a58-9e97-5923a025d34a"
+      }
+     ],
+     "severity": "error",
+     "type": "power_pin_not_driven"
+    }
+   ]
+  },
+  {
+   "path": "/Anschluss/",
+   "uuid_path": "/9c65c6c4-f8a1-4869-9ee5-38624b40fdf6/c9b5e774-ed78-42b5-be4b-c3889903b1f5",
+   "violations": []
+  },
+  {
+   "path": "/Schrittmotor/",
+   "uuid_path": "/9c65c6c4-f8a1-4869-9ee5-38624b40fdf6/a62e3d03-34ce-461e-8d2b-2ba79b2267b9",
+   "violations": []
+  },
+  {
+   "path": "/Kompressor/",
+   "uuid_path": "/9c65c6c4-f8a1-4869-9ee5-38624b40fdf6/4ab6e11e-228d-45a1-bcba-28f180c62e88",
+   "violations": []
+  }
+ ],
+ "source": "issue22938.kicad_sch"
+}

@@ -2139,3 +2139,113 @@ export function* runErcSteps(
   );
   return kept;
 }
+
+// ---------------------------------------------------------------------------
+// `ERC_TESTER`, the live-model class (erc.cpp / erc.h), beside the record model's runErc above
+// until S7. Ported so far: TestDuplicateSheetNames and the connection graph's own checks
+// (CONNECTION_GRAPH::RunERC); the other tests are marked in RunTests where they run upstream.
+// ---------------------------------------------------------------------------
+
+import type { NET_MAP } from '../connection_graph.js';
+import type { SCH_EDIT_FRAME } from '../sch_edit_frame.js';
+import { SCH_MARKER as SCH_MARKER_LIVE } from '../sch_marker.js';
+import type { SCH_MULTI_UNIT_REFERENCE_MAP } from '../sch_reference_list.js';
+import { SCH_SCREENS } from '../sch_screen.js';
+import type { SCH_SHEET } from '../sch_sheet.js';
+import { SYMBOL_FILTER, type SCH_SHEET_LIST } from '../sch_sheet_path.js';
+import { SCH_CLEANUP_FLAGS, type SCHEMATIC } from '../schematic.js';
+import { KICAD_T as KICAD_T_LIVE } from '@ziroeda/core/typeinfo.js';
+import { ERC_ITEM } from './erc_item.js';
+import { ERCE_T as ERCE, type ERC_SETTINGS } from './erc_settings.js';
+
+export class ERC_TESTER {
+  private m_schematic: SCHEMATIC;
+  private m_settings: ERC_SETTINGS;
+  private m_sheetList: SCH_SHEET_LIST;
+  private m_screens: SCH_SCREENS;
+  private m_refMap: SCH_MULTI_UNIT_REFERENCE_MAP = new Map();
+  private m_nets: NET_MAP;
+  private m_showAllErrors: boolean;
+
+  constructor(aSchematic: SCHEMATIC, aShowAllErrors = false) {
+    this.m_schematic = aSchematic;
+    this.m_settings = aSchematic.ErcSettings();
+    this.m_sheetList = aSchematic.BuildSheetListSortedByPageNumbers();
+    this.m_screens = new SCH_SCREENS(aSchematic.Root());
+    this.m_nets = aSchematic.ConnectionGraph().GetNetMap();
+    this.m_showAllErrors = aShowAllErrors;
+
+    this.m_sheetList.GetMultiUnitSymbols(this.m_refMap, SYMBOL_FILTER.SYMBOL_FILTER_ALL);
+  }
+
+  /**
+   * Inside a given sheet, one cannot have sheets with duplicate names (file names can be
+   * duplicated).
+   *
+   * @return the error count
+   * @param aCreateMarker true = create error markers in schematic,
+   *                      false = calculate error count only
+   */
+  TestDuplicateSheetNames(aCreateMarker: boolean): number {
+    let err_count = 0;
+
+    for (let screen = this.m_screens.GetFirst(); screen; screen = this.m_screens.GetNext()) {
+      const list = screen.Items().OfType(KICAD_T_LIVE.SCH_SHEET_T) as unknown as SCH_SHEET[];
+
+      for (let i = 0; i < list.length; i++) {
+        const sheet = list[i]!;
+
+        for (let j = i + 1; j < list.length; j++) {
+          const test_item = list[j]!;
+
+          // We have found a second sheet: compare names
+          // we are using case insensitive comparison to avoid mistakes between
+          // similar names like Mysheet and mysheet
+          if (
+            sheet.GetShownName(false).toLowerCase() === test_item.GetShownName(false).toLowerCase()
+          ) {
+            if (aCreateMarker) {
+              const ercItem = ERC_ITEM.Create(ERCE.ERCE_DUPLICATE_SHEET_NAME)!;
+              ercItem.SetItems(sheet, test_item);
+              const marker = new SCH_MARKER_LIVE(ercItem, sheet.GetPosition());
+              screen.Append(marker);
+            }
+
+            err_count++;
+          }
+        }
+      }
+    }
+
+    return err_count;
+  }
+
+  /**
+   * Run the ERC tests the settings enable. \a aEditFrame, when given, rebuilds connectivity
+   * first. Not here: the drawing sheet (TestTextVars), CvPcb (TestFootprintLinkIssues) and
+   * the progress reporter.
+   */
+  RunTests(aEditFrame: SCH_EDIT_FRAME | null = null): void {
+    this.m_sheetList.AnnotatePowerSymbols();
+
+    // Test duplicate sheet names inside a given sheet.  While one can have multiple references
+    // to the same file, each must have a unique name.
+    if (this.m_settings.IsTestEnabled(ERCE.ERCE_DUPLICATE_SHEET_NAME))
+      this.TestDuplicateSheetNames(true);
+
+    // If we are using the new connectivity, make sure that we do a full-rebuild
+    // (ADVANCED_CFG::m_IncrementalConnectivity is off by default: NO_CLEANUP).
+    if (aEditFrame) aEditFrame.RecalculateConnections(null, SCH_CLEANUP_FLAGS.NO_CLEANUP);
+
+    this.m_schematic.ConnectionGraph().RunERC();
+
+    // Pending, in upstream's order: TestMultiunitFootprints, TestMissingUnits,
+    // TestMultUnitPinConflicts, TestDuplicatePinNets, TestPinToPin, TestGroundPins,
+    // TestStackedPinNotation, TestSimilarLabels, TestSameLocalGlobalLabel, TestTextVars,
+    // TestFieldNameWhitespace, TestSimModelIssues, TestNoConnectPins, TestLibSymbolIssues,
+    // TestFootprintLinkIssues, TestFootprintFilters, TestOffGridEndpoints, TestFourWayJunction,
+    // TestLabelMultipleWires, TestMissingNetclasses.
+
+    this.m_schematic.ResolveERCExclusionsPostUpdate();
+  }
+}

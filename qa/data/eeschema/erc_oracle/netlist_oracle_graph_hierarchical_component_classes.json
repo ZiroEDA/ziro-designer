@@ -1,0 +1,220 @@
+{
+ "$schema": "https://schemas.kicad.org/erc.v1.json",
+ "coordinate_units": "mm",
+ "ignored_checks": [
+  {
+   "description": "Global label only appears once in the schematic",
+   "key": "single_global_label"
+  },
+  {
+   "description": "Four connection points are joined together",
+   "key": "four_way_junction"
+  },
+  {
+   "description": "SPICE model issue",
+   "key": "simulation_model_issue"
+  },
+  {
+   "description": "Assigned footprint doesn't match footprint filters",
+   "key": "footprint_filter"
+  }
+ ],
+ "included_severities": [
+  "error",
+  "warning",
+  "exclusion"
+ ],
+ "kicad_version": "10.0.6",
+ "sheets": [
+  {
+   "path": "/",
+   "uuid_path": "/bde4f0aa-7cf7-4740-8df5-de6575c32a07",
+   "violations": [
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol R8 Pin 1 [Passive, Line]",
+       "pos": {
+        "x": 2.0447,
+        "y": 1.1303
+       },
+       "uuid": "76b2a78a-dde0-4aac-afce-567e1ce44a30"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol R8 Pin 2 [Passive, Line]",
+       "pos": {
+        "x": 2.0447,
+        "y": 1.2065
+       },
+       "uuid": "19969132-0668-4035-b6b7-8f948f5b61d2"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol R7 Pin 1 [Passive, Line]",
+       "pos": {
+        "x": 2.0701,
+        "y": 0.4572
+       },
+       "uuid": "943d3cd0-3634-4c13-97b6-bee2546c1084"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol R7 Pin 2 [Passive, Line]",
+       "pos": {
+        "x": 2.0701,
+        "y": 0.5334
+       },
+       "uuid": "f35d6f06-f946-46f7-be65-153cebc32c1c"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    }
+   ]
+  },
+  {
+   "path": "/SHEET_1/",
+   "uuid_path": "/bde4f0aa-7cf7-4740-8df5-de6575c32a07/6e2d3d35-be93-4ad1-8bb1-3b2b72490946",
+   "violations": [
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol R1 Pin 1 [Passive, Line]",
+       "pos": {
+        "x": 0.9779,
+        "y": 0.4826
+       },
+       "uuid": "6de42da5-7876-4c7a-a7b4-ac09e428b309"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol R1 Pin 2 [Passive, Line]",
+       "pos": {
+        "x": 0.9779,
+        "y": 0.5588
+       },
+       "uuid": "b31a9981-4f66-4713-8f9c-5cbc94630d0e"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    }
+   ]
+  },
+  {
+   "path": "/SHEET_2/",
+   "uuid_path": "/bde4f0aa-7cf7-4740-8df5-de6575c32a07/aa6e1b5b-448e-4d6b-8c0f-36a7705eb7cb",
+   "violations": []
+  },
+  {
+   "path": "/SHEET_1/SHEET_3/",
+   "uuid_path": "/bde4f0aa-7cf7-4740-8df5-de6575c32a07/6e2d3d35-be93-4ad1-8bb1-3b2b72490946/8351e9a1-a2eb-4ba2-a99c-2f841ef19af3",
+   "violations": [
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol R3 Pin 1 [Passive, Line]",
+       "pos": {
+        "x": 1.4478,
+        "y": 0.9271
+       },
+       "uuid": "1d14e643-4ed3-4201-875a-17e42e0b1a56"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol R3 Pin 2 [Passive, Line]",
+       "pos": {
+        "x": 1.4478,
+        "y": 1.0033
+       },
+       "uuid": "6679c4ad-4e66-43c3-929c-48a91f4bbe5c"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    }
+   ]
+  },
+  {
+   "path": "/SHEET_2/SHEET_3/Another_Sheet/",
+   "uuid_path": "/bde4f0aa-7cf7-4740-8df5-de6575c32a07/aa6e1b5b-448e-4d6b-8c0f-36a7705eb7cb/8351e9a1-a2eb-4ba2-a99c-2f841ef19af3/72b63f92-8b9b-4056-b86f-2bd89069bb4f",
+   "violations": [
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol R5 Pin 1 [Passive, Line]",
+       "pos": {
+        "x": 1.8669,
+        "y": 0.8001
+       },
+       "uuid": "9ea6f0eb-f681-44ca-9401-3770eb115fb6"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol R5 Pin 2 [Passive, Line]",
+       "pos": {
+        "x": 1.8669,
+        "y": 0.8763
+       },
+       "uuid": "02972978-fcea-4d0c-a5b1-2a0ddee61e91"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    }
+   ]
+  },
+  {
+   "path": "/SHEET_1/SHEET_3/Another_Sheet/",
+   "uuid_path": "/bde4f0aa-7cf7-4740-8df5-de6575c32a07/6e2d3d35-be93-4ad1-8bb1-3b2b72490946/8351e9a1-a2eb-4ba2-a99c-2f841ef19af3/72b63f92-8b9b-4056-b86f-2bd89069bb4f",
+   "violations": []
+  },
+  {
+   "path": "/SHEET_2/SHEET_3/",
+   "uuid_path": "/bde4f0aa-7cf7-4740-8df5-de6575c32a07/aa6e1b5b-448e-4d6b-8c0f-36a7705eb7cb/8351e9a1-a2eb-4ba2-a99c-2f841ef19af3",
+   "violations": []
+  }
+ ],
+ "source": "hierarchical_component_classes.kicad_sch"
+}

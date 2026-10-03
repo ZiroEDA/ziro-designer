@@ -1,0 +1,292 @@
+{
+ "$schema": "https://schemas.kicad.org/erc.v1.json",
+ "coordinate_units": "mm",
+ "ignored_checks": [
+  {
+   "description": "Global label only appears once in the schematic",
+   "key": "single_global_label"
+  },
+  {
+   "description": "Four connection points are joined together",
+   "key": "four_way_junction"
+  },
+  {
+   "description": "SPICE model issue",
+   "key": "simulation_model_issue"
+  },
+  {
+   "description": "Assigned footprint doesn't match footprint filters",
+   "key": "footprint_filter"
+  }
+ ],
+ "included_severities": [
+  "error",
+  "warning",
+  "exclusion"
+ ],
+ "kicad_version": "10.0.6",
+ "sheets": [
+  {
+   "path": "/",
+   "uuid_path": "/bfc9b4d1-186d-4d8a-9f35-9d071f1d54fd",
+   "violations": [
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol U1 Pin 3 [+, Input, Line]",
+       "pos": {
+        "x": 0.6731,
+        "y": 0.5969
+       },
+       "uuid": "0a60a206-2dc8-4b92-a7be-126df13c85da"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Input pin not driven by any Output pins",
+     "items": [
+      {
+       "description": "Symbol U1 Pin 3 [+, Input, Line]",
+       "pos": {
+        "x": 0.6731,
+        "y": 0.5969
+       },
+       "uuid": "0a60a206-2dc8-4b92-a7be-126df13c85da"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_driven"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol U1 Pin 2 [-, Input, Line]",
+       "pos": {
+        "x": 0.6731,
+        "y": 0.6477
+       },
+       "uuid": "b8ab93b0-0173-432e-85ed-64d6e0b531e0"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Input pin not driven by any Output pins",
+     "items": [
+      {
+       "description": "Symbol U1 Pin 2 [-, Input, Line]",
+       "pos": {
+        "x": 0.6731,
+        "y": 0.6477
+       },
+       "uuid": "b8ab93b0-0173-432e-85ed-64d6e0b531e0"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_driven"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol U1 Pin 1 [Output, Line]",
+       "pos": {
+        "x": 0.8255,
+        "y": 0.6223
+       },
+       "uuid": "31022ebe-9ec7-4f79-9dd6-a320ec2cdc46"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol U1 Pin 5 [+, Input, Line]",
+       "pos": {
+        "x": 1.143,
+        "y": 0.6096
+       },
+       "uuid": "6e87584c-ea7d-4388-9198-d4f8e33418dc"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Input pin not driven by any Output pins",
+     "items": [
+      {
+       "description": "Symbol U1 Pin 5 [+, Input, Line]",
+       "pos": {
+        "x": 1.143,
+        "y": 0.6096
+       },
+       "uuid": "6e87584c-ea7d-4388-9198-d4f8e33418dc"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_driven"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol U1 Pin 6 [-, Input, Line]",
+       "pos": {
+        "x": 1.143,
+        "y": 0.6604
+       },
+       "uuid": "683f1791-0e09-4b93-863a-50f522c42232"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Input pin not driven by any Output pins",
+     "items": [
+      {
+       "description": "Symbol U1 Pin 6 [-, Input, Line]",
+       "pos": {
+        "x": 1.143,
+        "y": 0.6604
+       },
+       "uuid": "683f1791-0e09-4b93-863a-50f522c42232"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_driven"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol U1 Pin 7 [Output, Line]",
+       "pos": {
+        "x": 1.2954,
+        "y": 0.635
+       },
+       "uuid": "3abeb01e-4937-4584-a986-3b6827ccb17c"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol U1 Pin 8 [V+, Power input, Line]",
+       "pos": {
+        "x": 1.7399,
+        "y": 0.5842
+       },
+       "uuid": "153c2aa2-4642-461a-b93e-2375ef54c4f2"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Input Power pin not driven by any Output Power pins",
+     "items": [
+      {
+       "description": "Symbol U1 Pin 8 [V+, Power input, Line]",
+       "pos": {
+        "x": 1.7399,
+        "y": 0.5842
+       },
+       "uuid": "153c2aa2-4642-461a-b93e-2375ef54c4f2"
+      }
+     ],
+     "severity": "error",
+     "type": "power_pin_not_driven"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol U1 Pin 4 [V-, Power input, Line]",
+       "pos": {
+        "x": 1.7399,
+        "y": 0.7366
+       },
+       "uuid": "e09162f6-ff12-43f4-bcac-fffde8eda55b"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Input Power pin not driven by any Output Power pins",
+     "items": [
+      {
+       "description": "Symbol U1 Pin 4 [V-, Power input, Line]",
+       "pos": {
+        "x": 1.7399,
+        "y": 0.7366
+       },
+       "uuid": "e09162f6-ff12-43f4-bcac-fffde8eda55b"
+      }
+     ],
+     "severity": "error",
+     "type": "power_pin_not_driven"
+    },
+    {
+     "description": "Footprint 'SO-8_5.3x6.2mm_P1.27mm' not found in library 'Package_SO'",
+     "items": [
+      {
+       "description": "Symbol U1 [TL072]",
+       "pos": {
+        "x": 0.7493,
+        "y": 0.6223
+       },
+       "uuid": "521c74f6-a90a-4165-ba5b-74e4986fbfb5"
+      }
+     ],
+     "severity": "warning",
+     "type": "footprint_link_issues"
+    },
+    {
+     "description": "Footprint 'SO-8_5.3x6.2mm_P1.27mm' not found in library 'Package_SO'",
+     "items": [
+      {
+       "description": "Symbol U1 [TL072]",
+       "pos": {
+        "x": 1.2192,
+        "y": 0.635
+       },
+       "uuid": "da40a256-1fbb-4db4-9c2c-275f5c1d0f3c"
+      }
+     ],
+     "severity": "warning",
+     "type": "footprint_link_issues"
+    },
+    {
+     "description": "Footprint 'SO-8_5.3x6.2mm_P1.27mm' not found in library 'Package_SO'",
+     "items": [
+      {
+       "description": "Symbol U1 [TL072]",
+       "pos": {
+        "x": 1.7653,
+        "y": 0.6604
+       },
+       "uuid": "ec280545-6554-44ce-b281-8b6027100352"
+      }
+     ],
+     "severity": "warning",
+     "type": "footprint_link_issues"
+    }
+   ]
+  }
+ ],
+ "source": "component_classes.kicad_sch"
+}

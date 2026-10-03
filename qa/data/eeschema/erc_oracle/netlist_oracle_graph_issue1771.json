@@ -1,0 +1,172 @@
+{
+ "$schema": "https://schemas.kicad.org/erc.v1.json",
+ "coordinate_units": "mm",
+ "ignored_checks": [
+  {
+   "description": "Global label only appears once in the schematic",
+   "key": "single_global_label"
+  },
+  {
+   "description": "Four connection points are joined together",
+   "key": "four_way_junction"
+  },
+  {
+   "description": "SPICE model issue",
+   "key": "simulation_model_issue"
+  },
+  {
+   "description": "Assigned footprint doesn't match footprint filters",
+   "key": "footprint_filter"
+  }
+ ],
+ "included_severities": [
+  "error",
+  "warning",
+  "exclusion"
+ ],
+ "kicad_version": "10.0.6",
+ "sheets": [
+  {
+   "path": "/",
+   "uuid_path": "/d9f38ef5-2741-42a5-b9f1-8ecb1cdb29f5",
+   "violations": [
+    {
+     "description": "Label not connected",
+     "items": [
+      {
+       "description": "Label 'W.X.Y.Z1'",
+       "pos": {
+        "x": 0.4064,
+        "y": 0.4572
+       },
+       "uuid": "43ab9f4e-bffd-4f38-8e4c-5a8158f5dcce"
+      }
+     ],
+     "severity": "error",
+     "type": "label_dangling"
+    },
+    {
+     "description": "Symbol 'TST-01025' not found in symbol library 'Mechanical'",
+     "items": [
+      {
+       "description": "Symbol TP101 [TST-01025]",
+       "pos": {
+        "x": 0.6858,
+        "y": 0.5969
+       },
+       "uuid": "a1e81ea4-2857-40cb-bf19-e3ded3e64c52"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "Symbol 'TST-01025' not found in symbol library 'Mechanical'",
+     "items": [
+      {
+       "description": "Symbol TP102 [TST-01025]",
+       "pos": {
+        "x": 0.6858,
+        "y": 0.6223
+       },
+       "uuid": "8921adc2-e282-4af4-a07a-a1b585fcfece"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "Unconnected wire endpoint",
+     "items": [
+      {
+       "description": "Horizontal Wire, length 0.1905 mm",
+       "pos": {
+        "x": 0.4064,
+        "y": 0.4572
+       },
+       "uuid": "8b3f075b-384b-4c74-a276-3bab1e4416bb"
+      }
+     ],
+     "severity": "warning",
+     "type": "unconnected_wire_endpoint"
+    },
+    {
+     "description": "Symbol 'TST-01025' not found in symbol library 'Mechanical'",
+     "items": [
+      {
+       "description": "Symbol TP301 [TST-01025]",
+       "pos": {
+        "x": 1.0287,
+        "y": 0.5207
+       },
+       "uuid": "559c442d-219d-4fe6-8996-24c1a2d9cdcb"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "Symbol 'TST-01025' not found in symbol library 'Mechanical'",
+     "items": [
+      {
+       "description": "Symbol TP302 [TST-01025]",
+       "pos": {
+        "x": 1.0287,
+        "y": 0.5588
+       },
+       "uuid": "50034e64-5ec3-4269-9ead-698c864f9807"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "Symbol 'TST-01025' not found in symbol library 'Mechanical'",
+     "items": [
+      {
+       "description": "Symbol TP401 [TST-01025]",
+       "pos": {
+        "x": 0.8128,
+        "y": 0.5715
+       },
+       "uuid": "8c0ecef8-6b64-41c6-9d38-6d54bc92d084"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "Symbol 'TST-01025' not found in symbol library 'Mechanical'",
+     "items": [
+      {
+       "description": "Symbol TP402 [TST-01025]",
+       "pos": {
+        "x": 0.8128,
+        "y": 0.5969
+       },
+       "uuid": "47056232-84ee-4e08-b29b-2834eeadd92b"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    }
+   ]
+  },
+  {
+   "path": "/sub/",
+   "uuid_path": "/d9f38ef5-2741-42a5-b9f1-8ecb1cdb29f5/646c9f9f-0bca-47c1-b111-bccee7653836",
+   "violations": []
+  },
+  {
+   "path": "/sub/sub2/",
+   "uuid_path": "/d9f38ef5-2741-42a5-b9f1-8ecb1cdb29f5/646c9f9f-0bca-47c1-b111-bccee7653836/4fea18b4-6b3d-4acc-a71b-7ee31c8961ac",
+   "violations": []
+  },
+  {
+   "path": "/sub/sub2/sub3/",
+   "uuid_path": "/d9f38ef5-2741-42a5-b9f1-8ecb1cdb29f5/646c9f9f-0bca-47c1-b111-bccee7653836/4fea18b4-6b3d-4acc-a71b-7ee31c8961ac/38a5c293-46d2-4c74-939b-43575208aa56",
+   "violations": []
+  }
+ ],
+ "source": "issue1771.kicad_sch"
+}

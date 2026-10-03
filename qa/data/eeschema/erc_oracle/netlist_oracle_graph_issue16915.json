@@ -1,0 +1,112 @@
+{
+ "$schema": "https://schemas.kicad.org/erc.v1.json",
+ "coordinate_units": "mm",
+ "ignored_checks": [
+  {
+   "description": "Global label only appears once in the schematic",
+   "key": "single_global_label"
+  },
+  {
+   "description": "Four connection points are joined together",
+   "key": "four_way_junction"
+  },
+  {
+   "description": "SPICE model issue",
+   "key": "simulation_model_issue"
+  },
+  {
+   "description": "Assigned footprint doesn't match footprint filters",
+   "key": "footprint_filter"
+  }
+ ],
+ "included_severities": [
+  "error",
+  "warning",
+  "exclusion"
+ ],
+ "kicad_version": "10.0.6",
+ "sheets": [
+  {
+   "path": "/",
+   "uuid_path": "/37b68865-a0cb-49d6-89e0-3fc19bf4698b",
+   "violations": [
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol U? Pin 11 [Load, Input, Line]",
+       "pos": {
+        "x": 0.7874,
+        "y": 0.7493
+       },
+       "uuid": "bde79230-cee3-41df-a951-9108e72e2761"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol U? Pin 1 [OE, Input, Inverted]",
+       "pos": {
+        "x": 0.7874,
+        "y": 0.7747
+       },
+       "uuid": "b66577e2-2c09-4678-9c77-86d25cd6d027"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol U? Pin 20 [VCC, Power input, Line]",
+       "pos": {
+        "x": 0.9144,
+        "y": 0.4445
+       },
+       "uuid": "b899c3e7-6aa2-4f3f-9f77-3623c6699d35"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol U? Pin 10 [GND, Power input, Line]",
+       "pos": {
+        "x": 0.9144,
+        "y": 0.8509
+       },
+       "uuid": "1248b3ea-1a74-4cb4-96dd-4f3c5d286579"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Symbol '74LS573' doesn't match copy in library '74xx'",
+     "items": [
+      {
+       "description": "Symbol U? [74LS573]",
+       "pos": {
+        "x": 0.9144,
+        "y": 0.6477
+       },
+       "uuid": "a26e2059-d797-44bd-8e43-602a1c2fada4"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_mismatch"
+    }
+   ]
+  }
+ ],
+ "source": "issue16915.kicad_sch"
+}

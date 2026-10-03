@@ -1,0 +1,737 @@
+{
+ "$schema": "https://schemas.kicad.org/erc.v1.json",
+ "coordinate_units": "mm",
+ "ignored_checks": [
+  {
+   "description": "Global label only appears once in the schematic",
+   "key": "single_global_label"
+  },
+  {
+   "description": "Four connection points are joined together",
+   "key": "four_way_junction"
+  },
+  {
+   "description": "SPICE model issue",
+   "key": "simulation_model_issue"
+  },
+  {
+   "description": "Assigned footprint doesn't match footprint filters",
+   "key": "footprint_filter"
+  }
+ ],
+ "included_severities": [
+  "error",
+  "warning",
+  "exclusion"
+ ],
+ "kicad_version": "10.0.6",
+ "sheets": [
+  {
+   "path": "/",
+   "uuid_path": "/d0c4a532-91a0-41c7-bf67-362c855fa8bf",
+   "violations": [
+    {
+     "description": "Netclass Power is not defined",
+     "items": [
+      {
+       "description": "Directive Label [Net Class Power]",
+       "pos": {
+        "x": 0.762,
+        "y": 0.53975
+       },
+       "uuid": "1abbd833-65a6-4256-a542-527403f3a967"
+      }
+     ],
+     "severity": "error",
+     "type": "undefined_netclass"
+    },
+    {
+     "description": "The current configuration does not include the footprint library 'IPSES_connectors'",
+     "items": [
+      {
+       "description": "Symbol J1 [Connectors/1]",
+       "pos": {
+        "x": 0.52705,
+        "y": 0.56515
+       },
+       "uuid": "355e5aca-3a42-4e5c-aee3-d3f25ca1d627"
+      }
+     ],
+     "severity": "warning",
+     "type": "footprint_link_issues"
+    },
+    {
+     "description": "The current configuration does not include the symbol library 'IPSES_components'",
+     "items": [
+      {
+       "description": "Symbol J1 [Connectors/1]",
+       "pos": {
+        "x": 0.52705,
+        "y": 0.56515
+       },
+       "uuid": "355e5aca-3a42-4e5c-aee3-d3f25ca1d627"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Horizontal Wire, length 0.2858 mm",
+       "pos": {
+        "x": 0.57785,
+        "y": 0.53975
+       },
+       "uuid": "0f49a9cb-aa66-4251-8a98-e711ff1e544c"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Symbol J1 Pin 2 [Pin_2, Passive, Line]",
+       "pos": {
+        "x": 0.57785,
+        "y": 0.53975
+       },
+       "uuid": "43633767-8258-4ff3-a481-923601b7e1c6"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Horizontal Wire, length 0.2858 mm",
+       "pos": {
+        "x": 0.57785,
+        "y": 0.56515
+       },
+       "uuid": "bbc6ad3c-20e7-4c30-8f3f-3017f197ccc8"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Symbol J2 Pin 2 [Pin_2, Passive, Line]",
+       "pos": {
+        "x": 0.8636,
+        "y": 0.56515
+       },
+       "uuid": "930127a7-490f-44d7-bfac-2d086288103c"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "The current configuration does not include the symbol library 'IPSES_others'",
+     "items": [
+      {
+       "description": "Symbol REVISION1 [revision_history]",
+       "pos": {
+        "x": 0.89535,
+        "y": 1.92405
+       },
+       "uuid": "a87fb5aa-b793-4859-accd-98ad3d6e522c"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The current configuration does not include the footprint library 'IPSES_connectors'",
+     "items": [
+      {
+       "description": "Symbol J2 [Connectors/1]",
+       "pos": {
+        "x": 0.9144,
+        "y": 0.53975
+       },
+       "uuid": "2db68f2e-34a8-41b6-96b4-0af9dcdc1f8c"
+      }
+     ],
+     "severity": "warning",
+     "type": "footprint_link_issues"
+    },
+    {
+     "description": "The current configuration does not include the symbol library 'IPSES_components'",
+     "items": [
+      {
+       "description": "Symbol J2 [Connectors/1]",
+       "pos": {
+        "x": 0.9144,
+        "y": 0.53975
+       },
+       "uuid": "2db68f2e-34a8-41b6-96b4-0af9dcdc1f8c"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The current configuration does not include the symbol library 'IPSES_components'",
+     "items": [
+      {
+       "description": "Symbol OthersComponents2 [Others/45]",
+       "pos": {
+        "x": 1.77165,
+        "y": 1.21285
+       },
+       "uuid": "8b14ca25-e3f0-4657-96b1-8dc08fd6d316"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The current configuration does not include the symbol library 'IPSES_others'",
+     "items": [
+      {
+       "description": "Symbol CABLES1 [cables]",
+       "pos": {
+        "x": 1.77165,
+        "y": 1.46685
+       },
+       "uuid": "152d87b2-52a8-450d-99d1-dd49b920d0c2"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The current configuration does not include the symbol library 'IPSES_others'",
+     "items": [
+      {
+       "description": "Symbol CABLES2 [cables]",
+       "pos": {
+        "x": 1.77165,
+        "y": 1.49225
+       },
+       "uuid": "66647c9e-6626-4931-9d2a-bd948e0bbea8"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The current configuration does not include the symbol library 'IPSES_others'",
+     "items": [
+      {
+       "description": "Symbol CABLES3 [cables]",
+       "pos": {
+        "x": 1.77165,
+        "y": 1.51765
+       },
+       "uuid": "4c657c16-1dad-40f5-835a-87e4eabfa017"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The current configuration does not include the symbol library 'IPSES_others'",
+     "items": [
+      {
+       "description": "Symbol CABLES4 [cables]",
+       "pos": {
+        "x": 1.77165,
+        "y": 1.54305
+       },
+       "uuid": "94b0d2a3-acd1-497d-b508-a5570b234cae"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Horizontal Bus, length 0.1651 mm",
+       "pos": {
+        "x": 2.06375,
+        "y": 0.62865
+       },
+       "uuid": "04632912-2609-4030-a54b-d382ecb6dd26"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "The current configuration does not include the symbol library 'IPSES_others'",
+     "items": [
+      {
+       "description": "Symbol SERIAL_NUMBER1 [SerialNumber]",
+       "pos": {
+        "x": 2.5019,
+        "y": -0.0762
+       },
+       "uuid": "1fd7eda6-ec9c-48ee-b9f2-0cbbdf1f5986"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The current configuration does not include the symbol library 'IPSES_others'",
+     "items": [
+      {
+       "description": "Symbol SERIAL_NUMBER2 [SerialNumber]",
+       "pos": {
+        "x": 2.5019,
+        "y": -0.0508
+       },
+       "uuid": "f0fae5cb-a373-4c9a-be9b-6ff4021d6aa8"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The current configuration does not include the footprint library 'IPSES_connectors'",
+     "items": [
+      {
+       "description": "Symbol J9 [Connectors/1]",
+       "pos": {
+        "x": 1.30175,
+        "y": 0.38735
+       },
+       "uuid": "4ce8d797-0e9c-4560-9508-68d6da8359f2"
+      }
+     ],
+     "severity": "warning",
+     "type": "footprint_link_issues"
+    },
+    {
+     "description": "The current configuration does not include the symbol library 'IPSES_components'",
+     "items": [
+      {
+       "description": "Symbol J9 [Connectors/1]",
+       "pos": {
+        "x": 1.30175,
+        "y": 0.38735
+       },
+       "uuid": "4ce8d797-0e9c-4560-9508-68d6da8359f2"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Symbol J9 Pin 2 [Pin_2, Passive, Line]",
+       "pos": {
+        "x": 1.35255,
+        "y": 0.36195
+       },
+       "uuid": "36170132-a5c4-4b90-8db8-10f7d611be9d"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Horizontal Wire, length 0.1524 mm",
+       "pos": {
+        "x": 1.35255,
+        "y": 0.36195
+       },
+       "uuid": "8b8140b9-e530-4eb6-91ae-72018e4ac12d"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Horizontal Wire, length 0.1524 mm",
+       "pos": {
+        "x": 1.35255,
+        "y": 0.38735
+       },
+       "uuid": "024fcc11-c7d9-4e68-9141-9d2470d8279d"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Horizontal Wire, length 0.0127 mm",
+       "pos": {
+        "x": 1.50495,
+        "y": 0.34925
+       },
+       "uuid": "cc7b9cc6-c3f8-4d82-a338-b350da1b036f"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Vertical Wire, length 0.0127 mm",
+       "pos": {
+        "x": 1.50495,
+        "y": 0.36195
+       },
+       "uuid": "a6b4d6e9-5e1e-4c9c-94fa-9caa36e2d92a"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Vertical Wire, length 0.0127 mm",
+       "pos": {
+        "x": 1.50495,
+        "y": 0.38735
+       },
+       "uuid": "c806afd2-8bc6-4d50-bbf9-7e40438dcf93"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Horizontal Wire, length 0.0127 mm",
+       "pos": {
+        "x": 1.50495,
+        "y": 0.40005
+       },
+       "uuid": "2aa70043-40e3-448c-adf0-af1ebede6075"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Bus to wire entry",
+       "pos": {
+        "x": 1.51765,
+        "y": 0.34925
+       },
+       "uuid": "d0d5fa96-a6a9-484a-8907-00507f03a444"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Bus to wire entry",
+       "pos": {
+        "x": 1.51765,
+        "y": 0.40005
+       },
+       "uuid": "266e9904-5fd8-480d-ab95-10ba3adb9f1f"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Bus to wire entry",
+       "pos": {
+        "x": 1.51765,
+        "y": 0.40005
+       },
+       "uuid": "266e9904-5fd8-480d-ab95-10ba3adb9f1f"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Horizontal Bus, length 0.1333 mm",
+       "pos": {
+        "x": 1.54305,
+        "y": 0.37465
+       },
+       "uuid": "364db4ea-1afd-418d-a50a-048d66a07f43"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Bus to wire entry",
+       "pos": {
+        "x": 1.51765,
+        "y": 0.34925
+       },
+       "uuid": "d0d5fa96-a6a9-484a-8907-00507f03a444"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "The current configuration does not include the footprint library 'IPSES_connectors'",
+     "items": [
+      {
+       "description": "Symbol J7 [Connectors/1]",
+       "pos": {
+        "x": 1.78435,
+        "y": 1.016
+       },
+       "uuid": "a6d3646b-3a52-436f-b017-302bebe39038"
+      }
+     ],
+     "severity": "warning",
+     "type": "footprint_link_issues"
+    },
+    {
+     "description": "The current configuration does not include the symbol library 'IPSES_components'",
+     "items": [
+      {
+       "description": "Symbol J7 [Connectors/1]",
+       "pos": {
+        "x": 1.78435,
+        "y": 1.016
+       },
+       "uuid": "a6d3646b-3a52-436f-b017-302bebe39038"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Horizontal Wire, length 0.1524 mm",
+       "pos": {
+        "x": 1.83515,
+        "y": 0.9906
+       },
+       "uuid": "101a720c-aabd-4167-b06c-c8d45796ea6d"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Symbol J7 Pin 2 [Pin_2, Passive, Line]",
+       "pos": {
+        "x": 1.83515,
+        "y": 0.9906
+       },
+       "uuid": "91f88d5d-8ff5-47cb-bb6b-9bfbb03db12c"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Horizontal Wire, length 0.1524 mm",
+       "pos": {
+        "x": 1.83515,
+        "y": 1.016
+       },
+       "uuid": "dcc86ad6-2676-4bd0-8f35-02b7b1e5baa8"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Horizontal Wire, length 0.0127 mm",
+       "pos": {
+        "x": 1.98755,
+        "y": 0.9779
+       },
+       "uuid": "d15ae20b-32fd-4ee1-8023-2b162f1a0662"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Vertical Wire, length 0.0127 mm",
+       "pos": {
+        "x": 1.98755,
+        "y": 0.9906
+       },
+       "uuid": "e088fd26-c453-40d1-81e8-b220eb93b17f"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Vertical Wire, length 0.0127 mm",
+       "pos": {
+        "x": 1.98755,
+        "y": 1.016
+       },
+       "uuid": "58eee026-a59c-48dd-a3ad-7c4c61f9be40"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Horizontal Wire, length 0.0127 mm",
+       "pos": {
+        "x": 1.98755,
+        "y": 1.0287
+       },
+       "uuid": "baff68cd-cf6f-4ef3-9d80-85636f732350"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Bus to wire entry",
+       "pos": {
+        "x": 2.00025,
+        "y": 0.9779
+       },
+       "uuid": "7f7dba62-118f-400f-8f99-1568879f3b12"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Bus to wire entry",
+       "pos": {
+        "x": 2.00025,
+        "y": 1.0287
+       },
+       "uuid": "69ee397d-123f-4ad9-b9fc-b3b24594c6a9"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Horizontal Bus, length 0.1333 mm",
+       "pos": {
+        "x": 2.02565,
+        "y": 1.0033
+       },
+       "uuid": "14d3f571-0cd6-4634-be2a-7a3313d7063d"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Bus to wire entry",
+       "pos": {
+        "x": 2.00025,
+        "y": 1.0287
+       },
+       "uuid": "69ee397d-123f-4ad9-b9fc-b3b24594c6a9"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    },
+    {
+     "description": "Symbol pin or wire end off connection grid",
+     "items": [
+      {
+       "description": "Bus to wire entry",
+       "pos": {
+        "x": 2.00025,
+        "y": 0.9779
+       },
+       "uuid": "7f7dba62-118f-400f-8f99-1568879f3b12"
+      }
+     ],
+     "severity": "warning",
+     "type": "endpoint_off_grid"
+    }
+   ]
+  },
+  {
+   "path": "/Foglio 1/",
+   "uuid_path": "/d0c4a532-91a0-41c7-bf67-362c855fa8bf/c74ee8e4-f220-4f04-b45b-c2b80f1d1758",
+   "violations": []
+  },
+  {
+   "path": "/Foglio2/",
+   "uuid_path": "/d0c4a532-91a0-41c7-bf67-362c855fa8bf/0fbb1b5b-5613-44db-a3fa-c9c5919f1b49",
+   "violations": []
+  }
+ ],
+ "source": "issue24220.kicad_sch"
+}
