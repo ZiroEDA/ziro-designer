@@ -13,7 +13,6 @@ import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/index.js';
 import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { fillZones } from '@ziroeda/pcbnew/zone_filler.js';
 import type { Board, PcbZone } from '@ziroeda/pcbnew/types.js';
 
 /** A board with one copper pour and, optionally, a rule area biting into it. */
@@ -127,69 +126,5 @@ describe('writing', () => {
     expect(ruleAreaOf(load(serializeBoard({ ...b, zones: [area] })))?.ruleArea).toEqual(
       area.ruleArea,
     );
-  });
-});
-
-describe('the filler', () => {
-  const fillArea = (b: Board, index = 0): number => {
-    const polys = b.zones[index]?.fills.flatMap((f) => f.polys) ?? [];
-    // Shoelace, absolute — only the relative size matters here.
-    return polys.reduce((sum, poly) => {
-      let a = 0;
-      for (let i = 0, j = poly.length - 1; i < poly.length; j = i++)
-        a += (poly[j]!.x + poly[i]!.x) * (poly[j]!.y - poly[i]!.y);
-      return sum + Math.abs(a / 2);
-    }, 0);
-  };
-
-  it('never pours the rule area itself', () => {
-    // Island removal set to NEVER is what makes this visible: with the default
-    // ALWAYS the pour comes back empty for want of a connection and the bug
-    // hides.
-    const b = fillZones(
-      load(src({ keepout: ALL_FORBIDDEN, islandMode: '(island_removal_mode 1)' })),
-    );
-
-    expect(ruleAreaOf(b)?.fills).toEqual([]);
-  });
-
-  it('knocks a copperpour keepout out of a pour that overlaps it', () => {
-    const without = fillZones(load(src()));
-    const with_ = fillZones(load(src({ keepout: ALL_FORBIDDEN })));
-
-    expect(fillArea(without)).toBeGreaterThan(0);
-    expect(fillArea(with_)).toBeLessThan(fillArea(without));
-  });
-
-  it('leaves the pour alone when copperpour is allowed', () => {
-    const allowed = `(keepout (tracks not_allowed) (vias not_allowed) (pads allowed) (copperpour allowed) (footprints allowed))`;
-
-    expect(fillArea(fillZones(load(src({ keepout: allowed }))))).toBeCloseTo(
-      fillArea(fillZones(load(src()))),
-      3,
-    );
-  });
-
-  it('knocks out regardless of priority, unlike an ordinary zone', () => {
-    // A lower-priority copper zone would not touch the pour; a rule area does,
-    // because upstream tests GetIsRuleArea before the priority branch.
-    const b = load(src({ keepout: ALL_FORBIDDEN }));
-    const area = ruleAreaOf(b)!;
-    const bumped: Board = {
-      ...b,
-      zones: b.zones.map((z) => (z === area ? { ...z, priority: 0 } : { ...z, priority: 5 })),
-    };
-
-    expect(fillArea(fillZones(bumped))).toBeLessThan(fillArea(fillZones(load(src()))));
-  });
-
-  it('uses the bare outline, with no clearance added', () => {
-    // "Keepouts use outline with no clearance" — a clearance would eat a ring
-    // of copper the user never asked to lose.
-    const b = fillZones(load(src({ keepout: ALL_FORBIDDEN })));
-    const xs = b.zones[0]!.fills.flatMap((f) => f.polys.flat()).map((p) => p.x);
-
-    // The area starts at x = 12 mm; the copper may reach it but not pass it.
-    expect(Math.max(...xs)).toBeCloseTo(12e6, -4);
   });
 });

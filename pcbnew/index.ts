@@ -229,14 +229,6 @@ export {
 export { AR_AUTOPLACER, AR_RESULT } from './autorouter/ar_autoplacer.js';
 
 // Zone filling (pcbnew/zone_filler.cpp: ZONE_FILLER).
-export {
-  type ClearanceRules,
-  fillZone,
-  fillZones,
-  type ZoneFillOptions,
-  zoneClearanceOf,
-} from './zone_filler.js';
-
 // Track dragging (pcbnew/router: PNS::DRAGGER + PNS::LINE geometry).
 
 // Edit Teardrops (pcbnew/dialogs/dialog_global_edit_teardrops.cpp).
@@ -686,15 +678,6 @@ export {
   type PadEnumerationState,
   type PadEnumerationUndo,
 } from './dialogs/dialog_enum_pads.js';
-
-export {
-  checkFootprint,
-  checkPad,
-  isNetTie,
-  mapPadNumbersToNetTieGroups,
-  getNetTiePads,
-  type PadFinding,
-} from './dialogs/dialog_footprint_checker.js';
 
 export { DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS } from './dialogs/dialog_global_edit_text_and_graphics.js';
 

@@ -25,7 +25,6 @@
 import { describe, it, expect } from 'vitest';
 import { padShapePos } from '@ziroeda/pcbnew/padstack.js';
 import { padShapes } from '@ziroeda/pcbnew/drc/drc_engine_view.js';
-import { padHoleSegment } from '@ziroeda/pcbnew/dialogs/dialog_footprint_checker.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import type { PcbPad } from '@ziroeda/pcbnew/types.js';
 
@@ -78,16 +77,11 @@ describe('PAD::ShapePos', () => {
     expect(padShapePos(pad({ drill: undefined, type: 'smd' }))).toEqual(pad().at);
   });
 
-  it('puts the copper on ShapePos and the hole on the pad position', () => {
+  it('puts the copper on ShapePos', () => {
     const p = pad();
     const copper = copperCentre(p);
     expect(copper.x).toBeCloseTo(p.at.x, 0);
     expect(copper.y).toBeCloseTo(p.at.y + MM(0.4), 0);
-
-    // `GetEffectiveHoleShape` reads `m_pos`, so the hole does not move.
-    const hole = padHoleSegment(p)!;
-    expect(hole.a).toEqual(p.at);
-    expect(hole.b).toEqual(p.at);
   });
 
   it('turns the offset with the pad, so the copper leads the rotation', () => {

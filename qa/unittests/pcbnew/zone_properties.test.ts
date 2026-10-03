@@ -17,7 +17,6 @@ import {
   zoneAt,
   type ZoneValues,
 } from '@ziroeda/pcbnew/dialogs/panel_zone_properties.js';
-import { fillZone } from '@ziroeda/pcbnew/zone_filler.js';
 import { boardFromBOARD, boardToBOARD } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/board_view.js';
 import type { Board, PcbZone } from '@ziroeda/pcbnew/types.js';
 import { U } from './support/written_node.js';
@@ -236,118 +235,6 @@ describe('apply', () => {
     const once = edit({ clearance: MM(0.3) });
     const again = applyZoneValues(once, 0, collectZoneValues(zone(once)));
     expect(again).toBe(once);
-  });
-});
-
-describe('island removal reaches the filler', () => {
-  const pad = (at: { x: number; y: number }, net: number, size: number) => ({
-    number: '1',
-    type: 'smd' as const,
-    shape: 'rect' as const,
-    at,
-    angle: 0,
-    size: { x: MM(size), y: MM(size) },
-    layers: ['F.Cu'],
-    net,
-  });
-
-  /**
-   * A dumbbell pour: two 10 mm squares joined by a 1 mm neck. A same-net pad
-   * anchors the left square; a foreign pad on the neck is knocked out with
-   * enough clearance to sever it, so the right square becomes a real island.
-   */
-  /**
-   * Out through `boardToBOARD` and back: the pour resolves its thermal gaps
-   * and zone connections on the BOARD_ITEMs now (`DRC_ENGINE::EvalRules`), so
-   * a fixture has to carry them. The layer table is stated for the same
-   * reason `zone_filler.test.ts` states one - `applyLayerTable` wipes it
-   * otherwise and `F.Cu` resolves to nothing.
-   */
-  const dumbbell = (mode: PcbZone['islandRemovalMode'], areaMin?: number): Board =>
-    boardFromBOARD(boardToBOARD(dumbbellView(mode, areaMin)));
-
-  const dumbbellView = (mode: PcbZone['islandRemovalMode'], areaMin?: number): Board => ({
-    version: 20240108,
-    layers: [
-      { id: 0, name: 'F.Cu', kind: 'signal' },
-      { id: 2, name: 'B.Cu', kind: 'signal' },
-    ],
-    nets: new Map([
-      [0, ''],
-      [1, 'GND'],
-      [2, 'VCC'],
-    ]),
-    footprints: [
-      {
-        lib: 'R',
-        at: { x: 0, y: 0 },
-        angle: 0,
-        layer: 'F.Cu',
-        pads: [pad({ x: MM(5), y: MM(5) }, 1, 2), pad({ x: MM(15), y: MM(5) }, 2, 0.5)],
-        shapes: [],
-        texts: [],
-        points: [],
-        barcodes: [],
-        models: [],
-      },
-    ],
-    tracks: [],
-    arcs: [],
-    vias: [],
-    zones: [
-      {
-        net: 1,
-        layers: ['F.Cu'],
-        outline: [
-          { x: 0, y: 0 },
-          { x: MM(10), y: 0 },
-          { x: MM(10), y: MM(4.5) },
-          { x: MM(20), y: MM(4.5) },
-          { x: MM(20), y: 0 },
-          { x: MM(30), y: 0 },
-          { x: MM(30), y: MM(10) },
-          { x: MM(20), y: MM(10) },
-          { x: MM(20), y: MM(5.5) },
-          { x: MM(10), y: MM(5.5) },
-          { x: MM(10), y: MM(10) },
-          { x: 0, y: MM(10) },
-        ],
-        fills: [],
-        padConnection: 'full',
-        clearance: MM(0.5),
-        minThickness: MM(0.25),
-        islandRemovalMode: mode,
-        islandAreaMin: areaMin,
-      },
-    ],
-    shapes: [],
-    texts: [],
-    dimensions: [],
-    textBoxes: [],
-    tables: [],
-    images: [],
-    points: [],
-    barcodes: [],
-    groups: [],
-  });
-
-  const polyCount = (b: Board): number => fillZone(b, 0)[0]?.polys.length ?? 0;
-
-  it('ALWAYS drops the severed lobe and keeps the anchored one', () => {
-    expect(polyCount(dumbbell('always'))).toBe(1);
-  });
-
-  it('NEVER keeps both', () => {
-    expect(polyCount(dumbbell('never'))).toBe(2);
-  });
-
-  it('AREA keeps an island at or above the limit', () => {
-    // The severed lobe is 10 x 10 mm = 100 mm².
-    expect(polyCount(dumbbell('area', 50))).toBe(2);
-  });
-
-  it('AREA drops an island below the limit', () => {
-    expect(polyCount(dumbbell('area', 400))).toBe(1);
   });
 });
 

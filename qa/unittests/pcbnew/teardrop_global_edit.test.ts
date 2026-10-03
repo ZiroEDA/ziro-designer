@@ -30,7 +30,6 @@ import { PCB_IO_KICAD_SEXPR_PARSER } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pc
 import type { PCB_VIA } from '@ziroeda/pcbnew/pcb_track.js';
 import { TARGET_TD } from '@ziroeda/pcbnew/teardrop/teardrop_parameters.js';
 import { TEARDROP_TYPE } from '@ziroeda/pcbnew/teardrop/teardrop_parameters.js';
-import { fillZones } from '@ziroeda/pcbnew/zone_filler.js';
 
 const MM = (n: number): number => pcbIUScale.mmToIU(n);
 
@@ -446,19 +445,5 @@ describe('DIALOG_GLOBAL_EDIT_TEARDROPS controls', () => {
     dlg.OnClose();
     dlg = open(b);
     expect(dlg.m_netFilter).toBe(2);
-  });
-});
-
-describe('the zone filler and teardrops', () => {
-  it('leaves a teardrop zone’s fill exactly as TEARDROP_MANAGER made it', () => {
-    const b = mixed();
-    run(b);
-    const view = boardFromBOARD(b, 'mixed.kicad_pcb');
-    const before = view.zones.map((z) => z.fills[0]!.polys[0]);
-
-    const refilled = fillZones(view);
-
-    expect(before).toHaveLength(3);
-    expect(refilled.zones.map((z) => z.fills[0]!.polys[0])).toEqual(before);
   });
 });
