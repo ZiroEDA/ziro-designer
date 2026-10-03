@@ -21,7 +21,18 @@ import {
 } from '@ziroeda/pcbnew/dialogs/dialog_dimension_properties.js';
 import { startDimension } from '@ziroeda/pcbnew';
 import type { DimensionKind } from '@ziroeda/pcbnew/types.js';
-import { dimensionDialogFields } from '@ziroeda/pcbnew/dialogs/dialog_dimension_properties.js';
+import { dimensionDialogFields as fieldsFor } from '@ziroeda/pcbnew/dialogs/dialog_dimension_properties.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+
+/** The dimension kinds as the KICAD_T each one is (pcb_dimension.h). */
+const TYPE_OF: Record<DimensionKind, KICAD_T> = {
+  aligned: KICAD_T.PCB_DIM_ALIGNED_T,
+  orthogonal: KICAD_T.PCB_DIM_ORTHOGONAL_T,
+  leader: KICAD_T.PCB_DIM_LEADER_T,
+  center: KICAD_T.PCB_DIM_CENTER_T,
+  radial: KICAD_T.PCB_DIM_RADIAL_T,
+};
+const dimensionDialogFields = (k: DimensionKind) => fieldsFor(TYPE_OF[k]);
 
 const ALL: DimensionKind[] = ['aligned', 'orthogonal', 'center', 'radial', 'leader'];
 

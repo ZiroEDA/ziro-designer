@@ -18,7 +18,6 @@ import { serializeFootprint } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_ki
 import { EuclideanNormI, divideI } from '@ziroeda/kimath/src/math/vector2.js';
 import {
   applyPadEnumeration,
-  getNextPadNumber,
   padCanHaveNumber,
   padEnumerationAccuracy,
   padEnumerationHitOrder,
@@ -466,28 +465,6 @@ describe('the last pad number the Add Pad tool inherits', () => {
 });
 
 // ----- FOOTPRINT::GetNextPadNumber -------------------------------------------
-
-describe('getNextPadNumber', () => {
-  const fp = footprint([pad({ number: '1' }), pad({ number: '2' }), pad({ number: '3' })]);
-
-  it('does not pre-increment a number that is free', () => {
-    // The probe starts *at* the last number. Incrementing first would leave a
-    // gap every time a pad was deleted and replaced.
-    expect(getNextPadNumber(fp, '9')).toBe('9');
-  });
-
-  it('probes upwards past every number in use', () => {
-    expect(getNextPadNumber(fp, '1')).toBe('4');
-  });
-
-  it('keeps the prefix and starts a bare prefix at zero', () => {
-    // GetTrailingInt("A") is 0, so the first pad in an "A" series is "A0", not
-    // "A1" — surprising, and load-bearing for BGA-style numbering.
-    expect(getNextPadNumber(fp, 'A')).toBe('A0');
-    expect(getNextPadNumber(footprint([pad({ number: 'A0' })]), 'A')).toBe('A1');
-    expect(getNextPadNumber(fp, 'B12')).toBe('B12');
-  });
-});
 
 // ----- persistence ------------------------------------------------------------
 

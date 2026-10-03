@@ -113,7 +113,6 @@ function makeHarness(): Harness {
     fetchNetlistFromSchematic: () => false,
     schematicNetlistText: () => null,
     projectText: () => h.projectText ?? null,
-    onEditItemRequest: () => {},
     showExchangeFootprintsDialog: () => {},
     findDialogRects: (): BOX2D[] => [],
     setViewCenter: (_aPos: Vec2) => {},

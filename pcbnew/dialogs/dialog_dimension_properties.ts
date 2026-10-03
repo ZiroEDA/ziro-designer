@@ -48,10 +48,9 @@ import {
   type DIM_UNITS_MODE,
 } from '../pcb_dimension_types.js';
 import type { TransferResult } from './dialog_text_properties.js';
-import { parseBoardItemId } from '../edit-board.js';
 import { updateDimension } from '../dimension_text.js';
 import { isAlignedKind } from '../types.js';
-import type { DimensionKind } from '../index.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import type {
   Board,
   DimPrecision,
@@ -102,48 +101,7 @@ export interface DimensionValues {
 }
 
 /** The single selected dimension's index, or null. */
-export function dimensionAt(board: Board, selection: Iterable<string>): number | null {
-  const ids = [...selection];
-  if (ids.length !== 1) return null;
-  const ref = parseBoardItemId(ids[0]!);
-  if (!ref || ref.kind !== 'dimension') return null;
-  return board.dimensions[ref.index] ? ref.index : null;
-}
-
 /** `TransferDataToWindow`: the dialog's starting values. */
-export function collectDimensionValues(d: PcbDimension): DimensionValues {
-  const f = d.format;
-  const t = d.text;
-  return {
-    layer: d.layer,
-    prefix: f?.prefix ?? '',
-    suffix: f?.suffix ?? '',
-    overrideValue: f?.overrideValue,
-    units: f?.units ?? 3,
-    unitsFormat: f?.unitsFormat ?? 1,
-    precision: f?.precision ?? 4,
-    suppressZeroes: f?.suppressZeroes ?? false,
-    textPositionMode: d.style.textPositionMode,
-    keepTextAligned: d.style.keepTextAligned ?? false,
-    arrowDirection: d.style.arrowDirection ?? 'outward',
-    lineThickness: d.style.thickness,
-    arrowLength: d.style.arrowLength,
-    extensionOffset: d.style.extensionOffset,
-    extensionOvershoot: d.style.extensionHeight ?? 0,
-    textFrame: d.style.textFrame ?? 0,
-    textWidth: t?.size.x ?? 0,
-    textHeight: t?.size.y ?? 0,
-    textThickness: t?.thickness ?? 0,
-    textOrientation: t?.angle ?? 0,
-    bold: t?.bold ?? false,
-    italic: t?.italic ?? false,
-    mirrored: t?.mirror ?? false,
-    textX: t?.at.x ?? 0,
-    textY: t?.at.y ?? 0,
-    locked: d.locked ?? false,
-  };
-}
-
 /**
  * `updateDimensionFromDialog`, plus the source patching that makes it survive a
  * save. Returns the board unchanged when nothing moved.
@@ -267,10 +225,10 @@ export interface DimensionDialogFields {
  * the same reason Create Array does not offer numbering: a control that quietly
  * does nothing is worse than its absence.
  */
-export function dimensionDialogFields(kind: DimensionKind): DimensionDialogFields {
-  const aligned = kind === 'aligned' || kind === 'orthogonal';
-  const centre = kind === 'center';
-  const leader = kind === 'leader';
+export function dimensionDialogFields(aType: KICAD_T): DimensionDialogFields {
+  const aligned = aType === KICAD_T.PCB_DIM_ALIGNED_T || aType === KICAD_T.PCB_DIM_ORTHOGONAL_T;
+  const centre = aType === KICAD_T.PCB_DIM_CENTER_T;
+  const leader = aType === KICAD_T.PCB_DIM_LEADER_T;
   return {
     format: !centre && !leader,
     text: !centre,
@@ -303,6 +261,11 @@ export class DIALOG_DIMENSION_PROPERTIES {
   constructor(aFrame: PCB_BASE_EDIT_FRAME, aDimension: PCB_DIMENSION_BASE) {
     this.m_frame = aFrame;
     this.m_dimension = aDimension;
+  }
+
+  /** `m_dimension->Type()`, which decides the dialog's controls (the constructor). */
+  GetDimensionType(): KICAD_T {
+    return this.m_dimension.Type();
   }
 
   TransferDataToWindow(): DimensionValues {
@@ -414,4 +377,38 @@ export class DIALOG_DIMENSION_PROPERTIES {
 
     return { ok: true };
   }
+}
+
+/** `TransferDataToWindow`: the dialog's starting values. */
+export function collectDimensionValues(d: PcbDimension): DimensionValues {
+  const f = d.format;
+  const t = d.text;
+  return {
+    layer: d.layer,
+    prefix: f?.prefix ?? '',
+    suffix: f?.suffix ?? '',
+    overrideValue: f?.overrideValue,
+    units: f?.units ?? 3,
+    unitsFormat: f?.unitsFormat ?? 1,
+    precision: f?.precision ?? 4,
+    suppressZeroes: f?.suppressZeroes ?? false,
+    textPositionMode: d.style.textPositionMode,
+    keepTextAligned: d.style.keepTextAligned ?? false,
+    arrowDirection: d.style.arrowDirection ?? 'outward',
+    lineThickness: d.style.thickness,
+    arrowLength: d.style.arrowLength,
+    extensionOffset: d.style.extensionOffset,
+    extensionOvershoot: d.style.extensionHeight ?? 0,
+    textFrame: d.style.textFrame ?? 0,
+    textWidth: t?.size.x ?? 0,
+    textHeight: t?.size.y ?? 0,
+    textThickness: t?.thickness ?? 0,
+    textOrientation: t?.angle ?? 0,
+    bold: t?.bold ?? false,
+    italic: t?.italic ?? false,
+    mirrored: t?.mirror ?? false,
+    textX: t?.at.x ?? 0,
+    textY: t?.at.y ?? 0,
+    locked: d.locked ?? false,
+  };
 }

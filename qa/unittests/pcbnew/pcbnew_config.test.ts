@@ -84,7 +84,6 @@ function setup(aPro: JsonValue | null = {}, aPrl: JsonValue | null = null): Env 
     fetchNetlistFromSchematic: () => false,
     schematicNetlistText: () => null,
     projectText: () => null,
-    onEditItemRequest: () => {},
     showExchangeFootprintsDialog: () => {},
     findDialogRects: () => [],
     setViewCenter: () => {},

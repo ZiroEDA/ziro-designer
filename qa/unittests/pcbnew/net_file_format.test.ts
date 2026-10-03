@@ -22,15 +22,10 @@ import { head, isList, type SList, type SNode } from '@ziroeda/sexpr/types.js';
 import { arg, numArg } from '@ziroeda/sexpr/query.js';
 import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import {
-  applyPadValues,
-  collectPadValues,
-  padAt,
-} from '@ziroeda/pcbnew/dialogs/dialog_pad_properties.js';
+import { padAt } from '@ziroeda/pcbnew/dialogs/dialog_pad_properties.js';
 import {
   applyTrackViaValues,
   collectTrackViaValues,
-  trackViaSelection,
 } from '@ziroeda/pcbnew/dialogs/dialog_track_via_properties.js';
 import { ORPHANED_NET } from '@ziroeda/pcbnew/netinfo.js';
 import type { Board } from '@ziroeda/pcbnew/types.js';
@@ -268,49 +263,3 @@ function itemNet(text: string, kind: 'pad' | 'segment'): string {
   if (found === null) throw new Error(`no (net …) on a ${kind}`);
   return found;
 }
-
-describe("changing an item's net", () => {
-  const setTrackNet = (b: Board, net: number): string => {
-    const sel = trackViaSelection(b, ['track:0']);
-    return serializeBoard(applyTrackViaValues(b, sel, { ...collectTrackViaValues(sel), net }));
-  };
-
-  const setPadNet = (b: Board, net: number): string => {
-    const ref = padAt(b, ['pad:0:0'])!;
-    const pad = b.footprints[ref.footprint]!.pads[ref.pad]!;
-    return serializeBoard(applyPadValues(b, ref, { ...collectPadValues(pad), net }));
-  };
-
-  it('writes a pad net with its name, which the parser insists on', () => {
-    // `if( !IsSymbol( token ) ) Expecting( "net name" )` — a pad written as the
-    // bare code is a file KiCad refuses to open. Read off the pad itself.
-    expect(itemNet(setPadNet(load(legacy()), 2), 'pad')).toBe('"VCC"');
-  });
-
-  it('writes the 20251028 pad net as the name alone', () => {
-    expect(itemNet(setPadNet(load(modern()), 2), 'pad')).toBe('"VCC"');
-  });
-
-  it('writes a track net as the name whatever the file was', () => {
-    expect(itemNet(setTrackNet(load(legacy()), 2), 'segment')).toBe('"VCC"');
-    expect(itemNet(setTrackNet(load(modern()), 2), 'segment')).toBe('"VCC"');
-  });
-
-  it('leaves the patched item loading back on the net it was given', () => {
-    // The end of the chain, and the one assertion that does not care how the
-    // net is spelled: whatever the patcher wrote, our own reader must find the
-    // net the dialog set.
-    //
-    // By NAME, because a code is not stable across a 20251028 save — the table
-    // is rebuilt from the order the names first appear, so moving a pad to VCC
-    // can make VCC net 1. That is the point of "they're an internal
-    // implementation detail", and a test written on the code would be asserting
-    // the thing KiCad stopped promising.
-    for (const text of [legacy(), modern()]) {
-      const padded = load(setPadNet(load(text), 2));
-      expect(padded.nets.get(padded.footprints[0]!.pads[0]!.net ?? 0)).toBe('VCC');
-      const tracked = load(setTrackNet(load(text), 2));
-      expect(tracked.nets.get(tracked.tracks[0]!.net)).toBe('VCC');
-    }
-  });
-});

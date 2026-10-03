@@ -19,16 +19,12 @@
  * `OnEditItemRequest` (`edit.ts`) already uses.
  */
 import type { PCB_EDIT_FRAME } from './pcb_edit_frame.js';
+import type { ZONE } from './zone.js';
 
 /** `PCB_EDIT_FRAME`'s `edit_zone_helpers.cpp` half, mixed in by `pcb_edit_frame.ts`. */
 export class EDIT_ZONE_HELPERS_MIXIN {
-  /**
-   * `PCB_EDIT_FRAME::Edit_Zone_Params( ZONE* aZone )`: open the zone's
-   * properties dialog. `aZone` is the zone's index into the live board
-   * (`BOARD::Zones()`'s order), matching every other properties-dialog
-   * trigger this port already tracks by index rather than by object.
-   */
-  Edit_Zone_Params(this: PCB_EDIT_FRAME, zoneIndex: number): void {
-    this.hooks.editZoneParams(zoneIndex);
+  /** `PCB_EDIT_FRAME::Edit_Zone_Params( ZONE* aZone )`: open the zone's properties dialog. */
+  Edit_Zone_Params(this: PCB_EDIT_FRAME, aZone: ZONE): void {
+    this.hooks.editZoneParams(aZone);
   }
 }

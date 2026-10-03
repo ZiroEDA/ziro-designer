@@ -29,7 +29,6 @@ import { doConvertOutlineToPolygon } from '@ziroeda/pcbnew/convert_shape_list_to
 import { arcConvertToPolyline } from '@ziroeda/kimath/src/geometry/shape_arc.js';
 import { padTransformHoleToPolygon } from '@ziroeda/pcbnew/transform_shape_to_polygon.js';
 import type { Board, PcbPad, PcbShape, PcbZone } from '@ziroeda/pcbnew/types.js';
-import { isolatedIslands } from '@ziroeda/pcbnew/zone_islands.js';
 import { describe, expect, it } from 'vitest';
 
 const MM = (v: number): number => Math.round(v * 1_000_000);
@@ -121,98 +120,6 @@ describe('an odd drill size halves with KiROUND', () => {
     const poly = padTransformHoleToPolygon(pad, 0, 5000, ErrorLoc.ERROR_OUTSIDE)[0]![0]!;
     expect(Math.min(...poly.map((p) => p.x))).toBe(82_400_001);
     expect(poly).toHaveLength(16);
-  });
-});
-
-describe('a fill outline touching another within half a unit is connected', () => {
-  const zone = (fills: PcbZone['fills']): PcbZone => ({
-    net: 1,
-    layers: ['F.Cu'],
-    outline: [
-      { x: 0, y: 0 },
-      { x: MM(4), y: 0 },
-      { x: MM(4), y: MM(4) },
-      { x: 0, y: MM(4) },
-    ],
-    fills,
-    priority: 0,
-    uuid: 'z',
-  });
-  const board = (z: PcbZone): Board =>
-    ({
-      zones: [z],
-      footprints: [
-        {
-          reference: 'P1',
-          at: { x: MM(1), y: MM(1) },
-          rotation: 0,
-          layer: 'F.Cu',
-          pads: [
-            {
-              number: '1',
-              type: 'smd',
-              shape: 'rect',
-              at: { x: MM(1), y: MM(1) },
-              angle: 0,
-              size: { x: MM(1), y: MM(1) },
-              layers: ['F.Cu'],
-              net: 1,
-            } as PcbPad,
-          ],
-          shapes: [],
-          texts: [],
-          uuid: 'f',
-        },
-      ],
-      tracks: [],
-      arcs: [],
-      vias: [],
-      shapes: [],
-      texts: [],
-      nets: new Map([[1, 'N']]),
-    }) as unknown as Board;
-
-  it('is ON the edge when SEG::SquaredDistance rounds to 0, not only when exactly collinear', () => {
-    // The big outline's top edge runs from (0,0) to (3 mm, 1) — a slope of one
-    // unit over 3 mm. The sliver's vertex (1.5 mm, 0) is half a unit below that
-    // edge: never integer-collinear, but `SquaredDistance` KiROUNDs 0.25 to 0.
-    const big = [
-      { x: 0, y: 0 },
-      { x: MM(3), y: 1 },
-      { x: MM(3), y: MM(3) },
-      { x: 0, y: MM(3) },
-    ];
-    const sliver = [
-      { x: MM(1.5), y: 0 },
-      { x: MM(1.5) + 40, y: -30 },
-      { x: MM(1.5) - 40, y: -30 },
-    ];
-    const z = zone([{ layer: 'F.Cu', polys: [big, sliver] }]);
-    const islands = isolatedIslands(board(z), [
-      { zone: 0, layer: 'F.Cu', index: 0, ring: big },
-      { zone: 0, layer: 'F.Cu', index: 1, ring: sliver },
-    ]);
-    expect(islands.get(0)?.get('F.Cu') ?? []).toEqual([]);
-  });
-
-  it('and a vertex a whole unit off the edge is not', () => {
-    const big = [
-      { x: 0, y: 0 },
-      { x: MM(3), y: 0 },
-      { x: MM(3), y: MM(3) },
-      { x: 0, y: MM(3) },
-    ];
-    const sliver = [
-      { x: MM(1.5), y: -1 },
-      { x: MM(1.5) + 40, y: -30 },
-      { x: MM(1.5) - 40, y: -30 },
-    ];
-    const z = zone([{ layer: 'F.Cu', polys: [big, sliver] }]);
-    const islands = isolatedIslands(board(z), [
-      { zone: 0, layer: 'F.Cu', index: 0, ring: big },
-      { zone: 0, layer: 'F.Cu', index: 1, ring: sliver },
-    ]);
-    expect(islands.get(0)?.get('F.Cu') ?? []).toEqual([1]);
   });
 });
 

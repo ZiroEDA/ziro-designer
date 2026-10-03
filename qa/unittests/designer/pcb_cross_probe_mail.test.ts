@@ -105,7 +105,6 @@ function setup(): Env {
     fetchNetlistFromSchematic: () => false,
     schematicNetlistText: () => null,
     projectText: () => null,
-    onEditItemRequest: () => {},
     showExchangeFootprintsDialog: () => {},
     findDialogRects: () => [],
     setViewCenter: () => {},

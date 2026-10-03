@@ -24,7 +24,6 @@
  */
 import { describe, expect, it } from 'vitest';
 import { displayNetname, shortNetname } from '@ziroeda/pcbnew/netinfo.js';
-import { netnameMsg } from '@ziroeda/pcbnew/item_description.js';
 import { netInspectorRows } from '@ziroeda/pcbnew/widgets/pcb_net_inspector_panel.js';
 import { escapeNetName, unescapeString } from '@ziroeda/common/string_utils.js';
 import type { Board, PcbPad } from '@ziroeda/pcbnew/types.js';
@@ -77,18 +76,6 @@ describe('what a painter draws', () => {
     // `${VAR}` is a text variable and `~{…}` an overbar: `unescapeString` keeps
     // a braced group whose introducer is `$ ~ ^ _`, and a net name may hold one.
     expect(displayNetname('${VAR}')).toBe('${VAR}');
-  });
-});
-
-describe('what a description says', () => {
-  it('unescapes the full name, not the short one', () => {
-    // A description names the whole path — `GetNetnameMsg` is `UnescapeString(
-    // GetNetname() )`, the full net name, where a painter takes the short one.
-    expect(netnameMsg(board([[1, '/Sheet1/SDA{slash}A4']]), 1)).toBe('[/Sheet1/SDA/A4]');
-  });
-
-  it('still says [<no net>] for no net at all', () => {
-    expect(netnameMsg(board([]), 99)).toBe('[<no net>]');
   });
 });
 

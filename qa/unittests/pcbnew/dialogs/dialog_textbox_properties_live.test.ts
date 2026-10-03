@@ -100,4 +100,13 @@ describe('DIALOG_TEXTBOX_PROPERTIES', () => {
     expect(dlg().TransferDataFromWindow({ ...v, height: 0 }).ok).toBe(false);
     expect(frame.GetUndoCommandCount()).toBe(0);
   });
+
+  it('a named face sets the font; the empty face is the stroke font', () => {
+    const v = dlg().TransferDataToWindow();
+    expect(v.face).toBe('');
+    dlg().TransferDataFromWindow({ ...v, face: 'Sans Serif' });
+    expect(tb().GetFont()?.GetName()).toBe('Sans Serif');
+    dlg().TransferDataFromWindow({ ...dlg().TransferDataToWindow(), face: '' });
+    expect(dlg().TransferDataToWindow().face).toBe('');
+  });
 });

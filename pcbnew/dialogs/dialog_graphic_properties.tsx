@@ -25,7 +25,7 @@ import { pcbIuToMM, pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import type { TextValues } from './dialog_text_properties.js';
 import type { ShapeValues } from './dialog_shape_properties.js';
 import { shapePointsUsed } from './dialog_shape_properties.js';
-import type { PcbShape } from '../types.js';
+import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
 import { LINE_STYLE_NAMES, lineStyleComboValue } from '@ziroeda/common/stroke_params.js';
 import { UI_FILL_MODE_CHOICES } from '../shape_fill.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
@@ -45,7 +45,8 @@ interface ShapeProps {
    */
   units: StatusUnits;
   initial: ShapeValues;
-  kind: PcbShape['kind'];
+  /** `m_item->GetShape()`: which point controls the dialog shows. */
+  shape: SHAPE_T;
   layers: readonly string[];
   onApply: (v: ShapeValues) => void;
   onClose: () => void;
@@ -54,7 +55,7 @@ interface ShapeProps {
 export function DialogShapeProperties({
   initial,
   units,
-  kind,
+  shape,
   layers,
   onApply,
   onClose,
@@ -72,7 +73,7 @@ export function DialogShapeProperties({
   const [text, setText] = useMmText();
   const set = (patch: Partial<ShapeValues>): void => setV((p) => ({ ...p, ...patch }));
 
-  const used = shapePointsUsed(kind);
+  const used = shapePointsUsed(shape);
 
   /** One coordinate of one of the shape's points. */
   const ptField = (
@@ -122,7 +123,7 @@ export function DialogShapeProperties({
             {used.center && point('Center', 'center')}
             {used.start && point('Start', 'start')}
             {used.mid && point('Mid', 'mid')}
-            {used.end && point(kind === 'circle' ? 'Radius point' : 'End', 'end')}
+            {used.end && point(shape === SHAPE_T.CIRCLE ? 'Radius point' : 'End', 'end')}
             {!used.start && !used.end && !used.center && (
               <div className="ze-tvp-note" style={{ marginLeft: 0 }}>
                 A polygon's corners are edited on the canvas, not here.

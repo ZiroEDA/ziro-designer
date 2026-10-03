@@ -30,7 +30,6 @@ function makeFrame() {
     fetchNetlistFromSchematic: () => false,
     schematicNetlistText: () => null,
     projectText: () => null,
-    onEditItemRequest: () => {},
     showExchangeFootprintsDialog: () => {},
     findDialogRects: () => [],
     setViewCenter: () => {},

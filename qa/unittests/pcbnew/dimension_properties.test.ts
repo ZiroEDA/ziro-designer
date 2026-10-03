@@ -27,7 +27,6 @@ import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_
 import {
   applyDimensionValues,
   collectDimensionValues,
-  dimensionAt,
   type DimensionValues,
 } from '@ziroeda/pcbnew/dialogs/dialog_dimension_properties.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
@@ -88,24 +87,6 @@ const roundTrip = (src: string, over: Partial<DimensionValues>): Board => {
   const v = { ...collectDimensionValues(b.dimensions[0]!), ...over };
   return readBoard(parse(serializeBoard(applyDimensionValues(b, 0, v))));
 };
-
-describe('finding the selected dimension', () => {
-  it('takes a single selected one', () => {
-    expect(dimensionAt(read(ORTHO), ['dimension:0'])).toBe(0);
-  });
-
-  it('takes nothing from a multiple selection', () => {
-    expect(dimensionAt(read(ORTHO, LEADER), ['dimension:0', 'dimension:1'])).toBeNull();
-  });
-
-  it('takes nothing from another kind of item', () => {
-    expect(dimensionAt(read(ORTHO), ['track:0'])).toBeNull();
-  });
-
-  it('takes nothing for an index that is not there', () => {
-    expect(dimensionAt(read(ORTHO), ['dimension:5'])).toBeNull();
-  });
-});
 
 describe('reading the values', () => {
   it('reads the format block', () => {

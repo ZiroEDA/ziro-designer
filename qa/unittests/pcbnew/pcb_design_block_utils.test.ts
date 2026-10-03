@@ -93,7 +93,6 @@ function setup(aDialogs: Partial<DESIGN_BLOCK_PANE_DIALOGS> = {}) {
     fetchNetlistFromSchematic: () => false,
     schematicNetlistText: () => null,
     projectText: () => null,
-    onEditItemRequest: () => {},
     showExchangeFootprintsDialog: () => {},
     findDialogRects: () => [],
     setViewCenter: () => {},

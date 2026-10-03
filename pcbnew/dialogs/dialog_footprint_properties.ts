@@ -13,15 +13,7 @@
  * board-absolute in this model, so its anchor cannot move on its own.
  */
 
-import {
-  boardItemId,
-  flipBoardItems,
-  moveBoardItems,
-  parseBoardItemId,
-  setFootprintField,
-  setFootprintOrientation,
-} from '../edit-board.js';
-import type { Board, PcbFootprint } from '../types.js';
+import type { PcbFootprint } from '../types.js';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { BOARD_COMMIT } from '../board_commit.js';
@@ -91,51 +83,7 @@ export interface FootprintValues {
 }
 
 /** Resolve a `footprint:N` id, or null when the selection is not one footprint. */
-export function footprintAt(board: Board, selection: Iterable<string>): number | null {
-  let found: number | null = null;
-
-  for (const id of selection) {
-    const ref = parseBoardItemId(id);
-    if (!ref || ref.kind !== 'footprint') continue;
-    if (found !== null) return null;
-    if (board.footprints[ref.index]) found = ref.index;
-  }
-
-  return found;
-}
-
-const has = (fp: PcbFootprint, attr: FootprintAttribute): boolean =>
-  (fp.attributes ?? []).includes(attr);
-
 /** DIALOG_FOOTPRINT_PROPERTIES::TransferDataToWindow. */
-export function collectFootprintValues(fp: PcbFootprint): FootprintValues {
-  return {
-    reference: fp.reference ?? '',
-    value: fp.value ?? '',
-    x: fp.at.x,
-    y: fp.at.y,
-    orientation: fp.angle,
-    side: fp.layer === 'B.Cu' ? 'back' : 'front',
-    locked: fp.locked ?? false,
-    footprintType: has(fp, 'smd')
-      ? 'smd'
-      : has(fp, 'through_hole')
-        ? 'through_hole'
-        : 'unspecified',
-    notInSchematic: has(fp, 'board_only'),
-    doNotPopulate: has(fp, 'dnp'),
-    excludeFromBom: has(fp, 'exclude_from_bom'),
-    excludeFromPosFiles: has(fp, 'exclude_from_pos_files'),
-    allowMissingCourtyard: has(fp, 'allow_missing_courtyard'),
-    allowSolderMaskBridges: has(fp, 'allow_soldermask_bridges'),
-    localClearance: fp.localClearance ?? null,
-    localSolderMaskMargin: fp.localSolderMaskMargin ?? null,
-    localSolderPasteMargin: fp.localSolderPasteMargin ?? null,
-    localSolderPasteMarginRatio: fp.localSolderPasteMarginRatio ?? null,
-    zoneConnection: fp.zoneConnection ?? 'inherited',
-  };
-}
-
 /** The `(attr …)` flag list a value set implies, in upstream's write order. */
 export function attributesFor(v: FootprintValues): FootprintAttribute[] {
   const out: FootprintAttribute[] = [];
@@ -148,68 +96,6 @@ export function attributesFor(v: FootprintValues): FootprintAttribute[] {
   if (v.doNotPopulate) out.push('dnp');
   if (v.allowSolderMaskBridges) out.push('allow_soldermask_bridges');
   return out;
-}
-
-/**
- * DIALOG_FOOTPRINT_PROPERTIES::TransferDataFromWindow.
- *
- * Position and orientation are applied through the board-level helpers, because
- * a footprint's children are stored board-absolute here: moving the anchor
- * alone would leave its pads behind.
- */
-export function applyFootprintValues(board: Board, index: number, v: FootprintValues): Board {
-  const fp = board.footprints[index];
-  if (!fp) return board;
-
-  const before = collectFootprintValues(fp);
-  if (JSON.stringify(before) === JSON.stringify(v)) return board;
-
-  let next = board;
-  const id = boardItemId('footprint', index);
-
-  // Upstream's order, and it matters: position, then rotate to the orientation
-  // box, then flip last. Flipping first would have the rotate undo the angle
-  // negation that flipping just applied, so a footprint changed to the back
-  // would come out facing the wrong way.
-  if (v.x !== fp.at.x || v.y !== fp.at.y)
-    next = moveBoardItems(next, new Set([id]), { x: v.x - fp.at.x, y: v.y - fp.at.y });
-
-  if (v.orientation !== fp.angle) next = setFootprintOrientation(next, index, v.orientation);
-
-  // FOOTPRINT::Flip about the footprint's own anchor, so it flips in place.
-  if (v.side !== (fp.layer === 'B.Cu' ? 'back' : 'front')) {
-    const placed = next.footprints[index];
-    if (placed) next = flipBoardItems(next, new Set([id]), placed.at);
-  }
-
-  // Reference and Value live in their own text items; setFootprintField owns
-  // that pairing.
-  if (v.reference !== (fp.reference ?? ''))
-    next = setFootprintField(next, index, 'reference', v.reference);
-  if (v.value !== (fp.value ?? '')) next = setFootprintField(next, index, 'value', v.value);
-
-  const moved = next.footprints[index];
-  if (!moved) return board;
-
-  const patched: PcbFootprint = { ...moved };
-
-  if (v.locked !== (moved.locked ?? false)) patched.locked = v.locked;
-
-  const attrs = attributesFor(v);
-  patched.attributes = attrs.length > 0 ? attrs : undefined;
-
-  // Clearance overrides: a blank box clears the override, which is not the same
-  // as writing zero — zero is a real override meaning "no clearance at all".
-  patched.localClearance = v.localClearance ?? undefined;
-  patched.localSolderMaskMargin = v.localSolderMaskMargin ?? undefined;
-  patched.localSolderPasteMargin = v.localSolderPasteMargin ?? undefined;
-  patched.localSolderPasteMarginRatio = v.localSolderPasteMarginRatio ?? undefined;
-  patched.zoneConnection = v.zoneConnection === 'inherited' ? undefined : v.zoneConnection;
-
-  return {
-    ...next,
-    footprints: next.footprints.map((f, i) => (i === index ? patched : f)),
-  };
 }
 
 // ---------------------------------------------------------------------------
@@ -244,6 +130,11 @@ export class DIALOG_FOOTPRINT_PROPERTIES {
   constructor(aFrame: PCB_BASE_EDIT_FRAME, aFootprint: FOOTPRINT) {
     this.m_frame = aFrame;
     this.m_footprint = aFootprint;
+  }
+
+  /** `m_footprint`: the footprint the dialog edits. */
+  GetFootprint(): FOOTPRINT {
+    return this.m_footprint;
   }
 
   TransferDataToWindow(): FootprintValues {

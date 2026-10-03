@@ -13,7 +13,6 @@ import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { readBoard, type Board } from '@ziroeda/pcbnew';
 import { GetLayerName, LayerName } from '@ziroeda/common/layer_ids.js';
-import { boardLayerName } from '@ziroeda/pcbnew/item_description.js';
 
 const demo = (): Board =>
   readBoard(
@@ -120,17 +119,5 @@ describe('the ecc83 demo board, as real pcbnew shows it', () => {
     const b = demo();
     expect(GetLayerName(b.layers, 'F.SilkS')).toBe('F.Silkscreen');
     expect(GetLayerName(b.layers, 'Dwgs.User')).toBe('User.Drawings');
-  });
-});
-
-describe('boardLayerName delegates rather than reimplementing', () => {
-  it('gives item descriptions the same answer as the Appearance panel', () => {
-    const b = demo();
-    for (const layer of ['F.Cu', 'B.Cu', 'F.SilkS', 'F.Paste', 'Edge.Cuts']) {
-      expect(boardLayerName(b, layer)).toBe(GetLayerName(b.layers, layer));
-    }
-    // …and that shared answer is the right one, not merely a shared wrong one.
-    expect(boardLayerName(b, 'F.Cu')).toBe('top_cu');
-    expect(boardLayerName(b, 'F.SilkS')).toBe('F.Silkscreen');
   });
 });

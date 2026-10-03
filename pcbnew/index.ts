@@ -6,12 +6,6 @@ export * from './types.js';
 export { connectedTrackEnds, type TrackEndRef } from './connectivity.js';
 export { defaultThermalSpokeAngle } from './padstack.js';
 export {
-  buildRatsnest,
-  prepareLocalRatsnest,
-  type LocalRatsnest,
-  type RatsnestEdge,
-} from './ratsnest/ratsnest.js';
-export {
   readBoard,
   readFootprintFile,
   serializeFootprint,
@@ -233,23 +227,15 @@ export {
 // Item properties dialogs (pcbnew/dialogs/: DIALOG_TRACK_VIA_PROPERTIES,
 // DIALOG_COPPER_ZONE over PANEL_ZONE_PROPERTIES).
 export {
-  trackViaSelection,
   collectTrackViaValues,
   applyTrackViaValues,
   hasTrackOrVia,
   type TrackViaSelection,
   type TrackViaValues,
 } from './dialogs/dialog_track_via_properties.js';
-export {
-  zoneAt,
-  collectZoneValues,
-  applyZoneValues,
-  type ZoneValues,
-} from './dialogs/panel_zone_properties.js';
+export { type ZoneValues } from './dialogs/panel_zone_properties.js';
 // Rule Area Properties (pcbnew/dialogs/dialog_rule_area_properties.cpp).
 export {
-  collectRuleAreaValues,
-  applyRuleAreaValues,
   ruleAreaValuesError,
   hasKeepoutParametersSet,
   initialRuleAreaPage,
@@ -286,16 +272,12 @@ export {
 } from './dialogs/dialog_tuning_pattern_properties.js';
 // Non-Copper Zone Properties (pcbnew/dialogs/dialog_non_copper_zones_properties.cpp).
 export {
-  collectNonCopperZoneValues,
   applyNonCopperZoneValues,
   nonCopperZoneValuesError,
   NO_LAYER_SELECTED,
   type NonCopperZoneValues,
 } from './dialogs/dialog_non_copper_zones_properties.js';
 export {
-  footprintAt,
-  collectFootprintValues,
-  applyFootprintValues,
   attributesFor,
   FOOTPRINT_ATTRIBUTES,
   type FootprintValues,
@@ -303,22 +285,14 @@ export {
 } from './dialogs/dialog_footprint_properties.js';
 export {
   padAt,
-  collectPadValues,
-  applyPadValues,
-  padLocalPos,
   type PadRef,
   type PadValues,
 } from './dialogs/dialog_pad_properties.js';
 export {
   textAt,
-  collectTextValues,
-  applyTextValues,
   type TextValues,
 } from './dialogs/dialog_text_properties.js';
 export {
-  shapeAt,
-  collectShapeValues,
-  applyShapeValues,
   shapePointsUsed,
   type ShapeValues,
 } from './dialogs/dialog_shape_properties.js';
@@ -450,7 +424,6 @@ export {
 } from './draw_dimension.js';
 
 export {
-  dimensionAt,
   collectDimensionValues,
   applyDimensionValues,
   type DimensionValues,
@@ -459,9 +432,6 @@ export {
 export { textBoxCorners, textBoxBBox } from './textbox_geometry.js';
 
 export {
-  textBoxAt,
-  collectTextBoxValues,
-  applyTextBoxValues,
   splitJustify,
   joinJustify,
   type TextBoxValues,
@@ -490,8 +460,6 @@ export {
 
 export {
   tableAt,
-  collectTableValues,
-  applyTableValues,
   isBackLayer,
   displayToStoredCol,
   type TableValues,
@@ -528,9 +496,6 @@ export {
 } from './place_image.js';
 
 export {
-  imageAt,
-  collectImageValues,
-  applyImageValues,
   scaleForWidth,
   scaleForHeight,
   sizeForScale,
@@ -661,7 +626,6 @@ export {
   padEnumerationPrompt,
   padEnumerationHitOrder,
   applyPadEnumeration,
-  getNextPadNumber,
   DEFAULT_PAD_ENUMERATION_PARAMS,
   DEFAULT_LAST_PAD_NUMBER,
   PAD_ENUMERATION_COMMIT_LABEL,
@@ -718,8 +682,6 @@ export {
 
 export {
   planBoardReannotate,
-  applyBoardReannotate,
-  reannotateBoard,
   reannotateDuplicates,
   reannotateSortCodes,
   compareReannotateFootprints,

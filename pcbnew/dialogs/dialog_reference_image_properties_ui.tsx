@@ -72,7 +72,8 @@ import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js'
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 interface Props {
-  image: PcbImage;
+  /** The bitmap's PNG, base64: the preview and the size arithmetic. */
+  image: { data: string };
   initial: ImageValues;
   /**
    * The frame's display units. `m_posX`, `m_posY`, `m_width` and `m_height` are

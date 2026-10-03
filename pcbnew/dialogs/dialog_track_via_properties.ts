@@ -15,7 +15,6 @@
  * The decision logic lives here so it can be tested without a UI.
  */
 
-import { parseBoardItemId } from '../edit-board.js';
 import { boardItemOfViewId, teardropParamsView } from '../pcb_io/kicad_sexpr/board_view.js';
 import { TEARDROP_PARAMETERS } from '../teardrop/teardrop_parameters.js';
 import type {
@@ -158,28 +157,6 @@ export interface TrackViaValues {
 export type PostMachineChoice = 'none' | 'countersink' | 'counterbore';
 
 /** Resolve `track:N` / `arc:N` / `via:N` ids against the board. */
-export function trackViaSelection(board: Board, selection: Iterable<string>): TrackViaSelection {
-  const out: TrackViaSelection = { tracks: [], arcs: [], vias: [] };
-
-  for (const id of selection) {
-    const ref = parseBoardItemId(id);
-    if (!ref) continue;
-
-    if (ref.kind === 'track') {
-      const item = board.tracks[ref.index];
-      if (item) out.tracks.push({ index: ref.index, item });
-    } else if (ref.kind === 'arc') {
-      const item = board.arcs[ref.index];
-      if (item) out.arcs.push({ index: ref.index, item });
-    } else if (ref.kind === 'via') {
-      const item = board.vias[ref.index];
-      if (item) out.vias.push({ index: ref.index, item });
-    }
-  }
-
-  return out;
-}
-
 /** Is this selection something the dialog can edit at all? */
 export const hasTrackOrVia = (sel: TrackViaSelection): boolean =>
   sel.tracks.length > 0 || sel.arcs.length > 0 || sel.vias.length > 0;

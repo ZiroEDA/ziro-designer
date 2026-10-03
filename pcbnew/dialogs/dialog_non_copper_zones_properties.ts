@@ -36,13 +36,10 @@ import type { TransferResult } from './dialog_text_properties.js';
 import { editZoneParamsCommit } from './panel_zone_properties.js';
 
 /** ZONE_BORDER_HATCH_{DIST,MINDIST,MAXDIST}_MM (pcbnew/zones.h:34-36). */
-const BORDER_HATCH_DEFAULT = mmToIU(0.5);
 const BORDER_HATCH_MIN = mmToIU(0.1);
 const BORDER_HATCH_MAX = mmToIU(2.0);
 
 /** ZONE_THICKNESS_MM, the minimum width a zone without one falls back to. */
-const ZONE_THICKNESS = mmToIU(0.25);
-
 /** Every field DIALOG_NON_COPPER_ZONES_EDITOR edits. */
 export interface NonCopperZoneValues {
   layers: string[];
@@ -66,46 +63,6 @@ export interface NonCopperZoneValues {
 
 /** The DisplayError string this dialog puts up — singular, unlike a rule area's. */
 export const NO_LAYER_SELECTED = 'No layer selected.';
-
-/**
- * DIALOG_NON_COPPER_ZONES_EDITOR::TransferDataToWindow.
- *
- * The hatch width and gap are not shown as stored. A zone that has never been
- * hatched carries zeroes, and blank-looking controls would be validated
- * against the minimum width the moment the user switched to hatched, so the
- * dialog invents a plausible pair — four and six times the minimum width, with
- * 1 mm and 1.5 mm floors — and then clamps both up to the minimum width. The
- * clamp also bites on a *stored* value: a hatch width narrower than the
- * minimum fill width is raised on open, before the user has touched anything.
- */
-export function collectNonCopperZoneValues(zone: PcbZone): NonCopperZoneValues {
-  const minThickness = zone.minThickness ?? ZONE_THICKNESS;
-
-  const best = (stored: number, multiple: number, floorMM: number): number => {
-    const bestValue = stored > 0 ? stored : Math.max(minThickness * multiple, mmToIU(floorMM));
-    return Math.max(bestValue, minThickness);
-  };
-
-  return {
-    layers: [...zone.layers],
-    locked: zone.locked ?? false,
-    // INVISIBLE_BORDER is "not used for standard zones": the switch skips it
-    // and leaves the choice on its initial entry, which is `none` either way.
-    hatchStyle: zone.hatchStyle === 'full' ? 'full' : zone.hatchStyle === 'edge' ? 'edge' : 'none',
-    hatchPitch: zone.hatchPitch || BORDER_HATCH_DEFAULT,
-    cornerSmoothing: zone.cornerSmoothing ?? 'none',
-    cornerRadius: zone.cornerRadius ?? 0,
-    minThickness,
-    // Only HATCH_PATTERN selects the hatched entry; the `default:` arm takes
-    // both POLYGONS and COPPER_THIEVING to solid.
-    fillMode: zone.fillMode === 'hatch' ? 'hatch' : 'solid',
-    hatchThickness: best(zone.hatchThickness ?? 0, 4, 1.0),
-    hatchGap: best(zone.hatchGap ?? 0, 6, 1.5),
-    hatchOrientation: zone.hatchOrientation ?? 0,
-    hatchSmoothingLevel: zone.hatchSmoothingLevel ?? 0,
-    hatchSmoothingValue: zone.hatchSmoothingValue ?? 0,
-  };
-}
 
 /**
  * TransferDataFromWindow's refusals, in the order it makes them: the hatch

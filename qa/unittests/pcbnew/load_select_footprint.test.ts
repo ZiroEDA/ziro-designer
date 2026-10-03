@@ -83,7 +83,6 @@ function setup(aHooks: Partial<PCB_EDIT_FRAME_HOOKS> = {}, aBoard: BOARD = board
     fetchNetlistFromSchematic: () => false,
     schematicNetlistText: () => null,
     projectText: () => null,
-    onEditItemRequest: () => {},
     showExchangeFootprintsDialog: () => {},
     findDialogRects: () => [],
     setViewCenter: () => {},

@@ -61,6 +61,15 @@ import { PCB_EDITOR_CONDITIONS } from './tools/pcb_editor_conditions.js';
 import { PCB_SELECTION_CONDITIONS } from './tools/pcb_selection_conditions.js';
 import { PnsMode, type RoutingSettings } from './router/pns_routing_settings.js';
 import { PAD } from './pad.js';
+import { DIALOG_REFERENCE_IMAGE_PROPERTIES } from './dialogs/dialog_reference_image_properties.js';
+import { DIALOG_PAD_PROPERTIES } from './dialogs/dialog_pad_properties.js';
+import { DIALOG_FOOTPRINT_PROPERTIES } from './dialogs/dialog_footprint_properties.js';
+import { DIALOG_DIMENSION_PROPERTIES } from './dialogs/dialog_dimension_properties.js';
+import { DIALOG_SHAPE_PROPERTIES } from './dialogs/dialog_shape_properties.js';
+import { DIALOG_TARGET_PROPERTIES } from './dialogs/dialog_target_properties.js';
+import type { PCB_REFERENCE_IMAGE } from './pcb_reference_image.js';
+import type { PCB_SHAPE } from './pcb_shape.js';
+import type { PCB_TARGET } from './pcb_target.js';
 import { PCB_VIA, VIATYPE } from './pcb_track.js';
 import type { PROGRESS_REPORTER_LIKE } from './connectivity/connectivity_algo.js';
 import {
@@ -135,7 +144,7 @@ import { PCBNEW_CONFIG_MIXIN } from './pcbnew_config.js';
 import { LOAD_SELECT_FOOTPRINT_MIXIN } from './load_select_footprint.js';
 import type { LIB_ID } from '@ziroeda/common/lib_id.js';
 import type { PCB_SELECTION_FILTER_OPTIONS } from '@ziroeda/common/project/board_project_settings.js';
-import { ACTIONS } from '@ziroeda/common/tool/actions.js';
+import { ACTIONS, EVENTS } from '@ziroeda/common/tool/actions.js';
 import { TOOL_DISPATCHER } from '@ziroeda/common/tool/tool_dispatcher.js';
 import {
   type wxEvent,
@@ -705,15 +714,25 @@ export interface PCB_EDIT_FRAME_HOOKS {
   schematicNetlistText(): string | null;
   /** The project's `.kicad_pro` text, PROJECT not being ported. */
   projectText(): string | null;
-  /** `PCB_EDIT_FRAME::OnEditItemRequest`: the item's properties dialog. */
-  onEditItemRequest(aItem: BOARD_ITEM | null): void;
   /**
    * `PCB_EDIT_FRAME::Edit_Zone_Params` (`edit_zone_helpers.cpp`), the part
    * `OnEditItemRequest`'s `PCB_ZONE_T` case delegates to: open the zone's
    * properties dialog (rule area / copper / non-copper is the component's
    * own render choice, from the zone's own `GetIsRuleArea()`/layer).
    */
-  editZoneParams(zoneIndex: number): void;
+  editZoneParams(aZone: ZONE): void;
+  /** DIALOG_REFERENCE_IMAGE_PROPERTIES, modal: true when OK closed it. */
+  showReferenceImagePropertiesDialog?(aDialog: DIALOG_REFERENCE_IMAGE_PROPERTIES): Promise<boolean>;
+  /** `ShowPadPropertiesDialog`: DIALOG_PAD_PROPERTIES, modal. */
+  showPadPropertiesDialog?(aDialog: DIALOG_PAD_PROPERTIES): void;
+  /** `ShowFootprintPropertiesDialog`: DIALOG_FOOTPRINT_PROPERTIES, modal. */
+  showFootprintPropertiesDialog?(aDialog: DIALOG_FOOTPRINT_PROPERTIES): void;
+  /** `DIALOG_DIMENSION_PROPERTIES dlg( this, dim ); dlg.ShowModal()`. */
+  showDimensionPropertiesDialog?(aDialog: DIALOG_DIMENSION_PROPERTIES): void;
+  /** `ShowGraphicItemPropertiesDialog`: DIALOG_SHAPE_PROPERTIES, modal. */
+  showGraphicItemPropertiesDialog?(aDialog: DIALOG_SHAPE_PROPERTIES): void;
+  /** `ShowTargetOptionsDialog`: DIALOG_TARGET_PROPERTIES, modal. */
+  showTargetOptionsDialog?(aDialog: DIALOG_TARGET_PROPERTIES): void;
   /** `DIALOG_EXCHANGE_FOOTPRINTS::ShowQuasiModal()`: the window shows the dialog; it closes itself. */
   showExchangeFootprintsDialog(aDialog: DIALOG_EXCHANGE_FOOTPRINTS): void;
   /**
@@ -1323,6 +1342,47 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     aFilenameOverride?: string,
   ): Promise<IMPORT_GRAPHICS_RESULT | null> {
     return this.hooks.showImportGraphicsDialog?.(aFilenameOverride) ?? Promise.resolve(null);
+  }
+
+  /** `PCB_BASE_EDIT_FRAME::ShowReferenceImagePropertiesDialog` (dialog_reference_image_properties.cpp:77-89). */
+  ShowReferenceImagePropertiesDialog(aBitmap: PCB_REFERENCE_IMAGE): void {
+    const dlg = new DIALOG_REFERENCE_IMAGE_PROPERTIES(this, aBitmap);
+
+    void (this.hooks.showReferenceImagePropertiesDialog?.(dlg) ?? Promise.resolve(false)).then(
+      (aOk) => {
+        if (!aOk) return;
+
+        // The bitmap is cached in Opengl: clear the cache in case it has become invalid
+        this.GetCanvas()?.GetView().RecacheAllItems();
+        this.m_toolManager?.PostEvent(EVENTS.SelectedItemsModified);
+        this.OnModify();
+      },
+    );
+  }
+
+  /** `PCB_BASE_EDIT_FRAME::ShowPadPropertiesDialog( PAD* aPad )`. */
+  ShowPadPropertiesDialog(aPad: PAD): void {
+    this.hooks.showPadPropertiesDialog?.(new DIALOG_PAD_PROPERTIES(this, aPad));
+  }
+
+  /** `PCB_EDIT_FRAME::ShowFootprintPropertiesDialog( FOOTPRINT* aFootprint )`. */
+  ShowFootprintPropertiesDialog(aFootprint: FOOTPRINT): void {
+    this.hooks.showFootprintPropertiesDialog?.(new DIALOG_FOOTPRINT_PROPERTIES(this, aFootprint));
+  }
+
+  /** `OnEditItemRequest`'s dimension arm: `DIALOG_DIMENSION_PROPERTIES dlg( this, dim )`. */
+  ShowDimensionPropertiesDialog(aDimension: PCB_DIMENSION_BASE): void {
+    this.hooks.showDimensionPropertiesDialog?.(new DIALOG_DIMENSION_PROPERTIES(this, aDimension));
+  }
+
+  /** `PCB_BASE_EDIT_FRAME::ShowGraphicItemPropertiesDialog( PCB_SHAPE* aShape )`. */
+  ShowGraphicItemPropertiesDialog(aShape: PCB_SHAPE): void {
+    this.hooks.showGraphicItemPropertiesDialog?.(new DIALOG_SHAPE_PROPERTIES(this, aShape));
+  }
+
+  /** `PCB_EDIT_FRAME::ShowTargetOptionsDialog( PCB_TARGET* aTarget )`. */
+  ShowTargetOptionsDialog(aTarget: PCB_TARGET): void {
+    this.hooks.showTargetOptionsDialog?.(new DIALOG_TARGET_PROPERTIES(this, aTarget));
   }
 
   override ShowBarcodePropertiesDialog(aBarcode: PCB_BARCODE): Promise<boolean> {

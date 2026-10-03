@@ -473,7 +473,7 @@ export function iuPerPixel(ppi: number): number {
 }
 
 /** `BITMAP_BASE::GetSize`: the image's extent in board IU. */
-export function imageSizeIU(img: PcbImage): { w: number; h: number } {
+export function imageSizeIU(img: { data: string; scale?: number }): { w: number; h: number } {
   const px = pngPixelSize(img.data) ?? FALLBACK_PIXELS;
   const per = iuPerPixel(pngPPI(img.data));
   const scale = img.scale ?? 1;

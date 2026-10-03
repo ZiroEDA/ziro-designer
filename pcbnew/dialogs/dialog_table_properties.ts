@@ -41,8 +41,7 @@ import { parseBoardItemId } from '../edit-board.js';
 import type { PCB_BASE_EDIT_FRAME } from '../pcb_base_edit_frame.js';
 import type { PCB_TABLE } from '../pcb_table.js';
 import type { TransferResult } from './dialog_text_properties.js';
-import { tableRowCount } from '@ziroeda/common/table.js';
-import type { Board, PcbTable, PcbTableCell, StrokeType } from '../types.js';
+import type { Board, StrokeType } from '../types.js';
 
 /** Every control on the dialog, flattened. The cell texts are the grid. */
 export interface TableValues {
@@ -97,79 +96,7 @@ export function displayToStoredCol(col: number, colCount: number, back: boolean)
 }
 
 /** `TransferDataToWindow`: the dialog's starting values. */
-export function collectTableValues(t: PcbTable): TableValues {
-  const back = isBackLayer(t.layer);
-  const rows = tableRowCount(t);
-  const cellText: string[][] = [];
-  for (let row = 0; row < rows; row++) {
-    const line: string[] = [];
-    for (let col = 0; col < t.columnCount; col++) {
-      const stored = displayToStoredCol(col, t.columnCount, back);
-      line.push(t.cells[row * t.columnCount + stored]?.text ?? '');
-    }
-    cellText.push(line);
-  }
-  return {
-    layer: t.layer,
-    locked: t.locked ?? false,
-    borderExternal: t.borderExternal,
-    borderHeader: t.borderHeader,
-    borderWidth: t.borderWidth ?? 0,
-    borderStyle: t.borderStyle ?? 'solid',
-    separatorRows: t.separatorRows,
-    separatorCols: t.separatorCols,
-    separatorWidth: t.separatorWidth ?? 0,
-    separatorStyle: t.separatorStyle ?? 'solid',
-    cellText,
-  };
-}
-
 /** `TransferDataFromWindow`, plus the source patching that makes it stick. */
-export function applyTableValues(board: Board, index: number, v: TableValues): Board {
-  const t = board.tables[index];
-  if (!t) return board;
-
-  const before = collectTableValues(t);
-  if (JSON.stringify(before) === JSON.stringify(v)) return board;
-
-  // The grid is written back through the *new* layer's handedness: changing a
-  // table from front to back in the same edit flips which column is which.
-  const back = isBackLayer(v.layer);
-  const rows = tableRowCount(t);
-
-  const cells: PcbTableCell[] = t.cells.map((c) => ({ ...c, layer: v.layer }));
-  for (let row = 0; row < rows; row++) {
-    for (let col = 0; col < t.columnCount; col++) {
-      const stored = displayToStoredCol(col, t.columnCount, back);
-      const cell = cells[row * t.columnCount + stored];
-      if (!cell) continue;
-      // A merged-away cell has no text of its own to set.
-      if (cell.colSpan === 0 || cell.rowSpan === 0) continue;
-      cell.text = v.cellText[row]?.[col] ?? cell.text;
-    }
-  }
-
-  const next: PcbTable = {
-    ...t,
-    layer: v.layer,
-    locked: v.locked,
-    borderExternal: v.borderExternal,
-    borderHeader: v.borderHeader,
-    borderWidth: v.borderWidth,
-    borderStyle: v.borderStyle,
-    separatorRows: v.separatorRows,
-    separatorCols: v.separatorCols,
-    separatorWidth: v.separatorWidth,
-    separatorStyle: v.separatorStyle,
-    cells,
-  };
-
-  return {
-    ...board,
-    tables: board.tables.map((cur, i) => (i === index ? next : cur)),
-  };
-}
-
 // ---------------------------------------------------------------------------
 // DIALOG_TABLE_PROPERTIES over the live PCB_TABLE (#636 stage 6)
 

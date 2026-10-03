@@ -75,7 +75,6 @@
 import { strNumCmp, wildCompareString } from '@ziroeda/common/string_utils.js';
 import { getRefDesPrefix } from '../autorouter/spread_footprints.js';
 import { setFootprintReference } from '../edit-footprint.js';
-import type { SList, SNode } from '@ziroeda/sexpr/types.js';
 import type { Board, PcbFootprint } from '../types.js';
 
 /** `MINGRID`, the grid `RoundToGrid` falls back to when it is handed 0. */
@@ -638,44 +637,6 @@ export function planBoardReannotate(
  * and the source but did NOT re-resolve a `${REFERENCE}` text — so reannotating
  * renamed the silkscreen and left the F.Fab designator on the old number.
  */
-
-/**
- * `ReannotateBoard`'s apply loop. Every footprint is visited, but the plan gives
- * a non-update one its old designator back, so only the renumbered ones move.
- *
- * This reads nothing from the board, which is the whole point: the plan was
- * computed against the original designators and applying it cannot see the
- * half-renamed intermediate state.
- */
-export function applyBoardReannotate(board: Board, plan: ReannotatePlan): Board {
-  const byIndex = new Map<number, ReannotateChange>();
-  for (const change of plan.changes) byIndex.set(change.index, change);
-
-  return {
-    ...board,
-    footprints: board.footprints.map((fp, index) => {
-      const change = byIndex.get(index);
-      if (change === undefined || change.newRefDes === (fp.reference ?? '')) return fp;
-      return setFootprintReference(fp, change.newRefDes);
-    }),
-  };
-}
-
-/**
- * Plan and, if the plan is applicable, apply. `board` comes back untouched when
- * `plan.ok` is false, exactly as upstream refuses to reach its `BOARD_COMMIT`.
- *
- * A non-empty `plan.badRefDes` is *not* a refusal: upstream asks the user
- * "Reannotate anyway?" and carries on if they agree. That prompt is the
- * caller's to raise.
- */
-export function reannotateBoard(
-  board: Board,
-  options: Partial<ReannotateOptions> = {},
-): { board: Board; plan: ReannotatePlan } {
-  const plan = planBoardReannotate(board, options);
-  return { board: plan.ok ? applyBoardReannotate(board, plan) : board, plan };
-}
 
 // ---------------------------------------------------------------------------
 // BOARD_REANNOTATE_TOOL::ReannotateDuplicates

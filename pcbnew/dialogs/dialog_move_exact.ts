@@ -122,71 +122,6 @@ function shapeAnchor(s: PcbShape): Vec2 | null {
   return s.start ?? null;
 }
 
-/**
- * `BOARD_ITEM::GetPosition` — the item's own anchor, which is what
- * `ROTATE_AROUND_ITEM_ANCHOR` turns about.
- *
- * This is deliberately *not* the bounding-box centre. A track anchors at its
- * start, not its midpoint, so rotating one about its anchor pins one end and
- * swings the other; using the centre instead would spin it about the middle,
- * which is a different result and not what the menu entry says.
- */
-export function itemAnchorPoint(board: Board, id: string): Vec2 | null {
-  const r = parseBoardItemId(id);
-  if (!r) return null;
-
-  switch (r.kind) {
-    case 'track':
-      return board.tracks[r.index]?.start ?? null;
-    case 'arc': {
-      // PCB_ARC::GetPosition computes the arc centre from the three points.
-      const a = board.arcs[r.index];
-      return a ? arcCenter(a.start, a.mid, a.end) : null;
-    }
-    case 'via':
-      return board.vias[r.index]?.at ?? null;
-    case 'text':
-      return board.texts[r.index]?.at ?? null;
-    case 'footprint':
-      return board.footprints[r.index]?.at ?? null;
-    case 'pad':
-      return board.footprints[r.index]?.pads[r.sub ?? -1]?.at ?? null;
-    case 'shape': {
-      const s = board.shapes[r.index];
-      return s ? shapeAnchor(s) : null;
-    }
-    case 'zone':
-      // ZONE::GetPosition is the first corner of the outline.
-      return board.zones[r.index]?.outline?.[0] ?? null;
-    case 'textbox': {
-      // EDA_SHAPE::getPosition for a RECTANGLE is its first corner; a rotated
-      // box has none, so its first polygon point stands in.
-      const t = board.textBoxes[r.index];
-      if (!t) return null;
-      return t.start ?? t.pts?.[0] ?? null;
-    }
-    case 'table': {
-      // A table has no coordinates of its own; its position is where its first
-      // cell starts.
-      const tb = board.tables[r.index];
-      const first = tb?.cells[0];
-      if (!first) return null;
-      return first.start ?? first.pts?.[0] ?? null;
-    }
-    case 'image':
-      // PCB_REFERENCE_IMAGE::GetPosition is the image's centre.
-      return board.images[r.index]?.at ?? null;
-    case 'dimension':
-      // PCB_DIMENSION_BASE::GetPosition() is GetStart() — the first feature
-      // point, not the centre of the drawn lines and not the text.
-      return board.dimensions[r.index]?.start ?? null;
-    case 'point':
-      return board.points[r.index]?.at ?? null;
-    default:
-      return null;
-  }
-}
-
 /** `EDIT_TOOL::MoveExact`. */
 export function moveExact(
   board: Board,
@@ -302,4 +237,69 @@ export function moveExactOnSelection(
   }
 
   commit.Push('Move Exactly');
+}
+
+/**
+ * `BOARD_ITEM::GetPosition` — the item's own anchor, which is what
+ * `ROTATE_AROUND_ITEM_ANCHOR` turns about.
+ *
+ * This is deliberately *not* the bounding-box centre. A track anchors at its
+ * start, not its midpoint, so rotating one about its anchor pins one end and
+ * swings the other; using the centre instead would spin it about the middle,
+ * which is a different result and not what the menu entry says.
+ */
+export function itemAnchorPoint(board: Board, id: string): Vec2 | null {
+  const r = parseBoardItemId(id);
+  if (!r) return null;
+
+  switch (r.kind) {
+    case 'track':
+      return board.tracks[r.index]?.start ?? null;
+    case 'arc': {
+      // PCB_ARC::GetPosition computes the arc centre from the three points.
+      const a = board.arcs[r.index];
+      return a ? arcCenter(a.start, a.mid, a.end) : null;
+    }
+    case 'via':
+      return board.vias[r.index]?.at ?? null;
+    case 'text':
+      return board.texts[r.index]?.at ?? null;
+    case 'footprint':
+      return board.footprints[r.index]?.at ?? null;
+    case 'pad':
+      return board.footprints[r.index]?.pads[r.sub ?? -1]?.at ?? null;
+    case 'shape': {
+      const s = board.shapes[r.index];
+      return s ? shapeAnchor(s) : null;
+    }
+    case 'zone':
+      // ZONE::GetPosition is the first corner of the outline.
+      return board.zones[r.index]?.outline?.[0] ?? null;
+    case 'textbox': {
+      // EDA_SHAPE::getPosition for a RECTANGLE is its first corner; a rotated
+      // box has none, so its first polygon point stands in.
+      const t = board.textBoxes[r.index];
+      if (!t) return null;
+      return t.start ?? t.pts?.[0] ?? null;
+    }
+    case 'table': {
+      // A table has no coordinates of its own; its position is where its first
+      // cell starts.
+      const tb = board.tables[r.index];
+      const first = tb?.cells[0];
+      if (!first) return null;
+      return first.start ?? first.pts?.[0] ?? null;
+    }
+    case 'image':
+      // PCB_REFERENCE_IMAGE::GetPosition is the image's centre.
+      return board.images[r.index]?.at ?? null;
+    case 'dimension':
+      // PCB_DIMENSION_BASE::GetPosition() is GetStart() — the first feature
+      // point, not the centre of the drawn lines and not the text.
+      return board.dimensions[r.index]?.start ?? null;
+    case 'point':
+      return board.points[r.index]?.at ?? null;
+    default:
+      return null;
+  }
 }

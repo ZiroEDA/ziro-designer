@@ -71,8 +71,6 @@
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import { EuclideanNormI, divideI } from '@ziroeda/kimath/src/math/vector2.js';
 import { padHit, patchPad } from '../edit-footprint.js';
-import { getTrailingInt } from '@ziroeda/common/string_utils.js';
-import { getRefDesPrefix } from '../autorouter/spread_footprints.js';
 import { isCopperLayerName } from '../types.js';
 import type { PcbFootprint, PcbPad } from '../types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
@@ -202,12 +200,6 @@ export function padIsAperturePad(pad: PcbPad): boolean {
 }
 
 /** `PAD::CanHaveNumber` (pad.cpp:497): apertures and NPTH pads get no number. */
-export function padCanHaveNumber(pad: PcbPad): boolean {
-  if (padIsAperturePad(pad)) return false;
-  if (pad.type === 'np_thru_hole') return false;
-  return true;
-}
-
 /** The initial state; the caller separately snapshots the footprint for Escape. */
 export function startPadEnumeration(
   params: SequentialPadEnumerationParams,
@@ -376,24 +368,6 @@ export function applyPadEnumeration(
   };
 }
 
-/**
- * `FOOTPRINT::GetNextPadNumber` (footprint.cpp:3551), used by the *Add Pad*
- * tool rather than by enumeration.
- *
- * There is no pre-increment: if `lastPadNumber` is not currently in use it is
- * returned unchanged. `getTrailingInt("A")` is 0, so `getNextPadNumber` for a
- * footprint without an "A0" hands back "A0", not "A1".
- */
-export function getNextPadNumber(fp: PcbFootprint, lastPadNumber: string): string {
-  const used = new Set(fp.pads.map((pad) => pad.number));
-  const prefix = getRefDesPrefix(lastPadNumber);
-  let num = getTrailingInt(lastPadNumber);
-
-  while (used.has(`${prefix}${num}`)) num++;
-
-  return `${prefix}${num}`;
-}
-
 // ---------------------------------------------------------------------------
 // DIALOG_ENUM_PADS (dialog_enum_pads.cpp + .h), on the live tool's parameters.
 // ---------------------------------------------------------------------------
@@ -438,4 +412,11 @@ export class DIALOG_ENUM_PADS {
     // No other validation implemented
     return true;
   }
+}
+
+/** `PAD::CanHaveNumber` (pad.cpp:497): apertures and NPTH pads get no number. */
+export function padCanHaveNumber(pad: PcbPad): boolean {
+  if (padIsAperturePad(pad)) return false;
+  if (pad.type === 'np_thru_hole') return false;
+  return true;
 }

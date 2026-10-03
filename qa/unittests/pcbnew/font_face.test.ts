@@ -23,14 +23,6 @@ import { parse } from '@ziroeda/sexpr/index.js';
 import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { flatText, writtenNodes } from './support/written_node.js';
-import {
-  applyTextValues,
-  collectTextValues,
-} from '@ziroeda/pcbnew/dialogs/dialog_text_properties.js';
-import {
-  applyTextBoxValues,
-  collectTextBoxValues,
-} from '@ziroeda/pcbnew/dialogs/dialog_textbox_properties.js';
 
 const BOARD = `(kicad_pcb (version 20241229) (generator "pcbnew")
   (gr_text "faced" (at 10 10) (layer "F.SilkS")
@@ -70,35 +62,6 @@ describe('the face survives a read and a write', () => {
       .map(flatText)
       .find((t) => t.includes('"plain"'))!;
     expect(plain).not.toContain('(face');
-  });
-});
-
-describe('the two dialogs carry it, so it is editable rather than merely kept', () => {
-  it('the text dialog collects and applies a face', () => {
-    const before = collectTextValues(board.texts[1]!);
-    expect(before.face).toBe('');
-    const next = applyTextValues(board, 1, { ...before, face: 'Monospace' });
-    expect(next.texts[1]?.face).toBe('Monospace');
-    expect(serializeBoard(next)).toContain('(face "Monospace")');
-  });
-
-  it('and clearing it back to Default Font drops the token', () => {
-    const withFace = applyTextValues(board, 0, {
-      ...collectTextValues(board.texts[0]!),
-      face: '',
-    });
-    // '' is "Default Font" in the combo, and the file's way of saying that is
-    // to carry no `(face …)` at all.
-    expect(withFace.texts[0]?.face).toBeUndefined();
-    const faced = serializeBoard(withFace).slice(0, serializeBoard(withFace).indexOf('"plain"'));
-    expect(faced).not.toContain('(face');
-  });
-
-  it('the text box dialog does the same', () => {
-    const before = collectTextBoxValues(board.textBoxes[0]!);
-    expect(before.face).toBe('Monospace');
-    const next = applyTextBoxValues(board, 0, { ...before, face: 'Sans Serif' });
-    expect(next.textBoxes[0]?.face).toBe('Sans Serif');
   });
 });
 
