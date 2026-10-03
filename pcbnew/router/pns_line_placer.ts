@@ -46,6 +46,7 @@
  *   `updateLeadingRatLine` is ported and calls an optional hook on the router
  *   interface, so the call site and its timing are real.
  */
+import { VIATYPE } from '../pcb_track_types.js';
 import {
   AngleType,
   CornerMode,
@@ -1796,11 +1797,11 @@ export class PnsLinePlacer {
     const iface = this.mRouter.getInterface();
 
     const start =
-      this.mSizes.viaType() === 'through'
+      this.mSizes.viaType() === VIATYPE.THROUGH
         ? iface.getPnsLayerFromBoardLayer('F.Cu')
         : this.mSizes.getLayerTop();
     const end =
-      this.mSizes.viaType() === 'through'
+      this.mSizes.viaType() === VIATYPE.THROUGH
         ? iface.getPnsLayerFromBoardLayer('B.Cu')
         : this.mSizes.getLayerBottom();
 
@@ -2750,6 +2751,12 @@ export class PnsLinePlacer {
     if (optimized || simplified.pointCount() !== l.pointCount()) {
       aNode.removeLine(lOrig);
       l.setShape(simplified);
+      // `LINE l( l_orig )` copies the links (LINK_HOLDER's copy constructor),
+      // and `Remove( l_orig )` clears only the original's, so upstream's
+      // `Add( l )` meets a linked line: `assert( !aLine.IsLinked() )`, which a
+      // release build compiles out. The stale links point at the segments just
+      // removed, so dropping them first is what the release build computes.
+      l.clearLinks();
       aNode.addLine(l);
     }
   }

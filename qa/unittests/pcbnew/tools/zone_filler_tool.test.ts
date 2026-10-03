@@ -3,7 +3,8 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * ZONE_FILLER_TOOL (pcbnew/tools/zone_filler_tool.cpp) on a live BOARD, driven
- * through the tool manager: Fill All Zones, Unfill Zone, Unfill All Zones.
+ * through the tool manager: Fill, Fill All, the dirty-zone refill, the
+ * out-of-date check, Unfill and Unfill All.
  * KiCad has no qa for the tool; each expectation cites its line.
  */
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -14,7 +15,6 @@ import {
   ZONE_FILLER_TOOL,
   type ZONE_FILLER_TOOL_FRAME,
 } from '@ziroeda/pcbnew/tools/zone_filler_tool.js';
-import type { ZoneFillOptions } from '@ziroeda/pcbnew/zone_filler.js';
 import type { KiDialogRequest } from '@ziroeda/common/kidialog.js';
 import type { KiDialogResult } from '@ziroeda/common/kidialog_do_not_show.js';
 import { byUuid, select, type TOOL_HARNESS, toolHarness, U } from '../support/pcb_tool_harness.js';
@@ -45,8 +45,9 @@ class FILLER_FRAME extends TEST_PCB_FRAME implements ZONE_FILLER_TOOL_FRAME {
   ShowZoneFillRulesWarning(): void {
     this.rulesWarnings++;
   }
-  GetZoneFillOptions(): ZoneFillOptions {
-    return {};
+  slowNotes = 0;
+  ShowZoneAutoRefillSlowMessage(): void {
+    this.slowNotes++;
   }
   asked: string[] = [];
   answer: KiDialogResult = 'ok';
@@ -154,5 +155,70 @@ describe('ZONE_FILLER_TOOL::CheckAllZones and ZONE_FILLER::Fill( aCheck ) (:67-1
     await tool().CheckAllZones();
     expect(h.frame.asked).toEqual([]);
     expect(h.frame.GetUndoCommandCount()).toBe(undo);
+  });
+});
+
+describe('ZONE_FILLER_TOOL::ZoneFill (:316-377)', () => {
+  it('fills the selected zone only, as one undo step', () => {
+    select(h, 41);
+    const undo = h.frame.GetUndoCommandCount();
+    h.mgr.RunAction(PCB_ACTIONS.zoneFill);
+    expect(zone(41).IsFilled()).toBe(true);
+    expect(zone(40).IsFilled()).toBe(false);
+    expect(h.frame.GetUndoCommandCount()).toBe(undo + 1);
+    expect(tool().IsBusy()).toBe(false);
+  });
+
+  it('a zone passed with the event is filled instead of the selection (:322-325)', () => {
+    select(h, 41);
+    h.mgr.RunAction(PCB_ACTIONS.zoneFill, zone(40));
+    expect(zone(40).IsFilled()).toBe(true);
+    expect(zone(41).IsFilled()).toBe(false);
+  });
+
+  it('nothing to fill: no pour, no undo step (:340-344)', () => {
+    const undo = h.frame.GetUndoCommandCount();
+    h.mgr.RunAction(PCB_ACTIONS.zoneFill);
+    expect(zone(40).IsFilled()).toBe(false);
+    expect(zone(41).IsFilled()).toBe(false);
+    expect(h.frame.GetUndoCommandCount()).toBe(undo);
+  });
+});
+
+describe('ZONE_FILLER_TOOL::ZoneFillDirty and DirtyZone (:207-313, zone_filler_tool.h:66)', () => {
+  it('refills the unfilled zones, appended to the last undo step (APPEND_UNDO)', () => {
+    select(h, 40);
+    h.mgr.RunAction(PCB_ACTIONS.zoneFill);
+    const undo = h.frame.GetUndoCommandCount();
+    h.mgr.RunAction(PCB_ACTIONS.zoneFillDirty);
+    expect(zone(41).IsFilled()).toBe(true);
+    expect(h.frame.GetUndoCommandCount()).toBe(undo);
+  });
+
+  it('a filled zone is refilled only when a commit marked it dirty', () => {
+    h.mgr.RunAction(PCB_ACTIONS.zoneFillAll);
+    zone(40).UnFill();
+    zone(40).SetIsFilled(true);
+    zone(41).UnFill();
+    zone(41).SetIsFilled(true);
+    tool().DirtyZone(zone(41));
+    h.mgr.RunAction(PCB_ACTIONS.zoneFillDirty);
+    expect(zone(40).GetFilledPolysList(zone(40).GetFirstLayer()).OutlineCount()).toBe(0);
+    expect(zone(41).GetFilledPolysList(zone(41).GetFirstLayer()).OutlineCount()).toBe(1);
+  });
+
+  it('the dirty list is spent by one refill (:227)', () => {
+    h.mgr.RunAction(PCB_ACTIONS.zoneFillAll);
+    tool().DirtyZone(zone(41));
+    h.mgr.RunAction(PCB_ACTIONS.zoneFillDirty);
+    zone(41).UnFill();
+    zone(41).SetIsFilled(true);
+    h.mgr.RunAction(PCB_ACTIONS.zoneFillDirty);
+    expect(zone(41).GetFilledPolysList(zone(41).GetFirstLayer()).OutlineCount()).toBe(0);
+  });
+
+  it('a quick refill shows no slow-refill note', () => {
+    h.mgr.RunAction(PCB_ACTIONS.zoneFillDirty);
+    expect(h.frame.slowNotes).toBe(0);
   });
 });

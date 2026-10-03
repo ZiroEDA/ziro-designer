@@ -11,6 +11,7 @@
 import type { PCB_BASE_EDIT_FRAME } from '@ziroeda/pcbnew/pcb_base_edit_frame.js';
 import { RECURSE_MODE } from '@ziroeda/common/eda_item.js';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
+import type { KICURSOR } from '@ziroeda/common/gal/cursors.js';
 import { GAL_DISPLAY_OPTIONS } from '@ziroeda/common/gal/gal_display_options.js';
 import { GAL } from '@ziroeda/common/gal/graphics_abstraction_layer.js';
 import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
@@ -60,6 +61,8 @@ export interface TOOL_HARNESS<F extends TEST_PCB_FRAME> {
   view: PCB_VIEW;
   mouse: Vec2;
   forced: Vec2 | null;
+  /** The last cursor shape a tool asked the canvas for. */
+  shape?: KICURSOR;
   menus: ACTION_MENU[];
   /** Each shown menu's close, which the tool manager waits on. */
   menuCloses: (() => void)[];
@@ -113,10 +116,14 @@ export function toolHarness<F extends TEST_PCB_FRAME>(
   return Object.assign(h, { mgr, sel }) as TOOL_HARNESS<F>;
 }
 
-/** The mouse a harness canvas answers from: where it is, and any forced cursor. */
+/**
+ * The mouse a harness canvas answers from: where it is, and any forced cursor;
+ * and the last cursor shape a tool asked the canvas for (`SetCurrentCursor`).
+ */
 export interface HARNESS_MOUSE {
   mouse: Vec2;
   forced: Vec2 | null;
+  shape?: KICURSOR;
 }
 
 /**
@@ -141,18 +148,23 @@ export function harnessCanvas(
   view.SetScale(view.GetScale() * (view.ToWorld(1000) / (150 * MM)));
   view.SetCenter(mm(60, 60));
 
-  board.RunOnChildren((aItem: BOARD_ITEM) => view.Add(aItem), RECURSE_MODE.NO_RECURSE);
-
-  for (const fp of board.Footprints())
-    fp.RunOnChildren((aItem: BOARD_ITEM) => view.Add(aItem), RECURSE_MODE.NO_RECURSE);
+  // PCB_DRAW_PANEL_GAL::DisplayBoard: the top-level items; PCB_VIEW::Add
+  // brings a footprint's children with it (adding them again would put each
+  // in the R-tree twice, and one Remove would leave a ghost behind).
+  for (const item of board.GetItemSet()) view.Add(item);
 
   frame.SetCanvas({
+    // Read lazily: the controls are built just below.
+    GetViewControls: () => controls,
     GetView: () => view,
     GetGAL: () => gal,
-    SetCurrentCursor: () => {},
+    SetCurrentCursor: (aCursor: KICURSOR) => {
+      h.shape = aCursor;
+    },
     ForceRefresh: () => {},
     Refresh: () => {},
     RedrawRatsnest: () => {},
+    SetHighContrastLayer: () => {},
     SetStatusPopup: () => {},
     GetDrawingSheet: () => null,
     GetClientSize: () => ({ x: 1000, y: 1000 }),
@@ -169,6 +181,7 @@ export function harnessCanvas(
       h.forced = aEnable && aPos ? { ...aPos } : null;
     },
     ShowCursor: () => {},
+    PinCursorInsideNonAutoscrollArea: () => {},
     CaptureCursor: () => {},
     WarpMouseCursor: () => {},
     GetSettings: () => new VC_SETTINGS(),

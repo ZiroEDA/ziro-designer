@@ -22,6 +22,7 @@ export {
   EMPTY_SOURCE,
 } from './sch_io/sexpr/write-symbol-lib.js';
 export * from './project.js';
+export type { SchScriptApi } from './sch_script_api.js';
 export * from './fieldbox.js';
 export * from './bus-wire-junction.js';
 export * from './sch_reference_list.js';

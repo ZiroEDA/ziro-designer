@@ -1270,3 +1270,11 @@ export function UnescapeHTML(aString: string): string {
 export function RemoveHTMLTags(aInput: string): string {
   return aInput.replace(/<[^>]*>/g, '');
 }
+
+/**
+ * `NoPrintableChars` (string_utils.cpp): true when the string is empty once
+ * leading and trailing whitespace is trimmed.
+ */
+export function NoPrintableChars(aString: string): boolean {
+  return aString.trim() === '';
+}

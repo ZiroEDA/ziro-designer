@@ -177,9 +177,10 @@ describe('the launchers that install it', () => {
    */
   it.each([
     ['the PCB editor', '../../pcbnew/pcb_edit_frame_ui.tsx'],
-  ])('%s calls the shared one and builds no rows of its own', (_name, rel) => {
+  ])('%s builds no rows of its own', (_name, rel) => {
     const src = read(rel);
-    expect(src).toContain('standardSubMenuEntries({');
+    // Its context menu is PCB_SELECTION_TOOL's, whose Init() hangs the rows off
+    // EDA_DRAW_FRAME::AddStandardSubMenus (below); the window draws that menu.
     // Comments stripped: the note explaining why a helper is NOT copied names
     // that helper, and prose about a rule is not a breach of it.
     const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
@@ -204,6 +205,10 @@ describe('the launchers that install it', () => {
     for (const rel of [
       '../../pagelayout_editor/tools/pl_selection_tool.ts',
       '../../pagelayout_editor/tools/pl_drawing_tools.ts',
+      // ...and the board editor's, PCB_SELECTION_TOOL::Init and
+      // BOARD_EDITOR_CONTROL::Init (board_editor_control.cpp:410).
+      '../../pcbnew/tools/pcb_selection_tool.ts',
+      '../../pcbnew/tools/board_editor_control.ts',
     ]) {
       const code = read(rel);
       expect(code, rel).toContain('.AddStandardSubMenus(this.m_menu);');

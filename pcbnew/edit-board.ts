@@ -26,6 +26,7 @@
  * (KiCad selects the FOOTPRINT, not its pad, unless you alt/nested-select).
  */
 
+import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { pcbIuToMM as iuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import { barcodeBBox, barcodeGeometry, barcodeHullBoxes } from './pcb_io/kicad_sexpr/board_view.js';
 import { textItemBBox } from './text_metrics.js';
@@ -110,6 +111,26 @@ export function tessellateArc(start: Vec2, mid: Vec2, end: Vec2): Vec2[] {
   pts[0] = start;
   pts[pts.length - 1] = end;
   return pts;
+}
+
+/**
+ * `EDA_SHAPE::GetArcAngle`: the sweep from start to end about the centre. The
+ * mid point plays no part — upstream normalises the end angle upwards until it
+ * is at least the start angle, so the sweep is always positive.
+ */
+export function arcSweepDegrees(
+  centre: { x: number; y: number },
+  start: { x: number; y: number },
+  end: { x: number; y: number },
+): number {
+  const startAngle = EDA_ANGLE.fromVector({ x: start.x - centre.x, y: start.y - centre.y });
+  let endAngle = EDA_ANGLE.fromVector({ x: end.x - centre.x, y: end.y - centre.y });
+
+  // A ring, not a null arc.
+  if (endAngle.equals(startAngle)) endAngle = startAngle.add(new EDA_ANGLE(360));
+  while (endAngle.lt(startAngle)) endAngle = endAngle.add(new EDA_ANGLE(360));
+
+  return endAngle.sub(startAngle).AsDegrees();
 }
 
 /** Circumcentre of three points, or null when collinear. */

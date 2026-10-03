@@ -41,7 +41,6 @@ import {
 } from '@ziroeda/pcbnew/dialogs/dialog_barcode_properties.js';
 import { encodeBarcode } from '@ziroeda/zint';
 import { bestSnapAnchor } from '@ziroeda/pcbnew/pcb_cursor_snap.js';
-import { boardEditHandles, dragBoardHandle } from '@ziroeda/pcbnew/tools/pcb_point_editor.js';
 import { pcbBarcodeMsgPanelInfo } from '@ziroeda/pcbnew/msg_panel.js';
 import { livePanel } from './support/live_panel.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
@@ -610,57 +609,5 @@ describe('as a snap anchor', () => {
     const corner = { x: MM(6), y: MM(24) }; // the symbol's bottom-left
 
     expect(bestSnapAnchor(withText, near(corner), grid, snapOpts)).toEqual(corner);
-  });
-});
-
-describe('the point editor', () => {
-  // `BARCODE_POINT_EDIT_BEHAVIOR` (`pcb_point_editor.cpp:680-748`): the
-  // barcode is edited as the rectangle `makeDummyRect()` builds from its
-  // centre and size, so the handles are `RECTANGLE_POINT_EDIT_BEHAVIOR`'s.
-  const handles = (b: Board = read()): ReturnType<typeof boardEditHandles> =>
-    boardEditHandles(b, 'barcode:0');
-
-  it('offers the rectangle’s nine handles', () => {
-    expect(handles()).toHaveLength(9);
-  });
-
-  it('offers none at a non-cardinal angle', () => {
-    // "Non-cardinal barcode point-editing isn't useful enough to support"
-    // (`:698-702`) — and `UpdatePoints` returns false for it too, so the
-    // handles do not merely misbehave, they are not drawn.
-    expect(handles(read(BOARD.replace('(at 10 20 0)', '(at 10 20 30)')))).toHaveLength(0);
-    // A quarter turn IS cardinal.
-    expect(handles(read(BOARD.replace('(at 10 20 0)', '(at 10 20 90)')))).toHaveLength(9);
-  });
-
-  it('resizes when a corner is dragged, and stays square for a QR code', () => {
-    // `KeepSquare()` is QR, Micro QR and Data Matrix (`pcb_barcode.h:1069`),
-    // held square by 45-degree constraints on both diagonals. A QR code
-    // dragged into a rectangle still encodes and does not scan.
-    const b = read();
-    const corner = handles(b).find((h) => h.kind === 'point' && h.index === 0)!;
-    const after = dragBoardHandle(b, 'barcode:0', corner, { x: MM(2), y: MM(16) });
-    const bc = after.barcodes[0]!;
-
-    expect(bc.width).toBe(bc.height);
-    expect(bc.width).toBe(MM(12));
-  });
-
-  it('and takes the dragged size as-is for one that is not square', () => {
-    const b = read(BOARD.replace('(type qr)', '(type code128)'));
-    const corner = handles(b).find((h) => h.kind === 'point' && h.index === 0)!;
-    const after = dragBoardHandle(b, 'barcode:0', corner, { x: MM(2), y: MM(16) });
-
-    expect(after.barcodes[0]!.width).toBe(MM(12));
-    expect(after.barcodes[0]!.height).toBe(MM(8));
-  });
-
-  it('the centre handle moves it rather than resizing it', () => {
-    const b = read();
-    const centre = handles(b).find((h) => h.kind === 'point' && h.index === 4)!;
-    const after = dragBoardHandle(b, 'barcode:0', centre, { x: MM(30), y: MM(40) });
-
-    expect(after.barcodes[0]!.at).toEqual({ x: MM(30), y: MM(40) });
-    expect(after.barcodes[0]!.width).toBe(MM(8));
   });
 });

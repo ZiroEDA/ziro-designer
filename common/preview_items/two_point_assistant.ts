@@ -25,9 +25,20 @@
  * positive.
  */
 
-import { DrawContext, type DevicePoint } from './draw_context.js';
+import { DRAW_CONTEXT, DrawContext, type DevicePoint } from './draw_context.js';
+import { EDA_ITEM } from '../eda_item.js';
+import type { EdaIuScale, EdaUnits } from '../eda_units.js';
+import { GAL_LAYER_ID } from '../layer_id.js';
+import type { VIEW } from '../view/view.js';
+import type { TWO_POINT_GEOMETRY_MANAGER } from './two_point_geom_manager.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
+import { EuclideanNorm, sub } from '@ziroeda/kimath/src/math/vector2.js';
 import {
   angleLabel,
+  DimensionLabel,
+  DrawTextNextToCursor,
   dimensionLabel,
   drawTextNextToCursor,
   type PreviewUnits,
@@ -118,4 +129,105 @@ export function drawTwoPointAssistant(
     color: o.color,
     devicePixelRatio: o.devicePixelRatio,
   });
+}
+
+/** `KIGFX::PREVIEW::GEOM_SHAPE` (two_point_assistant.h): until EDA_SHAPE_TYPE_T is in common. */
+export enum GEOM_SHAPE {
+  SEGMENT = 0,
+  RECT,
+  ARC,
+  CIRCLE,
+  POLYGON,
+  CURVE,
+}
+
+/**
+ * `KIGFX::PREVIEW::TWO_POINT_ASSISTANT` (common/preview_items/two_point_assistant.cpp):
+ * the readout beside the cursor while a two-point shape is drawn - l and theta
+ * for a segment, x and y for a rectangle, the radius (with its line) for a
+ * circle - as a VIEW item on the overlay, drawn through the GAL.
+ */
+export class TWO_POINT_ASSISTANT extends EDA_ITEM {
+  private m_units: EdaUnits;
+
+  constructor(
+    private readonly m_constructMan: TWO_POINT_GEOMETRY_MANAGER,
+    private readonly m_iuScale: EdaIuScale,
+    aUnits: EdaUnits,
+    private readonly m_shape: GEOM_SHAPE,
+  ) {
+    super(KICAD_T.NOT_USED);
+    this.m_units = aUnits;
+  }
+
+  override ViewBBox(): BOX2I {
+    const tmp = new BOX2I();
+
+    // no bounding box when no graphic shown
+    if (this.m_constructMan.IsReset()) return tmp;
+
+    // this is an edit-time artefact; no reason to try and be smart with the bounding box
+    // (besides, we can't tell the text extents without a view to know what the scale is)
+    tmp.SetMaximum();
+    return tmp;
+  }
+
+  override ViewGetLayers(): number[] {
+    return [
+      GAL_LAYER_ID.LAYER_SELECT_OVERLAY, // Assistant graphics
+      GAL_LAYER_ID.LAYER_GP_OVERLAY, // Drop shadows
+    ];
+  }
+
+  override GetClass(): string {
+    return 'TWO_POINT_ASSISTANT';
+  }
+
+  SetUnits(aUnits: EdaUnits): void {
+    this.m_units = aUnits;
+  }
+
+  override ViewDraw(aLayer: number, aView: VIEW): void {
+    const gal = aView.GetGAL()!;
+
+    // not in a position to draw anything
+    if (this.m_constructMan.IsReset()) return;
+
+    const origin = this.m_constructMan.GetOrigin();
+    const end = this.m_constructMan.GetEnd();
+    const radVec = sub(end, origin);
+
+    // Ensures that +90° is up and -90° is down in pcbnew
+    const deltaAngle = EDA_ANGLE.fromVector({ x: radVec.x, y: -radVec.y });
+
+    if (radVec.x === 0 && radVec.y === 0) {
+      return; // text next to cursor jumps around a lot in this corner case
+    }
+
+    gal.ResetTextAttributes();
+
+    const cursorStrings: string[] = [];
+
+    if (this.m_shape === GEOM_SHAPE.SEGMENT) {
+      cursorStrings.push(DimensionLabel('l', EuclideanNorm(radVec), this.m_iuScale, this.m_units));
+      cursorStrings.push(DimensionLabel('θ', deltaAngle.AsDegrees(), this.m_iuScale, 'degrees'));
+    } else if (this.m_shape === GEOM_SHAPE.RECT) {
+      cursorStrings.push(DimensionLabel('x', Math.abs(radVec.x), this.m_iuScale, this.m_units));
+      cursorStrings.push(DimensionLabel('y', Math.abs(radVec.y), this.m_iuScale, this.m_units));
+    } else if (this.m_shape === GEOM_SHAPE.CIRCLE) {
+      const preview_ctx = new DRAW_CONTEXT(aView);
+      preview_ctx.DrawLine(origin, end, false);
+
+      cursorStrings.push(DimensionLabel('r', EuclideanNorm(radVec), this.m_iuScale, this.m_units));
+    }
+
+    // place the text next to cursor, on opposite side from drawing
+    DrawTextNextToCursor(
+      aView,
+      end,
+      sub(origin, end),
+      cursorStrings,
+      aLayer === GAL_LAYER_ID.LAYER_SELECT_OVERLAY,
+    );
+  }
 }

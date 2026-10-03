@@ -41,6 +41,12 @@ import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 interface Props {
   onClose: () => void;
+  /**
+   * `DIALOG_PNS_SETTINGS( frame(), m_router->Settings() )`: the live
+   * ROUTING_SETTINGS the router reads, which OK writes into. Absent before a
+   * router has been made, when only the stored `tools.pns` block exists.
+   */
+  settings?: RoutingSettings | null;
 }
 
 /** The mode radios, in `sbModeSizer`'s order with upstream's labels. */
@@ -50,13 +56,13 @@ const MODES: readonly (readonly [PnsMode, string])[] = [
   [PnsMode.RM_Walkaround, 'Walk around'],
 ];
 
-export function DialogPnsSettings({ onClose }: Props): JSX.Element {
+export function DialogPnsSettings({ onClose, settings }: Props): JSX.Element {
   // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
   // ui/modal_escape.ts.
   useModalEscape(onClose);
 
   const [v, setV] = useState<RoutingSettings>(() =>
-    readRoutingSettings(pcbnewLiveSettings().tools.pns),
+    settings ? { ...settings } : readRoutingSettings(pcbnewLiveSettings().tools.pns),
   );
   const set = (patch: Partial<RoutingSettings>): void => setV({ ...v, ...patch });
 
@@ -100,6 +106,7 @@ export function DialogPnsSettings({ onClose }: Props): JSX.Element {
   // TransferDataFromWindow: every control is written back, including the ones
   // the current mode has greyed out and the hidden "Suggest track finish".
   const apply = (): void => {
+    if (settings) Object.assign(settings, v);
     updatePcbnewLiveSettings((s) => {
       s.tools.pns = writeRoutingSettings(v);
     });

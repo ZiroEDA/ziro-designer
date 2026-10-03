@@ -14,6 +14,7 @@ import { LeaderMode as LEADER_MODE } from '@ziroeda/kimath/src/geometry/geometry
 import { FLIP_DIRECTION } from '@ziroeda/kimath/src/core/mirror.js';
 import { RATSNEST_MODE } from '@ziroeda/common/project/board_project_settings.js';
 import { DEFAULT_GRID_INDEX } from '@ziroeda/common/settings/grid_settings_ui.js';
+import type { RoutingSettings } from './router/pns_routing_settings.js';
 
 // Settings for the CONVERT_TOOL.
 export enum CONVERT_STRATEGY {
@@ -228,7 +229,7 @@ export class PCBNEW_SETTINGS extends PCB_VIEWERS_SETTINGS_BASE {
   // False (default): all pads are treated as locked for the purposes of
   // movement and any attempt to move them will move the footprint instead.
   m_ImportKeepKiCadLayerNames = false;
-  m_PnsSettings: unknown = null; // std::unique_ptr<PNS::ROUTING_SETTINGS>, pending (#636 stage 6)
+  m_PnsSettings: RoutingSettings | null = null; // std::unique_ptr<PNS::ROUTING_SETTINGS>, made by PNS::TOOL_BASE::Reset
   m_FootprintViewerLibListWidth = 200;
   m_FootprintViewerFPListWidth = 300;
   m_LastFootprintLibDir = '';

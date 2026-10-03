@@ -31,6 +31,19 @@
 import { cssWithAlpha } from '../gal/color4d.js';
 import { galPenWidth } from '../gal_pixel_grid.js';
 import { previewOverlayDeemphAlpha } from './preview_utils.js';
+import type { Color4d } from '../gal/color4d.js';
+import type { GAL } from '../gal/graphics_abstraction_layer.js';
+import { GAL_LAYER_ID } from '../layer_id.js';
+import type { RENDER_SETTINGS } from '../render_settings.js';
+import type { VIEW } from '../view/view.js';
+import { EDA_ANGLE, EDA_ANGLE_T } from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import {
+  add,
+  EuclideanNormI,
+  ResizeI,
+  sub,
+  type VECTOR2I,
+} from '@ziroeda/kimath/src/math/vector2.js';
 
 /** A point in DEVICE pixels. */
 export interface DevicePoint {
@@ -164,5 +177,123 @@ export class DrawContext {
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.restore();
+  }
+}
+
+/** `angleIsSpecial( EDA_ANGLE )`: a multiple of 45 degrees. */
+function angleIsSpecialEda(aAngle: EDA_ANGLE): boolean {
+  const r = aAngle.AsRadians();
+  // std::remainder: the remainder to the NEAREST multiple, so -pi/8..pi/8.
+  return Math.abs(r - Math.round(r / (Math.PI / 4)) * (Math.PI / 4)) < ANGLE_EPSILON;
+}
+
+/** `deemphasise( aColor, aDeEmphasised )`. */
+function deemphasise(aColor: Color4d, aDeEmphasised: boolean): Color4d {
+  return { ...aColor, a: previewOverlayDeemphAlpha(aDeEmphasised) };
+}
+
+/**
+ * `KIGFX::PREVIEW::DRAW_CONTEXT` (common/preview_items/draw_context.cpp): the
+ * preview items' drawing on the VIEW's GAL, in the current layer's colour
+ * (LAYER_AUX_ITEMS), a line 1.0 wide, with the de-emphasis and the special-
+ * angle green the assistants use. `DrawArcWithAngleHighlight` is declared
+ * upstream and never defined, so it is not here either.
+ */
+export class DRAW_CONTEXT {
+  private readonly m_gal: GAL;
+  private readonly m_render_settings: RENDER_SETTINGS;
+  private readonly m_currLayer: number = GAL_LAYER_ID.LAYER_AUX_ITEMS;
+  private readonly m_lineWidth = 1.0;
+
+  constructor(aView: VIEW) {
+    this.m_gal = aView.GetGAL()!;
+    this.m_render_settings = aView.GetPainter()!.GetSettings();
+  }
+
+  DrawCircle(aOrigin: VECTOR2I, aRad: number, aDeEmphasised: boolean): void {
+    const color = this.m_render_settings.GetLayerColor(this.m_currLayer);
+
+    this.m_gal.SetLineWidth(this.m_lineWidth);
+    this.m_gal.SetStrokeColor(deemphasise(color, aDeEmphasised));
+    this.m_gal.SetIsStroke(true);
+    this.m_gal.SetIsFill(false);
+    this.m_gal.DrawCircle(aOrigin, aRad);
+  }
+
+  DrawCircleDashed(
+    aOrigin: VECTOR2I,
+    aRad: number,
+    aStepAngle: number,
+    aFillAngle: number,
+    aDeEmphasised: boolean,
+  ): void {
+    const color = this.m_render_settings.GetLayerColor(this.m_currLayer);
+
+    this.m_gal.SetLineWidth(this.m_lineWidth);
+    this.m_gal.SetStrokeColor(deemphasise(color, aDeEmphasised));
+    this.m_gal.SetIsStroke(true);
+    this.m_gal.SetIsFill(false);
+
+    for (let i = 0; i < 360; i += aStepAngle) {
+      this.m_gal.DrawArc(
+        aOrigin,
+        aRad,
+        new EDA_ANGLE(i, EDA_ANGLE_T.DEGREES_T),
+        new EDA_ANGLE(i + aFillAngle, EDA_ANGLE_T.DEGREES_T),
+      );
+    }
+  }
+
+  DrawLine(aStart: VECTOR2I, aEnd: VECTOR2I, aDeEmphasised: boolean): void {
+    const strokeColor = this.m_render_settings.GetLayerColor(this.m_currLayer);
+
+    this.m_gal.SetLineWidth(this.m_lineWidth);
+    this.m_gal.SetIsStroke(true);
+    this.m_gal.SetStrokeColor(deemphasise(strokeColor, aDeEmphasised));
+    this.m_gal.DrawLine(aStart, aEnd);
+  }
+
+  DrawLineDashed(
+    aStart: VECTOR2I,
+    aEnd: VECTOR2I,
+    aDashStep: number,
+    aDashFill: number,
+    aDeEmphasised: boolean,
+  ): void {
+    const strokeColor = this.m_render_settings.GetLayerColor(this.m_currLayer);
+
+    this.m_gal.SetLineWidth(this.m_lineWidth);
+    this.m_gal.SetIsStroke(true);
+    this.m_gal.SetStrokeColor(deemphasise(strokeColor, aDeEmphasised));
+
+    const delta = sub(aEnd, aStart);
+    // `int vecLen = delta.EuclideanNorm()`: VECTOR2I's norm is an int.
+    const vecLen = EuclideanNormI(delta);
+
+    for (let i = 0; i < vecLen; i += aDashStep) {
+      const a = add(aStart, ResizeI(delta, i));
+      const b = add(aStart, ResizeI(delta, Math.min(i + aDashFill, vecLen)));
+
+      this.m_gal.DrawLine(a, b);
+    }
+  }
+
+  DrawLineWithAngleHighlight(aStart: VECTOR2I, aEnd: VECTOR2I, aDeEmphasised: boolean): void {
+    const vec = sub(aEnd, aStart);
+    let strokeColor = this.m_render_settings.GetLayerColor(this.m_currLayer);
+
+    if (angleIsSpecialEda(EDA_ANGLE.fromVector(vec))) strokeColor = this.getSpecialAngleColour();
+
+    this.m_gal.SetLineWidth(this.m_lineWidth);
+    this.m_gal.SetIsStroke(true);
+    this.m_gal.SetStrokeColor(deemphasise(strokeColor, aDeEmphasised));
+    this.m_gal.DrawLine(aStart, aEnd);
+  }
+
+  private getSpecialAngleColour(): Color4d {
+    // [data] draw_context.cpp's own two literals.
+    return this.m_render_settings.IsBackgroundDark()
+      ? { r: 0.5, g: 1.0, b: 0.5, a: 1.0 }
+      : { r: 0.0, g: 0.7, b: 0.0, a: 1.0 };
   }
 }

@@ -477,7 +477,7 @@ export function pageInfoOfPaper(paper: string, prev: PAGE_INFO): PAGE_INFO {
 
 type ViewTitleBlock = NonNullable<Board['titleBlock']>;
 
-function titleBlockView(tb: TITLE_BLOCK): ViewTitleBlock | undefined {
+export function titleBlockView(tb: TITLE_BLOCK): ViewTitleBlock | undefined {
   const raw: string[] = [];
   for (let i = 0; i < 9; i++) raw.push(tb.GetComment(i)); // TITLE_BLOCK::Format writes nine
   while (raw.length > 0 && raw[raw.length - 1] === '') raw.pop();

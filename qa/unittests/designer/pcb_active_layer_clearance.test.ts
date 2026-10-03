@@ -53,6 +53,8 @@ function makeFrame() {
       UpdateAllItemsConditionally: () => calls.push('update'),
     }),
     Refresh: () => calls.push('refresh'),
+    // A canvas not on the GAL yet: UpdateStatusBar reports no zoom.
+    GetGAL: () => null,
   };
   frame.SetCanvas(canvas as unknown as PCB_DRAW_PANEL_GAL);
   return { frame, visible, calls };

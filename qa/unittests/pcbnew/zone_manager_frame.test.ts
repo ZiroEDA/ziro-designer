@@ -140,3 +140,22 @@ describe('PCB_EDIT_FRAME::m_ZoneFillsDirty (pcb_edit_frame.cpp:234, :2087)', () 
     expect(t.f.m_ZoneFillsDirty).toBe(true);
   });
 });
+
+describe("DIALOG_ZONE_MANAGER::OnUpdateDisplayedZonesClick's pour (dialog_zone_manager.cpp:495-519)", () => {
+  it('fills the clones with the board zone list swapped for them, then puts the originals back', () => {
+    const t = frame(null);
+    const board = t.f.GetBoard()!;
+    const clone = t.z.Clone() as ZONE;
+
+    expect(t.f.FillZones(board, [clone])).toBe(true);
+
+    expect(clone.IsFilled()).toBe(true);
+    expect(clone.GetFilledPolysList(PCB_LAYER_ID.F_Cu).OutlineCount()).toBe(1);
+    // The board's own zone is untouched and back in the list.
+    expect(t.z.IsFilled()).toBe(false);
+    expect(board.Zones()).toHaveLength(1);
+    expect(board.Zones()[0]).toBe(t.z);
+    // "Do not use a commit here since we're operating on cloned zones."
+    expect(t.f.GetUndoCommandCount()).toBe(0);
+  });
+});

@@ -45,6 +45,13 @@
  */
 
 import { galPenWidth } from '../gal_pixel_grid.js';
+import { type Color4d, COLOR4D_UNSPECIFIED, color4dEquals } from '../gal/color4d.js';
+import { GAL_LAYER_ID } from '../layer_id.js';
+import type { VIEW } from '../view/view.js';
+import { SIMPLE_OVERLAY_ITEM } from './simple_overlay_item.js';
+import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
+import type { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
+import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 
 /** A world-space point, matching the canvases' own `Vec2`. */
 export interface PolygonItemPoint {
@@ -146,4 +153,91 @@ export function drawPolygonItem(ctx: CanvasRenderingContext2D, s: PolygonItemSty
   }
 
   ctx.restore();
+}
+
+/**
+ * `KIGFX::PREVIEW::POLYGON_ITEM` (common/preview_items/polygon_item.cpp): the
+ * outline tools' preview as a VIEW item - the locked-in corners and the
+ * leader as one-pixel polylines (the leader in LAYER_AUX_ITEMS unless given a
+ * colour), and the fill over all three chains, in SIMPLE_OVERLAY_ITEM's
+ * stroke and fill colours.
+ */
+export class POLYGON_ITEM extends SIMPLE_OVERLAY_ITEM {
+  private m_lineColor: Color4d = COLOR4D_UNSPECIFIED;
+  private m_leaderColor: Color4d = COLOR4D_UNSPECIFIED;
+  private m_lockedChain: Vec2[] = [];
+  private m_leaderChain: Vec2[] = [];
+  private m_loopChain: Vec2[] = [];
+  private readonly m_polyfill = new SHAPE_POLY_SET();
+
+  SetLineColor(lineColor: Color4d): void {
+    this.m_lineColor = lineColor;
+  }
+
+  SetLeaderColor(leaderColor: Color4d): void {
+    this.m_leaderColor = leaderColor;
+  }
+
+  /** Get the polygon's points. */
+  SetPoints(
+    aLockedInPts: readonly Vec2[],
+    aLeaderPts: readonly Vec2[],
+    aLoopPts: readonly Vec2[],
+  ): void {
+    this.m_lockedChain = [...aLockedInPts];
+    this.m_leaderChain = [...aLeaderPts];
+    this.m_loopChain = [...aLoopPts];
+
+    this.m_polyfill.RemoveAllContours();
+    this.m_polyfill.NewOutline();
+
+    for (const p of aLockedInPts) this.m_polyfill.Append(p);
+    for (const p of aLeaderPts) this.m_polyfill.Append(p);
+    for (const p of aLoopPts) this.m_polyfill.Append(p);
+  }
+
+  override GetClass(): string {
+    return 'PREVIEW::POLYGON_ITEM';
+  }
+
+  protected override drawPreviewShape(aView: VIEW): void {
+    const gal = aView.GetGAL()!;
+    const renderSettings = aView.GetPainter()!.GetSettings();
+
+    gal.SetIsStroke(true);
+
+    if (this.m_lockedChain.length >= 2) {
+      if (!color4dEquals(this.m_lineColor, COLOR4D_UNSPECIFIED))
+        gal.SetStrokeColor(this.m_lineColor);
+
+      gal.SetLineWidth(aView.ToWorld(POLY_LINE_WIDTH));
+      gal.DrawPolyline(this.m_lockedChain);
+    }
+
+    // draw the leader line in a different color
+    if (this.m_leaderChain.length >= 2) {
+      if (!color4dEquals(this.m_leaderColor, COLOR4D_UNSPECIFIED))
+        gal.SetStrokeColor(this.m_leaderColor);
+      else gal.SetStrokeColor(renderSettings.GetLayerColor(GAL_LAYER_ID.LAYER_AUX_ITEMS));
+
+      gal.DrawPolyline(this.m_leaderChain);
+    }
+
+    gal.SetIsStroke(false);
+
+    for (let j = 0; j < this.m_polyfill.OutlineCount(); ++j) {
+      const outline = this.m_polyfill.COutline(j);
+
+      if (outline.PointCount() >= 2) gal.DrawPolygon(outline);
+    }
+  }
+
+  override ViewBBox(): BOX2I {
+    return this.m_polyfill.BBox();
+  }
+
+  /** The three chains, for a test or a caller that reads them back. */
+  GetChains(): { locked: readonly Vec2[]; leader: readonly Vec2[]; loop: readonly Vec2[] } {
+    return { locked: this.m_lockedChain, leader: this.m_leaderChain, loop: this.m_loopChain };
+  }
 }

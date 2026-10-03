@@ -19277,3 +19277,60 @@ fieldset.ze-pushpad-box {
 .ze-getd-curved > .ze-check {
   margin: 0 5px; /* [data] `m_curvedEdges`'s `wxLEFT|wxRIGHT, 5`. */
 }
+
+/* DIALOG_NON_COPPER_ZONES_EDITOR (dialog_non_copper_zones_properties_base.cpp). */
+.ze-ncz-upper {
+  display: flex;
+  margin: 5px; /* [data] `m_MainSizer->Add( m_UpperSizer, 1, wxEXPAND|wxALL, 5 )`. */
+}
+.ze-ncz-left {
+  display: flex;
+  flex: 1; /* [data] `m_UpperSizer->Add( bSizerLeft, 1, wxEXPAND, 5 )`. */
+  flex-direction: column;
+}
+.ze-ncz-layers-label {
+  margin: 7px 7px 2px; /* [data] `wxLEFT|wxRIGHT|wxTOP, 7`, then the `Add( 0, 2 )` spacer. */
+}
+.ze-ncz-layer-list {
+  display: flex;
+  flex: 1; /* [data] `m_layers`, proportion 1. */
+  flex-direction: column;
+  overflow-y: auto;
+  border: 1px solid var(--chrome-border); /* [data] wxBORDER_SIMPLE. */
+  margin: 0 5px 10px; /* [data] `wxEXPAND|wxBOTTOM|wxRIGHT|wxLEFT, 5`, then the `Add( 0, 5 )` spacer. */
+}
+.ze-ncz-middle {
+  display: flex;
+  flex-direction: column;
+  margin: 10px 10px 0; /* [data] `m_UpperSizer->Add( bSizerMiddle, 0, wxEXPAND|wxTOP|wxRIGHT|wxLEFT, 10 )`. */
+}
+.ze-ncz-shape {
+  margin-bottom: 5px; /* [data] `bSizerMiddle->Add( sbShape, 0, wxEXPAND|wxBOTTOM, 5 )`. */
+}
+.ze-ncz-fill {
+  margin: 5px 0; /* [data] `bSizerMiddle->Add( sbFill, 0, wxEXPAND|wxTOP|wxBOTTOM, 5 )`. */
+}
+.ze-ncz-grid {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
+  align-items: center;
+}
+.ze-ncz-grid > .lbl,
+.ze-ncz-grid > input,
+.ze-ncz-grid > .ze-combo {
+  margin: 0 5px 5px; /* [data] the grid cells' `wxBOTTOM|wxRIGHT|wxLEFT, 5`. */
+}
+.ze-ncz-grid > .unit {
+  margin: 0 5px 5px 0; /* [data] the units' `wxBOTTOM|wxRIGHT, 5`. */
+}
+.ze-ncz-locked {
+  grid-column: 1 / -1;
+  margin: 5px; /* [data] `m_cbLocked`, `wxALL, 5`. */
+}
+.ze-ncz-gap {
+  grid-column: 1 / -1;
+  height: 5px; /* [data] the gridbag's empty row 1 (a 5px spacer). */
+}
+.ze-ncz .disabled {
+  color: var(--ctl-fg-disabled);
+}

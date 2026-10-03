@@ -9,6 +9,7 @@ packages:
   - "3d-viewer"
   - "pcb_calculator"
   - "designer"
+  - "ai"
   - "libs/*"
   - "bitmaps_png"
   - "qa"

@@ -9,7 +9,19 @@
  */
 import type { COROUTINE_BODY } from './coroutine.js';
 import { TOOL_BASE, type TOOL_ID, type TOOL_STATE_FUNC, TOOL_TYPE } from './tool_base.js';
-import { CONTEXT_MENU_TRIGGER, TC_ANY, TA_ANY, TOOL_EVENT, TOOL_EVENT_LIST } from './tool_event.js';
+import {
+  CONTEXT_MENU_TRIGGER,
+  TA_ACTION,
+  TA_ANY,
+  TC_ANY,
+  TC_MESSAGE,
+  TOOL_EVENT,
+  TOOL_EVENT_LIST,
+  SYNCRONOUS_TOOL_STATE,
+  type SYNCRONOUS_TOOL_STATE_CELL,
+} from './tool_event.js';
+import type { TOOL_ACTION } from './tool_action.js';
+import type { COMMIT } from '../commit.js';
 import { TOOL_MANAGER } from './tool_manager.js';
 import type { ACTION_MENU } from './action_menu.js';
 import { TOOL_MENU } from './tool_menu.js';
@@ -85,6 +97,100 @@ export abstract class TOOL_INTERACTIVE extends TOOL_BASE {
    */
   RunMainStack(aFunc: () => void): void {
     this.m_toolMgr!.RunMainStack(this, aFunc);
+  }
+
+  /**
+   * `RunMainStack( [&]() { result = dialog.ShowModal(); } )` for a dialog that
+   * answers asynchronously, as every dialog does in a browser. The C++ blocks
+   * the coroutine inside the modal loop; here the coroutine waits until the
+   * dialog's promise settles, which posts a message to wake it. Nothing reaches
+   * the canvas while a modal is up, and any event that does arrive meanwhile is
+   * dropped, as the modal loop would have swallowed it. Answers null when the
+   * tool is torn down before the dialog closes.
+   */
+  *RunMainStackModal<T>(aShow: () => Promise<T>): COROUTINE_BODY<T | null> {
+    let settled = false;
+    let value: T | null = null;
+
+    const wake = new TOOL_EVENT(TC_MESSAGE, TA_ACTION, 'common.Interactive.modalClosed');
+
+    // Only the tool at the front of the active stack is woken by that message.
+    // Upstream's modal loop needs no wake, so a handler that runs a dialog
+    // before (or without) Activate() is ported as it is, and activated here.
+    this.Activate();
+
+    void aShow().then(
+      (v) => {
+        value = v;
+        settled = true;
+        this.m_toolMgr!.PostEvent(wake);
+      },
+      () => {
+        settled = true;
+        this.m_toolMgr!.PostEvent(wake);
+      },
+    );
+
+    while (!settled) {
+      const evt = yield* this.Wait();
+
+      if (!evt) return null;
+    }
+
+    return value;
+  }
+
+  /**
+   * `m_toolMgr->RunSynchronousAction( aAction, aCommit, aParam )` from inside a
+   * coroutine. The C++ spins a nested event loop until the invoked tool's
+   * synchronous state leaves STS_RUNNING (an interactive move, say); a browser
+   * has none, so this coroutine starts the action and then waits, passing on
+   * every event it is offered, until the state settles - the cell posts a
+   * message when it does, to wake it. True unless the action was cancelled.
+   */
+  *RunSynchronousActionWait<T = never>(
+    aAction: TOOL_ACTION,
+    aCommit: COMMIT,
+    ...aParam: [T] | []
+  ): COROUTINE_BODY<boolean> {
+    const wake = new TOOL_EVENT(TC_MESSAGE, TA_ACTION, 'common.Interactive.synchronousDone');
+    let state: SYNCRONOUS_TOOL_STATE = SYNCRONOUS_TOOL_STATE.STS_FINISHED;
+    const current = (): SYNCRONOUS_TOOL_STATE => state;
+    const cell: SYNCRONOUS_TOOL_STATE_CELL = {
+      get value(): SYNCRONOUS_TOOL_STATE {
+        return state;
+      },
+      set value(v: SYNCRONOUS_TOOL_STATE) {
+        const wasRunning = state === SYNCRONOUS_TOOL_STATE.STS_RUNNING;
+        state = v;
+
+        if (wasRunning && v !== SYNCRONOUS_TOOL_STATE.STS_RUNNING) mgr.PostEvent(wake);
+      },
+    };
+    const mgr = this.m_toolMgr!;
+
+    const event = aAction.MakeEvent();
+
+    if (aParam.length > 0) event.SetParameter(aParam[0]);
+
+    event.SetSynchronous(cell);
+    event.SetCommit(aCommit);
+
+    // Only an activated tool is woken by the message below; activating first
+    // leaves the invoked tool on top of the stack, where the input goes.
+    this.Activate();
+
+    mgr.ProcessEvent(event);
+
+    while (current() === SYNCRONOUS_TOOL_STATE.STS_RUNNING) {
+      const evt = yield* this.Wait();
+
+      if (!evt) return false;
+
+      evt.SetPassEvent();
+    }
+
+    return current() !== SYNCRONOUS_TOOL_STATE.STS_CANCELLED;
   }
 
   /**

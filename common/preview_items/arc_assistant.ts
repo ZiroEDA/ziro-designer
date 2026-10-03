@@ -23,18 +23,27 @@
  */
 
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
-import { ArcStep } from './arc_geom_manager.js';
-import type { ArcGeomManager } from './arc_geom_manager.js';
-import { DrawContext, type DevicePoint } from './draw_context.js';
+import { ARC_STEPS } from './arc_geom_manager.js';
+import type { ARC_GEOM_MANAGER } from './arc_geom_manager.js';
+import { DRAW_CONTEXT, DrawContext, type DevicePoint } from './draw_context.js';
+import { EDA_ITEM } from '../eda_item.js';
+import type { EdaIuScale, EdaUnits } from '../eda_units.js';
+import { GAL_LAYER_ID } from '../layer_id.js';
+import type { VIEW } from '../view/view.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
+import { sub } from '@ziroeda/kimath/src/math/vector2.js';
 import {
   angleLabel,
+  DimensionLabel,
+  DrawTextNextToCursor,
   dimensionLabel,
   drawTextNextToCursor,
   type PreviewUnits,
 } from './preview_utils.js';
 
 export interface ArcAssistantOptions {
-  mgr: ArcGeomManager;
+  mgr: ARC_GEOM_MANAGER;
   /** World → device pixels, the canvas's own transform. */
   toPx: (p: { x: number; y: number }) => DevicePoint;
   /**
@@ -56,21 +65,21 @@ export interface ArcAssistantOptions {
  * they are depends on the step.
  */
 export function arcCursorStrings(
-  mgr: ArcGeomManager,
+  mgr: ARC_GEOM_MANAGER,
   iuPerMm: number,
   units: PreviewUnits,
 ): string[] {
-  if (mgr.getArcStep() === ArcStep.SET_START) {
+  if (mgr.GetStep() === ARC_STEPS.SET_START) {
     // "haven't started the angle selection phase yet"
-    const initAngle = mgr.getStartAngle().Clone().Normalize720();
+    const initAngle = mgr.GetStartAngle().Clone().Normalize720();
     return [
-      dimensionLabel('r', mgr.getRadius(), iuPerMm, units),
+      dimensionLabel('r', mgr.GetRadius(), iuPerMm, units),
       angleLabel('θ', initAngle.AsDegrees()),
     ];
   }
 
-  const start = mgr.getStartAngle();
-  const subtended = mgr.getSubtended();
+  const start = mgr.GetStartAngle();
+  const subtended = mgr.GetSubtended();
   const normalizedEnd = start.add(subtended).Normalize180();
 
   return [angleLabel('Δθ', subtended.AsDegrees()), angleLabel('θ', normalizedEnd.AsDegrees())];
@@ -81,7 +90,7 @@ export function drawArcAssistant(ctx: CanvasRenderingContext2D, o: ArcAssistantO
   const mgr = o.mgr;
 
   // "not in a position to draw anything"
-  if (mgr.isReset()) return;
+  if (mgr.IsReset()) return;
 
   const dc = new DrawContext(ctx, {
     color: o.color,
@@ -89,27 +98,27 @@ export function drawArcAssistant(ctx: CanvasRenderingContext2D, o: ArcAssistantO
     devicePixelRatio: o.devicePixelRatio,
   });
 
-  const originPx = o.toPx(mgr.getOrigin());
-  const step = mgr.getArcStep();
+  const originPx = o.toPx(mgr.GetOrigin());
+  const step = mgr.GetStep();
 
   // The first radius line, dimmed once it is no longer the one being set.
   dc.drawLineWithAngleHighlight(
     originPx,
-    o.toPx(mgr.getStartRadiusEnd()),
-    step > ArcStep.SET_START,
+    o.toPx(mgr.GetStartRadiusEnd()),
+    step > ARC_STEPS.SET_START,
   );
 
-  if (step === ArcStep.SET_START) {
+  if (step === ARC_STEPS.SET_START) {
     // "draw the radius guide circle", dimmed.
-    dc.drawCircle(originPx, mgr.getRadius() * Math.abs(o.worldScale), true);
+    dc.drawCircle(originPx, mgr.GetRadius() * Math.abs(o.worldScale), true);
   } else {
-    dc.drawLineWithAngleHighlight(originPx, o.toPx(mgr.getEndRadiusEnd()), false);
+    dc.drawLineWithAngleHighlight(originPx, o.toPx(mgr.GetEndRadiusEnd()), false);
     // "draw dimmed extender line to cursor" — the cursor is off the arc,
     // because the radius was fixed by the previous click.
-    dc.drawLineWithAngleHighlight(originPx, o.toPx(mgr.getLastPoint()), true);
+    dc.drawLineWithAngleHighlight(originPx, o.toPx(mgr.GetLastPoint()), true);
   }
 
-  const lastPx = o.toPx(mgr.getLastPoint());
+  const lastPx = o.toPx(mgr.GetLastPoint());
 
   drawTextNextToCursor(ctx, {
     cursor: lastPx,
@@ -132,14 +141,115 @@ export function drawArcAssistant(ctx: CanvasRenderingContext2D, o: ArcAssistantO
  * Deriving the mid from the signed sweep is that same rule stated for a
  * three-point arc: bisect the sweep the manager actually reports.
  */
-export function arcMidPoint(mgr: ArcGeomManager): { x: number; y: number } {
-  const origin = mgr.getOrigin();
-  const r = Math.trunc(mgr.getRadius());
+export function arcMidPoint(mgr: ARC_GEOM_MANAGER): { x: number; y: number } {
+  const origin = mgr.GetOrigin();
+  const r = Math.trunc(mgr.GetRadius());
   // `GetStartAngle` and `GetSubtended` are both negated relative to screen
   // angles, so negate once more to get back to the atan2 convention the
   // canvas draws in.
-  const startScreen = -mgr.getStartAngle().AsDegrees();
-  const halfSweep = -mgr.getSubtended().AsDegrees() / 2;
+  const startScreen = -mgr.GetStartAngle().AsDegrees();
+  const halfSweep = -mgr.GetSubtended().AsDegrees() / 2;
   const a = new EDA_ANGLE(startScreen + halfSweep);
   return { x: origin.x + Math.round(r * a.Cos()), y: origin.y + Math.round(r * a.Sin()) };
+}
+
+/**
+ * `KIGFX::PREVIEW::ARC_ASSISTANT` (common/preview_items/arc_assistant.cpp): the
+ * arc tool's guides as a VIEW item on the overlay - the first radius (dimmed
+ * once the start is set), the radius guide circle with r and theta while the
+ * start is placed, then the end radius, the dimmed extender to the cursor, and
+ * delta-theta and theta - drawn through the GAL.
+ */
+export class ARC_ASSISTANT extends EDA_ITEM {
+  private m_units: EdaUnits;
+
+  constructor(
+    private readonly m_constructMan: ARC_GEOM_MANAGER,
+    private readonly m_iuScale: EdaIuScale,
+    aUnits: EdaUnits,
+  ) {
+    super(KICAD_T.NOT_USED);
+    this.m_units = aUnits;
+  }
+
+  override ViewBBox(): BOX2I {
+    const tmp = new BOX2I();
+
+    // no bounding box when no graphic shown
+    if (this.m_constructMan.IsReset()) return tmp;
+
+    // this is an edit-time artifact; no reason to try and be smart with the bounding box
+    // (besides, we can't tell the text extents without a view to know what the scale is)
+    tmp.SetMaximum();
+    return tmp;
+  }
+
+  override ViewGetLayers(): number[] {
+    return [GAL_LAYER_ID.LAYER_SELECT_OVERLAY, GAL_LAYER_ID.LAYER_GP_OVERLAY];
+  }
+
+  override GetClass(): string {
+    return 'ARC_ASSISTANT';
+  }
+
+  SetUnits(aUnits: EdaUnits): void {
+    this.m_units = aUnits;
+  }
+
+  override ViewDraw(aLayer: number, aView: VIEW): void {
+    const gal = aView.GetGAL()!;
+
+    // not in a position to draw anything
+    if (this.m_constructMan.IsReset()) return;
+
+    gal.ResetTextAttributes();
+
+    const origin = this.m_constructMan.GetOrigin();
+    const preview_ctx = new DRAW_CONTEXT(aView);
+
+    // draw first radius line
+    const dimFirstLine = this.m_constructMan.GetStep() > ARC_STEPS.SET_START;
+
+    preview_ctx.DrawLineWithAngleHighlight(
+      origin,
+      this.m_constructMan.GetStartRadiusEnd(),
+      dimFirstLine,
+    );
+
+    const cursorStrings: string[] = [];
+
+    if (this.m_constructMan.GetStep() === ARC_STEPS.SET_START) {
+      // haven't started the angle selection phase yet
+      const initAngle = this.m_constructMan.GetStartAngle().Normalize720();
+
+      // draw the radius guide circle
+      preview_ctx.DrawCircle(origin, this.m_constructMan.GetRadius(), true);
+
+      cursorStrings.push(
+        DimensionLabel('r', this.m_constructMan.GetRadius(), this.m_iuScale, this.m_units),
+      );
+      cursorStrings.push(DimensionLabel('θ', initAngle.AsDegrees(), this.m_iuScale, 'degrees'));
+    } else {
+      preview_ctx.DrawLineWithAngleHighlight(origin, this.m_constructMan.GetEndRadiusEnd(), false);
+
+      const start = this.m_constructMan.GetStartAngle();
+      const subtended = this.m_constructMan.GetSubtended();
+      const normalizedEnd = start.add(subtended).Normalize180();
+
+      // draw dimmed extender line to cursor
+      preview_ctx.DrawLineWithAngleHighlight(origin, this.m_constructMan.GetLastPoint(), true);
+
+      cursorStrings.push(DimensionLabel('Δθ', subtended.AsDegrees(), this.m_iuScale, 'degrees'));
+      cursorStrings.push(DimensionLabel('θ', normalizedEnd.AsDegrees(), this.m_iuScale, 'degrees'));
+    }
+
+    // place the text next to cursor, on opposite side from radius
+    DrawTextNextToCursor(
+      aView,
+      this.m_constructMan.GetLastPoint(),
+      sub(origin, this.m_constructMan.GetLastPoint()),
+      cursorStrings,
+      aLayer === GAL_LAYER_ID.LAYER_SELECT_OVERLAY,
+    );
+  }
 }

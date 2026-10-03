@@ -36,7 +36,7 @@
 
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import type { PnsItem } from './pns_item.js';
-import { PnsSizesSettings, type PnsViaTypeSetting } from './pns_sizes_settings.js';
+import { PnsSizesSettings } from './pns_sizes_settings.js';
 
 /** `LOGGER::EVENT_TYPE` — pns_logger.h:46-55. */
 export enum PnsLoggerEventType {
@@ -68,19 +68,6 @@ function defaultEntry(): PnsLoggerEventEntry {
     layer: 0,
   };
 }
-
-/** `static_cast<int>( VIATYPE )`, matching `pcb_track_types.ts`'s `VIATYPE`
- *  ints exactly (`THROUGH`=4, `BURIED`=3, `BLIND`=2, `MICROVIA`=1). Local to
- *  this one debug-format line: nothing else in `router/` needs a
- *  `PnsViaTypeSetting → int` conversion, so there is no central copy to
- *  reuse. `NOT_DEFINED`=0 has no `PnsViaTypeSetting` spelling and so cannot
- *  occur here. */
-const VIA_TYPE_INT: Record<PnsViaTypeSetting, number> = {
-  through: 4,
-  buried: 3,
-  blind: 2,
-  micro: 1,
-};
 
 /** `wxAtoi`: the leading integer, or 0 for anything that isn't one
  *  (including an empty token, which `wxStringTokenizer::GetNextToken()`
@@ -159,7 +146,7 @@ export class PnsLogger {
       s.trackWidthIsExplicit() ? 1 : 0,
       s.getLayerBottom(),
       s.getLayerTop(),
-      VIA_TYPE_INT[s.viaType()],
+      s.viaType() as number,
     ].join(' ');
 
     str += '\n';

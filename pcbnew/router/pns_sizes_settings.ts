@@ -18,10 +18,10 @@
  * `BOARD` and belong with the router's board interface rather than here.
  */
 
-import type { PcbVia } from '../types.js';
+import { VIATYPE } from '../pcb_track_types.js';
 
 /** `VIATYPE`, spelled as this repo already spells it on a board via. */
-export type PnsViaTypeSetting = PcbVia['kind'];
+export type PnsViaTypeSetting = VIATYPE;
 
 /**
  * The plain-object spelling of the same settings, as `PnsRouter` stores them.
@@ -45,7 +45,7 @@ export class PnsSizesSettings {
   private mTrackWidthIsExplicit = true;
   private mViaDiameter = 0;
   private mViaDrill = 0;
-  private mViaType: PnsViaTypeSetting = 'through';
+  private mViaType: PnsViaTypeSetting = VIATYPE.THROUGH;
   private mLayerTop = 0;
   private mLayerBottom = 0;
 

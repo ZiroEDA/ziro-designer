@@ -25,6 +25,14 @@ export class ADVANCED_CFG {
   m_DisambiguationMenuDelay = 500;
 
   /**
+   * Set the maximum number of characters that can be pasted without warning.
+   * Pasting very long text strings can cause the application to freeze for a
+   * long time and are probably not what the user intended.
+   * Setting name: "MaxPastedTextLength"; default 100.
+   */
+  m_MaxPastedTextLength = 100;
+
+  /**
    * Ratio by which a PCB selection's item visibility must exceed the visibility of items
    * obscuring it before it is considered a candidate (`PCB_SELECTION_TOOL::
    * pruneObscuredSelectionCandidates`). 1.0 turns the pruning off.
@@ -108,6 +116,30 @@ export class ADVANCED_CFG {
    * Default value: 0.0005
    */
   m_ExtraClearance = 0.0005;
+
+  /**
+   * Dump the zone filler's intermediate poly sets onto the inner copper layers.
+   *
+   * Setting name: "DebugZoneFiller"
+   * Default value: false
+   */
+  m_DebugZoneFiller = false;
+
+  /**
+   * The simplification level VERTEX_SET uses when triangulating or connecting.
+   *
+   * Setting name: "TriangulateSimplificationLevel"
+   * Default value: 50
+   */
+  m_TriangulateSimplificationLevel = 50;
+
+  /**
+   * Refill zones that overlap ones whose islands were removed, until the fills converge.
+   *
+   * Setting name: "ZoneFillIterativeRefill"
+   * Default value: true
+   */
+  m_ZoneFillIterativeRefill = true;
 
   /**
    * Enable the minimum slot width check for creepage

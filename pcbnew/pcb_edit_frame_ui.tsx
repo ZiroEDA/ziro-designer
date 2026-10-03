@@ -10,7 +10,11 @@
  * viewer pipeline, layer/object controls and presets are fully functional.
  */
 
-import type { OutStr } from '@ziroeda/common/eda_item.js';
+import { ParseFootprintFile } from './pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import type { PcbScriptApi } from './pcb_script_api.js';
+import { routeHeadless } from './router/route_headless.js';
+import { PnsDesignSettingsFromBds } from './router/pns_kicad_iface.js';
+import { DEFAULT_UPDATE_PCB_OPTIONS } from './dialogs/dialog_update_pcb.js';
 import { type ARC_EDIT_MODE, FRAME_T } from '@ziroeda/common/frame_type.js';
 import type { KIWAY } from '@ziroeda/common/kiway.js';
 import type { PCBNEW_APP } from './browser/pcbnew_app.js';
@@ -18,55 +22,25 @@ import { jsonFileWildcard, reportFileWildcard } from '@ziroeda/common/wildcards_
 import { type ChooserFilter, WxFileDialog } from '@ziroeda/common/wx/filedlg.js';
 import { KICTL_NONKICAD_ONLY } from '@ziroeda/common/kiway_player.js';
 import { DialogAssignNetclass } from '@ziroeda/common/dialogs/dialog_assign_netclass.js';
-import { connectedItemIdsOnNets } from './edit-board.js';
 import { EDA_VIEW_SWITCHER } from '@ziroeda/common/dialogs/eda_view_switcher.js';
 import { WxTextEntryDialog } from '@ziroeda/common/wx/textdlg.js';
 import { WX_TEXT_ENTRY_DIALOG } from '@ziroeda/common/dialogs/dialog_text_entry.js';
-import { Pgm } from '@ziroeda/common/pgm_base.js';
+import { Pgm, PgmOrNull } from '@ziroeda/common/pgm_base.js';
+import type { PCBNEW_SETTINGS } from './pcbnew_settings.js';
 import { PCB_IU_PER_MM } from '@ziroeda/common/eda_units.js';
-import { editPointColors } from '@ziroeda/common/gal/color4d.js';
-import { galPenWidth, galSnapPx } from '@ziroeda/common/gal_pixel_grid.js';
 import {
   drawSelectionArea,
   isBackgroundDark,
   selectionAreaColors,
 } from '@ziroeda/common/preview_items/selection_area.js';
-import { BezierStep } from '@ziroeda/common/preview_items/bezier_geom_manager.js';
-import { PolygonGeomManager } from '@ziroeda/common/preview_items/polygon_geom_manager.js';
-import { COLOR4D_WHITE, brightness, cssWithAlpha, toCss } from '@ziroeda/common/gal/color4d.js';
-import { drawPolygonItem } from '@ziroeda/common/preview_items/polygon_item.js';
 import { DialogRuleAreaProperties } from './dialogs/dialog_rule_area_properties_ui.js';
 import type { PROGRESS_REPORTER_LIKE } from './connectivity/connectivity_algo.js';
 import { PROF_TIMER, traceAllegroPerf, wxLogTrace } from '@ziroeda/common/trace_helpers.js';
-import { placeImportedItems, placeVia } from './tools/drawing_tool.js';
 import {
   collectPlacementSources,
-  DEFAULT_RULE_AREA_KEEPOUT,
   DIALOG_RULE_AREA_PROPERTIES,
-  uniqueZoneName,
   type RuleAreaValues,
-  type ZoneBorderStyle,
 } from './dialogs/dialog_rule_area_properties.js';
-import { TWO_POINT_GEOMETRY_MANAGER } from '@ziroeda/common/preview_items/two_point_geom_manager.js';
-import { ArcGeomManager, ArcStep } from '@ziroeda/common/preview_items/arc_geom_manager.js';
-import { arcMidPoint, drawArcAssistant } from '@ziroeda/common/preview_items/arc_assistant.js';
-import {
-  drawTwoPointAssistant,
-  type TwoPointShape,
-} from '@ziroeda/common/preview_items/two_point_assistant.js';
-import {
-  LeaderMode,
-  vectorSnapped45,
-  vectorSnapped90,
-} from '@ziroeda/kimath/src/geometry/geometry_utils.js';
-import { segLineDistance } from '@ziroeda/kimath/src/geometry/seg.js';
-import { simplifyLineChain } from '@ziroeda/kimath/src/geometry/shape_line_chain.js';
-import {
-  EDIT_LINE_WIDTH,
-  EDIT_POINT_BORDER_SIZE,
-  EDIT_POINT_HOVER_SIZE,
-  EDIT_POINT_SIZE,
-} from '@ziroeda/common/preview_items/edit_points.js';
 import { zoomFitScale } from '@ziroeda/common/ui/view_controls.js';
 import { DockSash } from '@ziroeda/common/widgets/wx_aui_sash.js';
 import { onOutlineFontsChanged } from '@ziroeda/common/font/outline_fonts.js';
@@ -83,16 +57,9 @@ import { useStatusReadout } from '@ziroeda/common/use_status_readout.js';
  * A module constant so its identity is stable across renders.
  */
 const PCB_LOCAL_ORIGIN = { x: 0, y: 0 };
-import { drawRulerItem, rulerEnd } from '@ziroeda/common/preview_items/ruler_item.js';
 import { boardToolCursor } from './cursors.js';
 import { pickerSnapsToGridOnly } from './tools/pcb_picker_tool.js';
-import {
-  groupBoxSegments,
-  groupLabelAnchor,
-  groupLabelFits,
-  groupLabelTextSize,
-} from './group_box.js';
-import { appearanceLayerRows, layerTooltip } from './widgets/appearance_controls.js';
+import { appearanceLayerRows } from './widgets/appearance_controls.js';
 import {
   ZOOM_AUTO_LABEL,
   ZOOM_LIST,
@@ -101,177 +68,60 @@ import {
 } from '@ziroeda/common/settings/zoom_settings.js';
 
 import type { FitType } from '@ziroeda/common/ui/view_controls.js';
-import { pcbIUScale, pcbIuToMM as iuToMM, pcbMmToIU as mmToIU } from '@ziroeda/common';
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type CSSProperties,
-  type JSX,
-  type ReactNode,
-} from 'react';
+import { pcbIUScale, pcbIuToMM as iuToMM } from '@ziroeda/common';
+import { useCallback, useEffect, useMemo, useRef, useState, type JSX, type ReactNode } from 'react';
 import { parse } from '@ziroeda/sexpr';
 import {
   readBoard,
-  boardHitCandidates,
   allBoardItemIds,
   boardItemBBox,
   parseBoardItemId,
-  pcbMsgPanelInfo,
-  moveBoardItems,
-  dragBoardItems,
-  connectedTrackEnds,
   boardItemId,
-  subsetBoardItems,
-  deleteBoardItems,
-  groupBoardItems,
-  expandGroupIds,
-  filterSelectionForFreePads,
-  startTrackDrag,
-  updateTrackDrag,
-  trackDragSegments,
-  applyTrackDrag,
-  type TrackDrag,
-  groupContaining,
-  setBoardItemsLocked,
   isBoardItemLocked,
-  isCopperLayerName,
-  setBoardPageSettings,
   serializeBoard,
   serializeBoardAsync,
-  beginCourtyardConflicts,
-  placeFootprint as placeLibraryFootprint,
-  toggleLocalRatsnest,
-  type LocalRatsnestHit,
-  courtyardConflictsAt,
-  prepareLocalRatsnest,
-  type CourtyardConflicts,
-  type CourtyardConflictSession,
-  addBoardShape,
-  addBoardTrack,
-  addBoardVia,
-  addBoardText,
-  addBoardPoint,
-  addBoardZone,
-  setBoardOrigin,
-  DEFAULT_POINT_SIZE,
   type Board,
   type BoardBBox,
   type BoardItemKind,
   type PcbFootprint,
-  type PcbShape,
-  type PcbPad,
-  DEFAULT_SELECTION_FILTER,
-  defaultRotationAnchor,
-  boardSelectionBBox,
-  itemAnchorPoint,
   boardGridOrigin,
-  modifyLines,
   modifiableLineCount,
-  type LineModification,
-  polygonBoolean,
   booleanableShapeCount,
-  type PolygonBoolean,
   type SelectionFilter,
   BOARD_NETLIST_UPDATER,
-  spreadBoardFootprints,
   type NETLIST,
-  fillZones,
-  zoneClearanceOf,
-  bezierClick,
-  bezierInFlight,
-  bezierPreviewCurve,
-  type BezierInFlight,
-  boardEditHandles,
-  boardIndicatorLines,
-  dragBoardHandle,
-  type BoardEditHandle,
-  type BoardIndicatorLine,
-  addBoardDimension,
-  addBoardTextBox,
-  addBoardTable,
-  moveTable,
-  clickDimension,
-  dimensionSegments,
-  dimensionSnapsToGrid,
-  moveDimension,
-  startDimension,
-  type DimensionDraw,
-  type DimensionKind,
-  type PcbTable,
-  type PcbTextBox,
-  addBoardImage,
-  imageAt,
   type ImageValues,
-  cancelPlaceImage,
-  clickImage,
   boardAuxOrigin,
-  fileChosen,
-  imageBBox,
-  moveImage,
-  startPlaceImage,
-  type ImagePlaceState,
   crossProbeSelection,
   boardSyncSelectionParts,
   crossProbeViewChange,
   crossProbeFlashSelection,
   CROSS_PROBE_FLASH_INTERVAL_MS,
   CROSS_PROBE_FLASH_LAST_PHASE,
-  addBoardBarcode,
-  setBoardBarcode,
-  type PcbBarcode,
 } from './index.js';
 import {
-  applyBarcodeValues,
-  barcodeAt,
-  barcodeValues,
+  barcodePreview,
   DIALOG_BARCODE_PROPERTIES,
+  type BarcodePreview,
+  type BarcodeValues,
 } from './dialogs/dialog_barcode_properties.js';
 import { DialogBarcodeProperties } from './dialogs/dialog_barcode_properties_ui.js';
-import { AUTOPLACE_TOOL } from './autorouter/autoplace_tool.js';
 import { DialogImportGraphics } from './import_gfx/dialog_import_graphics.js';
 import { GetLayerName, IsCopperLayer } from '@ziroeda/common/layer_ids.js';
-import {
-  boardIsEmpty,
-  hasLockedItems,
-  hasUnlockedItems,
-} from './tools/pcb_selection_conditions.js';
-import { Icon } from '@ziroeda/common/widgets/icons.js';
-import { applyPnsChanges, PnsSession } from './router/router_tool.js';
-import { PnsRouterMode } from './router/pns_router.js';
-import type { PnsDesignSettings } from './router/pns_kicad_iface.js';
+import { hasLockedItems, hasUnlockedItems } from './tools/pcb_selection_conditions.js';
 import { Infobar } from '@ziroeda/common/widgets/wx_infobar.js';
-import { ReferenceImageCache } from './pcb_reference_image.js';
+import { useHotkeyCyclePopup } from '@ziroeda/common/dialogs/hotkey_cycle_popup_ui.js';
+import type { WX_INFOBAR, WX_INFOBAR_HYPERLINK } from '@ziroeda/common/eda_base_frame.js';
 import { buildPcbMenus } from './menubar_pcb_editor.js';
-import { dimensionDefaultsFrom, dimensionToolKind } from './tools/drawing_tool.js';
 import { DialogDimensionProperties } from './dialogs/dialog_dimension_properties_ui.js';
 import { DialogTextBoxProperties } from './dialogs/dialog_textbox_properties_ui.js';
 import { DialogReferenceImageProperties } from './dialogs/dialog_reference_image_properties_ui.js';
 import { DialogTableProperties } from '@ziroeda/common/dialogs/dialog_table_properties.js';
+import { DIALOG_TABLE_PROPERTIES, type TableValues } from './dialogs/dialog_table_properties.js';
 import {
-  applyTableValues,
-  collectTableValues,
-  DIALOG_TABLE_PROPERTIES,
-  isBackLayer,
-  tableAt,
-  type TableValues,
-} from './dialogs/dialog_table_properties.js';
-import {
-  applyTextBoxValues,
-  collectTextBoxValues,
   DIALOG_TEXTBOX_PROPERTIES,
-  textBoxAt,
   type TextBoxValues,
 } from './dialogs/dialog_textbox_properties.js';
-import { isDrawableTextBox, newTextBox } from './draw_textbox.js';
-import { newTable, type TableDefaults } from './draw_table.js';
-
-/** An empty source node, for an item that has not been saved yet. */
-
-/** Stable empty/`toggleOrtho`-only sets for the 3D toolbar's `toggled` prop. */
-const EMPTY_IDS: ReadonlySet<string> = new Set();
 
 /**
  * The editor's selection (view ids) as the live PCB_SELECTION the tools take,
@@ -291,6 +141,14 @@ function liveSelection(aBoard: Board, aIds: Iterable<string>): PCB_SELECTION {
 // `${kind}:${index}` ids over the legacy `Board` view (`edit-board.ts`). `PCB_SEARCH_PANE`'s hitlist and
 // `PCB_VERTEX_EDITOR_PANE`'s item are `BOARD_ITEM`s; every legacy item carries the live one as `k`.
 /** The id of the legacy item that wraps `aItem`, or null when the view has none. */
+/** KiCad's pane names (`PCB_EDIT_FRAME::SearchPaneName` and friends), as the window's toggle ids. */
+const PANE_TOGGLE_IDS: Readonly<Record<string, string>> = {
+  LayersManager: 'showLayersManager',
+  PropertiesManager: 'showProperties',
+  Search: 'showSearch',
+  NetInspector: 'showNetInspector',
+};
+
 export function legacyIdOf(aBoard: Board, aItem: EDA_ITEM): string | null {
   const find = (aList: readonly { k?: unknown }[] | undefined): number =>
     aList ? aList.findIndex((x) => x.k === aItem) : -1;
@@ -515,39 +373,25 @@ export function makePcbSearchWiring(aDeps: PcbSearchWiringDeps): PcbSearchWiring
   };
 }
 
-const ORTHO_ON: ReadonlySet<string> = new Set(['toggleOrtho']);
 import {
   DIALOG_DIMENSION_PROPERTIES,
-  dimensionAt,
   type DimensionValues,
 } from './dialogs/dialog_dimension_properties.js';
 import { Reporter, type ReportLine } from '@ziroeda/common';
-import { netClassClearanceMM } from '@ziroeda/common';
-import {
-  MenuBar,
-  ContextMenu,
-  type Menu,
-  type MenuItem,
-} from '@ziroeda/common/tool/action_menu_bar.js';
+import { MenuBar, ContextMenu, type Menu } from '@ziroeda/common/tool/action_menu_bar.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
-import { layerBoxLabel, layerForHotkey } from './pcb_layer_box_selector.js';
+import { layerBoxLabel } from './pcb_layer_box_selector.js';
 import { Toolbar } from '@ziroeda/common/tool/action_toolbar.js';
 import { formatTitle, useDocumentTitle } from '@ziroeda/common/use_document_title.js';
 import { PCB_FRAME_NAME, pcbFrameTitle } from './pcb_edit_frame.js';
 import { withSaveEnablement } from '@ziroeda/common/save_enablement.js';
-import {
-  copySelectionToClipboardText,
-  cutSelectionToClipboardText,
-  parseClipboardText,
-  pasteIntoBoard,
-  type PasteMode,
-} from './kicad_clipboard.js';
 import {
   DialogPasteSpecial,
   type PasteSpecialMode,
 } from '@ziroeda/common/dialogs/dialog_paste_special.js';
 import { KiStatusBar } from '@ziroeda/common/widgets/kistatusbar.js';
 import { MsgPanel, type MsgPanelItem } from '@ziroeda/common/widgets/msgpanel_ui.js';
+import type { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
 import {
   gridMsg,
   messageTextFromValue,
@@ -576,48 +420,34 @@ import {
   findProjectPro,
   type PCBNEW_JSON_SETTINGS_LIKE,
 } from './pcb_edit_frame.js';
-import { clampMaxErrorMM } from './board_settings.js';
-import type { TextGfxRow } from './board_settings.js';
 import { BoardSetupFromWindow, BoardSetupToWindow } from './dialogs/board_setup_transfer.js';
 import { DumpJson } from '@ziroeda/common/settings/json_dump.js';
 import type { BOARD } from './board.js';
 import { DialogDrc } from './dialogs/dialog_drc.js';
 import { DialogUpdatePcb, type UpdatePcbOptions } from './dialogs/dialog_update_pcb.js';
 import { DialogGlobalEditTeardrops } from './dialogs/dialog_global_edit_teardrops_ui.js';
-import {
-  BOARD_DESIGN_SETTINGS,
-  DIFF_PAIR_DIMENSION,
-  VIA_DIMENSION,
-} from './board_design_settings.js';
 import { BuildBomTextFromBoard } from './build_BOM_from_board.js';
 import { DialogBoardStatistics } from './dialogs/dialog_board_statistics.js';
 import { DialogFilterSelection } from './dialogs/dialog_filter_selection_ui.js';
-import {
-  type MOVE_EXACT_VALUES,
-  PNS_DRAG_MODE,
-  ROTATION_ANCHOR,
-  type ROUTER_TOOL_LIKE,
-} from './tools/edit_tool.js';
+import { type MOVE_EXACT_VALUES, ROTATION_ANCHOR } from './tools/edit_tool.js';
 import type { DOGBONE_PARAMETERS } from './tools/item_modification_routine.js';
 import type { TOOL_ACTION } from '@ziroeda/common/tool/tool_action.js';
 import type { BOX2I as KBOX2I } from '@ziroeda/kimath/src/math/box2.js';
 
 /** `ROTATION_ANCHOR` in DIALOG_MOVE_EXACT's order, as the dialog names them. */
 const ROTATION_ANCHOR_NAMES = ['itemAnchor', 'selectionCenter', 'userOrigin', 'auxOrigin'] as const;
-import { type WINDOW_ACTION_HANDLER } from './tools/window_action_bridge.js';
+import type { GATED_DISPATCHER, WINDOW_ACTION_HANDLER } from './tools/window_action_bridge.js';
 import type { ACTION_MENU } from '@ziroeda/common/tool/action_menu.js';
 import { actionMenuItems } from '@ziroeda/common/tool/action_menu_popup.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
-import { GroupMenuState } from '@ziroeda/common/tool/group_tool.js';
-import { CONDITIONAL_MENU } from '@ziroeda/common/tool/conditional_menu.js';
 import { EVENTS } from '@ziroeda/common/tool/tool_event.js';
 import * as KIPLATFORM_UI from '@ziroeda/common/kiplatform/ui.js';
 import { wxMenuEvent, wxMenuEventType } from '@ziroeda/common/wx/menu.js';
 import { clientPosition, wxKeyEventFromDom } from '@ziroeda/common/wx/dom_events.js';
 import {
   type wxEvent,
+  wxEVT_CHAR,
   wxEVT_CHAR_HOOK,
-  wxEVT_LEFT_DOWN,
   wxKeyEvent,
   wxMouseEvent,
 } from '@ziroeda/common/wx/wx_event.js';
@@ -631,21 +461,20 @@ import {
   arraySpecFrom,
   type ArraySettings,
 } from './dialogs/dialog_create_array.js';
-import {
-  handleAtPoint,
-  handleDragTarget,
-  handleTolerance,
-} from './tools/pcb_point_editor_canvas.js';
 import { DialogOutsetItems } from './dialogs/dialog_outset_items_ui.js';
 import { DIALOG_OUTSET_ITEMS } from './dialogs/dialog_outset_items.js';
 import { CONVERT_SETTINGS_DIALOG } from './tools/convert_settings_dialog.js';
 import { ConvertSettingsDialog } from './tools/convert_settings_dialog_ui.js';
-import type { CONVERT_TOOL } from './tools/convert_tool.js';
-import type { BOARD_INSPECTION_TOOL } from './tools/board_inspection_tool.js';
 import type { OUTSET_PARAMETERS } from './tools/item_modification_routine.js';
 import type { CONVERT_SETTINGS } from './pcbnew_settings.js';
 import type { ZONE_SETTINGS } from './zone_settings.js';
 import { DialogPnsSettings } from './dialogs/dialog_pns_settings.js';
+import {
+  DialogPnsDiffPairDimensions,
+  type DiffPairDimensionsValue,
+} from './dialogs/dialog_pns_diff_pair_dimensions.js';
+import { type CustomTrackViaSize, DialogTrackViaSize } from './dialogs/dialog_track_via_size.js';
+import type { RoutingSettings } from './router/pns_routing_settings.js';
 import { DialogPositionRelativeModeless } from './dialogs/dialog_position_relative_ui.js';
 import type { DIALOG_POSITION_RELATIVE } from './dialogs/dialog_position_relative.js';
 import { DialogOffsetItem } from './dialogs/dialog_offset_item_ui.js';
@@ -657,6 +486,9 @@ import { DialogUnusedPadLayers } from './dialogs/dialog_unused_pad_layers_ui.js'
 import { DialogGlobalDeletion } from './dialogs/dialog_global_deletion_ui.js';
 import { DialogGlobalEditTracksAndVias } from './dialogs/dialog_global_edit_tracks_and_vias_ui.js';
 import { DialogExchangeFootprints } from './dialogs/dialog_exchange_footprints_ui.js';
+import { DialogNonCopperZonesProperties } from './dialogs/dialog_non_copper_zones_properties_ui.js';
+import type { PCB_TABLE } from './pcb_table.js';
+import { DIALOG_NON_COPPER_ZONES_EDITOR } from './dialogs/dialog_non_copper_zones_properties.js';
 import type { DIALOG_EXCHANGE_FOOTPRINTS } from './dialogs/dialog_exchange_footprints.js';
 import {
   DialogGlobalEditTextAndGraphics,
@@ -682,18 +514,17 @@ import {
   DialogBookReporterModeless,
 } from '@ziroeda/common/dialogs/dialog_book_reporter_ui.js';
 import type { DIALOG_BOOK_REPORTER } from '@ziroeda/common/dialogs/dialog_book_reporter.js';
-import { inspectReport, describeSelected } from './tools/board_inspection_tool.js';
+import { inspectReport } from './tools/board_inspection_tool.js';
 import { netClassFor, netclassesForNet } from '@ziroeda/common/netclass_resolve.js';
 // APPEARANCE_CONTROLS is ONE widget that PCB_EDIT_FRAME and
 // FOOTPRINT_EDIT_FRAME both construct, so the panel, its Objects table and its
 // presets live in `widgets/` and this frame supplies only its own data.
-import { AppearanceControls, type AppearanceTab } from './widgets/appearance_controls.js';
+import { AppearanceControls } from './widgets/appearance_controls.js';
 import {
   DEFAULT_OBJECTS,
   DEFAULT_OPACITY,
   OBJECT_ROWS,
   toggleObject,
-  type ObjectOpacity,
   type ObjectState,
 } from './widgets/appearance_controls.js';
 import {
@@ -715,8 +546,6 @@ import { drawConstructionGeom } from '@ziroeda/common/preview_items/construction
 import { drawSnapIndicator } from '@ziroeda/common/preview_items/snap_indicator.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { type BoardCursorSnap, snapToBoardCopper } from './pcb_cursor_snap.js';
-import { inheritTrackWidth } from './inherit_track_width.js';
-import { moveDelta } from './pcb_edit_frame.js';
 import { parseDrcRules } from './drc/drc_rule_view.js';
 import { DialogTrackViaProperties } from './dialogs/dialog_track_via_properties_ui.js';
 import { DialogCopperZones } from './dialogs/dialog_copper_zones.js';
@@ -739,12 +568,10 @@ import {
   footprintAt,
   type FootprintValues,
 } from './dialogs/dialog_footprint_properties.js';
-import { zoneItemDescription } from './item_description.js';
 import { DialogPadProperties } from './dialogs/dialog_pad_properties_ui.js';
 import { DialogShapeProperties } from './dialogs/dialog_graphic_properties.js';
 import { DialogTextProperties } from './dialogs/dialog_text_properties_ui.js';
 import {
-  applyTextValues,
   DIALOG_TEXT_PROPERTIES,
   textAt,
   type TextValues,
@@ -761,14 +588,7 @@ import {
   type PadRef,
   type PadValues,
 } from './dialogs/dialog_pad_properties.js';
-import {
-  applyZoneValues,
-  collectZoneValues,
-  DIALOG_COPPER_ZONE,
-  uniqueZonePriority,
-  zoneAt,
-  type ZoneValues,
-} from './dialogs/panel_zone_properties.js';
+import { DIALOG_COPPER_ZONE, zoneAt, type ZoneValues } from './dialogs/panel_zone_properties.js';
 import {
   DIALOG_TRACK_VIA_PROPERTIES,
   hasTrackOrVia,
@@ -778,12 +598,9 @@ import {
 } from './dialogs/dialog_track_via_properties.js';
 import { useKiDialog } from '@ziroeda/common/kidialog.js';
 import type { DIALOG_GLOBAL_EDIT_TEARDROPS } from './dialogs/dialog_global_edit_teardrops.js';
-import { SKIP_TEARDROPS } from './board_commit.js';
 import {
   boardFromBOARD,
   boardItemOfViewId,
-  footprintViewOfBoard,
-  tableView,
   viewIdOfBoardItem,
 } from './pcb_io/kicad_sexpr/board_view.js';
 import { DisplayErrorMessage, IsOK } from '@ziroeda/common/confirm.js';
@@ -791,9 +608,7 @@ import { EDA_ANGLE, EDA_ANGLE_T } from '@ziroeda/kimath/src/geometry/eda_angle.j
 import { DIALOG_REFERENCE_IMAGE_PROPERTIES } from './dialogs/dialog_reference_image_properties.js';
 import { ARRAY_TOOL } from './tools/array_tool.js';
 import { PCB_SELECTION } from './tools/pcb_selection.js';
-import { Build_Board_Characteristics_Table } from './board_tables/board_characteristics_table.js';
-import { Build_Board_Stackup_Table } from './board_tables/board_stackup_table.js';
-import { PCB_ACTIONS, MICROWAVE_FOOTPRINT_SHAPE } from './tools/pcb_actions.js';
+import { PCB_ACTIONS } from './tools/pcb_actions.js';
 import { MwavePolygonalShapeDlg } from './microwave/microwave_polygon_ui.js';
 import {
   DialogZoneManager,
@@ -803,34 +618,35 @@ import { ZONE_PREVIEW_CANVAS } from './zone_manager/zone_preview_canvas.js';
 import { drawPanelWindow } from '@ziroeda/common/gal/gal_window.js';
 import { GAL_TYPE } from '@ziroeda/common/draw_panel_gal.js';
 import { wxEVT_SIZE } from '@ziroeda/common/wx/wx_event.js';
-import { boardToBOARD } from './pcb_io/kicad_sexpr/board_view.js';
+import {
+  pageInfoOfPaper,
+  paperOfPageInfo,
+  titleBlockView,
+} from './pcb_io/kicad_sexpr/board_view.js';
+import { TITLE_BLOCK } from '@ziroeda/common/title_block.js';
 import type { ZONE } from './zone.js';
-import { drawCentrelineRectItem } from '@ziroeda/common/preview_items/centreline_rect_item.js';
 import type { wxTextValidator } from '@ziroeda/common/validators.js';
 import type { DRC_TOOL } from './tools/drc_tool.js';
 import { BOX2D } from '@ziroeda/kimath/src/math/box2.js';
 import type { Vec2 as KVec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import { DIALOG_DRC, type DIALOG_DRC_WINDOW } from './dialogs/dialog_drc_model.js';
 import { MessageDialogYesNoCancel } from '@ziroeda/common/dialogs/dialog_message.js';
-import { commitViewToBoard } from './pcb_io/kicad_sexpr/board_view_commit.js';
-import { PCB_EDIT_FRAME, REACT_BOARD_LISTENER, pcbnewSettingsOf } from './pcb_edit_frame.js';
-import { FetchNetlistFromSchematic } from './netlist_from_schematic.js';
-import type { LIB_ID } from '@ziroeda/common/lib_id.js';
-import type { FOOTPRINT } from './footprint.js';
-import { parseFootprint } from './footprint_edit_frame.js';
 import {
-  buildScene,
-  drawBoard,
+  loadPcbnewSettings,
+  PCB_EDIT_FRAME,
+  REACT_BOARD_LISTENER,
+  storePcbnewSettings,
+} from './pcb_edit_frame.js';
+import { FetchNetlistFromSchematic } from './netlist_from_schematic.js';
+import { LIB_ID } from '@ziroeda/common/lib_id.js';
+import type { BOARD_EDITOR_CONTROL } from './tools/board_editor_control.js';
+import type { FOOTPRINT } from './footprint.js';
+import {
   drawOriginMarkers,
-  boardTextPath,
   PCB_DEFAULT_GRID_IU,
   PCB_DEFAULT_GRID_ORIGIN,
   DEFAULT_DRAW_OPTIONS,
-  DOM_PATH_FACTORY,
-  type BoardScene,
   type PcbDrawOptions,
-  type ScenePathFactory,
-  type SceneFilter,
 } from './renderBoard.js';
 import {
   applyDisplayState,
@@ -840,7 +656,6 @@ import {
   editorViewOf,
   kItemsForIds,
   loadBitmapFontImage,
-  setItemsHidden,
   syncViewTransform,
   type EditorView,
 } from './pcb_canvas.js';
@@ -850,8 +665,10 @@ import { PCB_DISPLAY_OPTIONS, type PCB_PAINTER } from './pcb_painter.js';
 import {
   HIGH_CONTRAST_MODE,
   NET_COLOR_MODE,
+  RATSNEST_MODE,
   ZONE_DISPLAY_MODE,
 } from '@ziroeda/common/project/board_project_settings.js';
+import { RENDER_TARGET } from '@ziroeda/common/gal/definitions.js';
 import {
   GAL_LAYER_ID,
   LayerName,
@@ -869,8 +686,13 @@ import {
   foldPcbToggle,
   isStoredPcbToggle,
   lineModeToggleId,
+  PCB_CHECKED_ACTIONS,
+  PCB_LINE_MODE_ACTIONS,
+  pcbCheckedSet,
   pcbTogglesFromSettings,
 } from './pcb_edit_frame.js';
+import type { EdaUnits } from '@ziroeda/common/eda_units.js';
+import { toStatusUnits } from '@ziroeda/common/settings/app_settings_units.js';
 import {
   layerColor,
   pcbThemeWithOverrides,
@@ -886,83 +708,44 @@ import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { BOARD_COMMIT } from './board_commit.js';
-import type { PCB_BASE_EDIT_FRAME } from './pcb_base_edit_frame.js';
+import type {
+  IMPORT_GRAPHICS_RESULT,
+  PASTE_MODE,
+  PCB_BASE_EDIT_FRAME,
+} from './pcb_base_edit_frame.js';
+import {
+  GetClipboardText,
+  SetClipboardFromPaste,
+  SetClipboardFromText,
+} from '@ziroeda/common/clipboard.js';
+import type { BOARD_ITEM_CONTAINER } from './board_item_container.js';
 import type { PCB_SHAPE } from './pcb_shape.js';
 import type { VertexEditorFrame } from './widgets/vertex_editor_pane.js';
 import type { PcbSearchWiring } from './widgets/search_handlers.js';
 import { PCB_VERTEX_EDITOR_PANE } from './widgets/vertex_editor_pane.js';
 import { VertexEditorWindow } from './pcb_base_edit_frame_ui.js';
-import {
-  drawGrid,
-  drawCrosshair,
-  gridSnappingEnabled,
-} from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
-import {
-  GRID_SIZE_LIST,
-  gridEntryOf,
-  gridSizeToIU,
-  gridSizesIU,
-} from '@ziroeda/common/settings/grid_settings_ui.js';
-import {
-  type ConditionalEntry,
-  evaluateConditionalMenu,
-  menuEntry,
-  menuSeparator,
-} from '@ziroeda/common/tool/conditional_menu.js';
-import { standardSubMenuEntries } from '@ziroeda/common/eda_draw_frame_submenus.js';
+import { drawCrosshair, gridSnappingEnabled } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
+import { gridSizeToIU, gridSizesIU } from '@ziroeda/common/settings/grid_settings_ui.js';
 import { PCB_CONTROL, PCB_DEFAULT_TOOLBARS } from './toolbars_pcb_editor.js';
 import '@ziroeda/common/widgets/shell.css';
 import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
 import { ProgressDialog, nextPaint } from '@ziroeda/common/widgets/wx_progress_reporters.js';
 import { yieldToEventLoop } from '@ziroeda/common/yield_to_event_loop.js';
 import type { ProgressSnapshot } from '@ziroeda/common/widgets/progress_reporter_snapshot.js';
-import { standardHelpMenu } from '@ziroeda/common/eda_base_frame_help_menu.js';
 import { showHotkeyList } from '@ziroeda/common/hotkeys_basic.js';
 import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
-import { addQuitOrClose } from '@ziroeda/common/tool/action_menu.js';
 import { dispatchMenuHotkey, focusBlocksHotkey } from '@ziroeda/common/tool/action_menu_hotkeys.js';
 import {
   isTypingTarget,
   wasBrowserSuppressed,
   type FocusLike,
 } from '@ziroeda/common/browser_hotkeys.js';
-import { browserSafeKey } from '@ziroeda/common/browser_reserved.js';
-import { setLanguageMenuItem } from '@ziroeda/common/eda_base_frame_language_menu.js';
 import { hiContrastFactorFor } from '@ziroeda/common/render_settings.js';
-import { ColorSwatch } from '@ziroeda/common/widgets/color_swatch.js';
-import {
-  COLOR4D_UNSPECIFIED,
-  parseColor4d,
-  toCssColor,
-  type Color4d,
-} from '@ziroeda/common/gal/color4d.js';
+import { parseColor4d, toCssColor, type Color4d } from '@ziroeda/common/gal/color4d.js';
 
 const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
-
-/** A node with no children, for an item that has never been in a file. */
-
-/**
- * `PCB_BARCODE`'s constructor (`pcb_barcode.cpp:61-72`), for the item the
- * barcode tool creates before opening its dialog. The layer, position and text
- * height are the tool's and are filled in by the caller; everything here is
- * the item's own default.
- */
-const NEW_BARCODE = {
-  at: { x: 0, y: 0 },
-  angle: 0,
-  layer: 'Dwgs.User',
-  width: 40 * MM,
-  height: 40 * MM,
-  text: '',
-  textHeight: 1.27 * MM,
-  kind: 'qr' as const,
-  ecc: 'L' as const,
-  showText: true,
-  knockout: false,
-  margin: { x: 0, y: 0 },
-};
 
 /**
  * The board is drawn by `OPENGL_GAL` through KiCad's `VIEW` and `PCB_PAINTER`,
@@ -1077,15 +860,61 @@ const AUTO_TRACK_WIDTH_ON: ReadonlySet<string> = new Set(['autoTrackWidth']);
  * that pcbnew calls `Z 2.10`.
  */
 
-// The graphic-shape drawing tools (DRAWING_TOOL) and the PcbShape kind each
-// one creates.
-const DRAW_SHAPE_TOOLS: Record<string, PcbShape['kind']> = {
-  drawLine: 'line',
-  drawArc: 'arc',
-  drawRectangle: 'rect',
-  drawCircle: 'circle',
-  drawPolygon: 'poly',
-  drawBezier: 'curve',
+/**
+ * The toolbar tools that run on TOOL_MANAGER: DRAWING_TOOL's DrawLine,
+ * DrawRectangle, DrawCircle, DrawArc, PlaceText and DrawZone (polygons, zones, rule
+ * areas, cutouts and similar zones), DrawDimension, DrawVia, DrawBezier and
+ * PlacePoint. Arming one runs its action as the
+ * toolbar does (no position); while it is the current tool the canvas's events
+ * and keys go to TOOL_DISPATCHER, and its PopTool returns the toolbar to the
+ * selection mode. The other drawing tools still run in this window.
+ */
+const TOOL_MANAGER_TOOLS: Readonly<Record<string, TOOL_ACTION>> = {
+  drawLine: PCB_ACTIONS.drawLine,
+  drawRectangle: PCB_ACTIONS.drawRectangle,
+  drawCircle: PCB_ACTIONS.drawCircle,
+  drawArc: PCB_ACTIONS.drawArc,
+  placeText: PCB_ACTIONS.placeText,
+  drawPolygon: PCB_ACTIONS.drawPolygon,
+  drawZone: PCB_ACTIONS.drawZone,
+  drawRuleArea: PCB_ACTIONS.drawRuleArea,
+  drawZoneCutout: PCB_ACTIONS.drawZoneCutout,
+  drawSimilarZone: PCB_ACTIONS.drawSimilarZone,
+  drawAlignedDimension: PCB_ACTIONS.drawAlignedDimension,
+  drawOrthogonalDimension: PCB_ACTIONS.drawOrthogonalDimension,
+  drawCenterDimension: PCB_ACTIONS.drawCenterDimension,
+  drawRadialDimension: PCB_ACTIONS.drawRadialDimension,
+  drawLeader: PCB_ACTIONS.drawLeader,
+  drawVia: PCB_ACTIONS.drawVia,
+  drawBezier: PCB_ACTIONS.drawBezier,
+  placePoint: PCB_ACTIONS.placePoint,
+  drawTable: PCB_ACTIONS.drawTable,
+  placeReferenceImage: PCB_ACTIONS.placeReferenceImage,
+  drawTextBox: PCB_ACTIONS.drawTextBox,
+  placeBarcode: PCB_ACTIONS.placeBarcode,
+  placeImportedGraphics: PCB_ACTIONS.placeImportedGraphics,
+  // PCB_VIEWER_TOOLS.
+  measureTool: ACTIONS.measureTool,
+  // BOARD_INSPECTION_TOOL, through PCB_PICKER_TOOL.
+  localRatsnestTool: PCB_ACTIONS.localRatsnestTool,
+  // MICROWAVE_TOOL.
+  microwaveCreateLine: PCB_ACTIONS.microwaveCreateLine,
+  microwaveCreateGap: PCB_ACTIONS.microwaveCreateGap,
+  microwaveCreateStub: PCB_ACTIONS.microwaveCreateStub,
+  microwaveCreateStubArc: PCB_ACTIONS.microwaveCreateStubArc,
+  microwaveCreateFunctionShape: PCB_ACTIONS.microwaveCreateFunctionShape,
+  // PCB_CONTROL / BOARD_EDITOR_CONTROL, through PCB_PICKER_TOOL.
+  gridSetOrigin: ACTIONS.gridSetOrigin,
+  drillOrigin: PCB_ACTIONS.drillOrigin,
+  deleteTool: ACTIONS.deleteTool,
+  // PCB_CONTROL's board tables, placed through EDIT_TOOL::Move.
+  placeCharacteristics: PCB_ACTIONS.placeCharacteristics,
+  placeStackup: PCB_ACTIONS.placeStackup,
+  // BOARD_EDITOR_CONTROL::PlaceFootprint
+  placeFootprint: PCB_ACTIONS.placeFootprint,
+  // ROUTER_TOOL::MainLoop
+  routeSingleTrack: PCB_ACTIONS.routeSingleTrack,
+  routeDiffPair: PCB_ACTIONS.routeDiffPair,
 };
 
 // Friendly names for the "Current Tool" status-bar field (field 6), shown while
@@ -1146,26 +975,6 @@ const PCB_TOOL_MSGS: Record<string, string> = {
 };
 
 /**
- * `MICROWAVE_TOOL::setTransitions`: the four footprint tools run
- * `addMicrowaveFootprint` with a `MICROWAVE_FOOTPRINT_SHAPE`, the fifth runs
- * `drawMicrowaveInductor`.
- */
-const MICROWAVE_PLACE_TOOLS: Readonly<Record<string, MICROWAVE_FOOTPRINT_SHAPE>> = {
-  microwaveCreateGap: MICROWAVE_FOOTPRINT_SHAPE.GAP,
-  microwaveCreateStub: MICROWAVE_FOOTPRINT_SHAPE.STUB,
-  microwaveCreateStubArc: MICROWAVE_FOOTPRINT_SHAPE.STUB_ARC,
-  microwaveCreateFunctionShape: MICROWAVE_FOOTPRINT_SHAPE.FUNCTION_SHAPE,
-};
-const isMicrowaveTool = (t: string): boolean =>
-  t === 'microwaveCreateLine' || t in MICROWAVE_PLACE_TOOLS;
-
-/** `inductorAreaFill` / `inductorAreaStroke` / `inductorAreaStrokeWidth` / `inductorAreaAspect`. */
-const INDUCTOR_AREA_FILL = 'rgba(77, 77, 128, 0.3)'; // [data] COLOR4D( 0.3, 0.3, 0.5, 0.3 ), microwave_tool.cpp:120
-const INDUCTOR_AREA_STROKE = 'rgba(102, 255, 255, 1)'; // [data] COLOR4D( 0.4, 1.0, 1.0, 1.0 ), microwave_tool.cpp:121
-const INDUCTOR_AREA_STROKE_WIDTH = 1.0; // [data] microwave_tool.cpp:122
-const INDUCTOR_AREA_ASPECT = 0.5; // [data] microwave_tool.cpp:126
-
-/**
  * `ACTIONS::selectSetRect` / `ACTIONS::selectSetLasso`: one tool, two drag
  * shapes. Both set `m_selectionMode` and post `ACTIONS::selectionTool`
  * (`pcb_selection_tool.cpp:1348-1363`), so neither is a pushed tool.
@@ -1173,89 +982,7 @@ const INDUCTOR_AREA_ASPECT = 0.5; // [data] microwave_tool.cpp:126
 const isSelectTool = (t: string): boolean => t === 'selectSetRect' || t === 'selectSetLasso';
 
 // Tools that act on plain clicks and take no drag/box-select gestures.
-const isClickTool = (t: string): boolean =>
-  t === 'deleteTool' ||
-  t === 'localRatsnestTool' ||
-  isMicrowaveTool(t) ||
-  t === 'routeSingleTrack' ||
-  t === 'drawVia' ||
-  t === 'placeText' ||
-  t === 'drawZone' ||
-  t === 'drawRuleArea' ||
-  t === 'measureTool' ||
-  // `POINT_PLACER::SnapItem` calls `BestSnapAnchor` and then
-  // `ForceCursorPosition( true, cursorPos )` (drawing_tool.cpp:895-906) — a
-  // snap point that could not land on another item's anchor would be a poor
-  // snap point.
-  t === 'placePoint' ||
-  // `DRAWING_TOOL::DrawBarcode` snaps through `PCB_GRID_HELPER::BestSnapAnchor`
-  // with `GRID_TEXT` (`drawing_tool.cpp:1478-1481`) before the click, exactly
-  // as the text tool does.
-  t === 'placeBarcode' ||
-  // `PCB_CONTROL::PlaceCharacteristics` / `PlaceStackup` build the table and
-  // hand it to `placeBoardItems`, an interactive move ending on a click.
-  t === 'placeCharacteristics' ||
-  t === 'placeStackup' ||
-  // `PCB_PICKER_TOOL::Main` runs the cursor through `BestSnapAnchor` on every
-  // motion (`pcb_picker_tool.cpp`), which is what lets an origin be dropped
-  // exactly on a pad or a track end.
-  t === 'gridSetOrigin' ||
-  t === 'drillOrigin' ||
-  !!DRAW_SHAPE_TOOLS[t];
-
-// Default graphic line widths per layer class, in IU
-// (board_design_settings.h DEFAULT_*_WIDTH, in mm).
-const defaultShapeWidth = (layer: string): number => {
-  if (/\.SilkS$/.test(layer)) return 0.1 * MM;
-  if (/\.Cu$/.test(layer)) return 0.2 * MM;
-  if (layer === 'Edge.Cuts' || /\.CrtYd$/.test(layer)) return 0.05 * MM;
-  return 0.1 * MM;
-};
-
-// Circumcenter of three points, or null when they are (nearly) collinear.
-const circumcenter = (
-  a: { x: number; y: number },
-  b: { x: number; y: number },
-  c: { x: number; y: number },
-): { x: number; y: number } | null => {
-  const d = 2 * (a.x * (b.y - c.y) + b.x * (c.y - a.y) + c.x * (a.y - b.y));
-  if (Math.abs(d) < 1e-3) return null;
-  const a2 = a.x * a.x + a.y * a.y;
-  const b2 = b.x * b.x + b.y * b.y;
-  const c2 = c.x * c.x + c.y * c.y;
-  return {
-    x: (a2 * (b.y - c.y) + b2 * (c.y - a.y) + c2 * (a.y - b.y)) / d,
-    y: (a2 * (c.x - b.x) + b2 * (a.x - c.x) + c2 * (b.x - a.x)) / d,
-  };
-};
-
-// Trace the arc through start→mid→end on the 2D context (world coords).
-const traceArc3 = (
-  ctx: CanvasRenderingContext2D,
-  s: { x: number; y: number },
-  m: { x: number; y: number },
-  e: { x: number; y: number },
-): void => {
-  const o = circumcenter(s, m, e);
-  if (!o) {
-    ctx.moveTo(s.x, s.y);
-    ctx.lineTo(e.x, e.y);
-    return;
-  }
-  const r = Math.hypot(s.x - o.x, s.y - o.y);
-  const a0 = Math.atan2(s.y - o.y, s.x - o.x);
-  const a1 = Math.atan2(m.y - o.y, m.x - o.x);
-  const a2 = Math.atan2(e.y - o.y, e.x - o.x);
-  // Pick the sweep direction that passes through the mid point.
-  const ccwSpan = (from: number, to: number): number => {
-    let d = from - to;
-    while (d < 0) d += Math.PI * 2;
-    return d;
-  };
-  const ccw = ccwSpan(a0, a1) <= ccwSpan(a0, a2);
-  ctx.moveTo(s.x, s.y);
-  ctx.arc(o.x, o.y, r, a0, a2, ccw);
-};
+const isClickTool = (t: string): boolean => t === 'routeSingleTrack';
 
 // The left toolbar's radio groups, its opening state and its reducer are in
 // `toggles.ts` rather than here, because `qa`'s tsconfig compiles `.ts` only:
@@ -1308,32 +1035,6 @@ const DEFAULT_CLASS_DIMS: ClassDims = {
 //   * the colours were a hardcoded white fill with two grey borders, which is
 //     what `editPointColors` happens to derive for a white LAYER_AUX_ITEMS — so
 //     the handles ignored the board theme entirely.
-
-/** The board's metadata with none of its items, the shell an overlay is drawn in. */
-function emptyBoardLike(board: Board): Board {
-  return {
-    ...board,
-    footprints: [],
-    tracks: [],
-    arcs: [],
-    vias: [],
-    zones: [],
-    shapes: [],
-    texts: [],
-    textBoxes: [],
-    tables: [],
-    groups: [],
-  };
-}
-
-function promotePadsForCommand(
-  board: Board,
-  sel: ReadonlySet<string>,
-): { items: Set<string>; selection: Set<string> | null } {
-  const items = filterSelectionForFreePads(expandGroupIds(board, sel));
-  const hadPad = [...sel].some((id) => parseBoardItemId(id)?.kind === 'pad');
-  return { items, selection: hadPad ? filterSelectionForFreePads(sel) : null };
-}
 
 /**
  * `PCB_EDIT_FRAME::SyncProjectSettingsIntoBoard` (`files.ts`, `pcbnew/
@@ -1582,6 +1283,7 @@ function layerDefaultsRows(aFrame: PCB_EDIT_FRAME): LAYER_DEFAULTS_ROW[] {
 }
 
 export function PcbEditor({
+  registerScriptApi,
   app,
   fileName,
   text,
@@ -1604,6 +1306,10 @@ export function PcbEditor({
   readOnlyNotice,
   readOnly,
 }: {
+  /** Lets a host script this window (the AI pane): the live board and frame,
+   *  Update PCB from Schematic, zone fill and a picture. Returns the
+   *  unregister function. */
+  registerScriptApi?: (api: PcbScriptApi) => () => void;
   /** What the program gives this window — PreferencesDialog, HomeLink,
    *  SaveAsDialog, the 3D viewer, the footprint chooser, the settings
    *  triad — the same seam `cvpcb`'s `CVPCB_APP` and `pagelayout_editor`'s
@@ -1708,8 +1414,8 @@ export function PcbEditor({
     commonSettings: commonCfg,
     updatePcbnewSettings,
     updateCommonSettings,
-    commonInputImmediateActionsLive,
     commonSettingsOf,
+    storeCommonDoNotShowAgain,
     windowSettingsOf,
     installPgm,
     reloadUserColorSettings,
@@ -1817,9 +1523,7 @@ export function PcbEditor({
   const showCourtyardConflictsRef = useRef(true);
   showCourtyardConflictsRef.current = pcbCfg.editing.show_courtyard_collisions;
   /** `drc_on_move`: the courtyards cached once at grab (`Init`). */
-  const courtyardSessionRef = useRef<CourtyardConflictSession | null>(null);
   /** …and the last frame's `m_itemsInConflict`, which the overlay shades. */
-  const conflictsRef = useRef<CourtyardConflicts | null>(null);
   /** `GAL::GetGridSnapping()` — Snap to grid, against `window.grid.show`. */
   const gridSnapRef = useRef(true);
   gridSnapRef.current = gridSnappingEnabled(pcbCfg.window.grid.snap, pcbCfg.window.grid.show);
@@ -1829,7 +1533,6 @@ export function PcbEditor({
   // off them; this is that, with the toggle set as our condition store.
   const storedCrosshair = pcbCfg.window.cursor.crosshair;
   const storedShowGrid = pcbCfg.window.grid.show;
-  const storedCurvedRats = pcbCfg.pcb_display.ratsnest_curved;
   const storedLineMode = pcbCfg.editing.pcb_angle_snap_mode;
   const storedPolar = pcbCfg.editing.polar_coords;
   useEffect(() => {
@@ -1844,20 +1547,22 @@ export function PcbEditor({
         else next.delete(id);
       };
       flag('toggleGrid', storedShowGrid);
-      flag('ratsnestLineMode', storedCurvedRats);
       flag('togglePolarCoords', storedPolar);
       return next;
     });
-  }, [storedCrosshair, storedShowGrid, storedCurvedRats, storedLineMode, storedPolar]);
+  }, [storedCrosshair, storedShowGrid, storedLineMode, storedPolar]);
   // `EDA_DRAW_FRAME::LoadSettings` — the frame opens on what the file holds,
   // not on a hardcoded set. Seeded once: after that the toolbar owns the state
   // and folds its own clicks back into the file (`foldPcbToggle`).
   const [toggles, setToggles] = useState<Set<string>>(() => pcbTogglesFromSettings(pcbCfg));
-  const unitLabel: StatusUnits = toggles.has('unitsInches')
-    ? 'in'
-    : toggles.has('unitsMils')
-      ? 'mils'
-      : 'mm';
+  const togglesRef = useRef(toggles);
+  togglesRef.current = toggles;
+  // `GetUserUnits()`: the frame's, which its LoadSettings read from
+  // `system.units` and COMMON_TOOLS changes; `ReCreateAuxiliaryToolbar` tells
+  // the window, which re-renders in them.
+  const [userUnits, setUserUnits] = useState<EdaUnits>(() => pcbCfg.system.units);
+  const setUserUnitsRef = useRef(setUserUnits);
+  const unitLabel: StatusUnits = toStatusUnits(userUnits);
   /**
    * The three status panes that follow the pointer, written through refs.
    *
@@ -1936,7 +1641,12 @@ export function PcbEditor({
   const [viewportSel, setViewportSel] = useState('---');
   // BOARD_EDITOR_CONTROL::AssignNetclass: the labelled nets of the selection,
   // while DIALOG_ASSIGN_NETCLASS is up.
-  const [netclassNets, setNetclassNets] = useState<Set<string> | null>(null);
+  const [netclassDlg, setNetclassDlg] = useState<{
+    names: ReadonlySet<string>;
+    candidates: ReadonlySet<string>;
+    preview: (aNetNames: readonly string[]) => void;
+    resolve: (aOk: boolean) => void;
+  } | null>(null);
   // "Delete preset/viewport..." chooser popup.
   const [deleteChooser, setDeleteChooser] = useState<'presets' | 'viewports' | null>(null);
   // APPEARANCE_CONTROLS::m_presetMRU / m_viewportMRU: most recent first. The
@@ -1966,12 +1676,6 @@ export function PcbEditor({
   // PAD level (BOARD_INSPECTION_TOOL::LocalRatsnestTool toggles
   // PAD::SetLocalRatsnestVisible; a footprint click sets all its pads).
   //
-  // Write-only on purpose: the picker's own semantics are ported and pinned
-  // (`local_ratsnest.ts`), but the airwires it asks for are drawn by
-  // `RATSNEST_VIEW_ITEM` out of `CONNECTIVITY_DATA::ComputeLocalRatsnest`, and
-  // the tool that calls that is stage 3's (#636). Until then the set
-  // accumulates and nothing reads it back.
-  const [, setLocalRats] = useState<ReadonlySet<string>>(new Set());
   // PROJECT_LOCAL_SETTINGS' `board.selection_filter` defaults, which are the
   // shared table's: everything but "Locked items"
   // (common/project/project_local_settings.cpp:160-172). Ours ticked all
@@ -2087,9 +1791,16 @@ export function PcbEditor({
     },
     [onViewer3DOpenChange],
   );
+  const show3DRef = useRef(show3D);
+  show3DRef.current = show3D;
+  const setShow3DRef = useRef(setShow3D);
+  setShow3DRef.current = setShow3D;
   const [inspectOpen, setInspectOpen] = useState(false);
-  /** DIALOG_PASTE_SPECIAL, opened only by `ACTIONS::pasteSpecial`. */
-  const [pasteSpecialOpen, setPasteSpecialOpen] = useState(false);
+  /** DIALOG_PASTE_SPECIAL, opened by PCB_CONTROL::Paste for `ACTIONS::pasteSpecial`. */
+  const [pasteSpecialDlg, setPasteSpecialDlg] = useState<{
+    showClearNets: boolean;
+    resolve: (aResult: { mode: PASTE_MODE; clearNets: boolean } | null) => void;
+  } | null>(null);
   /**
    * `DIALOG_FILTER_SELECTION( m_frame, opts )` as PCB_SELECTION_TOOL::
    * filterSelection shows it: the tool's options being edited, and the
@@ -2198,7 +1909,23 @@ export function PcbEditor({
     notAllowed: LSET;
     resolve: (aLayer: PCB_LAYER_ID) => void;
   } | null>(null);
-  const [pnsSettingsOpen, setPnsSettingsOpen] = useState(false);
+  /**
+   * ROUTER_TOOL's three dialogs (`SettingsDialog`, `DpDimensionsDialog`,
+   * `CustomTrackWidthDialog`): what each was opened on, and how it answers the
+   * coroutine waiting in RunMainStackModal.
+   */
+  const [pnsSettingsReq, setPnsSettingsReq] = useState<{
+    settings: RoutingSettings;
+    resolve: () => void;
+  } | null>(null);
+  const [dpDimsReq, setDpDimsReq] = useState<{
+    value: DiffPairDimensionsValue;
+    resolve: (aValue: DiffPairDimensionsValue | null) => void;
+  } | null>(null);
+  const [trackViaSizeReq, setTrackViaSizeReq] = useState<{
+    value: CustomTrackViaSize;
+    resolve: (aValue: CustomTrackViaSize | null) => void;
+  } | null>(null);
   const [arrayOpen, setArrayOpen] = useState(false);
   // Kept across openings, as upstream persists its ARRAY_OPTIONS.
   const [arraySettings, setArraySettings] = useState<ArraySettings>(DEFAULT_ARRAY_SETTINGS);
@@ -2360,12 +2087,8 @@ export function PcbEditor({
    * `inheritTrackWidth`.
    */
   const [autoTrackWidth, setAutoTrackWidth] = useState(false);
-  const autoTrackWidthRef = useRef(autoTrackWidth);
-  autoTrackWidthRef.current = autoTrackWidth;
   const trackSelRef = useRef(trackSel);
   trackSelRef.current = trackSel;
-  const viaSelRef = useRef(viaSel);
-  viaSelRef.current = viaSel;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef({ scale: 0.005, tx: 0, ty: 0, flipX: false });
@@ -2413,82 +2136,6 @@ export function PcbEditor({
   selForDrawRef.current = selection;
   // The in-progress rubber-band marquee (world coords), read by the overlay pass.
   const boxRef = useRef<{ a: { x: number; y: number }; b: { x: number; y: number } } | null>(null);
-  // Live drag-move offset (world units) applied to the selection highlight while
-  // a move gesture is in flight; committed on pointer-up (PCB_MOVE_TOOL preview).
-  const moveDeltaRef = useRef<{ x: number; y: number } | null>(null);
-  const movingRef = useRef(false);
-  // Move (M / left-drag) leaves the routing behind; Drag (G) stretches the
-  // traces attached to the moving footprints (EDIT_TOOL Move vs Drag). Drag mode
-  // is on only while a 'drag' gesture actually has footprints to carry traces.
-  const moveKindRef = useRef<'move' | 'drag'>('move');
-  const dragModeRef = useRef(false);
-  // The exact selection captured at gesture start (applySelect is async) plus,
-  // for a drag, the ids excluded from the backdrop raster (part + its traces),
-  // and the world grab origin the delta is measured from.
-  const movingSelRef = useRef<ReadonlySet<string>>(new Set());
-  const dragAffectedRef = useRef<ReadonlySet<string>>(new Set());
-  // A router drag of a trace (EDIT_TOOL::Drag → PNS::DRAGGER): the whole line is
-  // re-cut every frame rather than translated, so it runs beside the move refs.
-  const trackDragRef = useRef<TrackDrag | null>(null);
-  // `TOOL_BASE::m_startItem` — the one segment the drag grabbed, and the whole
-  // of `pickSingleItem`'s `aAvoidItems`. Its *neighbours* stay snappable on
-  // purpose: they still hold the line's original geometry, so bringing the
-  // cursor back over them lands it on the centreline the trace started on.
-  const dragSeedIdRef = useRef<string | null>(null);
-  /** The net highlight to restore when a track drag ends, or null if none. */
-  const dragHighlightRestoreRef = useRef<ReadonlySet<number> | null>(null);
-  // Zone outline editing (PCB_POINT_EDITOR): the handles of the one selected
-  // item, which handle the cursor is over, and the drag in flight.
-  const editHandlesRef = useRef<BoardEditHandle[]>([]);
-  /** `EDIT_POINTS::AddIndicatorLine` — the bezier's two control arms. */
-  const editIndicatorsRef = useRef<BoardIndicatorLine[]>([]);
-  /** The item the handles belong to, as a board item id. */
-  const editHandleItemRef = useRef<string | null>(null);
-  const hoveredEditHandleRef = useRef<BoardEditHandle | null>(null);
-  const editHandleDragRef = useRef<{
-    handle: BoardEditHandle;
-    origin: { x: number; y: number };
-  } | null>(null);
-  /** The reshaped board while a handle drag is in flight, committed on release. */
-  const pointEditPreviewRef = useRef<Board | null>(null);
-  const moveOriginRef = useRef<{ x: number; y: number } | null>(null);
-  /**
-   * `grid.BestDragOrigin( originalMousePos, sel_items, … )` — the anchor **on
-   * the selection** that a move measures itself from, and the whole reason
-   * dragging a part in KiCad lines it up with the next one.
-   *
-   * `EDIT_TOOL::Move` warps the pointer onto this point ("Warp mouse to origin
-   * of moved object", on by default) and then only ever moves the selection by
-   * `BestSnapAnchor( mousePos ) - prevPos` with `prevPos` starting here — so the
-   * anchor lands *absolutely* on a grid node or another item's anchor. A
-   * delta-based move cannot do that: quantising the travel keeps whatever
-   * sub-grid offset the part already had, forever.
-   *
-   * We cannot warp a browser pointer, and do not need to: with the warp,
-   * upstream's mouse position is this anchor plus the motion since the grab, so
-   * {@link updateMove} adds that motion here and snaps the result instead.
-   */
-  const moveAnchorRef = useRef<{ x: number; y: number } | null>(null);
-  /**
-   * `controls->ForceCursorPosition( true, m_cursor )` (edit_tool_move_fct.cpp:1174):
-   * while a move is in flight the drawn crosshair is the *move's* cursor — the
-   * point the drag anchor has been snapped to — and not the pointer's own grid
-   * round. Upstream the two are the same point because the pointer was warped
-   * onto the anchor; here they differ by the grab offset, so the crosshair has
-   * to be told which one to draw or it marks a place nothing is going.
-   */
-  const forcedCursorRef = useRef<{ x: number; y: number } | null>(null);
-  // Keyboard grab (M/G): the selection follows the cursor until a click commits
-  // or Esc cancels, SCH/PCB move tool. Distinct from a left-button drag.
-  const grabbingRef = useRef(false);
-  // While a move is in flight the base raster is the board with the moving items
-  // removed; this scene holds just those items, painted live at the drag offset
-  // so the real geometry follows the cursor (not merely its bounding box).
-  const moveSceneRef = useRef<BoardScene | null>(null);
-  // Selected items, compiled on their own so they can be repainted brightened
-  // over the raster, KiCad's selection is the item's colour Brightened(0.8),
-  // not a bounding box (pcb_painter.cpp getColor).
-  const selSceneRef = useRef<BoardScene | null>(null);
   /**
    * The frame's non-window half: the BOARD, the tool manager and the
    * undo/redo stacks (`PCB_BASE_EDIT_FRAME`). Every edit is a BOARD_COMMIT on
@@ -2498,13 +2145,259 @@ export function PcbEditor({
    */
   const pcbCfgRef = useRef(pcbCfg);
   pcbCfgRef.current = pcbCfg;
+  /**
+   * `SaveSettings( config() )` then the manager's save: what a tool changed in
+   * the PCBNEW_SETTINGS object, written into the `pcbnew.json` slice. Only a
+   * changed object writes, so an idle pass costs a compare.
+   */
+  /** The slice the PCBNEW_SETTINGS object was last loaded from. */
+  const loadedPcbCfgRef = useRef<typeof pcbCfg | null>(null);
+  const commonCfgRef = useRef(commonCfg);
+  commonCfgRef.current = commonCfg;
+  const storePcbnewSettingsRef = useRef((): void => {
+    // COMMON_SETTINGS' `do_not_show_again.*`, which a tool sets in the object.
+    const common = PgmOrNull()?.GetCommonSettings();
+
+    if (
+      common &&
+      storeCommonDoNotShowAgain(common, structuredClone(commonCfgRef.current.do_not_show_again))
+    )
+      updateCommonSettings((c) => void storeCommonDoNotShowAgain(common, c.do_not_show_again));
+
+    const cfg = Pgm().GetSettingsManager().GetAppSettings<PCBNEW_SETTINGS>('pcbnew');
+
+    if (!cfg) return;
+
+    // A slice the object has not loaded yet - Preferences wrote it and the
+    // effect below has not run - is loaded first, or this store would write the
+    // object's older values straight back over it.
+    if (loadedPcbCfgRef.current !== pcbCfgRef.current) {
+      loadedPcbCfgRef.current = pcbCfgRef.current;
+      loadPcbnewSettings(cfg, pcbCfgRef.current);
+      frameRef.current?.LoadSettings(cfg);
+      return;
+    }
+
+    // `SaveSettings( config() )`: the frame's own state - its units, polar
+    // coordinates, panes - into the object, then the object into the store.
+    frameRef.current?.SaveSettings(cfg);
+
+    if (!storePcbnewSettings(cfg, structuredClone(pcbCfgRef.current))) return;
+
+    updatePcbnewSettings((json) => {
+      storePcbnewSettings(cfg, json);
+    });
+  });
+  // `JSON_SETTINGS::Load`: a preference changed in the slice reaches the object.
+  useEffect(() => {
+    const cfg = Pgm().GetSettingsManager().GetAppSettings<PCBNEW_SETTINGS>('pcbnew');
+
+    if (!cfg || loadedPcbCfgRef.current === pcbCfg) return;
+
+    loadedPcbCfgRef.current = pcbCfg;
+    loadPcbnewSettings(cfg, pcbCfg);
+    frameRef.current?.LoadSettings(cfg);
+  }, [pcbCfg]);
   const setDirtyRef = useRef(setDirty);
   setDirtyRef.current = setDirty;
   const frameRef = useRef<PCB_EDIT_FRAME | null>(null);
+  const [frameMsgItems, setFrameMsgItems] = useState<readonly MSG_PANEL_ITEM[]>([]);
+  // HOTKEY_CYCLE_POPUP, this frame's one instance (EDA_DRAW_FRAME::m_hotkeyPopup).
+  // Its expiry hands the keyboard back with `m_drawFrame->GetCanvas()->SetFocus()`
+  // (common/dialogs/hotkey_cycle_popup.cpp:48).
+  const glCanvasFocusRef = useRef((): void => {});
+  const hotkeyPopup = useHotkeyCyclePopup(() => glCanvasFocusRef.current());
+  const hotkeyPopupRef = useRef(hotkeyPopup);
+  hotkeyPopupRef.current = hotkeyPopup;
+  /**
+   * The frame's WX_INFOBAR (`EDA_BASE_FRAME::m_infoBar`): one message at a time,
+   * with the hyperlink buttons a caller added, dismissed after `ShowMessageFor`'s
+   * time.
+   */
+  const [frameInfoBar, setFrameInfoBar] = useState<{
+    message: string;
+    button: WX_INFOBAR_HYPERLINK | null;
+  } | null>(null);
+  const wxInfoBarRef = useRef<WX_INFOBAR>(
+    (() => {
+      let buttons: WX_INFOBAR_HYPERLINK[] = [];
+      let timer: ReturnType<typeof setTimeout> | null = null;
+      const clear = (): void => {
+        if (timer) clearTimeout(timer);
+        timer = null;
+      };
+      return {
+        IsLocked: () => false,
+        AddButton: (aButton) => {
+          buttons.push(aButton);
+        },
+        RemoveAllButtons: () => {
+          buttons = [];
+        },
+        ShowMessageFor: (aMessage, aTime) => {
+          clear();
+          setFrameInfoBar({ message: aMessage, button: buttons[0] ?? null });
+          timer = setTimeout(() => setFrameInfoBar(null), aTime);
+        },
+        Dismiss: () => {
+          clear();
+          setFrameInfoBar(null);
+        },
+      };
+    })(),
+  );
+  /**
+   * `APPEARANCE_CONTROLS::UpdateDisplayOptions` (appearance_controls.cpp:1479-1513),
+   * which `PCB_EDIT_FRAME::OnDisplayOptionsChanged` calls: the panel re-reads the
+   * frame's display options and the ratsnest settings. The window also mirrors
+   * the zone mode and the opacities, which it paints with.
+   */
+  const updateDisplayOptionsRef = useRef((): void => {});
+  updateDisplayOptionsRef.current = (): void => {
+    const frame = frameRef.current;
+    if (!frame) return;
+    const o = frame.GetDisplayOptions();
+    setContrast(
+      o.m_ContrastModeDisplay === HIGH_CONTRAST_MODE.HIDDEN
+        ? 'hide'
+        : o.m_ContrastModeDisplay === HIGH_CONTRAST_MODE.DIMMED
+          ? 'dim'
+          : 'normal',
+    );
+    setNetColorMode(
+      o.m_NetColorMode === NET_COLOR_MODE.ALL
+        ? 'all'
+        : o.m_NetColorMode === NET_COLOR_MODE.OFF
+          ? 'off'
+          : 'ratsnest',
+    );
+    setOpacity((p) =>
+      p.tracks === o.m_TrackOpacity &&
+      p.vias === o.m_ViaOpacity &&
+      p.pads === o.m_PadOpacity &&
+      p.zones === o.m_ZoneOpacity &&
+      p.images === o.m_ImageOpacity &&
+      p.filledShapes === o.m_FilledShapeOpacity
+        ? p
+        : {
+            tracks: o.m_TrackOpacity,
+            vias: o.m_ViaOpacity,
+            pads: o.m_PadOpacity,
+            zones: o.m_ZoneOpacity,
+            images: o.m_ImageOpacity,
+            filledShapes: o.m_FilledShapeOpacity,
+          },
+    );
+    setToggles((prev) => {
+      const next = new Set(prev);
+      next.delete('zoneDisplayFilled');
+      next.delete('zoneDisplayOutline');
+      if (o.m_ZoneDisplayMode === ZONE_DISPLAY_MODE.SHOW_FILLED) next.add('zoneDisplayFilled');
+      else if (o.m_ZoneDisplayMode === ZONE_DISPLAY_MODE.SHOW_ZONE_OUTLINE)
+        next.add('zoneDisplayOutline');
+      return next;
+    });
+    const cfg = frame.GetPcbNewSettings();
+    setRatsnestMode(
+      !cfg.m_Display.m_ShowGlobalRatsnest
+        ? 'off'
+        : cfg.m_Display.m_RatsnestMode === RATSNEST_MODE.ALL
+          ? 'all'
+          : 'visible',
+    );
+    setObjects((p) =>
+      p.ratsnest === cfg.m_Display.m_ShowGlobalRatsnest
+        ? p
+        : { ...p, ratsnest: cfg.m_Display.m_ShowGlobalRatsnest },
+    );
+  };
+  /** The Layer Display Options radios' `setHighContrastMode` (appearance_controls.cpp:487-497). */
+  const onHighContrastMode = (aMode: 'normal' | 'dim' | 'hide'): void => {
+    const frame = frameRef.current;
+    if (!frame) return;
+    const opts = Object.assign(new PCB_DISPLAY_OPTIONS(), frame.GetDisplayOptions());
+    opts.m_ContrastModeDisplay =
+      aMode === 'hide'
+        ? HIGH_CONTRAST_MODE.HIDDEN
+        : aMode === 'dim'
+          ? HIGH_CONTRAST_MODE.DIMMED
+          : HIGH_CONTRAST_MODE.NORMAL;
+    frame.SetDisplayOptions(opts);
+  };
+  /** `APPEARANCE_CONTROLS::onNetColorMode` (appearance_controls.cpp:3400-3413). */
+  const onNetColorMode = (aMode: 'all' | 'ratsnest' | 'off'): void => {
+    const frame = frameRef.current;
+    if (!frame) return;
+    const options = Object.assign(new PCB_DISPLAY_OPTIONS(), frame.GetDisplayOptions());
+    options.m_NetColorMode =
+      aMode === 'all'
+        ? NET_COLOR_MODE.ALL
+        : aMode === 'ratsnest'
+          ? NET_COLOR_MODE.RATSNEST
+          : NET_COLOR_MODE.OFF;
+    frame.SetDisplayOptions(options);
+    frame.GetCanvas()?.GetView().UpdateAllLayersColor();
+  };
+  /** `APPEARANCE_CONTROLS::onRatsnestMode` (appearance_controls.cpp:3417-3446). */
+  const onRatsnestMode = (aMode: 'all' | 'visible' | 'off'): void => {
+    const frame = frameRef.current;
+    if (!frame) return;
+    const cfg = frame.GetPcbNewSettings();
+    if (aMode === 'all') {
+      cfg.m_Display.m_ShowGlobalRatsnest = true;
+      cfg.m_Display.m_RatsnestMode = RATSNEST_MODE.ALL;
+    } else if (aMode === 'visible') {
+      cfg.m_Display.m_ShowGlobalRatsnest = true;
+      cfg.m_Display.m_RatsnestMode = RATSNEST_MODE.VISIBLE;
+    } else {
+      cfg.m_Display.m_ShowGlobalRatsnest = false;
+    }
+    frame.SetElementVisibility(GAL_LAYER_ID.LAYER_RATSNEST, cfg.m_Display.m_ShowGlobalRatsnest);
+    frame.OnDisplayOptionsChanged();
+    frame.GetCanvas()?.RedrawRatsnest();
+    frame.GetCanvas()?.Refresh();
+    storePcbnewSettingsRef.current();
+  };
+  /**
+   * `APPEARANCE_CONTROLS::onObjectVisibilityChanged( LAYER_RATSNEST, ... )`
+   * (appearance_controls.cpp:2216-2237): "ratsnest is enabled on per-item basis", so the
+   * layer stays visible and the global flag is the setting's.
+   */
+  const onRatsnestObjectVisibility = (aVisible: boolean): void => {
+    const frame = frameRef.current;
+    if (!frame) return;
+    const view = frame.GetCanvas()?.GetView();
+    view?.MarkTargetDirty(RENDER_TARGET.TARGET_NONCACHED);
+    view?.SetLayerVisible(GAL_LAYER_ID.LAYER_RATSNEST, true);
+    frame.GetPcbNewSettings().m_Display.m_ShowGlobalRatsnest = aVisible;
+    frame.GetBoard()?.SetElementVisibility(GAL_LAYER_ID.LAYER_RATSNEST, aVisible);
+    frame.OnDisplayOptionsChanged();
+    frame.GetCanvas()?.RedrawRatsnest();
+    storePcbnewSettingsRef.current();
+  };
   /** `m_toolManager->RunAction( aAction )`: a menu row, a hotkey or a toolbar button. */
   const runAction = (aAction: TOOL_ACTION): void => {
     frameRef.current?.GetToolManager()?.RunAction(aAction);
     refreshInspectionMirrorRef.current();
+    storePcbnewSettingsRef.current();
+  };
+  /** The same, for listeners installed once (the clipboard events). */
+  const runActionRef = useRef(runAction);
+  runActionRef.current = runAction;
+  /**
+   * PCB_CONTROL::Paste from a menu row: outside a paste event the browser hands
+   * the system clipboard over only asynchronously, so its text is read into the
+   * clipboard first.
+   */
+  const pasteFromSystemClipboard = (aAction: TOOL_ACTION): void => {
+    const run = (): void => runActionRef.current(aAction);
+    const read = navigator.clipboard?.readText();
+    if (read)
+      void read.then((text) => {
+        SetClipboardFromText(text);
+        run();
+      }, run);
+    else run();
   };
   /**
    * TRANSITIONAL (#636 stage 3): a selection written by one of the window's own
@@ -2548,15 +2441,6 @@ export function PcbEditor({
     setSelectionMirror(next);
   });
   /**
-   * TRANSITIONAL (#636 stage 3): while a gesture of the window's own draws the
-   * moving copy on the overlay, the selection group on the VIEW is hidden.
-   */
-  const hideSelectionGroup = (aHide: boolean): void => {
-    const panel = panelRef.current;
-    const frame = frameRef.current;
-    if (panel && frame) panel.GetView().Hide(frame.GetSelectionTool().GetSelection(), aHide);
-  };
-  /**
    * `PCB_EDIT_FRAME::SwitchLayer` (edit.cpp:72-95): the validated entry
    * point every explicit layer pick (the toolbar combo, a layer hotkey, a
    * saved preset, the zone tool's dialog) goes through, so a disabled
@@ -2594,7 +2478,6 @@ export function PcbEditor({
     ) => Promise<string | null>;
     polygonDialog: () => Promise<boolean>;
     showZoneManager: () => Promise<{ ok: boolean; repour: boolean }>;
-    fillZones: (aBoard: BOARD, aZones: ZONE[]) => boolean;
     fillAllZones: () => void;
   } | null>(null);
   /**
@@ -2628,7 +2511,6 @@ export function PcbEditor({
       aDetails: string,
     ) => Promise<'ignore' | 'all' | null>;
     openVertexEditor: () => void;
-    router: () => ROUTER_TOOL_LIKE;
   } | null>(null);
   if (!frameRef.current) {
     // `PGM_BASE::InitPgm` runs before any KiCad frame exists, and the frame
@@ -2638,14 +2520,51 @@ export function PcbEditor({
     // was set" whenever the PCB editor was the first frame to open.
     installPgm();
     frameRef.current = new PCB_EDIT_FRAME({
-      settings: () => pcbnewSettingsOf(pcbCfgRef.current),
-      onModify: () => setDirtyRef.current(true),
+      // `Kiface().KifaceSettings()`: the one PCBNEW_SETTINGS installPgm keeps.
+      settings: () => Pgm().GetSettingsManager().GetAppSettings<PCBNEW_SETTINGS>('pcbnew')!,
+      storeSettings: () => storePcbnewSettingsRef.current(),
+      updateDisplayOptions: () => updateDisplayOptionsRef.current(),
+      showAssignNetclassDialog: (aNames, aCandidates, aPreview) =>
+        new Promise<boolean>((resolve) =>
+          setNetclassDlg({ names: aNames, candidates: aCandidates, preview: aPreview, resolve }),
+        ),
+      viewer3DShown: () => show3DRef.current,
+      showViewer3D: () => setShow3DRef.current(true),
+      reCreateAuxiliaryToolbar: () => {
+        const f = frameRef.current;
+
+        if (f) setUserUnitsRef.current(f.GetUserUnits());
+      },
+      // `m_auimgr.GetPane( aName ).IsShown()`: the docked panes are the window's
+      // toggles, by KiCad's pane names. No Design Blocks pane is docked here.
+      paneShown: (aName) => {
+        const id = PANE_TOGGLE_IDS[aName];
+        return id !== undefined && togglesRef.current.has(id);
+      },
+      onModify: () => {
+        setDirtyRef.current(true);
+        syncOriginsRef.current();
+      },
       onUndoRedoIncomplete: () =>
         console.warn('Incomplete undo/redo operation: some items not found'),
       // The window half of DRC_TOOL / DIALOG_DRC: filled in below, once the
       // editor's state and callbacks exist (`drcWindowRef`).
       createDrcDialog: (aTool, aParent) => drcWindowRef.current!.createDrcDialog(aTool, aParent),
       isSingle: () => drcWindowRef.current!.isSingle(),
+      // The toolbar follows the tool stack for the TOOL_MANAGER tools: a push
+      // from a hotkey arms the button, the tool's PopTool disarms it.
+      toolStackChanged: () => {
+        const f = frameRef.current;
+        if (!f) return;
+        const pushed = Object.keys(TOOL_MANAGER_TOOLS).find((k) =>
+          f.IsCurrentTool(TOOL_MANAGER_TOOLS[k]!),
+        );
+        if (pushed) {
+          if (activeToolRef.current !== pushed) setActiveTool(pushed);
+        } else if (TOOL_MANAGER_TOOLS[activeToolRef.current]) {
+          setActiveTool(selectModeRef.current);
+        }
+      },
       fetchNetlistFromSchematic: (aNetlist, aMessage) =>
         drcWindowRef.current!.fetchNetlistFromSchematic(aNetlist, aMessage),
       schematicNetlistText: () => drcWindowRef.current!.schematicNetlistText(),
@@ -2654,6 +2573,17 @@ export function PcbEditor({
       editZoneParams: (zoneIndex) => drcWindowRef.current!.editZoneParams(zoneIndex),
       selectCopperLayerPair: () => drcWindowRef.current!.selectCopperLayerPair(),
       showInfoBarError: (aMsg) => drcWindowRef.current?.showInfoBarError(aMsg),
+      /** `m_appearancePanel->OnLayerChanged()`: the layer combo follows a layer a tool chose. */
+      showPnsSettingsDialog: (aSettings) =>
+        new Promise<void>((resolve) => setPnsSettingsReq({ settings: aSettings, resolve })),
+      showDiffPairDimensionsDialog: (aValue) =>
+        new Promise((resolve) => setDpDimsReq({ value: aValue, resolve })),
+      showTrackViaSizeDialog: (aValue) =>
+        new Promise((resolve) => setTrackViaSizeReq({ value: aValue, resolve })),
+      activeLayerChanged: (aLayer) => {
+        const name = boardRef.current?.layers.find((l) => l.id === aLayer)?.name;
+        if (name !== undefined) setActiveLayer(name);
+      },
       selectFootprintFromChooser: (aPreselect) =>
         drcWindowRef.current!.selectFootprintFromChooser(aPreselect),
       loadFootprintFromLibrary: (aId, aKeepUUID) =>
@@ -2669,14 +2599,19 @@ export function PcbEditor({
       updatePcbFromSchematic: () => void openUpdatePcbRef.current(),
       // The Footprint Library Browser's Insert: `PlacingFootprint()` and the
       // placement it posts. Both read the placement state declared below.
-      placingFootprint: () => placeFpRef.current !== null,
+      placingFootprint: () =>
+        (
+          frameRef.current?.GetToolManager()?.FindTool('pcbnew.EditorControl') as unknown as
+            | BOARD_EDITOR_CONTROL
+            | null
+            | undefined
+        )?.PlacingFootprint() ?? false,
       placeFootprintFromLibrary: (aFpid, aFootprint) =>
         placeFromBrowserRef.current(aFpid, aFootprint),
       textEntry: (aPrompt, aCaption, aValue, aValidator) =>
         mwWindowRef.current!.textEntry(aPrompt, aCaption, aValue, aValidator),
       mwavePolygonalShapeDialog: () => mwWindowRef.current!.polygonDialog(),
       showZoneManager: () => mwWindowRef.current!.showZoneManager(),
-      fillZones: (aBoard, aZones) => mwWindowRef.current!.fillZones(aBoard, aZones),
       // PCB_SELECTION_TOOL's window half: filled in below, once the editor's
       // state and callbacks exist (`selWindowRef`).
       showInfoBarWarning: (aMsg) => selWindowRef.current?.showInfoBarWarning(aMsg),
@@ -2737,6 +2672,45 @@ export function PcbEditor({
       showUnusedPadLayersDialog: (aDialog) => setUnusedPadsDlg(aDialog),
       showGlobalEditTracksAndViasDialog: (aDialog) => setEditTvDlg(aDialog),
       showGlobalEditTextAndGraphicsDialog: (aDialog) => setEditTgDlg(aDialog),
+      // The "Choose Image" dialog: a file input, read as bytes. Cancel answers
+      // null (the input's `cancel` event), which leaves the tool armed, as
+      // upstream's `continue` does.
+      showPasteSpecialDialog: (aShowClearNets) =>
+        new Promise((resolve) => setPasteSpecialDlg({ showClearNets: aShowClearNets, resolve })),
+      showPageSettingsDialog: () => new Promise<boolean>((resolve) => setPageDlg({ resolve })),
+      showImportGraphicsDialog: () =>
+        new Promise<IMPORT_GRAPHICS_RESULT | null>((resolve) => setImportGfxDlg({ resolve })),
+      showBarcodePropertiesDialog: (aDialog) =>
+        new Promise<boolean>((resolve) => openBarcodeProps(aDialog, resolve)),
+      showTextBoxPropertiesDialog: (aDialog) =>
+        new Promise<boolean>((resolve) => setTextBoxPropsDlg({ dialog: aDialog, resolve })),
+      showImageFileDialog: () =>
+        new Promise<Uint8Array | null>((resolve) => {
+          const input = document.createElement('input');
+          input.type = 'file';
+          input.accept = 'image/*';
+          input.addEventListener('cancel', () => resolve(null));
+          input.onchange = (): void => {
+            const file = input.files?.[0];
+            if (!file) {
+              resolve(null);
+              return;
+            }
+            void file.arrayBuffer().then(
+              (b) => resolve(new Uint8Array(b)),
+              () => resolve(null),
+            );
+          };
+          input.click();
+        }),
+      showTablePropertiesDialog: (aDialog) =>
+        new Promise<boolean>((resolve) =>
+          setTablePropsDlg({ dialog: aDialog, table: aDialog.GetTable(), resolve }),
+        ),
+      showZoneSettingsDialog: (aDialog) =>
+        new Promise<boolean>((resolve) => setZoneSettingsDlg({ dialog: aDialog, resolve })),
+      showTextPropertiesDialog: (aDialog) =>
+        new Promise<boolean>((resolve) => setTextPropsDlg({ dialog: aDialog, resolve })),
       showGlobalEditTeardropsDialog: (aDialog) => setTeardropsDlg(aDialog),
       showGlobalDeletionDialog: (aDialog) =>
         new Promise<boolean>((resolve) => setGlobalDelDlg({ dialog: aDialog, resolve })),
@@ -2750,11 +2724,7 @@ export function PcbEditor({
         new Promise<boolean>((resolve) => setEnumPadsDlg({ dialog: aDialog, resolve })),
       showPadTableDialog: (aDialog) => setPadTableDlg(aDialog),
       dismissInfoBar: () => editWindowRef.current?.dismissInfoBar(),
-      boardView: () => boardRef.current,
-      router: () => editWindowRef.current?.router() ?? null,
       eventToWindow: (aEvent) => selWindowRef.current?.eventToWindow(aEvent) ?? false,
-      // TRANSITIONAL (#636 stage 3): ZONE_FILLER's view pour reads these.
-      zoneFillOptions: () => zoneFillOptionsRef.current,
       highlightChanged: () => refreshInspectionMirrorRef.current(),
       showBoardStatisticsDialog: () => setStatsOpen(true),
     });
@@ -2764,6 +2734,13 @@ export function PcbEditor({
     // zoomFitScreen. Without it the canvas was bare until the load's own
     // SetBoard, seconds later.
     if (emptyBoard.k) frameRef.current.SetBoard(emptyBoard.k, false);
+    // The frame's WX_INFOBAR and HOTKEY_CYCLE_POPUP are page widgets this
+    // window renders; it hands them over as the C++ constructor creates them.
+    frameRef.current.SetInfoBar(wxInfoBarRef.current);
+    frameRef.current.SetHotkeyPopup({
+      Popup: (aTitle, aItems, aSelection) =>
+        hotkeyPopupRef.current.popup(aTitle, aItems, aSelection),
+    });
   }
   // `KIWAY::Player()` stores the frame it created as FRAME_PCB_EDITOR's player,
   // and the frame's close tells KIWAY it is gone (`PlayerDidClose`).
@@ -2802,82 +2779,26 @@ export function PcbEditor({
   const selectModeRef = useRef('selectSetRect');
   if (isSelectTool(activeTool)) selectModeRef.current = activeTool;
   activeToolRef.current = activeTool;
-  // The local ratsnest overrides outlive the tool. `LocalRatsnestTool`'s
-  // finalize handler (board_inspection_tool.cpp:2354-2365) resets every pad
-  // to the global setting only `if( aCondition != END_ACTIVATE )` — Esc
-  // clears them, arming another tool keeps them, which is the manual's
-  // "remain in effect even after the local ratsnest tool is no longer
-  // active". The Esc branch below does the clearing; this effect used to
-  // clear on ANY tool change, so switching to the router lost them.
-  // In-flight graphic shape (DRAWING_TOOL): the points clicked so far.
-  const drawingRef = useRef<{ x: number; y: number }[]>([]);
-  /**
-   * `TWO_POINT_GEOMETRY_MANAGER` and its `started` flag — the line, rectangle
-   * and circle tools, which `DRAWING_TOOL::drawShape` runs as one.
-   *
-   * The manager owns the angle constraint, so the frame no longer computes one
-   * of its own; what stays here is the per-shape *choice* of constraint, which
-   * `drawShape` makes on every event and which is not the same for all three.
-   */
-  const twoPtRef = useRef(new TWO_POINT_GEOMETRY_MANAGER());
-  const twoPtStartedRef = useRef(false);
-  /** `ARC_GEOM_MANAGER` — centre, then start, then swept angle. */
-  const arcMgrRef = useRef(new ArcGeomManager());
-  const cleanupShapeRef = useRef<() => void>(() => {});
-  /**
-   * `POLYGON_GEOM_MANAGER`, one per outline tool.
-   *
-   * Upstream there is only one call site: `DRAWING_TOOL::DrawZone` runs Add
-   * Zone, Add Rule Area, Zone Cutout **and** Draw Polygon, and the mode only
-   * decides what `ZONE_CREATE_HELPER::commitZone` builds at the end. Ours are
-   * two entry points into the same manager rather than one tool, so they get an
-   * instance each; the corner rules, the leader dogleg and the closing test are
-   * the shared module's either way.
-   *
-   * `onComplete` goes through a ref because the commit needs the board and the
-   * active layer, which are further down this component.
-   */
-  const polyCommitRef = useRef<(mgr: PolygonGeomManager) => void>(() => {});
-  const zoneCommitRef = useRef<(mgr: PolygonGeomManager) => void>(() => {});
-  const polyMgrRef = useRef<PolygonGeomManager | null>(null);
-  const zoneMgrRef = useRef<PolygonGeomManager | null>(null);
-  const polyMgr = (): PolygonGeomManager => {
-    polyMgrRef.current ??= new PolygonGeomManager({
-      // GRAPHIC_POLYGON is the one zone mode with no properties dialog, so
-      // `OnFirstPoint` has nothing to veto and the outline always starts.
-      onFirstPoint: () => true,
-      onGeometryChange: () => requestDrawRef.current(),
-      onComplete: (m) => polyCommitRef.current(m),
-    });
-    return polyMgrRef.current;
-  };
-  const zoneMgr = (): PolygonGeomManager => {
-    zoneMgrRef.current ??= new PolygonGeomManager({
-      // The zone's veto is the properties dialog, which our flow has already
-      // shown by the time the first corner reaches the manager.
-      onFirstPoint: () => true,
-      onGeometryChange: () => requestDrawRef.current(),
-      onComplete: (m) => zoneCommitRef.current(m),
-    });
-    return zoneMgrRef.current;
-  };
-  /**
-   * `polyGeomMgr.SetLeaderMode( angleSnap )`, run on **every** event
-   * (`drawing_tool.cpp:3523-3535`): the mode is `m_AngleSnapMode` — the left
-   * toolbar's line-mode group — and Ctrl held for one event forces `DIRECT`.
-   */
-  const syncLeaderMode = (ctrl: boolean): void => {
-    const mode = ctrl
-      ? LeaderMode.DIRECT
-      : toggles.has('lineMode45')
-        ? LeaderMode.DEG45
-        : toggles.has('lineMode90')
-          ? LeaderMode.DEG90
-          : LeaderMode.DIRECT;
-    polyMgrRef.current?.setLeaderMode(mode);
-    zoneMgrRef.current?.setLeaderMode(mode);
-  };
-  // Pending "Add Text" dialog: where the text will be placed.
+
+  // Arming a TOOL_MANAGER tool runs its action the way the toolbar does (no
+  // position, so nothing is primed at the cursor); arming anything else while
+  // one is current activates the selection tool, which the drawing tool reads
+  // as `IsActivate()`: cleanup and PopTool.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: activeTool is the trigger; the frame is read through its ref
+  useEffect(() => {
+    const f = frameRef.current;
+    const mgr = f?.GetToolManager();
+    if (!f || !mgr) return;
+    const action = TOOL_MANAGER_TOOLS[activeTool];
+    if (action) {
+      if (f.IsCurrentTool(action)) return;
+      const evt = action.MakeEvent();
+      evt.SetHasPosition(false);
+      mgr.ProcessEvent(evt);
+    } else if (Object.values(TOOL_MANAGER_TOOLS).some((a) => f.IsCurrentTool(a))) {
+      mgr.RunAction(ACTIONS.selectionTool);
+    }
+  }, [activeTool]);
   // Page Settings / Print dialogs (DIALOG_PAGES_SETTINGS / DIALOG_PRINT_PCBNEW).
   // The tab title (PCB_EDIT_FRAME::UpdateTitle): the board file, its project,
   // and a leading * while there are unsaved changes.
@@ -2890,7 +2811,9 @@ export function PcbEditor({
     ),
   );
 
-  const [pageDlgOpen, setPageDlgOpen] = useState(false);
+  // BOARD_EDITOR_CONTROL::PageSettings's DIALOG_PAGES_SETTINGS: the tool waits
+  // on `resolve` (true when OK wrote the page and title block into the frame).
+  const [pageDlg, setPageDlg] = useState<{ resolve: (aOk: boolean) => void } | null>(null);
   const [printDlgOpen, setPrintDlgOpen] = useState(false);
   const [plotDlgOpen, setPlotDlgOpen] = useState(false);
   // Folders that already exist in the project, relative to the project's own
@@ -2961,51 +2884,57 @@ export function PcbEditor({
   // Pad Properties (DIALOG_PAD_PROPERTIES), board side.
   const [padPropsRef, setPadPropsRef] = useState<PadRef | null>(null);
   // Text / Shape properties for board graphics.
-  const [textPropsIndex, setTextPropsIndex] = useState<number | null>(null);
+  /**
+   * DIALOG_TEXT_PROPERTIES on a live PCB_TEXT: the board's own (Properties on a
+   * selected text) or DRAWING_TOOL::PlaceText's new one, which waits on `resolve`.
+   */
+  /**
+   * ZONE_CREATE_HELPER::createNewZone's properties dialog, on a ZONE_SETTINGS
+   * alone: the copper, non-copper or rule-area one, and the tool waiting on it.
+   */
+  const [zoneSettingsDlg, setZoneSettingsDlg] = useState<{
+    dialog: DIALOG_COPPER_ZONE | DIALOG_NON_COPPER_ZONES_EDITOR | DIALOG_RULE_AREA_PROPERTIES;
+    resolve: (aOk: boolean) => void;
+  } | null>(null);
+  const [textPropsDlg, setTextPropsDlg] = useState<{
+    dialog: DIALOG_TEXT_PROPERTIES;
+    resolve?: (aOk: boolean) => void;
+  } | null>(null);
+  /** Properties on the view board's text `aIndex`. */
+  const setTextPropsIndex = useCallback((aIndex: number | null): void => {
+    const k = aIndex === null ? undefined : boardRef.current?.texts[aIndex]?.k;
+    const f = frameRef.current;
+    setTextPropsDlg(k && f ? { dialog: new DIALOG_TEXT_PROPERTIES(f, k) } : null);
+  }, []);
   const [shapePropsIndex, setShapePropsIndex] = useState<number | null>(null);
   const [dimensionPropsIndex, setDimensionPropsIndex] = useState<number | null>(null);
-  const [textBoxPropsIndex, setTextBoxPropsIndex] = useState<number | null>(null);
+  /**
+   * DIALOG_TEXTBOX_PROPERTIES on a live PCB_TEXTBOX: the board's own, or
+   * DRAWING_TOOL's new one (drawTextBox), which waits on `resolve`.
+   */
+  const [textBoxPropsDlg, setTextBoxPropsDlg] = useState<{
+    dialog: DIALOG_TEXTBOX_PROPERTIES;
+    resolve?: (aOk: boolean) => void;
+  } | null>(null);
+  /** Properties on the view board's text box `aIndex`. */
   const [imagePropsIndex, setImagePropsIndex] = useState<number | null>(null);
-  const [tablePropsIndex, setTablePropsIndex] = useState<number | null>(null);
   /**
-   * A text box drawn but not yet confirmed. Upstream opens the properties
-   * dialog straight after the second click and throws the box away if it is
-   * cancelled, so it is not on the board until OK.
+   * DIALOG_TABLE_PROPERTIES on a live PCB_TABLE: the board's own, or
+   * DRAWING_TOOL::DrawTable's new one, which waits on `resolve`.
    */
-  const [pendingTextBox, setPendingTextBox] = useState<Omit<PcbTextBox, 'source'> | null>(null);
-  /** The first corner of a text box being drawn. */
-  const textBoxStartRef = useRef<{ x: number; y: number } | null>(null);
-  /** A table drawn but not yet confirmed; its dialog decides whether it stays. */
-  const [pendingTable, setPendingTable] = useState<Omit<PcbTable, 'source'> | null>(null);
-  /** The first corner of a table being drawn. */
-  const tableStartRef = useRef<{ x: number; y: number } | null>(null);
-  /**
-   * The same fact as `tableStartRef`, as state, because the cursor is chosen at
-   * render time and a ref does not re-render. `DrawTable`'s `setCursor` swaps
-   * PENCIL for MOVING the moment the first corner is down.
-   */
-  const [tableDragging, setTableDragging] = useState(false);
-  /**
-   * An image is on the cursor, waiting for the click that drops it.
-   *
-   * `PlaceReferenceImage`'s `setCursor` is the same two-arm chain the table
-   * tool's is — `if( image ) MOVING else ARROW` (`drawing_tool.cpp:105-112`) —
-   * so the tool id alone cannot answer for it. ARROW is this frame's fallback,
-   * which is why `placeReferenceImage` has no entry in the shared table.
-   */
-  const [imagePlacing, setImagePlacing] = useState(false);
-  /** Set both together, so the cursor can never disagree with the preview. */
-  const setTableStart = (at: { x: number; y: number } | null): void => {
-    tableStartRef.current = at;
-    setTableDragging(at !== null);
-  };
+  const [tablePropsDlg, setTablePropsDlg] = useState<{
+    dialog: DIALOG_TABLE_PROPERTIES;
+    table: PCB_TABLE;
+    resolve?: (aOk: boolean) => void;
+  } | null>(null);
+  /** Properties on the view board's table `aIndex`. */
   // Update PCB from Schematic (DIALOG_UPDATE_PCB). The netlist is fetched from the
   // project's schematic before the dialog opens, together with every footprint it
   // names, the updater itself is synchronous, exactly like upstream, so the
   // libraries have to be in hand first (upstream's adapter->BlockUntilLoaded).
   const [updatePcb, setUpdatePcb] = useState<{
     netlist: NETLIST;
-    library: Map<string, PcbFootprint>;
+    library: Map<string, FOOTPRINT>;
   } | null>(null);
   const [updatePcbBusy, setUpdatePcbBusy] = useState(false);
   // File > Import > Netlist... (DIALOG_IMPORT_NETLIST): the path it opens on is
@@ -3056,104 +2985,9 @@ export function PcbEditor({
       return { name: f.name, text: entry.text };
     });
   }, [projectFiles]);
-  // `BOARD_DESIGN_SETTINGS::m_ZoneLayerProperties` as the zone filler wants it:
-  // IU, keyed by canonical layer name. The Board Setup > Zone Hatch Offsets page
-  // edits it in mm, which is this module's convention for a settings slice.
-  const hatchingOffsets = useMemo(() => {
-    const out: Record<string, { x: number; y: number }> = {};
-    for (const [layer, props] of Object.entries(boardSetup.zoneLayerProperties)) {
-      if (props.hatchingOffset)
-        out[layer] = {
-          x: Math.round(props.hatchingOffset.x * MM),
-          y: Math.round(props.hatchingOffset.y * MM),
-        };
-    }
-    return out;
-  }, [boardSetup.zoneLayerProperties]);
-  /**
-   * ZONE_FILLER's options as `BOARD_DESIGN_SETTINGS` holds them, in IU.
-   *
-   * `m_MaxError` is Board Setup > Constraints' "Maximum allowed deviation".
-   * The filler was called without it and fell back to its own ARC_HIGH_DEF
-   * default, so the field moved nothing: every arc, circle and thermal relief
-   * in a pour was tessellated at 0.005 mm whatever the board asked for.
-   *
-   * `PANEL_SETUP_CONSTRAINTS::TransferDataFromWindow` clamps the value to
-   * [MINIMUM_ERROR_SIZE_MM, MAXIMUM_ERROR_SIZE_MM] before it reaches the
-   * settings (`panel_setup_constraints.cpp:161-165`), and zero would divide by
-   * zero in `GetArcToSegmentCount`, so the clamp is not cosmetic.
-   */
-  const zoneFillOptions = useMemo(
-    () => ({
-      hatchingOffsets,
-      maxError: Math.round(clampMaxErrorMM(boardSetup.constraints.maxDeviationMM) * MM),
-      // `EDGE_CLEARANCE_CONSTRAINT`, off Board Setup > Constraints. It is what
-      // insets a filled pour from Edge.Cuts, so it has to be the board's own
-      // number and not the filler's fallback.
-      edgeClearance: Math.round(boardSetup.constraints.copperToEdgeMM * MM),
-      // `HOLE_CLEARANCE_CONSTRAINT`, off the same page. For an NPTH it is the
-      // only ordinary clearance that reaches the hole at all.
-      holeClearance: Math.round(boardSetup.constraints.copperToHoleMM * MM),
-      // `m_MinClearance`, the floor under a pad's own clearance override.
-      minClearance: Math.round(boardSetup.constraints.minClearanceMM * MM),
-      // `m_HoleToHoleMin` and the worst netclass clearance: two of the terms
-      // of `GetBiggestClearanceValue`, which sizes the box the filler looks
-      // for knockouts in.
-      holeToHoleMin: Math.round(boardSetup.constraints.minHoleToHoleMM * MM),
-      worstNetClassClearance: Math.round(
-        Math.max(0, ...boardSetup.netClasses.classes.map((c) => Number(c.clearance) || 0)) * MM,
-      ),
-      // `CLEARANCE_CONSTRAINT`. Without this the pour used the zone's own
-      // `(connect_pads (clearance …))` alone, so a zone that states none — and
-      // plenty do — kept no gap at all from other nets.
-      clearanceOf: zoneClearanceOf({
-        minClearance: Math.round(boardSetup.constraints.minClearanceMM * MM),
-        // Read through the ref, not a captured board: the resolver is called
-        // during a fill, and the net table it needs is the one the board has
-        // then.
-        netClassClearance: (net: number) => {
-          const mm = netClassClearanceMM(
-            boardRef.current?.nets.get(net) ?? '',
-            boardSetup.netClasses,
-          );
-          return mm === undefined ? undefined : Math.round(mm * MM);
-        },
-      }),
-    }),
-    [
-      hatchingOffsets,
-      boardSetup.constraints.maxDeviationMM,
-      boardSetup.constraints.copperToEdgeMM,
-      boardSetup.constraints.copperToHoleMM,
-      boardSetup.constraints.minClearanceMM,
-      boardSetup.constraints.minHoleToHoleMM,
-      boardSetup.netClasses,
-    ],
-  );
   const boardSetupRef = useRef(boardSetup);
   boardSetupRef.current = boardSetup;
 
-  // BOARD_DESIGN_SETTINGS::GetLayerClass, the Text & Graphics Defaults row
-  // for a layer (silk / copper / edges / courtyard / fab / other).
-  const layerClassRow = (layer: string): TextGfxRow => {
-    const rows = boardSetupRef.current.textGraphics.rows;
-    const i = /\.SilkS$/.test(layer)
-      ? 0
-      : /\.Cu$/.test(layer)
-        ? 1
-        : layer === 'Edge.Cuts'
-          ? 2
-          : /\.CrtYd$/.test(layer)
-            ? 3
-            : /\.Fab$/.test(layer)
-              ? 4
-              : 5;
-    return rows[i] ?? rows[5]!;
-  };
-  // GetLineThickness(layer): the Board Setup default width for new graphics,
-  // with the factory constant as a safety net for a zeroed row.
-  const shapeWidthIU = (layer: string): number =>
-    Math.round(layerClassRow(layer).lineThickness * MM) || defaultShapeWidth(layer);
   // Find dialog (DIALOG_FIND): query, options, hit cursor + status line.
   const [findOpen, setFindOpen] = useState(false);
   const [findQuery, setFindQuery] = useState('');
@@ -3163,42 +2997,42 @@ export function PcbEditor({
   const findCursorRef = useRef(-1);
   // A query/options change restarts the search (DIALOG_FIND::search(true)).
   const findDirtyRef = useRef(true);
-  const [textDialog, setTextDialog] = useState<{ x: number; y: number } | null>(null);
   /**
-   * The Draw Text tool asks for its text the moment it is picked, before any
-   * click. `DRAWING_TOOL::PlaceText` ends its setup with
-   *
-   *     else if( common_settings->m_Input.immediate_actions && !aEvent.IsReactivate() )
-   *     {
-   *         m_toolMgr->PrimeTool( { 0, 0 } );
-   *         ignorePrimePosition = true;
-   *     }
-   *
-   * (`drawing_tool.cpp:1049-1058`) — a synthetic left click that runs the
-   * tool's own click arm, which is what builds the PCB_TEXT and opens the
-   * dialog. The position is thrown away (`ignorePrimePosition`); the item takes
-   * `cursorPos`, i.e. wherever the pointer is now.
-   *
-   * `immediate_actions` is not offered as a choice here — Preferences > Common
-   * greys the box and says why — so this primes unconditionally, which is what
-   * its default asks for. Clicking the canvas afterwards opens it again, as
-   * upstream's loop does on every click with no text in hand.
+   * DIALOG_BARCODE_PROPERTIES on a live PCB_BARCODE: the board's own
+   * (`EDIT_TOOL::Properties`), or DRAWING_TOOL::DrawBarcode's new one, which
+   * waits on `resolve`. The preview and the error check are the model's, held
+   * here so the dialog's preview effect sees one function per opening.
    */
-  useEffect(() => {
-    if (activeTool !== 'placeText') return;
-    setTextDialog(snapToGrid(cursorRef.current ?? { x: 0, y: 0 }));
-  }, [activeTool]);
-  /**
-   * The barcode properties dialog. `at` is where the click landed for a new
-   * one; `index` names an existing barcode being edited instead
-   * (`EDIT_TOOL::Properties`).
-   */
-  const [barcodeDialog, setBarcodeDialog] = useState<{
-    at: { x: number; y: number };
-    index?: number;
+  const [barcodePropsDlg, setBarcodePropsDlg] = useState<{
+    dialog: DIALOG_BARCODE_PROPERTIES;
+    preview: (v: BarcodeValues) => BarcodePreview;
+    commitError: (v: BarcodeValues) => string;
+    resolve?: (aOk: boolean) => void;
   } | null>(null);
-  // `DRAWING_TOOL::PlaceImportedGraphics`'s dialog (File > Import > Graphics).
-  const [importGraphicsOpen, setImportGraphicsOpen] = useState(false);
+  const openBarcodeProps = useCallback(
+    (aDialog: DIALOG_BARCODE_PROPERTIES, aResolve?: (aOk: boolean) => void): void =>
+      setBarcodePropsDlg({
+        dialog: aDialog,
+        preview: (v) => barcodePreview(aDialog.Preview(v)),
+        commitError: (v) => aDialog.CommitError(v),
+        ...(aResolve ? { resolve: aResolve } : {}),
+      }),
+    [],
+  );
+  /** Properties on the view board's barcode `aIndex`. */
+  const setBarcodePropsIndex = useCallback(
+    (aIndex: number): void => {
+      const k = boardRef.current?.barcodes[aIndex]?.k;
+      const f = frameRef.current;
+      if (k && f) openBarcodeProps(new DIALOG_BARCODE_PROPERTIES(f, k));
+    },
+    [openBarcodeProps],
+  );
+  // `DRAWING_TOOL::PlaceImportedGraphics`'s DIALOG_IMPORT_GRAPHICS (File >
+  // Import > Graphics): the tool waits on `resolve`, null for Cancel.
+  const [importGfxDlg, setImportGfxDlg] = useState<{
+    resolve: (aResult: IMPORT_GRAPHICS_RESULT | null) => void;
+  } | null>(null);
   /** File > Import > Non-KiCad Board File: the chooser's type combo while it is up. */
   const [nonKicadFilters, setNonKicadFilters] = useState<ChooserFilter[] | null>(null);
   // DIALOG_MAP_LAYERS::RunModal, asked for by a layer-mappable importer mid-load
@@ -3207,54 +3041,6 @@ export function PcbEditor({
     layers: readonly INPUT_LAYER_DESC[];
     done: (aMap: Map<string, MapLayersLayerId>, aKeep: boolean) => void;
   } | null>(null);
-  // Pending "Copper Zone Properties" dialog: the zone's first corner.
-  const [zoneDialog, setZoneDialog] = useState<{
-    at: { x: number; y: number };
-    values: ZoneValues;
-  } | null>(null);
-  /**
-   * The in-flight zone's `ZONE_CREATE_HELPER::PARAMS` — what the properties
-   * dialog decided. The *corners* are `zoneMgrRef`'s, because they are
-   * `POLYGON_GEOM_MANAGER`'s upstream and the two tools must not disagree
-   * about what closes an outline.
-   */
-  const zoneRef = useRef<
-    | { mode: 'zone'; layer: string; values: ZoneValues }
-    | { mode: 'ruleArea'; layer: string; values: RuleAreaValues }
-    | null
-  >(null);
-  /** Pending "Rule Area Properties" dialog: the area's first corner. */
-  const [ruleAreaDialog, setRuleAreaDialog] = useState<{ x: number; y: number } | null>(null);
-  // Measure tool ruler: first point, and the frozen second point once clicked.
-  const measureRef = useRef<{
-    a: { x: number; y: number };
-    b: { x: number; y: number } | null;
-  } | null>(null);
-  /** The dimension being placed (DRAWING_TOOL::DrawDimension's in-flight item). */
-  const dimensionRef = useRef<DimensionDraw | null>(null);
-  /** The reference image being placed (`DRAWING_TOOL::PlaceReferenceImage`). */
-  const placeImageRef = useRef<ImagePlaceState>(startPlaceImage());
-  /**
-   * `BOARD_EDITOR_CONTROL::PlaceFootprint`'s `fp` — the library footprint the
-   * chooser returned, riding the cursor until the click that commits it
-   * (board_editor_control.cpp:1350-1560). Null between placements: the tool
-   * stays armed and the next click opens the chooser again.
-   */
-  const placeFpRef = useRef<{ lib: PcbFootprint; fpid: string } | null>(null);
-  /**
-   * `doInteractiveItemPlacement`'s `newItem` for the four `MICROWAVE_TOOL`
-   * footprints: the live FOOTPRINT `createFootprint` / `createPolygonShape` made,
-   * riding the cursor until the click that `commit.Add`s it. Null between
-   * placements. Drawn through `placeFpSceneRef`, as the library footprint is.
-   */
-  const placeMwRef = useRef<FOOTPRINT | null>(null);
-  /** A `CreateItem()` is waiting on its dialogs: a second click must not start another. */
-  const mwCreatingRef = useRef(false);
-  /**
-   * `drawMicrowaveInductor`'s `tpGeomMgr` and `originSet`: the two-click
-   * rectangle the S-shaped coil is built between.
-   */
-  const mwLineRef = useRef({ mgr: new TWO_POINT_GEOMETRY_MANAGER(), originSet: false });
   /** `DIALOG_ZONE_MANAGER`, open: `ShowQuasiModal()`'s answer. */
   const [zoneManager, setZoneManager] = useState<{
     resolve: (r: { ok: boolean; repour: boolean }) => void;
@@ -3271,31 +3057,12 @@ export function PcbEditor({
   const [mwPolygonOpen, setMwPolygonOpen] = useState<{ resolve: (ok: boolean) => void } | null>(
     null,
   );
-  /** `ZONE_FILLER::Fill` over the Zone Manager's clones; set once the fill options exist. */
-  const fillZoneClonesRef = useRef<(aBoard: BOARD, aZones: ZONE[]) => boolean>(() => false);
-  /** `doInteractiveItemPlacement`'s `setCursor`: PLACE once `newItem` exists. */
-  const [mwPlacing, setMwPlacing] = useState(false);
-  /**
-   * The in-flight footprint compiled at its current cursor position, drawn
-   * like a move overlay — upstream it is a real board item that
-   * `ACTIONS::selectItem` selected and `SetPosition( cursorPos )` moves on
-   * every motion event.
-   */
-  const placeFpSceneRef = useRef<{ at: { x: number; y: number }; scene: BoardScene } | null>(null);
   /** `SelectFootprintFromLibrary`'s FOOTPRINT_CHOOSER_FRAME is open. */
   const [fpChooserOpen, setFpChooserOpen] = useState(false);
   /** The `LIB_ID` text the chooser opens on (`SelectFootprintFromLibrary`'s `aPreselect`). */
   const [fpChooserPreselect, setFpChooserPreselect] = useState('');
   /** What the open chooser answers, `SelectFootprintFromLibrary` being `await`ing it. */
   const fpChooserResolveRef = useRef<((aLibId: string | null) => void) | null>(null);
-  /**
-   * `ROUTER_TOOL`'s router: the PNS session that owns the route in flight,
-   * single track or differential pair by `PNS::ROUTER_MODE`, from the click
-   * that started it to the fix that ends it. Null while a routing tool is
-   * armed and idle. `route_tool.ts`, the 117-line substitute the single-track
-   * tool ran on, is gone: both tools are this loop.
-   */
-  const pnsSessionRef = useRef<PnsSession | null>(null);
   /**
    * `frame()->ShowInfoBarError( m_router->FailureReason(), true )`
    * (router_tool.cpp:1436, :1600) — why the router refused, in the infobar
@@ -3307,45 +3074,13 @@ export function PcbEditor({
    * owner.
    */
   const [infoBarError, setInfoBarError] = useState<string | null>(null);
-  /**
-   * Decoded reference-image pixels. A ref, not state: the map is mutated in
-   * place and the redraw is what publishes it, so making it state would rebuild
-   * the draw options on every decode for no gain.
-   */
-  const imageCacheRef = useRef(new ReferenceImageCache());
-  // Switching tools abandons the in-flight shape/route/zone/ruler/dimension.
+  // Switching tools abandons what a window tool has in flight: the footprint
+  // chooser.
   useEffect(() => {
-    drawingRef.current = [];
-    zoneRef.current = null;
-    // `cleanup()`'s `polyGeomMgr.Reset()` (drawing_tool.cpp:3494).
-    polyMgrRef.current?.reset();
-    zoneMgrRef.current?.reset();
-    twoPtRef.current.Reset();
-    twoPtStartedRef.current = false;
-    arcMgrRef.current.reset();
-    setRuleAreaDialog(null);
-    measureRef.current = null;
-    dimensionRef.current = null;
-    textBoxStartRef.current = null;
-    setTableStart(null);
-    placeImageRef.current = startPlaceImage();
-    // `ROUTER_TOOL::MainLoop`'s `IsActivate()` arm -> `StopRouting`: the
-    // pair in flight is thrown away, the board untouched.
-    pnsSessionRef.current?.abort();
-    pnsSessionRef.current = null;
-    // `evt->IsActivate()` -> `cleanup()`: the footprint on the cursor is
-    // dropped, never committed (board_editor_control.cpp:1447-1461).
-    placeFpRef.current = null;
-    placeFpSceneRef.current = null;
-    // `cleanup()`: `newItem = nullptr`, and the coil's rectangle is hidden.
-    placeMwRef.current = null;
-    setMwPlacing(false);
-    mwLineRef.current.originSet = false;
     fpChooserResolveRef.current?.(null);
     fpChooserResolveRef.current = null;
     setFpChooserOpen(false);
   }, [activeTool]);
-  const sceneRef = useRef<BoardScene | null>(null);
   /**
    * The WebGL layer, and whether it is the one drawing.
    *
@@ -3358,6 +3093,7 @@ export function PcbEditor({
    * most able to hide.
    */
   const glCanvasRef = useRef<HTMLCanvasElement>(null);
+  glCanvasFocusRef.current = (): void => glCanvasRef.current?.focus();
   /**
    * `PCB_DRAW_PANEL_GAL`, the KiCad canvas over `glCanvasRef`: its VIEW draws
    * the board through `PCB_PAINTER` on `OPENGL_GAL`. Null until the bitmap
@@ -3371,77 +3107,6 @@ export function PcbEditor({
   const [panelGeneration, setPanelGeneration] = useState(0);
   /** What `applyDisplayState` last pushed into the frame, for its diffs. */
   const displayStateRef = useRef<EditorDisplayState | null>(null);
-  const glOkRef = useRef(false);
-  /**
-   * This board carries a reference image, so it stays on the 2D canvas.
-   *
-   * `GlRecorder.drawImage` is a no-op — the recorder has no way to put a bitmap
-   * in a vertex buffer — so a board with a picture on it would simply lose the
-   * picture. One-way on purpose: deleting the last image does not hand the
-   * board back to the GPU until the editor is reopened, which is worth it to
-   * keep every scene rebuild a single compile rather than a speculative one
-   * followed by a corrective one.
-   */
-  const glBlockedRef = useRef(false);
-  /** Whether the scene on hand was compiled with GL paths (drawn by the GPU). */
-  const sceneIsGlRef = useRef(false);
-  const sceneFactory = (): ScenePathFactory => DOM_PATH_FACTORY;
-  /**
-   * Compile the board for whichever backend is drawing it.
-   *
-   * Only the *main* scene goes through this. The selection, move, highlight and
-   * net-colour scenes stay `Path2D`: they are painted onto the 2D overlay, they
-   * are small subsets, and the move overlay needs a translated view that the
-   * retained buffer has no way to express.
-   */
-  /**
-   * GetOwnClearance for the pad-clearance outlines, the common-case rule: the
-   * net's class clearance (first matching assignment, else Default), floored
-   * by the board's minimum-clearance rule. Values come from Board Setup, so
-   * boards whose Default class is not netclass.cpp's 0.2 mm draw their rings
-   * at the size pcbnew does (this demo's Default says 0.15 mm).
-   */
-  const clearanceForNet = (netName: string): number => {
-    const nc = boardSetupRef.current.netClasses;
-    const minClr = (boardSetupRef.current.constraints.minClearanceMM ?? 0) * MM;
-    const className = netClassFor(netName, nc.assignments);
-    const cls = nc.classes.find((c) => c.name === className) ?? nc.classes[0];
-    const clr = Number.parseFloat(cls?.clearance ?? '');
-    return Math.max(Number.isFinite(clr) ? clr * MM : 0.2 * MM, minClr);
-  };
-  /**
-   * `BOARD::ResolveTextVar` (`pcbnew/board.cpp`), reached from
-   * `PCB_TEXT::GetShownText`: the project's text variables — the Text Variables
-   * page's rows — plus the two board tokens that need no title block.
-   * An unanswered name is left verbatim by `ResolveTextVars`, as upstream
-   * leaves it.
-   *
-   * Not resolved here: the title-block tokens (ISSUE_DATE, REVISION, COMPANY,
-   * COMMENT1-9) and `LAYER`, which is per drawn item rather than per board.
-   */
-  const resolveTextVar = (token: OutStr): boolean => {
-    const vars = boardSetupRef.current.textVars;
-    const hit = vars.find((v) => v.name === token.value);
-    let value: string | undefined;
-    if (hit) value = hit.value;
-    else if (token.value === 'PROJECTNAME') value = projectName || undefined;
-    else if (token.value === 'FILENAME') value = fileName || undefined;
-    if (value === undefined) return false;
-    token.value = value;
-    return true;
-  };
-
-  const buildBoardScene = (b: Board, filter: SceneFilter = {}): BoardScene => {
-    if (!filter.clearanceForNet) filter = { ...filter, clearanceForNet };
-    if (!filter.resolveTextVar) filter = { ...filter, resolveTextVar };
-    // With the KiCad canvas up, the VIEW draws the board and nothing reads a
-    // raster scene of it: the shell alone (the paper, the setup) is kept for
-    // the parts of the 2D path that still ask a scene for them. The whole-board
-    // compile — 7.3 s and a Path2D per item on the jetson demo — is what the
-    // raster fallback pays, and only it.
-    if (glOkRef.current) return buildScene(emptyBoardLike(b), filter, sceneFactory());
-    return buildScene(b, filter, sceneFactory());
-  };
 
   /**
    * `PCB_BASE_FRAME::GetBoardBoundingBox( false )`'s `m_pcb->GetBoundingBox()`:
@@ -3450,7 +3115,7 @@ export function PcbEditor({
   const boardItemsBox = (): ExtentsBox | null => {
     const kb = boardRef.current?.k;
 
-    if (!kb) return sceneRef.current?.bbox ?? null;
+    if (!kb) return null;
 
     const area = kb.GetBoundingBox();
 
@@ -3470,7 +3135,7 @@ export function PcbEditor({
   const boardEdgesBox = (): ExtentsBox | null => {
     const kb = boardRef.current?.k;
 
-    if (!kb) return sceneRef.current?.bbox ?? null;
+    if (!kb) return null;
 
     const area = kb.GetBoardEdgesBoundingBox();
 
@@ -3575,9 +3240,9 @@ export function PcbEditor({
       imageOpacity: opacity.images,
       zoneOutline: toggles.has('zoneDisplayOutline'),
       // Display-mode toggles: on = sketch (outline) = fill off (m_Display*Fill).
-      trackFill: !toggles.has('trackDisplayMode'),
-      viaFill: !toggles.has('viaDisplayMode'),
-      padFill: !toggles.has('padDisplayMode'),
+      trackFill: pcbCfg.pcb_display.track_fill,
+      viaFill: pcbCfg.pcb_display.via_fill,
+      padFill: pcbCfg.pcb_display.pad_fill,
       filledShapeOpacity: opacity.filledShapes,
       contrastMode: contrast,
       // `m_hiContrastFactor = 1.0 - hicontrast_dimming_factor`
@@ -3604,44 +3269,33 @@ export function PcbEditor({
       // Identity-stable: the cache mutates the map and asks for a redraw, and
       // the paint pass reads it then. Nothing here needs to change for a decode
       // to become visible.
-      imageBitmaps: imageCacheRef.current.bitmaps,
     }),
-    [objects, opacity, toggles, contrast, activeLayer, display, theme],
-  );
-
-  /**
-   * The same options for the SELECTION overlay, which paints only the items
-   * that are selected.
-   *
-   * `PCB_FIELD::ViewGetLOD` (`pcbnew/pcb_field.cpp:246-260`) returns LOD_SHOW
-   * for a field whose parent footprint is selected — BEFORE the Render tab's
-   * `LAYER_FP_VALUES` / `LAYER_FP_REFERENCES` checks — when
-   * `m_ForceShowFieldsWhenFPSelected` is set. That early return is what this
-   * is: the overlay pass is the only place the predicate "parent footprint is
-   * selected" is already true for everything it draws, so lifting the two
-   * switches there and nowhere else says exactly what upstream says.
-   */
-  const selDrawOpts = useMemo<PcbDrawOptions>(
-    () =>
-      display.force_show_fields_when_fp_selected
-        ? { ...drawOpts, fpReferences: true, fpValues: true }
-        : drawOpts,
-    [drawOpts, display.force_show_fields_when_fp_selected],
+    [
+      objects,
+      opacity,
+      toggles,
+      contrast,
+      activeLayer,
+      display,
+      theme,
+      pcbCfg.pcb_display.pad_fill,
+      pcbCfg.pcb_display.track_fill,
+      pcbCfg.pcb_display.via_fill,
+    ],
   );
 
   // The left-toolbar high-contrast button reflects the Layer Display mode.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `contrast`, `objects.ratsnest`, `unitLabel` and `pcbCfg` are the triggers - the frame's conditions are read through frameRef
   const leftToggles = useMemo(() => {
     const s = new Set(toggles);
-    if (contrast !== 'normal') s.add('highContrast');
-    else s.delete('highContrast');
-    if (objects.ratsnest) s.add('showRatsnest');
-    else s.delete('showRatsnest');
+    const frame = frameRef.current;
+    if (frame) for (const id of pcbCheckedSet(frame)) s.add(id);
     // The button is checked whenever a net highlight is active (netHighlightCond
     // = IsNetHighlightSet()).
     if (highlightNets.size > 0) s.add('toggleNetHighlight');
     else s.delete('toggleNetHighlight');
     return s;
-  }, [toggles, contrast, objects.ratsnest, highlightNets]);
+  }, [toggles, contrast, objects.ratsnest, highlightNets, unitLabel, pcbCfg]);
 
   // `text` is live (see the `openNonce` prop): the host mirrors this editor's
   // own autosaved board back into the open project, so reading it as a
@@ -3670,7 +3324,6 @@ export function PcbEditor({
     // has parsed, as pcbnew keeps the old board up until `SetBoard`.
     if (!boardRef.current) {
       boardRef.current = emptyBoard;
-      sceneRef.current = buildBoardScene(emptyBoard);
       requestDrawRef.current();
     }
     // Not on screen: nothing to do yet. The open is read when the frame is
@@ -3739,11 +3392,6 @@ export function PcbEditor({
           if (cancelled) return;
         }
         boardRef.current = b;
-        sceneRef.current = buildBoardScene(b);
-        wxLogTrace(
-          traceAllegroPerf,
-          () => `Post-load scene: ${postLoadTimer.msecs(true).toFixed(3)} ms`,
-        );
         // OpenProjectFiles, the board loaded: `AdvancePhase( _( "Finalizing
         // board" ) )`, `SetBoard( loadedBoard, false )` — through the canvas,
         // so the VIEW takes every item here — then "Rebuild list of nets
@@ -3786,37 +3434,7 @@ export function PcbEditor({
           // options, the painter's hidden nets and the selection filter from
           // the .kicad_prl; this window's Appearance state starts from them.
           if (frame.GetCanvas()) {
-            const o = frame.GetDisplayOptions();
-            setOpacity({
-              tracks: o.m_TrackOpacity,
-              vias: o.m_ViaOpacity,
-              pads: o.m_PadOpacity,
-              zones: o.m_ZoneOpacity,
-              images: o.m_ImageOpacity,
-              filledShapes: o.m_FilledShapeOpacity,
-            });
-            setContrast(
-              o.m_ContrastModeDisplay === HIGH_CONTRAST_MODE.HIDDEN
-                ? 'hide'
-                : o.m_ContrastModeDisplay === HIGH_CONTRAST_MODE.DIMMED
-                  ? 'dim'
-                  : 'normal',
-            );
-            setNetColorMode(
-              o.m_NetColorMode === NET_COLOR_MODE.ALL
-                ? 'all'
-                : o.m_NetColorMode === NET_COLOR_MODE.OFF
-                  ? 'off'
-                  : 'ratsnest',
-            );
-            setToggles((prev) =>
-              applyToggle(
-                prev,
-                o.m_ZoneDisplayMode === ZONE_DISPLAY_MODE.SHOW_ZONE_OUTLINE
-                  ? 'zoneDisplayOutline'
-                  : 'zoneDisplayFilled',
-              ),
-            );
+            updateDisplayOptionsRef.current();
             const loadedPanel = panelRef.current;
             if (loadedPanel) {
               const render = (loadedPanel.GetView().GetPainter() as PCB_PAINTER).GetSettings();
@@ -3898,47 +3516,6 @@ export function PcbEditor({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setupSourceKey, rootPro, openNonce]);
-
-  // PCB_POINT_EDITOR shows its points for a *single* selected item: a handle per
-  // corner or vertex, plus one at each edge midpoint. Which items have any is
-  // the engine's business, not this component's.
-  useEffect(() => {
-    // The `board` this effect DEPENDS on, not `boardRef.current`. The two are
-    // the same object almost always and differ exactly when it matters: the ref
-    // is written by `setBoardModel` and by the loader's own timeout, so an
-    // effect keyed on the state that reads the ref can compute handles for a
-    // different board than the one it woke up for — and `boardEditHandles`
-    // answers `[]` for an index that board has not got, which is no handles at
-    // all until something else re-runs this.
-    const brd = board ?? boardRef.current;
-    const id = selection.size === 1 ? [...selection][0]! : null;
-    const handles = brd && id ? boardEditHandles(brd, id) : [];
-
-    if (handles.length === 0) {
-      editHandlesRef.current = [];
-      editIndicatorsRef.current = [];
-      editHandleItemRef.current = null;
-      hoveredEditHandleRef.current = null;
-      requestDrawRef.current();
-      return;
-    }
-    editHandlesRef.current = handles;
-    editIndicatorsRef.current = brd && id ? boardIndicatorLines(brd, id) : [];
-    editHandleItemRef.current = id;
-    requestDrawRef.current();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selection, board]);
-
-  // "Footprints Front/Back" hide whole footprints: rebuild the scene.
-  useEffect(() => {
-    if (!boardRef.current) return;
-    sceneRef.current = buildBoardScene(boardRef.current, {
-      hideFrontFootprints: !objects.footprintsFront,
-      hideBackFootprints: !objects.footprintsBack,
-    });
-    requestDraw();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [objects.footprintsFront, objects.footprintsBack]);
 
   /**
    * The board's drill/place file origin, cached per board object.
@@ -4037,645 +3614,6 @@ export function PcbEditor({
     // LAYER_SELECT_OVERLAY and 130 entries above LAYER_RATSNEST
     // (`pcb_draw_panel_gal.cpp:81`). The GL path draws it in its own layer, in
     // the same position, with KiCad's overlay blend that this one cannot do.
-    // Umbilical lines (pcb_painter.cpp draw(PCB_TEXT): "Draw the umbilical
-    // line for texts in footprints"): every SELECTED footprint text draws a
-    // solid line in the LAYER_ANCHOR color (the theme's pink) back to its
-    // parent footprint's position. Selecting a footprint selects its child
-    // texts too, so clicking a footprint shows the umbilicals to its
-    // reference/value/other texts. Follows an in-flight drag.
-    {
-      const sel = selForDrawRef.current;
-      const brd = boardRef.current;
-      if (brd) {
-        const md = moveDeltaRef.current;
-        const off = !dragModeRef.current && md ? md : { x: 0, y: 0 };
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.strokeStyle = PCB_SPECIAL.anchor;
-        ctx.lineWidth = Math.max(1, dpr);
-        ctx.beginPath();
-        const umbilical = (fp: PcbFootprint, t: PcbFootprint['texts'][number]): void => {
-          if (t.hide) return;
-          ctx.moveTo((t.at.x + off.x) * sx + v.tx, (t.at.y + off.y) * v.scale + v.ty);
-          ctx.lineTo((fp.at.x + off.x) * sx + v.tx, (fp.at.y + off.y) * v.scale + v.ty);
-        };
-        for (const id of sel) {
-          const r = parseBoardItemId(id);
-          if (r?.kind === 'fptext') {
-            const fp = brd.footprints[r.index];
-            const t = fp?.texts[r.sub ?? 0];
-            // An individually selected text keeps its own anchor: only the text
-            // end follows the drag, not the footprint position.
-            if (fp && t && !t.hide) {
-              ctx.moveTo((t.at.x + off.x) * sx + v.tx, (t.at.y + off.y) * v.scale + v.ty);
-              ctx.lineTo(fp.at.x * sx + v.tx, fp.at.y * v.scale + v.ty);
-            }
-          } else if (r?.kind === 'footprint') {
-            const fp = brd.footprints[r.index];
-            if (fp) for (const t of fp.texts) umbilical(fp, t);
-          }
-        }
-        ctx.stroke();
-      }
-    }
-    // A selected reference image gets a BOUNDING BOX, which is the one item
-    // whose selection is not "repaint it brightened": a raster has no stroke to
-    // brighten, so `draw( const PCB_REFERENCE_IMAGE* )` does this instead —
-    //
-    //     if( aBitmap->IsSelected() || aBitmap->IsBrightened() )
-    //     {
-    //         COLOR4D color = m_pcbSettings.GetColor( aBitmap, LAYER_ANCHOR );
-    //         m_gal->SetLineWidth( m_pcbSettings.m_outlineWidth * 2.0f );
-    //         …  // draws a bounding box
-    //     }
-    //                                        (`pcb_painter.cpp`)
-    //
-    // LAYER_ANCHOR's colour and twice the minimum pen, both of them upstream's.
-    {
-      const brd = boardRef.current;
-      // The same single-selected item the point editor is showing handles for,
-      // which is exactly when upstream's `IsSelected()` branch fires.
-      const ref = editHandleItemRef.current ? parseBoardItemId(editHandleItemRef.current) : null;
-      const img = brd && ref?.kind === 'image' ? brd.images[ref.index] : null;
-      if (img && !moveDeltaRef.current) {
-        const box = imageBBox(img);
-        ctx.save();
-        ctx.setTransform(sx, 0, 0, v.scale, v.tx, v.ty);
-        ctx.strokeStyle = drawOpts.theme?.special.anchor ?? PCB_SPECIAL.anchor;
-        ctx.lineWidth = (2 * Math.max(1, dpr)) / v.scale;
-        ctx.strokeRect(box.minX, box.minY, box.maxX - box.minX, box.maxY - box.minY);
-        ctx.restore();
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-      }
-    }
-    // Point-editor handles (PCB_POINT_EDITOR): a single selected item gets a
-    // square on each corner or vertex and a circle at each edge midpoint, drawn at
-    // a fixed screen size in LAYER_AUX_ITEMS white with a darker border
-    // (EDIT_POINTS::ViewDraw; POINT_SIZE 8, BORDER_SIZE 3, HOVER_SIZE 6).
-    {
-      const handles = editHandlesRef.current;
-      if (handles.length > 0 && !moveDeltaRef.current) {
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        const half = (EDIT_POINT_SIZE / 2) * dpr;
-        const hovered = hoveredEditHandleRef.current;
-        const colors = editPointColors(
-          drawOpts.theme?.special.auxItems ?? PCB_SPECIAL.auxItems,
-          drawOpts.theme?.background ?? PCB_BACKGROUND,
-        );
-        // `EDIT_POINTS::ViewDraw`'s second loop: an `EDIT_LINE` with no centre
-        // point draws only its line, at `borderSize / 4` in the border colour.
-        // Drawn before the handles so the squares sit on top of the arms.
-        if (editIndicatorsRef.current.length > 0) {
-          ctx.strokeStyle = colors.border;
-          ctx.lineWidth = galPenWidth(EDIT_LINE_WIDTH * dpr);
-          ctx.beginPath();
-          for (const ln of editIndicatorsRef.current) {
-            ctx.moveTo(ln.a.x * sx + v.tx, ln.a.y * v.scale + v.ty);
-            ctx.lineTo(ln.b.x * sx + v.tx, ln.b.y * v.scale + v.ty);
-          }
-          ctx.stroke();
-        }
-        ctx.fillStyle = colors.fill;
-        for (const h of handles) {
-          const active = hovered?.kind === h.kind && hovered?.index === h.index;
-          const pen = galPenWidth((active ? EDIT_POINT_HOVER_SIZE : EDIT_POINT_BORDER_SIZE) * dpr);
-          // GAL quantises the stroke and snaps the geometry to the same pixel
-          // grid (kicad_vert.glsl:69-77). Without the snap a handle's border
-          // straddles two columns at half strength each and reads soft next to
-          // pcbnew's, which is exactly how these looked.
-          const x = galSnapPx(h.at.x * sx + v.tx, pen);
-          const y = galSnapPx(h.at.y * v.scale + v.ty, pen);
-          ctx.strokeStyle = active ? colors.highlight : colors.border;
-          ctx.lineWidth = pen;
-          ctx.beginPath();
-          if (h.kind === 'line') ctx.arc(x, y, half, 0, Math.PI * 2);
-          else ctx.rect(x - half, y - half, half * 2, half * 2);
-          ctx.fill();
-          ctx.stroke();
-        }
-      }
-    }
-    // Selection / move overlay: the selected items repainted brightened over the
-    // raster, KiCad draws a selected item in its layer colour Brightened(0.8),
-    // not a bounding box (pcb_painter.cpp getColor). While a move is in flight the
-    // moving items are excluded from the raster and this overlay follows the
-    // cursor at the drag offset (EDIT_TOOL::Move's GAL overlay); otherwise it
-    // sits exactly over the raster so the selection just lights up in place.
-    // Net highlight (BOARD_INSPECTION_TOOL::HighlightNet): the whole board dims
-    {
-      const md = moveDeltaRef.current;
-      // The VIEW draws the selection itself (the selection tool's overlay
-      // group); the raster copy is only for a gesture in flight.
-      const gestureInFlight = md !== null || dragModeRef.current || trackDragRef.current !== null;
-      const os = moveSceneRef.current ?? (gestureInFlight ? selSceneRef.current : null);
-      if (os) {
-        // A drag overlay, a stretched footprint drag or a re-cut router drag ,
-        // is already at its absolute coords; only a move overlay is the static
-        // subset that has to be translated by the drag delta.
-        const absolute = dragModeRef.current || trackDragRef.current !== null;
-        const off = absolute ? { x: 0, y: 0 } : (md ?? { x: 0, y: 0 });
-        const offView = {
-          scale: v.scale,
-          flipX: v.flipX,
-          tx: v.tx + off.x * sx,
-          ty: v.ty + off.y * v.scale,
-        };
-        ctx.save();
-        // The router draws its in-flight line as a preview item at 80% alpha
-        // (ROUTER_PREVIEW_ITEM's ctor: m_color.a = 0.8).
-        if (trackDragRef.current) ctx.globalAlpha = 0.8;
-        drawBoard(
-          ctx,
-          os,
-          offView,
-          visible,
-          canvas.width,
-          canvas.height,
-          selDrawOpts,
-          undefined,
-          true,
-          // The router's preview line keeps the plain layer color, the net
-          // highlight is what lifts the rest of the net (DisplayItem passes no
-          // flags for a drag, so getLayerColor returns the layer color as-is).
-          trackDragRef.current ? 'none' : 'selected',
-        );
-        ctx.restore();
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-      }
-    }
-    // A selected group's own frame and name tab (`PCB_PAINTER::draw( const
-    // PCB_GROUP* )`, the LAYER_ANCHOR arm). The members are already brightened
-    // by the overlay above; this is what the *group* draws, and without it
-    // selecting one looked like nothing had happened at all.
-    {
-      const brd = boardRef.current;
-      const sel = selForDrawRef.current;
-      if (brd && sel.size > 0 && !moveDeltaRef.current) {
-        const groups = [...sel]
-          .map((id) => parseBoardItemId(id))
-          .filter((r) => r?.kind === 'group')
-          .map((r) => ({ idx: r!.index, g: brd.groups[r!.index] }))
-          .filter((x) => x.g);
-        if (groups.length > 0) {
-          // `SetLineWidth( m_outlineWidth * 2.0f )` with `m_outlineWidth = 1`
-          // *internal unit* (`render_settings.cpp:43`) — nothing at any zoom, so
-          // what reaches the screen is GAL's one-device-pixel minimum.
-          const pen = galPenWidth(Math.max(1, dpr));
-          const textSize = groupLabelTextSize(1 / v.scale);
-          ctx.save();
-          ctx.setTransform(sx, 0, 0, v.scale, v.tx, v.ty);
-          ctx.strokeStyle = drawOpts.theme?.special.anchor ?? PCB_SPECIAL.anchor;
-          ctx.lineWidth = pen / v.scale;
-          for (const { idx, g } of groups) {
-            const members = expandGroupIds(brd, new Set([boardItemId('group', idx)]));
-            const box = boardSelectionBBox(brd, members);
-            if (!box) continue;
-            ctx.beginPath();
-            for (const seg of groupBoxSegments(box, g!.name ?? '', textSize)) {
-              ctx.moveTo(seg.a.x, seg.a.y);
-              ctx.lineTo(seg.b.x, seg.b.y);
-            }
-            ctx.stroke();
-
-            if (groupLabelFits(g!.name ?? '', box, textSize)) {
-              const at = groupLabelAnchor(box, textSize);
-              // `attrs.m_Italic = true`, centre/bottom, `GetPenSizeForNormal`.
-              const label = boardTextPath({
-                kind: 'user',
-                text: g!.name ?? '',
-                at,
-                angle: 0,
-                layer: 'F.Cu',
-                size: { x: textSize, y: textSize },
-                italic: true,
-                justify: ['bottom'],
-              });
-              if (label) {
-                ctx.lineWidth = Math.max(label.thickness, pen / v.scale);
-                ctx.stroke(label.path);
-                ctx.lineWidth = pen / v.scale;
-              }
-            }
-          }
-          ctx.restore();
-          ctx.setTransform(1, 0, 0, 1, 0, 0);
-        }
-      }
-    }
-    // Table preview: the grid this drag would produce, drawn from the engine's
-    // own cells so the shape shown is the shape committed.
-    {
-      const first = tableStartRef.current;
-      const cur0 = cursorRef.current;
-      if (first && cur0) {
-        const preview = newTable(first, snapToGrid(cur0), tableDefaults());
-        ctx.save();
-        ctx.setTransform(sx, 0, 0, v.scale, v.tx, v.ty);
-        ctx.strokeStyle = layerColor(activeLayer);
-        ctx.lineWidth = Math.max(1, dpr) / v.scale;
-        ctx.globalAlpha = 0.9;
-        ctx.beginPath();
-        for (const c of preview.cells) {
-          if (!c.start || !c.end) continue;
-          ctx.rect(c.start.x, c.start.y, c.end.x - c.start.x, c.end.y - c.start.y);
-        }
-        ctx.stroke();
-        ctx.restore();
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-      }
-    }
-    // Text box preview: the rectangle being dragged out, before the dialog.
-    {
-      const first = textBoxStartRef.current;
-      const cur0 = cursorRef.current;
-      if (first && cur0) {
-        const p = snapToGrid(cur0);
-        ctx.save();
-        ctx.setTransform(sx, 0, 0, v.scale, v.tx, v.ty);
-        ctx.strokeStyle = layerColor(activeLayer);
-        ctx.lineWidth = Math.max(1, dpr) / v.scale;
-        ctx.globalAlpha = 0.9;
-        ctx.strokeRect(first.x, first.y, p.x - first.x, p.y - first.y);
-        ctx.restore();
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-      }
-    }
-    // Reference image preview. `PlaceReferenceImage` puts the item itself into
-    // the view — `m_view->AddToPreview( image, false )` — so what rides the
-    // cursor is the PICTURE, at the same image opacity a placed one is drawn
-    // with. This drew a bare rectangle, which is why nothing appeared until the
-    // click committed it.
-    {
-      const ps = placeImageRef.current;
-      const cur0 = cursorRef.current;
-      if (ps.step === 'placing' && ps.image && cur0) {
-        const live = moveImage(ps, snapToGrid(cur0)).image!;
-        const box = imageBBox(live);
-        const w = box.maxX - box.minX;
-        const h = box.maxY - box.minY;
-        // The pending image is not on the board, so the raster job never asks
-        // for it. Without this the preview could only ever be the outline.
-        imageCacheRef.current.ensure(live.data, requestDraw);
-        const bitmap = imageCacheRef.current.get(live.data);
-        ctx.save();
-        ctx.setTransform(sx, 0, 0, v.scale, v.tx, v.ty);
-        if (bitmap) {
-          ctx.globalAlpha = opacity.images;
-          ctx.drawImage(bitmap, box.minX, box.minY, w, h);
-        } else {
-          // Not decoded yet, or never will: the outline is what the renderer
-          // falls back to for a placed image, so the preview falls back the
-          // same way rather than showing nothing.
-          ctx.strokeStyle = layerColor(live.layer);
-          ctx.lineWidth = Math.max(1, dpr) / v.scale;
-          ctx.globalAlpha = 0.9;
-          ctx.strokeRect(box.minX, box.minY, w, h);
-        }
-        ctx.restore();
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-      }
-    }
-    // `drawMicrowaveInductor`'s `previewRect`: shown from the first click, when
-    // `view.SetVisible( &previewRect, true )` follows the first motion.
-    {
-      const line = mwLineRef.current;
-      if (activeToolRef.current === 'microwaveCreateLine' && line.originSet) {
-        drawCentrelineRectItem(ctx, {
-          origin: line.mgr.GetOrigin(),
-          end: line.mgr.GetEnd(),
-          aspect: INDUCTOR_AREA_ASPECT,
-          toPx: (q) => ({ x: q.x * sx + v.tx, y: q.y * v.scale + v.ty }),
-          strokeColor: INDUCTOR_AREA_STROKE,
-          fillColor: INDUCTOR_AREA_FILL,
-          // `SetLineWidth( 1.0 )` is a world width of one internal unit.
-          linePx: INDUCTOR_AREA_STROKE_WIDTH * v.scale,
-        });
-      }
-    }
-    // The footprint riding the cursor (`PlaceFootprint`): the real footprint
-    // at its snapped position, painted as the selected item it is upstream.
-    {
-      const pf = placeFpSceneRef.current;
-      if (pf) {
-        ctx.save();
-        drawBoard(
-          ctx,
-          pf.scene,
-          v,
-          visible,
-          canvas.width,
-          canvas.height,
-          selDrawOpts,
-          undefined,
-          true,
-          'selected',
-        );
-        ctx.restore();
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-      }
-    }
-    // Dimension preview (DRAWING_TOOL::DrawDimension): the real geometry the
-    // engine would produce, so what you see while placing is what you commit.
-    {
-      const dr = dimensionRef.current;
-      const cur0 = cursorRef.current;
-      if (dr && cur0) {
-        const live = moveDimension(dr, dimensionCursor(dr, cur0), {
-          userUnits: unitsRef.current,
-        }).dimension;
-        ctx.save();
-        ctx.setTransform(sx, 0, 0, v.scale, v.tx, v.ty);
-        ctx.strokeStyle = layerColor(live.layer);
-        ctx.lineWidth = Math.max(live.style.thickness, Math.max(1, dpr) / v.scale);
-        ctx.globalAlpha = 0.9;
-        ctx.beginPath();
-        for (const seg of dimensionSegments(live)) {
-          ctx.moveTo(seg.a.x, seg.a.y);
-          ctx.lineTo(seg.b.x, seg.b.y);
-        }
-        ctx.stroke();
-        // The label, from the same layout the committed item gets. Upstream's
-        // preview is the real `PCB_DIMENSION_BASE` in a `VIEW_GROUP`, so the
-        // measurement counts up as you drag; without this the preview is a bare
-        // set of lines and the number only appears after the last click.
-        if (live.text && !live.text.hide) {
-          const label = boardTextPath(live.text);
-          if (label) {
-            ctx.lineWidth = Math.max(label.thickness, Math.max(1, dpr) / v.scale);
-            ctx.stroke(label.path);
-          }
-        }
-        ctx.restore();
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-      }
-    }
-    // `KIGFX::PREVIEW::POLYGON_ITEM`, the preview every outline tool puts up:
-    // Draw Polygon and the three zone modes, which upstream are one tool.
-    //
-    // This frame used to draw each of them as a thin polyline in the layer's
-    // colour with a 40%-alpha hint back to the first corner. Upstream strokes
-    // the locked corners in **white** at one pixel, the leader in
-    // `LAYER_AUX_ITEMS`, and fills the whole ring at alpha 0.2 — which is what
-    // makes a half-drawn zone read as an area rather than as three loose lines.
-    {
-      const cur0 = cursorRef.current;
-      const mgrs: { mgr: PolygonGeomManager | null; layer: string }[] = [
-        { mgr: polyMgrRef.current, layer: activeLayer },
-        { mgr: zoneMgrRef.current, layer: zoneRef.current?.layer ?? activeLayer },
-      ];
-      for (const { mgr, layer } of mgrs) {
-        if (!mgr?.isPolygonInProgress() || !cur0) continue;
-        drawPolygonItem(ctx, {
-          locked: mgr.getLockedInPoints(),
-          leader: mgr.getLeaderLinePoints(),
-          loop: mgr.getLoopLinePoints(),
-          toPx: (q) => ({ x: q.x * sx + v.tx, y: q.y * v.scale + v.ty }),
-          // `m_previewItem.SetStrokeColor( COLOR4D::WHITE )` and
-          // `SetFillColor( color.WithAlpha( 0.2 ) )`, where `color` is
-          // `GetColor( nullptr, zone->GetFirstLayer() )`
-          // (`zone_create_helper.cpp:288-292`). `SetLineColor` is never
-          // called, so the locked chain keeps the white.
-          strokeColor: toCss(COLOR4D_WHITE),
-          fillColor: cssWithAlpha(layerColor(layer), 0.2),
-          // `SetLeaderColor` is never called either, so `POLYGON_ITEM` falls
-          // back to `GetLayerColor( LAYER_AUX_ITEMS )` (`polygon_item.cpp:93`).
-          leaderColor: drawOpts.theme?.special.auxItems ?? PCB_SPECIAL.auxItems,
-          devicePixelRatio: dpr,
-        });
-      }
-    }
-    // `KIGFX::PREVIEW::RULER_ITEM`, the item ACTIONS::measureTool puts up.
-    // The shared painter, beside its own arithmetic: this frame used to draw a
-    // `rgba(120,230,255)` line with a 6px end tick and one invented
-    // `dist (dx dy)` string — no graduations, no LAYER_AUX_ITEMS colour, and
-    // no `x / y / r / theta` block, which are the four strings upstream shows.
-    {
-      const m = measureRef.current;
-      const cur0 = cursorRef.current;
-      if (m && (m.b || cur0)) {
-        drawRulerItem(ctx, {
-          origin: m.a,
-          end: m.b ?? rulerEnd(m.a, snapToGrid(cur0!), shiftDownRef.current ? 'deg45' : 'direct'),
-          toPx: (p) => ({ x: p.x * sx + v.tx, y: p.y * v.scale + v.ty }),
-          // The flipped board view carries a negative X scale; the painter
-          // takes the magnitude for the graduation spacing.
-          worldScale: v.scale,
-          iuPerMm: PCB_IU_PER_MM,
-          units: unitsRef.current,
-          color: drawOpts.theme?.special.auxItems ?? PCB_SPECIAL.auxItems,
-          devicePixelRatio: dpr,
-          canvasWidth: ctx.canvas.width,
-          canvasHeight: ctx.canvas.height,
-        });
-      }
-    }
-    // Place Point's preview item.
-    //
-    // `doInteractiveItemPlacement` with `IPO_SINGLE_CLICK` calls `makeNewItem`
-    // *before* the event loop (`pcb_tool_base.cpp:119-120`), so there is always
-    // a live `PCB_POINT` on the preview VIEW_GROUP following the cursor — the
-    // click commits that item rather than creating one. It is the real marker,
-    // drawn by the same `draw( const PCB_POINT* )`, which is why this mirrors
-    // `addPoint` in renderBoard rather than inventing a placeholder glyph.
-    if (activeToolRef.current === 'placePoint' && cursorRef.current) {
-      const at = cursorSnapRef.current(cursorRef.current);
-      const half = DEFAULT_POINT_SIZE / 2;
-      ctx.save();
-      ctx.setTransform(sx, 0, 0, v.scale, v.tx, v.ty);
-      ctx.lineWidth = 1 / v.scale;
-      ctx.beginPath();
-      ctx.moveTo(at.x - half, at.y - half);
-      ctx.lineTo(at.x + half, at.y + half);
-      ctx.moveTo(at.x + half, at.y - half);
-      ctx.lineTo(at.x - half, at.y + half);
-      ctx.strokeStyle = drawOpts.theme?.special.points ?? PCB_SPECIAL.points;
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(at.x, at.y, half / 2, 0, Math.PI * 2);
-      ctx.strokeStyle = layerColor(activeLayer);
-      ctx.stroke();
-      ctx.restore();
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-    }
-    // In-flight drawing preview (DRAWING_TOOL's live outline): the committed
-    // points plus the snapped cursor, stroked in the active layer's color at
-    // the layer's default line width.
-    {
-      const kind = DRAW_SHAPE_TOOLS[activeToolRef.current];
-      const pts = drawingRef.current;
-      const cur0 = cursorRef.current;
-      // Only the bezier still runs through this block. Line, rectangle and
-      // circle are `TWO_POINT_GEOMETRY_MANAGER`'s and the arc is
-      // `ARC_GEOM_MANAGER`'s, both drawn below with their assistants; 'poly'
-      // is `POLYGON_ITEM`'s, drawn above.
-      if (kind === 'curve' && pts.length > 0 && cur0) {
-        const p = snapToGrid(cur0);
-        ctx.save();
-        ctx.setTransform(sx, 0, 0, v.scale, v.tx, v.ty);
-        ctx.strokeStyle = layerColor(activeLayer);
-        ctx.lineWidth = shapeWidthIU(activeLayer);
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.globalAlpha = 0.9;
-        // `BEZIER_ASSISTANT::ViewDraw`'s dashed control arms, drawn after the
-        // curve itself.
-        let bezierArms: BezierInFlight | null = null;
-        ctx.beginPath();
-        {
-          const live = bezierInFlight(pts, p);
-          if (live) {
-            // `preview.Add( bezier.get() )` waits for SET_END; the arms do
-            // not. `bezierPreviewCurve` is where that rule is written down.
-            const curve = bezierPreviewCurve(live);
-            if (curve) {
-              const [a, c1, c2, e] = curve;
-              ctx.moveTo(a.x, a.y);
-              ctx.bezierCurveTo(c1.x, c1.y, c2.x, c2.y, e.x, e.y);
-            }
-            bezierArms = live;
-          }
-        }
-        ctx.stroke();
-        ctx.restore();
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        if (bezierArms) {
-          // `BEZIER_ASSISTANT::ViewDraw`, drawn through `DRAW_CONTEXT` — which
-          // is a different pen from the shape's, and that is the whole of what
-          // was wrong here. `DrawLineDashed` takes its colour from
-          // `GetLayerColor( LAYER_AUX_ITEMS )` and its width from the context's
-          // own `m_lineWidth = 1.0f`, so the arms are a light hairline, not the
-          // layer's red at half the shape width. Drawing them in device space
-          // is what makes both of those exact at any zoom.
-          //
-          // The dashes: `dashSize = KiROUND( ToWorld( 12 ) )`, then
-          // `DrawLineDashed( …, dashSize, dashSize / 2, … )`, whose loop steps
-          // by 12 and fills 6 — six on, six off, both in SCREEN pixels. Not
-          // twelve on and six off.
-          const step = 6 * dpr;
-          ctx.setLineDash([step, step]);
-          ctx.lineWidth = galPenWidth(dpr);
-          ctx.strokeStyle = drawOpts.theme?.special.auxItems ?? PCB_SPECIAL.auxItems;
-          const [a, c1, c2, e] = bezierArms.points;
-          const toPx = (q: { x: number; y: number }): [number, number] => [
-            q.x * sx + v.tx,
-            q.y * v.scale + v.ty,
-          ];
-          ctx.beginPath();
-          if (bezierArms.step >= BezierStep.SET_CONTROL1) {
-            ctx.moveTo(...toPx(a));
-            ctx.lineTo(...toPx(c1));
-          }
-          if (bezierArms.step >= BezierStep.SET_CONTROL2) {
-            // "Draw the second control point control line as a double length
-            // line centered on the end point": from `end - ( C2 - end )` to
-            // `C2`. The near half is where the cursor is and the far half is
-            // where the curve is actually pulled, which is the only thing on
-            // screen that explains the reflection.
-            ctx.moveTo(...toPx({ x: e.x - (c2.x - e.x), y: e.y - (c2.y - e.y) }));
-            ctx.lineTo(...toPx(c2));
-          }
-          ctx.stroke();
-          ctx.setLineDash([]);
-        }
-      }
-    }
-    // `drawShape`'s live shape and its `TWO_POINT_ASSISTANT`: the line,
-    // rectangle and circle tools, which are one tool upstream.
-    //
-    // The shape itself is the real `PCB_SHAPE` on `m_preview`, drawn by the
-    // ordinary painter — so it is the layer's colour at the layer's line
-    // thickness and **not** translucent. The 0.9 alpha and the round joins this
-    // frame used to draw it with were an invention; a rectangle's corners are
-    // mitred like any other rectangle's.
-    {
-      const kind = DRAW_SHAPE_TOOLS[activeToolRef.current];
-      const mgr = twoPtRef.current;
-      const twoPointShape: Record<string, TwoPointShape> = {
-        line: 'segment',
-        rect: 'rect',
-        circle: 'circle',
-      };
-      const geom = kind ? twoPointShape[kind] : undefined;
-
-      if (geom && twoPtStartedRef.current && !mgr.IsReset()) {
-        const origin = mgr.GetOrigin();
-        const end = mgr.GetEnd();
-        const toPx = (q: { x: number; y: number }): { x: number; y: number } => ({
-          x: q.x * sx + v.tx,
-          y: q.y * v.scale + v.ty,
-        });
-
-        ctx.save();
-        ctx.setTransform(sx, 0, 0, v.scale, v.tx, v.ty);
-        ctx.strokeStyle = layerColor(activeLayer);
-        ctx.lineWidth = shapeWidthIU(activeLayer);
-        ctx.beginPath();
-        if (geom === 'segment') {
-          ctx.lineCap = 'round';
-          ctx.moveTo(origin.x, origin.y);
-          ctx.lineTo(end.x, end.y);
-        } else if (geom === 'rect') {
-          ctx.rect(origin.x, origin.y, end.x - origin.x, end.y - origin.y);
-        } else {
-          const r = Math.hypot(end.x - origin.x, end.y - origin.y);
-          ctx.moveTo(origin.x + r, origin.y);
-          ctx.arc(origin.x, origin.y, r, 0, Math.PI * 2);
-        }
-        ctx.stroke();
-        ctx.restore();
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-
-        drawTwoPointAssistant(ctx, {
-          shape: geom,
-          origin,
-          end,
-          toPx,
-          color: drawOpts.theme?.special.auxItems ?? PCB_SPECIAL.auxItems,
-          backgroundIsDark:
-            brightness(parseColor4d(drawOpts.theme?.background ?? PCB_BACKGROUND)) <= 0.5,
-          iuPerMm: PCB_IU_PER_MM,
-          units: unitsRef.current,
-          devicePixelRatio: dpr,
-        });
-      }
-    }
-    // `drawArc`'s live arc and its `ARC_ASSISTANT`.
-    {
-      const arcMgr = arcMgrRef.current;
-      if (DRAW_SHAPE_TOOLS[activeToolRef.current] === 'arc' && !arcMgr.isReset()) {
-        const toPx = (q: { x: number; y: number }): { x: number; y: number } => ({
-          x: q.x * sx + v.tx,
-          y: q.y * v.scale + v.ty,
-        });
-
-        // `preview.Add( graphic )` happens on the first click, but the arc
-        // itself only has a shape once there is a radius to sweep.
-        if (arcMgr.getArcStep() > ArcStep.SET_START) {
-          ctx.save();
-          ctx.setTransform(sx, 0, 0, v.scale, v.tx, v.ty);
-          ctx.strokeStyle = layerColor(activeLayer);
-          ctx.lineWidth = shapeWidthIU(activeLayer);
-          ctx.lineCap = 'round';
-          ctx.beginPath();
-          traceArc3(ctx, arcMgr.getStartRadiusEnd(), arcMidPoint(arcMgr), arcMgr.getEndRadiusEnd());
-          ctx.stroke();
-          ctx.restore();
-          ctx.setTransform(1, 0, 0, 1, 0, 0);
-        }
-
-        drawArcAssistant(ctx, {
-          mgr: arcMgr,
-          toPx,
-          worldScale: v.scale,
-          color: drawOpts.theme?.special.auxItems ?? PCB_SPECIAL.auxItems,
-          backgroundIsDark:
-            brightness(parseColor4d(drawOpts.theme?.background ?? PCB_BACKGROUND)) <= 0.5,
-          iuPerMm: PCB_IU_PER_MM,
-          units: unitsRef.current,
-          devicePixelRatio: dpr,
-        });
-      }
-    }
-    const brd = boardRef.current;
     // The zoom tool's band (TRANSITIONAL until ZOOM_TOOL, #636 stage 3), in
     // `KIGFX::PREVIEW::SELECTION_AREA`'s colours. The selection tool's own band
     // and lasso are its SELECTION_AREA on the VIEW.
@@ -4770,7 +3708,7 @@ export function PcbEditor({
     // that one tool.
     const cur = cursorRef.current;
     if (cur) {
-      const snapped = forcedCursorRef.current ?? cursorSnapRef.current(cur);
+      const snapped = cursorSnapRef.current(cur);
       drawCrosshair(
         ctx,
         { x: snapped.x * sx + v.tx, y: snapped.y * v.scale + v.ty },
@@ -4814,81 +3752,21 @@ export function PcbEditor({
     requestDraw();
   }, [visible, drawOpts, requestDraw]);
 
-  // Recompile the selected items into their own scene, so the overlay can paint
-  // them brightened over the raster (KiCad's selection look).
-  //
-  // Through `expandGroupIds`, like every *editing* command already was. A group
-  // id names no item of its own, so `subsetBoardItems` matched nothing for one
-  // and the overlay came out empty: selecting a group — the board stackup table,
-  // say — highlighted nothing at all, while KiCad brightens all 153 members.
-  // `PCB_SELECTION_TOOL::select` puts the members in the selection too
-  // (`GROUP::RunOnChildren`), so the drawing and the editing want the same set.
-  const rebuildSelScene = useCallback(() => {
-    const brd = boardRef.current;
-    const sel = brd ? expandGroupIds(brd, selForDrawRef.current) : selForDrawRef.current;
-    selSceneRef.current =
-      brd && sel.size > 0
-        ? buildScene(subsetBoardItems(brd, sel), {
-            hideFrontFootprints: !objects.footprintsFront,
-            hideBackFootprints: !objects.footprintsBack,
-          })
-        : null;
-  }, [objects.footprintsFront, objects.footprintsBack]);
-
   // The selection lives on the VIEW (PCB_SELECTION_TOOL's `m_selection` on
-  // LAYER_SELECT_OVERLAY); the window's overlay keeps a copy of it only for a
-  // gesture of its own in flight (a move, a point edit), so recompile that.
+  // LAYER_SELECT_OVERLAY), and PCB_PAINTER draws what a selected item adds - an
+  // umbilical, a reference image's box, a group's frame. A change only asks
+  // for the frame.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the selection is the trigger
   useEffect(() => {
-    rebuildSelScene();
     requestDraw();
-  }, [selection, requestDraw, rebuildSelScene]);
+  }, [selection, requestDraw]);
 
   // ----- board model mutation (edits + undo/redo) -----------------------------
 
-  /**
-   * Generation counter for the off-critical-path scene rebuild a drag starts.
-   * Any newer rebuild supersedes an older one, so a stale result cannot land
-   * on top of a committed edit and two drags cannot race.
-   */
-  const baseRebuildRef = useRef(0);
-  /**
-   * The delta already applied to the retained buffer, when a move is running
-   * in place instead of through a rebuild. `null` means the gesture is using
-   * the rebuild path (Canvas2D, a router drag, or items with no ranges).
-   */
-  const inPlaceMoveRef = useRef<{ x: number; y: number } | null>(null);
-
-  // Recompile the render scene for a new board and repaint (edits change geometry).
-  const rebuildScene = useCallback(
-    (b: Board) => {
-      // Supersede anything a drag left in flight, so it cannot land on top of
-      // this scene a moment later.
-      baseRebuildRef.current++;
-      sceneRef.current = buildBoardScene(b, {
-        hideFrontFootprints: !objects.footprintsFront,
-        hideBackFootprints: !objects.footprintsBack,
-      });
-      rebuildSelScene();
-      requestDraw();
-    },
-    [objects.footprintsFront, objects.footprintsBack, requestDraw, rebuildSelScene],
-  );
-
-  const rebuildSceneRef = useRef(rebuildScene);
-  rebuildSceneRef.current = rebuildScene;
-
-  // A board text in an outline face is compiled as the stroke font until its
-  // face has been fetched (`FONT::GetFont` loads off the disk synchronously;
-  // ours cannot). When the face lands, the scene is rebuilt so the text is
-  // recompiled as its glyph rings — the board is unchanged, so nothing else
-  // would.
-  useEffect(
-    () =>
-      onOutlineFontsChanged(() => {
-        if (boardRef.current) rebuildSceneRef.current(boardRef.current);
-      }),
-    [],
-  );
+  // A board text in an outline face draws as the stroke font until its face
+  // has been fetched (`FONT::GetFont` loads off the disk synchronously; ours
+  // cannot). When the face lands the canvas repaints.
+  useEffect(() => onOutlineFontsChanged(() => requestDrawRef.current()), []);
 
   /**
    * The bitmap font atlas the GAL draws BitmapText with, decoded once. The
@@ -4927,7 +3805,6 @@ export function PcbEditor({
     // *Pgm().GetCommonSettings(), this )` before the canvas is built.
     frame.GetGalDisplayOptions().ReadCommonConfig(commonSettingsOf(), window);
     const panel = createPcbDrawPanel(frame, canvas, fontImage);
-    glOkRef.current = panel !== null;
     if (!panel) {
       console.warn('WebGL2 unavailable; drawing the board with Canvas2D');
       return;
@@ -4964,22 +3841,15 @@ export function PcbEditor({
     syncViewTransform(panel, viewRef.current, dpr);
     displayStateRef.current = null;
     setPanelReady(true);
-    // A restored context: the whole-board scene the raster path built in the
-    // meantime is no longer read; the shell replaces it.
-    if (kb && boardRef.current) rebuildSceneRef.current(boardRef.current);
-    // A lost context: the panel's GAL is gone with it; the raster path draws
-    // until the context is restored and the panel rebuilt.
+    // A lost context: the panel's GAL is gone with it until the context is
+    // restored and the panel rebuilt.
     const onLost = (e: Event): void => {
       e.preventDefault();
       panelRef.current?.Destroy();
       panelRef.current = null;
       frame.SetCanvas(null);
-      glOkRef.current = false;
       setPanelReady(false);
-      // The raster path draws from a scene of the whole board; under the GL
-      // panel only the shell was kept.
-      if (boardRef.current) rebuildSceneRef.current(boardRef.current);
-      else requestDrawRef.current();
+      requestDrawRef.current();
     };
     const onRestored = (): void => {
       setPanelGeneration((g) => g + 1);
@@ -4992,7 +3862,6 @@ export function PcbEditor({
       panelRef.current?.Destroy();
       panelRef.current = null;
       frame.SetCanvas(null);
-      glOkRef.current = false;
     };
   }, [fontImage, panelGeneration]);
 
@@ -5000,10 +3869,45 @@ export function PcbEditor({
     (b: Board) => {
       boardRef.current = b;
       setBoard(b);
-      rebuildScene(b);
+      requestDraw();
     },
-    [rebuildScene],
+    [requestDraw],
   );
+
+  /**
+   * `OnModify` after a tool changed a board setting that is not an item: an
+   * origin (PCB_CONTROL::DoSetGridOrigin, BOARD_EDITOR_CONTROL::DoSetDrillOrigin)
+   * or the page and title block (BOARD_EDITOR_CONTROL::PageSettings), or their
+   * undo. No listener re-derives the view for those, and the canvas and the
+   * page dialog read them from it, so they are taken from the BOARD here.
+   */
+  const syncOriginsRef = useRef<() => void>(() => {});
+  syncOriginsRef.current = () => {
+    const brd = boardRef.current;
+    const bds = frameRef.current?.GetBoard()?.GetDesignSettings();
+    if (!brd || !bds) return;
+    const grid = bds.GetGridOrigin();
+    const aux = bds.GetAuxOrigin();
+    const same = (a: { x: number; y: number } | undefined, b: { x: number; y: number }): boolean =>
+      (a?.x ?? 0) === b.x && (a?.y ?? 0) === b.y;
+    const kb = frameRef.current!.GetBoard()!;
+    const paper = paperOfPageInfo(kb.GetPageSettings());
+    const titleBlock = titleBlockView(kb.GetTitleBlock());
+    if (
+      same(brd.gridOrigin, grid) &&
+      same(brd.auxOrigin, aux) &&
+      brd.paper === paper &&
+      JSON.stringify(brd.titleBlock) === JSON.stringify(titleBlock)
+    )
+      return;
+    setBoardModel({
+      ...brd,
+      gridOrigin: { ...grid },
+      auxOrigin: { ...aux },
+      paper,
+      titleBlock,
+    });
+  };
 
   /**
    * `PCB_EDIT_FRAME::ShowBoardSetupDialog`, the OK half: every panel's
@@ -5149,54 +4053,6 @@ export function PcbEditor({
     return () => boardK.RemoveListener(listener);
   }, [boardK]);
 
-  /**
-   * Commit an edit: the view the tool produced becomes one BOARD_COMMIT on
-   * the live BOARD (`commitViewToBoard`), which files the undo entry, keeps
-   * the connectivity, and — as `BOARD_COMMIT::Push` does on every commit that
-   * touched a track, pad, via or footprint — rebuilds the teardrops around
-   * them with TEARDROP_MANAGER. The view is then re-derived from the BOARD by
-   * the listener, so whatever Push added (a teardrop, a propagated net) is
-   * what the editor shows.
-   *
-   * `skipTeardrops` is upstream's SKIP_TEARDROPS flag: the teardrop commands
-   * have already built the zones they want.
-   */
-  const commitBoard = useCallback(
-    (next: Board, opts: { skipTeardrops?: boolean; message?: string } = {}) => {
-      const prev = boardRef.current;
-      const frame = frameRef.current!;
-      const kb = next.k ?? prev?.k;
-
-      if (!kb) {
-        setDirty(true);
-        setBoardModel(next);
-        return;
-      }
-
-      const listener = listenerRef.current!;
-      commitViewToBoard(
-        frame,
-        prev,
-        next,
-        opts.message ?? 'Edit',
-        opts.skipTeardrops ? SKIP_TEARDROPS : 0,
-      );
-
-      // Until the listener's re-derivation lands, a same-tick reader of the
-      // board sees the view the tool produced, not the one before it.
-      boardRef.current = next;
-
-      // A commit with no item change (a title block, a layer name) raises no
-      // listener call; the view is re-derived here instead.
-      if (!listener.IsPending())
-        setBoardModel({
-          ...boardFromBOARD(kb, fileNameRef.current),
-          fileName: fileNameRef.current,
-        });
-    },
-    [setBoardModel],
-  );
-
   // ----- Update PCB from Schematic (BOARD_EDITOR_CONTROL::UpdatePCBFromSchematic) --
 
   /**
@@ -5208,7 +4064,11 @@ export function PcbEditor({
     async (
       netlist: NETLIST,
       files: readonly { name: string; text: string }[],
-    ): Promise<Map<string, PcbFootprint>> => {
+    ): Promise<Map<string, FOOTPRINT>> => {
+      const frame = frameRef.current;
+      const library = new Map<string, FOOTPRINT>();
+      if (!frame) return library;
+
       // Project-local `.kicad_mod` files, keyed by "<pretty dir>:<name>".
       const projectFootprints = new Map<string, string>();
       for (const file of files) {
@@ -5223,24 +4083,42 @@ export function PcbEditor({
         if (fpid !== '') wanted.add(fpid);
       }
 
-      const library = new Map<string, PcbFootprint>();
       await Promise.all(
         [...wanted].map(async (fpid) => {
           const local = projectFootprints.get(fpid);
           if (local) {
-            const parsed = parseFootprint(local);
-            if (parsed) {
-              library.set(fpid, parsed);
+            try {
+              // `PCB_BASE_FRAME::loadFootprint`'s tail: nets cleared, the
+              // board's default styles applied.
+              const fp = ParseFootprintFile(local);
+              const id = new LIB_ID();
+              id.Parse(fpid, true);
+              fp.SetFPID(id);
+              fp.ClearAllNets();
+              const bds = frame.GetBoard()!.GetDesignSettings();
+              fp.ApplyDefaultSettings(
+                frame.GetBoard()!,
+                bds.m_StyleFPFields,
+                bds.m_StyleFPText,
+                bds.m_StyleFPShapes,
+                bds.m_StyleFPDimensions,
+                bds.m_StyleFPBarcodes,
+              );
+              library.set(fpid, fp);
               return;
+            } catch {
+              // not a footprint: fall through to the libraries
             }
           }
-          const fromLibrary = await loadFootprint(fpid);
+          const id = new LIB_ID();
+          id.Parse(fpid, true);
+          const fromLibrary = await frame.LoadFootprint(id);
           if (fromLibrary) library.set(fpid, fromLibrary);
         }),
       );
       return library;
     },
-    [loadFootprint],
+    [],
   );
 
   /**
@@ -5293,58 +4171,159 @@ export function PcbEditor({
    */
   const runNetlistUpdate = useCallback(
     (
-      data: { netlist: NETLIST; library: Map<string, PcbFootprint> },
+      data: { netlist: NETLIST; library: Map<string, FOOTPRINT> },
       options: UpdatePcbOptions,
       dryRun: boolean,
+      followCursor = true,
     ): readonly ReportLine[] => {
-      const brd = boardRef.current;
-      if (!brd) return [];
+      const frame = frameRef.current;
+      const board = frame?.GetBoard();
+      if (!frame || !board) return [];
 
       const reporter = new Reporter();
-      const updater = new BOARD_NETLIST_UPDATER(
-        brd,
-        reporter,
-        (fpid) => {
-          const direct = data.library.get(fpid);
-          if (direct) return direct;
-          if (fpid.includes(':')) return null;
-          for (const key of [...data.library.keys()].sort()) {
-            if (key.slice(key.indexOf(':') + 1) === fpid) return data.library.get(key) ?? null;
-          }
-          return null;
-        },
-        {
-          isDryRun: dryRun,
-          // SetFindByTimeStamp( !relink ) / SetLookupByTimestamp( !relink ).
-          lookupByTimestamp: !options.relinkFootprints,
-          replaceFootprints: options.updateFootprints,
-          deleteUnusedFootprints: options.deleteExtraFootprints,
-          overrideLocks: options.overrideLocks,
-          updateFields: options.updateFields,
-          removeExtraFields: options.removeExtraFields,
-          transferGroups: options.transferGroups,
-        },
-      );
 
-      const result = updater.UpdateNetlist(data.netlist);
+      // `m_netlist->SetFindByTimeStamp( !relink ); SetReplaceFootprints( update )`.
+      data.netlist.SetFindByTimeStamp(!options.relinkFootprints);
+      data.netlist.SetReplaceFootprints(options.updateFootprints);
 
       if (!dryRun) {
-        const spread =
-          result.addedFootprints.length > 0
-            ? spreadBoardFootprints(result.board, result.addedFootprints)
-            : result.board;
-        commitBoard(spread);
-        const added = new Set(result.addedFootprints.map((i) => boardItemId('footprint', i)));
-        setSelectionRef.current(added);
+        frame.GetToolManager()?.DeactivateTool();
+        frame.GetToolManager()?.RunAction(ACTIONS.selectionClear);
+      }
+
+      // `m_frame->LoadFootprint( aFootprintId )`, from what was loaded before
+      // the dialog opened; a bare name searches the libraries alphabetically,
+      // as LoadFootprintWithOptionalNickname does. Each call is a new copy.
+      const loader = (aFpid: LIB_ID): FOOTPRINT | null => {
+        const key = aFpid.Format();
+        let proto = data.library.get(key) ?? null;
+        if (!proto && aFpid.IsLegacy()) {
+          for (const k of [...data.library.keys()].sort()) {
+            if (k.slice(k.indexOf(':') + 1) === aFpid.GetLibItemName()) {
+              proto = data.library.get(k) ?? null;
+              break;
+            }
+          }
+        }
+        return proto ? (proto.Duplicate(false) as FOOTPRINT) : null;
+      };
+
+      const updater = new BOARD_NETLIST_UPDATER(frame, board, loader);
+      updater.SetReporter(reporter);
+      updater.SetIsDryRun(dryRun);
+      updater.SetLookupByTimestamp(!options.relinkFootprints);
+      updater.SetDeleteUnusedFootprints(options.deleteExtraFootprints);
+      updater.SetReplaceFootprints(options.updateFootprints);
+      updater.SetTransferGroups(options.transferGroups);
+      updater.SetOverrideLocks(options.overrideLocks);
+      updater.SetUpdateFields(options.updateFields);
+      updater.SetRemoveExtraFields(options.removeExtraFields);
+      updater.UpdateNetlist(data.netlist);
+
+      if (!dryRun) {
+        const runDragCommand = { value: false };
+        frame.OnNetlistChanged(updater, runDragCommand);
         // `*aRunDragCommand = true` (`netlist.cpp:152`), acted on by the dialog's
         // destructor: the spread cluster follows the cursor until you click.
-        startPostUpdateMoveRef.current(added);
+        if (followCursor && runDragCommand.value) startPostUpdateMoveRef.current();
       }
 
       return reporter.lines;
     },
-    [commitBoard],
+    [],
   );
+
+  // The script API reads everything through refs, so it is registered once
+  // for the life of the frame.
+  const scriptRef = useRef({
+    buildNetlistLibrary,
+    runNetlistUpdate,
+    projectFilesNow,
+    loadFootprint,
+  });
+  scriptRef.current = {
+    buildNetlistLibrary,
+    runNetlistUpdate,
+    projectFilesNow,
+    loadFootprint,
+  };
+  // biome-ignore lint/correctness/useExhaustiveDependencies: everything it reads goes through refs
+  useEffect(() => {
+    if (!registerScriptApi) return;
+    return registerScriptApi({
+      board: () => frameRef.current?.GetBoard() ?? null,
+      frame: () => frameRef.current,
+      updateFromSchematic: async () => {
+        const sc = scriptRef.current;
+        const files = sc.projectFilesNow();
+        const fetched = FetchNetlistFromSchematic(
+          frameRef.current?.Kiway() ?? null,
+          frameRef.current,
+          files,
+          'Updating PCB requires a fully annotated schematic.',
+          rootPro,
+        );
+        if (!fetched.ok)
+          return { ok: false, report: [fetched.error, fetched.details ?? ''].join('\n').trim() };
+        const library = await sc.buildNetlistLibrary(fetched.netlist, files);
+        const lines = sc.runNetlistUpdate(
+          { netlist: fetched.netlist, library },
+          // "Delete footprints with no symbols" on: a part removed from the
+          // schematic leaves the board too.
+          { ...DEFAULT_UPDATE_PCB_OPTIONS, deleteExtraFootprints: true },
+          false,
+          false,
+        );
+        return { ok: true, report: lines.map((l) => l.message).join('\n') };
+      },
+      fillZones: () => frameRef.current?.GetToolManager()?.RunAction(PCB_ACTIONS.zoneFillAll),
+      show3D: () => setShow3D(true),
+      route: async (from, to, layer, through = []) => {
+        const frame = frameRef.current;
+        const kb = frame?.GetBoard();
+        if (!frame || !kb) return { ok: false, reason: 'no board open' };
+        const view = frame.GetCanvas()?.GetView() ?? null;
+        // Arrived means a new segment ends inside the pad at that end on a
+        // copper layer the pad has; with no pad there, on the point itself.
+        const arrivedAt = (at: { x: number; y: number }) => {
+          const pad = kb
+            .Footprints()
+            .flatMap((f) => f.Pads())
+            .find((p) => p.HitTest(at));
+          return (e: { x: number; y: number; layer: string }) =>
+            pad
+              ? pad.IsOnLayer(kb.GetLayerID(e.layer)) && pad.HitTest({ x: e.x, y: e.y })
+              : Math.hypot(e.x - at.x, e.y - at.y) < 1000;
+        };
+        // What ROUTER_TOOL's own Reset gives its interface: the board's
+        // design settings, the view's layer visibility, the router settings,
+        // and the frame as the commit host.
+        const r = routeHeadless(
+          kb,
+          from,
+          to,
+          layer,
+          {
+            designSettings: PnsDesignSettingsFromBds(kb.GetDesignSettings()),
+            ...(view
+              ? { isLayerVisible: (l: string) => view.IsLayerVisible(kb.GetLayerID(l)) }
+              : {}),
+            settings: frame.GetPcbNewSettings().m_PnsSettings ?? undefined,
+            commitHost: frame,
+          },
+          kb.GetCopperLayerCount(),
+          arrivedAt(from),
+          arrivedAt(to),
+          through,
+        );
+        return r.ok ? { ok: true, reason: '' } : { ok: false, reason: r.reason };
+      },
+      loadFootprint: async (libId) => {
+        const lib = await scriptRef.current.loadFootprint(libId);
+        return lib?.k ? (lib.k.Duplicate(false) as FOOTPRINT) : null;
+      },
+    });
+  }, [registerScriptApi]);
 
   const performNetlistUpdate = useCallback(
     (options: UpdatePcbOptions, dryRun: boolean): readonly ReportLine[] =>
@@ -5404,20 +4383,20 @@ export function PcbEditor({
     [buildNetlistLibrary, projectFilesNow, runNetlistUpdate],
   );
 
-  // PCB_BASE_EDIT_FRAME::RestoreCopyFromUndoList / RestoreCopyFromRedoList; the
-  // listener re-derives the view, and the selection is rebuilt as
-  // PCB_SELECTION_TOOL::RebuildSelection does — empty, until the tool lands.
+  // ACTIONS::undo / redo: PCB_CONTROL::Undo / Redo, which run the frame's
+  // RestoreCopyFromUndoList / RedoList. The window's selection mirror is
+  // emptied as PCB_SELECTION_TOOL::RebuildSelection leaves it.
   const undo = useCallback(() => {
     const frame = frameRef.current!;
     if (frame.GetUndoCommandCount() <= 0) return;
-    frame.RestoreCopyFromUndoList();
+    runActionRef.current(ACTIONS.undo);
     setSelectionRef.current(new Set());
   }, []);
 
   const redo = useCallback(() => {
     const frame = frameRef.current!;
     if (frame.GetRedoCommandCount() <= 0) return;
-    frame.RestoreCopyFromRedoList();
+    runActionRef.current(ACTIONS.redo);
     setSelectionRef.current(new Set());
   }, []);
 
@@ -5441,37 +4420,13 @@ export function PcbEditor({
    */
   const enteredGroupRef = useRef<string | null>(null);
 
-  /**
-   * PCB_SELECTION_TOOL's context menu (`m_menu->ShowContextMenu( m_selection )`)
-   * at the pointer, with the close the tool manager waits for.
-   *
-   * TRANSITIONAL (#636 stage 3): upstream every tool's `Init()` adds its rows to
-   * the selection tool's CONDITIONAL_MENU. Only PCB_SELECTION_TOOL's `Init` is
-   * ported, so the rows are still `buildPcbContextMenu`'s, which states all
-   * four `Init()`s' rows with their order numbers and conditions. Each tool's
-   * rows move into its `Init()` with that tool.
-   */
-  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; onClose: () => void } | null>(
-    null,
-  );
-  /** Any other ACTION_MENU a tool pops up (the disambiguation menu), with its close. */
+  /** The ACTION_MENU a tool pops up - the selection tool's context menu, the disambiguation menu - with its close. */
   const [toolPopup, setToolPopup] = useState<{
     menu: ACTION_MENU;
     x: number;
     y: number;
     onClose: () => void;
   } | null>(null);
-
-  // Lock / unlock the selection (PCB_ACTIONS::lock / unlock).
-  const lockSel = useCallback(
-    (locked: boolean | 'toggle') => {
-      const brd = boardRef.current;
-      const sel = selForDrawRef.current;
-      if (!brd || sel.size === 0) return;
-      commitBoard(setBoardItemsLocked(brd, sel, locked));
-    },
-    [commitBoard],
-  );
 
   /** ARRAY_TOOL::CreateArray. */
   const applyArray = useCallback((settings: ArraySettings) => {
@@ -5511,53 +4466,6 @@ export function PcbEditor({
    * `OnMenuEvent`, which runs the action through the tool manager.
    */
   /** BOARD_INSPECTION_TOOL's NET_CONTEXT_MENU, its rows the tool's actions. */
-  const netInspectionSubmenu = (): MenuItem[] => {
-    const tool = frameRef.current
-      ?.GetToolManager()
-      ?.FindTool('pcbnew.InspectionTool') as BOARD_INSPECTION_TOOL | null;
-    const menu = tool?.GetNetSubMenu();
-    if (!menu) return [];
-    menu.UpdateAll();
-    return actionMenuItems(menu);
-  };
-
-  const convertSubmenu = (): MenuItem[] => {
-    const frame = frameRef.current;
-    const tool = frame?.GetToolManager()?.FindTool('pcbnew.Convert') as CONVERT_TOOL | null;
-    const menu = tool?.GetMenu();
-    if (!frame || !menu) return [];
-    menu.Evaluate(frame.GetSelectionTool().GetSelection());
-    menu.UpdateAll();
-    return actionMenuItems(menu);
-  };
-
-  const alignDistributeSubmenu = (): MenuItem[] => {
-    const row = (label: string, action: TOOL_ACTION): MenuItem => ({
-      label,
-      action: () => runAction(action),
-    });
-    // `canDistribute = SELECTION_CONDITIONS::MoreThan( 2 )` over the selection
-    // tool's selection, whose rows run ALIGN_DISTRIBUTE_TOOL's actions.
-    const canDistribute = (frameRef.current?.GetSelectionTool().GetSelection().Size() ?? 0) > 2;
-    return [
-      row('Align to Left', PCB_ACTIONS.alignLeft),
-      row('Align to Horizontal Center', PCB_ACTIONS.alignCenterX),
-      row('Align to Right', PCB_ACTIONS.alignRight),
-      { sep: true },
-      row('Align to Top', PCB_ACTIONS.alignTop),
-      row('Align to Vertical Center', PCB_ACTIONS.alignCenterY),
-      row('Align to Bottom', PCB_ACTIONS.alignBottom),
-      ...(canDistribute
-        ? [
-            { sep: true } as MenuItem,
-            row('Distribute Horizontally by Centers', PCB_ACTIONS.distributeHorizontallyCenters),
-            row('Distribute Horizontally with Even Gaps', PCB_ACTIONS.distributeHorizontallyGaps),
-            row('Distribute Vertically by Centers', PCB_ACTIONS.distributeVerticallyCenters),
-            row('Distribute Vertically with Even Gaps', PCB_ACTIONS.distributeVerticallyGaps),
-          ]
-        : []),
-    ];
-  };
 
   // Fit the view to a world-space box (shared by Zoom-to-Fit variants and the
   // interactive zoom tool).
@@ -5860,10 +4768,6 @@ export function PcbEditor({
           return { resolve };
         });
       }),
-    // `m_filler->Fill( clones )` with the board's zone list swapped for them:
-    // the view-based pour runs on a view of the board with the clones in it, and
-    // is written back over the clones alone.
-    fillZones: (aBoard, aZones) => fillZoneClonesRef.current(aBoard, aZones),
     fillAllZones: () => fillAllZonesRef.current(),
   };
   selWindowRef.current = {
@@ -5884,29 +4788,8 @@ export function PcbEditor({
       refreshSelectionMirrorRef.current();
       requestDraw();
     },
-    windowAction: (aAction, aEvent) => {
-      const origin = downRef.current?.world ?? cursorRef.current;
-      const sel = selForDrawRef.current;
+    windowAction: (aAction) => {
       switch (aAction) {
-        // ROUTER_TOOL::InlineDrag, which EDIT_TOOL::invokeInlineRouter runs:
-        // the window's router drag of a track, or its drag of footprints with
-        // their tracks following.
-        case PCB_ACTIONS.routerInlineDrag: {
-          if (!origin) return;
-          const mode = aEvent.Parameter<number>();
-          movingRef.current = true;
-          const seed = routableTrackSeed(sel);
-          if (
-            seed === null ||
-            !beginTrackDrag(seed, origin, (mode & PNS_DRAG_MODE.DM_FREE_ANGLE) !== 0)
-          )
-            beginMove(sel, 'drag', origin);
-          break;
-        }
-        // EDIT_TOOL::Properties on the drawing sheet: PCB_EDIT_FRAME's Page Settings.
-        case ACTIONS.pageSettings:
-          setPageDlgOpen(true);
-          break;
         // ARRAY_TOOL::CreateArray: the window's Create Array dialog.
         case PCB_ACTIONS.createArray:
           setArrayOpen(true);
@@ -5920,27 +4803,39 @@ export function PcbEditor({
       }
     },
     eventToWindow: (aEvent) => {
+      // A TOOL_MANAGER tool owns the canvas: every event is the dispatcher's.
+      if (TOOL_MANAGER_TOOLS[activeToolRef.current]) return false;
       // A key: the window's key chain has every key but Escape; Escape in the
-      // selection tool, with nothing of the window's in flight, is the tool's.
+      // selection tool is the tool's.
       if (aEvent instanceof wxKeyEvent) {
         if (aEvent.GetKeyCode() !== WXK.WXK_ESCAPE) return true;
-        if (!isSelectTool(activeToolRef.current) || windowGestureInFlight()) return true;
-        return false;
+        return !isSelectTool(activeToolRef.current);
       }
       if (!(aEvent instanceof wxMouseEvent)) return false;
-      if (!isSelectTool(activeToolRef.current) || windowGestureInFlight()) return true;
-      // A press on a point-editor handle is PCB_POINT_EDITOR's (the window's).
-      if (aEvent.GetEventType() === wxEVT_LEFT_DOWN) {
-        const canvas = glCanvasRef.current;
-        if (canvas) {
-          const r = canvas.getBoundingClientRect();
-          const w = worldAt(r.left + aEvent.GetX(), r.top + aEvent.GetY());
-          if (w && editHandleAt(w)) return true;
-        }
-      }
-      return false;
+      return !isSelectTool(activeToolRef.current);
     },
   };
+  // EDA_BASE_FRAME::SelectToolbarAction: a toolbar group shows the action a
+  // tool names (the Line modes group, from OnAngleSnapModeChanged).
+  useEffect(() => {
+    const frame = frameRef.current;
+    if (!frame) return;
+    frame.SetSelectToolbarActionSink((aAction) => {
+      const id = Object.keys(PCB_LINE_MODE_ACTIONS).find(
+        (k) => PCB_LINE_MODE_ACTIONS[k] === aAction,
+      );
+      if (id) setToggles((prev) => applyToggle(prev, id));
+    });
+    return () => frame.SetSelectToolbarActionSink(null);
+  }, []);
+  // The frame's message panel is this window's MsgPanel.
+  useEffect(() => {
+    const frame = frameRef.current;
+    if (!frame) return;
+    setFrameMsgItems([...frame.GetMsgPanelItems()]);
+    frame.SetMsgPanelSink((aItems) => setFrameMsgItems([...aItems]));
+    return () => frame.SetMsgPanelSink(null);
+  }, []);
   // `wxWindow::PopupMenu` for the frame: PCB_SELECTION_TOOL's context menu, and
   // any other ACTION_MENU a tool puts up (the disambiguation menu).
   useEffect(() => {
@@ -5949,16 +4844,9 @@ export function PcbEditor({
     frame.SetPopupMenuPresenter((aMenu, aOnClose) => {
       const at = KIPLATFORM_UI.GetMousePosition();
       aMenu.OnMenuEvent(new wxMenuEvent(wxMenuEventType.wxEVT_MENU_OPEN, 0, aMenu));
-      // TRANSITIONAL (#636 stage 3): a TOOL_MENU (a CONDITIONAL_MENU) is the
-      // selection tool's context menu - the only tool with one so far - which
-      // shows the rows every tool's `Init()` adds, still stated by the window
-      // (`buildPcbContextMenu`); see `ctxMenu`.
-      if (aMenu instanceof CONDITIONAL_MENU) {
-        refreshSelectionMirrorRef.current();
-        setCtxMenu({ x: at.x, y: at.y, onClose: aOnClose });
-      } else {
-        setToolPopup({ menu: aMenu, x: at.x, y: at.y, onClose: aOnClose });
-      }
+      // A TOOL_MENU's CONDITIONAL_MENU arrives evaluated against the selection
+      // (TOOL_MENU::ShowContextMenu): the rows every tool's Init() added.
+      setToolPopup({ menu: aMenu, x: at.x, y: at.y, onClose: aOnClose });
     });
     return () => frame.SetPopupMenuPresenter(null);
   }, []);
@@ -6028,26 +4916,7 @@ export function PcbEditor({
         labels: { ok: 'Ignore Unselected Pads' },
       }).then((r) => (r === 'ok' ? 'ignore' : null)),
     openVertexEditor: () => openVertexEditor(),
-    router: () => ({
-      IsToolActive: () =>
-        activeToolRef.current === 'routeSingleTrack' || activeToolRef.current === 'routeDiffPair',
-      RoutingInProgress: () => pnsSessionRef.current !== null,
-      // `ROUTER_TOOL::CanInlineDrag`: one routable track or via, or footprints.
-      CanInlineDrag: () => {
-        const sel = selForDrawRef.current;
-        return (
-          routableTrackSeed(sel) !== null ||
-          (sel.size > 0 && [...sel].every((id) => parseBoardItemId(id)?.kind === 'footprint'))
-        );
-      },
-    }),
   };
-  /** A gesture of the window's own tools in flight, which owns the pointer until it ends. */
-  const windowGestureInFlight = (): boolean =>
-    movingRef.current ||
-    grabbingRef.current ||
-    editHandleDragRef.current !== null ||
-    trackDragRef.current !== null;
   drcWindowRef.current = {
     createDrcDialog: (_aTool: DRC_TOOL): DIALOG_DRC => {
       const frame = frameRef.current!;
@@ -6161,8 +5030,7 @@ export function PcbEditor({
       else if (footprintAt(brd, sel) !== null) setFpPropsIndex(footprintAt(brd, sel));
       else {
         const r = parseBoardItemId(id);
-        const bc = r?.kind === 'barcode' ? brd.barcodes[r.index] : undefined;
-        if (r && bc) setBarcodeDialog({ at: bc.at, index: r.index });
+        if (r?.kind === 'barcode' && brd.barcodes[r.index]) setBarcodePropsIndex(r.index);
       }
     },
     /** `PCB_EDIT_FRAME::Edit_Zone_Params`'s actual open: the rendering trigger. */
@@ -6310,7 +5178,7 @@ export function PcbEditor({
       // size too, and a fit taken there is to a viewport the user never sees.
       // `PCB_EDIT_FRAME::onSize` runs its zoomFitScreen `if( IsShownOnScreen() )`
       // and not before.
-      if (!fittedRef.current && sceneRef.current && isMeasured(size) && shownRef.current) {
+      if (!fittedRef.current && boardRef.current && isMeasured(size) && shownRef.current) {
         fittedRef.current = true;
         zoomToFit();
       } else if (changed) {
@@ -6330,7 +5198,7 @@ export function PcbEditor({
     if (!board) return;
     let raf = 0;
     const tryFit = (): void => {
-      if (fittedRef.current || !sceneRef.current) return;
+      if (fittedRef.current || !boardRef.current) return;
       const r = wrapRef.current?.getBoundingClientRect();
       if (!r || r.width === 0 || r.height === 0 || !shownRef.current) return;
       fittedRef.current = true;
@@ -6424,76 +5292,7 @@ export function PcbEditor({
   };
   passesFilterRef.current = passesFilter;
 
-  // Hit candidates at a board point, KiCad's selectPoint pipeline: collect
-  // with exact hit distances, Selection Filter, then GuessSelectionCandidates
-  // (slop pruning, the 1.5× coverage-area heuristic, active-layer preference),
-  // all transcribed in boardHitCandidates. One id = unambiguous click; several
-  // = KiCad would pop the disambiguation menu. Finally, a hit on a group
-  // member resolves to its top-level group (PCB_GROUP::TopLevelGroup).
-  /**
-   * `clientKind` is `selectPoint`'s `aClientFilter` — `EDIT_TOOL::PadFilter`,
-   * `FootprintFilter` — which runs AFTER the Selection Filter and BEFORE
-   * `GuessSelectionCandidates` (`pcb_selection_tool.cpp`). The order is the
-   * point: at the centre of a resistor with a track under its body the
-   * heuristics prefer the track, so a caller that filtered the heuristics'
-   * output for a footprint would find none. Upstream never sees the track.
-   */
-  const hitCandidates = (
-    w: { x: number; y: number },
-    excludeZoneFills = false,
-    clientKind?: 'pad' | 'footprint',
-  ): string[] => {
-    const brd = boardRef.current;
-    if (!brd) return [];
-    const canvas = canvasRef.current;
-    const v = viewRef.current;
-    const cands = boardHitCandidates(brd, w, tolOf(), {
-      filter: clientKind
-        ? (id) => passesFilter(id) && parseBoardItemId(id)?.kind === clientKind
-        : passesFilter,
-      activeLayer,
-      visibleLayers: visible,
-      viewportIU: canvas ? { w: canvas.width / v.scale, h: canvas.height / v.scale } : undefined,
-      excludeZoneFills,
-    });
-    const out: string[] = [];
-    for (const id of cands) {
-      const resolved = groupContaining(brd, id, enteredGroupRef.current ?? undefined) ?? id;
-      if (!out.includes(resolved)) out.push(resolved);
-    }
-    return out;
-  };
-
   const tolOf = (): number => (5 * dpr) / viewRef.current.scale; // ~5px, like COLLECTORS_GUIDE
-
-  // A double click in a window tool (TRANSITIONAL, #636 stage 3): the outline
-  // tools' close and the two-point tools' end. In the selection tool a double
-  // click is Main's (`EnterGroup`, or `PCB_ACTIONS::properties`).
-  const onCanvasDoubleClick = (e: React.MouseEvent): void => {
-    if (e.button !== 0) return;
-    const w = worldAt(e.clientX, e.clientY);
-    const brd = boardRef.current;
-    if (!w || !brd) return;
-    // `const bool endPolygon = evt->IsDblClick( BUT_LEFT ) || ...`
-    // (drawing_tool.cpp:3591-3593) — the second click of the pair has already
-    // locked its corner in, so this only has to close.
-    const outline = polyMgrRef.current?.isPolygonInProgress()
-      ? polyMgrRef.current
-      : zoneMgrRef.current?.isPolygonInProgress()
-        ? zoneMgrRef.current
-        : null;
-    if (outline) {
-      closeOutline(outline);
-      return;
-    }
-    // `evt->IsClick( BUT_LEFT ) || evt->IsDblClick( BUT_LEFT )` share a branch
-    // in `drawShape`: the double click ends the shape without committing it.
-    if (twoPtStartedRef.current && DRAW_SHAPE_TOOLS[activeToolRef.current]) {
-      handleDrawClick(w, true);
-      return;
-    }
-    requestDraw();
-  };
 
   /**
    * The browser's own menu never opens on the canvas: a right click is
@@ -6504,75 +5303,6 @@ export function PcbEditor({
   const onCanvasContextMenu = (e: React.MouseEvent): void => {
     e.preventDefault();
   };
-
-  /**
-   * The canvas context menu. Four `Init()`s feed one `CONDITIONAL_MENU`
-   * upstream, and this states their rows with the same order numbers and
-   * conditions rather than with the evaluated shape, so
-   * `evaluateConditionalMenu` decides which rows and which rules survive:
-   *
-   *   BOARD_EDITOR_CONTROL::Init (board_editor_control.cpp:430-440), into the
-   *       SELECTION tool's menu: getAndPlace (inactiveStateCondition) and a
-   *       separator at the default order, then LOCK_CONTEXT_MENU @100 and
-   *       ZONE_CONTEXT_MENU @100
-   *   EDIT_TOOL::Init (edit_tool.cpp:750-832): properties, the rotate/mirror
-   *       rows and the footprint rows at the default order; separator @100 and
-   *       the shape-modification / positioning submenus @100; separator @150
-   *       with cut / copy / paste / pasteSpecial / duplicate / doDelete; then
-   *       separator @150 with selectAll / unselectAll
-   *   PCB_SELECTION_TOOL::Init (pcb_selection_tool.cpp:214-235): separator @1
-   *       and the @1/@2 rows, then AddStandardSubMenus
-   *   EDA_DRAW_FRAME::AddStandardSubMenus (eda_draw_frame.cpp:709-726):
-   *       separator @1000 and the Zoom and Grid submenus @1000
-   *
-   * `CONDITIONAL_MENU::ANY_ORDER` is **-1** (conditional_menu.h:45), so the
-   * un-numbered rows sort BEFORE the numbered ones — which is why upstream's
-   * empty-canvas menu opens on Get and Move Footprint and not on Paste.
-   *
-   * What ours had: Select All and Unselect All and nothing else on an empty
-   * canvas, with no Zoom or Grid submenu anywhere, and Unselect All greyed on
-   * an empty selection. That last one is not upstream's condition —
-   * `noItemsCondition` (edit_tool.cpp:732-735) is
-   * `frame()->GetBoard() && !frame()->GetBoard()->IsEmpty()`, about the BOARD
-   * and not about the selection, and it gates both rows identically.
-   */
-  /**
-   * `PCB_CONTROL::CopyToClipboard` / `CutToClipboard` / `Paste`
-   * (`pcbnew/tools/pcb_control.cpp`). The payload itself is built and parsed by
-   * `pcbnew/pcb_clipboard.ts`; only the system-clipboard I/O and the drop
-   * point are here, because those are the two things a pure function cannot do.
-   *
-   * The reference point is upstream's `grid.BestDragOrigin` — the anchor the
-   * payload is written relative to. We use the selection's bounding-box origin,
-   * so a paste with no offset lands the items exactly where they were copied
-   * from, which is what `placeBoardItems` does before its interactive move.
-   */
-  const clipboardRef = (): { x: number; y: number } => {
-    const brd = boardRef.current;
-    const bb = brd ? boardSelectionBBox(brd, selForDrawRef.current) : null;
-    return bb ? { x: bb.minX, y: bb.minY } : { x: 0, y: 0 };
-  };
-
-  /**
-   * The paste half. `mode` and `clearNets` come from DIALOG_PASTE_SPECIAL for
-   * `ACTIONS::pasteSpecial`; a plain `ACTIONS::paste` never opens it and takes
-   * `KEEP_ANNOTATIONS` with nets mapped (`pcb_control.cpp:1208-1209`).
-   */
-  const pasteText = useCallback(
-    (text: string, mode: PasteMode = 'keep_annotations', clearNets = false) => {
-      const brd = boardRef.current;
-      if (!brd) return;
-      const parsed = parseClipboardText(text);
-      // Not a board or footprint payload: upstream falls through to its
-      // bitmap/plain-text branches, which we have not ported. Do nothing
-      // rather than clobber the board.
-      if (!parsed) return;
-      const res = pasteIntoBoard(brd, parsed, { mode, clearNets });
-      commitBoard(res.board);
-      setSelectionRef.current(new Set(res.newIds));
-    },
-    [commitBoard],
-  );
 
   /**
    * The system clipboard's own events, so Ctrl+X / Ctrl+C / Ctrl+V work and not
@@ -6595,32 +5325,30 @@ export function PcbEditor({
     // `menu_hotkey_coverage.test.ts` forbids — and it caught it.
     const typing = (): boolean => isTypingTarget(document.activeElement as FocusLike | null);
 
+    // EDIT_TOOL::copyToClipboard / cutToClipboard save through SaveClipboard;
+    // inside the browser's own event, what they saved goes on the system
+    // clipboard too.
     const onCopy = (e: ClipboardEvent): void => {
       if (hidden() || typing() || selForDrawRef.current.size === 0) return;
-      const brd = boardRef.current;
-      if (!brd) return;
-      const text = copySelectionToClipboardText(brd, selForDrawRef.current, clipboardRef());
-      if (text === '') return;
+      runActionRef.current(ACTIONS.copy);
+      const text = GetClipboardText();
+      if (!text) return;
       e.clipboardData?.setData('text/plain', text);
       e.preventDefault();
     };
     const onCut = (e: ClipboardEvent): void => {
       if (hidden() || typing() || selForDrawRef.current.size === 0) return;
-      const brd = boardRef.current;
-      if (!brd) return;
-      const res = cutSelectionToClipboardText(brd, selForDrawRef.current, clipboardRef());
-      if (res.text === '') return;
-      e.clipboardData?.setData('text/plain', res.text);
+      runActionRef.current(ACTIONS.cut);
+      const text = GetClipboardText();
+      if (!text) return;
+      e.clipboardData?.setData('text/plain', text);
       e.preventDefault();
-      commitBoard(res.board);
-      setSelectionRef.current(new Set());
     };
+    // PCB_CONTROL::Paste reads the clipboard; the event's data becomes it first.
     const onPaste = (e: ClipboardEvent): void => {
-      if (hidden() || typing()) return;
-      const text = e.clipboardData?.getData('text/plain') ?? '';
-      if (!parseClipboardText(text)) return;
+      if (hidden() || typing() || !e.clipboardData) return;
       e.preventDefault();
-      pasteText(text);
+      void SetClipboardFromPaste(e.clipboardData).then(() => runActionRef.current(ACTIONS.paste));
     };
 
     document.addEventListener('copy', onCopy);
@@ -6631,1006 +5359,11 @@ export function PcbEditor({
       document.removeEventListener('cut', onCut);
       document.removeEventListener('paste', onPaste);
     };
-  }, [commitBoard, pasteText]);
-
-  const buildPcbContextMenu = (): MenuItem[] => {
-    const brd = board;
-    let anyLocked = false;
-    let anyUnlocked = false;
-    for (const id of selection) {
-      const r = parseBoardItemId(id);
-      if (!r) continue;
-      if (brd) {
-        if (isBoardItemLocked(brd, id)) anyLocked = true;
-        else anyUnlocked = true;
-      }
-    }
-    const groupMenu = GroupMenuState(frameRef.current?.GetSelectionTool().GetSelection() ?? null);
-    const A = (label: string, actionId: string, disabled?: boolean): MenuItem => ({
-      label,
-      icon: actionId,
-      disabled,
-      action: () => onTopAction(actionId),
-    });
-
-    // ---- the conditions the upstream rows are gated on -------------------
-    const notEmpty = selection.size > 0;
-    const moreThanOne = selection.size > 1;
-    // `noItemsCondition` (edit_tool.cpp:732-735): the BOARD has items. It is
-    // not about the selection, and it gates Select All and Unselect All alike.
-    const boardHasItems = brd !== null && !boardIsEmpty(brd);
-    const zoneIdx = brd ? zoneAt(brd, selection) : null;
-    const fpIdx = brd ? footprintAt(brd, selection) : null;
-    const padIdx = brd ? selectedPadAt(brd, selection) : null;
-    const textIdx = brd ? textAt(brd, selection) : null;
-    const shapeIdx = brd ? shapeAt(brd, selection) : null;
-    const barcodeIdx = brd ? barcodeAt(brd, selection) : null;
-    const copper = brd ? hasTrackOrVia(trackViaSelection(brd, selection)) : false;
-    // `propertiesCondition` — something the properties dialog can open on.
-    const editable =
-      copper ||
-      zoneIdx !== null ||
-      fpIdx !== null ||
-      padIdx !== null ||
-      textIdx !== null ||
-      shapeIdx !== null ||
-      // `EDIT_TOOL::Properties` lists `PCB_BARCODE_T` with the items whose
-      // dialog it opens (`edit_tool.cpp:2785`).
-      barcodeIdx !== null;
-    // `singleFootprintCondition` / `multipleFootprintsCondition`
-    // (edit_tool.cpp), which gate the whole footprint block.
-    let footprintCount = 0;
-    for (const id of selection) if (parseBoardItemId(id)?.kind === 'footprint') footprintCount++;
-    const oneFootprint = footprintCount === 1;
-    const anyFootprint = footprintCount > 0;
-    // `frame()->ToolStackIsEmpty()` — no tool has been pushed, so the
-    // selection tool is all that is running. Ours spells the idle state as the
-    // `selectSetRect` tool id, NOT `select`: every other id here is a pushed
-    // tool. This gates Paste, Paste Special and Get and Move Footprint, and
-    // comparing against the wrong id hides all three at once.
-    const toolStackIsEmpty = isSelectTool(activeTool);
-    /**
-     * `isRoutable` (edit_tool.cpp:742-743):
-     * `NotEmpty && HasTypes( routableTypes ) && notMoving && !inFootprintEditor`,
-     * where `routableTypes` (edit_tool.cpp:130) is
-     * `{ PCB_TRACE_T, PCB_ARC_T, PCB_VIA_T, PCB_PAD_T, PCB_FOOTPRINT_T }`.
-     *
-     * `HasTypes` is ANY, not ONLY — and a FOOTPRINT is in the list, which is
-     * why KiCad offers Route Selected on a footprint. Reading this as "copper
-     * is selected" would have hidden all five router rows on the one selection
-     * a user reaches for most.
-     */
-    const routableKinds = new Set(['track', 'arc', 'via', 'pad', 'footprint']);
-    let routable = false;
-    /**
-     * `canMirror` (edit_tool.cpp:649-655): false when the selection is ONLY
-     * pads, else `selectionMirrorable` — at least one item whose type is in
-     * `EDIT_TOOL::MirrorableItems` (edit_tool.cpp:2417-2420):
-     *
-     *     PCB_SHAPE_T, PCB_FIELD_T, PCB_TEXT_T, PCB_TEXTBOX_T, PCB_ZONE_T,
-     *     PCB_PAD_T, PCB_TRACE_T, PCB_ARC_T, PCB_VIA_T, PCB_GROUP_T,
-     *     PCB_GENERATOR_T, PCB_POINT_T, PCB_TABLE_T
-     *
-     * A FOOTPRINT is deliberately not in it — `nonMirrorableTypes`
-     * (edit_tool.cpp:135-137) names it — so KiCad shows no Mirror row on a
-     * selected footprint. Ours used a `hasNonPad` flag that was true for a
-     * footprint and so offered both.
-     */
-    const mirrorableKinds = new Set([
-      'shape',
-      'fptext',
-      'text',
-      'textbox',
-      'zone',
-      'pad',
-      'track',
-      'arc',
-      'via',
-      'group',
-      'table',
-    ]);
-    /**
-     * `GENERAL_COLLECTOR::DraggableItems` (collectors.cpp:145-150), exactly:
-     * `{ PCB_TRACE_T, PCB_VIA_T, PCB_FOOTPRINT_T, PCB_ARC_T }`. A pad, a zone,
-     * a text or a shape is not draggable, so neither drag row belongs on one.
-     */
-    const draggableKinds = new Set(['track', 'via', 'footprint', 'arc']);
-    /**
-     * `propertiesCondition` (edit_tool.cpp:616-642) reads a good deal narrower
-     * than "something is selected": one item always qualifies, but a MULTI
-     * selection qualifies only when every item is a `PCB_TRACK` — and PCB_ARC
-     * and PCB_VIA both derive from it, which is why the `dynamic_cast` there
-     * takes all three. Anything else and the row is GONE, not greyed; KiCad
-     * draws no Properties row over seven footprints, and ours drew a dead one.
-     */
-    const trackKinds = new Set(['track', 'arc', 'via']);
-    /**
-     * Two conditions that both mean "connectable", and are NOT the same list.
-     *
-     * `connectedTypes` (edit_tool.cpp:128) — `{ PCB_TRACE_T, PCB_ARC_T,
-     * PCB_VIA_T, PCB_PAD_T, PCB_ZONE_T }` — gates Assign Netclass.
-     * `showNetMenuFunc` (board_inspection_tool.cpp:101-131) takes those five
-     * AND a `PCB_SHAPE` that `IsOnCopperLayer()`, and gates the Net Inspection
-     * Tools submenu. A pad satisfies both, which is why KiCad's menu over a pad
-     * carries two rows ours had neither of.
-     */
-    const connectedKinds = new Set(['track', 'arc', 'via', 'pad', 'zone']);
-    const shapeOnCopper = (id: string): boolean => {
-      const idx = parseBoardItemId(id)?.index;
-      const shape = idx === undefined ? undefined : brd?.shapes[idx];
-      return !!shape && isCopperLayerName(shape.layer);
-    };
-    let anyMirrorable = false;
-    let onlyPads = selection.size > 0;
-    let onlyDraggable = selection.size > 0;
-    let onlyTracks = selection.size > 0;
-    let onlyConnected = selection.size > 0;
-    let netInspectable = selection.size > 0;
-    for (const id of selection) {
-      const kind = parseBoardItemId(id)?.kind;
-      if (kind === undefined) continue;
-      if (!connectedKinds.has(kind)) {
-        onlyConnected = false;
-        if (!(kind === 'shape' && shapeOnCopper(id))) netInspectable = false;
-      }
-      if (routableKinds.has(kind)) routable = true;
-      if (mirrorableKinds.has(kind)) anyMirrorable = true;
-      if (kind !== 'pad') onlyPads = false;
-      if (!draggableKinds.has(kind)) onlyDraggable = false;
-      if (!trackKinds.has(kind)) onlyTracks = false;
-    }
-    // The empty case is upstream's drawing-sheet hit test, which we have no
-    // properties dialog for, so it stays false here.
-    const propertiesCondition = selection.size === 1 || (moreThanOne && onlyTracks);
-    const canMirror = !onlyPads && anyMirrorable;
-    /**
-     * `drag45Degree` (edit_tool.cpp:776-777) is `Count( 1 ) && OnlyTypes(
-     * DraggableItems )`. `dragFreeAngle` (edit_tool.cpp:778-780) is that AND
-     * `!OnlyTypes( footprintTypes )` (edit_tool.cpp:120) — a footprint drags on
-     * 45s only, so over one KiCad offers Drag 45 Degree Mode and no Drag Free
-     * Angle. Both rows were gated on `notEmpty` here, which is [px] the extra
-     * row our menu carried against the installed build's over a footprint, and
-     * two rows that should not appear at all over a pad or a zone.
-     */
-    const canDrag45 = selection.size === 1 && onlyDraggable;
-    const canDragFree = canDrag45 && footprintCount === 0;
-
-    /**
-     * Shown in its upstream position, greyed until the command exists — the
-     * same thing this frame does with Grid Origin and Route > Single Track.
-     *
-     * The accelerator is deliberately NOT a parameter here. It has to stay a
-     * literal at the row, because `menu_hotkey_coverage.test.ts` scrapes this
-     * file as TEXT for the accelerator field, and a key funnelled through a
-     * parameter is one that ratchet cannot see — which is the silent drift it
-     * exists to catch. It caught this helper's first draft, and then caught
-     * the field name written out inside this very comment.
-     */
-    const TODO = (label: string): MenuItem => ({ label, disabled: true });
-
-    return evaluateConditionalMenu([
-      // ---- PCB_SELECTION_TOOL::Init (pcb_selection_tool.cpp:214) ---------
-      menuEntry(
-        {
-          label: 'Select',
-          submenu: [
-            TODO('Filter Selected Items...'),
-            { sep: true },
-            TODO('Items in Same Hierarchical Sheet'),
-            TODO('Items with Same Component Class'),
-            TODO('All Tracks in Net'),
-          ],
-        },
-        -1,
-        notEmpty,
-      ),
-
-      // ---- BOARD_EDITOR_CONTROL::Init (board_editor_control.cpp:431-432) -
-      // `inactiveStateCondition`: the tool stack is empty AND nothing is
-      // selected, which is why this heads the empty-canvas menu and vanishes
-      // the moment something is picked.
-      menuEntry(
-        {
-          label: 'Get and Move Footprint',
-          shortcut: 'T',
-          action: () => runAction(PCB_ACTIONS.getAndPlace),
-        },
-        -1,
-        toolStackIsEmpty && !notEmpty,
-      ),
-      menuSeparator(-1),
-
-      // ---- EDIT_TOOL::Init (edit_tool.cpp:763-810) -----------------------
-      menuEntry(
-        { label: 'Move', shortcut: 'M', action: () => runAction(PCB_ACTIONS.move) },
-        -1,
-        notEmpty,
-      ),
-      menuEntry(
-        { label: 'Move with Reference...', action: () => runAction(PCB_ACTIONS.moveWithReference) },
-        -1,
-        notEmpty,
-      ),
-      // `PCB_ACTIONS::moveIndividually` (pcb_actions.cpp:601-605): the friendly
-      // name carries NO ellipsis - it starts an interactive move, it does not
-      // open a dialog - and it does carry Ctrl+M.
-      menuEntry(
-        {
-          label: 'Move Individually',
-          shortcut: 'Ctrl+M',
-          action: () => runAction(PCB_ACTIONS.moveIndividually),
-        },
-        -1,
-        moreThanOne,
-      ),
-
-      menuEntry({ label: 'Route Selected', shortcut: 'Shift+X', disabled: true }, -1, routable),
-      menuEntry(
-        { label: 'Route Selected From Other End', shortcut: 'Shift+E', disabled: true },
-        -1,
-        routable,
-      ),
-      menuEntry(TODO('Unroute Selected'), -1, routable),
-      menuEntry({ label: 'Unroute Segment', shortcut: 'Backspace', disabled: true }, -1, routable),
-      menuEntry(
-        { label: 'Attempt Finish Selected (Autoroute)', shortcut: 'Shift+F', disabled: true },
-        -1,
-        routable,
-      ),
-
-      menuEntry(
-        {
-          label: 'Drag 45 Degree Mode',
-          shortcut: 'D',
-          action: () => runAction(PCB_ACTIONS.drag45Degree),
-        },
-        -1,
-        canDrag45,
-      ),
-      menuEntry(
-        {
-          label: 'Drag Free Angle',
-          shortcut: 'G',
-          action: () => runAction(PCB_ACTIONS.dragFreeAngle),
-        },
-        -1,
-        canDragFree,
-      ),
-
-      menuEntry({ ...A('Rotate Counterclockwise', 'rotateCCW'), shortcut: 'R' }, -1, notEmpty),
-      menuEntry({ ...A('Rotate Clockwise', 'rotateCW'), shortcut: 'Shift+R' }, -1, notEmpty),
-      menuEntry(
-        { label: 'Change Side / Flip', shortcut: 'F', action: () => runAction(PCB_ACTIONS.flip) },
-        -1,
-        notEmpty,
-      ),
-      menuEntry(A('Mirror Horizontally', 'mirrorH'), -1, canMirror),
-      menuEntry(A('Mirror Vertically', 'mirrorV'), -1, canMirror),
-      // `PCB_ACTIONS::swap` carries Alt+S (pcb_actions.cpp:704-708).
-      menuEntry(
-        { label: 'Swap', shortcut: 'Alt+S', action: () => runAction(PCB_ACTIONS.swap) },
-        -1,
-        moreThanOne,
-      ),
-      // `packAndMoveFootprints` (edit_tool.cpp:794-795), on
-      // `MoreThan( 1 ) && HasType( PCB_FOOTPRINT_T )` — ANY footprint in the
-      // selection, not only footprints. P (pcb_actions.cpp:727-731).
-      menuEntry(
-        {
-          label: 'Pack and Move Footprints',
-          shortcut: 'P',
-          action: () => runAction(PCB_ACTIONS.packAndMoveFootprints),
-        },
-        -1,
-        moreThanOne && anyFootprint,
-      ),
-
-      menuEntry(
-        {
-          label: 'Properties...',
-          shortcut: 'E',
-          disabled: !editable,
-          action: () => {
-            if (copper) setTrackViaOpen(true);
-            else if (zoneIdx !== null) frameRef.current?.Edit_Zone_Params(zoneIdx);
-            else if (padIdx !== null) setPadPropsRef(padIdx);
-            else if (textIdx !== null) setTextPropsIndex(textIdx);
-            else if (shapeIdx !== null) setShapePropsIndex(shapeIdx);
-            else if (barcodeIdx !== null) {
-              const bc = boardRef.current?.barcodes[barcodeIdx];
-              if (bc) setBarcodeDialog({ at: bc.at, index: barcodeIdx });
-            } else setFpPropsIndex(fpIdx);
-          },
-        },
-        -1,
-        propertiesCondition,
-      ),
-      // `assignNetClass` (edit_tool.cpp:799-800), between Properties and the
-      // clearance inspector, on `OnlyTypes( connectedTypes ) &&
-      // !inFootprintEditor`: BOARD_EDITOR_CONTROL::AssignNetclass.
-      menuEntry({ label: 'Assign Netclass...', action: () => assignNetclass() }, -1, onlyConnected),
-      menuEntry(
-        {
-          label: selection.size === 2 ? 'Clearance Resolution...' : 'Constraints Resolution...',
-          action: () => setInspectOpen(true),
-        },
-        -1,
-        selection.size === 2,
-      ),
-
-      // The footprint block (edit_tool.cpp:803-809), after its own separator.
-      menuSeparator(-1),
-      menuEntry(
-        { ...A('Open in Footprint Editor', 'footprintEditor'), shortcut: 'Ctrl+E' },
-        -1,
-        oneFootprint,
-      ),
-      menuEntry(TODO('Update Footprint...'), -1, oneFootprint),
-      // `PCB_ACTIONS::updateFootprints` (pcb_actions.cpp:998-1002) is
-      // "Update Footprints from Library...", not the plural of the single-item
-      // row above it — the two rows are different commands with different
-      // names, and only the singular one is "Update Footprint...".
-      menuEntry(TODO('Update Footprints from Library...'), -1, anyFootprint && !oneFootprint),
-      menuEntry(TODO('Change Footprint...'), -1, oneFootprint),
-      menuEntry(TODO('Change Footprints...'), -1, anyFootprint && !oneFootprint),
-      menuEntry(
-        {
-          label: 'Attributes',
-          submenu: [TODO('Exclude from Bill of Materials'), TODO('Exclude from Position Files')],
-        },
-        -1,
-        anyFootprint,
-      ),
-
-      // ---- the @100 band ------------------------------------------------
-      // Nobody owns this band. Seven different tools drop a submenu into it
-      // from their own Init(), and because ties keep their insertion order
-      // (conditional_menu.cpp:210-221, and our own evaluateConditionalMenu),
-      // the on-screen order is the order those tools are REGISTERED in
-      // `PCB_EDIT_FRAME::setupTools` (pcb_edit_frame.cpp:947-979):
-      //
-      //   EDIT_TOOL (:953)             separator, [Shape Modification],
-      //                                Position          (edit_tool.cpp:812-814)
-      //   PCB_EDIT_TABLE_TOOL (:954)   seven separators with the table-cell rows
-      //                                between them  (edit_table_tool_base.h:94-115)
-      //   BOARD_EDITOR_CONTROL (:961)  Locking, [Zone]
-      //                                       (board_editor_control.cpp:437-439)
-      //   BOARD_INSPECTION_TOOL (:962) Net Inspection Tools
-      //   ALIGN_DISTRIBUTE_TOOL (:964) [Align/Distribute], on MoreThan( 1 )
-      //   CONVERT_TOOL (:972)          Create from Selection (convert_tool.cpp:333)
-      //   PCB_GROUP_TOOL (:973)        Grouping           (group_tool.cpp:138)
-      //
-      // So it reads Position | Locking, Create from Selection, Grouping — not
-      // the tidier grouping ours had invented (Create from Selection, Position,
-      // Grouping, Locking), which put the two footprint-placement submenus on
-      // opposite sides of the band. [px] confirmed against the installed
-      // pcbnew, one footprint selected (2026-08-31).
-      menuSeparator(100),
-      // EDIT_TOOL's `shapeModificationSubMenu` (`edit_tool.cpp:255-291`), on
-      // `shapeModificationCondition`. Only its Edit Corners... row is ported, and
-      // that row is itself gated on `selectionHasEditableCorners`, so the submenu
-      // exists exactly when it has a row.
-      menuEntry(
-        {
-          label: 'Shape Modification',
-          submenu: [A('Edit Corners...', 'editVertices')],
-        },
-        100,
-        !!brd && selectionHasEditableCorners(brd, selection),
-      ),
-      menuEntry(
-        {
-          label: 'Position',
-          submenu: [
-            {
-              label: 'Move Exactly...',
-              shortcut: 'Shift+M',
-              action: () => runAction(PCB_ACTIONS.moveExact),
-            },
-            {
-              label: 'Position Relative To...',
-              shortcut: 'Shift+P',
-              action: () => runAction(PCB_ACTIONS.positionRelative),
-            },
-            {
-              label: 'Outset Items...',
-              action: () => runAction(PCB_ACTIONS.outsetItems),
-            },
-          ],
-        },
-        100,
-        notEmpty,
-      ),
-      // EDIT_TABLE_TOOL_BASE::addMenus (edit_table_tool_base.h:94-115) opens
-      // and closes each of its five groups with its own `AddSeparator( 100 )`.
-      // We have no table-cell editing in the PCB editor, so all its ROWS
-      // condition away and separator elision collapses the whole band to the
-      // single rule this stands for — which is exactly what the installed
-      // build draws between Position and Locking over a footprint. It is a
-      // real KiCad rule, not decoration: when the table rows land they go
-      // here, between these separators.
-      menuSeparator(100),
-      // LOCK_CONTEXT_MENU (board_editor_control.cpp:303), @100 on NotEmpty.
-      menuEntry(
-        {
-          label: 'Locking',
-          icon: 'lock',
-          submenu: [
-            A('Lock', 'lock', !anyUnlocked),
-            A('Unlock', 'unlock', !anyLocked),
-            A('Toggle Lock', 'toggleLock'),
-          ],
-        },
-        100,
-        notEmpty,
-      ),
-      // ALIGN_DISTRIBUTE_TOOL::Init (align_distribute_tool.cpp:66-88). Its own
-      // rows split into three groups: align X, align Y, and distribute — and
-      // the two rules between them are conditional, `AddSeparator( canAlign )`
-      // and `AddSeparator( canDistribute )`, so the distribute group and the
-      // rule above it appear only from THREE items up (`MoreThan( 2 )`) while
-      // the submenu itself opens from two (`MoreThan( 1 )`).
-      //
-      // NET_CONTEXT_MENU (board_inspection_tool.cpp:68-82), @100 on
-      // `showNetMenuFunc` — every selected item connectable. Four rows around
-      // one rule; Clear Net Highlighting carries `~` (pcb_actions.cpp:1575).
-      menuEntry(
-        { label: 'Net Inspection Tools', submenu: netInspectionSubmenu() },
-        100,
-        netInspectable,
-      ),
-      // The rows are the real ones: the engine has been here all along, wired
-      // to an Edit-menu submenu that upstream does not have. See
-      // `alignDistributeSubmenu`.
-      menuEntry({ label: 'Align/Distribute', submenu: alignDistributeSubmenu() }, 100, moreThanOne),
-      // CONVERT_TOOL::Init's CONDITIONAL_MENU (convert_tool.cpp:291-333),
-      // evaluated over the selection tool's selection as the tool's own menu is.
-      menuEntry({ label: 'Create from Selection', submenu: convertSubmenu() }, 100, notEmpty),
-      menuEntry(
-        {
-          label: 'Grouping',
-          icon: 'group',
-          // GROUP_CONTEXT_MENU (group_tool.cpp:40-105), which PCB_GROUP_TOOL's
-          // Init adds; its enables read the selection tool's selection.
-          submenu: [
-            A('Group Items', 'group', !groupMenu.group),
-            A('Ungroup Items', 'ungroup', !groupMenu.ungroup),
-            A('Add Items', 'addToGroup', !groupMenu.addToGroup),
-            A('Remove Items', 'removeFromGroup', !groupMenu.removeFromGroup),
-          ],
-        },
-        100,
-        notEmpty,
-      ),
-
-      // ---- EDIT_TOOL's @150 clipboard group (edit_tool.cpp:817-827) ------
-      menuSeparator(150),
-      menuEntry(
-        { label: 'Cut', icon: 'cut', shortcut: 'Ctrl+X', action: () => runAction(ACTIONS.cut) },
-        150,
-        notEmpty,
-      ),
-      menuEntry(
-        { label: 'Copy', icon: 'copy', shortcut: 'Ctrl+C', action: () => runAction(ACTIONS.copy) },
-        150,
-        notEmpty,
-      ),
-      menuEntry(TODO('Copy with Reference...'), 150, notEmpty),
-      // `noActiveToolCondition` — Paste is offered whatever is selected, and
-      // only hidden while another tool is running.
-      menuEntry(
-        {
-          label: 'Paste',
-          icon: 'paste',
-          shortcut: 'Ctrl+V',
-          // Ctrl+V itself is the browser's own paste event, not ours — see
-          // MenuItem.nativeShortcut, the same as the drawing sheet's row.
-          nativeShortcut: true,
-          action: () => {
-            void navigator.clipboard?.readText().then((text) => pasteText(text));
-          },
-        },
-        150,
-        toolStackIsEmpty,
-      ),
-      menuEntry(
-        {
-          label: 'Paste Special...',
-          shortcut: 'Ctrl+Shift+V',
-          action: () => setPasteSpecialOpen(true),
-        },
-        150,
-        toolStackIsEmpty,
-      ),
-      menuEntry(
-        {
-          ...A('Duplicate', 'duplicate'),
-          shortcut: 'Ctrl+D',
-          action: () => runAction(ACTIONS.duplicate),
-        },
-        150,
-        notEmpty,
-      ),
-      menuEntry(
-        {
-          label: 'Delete',
-          icon: 'delete',
-          shortcut: 'Delete',
-          action: () => runAction(ACTIONS.doDelete),
-        },
-        150,
-        notEmpty,
-      ),
-
-      // ---- EDIT_TOOL::Init (edit_tool.cpp:829-831) -----------------------
-      menuSeparator(150),
-      menuEntry(
-        { label: 'Select All', shortcut: 'Ctrl+A', action: selectAllSel },
-        150,
-        boardHasItems,
-      ),
-      menuEntry(
-        { label: 'Unselect All', shortcut: 'Ctrl+Shift+A', action: unselectAllSel },
-        150,
-        boardHasItems,
-      ),
-
-      // ---- EDA_DRAW_FRAME::AddStandardSubMenus, from the shared module ---
-      ...standardSubMenuEntries({
-        zoomApp: 'pcbnew',
-        zoom: zoomNow,
-        setZoom: setZoomPreset,
-        gridSizes: GRID_SIZE_LIST.pcbnew.map(gridEntryOf),
-        gridIndex: PCB_GRIDS.indexOf(gridIU),
-        primaryUnits: unitLabel,
-        iuPerMM: MM,
-        // `COMMON_TOOLS::GridOrigin` is a WX_PT_ENTRY_DIALOG we do not have;
-        // shown in its upstream position and greyed, which is what the Place
-        // menu's own Grid Origin row and the Show Grid button's menu do.
-        gridOrigin: () => {},
-        setGrid: (i) => {
-          const iu = PCB_GRIDS[i];
-          if (iu !== undefined) {
-            setGridIUStored(iu);
-            requestDraw();
-          }
-        },
-      }),
-    ]);
-  };
+  }, []);
 
   // ----- graphic shape drawing (DRAWING_TOOL) ---------------------------------
 
-  /**
-   * `drawShape`'s per-event angle constraint (drawing_tool.cpp:2447-2465).
-   *
-   * The three shapes it serves do **not** agree, and the difference is not
-   * cosmetic:
-   *
-   * - a rectangle or a circle ignores the left toolbar's line mode entirely and
-   *   is unconstrained, and **Ctrl turns 45° on** — which is how a rectangle is
-   *   dragged out square and a circle's radius snapped to an eighth turn;
-   * - everything else obeys the line mode, and **Ctrl turns it off** for as
-   *   long as it is held.
-   *
-   * "Drawing rectangles and circles ignore the snap behavior by default, but
-   * constrains when the modifier key is pressed."
-   */
-  const shapeAngleSnap = (kind: PcbShape['kind'], ctrl: boolean): LeaderMode => {
-    if (kind === 'rect' || kind === 'circle') return ctrl ? LeaderMode.DEG45 : LeaderMode.DIRECT;
-    if (ctrl) return LeaderMode.DIRECT;
-    return toggles.has('lineMode45')
-      ? LeaderMode.DEG45
-      : toggles.has('lineMode90')
-        ? LeaderMode.DEG90
-        : LeaderMode.DIRECT;
-  };
-
-  /**
-   * The motion arm of `drawShape` (drawing_tool.cpp:2630-2662): put the cursor
-   * into the two-point manager, constrained or not.
-   *
-   * The constraint is `GetVectorSnapped90` / `GetVectorSnapped45`, applied to
-   * `end - origin` and added back to the origin — and `only45` is true for a
-   * **rectangle**, which is the whole of why Ctrl gives a square there and a
-   * square-or-axis-aligned rectangle nowhere else.
-   *
-   * These do not preserve the vector's length; they zero or equalise its
-   * components so a cursor on the grid stays on it. The frame used to project
-   * onto the nearest 45° ray instead, keeping the length and landing the far
-   * end between grid nodes.
-   */
-  const updateTwoPointCursor = (kind: PcbShape['kind'], p: { x: number; y: number }): void => {
-    const mgr = twoPtRef.current;
-    const snap = shapeAngleSnap(kind, ctrlDownRef.current);
-
-    if (twoPtStartedRef.current && snap !== LeaderMode.DIRECT) {
-      const origin = mgr.GetOrigin();
-      const lineVector = { x: p.x - origin.x, y: p.y - origin.y };
-      const newEnd =
-        snap === LeaderMode.DEG90
-          ? vectorSnapped90(lineVector)
-          : vectorSnapped45(lineVector, kind === 'rect');
-      mgr.SetEnd({ x: origin.x + newEnd.x, y: origin.y + newEnd.y });
-      mgr.SetAngleSnap(snap);
-    } else {
-      mgr.SetEnd(p);
-      mgr.SetAngleSnap(LeaderMode.DIRECT);
-    }
-  };
-
-  /** `cleanup()` — throw the in-flight shape away and leave the tool armed. */
-  const cleanupShape = (): void => {
-    twoPtRef.current.Reset();
-    twoPtStartedRef.current = false;
-    arcMgrRef.current.reset();
-    drawingRef.current = [];
-  };
-  // Ref mirror, so the long-lived global keydown listener never calls a stale one.
-  cleanupShapeRef.current = cleanupShape;
-
-  /**
-   * `commit.Add( … ); commit.Push( … )` for one finished shape, plus the
-   * `RunAction( ACTIONS::selectItem, … )` that follows it.
-   *
-   * `DrawLine` is the one entry point that does **not** select what it made —
-   * it is chaining into the next segment, and selecting each one as it lands
-   * would fight the chain.
-   */
-  const commitShape = (shape: Omit<PcbShape, 'source'>, select: boolean): void => {
-    const brd = boardRef.current;
-    if (!brd) return;
-    const res = addBoardShape(brd, shape);
-    commitBoard(res.board);
-    if (select) setSelectionRef.current(new Set([res.id]));
-  };
-
-  /**
-   * `updateArcFromConstructionMgr` reaching a `PcbShape`, which stores an arc
-   * as `(start mid end)` — the board file's own form.
-   */
-  const commitArc = (): void => {
-    const mgr = arcMgrRef.current;
-    // `updateArcFromConstructionMgr` (drawing_tool.cpp:2768-2790) **swaps** the
-    // two ends when the subtended angle is not negative, because a `PCB_SHAPE`
-    // arc always runs one way round. The drawn shape is the same either way
-    // once a mid point is carried with it, but the file is not, and the file is
-    // what a diff against KiCad's own output compares.
-    const ccw = mgr.getSubtended().AsDegrees() < 0;
-    const a = mgr.getStartRadiusEnd();
-    const b = mgr.getEndRadiusEnd();
-    commitShape(
-      {
-        kind: 'arc',
-        start: ccw ? a : b,
-        mid: arcMidPoint(mgr),
-        end: ccw ? b : a,
-        width: shapeWidthIU(activeLayerRef.current),
-        fillMode: 'none',
-        layer: activeLayerRef.current,
-      },
-      true,
-    );
-    cleanupShape();
-  };
-
-  /**
-   * One left click of an active drawing tool.
-   *
-   * `dbl` is `evt->IsDblClick( BUT_LEFT )`, which `drawShape` handles in the
-   * same branch as a click: the second click of the pair has already been
-   * delivered, so the double click only has to end the shape.
-   */
-  const handleDrawClick = (world: { x: number; y: number }, dbl = false): void => {
-    const kind = DRAW_SHAPE_TOOLS[activeToolRef.current];
-    const brd = boardRef.current;
-    if (!kind || !brd) return;
-    const pts = drawingRef.current;
-    const p = snapToGrid(world);
-    const width = shapeWidthIU(activeLayer);
-    const base = { width, fillMode: 'none', layer: activeLayer } as const;
-
-    switch (kind) {
-      case 'line':
-      case 'rect':
-      case 'circle': {
-        const mgr = twoPtRef.current;
-
-        if (!twoPtStartedRef.current) {
-          // "Init the new item attributes", then origin and end both on the
-          // cursor so a shape that is never dragged is empty rather than stale.
-          mgr.SetAngleSnap(LeaderMode.DIRECT);
-          mgr.SetOrigin(p);
-          mgr.SetEnd(p);
-          twoPtStartedRef.current = true;
-          break;
-        }
-
-        updateTwoPointCursor(kind, p);
-
-        // "User has clicked twice in the same spot, meaning we're finished."
-        if (mgr.IsEmpty() || dbl) {
-          cleanupShape();
-          break;
-        }
-
-        const origin = mgr.GetOrigin();
-        const end = mgr.GetEnd();
-
-        if (kind === 'line') {
-          commitShape({ kind: 'line', start: origin, end, ...base }, false);
-          // `startingPoint = VECTOR2D( line->GetEnd() )` — the chain carries on
-          // from this segment's end.
-          mgr.SetOrigin(end);
-          mgr.SetEnd(end);
-        } else if (kind === 'rect') {
-          // `rect->Normalize()` before the commit: start is the top-left
-          // corner and end the bottom-right, whichever way it was dragged.
-          commitShape(
-            {
-              kind: 'rect',
-              start: { x: Math.min(origin.x, end.x), y: Math.min(origin.y, end.y) },
-              end: { x: Math.max(origin.x, end.x), y: Math.max(origin.y, end.y) },
-              ...base,
-            },
-            true,
-          );
-          cleanupShape();
-        } else {
-          commitShape({ kind: 'circle', center: origin, end, ...base }, true);
-          cleanupShape();
-        }
-        break;
-      }
-      case 'arc': {
-        // `arcManager.AddPoint( cursorPos, true )` — centre, then start, then
-        // the swept angle. Not eeschema's start/end/bow-through, which is what
-        // this frame had.
-        const mgr = arcMgrRef.current;
-        mgr.setAngleSnap(shapeAngleSnap(kind, ctrlDownRef.current) !== LeaderMode.DIRECT);
-        mgr.addPoint(p, true);
-        if (mgr.isComplete()) commitArc();
-        break;
-      }
-      case 'curve': {
-        // `drawOneBezier`: four clicks — start, C1, end, C2 — and the tool
-        // commits and chains straight into the next curve without leaving.
-        // The rules are in `pcbnew/bezier_tool.ts` so they can be driven
-        // without a canvas; this is only the click reaching them.
-        const r = bezierClick(pts, p);
-        if (r.kind === 'continue') {
-          drawingRef.current = r.locked;
-          break;
-        }
-        commitShape({ kind: 'curve', pts: r.points, ...base }, false);
-        drawingRef.current = r.next;
-        break;
-      }
-      case 'poly': {
-        // `DRAWING_TOOL::DrawZone`'s click arm (drawing_tool.cpp:3587-3623),
-        // which is a different tool from the one above: the corners belong to
-        // `POLYGON_GEOM_MANAGER`, closing is a click **exactly** on the first
-        // corner (or a double click), and the tool ends after one outline.
-        //
-        // The tolerance this used to close on was an invention, and an
-        // expensive one: any corner placed within five pixels of the start
-        // finished the polygon instead of being added.
-        const mgr = polyMgr();
-        if (mgr.newPointClosesOutline(p)) closeOutline(mgr);
-        else mgr.addPoint(p);
-        break;
-      }
-      default:
-        break;
-    }
-    requestDraw();
-  };
-
-  // ----- outline tools (DRAWING_TOOL::DrawZone) -------------------------------
-  //
-  // Draw Polygon, Add Zone, Add Rule Area and Zone Cutout are **one** tool
-  // upstream. Everything they share — the corners, the leader dogleg, the
-  // closing test, the preview — is `POLYGON_GEOM_MANAGER` and `POLYGON_ITEM`;
-  // all that differs is what `ZONE_CREATE_HELPER::commitZone` builds at the end.
-
-  /**
-   * The `endPolygon` arm (drawing_tool.cpp:3591-3601):
-   *
-   *     polyGeomMgr.SetFinished();
-   *     polyGeomMgr.Reset();
-   *     cleanup();
-   *     m_frame->PopTool( aEvent );
-   *     break;
-   *
-   * The `PopTool` is not incidental. `DrawZone` draws **one** outline per
-   * activation and hands the canvas back to the selection tool, unlike
-   * `drawShape`, which loops so line/rect/circle can be drawn one after
-   * another. Ours kept the polygon tool armed, so closing an outline left the
-   * user still in a tool they had finished with.
-   */
-  const closeOutline = (mgr: PolygonGeomManager): void => {
-    mgr.setFinished();
-    mgr.reset();
-    zoneRef.current = null;
-    setActiveTool(selectModeRef.current);
-    requestDraw();
-  };
-
-  /**
-   * `ZONE_CREATE_HELPER::OnComplete` (zone_create_helper.cpp:323-378) — the
-   * corners the committed item actually gets, or null for an outline too small
-   * to keep ("just scrap the zone in progress").
-   */
-  const finishedOutline = (mgr: PolygonGeomManager): { x: number; y: number }[] | null => {
-    const final = mgr.getLockedInPoints();
-    if (final.length < 3) return null;
-
-    const outline = final.map((q) => ({ x: q.x, y: q.y }));
-
-    // "In DEG45 mode, we may have intermediate points in the leader that should
-    // be included as they are shown in the preview.  These typically maintain
-    // the 45 constraint." The loop chain contributes its middle points only —
-    // its first is the cursor and its last is the start corner, both already in.
-    if (mgr.getLeaderMode() !== LeaderMode.DIRECT) {
-      const leader = mgr.getLeaderLinePoints();
-      for (let i = 1; i < leader.length; i++) outline.push({ ...leader[i]! });
-      const loop = mgr.getLoopLinePoints();
-      for (let i = 1; i < loop.length - 1; i++) outline.push({ ...loop[i]! });
-    }
-
-    // `chain.SetClosed( true ); chain.Simplify( true );` — the bool is a
-    // *tolerance* of 1 IU on this overload, not a flag.
-    const chain = simplifyLineChain(outline, true, 1);
-
-    // "Remove the start point if it lies on the line between neighbouring
-    // points. Simplify doesn't handle that currently."
-    if (chain.length >= 3) {
-      const seg = { a: chain[chain.length - 1]!, b: chain[1]! };
-      if (segLineDistance(seg, chain[0]!) <= 1) chain.shift();
-    }
-
-    return chain;
-  };
-
-  /**
-   * `commitZone`'s `ZONE_MODE::GRAPHIC_POLYGON` arm
-   * (zone_create_helper.cpp:248-268).
-   *
-   * The fill rule is upstream's and is the visible half of it: a polygon is
-   * **filled** unless it is on Edge.Cuts or a courtyard, where a filled shape
-   * would be meaningless. Ours committed every polygon as an unfilled outline.
-   */
-  polyCommitRef.current = (mgr) => {
-    const brd = boardRef.current;
-    const pts = finishedOutline(mgr);
-    if (!brd || !pts) return;
-    const layer = activeLayerRef.current;
-    const filled = layer !== 'Edge.Cuts' && layer !== 'F.CrtYd' && layer !== 'B.CrtYd';
-    const res = addBoardShape(brd, {
-      kind: 'poly',
-      pts,
-      width: shapeWidthIU(layer),
-      fillMode: filled ? 'solid' : 'none',
-      layer,
-    });
-    commitBoard(res.board);
-    // `m_tool.GetManager()->RunAction<EDA_ITEM*>( ACTIONS::selectItem, poly )`.
-    setSelectionRef.current(new Set([res.id]));
-  };
-
-  /**
-   * `GetDefaultZoneSettings()`'s border style and pitch — Board Setup > Zones.
-   *
-   * Both zone modes seed from it: `createNewZone` starts every new area from
-   * the board's default `ZONE_SETTINGS`, whatever `commitZone` goes on to
-   * build.
-   */
-  const defaultBorderStyle = (): { hatchStyle: ZoneBorderStyle; hatchPitch: number } => {
-    const zoneDflts = boardSetupRef.current.zones;
-    return {
-      hatchStyle:
-        zoneDflts.outlineDisplay === 'Fully hatched'
-          ? 'full'
-          : zoneDflts.outlineDisplay === 'Line'
-            ? 'none'
-            : 'edge',
-      hatchPitch: Math.round(zoneDflts.outlineHatchPitchMM * MM) || 0.5 * MM,
-    };
-  };
-
-  /**
-   * `commitZone` (zone_create_helper.cpp:225-270). One outline, and the
-   * `ZONE_MODE` decides what it becomes: `ADD` a copper zone, `ADD` with
-   * `m_keepout` a rule area. Both are `commit.Push` followed by
-   * `RunAction( selectItem )`.
-   */
-  zoneCommitRef.current = (mgr) => {
-    const brd = boardRef.current;
-    const z = zoneRef.current;
-    const pts = finishedOutline(mgr);
-    if (!brd || !z || !pts) return;
-
-    if (z.mode === 'ruleArea') {
-      const v = z.values;
-      const res = addBoardZone(brd, {
-        // "it carries no net" — a rule area's net code is zeroed by the
-        // parser on the next load, and the writer emits none.
-        net: 0,
-        netName: '',
-        layers: [...v.layers],
-        outline: pts,
-        ruleArea: {
-          tracks: v.doNotAllowTracks,
-          vias: v.doNotAllowVias,
-          pads: v.doNotAllowPads,
-          copperPour: v.doNotAllowCopperPour,
-          footprints: v.doNotAllowFootprints,
-        },
-        placementArea: {
-          enabled: v.placementEnabled,
-          sourceType: v.placementSourceType,
-          source: v.placementSource,
-        },
-        ...(v.name === '' ? {} : { name: v.name }),
-        locked: v.locked,
-        hatchStyle: v.hatchStyle,
-        hatchPitch: v.hatchPitch,
-        // "for a keepout, this param is not used".
-        priority: 0,
-      });
-      commitBoard(res.board);
-      setSelectionRef.current(new Set([res.id]));
-      return;
-    }
-
-    const v = z.values;
-    const res = addBoardZone(brd, {
-      net: v.net,
-      netName: brd.nets.get(v.net) ?? '',
-      layers: [...v.layers],
-      outline: pts,
-      ...(v.name === '' ? {} : { name: v.name }),
-      locked: v.locked,
-      clearance: v.clearance,
-      minThickness: v.minThickness,
-      padConnection: v.padConnection,
-      thermalGap: v.thermalGap,
-      thermalBridgeWidth: v.thermalBridgeWidth,
-      hatchStyle: v.hatchStyle,
-      hatchPitch: v.hatchPitch,
-      cornerSmoothing: v.cornerSmoothing,
-      cornerRadius: v.cornerRadius,
-      islandRemovalMode: v.islandRemovalMode,
-      islandAreaMin: v.islandAreaMin,
-      fillMode: v.fillMode,
-      hatchThickness: v.hatchThickness,
-      hatchGap: v.hatchGap,
-      hatchOrientation: v.hatchOrientation,
-      hatchSmoothingLevel: v.hatchSmoothingLevel,
-      hatchSmoothingValue: v.hatchSmoothingValue,
-      hatchHoleMinArea: v.hatchHoleMinArea,
-      filled: v.filled,
-      priority: v.priority,
-    });
-    commitBoard(res.board);
-    setSelectionRef.current(new Set([res.id]));
-  };
-
   // ----- interactive routing (ROUTER_TOOL, highlight mode) --------------------
-
-  // The pad under a board point (board-absolute centres), for net pickup and
-  // snapping route ends onto pads.
-  const padAt = (w: { x: number; y: number }): PcbPad | null => {
-    const brd = boardRef.current;
-    if (!brd) return null;
-    for (const fp of brd.footprints) {
-      for (const pad of fp.pads) {
-        if (Math.hypot(w.x - pad.at.x, w.y - pad.at.y) <= Math.max(pad.size.x, pad.size.y) / 2)
-          return pad;
-      }
-    }
-    return null;
-  };
 
   // Net + snap point of the copper item under the cursor —
   // `TOOL_BASE::updateStartItem` / `updateEndItem`. The decision itself lives
@@ -7647,289 +5380,8 @@ export function PcbEditor({
     });
   };
 
-  /**
-   * `TOOL_BASE::updateStartItem` / `updateEndItem` for a drag: the snapped
-   * cursor, over copper when there is any and on the grid otherwise.
-   *
-   * `aAvoid` is `pickSingleItem`'s `aAvoidItems` — the line being dragged, so
-   * the gesture cannot snap to itself.
-   */
-  const dragSnap = (
-    w: { x: number; y: number },
-    aAvoid: ReadonlySet<string> | null,
-  ): { x: number; y: number } => {
-    const brd = boardRef.current;
-    if (!brd) return snapToGrid(w);
-    return (
-      snapToBoardCopper(brd, w, gridHelper(), {
-        tol: tolOf(),
-        layer: /\.Cu$/.test(activeLayerRef.current) ? activeLayerRef.current : undefined,
-        avoid: aAvoid ?? undefined,
-      })?.snap ?? snapToGrid(w)
-    );
-  };
-
   // `copperAt` exists now, so the crosshair can reach it (see `routeSnapRef`).
   routeSnapRef.current = (w) => copperAt(w)?.snap ?? snapToGrid(w);
-
-  // Routing dimensions for a net: its net class dims, overridden by the
-  // TOP_AUX track-width / via-size selections when they're not "use netclass"
-  // (BOARD_DESIGN_SETTINGS::GetCurrentTrackWidth / GetCurrentViaSize).
-  const routeDims = (
-    net: number,
-    // `ImportSizes`'s `aStartItem` and `aStartPosition`: what the route is
-    // starting on, and where the pointer was. Absent for a route that is not
-    // starting from an existing item, where inheritance cannot apply.
-    startItem?: BoardCursorSnap | null,
-    startLayer?: string,
-    cursor?: { x: number; y: number },
-  ): ClassDims => {
-    const base = netclassInfo.classDims.get(netClassOf.get(net) ?? 'Default') ?? DEFAULT_CLASS_DIMS;
-    const tw = trackWidthListRef.current[trackSelRef.current - 1];
-    const vs = viaSizeListRef.current[viaSelRef.current - 1];
-    // `PNS_KICAD_IFACE_BASE::ImportSizes` (pns_kicad_iface.cpp:1146-1152): the
-    // existing item's width wins over both the toolbar choice and the netclass,
-    // and only under the toggle.
-    //
-    //     if( bds.m_UseConnectedTrackWidth && … && aStartItem != nullptr )
-    //         found = inheritTrackWidth( aStartItem, &trackWidth, startPosInt );
-    const brd = boardRef.current;
-    const inherited =
-      autoTrackWidthRef.current && startItem && brd
-        ? inheritTrackWidth(
-            brd,
-            { kind: startItem.kind, width: startItem.width, at: startItem.snap },
-            startLayer ?? activeLayerRef.current,
-            cursor ?? null,
-          )
-        : null;
-    return {
-      trackWidth: inherited ?? tw ?? base.trackWidth,
-      viaDiameter: vs?.diameter ?? base.viaDiameter,
-      viaDrill: vs?.drill ?? base.viaDrill,
-    };
-  };
-
-  /**
-   * `ROUTER_TOOL::onViaCommand` — 'V' while routing. With no via on the head,
-   * `handleLayerSwitch( aEvent, aForceVia = true )`: the target is the other
-   * side of the layer pair (F.Cu/B.Cu, the frame's `m_Route_Layer_TOP/BOTTOM`),
-   * the via is `GetCurrentViaSize()` / `GetCurrentViaDrill()` — the top
-   * toolbar's Via selector, else the netclass — and the head gains a via. With
-   * one already there, `ToggleViaPlacement` takes it off again. The layer
-   * itself switches only when the via is FIXED (`switchLayerOnViaPlacement`),
-   * which the session does inside `fix`.
-   */
-  const routeViaSwitch = (): void => {
-    const session = pnsSessionRef.current;
-    const cur = cursorRef.current;
-    if (!session || !cur) return;
-    const at = routeSnapRef.current(cur);
-    if (session.placingVia) {
-      session.cancelVia(at);
-    } else {
-      const current = session.currentBoardLayer();
-      const target = current === 'F.Cu' ? 'B.Cu' : 'F.Cu';
-      const dims = routeDims(0);
-      session.placeVia(target, dims.viaDiameter, dims.viaDrill, at);
-    }
-    requestDraw();
-  };
-  const routeViaSwitchRef = useRef(routeViaSwitch);
-  routeViaSwitchRef.current = routeViaSwitch;
-
-  /**
-   * The barcode the properties dialog edits: an existing one when the dialog
-   * was opened by double-click, otherwise the item `DRAWING_TOOL::DrawBarcode`
-   * builds before opening it (`drawing_tool.cpp:1528-1532`) —
-   *
-   *     barcode = new PCB_BARCODE( m_frame->GetModel() );
-   *     barcode->SetLayer( layer );
-   *     barcode->SetPosition( cursorPos );
-   *     barcode->SetTextSize( bds.GetTextSize( layer ).y );
-   *
-   * so everything else is `PCB_BARCODE`'s constructor, and the text height is
-   * the layer class's Board Setup value rather than `EDA_TEXT`'s default.
-   */
-  const barcodeUnderEdit = (): PcbBarcode | null => {
-    const brd = boardRef.current;
-    if (!brd || !barcodeDialog) return null;
-    if (barcodeDialog.index !== undefined) return brd.barcodes[barcodeDialog.index] ?? null;
-    return {
-      ...NEW_BARCODE,
-      at: barcodeDialog.at,
-      layer: activeLayer,
-      textHeight: Math.round((layerClassRow(activeLayer).textHeight ?? 1) * MM),
-    };
-  };
-
-  /**
-   * The values the text dialog edits when the Draw Text tool opened it, i.e.
-   * the `PCB_TEXT` `DRAWING_TOOL::PlaceText` builds before showing the dialog
-   * (`drawing_tool.cpp:124-144`):
-   *
-   *     textAttrs.m_Size        = bds.GetTextSize( layer );
-   *     textAttrs.m_StrokeWidth = bds.GetTextThickness( layer );
-   *     textAttrs.m_Italic      = bds.GetTextItalic( layer );
-   *     textAttrs.m_Mirrored    = m_board->IsBackLayer( layer );
-   *     textAttrs.m_Halign      = GR_TEXT_H_ALIGN_LEFT;
-   *     textAttrs.m_Valign      = GR_TEXT_V_ALIGN_BOTTOM;
-   *     text->SetTextPos( cursorPos );
-   *
-   * So the size and thickness are the ACTIVE LAYER'S Board Setup row, not
-   * EDA_TEXT's defaults, and a text started on a back layer is mirrored from
-   * the outset. `InferBold` is upstream's bold-from-thickness guess; ours has
-   * the row's own values, so bold starts false as the row says.
-   */
-  const newTextValues = (at: { x: number; y: number }): TextValues => {
-    const row = layerClassRow(activeLayer);
-    return {
-      text: '',
-      // `textAttrs` carries no font, so a new text is the stroke font: '' is
-      // "Default Font", i.e. no `(face …)` written.
-      face: '',
-      x: at.x,
-      y: at.y,
-      orientation: 0,
-      layer: activeLayer,
-      width: Math.round(row.textWidth * MM),
-      height: Math.round(row.textHeight * MM),
-      autoThickness: false,
-      thickness: Math.round(row.textThickness * MM),
-      bold: false,
-      italic: row.italic ?? false,
-      mirrored: isBackLayer(activeLayer),
-      hJustify: 'left',
-      vJustify: 'bottom',
-      hidden: false,
-      knockout: false,
-      locked: false,
-    };
-  };
-
-  /**
-   * OK on that dialog. `PlaceText` adds the item and pushes one commit named
-   * "Draw Text" (`drawing_tool.cpp:186-189`); a text with no printable
-   * character is dropped instead (`NoPrintableChars`, `:157`).
-   */
-  const commitPlacedText = (v: TextValues): void => {
-    const brd = boardRef.current;
-    setTextDialog(null);
-    if (!brd || !v.text.trim()) return;
-    // Add the item, then let the engine write the dialog's values onto it —
-    // the justify words, the auto-thickness rule and the s-expression patching
-    // all live in `applyTextValues` and are not restated here. One commit, so
-    // placing a text is a single undo step.
-    const { board: withText, id } = addBoardText(brd, {
-      kind: 'user',
-      text: v.text,
-      at: { x: v.x, y: v.y },
-      angle: v.orientation,
-      layer: v.layer,
-      size: { x: v.width, y: v.height },
-      thickness: v.thickness,
-    });
-    const index = parseBoardItemId(id)?.index ?? 0;
-    commitBoard(applyTextValues(withText, index, v));
-  };
-
-  // One left click of the Draw Filled Zones tool: the first click opens the
-  // Copper Zone Properties dialog; afterwards clicks collect the outline,
-  // closing back on the first corner commits the (unfilled) zone.
-  /**
-   * A click with a dimension tool active (DRAWING_TOOL::DrawDimension).
-   *
-   * The first click starts one; later clicks advance it. Aligned and orthogonal
-   * take a third click for the crossbar, the other three finish on the second —
-   * the engine decides, this only commits when it says `done`.
-   */
-  /**
-   * The cursor as `DrawDimension` sees it: snapped to the grid, except while
-   * placing the crossbar of a dimension that is not cardinal — see
-   * `dimensionSnapsToGrid`, upstream's `grid.SetUseGrid( false )`.
-   */
-  const dimensionCursor = (
-    draw: DimensionDraw,
-    world: { x: number; y: number },
-  ): { x: number; y: number } => (dimensionSnapsToGrid(draw) ? snapToGrid(world) : world);
-
-  const handleDimensionClick = (world: { x: number; y: number }, kind: DimensionKind): void => {
-    const brd = boardRef.current;
-    if (!brd) return;
-    const cur = dimensionRef.current;
-    const p = cur ? dimensionCursor(cur, world) : snapToGrid(world);
-    // `DIM_UNITS_MODE::AUTOMATIC` reads `GetBoard()->GetUserUnits()`, so the
-    // label cannot be derived without the frame's display units.
-    const opts = { userUnits: unitsRef.current };
-
-    if (!cur) {
-      const tg = boardSetupRef.current.textGraphics;
-      const row = layerClassRow(activeLayer);
-      dimensionRef.current = startDimension(
-        kind,
-        p,
-        dimensionDefaultsFrom(tg.dimensions, activeLayer, shapeWidthIU(activeLayer), {
-          // `GetTextSize/Thickness/Italic( layer )` all index the *layer class*.
-          // This used to read `rows[0]`, the silkscreen row, whatever the layer.
-          textWidth: Math.round(row.textWidth * MM),
-          textHeight: Math.round(row.textHeight * MM),
-          textThickness: Math.round(row.textThickness * MM),
-          italic: row.italic,
-        }),
-        opts,
-      );
-      requestDraw();
-      return;
-    }
-
-    const next = clickDimension(cur, p, opts);
-    if (next.done) {
-      const added = addBoardDimension(brd, next.dimension);
-      commitBoard(added.board);
-      dimensionRef.current = null;
-      // `m_toolMgr->RunAction<EDA_ITEM*>( ACTIONS::selectItem, dimension )` —
-      // the placed dimension is left selected, so the properties panel and Del
-      // act on what was just drawn.
-      setSelectionRef.current(new Set([added.id]));
-      // "Run the edit immediately to set the leader text": a leader shows typed
-      // text, so upstream opens its properties dialog the moment it lands
-      // (drawing_tool.cpp:1791-1793). Without this the label is stuck on the
-      // constructor's "Leader".
-      if (kind === 'leader') setDimensionPropsIndex(brd.dimensions.length);
-    } else {
-      dimensionRef.current = next;
-    }
-    requestDraw();
-  };
-
-  /**
-   * A click with the text box tool active (DRAWING_TOOL::DrawRectangle with
-   * isTextBox). Two corners, then the properties dialog decides whether the box
-   * is kept at all.
-   */
-  /**
-   * Board Setup values a freshly-drawn table takes, shared by preview and commit.
-   *
-   * The font size is `bds.GetTextSize( table->GetLayer() )`
-   * (`drawing_tool.cpp:1353`) — the **layer class's** row, like every other
-   * `GetTextSize( layer )`. This read `rows[0]`, the silkscreen row, whatever
-   * layer the table was going on, and the font size is not cosmetic here: it is
-   * what sizes the whole table. `colCount = requestedSize.x / (fontSize.x * 15)`
-   * and `rowCount = requestedSize.y / (fontSize.y * 3)`, so a font one third
-   * short of the real one gives half again as many rows, each of them that much
-   * shorter — which is exactly "our boxes are tiny compared to KiCad's".
-   */
-  const tableDefaults = (): TableDefaults => {
-    const row = layerClassRow(activeLayer);
-    return {
-      layer: activeLayer,
-      fontWidth: Math.round(row.textWidth * MM),
-      fontHeight: Math.round(row.textHeight * MM),
-      textThickness: Math.round(row.textThickness * MM),
-      lineThickness: shapeWidthIU(activeLayer),
-      gridPitch: gridIURef.current,
-    };
-  };
 
   /**
    * The two controls the *board's* table dialog has and the schematic's does
@@ -7971,352 +5423,10 @@ export function PcbEditor({
   );
 
   /**
-   * A click with the table tool active (DRAWING_TOOL::DrawTable). Two clicks,
-   * then the properties dialog decides whether the table is kept at all.
-   */
-  const handleTableClick = (world: { x: number; y: number }): void => {
-    const p = snapToGrid(world);
-    const first = tableStartRef.current;
-    if (!first) {
-      setTableStart(p);
-      requestDraw();
-      return;
-    }
-    setPendingTable(newTable(first, p, tableDefaults()));
-    setTableStart(null);
-    requestDraw();
-  };
-
-  const handleTextBoxClick = (world: { x: number; y: number }): void => {
-    const p = snapToGrid(world);
-    const first = textBoxStartRef.current;
-    if (!first) {
-      textBoxStartRef.current = p;
-      requestDraw();
-      return;
-    }
-    // A rectangle with no width or height is not a box; keep waiting.
-    if (!isDrawableTextBox(first, p)) return;
-
-    const tg = boardSetupRef.current.textGraphics;
-    setPendingTextBox(
-      newTextBox(first, p, {
-        layer: activeLayer,
-        textSize: Math.round((tg.rows[0]?.textHeight ?? 1) * MM),
-        textThickness: Math.round((tg.rows[0]?.textThickness ?? 0.15) * MM),
-        borderWidth: shapeWidthIU(activeLayer),
-        borderStyle: 'solid',
-      }),
-    );
-    textBoxStartRef.current = null;
-    requestDraw();
-  };
-
-  /**
-   * Ask for a PNG and hand back its base64 payload.
-   *
-   * Upstream opens a `wxFileDialog` from inside the tool's event loop and
-   * `continue`s if it is cancelled. The browser equivalent is a hidden file
-   * input; cancelling resolves to null, which leaves the tool armed exactly as
-   * the `continue` does.
-   *
-   * KiCad accepts any format wxImage can read and converts to PNG internally.
-   * We take PNG only, because `pngPixelSize`/`pngPPI` — which decide how much
-   * board the image covers — read the PNG header directly. Accepting a JPEG we
-   * could not measure would place an item of the fallback size, which looks
-   * like a scaling bug rather than an unsupported format.
-   */
-  const askForPng = (): Promise<string | null> =>
-    new Promise((resolve) => {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'image/png';
-      input.onchange = (): void => {
-        const file = input.files?.[0];
-        if (!file) {
-          resolve(null);
-          return;
-        }
-        const reader = new FileReader();
-        reader.onerror = (): void => {
-          resolve(null);
-        };
-        reader.onload = (): void => {
-          // A data: URL is "data:image/png;base64,<payload>"; the model holds
-          // the payload alone, as the file's own quoted strings do.
-          const url = String(reader.result ?? '');
-          const comma = url.indexOf(',');
-          resolve(comma < 0 ? null : url.slice(comma + 1));
-        };
-        reader.readAsDataURL(file);
-      };
-      // Cancelling a file input fires no event in every browser, so nothing
-      // else resolves this promise. That is deliberate: an abandoned pick
-      // leaves the tool armed, which is what upstream's `continue` does too.
-      input.click();
-    });
-
-  /**
    * A click with the reference image tool active
    * (`DRAWING_TOOL::PlaceReferenceImage`). The first opens the file dialog and
    * puts the picture on the cursor; the second drops it.
    */
-  /**
-   * The "Choose Image" file dialog, which is the whole of the tool's first step
-   * (`drawing_tool.cpp:133-148`):
-   *
-   *     wxFileDialog dlg( m_frame, _( "Choose Image" ), …, wxFD_OPEN );
-   *     RunMainStack( [&]() { cancelled = dlg.ShowModal() != wxID_OK; } );
-   *     if( cancelled ) continue;
-   *
-   * A cancel leaves the tool armed and waiting, which is what `continue` does.
-   */
-  const chooseImageFile = (fallback: { x: number; y: number }): void => {
-    void askForPng().then((data) => {
-      if (data === null) return;
-      // The tool may have been switched away while the dialog was open.
-      if (activeToolRef.current !== 'placeReferenceImage') return;
-      const at = cursorRef.current ? snapToGrid(cursorRef.current) : fallback;
-      placeImageRef.current = fileChosen(placeImageRef.current, data, at, activeLayer);
-      // The image rides the cursor from here, and the cursor says so.
-      setImagePlacing(true);
-      requestDraw();
-    });
-  };
-
-  const handleImageClick = (world: { x: number; y: number }): void => {
-    const p = snapToGrid(world);
-    const state = placeImageRef.current;
-
-    if (state.step === 'awaiting-file') {
-      chooseImageFile(p);
-      return;
-    }
-
-    const brd = boardRef.current;
-    const { state: next, commit } = clickImage(state, p);
-    placeImageRef.current = next;
-    if (commit && brd) {
-      const { board: withImage, id } = addBoardImage(brd, commit);
-      commitBoard(withImage);
-      setSelectionRef.current(new Set([id]));
-    }
-    setImagePlacing(next.step === 'placing');
-    requestDraw();
-  };
-
-  /**
-   * The image tool asks for its file the moment it is picked, before any click
-   * — `PrimeTool( { 0, 0 } )` with `ignorePrimePosition`
-   * (`drawing_tool.cpp:132-140`), the same synthetic click the text tool takes,
-   * and here it runs the arm that opens the chooser. The manual describes the
-   * tool in exactly that order: "use the button on the right toolbar and browse
-   * to the desired reference image file. Click in the canvas to place the
-   * image."
-   *
-   * The one browser constraint: a file input only opens a picker while the page
-   * has transient activation, so this works because arming the tool is itself a
-   * click or a keypress and the effect runs in that same task. Nothing may move
-   * this behind an await.
-   */
-  useEffect(() => {
-    if (activeTool !== 'placeReferenceImage') return;
-    chooseImageFile(snapToGrid(cursorRef.current ?? { x: 0, y: 0 }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- one shot per arming
-  }, [activeTool]);
-
-  /**
-   * Compile the riding footprint at `at`, the way every motion event upstream
-   * does `fp->SetPosition( cursorPos ); getView()->Update( fp )`. Skipped when
-   * the cursor has not left the grid point it was already drawn at.
-   */
-  const updatePlaceFpPreview = (at: { x: number; y: number }): void => {
-    const pf = placeFpRef.current;
-    const brd = boardRef.current;
-    if (!pf || !brd) return;
-    const prev = placeFpSceneRef.current;
-    if (prev && prev.at.x === at.x && prev.at.y === at.y) return;
-    const fp = placeLibraryFootprint(pf.lib, { fpid: pf.fpid, at });
-    placeFpSceneRef.current = fp
-      ? { at, scene: buildScene({ ...emptyBoardLike(brd), footprints: [fp] }, sceneFilter()) }
-      : null;
-  };
-
-  /**
-   * The riding footprint compiled at its current position, for the preview
-   * pass: `view()->Update( &preview )`.
-   */
-  const refreshMicrowavePreview = (): void => {
-    const fp = placeMwRef.current;
-    const brd = boardRef.current;
-    if (!fp || !brd) {
-      placeFpSceneRef.current = null;
-      return;
-    }
-    const at = fp.GetPosition();
-    placeFpSceneRef.current = {
-      at: { x: at.x, y: at.y },
-      scene: buildScene(
-        { ...emptyBoardLike(brd), footprints: [footprintViewOfBoard(fp)] },
-        sceneFilter(),
-      ),
-    };
-  };
-
-  /**
-   * `MICROWAVE_TOOL`'s motion arms. `newItem->SetPosition( cursorPos )` moves the
-   * live footprint; the inductor's rectangle follows once its origin is set
-   * (`tpGeomMgr.SetAngleSnap( GetAngleSnapMode() )`, `SetEnd( cursorPos )`).
-   */
-  const updateMicrowaveCursor = (at: { x: number; y: number }): void => {
-    const fp = placeMwRef.current;
-    if (fp) {
-      const p = fp.GetPosition();
-      if (p.x !== at.x || p.y !== at.y) {
-        fp.SetPosition({ x: at.x, y: at.y });
-        refreshMicrowavePreview();
-      }
-    }
-    const line = mwLineRef.current;
-    if (line.originSet) {
-      line.mgr.SetAngleSnap(shapeAngleSnap('line', ctrlDownRef.current));
-      line.mgr.SetEnd(at);
-    }
-  };
-
-  /** R / Shift+R / F on the riding footprint: `Rotate` about its position, or `Flip`. */
-  const transformMicrowaveItem = (what: 'ccw' | 'cw' | 'flip'): void => {
-    const fp = placeMwRef.current;
-    const frame = frameRef.current;
-    if (!fp || !frame) return;
-    if (what === 'flip') {
-      fp.Flip(fp.GetPosition(), frame.GetPcbNewSettings().m_FlipDirection);
-    } else {
-      // `TOOL_EVT_UTILS::GetEventRotationAngle`: the step, CCW positive.
-      const step = rotationStepRef.current;
-      fp.Rotate(fp.GetPosition(), new EDA_ANGLE(what === 'ccw' ? step : -step));
-    }
-    refreshMicrowavePreview();
-    requestDraw();
-  };
-
-  const transformMicrowaveItemRef = useRef(transformMicrowaveItem);
-  transformMicrowaveItemRef.current = transformMicrowaveItem;
-
-  /**
-   * `MICROWAVE_TOOL::addMicrowaveFootprint` (a `doInteractiveItemPlacement` with
-   * `IPO_REPEAT | IPO_ROTATE | IPO_FLIP`) and `drawMicrowaveInductor`, one click.
-   *
-   * Placement: with nothing on the cursor the click makes the item
-   * (`MICROWAVE_PLACER::CreateItem`, whose dialogs open now) and it rides the
-   * cursor; the next click `PlaceItem`s and pushes "Place microwave feature".
-   * The tool stays armed either way (`IPO_REPEAT`).
-   *
-   * Inductor: the first click sets the origin, the second is the end and runs
-   * `createInductorBetween`, then the tool waits for the next origin.
-   */
-  const handleMicrowaveClick = (world: { x: number; y: number }): void => {
-    const frame = frameRef.current;
-    if (!frame || !frame.GetBoard()) return;
-    const tool = activeToolRef.current;
-    const cursor = cursorSnapRef.current(world);
-
-    if (tool === 'microwaveCreateLine') {
-      const line = mwLineRef.current;
-      if (!line.originSet) {
-        line.mgr.SetOrigin(cursor);
-        line.mgr.SetEnd(cursor);
-        line.originSet = true;
-      } else {
-        line.originSet = false;
-        void frame
-          .MicrowaveTool()
-          .createInductorBetween(
-            { x: Math.round(line.mgr.GetOrigin().x), y: Math.round(line.mgr.GetOrigin().y) },
-            { x: Math.round(line.mgr.GetEnd().x), y: Math.round(line.mgr.GetEnd().y) },
-          );
-      }
-      requestDraw();
-      return;
-    }
-
-    const fp = placeMwRef.current;
-    if (fp) {
-      fp.SetPosition({ x: cursor.x, y: cursor.y });
-      placeMwRef.current = null;
-      setMwPlacing(false);
-      placeFpSceneRef.current = null;
-      frame.PlaceInteractiveItem(fp, 'Place microwave feature');
-      requestDraw();
-      return;
-    }
-
-    if (mwCreatingRef.current) return;
-    const shape = MICROWAVE_PLACE_TOOLS[tool];
-    if (shape === undefined) return;
-    mwCreatingRef.current = true;
-    void frame
-      .MicrowaveTool()
-      .addMicrowaveFootprint(shape)
-      .then((created) => {
-        mwCreatingRef.current = false;
-        // No item created: wait for another click. The tool may also have been
-        // switched away while the dialogs were open.
-        if (!created || activeToolRef.current !== tool) return;
-        created.SetPosition({ x: cursor.x, y: cursor.y });
-        placeMwRef.current = created;
-        setMwPlacing(true);
-        refreshMicrowavePreview();
-        requestDraw();
-      });
-  };
-
-  /**
-   * `BOARD_EDITOR_CONTROL::PlaceFootprint`'s left-click arm
-   * (board_editor_control.cpp:1466-1526): with nothing on the cursor,
-   * `SelectFootprintFromLibrary()` — the chooser — and with a footprint on it,
-   * `commit.Push( _( "Place Footprint" ) )` after `selectionClear`. Either way
-   * the tool stays armed; `fp = nullptr` is what readies the next placement.
-   */
-  const handlePlaceFootprintClick = (world: { x: number; y: number }): void => {
-    const pf = placeFpRef.current;
-    const brd = boardRef.current;
-    if (!pf) {
-      selectFootprintFromLibrary();
-      return;
-    }
-    if (!brd) return;
-    const at = snapToGrid(world);
-    const fp = placeLibraryFootprint(pf.lib, { fpid: pf.fpid, at });
-    if (fp) {
-      commitBoard({ ...brd, footprints: [...brd.footprints, fp] });
-      setSelectionRef.current(new Set());
-    }
-    placeFpRef.current = null;
-    placeFpSceneRef.current = null;
-    requestDraw();
-  };
-
-  /**
-   * The chooser answered. `loadFootprint( fpid )` then `ClearAllNets` and
-   * `SetPosition( cursorPos )` (:1478-1516) — `placeLibraryFootprint` is that
-   * load-and-place, and it clears the pads' orphaned nets itself. Layer F.Cu,
-   * orientation 0, reference as the library wrote it (REF**): upstream
-   * annotates nothing here.
-   */
-  const selectFootprintFromLibrary = (): void => {
-    void frameRef.current!.SelectFootprintFromLibrary().then((footprint) => {
-      if (!footprint) return;
-      // The tool may have been switched away while the chooser was open.
-      if (activeToolRef.current !== 'placeFootprint') return;
-      placeFpRef.current = {
-        lib: footprintViewOfBoard(footprint),
-        fpid: footprint.GetFPIDAsString(),
-      };
-      updatePlaceFpPreview(snapToGrid(cursorRef.current ?? { x: 0, y: 0 }));
-      requestDraw();
-    });
-  };
 
   /** The chooser answered: `ShowModal` returned, `footprintName` set. */
   const onFootprintChosen = (libId: string): void => {
@@ -8333,378 +5443,25 @@ export function PcbEditor({
   };
 
   /**
-   * "Prime the pump" (:1406-1417): with `m_Input.immediate_actions` on — the
-   * default — arming the tool posts a synthetic click at (0,0), so the chooser
-   * opens the moment the tool is picked, and `ignorePrimePosition` keeps the
-   * footprint on the real pointer afterwards. With it off, the first click
-   * opens it. The image tool takes the same arm.
-   */
-  // biome-ignore lint/correctness/useExhaustiveDependencies: arming the tool is the trigger; the rest are read at that moment
-  useEffect(() => {
-    if (activeTool !== 'placeFootprint') return;
-    // `if( fp ) { … }` comes before the prime (:1408-1414): a footprint
-    // handed in by another command rides the cursor at once, no chooser.
-    const handed = browserFpRef.current;
-    if (handed) {
-      browserFpRef.current = null;
-      placeFpRef.current = handed;
-      updatePlaceFpPreview(snapToGrid(cursorRef.current ?? { x: 0, y: 0 }));
-      requestDraw();
-      return;
-    }
-    if (commonInputImmediateActionsLive()) selectFootprintFromLibrary();
-  }, [activeTool]);
-
-  /**
    * `FOOTPRINT_VIEWER_FRAME::AddFootprintToPCB`'s board half
    * (`footprint_viewer_frame.cpp:735-779`): `selectionClear`, then
-   * `PostAction( PCB_ACTIONS::placeFootprint, newFootprint )` — the tool runs
+   * `PostAction( PCB_ACTIONS::placeFootprint, newFootprint )` - the tool runs
    * with the footprint as its parameter, so it is on the cursor at once and
-   * the next click commits it. `placeLibraryFootprint` is the copy: it
-   * clears the library's orphaned pad nets and places on the front.
-   *
-   * Arming the tool clears whatever was in flight (the `[activeTool]` effect
-   * above), so the footprint waits in `browserFpRef` for the prime effect to
-   * pick it up — unless the tool is already the placement tool, where no
-   * effect will run and it is placed on the cursor directly.
+   * the next click commits it.
    */
-  const browserFpRef = useRef<{ lib: PcbFootprint; fpid: string } | null>(null);
-  const placeFromBrowser = (aFpid: string, aFootprint: PcbFootprint): void => {
-    setSelectionRef.current(new Set());
+  const placeFromBrowser = (aFpid: string, _aFootprint: PcbFootprint): void => {
     setFpChooserOpen(false);
-    if (activeToolRef.current === 'placeFootprint') {
-      placeFpRef.current = { lib: aFootprint, fpid: aFpid };
-      placeFpSceneRef.current = null;
-      updatePlaceFpPreview(snapToGrid(cursorRef.current ?? { x: 0, y: 0 }));
-      requestDraw();
-      return;
-    }
-    browserFpRef.current = { lib: aFootprint, fpid: aFpid };
-    setActiveTool('placeFootprint');
+    const frame = frameRef.current;
+    if (!frame) return;
+    frame.GetToolManager()?.RunAction(ACTIONS.selectionClear);
+    const fpid = new LIB_ID();
+    fpid.Parse(aFpid);
+    void frame.LoadFootprint(fpid).then((fp) => {
+      if (fp) frame.GetToolManager()?.PostAction(PCB_ACTIONS.placeFootprint, fp);
+    });
   };
   const placeFromBrowserRef = useRef(placeFromBrowser);
   placeFromBrowserRef.current = placeFromBrowser;
-
-  /**
-   * `BOARD_DESIGN_SETTINGS` as `PNS_KICAD_IFACE_BASE::ImportSizes` reads it:
-   * the four minimums from Board Setup > Constraints, the two width toggles,
-   * the three Pre-defined Sizes lists behind their `[0]` "use netclass" entry,
-   * the Default netclass, and the toolbar's current selection.
-   */
-  const pnsDesignSettings = (): PnsDesignSettings => {
-    const c = boardSetup.constraints;
-    const mm = (v: number): number => Math.round(v * MM);
-    const rows = boardSetup.netClasses.classes;
-    const dflt = rows.find((r) => r.name === 'Default') ?? rows[0];
-    const mmOpt = (t: string | undefined): number | undefined => {
-      const v = parseFloat(t ?? '');
-      return Number.isFinite(v) && v > 0 ? mm(v) : undefined;
-    };
-    const dims = netclassInfo.classDims.get('Default') ?? DEFAULT_CLASS_DIMS;
-    return {
-      minClearance: mm(c.minClearanceMM),
-      trackMinWidth: mm(c.minTrackMM),
-      viasMinSize: mm(c.minViaMM),
-      minThroughDrill: mm(c.minThroughHoleMM),
-      holeToHoleMin: mm(c.minHoleToHoleMM),
-      useConnectedTrackWidth: autoTrackWidthRef.current,
-      tempOverrideTrackWidth: false,
-      // `StackupHeight` reads both off the live BOARD; Board Setup edits them in place.
-      useHeightForLengthCalcs: boardRef.current?.k?.GetDesignSettings().m_UseHeightForLengthCalcs,
-      stackup: boardRef.current?.k?.GetDesignSettings().GetStackupDescriptor(),
-      sizes: (() => {
-        // A real BOARD_DESIGN_SETTINGS, not a copy of one. The three lists
-        // keep their reserved `[0]` "use netclass" row, which is why the
-        // indices the toolbar holds line up with `m_TrackWidthList` directly.
-        const bds = new BOARD_DESIGN_SETTINGS();
-
-        bds.m_TrackWidthList = [0, ...trackWidthListRef.current];
-        bds.m_ViasDimensionsList = [
-          new VIA_DIMENSION(0, 0),
-          ...viaSizeListRef.current.map((v) => new VIA_DIMENSION(v.diameter, v.drill)),
-        ];
-        bds.m_DiffPairDimensionsList = [
-          new DIFF_PAIR_DIMENSION(0, 0, 0),
-          ...boardSetup.diffPairsMM
-            .filter((d) => d.width > 0)
-            .map((d) => new DIFF_PAIR_DIMENSION(mm(d.width), mm(d.gap), mm(d.viaGap))),
-        ];
-
-        const nc = bds.m_NetSettings.GetDefaultNetclass();
-        nc.SetTrackWidth(dims.trackWidth);
-        nc.SetClearance(netclassInfo.classClearance.get('Default') ?? 0);
-        nc.SetViaDiameter(dims.viaDiameter);
-        nc.SetViaDrill(dims.viaDrill);
-        if (mmOpt(dflt?.dpWidth) !== undefined) nc.SetDiffPairWidth(mmOpt(dflt?.dpWidth)!);
-        if (mmOpt(dflt?.dpGap) !== undefined) nc.SetDiffPairGap(mmOpt(dflt?.dpGap)!);
-        if (mmOpt(dflt?.dpViaGap) !== undefined) nc.SetDiffPairViaGap(mmOpt(dflt?.dpViaGap)!);
-
-        bds.SetTrackWidthIndex(trackSelRef.current);
-        bds.SetViaSizeIndex(viaSelRef.current);
-
-        return bds;
-      })(),
-    };
-  };
-
-  /**
-   * `ROUTER_TOOL::performRouting`, one click at a time
-   * (router_tool.cpp:1474-1650), in whichever `PNS::ROUTER_MODE` the tool was
-   * armed with. The first click is
-   * `prepareInteractive` + `StartRouting`; a refusal goes to the infobar as
-   * `m_router->FailureReason()`. Each later click is `FixRoute`: false is
-   * "fixed, keep routing", true — the head snapped onto the target pair — is
-   * `finishInteractive`, and `CommitRouting` hands the segments over.
-   */
-  const handlePnsRouteClick = (world: { x: number; y: number }, mode: PnsRouterMode): void => {
-    const brd = boardRef.current;
-    if (!brd) return;
-    const at = routeSnapRef.current(world);
-    const session = pnsSessionRef.current;
-    if (!session) {
-      const layer = /\.Cu$/.test(activeLayer) ? activeLayer : 'F.Cu';
-      if (layer !== activeLayer) setActiveLayer(layer);
-      const next = new PnsSession(brd, {
-        mode,
-        designSettings: pnsDesignSettings(),
-        isLayerVisible: (l) => visible.has(l),
-        // `PNS_KICAD_IFACE::SetView( getView() )`: the router's ROUTER_PREVIEW_ITEMs
-        // go in a VIEW_GROUP of the canvas's own VIEW, which draws them.
-        view: panelRef.current!.GetView(),
-        trackClearanceMode: () => frameRef.current!.GetPcbNewSettings().m_Display.m_TrackClearance,
-      });
-      if (!next.start(at, layer)) {
-        setInfoBarError(next.failureReason || 'The routing start point violates DRC.');
-        next.abort();
-        return;
-      }
-      setInfoBarError(null);
-      pnsSessionRef.current = next;
-      next.move(at);
-      requestDraw();
-      return;
-    }
-    session.move(at);
-    const finished = session.fix(at);
-    if (finished) {
-      const result = session.commit();
-      pnsSessionRef.current = null;
-      if (result.ok) commitBoard(applyPnsChanges(brd, result.changes));
-      else if (result.reason) setInfoBarError(result.reason);
-    } else {
-      // `syncRouterAndFrameLayer()` after every fix: the frame's active layer
-      // follows the router's, which a fixed via has just changed.
-      const layer = session.currentBoardLayer();
-      if (layer !== activeLayerRef.current) setActiveLayer(layer);
-    }
-    requestDraw();
-  };
-
-  const handleZoneClick = (world: { x: number; y: number }): void => {
-    const brd = boardRef.current;
-    if (!brd) return;
-    const p = snapToGrid(world);
-    if (!zoneRef.current) {
-      // `zoneInfo.m_Netcode = highlightedNets.empty() ? -1 : *begin`, and then
-      // the selection's net if that left it unset
-      // (zone_create_helper.cpp:97-118). NOT the net of whatever copper the
-      // first click landed on, which is what this used to guess.
-      const fromHighlight = [...highlightNets][0];
-      const fromSelection = [...selectedNetsRef.current][0];
-      setZoneDialog({
-        at: p,
-        values: newZoneValues(
-          /\.Cu$/.test(activeLayer) ? activeLayer : 'F.Cu',
-          fromHighlight ?? fromSelection ?? 0,
-        ),
-      });
-      return;
-    }
-    // The same click arm as the polygon tool's, because upstream it is
-    // literally the same one (drawing_tool.cpp:3587-3623).
-    const mgr = zoneMgr();
-    if (mgr.newPointClosesOutline(p)) closeOutline(mgr);
-    else mgr.addPoint(p);
-    requestDraw();
-  };
-
-  /**
-   * `PCB_ACTIONS::drawRuleArea` — the SAME `DRAWING_TOOL::DrawZone`, with
-   * `params.m_keepout = true`. The only difference between it and the filled
-   * zone above is which editor `createNewZone` invokes, so the outline, the
-   * preview and the closing rule are all the shared manager's.
-   */
-  const handleRuleAreaClick = (world: { x: number; y: number }): void => {
-    const brd = boardRef.current;
-    if (!brd) return;
-    const p = snapToGrid(world);
-
-    if (!zoneRef.current) {
-      // `InvokeRuleAreaEditor( frame, &zoneInfo, board )`; cancelling it makes
-      // `OnFirstPoint` return false and the outline never starts.
-      setRuleAreaDialog(p);
-      return;
-    }
-
-    const mgr = zoneMgr();
-    if (mgr.newPointClosesOutline(p)) closeOutline(mgr);
-    else mgr.addPoint(p);
-    requestDraw();
-  };
-
-  /**
-   * `createNewZone`'s seed for a **copper zone**: the board's default
-   * `ZONE_SETTINGS` — Board Setup > Zones — with `m_Layers` reset to the
-   * active layer alone, an empty name, and the first unused priority.
-   *
-   * Reading these off Board Setup is the point. This frame used to open a
-   * two-field box asking only for a layer and a net, so every other field the
-   * page sets — clearance, minimum width, pad connection, both thermal
-   * dimensions, corner smoothing, island removal — was silently the parser's
-   * fallback rather than the board's default.
-   */
-  const newZoneValues = (layer: string, net: number): ZoneValues => {
-    const d = boardSetupRef.current.zones;
-    const brd = boardRef.current;
-    return {
-      // "A new zone starts unnamed, do not inherit the last drawn zone's name."
-      name: '',
-      net,
-      layers: [layer],
-      locked: d.locked,
-      clearance: Math.round(d.clearanceMM * MM),
-      minThickness: Math.round(d.minWidthMM * MM),
-      padConnection:
-        d.padConnection === 'Solid'
-          ? 'full'
-          : d.padConnection === 'Reliefs for PTH'
-            ? 'thru_hole_only'
-            : d.padConnection === 'None'
-              ? 'none'
-              : 'thermal',
-      thermalGap: Math.round(d.thermalGapMM * MM),
-      thermalBridgeWidth: Math.round(d.thermalSpokeMM * MM),
-      ...defaultBorderStyle(),
-      cornerSmoothing:
-        d.cornerSmoothing === 'Chamfer'
-          ? 'chamfer'
-          : d.cornerSmoothing === 'Fillet'
-            ? 'fillet'
-            : 'none',
-      cornerRadius: Math.round(d.smoothingRadiusMM * MM),
-      islandRemovalMode:
-        d.removeIslands === 'Never'
-          ? 'never'
-          : d.removeIslands === 'Below area limit'
-            ? 'area'
-            : 'always',
-      islandAreaMin: d.areaLimitMM2,
-      // Every other fill field is `ZONE_SETTINGS`' own default; Board Setup >
-      // Zones does not offer them, so neither does this seed.
-      fillMode: 'solid',
-      hatchThickness: 0,
-      hatchGap: 0,
-      hatchOrientation: 0,
-      hatchSmoothingLevel: 0,
-      hatchSmoothingValue: 0,
-      hatchHoleMinArea: 0.3,
-      filled: true,
-      // A new zone has no per-layer hatch origin of its own; every layer falls
-      // back to Board Setup > Zone Hatch Offsets until one is added here.
-      layerProperties: {},
-      // `setUniquePriority( zoneInfo )` — skipped for a rule area, and for a
-      // graphic polygon, but a copper zone opens on the first free one.
-      priority: brd ? uniqueZonePriority(brd) : 0,
-    };
-  };
-
-  /**
-   * `createNewZone`'s seed for a rule area: the board's default
-   * `ZONE_SETTINGS` with `m_Layers` reset to the active layer alone, an empty
-   * name, and `SetIsRuleArea( true )`.
-   *
-   * The five keepout flags come from `ZONE_SETTINGS`'s own constructor —
-   * tracks, vias and pads forbidden; zone fills and footprints allowed —
-   * which is `DEFAULT_RULE_AREA_KEEPOUT`, the one copy of that table.
-   */
-  const newRuleAreaValues = (): RuleAreaValues => ({
-    doNotAllowTracks: DEFAULT_RULE_AREA_KEEPOUT.tracks,
-    doNotAllowVias: DEFAULT_RULE_AREA_KEEPOUT.vias,
-    doNotAllowPads: DEFAULT_RULE_AREA_KEEPOUT.pads,
-    doNotAllowCopperPour: DEFAULT_RULE_AREA_KEEPOUT.copperPour,
-    doNotAllowFootprints: DEFAULT_RULE_AREA_KEEPOUT.footprints,
-    placementEnabled: false,
-    placementSourceType: 'sheetname',
-    placementSource: '',
-    // "A new zone starts unnamed, do not inherit the last drawn zone's name
-    // (issue 23131)".
-    name: '',
-    locked: false,
-    layers: [activeLayer],
-    ...defaultBorderStyle(),
-  });
-
-  // Measure tool (ACTIONS::measureTool): two clicks pin the ruler; the next
-  // click starts a new measurement.
-  const handleMeasureClick = (world: { x: number; y: number }): void => {
-    const p = snapToGrid(world);
-    const m = measureRef.current;
-    if (!m || m.b) measureRef.current = { a: p, b: null };
-    // `twoPtMgr.SetAngleSnap( evt->Modifier( MD_SHIFT ) ? LEADER_MODE::DEG45
-    // : LEADER_MODE::DIRECT )` — pcb_viewer_tools.cpp:383-388, set on every
-    // motion AND carried into the point the second click pins. Snapping the
-    // preview but not the commit would let go of a ruler that jumps.
-    else
-      measureRef.current = {
-        a: m.a,
-        b: rulerEnd(m.a, p, shiftDownRef.current ? 'deg45' : 'direct'),
-      };
-    requestDraw();
-  };
-
-  // Free-standing via placement (PCB_ACTIONS::drawVia): each click drops a via,
-  // picking up the net of the copper item underneath.
-  /**
-   * One click of the Place Vias tool — `DRAWING_TOOL::DrawVia` over
-   * `VIA_PLACER`, run through `doInteractiveItemPlacement` with
-   * `IPO_REPEAT | IPO_SINGLE_CLICK`: one click both creates and commits, and
-   * the tool re-arms rather than falling back to the selection tool.
-   *
-   * `CreateItem` sets the layer pair from `bds.m_CurrentViaType`. Only
-   * `VIATYPE::THROUGH` is reachable here — nothing in this frame changes the
-   * current via type yet — and upstream's through branch is
-   * `SetLayerPair( B_Cu, F_Cu )`, in that order.
-   *
-   * The size is `GetCurrentViaSize()` / `GetCurrentViaDrill()`: the top
-   * toolbar's Via selector when it names one, the netclass at index 0. That is
-   * what `routeDims` already answers.
-   *
-   * The rest — the net pickup order and the track split — is `PlaceItem`, in
-   * `pcbnew/via_placer.ts` so it can be driven without a canvas.
-   */
-  const handleViaClick = (world: { x: number; y: number }): void => {
-    const brd = boardRef.current;
-    if (!brd) return;
-    const c = copperAt(world);
-    const at = c?.snap ?? snapToGrid(world);
-    const net = c?.net ?? 0;
-    const dims = routeDims(net);
-    const res = placeVia(
-      brd,
-      {
-        at,
-        size: dims.viaDiameter,
-        drill: dims.viaDrill,
-        layers: ['B.Cu', 'F.Cu'],
-        kind: 'through',
-        net,
-      },
-      // "If the user explicitly disables snap (using shift), then don't break
-      // the tracks."
-      { allowSplit: !shiftDownRef.current },
-    );
-    commitBoard(res.board);
-  };
 
   /**
    * Place a snap point (`DRAWING_TOOL::PlacePoint`, drawing_tool.cpp:914-930).
@@ -8719,335 +5476,16 @@ export function PcbEditor({
    * `activeTool`; `IPO_SINGLE_CLICK` is why one click both creates and commits
    * (the preview item exists before the first click, see `pointPreviewRef`).
    */
-  /**
-   * `PCB_CONTROL::PlaceCharacteristics` / `PlaceStackup`
-   * (`pcb_control.cpp:2907-2942`): build the table on the active layer and
-   * `placeBoardItems( …, isNew, anchorAtOrigin )` it — the table's origin lands
-   * on the cursor, and the commit is "Place Board Characteristics" / "Place
-   * Board Stackup Table". Upstream's interactive move runs before the click;
-   * here the click IS the drop, and the action is a one-shot.
-   */
-  const handlePlaceTableClick = (
-    which: 'placeCharacteristics' | 'placeStackup',
-    world: { x: number; y: number },
-  ): void => {
-    const brd = boardRef.current;
-    const kb = brd?.k;
-    if (!brd || !kb) return;
-    const table =
-      which === 'placeCharacteristics'
-        ? Build_Board_Characteristics_Table(kb, unitsRef.current)
-        : Build_Board_Stackup_Table(kb, unitsRef.current);
-    // The view carries no `k`: the built table is a template the view layer
-    // re-creates on the live BOARD through `applyTable`, like any new item.
-    const view = tableView(table);
-    const placed = moveTable(
-      {
-        ...view,
-        layer: activeLayerRef.current,
-        k: undefined,
-        cells: view.cells.map((c) => ({ ...c, k: undefined })),
-      },
-      cursorSnapRef.current(world),
-    );
-    commitBoard(addBoardTable(brd, placed).board);
-    setActiveTool(selectModeRef.current);
-  };
-
-  const handlePointClick = (world: { x: number; y: number }): void => {
-    const brd = boardRef.current;
-    if (!brd) return;
-    commitBoard(
-      addBoardPoint(brd, {
-        at: cursorSnapRef.current(world),
-        size: DEFAULT_POINT_SIZE,
-        layer: activeLayerRef.current,
-      }).board,
-    );
-  };
-
-  /**
-   * The two origin pickers: Grid Origin and Drill/Place File Origin.
-   *
-   * `PCB_CONTROL::GridPlaceOrigin` (`pcb_control.cpp:769-800`) and
-   * `BOARD_EDITOR_CONTROL::DrillOrigin` (`board_editor_control.cpp:2288-2330`)
-   * are the same shape: `Activate()` to deactivate whatever else is running,
-   * `picker->SetCursor( KICURSOR::PLACE )`, one click handler, and
-   * `ACTIONS::pickerTool`. Both handlers end
-   *
-   *     return false;   // drill origin is a one-shot; don't continue with tool
-   *
-   * so the tool pops after a single click — unlike Place Point, which is
-   * `IPO_REPEAT`. That `false` is why `setActiveTool` returns to the selection
-   * tool here rather than leaving the button lit.
-   *
-   * What each writes is one design setting: `SetGridOrigin` /
-   * `SetAuxOrigin`, which the file spells `(setup (grid_origin …))` and
-   * `(setup (aux_axis_origin …))`.
-   */
-  const handleOriginClick = (
-    which: 'grid_origin' | 'aux_axis_origin',
-    world: { x: number; y: number },
-  ): void => {
-    const brd = boardRef.current;
-    if (!brd) return;
-    commitBoard(setBoardOrigin(brd, which, cursorSnapRef.current(world)));
-    // `PopTool` — the picker is a one-shot.
-    setActiveTool(selectModeRef.current);
-  };
-
-  /**
-   * `PCB_CONTROL::GridResetOrigin` (`:803-808`) and `drillResetOrigin`
-   * (`board_editor_control.cpp:2290-2295`): the same setter with (0, 0), and
-   * no picker at all — a menu row, not a tool.
-   */
-  const resetOrigin = (which: 'grid_origin' | 'aux_axis_origin'): void => {
-    const brd = boardRef.current;
-    if (brd) commitBoard(setBoardOrigin(brd, which, { x: 0, y: 0 }));
-  };
 
   // ----- interactive move / drag (EDIT_TOOL Move vs Drag) ---------------------
-
-  const sceneFilter = (): { hideFrontFootprints: boolean; hideBackFootprints: boolean } => ({
-    hideFrontFootprints: !objects.footprintsFront,
-    hideBackFootprints: !objects.footprintsBack,
-  });
 
   // Start a move/drag of `sel` from world grab point `origin`. 'move' leaves the
   // routing behind; 'drag' stretches the traces attached to moving footprints.
   // Splits the scene into a backdrop (everything else) + a live moving overlay.
-  /**
-   * Rebuild the board scene without `affected`, off the critical path.
-   *
-   * This is the expensive half of starting a drag and none of it is needed to
-   * *start* one — only to stop the original showing under the preview.
-   */
-  const scheduleBaseWithout = (brd: Board, affected: ReadonlySet<string>): void => {
-    const token = ++baseRebuildRef.current;
-    setTimeout(() => {
-      if (token !== baseRebuildRef.current) return;
-      if (movingSelRef.current.size === 0) return; // the drag already finished
-      if (panelRef.current) return; // the VIEW hides the moving items itself
-      sceneRef.current = buildBoardScene(deleteBoardItems(brd, affected), sceneFilter());
-      requestDraw();
-    }, 0);
-  };
-
-  const beginMove = (
-    sel0: ReadonlySet<string>,
-    kind: 'move' | 'drag',
-    origin: { x: number; y: number },
-  ): void => {
-    const brd = boardRef.current;
-    if (!brd || sel0.size === 0) return;
-    // A grabbed group moves as its members (the move commands know items only),
-    // and a grabbed pad moves its whole footprint, EDIT_TOOL::doMoveSelection
-    // runs FilterCollectorForHierarchy then FilterCollectorForFreePads over the
-    // selection before it moves anything.
-    const { items: sel, selection } = promotePadsForCommand(brd, sel0);
-    movingSelRef.current = sel;
-    if (selection) setSelectionRef.current(selection);
-    moveKindRef.current = kind;
-    moveOriginRef.current = origin;
-    // `m_cursor = grid.BestDragOrigin( originalMousePos, sel_items, … )`
-    // (edit_tool_move_fct.cpp:1311) — "use the mouse position over cursor, as
-    // otherwise large grids will allow only snapping to items that are closest
-    // to grid points", so the *raw* grab point, not the snapped one.
-    //
-    // Cleared first so the anchor is chosen without a stale axis biasing it,
-    // then installed as the axis for the rest of the gesture, which is
-    // upstream's `grid.SetAuxAxes( true, dragOrigin )` (:1335). The axis is what
-    // keeps the part's *original* off-grid position reachable, so a move that
-    // changes its mind can put it back exactly.
-    auxAxisRef.current = null;
-    const dragOrigin = gridHelper().BestDragOrigin(brd, sel, origin, {
-      gridSize: gridIURef.current,
-    });
-    moveAnchorRef.current = dragOrigin;
-    auxAxisRef.current = dragOrigin;
-    const fpIdx = new Set<number>();
-    for (const id of sel) {
-      const r = parseBoardItemId(id);
-      if (r?.kind === 'footprint') fpIdx.add(r.index);
-    }
-    dragModeRef.current = kind === 'drag' && fpIdx.size > 0;
-    const affected = new Set<string>(sel);
-    if (dragModeRef.current) {
-      for (const e of connectedTrackEnds(brd, fpIdx)) affected.add(boardItemId(e.kind, e.index));
-    }
-    dragAffectedRef.current = affected;
-    moveDeltaRef.current = { x: 0, y: 0 };
-    // `drc_on_move->Init( board )` at :1016, once per gesture: deriving every
-    // courtyard from its F.CrtYd graphics is the expensive half and none of it
-    // changes while the mouse is down.
-    courtyardSessionRef.current =
-      showCourtyardConflictsRef.current && fpIdx.size > 0
-        ? beginCourtyardConflicts(brd, fpIdx)
-        : null;
-    conflictsRef.current = null;
-    // The moving items leave the board's own drawing for the gesture: hidden
-    // in the VIEW (`VIEW::Hide`, as the move tool takes them out of the
-    // layer's drawing until `EDIT_TOOL::Move` puts them back) and drawn by
-    // the overlay at the drag offset.
-    inPlaceMoveRef.current = null;
-    startOverlayMove(brd, sel, affected);
-  };
-
-  /**
-   * Set the drag up the slow way: the moving items as an overlay that follows
-   * the cursor, and the board rebuilt without them underneath.
-   *
-   * Its own function because there are TWO ways in. `beginMove` takes it when
-   * the GPU cannot address the selection, and `updateMove` has to take it when
-   * `moveItems` fails PART WAY THROUGH a gesture that started in place — which
-   * it did not, and that is the bug this became. `beginMove`'s in-place branch
-   * returns before any of this, quite correctly: the GPU is moving the item's
-   * own vertices, so there is nothing to hide and nothing to preview. But when
-   * the GPU then refused, the drag was left with neither — the original still
-   * in the retained scene at its old position and never translated, and no
-   * overlay of its own. All that followed the cursor was the selection copy,
-   * while the part itself (its pink courtyard, its silkscreen, all of it) sat
-   * still until the drop committed the board and it "respawned" at the new
-   * place.
-   */
-  const startOverlayMove = (
-    brd: Board,
-    sel: ReadonlySet<string>,
-    affected: ReadonlySet<string>,
-  ): void => {
-    // The moving items first, because they are the cheap half and the drag
-    // cannot start without them: one footprint compiles in about 2 ms.
-    moveSceneRef.current = dragModeRef.current
-      ? null
-      : buildScene(subsetBoardItems(brd, sel), sceneFilter());
-    requestDraw();
-    const panel = panelRef.current;
-    if (panel) {
-      // The VIEW draws the board: the moving items are hidden in it for the
-      // gesture, nothing is rebuilt.
-      const items = kItemsForIds(brd, affected);
-      hiddenItemsRef.current = items;
-      setItemsHidden(panel, items, true);
-      hideSelectionGroup(true);
-      panel.Refresh();
-      return;
-    }
-    // The expensive half — the whole board again, minus what is moving — is
-    // what made grabbing a part freeze the editor: measured at 589 ms on the
-    // coldfire demo (160 footprints, 2935 tracks) before the GPU re-record on
-    // top, all to take one footprint out of a retained buffer. It is not
-    // needed to *start* the drag, only to stop the original showing under the
-    // preview, so it runs off the critical path and swaps in when ready.
-    scheduleBaseWithout(brd, affected);
-  };
 
   /** The BOARD_ITEMs hidden in the VIEW for the gesture in flight. */
-  const hiddenItemsRef = useRef<readonly BOARD_ITEM[]>([]);
 
   /** The gesture is over: the hidden items draw again (`VIEW::Hide( item, false )`). */
-  const unhideMovingItems = (): void => {
-    const panel = panelRef.current;
-    const items = hiddenItemsRef.current;
-    hiddenItemsRef.current = [];
-    if (panel && items.length > 0) {
-      setItemsHidden(panel, items, false);
-      hideSelectionGroup(false);
-      panel.Refresh();
-    }
-  };
-
-  /**
-   * Start a router drag of the track under the cursor (EDIT_TOOL::Drag →
-   * PNS::DRAGGER). The gesture works on the whole *line* the segment belongs to,
-   * so its neighbours are re-cut as it moves rather than left behind. Returns
-   * false when the seed is not draggable, so the caller can fall back to a move.
-   */
-  const beginTrackDrag = (
-    trackIndex: number,
-    origin: { x: number; y: number },
-    freeAngle: boolean,
-  ): boolean => {
-    const brd = boardRef.current;
-    if (!brd) return false;
-    // `ROUTER_TOOL::performDragging` starts the drag at `m_startSnapPoint` —
-    // the *snapped* cursor from `updateStartItem`, not the raw pointer. Both
-    // ends of the gesture must use the same snap or the geometry can never be
-    // reproduced: a raw origin with grid-snapped updates jumps the line onto
-    // the grid the instant you move, and no cursor position afterwards gets
-    // back to where the track actually was.
-    // Cleared first so the origin is snapped without a stale axis biasing it,
-    // then installed as the axis for the rest of the gesture — upstream's
-    // `SetAuxAxes( true, m_startSnapPoint )`.
-    auxAxisRef.current = null;
-    const start = dragSnap(origin, null);
-    const drag = startTrackDrag(brd, trackIndex, start, { freeAngle });
-    if (!drag) return false;
-
-    auxAxisRef.current = start;
-    dragSeedIdRef.current = boardItemId('track', trackIndex);
-
-    trackDragRef.current = drag;
-    moveKindRef.current = 'drag';
-    moveOriginRef.current = origin;
-    // A router drag re-cuts the line against the cursor rather than translating
-    // a selection, so it has no `BestDragOrigin` anchor of its own.
-    moveAnchorRef.current = null;
-    dragModeRef.current = false;
-    // ROUTER_TOOL::performDragging highlights the dragged item's net for the
-    // duration of the drag (router_tool.cpp → TOOL_BASE::highlightNets), so the
-    // whole net lifts to the highlight color while everything else dims. An
-    // existing highlight that already covers this net is kept on the way out;
-    // otherwise the previous one is restored (TOOL_BASE::m_startHighlightNetcodes).
-    if (drag.line.net > 0) {
-      const current = highlightNetsRef.current;
-      dragHighlightRestoreRef.current = current.has(drag.line.net) ? current : new Set();
-      applyRenderHighlightRef.current([drag.line.net]);
-    }
-    const affected = new Set(drag.line.tracks.map((i) => boardItemId('track', i)));
-    movingSelRef.current = affected;
-    dragAffectedRef.current = affected;
-    if (panelRef.current) {
-      const items = kItemsForIds(brd, affected);
-      hiddenItemsRef.current = items;
-      setItemsHidden(panelRef.current, items, true);
-      hideSelectionGroup(true);
-    } else {
-      sceneRef.current = buildBoardScene(deleteBoardItems(brd, affected), sceneFilter());
-    }
-    moveSceneRef.current = buildScene(subsetBoardItems(brd, affected), sceneFilter());
-    moveDeltaRef.current = { x: 0, y: 0 };
-    return true;
-  };
-
-  /**
-   * The cursor while a point/handle is being dragged —
-   * `grid.BestSnapAnchor( pos, snapLayers, GetItemGrid( item ), { item } )`
-   * (pcb_point_editor.cpp:2644).
-   *
-   * The point editor snapped to the bare grid before this, which meant a
-   * reshaped point could neither land on a pad centre or another track's end,
-   * nor go back to an off-grid position it started at.
-   */
-  const handleSnap = (w: { x: number; y: number }): { x: number; y: number } => {
-    const brd = boardRef.current;
-    if (!brd) return snapToGrid(w);
-    const id = editHandleItemRef.current;
-    return gridHelper().BestSnapAnchor(brd, w, {
-      snapScale: 25 / viewRef.current.scale,
-      hysteresis: 5 / viewRef.current.scale,
-      visibleGrid: gridIURef.current,
-      layer: activeLayerRef.current,
-      avoid: id ? new Set([id]) : undefined,
-    });
-  };
-
-  /** The handle under a world point (EDIT_POINTS::FindPoint). */
-  const editHandleAt = (p: { x: number; y: number }): BoardEditHandle | null =>
-    handleAtPoint(
-      editHandlesRef.current,
-      p,
-      handleTolerance(EDIT_POINT_SIZE, viewRef.current.scale),
-    );
 
   /**
    * Fill All Zones (PCB_ACTIONS::zoneFillAll, the B key): re-pour every zone
@@ -9057,94 +5495,10 @@ export function PcbEditor({
   const fillAllZones = useCallback(() => {
     frameRef.current?.GetToolManager()?.RunAction(PCB_ACTIONS.zoneFillAll);
   }, []);
-  const zoneFillOptionsRef = useRef(zoneFillOptions);
-  zoneFillOptionsRef.current = zoneFillOptions;
   // The global key handler is stable, so it reaches the action through a ref.
   const fillAllZonesRef = useRef(fillAllZones);
   fillAllZonesRef.current = fillAllZones;
-  fillZoneClonesRef.current = (aBoard, aZones) => {
-    // Swap the board's zone list for the clones, pour a view of that board,
-    // write the result back over the clones and restore the originals.
-    const original = [...aBoard.Zones()];
-    try {
-      aBoard.Zones().splice(0, aBoard.Zones().length, ...aZones);
-      const view = boardFromBOARD(aBoard, fileNameRef.current);
-      boardToBOARD(fillZones(view, zoneFillOptions));
-      return true;
-    } catch (err) {
-      console.error('Zone Manager fill failed:', err);
-      return false;
-    } finally {
-      aBoard.Zones().splice(0, aBoard.Zones().length, ...original);
-      aBoard.BuildConnectivity();
-    }
-  };
 
-  /**
-   * EDIT_TOOL::Properties: open Track & Via Properties on the selection.
-   * Upstream refuses when the selection has nothing it can edit.
-   */
-  const openTrackViaProperties = useCallback(() => {
-    const brd = boardRef.current;
-    if (!brd) return;
-    const sel = selForDrawRef.current;
-
-    if (hasTrackOrVia(trackViaSelection(brd, sel))) {
-      setTrackViaOpen(true);
-      return;
-    }
-
-    const zi = zoneAt(brd, sel);
-    if (zi !== null) {
-      frameRef.current?.Edit_Zone_Params(zi);
-      return;
-    }
-
-    const pi = selectedPadAt(brd, sel);
-    if (pi !== null) {
-      setPadPropsRef(pi);
-      return;
-    }
-
-    const ti = textAt(brd, sel);
-    if (ti !== null) {
-      setTextPropsIndex(ti);
-      return;
-    }
-
-    const si = shapeAt(brd, sel);
-    if (si !== null) {
-      setShapePropsIndex(si);
-      return;
-    }
-
-    const di = dimensionAt(brd, sel);
-    if (di !== null) {
-      setDimensionPropsIndex(di);
-      return;
-    }
-
-    const bi = textBoxAt(brd, sel);
-    if (bi !== null) {
-      setTextBoxPropsIndex(bi);
-      return;
-    }
-
-    const tbi = tableAt(brd, sel);
-    if (tbi !== null) {
-      setTablePropsIndex(tbi);
-      return;
-    }
-
-    const ii = imageAt(brd, sel);
-    if (ii !== null) {
-      setImagePropsIndex(ii);
-      return;
-    }
-
-    const fi = footprintAt(brd, sel);
-    if (fi !== null) setFpPropsIndex(fi);
-  }, []);
   /** DIALOG_TRACK_VIA_PROPERTIES::TransferDataFromWindow. */
   const applyTrackViaEdit = useCallback(
     (values: TrackViaValues) => {
@@ -9169,46 +5523,43 @@ export function PcbEditor({
   /** DIALOG_TEXT_PROPERTIES / DIALOG_SHAPE_PROPERTIES::TransferDataFromWindow. */
   const applyTextEdit = useCallback(
     (values: TextValues) => {
-      const brd = boardRef.current;
-      const index = textPropsIndex;
-      setTextPropsIndex(null);
-      const frame = frameRef.current;
-      const k = index === null ? undefined : brd?.texts[index]?.k;
-      if (!frame || !k) return;
-      // DIALOG_TEXT_PROPERTIES on the live PCB_TEXT: one BOARD_COMMIT.
-      new DIALOG_TEXT_PROPERTIES(frame, k).TransferDataFromWindow(values);
+      const d = textPropsDlg;
+      setTextPropsDlg(null);
+      if (!d) return;
+      // On the live PCB_TEXT: one BOARD_COMMIT, or none for a new text (IS_NEW),
+      // which its tool commits.
+      const r = d.dialog.TransferDataFromWindow(values);
+      d.resolve?.(r.ok);
     },
-    [textPropsIndex],
+    [textPropsDlg],
   );
 
   /** DIALOG_TABLE_PROPERTIES::TransferDataFromWindow. */
   const applyTableEdit = useCallback(
     (values: TableValues) => {
-      const brd = boardRef.current;
-      const index = tablePropsIndex;
-      setTablePropsIndex(null);
-      const frame = frameRef.current;
-      const k = index === null ? undefined : brd?.tables[index]?.k;
-      if (!frame || !k) return;
-      // DIALOG_TABLE_PROPERTIES on the live PCB_TABLE: one BOARD_COMMIT.
-      new DIALOG_TABLE_PROPERTIES(frame, k).TransferDataFromWindow(values);
+      const d = tablePropsDlg;
+      setTablePropsDlg(null);
+      if (!d) return;
+      // On the live PCB_TABLE: one BOARD_COMMIT, or none for a new table (IS_NEW),
+      // which its tool commits.
+      const r = d.dialog.TransferDataFromWindow(values);
+      d.resolve?.(r.ok);
     },
-    [tablePropsIndex],
+    [tablePropsDlg],
   );
 
   /** DIALOG_TEXTBOX_PROPERTIES::TransferDataFromWindow. */
   const applyTextBoxEdit = useCallback(
     (values: TextBoxValues) => {
-      const brd = boardRef.current;
-      const index = textBoxPropsIndex;
-      setTextBoxPropsIndex(null);
-      const frame = frameRef.current;
-      const k = index === null ? undefined : brd?.textBoxes[index]?.k;
-      if (!frame || !k) return;
-      // DIALOG_TEXTBOX_PROPERTIES on the live PCB_TEXTBOX: one BOARD_COMMIT.
-      new DIALOG_TEXTBOX_PROPERTIES(frame, k).TransferDataFromWindow(values);
+      const d = textBoxPropsDlg;
+      setTextBoxPropsDlg(null);
+      if (!d) return;
+      // On the live PCB_TEXTBOX: one BOARD_COMMIT, or none for a new box (IS_NEW),
+      // which its tool commits.
+      const r = d.dialog.TransferDataFromWindow(values);
+      d.resolve?.(r.ok);
     },
-    [textBoxPropsIndex],
+    [textBoxPropsDlg],
   );
 
   /** DIALOG_REFERENCE_IMAGE_PROPERTIES::TransferDataFromWindow. */
@@ -9315,16 +5666,9 @@ export function PcbEditor({
       const k = brd.zones[index]?.k;
       // Edit_Zone_Params: a copper zone is DIALOG_COPPER_ZONE on the live
       // ZONE, one BOARD_COMMIT; the commit refills under "Auto-refill zones".
-      if (frame && k && !k.GetIsRuleArea() && IsCopperLayer(k.GetFirstLayer())) {
-        new DIALOG_COPPER_ZONE(frame, k).TransferDataFromWindow(values);
-        return;
-      }
-      const next = applyZoneValues(brd, index, values);
-      // A changed zone has to be re-poured; its fill was built from the old
-      // clearances (ZONE_FILLER runs on the commit that closes the dialog).
-      if (next !== brd) commitBoard(fillZones(next, zoneFillOptions));
+      if (frame && k) new DIALOG_COPPER_ZONE(frame, k).TransferDataFromWindow(values);
     },
-    [commitBoard, zonePropsIndex, zoneFillOptions],
+    [zonePropsIndex],
   );
 
   /** Edit_Zone_Params on a rule area: DIALOG_RULE_AREA_PROPERTIES on the live ZONE. */
@@ -9379,192 +5723,6 @@ export function PcbEditor({
     });
   }, [commitBoardSetup, setBoardModel]);
 
-  /** Put the net highlight back the way a track drag found it. */
-  const restoreDragHighlight = (): void => {
-    const restore = dragHighlightRestoreRef.current;
-    if (!restore) return;
-    dragHighlightRestoreRef.current = null;
-    applyRenderHighlightRef.current(restore);
-  };
-
-  /**
-   * The track a routable selection drags, or null. Upstream's test is
-   * `(segs >= 1 || arcs >= 1 || vias == 1) && segs + arcs + vias == size`, the
-   * selection must be nothing but routing. Only a lone track segment is dragged
-   * here; multi-segment and via drags still fall back to a move.
-   */
-  const routableTrackSeed = (sel: ReadonlySet<string>): number | null => {
-    if (sel.size !== 1) return null;
-    const r = parseBoardItemId([...sel][0]!);
-    return r?.kind === 'track' ? r.index : null;
-  };
-
-  /**
-   * `EDIT_TOOL::Move`'s per-frame cursor, as a delta for the selection.
-   *
-   * Upstream (edit_tool_move_fct.cpp:1144-1177):
-   *
-   *     m_cursor = grid.BestSnapAnchor( mousePos, layers, selectionGrid, sel_items );
-   *     movement = m_cursor - prevPos;
-   *     …
-   *     prevPos = m_cursor;
-   *
-   * with `prevPos` seeded to the drag origin. Summed over the gesture that is
-   * `anchor + Σmovement = BestSnapAnchor( mousePos )`: the anchor's new position
-   * is **absolute**, which is what puts a part on the grid however far off it
-   * started. `sel_items` is `aSkip`, so the gesture cannot snap to itself.
-   *
-   * The pointer warp we cannot perform is why the anchor and the raw grab point
-   * are both kept: upstream's `mousePos` is the anchor plus the motion since the
-   * grab, and that is exactly what is reconstructed here.
-   */
-  const moveSnap = (raw: { x: number; y: number }): { x: number; y: number } => {
-    const brd = boardRef.current;
-    if (!brd) return snapToGrid(raw);
-    return gridHelper().BestSnapAnchor(brd, raw, {
-      snapScale: 25 / viewRef.current.scale,
-      hysteresis: 5 / viewRef.current.scale,
-      visibleGrid: gridIURef.current,
-      layer: activeLayerRef.current,
-      avoid: dragAffectedRef.current,
-    });
-  };
-
-  // Track the in-flight gesture to the snapped cursor. A drag rebuilds the
-  // stretched geometry each frame (traces don't translate uniformly).
-  const updateMove = (cur: { x: number; y: number }): void => {
-    const brd = boardRef.current;
-    const origin = moveOriginRef.current;
-    if (!brd || !origin) return;
-    const anchor = moveAnchorRef.current ?? origin;
-    const delta = moveDelta(anchor, origin, cur, moveSnap);
-    moveDeltaRef.current = delta;
-    forcedCursorRef.current = { x: anchor.x + delta.x, y: anchor.y + delta.y };
-    // `drc_on_move->Run(); drc_on_move->UpdateConflicts( view, true )` (:1207).
-    // Before the in-place branch returns: every path through this function is a
-    // frame of the same move, and the fast one is the one a footprint takes.
-    const session = courtyardSessionRef.current;
-    conflictsRef.current = session ? courtyardConflictsAt(session, delta) : null;
-    if (trackDragRef.current) {
-      // The line is re-cut from scratch against the cursor each frame: a router
-      // drag is not a translation, so the overlay carries the new absolute
-      // geometry and the draw path applies no offset to it.
-      const drag = trackDragRef.current;
-      // `updateEndItem` again, with the dragged line in `aAvoidItems` so the
-      // cursor cannot snap to the thing it is moving. Snapping to the line's
-      // own collinear neighbours is what lets a trace go back exactly where it
-      // came from, which a grid-only cursor cannot do for off-grid copper.
-      const seed = dragSeedIdRef.current;
-      const at = dragSnap(cur, seed ? new Set([seed]) : null);
-      // The router forces the cursor to its own snap point too
-      // (`ROUTER_TOOL`: `controls->ForceCursorPosition( true, m_endSnapPoint )`).
-      forcedCursorRef.current = at;
-      const chain = updateTrackDrag(drag, at);
-      const line = trackDragSegments(brd, drag, chain);
-      moveSceneRef.current = buildScene({ ...emptyBoardLike(brd), tracks: line }, sceneFilter());
-      requestDraw();
-      return;
-    }
-    if (dragModeRef.current) {
-      const dragged = dragBoardItems(brd, movingSelRef.current, delta);
-      moveSceneRef.current = buildScene(
-        subsetBoardItems(dragged, dragAffectedRef.current),
-        sceneFilter(),
-      );
-    }
-    // The airwires that follow a moving part are `CONNECTIVITY_DATA::
-    // ComputeLocalRatsnest( movedItems, dynamicData )`, and
-    // `RATSNEST_VIEW_ITEM::ViewDraw` already draws what it produces
-    // (`ratsnest_view_item.ts:111`). Nothing calls it yet: it wants the moved
-    // BOARD_ITEMs, the way EDIT_TOOL moves them, and this gesture previews an
-    // immutable copy of the view instead. That is stage 3's to connect (#636).
-    // What stood here was a per-frame `buildRatsnest` over a rebuilt view
-    // board, drawn only by the Canvas2D path that has gone.
-    requestDraw();
-  };
-
-  // Commit the gesture (drop). A zero net delta just restores the full scene.
-  const commitMove = (): void => {
-    const brd = boardRef.current;
-    const delta = moveDeltaRef.current;
-    const kind = moveKindRef.current;
-    const sel = movingSelRef.current;
-    const hadOverlay =
-      moveSceneRef.current !== null || dragModeRef.current || inPlaceMoveRef.current !== null;
-    inPlaceMoveRef.current = null;
-    // `drc_on_move->ClearConflicts( view )` (:1493): the gesture is over, so
-    // the shadow goes with it whether or not the move was committed.
-    courtyardSessionRef.current = null;
-    conflictsRef.current = null;
-    const trackDrag = trackDragRef.current;
-    trackDragRef.current = null;
-    dragModeRef.current = false;
-    moveDeltaRef.current = null;
-    moveSceneRef.current = null;
-    moveOriginRef.current = null;
-    moveAnchorRef.current = null;
-    // `ForceCursorPosition( false )` — the crosshair goes back to the pointer.
-    forcedCursorRef.current = null;
-    // The gesture is over: `SetAuxAxes( false )`.
-    auxAxisRef.current = null;
-    unhideMovingItems();
-    if (trackDrag) {
-      const cur = cursorRef.current;
-      const seed = dragSeedIdRef.current;
-      dragSeedIdRef.current = null;
-      restoreDragHighlight();
-      if (brd && cur && delta && (delta.x !== 0 || delta.y !== 0)) {
-        // The same snap the preview used. A grid-only snap here would commit
-        // geometry the user never saw, and would land off the copper the
-        // preview was sitting on.
-        const at = dragSnap(cur, seed ? new Set([seed]) : null);
-        commitBoard(applyTrackDrag(brd, trackDrag, updateTrackDrag(trackDrag, at)));
-      } else if (brd) {
-        rebuildScene(brd);
-      }
-      return;
-    }
-    if (brd && delta && (delta.x !== 0 || delta.y !== 0)) {
-      commitBoard(
-        kind === 'drag' ? dragBoardItems(brd, sel, delta) : moveBoardItems(brd, sel, delta),
-      );
-    } else if (hadOverlay && brd) {
-      rebuildScene(brd);
-    }
-  };
-
-  // Abandon the gesture without committing (Esc), restoring the full scene.
-  const cancelMove = (): void => {
-    const brd = boardRef.current;
-    trackDragRef.current = null;
-    restoreDragHighlight();
-    // An in-place move only ever shifted vertices, so undoing it is the same
-    // shift back — far cheaper than rebuilding a board that never changed.
-    const applied = inPlaceMoveRef.current;
-    inPlaceMoveRef.current = null;
-    courtyardSessionRef.current = null;
-    conflictsRef.current = null;
-    unhideMovingItems();
-    dragModeRef.current = false;
-    moveDeltaRef.current = null;
-    moveSceneRef.current = null;
-    moveOriginRef.current = null;
-    moveAnchorRef.current = null;
-    // `ForceCursorPosition( false )` — the crosshair goes back to the pointer.
-    forcedCursorRef.current = null;
-    // The gesture is over: `SetAuxAxes( false )`.
-    auxAxisRef.current = null;
-    if (applied) {
-      moveSceneRef.current = null;
-      moveOriginRef.current = null;
-      // The gesture is over: `SetAuxAxes( false )`.
-      auxAxisRef.current = null;
-      requestDraw();
-      return;
-    }
-    if (brd) rebuildScene(brd);
-  };
-
   /**
    * `DIALOG_UPDATE_PCB::~DIALOG_UPDATE_PCB` (`dialog_update_pcb.cpp:65-85`): once
    * the update has spread the new footprints, KiCad hands the whole cluster to
@@ -9589,21 +5747,14 @@ export function PcbEditor({
    * A ref because the update handler is a `useCallback`; the selection it
    * writes is the selection tool's, and the move is EDIT_TOOL's.
    */
-  const startPostUpdateMoveRef = useRef<(sel: ReadonlySet<string>) => void>(() => {});
-  startPostUpdateMoveRef.current = (sel) => {
+  const startPostUpdateMoveRef = useRef<() => void>(() => {});
+  startPostUpdateMoveRef.current = () => {
     const frame = frameRef.current;
-    if (sel.size === 0 || !frame) return;
-    setSelectionRef.current(sel);
-    frame.GetSelectionTool().GetSelection().SetReferencePoint({ x: 0, y: 0 });
+    if (!frame) return;
+    const selection = frame.GetSelectionTool().GetSelection();
+    if (selection.Size() === 0) return;
+    selection.SetReferencePoint({ x: 0, y: 0 });
     frame.GetToolManager()?.PostAction(PCB_ACTIONS.move);
-  };
-
-  const grabCancelRef = useRef<() => void>(() => {});
-  grabCancelRef.current = () => {
-    if (!grabbingRef.current) return;
-    grabbingRef.current = false;
-    cancelMove();
-    requestDraw();
   };
 
   /**
@@ -9615,48 +5766,7 @@ export function PcbEditor({
    */
   const onPointerDown = (e: React.PointerEvent): void => {
     if (e.button === 0) {
-      // A left click during a keyboard grab (M/G) drops the selection there.
-      if (grabbingRef.current) {
-        grabbingRef.current = false;
-        commitMove();
-        requestDraw();
-        return;
-      }
       const w = worldAt(e.clientX, e.clientY);
-      const brd = boardRef.current;
-      // A handle under the cursor takes the press: PCB_POINT_EDITOR runs ahead
-      // of the selection tool, so grabbing a point reshapes the item rather
-      // than starting a move of it.
-      if (w && !isClickTool(activeToolRef.current)) {
-        const handle = editHandleAt(w);
-        if (handle) {
-          // `PCB_POINT_EDITOR` puts the auxiliary axis on the point's *original
-          // position* — `SetAuxAxes( true, m_original.GetPosition() )`
-          // (pcb_point_editor.cpp:2366) — not on the cursor. So a handle that
-          // started off-grid stays reachable for the whole drag, and a track
-          // endpoint or zone corner can be put back exactly where it was.
-          auxAxisRef.current = { x: handle.at.x, y: handle.at.y };
-          editHandleDragRef.current = { handle, origin: handleSnap(w) };
-          // Reshaping touches one item: it is hidden in the VIEW for the
-          // gesture and rides the overlay, so nothing is rebuilt per event.
-          const id = editHandleItemRef.current;
-          if (brd && id) {
-            const only = new Set([id]);
-            if (panelRef.current) {
-              const items = kItemsForIds(brd, only);
-              hiddenItemsRef.current = items;
-              setItemsHidden(panelRef.current, items, true);
-              hideSelectionGroup(true);
-            }
-            moveSceneRef.current = buildScene(subsetBoardItems(brd, only), sceneFilter());
-            // The overlay is drawn at absolute coords: a reshape moves points,
-            // not the item, so it carries no drag delta.
-            moveDeltaRef.current = { x: 0, y: 0 };
-          }
-          (e.target as HTMLElement).setPointerCapture(e.pointerId);
-          return;
-        }
-      }
       downRef.current = {
         x: e.clientX,
         y: e.clientY,
@@ -9672,10 +5782,6 @@ export function PcbEditor({
   const onPointerMove = (e: React.PointerEvent): void => {
     shiftDownRef.current = e.shiftKey;
     ctrlDownRef.current = e.ctrlKey || e.metaKey;
-    // `controls->SetAutoPan( true )` for as long as a move of the window's own
-    // is in flight (EDIT_TOOL::doMoveSelection brackets its loop with it);
-    // WX_VIEW_CONTROLS does the panning.
-    panelRef.current?.GetViewControls().SetAutoPan(movingRef.current || grabbingRef.current);
     const canvas = canvasRef.current;
     if (canvas) {
       const rect = canvas.getBoundingClientRect();
@@ -9685,91 +5791,8 @@ export function PcbEditor({
       const wy = ((e.clientY - rect.top) * dpr - v.ty) / v.scale;
       statusReadout.setCursor({ x: wx, y: wy });
       cursorRef.current = { x: wx, y: wy };
-      // `else if( started && ( evt->IsMotion() || evt->IsDrag( BUT_LEFT ) ) )
-      //     polyGeomMgr.SetCursorPosition( cursorPos );`
-      // (drawing_tool.cpp:3641-3645), with the leader mode re-read first
-      // because upstream sets it on every event and Ctrl suspends it.
-      if (polyMgrRef.current?.isPolygonInProgress() || zoneMgrRef.current?.isPolygonInProgress()) {
-        // `ctrlDownRef` is already this handler's Ctrl/Cmd snap modifier,
-        // set at the top; re-reading the event would be a second declaration
-        // of the same thing.
-        syncLeaderMode(ctrlDownRef.current);
-        const snapped = snapToGrid({ x: wx, y: wy });
-        polyMgrRef.current?.setCursorPosition(snapped);
-        zoneMgrRef.current?.setCursorPosition(snapped);
-      }
-      // `drawShape`'s and `drawArc`'s motion arms. The two-point manager only
-      // moves once a shape has started; the arc manager takes every motion,
-      // because `AddPoint( cursorPos, false )` is how its *first* step follows
-      // the cursor before anything is locked in.
-      {
-        const drawKind = DRAW_SHAPE_TOOLS[activeToolRef.current];
-        const snapped = snapToGrid({ x: wx, y: wy });
-        if (twoPtStartedRef.current && drawKind) updateTwoPointCursor(drawKind, snapped);
-        if (drawKind === 'arc' && !arcMgrRef.current.isReset()) {
-          arcMgrRef.current.setAngleSnap(
-            shapeAngleSnap('arc', ctrlDownRef.current) !== LeaderMode.DIRECT,
-          );
-          arcMgrRef.current.addPoint(snapped, false);
-        }
-      }
-      // `fp->SetPosition( cursorPos )` on every motion event (:1533-1539).
-      if (placeFpRef.current) updatePlaceFpPreview(snapToGrid({ x: wx, y: wy }));
-      // `doInteractiveItemPlacement`'s motion arm (`newItem->SetPosition( cursorPos )`)
-      // and `drawMicrowaveInductor`'s (`tpGeomMgr.SetEnd( cursorPos )`).
-      if (isMicrowaveTool(activeToolRef.current))
-        updateMicrowaveCursor(cursorSnapRef.current({ x: wx, y: wy }));
-      // `ROUTER_TOOL::performRouting`'s motion arm: `updateEndItem( *evt )`
-      // then `m_router->Move( m_endSnapPoint, m_endItem )`.
-      if (pnsSessionRef.current) {
-        pnsSessionRef.current.move(routeSnapRef.current({ x: wx, y: wy }));
-      }
       // Repaint so the crosshair follows even on a plain hover (no pan/drag).
       requestDraw();
-    }
-    // Dragging a handle: reshape the item live. A corner follows the cursor; an
-    // edge handle carries its whole edge, so it is moved by the cursor's delta
-    // from where it was grabbed rather than snapped onto the cursor — grabbing
-    // an edge slightly off its midpoint should not jump it.
-    const handleDrag = editHandleDragRef.current;
-    if (handleDrag) {
-      const cur = worldAt(e.clientX, e.clientY);
-      const brd = boardRef.current;
-      const id = editHandleItemRef.current;
-      if (cur && brd && id) {
-        const to = handleSnap(cur);
-        const target = handleDragTarget(handleDrag.handle, handleDrag.origin, to);
-        const next = dragBoardHandle(brd, id, handleDrag.handle, target, arcEditModeRef.current);
-        pointEditPreviewRef.current = next;
-        editHandlesRef.current = boardEditHandles(next, id);
-        editIndicatorsRef.current = boardIndicatorLines(next, id);
-        // Only the reshaped item is re-recorded; the base scene was captured
-        // without it at drag start and is not dirtied, so the raster survives.
-        // Under the GL renderer that is also what keeps the content key
-        // unchanged, so a handle drag stays a uniform update instead of a full
-        // re-record per mouse event. `buildScene`, not `buildBoardScene`: the
-        // move overlay is painted onto the 2D layer and needs real `Path2D`.
-        moveSceneRef.current = buildScene(subsetBoardItems(next, new Set([id])), sceneFilter());
-        requestDraw();
-      }
-      return;
-    }
-    // Hovering a handle thickens its border (EDIT_POINT::IsHover).
-    if (!downRef.current && editHandlesRef.current.length > 0) {
-      const cur = worldAt(e.clientX, e.clientY);
-      const hit = cur ? editHandleAt(cur) : null;
-      const prev = hoveredEditHandleRef.current;
-      if (hit?.kind !== prev?.kind || hit?.index !== prev?.index) {
-        hoveredEditHandleRef.current = hit;
-        requestDraw();
-      }
-    }
-    // Keyboard grab (M/G) in flight: the selection follows the cursor freely
-    // until a click commits it (no button held).
-    if (grabbingRef.current) {
-      const cur = worldAt(e.clientX, e.clientY);
-      if (cur) updateMove(cur);
-      return;
     }
     const d = downRef.current;
     if (d) {
@@ -9779,15 +5802,6 @@ export function PcbEditor({
       if (isClickTool(activeToolRef.current)) return;
       const cur = worldAt(e.clientX, e.clientY);
       if (!cur) return;
-      // A move or a router drag the selection tool started (`PCB_ACTIONS::move`
-      // / `drag45Degree` through the window action bridge) follows the cursor
-      // until the button comes up.
-      if (movingRef.current) {
-        // The dispatcher's drag threshold, not this handler's, started it.
-        d.moved = true;
-        updateMove(cur);
-        return;
-      }
       // ZOOM_TOOL::selectRegion rubber-bands the area it zooms to.
       if (d.moved && d.world && activeToolRef.current === 'zoomTool') {
         boxRef.current = { a: d.world, b: cur };
@@ -9796,30 +5810,10 @@ export function PcbEditor({
     }
   };
   const onPointerUp = (e: React.PointerEvent): void => {
-    // Finish a point edit: commit the reshaped board, or put the scene back if
-    // the handle never moved.
-    if (editHandleDragRef.current) {
-      const preview = pointEditPreviewRef.current;
-      editHandleDragRef.current = null;
-      // The gesture is over: `SetAuxAxes( false )`.
-      auxAxisRef.current = null;
-      pointEditPreviewRef.current = null;
-      // Drop the reshape overlay: both paths below rebuild a full base scene
-      // that contains the item again, so leaving it up would double-draw it.
-      moveSceneRef.current = null;
-      // The VIEW's hidden item draws again; a commit re-derives the view anyway.
-      unhideMovingItems();
-      if (preview) commitBoard(preview);
-      else if (boardRef.current) rebuildScene(boardRef.current);
-      requestDraw();
-      return;
-    }
     const d = downRef.current;
     const box = boxRef.current;
-    const moved = movingRef.current;
     downRef.current = null;
     boxRef.current = null;
-    movingRef.current = false;
     if (d) {
       // Zoom-to-selection (ZOOM_TOOL::Main): a dragged box zooms into it, a
       // plain click zooms in a step about the clicked point; either way the
@@ -9841,120 +5835,7 @@ export function PcbEditor({
         return;
       }
       if (!d.moved) {
-        // Interactive Delete Tool (PCB_CONTROL::DeleteItemCursor): each click
-        // deletes the item under the cursor, honouring the selection filter.
-        if (activeToolRef.current === 'deleteTool') {
-          const w = worldAt(e.clientX, e.clientY);
-          const brd = boardRef.current;
-          if (w && brd) {
-            const hit = hitCandidates(w)[0];
-            if (hit) {
-              commitBoard(deleteBoardItems(brd, new Set([hit])));
-              setSelectionRef.current(new Set());
-            }
-          }
-        } else if (activeToolRef.current === 'localRatsnestTool') {
-          // BOARD_INSPECTION_TOOL::LocalRatsnestTool's click handler
-          // (board_inspection_tool.cpp:2299-2351): `selectionClear`, then
-          // `selectionCursor` with `EDIT_TOOL::PadFilter`, and with
-          // `FootprintFilter` if that found nothing. The hit is SELECTED, not
-          // merely toggled — that selection is the highlight KiCad shows on
-          // the clicked part, and ours never made one. Clicking empty space
-          // leaves the selection empty and puts every pad back to the global
-          // ratsnest setting.
-          const w = worldAt(e.clientX, e.clientY);
-          const brd = boardRef.current;
-          if (w && brd) {
-            // Two `selectionCursor` calls, each with its own client filter,
-            // the second only if the first selected nothing.
-            const padIds = hitCandidates(w, false, 'pad');
-            const fpIds = padIds.length > 0 ? [] : hitCandidates(w, false, 'footprint');
-            const picked = padIds[0] ?? fpIds[0];
-            const ref = picked ? parseBoardItemId(picked) : null;
-            const padHit2 = ref?.kind === 'pad' ? ref : undefined;
-            const fpHit = ref?.kind === 'footprint' ? ref : undefined;
-            setSelectionRef.current(picked ? new Set([picked]) : new Set());
-            const hit: LocalRatsnestHit = padHit2
-              ? { kind: 'pad', footprint: padHit2.index, pad: padHit2.sub ?? 0 }
-              : fpHit
-                ? {
-                    kind: 'footprint',
-                    footprint: fpHit.index,
-                    padCount: brd.footprints[fpHit.index]?.pads.length ?? 0,
-                  }
-                : null;
-            const globalOn = objects.ratsnest && ratsnestMode !== 'off';
-            setLocalRats((prev) => toggleLocalRatsnest(prev, globalOn, hit));
-          }
-        } else if (DRAW_SHAPE_TOOLS[activeToolRef.current]) {
-          const w = worldAt(e.clientX, e.clientY);
-          if (w) handleDrawClick(w);
-        } else if (activeToolRef.current === 'routeSingleTrack') {
-          const w = worldAt(e.clientX, e.clientY);
-          if (w) handlePnsRouteClick(w, PnsRouterMode.PNS_MODE_ROUTE_SINGLE);
-        } else if (activeToolRef.current === 'routeDiffPair') {
-          const w = worldAt(e.clientX, e.clientY);
-          if (w) handlePnsRouteClick(w, PnsRouterMode.PNS_MODE_ROUTE_DIFF_PAIR);
-        } else if (activeToolRef.current === 'drawVia') {
-          const w = worldAt(e.clientX, e.clientY);
-          if (w) handleViaClick(w);
-        } else if (activeToolRef.current === 'placeText') {
-          const w = worldAt(e.clientX, e.clientY);
-          if (w) setTextDialog(snapToGrid(w));
-        } else if (activeToolRef.current === 'drawTable') {
-          const w = worldAt(e.clientX, e.clientY);
-          if (w) handleTableClick(w);
-        } else if (activeToolRef.current === 'drawTextBox') {
-          const w = worldAt(e.clientX, e.clientY);
-          if (w) handleTextBoxClick(w);
-        } else if (activeToolRef.current === 'placeReferenceImage') {
-          const w = worldAt(e.clientX, e.clientY);
-          if (w) handleImageClick(w);
-        } else if (isMicrowaveTool(activeToolRef.current)) {
-          const w = worldAt(e.clientX, e.clientY);
-          if (w) handleMicrowaveClick(w);
-        } else if (activeToolRef.current === 'placeFootprint') {
-          const w = worldAt(e.clientX, e.clientY);
-          if (w) handlePlaceFootprintClick(w);
-        } else if (dimensionToolKind(activeToolRef.current)) {
-          const w = worldAt(e.clientX, e.clientY);
-          if (w) handleDimensionClick(w, dimensionToolKind(activeToolRef.current)!);
-        } else if (activeToolRef.current === 'drawZone') {
-          const w = worldAt(e.clientX, e.clientY);
-          if (w) handleZoneClick(w);
-        } else if (activeToolRef.current === 'drawRuleArea') {
-          const w = worldAt(e.clientX, e.clientY);
-          if (w) handleRuleAreaClick(w);
-        } else if (activeToolRef.current === 'gridSetOrigin') {
-          const w = worldAt(e.clientX, e.clientY);
-          if (w) handleOriginClick('grid_origin', w);
-        } else if (activeToolRef.current === 'drillOrigin') {
-          const w = worldAt(e.clientX, e.clientY);
-          if (w) handleOriginClick('aux_axis_origin', w);
-        } else if (activeToolRef.current === 'placeBarcode') {
-          const w = worldAt(e.clientX, e.clientY);
-          // `DrawBarcode` creates the item, opens the dialog, and only commits
-          // if it returns OK (`drawing_tool.cpp:1528-1560`) — so nothing is
-          // added here, and Cancel leaves the board untouched.
-          if (w) setBarcodeDialog({ at: cursorSnapRef.current(w) });
-        } else if (activeToolRef.current === 'placePoint') {
-          const w = worldAt(e.clientX, e.clientY);
-          if (w) handlePointClick(w);
-        } else if (
-          activeToolRef.current === 'placeCharacteristics' ||
-          activeToolRef.current === 'placeStackup'
-        ) {
-          const w = worldAt(e.clientX, e.clientY);
-          if (w) handlePlaceTableClick(activeToolRef.current, w);
-        } else if (activeToolRef.current === 'measureTool') {
-          const w = worldAt(e.clientX, e.clientY);
-          if (w) handleMeasureClick(w);
-        }
         // A click in the selection tool is the tool's, through the dispatcher.
-      } else if (moved) {
-        // Drop the move the selection tool started (EDIT_TOOL::Move's window
-        // half); a zero net delta restores.
-        commitMove();
       }
     }
     requestDraw();
@@ -9996,6 +5877,27 @@ export function PcbEditor({
       if (focusBlocksHotkey(target, e)) return;
       const mod = e.ctrlKey || e.metaKey;
 
+      // A TOOL_MANAGER tool (DRAWING_TOOL's shapes) takes its keys through
+      // TOOL_DISPATCHER: Esc is TA_CANCEL_TOOL, and the rest reach the
+      // actions' hotkeys (deleteLastPoint, arcPosture, incWidth...) there.
+      if (TOOL_MANAGER_TOOLS[activeToolRef.current] && !mod) {
+        const canvas = glCanvasRef.current;
+        const dispatcher = frameRef.current?.GetToolDispatcher();
+        if (canvas && dispatcher) {
+          const at = KIPLATFORM_UI.GetMousePosition();
+          e.preventDefault();
+          dispatcher.DispatchWxEvent(
+            wxKeyEventFromDom(
+              canvas,
+              e,
+              wxEVT_CHAR_HOOK,
+              clientPosition(canvas, { clientX: at.x, clientY: at.y }),
+            ),
+          );
+          return;
+        }
+      }
+
       // PCB_BASE_EDIT_FRAME::TryBefore: Tab with PRESET_SWITCH_KEY (Ctrl) or
       // VIEWPORT_SWITCH_KEY (Shift) raises EDA_VIEW_SWITCHER.
       if (e.key === 'Tab' && openViewSwitcherRef.current(mod, e.shiftKey)) {
@@ -10004,29 +5906,6 @@ export function PcbEditor({
       }
 
       // --- context: what the live tool / selection owns ---------------------
-      // ACTIONS::highContrastModeCycle (H): Normal -> Dim -> Hide -> Normal.
-      if (!mod && (e.key === 'h' || e.key === 'H')) {
-        setContrast((c) => (c === 'normal' ? 'dim' : c === 'dim' ? 'hide' : 'normal'));
-        return;
-      }
-      // V while routing: place a via and switch copper layer (ROUTER_TOOL).
-      // The clearest context action in the frame - it claims V only while
-      // there is a route in progress, and otherwise leaves the key alone.
-      if (!mod && (e.key === 'v' || e.key === 'V') && pnsSessionRef.current) {
-        e.preventDefault();
-        routeViaSwitchRef.current();
-        return;
-      }
-      // `TOOL_EVT_UTILS::IsRotateToolEvt` / `PCB_ACTIONS::flip` with `IPO_ROTATE |
-      // IPO_FLIP`: the microwave footprint on the cursor turns or flips, not the
-      // selection.
-      if (!mod && placeMwRef.current && 'rRfF'.includes(e.key) && e.key.length === 1) {
-        e.preventDefault();
-        transformMicrowaveItemRef.current(
-          e.key === 'f' || e.key === 'F' ? 'flip' : e.shiftKey ? 'cw' : 'ccw',
-        );
-        return;
-      }
       if (!mod && (e.key === 'r' || e.key === 'R')) {
         runAction(e.shiftKey ? PCB_ACTIONS.rotateCw : PCB_ACTIONS.rotateCcw);
         return;
@@ -10051,20 +5930,6 @@ export function PcbEditor({
         e.preventDefault();
         runAction(PCB_ACTIONS.drag45Degree);
         return;
-      }
-      // PgUp / PgDn: `PCB_ACTIONS::layerTop` and `layerBottom`
-      // (pcb_actions.cpp:1873, :2129). These are the two hotkeys the aux bar's
-      // layer selector advertises in its own entries — "F.Cu (PgUp)" — so the
-      // selector was naming keys that did nothing here.
-      if (!mod) {
-        const toLayer = layerForHotkey(e.key);
-        // Only a layer the board actually has: `SetActiveLayer` on a layer that
-        // is not enabled is not a thing upstream can do either.
-        if (toLayer && (boardRef.current?.layers ?? []).some((l) => l.name === toLayer)) {
-          e.preventDefault();
-          switchActiveLayer(toLayer);
-          return;
-        }
       }
       // B = Fill All Zones (PCB_ACTIONS::zoneFillAll), no row.
       if (!mod && (e.key === 'b' || e.key === 'B')) {
@@ -10093,117 +5958,15 @@ export function PcbEditor({
         runAction(e.altKey ? PCB_ACTIONS.toggleNetHighlight : PCB_ACTIONS.highlightNet);
         return;
       }
-      // `PCB_ACTIONS::deleteLastPoint`, `.DefaultHotkey( WXK_BACK )`
-      // (pcb_actions.cpp:443-449). Only bound while an outline is in progress
-      // — the `started &&` guard in DrawZone's event loop — and dropping the
-      // last corner of a one-corner outline abandons it, via `cleanup()`.
-      if (!mod && e.key === 'Backspace') {
-        const outline = polyMgrRef.current?.isPolygonInProgress()
-          ? polyMgrRef.current
-          : zoneMgrRef.current?.isPolygonInProgress()
-            ? zoneMgrRef.current
-            : null;
-        if (outline) {
-          e.preventDefault();
-          // Upstream also warps the mouse onto the corner it removed
-          // (`WarpMouseCursor`), which a browser cannot do; the manager has
-          // already rebuilt the leader from it either way.
-          outline.deleteLastCorner();
-          requestDrawRef.current();
-          return;
-        }
-        // `drawArc`'s own `deleteLastPoint` arm: `arcManager.RemoveLastPoint()`
-        // steps back and re-accepts the same cursor, so the assistant falls
-        // back to the previous stage rather than showing a stale later one.
-        if (!arcMgrRef.current.isReset()) {
-          e.preventDefault();
-          arcMgrRef.current.removeLastPoint();
-          requestDrawRef.current();
-          return;
-        }
-      }
-      // `PCB_ACTIONS::arcPosture`, `.DefaultHotkey( '/' )` — flips which way
-      // round the arc goes, and locks that choice.
-      if (!mod && e.key === '/' && !arcMgrRef.current.isReset()) {
-        e.preventDefault();
-        arcMgrRef.current.toggleClockwise();
-        requestDrawRef.current();
-        return;
-      }
       if (e.key === 'Escape') {
-        // Escape cancels an in-flight grab first, then what a window tool has
-        // in flight, then leaves the tool; in the selection tool it is Main's.
-        if (grabbingRef.current) {
-          grabCancelRef.current();
-          return;
-        }
-        if (tableStartRef.current) {
-          setTableStart(null);
-          requestDrawRef.current();
-        } else if (textBoxStartRef.current) {
-          textBoxStartRef.current = null;
-          requestDrawRef.current();
-        } else if (pnsSessionRef.current) {
-          // `evt->IsCancelInteractive()` inside `performRouting`: `StopRouting`
-          // and `break` out of the routing loop, back to the tool's own loop
-          // (router_tool.cpp:1590-1595) — the tool stays armed.
-          pnsSessionRef.current.abort();
-          pnsSessionRef.current = null;
-          requestDrawRef.current();
-        } else if (placeMwRef.current || mwLineRef.current.originSet) {
-          // `IsCancelInteractive()`: with an item (or an origin) that is
-          // `cleanup()` and the tool stays; without one, the fall-through pops it.
-          placeMwRef.current = null;
-          setMwPlacing(false);
-          placeFpSceneRef.current = null;
-          mwLineRef.current.originSet = false;
-          requestDrawRef.current();
-        } else if (placeFpRef.current) {
-          // `IsCancelInteractive()` with `fp` set is `cleanup()` — the
-          // footprint is reverted and the tool stays on the stack; only a
-          // second Esc pops it (:1436-1446).
-          placeFpRef.current = null;
-          placeFpSceneRef.current = null;
-          requestDrawRef.current();
-        } else if (placeImageRef.current.step === 'placing') {
-          // Esc drops the picture on the cursor but stays in the tool, ready
-          // for another file — upstream's `cleanup()` without the `PopTool`.
-          // Falling through to the tool-exit branch below instead would make
-          // picking the wrong file cost a re-activation.
-          placeImageRef.current = cancelPlaceImage(placeImageRef.current).state;
-          requestDrawRef.current();
-        } else if (dimensionRef.current) {
-          dimensionRef.current = null;
-          requestDrawRef.current();
-        } else if (polyMgrRef.current?.isPolygonInProgress()) {
-          // `cleanup()` — `polyGeomMgr.Reset()` and the tool stays armed
-          // (drawing_tool.cpp:3486-3502); only a second Esc pops the tool.
-          polyMgrRef.current.reset();
-          requestDrawRef.current();
-        } else if (zoneRef.current || zoneMgrRef.current?.isPolygonInProgress()) {
-          zoneRef.current = null;
-          zoneMgrRef.current?.reset();
-          requestDrawRef.current();
-        } else if (measureRef.current) {
-          measureRef.current = null;
-          requestDrawRef.current();
-        } else if (twoPtStartedRef.current || !arcMgrRef.current.isReset()) {
-          // `cleanup()` — and `drawShape`'s `if( !started ) … PopTool`, so the
-          // first Esc only throws the in-flight shape away and the tool stays
-          // armed for the next one.
-          cleanupShapeRef.current();
-          requestDrawRef.current();
-        } else if (drawingRef.current.length > 0) {
-          // First Esc abandons the in-flight shape; the tool stays active.
-          drawingRef.current = [];
-          requestDrawRef.current();
-        } else if (!isSelectTool(activeToolRef.current)) {
+        // Escape cancels what a window tool has in flight, then leaves the
+        // tool; in the selection tool it is Main's.
+        if (!isSelectTool(activeToolRef.current)) {
           // Esc in a tool returns to the selection tool (TOOL_MANAGER), in
           // whichever mode it was left in.
           // `PCB_PICKER_TOOL::Main`: `IsCancelInteractive()` is EVT_CANCEL,
           // and the ratsnest picker's finalize handler resets every pad's
           // local override on anything but END_ACTIVATE.
-          if (activeToolRef.current === 'localRatsnestTool') setLocalRats(new Set());
           setActiveTool(selectModeRef.current);
         } else {
           setShow3D(false);
@@ -10234,11 +5997,38 @@ export function PcbEditor({
       }
 
       // --- global: the menu accelerators ------------------------------------
-      if (dispatchMenuHotkey(menusRef.current, e, { target })) e.preventDefault();
+      if (dispatchMenuHotkey(menusRef.current, e, { target })) {
+        e.preventDefault();
+        return;
+      }
+
+      // --- the rest: TOOL_DISPATCHER, as the frame's char hook passes it on ---
+      // (EDA_BASE_FRAME::OnCharHook only skips): ACTION_MANAGER::RunHotKey runs
+      // the action bound to the key - PCB_CONTROL's layer keys, the H contrast
+      // cycle and every other tool hotkey with no menu row. wxEVT_CHAR_HOOK
+      // first, then wxEVT_CHAR, as the canvas sends them.
+      const canvas = glCanvasRef.current;
+      const dispatcher = frameRef.current?.GetToolDispatcher() as unknown as
+        | GATED_DISPATCHER
+        | null
+        | undefined;
+      if (canvas && dispatcher) {
+        const at = KIPLATFORM_UI.GetMousePosition();
+        const pos = clientPosition(canvas, { clientX: at.x, clientY: at.y });
+        const hook = wxKeyEventFromDom(canvas, e, wxEVT_CHAR_HOOK, pos);
+        dispatcher.DispatchToTools(hook);
+        if (!hook.GetSkipped()) {
+          e.preventDefault();
+          return;
+        }
+        const ch = wxKeyEventFromDom(canvas, e, wxEVT_CHAR, pos);
+        dispatcher.DispatchToTools(ch);
+        if (!ch.GetSkipped()) e.preventDefault();
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [zoomToFit, switchActiveLayer]);
+  }, [zoomToFit]);
 
   // The snap modifiers, tracked on the keyboard as well as the pointer.
   // Upstream a modifier arrives as its own `TOOL_EVENT`, so pressing Shift or
@@ -10355,36 +6145,6 @@ export function PcbEditor({
       else next.add(name);
       return next;
     });
-  };
-
-  /**
-   * BOARD_EDITOR_CONTROL::AssignNetclass (board_editor_control.cpp:2159-2230):
-   * the selection's nets, skipping any whose name was generated rather than
-   * given (NETINFO_ITEM::HasAutoGeneratedNetname - the short name starting
-   * `Net-(` or `unconnected-(`); none left is an infobar error. The nets are
-   * selected (selectNet), and the dialog opens on them.
-   */
-  const assignNetclass = (): void => {
-    const brd = boardRef.current;
-    if (!brd) return;
-    const names = new Set<string>();
-    const codes = new Set<number>();
-    for (const id of selection) {
-      const d = describeSelected(brd, id);
-      if (!d) continue;
-      const name = brd.nets.get(d.net);
-      if (!name) continue;
-      const short = name.slice(name.lastIndexOf('/') + 1);
-      if (short.startsWith('Net-(') || short.startsWith('unconnected-(')) continue;
-      names.add(name);
-      codes.add(d.net);
-    }
-    if (names.size === 0) {
-      setInfoBarError('Selection contains no items with labeled nets.');
-      return;
-    }
-    setSelectionRef.current(new Set(connectedItemIdsOnNets(brd, codes)));
-    setNetclassNets(names);
   };
 
   /**
@@ -10645,10 +6405,28 @@ export function PcbEditor({
   useEffect(() => {
     if (viaSel > viaSizeList.length) setViaSel(0);
   }, [viaSizeList, viaSel]);
-  const trackWidthListRef = useRef(trackWidthList);
-  trackWidthListRef.current = trackWidthList;
-  const viaSizeListRef = useRef(viaSizeList);
-  viaSizeListRef.current = viaSizeList;
+  // The TOP_AUX choices live in BOARD_DESIGN_SETTINGS upstream: the combos'
+  // handlers call `SetTrackWidthIndex` / `SetViaSizeIndex` and AutoTrackWidth
+  // flips `m_UseConnectedTrackWidth` (board_editor_control.cpp:1332-1344), and
+  // ROUTER_TOOL's `ImportSizes` reads them there.
+  useEffect(() => {
+    const bds = boardK?.GetDesignSettings();
+    if (!bds) return;
+    let changed = false;
+    if (bds.GetTrackWidthIndex() !== trackSel) {
+      bds.SetTrackWidthIndex(trackSel);
+      changed = true;
+    }
+    if (bds.GetViaSizeIndex() !== viaSel) {
+      bds.SetViaSizeIndex(viaSel);
+      changed = true;
+    }
+    bds.m_UseConnectedTrackWidth = autoTrackWidth;
+    // `PCB_EDIT_FRAME::Tracks_and_Vias_Size_Event` ends with
+    // `RunAction( PCB_ACTIONS::trackViaSizeChanged )` (edit_track_width.cpp:224):
+    // a route in flight takes the new size at once.
+    if (changed) frameRef.current?.GetToolManager()?.RunAction(PCB_ACTIONS.trackViaSizeChanged);
+  }, [boardK, trackSel, viaSel, autoTrackWidth]);
   // net code -> net class name, via the project's netclass_patterns.
   const netClassOf = useMemo(() => {
     const m = new Map<number, string>();
@@ -10878,11 +6656,6 @@ export function PcbEditor({
     [viewports],
   );
 
-  // `BOARD::GetMsgPanelInfo`'s "Unrouted": `GetConnectivity()->GetUnconnectedCount( true )`.
-  // Asked of the BOARD, not of a count of drawn airwires: connectivity is
-  // built by the load, so this answers before the panel does.
-  const unconnectedCount = board?.k ? board.k.GetConnectivity().GetUnconnectedCount(true) : 0;
-
   // Nets of the current selection, their airwires are always shown (even when
   // the global ratsnest is off), so clicking a pad/footprint/track reveals the
   // thin airwires to what it connects to (PCB_SELECTION_TOOL local ratsnest).
@@ -10932,47 +6705,10 @@ export function PcbEditor({
     return s;
   }, [selectedNets, highlightNets]);
 
-  // Highlight scene: every copper item on the highlighted nets, painted
-  // Brightened(0.5) over the dimmed board, BOARD_INSPECTION_TOOL net highlight
-  // (pcb_painter.cpp: highlighted items brighten, the rest darken).
-  //
-  // "Every copper item" includes the *pads*: PAD is a BOARD_CONNECTED_ITEM and
-  // draw(PAD) runs the same GetColor, so the net's pads lift with its tracks.
-  // Leaving them out was what made a highlighted net look half-lit.
-  const highlightSceneRef = useRef<BoardScene | null>(null);
+  // A net highlight is the VIEW's (PCB_RENDER_SETTINGS::GetColor brightens the
+  // highlighted nets and darkens the rest); the canvas only repaints.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `highlightNets` is the trigger
   useEffect(() => {
-    const brd = boardRef.current;
-    if (!brd || highlightNets.size === 0) {
-      highlightSceneRef.current = null;
-      requestDraw();
-      return;
-    }
-    const ids = new Set<string>();
-    brd.tracks.forEach((t, i) => {
-      if (highlightNets.has(t.net)) ids.add(boardItemId('track', i));
-    });
-    brd.arcs.forEach((a, i) => {
-      if (highlightNets.has(a.net)) ids.add(boardItemId('arc', i));
-    });
-    brd.vias.forEach((vv, i) => {
-      if (highlightNets.has(vv.net)) ids.add(boardItemId('via', i));
-    });
-    brd.zones.forEach((z, i) => {
-      if (highlightNets.has(z.net)) ids.add(boardItemId('zone', i));
-    });
-    brd.footprints.forEach((fp, fi) => {
-      fp.pads.forEach((p, pi) => {
-        if (p.net !== undefined && highlightNets.has(p.net)) ids.add(boardItemId('pad', fi, pi));
-      });
-    });
-    // The line a router drag has in flight is drawn by the move overlay, so it
-    // must not also appear here at its old position (upstream HideItem()s it).
-    if (trackDragRef.current) for (const id of dragAffectedRef.current) ids.delete(id);
-    highlightSceneRef.current = ids.size > 0 ? buildScene(subsetBoardItems(brd, ids)) : null;
-    // The dimming of everything NOT on the net is the VIEW's:
-    // `PCB_RENDER_SETTINGS::GetColor` darkens by `1 - m_highlightFactor` for
-    // any item the highlight set does not name, so there is no second picture
-    // to re-render when the highlight comes and goes.
     requestDraw();
   }, [highlightNets, requestDraw]);
 
@@ -10982,11 +6718,6 @@ export function PcbEditor({
   // PCB_RENDER_SETTINGS itself. What stood here was a second copy of that rule
   // over a list of airwires the raster path had built, and only the raster
   // path drew it.
-  //
-  // `localRats` - the set the Local Ratsnest picker accumulates
-  // (`local_ratsnest.ts`, and it is pinned there) - is what still has no
-  // reader: it wants `CONNECTIVITY_DATA::ComputeLocalRatsnest`, which
-  // BOARD_INSPECTION_TOOL calls and we do not have yet (#636 stage 3).
 
   // Net colours in mode "All" are the VIEW's: `PCB_RENDER_SETTINGS::GetColor`
   // takes them from NET_SETTINGS when `NET_COLOR_MODE::ALL` is set
@@ -11139,26 +6870,18 @@ export function PcbEditor({
           frame,
           () => requestDrawRef.current(),
           (closed) => {
+            frame.OnVertexEditorPaneClosed(closed);
             if (vertexPaneRef.current === closed) setVertexPane(null);
           },
         ),
       );
+      // `m_vertexEditorPane`: PCB_CONTROL::UpdateMessagePanel's tail keeps it
+      // on the selected item (UpdateVertexEditorSelection).
+      frame.m_vertexEditorPane = pane;
       setVertexPane(pane);
     }
     pane.SetItem(item);
   };
-
-  // `PCB_CONTROL::UpdateMessagePanel`'s tail (`pcb_control.cpp:2872-2880`): the
-  // pane follows a single selected item, and anything else clears it.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `board` is only the trigger; the ids are re-read through boardRef
-  useEffect(() => {
-    const brd = boardRef.current;
-    if (!vertexPane || !brd) return;
-
-    vertexPane.OnSelectionChanged(
-      selection.size === 1 ? liveItemOfId(brd, [...selection][0]!) : null,
-    );
-  }, [selection, vertexPane, board]);
 
   // ----- toolbar handlers -----------------------------------------------------
 
@@ -11174,19 +6897,17 @@ export function PcbEditor({
       setPrefsOpen(true);
       return;
     }
-    // The high-contrast button maps onto the Layer Display Options mode
-    // (ACTIONS::highContrastMode toggles Normal <-> Dim).
-    if (id === 'highContrast') {
-      setContrast((c) => (c === 'normal' ? 'dim' : 'normal'));
+    // PCB_ACTIONS::lineModeFree / 45 / 90: BOARD_EDITOR_CONTROL::ChangeLineMode,
+    // whose OnAngleSnapModeChanged selects the group's button back.
+    const lineModeAction = PCB_LINE_MODE_ACTIONS[id];
+    if (lineModeAction) {
+      runAction(lineModeAction);
       return;
     }
-    // Ratsnest visibility is the Objects tab's LAYER_RATSNEST, single source.
-    if (id === 'showRatsnest') {
-      // `SetElementVisibility( LAYER_RATSNEST )` writes the new flag into
-      // every track, pad and zone (`board.cpp:1057-1073`), so no pad differs
-      // from it any more: the Local Ratsnest overrides go with the toggle.
-      setObjects((p) => ({ ...p, ratsnest: !p.ratsnest }));
-      setLocalRats(new Set());
+    // ACTIONS::millimetersUnits / inchesUnits / milsUnits: COMMON_TOOLS::SwitchUnits.
+    const checkedAction = PCB_CHECKED_ACTIONS[id];
+    if (checkedAction) {
+      runAction(checkedAction);
       return;
     }
     // Toggle Net Highlight: show/hide the last-highlighted net set.
@@ -11299,7 +7020,7 @@ export function PcbEditor({
         }
         break;
       case 'pageSettings':
-        setPageDlgOpen(true);
+        runAction(ACTIONS.pageSettings);
         break;
       case 'runDRC':
         // PCB_ACTIONS::runDRC -> DRC_TOOL::ShowDRCDialog
@@ -11334,13 +7055,13 @@ export function PcbEditor({
         runAction(ACTIONS.removeFromGroup);
         break;
       case 'lock':
-        lockSel(true);
+        runAction(PCB_ACTIONS.lock);
         break;
       case 'unlock':
-        lockSel(false);
+        runAction(PCB_ACTIONS.unlock);
         break;
       case 'toggleLock':
-        lockSel('toggle');
+        runAction(PCB_ACTIONS.toggleLock);
         break;
       case 'find':
         setFindOpen(true);
@@ -11375,7 +7096,7 @@ export function PcbEditor({
         void openUpdatePcb();
         break;
       case 'threeDViewer':
-        setShow3D(true);
+        runAction(ACTIONS.show3DViewer);
         break;
 
       /*
@@ -11398,11 +7119,13 @@ export function PcbEditor({
       case 'copy':
         runAction(ACTIONS.copy);
         break;
+      // PCB_CONTROL::Paste, after the system clipboard's text has been read
+      // into the clipboard (a menu row is outside any paste event).
       case 'paste':
-        void navigator.clipboard?.readText().then((text) => pasteText(text));
+        pasteFromSystemClipboard(ACTIONS.paste);
         break;
       case 'pasteSpecial':
-        setPasteSpecialOpen(true);
+        pasteFromSystemClipboard(ACTIONS.pasteSpecial);
         break;
       case 'doDelete':
         runAction(ACTIONS.doDelete);
@@ -11417,7 +7140,7 @@ export function PcbEditor({
         runAction(PCB_ACTIONS.editTeardrops);
         break;
       case 'importGraphics':
-        setImportGraphicsOpen(true);
+        runAction(PCB_ACTIONS.placeImportedGraphics);
         break;
       // `PCB_ACTIONS::exportSpecctraDSN` -> `PCB_EDIT_FRAME::ExportSpecctraFile`.
       case 'exportSpecctraDSN': {
@@ -11488,26 +7211,14 @@ export function PcbEditor({
         input.click();
         break;
       }
-      // `AUTOPLACE_TOOL::autoplaceSelected` / `autoplaceOffboard`: Place > Auto-Place Footprints.
+      // `PCB_ACTIONS::autoplaceSelectedComponents` / `autoplaceOffboardComponents` ->
+      // `AUTOPLACE_TOOL`: Place > Auto-Place Footprints.
       case 'autoplaceSelected':
-      case 'autoplaceOffboard': {
-        const brd = boardRef.current;
-        if (!brd) break;
-        const tool = new AUTOPLACE_TOOL(false, {
-          // `PAD::GetOwnClearance( pad->GetLayer() )`
-          padClearance: (pad) =>
-            pad.k
-              ? pad.k.GetOwnClearance(pad.k.GetLayer())
-              : (brd.k?.GetDesignSettings().m_MinClearance ?? 0),
-        });
-        const r =
-          id === 'autoplaceSelected'
-            ? tool.autoplaceSelected(brd, selection)
-            : tool.autoplaceOffboard(brd);
-        if (r.error) setInfoBarError(r.error);
-        else if (r.pushed) commitBoard(r.board, { message: 'Autoplace Footprints' });
+        runAction(PCB_ACTIONS.autoplaceSelectedComponents);
         break;
-      }
+      case 'autoplaceOffboard':
+        runAction(PCB_ACTIONS.autoplaceOffboardComponents);
+        break;
       case 'zoneFillAll':
         fillAllZones();
         break;
@@ -11595,23 +7306,24 @@ export function PcbEditor({
       case 'zoomFitScreen':
         zoomToFit();
         break;
-      // `ACTIONS::highContrastMode` CYCLES rather than toggling: NORMAL -> DIM
-      // -> HIDDEN -> NORMAL, and its CHECK is on for the two that are not
-      // NORMAL.
+      // `ACTIONS::highContrastMode` is PCB_CONTROL::HighContrastMode, which
+      // toggles NORMAL <-> DIMMED (pcb_control.cpp:371-380); only the H key's
+      // highContrastModeCycle visits HIDDEN.
       case 'highContrastMode':
-        setContrast((c) => (c === 'normal' ? 'dim' : c === 'dim' ? 'hide' : 'normal'));
+        runAction(ACTIONS.highContrastMode);
         break;
       case 'flipBoard':
         toggleFlip();
         break;
       case 'drillResetOrigin':
-        resetOrigin('aux_axis_origin');
+        runAction(PCB_ACTIONS.drillResetOrigin);
         break;
       case 'gridResetOrigin':
-        resetOrigin('grid_origin');
+        runAction(ACTIONS.gridResetOrigin);
         break;
       case 'routerSettingsDialog':
-        setPnsSettingsOpen(true);
+        // `PCB_ACTIONS::routerSettingsDialog` -> `ROUTER_TOOL::SettingsDialog`.
+        runAction(PCB_ACTIONS.routerSettingsDialog);
         break;
       case 'selectLayerPair':
         // `PCB_ACTIONS::selectLayerPair` -> `ROUTER_TOOL::SelectCopperLayerPair`.
@@ -11703,14 +7415,6 @@ export function PcbEditor({
 
   // ----- menus (menubar_pcb_editor.cpp structure, working subset active) ------
 
-  const dis = true;
-  // The corner operations work on pairs of straight graphics, so the count that
-  // matters is how many of the selection actually are ones — a selection of two
-  // rectangles has nothing to fillet.
-  const lineModDisabled = !board || modifiableLineCount(board, selection) < 2;
-  // Likewise counted on what the selection actually holds: two polygons, not
-  // two items.
-  const polyBoolDisabled = !board || booleanableShapeCount(board, selection) < 2;
   /**
    * `PCB_EDIT_FRAME::doReCreateMenuBar`, which lives in
    * `editors/pcb/menubar.ts` — a `.ts`, so `qa` can build the tree and press
@@ -11749,6 +7453,11 @@ export function PcbEditor({
       showNetInspector: leftToggles.has('showNetInspector'),
       zoneDisplayFilled: leftToggles.has('zoneDisplayFilled'),
       zoneDisplayOutline: leftToggles.has('zoneDisplayOutline'),
+      padDisplayMode: leftToggles.has('padDisplayMode'),
+      viaDisplayMode: leftToggles.has('viaDisplayMode'),
+      trackDisplayMode: leftToggles.has('trackDisplayMode'),
+      graphicsOutlines: leftToggles.has('graphicsOutlines'),
+      textOutlines: leftToggles.has('textOutlines'),
     },
   );
 
@@ -11759,7 +7468,6 @@ export function PcbEditor({
   // MessageTextFromValue at the pcbnew IU scale (PCB_IU_PER_MM), which is the
   // long form: mm %.4f, mils %.2f, inches %.4f.
   unitsRef.current = unitLabel;
-  frameRef.current?.SetUserUnits(unitLabel);
   const fmtCoord = (iu: number): string =>
     messageTextFromValue(iuToMM(iu), unitLabel, PCB_IU_PER_MM);
 
@@ -11780,46 +7488,21 @@ export function PcbEditor({
   // Field 6 (EDA_DRAW_FRAME::DisplayToolMsg, the "Current Tool" panel): the
   // friendly name of the active right-toolbar tool, blank in the selection tool.
   const toolMsg = PCB_TOOL_MSGS[activeTool] ?? '';
-  // Field 7 (DisplayConstraintsMsg): the line-constraint hint shown while a
-  // line/track drawing tool is active (COMMON_TOOLS line mode).
-  const constraintMsg =
-    pnsSessionRef.current || DRAW_SHAPE_TOOLS[activeTool]
-      ? toggles.has('lineMode45')
-        ? 'Constrain to H, V, 45'
-        : toggles.has('lineMode90')
-          ? 'Constrain to H, V'
-          : ''
-      : '';
+  // Field 7 (DisplayConstraintsMsg). ROUTER_TOOL writes nothing there
+  // (router_tool.cpp never calls DisplayConstraintsMsg); the hint this showed
+  // while routing was the window's own. DRAWING_TOOL::UpdateStatusBar's
+  // `SetStatusText( msg, 7 )` does not reach this field yet.
+  const constraintMsg = '';
   /**
-   * `PCB_CONTROL::UpdateMessagePanel` (pcbnew/tools/pcb_control.cpp:2377) and
-   * the `GetMsgPanelInfo` virtuals it dispatches to — all of them in
-   * `pcbnew/msg_panel.ts`, because upstream they hang off the board items
-   * and not off the frame. The footprint editor reaches the same module with
-   * `frame: 'footprint_edit'`, which is how a footprint gets Library /
-   * Footprint Name / Pads there and Board Side / Rotation / Status here off
-   * one implementation.
+   * The frame's message panel (`EDA_DRAW_FRAME::m_messagePanel`), which
+   * `PCB_CONTROL::UpdateMessagePanel` (pcb_control.cpp:2378-2884) fills on
+   * every selection and connectivity change, and `OnBoardLoaded` with the
+   * board's own info.
    */
-  const messagePanelItems: MsgPanelItem[] = useMemo(() => {
-    if (!board)
-      return [
-        { upper: 'Pads', lower: '0' },
-        { upper: 'Vias', lower: '0' },
-        { upper: 'Track Segments', lower: '0' },
-        { upper: 'Nets', lower: '0' },
-        { upper: 'Unrouted', lower: '0' },
-      ];
-
-    return pcbMsgPanelInfo(
-      {
-        board,
-        units: unitLabel,
-        frame: 'pcb_edit',
-        netClassOf,
-        unconnectedCount,
-      },
-      { ids: [...selection], describe: (id) => describeBoardItem(board, id) },
-    );
-  }, [board, unconnectedCount, selection, netClassOf, unitLabel]);
+  const messagePanelItems: MsgPanelItem[] = frameMsgItems.map((i) => ({
+    upper: i.GetUpperText(),
+    lower: i.GetLowerText(),
+  }));
 
   // Top-toolbar enablement. Save follows the dirty flag; the toolbar's Group /
   // Ungroup grey out per GROUP_TOOL::update, Group needs >= 2 selected items,
@@ -12004,7 +7687,7 @@ export function PcbEditor({
                 ...PCB_GRIDS.map((g) => ({
                   value: String(g),
                   label: `${fmtCoord(g)}${unitText(unitLabel)} (${
-                    toggles.has('unitsMils')
+                    unitLabel === 'mils'
                       ? `${auxMM(g)}${unitText('mm')}`
                       : `${auxMils(g)}${unitText('mils')}`
                   })`,
@@ -12133,6 +7816,23 @@ export function PcbEditor({
           style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}
         >
           {readOnlyNotice}
+          {frameInfoBar !== null && (
+            <Infobar
+              message={frameInfoBar.message}
+              actionLabel={frameInfoBar.button?.label}
+              onAction={
+                frameInfoBar.button
+                  ? () => {
+                      frameInfoBar.button?.onClick();
+                      storePcbnewSettingsRef.current();
+                    }
+                  : undefined
+              }
+              className="ze-router-infobar"
+              key={frameInfoBar.message}
+            />
+          )}
+          {hotkeyPopup.node}
           {infoBarError !== null && (
             <Infobar
               message={infoBarError}
@@ -12159,10 +7859,11 @@ export function PcbEditor({
                 position: 'absolute',
                 inset: 0,
                 outline: 'none',
-                // The selection tool sets its own cursor through
-                // `SetCurrentCursor` (ARROW, MOVING, ADD, SUBTRACT, XOR,
-                // SELECT_WINDOW, SELECT_LASSO); a window tool still states its
-                // own here.
+                // The selection tool and the TOOL_MANAGER tools set their own
+                // cursor through `SetCurrentCursor` (the selection tool's ARROW,
+                // MOVING, ADD, SUBTRACT, XOR, SELECT_WINDOW, SELECT_LASSO;
+                // DRAWING_TOOL's PENCIL, MOVING, TEXT...); a window tool still
+                // states its own here.
                 //
                 // A real cursor, always.
                 //
@@ -12190,20 +7891,16 @@ export function PcbEditor({
                 // `PCB_VIEWER_TOOLS::MeasureTool` KICURSOR::MEASURE
                 // (`pcb_viewer_tools.cpp:292`). This frame had neither and
                 // showed the plain arrow for both.
-                cursor: isSelectTool(activeTool)
-                  ? undefined
-                  : boardToolCursor(activeTool, {
-                      tableDragging,
-                      imagePlacing,
-                      microwavePlacing: mwPlacing,
-                    }),
+                cursor:
+                  isSelectTool(activeTool) || TOOL_MANAGER_TOOLS[activeTool]
+                    ? undefined
+                    : boardToolCursor(activeTool),
               }}
               onPointerDown={onPointerDown}
               onPointerMove={onPointerMove}
               onPointerUp={onPointerUp}
               onPointerLeave={onPointerLeave}
               onWheel={requestDraw}
-              onDoubleClick={onCanvasDoubleClick}
               onContextMenu={onCanvasContextMenu}
             />
             {/* TRANSITIONAL (#636 stage 3): the window's overlay - the previews,
@@ -12213,18 +7910,6 @@ export function PcbEditor({
               ref={canvasRef}
               style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
             />
-            {ctxMenu && (
-              <ContextMenu
-                x={ctxMenu.x}
-                y={ctxMenu.y}
-                items={buildPcbContextMenu()}
-                onClose={() => {
-                  const close = ctxMenu.onClose;
-                  setCtxMenu(null);
-                  queueMicrotask(close);
-                }}
-              />
-            )}
             {error && (
               <div
                 style={{
@@ -12321,16 +8006,14 @@ export function PcbEditor({
                   onLayerContextMenu={(x, y) => setLayerMenu({ x, y })}
                   objects={objects}
                   onToggleObject={(key) => {
-                    // The Objects tab's Ratsnest row is the same
-                    // `SetElementVisibility( LAYER_RATSNEST )` as the button.
-                    if (key === 'ratsnest') setLocalRats(new Set());
-                    setObjects((p) => toggleObject(p, key));
+                    if (key === 'ratsnest') onRatsnestObjectVisibility(!objects.ratsnest);
+                    else setObjects((p) => toggleObject(p, key));
                   }}
                   objectColor={(key) => PCB_OBJECT_COLORS[key]}
                   opacity={opacity}
                   onOpacity={(key, value) => setOpacity((p) => ({ ...p, [key]: value }))}
                   contrast={contrast}
-                  onContrast={setContrast}
+                  onContrast={onHighContrastMode}
                   flipBoard={flipView}
                   onFlipBoard={toggleFlip}
                   layerOptionsOpen={layerOptsOpen}
@@ -12366,9 +8049,9 @@ export function PcbEditor({
                       setBoardSetupOpen(true);
                     },
                     netColorMode,
-                    onNetColorMode: setNetColorMode,
+                    onNetColorMode: onNetColorMode,
                     ratsnestMode,
-                    onRatsnestMode: setRatsnestMode,
+                    onRatsnestMode: onRatsnestMode,
                     optionsOpen: netOptsOpen,
                     onOptionsOpen: setNetOptsOpen,
                   }}
@@ -12572,48 +8255,29 @@ export function PcbEditor({
         </>
       )}
 
-      {/* Barcode properties. `DRAWING_TOOL::DrawBarcode` opens this before
-          placing (`drawing_tool.cpp:1534-1541`); a double-click on an existing
-          barcode opens it through `EDIT_TOOL::Properties`. */}
-      {barcodeDialog &&
-        (() => {
-          const bc = barcodeUnderEdit();
-          if (!bc) return null;
-          return (
-            <DialogBarcodeProperties
-              units={unitLabel}
-              barcode={bc}
-              initial={
-                bc.k && frameRef.current
-                  ? new DIALOG_BARCODE_PROPERTIES(frameRef.current, bc.k).TransferDataToWindow()
-                  : barcodeValues(bc)
-              }
-              layers={board?.layers.map((l) => l.name) ?? []}
-              layerColor={layerColor}
-              background={PCB_BACKGROUND}
-              onClose={() => setBarcodeDialog(null)}
-              onApply={(v) => {
-                const brd = boardRef.current;
-                const dlg = barcodeDialog;
-                setBarcodeDialog(null);
-                if (!brd || !dlg) return;
-                if (dlg.index !== undefined) {
-                  // DIALOG_BARCODE_PROPERTIES on the live PCB_BARCODE: one BOARD_COMMIT.
-                  const k = brd.barcodes[dlg.index]?.k;
-                  if (k && frameRef.current)
-                    new DIALOG_BARCODE_PROPERTIES(frameRef.current, k).TransferDataFromWindow(v);
-                  return;
-                }
-                const next = applyBarcodeValues(bc, v);
-                // `m_toolMgr->RunAction<EDA_ITEM*>( ACTIONS::selectItem, barcode )`
-                // (`drawing_tool.cpp:1558`): the new barcode is left selected.
-                const added = addBoardBarcode(brd, next);
-                commitBoard(added.board);
-                setSelectionRef.current(new Set([added.id]));
-              }}
-            />
-          );
-        })()}
+      {/* Barcode properties: `DRAWING_TOOL::DrawBarcode` opens it on its new
+          barcode before committing (`drawing_tool.cpp:1534-1541`); a double-click
+          on an existing one opens it through `EDIT_TOOL::Properties`. */}
+      {barcodePropsDlg && board && (
+        <DialogBarcodeProperties
+          units={unitLabel}
+          preview={barcodePropsDlg.preview}
+          commitError={barcodePropsDlg.commitError}
+          initial={barcodePropsDlg.dialog.TransferDataToWindow()}
+          layers={board.layers.map((l) => l.name)}
+          layerColor={layerColor}
+          background={PCB_BACKGROUND}
+          onClose={() => {
+            barcodePropsDlg.resolve?.(false);
+            setBarcodePropsDlg(null);
+          }}
+          onApply={(v) => {
+            const d = barcodePropsDlg;
+            setBarcodePropsDlg(null);
+            d.resolve?.(d.dialog.TransferDataFromWindow(v).ok);
+          }}
+        />
+      )}
 
       {/* File > Import > Non-KiCad Board File. `OpenProjectFiles( { file },
           KICTL_NONKICAD_ONLY )` (files.cpp:476): the importer builds the board
@@ -12716,55 +8380,32 @@ export function PcbEditor({
           onDone={mapLayersRequest.done}
         />
       )}
-      {/* File > Import > Graphics. `DRAWING_TOOL::PlaceImportedGraphics`
-          (`drawing_tool.cpp:2044-2230`): the dialog runs the import live and
-          reports it, then this commits what it produced and — for
-          interactive placement — hands the new selection to the same move
-          gesture `startPostUpdateMoveRef` uses for a netlist update's spread
-          footprints, per `placeImportedItems`'s doc comment on why
-          that is the reused mechanism rather than an uncommitted preview. */}
-      {importGraphicsOpen && (
+      {/* File > Import > Graphics: DIALOG_IMPORT_GRAPHICS, which
+          `DRAWING_TOOL::PlaceImportedGraphics` opens and then places what it
+          imported (`drawing_tool.cpp:2044-2230`). */}
+      {importGfxDlg && (
         <DialogImportGraphics
           units={unitLabel}
           layers={board?.layers.map((l) => l.name) ?? []}
           layerColor={layerColor}
           activeLayer={activeLayer}
+          parent={(frameRef.current?.GetModel() as BOARD_ITEM_CONTAINER | null | undefined) ?? null}
           invertX={frameRef.current?.GetPcbNewSettings().m_Display.m_DisplayInvertXAxis ?? false}
           invertY={frameRef.current?.GetPcbNewSettings().m_Display.m_DisplayInvertYAxis ?? false}
-          onCancel={() => setImportGraphicsOpen(false)}
+          onCancel={() => {
+            importGfxDlg.resolve(null);
+            setImportGfxDlg(null);
+          }}
           onOk={(items, opts) => {
-            setImportGraphicsOpen(false);
-            const brd = boardRef.current;
-            if (!brd || items.length === 0) return;
-
-            const placed = placeImportedItems(items, opts);
-            let next = brd;
-            const ids: string[] = [];
-            for (const s of placed.shapes) {
-              const r = addBoardShape(next, s);
-              next = r.board;
-              ids.push(r.id);
-            }
-            for (const t of placed.texts) {
-              const r = addBoardText(next, t);
-              next = r.board;
-              ids.push(r.id);
-            }
-
-            // `boardItemCount >= 2` (`drawing_tool.cpp:2087`): a group is only
-            // worth making for two items or more.
-            let selectIds = new Set(ids);
-            if (opts.group && ids.length >= 2) {
-              const g = groupBoardItems(next, new Set(ids));
-              if (g.id) {
-                next = g.board;
-                selectIds = new Set([g.id]);
-              }
-            }
-
-            commitBoard(next);
-            setSelectionRef.current(selectIds);
-            if (opts.interactive) beginMove(selectIds, 'move', { x: 0, y: 0 });
+            importGfxDlg.resolve({
+              items,
+              groupItems: opts.group,
+              interactive: opts.interactive,
+              fixDiscontinuities: opts.fixDiscontinuities,
+              // `m_tolerance.GetValue()`: the unit binder answers IU.
+              tolerance: pcbIUScale.mmToIU(opts.toleranceMM),
+            });
+            setImportGfxDlg(null);
           }}
         />
       )}
@@ -12787,80 +8428,7 @@ export function PcbEditor({
         />
       )}
 
-      {textDialog && (
-        <DialogTextProperties
-          initial={newTextValues(textDialog)}
-          units={unitLabel}
-          layers={board?.layers.map((l) => l.name) ?? []}
-          layerColor={layerColor}
-          onApply={commitPlacedText}
-          onClose={() => setTextDialog(null)}
-        />
-      )}
-
-      {/* `InvokeCopperZonesEditor( frame, nullptr, &zoneInfo )` from
-          `ZONE_CREATE_HELPER::createNewZone` — the SAME Copper Zone Properties
-          dialog that Properties opens on an existing zone, which is the whole
-          point: this frame used to put up a two-field box asking for a layer
-          and a net, so a zone drawn with the tool could not be given a
-          clearance, a pad connection or a fill mode until it had been drawn
-          and then edited. Cancelling vetoes `OnFirstPoint`. */}
-      {zoneDialog && board && (
-        <DialogCopperZones
-          units={unitLabel}
-          initial={zoneDialog.values}
-          nets={board.nets}
-          layers={copperLayerRows}
-          onApply={(values) => {
-            zoneRef.current = {
-              mode: 'zone',
-              layer: values.layers[0] ?? activeLayer,
-              values,
-            };
-            if (values.layers[0] && values.layers[0] !== activeLayer)
-              switchActiveLayer(values.layers[0]);
-            zoneMgr().addPoint(zoneDialog.at);
-            setZoneDialog(null);
-            requestDraw();
-          }}
-          onClose={() => {
-            setZoneDialog(null);
-            requestDraw();
-          }}
-        />
-      )}
-
-      {/* `InvokeRuleAreaEditor` from `ZONE_CREATE_HELPER::createNewZone`. OK is
-          `OnFirstPoint` returning true; Cancel vetoes it and the outline never
-          starts (zone_create_helper.cpp:273-301). */}
-      {ruleAreaDialog && board && (
-        <DialogRuleAreaProperties
-          units={unitLabel}
-          initial={newRuleAreaValues()}
-          layers={ruleAreaLayers}
-          sources={collectPlacementSources(board)}
-          onApply={(values) => {
-            // `GetUniqueZoneName` runs only when the name was actually edited,
-            // and a new area opens with none, so any name typed here is new.
-            const named =
-              values.name === '' ? values : { ...values, name: uniqueZoneName(board, values.name) };
-            zoneRef.current = {
-              mode: 'ruleArea',
-              layer: named.layers[0] ?? activeLayer,
-              values: named,
-            };
-            zoneMgr().addPoint(ruleAreaDialog);
-            setRuleAreaDialog(null);
-            requestDraw();
-          }}
-          onClose={() => {
-            setRuleAreaDialog(null);
-            requestDraw();
-          }}
-        />
-      )}
-
-      {pageDlgOpen && board && (
+      {pageDlg && board && (
         <DialogPageSettings
           // BOARD_EDITOR_CONTROL::PageSettings constructs the base class, not
           // eeschema's subclass (board_editor_control.cpp:530-532), so the
@@ -12879,21 +8447,26 @@ export function PcbEditor({
             comments: board.titleBlock?.comments ?? [],
           })}
           onOk={(next) => {
-            const brd = boardRef.current;
-            if (brd)
-              commitBoard(
-                setBoardPageSettings(brd, {
-                  paper: toPaperToken(next),
-                  title: next.title,
-                  date: next.date,
-                  rev: next.rev,
-                  company: next.company,
-                  comments: next.comments,
-                }),
-              );
-            setPageDlgOpen(false);
+            // DIALOG_PAGES_SETTINGS::TransferDataFromWindow: the page and the
+            // title block into the frame.
+            const frame = frameRef.current;
+            if (frame) {
+              frame.SetPageSettings(pageInfoOfPaper(toPaperToken(next), frame.GetPageSettings()));
+              const tb = new TITLE_BLOCK();
+              tb.SetTitle(next.title);
+              tb.SetDate(next.date);
+              tb.SetRevision(next.rev);
+              tb.SetCompany(next.company);
+              next.comments.forEach((c, i) => tb.SetComment(i, c));
+              frame.SetTitleBlock(tb);
+            }
+            pageDlg.resolve(frame !== null);
+            setPageDlg(null);
           }}
-          onCancel={() => setPageDlgOpen(false)}
+          onCancel={() => {
+            pageDlg.resolve(false);
+            setPageDlg(null);
+          }}
         />
       )}
       {printDlgOpen && board && (
@@ -12922,7 +8495,7 @@ export function PcbEditor({
       {/* Update PCB from Schematic: the netlist fetch, then DIALOG_UPDATE_PCB.
           A failed fetch shows the same message upstream puts in a
           DisplayErrorMessage box (a missing schematic, or one not annotated). */}
-      {pasteSpecialOpen && (
+      {pasteSpecialDlg && (
         <DialogPasteSpecial
           /* `PASTE_MODE mode = PASTE_MODE::KEEP_ANNOTATIONS` before the dialog
              is shown (pcb_control.cpp:1208), so pcbnew always opens on "keep"
@@ -12931,17 +8504,15 @@ export function PcbEditor({
           /* `const wxString defaultRef = wxT( "REF**" )` (:1211), which is the
              string the third row's tooltip names. */
           defaultRef="REF**"
+          showClearNets={pasteSpecialDlg.showClearNets}
           onOk={(chosen: PasteSpecialMode, clearNets: boolean) => {
-            setPasteSpecialOpen(false);
-            const mode: PasteMode =
-              chosen === 'UNIQUE_ANNOTATIONS'
-                ? 'unique_annotations'
-                : chosen === 'KEEP_ANNOTATIONS'
-                  ? 'keep_annotations'
-                  : 'remove_annotations';
-            void navigator.clipboard?.readText().then((text) => pasteText(text, mode, clearNets));
+            pasteSpecialDlg.resolve({ mode: chosen, clearNets });
+            setPasteSpecialDlg(null);
           }}
-          onCancel={() => setPasteSpecialOpen(false)}
+          onCancel={() => {
+            pasteSpecialDlg.resolve(null);
+            setPasteSpecialDlg(null);
+          }}
         />
       )}
       {aboutOpen && (
@@ -12983,17 +8554,60 @@ export function PcbEditor({
           onClose={() => setUpdatePcb(null)}
         />
       )}
-      {textPropsIndex !== null && board?.texts[textPropsIndex]?.k && frameRef.current && (
+      {zoneSettingsDlg &&
+        board &&
+        (() => {
+          const { dialog, resolve } = zoneSettingsDlg;
+          const done = (aOk: boolean): void => {
+            setZoneSettingsDlg(null);
+            resolve(aOk);
+          };
+          const transferred = (r: { ok: boolean; message?: string }): void => {
+            if (r.ok) done(true);
+            else if (r.message) DisplayErrorMessage(r.message);
+          };
+          if (dialog instanceof DIALOG_COPPER_ZONE)
+            return (
+              <DialogCopperZones
+                units={unitLabel}
+                initial={dialog.TransferDataToWindow()}
+                nets={board.nets}
+                layers={copperLayerRows}
+                onApply={(values, conv) => transferred(dialog.TransferDataFromWindow(values, conv))}
+                onClose={() => done(false)}
+              />
+            );
+          if (dialog instanceof DIALOG_RULE_AREA_PROPERTIES)
+            return (
+              <DialogRuleAreaProperties
+                units={unitLabel}
+                initial={dialog.TransferDataToWindow()}
+                layers={ruleAreaLayers}
+                sources={collectPlacementSources(board)}
+                onApply={(values, conv) => transferred(dialog.TransferDataFromWindow(values, conv))}
+                onClose={() => done(false)}
+              />
+            );
+          return (
+            <DialogNonCopperZonesProperties
+              dialog={dialog}
+              units={unitLabel}
+              layers={ruleAreaLayers.filter((l) => !/\.Cu$/.test(l.name))}
+              onResult={done}
+            />
+          );
+        })()}
+      {textPropsDlg && board && (
         <DialogTextProperties
-          initial={new DIALOG_TEXT_PROPERTIES(
-            frameRef.current!,
-            board.texts[textPropsIndex]!.k!,
-          ).TransferDataToWindow()}
+          initial={textPropsDlg.dialog.TransferDataToWindow()}
           units={unitLabel}
           layers={board.layers.map((l) => l.name)}
           layerColor={layerColor}
           onApply={applyTextEdit}
-          onClose={() => setTextPropsIndex(null)}
+          onClose={() => {
+            textPropsDlg.resolve?.(false);
+            setTextPropsDlg(null);
+          }}
         />
       )}
       {shapePropsIndex !== null && board?.shapes[shapePropsIndex]?.k && frameRef.current && (
@@ -13009,69 +8623,33 @@ export function PcbEditor({
           onClose={() => setShapePropsIndex(null)}
         />
       )}
-      {pendingTable && (
+      {tablePropsDlg && (
         <DialogTableProperties<TableValues>
-          initial={collectTableValues(pendingTable)}
+          initial={tablePropsDlg.dialog.TransferDataToWindow()}
           iuScale={pcbIUScale}
-          isNew
-          header={tableDialogHeader}
-          onCancel={() => setPendingTable(null)}
-          onOk={(values) => {
-            const brd = boardRef.current;
-            const tbl = pendingTable;
-            setPendingTable(null);
-            if (!brd || !tbl) return;
-            const { board: withTable, id } = addBoardTable(brd, tbl);
-            const index = parseBoardItemId(id)?.index ?? 0;
-            // One commit, so placing a table is a single undo step.
-            commitBoard(applyTableValues(withTable, index, values));
-          }}
-        />
-      )}
-      {pendingTextBox && (
-        <DialogTextBoxProperties
-          initial={collectTextBoxValues(pendingTextBox)}
-          units={unitLabel}
-          layers={board?.layers.map((l) => l.name) ?? []}
-          layerColor={layerColor}
-          onApply={(values) => {
-            const brd = boardRef.current;
-            const box = pendingTextBox;
-            setPendingTextBox(null);
-            if (!brd || !box) return;
-            const { board: withBox, id } = addBoardTextBox(brd, box);
-            const index = parseBoardItemId(id)?.index ?? 0;
-            // Apply what was typed to the box just added, then commit once so
-            // the placement is a single undo step.
-            commitBoard(applyTextBoxValues(withBox, index, values));
-          }}
-          onClose={() => setPendingTextBox(null)}
-        />
-      )}
-      {tablePropsIndex !== null && board?.tables[tablePropsIndex]?.k && frameRef.current && (
-        <DialogTableProperties<TableValues>
-          initial={new DIALOG_TABLE_PROPERTIES(
-            frameRef.current!,
-            board.tables[tablePropsIndex]!.k!,
-          ).TransferDataToWindow()}
-          iuScale={pcbIUScale}
-          columnWidths={board.tables[tablePropsIndex]!.columnWidths}
+          columnWidths={Array.from({ length: tablePropsDlg.table.GetColCount() }, (_, i) =>
+            tablePropsDlg.table.GetColWidth(i),
+          )}
+          isNew={tablePropsDlg.table.IsNew()}
           header={tableDialogHeader}
           onOk={applyTableEdit}
-          onCancel={() => setTablePropsIndex(null)}
+          onCancel={() => {
+            tablePropsDlg.resolve?.(false);
+            setTablePropsDlg(null);
+          }}
         />
       )}
-      {textBoxPropsIndex !== null && board?.textBoxes[textBoxPropsIndex]?.k && frameRef.current && (
+      {textBoxPropsDlg && board && (
         <DialogTextBoxProperties
-          initial={new DIALOG_TEXTBOX_PROPERTIES(
-            frameRef.current!,
-            board.textBoxes[textBoxPropsIndex]!.k!,
-          ).TransferDataToWindow()}
+          initial={textBoxPropsDlg.dialog.TransferDataToWindow()}
           units={unitLabel}
           layers={board.layers.map((l) => l.name)}
           layerColor={layerColor}
           onApply={applyTextBoxEdit}
-          onClose={() => setTextBoxPropsIndex(null)}
+          onClose={() => {
+            textBoxPropsDlg.resolve?.(false);
+            setTextBoxPropsDlg(null);
+          }}
         />
       )}
       {imagePropsIndex !== null && board?.images[imagePropsIndex]?.k && frameRef.current && (
@@ -13211,17 +8789,33 @@ export function PcbEditor({
             onClose={() => setZonePropsIndex(null)}
           />
         )}
+      {/* Edit_Zone_Params on a zone off copper: InvokeNonCopperZonesEditor
+          (edit_zone_helpers.cpp:59-63), on the live ZONE. */}
       {zonePropsIndex !== null &&
-        board?.zones[zonePropsIndex] &&
-        !board.zones[zonePropsIndex]!.k?.GetIsRuleArea() && (
+        board?.zones[zonePropsIndex]?.k &&
+        !board.zones[zonePropsIndex]!.k!.GetIsRuleArea() &&
+        !IsCopperLayer(board.zones[zonePropsIndex]!.k!.GetFirstLayer()) &&
+        frameRef.current && (
+          <DialogNonCopperZonesProperties
+            dialog={
+              new DIALOG_NON_COPPER_ZONES_EDITOR(frameRef.current, board.zones[zonePropsIndex]!.k!)
+            }
+            units={unitLabel}
+            layers={ruleAreaLayers.filter((l) => !/\.Cu$/.test(l.name))}
+            onResult={() => setZonePropsIndex(null)}
+          />
+        )}
+      {zonePropsIndex !== null &&
+        board?.zones[zonePropsIndex]?.k &&
+        !board.zones[zonePropsIndex]!.k!.GetIsRuleArea() &&
+        IsCopperLayer(board.zones[zonePropsIndex]!.k!.GetFirstLayer()) &&
+        frameRef.current && (
           <DialogCopperZones
             units={unitLabel}
-            initial={(() => {
-              const k = board.zones[zonePropsIndex]!.k;
-              return frameRef.current && k && IsCopperLayer(k.GetFirstLayer())
-                ? new DIALOG_COPPER_ZONE(frameRef.current, k).TransferDataToWindow()
-                : collectZoneValues(board.zones[zonePropsIndex]!);
-            })()}
+            initial={new DIALOG_COPPER_ZONE(
+              frameRef.current,
+              board.zones[zonePropsIndex]!.k!,
+            ).TransferDataToWindow()}
             nets={board.nets}
             layers={copperLayerRows}
             // "A zone still in creation … can't be edited by the Zone Manager";
@@ -13275,7 +8869,43 @@ export function PcbEditor({
           onClose={() => setArrayOpen(false)}
         />
       )}
-      {pnsSettingsOpen && <DialogPnsSettings onClose={() => setPnsSettingsOpen(false)} />}
+      {pnsSettingsReq && (
+        <DialogPnsSettings
+          onClose={() => {
+            pnsSettingsReq.resolve();
+            setPnsSettingsReq(null);
+          }}
+          settings={pnsSettingsReq.settings}
+        />
+      )}
+      {dpDimsReq && (
+        <DialogPnsDiffPairDimensions
+          value={dpDimsReq.value}
+          units={unitLabel}
+          onOk={(v) => {
+            dpDimsReq.resolve(v);
+            setDpDimsReq(null);
+          }}
+          onClose={() => {
+            dpDimsReq.resolve(null);
+            setDpDimsReq(null);
+          }}
+        />
+      )}
+      {trackViaSizeReq && (
+        <DialogTrackViaSize
+          value={trackViaSizeReq.value}
+          units={unitLabel}
+          onOk={(v) => {
+            trackViaSizeReq.resolve(v);
+            setTrackViaSizeReq(null);
+          }}
+          onClose={() => {
+            trackViaSizeReq.resolve(null);
+            setTrackViaSizeReq(null);
+          }}
+        />
+      )}
       {/* CONVERT_TOOL::OutsetItems' DIALOG_OUTSET_ITEMS, on the tool's
           persistent OUTSET_ROUTINE::PARAMETERS. */}
       {outsetDlg && board && (
@@ -13566,29 +9196,23 @@ export function PcbEditor({
           }}
         />
       )}
-      {netclassNets && board && (
+      {netclassDlg && (
         <DialogAssignNetclass
           frame="pcb"
-          netNames={netclassNets}
-          // BOARD::GetNetClassAssignmentCandidates: every non-empty net name.
-          candidateNetNames={[...new Set([...board.nets.values()].filter((n) => n !== ''))].sort()}
+          netNames={netclassDlg.names}
+          candidateNetNames={[...netclassDlg.candidates].sort()}
           netClasses={boardSetup.netClasses.classes
             .map((c) => c.name)
             .filter((n) => n !== 'Default')
             .sort()}
-          // The previewer: SelectAllItemsOnNet for each matching net.
-          onPreview={(names) => {
-            const brd = boardRef.current;
-            if (!brd) return;
-            const want = new Set(names);
-            const codes = new Set(
-              [...brd.nets.entries()].filter(([, n]) => want.has(n)).map(([c]) => c),
-            );
-            setSelectionRef.current(new Set(connectedItemIdsOnNets(brd, codes)));
+          // BOARD_EDITOR_CONTROL::AssignNetclass's previewer.
+          onPreview={(names) => netclassDlg.preview(names)}
+          onCancel={() => {
+            setNetclassDlg(null);
+            netclassDlg.resolve(false);
           }}
-          onCancel={() => setNetclassNets(null)}
           onOk={(pattern, netClass) => {
-            setNetclassNets(null);
+            setNetclassDlg(null);
             // SetNetclassPatternAssignment, then SynchronizeNetsAndNetClasses
             // (commitBoardSetup does the sync).
             commitBoardSetup({
@@ -13602,6 +9226,7 @@ export function PcbEditor({
                 ),
               },
             });
+            netclassDlg.resolve(true);
           }}
         />
       )}
@@ -13855,104 +9480,4 @@ export function PcbEditor({
       />
     </div>
   );
-}
-
-/** One-line label for a board item, the disambiguation menu row text
- *  (KiCad's EDA_ITEM::GetItemDescription). */
-function describeBoardItem(board: Board, id: string): string {
-  const r = parseBoardItemId(id);
-  if (!r) return id;
-  const net = (c: number): string => board.nets.get(c) || `net ${c}`;
-  switch (r.kind) {
-    case 'track': {
-      const t = board.tracks[r.index];
-      return t ? `Track ${t.layer} · ${net(t.net)}` : 'Track';
-    }
-    case 'arc': {
-      const a = board.arcs[r.index];
-      return a ? `Arc ${a.layer} · ${net(a.net)}` : 'Arc';
-    }
-    case 'via': {
-      const v = board.vias[r.index];
-      return v ? `Via · ${net(v.net)}` : 'Via';
-    }
-    case 'footprint': {
-      const f = board.footprints[r.index];
-      return f ? `Footprint ${f.reference || f.lib}` : 'Footprint';
-    }
-    case 'zone': {
-      // ZONE::GetItemDescription — net, layers *and* priority. Three pours of
-      // the same net stacked through a board are one menu row repeated three
-      // times without the last two.
-      const z = board.zones[r.index];
-      return z ? zoneItemDescription(board, z) : 'Zone';
-    }
-    case 'shape': {
-      const s = board.shapes[r.index];
-      return s ? `Graphic (${s.kind}) · ${s.layer}` : 'Graphic';
-    }
-    case 'text': {
-      const t = board.texts[r.index];
-      return t ? `Text "${t.text}"` : 'Text';
-    }
-    case 'fptext': {
-      const f = board.footprints[r.index];
-      const t = f?.texts[r.sub ?? 0];
-      if (!t) return 'Text';
-      const label = t.kind === 'reference' ? 'Reference' : t.kind === 'value' ? 'Value' : 'Text';
-      return `${label} "${t.text}"${f?.reference ? ` of ${f.reference}` : ''}`;
-    }
-    case 'pad': {
-      const f = board.footprints[r.index];
-      const p = f?.pads[r.sub ?? 0];
-      if (!p) return 'Pad';
-      return `Pad ${p.number}${f?.reference ? ` of ${f.reference}` : ''} · ${net(p.net ?? 0)}`;
-    }
-    case 'textbox': {
-      // PCB_TEXTBOX::GetItemDescription: "PCB text box '<text>' on <layer>",
-      // lowercase as upstream spells it.
-      const t = board.textBoxes[r.index];
-      return t ? `PCB text box '${t.text}' on ${t.layer}` : 'PCB text box';
-    }
-    case 'table': {
-      // PCB_TABLE::GetItemDescription: "%d column table", lowercase as
-      // upstream spells it.
-      const t = board.tables[r.index];
-      return t ? `${t.columnCount} column table` : 'table';
-    }
-    case 'image': {
-      // PCB_REFERENCE_IMAGE::GetItemDescription is the bare string, with no
-      // layer and no filename — there is nothing else it can usefully say.
-      return 'Reference Image';
-    }
-    case 'dimension': {
-      // PCB_DIMENSION_BASE::GetItemDescription: "Dimension '<text>' on <layer>".
-      // A centre dimension carries no text, so the quotes come out empty, which
-      // is what upstream does too.
-      const d = board.dimensions[r.index];
-      return d ? `Dimension '${d.text?.text ?? ''}' on ${d.layer}` : 'Dimension';
-    }
-    case 'point':
-      // `PCB_POINT::GetItemDescription` returns `_( "Point" )` and nothing
-      // else — no layer, no position. Two snap points on the same spot are
-      // therefore two identical rows in the disambiguation menu, which is what
-      // upstream shows.
-      return 'Point';
-    case 'barcode': {
-      const bc = board.barcodes[r.index];
-      // `PCB_BARCODE::GetItemDescription` (`pcb_barcode.cpp:633-636`):
-      // `_( "Barcode '%s' on %s" )` with `GetText()` — the raw text, variable
-      // references and all, not `GetShownText()`.
-      return bc ? `Barcode '${bc.text}' on ${bc.layer}` : 'Barcode';
-    }
-    case 'group': {
-      const g = board.groups[r.index];
-      // EDA_GROUP::GetItemDescription: 'Group "<name>" with N members' /
-      // "Anonymous Group with N members".
-      if (!g) return 'Group';
-      return g.name
-        ? `Group "${g.name}" with ${g.members.length} members`
-        : `Anonymous Group with ${g.members.length} members`;
-    }
-  }
 }

@@ -56,6 +56,22 @@ export class COMPONENT_NET {
   IsValid(): boolean {
     return this.pinName !== '';
   }
+
+  GetPinName(): string {
+    return this.pinName;
+  }
+
+  GetNetName(): string {
+    return this.netName;
+  }
+
+  GetPinFunction(): string {
+    return this.pinFunction;
+  }
+
+  GetPinType(): string {
+    return this.pinType;
+  }
 }
 
 /** The empty net a missing pad lookup returns (COMPONENT::m_emptyNet). */

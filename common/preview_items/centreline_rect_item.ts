@@ -19,7 +19,12 @@
 
 import { ANGLE_90 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { RotatePointD } from '@ziroeda/kimath/src/trigo.js';
-import { galPenWidth } from '../gal_pixel_grid.js';
+import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
+import type { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
+import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
+import type { VIEW } from '../view/view.js';
+import { SIMPLE_OVERLAY_ITEM } from './simple_overlay_item.js';
+import type { TWO_POINT_GEOMETRY_MANAGER } from './two_point_geom_manager.js';
 
 /** A world-space point. */
 export interface CentrelineRectPoint {
@@ -70,61 +75,46 @@ export function getRectangleAlongCentreLine(
   return out;
 }
 
-export interface CentrelineRectStyle {
-  /** `TWO_POINT_GEOMETRY_MANAGER::GetOrigin()`. */
-  origin: CentrelineRectPoint;
-  /** `GetEnd()`. */
-  end: CentrelineRectPoint;
-  /** `m_aspect`. */
-  aspect: number;
-  /** World -> device pixels, the canvas's own transform. */
-  toPx(p: CentrelineRectPoint): { x: number; y: number };
-  /** `SetStrokeColor`, as a CSS colour. */
-  strokeColor: string;
-  /** `SetFillColor`, as a CSS colour. */
-  fillColor: string;
-  /**
-   * `SetLineWidth`, in device pixels: `gal.SetLineWidth( m_lineWidth )` is a
-   * world width, so the caller has already applied the view scale.
-   */
-  linePx: number;
-}
-
 /**
- * `CENTRELINE_RECT_ITEM::drawPreviewShape`. The context is left with its
- * transform and pen as it was found.
+ * `KIGFX::PREVIEW::CENTRELINE_RECT_ITEM`: a rectangle along the line a
+ * TWO_POINT_GEOMETRY_MANAGER describes, `aAspect` as wide as it is long, drawn
+ * with its centre line.
  */
-export function drawCentrelineRectItem(
-  ctx: CanvasRenderingContext2D,
-  s: CentrelineRectStyle,
-): void {
-  const outline = getRectangleAlongCentreLine(s.origin, s.end, s.aspect);
+export class CENTRELINE_RECT_ITEM extends SIMPLE_OVERLAY_ITEM {
+  constructor(
+    private readonly m_geomMgr: TWO_POINT_GEOMETRY_MANAGER,
+    private readonly m_aspect: number,
+  ) {
+    super();
+  }
 
-  ctx.save();
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.lineWidth = galPenWidth(s.linePx);
-  ctx.strokeStyle = s.strokeColor;
-  ctx.fillStyle = s.fillColor;
+  override GetClass(): string {
+    return 'CENTRELINE_RECT_ITEM';
+  }
 
-  // gal.DrawLine( origin, end )
-  const a = s.toPx(s.origin);
-  const b = s.toPx(s.end);
-  ctx.beginPath();
-  ctx.moveTo(a.x, a.y);
-  ctx.lineTo(b.x, b.y);
-  ctx.stroke();
+  private getOutline(): SHAPE_POLY_SET {
+    const poly = new SHAPE_POLY_SET();
+    poly.NewOutline();
 
-  // gal.DrawPolygon( outline ): filled and stroked, `SetIsStroke( true )` and
-  // `SetIsFill( true )` both being on.
-  ctx.beginPath();
-  outline.forEach((p, i) => {
-    const d = s.toPx(p);
-    if (i === 0) ctx.moveTo(d.x, d.y);
-    else ctx.lineTo(d.x, d.y);
-  });
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
+    // `Append( VECTOR2D )` goes through VECTOR2I's casting ctor, which KiROUNDs.
+    for (const p of getRectangleAlongCentreLine(
+      this.m_geomMgr.GetOrigin(),
+      this.m_geomMgr.GetEnd(),
+      this.m_aspect,
+    ))
+      poly.Append({ x: KiROUND(p.x), y: KiROUND(p.y) });
 
-  ctx.restore();
+    return poly;
+  }
+
+  override ViewBBox(): BOX2I {
+    return this.getOutline().BBox();
+  }
+
+  protected override drawPreviewShape(aView: VIEW): void {
+    const gal = aView.GetGAL()!;
+
+    gal.DrawLine(this.m_geomMgr.GetOrigin(), this.m_geomMgr.GetEnd());
+    gal.DrawPolygon(this.getOutline());
+  }
 }

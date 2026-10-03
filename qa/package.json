@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@ziroeda/3d-viewer": "workspace:*",
+    "@ziroeda/ai": "workspace:*",
     "@ziroeda/bitmap2component": "workspace:*",
     "@ziroeda/bitmaps_png": "workspace:*",
     "@ziroeda/common": "workspace:*",

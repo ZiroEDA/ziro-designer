@@ -17,13 +17,15 @@
  * lets `findDpPrimitivePair` say `pair.primP()` is always on P.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/index.js';
-import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { PNS_KICAD_IFACE } from '@ziroeda/pcbnew/router/pns_kicad_iface.js';
+import type { BOARD } from '@ziroeda/pcbnew/board.js';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import {
+  PNS_KICAD_IFACE,
+  PNS_PCBNEW_RULE_RESOLVER,
+} from '@ziroeda/pcbnew/router/pns_kicad_iface.js';
 import { PnsSession } from '@ziroeda/pcbnew/router/router_tool.js';
 import { PnsRouterMode } from '@ziroeda/pcbnew/router/pns_router.js';
 import { PnsSegment } from '@ziroeda/pcbnew/router/pns_segment.js';
-import type { Board } from '@ziroeda/pcbnew/types.js';
 
 const MM = 1_000_000;
 
@@ -40,19 +42,24 @@ const DP_BOARD = `(kicad_pcb (version 20240108) (generator "t")
     (pad "2" smd rect (at 0 1) (size 1 1) (layers "F.Cu") (net 2 "/CLK_N")))
 )`;
 
-const board = (): Board => readBoard(parse(DP_BOARD));
+const board = (): BOARD => ParseBoard(DP_BOARD);
+
+/** `BOARD::DpCoupledNet` and the resolver's diff-pair answers live on PNS_PCBNEW_RULE_RESOLVER. */
+function resolverOn(aBoard: BOARD): PNS_PCBNEW_RULE_RESOLVER {
+  return new PNS_PCBNEW_RULE_RESOLVER(aBoard, new PNS_KICAD_IFACE(aBoard));
+}
 
 /** A segment on `aNet`, which is all `dpNetPair` reads off an item. */
-function itemOnNet(iface: PNS_KICAD_IFACE, aNetCode: number): PnsSegment {
-  const seg = new PnsSegment({ a: { x: 0, y: 0 }, b: { x: MM, y: 0 } }, iface.netHandle(aNetCode));
+function itemOnNet(aBoard: BOARD, aNetCode: number): PnsSegment {
+  const seg = new PnsSegment({ a: { x: 0, y: 0 }, b: { x: MM, y: 0 } }, aBoard.FindNet(aNetCode));
   seg.setLayer(0);
   return seg;
 }
 
 describe('dpCoupledNet', () => {
-  const iface = new PNS_KICAD_IFACE(board());
-  const nameOf = (code: number): string =>
-    iface.getNetName(iface.dpCoupledNet(iface.netHandle(code)));
+  const b = board();
+  const iface = resolverOn(b);
+  const nameOf = (code: number): string => iface.netName(iface.dpCoupledNet(b.FindNet(code)));
 
   it('pairs P with N and N with P', () => {
     expect(nameOf(1)).toBe('/CLK_N');
@@ -61,7 +68,7 @@ describe('dpCoupledNet', () => {
 
   it('answers nothing for a net that is not half of a pair', () => {
     // Net 0 is the unconnected net; its name is empty.
-    expect(iface.dpCoupledNet(iface.netHandle(0))).toBeNull();
+    expect(iface.dpCoupledNet(b.FindNet(0))).toBeNull();
   });
 
   it('answers nothing for a NAMED net with no polarity', () => {
@@ -70,38 +77,39 @@ describe('dpCoupledNet', () => {
     // an EMPTY complement, and an empty name is a net that exists — net 0 —
     // so dropping the polarity check pairs every ordinary net with the
     // unconnected one.
-    expect(iface.dpCoupledNet(iface.netHandle(4))).toBeNull();
+    expect(iface.dpCoupledNet(b.FindNet(4))).toBeNull();
   });
 
   it('answers nothing when the complement is not on the board', () => {
     // `/LONE_P` has the right suffix and no `/LONE_N` anywhere, and
     // `BOARD::FindNet` returning null is what makes it not a pair.
-    expect(iface.dpCoupledNet(iface.netHandle(3))).toBeNull();
+    expect(iface.dpCoupledNet(b.FindNet(3))).toBeNull();
   });
 });
 
 describe('dpNetPair', () => {
-  const iface = new PNS_KICAD_IFACE(board());
+  const b = board();
+  const iface = resolverOn(b);
 
   it('orients the pair so netP is the positive half, whichever half is held', () => {
     // `else { netNameN = netNameP; netNameP = netNameCoupled; }` — the r == -1
     // arm, which swaps.
     for (const held of [1, 2]) {
-      const pair = iface.dpNetPair(itemOnNet(iface, held));
+      const pair = iface.dpNetPair(itemOnNet(b, held));
 
       expect(pair, `held net ${held}`).not.toBeNull();
-      expect(iface.getNetName(pair!.netP)).toBe('/CLK_P');
-      expect(iface.getNetName(pair!.netN)).toBe('/CLK_N');
+      expect(iface.netName(pair!.netP)).toBe('/CLK_P');
+      expect(iface.netName(pair!.netN)).toBe('/CLK_N');
     }
   });
 
   it('is null for an item on a net with no polarity', () => {
-    expect(iface.dpNetPair(itemOnNet(iface, 0))).toBeNull();
+    expect(iface.dpNetPair(itemOnNet(b, 0))).toBeNull();
   });
 
   it('is null when only one half of the pair exists', () => {
     // `if( !netInfoP || !netInfoN ) return false`.
-    expect(iface.dpNetPair(itemOnNet(iface, 3))).toBeNull();
+    expect(iface.dpNetPair(itemOnNet(b, 3))).toBeNull();
   });
 
   it('is null for an item with no net at all', () => {
@@ -111,13 +119,14 @@ describe('dpNetPair', () => {
 });
 
 describe('dpNetPolarity', () => {
-  const iface = new PNS_KICAD_IFACE(board());
+  const b = board();
+  const iface = resolverOn(b);
 
   it('is MatchDpSuffix’s own +1 / -1 / 0', () => {
-    expect(iface.dpNetPolarity(iface.netHandle(1))).toBe(1);
-    expect(iface.dpNetPolarity(iface.netHandle(2))).toBe(-1);
-    expect(iface.dpNetPolarity(iface.netHandle(0))).toBe(0);
-    expect(iface.dpNetPolarity(iface.netHandle(4))).toBe(0);
+    expect(iface.dpNetPolarity(b.FindNet(1))).toBe(1);
+    expect(iface.dpNetPolarity(b.FindNet(2))).toBe(-1);
+    expect(iface.dpNetPolarity(b.FindNet(0))).toBe(0);
+    expect(iface.dpNetPolarity(b.FindNet(4))).toBe(0);
   });
 });
 

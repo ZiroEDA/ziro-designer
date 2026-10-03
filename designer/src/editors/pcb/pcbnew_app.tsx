@@ -8,6 +8,9 @@
  * `pcbnew` never imports `designer`; this is the one file that wires its
  * interface back to what designer actually has.
  */
+import { registerAiBridge } from '@ziroeda/ai';
+import { pcbBridge } from '@ziroeda/ai/pcb_bridge.js';
+import type { PcbScriptApi } from '@ziroeda/pcbnew/pcb_script_api.js';
 import { type ComponentProps, useMemo } from 'react';
 import type { PCBNEW_APP } from '@ziroeda/pcbnew/browser/pcbnew_app.js';
 import { PcbEditor } from '@ziroeda/pcbnew/pcb_edit_frame_ui.js';
@@ -17,7 +20,7 @@ import { SaveAsDialog } from '../../fs/SaveAsDialog.js';
 import { FootprintChooserFrame } from './dialogs/footprint_chooser_frame.js';
 import { Viewer3DFrame, type Viewer3DFrameProps } from './Viewer3DFrame.js';
 import { FootprintModelPreview3D } from './widgets/footprint_model_preview_3d.js';
-import { commonSettingsOf, windowSettingsOf } from '../../pgm_app.js';
+import { commonSettingsOf, storeCommonDoNotShowAgain, windowSettingsOf } from '../../pgm_app.js';
 import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
 import { EMPTY_PCB } from '../../home/new_project.js';
 import { settings } from '../../prefs/settings.js';
@@ -64,6 +67,7 @@ export function usePcbnewApp(): PCBNEW_APP {
       updateCommonSettings: (mutate) => settings.updateCommon(mutate),
       commonInputImmediateActionsLive: () => settings.common.input.immediate_actions,
       commonSettingsOf,
+      storeCommonDoNotShowAgain,
       windowSettingsOf,
       installPgm: () => void installPgm(),
       reloadUserColorSettings,
@@ -89,7 +93,10 @@ export function usePcbnewApp(): PCBNEW_APP {
  * run while this is mounted, as `PcbEditor`'s own settings subscriptions did
  * before the move.
  */
+/** The AI pane drives the board editor while its frame exists. */
+const registerAiScriptApi = (api: PcbScriptApi) => registerAiBridge(pcbBridge(api));
+
 export function PcbEditorMount(props: Omit<ComponentProps<typeof PcbEditor>, 'app'>): JSX.Element {
   const app = usePcbnewApp();
-  return <PcbEditor app={app} {...props} />;
+  return <PcbEditor app={app} registerScriptApi={registerAiScriptApi} {...props} />;
 }

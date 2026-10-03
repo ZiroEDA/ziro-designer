@@ -1,0 +1,294 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 ZiroEDA and contributors.
+// Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+/**
+ * The PCB_EDIT_FRAME half of PCB_CONTROL's display modes: the ratsnest
+ * toggles (pcb_control.cpp:239-261, 443-470) go through
+ * PCB_EDIT_FRAME::SetElementVisibility (pcb_edit_frame.cpp:2024-2033) and
+ * OnDisplayOptionsChanged (:2012-2015), which tells the Appearance panel; the
+ * contrast cycle's feedback is the frame's HOTKEY_CYCLE_POPUP; and
+ * PCB_BASE_FRAME::SetDisplayOptions (pcb_base_frame.cpp:1067-1097) recaches
+ * only for the zone mode and the board flip.
+ */
+import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { ACTIONS } from '@ziroeda/common/tool/actions.js';
+import { GAL_LAYER_ID, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { PgmOrNull } from '@ziroeda/common/pgm_base.js';
+import {
+  HIGH_CONTRAST_MODE,
+  LAYER_PAIR,
+  LAYER_PAIR_INFO,
+  RATSNEST_MODE,
+  ZONE_DISPLAY_MODE,
+} from '@ziroeda/common/project/board_project_settings.js';
+import { installPgm } from '@ziroeda/designer/src/editors/pcb/pcb_canvas.js';
+import { BOARD } from '@ziroeda/pcbnew/board.js';
+import { PCB_EDIT_FRAME, type PCB_EDIT_FRAME_HOOKS } from '@ziroeda/pcbnew/pcb_edit_frame.js';
+import type { PCB_DRAW_PANEL_GAL } from '@ziroeda/pcbnew/pcb_draw_panel_gal.js';
+import { PCB_DISPLAY_OPTIONS } from '@ziroeda/pcbnew/pcb_painter.js';
+import { PCBNEW_SETTINGS } from '@ziroeda/pcbnew/pcbnew_settings.js';
+import { PCB_ACTIONS } from '@ziroeda/pcbnew/tools/pcb_actions.js';
+import { BOARD_COMMIT } from '@ziroeda/pcbnew/board_commit.js';
+import { PCB_SHAPE } from '@ziroeda/pcbnew/pcb_shape.js';
+
+beforeAll(() => {
+  installPgm();
+});
+
+function frame() {
+  const settings = new PCBNEW_SETTINGS();
+  let appearanceUpdates = 0;
+  const hooks = {
+    settings: () => settings,
+    onModify: () => {},
+    updateDisplayOptions: () => {
+      appearanceUpdates++;
+    },
+  } as unknown as PCB_EDIT_FRAME_HOOKS;
+  const f = new PCB_EDIT_FRAME(hooks);
+  f.SetBoard(new BOARD());
+  return { f, settings, appearanceUpdates: () => appearanceUpdates };
+}
+
+describe('PCB_CONTROL ratsnest modes on the board editor', () => {
+  it('Show Ratsnest flips the global ratsnest, on the board and in the panel', () => {
+    const { f, settings, appearanceUpdates } = frame();
+    expect(settings.m_Display.m_ShowGlobalRatsnest).toBe(true);
+
+    f.GetToolManager()!.RunAction(PCB_ACTIONS.showRatsnest);
+
+    expect(settings.m_Display.m_ShowGlobalRatsnest).toBe(false);
+    expect(f.GetBoard()!.IsElementVisible(GAL_LAYER_ID.LAYER_RATSNEST)).toBe(false);
+    expect(appearanceUpdates()).toBe(1);
+  });
+
+  it('Curved Ratsnest Lines flips the curve and tells the panel', () => {
+    const { f, settings, appearanceUpdates } = frame();
+    expect(settings.m_Display.m_DisplayRatsnestLinesCurved).toBe(false);
+
+    f.GetToolManager()!.RunAction(PCB_ACTIONS.ratsnestLineMode);
+
+    expect(settings.m_Display.m_DisplayRatsnestLinesCurved).toBe(true);
+    // The global flag is untouched by the line mode.
+    expect(settings.m_Display.m_ShowGlobalRatsnest).toBe(true);
+    expect(appearanceUpdates()).toBe(1);
+  });
+
+  it('the ratsnest mode cycles all layers, visible layers, none', () => {
+    const { f, settings } = frame();
+    const seen: string[] = [];
+    const state = (): string =>
+      !settings.m_Display.m_ShowGlobalRatsnest
+        ? 'off'
+        : settings.m_Display.m_RatsnestMode === RATSNEST_MODE.ALL
+          ? 'all'
+          : 'visible';
+
+    settings.m_Display.m_ShowGlobalRatsnest = true;
+    settings.m_Display.m_RatsnestMode = RATSNEST_MODE.ALL;
+
+    for (let i = 0; i < 3; i++) {
+      f.GetToolManager()!.RunAction(PCB_ACTIONS.ratsnestModeCycle);
+      seen.push(state());
+    }
+
+    expect(seen).toEqual(['visible', 'off', 'all']);
+    expect(f.GetBoard()!.IsElementVisible(GAL_LAYER_ID.LAYER_RATSNEST)).toBe(true);
+  });
+
+  it('SetElementVisibility keeps the ratsnest VIEW layer on and the board flag as given', () => {
+    const { f } = frame();
+    const visible = new Map<number, boolean>();
+    f.SetCanvas({
+      GetView: () => ({
+        SetLayerVisible: (aLayer: number, aOn: boolean) => visible.set(aLayer, aOn),
+      }),
+    } as unknown as PCB_DRAW_PANEL_GAL);
+
+    f.SetElementVisibility(GAL_LAYER_ID.LAYER_RATSNEST, false);
+    f.SetElementVisibility(GAL_LAYER_ID.LAYER_VIAS, false);
+
+    expect(visible.get(GAL_LAYER_ID.LAYER_RATSNEST)).toBe(true);
+    expect(visible.get(GAL_LAYER_ID.LAYER_VIAS)).toBe(false);
+    expect(f.GetBoard()!.IsElementVisible(GAL_LAYER_ID.LAYER_RATSNEST)).toBe(false);
+    f.SetCanvas(null);
+  });
+});
+
+describe('the contrast feedback', () => {
+  it('pops the frame popup with the three modes, at the new one', () => {
+    const { f } = frame();
+    const popups: [string, readonly string[], number][] = [];
+    f.SetHotkeyPopup({ Popup: (t, items, sel) => popups.push([t, items, sel]) });
+    const common = PgmOrNull()!.GetCommonSettings()!;
+    const was = common.m_Input.hotkey_feedback;
+    common.m_Input.hotkey_feedback = true;
+
+    // The cycle posts ContrastModeChangedByKeyEvent; the manager processes
+    // the posted queue before RunAction returns.
+    f.GetToolManager()!.RunAction(ACTIONS.highContrastModeCycle);
+
+    common.m_Input.hotkey_feedback = was;
+
+    expect(f.GetDisplayOptions().m_ContrastModeDisplay).toBe(HIGH_CONTRAST_MODE.DIMMED);
+    expect(popups).toEqual([['Inactive Layer Display', ['Normal', 'Dimmed', 'Hidden'], 1]]);
+  });
+});
+
+describe('the layer pair presets (pcb_control.cpp:680-754)', () => {
+  it('cycle through the enabled pairs and pop them by the board layer names', () => {
+    const { f } = frame();
+    const board = f.GetBoard()!;
+    board.SetCopperLayerCount(4);
+    board.SetLayerName(PCB_LAYER_ID.F_Cu, 'Top');
+    const settings = f.GetLayerPairSettings();
+    settings.SetLayerPairs([
+      new LAYER_PAIR_INFO(new LAYER_PAIR(PCB_LAYER_ID.F_Cu, PCB_LAYER_ID.B_Cu), true, 'Outer'),
+      new LAYER_PAIR_INFO(
+        new LAYER_PAIR(PCB_LAYER_ID.In1_Cu, PCB_LAYER_ID.In2_Cu),
+        true,
+        undefined,
+      ),
+    ]);
+    const popups: [string, readonly string[], number][] = [];
+    f.SetHotkeyPopup({ Popup: (t, items, sel) => popups.push([t, items, sel]) });
+    const common = PgmOrNull()!.GetCommonSettings()!;
+    const was = common.m_Input.hotkey_feedback;
+    common.m_Input.hotkey_feedback = true;
+
+    f.GetToolManager()!.RunAction(PCB_ACTIONS.layerPairPresetsCycle);
+    const first = settings.GetCurrentLayerPair();
+    f.GetToolManager()!.RunAction(PCB_ACTIONS.layerPairPresetsCycle);
+    const second = settings.GetCurrentLayerPair();
+
+    common.m_Input.hotkey_feedback = was;
+
+    expect([first.GetLayerA(), first.GetLayerB()]).toEqual([
+      PCB_LAYER_ID.In1_Cu,
+      PCB_LAYER_ID.In2_Cu,
+    ]);
+    expect([second.GetLayerA(), second.GetLayerB()]).toEqual([
+      PCB_LAYER_ID.F_Cu,
+      PCB_LAYER_ID.B_Cu,
+    ]);
+    const labels = ['Top / B.Cu (Outer)', 'In1.Cu / In2.Cu'];
+    expect(popups).toEqual([
+      ['Preset Layer Pairs', labels, 1],
+      ['Preset Layer Pairs', labels, 0],
+    ]);
+  });
+
+  it('do nothing with fewer than two enabled pairs', () => {
+    const { f } = frame();
+    const settings = f.GetLayerPairSettings();
+    settings.SetLayerPairs([
+      new LAYER_PAIR_INFO(new LAYER_PAIR(PCB_LAYER_ID.F_Cu, PCB_LAYER_ID.B_Cu), true, undefined),
+    ]);
+    const popups: unknown[] = [];
+    f.SetHotkeyPopup({ Popup: (...a) => popups.push(a) });
+    const common = PgmOrNull()!.GetCommonSettings()!;
+    const was = common.m_Input.hotkey_feedback;
+    common.m_Input.hotkey_feedback = true;
+
+    f.GetToolManager()!.RunAction(PCB_ACTIONS.layerPairPresetsCycle);
+
+    common.m_Input.hotkey_feedback = was;
+    // Nothing changed, so nothing is announced either.
+    expect(popups).toEqual([]);
+
+    const pair = settings.GetCurrentLayerPair();
+    expect([pair.GetLayerA(), pair.GetLayerB()]).toEqual([PCB_LAYER_ID.F_Cu, PCB_LAYER_ID.B_Cu]);
+  });
+});
+
+describe('PCB_CONTROL undo, redo and snapping (pcb_control.cpp:2311-2375)', () => {
+  it('Undo and Redo run the frame lists', () => {
+    const { f } = frame();
+    const shape = new PCB_SHAPE(f.GetBoard());
+    shape.SetLayer(PCB_LAYER_ID.F_SilkS);
+    const commit = new BOARD_COMMIT(f);
+    commit.Add(shape);
+    commit.Push('add');
+    expect(f.GetBoard()!.Drawings()).toContain(shape);
+
+    f.GetToolManager()!.RunAction(ACTIONS.undo);
+    expect(f.GetBoard()!.Drawings()).not.toContain(shape);
+    expect(f.GetRedoCommandCount()).toBe(1);
+
+    f.GetToolManager()!.RunAction(ACTIONS.redo);
+    expect(f.GetBoard()!.Drawings()).toContain(shape);
+    expect(f.GetUndoCommandCount()).toBe(1);
+  });
+
+  it('the snap actions set, set and flip all-layers snapping, and pop the mode', () => {
+    const { f, settings } = frame();
+    const popups: [string, readonly string[], number][] = [];
+    f.SetHotkeyPopup({ Popup: (t, items, sel) => popups.push([t, items, sel]) });
+    const common = PgmOrNull()!.GetCommonSettings()!;
+    const was = common.m_Input.hotkey_feedback;
+    common.m_Input.hotkey_feedback = true;
+    const mgr = f.GetToolManager()!;
+    const seen: boolean[] = [];
+
+    mgr.RunAction(PCB_ACTIONS.magneticSnapAllLayers);
+    seen.push(settings.m_MagneticItems.allLayers);
+    mgr.RunAction(PCB_ACTIONS.magneticSnapActiveLayer);
+    seen.push(settings.m_MagneticItems.allLayers);
+    mgr.RunAction(PCB_ACTIONS.magneticSnapToggle);
+    seen.push(settings.m_MagneticItems.allLayers);
+
+    common.m_Input.hotkey_feedback = was;
+
+    expect(seen).toEqual([true, false, true]);
+    const labels = ['Active Layer', 'All Layers'];
+    expect(popups).toEqual([
+      ['Object Snapping', labels, 1],
+      ['Object Snapping', labels, 0],
+      ['Object Snapping', labels, 1],
+    ]);
+  });
+});
+
+describe('PCB_BASE_FRAME::SetDisplayOptions', () => {
+  it('recaches only when the zone mode or the flip changes', () => {
+    const { f } = frame();
+    const recache = vi.fn();
+    // The active layer is the screen's, which a frame without a window has not got.
+    vi.spyOn(f, 'GetActiveLayer').mockReturnValue(PCB_LAYER_ID.F_Cu);
+    f.SetCanvas({
+      GetView: () => ({
+        UpdateDisplayOptions: () => {},
+        SetMirror: () => {},
+        IsMirroredY: () => false,
+        RecacheAllItems: recache,
+      }),
+      SetHighContrastLayer: () => {},
+      Refresh: () => {},
+    } as unknown as PCB_DRAW_PANEL_GAL);
+
+    const next = (aEdit: (o: PCB_DISPLAY_OPTIONS) => void): void => {
+      const o = Object.assign(new PCB_DISPLAY_OPTIONS(), f.GetDisplayOptions());
+      aEdit(o);
+      f.SetDisplayOptions(o);
+    };
+
+    next((o) => {
+      o.m_ContrastModeDisplay = HIGH_CONTRAST_MODE.DIMMED;
+    });
+    next((o) => {
+      o.m_TrackOpacity = 0.5;
+    });
+    expect(recache).not.toHaveBeenCalled();
+
+    next((o) => {
+      o.m_ZoneDisplayMode = ZONE_DISPLAY_MODE.SHOW_ZONE_OUTLINE;
+    });
+    expect(recache).toHaveBeenCalledTimes(1);
+
+    next((o) => {
+      o.m_FlipBoardView = true;
+    });
+    expect(recache).toHaveBeenCalledTimes(2);
+    f.SetCanvas(null);
+  });
+});

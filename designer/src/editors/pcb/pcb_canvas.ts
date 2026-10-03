@@ -17,7 +17,8 @@
 
 import { commonSettingsOf, InitPgm } from '../../pgm_app.js';
 import { PGM_BASE, PgmOrNull } from '@ziroeda/common/pgm_base.js';
-import { pcbnewSettingsOf } from '@ziroeda/pcbnew/pcb_edit_frame.js';
+import { loadPcbnewSettings, pcbnewSettingsOf } from '@ziroeda/pcbnew/pcb_edit_frame.js';
+import type { PCBNEW_SETTINGS } from '@ziroeda/pcbnew/pcbnew_settings.js';
 import { settings } from '../../prefs/settings.js';
 
 /**
@@ -34,8 +35,14 @@ export function installPgm(): PGM_BASE {
   const pgm = InitPgm();
   pgm.SetCommonSettings(commonSettingsOf());
 
-  // `Kiface().KifaceSettings()` for pcbnew: the PCBNEW_SETTINGS the painter reads
-  pgm.GetSettingsManager().RegisterSettings('pcbnew', pcbnewSettingsOf(settings.pcbnew));
+  // `Kiface().KifaceSettings()` for pcbnew: ONE PCBNEW_SETTINGS for the life of
+  // the program, which the frame, the tools and the painter all read and the
+  // tools write. A later call reloads it in place (`JSON_SETTINGS::Load`).
+  const mgr = pgm.GetSettingsManager();
+  const existing = mgr.GetAppSettings<PCBNEW_SETTINGS>('pcbnew');
+
+  if (existing) loadPcbnewSettings(existing, settings.pcbnew);
+  else mgr.RegisterSettings('pcbnew', pcbnewSettingsOf(settings.pcbnew));
 
   return pgm;
 }

@@ -28,6 +28,7 @@
  *   padstack slot, not by board layer, and a normal via keeps everything under
  *   slot 0 — including the answer to `shape(-1)`.
  */
+import { UNCONNECTED_LAYER_MODE } from '@ziroeda/pcbnew/padstack.js';
 import { describe, expect, it } from 'vitest';
 import { LineMarker, PnsKind } from '@ziroeda/pcbnew/router/pns_item.js';
 import { PnsLayerRange } from '@ziroeda/pcbnew/router/pns_layerset.js';
@@ -331,7 +332,7 @@ describe('PnsVia geometry', () => {
     const v = through();
     expect(v.connectsLayer(17)).toBe(true);
 
-    v.setUnconnectedLayerMode('start_end_only');
+    v.setUnconnectedLayerMode(UNCONNECTED_LAYER_MODE.START_END_ONLY);
     expect(v.connectsLayer(17)).toBe(false);
     expect(v.connectsLayer(0)).toBe(true);
     expect(v.connectsLayer(31)).toBe(true);

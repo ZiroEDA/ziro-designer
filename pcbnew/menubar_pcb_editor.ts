@@ -458,15 +458,40 @@ export function buildPcbMenus(
               action: () => h.toggle('zoneDisplayOutline'),
             },
             { sep: true },
-            // The sketch modes are `pcbnew.pcb_display.*`, which Preferences >
-            // PCB Editor > Display Options already reads; they have no toggle
-            // path from a menu row yet.
-            { label: 'Sketch Pads', disabled: dis },
-            { label: 'Sketch Vias', disabled: dis },
-            { label: 'Sketch Tracks', disabled: dis },
+            // `menubar_pcb_editor.cpp:258-264`: the pads, graphics and text are
+            // PCB_VIEWER_TOOLS', vias and tracks PCB_CONTROL's; each is checked
+            // off `!cond.*FillDisplay()`.
+            {
+              label: 'Sketch Pads',
+              icon: 'padDisplayMode',
+              checked: !!checks.padDisplayMode,
+              action: () => h.toggle('padDisplayMode'),
+            },
+            {
+              label: 'Sketch Vias',
+              icon: 'viaDisplayMode',
+              checked: !!checks.viaDisplayMode,
+              action: () => h.toggle('viaDisplayMode'),
+            },
+            {
+              label: 'Sketch Tracks',
+              icon: 'trackDisplayMode',
+              checked: !!checks.trackDisplayMode,
+              action: () => h.toggle('trackDisplayMode'),
+            },
             { sep: true },
-            { label: 'Sketch Graphic Items', disabled: dis },
-            { label: 'Sketch Text Items', disabled: dis },
+            {
+              label: 'Sketch Graphic Items',
+              icon: 'graphicsOutlines',
+              checked: !!checks.graphicsOutlines,
+              action: () => h.toggle('graphicsOutlines'),
+            },
+            {
+              label: 'Sketch Text Items',
+              icon: 'textOutlines',
+              checked: !!checks.textOutlines,
+              action: () => h.toggle('textOutlines'),
+            },
           ],
         },
         {
