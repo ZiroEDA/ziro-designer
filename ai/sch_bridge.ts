@@ -40,6 +40,14 @@ import { pinBodyEnd } from '@ziroeda/eeschema/symbol_editor/symbol_renderer.js';
 import { localToWorld, symbolTransform } from '@ziroeda/kimath/src/transform.js';
 import type { AiBridge, ApplyResult, ToolOutput } from './ai_bridge.js';
 import { itemName, overlaps, partSize, strays } from './sch_layout.js';
+import {
+  sheetFileAndSheets,
+  type HierOp,
+  parseHierLine,
+  readHierarchy,
+  runHierOps,
+  sheetPathName,
+} from './sch_hierarchy.js';
 
 const IU_PER_MM = 10000;
 /** KiCad's default schematic grid, 50 mil. */
@@ -211,10 +219,11 @@ function withFields(s: SchSymbol, set: Record<string, string | undefined>): SchS
   return { ...s, fields };
 }
 
-function nextRef(doc: Schematic, prefix: string): string {
+function nextRef(doc: Schematic, prefix: string, others: ReadonlySet<string> = new Set()): string {
   let max = 0;
-  for (const s of doc.symbols) {
-    const m = new RegExp(`^${prefix.replace(/[#+]/g, '\\$&')}(\\d+)$`).exec(reference(s));
+  const re = new RegExp(`^${prefix.replace(/[#+]/g, '\\$&')}(\\d+)$`);
+  for (const ref of [...doc.symbols.map(reference), ...others]) {
+    const m = re.exec(ref);
     if (m) max = Math.max(max, Number(m[1]));
   }
   return `${prefix}${max + 1}`;
@@ -506,7 +515,12 @@ export function joinQuotedLines(text: string): string[] {
   return out;
 }
 
-export async function applyZsch(api: SchScriptApi, text: string): Promise<ApplyResult> {
+export async function applyZsch(
+  api: SchScriptApi,
+  text: string,
+  /** References used on the other sheets: a `R?` here numbers past them. */
+  otherRefs: ReadonlySet<string> = new Set(),
+): Promise<ApplyResult> {
   const doc = api.doc();
   if (!doc) return { applied: 0, errors: ['no schematic open'] };
   const errors: string[] = [];
@@ -589,7 +603,7 @@ export async function applyZsch(api: SchScriptApi, text: string): Promise<ApplyR
             angle: p.angle ?? 0,
             ...(p.mirror ? { mirror: p.mirror } : {}),
           });
-          const ref = p.ref.endsWith('?') ? nextRef(staged, p.ref.slice(0, -1)) : p.ref;
+          const ref = p.ref.endsWith('?') ? nextRef(staged, p.ref.slice(0, -1), otherRefs) : p.ref;
           if (ref !== p.ref) renamed.set(p.ref, ref);
           sym = withFields(sym, { Reference: ref, Value: p.val, Footprint: p.fp });
           stage(placeSymbolInstance(lib, sym));
@@ -742,7 +756,7 @@ export async function applyZsch(api: SchScriptApi, text: string): Promise<ApplyR
   const ncs: SchNoConnect[] = [];
   const powerParts: { lib: LibSymbol; sym: SchSymbol }[] = [];
   const powerLibs = new Map<string, LibSymbol | undefined>();
-  let pwrNext = Number(nextRef(staged, '#PWR').slice(4));
+  let pwrNext = Number(nextRef(staged, '#PWR', otherRefs).slice(4));
 
   /** A stub out of the pin, then a label or power symbol on its end. */
   const hang = (p: PinNode, sym: SchSymbol, name: string, powerLib: LibSymbol | undefined) => {
@@ -864,6 +878,156 @@ export async function applyZsch(api: SchScriptApi, text: string): Promise<ApplyR
   return { applied, errors, hints };
 }
 
+const HIER_KEYWORDS = new Set(['sheet', 'port', 'pins']);
+
+/**
+ * A zsch batch that may span the hierarchy (ai/sch_hierarchy.ts): `in` lines split it by the sheet
+ * they edit. Each segment runs its `sheet` lines (live), then its other lines (as one batch on that
+ * sheet, all or nothing), then its `port` lines (live); the `pins` lines and the nets that name a
+ * sheet pin run last, when every port they need exists. A failing segment stops the batch; the
+ * segments before it stay applied, and the reply says so.
+ */
+export async function applyZschBatch(api: SchScriptApi, text: string): Promise<ApplyResult> {
+  const lines = joinQuotedLines(text);
+  const hasHierarchy = lines.some((raw) => {
+    const kw = raw.replace(/;.*$/, '').trim().split(/\s+/)[0] ?? '';
+    return kw === 'in' || HIER_KEYWORDS.has(kw);
+  });
+  // Without hierarchy lines, or without a live model to run them on, the sheet on screen.
+  if (!hasHierarchy || !api.editLive || !api.readLive || !api.docs || !api.runCommandOn)
+    return applyZsch(api, text);
+
+  type Segment = { target: string | null; text: string[]; first: HierLine[]; last: HierLine[] };
+  type HierLine = { line: string; op: HierOp };
+  const segments: Segment[] = [{ target: null, text: [], first: [], last: [] }];
+  const errors: string[] = [];
+  for (const raw of lines) {
+    const line = raw.replace(/;.*$/, '').trim();
+    const [kw, ...tokens] = tokenize(line);
+    if (!kw) continue;
+    try {
+      if (kw === 'in') {
+        const name = tokens[0]?.replace(/^"(.*)"$/, '$1');
+        if (!name) throw new Error('in needs "SHEETNAME" (a path like "Power/Reg") or root');
+        segments.push({ target: name, text: [], first: [], last: [] });
+        continue;
+      }
+      const seg = segments[segments.length - 1]!;
+      if (HIER_KEYWORDS.has(kw)) {
+        const op = parseHierLine(kw, tokens);
+        (op.kind === 'sheet' ? seg.first : op.kind === 'port' ? seg.last : seg.first).push({
+          line,
+          op,
+        });
+      } else seg.text.push(raw);
+    } catch (e) {
+      errors.push(`${line}: ${(e as Error).message}`);
+    }
+  }
+  if (errors.length)
+    return {
+      applied: 0,
+      errors: [
+        ...errors,
+        'Nothing was applied: fix the lines above and send the whole batch again.',
+      ],
+    };
+
+  /** The sheet on screen, as a path name. */
+  const onScreen =
+    api.readLive((f) => {
+      const file = api.currentFile?.() ?? '';
+      const path = f
+        .Schematic()
+        .Hierarchy()
+        .find((p) => p.LastScreen()?.GetFileName().endsWith(`/${file}`));
+      return path ? sheetPathName(path) : '';
+    }) ?? '';
+  const deferred: { target: string; ops: HierLine[] }[] = [];
+  let applied = 0;
+  const hints: string[] = [];
+  const done: string[] = [];
+  const stop = (why: string[]): ApplyResult => ({
+    applied,
+    errors: [
+      ...why,
+      done.length
+        ? `Applied before this failed: ${done.join('; ')}. Send only what is left, fixed.`
+        : 'Nothing was applied: fix the lines above and send the whole batch again.',
+    ],
+    hints,
+  });
+  const runLive = (target: string, ops: HierLine[]): string[] | null => {
+    if (!ops.length) return null;
+    try {
+      api.editLive!((f) => runHierOps(f, target, ops));
+      applied += ops.length;
+      return null;
+    } catch (e) {
+      return (e as Error).message.split('\n');
+    }
+  };
+
+  for (const seg of segments) {
+    const target = seg.target ?? onScreen;
+    const label = target === '' ? 'root' : target;
+    // A `pins` line waits for the ports; so does a net naming a sheet pin.
+    const pinsOps = seg.first.filter((h) => h.op.kind === 'pins');
+    const sheetOps = seg.first.filter((h) => h.op.kind === 'sheet');
+    const failedSheets = runLive(target, sheetOps);
+    if (failedSheets) return stop(failedSheets);
+
+    if (seg.text.length) {
+      const where = api.readLive((f) => sheetFileAndSheets(f, target));
+      if (!where) return stop([`in ${label}: no such sheet`]);
+      const docs = api.docs();
+      const file = [...docs.keys()].find((k) => where.file === k || where.file.endsWith(`/${k}`));
+      if (!file) return stop([`in ${label}: its file is not in the project`]);
+      // A net's pins on a sheet (SHEET.PIN) are labelled on the sheet pin, after `pins`.
+      const text: string[] = [];
+      for (const raw of seg.text) {
+        const [kw, name, ...refs] = tokenize(raw.replace(/;.*$/, '').trim());
+        if (kw !== 'net' || !name) {
+          text.push(raw);
+          continue;
+        }
+        const onSheet = refs.filter((r) => where.sheets.has(r.slice(0, r.lastIndexOf('.'))));
+        for (const pin of onSheet) pinsOps.push({ line: raw, op: { kind: 'sheetnet', name, pin } });
+        const rest = refs.filter((r) => !onSheet.includes(r));
+        if (rest.length) text.push(`net ${name} ${rest.join(' ')}`);
+      }
+      const others = new Set<string>();
+      for (const [k, d] of docs)
+        if (k !== file) for (const sym of d.symbols) others.add(reference(sym));
+      const sheetApi: SchScriptApi = {
+        ...api,
+        doc: () => api.docs!().get(file) ?? null,
+        runCommand: (cmd) => api.runCommandOn!(file, cmd),
+      };
+      const r = await applyZsch(sheetApi, text.join('\n'), others);
+      hints.push(...(r.hints ?? []));
+      if (r.errors.length)
+        return stop(r.errors.filter((e) => !e.startsWith('Nothing was applied')));
+      applied += r.applied;
+    }
+
+    const failedPorts = runLive(target, seg.last);
+    if (failedPorts) return stop(failedPorts);
+    if (pinsOps.length) deferred.push({ target, ops: pinsOps });
+    done.push(`the lines for ${label}`);
+  }
+  for (const { target, ops } of deferred) {
+    // `pins` before the labels on the pins it makes.
+    const ordered = [
+      ...ops.filter((h) => h.op.kind === 'pins'),
+      ...ops.filter((h) => h.op.kind !== 'pins'),
+    ];
+    const failed = runLive(target, ordered);
+    if (failed) return stop(failed);
+  }
+  return { applied, errors: [], hints };
+}
+
 /** The real pin list of every part a failed line named (usually a guessed pin). */
 export function pinHints(api: SchScriptApi, applyErrors: readonly string[]): string[] {
   const doc = api.doc();
@@ -906,9 +1070,31 @@ export function ercText(api: SchScriptApi): string {
 }
 
 export function schBridge(api: SchScriptApi): AiBridge {
-  const read = () => {
-    const d = api.doc();
-    return d ? readZsch(d) : '(no schematic open)';
+  /** The sheet on screen, or the sheet named \a aSheet ("Power", "Power/Reg", "root"), with the hierarchy. */
+  const read = (aSheet?: string) => {
+    const where =
+      aSheet && api.readLive && api.docs
+        ? api.readLive((f) => sheetFileAndSheets(f, aSheet))
+        : null;
+    if (aSheet && api.readLive && !where) return `(no sheet ${aSheet})`;
+    const file = where
+      ? [...api.docs!().keys()].find((k) => where.file === k || where.file.endsWith(`/${k}`))
+      : undefined;
+    const d = file ? api.docs!().get(file) : api.doc();
+    if (!d) return '(no schematic open)';
+    const onScreen =
+      api.readLive?.((f) => {
+        const cur = api.currentFile?.() ?? '';
+        const path = f
+          .Schematic()
+          .Hierarchy()
+          .find((p) => p.LastScreen()?.GetFileName().endsWith(`/${cur}`));
+        return path ? sheetPathName(path) : '';
+      }) ?? null;
+    const name = aSheet ?? onScreen;
+    const hier = name !== null ? (api.readLive?.((f) => readHierarchy(f, name)) ?? '') : '';
+    const head = name !== null ? `; sheet: ${name === '' ? 'root' : name}` : '';
+    return [head, readZsch(d), hier].filter(Boolean).join('\n');
   };
   const search = async (kind: 'symbols' | 'footprints', query: string): Promise<ToolOutput> => {
     const index =
@@ -931,9 +1117,12 @@ export function schBridge(api: SchScriptApi): AiBridge {
     };
   };
   const tools: Record<string, (args: Record<string, unknown>) => Promise<ToolOutput>> = {
-    read_schematic: async () => ({ text: read(), note: 'read the schematic' }),
+    read_schematic: async (args) => {
+      const sheet = typeof args.sheet === 'string' && args.sheet ? args.sheet : undefined;
+      return { text: read(sheet), note: sheet ? `read sheet ${sheet}` : 'read the schematic' };
+    },
     apply_zsch: async (args) => {
-      const r = await applyZsch(api, String(args.zsch ?? ''));
+      const r = await applyZschBatch(api, String(args.zsch ?? ''));
       const after = api.doc();
       // Layout, as text: what collides and what connects to nothing.
       const layout = after ? [...overlaps(after), ...strays(after).map((x) => x.text)] : [];
@@ -967,7 +1156,7 @@ export function schBridge(api: SchScriptApi): AiBridge {
   };
   return {
     kind: 'sch',
-    read,
+    read: () => read(),
     run: (name, args) => tools[name]?.(args) ?? null,
   };
 }

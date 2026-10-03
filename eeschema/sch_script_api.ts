@@ -32,7 +32,10 @@ export interface SchScriptApi {
    * An edit on the live model (KiCad's own classes): the frame brought up to date with the
    * window, \a aEdit run on it with its questions answered yes and its messages collected, and
    * the screens it returns written back into the window as one undo step. Returns what the
-   * frame said (empty when all went well), or null when there is no live model to edit.
+   * frame said (empty when all went well), or null when there is no live model to edit. An edit
+   * that throws changes nothing in the window, and the throw reaches the caller.
    */
   editLive?(aEdit: (aFrame: SCH_EDIT_FRAME) => Iterable<SCH_SCREEN> | null): string[] | null;
+  /** Read the live model, brought up to date with the window; null when there is none. */
+  readLive?<T>(aRead: (aFrame: SCH_EDIT_FRAME) => T): T | null;
 }

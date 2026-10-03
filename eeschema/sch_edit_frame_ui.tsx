@@ -553,6 +553,7 @@ import { busJunctionIds as busJunctionIdsOf } from './connectivity/bus.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { applyToggle, DEFAULT_TOGGLES } from './toggles.js';
 import { LIVE_SCHEMATIC_MIRROR, liveScreensToRecords } from './sch_record_bridge.js';
+import type { SCH_SCREEN } from './sch_screen.js';
 import { symbolLibraryUri } from './cross-probing.js';
 
 // What KiCad writes for File > New Schematic: an empty sheet on A4 paper.
@@ -2490,6 +2491,7 @@ export function SchematicEditor({
       currentFile: () => currentFileRef.current,
       runCommandOn: (file, cmd) => runProjectRef.current(new Map([[file, cmd]])),
       editLive: (aEdit) => editLiveRef.current(aEdit),
+      readLive: (aRead) => (syncLiveRef.current() ? aRead(schFrameRef.current!) : null),
     });
   }, [registerScriptApi]);
 
@@ -5466,7 +5468,16 @@ export function SchematicEditor({
   editLiveRef.current = (aEdit) => {
     if (!syncLiveRef.current()) return null;
     const frame = schFrameRef.current!;
-    const { result: screens, messages } = frame.WithoutDialogs(true, () => aEdit(frame));
+    let edit: { result: Iterable<SCH_SCREEN> | null; messages: string[] };
+    try {
+      edit = frame.WithoutDialogs(true, () => aEdit(frame));
+    } catch (e) {
+      // The edit may have changed the live model before it threw; the window has not changed,
+      // so the next sync rebuilds the live model from it.
+      liveMirrorRef.current?.Invalidate();
+      throw e;
+    }
+    const { result: screens, messages } = edit;
     if (!screens) return messages.length ? messages : ['nothing was changed'];
     const name = liveFilesRef.current.projectName;
     const dir = `/${name ?? project.current.root.replace(/\.[^.]*$/, '')}`;
