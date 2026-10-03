@@ -54,9 +54,10 @@ import { PCB_ORIGIN_TRANSFORMS } from './pcb_origin_transforms.js';
 import {
   type MAGNETIC_SETTINGS,
   PCB_DISPLAY_ORIGIN,
-  type PCBNEW_SETTINGS,
+  PCBNEW_SETTINGS,
   type PCB_VIEWERS_SETTINGS_BASE,
 } from './pcbnew_settings.js';
+import { GRID } from '@ziroeda/common/settings/grid_settings.js';
 
 /**
  * `FOOTPRINT_EDITOR_SETTINGS` as the base frame reads it; the class lands with
@@ -190,6 +191,53 @@ export abstract class PCB_BASE_FRAME extends EDA_DRAW_FRAME {
 
   GetActiveLayer(): PCB_LAYER_ID {
     return this.GetScreen()!.m_Active_Layer;
+  }
+
+  protected override unitsChangeRefresh(): void {
+    super.unitsChangeRefresh(); // Update the status bar.
+
+    const board = this.GetBoard();
+
+    if (board) board.SetUserUnits(this.GetUserUnits());
+
+    this.UpdateGridSelectBox();
+  }
+
+  override LoadSettings(aCfg: APP_SETTINGS_BASE): void {
+    super.LoadSettings(aCfg);
+
+    // Move legacy user grids to grid list
+    if (aCfg.m_Window.grid.user_grid_x !== '') {
+      aCfg.m_Window.grid.grids.push(
+        new GRID('User Grid', aCfg.m_Window.grid.user_grid_x, aCfg.m_Window.grid.user_grid_y),
+      );
+      aCfg.m_Window.grid.user_grid_x = '';
+      aCfg.m_Window.grid.user_grid_y = '';
+    }
+
+    // Some, but not all, derived classes have a PCBNEW_SETTINGS.
+    if (aCfg instanceof PCBNEW_SETTINGS) this.m_polarCoords = aCfg.m_PolarCoords;
+
+    // wxASSERT( GetCanvas() ) upstream: here the window attaches the canvas
+    // after the constructor's LoadSettings, so the guard below is what runs.
+    const canvas = this.GetCanvas();
+
+    if (canvas) {
+      const rs = canvas.GetView().GetPainter().GetSettings();
+
+      if (rs) {
+        rs.SetHighlightFactor(aCfg.m_Graphics.highlight_factor);
+        rs.SetSelectFactor(aCfg.m_Graphics.select_factor);
+        rs.SetDefaultFont(''); // Always the KiCad font for PCBs
+      }
+    }
+  }
+
+  override SaveSettings(aCfg: APP_SETTINGS_BASE): void {
+    super.SaveSettings(aCfg);
+
+    // Some, but not all derived classes have a PCBNEW_SETTINGS.
+    if (aCfg instanceof PCBNEW_SETTINGS) aCfg.m_PolarCoords = this.m_polarCoords;
   }
 
   override ActivateGalCanvas(): void {

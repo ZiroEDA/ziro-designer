@@ -46,6 +46,7 @@ import {
   symbolTogglesFromSettings,
 } from '@ziroeda/eeschema/symbol_editor/toggles.js';
 import { SYMBOL_EDITOR_DEFAULTS } from '@ziroeda/eeschema/symbol_editor/symbol_editor_settings.js';
+import { PCB_LEFT_TOOLBAR } from '@ziroeda/pcbnew/toolbars_pcb_editor.js';
 
 const sorted = (s: Iterable<string>): string[] => [...s].sort();
 
@@ -54,8 +55,6 @@ describe("PCB_EDIT_FRAME's opening toolbar state", () => {
    * Entry by entry:
    *
    *   toggleGrid         `window.grid.show` true        app_settings.cpp:555-556
-   *   unitsMm            filename "pcbnew"              app_settings.cpp:228-238
-   *                                                     pcbnew_settings.cpp:50
    *   crosshairSmall     CROSS_HAIR_MODE::SMALL_CROSS   gal_display_options.cpp:52
    *   lineModeFree       LEADER_MODE::DIRECT            pcbnew_settings.cpp:59
    *                      -> PCB_ACTIONS::lineModeFree   board_editor_control.cpp:364
@@ -69,15 +68,19 @@ describe("PCB_EDIT_FRAME's opening toolbar state", () => {
    * (`pcb_edit_frame.cpp:1150-1155`), default **false**
    * (`pcbnew_settings.cpp:258-259`) — so a fresh board drew curved ratsnest
    * lines where KiCad draws straight ones.
+   *
+   * The units group is not here: it is checked off the frame's own units
+   * (`cond.Units`, eda_draw_frame.cpp:1368-1370), which its LoadSettings reads
+   * from `system.units` - pcb_edit_frame_settings.test.ts pins that a fresh
+   * PCBNEW_SETTINGS opens the board in millimetres.
    */
-  it('is the seven buttons pcbnew seeds, and not ratsnestLineMode', () => {
+  it('is the six buttons pcbnew seeds, and not ratsnestLineMode', () => {
     expect(sorted(PCB_TOGGLES)).toEqual([
       'crosshairSmall',
       'lineModeFree',
       'showLayersManager',
       'showProperties',
       'toggleGrid',
-      'unitsMm',
       'zoneDisplayFilled',
     ]);
   });
@@ -101,12 +104,11 @@ describe("PCB_EDIT_FRAME's opening toolbar state", () => {
     expect(outline.has('zoneDisplayFilled')).toBe(false);
     // Re-activating the member already on leaves it on.
     expect(pcbApplyToggle(outline, 'zoneDisplayOutline').has('zoneDisplayOutline')).toBe(true);
-    // The units group is exclusive too, or the status bar shows two units.
-    const mils = pcbApplyToggle(PCB_TOGGLES, 'unitsMils');
-    expect(sorted(mils).filter((id) => id.startsWith('units'))).toEqual(['unitsMils']);
+    // The crosshair group is exclusive too, or the canvas draws two cursors.
+    const full = pcbApplyToggle(PCB_TOGGLES, 'crosshairFull');
+    expect(sorted(full).filter((id) => id.startsWith('crosshair'))).toEqual(['crosshairFull']);
     // ...and the rest of the set is untouched by a group activation.
-    expect(sorted(mils).filter((id) => !id.startsWith('units'))).toEqual([
-      'crosshairSmall',
+    expect(sorted(full).filter((id) => !id.startsWith('crosshair'))).toEqual([
       'lineModeFree',
       'showLayersManager',
       'showProperties',
@@ -122,7 +124,7 @@ describe("PCB_EDIT_FRAME's opening toolbar state", () => {
 
   it('does not mutate the set it is given', () => {
     const before = sorted(PCB_TOGGLES);
-    pcbApplyToggle(PCB_TOGGLES, 'unitsMils');
+    pcbApplyToggle(PCB_TOGGLES, 'crosshairFull');
     expect(sorted(PCB_TOGGLES)).toEqual(before);
   });
 });
@@ -197,11 +199,15 @@ describe("SCH_EDIT_FRAME's opening toolbar state", () => {
    * The units group leads with INCHES in eeschema
    * (`toolbars_sch_editor.cpp:82-84`) and with millimetres in pcbnew
    * (`toolbars_pcb_editor.cpp:165-167`). The order is what the button cycles
-   * through, so the two must not be shared.
+   * through, so the two must not be shared. pcbnew's is its toolbar group's:
+   * the units are the frame's there, not a window toggle group.
    */
   it('cycles its units group in eeschema order, not pcbnew order', () => {
     expect(SCH_GROUPS[0]).toEqual(['unitsInches', 'unitsMils', 'unitsMm']);
-    expect(PCB_GROUPS[0]).toEqual(['unitsMm', 'unitsInches', 'unitsMils']);
+    const pcbUnits = PCB_LEFT_TOOLBAR.find(
+      (e) => typeof e === 'object' && e !== null && 'group' in e && e.group === 'Units',
+    ) as { actions: { id: string }[] } | undefined;
+    expect(pcbUnits?.actions.map((a) => a.id)).toEqual(['unitsMm', 'unitsInches', 'unitsMils']);
   });
 
   it('replaces the units group rather than adding to it', () => {

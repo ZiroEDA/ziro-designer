@@ -184,6 +184,17 @@ export interface PcbnewSettings {
     pns: RoutingSettingsJson;
   };
   /**
+   * `APP_SETTINGS_BASE::m_System` for pcbnew (`common/settings/app_settings.cpp:
+   * 223-245`): the units the frame opens in and the last of each kind, which
+   * `COMMON_TOOLS::ToggleUnits` swaps between. pcbnew persisted no units at
+   * all before; the left toolbar's choice was a React toggle that reset to mm.
+   */
+  system: {
+    units: EdaUnits;
+    last_metric_units: EdaUnits;
+    last_imperial_units: EdaUnits;
+  };
+  /**
    * `APP_SETTINGS_BASE::m_Window.grid` for pcbnew — the slice
    * `PANEL_GRID_SETTINGS` edits and the canvas snaps to
    * (`common/settings/app_settings.cpp:463-560`). Same shape as the Drawing
@@ -460,6 +471,12 @@ export const PCBNEW_DEFAULTS: PcbnewSettings = {
     pagination: 1,
     edge_cuts_on_all_pages: true,
     as_item_checkboxes: false,
+  },
+  system: {
+    // The `app_settings.cpp:228-238` branch, asked rather than restated.
+    units: defaultUnits('pcbnew'),
+    last_metric_units: 'mm',
+    last_imperial_units: 'mils',
   },
   window: {
     grid: {

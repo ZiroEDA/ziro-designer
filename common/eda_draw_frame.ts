@@ -678,6 +678,9 @@ export abstract class EDA_DRAW_FRAME extends KIWAY_PLAYER {
     return { x: KiROUND(x * gridSize.x + xOffset), y: KiROUND(y * gridSize.y + yOffset) };
   }
 
+  /** `ReCreateAuxiliaryToolbar()` (eda_draw_frame.h:222): nothing, unless a frame has one. */
+  ReCreateAuxiliaryToolbar(): void {}
+
   /**
    * Rebuild the grid combobox to respond to any changes in the GUI (units, user
    * grid changes, etc.).

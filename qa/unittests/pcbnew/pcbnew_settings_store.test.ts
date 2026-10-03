@@ -10,6 +10,8 @@
 import { describe, expect, it } from 'vitest';
 import { LeaderMode as LEADER_MODE } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
 import { ARC_EDIT_MODE } from '@ziroeda/common/frame_type.js';
+import { CROSS_HAIR_MODE } from '@ziroeda/common/gal/gal_display_options.js';
+import { EDA_UNITS_INT } from '@ziroeda/common/settings/app_settings.js';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { FLIP_DIRECTION } from '@ziroeda/core/mirror.js';
 import { PgmOrNull } from '@ziroeda/common/pgm_base.js';
@@ -84,6 +86,42 @@ describe('PCBNEW_SETTINGS load / store over the pcbnew.json slice', () => {
       (c) => {
         c.m_ESCClearsNetHighlight = !c.m_ESCClearsNetHighlight;
       },
+      (c) => {
+        c.m_System.units = EDA_UNITS_INT.MILS; // the default is MM
+      },
+      (c) => {
+        c.m_System.last_metric_units = EDA_UNITS_INT.UM;
+      },
+      (c) => {
+        c.m_System.last_imperial_units = EDA_UNITS_INT.INCH;
+      },
+      (c) => {
+        c.m_Window.grid.last_size_idx += 1;
+      },
+      (c) => {
+        c.m_Window.grid.fast_grid_1 += 1;
+      },
+      (c) => {
+        c.m_Window.grid.fast_grid_2 += 1;
+      },
+      (c) => {
+        c.m_Window.grid.show = !c.m_Window.grid.show;
+      },
+      (c) => {
+        c.m_Window.grid.overrides_enabled = !c.m_Window.grid.overrides_enabled;
+      },
+      (c) => {
+        c.m_Window.cursor.cross_hair_mode = CROSS_HAIR_MODE.FULLSCREEN_DIAGONAL;
+      },
+      (c) => {
+        c.m_Window.cursor.always_show_cursor = !c.m_Window.cursor.always_show_cursor;
+      },
+      (c) => {
+        c.m_AuiPanels.show_search = !c.m_AuiPanels.show_search;
+      },
+      (c) => {
+        c.m_AuiPanels.show_net_inspector = !c.m_AuiPanels.show_net_inspector;
+      },
     ];
 
     for (const edit of edits) {
@@ -92,6 +130,41 @@ describe('PCBNEW_SETTINGS load / store over the pcbnew.json slice', () => {
       edit(cfg);
       expect(storePcbnewSettings(cfg, json), edit.toString()).toBe(true);
     }
+  });
+
+  it("loads APP_SETTINGS_BASE's units, grid, cursor and panes from the slice", () => {
+    const json = fresh();
+    json.system.units = 'mils';
+    json.system.last_metric_units = 'mm';
+    json.system.last_imperial_units = 'in';
+    json.window.grid.sizes = [{ name: 'Fine', x: '0.01 mm', y: '0.02 mm' }];
+    json.window.grid.last_size_idx = 0;
+    json.window.grid.fast_grid_1 = 3;
+    json.window.grid.fast_grid_2 = 4;
+    json.window.grid.style = 'crosses';
+    json.window.grid.line_width = 2.5;
+    json.window.grid.min_spacing = 17;
+    json.window.grid.snap = 2;
+    json.window.grid.show = false;
+    json.window.grid.overrides_enabled = true;
+    json.window.cursor.crosshair = 'full';
+    json.window.cursor.always_show_cursor = false;
+    json.aui.show_search = true;
+    json.aui.show_net_inspector = true;
+
+    const cfg = pcbnewSettingsOf(json);
+
+    expect(cfg.m_System.units).toBe(EDA_UNITS_INT.MILS);
+    expect(cfg.m_System.last_metric_units).toBe(EDA_UNITS_INT.MM);
+    expect(cfg.m_System.last_imperial_units).toBe(EDA_UNITS_INT.INCH);
+    const g = cfg.m_Window.grid;
+    expect(g.grids.map((e) => [e.name, e.x, e.y])).toEqual([['Fine', '0.01 mm', '0.02 mm']]);
+    expect([g.last_size_idx, g.fast_grid_1, g.fast_grid_2]).toEqual([0, 3, 4]);
+    expect([g.style, g.line_width, g.min_spacing, g.snap]).toEqual([2, 2.5, 17, 2]);
+    expect([g.show, g.overrides_enabled]).toEqual([false, true]);
+    expect(cfg.m_Window.cursor.cross_hair_mode).toBe(CROSS_HAIR_MODE.FULLSCREEN_CROSS);
+    expect(cfg.m_Window.cursor.always_show_cursor).toBe(false);
+    expect([cfg.m_AuiPanels.show_search, cfg.m_AuiPanels.show_net_inspector]).toEqual([true, true]);
   });
 
   it('loading fills the object it is given, so every holder sees the change', () => {

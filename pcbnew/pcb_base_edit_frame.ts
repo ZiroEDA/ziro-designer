@@ -52,6 +52,7 @@ import { DRC_ENGINE } from './drc/drc_engine.js';
  */
 import './browser/drc_test_providers.js';
 import { RESET_REASON } from '@ziroeda/common/tool/tool_base.js';
+import { EVENTS } from '@ziroeda/common/tool/tool_event.js';
 import { DEFAULT_THEME, GetColorSettings } from '@ziroeda/common/pgm_base.js';
 import type { COLOR_SETTINGS } from '@ziroeda/common/settings/color_settings.js';
 import type {
@@ -100,6 +101,20 @@ export abstract class PCB_BASE_EDIT_FRAME extends PCB_BASE_FRAME {
   m_selectionFilterPanel: PANEL_SELECTION_FILTER_LIKE | null = null;
   /** `m_appearancePanel` (pcb_base_edit_frame.h:282): set by the window that docks it. */
   m_appearancePanel: APPEARANCE_CONTROLS_LIKE | null = null;
+
+  protected override unitsChangeRefresh(): void {
+    super.unitsChangeRefresh();
+
+    const board = this.GetBoard();
+
+    if (board) {
+      board.UpdateUserUnits(board, this.GetCanvas()?.GetView() ?? null);
+      this.m_toolManager?.PostEvent(EVENTS.SelectedItemsModified);
+    }
+
+    this.ReCreateAuxiliaryToolbar();
+    this.UpdateProperties();
+  }
 
   /**
    * The frame's `wxEVT_IDLE` handler (pcb_base_edit_frame.cpp:75-88): "Handle

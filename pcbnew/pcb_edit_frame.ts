@@ -30,6 +30,9 @@ import {
   PCB_LAYER_ID,
   UNDEFINED_LAYER,
 } from '@ziroeda/common/layer_id.js';
+import { COMMON_CONTROL } from '@ziroeda/common/tool/common_control.js';
+import { COMMON_TOOLS } from '@ziroeda/common/tool/common_tools.js';
+import { ZOOM_TOOL } from '@ziroeda/common/tool/zoom_tool.js';
 import { EMBED_TOOL } from '@ziroeda/common/tool/embed_tool.js';
 import { PROPERTIES_TOOL } from '@ziroeda/common/tool/properties_tool.js';
 import { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
@@ -98,14 +101,21 @@ import { MARKER_T } from '@ziroeda/common/marker_base.js';
 import { RPT_SEVERITY_EXCLUSION } from '@ziroeda/common/reporter.js';
 import type { BOX2D } from '@ziroeda/kimath/src/math/box2.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-import type { CROSS_PROBING_SETTINGS } from '@ziroeda/common/settings/app_settings.js';
+import {
+  type APP_SETTINGS_BASE,
+  type CROSS_PROBING_SETTINGS,
+  EdaUnitsFromInt,
+  EdaUnitsToInt,
+} from '@ziroeda/common/settings/app_settings.js';
+import type { EdaUnits } from '@ziroeda/common/eda_units.js';
+import { CROSS_HAIR_MODE } from '@ziroeda/common/gal/gal_display_options.js';
+import { GRID } from '@ziroeda/common/settings/grid_settings.js';
 import type { GridEntry } from '@ziroeda/common/settings/grid_settings_ui.js';
 import {
   frameTitle,
   type FrameTitleParts,
   READ_ONLY_SUFFIX,
 } from '@ziroeda/common/use_document_title.js';
-import { defaultUnitsToggle } from '@ziroeda/common/settings/app_settings_units.js';
 import type { CrosshairMode } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
 import type { RawFile } from '@ziroeda/common';
 import { applyMixins } from '@ziroeda/core/mixins.js';
@@ -124,7 +134,8 @@ import type { LIB_ID } from '@ziroeda/common/lib_id.js';
 import type { PCB_SELECTION_FILTER_OPTIONS } from '@ziroeda/common/project/board_project_settings.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import { TOOL_DISPATCHER } from '@ziroeda/common/tool/tool_dispatcher.js';
-import type { wxEvent } from '@ziroeda/common/wx/wx_event.js';
+import { type wxEvent, wxUpdateUIEvent } from '@ziroeda/common/wx/wx_event.js';
+import type { EDA_BASE_FRAME } from '@ziroeda/common/eda_base_frame.js';
 import type { SelectionFilter } from './dialogs/dialog_filter_selection.js';
 import { PCB_POINT_EDITOR } from './tools/pcb_point_editor.js';
 import { PCB_SELECTION_TOOL } from './tools/pcb_selection_tool.js';
@@ -275,10 +286,19 @@ export interface PCBNEW_JSON_SETTINGS_LIKE {
    * spreads together with `pcb_display` into a `windowSettingsOf`-shaped
    * object.
    */
+  /** `APP_SETTINGS_BASE::m_System`'s units (app_settings.cpp:223-245). */
+  system: {
+    units: EdaUnits;
+    last_metric_units: EdaUnits;
+    last_imperial_units: EdaUnits;
+  };
   window: {
     grid: {
       sizes: GridEntry[];
       last_size_idx: number;
+      fast_grid_1: number;
+      fast_grid_2: number;
+      overrides_enabled: boolean;
       show: boolean;
       style: 'dots' | 'lines' | 'crosses';
       line_width: number;
@@ -291,6 +311,23 @@ export interface PCBNEW_JSON_SETTINGS_LIKE {
     };
   };
 }
+
+/** `grid.style`'s stored integers (`common/settings/app_settings.cpp`): 0 dots, 1 lines, 2 crosses. */
+const GRID_STYLE_NAMES: readonly PCBNEW_JSON_SETTINGS_LIKE['window']['grid']['style'][] = [
+  'dots',
+  'lines',
+  'crosses',
+];
+
+/** `window.cursor.cross_hair_mode`, as the slice spells it. */
+const CROSS_HAIR_MODE_OF: Record<
+  PCBNEW_JSON_SETTINGS_LIKE['window']['cursor']['crosshair'],
+  CROSS_HAIR_MODE
+> = {
+  small: CROSS_HAIR_MODE.SMALL_CROSS,
+  full: CROSS_HAIR_MODE.FULLSCREEN_CROSS,
+  '45': CROSS_HAIR_MODE.FULLSCREEN_DIAGONAL,
+};
 
 /**
  * `PCBNEW_SETTINGS`' PARAM list, the part of it the frame, the commit and the
@@ -342,6 +379,30 @@ export function loadPcbnewSettings(
   s.m_ShowCourtyardCollisions = e.show_courtyard_collisions;
   s.m_CtrlClickHighlight = e.ctrl_click_highlight;
   s.m_PolarCoords = e.polar_coords;
+
+  // `APP_SETTINGS_BASE`'s own PARAMs: the units and the window's grid and cursor.
+  s.m_System.units = EdaUnitsToInt(json.system.units);
+  s.m_System.last_metric_units = EdaUnitsToInt(json.system.last_metric_units);
+  s.m_System.last_imperial_units = EdaUnitsToInt(json.system.last_imperial_units);
+
+  const g = s.m_Window.grid;
+  const jg = json.window.grid;
+  g.grids = jg.sizes.map((aEntry) => new GRID(aEntry.name, aEntry.x, aEntry.y));
+  g.last_size_idx = jg.last_size_idx;
+  g.fast_grid_1 = jg.fast_grid_1;
+  g.fast_grid_2 = jg.fast_grid_2;
+  g.style = Math.max(0, GRID_STYLE_NAMES.indexOf(jg.style));
+  g.line_width = jg.line_width;
+  g.min_spacing = jg.min_spacing;
+  g.snap = jg.snap;
+  g.show = jg.show;
+  g.overrides_enabled = jg.overrides_enabled;
+
+  s.m_Window.cursor.cross_hair_mode = CROSS_HAIR_MODE_OF[json.window.cursor.crosshair];
+  s.m_Window.cursor.always_show_cursor = json.window.cursor.always_show_cursor;
+
+  s.m_AuiPanels.show_search = json.aui.show_search;
+  s.m_AuiPanels.show_net_inspector = json.aui.show_net_inspector;
 
   return s;
 }
@@ -508,6 +569,35 @@ export function storePcbnewSettings(s: PCBNEW_SETTINGS, json: PCBNEW_JSON_SETTIN
     changed = true;
   }
 
+  const set = <T extends object, K extends keyof T>(aObj: T, aKey: K, aValue: T[K]): void => {
+    if (aObj[aKey] !== aValue) {
+      aObj[aKey] = aValue;
+      changed = true;
+    }
+  };
+
+  set(json.system, 'units', EdaUnitsFromInt(s.m_System.units));
+  set(json.system, 'last_metric_units', EdaUnitsFromInt(s.m_System.last_metric_units));
+  set(json.system, 'last_imperial_units', EdaUnitsFromInt(s.m_System.last_imperial_units));
+
+  const g = s.m_Window.grid;
+  set(json.window.grid, 'last_size_idx', g.last_size_idx);
+  set(json.window.grid, 'fast_grid_1', g.fast_grid_1);
+  set(json.window.grid, 'fast_grid_2', g.fast_grid_2);
+  set(json.window.grid, 'show', g.show);
+  set(json.window.grid, 'overrides_enabled', g.overrides_enabled);
+
+  const crosshair = (Object.keys(CROSS_HAIR_MODE_OF) as (keyof typeof CROSS_HAIR_MODE_OF)[]).find(
+    (k) => CROSS_HAIR_MODE_OF[k] === s.m_Window.cursor.cross_hair_mode,
+  );
+
+  if (crosshair) set(json.window.cursor, 'crosshair', crosshair);
+
+  set(json.window.cursor, 'always_show_cursor', s.m_Window.cursor.always_show_cursor);
+
+  set(json.aui, 'show_search', s.m_AuiPanels.show_search);
+  set(json.aui, 'show_net_inspector', s.m_AuiPanels.show_net_inspector);
+
   return changed;
 }
 
@@ -519,6 +609,8 @@ export interface PCB_EDIT_FRAME_HOOKS {
    * save - the settings object, written to the window's store.
    */
   storeSettings?(): void;
+  /** TRANSITIONAL (#636): the aux toolbar's track-width / via-size boxes are the window's. */
+  reCreateAuxiliaryToolbar?(): void;
   /** `PCB_BASE_FRAME::OnModify`'s effect on the window: the dirty flag. */
   onModify(): void;
   /** `new DIALOG_DRC( m_editFrame, aParent )`: the window's DRC dialog. */
@@ -954,6 +1046,10 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   private m_designRulesText: string | null = null;
   private m_inspectDrcErrorDlg: DIALOG_BOOK_REPORTER | null = null;
 
+  m_ShowLayerManagerTools = true;
+  m_ShowSearch = false;
+  m_ShowNetInspector = false;
+
   /** `m_ZoneFillsDirty`: the board has been modified since the last zone fill. */
   m_ZoneFillsDirty = true;
   private m_bookReporterListener: (() => void) | null = null;
@@ -970,6 +1066,12 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   constructor(hooks: PCB_EDIT_FRAME_HOOKS) {
     super(FRAME_T.FRAME_PCB_EDITOR);
     this.hooks = hooks;
+
+    // LoadSettings() *after* creating m_LayersManager, because LoadSettings()
+    // initialize parameters in m_LayersManager. The canvas is the window's and
+    // arrives later (`ActivateGalCanvas`).
+    this.LoadSettings(this.config());
+
     this.setupTools();
 
     // `pcb_edit_frame.cpp:479-489`. Not ported: `PrepareLayerIndicator()`'s
@@ -1382,6 +1484,50 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   override UpdateProperties(): void {
     super.UpdateProperties();
     this.hooks.updateProperties?.();
+  }
+
+  /**
+   * `PCB_EDIT_FRAME::ReCreateAuxiliaryToolbar` (toolbars_pcb_editor.cpp:843-847):
+   * the track-width and via-size boxes, re-listed in the new units. Those boxes
+   * are the window's, so it rebuilds them.
+   */
+  override ReCreateAuxiliaryToolbar(): void {
+    this.hooks.reCreateAuxiliaryToolbar?.();
+  }
+
+  override LoadSettings(aCfg: APP_SETTINGS_BASE): void {
+    super.LoadSettings(aCfg);
+
+    if (aCfg instanceof PCBNEW_SETTINGS) {
+      this.m_ShowLayerManagerTools = aCfg.m_AuiPanels.show_layer_manager;
+      this.m_ShowSearch = aCfg.m_AuiPanels.show_search;
+      this.m_ShowNetInspector = aCfg.m_AuiPanels.show_net_inspector;
+    }
+  }
+
+  /**
+   * `PCB_EDIT_FRAME::SaveSettings` (pcb_edit_frame.cpp:1745-1800). The panes'
+   * sizes, splitters, tabs and dock directions are the window's and are not
+   * written here; their visibility is `m_auimgr.GetPane( name ).IsShown()`.
+   */
+  override SaveSettings(aCfg: APP_SETTINGS_BASE): void {
+    super.SaveSettings(aCfg);
+
+    if (aCfg instanceof PCBNEW_SETTINGS) {
+      const isShown = (aName: string): boolean => this.hooks.paneShown?.(aName) ?? false;
+
+      aCfg.m_AuiPanels.show_layer_manager = isShown(EDA_DRAW_FRAME.AppearancePanelName());
+      aCfg.m_AuiPanels.show_properties = isShown(EDA_DRAW_FRAME.PropertiesPaneName());
+
+      // ensure m_ShowSearch is up to date (the pane can be closed)
+      this.m_ShowSearch = isShown(PCB_EDIT_FRAME.SearchPaneName());
+      aCfg.m_AuiPanels.show_search = this.m_ShowSearch;
+
+      this.m_ShowNetInspector = isShown(EDA_DRAW_FRAME.NetInspectorPanelName());
+      aCfg.m_AuiPanels.show_net_inspector = this.m_ShowNetInspector;
+
+      aCfg.m_AuiPanels.design_blocks_show = isShown(EDA_DRAW_FRAME.DesignBlocksPaneName());
+    }
   }
 
   /** `SearchPaneName()` (pcb_edit_frame.h:148). */
@@ -1822,7 +1968,7 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   private setupTools(): void {
     // Create the manager and dispatcher & route draw panel events to the dispatcher
     this.m_toolManager = new TOOL_MANAGER();
-    this.m_toolManager.SetEnvironment(this.m_pcb, null, null, this.hooks.settings(), this);
+    this.m_toolManager.SetEnvironment(this.m_pcb, null, null, this.config(), this);
     const dispatcher = new TOOL_DISPATCHER(this.m_toolManager);
 
     // TRANSITIONAL (#636 stage 3): an event one of the window's own tools owns
@@ -1833,32 +1979,47 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
       () => this.OnIdle(),
     ) as unknown as TOOL_DISPATCHER;
 
-    // Register tools
-    this.m_toolManager.RegisterTool(new PCB_SELECTION_TOOL());
-    this.m_toolManager.RegisterTool(new ROUTER_TOOL());
-    this.m_toolManager.RegisterTool(new EDIT_TOOL());
-    this.m_toolManager.RegisterTool(new GLOBAL_EDIT_TOOL());
-    this.m_toolManager.RegisterTool(new PAD_TOOL());
-    this.m_toolManager.RegisterTool(new PCB_POINT_EDITOR());
-    this.m_toolManager.RegisterTool(new BOARD_INSPECTION_TOOL());
-    this.m_toolManager.RegisterTool(new ALIGN_DISTRIBUTE_TOOL());
-    this.m_toolManager.RegisterTool(new POSITION_RELATIVE_TOOL());
-    this.m_toolManager.RegisterTool(new ZONE_FILLER_TOOL());
-    this.m_toolManager.RegisterTool(new DRC_TOOL());
-    this.m_toolManager.RegisterTool(new CONVERT_TOOL());
-    this.m_toolManager.RegisterTool(new PCB_GROUP_TOOL());
-    this.m_toolManager.RegisterTool(new PROPERTIES_TOOL());
-    this.m_toolManager.RegisterTool(new EMBED_TOOL());
-    this.m_toolManager.RegisterTool(new PCB_PICKER_TOOL());
-    this.m_toolManager.RegisterTool(new DRAWING_TOOL());
-    this.m_toolManager.RegisterTool(new PCB_CONTROL());
-    this.m_toolManager.RegisterTool(new BOARD_EDITOR_CONTROL());
-    this.m_toolManager.RegisterTool(new AUTOPLACE_TOOL());
-    this.m_toolManager.RegisterTool(new MICROWAVE_TOOL());
-    this.m_toolManager.RegisterTool(new PCB_VIEWER_TOOLS());
+    // TRANSITIONAL (#636): not a KiCad tool. The actions it hands the window -
+    // zoomFitScreen and zoomFitObjects while the window still owns its view
+    // transform, createArray until ARRAY_TOOL is a TOOL - are commands, which
+    // only the first tool with a transition gets, so it is registered first.
     this.m_toolManager.RegisterTool(
       new WINDOW_ACTION_BRIDGE((aAction, aEvent) => this.hooks.windowAction?.(aAction, aEvent)),
     );
+
+    // Register tools
+    this.m_toolManager.RegisterTool(new COMMON_CONTROL());
+    this.m_toolManager.RegisterTool(new COMMON_TOOLS());
+    this.m_toolManager.RegisterTool(new PCB_SELECTION_TOOL());
+    this.m_toolManager.RegisterTool(new ZOOM_TOOL());
+    this.m_toolManager.RegisterTool(new PCB_PICKER_TOOL());
+    this.m_toolManager.RegisterTool(new ROUTER_TOOL());
+    this.m_toolManager.RegisterTool(new EDIT_TOOL());
+    // Not ported: PCB_EDIT_TABLE_TOOL.
+    this.m_toolManager.RegisterTool(new GLOBAL_EDIT_TOOL());
+    this.m_toolManager.RegisterTool(new PAD_TOOL());
+    this.m_toolManager.RegisterTool(new DRAWING_TOOL());
+    this.m_toolManager.RegisterTool(new PCB_POINT_EDITOR());
+    this.m_toolManager.RegisterTool(new PCB_CONTROL());
+    // Not ported: PCB_DESIGN_BLOCK_CONTROL.
+    this.m_toolManager.RegisterTool(new BOARD_EDITOR_CONTROL());
+    this.m_toolManager.RegisterTool(new BOARD_INSPECTION_TOOL());
+    // Not yet a TOOL: BOARD_REANNOTATE_TOOL (the dialog drives its class directly).
+    this.m_toolManager.RegisterTool(new ALIGN_DISTRIBUTE_TOOL());
+    this.m_toolManager.RegisterTool(new MICROWAVE_TOOL());
+    this.m_toolManager.RegisterTool(new POSITION_RELATIVE_TOOL());
+    // Not yet a TOOL: ARRAY_TOOL.
+    this.m_toolManager.RegisterTool(new ZONE_FILLER_TOOL());
+    this.m_toolManager.RegisterTool(new AUTOPLACE_TOOL());
+    this.m_toolManager.RegisterTool(new DRC_TOOL());
+    this.m_toolManager.RegisterTool(new PCB_VIEWER_TOOLS());
+    this.m_toolManager.RegisterTool(new CONVERT_TOOL());
+    this.m_toolManager.RegisterTool(new PCB_GROUP_TOOL());
+    // Not ported: GENERATOR_TOOL; SCRIPTING_TOOL (no Python in the browser).
+    this.m_toolManager.RegisterTool(new PROPERTIES_TOOL());
+    // Not ported: MULTICHANNEL_TOOL.
+    this.m_toolManager.RegisterTool(new EMBED_TOOL());
+    // Not ported: DRC_RULE_EDITOR_TOOL.
     this.m_toolManager.InitTools();
 
     // `EDA_BASE_FRAME::LoadWindowSettings` ends with `TOOLS_HOLDER::CommonSettingsChanged()`:
@@ -3000,21 +3161,42 @@ type PcbnewSettings = PCBNEW_JSON_SETTINGS_LIKE;
  * `ZONE_DISPLAY_MODE`, so only one can be in force.
  */
 export const RADIO_GROUPS: readonly (readonly string[])[] = [
-  ['unitsMm', 'unitsInches', 'unitsMils'],
   ['crosshairSmall', 'crosshairFull', 'crosshair45'],
   ['lineModeFree', 'lineMode90', 'lineMode45'],
   ['zoneDisplayFilled', 'zoneDisplayOutline'],
 ];
 
 /**
+ * The toolbar ids whose check is the frame's own: `ACTION_MANAGER`'s condition
+ * for the action, asked the way wx asks before it draws a control
+ * (`EDA_BASE_FRAME::HandleUpdateUIEvent`). The units group is here because the
+ * frame's units are `UNITS_PROVIDER` state that `COMMON_TOOLS` changes and
+ * `SaveSettings` persists (`cond.Units`, eda_draw_frame.cpp:1368-1370).
+ */
+export const PCB_CHECKED_ACTIONS: Readonly<Record<string, TOOL_ACTION>> = {
+  unitsMm: ACTIONS.millimetersUnits,
+  unitsInches: ACTIONS.inchesUnits,
+  unitsMils: ACTIONS.milsUnits,
+};
+
+/** The {@link PCB_CHECKED_ACTIONS} ids whose condition is checked now. */
+export function pcbCheckedSet(aFrame: EDA_BASE_FRAME): Set<string> {
+  const out = new Set<string>();
+
+  for (const [id, action] of Object.entries(PCB_CHECKED_ACTIONS)) {
+    const event = new wxUpdateUIEvent(action.GetUIId());
+
+    if (aFrame.ProcessUpdateUI(event) && event.GetChecked()) out.add(id);
+  }
+
+  return out;
+}
+
+/**
  * What a fresh PCB_EDIT_FRAME shows, entry by entry:
  *
  * - `toggleGrid` — `window.grid.show`, default `true`
  *   (`common/settings/app_settings.cpp:555-556`).
- * - the units button — the `APP_SETTINGS_BASE` branch
- *   (`app_settings.cpp:228-238`). `PCBNEW_SETTINGS` passes the filename
- *   `"pcbnew"` (`pcbnew/pcbnew_settings.cpp:50`), which is on neither imperial
- *   name, so the board opens in millimetres.
  * - `crosshairSmall` — `m_crossHairMode( CROSS_HAIR_MODE::SMALL_CROSS )`
  *   (`common/gal/gal_display_options.cpp:52`).
  * - `lineModeFree` — `m_AngleSnapMode( LEADER_MODE::DIRECT )`
@@ -3041,7 +3223,6 @@ export const RADIO_GROUPS: readonly (readonly string[])[] = [
  */
 export const DEFAULT_TOGGLES: ReadonlySet<string> = new Set([
   'toggleGrid',
-  defaultUnitsToggle('pcbnew'),
   'crosshairSmall',
   'lineModeFree',
   'zoneDisplayFilled',

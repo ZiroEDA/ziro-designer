@@ -145,6 +145,14 @@ function liveSelection(aBoard: Board, aIds: Iterable<string>): PCB_SELECTION {
 // `${kind}:${index}` ids over the legacy `Board` view (`edit-board.ts`). `PCB_SEARCH_PANE`'s hitlist and
 // `PCB_VERTEX_EDITOR_PANE`'s item are `BOARD_ITEM`s; every legacy item carries the live one as `k`.
 /** The id of the legacy item that wraps `aItem`, or null when the view has none. */
+/** KiCad's pane names (`PCB_EDIT_FRAME::SearchPaneName` and friends), as the window's toggle ids. */
+const PANE_TOGGLE_IDS: Readonly<Record<string, string>> = {
+  LayersManager: 'showLayersManager',
+  PropertiesManager: 'showProperties',
+  Search: 'showSearch',
+  NetInspector: 'showNetInspector',
+};
+
 export function legacyIdOf(aBoard: Board, aItem: EDA_ITEM): string | null {
   const find = (aList: readonly { k?: unknown }[] | undefined): number =>
     aList ? aList.findIndex((x) => x.k === aItem) : -1;
@@ -693,8 +701,12 @@ import {
   foldPcbToggle,
   isStoredPcbToggle,
   lineModeToggleId,
+  PCB_CHECKED_ACTIONS,
+  pcbCheckedSet,
   pcbTogglesFromSettings,
 } from './pcb_edit_frame.js';
+import type { EdaUnits } from '@ziroeda/common/eda_units.js';
+import { toStatusUnits } from '@ziroeda/common/settings/app_settings_units.js';
 import {
   layerColor,
   pcbThemeWithOverrides,
@@ -1581,11 +1593,14 @@ export function PcbEditor({
   // not on a hardcoded set. Seeded once: after that the toolbar owns the state
   // and folds its own clicks back into the file (`foldPcbToggle`).
   const [toggles, setToggles] = useState<Set<string>>(() => pcbTogglesFromSettings(pcbCfg));
-  const unitLabel: StatusUnits = toggles.has('unitsInches')
-    ? 'in'
-    : toggles.has('unitsMils')
-      ? 'mils'
-      : 'mm';
+  const togglesRef = useRef(toggles);
+  togglesRef.current = toggles;
+  // `GetUserUnits()`: the frame's, which its LoadSettings read from
+  // `system.units` and COMMON_TOOLS changes; `ReCreateAuxiliaryToolbar` tells
+  // the window, which re-renders in them.
+  const [userUnits, setUserUnits] = useState<EdaUnits>(() => pcbCfg.system.units);
+  const setUserUnitsRef = useRef(setUserUnits);
+  const unitLabel: StatusUnits = toStatusUnits(userUnits);
   /**
    * The three status panes that follow the pointer, written through refs.
    *
@@ -2164,10 +2179,26 @@ export function PcbEditor({
    * the PCBNEW_SETTINGS object, written into the `pcbnew.json` slice. Only a
    * changed object writes, so an idle pass costs a compare.
    */
+  /** The slice the PCBNEW_SETTINGS object was last loaded from. */
+  const loadedPcbCfgRef = useRef<typeof pcbCfg | null>(null);
   const storePcbnewSettingsRef = useRef((): void => {
     const cfg = Pgm().GetSettingsManager().GetAppSettings<PCBNEW_SETTINGS>('pcbnew');
 
     if (!cfg) return;
+
+    // A slice the object has not loaded yet - Preferences wrote it and the
+    // effect below has not run - is loaded first, or this store would write the
+    // object's older values straight back over it.
+    if (loadedPcbCfgRef.current !== pcbCfgRef.current) {
+      loadedPcbCfgRef.current = pcbCfgRef.current;
+      loadPcbnewSettings(cfg, pcbCfgRef.current);
+      frameRef.current?.LoadSettings(cfg);
+      return;
+    }
+
+    // `SaveSettings( config() )`: the frame's own state - its units, polar
+    // coordinates, panes - into the object, then the object into the store.
+    frameRef.current?.SaveSettings(cfg);
 
     if (!storePcbnewSettings(cfg, structuredClone(pcbCfgRef.current))) return;
 
@@ -2179,7 +2210,11 @@ export function PcbEditor({
   useEffect(() => {
     const cfg = Pgm().GetSettingsManager().GetAppSettings<PCBNEW_SETTINGS>('pcbnew');
 
-    if (cfg) loadPcbnewSettings(cfg, pcbCfg);
+    if (!cfg || loadedPcbCfgRef.current === pcbCfg) return;
+
+    loadedPcbCfgRef.current = pcbCfg;
+    loadPcbnewSettings(cfg, pcbCfg);
+    frameRef.current?.LoadSettings(cfg);
   }, [pcbCfg]);
   const setDirtyRef = useRef(setDirty);
   setDirtyRef.current = setDirty;
@@ -2332,6 +2367,17 @@ export function PcbEditor({
       // `Kiface().KifaceSettings()`: the one PCBNEW_SETTINGS installPgm keeps.
       settings: () => Pgm().GetSettingsManager().GetAppSettings<PCBNEW_SETTINGS>('pcbnew')!,
       storeSettings: () => storePcbnewSettingsRef.current(),
+      reCreateAuxiliaryToolbar: () => {
+        const f = frameRef.current;
+
+        if (f) setUserUnitsRef.current(f.GetUserUnits());
+      },
+      // `m_auimgr.GetPane( aName ).IsShown()`: the docked panes are the window's
+      // toggles, by KiCad's pane names. No Design Blocks pane is docked here.
+      paneShown: (aName) => {
+        const id = PANE_TOGGLE_IDS[aName];
+        return id !== undefined && togglesRef.current.has(id);
+      },
       onModify: () => {
         setDirtyRef.current(true);
         syncOriginsRef.current();
@@ -3117,8 +3163,11 @@ export function PcbEditor({
   );
 
   // The left-toolbar high-contrast button reflects the Layer Display mode.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `unitLabel` is the trigger - the frame's conditions are read through frameRef
   const leftToggles = useMemo(() => {
     const s = new Set(toggles);
+    const frame = frameRef.current;
+    if (frame) for (const id of pcbCheckedSet(frame)) s.add(id);
     if (contrast !== 'normal') s.add('highContrast');
     else s.delete('highContrast');
     if (objects.ratsnest) s.add('showRatsnest');
@@ -3128,7 +3177,7 @@ export function PcbEditor({
     if (highlightNets.size > 0) s.add('toggleNetHighlight');
     else s.delete('toggleNetHighlight');
     return s;
-  }, [toggles, contrast, objects.ratsnest, highlightNets]);
+  }, [toggles, contrast, objects.ratsnest, highlightNets, unitLabel]);
 
   // `text` is live (see the `openNonce` prop): the host mirrors this editor's
   // own autosaved board back into the open project, so reading it as a
@@ -7434,6 +7483,12 @@ export function PcbEditor({
       setPrefsOpen(true);
       return;
     }
+    // ACTIONS::millimetersUnits / inchesUnits / milsUnits: COMMON_TOOLS::SwitchUnits.
+    const checkedAction = PCB_CHECKED_ACTIONS[id];
+    if (checkedAction) {
+      runAction(checkedAction);
+      return;
+    }
     // The high-contrast button maps onto the Layer Display Options mode
     // (ACTIONS::highContrastMode toggles Normal <-> Dim).
     if (id === 'highContrast') {
@@ -8001,7 +8056,6 @@ export function PcbEditor({
   // MessageTextFromValue at the pcbnew IU scale (PCB_IU_PER_MM), which is the
   // long form: mm %.4f, mils %.2f, inches %.4f.
   unitsRef.current = unitLabel;
-  frameRef.current?.SetUserUnits(unitLabel);
   const fmtCoord = (iu: number): string =>
     messageTextFromValue(iuToMM(iu), unitLabel, PCB_IU_PER_MM);
 
@@ -8241,7 +8295,7 @@ export function PcbEditor({
                 ...PCB_GRIDS.map((g) => ({
                   value: String(g),
                   label: `${fmtCoord(g)}${unitText(unitLabel)} (${
-                    toggles.has('unitsMils')
+                    unitLabel === 'mils'
                       ? `${auxMM(g)}${unitText('mm')}`
                       : `${auxMils(g)}${unitText('mils')}`
                   })`,
