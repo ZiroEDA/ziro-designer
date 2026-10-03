@@ -592,8 +592,10 @@ const CANVAS_KEYS: Readonly<
       ['Ctrl+0 zoom to fit', /\(mod && e\.key === '0'\)/],
     ],
     kept: [
-      // ACTIONS::highContrastModeCycle, no row.
-      ['H contrast cycle', /e\.key === 'h' \|\| e\.key === 'H'/],
+      // ACTIONS::highContrastModeCycle (H) has no row either, but it is no
+      // longer the chain's: a key the chain and the menus leave falls through
+      // to TOOL_DISPATCHER, whose RunHotKey finds PCB_CONTROL's action (the
+      // guard below pins that fall-through).
       ['R rotate', /runAction\(e\.shiftKey \? PCB_ACTIONS\.rotateCw : PCB_ACTIONS\.rotateCcw\)/],
       ['M move', /runAction\(PCB_ACTIONS\.move\)/],
       ['G drag free angle', /runAction\(PCB_ACTIONS\.dragFreeAngle\)/],
@@ -615,6 +617,8 @@ const CANVAS_KEYS: Readonly<
       // …and the zoom-to-fit pair: Home stays here, Ctrl+0 is the row's, so
       // the branch must not answer both the way it used to.
       ['Home leaves Ctrl+0 to its row', /if \(!mod && e\.key === 'Home'\)/],
+      // A row-less key the chain does not keep reaches the tools' hotkeys.
+      ['row-less keys fall through to TOOL_DISPATCHER', /dispatcher\.DispatchToTools\(hook\)/],
     ],
   },
 };

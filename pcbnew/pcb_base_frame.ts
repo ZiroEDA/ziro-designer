@@ -36,7 +36,8 @@ import type { ZONE } from './zone.js';
 import type { APP_SETTINGS_BASE } from '@ziroeda/common/settings/app_settings.js';
 import type { COLOR_SETTINGS } from '@ziroeda/common/settings/color_settings.js';
 import type { TOOL_DISPATCHER } from '@ziroeda/common/draw_panel_gal.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { IsCopperLayer, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { HIGH_CONTRAST_MODE } from '@ziroeda/common/project/board_project_settings.js';
 import { RESET_REASON } from '@ziroeda/common/tool/tool_base.js';
 import type { BOARD } from './board.js';
 import { PCB_DISPLAY_OPTIONS, type PCB_PAINTER } from './pcb_painter.js';
@@ -169,6 +170,29 @@ export abstract class PCB_BASE_FRAME extends EDA_DRAW_FRAME {
   }
 
   OnDisplayOptionsChanged(): void {}
+
+  /** `SwitchLayer( aLayer )` (pcb_base_frame.cpp:711-735): the board editor overrides it. */
+  SwitchLayer(layer: PCB_LAYER_ID): void {
+    const preslayer = this.GetActiveLayer();
+    const displ_opts = this.GetDisplayOptions();
+
+    // Check if the specified layer matches the present layer
+    if (layer === preslayer) return;
+
+    // Copper layers cannot be selected unconditionally; how many of those layers are
+    // currently enabled needs to be checked.
+    if (IsCopperLayer(layer)) {
+      if (layer > this.m_pcb!.GetCopperLayerStackMaxId()) return;
+    }
+
+    // Is yet more checking required? E.g. when the layer to be selected is a non-copper
+    // layer, or when switching between a copper layer and a non-copper layer, or vice-versa?
+    // ...
+
+    this.SetActiveLayer(layer);
+
+    if (displ_opts.m_ContrastModeDisplay !== HIGH_CONTRAST_MODE.NORMAL) this.GetCanvas()?.Refresh();
+  }
 
   SetActiveLayer(aLayer: PCB_LAYER_ID): void {
     this.GetScreen()!.m_Active_Layer = aLayer;

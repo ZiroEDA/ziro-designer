@@ -46,7 +46,7 @@ import { PCB_REFERENCE_IMAGE } from '../pcb_reference_image.js';
 import { PCB_TEXT } from '../pcb_text.js';
 import type { PCB_VIA } from '../pcb_track.js';
 import type { PASTE_MODE } from '../pcb_base_edit_frame.js';
-import { PCB_ACTIONS } from './pcb_actions.js';
+import { PCB_ACTIONS, PCB_EVENTS } from './pcb_actions.js';
 import { BOARD_COMMIT } from '../board_commit.js';
 import { Build_Board_Characteristics_Table } from '../board_tables/board_characteristics_table.js';
 import { Build_Board_Stackup_Table } from '../board_tables/board_stackup_table.js';
@@ -58,7 +58,16 @@ import { EVENTS } from '@ziroeda/common/tool/actions.js';
 import type { COROUTINE_BODY } from '@ziroeda/common/tool/coroutine.js';
 import { BaseType, KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { DoSetGridOrigin } from './pcb_origins.js';
-import { GAL_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import {
+  GAL_LAYER_ID,
+  GetNetnameLayer,
+  IsCopperLayer,
+  PCB_LAYER_ID,
+  ZONE_LAYER_FOR,
+} from '@ziroeda/common/layer_id.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import { wxBell } from '@ziroeda/common/wx/utils.js';
+import { PCB_LAYER_PRESENTATION } from '../pcb_layer_presentation.js';
 import { KeyNameFromKeyCode } from '@ziroeda/common/hotkeys_basic.js';
 import { PgmOrNull } from '@ziroeda/common/pgm_base.js';
 import {
@@ -73,6 +82,12 @@ import type { PCB_SHAPE } from '../pcb_shape.js';
 import { PCB_DISPLAY_OPTIONS } from '../pcb_painter.js';
 
 /** `HITTEST_THRESHOLD_PIXELS` (pcb_control.cpp:817). */
+// It'd be nice to share the min/max with the DIALOG_COLOR_PICKER, but those are
+// set in wxFormBuilder.
+const ALPHA_MIN = 0.2;
+const ALPHA_MAX = 1.0;
+const ALPHA_STEP = 0.05;
+
 const HITTEST_THRESHOLD_PIXELS = 5;
 
 /**
@@ -1052,6 +1067,232 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
     return 0;
   }
 
+  /** `LayerSwitch` (pcb_control.cpp:473-478). */
+  LayerSwitch(aEvent: TOOL_EVENT): number {
+    this.m_frame!.SwitchLayer(aEvent.Parameter<PCB_LAYER_ID>());
+
+    return 0;
+  }
+
+  /** `LayerNext` (pcb_control.cpp:481-537): the next visible copper layer, wrapping once. */
+  LayerNext(_aEvent: TOOL_EVENT): number {
+    const brd = this.board();
+    let layer = this.m_frame!.GetActiveLayer();
+    let wraparound = false;
+
+    if (!IsCopperLayer(layer)) {
+      this.m_frame!.SwitchLayer(PCB_LAYER_ID.B_Cu);
+      return 0;
+    }
+
+    const cuMask = LSET.AllCuMask(brd.GetCopperLayerCount());
+    const layerStack = cuMask.UIOrder();
+
+    let ii = 0;
+
+    // Find the active layer in list
+    for (; ii < layerStack.length; ii++) {
+      if (layer === layerStack[ii]) break;
+    }
+
+    // Find the next visible layer in list
+    for (; ii < layerStack.length; ii++) {
+      let jj = ii + 1;
+
+      if (jj >= layerStack.length) jj = 0;
+
+      layer = layerStack[jj]!;
+
+      if (brd.IsLayerVisible(layer)) break;
+
+      if (jj === 0) {
+        // the end of list is reached. Try from the beginning
+        if (wraparound) {
+          wxBell();
+          return 0;
+        } else {
+          wraparound = true;
+          ii = -1;
+        }
+      }
+    }
+
+    if (!IsCopperLayer(layer)) return 0;
+
+    this.m_frame!.SwitchLayer(layer);
+
+    return 0;
+  }
+
+  /** `LayerPrev` (pcb_control.cpp:540-596): the previous visible copper layer, wrapping once. */
+  LayerPrev(_aEvent: TOOL_EVENT): number {
+    const brd = this.board();
+    let layer = this.m_frame!.GetActiveLayer();
+    let wraparound = false;
+
+    if (!IsCopperLayer(layer)) {
+      this.m_frame!.SwitchLayer(PCB_LAYER_ID.F_Cu);
+      return 0;
+    }
+
+    const cuMask = LSET.AllCuMask(brd.GetCopperLayerCount());
+    const layerStack = cuMask.UIOrder();
+
+    let ii = 0;
+
+    // Find the active layer in list
+    for (; ii < layerStack.length; ii++) {
+      if (layer === layerStack[ii]) break;
+    }
+
+    // Find the previous visible layer in list
+    for (; ii >= 0; ii--) {
+      let jj = ii - 1;
+
+      if (jj < 0) jj = layerStack.length - 1;
+
+      layer = layerStack[jj]!;
+
+      if (brd.IsLayerVisible(layer)) break;
+
+      if (ii === 0) {
+        // the start of list is reached. Try from the last
+        if (wraparound) {
+          wxBell();
+          return 0;
+        } else {
+          wraparound = true;
+          ii = 1;
+        }
+      }
+    }
+
+    if (!IsCopperLayer(layer)) return 0;
+
+    this.m_frame!.SwitchLayer(layer);
+
+    return 0;
+  }
+
+  /** `LayerToggle` (pcb_control.cpp:599-610): between the route layer pair. */
+  LayerToggle(_aEvent: TOOL_EVENT): number {
+    const currentLayer = this.m_frame!.GetActiveLayer();
+    const screen = this.m_frame!.GetScreen()!;
+
+    if (currentLayer === screen.m_Route_Layer_TOP)
+      this.m_frame!.SwitchLayer(screen.m_Route_Layer_BOTTOM);
+    else this.m_frame!.SwitchLayer(screen.m_Route_Layer_TOP);
+
+    return 0;
+  }
+
+  /** `LayerAlphaInc` / `LayerAlphaDec`'s body (pcb_control.cpp:620-677). */
+  private layerAlphaStep(aStep: number): number {
+    const settings = this.m_frame!.GetColorSettings();
+    const currentLayer = this.m_frame!.GetActiveLayer();
+    const currentColor = { ...settings.GetColor(currentLayer) };
+
+    if (
+      aStep > 0
+        ? currentColor.a <= ALPHA_MAX - ALPHA_STEP
+        : currentColor.a >= ALPHA_MIN + ALPHA_STEP
+    ) {
+      currentColor.a += aStep;
+      settings.SetColor(currentLayer, currentColor);
+      this.m_frame!.GetCanvas()!.UpdateColors();
+
+      const view = this.m_frame!.GetCanvas()!.GetView();
+      view.UpdateLayerColor(currentLayer);
+      view.UpdateLayerColor(GetNetnameLayer(currentLayer));
+
+      if (IsCopperLayer(currentLayer)) view.UpdateLayerColor(ZONE_LAYER_FOR(currentLayer));
+
+      this.m_frame!.GetCanvas()!.ForceRefresh();
+    } else {
+      wxBell();
+    }
+
+    return 0;
+  }
+
+  /** `LayerAlphaInc` (pcb_control.cpp:620-647). */
+  LayerAlphaInc(_aEvent: TOOL_EVENT): number {
+    return this.layerAlphaStep(ALPHA_STEP);
+  }
+
+  /** `LayerAlphaDec` (pcb_control.cpp:650-677). */
+  LayerAlphaDec(_aEvent: TOOL_EVENT): number {
+    return this.layerAlphaStep(-ALPHA_STEP);
+  }
+
+  /** `CycleLayerPresets` (pcb_control.cpp:680-710): the next enabled layer pair. */
+  CycleLayerPresets(_aEvent: TOOL_EVENT): number {
+    const editFrame = this.editFrame();
+
+    if (editFrame) {
+      const settings = editFrame.GetLayerPairSettings();
+
+      if (!settings) return 0;
+
+      const { pairs: presets, current } = settings.GetEnabledLayerPairs();
+      let currentIndex = current;
+
+      if (presets.length < 2) return 0;
+
+      if (currentIndex < 0) {
+        console.assert(false, 'Current layer pair not found in layer settings');
+        currentIndex = 0;
+      }
+
+      const nextIndex = (currentIndex + 1) % presets.length;
+      const nextPair = presets[nextIndex]!.GetLayerPair();
+
+      settings.SetCurrentLayerPair(nextPair);
+
+      this.m_toolMgr!.PostEvent(PCB_EVENTS.LayerPairPresetChangedByKeyEvent());
+    }
+
+    return 0;
+  }
+
+  /** `LayerPresetFeedback` (pcb_control.cpp:713-754). */
+  LayerPresetFeedback(_aEvent: TOOL_EVENT): number {
+    if (!PgmOrNull()?.GetCommonSettings()?.m_Input.hotkey_feedback) return 0;
+
+    const editFrame = this.editFrame();
+
+    if (editFrame) {
+      const settings = editFrame.GetLayerPairSettings();
+
+      if (!settings) return 0;
+
+      const layerPresentation = new PCB_LAYER_PRESENTATION(editFrame);
+
+      const { pairs: presets, current: currentIndex } = settings.GetEnabledLayerPairs();
+
+      const labels: string[] = [];
+
+      for (const layerPairInfo of presets) {
+        let label = layerPresentation.getLayerPairName(layerPairInfo.GetLayerPair());
+
+        if (layerPairInfo.GetName()) label += ` (${layerPairInfo.GetName()})`;
+
+        labels.push(label);
+      }
+
+      if (!editFrame.GetHotkeyPopup()) editFrame.CreateHotkeyPopup();
+
+      const popup = editFrame.GetHotkeyPopup();
+
+      if (popup) {
+        const selection = currentIndex;
+        popup.Popup('Preset Layer Pairs', labels, selection);
+      }
+    }
+
+    return 0;
+  }
+
   /** `FlipPcbView` (pcb_control.cpp:2946-2953). */
   FlipPcbView(_aEvent: TOOL_EVENT): number {
     const opts = Object.assign(new PCB_DISPLAY_OPTIONS(), this.m_frame!.GetDisplayOptions());
@@ -1141,6 +1382,57 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
     );
     this.Go(SYNC_HANDLER<PCB_CONTROL>(this.FlipPcbView), PCB_ACTIONS.flipBoard.MakeEvent());
     this.Go(SYNC_HANDLER<PCB_CONTROL>(this.RehatchShapes), PCB_ACTIONS.rehatchShapes.MakeEvent());
+
+    // Layer control
+    for (const action of [
+      PCB_ACTIONS.layerTop,
+      PCB_ACTIONS.layerInner1,
+      PCB_ACTIONS.layerInner2,
+      PCB_ACTIONS.layerInner3,
+      PCB_ACTIONS.layerInner4,
+      PCB_ACTIONS.layerInner5,
+      PCB_ACTIONS.layerInner6,
+      PCB_ACTIONS.layerInner7,
+      PCB_ACTIONS.layerInner8,
+      PCB_ACTIONS.layerInner9,
+      PCB_ACTIONS.layerInner10,
+      PCB_ACTIONS.layerInner11,
+      PCB_ACTIONS.layerInner12,
+      PCB_ACTIONS.layerInner13,
+      PCB_ACTIONS.layerInner14,
+      PCB_ACTIONS.layerInner15,
+      PCB_ACTIONS.layerInner16,
+      PCB_ACTIONS.layerInner17,
+      PCB_ACTIONS.layerInner18,
+      PCB_ACTIONS.layerInner19,
+      PCB_ACTIONS.layerInner20,
+      PCB_ACTIONS.layerInner21,
+      PCB_ACTIONS.layerInner22,
+      PCB_ACTIONS.layerInner23,
+      PCB_ACTIONS.layerInner24,
+      PCB_ACTIONS.layerInner25,
+      PCB_ACTIONS.layerInner26,
+      PCB_ACTIONS.layerInner27,
+      PCB_ACTIONS.layerInner28,
+      PCB_ACTIONS.layerInner29,
+      PCB_ACTIONS.layerInner30,
+      PCB_ACTIONS.layerBottom,
+    ])
+      this.Go(SYNC_HANDLER<PCB_CONTROL>(this.LayerSwitch), action.MakeEvent());
+    this.Go(SYNC_HANDLER<PCB_CONTROL>(this.LayerNext), PCB_ACTIONS.layerNext.MakeEvent());
+    this.Go(SYNC_HANDLER<PCB_CONTROL>(this.LayerPrev), PCB_ACTIONS.layerPrev.MakeEvent());
+    this.Go(SYNC_HANDLER<PCB_CONTROL>(this.LayerToggle), PCB_ACTIONS.layerToggle.MakeEvent());
+    this.Go(SYNC_HANDLER<PCB_CONTROL>(this.LayerAlphaInc), PCB_ACTIONS.layerAlphaInc.MakeEvent());
+    this.Go(SYNC_HANDLER<PCB_CONTROL>(this.LayerAlphaDec), PCB_ACTIONS.layerAlphaDec.MakeEvent());
+
+    this.Go(
+      SYNC_HANDLER<PCB_CONTROL>(this.CycleLayerPresets),
+      PCB_ACTIONS.layerPairPresetsCycle.MakeEvent(),
+    );
+    this.Go(
+      SYNC_HANDLER<PCB_CONTROL>(this.LayerPresetFeedback),
+      PCB_EVENTS.LayerPairPresetChangedByKeyEvent(),
+    );
 
     this.Go(SYNC_HANDLER<PCB_CONTROL>(this.GridPlaceOrigin), ACTIONS.gridSetOrigin.MakeEvent());
     this.Go(SYNC_HANDLER<PCB_CONTROL>(this.GridResetOrigin), ACTIONS.gridResetOrigin.MakeEvent());

@@ -16,6 +16,8 @@ import { GAL_LAYER_ID, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { PgmOrNull } from '@ziroeda/common/pgm_base.js';
 import {
   HIGH_CONTRAST_MODE,
+  LAYER_PAIR,
+  LAYER_PAIR_INFO,
   RATSNEST_MODE,
   ZONE_DISPLAY_MODE,
 } from '@ziroeda/common/project/board_project_settings.js';
@@ -128,6 +130,72 @@ describe('the contrast feedback', () => {
 
     expect(f.GetDisplayOptions().m_ContrastModeDisplay).toBe(HIGH_CONTRAST_MODE.DIMMED);
     expect(popups).toEqual([['Inactive Layer Display', ['Normal', 'Dimmed', 'Hidden'], 1]]);
+  });
+});
+
+describe('the layer pair presets (pcb_control.cpp:680-754)', () => {
+  it('cycle through the enabled pairs and pop them by the board layer names', () => {
+    const { f } = frame();
+    const board = f.GetBoard()!;
+    board.SetCopperLayerCount(4);
+    board.SetLayerName(PCB_LAYER_ID.F_Cu, 'Top');
+    const settings = f.GetLayerPairSettings();
+    settings.SetLayerPairs([
+      new LAYER_PAIR_INFO(new LAYER_PAIR(PCB_LAYER_ID.F_Cu, PCB_LAYER_ID.B_Cu), true, 'Outer'),
+      new LAYER_PAIR_INFO(
+        new LAYER_PAIR(PCB_LAYER_ID.In1_Cu, PCB_LAYER_ID.In2_Cu),
+        true,
+        undefined,
+      ),
+    ]);
+    const popups: [string, readonly string[], number][] = [];
+    f.SetHotkeyPopup({ Popup: (t, items, sel) => popups.push([t, items, sel]) });
+    const common = PgmOrNull()!.GetCommonSettings()!;
+    const was = common.m_Input.hotkey_feedback;
+    common.m_Input.hotkey_feedback = true;
+
+    f.GetToolManager()!.RunAction(PCB_ACTIONS.layerPairPresetsCycle);
+    const first = settings.GetCurrentLayerPair();
+    f.GetToolManager()!.RunAction(PCB_ACTIONS.layerPairPresetsCycle);
+    const second = settings.GetCurrentLayerPair();
+
+    common.m_Input.hotkey_feedback = was;
+
+    expect([first.GetLayerA(), first.GetLayerB()]).toEqual([
+      PCB_LAYER_ID.In1_Cu,
+      PCB_LAYER_ID.In2_Cu,
+    ]);
+    expect([second.GetLayerA(), second.GetLayerB()]).toEqual([
+      PCB_LAYER_ID.F_Cu,
+      PCB_LAYER_ID.B_Cu,
+    ]);
+    const labels = ['Top / B.Cu (Outer)', 'In1.Cu / In2.Cu'];
+    expect(popups).toEqual([
+      ['Preset Layer Pairs', labels, 1],
+      ['Preset Layer Pairs', labels, 0],
+    ]);
+  });
+
+  it('do nothing with fewer than two enabled pairs', () => {
+    const { f } = frame();
+    const settings = f.GetLayerPairSettings();
+    settings.SetLayerPairs([
+      new LAYER_PAIR_INFO(new LAYER_PAIR(PCB_LAYER_ID.F_Cu, PCB_LAYER_ID.B_Cu), true, undefined),
+    ]);
+    const popups: unknown[] = [];
+    f.SetHotkeyPopup({ Popup: (...a) => popups.push(a) });
+    const common = PgmOrNull()!.GetCommonSettings()!;
+    const was = common.m_Input.hotkey_feedback;
+    common.m_Input.hotkey_feedback = true;
+
+    f.GetToolManager()!.RunAction(PCB_ACTIONS.layerPairPresetsCycle);
+
+    common.m_Input.hotkey_feedback = was;
+    // Nothing changed, so nothing is announced either.
+    expect(popups).toEqual([]);
+
+    const pair = settings.GetCurrentLayerPair();
+    expect([pair.GetLayerA(), pair.GetLayerB()]).toEqual([PCB_LAYER_ID.F_Cu, PCB_LAYER_ID.B_Cu]);
   });
 });
 

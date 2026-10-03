@@ -391,7 +391,7 @@ import {
   type MenuItem,
 } from '@ziroeda/common/tool/action_menu_bar.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
-import { layerBoxLabel, layerForHotkey } from './pcb_layer_box_selector.js';
+import { layerBoxLabel } from './pcb_layer_box_selector.js';
 import { Toolbar } from '@ziroeda/common/tool/action_toolbar.js';
 import { formatTitle, useDocumentTitle } from '@ziroeda/common/use_document_title.js';
 import { PCB_FRAME_NAME, pcbFrameTitle } from './pcb_edit_frame.js';
@@ -446,7 +446,7 @@ import type { BOX2I as KBOX2I } from '@ziroeda/kimath/src/math/box2.js';
 
 /** `ROTATION_ANCHOR` in DIALOG_MOVE_EXACT's order, as the dialog names them. */
 const ROTATION_ANCHOR_NAMES = ['itemAnchor', 'selectionCenter', 'userOrigin', 'auxOrigin'] as const;
-import { type WINDOW_ACTION_HANDLER } from './tools/window_action_bridge.js';
+import type { GATED_DISPATCHER, WINDOW_ACTION_HANDLER } from './tools/window_action_bridge.js';
 import type { ACTION_MENU } from '@ziroeda/common/tool/action_menu.js';
 import { actionMenuItems } from '@ziroeda/common/tool/action_menu_popup.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
@@ -458,6 +458,7 @@ import { wxMenuEvent, wxMenuEventType } from '@ziroeda/common/wx/menu.js';
 import { clientPosition, wxKeyEventFromDom } from '@ziroeda/common/wx/dom_events.js';
 import {
   type wxEvent,
+  wxEVT_CHAR,
   wxEVT_CHAR_HOOK,
   wxKeyEvent,
   wxMouseEvent,
@@ -6602,11 +6603,6 @@ export function PcbEditor({
       }
 
       // --- context: what the live tool / selection owns ---------------------
-      // ACTIONS::highContrastModeCycle (H): Normal -> Dim -> Hide -> Normal.
-      if (!mod && (e.key === 'h' || e.key === 'H')) {
-        runAction(ACTIONS.highContrastModeCycle);
-        return;
-      }
       if (!mod && (e.key === 'r' || e.key === 'R')) {
         runAction(e.shiftKey ? PCB_ACTIONS.rotateCw : PCB_ACTIONS.rotateCcw);
         return;
@@ -6631,20 +6627,6 @@ export function PcbEditor({
         e.preventDefault();
         runAction(PCB_ACTIONS.drag45Degree);
         return;
-      }
-      // PgUp / PgDn: `PCB_ACTIONS::layerTop` and `layerBottom`
-      // (pcb_actions.cpp:1873, :2129). These are the two hotkeys the aux bar's
-      // layer selector advertises in its own entries — "F.Cu (PgUp)" — so the
-      // selector was naming keys that did nothing here.
-      if (!mod) {
-        const toLayer = layerForHotkey(e.key);
-        // Only a layer the board actually has: `SetActiveLayer` on a layer that
-        // is not enabled is not a thing upstream can do either.
-        if (toLayer && (boardRef.current?.layers ?? []).some((l) => l.name === toLayer)) {
-          e.preventDefault();
-          switchActiveLayer(toLayer);
-          return;
-        }
       }
       // B = Fill All Zones (PCB_ACTIONS::zoneFillAll), no row.
       if (!mod && (e.key === 'b' || e.key === 'B')) {
@@ -6712,11 +6694,38 @@ export function PcbEditor({
       }
 
       // --- global: the menu accelerators ------------------------------------
-      if (dispatchMenuHotkey(menusRef.current, e, { target })) e.preventDefault();
+      if (dispatchMenuHotkey(menusRef.current, e, { target })) {
+        e.preventDefault();
+        return;
+      }
+
+      // --- the rest: TOOL_DISPATCHER, as the frame's char hook passes it on ---
+      // (EDA_BASE_FRAME::OnCharHook only skips): ACTION_MANAGER::RunHotKey runs
+      // the action bound to the key - PCB_CONTROL's layer keys, the H contrast
+      // cycle and every other tool hotkey with no menu row. wxEVT_CHAR_HOOK
+      // first, then wxEVT_CHAR, as the canvas sends them.
+      const canvas = glCanvasRef.current;
+      const dispatcher = frameRef.current?.GetToolDispatcher() as unknown as
+        | GATED_DISPATCHER
+        | null
+        | undefined;
+      if (canvas && dispatcher) {
+        const at = KIPLATFORM_UI.GetMousePosition();
+        const pos = clientPosition(canvas, { clientX: at.x, clientY: at.y });
+        const hook = wxKeyEventFromDom(canvas, e, wxEVT_CHAR_HOOK, pos);
+        dispatcher.DispatchToTools(hook);
+        if (!hook.GetSkipped()) {
+          e.preventDefault();
+          return;
+        }
+        const ch = wxKeyEventFromDom(canvas, e, wxEVT_CHAR, pos);
+        dispatcher.DispatchToTools(ch);
+        if (!ch.GetSkipped()) e.preventDefault();
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [zoomToFit, switchActiveLayer]);
+  }, [zoomToFit]);
 
   // The snap modifiers, tracked on the keyboard as well as the pointer.
   // Upstream a modifier arrives as its own `TOOL_EVENT`, so pressing Shift or

@@ -107,7 +107,9 @@ import {
   EdaUnitsFromInt,
   EdaUnitsToInt,
 } from '@ziroeda/common/settings/app_settings.js';
-import type { EdaUnits } from '@ziroeda/common/eda_units.js';
+import { type EdaUnits, pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { PAGE_INFO, PAGE_SIZE_TYPE } from '@ziroeda/common/page_info.js';
+import { PCB_SCREEN } from './pcb_screen.js';
 import { CROSS_HAIR_MODE } from '@ziroeda/common/gal/gal_display_options.js';
 import { GRID } from '@ziroeda/common/settings/grid_settings.js';
 import type { GridEntry } from '@ziroeda/common/settings/grid_settings_ui.js';
@@ -1108,6 +1110,16 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     // initialize parameters in m_LayersManager. The canvas is the window's and
     // arrives later (`ActivateGalCanvas`).
     this.LoadSettings(this.config());
+
+    // SetScreen( new PCB_SCREEN( GetPageSettings().GetSizeIU( pcbIUScale.IU_PER_MILS ) ) ):
+    // the window hands the frame its empty board after the constructor, so the
+    // page is that board's default - `m_paper( PAGE_SIZE_TYPE::A4 )` (board.cpp:99).
+    this.SetScreen(
+      new PCB_SCREEN(new PAGE_INFO(PAGE_SIZE_TYPE.A4).GetSizeIU(pcbIUScale.IU_PER_MILS)),
+    );
+
+    // PCB drawings start in the upper left corner.
+    this.GetScreen()!.m_Center = false;
 
     this.setupTools();
 

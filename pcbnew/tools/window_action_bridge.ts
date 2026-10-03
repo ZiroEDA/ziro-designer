@@ -64,6 +64,18 @@ export class WINDOW_ACTION_BRIDGE extends TOOL_INTERACTIVE {
 }
 
 /**
+ * The gated TOOL_DISPATCHER, and its ungated entry: a key the window's own key
+ * chain and the menus leave is the dispatcher's, as the frame's char hook
+ * (`EDA_BASE_FRAME::OnCharHook`, which only skips) passes every key on.
+ */
+export interface GATED_DISPATCHER {
+  DispatchWxEvent(aEvent: wxEvent): void;
+  /** TRANSITIONAL (#636): past the gate, for a key the window's chain did not claim. */
+  DispatchToTools(aEvent: wxEvent): void;
+  ResetState(): void;
+}
+
+/**
  * TRANSITIONAL (#636 stage 3): the frame's TOOL_DISPATCHER, with the window's
  * own tools' events kept off it (`aToWindow`).
  *
@@ -81,8 +93,12 @@ export function makeGatedDispatcher(
   aDispatcher: { DispatchWxEvent(aEvent: wxEvent): void; ResetState(): void },
   aToWindow: (aEvent: wxEvent) => boolean,
   aAfter: () => void = () => {},
-): { DispatchWxEvent(aEvent: wxEvent): void; ResetState(): void } {
+): GATED_DISPATCHER {
   return {
+    DispatchToTools: (aEvent: wxEvent): void => {
+      aDispatcher.DispatchWxEvent(aEvent);
+      aAfter();
+    },
     DispatchWxEvent: (aEvent: wxEvent): void => {
       if (aToWindow(aEvent)) {
         if (BUTTON_UP_EVENTS.includes(aEvent.GetEventType())) aDispatcher.ResetState();

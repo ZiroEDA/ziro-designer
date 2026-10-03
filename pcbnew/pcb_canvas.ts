@@ -33,7 +33,6 @@ import { RECURSE_MODE } from '@ziroeda/common/eda_item.js';
 import type { VIEW } from '@ziroeda/common/view/view.js';
 import { PCB_DRAW_PANEL_GAL } from './pcb_draw_panel_gal.js';
 import type { PCB_DISPLAY_OPTIONS } from './pcb_painter.js';
-import { PCB_SCREEN } from './pcb_screen.js';
 import type { PCB_EDIT_FRAME } from './pcb_edit_frame.js';
 import { type KiCursor, kiCursor } from '@ziroeda/common/gal/kicursors.js';
 import { drawPanelWindow } from '@ziroeda/common/gal/gal_window.js';
@@ -81,11 +80,8 @@ export function createPcbDrawPanel(
     rs.SetSelectFactor(cfg.m_Graphics.select_factor);
   }
 
-  // SetScreen( new PCB_SCREEN( GetPageSettings().GetSizeIU( pcbIUScale.IU_PER_MILS ) ) ):
-  // the A4 the frame starts with; attachBoardToPanel re-sizes it for the board
-  aFrame.SetScreen(new PCB_SCREEN({ x: pcbIUScale.milsToIU(11693), y: pcbIUScale.milsToIU(8268) }));
-
-  // Must be set after calling SetScreen()
+  // The constructor made the frame's screen; attachBoardToPanel re-sizes it
+  // for the board. "Must be set after calling SetScreen()":
   panel.GetGAL().SetAxesEnabled(false);
 
   return panel;
