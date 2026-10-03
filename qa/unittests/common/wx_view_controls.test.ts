@@ -29,6 +29,7 @@ import {
   CONSTANT_ZOOM_CONTROLLER,
   type TIMESTAMP_PROVIDER,
 } from '@ziroeda/common/view/zoom_controller.js';
+import { COMMON_DEFAULTS } from '@ziroeda/common/settings/common_settings.js';
 import {
   type wxEvent,
   type wxEventType,
@@ -232,6 +233,7 @@ function setup(aInput: Partial<COMMON_SETTINGS_LIKE['m_Input']> = {}): {
       m_Input: { ...INPUT, ...aInput },
       m_Graphics: { aa_mode: 0 },
       m_Env: { vars: new ENV_VAR_MAP() },
+      m_DoNotShowAgain: { ...COMMON_DEFAULTS.do_not_show_again },
     }),
   );
   const options = new GAL_DISPLAY_OPTIONS();

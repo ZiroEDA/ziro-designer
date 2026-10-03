@@ -58,14 +58,16 @@ describe('PCB_EDIT_FRAME settings', () => {
   it('a unit action goes to COMMON_TOOLS, re-lists the aux toolbar and is saved', () => {
     const { f, settings, auxRebuilt } = frame();
     expect(f.GetUserUnits()).toBe('mm');
-    expect(pcbCheckedSet(f)).toEqual(new Set(['unitsMm']));
+    // The units group's checks, out of everything the frame checks.
+    const units = (): string[] => [...pcbCheckedSet(f)].filter((id) => id.startsWith('units'));
+    expect(units()).toEqual(['unitsMm']);
 
     f.GetToolManager()!.RunAction(ACTIONS.inchesUnits);
 
     expect(f.GetUserUnits()).toBe('in');
     expect(f.GetBoard()!.GetUserUnits()).toBe('in');
     expect(auxRebuilt()).toBe(1);
-    expect(pcbCheckedSet(f)).toEqual(new Set(['unitsInches']));
+    expect(units()).toEqual(['unitsInches']);
 
     f.SaveSettings(settings);
 

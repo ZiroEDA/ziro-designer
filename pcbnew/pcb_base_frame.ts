@@ -38,14 +38,10 @@ import type { COLOR_SETTINGS } from '@ziroeda/common/settings/color_settings.js'
 import type { TOOL_DISPATCHER } from '@ziroeda/common/draw_panel_gal.js';
 import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { RESET_REASON } from '@ziroeda/common/tool/tool_base.js';
-import { type VIEW_ITEM, VIEW_UPDATE_FLAGS } from '@ziroeda/common/view/view_item.js';
 import type { BOARD } from './board.js';
-import { HIGH_CONTRAST_MODE } from '@ziroeda/common/project/board_project_settings.js';
-import { PAD } from './pad.js';
 import { PCB_DISPLAY_OPTIONS, type PCB_PAINTER } from './pcb_painter.js';
 import type { PCB_DRAW_PANEL_GAL } from './pcb_draw_panel_gal.js';
 import type { PCB_SCREEN } from './pcb_screen.js';
-import { PCB_VIA, VIATYPE } from './pcb_track.js';
 import type { PROGRESS_REPORTER_LIKE } from './connectivity/connectivity_algo.js';
 import type { BOARD_DESIGN_SETTINGS } from './board_design_settings.js';
 import { type BOARD_ITEM, DELETED_BOARD_ITEM } from './board_item.js';
@@ -129,58 +125,47 @@ export abstract class PCB_BASE_FRAME extends EDA_DRAW_FRAME {
   }
 
   /**
-   * Update the display options and refresh the canvas.
+   * `displayOptionsRequireRecache( aOld, aNew )` (pcb_base_frame.cpp:1067-1074):
+   * only the zone mode and the board flip change geometry; colour, opacity and
+   * contrast are recolour only.
+   */
+  protected displayOptionsRequireRecache(
+    aOld: PCB_DISPLAY_OPTIONS,
+    aNew: PCB_DISPLAY_OPTIONS,
+  ): boolean {
+    return (
+      aOld.m_ZoneDisplayMode !== aNew.m_ZoneDisplayMode ||
+      aOld.m_FlipBoardView !== aNew.m_FlipBoardView
+    );
+  }
+
+  /**
+   * Update the display options and refresh the canvas
+   * (`SetDisplayOptions`, pcb_base_frame.cpp:1077-1097).
    */
   SetDisplayOptions(aOptions: PCB_DISPLAY_OPTIONS, aRefresh = true): void {
-    const hcChanged =
-      this.m_displayOptions.m_ContrastModeDisplay !== aOptions.m_ContrastModeDisplay;
-    const hcVisChanged =
-      this.m_displayOptions.m_ContrastModeDisplay === HIGH_CONTRAST_MODE.HIDDEN ||
-      aOptions.m_ContrastModeDisplay === HIGH_CONTRAST_MODE.HIDDEN;
+    const needsRecache = this.displayOptionsRequireRecache(this.m_displayOptions, aOptions);
     this.m_displayOptions = aOptions;
 
-    const canvas = this.GetCanvas()!;
-    const view = canvas.GetView();
+    // The window attaches the canvas after the constructor; until it does
+    // there is no view to tell.
+    const canvas = this.GetCanvas();
 
-    view.UpdateDisplayOptions(aOptions);
-    view.SetMirror(aOptions.m_FlipBoardView, view.IsMirroredY());
-    view.RecacheAllItems();
+    if (canvas) {
+      const view = canvas.GetView();
 
-    canvas.SetHighContrastLayer(this.GetActiveLayer());
-    this.OnDisplayOptionsChanged();
+      view.UpdateDisplayOptions(aOptions);
+      view.SetMirror(aOptions.m_FlipBoardView, view.IsMirroredY());
 
-    // Vias on a restricted layer set must be redrawn when high contrast mode is changed
-    if (hcChanged) {
-      let showNetNames = false;
+      // skip recache for colour/alpha-only changes handled by the recolour below
+      if (needsRecache) view.RecacheAllItems();
 
-      const config = this.config() as PCBNEW_SETTINGS;
-
-      if (config?.m_Display) showNetNames = config.m_Display.m_NetNames > 0;
-
-      // Note: KIGFX::REPAINT isn't enough for things that go from invisible to visible as
-      // they won't be found in the view layer's itemset for re-painting.
-      this.GetCanvas()!
-        .GetView()
-        .UpdateAllItemsConditionally((aItem: VIEW_ITEM): number => {
-          if (aItem instanceof PCB_VIA) {
-            if (
-              aItem.GetViaType() !== VIATYPE.THROUGH ||
-              aItem.GetRemoveUnconnected() ||
-              showNetNames
-            ) {
-              return hcVisChanged ? VIEW_UPDATE_FLAGS.ALL : VIEW_UPDATE_FLAGS.REPAINT;
-            }
-          } else if (aItem instanceof PAD) {
-            if (aItem.GetRemoveUnconnected() || showNetNames) {
-              return hcVisChanged ? VIEW_UPDATE_FLAGS.ALL : VIEW_UPDATE_FLAGS.REPAINT;
-            }
-          }
-
-          return 0;
-        });
+      canvas.SetHighContrastLayer(this.GetActiveLayer());
     }
 
-    if (aRefresh) canvas.Refresh();
+    this.OnDisplayOptionsChanged();
+
+    if (aRefresh) canvas?.Refresh();
   }
 
   OnDisplayOptionsChanged(): void {}

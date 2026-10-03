@@ -164,6 +164,7 @@ export function harnessCanvas(
     ForceRefresh: () => {},
     Refresh: () => {},
     RedrawRatsnest: () => {},
+    SetHighContrastLayer: () => {},
     SetStatusPopup: () => {},
     GetDrawingSheet: () => null,
     GetClientSize: () => ({ x: 1000, y: 1000 }),

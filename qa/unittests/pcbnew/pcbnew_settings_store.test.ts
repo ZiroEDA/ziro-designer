@@ -137,6 +137,9 @@ describe('PCBNEW_SETTINGS load / store over the pcbnew.json slice', () => {
       (c) => {
         c.m_Display.m_DisplayViaFill = false;
       },
+      (c) => {
+        c.m_Display.m_ShowGlobalRatsnest = false;
+      },
     ];
 
     for (const edit of edits) {
@@ -190,8 +193,11 @@ describe('PCBNEW_SETTINGS load / store over the pcbnew.json slice', () => {
     json.pcb_display.pad_fill = false;
     json.pcb_display.track_fill = false;
     json.pcb_display.via_fill = false;
+    json.pcb_display.ratsnest_global = false;
 
     const cfg = pcbnewSettingsOf(json);
+
+    expect(cfg.m_Display.m_ShowGlobalRatsnest).toBe(false);
 
     expect(cfg.m_ViewersDisplay.m_DisplayGraphicsFill).toBe(false);
     expect(cfg.m_ViewersDisplay.m_DisplayTextFill).toBe(false);

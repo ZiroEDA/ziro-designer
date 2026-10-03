@@ -458,17 +458,27 @@ export function buildPcbMenus(
               action: () => h.toggle('zoneDisplayOutline'),
             },
             { sep: true },
-            // `menubar_pcb_editor.cpp:258-264`: PCB_VIEWER_TOOLS' display modes,
-            // checked off `!cond.*FillDisplay()`. Vias and tracks are
-            // PCB_CONTROL's, which this frame does not run yet.
+            // `menubar_pcb_editor.cpp:258-264`: the pads, graphics and text are
+            // PCB_VIEWER_TOOLS', vias and tracks PCB_CONTROL's; each is checked
+            // off `!cond.*FillDisplay()`.
             {
               label: 'Sketch Pads',
               icon: 'padDisplayMode',
               checked: !!checks.padDisplayMode,
               action: () => h.toggle('padDisplayMode'),
             },
-            { label: 'Sketch Vias', disabled: dis },
-            { label: 'Sketch Tracks', disabled: dis },
+            {
+              label: 'Sketch Vias',
+              icon: 'viaDisplayMode',
+              checked: !!checks.viaDisplayMode,
+              action: () => h.toggle('viaDisplayMode'),
+            },
+            {
+              label: 'Sketch Tracks',
+              icon: 'trackDisplayMode',
+              checked: !!checks.trackDisplayMode,
+              action: () => h.toggle('trackDisplayMode'),
+            },
             { sep: true },
             {
               label: 'Sketch Graphic Items',

@@ -23,7 +23,7 @@ import { connectedItemIdsOnNets } from './edit-board.js';
 import { EDA_VIEW_SWITCHER } from '@ziroeda/common/dialogs/eda_view_switcher.js';
 import { WxTextEntryDialog } from '@ziroeda/common/wx/textdlg.js';
 import { WX_TEXT_ENTRY_DIALOG } from '@ziroeda/common/dialogs/dialog_text_entry.js';
-import { Pgm } from '@ziroeda/common/pgm_base.js';
+import { Pgm, PgmOrNull } from '@ziroeda/common/pgm_base.js';
 import type { PCBNEW_SETTINGS } from './pcbnew_settings.js';
 import { PCB_IU_PER_MM } from '@ziroeda/common/eda_units.js';
 import {
@@ -116,6 +116,8 @@ import {
   hasUnlockedItems,
 } from './tools/pcb_selection_conditions.js';
 import { Infobar } from '@ziroeda/common/widgets/wx_infobar.js';
+import { useHotkeyCyclePopup } from '@ziroeda/common/dialogs/hotkey_cycle_popup_ui.js';
+import type { WX_INFOBAR, WX_INFOBAR_HYPERLINK } from '@ziroeda/common/eda_base_frame.js';
 import { buildPcbMenus } from './menubar_pcb_editor.js';
 import { DialogDimensionProperties } from './dialogs/dialog_dimension_properties_ui.js';
 import { DialogTextBoxProperties } from './dialogs/dialog_textbox_properties_ui.js';
@@ -682,8 +684,10 @@ import { PCB_DISPLAY_OPTIONS, type PCB_PAINTER } from './pcb_painter.js';
 import {
   HIGH_CONTRAST_MODE,
   NET_COLOR_MODE,
+  RATSNEST_MODE,
   ZONE_DISPLAY_MODE,
 } from '@ziroeda/common/project/board_project_settings.js';
+import { RENDER_TARGET } from '@ziroeda/common/gal/definitions.js';
 import {
   GAL_LAYER_ID,
   LayerName,
@@ -1452,6 +1456,7 @@ export function PcbEditor({
     updatePcbnewSettings,
     updateCommonSettings,
     commonSettingsOf,
+    storeCommonDoNotShowAgain,
     windowSettingsOf,
     installPgm,
     reloadUserColorSettings,
@@ -1569,7 +1574,6 @@ export function PcbEditor({
   // off them; this is that, with the toggle set as our condition store.
   const storedCrosshair = pcbCfg.window.cursor.crosshair;
   const storedShowGrid = pcbCfg.window.grid.show;
-  const storedCurvedRats = pcbCfg.pcb_display.ratsnest_curved;
   const storedLineMode = pcbCfg.editing.pcb_angle_snap_mode;
   const storedPolar = pcbCfg.editing.polar_coords;
   useEffect(() => {
@@ -1584,11 +1588,10 @@ export function PcbEditor({
         else next.delete(id);
       };
       flag('toggleGrid', storedShowGrid);
-      flag('ratsnestLineMode', storedCurvedRats);
       flag('togglePolarCoords', storedPolar);
       return next;
     });
-  }, [storedCrosshair, storedShowGrid, storedCurvedRats, storedLineMode, storedPolar]);
+  }, [storedCrosshair, storedShowGrid, storedLineMode, storedPolar]);
   // `EDA_DRAW_FRAME::LoadSettings` — the frame opens on what the file holds,
   // not on a hardcoded set. Seeded once: after that the toolbar owns the state
   // and folds its own clicks back into the file (`foldPcbToggle`).
@@ -2185,7 +2188,18 @@ export function PcbEditor({
    */
   /** The slice the PCBNEW_SETTINGS object was last loaded from. */
   const loadedPcbCfgRef = useRef<typeof pcbCfg | null>(null);
+  const commonCfgRef = useRef(commonCfg);
+  commonCfgRef.current = commonCfg;
   const storePcbnewSettingsRef = useRef((): void => {
+    // COMMON_SETTINGS' `do_not_show_again.*`, which a tool sets in the object.
+    const common = PgmOrNull()?.GetCommonSettings();
+
+    if (
+      common &&
+      storeCommonDoNotShowAgain(common, structuredClone(commonCfgRef.current.do_not_show_again))
+    )
+      updateCommonSettings((c) => void storeCommonDoNotShowAgain(common, c.do_not_show_again));
+
     const cfg = Pgm().GetSettingsManager().GetAppSettings<PCBNEW_SETTINGS>('pcbnew');
 
     if (!cfg) return;
@@ -2223,6 +2237,179 @@ export function PcbEditor({
   const setDirtyRef = useRef(setDirty);
   setDirtyRef.current = setDirty;
   const frameRef = useRef<PCB_EDIT_FRAME | null>(null);
+  // HOTKEY_CYCLE_POPUP, this frame's one instance (EDA_DRAW_FRAME::m_hotkeyPopup).
+  // Its expiry hands the keyboard back with `m_drawFrame->GetCanvas()->SetFocus()`
+  // (common/dialogs/hotkey_cycle_popup.cpp:48).
+  const glCanvasFocusRef = useRef((): void => {});
+  const hotkeyPopup = useHotkeyCyclePopup(() => glCanvasFocusRef.current());
+  const hotkeyPopupRef = useRef(hotkeyPopup);
+  hotkeyPopupRef.current = hotkeyPopup;
+  /**
+   * The frame's WX_INFOBAR (`EDA_BASE_FRAME::m_infoBar`): one message at a time,
+   * with the hyperlink buttons a caller added, dismissed after `ShowMessageFor`'s
+   * time.
+   */
+  const [frameInfoBar, setFrameInfoBar] = useState<{
+    message: string;
+    button: WX_INFOBAR_HYPERLINK | null;
+  } | null>(null);
+  const wxInfoBarRef = useRef<WX_INFOBAR>(
+    (() => {
+      let buttons: WX_INFOBAR_HYPERLINK[] = [];
+      let timer: ReturnType<typeof setTimeout> | null = null;
+      const clear = (): void => {
+        if (timer) clearTimeout(timer);
+        timer = null;
+      };
+      return {
+        IsLocked: () => false,
+        AddButton: (aButton) => {
+          buttons.push(aButton);
+        },
+        RemoveAllButtons: () => {
+          buttons = [];
+        },
+        ShowMessageFor: (aMessage, aTime) => {
+          clear();
+          setFrameInfoBar({ message: aMessage, button: buttons[0] ?? null });
+          timer = setTimeout(() => setFrameInfoBar(null), aTime);
+        },
+        Dismiss: () => {
+          clear();
+          setFrameInfoBar(null);
+        },
+      };
+    })(),
+  );
+  /**
+   * `APPEARANCE_CONTROLS::UpdateDisplayOptions` (appearance_controls.cpp:1479-1513),
+   * which `PCB_EDIT_FRAME::OnDisplayOptionsChanged` calls: the panel re-reads the
+   * frame's display options and the ratsnest settings. The window also mirrors
+   * the zone mode and the opacities, which it paints with.
+   */
+  const updateDisplayOptionsRef = useRef((): void => {});
+  updateDisplayOptionsRef.current = (): void => {
+    const frame = frameRef.current;
+    if (!frame) return;
+    const o = frame.GetDisplayOptions();
+    setContrast(
+      o.m_ContrastModeDisplay === HIGH_CONTRAST_MODE.HIDDEN
+        ? 'hide'
+        : o.m_ContrastModeDisplay === HIGH_CONTRAST_MODE.DIMMED
+          ? 'dim'
+          : 'normal',
+    );
+    setNetColorMode(
+      o.m_NetColorMode === NET_COLOR_MODE.ALL
+        ? 'all'
+        : o.m_NetColorMode === NET_COLOR_MODE.OFF
+          ? 'off'
+          : 'ratsnest',
+    );
+    setOpacity((p) =>
+      p.tracks === o.m_TrackOpacity &&
+      p.vias === o.m_ViaOpacity &&
+      p.pads === o.m_PadOpacity &&
+      p.zones === o.m_ZoneOpacity &&
+      p.images === o.m_ImageOpacity &&
+      p.filledShapes === o.m_FilledShapeOpacity
+        ? p
+        : {
+            tracks: o.m_TrackOpacity,
+            vias: o.m_ViaOpacity,
+            pads: o.m_PadOpacity,
+            zones: o.m_ZoneOpacity,
+            images: o.m_ImageOpacity,
+            filledShapes: o.m_FilledShapeOpacity,
+          },
+    );
+    setToggles((prev) => {
+      const next = new Set(prev);
+      next.delete('zoneDisplayFilled');
+      next.delete('zoneDisplayOutline');
+      if (o.m_ZoneDisplayMode === ZONE_DISPLAY_MODE.SHOW_FILLED) next.add('zoneDisplayFilled');
+      else if (o.m_ZoneDisplayMode === ZONE_DISPLAY_MODE.SHOW_ZONE_OUTLINE)
+        next.add('zoneDisplayOutline');
+      return next;
+    });
+    const cfg = frame.GetPcbNewSettings();
+    setRatsnestMode(
+      !cfg.m_Display.m_ShowGlobalRatsnest
+        ? 'off'
+        : cfg.m_Display.m_RatsnestMode === RATSNEST_MODE.ALL
+          ? 'all'
+          : 'visible',
+    );
+    setObjects((p) =>
+      p.ratsnest === cfg.m_Display.m_ShowGlobalRatsnest
+        ? p
+        : { ...p, ratsnest: cfg.m_Display.m_ShowGlobalRatsnest },
+    );
+  };
+  /** The Layer Display Options radios' `setHighContrastMode` (appearance_controls.cpp:487-497). */
+  const onHighContrastMode = (aMode: 'normal' | 'dim' | 'hide'): void => {
+    const frame = frameRef.current;
+    if (!frame) return;
+    const opts = Object.assign(new PCB_DISPLAY_OPTIONS(), frame.GetDisplayOptions());
+    opts.m_ContrastModeDisplay =
+      aMode === 'hide'
+        ? HIGH_CONTRAST_MODE.HIDDEN
+        : aMode === 'dim'
+          ? HIGH_CONTRAST_MODE.DIMMED
+          : HIGH_CONTRAST_MODE.NORMAL;
+    frame.SetDisplayOptions(opts);
+  };
+  /** `APPEARANCE_CONTROLS::onNetColorMode` (appearance_controls.cpp:3400-3413). */
+  const onNetColorMode = (aMode: 'all' | 'ratsnest' | 'off'): void => {
+    const frame = frameRef.current;
+    if (!frame) return;
+    const options = Object.assign(new PCB_DISPLAY_OPTIONS(), frame.GetDisplayOptions());
+    options.m_NetColorMode =
+      aMode === 'all'
+        ? NET_COLOR_MODE.ALL
+        : aMode === 'ratsnest'
+          ? NET_COLOR_MODE.RATSNEST
+          : NET_COLOR_MODE.OFF;
+    frame.SetDisplayOptions(options);
+    frame.GetCanvas()?.GetView().UpdateAllLayersColor();
+  };
+  /** `APPEARANCE_CONTROLS::onRatsnestMode` (appearance_controls.cpp:3417-3446). */
+  const onRatsnestMode = (aMode: 'all' | 'visible' | 'off'): void => {
+    const frame = frameRef.current;
+    if (!frame) return;
+    const cfg = frame.GetPcbNewSettings();
+    if (aMode === 'all') {
+      cfg.m_Display.m_ShowGlobalRatsnest = true;
+      cfg.m_Display.m_RatsnestMode = RATSNEST_MODE.ALL;
+    } else if (aMode === 'visible') {
+      cfg.m_Display.m_ShowGlobalRatsnest = true;
+      cfg.m_Display.m_RatsnestMode = RATSNEST_MODE.VISIBLE;
+    } else {
+      cfg.m_Display.m_ShowGlobalRatsnest = false;
+    }
+    frame.SetElementVisibility(GAL_LAYER_ID.LAYER_RATSNEST, cfg.m_Display.m_ShowGlobalRatsnest);
+    frame.OnDisplayOptionsChanged();
+    frame.GetCanvas()?.RedrawRatsnest();
+    frame.GetCanvas()?.Refresh();
+    storePcbnewSettingsRef.current();
+  };
+  /**
+   * `APPEARANCE_CONTROLS::onObjectVisibilityChanged( LAYER_RATSNEST, ... )`
+   * (appearance_controls.cpp:2216-2237): "ratsnest is enabled on per-item basis", so the
+   * layer stays visible and the global flag is the setting's.
+   */
+  const onRatsnestObjectVisibility = (aVisible: boolean): void => {
+    const frame = frameRef.current;
+    if (!frame) return;
+    const view = frame.GetCanvas()?.GetView();
+    view?.MarkTargetDirty(RENDER_TARGET.TARGET_NONCACHED);
+    view?.SetLayerVisible(GAL_LAYER_ID.LAYER_RATSNEST, true);
+    frame.GetPcbNewSettings().m_Display.m_ShowGlobalRatsnest = aVisible;
+    frame.GetBoard()?.SetElementVisibility(GAL_LAYER_ID.LAYER_RATSNEST, aVisible);
+    frame.OnDisplayOptionsChanged();
+    frame.GetCanvas()?.RedrawRatsnest();
+    storePcbnewSettingsRef.current();
+  };
   /** `m_toolManager->RunAction( aAction )`: a menu row, a hotkey or a toolbar button. */
   const runAction = (aAction: TOOL_ACTION): void => {
     frameRef.current?.GetToolManager()?.RunAction(aAction);
@@ -2371,6 +2558,7 @@ export function PcbEditor({
       // `Kiface().KifaceSettings()`: the one PCBNEW_SETTINGS installPgm keeps.
       settings: () => Pgm().GetSettingsManager().GetAppSettings<PCBNEW_SETTINGS>('pcbnew')!,
       storeSettings: () => storePcbnewSettingsRef.current(),
+      updateDisplayOptions: () => updateDisplayOptionsRef.current(),
       viewer3DShown: () => show3DRef.current,
       showViewer3D: () => setShow3DRef.current(true),
       reCreateAuxiliaryToolbar: () => {
@@ -2577,6 +2765,13 @@ export function PcbEditor({
     // zoomFitScreen. Without it the canvas was bare until the load's own
     // SetBoard, seconds later.
     if (emptyBoard.k) frameRef.current.SetBoard(emptyBoard.k, false);
+    // The frame's WX_INFOBAR and HOTKEY_CYCLE_POPUP are page widgets this
+    // window renders; it hands them over as the C++ constructor creates them.
+    frameRef.current.SetInfoBar(wxInfoBarRef.current);
+    frameRef.current.SetHotkeyPopup({
+      Popup: (aTitle, aItems, aSelection) =>
+        hotkeyPopupRef.current.popup(aTitle, aItems, aSelection),
+    });
   }
   // `KIWAY::Player()` stores the frame it created as FRAME_PCB_EDITOR's player,
   // and the frame's close tells KIWAY it is gone (`PlayerDidClose`).
@@ -2930,6 +3125,7 @@ export function PcbEditor({
    * most able to hide.
    */
   const glCanvasRef = useRef<HTMLCanvasElement>(null);
+  glCanvasFocusRef.current = (): void => glCanvasRef.current?.focus();
   /**
    * `PCB_DRAW_PANEL_GAL`, the KiCad canvas over `glCanvasRef`: its VIEW draws
    * the board through `PCB_PAINTER` on `OPENGL_GAL`. Null until the bitmap
@@ -3135,8 +3331,8 @@ export function PcbEditor({
       imageOpacity: opacity.images,
       zoneOutline: toggles.has('zoneDisplayOutline'),
       // Display-mode toggles: on = sketch (outline) = fill off (m_Display*Fill).
-      trackFill: !toggles.has('trackDisplayMode'),
-      viaFill: !toggles.has('viaDisplayMode'),
+      trackFill: pcbCfg.pcb_display.track_fill,
+      viaFill: pcbCfg.pcb_display.via_fill,
       padFill: pcbCfg.pcb_display.pad_fill,
       filledShapeOpacity: opacity.filledShapes,
       contrastMode: contrast,
@@ -3165,19 +3361,26 @@ export function PcbEditor({
       // the paint pass reads it then. Nothing here needs to change for a decode
       // to become visible.
     }),
-    [objects, opacity, toggles, contrast, activeLayer, display, theme],
+    [
+      objects,
+      opacity,
+      toggles,
+      contrast,
+      activeLayer,
+      display,
+      theme,
+      pcbCfg.pcb_display.pad_fill,
+      pcbCfg.pcb_display.track_fill,
+      pcbCfg.pcb_display.via_fill,
+    ],
   );
 
   // The left-toolbar high-contrast button reflects the Layer Display mode.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `unitLabel` and `pcbCfg` are the triggers - the frame's conditions are read through frameRef
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `contrast`, `objects.ratsnest`, `unitLabel` and `pcbCfg` are the triggers - the frame's conditions are read through frameRef
   const leftToggles = useMemo(() => {
     const s = new Set(toggles);
     const frame = frameRef.current;
     if (frame) for (const id of pcbCheckedSet(frame)) s.add(id);
-    if (contrast !== 'normal') s.add('highContrast');
-    else s.delete('highContrast');
-    if (objects.ratsnest) s.add('showRatsnest');
-    else s.delete('showRatsnest');
     // The button is checked whenever a net highlight is active (netHighlightCond
     // = IsNetHighlightSet()).
     if (highlightNets.size > 0) s.add('toggleNetHighlight');
@@ -3328,37 +3531,7 @@ export function PcbEditor({
           // options, the painter's hidden nets and the selection filter from
           // the .kicad_prl; this window's Appearance state starts from them.
           if (frame.GetCanvas()) {
-            const o = frame.GetDisplayOptions();
-            setOpacity({
-              tracks: o.m_TrackOpacity,
-              vias: o.m_ViaOpacity,
-              pads: o.m_PadOpacity,
-              zones: o.m_ZoneOpacity,
-              images: o.m_ImageOpacity,
-              filledShapes: o.m_FilledShapeOpacity,
-            });
-            setContrast(
-              o.m_ContrastModeDisplay === HIGH_CONTRAST_MODE.HIDDEN
-                ? 'hide'
-                : o.m_ContrastModeDisplay === HIGH_CONTRAST_MODE.DIMMED
-                  ? 'dim'
-                  : 'normal',
-            );
-            setNetColorMode(
-              o.m_NetColorMode === NET_COLOR_MODE.ALL
-                ? 'all'
-                : o.m_NetColorMode === NET_COLOR_MODE.OFF
-                  ? 'off'
-                  : 'ratsnest',
-            );
-            setToggles((prev) =>
-              applyToggle(
-                prev,
-                o.m_ZoneDisplayMode === ZONE_DISPLAY_MODE.SHOW_ZONE_OUTLINE
-                  ? 'zoneDisplayOutline'
-                  : 'zoneDisplayFilled',
-              ),
-            );
+            updateDisplayOptionsRef.current();
             const loadedPanel = panelRef.current;
             if (loadedPanel) {
               const render = (loadedPanel.GetView().GetPainter() as PCB_PAINTER).GetSettings();
@@ -6431,7 +6604,7 @@ export function PcbEditor({
       // --- context: what the live tool / selection owns ---------------------
       // ACTIONS::highContrastModeCycle (H): Normal -> Dim -> Hide -> Normal.
       if (!mod && (e.key === 'h' || e.key === 'H')) {
-        setContrast((c) => (c === 'normal' ? 'dim' : c === 'dim' ? 'hide' : 'normal'));
+        runAction(ACTIONS.highContrastModeCycle);
         return;
       }
       if (!mod && (e.key === 'r' || e.key === 'R')) {
@@ -7495,20 +7668,6 @@ export function PcbEditor({
       runAction(checkedAction);
       return;
     }
-    // The high-contrast button maps onto the Layer Display Options mode
-    // (ACTIONS::highContrastMode toggles Normal <-> Dim).
-    if (id === 'highContrast') {
-      setContrast((c) => (c === 'normal' ? 'dim' : 'normal'));
-      return;
-    }
-    // Ratsnest visibility is the Objects tab's LAYER_RATSNEST, single source.
-    if (id === 'showRatsnest') {
-      // `SetElementVisibility( LAYER_RATSNEST )` writes the new flag into
-      // every track, pad and zone (`board.cpp:1057-1073`), so no pad differs
-      // from it any more: the Local Ratsnest overrides go with the toggle.
-      setObjects((p) => ({ ...p, ratsnest: !p.ratsnest }));
-      return;
-    }
     // Toggle Net Highlight: show/hide the last-highlighted net set.
     if (id === 'toggleNetHighlight') {
       runAction(PCB_ACTIONS.toggleNetHighlight);
@@ -7905,11 +8064,11 @@ export function PcbEditor({
       case 'zoomFitScreen':
         zoomToFit();
         break;
-      // `ACTIONS::highContrastMode` CYCLES rather than toggling: NORMAL -> DIM
-      // -> HIDDEN -> NORMAL, and its CHECK is on for the two that are not
-      // NORMAL.
+      // `ACTIONS::highContrastMode` is PCB_CONTROL::HighContrastMode, which
+      // toggles NORMAL <-> DIMMED (pcb_control.cpp:371-380); only the H key's
+      // highContrastModeCycle visits HIDDEN.
       case 'highContrastMode':
-        setContrast((c) => (c === 'normal' ? 'dim' : c === 'dim' ? 'hide' : 'normal'));
+        runAction(ACTIONS.highContrastMode);
         break;
       case 'flipBoard':
         toggleFlip();
@@ -8053,6 +8212,8 @@ export function PcbEditor({
       zoneDisplayFilled: leftToggles.has('zoneDisplayFilled'),
       zoneDisplayOutline: leftToggles.has('zoneDisplayOutline'),
       padDisplayMode: leftToggles.has('padDisplayMode'),
+      viaDisplayMode: leftToggles.has('viaDisplayMode'),
+      trackDisplayMode: leftToggles.has('trackDisplayMode'),
       graphicsOutlines: leftToggles.has('graphicsOutlines'),
       textOutlines: leftToggles.has('textOutlines'),
     },
@@ -8433,6 +8594,23 @@ export function PcbEditor({
           style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}
         >
           {readOnlyNotice}
+          {frameInfoBar !== null && (
+            <Infobar
+              message={frameInfoBar.message}
+              actionLabel={frameInfoBar.button?.label}
+              onAction={
+                frameInfoBar.button
+                  ? () => {
+                      frameInfoBar.button?.onClick();
+                      storePcbnewSettingsRef.current();
+                    }
+                  : undefined
+              }
+              className="ze-router-infobar"
+              key={frameInfoBar.message}
+            />
+          )}
+          {hotkeyPopup.node}
           {infoBarError !== null && (
             <Infobar
               message={infoBarError}
@@ -8618,13 +8796,14 @@ export function PcbEditor({
                   onLayerContextMenu={(x, y) => setLayerMenu({ x, y })}
                   objects={objects}
                   onToggleObject={(key) => {
-                    setObjects((p) => toggleObject(p, key));
+                    if (key === 'ratsnest') onRatsnestObjectVisibility(!objects.ratsnest);
+                    else setObjects((p) => toggleObject(p, key));
                   }}
                   objectColor={(key) => PCB_OBJECT_COLORS[key]}
                   opacity={opacity}
                   onOpacity={(key, value) => setOpacity((p) => ({ ...p, [key]: value }))}
                   contrast={contrast}
-                  onContrast={setContrast}
+                  onContrast={onHighContrastMode}
                   flipBoard={flipView}
                   onFlipBoard={toggleFlip}
                   layerOptionsOpen={layerOptsOpen}
@@ -8660,9 +8839,9 @@ export function PcbEditor({
                       setBoardSetupOpen(true);
                     },
                     netColorMode,
-                    onNetColorMode: setNetColorMode,
+                    onNetColorMode: onNetColorMode,
                     ratsnestMode,
-                    onRatsnestMode: setRatsnestMode,
+                    onRatsnestMode: onRatsnestMode,
                     optionsOpen: netOptsOpen,
                     onOptionsOpen: setNetOptsOpen,
                   }}

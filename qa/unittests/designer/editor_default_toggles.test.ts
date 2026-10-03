@@ -298,7 +298,6 @@ describe('pcbnew/pcb_edit_frame_ui.tsx seeds its toolbar from the settings file'
     //   toggleGrid              window.grid.show              app_settings.cpp:555
     //   crosshairSmall/Full/45  window.cursor.cross_hair_mode app_settings.cpp:567
     //   lineModeFree/45/90      editing.pcb_angle_snap_mode   pcbnew_settings.cpp:190
-    //   ratsnestLineMode        pcb_display.ratsnest_curved   pcbnew_settings.cpp:258
     //   togglePolarCoords       editing.polar_coords          pcbnew_settings.cpp:176
     //
     // — and for nothing else, because `updatePcbnew` persists and wakes the
@@ -312,14 +311,16 @@ describe('pcbnew/pcb_edit_frame_ui.tsx seeds its toolbar from the settings file'
       'lineModeFree',
       'lineMode45',
       'lineMode90',
-      'ratsnestLineMode',
       'togglePolarCoords',
     ])
       expect(isStoredPcbToggle(id), id).toBe(true);
-    // `unitsMm` IS a PARAM (`system.units`) but is not folded here: the units
-    // buttons go through `switchUnits`, not this path.
+    // `unitsMm` (`system.units`) and `ratsnestLineMode` (`pcb_display.ratsnest_
+    // curved`, pcbnew_settings.cpp:258) ARE PARAMs, but not folded here: their
+    // buttons run COMMON_TOOLS::SwitchUnits and PCB_CONTROL::ToggleRatsnest on
+    // the settings object, which the settings store writes back.
     for (const id of [
       'unitsMm',
+      'ratsnestLineMode',
       'zoneDisplayOutline',
       'zoneDisplayFilled',
       'showLayersManager',

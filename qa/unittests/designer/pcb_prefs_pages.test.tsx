@@ -16,7 +16,11 @@
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { installPgm } from '@ziroeda/designer/src/editors/pcb/pcb_canvas.js';
+import { BOARD } from '@ziroeda/pcbnew/board.js';
+import type { PCBNEW_SETTINGS } from '@ziroeda/pcbnew/pcbnew_settings.js';
+import { PCB_ACTIONS } from '@ziroeda/pcbnew/tools/pcb_actions.js';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { PreferencesDialog } from '@ziroeda/designer/src/dialogs/PreferencesDialog.js';
 import { resetPrefsPanelCache } from '@ziroeda/designer/src/dialogs/prefs/lazy_pages.js';
@@ -40,7 +44,12 @@ import {
   foldPcbToggle,
   isStoredPcbToggle,
   lineModeToggleId,
+  PCB_EDIT_FRAME,
+  type PCB_EDIT_FRAME_HOOKS,
+  pcbCheckedSet,
+  pcbnewSettingsOf,
   pcbTogglesFromSettings,
+  storePcbnewSettings,
 } from '@ziroeda/pcbnew/pcb_edit_frame.js';
 
 const SLOW = 60000;
@@ -461,24 +470,46 @@ describe('PCB Editor > Colors', () => {
 });
 
 describe('the left toolbar and Editing Options are one value', () => {
+  beforeAll(() => {
+    installPgm();
+  });
+
+  /** A board editor over `aSettings`, as installPgm registers it. */
+  const frameOver = (aSettings: PCBNEW_SETTINGS): PCB_EDIT_FRAME => {
+    const f = new PCB_EDIT_FRAME({
+      settings: () => aSettings,
+      onModify: () => {},
+    } as unknown as PCB_EDIT_FRAME_HOOKS);
+    f.SetBoard(new BOARD());
+    return f;
+  };
+  const curvedChecked = (aJson: typeof PCBNEW_DEFAULTS): boolean =>
+    pcbCheckedSet(frameOver(pcbnewSettingsOf(aJson))).has('ratsnestLineMode');
+
   it('boots Line mode and the curved ratsnest from the file', () => {
     const cfg = structuredClone(PCBNEW_DEFAULTS);
     expect(pcbTogglesFromSettings(cfg).has('lineModeFree')).toBe(true);
-    expect(pcbTogglesFromSettings(cfg).has('ratsnestLineMode')).toBe(false);
+    expect(curvedChecked(cfg)).toBe(false);
 
     cfg.editing.pcb_angle_snap_mode = 1;
     cfg.pcb_display.ratsnest_curved = true;
     const t = pcbTogglesFromSettings(cfg);
     expect(t.has('lineMode45')).toBe(true);
     expect(t.has('lineModeFree')).toBe(false);
-    expect(t.has('ratsnestLineMode')).toBe(true);
+    // The curved ratsnest button is `curvedRatsnestCond` (pcb_edit_frame.cpp:
+    // 1150-1155) over the settings object the file loads into.
+    expect(curvedChecked(cfg)).toBe(true);
   });
 
   it('folds each of them back, and nothing that is not a PARAM upstream', () => {
     const cfg = structuredClone(PCBNEW_DEFAULTS);
     expect(foldPcbToggle(cfg, 'lineMode90')).toBe(true);
     expect(cfg.editing.pcb_angle_snap_mode).toBe(2);
-    expect(foldPcbToggle(cfg, 'ratsnestLineMode')).toBe(true);
+    // The curved ratsnest button runs PCB_CONTROL::ToggleRatsnest on the
+    // settings object; the settings store writes it back to the file.
+    const s = pcbnewSettingsOf(cfg);
+    frameOver(s).GetToolManager()!.RunAction(PCB_ACTIONS.ratsnestLineMode);
+    expect(storePcbnewSettings(s, cfg)).toBe(true);
     expect(cfg.pcb_display.ratsnest_curved).toBe(true);
     expect(foldPcbToggle(cfg, 'togglePolarCoords')).toBe(true);
     expect(cfg.editing.polar_coords).toBe(true);

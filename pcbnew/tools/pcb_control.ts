@@ -58,6 +58,19 @@ import { EVENTS } from '@ziroeda/common/tool/actions.js';
 import type { COROUTINE_BODY } from '@ziroeda/common/tool/coroutine.js';
 import { BaseType, KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { DoSetGridOrigin } from './pcb_origins.js';
+import { GAL_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { KeyNameFromKeyCode } from '@ziroeda/common/hotkeys_basic.js';
+import { PgmOrNull } from '@ziroeda/common/pgm_base.js';
+import {
+  HIGH_CONTRAST_MODE,
+  NET_COLOR_MODE,
+  RATSNEST_MODE,
+  ZONE_DISPLAY_MODE,
+} from '@ziroeda/common/project/board_project_settings.js';
+import { VIEW_UPDATE_FLAGS } from '@ziroeda/common/view/view_item.js';
+import type { PCB_EDIT_FRAME } from '../pcb_edit_frame.js';
+import type { PCB_SHAPE } from '../pcb_shape.js';
+import { PCB_DISPLAY_OPTIONS } from '../pcb_painter.js';
 
 /** `HITTEST_THRESHOLD_PIXELS` (pcb_control.cpp:817). */
 const HITTEST_THRESHOLD_PIXELS = 5;
@@ -805,7 +818,330 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
     return 1;
   }
 
+  /** `PCB_EDIT_FRAME* editFrame = dynamic_cast<PCB_EDIT_FRAME*>( m_frame )`. */
+  private editFrame(): PCB_EDIT_FRAME | null {
+    const frame = this.m_frame;
+
+    return frame?.IsType(FRAME_T.FRAME_PCB_EDITOR) ? (frame as unknown as PCB_EDIT_FRAME) : null;
+  }
+
+  /** `TrackDisplayMode` (pcb_control.cpp:217-236). */
+  TrackDisplayMode(_aEvent: TOOL_EVENT): number {
+    const opts = this.displayOptions();
+    opts.m_DisplayPcbTrackFill = !opts.m_DisplayPcbTrackFill;
+
+    for (const track of this.board().Tracks()) {
+      if (track.Type() === KICAD_T.PCB_TRACE_T || track.Type() === KICAD_T.PCB_ARC_T)
+        this.view()?.Update(track, VIEW_UPDATE_FLAGS.REPAINT);
+    }
+
+    for (const shape of this.board().Drawings()) {
+      if (shape.Type() === KICAD_T.PCB_SHAPE_T && (shape as PCB_SHAPE).IsOnCopperLayer())
+        this.view()?.Update(shape, VIEW_UPDATE_FLAGS.REPAINT);
+    }
+
+    this.canvas()?.Refresh();
+
+    return 0;
+  }
+
+  /** `ToggleRatsnest` (pcb_control.cpp:239-261). */
+  ToggleRatsnest(aEvent: TOOL_EVENT): number {
+    const editFrame = this.editFrame();
+
+    if (editFrame) {
+      const opts = this.displayOptions();
+
+      if (aEvent.IsAction(PCB_ACTIONS.showRatsnest)) {
+        // N.B. Do not disable the Ratsnest layer here.  We use it for local ratsnest
+        opts.m_ShowGlobalRatsnest = !opts.m_ShowGlobalRatsnest;
+        editFrame.SetElementVisibility(GAL_LAYER_ID.LAYER_RATSNEST, opts.m_ShowGlobalRatsnest);
+      } else if (aEvent.IsAction(PCB_ACTIONS.ratsnestLineMode)) {
+        opts.m_DisplayRatsnestLinesCurved = !opts.m_DisplayRatsnestLinesCurved;
+      }
+
+      editFrame.OnDisplayOptionsChanged();
+
+      this.canvas()?.RedrawRatsnest();
+      this.canvas()?.Refresh();
+    }
+
+    return 0;
+  }
+
+  /** `ViaDisplayMode` (pcb_control.cpp:264-276). */
+  ViaDisplayMode(_aEvent: TOOL_EVENT): number {
+    const opts = this.displayOptions();
+    opts.m_DisplayViaFill = !opts.m_DisplayViaFill;
+
+    for (const track of this.board().Tracks()) {
+      if (track.Type() === KICAD_T.PCB_VIA_T) this.view()?.Update(track, VIEW_UPDATE_FLAGS.REPAINT);
+    }
+
+    this.canvas()?.Refresh();
+    return 0;
+  }
+
+  /** `unfilledZoneCheck()` (pcb_control.cpp:284-322). */
+  private unfilledZoneCheck(): void {
+    const common = PgmOrNull()?.GetCommonSettings();
+
+    if (common?.m_DoNotShowAgain.zone_fill_warning) return;
+
+    let unfilledZones = false;
+
+    for (const zone of this.board().Zones()) {
+      if (!zone.GetIsRuleArea() && !zone.IsFilled()) {
+        unfilledZones = true;
+        break;
+      }
+    }
+
+    if (unfilledZones) {
+      const infobar = this.m_frame!.GetInfoBar();
+
+      if (!infobar) return;
+
+      infobar.RemoveAllButtons();
+      infobar.AddButton({
+        label: "Don't show again",
+        onClick: () => {
+          if (common) common.m_DoNotShowAgain.zone_fill_warning = true;
+
+          this.m_frame!.GetInfoBar()?.Dismiss();
+        },
+      });
+
+      const msg =
+        'Not all zones are filled. Use Edit > Fill All Zones (' +
+        KeyNameFromKeyCode(PCB_ACTIONS.zoneFillAll.GetHotKey()) +
+        ') if you wish to see all fills.';
+
+      infobar.ShowMessageFor(msg, 5000, 'warning');
+    }
+  }
+
+  /** `ZoneDisplayMode` (pcb_control.cpp:325-368). */
+  ZoneDisplayMode(aEvent: TOOL_EVENT): number {
+    const opts = Object.assign(new PCB_DISPLAY_OPTIONS(), this.m_frame!.GetDisplayOptions());
+
+    // Apply new display options to the GAL canvas
+    if (aEvent.IsAction(PCB_ACTIONS.zoneDisplayFilled)) {
+      this.unfilledZoneCheck();
+
+      opts.m_ZoneDisplayMode = ZONE_DISPLAY_MODE.SHOW_FILLED;
+    } else if (aEvent.IsAction(PCB_ACTIONS.zoneDisplayOutline)) {
+      opts.m_ZoneDisplayMode = ZONE_DISPLAY_MODE.SHOW_ZONE_OUTLINE;
+    } else if (aEvent.IsAction(PCB_ACTIONS.zoneDisplayFractured)) {
+      opts.m_ZoneDisplayMode = ZONE_DISPLAY_MODE.SHOW_FRACTURE_BORDERS;
+    } else if (aEvent.IsAction(PCB_ACTIONS.zoneDisplayTriangulated)) {
+      opts.m_ZoneDisplayMode = ZONE_DISPLAY_MODE.SHOW_TRIANGULATION;
+    } else if (aEvent.IsAction(PCB_ACTIONS.zoneDisplayToggle)) {
+      if (opts.m_ZoneDisplayMode === ZONE_DISPLAY_MODE.SHOW_FILLED)
+        opts.m_ZoneDisplayMode = ZONE_DISPLAY_MODE.SHOW_ZONE_OUTLINE;
+      else opts.m_ZoneDisplayMode = ZONE_DISPLAY_MODE.SHOW_FILLED;
+    } else {
+      console.assert(false, 'ZoneDisplayMode: unknown action');
+    }
+
+    this.m_frame!.SetDisplayOptions(opts);
+
+    for (const zone of this.board().Zones()) this.view()?.Update(zone, VIEW_UPDATE_FLAGS.REPAINT);
+
+    this.canvas()?.Refresh();
+
+    return 0;
+  }
+
+  /** `HighContrastMode` (pcb_control.cpp:371-380): NORMAL <-> DIMMED. */
+  HighContrastMode(_aEvent: TOOL_EVENT): number {
+    const opts = Object.assign(new PCB_DISPLAY_OPTIONS(), this.m_frame!.GetDisplayOptions());
+
+    opts.m_ContrastModeDisplay =
+      opts.m_ContrastModeDisplay === HIGH_CONTRAST_MODE.NORMAL
+        ? HIGH_CONTRAST_MODE.DIMMED
+        : HIGH_CONTRAST_MODE.NORMAL;
+
+    this.m_frame!.SetDisplayOptions(opts);
+    return 0;
+  }
+
+  /** `HighContrastModeCycle` (pcb_control.cpp:383-398): NORMAL -> DIMMED -> HIDDEN. */
+  HighContrastModeCycle(_aEvent: TOOL_EVENT): number {
+    const opts = Object.assign(new PCB_DISPLAY_OPTIONS(), this.m_frame!.GetDisplayOptions());
+
+    switch (opts.m_ContrastModeDisplay) {
+      case HIGH_CONTRAST_MODE.NORMAL:
+        opts.m_ContrastModeDisplay = HIGH_CONTRAST_MODE.DIMMED;
+        break;
+      case HIGH_CONTRAST_MODE.DIMMED:
+        opts.m_ContrastModeDisplay = HIGH_CONTRAST_MODE.HIDDEN;
+        break;
+      case HIGH_CONTRAST_MODE.HIDDEN:
+        opts.m_ContrastModeDisplay = HIGH_CONTRAST_MODE.NORMAL;
+        break;
+    }
+
+    this.m_frame!.SetDisplayOptions(opts);
+
+    this.m_toolMgr!.PostEvent(EVENTS.ContrastModeChangedByKeyEvent);
+    return 0;
+  }
+
+  /** `ContrastModeFeedback` (pcb_control.cpp:401-424). */
+  ContrastModeFeedback(_aEvent: TOOL_EVENT): number {
+    if (!PgmOrNull()?.GetCommonSettings()?.m_Input.hotkey_feedback) return 0;
+
+    const opts = this.m_frame!.GetDisplayOptions();
+
+    const labels = ['Normal', 'Dimmed', 'Hidden'];
+
+    if (!this.m_frame!.GetHotkeyPopup()) this.m_frame!.CreateHotkeyPopup();
+
+    const popup = this.m_frame!.GetHotkeyPopup();
+
+    if (popup) popup.Popup('Inactive Layer Display', labels, opts.m_ContrastModeDisplay);
+
+    return 0;
+  }
+
+  /** `NetColorModeCycle` (pcb_control.cpp:427-440): ALL -> RATSNEST -> OFF. */
+  NetColorModeCycle(_aEvent: TOOL_EVENT): number {
+    const opts = Object.assign(new PCB_DISPLAY_OPTIONS(), this.m_frame!.GetDisplayOptions());
+
+    switch (opts.m_NetColorMode) {
+      case NET_COLOR_MODE.ALL:
+        opts.m_NetColorMode = NET_COLOR_MODE.RATSNEST;
+        break;
+      case NET_COLOR_MODE.RATSNEST:
+        opts.m_NetColorMode = NET_COLOR_MODE.OFF;
+        break;
+      case NET_COLOR_MODE.OFF:
+        opts.m_NetColorMode = NET_COLOR_MODE.ALL;
+        break;
+    }
+
+    this.m_frame!.SetDisplayOptions(opts);
+    return 0;
+  }
+
+  /** `RatsnestModeCycle` (pcb_control.cpp:443-470): off -> all -> visible layers -> off. */
+  RatsnestModeCycle(_aEvent: TOOL_EVENT): number {
+    const editFrame = this.editFrame();
+
+    if (editFrame) {
+      const opts = this.displayOptions();
+
+      if (!opts.m_ShowGlobalRatsnest) {
+        opts.m_ShowGlobalRatsnest = true;
+        opts.m_RatsnestMode = RATSNEST_MODE.ALL;
+      } else if (opts.m_RatsnestMode === RATSNEST_MODE.ALL) {
+        opts.m_RatsnestMode = RATSNEST_MODE.VISIBLE;
+      } else {
+        opts.m_ShowGlobalRatsnest = false;
+      }
+
+      editFrame.SetElementVisibility(GAL_LAYER_ID.LAYER_RATSNEST, opts.m_ShowGlobalRatsnest);
+
+      editFrame.OnDisplayOptionsChanged();
+
+      this.canvas()?.RedrawRatsnest();
+      this.canvas()?.Refresh();
+    }
+
+    return 0;
+  }
+
+  /** `FlipPcbView` (pcb_control.cpp:2946-2953). */
+  FlipPcbView(_aEvent: TOOL_EVENT): number {
+    const opts = Object.assign(new PCB_DISPLAY_OPTIONS(), this.m_frame!.GetDisplayOptions());
+    opts.m_FlipBoardView = !opts.m_FlipBoardView;
+    this.m_frame!.SetDisplayOptions(opts);
+
+    return 0;
+  }
+
+  /** `rehatchBoardItem( aView, aItem )` (pcb_control.cpp:2956-2971). */
+  static rehatchBoardItem(aView: VIEW | null, aItem: BOARD_ITEM): void {
+    if (aItem.Type() !== KICAD_T.PCB_SHAPE_T) return;
+
+    const shape = aItem as PCB_SHAPE;
+
+    // Re-caching every non-hatched shape on each edit stalls commits on dense boards.
+    if (!shape.IsHatchedFill()) return;
+
+    shape.UpdateHatching();
+
+    if (aView) aView.Update(aItem);
+  }
+
+  /** `RehatchShapes` (pcb_control.cpp:2974-2985). */
+  RehatchShapes(_aEvent: TOOL_EVENT): number {
+    const view = this.view();
+
+    for (const footprint of this.board().Footprints())
+      footprint.RunOnChildren(
+        (aItem) => PCB_CONTROL.rehatchBoardItem(view, aItem),
+        RECURSE_MODE.NO_RECURSE,
+      );
+
+    for (const item of this.board().Drawings()) PCB_CONTROL.rehatchBoardItem(view, item);
+
+    return 0;
+  }
+
   protected override setTransitions(): void {
+    // Display modes
+    this.Go(
+      SYNC_HANDLER<PCB_CONTROL>(this.TrackDisplayMode),
+      PCB_ACTIONS.trackDisplayMode.MakeEvent(),
+    );
+    this.Go(SYNC_HANDLER<PCB_CONTROL>(this.ToggleRatsnest), PCB_ACTIONS.showRatsnest.MakeEvent());
+    this.Go(
+      SYNC_HANDLER<PCB_CONTROL>(this.ToggleRatsnest),
+      PCB_ACTIONS.ratsnestLineMode.MakeEvent(),
+    );
+    this.Go(SYNC_HANDLER<PCB_CONTROL>(this.ViaDisplayMode), PCB_ACTIONS.viaDisplayMode.MakeEvent());
+    this.Go(
+      SYNC_HANDLER<PCB_CONTROL>(this.ZoneDisplayMode),
+      PCB_ACTIONS.zoneDisplayFilled.MakeEvent(),
+    );
+    this.Go(
+      SYNC_HANDLER<PCB_CONTROL>(this.ZoneDisplayMode),
+      PCB_ACTIONS.zoneDisplayOutline.MakeEvent(),
+    );
+    this.Go(
+      SYNC_HANDLER<PCB_CONTROL>(this.ZoneDisplayMode),
+      PCB_ACTIONS.zoneDisplayFractured.MakeEvent(),
+    );
+    this.Go(
+      SYNC_HANDLER<PCB_CONTROL>(this.ZoneDisplayMode),
+      PCB_ACTIONS.zoneDisplayTriangulated.MakeEvent(),
+    );
+    this.Go(
+      SYNC_HANDLER<PCB_CONTROL>(this.ZoneDisplayMode),
+      PCB_ACTIONS.zoneDisplayToggle.MakeEvent(),
+    );
+    this.Go(SYNC_HANDLER<PCB_CONTROL>(this.HighContrastMode), ACTIONS.highContrastMode.MakeEvent());
+    this.Go(
+      SYNC_HANDLER<PCB_CONTROL>(this.HighContrastModeCycle),
+      ACTIONS.highContrastModeCycle.MakeEvent(),
+    );
+    this.Go(
+      SYNC_HANDLER<PCB_CONTROL>(this.ContrastModeFeedback),
+      EVENTS.ContrastModeChangedByKeyEvent,
+    );
+    this.Go(
+      SYNC_HANDLER<PCB_CONTROL>(this.NetColorModeCycle),
+      PCB_ACTIONS.netColorModeCycle.MakeEvent(),
+    );
+    this.Go(
+      SYNC_HANDLER<PCB_CONTROL>(this.RatsnestModeCycle),
+      PCB_ACTIONS.ratsnestModeCycle.MakeEvent(),
+    );
+    this.Go(SYNC_HANDLER<PCB_CONTROL>(this.FlipPcbView), PCB_ACTIONS.flipBoard.MakeEvent());
+    this.Go(SYNC_HANDLER<PCB_CONTROL>(this.RehatchShapes), PCB_ACTIONS.rehatchShapes.MakeEvent());
+
     this.Go(SYNC_HANDLER<PCB_CONTROL>(this.GridPlaceOrigin), ACTIONS.gridSetOrigin.MakeEvent());
     this.Go(SYNC_HANDLER<PCB_CONTROL>(this.GridResetOrigin), ACTIONS.gridResetOrigin.MakeEvent());
     this.Go(SYNC_HANDLER<PCB_CONTROL>(this.InteractiveDelete), ACTIONS.deleteTool.MakeEvent());

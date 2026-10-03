@@ -38,6 +38,18 @@ export interface COMMON_SETTINGS_LIKE {
   m_Input: COMMON_SETTINGS_INPUT;
   /** `COMMON_SETTINGS::m_Env`: the environment variables KiCad knows about. */
   m_Env: COMMON_SETTINGS_ENVIRONMENT;
+  /** `COMMON_SETTINGS::m_DoNotShowAgain` (include/settings/common_settings.h:161-169). */
+  m_DoNotShowAgain: COMMON_SETTINGS_DO_NOT_SHOW_AGAIN;
+}
+
+/** `COMMON_SETTINGS::DO_NOT_SHOW_AGAIN`: the six persisted "Don't show again" flags. */
+export interface COMMON_SETTINGS_DO_NOT_SHOW_AGAIN {
+  zone_fill_warning: boolean;
+  env_var_overwrite_warning: boolean;
+  scaled_3d_models_warning: boolean;
+  data_collection_prompt: boolean;
+  update_check_prompt: boolean;
+  migrate_wrl_prompt: boolean;
 }
 
 /** `COMMON_SETTINGS::INPUT` (include/settings/common_settings.h). */

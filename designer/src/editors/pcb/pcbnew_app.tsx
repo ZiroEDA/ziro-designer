@@ -17,7 +17,7 @@ import { SaveAsDialog } from '../../fs/SaveAsDialog.js';
 import { FootprintChooserFrame } from './dialogs/footprint_chooser_frame.js';
 import { Viewer3DFrame, type Viewer3DFrameProps } from './Viewer3DFrame.js';
 import { FootprintModelPreview3D } from './widgets/footprint_model_preview_3d.js';
-import { commonSettingsOf, windowSettingsOf } from '../../pgm_app.js';
+import { commonSettingsOf, storeCommonDoNotShowAgain, windowSettingsOf } from '../../pgm_app.js';
 import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
 import { EMPTY_PCB } from '../../home/new_project.js';
 import { settings } from '../../prefs/settings.js';
@@ -64,6 +64,7 @@ export function usePcbnewApp(): PCBNEW_APP {
       updateCommonSettings: (mutate) => settings.updateCommon(mutate),
       commonInputImmediateActionsLive: () => settings.common.input.immediate_actions,
       commonSettingsOf,
+      storeCommonDoNotShowAgain,
       windowSettingsOf,
       installPgm: () => void installPgm(),
       reloadUserColorSettings,

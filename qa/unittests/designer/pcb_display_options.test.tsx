@@ -151,6 +151,9 @@ describe('the choices are KiCad’s, in KiCad’s order', () => {
       pad_fill: true,
       track_fill: true,
       via_fill: true,
+      // …and the global ratsnest, which the Appearance panel and Show Ratsnest
+      // write (`pcbnew_settings.cpp:252-253`).
+      ratsnest_global: true,
     });
   });
 });

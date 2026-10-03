@@ -253,6 +253,7 @@ export interface PCBNEW_JSON_SETTINGS_LIKE {
     origin_mode: 0 | 1 | 2;
     origin_invert_x_axis: boolean;
     origin_invert_y_axis: boolean;
+    ratsnest_global: boolean;
     ratsnest_footprint: boolean;
     ratsnest_curved: boolean;
     ratsnest_thickness: number;
@@ -359,6 +360,7 @@ export function loadPcbnewSettings(
   s.m_Display.m_DisplayOrigin = d.origin_mode;
   s.m_Display.m_DisplayInvertXAxis = d.origin_invert_x_axis;
   s.m_Display.m_DisplayInvertYAxis = d.origin_invert_y_axis;
+  s.m_Display.m_ShowGlobalRatsnest = d.ratsnest_global;
   s.m_Display.m_ShowModuleRatsnest = d.ratsnest_footprint;
   s.m_Display.m_DisplayRatsnestLinesCurved = d.ratsnest_curved;
   s.m_Display.m_RatsnestThickness = d.ratsnest_thickness;
@@ -501,6 +503,7 @@ export function storePcbnewSettings(s: PCBNEW_SETTINGS, json: PCBNEW_JSON_SETTIN
     ['pad_fill', s.m_ViewersDisplay.m_DisplayPadFill],
     ['track_fill', s.m_Display.m_DisplayPcbTrackFill],
     ['via_fill', s.m_Display.m_DisplayViaFill],
+    ['ratsnest_global', s.m_Display.m_ShowGlobalRatsnest],
   ] as const) {
     if (d[key] !== value) {
       d[key] = value;
@@ -637,6 +640,8 @@ export interface PCB_EDIT_FRAME_HOOKS {
   storeSettings?(): void;
   /** TRANSITIONAL (#636): the aux toolbar's track-width / via-size boxes are the window's. */
   reCreateAuxiliaryToolbar?(): void;
+  /** TRANSITIONAL (#636): `m_appearancePanel->UpdateDisplayOptions()`; the panel is the window's. */
+  updateDisplayOptions?(): void;
   /** TRANSITIONAL (#636): whether the window's EDA_3D_VIEWER_FRAME is open. */
   viewer3DShown?(): boolean;
   /** TRANSITIONAL (#636): `CreateAndShow3D_Frame`, the window's 3D viewer raised. */
@@ -1525,6 +1530,27 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
    */
   override ReCreateAuxiliaryToolbar(): void {
     this.hooks.reCreateAuxiliaryToolbar?.();
+  }
+
+  /**
+   * `OnDisplayOptionsChanged()` (pcb_edit_frame.cpp:2012-2015):
+   * `m_appearancePanel->UpdateDisplayOptions()`. The Appearance panel is the
+   * window's, which re-reads the frame's display options and the board's
+   * element visibility.
+   */
+  override OnDisplayOptionsChanged(): void {
+    this.hooks.updateDisplayOptions?.();
+  }
+
+  /** `SetElementVisibility( aElement, aNewState )` (pcb_edit_frame.cpp:2024-2033). */
+  SetElementVisibility(aElement: GAL_LAYER_ID, aNewState: boolean): void {
+    const view = this.GetCanvas()?.GetView();
+
+    // Force the RATSNEST visible
+    if (aElement === GAL_LAYER_ID.LAYER_RATSNEST) view?.SetLayerVisible(aElement, true);
+    else view?.SetLayerVisible(aElement, aNewState);
+
+    this.GetBoard()!.SetElementVisibility(aElement, aNewState);
   }
 
   /**
@@ -3226,6 +3252,14 @@ export const PCB_CHECKED_ACTIONS: Readonly<Record<string, TOOL_ACTION>> = {
   padDisplayMode: PCB_ACTIONS.padDisplayMode,
   graphicsOutlines: PCB_ACTIONS.graphicsOutlines,
   textOutlines: PCB_ACTIONS.textOutlines,
+  // PCB_CONTROL's (pcb_edit_frame.cpp:1065-1092, 1176-1188).
+  viaDisplayMode: PCB_ACTIONS.viaDisplayMode,
+  trackDisplayMode: PCB_ACTIONS.trackDisplayMode,
+  zoneDisplayFilled: PCB_ACTIONS.zoneDisplayFilled,
+  zoneDisplayOutline: PCB_ACTIONS.zoneDisplayOutline,
+  highContrast: ACTIONS.highContrastMode,
+  showRatsnest: PCB_ACTIONS.showRatsnest,
+  ratsnestLineMode: PCB_ACTIONS.ratsnestLineMode,
 };
 
 /** The {@link PCB_CHECKED_ACTIONS} ids whose condition is checked now. */
@@ -3335,12 +3369,6 @@ export function pcbTogglesFromSettings(cfg: PcbnewSettings): Set<string> {
   if (cfg.aui.show_search) out.add('showSearch');
   if (cfg.aui.show_net_inspector) out.add('showNetInspector');
 
-  // `curvedRatsnestCond` reads `m_Display.m_DisplayRatsnestLinesCurved`
-  // (`pcbnew/pcb_edit_frame.cpp:1150-1155`), which Preferences > PCB Editor >
-  // Editing Options is the other control over.
-  out.delete('ratsnestLineMode');
-  if (cfg.pcb_display.ratsnest_curved) out.add('ratsnestLineMode');
-
   // `BOARD_EDITOR_CONTROL::OnAngleSnapModeChanged` maps `m_AngleSnapMode` onto
   // one of the three Line mode buttons (`board_editor_control.cpp:360-368`), so
   // the toolbar group and Editing Options' "Constrain actions to H, V, 45
@@ -3407,11 +3435,6 @@ export function foldPcbToggle(cfg: PcbnewSettings, id: string): boolean {
     return true;
   }
 
-  if (id === 'ratsnestLineMode') {
-    cfg.pcb_display.ratsnest_curved = !cfg.pcb_display.ratsnest_curved;
-    return true;
-  }
-
   if (id === 'togglePolarCoords') {
     cfg.editing.polar_coords = !cfg.editing.polar_coords;
     return true;
@@ -3439,7 +3462,6 @@ export function isStoredPcbToggle(id: string): boolean {
     crosshairModeOf(id) !== null ||
     lineModeOf(id) !== null ||
     id === 'toggleGrid' ||
-    id === 'ratsnestLineMode' ||
     id === 'togglePolarCoords' ||
     id === 'showSearch' ||
     id === 'showNetInspector'

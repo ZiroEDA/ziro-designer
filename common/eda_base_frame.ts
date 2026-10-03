@@ -12,6 +12,7 @@
  * held as a member here and its two accessors forwarded, since a class has one
  * base.
  */
+import type { MessageDialogIcon } from './confirm_types.js';
 import type { KIWAY } from './kiway.js';
 import type { EdaIuScale, EdaUnits } from './eda_units.js';
 import { FRAME_T } from './frame_type.js';
@@ -41,12 +42,28 @@ export enum UNDO_REDO_LIST {
 }
 export const { UNDO_LIST, REDO_LIST } = UNDO_REDO_LIST;
 
+/** A `wxHyperlinkCtrl` added to the infobar: its label and its `wxEVT_COMMAND_HYPERLINK`. */
+export interface WX_INFOBAR_HYPERLINK {
+  label: string;
+  onClick(): void;
+}
+
 /**
- * `WX_INFOBAR`, as the frames and the draw panel read it: whether the bar is
- * locked open (the canvas keeps its bottom edge fixed under it).
+ * `WX_INFOBAR` (include/widgets/wx_infobar.h), as the frames, their tools and
+ * the draw panel use it. The bar is a page widget; the window that renders it
+ * installs it on the frame with `SetInfoBar`.
  */
 export interface WX_INFOBAR {
+  /** Whether the bar is locked open (the canvas keeps its bottom edge fixed under it). */
   IsLocked(): boolean;
+  /** `AddButton( wxHyperlinkCtrl* )` (wx_infobar.h:127). */
+  AddButton(aHypertextButton: WX_INFOBAR_HYPERLINK): void;
+  /** `RemoveAllButtons()` (wx_infobar.h:141). */
+  RemoveAllButtons(): void;
+  /** `ShowMessageFor( aMessage, aTime, aFlags )` (wx_infobar.h:165): shown, then dismissed after aTime ms. */
+  ShowMessageFor(aMessage: string, aTime: number, aFlags?: MessageDialogIcon): void;
+  /** `Dismiss()` (wx_infobar.h:189). */
+  Dismiss(): void;
 }
 
 /** `wxMenuBar` as `GetRunMenuCommandDescription` reads it. */
@@ -99,6 +116,11 @@ export abstract class EDA_BASE_FRAME
   /** `WX_INFOBAR* GetInfoBar()`: the frame's infobar; the designer's frames hold one when shown. */
   GetInfoBar(): WX_INFOBAR | null {
     return this.m_infoBar;
+  }
+
+  /** The window's WX_INFOBAR, which it renders; null when it unmounts. */
+  SetInfoBar(aInfoBar: WX_INFOBAR | null): void {
+    this.m_infoBar = aInfoBar;
   }
 
   /**

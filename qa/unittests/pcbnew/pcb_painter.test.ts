@@ -63,6 +63,7 @@ import { PCB_REFERENCE_IMAGE } from '@ziroeda/pcbnew/pcb_reference_image.js';
 import { PCBNEW_SETTINGS } from '@ziroeda/pcbnew/pcbnew_settings.js';
 import { ZONE } from '@ziroeda/pcbnew/zone.js';
 import { SELECTED, BRIGHTENED } from '@ziroeda/common/eda_item_flags.js';
+import { COMMON_DEFAULTS } from '@ziroeda/common/settings/common_settings.js';
 
 /** A GAL that records the drawing calls the painter makes. */
 class RECORDING_GAL extends GAL {
@@ -205,6 +206,7 @@ beforeAll(() => {
     },
     m_Graphics: { aa_mode: 0 },
     m_Env: { vars: new ENV_VAR_MAP() },
+    m_DoNotShowAgain: { ...COMMON_DEFAULTS.do_not_show_again },
   });
   cfg = new PCBNEW_SETTINGS();
   pgm.GetSettingsManager().RegisterSettings('pcbnew', cfg);

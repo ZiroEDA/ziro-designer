@@ -410,6 +410,12 @@ export interface PcbDisplayOptions {
 
   // ---- Editing Options' four neighbours in this block ---------------------
 
+  /**
+   * `pcb_display.ratsnest_global` -> `m_ShowGlobalRatsnest`, true
+   * (`pcbnew_settings.cpp:252-253`): the Appearance panel's ratsnest checkbox
+   * and its "None" radio, and PCB_CONTROL's Show Ratsnest.
+   */
+  ratsnest_global: boolean;
   /** `pcb_display.ratsnest_footprint` -> `m_ShowModuleRatsnest`, true. */
   ratsnest_footprint: boolean;
   /** `pcb_display.ratsnest_curved` -> `m_DisplayRatsnestLinesCurved`, false. */
@@ -451,6 +457,7 @@ export const PCB_DISPLAY_DEFAULTS: PcbDisplayOptions = {
   origin_mode: 0,
   origin_invert_x_axis: false,
   origin_invert_y_axis: false,
+  ratsnest_global: true,
   ratsnest_footprint: true,
   ratsnest_curved: false,
   ratsnest_thickness: 0.5,
