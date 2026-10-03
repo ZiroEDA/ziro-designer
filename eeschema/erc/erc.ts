@@ -2153,6 +2153,8 @@ import { multiUnitEntries, type SCH_MULTI_UNIT_REFERENCE_MAP } from '../sch_refe
 import { SCH_SCREENS } from '../sch_screen.js';
 import type { SCH_SHEET } from '../sch_sheet.js';
 import type { SCH_PIN } from '../sch_pin.js';
+import type { SCH_ITEM as SCH_ITEM_LIVE } from '../sch_item.js';
+import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import type { SCH_SCREEN } from '../sch_screen.js';
 import { ElectricalPinTypeGetText } from '../pin_type.js';
 import { strNumCmp as strNumCmpLive } from '@ziroeda/common/string_utils.js';
@@ -2673,6 +2675,99 @@ export class ERC_TESTER {
   }
 
   /**
+   * Test if any pin with the no-connect electrical type is connected to anything.
+   *
+   * @return the error count
+   */
+  TestNoConnectPins(): number {
+    let err_count = 0;
+
+    for (const sheet of this.m_sheetList) {
+      // std::map<VECTOR2I, ...> orders keys by VECTOR2::operator<, which compares x² + y²: points
+      // at the same distance from the origin are ONE key (the first point inserted keeps it),
+      // and the map iterates by that distance.
+      const pinMap = new Map<number, { pt: VECTOR2I; items: SCH_ITEM_LIVE[] }>();
+      const norm = (pt: VECTOR2I) => pt.x * pt.x + pt.y * pt.y;
+
+      const addOther = (pt: VECTOR2I, aOther: SCH_ITEM_LIVE) => {
+        const entry = pinMap.get(norm(pt));
+
+        if (entry) entry.items.push(aOther);
+      };
+
+      for (const item of sheet.LastScreen()!.Items().OfType(KICAD_T_LIVE.SCH_SYMBOL_T)) {
+        const symbol = item as SCH_SYMBOL;
+
+        for (const pin of symbol.GetPins(sheet)) {
+          if (pin.GetType() === ELECTRICAL_PINTYPE.PT_NC) {
+            const pos = pin.GetPosition();
+            let entry = pinMap.get(norm(pos));
+
+            if (!entry) {
+              entry = { pt: pos, items: [] };
+              pinMap.set(norm(pos), entry);
+            }
+
+            entry.items.push(pin);
+          }
+        }
+      }
+
+      for (const item of sheet.LastScreen()!.Items()) {
+        if (item.Type() === KICAD_T_LIVE.SCH_SYMBOL_T) {
+          const symbol = item as SCH_SYMBOL;
+
+          for (const pin of symbol.GetPins(sheet)) {
+            if (pin.GetType() !== ELECTRICAL_PINTYPE.PT_NC) addOther(pin.GetPosition(), pin);
+          }
+        } else if (item.IsConnectable() && item.Type() !== KICAD_T_LIVE.SCH_NO_CONNECT_T) {
+          for (const pt of item.GetConnectionPoints()) addOther(pt, item);
+        }
+      }
+
+      for (const [, pair] of [...pinMap].sort((a, b) => a[0] - b[0])) {
+        if (pair.items.length > 1) {
+          let all_nc = true;
+
+          for (const item of pair.items) {
+            if (item.Type() !== KICAD_T_LIVE.SCH_PIN_T) {
+              all_nc = false;
+              break;
+            }
+
+            const pin = item as SCH_PIN;
+
+            if (pin.GetType() !== ELECTRICAL_PINTYPE.PT_NC) {
+              all_nc = false;
+              break;
+            }
+          }
+
+          if (all_nc) continue;
+
+          err_count++;
+
+          const ercItem = ERC_ITEM.Create(ERCE.ERCE_NOCONNECT_CONNECTED)!;
+
+          ercItem.SetItems(
+            pair.items[0]!,
+            pair.items[1]!,
+            pair.items.length > 2 ? pair.items[2]! : null,
+            pair.items.length > 3 ? pair.items[3]! : null,
+          );
+          ercItem.SetErrorMessage("Pin with 'no connection' type is connected");
+          ercItem.SetSheetSpecificPath(sheet);
+
+          const marker = new SCH_MARKER_LIVE(ercItem, pair.pt);
+          sheet.LastScreen()!.Append(marker);
+        }
+      }
+    }
+
+    return err_count;
+  }
+
+  /**
    * Test pins and wire ends for being off grid.
    *
    * @return the error count
@@ -2789,9 +2884,11 @@ export class ERC_TESTER {
 
     // Pending, after TestPinToPin: TestGroundPins,
     // TestStackedPinNotation, TestSimilarLabels, TestSameLocalGlobalLabel, TestTextVars,
-    // TestFieldNameWhitespace, TestSimModelIssues, TestNoConnectPins, TestLibSymbolIssues,
+    // TestFieldNameWhitespace, TestSimModelIssues, TestLibSymbolIssues,
     // TestFootprintLinkIssues, TestFootprintFilters, TestFourWayJunction,
     // TestLabelMultipleWires, TestMissingNetclasses.
+
+    if (this.m_settings.IsTestEnabled(ERCE.ERCE_NOCONNECT_CONNECTED)) this.TestNoConnectPins();
 
     if (this.m_settings.IsTestEnabled(ERCE.ERCE_ENDPOINT_OFF_GRID)) this.TestOffGridEndpoints();
 

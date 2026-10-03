@@ -49,9 +49,6 @@ const PENDING = new Set([
   'undefined_netclass',
 ]);
 
-/** no_connect_connected is both the graph's (this message) and TestNoConnectPins' (pending). */
-const GRAPH_NO_CONNECT = 'A pin with a "no connection" flag is connected';
-
 /**
  * Where kicad-cli's answer follows pointer order: ResolveDrivers ranks equal candidates (same
  * name) in CONNECTION_SUBGRAPH::m_drivers order, a std::set<SCH_ITEM*> iterated by address,
@@ -111,8 +108,6 @@ function keys(aReport: Report): string[] {
   for (const sheet of aReport.sheets) {
     for (const v of sheet.violations) {
       if (PENDING.has(v.type)) continue;
-
-      if (v.type === 'no_connect_connected' && v.description !== GRAPH_NO_CONNECT) continue;
 
       // ercCheckMultipleDrivers reports the first other driver in m_drivers, a
       // std::set<SCH_ITEM*>: kicad-cli's own pick (and so the message naming it) changes from
