@@ -64,6 +64,25 @@ export function hashString(aKey: string): bigint {
   return Hash_bytes(utf8.encode(aKey));
 }
 
+/**
+ * `std::hash<std::wstring>()( aKey )`, which is wxString's std::hash (wx/string.h hashes
+ * `ToStdWstring()`): the string as 4-byte wchar_t code points, little-endian.
+ */
+export function hashWString(aKey: string): bigint {
+  const points = [...aKey].map((c) => c.codePointAt(0)!);
+  const bytes = new Uint8Array(points.length * 4);
+  const view = new DataView(bytes.buffer);
+
+  points.forEach((cp, i) => view.setUint32(i * 4, cp, true));
+
+  return Hash_bytes(bytes);
+}
+
+/** `std::hash<int>()( aValue )`: the value as a size_t (sign-extended). */
+export function hashInt(aValue: number): bigint {
+  return BigInt.asUintN(64, BigInt(aValue));
+}
+
 /** `_Prime_rehash_policy::_M_next_bkt`'s fast table, for n < 14. */
 const FAST_BKT = [2, 2, 2, 3, 5, 5, 7, 7, 11, 11, 11, 11, 13, 13];
 
@@ -82,18 +101,31 @@ const PRIME_LIST = [
   2320627, 2510653, 2716249, 2938679, 3179303, 3439651, 3721303, 4026031, 4355707, 4712381, 5098259,
 ];
 
-interface Node<T> {
-  key: string;
+interface Node<T, K> {
+  key: K;
   value: T;
   code: bigint;
-  next: Node<T> | null;
+  next: Node<T, K> | null;
 }
 
-export class STD_UNORDERED_MAP<T> implements Iterable<[string, T]> {
+export class STD_UNORDERED_MAP<T, K = string> implements Iterable<[K, T]> {
+  /**
+   * \a aHash is the map's Hash (std::hash<std::string> by default), \a aEquals its KeyEqual.
+   */
+  constructor(
+    private readonly m_hash: (aKey: K) => bigint = hashString as unknown as (aKey: K) => bigint,
+    private readonly m_equals: (a: K, b: K) => boolean = Object.is,
+  ) {}
+
   /// `_M_before_begin`: the list head; its `next` is the first element.
-  private m_beforeBegin: Node<T> = { key: '', value: undefined as T, code: 0n, next: null };
+  private m_beforeBegin: Node<T, K> = {
+    key: undefined as K,
+    value: undefined as T,
+    code: 0n,
+    next: null,
+  };
   /// Each bucket: the node before the bucket's first, or null for an empty bucket.
-  private m_buckets: (Node<T> | null)[] = [null];
+  private m_buckets: (Node<T, K> | null)[] = [null];
   private m_elementCount = 0;
   /// `_Prime_rehash_policy::_M_next_resize`.
   private m_nextResize = 0;
@@ -138,7 +170,7 @@ export class STD_UNORDERED_MAP<T> implements Iterable<[string, T]> {
 
   /** `_M_rehash_aux( n, true_type )`. */
   private rehash(aBucketCount: number): void {
-    const newBuckets: (Node<T> | null)[] = new Array(aBucketCount).fill(null);
+    const newBuckets: (Node<T, K> | null)[] = new Array(aBucketCount).fill(null);
     let p = this.m_beforeBegin.next;
     this.m_beforeBegin.next = null;
     let bbeginBkt = 0;
@@ -166,22 +198,22 @@ export class STD_UNORDERED_MAP<T> implements Iterable<[string, T]> {
     this.m_buckets = newBuckets;
   }
 
-  private find(aKey: string): Node<T> | null {
-    for (let n = this.m_beforeBegin.next; n; n = n.next) if (n.key === aKey) return n;
+  private find(aKey: K): Node<T, K> | null {
+    for (let n = this.m_beforeBegin.next; n; n = n.next) if (this.m_equals(n.key, aKey)) return n;
 
     return null;
   }
 
   /** `emplace( aKey, aValue )`: inserts unless the key is there; true if it inserted. */
-  emplace(aKey: string, aValue: T): boolean {
+  emplace(aKey: K, aValue: T): boolean {
     if (this.find(aKey)) return false;
 
-    const code = hashString(aKey);
+    const code = this.m_hash(aKey);
     const grow = this.needRehash();
 
     if (grow) this.rehash(grow);
 
-    const node: Node<T> = { key: aKey, value: aValue, code, next: null };
+    const node: Node<T, K> = { key: aKey, value: aValue, code, next: null };
     const bkt = this.bucketIndex(code);
 
     // _M_insert_bucket_begin
@@ -204,7 +236,7 @@ export class STD_UNORDERED_MAP<T> implements Iterable<[string, T]> {
   }
 
   /** `operator[]`: the value at \a aKey, inserting \a aMake()'s first if it is not there. */
-  getOrInsert(aKey: string, aMake: () => T): T {
+  getOrInsert(aKey: K, aMake: () => T): T {
     const node = this.find(aKey);
 
     if (node) return node.value;
@@ -214,19 +246,27 @@ export class STD_UNORDERED_MAP<T> implements Iterable<[string, T]> {
     return value;
   }
 
-  get(aKey: string): T | undefined {
+  /** `insert_or_assign( aKey, aValue )`: a key already there keeps its place. */
+  set(aKey: K, aValue: T): void {
+    const node = this.find(aKey);
+
+    if (node) node.value = aValue;
+    else this.emplace(aKey, aValue);
+  }
+
+  get(aKey: K): T | undefined {
     return this.find(aKey)?.value;
   }
 
-  has(aKey: string): boolean {
+  has(aKey: K): boolean {
     return this.find(aKey) !== null;
   }
 
   /** `erase( aKey )`: `_M_erase` and `_M_remove_bucket_begin`; true if it removed one. */
-  erase(aKey: string): boolean {
+  erase(aKey: K): boolean {
     let prev = this.m_beforeBegin;
 
-    while (prev.next && prev.next.key !== aKey) prev = prev.next;
+    while (prev.next && !this.m_equals(prev.next.key, aKey)) prev = prev.next;
 
     const n = prev.next;
 
@@ -273,11 +313,11 @@ export class STD_UNORDERED_MAP<T> implements Iterable<[string, T]> {
     return this.m_buckets.length;
   }
 
-  *[Symbol.iterator](): Iterator<[string, T]> {
+  *[Symbol.iterator](): Iterator<[K, T]> {
     for (let n = this.m_beforeBegin.next; n; n = n.next) yield [n.key, n.value];
   }
 
-  *keys(): IterableIterator<string> {
+  *keys(): IterableIterator<K> {
     for (let n = this.m_beforeBegin.next; n; n = n.next) yield n.key;
   }
 }

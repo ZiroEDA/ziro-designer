@@ -71,36 +71,6 @@ const POINTER_ORDER: Record<string, { want: string[]; got: string[] }> = {
   },
 };
 
-/**
- * Where kicad-cli's answer follows an order not yet emulated here (S2-4c-2):
- * TestMultUnitPinConflicts names the net it meets first, and CONNECTION_GRAPH's net map is a
- * std::unordered_map, iterated in libstdc++'s hash order upstream.
- */
-const ITEM_ORDER: Record<string, { want: string[]; got: string[] }> = {
-  'netlist_oracle_graph_test_multiunit_reannotate_5.json': {
-    want: [
-      '/ | different_unit_net | error | Pin 1 is connected to both unconnected-(U2-Pad1)_1 and unconnected-(U2-Pad1) | 1.0668,0.9271 Symbol U2 Pin 1 [Open collector, Line] & 1.0668,1.2065 Symbol U2 Pin 1 [Open collector, Line]',
-      '/ | different_unit_net | error | Pin 2 is connected to both unconnected-(U2A---Pad2)_1 and unconnected-(U2A---Pad2) | 0.9144,0.9525 Symbol U2 Pin 2 [-, Input, Line] & 0.9144,1.2319 Symbol U2 Pin 2 [-, Input, Line]',
-      '/ | different_unit_net | error | Pin 3 is connected to both unconnected-(U2A-+-Pad3)_1 and unconnected-(U2A-+-Pad3) | 0.9144,0.9017 Symbol U2 Pin 3 [+, Input, Line] & 0.9144,1.1811 Symbol U2 Pin 3 [+, Input, Line]',
-      '/ | different_unit_net | error | Pin 4 is connected to both unconnected-(U2C-V--Pad4)_1 and unconnected-(U2C-V--Pad4) | 1.5494,0.9906 Symbol U2 Pin 4 [V-, Power input, Line] & 1.5494,1.27 Symbol U2 Pin 4 [V-, Power input, Line]',
-      '/ | different_unit_net | error | Pin 5 is connected to both unconnected-(U2B-+-Pad5)_1 and unconnected-(U2B-+-Pad5) | 1.2192,0.9017 Symbol U2 Pin 5 [+, Input, Line] & 1.2192,1.1684 Symbol U2 Pin 5 [+, Input, Line]',
-      '/ | different_unit_net | error | Pin 6 is connected to both unconnected-(U2B-_-Pad6)_1 and unconnected-(U2B-_-Pad6) | 1.2192,0.9525 Symbol U2 Pin 6 [_, Input, Line] & 1.2192,1.2192 Symbol U2 Pin 6 [_, Input, Line]',
-      '/ | different_unit_net | error | Pin 7 is connected to both unconnected-(U2-Pad7)_1 and unconnected-(U2-Pad7) | 1.3716,0.9271 Symbol U2 Pin 7 [Open collector, Line] & 1.3716,1.1938 Symbol U2 Pin 7 [Open collector, Line]',
-      '/ | different_unit_net | error | Pin 8 is connected to both unconnected-(U2C-V+-Pad8)_1 and unconnected-(U2C-V+-Pad8) | 1.5494,0.8382 Symbol U2 Pin 8 [V+, Power input, Line] & 1.5494,1.1176 Symbol U2 Pin 8 [V+, Power input, Line]',
-    ],
-    got: [
-      '/ | different_unit_net | error | Pin 1 is connected to both unconnected-(U2-Pad1) and unconnected-(U2-Pad1)_1 | 1.0668,1.2065 Symbol U2 Pin 1 [Open collector, Line] & 1.0668,0.9271 Symbol U2 Pin 1 [Open collector, Line]',
-      '/ | different_unit_net | error | Pin 2 is connected to both unconnected-(U2A---Pad2) and unconnected-(U2A---Pad2)_1 | 0.9144,1.2319 Symbol U2 Pin 2 [-, Input, Line] & 0.9144,0.9525 Symbol U2 Pin 2 [-, Input, Line]',
-      '/ | different_unit_net | error | Pin 3 is connected to both unconnected-(U2A-+-Pad3) and unconnected-(U2A-+-Pad3)_1 | 0.9144,1.1811 Symbol U2 Pin 3 [+, Input, Line] & 0.9144,0.9017 Symbol U2 Pin 3 [+, Input, Line]',
-      '/ | different_unit_net | error | Pin 4 is connected to both unconnected-(U2C-V--Pad4) and unconnected-(U2C-V--Pad4)_1 | 1.5494,1.27 Symbol U2 Pin 4 [V-, Power input, Line] & 1.5494,0.9906 Symbol U2 Pin 4 [V-, Power input, Line]',
-      '/ | different_unit_net | error | Pin 5 is connected to both unconnected-(U2B-+-Pad5) and unconnected-(U2B-+-Pad5)_1 | 1.2192,1.1684 Symbol U2 Pin 5 [+, Input, Line] & 1.2192,0.9017 Symbol U2 Pin 5 [+, Input, Line]',
-      '/ | different_unit_net | error | Pin 6 is connected to both unconnected-(U2B-_-Pad6) and unconnected-(U2B-_-Pad6)_1 | 1.2192,1.2192 Symbol U2 Pin 6 [_, Input, Line] & 1.2192,0.9525 Symbol U2 Pin 6 [_, Input, Line]',
-      '/ | different_unit_net | error | Pin 7 is connected to both unconnected-(U2-Pad7) and unconnected-(U2-Pad7)_1 | 1.3716,1.1938 Symbol U2 Pin 7 [Open collector, Line] & 1.3716,0.9271 Symbol U2 Pin 7 [Open collector, Line]',
-      '/ | different_unit_net | error | Pin 8 is connected to both unconnected-(U2C-V+-Pad8) and unconnected-(U2C-V+-Pad8)_1 | 1.5494,1.1176 Symbol U2 Pin 8 [V+, Power input, Line] & 1.5494,0.8382 Symbol U2 Pin 8 [V+, Power input, Line]',
-    ],
-  },
-};
-
 /** \a aKeys without each of \a aDrop, which must all be there. */
 function without(aKeys: string[], aDrop: string[]): string[] {
   const out = [...aKeys];
@@ -195,10 +165,7 @@ describe('ERC_TESTER against kicad-cli sch erc', () => {
   for (const f of FILES) {
     it(f, { timeout: 120_000 }, () => {
       const want = JSON.parse(readFileSync(join(ORACLE, f), 'utf8')) as Report;
-      const divergence = {
-        want: [...(POINTER_ORDER[f]?.want ?? []), ...(ITEM_ORDER[f]?.want ?? [])],
-        got: [...(POINTER_ORDER[f]?.got ?? []), ...(ITEM_ORDER[f]?.got ?? [])],
-      };
+      const divergence = POINTER_ORDER[f] ?? { want: [], got: [] };
       const report = runErc(directoryOf(f), want.source);
 
       // The head, as written (the date aside).

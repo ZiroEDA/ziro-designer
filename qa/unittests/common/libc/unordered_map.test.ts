@@ -7,7 +7,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { STD_UNORDERED_MAP, hashString } from '@ziroeda/common/libc/unordered_map.js';
+import { STD_UNORDERED_MAP, hashString, hashWString } from '@ziroeda/common/libc/unordered_map.js';
 import { describe, expect, it } from 'vitest';
 
 interface Case {
@@ -24,11 +24,17 @@ const PROBE = JSON.parse(
     resolve(__dirname, '../../../data/common/libc/std_unordered_map_probe.json'),
     'utf8',
   ),
-) as { hash: Record<string, string>; cases: Case[] };
+) as { hash: Record<string, string>; whash: Record<string, string>; cases: Case[] };
 
 describe('std::hash<std::string>', () => {
   for (const [key, hash] of Object.entries(PROBE.hash)) {
     it(JSON.stringify(key), () => expect(hashString(key).toString()).toBe(hash));
+  }
+});
+
+describe("std::hash<std::wstring>, wxString's hash", () => {
+  for (const [key, hash] of Object.entries(PROBE.whash)) {
+    it(JSON.stringify(key), () => expect(hashWString(key).toString()).toBe(hash));
   }
 });
 

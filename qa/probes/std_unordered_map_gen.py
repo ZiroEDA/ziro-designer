@@ -27,5 +27,18 @@ for n in [6,14,30]:
     lines=run('erase',*keys,'--',*er,'--',*more); cases.append({'op':'erase','insert':keys,'erase':er,'after':more,'order':lines[:-1],'buckets':int(lines[-1].split()[-1])})
 cases.append({'op':'order','insert':['R','J','#PWR'],'order':run('order','R','J','#PWR')[:-1],'buckets':13})
 out['cases']=cases
+# wxString's hash, and CONNECTION_GRAPH's NET_MAP order (name@code; "--" clears)
+wstrings=['','GND','Net-(R1-Pad1)','µ','unconnected-(U2-Pad1)_1','/sheet/VCC','Ω€𝄞']
+out['whash']=dict(zip(wstrings,run('whash',*wstrings)))
+net=[]
+def netcase(keys):
+    lines=run('netorder',*keys); net.append({'insert':keys,'order':lines[:-1],'buckets':int(lines[-1].split()[-1])})
+netcase(['GND@1','VCC@2','unconnected-(U2-Pad1)@-1','unconnected-(U2-Pad1)_1@-1'])
+for n in [5,14,30,70]:
+    keys=[f"{rkey()}@{random.randint(-5,60)}" for _ in range(n)]
+    netcase(keys)
+keys=[f"N{i}@{i}" for i in range(20)]
+netcase(keys+['--']+[f"M{i}@{i}" for i in range(6)])
+out['netorder']=net
 json.dump(out,open(HERE.parent/'data/common/libc/std_unordered_map_probe.json','w'),indent=1)
 print(len(cases))
