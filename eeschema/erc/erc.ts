@@ -2149,7 +2149,7 @@ export function* runErcSteps(
 import type { NET_MAP } from '../connection_graph.js';
 import type { SCH_EDIT_FRAME } from '../sch_edit_frame.js';
 import { SCH_MARKER as SCH_MARKER_LIVE } from '../sch_marker.js';
-import type { SCH_MULTI_UNIT_REFERENCE_MAP } from '../sch_reference_list.js';
+import { multiUnitEntries, type SCH_MULTI_UNIT_REFERENCE_MAP } from '../sch_reference_list.js';
 import { SCH_SCREENS } from '../sch_screen.js';
 import type { SCH_SHEET } from '../sch_sheet.js';
 import type { SCH_PIN } from '../sch_pin.js';
@@ -2255,6 +2255,194 @@ export class ERC_TESTER {
     }
 
     return err_count;
+  }
+
+  /**
+   * Test for uniform units of multi-unit symbols: report the units not placed, and those of
+   * them holding input, power input or bidirectional pins.
+   *
+   * @return the error count
+   */
+  TestMissingUnits(): number {
+    let errors = 0;
+
+    for (const [symbolName, refList] of multiUnitEntries(this.m_refMap)) {
+      if (!refList.GetCount()) continue; // wxCHECK2
+
+      // Reference unit
+      const base_ref = refList.GetItem(0);
+      const unit = base_ref.GetSymbol();
+      const libSymbol = base_ref.GetLibPart()!;
+
+      if (refList.GetCount() === libSymbol.GetUnitCount()) continue;
+
+      const lib_units = new Set<number>();
+      const instance_units = new Set<number>();
+      const missing_units: number[] = [];
+
+      const report = (
+        aMissingUnits: readonly number[],
+        aErrorMsg: (s: string, u: string) => string,
+        aErrorCode: ERCE,
+      ) => {
+        let missing_pin_units = '[ ';
+        let ii = 0;
+
+        for (const missing_unit of aMissingUnits) {
+          if (ii++ === 3) {
+            missing_pin_units += '...';
+            break;
+          }
+
+          missing_pin_units += `${libSymbol.GetUnitDisplayName(missing_unit, false)}, `;
+        }
+
+        missing_pin_units = missing_pin_units.slice(0, missing_pin_units.length - 2);
+        missing_pin_units += ' ]';
+
+        const ercItem = ERC_ITEM.Create(aErrorCode)!;
+        ercItem.SetErrorMessage(aErrorMsg(symbolName, missing_pin_units));
+        ercItem.SetItems(unit);
+        ercItem.SetSheetSpecificPath(base_ref.GetSheetPath());
+        ercItem.SetItemsSheetPaths(base_ref.GetSheetPath());
+
+        const marker = new SCH_MARKER_LIVE(ercItem, unit.GetPosition());
+        base_ref.GetSheetPath().LastScreen()!.Append(marker);
+
+        ++errors;
+      };
+
+      for (let ii = 1; ii <= libSymbol.GetUnitCount(); ++ii) lib_units.add(ii);
+
+      for (let ii = 0; ii < refList.GetCount(); ++ii)
+        instance_units.add(refList.GetItem(ii).GetUnit());
+
+      // std::set_difference over two std::sets: ascending.
+      for (const u of [...lib_units].sort((a, b) => a - b))
+        if (!instance_units.has(u)) missing_units.push(u);
+
+      if (missing_units.length > 0 && this.m_settings.IsTestEnabled(ERCE.ERCE_MISSING_UNIT)) {
+        report(
+          missing_units,
+          (s, u) => `Symbol ${s} has unplaced units ${u}`,
+          ERCE.ERCE_MISSING_UNIT,
+        );
+      }
+
+      const missing_power = new Set<number>();
+      const missing_input = new Set<number>();
+      const missing_bidi = new Set<number>();
+
+      for (const missing_unit of missing_units) {
+        let bodyStyle = 0;
+
+        for (let ii = 0; ii < refList.GetCount(); ++ii) {
+          if (refList.GetItem(ii).GetUnit() === missing_unit) {
+            bodyStyle = refList.GetItem(ii).GetSymbol().GetBodyStyle();
+            break;
+          }
+        }
+
+        for (const pin of libSymbol.GetGraphicalPins(missing_unit, bodyStyle)) {
+          switch (pin.GetType()) {
+            case ELECTRICAL_PINTYPE.PT_POWER_IN:
+              missing_power.add(missing_unit);
+              break;
+
+            case ELECTRICAL_PINTYPE.PT_BIDI:
+              missing_bidi.add(missing_unit);
+              break;
+
+            case ELECTRICAL_PINTYPE.PT_INPUT:
+              missing_input.add(missing_unit);
+              break;
+
+            default:
+              break;
+          }
+        }
+      }
+
+      const ascending = (aSet: Set<number>) => [...aSet].sort((a, b) => a - b);
+
+      if (
+        missing_power.size > 0 &&
+        this.m_settings.IsTestEnabled(ERCE.ERCE_MISSING_POWER_INPUT_PIN)
+      ) {
+        report(
+          ascending(missing_power),
+          (s, u) => `Symbol ${s} has input power pins in units ${u} that are not placed`,
+          ERCE.ERCE_MISSING_POWER_INPUT_PIN,
+        );
+      }
+
+      if (missing_input.size > 0 && this.m_settings.IsTestEnabled(ERCE.ERCE_MISSING_INPUT_PIN)) {
+        report(
+          ascending(missing_input),
+          (s, u) => `Symbol ${s} has input pins in units ${u} that are not placed`,
+          ERCE.ERCE_MISSING_INPUT_PIN,
+        );
+      }
+
+      if (missing_bidi.size > 0 && this.m_settings.IsTestEnabled(ERCE.ERCE_MISSING_BIDI_PIN)) {
+        report(
+          ascending(missing_bidi),
+          (s, u) => `Symbol ${s} has bidirectional pins in units ${u} that are not placed`,
+          ERCE.ERCE_MISSING_BIDI_PIN,
+        );
+      }
+    }
+
+    return errors;
+  }
+
+  /**
+   * Check that a pin of a multi-unit symbol is on one net in every unit that has it.
+   *
+   * @return the error count
+   */
+  TestMultUnitPinConflicts(): number {
+    let errors = 0;
+
+    const pinToNetMap = new Map<string, [string, SCH_PIN]>();
+
+    for (const [key, subgraphs] of this.m_nets) {
+      const netName = key.Name;
+
+      for (const subgraph of subgraphs) {
+        for (const item of subgraph.GetItems()) {
+          if (item.Type() === KICAD_T_LIVE.SCH_PIN_T) {
+            const pin = item as SCH_PIN;
+            const sheet = subgraph.GetSheet();
+
+            if (!pin.GetParentSymbol()!.IsMultiUnit()) continue;
+
+            const name = `${pin.GetParentSymbol()!.GetRef(sheet)}:${pin.GetShownNumber()}`;
+            const first = pinToNetMap.get(name);
+
+            if (!first) {
+              pinToNetMap.set(name, [netName, pin]);
+            } else if (first[0] !== netName) {
+              const ercItem = ERC_ITEM.Create(ERCE.ERCE_DIFFERENT_UNIT_NET)!;
+
+              ercItem.SetErrorMessage(
+                `Pin ${pin.GetShownNumber()} is connected to both ${netName} and ${first[0]}`,
+              );
+
+              ercItem.SetItems(pin, first[1]);
+              ercItem.SetSheetSpecificPath(sheet);
+              ercItem.SetItemsSheetPaths(sheet, sheet);
+
+              const marker = new SCH_MARKER_LIVE(ercItem, pin.GetPosition());
+              sheet.LastScreen()!.Append(marker);
+              errors += 1;
+            }
+          }
+        }
+      }
+    }
+
+    return errors;
   }
 
   /**
@@ -2574,8 +2762,21 @@ export class ERC_TESTER {
 
     this.m_schematic.ConnectionGraph().RunERC();
 
-    // Pending, in upstream's order: TestMultiunitFootprints, TestMissingUnits,
-    // TestMultUnitPinConflicts, TestDuplicatePinNets (all before TestPinToPin).
+    // Pending: TestMultiunitFootprints.
+
+    if (
+      this.m_settings.IsTestEnabled(ERCE.ERCE_MISSING_UNIT) ||
+      this.m_settings.IsTestEnabled(ERCE.ERCE_MISSING_INPUT_PIN) ||
+      this.m_settings.IsTestEnabled(ERCE.ERCE_MISSING_POWER_INPUT_PIN) ||
+      this.m_settings.IsTestEnabled(ERCE.ERCE_MISSING_BIDI_PIN)
+    ) {
+      this.TestMissingUnits();
+    }
+
+    if (this.m_settings.IsTestEnabled(ERCE.ERCE_DIFFERENT_UNIT_NET))
+      this.TestMultUnitPinConflicts();
+
+    // Pending: TestDuplicatePinNets.
 
     // Test pins on each net against the pin connection table
     if (
