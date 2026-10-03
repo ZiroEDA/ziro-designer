@@ -228,6 +228,23 @@ describe('SCH_PAINTER: labels', () => {
   });
 });
 
+describe('SCH_PAINTER: fields', () => {
+  it('draws nothing - not even the anchor - for a field whose shown text is empty', () => {
+    const { gal, p } = painter();
+    const label = new SCH_GLOBALLABEL({ x: 0, y: 0 }, 'NET');
+    const field = label.GetFields()[0]!;
+    field.SetVisible(true);
+    field.SetText('');
+    field.SetSelected();
+    p.Draw(field, SCH_LAYER_ID.LAYER_INTERSHEET_REFS);
+    expect(gal.draws).toHaveLength(0);
+
+    field.SetText('[1]');
+    p.Draw(field, SCH_LAYER_ID.LAYER_INTERSHEET_REFS);
+    expect(ops(gal)).toContain('line'); // the anchor of a selected field
+  });
+});
+
 describe('SCH_PAINTER: text boxes', () => {
   it('fills a solid text box on the background layer', () => {
     const { gal, p } = painter();
@@ -249,19 +266,29 @@ describe('SCH_PAINTER: text boxes', () => {
     ]);
   });
 
-  it('leaves an unfilled text box unfilled, and fills nothing in black-and-white print', () => {
+  it('leaves an unfilled text box unfilled, however opaque its colour', () => {
     const { gal, p } = painter();
+    // An opaque background colour: the theme's notes background is transparent, which would
+    // skip the fill whatever IsSolidFill said.
+    p.GetSettings().SetLayerColor(SCH_LAYER_ID.LAYER_NOTES_BACKGROUND, { r: 1, g: 1, b: 0, a: 1 });
     const box = new SCH_TEXTBOX(SCH_LAYER_ID.LAYER_NOTES, 0, FILL_T.NO_FILL, 'x');
     box.SetEnd({ x: 10000, y: 5000 });
     p.Draw(box, SCH_LAYER_ID.LAYER_NOTES_BACKGROUND);
     expect(gal.draws).toHaveLength(0);
+  });
 
+  it('fills nothing in black-and-white print', () => {
+    const { gal, p } = painter();
     const solid = new SCH_TEXTBOX(SCH_LAYER_ID.LAYER_NOTES, 0, FILL_T.FILLED_WITH_COLOR, 'x');
     solid.SetEnd({ x: 10000, y: 5000 });
+    solid.SetFillColor({ r: 0, g: 0, b: 1, a: 1 });
     p.GetSettings().SetIsPrinting(true);
+    p.Draw(solid, SCH_LAYER_ID.LAYER_NOTES_BACKGROUND);
+    expect(gal.draws).toHaveLength(1); // colour printing fills
+
     p.GetSettings().SetPrintBlackAndWhite(true);
     p.Draw(solid, SCH_LAYER_ID.LAYER_NOTES_BACKGROUND);
-    expect(gal.draws).toHaveLength(0);
+    expect(gal.draws).toHaveLength(1);
   });
 
   it('strokes the text, then the border in the notes colour at the border width', () => {
