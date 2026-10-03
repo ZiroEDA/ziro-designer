@@ -1,0 +1,10 @@
+(kicad_sch
+	(version 20250114)
+	(generator "eeschema")
+	(generator_version "10.0")
+	(uuid "21111111-2222-3333-4444-666666666666")
+	(paper "A4")
+	(lib_symbols)
+	(wire (pts (xy 50.8 50.8) (xy 76.2 50.8)) (stroke (width 0) (type default)) (uuid "d1000000-0000-0000-0000-000000000001"))
+	(label "daTa" (at 63.5 50.8 0) (effects (font (size 1.27 1.27)) (justify left bottom)) (uuid "d1000000-0000-0000-0000-000000000002"))
+)

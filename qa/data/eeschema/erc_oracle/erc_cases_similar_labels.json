@@ -121,6 +121,21 @@
      "type": "label_dangling"
     },
     {
+     "description": "Label not connected",
+     "items": [
+      {
+       "description": "Label 'daTa'",
+       "pos": {
+        "x": 0.635,
+        "y": 0.508
+       },
+       "uuid": "d1000000-0000-0000-0000-000000000002"
+      }
+     ],
+     "severity": "error",
+     "type": "label_dangling"
+    },
+    {
      "description": "Unconnected wire endpoint",
      "items": [
       {
@@ -330,8 +345,43 @@
      ],
      "severity": "warning",
      "type": "unconnected_wire_endpoint"
+    },
+    {
+     "description": "Unconnected wire endpoint",
+     "items": [
+      {
+       "description": "Horizontal Wire, length 0.2540 mm",
+       "pos": {
+        "x": 0.508,
+        "y": 0.508
+       },
+       "uuid": "d1000000-0000-0000-0000-000000000001"
+      }
+     ],
+     "severity": "warning",
+     "type": "unconnected_wire_endpoint"
+    },
+    {
+     "description": "Unconnected wire endpoint",
+     "items": [
+      {
+       "description": "Horizontal Wire, length 0.2540 mm",
+       "pos": {
+        "x": 0.508,
+        "y": 0.508
+       },
+       "uuid": "d1000000-0000-0000-0000-000000000001"
+      }
+     ],
+     "severity": "warning",
+     "type": "unconnected_wire_endpoint"
     }
    ]
+  },
+  {
+   "path": "/Sub/",
+   "uuid_path": "/21111111-2222-3333-4444-555555555555/d0000000-0000-0000-0000-000000000099",
+   "violations": []
   }
  ],
  "source": "similar_labels.kicad_sch"

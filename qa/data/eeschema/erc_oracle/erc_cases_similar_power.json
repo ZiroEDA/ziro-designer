@@ -106,7 +106,22 @@
      "type": "label_dangling"
     },
     {
-     "description": "Power pins are similar (lower/upper case difference only)",
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol U1 Pin 1 [Passive, Line]",
+       "pos": {
+        "x": 1.4732,
+        "y": 1.016
+       },
+       "uuid": "a1000000-0000-0000-0000-000000000022"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Power pin and label are similar (lower/upper case difference only)",
      "items": [
       {
        "description": "Symbol #PWR01 Pin 1 [Power input, Line]",
@@ -117,12 +132,58 @@
        "uuid": "a1000000-0000-0000-0000-000000009999"
       },
       {
+       "description": "Label 'gnd'",
+       "pos": {
+        "x": 1.143,
+        "y": 0.762
+       },
+       "uuid": "a1000000-0000-0000-0000-000000000004"
+      }
+     ],
+     "severity": "warning",
+     "type": "similar_label_and_power"
+    },
+    {
+     "description": "Power pin and label are similar (lower/upper case difference only)",
+     "items": [
+      {
        "description": "Symbol #PWR02 Pin 1 [Power input, Line]",
        "pos": {
         "x": 0.762,
         "y": 0.508
        },
        "uuid": "a1000000-0000-0000-0000-00000000999a"
+      },
+      {
+       "description": "Label 'gnd'",
+       "pos": {
+        "x": 1.143,
+        "y": 0.762
+       },
+       "uuid": "a1000000-0000-0000-0000-000000000004"
+      }
+     ],
+     "severity": "warning",
+     "type": "similar_label_and_power"
+    },
+    {
+     "description": "Power pins are similar (lower/upper case difference only)",
+     "items": [
+      {
+       "description": "Symbol #PWR02 Pin 1 [Power input, Line]",
+       "pos": {
+        "x": 0.762,
+        "y": 0.508
+       },
+       "uuid": "a1000000-0000-0000-0000-00000000999a"
+      },
+      {
+       "description": "Symbol #PWR01 Pin 1 [Power input, Line]",
+       "pos": {
+        "x": 0.508,
+        "y": 0.508
+       },
+       "uuid": "a1000000-0000-0000-0000-000000009999"
       }
      ],
      "severity": "warning",
@@ -144,52 +205,6 @@
      "type": "unconnected_wire_endpoint"
     },
     {
-     "description": "Power pin and label are similar (lower/upper case difference only)",
-     "items": [
-      {
-       "description": "Label 'gnd'",
-       "pos": {
-        "x": 1.143,
-        "y": 0.762
-       },
-       "uuid": "a1000000-0000-0000-0000-000000000004"
-      },
-      {
-       "description": "Symbol #PWR01 Pin 1 [Power input, Line]",
-       "pos": {
-        "x": 0.508,
-        "y": 0.508
-       },
-       "uuid": "a1000000-0000-0000-0000-000000009999"
-      }
-     ],
-     "severity": "warning",
-     "type": "similar_label_and_power"
-    },
-    {
-     "description": "Power pin and label are similar (lower/upper case difference only)",
-     "items": [
-      {
-       "description": "Label 'gnd'",
-       "pos": {
-        "x": 1.143,
-        "y": 0.762
-       },
-       "uuid": "a1000000-0000-0000-0000-000000000004"
-      },
-      {
-       "description": "Symbol #PWR02 Pin 1 [Power input, Line]",
-       "pos": {
-        "x": 0.762,
-        "y": 0.508
-       },
-       "uuid": "a1000000-0000-0000-0000-00000000999a"
-      }
-     ],
-     "severity": "warning",
-     "type": "similar_label_and_power"
-    },
-    {
      "description": "Unconnected wire endpoint",
      "items": [
       {
@@ -203,6 +218,21 @@
      ],
      "severity": "warning",
      "type": "unconnected_wire_endpoint"
+    },
+    {
+     "description": "The current configuration does not include the symbol library 'erc'",
+     "items": [
+      {
+       "description": "Symbol U1 [PART]",
+       "pos": {
+        "x": 1.524,
+        "y": 1.016
+       },
+       "uuid": "a1000000-0000-0000-0000-000000000021"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
     }
    ]
   }

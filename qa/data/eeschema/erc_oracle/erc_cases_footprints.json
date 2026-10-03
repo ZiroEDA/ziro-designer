@@ -45,12 +45,42 @@
      "description": "Pin not connected",
      "items": [
       {
+       "description": "Symbol U2 Pin 1 [Passive, Line]",
+       "pos": {
+        "x": 0.4572,
+        "y": 1.27
+       },
+       "uuid": "c1000000-0000-0000-0000-000000000056"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
        "description": "Symbol U1 Pin 2 [Passive, Line]",
        "pos": {
         "x": 0.7112,
         "y": 1.016
        },
        "uuid": "c1000000-0000-0000-0000-000000000053"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol U2 Pin 2 [Passive, Line]",
+       "pos": {
+        "x": 0.7112,
+        "y": 1.27
+       },
+       "uuid": "c1000000-0000-0000-0000-000000000059"
       }
      ],
      "severity": "error",
@@ -98,12 +128,42 @@
      "description": "Pin not connected",
      "items": [
       {
+       "description": "Symbol R3 Pin 1 [Passive, Line]",
+       "pos": {
+        "x": 0.9652,
+        "y": 1.27
+       },
+       "uuid": "c1000000-0000-0000-0000-00000000005a"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
        "description": "Symbol R2 Pin 1 [Passive, Line]",
        "pos": {
         "x": 1.2192,
         "y": 1.016
        },
        "uuid": "c1000000-0000-0000-0000-000000000055"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol R4 Pin 1 [Passive, Line]",
+       "pos": {
+        "x": 1.2192,
+        "y": 1.27
+       },
+       "uuid": "c1000000-0000-0000-0000-00000000005b"
       }
      ],
      "severity": "error",
@@ -140,6 +200,36 @@
      "type": "lib_symbol_issues"
     },
     {
+     "description": "Footprint 'SOIC-8' not found in library 'Package_SO'",
+     "items": [
+      {
+       "description": "Symbol U2 [DUAL]",
+       "pos": {
+        "x": 0.508,
+        "y": 1.27
+       },
+       "uuid": "c1000000-0000-0000-0000-000000000011"
+      }
+     ],
+     "severity": "warning",
+     "type": "footprint_link_issues"
+    },
+    {
+     "description": "The current configuration does not include the symbol library 'erc'",
+     "items": [
+      {
+       "description": "Symbol U2 [DUAL]",
+       "pos": {
+        "x": 0.508,
+        "y": 1.27
+       },
+       "uuid": "c1000000-0000-0000-0000-000000000011"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
      "description": "Footprint 'SOIC-14' not found in library 'Package_SO'",
      "items": [
       {
@@ -164,6 +254,21 @@
         "y": 1.016
        },
        "uuid": "c1000000-0000-0000-0000-000000000002"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "The current configuration does not include the symbol library 'erc'",
+     "items": [
+      {
+       "description": "Symbol U2 [DUAL]",
+       "pos": {
+        "x": 0.762,
+        "y": 1.27
+       },
+       "uuid": "c1000000-0000-0000-0000-000000000012"
       }
      ],
      "severity": "warning",
@@ -215,6 +320,36 @@
      "type": "lib_symbol_issues"
     },
     {
+     "description": "Footprint 'R_0402' not found in library 'Resistor_SMD'",
+     "items": [
+      {
+       "description": "Symbol R3 [RES2]",
+       "pos": {
+        "x": 1.016,
+        "y": 1.27
+       },
+       "uuid": "c1000000-0000-0000-0000-000000000013"
+      }
+     ],
+     "severity": "warning",
+     "type": "footprint_link_issues"
+    },
+    {
+     "description": "The current configuration does not include the symbol library 'erc'",
+     "items": [
+      {
+       "description": "Symbol R3 [RES2]",
+       "pos": {
+        "x": 1.016,
+        "y": 1.27
+       },
+       "uuid": "c1000000-0000-0000-0000-000000000013"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
      "description": "Footprint 'R_0603' not found in library 'Resistor_SMD'",
      "items": [
       {
@@ -239,6 +374,51 @@
         "y": 1.016
        },
        "uuid": "c1000000-0000-0000-0000-000000000004"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
+    },
+    {
+     "description": "Assigned footprint (r_0402) doesn't match footprint filters (Resistor_SMD:R_*)",
+     "items": [
+      {
+       "description": "Symbol R4 [RES2]",
+       "pos": {
+        "x": 1.27,
+        "y": 1.27
+       },
+       "uuid": "c1000000-0000-0000-0000-000000000014"
+      }
+     ],
+     "severity": "warning",
+     "type": "footprint_filter"
+    },
+    {
+     "description": "The current configuration does not include the footprint library 'Other'",
+     "items": [
+      {
+       "description": "Symbol R4 [RES2]",
+       "pos": {
+        "x": 1.27,
+        "y": 1.27
+       },
+       "uuid": "c1000000-0000-0000-0000-000000000014"
+      }
+     ],
+     "severity": "warning",
+     "type": "footprint_link_issues"
+    },
+    {
+     "description": "The current configuration does not include the symbol library 'erc'",
+     "items": [
+      {
+       "description": "Symbol R4 [RES2]",
+       "pos": {
+        "x": 1.27,
+        "y": 1.27
+       },
+       "uuid": "c1000000-0000-0000-0000-000000000014"
       }
      ],
      "severity": "warning",

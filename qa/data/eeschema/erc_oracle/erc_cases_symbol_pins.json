@@ -84,6 +84,66 @@
      "type": "pin_not_connected"
     },
     {
+     "description": "Label not connected",
+     "items": [
+      {
+       "description": "Label 'NC'",
+       "pos": {
+        "x": 1.397,
+        "y": 0.9906
+       },
+       "uuid": "b2000000-0000-0000-0000-000000000012"
+      }
+     ],
+     "severity": "error",
+     "type": "label_dangling"
+    },
+    {
+     "description": "Label not connected",
+     "items": [
+      {
+       "description": "Label 'ND'",
+       "pos": {
+        "x": 1.397,
+        "y": 1.0414
+       },
+       "uuid": "b2000000-0000-0000-0000-000000000014"
+      }
+     ],
+     "severity": "error",
+     "type": "label_dangling"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol U2 Pin 3 [Passive, Line]",
+       "pos": {
+        "x": 1.5748,
+        "y": 1.4986
+       },
+       "uuid": "b1000000-0000-0000-0000-0000000000a7"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
+     "description": "Pin not connected",
+     "items": [
+      {
+       "description": "Symbol U2 Pin 2 [Passive, Line]",
+       "pos": {
+        "x": 1.5748,
+        "y": 1.5494
+       },
+       "uuid": "b1000000-0000-0000-0000-0000000000a8"
+      }
+     ],
+     "severity": "error",
+     "type": "pin_not_connected"
+    },
+    {
      "description": "Label connected to only one pin",
      "items": [
       {
@@ -145,7 +205,7 @@
         "x": 1.016,
         "y": 1.0922
        },
-       "uuid": "3af1f4ec-b790-4e38-8bde-3f4e35340aab"
+       "uuid": "6de73a77-89e0-4941-8e8a-447133c169fe"
       }
      ],
      "severity": "warning",
@@ -165,6 +225,51 @@
      ],
      "severity": "warning",
      "type": "stacked_pin_name"
+    },
+    {
+     "description": "Unconnected wire endpoint",
+     "items": [
+      {
+       "description": "Horizontal Wire, length 0.0762 mm",
+       "pos": {
+        "x": 1.4732,
+        "y": 0.9906
+       },
+       "uuid": "b2000000-0000-0000-0000-000000000011"
+      }
+     ],
+     "severity": "warning",
+     "type": "unconnected_wire_endpoint"
+    },
+    {
+     "description": "Unconnected wire endpoint",
+     "items": [
+      {
+       "description": "Horizontal Wire, length 0.0762 mm",
+       "pos": {
+        "x": 1.4732,
+        "y": 1.0414
+       },
+       "uuid": "b2000000-0000-0000-0000-000000000013"
+      }
+     ],
+     "severity": "warning",
+     "type": "unconnected_wire_endpoint"
+    },
+    {
+     "description": "The current configuration does not include the symbol library 'erc'",
+     "items": [
+      {
+       "description": "Symbol U2 [J]",
+       "pos": {
+        "x": 1.524,
+        "y": 1.524
+       },
+       "uuid": "b2000000-0000-0000-0000-000000000001"
+      }
+     ],
+     "severity": "warning",
+     "type": "lib_symbol_issues"
     }
    ]
   }
