@@ -67,6 +67,8 @@ export interface EeschemaSettings {
     show_op_currents: boolean;
     show_pin_alt_icons: boolean;
     show_page_limits: boolean;
+    /** `appearance.show_sheet_filename_case_sensitivity_dialog` (eeschema_settings.cpp:243, true). */
+    show_sheet_filename_case_sensitivity_dialog: boolean;
     footprint_preview: boolean;
     /**
      * `APP_SETTINGS_BASE::m_CustomToolbars` -> `appearance.custom_toolbars`
@@ -332,6 +334,7 @@ export const EESCHEMA_DEFAULTS: EeschemaSettings = {
     show_op_currents: true,
     show_pin_alt_icons: true,
     show_page_limits: true,
+    show_sheet_filename_case_sensitivity_dialog: true,
     footprint_preview: true,
     custom_toolbars: false,
   },

@@ -1099,16 +1099,37 @@ export class SCH_SHEET_PATH {
 
     if (cached !== undefined) return cached;
 
-    // If the destination is the source, that is a recursion.
-    if (aSrcFileName === aDestFileName) {
+    const sch = this.LastScreen()!.Schematic();
+
+    if (!sch) return false; // wxCHECK_MSG( sch, false, "No SCHEMATIC found..." )
+
+    // wxFileName::MakeAbsolute( rootFn.GetPath() ) on a relative name; wxFileName's == compares
+    // the normalised paths.
+    const rootPath = sch
+      .GetFileName()
+      .replace(/\\/g, '/')
+      .replace(/\/[^/]*$/, '');
+    const absolute = (aName: string): string => {
+      const f = aName.replace(/\\/g, '/');
+      return f.startsWith('/') ? f : `${rootPath}/${f}`;
+    };
+    const srcFn = absolute(aSrcFileName);
+    const destFn = absolute(aDestFileName);
+
+    // The source and destination sheet file names cannot be the same.
+    if (srcFn === destFn) {
       this.m_recursion_test_cache.set(key, true);
       return true;
     }
 
+    /// @todo Store sheet file names with full path, either relative to project path
+    ///       or absolute path.  The current design always assumes subsheet files are
+    ///       located in the project folder which may or may not be desirable.
     let i = 0;
 
     while (i < this.size()) {
-      if (this.at(i).GetFileName() === aDestFileName) break;
+      // Test if the file name of the destination sheet is in anywhere in this sheet path.
+      if (absolute(this.at(i).GetFileName()) === destFn) break;
 
       i++;
     }
@@ -1125,7 +1146,7 @@ export class SCH_SHEET_PATH {
     do {
       i -= 1;
 
-      if (this.at(i).GetFileName() === aSrcFileName) {
+      if (absolute(this.at(i).GetFileName()) === srcFn) {
         this.m_recursion_test_cache.set(key, true);
         return true;
       }

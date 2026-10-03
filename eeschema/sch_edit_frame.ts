@@ -13,6 +13,7 @@
  * live items: the frame methods `SCH_COMMIT` and `schematic_undo_redo.ts`
  * (`SCH_UNDO_REDO_MIXIN`, mixed in below) need.
  */
+import { SCH_SHEET_MIXIN } from './sheet.js';
 import { SCH_ANNOTATE_MIXIN } from './annotate.js';
 import { SCH_NETLIST_GENERATOR_MIXIN } from './netlist_exporters/netlist_generator.js';
 import { NETLIST_EXPORTER_KICAD } from './netlist_exporters/netlist_exporter_kicad.js';
@@ -87,6 +88,10 @@ export interface SCH_EDIT_FRAME_HOOKS {
   modalAnnotate?(aMessage: string): void;
   /** `IsOK( this, aMessage )`: a yes/no confirmation. */
   isOK?(aMessage: string): boolean;
+  /** `DisplayError( this, aMessage )`: the window shows it; with no hook it is only logged. */
+  displayError?(aMessage: string): void;
+  /** `wxFileExists`: whether the project has a file at this absolute path. */
+  fileExists?(aPath: string): boolean;
   /**
    * `LIBRARY_MANAGER::GetFullURI( SYMBOL, nickname )`: the netlist's `(libraries …)` asks it.
    * Without it no library is listed.
@@ -110,7 +115,8 @@ export interface SCH_EDIT_FRAME
     SCH_DESIGN_BLOCK_UTILS_MIXIN,
     SCH_FILES_IO_MIXIN,
     SCH_ANNOTATE_MIXIN,
-    SCH_NETLIST_GENERATOR_MIXIN {}
+    SCH_NETLIST_GENERATOR_MIXIN,
+    SCH_SHEET_MIXIN {}
 
 // biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (SCH_UNDO_REDO_MIXIN, see libs/core/mixins.ts)
 export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
@@ -243,6 +249,17 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
   /** `IsOK( this, aMessage )` (confirm.cpp): no window to ask is a no. */
   IsOK(aMessage: string): boolean {
     return this.hooks.isOK?.(aMessage) ?? false;
+  }
+
+  /** `DisplayError( this, aMessage )`. */
+  DisplayError(aMessage: string): void {
+    if (this.hooks.displayError) this.hooks.displayError(aMessage);
+    else console.warn(aMessage);
+  }
+
+  /** `wxFileExists( aPath )` in the project the frame has open. */
+  FileExists(aPath: string): boolean {
+    return this.hooks.fileExists?.(aPath) ?? false;
   }
 
   SetSheetNumberAndCount(): void {
@@ -760,6 +777,7 @@ applyMixins(SCH_EDIT_FRAME, [
   SCH_FILES_IO_MIXIN,
   SCH_ANNOTATE_MIXIN,
   SCH_NETLIST_GENERATOR_MIXIN,
+  SCH_SHEET_MIXIN,
 ]);
 
 /**
