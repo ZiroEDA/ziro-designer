@@ -20,14 +20,20 @@
  * libraryPreload.ts.
  */
 
-import type { Board } from '@ziroeda/pcbnew';
+import type { BOARD } from '@ziroeda/pcbnew/board.js';
 import { preloadBundle, preloadLibraries, workQueueAdapter } from '../../libraryPreload.js';
 import { footprintPreloadWork } from '../../widgets/footprint_list.js';
 
 /** Every footprint LIB_ID on the board — `FOOTPRINT::GetFPID`. */
-export function placedFootprintIds(board: Board): string[] {
+export function placedFootprintIds(aBoard: BOARD): string[] {
   const ids = new Set<string>();
-  for (const fp of board.footprints) if (fp.lib.includes(':')) ids.add(fp.lib);
+
+  for (const fp of aBoard.Footprints()) {
+    const id = fp.GetFPID();
+
+    if (id.GetLibNickname() !== '') ids.add(id.Format());
+  }
+
   return [...ids];
 }
 
@@ -36,8 +42,8 @@ export function placedFootprintIds(board: Board): string[] {
  * `setTimeout(0)` rather than an idle callback, for the reason spelled out in
  * the schematic's `preloadSchematicLibraries`.
  */
-export function preloadBoardLibraries(board: Board): void {
-  const work = footprintPreloadWork(placedFootprintIds(board));
+export function preloadBoardLibraries(aBoard: BOARD): void {
+  const work = footprintPreloadWork(placedFootprintIds(aBoard));
   setTimeout(() => {
     // The stock footprint catalogue first, as one object; the preload below
     // then reads it locally, or falls through to the network without it.

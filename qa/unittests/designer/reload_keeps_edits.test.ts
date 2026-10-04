@@ -146,7 +146,7 @@ describe('opening a project is an action, not a binding (OpenProjectFiles)', () 
   it('a hidden frame does not read the open; it reads it when shown', () => {
     // pcbnew: the parse is skipped while hidden, and the open it has read is
     // remembered so being shown again does not read it twice.
-    const { code, deps } = effectAround(PCB, 'readBoard(parse(textRef.current))');
+    const { code, deps } = effectAround(PCB, 'ParseBoard(textRef.current)');
     expect(deps).toContain('shown');
     expect(code).toMatch(/if \(!shown\) return;/);
     expect(code).toMatch(/if \(parsedOpen\.current === open\) return;/);
@@ -156,7 +156,7 @@ describe('opening a project is an action, not a binding (OpenProjectFiles)', () 
   });
 
   it('pcbnew parses the board only on an open, and reads the live text by ref', () => {
-    const { code, deps } = effectAround(PCB, 'readBoard(parse(textRef.current))');
+    const { code, deps } = effectAround(PCB, 'ParseBoard(textRef.current)');
     expect(deps).toContain('openNonce');
     expect(deps).not.toMatch(/\btext\b(?!Ref)/);
     expect(code).toContain('textRef.current');
@@ -173,7 +173,7 @@ describe('every editor that autosaves can be forced to flush', () => {
   it('the board editor is given one — it had none, so its last second was unreachable', () => {
     expect(element(APP, 'PcbEditorMount')).toContain('registerAutosaveFlush={registerPcbFlush}');
     const { code } = effectAround(PCB, 'registerAutosaveFlush((');
-    expect(code).toContain('serializeBoard(brd)');
+    expect(code).toContain('FormatBoard(brd.k)');
     expect(code).toContain('onBoardChange(');
   });
 

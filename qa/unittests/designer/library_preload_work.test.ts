@@ -203,9 +203,13 @@ describe('the design is walked for exactly the ids the preload wants', () => {
 
   it('placedFootprintIds takes every footprint on the board', async () => {
     const { placedFootprintIds } = await import('@ziroeda/designer/src/editors/pcb/preload.js');
-    const board = {
-      footprints: [{ lib: 'Resistor_SMD:R_0805' }, { lib: 'Resistor_SMD:R_0805' }, { lib: 'bare' }],
-    } as never;
+    const { ParseBoard } = await import('@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js');
+    const fp = (aId: string, n: number): string =>
+      `(footprint "${aId}" (layer "F.Cu") (at ${n} 0) (uuid "00000000-0000-4000-8000-00000000000${n}"))`;
+    const board = ParseBoard(`(kicad_pcb (version 20241229) (generator "pcbnew")
+      (layers (0 "F.Cu" signal) (2 "B.Cu" signal))
+      ${fp('Resistor_SMD:R_0805', 1)} ${fp('Resistor_SMD:R_0805', 2)} ${fp('bare', 3)})`);
+    // One per distinct LIB_ID; one with no library nickname has nothing to preload.
     expect(placedFootprintIds(board)).toEqual(['Resistor_SMD:R_0805']);
   });
 });

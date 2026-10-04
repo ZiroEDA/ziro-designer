@@ -72,10 +72,11 @@
  * prefix is added or removed — so with a front prefix of `F_`, an excluded `R3`
  * does not reserve 3 under `F_R`.
  */
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { strNumCmp, wildCompareString } from '@ziroeda/common/string_utils.js';
-import { getRefDesPrefix } from '../autorouter/spread_footprints.js';
-import { setFootprintReference } from '../edit-footprint.js';
-import type { Board, PcbFootprint } from '../types.js';
+import type { BOARD } from '../board.js';
+import type { BOARD_COMMIT } from '../board_commit.js';
+import type { FOOTPRINT } from '../footprint.js';
 
 /** `MINGRID`, the grid `RoundToGrid` falls back to when it is handed 0. */
 export const REANNOTATE_MIN_GRID = 1000;
@@ -99,9 +100,8 @@ export const REANNOTATE_ACTION_MESSAGE: Readonly<Record<ReannotateAction, string
 
 /** `REFDES_INFO`, one footprint as the sorter sees it. */
 export interface ReannotateRefDesInfo {
-  /** Index into `board.footprints`; this port's stand-in for `REFDES_INFO::Uuid`. */
-  index: number;
-  uuid: string | undefined;
+  /** `REFDES_INFO::Uuid`: the footprint's KIID. */
+  uuid: string;
   /** `GetLayer() == F_Cu`. */
   front: boolean;
   /** The reference as it stands now, `R1`, `C2`, possibly empty. */
@@ -119,8 +119,8 @@ export interface ReannotateRefDesInfo {
 
 /** `REFDES_CHANGE`, one row of the plan. */
 export interface ReannotateChange {
-  index: number;
-  uuid: string | undefined;
+  /** `REFDES_CHANGE::Uuid`. */
+  uuid: string;
   /** The designator to write. Equal to `oldRefDesString` for anything but an update. */
   newRefDes: string;
   oldRefDesString: string;
@@ -148,8 +148,6 @@ export interface ReannotateOptions {
   scope: ReannotateScope;
   /** `m_ExcludeLocked`. Checked first, so it survives a Front/Back/Selection scope. */
   excludeLocked: boolean;
-  /** Footprint UUIDs the selection tool reports; only read when scope is `selection`. */
-  selected: ReadonlySet<string>;
   /**
    * `m_locationChoice`: sort by the footprint's own position (the shipped
    * default) or by where its Reference text sits.
@@ -182,7 +180,6 @@ export const DEFAULT_REANNOTATE_OPTIONS: ReannotateOptions = {
   sortCode: 0,
   scope: 'all',
   excludeLocked: false,
-  selected: new Set<string>(),
   useFootprintLocation: true,
   sortGridX: 0,
   sortGridY: 0,
@@ -356,16 +353,13 @@ function splitExcludeList(text: string): string[] {
 
 /** Where the sorter reads a footprint's position from. */
 function footprintSortPosition(
-  fp: PcbFootprint,
-  useFootprintLocation: boolean,
+  aFootprint: FOOTPRINT,
+  aUseFootprintLocation: boolean,
 ): { x: number; y: number } {
-  if (useFootprintLocation) return { x: fp.at.x, y: fp.at.y };
-
-  // `footprint->Reference().GetPosition()`. A footprint always has a Reference
-  // field upstream; our model can carry one that was never written to file, in
-  // which case the footprint anchor is the only position there is.
-  const ref = fp.texts.find((t) => t.kind === 'reference');
-  return ref ? { x: ref.at.x, y: ref.at.y } : { x: fp.at.x, y: fp.at.y };
+  // `footprint->GetPosition()` or `footprint->Reference().GetPosition()`.
+  return aUseFootprintLocation
+    ? { ...aFootprint.GetPosition() }
+    : { ...aFootprint.Reference().GetPosition() };
 }
 
 /** Mutable twin of {@link ReannotatePrefixInfo} used while the plan is built. */
@@ -429,7 +423,6 @@ function buildChangeArray(
     const fpData: ReannotateRefDesInfo = { ...source };
 
     const change: ReannotateChange = {
-      index: fpData.index,
       uuid: fpData.uuid,
       newRefDes: fpData.refDesString,
       oldRefDesString: fpData.refDesString,
@@ -475,7 +468,7 @@ function buildChangeArray(
  * collisions. Nothing here touches the board.
  */
 export function planBoardReannotate(
-  board: Board,
+  aBoard: BOARD,
   options: Partial<ReannotateOptions> = {},
 ): ReannotatePlan {
   const opts: ReannotateOptions = { ...DEFAULT_REANNOTATE_OPTIONS, ...options };
@@ -484,8 +477,8 @@ export function planBoardReannotate(
   const front: ReannotateRefDesInfo[] = [];
   const back: ReannotateRefDesInfo[] = [];
 
-  board.footprints.forEach((fp, index) => {
-    const refDesString = fp.reference ?? '';
+  for (const fp of aBoard.Footprints()) {
+    const refDesString = fp.GetReference();
     const pos = footprintSortPosition(fp, opts.useFootprintLocation);
 
     // `find_first_of("0123456789")`; npos means "no digits", and `substr( 0,
@@ -515,19 +508,17 @@ export function planBoardReannotate(
       }
     }
 
-    const isFront = fp.layer === 'F.Cu';
+    const isFront = fp.GetLayer() === PCB_LAYER_ID.F_Cu;
 
     // The scope chain overwrites whatever the exclusion list and the
     // empty/invalid tests decided. Only "All" leaves them standing.
-    if ((fp.locked ?? false) && opts.excludeLocked) action = 'exclude';
-    else if (opts.scope === 'selection')
-      action = fp.uuid !== undefined && opts.selected.has(fp.uuid) ? 'update' : 'exclude';
+    if (fp.IsLocked() && opts.excludeLocked) action = 'exclude';
+    else if (opts.scope === 'selection') action = fp.IsSelected() ? 'update' : 'exclude';
     else if (opts.scope === 'front') action = isFront ? 'update' : 'exclude';
     else if (opts.scope === 'back') action = isFront ? 'exclude' : 'update';
 
     const info: ReannotateRefDesInfo = {
-      index,
-      uuid: fp.uuid,
+      uuid: fp.m_Uuid,
       front: isFront,
       refDesString,
       refDesPrefix,
@@ -536,12 +527,12 @@ export function planBoardReannotate(
       roundedX: roundToReannotateGrid(pos.x, opts.sortGridX),
       roundedY: roundToReannotateGrid(pos.y, opts.sortGridY),
       action,
-      fpid: fp.lib,
+      fpid: fp.GetFPID().Format(),
     };
 
     if (isFront) front.push(info);
     else back.push(info);
-  });
+  }
 
   const frontCodes = reannotateSortCodes(opts.sortCode, true);
   const backCodes = reannotateSortCodes(opts.sortCode, false);
@@ -631,115 +622,27 @@ export function planBoardReannotate(
 // Applying
 // ---------------------------------------------------------------------------
 
-/*
- * `FOOTPRINT::SetReference` is `setFootprintReference` in `edit-footprint.ts`,
- * imported above. This file used to carry its own copy, which patched the model
- * and the source but did NOT re-resolve a `${REFERENCE}` text — so reannotating
- * renamed the silkscreen and left the F.Fab designator on the old number.
- */
-
-// ---------------------------------------------------------------------------
-// BOARD_REANNOTATE_TOOL::ReannotateDuplicates
-// ---------------------------------------------------------------------------
-
 /**
- * `BOARD_REANNOTATE_TOOL::ReannotateDuplicates`: a different algorithm with a
- * different purpose — nothing moves to a new position in the numbering, each
- * selected footprint just walks its own number upwards until it is unique. It
- * is what runs after a paste, so that pasting a copy of R1 gives R2 rather than
- * a second R1.
- *
- * Two upstream properties worth stating because they surprise:
- *
- *   - the designator a footprint *vacates* is never freed. The map is only ever
- *     inserted into, so renaming R1 → R3 leaves R1 still marked as taken and a
- *     later footprint will not reuse it.
- *   - a footprint whose reference is already unique is left alone even if the
- *     rest of the selection is being renumbered — `duplicate` stays false and
- *     the loop breaks on the first pass.
- *
- * `additionalUuids` and `additionalRefs` stand in for `aAdditionalFootprints`,
- * the not-yet-placed footprints of a paste: designators they hold are taken,
- * but they are not themselves renumbered.
+ * `ReannotateBoard`'s apply half (dialog_board_reannotate.cpp:426-441): every
+ * footprint takes its planned designator through one BOARD_COMMIT. False, and
+ * nothing pushed, when a footprint is missing from the plan
+ * ("Footprint not found in changelist").
  */
-export function reannotateDuplicates(
-  board: Board,
-  selectedUuids: ReadonlySet<string>,
-  additional: readonly { uuid: string; reference: string }[] = [],
-): Board {
-  if (selectedUuids.size === 0) return board;
+export function applyBoardReannotate(
+  aBoard: BOARD,
+  aPlan: ReannotatePlan,
+  aCommit: BOARD_COMMIT,
+): boolean {
+  for (const footprint of aBoard.Footprints()) {
+    // GetNewRefDes
+    const newref = aPlan.changes.find((c) => c.uuid === footprint.m_Uuid);
 
-  // A multimap reference -> uuid over the board plus the additional footprints.
-  const usedDesignators = new Map<string, string[]>();
-  const addUsed = (reference: string, uuid: string): void => {
-    const list = usedDesignators.get(reference);
-    if (list) list.push(uuid);
-    else usedDesignators.set(reference, [uuid]);
-  };
+    if (!newref) return false;
 
-  board.footprints.forEach((fp, index) => {
-    addUsed(fp.reference ?? '', fp.uuid ?? `#${index}`);
-  });
-  for (const extra of additional) addUsed(extra.reference, extra.uuid);
-
-  const selection = board.footprints
-    .map((fp, index) => ({ fp, index, uuid: fp.uuid ?? `#${index}` }))
-    .filter((e) => e.fp.uuid !== undefined && selectedUuids.has(e.fp.uuid));
-
-  // The selection sort: natural order on the reference (case-insensitively
-  // here, unlike the dialog), then position — y *descending*, x ascending —
-  // then the UUID so the result never depends on collection order.
-  selection.sort((a, b) => {
-    const ii = strNumCmp(a.fp.reference ?? '', b.fp.reference ?? '', true);
-    if (ii !== 0) return ii;
-    if (a.fp.at.y !== b.fp.at.y) return a.fp.at.y > b.fp.at.y ? -1 : 1;
-    if (a.fp.at.x !== b.fp.at.x) return a.fp.at.x < b.fp.at.x ? -1 : 1;
-    return a.uuid < b.uuid ? -1 : a.uuid > b.uuid ? 1 : 0;
-  });
-
-  const renamed = new Map<number, string>();
-
-  for (const entry of selection) {
-    let reference = entry.fp.reference ?? '';
-    const stem = getRefDesPrefix(reference);
-    let value = getRefDesNumber(reference);
-    let duplicate = false;
-
-    for (;;) {
-      const holders = usedDesignators.get(reference);
-      if (holders === undefined) break;
-
-      // `duplicate` is deliberately never reset: once this footprint is known
-      // to clash it keeps climbing until the name is free of *everyone*.
-      //
-      // Mutation testing says a plain assignment here is indistinguishable, and
-      // that is not an accident: a climbed-to name can only be occupied by
-      // *other* footprints, because the only entries this one has in the map
-      // are its original designator and the one inserted after the loop ends.
-      // The sticky flag is kept because it is what upstream writes and because
-      // a caller who lists a board footprint in `additional` under a second
-      // name would make the difference observable.
-      if (holders.some((uuid) => uuid !== entry.uuid)) duplicate = true;
-
-      if (!duplicate) break;
-
-      value = value < 0 ? 1 : value + 1;
-      reference = stem + String(value);
-    }
-
-    if (duplicate) {
-      addUsed(reference, entry.uuid);
-      renamed.set(entry.index, reference);
-    }
+    aCommit.Modify(footprint); // Make a copy for undo
+    footprint.SetReference(newref.newRefDes); // Update the PCB reference
   }
 
-  if (renamed.size === 0) return board;
-
-  return {
-    ...board,
-    footprints: board.footprints.map((fp, index) => {
-      const reference = renamed.get(index);
-      return reference === undefined ? fp : setFootprintReference(fp, reference);
-    }),
-  };
+  aCommit.Push('Annotation');
+  return true;
 }

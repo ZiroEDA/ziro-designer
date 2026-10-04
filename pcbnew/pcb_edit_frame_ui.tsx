@@ -72,12 +72,12 @@ import {
 import type { FitType } from '@ziroeda/common/ui/view_controls.js';
 import { pcbIUScale, pcbIuToMM as iuToMM } from '@ziroeda/common';
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX, type ReactNode } from 'react';
-import { parse } from '@ziroeda/sexpr';
 import {
-  readBoard,
-  serializeBoard,
-  serializeBoardAsync,
-  type Board,
+  FormatBoard,
+  FormatBoardAsync,
+  ParseBoard,
+} from './pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import {
   type PcbFootprint,
   type SelectionFilter,
   BOARD_NETLIST_UPDATER,
@@ -206,6 +206,7 @@ import {
   zoomMsg,
 } from '@ziroeda/common/widgets/kistatusbar_format.js';
 import { DialogPcbFind } from './dialogs/dialog_find_ui.js';
+import { boardFromBOARD } from './pcb_io/kicad_sexpr/board_view.js';
 import type { DIALOG_FIND } from './dialogs/dialog_find.js';
 import { DialogPageSettings } from '@ziroeda/common/dialogs/dialog_page_settings.js';
 import { pageSettingsValue, toPaperToken } from '@ziroeda/common/dialogs/dialog_page_settings.js';
@@ -385,7 +386,6 @@ import {
 } from './dialogs/dialog_track_via_properties.js';
 import { useKiDialog } from '@ziroeda/common/kidialog.js';
 import type { DIALOG_GLOBAL_EDIT_TEARDROPS } from './dialogs/dialog_global_edit_teardrops.js';
-import { boardFromBOARD } from './pcb_io/kicad_sexpr/board_view.js';
 import { DisplayErrorMessage, IsOK } from '@ziroeda/common/confirm.js';
 import { EDA_ANGLE, EDA_ANGLE_T } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { DIALOG_REFERENCE_IMAGE_PROPERTIES } from './dialogs/dialog_reference_image_properties.js';
@@ -1070,6 +1070,16 @@ function enabledLayerNames(aBoard: BOARD | null | undefined): string[] {
   return [...enabled.CuStack(), ...enabled.TechAndUserUIOrder()].map((l) => LSET.Name(l));
 }
 
+/**
+ * The window's handle on the frame's BOARD. A new object whenever the board
+ * changed (a commit, an undo, a load), which is what has React re-read it;
+ * the BOARD itself is the one model.
+ */
+interface BoardHandle {
+  readonly k: BOARD;
+  readonly fileName?: string;
+}
+
 /** The board's nets as code -> name, for a dialog's net selector (NETINFO_LIST). */
 function netNamesByCode(aBoard: BOARD | null | undefined): ReadonlyMap<number, string> {
   return new Map(
@@ -1246,13 +1256,13 @@ export function PcbEditor({
    * Ours held `null` until the parse finished and drew a spinner in the
    * canvas instead. The parse below replaces this the moment it is done.
    */
-  const emptyBoard = useMemo<Board>(
-    () => ({ ...readBoard(parse(EMPTY_PCB)), fileName }),
+  const emptyBoard = useMemo<BoardHandle>(
+    () => ({ k: ParseBoard(EMPTY_PCB), fileName }),
     [fileName],
   );
   // The PCB_EDIT_FRAME this window draws; everything below reads the BOARD through it.
   const frameRef = useRef<PCB_EDIT_FRAME | null>(null);
-  const [board, setBoard] = useState<Board | null>(emptyBoard);
+  const [board, setBoard] = useState<BoardHandle | null>(emptyBoard);
   /**
    * `OnModify` after a tool changed a board setting that is not an item: an
    * origin (PCB_CONTROL::DoSetGridOrigin, BOARD_EDITOR_CONTROL::DoSetDrillOrigin)
@@ -1268,7 +1278,7 @@ export function PcbEditor({
   const [dirty, setDirty] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [visible, setVisible] = useState<ReadonlySet<string>>(
-    () => new Set(emptyBoard.layers.map((l) => l.name)),
+    () => new Set(enabledLayerNames(emptyBoard.k)),
   );
   // Read by callbacks that must not re-create on every layer toggle (the fit).
   const visibleRef = useRef(visible);
@@ -1905,7 +1915,7 @@ export function PcbEditor({
 
     syncedViewRef.current = { view: { ...v }, screenX: screen.x, screenY: screen.y };
   });
-  const boardRef = useRef<Board | null>(null);
+  const boardRef = useRef<BoardHandle | null>(null);
   // Live selection read by draw()'s overlay pass without re-creating the callback.
   const selForDrawRef = useRef<ReadonlySet<BOARD_ITEM>>(selection);
   selForDrawRef.current = selection;
@@ -2732,7 +2742,6 @@ export function PcbEditor({
     table: PCB_TABLE;
     resolve?: (aOk: boolean) => void;
   } | null>(null);
-  /** Properties on the view board's table `aIndex`. */
   // Update PCB from Schematic (DIALOG_UPDATE_PCB). The netlist is fetched from the
   // project's schematic before the dialog opens, together with every footprint it
   // names, the updater itself is synchronous, exactly like upstream, so the
@@ -2793,6 +2802,14 @@ export function PcbEditor({
   const boardSetupRef = useRef(boardSetup);
   boardSetupRef.current = boardSetup;
 
+  /**
+   * TRANSITIONAL (E19): the 3D viewer still reads the old view model, built
+   * from the BOARD only while it is shown; deleted with its port to BOARD.
+   */
+  const board3dView = useMemo(
+    () => (show3D && board ? { ...boardFromBOARD(board.k, fileName), fileName } : null),
+    [show3D, board, fileName],
+  );
   // The frame's DIALOG_FIND while it is shown (PCB_EDIT_FRAME::ShowFindDialog).
   const [findDlg, setFindDlg] = useState<DIALOG_FIND | null>(null);
   /**
@@ -2956,7 +2973,7 @@ export function PcbEditor({
     const id = setTimeout(async () => {
       const brd = boardRef.current;
       if (!brd) return;
-      const text = await serializeBoardAsync(brd, yieldToEventLoop, () => cancelled);
+      const text = await FormatBoardAsync(brd.k, yieldToEventLoop, () => cancelled);
       if (cancelled || text === null) return;
       onBoardChange(text);
       setDirty(false);
@@ -2980,7 +2997,7 @@ export function PcbEditor({
       // Not dirty means the last serialization already reached the host, and
       // re-serializing a large board on every tab hide is not free.
       if (!brd || !dirtyRef.current || !onBoardChange) return;
-      onBoardChange(serializeBoard(brd));
+      onBoardChange(FormatBoard(brd.k));
       setDirty(false);
     });
     return () => registerAutosaveFlush(null);
@@ -3097,7 +3114,7 @@ export function PcbEditor({
   /** The open this frame has read: `openNonce` + file, set as the parse begins. */
   const parsedOpen = useRef<string | null>(null);
   /** The board whose first paint closes the Load PCB dialog, while one is pending. */
-  const firstPaintPendingRef = useRef<Board | null>(null);
+  const firstPaintPendingRef = useRef<BoardHandle | null>(null);
   // The project folder, `/<projectName>`: read through a ref by the loads
   // below, which run on their own triggers (opening a board, Board Setup).
   const projectDirRef = useRef('');
@@ -3154,7 +3171,7 @@ export function PcbEditor({
         // `PROF_TIMER` + `wxLogTrace( traceAllegroPerf, ... )` in
         // OpenProjectFiles: the open's phases, under `WXTRACE=KICAD_ALLEGRO_PERF`.
         const postLoadTimer = new PROF_TIMER();
-        const b = { ...readBoard(parse(textRef.current)), fileName };
+        const b: BoardHandle = { k: ParseBoard(textRef.current), fileName };
         wxLogTrace(traceAllegroPerf, () => `Load: ${postLoadTimer.msecs(true).toFixed(3)} ms`);
         if (cancelled) return;
         const kb = b.k;
@@ -3246,11 +3263,11 @@ export function PcbEditor({
         // vanished dialog reads as "no board".
         firstPaintPendingRef.current = b;
         setBoard(b);
-        setVisible(new Set(b.layers.map((l) => l.name)));
+        setVisible(new Set(enabledLayerNames(b.k)));
         // `PCB_EDIT_FRAME::OpenProjectFiles`' preload (pcbnew/files.cpp:610):
         // the footprint libraries are paid for now, in the background. See
         // ./preload.ts.
-        preloadBoardLibraries(b);
+        preloadBoardLibraries(b.k);
       } catch (e) {
         firstPaintPendingRef.current = null;
         if (!cancelled) {
@@ -3642,7 +3659,7 @@ export function PcbEditor({
   }, [fontImage, panelGeneration]);
 
   const setBoardModel = useCallback(
-    (b: Board) => {
+    (b: BoardHandle) => {
       boardRef.current = b;
       setBoard(b);
       requestDraw();
@@ -3685,7 +3702,7 @@ export function PcbEditor({
       frame.OnBoardLoaded(next.customRules.text, druFileName(rootPro ?? ''));
 
       // The view over the BOARD: layers, stackup, plot options, embedded files.
-      setBoardModel({ ...boardFromBOARD(kb, fileNameRef.current), fileName: fileNameRef.current });
+      setBoardModel({ k: kb, fileName: fileNameRef.current });
       const panel = panelRef.current;
       if (panel) boardSetupRepaint(frame, panel, kb);
 
@@ -3715,7 +3732,7 @@ export function PcbEditor({
 
       // We don't know if anything was modified, so err on the side of requiring a save
       if (modified) {
-        if (onSaveBoard) onSaveBoard(serializeBoard(boardRef.current!));
+        if (onSaveBoard) onSaveBoard(FormatBoard(boardRef.current!.k));
         else setDirty(true);
       }
     },
@@ -3734,10 +3751,7 @@ export function PcbEditor({
     listenerRef.current = new REACT_BOARD_LISTENER((unchanged) => {
       const kb = frameRef.current?.GetBoard();
       if (!kb || boardRef.current?.k !== kb) return;
-      setBoardModel({
-        ...boardFromBOARD(kb, fileNameRef.current, unchanged ?? undefined),
-        fileName: fileNameRef.current,
-      });
+      setBoardModel({ k: kb, fileName: fileNameRef.current });
     });
   }
   // `EDA_DRAW_FRAME::CommonSettingsChanged`: `m_galDisplayOptions.ReadCommonConfig(
@@ -5133,11 +5147,7 @@ export function PcbEditor({
 
     // A run that changed no item (every filter missed) raises no listener
     // call; the view is re-derived here instead.
-    if (!listenerRef.current!.IsPending())
-      setBoardModel({
-        ...boardFromBOARD(kb, fileNameRef.current),
-        fileName: fileNameRef.current,
-      });
+    if (!listenerRef.current!.IsPending()) setBoardModel({ k: kb, fileName: fileNameRef.current });
 
     const tdl = kb.GetDesignSettings().GetTeadropParamsList();
     commitBoardSetup({
@@ -6009,7 +6019,7 @@ export function PcbEditor({
    */
   const setNetColor = useCallback(
     (code: number, picked: Color4d): void => {
-      const name = board?.nets.get(code);
+      const name = netNamesByCode(frameRef.current?.GetBoard()).get(code);
       if (!name) return;
       const next = { ...(boardSetupRef.current.netClasses.netColors ?? {}) };
       if (picked.a > 0) {
@@ -6026,7 +6036,7 @@ export function PcbEditor({
         netClasses: { ...boardSetupRef.current.netClasses, netColors: next },
       });
     },
-    [board, commitBoardSetup],
+    [commitBoardSetup],
   );
 
   const netRows = useMemo(
@@ -6247,7 +6257,7 @@ export function PcbEditor({
   const saveCopy = useCallback((): void => {
     // Serialize the (possibly edited) board; fall back to the original text if
     // it never parsed. serializeBoard is lossless for unedited boards.
-    const out = boardRef.current ? serializeBoard(boardRef.current) : text;
+    const out = boardRef.current ? FormatBoard(boardRef.current.k) : text;
     const blob = new Blob([out], { type: 'text/plain' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -6297,7 +6307,7 @@ export function PcbEditor({
       case 'save':
         // Save writes into the project's file manager (cloud storage); users
         // download from there. "Save a Copy…" keeps the local download.
-        if (onSaveBoard) onSaveBoard(boardRef.current ? serializeBoard(boardRef.current) : text);
+        if (onSaveBoard) onSaveBoard(boardRef.current ? FormatBoard(boardRef.current.k) : text);
         else saveCopy();
         setDirty(false);
         saveProjectLocalSettings();
@@ -6520,11 +6530,7 @@ export function PcbEditor({
             const kb = frame.GetBoard();
 
             // Re-derive the view: the session replaced the tracks and moved footprints.
-            if (kb)
-              setBoardModel({
-                ...boardFromBOARD(kb, fileNameRef.current),
-                fileName: fileNameRef.current,
-              });
+            if (kb) setBoardModel({ k: kb, fileName: fileNameRef.current });
 
             if (r.ok) setDirty(true);
             else setInfoBarError(r.error ?? 'Session import failed');
@@ -7412,9 +7418,9 @@ export function PcbEditor({
           full-viewport overlay, but it carries the frame's own chrome: menu
           bar, the single TOP_MAIN toolbar (3d-viewer has no side toolbars) and
           the 5-pane status bar. */}
-      {show3D && board && (
+      {show3D && board3dView && (
         <Viewer3DFrame
-          board={board}
+          board={board3dView}
           projectFiles={projectFiles}
           // BOARD_ADAPTER reads the stackup off the board it is given; ours is
           // held by the editor, so it is handed down. The Color column on the
@@ -7682,10 +7688,7 @@ export function PcbEditor({
                   false,
                   projectDirRef.current,
                 );
-                setBoardModel({
-                  ...boardFromBOARD(kb, fileNameRef.current),
-                  fileName: fileNameRef.current,
-                });
+                setBoardModel({ k: kb, fileName: fileNameRef.current });
                 setDirty(true);
 
                 if (loadMessages !== '') setInfoBarError(loadMessages.trimEnd());

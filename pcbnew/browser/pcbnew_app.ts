@@ -25,7 +25,8 @@ import type { ToolbarDefaults, ToolbarLoc } from '@ziroeda/common/tool/ui/toolba
 import type { ToolEntry } from '@ziroeda/common/tool/action_toolbar_types.js';
 import type { FootprintIndexLibrary } from '../footprint_info_impl.js';
 import type { FOOTPRINT, FP_3DMODEL } from '../footprint.js';
-import type { PcbFootprint, Board } from '../types.js';
+import type { PcbFootprint } from '../types.js';
+import type { BOARD } from '../board.js';
 import type { NetClassAssignmentLike } from '@ziroeda/common/netclass_resolve.js';
 
 /** `SaveAsDialog`'s props, the slice `PcbEditor` actually passes. */
@@ -139,7 +140,7 @@ export interface PCBNEW_APP {
   // ----- footprint libraries / 3D cache ------------------------------------
   loadFootprintIndex(): Promise<FootprintIndexLibrary[]>;
   loadFootprint(libId: string): Promise<PcbFootprint | null>;
-  preloadBoardLibraries(board: Board): void;
+  preloadBoardLibraries(aBoard: BOARD): void;
   cleanup3dCache(clearCacheInterval: number): Promise<number>;
 
   // ----- misc ----------------------------------------------------------

@@ -636,7 +636,6 @@ export {
 
 export {
   planBoardReannotate,
-  reannotateDuplicates,
   reannotateSortCodes,
   compareReannotateFootprints,
   roundToReannotateGrid,

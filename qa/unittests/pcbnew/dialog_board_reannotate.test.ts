@@ -18,16 +18,15 @@ import {
   DEFAULT_REANNOTATE_OPTIONS,
   compareReannotateFootprints,
   filterReannotatePrefix,
+  applyBoardReannotate,
   planBoardReannotate,
-  reannotateDuplicates,
   reannotateSortCodes,
   roundToReannotateGrid,
 } from '@ziroeda/pcbnew/dialogs/dialog_board_reannotate.js';
-import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { parse } from '@ziroeda/sexpr/index.js';
-import type { Board, PcbFootprint, PcbTextItem } from '@ziroeda/pcbnew/types.js';
-import type { SList, SNode } from '@ziroeda/sexpr/types.js';
+import type { BOARD } from '@ziroeda/pcbnew/board.js';
+import type { FOOTPRINT } from '@ziroeda/pcbnew/footprint.js';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { BOARD_REANNOTATE_TOOL } from '@ziroeda/pcbnew/tools/board_reannotate_tool.js';
 
 /** 1 mm in board IU (nanometres). */
 const MM = 1_000_000;
@@ -37,67 +36,46 @@ interface FpSpec {
   x?: number;
   y?: number;
   layer?: string;
+  /** A short tag, turned into a KIID. */
   uuid?: string;
   locked?: boolean;
   /** Board-absolute position of the Reference text, when it differs from the anchor. */
   refAt?: { x: number; y: number };
 }
 
-const refText = (ref: string, at: { x: number; y: number }): PcbTextItem => ({
-  kind: 'reference',
-  text: ref,
-  at,
-  angle: 0,
-  layer: 'F.SilkS',
-  size: { x: MM, y: MM },
-});
-
 let uuidSeed = 0;
+const kiid = (aTag: string): string =>
+  `00000000-0000-4000-8000-${[...aTag]
+    .map((c) => c.charCodeAt(0).toString(16))
+    .join('')
+    .padStart(12, '0')
+    .slice(-12)}`;
 
-const fp = (spec: FpSpec): PcbFootprint => {
+const fpText = (spec: FpSpec): string => {
   const at = { x: spec.x ?? 0, y: spec.y ?? 0 };
-  return {
-    lib: 'Resistor_SMD:R_0603',
-    at,
-    angle: 0,
-    layer: spec.layer ?? 'F.Cu',
-    reference: spec.ref,
-    locked: spec.locked,
-    uuid: spec.uuid ?? `u${++uuidSeed}`,
-    pads: [],
-    shapes: [],
-    texts: [refText(spec.ref, spec.refAt ?? at)],
-    points: [],
-    barcodes: [],
-    models: [],
-  };
+  const ref = spec.refAt ?? at;
+  const layer = spec.layer ?? 'F.Cu';
+  const silk = layer === 'B.Cu' ? 'B.SilkS' : 'F.SilkS';
+  const id = kiid(spec.uuid ?? `u${++uuidSeed}`);
+  // The Reference field's (at) is footprint-relative in the file.
+  return `(footprint "Resistor_SMD:R_0603" ${spec.locked ? '(locked) ' : ''}(layer "${layer}")
+    (at ${at.x / MM} ${at.y / MM}) (uuid "${id}")
+    (property "Reference" ${JSON.stringify(spec.ref)} (at ${(ref.x - at.x) / MM} ${(ref.y - at.y) / MM} 0) (layer "${silk}") (uuid "${kiid(`${id}r`)}")
+      (effects (font (size 1 1) (thickness 0.15))))
+    (attr smd))`;
 };
 
-const board = (specs: FpSpec[]): Board => ({
-  version: 20240108,
-  layers: [
-    { id: 0, name: 'F.Cu', kind: 'signal' },
-    { id: 31, name: 'B.Cu', kind: 'signal' },
-  ],
-  nets: new Map([[0, '']]),
-  footprints: specs.map(fp),
-  tracks: [],
-  arcs: [],
-  vias: [],
-  zones: [],
-  shapes: [],
-  texts: [],
-  textBoxes: [],
-  tables: [],
-  images: [],
-  dimensions: [],
-  points: [],
-  barcodes: [],
-  groups: [],
-});
+const board = (specs: FpSpec[]): BOARD =>
+  ParseBoard(`(kicad_pcb (version 20241229) (generator "pcbnew") (generator_version "9.0")
+  (general (thickness 1.6) (legacy_teardrops no)) (paper "A4")
+  (layers (0 "F.Cu" signal) (2 "B.Cu" signal) (5 "F.SilkS" user) (7 "B.SilkS" user))
+  (setup (pad_to_mask_clearance 0))
+  (net 0 "")
+  ${specs.map(fpText).join('\n  ')}
+)`);
 
 /** The designators after a run, in board order. */
-const refs = (b: Board): string[] => b.footprints.map((f) => f.reference ?? '');
+const refs = (b: BOARD): string[] => b.Footprints().map((f) => f.GetReference());
 
 // ---------------------------------------------------------------------------
 
@@ -181,8 +159,7 @@ describe('reannotateSortCodes', () => {
 
 describe('compareReannotateFootprints', () => {
   const cell = (x: number, y: number) => ({
-    index: 0,
-    uuid: undefined,
+    uuid: '',
     front: true,
     refDesString: '',
     refDesPrefix: '',
@@ -297,12 +274,21 @@ describe('planBoardReannotate: the plan itself', () => {
   });
 });
 
-describe('reannotateDuplicates', () => {
+describe('BOARD_REANNOTATE_TOOL::ReannotateDuplicates', () => {
   const dup = (
     specs: FpSpec[],
     selected: string[],
     additional?: { uuid: string; reference: string }[],
-  ) => refs(reannotateDuplicates(board(specs), new Set(selected), additional));
+  ) => {
+    const b = board(specs);
+    const sel = b.Footprints().filter((f) => selected.map(kiid).includes(f.m_Uuid));
+    // aAdditionalFootprints: footprints not on this board (a paste's preview).
+    const extra: FOOTPRINT[] = additional
+      ? board(additional.map((a) => ({ ref: a.reference, uuid: a.uuid }))).Footprints()
+      : [];
+    new BOARD_REANNOTATE_TOOL(b).ReannotateDuplicates(sel, extra);
+    return refs(b);
+  };
 
   it('walks a duplicated designator up until it is free', () => {
     // R1 is taken and R2 is taken, so the pasted copy lands on R3.
@@ -379,7 +365,8 @@ describe('reannotateDuplicates', () => {
 
   it('does nothing at all for an empty selection', () => {
     const b = board([{ ref: 'R1', x: 0, y: 0, uuid: 'a' }]);
-    expect(reannotateDuplicates(b, new Set())).toBe(b);
+    expect(new BOARD_REANNOTATE_TOOL(b).ReannotateDuplicates([], [])).toBe(0);
+    expect(refs(b)).toEqual(['R1']);
   });
 });
 
@@ -398,5 +385,89 @@ describe('DEFAULT_REANNOTATE_OPTIONS', () => {
       removeFrontPrefix: false,
       removeBackPrefix: false,
     });
+  });
+});
+
+describe('planBoardReannotate on the live BOARD', () => {
+  it('the Selection scope renumbers only what the selection tool selected', () => {
+    // `fpData.Action = footprint->IsSelected() ? UPDATE_REFDES : EXCLUDE_REFDES`.
+    const b = board([
+      { ref: 'R7', x: 0, y: 0 },
+      { ref: 'R8', x: 0, y: 5 * MM },
+    ]);
+    b.Footprints()[1]!.SetSelected();
+
+    const plan = planBoardReannotate(b, { scope: 'selection' });
+    const byOld = new Map(plan.changes.map((c) => [c.oldRefDesString, c]));
+
+    expect(byOld.get('R7')!.action).toBe('exclude');
+    // R7 is excluded, so its number is unavailable; R8 takes the first free one.
+    expect(byOld.get('R8')!.newRefDes).toBe('R1');
+  });
+
+  it('sorts by the Reference text when asked, not the footprint anchor', () => {
+    // Anchors put A above B; the reference texts put B above A.
+    const b = board([
+      { ref: 'R1', x: 0, y: 0, refAt: { x: 0, y: 20 * MM } },
+      { ref: 'R2', x: 0, y: 10 * MM, refAt: { x: 0, y: 0 } },
+    ]);
+    const byAnchor = planBoardReannotate(b, {});
+    const byText = planBoardReannotate(b, { useFootprintLocation: false });
+
+    expect(byAnchor.front.map((f) => f.refDesString)).toEqual(['R1', 'R2']);
+    expect(byText.front.map((f) => f.refDesString)).toEqual(['R2', 'R1']);
+  });
+
+  it('applies every planned designator through one commit', () => {
+    const b = board([
+      { ref: 'R9', x: 0, y: 0 },
+      { ref: 'R3', x: 0, y: 5 * MM },
+    ]);
+    const plan = planBoardReannotate(b, {});
+    const modified: string[] = [];
+    const pushed: string[] = [];
+    const commit = {
+      Modify: (aItem: FOOTPRINT) => modified.push(aItem.GetReference()),
+      Push: (aMessage: string) => pushed.push(aMessage),
+    };
+
+    expect(applyBoardReannotate(b, plan, commit as never)).toBe(true);
+    expect(refs(b)).toEqual(['R1', 'R2']);
+    // Modify sees the old designator: the copy for undo is taken first.
+    expect(modified).toEqual(['R9', 'R3']);
+    expect(pushed).toEqual(['Annotation']);
+  });
+});
+
+describe('planBoardReannotate: front then back', () => {
+  it('numbers the front first, then continues on the back, whatever their positions', () => {
+    // m_frontFootprints and m_backFootprints are built and sorted apart; a
+    // blank back start (0) continues the front's counters.
+    const b = board([
+      { ref: 'R5', x: 0, y: 10 * MM },
+      { ref: 'R6', x: 0, y: 0, layer: 'B.Cu' },
+    ]);
+    const plan = planBoardReannotate(b, {});
+    const byOld = new Map(plan.changes.map((c) => [c.oldRefDesString, c.newRefDes]));
+
+    expect(byOld.get('R5')).toBe('R1');
+    expect(byOld.get('R6')).toBe('R2');
+  });
+});
+
+describe('applyBoardReannotate: a footprint the plan does not know', () => {
+  it('stops, pushes nothing ("Footprint not found in changelist")', () => {
+    const planned = board([{ ref: 'R9', x: 0, y: 0, uuid: 'p' }]);
+    const plan = planBoardReannotate(planned, {});
+    // The board gained a footprint since the plan was made.
+    const b = board([
+      { ref: 'R9', x: 0, y: 0, uuid: 'p' },
+      { ref: 'R4', x: 0, y: 5 * MM, uuid: 'q' },
+    ]);
+    const pushed: string[] = [];
+    const commit = { Modify: () => {}, Push: (aMessage: string) => pushed.push(aMessage) };
+
+    expect(applyBoardReannotate(b, plan, commit as never)).toBe(false);
+    expect(pushed).toEqual([]);
   });
 });
