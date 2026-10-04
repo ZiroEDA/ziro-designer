@@ -11,7 +11,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { FILENAME_RESOLVER } from '@ziroeda/common/filename_resolver.js';
 import { FOOTPRINT, FP_3DMODEL } from '@ziroeda/pcbnew/footprint.js';
-import { FootprintPropertiesDialog } from '@ziroeda/pcbnew/dialogs/dialog_footprint_properties_fp_editor.js';
+import { FootprintPropertiesDialog } from '@ziroeda/pcbnew/dialogs/dialog_footprint_properties_fp_editor_legacy.js';
 import type { PcbFootprint } from '@ziroeda/pcbnew/types.js';
 
 afterEach(cleanup);

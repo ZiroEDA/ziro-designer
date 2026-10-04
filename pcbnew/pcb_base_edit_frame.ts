@@ -16,6 +16,17 @@ import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import type { PICKED_ITEMS_LIST, UNDO_REDO } from '@ziroeda/common/undo_redo_container.js';
 import type { GAL_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import type { DIALOG_TEXT_PROPERTIES } from './dialogs/dialog_text_properties.js';
+import { DIALOG_TABLE_PROPERTIES } from './dialogs/dialog_table_properties.js';
+import { DIALOG_TEXTBOX_PROPERTIES } from './dialogs/dialog_textbox_properties.js';
+import { DIALOG_BARCODE_PROPERTIES } from './dialogs/dialog_barcode_properties.js';
+import { DIALOG_REFERENCE_IMAGE_PROPERTIES } from './dialogs/dialog_reference_image_properties.js';
+import { DIALOG_PAD_PROPERTIES } from './dialogs/dialog_pad_properties.js';
+import { DIALOG_DIMENSION_PROPERTIES } from './dialogs/dialog_dimension_properties.js';
+import { DIALOG_SHAPE_PROPERTIES } from './dialogs/dialog_shape_properties.js';
+import type { PAD } from './pad.js';
+import type { PCB_REFERENCE_IMAGE } from './pcb_reference_image.js';
+import type { PCB_DIMENSION_BASE } from './pcb_dimension.js';
+import type { PCB_SHAPE } from './pcb_shape.js';
 import type { PCB_TABLE } from './pcb_table.js';
 import type { PCB_TEXTBOX } from './pcb_textbox.js';
 import type { PCB_BARCODE } from './pcb_barcode.js';
@@ -105,6 +116,43 @@ export interface PCB_BASE_EDIT_FRAME extends UNDO_REDO_MIXIN {
   SaveCopyInUndoList(aItemsList: PICKED_ITEMS_LIST, aCommandType: UNDO_REDO): void;
 }
 
+/**
+ * What draws PCB_BASE_EDIT_FRAME's dialogs: the window's half of each
+ * `Show…Dialog`. Every member is optional — a frame with no window shows none.
+ */
+export interface PCB_BASE_EDIT_FRAME_DIALOG_HOOKS {
+  /** DIALOG_PASTE_SPECIAL: the chosen mode and clear-nets, or null for Cancel. */
+  showPasteSpecialDialog?(
+    aShowClearNets: boolean,
+  ): Promise<{ mode: PASTE_MODE; clearNets: boolean } | null>;
+  /** DIALOG_PAGES_SETTINGS: true when OK wrote the page and title block into the frame. */
+  showPageSettingsDialog?(): Promise<boolean>;
+  /** DIALOG_IMPORT_GRAPHICS: what OK read off it, or null. */
+  showImportGraphicsDialog?(aFilenameOverride?: string): Promise<IMPORT_GRAPHICS_RESULT | null>;
+  /** DIALOG_BARCODE_PROPERTIES on a live barcode, new or not; true when OK closed it. */
+  showBarcodePropertiesDialog?(aDialog: DIALOG_BARCODE_PROPERTIES): Promise<boolean>;
+  /** DIALOG_TEXTBOX_PROPERTIES on a live text box, new or not; true when OK closed it. */
+  showTextBoxPropertiesDialog?(aDialog: DIALOG_TEXTBOX_PROPERTIES): Promise<boolean>;
+  /** The "Choose Image" file dialog: the bytes chosen, or null for Cancel. */
+  showImageFileDialog?(): Promise<Uint8Array | null>;
+  /** DIALOG_TABLE_PROPERTIES on a live table, new or not; true when OK closed it. */
+  showTablePropertiesDialog?(aDialog: DIALOG_TABLE_PROPERTIES): Promise<boolean>;
+  /** A zone's properties dialog on a ZONE_SETTINGS alone; true when OK closed it. */
+  showZoneSettingsDialog?(
+    aDialog: DIALOG_COPPER_ZONE | DIALOG_NON_COPPER_ZONES_EDITOR | DIALOG_RULE_AREA_PROPERTIES,
+  ): Promise<boolean>;
+  /** DIALOG_TEXT_PROPERTIES shown quasi-modally; true when OK closed it. */
+  showTextPropertiesDialog?(aDialog: DIALOG_TEXT_PROPERTIES): Promise<boolean>;
+  /** DIALOG_REFERENCE_IMAGE_PROPERTIES, modal: true when OK closed it. */
+  showReferenceImagePropertiesDialog?(aDialog: DIALOG_REFERENCE_IMAGE_PROPERTIES): Promise<boolean>;
+  /** `ShowPadPropertiesDialog`: DIALOG_PAD_PROPERTIES, modal. */
+  showPadPropertiesDialog?(aDialog: DIALOG_PAD_PROPERTIES): void;
+  /** `DIALOG_DIMENSION_PROPERTIES dlg( this, dim ); dlg.ShowModal()`. */
+  showDimensionPropertiesDialog?(aDialog: DIALOG_DIMENSION_PROPERTIES): void;
+  /** `ShowGraphicItemPropertiesDialog`: DIALOG_SHAPE_PROPERTIES, modal. */
+  showGraphicItemPropertiesDialog?(aDialog: DIALOG_SHAPE_PROPERTIES): void;
+}
+
 // biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (UNDO_REDO_MIXIN mixin, see libs/core/mixins.ts)
 export abstract class PCB_BASE_EDIT_FRAME extends PCB_BASE_FRAME {
   protected m_undoRedoBlocked = false;
@@ -169,87 +217,137 @@ export abstract class PCB_BASE_EDIT_FRAME extends PCB_BASE_FRAME {
   }
 
   /**
-   * `DIALOG_TEXT_PROPERTIES dlg( frame, text ); dlg.ShowQuasiModal() == wxID_OK`:
-   * the window shows it and answers whether OK closed it. A frame without a
-   * window has no dialog, which answers Cancel.
+   * The window that draws this frame's dialogs. Each dialog below is the
+   * model KiCad's method builds, handed to the window to show; a frame with
+   * no window answers Cancel. PCB_EDIT_FRAME and FOOTPRINT_EDIT_FRAME answer
+   * with their hooks.
    */
-  ShowTextPropertiesDialog(_aDialog: DIALOG_TEXT_PROPERTIES): Promise<boolean> {
-    return Promise.resolve(false);
+  protected dialogHooks(): PCB_BASE_EDIT_FRAME_DIALOG_HOOKS {
+    return {};
+  }
+
+  /**
+   * `DIALOG_TEXT_PROPERTIES dlg( frame, text ); dlg.ShowQuasiModal() == wxID_OK`:
+   * the window shows it and answers whether OK closed it.
+   */
+  ShowTextPropertiesDialog(aDialog: DIALOG_TEXT_PROPERTIES): Promise<boolean> {
+    return this.dialogHooks().showTextPropertiesDialog?.(aDialog) ?? Promise.resolve(false);
   }
 
   /**
    * `InvokeCopperZonesEditor` / `InvokeNonCopperZonesEditor` /
-   * `InvokeRuleAreaEditor` on a ZONE_SETTINGS alone: the window shows the
-   * dialog and answers whether OK closed it. Cancel without a window.
+   * `InvokeRuleAreaEditor` on a ZONE_SETTINGS alone: whether OK closed it.
    */
   ShowZoneSettingsDialog(
-    _aDialog: DIALOG_COPPER_ZONE | DIALOG_NON_COPPER_ZONES_EDITOR | DIALOG_RULE_AREA_PROPERTIES,
+    aDialog: DIALOG_COPPER_ZONE | DIALOG_NON_COPPER_ZONES_EDITOR | DIALOG_RULE_AREA_PROPERTIES,
   ): Promise<boolean> {
-    return Promise.resolve(false);
+    return this.dialogHooks().showZoneSettingsDialog?.(aDialog) ?? Promise.resolve(false);
   }
 
-  /**
-   * `DIALOG_TABLE_PROPERTIES dlg( frame, table ); dlg.ShowQuasiModal() == wxID_OK`.
-   * Cancel without a window.
-   */
-  ShowTablePropertiesDialog(_aTable: PCB_TABLE): Promise<boolean> {
-    return Promise.resolve(false);
+  /** `DIALOG_TABLE_PROPERTIES( frame, table ).ShowQuasiModal() == wxID_OK`, on the live table. */
+  ShowTablePropertiesDialog(aTable: PCB_TABLE): Promise<boolean> {
+    return (
+      this.dialogHooks().showTablePropertiesDialog?.(new DIALOG_TABLE_PROPERTIES(this, aTable)) ??
+      Promise.resolve(false)
+    );
   }
 
   /**
    * `wxFileDialog( this, _( "Choose Image" ), ..., FILEEXT::ImageFileWildcard(), wxFD_OPEN )`:
-   * the bytes of the file chosen, or null for Cancel (and without a window).
+   * the bytes of the file chosen, or null for Cancel.
    */
   ShowImageFileDialog(): Promise<Uint8Array | null> {
-    return Promise.resolve(null);
+    return this.dialogHooks().showImageFileDialog?.() ?? Promise.resolve(null);
   }
 
   /**
    * `ShowTextBoxPropertiesDialog( aTextBox )` (dialog_textbox_properties.cpp:185-191):
    * `DIALOG_TEXTBOX_PROPERTIES( this, aTextBox ).ShowQuasiModal() == wxID_OK`.
-   * Cancel without a window.
    */
-  ShowTextBoxPropertiesDialog(_aTextBox: PCB_TEXTBOX): Promise<boolean> {
-    return Promise.resolve(false);
+  ShowTextBoxPropertiesDialog(aTextBox: PCB_TEXTBOX): Promise<boolean> {
+    return (
+      this.dialogHooks().showTextBoxPropertiesDialog?.(
+        new DIALOG_TEXTBOX_PROPERTIES(this, aTextBox),
+      ) ?? Promise.resolve(false)
+    );
   }
 
   /**
    * `DIALOG_BARCODE_PROPERTIES( this, aBarcode ).ShowModal() == wxID_OK`, as
-   * `DRAWING_TOOL::DrawBarcode` and `EDIT_TOOL::Properties` open it. Cancel
-   * without a window.
+   * `DRAWING_TOOL::DrawBarcode` and `EDIT_TOOL::Properties` open it.
    */
-  ShowBarcodePropertiesDialog(_aBarcode: PCB_BARCODE): Promise<boolean> {
-    return Promise.resolve(false);
+  ShowBarcodePropertiesDialog(aBarcode: PCB_BARCODE): Promise<boolean> {
+    return (
+      this.dialogHooks().showBarcodePropertiesDialog?.(
+        new DIALOG_BARCODE_PROPERTIES(this, aBarcode),
+      ) ?? Promise.resolve(false)
+    );
   }
 
   /**
    * `DIALOG_IMPORT_GRAPHICS( this )`, `SetFilenameOverride` on a drop, then
-   * `ShowModal() == wxID_OK`: what OK read off it, or null for any other
-   * answer (and without a window).
+   * `ShowModal() == wxID_OK`: what OK read off it, or null for any other answer.
    */
-  ShowImportGraphicsDialog(_aFilenameOverride?: string): Promise<IMPORT_GRAPHICS_RESULT | null> {
-    return Promise.resolve(null);
+  ShowImportGraphicsDialog(aFilenameOverride?: string): Promise<IMPORT_GRAPHICS_RESULT | null> {
+    return (
+      this.dialogHooks().showImportGraphicsDialog?.(aFilenameOverride) ?? Promise.resolve(null)
+    );
   }
 
   /**
    * `DIALOG_PAGES_SETTINGS( this, … ).ShowModal() == wxID_OK`
    * (board_editor_control.cpp:526-533). OK has written the page and the title
-   * block into the frame (`SetPageSettings` / `SetTitleBlock`). Cancel without a
-   * window.
+   * block into the frame (`SetPageSettings` / `SetTitleBlock`).
    */
   ShowPageSettingsDialog(): Promise<boolean> {
-    return Promise.resolve(false);
+    return this.dialogHooks().showPageSettingsDialog?.() ?? Promise.resolve(false);
   }
 
   /**
    * `DIALOG_PASTE_SPECIAL( this, &mode, "REF**" )`, `HideClearNets()` unless
    * `aShowClearNets`, then `ShowModal()`: the mode and `GetClearNets()`, or null
-   * for Cancel (and without a window).
+   * for Cancel.
    */
   ShowPasteSpecialDialog(
-    _aShowClearNets: boolean,
+    aShowClearNets: boolean,
   ): Promise<{ mode: PASTE_MODE; clearNets: boolean } | null> {
-    return Promise.resolve(null);
+    return this.dialogHooks().showPasteSpecialDialog?.(aShowClearNets) ?? Promise.resolve(null);
+  }
+
+  /**
+   * `PCB_BASE_EDIT_FRAME::ShowReferenceImagePropertiesDialog`
+   * (dialog_reference_image_properties.cpp:77-89).
+   */
+  ShowReferenceImagePropertiesDialog(aBitmap: PCB_REFERENCE_IMAGE): void {
+    const dlg = new DIALOG_REFERENCE_IMAGE_PROPERTIES(this, aBitmap);
+
+    void (
+      this.dialogHooks().showReferenceImagePropertiesDialog?.(dlg) ?? Promise.resolve(false)
+    ).then((aOk) => {
+      if (!aOk) return;
+
+      // The bitmap is cached in Opengl: clear the cache in case it has become invalid
+      this.GetCanvas()?.GetView().RecacheAllItems();
+      this.m_toolManager?.PostEvent(EVENTS.SelectedItemsModified);
+      this.OnModify();
+    });
+  }
+
+  /** `PCB_BASE_FRAME::ShowPadPropertiesDialog( PAD* aPad )`. */
+  ShowPadPropertiesDialog(aPad: PAD): void {
+    this.dialogHooks().showPadPropertiesDialog?.(new DIALOG_PAD_PROPERTIES(this, aPad));
+  }
+
+  /** `OnEditItemRequest`'s dimension arm: `DIALOG_DIMENSION_PROPERTIES dlg( this, dim )`. */
+  ShowDimensionPropertiesDialog(aDimension: PCB_DIMENSION_BASE): void {
+    this.dialogHooks().showDimensionPropertiesDialog?.(
+      new DIALOG_DIMENSION_PROPERTIES(this, aDimension),
+    );
+  }
+
+  /** `PCB_BASE_EDIT_FRAME::ShowGraphicItemPropertiesDialog( PCB_SHAPE* aShape )`. */
+  ShowGraphicItemPropertiesDialog(aShape: PCB_SHAPE): void {
+    this.dialogHooks().showGraphicItemPropertiesDialog?.(new DIALOG_SHAPE_PROPERTIES(this, aShape));
   }
 
   /** `SetObjectVisible` (pcb_base_edit_frame.cpp:271-275): through the Appearance panel. */

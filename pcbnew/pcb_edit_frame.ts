@@ -79,6 +79,7 @@ import { PCB_VIA, VIATYPE } from './pcb_track.js';
 import type { PROGRESS_REPORTER_LIKE } from './connectivity/connectivity_algo.js';
 import {
   PCB_BASE_EDIT_FRAME,
+  type PCB_BASE_EDIT_FRAME_DIALOG_HOOKS,
   type IMPORT_GRAPHICS_RESULT,
   type PASTE_MODE,
 } from './pcb_base_edit_frame.js';
@@ -676,7 +677,7 @@ export function storePcbnewSettings(s: PCBNEW_SETTINGS, json: PCBNEW_JSON_SETTIN
   return changed;
 }
 
-export interface PCB_EDIT_FRAME_HOOKS {
+export interface PCB_EDIT_FRAME_HOOKS extends PCB_BASE_EDIT_FRAME_DIALOG_HOOKS {
   /** `PCBNEW_SETTINGS`, read on every access so a changed preference is seen. */
   settings(): PCBNEW_SETTINGS;
   /**
@@ -706,28 +707,6 @@ export interface PCB_EDIT_FRAME_HOOKS {
   createDrcDialog(aTool: DRC_TOOL, aParent: unknown): DIALOG_DRC_LIKE;
   /** `Kiface().IsSingle()`: no schematic to test parity against. */
   isSingle(): boolean;
-  /** DIALOG_PASTE_SPECIAL: the chosen mode and clear-nets, or null for Cancel. */
-  showPasteSpecialDialog?(
-    aShowClearNets: boolean,
-  ): Promise<{ mode: PASTE_MODE; clearNets: boolean } | null>;
-  /** DIALOG_PAGES_SETTINGS: true when OK wrote the page and title block into the frame. */
-  showPageSettingsDialog?(): Promise<boolean>;
-  /** DIALOG_IMPORT_GRAPHICS: what OK read off it, or null. */
-  showImportGraphicsDialog?(aFilenameOverride?: string): Promise<IMPORT_GRAPHICS_RESULT | null>;
-  /** DIALOG_BARCODE_PROPERTIES on a live barcode, new or not; true when OK closed it. */
-  showBarcodePropertiesDialog?(aDialog: DIALOG_BARCODE_PROPERTIES): Promise<boolean>;
-  /** DIALOG_TEXTBOX_PROPERTIES on a live text box, new or not; true when OK closed it. */
-  showTextBoxPropertiesDialog?(aDialog: DIALOG_TEXTBOX_PROPERTIES): Promise<boolean>;
-  /** The "Choose Image" file dialog: the bytes chosen, or null for Cancel. */
-  showImageFileDialog?(): Promise<Uint8Array | null>;
-  /** DIALOG_TABLE_PROPERTIES on a live table, new or not; true when OK closed it. */
-  showTablePropertiesDialog?(aDialog: DIALOG_TABLE_PROPERTIES): Promise<boolean>;
-  /** A zone's properties dialog on a ZONE_SETTINGS alone; true when OK closed it. */
-  showZoneSettingsDialog?(
-    aDialog: DIALOG_COPPER_ZONE | DIALOG_NON_COPPER_ZONES_EDITOR | DIALOG_RULE_AREA_PROPERTIES,
-  ): Promise<boolean>;
-  /** DIALOG_TEXT_PROPERTIES shown quasi-modally; true when OK closed it. */
-  showTextPropertiesDialog?(aDialog: DIALOG_TEXT_PROPERTIES): Promise<boolean>;
   /** The tool stack changed (`PushTool` / `PopTool`): the window's toolbar follows it. */
   toolStackChanged?(): void;
   /** `PCB_EDIT_FRAME::FetchNetlistFromSchematic`: fills aNetlist, false on failure. */
@@ -746,16 +725,8 @@ export interface PCB_EDIT_FRAME_HOOKS {
    * own render choice, from the zone's own `GetIsRuleArea()`/layer).
    */
   editZoneParams(aZone: ZONE): void;
-  /** DIALOG_REFERENCE_IMAGE_PROPERTIES, modal: true when OK closed it. */
-  showReferenceImagePropertiesDialog?(aDialog: DIALOG_REFERENCE_IMAGE_PROPERTIES): Promise<boolean>;
-  /** `ShowPadPropertiesDialog`: DIALOG_PAD_PROPERTIES, modal. */
-  showPadPropertiesDialog?(aDialog: DIALOG_PAD_PROPERTIES): void;
   /** `ShowFootprintPropertiesDialog`: DIALOG_FOOTPRINT_PROPERTIES, modal. */
   showFootprintPropertiesDialog?(aDialog: DIALOG_FOOTPRINT_PROPERTIES): void;
-  /** `DIALOG_DIMENSION_PROPERTIES dlg( this, dim ); dlg.ShowModal()`. */
-  showDimensionPropertiesDialog?(aDialog: DIALOG_DIMENSION_PROPERTIES): void;
-  /** `ShowGraphicItemPropertiesDialog`: DIALOG_SHAPE_PROPERTIES, modal. */
-  showGraphicItemPropertiesDialog?(aDialog: DIALOG_SHAPE_PROPERTIES): void;
   /** `m_findDialog->Show( true )`: the window draws the modeless Find dialog. */
   showFindDialog?(aDialog: DIALOG_FIND): void;
   /**
@@ -1377,59 +1348,12 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
 
     this.GetCanvas()?.Refresh();
   }
-
-  override ShowPasteSpecialDialog(
-    aShowClearNets: boolean,
-  ): Promise<{ mode: PASTE_MODE; clearNets: boolean } | null> {
-    return this.hooks.showPasteSpecialDialog?.(aShowClearNets) ?? Promise.resolve(null);
-  }
-
-  override ShowPageSettingsDialog(): Promise<boolean> {
-    return this.hooks.showPageSettingsDialog?.() ?? Promise.resolve(false);
-  }
-
-  override ShowImportGraphicsDialog(
-    aFilenameOverride?: string,
-  ): Promise<IMPORT_GRAPHICS_RESULT | null> {
-    return this.hooks.showImportGraphicsDialog?.(aFilenameOverride) ?? Promise.resolve(null);
-  }
-
-  /** `PCB_BASE_EDIT_FRAME::ShowReferenceImagePropertiesDialog` (dialog_reference_image_properties.cpp:77-89). */
-  ShowReferenceImagePropertiesDialog(aBitmap: PCB_REFERENCE_IMAGE): void {
-    const dlg = new DIALOG_REFERENCE_IMAGE_PROPERTIES(this, aBitmap);
-
-    void (this.hooks.showReferenceImagePropertiesDialog?.(dlg) ?? Promise.resolve(false)).then(
-      (aOk) => {
-        if (!aOk) return;
-
-        // The bitmap is cached in Opengl: clear the cache in case it has become invalid
-        this.GetCanvas()?.GetView().RecacheAllItems();
-        this.m_toolManager?.PostEvent(EVENTS.SelectedItemsModified);
-        this.OnModify();
-      },
-    );
-  }
-
   /** `PCB_BASE_EDIT_FRAME::ShowPadPropertiesDialog( PAD* aPad )`. */
-  ShowPadPropertiesDialog(aPad: PAD): void {
-    this.hooks.showPadPropertiesDialog?.(new DIALOG_PAD_PROPERTIES(this, aPad));
-  }
-
   /** `PCB_EDIT_FRAME::ShowFootprintPropertiesDialog( FOOTPRINT* aFootprint )`. */
   ShowFootprintPropertiesDialog(aFootprint: FOOTPRINT): void {
     this.hooks.showFootprintPropertiesDialog?.(new DIALOG_FOOTPRINT_PROPERTIES(this, aFootprint));
   }
-
-  /** `OnEditItemRequest`'s dimension arm: `DIALOG_DIMENSION_PROPERTIES dlg( this, dim )`. */
-  ShowDimensionPropertiesDialog(aDimension: PCB_DIMENSION_BASE): void {
-    this.hooks.showDimensionPropertiesDialog?.(new DIALOG_DIMENSION_PROPERTIES(this, aDimension));
-  }
-
   /** `PCB_BASE_EDIT_FRAME::ShowGraphicItemPropertiesDialog( PCB_SHAPE* aShape )`. */
-  ShowGraphicItemPropertiesDialog(aShape: PCB_SHAPE): void {
-    this.hooks.showGraphicItemPropertiesDialog?.(new DIALOG_SHAPE_PROPERTIES(this, aShape));
-  }
-
   /** A save-mode wxFileDialog with a customize hook's one checkbox; see the hook. */
   ShowSaveFileDialog(
     aTitle: string,
@@ -1535,33 +1459,6 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   ShowTargetOptionsDialog(aTarget: PCB_TARGET): void {
     this.hooks.showTargetOptionsDialog?.(new DIALOG_TARGET_PROPERTIES(this, aTarget));
   }
-
-  override ShowBarcodePropertiesDialog(aBarcode: PCB_BARCODE): Promise<boolean> {
-    return (
-      this.hooks.showBarcodePropertiesDialog?.(new DIALOG_BARCODE_PROPERTIES(this, aBarcode)) ??
-      Promise.resolve(false)
-    );
-  }
-
-  override ShowTextBoxPropertiesDialog(aTextBox: PCB_TEXTBOX): Promise<boolean> {
-    return (
-      this.hooks.showTextBoxPropertiesDialog?.(new DIALOG_TEXTBOX_PROPERTIES(this, aTextBox)) ??
-      Promise.resolve(false)
-    );
-  }
-
-  override ShowImageFileDialog(): Promise<Uint8Array | null> {
-    return this.hooks.showImageFileDialog?.() ?? Promise.resolve(null);
-  }
-
-  /** `DIALOG_TABLE_PROPERTIES( frame, table ).ShowQuasiModal() == wxID_OK`, on the live table. */
-  override ShowTablePropertiesDialog(aTable: PCB_TABLE): Promise<boolean> {
-    return (
-      this.hooks.showTablePropertiesDialog?.(new DIALOG_TABLE_PROPERTIES(this, aTable)) ??
-      Promise.resolve(false)
-    );
-  }
-
   // ---- CONVERT_TOOL's window half (CONVERT_TOOL_FRAME) ---------------------
 
   ShowConvertSettingsDialog(
@@ -1676,6 +1573,10 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     aKeepUUID: boolean,
   ): Promise<FOOTPRINT | null> | null {
     return this.hooks.loadFootprintFromLibrary?.(aFootprintId, aKeepUUID) ?? null;
+  }
+
+  protected override dialogHooks(): PCB_BASE_EDIT_FRAME_DIALOG_HOOKS {
+    return this.hooks;
   }
 
   /** `KIDIALOG( this, ... ).ShowModal()`, through the window's KiDialog host. */
@@ -2888,18 +2789,6 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   FetchNetlistFromSchematic(aNetlist: NETLIST, aAnnotateMessage: string): boolean {
     return this.hooks.fetchNetlistFromSchematic(aNetlist, aAnnotateMessage);
   }
-
-  /** `ShowExchangeFootprintsDialog`: `DIALOG_EXCHANGE_FOOTPRINTS( ... ).ShowQuasiModal()`. */
-  override ShowZoneSettingsDialog(
-    aDialog: DIALOG_COPPER_ZONE | DIALOG_NON_COPPER_ZONES_EDITOR | DIALOG_RULE_AREA_PROPERTIES,
-  ): Promise<boolean> {
-    return this.hooks.showZoneSettingsDialog?.(aDialog) ?? Promise.resolve(false);
-  }
-
-  override ShowTextPropertiesDialog(aDialog: DIALOG_TEXT_PROPERTIES): Promise<boolean> {
-    return this.hooks.showTextPropertiesDialog?.(aDialog) ?? Promise.resolve(false);
-  }
-
   /** `TOOLS_HOLDER::PushTool`, and the window's toolbar told (KiCad's toolbar asks on update-UI). */
   override PushTool(aEvent: TOOL_EVENT): void {
     super.PushTool(aEvent);

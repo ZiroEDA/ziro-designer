@@ -58,7 +58,7 @@ import {
 import {
   FootprintPropertiesDialog,
   PadPropertiesDialog,
-} from './dialogs/dialog_footprint_properties_fp_editor.js';
+} from './dialogs/dialog_footprint_properties_fp_editor_legacy.js';
 import { MenuBar, ContextMenu, type Menu } from '@ziroeda/common/tool/action_menu_bar.js';
 import { footprintTreeContextMenu, fpTreeSelectedNodes } from './tools/footprint_editor_control.js';
 import { LibrariesToRepin } from '@ziroeda/common/tool/library_editor_control.js';

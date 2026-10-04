@@ -11,7 +11,10 @@ import { pcbIUScale, PCB_IU_PER_MM } from '@ziroeda/common/eda_units.js';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import type { KIWAY_MAIL_EVENT } from '@ziroeda/common/kiway_mail.js';
 import { FOOTPRINT_EDIT_FRAME_NAME } from '@ziroeda/common/eda_draw_frame.js';
-import { PCB_BASE_EDIT_FRAME } from './pcb_base_edit_frame.js';
+import {
+  PCB_BASE_EDIT_FRAME,
+  type PCB_BASE_EDIT_FRAME_DIALOG_HOOKS,
+} from './pcb_base_edit_frame.js';
 import { niluuid } from '@ziroeda/common/kiid.js';
 import { IO_ERROR } from '@ziroeda/common/exceptions.js';
 import { DisplayErrorMessage, type UnsavedChangesResult } from '@ziroeda/common/confirm.js';
@@ -77,8 +80,9 @@ import type { ChooserFilter } from '@ziroeda/common/wx/filedlg.js';
 import type { KiDialogRequest } from '@ziroeda/common/kidialog.js';
 import type { KiDialogResult } from '@ziroeda/common/kidialog_do_not_show.js';
 import type { FOOTPRINT_LIBRARY_ADAPTER } from './footprint_library_adapter.js';
+import type { DIALOG_FOOTPRINT_PROPERTIES_FP_EDITOR } from './dialogs/dialog_footprint_properties_fp_editor.js';
 
-export interface FOOTPRINT_EDIT_FRAME_HOOKS {
+export interface FOOTPRINT_EDIT_FRAME_HOOKS extends PCB_BASE_EDIT_FRAME_DIALOG_HOOKS {
   /**
    * `MAIL_FP_EDIT`'s body: find the footprint file's library, select the
    * footprint in the tree and load it.
@@ -158,6 +162,16 @@ export interface FOOTPRINT_EDIT_FRAME_HOOKS {
   writeTextFile?(aPath: string, aText: string): boolean;
   /** `GetInfoBar()->Dismiss()` when it is shown with a close button. */
   dismissInfoBar?(): void;
+  /**
+   * `DIALOG_FOOTPRINT_PROPERTIES_FP_EDITOR dialog( this, aFootprint );
+   * dialog.ShowQuasiModal()`: resolves once the dialog is closed, whatever
+   * button closed it.
+   */
+  showFootprintPropertiesFpEditorDialog?(
+    aDialog: DIALOG_FOOTPRINT_PROPERTIES_FP_EDITOR,
+  ): Promise<void>;
+  /** `UpdateUserInterface()`'s window half: the layer widget and the toolbars re-read. */
+  updateUserInterface?(): void;
   /** `KIDIALOG( this, … ).ShowModal()`, through the window's KiDialog host. */
   askKiDialog?(aRequest: KiDialogRequest): Promise<KiDialogResult>;
 }
@@ -518,6 +532,10 @@ export class FOOTPRINT_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   /** `if( infobar->IsShownOnScreen() && infobar->HasCloseButton() ) infobar->Dismiss()`. */
   DismissInfoBar(): void {
     this.hooks.dismissInfoBar?.();
+  }
+
+  protected override dialogHooks(): PCB_BASE_EDIT_FRAME_DIALOG_HOOKS {
+    return this.hooks;
   }
 
   /** `KIDIALOG( this, … ).ShowModal()`. Cancel without a window. */
