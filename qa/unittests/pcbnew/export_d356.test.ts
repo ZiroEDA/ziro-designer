@@ -24,11 +24,7 @@ import { PCB_ACTIONS } from '@ziroeda/pcbnew/tools/pcb_actions.js';
 import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { IPC356D_WRITER } from '@ziroeda/pcbnew/exporters/export_d356.js';
 import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import {
-  internNewD356Netname,
-  iuToD356,
-  layerNameToId,
-} from '@ziroeda/pcbnew/exporters/export_d356.js';
+import { internNewD356Netname, iuToD356 } from '@ziroeda/pcbnew/exporters/export_d356.js';
 import type { Board, PcbPad, PcbVia } from '@ziroeda/pcbnew/types.js';
 
 const P = (x: number, y: number) => ({ x, y });
@@ -100,17 +96,6 @@ describe('converting to decimils', () => {
   it('clamps at both ends, not just the positive one', () => {
     expect(iuToD356(999_999_999, 9999)).toBe(9999);
     expect(iuToD356(-999_999_999, 9999)).toBe(-9999);
-  });
-});
-
-describe('layer ids and wildcards', () => {
-  it('numbers layers the way layer_ids.h does', () => {
-    // B.Cu is 2 — it sits between F.Cu and the inner layers, not after them.
-    expect(layerNameToId('F.Cu')).toBe(0);
-    expect(layerNameToId('B.Cu')).toBe(2);
-    expect(layerNameToId('In1.Cu')).toBe(4);
-    expect(layerNameToId('In30.Cu')).toBe(62);
-    expect(layerNameToId('F.SilkS')).toBeUndefined();
   });
 });
 

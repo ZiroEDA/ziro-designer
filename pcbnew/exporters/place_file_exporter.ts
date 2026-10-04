@@ -31,9 +31,16 @@ import {
   GENERATOR_VENDOR,
   GENERATOR_VERSION,
 } from '@ziroeda/common/generator.js';
-import { strNumCmp, unescapeString } from '@ziroeda/common/string_utils.js';
-import { boardAuxOrigin } from '../board_design_settings.js';
-import type { Board, PcbFootprint } from '../types.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import {
+  GetISO8601CurrentDateTime,
+  strNumCmp,
+  unescapeString,
+} from '@ziroeda/common/string_utils.js';
+import { FIELD_T, GetCanonicalFieldName } from '@ziroeda/common/template_fieldnames.js';
+import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+import type { BOARD } from '../board.js';
+import { FP_SMD, type FOOTPRINT } from '../footprint.js';
 
 /**
  * Spelled as upstream spells them, for traceability rather than for arithmetic.
@@ -55,29 +62,6 @@ const UNIT_TEXT_INCH = '## Unit = inches, Angle = deg.\n';
 /** `GetFrontSideName()` / `GetBackSideName()`. */
 const FRONT_SIDE = 'top';
 const BACK_SIDE = 'bottom';
-
-export interface PlaceFileOptions {
-  unitsMM: boolean;
-  frontSide: boolean;
-  backSide: boolean;
-  formatCSV?: boolean;
-  onlySMD?: boolean;
-  excludeAllTH?: boolean;
-  excludeDNP?: boolean;
-  excludeBOM?: boolean;
-  negateBottomX?: boolean;
-  useAuxOrigin?: boolean;
-  /** `GetISO8601CurrentDateTime()`: local time, `YYYY-MM-DDTHH:MM:SS`, no zone. */
-  creationDate?: string;
-}
-
-interface PlaceEntry {
-  footprint: PcbFootprint;
-  reference: string;
-  value: string;
-  package: string;
-  layerId: number;
-}
 
 /**
  * `%.*f` as glibc renders it, which is **not** what `toFixed` does.
@@ -136,161 +120,233 @@ const padRight = (s: string, width: number): string => s.padEnd(width, ' ');
 /** `%9.9s`-style: truncate to `width` then right-align in `width`. */
 const padLeftTrunc = (s: string, width: number): string => s.slice(0, width).padStart(width, ' ');
 
-/** `FOOTPRINT::HasThroughHolePads`. */
-export function hasThroughHolePads(fp: PcbFootprint): boolean {
-  // Upstream tests `!= PAD_ATTRIB::SMD`, so an edge-connector pad ('connect',
-  // which has no hole at all) and an NPTH both count as through-hole. The
-  // checkbox says "with through hole pads"; it means "with any non-SMD pad".
-  return fp.pads.some((p) => p.type !== 'smd');
+/** `SELECT_SIDE`. */
+enum SELECT_SIDE {
+  PCB_NO_SIDE,
+  PCB_BACK_SIDE,
+  PCB_FRONT_SIDE,
+  PCB_BOTH_SIDES,
 }
 
-const hasAttr = (fp: PcbFootprint, name: string): boolean => (fp.attributes ?? []).includes(name);
-
-/** The part of a LIB_ID after the colon: `GetFPID().GetLibItemName()`. */
-const libItemName = (lib: string): string => {
-  const i = lib.indexOf(':');
-  return i === -1 ? lib : lib.slice(i + 1);
-};
-
-/**
- * `sortFPlist`: **descending** layer id, then reference.
- *
- * B.Cu is 2 and F.Cu is 0, so descending puts the *back* first. The comment
- * above it upstream says "top layer first" and is a fossil of the pre-6.0 layer
- * numbering — the code is what ships, so the back leads.
- */
-export function sortPlaceFileList(a: PlaceEntry, b: PlaceEntry): number {
-  if (a.layerId === b.layerId) return strNumCmp(a.reference, b.reference);
-  return b.layerId - a.layerId;
-}
-
-const layerIdOf = (layer: string): number => (layer === 'B.Cu' ? 2 : 0);
-
-function collect(board: Board, opts: PlaceFileOptions): PlaceEntry[] {
-  const both = opts.frontSide && opts.backSide;
-  const list: PlaceEntry[] = [];
-
-  for (const fp of board.footprints) {
-    if (!both) {
-      // Both tests are layer-specific, so a footprint on neither outer copper
-      // layer survives them — and is then printed as `bottom`, since the side
-      // ternary has no third branch. Reproduced rather than guarded.
-      if (fp.layer === 'B.Cu' && !opts.backSide) continue;
-      if (fp.layer === 'F.Cu' && !opts.frontSide) continue;
-    }
-
-    if (hasAttr(fp, 'exclude_from_pos_files')) continue;
-    if (opts.onlySMD && !hasAttr(fp, 'smd')) continue;
-    if (opts.excludeAllTH && hasThroughHolePads(fp)) continue;
-    if (opts.excludeDNP && hasAttr(fp, 'dnp')) continue;
-    if (opts.excludeBOM && hasAttr(fp, 'exclude_from_bom')) continue;
-
-    list.push({
-      footprint: fp,
-      reference: fp.reference ?? '',
-      // The value is unescaped explicitly by the exporter; the reference
-      // arrives already unescaped from GetShownText.
-      value: unescapeString(fp.value ?? ''),
-      package: libItemName(fp.lib),
-      layerId: layerIdOf(fp.layer),
-    });
-  }
-
-  if (list.length > 1) list.sort(sortPlaceFileList);
-  return list;
+/** `LIST_MOD`: an helper class used to build a list of useful footprints. */
+interface LIST_MOD {
+  m_Footprint: FOOTPRINT; // Link to the actual footprint
+  m_Reference: string; // Its schematic reference
+  m_Value: string; // Its schematic value
+  m_Layer: number; // its side (B_Cu, or F_Cu)
 }
 
 /**
- * `GenPositionData`, returning the count alongside the text.
- *
- * Upstream splits these across a method and an accessor only because C++ made
- * that convenient; the dialog calls the generator purely for the count when it
- * decides whether to say "No footprint for automated placement", so they have
- * to come out of one pass or they can disagree.
+ * `sortFPlist`: sort is made by side (layer), then by reference increasing
+ * order. Upstream's comment says "top layer first"; the code returns
+ * `ref.m_Layer > tst.m_Layer`, and B_Cu (2) > F_Cu (0), so the back leads.
  */
-export function genPositionData(
-  board: Board,
-  opts: PlaceFileOptions,
-): { data: string; footprintCount: number } {
-  const list = collect(board, opts);
-  const conv = opts.unitsMM ? CONV_UNIT_MM : CONV_UNIT_INCH;
-  const origin = opts.useAuxOrigin ? boardAuxOrigin(board) : { x: 0, y: 0 };
+function sortFPlist(ref: LIST_MOD, tst: LIST_MOD): number {
+  if (ref.m_Layer === tst.m_Layer) return strNumCmp(ref.m_Reference, tst.m_Reference);
 
-  const placed = list.map((e) => {
-    let x = e.footprint.at.x - origin.x;
-    const y = e.footprint.at.y - origin.y;
-    // X is negated only for the back, only when asked, and only *after* the
-    // aux origin has been taken off.
-    if (e.layerId === 2 && opts.negateBottomX) x = -x;
-    return { e, x, y };
-  });
+  return tst.m_Layer - ref.m_Layer;
+}
 
-  if (opts.formatCSV) {
-    let out = 'Ref,Val,Package,PosX,PosY,Rot,Side\n';
+/**
+ * `PLACE_FILE_EXPORTER` (place_file_exporter.cpp): the footprint position
+ * data of a board, as ASCII or CSV.
+ */
+export class PLACE_FILE_EXPORTER {
+  private readonly m_board: BOARD;
+  private readonly m_unitsMM: boolean;
+  private readonly m_onlySMD: boolean;
+  private readonly m_excludeAllTH: boolean;
+  private readonly m_excludeDNP: boolean;
+  private readonly m_excludeBOM: boolean;
+  private readonly m_negateBottomX: boolean;
+  private readonly m_side: SELECT_SIDE;
+  private readonly m_formatCSV: boolean;
+  private readonly m_place_Offset: VECTOR2I;
+  private m_fpCount = 0;
+  private m_variant = '';
 
-    for (const { e, x, y } of placed) {
-      const side = e.layerId === 0 ? FRONT_SIDE : BACK_SIDE;
-      // No escaping and no space substitution — the quotes do the work.
-      out += `"${e.reference}","${e.value}","${e.package}",`;
-      // `%f` is six decimals, for the rotation as well as the coordinates.
-      out += `${formatFixed(x * conv, 6)},${formatFixed(-y * conv, 6)},`;
-      out += `${formatFixed(e.footprint.angle, 6)},${side}\n`;
+  constructor(
+    aBoard: BOARD,
+    aUnitsMM: boolean,
+    aOnlySMD: boolean,
+    aExcludeAllTH: boolean,
+    aExcludeDNP: boolean,
+    aExcludeBOM: boolean,
+    aTopSide: boolean,
+    aBottomSide: boolean,
+    aFormatCSV: boolean,
+    aUseAuxOrigin: boolean,
+    aNegateBottomX: boolean,
+  ) {
+    this.m_board = aBoard;
+    this.m_unitsMM = aUnitsMM;
+    this.m_onlySMD = aOnlySMD;
+    this.m_excludeAllTH = aExcludeAllTH;
+    this.m_excludeDNP = aExcludeDNP;
+    this.m_excludeBOM = aExcludeBOM;
+    this.m_negateBottomX = aNegateBottomX;
+
+    if (aTopSide && aBottomSide) this.m_side = SELECT_SIDE.PCB_BOTH_SIDES;
+    else if (aTopSide) this.m_side = SELECT_SIDE.PCB_FRONT_SIDE;
+    else if (aBottomSide) this.m_side = SELECT_SIDE.PCB_BACK_SIDE;
+    else this.m_side = SELECT_SIDE.PCB_NO_SIDE;
+
+    this.m_formatCSV = aFormatCSV;
+
+    if (aUseAuxOrigin) this.m_place_Offset = this.m_board.GetDesignSettings().GetAuxOrigin();
+    else this.m_place_Offset = { x: 0, y: 0 };
+  }
+
+  /** The variant whose DNP / BOM / position-file exclusions apply. */
+  SetVariant(aVariant: string): void {
+    this.m_variant = aVariant;
+  }
+
+  /** The footprint count of the last GenPositionData. */
+  GetFootprintCount(): number {
+    return this.m_fpCount;
+  }
+
+  static GetFrontSideName(): string {
+    return FRONT_SIDE;
+  }
+
+  static GetBackSideName(): string {
+    return BACK_SIDE;
+  }
+
+  /** `GenPositionData()`: the position file's text. */
+  GenPositionData(): string {
+    let buffer = '';
+
+    // Minimal text lengths:
+    this.m_fpCount = 0;
+    let lenRefText = 8;
+    let lenValText = 8;
+    let lenPkgText = 16;
+
+    // Select units:
+    const conv_unit = this.m_unitsMM ? CONV_UNIT_MM : CONV_UNIT_INCH;
+    const unit_text = this.m_unitsMM ? UNIT_TEXT_MM : UNIT_TEXT_INCH;
+
+    // Build and sort the list of footprints alphabetically
+    const list: LIST_MOD[] = [];
+
+    for (const footprint of this.m_board.Footprints()) {
+      if (this.m_side !== SELECT_SIDE.PCB_BOTH_SIDES) {
+        if (footprint.GetLayer() === PCB_LAYER_ID.B_Cu && this.m_side !== SELECT_SIDE.PCB_BACK_SIDE)
+          continue;
+        if (
+          footprint.GetLayer() === PCB_LAYER_ID.F_Cu &&
+          this.m_side !== SELECT_SIDE.PCB_FRONT_SIDE
+        )
+          continue;
+      }
+
+      if (footprint.GetExcludedFromPosFilesForVariant(this.m_variant)) continue;
+
+      if (this.m_onlySMD && !(footprint.GetAttributes() & FP_SMD)) continue;
+
+      if (this.m_excludeAllTH && footprint.HasThroughHolePads()) continue;
+
+      if (this.m_excludeDNP && footprint.GetDNPForVariant(this.m_variant)) continue;
+
+      if (this.m_excludeBOM && footprint.GetExcludedFromBOMForVariant(this.m_variant)) continue;
+
+      this.m_fpCount++;
+
+      const item: LIST_MOD = {
+        m_Footprint: footprint,
+        m_Reference: footprint.Reference().GetShownText(false),
+        m_Value: unescapeString(
+          footprint.GetFieldValueForVariant(this.m_variant, GetCanonicalFieldName(FIELD_T.VALUE)),
+        ),
+        m_Layer: footprint.GetLayer(),
+      };
+
+      lenRefText = Math.max(lenRefText, item.m_Reference.length);
+      lenValText = Math.max(lenValText, item.m_Value.length);
+      lenPkgText = Math.max(lenPkgText, footprint.GetFPID().GetLibItemName().length);
+
+      list.push(item);
     }
 
-    return { data: out, footprintCount: list.length };
+    if (list.length > 1) list.sort(sortFPlist);
+
+    const sideName = (aLayer: number): string =>
+      aLayer === PCB_LAYER_ID.F_Cu ? FRONT_SIDE : BACK_SIDE;
+    const position = (aItem: LIST_MOD): VECTOR2I => {
+      const footprint_pos = {
+        x: aItem.m_Footprint.GetPosition().x - this.m_place_Offset.x,
+        y: aItem.m_Footprint.GetPosition().y - this.m_place_Offset.y,
+      };
+
+      if (aItem.m_Footprint.GetLayer() === PCB_LAYER_ID.B_Cu && this.m_negateBottomX)
+        footprint_pos.x = -footprint_pos.x;
+
+      return footprint_pos;
+    };
+
+    if (this.m_formatCSV) {
+      const csv_sep = ',';
+
+      // Set first line:;
+      buffer += `Ref${csv_sep}Val${csv_sep}Package${csv_sep}PosX${csv_sep}PosY${csv_sep}Rot${csv_sep}Side\n`;
+
+      for (const item of list) {
+        const footprint_pos = position(item);
+        const pkg = item.m_Footprint.GetFPID().GetLibItemName();
+
+        // No escaping and no space substitution — the quotes do the work.
+        let line = `"${item.m_Reference}"${csv_sep}"${item.m_Value}"${csv_sep}"${pkg}"${csv_sep}`;
+        line += `${formatFixed(footprint_pos.x * conv_unit, 6)}${csv_sep}`;
+        // Keep the Y axis oriented from bottom to top, ( change y coordinate sign )
+        line += `${formatFixed(-footprint_pos.y * conv_unit, 6)}${csv_sep}`;
+        line += `${formatFixed(item.m_Footprint.GetOrientation().AsDegrees(), 6)}${csv_sep}`;
+        line += `${sideName(item.m_Layer)}\n`;
+
+        buffer += line;
+      }
+    } else {
+      // Write file header
+      buffer += `### Footprint positions - created on ${GetISO8601CurrentDateTime()} ###\n`;
+      // Upstream prints `### Printed by KiCad version <ver>`; a file we wrote
+      // names us, as common/generator.ts arranges for every output.
+      buffer += `### Printed by ${GENERATOR_APPLICATION} version ${GENERATOR_VERSION}\n`;
+
+      buffer += unit_text;
+      buffer += '## Side : ';
+
+      if (this.m_side === SELECT_SIDE.PCB_BACK_SIDE) buffer += BACK_SIDE;
+      else if (this.m_side === SELECT_SIDE.PCB_FRONT_SIDE) buffer += FRONT_SIDE;
+      else if (this.m_side === SELECT_SIDE.PCB_BOTH_SIDES) buffer += 'All';
+      else buffer += '---';
+
+      buffer += '\n';
+
+      buffer += `${padRight('# Ref', lenRefText)}  ${padRight('Val', lenValText)}  ${padRight('Package', lenPkgText)}  `;
+      buffer += `${padLeftTrunc('PosX', 9)}  ${padLeftTrunc('PosY', 9)}  ${padLeftTrunc('Rot', 8)}  Side\n`;
+
+      for (const item of list) {
+        const footprint_pos = position(item);
+        const ref = item.m_Reference.replace(/ /g, '_');
+        const val = item.m_Value.replace(/ /g, '_');
+        const pkg = item.m_Footprint.GetFPID().GetLibItemName().replace(/ /g, '_');
+
+        buffer += `${padRight(ref, lenRefText)}  ${padRight(val, lenValText)}  ${padRight(pkg, lenPkgText)}  `;
+        // Keep the coordinates in the first quadrant, (i.e. change y sign)
+        buffer += `${padLeftTrunc(formatFixed(footprint_pos.x * conv_unit, 4), 9)}  `;
+        buffer += `${padLeftTrunc(formatFixed(-footprint_pos.y * conv_unit, 4), 9)}  `;
+        buffer += `${padLeftTrunc(formatFixed(item.m_Footprint.GetOrientation().AsDegrees(), 4), 8)}  `;
+        buffer += `${sideName(item.m_Layer)}\n`;
+      }
+
+      // Write EOF
+      buffer += '## End\n';
+    }
+
+    return buffer;
   }
-
-  let lenRef = 8;
-  let lenVal = 8;
-  let lenPkg = 16;
-  for (const e of list) {
-    lenRef = Math.max(lenRef, e.reference.length);
-    lenVal = Math.max(lenVal, e.value.length);
-    lenPkg = Math.max(lenPkg, e.package.length);
-  }
-
-  const sideWord =
-    opts.backSide && !opts.frontSide
-      ? BACK_SIDE
-      : opts.frontSide && !opts.backSide
-        ? FRONT_SIDE
-        : // "All" is capitalised here while the row words and the filename suffixes
-          // are lowercase. Three casings of one concept in one file, all upstream's.
-          opts.frontSide && opts.backSide
-          ? 'All'
-          : // Neither side is a reachable state, not an error: a header-only file.
-            '---';
-
-  let out = `### Footprint positions - created on ${opts.creationDate ?? ''} ###\n`;
-  // Upstream prints `### Printed by KiCad version <ver>`. Naming KiCad in a
-  // file we generated is what common/generator.ts exists to prevent, so the
-  // line carries our own identity, as the Gerber header already does.
-  // One name, not two: the application and the vendor are now the same word,
-  // and "Printed by ZiroEDA ZiroEDA" is not a sentence.
-  out += `### Printed by ${GENERATOR_APPLICATION} version ${GENERATOR_VERSION}\n`;
-  out += opts.unitsMM ? UNIT_TEXT_MM : UNIT_TEXT_INCH;
-  out += `## Side : ${sideWord}\n`;
-
-  // The '# Ref' header sits *inside* the reference column, so the word 'Ref' is
-  // two characters right of where the data references start. Not an alignment
-  // bug to fix — the column boundary is what a parser keys off.
-  out += `${padRight('# Ref', lenRef)}  ${padRight('Val', lenVal)}  ${padRight('Package', lenPkg)}  `;
-  out += `${padLeftTrunc('PosX', 9)}  ${padLeftTrunc('PosY', 9)}  ${padLeftTrunc('Rot', 8)}  Side\n`;
-
-  for (const { e, x, y } of placed) {
-    const side = e.layerId === 0 ? FRONT_SIDE : BACK_SIDE;
-    const ref = e.reference.replace(/ /g, '_');
-    const val = e.value.replace(/ /g, '_');
-    const pkg = e.package.replace(/ /g, '_');
-
-    out += `${padRight(ref, lenRef)}  ${padRight(val, lenVal)}  ${padRight(pkg, lenPkg)}  `;
-    out += `${padLeftTrunc(formatFixed(x * conv, 4), 9)}  ${padLeftTrunc(formatFixed(-y * conv, 4), 9)}  `;
-    out += `${padLeftTrunc(formatFixed(e.footprint.angle, 4), 8)}  ${side}\n`;
-  }
-
-  out += '## End\n';
-
-  return { data: out, footprintCount: list.length };
 }
 
 /** `DecorateFilename`. */

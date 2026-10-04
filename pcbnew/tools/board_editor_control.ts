@@ -941,6 +941,12 @@ export class BOARD_EDITOR_CONTROL extends PCB_TOOL_BASE {
     return 0;
   }
 
+  /** `GeneratePosFile` (dialog_gen_footprint_position.cpp:537-542). */
+  GeneratePosFile(_aEvent: TOOL_EVENT): number {
+    void this.getEditFrame<PCB_EDIT_FRAME>().ShowGenFootprintPositionDialog();
+    return 0;
+  }
+
   /** `GenD356File` (export_d356.cpp:437): the dialog is modal, the handler returns at once. */
   GenD356File(_aEvent: TOOL_EVENT): number {
     void BOARD_EDITOR_CONTROL_GenD356File(this.getEditFrame<PCB_EDIT_FRAME>());
@@ -962,6 +968,10 @@ export class BOARD_EDITOR_CONTROL extends PCB_TOOL_BASE {
       PCB_ACTIONS.unlock.MakeEvent(),
     );
     this.Go(this.PageSettings, ACTIONS.pageSettings.MakeEvent());
+    this.Go(
+      SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.GeneratePosFile),
+      PCB_ACTIONS.generatePosFile.MakeEvent(),
+    );
     this.Go(
       SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.GenD356File),
       PCB_ACTIONS.generateD356File.MakeEvent(),

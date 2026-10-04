@@ -197,7 +197,6 @@ export {
   UNCONNECTED_NET,
 } from './netinfo.js';
 export {
-  exchangeFootprint,
   placeFootprint,
   type PlaceFootprintOptions,
 } from './netlist_reader/board_netlist_updater.js';
@@ -230,7 +229,7 @@ export {
   type TrackViaSelection,
   type TrackViaValues,
 } from './dialogs/dialog_track_via_properties.js';
-export { type ZoneValues } from './dialogs/panel_zone_properties.js';
+export type { ZoneValues } from './dialogs/panel_zone_properties.js';
 // Rule Area Properties (pcbnew/dialogs/dialog_rule_area_properties.cpp).
 export {
   ruleAreaValuesError,
@@ -344,13 +343,13 @@ export {
   type CreateArrayResult,
 } from './dialogs/dialog_create_array.js';
 
-export {
-  type PolygonBoolean,
-  type PolygonBooleanOptions,
-  type PolygonBooleanResult,
-  type LineModification,
-  type ModifyLinesOptions,
-  type ModifyLinesResult,
+export type {
+  PolygonBoolean,
+  PolygonBooleanOptions,
+  PolygonBooleanResult,
+  LineModification,
+  ModifyLinesOptions,
+  ModifyLinesResult,
 } from './tools/item_modification_routine.js';
 
 export {
@@ -584,13 +583,9 @@ export {
 } from './exporters/export_d356.js';
 
 export {
-  genPositionData,
   decorateFilename,
   placeFileName,
-  hasThroughHolePads,
-  sortPlaceFileList,
   formatFixed,
-  type PlaceFileOptions,
 } from './exporters/place_file_exporter.js';
 
 export { GRAPHICS_CLEANER } from './graphics_cleaner.js';
@@ -619,29 +614,6 @@ export {
 } from './dialogs/dialog_enum_pads.js';
 
 export { DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS } from './dialogs/dialog_global_edit_text_and_graphics.js';
-
-export {
-  isExternalCopperLayer,
-  unconnectedLayerModeOf,
-  getRemoveUnconnected,
-  getKeepEndLayers,
-  boardCopperLayerCount,
-  boardLayerDepth,
-  viaHasPotentiallyUnusedLayers,
-  padHasPotentiallyUnusedLayers,
-  withPadUnconnectedLayerMode,
-  withViaUnconnectedLayerMode,
-  unusedPadLayersMode,
-  updateUnusedPadLayers,
-  conditionallyFlashed,
-  padFlashState,
-  viaFlashState,
-  DEFAULT_UNUSED_PAD_LAYERS_OPTIONS,
-  type UnusedPadLayersOptions,
-  type UnusedPadLayersContext,
-  type UnusedPadLayersResult,
-  type FlashState,
-} from './unused_pad_layers.js';
 
 export {
   CollectDrillLineItems,
@@ -782,7 +754,7 @@ export {
   setRouterIface,
   type NetHandle,
 } from './router/pns_item.js';
-export { type PnsRouterIface } from './router/pns_router.js';
+export type { PnsRouterIface } from './router/pns_router.js';
 export {
   defaultShapeCollider,
   getShapeCollider,

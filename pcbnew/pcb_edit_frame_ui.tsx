@@ -215,6 +215,7 @@ import type { DIALOG_PRINT_PCBNEW } from './dialogs/dialog_print_pcbnew.js';
 import { wxPrinter } from '@ziroeda/common/wx/printer.js';
 import { MessageDialogError, MessageDialogOk } from '@ziroeda/common/dialogs/dialog_message.js';
 import { DialogPcbPlot } from './dialogs/dialog_plot.js';
+import { DialogGenFootprintPosition } from './dialogs/dialog_gen_footprint_position.js';
 import {
   DialogBoardSetup,
   defaultBoardSetup,
@@ -2211,6 +2212,7 @@ export function PcbEditor({
     showPrintDialog: (aDialog: DIALOG_PRINT_PCBNEW) => Promise<void>;
     showSaveFileDialog: NonNullable<PCB_EDIT_FRAME_HOOKS['showSaveFileDialog']>;
     writeTextFile: (aPath: string, aText: string) => boolean;
+    showGenFootprintPositionDialog: () => Promise<void>;
     showReferenceImagePropertiesDialog: (
       aDialog: DIALOG_REFERENCE_IMAGE_PROPERTIES,
     ) => Promise<boolean>;
@@ -2333,6 +2335,7 @@ export function PcbEditor({
       showSaveFileDialog: (aTitle, aName, aWildcard, aCheckbox) =>
         drcWindowRef.current!.showSaveFileDialog(aTitle, aName, aWildcard, aCheckbox),
       writeTextFile: (aPath, aText) => drcWindowRef.current!.writeTextFile(aPath, aText),
+      showGenFootprintPositionDialog: () => drcWindowRef.current!.showGenFootprintPositionDialog(),
       showReferenceImagePropertiesDialog: (aDialog) =>
         drcWindowRef.current!.showReferenceImagePropertiesDialog(aDialog),
       showPadPropertiesDialog: (aDialog) => drcWindowRef.current!.showPadPropertiesDialog(aDialog),
@@ -2604,6 +2607,8 @@ export function PcbEditor({
     a.click();
     URL.revokeObjectURL(url);
   };
+  /** DIALOG_GEN_FOOTPRINT_POSITION, while BOARD_EDITOR_CONTROL::GeneratePosFile shows it. */
+  const [posFileDlg, setPosFileDlg] = useState<{ done: () => void } | null>(null);
   /** PCB_EDIT_FRAME::ShowSaveFileDialog's wxFileDialog, while it is up. */
   const [saveFileDlg, setSaveFileDlg] = useState<{
     title: string;
@@ -4537,6 +4542,8 @@ export function PcbEditor({
           resolve,
         }),
       ),
+    showGenFootprintPositionDialog: (): Promise<void> =>
+      new Promise<void>((resolve) => setPosFileDlg({ done: resolve })),
     writeTextFile: (aPath: string, aText: string): boolean => {
       writeOutputText(aPath, aText);
       return true;
@@ -6599,6 +6606,10 @@ export function PcbEditor({
       case 'boardStatistics':
         setStatsOpen(true);
         break;
+      case 'generatePosFile':
+        // BOARD_EDITOR_CONTROL::GeneratePosFile.
+        runAction(PCB_ACTIONS.generatePosFile);
+        break;
       case 'generateD356File':
         // BOARD_EDITOR_CONTROL::GenD356File.
         runAction(PCB_ACTIONS.generateD356File);
@@ -8542,6 +8553,19 @@ export function PcbEditor({
               },
             });
             netclassDlg.resolve(true);
+          }}
+        />
+      )}
+      {posFileDlg && frameRef.current?.GetBoard() && (
+        <DialogGenFootprintPosition
+          board={frameRef.current.GetBoard()!}
+          fileName={fileName ?? ''}
+          projectFolders={projectFolders}
+          {...(onOutputFile ? { onOutputFile } : {})}
+          onClose={() => {
+            const done = posFileDlg.done;
+            setPosFileDlg(null);
+            done();
           }}
         />
       )}

@@ -18,50 +18,101 @@ import { describe, expect, it } from 'vitest';
 import {
   decorateFilename,
   formatFixed,
-  genPositionData,
-  hasThroughHolePads,
+  PLACE_FILE_EXPORTER,
   placeFileName,
 } from '@ziroeda/pcbnew/exporters/place_file_exporter.js';
-import type { Board, PcbFootprint } from '@ziroeda/pcbnew/types.js';
+import type { BOARD } from '@ziroeda/pcbnew/board.js';
+import type { FOOTPRINT } from '@ziroeda/pcbnew/footprint.js';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 
-const EMPTY = { kind: 'list' as const, items: [] };
 const P = (x: number, y: number) => ({ x, y });
 
-const fp = (over: Partial<PcbFootprint> = {}): PcbFootprint =>
-  ({
-    lib: 'Resistor_SMD:R_0805_2012Metric',
-    at: P(10_000_000, 5_000_000),
-    angle: 0,
-    layer: 'F.Cu',
-    reference: 'R1',
-    value: '10k',
-    pads: [{ type: 'smd' }],
-    source: EMPTY,
-    ...over,
-  }) as PcbFootprint;
+/** A footprint as the fixtures describe it; written out as board text. */
+interface FP {
+  lib?: string;
+  at?: { x: number; y: number };
+  angle?: number;
+  layer?: 'F.Cu' | 'B.Cu';
+  reference?: string;
+  value?: string;
+  pads?: { type: 'smd' | 'connect' | 'np_thru_hole' | 'thru_hole' }[];
+  attributes?: string[];
+  /** `(attr smd)`: on unless false. */
+  smd?: boolean;
+}
 
-const board = (footprints: PcbFootprint[]): Board =>
-  ({
-    version: 20240108,
-    layers: [],
-    nets: new Map(),
-    footprints,
-    tracks: [],
-    arcs: [],
-    vias: [],
-    zones: [],
-    shapes: [],
-    texts: [],
-    dimensions: [],
-    textBoxes: [],
-    tables: [],
-    images: [],
-    points: [],
-    groups: [],
-    source: EMPTY,
-  }) as unknown as Board;
+const fp = (over: FP = {}): FP => over;
 
-const BOTH = { unitsMM: true, frontSide: true, backSide: true, creationDate: 'D' };
+let uuid = 0;
+const U = (): string => `00000000-0000-4000-8000-${String(++uuid).padStart(12, '0')}`;
+
+function fpText(f: FP): string {
+  const at = f.at ?? P(10_000_000, 5_000_000);
+  const layer = f.layer ?? 'F.Cu';
+  const cu = layer;
+  const pads = (f.pads ?? [{ type: 'smd' }])
+    .map((p, i) =>
+      p.type === 'np_thru_hole'
+        ? `(pad "" np_thru_hole circle (at ${i} 0) (size 1 1) (drill 1) (layers "*.Cu") (uuid "${U()}"))`
+        : p.type === 'thru_hole'
+          ? `(pad "${i + 1}" thru_hole circle (at ${i} 0) (size 1 1) (drill 0.5) (layers "*.Cu") (uuid "${U()}"))`
+          : `(pad "${i + 1}" ${p.type} rect (at ${i} 0) (size 1 1) (layers "${cu}") (uuid "${U()}"))`,
+    )
+    .join(' ');
+  const attrs = [...(f.smd === false ? [] : ['smd']), ...(f.attributes ?? [])].join(' ');
+  const q = (t: string): string => JSON.stringify(t);
+  return `(footprint ${q(f.lib ?? 'Resistor_SMD:R_0805_2012Metric')} (layer "${layer}")
+    (at ${at.x / 1e6} ${at.y / 1e6} ${f.angle ?? 0}) (uuid "${U()}")
+    (property "Reference" ${q(f.reference ?? 'R1')} (at 0 0 0) (layer "F.SilkS") (uuid "${U()}") (effects (font (size 1 1) (thickness 0.15))))
+    (property "Value" ${q(f.value ?? '10k')} (at 0 0 0) (layer "F.Fab") (uuid "${U()}") (effects (font (size 1 1) (thickness 0.15))))
+    (attr ${attrs}) ${pads})`;
+}
+
+const board = (footprints: FP[], auxOrigin?: { x: number; y: number }): BOARD =>
+  ParseBoard(`(kicad_pcb (version 20241229) (generator "pcbnew") (generator_version "9.0")
+  (general (thickness 1.6) (legacy_teardrops no)) (paper "A4")
+  (layers (0 "F.Cu" signal) (2 "B.Cu" signal) (5 "F.SilkS" user) (35 "F.Fab" user))
+  (setup (pad_to_mask_clearance 0)${auxOrigin ? ` (aux_axis_origin ${auxOrigin.x / 1e6} ${auxOrigin.y / 1e6})` : ''})
+  (net 0 "")
+  ${footprints.map(fpText).join('\n  ')}
+)`);
+
+interface Opts {
+  unitsMM: boolean;
+  frontSide: boolean;
+  backSide: boolean;
+  formatCSV?: boolean;
+  onlySMD?: boolean;
+  excludeAllTH?: boolean;
+  excludeDNP?: boolean;
+  excludeBOM?: boolean;
+  negateBottomX?: boolean;
+  useAuxOrigin?: boolean;
+}
+
+/** PLACE_FILE_EXPORTER's text and the count from that one pass. */
+function genPositionData(b: BOARD, o: Opts): { data: string; footprintCount: number } {
+  const exporter = new PLACE_FILE_EXPORTER(
+    b,
+    o.unitsMM,
+    o.onlySMD ?? false,
+    o.excludeAllTH ?? false,
+    o.excludeDNP ?? false,
+    o.excludeBOM ?? false,
+    o.frontSide,
+    o.backSide,
+    o.formatCSV ?? false,
+    o.useAuxOrigin ?? false,
+    o.negateBottomX ?? false,
+  );
+  const data = exporter.GenPositionData();
+  return { data, footprintCount: exporter.GetFootprintCount() };
+}
+
+const hasThroughHolePads = (f: FP): boolean =>
+  (board([f]).Footprints()[0] as FOOTPRINT).HasThroughHolePads();
+
+const BOTH = { unitsMM: true, frontSide: true, backSide: true };
 const rows = (text: string): string[] =>
   text.split('\n').filter((l) => l && !l.startsWith('#') && l !== '## End');
 
@@ -90,9 +141,9 @@ describe('which footprints are excluded', () => {
     // The checkbox says "with through hole pads"; upstream tests
     // `!= PAD_ATTRIB::SMD`, so an edge-connector finger with no hole at all,
     // and an NPTH, both trip it.
-    expect(hasThroughHolePads(fp({ pads: [{ type: 'smd' }] as never }))).toBe(false);
-    expect(hasThroughHolePads(fp({ pads: [{ type: 'connect' }] as never }))).toBe(true);
-    expect(hasThroughHolePads(fp({ pads: [{ type: 'np_thru_hole' }] as never }))).toBe(true);
+    expect(hasThroughHolePads(fp({ pads: [{ type: 'smd' }] }))).toBe(false);
+    expect(hasThroughHolePads(fp({ pads: [{ type: 'connect' }] }))).toBe(true);
+    expect(hasThroughHolePads(fp({ pads: [{ type: 'np_thru_hole' }] }))).toBe(true);
   });
 
   it('honours each exclusion attribute', () => {
@@ -108,6 +159,22 @@ describe('which footprints are excluded', () => {
     expect(genPositionData(b, { ...BOTH, excludeDNP: true, excludeBOM: true }).footprintCount).toBe(
       1,
     );
+  });
+
+  it('keeps only FP_SMD footprints when asked', () => {
+    const b = board([fp({ reference: 'R1' }), fp({ reference: 'J1', smd: false })]);
+
+    expect(genPositionData(b, BOTH).footprintCount).toBe(2);
+    expect(
+      rows(genPositionData(b, { ...BOTH, onlySMD: true }).data).map((r) => r.slice(0, 2)),
+    ).toEqual(['R1']);
+  });
+
+  it('writes the value unescaped', () => {
+    // GetFieldValueForVariant gives the stored form; the exporter unescapes it.
+    const out = genPositionData(board([fp({ value: '1{slash}2' })]), BOTH);
+
+    expect(rows(out.data)[0]!.startsWith('R1        1/2')).toBe(true);
   });
 
   it('reports the count and the text from one pass', () => {
@@ -176,10 +243,7 @@ describe('the ASCII table', () => {
 
   it('takes the aux origin off every coordinate when asked', () => {
     // `BOARD_DESIGN_SETTINGS::GetAuxOrigin()`, `(setup (aux_axis_origin 4 1))`.
-    const withOrigin: Board = {
-      ...board([fp({ at: P(10_000_000, 5_000_000) })]),
-      auxOrigin: P(4_000_000, 1_000_000),
-    };
+    const withOrigin = board([fp({ at: P(10_000_000, 5_000_000) })], P(4_000_000, 1_000_000));
 
     // Without the flag the origin is (0,0) whatever the board says.
     expect(rows(genPositionData(withOrigin, BOTH).data)[0]).toContain('  10.0000    -5.0000');

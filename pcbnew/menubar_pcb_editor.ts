@@ -177,7 +177,10 @@ export function buildPcbMenus(
             { label: 'Drill Files (.drl)...', disabled: dis },
             { label: 'IPC-2581 File (.xml)...', disabled: dis },
             { label: 'ODB++ Output File...', disabled: dis },
-            { label: 'Component Placement (.pos, .gbr)...', disabled: dis },
+            {
+              label: 'Component Placement (.pos, .gbr)...',
+              action: () => h.action('generatePosFile'),
+            },
             { label: 'Footprint Report (.rpt)...', disabled: dis },
             { label: 'IPC-D-356 Netlist File...', action: () => h.action('generateD356File') },
             { label: 'Bill of Materials...', action: () => h.action('generateBOM') },

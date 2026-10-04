@@ -79,7 +79,7 @@ import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { footprintViewOfBoard } from '../pcb_io/kicad_sexpr/board_view.js';
 import { LSET_NameToLayer } from '@ziroeda/common/layer_ids.js';
-import { type PcbFootprint } from '../types.js';
+import type { PcbFootprint } from '../types.js';
 import { fpidIsLegacy, fpidItemName, type COMPONENT, type NETLIST } from './pcb_netlist.js';
 
 /**
@@ -1743,90 +1743,4 @@ export function placeFootprint(
     k.Flip(k.GetPosition(), FLIP_DIRECTION.TOP_BOTTOM);
 
   return footprintViewOfBoard(k);
-}
-
-/**
- * PCB_EDIT_FRAME::ExchangeFootprint with the netlist updater's arguments (every
- * reset flag at its default, board_netlist_updater.cpp:382): the replacement
- * comes from the library, and only the board-owned state listed in this module's
- * header is carried over.
- *
- * The one thing this does not reproduce is per-item UUID preservation for graphics,
- * zones and fields, KiCad matches those by geometric similarity, which the typed
- * model has no counterpart for. Pads, whose UUIDs and nets do matter, are matched
- * by number.
- */
-export function exchangeFootprint(
-  existing: PcbFootprint,
-  libFootprint: PcbFootprint,
-  newFpid: string,
-): PcbFootprint | null {
-  // `PlaceFootprint( aNew, false, aExisting->GetPosition() )`, then the old
-  // orientation (pcb_edit_frame.cpp:2669-2675): the replacement goes exactly
-  // where the old one was, with no pad matching - 10.0.5 has none.
-  const position = existing.at;
-  const orientation = existing.angle;
-
-  const placed = placeFootprint(libFootprint, {
-    fpid: newFpid,
-    at: position,
-    angle: orientation,
-    layer: existing.layer,
-    ...(existing.uuid ? { uuid: existing.uuid } : {}),
-    ...(existing.path ? { path: existing.path } : {}),
-    ...(existing.sheetname ? { sheetname: existing.sheetname } : {}),
-    ...(existing.sheetfile ? { sheetfile: existing.sheetfile } : {}),
-    ...(existing.locked ? { locked: true } : {}),
-  });
-  if (!placed) return null;
-
-  // Pads: net, pin function and pin type belong to the board, matched by number.
-  // An unmatched pad on the replacement starts unconnected.
-  const oldPadsByNumber = new Map<string, (typeof existing.pads)[number][]>();
-  for (const pad of existing.pads) {
-    const arr = oldPadsByNumber.get(pad.number) ?? [];
-    arr.push(pad);
-    oldPadsByNumber.set(pad.number, arr);
-  }
-  const takenPads = new Map<string, number>();
-
-  placed.pads = placed.pads.map((pad) => {
-    const candidates = oldPadsByNumber.get(pad.number) ?? [];
-    const taken = takenPads.get(pad.number) ?? 0;
-    const oldPad = candidates[taken];
-    if (!oldPad) return pad;
-    takenPads.set(pad.number, taken + 1);
-    return {
-      ...pad,
-      ...(oldPad.uuid ? { uuid: oldPad.uuid } : {}),
-      ...(oldPad.net !== undefined ? { net: oldPad.net } : {}),
-      ...(oldPad.pinFunction !== undefined ? { pinFunction: oldPad.pinFunction } : {}),
-      ...(oldPad.pinType !== undefined ? { pinType: oldPad.pinType } : {}),
-    };
-  });
-
-  // Reference: the initial text is always used, never reset.
-  const reference = existing.reference ?? '';
-  // Value: reset only when it was a proxy for the footprint ID (replacing
-  // "MountingHole-2.5mm" with "MountingHole-4.0mm").
-  const valueWasFpidProxy = existing.value === fpidItemName(existing.lib);
-  const value = valueWasFpidProxy ? (placed.value ?? '') : (existing.value ?? '');
-
-  placed.reference = reference;
-  placed.value = value;
-  placed.texts = placed.texts.map((t) => {
-    if (t.kind === 'reference') return { ...t, text: reference };
-    if (t.kind === 'value') return { ...t, text: value };
-    return t;
-  });
-
-  // Fields the board has but the library copy does not are kept (deleteExtraTexts
-  // applies to *texts*; fields fall through to the "clone the old one" branch).
-  const placedFieldNames = new Set((placed.fields ?? []).map((f) => f.name));
-  for (const field of existing.fields ?? []) {
-    if (placedFieldNames.has(field.name)) continue;
-    placed.fields = [...(placed.fields ?? []), field];
-  }
-
-  return placed;
 }

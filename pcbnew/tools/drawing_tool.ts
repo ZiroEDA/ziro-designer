@@ -145,11 +145,11 @@ import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import { EuclideanNormI, SquaredEuclideanNorm } from '@ziroeda/kimath/src/math/vector2.js';
 import { BOARD_CONNECTED_ITEM } from '../board_connected_item.js';
 import { BOARD_ITEM } from '../board_item.js';
-import { DRC_CONSTRAINT, DRC_CONSTRAINT_T } from '../drc/drc_rule.js';
+import { type DRC_CONSTRAINT, DRC_CONSTRAINT_T } from '../drc/drc_rule.js';
 import type { DRC_ENGINE } from '../drc/drc_engine.js';
 import type { PAD } from '../pad.js';
 import { PADSTACK } from '../padstack.js';
-import { PCB_ARC, PCB_TRACK, PCB_VIA } from '../pcb_track.js';
+import { type PCB_ARC, type PCB_TRACK, PCB_VIA } from '../pcb_track.js';
 import { VIATYPE } from '../pcb_track_types.js';
 import { MAGNETIC_OPTIONS } from '../pcbnew_settings.js';
 import { ORPHANED_NET } from '../netinfo_list.js';
@@ -313,35 +313,6 @@ export function bezierChainSeed(points: BezierPoints): Vec2[] {
  */
 
 /** `findTrack`'s answer: the index of the track a via at `at` would attach to. */
-export function trackUnderVia(
-  board: Board,
-  at: Vec2,
-  layers: readonly string[],
-  viaWidth: number,
-): number | null {
-  let best: number | null = null;
-  let minDist = Number.POSITIVE_INFINITY;
-
-  board.tracks.forEach((track, i) => {
-    if (!layers.includes(track.layer)) return;
-
-    // `TestSegmentHit( aPosition, start, end, ( track width + via width ) / 2 )`.
-    if (!TestSegmentHit(at, track.start, track.end, (track.width + viaWidth) / 2)) return;
-
-    // "for( PCB_TRACK* track : possible_tracks )" — the NEAREST wins, measured
-    // to the segment rather than to either end.
-    const near = segNearestPoint({ a: track.start, b: track.end }, at);
-    const dist = Math.hypot(near.x - at.x, near.y - at.y);
-
-    if (dist < minDist) {
-      minDist = dist;
-      best = i;
-    }
-  });
-
-  return best;
-}
-
 /**
  * `SEG::Contains( aVia )` for the split test: the via has to be ON the segment,
  * not merely near it.
@@ -356,64 +327,6 @@ function onSegment(track: PcbTrack, at: Vec2): boolean {
   const dx = near.x - at.x;
   const dy = near.y - at.y;
   return dx * dx + dy * dy <= 3;
-}
-
-export interface PlaceViaResult {
-  board: Board;
-  /** The id the caller selects, as `commit.Add( via )` then hands over. */
-  viaId: string;
-  /** Whether the track under the via was broken in two. */
-  splitTrack: boolean;
-}
-
-/**
- * `VIA_PLACER::PlaceItem` — add the via, take the net from what is underneath,
- * and break the track it landed on.
- *
- * `allowSplit` is `m_gridHelper.GetSnap()`, which Shift turns off.
- */
-export function placeVia(
-  board: Board,
-  via: PcbVia,
-  opts: { allowSplit?: boolean } = {},
-): PlaceViaResult {
-  const allowSplit = opts.allowSplit !== false;
-  const viaId = `via:${board.vias.length}`;
-
-  const idx = trackUnderVia(board, via.at, via.layers, via.size);
-  const track = idx === null ? null : board.tracks[idx];
-
-  const noSplit = (): PlaceViaResult => ({
-    board: { ...board, vias: [...board.vias, via] },
-    viaId,
-    splitTrack: false,
-  });
-
-  if (!allowSplit || !track) return noSplit();
-  // "if( viaPos == trackStart || viaPos == trackEnd ) return true;" — landing on
-  // an end attaches to the track without breaking it.
-  if (same(via.at, track.start) || same(via.at, track.end)) return noSplit();
-  if (!onSegment(track, via.at)) return noSplit();
-
-  // `aCommit.Modify( track )` shortens it, and a CLONE carries every other
-  // property — width, layer, net, mask opening, locked — to the far half. Only
-  // the uuid is reissued (`const_cast<KIID&>( newTrack->m_Uuid ) = KIID()`).
-  const nearHalf: PcbTrack = { ...track, end: { x: via.at.x, y: via.at.y } };
-  const farHalf: PcbTrack = {
-    ...track,
-    start: { x: via.at.x, y: via.at.y },
-    uuid: newKiid(),
-  };
-
-  const tracks = [...board.tracks];
-  tracks[idx!] = nearHalf;
-  tracks.push(farHalf);
-
-  return {
-    board: { ...board, tracks, vias: [...board.vias, via] },
-    viaId,
-    splitTrack: true,
-  };
 }
 
 // --- the five `Go( &DRAWING_TOOL::DrawDimension, … )` registrations (was dimension_tools.ts) ---
@@ -1041,7 +954,6 @@ export class DRAWING_TOOL extends PCB_TOOL_BASE {
           controls.ForceCursorPosition(true, cursorPos);
 
           if (evt.IsDrag()) {
-            continue;
           } else if (evt.IsCancelInteractive() || (text && evt.IsAction(ACTIONS.undo))) {
             if (text) {
               cleanup();

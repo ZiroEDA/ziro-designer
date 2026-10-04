@@ -47,14 +47,8 @@
  * board is standalone.
  */
 import { useState, type JSX } from 'react';
-import type { Board } from '../types.js';
-import {
-  genPositionData,
-  placeFileName,
-  type PlaceFileOptions,
-} from '../exporters/place_file_exporter.js';
-import { iso8601DateTime } from '../exporters/gendrill_writer_base.js';
-import { GetDefaultVariantName } from '@ziroeda/common/string_utils.js';
+import type { BOARD } from '../board.js';
+import { PLACE_FILE_EXPORTER, placeFileName } from '../exporters/place_file_exporter.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { Icon } from '@ziroeda/common/widgets/icons.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
@@ -67,7 +61,9 @@ import {
 import { HtmlReportPanel, RPT_SEVERITY_ALL } from '@ziroeda/common/widgets/wx_html_report_panel.js';
 
 interface Props {
-  board: Board;
+  board: BOARD;
+  /** The board's file name, which names the position files. */
+  fileName: string;
   /** Folders that already exist in the project (browse choices). */
   projectFolders?: readonly string[];
   /** Write a generated file into the project (path relative to the project
@@ -96,13 +92,14 @@ const download = (name: string, bytes: Uint8Array): void => {
 
 export function DialogGenFootprintPosition({
   board,
+  fileName,
   projectFolders = [],
   onOutputFile,
   onClose,
 }: Props): JSX.Element {
   useModalEscape(onClose);
 
-  const variantNames = board.k?.GetVariantNamesForUI() ?? [GetDefaultVariantName()];
+  const variantNames = board.GetVariantNamesForUI();
   const [variant] = useState(0); // greyed: see the file comment.
   const [outputDir, setOutputDir] = useState('');
   const [browseOpen, setBrowseOpen] = useState(false);
@@ -122,7 +119,7 @@ export function DialogGenFootprintPosition({
   const report = (message: string, severity: number): void =>
     setMessages((m) => [...m, { message, severity, location: 'body' as const }]);
 
-  const base = (board.fileName ?? 'board')
+  const base = (fileName || 'board')
     .replace(/\.kicad_pcb$/i, '')
     .split('/')
     .pop()!;
@@ -143,44 +140,45 @@ export function DialogGenFootprintPosition({
    *  matching `selectedFormat() == GERBER` never being true here. */
   const generate = (): void => {
     const useCSVfmt = format === '1';
-    const commonOpts: Omit<PlaceFileOptions, 'frontSide' | 'backSide' | 'creationDate'> = {
-      unitsMM: units === '1',
-      onlySMD,
-      excludeAllTH: excludeTH,
-      excludeDNP,
-      excludeBOM,
-      formatCSV: useCSVfmt,
-      useAuxOrigin: useDrillPlaceOrigin,
-      negateBottomX: negateX,
-    };
+    // PLACE_FILE_EXPORTER( board, unitsMM, onlySMD, noTH, excludeDNP,
+    // excludeBOM, top, bottom, formatCSV, useAuxOrigin, negateBottomX ).
+    const exporter = (aTop: boolean, aBottom: boolean): PLACE_FILE_EXPORTER =>
+      new PLACE_FILE_EXPORTER(
+        board,
+        units === '1',
+        onlySMD,
+        excludeTH,
+        excludeDNP,
+        excludeBOM,
+        aTop,
+        aBottom,
+        useCSVfmt,
+        useDrillPlaceOrigin,
+        negateX,
+      );
 
     // The whole-board test `CreateAsciiFiles` runs before touching the
     // filesystem: bail with the same message if nothing survives the filters.
-    const test = genPositionData(board, { ...commonOpts, frontSide: true, backSide: true });
-    if (test.footprintCount === 0) {
+    const test = exporter(true, true);
+    test.GenPositionData();
+    if (test.GetFootprintCount() === 0) {
       report('No footprint for automated placement.', RPT_SEVERITY_WARNING);
       return;
     }
 
     setMessages([]);
-    const now = iso8601DateTime(new Date());
 
     const topSide = true;
     const bottomSide = singleFile;
     const name1 = placeFileName(base, topSide, bottomSide, useCSVfmt);
-    const first = genPositionData(board, {
-      ...commonOpts,
-      frontSide: topSide,
-      backSide: bottomSide,
-      creationDate: now,
-    });
-    emit(name1, first.data, useCSVfmt ? 'text/csv' : 'text/plain');
+    const first = exporter(topSide, bottomSide);
+    emit(name1, first.GenPositionData(), useCSVfmt ? 'text/csv' : 'text/plain');
 
     report(
       `${singleFile ? 'Placement' : 'Front (top side) placement'} file: '${dir ? `${dir}/` : ''}${name1}'.`,
       RPT_SEVERITY_ACTION,
     );
-    report(`Component count: ${first.footprintCount}.`, RPT_SEVERITY_INFO);
+    report(`Component count: ${first.GetFootprintCount()}.`, RPT_SEVERITY_INFO);
 
     if (singleFile) {
       report('Done.', RPT_SEVERITY_INFO);
@@ -188,21 +186,16 @@ export function DialogGenFootprintPosition({
     }
 
     const name2 = placeFileName(base, false, true, useCSVfmt);
-    const second = genPositionData(board, {
-      ...commonOpts,
-      frontSide: false,
-      backSide: true,
-      creationDate: now,
-    });
-    emit(name2, second.data, useCSVfmt ? 'text/csv' : 'text/plain');
+    const second = exporter(false, true);
+    emit(name2, second.GenPositionData(), useCSVfmt ? 'text/csv' : 'text/plain');
 
     report(
       `Back (bottom side) placement file: '${dir ? `${dir}/` : ''}${name2}'.`,
       RPT_SEVERITY_ACTION,
     );
-    report(`Component count: ${second.footprintCount}.`, RPT_SEVERITY_INFO);
+    report(`Component count: ${second.GetFootprintCount()}.`, RPT_SEVERITY_INFO);
     report(
-      `Full component count: ${first.footprintCount + second.footprintCount}.`,
+      `Full component count: ${first.GetFootprintCount() + second.GetFootprintCount()}.`,
       RPT_SEVERITY_INFO,
     );
     report('Done.', RPT_SEVERITY_INFO);

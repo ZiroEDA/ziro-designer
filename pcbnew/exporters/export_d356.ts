@@ -78,27 +78,9 @@ export function iuToD356(iu: number, clamp: number): number {
 }
 
 /*
- * TRANSITIONAL (E17): the view board's via tenting, for the 3D viewer and
- * the unused-pad-layers dialog until they read the BOARD.
+ * TRANSITIONAL (E17): the view board's via tenting, for the 3D viewer until
+ * it reads the BOARD.
  */
-/** `PCB_LAYER_ID` for the layers this exporter cares about (layer_ids.h). */
-const F_CU = 0;
-const F_MASK = 1;
-const B_CU = 2;
-const B_MASK = 3;
-
-/** Canonical layer name to `PCB_LAYER_ID`; undefined for anything not copper or mask. */
-export function layerNameToId(name: string): number | undefined {
-  if (name === 'F.Cu') return F_CU;
-  if (name === 'F.Mask') return F_MASK;
-  if (name === 'B.Cu') return B_CU;
-  if (name === 'B.Mask') return B_MASK;
-  const m = /^In(\d+)\.Cu$/.exec(name);
-  if (!m) return undefined;
-  const k = Number(m[1]);
-  return k >= 1 && k <= 30 ? 2 * k + 2 : undefined;
-}
-
 /**
  * `BOARD_DESIGN_SETTINGS::m_TentViasFront/Back`, which both default to **true**.
  * Tented means covered by mask, i.e. *not* probeable.
