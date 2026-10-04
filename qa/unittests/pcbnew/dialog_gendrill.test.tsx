@@ -12,7 +12,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Board } from '@ziroeda/pcbnew/types.js';
+import type { BOARD } from '@ziroeda/pcbnew/board.js';
 import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { EXCELLON_WRITER } from '@ziroeda/pcbnew/exporters/gendrill_excellon_writer.js';
 import { DRILL_PRECISION, ZEROS_FMT } from '@ziroeda/pcbnew/exporters/gendrill_writer_base.js';
@@ -35,30 +35,10 @@ afterEach(() => {
 const DIR = resolve(__dirname, '../../data/pcbnew/plot');
 const SOURCE = readFileSync(resolve(DIR, 'gerber_oracle.kicad_pcb'), 'utf8');
 
-function testBoard(): Board {
+function testBoard(): BOARD {
   const k = ParseBoard(SOURCE);
   k.SetFileName('/oracle/gerber_oracle.kicad_pcb');
-  return {
-    version: 20240101,
-    layers: [],
-    nets: new Map(),
-    footprints: [],
-    tracks: [],
-    arcs: [],
-    vias: [],
-    zones: [],
-    shapes: [],
-    texts: [],
-    textBoxes: [],
-    tables: [],
-    images: [],
-    dimensions: [],
-    points: [],
-    barcodes: [],
-    groups: [],
-    fileName: 'gerber_oracle.kicad_pcb',
-    k,
-  };
+  return k;
 }
 
 interface Opts {
@@ -131,7 +111,12 @@ function shownLabel(name: string): string {
 describe('DialogGendrill', () => {
   it('TransferDataToWindow: KiCad interactive defaults (mm, decimal, absolute origin, all four Excellon checks off, Gerber X2 greyed)', () => {
     const { container } = render(
-      <DialogGendrill board={testBoard()} onOutputFile={vi.fn()} onClose={vi.fn()} />,
+      <DialogGendrill
+        board={testBoard()}
+        fileName="gerber_oracle.kicad_pcb"
+        onOutputFile={vi.fn()}
+        onClose={vi.fn()}
+      />,
     );
 
     const checkbox = (label: string): HTMLInputElement =>
@@ -153,7 +138,14 @@ describe('DialogGendrill', () => {
 
   it('Generate at the defaults is byte-identical to a direct EXCELLON_WRITER call', () => {
     const onOutputFile = vi.fn();
-    render(<DialogGendrill board={testBoard()} onOutputFile={onOutputFile} onClose={vi.fn()} />);
+    render(
+      <DialogGendrill
+        board={testBoard()}
+        fileName="gerber_oracle.kicad_pcb"
+        onOutputFile={onOutputFile}
+        onClose={vi.fn()}
+      />,
+    );
 
     fireEvent.click(screen.getByText('Generate'));
 
@@ -162,7 +154,14 @@ describe('DialogGendrill', () => {
 
   it('Mirror / Minimal / Merge / alternate oval mode map onto SetOptions and SetRouteModeForOvalHoles exactly', () => {
     const onOutputFile = vi.fn();
-    render(<DialogGendrill board={testBoard()} onOutputFile={onOutputFile} onClose={vi.fn()} />);
+    render(
+      <DialogGendrill
+        board={testBoard()}
+        fileName="gerber_oracle.kicad_pcb"
+        onOutputFile={onOutputFile}
+        onClose={vi.fn()}
+      />,
+    );
 
     fireEvent.click(screen.getByLabelText('Mirror Y axis'));
     fireEvent.click(screen.getByLabelText('Minimal header'));
@@ -177,7 +176,14 @@ describe('DialogGendrill', () => {
 
   it('Units: Inches switches the precision label to 2:4 and the writer format to non-metric', () => {
     const onOutputFile = vi.fn();
-    render(<DialogGendrill board={testBoard()} onOutputFile={onOutputFile} onClose={vi.fn()} />);
+    render(
+      <DialogGendrill
+        board={testBoard()}
+        fileName="gerber_oracle.kicad_pcb"
+        onOutputFile={onOutputFile}
+        onClose={vi.fn()}
+      />,
+    );
 
     selectCombo('Units', 'Inches');
     expect(screen.getByText('2:4')).toBeTruthy();
@@ -189,7 +195,14 @@ describe('DialogGendrill', () => {
 
   it('Zeros: a non-decimal format is passed straight through to SetFormat', () => {
     const onOutputFile = vi.fn();
-    render(<DialogGendrill board={testBoard()} onOutputFile={onOutputFile} onClose={vi.fn()} />);
+    render(
+      <DialogGendrill
+        board={testBoard()}
+        fileName="gerber_oracle.kicad_pcb"
+        onOutputFile={onOutputFile}
+        onClose={vi.fn()}
+      />,
+    );
 
     selectCombo('Zeros', 'Suppress leading zeros');
     fireEvent.click(screen.getByText('Generate'));
@@ -202,7 +215,14 @@ describe('DialogGendrill', () => {
 
   it('Origin: "Drill/place file origin" offsets every hole by the board\'s aux origin', () => {
     const onOutputFile = vi.fn();
-    render(<DialogGendrill board={testBoard()} onOutputFile={onOutputFile} onClose={vi.fn()} />);
+    render(
+      <DialogGendrill
+        board={testBoard()}
+        fileName="gerber_oracle.kicad_pcb"
+        onOutputFile={onOutputFile}
+        onClose={vi.fn()}
+      />,
+    );
 
     selectCombo('Origin', 'Drill/place file origin');
     fireEvent.click(screen.getByText('Generate'));
@@ -213,7 +233,14 @@ describe('DialogGendrill', () => {
 
   it('Output folder prefixes every written path', () => {
     const onOutputFile = vi.fn();
-    render(<DialogGendrill board={testBoard()} onOutputFile={onOutputFile} onClose={vi.fn()} />);
+    render(
+      <DialogGendrill
+        board={testBoard()}
+        fileName="gerber_oracle.kicad_pcb"
+        onOutputFile={onOutputFile}
+        onClose={vi.fn()}
+      />,
+    );
 
     fireEvent.change(screen.getByPlaceholderText('Project folder'), {
       target: { value: 'drill' },
@@ -227,7 +254,14 @@ describe('DialogGendrill', () => {
 
   it('Generate map: writes a drill map alongside the drill file, in the chosen format', () => {
     const onOutputFile = vi.fn();
-    render(<DialogGendrill board={testBoard()} onOutputFile={onOutputFile} onClose={vi.fn()} />);
+    render(
+      <DialogGendrill
+        board={testBoard()}
+        fileName="gerber_oracle.kicad_pcb"
+        onOutputFile={onOutputFile}
+        onClose={vi.fn()}
+      />,
+    );
 
     fireEvent.click(screen.getByLabelText('Generate map:'));
     selectCombo('Generate map format', 'PDF');
@@ -242,7 +276,14 @@ describe('DialogGendrill', () => {
 
   it('Generate Report File...: writes the same report GenDrillReportFile produces directly', () => {
     const onOutputFile = vi.fn();
-    render(<DialogGendrill board={testBoard()} onOutputFile={onOutputFile} onClose={vi.fn()} />);
+    render(
+      <DialogGendrill
+        board={testBoard()}
+        fileName="gerber_oracle.kicad_pcb"
+        onOutputFile={onOutputFile}
+        onClose={vi.fn()}
+      />,
+    );
 
     fireEvent.click(screen.getByText('Generate Report File...'));
 
@@ -271,7 +312,14 @@ describe('DialogGendrill', () => {
   it('Close and Escape both call onClose without writing anything', () => {
     const onClose = vi.fn();
     const onOutputFile = vi.fn();
-    render(<DialogGendrill board={testBoard()} onOutputFile={onOutputFile} onClose={onClose} />);
+    render(
+      <DialogGendrill
+        board={testBoard()}
+        fileName="gerber_oracle.kicad_pcb"
+        onOutputFile={onOutputFile}
+        onClose={onClose}
+      />,
+    );
 
     fireEvent.click(screen.getByText('Close'));
     expect(onClose).toHaveBeenCalledTimes(1);
@@ -279,14 +327,5 @@ describe('DialogGendrill', () => {
 
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(onClose).toHaveBeenCalledTimes(2);
-  });
-
-  it('falls back to a download when the board has no live model (no onOutputFile, no k)', () => {
-    const board: Board = { ...testBoard(), k: undefined };
-    render(<DialogGendrill board={board} onClose={vi.fn()} />);
-
-    fireEvent.click(screen.getByText('Generate'));
-
-    expect(screen.getByText(/nothing to generate/)).toBeTruthy();
   });
 });

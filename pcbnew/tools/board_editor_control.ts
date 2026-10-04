@@ -941,6 +941,12 @@ export class BOARD_EDITOR_CONTROL extends PCB_TOOL_BASE {
     return 0;
   }
 
+  /** `GenerateDrillFiles` (dialog_gendrill.cpp:60-67). */
+  GenerateDrillFiles(_aEvent: TOOL_EVENT): number {
+    void this.getEditFrame<PCB_EDIT_FRAME>().ShowGenDrillDialog();
+    return 0;
+  }
+
   /** `GeneratePosFile` (dialog_gen_footprint_position.cpp:537-542). */
   GeneratePosFile(_aEvent: TOOL_EVENT): number {
     void this.getEditFrame<PCB_EDIT_FRAME>().ShowGenFootprintPositionDialog();
@@ -968,6 +974,10 @@ export class BOARD_EDITOR_CONTROL extends PCB_TOOL_BASE {
       PCB_ACTIONS.unlock.MakeEvent(),
     );
     this.Go(this.PageSettings, ACTIONS.pageSettings.MakeEvent());
+    this.Go(
+      SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.GenerateDrillFiles),
+      PCB_ACTIONS.generateDrillFiles.MakeEvent(),
+    );
     this.Go(
       SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.GeneratePosFile),
       PCB_ACTIONS.generatePosFile.MakeEvent(),

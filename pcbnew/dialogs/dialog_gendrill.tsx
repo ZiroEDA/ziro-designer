@@ -43,8 +43,7 @@
  * (`plot-print-cloud-output` memory).
  */
 import { useState, type JSX } from 'react';
-import type { Board } from '../index.js';
-import { boardAuxOrigin } from '../board_design_settings.js';
+import type { BOARD } from '../board.js';
 import { PCB_PLOT_PARAMS } from '../pcb_plot_params.js';
 import { EXCELLON_WRITER } from '../exporters/gendrill_excellon_writer.js';
 import { DRILL_PRECISION, ZEROS_FMT } from '../exporters/gendrill_writer_base.js';
@@ -54,7 +53,9 @@ import { Icon } from '@ziroeda/common/widgets/icons.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 
 interface Props {
-  board: Board;
+  board: BOARD;
+  /** The board's file name, which names the drill files. */
+  fileName: string;
   /** Folders that already exist in the project (browse choices). */
   projectFolders?: readonly string[];
   /** Write a generated file into the project (path relative to the project
@@ -103,13 +104,14 @@ const download = (name: string, bytes: Uint8Array): void => {
 
 export function DialogGendrill({
   board,
+  fileName,
   projectFolders = [],
   onOutputFile,
   onClose,
 }: Props): JSX.Element {
   useModalEscape(onClose);
 
-  const [initial] = useState(() => board.k?.GetPlotOptions() ?? new PCB_PLOT_PARAMS());
+  const [initial] = useState(() => board.GetPlotOptions());
   const [outputDir, setOutputDir] = useState(() => initial.GetOutputDirectory());
   const [browseOpen, setBrowseOpen] = useState(false);
   const [origin, setOrigin] = useState(() => (initial.GetUseAuxOrigin() ? '1' : '0'));
@@ -130,7 +132,7 @@ export function DialogGendrill({
   const precisionEnabled = Number(zeros) !== ZEROS_FMT.DECIMAL_FORMAT;
   const precisionStr = (units === '1' ? PRECISION_INCHES : PRECISION_METRIC).GetPrecisionString();
 
-  const base = (board.fileName ?? 'board')
+  const base = (fileName || 'board')
     .replace(/\.kicad_pcb$/i, '')
     .split('/')
     .pop()!;
@@ -151,8 +153,7 @@ export function DialogGendrill({
   /** `DIALOG_GENDRILL::updateConfig` — persist output dir / origin onto the
    *  board's own plot options, the same field the Plot dialog reads. */
   const updateConfig = (): void => {
-    const k = board.k;
-    if (!k) return;
+    const k = board;
     const opts = new PCB_PLOT_PARAMS();
     opts.assign(k.GetPlotOptions());
     opts.SetOutputDirectory(dir);
@@ -162,17 +163,13 @@ export function DialogGendrill({
 
   /** `DIALOG_GENDRILL::genDrillAndMapFiles`, Excellon branch only. */
   const generate = (): void => {
-    const k = board.k;
-    if (!k) {
-      appendMsg('The board model is not loaded, nothing to generate.');
-      return;
-    }
-    if (!k.GetFileName()) k.SetFileName(board.fileName ?? 'board.kicad_pcb');
+    const k = board;
+    if (!k.GetFileName()) k.SetFileName(fileName || 'board.kicad_pcb');
 
     updateConfig();
     setMessages([]);
 
-    const drillOffset = origin === '1' ? boardAuxOrigin(board) : { x: 0, y: 0 };
+    const drillOffset = origin === '1' ? board.GetDesignSettings().GetAuxOrigin() : { x: 0, y: 0 };
     const precision = units === '1' ? PRECISION_INCHES : PRECISION_METRIC;
 
     const writer = new EXCELLON_WRITER(k);
@@ -189,12 +186,8 @@ export function DialogGendrill({
 
   /** `DIALOG_GENDRILL::onGenReportFile`. */
   const generateReport = (): void => {
-    const k = board.k;
-    if (!k) {
-      appendMsg('The board model is not loaded, nothing to report.');
-      return;
-    }
-    if (!k.GetFileName()) k.SetFileName(board.fileName ?? 'board.kicad_pcb');
+    const k = board;
+    if (!k.GetFileName()) k.SetFileName(fileName || 'board.kicad_pcb');
 
     updateConfig();
     setMessages([]);

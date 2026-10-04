@@ -174,7 +174,7 @@ export function buildPcbMenus(
           icon: 'fabrication',
           submenu: [
             { label: 'Gerbers (.gbr)...', disabled: dis },
-            { label: 'Drill Files (.drl)...', disabled: dis },
+            { label: 'Drill Files (.drl)...', action: () => h.action('generateDrillFiles') },
             { label: 'IPC-2581 File (.xml)...', disabled: dis },
             { label: 'ODB++ Output File...', disabled: dis },
             {

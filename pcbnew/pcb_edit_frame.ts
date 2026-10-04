@@ -771,6 +771,8 @@ export interface PCB_EDIT_FRAME_HOOKS {
   ): Promise<{ path: string; checked: boolean } | null>;
   /** `wxFopen( aPath, "wt" )` + write: the generated file into the project. */
   writeTextFile?(aPath: string, aText: string): boolean;
+  /** `DIALOG_GENDRILL dlg( editFrame, editFrame ); dlg.ShowModal()`. */
+  showGenDrillDialog?(): Promise<void>;
   /** `DIALOG_GEN_FOOTPRINT_POSITION dlg( this ); dlg.ShowModal()`. */
   showGenFootprintPositionDialog?(): Promise<void>;
   /** `DIALOG_PRINT_PCBNEW::ShowModal`: resolves when the dialog is closed. */
@@ -1440,6 +1442,11 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   /** The write after a save dialog: false when the file could not be made. */
   WriteTextFile(aPath: string, aText: string): boolean {
     return this.hooks.writeTextFile?.(aPath, aText) ?? false;
+  }
+
+  /** `DIALOG_GENDRILL::ShowModal` for BOARD_EDITOR_CONTROL::GenerateDrillFiles. */
+  ShowGenDrillDialog(): Promise<void> {
+    return this.hooks.showGenDrillDialog?.() ?? Promise.resolve();
   }
 
   /** `DIALOG_GEN_FOOTPRINT_POSITION::ShowModal` for BOARD_EDITOR_CONTROL::GeneratePosFile. */
