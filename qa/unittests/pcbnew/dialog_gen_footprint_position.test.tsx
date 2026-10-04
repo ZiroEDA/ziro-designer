@@ -41,6 +41,13 @@ function testBoard(): BOARD {
   return ParseBoard(SOURCE);
 }
 
+/** As the editor hands it over: with its file name, which `TF.ProjectId` reads. */
+function namedBoard(): BOARD {
+  const board = testBoard();
+  board.SetFileName('/oracle/ecc83-pp.kicad_pcb');
+  return board;
+}
+
 function interfBoard(): BOARD {
   return ParseBoard(INTERF_SOURCE);
 }
@@ -171,11 +178,133 @@ describe('DialogGenFootprintPosition', () => {
     expect(
       screen.getByRole('button', { name: 'Units' }).querySelector('.ze-combo-shown')?.textContent,
     ).toBe('Millimeters');
-    // Gerber X3 is unselectable: PLACEFILE_GERBER_WRITER isn't ported.
     fireEvent.click(screen.getByRole('button', { name: 'Format' }));
     expect(
       within(screen.getByRole('listbox')).getByRole('option', { name: 'Gerber X3' }),
-    ).toHaveProperty('className', expect.stringContaining('disabled'));
+    ).not.toHaveProperty('className', expect.stringContaining('disabled'));
+  });
+
+  it('Gerber X3: the onUpdateUI states, and updateOptionCheckbox clearing what it greys', () => {
+    render(
+      <DialogGenFootprintPosition
+        board={testBoard()}
+        fileName="ecc83-pp.kicad_pcb"
+        onOutputFile={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    const checkbox = (label: string): HTMLInputElement =>
+      screen.getByLabelText(label) as HTMLInputElement;
+    const SMD = 'Include only SMD footprints';
+    const TH = 'Exclude all footprints with through hole pads';
+    const DNP = 'Exclude all footprints with the Do Not Populate flag set';
+    const BOM = 'Exclude all footprints with the Exclude from BOM flag set';
+    const NEG = 'Use negative X coordinates for footprints on bottom layer';
+    for (const l of [SMD, TH, DNP, BOM, NEG]) fireEvent.click(checkbox(l));
+
+    selectCombo('Format', 'Gerber X3');
+
+    // FormatSupportsFilter( GERBER, SMD_ONLY / EXCLUDE_TH ) is false: greyed and cleared.
+    for (const l of [SMD, TH, NEG]) {
+      expect(checkbox(l).disabled).toBe(true);
+      expect(checkbox(l).checked).toBe(false);
+    }
+    // ...EXCLUDE_DNP / EXCLUDE_BOM stay: Gerber X3 does not record those.
+    for (const l of [DNP, BOM]) {
+      expect(checkbox(l).disabled).toBe(false);
+      expect(checkbox(l).checked).toBe(true);
+    }
+    expect(checkbox('Include board edge layer').disabled).toBe(false);
+    expect(checkbox('Generate single file with both front and back positions').disabled).toBe(true);
+    expect(screen.getByRole('button', { name: 'Units' }).hasAttribute('disabled')).toBe(true);
+  });
+
+  it('Gerber X3: writes the front and back placement files kicad-cli writes', () => {
+    const onOutputFile = vi.fn();
+    render(
+      <DialogGenFootprintPosition
+        board={namedBoard()}
+        fileName="ecc83-pp.kicad_pcb"
+        onOutputFile={onOutputFile}
+        onClose={vi.fn()}
+      />,
+    );
+    selectCombo('Format', 'Gerber X3');
+    fireEvent.click(screen.getByText('Generate Position File'));
+
+    const IDENTITY = /^(%TF\.GenerationSoftware,|%TF\.CreationDate,|G04 Created by ).*$/gm;
+    const got = written(onOutputFile);
+    expect([...got.keys()]).toEqual(['ecc83-pp-pnp_top.gbr', 'ecc83-pp-pnp_bottom.gbr']);
+    for (const [name, side] of [
+      ['ecc83-pp-pnp_top.gbr', 'front'],
+      ['ecc83-pp-pnp_bottom.gbr', 'back'],
+    ] as const) {
+      const want = readFileSync(resolve(ORACLE, `pnp/ecc83-pp-pnp_${side}.gbr`), 'utf8');
+      expect(got.get(name)!.replace(IDENTITY, '<id>')).toBe(want.replace(IDENTITY, '<id>'));
+    }
+    expect(screen.getByText(/Full component count: 11\./)).toBeTruthy();
+  });
+
+  it('Gerber X3: the full count adds the back side to the front', () => {
+    const board = ParseBoard(
+      readFileSync(
+        resolve(__dirname, '../../data/pcbnew/plot/gerber_oracle_pnp.kicad_pcb'),
+        'utf8',
+      ),
+    );
+    board.SetFileName('/oracle/gerber_oracle_pnp.kicad_pcb');
+    render(
+      <DialogGenFootprintPosition
+        board={board}
+        fileName="gerber_oracle_pnp.kicad_pcb"
+        onOutputFile={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    selectCombo('Format', 'Gerber X3');
+    fireEvent.click(screen.getByText('Generate Position File'));
+
+    expect(screen.getByText(/Full component count: 2\./)).toBeTruthy();
+  });
+
+  it('CSV keeps every filter: FormatSupportsFilter is false for Gerber only', () => {
+    render(
+      <DialogGenFootprintPosition
+        board={testBoard()}
+        fileName="ecc83-pp.kicad_pcb"
+        onOutputFile={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    const checkbox = (label: string): HTMLInputElement =>
+      screen.getByLabelText(label) as HTMLInputElement;
+    fireEvent.click(checkbox('Include only SMD footprints'));
+    selectCombo('Format', 'CSV');
+
+    expect(checkbox('Include only SMD footprints').disabled).toBe(false);
+    expect(checkbox('Include only SMD footprints').checked).toBe(true);
+    expect(checkbox('Exclude all footprints with through hole pads').disabled).toBe(false);
+  });
+
+  it('Gerber X3 with "Include board edge layer": the edge file kicad-cli writes', () => {
+    const onOutputFile = vi.fn();
+    render(
+      <DialogGenFootprintPosition
+        board={namedBoard()}
+        fileName="ecc83-pp.kicad_pcb"
+        onOutputFile={onOutputFile}
+        onClose={vi.fn()}
+      />,
+    );
+    selectCombo('Format', 'Gerber X3');
+    fireEvent.click(screen.getByLabelText('Include board edge layer'));
+    fireEvent.click(screen.getByText('Generate Position File'));
+
+    const IDENTITY = /^(%TF\.GenerationSoftware,|%TF\.CreationDate,|G04 Created by ).*$/gm;
+    const want = readFileSync(resolve(ORACLE, 'pnp/ecc83-pp-edge-pnp_front.gbr'), 'utf8');
+    expect(written(onOutputFile).get('ecc83-pp-pnp_top.gbr')!.replace(IDENTITY, '<id>')).toBe(
+      want.replace(IDENTITY, '<id>'),
+    );
   });
 
   it('Generate at the defaults (single file) is byte-identical to a direct genPositionData call', () => {

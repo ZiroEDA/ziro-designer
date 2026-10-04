@@ -23,11 +23,9 @@
  * checkboxes' enable state now runs through `JOB_EXPORT_PCB_POS::
  * FormatSupportsFilter`, which for Gerber leaves Exclude DNP / Exclude BOM
  * enabled (only SMD-only and Exclude TH are Gerber-incompatible, because
- * Gerber X3 records mount type itself) — 10.0.5 disabled all four. Moot here:
- * `PLACEFILE_GERBER_WRITER` isn't ported (no `gerber_placefile_writer.ts`
- * anywhere in the tree), so Gerber X3 stays greyed and every row this split
- * would touch is simply always enabled, the same as every other ASCII/CSV
- * control. Recorded so the greying doesn't look like a guess.
+ * Gerber X3 records mount type itself) — 10.0.5 disabled all four. The
+ * onUpdateUI* handlers are the `*Enabled` values below; `updateOptionCheckbox`
+ * also clears a checkbox its format does not support.
  *
  * `place_file_exporter.ts` is a pure function over the POJO `Board`, not a
  * variant-aware live model: `FOOTPRINT`'s `Get{ExcludedFromPosFiles,
@@ -38,8 +36,7 @@
  * an exporter that ignores it would generate a file mislabelled with a
  * variant it did not actually filter for, which is worse than not offering
  * the control. A future pass that threads a variant name through
- * `genPositionData` closes this the way GERBER_WRITER would close the
- * Gerber X3 row.
+ * `genPositionData` closes this.
  *
  * Web delta, matching `dialog_gendrill.tsx`: "Output directory:" browses the
  * project's own folders, and every generated file goes through
@@ -49,11 +46,19 @@
 import { useState, type JSX } from 'react';
 import type { BOARD } from '../board.js';
 import { PLACE_FILE_EXPORTER, placeFileName } from '../exporters/place_file_exporter.js';
+import { PLACEFILE_GERBER_WRITER } from '../exporters/gerber_placefile_writer.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import {
+  JOB_EXPORT_PCB_POS,
+  type JOB_EXPORT_PCB_POS_FILTER,
+  type JOB_EXPORT_PCB_POS_FORMAT,
+} from '@ziroeda/common/jobs/job_export_pcb_pos.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { Icon } from '@ziroeda/common/widgets/icons.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import {
   RPT_SEVERITY_ACTION,
+  RPT_SEVERITY_ERROR,
   RPT_SEVERITY_INFO,
   RPT_SEVERITY_WARNING,
   type ReportLine,
@@ -72,12 +77,11 @@ interface Props {
   onClose: () => void;
 }
 
-/** `m_formatCtrl`'s order. Gerber X3 (index 2) stays unselectable — see the
- *  file comment. */
+/** `m_formatCtrl`'s order: JOB_EXPORT_PCB_POS::FORMAT. */
 const FORMAT_CHOICES = [
   { value: '0', label: 'Plain text' },
   { value: '1', label: 'CSV' },
-  { value: '2', label: 'Gerber X3', disabled: true },
+  { value: '2', label: 'Gerber X3' },
 ];
 const UNITS_CHOICES = ['Inches', 'Millimeters'].map((l, i) => ({ value: String(i), label: l }));
 
@@ -114,6 +118,40 @@ export function DialogGenFootprintPosition({
   const [negateX, setNegateX] = useState(false);
   const [singleFile, setSingleFile] = useState(true);
 
+  // selectedFormat() and the onUpdateUI* handlers.
+  const selectedFormat = Number(format) as JOB_EXPORT_PCB_POS_FORMAT;
+  const isGerber = selectedFormat === JOB_EXPORT_PCB_POS.FORMAT.GERBER;
+  const supports = (aFilter: JOB_EXPORT_PCB_POS_FILTER): boolean =>
+    JOB_EXPORT_PCB_POS.FormatSupportsFilter(selectedFormat, aFilter);
+  const onlySMDEnabled = supports(JOB_EXPORT_PCB_POS.FILTER.SMD_ONLY);
+  const excludeTHEnabled = supports(JOB_EXPORT_PCB_POS.FILTER.EXCLUDE_TH);
+  const excludeDNPEnabled = supports(JOB_EXPORT_PCB_POS.FILTER.EXCLUDE_DNP);
+  const excludeBOMEnabled = supports(JOB_EXPORT_PCB_POS.FILTER.EXCLUDE_BOM);
+  const negateXEnabled = !isGerber;
+
+  /**
+   * `m_formatCtrl`'s change: the next onUpdateUI pass, where
+   * `updateOptionCheckbox` clears every checkbox the format does not support.
+   */
+  const changeFormat = (aFormat: string): void => {
+    setFormat(aFormat);
+    const fmt = Number(aFormat) as JOB_EXPORT_PCB_POS_FORMAT;
+
+    if (!JOB_EXPORT_PCB_POS.FormatSupportsFilter(fmt, JOB_EXPORT_PCB_POS.FILTER.SMD_ONLY))
+      setOnlySMD(false);
+
+    if (!JOB_EXPORT_PCB_POS.FormatSupportsFilter(fmt, JOB_EXPORT_PCB_POS.FILTER.EXCLUDE_TH))
+      setExcludeTH(false);
+
+    if (!JOB_EXPORT_PCB_POS.FormatSupportsFilter(fmt, JOB_EXPORT_PCB_POS.FILTER.EXCLUDE_DNP))
+      setExcludeDNP(false);
+
+    if (!JOB_EXPORT_PCB_POS.FormatSupportsFilter(fmt, JOB_EXPORT_PCB_POS.FILTER.EXCLUDE_BOM))
+      setExcludeBOM(false);
+
+    if (fmt === JOB_EXPORT_PCB_POS.FORMAT.GERBER) setNegateX(false);
+  };
+
   const [messages, setMessages] = useState<readonly ReportLine[]>([]);
   const [severities, setSeverities] = useState<number>(RPT_SEVERITY_ALL);
   const report = (message: string, severity: number): void =>
@@ -128,17 +166,95 @@ export function DialogGenFootprintPosition({
     .replace(/^\/+|\/+$/g, '')
     .replace(/\\/g, '/');
 
-  const emit = (name: string, text: string, mime: string): void => {
-    const bytes = new TextEncoder().encode(text);
+  const emitBytes = (name: string, bytes: Uint8Array, mime: string): void => {
     const path = dir ? `${dir}/${name}` : name;
     if (onOutputFile) onOutputFile(path, bytes, mime);
     else download(name, bytes);
   };
 
-  /** `DIALOG_GEN_FOOTPRINT_POSITION::CreateAsciiFiles`. Gerber X3 stays
-   *  unreachable (`CreateGerberFiles`, not ported — see the file comment),
-   *  matching `selectedFormat() == GERBER` never being true here. */
+  const emit = (name: string, text: string, mime: string): void =>
+    emitBytes(name, new TextEncoder().encode(text), mime);
+
+  /**
+   * `DIALOG_GEN_FOOTPRINT_POSITION::CreateGerberFiles`: the front and the
+   * back placement files, always separate, every footprint of each side.
+   */
+  const createGerberFiles = (): void => {
+    setMessages([]);
+
+    // Create the Front and Top side placement files. Gerber P&P files are always separated.
+    // Not also they include all footprints
+    const exporter = new PLACEFILE_GERBER_WRITER(board);
+
+    // The variant selector is greyed (see the file comment): the default variant.
+    exporter.SetVariant('');
+
+    const written = new Map<string, Uint8Array>();
+    exporter.SetFileSink((aPath, aBytes) => written.set(aPath, aBytes));
+
+    const shown = (aName: string): string => (dir ? `${dir}/${aName}` : aName);
+
+    let filename = exporter.GetPlaceFileName(`${base}.kicad_pcb`, PCB_LAYER_ID.F_Cu);
+
+    let fpcount = exporter.CreatePlaceFile(
+      filename,
+      PCB_LAYER_ID.F_Cu,
+      includeBoardEdge,
+      excludeDNP,
+      excludeBOM,
+    );
+
+    if (fpcount < 0) {
+      // As upstream: the front's message names the board path, not the file.
+      report(`Failed to create file '${shown(`${base}.kicad_pcb`)}'.`, RPT_SEVERITY_ERROR);
+      return;
+    }
+
+    emitBytes(filename, written.get(filename)!, 'application/vnd.gerber');
+
+    report(`Front (top side) placement file: '${shown(filename)}'.`, RPT_SEVERITY_ACTION);
+
+    report(`Component count: ${fpcount}.`, RPT_SEVERITY_INFO);
+
+    // Create the Back or Bottom side placement file
+    let fullcount = fpcount;
+
+    filename = exporter.GetPlaceFileName(`${base}.kicad_pcb`, PCB_LAYER_ID.B_Cu);
+
+    fpcount = exporter.CreatePlaceFile(
+      filename,
+      PCB_LAYER_ID.B_Cu,
+      includeBoardEdge,
+      excludeDNP,
+      excludeBOM,
+    );
+
+    if (fpcount < 0) {
+      report(`Failed to create file '${shown(filename)}'.`, RPT_SEVERITY_ERROR);
+      return;
+    }
+
+    emitBytes(filename, written.get(filename)!, 'application/vnd.gerber');
+
+    // Display results
+    report(`Back (bottom side) placement file: '${shown(filename)}'.`, RPT_SEVERITY_ACTION);
+
+    report(`Component count: ${fpcount}.`, RPT_SEVERITY_INFO);
+
+    fullcount += fpcount;
+    report(`Full component count: ${fullcount}.`, RPT_SEVERITY_INFO);
+
+    report('Done.', RPT_SEVERITY_INFO);
+  };
+
+  /** `DIALOG_GEN_FOOTPRINT_POSITION::onGenerate`. */
   const generate = (): void => {
+    if (isGerber) createGerberFiles();
+    else createAsciiFiles();
+  };
+
+  /** `DIALOG_GEN_FOOTPRINT_POSITION::CreateAsciiFiles`. */
+  const createAsciiFiles = (): void => {
     const useCSVfmt = format === '1';
     // PLACE_FILE_EXPORTER( board, unitsMM, onlySMD, noTH, excludeDNP,
     // excludeBOM, top, bottom, formatCSV, useAuxOrigin, negateBottomX ).
@@ -277,13 +393,19 @@ export function DialogGenFootprintPosition({
               <Combo
                 value={format}
                 options={FORMAT_CHOICES}
-                onChange={setFormat}
+                onChange={changeFormat}
                 ariaLabel="Format"
               />
             </div>
             <div className="ze-genpos-field">
               <span>Units:</span>
-              <Combo value={units} options={UNITS_CHOICES} onChange={setUnits} ariaLabel="Units" />
+              <Combo
+                value={units}
+                options={UNITS_CHOICES}
+                onChange={setUnits}
+                disabled={isGerber}
+                ariaLabel="Units"
+              />
             </div>
           </div>
 
@@ -292,6 +414,7 @@ export function DialogGenFootprintPosition({
               <input
                 type="checkbox"
                 checked={onlySMD}
+                disabled={!onlySMDEnabled}
                 onChange={(e) => setOnlySMD(e.target.checked)}
               />
               Include only SMD footprints
@@ -300,6 +423,7 @@ export function DialogGenFootprintPosition({
               <input
                 type="checkbox"
                 checked={excludeTH}
+                disabled={!excludeTHEnabled}
                 onChange={(e) => setExcludeTH(e.target.checked)}
               />
               Exclude all footprints with through hole pads
@@ -308,6 +432,7 @@ export function DialogGenFootprintPosition({
               <input
                 type="checkbox"
                 checked={excludeDNP}
+                disabled={!excludeDNPEnabled}
                 onChange={(e) => setExcludeDNP(e.target.checked)}
               />
               Exclude all footprints with the Do Not Populate flag set
@@ -316,15 +441,18 @@ export function DialogGenFootprintPosition({
               <input
                 type="checkbox"
                 checked={excludeBOM}
+                disabled={!excludeBOMEnabled}
                 onChange={(e) => setExcludeBOM(e.target.checked)}
               />
               Exclude all footprints with the Exclude from BOM flag set
             </label>
-            <label
-              className="ze-check"
-              title="Not ported: PLACEFILE_GERBER_WRITER (Gerber X3 placement files) is not built here yet."
-            >
-              <input type="checkbox" checked={includeBoardEdge} disabled onChange={() => {}} />
+            <label className="ze-check">
+              <input
+                type="checkbox"
+                checked={includeBoardEdge}
+                disabled={!isGerber}
+                onChange={(e) => setIncludeBoardEdge(e.target.checked)}
+              />
               Include board edge layer
             </label>
             <label className="ze-check">
@@ -339,6 +467,7 @@ export function DialogGenFootprintPosition({
               <input
                 type="checkbox"
                 checked={negateX}
+                disabled={!negateXEnabled}
                 onChange={(e) => setNegateX(e.target.checked)}
               />
               Use negative X coordinates for footprints on bottom layer
@@ -347,6 +476,7 @@ export function DialogGenFootprintPosition({
               <input
                 type="checkbox"
                 checked={singleFile}
+                disabled={isGerber}
                 onChange={(e) => setSingleFile(e.target.checked)}
               />
               Generate single file with both front and back positions
