@@ -146,6 +146,19 @@ export abstract class EDA_BASE_FRAME
    */
   ShowInfoBarWarning(_aWarningMsg: string, _aShowCloseButton = false): void {}
 
+  /**
+   * `ShowInfoBarMsg` (eda_base_frame.cpp:1462): an information message in the infobar for 8 s.
+   * The close button is the bar's own here (WX_INFOBAR has no AddCloseButton).
+   */
+  ShowInfoBarMsg(aMsg: string, _aShowCloseButton = false): void {
+    const infoBar = this.GetInfoBar();
+
+    if (!infoBar) return;
+
+    infoBar.RemoveAllButtons();
+    infoBar.ShowMessageFor(aMsg, 8000, 'information');
+  }
+
   GetFrameType(): FRAME_T {
     return this.m_ident;
   }

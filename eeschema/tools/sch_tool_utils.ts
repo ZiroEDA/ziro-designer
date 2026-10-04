@@ -13,6 +13,9 @@
 import type { LIB_ID } from '@ziroeda/common/lib_id.js';
 import type { SELECTION } from '@ziroeda/common/tool/selection.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { type SCH_REFERENCE, SCH_REFERENCE_LIST } from '../sch_reference_list.js';
+import { SYMBOL_FILTER } from '../sch_sheet_path.js';
+import type { SCHEMATIC } from '../schematic.js';
 import { SCH_SYMBOL } from '../sch_symbol.js';
 import type { Schematic, SchSymbol } from '../types.js';
 import { itemRefById, refId } from './hittest.js';
@@ -246,4 +249,25 @@ export function GetSameSymbolMultiUnitSelection(aSel: SELECTION): SCH_SYMBOL[] {
   if (result.length < 2) result = [];
 
   return result;
+}
+
+/**
+ * `FindSymbolByRefAndUnit` (sch_tool_utils.cpp:209): the symbol unit \a aUnit of reference
+ * \a aRef anywhere in \a aSchematic's hierarchy, or null.
+ */
+export function FindSymbolByRefAndUnit(
+  aSchematic: SCHEMATIC,
+  aRef: string,
+  aUnit: number,
+): SCH_REFERENCE | null {
+  const refs = new SCH_REFERENCE_LIST();
+  aSchematic.Hierarchy().GetSymbols(refs, SYMBOL_FILTER.SYMBOL_FILTER_ALL);
+
+  for (let i = 0; i < refs.GetCount(); i++) {
+    const ref = refs.at(i);
+
+    if (ref.GetRef() === aRef && ref.GetUnit() === aUnit) return ref;
+  }
+
+  return null;
 }

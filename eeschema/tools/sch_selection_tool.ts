@@ -21,9 +21,8 @@
  *  - `std::set<T*>` iterates in pointer order; the sets here only feed membership tests or
  *    selection order that the caller sorts, except SelectMultiple's candidates, which KiCad sorts
  *    by position before selecting.
- *  - SCH_EDIT_FRAME's SelectUnit / SelectBodyStyle / SetAltPinFunction (picksymbol.cpp) and the
- *    net navigator are not ported yet; their context-menu commands are reached through the frame
- *    when it has them.
+ *  - The net navigator is the window's; its commands are reached through the frame when it has
+ *    them.
  */
 import { ADVANCED_CFG } from '@ziroeda/common/advanced_config.js';
 import { type EDA_ITEM, RECURSE_MODE } from '@ziroeda/common/eda_item.js';
@@ -978,12 +977,6 @@ export class SCH_SELECTION_TOOL extends SELECTION_TOOL {
   ): void {
     const id = evt.GetCommandId() ?? -1;
     const I = id_eeschema_frm;
-    const frameCall = <A extends unknown[]>(aName: string, ...aArgs: A): void => {
-      const fn = (this.m_frame as unknown as Record<string, ((...a: A) => void) | undefined>)[
-        aName
-      ];
-      fn?.apply(this.m_frame, aArgs);
-    };
 
     // context sub-menu selection?  Handle unit selection or bus unfolding
     if (id >= I.ID_POPUP_SCH_SELECT_UNIT && id <= I.ID_POPUP_SCH_SELECT_UNIT_END) {
@@ -993,7 +986,7 @@ export class SCH_SELECTION_TOOL extends SELECTION_TOOL {
           : null;
       const unit = id - I.ID_POPUP_SCH_SELECT_UNIT;
 
-      if (symbol) frameCall('SelectUnit', symbol, unit);
+      if (symbol) (this.m_frame as SCH_EDIT_FRAME).SelectUnit(symbol, unit);
     } else if (id >= I.ID_POPUP_SCH_PLACE_UNIT && id <= I.ID_POPUP_SCH_PLACE_UNIT_END) {
       const symbol =
         this.m_selection.Front() instanceof SCH_SYMBOL
@@ -1017,13 +1010,13 @@ export class SCH_SELECTION_TOOL extends SELECTION_TOOL {
       const bodyStyle = id - I.ID_POPUP_SCH_SELECT_BODY_STYLE + 1;
 
       if (symbol && symbol.GetBodyStyle() !== bodyStyle)
-        frameCall('SelectBodyStyle', symbol, bodyStyle);
+        (this.m_frame as SCH_EDIT_FRAME).SelectBodyStyle(symbol, bodyStyle);
     } else if (id >= I.ID_POPUP_SCH_ALT_PIN_FUNCTION && id <= I.ID_POPUP_SCH_ALT_PIN_FUNCTION_END) {
       const pin =
         this.m_selection.Front() instanceof SCH_PIN ? (this.m_selection.Front() as SCH_PIN) : null;
       const alt = evt.Parameter<string>();
 
-      if (pin) frameCall('SetAltPinFunction', pin, alt);
+      if (pin) (this.m_frame as SCH_EDIT_FRAME).SetAltPinFunction(pin, alt);
     } else if (
       id >= I.ID_POPUP_SCH_PIN_TRICKS_START &&
       id <= I.ID_POPUP_SCH_PIN_TRICKS_END &&

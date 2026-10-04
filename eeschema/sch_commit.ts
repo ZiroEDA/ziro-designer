@@ -58,8 +58,11 @@ export const SKIP_UNDO = 0x0001;
 export const APPEND_UNDO = 0x0002;
 export const SKIP_SET_DIRTY = 0x0004;
 
-/** `SCH_SELECTION_TOOL`'s registered name (the class is not on the live model yet). */
-export const SCH_SELECTION_TOOL_NAME = 'eeschema.InteractiveSelection';
+/**
+ * `SCH_SELECTION_TOOL`'s registered name: `SELECTION_TOOL( "common.InteractiveSelection" )`
+ * (sch_selection_tool.cpp:178), what `GetTool<SCH_SELECTION_TOOL>()` finds.
+ */
+export const SCH_SELECTION_TOOL_NAME = 'common.InteractiveSelection';
 
 /** What the commit asks of `SCH_SELECTION_TOOL`. */
 export interface SCH_SELECTION_TOOL_FOR_COMMIT {

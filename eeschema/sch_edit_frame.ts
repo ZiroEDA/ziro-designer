@@ -13,6 +13,15 @@
  * live items: the frame methods `SCH_COMMIT` and `schematic_undo_redo.ts`
  * (`SCH_UNDO_REDO_MIXIN`, mixed in below) need.
  */
+import { IS_MOVING, SKIP_STRUCT, STRUCT_DELETED } from '@ziroeda/common/eda_item_flags.js';
+import { IsPointOnSegment } from '@ziroeda/kimath/src/trigo.js';
+import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+import type { SCH_LINE } from './sch_line.js';
+import type { SCH_SYMBOL } from './sch_symbol.js';
+import type { SCH_PIN } from './sch_pin.js';
+import { FindSymbolByRefAndUnit } from './tools/sch_tool_utils.js';
+import { SCH_LINE_WIRE_BUS_TOOL } from './tools/sch_line_wire_bus_tool.js';
+import { SCH_MOVE_TOOL } from './tools/sch_move_tool.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { schIUScale } from '@ziroeda/common/eda_units.js';
 import { RESET_REASON } from '@ziroeda/common/tool/tool_base.js';
@@ -52,7 +61,7 @@ import { SCH_SELECTION_TOOL } from './tools/sch_selection_tool.js';
 import { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
 import { applyMixins } from '@ziroeda/core/mixins.js';
 import { SCH_BASE_FRAME } from './sch_base_frame.js';
-import type { SCH_COMMIT } from './sch_commit.js';
+import { SCH_COMMIT } from './sch_commit.js';
 import { AUTOPLACE_ALGO, type SCH_ITEM } from './sch_item.js';
 import type { SCH_SCREEN } from './sch_screen.js';
 import type { SCH_SHEET_PATH } from './sch_sheet_path.js';
@@ -103,6 +112,16 @@ export interface SCH_EDIT_FRAME_HOOKS {
   displayError?(aMessage: string): void;
   /** `wxFileExists`: whether the project has a file at this absolute path. */
   fileExists?(aPath: string): boolean;
+  /**
+   * The KIDIALOG SelectUnit asks when the unit chosen is already placed elsewhere ("Unit Already
+   * Placed": Swap / Duplicate / Cancel). KiCad's is modal; a window answers it synchronously, and
+   * with no hook the change is cancelled.
+   */
+  unitAlreadyPlaced?(
+    aMessage: string,
+    aSwapLabel: string,
+    aDuplicateLabel: string,
+  ): 'swap' | 'duplicate' | 'cancel';
   /**
    * `LIBRARY_MANAGER::GetFullURI( SYMBOL, nickname )`: the netlist's `(libraries …)` asks it.
    * Without it no library is listed.
@@ -273,9 +292,11 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
     this.m_toolManager.RegisterTool(new ZOOM_TOOL());
     this.m_toolManager.RegisterTool(new SCH_SELECTION_TOOL());
     this.m_toolManager.RegisterTool(new PICKER_TOOL());
+    // SCH_DRAWING_TOOLS: its hierarchy members are a class the AI drives; the TOOL comes with S5.
+    this.m_toolManager.RegisterTool(new SCH_LINE_WIRE_BUS_TOOL());
+    this.m_toolManager.RegisterTool(new SCH_MOVE_TOOL());
     // Not ported yet (S5, one KiCad file per step):
-    // SCH_DRAWING_TOOLS (its hierarchy members are, as a class the AI drives),
-    // SCH_LINE_WIRE_BUS_TOOL, SCH_MOVE_TOOL, SCH_ALIGN_TOOL, SCH_EDIT_TOOL, SCH_EDIT_TABLE_TOOL,
+    // SCH_ALIGN_TOOL, SCH_EDIT_TOOL, SCH_EDIT_TABLE_TOOL,
     // SCH_GROUP_TOOL, SCH_INSPECTION_TOOL, SCH_DESIGN_BLOCK_CONTROL, SCH_EDITOR_CONTROL,
     // SCH_FIND_REPLACE_TOOL, SCH_POINT_EDITOR, SCH_NAVIGATE_TOOL, PROPERTIES_TOOL, EMBED_TOOL.
     this.m_toolManager.InitTools();
@@ -522,6 +543,211 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
   /** Clear the list of items which are to be repeated with the insert key. */
   ClearRepeatItemsList(): void {
     this.m_items_to_repeat = [];
+  }
+
+  /** `SaveCopyForRepeatItem` (sch_edit_frame.cpp:996): \a aItem, alone, as the item to repeat. */
+  SaveCopyForRepeatItem(aItem: SCH_ITEM | null): void {
+    // we cannot store a pointer to an item in the display list here since
+    // that item may be deleted, such as part of a line concatenation or other.
+    // So simply always keep a copy of the object which is to be repeated.
+
+    if (aItem) {
+      this.m_items_to_repeat = [];
+
+      this.AddCopyForRepeatItem(aItem);
+    }
+  }
+
+  /**
+   * `TrimWire` (bus-wire-junction.cpp:51): remove the stretch of wire between \a aStart and
+   * \a aEnd, breaking it at both. True when a stretch was removed.
+   */
+  TrimWire(aCommit: SCH_COMMIT, aStart: VECTOR2I, aEnd: VECTOR2I): boolean {
+    if (aStart.x === aEnd.x && aStart.y === aEnd.y) return false;
+
+    const screen = this.GetScreen()!;
+    const wires: SCH_LINE[] = [];
+    const bb = new BOX2I(aStart);
+
+    const lwbTool = this.m_toolManager!.FindTool(
+      'eeschema.InteractiveDrawingLineWireBus',
+    ) as unknown as SCH_LINE_WIRE_BUS_TOOL;
+    bb.Merge(aEnd);
+
+    // We cannot modify the RTree while iterating, so push the possible
+    // wires into a separate structure.
+    for (const item of screen.Items().Overlapping(bb)) {
+      const line = item as SCH_LINE;
+
+      if (item.Type() === KICAD_T.SCH_LINE_T && line.GetLayer() === SCH_LAYER_ID.LAYER_WIRE)
+        wires.push(line);
+    }
+
+    for (let line of wires) {
+      // Don't remove wires that are already deleted or are currently being dragged
+      if (line.GetEditFlags() & (STRUCT_DELETED | IS_MOVING | SKIP_STRUCT)) continue;
+
+      if (
+        !IsPointOnSegment(line.GetStartPoint(), line.GetEndPoint(), aStart) ||
+        !IsPointOnSegment(line.GetStartPoint(), line.GetEndPoint(), aEnd)
+      ) {
+        continue;
+      }
+
+      const same = (a: VECTOR2I, b: VECTOR2I) => a.x === b.x && a.y === b.y;
+
+      // Don't remove entire wires
+      if (
+        (same(line.GetStartPoint(), aStart) && same(line.GetEndPoint(), aEnd)) ||
+        (same(line.GetStartPoint(), aEnd) && same(line.GetEndPoint(), aStart))
+      ) {
+        continue;
+      }
+
+      // Step 1: break the segment on one end.
+      // Ensure that *line points to the segment containing aEnd
+      const new_line: { value: SCH_LINE | null } = { value: null };
+      lwbTool.BreakSegment(aCommit, line, aStart, new_line, screen);
+
+      if (IsPointOnSegment(new_line.value!.GetStartPoint(), new_line.value!.GetEndPoint(), aEnd))
+        line = new_line.value!;
+
+      // Step 2: break the remaining segment.
+      // Ensure that *line _also_ contains aStart.  This is our overlapping segment
+      lwbTool.BreakSegment(aCommit, line, aEnd, new_line, screen);
+
+      if (IsPointOnSegment(new_line.value!.GetStartPoint(), new_line.value!.GetEndPoint(), aStart))
+        line = new_line.value!;
+
+      this.RemoveFromScreen(line, screen);
+      aCommit.Removed(line, screen);
+
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * `SelectUnit` (picksymbol.cpp:97): show unit \a aUnit of \a aSymbol, swapping with or
+   * duplicating a unit already placed elsewhere as the user answers. The unit count is the
+   * embedded library symbol's (GetLibSymbol asks the library, which the live frame has not).
+   */
+  SelectUnit(aSymbol: SCH_SYMBOL, aUnitIn: number): void {
+    let aUnit = aUnitIn;
+    const commit = new SCH_COMMIT(this.m_toolManager!);
+    const symbol = aSymbol.GetLibSymbolRef();
+
+    if (!symbol) return;
+
+    const unitCount = symbol.GetUnitCount();
+    const currentUnit = aSymbol.GetUnit();
+
+    if (unitCount <= 1 || currentUnit === aUnit) return;
+
+    if (aUnit > unitCount) aUnit = unitCount;
+
+    const sheetPath = this.GetCurrentSheet();
+    let swapWithOther = false;
+    const otherSymbolRef = FindSymbolByRefAndUnit(
+      aSymbol.Schematic()!,
+      aSymbol.GetRef(sheetPath, false),
+      aUnit,
+    );
+
+    if (otherSymbolRef) {
+      const targetUnitName = symbol.GetUnitDisplayName(aUnit, false);
+      const currUnitName = symbol.GetUnitDisplayName(currentUnit, false);
+      let otherSheetName = otherSymbolRef.GetSheetPath().PathHumanReadable(true, true);
+
+      if (otherSheetName === '') otherSheetName = 'Root';
+
+      const msg = `Symbol unit '${targetUnitName}' is already placed (on sheet '${otherSheetName}')`;
+
+      const ret =
+        this.hooks.unitAlreadyPlaced?.(
+          msg,
+          `&Swap '${targetUnitName}' and '${currUnitName}'`,
+          `&Duplicate '${targetUnitName}'`,
+        ) ?? 'cancel';
+
+      if (ret === 'cancel') return;
+
+      if (ret === 'swap') swapWithOther = true;
+    }
+
+    if (swapWithOther) {
+      // We were reliably informed this would exist.
+      const otherSymbol = otherSymbolRef!.GetSymbol();
+
+      if (!otherSymbol.GetEditFlags())
+        commit.Modify(otherSymbol, otherSymbolRef!.GetSheetPath().LastScreen());
+
+      // Give that symbol the unit we used to have
+      otherSymbol.SetUnitSelection(otherSymbolRef!.GetSheetPath(), currentUnit);
+      otherSymbol.SetUnit(currentUnit);
+    }
+
+    if (!aSymbol.GetEditFlags())
+      // No command in progress: save in undo list
+      commit.Modify(aSymbol, this.GetScreen());
+
+    // Update the unit number.
+    aSymbol.SetUnit(aUnit);
+    aSymbol.SetUnitSelection(sheetPath, aUnit);
+
+    if (!commit.Empty()) {
+      if (this.eeconfig()!.autoplace_fields.enable) {
+        const fieldsAutoplaced = aSymbol.GetFieldsAutoplaced();
+
+        if (
+          fieldsAutoplaced === AUTOPLACE_ALGO.AUTOPLACE_AUTO ||
+          fieldsAutoplaced === AUTOPLACE_ALGO.AUTOPLACE_MANUAL
+        )
+          aSymbol.AutoplaceFields(this.GetScreen(), fieldsAutoplaced);
+      }
+
+      if (swapWithOther) commit.Push('Swap Units');
+      else commit.Push('Change Unit');
+    }
+  }
+
+  /** `SelectBodyStyle` (picksymbol.cpp:186). */
+  SelectBodyStyle(aSymbol: SCH_SYMBOL | null, aBodyStyleIn: number): void {
+    let aBodyStyle = aBodyStyleIn;
+
+    if (!aSymbol || !aSymbol.GetLibSymbolRef()) return;
+
+    const bodyStyleCount = aSymbol.GetLibSymbolRef()!.GetBodyStyleCount();
+    const currentBodyStyle = aSymbol.GetBodyStyle();
+
+    if (bodyStyleCount <= 1 || currentBodyStyle === aBodyStyle) return;
+
+    if (aBodyStyle > bodyStyleCount) aBodyStyle = bodyStyleCount;
+
+    const commit = new SCH_COMMIT(this.m_toolManager!);
+
+    commit.Modify(aSymbol, this.GetScreen());
+
+    aSymbol.SetBodyStyle(aBodyStyle);
+
+    // If selected make sure all the now-included pins are selected
+    if (aSymbol.IsSelected()) this.m_toolManager!.RunAction(ACTIONS.selectItem, aSymbol);
+
+    commit.Push('Change Body Style');
+  }
+
+  /** `SetAltPinFunction` (picksymbol.cpp:214). */
+  SetAltPinFunction(aPin: SCH_PIN | null, aFunction: string): void {
+    if (!aPin) return;
+
+    const commit = new SCH_COMMIT(this.m_toolManager!);
+    commit.Modify(aPin, this.GetScreen());
+
+    if (aFunction === aPin.GetName()) aPin.SetAlt('');
+    else aPin.SetAlt(aFunction);
+
+    commit.Push('Set Pin Function');
   }
 
   /** Clone \a aItem and add it to the list of repeatable items. */

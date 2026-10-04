@@ -124,7 +124,7 @@ import { applyMixins } from '@ziroeda/core/mixins.js';
 import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import { PCB_DESIGN_BLOCK_UTILS_MIXIN } from './pcb_design_block_utils.js';
 import type { PCB_GROUP } from './pcb_group.js';
-import { SELECTION } from '@ziroeda/common/tool/selection.js';
+import type { SELECTION } from '@ziroeda/common/tool/selection.js';
 import type { PCB_DESIGN_BLOCK_PANE } from './widgets/pcb_design_block_pane.js';
 import { INITPCB_MIXIN } from './initpcb.js';
 import { EDIT_MIXIN } from './edit.js';
@@ -1194,7 +1194,7 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   // ---- EDIT_TOOL's window half (EDIT_TOOL_FRAME) -------------------------
 
   /** `EDA_BASE_FRAME::ShowInfoBarMsg( aMsg )` (eda_base_frame.cpp). */
-  ShowInfoBarMsg(aMsg: string): void {
+  override ShowInfoBarMsg(aMsg: string): void {
     this.hooks.showInfoBarMsg?.(aMsg);
   }
 
