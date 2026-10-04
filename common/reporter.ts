@@ -148,3 +148,27 @@ export class WX_STRING_REPORTER extends Reporter {
     this.m_string = '';
   }
 }
+
+/**
+ * `NULL_REPORTER` (reporter.h): a singleton reporter that throws away everything it is told.
+ */
+export class NULL_REPORTER extends Reporter {
+  private static s_instance: NULL_REPORTER | null = null;
+
+  static GetInstance(): NULL_REPORTER {
+    NULL_REPORTER.s_instance ??= new NULL_REPORTER();
+    return NULL_REPORTER.s_instance;
+  }
+
+  override report(_message: string, _severity: Severity = RPT_SEVERITY_UNDEFINED): this {
+    return this;
+  }
+
+  override reportHead(_message: string, _severity: Severity = RPT_SEVERITY_UNDEFINED): this {
+    return this;
+  }
+
+  override reportTail(_message: string, _severity: Severity = RPT_SEVERITY_UNDEFINED): this {
+    return this;
+  }
+}

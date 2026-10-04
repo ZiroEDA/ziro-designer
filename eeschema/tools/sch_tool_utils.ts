@@ -10,12 +10,15 @@
  * GetSameSymbolMultiUnitSelection on the live model is at the end.
  */
 
+import { KIID_PATH } from '@ziroeda/common/kiid.js';
 import type { LIB_ID } from '@ziroeda/common/lib_id.js';
+import { FIELD_T } from '@ziroeda/common/template_fieldnames.js';
 import type { SELECTION } from '@ziroeda/common/tool/selection.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { type SCH_REFERENCE, SCH_REFERENCE_LIST } from '../sch_reference_list.js';
 import { SYMBOL_FILTER } from '../sch_sheet_path.js';
 import type { SCHEMATIC } from '../schematic.js';
+import type { SCH_PIN } from '../sch_pin.js';
 import { SCH_SYMBOL } from '../sch_symbol.js';
 import type { Schematic, SchSymbol } from '../types.js';
 import { itemRefById, refId } from './hittest.js';
@@ -270,4 +273,177 @@ export function FindSymbolByRefAndUnit(
   }
 
   return null;
+}
+
+/**
+ * `GetUnplacedUnitsForSymbol` (sch_tool_utils.cpp:168): the units of \a aSym's part that are not
+ * placed anywhere in the hierarchy. An unannotated reference ("U?") also has to match the library
+ * symbol, or two different unannotated parts would be taken for one.
+ */
+export function GetUnplacedUnitsForSymbol(aSym: SCH_SYMBOL): Set<number> {
+  const schematic = aSym.Schematic();
+
+  if (!schematic) return new Set();
+
+  const symRefDes = aSym.GetRef(schematic.CurrentSheet(), false);
+
+  // Pre-annotation references all share the same "U?" form regardless of which library symbol
+  // they came from, so an unannotated AD8620 and an unannotated OPA1664 would otherwise be
+  // collapsed into one logical part. Match library identity as a tie-breaker when the
+  // reference is still unannotated.
+  const refIsUnannotated = symRefDes !== '' && symRefDes.endsWith('?');
+  const symLibId = aSym.GetLibId();
+
+  // Get a list of all references in the schematic
+  const hierarchy = schematic.Hierarchy();
+  const existingRefs = new SCH_REFERENCE_LIST();
+  hierarchy.GetSymbols(existingRefs, SYMBOL_FILTER.SYMBOL_FILTER_ALL);
+
+  const missingUnits = new Set<number>();
+
+  for (let unit = 1; unit <= aSym.GetUnitCount(); ++unit) missingUnits.add(unit);
+
+  for (let i = 0; i < existingRefs.GetCount(); i++) {
+    const ref = existingRefs.at(i);
+
+    if (symRefDes !== ref.GetRef()) continue;
+
+    if (refIsUnannotated && ref.GetSymbol() && !ref.GetSymbol()!.GetLibId().equals(symLibId))
+      continue;
+
+    missingUnits.delete(ref.GetUnit());
+  }
+
+  return missingUnits;
+}
+
+/**
+ * `SwapPinGeometry` (sch_tool_utils.cpp:296): exchange the position, orientation, length and
+ * operating point of two pins. A pin still backed by its library definition swaps that library
+ * pin; true when one did, so the caller can clone the library data into the schematic.
+ */
+export function SwapPinGeometry(aFirst: SCH_PIN, aSecond: SCH_PIN): boolean {
+  const firstPin = aFirst.GetLibPin() ?? aFirst;
+  const secondPin = aSecond.GetLibPin() ?? aSecond;
+
+  const firstLocal = firstPin.GetLocalPosition();
+  const secondLocal = secondPin.GetLocalPosition();
+  firstPin.SetPosition(secondLocal);
+  secondPin.SetPosition(firstLocal);
+
+  const firstOrientation = firstPin.GetOrientation();
+  const secondOrientation = secondPin.GetOrientation();
+  firstPin.SetOrientation(secondOrientation);
+  secondPin.SetOrientation(firstOrientation);
+
+  const firstLength = firstPin.GetLength();
+  const secondLength = secondPin.GetLength();
+  firstPin.SetLength(secondLength);
+  secondPin.SetLength(firstLength);
+
+  const firstOp = firstPin.GetOperatingPoint();
+  const secondOp = secondPin.GetOperatingPoint();
+  firstPin.SetOperatingPoint(secondOp);
+  secondPin.SetOperatingPoint(firstOp);
+
+  // Return true if we touched the library-backed copy so callers can refresh the schematic symbol
+  // cache once the swap completes.
+  return firstPin !== aFirst || secondPin !== aSecond;
+}
+
+/**
+ * `SymbolHasSheetInstances` (sch_tool_utils.cpp:332): whether \a aSymbol is placed through more
+ * than one sheet path, or by another project. The out-sets receive the paths / project names
+ * only when that kind of sharing is the case.
+ */
+export function SymbolHasSheetInstances(
+  aSymbol: SCH_SYMBOL,
+  aCurrentProject: string,
+  aSheetPaths: Set<string> | null,
+  aProjectNames: Set<string> | null,
+): boolean {
+  const uniquePaths = new Set<string>();
+  const sheetPaths = new Set<string>();
+  const otherProjects = new Set<string>();
+
+  for (const instance of aSymbol.GetInstances()) {
+    uniquePaths.add(instance.m_Path.AsString());
+
+    if (!instance.m_Path.empty()) sheetPaths.add(instance.m_Path.AsString());
+
+    if (instance.m_ProjectName !== '') {
+      if (aCurrentProject === '' || instance.m_ProjectName !== aCurrentProject)
+        otherProjects.add(instance.m_ProjectName);
+    }
+  }
+
+  const sharedWithinProject = uniquePaths.size > 1;
+  const sharedWithOtherProjects = otherProjects.size > 0;
+
+  if (aSheetPaths) {
+    aSheetPaths.clear();
+
+    if (sharedWithinProject) for (const p of sheetPaths) aSheetPaths.add(p);
+  }
+
+  if (aProjectNames) {
+    aProjectNames.clear();
+
+    if (sharedWithOtherProjects) for (const p of otherProjects) aProjectNames.add(p);
+  }
+
+  return sharedWithinProject || sharedWithOtherProjects;
+}
+
+/**
+ * `GetSheetNamesFromPaths` (sch_tool_utils.cpp:376): each KIID path as the "/"-joined names of
+ * its sheets, or its human-readable path when they have none, or the raw string.
+ */
+export function GetSheetNamesFromPaths(
+  aSheetPaths: ReadonlySet<string>,
+  aSchematic: SCHEMATIC,
+): Set<string> {
+  const friendlyNames = new Set<string>();
+
+  if (aSheetPaths.size === 0) return friendlyNames;
+
+  const hierarchy = aSchematic.Hierarchy();
+
+  for (const pathStr of aSheetPaths) {
+    let display = pathStr;
+    const kiidPath = new KIID_PATH(pathStr);
+
+    for (const sheetPath of hierarchy) {
+      if (sheetPath.Path().equals(kiidPath)) {
+        let sheetNames = '';
+
+        for (let ii = 0; ii < sheetPath.size(); ++ii) {
+          const sheet = sheetPath.at(ii);
+
+          if (!sheet) continue;
+
+          const nameField = sheet.GetField(FIELD_T.SHEET_NAME);
+
+          if (!nameField) continue;
+
+          const name = nameField.GetShownText(false);
+
+          if (name === '') continue;
+
+          if (sheetNames !== '') sheetNames += '/';
+
+          sheetNames += name;
+        }
+
+        if (sheetNames === '') display = sheetPath.PathHumanReadable(false, true);
+        else display = sheetNames;
+
+        break;
+      }
+    }
+
+    friendlyNames.add(display);
+  }
+
+  return friendlyNames;
 }

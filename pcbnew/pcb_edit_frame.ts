@@ -1177,7 +1177,7 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   }
 
   /** `EDA_BASE_FRAME::ShowInfoBarError( aErrorMsg, aShowCloseButton )` (eda_base_frame.cpp). */
-  ShowInfoBarError(aErrorMsg: string, aShowCloseButton = false): void {
+  override ShowInfoBarError(aErrorMsg: string, aShowCloseButton = false): void {
     this.hooks.showInfoBarError?.(aErrorMsg, aShowCloseButton);
   }
 

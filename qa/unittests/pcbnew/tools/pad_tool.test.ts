@@ -181,7 +181,7 @@ class PAD_FRAME extends TEST_PCB_FRAME implements PAD_TOOL_FRAME {
     this.tables.push(aDialog);
   }
 
-  ShowInfoBarMsg(aMsg: string): void {
+  override ShowInfoBarMsg(aMsg: string): void {
     this.infobar.push(aMsg);
   }
 

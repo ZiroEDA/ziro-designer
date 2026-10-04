@@ -21,6 +21,7 @@ import type { SCH_SYMBOL } from './sch_symbol.js';
 import type { SCH_PIN } from './sch_pin.js';
 import { FindSymbolByRefAndUnit } from './tools/sch_tool_utils.js';
 import { SCH_LINE_WIRE_BUS_TOOL } from './tools/sch_line_wire_bus_tool.js';
+import { SCH_EDIT_TOOL } from './tools/sch_edit_tool.js';
 import { SCH_MOVE_TOOL } from './tools/sch_move_tool.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { schIUScale } from '@ziroeda/common/eda_units.js';
@@ -58,12 +59,15 @@ import { TOOL_DISPATCHER } from '@ziroeda/common/tool/tool_dispatcher.js';
 import { ZOOM_TOOL } from '@ziroeda/common/tool/zoom_tool.js';
 import { PICKER_TOOL } from '@ziroeda/common/tool/picker_tool.js';
 import { SCH_SELECTION_TOOL } from './tools/sch_selection_tool.js';
+import { wxID_CANCEL } from '@ziroeda/common/wx/menu.js';
+import { VIEW_UPDATE_FLAGS } from '@ziroeda/common/view/view_item.js';
 import { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
 import { applyMixins } from '@ziroeda/core/mixins.js';
 import { SCH_BASE_FRAME } from './sch_base_frame.js';
 import { SCH_COMMIT } from './sch_commit.js';
 import { AUTOPLACE_ALGO, type SCH_ITEM } from './sch_item.js';
 import type { SCH_SCREEN } from './sch_screen.js';
+import type { SCH_SHEET } from './sch_sheet.js';
 import type { SCH_SHEET_PATH } from './sch_sheet_path.js';
 import type { SCH_CLEANUP_FLAGS, SCHEMATIC } from './schematic.js';
 import { SCH_UNDO_REDO_MIXIN } from './schematic_undo_redo.js';
@@ -137,6 +141,23 @@ export interface SCH_EDIT_FRAME_HOOKS {
    * saved selection was grouped as its design block.
    */
   selectGroup?(aGroup: SCH_GROUP): void;
+  /**
+   * `DIALOG_xxx( this, aItems… ).ShowModal()` / `ShowQuasiModal()`: the window opens the dialog
+   * KiCad names \a aDialog (its C++ class, e.g. `DIALOG_LABEL_PROPERTIES`) on these live items,
+   * applies it through a commit as the dialog does, and returns what ShowModal returns. With no
+   * hook every dialog is cancelled (`wxID_CANCEL`).
+   */
+  showModal?(aDialog: string, aItems: readonly EDA_ITEM[], aArg?: unknown): number;
+  /**
+   * `EditSheetProperties( aSheet, aHierarchy, … )` (sheet.cpp): DIALOG_SHEET_PROPERTIES on a live
+   * sheet. Null (cancelled) with no hook.
+   */
+  editSheetProperties?(
+    aSheet: SCH_SHEET,
+    aHierarchy: SCH_SHEET_PATH,
+  ): { isUndoable: boolean; clearAnnotation: boolean; updateHierarchyNavigator: boolean } | null;
+  /** `wxTextEntryDialog( this, aMessage, aCaption, aValue ).ShowModal()`: null when cancelled. */
+  textEntry?(aMessage: string, aCaption: string, aValue: string): string | null;
 }
 
 // biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (SCH_UNDO_REDO_MIXIN, see libs/core/mixins.ts)
@@ -295,8 +316,9 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
     // SCH_DRAWING_TOOLS: its hierarchy members are a class the AI drives; the TOOL comes with S5.
     this.m_toolManager.RegisterTool(new SCH_LINE_WIRE_BUS_TOOL());
     this.m_toolManager.RegisterTool(new SCH_MOVE_TOOL());
+    this.m_toolManager.RegisterTool(new SCH_EDIT_TOOL());
     // Not ported yet (S5, one KiCad file per step):
-    // SCH_ALIGN_TOOL, SCH_EDIT_TOOL, SCH_EDIT_TABLE_TOOL,
+    // SCH_ALIGN_TOOL (before SCH_EDIT_TOOL), SCH_EDIT_TABLE_TOOL,
     // SCH_GROUP_TOOL, SCH_INSPECTION_TOOL, SCH_DESIGN_BLOCK_CONTROL, SCH_EDITOR_CONTROL,
     // SCH_FIND_REPLACE_TOOL, SCH_POINT_EDITOR, SCH_NAVIGATE_TOOL, PROPERTIES_TOOL, EMBED_TOOL.
     this.m_toolManager.InitTools();
@@ -626,6 +648,125 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
     }
 
     return false;
+  }
+
+  /**
+   * `DeleteJunction` (bus-wire-junction.cpp:117): remove \a aJunction, and merge the parallel
+   * wires that met on it (`MergeOverlap` without the junction check, so it may bridge the point).
+   */
+  DeleteJunction(aCommit: SCH_COMMIT, aJunction: SCH_ITEM): void {
+    const screen = this.GetScreen()!;
+    const selectionTool = this.m_toolManager?.GetTool(SCH_SELECTION_TOOL) ?? null;
+
+    aJunction.SetFlags(STRUCT_DELETED);
+    this.RemoveFromScreen(aJunction, screen);
+    aCommit.Removed(aJunction, screen);
+
+    // std::list: the pair loop below appends merged lines, which the loop must then visit
+    const lines: SCH_LINE[] = [];
+
+    for (const item of screen.Items().Overlapping(KICAD_T.SCH_LINE_T, aJunction.GetPosition())) {
+      const line = item as SCH_LINE;
+
+      if (
+        (line.IsWire() || line.IsBus()) &&
+        line.IsEndPoint(aJunction.GetPosition()) &&
+        !(line.GetEditFlags() & STRUCT_DELETED)
+      ) {
+        lines.push(line);
+      }
+    }
+
+    // alg::for_all_pairs: each unordered pair once, first before second, over a growing list
+    for (let i = 0; i < lines.length; i++) {
+      for (let j = i + 1; j < lines.length; j++) {
+        const firstLine = lines[i]!;
+        const secondLine = lines[j]!;
+
+        if (
+          firstLine.GetEditFlags() & STRUCT_DELETED ||
+          secondLine.GetEditFlags() & STRUCT_DELETED ||
+          !secondLine.IsParallel(firstLine)
+        ) {
+          continue;
+        }
+
+        // Remove identical lines
+        if (
+          firstLine.IsEndPoint(secondLine.GetStartPoint()) &&
+          firstLine.IsEndPoint(secondLine.GetEndPoint())
+        ) {
+          firstLine.SetFlags(STRUCT_DELETED);
+          continue;
+        }
+
+        // Try to merge the remaining lines
+        const new_line = secondLine.MergeOverlap(screen, firstLine, false);
+
+        if (new_line) {
+          firstLine.SetFlags(STRUCT_DELETED);
+          secondLine.SetFlags(STRUCT_DELETED);
+          this.AddToScreen(new_line, screen);
+          aCommit.Added(new_line, screen);
+
+          if (new_line.IsSelected()) selectionTool?.AddItemToSel(new_line, true /*quiet mode*/);
+
+          lines.push(new_line);
+        }
+      }
+    }
+
+    for (const line of lines) {
+      if (line.GetEditFlags() & STRUCT_DELETED) {
+        if (line.IsSelected()) selectionTool?.RemoveItemFromSel(line, true /*quiet mode*/);
+
+        this.RemoveFromScreen(line, screen);
+        aCommit.Removed(line, screen);
+      }
+    }
+  }
+
+  /** `TestDanglingEnds` (bus-wire-junction.cpp:39): the current screen's, repainting what changed. */
+  TestDanglingEnds(): void {
+    const changeHandler = (aChangedItem: SCH_ITEM): void => {
+      this.GetCanvas()?.GetView().Update(aChangedItem, VIEW_UPDATE_FLAGS.REPAINT);
+    };
+
+    this.GetScreen()!.TestDanglingEnds(null, changeHandler);
+  }
+
+  /** `OnPageSettingsChange` (sch_edit_frame.cpp:2048): keep the zoom, and rebuild the sheet view. */
+  OnPageSettingsChange(): void {
+    // Store the current zoom level into the current screen before calling
+    // DisplayCurrentSheet() that set the zoom to GetScreen()->m_LastZoomLevel
+    const view = this.GetCanvas()?.GetView();
+
+    if (view) this.GetScreen()!.m_LastZoomLevel = view.GetScale();
+
+    // Rebuild the sheet view (draw area and any other items):
+    this.DisplayCurrentSheet();
+  }
+
+  /** The window's half of the dialogs a tool opens: see SCH_EDIT_FRAME_HOOKS.showModal. */
+  ShowModalDialog(aDialog: string, aItems: readonly EDA_ITEM[], aArg?: unknown): number {
+    return this.hooks.showModal?.(aDialog, aItems, aArg) ?? wxID_CANCEL;
+  }
+
+  /**
+   * `EditSheetProperties( aSheet, aHierarchy, aIsUndoable, aClearAnnotationNewItems,
+   * aUpdateHierarchyNavigator )` (sheet.cpp): the out-params come back in the result; null is
+   * Cancel.
+   */
+  EditSheetProperties(
+    aSheet: SCH_SHEET,
+    aHierarchy: SCH_SHEET_PATH,
+  ): { isUndoable: boolean; clearAnnotation: boolean; updateHierarchyNavigator: boolean } | null {
+    return this.hooks.editSheetProperties?.(aSheet, aHierarchy) ?? null;
+  }
+
+  /** `wxTextEntryDialog`: null when cancelled, or when there is no window to ask. */
+  TextEntryDialog(aMessage: string, aCaption: string, aValue: string): string | null {
+    return this.hooks.textEntry?.(aMessage, aCaption, aValue) ?? null;
   }
 
   /**

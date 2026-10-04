@@ -1278,3 +1278,15 @@ export function RemoveHTMLTags(aInput: string): string {
 export function NoPrintableChars(aString: string): boolean {
   return aString.trim() === '';
 }
+
+/**
+ * `AccumulateDescriptions( aItemCollection )` (string_utils.h): a comma-separated list built
+ * from a collection of strings.
+ */
+export function AccumulateDescriptions(aItemCollection: Iterable<string>): string {
+  let desc = '';
+
+  for (const item of aItemCollection) desc = AccumulateDescription(desc, item);
+
+  return desc;
+}

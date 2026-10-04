@@ -122,10 +122,10 @@ class EDIT_FRAME extends TEST_PCB_FRAME implements EDIT_TOOL_FRAME {
     return Promise.resolve(this.connectedPadAnswer);
   }
   OpenVertexEditor(): void {}
-  ShowInfoBarMsg(aMsg: string): void {
+  override ShowInfoBarMsg(aMsg: string): void {
     this.infobar.push(aMsg);
   }
-  ShowInfoBarError(aMsg: string): void {
+  override ShowInfoBarError(aMsg: string): void {
     this.infobar.push(`error: ${aMsg}`);
   }
   OnEditItemRequest(aItem: BOARD_ITEM): void {

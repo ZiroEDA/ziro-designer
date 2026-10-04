@@ -88,7 +88,7 @@ class ROUTER_TEST_FRAME extends TEST_PCB_FRAME {
     return Promise.resolve(this.trackViaAnswer);
   }
 
-  ShowInfoBarError(aErrorMsg: string): void {
+  override ShowInfoBarError(aErrorMsg: string): void {
     this.infobar.push(aErrorMsg);
   }
 

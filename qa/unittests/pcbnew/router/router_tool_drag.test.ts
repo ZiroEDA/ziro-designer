@@ -63,7 +63,7 @@ const BOARD_TEXT = `(kicad_pcb (version 20241229) (generator "pcbnew")
 class DRAG_TEST_FRAME extends TEST_PCB_FRAME {
   readonly infobar: string[] = [];
 
-  ShowInfoBarError(aErrorMsg: string): void {
+  override ShowInfoBarError(aErrorMsg: string): void {
     this.infobar.push(aErrorMsg);
   }
 }

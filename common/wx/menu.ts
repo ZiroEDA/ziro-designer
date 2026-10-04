@@ -24,6 +24,9 @@ export enum wxItemKind {
 export const wxID_NONE = -3;
 export const wxID_ANY = -1;
 export const wxID_SEPARATOR = -2;
+/** `wxID_OK` / `wxID_CANCEL` (wx/defs.h): what a dialog's ShowModal returns. */
+export const wxID_OK = 5100;
+export const wxID_CANCEL = 5101;
 
 let s_autoId = -1000;
 

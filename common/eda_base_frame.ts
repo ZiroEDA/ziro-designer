@@ -147,6 +147,19 @@ export abstract class EDA_BASE_FRAME
   ShowInfoBarWarning(_aWarningMsg: string, _aShowCloseButton = false): void {}
 
   /**
+   * `ShowInfoBarError( aErrorMsg, aShowCloseButton )` (eda_base_frame.cpp:1424): an error in the
+   * infobar for 8 s. The close button is the bar's own here (WX_INFOBAR has no AddCloseButton).
+   */
+  ShowInfoBarError(aErrorMsg: string, _aShowCloseButton = false): void {
+    const infoBar = this.GetInfoBar();
+
+    if (!infoBar) return;
+
+    infoBar.RemoveAllButtons();
+    infoBar.ShowMessageFor(aErrorMsg, 8000, 'error');
+  }
+
+  /**
    * `ShowInfoBarMsg` (eda_base_frame.cpp:1462): an information message in the infobar for 8 s.
    * The close button is the bar's own here (WX_INFOBAR has no AddCloseButton).
    */

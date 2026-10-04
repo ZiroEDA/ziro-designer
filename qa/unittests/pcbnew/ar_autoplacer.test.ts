@@ -873,7 +873,7 @@ const TOOL_BOARD = (edges: boolean): string => `(kicad_pcb (version 20241229) (g
 class AUTOPLACE_FRAME extends TEST_PCB_FRAME {
   infoBarErrors: string[] = [];
 
-  ShowInfoBarError(aErrorMsg: string): void {
+  override ShowInfoBarError(aErrorMsg: string): void {
     this.infoBarErrors.push(aErrorMsg);
   }
 }

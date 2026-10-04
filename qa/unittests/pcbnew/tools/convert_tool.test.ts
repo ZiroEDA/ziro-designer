@@ -148,7 +148,7 @@ class CONVERT_FRAME extends TEST_PCB_FRAME implements CONVERT_TOOL_FRAME {
     this.outsetAnswer(aParams);
     return Promise.resolve(true);
   }
-  ShowInfoBarMsg(aMsg: string): void {
+  override ShowInfoBarMsg(aMsg: string): void {
     this.infobar.push(aMsg);
   }
 }

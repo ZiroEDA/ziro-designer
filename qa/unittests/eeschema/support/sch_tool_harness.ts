@@ -10,7 +10,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { GAL_DISPLAY_OPTIONS } from '@ziroeda/common/gal/gal_display_options.js';
 import { GAL } from '@ziroeda/common/gal/graphics_abstraction_layer.js';
-import type { KICURSOR } from '@ziroeda/common/gal/kicursors.js';
+import type { KICURSOR } from '@ziroeda/common/gal/cursors.js';
 import type { TOOL_MANAGER_VIEW_CONTROLS } from '@ziroeda/common/tool/tool_manager.js';
 import { VC_SETTINGS } from '@ziroeda/common/view/view_controls.js';
 import {
