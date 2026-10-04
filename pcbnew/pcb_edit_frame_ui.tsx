@@ -81,14 +81,6 @@ import { type PcbFootprint } from './types.js';
 import { type SelectionFilter } from './dialogs/dialog_filter_selection.js';
 import { BOARD_NETLIST_UPDATER } from './netlist_reader/board_netlist_updater.js';
 import { type NETLIST } from './netlist_reader/pcb_netlist.js';
-import { type ImageValues } from './dialogs/dialog_reference_image_properties.js';
-import {
-  barcodePreview,
-  DIALOG_BARCODE_PROPERTIES,
-  type BarcodePreview,
-  type BarcodeValues,
-} from './dialogs/dialog_barcode_properties.js';
-import { DialogBarcodeProperties } from './dialogs/dialog_barcode_properties_ui.js';
 import { DialogImportGraphics } from './import_gfx/dialog_import_graphics.js';
 import { IsCopperLayer } from '@ziroeda/common/layer_ids.js';
 import type { BOARD_CONNECTED_ITEM } from './board_connected_item.js';
@@ -96,16 +88,12 @@ import { Infobar } from '@ziroeda/common/widgets/wx_infobar.js';
 import { useHotkeyCyclePopup } from '@ziroeda/common/dialogs/hotkey_cycle_popup_ui.js';
 import type { WX_INFOBAR, WX_INFOBAR_HYPERLINK } from '@ziroeda/common/eda_base_frame.js';
 import { buildPcbMenus } from './menubar_pcb_editor.js';
-import { itemHasEditableCorners } from './tools/edit_tool.js';
-import { DialogDimensionProperties } from './dialogs/dialog_dimension_properties_ui.js';
-import { DialogTextBoxProperties } from './dialogs/dialog_textbox_properties_ui.js';
-import { DialogReferenceImageProperties } from './dialogs/dialog_reference_image_properties_ui.js';
-import { DialogTableProperties } from '@ziroeda/common/dialogs/dialog_table_properties.js';
-import { DIALOG_TABLE_PROPERTIES, type TableValues } from './dialogs/dialog_table_properties.js';
 import {
-  DIALOG_TEXTBOX_PROPERTIES,
-  type TextBoxValues,
-} from './dialogs/dialog_textbox_properties.js';
+  enabledLayerNames,
+  netNamesByCode,
+  usePcbItemDialogs,
+} from './pcb_base_edit_frame_dialogs.js';
+import { itemHasEditableCorners } from './tools/edit_tool.js';
 
 // Transitional (#636 stage 3): the bridge between the live BOARD and the legacy id selection;
 // PCB_SELECTION_TOOL holds items directly, so this goes away with that stage.
@@ -174,10 +162,6 @@ export function makePcbSearchWiring(
   };
 }
 
-import {
-  DIALOG_DIMENSION_PROPERTIES,
-  type DimensionValues,
-} from './dialogs/dialog_dimension_properties.js';
 import { Reporter, type ReportLine } from '@ziroeda/common';
 import { MenuBar, ContextMenu, type Menu } from '@ziroeda/common/tool/action_menu_bar.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
@@ -296,7 +280,6 @@ import { DialogGlobalDeletion } from './dialogs/dialog_global_deletion_ui.js';
 import { DialogGlobalEditTracksAndVias } from './dialogs/dialog_global_edit_tracks_and_vias_ui.js';
 import { DialogExchangeFootprints } from './dialogs/dialog_exchange_footprints_ui.js';
 import { DialogNonCopperZonesProperties } from './dialogs/dialog_non_copper_zones_properties_ui.js';
-import type { PCB_TABLE } from './pcb_table.js';
 import { DIALOG_NON_COPPER_ZONES_EDITOR } from './dialogs/dialog_non_copper_zones_properties.js';
 import type { DIALOG_EXCHANGE_FOOTPRINTS } from './dialogs/dialog_exchange_footprints.js';
 import {
@@ -370,16 +353,6 @@ import {
   DIALOG_FOOTPRINT_PROPERTIES,
   type FootprintValues,
 } from './dialogs/dialog_footprint_properties.js';
-import { DialogPadProperties } from './dialogs/dialog_pad_properties_ui.js';
-import { DialogShapeProperties } from './dialogs/dialog_graphic_properties.js';
-import { DialogTextProperties } from './dialogs/dialog_text_properties_ui.js';
-import { DIALOG_TEXT_PROPERTIES, type TextValues } from './dialogs/dialog_text_properties.js';
-import { DIALOG_SHAPE_PROPERTIES, type ShapeValues } from './dialogs/dialog_shape_properties.js';
-import {
-  DIALOG_PAD_PROPERTIES,
-  // `padAt` is taken by the local hit-test helper below.
-  type PadValues,
-} from './dialogs/dialog_pad_properties.js';
 import { DIALOG_COPPER_ZONE, type ZoneValues } from './dialogs/panel_zone_properties.js';
 import {
   DIALOG_TRACK_VIA_PROPERTIES,
@@ -387,9 +360,8 @@ import {
 } from './dialogs/dialog_track_via_properties.js';
 import { useKiDialog } from '@ziroeda/common/kidialog.js';
 import type { DIALOG_GLOBAL_EDIT_TEARDROPS } from './dialogs/dialog_global_edit_teardrops.js';
-import { DisplayErrorMessage, IsOK } from '@ziroeda/common/confirm.js';
+import { DisplayErrorMessage } from '@ziroeda/common/confirm.js';
 import { EDA_ANGLE, EDA_ANGLE_T } from '@ziroeda/kimath/src/geometry/eda_angle.js';
-import { DIALOG_REFERENCE_IMAGE_PROPERTIES } from './dialogs/dialog_reference_image_properties.js';
 import { ARRAY_TOOL } from './tools/array_tool.js';
 import { PCB_SELECTION } from './tools/pcb_selection.js';
 import { PCB_ACTIONS } from './tools/pcb_actions.js';
@@ -1061,17 +1033,6 @@ function layerDefaultsRows(aFrame: PCB_EDIT_FRAME): LAYER_DEFAULTS_ROW[] {
 }
 
 /**
- * The board's enabled layers by canonical name: the copper stack, then the
- * rest in UI order (`BOARD::GetEnabledLayers()`, walked as
- * APPEARANCE_CONTROLS::rebuildLayers walks it).
- */
-function enabledLayerNames(aBoard: BOARD | null | undefined): string[] {
-  const enabled = aBoard?.GetEnabledLayers();
-  if (!enabled) return [];
-  return [...enabled.CuStack(), ...enabled.TechAndUserUIOrder()].map((l) => LSET.Name(l));
-}
-
-/**
  * The window's handle on the frame's BOARD. A new object whenever the board
  * changed (a commit, an undo, a load), which is what has React re-read it;
  * the BOARD itself is the one model.
@@ -1082,13 +1043,6 @@ interface BoardHandle {
 }
 
 /** The board's nets as code -> name, for a dialog's net selector (NETINFO_LIST). */
-function netNamesByCode(aBoard: BOARD | null | undefined): ReadonlyMap<number, string> {
-  return new Map(
-    [...(aBoard?.GetNetInfo().NetsByNetcode() ?? new Map())].map(
-      ([code, net]) => [code, net.GetNetname()] as const,
-    ),
-  );
-}
 
 export function PcbEditor({
   registerScriptApi,
@@ -2227,13 +2181,7 @@ export function PcbEditor({
     showGenDrillDialog: () => Promise<void>;
     showGencadExportOptionsDialog: (aDialog: DIALOG_GENCAD_EXPORT_OPTIONS) => Promise<boolean>;
     fileExists: (aPath: string) => boolean;
-    showReferenceImagePropertiesDialog: (
-      aDialog: DIALOG_REFERENCE_IMAGE_PROPERTIES,
-    ) => Promise<boolean>;
-    showPadPropertiesDialog: (aDialog: DIALOG_PAD_PROPERTIES) => void;
     showFootprintPropertiesDialog: (aDialog: DIALOG_FOOTPRINT_PROPERTIES) => void;
-    showDimensionPropertiesDialog: (aDialog: DIALOG_DIMENSION_PROPERTIES) => void;
-    showGraphicItemPropertiesDialog: (aDialog: DIALOG_SHAPE_PROPERTIES) => void;
     selectCopperLayerPair: () => void;
     showInfoBarError: (aMsg: string) => void;
     selectFootprintFromChooser: (aPreselect: string) => Promise<string | null>;
@@ -2355,14 +2303,15 @@ export function PcbEditor({
         drcWindowRef.current!.showGencadExportOptionsDialog(aDialog),
       fileExists: (aPath) => drcWindowRef.current!.fileExists(aPath),
       showReferenceImagePropertiesDialog: (aDialog) =>
-        drcWindowRef.current!.showReferenceImagePropertiesDialog(aDialog),
-      showPadPropertiesDialog: (aDialog) => drcWindowRef.current!.showPadPropertiesDialog(aDialog),
+        itemDialogsRef.current!.hooks.showReferenceImagePropertiesDialog(aDialog),
+      showPadPropertiesDialog: (aDialog) =>
+        itemDialogsRef.current!.hooks.showPadPropertiesDialog(aDialog),
       showFootprintPropertiesDialog: (aDialog) =>
         drcWindowRef.current!.showFootprintPropertiesDialog(aDialog),
       showDimensionPropertiesDialog: (aDialog) =>
-        drcWindowRef.current!.showDimensionPropertiesDialog(aDialog),
+        itemDialogsRef.current!.hooks.showDimensionPropertiesDialog(aDialog),
       showGraphicItemPropertiesDialog: (aDialog) =>
-        drcWindowRef.current!.showGraphicItemPropertiesDialog(aDialog),
+        itemDialogsRef.current!.hooks.showGraphicItemPropertiesDialog(aDialog),
       selectCopperLayerPair: () => drcWindowRef.current!.selectCopperLayerPair(),
       showInfoBarError: (aMsg) => drcWindowRef.current?.showInfoBarError(aMsg),
       /** `m_appearancePanel->OnLayerChanged()`: the layer combo follows a layer a tool chose. */
@@ -2471,36 +2420,16 @@ export function PcbEditor({
       showImportGraphicsDialog: () =>
         new Promise<IMPORT_GRAPHICS_RESULT | null>((resolve) => setImportGfxDlg({ resolve })),
       showBarcodePropertiesDialog: (aDialog) =>
-        new Promise<boolean>((resolve) => openBarcodeProps(aDialog, resolve)),
+        itemDialogsRef.current!.hooks.showBarcodePropertiesDialog(aDialog),
       showTextBoxPropertiesDialog: (aDialog) =>
-        new Promise<boolean>((resolve) => setTextBoxPropsDlg({ dialog: aDialog, resolve })),
-      showImageFileDialog: () =>
-        new Promise<Uint8Array | null>((resolve) => {
-          const input = document.createElement('input');
-          input.type = 'file';
-          input.accept = 'image/*';
-          input.addEventListener('cancel', () => resolve(null));
-          input.onchange = (): void => {
-            const file = input.files?.[0];
-            if (!file) {
-              resolve(null);
-              return;
-            }
-            void file.arrayBuffer().then(
-              (b) => resolve(new Uint8Array(b)),
-              () => resolve(null),
-            );
-          };
-          input.click();
-        }),
+        itemDialogsRef.current!.hooks.showTextBoxPropertiesDialog(aDialog),
+      showImageFileDialog: () => itemDialogsRef.current!.hooks.showImageFileDialog(),
       showTablePropertiesDialog: (aDialog) =>
-        new Promise<boolean>((resolve) =>
-          setTablePropsDlg({ dialog: aDialog, table: aDialog.GetTable(), resolve }),
-        ),
+        itemDialogsRef.current!.hooks.showTablePropertiesDialog(aDialog),
       showZoneSettingsDialog: (aDialog) =>
-        new Promise<boolean>((resolve) => setZoneSettingsDlg({ dialog: aDialog, resolve })),
+        itemDialogsRef.current!.hooks.showZoneSettingsDialog(aDialog),
       showTextPropertiesDialog: (aDialog) =>
-        new Promise<boolean>((resolve) => setTextPropsDlg({ dialog: aDialog, resolve })),
+        itemDialogsRef.current!.hooks.showTextPropertiesDialog(aDialog),
       showGlobalEditTeardropsDialog: (aDialog) => setTeardropsDlg(aDialog),
       showGlobalDeletionDialog: (aDialog) =>
         new Promise<boolean>((resolve) => setGlobalDelDlg({ dialog: aDialog, resolve })),
@@ -2705,6 +2634,8 @@ export function PcbEditor({
   const [layerPairDialogOpen, setLayerPairDialogOpen] = useState(false);
   // The KIDIALOGs its OK asks (confirmShortingNets, confirmPadChange).
   const { ask: askKiDialog, node: kiDialogNode } = useKiDialog();
+  /** `usePcbItemDialogs`' answer, which the frame's dialog hooks route to. */
+  const itemDialogsRef = useRef<ReturnType<typeof usePcbItemDialogs> | null>(null);
   const askKiDialogRef = useRef(askKiDialog);
   askKiDialogRef.current = askKiDialog;
   // Edit_Zone_Params: the zone whose properties dialog is up.
@@ -2713,50 +2644,6 @@ export function PcbEditor({
   const [fpPropsDlg, setFpPropsDlg] = useState<DIALOG_FOOTPRINT_PROPERTIES | null>(null);
   // Footprint Associations (DIALOG_FOOTPRINT_ASSOCIATIONS), on the selected footprint.
   const [footprintAssociations, setFootprintAssociations] = useState<FOOTPRINT | null>(null);
-  // Pad Properties (DIALOG_PAD_PROPERTIES), board side.
-  const [padPropsDlg, setPadPropsDlg] = useState<DIALOG_PAD_PROPERTIES | null>(null);
-  // Text / Shape properties for board graphics.
-  /**
-   * DIALOG_TEXT_PROPERTIES on a live PCB_TEXT: the board's own (Properties on a
-   * selected text) or DRAWING_TOOL::PlaceText's new one, which waits on `resolve`.
-   */
-  /**
-   * ZONE_CREATE_HELPER::createNewZone's properties dialog, on a ZONE_SETTINGS
-   * alone: the copper, non-copper or rule-area one, and the tool waiting on it.
-   */
-  const [zoneSettingsDlg, setZoneSettingsDlg] = useState<{
-    dialog: DIALOG_COPPER_ZONE | DIALOG_NON_COPPER_ZONES_EDITOR | DIALOG_RULE_AREA_PROPERTIES;
-    resolve: (aOk: boolean) => void;
-  } | null>(null);
-  const [textPropsDlg, setTextPropsDlg] = useState<{
-    dialog: DIALOG_TEXT_PROPERTIES;
-    resolve?: (aOk: boolean) => void;
-  } | null>(null);
-  const [shapePropsDlg, setShapePropsDlg] = useState<DIALOG_SHAPE_PROPERTIES | null>(null);
-  const [dimensionPropsDlg, setDimensionPropsDlg] = useState<DIALOG_DIMENSION_PROPERTIES | null>(
-    null,
-  );
-  /**
-   * DIALOG_TEXTBOX_PROPERTIES on a live PCB_TEXTBOX: the board's own, or
-   * DRAWING_TOOL's new one (drawTextBox), which waits on `resolve`.
-   */
-  const [textBoxPropsDlg, setTextBoxPropsDlg] = useState<{
-    dialog: DIALOG_TEXTBOX_PROPERTIES;
-    resolve?: (aOk: boolean) => void;
-  } | null>(null);
-  const [imagePropsDlg, setImagePropsDlg] = useState<{
-    dialog: DIALOG_REFERENCE_IMAGE_PROPERTIES;
-    resolve: (aOk: boolean) => void;
-  } | null>(null);
-  /**
-   * DIALOG_TABLE_PROPERTIES on a live PCB_TABLE: the board's own, or
-   * DRAWING_TOOL::DrawTable's new one, which waits on `resolve`.
-   */
-  const [tablePropsDlg, setTablePropsDlg] = useState<{
-    dialog: DIALOG_TABLE_PROPERTIES;
-    table: PCB_TABLE;
-    resolve?: (aOk: boolean) => void;
-  } | null>(null);
   // Update PCB from Schematic (DIALOG_UPDATE_PCB). The netlist is fetched from the
   // project's schematic before the dialog opens, together with every footprint it
   // names, the updater itself is synchronous, exactly like upstream, so the
@@ -2819,28 +2706,6 @@ export function PcbEditor({
 
   // The frame's DIALOG_FIND while it is shown (PCB_EDIT_FRAME::ShowFindDialog).
   const [findDlg, setFindDlg] = useState<DIALOG_FIND | null>(null);
-  /**
-   * DIALOG_BARCODE_PROPERTIES on a live PCB_BARCODE: the board's own
-   * (`EDIT_TOOL::Properties`), or DRAWING_TOOL::DrawBarcode's new one, which
-   * waits on `resolve`. The preview and the error check are the model's, held
-   * here so the dialog's preview effect sees one function per opening.
-   */
-  const [barcodePropsDlg, setBarcodePropsDlg] = useState<{
-    dialog: DIALOG_BARCODE_PROPERTIES;
-    preview: (v: BarcodeValues) => BarcodePreview;
-    commitError: (v: BarcodeValues) => string;
-    resolve?: (aOk: boolean) => void;
-  } | null>(null);
-  const openBarcodeProps = useCallback(
-    (aDialog: DIALOG_BARCODE_PROPERTIES, aResolve?: (aOk: boolean) => void): void =>
-      setBarcodePropsDlg({
-        dialog: aDialog,
-        preview: (v) => barcodePreview(aDialog.Preview(v)),
-        commitError: (v) => aDialog.CommitError(v),
-        ...(aResolve ? { resolve: aResolve } : {}),
-      }),
-    [],
-  );
   // `DRAWING_TOOL::PlaceImportedGraphics`'s DIALOG_IMPORT_GRAPHICS (File >
   // Import > Graphics): the tool waits on `resolve`, null for Cancel.
   const [importGfxDlg, setImportGfxDlg] = useState<{
@@ -4599,12 +4464,7 @@ export function PcbEditor({
       writeOutputText(aPath, aText);
       return true;
     },
-    showReferenceImagePropertiesDialog: (aDialog) =>
-      new Promise<boolean>((resolve) => setImagePropsDlg({ dialog: aDialog, resolve })),
-    showPadPropertiesDialog: (aDialog) => setPadPropsDlg(aDialog),
     showFootprintPropertiesDialog: (aDialog) => setFpPropsDlg(aDialog),
-    showDimensionPropertiesDialog: (aDialog) => setDimensionPropsDlg(aDialog),
-    showGraphicItemPropertiesDialog: (aDialog) => setShapePropsDlg(aDialog),
     /** `ROUTER_TOOL::SelectCopperLayerPair`'s actual open: the rendering trigger. */
     selectCopperLayerPair: (): void => setLayerPairDialogOpen(true),
     /** `EDA_BASE_FRAME::ShowInfoBarError`: this window's infobar. */
@@ -4910,33 +4770,6 @@ export function PcbEditor({
    * layer's colour swatch through `LAYER_PRESENTATION::DrawColorSwatch`; a
    * plain list of names is not that control.
    */
-  const tableDialogHeader = (
-    v: TableValues,
-    set: (patch: Partial<TableValues>) => void,
-  ): JSX.Element => (
-    <div className="ze-tableprops-header">
-      <label className="row ze-tableprops-field">
-        <span className="ze-tableprops-lbl">Layer:</span>
-        <Combo
-          value={v.layer}
-          onChange={(layer) => set({ layer })}
-          options={enabledLayerNames(frameRef.current?.GetBoard()).map((name) => ({
-            value: name,
-            label: name,
-            swatch: layerColor(name),
-          }))}
-        />
-      </label>
-      <label className="row ze-tableprops-field">
-        <input
-          type="checkbox"
-          checked={v.locked}
-          onChange={(e) => set({ locked: e.target.checked })}
-        />
-        <span className="ze-tableprops-boxlbl">Locked</span>
-      </label>
-    </div>
-  );
 
   /**
    * A click with the reference image tool active
@@ -5034,102 +4867,6 @@ export function PcbEditor({
         });
     },
     [askKiDialog, trackViaItems],
-  );
-
-  /** DIALOG_TEXT_PROPERTIES / DIALOG_SHAPE_PROPERTIES::TransferDataFromWindow. */
-  const applyTextEdit = useCallback(
-    (values: TextValues) => {
-      const d = textPropsDlg;
-      setTextPropsDlg(null);
-      if (!d) return;
-      // On the live PCB_TEXT: one BOARD_COMMIT, or none for a new text (IS_NEW),
-      // which its tool commits.
-      const r = d.dialog.TransferDataFromWindow(values);
-      d.resolve?.(r.ok);
-    },
-    [textPropsDlg],
-  );
-
-  /** DIALOG_TABLE_PROPERTIES::TransferDataFromWindow. */
-  const applyTableEdit = useCallback(
-    (values: TableValues) => {
-      const d = tablePropsDlg;
-      setTablePropsDlg(null);
-      if (!d) return;
-      // On the live PCB_TABLE: one BOARD_COMMIT, or none for a new table (IS_NEW),
-      // which its tool commits.
-      const r = d.dialog.TransferDataFromWindow(values);
-      d.resolve?.(r.ok);
-    },
-    [tablePropsDlg],
-  );
-
-  /** DIALOG_TEXTBOX_PROPERTIES::TransferDataFromWindow. */
-  const applyTextBoxEdit = useCallback(
-    (values: TextBoxValues) => {
-      const d = textBoxPropsDlg;
-      setTextBoxPropsDlg(null);
-      if (!d) return;
-      // On the live PCB_TEXTBOX: one BOARD_COMMIT, or none for a new box (IS_NEW),
-      // which its tool commits.
-      const r = d.dialog.TransferDataFromWindow(values);
-      d.resolve?.(r.ok);
-    },
-    [textBoxPropsDlg],
-  );
-
-  /** DIALOG_REFERENCE_IMAGE_PROPERTIES::TransferDataFromWindow. */
-  const applyImageEdit = useCallback(
-    (values: ImageValues) => {
-      const req = imagePropsDlg;
-      setImagePropsDlg(null);
-      if (!req) return;
-
-      let question: string | null = null;
-      const r = req.dialog.TransferDataFromWindow(values, (m) => {
-        question = m;
-        return false;
-      });
-      if (r.ok) req.resolve(true);
-      else if (question !== null)
-        void IsOK(question).then((yes) => {
-          req.resolve(yes && req.dialog.TransferDataFromWindow(values).ok);
-        });
-      else req.resolve(false);
-    },
-    [imagePropsDlg],
-  );
-
-  /** DIALOG_DIMENSION_PROPERTIES::TransferDataFromWindow. */
-  const applyDimensionEdit = useCallback(
-    (values: DimensionValues) => {
-      const dlg = dimensionPropsDlg;
-      setDimensionPropsDlg(null);
-      // DIALOG_DIMENSION_PROPERTIES on the live dimension: one BOARD_COMMIT.
-      dlg?.TransferDataFromWindow(values);
-    },
-    [dimensionPropsDlg],
-  );
-
-  const applyShapeEdit = useCallback(
-    (values: ShapeValues) => {
-      const dlg = shapePropsDlg;
-      setShapePropsDlg(null);
-      // DIALOG_SHAPE_PROPERTIES on the live PCB_SHAPE: one BOARD_COMMIT.
-      dlg?.TransferDataFromWindow(values);
-    },
-    [shapePropsDlg],
-  );
-
-  /** DIALOG_PAD_PROPERTIES::TransferDataFromWindow. */
-  const applyPadEdit = useCallback(
-    (values: PadValues) => {
-      const dlg = padPropsDlg;
-      setPadPropsDlg(null);
-      // DIALOG_PAD_PROPERTIES on the live PAD: one BOARD_COMMIT.
-      dlg?.TransferDataFromWindow(values);
-    },
-    [padPropsDlg],
   );
 
   /** DIALOG_FOOTPRINT_PROPERTIES::TransferDataFromWindow. */
@@ -6800,6 +6537,19 @@ export function PcbEditor({
     return canvas;
   };
 
+  /**
+   * PCB_BASE_EDIT_FRAME's item dialogs, the one module every PCB_BASE_EDIT_FRAME
+   * window draws them with (`pcb_base_edit_frame_dialogs.tsx`), in this frame's
+   * theme.
+   */
+  const itemDialogs = usePcbItemDialogs({
+    units: unitLabel,
+    board: () => frameRef.current?.GetBoard() ?? null,
+    layerColor: (aName) => drawOpts.theme?.layerColors[aName] ?? layerColor(aName),
+    background: PCB_BACKGROUND,
+  });
+  itemDialogsRef.current = itemDialogs;
+
   // ----- menus (menubar_pcb_editor.cpp structure, working subset active) ------
 
   /**
@@ -7646,30 +7396,6 @@ export function PcbEditor({
         </>
       )}
 
-      {/* Barcode properties: `DRAWING_TOOL::DrawBarcode` opens it on its new
-          barcode before committing (`drawing_tool.cpp:1534-1541`); a double-click
-          on an existing one opens it through `EDIT_TOOL::Properties`. */}
-      {barcodePropsDlg && board && (
-        <DialogBarcodeProperties
-          units={unitLabel}
-          preview={barcodePropsDlg.preview}
-          commitError={barcodePropsDlg.commitError}
-          initial={barcodePropsDlg.dialog.TransferDataToWindow()}
-          layers={enabledLayerNames(frameRef.current?.GetBoard())}
-          layerColor={layerColor}
-          background={PCB_BACKGROUND}
-          onClose={() => {
-            barcodePropsDlg.resolve?.(false);
-            setBarcodePropsDlg(null);
-          }}
-          onApply={(v) => {
-            const d = barcodePropsDlg;
-            setBarcodePropsDlg(null);
-            d.resolve?.(d.dialog.TransferDataFromWindow(v).ok);
-          }}
-        />
-      )}
-
       {/* File > Import > Non-KiCad Board File. `OpenProjectFiles( { file },
           KICTL_NONKICAD_ONLY )` (files.cpp:476): the importer builds the board
           (`ImportNonKicadBoard`), which replaces this one under the editor's
@@ -7969,135 +7695,7 @@ export function PcbEditor({
           onClose={() => setUpdatePcb(null)}
         />
       )}
-      {zoneSettingsDlg &&
-        board &&
-        (() => {
-          const { dialog, resolve } = zoneSettingsDlg;
-          const done = (aOk: boolean): void => {
-            setZoneSettingsDlg(null);
-            resolve(aOk);
-          };
-          const transferred = (r: { ok: boolean; message?: string }): void => {
-            if (r.ok) done(true);
-            else if (r.message) DisplayErrorMessage(r.message);
-          };
-          if (dialog instanceof DIALOG_COPPER_ZONE)
-            return (
-              <DialogCopperZones
-                units={unitLabel}
-                initial={dialog.TransferDataToWindow()}
-                nets={netNamesByCode(frameRef.current?.GetBoard())}
-                layers={copperLayerRows}
-                onApply={(values, conv) => transferred(dialog.TransferDataFromWindow(values, conv))}
-                onClose={() => done(false)}
-              />
-            );
-          if (dialog instanceof DIALOG_RULE_AREA_PROPERTIES)
-            return (
-              <DialogRuleAreaProperties
-                units={unitLabel}
-                initial={dialog.TransferDataToWindow()}
-                layers={ruleAreaLayers}
-                sources={collectPlacementSources(frameRef.current!.GetBoard()!)}
-                onApply={(values, conv) => transferred(dialog.TransferDataFromWindow(values, conv))}
-                onClose={() => done(false)}
-              />
-            );
-          return (
-            <DialogNonCopperZonesProperties
-              dialog={dialog}
-              units={unitLabel}
-              layers={ruleAreaLayers.filter((l) => !/\.Cu$/.test(l.name))}
-              onResult={done}
-            />
-          );
-        })()}
-      {textPropsDlg && board && (
-        <DialogTextProperties
-          initial={textPropsDlg.dialog.TransferDataToWindow()}
-          units={unitLabel}
-          layers={enabledLayerNames(frameRef.current?.GetBoard())}
-          layerColor={layerColor}
-          onApply={applyTextEdit}
-          onClose={() => {
-            textPropsDlg.resolve?.(false);
-            setTextPropsDlg(null);
-          }}
-        />
-      )}
-      {shapePropsDlg && board && (
-        <DialogShapeProperties
-          units={unitLabel}
-          initial={shapePropsDlg.TransferDataToWindow()}
-          shape={shapePropsDlg.GetShape()}
-          layers={enabledLayerNames(frameRef.current?.GetBoard())}
-          onApply={applyShapeEdit}
-          onClose={() => setShapePropsDlg(null)}
-        />
-      )}
-      {tablePropsDlg && (
-        <DialogTableProperties<TableValues>
-          initial={tablePropsDlg.dialog.TransferDataToWindow()}
-          iuScale={pcbIUScale}
-          columnWidths={Array.from({ length: tablePropsDlg.table.GetColCount() }, (_, i) =>
-            tablePropsDlg.table.GetColWidth(i),
-          )}
-          isNew={tablePropsDlg.table.IsNew()}
-          header={tableDialogHeader}
-          onOk={applyTableEdit}
-          onCancel={() => {
-            tablePropsDlg.resolve?.(false);
-            setTablePropsDlg(null);
-          }}
-        />
-      )}
-      {textBoxPropsDlg && board && (
-        <DialogTextBoxProperties
-          initial={textBoxPropsDlg.dialog.TransferDataToWindow()}
-          units={unitLabel}
-          layers={enabledLayerNames(frameRef.current?.GetBoard())}
-          layerColor={layerColor}
-          onApply={applyTextBoxEdit}
-          onClose={() => {
-            textBoxPropsDlg.resolve?.(false);
-            setTextBoxPropsDlg(null);
-          }}
-        />
-      )}
-      {imagePropsDlg && board && (
-        <DialogReferenceImageProperties
-          image={{ data: imagePropsDlg.dialog.ImageData() }}
-          initial={imagePropsDlg.dialog.TransferDataToWindow()}
-          units={unitLabel}
-          layers={enabledLayerNames(frameRef.current?.GetBoard())}
-          layerColor={layerColor}
-          onApply={applyImageEdit}
-          onClose={() => {
-            imagePropsDlg.resolve(false);
-            setImagePropsDlg(null);
-          }}
-        />
-      )}
-      {dimensionPropsDlg && board && (
-        <DialogDimensionProperties
-          units={unitLabel}
-          initial={dimensionPropsDlg.TransferDataToWindow()}
-          type={dimensionPropsDlg.GetDimensionType()}
-          layers={enabledLayerNames(frameRef.current?.GetBoard())}
-          onApply={applyDimensionEdit}
-          onClose={() => setDimensionPropsDlg(null)}
-        />
-      )}
-      {padPropsDlg && board && (
-        <DialogPadProperties
-          units={unitLabel}
-          initial={padPropsDlg.TransferDataToWindow()}
-          nets={netNamesByCode(frameRef.current?.GetBoard())}
-          layers={enabledLayerNames(frameRef.current?.GetBoard())}
-          onApply={applyPadEdit}
-          onClose={() => setPadPropsDlg(null)}
-        />
-      )}
+      {itemDialogs.node}
       {fpPropsDlg && frameRef.current && (
         <DialogFootprintProperties
           units={unitLabel}

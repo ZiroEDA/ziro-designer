@@ -70,8 +70,9 @@ describe('what each editor keeps, because it genuinely differs', () => {
 
   it('lets the board add Layer and Locked, which a SCH_TABLE has neither of', () => {
     expect(SHARED).toContain('header?:');
-    const pcb = read('../../pcbnew/pcb_edit_frame_ui.tsx');
-    expect(pcb).toContain('tableDialogHeader');
+    // The header lives with the dialogs every PCB_BASE_EDIT_FRAME window draws.
+    const pcb = read('../../pcbnew/pcb_base_edit_frame_dialogs.tsx');
+    expect(pcb).toContain('tableHeader');
     // …and the schematic passes none.
     expect(SCH).not.toContain('header=');
   });
