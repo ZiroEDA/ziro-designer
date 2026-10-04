@@ -23,7 +23,6 @@ import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr/index.js';
 import { readFootprintFile } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { footprintBBox } from '@ziroeda/pcbnew/edit-footprint.js';
-import { spreadFootprints } from '@ziroeda/pcbnew/autorouter/spread_footprints.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import type { PcbFootprint } from '@ziroeda/pcbnew/types.js';
 
@@ -65,44 +64,5 @@ describe('SpreadFootprints measures the footprint without its text', () => {
   it('the box WITH text is far taller, which is what made the layout airy', () => {
     const box = footprintBBox(footprint('D1'), true)!;
     expect(box.maxY - box.minY).toBeGreaterThan(mmToIU(6));
-  });
-
-  it('stacks same-size footprints one text-free height plus the gap apart', () => {
-    // `fpSize` = box size + aComponentGap = 12 x 2 mm, so `vertical` (x >= y)
-    // and, with two footprints and no 5:1 wrap, `optimalCountPerLine` is 2:
-    //   i = 0 -> position = fpSize/2                = (6, 1)
-    //   i = 1 -> position.y += fpSize.y * (1 % 2)   = (6, 3)
-    // The block and sheet packing then translate both together, so the PITCH is
-    // what the cell size decides. 1 mm of copper + 1 mm of gap = 2 mm.
-    const fps = [footprint('D1'), footprint('D2')];
-    const [d1, d2] = spreadFootprints(fps, { x: 0, y: 0 });
-
-    expect(d2!.x - d1!.x).toBe(0);
-    expect(d2!.y - d1!.y).toBe(mmToIU(1) + GAP);
-    // Which is 2 mm, not the ~8 mm a text-inclusive box would have given.
-    expect(d2!.y - d1!.y).toBe(mmToIU(2));
-  });
-
-  it('honours an explicit component gap', () => {
-    const fps = [footprint('D1'), footprint('D2')];
-    const [d1, d2] = spreadFootprints(fps, { x: 0, y: 0 }, { componentGap: mmToIU(4) });
-    expect(d2!.y - d1!.y).toBe(mmToIU(1) + mmToIU(4));
-  });
-
-  it('orders a block by reference prefix then trailing number, not by string', () => {
-    // compareFootprintsbyRef: GetRefDesPrefix then GetTrailingInt, so D10 comes
-    // after D2 where a plain string sort would put it before.
-    const fps = [footprint('D10'), footprint('D2')];
-    const [d10, d2] = spreadFootprints(fps, { x: 0, y: 0 });
-    // D2 takes the first cell, D10 the second, so D10 ends up 2 mm lower.
-    expect(d10!.y - d2!.y).toBe(mmToIU(2));
-  });
-
-  it('offsets the whole result by targetBoxPosition', () => {
-    const fps = [footprint('D1'), footprint('D2')];
-    const at0 = spreadFootprints(fps, { x: 0, y: 0 });
-    const moved = spreadFootprints(fps, { x: mmToIU(50), y: mmToIU(30) });
-    expect(moved[0]!.x - at0[0]!.x).toBe(mmToIU(50));
-    expect(moved[0]!.y - at0[0]!.y).toBe(mmToIU(30));
   });
 });

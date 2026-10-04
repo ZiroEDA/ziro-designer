@@ -135,7 +135,7 @@ export {
   CROSS_PROBE_FLASH_LAST_PHASE,
   type CrossProbeView,
 } from './cross-probing.js';
-export { boardAuxOrigin, boardGridOrigin } from './board_design_settings.js';
+export { boardAuxOrigin } from './board_design_settings.js';
 export { EXCELLON_WRITER } from './exporters/gendrill_excellon_writer.js';
 export { GENDRILL_WRITER_BASE, ZEROS_FMT } from './exporters/gendrill_writer_base.js';
 export { GERBER_JOBFILE_WRITER } from './exporters/gerber_jobfile_writer.js';
@@ -206,8 +206,6 @@ export {
 export { newKiid as newBoardUuid } from '@ziroeda/common/kiid.js';
 export { uniquePadCount, uniquePadNumbers } from './footprint_utils.js';
 export {
-  spreadFootprints,
-  spreadBoardFootprints,
   getRefDesPrefix,
   type SpreadFootprintsOptions,
 } from './autorouter/spread_footprints.js';
@@ -228,7 +226,6 @@ export {
 // DIALOG_COPPER_ZONE over PANEL_ZONE_PROPERTIES).
 export {
   collectTrackViaValues,
-  applyTrackViaValues,
   hasTrackOrVia,
   type TrackViaSelection,
   type TrackViaValues,
@@ -272,7 +269,6 @@ export {
 } from './dialogs/dialog_tuning_pattern_properties.js';
 // Non-Copper Zone Properties (pcbnew/dialogs/dialog_non_copper_zones_properties.cpp).
 export {
-  applyNonCopperZoneValues,
   nonCopperZoneValuesError,
   NO_LAYER_SELECTED,
   type NonCopperZoneValues,
@@ -349,14 +345,9 @@ export {
 } from './dialogs/dialog_create_array.js';
 
 export {
-  polygonBoolean,
-  booleanableShapeCount,
-  shapeAsPolygon,
   type PolygonBoolean,
   type PolygonBooleanOptions,
   type PolygonBooleanResult,
-  modifyLines,
-  modifiableLineCount,
   type LineModification,
   type ModifyLinesOptions,
   type ModifyLinesResult,
@@ -425,7 +416,6 @@ export {
 
 export {
   collectDimensionValues,
-  applyDimensionValues,
   type DimensionValues,
 } from './dialogs/dialog_dimension_properties.js';
 
@@ -585,16 +575,8 @@ export { GLOBAL_EDIT_TOOL } from './tools/global_edit_tool.js';
 export { DIALOG_GLOBAL_EDIT_TRACKS_AND_VIAS } from './dialogs/dialog_global_edit_tracks_and_vias.js';
 
 export {
-  exportD356,
   writeD356Records,
-  buildViaTestpoints,
-  buildPadTestpoints,
   internNewD356Netname,
-  computePadAccessCode,
-  viaAccessCode,
-  viaLayerPair,
-  expandLayerTokens,
-  layerNameToId,
   iuToD356,
   boardTentVias,
   viaIsTented,

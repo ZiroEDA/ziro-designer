@@ -456,48 +456,6 @@ function applyToVia(board: Board, via: PcbVia, v: TrackViaValues): PcbVia {
   return changed ? next : via;
 }
 
-/**
- * DIALOG_TRACK_VIA_PROPERTIES::TransferDataFromWindow.
- *
- * Editing a coordinate box moves that endpoint on every selected track, which
- * is upstream's behaviour and only makes sense because the box is blank unless
- * the whole selection already shared the value.
- */
-export function applyTrackViaValues(
-  board: Board,
-  sel: TrackViaSelection,
-  v: TrackViaValues,
-): Board {
-  const trackIdx = new Set(sel.tracks.map((t) => t.index));
-  const arcIdx = new Set(sel.arcs.map((a) => a.index));
-  const viaIdx = new Set(sel.vias.map((x) => x.index));
-
-  let changed = false;
-
-  const tracks = board.tracks.map((t, i) => {
-    if (!trackIdx.has(i)) return t;
-    const next = applyTrackGeometry(applyToTrack(board, t, v), v);
-    if (next !== t) changed = true;
-    return next;
-  });
-
-  const arcs = board.arcs.map((a, i) => {
-    if (!arcIdx.has(i)) return a;
-    const next = applyToTrack(board, a, v);
-    if (next !== a) changed = true;
-    return next;
-  });
-
-  const vias = board.vias.map((via, i) => {
-    if (!viaIdx.has(i)) return via;
-    const next = applyToVia(board, via, v);
-    if (next !== via) changed = true;
-    return next;
-  });
-
-  return changed ? { ...board, tracks, arcs, vias } : board;
-}
-
 // ---------------------------------------------------------------------------
 // The live dialog: DIALOG_TRACK_VIA_PROPERTIES on PCB_TRACK / PCB_ARC / PCB_VIA
 // (#636 stage 6)
@@ -687,21 +645,6 @@ class PostMachiningFold {
 
     return { choice, size1, size2 };
   }
-}
-
-/**
- * The live selection the dialog edits, from the editor's view ids: the
- * tracks, arcs and vias, in selection order.
- */
-export function trackViaLiveSelection(aBoard: Board, aIds: Iterable<string>): PCB_TRACK[] {
-  const items: PCB_TRACK[] = [];
-
-  for (const id of aIds) {
-    const item = boardItemOfViewId(aBoard, id);
-    if (item instanceof PCB_TRACK) items.push(item);
-  }
-
-  return items;
 }
 
 /** A question the OK path asks, and the answer it takes as "go ahead". */

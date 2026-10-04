@@ -2385,11 +2385,3 @@ export class BOARD_DESIGN_SETTINGS extends NESTED_SETTINGS {
 export function boardAuxOrigin(board: Board): VECTOR2I {
   return board.auxOrigin ?? board.k?.GetDesignSettings().GetAuxOrigin() ?? { x: 0, y: 0 };
 }
-
-/**
- * `GetGridOrigin()` of a Board view's design settings (`(setup (grid_origin x y))`),
- * what Position Relative offers as its "Use Grid Origin" reference.
- */
-export function boardGridOrigin(board: Board): VECTOR2I {
-  return board.gridOrigin ?? board.k?.GetDesignSettings().GetGridOrigin() ?? { x: 0, y: 0 };
-}

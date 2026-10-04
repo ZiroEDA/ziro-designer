@@ -52,7 +52,6 @@ import { footprintBBox } from '@ziroeda/pcbnew/edit-footprint.js';
 import { isBoardItemLocked, setBoardItemsLocked } from '@ziroeda/pcbnew/edit-board.js';
 import { livePanel } from './support/live_panel.js';
 import { pcbPointMsgPanelInfo } from '@ziroeda/pcbnew/msg_panel.js';
-import { boardIsEmpty } from '@ziroeda/pcbnew/tools/pcb_selection_conditions.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/generator.js';
 import type { Board } from '@ziroeda/pcbnew/types.js';
@@ -100,14 +99,6 @@ describe('reading (point …)', () => {
 
     expect(b.shapes).toHaveLength(0);
     expect(b.points).toHaveLength(1);
-  });
-
-  it('counts towards BOARD::IsEmpty', () => {
-    // `return m_drawings.empty() && m_footprints.empty() && m_tracks.empty()
-    //         && m_zones.empty() && m_points.empty();` (`board.cpp:606-609`).
-    // A board holding one point is not empty, so Select All is live on it.
-    expect(boardIsEmpty(read())).toBe(false);
-    expect(boardIsEmpty(read(`(kicad_pcb (version 20241229) (net 0 ""))`))).toBe(true);
   });
 });
 

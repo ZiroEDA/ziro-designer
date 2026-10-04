@@ -162,7 +162,9 @@ describe('what the registered cancel means', () => {
     expect(registered('../../common/dialogs/dialog_print_generic_ui.tsx')).toEqual(['onClose']);
     expect(
       FILES.find((f) => f.rel === '../../pcbnew/dialogs/dialog_print_pcbnew_ui.tsx')?.src,
-    ).toMatch(/onClose=\{\(\) => \{\s*\/\/ onCancelButtonClick \/ onClose: saveSettings first\.\s*const info = dlg\.saveSettings\(\);/);
+    ).toMatch(
+      /onClose=\{\(\) => \{\s*\/\/ onCancelButtonClick \/ onClose: saveSettings first\.\s*const info = dlg\.saveSettings\(\);/,
+    );
   });
 
   it('is not registered at all where the dialog has no Cancel', () => {

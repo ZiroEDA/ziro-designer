@@ -23,10 +23,6 @@ import { arg, numArg } from '@ziroeda/sexpr/query.js';
 import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { padAt } from '@ziroeda/pcbnew/dialogs/dialog_pad_properties.js';
-import {
-  applyTrackViaValues,
-  collectTrackViaValues,
-} from '@ziroeda/pcbnew/dialogs/dialog_track_via_properties.js';
 import { ORPHANED_NET } from '@ziroeda/pcbnew/netinfo.js';
 import type { Board } from '@ziroeda/pcbnew/types.js';
 import { U } from './support/written_node.js';

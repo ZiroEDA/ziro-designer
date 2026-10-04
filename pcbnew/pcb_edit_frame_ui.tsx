@@ -186,7 +186,7 @@ import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { layerBoxLabel } from './pcb_layer_box_selector.js';
 import { Toolbar } from '@ziroeda/common/tool/action_toolbar.js';
 import { formatTitle, useDocumentTitle } from '@ziroeda/common/use_document_title.js';
-import { PCB_FRAME_NAME, pcbFrameTitle } from './pcb_edit_frame.js';
+import { PCB_FRAME_NAME, pcbFrameTitle, type PCB_EDIT_FRAME_HOOKS } from './pcb_edit_frame.js';
 import { withSaveEnablement } from '@ziroeda/common/save_enablement.js';
 import {
   DialogPasteSpecial,
@@ -2209,6 +2209,8 @@ export function PcbEditor({
     editZoneParams: (aZone: ZONE) => void;
     showFindDialog: (aDialog: DIALOG_FIND) => void;
     showPrintDialog: (aDialog: DIALOG_PRINT_PCBNEW) => Promise<void>;
+    showSaveFileDialog: NonNullable<PCB_EDIT_FRAME_HOOKS['showSaveFileDialog']>;
+    writeTextFile: (aPath: string, aText: string) => boolean;
     showReferenceImagePropertiesDialog: (
       aDialog: DIALOG_REFERENCE_IMAGE_PROPERTIES,
     ) => Promise<boolean>;
@@ -2328,6 +2330,9 @@ export function PcbEditor({
       editZoneParams: (aZone) => drcWindowRef.current!.editZoneParams(aZone),
       showFindDialog: (aDialog) => drcWindowRef.current!.showFindDialog(aDialog),
       showPrintDialog: (aDialog) => drcWindowRef.current!.showPrintDialog(aDialog),
+      showSaveFileDialog: (aTitle, aName, aWildcard, aCheckbox) =>
+        drcWindowRef.current!.showSaveFileDialog(aTitle, aName, aWildcard, aCheckbox),
+      writeTextFile: (aPath, aText) => drcWindowRef.current!.writeTextFile(aPath, aText),
       showReferenceImagePropertiesDialog: (aDialog) =>
         drcWindowRef.current!.showReferenceImagePropertiesDialog(aDialog),
       showPadPropertiesDialog: (aDialog) => drcWindowRef.current!.showPadPropertiesDialog(aDialog),
@@ -2582,6 +2587,32 @@ export function PcbEditor({
   const [printDlg, setPrintDlg] = useState<{ dlg: DIALOG_PRINT_PCBNEW; done: () => void } | null>(
     null,
   );
+  /**
+   * A generated text file into the project: the file manager when the host
+   * offers one, a download when it does not (as a plot goes).
+   */
+  const writeOutputText = (aName: string, aText: string): void => {
+    if (onOutputFile) {
+      onOutputFile(aName, new TextEncoder().encode(aText), 'text/plain');
+      return;
+    }
+
+    const url = URL.createObjectURL(new Blob([aText], { type: 'text/plain' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = aName;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+  /** PCB_EDIT_FRAME::ShowSaveFileDialog's wxFileDialog, while it is up. */
+  const [saveFileDlg, setSaveFileDlg] = useState<{
+    title: string;
+    name: string;
+    wildcard: ChooserFilter;
+    checkbox: { label: string; value: boolean } | null;
+    checked: boolean;
+    resolve: (aResult: { path: string; checked: boolean } | null) => void;
+  } | null>(null);
   const [printMessage, setPrintMessage] = useState<{ message: string; error: boolean } | null>(
     null,
   );
@@ -4429,15 +4460,7 @@ export function PcbEditor({
             : path.slice(path.lastIndexOf('/') + 1);
           const text = write(name);
           if (text === null) return name;
-          if (onOutputFile) onOutputFile(name, new TextEncoder().encode(text), 'text/plain');
-          else {
-            const url = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = name;
-            a.click();
-            URL.revokeObjectURL(url);
-          }
+          writeOutputText(name, text);
           return name;
         },
         displayError: (message) => setUpdatePcbError({ message }),
@@ -4503,6 +4526,21 @@ export function PcbEditor({
     showFindDialog: (aDialog: DIALOG_FIND): void => setFindDlg(aDialog),
     showPrintDialog: (aDialog: DIALOG_PRINT_PCBNEW): Promise<void> =>
       new Promise<void>((resolve) => setPrintDlg({ dlg: aDialog, done: resolve })),
+    showSaveFileDialog: (aTitle, aName, aWildcard, aCheckbox) =>
+      new Promise((resolve) =>
+        setSaveFileDlg({
+          title: aTitle,
+          name: aName,
+          wildcard: aWildcard,
+          checkbox: aCheckbox,
+          checked: aCheckbox?.value ?? false,
+          resolve,
+        }),
+      ),
+    writeTextFile: (aPath: string, aText: string): boolean => {
+      writeOutputText(aPath, aText);
+      return true;
+    },
     showReferenceImagePropertiesDialog: (aDialog) =>
       new Promise<boolean>((resolve) => setImagePropsDlg({ dialog: aDialog, resolve })),
     showPadPropertiesDialog: (aDialog) => setPadPropsDlg(aDialog),
@@ -6561,6 +6599,10 @@ export function PcbEditor({
       case 'boardStatistics':
         setStatsOpen(true);
         break;
+      case 'generateD356File':
+        // BOARD_EDITOR_CONTROL::GenD356File.
+        runAction(PCB_ACTIONS.generateD356File);
+        break;
       case 'generateBOM': {
         // `GenBOMFileFromBoard` opens a save dialog first and bails on an empty
         // board with an info-bar error; ours reports the same refusal.
@@ -8500,6 +8542,48 @@ export function PcbEditor({
               },
             });
             netclassDlg.resolve(true);
+          }}
+        />
+      )}
+      {saveFileDlg && (
+        // wxFileDialog( this, title, Prj().GetProjectPath(), name, wildcard,
+        //   wxFD_SAVE | wxFD_OVERWRITE_PROMPT ) and its customize hook.
+        <SaveAsDialog
+          title={saveFileDlg.title}
+          initialName={saveFileDlg.name}
+          filters={[saveFileDlg.wildcard]}
+          {...(projectName
+            ? { projectDir: `/${projectName}`, initialPath: `/${projectName}` }
+            : {})}
+          {...(saveFileDlg.checkbox
+            ? {
+                extra: (
+                  <label className="ze-check">
+                    <input
+                      type="checkbox"
+                      checked={saveFileDlg.checked}
+                      onChange={(e) =>
+                        setSaveFileDlg({ ...saveFileDlg, checked: e.target.checked })
+                      }
+                    />
+                    {saveFileDlg.checkbox.label}
+                  </label>
+                ),
+              }
+            : {})}
+          onDone={(path) => {
+            const { resolve, checked } = saveFileDlg;
+            setSaveFileDlg(null);
+            if (path === null) {
+              resolve(null);
+              return;
+            }
+            // The name in the project, as the DRC report's save takes it.
+            const prefix = projectName ? `/${projectName}/` : '/';
+            const name = path.startsWith(prefix)
+              ? path.slice(prefix.length)
+              : path.slice(path.lastIndexOf('/') + 1);
+            resolve({ path: name, checked });
           }}
         />
       )}

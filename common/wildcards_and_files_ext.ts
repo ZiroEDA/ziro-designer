@@ -132,6 +132,10 @@ export const zipFileWildcard = (): ChooserFilter => fileFilter('Zip file', ['zip
 /** `FILEEXT::ReportFileWildcard()`: "Report files" on `ReportFileExtension`, rpt. */
 export const reportFileWildcard = (): ChooserFilter => fileFilter('Report files', ['rpt']);
 
+/** `FILEEXT::IpcD356FileWildcard()` (`:559-563`) on `IpcD356FileExtension`, d356. */
+export const ipcD356FileWildcard = (): ChooserFilter =>
+  fileFilter('IPC-D-356 Test Files', ['d356']);
+
 /** `FILEEXT::JsonFileWildcard()`: "Json files" on `JsonFileExtension`, json. */
 export const jsonFileWildcard = (): ChooserFilter => fileFilter('Json files', ['json']);
 

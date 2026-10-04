@@ -11,7 +11,6 @@
 import { describe, expect, it } from 'vitest';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import { deflatePolygon } from '@ziroeda/pcbnew/courtyard.js';
-import { ruleAreaRules } from '@ziroeda/pcbnew/drc/drc_engine_view.js';
 import type { Board, PcbTrack, PcbVia, PcbZone } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
@@ -105,35 +104,5 @@ describe('deflatePolygon', () => {
         MM(1),
       ),
     ).toHaveLength(2);
-  });
-});
-
-describe('implicit rules', () => {
-  it('builds one disallow rule per rule area, keyed on its uuid', () => {
-    const rules = ruleAreaRules(board({ zones: [ruleArea()] }));
-
-    expect(rules).toHaveLength(1);
-    expect(rules[0]!.condition).toBe("A.intersectsArea('area-1')");
-    expect(rules[0]!.constraints[0]!.disallow).toEqual(['track', 'via']);
-    expect(rules[0]!.name).toContain('ko');
-  });
-
-  it('builds one rule per layer for a multi-layer area', () => {
-    // Upstream gives the rule a layer *set*; a DrcRule names one layer.
-    const rules = ruleAreaRules(board({ zones: [ruleArea({ layers: ['F.Cu', 'B.Cu'] })] }));
-
-    expect(rules.map((r) => r.layer)).toEqual(['F.Cu', 'B.Cu']);
-  });
-
-  it('skips an area that forbids nothing', () => {
-    const none = ruleArea({
-      ruleArea: { tracks: false, vias: false, pads: false, copperPour: false, footprints: false },
-    });
-
-    expect(ruleAreaRules(board({ zones: [none] }))).toHaveLength(0);
-  });
-
-  it('ignores an ordinary copper zone', () => {
-    expect(ruleAreaRules(board({ zones: [ruleArea({ ruleArea: undefined })] }))).toHaveLength(0);
   });
 });

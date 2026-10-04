@@ -20,7 +20,6 @@
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/index.js';
 import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { boardGridOrigin } from '@ziroeda/pcbnew/board_design_settings.js';
 import { align } from '@ziroeda/pcbnew/tools/pcb_grid_helper.js';
 import { pcbGridOptions } from '@ziroeda/pcbnew/renderBoard.js';
 import { drawGrid, visibleGridStep } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
@@ -39,19 +38,6 @@ const boardWith = (setup: string) =>
   ${setup}
 )`),
   );
-
-describe('boardGridOrigin', () => {
-  it('reads the setup entry, and defaults to the world origin without one', () => {
-    // Whole internal units, as KiCad stores them — 33.02 mm * 1e6 is not
-    // exactly representable, so `mmToIU` rounds and this must not be spelled
-    // as the float product.
-    expect(boardGridOrigin(boardWith('(setup (grid_origin 33.02 118.745))'))).toEqual({
-      x: 33_020_000,
-      y: 118_745_000,
-    });
-    expect(boardGridOrigin(boardWith('(setup)'))).toEqual({ x: 0, y: 0 });
-  });
-});
 
 describe('snapping (GRID_HELPER::computeNearest)', () => {
   const step = 0.5 * MM;

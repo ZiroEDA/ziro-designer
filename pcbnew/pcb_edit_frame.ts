@@ -10,6 +10,7 @@
  * The listener is `BOARD_LISTENER` as the React side subscribes to it: every
  * notification schedules one re-derivation of the view from the BOARD.
  */
+import type { ChooserFilter } from '@ziroeda/common/wx/filedlg.js';
 import type { PRINTING } from '@ziroeda/common/settings/app_settings.js';
 import { ROUTER_TOOL } from './router/router_tool.js';
 import { PCB_ACTIONS } from './tools/pcb_actions.js';
@@ -266,6 +267,8 @@ export interface PCBNEW_JSON_SETTINGS_LIKE {
   cross_probing: CROSS_PROBING_SETTINGS;
   /** `APP_SETTINGS_BASE::m_Printing`, the `printing.*` PARAMs (app_settings.cpp). */
   printing: Omit<PRINTING, never>;
+  /** `m_ExportD356`, the `export_d356.*` PARAM (pcbnew_settings.cpp:292). */
+  export_d356: { doNotExportUnconnectedPads: boolean };
   /** `m_AuiPanels`, the keys the Search and Net Inspector panes persist. */
   aui: Pick<AUI_PANELS, 'show_search' | 'show_net_inspector' | 'search_panel_height'>;
   pcb_display: {
@@ -446,6 +449,7 @@ export function loadPcbnewSettings(
   s.m_AuiPanels.show_net_inspector = json.aui.show_net_inspector;
 
   Object.assign(s.m_Printing, json.printing, { layers: [...json.printing.layers] });
+  s.m_ExportD356.doNotExportUnconnectedPads = json.export_d356.doNotExportUnconnectedPads;
 
   return s;
 }
@@ -655,6 +659,8 @@ export function storePcbnewSettings(s: PCBNEW_SETTINGS, json: PCBNEW_JSON_SETTIN
   set(json.aui, 'show_search', s.m_AuiPanels.show_search);
   set(json.aui, 'show_net_inspector', s.m_AuiPanels.show_net_inspector);
 
+  set(json.export_d356, 'doNotExportUnconnectedPads', s.m_ExportD356.doNotExportUnconnectedPads);
+
   for (const key of Object.keys(s.m_Printing) as (keyof PRINTING)[]) {
     if (key === 'layers') {
       if (json.printing.layers.join() !== s.m_Printing.layers.join()) {
@@ -751,6 +757,20 @@ export interface PCB_EDIT_FRAME_HOOKS {
   showGraphicItemPropertiesDialog?(aDialog: DIALOG_SHAPE_PROPERTIES): void;
   /** `m_findDialog->Show( true )`: the window draws the modeless Find dialog. */
   showFindDialog?(aDialog: DIALOG_FIND): void;
+  /**
+   * `wxFileDialog( this, aTitle, Prj().GetProjectPath(), aDefaultName,
+   * aWildcard, wxFD_SAVE | wxFD_OVERWRITE_PROMPT )` with one customize-hook
+   * checkbox: the chosen name in the project, and the checkbox, or null on
+   * Cancel.
+   */
+  showSaveFileDialog?(
+    aTitle: string,
+    aDefaultName: string,
+    aWildcard: ChooserFilter,
+    aCheckbox: { label: string; value: boolean } | null,
+  ): Promise<{ path: string; checked: boolean } | null>;
+  /** `wxFopen( aPath, "wt" )` + write: the generated file into the project. */
+  writeTextFile?(aPath: string, aText: string): boolean;
   /** `DIALOG_PRINT_PCBNEW::ShowModal`: resolves when the dialog is closed. */
   showPrintDialog?(aDialog: DIALOG_PRINT_PCBNEW): Promise<void>;
   /** `ShowTargetOptionsDialog`: DIALOG_TARGET_PROPERTIES, modal. */
@@ -1400,6 +1420,24 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   /** `PCB_BASE_EDIT_FRAME::ShowGraphicItemPropertiesDialog( PCB_SHAPE* aShape )`. */
   ShowGraphicItemPropertiesDialog(aShape: PCB_SHAPE): void {
     this.hooks.showGraphicItemPropertiesDialog?.(new DIALOG_SHAPE_PROPERTIES(this, aShape));
+  }
+
+  /** A save-mode wxFileDialog with a customize hook's one checkbox; see the hook. */
+  ShowSaveFileDialog(
+    aTitle: string,
+    aDefaultName: string,
+    aWildcard: ChooserFilter,
+    aCheckbox: { label: string; value: boolean } | null = null,
+  ): Promise<{ path: string; checked: boolean } | null> {
+    return (
+      this.hooks.showSaveFileDialog?.(aTitle, aDefaultName, aWildcard, aCheckbox) ??
+      Promise.resolve(null)
+    );
+  }
+
+  /** The write after a save dialog: false when the file could not be made. */
+  WriteTextFile(aPath: string, aText: string): boolean {
+    return this.hooks.writeTextFile?.(aPath, aText) ?? false;
   }
 
   /** `dlg.ShowModal()` for PCB_CONTROL::Print. */

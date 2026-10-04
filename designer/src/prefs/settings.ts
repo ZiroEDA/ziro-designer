@@ -173,6 +173,8 @@ export interface PcbnewSettings {
    */
   aui: PcbAuiPanels;
   printing: PcbnewPrinting;
+  /** `m_ExportD356` (pcbnew_settings.cpp:292): the D356 file dialog's checkbox. */
+  export_d356: { doNotExportUnconnectedPads: boolean };
   /**
    * Tool settings nested inside pcbnew.json. `pns` is PNS::ROUTING_SETTINGS,
    * which upstream builds as a NESTED_SETTINGS at exactly this path
@@ -504,6 +506,7 @@ export const PCBNEW_DEFAULTS: PcbnewSettings = {
     edge_cuts_on_all_pages: true,
     as_item_checkboxes: false,
   },
+  export_d356: { doNotExportUnconnectedPads: false },
   system: {
     // The `app_settings.cpp:228-238` branch, asked rather than restated.
     units: defaultUnits('pcbnew'),

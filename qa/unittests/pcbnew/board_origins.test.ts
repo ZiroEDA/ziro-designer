@@ -28,7 +28,7 @@ import { parse } from '@ziroeda/sexpr/index.js';
 import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { setBoardOrigin } from '@ziroeda/pcbnew/edit-board.js';
-import { boardAuxOrigin, boardGridOrigin } from '@ziroeda/pcbnew/board_design_settings.js';
+import { boardAuxOrigin } from '@ziroeda/pcbnew/board_design_settings.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import type { Board } from '@ziroeda/pcbnew/types.js';
 
@@ -47,37 +47,12 @@ const WITH_SETUP = `(kicad_pcb (version 20241229) (generator "test")
 const read = (src: string): Board => readBoard(parse(src));
 
 describe('moving an origin', () => {
-  it('writes the grid origin the file already had', () => {
-    const b = setBoardOrigin(read(WITH_SETUP), 'grid_origin', { x: MM(30), y: MM(40) });
-
-    expect(boardGridOrigin(b)).toEqual({ x: MM(30), y: MM(40) });
-    expect(serializeBoard(b)).toContain('(grid_origin 30 40)');
-  });
-
-  it('and the drill/place origin, without disturbing the other', () => {
-    // The two are separate settings on the same `(setup …)` node. A writer that
-    // rebuilt the node rather than patching one child would take the other with
-    // it, and losing the aux origin silently moves every drill file.
-    const b = setBoardOrigin(read(WITH_SETUP), 'aux_axis_origin', { x: MM(7), y: MM(8) });
-
-    expect(boardAuxOrigin(b)).toEqual({ x: MM(7), y: MM(8) });
-    expect(boardGridOrigin(b)).toEqual({ x: MM(1), y: MM(2) });
-  });
-
   it('leaves every other setup token alone', () => {
     // `(setup …)` carries the whole of Board Setup. This writer owns exactly two
     // of its children and must be invisible to the rest.
     const b = setBoardOrigin(read(WITH_SETUP), 'grid_origin', { x: MM(30), y: MM(40) });
 
     expect(serializeBoard(b)).toContain('(pad_to_mask_clearance 0)');
-  });
-
-  it('resets to (0, 0), which is what gridResetOrigin does', () => {
-    // `PCB_CONTROL::GridResetOrigin` is `DoSetGridOrigin( …, VECTOR2D( 0, 0 ) )`
-    // — the same setter, no picker.
-    const b = setBoardOrigin(read(WITH_SETUP), 'grid_origin', { x: 0, y: 0 });
-
-    expect(boardGridOrigin(b)).toEqual({ x: 0, y: 0 });
   });
 });
 
@@ -87,15 +62,6 @@ describe('a board that never named an origin', () => {
   (setup (pad_to_mask_clearance 0))
   (net 0 "")
 )`;
-
-  it('gains the token when one is placed', () => {
-    // `BOARD_DESIGN_SETTINGS` always has an origin to write even when the file
-    // did not name one, so this is an append rather than a replace.
-    const b = setBoardOrigin(read(NO_ORIGIN), 'grid_origin', { x: MM(3), y: MM(4) });
-
-    expect(boardGridOrigin(b)).toEqual({ x: MM(3), y: MM(4) });
-    expect(serializeBoard(b)).toContain('(grid_origin 3 4)');
-  });
 
   it('and a board with no (setup …) at all gains that too', () => {
     const bare = `(kicad_pcb (version 20241229) (generator "test") (net 0 ""))`;

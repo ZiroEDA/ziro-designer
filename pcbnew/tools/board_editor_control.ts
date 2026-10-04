@@ -16,6 +16,7 @@ import type { BOARD_DESIGN_SETTINGS } from '../board_design_settings.js';
 import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import { KICURSOR } from '@ziroeda/common/gal/cursors.js';
 import { ORIGIN_VIEWITEM } from '@ziroeda/common/origin_viewitem.js';
+import { BOARD_EDITOR_CONTROL_GenD356File } from '../exporters/export_d356.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import type { TOOL_EVENT } from '@ziroeda/common/tool/tool_event.js';
 import { SYNC_HANDLER } from '@ziroeda/common/tool/tool_interactive.js';
@@ -940,6 +941,12 @@ export class BOARD_EDITOR_CONTROL extends PCB_TOOL_BASE {
     return 0;
   }
 
+  /** `GenD356File` (export_d356.cpp:437): the dialog is modal, the handler returns at once. */
+  GenD356File(_aEvent: TOOL_EVENT): number {
+    void BOARD_EDITOR_CONTROL_GenD356File(this.getEditFrame<PCB_EDIT_FRAME>());
+    return 0;
+  }
+
   protected override setTransitions(): void {
     const drill = SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.DrillOrigin);
     this.Go(drill, PCB_ACTIONS.drillOrigin.MakeEvent());
@@ -955,6 +962,10 @@ export class BOARD_EDITOR_CONTROL extends PCB_TOOL_BASE {
       PCB_ACTIONS.unlock.MakeEvent(),
     );
     this.Go(this.PageSettings, ACTIONS.pageSettings.MakeEvent());
+    this.Go(
+      SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.GenD356File),
+      PCB_ACTIONS.generateD356File.MakeEvent(),
+    );
 
     this.Go(SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.Find), ACTIONS.find.MakeEvent());
     this.Go(SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.FindNext), ACTIONS.findNext.MakeEvent());

@@ -97,36 +97,6 @@ export interface ZoneValues {
 /** ZONE_SETTINGS' defaults, for a zone whose file omitted a field. */
 /** Resolve a `zone:N` id, or null when the selection is not a single zone. */
 /** PANEL_ZONE_PROPERTIES::TransferDataToWindow. */
-/**
- * The rule-area halves of a zone: `(keepout …)`'s five do-not-allow flags and
- * `(placement …)`'s three fields, which `PANEL_ZONE_PROPERTIES` does not edit
- * and ZONE_DESC does (zone.cpp:2131-2174, groups "Keepout" and "Placement").
- *
- * Kept apart from {@link applyZoneValues} because they belong to a different
- * dialog upstream (DIALOG_RULE_AREA_PROPERTIES) and because a copper zone has
- * neither node — writing one would turn it into a rule area.
- */
-export function applyZoneRuleArea(
-  board: Board,
-  index: number,
-  patch: { keepout?: Partial<RuleAreaKeepout>; placement?: Partial<ZonePlacementArea> },
-): Board {
-  const zone = board.zones[index];
-  if (!zone?.ruleArea) return board;
-
-  const ruleArea: RuleAreaKeepout = { ...zone.ruleArea, ...patch.keepout };
-  const placement: ZonePlacementArea | undefined = zone.placementArea
-    ? { ...zone.placementArea, ...patch.placement }
-    : undefined;
-
-  return {
-    ...board,
-    zones: board.zones.map((z, i) =>
-      i === index ? { ...z, ruleArea, placementArea: placement } : z,
-    ),
-  };
-}
-
 // ---------------------------------------------------------------------------
 // The live dialog: DIALOG_COPPER_ZONE on a ZONE (#636 stage 6)
 // ---------------------------------------------------------------------------

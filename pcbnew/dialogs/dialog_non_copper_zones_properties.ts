@@ -86,46 +86,6 @@ export function nonCopperZoneValuesError(v: NonCopperZoneValues): ZoneValueError
   return null;
 }
 
-/**
- * DIALOG_NON_COPPER_ZONES_EDITOR::TransferDataFromWindow, patching the source
- * in step. The board comes back untouched when the values are refused.
- *
- * The corner radius is zeroed when smoothing is off, and the hatch parameters
- * are stored *whatever* the fill mode — a solid zone keeps the numbers so that
- * flipping to hatched later finds them again, even though the file records
- * them only for a hatched fill.
- */
-export function applyNonCopperZoneValues(
-  board: Board,
-  index: number,
-  v: NonCopperZoneValues,
-): Board {
-  const zone = board.zones[index];
-  if (!zone) return board;
-  if (nonCopperZoneValuesError(v)) return board;
-
-  const cornerRadius = v.cornerSmoothing === 'none' ? 0 : v.cornerRadius;
-
-  const next: PcbZone = {
-    ...zone,
-    layers: [...v.layers],
-    locked: v.locked,
-    hatchStyle: v.hatchStyle,
-    hatchPitch: v.hatchPitch,
-    cornerSmoothing: v.cornerSmoothing,
-    cornerRadius,
-    minThickness: v.minThickness,
-    fillMode: v.fillMode,
-    hatchThickness: v.hatchThickness,
-    hatchGap: v.hatchGap,
-    hatchOrientation: v.hatchOrientation,
-    hatchSmoothingLevel: v.hatchSmoothingLevel,
-    hatchSmoothingValue: v.hatchSmoothingValue,
-  };
-
-  return { ...board, zones: board.zones.map((z, i) => (i === index ? next : z)) };
-}
-
 // ---------------------------------------------------------------------------
 // The live dialog: DIALOG_NON_COPPER_ZONES_EDITOR on a ZONE (#636 stage 6)
 // ---------------------------------------------------------------------------

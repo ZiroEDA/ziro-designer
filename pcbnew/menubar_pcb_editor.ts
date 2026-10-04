@@ -179,7 +179,7 @@ export function buildPcbMenus(
             { label: 'ODB++ Output File...', disabled: dis },
             { label: 'Component Placement (.pos, .gbr)...', disabled: dis },
             { label: 'Footprint Report (.rpt)...', disabled: dis },
-            { label: 'IPC-D-356 Netlist File...', disabled: dis },
+            { label: 'IPC-D-356 Netlist File...', action: () => h.action('generateD356File') },
             { label: 'Bill of Materials...', action: () => h.action('generateBOM') },
           ],
         },

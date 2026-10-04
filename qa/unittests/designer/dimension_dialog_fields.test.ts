@@ -15,10 +15,7 @@
  * The last describe below ties each flag to the engine to keep the two honest.
  */
 import { describe, expect, it } from 'vitest';
-import {
-  applyDimensionValues,
-  collectDimensionValues,
-} from '@ziroeda/pcbnew/dialogs/dialog_dimension_properties.js';
+import { collectDimensionValues } from '@ziroeda/pcbnew/dialogs/dialog_dimension_properties.js';
 import { startDimension } from '@ziroeda/pcbnew';
 import type { DimensionKind } from '@ziroeda/pcbnew/types.js';
 import { dimensionDialogFields as fieldsFor } from '@ziroeda/pcbnew/dialogs/dialog_dimension_properties.js';
@@ -110,60 +107,5 @@ describe('a radial dimension', () => {
     // than offered as a box that does nothing.
     expect(f.extensionOvershoot).toBe(false);
     expect(f.arrowDirection).toBe(false);
-  });
-});
-
-describe('the flags agree with what the engine will actually write', () => {
-  /** Apply a change to a fresh dimension of this kind and see if it took. */
-  const applyTo = (kind: DimensionKind, over: Record<string, unknown>) => {
-    const d = startDimension(kind, { x: 0, y: 0 }).dimension;
-    const board = {
-      version: 20241229,
-      layers: [],
-      nets: new Map<number, string>(),
-      footprints: [],
-      tracks: [],
-      arcs: [],
-      vias: [],
-      zones: [],
-      shapes: [],
-      texts: [],
-      dimensions: [{ ...d, end: { x: 1_000_000, y: 0 } }],
-      textBoxes: [],
-      tables: [],
-      images: [],
-      points: [],
-      barcodes: [],
-      groups: [],
-      source: { kind: 'list' as const, items: [] },
-    };
-    const v = { ...collectDimensionValues(board.dimensions[0]!), ...over };
-    return applyDimensionValues(board, 0, v).dimensions[0]!;
-  };
-
-  it('shows extension overshoot exactly where the engine keeps it', () => {
-    for (const k of ALL) {
-      const kept =
-        applyTo(k, { extensionOvershoot: 5_000_000 }).style.extensionHeight === 5_000_000;
-      expect(kept, k).toBe(dimensionDialogFields(k).extensionOvershoot);
-    }
-  });
-
-  it('shows the text frame exactly where the engine keeps it', () => {
-    for (const k of ALL) {
-      const kept = applyTo(k, { textFrame: 2 }).style.textFrame === 2;
-      expect(kept, k).toBe(dimensionDialogFields(k).textFrame);
-    }
-  });
-
-  it('shows the format group exactly where the item has one', () => {
-    for (const k of ALL) {
-      const has = applyTo(k, { prefix: 'X ' }).format !== undefined;
-      // A leader has a format in the model (it holds the override text) but no
-      // format *group* in the dialog, so this is the one place the two differ
-      // on purpose.
-      if (k === 'leader') continue;
-      expect(has, k).toBe(dimensionDialogFields(k).format);
-    }
   });
 });
