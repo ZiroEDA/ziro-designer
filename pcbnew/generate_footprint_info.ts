@@ -36,6 +36,8 @@
  * rules included.
  */
 
+import { FIELD_T } from '@ziroeda/common/template_fieldnames.js';
+
 /** Every string here is library data, so none of it goes in as markup. */
 function esc(s: string): string {
   return s
@@ -89,6 +91,25 @@ export function documentationUrlIn(description: string): string | null {
     url = url.slice(0, -1);
   }
   return url === '' ? null : url;
+}
+
+/**
+ * `GetFootprintDocumentationURL( aFootprint )` (generate_footprint_info.cpp:50-82):
+ * the Datasheet field when it is set — old footprints have none — else the
+ * first URL in the description.
+ */
+export function GetFootprintDocumentationURL(aFootprint: {
+  GetField(aField: FIELD_T): { GetText(): string } | null;
+  GetLibDescription(): string;
+}): string | null {
+  // Footprints have now a field (FIELD_T::DATASHEET) containing the url datasheet
+  // But old footprints did not have this field, so this fiels can be empty.
+  // So we use this field is not empty, and if empty see if the documentation has an URL
+  const url = aFootprint.GetField(FIELD_T.DATASHEET)?.GetText() ?? '';
+
+  if (url !== '') return url;
+
+  return documentationUrlIn(aFootprint.GetLibDescription());
 }
 
 export interface FootprintInfo {

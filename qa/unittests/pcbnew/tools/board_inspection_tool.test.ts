@@ -87,7 +87,7 @@ class INSPECTION_FRAME extends TEST_PCB_FRAME implements BOARD_INSPECTION_TOOL_F
   GetInspectConstraintsDialog(): DIALOG_BOOK_REPORTER {
     return this.inspectConstraintsDlg;
   }
-  ShowInfoBarError(aErrorMsg: string): void {
+  override ShowInfoBarError(aErrorMsg: string): void {
     this.infoBarErrors.push(aErrorMsg);
   }
   ShowFootprintAssociationsDialog(aFootprint: FOOTPRINT): void {

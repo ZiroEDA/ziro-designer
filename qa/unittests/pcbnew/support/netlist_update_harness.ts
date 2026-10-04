@@ -29,7 +29,7 @@ class UPDATE_FRAME extends TEST_PCB_FRAME {
     PCB_EDIT_FRAME.prototype.ExchangeFootprint.apply(this as unknown as PCB_EDIT_FRAME, args);
   }
 
-  PlaceFootprint(...args: Parameters<PCB_EDIT_FRAME['PlaceFootprint']>): void {
+  override PlaceFootprint(...args: Parameters<PCB_EDIT_FRAME['PlaceFootprint']>): void {
     PCB_EDIT_FRAME.prototype.PlaceFootprint.apply(this as unknown as PCB_EDIT_FRAME, args);
   }
 }

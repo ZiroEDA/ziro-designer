@@ -9,7 +9,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { IS_NEW } from '@ziroeda/common/eda_item_flags.js';
 import { installPgm } from '@ziroeda/designer/src/editors/pcb/pcb_canvas.js';
-import { BOARD_USE } from '@ziroeda/pcbnew/board.js';
+import { type BOARD, BOARD_USE } from '@ziroeda/pcbnew/board.js';
 import type { FOOTPRINT } from '@ziroeda/pcbnew/footprint.js';
 import { FOOTPRINT_EDIT_FRAME } from '@ziroeda/pcbnew/footprint_edit_frame.js';
 import {
@@ -17,6 +17,14 @@ import {
   ParseFootprintFile,
 } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { LIB_ID } from '@ziroeda/common/lib_id.js';
+import { SetInfoPresenter, SetQuestionPresenter } from '@ziroeda/common/confirm.js';
+import type { LIB_TREE } from '@ziroeda/common/eda_draw_frame.js';
+import { ACTIONS } from '@ziroeda/common/tool/actions.js';
+import type { TOOL_ACTION } from '@ziroeda/common/tool/tool_action.js';
+import { LeaderMode as LEADER_MODE } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
+import { FOOTPRINT_LIBRARY_STORE } from '@ziroeda/pcbnew/footprint_library_adapter.js';
+import { PCB_ACTIONS } from '@ziroeda/pcbnew/tools/pcb_actions.js';
+import { type HARNESS_MOUSE, harnessCanvas } from './support/pcb_tool_harness.js';
 import { PCB_TOOL_BASE } from '@ziroeda/pcbnew/tools/pcb_tool_base.js';
 
 const U = (n: number): string => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
@@ -104,44 +112,122 @@ describe('ReloadFootprint', () => {
 describe('the library round trip (footprint_editor_utils.cpp, footprint_libraries_utils.cpp)', () => {
   const FP_TEXT = (aName: string): string => `(footprint "${aName}" (layer "F.Cu") (uuid "${U(10)}")
   (property "Reference" "" (at 0 0 0) (layer "F.SilkS") (uuid "${U(11)}"))
-  (property "Value" "" (at 0 1 0) (layer "F.Fab") (uuid "${U(12)}"))
+  (property "Value" "${aName}" (at 0 1 0) (layer "F.Fab") (uuid "${U(12)}"))
   (pad "1" smd rect (at 0 0) (size 1 1) (layers "F.Cu") (uuid "${U(13)}")))`;
 
-  let saved: [string, string][];
-  let deleted: [string, string][];
+  let store: FOOTPRINT_LIBRARY_STORE;
+  let written: [string, string, string][];
+  let removed: [string, string][];
   let answer: 'save' | 'discard' | 'cancel';
   let loaded: string[];
+  let questions: string[];
+  let yes: boolean;
+  let infobar: string[];
+  let reverts: string[];
+  let tree: FAKE_LIB_TREE;
+
+  /** `LIB_TREE` as the frame asks it: the selection, and what it was told. */
+  class FAKE_LIB_TREE implements LIB_TREE {
+    sel = new LIB_ID();
+    selected: string[] = [];
+    centred: string[] = [];
+    GetSelectedTreeNodes(): number {
+      return 0;
+    }
+    Regenerate(): void {}
+    CenterLibId(aLibId: LIB_ID): void {
+      this.centred.push(aLibId.Format());
+    }
+    GetSelectedLibId(): LIB_ID {
+      return new LIB_ID(this.sel.GetLibNickname(), this.sel.GetLibItemName());
+    }
+    SelectLibId(aLibId: LIB_ID): void {
+      this.sel = aLibId;
+      this.selected.push(aLibId.Format());
+    }
+    Unselect(): void {
+      this.sel = new LIB_ID();
+    }
+    RefreshLibTree(): void {}
+  }
 
   beforeEach(() => {
-    saved = [];
-    deleted = [];
+    written = [];
+    removed = [];
     answer = 'cancel';
     loaded = [];
+    questions = [];
+    yes = true;
+    infobar = [];
+    reverts = [];
+    store = new FOOTPRINT_LIBRARY_STORE({
+      footprintText: (_aNick, aName) => Promise.resolve(FP_TEXT(aName)),
+      flipLeftRight: () => false,
+      writeFootprintFile: (aDir, aFile, aText) => written.push([aDir, aFile, aText]),
+      removeFootprintFile: (aDir, aFile) => removed.push([aDir, aFile]),
+    });
+    store.AddProjectLibrary('Lib', 'Lib.pretty', [
+      { fileName: 'R.kicad_mod', text: FP_TEXT('R') },
+      { fileName: 'C.kicad_mod', text: FP_TEXT('C') },
+      { fileName: 'L.kicad_mod', text: FP_TEXT('L') },
+    ]);
+    store.AddGlobalLibrary('Hosted', ['H']);
+    SetQuestionPresenter((aMessage: string) => {
+      questions.push(aMessage);
+      return Promise.resolve(yes);
+    });
+    tree = new FAKE_LIB_TREE();
     frame = new FOOTPRINT_EDIT_FRAME({
       fpEdit: () => {},
-      // FOOTPRINT_LIBRARY_ADAPTER::LoadFootprint names the footprint by its library.
-      loadFootprintFromLibrary: (aId: LIB_ID) => {
-        const fp = ParseFootprintFile(FP_TEXT(aId.GetLibItemName()));
-        fp.SetFPID(new LIB_ID(aId.GetLibNickname(), aId.GetLibItemName()));
-        return Promise.resolve(fp);
-      },
-      saveFootprintToLibrary: (aLib: string, aFp: FOOTPRINT) => {
-        // The FPID is the bare item name while the library writes it.
-        saved.push([aLib, aFp.GetFPID().Format()]);
-        return Promise.resolve();
-      },
-      deleteFootprintFromLibrary: (aNick: string, aName: string) => {
-        deleted.push([aNick, aName]);
-        return Promise.resolve();
-      },
       askUnsavedChanges: () => Promise.resolve(answer),
-      isOK: () => Promise.resolve(true),
       onFootprintLoaded: (aId: LIB_ID) => loaded.push(aId.Format()),
+      showInfoBarError: (aMsg: string) => infobar.push(aMsg),
+      showInfoBarWarning: (aMsg: string) => infobar.push(aMsg),
+      confirmRevert: (aMsg: string) => {
+        reverts.push(aMsg);
+        return Promise.resolve(yes);
+      },
     });
+    frame.SetFootprintLibAdapter(store);
+    frame.SetLibTree(tree);
+    attachCanvas(frame);
   });
 
-  const load = (aName: string): Promise<void> =>
-    frame.LoadFootprintFromLibrary(new LIB_ID('Lib', aName));
+  /**
+   * The harness's stub canvas, which KiCad's frame always has: a zoom to fit
+   * asks its view. `DisplayBoard` puts a new board's items in that view, as
+   * PCB_DRAW_PANEL_GAL's does.
+   */
+  function attachCanvas(aFrame: FOOTPRINT_EDIT_FRAME): void {
+    const { view, controls } = harnessCanvas(aFrame.GetBoard()!, aFrame, {
+      mouse: { x: 0, y: 0 },
+      forced: null,
+      shape: null,
+    } as unknown as HARNESS_MOUSE);
+    const canvas = aFrame.GetCanvas() as unknown as Record<string, unknown>;
+    const withCrossHair = Object.assign(controls, { SetCrossHairCursorPosition: () => {} });
+    canvas.GetViewControls = () => withCrossHair;
+    canvas.DisplayBoard = (aBoard: BOARD) => {
+      view.Clear();
+      for (const item of aBoard.GetItemSet()) view.Add(item);
+    };
+    canvas.UpdateColors = () => {};
+    // PCB_DRAW_PANEL_GAL::GetDefaultViewBBox: the footprint editor has no sheet to fit.
+    canvas.GetDefaultViewBBox = () => null;
+    aFrame.SetBoard(aFrame.GetBoard());
+    aFrame
+      .GetToolManager()!
+      .SetEnvironment(aFrame.GetBoard(), view, withCrossHair, aFrame.config(), aFrame);
+  }
+
+  const load = (aName: string, aLib = 'Lib'): Promise<void> =>
+    frame.LoadFootprintFromLibrary(new LIB_ID(aLib, aName));
+  /** Every handler starts its async half and returns; let it finish. */
+  const settle = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
+  const run = async (aAction: TOOL_ACTION): Promise<void> => {
+    frame.GetToolManager()!.RunAction(aAction);
+    await settle();
+  };
 
   it('loads the footprint onto an emptied board, ref and value filled in, unmodified', async () => {
     await load('R');
@@ -149,10 +235,18 @@ describe('the library round trip (footprint_editor_utils.cpp, footprint_librarie
     const fp = frame.GetBoard()!.GetFirstFootprint()!;
     expect(fp.GetFPID().Format()).toBe('Lib:R');
     expect(fp.GetReference()).toBe('Ref**');
-    expect(fp.GetValue()).toBe('Val**');
+    expect(fp.GetValue()).toBe('R');
     expect(frame.IsContentModified()).toBe(false);
     expect(frame.GetBoard()!.IsFootprintHolder()).toBe(true);
+    // Clear_Pcb's new board is given the frame's libraries.
+    expect(frame.GetBoard()!.GetFootprintLibAdapter()).toBe(store);
     expect(loaded).toEqual(['Lib:R']);
+  });
+
+  it('a hosted footprint is fetched before it is loaded', async () => {
+    await load('H', 'Hosted');
+
+    expect(frame.GetLoadedFPID().Format()).toBe('Hosted:H');
   });
 
   it('a modified footprint asks first: Cancel keeps it, Discard drops it, Save saves it', async () => {
@@ -161,43 +255,214 @@ describe('the library round trip (footprint_editor_utils.cpp, footprint_librarie
 
     answer = 'cancel';
     await load('C');
-    expect(frame.GetBoard()!.GetFirstFootprint()!.GetFPID().GetLibItemName()).toBe('R');
+    expect(frame.GetLoadedFPID().GetLibItemName()).toBe('R');
 
     answer = 'save';
     await load('C');
-    expect(saved).toEqual([['Lib', 'R']]);
-    expect(frame.GetBoard()!.GetFirstFootprint()!.GetFPID().GetLibItemName()).toBe('C');
+    expect(written.map(([d, f]) => [d, f])).toEqual([['Lib.pretty', 'R.kicad_mod']]);
+    expect(frame.GetLoadedFPID().GetLibItemName()).toBe('C');
 
     frame.OnModify();
     answer = 'discard';
     await load('L');
-    expect(saved).toHaveLength(1);
-    expect(frame.GetBoard()!.GetFirstFootprint()!.GetFPID().GetLibItemName()).toBe('L');
+    expect(written).toHaveLength(1);
+    expect(frame.GetLoadedFPID().GetLibItemName()).toBe('L');
   });
 
-  it('saving a renamed footprint deletes the old file first and restores the nickname', async () => {
+  it('writes the footprint under its bare item name, then restores the nickname', async () => {
+    await load('R');
+    const fp = frame.GetBoard()!.GetFirstFootprint()!;
+
+    expect(await frame.SaveFootprint(fp)).toBe(true);
+    expect(written[0]![2]).toMatch(/^\(footprint "R"/);
+    expect(fp.GetFPID().Format()).toBe('Lib:R');
+  });
+
+  it('saving a renamed footprint deletes the old file first', async () => {
     await load('R');
     const fp = frame.GetBoard()!.GetFirstFootprint()!;
     fp.SetFPID(new LIB_ID('Lib', 'R_new'));
 
     expect(await frame.SaveFootprint(fp)).toBe(true);
-    expect(deleted).toEqual([['Lib', 'R']]);
-    expect(saved).toEqual([['Lib', 'R_new']]);
-    expect(fp.GetFPID().Format()).toBe('Lib:R_new');
+    expect(removed).toEqual([['Lib.pretty', 'R.kicad_mod']]);
+    expect(written.map(([, f]) => f)).toEqual(['R_new.kicad_mod']);
+    expect(store.GetFootprintNames('Lib')).toEqual(['C', 'L', 'R_new']);
     expect(frame.GetFootprintNameWhenLoaded()).toBe('R_new');
   });
 
-  it('a read-only library refuses a delete', async () => {
-    frame = new FOOTPRINT_EDIT_FRAME({
-      fpEdit: () => {},
-      isFootprintLibWritable: () => false,
-      deleteFootprintFromLibrary: (aNick: string, aName: string) => {
-        deleted.push([aNick, aName]);
-        return Promise.resolve();
-      },
+  it('a read-only library refuses a delete, on the infobar, without asking', async () => {
+    expect(await frame.DeleteFootprintFromLibrary(new LIB_ID('Hosted', 'H'), true)).toBe(false);
+    expect(infobar).toEqual(["Library 'Hosted' is read only."]);
+    expect(questions).toEqual([]);
+  });
+
+  it('a delete asks first, and No keeps the footprint', async () => {
+    yes = false;
+    expect(await frame.DeleteFootprintFromLibrary(new LIB_ID('Lib', 'C'), true)).toBe(false);
+    expect(questions).toEqual(["Delete footprint 'C' from library 'Lib'?"]);
+    expect(store.FootprintExists('Lib', 'C')).toBe(true);
+
+    yes = true;
+    expect(await frame.DeleteFootprintFromLibrary(new LIB_ID('Lib', 'C'), true)).toBe(true);
+    expect(store.FootprintExists('Lib', 'C')).toBe(false);
+  });
+
+  it('a duplicate takes the first free <name>_<n>, its value following', async () => {
+    store.AddProjectLibrary('Dup', 'Dup.pretty', [
+      { fileName: 'R.kicad_mod', text: FP_TEXT('R') },
+      { fileName: 'R_1.kicad_mod', text: FP_TEXT('R_1') },
+    ]);
+    const fp = store.LoadFootprint('Dup', 'R', true)!;
+
+    expect(await frame.DuplicateFootprint(fp)).toBe(true);
+    expect(fp.GetFPID().Format()).toBe('Dup:R_2');
+    expect(fp.GetValue()).toBe('R_2');
+    expect(store.GetFootprintNames('Dup')).toEqual(['R', 'R_1', 'R_2']);
+  });
+
+  it('revert asks, then puts the as-loaded footprint back, unmodified', async () => {
+    await load('R');
+    frame.GetBoard()!.GetFirstFootprint()!.SetValue('changed');
+    frame.OnModify();
+
+    expect(await frame.RevertFootprint()).toBe(true);
+    expect(reverts).toEqual(["Revert 'R' to last version saved?"]);
+    expect(frame.GetBoard()!.GetFirstFootprint()!.GetValue()).toBe('R');
+    expect(frame.IsContentModified()).toBe(false);
+  });
+
+  it('an unmodified footprint has nothing to revert to', async () => {
+    await load('R');
+
+    expect(await frame.RevertFootprint()).toBe(false);
+    expect(reverts).toEqual([]);
+  });
+
+  it('GetTargetFPID is the tree selection, else the loaded footprint', async () => {
+    await load('R');
+    expect(frame.GetTargetFPID().Format()).toBe('Lib:R');
+
+    tree.sel = new LIB_ID('Lib', 'C');
+    expect(frame.GetTargetFPID().Format()).toBe('Lib:C');
+  });
+
+  it('UpdateTitle is KiCad’s: a star when modified, [Read Only] for a hosted library', async () => {
+    const titles: string[] = [];
+    frame = new FOOTPRINT_EDIT_FRAME({ fpEdit: () => {}, setTitle: (t) => titles.push(t) });
+    frame.SetFootprintLibAdapter(store);
+    attachCanvas(frame);
+
+    frame.UpdateTitle();
+    await frame.LoadFootprintFromLibrary(new LIB_ID('Lib', 'R'));
+    frame.OnModify();
+    frame.UpdateTitle();
+    await frame.Clear_Pcb(false);
+    await frame.LoadFootprintFromLibrary(new LIB_ID('Hosted', 'H'));
+    frame.UpdateTitle();
+
+    expect(titles).toEqual([
+      '[no footprint loaded] — Footprint Editor',
+      '*Lib:R — Footprint Editor',
+      'Hosted:H [Read Only] — Footprint Editor',
+    ]);
+  });
+
+  describe('FOOTPRINT_EDITOR_CONTROL', () => {
+    it('Save writes the loaded footprint and clears the modify flag', async () => {
+      await load('R');
+      frame.OnModify();
+      tree.sel = new LIB_ID('Lib', 'R');
+
+      await run(ACTIONS.save);
+
+      expect(written.map(([, f]) => f)).toEqual(['R.kicad_mod']);
+      expect(frame.IsContentModified()).toBe(false);
     });
 
-    expect(await frame.DeleteFootprintFromLibrary(new LIB_ID('Lib', 'R'), false)).toBe(false);
-    expect(deleted).toEqual([]);
+    it('Save does nothing when the tree targets another footprint', async () => {
+      await load('R');
+      frame.OnModify();
+      tree.sel = new LIB_ID('Lib', 'C');
+
+      await run(ACTIONS.save);
+
+      expect(written).toEqual([]);
+      expect(frame.IsContentModified()).toBe(true);
+    });
+
+    it('New Footprint in a writable library is saved there at once', async () => {
+      tree.sel = new LIB_ID('Lib', '');
+
+      await run(PCB_ACTIONS.newFootprint);
+
+      expect(frame.GetLoadedFPID().Format()).toBe('Lib:Untitled');
+      expect(store.FootprintExists('Lib', 'Untitled')).toBe(true);
+      expect(frame.IsContentModified()).toBe(false);
+    });
+
+    it('New Footprint in a read-only library stays unsaved, with a warning', async () => {
+      tree.sel = new LIB_ID('Hosted', '');
+
+      await run(PCB_ACTIONS.newFootprint);
+
+      expect(frame.GetBoard()!.GetFirstFootprint()).not.toBeNull();
+      expect(written).toEqual([]);
+      expect(infobar).toEqual([
+        "The footprint could not be added to the selected library ('Hosted'). This library is read-only.",
+      ]);
+    });
+
+    it('Delete Footprint removes the tree target and empties the board when it was loaded', async () => {
+      await load('R');
+      tree.sel = new LIB_ID('Lib', 'R');
+
+      await run(PCB_ACTIONS.deleteFootprint);
+
+      expect(store.FootprintExists('Lib', 'R')).toBe(false);
+      expect(frame.GetBoard()!.GetFirstFootprint()).toBeNull();
+    });
+
+    it('Copy then Paste Footprint saves a _copy into the selected library and loads it', async () => {
+      tree.sel = new LIB_ID('Lib', 'C');
+      await run(PCB_ACTIONS.copyFootprint);
+      tree.sel = new LIB_ID('Lib', '');
+      await run(PCB_ACTIONS.pasteFootprint);
+
+      expect(store.GetFootprintNames('Lib')).toEqual(['R', 'C', 'L', 'C_copy']);
+      expect(frame.GetLoadedFPID().Format()).toBe('Lib:C_copy');
+      expect(tree.selected).toContain('Lib:C_copy');
+    });
+
+    it('Cut Footprint copies, then deletes the original', async () => {
+      tree.sel = new LIB_ID('Lib', 'L');
+      await run(PCB_ACTIONS.cutFootprint);
+
+      expect(store.FootprintExists('Lib', 'L')).toBe(false);
+    });
+
+    it('Repair Footprint replaces duplicate UUIDs, the footprint keeping its own', async () => {
+      await load('R');
+      const fp = frame.GetBoard()!.GetFirstFootprint()!;
+      const pad = fp.Pads()[0]!;
+      (pad as { m_Uuid: string }).m_Uuid = fp.m_Uuid;
+      const info: string[] = [];
+      SetInfoPresenter((aMsg: string) => {
+        info.push(aMsg);
+        return Promise.resolve();
+      });
+
+      await run(PCB_ACTIONS.repairFootprint);
+
+      expect(fp.m_Uuid).toBe(U(10));
+      expect(pad.m_Uuid).not.toBe(U(10));
+      expect(info).toEqual(['1 potential problems repaired.']);
+      expect(frame.IsContentModified()).toBe(true);
+    });
+
+    it('a line mode is written into the footprint editor settings', async () => {
+      await run(PCB_ACTIONS.lineMode90);
+
+      expect(frame.GetFootprintEditorSettings().m_AngleSnapMode).toBe(LEADER_MODE.DEG90);
+    });
   });
 });

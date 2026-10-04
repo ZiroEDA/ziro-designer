@@ -34,6 +34,7 @@ import type { VIEW } from '@ziroeda/common/view/view.js';
 import { PCB_DRAW_PANEL_GAL } from './pcb_draw_panel_gal.js';
 import type { PCB_DISPLAY_OPTIONS } from './pcb_painter.js';
 import type { PCB_EDIT_FRAME } from './pcb_edit_frame.js';
+import type { PCB_BASE_FRAME } from './pcb_base_frame.js';
 import { type KiCursor, kiCursor } from '@ziroeda/common/gal/kicursors.js';
 import { drawPanelWindow } from '@ziroeda/common/gal/gal_window.js';
 
@@ -52,7 +53,7 @@ export { loadBitmapFontImage } from '@ziroeda/common/gal/gal_window.js';
  *         as pcbnew is without OpenGL.
  */
 export function createPcbDrawPanel(
-  aFrame: PCB_EDIT_FRAME,
+  aFrame: PCB_BASE_FRAME,
   aCanvas: HTMLCanvasElement,
   aFontImage: ImageBitmap,
 ): PCB_DRAW_PANEL_GAL | null {
@@ -96,7 +97,7 @@ export function createPcbDrawPanel(
  * project's own.
  */
 export function attachBoardToPanel(
-  aFrame: PCB_EDIT_FRAME,
+  aFrame: PCB_BASE_FRAME,
   aPanel: PCB_DRAW_PANEL_GAL,
   aBoard: BOARD,
 ): void {

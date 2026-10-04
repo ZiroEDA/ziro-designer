@@ -33,6 +33,8 @@ import type { PcbFootprint, PcbTextItem } from './types.js';
 import type { FP_EDIT_JSON_SETTINGS_LIKE as FpEditSettings } from './footprint_editor_settings.js';
 import { fpTextDefaults } from './footprint_editor_settings.js';
 import { fpNameOf } from './footprint_libraries_utils.js';
+import type { LIB_ID } from '@ziroeda/common/lib_id.js';
+import type { FOOTPRINT_EDIT_FRAME } from './footprint_edit_frame.js';
 
 /**
  * `${REFERENCE}` and friends, resolved the way a new footprint resolves them.
@@ -142,4 +144,37 @@ export function fpTargetOf(path: string): { lib: string; name: string } {
     .split('/')
     .pop()!;
   return { lib, name: fpNameOf(norm) };
+}
+
+/** `FOOTPRINT_EDIT_FRAME`'s `footprint_editor_utils.cpp` half, mixed into that class by `footprint_edit_frame.ts`. */
+export class FOOTPRINT_EDITOR_UTILS_MIXIN {
+  /**
+   * `FOOTPRINT_EDIT_FRAME::LoadFootprintFromLibrary` (footprint_editor_utils.cpp:57-104):
+   * the footprint out of its library onto an emptied holder board, with a
+   * reference and value to see, unmodified.
+   */
+  async LoadFootprintFromLibrary(this: FOOTPRINT_EDIT_FRAME, aFPID: LIB_ID): Promise<void> {
+    const footprint = await this.LoadFootprint(aFPID);
+
+    if (!footprint) return;
+
+    if (!(await this.Clear_Pcb(true))) return;
+
+    this.GetCanvas()?.GetViewControls().SetCrossHairCursorPosition({ x: 0, y: 0 }, false);
+    this.AddFootprintToBoard(footprint);
+
+    footprint.ClearFlags();
+
+    // if either reference or value are missing, reinstall them -
+    // otherwise you cannot see what you are doing on board
+    if (footprint.Reference().GetText() === '') footprint.SetReference('Ref**');
+
+    if (footprint.Value().GetText() === '') footprint.SetValue('Val**');
+
+    this.GetScreen()?.SetContentModified(false);
+
+    // Zoom_Automatique, Update3DView, the tree's ExpandLibId and the idle
+    // CenterLibId: the window's.
+    this.hooks.onFootprintLoaded?.(aFPID);
+  }
 }

@@ -84,7 +84,7 @@ class PAGE_FRAME extends TEST_PCB_FRAME {
     return Promise.resolve(pasteSpecial);
   }
 
-  SelectFootprintFromLibrary(): Promise<FOOTPRINT | null> {
+  override SelectFootprintFromLibrary(): Promise<FOOTPRINT | null> {
     return Promise.resolve(chosenFootprint ? chosenFootprint() : null);
   }
 

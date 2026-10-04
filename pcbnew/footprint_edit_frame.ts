@@ -55,6 +55,9 @@ import { MAIL_T } from '@ziroeda/common/mail_type.js';
 import { applyMixins } from '@ziroeda/core/mixins.js';
 import { parse } from '@ziroeda/sexpr';
 import { FOOTPRINT_EDIT_FRAME_LOAD_SELECT_MIXIN } from './load_select_footprint.js';
+import { FOOTPRINT_EDIT_FRAME_INITPCB_MIXIN } from './initpcb.js';
+import { FOOTPRINT_EDITOR_UTILS_MIXIN } from './footprint_editor_utils.js';
+import { FOOTPRINT_LIBRARIES_UTILS_MIXIN } from './footprint_libraries_utils.js';
 import {
   frameTitle,
   type FrameTitleParts,
@@ -67,6 +70,13 @@ import { defaultUnitsToggle } from '@ziroeda/common/settings/app_settings_units.
 import type { FP_EDIT_JSON_SETTINGS_LIKE as FpEditSettings } from './footprint_editor_settings.js';
 import { readFootprintFile } from './pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { type Board, type PcbFootprint, type PcbLayerDef } from './types.js';
+import { FOOTPRINT_EDITOR_CONTROL } from './tools/footprint_editor_control.js';
+import { LIBRARY_EDITOR_CONTROL } from '@ziroeda/common/tool/library_editor_control.js';
+import type { LIB_TREE } from '@ziroeda/common/eda_draw_frame.js';
+import type { ChooserFilter } from '@ziroeda/common/wx/filedlg.js';
+import type { KiDialogRequest } from '@ziroeda/common/kidialog.js';
+import type { KiDialogResult } from '@ziroeda/common/kidialog_do_not_show.js';
+import type { FOOTPRINT_LIBRARY_ADAPTER } from './footprint_library_adapter.js';
 
 export interface FOOTPRINT_EDIT_FRAME_HOOKS {
   /**
@@ -87,33 +97,76 @@ export interface FOOTPRINT_EDIT_FRAME_HOOKS {
   /** `OnModify()`'s window half: the title's modified mark. */
   onModify?(): void;
   /**
-   * `PROJECT_PCB::FootprintLibAdapter( &Prj() )->LoadFootprint( nickname, name,
-   * keepUUID )`: the library's file, read. Null when it holds no such footprint;
-   * throws IO_ERROR when the library cannot be read.
-   */
-  loadFootprintFromLibrary?(aFootprintId: LIB_ID, aKeepUUID: boolean): Promise<FOOTPRINT | null>;
-  /** `adapter->SaveFootprint( aLibraryName, aFootprint )`; throws IO_ERROR. */
-  saveFootprintToLibrary?(aLibraryName: string, aFootprint: FOOTPRINT): Promise<void>;
-  /** `adapter->DeleteFootprint( nickname, fpname )`; throws IO_ERROR. */
-  deleteFootprintFromLibrary?(aNickname: string, aFootprintName: string): Promise<void>;
-  /** `adapter->IsFootprintLibWritable( nickname )`. */
-  isFootprintLibWritable?(aNickname: string): boolean;
-  /**
    * `UnsavedChangesDialog( this, aMessage, ... )`: Save, Discard Changes or
    * Cancel. Without a window there is nobody to ask, and nothing is saved.
    */
   askUnsavedChanges?(aMessage: string): Promise<UnsavedChangesResult>;
-  /** `IsOK( this, aMessage )`. */
-  isOK?(aMessage: string): Promise<boolean>;
   /** The window's half of LoadFootprintFromLibrary: zoom to fit, the 3D view, the tree. */
   onFootprintLoaded?(aFPID: LIB_ID): void;
-  /** `SyncLibraryTree( true )`. */
+  /**
+   * `SyncLibraryTree`'s middle: `adapter->Sync( footprints )` and
+   * `GetLibTree()->Regenerate( true )` — the tree's rows rebuilt from the
+   * library adapter, the expanded libraries kept.
+   */
   syncLibraryTree?(): void;
   /** `EDA_BASE_FRAME::ShowInfoBarError`: the window's infobar. */
   showInfoBarError?(aErrorMsg: string, aShowCloseButton: boolean): void;
+  /** `EDA_BASE_FRAME::ShowInfoBarWarning`. */
+  showInfoBarWarning?(aWarningMsg: string, aShowCloseButton: boolean): void;
+  /** `EDA_BASE_FRAME::ShowInfoBarMsg`. */
+  showInfoBarMsg?(aMsg: string, aShowCloseButton: boolean): void;
+  /** `wxFrame::SetTitle`, which `UpdateTitle` ends with. */
+  setTitle?(aTitle: string): void;
+  /** `m_auimgr.GetPane( m_treePane ).IsShown()`. Shown when there is no window. */
+  isLibraryTreeShown?(): boolean;
+  /** `ToggleLibraryTree()`'s pane half. */
+  toggleLibraryTree?(): void;
+  /** `ToggleLayersManager()`'s pane half: the Appearance and Selection Filter panes. */
+  toggleLayersManager?(): void;
+  /** `ToggleProperties()`'s pane half. */
+  toggleProperties?(): void;
+  /**
+   * `ConfirmRevertDialog( this, aMessage )` (confirm.cpp): Revert or Cancel,
+   * with "Your current changes will be permanently lost." under it.
+   */
+  confirmRevert?(aMessage: string): Promise<boolean>;
+  /**
+   * `SAVE_AS_DIALOG( this, footprintName, libraryName, validator )` and its
+   * ShowModal: the library and name chosen, or null for Cancel. The window
+   * runs `aValidator` on OK and keeps the dialog up while it answers false.
+   */
+  showSaveAsDialog?(
+    aFootprintName: string,
+    aLibraryName: string,
+    aValidator: (aNewLib: string, aNewName: string) => Promise<boolean>,
+  ): Promise<{ library: string; name: string } | null>;
+  /**
+   * `ImportFootprint`'s `wxFileDialog( this, _( "Import Footprint" ), m_mruPath,
+   * …, wxFD_OPEN | wxFD_FILE_MUST_EXIST )`: the file chosen, read, or null.
+   */
+  showImportFootprintDialog?(): Promise<{ path: string; text: string } | null>;
+  /**
+   * A save-mode `wxFileDialog( this, aTitle, aDefaultDir, aDefaultName, aWildcard,
+   * wxFD_SAVE | wxFD_OVERWRITE_PROMPT )`: the path chosen, or null.
+   */
+  showSaveFileDialog?(
+    aTitle: string,
+    aDefaultName: string,
+    aWildcard: ChooserFilter,
+  ): Promise<{ path: string } | null>;
+  /** `wxFopen( path, "wt" )` + `fprintf`: false when it could not be written. */
+  writeTextFile?(aPath: string, aText: string): boolean;
+  /** `GetInfoBar()->Dismiss()` when it is shown with a close button. */
+  dismissInfoBar?(): void;
+  /** `KIDIALOG( this, … ).ShowModal()`, through the window's KiDialog host. */
+  askKiDialog?(aRequest: KiDialogRequest): Promise<KiDialogResult>;
 }
 
-export interface FOOTPRINT_EDIT_FRAME extends FOOTPRINT_EDIT_FRAME_LOAD_SELECT_MIXIN {}
+export interface FOOTPRINT_EDIT_FRAME
+  extends FOOTPRINT_EDIT_FRAME_LOAD_SELECT_MIXIN,
+    FOOTPRINT_EDIT_FRAME_INITPCB_MIXIN,
+    FOOTPRINT_EDITOR_UTILS_MIXIN,
+    FOOTPRINT_LIBRARIES_UTILS_MIXIN {}
 
 /**
  * `FOOTPRINT_EDIT_FRAME` (pcbnew/footprint_edit_frame.cpp): a PCB_BASE_EDIT_FRAME
@@ -122,13 +175,23 @@ export interface FOOTPRINT_EDIT_FRAME extends FOOTPRINT_EDIT_FRAME_LOAD_SELECT_M
  * mode. The canvas is the window's and arrives later (`ActivateGalCanvas`),
  * as PCB_EDIT_FRAME's does.
  */
-// biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (FOOTPRINT_EDIT_FRAME_LOAD_SELECT_MIXIN, see libs/core/mixins.ts)
+// biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (the four *_MIXIN halves, see libs/core/mixins.ts)
 export class FOOTPRINT_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   protected readonly hooks: FOOTPRINT_EDIT_FRAME_HOOKS;
   /** `m_originalFootprintCopy`: the footprint as loaded, for IsContentModified. */
   private m_originalFootprintCopy: FOOTPRINT | null = null;
   /** `m_footprintNameWhenLoaded`. */
-  private m_footprintNameWhenLoaded = '';
+  protected m_footprintNameWhenLoaded = '';
+  /**
+   * `PROJECT_PCB::FootprintLibAdapter( &Prj() )`: the libraries this frame
+   * loads from and saves to. Every holder board `Clear_Pcb` makes is given it,
+   * as KiCad's is given the project.
+   */
+  protected m_footprintLibAdapter: FOOTPRINT_LIBRARY_ADAPTER | null = null;
+  /** `GetLibTree()`: the Footprints pane's LIB_TREE, once the window has one. */
+  protected m_libTree: LIB_TREE | null = null;
+  /** `m_mruPath`: where Export last went, when `m_LastExportPath` is empty. */
+  protected m_mruPath = '';
 
   constructor(hooks: FOOTPRINT_EDIT_FRAME_HOOKS) {
     super(FRAME_T.FRAME_FOOTPRINT_EDITOR);
@@ -167,8 +230,8 @@ export class FOOTPRINT_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     this.m_toolManager.RegisterTool(new DRAWING_TOOL());
     this.m_toolManager.RegisterTool(new PCB_POINT_EDITOR());
     this.m_toolManager.RegisterTool(new PCB_CONTROL()); // copy/paste
-    // Not yet TOOLs: LIBRARY_EDITOR_CONTROL, FOOTPRINT_EDITOR_CONTROL (the
-    // library tree is still the window's).
+    this.m_toolManager.RegisterTool(new LIBRARY_EDITOR_CONTROL());
+    this.m_toolManager.RegisterTool(new FOOTPRINT_EDITOR_CONTROL());
     this.m_toolManager.RegisterTool(new ALIGN_DISTRIBUTE_TOOL());
     this.m_toolManager.RegisterTool(new PCB_PICKER_TOOL());
     this.m_toolManager.RegisterTool(new POSITION_RELATIVE_TOOL());
@@ -212,12 +275,19 @@ export class FOOTPRINT_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
 
   private m_fallbackSettings: PCBNEW_SETTINGS | null = null;
 
+  /**
+   * `m_editorSettings`, `GetAppSettings<FOOTPRINT_EDITOR_SETTINGS>( "fpedit" )`:
+   * one object for the frame's life, so what a tool writes into it stays
+   * written. The window keeps it and `fpedit.json` in step.
+   */
+  private readonly m_editorSettings: FOOTPRINT_EDITOR_SETTINGS_LIKE = {
+    m_DisplayInvertXAxis: false,
+    m_DisplayInvertYAxis: false,
+    m_AngleSnapMode: LEADER_MODE.DIRECT,
+  };
+
   GetFootprintEditorSettings(): FOOTPRINT_EDITOR_SETTINGS_LIKE {
-    return {
-      m_DisplayInvertXAxis: false,
-      m_DisplayInvertYAxis: false,
-      m_AngleSnapMode: LEADER_MODE.DIRECT,
-    };
+    return this.m_editorSettings;
   }
 
   /**
@@ -241,15 +311,240 @@ export class FOOTPRINT_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     aFootprint.FixUuids();
   }
 
+  /** `PROJECT_PCB::FootprintLibAdapter( &Prj() )`. */
+  FootprintLibAdapter(): FOOTPRINT_LIBRARY_ADAPTER | null {
+    return this.m_footprintLibAdapter;
+  }
+
+  /** The project's libraries, handed to the frame and to its holder board. */
+  SetFootprintLibAdapter(aAdapter: FOOTPRINT_LIBRARY_ADAPTER | null): void {
+    this.m_footprintLibAdapter = aAdapter;
+    this.GetBoard()?.SetFootprintLibAdapter(aAdapter);
+  }
+
+  /**
+   * `LoadFootprint`'s library read, through this frame's adapter. A hosted
+   * library's file may not be fetched yet, so the asynchronous read is asked
+   * first when the adapter has one.
+   */
   override loadFootprintFromLibraryWindow(
     aFootprintId: LIB_ID,
     aKeepUUID: boolean,
   ): Promise<FOOTPRINT | null> | null {
-    return this.hooks.loadFootprintFromLibrary?.(aFootprintId, aKeepUUID) ?? null;
+    const adapter = this.m_footprintLibAdapter;
+    const nickname = aFootprintId.GetUniStringLibNickname();
+
+    if (!adapter?.LoadFootprintAsync || nickname === '') return null;
+
+    return adapter.LoadFootprintAsync(nickname, aFootprintId.GetUniStringLibItemName(), aKeepUUID);
   }
 
   override ShowInfoBarError(aErrorMsg: string, aShowCloseButton = false): void {
     this.hooks.showInfoBarError?.(aErrorMsg, aShowCloseButton);
+  }
+
+  override ShowInfoBarWarning(aWarningMsg: string, aShowCloseButton = false): void {
+    this.hooks.showInfoBarWarning?.(aWarningMsg, aShowCloseButton);
+  }
+
+  override ShowInfoBarMsg(aMsg: string, aShowCloseButton = false): void {
+    this.hooks.showInfoBarMsg?.(aMsg, aShowCloseButton);
+  }
+
+  /** The window's Footprints pane, or null to forget it. */
+  SetLibTree(aLibTree: LIB_TREE | null): void {
+    this.m_libTree = aLibTree;
+  }
+
+  override GetLibTree(): LIB_TREE | null {
+    return this.m_libTree;
+  }
+
+  /** `IsLibraryTreeShown()` (footprint_edit_frame.cpp:396-399). */
+  override IsLibraryTreeShown(): boolean {
+    return this.hooks.isLibraryTreeShown?.() ?? true;
+  }
+
+  /** `ToggleLibraryTree()` (:402-419). */
+  override ToggleLibraryTree(): void {
+    this.hooks.toggleLibraryTree?.();
+  }
+
+  /** `ToggleLayersManager()` (:422-444). */
+  ToggleLayersManager(): void {
+    this.hooks.toggleLayersManager?.();
+  }
+
+  override ToggleProperties(): void {
+    this.hooks.toggleProperties?.();
+  }
+
+  /**
+   * `GetTargetFPID()` (:472-483): the tree's selection when the tree is shown,
+   * else — or when nothing is selected there — the loaded footprint.
+   */
+  GetTargetFPID(): LIB_ID {
+    let id = new LIB_ID();
+
+    if (this.IsLibraryTreeShown()) id = this.GetLibTree()?.GetSelectedLibId() ?? new LIB_ID();
+
+    if (id.GetLibNickname() === '') id = this.GetLoadedFPID();
+
+    return id;
+  }
+
+  /** `ClearModify()` (:503-511). */
+  ClearModify(): void {
+    if (this.GetBoard()?.GetFirstFootprint()) {
+      this.m_footprintNameWhenLoaded = this.GetBoard()!
+        .GetFirstFootprint()!
+        .GetFPID()
+        .GetUniStringLibItemName();
+    }
+
+    this.GetScreen()?.SetContentModified(false);
+  }
+
+  /** `UpdateTitle()` (:1094-1146). */
+  UpdateTitle(): void {
+    let title = '';
+    const fpid = this.GetLoadedFPID();
+    const footprint = this.GetBoard()?.GetFirstFootprint() ?? null;
+    let writable = true;
+
+    if (this.IsCurrentFPFromBoard()) {
+      if (this.IsContentModified()) title = '*';
+
+      title += footprint!.GetReference();
+      title += ` ${fromBoardSuffix(this.Prj().GetProjectName())}`;
+    } else if (fpid.IsValid()) {
+      writable =
+        this.m_footprintLibAdapter?.IsFootprintLibWritable?.(fpid.GetLibNickname()) ?? true;
+
+      // Note: don't used GetLoadedFPID(); footprint name may have been edited
+      if (this.IsContentModified()) title = '*';
+
+      title += footprint!.GetFPID().Format();
+
+      if (!writable) title += ' [Read Only]';
+    } else if (fpid.GetLibItemName() !== '') {
+      // Note: don't used GetLoadedFPID(); footprint name may have been edited
+      if (this.IsContentModified()) title = '*';
+
+      title += footprint!.GetFPID().GetLibItemName();
+      title += ' [Unsaved]';
+    } else {
+      title = FP_NO_DOCUMENT;
+    }
+
+    title += ` \u2014 ${FP_FRAME_NAME}`;
+
+    this.hooks.setTitle?.(title);
+  }
+
+  /** `UpdateView()` (:1186-1193). */
+  UpdateView(): void {
+    const canvas = this.GetCanvas();
+
+    if (canvas) {
+      canvas.UpdateColors();
+      canvas.DisplayBoard(this.GetBoard()!);
+    }
+
+    this.m_toolManager?.ResetTools(RESET_REASON.MODEL_RELOAD);
+    this.m_propertiesPanel?.UpdateData();
+    this.UpdateTitle();
+  }
+
+  /**
+   * `SyncLibraryTree( aProgress )` (:1149-1196): the tree rebuilt from the
+   * libraries, the target footprint selected again if it was, else centred, and
+   * its library when the footprint went.
+   */
+  SyncLibraryTree(_aProgress: boolean): void {
+    const tree = this.GetLibTree();
+    const target = this.GetTargetFPID();
+    const targetSelected = tree !== null && target.equals(tree.GetSelectedLibId());
+
+    // Unselect before syncing to avoid null reference in the adapter
+    // if a selected item is removed during the sync
+    tree?.Unselect();
+
+    // Sync the LIB_TREE to the FOOTPRINT_INFO list
+    this.hooks.syncLibraryTree?.();
+
+    if (!tree || !target.IsValid()) return;
+
+    // `adapter->FindItem( target )`: the tree's rows are the adapter's, so a
+    // footprint the library holds is a row the tree holds.
+    if (
+      this.m_footprintLibAdapter?.FootprintExists(target.GetLibNickname(), target.GetLibItemName())
+    ) {
+      if (targetSelected) tree.SelectLibId(target);
+      else tree.CenterLibId(target);
+    } else {
+      // Try to focus on parent
+      target.SetLibItemName('');
+      tree.CenterLibId(target);
+    }
+  }
+
+  /** `RefreshLibraryTree()` (:1199-1202). */
+  RefreshLibraryTree(): void {
+    this.GetLibTree()?.RefreshLibTree();
+  }
+
+  /** `FocusOnLibID( aLibID )` (:1205-1208). */
+  FocusOnLibID(aLibID: LIB_ID): void {
+    this.GetLibTree()?.SelectLibId(aLibID);
+  }
+
+  /** The window's save-mode file dialog; null without a window. */
+  ShowSaveFileDialog(
+    aTitle: string,
+    aDefaultName: string,
+    aWildcard: ChooserFilter,
+  ): Promise<{ path: string } | null> {
+    return (
+      this.hooks.showSaveFileDialog?.(aTitle, aDefaultName, aWildcard) ?? Promise.resolve(null)
+    );
+  }
+
+  /** `wxFopen` + `fprintf`; false when there is nowhere to write. */
+  WriteTextFile(aPath: string, aText: string): boolean {
+    return this.hooks.writeTextFile?.(aPath, aText) ?? false;
+  }
+
+  /** `if( infobar->IsShownOnScreen() && infobar->HasCloseButton() ) infobar->Dismiss()`. */
+  DismissInfoBar(): void {
+    this.hooks.dismissInfoBar?.();
+  }
+
+  /** `KIDIALOG( this, … ).ShowModal()`. Cancel without a window. */
+  AskKiDialog(aRequest: KiDialogRequest): Promise<KiDialogResult> {
+    return this.hooks.askKiDialog?.(aRequest) ?? Promise.resolve('cancel');
+  }
+
+  /** `SAVE_AS_DIALOG( … ).ShowModal()`; Cancel without a window. */
+  ShowSaveAsDialog(
+    aFootprintName: string,
+    aLibraryName: string,
+    aValidator: (aNewLib: string, aNewName: string) => Promise<boolean>,
+  ): Promise<{ library: string; name: string } | null> {
+    return (
+      this.hooks.showSaveAsDialog?.(aFootprintName, aLibraryName, aValidator) ??
+      Promise.resolve(null)
+    );
+  }
+
+  /** `ImportFootprint`'s file dialog; Cancel without a window. */
+  ShowImportFootprintDialog(): Promise<{ path: string; text: string } | null> {
+    return this.hooks.showImportFootprintDialog?.() ?? Promise.resolve(null);
+  }
+
+  /** `ConfirmRevertDialog( this, aMessage )`; Cancel without a window. */
+  ConfirmRevertDialog(aMessage: string): Promise<boolean> {
+    return this.hooks.confirmRevert?.(aMessage) ?? Promise.resolve(false);
   }
 
   /** `IsCurrentFPFromBoard()`: the edited footprint came from the board (it has a link). */
@@ -257,198 +552,6 @@ export class FOOTPRINT_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     const footprint = this.GetBoard()?.GetFirstFootprint() ?? null;
 
     return footprint !== null && footprint.GetLink() !== niluuid;
-  }
-
-  /**
-   * `FOOTPRINT_EDIT_FRAME::Clear_Pcb` (initpcb.cpp:108-175): an empty
-   * footprint-holder board, after offering to save the edited footprint.
-   *
-   * @return false when the user cancelled.
-   */
-  async Clear_Pcb(doAskAboutUnsavedChanges: boolean): Promise<boolean> {
-    if (this.GetBoard() === null) return false;
-
-    if (doAskAboutUnsavedChanges && this.IsContentModified()) {
-      const answer =
-        (await this.hooks.askUnsavedChanges?.(
-          'The current footprint has been modified.  Save changes?',
-        )) ?? 'discard';
-
-      if (answer === 'cancel') return false;
-
-      if (answer === 'save' && !(await this.SaveFootprint(this.GetBoard()!.Footprints()[0]!)))
-        return false;
-    }
-
-    // Clear undo and redo lists because we want a full deletion
-    this.ClearUndoRedoList();
-    this.GetScreen()?.SetContentModified(false);
-
-    // Clear the view so we don't attempt redraws
-    this.GetCanvas()?.GetView().Clear();
-
-    const board = new BOARD();
-    this.SetBoard(board);
-
-    // Not ported: `GetBoard()->GetDesignSettings() = cfg->m_DesignSettings` —
-    // fpedit.json's design settings are not a BOARD_DESIGN_SETTINGS here.
-    board.SynchronizeNetsAndNetClasses(true);
-
-    // This board will only be used to hold a footprint for editing
-    board.SetBoardUse(BOARD_USE.FPHOLDER);
-
-    // Setup our own severities for the Footprint Checker.
-    // These are not (at present) user-editable.
-    const drcSeverities = board.GetDesignSettings().m_DRCSeverities;
-
-    for (let errorCode = DRCE.DRCE_FIRST; errorCode <= DRCE.DRCE_LAST; ++errorCode)
-      drcSeverities.set(errorCode, RPT_SEVERITY_ERROR);
-
-    drcSeverities.set(DRCE.DRCE_DRILLED_HOLES_COLOCATED, RPT_SEVERITY_WARNING);
-    drcSeverities.set(DRCE.DRCE_DRILLED_HOLES_TOO_CLOSE, RPT_SEVERITY_WARNING);
-
-    drcSeverities.set(DRCE.DRCE_PADSTACK, RPT_SEVERITY_WARNING);
-
-    drcSeverities.set(DRCE.DRCE_FOOTPRINT_TYPE_MISMATCH, RPT_SEVERITY_WARNING);
-
-    // clear filename, to avoid overwriting an old file
-    board.SetFileName('');
-
-    this.GetScreen()?.InitDataPoints(this.GetPageSizeIU());
-
-    return true;
-  }
-
-  /**
-   * `FOOTPRINT_EDIT_FRAME::LoadFootprintFromLibrary` (footprint_editor_utils.cpp:57-104):
-   * the footprint out of its library onto an emptied holder board, with a
-   * reference and value to see, unmodified.
-   */
-  async LoadFootprintFromLibrary(aFPID: LIB_ID): Promise<void> {
-    const footprint = await this.LoadFootprint(aFPID);
-
-    if (!footprint) return;
-
-    if (!(await this.Clear_Pcb(true))) return;
-
-    this.GetCanvas()?.GetViewControls().SetCrossHairCursorPosition({ x: 0, y: 0 }, false);
-    this.AddFootprintToBoard(footprint);
-
-    footprint.ClearFlags();
-
-    // if either reference or value are missing, reinstall them -
-    // otherwise you cannot see what you are doing on board
-    if (footprint.Reference().GetText() === '') footprint.SetReference('Ref**');
-
-    if (footprint.Value().GetText() === '') footprint.SetValue('Val**');
-
-    this.GetScreen()?.SetContentModified(false);
-
-    // Zoom_Automatique, Update3DView, the tree's ExpandLibId and the idle
-    // CenterLibId: the window's.
-    this.hooks.onFootprintLoaded?.(aFPID);
-  }
-
-  /**
-   * `FOOTPRINT_EDIT_FRAME::SaveFootprint` (footprint_libraries_utils.cpp:706-770):
-   * into its library, deleting the old name's file first when it was renamed.
-   *
-   * Not ported: the board-footprint branch (`SaveFootprintToBoard`, a footprint
-   * with a link) and Save As for an unnamed one, which are the window's still;
-   * and the legacy-library guard — every library here is a .pretty.
-   */
-  async SaveFootprint(aFootprint: FOOTPRINT | null): Promise<boolean> {
-    if (!aFootprint)
-      // Happen if no footprint loaded
-      return false;
-
-    const padTool = this.m_toolManager?.GetTool(PAD_TOOL);
-
-    if (padTool?.InPadEditMode()) this.m_toolManager!.RunAction(PCB_ACTIONS.recombinePad);
-
-    const libraryName = aFootprint.GetFPID().GetLibNickname();
-    const footprintName = aFootprint.GetFPID().GetLibItemName();
-    const nameChanged = this.m_footprintNameWhenLoaded !== footprintName;
-
-    if (libraryName === '' || footprintName === '') return false;
-
-    if (nameChanged) {
-      const oldFPID = new LIB_ID(libraryName, this.m_footprintNameWhenLoaded);
-      await this.DeleteFootprintFromLibrary(oldFPID, false);
-    }
-
-    if (!(await this.SaveFootprintInLibrary(aFootprint, libraryName))) return false;
-
-    if (nameChanged) {
-      this.m_footprintNameWhenLoaded = footprintName;
-      this.hooks.syncLibraryTree?.();
-    }
-
-    return true;
-  }
-
-  /**
-   * `FOOTPRINT_EDIT_FRAME::SaveFootprintInLibrary` (:818-850): the footprint
-   * written under its item name alone, every child's flags cleared.
-   */
-  async SaveFootprintInLibrary(aFootprint: FOOTPRINT, aLibraryName: string): Promise<boolean> {
-    try {
-      aFootprint.SetFPID(new LIB_ID('', aFootprint.GetFPID().GetLibItemName()));
-
-      // Clear selected, brightened, temp flags, edit flags, the whole shebang.
-      aFootprint.RunOnChildren((child) => {
-        child.ClearFlags();
-      }, RECURSE_MODE.RECURSE);
-
-      await this.hooks.saveFootprintToLibrary?.(aLibraryName, aFootprint);
-
-      aFootprint.SetFPID(new LIB_ID(aLibraryName, aFootprint.GetFPID().GetLibItemName()));
-
-      // Not ported: setFPWatcher, the file-system watcher.
-      return true;
-    } catch (ioe) {
-      if (!(ioe instanceof IO_ERROR)) throw ioe;
-
-      DisplayErrorMessage(ioe.What());
-
-      aFootprint.SetFPID(new LIB_ID(aLibraryName, aFootprint.GetFPID().GetLibItemName()));
-      return false;
-    }
-  }
-
-  /**
-   * `FOOTPRINT_EDIT_FRAME::DeleteFootprintFromLibrary` (:900-945): the file
-   * out of a writable library, after asking when `aConfirm`.
-   */
-  async DeleteFootprintFromLibrary(aFPID: LIB_ID, aConfirm: boolean): Promise<boolean> {
-    if (!aFPID.IsValid()) return false;
-
-    const nickname = aFPID.GetLibNickname();
-    const fpname = aFPID.GetLibItemName();
-
-    if (!(this.hooks.isFootprintLibWritable?.(nickname) ?? true)) {
-      const msg = `Library '${nickname}' is read only.`;
-      this.ShowInfoBarError(msg);
-      return false;
-    }
-
-    // Confirmation
-    const msg = `Delete footprint '${fpname}' from library '${nickname}'?`;
-
-    if (aConfirm && !(await (this.hooks.isOK?.(msg) ?? Promise.resolve(false)))) return false;
-
-    try {
-      await this.hooks.deleteFootprintFromLibrary?.(nickname, fpname);
-    } catch (ioe) {
-      if (!(ioe instanceof IO_ERROR)) throw ioe;
-
-      DisplayErrorMessage(ioe.What());
-      return false;
-    }
-
-    this.SetStatusText(`Footprint '${fpname}' deleted from library '${nickname}'`);
-
-    return true;
   }
 
   /** `AddFootprintToBoard` (:722-730): ReloadFootprint; the file watcher is not ported. */
@@ -501,7 +604,12 @@ export class FOOTPRINT_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   }
 }
 
-applyMixins(FOOTPRINT_EDIT_FRAME, [FOOTPRINT_EDIT_FRAME_LOAD_SELECT_MIXIN]);
+applyMixins(FOOTPRINT_EDIT_FRAME, [
+  FOOTPRINT_EDIT_FRAME_LOAD_SELECT_MIXIN,
+  FOOTPRINT_EDIT_FRAME_INITPCB_MIXIN,
+  FOOTPRINT_EDITOR_UTILS_MIXIN,
+  FOOTPRINT_LIBRARIES_UTILS_MIXIN,
+]);
 
 // --- FOOTPRINT_EDIT_FRAME::UpdateTitle (was footprint_edit_frame_title.ts) ---
 

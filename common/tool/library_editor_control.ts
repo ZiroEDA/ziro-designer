@@ -43,14 +43,18 @@ function wxTrimBoth(aText: string): string {
 export class RENAME_DIALOG {
   static readonly MESSAGE = 'New name:';
 
+  /**
+   * @param m_validator may itself ask a modal question — FOOTPRINT_EDITOR_CONTROL's
+   *        asks "Overwrite" with a KIDIALOG — so it may answer later.
+   */
   constructor(
     readonly aTitle: string,
     readonly aName: string,
-    private readonly m_validator: (aNewName: string) => boolean,
+    private readonly m_validator: (aNewName: string) => boolean | Promise<boolean>,
   ) {}
 
   /** `TransferDataFromWindow() override`: false keeps the dialog open. */
-  TransferDataFromWindow(aValue: string): boolean {
+  TransferDataFromWindow(aValue: string): boolean | Promise<boolean> {
     return this.m_validator(wxTrimBoth(aValue));
   }
 }
@@ -171,7 +175,7 @@ export class LIBRARY_EDITOR_CONTROL extends TOOL_INTERACTIVE {
   RenameLibrary(
     aTitle: string,
     aName: string,
-    aValidator: (aNewName: string) => boolean,
+    aValidator: (aNewName: string) => boolean | Promise<boolean>,
   ): Promise<boolean> {
     const dlg = new RENAME_DIALOG(aTitle, aName, aValidator);
 

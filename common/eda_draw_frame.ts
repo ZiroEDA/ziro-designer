@@ -121,6 +121,17 @@ export interface LIB_TREE {
   Regenerate(aKeepState: boolean): void;
   /** Scroll so @p aLibId's row is centred. */
   CenterLibId(aLibId: LIB_ID): void;
+  /**
+   * `GetSelectedLibId( int* aUnit = nullptr )`: the selected row's LIB_ID — a
+   * library row's has no item name — or an empty one.
+   */
+  GetSelectedLibId(): LIB_ID;
+  /** `SelectLibId( aLibId )`: select the row, expanding its library. */
+  SelectLibId(aLibId: LIB_ID): void;
+  /** `Unselect()`. */
+  Unselect(): void;
+  /** `RefreshLibTree()`: repaint the rows without rebuilding them. */
+  RefreshLibTree(): void;
 }
 
 /**
