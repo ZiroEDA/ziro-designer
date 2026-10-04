@@ -17,6 +17,9 @@ import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import { KICURSOR } from '@ziroeda/common/gal/cursors.js';
 import { ORIGIN_VIEWITEM } from '@ziroeda/common/origin_viewitem.js';
 import { BOARD_EDITOR_CONTROL_GenD356File } from '../exporters/export_d356.js';
+import { RecreateCmpFile } from '../exporters/export_footprint_associations.js';
+import { footprintAssignmentFileWildcard } from '@ziroeda/common/wildcards_and_files_ext.js';
+import { DisplayErrorMessage } from '@ziroeda/common/confirm.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import type { TOOL_EVENT } from '@ziroeda/common/tool/tool_event.js';
 import { SYNC_HANDLER } from '@ziroeda/common/tool/tool_interactive.js';
@@ -959,6 +962,40 @@ export class BOARD_EDITOR_CONTROL extends PCB_TOOL_BASE {
     return 0;
   }
 
+  /**
+   * `ExportCmpFile` (board_editor_control.cpp): the .cmp file name from the
+   * board's, the save dialog, then RecreateCmpFile.
+   */
+  ExportCmpFile(_aEvent: TOOL_EVENT): number {
+    void this.exportCmpFile();
+    return 0;
+  }
+
+  private async exportCmpFile(): Promise<void> {
+    const frame = this.getEditFrame<PCB_EDIT_FRAME>();
+
+    // Build the .cmp file name from the board name
+    const board = frame.GetBoard()!;
+    const fullName = board.GetFileName().split(/[\\/]/).pop() ?? '';
+    const dot = fullName.lastIndexOf('.');
+    const fn = `${dot > 0 ? fullName.slice(0, dot) : fullName}.cmp`;
+
+    const dlg = await frame.ShowSaveFileDialog(
+      'Save Footprint Association File',
+      fn,
+      footprintAssignmentFileWildcard(),
+      null,
+    );
+
+    if (!dlg) return;
+
+    const path = dlg.path;
+
+    // DisplayError: the same error box as DisplayErrorMessage, without extra info.
+    if (!frame.WriteTextFile(path, RecreateCmpFile(board)))
+      DisplayErrorMessage(`Failed to create file '${path}'.`);
+  }
+
   protected override setTransitions(): void {
     const drill = SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.DrillOrigin);
     this.Go(drill, PCB_ACTIONS.drillOrigin.MakeEvent());
@@ -985,6 +1022,10 @@ export class BOARD_EDITOR_CONTROL extends PCB_TOOL_BASE {
     this.Go(
       SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.GenD356File),
       PCB_ACTIONS.generateD356File.MakeEvent(),
+    );
+    this.Go(
+      SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.ExportCmpFile),
+      PCB_ACTIONS.exportCmpFile.MakeEvent(),
     );
 
     this.Go(SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.Find), ACTIONS.find.MakeEvent());

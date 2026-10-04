@@ -6622,6 +6622,10 @@ export function PcbEditor({
         // BOARD_EDITOR_CONTROL::GenD356File.
         runAction(PCB_ACTIONS.generateD356File);
         break;
+      case 'exportCmpFile':
+        // BOARD_EDITOR_CONTROL::ExportCmpFile.
+        runAction(PCB_ACTIONS.exportCmpFile);
+        break;
       case 'generateBOM': {
         // `GenBOMFileFromBoard` opens a save dialog first and bails on an empty
         // board with an info-bar error; ours reports the same refusal.

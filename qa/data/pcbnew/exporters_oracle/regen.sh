@@ -7,9 +7,11 @@ for B in ecc83-pp interf_u; do
   kicad-cli pcb export pos -o $B-pos.csv --format csv --side both --units in $SRC
   kicad-cli pcb export ipcd356 -o $B.d356 $SRC
 done
-# GenCAD: --unique-footprints (UseIndividualShapes) only, and ecc83-pp only --
-# see the oracle test's own header for why.
-kicad-cli pcb export gencad -o ecc83-pp-unique.gencad --unique-footprints ../resave/ecc83-pp.kicad_pcb
+# GenCAD: shared shapes (the default) and --unique-footprints (UseIndividualShapes).
+for B in ecc83-pp interf_u; do
+  kicad-cli pcb export gencad -o $B-shared.gencad ../resave/$B.kicad_pcb
+  kicad-cli pcb export gencad -o $B-unique.gencad --unique-footprints ../resave/$B.kicad_pcb
+done
 rm -f ../resave/*.kicad_prl
 # Gerber X3 placement files (PLACEFILE_GERBER_WRITER). gerber_oracle_pnp is
 # ../plot/gerber_oracle.kicad_pcb with J1 flipped to the back at 30 deg and U1

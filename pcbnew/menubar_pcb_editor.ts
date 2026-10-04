@@ -163,7 +163,10 @@ export function buildPcbMenus(
             { label: 'VRML...', disabled: dis },
             { label: 'IDFv3...', disabled: dis },
             { label: 'STEP/GLB/BREP/XAO/PLY/STL...', disabled: dis },
-            { label: 'Footprint Association (.cmp) File...', disabled: dis },
+            {
+              label: 'Footprint Association (.cmp) File...',
+              action: () => h.action('exportCmpFile'),
+            },
             { label: 'Hyperlynx...', disabled: dis },
             { sep: true },
             { label: 'Footprints...', disabled: dis },

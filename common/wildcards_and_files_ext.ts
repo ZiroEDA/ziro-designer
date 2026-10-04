@@ -136,6 +136,13 @@ export const reportFileWildcard = (): ChooserFilter => fileFilter('Report files'
 export const ipcD356FileWildcard = (): ChooserFilter =>
   fileFilter('IPC-D-356 Test Files', ['d356']);
 
+/**
+ * `FILEEXT::FootprintAssignmentFileWildcard()` (`:398-402`) on
+ * `FootprintAssignmentFileExtension`, cmp: the cvpcb symbol to footprint link file.
+ */
+export const footprintAssignmentFileWildcard = (): ChooserFilter =>
+  fileFilter('KiCad symbol footprint link files', ['cmp']);
+
 /** `FILEEXT::JsonFileWildcard()`: "Json files" on `JsonFileExtension`, json. */
 export const jsonFileWildcard = (): ChooserFilter => fileFilter('Json files', ['json']);
 
