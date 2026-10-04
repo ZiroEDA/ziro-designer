@@ -47,6 +47,8 @@ import { COMMON_CONTROL } from '@ziroeda/common/tool/common_control.js';
 import { COMMON_TOOLS } from '@ziroeda/common/tool/common_tools.js';
 import { TOOL_DISPATCHER } from '@ziroeda/common/tool/tool_dispatcher.js';
 import { ZOOM_TOOL } from '@ziroeda/common/tool/zoom_tool.js';
+import { PICKER_TOOL } from '@ziroeda/common/tool/picker_tool.js';
+import { SCH_SELECTION_TOOL } from './tools/sch_selection_tool.js';
 import { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
 import { applyMixins } from '@ziroeda/core/mixins.js';
 import { SCH_BASE_FRAME } from './sch_base_frame.js';
@@ -159,6 +161,19 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
   /// Set when an undo/redo or recalculation may have changed the highlighted net.
   m_highlightedConnChanged = false;
 
+  /** `m_highlightedConn`: the name of the highlighted net, empty for none. */
+  m_highlightedConn = '';
+
+  /** `GetHighlightedConnection()` (sch_edit_frame.h). */
+  GetHighlightedConnection(): string {
+    return this.m_highlightedConn;
+  }
+
+  /** `DirtyHighlightedConnection()` (sch_edit_frame.h). */
+  DirtyHighlightedConnection(): void {
+    this.m_highlightedConnChanged = true;
+  }
+
   /// The list of items for the repeat-last-item command.
   private m_items_to_repeat: SCH_ITEM[] = [];
 
@@ -256,7 +271,9 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
     this.m_toolManager.RegisterTool(new COMMON_CONTROL());
     this.m_toolManager.RegisterTool(new COMMON_TOOLS());
     this.m_toolManager.RegisterTool(new ZOOM_TOOL());
-    // Not ported yet (S5, one KiCad file per step): SCH_SELECTION_TOOL, PICKER_TOOL,
+    this.m_toolManager.RegisterTool(new SCH_SELECTION_TOOL());
+    this.m_toolManager.RegisterTool(new PICKER_TOOL());
+    // Not ported yet (S5, one KiCad file per step):
     // SCH_DRAWING_TOOLS (its hierarchy members are, as a class the AI drives),
     // SCH_LINE_WIRE_BUS_TOOL, SCH_MOVE_TOOL, SCH_ALIGN_TOOL, SCH_EDIT_TOOL, SCH_EDIT_TABLE_TOOL,
     // SCH_GROUP_TOOL, SCH_INSPECTION_TOOL, SCH_DESIGN_BLOCK_CONTROL, SCH_EDITOR_CONTROL,
@@ -264,7 +281,7 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
     this.m_toolManager.InitTools();
 
     // Run the selection tool, it is supposed to be always active
-    // (ACTIONS::selectionActivate: no SCH_SELECTION_TOOL yet.)
+    this.m_toolManager.PostAction(ACTIONS.selectionActivate);
 
     canvas.SetEventDispatcher(this.m_toolDispatcher);
   }

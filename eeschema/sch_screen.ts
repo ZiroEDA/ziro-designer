@@ -16,7 +16,14 @@
 import { BASE_SCREEN } from '@ziroeda/common/base_screen.js';
 import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import { RECURSE_MODE } from '@ziroeda/common/eda_item.js';
-import { IS_DELETED, IS_MOVING, STRUCT_DELETED } from '@ziroeda/common/eda_item_flags.js';
+import {
+  CANDIDATE,
+  IS_DELETED,
+  IS_MOVING,
+  STRUCT_DELETED,
+} from '@ziroeda/common/eda_item_flags.js';
+import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
+import type { SCH_SHAPE } from './sch_shape.js';
 import { schIUScale } from '@ziroeda/common/eda_units.js';
 import { type KIID_PATH, newKiid, type KIID } from '@ziroeda/common/kiid.js';
 import { SCH_LAYER_ID } from '@ziroeda/common/layer_id.js';
@@ -610,8 +617,87 @@ export class SCH_SCREEN extends BASE_SCREEN {
    * Return all wires and junctions connected to \a aItem which are not connected any
    * symbol pin, or all graphic lines connected to \a aItem.
    *
-   * `MarkConnections`: pending (the drag tools; it needs the CANDIDATE flag walk).
+   * `MarkConnections` (sch_screen.cpp:426): \a aSecondPass also takes the junctions on the
+   * connected ends.
    */
+  MarkConnections(aItem: SCH_ITEM, aSecondPass: boolean): Set<SCH_ITEM> {
+    // PROCESSED: CANDIDATE. Don't use SKIP_STRUCT; IsConnected() returns false if it's set.
+    const PROCESSED = CANDIDATE;
+
+    const retval = new Set<SCH_ITEM>();
+    const toSearch: SCH_ITEM[] = [];
+
+    const getItemEndpoints = (aCandidate: SCH_ITEM | null): VECTOR2I[] => {
+      if (!aCandidate) return [];
+
+      if (aCandidate.Type() === KICAD_T.SCH_LINE_T) {
+        const line = aCandidate as SCH_LINE;
+        return [line.GetStartPoint(), line.GetEndPoint()];
+      }
+
+      if (aCandidate.Type() === KICAD_T.SCH_SHAPE_T) {
+        const shape = aCandidate as SCH_SHAPE;
+
+        if (shape.GetShape() === SHAPE_T.ARC || shape.GetShape() === SHAPE_T.BEZIER)
+          return [shape.GetStart(), shape.GetEnd()];
+        else if (shape.GetShape() === SHAPE_T.RECTANGLE) return shape.GetRectCorners();
+        else if (shape.GetShape() === SHAPE_T.SEGMENT) return [shape.GetStart(), shape.GetEnd()];
+        else if (shape.GetShape() === SHAPE_T.POLY) return shape.GetPolyPoints();
+      }
+
+      return [];
+    };
+
+    if (!aItem || getItemEndpoints(aItem).length === 0) return retval;
+
+    toSearch.push(aItem);
+
+    while (toSearch.length > 0) {
+      const item = toSearch.pop()!;
+
+      if (item.HasFlag(PROCESSED)) continue;
+
+      item.SetFlags(PROCESSED);
+
+      const bbox = item.GetBoundingBox();
+
+      for (const type of [KICAD_T.SCH_LINE_T, KICAD_T.SCH_SHAPE_T]) {
+        for (const candidate of this.Items().Overlapping(type, bbox)) {
+          if (candidate.HasFlag(PROCESSED)) continue;
+
+          const endpoints = getItemEndpoints(candidate);
+
+          if (endpoints.length === 0) continue;
+
+          // Skip connecting items on different layers (e.g. buses)
+          if (item.GetLayer() !== candidate.GetLayer()) continue;
+
+          let sharesEndpoint = false;
+
+          for (const pt of endpoints) {
+            if (item.IsEndPoint(pt)) {
+              sharesEndpoint = true;
+
+              if (aSecondPass && item.IsConnected(pt)) {
+                const junction = this.GetItem(pt, 0, KICAD_T.SCH_JUNCTION_T);
+
+                if (junction) retval.add(junction);
+              }
+            }
+          }
+
+          if (!sharesEndpoint) continue;
+
+          toSearch.push(candidate);
+          retval.add(candidate);
+        }
+      }
+    }
+
+    for (const item of this.Items()) item.ClearTempFlags();
+
+    return retval;
+  }
 
   /** Clear the state flags of all the items in the screen. */
   ClearDrawingState(): void {

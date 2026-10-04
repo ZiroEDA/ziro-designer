@@ -100,7 +100,7 @@ import {
   makeBusEntryOrSegment,
   makeImage,
   DEFAULT_ENTRY_SIZE,
-  EE_GRID_HELPER,
+  RECORD_EE_GRID_HELPER,
   nearestSnapAnchor,
   danglingPinPositions,
   boxSelect,
@@ -684,12 +684,12 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
    * from `gridCfgRef` on every ask, and the sheet it queries is re-indexed only
    * when the document changes.
    */
-  const gridHelperRef = useRef<EE_GRID_HELPER | null>(null);
+  const gridHelperRef = useRef<RECORD_EE_GRID_HELPER | null>(null);
   const gridCfgRef = useRef({ size: 0, snapping: true, overrides: o, libById });
   gridCfgRef.current = { size: renderOpts.grid.sizeIU, snapping, overrides: o, libById };
-  const gridHelper = useCallback((doc: Schematic): EE_GRID_HELPER => {
+  const gridHelper = useCallback((doc: Schematic): RECORD_EE_GRID_HELPER => {
     if (!gridHelperRef.current) {
-      gridHelperRef.current = new EE_GRID_HELPER();
+      gridHelperRef.current = new RECORD_EE_GRID_HELPER();
       // The overlay is the helper's VIEW: the snap point and construction
       // preview are drawn there, and it repaints when they change.
       gridHelperRef.current.AttachView(() => requestOverlayRef.current());
@@ -1100,7 +1100,7 @@ export const SchematicCanvas = forwardRef<CanvasController, Props>(function Sche
 
   // Dangling (unconnected) pins, KiCad's clickable wire-start anchors.
   const danglingPins = useMemo(() => {
-    const helper = new EE_GRID_HELPER();
+    const helper = new RECORD_EE_GRID_HELPER();
     helper.computePinAnchors(danglingPinPositions(schematic, libById));
     return helper;
   }, [schematic, libById]);

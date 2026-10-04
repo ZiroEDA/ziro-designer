@@ -73,6 +73,62 @@ export class SCH_SELECTION_FILTER_OPTIONS {
   images = true;
   ruleAreas = true;
   otherItems = true;
+
+  /** True if any of the item types are enabled (excluding "locked items" which is special). */
+  Any(): boolean {
+    return (
+      this.symbols ||
+      this.text ||
+      this.wires ||
+      this.labels ||
+      this.pins ||
+      this.graphics ||
+      this.images ||
+      this.ruleAreas ||
+      this.otherItems
+    );
+  }
+
+  /** True if all the item types are enabled (excluding "locked items" which is special). */
+  All(): boolean {
+    return (
+      this.symbols &&
+      this.text &&
+      this.wires &&
+      this.labels &&
+      this.pins &&
+      this.graphics &&
+      this.images &&
+      this.ruleAreas &&
+      this.otherItems
+    );
+  }
+
+  SetDefaults(): void {
+    this.lockedItems = false;
+    this.symbols = true;
+    this.text = true;
+    this.wires = true;
+    this.labels = true;
+    this.pins = true;
+    this.graphics = true;
+    this.images = true;
+    this.ruleAreas = true;
+    this.otherItems = true;
+  }
+
+  SetAll(aState: boolean): void {
+    this.lockedItems = aState;
+    this.symbols = aState;
+    this.text = aState;
+    this.wires = aState;
+    this.labels = aState;
+    this.pins = aState;
+    this.graphics = aState;
+    this.images = aState;
+    this.ruleAreas = aState;
+    this.otherItems = aState;
+  }
 }
 
 /** `projectLocalSettingsVersion`. */

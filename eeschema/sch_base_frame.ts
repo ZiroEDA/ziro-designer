@@ -24,7 +24,14 @@
  *   the window's.
  */
 import type { APP_SETTINGS_BASE } from '@ziroeda/common/settings/app_settings.js';
-import { eeschemaKifaceSettings } from './eeschema_settings.js';
+import {
+  currentEeschemaSettings,
+  EESCHEMA_SETTINGS,
+  type EeschemaSettings,
+  eeschemaKifaceSettings,
+} from './eeschema_settings.js';
+import type { SCH_RENDER_SETTINGS } from './sch_render_settings.js';
+import type { SCH_SELECTION_FILTER_OPTIONS } from '@ziroeda/common/project/project_local_settings.js';
 import type { SCH_DRAW_PANEL } from './sch_draw_panel.js';
 import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import { EDA_DRAW_FRAME, SCH_EDIT_FRAME_NAME } from '@ziroeda/common/eda_draw_frame.js';
@@ -43,7 +50,6 @@ import { VIEW_UPDATE_FLAGS } from '@ziroeda/common/view/view_item.js';
 import { RECURSE_MODE } from '@ziroeda/common/eda_item.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
-import { currentEeschemaSettings } from './eeschema_settings.js';
 import type { SCH_GROUP } from './sch_group.js';
 import type { SCH_ITEM } from './sch_item.js';
 import type { SCH_SCREEN } from './sch_screen.js';
@@ -164,6 +170,43 @@ export abstract class SCH_BASE_FRAME extends EDA_DRAW_FRAME {
   override config(): APP_SETTINGS_BASE | null {
     return eeschemaKifaceSettings();
   }
+
+  /**
+   * `eeconfig()` (sch_base_frame.cpp:191): the eeschema settings when config() is
+   * EESCHEMA_SETTINGS, null in the symbol editor. Its eeschema rows are the JSON slice's
+   * (`m_Input.drag_is_move` is `input.drag_is_move`), see EESCHEMA_SETTINGS.
+   */
+  eeconfig(): EeschemaSettings | null {
+    return this.config() instanceof EESCHEMA_SETTINGS ? currentEeschemaSettings() : null;
+  }
+
+  /** `GetRenderSettings` (sch_base_frame.cpp:320): the canvas painter's, or null. */
+  GetRenderSettings(): SCH_RENDER_SETTINGS | null {
+    const painter = this.GetCanvas()?.GetView()?.GetPainter() ?? null;
+
+    return painter ? (painter.GetSettings() as SCH_RENDER_SETTINGS) : null;
+  }
+
+  /**
+   * `HighlightSelectionFilter` (sch_base_frame.cpp:998): post the filter options that rejected
+   * a click so the selection-filter panel can flash them. The panel is the window's; it listens
+   * through {@link SetSelectionFilterListener}.
+   */
+  HighlightSelectionFilter(aOptions: SCH_SELECTION_FILTER_OPTIONS): void {
+    const listener = this.m_selectionFilterListener;
+
+    if (listener) setTimeout(() => listener(aOptions), 0);
+  }
+
+  /** The window's handler for SCH_SELECTION_FILTER_EVENT. */
+  SetSelectionFilterListener(
+    aListener: ((aOptions: SCH_SELECTION_FILTER_OPTIONS) => void) | null,
+  ): void {
+    this.m_selectionFilterListener = aListener;
+  }
+
+  private m_selectionFilterListener: ((aOptions: SCH_SELECTION_FILTER_OPTIONS) => void) | null =
+    null;
 
   /** `ORIGIN_TRANSFORMS`: the schematic has no user origin, so the identity. */
   private readonly m_originTransforms = new ORIGIN_TRANSFORMS();

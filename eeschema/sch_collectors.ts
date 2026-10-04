@@ -13,8 +13,25 @@
  * never win the distance race), then everything not fully inside a tight box
  * (the closest item's bbox deflated by a quarter) is dropped. One survivor
  * selects directly; several mean the caller shows the Clarify menu.
+ *
+ * The live model's `SCH_COLLECTOR` (sch_collectors.cpp) is at the end; the record functions above
+ * go with the records (S7).
  */
 
+import { COLLECTOR } from '@ziroeda/common/collector.js';
+import { type EDA_ITEM, INSPECT_RESULT } from '@ziroeda/common/eda_item.js';
+import { SHOW_ELEC_TYPE } from '@ziroeda/common/eda_item_flags.js';
+import type { LIB_ID } from '@ziroeda/common/lib_id.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+import type { LIB_ITEMS_CONTAINER } from './lib_symbol.js';
+import { SCH_BUS_ENTRY_BASE } from './sch_bus_entry.js';
+import { SCH_ITEM } from './sch_item.js';
+import type { SCH_LINE } from './sch_line.js';
+import { SCH_REFERENCE_LIST } from './sch_reference_list.js';
+import { SCH_SCREEN } from './sch_screen.js';
+import { SYMBOL_FILTER, type SCH_SHEET_PATH } from './sch_sheet_path.js';
+import type { SCH_SYMBOL } from './sch_symbol.js';
 import type { LibSymbol, SchLabel, Schematic, Vec2 } from './types.js';
 import { iuToMM } from '@ziroeda/common';
 import {
@@ -521,5 +538,208 @@ export function describeItem(
       return 'Table';
     default:
       return ref.kind;
+  }
+}
+
+// -----------------------------------------------------------------------------------------------
+// SCH_COLLECTOR (eeschema/sch_collectors.{h,cpp}) on the live model
+// -----------------------------------------------------------------------------------------------
+
+export class SCH_COLLECTOR extends COLLECTOR {
+  static readonly EditableItems: readonly KICAD_T[] = [
+    KICAD_T.SCH_SHAPE_T,
+    KICAD_T.SCH_TEXT_T,
+    KICAD_T.SCH_TEXTBOX_T,
+    KICAD_T.SCH_TABLECELL_T,
+    KICAD_T.SCH_LABEL_T,
+    KICAD_T.SCH_GLOBAL_LABEL_T,
+    KICAD_T.SCH_HIER_LABEL_T,
+    KICAD_T.SCH_DIRECTIVE_LABEL_T,
+    KICAD_T.SCH_FIELD_T,
+    KICAD_T.SCH_SYMBOL_T,
+    KICAD_T.SCH_SHEET_PIN_T,
+    KICAD_T.SCH_SHEET_T,
+    KICAD_T.SCH_BITMAP_T,
+    KICAD_T.SCH_LINE_T,
+    KICAD_T.SCH_BUS_WIRE_ENTRY_T,
+    KICAD_T.SCH_JUNCTION_T,
+    KICAD_T.SCH_RULE_AREA_T,
+    KICAD_T.SCH_GROUP_T,
+  ];
+
+  static readonly MovableItems: readonly KICAD_T[] = [
+    KICAD_T.SCH_MARKER_T,
+    KICAD_T.SCH_JUNCTION_T,
+    KICAD_T.SCH_NO_CONNECT_T,
+    KICAD_T.SCH_BUS_BUS_ENTRY_T,
+    KICAD_T.SCH_BUS_WIRE_ENTRY_T,
+    KICAD_T.SCH_LINE_T,
+    KICAD_T.SCH_BITMAP_T,
+    KICAD_T.SCH_SHAPE_T,
+    KICAD_T.SCH_TEXT_T,
+    KICAD_T.SCH_TEXTBOX_T,
+    KICAD_T.SCH_TABLE_T,
+    KICAD_T.SCH_TABLECELL_T, // will be promoted to parent table(s)
+    KICAD_T.SCH_LABEL_T,
+    KICAD_T.SCH_GLOBAL_LABEL_T,
+    KICAD_T.SCH_HIER_LABEL_T,
+    KICAD_T.SCH_DIRECTIVE_LABEL_T,
+    KICAD_T.SCH_FIELD_T,
+    KICAD_T.SCH_SYMBOL_T,
+    KICAD_T.SCH_SHEET_PIN_T,
+    KICAD_T.SCH_SHEET_T,
+    KICAD_T.SCH_RULE_AREA_T,
+    KICAD_T.SCH_GROUP_T,
+  ];
+
+  static readonly FieldOwners: readonly KICAD_T[] = [
+    KICAD_T.SCH_SYMBOL_T,
+    KICAD_T.SCH_SHEET_T,
+    KICAD_T.SCH_LABEL_LOCATE_ANY_T,
+  ];
+
+  static readonly DeletableItems: readonly KICAD_T[] = [
+    KICAD_T.LIB_SYMBOL_T,
+    KICAD_T.SCH_MARKER_T,
+    KICAD_T.SCH_JUNCTION_T,
+    KICAD_T.SCH_LINE_T,
+    KICAD_T.SCH_BUS_BUS_ENTRY_T,
+    KICAD_T.SCH_BUS_WIRE_ENTRY_T,
+    KICAD_T.SCH_SHAPE_T,
+    KICAD_T.SCH_RULE_AREA_T,
+    KICAD_T.SCH_TEXT_T,
+    KICAD_T.SCH_TEXTBOX_T,
+    KICAD_T.SCH_TABLECELL_T, // Clear contents
+    KICAD_T.SCH_TABLE_T,
+    KICAD_T.SCH_LABEL_T,
+    KICAD_T.SCH_GLOBAL_LABEL_T,
+    KICAD_T.SCH_HIER_LABEL_T,
+    KICAD_T.SCH_DIRECTIVE_LABEL_T,
+    KICAD_T.SCH_NO_CONNECT_T,
+    KICAD_T.SCH_SHEET_T,
+    KICAD_T.SCH_SHEET_PIN_T,
+    KICAD_T.SCH_SYMBOL_T,
+    KICAD_T.SCH_FIELD_T, // Will be hidden
+    KICAD_T.SCH_BITMAP_T,
+    KICAD_T.SCH_GROUP_T,
+  ];
+
+  m_Unit = 0; // Fixed symbol unit filter (for symbol editor)
+  m_BodyStyle = 0; // Fixed body style filter (for symbol editor)
+
+  m_ShowPinElectricalTypes = false;
+
+  constructor(aScanTypes: readonly KICAD_T[] = [KICAD_T.SCH_LOCATE_ANY_T]) {
+    super();
+    this.SetScanTypes(aScanTypes);
+  }
+
+  /** `operator[]`: a SCH_ITEM rather than an EDA_ITEM. */
+  override At(aIndex: number): SCH_ITEM | null {
+    return super.At(aIndex) as SCH_ITEM | null;
+  }
+
+  override Inspect(aItem: EDA_ITEM, _aTestData: unknown): INSPECT_RESULT {
+    if (this.m_Unit || this.m_BodyStyle) {
+      const schItem = aItem instanceof SCH_ITEM ? aItem : null;
+
+      // Special selection rules apply to pins of different units when edited in synchronized
+      // pins mode.  Leave it to SCH_SELECTION_TOOL::Selectable() to decide what to do with them.
+
+      if (schItem && schItem.Type() !== KICAD_T.SCH_PIN_T) {
+        if (this.m_Unit && schItem.GetUnit() && schItem.GetUnit() !== this.m_Unit)
+          return INSPECT_RESULT.CONTINUE;
+
+        if (
+          this.m_BodyStyle &&
+          schItem.GetBodyStyle() &&
+          schItem.GetBodyStyle() !== this.m_BodyStyle
+        )
+          return INSPECT_RESULT.CONTINUE;
+      }
+    }
+
+    if (this.m_ShowPinElectricalTypes) aItem.SetFlags(SHOW_ELEC_TYPE);
+
+    if (aItem.HitTest(this.m_refPos, this.m_Threshold)) this.Append(aItem);
+
+    aItem.ClearFlags(SHOW_ELEC_TYPE);
+
+    return INSPECT_RESULT.CONTINUE;
+  }
+
+  /**
+   * Scan \a aScreen (the schematic editor) or \a aItems (a LIB_SYMBOL's, the symbol editor)
+   * with this class's Inspect, \a aFilterList setting what is collected and in what priority.
+   */
+  Collect(
+    aScreenOrItems: SCH_SCREEN | LIB_ITEMS_CONTAINER | null,
+    aFilterList: readonly KICAD_T[],
+    aPos: VECTOR2I,
+    aUnit = 0,
+    aBodyStyle = 0,
+  ): void {
+    this.Empty(); // empty the collection just in case
+
+    this.SetScanTypes(aFilterList);
+    this.m_Unit = aUnit;
+    this.m_BodyStyle = aBodyStyle;
+
+    // remember where the snapshot was taken from and pass refPos to the Inspect() function.
+    this.SetRefPos(aPos);
+
+    if (aScreenOrItems instanceof SCH_SCREEN) {
+      for (const item of aScreenOrItems
+        .Items()
+        .Overlapping(KICAD_T.SCH_LOCATE_ANY_T, aPos, this.m_Threshold))
+        item.Visit(this.m_inspector, null, this.m_scanTypes);
+    } else if (aScreenOrItems) {
+      for (const item of aScreenOrItems) {
+        if (item.Visit(this.m_inspector, null, this.m_scanTypes) === INSPECT_RESULT.QUIT) break;
+      }
+    }
+  }
+
+  /** True when the collected items form a corner of two line segments. */
+  IsCorner(): boolean {
+    if (this.GetCount() !== 2) return false;
+
+    const a = this.m_list[0]!;
+    const b = this.m_list[1]!;
+    const is_busentry0 = a instanceof SCH_BUS_ENTRY_BASE;
+    const is_busentry1 = b instanceof SCH_BUS_ENTRY_BASE;
+
+    if (a.Type() === KICAD_T.SCH_LINE_T && b.Type() === KICAD_T.SCH_LINE_T)
+      return (a as SCH_LINE).GetLayer() === (b as SCH_LINE).GetLayer();
+
+    if (a.Type() === KICAD_T.SCH_LINE_T && is_busentry1) return true;
+
+    if (is_busentry0 && b.Type() === KICAD_T.SCH_LINE_T) return true;
+
+    return false;
+  }
+}
+
+/** `CollectOtherUnits` (sch_collectors.cpp:217): the other units of \a aRef on \a aSheet. */
+export function CollectOtherUnits(
+  aRef: string,
+  aUnit: number,
+  aLibId: LIB_ID,
+  aSheet: SCH_SHEET_PATH,
+  otherUnits: SCH_SYMBOL[],
+): void {
+  const symbols = new SCH_REFERENCE_LIST();
+  aSheet.GetSymbols(symbols, SYMBOL_FILTER.SYMBOL_FILTER_ALL);
+
+  for (let i = 0; i < symbols.GetCount(); i++) {
+    const symbol = symbols.at(i);
+
+    if (
+      symbol.GetRef() === aRef &&
+      symbol.GetSymbol().GetLibId().equals(aLibId) &&
+      symbol.GetUnit() !== aUnit
+    ) {
+      otherUnits.push(symbol.GetSymbol());
+    }
   }
 }

@@ -7,6 +7,8 @@
  * and owns the library tree and canvas each command changes, so the frame
  * reaches them through {@link SYMBOL_EDIT_FRAME_HOOKS}.
  */
+import type { LIB_SYMBOL } from '../lib_symbol.js';
+import { currentSymbolEditorSettings } from './symbol_editor_settings.js';
 import type { APP_SETTINGS_BASE } from '@ziroeda/common/settings/app_settings.js';
 import { LIB_EDIT_FRAME_NAME } from '@ziroeda/common/eda_draw_frame.js';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
@@ -38,6 +40,42 @@ export class SYMBOL_EDIT_FRAME extends SCH_BASE_FRAME {
   constructor(hooks: SYMBOL_EDIT_FRAME_HOOKS) {
     super(FRAME_T.FRAME_SCH_SYMBOL_EDITOR);
     this.hooks = hooks;
+  }
+
+  // The live symbol editor's state (symbol_edit_frame.h): the symbol being edited and the unit and
+  // body style shown. The window edits its record copy; these follow when its tools do (S5).
+  private m_symbol: LIB_SYMBOL | null = null;
+  private m_unit = 1;
+  private m_bodyStyle = 1;
+
+  /** `GetCurSymbol()`. */
+  GetCurSymbol(): LIB_SYMBOL | null {
+    return this.m_symbol;
+  }
+
+  /** `GetUnit()`. */
+  GetUnit(): number {
+    return this.m_unit;
+  }
+
+  /** `GetBodyStyle()`. */
+  GetBodyStyle(): number {
+    return this.m_bodyStyle;
+  }
+
+  /** `IsSymbolAlias()` (symbol_edit_frame.cpp:2225): the symbol is derived from another. */
+  IsSymbolAlias(): boolean {
+    return !!this.m_symbol && !this.m_symbol.IsRoot();
+  }
+
+  /** `GetShowInvisibleFields()` (symbol_edit_frame.cpp:2264): libeditconfig()->m_ShowHiddenFields. */
+  GetShowInvisibleFields(): boolean {
+    return currentSymbolEditorSettings().show_hidden_lib_fields;
+  }
+
+  /** `GetShowInvisiblePins()` (symbol_edit_frame.cpp:2271): libeditconfig()->m_ShowHiddenPins. */
+  GetShowInvisiblePins(): boolean {
+    return currentSymbolEditorSettings().show_hidden_lib_pins;
   }
 
   /** `LIB_EDIT_FRAME_NAME`, the name wx gives this frame. */

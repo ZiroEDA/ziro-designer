@@ -4,7 +4,10 @@
 import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic, readSymbolLib } from '@ziroeda/eeschema/sch_io/sexpr/read-schematic.js';
-import { EE_GRID_HELPER, nearestSnapAnchor } from '@ziroeda/eeschema/tools/ee_grid_helper.js';
+import {
+  RECORD_EE_GRID_HELPER,
+  nearestSnapAnchor,
+} from '@ziroeda/eeschema/tools/ee_grid_helper.js';
 import { ANCHOR_FLAGS, GRID_HELPER, GRID_HELPER_GRIDS } from '@ziroeda/common/tool/grid_helper.js';
 import { addItems, makeLabel, makeWire, placeSymbol } from '@ziroeda/eeschema/tools/index.js';
 import { refId } from '@ziroeda/eeschema/tools/hittest.js';
@@ -22,8 +25,8 @@ const R = readSymbolLib(
 )[0]!;
 
 /** A helper over `sch`, 1.27 mm grid, snapping as asked. */
-function helper(sch: Schematic, grid = true): EE_GRID_HELPER {
-  const h = new EE_GRID_HELPER();
+function helper(sch: Schematic, grid = true): RECORD_EE_GRID_HELPER {
+  const h = new RECORD_EE_GRID_HELPER();
   h.SetSchematic(sch, libMap(sch));
   h.SetGridSize(at(1.27, 1.27));
   h.SetGridSnapping(grid);
@@ -31,9 +34,9 @@ function helper(sch: Schematic, grid = true): EE_GRID_HELPER {
 }
 const CONN = GRID_HELPER_GRIDS.GRID_CONNECTABLE;
 
-describe('EE_GRID_HELPER', () => {
+describe('RECORD_EE_GRID_HELPER', () => {
   it('is a GRID_HELPER, as upstream derives it', () => {
-    expect(new EE_GRID_HELPER()).toBeInstanceOf(GRID_HELPER);
+    expect(new RECORD_EE_GRID_HELPER()).toBeInstanceOf(GRID_HELPER);
   });
 
   describe('BestSnapAnchor (ee_grid_helper.cpp:131-219)', () => {
@@ -184,14 +187,14 @@ describe('EE_GRID_HELPER', () => {
   });
 
   it('nearestSnapAnchor snaps within range and ignores anchors outside it', () => {
-    const h = new EE_GRID_HELPER();
+    const h = new RECORD_EE_GRID_HELPER();
     h.computePinAnchors([at(0, 0), at(10, 0)]);
     expect(nearestSnapAnchor(h, at(0.3, 0.2), mmToIU(0.5))).toEqual(at(0, 0));
     expect(nearestSnapAnchor(h, at(5, 0), mmToIU(0.5))).toBeNull();
   });
 
   it('nearestAnchor keeps the first of two equally near anchors', () => {
-    const h = new EE_GRID_HELPER();
+    const h = new RECORD_EE_GRID_HELPER();
     h.computePinAnchors([at(-1, 0), at(1, 0)]);
     expect(h.nearestAnchor(at(0, 0), ANCHOR_FLAGS.SNAPPABLE, CONN)?.pos).toEqual(at(-1, 0));
   });

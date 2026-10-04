@@ -6,8 +6,14 @@
  * GetSchItemAsText / GetSelectedItemsAsText, the "Copy as Text" payload.
  * Text-bearing items yield their shown text (labels, text, text boxes; tables
  * as tab-separated rows); everything else yields nothing, exactly upstream.
+ *
+ * GetSameSymbolMultiUnitSelection on the live model is at the end.
  */
 
+import type { LIB_ID } from '@ziroeda/common/lib_id.js';
+import type { SELECTION } from '@ziroeda/common/tool/selection.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { SCH_SYMBOL } from '../sch_symbol.js';
 import type { Schematic, SchSymbol } from '../types.js';
 import { itemRefById, refId } from './hittest.js';
 
@@ -182,4 +188,62 @@ export function selectionCanCopyAsText(sch: Schematic, ids: ReadonlySet<string>)
     if (!ref || !TEXTUAL.has(ref.kind)) return false;
   }
   return true;
+}
+
+/**
+ * `GetSameSymbolMultiUnitSelection` (sch_tool_utils.cpp:227) on the live model: the selected
+ * units, in selection order, when they are two or more units of one symbol (same reference, same
+ * library symbol, same pin count); otherwise none.
+ */
+export function GetSameSymbolMultiUnitSelection(aSel: SELECTION): SCH_SYMBOL[] {
+  let result: SCH_SYMBOL[] = [];
+
+  if (aSel.GetSize() < 2 || !aSel.OnlyContains([KICAD_T.SCH_SYMBOL_T])) return result;
+
+  let rootRef = '';
+  let rootLibId: LIB_ID | null = null;
+  let rootPinCount = 0;
+  let haveRootPinCount = false;
+
+  // Preserve selection order for cyclical swaps A->B->C
+  const itemsInOrder = aSel.GetItemsSortedBySelectionOrder();
+
+  for (const it of itemsInOrder) {
+    const sym = it instanceof SCH_SYMBOL ? it : null;
+
+    if (!sym || !sym.GetLibSymbolRef() || sym.GetLibSymbolRef()!.GetUnitCount() < 2) return [];
+
+    const sheet = sym.Schematic()!.CurrentSheet();
+
+    // Get unit-less reference
+    const ref = sym.GetRef(sheet, false);
+
+    if (rootRef === '') rootRef = ref;
+
+    if (ref !== rootRef) return [];
+
+    // Make sure the user isn't selecting units that are misreferenced such that
+    // they have U1A and U1B that are actually from different library symbols.
+    const libId = sym.GetLibId();
+
+    if (!rootLibId) rootLibId = libId;
+
+    if (!libId.equals(rootLibId)) return [];
+
+    // Ensure same pin count across selected units
+    const pinCount = sym.GetPins(sheet).length;
+
+    if (!haveRootPinCount) {
+      rootPinCount = pinCount;
+      haveRootPinCount = true;
+    }
+
+    if (pinCount !== rootPinCount) return [];
+
+    result.push(sym);
+  }
+
+  if (result.length < 2) result = [];
+
+  return result;
 }
