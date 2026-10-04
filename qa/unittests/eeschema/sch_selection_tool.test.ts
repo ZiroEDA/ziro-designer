@@ -99,6 +99,13 @@ describe('SCH_SELECTION_TOOL', () => {
     const to = { x: box.GetRight() + 2 * MM, y: box.GetBottom() + 2 * MM };
     drag(h, from, to);
     expect(h.tool.GetSelection().GetItems()).toContain(sym);
+    // its fields come with it, not as items of their own (FilterCollectorForHierarchy)
+    expect(
+      h.tool
+        .GetSelection()
+        .GetItems()
+        .filter((i) => i.GetParent() === sym),
+    ).toHaveLength(0);
 
     // Right to left: anything the box touches, so a box over half the body takes it too.
     click(h, { x: -500 * MM, y: -500 * MM });
@@ -171,5 +178,45 @@ describe('SCH_SELECTION_TOOL', () => {
     h.tool.SelectConnection(null as never);
     expect(h.tool.GetSelection().GetSize()).toBeGreaterThan(1);
     expect(h.tool.GetSelection().GetItems()).toContain(wire);
+  });
+
+  it('takes the symbol for a click on its pin tip when pins are filtered out', () => {
+    const h = setUp();
+    const sym = loneSymbol(h);
+    const body = sym.GetBodyBoundingBox();
+    // a pin whose tip is clear of the body (the symbol is hit within half the 1.5 mm hit
+    // threshold of its body), where only the pin and its wire are
+    const pin = sym.GetPins().find(
+      (p) =>
+        !body
+          .Clone()
+          .Inflate(1 * MM)
+          .Contains(p.GetPosition()),
+    )!;
+    h.tool.GetFilter().pins = false;
+    h.tool.GetFilter().wires = false;
+    click(h, pin.GetPosition());
+    expect(h.tool.GetSelection().GetItems()).toEqual([sym]);
+  });
+
+  it('SelectConnection moves on to the next stop when the first adds nothing', () => {
+    const h = setUp();
+    const screen = h.frame.GetScreen()!;
+    const pinAt = new Set<string>();
+    for (const s of symbols(h))
+      for (const p of s.GetPins()) pinAt.add(`${p.GetPosition().x},${p.GetPosition().y}`);
+    const isStop = (p: { x: number; y: number }) =>
+      pinAt.has(`${p.x},${p.y}`) || screen.IsJunction(p);
+    // a wire both of whose ends stop the first pass, one of them at a junction it can walk through
+    const wire = wires(h).find(
+      (w) =>
+        isStop(w.GetStartPoint()) &&
+        isStop(w.GetEndPoint()) &&
+        (screen.IsJunction(w.GetStartPoint()) || screen.IsJunction(w.GetEndPoint())),
+    )!;
+    expect(wire).toBeTruthy();
+    h.tool.AddItemToSel(wire, true);
+    h.tool.SelectConnection(null as never);
+    expect(h.tool.GetSelection().GetSize()).toBeGreaterThan(1);
   });
 });
