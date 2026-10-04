@@ -39,6 +39,7 @@ import {
 import { FIELD_T, GetDefaultFieldName } from '@ziroeda/common/template_fieldnames.js';
 import { NULL_REPORTER } from '@ziroeda/common/reporter.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
+import type { COROUTINE_BODY } from '@ziroeda/common/tool/coroutine.js';
 import { ACTION_CONDITIONS } from '@ziroeda/common/tool/action_manager.js';
 import { ACTION_MENU } from '@ziroeda/common/tool/action_menu.js';
 import { CONDITIONAL_MENU } from '@ziroeda/common/tool/conditional_menu.js';
@@ -1765,7 +1766,7 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     return 0;
   }
 
-  RepeatDrawItem(_aEvent: TOOL_EVENT): number {
+  *RepeatDrawItem(_aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
     const sourceItems = this.m_frame!.GetRepeatItems();
 
     if (sourceItems.length === 0) return 0;
@@ -1826,7 +1827,9 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
 
           sheet.SetFileName('');
           sheet.GetScreen()!.SetFileName('');
-          restore_state = !this.m_frame!.EditSheetProperties(sheet, currentSheet);
+          restore_state = !(yield* this.RunMainStackModal(() =>
+            this.m_frame!.EditSheetProperties(sheet, currentSheet),
+          ));
 
           if (restore_state) {
             sheet.SetFileName(originalFileName);
@@ -1866,7 +1869,7 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
         // Annotation clears the selection so re-add the item
         this.m_toolMgr!.RunAction(ACTIONS.selectItem, newItem as EDA_ITEM);
 
-        restore_state = !this.m_toolMgr!.RunSynchronousAction(SCH_ACTIONS.move, commit);
+        restore_state = !(yield* this.RunSynchronousActionWait(SCH_ACTIONS.move, commit));
       }
 
       if (restore_state) {
@@ -1970,7 +1973,7 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     return 0;
   }
 
-  private editFieldText(aField: SCH_FIELD): void {
+  private *editFieldText(aField: SCH_FIELD): COROUTINE_BODY<void> {
     const parentType = aField.GetParent() ? aField.GetParent()!.Type() : KICAD_T.SCHEMATIC_T;
     const commit = new SCH_COMMIT(this.m_toolMgr!);
 
@@ -1996,8 +1999,9 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     // invoke a KIWAY_PLAYER so KiCad uses a quasi-modal. UpdateField( &commit, … ) is the
     // window's, applied to this commit.
     if (
-      this.m_frame!.ShowModalDialog('DIALOG_FIELD_PROPERTIES', [aField], { caption, commit }) !==
-      wxID_OK
+      (yield* this.RunMainStackModal(() =>
+        this.m_frame!.ShowModalDialog('DIALOG_FIELD_PROPERTIES', [aField], { caption, commit }),
+      )) !== wxID_OK
     )
       return;
 
@@ -2015,7 +2019,18 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     if (!commit.Empty()) commit.Push(caption);
   }
 
-  EditField(aEvent: TOOL_EVENT): number {
+  /** EditField's symbol arm, written out twice in the C++ (for a symbol and for a pin's). */
+  private *editSymbolMainField(aEvent: TOOL_EVENT, symbol: SCH_SYMBOL): COROUTINE_BODY<void> {
+    if (aEvent.IsAction(SCH_ACTIONS.editReference)) {
+      yield* this.editFieldText(symbol.GetField(FIELD_T.REFERENCE)!);
+    } else if (aEvent.IsAction(SCH_ACTIONS.editValue)) {
+      yield* this.editFieldText(symbol.GetField(FIELD_T.VALUE)!);
+    } else if (aEvent.IsAction(SCH_ACTIONS.editFootprint)) {
+      if (!symbol.IsPower()) yield* this.editFieldText(symbol.GetField(FIELD_T.FOOTPRINT)!);
+    }
+  }
+
+  *EditField(aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
     const sel = this.m_selectionTool!.RequestSelection([
       KICAD_T.SCH_FIELD_T,
       KICAD_T.SCH_SYMBOL_T,
@@ -2046,28 +2061,18 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
       }
     }
 
-    const editSymbolField = (symbol: SCH_SYMBOL) => {
-      if (aEvent.IsAction(SCH_ACTIONS.editReference)) {
-        this.editFieldText(symbol.GetField(FIELD_T.REFERENCE)!);
-      } else if (aEvent.IsAction(SCH_ACTIONS.editValue)) {
-        this.editFieldText(symbol.GetField(FIELD_T.VALUE)!);
-      } else if (aEvent.IsAction(SCH_ACTIONS.editFootprint)) {
-        if (!symbol.IsPower()) this.editFieldText(symbol.GetField(FIELD_T.FOOTPRINT)!);
-      }
-    };
-
     if (item.Type() === KICAD_T.SCH_SYMBOL_T) {
-      editSymbolField(item as SCH_SYMBOL);
+      yield* this.editSymbolMainField(aEvent, item as SCH_SYMBOL);
     } else if (item.Type() === KICAD_T.SCH_FIELD_T) {
       const field = item as SCH_FIELD;
 
-      this.editFieldText(field);
+      yield* this.editFieldText(field);
 
       if (!field.IsVisible()) clearSelection = true;
     } else if (item.Type() === KICAD_T.SCH_PIN_T) {
       const parent = item.GetParent();
 
-      if (parent instanceof SCH_SYMBOL) editSymbolField(parent);
+      if (parent instanceof SCH_SYMBOL) yield* this.editSymbolMainField(aEvent, parent);
     }
 
     if (clearSelection) this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
@@ -2110,7 +2115,7 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     return 0;
   }
 
-  ChangeSymbols(aEvent: TOOL_EVENT): number {
+  *ChangeSymbols(aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
     let selectedSymbol: SCH_SYMBOL | null = null;
     const selection = this.m_selectionTool!.RequestSelection([KICAD_T.SCH_SYMBOL_T]);
 
@@ -2125,10 +2130,12 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
       mode = DIALOG_CHANGE_SYMBOLS_MODE.CHANGE;
 
     // QuasiModal required to invoke symbol browser
-    this.m_frame!.ShowModalDialog(
-      'DIALOG_CHANGE_SYMBOLS',
-      selectedSymbol ? [selectedSymbol] : [],
-      mode,
+    yield* this.RunMainStackModal(() =>
+      this.m_frame!.ShowModalDialog(
+        'DIALOG_CHANGE_SYMBOLS',
+        selectedSymbol ? [selectedSymbol] : [],
+        mode,
+      ),
     );
 
     if (selection.IsHover()) this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
@@ -2161,7 +2168,7 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     return 0;
   }
 
-  Properties(_aEvent: TOOL_EVENT): number {
+  *Properties(_aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
     const selection = this.m_selectionTool!.RequestSelection();
     const clearSelection = selection.IsHover();
 
@@ -2191,9 +2198,13 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
       case KICAD_T.SCH_BUS_WIRE_ENTRY_T:
       case KICAD_T.SCH_JUNCTION_T:
         if (SELECTION_CONDITIONS.OnlyTypes([KICAD_T.SCH_ITEM_LOCATE_GRAPHIC_LINE_T])(selection)) {
-          this.m_frame!.ShowModalDialog('DIALOG_LINE_PROPERTIES', selection.Items());
+          yield* this.RunMainStackModal(() =>
+            this.m_frame!.ShowModalDialog('DIALOG_LINE_PROPERTIES', selection.Items()),
+          );
         } else if (SELECTION_CONDITIONS.OnlyTypes([KICAD_T.SCH_JUNCTION_T])(selection)) {
-          this.m_frame!.ShowModalDialog('DIALOG_JUNCTION_PROPS', selection.Items());
+          yield* this.RunMainStackModal(() =>
+            this.m_frame!.ShowModalDialog('DIALOG_JUNCTION_PROPS', selection.Items()),
+          );
         } else if (
           SELECTION_CONDITIONS.OnlyTypes([
             KICAD_T.SCH_ITEM_LOCATE_WIRE_T,
@@ -2202,7 +2213,9 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
             KICAD_T.SCH_JUNCTION_T,
           ])(selection)
         ) {
-          this.m_frame!.ShowModalDialog('DIALOG_WIRE_BUS_PROPERTIES', selection.Items());
+          yield* this.RunMainStackModal(() =>
+            this.m_frame!.ShowModalDialog('DIALOG_WIRE_BUS_PROPERTIES', selection.Items()),
+          );
         } else {
           return 0;
         }
@@ -2224,11 +2237,15 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
           const cells = selection.Items() as SCH_TABLECELL[];
 
           // QuasiModal required for syntax help and Scintilla auto-complete
-          const ret = this.m_frame!.ShowModalDialog('DIALOG_TABLECELL_PROPERTIES', cells);
+          const ret = yield* this.RunMainStackModal(() =>
+            this.m_frame!.ShowModalDialog('DIALOG_TABLECELL_PROPERTIES', cells),
+          );
 
           if (ret === TABLECELL_PROPS_EDIT_TABLE) {
             const table = cells[0]!.GetParent() as SCH_TABLE;
-            this.m_frame!.ShowModalDialog('DIALOG_TABLE_PROPERTIES', [table]);
+            yield* this.RunMainStackModal(() =>
+              this.m_frame!.ShowModalDialog('DIALOG_TABLE_PROPERTIES', [table]),
+            );
           }
         }
 
@@ -2237,7 +2254,7 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
       default:
         if (selection.Size() > 1) return 0;
 
-        this.EditProperties(curr_item);
+        yield* this.EditProperties(curr_item);
     }
 
     if (clearSelection) this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
@@ -2245,13 +2262,15 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     return 0;
   }
 
-  EditProperties(aItem: EDA_ITEM): void {
+  *EditProperties(aItem: EDA_ITEM): COROUTINE_BODY<void> {
     switch (aItem.Type()) {
       case KICAD_T.SCH_SYMBOL_T: {
         const symbol = aItem as SCH_SYMBOL;
 
         // This dialog itself subsequently can invoke a KIWAY_PLAYER as a quasimodal frame.
-        const retval = this.m_frame!.ShowModalDialog('DIALOG_SYMBOL_PROPERTIES', [symbol]);
+        const retval = yield* this.RunMainStackModal(() =>
+          this.m_frame!.ShowModalDialog('DIALOG_SYMBOL_PROPERTIES', [symbol]),
+        );
 
         if (retval === SYMBOL_PROPS_RETVALUE.SYMBOL_PROPS_EDIT_OK) {
           if (this.m_frame!.eeconfig()?.autoplace_fields.enable) {
@@ -2278,16 +2297,20 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
           )
             return;
         } else if (retval === SYMBOL_PROPS_RETVALUE.SYMBOL_PROPS_WANT_UPDATE_SYMBOL) {
-          this.m_frame!.ShowModalDialog(
-            'DIALOG_CHANGE_SYMBOLS',
-            [symbol],
-            DIALOG_CHANGE_SYMBOLS_MODE.UPDATE,
+          yield* this.RunMainStackModal(() =>
+            this.m_frame!.ShowModalDialog(
+              'DIALOG_CHANGE_SYMBOLS',
+              [symbol],
+              DIALOG_CHANGE_SYMBOLS_MODE.UPDATE,
+            ),
           );
         } else if (retval === SYMBOL_PROPS_RETVALUE.SYMBOL_PROPS_WANT_EXCHANGE_SYMBOL) {
-          this.m_frame!.ShowModalDialog(
-            'DIALOG_CHANGE_SYMBOLS',
-            [symbol],
-            DIALOG_CHANGE_SYMBOLS_MODE.CHANGE,
+          yield* this.RunMainStackModal(() =>
+            this.m_frame!.ShowModalDialog(
+              'DIALOG_CHANGE_SYMBOLS',
+              [symbol],
+              DIALOG_CHANGE_SYMBOLS_MODE.CHANGE,
+            ),
           );
         }
 
@@ -2305,7 +2328,9 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
 
         const commit = new SCH_COMMIT(this.m_toolMgr!);
         commit.Modify(sheet, this.m_frame!.GetScreen());
-        const result = this.m_frame!.EditSheetProperties(sheet, this.m_frame!.GetCurrentSheet());
+        const result = yield* this.RunMainStackModal(() =>
+          this.m_frame!.EditSheetProperties(sheet, this.m_frame!.GetCurrentSheet()),
+        );
         const okPressed = result !== null;
 
         if (result) {
@@ -2348,18 +2373,24 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
 
       case KICAD_T.SCH_SHEET_PIN_T:
         // QuasiModal required for help dialog
-        this.m_frame!.ShowModalDialog('DIALOG_SHEET_PIN_PROPERTIES', [aItem]);
+        yield* this.RunMainStackModal(() =>
+          this.m_frame!.ShowModalDialog('DIALOG_SHEET_PIN_PROPERTIES', [aItem]),
+        );
         break;
 
       case KICAD_T.SCH_TEXT_T:
       case KICAD_T.SCH_TEXTBOX_T:
         // QuasiModal required for syntax help and Scintilla auto-complete
-        this.m_frame!.ShowModalDialog('DIALOG_TEXT_PROPERTIES', [aItem]);
+        yield* this.RunMainStackModal(() =>
+          this.m_frame!.ShowModalDialog('DIALOG_TEXT_PROPERTIES', [aItem]),
+        );
         break;
 
       case KICAD_T.SCH_TABLE_T:
         // QuasiModal required for Scintilla auto-complete
-        this.m_frame!.ShowModalDialog('DIALOG_TABLE_PROPERTIES', [aItem]);
+        yield* this.RunMainStackModal(() =>
+          this.m_frame!.ShowModalDialog('DIALOG_TABLE_PROPERTIES', [aItem]),
+        );
         break;
 
       case KICAD_T.SCH_LABEL_T:
@@ -2367,13 +2398,15 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
       case KICAD_T.SCH_HIER_LABEL_T:
       case KICAD_T.SCH_DIRECTIVE_LABEL_T:
         // QuasiModal for syntax help and Scintilla auto-complete
-        this.m_frame!.ShowModalDialog('DIALOG_LABEL_PROPERTIES', [aItem], false);
+        yield* this.RunMainStackModal(() =>
+          this.m_frame!.ShowModalDialog('DIALOG_LABEL_PROPERTIES', [aItem], false),
+        );
         break;
 
       case KICAD_T.SCH_FIELD_T: {
         const field = aItem as SCH_FIELD;
 
-        this.editFieldText(field);
+        yield* this.editFieldText(field);
 
         if (!field.IsVisible()) this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
 
@@ -2381,11 +2414,17 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
       }
 
       case KICAD_T.SCH_SHAPE_T:
-        this.m_frame!.ShowModalDialog('DIALOG_SHAPE_PROPERTIES', [aItem]);
+        yield* this.RunMainStackModal(() =>
+          this.m_frame!.ShowModalDialog('DIALOG_SHAPE_PROPERTIES', [aItem]),
+        );
         break;
 
       case KICAD_T.SCH_BITMAP_T:
-        if (this.m_frame!.ShowModalDialog('DIALOG_IMAGE_PROPERTIES', [aItem]) === wxID_OK) {
+        if (
+          (yield* this.RunMainStackModal(() =>
+            this.m_frame!.ShowModalDialog('DIALOG_IMAGE_PROPERTIES', [aItem]),
+          )) === wxID_OK
+        ) {
           // The bitmap is cached in Opengl: clear the cache in case it has become invalid
           this.getView()!.RecacheAllItems();
         }
@@ -2394,7 +2433,9 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
 
       case KICAD_T.SCH_RULE_AREA_T:
         // dlg.SetTitle( _( "Rule Area Properties" ) )
-        this.m_frame!.ShowModalDialog('DIALOG_SHAPE_PROPERTIES', [aItem], 'Rule Area Properties');
+        yield* this.RunMainStackModal(() =>
+          this.m_frame!.ShowModalDialog('DIALOG_SHAPE_PROPERTIES', [aItem], 'Rule Area Properties'),
+        );
         break;
 
       case KICAD_T.SCH_NO_CONNECT_T:
@@ -2827,7 +2868,7 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     return 0;
   }
 
-  EditPageNumber(_aEvent: TOOL_EVENT): number {
+  *EditPageNumber(_aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
     const selection = this.m_selectionTool!.RequestSelection([KICAD_T.SCH_SHEET_T]);
 
     if (selection.GetSize() > 1) return 0;
@@ -2864,7 +2905,9 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     const msg = `Enter page number for sheet path${sheetPath.length > 20 ? `\n${sheetPath}` : ` ${sheetPath}`}`;
 
     // dlg.SetTextValidator( wxFILTER_ALPHANUMERIC ): no white space.
-    const value = this.m_frame!.TextEntryDialog(msg, 'Edit Sheet Page Number', pageNumber);
+    const value = yield* this.RunMainStackModal(() =>
+      this.m_frame!.TextEntryDialog(msg, 'Edit Sheet Page Number', pageNumber),
+    );
 
     if (value === null || value === instance.GetPageNumber()) return 0;
 
@@ -2981,14 +3024,16 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
   }
 
   /** `GlobalEdit` (dialogs/dialog_global_edit_text_and_graphics.cpp:539). */
-  GlobalEdit(_aEvent: TOOL_EVENT): number {
-    this.m_frame!.ShowModalDialog('DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS', []);
+  *GlobalEdit(_aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+    yield* this.RunMainStackModal(() =>
+      this.m_frame!.ShowModalDialog('DIALOG_GLOBAL_EDIT_TEXT_AND_GRAPHICS', []),
+    );
     return 0;
   }
 
   protected override setTransitions(): void {
     // clang-format off
-    this.Go(SYNC_HANDLER(this.RepeatDrawItem), SCH_ACTIONS.repeatDrawItem.MakeEvent());
+    this.Go(this.RepeatDrawItem, SCH_ACTIONS.repeatDrawItem.MakeEvent());
     this.Go(SYNC_HANDLER(this.Rotate), SCH_ACTIONS.rotateCW.MakeEvent());
     this.Go(SYNC_HANDLER(this.Rotate), SCH_ACTIONS.rotateCCW.MakeEvent());
     this.Go(SYNC_HANDLER(this.Mirror), SCH_ACTIONS.mirrorV.MakeEvent());
@@ -3006,15 +3051,15 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     this.Go(SYNC_HANDLER(this.Increment), ACTIONS.incrementSecondary.MakeEvent());
     this.Go(SYNC_HANDLER(this.Increment), ACTIONS.decrementSecondary.MakeEvent());
 
-    this.Go(SYNC_HANDLER(this.Properties), SCH_ACTIONS.properties.MakeEvent());
-    this.Go(SYNC_HANDLER(this.EditField), SCH_ACTIONS.editReference.MakeEvent());
-    this.Go(SYNC_HANDLER(this.EditField), SCH_ACTIONS.editValue.MakeEvent());
-    this.Go(SYNC_HANDLER(this.EditField), SCH_ACTIONS.editFootprint.MakeEvent());
+    this.Go(this.Properties, SCH_ACTIONS.properties.MakeEvent());
+    this.Go(this.EditField, SCH_ACTIONS.editReference.MakeEvent());
+    this.Go(this.EditField, SCH_ACTIONS.editValue.MakeEvent());
+    this.Go(this.EditField, SCH_ACTIONS.editFootprint.MakeEvent());
     this.Go(SYNC_HANDLER(this.AutoplaceFields), SCH_ACTIONS.autoplaceFields.MakeEvent());
-    this.Go(SYNC_HANDLER(this.ChangeSymbols), SCH_ACTIONS.changeSymbols.MakeEvent());
-    this.Go(SYNC_HANDLER(this.ChangeSymbols), SCH_ACTIONS.updateSymbols.MakeEvent());
-    this.Go(SYNC_HANDLER(this.ChangeSymbols), SCH_ACTIONS.changeSymbol.MakeEvent());
-    this.Go(SYNC_HANDLER(this.ChangeSymbols), SCH_ACTIONS.updateSymbol.MakeEvent());
+    this.Go(this.ChangeSymbols, SCH_ACTIONS.changeSymbols.MakeEvent());
+    this.Go(this.ChangeSymbols, SCH_ACTIONS.updateSymbols.MakeEvent());
+    this.Go(this.ChangeSymbols, SCH_ACTIONS.changeSymbol.MakeEvent());
+    this.Go(this.ChangeSymbols, SCH_ACTIONS.updateSymbol.MakeEvent());
     this.Go(SYNC_HANDLER(this.CycleBodyStyle), SCH_ACTIONS.cycleBodyStyle.MakeEvent());
     this.Go(SYNC_HANDLER(this.ChangeTextType), SCH_ACTIONS.toLabel.MakeEvent());
     this.Go(SYNC_HANDLER(this.ChangeTextType), SCH_ACTIONS.toHLabel.MakeEvent());
@@ -3033,8 +3078,8 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     this.Go(SYNC_HANDLER(this.SetAttribute), SCH_ACTIONS.setExcludeFromSim.MakeEvent());
 
     this.Go(SYNC_HANDLER(this.CleanupSheetPins), SCH_ACTIONS.cleanupSheetPins.MakeEvent());
-    this.Go(SYNC_HANDLER(this.GlobalEdit), SCH_ACTIONS.editTextAndGraphics.MakeEvent());
-    this.Go(SYNC_HANDLER(this.EditPageNumber), SCH_ACTIONS.editPageNumber.MakeEvent());
+    this.Go(this.GlobalEdit, SCH_ACTIONS.editTextAndGraphics.MakeEvent());
+    this.Go(this.EditPageNumber, SCH_ACTIONS.editPageNumber.MakeEvent());
 
     this.Go(SYNC_HANDLER(this.DdAppendFile), SCH_ACTIONS.ddAppendFile.MakeEvent());
     // DdAddImage (SCH_BITMAP::ReadImageFile from a dropped path) needs the drawing tool's

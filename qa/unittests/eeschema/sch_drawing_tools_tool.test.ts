@@ -46,6 +46,11 @@ function setUp(aHooks: Partial<SCH_EDIT_FRAME_HOOKS> = {}, aSub = true) {
 }
 
 const at = (p: { x: number; y: number }, q: { x: number; y: number }) => p.x === q.x && p.y === q.y;
+const flush = async (): Promise<void> => {
+  // a dialog answers on a later tick, waking its coroutine through a posted event
+  for (let i = 0; i < 4; i++) await new Promise((r) => setTimeout(r, 0));
+};
+
 const P = (x: number, y: number) => ({ x: FAR + x * G, y: FAR + y * G });
 
 function wire(
@@ -121,7 +126,7 @@ describe('SCH_DRAWING_TOOLS::SingleClickPlace', () => {
 });
 
 describe('SCH_DRAWING_TOOLS::TwoClickPlace', () => {
-  it('names a label in its dialog on the first click and places it on the second', () => {
+  it('names a label in its dialog on the first click and places it on the second', async () => {
     const dialogs: string[] = [];
     const h = setUp({
       showModal: (d, items) => {
@@ -132,6 +137,7 @@ describe('SCH_DRAWING_TOOLS::TwoClickPlace', () => {
     });
     h.h.mouse = P(0, 0); // the primed click opens the dialog
     h.mgr.RunAction(SCH_ACTIONS.placeLabel);
+    await flush();
     mouse(h, TA_MOUSE_MOTION, P(2, 2));
     click(h, P(2, 2));
     h.mgr.RunAction(ACTIONS.cancelInteractive);
@@ -143,7 +149,7 @@ describe('SCH_DRAWING_TOOLS::TwoClickPlace', () => {
     expect(labels[0]!.IsNew()).toBe(false);
   });
 
-  it('a label on a wire driven by a label takes that name without asking', () => {
+  it('a label on a wire driven by a label takes that name without asking', async () => {
     const dialogs: string[] = [];
     const h = setUp({
       showModal: (d, items) => {
@@ -155,21 +161,25 @@ describe('SCH_DRAWING_TOOLS::TwoClickPlace', () => {
     wire(h, P(0, 0), P(10, 0));
     h.h.mouse = P(0, 0);
     h.mgr.RunAction(SCH_ACTIONS.placeLabel);
+    await flush();
     click(h, P(0, 0));
+    await flush();
     h.mgr.RunAction(ACTIONS.cancelInteractive);
     expect(dialogs).toEqual(['DIALOG_LABEL_PROPERTIES']);
     dialogs.length = 0;
     h.h.mouse = P(6, 0);
     h.mgr.RunAction(SCH_ACTIONS.placeLabel);
+    await flush();
     h.mgr.RunAction(ACTIONS.cancelInteractive);
     expect(dialogs).toEqual([]);
   });
 
-  it('a cancelled label dialog places nothing', () => {
+  it('a cancelled label dialog places nothing', async () => {
     const h = setUp({ showModal: () => wxID_CANCEL });
     const before = [...h.screen().Items().OfType(KICAD_T.SCH_LABEL_T)].length;
     h.h.mouse = P(0, 0);
     h.mgr.RunAction(SCH_ACTIONS.placeLabel);
+    await flush();
     click(h, P(2, 2));
     h.mgr.RunAction(ACTIONS.cancelInteractive);
     expect([...h.screen().Items().OfType(KICAD_T.SCH_LABEL_T)].length).toBe(before);
@@ -177,7 +187,7 @@ describe('SCH_DRAWING_TOOLS::TwoClickPlace', () => {
 });
 
 describe('SCH_DRAWING_TOOLS::DrawSheet', () => {
-  it('draws a sheet from click to click, named by the sheet dialog, on the next free page', () => {
+  it('draws a sheet from click to click, named by the sheet dialog, on the next free page', async () => {
     const asked: [SCH_SHEET, string | undefined][] = [];
     const frameRef: { frame: SCH_EDIT_FRAME | null } = { frame: null };
     const h = setUp(
@@ -197,6 +207,7 @@ describe('SCH_DRAWING_TOOLS::DrawSheet', () => {
     h.mgr.RunAction(SCH_ACTIONS.drawSheet);
     mouse(h, TA_MOUSE_MOTION, P(40, 20));
     click(h, P(40, 20));
+    await flush();
     // DrawSheet leaves the new sheet selected
     const selected = h.sel.GetSelection().GetItems();
     h.mgr.RunAction(ACTIONS.cancelInteractive);
@@ -212,12 +223,13 @@ describe('SCH_DRAWING_TOOLS::DrawSheet', () => {
     expect(selected[0] === sheet).toBe(true);
   });
 
-  it('a cancelled sheet dialog adds nothing', () => {
+  it('a cancelled sheet dialog adds nothing', async () => {
     const h = setUp({ editSheetProperties: () => null }, false);
     const before = [...h.screen().Items().OfType(KICAD_T.SCH_SHEET_T)].length;
     h.h.mouse = P(0, 0);
     h.mgr.RunAction(SCH_ACTIONS.drawSheet);
     click(h, P(40, 20));
+    await flush();
     h.mgr.RunAction(ACTIONS.cancelInteractive);
     expect([...h.screen().Items().OfType(KICAD_T.SCH_SHEET_T)].length).toBe(before);
   });

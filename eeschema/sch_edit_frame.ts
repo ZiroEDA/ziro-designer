@@ -76,6 +76,13 @@ import { SCH_DESIGN_BLOCK_UTILS_MIXIN } from './sch_design_block_utils.js';
 import type { SCH_DESIGN_BLOCK_PANE } from './widgets/sch_design_block_pane.js';
 import type { SCH_GROUP } from './sch_group.js';
 
+/** `EditSheetProperties`' out-parameters (sheet.cpp): what OK left to be done. */
+export interface SHEET_PROPERTIES_RESULT {
+  isUndoable: boolean;
+  clearAnnotation: boolean;
+  updateHierarchyNavigator: boolean;
+}
+
 export interface SCH_EDIT_FRAME_HOOKS {
   /** `eeconfig()->m_CrossProbing`, read on every probe so a changed preference is seen. */
   crossProbingSettings(): CROSS_PROBING_SETTINGS;
@@ -148,7 +155,11 @@ export interface SCH_EDIT_FRAME_HOOKS {
    * applies it through a commit as the dialog does, and returns what ShowModal returns. With no
    * hook every dialog is cancelled (`wxID_CANCEL`).
    */
-  showModal?(aDialog: string, aItems: readonly EDA_ITEM[], aArg?: unknown): number;
+  showModal?(
+    aDialog: string,
+    aItems: readonly EDA_ITEM[],
+    aArg?: unknown,
+  ): number | Promise<number>;
   /**
    * `EditSheetProperties( aSheet, aHierarchy, … )` (sheet.cpp): DIALOG_SHEET_PROPERTIES on a live
    * sheet. Null (cancelled) with no hook.
@@ -157,9 +168,13 @@ export interface SCH_EDIT_FRAME_HOOKS {
     aSheet: SCH_SHEET,
     aHierarchy: SCH_SHEET_PATH,
     aSourceSheetFilename?: string,
-  ): { isUndoable: boolean; clearAnnotation: boolean; updateHierarchyNavigator: boolean } | null;
+  ): SHEET_PROPERTIES_RESULT | null | Promise<SHEET_PROPERTIES_RESULT | null>;
   /** `wxTextEntryDialog( this, aMessage, aCaption, aValue ).ShowModal()`: null when cancelled. */
-  textEntry?(aMessage: string, aCaption: string, aValue: string): string | null;
+  textEntry?(
+    aMessage: string,
+    aCaption: string,
+    aValue: string,
+  ): string | null | Promise<string | null>;
 }
 
 // biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (SCH_UNDO_REDO_MIXIN, see libs/core/mixins.ts)
@@ -750,8 +765,8 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
   }
 
   /** The window's half of the dialogs a tool opens: see SCH_EDIT_FRAME_HOOKS.showModal. */
-  ShowModalDialog(aDialog: string, aItems: readonly EDA_ITEM[], aArg?: unknown): number {
-    return this.hooks.showModal?.(aDialog, aItems, aArg) ?? wxID_CANCEL;
+  ShowModalDialog(aDialog: string, aItems: readonly EDA_ITEM[], aArg?: unknown): Promise<number> {
+    return Promise.resolve(this.hooks.showModal?.(aDialog, aItems, aArg) ?? wxID_CANCEL);
   }
 
   /**
@@ -763,13 +778,15 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
     aSheet: SCH_SHEET,
     aHierarchy: SCH_SHEET_PATH,
     aSourceSheetFilename?: string,
-  ): { isUndoable: boolean; clearAnnotation: boolean; updateHierarchyNavigator: boolean } | null {
-    return this.hooks.editSheetProperties?.(aSheet, aHierarchy, aSourceSheetFilename) ?? null;
+  ): Promise<SHEET_PROPERTIES_RESULT | null> {
+    return Promise.resolve(
+      this.hooks.editSheetProperties?.(aSheet, aHierarchy, aSourceSheetFilename) ?? null,
+    );
   }
 
   /** `wxTextEntryDialog`: null when cancelled, or when there is no window to ask. */
-  TextEntryDialog(aMessage: string, aCaption: string, aValue: string): string | null {
-    return this.hooks.textEntry?.(aMessage, aCaption, aValue) ?? null;
+  TextEntryDialog(aMessage: string, aCaption: string, aValue: string): Promise<string | null> {
+    return Promise.resolve(this.hooks.textEntry?.(aMessage, aCaption, aValue) ?? null);
   }
 
   /**

@@ -319,11 +319,15 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
           } else if (evt.IsAction(SCH_ACTIONS.properties)) {
             switch (type) {
               case KICAD_T.SCH_BUS_WIRE_ENTRY_T:
-                this.m_frame!.ShowModalDialog('DIALOG_WIRE_BUS_PROPERTIES', [previewItem]);
+                yield* this.RunMainStackModal(() =>
+                  this.m_frame!.ShowModalDialog('DIALOG_WIRE_BUS_PROPERTIES', [previewItem]),
+                );
                 break;
 
               case KICAD_T.SCH_JUNCTION_T:
-                this.m_frame!.ShowModalDialog('DIALOG_JUNCTION_PROPS', [previewItem]);
+                yield* this.RunMainStackModal(() =>
+                  this.m_frame!.ShowModalDialog('DIALOG_JUNCTION_PROPS', [previewItem]),
+                );
                 break;
 
               default:
@@ -386,7 +390,11 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
    * wire it lands on or by DIALOG_LABEL_PROPERTIES, which may itself fill \a aLabelList (a pasted
    * list of names). False when the dialog was cancelled.
    */
-  createNewLabel(aPosition: VECTOR2I, aType: SCH_LAYER_ID, aLabelList: SCH_LABEL_BASE[]): boolean {
+  *createNewLabel(
+    aPosition: VECTOR2I,
+    aType: SCH_LAYER_ID,
+    aLabelList: SCH_LABEL_BASE[],
+  ): COROUTINE_BODY<boolean> {
     const settings = this.schematic().Settings();
     let labelItem: SCH_LABEL_BASE;
     let netName = '';
@@ -460,10 +468,12 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
       // DIALOG_LABEL_PROPERTIES dlg( m_frame, labelItem, true ); dlg.SetLabelList( &aLabelList ):
       // QuasiModal required for syntax help and Scintilla auto-complete
       if (
-        this.m_frame!.ShowModalDialog('DIALOG_LABEL_PROPERTIES', [labelItem], {
-          isNew: true,
-          labelList: aLabelList,
-        }) !== wxID_OK
+        (yield* this.RunMainStackModal(() =>
+          this.m_frame!.ShowModalDialog('DIALOG_LABEL_PROPERTIES', [labelItem], {
+            isNew: true,
+            labelList: aLabelList,
+          }),
+        )) !== wxID_OK
       )
         return false;
     }
@@ -489,7 +499,7 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     return true;
   }
 
-  private createNewText(aPosition: VECTOR2I): SCH_TEXT | null {
+  private *createNewText(aPosition: VECTOR2I): COROUTINE_BODY<SCH_TEXT | null> {
     const schematic = this.schematic();
     const settings = schematic.Settings();
 
@@ -505,7 +515,11 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     textItem.SetFlags(IS_NEW | IS_MOVING);
 
     // DIALOG_TEXT_PROPERTIES: QuasiModal required for syntax help and Scintilla auto-complete
-    if (this.m_frame!.ShowModalDialog('DIALOG_TEXT_PROPERTIES', [textItem]) !== wxID_OK)
+    if (
+      (yield* this.RunMainStackModal(() =>
+        this.m_frame!.ShowModalDialog('DIALOG_TEXT_PROPERTIES', [textItem]),
+      )) !== wxID_OK
+    )
       return null;
 
     this.m_lastTextBold = textItem.IsBold();
@@ -708,19 +722,19 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
             this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
 
             if (isText) {
-              item = this.createNewText(cursorPos);
+              item = yield* this.createNewText(cursorPos);
               description = 'Add Text';
             } else if (isHierLabel) {
-              this.createNewLabel(cursorPos, SCH_LAYER_ID.LAYER_HIERLABEL, itemsToPlace);
+              yield* this.createNewLabel(cursorPos, SCH_LAYER_ID.LAYER_HIERLABEL, itemsToPlace);
               description = 'Add Hierarchical Label';
             } else if (isNetLabel) {
-              this.createNewLabel(cursorPos, SCH_LAYER_ID.LAYER_LOCLABEL, itemsToPlace);
+              yield* this.createNewLabel(cursorPos, SCH_LAYER_ID.LAYER_LOCLABEL, itemsToPlace);
               description = 'Add Label';
             } else if (isGlobalLabel) {
-              this.createNewLabel(cursorPos, SCH_LAYER_ID.LAYER_GLOBLABEL, itemsToPlace);
+              yield* this.createNewLabel(cursorPos, SCH_LAYER_ID.LAYER_GLOBLABEL, itemsToPlace);
               description = 'Add Label';
             } else if (isClassLabel) {
-              this.createNewLabel(cursorPos, SCH_LAYER_ID.LAYER_NETCLASS_REFS, itemsToPlace);
+              yield* this.createNewLabel(cursorPos, SCH_LAYER_ID.LAYER_NETCLASS_REFS, itemsToPlace);
               description = 'Add Label';
             } else if (isSheetPin) {
               const i: { value: EDA_ITEM | null } = { value: null };
@@ -1118,10 +1132,12 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
           controls.CaptureCursor(false);
 
           if (
-            this.m_frame!.EditSheetProperties(
-              placed,
-              this.m_frame!.GetCurrentSheet(),
-              isDrawSheetCopy ? filename : undefined,
+            yield* this.RunMainStackModal(() =>
+              this.m_frame!.EditSheetProperties(
+                placed,
+                this.m_frame!.GetCurrentSheet(),
+                isDrawSheetCopy ? filename : undefined,
+              ),
             )
           ) {
             this.m_view!.ClearPreview();
@@ -1250,7 +1266,7 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
   ): number {
     if (aSheetPaths.length === 0) return 0;
 
-    this.m_frame!.ShowModalDialog('DIALOG_SYNC_SHEET_PINS', [], {
+    void this.m_frame!.ShowModalDialog('DIALOG_SYNC_SHEET_PINS', [], {
       sheetPaths: aSheetPaths,
       initialSheet: aInitialSheet,
     });

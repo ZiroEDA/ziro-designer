@@ -62,6 +62,11 @@ const lone = (h: SCH_HARNESS) =>
     (s) => !s.GetLibSymbolRef()?.IsPower(),
   )[0]!;
 
+const flush = async (): Promise<void> => {
+  // a dialog answers on a later tick, waking its coroutine through a posted event
+  for (let i = 0; i < 4; i++) await new Promise((r) => setTimeout(r, 0));
+};
+
 const at = (p: { x: number; y: number }, q: { x: number; y: number }) => p.x === q.x && p.y === q.y;
 
 function wire(h: ReturnType<typeof setUp>, a: [number, number], b: [number, number]): SCH_LINE {
@@ -247,7 +252,7 @@ describe('SCH_EDIT_TOOL', () => {
     expect(text.GetHorizJustify()).toBe(GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_CENTER);
   });
 
-  it('Properties opens the dialog KiCad names, on the live item, promoting a pin to its symbol', () => {
+  it('Properties opens the dialog KiCad names, on the live item, promoting a pin to its symbol', async () => {
     const calls: [string, readonly EDA_ITEM[]][] = [];
     const h = setUp({
       showModal: (d, items) => {
@@ -259,21 +264,24 @@ describe('SCH_EDIT_TOOL', () => {
     h.frame.AddToScreen(label, h.screen);
     h.select(label);
     h.mgr.RunAction(SCH_ACTIONS.properties);
+    await flush();
     const sym = lone(h);
     h.select(sym.GetPins()[0]!);
     h.mgr.RunAction(SCH_ACTIONS.properties);
+    await flush();
     expect(calls.map(([d, items]) => [d, items[0]])).toEqual([
       ['DIALOG_LABEL_PROPERTIES', label],
       ['DIALOG_SYMBOL_PROPERTIES', sym],
     ]);
   });
 
-  it('a cancelled field dialog leaves no undo step', () => {
+  it('a cancelled field dialog leaves no undo step', async () => {
     const h = setUp(); // no window: every dialog is cancelled
     const sym = lone(h);
     const undo = h.frame.GetUndoCommandCount();
     h.select(sym);
     h.mgr.RunAction(SCH_ACTIONS.editValue);
+    await flush();
     expect(h.frame.GetUndoCommandCount()).toBe(undo);
   });
 });
