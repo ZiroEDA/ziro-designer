@@ -217,6 +217,9 @@ import { MessageDialogError, MessageDialogOk } from '@ziroeda/common/dialogs/dia
 import { DialogPcbPlot } from './dialogs/dialog_plot.js';
 import { DialogGenFootprintPosition } from './dialogs/dialog_gen_footprint_position.js';
 import { DialogGendrill } from './dialogs/dialog_gendrill.js';
+import { DialogGencadExportOptions } from './dialogs/dialog_gencad_export_options_ui.js';
+import type { DIALOG_GENCAD_EXPORT_OPTIONS } from './dialogs/dialog_gencad_export_options.js';
+import { gencadFileWildcard } from '@ziroeda/common/wildcards_and_files_ext.js';
 import {
   DialogBoardSetup,
   defaultBoardSetup,
@@ -2224,6 +2227,8 @@ export function PcbEditor({
     writeTextFile: (aPath: string, aText: string) => boolean;
     showGenFootprintPositionDialog: () => Promise<void>;
     showGenDrillDialog: () => Promise<void>;
+    showGencadExportOptionsDialog: (aDialog: DIALOG_GENCAD_EXPORT_OPTIONS) => Promise<boolean>;
+    fileExists: (aPath: string) => boolean;
     showReferenceImagePropertiesDialog: (
       aDialog: DIALOG_REFERENCE_IMAGE_PROPERTIES,
     ) => Promise<boolean>;
@@ -2348,6 +2353,9 @@ export function PcbEditor({
       writeTextFile: (aPath, aText) => drcWindowRef.current!.writeTextFile(aPath, aText),
       showGenFootprintPositionDialog: () => drcWindowRef.current!.showGenFootprintPositionDialog(),
       showGenDrillDialog: () => drcWindowRef.current!.showGenDrillDialog(),
+      showGencadExportOptionsDialog: (aDialog) =>
+        drcWindowRef.current!.showGencadExportOptionsDialog(aDialog),
+      fileExists: (aPath) => drcWindowRef.current!.fileExists(aPath),
       showReferenceImagePropertiesDialog: (aDialog) =>
         drcWindowRef.current!.showReferenceImagePropertiesDialog(aDialog),
       showPadPropertiesDialog: (aDialog) => drcWindowRef.current!.showPadPropertiesDialog(aDialog),
@@ -2623,6 +2631,11 @@ export function PcbEditor({
   const [posFileDlg, setPosFileDlg] = useState<{ done: () => void } | null>(null);
   /** DIALOG_GENDRILL, while BOARD_EDITOR_CONTROL::GenerateDrillFiles shows it. */
   const [drillDlg, setDrillDlg] = useState<{ done: () => void } | null>(null);
+  // DIALOG_GENCAD_EXPORT_OPTIONS while BOARD_EDITOR_CONTROL::ExportGenCAD shows it.
+  const [gencadDlg, setGencadDlg] = useState<{
+    dialog: DIALOG_GENCAD_EXPORT_OPTIONS;
+    resolve: (aOk: boolean) => void;
+  } | null>(null);
   /** PCB_EDIT_FRAME::ShowSaveFileDialog's wxFileDialog, while it is up. */
   const [saveFileDlg, setSaveFileDlg] = useState<{
     title: string;
@@ -3171,6 +3184,11 @@ export function PcbEditor({
         wxLogTrace(traceAllegroPerf, () => `Load: ${postLoadTimer.msecs(true).toFixed(3)} ms`);
         if (cancelled) return;
         const kb = b.k;
+        // OpenProjectFiles: `GetBoard()->SetFileName( fullFileName )` once the
+        // plugin has loaded it (files.cpp:889). The plot, drill, placement,
+        // GenCAD and .cmp names, Gerber's TF.ProjectId and the drawing sheet's
+        // file name all read it.
+        kb.SetFileName(fileName);
         // `BOARD::BuildConnectivity`'s first step, `CacheTriangulation`, runs
         // on the thread pool in the C++ while the progress dialog pumps
         // (`Tessellating copper zones...`). Ours pumps the same way — the
@@ -3742,6 +3760,15 @@ export function PcbEditor({
    */
   const fileNameRef = useRef(fileName);
   fileNameRef.current = fileName;
+  // SavePcbFile under a new name (Save As, a rename in the file manager):
+  // `GetBoard()->SetFileName( pcbFileName.GetFullPath() )` (files.cpp:1056).
+  // The blank board before a load stays unnamed, as PCB_EDIT_FRAME's own is.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the name is the trigger; the BOARD is read through the frame
+  useEffect(() => {
+    const kb = frameRef.current?.GetBoard();
+
+    if (kb && kb !== emptyBoard.k) kb.SetFileName(fileName);
+  }, [fileName]);
   const listenerRef = useRef<REACT_BOARD_LISTENER | null>(null);
   if (!listenerRef.current) {
     listenerRef.current = new REACT_BOARD_LISTENER((unchanged) => {
@@ -4554,6 +4581,20 @@ export function PcbEditor({
       ),
     showGenFootprintPositionDialog: (): Promise<void> =>
       new Promise<void>((resolve) => setPosFileDlg({ done: resolve })),
+    showGencadExportOptionsDialog: (aDialog: DIALOG_GENCAD_EXPORT_OPTIONS): Promise<boolean> =>
+      new Promise<boolean>((resolve) => setGencadDlg({ dialog: aDialog, resolve })),
+    // `wxFile::Exists`: a file of that project-relative path in the project.
+    fileExists: (aPath: string): boolean => {
+      const want = aPath.replace(/\\/g, '/');
+      const files = projectFiles ?? [];
+      const pro = files.find((f) => /\.kicad_pro$/i.test(f.name))?.name.replace(/\\/g, '/');
+      const prefix = pro?.includes('/') ? pro.slice(0, pro.lastIndexOf('/') + 1) : '';
+
+      return files.some((f) => {
+        const p = f.name.replace(/\\/g, '/');
+        return (p.startsWith(prefix) ? p.slice(prefix.length) : p) === want;
+      });
+    },
     showGenDrillDialog: (): Promise<void> =>
       new Promise<void>((resolve) => setDrillDlg({ done: resolve })),
     writeTextFile: (aPath: string, aText: string): boolean => {
@@ -6622,6 +6663,10 @@ export function PcbEditor({
         // BOARD_EDITOR_CONTROL::GenD356File.
         runAction(PCB_ACTIONS.generateD356File);
         break;
+      case 'exportGenCAD':
+        // BOARD_EDITOR_CONTROL::ExportGenCAD.
+        runAction(PCB_ACTIONS.exportGenCAD);
+        break;
       case 'exportCmpFile':
         // BOARD_EDITOR_CONTROL::ExportCmpFile.
         runAction(PCB_ACTIONS.exportCmpFile);
@@ -8562,6 +8607,31 @@ export function PcbEditor({
               },
             });
             netclassDlg.resolve(true);
+          }}
+        />
+      )}
+      {gencadDlg && (
+        <DialogGencadExportOptions
+          dialog={gencadDlg.dialog}
+          onBrowse={async () => {
+            // `onBrowseClicked`: "<board>-gencad" in GencadFileWildcard.
+            const brd = frameRef.current?.GetBoardFileName() ?? '';
+            const base = brd.split(/[\\/]/).pop() ?? '';
+            const dot = base.lastIndexOf('.');
+            const name = `${dot > 0 ? base.slice(0, dot) : base}-gencad`;
+            const dlg = await frameRef.current?.ShowSaveFileDialog(
+              'Export GenCAD File',
+              name,
+              gencadFileWildcard(),
+              null,
+            );
+
+            return dlg?.path ?? null;
+          }}
+          onResult={(aOk) => {
+            const { resolve } = gencadDlg;
+            setGencadDlg(null);
+            resolve(aOk);
           }}
         />
       )}

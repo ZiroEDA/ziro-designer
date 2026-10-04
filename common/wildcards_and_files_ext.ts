@@ -143,6 +143,10 @@ export const ipcD356FileWildcard = (): ChooserFilter =>
 export const footprintAssignmentFileWildcard = (): ChooserFilter =>
   fileFilter('KiCad symbol footprint link files', ['cmp']);
 
+/** `FILEEXT::GencadFileWildcard()` (`:527-530`) on `GencadFileExtension`, cad. */
+export const gencadFileWildcard = (): ChooserFilter =>
+  fileFilter('GenCAD 1.4 board files', ['cad']);
+
 /** `FILEEXT::JsonFileWildcard()`: "Json files" on `JsonFileExtension`, json. */
 export const jsonFileWildcard = (): ChooserFilter => fileFilter('Json files', ['json']);
 

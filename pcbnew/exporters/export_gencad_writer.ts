@@ -8,8 +8,8 @@
  * `GetBoardPolygonOutlines`, `GetFPRelativePosition` and the padstack layer
  * machinery, none of which the plain record view exposes.
  *
- * `export_gencad.cpp` (`BOARD_EDITOR_CONTROL::ExportGenCAD`, the dialog and
- * tool-action glue) is not ported here — that is UI wiring, not the writer.
+ * `export_gencad.cpp` (`BOARD_EDITOR_CONTROL::ExportGenCAD`) drives it through
+ * the GENCAD_EXPORTER class at the end of this file.
  *
  * Byte for byte against kicad-cli on ecc83-pp and interf_u, shared shapes and
  * `--unique-footprints`, `$ROUTES` included. Three things make that so:
@@ -785,4 +785,62 @@ export function writeGenCad(board: BOARD, opts: GenCadOptions = {}): string {
   }
 
   return out;
+}
+
+/**
+ * `GENCAD_EXPORTER` (export_gencad_writer.h): the options, then `WriteFile`.
+ * The text goes to `aWrite` where upstream opens the file.
+ */
+export class GENCAD_EXPORTER {
+  private m_flipBottomPads = false;
+  private m_useUniquePins = false;
+  private m_useIndividualShapes = false;
+  private m_storeOriginCoords = false;
+  private m_gencadOffset: VECTOR2I = { x: 0, y: 0 };
+
+  constructor(private readonly m_board: BOARD) {}
+
+  /** Set the coordinates offset when exporting items. */
+  SetPlotOffet(aOffset: VECTOR2I): void {
+    this.m_gencadOffset = aOffset;
+  }
+
+  /** Flip pad shapes. */
+  FlipBottomPads(aFlip: boolean): void {
+    this.m_flipBottomPads = aFlip;
+  }
+
+  /** Make pin names unique. */
+  UsePinNamesUnique(aUnique: boolean): void {
+    this.m_useUniquePins = aUnique;
+  }
+
+  /** Make component shapes unique. */
+  UseIndividualShapes(aUnique: boolean): void {
+    this.m_useIndividualShapes = aUnique;
+  }
+
+  /** Store origin coordinate in GenCAD file. */
+  StoreOriginCoordsInFile(aStore: boolean): void {
+    this.m_storeOriginCoords = aStore;
+  }
+
+  /**
+   * Export a GenCAD file.
+   *
+   * @param aFullFileName is the full filename to create.
+   * @return true if OK.
+   */
+  WriteFile(aFullFileName: string, aWrite: (aPath: string, aText: string) => boolean): boolean {
+    return aWrite(
+      aFullFileName,
+      writeGenCad(this.m_board, {
+        plotOffset: this.m_gencadOffset,
+        flipBottomPads: this.m_flipBottomPads,
+        useUniquePins: this.m_useUniquePins,
+        useIndividualShapes: this.m_useIndividualShapes,
+        storeOriginCoords: this.m_storeOriginCoords,
+      }),
+    );
+  }
 }

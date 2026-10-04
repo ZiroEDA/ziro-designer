@@ -159,7 +159,7 @@ export function buildPcbMenus(
           icon: 'export',
           submenu: [
             { label: 'Specctra DSN...', action: () => h.action('exportSpecctraDSN') },
-            { label: 'GenCAD...', disabled: dis },
+            { label: 'GenCAD...', action: () => h.action('exportGenCAD') },
             { label: 'VRML...', disabled: dis },
             { label: 'IDFv3...', disabled: dis },
             { label: 'STEP/GLB/BREP/XAO/PLY/STL...', disabled: dis },

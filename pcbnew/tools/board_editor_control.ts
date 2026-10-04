@@ -18,6 +18,7 @@ import { KICURSOR } from '@ziroeda/common/gal/cursors.js';
 import { ORIGIN_VIEWITEM } from '@ziroeda/common/origin_viewitem.js';
 import { BOARD_EDITOR_CONTROL_GenD356File } from '../exporters/export_d356.js';
 import { RecreateCmpFile } from '../exporters/export_footprint_associations.js';
+import { BOARD_EDITOR_CONTROL_ExportGenCAD } from '../exporters/export_gencad.js';
 import { footprintAssignmentFileWildcard } from '@ziroeda/common/wildcards_and_files_ext.js';
 import { DisplayErrorMessage } from '@ziroeda/common/confirm.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
@@ -962,6 +963,12 @@ export class BOARD_EDITOR_CONTROL extends PCB_TOOL_BASE {
     return 0;
   }
 
+  /** `ExportGenCAD` (export_gencad.cpp:36): the dialog is modal, the handler returns at once. */
+  ExportGenCAD(_aEvent: TOOL_EVENT): number {
+    void BOARD_EDITOR_CONTROL_ExportGenCAD(this.getEditFrame<PCB_EDIT_FRAME>());
+    return 0;
+  }
+
   /**
    * `ExportCmpFile` (board_editor_control.cpp): the .cmp file name from the
    * board's, the save dialog, then RecreateCmpFile.
@@ -1022,6 +1029,10 @@ export class BOARD_EDITOR_CONTROL extends PCB_TOOL_BASE {
     this.Go(
       SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.GenD356File),
       PCB_ACTIONS.generateD356File.MakeEvent(),
+    );
+    this.Go(
+      SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.ExportGenCAD),
+      PCB_ACTIONS.exportGenCAD.MakeEvent(),
     );
     this.Go(
       SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.ExportCmpFile),

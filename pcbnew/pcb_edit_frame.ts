@@ -71,6 +71,7 @@ import { DIALOG_SHAPE_PROPERTIES } from './dialogs/dialog_shape_properties.js';
 import { DIALOG_TARGET_PROPERTIES } from './dialogs/dialog_target_properties.js';
 import { DIALOG_FIND } from './dialogs/dialog_find.js';
 import type { DIALOG_PRINT_PCBNEW } from './dialogs/dialog_print_pcbnew.js';
+import type { DIALOG_GENCAD_EXPORT_OPTIONS } from './dialogs/dialog_gencad_export_options.js';
 import type { PCB_REFERENCE_IMAGE } from './pcb_reference_image.js';
 import type { PCB_SHAPE } from './pcb_shape.js';
 import type { PCB_TARGET } from './pcb_target.js';
@@ -773,6 +774,10 @@ export interface PCB_EDIT_FRAME_HOOKS {
   writeTextFile?(aPath: string, aText: string): boolean;
   /** `DIALOG_GENDRILL dlg( editFrame, editFrame ); dlg.ShowModal()`. */
   showGenDrillDialog?(): Promise<void>;
+  /** `DIALOG_GENCAD_EXPORT_OPTIONS::ShowModal()`: true for OK. */
+  showGencadExportOptionsDialog?(aDialog: DIALOG_GENCAD_EXPORT_OPTIONS): Promise<boolean>;
+  /** `wxFile::Exists( aPath )`: a file of that path in the project. */
+  fileExists?(aPath: string): boolean;
   /** `DIALOG_GEN_FOOTPRINT_POSITION dlg( this ); dlg.ShowModal()`. */
   showGenFootprintPositionDialog?(): Promise<void>;
   /** `DIALOG_PRINT_PCBNEW::ShowModal`: resolves when the dialog is closed. */
@@ -1442,6 +1447,26 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   /** The write after a save dialog: false when the file could not be made. */
   WriteTextFile(aPath: string, aText: string): boolean {
     return this.hooks.writeTextFile?.(aPath, aText) ?? false;
+  }
+
+  /** `optionsDialog.ShowModal()` for BOARD_EDITOR_CONTROL::ExportGenCAD. */
+  ShowGencadExportOptionsDialog(aDialog: DIALOG_GENCAD_EXPORT_OPTIONS): Promise<boolean> {
+    return this.hooks.showGencadExportOptionsDialog?.(aDialog) ?? Promise.resolve(false);
+  }
+
+  /** `wxFile::Exists`, against the project's files; false without a window. */
+  FileExists(aPath: string): boolean {
+    return this.hooks.fileExists?.(aPath) ?? false;
+  }
+
+  /** `m_frame->GetBoard()->GetFileName()`, for DIALOG_GENCAD_EXPORT_OPTIONS. */
+  GetBoardFileName(): string {
+    return this.GetBoard()?.GetFileName() ?? '';
+  }
+
+  /** `KIDIALOG::ShowModal()`, for the dialogs that take the frame. */
+  ShowKiDialog(aRequest: KiDialogRequest): Promise<KiDialogResult> {
+    return this.AskKiDialog(aRequest);
   }
 
   /** `DIALOG_GENDRILL::ShowModal` for BOARD_EDITOR_CONTROL::GenerateDrillFiles. */
