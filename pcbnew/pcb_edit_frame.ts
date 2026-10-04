@@ -164,6 +164,7 @@ import type { SelectionFilter } from './dialogs/dialog_filter_selection.js';
 import { PCB_POINT_EDITOR } from './tools/pcb_point_editor.js';
 import { PCB_SELECTION_TOOL } from './tools/pcb_selection_tool.js';
 import { EDIT_TOOL, type MOVE_EXACT_VALUES } from './tools/edit_tool.js';
+import { PCB_EDIT_TABLE_TOOL } from './tools/pcb_edit_table_tool.js';
 import type { DOGBONE_PARAMETERS } from './tools/item_modification_routine.js';
 import { ALIGN_DISTRIBUTE_TOOL } from './tools/align_distribute_tool.js';
 import { BOARD_INSPECTION_TOOL } from './tools/board_inspection_tool.js';
@@ -2333,7 +2334,7 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     this.m_toolManager.RegisterTool(new PCB_PICKER_TOOL());
     this.m_toolManager.RegisterTool(new ROUTER_TOOL());
     this.m_toolManager.RegisterTool(new EDIT_TOOL());
-    // Not ported: PCB_EDIT_TABLE_TOOL.
+    this.m_toolManager.RegisterTool(new PCB_EDIT_TABLE_TOOL());
     this.m_toolManager.RegisterTool(new GLOBAL_EDIT_TOOL());
     this.m_toolManager.RegisterTool(new PAD_TOOL());
     this.m_toolManager.RegisterTool(new DRAWING_TOOL());

@@ -30,8 +30,7 @@ import { ConvertOutlineToPolygon } from '@ziroeda/pcbnew/convert_shape_list_to_p
 import type { PCB_SHAPE } from '@ziroeda/pcbnew/pcb_shape.js';
 import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import { arcConvertToPolyline } from '@ziroeda/kimath/src/geometry/shape_arc.js';
-import { padTransformHoleToPolygon } from '@ziroeda/pcbnew/transform_shape_to_polygon.js';
-import type { Board, PcbPad, PcbZone } from '@ziroeda/pcbnew/types.js';
+import type { Board, PcbZone } from '@ziroeda/pcbnew/types.js';
 import { describe, expect, it } from 'vitest';
 
 const MM = (v: number): number => Math.round(v * 1_000_000);
@@ -117,18 +116,18 @@ describe('an odd drill size halves with KiROUND', () => {
     // the slot's segment is (83549987, 64280000)-(82650013, 64280000), so the
     // knockout's leftmost x is 82400001. Truncating the halves gives
     // 82400002 — one unit in, on 54 vertices of that zone.
-    const pad: PcbPad = {
-      number: '1',
-      type: 'thru_hole',
-      shape: 'roundrect',
-      at: { x: 83_100_000, y: 64_280_000 },
-      angle: 270,
-      size: { x: 860_000, y: 1_800_000 },
-      drill: { oblong: true, w: 500_024, h: 1_399_997 },
-      layers: ['F.Cu', 'B.Cu'],
-      net: 1,
-    };
-    const poly = padTransformHoleToPolygon(pad, 0, 5000, ErrorLoc.ERROR_OUTSIDE)[0]![0]!;
+    const board = ParseBoard(`(kicad_pcb (version 20241229) (generator "test")
+  (general (thickness 1.6))
+  (layers (0 "F.Cu" signal) (2 "B.Cu" signal))
+  (setup)
+  (net 0 "") (net 1 "a")
+  (footprint "T:USB" (layer "F.Cu") (at 0 0) (uuid "00000000-0000-4000-8000-000000000001")
+    (pad "1" thru_hole roundrect (at 83.1 64.28 270) (size 0.86 1.8) (drill oval 0.500024 1.399997)
+      (layers "*.Cu") (roundrect_rratio 0.25) (net 1 "a") (uuid "00000000-0000-4000-8000-000000000002"))))`);
+    const pad = board.Footprints()[0]!.Pads()[0]!;
+    const set = new SHAPE_POLY_SET();
+    pad.TransformHoleToPolygon(set, 0, 5000, ErrorLoc.ERROR_OUTSIDE);
+    const poly = [...set.COutline(0).CPoints()];
     expect(Math.min(...poly.map((p) => p.x))).toBe(82_400_001);
     expect(poly).toHaveLength(16);
   });

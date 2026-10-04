@@ -19,7 +19,7 @@ import {
   inflate,
   type Polygon,
 } from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';
-import { segmentsForRadius } from '@ziroeda/pcbnew/convert_basic_shapes_to_polygon.js';
+import { getArcToSegmentCount } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
 
 interface Case {
   a: number[][][][];
@@ -49,7 +49,7 @@ describe('Clipper2, as KiCad ships it', () => {
               toPolys(c.a),
               c.amount!,
               c.strategy!,
-              segmentsForRadius(Math.abs(c.amount!), c.maxError!),
+              getArcToSegmentCount(Math.abs(c.amount!), c.maxError!, 360),
               c.simplify!,
             )
           : booleanOp(

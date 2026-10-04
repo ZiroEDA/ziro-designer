@@ -30,9 +30,7 @@ import { EuclideanNormI, Perpendicular, ResizeI } from '@ziroeda/kimath/src/math
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { RotatePoint } from '@ziroeda/kimath/src/trigo.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
-import { segmentsForRadius } from './convert_basic_shapes_to_polygon.js';
 
-export { segmentsForRadius };
 import type { BOARD } from './board.js';
 import type { BOARD_ITEM } from './board_item.js';
 import { DRC_ENGINE } from './drc/drc_engine.js';

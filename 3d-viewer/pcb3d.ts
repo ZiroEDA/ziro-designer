@@ -29,7 +29,7 @@
 import { ARC_HIGH_DEF, PCB_IU_PER_MM } from '@ziroeda/common/eda_units.js';
 import { transformCircleToPolygonSet } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import { getArcToSegmentCount } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
-import { ErrorLoc } from '@ziroeda/pcbnew/transform_shape_to_polygon.js';
+import { ErrorLoc } from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
 import type { Color4d } from '@ziroeda/common/gal/color4d.js';
 import { LEGACY_COLORS } from '@ziroeda/common/gal/color4d.js';
 import type { Polygon } from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';

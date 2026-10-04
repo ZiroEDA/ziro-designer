@@ -21,7 +21,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { inflate, CornerStrategy } from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';
-import { segmentsForRadius } from '@ziroeda/pcbnew/zone_filler.js';
+import { getArcToSegmentCount } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
 
 const square = [
   [
@@ -38,7 +38,7 @@ describe('round join, the Clipper2 way', () => {
       [square],
       500_000,
       CornerStrategy.ROUND_ALL_CORNERS,
-      segmentsForRadius(500_000, 5000),
+      getArcToSegmentCount(500_000, 5000, 360),
     );
     const ring = out[0]![0]!;
     expect(ring).toHaveLength(28);

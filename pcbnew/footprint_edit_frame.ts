@@ -32,6 +32,7 @@ import { EMBED_TOOL } from '@ziroeda/common/tool/embed_tool.js';
 import { PROPERTIES_TOOL } from '@ziroeda/common/tool/properties_tool.js';
 import { PCB_SELECTION_TOOL } from './tools/pcb_selection_tool.js';
 import { EDIT_TOOL } from './tools/edit_tool.js';
+import { PCB_EDIT_TABLE_TOOL } from './tools/pcb_edit_table_tool.js';
 import { PAD_TOOL } from './tools/pad_tool.js';
 import { DRAWING_TOOL } from './tools/drawing_tool.js';
 import { PCB_POINT_EDITOR } from './tools/pcb_point_editor.js';
@@ -129,7 +130,7 @@ export class FOOTPRINT_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     this.m_toolManager.RegisterTool(new PCB_SELECTION_TOOL());
     this.m_toolManager.RegisterTool(new ZOOM_TOOL());
     this.m_toolManager.RegisterTool(new EDIT_TOOL());
-    // Not ported: PCB_EDIT_TABLE_TOOL.
+    this.m_toolManager.RegisterTool(new PCB_EDIT_TABLE_TOOL());
     this.m_toolManager.RegisterTool(new PAD_TOOL());
     this.m_toolManager.RegisterTool(new DRAWING_TOOL());
     this.m_toolManager.RegisterTool(new PCB_POINT_EDITOR());

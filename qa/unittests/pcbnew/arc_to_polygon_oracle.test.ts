@@ -19,7 +19,35 @@
  * it does, to the unit.
  */
 import { describe, it, expect } from 'vitest';
-import { arcToPolygon } from '@ziroeda/pcbnew/convert_basic_shapes_to_polygon.js';
+import {
+  ErrorLoc,
+  transformArcToPolygon,
+} from '@ziroeda/kimath/src/convert_basic_shapes_to_polygon.js';
+
+/**
+ * `TransformArcToPolygon`'s one outline, as [x, y] pairs. The ring repeats its
+ * first point to close; KiCad's closed SHAPE_LINE_CHAIN does not.
+ */
+const arcToPolygon = (
+  aStart: { x: number; y: number },
+  aMid: { x: number; y: number },
+  aEnd: { x: number; y: number },
+  aWidth: number,
+  aError: number,
+): [number, number][] => {
+  const ring = transformArcToPolygon(
+    aStart,
+    aMid,
+    aEnd,
+    aWidth,
+    aError,
+    ErrorLoc.ERROR_OUTSIDE,
+  )[0]![0]!;
+  const last = ring.length - 1;
+  const closed = last > 0 && ring[0]!.x === ring[last]!.x && ring[0]!.y === ring[last]!.y;
+
+  return (closed ? ring.slice(0, last) : ring).map((p) => [p.x, p.y] as [number, number]);
+};
 
 const START = { x: 76016039, y: 25598601 };
 const MID = { x: 76117273, y: 21009482 };
