@@ -12,55 +12,28 @@
  * Esc = close.
  */
 import { useEffect, useRef, useState, type JSX } from 'react';
-
-/** DIALOG_FIND's search options (EDA_SEARCH_DATA + include checkboxes). */
-export interface PcbFindOptions {
-  matchCase: boolean;
-  wholeWord: boolean;
-  wildcard: boolean;
-  wrap: boolean;
-  includeReferences: boolean;
-  includeValues: boolean;
-  includeTexts: boolean;
-  includeNets: boolean;
-  /** Search fields marked hidden too (m_checkAllFields, "Include hidden fields"). */
-  includeHidden: boolean;
-}
-
-export const DEFAULT_PCB_FIND: PcbFindOptions = {
-  matchCase: false,
-  wholeWord: false,
-  wildcard: false,
-  wrap: true,
-  includeReferences: true,
-  includeValues: true,
-  includeTexts: true,
-  includeNets: true,
-  includeHidden: false,
-};
+import type { DIALOG_FIND, FIND_OPTIONS } from './dialog_find.js';
 
 interface Props {
-  query: string;
-  options: PcbFindOptions;
-  onQuery: (q: string) => void;
-  onOptions: (o: PcbFindOptions) => void;
-  onFind: (dir: 'next' | 'prev' | 'restart') => void;
+  /** The live DIALOG_FIND this window draws. */
+  dialog: DIALOG_FIND;
   onClose: () => void;
-  /** Status line ("Hit(s): 3 of 12" / "No hits"); empty until a search ran. */
-  status: string;
 }
 
-export function DialogPcbFind({
-  query,
-  options,
-  onQuery,
-  onOptions,
-  onFind,
-  onClose,
-  status,
-}: Props): JSX.Element {
+export function DialogPcbFind({ dialog, onClose }: Props): JSX.Element {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [text, setText] = useState(query);
+  const [text, setText] = useState(dialog.m_searchString);
+  // The dialog's own state changes under its handlers; the window redraws after each.
+  const [, setTick] = useState(0);
+  const redraw = (): void => setTick((t) => t + 1);
+  const options = dialog.m_options;
+  const status = dialog.m_status;
+  const onFind = (dir: 'next' | 'prev' | 'restart'): void => {
+    if (dir === 'next') dialog.OnFindNext();
+    else if (dir === 'prev') dialog.OnFindPrevious();
+    else dialog.OnSearchAgain();
+    redraw();
+  };
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -69,9 +42,13 @@ export function DialogPcbFind({
 
   const commitText = (value: string): void => {
     setText(value);
-    onQuery(value);
+    dialog.SetSearchString(value);
   };
-  const opt = (patch: Partial<PcbFindOptions>): void => onOptions({ ...options, ...patch });
+  // `onOptionChanged`: any checkbox makes the hit list stale.
+  const opt = (patch: Partial<FIND_OPTIONS>): void => {
+    dialog.SetOptions({ ...options, ...patch });
+    redraw();
+  };
 
   return (
     <div className="ze-find-dialog" onMouseDown={(e) => e.stopPropagation()}>
@@ -118,16 +95,16 @@ export function DialogPcbFind({
               <label>
                 <input
                   type="checkbox"
-                  checked={options.wholeWord}
-                  onChange={(e) => opt({ wholeWord: e.target.checked })}
+                  checked={options.matchWords}
+                  onChange={(e) => opt({ matchWords: e.target.checked })}
                 />
                 Whole words only
               </label>
               <label>
                 <input
                   type="checkbox"
-                  checked={options.wildcard}
-                  onChange={(e) => opt({ wildcard: e.target.checked })}
+                  checked={options.wildcards}
+                  onChange={(e) => opt({ wildcards: e.target.checked })}
                 />
                 Wildcards
               </label>
@@ -150,8 +127,12 @@ export function DialogPcbFind({
                 />
                 Search footprint reference designators
               </label>
-              <label title="DRC markers require the DRC engine (staged)">
-                <input type="checkbox" checked={false} disabled />
+              <label>
+                <input
+                  type="checkbox"
+                  checked={options.includeMarkers}
+                  onChange={(e) => opt({ includeMarkers: e.target.checked })}
+                />
                 Search DRC markers
               </label>
               <label>
@@ -173,8 +154,8 @@ export function DialogPcbFind({
               <label>
                 <input
                   type="checkbox"
-                  checked={options.includeHidden}
-                  onChange={(e) => opt({ includeHidden: e.target.checked })}
+                  checked={options.checkAllFields}
+                  onChange={(e) => opt({ checkAllFields: e.target.checked })}
                 />
                 Include hidden fields
               </label>
@@ -209,7 +190,13 @@ export function DialogPcbFind({
         {/* sizerStatus: status text + "Show search panel" link */}
         <div className="ze-find-status">
           <span className="status">{status}</span>
-          <span className="ze-find-panellink" title="Search panel is staged" aria-disabled="true">
+          <span
+            className="ze-find-panellink"
+            onClick={() => {
+              dialog.OnShowSearchPanel();
+              onClose();
+            }}
+          >
             Show search panel
           </span>
         </div>

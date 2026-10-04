@@ -456,6 +456,18 @@ export class BOARD_EDITOR_CONTROL extends PCB_TOOL_BASE {
     return true;
   }
 
+  /** `Find` (board_editor_control.cpp:577-581). */
+  Find(_aEvent: TOOL_EVENT): number {
+    (this.m_frame as unknown as PCB_EDIT_FRAME).ShowFindDialog();
+    return 0;
+  }
+
+  /** `FindNext` (board_editor_control.cpp:584-588). */
+  FindNext(aEvent: TOOL_EVENT): number {
+    (this.m_frame as unknown as PCB_EDIT_FRAME).FindNext(aEvent.IsAction(ACTIONS.findPrevious));
+    return 0;
+  }
+
   /** `CrossProbeToSch` (board_editor_control.cpp:2083-2087). */
   CrossProbeToSch(aEvent: TOOL_EVENT): number {
     this.doCrossProbePcbToSch(aEvent, false);
@@ -943,6 +955,10 @@ export class BOARD_EDITOR_CONTROL extends PCB_TOOL_BASE {
       PCB_ACTIONS.unlock.MakeEvent(),
     );
     this.Go(this.PageSettings, ACTIONS.pageSettings.MakeEvent());
+
+    this.Go(SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.Find), ACTIONS.find.MakeEvent());
+    this.Go(SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.FindNext), ACTIONS.findNext.MakeEvent());
+    this.Go(SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.FindNext), ACTIONS.findPrevious.MakeEvent());
 
     this.Go(SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.CrossProbeToSch), EVENTS.PointSelectedEvent);
     this.Go(SYNC_HANDLER<BOARD_EDITOR_CONTROL>(this.CrossProbeToSch), EVENTS.SelectedEvent);

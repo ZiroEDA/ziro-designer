@@ -13,6 +13,9 @@ import { resolve } from 'node:path';
 import { useState } from 'react';
 import { act, cleanup, fireEvent, render } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
+import { installPgm } from '@ziroeda/designer/src/editors/pcb/pcb_canvas.js';
+import { PCB_EDIT_FRAME, type PCB_EDIT_FRAME_HOOKS } from '@ziroeda/pcbnew/pcb_edit_frame.js';
+import { itemHasEditableCorners } from '@ziroeda/pcbnew/tools/edit_tool.js';
 import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import { SEARCH_PANE } from '@ziroeda/common/settings/app_settings.js';
@@ -37,10 +40,8 @@ import { PcbNetInspectorPane } from '@ziroeda/pcbnew/widgets/pcb_net_inspector_p
 import {
   PcbBottomDock,
   bottomDockHeight,
-  legacyIdsOf,
   makePcbSearchWiring,
   makeVertexEditorFrame,
-  selectionHasEditableCorners,
 } from '@ziroeda/pcbnew/pcb_edit_frame_ui.js';
 import { PcbSearchPane } from '@ziroeda/pcbnew/widgets/pcb_search_pane.js';
 import type { PcbSearchWiring } from '@ziroeda/pcbnew/widgets/search_handlers.js';
@@ -131,12 +132,7 @@ function Harness({ board }: { board: BOARD }) {
     (id) => setToggles((prev) => applyToggle(prev, id)),
     Object.fromEntries([...toggles].map((t) => [t, true])),
   );
-  const wiring: PcbSearchWiring = makePcbSearchWiring({
-    getBoard: () => boardFromBOARD(board),
-    setSelection: () => {},
-    frameView: () => {},
-    refresh: () => {},
-    properties: () => {},
+  const wiring: PcbSearchWiring = makePcbSearchWiring(() => null, {
     highlightNets: () => {},
     showBoardSetupDialog: () => {},
   });
@@ -309,13 +305,15 @@ describe('the panes persist in pcbnew.json aui.*', () => {
 describe('PCB_SEARCH_PANE on a real board', () => {
   function mount() {
     const board = realBoard();
-    const selected: string[][] = [];
-    const wiring = makePcbSearchWiring({
-      getBoard: () => boardFromBOARD(board),
-      setSelection: (ids) => selected.push([...ids]),
-      frameView: () => {},
-      refresh: () => {},
-      properties: () => {},
+    installPgm();
+    const settings = new PCBNEW_SETTINGS();
+    const frame = new PCB_EDIT_FRAME({
+      settings: () => settings,
+      onModify: () => {},
+    } as unknown as PCB_EDIT_FRAME_HOOKS);
+    frame.SetBoard(board, false);
+    // PCB_SEARCH_HANDLER's m_frame: the rows' picks are its tool manager's actions.
+    const wiring = makePcbSearchWiring(() => frame, {
       highlightNets: () => {},
       showBoardSetupDialog: () => {},
     });
@@ -337,7 +335,7 @@ describe('PCB_SEARCH_PANE on a real board', () => {
       />,
     );
 
-    return { board, selected };
+    return { board, frame };
   }
 
   const rows = (): string[] =>
@@ -374,26 +372,14 @@ describe('PCB_SEARCH_PANE on a real board', () => {
   });
 
   it('picking a row selects that footprint in the editor', () => {
-    const { board, selected } = mount();
+    const { board, frame } = mount();
 
     fireEvent.change(document.querySelector('input.ze-search')!, { target: { value: 'C2' } });
     fireEvent.click(document.querySelector('.ze-search-row')!);
 
-    const view = boardFromBOARD(board);
-    const c2 = view.footprints.findIndex((f) => f.reference === 'C2');
-
-    expect(c2).toBeGreaterThanOrEqual(0);
-    expect(selected.at(-1)).toEqual([`footprint:${c2}`]);
-  });
-
-  it('legacyIdsOf maps live items to selection ids and drops what the view lacks', () => {
-    const board = realBoard();
-    const view = boardFromBOARD(board);
-    const fp = board.Footprints()[1]!;
-    const pad = board.Footprints()[0]!.Pads()[0]!;
-
-    expect(legacyIdsOf(view, [fp, pad, fp])).toEqual(['footprint:1', 'pad:0:0']);
-    expect(legacyIdsOf(view, [board.FindNet('GND')!])).toEqual([]);
+    const c2 = board.Footprints().find((f) => f.GetReference() === 'C2')!;
+    // ACTIONS::selectionClear then ACTIONS::selectItems (search_handlers.cpp:114-118).
+    expect(frame.GetSelectionTool().GetSelection().Items()).toEqual([c2]);
   });
 });
 
@@ -483,23 +469,9 @@ describe('Edit Vertices commits through BOARD_COMMIT', () => {
     expect(closed).toEqual([pane]);
   });
 
-  it('EditVertices is offered for one polygon and for nothing else', () => {
-    const { board, shape } = polyBoard();
-    const view = boardFromBOARD(board);
-    const id = legacyIdsOf(view, [shape])[0]!;
-
-    expect(id).toBe('shape:0');
-    expect(selectionHasEditableCorners(view, new Set([id]))).toBe(true);
-    expect(selectionHasEditableCorners(view, new Set())).toBe(false);
-    expect(selectionHasEditableCorners(view, new Set([id, 'shape:0']))).toBe(true);
-    expect(selectionHasEditableCorners(view, new Set([id, 'track:0']))).toBe(false);
-  });
-
   it('a rectangle has no corner table', () => {
     const board = new BOARD();
     board.Add(new PCB_SHAPE(board, SHAPE_T.RECTANGLE));
-    const view = boardFromBOARD(board);
-
-    expect(selectionHasEditableCorners(view, new Set(['shape:0']))).toBe(false);
+    expect(itemHasEditableCorners(board.Drawings()[0]!)).toBe(false);
   });
 });

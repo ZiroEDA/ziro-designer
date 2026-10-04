@@ -185,37 +185,33 @@ export interface PlacementPage {
 const NOT_FOUND_PREFIX = 'Not found on board: ';
 
 /**
- * The sources the placement page can offer, from the board.
+ * The sources the placement page can offer, from the board
+ * (dialog_rule_area_properties.cpp:266-304).
  *
- * Sheet and group names come from the footprints: a group is offered only when
- * it is some footprint's parent *and* has a name, so an unnamed group or one
- * holding nothing but graphics never appears. Upstream gathers all three into
- * `std::set`s, so each list is unique and sorted; note the empty string is a
+ * Component classes come from the board's COMPONENT_CLASS_MANAGER; sheet and
+ * group names from the footprints, a group only when it is some footprint's
+ * parent *and* has a name. Upstream gathers all three into `std::set`s, so
+ * each list is unique and sorted by code point; the empty string is a
  * legitimate sheet name for a footprint that has none, and upstream offers it.
  */
-export function collectPlacementSources(board: Board): PlacementSources {
+export function collectPlacementSources(aBoard: BOARD): PlacementSources {
+  const byCodePoint = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
+  const classNames = new Set(aBoard.GetComponentClassManager().GetClassNames());
   const sheetNames = new Set<string>();
   const groupNames = new Set<string>();
 
-  const groupOf = new Map<string, string>();
-  for (const group of board.groups) {
-    for (const member of group.members) groupOf.set(member, group.name);
-  }
+  for (const fp of aBoard.Footprints()) {
+    sheetNames.add(fp.GetSheetname());
 
-  for (const fp of board.footprints) {
-    sheetNames.add(fp.sheetname ?? '');
-    const groupName = fp.uuid === undefined ? undefined : groupOf.get(fp.uuid);
-    if (groupName) groupNames.add(groupName);
+    const group = fp.GetParentGroup();
+
+    if (group && group.GetName() !== '') groupNames.add(group.GetName());
   }
 
   return {
-    sheetNames: [...sheetNames].sort(),
-    // Upstream reads these from BOARD::GetComponentClassManager(); this port
-    // has no component class manager, so the list is always empty. That is the
-    // same state a board with no class assignments is in, and the not-found
-    // path below keeps such a zone's stored class name intact regardless.
-    componentClassNames: [],
-    groupNames: [...groupNames].sort(),
+    sheetNames: [...sheetNames].sort(byCodePoint),
+    componentClassNames: [...classNames].sort(byCodePoint),
+    groupNames: [...groupNames].sort(byCodePoint),
   };
 }
 

@@ -683,3 +683,35 @@ export class PAGE_INFO {
     return PAGE_INFO.standardPageSizes;
   }
 }
+
+/** The `(paper …)` token a page is written as (`PAGE_INFO::Format`'s words): `"A4"`, `"A4 portrait"`, `"User 200 150"`. */
+export function paperOfPageInfo(p: PAGE_INFO): string {
+  if (p.IsCustom())
+    return `User ${FormatDouble2Str((p.GetWidthMils() * 25.4) / 1000.0)} ${FormatDouble2Str((p.GetHeightMils() * 25.4) / 1000.0)}`;
+  return p.IsPortrait() ? `${p.GetTypeAsString()} portrait` : p.GetTypeAsString();
+}
+
+/**
+ * `PCB_IO_KICAD_SEXPR_PARSER::parsePAGE_INFO` (:1728) over such a token; `prev`
+ * when the token names no page.
+ */
+export function pageInfoOfPaper(paper: string, prev: PAGE_INFO): PAGE_INFO {
+  const parts = paper.trim().split(/\s+/);
+  const word = parts[0] ?? '';
+  const pageInfo = new PAGE_INFO();
+  if (!pageInfo.SetType(word)) return prev;
+  if (pageInfo.GetType() === PAGE_SIZE_TYPE.User) {
+    let width = Number(parts[1] ?? Number.NaN);
+    let height = Number(parts[2] ?? Number.NaN);
+    if (!Number.isFinite(width) || !Number.isFinite(height)) return prev;
+    // Perform some controls to avoid crashes if the size is edited by hands
+    if (width < MIN_PAGE_SIZE_MM) width = MIN_PAGE_SIZE_MM;
+    else if (width > MAX_PAGE_SIZE_PCBNEW_MM) width = MAX_PAGE_SIZE_PCBNEW_MM;
+    if (height < MIN_PAGE_SIZE_MM) height = MIN_PAGE_SIZE_MM;
+    else if (height > MAX_PAGE_SIZE_PCBNEW_MM) height = MAX_PAGE_SIZE_PCBNEW_MM;
+    pageInfo.SetWidthMils((width * 1000.0) / 25.4);
+    pageInfo.SetHeightMils((height * 1000.0) / 25.4);
+  }
+  if (parts.includes('portrait')) pageInfo.SetPortrait(true);
+  return pageInfo;
+}

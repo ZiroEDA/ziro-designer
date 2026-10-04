@@ -75,22 +75,14 @@ import { useCallback, useEffect, useMemo, useRef, useState, type JSX, type React
 import { parse } from '@ziroeda/sexpr';
 import {
   readBoard,
-  boardItemBBox,
-  parseBoardItemId,
-  boardItemId,
-  isBoardItemLocked,
   serializeBoard,
   serializeBoardAsync,
   type Board,
-  type BoardBBox,
-  type BoardItemKind,
   type PcbFootprint,
-  boardGridOrigin,
   type SelectionFilter,
   BOARD_NETLIST_UPDATER,
   type NETLIST,
   type ImageValues,
-  boardAuxOrigin,
 } from './index.js';
 import {
   barcodePreview,
@@ -100,12 +92,13 @@ import {
 } from './dialogs/dialog_barcode_properties.js';
 import { DialogBarcodeProperties } from './dialogs/dialog_barcode_properties_ui.js';
 import { DialogImportGraphics } from './import_gfx/dialog_import_graphics.js';
-import { GetLayerName, IsCopperLayer } from '@ziroeda/common/layer_ids.js';
-import { hasLockedItems, hasUnlockedItems } from './tools/pcb_selection_conditions.js';
+import { IsCopperLayer } from '@ziroeda/common/layer_ids.js';
+import type { BOARD_CONNECTED_ITEM } from './board_connected_item.js';
 import { Infobar } from '@ziroeda/common/widgets/wx_infobar.js';
 import { useHotkeyCyclePopup } from '@ziroeda/common/dialogs/hotkey_cycle_popup_ui.js';
 import type { WX_INFOBAR, WX_INFOBAR_HYPERLINK } from '@ziroeda/common/eda_base_frame.js';
 import { buildPcbMenus } from './menubar_pcb_editor.js';
+import { itemHasEditableCorners } from './tools/edit_tool.js';
 import { DialogDimensionProperties } from './dialogs/dialog_dimension_properties_ui.js';
 import { DialogTextBoxProperties } from './dialogs/dialog_textbox_properties_ui.js';
 import { DialogReferenceImageProperties } from './dialogs/dialog_reference_image_properties_ui.js';
@@ -116,18 +109,6 @@ import {
   type TextBoxValues,
 } from './dialogs/dialog_textbox_properties.js';
 
-/**
- * The editor's selection (view ids) as the live PCB_SELECTION the tools take,
- * in selection order; an id that resolves to nothing is skipped.
- */
-function liveSelection(aBoard: Board, aIds: Iterable<string>): PCB_SELECTION {
-  const selection = new PCB_SELECTION();
-  for (const id of aIds) {
-    const item = boardItemOfViewId(aBoard, id);
-    if (item) selection.Add(item);
-  }
-  return selection;
-}
 // Transitional (#636 stage 3): the bridge between the live BOARD and the legacy id selection;
 // PCB_SELECTION_TOOL holds items directly, so this goes away with that stage.
 // Seam between the live `BOARD` the docked panes work on and the editor's selection, which is a set of
@@ -141,169 +122,6 @@ const PANE_TOGGLE_IDS: Readonly<Record<string, string>> = {
   Search: 'showSearch',
   NetInspector: 'showNetInspector',
 };
-
-export function legacyIdOf(aBoard: Board, aItem: EDA_ITEM): string | null {
-  const find = (aList: readonly { k?: unknown }[] | undefined): number =>
-    aList ? aList.findIndex((x) => x.k === aItem) : -1;
-
-  const groups: [Parameters<typeof boardItemId>[0], readonly { k?: unknown }[]][] = [
-    ['track', aBoard.tracks],
-    ['arc', aBoard.arcs],
-    ['via', aBoard.vias],
-    ['footprint', aBoard.footprints],
-    ['zone', aBoard.zones],
-    ['shape', aBoard.shapes],
-    ['text', aBoard.texts],
-    ['textbox', aBoard.textBoxes],
-    ['table', aBoard.tables],
-    ['image', aBoard.images],
-    ['dimension', aBoard.dimensions],
-    ['point', aBoard.points],
-    ['barcode', aBoard.barcodes],
-    ['group', aBoard.groups],
-  ];
-
-  for (const [kind, list] of groups) {
-    const i = find(list);
-
-    if (i >= 0) return boardItemId(kind, i);
-  }
-
-  for (let fi = 0; fi < aBoard.footprints.length; fi++) {
-    const pi = find(aBoard.footprints[fi]!.pads);
-
-    if (pi >= 0) return boardItemId('pad', fi, pi);
-  }
-
-  return null;
-}
-
-/** {@link legacyIdOf} over a hitlist, dropping what the view does not hold (a net, a ratsnest line). */
-export function legacyIdsOf(aBoard: Board, aItems: readonly EDA_ITEM[]): string[] {
-  const out: string[] = [];
-
-  for (const item of aItems) {
-    const id = legacyIdOf(aBoard, item);
-
-    if (id !== null && !out.includes(id)) out.push(id);
-  }
-
-  return out;
-}
-
-/**
- * TRANSITIONAL (#636 stage 3): the view ids of live items, in their order,
- * dropping what the view does not hold. One pass over the view builds the
- * index, so a Select All of a big board is not quadratic.
- */
-export function viewIdsOf(aBoard: Board, aItems: readonly EDA_ITEM[]): string[] {
-  const index = new Map<unknown, string>();
-  const scan = (aKind: BoardItemKind, aList: readonly { k?: unknown }[] | undefined): void => {
-    aList?.forEach((v, i) => {
-      if (v.k) index.set(v.k, boardItemId(aKind, i));
-    });
-  };
-
-  scan('track', aBoard.tracks);
-  scan('arc', aBoard.arcs);
-  scan('via', aBoard.vias);
-  scan('footprint', aBoard.footprints);
-  scan('zone', aBoard.zones);
-  scan('shape', aBoard.shapes);
-  scan('text', aBoard.texts);
-  scan('textbox', aBoard.textBoxes);
-  scan('table', aBoard.tables);
-  scan('image', aBoard.images);
-  scan('dimension', aBoard.dimensions);
-  scan('point', aBoard.points);
-  scan('barcode', aBoard.barcodes);
-  scan('group', aBoard.groups);
-
-  aBoard.footprints.forEach((fp, fi) => {
-    fp.pads.forEach((p, pi) => {
-      if (p.k) index.set(p.k, boardItemId('pad', fi, pi));
-    });
-    fp.texts.forEach((t, ti) => {
-      if (t.k) index.set(t.k, boardItemId('fptext', fi, ti));
-    });
-  });
-
-  const out: string[] = [];
-
-  for (const item of aItems) {
-    const id = index.get(item);
-
-    if (id !== undefined && !out.includes(id)) out.push(id);
-  }
-
-  return out;
-}
-
-/** The live item behind an id, or null. */
-export function liveItemOfId(aBoard: Board, aId: string): BOARD_ITEM | null {
-  const ref = parseBoardItemId(aId);
-
-  if (!ref) return null;
-
-  const at = <T extends { k?: BOARD_ITEM }>(aList: readonly T[] | undefined): BOARD_ITEM | null =>
-    aList?.[ref.index]?.k ?? null;
-
-  switch (ref.kind) {
-    case 'track':
-      return at(aBoard.tracks);
-    case 'arc':
-      return at(aBoard.arcs);
-    case 'via':
-      return at(aBoard.vias);
-    case 'footprint':
-      return at(aBoard.footprints);
-    case 'zone':
-      return at(aBoard.zones);
-    case 'shape':
-      return at(aBoard.shapes);
-    case 'text':
-      return at(aBoard.texts);
-    case 'textbox':
-      return at(aBoard.textBoxes);
-    case 'table':
-      return at(aBoard.tables);
-    case 'image':
-      return at(aBoard.images);
-    case 'dimension':
-      return at(aBoard.dimensions);
-    case 'point':
-      return at(aBoard.points);
-    case 'barcode':
-      return at(aBoard.barcodes);
-    case 'group':
-      return at(aBoard.groups);
-    case 'pad':
-      return aBoard.footprints[ref.index]?.pads[ref.sub ?? 0]?.k ?? null;
-    default:
-      return null;
-  }
-}
-
-/** `itemHasEditableCorners` (`edit_tool.cpp:74-93`): a polygon shape, or a zone that is not a teardrop. */
-export function itemHasEditableCorners(aItem: BOARD_ITEM | null): boolean {
-  if (!aItem) return false;
-
-  if (aItem.Type() === KICAD_T.PCB_SHAPE_T) return (aItem as PCB_SHAPE).GetShape() === SHAPE_T.POLY;
-
-  if (aItem.Type() === KICAD_T.PCB_ZONE_T) return !(aItem as ZONE).IsTeardropArea();
-
-  return false;
-}
-
-/** `selectionHasEditableCorners` (`edit_tool.cpp:109-116`): exactly one item, and it has corners. */
-export function selectionHasEditableCorners(
-  aBoard: Board,
-  aSelection: ReadonlySet<string>,
-): boolean {
-  if (aSelection.size !== 1) return false;
-
-  return itemHasEditableCorners(liveItemOfId(aBoard, [...aSelection][0]!));
-}
 
 /**
  * What `PCB_VERTEX_EDITOR_PANE` asks its `m_frame` (`PCB_BASE_EDIT_FRAME`,
@@ -324,43 +142,35 @@ export function makeVertexEditorFrame(
   };
 }
 
-/** What the editor supplies for the tool-manager side of `SelectItems` / `ActivateItem`. */
+/** What the window still supplies to the search handlers: the net highlight and Board Setup. */
 export interface PcbSearchWiringDeps {
-  /** The `Board` view whose ids the selection holds. */
-  getBoard(): Board | null;
-  /** The editor's selection (`PCB_SELECTION_TOOL`), as ids. */
-  setSelection(aIds: ReadonlySet<string>): void;
-  /** `ACTIONS::centerSelection` / `zoomFitSelection`, over the ids just selected. */
-  frameView(aIds: readonly string[], aFit: boolean): void;
-  refresh(): void;
-  /** `PCB_ACTIONS::properties`, on the first id selected. */
-  properties(aId: string): void;
-  /** `RENDER_SETTINGS::SetHighlight`. */
+  /** `RENDER_SETTINGS::SetHighlight`, then `UpdateAllLayersColor()`. */
   highlightNets(aNetCodes: readonly number[]): void;
+  /** `m_frame->ShowBoardSetupDialog( aInitialPage )`. */
   showBoardSetupDialog(aInitialPage: string): void;
 }
 
-/** {@link PcbSearchWiring} over the editor's selection, remembering the last rows selected. */
-export function makePcbSearchWiring(aDeps: PcbSearchWiringDeps): PcbSearchWiring {
-  let hits: readonly string[] = [];
+/**
+ * {@link PcbSearchWiring}: `PCB_SEARCH_HANDLER`'s `m_frame->GetToolManager()`
+ * calls (search_handlers.cpp:42-48, 103-134) on the frame's tool manager.
+ */
+export function makePcbSearchWiring(
+  aFrame: () => PCB_EDIT_FRAME | null,
+  aDeps: PcbSearchWiringDeps,
+): PcbSearchWiring {
+  const run = (aAction: TOOL_ACTION, aParam?: unknown): void => {
+    aFrame()
+      ?.GetToolManager()
+      ?.RunAction(aAction, aParam as never);
+  };
 
   return {
-    clearSelection: () => {
-      hits = [];
-      aDeps.setSelection(new Set());
-    },
-    selectItems: (aItems) => {
-      const board = aDeps.getBoard();
-
-      hits = board ? legacyIdsOf(board, aItems) : [];
-      aDeps.setSelection(new Set(hits));
-    },
-    centerSelection: () => aDeps.frameView(hits, false),
-    zoomFitSelection: () => aDeps.frameView(hits, true),
-    refresh: () => aDeps.refresh(),
-    properties: () => {
-      if (hits[0] !== undefined) aDeps.properties(hits[0]);
-    },
+    clearSelection: () => run(ACTIONS.selectionClear),
+    selectItems: (aItems) => run(ACTIONS.selectItems, [...aItems]),
+    centerSelection: () => run(ACTIONS.centerSelection),
+    zoomFitSelection: () => run(ACTIONS.zoomFitSelection),
+    refresh: () => aFrame()?.GetCanvas()?.Refresh(false),
+    properties: () => run(PCB_ACTIONS.properties),
     highlightNets: (aNetCodes) => aDeps.highlightNets(aNetCodes),
     showBoardSetupDialog: (aPage) => aDeps.showBoardSetupDialog(aPage),
   };
@@ -395,7 +205,8 @@ import {
   zoomFactorForScale,
   zoomMsg,
 } from '@ziroeda/common/widgets/kistatusbar_format.js';
-import { DialogPcbFind, DEFAULT_PCB_FIND, type PcbFindOptions } from './dialogs/dialog_find.js';
+import { DialogPcbFind } from './dialogs/dialog_find_ui.js';
+import type { DIALOG_FIND } from './dialogs/dialog_find.js';
 import { DialogPageSettings } from '@ziroeda/common/dialogs/dialog_page_settings.js';
 import { pageSettingsValue, toPaperToken } from '@ziroeda/common/dialogs/dialog_page_settings.js';
 import { type ExtentsBox, pcbZoomFitBox } from './pcb_base_frame.js';
@@ -433,7 +244,6 @@ import type { GATED_DISPATCHER, WINDOW_ACTION_HANDLER } from './tools/window_act
 import type { ACTION_MENU } from '@ziroeda/common/tool/action_menu.js';
 import { actionMenuItems } from '@ziroeda/common/tool/action_menu_popup.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
-import { EVENTS } from '@ziroeda/common/tool/tool_event.js';
 import * as KIPLATFORM_UI from '@ziroeda/common/kiplatform/ui.js';
 import { wxMenuEvent, wxMenuEventType } from '@ziroeda/common/wx/menu.js';
 import { clientPosition, wxKeyEventFromDom } from '@ziroeda/common/wx/dom_events.js';
@@ -567,12 +377,11 @@ import {
 import { DIALOG_COPPER_ZONE, type ZoneValues } from './dialogs/panel_zone_properties.js';
 import {
   DIALOG_TRACK_VIA_PROPERTIES,
-  trackViaLiveSelection,
   type TrackViaValues,
 } from './dialogs/dialog_track_via_properties.js';
 import { useKiDialog } from '@ziroeda/common/kidialog.js';
 import type { DIALOG_GLOBAL_EDIT_TEARDROPS } from './dialogs/dialog_global_edit_teardrops.js';
-import { boardFromBOARD, boardItemOfViewId } from './pcb_io/kicad_sexpr/board_view.js';
+import { boardFromBOARD } from './pcb_io/kicad_sexpr/board_view.js';
 import { DisplayErrorMessage, IsOK } from '@ziroeda/common/confirm.js';
 import { EDA_ANGLE, EDA_ANGLE_T } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { DIALOG_REFERENCE_IMAGE_PROPERTIES } from './dialogs/dialog_reference_image_properties.js';
@@ -588,11 +397,7 @@ import { ZONE_PREVIEW_CANVAS } from './zone_manager/zone_preview_canvas.js';
 import { drawPanelWindow } from '@ziroeda/common/gal/gal_window.js';
 import { GAL_TYPE } from '@ziroeda/common/draw_panel_gal.js';
 import { wxEVT_SIZE } from '@ziroeda/common/wx/wx_event.js';
-import {
-  pageInfoOfPaper,
-  paperOfPageInfo,
-  titleBlockView,
-} from './pcb_io/kicad_sexpr/board_view.js';
+import { pageInfoOfPaper, paperOfPageInfo } from '@ziroeda/common/page_info.js';
 import { TITLE_BLOCK } from '@ziroeda/common/title_block.js';
 import type { ZONE } from './zone.js';
 import type { wxTextValidator } from '@ziroeda/common/validators.js';
@@ -624,7 +429,6 @@ import {
   createPcbDrawPanel,
   type EditorDisplayState,
   editorViewOf,
-  kItemsForIds,
   loadBitmapFontImage,
   syncViewTransform,
   type EditorView,
@@ -659,6 +463,7 @@ import {
   PCB_CHECKED_ACTIONS,
   PCB_LINE_MODE_ACTIONS,
   pcbCheckedSet,
+  pcbDisabledSet,
   pcbTogglesFromSettings,
 } from './pcb_edit_frame.js';
 import type { EdaUnits } from '@ziroeda/common/eda_units.js';
@@ -675,7 +480,6 @@ import { PcbPropertiesPanel } from './widgets/pcb_properties_panel_ui.js';
 import { PcbNetInspectorPane } from './widgets/pcb_net_inspector_panel_ui.js';
 import { PcbSearchPane } from './widgets/pcb_search_pane.js';
 import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
-import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { BOARD_COMMIT } from './board_commit.js';
 import type {
@@ -689,7 +493,6 @@ import {
   SetClipboardFromText,
 } from '@ziroeda/common/clipboard.js';
 import type { BOARD_ITEM_CONTAINER } from './board_item_container.js';
-import type { PCB_SHAPE } from './pcb_shape.js';
 import type { VertexEditorFrame } from './widgets/vertex_editor_pane.js';
 import type { PcbSearchWiring } from './widgets/search_handlers.js';
 import { PCB_VERTEX_EDITOR_PANE } from './widgets/vertex_editor_pane.js';
@@ -1252,6 +1055,26 @@ function layerDefaultsRows(aFrame: PCB_EDIT_FRAME): LAYER_DEFAULTS_ROW[] {
   ];
 }
 
+/**
+ * The board's enabled layers by canonical name: the copper stack, then the
+ * rest in UI order (`BOARD::GetEnabledLayers()`, walked as
+ * APPEARANCE_CONTROLS::rebuildLayers walks it).
+ */
+function enabledLayerNames(aBoard: BOARD | null | undefined): string[] {
+  const enabled = aBoard?.GetEnabledLayers();
+  if (!enabled) return [];
+  return [...enabled.CuStack(), ...enabled.TechAndUserUIOrder()].map((l) => LSET.Name(l));
+}
+
+/** The board's nets as code -> name, for a dialog's net selector (NETINFO_LIST). */
+function netNamesByCode(aBoard: BOARD | null | undefined): ReadonlyMap<number, string> {
+  return new Map(
+    [...(aBoard?.GetNetInfo().NetsByNetcode() ?? new Map())].map(
+      ([code, net]) => [code, net.GetNetname()] as const,
+    ),
+  );
+}
+
 export function PcbEditor({
   registerScriptApi,
   app,
@@ -1423,7 +1246,17 @@ export function PcbEditor({
     () => ({ ...readBoard(parse(EMPTY_PCB)), fileName }),
     [fileName],
   );
+  // The PCB_EDIT_FRAME this window draws; everything below reads the BOARD through it.
+  const frameRef = useRef<PCB_EDIT_FRAME | null>(null);
   const [board, setBoard] = useState<Board | null>(emptyBoard);
+  /**
+   * `OnModify` after a tool changed a board setting that is not an item: an
+   * origin (PCB_CONTROL::DoSetGridOrigin, BOARD_EDITOR_CONTROL::DoSetDrillOrigin)
+   * or the page and title block (BOARD_EDITOR_CONTROL::PageSettings), or their
+   * undo. No BOARD_LISTENER event fires for those, and what reads them here
+   * reads the BOARD, so this only has React read it again.
+   */
+  const [boardSettingsRev, setBoardSettingsRev] = useState(0);
   /** WX_PROGRESS_REPORTER( this, _( "Load PCB" ), 1, PR_CAN_ABORT ) (files.cpp:561). */
   const [loading, setLoading] = useState<ProgressSnapshot | null>(null);
   // Unsaved-changes flag: '*' in the title while modified, Save greys when
@@ -1562,15 +1395,16 @@ export function PcbEditor({
    *     PCB_ORIGIN_GRID  -> GetDesignSettings().GetGridOrigin()
    *
    * Only the frame can answer the last two, which is why the hook takes the
-   * point rather than the enum. `boardAuxOrigin` walks the raw s-expression, so
-   * it is memoised on the board and not called per pointer move.
+   * point rather than the enum.
    */
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `board` and `boardSettingsRev` are the triggers; the BOARD holds the origins
   const userOrigin = useMemo(() => {
-    if (!board) return PCB_LOCAL_ORIGIN;
-    if (pcbCfg.pcb_display.origin_mode === 1) return boardAuxOrigin(board);
-    if (pcbCfg.pcb_display.origin_mode === 2) return boardGridOrigin(board);
+    const bds = frameRef.current?.GetBoard()?.GetDesignSettings();
+    if (!bds) return PCB_LOCAL_ORIGIN;
+    if (pcbCfg.pcb_display.origin_mode === 1) return bds.GetAuxOrigin();
+    if (pcbCfg.pcb_display.origin_mode === 2) return bds.GetGridOrigin();
     return PCB_LOCAL_ORIGIN;
-  }, [board, pcbCfg.pcb_display.origin_mode]);
+  }, [board, boardSettingsRev, pcbCfg.pcb_display.origin_mode]);
   const statusReadout = useStatusReadout({
     units: unitLabel,
     localOrigin: PCB_LOCAL_ORIGIN,
@@ -1710,7 +1544,7 @@ export function PcbEditor({
    * frame (`UpdateProperties`) and whenever the view is re-derived. Deleted
    * with EDIT_TOOL.
    */
-  const [selection, setSelectionMirror] = useState<ReadonlySet<string>>(new Set());
+  const [selection, setSelectionMirror] = useState<ReadonlySet<BOARD_ITEM>>(new Set());
 
   /**
    * `SendCrossProbeNetName` / `SendCrossProbeClearHighlight`: the board's
@@ -1724,7 +1558,9 @@ export function PcbEditor({
     const brd = boardRef.current;
     if (!brd) return;
     const first = [...highlightNets][0];
-    frameRef.current?.SendCrossProbeNetName(first === undefined ? '' : (brd.nets.get(first) ?? ''));
+    frameRef.current?.SendCrossProbeNetName(
+      first === undefined ? '' : (netNamesByCode(frameRef.current?.GetBoard()).get(first) ?? ''),
+    );
   }, [highlightNets]);
 
   // `EDA_3D_VIEWER_FRAME`, shown by `CreateAndShow3D_Frame`. Owned here, but
@@ -1918,10 +1754,8 @@ export function PcbEditor({
   // the snap are measured from. A ref because `draw` and the pointer handlers
   // read it without wanting to be rebuilt when the board object is replaced.
   const gridOriginRef = useRef<{ x: number; y: number }>(PCB_DEFAULT_GRID_ORIGIN);
-  gridOriginRef.current = useMemo(
-    () => (board ? boardGridOrigin(board) : PCB_DEFAULT_GRID_ORIGIN),
-    [board],
-  );
+  gridOriginRef.current =
+    frameRef.current?.GetBoard()?.GetDesignSettings().GetGridOrigin() ?? PCB_DEFAULT_GRID_ORIGIN;
   // `GRID_HELPER::m_auxAxis` — the point the current gesture started from, kept
   // reachable for its whole duration so an off-grid item can be put back
   // exactly where it came from. Set at the start of a move/drag and cleared
@@ -2069,7 +1903,7 @@ export function PcbEditor({
   });
   const boardRef = useRef<Board | null>(null);
   // Live selection read by draw()'s overlay pass without re-creating the callback.
-  const selForDrawRef = useRef<ReadonlySet<string>>(selection);
+  const selForDrawRef = useRef<ReadonlySet<BOARD_ITEM>>(selection);
   selForDrawRef.current = selection;
   // The in-progress rubber-band marquee (world coords), read by the overlay pass.
   const boxRef = useRef<{ a: { x: number; y: number }; b: { x: number; y: number } } | null>(null);
@@ -2137,7 +1971,6 @@ export function PcbEditor({
   }, [pcbCfg]);
   const setDirtyRef = useRef(setDirty);
   setDirtyRef.current = setDirty;
-  const frameRef = useRef<PCB_EDIT_FRAME | null>(null);
   const [frameMsgItems, setFrameMsgItems] = useState<readonly MSG_PANEL_ITEM[]>([]);
   // HOTKEY_CYCLE_POPUP, this frame's one instance (EDA_DRAW_FRAME::m_hotkeyPopup).
   // Its expiry hands the keyboard back with `m_drawFrame->GetCanvas()->SetFocus()`
@@ -2337,42 +2170,16 @@ export function PcbEditor({
     else run();
   };
   /**
-   * TRANSITIONAL (#636 stage 3): a selection written by one of the window's own
-   * tools, by view id. The selection is PCB_SELECTION_TOOL's, so the write goes
-   * to the tool - its items, quietly, then the one event the frame's panels
-   * (and this window's mirror, through `UpdateProperties`) listen for. Deleted
-   * with EDIT_TOOL, when nothing writes ids any more.
-   */
-  const setSelectionRef = useRef(
-    (aNext: ReadonlySet<string> | ((aPrev: ReadonlySet<string>) => ReadonlySet<string>)): void => {
-      const next = typeof aNext === 'function' ? aNext(selForDrawRef.current) : aNext;
-      const frame = frameRef.current;
-      const brd = boardRef.current;
-      const mgr = frame?.GetToolManager();
-
-      if (!frame || !brd || !mgr) {
-        setSelectionMirror(next);
-        return;
-      }
-
-      const tool = frame.GetSelectionTool();
-      const items = kItemsForIds(brd, next);
-
-      tool.ClearSelection(true);
-      tool.AddItemsToSel(items, true);
-      mgr.ProcessEvent(items.length > 0 ? EVENTS.SelectedEvent : EVENTS.ClearedEvent);
-    },
-  );
-  /**
    * TRANSITIONAL (#636 stage 3): the selection tool's selection and entered
    * group, re-read as the view's ids for the window's own tools.
    */
   const refreshSelectionMirrorRef = useRef((): void => {
     const frame = frameRef.current;
-    const brd = boardRef.current;
-    if (!frame || !brd) return;
+    if (!frame) return;
     const tool = frame.GetSelectionTool();
-    const next: ReadonlySet<string> = new Set(viewIdsOf(brd, tool.GetSelection().GetItems()));
+    const next: ReadonlySet<BOARD_ITEM> = new Set(
+      tool.GetSelection().GetItems() as unknown as BOARD_ITEM[],
+    );
     enteredGroupRef.current = tool.GetEnteredGroup()?.m_Uuid ?? null;
     selForDrawRef.current = next;
     setSelectionMirror(next);
@@ -2386,8 +2193,8 @@ export function PcbEditor({
    * layer the interactive router session already validated, not a new pick.
    */
   const switchActiveLayer = (layerName: string): void => {
-    const id = boardRef.current?.layers.find((l) => l.name === layerName)?.id;
-    if (id !== undefined) frameRef.current?.SwitchLayer(id);
+    const id = LSET.NameToLayer(layerName);
+    if (frameRef.current?.GetBoard()?.IsLayerEnabled(id)) frameRef.current.SwitchLayer(id);
     setActiveLayer(layerName);
   };
   const drcWindowRef = useRef<{
@@ -2397,6 +2204,7 @@ export function PcbEditor({
     schematicNetlistText: () => string | null;
     projectText: () => string | null;
     editZoneParams: (aZone: ZONE) => void;
+    showFindDialog: (aDialog: DIALOG_FIND) => void;
     showReferenceImagePropertiesDialog: (
       aDialog: DIALOG_REFERENCE_IMAGE_PROPERTIES,
     ) => Promise<boolean>;
@@ -2446,7 +2254,7 @@ export function PcbEditor({
       aValues: MOVE_EXACT_VALUES,
       aBox: KBOX2I,
     ) => Promise<MOVE_EXACT_VALUES | null>;
-    showTrackViaPropertiesDialog: () => Promise<void>;
+    showTrackViaPropertiesDialog: (aSelection: PCB_SELECTION) => Promise<void>;
     showGetFootprintByNameDialog: (aList: string[]) => Promise<string | null>;
     showConnectedPadDialog: (
       aTitle: string,
@@ -2487,7 +2295,7 @@ export function PcbEditor({
       },
       onModify: () => {
         setDirtyRef.current(true);
-        syncOriginsRef.current();
+        setBoardSettingsRev((r) => r + 1);
       },
       onUndoRedoIncomplete: () =>
         console.warn('Incomplete undo/redo operation: some items not found'),
@@ -2514,6 +2322,7 @@ export function PcbEditor({
       schematicNetlistText: () => drcWindowRef.current!.schematicNetlistText(),
       projectText: () => drcWindowRef.current!.projectText(),
       editZoneParams: (aZone) => drcWindowRef.current!.editZoneParams(aZone),
+      showFindDialog: (aDialog) => drcWindowRef.current!.showFindDialog(aDialog),
       showReferenceImagePropertiesDialog: (aDialog) =>
         drcWindowRef.current!.showReferenceImagePropertiesDialog(aDialog),
       showPadPropertiesDialog: (aDialog) => drcWindowRef.current!.showPadPropertiesDialog(aDialog),
@@ -2533,8 +2342,7 @@ export function PcbEditor({
       showTrackViaSizeDialog: (aValue) =>
         new Promise((resolve) => setTrackViaSizeReq({ value: aValue, resolve })),
       activeLayerChanged: (aLayer) => {
-        const name = boardRef.current?.layers.find((l) => l.id === aLayer)?.name;
-        if (name !== undefined) setActiveLayer(name);
+        if (frameRef.current?.GetBoard()?.IsLayerEnabled(aLayer)) setActiveLayer(LSET.Name(aLayer));
       },
       selectFootprintFromChooser: (aPreselect) =>
         drcWindowRef.current!.selectFootprintFromChooser(aPreselect),
@@ -2578,8 +2386,8 @@ export function PcbEditor({
         editWindowRef.current?.showDogboneDialog(aParams) ?? Promise.resolve(null),
       showMoveExactDialog: (aValues, aBox) =>
         editWindowRef.current?.showMoveExactDialog(aValues, aBox) ?? Promise.resolve(null),
-      showTrackViaPropertiesDialog: () =>
-        editWindowRef.current?.showTrackViaPropertiesDialog() ?? Promise.resolve(),
+      showTrackViaPropertiesDialog: (aSelection) =>
+        editWindowRef.current?.showTrackViaPropertiesDialog(aSelection) ?? Promise.resolve(),
       showGetFootprintByNameDialog: (aList) =>
         editWindowRef.current?.showGetFootprintByNameDialog(aList) ?? Promise.resolve(null),
       showConnectedPadDialog: (aTitle, aMessage, aDetails) =>
@@ -2819,7 +2627,8 @@ export function PcbEditor({
   const [teardropsDlg, setTeardropsDlg] = useState<DIALOG_GLOBAL_EDIT_TEARDROPS | null>(null);
   // Track & Via Properties (DIALOG_TRACK_VIA_PROPERTIES), opened by E or a
   // double-click on a copper item.
-  const [trackViaOpen, setTrackViaOpen] = useState(false);
+  // DIALOG_TRACK_VIA_PROPERTIES on these items (EDIT_TOOL::Properties' selection).
+  const [trackViaItems, setTrackViaItems] = useState<readonly EDA_ITEM[] | null>(null);
   // Set Layer Pair... (SELECT_COPPER_LAYERS_PAIR_DIALOG), Edit > Route.
   const [layerPairDialogOpen, setLayerPairDialogOpen] = useState(false);
   // The KIDIALOGs its OK asks (confirmShortingNets, confirmPadChange).
@@ -2832,13 +2641,6 @@ export function PcbEditor({
   const [fpPropsDlg, setFpPropsDlg] = useState<DIALOG_FOOTPRINT_PROPERTIES | null>(null);
   // Footprint Associations (DIALOG_FOOTPRINT_ASSOCIATIONS), on the selected footprint.
   const [footprintAssociations, setFootprintAssociations] = useState<FOOTPRINT | null>(null);
-  /** The live board's nets as code -> name, for a dialog's net selector (NETINFO_LIST). */
-  const liveNetNames = (): ReadonlyMap<number, string> =>
-    new Map(
-      [...(frameRef.current?.GetBoard()?.GetNetInfo().NetsByNetcode() ?? new Map())].map(
-        ([code, net]) => [code, net.GetNetname()] as const,
-      ),
-    );
   // Pad Properties (DIALOG_PAD_PROPERTIES), board side.
   const [padPropsDlg, setPadPropsDlg] = useState<DIALOG_PAD_PROPERTIES | null>(null);
   // Text / Shape properties for board graphics.
@@ -2944,15 +2746,8 @@ export function PcbEditor({
   const boardSetupRef = useRef(boardSetup);
   boardSetupRef.current = boardSetup;
 
-  // Find dialog (DIALOG_FIND): query, options, hit cursor + status line.
-  const [findOpen, setFindOpen] = useState(false);
-  const [findQuery, setFindQuery] = useState('');
-  const [findOpts, setFindOpts] = useState<PcbFindOptions>(DEFAULT_PCB_FIND);
-  const [findStatus, setFindStatus] = useState('');
-  const findHitsRef = useRef<{ id: string; pos: { x: number; y: number } }[]>([]);
-  const findCursorRef = useRef(-1);
-  // A query/options change restarts the search (DIALOG_FIND::search(true)).
-  const findDirtyRef = useRef(true);
+  // The frame's DIALOG_FIND while it is shown (PCB_EDIT_FRAME::ShowFindDialog).
+  const [findDlg, setFindDlg] = useState<DIALOG_FIND | null>(null);
   /**
    * DIALOG_BARCODE_PROPERTIES on a live PCB_BARCODE: the board's own
    * (`EDIT_TOOL::Properties`), or DRAWING_TOOL::DrawBarcode's new one, which
@@ -3464,22 +3259,9 @@ export function PcbEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setupSourceKey, rootPro, openNonce]);
 
-  /**
-   * The board's drill/place file origin, cached per board object.
-   *
-   * `boardAuxOrigin` walks the raw s-expression, and the root's child list is
-   * every item on the board, so this is not something to repeat per frame.
-   */
-  const auxOriginRef = useRef<{ board: Board | null; at: { x: number; y: number } }>({
-    board: null,
-    at: { x: 0, y: 0 },
-  });
-  const auxOriginOf = (): { x: number; y: number } => {
-    const brd = boardRef.current;
-    if (auxOriginRef.current.board !== brd)
-      auxOriginRef.current = { board: brd, at: brd ? boardAuxOrigin(brd) : { x: 0, y: 0 } };
-    return auxOriginRef.current.at;
-  };
+  /** `GetDesignSettings().GetAuxOrigin()`: the drill/place file origin. */
+  const auxOriginOf = (): { x: number; y: number } =>
+    frameRef.current?.GetBoard()?.GetDesignSettings().GetAuxOrigin() ?? { x: 0, y: 0 };
 
   const draw = useCallback(() => {
     const __t0 = PERF ? performance.now() : 0;
@@ -3820,41 +3602,6 @@ export function PcbEditor({
     },
     [requestDraw],
   );
-
-  /**
-   * `OnModify` after a tool changed a board setting that is not an item: an
-   * origin (PCB_CONTROL::DoSetGridOrigin, BOARD_EDITOR_CONTROL::DoSetDrillOrigin)
-   * or the page and title block (BOARD_EDITOR_CONTROL::PageSettings), or their
-   * undo. No listener re-derives the view for those, and the canvas and the
-   * page dialog read them from it, so they are taken from the BOARD here.
-   */
-  const syncOriginsRef = useRef<() => void>(() => {});
-  syncOriginsRef.current = () => {
-    const brd = boardRef.current;
-    const bds = frameRef.current?.GetBoard()?.GetDesignSettings();
-    if (!brd || !bds) return;
-    const grid = bds.GetGridOrigin();
-    const aux = bds.GetAuxOrigin();
-    const same = (a: { x: number; y: number } | undefined, b: { x: number; y: number }): boolean =>
-      (a?.x ?? 0) === b.x && (a?.y ?? 0) === b.y;
-    const kb = frameRef.current!.GetBoard()!;
-    const paper = paperOfPageInfo(kb.GetPageSettings());
-    const titleBlock = titleBlockView(kb.GetTitleBlock());
-    if (
-      same(brd.gridOrigin, grid) &&
-      same(brd.auxOrigin, aux) &&
-      brd.paper === paper &&
-      JSON.stringify(brd.titleBlock) === JSON.stringify(titleBlock)
-    )
-      return;
-    setBoardModel({
-      ...brd,
-      gridOrigin: { ...grid },
-      auxOrigin: { ...aux },
-      paper,
-      titleBlock,
-    });
-  };
 
   /**
    * `PCB_EDIT_FRAME::ShowBoardSetupDialog`, the OK half: every panel's
@@ -4349,7 +4096,6 @@ export function PcbEditor({
 
   // Selection-filter predicate ref (assigned once passesFilter is defined), so
   // the stable Select All callback can honour the live filter.
-  const passesFilterRef = useRef<(id: string) => boolean>(() => true);
 
   // Select All / Unselect All: PCB_SELECTION_TOOL::SelectAll / UnselectAll,
   // which honour the Selection Filter.
@@ -4376,13 +4122,14 @@ export function PcbEditor({
     setArraySettings(settings);
     setArrayOpen(false);
 
-    const brd = boardRef.current;
     const frame = frameRef.current;
-    const sel = [...selForDrawRef.current];
-    if (!brd || !frame || sel.length === 0) return;
+    if (!frame || frame.GetSelectionTool().GetSelection().Empty()) return;
 
     // ARRAY_TOOL::onDialogClosed on the live selection: one BOARD_COMMIT.
-    new ARRAY_TOOL(frame).onDialogClosed(liveSelection(brd, sel), arraySpecFrom(settings));
+    new ARRAY_TOOL(frame).onDialogClosed(
+      frame.GetSelectionTool().GetSelection(),
+      arraySpecFrom(settings),
+    );
   }, []);
 
   /**
@@ -4447,7 +4194,10 @@ export function PcbEditor({
   const zoomToFitImpl = useCallback(
     (fitType: 'all' | 'objects') => {
       const box = pcbZoomFitBox(boardItemsBox(), {
-        paper: boardRef.current?.paper,
+        paper: (() => {
+          const page = frameRef.current?.GetBoard()?.GetPageSettings();
+          return page ? paperOfPageInfo(page) : undefined;
+        })(),
         drawingSheetVisible: objects.drawingSheet,
         fitType,
         edgeCutsVisible: visibleRef.current.has('Edge.Cuts'),
@@ -4464,125 +4214,12 @@ export function PcbEditor({
   /** The footprint indices in the selection, for the 3D viewer's `IsSelected()`. */
   const selectedFootprints = useMemo(() => {
     const out = new Set<number>();
-    if (!board) return out;
-    board.footprints.forEach((_, i) => {
-      if (selection.has(boardItemId('footprint', i))) out.add(i);
+    const fps = frameRef.current?.GetBoard()?.Footprints() ?? [];
+    fps.forEach((fp, i) => {
+      if (selection.has(fp)) out.add(i);
     });
     return out;
-  }, [board, selection]);
-
-  // DIALOG_FIND::search: collect hits in upstream order, footprint reference
-  // designators, footprint values, other text items (footprint text, board
-  // text, zone names), then net names, and walk the list with Find Next /
-  // Find Previous, wrapping when enabled. Each hit selects the item and
-  // centres the view on it (FocusOnLocation).
-  const runFind = useCallback(
-    (dir: 'next' | 'prev' | 'restart') => {
-      const brd = boardRef.current;
-      if (!brd) return;
-      const q = findQuery;
-      const matches = (s0: string): boolean => {
-        if (!q) return false;
-        const s = findOpts.matchCase ? s0 : s0.toLowerCase();
-        const needle = findOpts.matchCase ? q : q.toLowerCase();
-        if (findOpts.wildcard) {
-          const rx = new RegExp(
-            `^${needle
-              .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-              .replace(/\*/g, '.*')
-              .replace(/\?/g, '.')}$`,
-          );
-          return rx.test(s);
-        }
-        if (findOpts.wholeWord) {
-          const rx = new RegExp(`\\b${needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`);
-          return rx.test(s);
-        }
-        return s.includes(needle);
-      };
-
-      if (findDirtyRef.current || dir === 'restart') {
-        const hits: { id: string; pos: { x: number; y: number } }[] = [];
-        brd.footprints.forEach((fp, i) => {
-          const refIdx = fp.texts.findIndex((t) => t.kind === 'reference');
-          const valIdx = fp.texts.findIndex((t) => t.kind === 'value');
-          if (findOpts.includeReferences && matches(fp.reference ?? ''))
-            hits.push({
-              id: refIdx >= 0 ? boardItemId('fptext', i, refIdx) : boardItemId('footprint', i),
-              pos: refIdx >= 0 ? fp.texts[refIdx]!.at : fp.at,
-            });
-          if (findOpts.includeValues && matches(fp.value ?? ''))
-            hits.push({
-              id: valIdx >= 0 ? boardItemId('fptext', i, valIdx) : boardItemId('footprint', i),
-              pos: valIdx >= 0 ? fp.texts[valIdx]!.at : fp.at,
-            });
-          if (findOpts.includeTexts)
-            fp.texts.forEach((t, ti) => {
-              if (t.kind === 'user' && (findOpts.includeHidden || !t.hide) && matches(t.text))
-                hits.push({ id: boardItemId('fptext', i, ti), pos: t.at });
-            });
-        });
-        if (findOpts.includeTexts) {
-          brd.texts.forEach((t, i) => {
-            if (matches(t.text)) hits.push({ id: boardItemId('text', i), pos: t.at });
-          });
-          brd.zones.forEach((z, i) => {
-            const p = z.outline?.[0] ?? z.fills[0]?.polys[0]?.[0];
-            if (z.netName && p && matches(z.netName))
-              hits.push({ id: boardItemId('zone', i), pos: p });
-          });
-        }
-        if (findOpts.includeNets) {
-          for (const [code, name] of brd.nets) {
-            if (code === 0 || !matches(name)) continue;
-            // Focus the first copper item carrying the net.
-            const t = brd.tracks.findIndex((x) => x.net === code);
-            if (t >= 0) {
-              hits.push({ id: boardItemId('track', t), pos: brd.tracks[t]!.start });
-              continue;
-            }
-            const v = brd.vias.findIndex((x) => x.net === code);
-            if (v >= 0) hits.push({ id: boardItemId('via', v), pos: brd.vias[v]!.at });
-          }
-        }
-        findHitsRef.current = hits;
-        findCursorRef.current = -1;
-        findDirtyRef.current = false;
-      }
-
-      const hits = findHitsRef.current;
-      if (hits.length === 0) {
-        setFindStatus(q ? `"${q}" not found` : '');
-        return;
-      }
-      let cur = findCursorRef.current;
-      if (dir === 'prev') cur -= 1;
-      else cur += 1;
-      if (findOpts.wrap) cur = ((cur % hits.length) + hits.length) % hits.length;
-      else cur = Math.max(0, Math.min(hits.length - 1, cur));
-      findCursorRef.current = cur;
-      const hit = hits[cur]!;
-      setFindStatus(`Hit(s): ${cur + 1} of ${hits.length}`);
-      setSelectionRef.current(new Set([hit.id]));
-      // FocusOnLocation: centre the view on the hit at the current zoom.
-      const canvas = canvasRef.current;
-      if (canvas) {
-        const v = viewRef.current;
-        const sx = v.flipX ? -v.scale : v.scale;
-        v.tx = canvas.width / 2 - hit.pos.x * sx;
-        v.ty = canvas.height / 2 - hit.pos.y * v.scale;
-        requestDraw();
-      }
-    },
-    [findQuery, findOpts, requestDraw],
-  );
-  // Query/options edits restart the search on the next Find. Board edits do
-  // too: `board` gets a fresh object identity on every mutation, so the cached
-  // hit list is invalidated whenever the board changes (matching the always-
-  // live schematic Find) rather than going stale until Restart Search.
-  useEffect(() => {
-    findDirtyRef.current = true;
-  }, [findQuery, findOpts, board]);
+  }, [selection]);
 
   // `Kiface().IsSingle()`: a project with no schematic runs pcbnew "single".
   const projectHasSchematic = (projectFiles ?? []).some((f) => /\.kicad_sch$/i.test(f.name));
@@ -4734,8 +4371,8 @@ export function PcbEditor({
       new Promise((resolve) => setDogboneDlg({ params: aParams, resolve })),
     showMoveExactDialog: (aValues, aBox) =>
       new Promise((resolve) => setMoveExactDlg({ values: aValues, box: aBox, resolve })),
-    showTrackViaPropertiesDialog: () => {
-      setTrackViaOpen(true);
+    showTrackViaPropertiesDialog: (aSelection) => {
+      setTrackViaItems([...aSelection.GetItems()]);
       return Promise.resolve();
     },
     // TRANSITIONAL (#636 stage 3): DIALOG_GET_FOOTPRINT_BY_NAME is not built;
@@ -4852,6 +4489,7 @@ export function PcbEditor({
     projectText: (): string | null => findProjectPro(projectFilesNow(), rootPro)?.text ?? null,
     /** `PCB_EDIT_FRAME::Edit_Zone_Params`'s actual open: the rendering trigger. */
     editZoneParams: (aZone: ZONE): void => setZoneProps(aZone),
+    showFindDialog: (aDialog: DIALOG_FIND): void => setFindDlg(aDialog),
     showReferenceImagePropertiesDialog: (aDialog) =>
       new Promise<boolean>((resolve) => setImagePropsDlg({ dialog: aDialog, resolve })),
     showPadPropertiesDialog: (aDialog) => setPadPropsDlg(aDialog),
@@ -5074,47 +4712,6 @@ export function PcbEditor({
     shift: boolean;
   } | null>(null);
 
-  // Does an item of this kind pass the Selection Filter panel? (KiCad's
-  // SELECTION_FILTER_OPTIONS, track/arc→Tracks, shape→Graphics, etc.)
-  const filterKeyOf = (kind: BoardItemKind): string | null =>
-    kind === 'track' || kind === 'arc'
-      ? 'tracks'
-      : kind === 'via'
-        ? 'vias'
-        : kind === 'footprint'
-          ? 'footprints'
-          : kind === 'pad'
-            ? 'pads'
-            : kind === 'zone'
-              ? 'zones'
-              : kind === 'shape'
-                ? 'graphics'
-                : kind === 'text' || kind === 'fptext'
-                  ? 'text'
-                  : // `case PCB_POINT_T: if( !m_filter.points ) …`
-                    // (`pcb_selection_tool.cpp:3511-3518`) — points have a
-                    // category box of their own, unlike dimensions.
-                    kind === 'point'
-                    ? 'points'
-                    : // `case PCB_BARCODE_T: default: if( !m_filter.otherItems )`
-                      // (`pcb_selection_tool.cpp:3522-3530`) — a barcode shares
-                      // the catch-all box with targets and the rest, rather
-                      // than counting as a graphic.
-                      kind === 'barcode'
-                      ? 'otherItems'
-                      : null;
-  const passesFilter = (id: string): boolean => {
-    const r = parseBoardItemId(id);
-    if (!r) return false;
-    // Locked items are selectable only with the "Locked items" filter checked
-    // (PCB_SELECTION_FILTER_OPTIONS::lockedItems; KiCad defaults it off).
-    const brd = boardRef.current;
-    if (brd && !selFilter.has('lockedItems') && isBoardItemLocked(brd, id)) return false;
-    const key = filterKeyOf(r.kind);
-    return key ? selFilter.has(key) : true;
-  };
-  passesFilterRef.current = passesFilter;
-
   /**
    * The browser's own menu never opens on the canvas: a right click is
    * PCB_SELECTION_TOOL::Main's (`m_menu->ShowContextMenu( m_selection )`,
@@ -5214,10 +4811,10 @@ export function PcbEditor({
         <Combo
           value={v.layer}
           onChange={(layer) => set({ layer })}
-          options={(board?.layers ?? []).map((l) => ({
-            value: l.name,
-            label: l.name,
-            swatch: layerColor(l.name),
+          options={enabledLayerNames(frameRef.current?.GetBoard()).map((name) => ({
+            value: name,
+            label: name,
+            swatch: layerColor(name),
           }))}
         />
       </label>
@@ -5312,22 +4909,22 @@ export function PcbEditor({
   /** DIALOG_TRACK_VIA_PROPERTIES::TransferDataFromWindow. */
   const applyTrackViaEdit = useCallback(
     (values: TrackViaValues) => {
-      const brd = boardRef.current;
       const frame = frameRef.current;
-      if (!brd || !frame) {
-        setTrackViaOpen(false);
+      const items = trackViaItems;
+      if (!frame || !items) {
+        setTrackViaItems(null);
         return;
       }
       // DIALOG_TRACK_VIA_PROPERTIES on the live items: one BOARD_COMMIT. A
       // refused OK leaves the dialog up behind its error, as DisplayError does.
-      void new DIALOG_TRACK_VIA_PROPERTIES(frame, trackViaLiveSelection(brd, selForDrawRef.current))
+      void new DIALOG_TRACK_VIA_PROPERTIES(frame, items)
         .TransferDataFromWindow(values, askKiDialog)
         .then((r) => {
-          if (r.ok) setTrackViaOpen(false);
+          if (r.ok) setTrackViaItems(null);
           else if (r.message) DisplayErrorMessage(r.message);
         });
     },
-    [askKiDialog],
+    [askKiDialog, trackViaItems],
   );
 
   /** DIALOG_TEXT_PROPERTIES / DIALOG_SHAPE_PROPERTIES::TransferDataFromWindow. */
@@ -5846,13 +5443,17 @@ export function PcbEditor({
    * and the readout all go through it, the way every upstream caller goes
    * through BOARD::GetLayerName rather than spelling the name itself.
    */
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `board` is the trigger; the BOARD is read through frameRef
   const layerName = useCallback(
-    (name: string): string => GetLayerName(board?.layers ?? [], name),
+    // BOARD::GetLayerName: the user's name for the layer, or its canonical one.
+    (name: string): string =>
+      frameRef.current?.GetBoard()?.GetLayerName(LSET.NameToLayer(name)) ?? name,
     [board],
   );
 
   const copperLayers = useMemo(
-    () => (board ? board.layers.filter((l) => /\.Cu$/.test(l.name)).map((l) => l.name) : []),
+    () =>
+      board ? enabledLayerNames(frameRef.current?.GetBoard()).filter((n) => /\.Cu$/.test(n)) : [],
     [board],
   );
   // Copper layers first, then the technical layers in rebuildLayers()'s
@@ -5866,9 +5467,9 @@ export function PcbEditor({
   const ruleAreaLayers = useMemo(
     () =>
       board
-        ? board.layers.map((l) => ({
-            name: l.name,
-            color: drawOpts.theme?.layerColors[l.name] ?? layerColor(l.name),
+        ? enabledLayerNames(frameRef.current?.GetBoard()).map((name) => ({
+            name,
+            color: drawOpts.theme?.layerColors[name] ?? layerColor(name),
           }))
         : [],
     [board, drawOpts.theme],
@@ -5885,10 +5486,7 @@ export function PcbEditor({
   const layerRows = useMemo(
     () =>
       board
-        ? appearanceLayerRows(
-            copperLayers,
-            board.layers.map((l) => l.name),
-          )
+        ? appearanceLayerRows(copperLayers, enabledLayerNames(frameRef.current?.GetBoard()))
         : [],
     [board, copperLayers],
   );
@@ -5900,6 +5498,7 @@ export function PcbEditor({
    * step and no "(unsaved)" sentinel — that entry is in the wxFormBuilder stub
    * and Clear() removes it before the combo is ever seen.
    */
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `board` is the trigger; the BOARD is read through frameRef
   const preset = useMemo(
     () =>
       matchPresetName({
@@ -5908,7 +5507,7 @@ export function PcbEditor({
           (r) => r === 'sep' || objects[r.key] === DEFAULT_OBJECTS[r.key],
         ),
         flipBoard: flipView,
-        allLayers: board?.layers.map((l) => l.name) ?? [],
+        allLayers: enabledLayerNames(frameRef.current?.GetBoard()),
         copperLayers,
         userPresets,
       }),
@@ -5933,7 +5532,7 @@ export function PcbEditor({
     }
     const p = BUILTIN_PRESETS.find((x) => x.name === name);
     if (!p || !board) return;
-    const all = board.layers.map((l) => l.name);
+    const all = enabledLayerNames(frameRef.current?.GetBoard());
     setVisible(new Set(p.layers(all, copperLayers).filter((l) => all.includes(l))));
     // doApplyLayerPreset also carries the preset's flipBoard and activeLayer.
     setFlipView(p.flipBoard);
@@ -5942,7 +5541,8 @@ export function PcbEditor({
 
   // Layer right-click context menu ops (APPEARANCE_CONTROLS::onLayerContextMenu).
   const nonCopperLayers = useMemo(
-    () => (board ? board.layers.map((l) => l.name).filter((n) => !/\.Cu$/.test(n)) : []),
+    () =>
+      board ? enabledLayerNames(frameRef.current?.GetBoard()).filter((n) => !/\.Cu$/.test(n)) : [],
     [board],
   );
   const setVisibleUnsaved = (names: Iterable<string>): void => {
@@ -5950,7 +5550,7 @@ export function PcbEditor({
   };
   const layerMenuItems = (): { label: string; run: () => void }[][] => {
     if (!board) return [];
-    const all = board.layers.map((l) => l.name);
+    const all = enabledLayerNames(frameRef.current?.GetBoard());
     const has = (n: string): boolean => all.includes(n);
     const applyNamed = (name: string, active?: string): void => {
       const p = BUILTIN_PRESETS.find((x) => x.name === name);
@@ -6084,7 +5684,10 @@ export function PcbEditor({
 
   // `NET_GRID_TABLE::Rebuild`'s filter and sort, in a module qa can import;
   // see appearance_nets.ts for both decisions and what each one got wrong.
-  const nets = useMemo(() => (board ? appearanceNetRows(board.nets) : []), [board]);
+  const nets = useMemo(
+    () => (board ? appearanceNetRows(netNamesByCode(frameRef.current?.GetBoard())) : []),
+    [board],
+  );
 
   // ----- ratsnest + net classes ----------------------------------------------
 
@@ -6173,7 +5776,8 @@ export function PcbEditor({
   const netClassOf = useMemo(() => {
     const m = new Map<number, string>();
     if (board) {
-      for (const [code, name] of board.nets) m.set(code, netClassFor(name, netclassInfo.patterns));
+      for (const [code, name] of netNamesByCode(frameRef.current?.GetBoard()))
+        m.set(code, netClassFor(name, netclassInfo.patterns));
     }
     return m;
   }, [board, netclassInfo]);
@@ -6203,7 +5807,7 @@ export function PcbEditor({
   const netColors = useMemo(() => {
     const byCode = new Map<number, string>();
     if (!board) return byCode;
-    for (const [code, name] of board.nets.entries()) {
+    for (const [code, name] of netNamesByCode(frameRef.current?.GetBoard())) {
       const css = boardSetup.netClasses.netColors[name];
       if (css) byCode.set(code, css);
     }
@@ -6401,27 +6005,16 @@ export function PcbEditor({
   // Nets of the current selection, their airwires are always shown (even when
   // the global ratsnest is off), so clicking a pad/footprint/track reveals the
   // thin airwires to what it connects to (PCB_SELECTION_TOOL local ratsnest).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `board` is the trigger; the BOARD is read through frameRef
   const selectedNets = useMemo(() => {
     const nets = new Set<number>();
-    if (!board) return nets;
-    for (const id of selection) {
-      const r = parseBoardItemId(id);
-      if (!r) continue;
-      if (r.kind === 'footprint' || r.kind === 'fptext') {
-        const fp = board.footprints[r.index];
-        if (fp) for (const p of fp.pads) if (p.net && p.net > 0) nets.add(p.net);
-      } else if (r.kind === 'pad') {
-        const p = board.footprints[r.index]?.pads[r.sub ?? 0];
-        if (p?.net && p.net > 0) nets.add(p.net);
-      } else if (r.kind === 'track') {
-        const t = board.tracks[r.index];
-        if (t && t.net > 0) nets.add(t.net);
-      } else if (r.kind === 'arc') {
-        const a = board.arcs[r.index];
-        if (a && a.net > 0) nets.add(a.net);
-      } else if (r.kind === 'via') {
-        const v = board.vias[r.index];
-        if (v && v.net > 0) nets.add(v.net);
+    for (const item of selection) {
+      if (item.Type() === KICAD_T.PCB_FOOTPRINT_T) {
+        for (const p of (item as unknown as FOOTPRINT).Pads())
+          if (p.GetNetCode() > 0) nets.add(p.GetNetCode());
+      } else if (item.IsConnected()) {
+        const code = (item as unknown as BOARD_CONNECTED_ITEM).GetNetCode();
+        if (code > 0) nets.add(code);
       }
     }
     return nets;
@@ -6486,43 +6079,6 @@ export function PcbEditor({
     return () => window.clearTimeout(t);
   }, [dockHeight, storedDockHeight, updatePcbnewSettings]);
 
-  /** Frame the box of `ids`: `centerSelection` keeps the zoom, `zoomFitSelection` fits. */
-  const viewSearchHits = (ids: readonly string[], fit: boolean): void => {
-    const brd = boardRef.current;
-    const canvas = canvasRef.current;
-    if (!brd || !canvas) return;
-
-    let box: BoardBBox | null = null;
-    for (const id of ids) {
-      const b = boardItemBBox(brd, id);
-      if (!b) continue;
-      box = box
-        ? {
-            minX: Math.min(box.minX, b.minX),
-            minY: Math.min(box.minY, b.minY),
-            maxX: Math.max(box.maxX, b.maxX),
-            maxY: Math.max(box.maxY, b.maxY),
-          }
-        : b;
-    }
-    if (!box) return;
-
-    if (fit) {
-      fitWorldBox(box.minX, box.minY, box.maxX, box.maxY, 'selection');
-      return;
-    }
-
-    const v = viewRef.current;
-    const cx = (box.minX + box.maxX) / 2;
-    const cy = (box.minY + box.maxY) / 2;
-    viewRef.current = {
-      ...v,
-      tx: canvas.width / 2 - cx * (v.flipX ? -v.scale : v.scale),
-      ty: canvas.height / 2 - cy * v.scale,
-    };
-    requestDraw();
-  };
-
   /** `PCB_EDIT_FRAME` as the search handlers read it (`PcbSearchFrame`, minus `config`). */
   const searchFrame = useMemo(
     () => ({
@@ -6539,32 +6095,18 @@ export function PcbEditor({
   );
 
   const searchActions = useRef({
-    properties: (_id: string) => {},
     boardSetup: (_page: string) => {},
   });
-  const viewSearchHitsRef = useRef(viewSearchHits);
-  viewSearchHitsRef.current = viewSearchHits;
-  // What the hitlist rows do, in the tool manager upstream: the selection is our
-  // id set, and `PCB_ACTIONS::properties` is the double-click dispatch.
+  // What the hitlist rows do: the tool manager's actions, as upstream.
   const searchWiring = useMemo<PcbSearchWiring>(
     () =>
-      makePcbSearchWiring({
-        getBoard: () => boardRef.current,
-        setSelection: (ids) => setSelectionRef.current(ids),
-        frameView: (ids, fit) => viewSearchHitsRef.current(ids, fit),
-        refresh: () => requestDrawRef.current(),
-        properties: (id) => searchActions.current.properties(id),
+      makePcbSearchWiring(() => frameRef.current, {
         highlightNets: (codes) => applyRenderHighlightRef.current(codes),
         showBoardSetupDialog: (page) => searchActions.current.boardSetup(page),
       }),
     [],
   );
   searchActions.current = {
-    // `EDIT_TOOL::Properties` on the one selected item: the same dispatch a double click makes.
-    properties: (id) => {
-      setSelectionRef.current(new Set([id]));
-      runActionRef.current(PCB_ACTIONS.properties);
-    },
     // `ShowBoardSetupDialog( _( "Net Classes" ) )`.
     boardSetup: (page) => {
       setBoardSetupPage(page === 'Net Classes' ? 'netclasses' : undefined);
@@ -6591,12 +6133,11 @@ export function PcbEditor({
 
   /** `PCB_BASE_EDIT_FRAME::OpenVertexEditor` (`pcb_base_edit_frame.cpp:439-462`). */
   const openVertexEditor = (): void => {
-    const brd = boardRef.current;
     const frame = frameRef.current;
-    if (!brd || !frame || !selectionHasEditableCorners(brd, selection)) return;
+    if (!frame || selection.size !== 1) return;
 
-    const item = liveItemOfId(brd, [...selection][0]!);
-    if (!item) return;
+    const item = [...selection][0]!;
+    if (!itemHasEditableCorners(item)) return;
 
     let pane = vertexPaneRef.current;
     if (!pane) {
@@ -6799,7 +6340,7 @@ export function PcbEditor({
         runAction(PCB_ACTIONS.toggleLock);
         break;
       case 'find':
-        setFindOpen(true);
+        runAction(ACTIONS.find);
         break;
       case 'zoomRedraw':
         requestDraw();
@@ -7261,22 +6802,13 @@ export function PcbEditor({
     [fileName, dirty, readOnly],
   );
 
-  const topDisabled = useMemo(() => {
-    const s = new Set<string>();
-    let groupCount = 0;
-    for (const id of selection) {
-      if (parseBoardItemId(id)?.kind === 'group') groupCount++;
-    }
-    // ACTIONS::group = MoreThan( 1 ); ACTIONS::ungroup = HasTypes( groupTypes ).
-    if (selection.size < 2) s.add('group');
-    if (groupCount === 0) s.add('ungroup');
-    // PCB_ACTIONS::lock = HasUnlockedItems; ::unlock = HasLockedItems. Both
-    // false on an empty selection, so both grey out with nothing selected —
-    // ours were lit unconditionally.
-    if (board === null || !hasUnlockedItems(board, selection)) s.add('lock');
-    if (board === null || !hasLockedItems(board, selection)) s.add('unlock');
-    return s;
-  }, [selection, board]);
+  // ACTIONS::group / ungroup, PCB_ACTIONS::lock / unlock: their ENABLE
+  // conditions, asked of the frame as wx asks before drawing a control.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the selection is the trigger; the frame holds the state
+  const topDisabled = useMemo(
+    () => (frameRef.current ? pcbDisabledSet(frameRef.current) : new Set<string>()),
+    [selection],
+  );
 
   return (
     <div className="ze-app">
@@ -7401,10 +6933,10 @@ export function PcbEditor({
             <Combo
               ariaLabel="Active layer"
               value={activeLayer}
-              options={(board?.layers ?? []).map((l) => ({
-                value: l.name,
-                label: layerBoxLabel(layerName(l.name), l.name),
-                swatch: layerColor(l.name),
+              options={enabledLayerNames(frameRef.current?.GetBoard()).map((name) => ({
+                value: name,
+                label: layerBoxLabel(layerName(name), name),
+                swatch: layerColor(name),
               }))}
               onChange={(v) => switchActiveLayer(v)}
             />
@@ -7507,8 +7039,8 @@ export function PcbEditor({
                     rather than the frame swapping in a placeholder. */}
                   <PcbPropertiesPanel
                     frame={frameRef.current}
-                    board={board}
                     selection={selection}
+                    revision={board}
                     units={unitLabel}
                   />
                 </div>
@@ -8014,7 +7546,7 @@ export function PcbEditor({
           preview={barcodePropsDlg.preview}
           commitError={barcodePropsDlg.commitError}
           initial={barcodePropsDlg.dialog.TransferDataToWindow()}
-          layers={board.layers.map((l) => l.name)}
+          layers={enabledLayerNames(frameRef.current?.GetBoard())}
           layerColor={layerColor}
           background={PCB_BACKGROUND}
           onClose={() => {
@@ -8136,7 +7668,7 @@ export function PcbEditor({
       {importGfxDlg && (
         <DialogImportGraphics
           units={unitLabel}
-          layers={board?.layers.map((l) => l.name) ?? []}
+          layers={enabledLayerNames(frameRef.current?.GetBoard())}
           layerColor={layerColor}
           activeLayer={activeLayer}
           parent={(frameRef.current?.GetModel() as BOARD_ITEM_CONTAINER | null | undefined) ?? null}
@@ -8189,13 +7721,18 @@ export function PcbEditor({
           // `m_customSizeX( aParent, … )` over the board frame — a fresh
           // pcbnew is in MILLIMETRES (app_settings.cpp:228-238).
           units={unitLabel}
-          value={pageSettingsValue(board.paper ?? 'A4', {
-            title: board.titleBlock?.title ?? '',
-            date: board.titleBlock?.date ?? '',
-            rev: board.titleBlock?.rev ?? '',
-            company: board.titleBlock?.company ?? '',
-            comments: board.titleBlock?.comments ?? [],
-          })}
+          value={(() => {
+            // DIALOG_PAGES_SETTINGS reads the frame's PAGE_INFO and TITLE_BLOCK.
+            const kb = frameRef.current!.GetBoard()!;
+            const tb = kb.GetTitleBlock();
+            return pageSettingsValue(paperOfPageInfo(kb.GetPageSettings()), {
+              title: tb.GetTitle(),
+              date: tb.GetDate(),
+              rev: tb.GetRevision(),
+              company: tb.GetCompany(),
+              comments: Array.from({ length: 9 }, (_, i) => tb.GetComment(i)),
+            });
+          })()}
           onOk={(next) => {
             // DIALOG_PAGES_SETTINGS::TransferDataFromWindow: the page and the
             // title block into the frame.
@@ -8321,7 +7858,7 @@ export function PcbEditor({
               <DialogCopperZones
                 units={unitLabel}
                 initial={dialog.TransferDataToWindow()}
-                nets={board.nets}
+                nets={netNamesByCode(frameRef.current?.GetBoard())}
                 layers={copperLayerRows}
                 onApply={(values, conv) => transferred(dialog.TransferDataFromWindow(values, conv))}
                 onClose={() => done(false)}
@@ -8333,7 +7870,7 @@ export function PcbEditor({
                 units={unitLabel}
                 initial={dialog.TransferDataToWindow()}
                 layers={ruleAreaLayers}
-                sources={collectPlacementSources(board)}
+                sources={collectPlacementSources(frameRef.current!.GetBoard()!)}
                 onApply={(values, conv) => transferred(dialog.TransferDataFromWindow(values, conv))}
                 onClose={() => done(false)}
               />
@@ -8351,7 +7888,7 @@ export function PcbEditor({
         <DialogTextProperties
           initial={textPropsDlg.dialog.TransferDataToWindow()}
           units={unitLabel}
-          layers={board.layers.map((l) => l.name)}
+          layers={enabledLayerNames(frameRef.current?.GetBoard())}
           layerColor={layerColor}
           onApply={applyTextEdit}
           onClose={() => {
@@ -8365,7 +7902,7 @@ export function PcbEditor({
           units={unitLabel}
           initial={shapePropsDlg.TransferDataToWindow()}
           shape={shapePropsDlg.GetShape()}
-          layers={board.layers.map((l) => l.name)}
+          layers={enabledLayerNames(frameRef.current?.GetBoard())}
           onApply={applyShapeEdit}
           onClose={() => setShapePropsDlg(null)}
         />
@@ -8390,7 +7927,7 @@ export function PcbEditor({
         <DialogTextBoxProperties
           initial={textBoxPropsDlg.dialog.TransferDataToWindow()}
           units={unitLabel}
-          layers={board.layers.map((l) => l.name)}
+          layers={enabledLayerNames(frameRef.current?.GetBoard())}
           layerColor={layerColor}
           onApply={applyTextBoxEdit}
           onClose={() => {
@@ -8404,7 +7941,7 @@ export function PcbEditor({
           image={{ data: imagePropsDlg.dialog.ImageData() }}
           initial={imagePropsDlg.dialog.TransferDataToWindow()}
           units={unitLabel}
-          layers={board.layers.map((l) => l.name)}
+          layers={enabledLayerNames(frameRef.current?.GetBoard())}
           layerColor={layerColor}
           onApply={applyImageEdit}
           onClose={() => {
@@ -8418,7 +7955,7 @@ export function PcbEditor({
           units={unitLabel}
           initial={dimensionPropsDlg.TransferDataToWindow()}
           type={dimensionPropsDlg.GetDimensionType()}
-          layers={board.layers.map((l) => l.name)}
+          layers={enabledLayerNames(frameRef.current?.GetBoard())}
           onApply={applyDimensionEdit}
           onClose={() => setDimensionPropsDlg(null)}
         />
@@ -8427,8 +7964,8 @@ export function PcbEditor({
         <DialogPadProperties
           units={unitLabel}
           initial={padPropsDlg.TransferDataToWindow()}
-          nets={liveNetNames()}
-          layers={board.layers.map((l) => l.name)}
+          nets={netNamesByCode(frameRef.current?.GetBoard())}
+          layers={enabledLayerNames(frameRef.current?.GetBoard())}
           onApply={applyPadEdit}
           onClose={() => setPadPropsDlg(null)}
         />
@@ -8514,7 +8051,7 @@ export function PcbEditor({
             zoneProps,
           ).TransferDataToWindow()}
           layers={ruleAreaLayers}
-          sources={collectPlacementSources(board)}
+          sources={collectPlacementSources(frameRef.current!.GetBoard()!)}
           onApply={applyRuleAreaEdit}
           onClose={() => setZoneProps(null)}
         />
@@ -8539,7 +8076,7 @@ export function PcbEditor({
           <DialogCopperZones
             units={unitLabel}
             initial={new DIALOG_COPPER_ZONE(frameRef.current, zoneProps).TransferDataToWindow()}
-            nets={liveNetNames()}
+            nets={netNamesByCode(frameRef.current?.GetBoard())}
             layers={copperLayerRows}
             // "A zone still in creation … can't be edited by the Zone Manager";
             // this path is a zone that already exists, so the button is shown.
@@ -8554,25 +8091,24 @@ export function PcbEditor({
             onClose={() => setZoneProps(null)}
           />
         )}
-      {trackViaOpen &&
+      {trackViaItems &&
         board &&
         frameRef.current &&
         (() => {
-          const dlg = new DIALOG_TRACK_VIA_PROPERTIES(
-            frameRef.current!,
-            trackViaLiveSelection(board, selection),
-          );
+          const dlg = new DIALOG_TRACK_VIA_PROPERTIES(frameRef.current!, trackViaItems);
           return (
             <DialogTrackViaProperties
               initial={dlg.TransferDataToWindow()}
               hasTracks={dlg.m_tracks}
               hasVias={dlg.m_vias}
-              nets={board.nets}
-              layers={board.layers.filter((l) => /\.Cu$/.test(l.name)).map((l) => l.name)}
+              nets={netNamesByCode(frameRef.current?.GetBoard())}
+              layers={enabledLayerNames(frameRef.current?.GetBoard()).filter((n) =>
+                /\.Cu$/.test(n),
+              )}
               trackWidths={trackWidthList}
               viaSizes={viaSizeList}
               onApply={applyTrackViaEdit}
-              onClose={() => setTrackViaOpen(false)}
+              onClose={() => setTrackViaItems(null)}
             />
           );
         })()}
@@ -8634,7 +8170,7 @@ export function PcbEditor({
       {outsetDlg && board && (
         <DialogOutsetItems
           units={unitLabel}
-          layers={board.layers.map((l) => l.name)}
+          layers={enabledLayerNames(frameRef.current?.GetBoard())}
           initial={new DIALOG_OUTSET_ITEMS(outsetDlg.params).TransferDataToWindow()}
           onApply={(values) => {
             const res = new DIALOG_OUTSET_ITEMS(outsetDlg.params).TransferDataFromWindow(values);
@@ -8692,7 +8228,7 @@ export function PcbEditor({
               units={unitLabel}
               initial={dlg.TransferDataToWindow()}
               conversion={dlg.TransferConversionToWindow()}
-              nets={board.nets}
+              nets={netNamesByCode(frameRef.current?.GetBoard())}
               layers={copperLayerRows}
               onApply={(values, conversion) => {
                 const res = dlg.TransferDataFromWindow(values, conversion);
@@ -8727,7 +8263,7 @@ export function PcbEditor({
               initial={dlg.TransferDataToWindow()}
               conversion={dlg.TransferConversionToWindow()}
               layers={ruleAreaLayers}
-              sources={collectPlacementSources(board)}
+              sources={collectPlacementSources(frameRef.current!.GetBoard()!)}
               onApply={(values, conversion) => {
                 const res = dlg.TransferDataFromWindow(values, conversion);
                 if (!res.ok) {
@@ -8969,7 +8505,7 @@ export function PcbEditor({
             FillZones: (b, z) => frameRef.current!.FillZones(b, z),
           }}
           units={unitLabel}
-          nets={board.nets}
+          nets={netNamesByCode(frameRef.current?.GetBoard())}
           createCanvas={createZonePreviewCanvas}
           displayError={DisplayErrorMessage}
           onResult={(ok, repour) => {
@@ -9157,17 +8693,7 @@ export function PcbEditor({
           }}
         />
       )}
-      {findOpen && (
-        <DialogPcbFind
-          query={findQuery}
-          options={findOpts}
-          onQuery={setFindQuery}
-          onOptions={setFindOpts}
-          onFind={runFind}
-          onClose={() => setFindOpen(false)}
-          status={findStatus}
-        />
-      )}
+      {findDlg && <DialogPcbFind dialog={findDlg} onClose={() => setFindDlg(null)} />}
 
       {/* EDA_DRAW_FRAME hosts a message panel above pcbnew's 8-field status bar. */}
       <MsgPanel items={messagePanelItems} testId="pcb-message-panel" />

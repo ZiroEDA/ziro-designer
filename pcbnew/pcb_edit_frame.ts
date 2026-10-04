@@ -67,6 +67,7 @@ import { DIALOG_FOOTPRINT_PROPERTIES } from './dialogs/dialog_footprint_properti
 import { DIALOG_DIMENSION_PROPERTIES } from './dialogs/dialog_dimension_properties.js';
 import { DIALOG_SHAPE_PROPERTIES } from './dialogs/dialog_shape_properties.js';
 import { DIALOG_TARGET_PROPERTIES } from './dialogs/dialog_target_properties.js';
+import { DIALOG_FIND } from './dialogs/dialog_find.js';
 import type { PCB_REFERENCE_IMAGE } from './pcb_reference_image.js';
 import type { PCB_SHAPE } from './pcb_shape.js';
 import type { PCB_TARGET } from './pcb_target.js';
@@ -731,6 +732,8 @@ export interface PCB_EDIT_FRAME_HOOKS {
   showDimensionPropertiesDialog?(aDialog: DIALOG_DIMENSION_PROPERTIES): void;
   /** `ShowGraphicItemPropertiesDialog`: DIALOG_SHAPE_PROPERTIES, modal. */
   showGraphicItemPropertiesDialog?(aDialog: DIALOG_SHAPE_PROPERTIES): void;
+  /** `m_findDialog->Show( true )`: the window draws the modeless Find dialog. */
+  showFindDialog?(aDialog: DIALOG_FIND): void;
   /** `ShowTargetOptionsDialog`: DIALOG_TARGET_PROPERTIES, modal. */
   showTargetOptionsDialog?(aDialog: DIALOG_TARGET_PROPERTIES): void;
   /** `DIALOG_EXCHANGE_FOOTPRINTS::ShowQuasiModal()`: the window shows the dialog; it closes itself. */
@@ -1378,6 +1381,54 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   /** `PCB_BASE_EDIT_FRAME::ShowGraphicItemPropertiesDialog( PCB_SHAPE* aShape )`. */
   ShowGraphicItemPropertiesDialog(aShape: PCB_SHAPE): void {
     this.hooks.showGraphicItemPropertiesDialog?.(new DIALOG_SHAPE_PROPERTIES(this, aShape));
+  }
+
+  /** `m_findDialog`: made on the first Find. */
+  private m_findDialog: DIALOG_FIND | null = null;
+
+  /** `PCB_EDIT_FRAME::ShowFindDialog` (pcb_edit_frame.cpp:2202-2242). */
+  ShowFindDialog(): void {
+    if (!this.m_findDialog) {
+      this.m_findDialog = new DIALOG_FIND(this);
+      const selTool = this.GetSelectionTool();
+      this.m_findDialog.SetCallback((aItem) => selTool.FindItem(aItem));
+    }
+
+    let findString = '';
+
+    const selection = this.GetSelectionTool().GetSelection();
+
+    if (selection.Size() === 1) {
+      const front = selection.Front()!;
+
+      switch (front.Type()) {
+        case KICAD_T.PCB_FOOTPRINT_T:
+          findString = unescapeString((front as unknown as FOOTPRINT).GetValue());
+          break;
+
+        case KICAD_T.PCB_FIELD_T:
+        case KICAD_T.PCB_TEXT_T:
+          findString = unescapeString((front as unknown as PCB_TEXT).GetText());
+
+          if (findString.includes('\n')) findString = findString.slice(0, findString.indexOf('\n'));
+
+          break;
+
+        default:
+          break;
+      }
+    }
+
+    this.m_findDialog.Preload(findString);
+
+    this.hooks.showFindDialog?.(this.m_findDialog);
+  }
+
+  /** `PCB_EDIT_FRAME::FindNext( bool reverse )`. */
+  FindNext(aReverse: boolean): void {
+    if (!this.m_findDialog) this.ShowFindDialog();
+
+    this.m_findDialog!.FindNext(aReverse);
   }
 
   /** `PCB_EDIT_FRAME::ShowTargetOptionsDialog( PCB_TARGET* aTarget )`. */
@@ -3587,6 +3638,30 @@ export const PCB_CHECKED_ACTIONS: Readonly<Record<string, TOOL_ACTION>> = {
   showRatsnest: PCB_ACTIONS.showRatsnest,
   ratsnestLineMode: PCB_ACTIONS.ratsnestLineMode,
 };
+
+/**
+ * The top toolbar's ids whose enablement is the frame's: `setupUIConditions`'
+ * `ENABLE( … )` for them (pcb_edit_frame.cpp:1057-1060).
+ */
+export const PCB_ENABLED_ACTIONS: Readonly<Record<string, TOOL_ACTION>> = {
+  group: ACTIONS.group,
+  ungroup: ACTIONS.ungroup,
+  lock: PCB_ACTIONS.lock,
+  unlock: PCB_ACTIONS.unlock,
+};
+
+/** The {@link PCB_ENABLED_ACTIONS} ids whose condition is disabled now. */
+export function pcbDisabledSet(aFrame: EDA_BASE_FRAME): Set<string> {
+  const out = new Set<string>();
+
+  for (const [id, action] of Object.entries(PCB_ENABLED_ACTIONS)) {
+    const event = new wxUpdateUIEvent(action.GetUIId());
+
+    if (aFrame.ProcessUpdateUI(event) && !event.GetEnabled()) out.add(id);
+  }
+
+  return out;
+}
 
 /** The {@link PCB_CHECKED_ACTIONS} ids whose condition is checked now. */
 export function pcbCheckedSet(aFrame: EDA_BASE_FRAME): Set<string> {

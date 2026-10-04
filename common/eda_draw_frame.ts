@@ -61,6 +61,7 @@ import { type wxChoice, wxNOT_FOUND } from './wx/choice.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+import { EDA_SEARCH_DATA } from './eda_search_data.js';
 
 /**
  * `GRID_HELPER` as `COMMON_TOOLS::CursorControl` reads it. A frame that
@@ -172,6 +173,10 @@ export abstract class EDA_DRAW_FRAME extends KIWAY_PLAYER {
   }
 
   protected m_canvas: EDA_DRAW_PANEL_GAL | null = null;
+  /** `m_findReplaceData`: the last Find's options and string. */
+  protected m_findReplaceData = new EDA_SEARCH_DATA();
+  /** `m_findStringHistoryList`: the Find combo's history, newest first. */
+  protected m_findStringHistoryList: string[] = [];
   protected m_propertiesPanel: PROPERTIES_PANEL | null = null;
   protected m_currentScreen: BASE_SCREEN | null = null; ///< current used SCREEN
   protected m_colorSettings: COLOR_SETTINGS | null = null;
@@ -273,6 +278,16 @@ export abstract class EDA_DRAW_FRAME extends KIWAY_PLAYER {
   /**
    * Return a pointer to GAL-based canvas of given EDA draw frame.
    */
+  /** `EDA_DRAW_FRAME::GetFindReplaceData()`. */
+  GetFindReplaceData(): EDA_SEARCH_DATA {
+    return this.m_findReplaceData;
+  }
+
+  /** `EDA_DRAW_FRAME::GetFindHistoryList()`. */
+  GetFindHistoryList(): string[] {
+    return this.m_findStringHistoryList;
+  }
+
   GetCanvas(): EDA_DRAW_PANEL_GAL | null {
     return this.m_canvas;
   }

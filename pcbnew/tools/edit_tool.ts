@@ -199,7 +199,7 @@ export const COORDS_PADDING = pcbIUScale.mmToIU(20);
 /** `std::numeric_limits<int>::max()`. */
 const INT_MAX = 2147483647;
 
-function itemHasEditableCorners(aItem: BOARD_ITEM | null): boolean {
+export function itemHasEditableCorners(aItem: BOARD_ITEM | null): boolean {
   if (!aItem) return false;
 
   if (aItem.Type() === KICAD_T.PCB_SHAPE_T) {

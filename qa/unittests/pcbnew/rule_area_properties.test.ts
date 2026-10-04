@@ -10,7 +10,10 @@ import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/index.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import {
+  ParseBoard,
+  serializeBoard,
+} from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import {
   collectPlacementPage,
   collectPlacementSources,
@@ -104,16 +107,18 @@ describe('reading a rule area', () => {
 });
 
 describe('collectPlacementSources', () => {
-  const board = load(
+  // The live BOARD: group membership is resolved by KIID at load, so the
+  // members name real uuids.
+  const board = ParseBoard(
     src({
       extra: `
-  (footprint "R" (layer "F.Cu") (at 1 1) (uuid "f1") (sheetname "/pwr/"))
-  (footprint "C" (layer "F.Cu") (at 2 2) (uuid "f2") (sheetname "/amp/"))
-  (footprint "L" (layer "F.Cu") (at 3 3) (uuid "f3") (sheetname "/pwr/"))
-  (footprint "U" (layer "F.Cu") (at 4 4) (uuid "f4"))
-  (group "bank A" (uuid "g1") (members "f1" "f2"))
-  (group "" (uuid "g2") (members "f4"))
-  (group "unused" (uuid "g3") (members "zz"))`,
+  (footprint "R" (layer "F.Cu") (at 1 1) (uuid "00000000-0000-4000-8000-000000000001") (sheetname "/pwr/"))
+  (footprint "C" (layer "F.Cu") (at 2 2) (uuid "00000000-0000-4000-8000-000000000002") (sheetname "/amp/"))
+  (footprint "L" (layer "F.Cu") (at 3 3) (uuid "00000000-0000-4000-8000-000000000003") (sheetname "/pwr/"))
+  (footprint "U" (layer "F.Cu") (at 4 4) (uuid "00000000-0000-4000-8000-000000000004"))
+  (group "bank A" (uuid "00000000-0000-4000-8000-000000000011") (members "00000000-0000-4000-8000-000000000001" "00000000-0000-4000-8000-000000000002"))
+  (group "" (uuid "00000000-0000-4000-8000-000000000012") (members "00000000-0000-4000-8000-000000000004"))
+  (group "unused" (uuid "00000000-0000-4000-8000-000000000013") (members "00000000-0000-4000-8000-000000000099"))`,
     }),
   );
 
@@ -126,5 +131,9 @@ describe('collectPlacementSources', () => {
   it('offers only named groups that actually hold a footprint', () => {
     // "unused" holds no footprint and "" has no name, so neither is offered.
     expect(collectPlacementSources(board).groupNames).toEqual(['bank A']);
+  });
+
+  it('offers no component class on a board that assigns none', () => {
+    expect(collectPlacementSources(board).componentClassNames).toEqual([]);
   });
 });

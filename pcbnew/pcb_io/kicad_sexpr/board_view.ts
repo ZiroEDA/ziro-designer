@@ -27,14 +27,8 @@ import { GR_TEXT_H_ALIGN_T, GR_TEXT_V_ALIGN_T } from '@ziroeda/common/font/text_
 import { kiidPathAsString, kiidFromString, newKiid, type KIID } from '@ziroeda/common/kiid.js';
 import type { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { LIB_ID } from '@ziroeda/common/lib_id.js';
-import {
-  MAX_PAGE_SIZE_PCBNEW_MM,
-  MIN_PAGE_SIZE_MM,
-  PAGE_INFO,
-  PAGE_SIZE_TYPE,
-} from '@ziroeda/common/page_info.js';
 import { LINE_STYLE, STROKE_PARAMS } from '@ziroeda/common/stroke_params.js';
-import { FormatDouble2Str } from '@ziroeda/common/string_utils.js';
+import { pageInfoOfPaper, paperOfPageInfo } from '@ziroeda/common/page_info.js';
 import { TITLE_BLOCK } from '@ziroeda/common/title_block.js';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import { ANGLE_0, EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
@@ -445,35 +439,6 @@ export function layerSetOfTokens(tokens: readonly string[]): LSET {
 // ---------------------------------------------------------------------------
 // Page and title block
 // ---------------------------------------------------------------------------
-
-/** The `(paper …)` token as the view keeps it: `"A4"`, `"A4 portrait"`, `"User 200 150"`. */
-export function paperOfPageInfo(p: PAGE_INFO): string {
-  if (p.IsCustom())
-    return `User ${FormatDouble2Str((p.GetWidthMils() * 25.4) / 1000.0)} ${FormatDouble2Str((p.GetHeightMils() * 25.4) / 1000.0)}`;
-  return p.IsPortrait() ? `${p.GetTypeAsString()} portrait` : p.GetTypeAsString();
-}
-
-/** `parsePAGE_INFO` (:1728) over the view's token. */
-export function pageInfoOfPaper(paper: string, prev: PAGE_INFO): PAGE_INFO {
-  const parts = paper.trim().split(/\s+/);
-  const word = parts[0] ?? '';
-  const pageInfo = new PAGE_INFO();
-  if (!pageInfo.SetType(word)) return prev;
-  if (pageInfo.GetType() === PAGE_SIZE_TYPE.User) {
-    let width = Number(parts[1] ?? Number.NaN);
-    let height = Number(parts[2] ?? Number.NaN);
-    if (!Number.isFinite(width) || !Number.isFinite(height)) return prev;
-    // Perform some controls to avoid crashes if the size is edited by hands
-    if (width < MIN_PAGE_SIZE_MM) width = MIN_PAGE_SIZE_MM;
-    else if (width > MAX_PAGE_SIZE_PCBNEW_MM) width = MAX_PAGE_SIZE_PCBNEW_MM;
-    if (height < MIN_PAGE_SIZE_MM) height = MIN_PAGE_SIZE_MM;
-    else if (height > MAX_PAGE_SIZE_PCBNEW_MM) height = MAX_PAGE_SIZE_PCBNEW_MM;
-    pageInfo.SetWidthMils((width * 1000.0) / 25.4);
-    pageInfo.SetHeightMils((height * 1000.0) / 25.4);
-  }
-  if (parts.includes('portrait')) pageInfo.SetPortrait(true);
-  return pageInfo;
-}
 
 type ViewTitleBlock = NonNullable<Board['titleBlock']>;
 
