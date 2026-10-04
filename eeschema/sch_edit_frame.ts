@@ -21,6 +21,7 @@ import type { SCH_SYMBOL } from './sch_symbol.js';
 import type { SCH_PIN } from './sch_pin.js';
 import { FindSymbolByRefAndUnit } from './tools/sch_tool_utils.js';
 import { SCH_LINE_WIRE_BUS_TOOL } from './tools/sch_line_wire_bus_tool.js';
+import { SCH_DRAWING_TOOLS } from './tools/sch_drawing_tools.js';
 import { SCH_EDIT_TOOL } from './tools/sch_edit_tool.js';
 import { SCH_MOVE_TOOL } from './tools/sch_move_tool.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
@@ -155,6 +156,7 @@ export interface SCH_EDIT_FRAME_HOOKS {
   editSheetProperties?(
     aSheet: SCH_SHEET,
     aHierarchy: SCH_SHEET_PATH,
+    aSourceSheetFilename?: string,
   ): { isUndoable: boolean; clearAnnotation: boolean; updateHierarchyNavigator: boolean } | null;
   /** `wxTextEntryDialog( this, aMessage, aCaption, aValue ).ShowModal()`: null when cancelled. */
   textEntry?(aMessage: string, aCaption: string, aValue: string): string | null;
@@ -313,7 +315,7 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
     this.m_toolManager.RegisterTool(new ZOOM_TOOL());
     this.m_toolManager.RegisterTool(new SCH_SELECTION_TOOL());
     this.m_toolManager.RegisterTool(new PICKER_TOOL());
-    // SCH_DRAWING_TOOLS: its hierarchy members are a class the AI drives; the TOOL comes with S5.
+    this.m_toolManager.RegisterTool(new SCH_DRAWING_TOOLS());
     this.m_toolManager.RegisterTool(new SCH_LINE_WIRE_BUS_TOOL());
     this.m_toolManager.RegisterTool(new SCH_MOVE_TOOL());
     this.m_toolManager.RegisterTool(new SCH_EDIT_TOOL());
@@ -760,8 +762,9 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
   EditSheetProperties(
     aSheet: SCH_SHEET,
     aHierarchy: SCH_SHEET_PATH,
+    aSourceSheetFilename?: string,
   ): { isUndoable: boolean; clearAnnotation: boolean; updateHierarchyNavigator: boolean } | null {
-    return this.hooks.editSheetProperties?.(aSheet, aHierarchy) ?? null;
+    return this.hooks.editSheetProperties?.(aSheet, aHierarchy, aSourceSheetFilename) ?? null;
   }
 
   /** `wxTextEntryDialog`: null when cancelled, or when there is no window to ask. */

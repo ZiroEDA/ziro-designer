@@ -91,6 +91,19 @@ describe('SCH_EDIT_TOOL', () => {
     expect(sym.GetOrientation()).toBe(before);
   });
 
+  it('rotateCW turns a symbol clockwise, rotateCCW counter-clockwise (SCH_SYMBOL::Rotate( pt, !clockwise ))', () => {
+    const h = setUp();
+    const sym = lone(h);
+    const cw = sym.Clone() as SCH_SYMBOL;
+    cw.SetOrientation(SYMBOL_ORIENTATION_T.SYM_ROTATE_CLOCKWISE);
+    const ccw = sym.Clone() as SCH_SYMBOL;
+    ccw.SetOrientation(SYMBOL_ORIENTATION_T.SYM_ROTATE_COUNTERCLOCKWISE);
+    h.select(sym);
+    h.mgr.RunAction(SCH_ACTIONS.rotateCW);
+    expect(sym.GetTransform()).toEqual(cw.GetTransform());
+    expect(sym.GetTransform()).not.toEqual(ccw.GetTransform());
+  });
+
   it('rotates a lone label in place: RIGHT turns to BOTTOM clockwise, to UP counter-clockwise', () => {
     const h = setUp();
     const label = new SCH_LABEL({ x: FAR, y: FAR }, 'NET_A');
@@ -206,7 +219,8 @@ describe('SCH_EDIT_TOOL', () => {
     expect(globals).toHaveLength(1);
     expect(globals[0]!.GetText()).toBe('SIG');
     expect([...h.screen.Items().OfType(KICAD_T.SCH_LABEL_T)]).not.toContain(label);
-    expect(h.sel.GetSelection().GetItems()).toEqual([globals[0]]);
+    const selected = h.sel.GetSelection().GetItems();
+    expect(selected.length === 1 && selected[0] === globals[0]).toBe(true);
   });
 
   it('converting text to a label makes a valid net name of it', () => {

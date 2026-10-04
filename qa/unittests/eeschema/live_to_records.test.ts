@@ -11,6 +11,7 @@ import { PGM_BASE, SETTINGS_MANAGER, SetPgm } from '@ziroeda/common/pgm_base.js'
 import { SCH_EDIT_FRAME, type SCH_EDIT_FRAME_HOOKS } from '@ziroeda/eeschema/sch_edit_frame.js';
 import { LABEL_FLAG_SHAPE } from '@ziroeda/eeschema/sch_label.js';
 import { liveScreensToRecords } from '@ziroeda/eeschema/sch_record_bridge.js';
+import { drawSheet, newHierLabel } from '@ziroeda/ai/sch_hierarchy.js';
 import { SCH_DRAWING_TOOLS } from '@ziroeda/eeschema/tools/sch_drawing_tools.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -41,16 +42,18 @@ describe('liveScreensToRecords', () => {
   it('writes each changed screen as a record under its project-relative file name', () => {
     const frame = openFrame();
     const tools = new SCH_DRAWING_TOOLS(frame);
-    const sheet = tools.DrawSheet(
+    const sheet = drawSheet(
+      frame,
+      tools,
       { x: 0, y: 0 },
       { x: 2000 * MIL, y: 1000 * MIL },
       'Power',
       'power.kicad_sch',
     )!;
-    const label = tools.createNewHierLabel({ x: 0, y: 0 }, 'VIN', LABEL_FLAG_SHAPE.L_INPUT);
+    const label = newHierLabel(frame, tools, { x: 0, y: 0 }, 'VIN', LABEL_FLAG_SHAPE.L_INPUT);
     label.ClearFlags();
     frame.AddToScreen(label, sheet.GetScreen()!);
-    tools.AutoPlaceAllSheetPins(sheet);
+    tools.autoPlaceSheetPins(sheet);
 
     const docs = liveScreensToRecords(
       frame,

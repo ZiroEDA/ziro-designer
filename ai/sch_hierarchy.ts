@@ -15,12 +15,20 @@
  * Every edit is one KiCad does from its own tools; the edits come back to the window as one undo
  * step (SchScriptApi.editLive). Positions are mm on the 50 mil grid, as in the rest of zsch.
  */
+import { schIUScale } from '@ziroeda/common/eda_units.js';
+import { IS_MOVING, IS_NEW } from '@ziroeda/common/eda_item_flags.js';
+import { parseColor4d } from '@ziroeda/common/gal/color4d.js';
+import { FIELD_T } from '@ziroeda/common/template_fieldnames.js';
+import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
+import { currentEeschemaSettings } from '@ziroeda/eeschema/eeschema_settings.js';
 import type { SCH_EDIT_FRAME } from '@ziroeda/eeschema/sch_edit_frame.js';
+import { AUTOPLACE_ALGO } from '@ziroeda/eeschema/sch_item.js';
 import { SCH_COMMIT } from '@ziroeda/eeschema/sch_commit.js';
 import {
   LABEL_FLAG_SHAPE,
   SCH_HIERLABEL,
   SCH_LABEL,
+  type SCH_LABEL_BASE,
   SPIN_STYLE,
 } from '@ziroeda/eeschema/sch_label.js';
 import type { SCH_SCREEN } from '@ziroeda/eeschema/sch_screen.js';
@@ -181,6 +189,115 @@ export function sheetFileAndSheets(
 }
 
 /**
+ * `SCH_DRAWING_TOOLS::DrawSheet`'s two clicks without the cursor: the sheet from its top-left
+ * \a aPos to \a aEnd, given the name and file the sheet properties dialog would have been given
+ * (the file linked through ChangeSheetFile, as EditSheetProperties does), on the next free page,
+ * added to the current screen in one commit. Null when the file change was refused.
+ */
+export function drawSheet(
+  aFrame: SCH_EDIT_FRAME,
+  aTools: SCH_DRAWING_TOOLS,
+  aPos: VECTOR2I,
+  aEnd: VECTOR2I,
+  aName: string,
+  aFileName: string,
+): SCH_SHEET | null {
+  const cfg = currentEeschemaSettings();
+  const sheet = new SCH_SHEET(aFrame.GetCurrentSheet().Last(), aPos);
+  sheet.SetScreen(null);
+
+  sheet.GetField(FIELD_T.SHEET_NAME)!.SetText(aName);
+  sheet.GetField(FIELD_T.SHEET_FILENAME)!.SetText(aFileName);
+
+  sheet.SetFlags(IS_NEW | IS_MOVING);
+  sheet.SetBorderWidth(schIUScale.milsToIU(cfg.drawing.default_line_thickness));
+  sheet.SetBorderColor(parseColor4d(cfg.drawing.default_sheet_border_color));
+  sheet.SetBackgroundColor(parseColor4d(cfg.drawing.default_sheet_background_color));
+  aTools.sizeSheet(sheet, aEnd);
+
+  const hierarchy = aFrame.Schematic().Hierarchy();
+  const instance = aFrame.GetCurrentSheet().Clone();
+  instance.push_back(sheet);
+
+  // Find the next available page number by checking all existing page numbers
+  const usedPageNumbers = new Set<number>();
+
+  for (const path of hierarchy) {
+    const pageNum = Number.parseInt(path.GetPageNumber(), 10);
+
+    if (`${pageNum}` === path.GetPageNumber().trim() && pageNum > 0) usedPageNumbers.add(pageNum);
+  }
+
+  let nextAvailable = 1;
+
+  while (usedPageNumbers.has(nextAvailable)) nextAvailable++;
+
+  instance.SetPageNumber(`${nextAvailable}`);
+
+  // EditSheetProperties: the dialog's file name goes through ChangeSheetFile.
+  if (!aFrame.ChangeSheetFile(sheet, aFileName)) return null;
+
+  sheet.ClearFlags(IS_NEW | IS_MOVING);
+  sheet.AutoplaceFields(aFrame.GetScreen(), AUTOPLACE_ALGO.AUTOPLACE_AUTO);
+
+  const commit = new SCH_COMMIT(aFrame);
+
+  // We need to manually add the sheet to the screen otherwise annotation will not be able to find
+  // the sheet and its symbols to annotate.
+  aFrame.AddToScreen(sheet, aFrame.GetScreen());
+  commit.Added(sheet, aFrame.GetScreen());
+
+  // Refresh the hierarchy so the new sheet and its symbols are found during annotation.
+  aFrame.Schematic().RefreshHierarchy();
+
+  commit.Push('Draw Sheet');
+  return sheet;
+}
+
+/**
+ * `SCH_DRAWING_TOOLS::createNewLabel( aPosition, LAYER_HIERLABEL, … )` with the text and shape
+ * the label properties dialog would have been given; the caller places it (TwoClickPlace's
+ * second click). The tool remembers the choices as the dialog makes it.
+ */
+export function newHierLabel(
+  aFrame: SCH_EDIT_FRAME,
+  aTools: SCH_DRAWING_TOOLS,
+  aPosition: VECTOR2I,
+  aText: string,
+  aShape: LABEL_FLAG_SHAPE,
+): SCH_LABEL_BASE {
+  const settings = aFrame.Schematic().Settings();
+  const labelItem = new SCH_HIERLABEL(aPosition);
+  labelItem.SetShape(aTools.m_lastGlobalLabelShape);
+  labelItem.SetAutoRotateOnPlacement(aTools.m_lastAutoLabelRotateOnPlacement);
+
+  // The normal parent is the current screen for these labels, set by SCH_SCREEN::Append()
+  // but it is also used during placement for SCH_HIERLABEL before beeing appended
+  labelItem.SetParent(aFrame.GetScreen());
+
+  labelItem.SetTextSize({ x: settings.m_DefaultTextSize, y: settings.m_DefaultTextSize });
+
+  // Must be after SetTextSize()
+  labelItem.SetBold(aTools.m_lastTextBold);
+  labelItem.SetItalic(aTools.m_lastTextItalic);
+
+  labelItem.SetSpinStyle(aTools.m_lastTextOrientation);
+  labelItem.SetFlags(IS_NEW | IS_MOVING);
+
+  // DIALOG_LABEL_PROPERTIES: the text and shape it would have been given.
+  labelItem.SetText(aText);
+  labelItem.SetShape(aShape);
+
+  aTools.m_lastTextBold = labelItem.IsBold();
+  aTools.m_lastTextItalic = labelItem.IsItalic();
+  aTools.m_lastTextOrientation = labelItem.GetSpinStyle();
+  aTools.m_lastGlobalLabelShape = labelItem.GetShape();
+  aTools.m_lastAutoLabelRotateOnPlacement = labelItem.AutoRotateOnPlacement();
+
+  return labelItem;
+}
+
+/**
  * Run \a aOps on the sheet \a aPathName ("" or "root" for the root), in order, on the live frame.
  * Returns the screens changed, or throws with every line that failed (nothing is changed then:
  * the caller's editLive discards a thrown edit with the live model rebuilt from the window).
@@ -209,14 +326,14 @@ export function runHierOps(
       try {
         if (op.kind === 'sheet') {
           if (sheetOn(screen, op.name)) throw new Error(`a sheet ${op.name} is already here`);
-          const sheet = tools.DrawSheet(op.at, op.end, op.name, op.file);
+          const sheet = drawSheet(aFrame, tools, op.at, op.end, op.name, op.file);
           if (!sheet) throw new Error(`sheet ${op.file} could not be used`);
           changed.add(screen);
           changed.add(sheet.GetScreen()!);
         } else if (op.kind === 'port') {
           const at = op.at ?? pinPoint(path, op.pin ?? '');
           if (typeof at === 'string') throw new Error(at);
-          const label = tools.createNewHierLabel(at, op.name, op.shape);
+          const label = newHierLabel(aFrame, tools, at, op.name, op.shape);
           // TwoClickPlace's second click: AutoRotateItem on a connectable item, then the commit.
           label.SetAutoRotateOnPlacement(true);
           label.ClearFlags();
@@ -229,7 +346,7 @@ export function runHierOps(
         } else if (op.kind === 'pins') {
           const sheet = sheetOn(screen, op.sheet);
           if (!sheet) throw new Error(`no sheet ${op.sheet} on this sheet`);
-          if (!tools.AutoPlaceAllSheetPins(sheet))
+          if (!tools.autoPlaceSheetPins(sheet))
             throw new Error(
               `no new hierarchical labels found in ${op.sheet}: add port lines inside it first`,
             );

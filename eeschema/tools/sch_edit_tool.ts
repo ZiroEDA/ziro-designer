@@ -482,7 +482,6 @@ export class SCH_EDIT_TOOL extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     const S_C = SCH_CONDITIONS;
     const { And, Or } = SELECTION_CONDITIONS;
 
-    // SCH_DRAWING_TOOLS is not on the TOOL_MANAGER yet; its menu half lands with it.
     const drawingTools = this.m_toolMgr!.FindTool(
       'eeschema.InteractiveDrawing',
     ) as TOOL_INTERACTIVE | null;

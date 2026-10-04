@@ -14,6 +14,7 @@ import { SCH_EDIT_FRAME, type SCH_EDIT_FRAME_HOOKS } from '@ziroeda/eeschema/sch
 import { LABEL_FLAG_SHAPE } from '@ziroeda/eeschema/sch_label.js';
 import type { SCH_SHEET } from '@ziroeda/eeschema/sch_sheet.js';
 import { SHEET_SIDE } from '@ziroeda/eeschema/sch_sheet_pin.js';
+import { drawSheet, newHierLabel } from '@ziroeda/ai/sch_hierarchy.js';
 import { SCH_DRAWING_TOOLS } from '@ziroeda/eeschema/tools/sch_drawing_tools.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -53,7 +54,7 @@ function addHierLabels(
   frame.Schematic().SetCurrentSheet(inside);
   const commit = new SCH_COMMIT(frame);
   labels.forEach(([text, shape], i) => {
-    const label = tools.createNewHierLabel({ x: 0, y: i * 100 * MIL }, text, shape);
+    const label = newHierLabel(frame, tools, { x: 0, y: i * 100 * MIL }, text, shape);
     label.ClearFlags();
     frame.AddToScreen(label, frame.GetScreen());
     commit.Added(label, frame.GetScreen());
@@ -62,11 +63,13 @@ function addHierLabels(
   frame.Schematic().SetCurrentSheet(parent);
 }
 
-describe('SCH_DRAWING_TOOLS::DrawSheet', () => {
+describe("drawSheet (the AI's DrawSheet without the cursor)", () => {
   it('adds a sheet on a new file with the next free page number, in one undoable commit', () => {
     const { frame, tools } = openFrame();
     const before = frame.GetScreen()!.Items().OfType(KICAD_T.SCH_SHEET_T).length;
-    const sheet = tools.DrawSheet(
+    const sheet = drawSheet(
+      frame,
+      tools,
       { x: 0, y: 0 },
       { x: 2000 * MIL, y: 1000 * MIL },
       'Power',
@@ -90,7 +93,14 @@ describe('SCH_DRAWING_TOOLS::DrawSheet', () => {
 
   it('snaps the size to the grid and never below the minimum sheet size', () => {
     const { frame, tools } = openFrame();
-    const sheet = tools.DrawSheet({ x: 0, y: 0 }, { x: 10, y: 10 }, 'Tiny', 'tiny.kicad_sch')!;
+    const sheet = drawSheet(
+      frame,
+      tools,
+      { x: 0, y: 0 },
+      { x: 10, y: 10 },
+      'Tiny',
+      'tiny.kicad_sch',
+    )!;
     expect(sheet.GetSize()).toEqual({ x: 500 * MIL, y: 150 * MIL }); // MIN_SHEET_WIDTH/HEIGHT
   });
 
@@ -103,7 +113,9 @@ describe('SCH_DRAWING_TOOLS::DrawSheet', () => {
     frame.Schematic().SetCurrentSheet(sub);
     const before = frame.GetScreen()!.Items().OfType(KICAD_T.SCH_SHEET_T).length;
     expect(
-      tools.DrawSheet(
+      drawSheet(
+        frame,
+        tools,
         { x: 0, y: 0 },
         { x: 2000 * MIL, y: 1000 * MIL },
         'Loop',
@@ -114,10 +126,12 @@ describe('SCH_DRAWING_TOOLS::DrawSheet', () => {
   });
 });
 
-describe('SCH_DRAWING_TOOLS::AutoPlaceAllSheetPins', () => {
+describe('SCH_DRAWING_TOOLS::autoPlaceSheetPins (AutoPlaceAllSheetPins on a given sheet)', () => {
   it('puts outputs down the right edge and the rest down the left, by name, and grows the sheet', () => {
     const { frame, tools } = openFrame();
-    const sheet = tools.DrawSheet(
+    const sheet = drawSheet(
+      frame,
+      tools,
       { x: 0, y: 0 },
       { x: 2000 * MIL, y: 500 * MIL },
       'Power',
@@ -131,7 +145,7 @@ describe('SCH_DRAWING_TOOLS::AutoPlaceAllSheetPins', () => {
       ['PG', LABEL_FLAG_SHAPE.L_OUTPUT],
     ]);
 
-    expect(tools.AutoPlaceAllSheetPins(sheet)).toBe(5);
+    expect(tools.autoPlaceSheetPins(sheet)).toBe(5);
     const pins = sheet.GetPins();
     const left = pins.filter((p) => p.GetSide() === SHEET_SIDE.LEFT);
     const right = pins.filter((p) => p.GetSide() === SHEET_SIDE.RIGHT);
@@ -146,7 +160,9 @@ describe('SCH_DRAWING_TOOLS::AutoPlaceAllSheetPins', () => {
 
   it('grows a short sheet to fit its pins', () => {
     const { frame, tools } = openFrame();
-    const sheet = tools.DrawSheet(
+    const sheet = drawSheet(
+      frame,
+      tools,
       { x: 0, y: 0 },
       { x: 2000 * MIL, y: 150 * MIL },
       'IO',
@@ -157,23 +173,25 @@ describe('SCH_DRAWING_TOOLS::AutoPlaceAllSheetPins', () => {
       ['B', LABEL_FLAG_SHAPE.L_INPUT],
       ['C', LABEL_FLAG_SHAPE.L_INPUT],
     ]);
-    tools.AutoPlaceAllSheetPins(sheet);
+    tools.autoPlaceSheetPins(sheet);
     expect(sheet.GetSize().y).toBe(400 * MIL); // 3 x 100 + 100 margin
   });
 
   it('places nothing when every label already has a pin, and only the new ones otherwise', () => {
     const { frame, tools } = openFrame();
-    const sheet = tools.DrawSheet(
+    const sheet = drawSheet(
+      frame,
+      tools,
       { x: 0, y: 0 },
       { x: 2000 * MIL, y: 500 * MIL },
       'P',
       'p.kicad_sch',
     )!;
     addHierLabels(frame, tools, sheet, [['VIN', LABEL_FLAG_SHAPE.L_INPUT]]);
-    expect(tools.AutoPlaceAllSheetPins(sheet)).toBe(1);
-    expect(tools.AutoPlaceAllSheetPins(sheet)).toBe(0);
+    expect(tools.autoPlaceSheetPins(sheet)).toBe(1);
+    expect(tools.autoPlaceSheetPins(sheet)).toBe(0);
     addHierLabels(frame, tools, sheet, [['EN', LABEL_FLAG_SHAPE.L_INPUT]]);
-    expect(tools.AutoPlaceAllSheetPins(sheet)).toBe(1);
+    expect(tools.autoPlaceSheetPins(sheet)).toBe(1);
     // the new pin stacks below the existing one
     const ys = sheet.GetPins().map((p) => p.GetPosition().y);
     expect(ys[1]! > ys[0]!).toBe(true);
@@ -181,7 +199,9 @@ describe('SCH_DRAWING_TOOLS::AutoPlaceAllSheetPins', () => {
 
   it('imports the first label without a pin in natural order (importHierLabel)', () => {
     const { frame, tools } = openFrame();
-    const sheet = tools.DrawSheet(
+    const sheet = drawSheet(
+      frame,
+      tools,
       { x: 0, y: 0 },
       { x: 2000 * MIL, y: 500 * MIL },
       'P',
