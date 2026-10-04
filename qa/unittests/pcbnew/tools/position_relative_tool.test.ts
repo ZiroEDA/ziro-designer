@@ -248,6 +248,8 @@ function harness(aFootprintEditor = false): Harness {
   };
 
   frame.SetCanvas({
+    // Read lazily: the controls are built just below.
+    GetViewControls: () => controls,
     GetView: () => view,
     GetGAL: () => gal,
     SetCurrentCursor: () => {},

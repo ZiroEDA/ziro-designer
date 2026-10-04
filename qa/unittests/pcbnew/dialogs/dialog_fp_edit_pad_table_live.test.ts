@@ -96,6 +96,8 @@ function make(units: 'mm' | 'in' | 'mils' = 'mm'): void {
   footprint = board.Footprints()[0]!;
   canvas = { refreshes: 0, updates: [], dirty: [] };
   frame.SetCanvas({
+    // `GetViewControls()->GetCursorPosition()`, which UpdateStatusBar reads.
+    GetViewControls: () => ({ GetCursorPosition: () => ({ x: 0, y: 0 }) }),
     // a view that records what the dialog asks and does nothing for the rest
     GetView: () =>
       new Proxy(

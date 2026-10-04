@@ -191,6 +191,13 @@ export interface LibTreeProps {
    * the symbol.
    */
   selectLibId?: string;
+  /**
+   * `ExpandLibId( aLibId )` then `CenterLibId( aLibId )` on the next idle,
+   * which is what `FOOTPRINT_EDIT_FRAME::LoadFootprintFromLibrary` does
+   * (`footprint_editor_utils.cpp:93-101`): the row is shown and centred,
+   * not selected.
+   */
+  centerLibId?: string;
 }
 
 interface Row {
@@ -295,6 +302,7 @@ export function LibTree({
   hasExternalDetails = false,
   openLibs,
   selectLibId,
+  centerLibId,
 }: LibTreeProps): JSX.Element {
   const [search, setSearch] = useState(initialSearch);
   const [sortMode, setSortModeState] = useState<SortMode>(adapter.getSortMode());
@@ -463,6 +471,15 @@ export function LibTree({
     setPendingCenter(node);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectLibId, regenerateNonce]);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the id and a regenerate are the triggers; the lookups are stable
+  useEffect(() => {
+    if (!centerLibId) return;
+    const node = findByLibId(centerLibId);
+    if (!node) return;
+    expandAncestors(node);
+    setPendingCenter(node);
+  }, [centerLibId, regenerateNonce]);
 
   /**
    * `LIB_TREE::Unselect()`. Keyed on the nonce alone: a frame calls it at a

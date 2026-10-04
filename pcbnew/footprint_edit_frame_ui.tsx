@@ -1,124 +1,133 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
+/**
+ * The Footprint Editor's window: the chrome FOOTPRINT_EDIT_FRAME's
+ * constructor builds (`pcbnew/footprint_edit_frame.cpp`) — menu bar
+ * (`menubar_footprint_editor.cpp`), the three toolbars, the Footprints pane
+ * (`footprint_tree_pane.cpp`), the GAL canvas, the Appearance and Selection
+ * Filter panes, the message panel and the status bar — around the frame
+ * itself, which holds the footprint, the tools, the undo list and the
+ * library round trip.
+ *
+ * The window draws; the frame decides. A menu row or a toolbar button runs
+ * its TOOL_ACTION on the frame's TOOL_MANAGER, the canvas's mouse and keys go
+ * to the frame's TOOL_DISPATCHER, the frame writes the status bar and the
+ * message panel through its sinks, and each dialog it asks for is drawn here.
+ *
+ * What it reaches into `designer/` for arrives as {@link FOOTPRINT_EDIT_FRAME_APP};
+ * `designer/src/editors/footprint/footprint_edit_frame_app.tsx` answers it.
+ */
+
+import {
+  type JSX,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from 'react';
+import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
+import type { UnsavedChangesResult } from '@ziroeda/common/confirm.js';
+import { CONFIRM_REVERT_EXTENDED } from '@ziroeda/common/confirm.js';
+import { UnsavedChangesDialog } from '@ziroeda/common/dialogs/dialog_unsaved_changes.js';
+import { EdaListDialog } from '@ziroeda/common/dialogs/eda_list_dialog.js';
+import type { LIB_TREE } from '@ziroeda/common/eda_draw_frame.js';
+import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
+import type { FILENAME_RESOLVER } from '@ziroeda/common/filename_resolver.js';
+import { projectFpLibTable, projectLibraryNickname } from '@ziroeda/common/fp_lib_table.js';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
+import { showHotkeyList } from '@ziroeda/common/hotkeys_basic.js';
+import { useKiDialog } from '@ziroeda/common/kidialog.js';
 import type { KIWAY } from '@ziroeda/common/kiway.js';
-import { FOOTPRINT_EDIT_FRAME } from './footprint_edit_frame.js';
-import type { Vec2 } from '@ziroeda/kimath';
-import { mmToIU, pcbIuToMM, PCB_IU_PER_MM, SCH_IU_PER_MM } from '@ziroeda/common';
+import { GAL_LAYER_ID, type PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { GetLayerName } from '@ziroeda/common/layer_ids.js';
+import { LIB_ID } from '@ziroeda/common/lib_id.js';
+import { LibTreeNode, LibTreeNodeType } from '@ziroeda/common/lib_tree_model.js';
+import type { COMMON_SETTINGS_LIKE } from '@ziroeda/common/pgm_base.js';
 import {
   EDIT_GRIDS_LABEL,
   GRID_LIST_SEPARATOR,
   gridChoiceLabel,
 } from '@ziroeda/common/settings/grid_settings_ui.js';
-import {
-  footprintGridForTool,
-  footprintGridIU,
-  footprintSnappingEnabled,
-} from './footprint_edit_frame.js';
-import { fpTargetOf, newFootprint } from './footprint_editor_utils.js';
-import { fpLineThicknessMM, type FP_EDIT_JSON_SETTINGS_LIKE } from './footprint_editor_settings.js';
-import { useCallback, useEffect, useMemo, useRef, useState, type JSX, type ReactNode } from 'react';
-import {
-  applyBarcodeValues,
-  barcodeCommitError,
-  barcodeValues,
-} from './dialogs/dialog_barcode_properties.js';
-import { barcodeGeometry } from './pcb_io/kicad_sexpr/board_view.js';
-import { DialogBarcodeProperties } from './dialogs/dialog_barcode_properties_ui.js';
-import {
-  moveFootprintItems,
-  rotateFootprintItems,
-  mirrorFootprintItems,
-  deleteFootprintItems,
-  fpItemBBox,
-  addPad,
-  addPoint,
-  addBarcode,
-  setBarcode,
-  addShape,
-  setFootprintReference,
-  setFootprintValue,
-  footprintStringChild,
-  setFootprintDescription,
-  setFootprintKeywords,
-  patchPad,
-  replaceFootprintItem,
-  parseFpItemId,
-  type PadEdit,
-} from './edit-footprint.js';
-import { DEFAULT_POINT_SIZE } from './pcb_point.js';
-import {
-  type PcbFootprint,
-  type PcbBarcode,
-  type PcbPad,
-  type PcbShape,
-  type PcbTextItem,
-} from './types.js';
-import {
-  FootprintPropertiesDialog,
-  PadPropertiesDialog,
-} from './dialogs/dialog_footprint_properties_fp_editor_legacy.js';
-import { MenuBar, ContextMenu, type Menu } from '@ziroeda/common/tool/action_menu_bar.js';
-import { footprintTreeContextMenu, fpTreeSelectedNodes } from './tools/footprint_editor_control.js';
-import { LibrariesToRepin } from '@ziroeda/common/tool/library_editor_control.js';
+import { ACTIONS } from '@ziroeda/common/tool/actions.js';
+import { ContextMenu, type Menu, MenuBar } from '@ziroeda/common/tool/action_menu_bar.js';
+import { dispatchMenuHotkey, focusBlocksHotkey } from '@ziroeda/common/tool/action_menu_hotkeys.js';
 import { Toolbar } from '@ziroeda/common/tool/action_toolbar.js';
-import { useStatusReadout } from '@ziroeda/common/use_status_readout.js';
-
-/** `BOARD::m_LocalOrigin`; a module constant so its identity is stable. */
-const FP_LOCAL_ORIGIN = { x: 0, y: 0 };
-import { ProgressDialog } from '@ziroeda/common/widgets/wx_progress_reporters.js';
+import type { ToolEntry } from '@ziroeda/common/tool/action_toolbar_types.js';
+import {
+  LibrariesToRepin,
+  type RENAME_DIALOG,
+  SetRenameDialogPresenter,
+} from '@ziroeda/common/tool/library_editor_control.js';
+import type { TOOL_ACTION } from '@ziroeda/common/tool/tool_action.js';
+import type { ToolbarDefaults, ToolbarLoc } from '@ziroeda/common/tool/ui/toolbar_configuration.js';
 import { formatTitle, useDocumentTitle } from '@ziroeda/common/use_document_title.js';
-import { FP_FRAME_NAME, fpFrameTitle } from './footprint_edit_frame.js';
 import { useUnsavedGuard } from '@ziroeda/common/use_unsaved_guard.js';
-import { FootprintTreePane } from './footprint_tree_pane.js';
-import { LibTreeNode, LibTreeNodeType } from '@ziroeda/common/lib_tree_model.js';
-import { FpTreeSynchronizingAdapter } from './fp_tree_synchronizing_adapter.js';
+import { type FocusLike, wasBrowserSuppressed } from '@ziroeda/common/browser_hotkeys.js';
 import { KiStatusBar } from '@ziroeda/common/widgets/kistatusbar.js';
+import type { StatusUnits } from '@ziroeda/common/widgets/kistatusbar_format.js';
 import { MsgPanel, type MsgPanelItem } from '@ziroeda/common/widgets/msgpanel_ui.js';
+import { ProgressDialog } from '@ziroeda/common/widgets/wx_progress_reporters.js';
+import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
+import type { ChooserFilter, OpenedFile } from '@ziroeda/common/wx/filedlg.js';
+import { WxTextEntryDialog } from '@ziroeda/common/wx/textdlg.js';
+import { kicadFootprintLibWildcard } from '@ziroeda/common/wildcards_and_files_ext.js';
+import type { CrosshairMode, GridStyle } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
+import '@ziroeda/common/widgets/shell.css';
+import type { PCBNEW_APP } from './browser/pcbnew_app.js';
+import { DIALOG_FOOTPRINT_PROPERTIES_FP_EDITOR } from './dialogs/dialog_footprint_properties_fp_editor.js';
+import { DialogFootprintPropertiesFpEditor } from './dialogs/dialog_footprint_properties_fp_editor_ui.js';
+import type { SELECTED_3D_MODEL } from './dialogs/panel_fp_properties_3d_model.js';
+import { FOOTPRINT } from './footprint.js';
 import {
-  angleSnapModeOf,
-  constraintsMsg,
-  gridMsg,
-  messageTextFromValue,
-  type StatusUnits,
-  unitsMsg,
-  zoomFactorForScale,
-  zoomMsg,
-} from '@ziroeda/common/widgets/kistatusbar_format.js';
-import { FP_DEFAULT_TOOLBARS, footprintToolMsg } from './toolbars_footprint_editor.js';
-import { applyToggle, DEFAULT_TOGGLES } from './footprint_edit_frame.js';
-import { FootprintCanvas, type FootprintCanvasController } from './pcb_draw_panel_gal_ui.js';
-import {
-  FootprintLibraryManager,
-  ImportFootprint,
-  type FOOTPRINT_LIBRARY_IO,
-} from './footprint_libraries_utils.js';
-import { projectFpLibTable, projectLibraryNickname } from '@ziroeda/common/fp_lib_table.js';
-import {
+  applyToggle,
+  DEFAULT_TOGGLES,
   FOOTPRINT_COPPER_STACK,
-  footprintLayers,
+  FOOTPRINT_EDIT_FRAME,
   FP_DEFAULT_ACTIVE_LAYER,
+  FP_FRAME_NAME,
+  footprintGridIU,
+  footprintLayers,
 } from './footprint_edit_frame.js';
-import { layerColor, PCB_BACKGROUND, PCB_OBJECT_COLORS } from './pcbTheme.js';
-import { appearanceLayerRows } from './widgets/appearance_controls.js';
-// APPEARANCE_CONTROLS and PANEL_SELECTION_FILTER are the same two widgets
-// pcbnew docks; FOOTPRINT_EDIT_FRAME passes `aFpEditor = true` and its own
-// board's data, and that is the whole of the difference
-// (footprint_edit_frame.cpp:177-178).
-import { AppearanceControls, type AppearanceTab } from './widgets/appearance_controls.js';
+import type { FP_EDIT_JSON_SETTINGS_LIKE } from './footprint_editor_settings.js';
+import { fpTargetOf } from './footprint_editor_utils.js';
 import {
+  FOOTPRINT_LIBRARY_STORE,
+  type FOOTPRINT_LIBRARY_STORE_IO,
+} from './footprint_library_adapter.js';
+import { FootprintTreePane } from './footprint_tree_pane.js';
+import { FpTreeSynchronizingAdapter } from './fp_tree_synchronizing_adapter.js';
+import { footprintEditorMenus } from './menubar_footprint_editor.js';
+import { usePcbItemDialogs } from './pcb_base_edit_frame_dialogs.js';
+import { applyDisplayState, type EditorDisplayState } from './pcb_canvas.js';
+import { PCB_DISPLAY_OPTIONS } from './pcb_painter.js';
+import { usePcbDrawPanel } from './pcb_draw_panel_gal_host.js';
+import {
+  layerColor,
+  PCB_BACKGROUND,
+  PCB_OBJECT_COLORS,
+  pcbThemeWithOverrides,
+} from './pcbTheme.js';
+import { PROJECT_PCB } from './project_pcb.js';
+import { FP_DEFAULT_TOOLBARS } from './toolbars_footprint_editor.js';
+import { footprintTreeContextMenu, fpTreeSelectedNodes } from './tools/footprint_editor_control.js';
+import { PCB_ACTIONS } from './tools/pcb_actions.js';
+import {
+  AppearanceControls,
+  type AppearanceTab,
+  appearanceLayerRows,
+  BUILTIN_PRESETS,
   DEFAULT_OBJECTS,
   DEFAULT_OPACITY,
-  OBJECT_ROWS,
-  toggleObject,
-  type ObjectState,
-} from './widgets/appearance_controls.js';
-import {
-  BUILTIN_PRESETS,
   matchPresetName,
-  presetComboItems,
+  OBJECT_ROWS,
+  type ObjectState,
   PRESET_SEPARATOR,
+  presetComboItems,
+  toggleObject,
   viewportComboItems,
 } from './widgets/appearance_controls.js';
 import {
@@ -127,52 +136,10 @@ import {
   SelectionFilterPanel,
   type SelectionFilterItem,
 } from './widgets/panel_selection_filter.js';
-import { GetLayerName } from '@ziroeda/common/layer_ids.js';
-import { DEFAULT_DRAW_OPTIONS, type PcbDrawOptions } from './renderBoard.js';
-import '@ziroeda/common/widgets/shell.css';
-import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
-import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
-import { pcbThemeWithOverrides } from './pcbTheme.js';
-import { hiContrastFactorFor } from '@ziroeda/common/render_settings.js';
-import { footprintEditorMenus } from './menubar_footprint_editor.js';
-import { showHotkeyList } from '@ziroeda/common/hotkeys_basic.js';
-import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
-import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
-import { dispatchMenuHotkey, focusBlocksHotkey } from '@ziroeda/common/tool/action_menu_hotkeys.js';
-import { wasBrowserSuppressed, type FocusLike } from '@ziroeda/common/browser_hotkeys.js';
-import { kicadFootprintLibWildcard } from '@ziroeda/common/wildcards_and_files_ext.js';
-import { CONFIRM_REVERT_EXTENDED, confirmRevertMessage } from '@ziroeda/common/confirm.js';
-import type { ChooserFilter, OpenedFile } from '@ziroeda/common/wx/filedlg.js';
-import type { ToolEntry } from '@ziroeda/common/tool/action_toolbar_types.js';
-import type { PCBNEW_APP } from './browser/pcbnew_app.js';
-import { FOOTPRINT, type FP_3DMODEL } from './footprint.js';
-import { modelOfView, modelView } from './pcb_io/kicad_sexpr/board_view.js';
-import { PROJECT_PCB } from './project_pcb.js';
-import type { FILENAME_RESOLVER } from '@ziroeda/common/filename_resolver.js';
-import type { SELECTED_3D_MODEL } from './dialogs/panel_fp_properties_3d_model.js';
-import type { ToolbarDefaults, ToolbarLoc } from '@ziroeda/common/tool/ui/toolbar_configuration.js';
-import type { CrosshairMode, GridStyle } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
+import { HIGH_CONTRAST_MODE } from '@ziroeda/common/project/board_project_settings.js';
 
 /**
- * The Footprint Editor frame, the web mirror of KiCad's FOOTPRINT_EDIT_FRAME
- * (pcbnew/footprint_edit_frame.cpp): menu bar (menubar_footprint_editor.cpp),
- * the three toolbars with the layer selector (toolbars_footprint_editor.cpp),
- * the footprint library tree pane (footprint_tree_pane.cpp) and the board-based
- * drawing canvas. A footprint is edited on an internal one-item board, so the
- * canvas reuses the PCB painter directly. Editing tools are staged; library
- * navigation, viewing, layer control and save are functional.
- *
- * Moved from `designer/src/editors/footprint/FootprintEditor.tsx`. What it
- * reached into `designer/` for now arrives as {@link FOOTPRINT_EDIT_FRAME_APP},
- * the seam `CVPCB_APP` (`cvpcb/cvpcb_mainframe_ui.tsx`) and `PL_EDITOR_APP`
- * give their windows; `designer/src/editors/footprint/footprint_edit_frame_app.tsx`
- * is the one file that answers it.
- */
-
-/**
- * `fpedit.json` as this window reads it: what the `footprint_edit_frame.ts` /
- * `footprint_editor_utils.ts` / `footprint_editor_settings.ts` helpers it hands
- * the object to already declare, plus the fields it reads itself.
+ * `fpedit.json` as this window reads it.
  */
 export interface FOOTPRINT_EDIT_FRAME_SETTINGS extends FP_EDIT_JSON_SETTINGS_LIKE {
   window: FP_EDIT_JSON_SETTINGS_LIKE['window'] & {
@@ -204,20 +171,12 @@ export interface FOOTPRINT_EDIT_FRAME_COMMON_SETTINGS {
 }
 
 /**
- * What the Footprint Editor asks of the program it runs in, exactly as
- * `CVPCB_APP` does for Assign Footprints: the settings store (subscribed and
- * plain reads, and writes), the user's toolbar layout, the footprint
- * libraries' storage, and the program's own widgets — the Preferences
- * dialog, the account's Open dialog, the library-loading panel and the home
- * link. One object per mount; everything on it is stable across renders.
- *
- * `PCBNEW_APP` (`browser/pcbnew_app.ts`) landed after this was written and is shaped
- * per render rather than per mount; where a member means the same thing in
- * both (`HomeLink`) this one takes that type rather than restating it.
+ * What the Footprint Editor asks of the program it runs in: the settings
+ * store, the user's toolbar layout, the footprint libraries' storage, the
+ * program's own widgets, and `Pgm()`.
  */
 export interface FOOTPRINT_EDIT_FRAME_APP {
-  /** `GetAppSettings<FOOTPRINT_EDITOR_SETTINGS>( "fpedit" )`, subscribed: a
-   *  change re-renders the frame (`CommonSettingsChanged`). */
+  /** `GetAppSettings<FOOTPRINT_EDITOR_SETTINGS>( "fpedit" )`, subscribed. */
   useFpEditSettings(): FOOTPRINT_EDIT_FRAME_SETTINGS;
   /** The same, read at the moment of the call. */
   fpEdit(): FOOTPRINT_EDIT_FRAME_SETTINGS;
@@ -232,21 +191,19 @@ export interface FOOTPRINT_EDIT_FRAME_APP {
   useUserColors(): Readonly<Record<string, string>>;
   /** The themes "New Theme..." made. */
   useUserThemes(): Parameters<typeof pcbThemeWithOverrides>[2];
-  /** `TOOLBAR_SETTINGS`: each bar as the user configured it
-   *  (`EDA_BASE_FRAME::RecreateToolbars`). */
+  /** `TOOLBAR_SETTINGS`: each bar as the user configured it. */
   useToolbarEntries(frame: 'fpedit', loc: ToolbarLoc, defaults: ToolbarDefaults): ToolEntry[];
-
-  /** Where a global footprint library's files come from. */
-  libraryIo: FOOTPRINT_LIBRARY_IO;
+  /** Where a hosted footprint library's files come from. */
+  libraryIo: Pick<FOOTPRINT_LIBRARY_STORE_IO, 'footprintText' | 'flipLeftRight'>;
   /** The hosted footprint library set's base URL (its `index.json`). */
   footprintsBase(): string;
-
+  /** `Pgm()` installed: the painter and the view controls read it. */
+  installPgm(): void;
+  /** `Pgm().GetCommonSettings()` as the GAL display options read it. */
+  commonSettingsOf(): COMMON_SETTINGS_LIKE;
   /** The "still loading" panel every chooser shows. */
   LibraryLoadingPanel(props: { label: string; fallback: JSX.Element | null }): ReactNode;
-  /**
-   * `EDA_BASE_FRAME::ShowPreferences`, opened from this frame. `'fp-grids'` is
-   * the one page it asks for by name (`COMMON_TOOLS::GridProperties`).
-   */
+  /** `EDA_BASE_FRAME::ShowPreferences`, opened from this frame. */
   Preferences(onClose: () => void, initialPage?: 'fp-grids'): ReactNode;
   /** The account's Open dialog, in the footprint library folder. */
   OpenFileDialog(props: {
@@ -255,10 +212,9 @@ export interface FOOTPRINT_EDIT_FRAME_APP {
     filters?: readonly ChooserFilter[];
     onDone: (file: OpenedFile | null) => void;
   }): ReactNode;
-  /** The way back to the project manager, at the left of the menu bar —
-   *  `PCBNEW_APP`'s own member, the one piece of chrome both frames share. */
+  /** The way back to the project manager, at the left of the menu bar. */
   HomeLink: PCBNEW_APP['HomeLink'];
-  /** The 3D Models page's preview canvas, `PCBNEW_APP`'s own member. */
+  /** The 3D Models page's preview canvas. */
   ModelPreview3D: PCBNEW_APP['ModelPreview3D'];
 }
 
@@ -267,70 +223,60 @@ export interface FootprintEditorFile {
   text: string;
 }
 
-const _MM = 10000;
-
 /**
- * The two docked palette widths, `footprint_edit_frame.cpp:228-252`.
- *
- * [data] KiCad states them itself, as `FromDIP` pixels rather than a theme
- * value: the Footprints tree is `.MinSize( FromDIP( 250 ), FromDIP( 80 ) )
- * .BestSize( FromDIP( 250 ), -1 )` and the LayersManager and Selection Filter
- * are `.MinSize( FromDIP( 180 ), … ).BestSize( FromDIP( 180 ), -1 )`. Ours were
- * 260 and 200, neither of which is anywhere upstream.
+ * The two docked palette widths, `footprint_edit_frame.cpp:228-252`. [data]
+ * `.MinSize( FromDIP( 250 ), … )` for the Footprints tree and
+ * `.MinSize( FromDIP( 180 ), … )` for the LayersManager and Selection Filter.
  */
 const LIBRARY_TREE_WIDTH = 250;
 const LAYERS_MANAGER_WIDTH = 180;
 
-const basename = (p: string): string => p.split('/').pop()!.split('\\').pop()!;
-
-/**
- * `PCB_BARCODE`'s constructor (`pcb_barcode.cpp:61-72`), for the item the
- * barcode tool builds before opening its dialog. The layer and position are
- * the tool's; the text height stays `EDA_TEXT`'s 50 mil here rather than the
- * board setting `DrawBarcode` reads, because the footprint editor has no
- * `BOARD_DESIGN_SETTINGS` of its own to read it from.
- */
-const NEW_FP_BARCODE: PcbBarcode = {
-  at: { x: 0, y: 0 },
-  angle: 0,
-  layer: 'Dwgs.User',
-  width: mmToIU(40),
-  height: mmToIU(40),
-  text: '',
-  textHeight: mmToIU(1.27),
-  kind: 'qr',
-  ecc: 'L',
-  showText: true,
-  knockout: false,
-  margin: { x: 0, y: 0 },
-};
-
-/**
- * The two combos under the notebook.
- *
- * `loadDefaultLayerPresets` and `rebuildViewportsWidget` are called from the
- * one `APPEARANCE_CONTROLS` constructor with no `m_isFpEditor` branch, so this
- * frame gets the same eight built-in presets pcbnew does. Neither list can grow
- * here yet: this frame has no project to save a user preset or a viewport into,
- * which is why both "Delete …" rows are handed in disabled.
- */
 const PRESET_ITEMS = presetComboItems();
 const VIEWPORT_ITEMS = viewportComboItems();
 
-// The left toolbar's radio groups, its opening state and its reducer are in
-// `toggles.ts` rather than here, because `qa`'s tsconfig compiles `.ts` only:
-// a default written in a `.tsx` is one no test can read, and the line mode had
-// been wrong since the toolbar landed.
-
 /**
- * `ACTIONS::gridOrigin` — the second row of the Show Grid button's right-click
- * menu (`pcbnew/toolbars_footprint_editor.cpp:54-62`) — is
- * `COMMON_TOOLS::GridOrigin`, a WX_PT_ENTRY_DIALOG that writes `SetGridOrigin`
- * (`common/tool/common_tools.cpp:637-651`), and we do not have it. Shown in its
- * upstream position and greyed, which is what this editor already does with
- * every entry it cannot run yet.
+ * The toolbar and menu ids this window's bars carry that are not the
+ * TOOL_ACTION's own name. Every other id is `PCB_ACTIONS[id]` or `ACTIONS[id]`.
  */
-const FP_LEFT_DISABLED: ReadonlySet<string> = new Set(['gridOrigin']);
+const ACTION_ALIASES: Readonly<Record<string, TOOL_ACTION>> = {
+  rotateCW: PCB_ACTIONS.rotateCw,
+  rotateCCW: PCB_ACTIONS.rotateCcw,
+  unitsInches: ACTIONS.inchesUnits,
+  unitsMils: ACTIONS.milsUnits,
+  unitsMm: ACTIONS.millimetersUnits,
+  crosshairSmall: ACTIONS.cursorSmallCrosshairs,
+  crosshairFull: ACTIONS.cursorFullCrosshairs,
+  crosshair45: ACTIONS.cursor45Crosshairs,
+  zoomFit: ACTIONS.zoomFitScreen,
+  highContrast: ACTIONS.highContrastMode,
+  placeImage: PCB_ACTIONS.placeReferenceImage,
+};
+
+/** The TOOL_ACTION a toolbar or menu id runs, or null for a window-only row. */
+function actionForId(aId: string): TOOL_ACTION | null {
+  const alias = ACTION_ALIASES[aId];
+  if (alias) return alias;
+
+  const pcb = (PCB_ACTIONS as unknown as Record<string, unknown>)[aId];
+  if (pcb && typeof pcb === 'object' && 'MakeEvent' in pcb) return pcb as TOOL_ACTION;
+
+  const common = (ACTIONS as unknown as Record<string, unknown>)[aId];
+  if (common && typeof common === 'object' && 'MakeEvent' in common) return common as TOOL_ACTION;
+
+  return null;
+}
+
+/** EDA_DRAW_FRAME's eight status fields, by index (`eda_draw_frame.cpp`). */
+const STATUS_FIELDS = [
+  'message',
+  'zoom',
+  'coords',
+  'deltas',
+  'grid',
+  'units',
+  'tool',
+  'constraint',
+];
 
 export function FootprintEditFrame({
   app,
@@ -338,92 +284,40 @@ export function FootprintEditFrame({
   initialProject,
   kiway,
 }: {
-  /** The program: settings, toolbars, library storage and its own widgets. */
   app: FOOTPRINT_EDIT_FRAME_APP;
   onExitToHome: () => void;
   initialProject?: FootprintEditorFile[] | null;
-  /**
-   * The program's KIWAY: the editor's FOOTPRINT_EDIT_FRAME registers as
-   * FRAME_FOOTPRINT_EDITOR's player on it, so the project manager's
-   * MAIL_FP_EDIT reaches `KiwayMailIn`.
-   */
+  /** The program's KIWAY, on which the frame registers as FRAME_FOOTPRINT_EDITOR. */
   kiway?: KIWAY;
 }): JSX.Element {
-  /*
-   * `EDA_BASE_FRAME::RecreateToolbars` asks the TOOLBAR_SETTINGS for each
-   * location rather than reading `DefaultToolbarConfig` itself
-   * (`common/eda_base_frame.cpp:1728-1843`), which is the whole reason
-   * Preferences > Toolbars does anything. This frame read the module constants,
-   * so its page would have edited `fpedit-toolbars` and changed nothing on
-   * screen — the exact defect `useToolbarEntries` was written to end.
-   */
-  /**
-   * `GetAppSettings<FOOTPRINT_EDITOR_SETTINGS>( "fpedit" )`, which upstream the
-   * frame holds as `GetFootprintEditorSettings()` and every one of its
-   * Preferences pages is handed. Subscribed, so pressing OK on any of them
-   * repaints this frame — `EDA_BASE_FRAME::CommonSettingsChanged`.
-   */
   const fpCfg = app.useFpEditSettings();
-  /** `colors/user.json`'s `board.*` rows — the other half of what the Colors
-   *  page writes. */
   const userColors = app.useUserColors();
   const userThemes = app.useUserThemes();
-  /**
-   * `updateEnabledLayers()` — this frame's layer set, whose `User.n` rows come
-   * from Preferences > Footprint Editor > User Layer Names. A module constant
-   * here is what made that page unreachable: the count and the names had
-   * nothing to change.
-   */
+  const common = app.useCommonSettings();
   const fpLayers = useMemo(() => footprintLayers(fpCfg), [fpCfg]);
   const allFpLayers = useMemo(() => fpLayers.map((l) => l.name), [fpLayers]);
 
   const fpTopBar = app.useToolbarEntries('fpedit', 'TOP_MAIN', FP_DEFAULT_TOOLBARS);
   const fpLeftBar = app.useToolbarEntries('fpedit', 'LEFT', FP_DEFAULT_TOOLBARS);
   const fpRightBar = app.useToolbarEntries('fpedit', 'RIGHT', FP_DEFAULT_TOOLBARS);
+  const rightBarRef = useRef(fpRightBar);
+  rightBarRef.current = fpRightBar;
 
-  const manager = useRef(new FootprintLibraryManager(app.libraryIo));
-  const [revision, setRevision] = useState(0);
-  const bump = useCallback(() => setRevision((r) => r + 1), []);
+  /** Anything the frame changed: re-read it. */
+  const [, repaint] = useReducer((n: number) => n + 1, 0);
 
-  const [curLib, setCurLib] = useState<string | null>(null);
-  const [curName, setCurName] = useState<string | null>(null);
-  const [workFp, setWorkFp] = useState<PcbFootprint | null>(null);
-
-  const [selection, setSelection] = useState<ReadonlySet<string>>(new Set());
-  // Whole-footprint snapshot undo/redo (SaveCopyInUndoList), reset per load.
-  const undoStack = useRef<PcbFootprint[]>([]);
-  const redoStack = useRef<PcbFootprint[]>([]);
-  /**
-   * `EDA_BASE_FRAME::GetUndoCommandCount()` / `GetRedoCommandCount()`, which
-   * `EDITOR_CONDITIONS::UndoAvailable` / `RedoAvailable`
-   * (`common/tool/editor_conditions.cpp:169-178`) compare against zero to grey
-   * the two Edit rows. The stacks themselves are refs, so a depth read at
-   * render time would be a value nothing re-reads; these mirror them into
-   * state so the menu tree is rebuilt when they move.
-   */
-  const [undoDepth, setUndoDepth] = useState(0);
-  const [redoDepth, setRedoDepth] = useState(0);
-
+  // ----- window state -----------------------------------------------------------
+  const [toggles, setToggles] = useState<Set<string>>(new Set(DEFAULT_TOGGLES));
+  const togglesRef = useRef<ReadonlySet<string>>(toggles);
+  togglesRef.current = toggles;
   const [visible, setVisible] = useState<ReadonlySet<string>>(new Set(allFpLayers));
-  // `SetActiveLayer( F_SilkS )` — see `FP_DEFAULT_ACTIVE_LAYER`.
-  const [activeLayer, setActiveLayer] = useState(FP_DEFAULT_ACTIVE_LAYER);
-  // ----- APPEARANCE_CONTROLS' state -------------------------------------------
-  //
-  // Held by the frame, exactly as upstream holds it on the BOARD/VIEW and the
-  // panel reads it back through `getVisibleLayers()` / `getVisibleObjects()`.
-  // Every one of these had no counterpart here at all: the panel was a list of
-  // coloured squares with no tabs, no objects, no display options and no
-  // presets.
+  const [activeLayerName, setActiveLayerName] = useState(FP_DEFAULT_ACTIVE_LAYER);
   const [tab, setTab] = useState<AppearanceTab>('Layers');
   const [objects, setObjects] = useState<ObjectState>(DEFAULT_OBJECTS);
   const [opacity, setOpacity] = useState(DEFAULT_OPACITY);
-  /** HIGH_CONTRAST_MODE, `m_ContrastModeDisplay` (NORMAL by default). */
   const [contrast, setContrast] = useState<'normal' | 'dim' | 'hide'>('normal');
-  /** `PCB_DISPLAY_OPTIONS::m_FlipBoardView`. */
   const [flipBoard, setFlipBoard] = useState(false);
-  /** `m_paneLayerDisplayOptions->Collapse()` (appearance_controls.cpp:628). */
   const [layerOptsOpen, setLayerOptsOpen] = useState(false);
-  /** `m_tool->GetFilter()`, PANEL_SELECTION_FILTER's options. */
   const [selFilter, setSelFilter] = useState<Set<string>>(
     new Set(DEFAULT_SELECTION_FILTER_OPTIONS),
   );
@@ -432,167 +326,327 @@ export function FootprintEditFrame({
     y: number;
     item: SelectionFilterItem;
   } | null>(null);
-  /** `m_cbViewports->SetSelection( GetCount() - 3 )` — the separator. */
   const [viewportSel, setViewportSel] = useState(PRESET_SEPARATOR);
-  const [toggles, setToggles] = useState<Set<string>>(new Set(DEFAULT_TOGGLES));
-  const [activeTool, setActiveTool] = useState('selectSetRect');
-  /**
-   * `BOARD_DESIGN_SETTINGS::GetGridOrigin()` of this frame's board.
-   *
-   * `FOOTPRINT_EDIT_FRAME` owns a real `BOARD` holding the one footprint, so it
-   * has a grid origin, and `ACTIONS::gridSetOrigin` on its right toolbar moves
-   * it. Frame state and not document state, because nothing in `.kicad_mod` can
-   * express it — upstream's lives on the dummy board and dies with the frame
-   * too.
-   */
-  const [gridOrigin, setGridOrigin] = useState<Vec2>({ x: 0, y: 0 });
-  /** Whether any tool has been pushed since the frame opened — see `selectTool`. */
-  const [toolArmed, setToolArmed] = useState(false);
-  /**
-   * `window.grid.last_size_idx` and `window.grid.sizes`, out of `fpedit.json` —
-   * not React state and not `GRID_SIZE_LIST.pcbnew`.
-   *
-   * `GRID_SETTINGS::grids` is what `PANEL_GRID_SETTINGS` edits: add, edit,
-   * remove and reorder all write `m_grids` back into `gridCfg.grids`
-   * (`common/dialogs/panel_grid_settings.cpp:190-192`), and `last_size` is the
-   * row its Current Grid choice selects. A frame reading the module table
-   * instead would draw the stock grids however that page was left, which is the
-   * same defect the toolbars had before `useToolbarEntries`.
-   *
-   * The default is still 15 — `app_settings.cpp:472-481`, `0.5 mm` — but it is
-   * now `FPEDIT_DEFAULTS`' rather than a second copy of it here.
-   */
-  const gridIdx = fpCfg.window.grid.last_size_idx;
-  /**
-   * `PCB_GRID_HELPER::GetGridSize( GetItemGrid( … ) )` — the current grid
-   * unless a Grid Overrides row applies to the kind of item the active tool
-   * lays down. The status bar deliberately does NOT use this: `DisplayGridMsg`
-   * prints the current grid.
-   */
-  const toolGridIU = footprintGridForTool(fpCfg, activeTool);
-  const setGridIdx = useCallback(
-    (next: number) => {
-      app.updateFpEdit((s) => {
-        s.window.grid.last_size_idx = next;
-      });
-    },
-    [app.updateFpEdit],
-  );
-  // First anchor of a 2-click graphic (line/rect/circle) being drawn.
-  const [drawStart, setDrawStart] = useState<Vec2 | null>(null);
-  /** The barcode properties dialog: `at` for a new one, `index` to edit one. */
-  const [barcodeDialog, setBarcodeDialog] = useState<{ at: Vec2; index?: number } | null>(null);
-  const unitLabel: StatusUnits = toggles.has('unitsInches')
-    ? 'in'
-    : toggles.has('unitsMils')
-      ? 'mils'
-      : 'mm';
-  /**
-   * The panes that follow the pointer, written through refs.
-   *
-   * `PCB_BASE_FRAME::UpdateStatusBar` writes them with `SetStatusText` on every
-   * cursor motion and repaints nothing else; this frame re-rendered itself
-   * whole on every mouse move instead. `localOrigin` is `BOARD::m_LocalOrigin`,
-   * which the footprint editor never moves (no `ACTIONS::resetLocalCoords`
-   * binding yet), so the deltas run from the footprint origin.
-   */
-  const statusReadout = useStatusReadout({
-    units: unitLabel,
-    localOrigin: FP_LOCAL_ORIGIN,
-    devicePixelRatio: typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1,
-    iuPerMM: SCH_IU_PER_MM,
-    // `PCB_BASE_FRAME::GetShowPolarCoords()` -> `m_PolarCoords`, which the left
-    // toolbar's `ACTIONS::togglePolarCoords` writes
-    // (`footprint_editor_settings.cpp:115-116`).
-    polar: fpCfg.editing.polar_coords,
-    // `PCB_ORIGIN_TRANSFORMS::invertXAxis()` / `invertYAxis()`, i.e.
-    // Preferences > Footprint Editor > Origins & Axes.
-    invertX: fpCfg.origin_invert_x_axis,
-    invertY: fpCfg.origin_invert_y_axis,
-  });
-  const [scale, setScale] = useState(0);
-  const [status, setStatus] = useState('');
-  const [loading, setLoading] = useState<string | null>(null);
-
-  /**
-   * `GetLibTree()->GetSelectedLibId()`, the tree's selection as this frame
-   * reads it back — the four conditions in `FOOTPRINT_EDITOR_CONTROL::Init`
-   * and `GetTargetFPID`.
-   *
-   * The search string and the expansion state are NOT here any more: they
-   * belong to `LIB_TREE`, and a frame that kept its own copies is what made
-   * the shared widget unmountable in this pane.
-   */
-  const [treeSel, setTreeSel] = useState<{ lib: string; name: string | null } | null>(null);
-  /**
-   * The Footprints pane's width, `m_editorSettings->m_LibWidth`.
-   *
-   * `FOOTPRINT_EDIT_FRAME` restores it with `SetAuiPaneSize( m_auimgr, treePane,
-   * libWidth, -1 )` while the frame is being built (`:279-280`) and writes
-   * `m_treePane->GetSize().x` back in `SaveSettings` (`:837`) and whenever the
-   * pane is hidden (`:414`). We never persisted it, so every session opened at
-   * the default however the user had left it.
-   *
-   * `LIBRARY_TREE_WIDTH` is still the fallback: it is `PARAM<int>(
-   * "window.lib_width", &m_LibWidth, 250 )`'s default and the pane's own
-   * `BestSize`, which is the same number twice upstream.
-   */
   const [panelWidth, setPanelWidth] = useState(
     () => app.fpEdit().window.lib_width || LIBRARY_TREE_WIDTH,
   );
-  /** Read by `onLeftToggle`, which must not be rebuilt on every drag frame. */
   const panelWidthRef = useRef(panelWidth);
   panelWidthRef.current = panelWidth;
-  /** The same, for the toggle set it is about to change. */
-  const togglesRef = useRef<ReadonlySet<string>>(toggles);
-  togglesRef.current = toggles;
-  const [newLibName, setNewLibName] = useState<string | null>(null);
-  const [newFpName, setNewFpName] = useState<string | null>(null);
-  const [propsOpen, setPropsOpen] = useState(false);
-  // Footprint Properties > 3D Models > Browse: `DIALOG_SELECT_3DMODEL` is not
-  // ported (a `3d-viewer/` dialog); the account's Open dialog answers in its place.
-  const [pick3dModel, setPick3dModel] = useState<{
-    done: (aChosen: SELECTED_3D_MODEL | null) => void;
-  } | null>(null);
-  const model3dResolverRef = useRef<FILENAME_RESOLVER | null>(null);
-  const [aboutOpen, setAboutOpen] = useState(false);
-  /**
-   * `ShowPreferences( <page>, <heading> )`. `true` is the plain
-   * `ACTIONS::openPreferences`, which names no page; a `PrefsPageId` is what
-   * `COMMON_TOOLS::GridProperties` and the grid combo's Edit Grids... row ask
-   * for (`common/tool/common_tools.cpp:609-634`).
-   */
-  const [prefsOpen, setPrefsOpen] = useState<null | true | 'fp-grids'>(null);
-  const common = app.useCommonSettings();
-  const [padDialogId, setPadDialogId] = useState<string | null>(null);
-
-  const controller = useRef<FootprintCanvasController>(null);
-  /**
-   * `Add Library` and `Import Footprint`, over the account's tree.
-   *
-   * Upstream both are `wxFileDialog`s; a footprint library lives in the project
-   * or in `PATHS::GetDefaultUserFootprintsPath()` (paths.cpp:93).
-   */
-  const [fpOpenDlg, setFpOpenDlg] = useState<null | 'addLibrary' | 'importFootprint'>(null);
-  /**
-   * The tree's right-click menu: where it was opened and on what.
-   * `LIB_TREE::onItemContextMenu` selects the row under the pointer first, so
-   * the menu is always evaluated against the row it was opened on.
-   */
+  const [treeSel, setTreeSel] = useState<{ lib: string; name: string | null } | null>(null);
+  const treeSelRef = useRef(treeSel);
+  treeSelRef.current = treeSel;
+  const [selectLibId, setSelectLibId] = useState('');
+  const [centerLibId, setCenterLibId] = useState('');
   const [treeMenu, setTreeMenu] = useState<{
     x: number;
     y: number;
     lib: string;
     name: string;
   } | null>(null);
-  const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+  const [aboutOpen, setAboutOpen] = useState(false);
+  const [prefsOpen, setPrefsOpen] = useState<null | true | 'fp-grids'>(null);
+  const [fpOpenDlg, setFpOpenDlg] = useState<
+    null | { kind: 'addLibrary' } | { kind: 'import'; done: (f: OpenedFile | null) => void }
+  >(null);
+  const [newLibName, setNewLibName] = useState(false);
+  const [unsaved, setUnsaved] = useState<{
+    message: string;
+    done: (r: UnsavedChangesResult) => void;
+  } | null>(null);
+  const [saveAs, setSaveAs] = useState<{
+    name: string;
+    library: string;
+    validator: (aLib: string, aName: string) => Promise<boolean>;
+    done: (r: { library: string; name: string } | null) => void;
+  } | null>(null);
+  const [rename, setRename] = useState<{
+    dialog: RENAME_DIALOG;
+    done: (ok: boolean) => void;
+  } | null>(null);
+  const [fpProps, setFpProps] = useState<{
+    dialog: DIALOG_FOOTPRINT_PROPERTIES_FP_EDITOR;
+    done: (aOk: boolean) => void;
+  } | null>(null);
+  const [pick3dModel, setPick3dModel] = useState<{
+    done: (aChosen: SELECTED_3D_MODEL | null) => void;
+  } | null>(null);
+  const model3dResolverRef = useRef<FILENAME_RESOLVER | null>(null);
+  const [infoBar, setInfoBar] = useState<string | null>(null);
+  const [title, setTitle] = useState(`[no footprint loaded] — ${FP_FRAME_NAME}`);
+  const [msgItems, setMsgItems] = useState<MsgPanelItem[]>([]);
+  const [activeTool, setActiveTool] = useState('selectSetRect');
 
-  // ----- library bootstrap ------------------------------------------------------
+  const unitLabel: StatusUnits = toggles.has('unitsInches')
+    ? 'in'
+    : toggles.has('unitsMils')
+      ? 'mils'
+      : 'mm';
+
+  const { ask: askKiDialog, node: kiDialogNode } = useKiDialog();
+  const askKiDialogRef = useRef(askKiDialog);
+  askKiDialogRef.current = askKiDialog;
+
+  // ----- the libraries (FOOTPRINT_LIBRARY_ADAPTER) -----------------------------
+  const [store] = useState(
+    () =>
+      new FOOTPRINT_LIBRARY_STORE({
+        footprintText: (n, f) => app.libraryIo.footprintText(n, f),
+        flipLeftRight: () => app.libraryIo.flipLeftRight(),
+        // FootprintSave's file write. A project library's folder is the
+        // project's; the bytes go to the browser's downloads, as Save did.
+        writeFootprintFile: (_aDir, aFileName, aText) => {
+          const url = URL.createObjectURL(new Blob([aText], { type: 'application/octet-stream' }));
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = aFileName;
+          a.click();
+          URL.revokeObjectURL(url);
+        },
+      }),
+  );
+  const [treeRevision, bumpTree] = useReducer((n: number) => n + 1, 0);
+
+  // ----- the frame ---------------------------------------------------------------
+  const frameRef = useRef<FOOTPRINT_EDIT_FRAME | null>(null);
+  const itemDialogs = usePcbItemDialogs({
+    units: unitLabel,
+    board: () => frameRef.current?.GetBoard() ?? null,
+    layerColor,
+    background: PCB_BACKGROUND,
+  });
+  const itemDialogHooksRef = useRef(itemDialogs.hooks);
+  itemDialogHooksRef.current = itemDialogs.hooks;
+
+  const fpEditRef = useRef<(aFile: string) => void>(() => {});
+  const [frame] = useState(() => {
+    const h = (): typeof itemDialogHooksRef.current => itemDialogHooksRef.current;
+    const f = new FOOTPRINT_EDIT_FRAME({
+      fpEdit: (aFile) => fpEditRef.current(aFile),
+      onModify: () => repaint(),
+      askUnsavedChanges: (aMessage) =>
+        new Promise((resolve) => setUnsaved({ message: aMessage, done: resolve })),
+      onFootprintLoaded: (aFPID) => {
+        // Zoom_Automatique, then the tree: ExpandLibId and CenterLibId. Without
+        // WebGL there is no canvas to zoom (KiCad's frame always has one).
+        if (frameRef.current?.GetCanvas()) frameRef.current.Zoom_Automatique(false);
+        setCenterLibId(aFPID.Format());
+        repaint();
+      },
+      syncLibraryTree: () => bumpTree(),
+      showInfoBarError: (aMsg) => setInfoBar(aMsg),
+      showInfoBarWarning: (aMsg) => setInfoBar(aMsg),
+      showInfoBarMsg: (aMsg) => setInfoBar(aMsg),
+      dismissInfoBar: () => setInfoBar(null),
+      setTitle: (aTitle) => setTitle(aTitle),
+      isLibraryTreeShown: () => togglesRef.current.has('showLibraryTree'),
+      toggleLibraryTree: () => onLeftToggleRef.current('showLibraryTree'),
+      toggleLayersManager: () => onLeftToggleRef.current('showLayersManager'),
+      toggleProperties: () => onLeftToggleRef.current('showProperties'),
+      confirmRevert: (aMessage) =>
+        askKiDialogRef
+          .current({
+            caption: 'Confirmation',
+            message: aMessage,
+            extendedMessage: CONFIRM_REVERT_EXTENDED,
+            icon: 'warning',
+            labels: { ok: 'Revert' },
+          })
+          .then((r) => r === 'ok'),
+      showSaveAsDialog: (aName, aLibrary, aValidator) =>
+        new Promise((resolve) =>
+          setSaveAs({ name: aName, library: aLibrary, validator: aValidator, done: resolve }),
+        ),
+      showImportFootprintDialog: () =>
+        new Promise((resolve) =>
+          setFpOpenDlg({
+            kind: 'import',
+            done: (aFile) => resolve(aFile ? { path: aFile.path, text: aFile.text } : null),
+          }),
+        ),
+      showSaveFileDialog: (_aTitle, aDefaultName) => Promise.resolve({ path: aDefaultName }),
+      writeTextFile: (aPath, aText) => {
+        const url = URL.createObjectURL(new Blob([aText], { type: 'application/octet-stream' }));
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = aPath.split('/').pop() ?? aPath;
+        a.click();
+        URL.revokeObjectURL(url);
+        return true;
+      },
+      askKiDialog: (aRequest) => askKiDialogRef.current(aRequest),
+      showFootprintPropertiesFpEditorDialog: (aDialog) =>
+        new Promise((resolve) => setFpProps({ dialog: aDialog, done: resolve })),
+      updateUserInterface: () => repaint(),
+      showPadPropertiesDialog: (d) => h().showPadPropertiesDialog(d),
+      showTextPropertiesDialog: (d) => h().showTextPropertiesDialog(d),
+      showGraphicItemPropertiesDialog: (d) => h().showGraphicItemPropertiesDialog(d),
+      showDimensionPropertiesDialog: (d) => h().showDimensionPropertiesDialog(d),
+      showTextBoxPropertiesDialog: (d) => h().showTextBoxPropertiesDialog(d),
+      showReferenceImagePropertiesDialog: (d) => h().showReferenceImagePropertiesDialog(d),
+      showTablePropertiesDialog: (d) => h().showTablePropertiesDialog(d),
+      showBarcodePropertiesDialog: (d) => h().showBarcodePropertiesDialog(d),
+      showZoneSettingsDialog: (d) => h().showZoneSettingsDialog(d),
+      showImageFileDialog: () => h().showImageFileDialog(),
+    });
+    f.SetFootprintLibAdapter(store);
+    return f;
+  });
+  frameRef.current = frame;
+
+  // `LoadSettings` / `CommonSettingsChanged`: `GetDesignSettings() =
+  // cfg->m_DesignSettings`, so a new footprint takes Preferences' defaults.
+  useEffect(() => {
+    frame.LoadFootprintEditorDesignSettings(fpCfg.design_settings);
+  }, [frame, fpCfg.design_settings]);
+
+  // `KIWAY::Player()` stores the frame as FRAME_FOOTPRINT_EDITOR's player.
+  useEffect(() => {
+    if (!kiway) return;
+    frame.SetKiway(kiway);
+    kiway.SetPlayerFrame(FRAME_T.FRAME_FOOTPRINT_EDITOR, frame);
+    return () => {
+      kiway.PlayerDidClose(FRAME_T.FRAME_FOOTPRINT_EDITOR, frame);
+      frame.SetKiway(null);
+    };
+  }, [kiway, frame]);
+
+  // The frame's status bar, message panel and toolbar selection.
+  const statusRefs = useRef<Record<string, HTMLSpanElement | null>>({});
+  useEffect(() => {
+    frame.SetStatusTextSink((aText, aField) => {
+      const name = STATUS_FIELDS[aField];
+      const el = name ? statusRefs.current[name] : null;
+      if (el) el.textContent = aText;
+    });
+    frame.SetMsgPanelSink((aItems) =>
+      setMsgItems(aItems.map((i) => ({ upper: i.GetUpperText(), lower: i.GetLowerText() }))),
+    );
+    // `ACTION_TOOLBAR::SelectAction`: the button whose action the tool runs.
+    frame.SetSelectToolbarActionSink((aAction) => {
+      const entry = rightBarRef.current.find(
+        (e) => typeof e === 'object' && 'id' in e && actionForId(e.id) === aAction,
+      );
+      if (entry && typeof entry === 'object' && 'id' in entry) setActiveTool(entry.id);
+    });
+    return () => {
+      frame.SetStatusTextSink(null);
+      frame.SetMsgPanelSink(null);
+      frame.SetSelectToolbarActionSink(null);
+    };
+  }, [frame]);
+
+  // `LIBRARY_EDITOR_CONTROL::RenameLibrary`'s wxTextEntryDialog.
+  useEffect(() => {
+    SetRenameDialogPresenter(
+      (aDialog) => new Promise((resolve) => setRename({ dialog: aDialog, done: resolve })),
+    );
+    return () => SetRenameDialogPresenter(null);
+  }, []);
+
+  // ----- the canvas ----------------------------------------------------------------
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const panel = usePcbDrawPanel(frame, canvasRef, {
+    installPgm: () => app.installPgm(),
+    commonSettings: () => app.commonSettingsOf(),
+  });
+
+  /** `TOOL_MANAGER::RunAction`, as a menu row or a toolbar button runs it. */
+  const runAction = useCallback(
+    (aAction: TOOL_ACTION, aParam?: unknown) => {
+      if (aParam === undefined) frame.GetToolManager()?.RunAction(aAction);
+      else frame.GetToolManager()?.RunAction(aAction, aParam as never);
+      repaint();
+    },
+    [frame],
+  );
+
+  const theme = useMemo(
+    () => pcbThemeWithOverrides(fpCfg.appearance.color_theme, userColors, userThemes),
+    [fpCfg.appearance.color_theme, userColors, userThemes],
+  );
+
   /**
-   * Which project the tree's project rows belong to: the `fp-lib-table` rows
-   * and the `.kicad_mod` names, not their text — see the same key in the
-   * symbol editor for why content is the wrong thing to key on.
+   * The Appearance panel's state into the board, the view and the painter —
+   * what the layer widget, the toolbar and the frame's settings do upstream —
+   * and the grid from `fpedit.json`.
    */
+  const displayStateRef = useRef<EditorDisplayState | null>(null);
+  useEffect(() => {
+    const board = frame.GetBoard();
+
+    if (!panel || !board) return;
+
+    const opts = new PCB_DISPLAY_OPTIONS();
+    opts.m_ContrastModeDisplay =
+      contrast === 'hide'
+        ? HIGH_CONTRAST_MODE.HIDDEN
+        : contrast === 'dim'
+          ? HIGH_CONTRAST_MODE.DIMMED
+          : HIGH_CONTRAST_MODE.NORMAL;
+    opts.m_PadOpacity = opacity.pads;
+    opts.m_ZoneOpacity = opacity.zones;
+    opts.m_ImageOpacity = opacity.images;
+    opts.m_FilledShapeOpacity = opacity.filledShapes;
+    opts.m_FlipBoardView = flipBoard;
+
+    const visibleLayers = new Set<PCB_LAYER_ID>();
+
+    for (const name of visible) {
+      const id = board.GetLayerID(name);
+      if (id >= 0) visibleLayers.add(id);
+    }
+
+    const G = GAL_LAYER_ID;
+    const visibleElements = new Map<GAL_LAYER_ID, boolean>([
+      [G.LAYER_PADS, objects.pads],
+      [G.LAYER_ZONES, objects.zones],
+      [G.LAYER_FILLED_SHAPES, objects.filledShapes],
+      [G.LAYER_DRAW_BITMAPS, objects.images],
+      [G.LAYER_FP_VALUES, objects.fpValues],
+      [G.LAYER_FP_REFERENCES, objects.fpReferences],
+      [G.LAYER_FP_TEXT, objects.fpText],
+      [G.LAYER_DRC_WARNING, objects.drcWarnings],
+      [G.LAYER_DRC_ERROR, objects.drcErrors],
+      [G.LAYER_DRC_EXCLUSION, objects.drcExclusions],
+      [G.LAYER_ANCHOR, objects.anchors],
+      [G.LAYER_POINTS, objects.points],
+      [G.LAYER_LOCKED_ITEM_SHADOW, objects.lockedShadow],
+      [G.LAYER_GRID, objects.grid],
+    ]);
+
+    const state: EditorDisplayState = {
+      visibleLayers,
+      visibleElements,
+      displayOptions: opts,
+      activeLayer: board.GetLayerID(activeLayerName),
+      colorTheme: theme.filename,
+    };
+
+    applyDisplayState(frame, panel, board, state, displayStateRef.current);
+    displayStateRef.current = state;
+
+    // `GAL::SetGridSize` / `SetGridOrigin` / `SetGridVisibility`.
+    const gal = panel.GetGAL();
+    const gridIU = footprintGridIU(fpCfg);
+    gal.SetGridSize({ x: gridIU, y: gridIU });
+    gal.SetGridOrigin(board.GetDesignSettings().GetGridOrigin());
+    gal.SetGridVisibility(objects.grid && toggles.has('toggleGrid'));
+    panel.Refresh();
+  }, [
+    frame,
+    panel,
+    visible,
+    objects,
+    opacity,
+    contrast,
+    flipBoard,
+    activeLayerName,
+    theme,
+    fpCfg,
+    toggles,
+  ]);
+
+  // ----- library bootstrap ---------------------------------------------------------
   const projectLibsKey = useMemo(
     () =>
       [
@@ -603,761 +657,110 @@ export function FootprintEditFrame({
         .join('\n'),
     [initialProject],
   );
+
   /**
    * `FOOTPRINT_EDIT_FRAME::ProjectChanged` -> `SyncLibraryTree`: the project's
-   * rows are re-registered on the frame that exists whenever the project
-   * changes, the previous project's rows going first.
+   * rows are re-registered, the previous project's going first. Only the
+   * `.pretty` folders the project's fp-lib-table names are libraries.
    */
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the key is the project's library content; initialProject is read through it
   useEffect(() => {
-    manager.current.dropProjectLibraries();
-    // Group the open project's `.kicad_mod` files by their `.pretty` directory.
+    store.DropProjectLibraries();
+
     const byDir = new Map<string, { fileName: string; text: string }[]>();
+
     for (const f of initialProject ?? []) {
       if (!/\.kicad_mod$/i.test(f.name)) continue;
+
       const norm = f.name.replace(/\\/g, '/');
       const m = /([^/]+)\.pretty\//i.exec(norm);
       const dir = m ? `${m[1]}.pretty` : norm.split('/').slice(0, -1).join('/') || 'Project';
       const list = byDir.get(dir) ?? [];
-      list.push({ fileName: basename(f.name), text: f.text });
+      list.push({ fileName: norm.split('/').pop()!, text: f.text });
       byDir.set(dir, list);
     }
-    // Only libraries the project's fp-lib-table registers are loaded, under
-    // the nickname the table gives them (FP_LIB_TABLE): a `.pretty` folder no
-    // row points at is not a library, here or in KiCad.
+
     const libRows = projectFpLibTable(initialProject ?? []);
+
     for (const [dir, entries] of byDir) {
       const name = projectLibraryNickname(libRows, `${dir}/x.kicad_mod`);
-      if (name) manager.current.addProjectLibrary(name, dir, entries);
+      if (name) store.AddProjectLibrary(name, dir, entries);
     }
-    // A selection in a library that just went is no selection.
-    setCurLib((lib) => (lib && !manager.current.libraryExists(lib) ? null : lib));
-    bump();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectLibsKey]);
+
+    frame.SyncLibraryTree(true);
+  }, [projectLibsKey, store, frame]);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the base URL is the trigger; the store and frame are stable
   useEffect(() => {
-    // Bundled global footprint libraries (names up front, files fetched lazily).
+    // The hosted libraries: names up front, files fetched on demand.
     fetch(`${app.footprintsBase()}/index.json`)
       .then((r) => (r.ok ? r.json() : []))
       .then((idx: { name: string; footprints: string[] }[]) => {
-        for (const lib of idx) manager.current.addGlobalLibrary(lib.name, lib.footprints);
-        bump();
+        for (const lib of idx) store.AddGlobalLibrary(lib.name, lib.footprints);
+        frame.SyncLibraryTree(true);
       })
-      .catch(() => bump());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+      .catch(() => bumpTree());
   }, [app.footprintsBase]);
 
-  const targetLib = treeSel?.lib ?? curLib;
+  // `MAIL_FP_EDIT`: find the file's library, select it in the tree, load it.
+  fpEditRef.current = (aFile: string): void => {
+    const { lib, name } = fpTargetOf(aFile);
 
-  /**
-   * Draw options from the Appearance panel's Objects tab and its Layer Display
-   * Options, the way pcbnew derives them — the controls are the same widget's,
-   * so what they mean has to be the same too. Before the panel was shared this
-   * frame had no Objects tab at all, and the only line here was the pad sketch
-   * mode.
-   */
-  const drawOpts = useMemo<PcbDrawOptions>(
-    () => ({
-      ...DEFAULT_DRAW_OPTIONS,
-      tracks: objects.tracks,
-      vias: objects.vias,
-      pads: objects.pads,
-      zones: objects.zones,
-      points: objects.points,
-      fpValues: objects.fpValues,
-      fpReferences: objects.fpReferences,
-      fpText: objects.fpText,
-      drawingSheet: objects.drawingSheet,
-      trackOpacity: opacity.tracks,
-      viaOpacity: opacity.vias,
-      padOpacity: opacity.pads,
-      zoneOpacity: opacity.zones,
-      imageOpacity: opacity.images,
-      filledShapeOpacity: opacity.filledShapes,
-      // Display-mode toggle: on = sketch (outline) = fill off (m_DisplayPadFill).
-      padFill: !toggles.has('padDisplayMode'),
-      contrastMode: contrast,
-      // `m_hiContrastFactor = 1.0 - hicontrast_dimming_factor`
-      // (`pcbnew/pcb_painter.cpp:176`). The inversion is the point: Preferences
-      // asks how much to DIM and the painter wants how much SURVIVES.
-      hiContrastFactor: hiContrastFactorFor(app.common().appearance.hicontrast_dimming_factor),
-      activeLayer,
-      // `FOOTPRINT_EDIT_FRAME::GetColorSettings()` is
-      // `::GetColorSettings( GetSettings()->m_ColorTheme )` — this frame's own
-      // `appearance.color_theme`, over the `board` namespace it shares with the
-      // PCB Editor. Preferences > Footprint Editor > Colors is the page that
-      // writes both halves.
-      theme: pcbThemeWithOverrides(fpCfg.appearance.color_theme, userColors, userThemes),
-    }),
-    [
-      toggles,
-      objects,
-      opacity,
-      contrast,
-      activeLayer,
-      fpCfg.appearance.color_theme,
-      userColors,
-      userThemes,
-      app.common,
-    ],
-  );
+    if (!store.HasLibrary(lib)) return;
 
-  // ----- load / save ------------------------------------------------------------
-  const loadFootprint = useCallback(
-    async (libName: string, fpName: string) => {
-      // The library is read on demand here: `WX_PROGRESS_REPORTER( this,
-      // _( "Load Footprint Libraries" ), 1, PR_CAN_ABORT )` (cvpcb_mainframe.cpp:910).
-      setLoading(`Loading library ${libName}...`);
-      try {
-        const fp = await manager.current.loadFootprint(libName, fpName);
-        if (!fp) {
-          setStatus(`Footprint ${libName}:${fpName} not found`);
-          return;
-        }
-        setCurLib(libName);
-        setCurName(fpName);
-        setWorkFp(fp);
-        setSelection(new Set());
-        undoStack.current = [];
-        redoStack.current = [];
-        setStatus(`Loaded ${libName}:${fpName}`);
-        bump();
-        requestAnimationFrame(() => controller.current?.zoomToFit());
-      } finally {
-        setLoading(null);
-      }
-    },
-    [bump],
-  );
-
-  // Open the specific footprint the project manager launched us on, KiCad's
-  // PROJECT_TREE_ITEM::Activate routing a `.kicad_mod` through editFootprints +
-  // MAIL_FP_EDIT. Resolve its `.pretty` library and name, expand and select it
-  // in the library tree, and load it onto the canvas. Runs after the bootstrap
-  // effect has registered the project libraries (same mount, declared earlier).
-  const fpEdit = (file: string): void => {
-    const { lib, name } = fpTargetOf(file);
-    if (!manager.current.libraryExists(lib)) return;
-    const names = manager.current.footprintNames(lib);
+    const names = store.GetFootprintNames(lib);
     const target = names.find((n) => n.toLowerCase() === name.toLowerCase()) ?? names[0];
+
     if (!target) return;
-    // `LIB_TREE::SelectLibId`, which expands the ancestors and selects — the
-    // frame no longer owns an expansion set to add to.
+
     setSelectLibId(`${lib}:${target}`);
     setTreeSel({ lib, name: target });
-    void loadFootprint(lib, target);
-  };
-  const fpEditRef = useRef(fpEdit);
-  fpEditRef.current = fpEdit;
-  const [fpFrame] = useState(
-    () => new FOOTPRINT_EDIT_FRAME({ fpEdit: (f) => fpEditRef.current(f) }),
-  );
-  // `KIWAY::Player()` stores the frame it created as FRAME_FOOTPRINT_EDITOR's
-  // player; mail held for it is delivered here, after the bootstrap effect
-  // above has registered the project's libraries.
-  useEffect(() => {
-    if (!kiway) return;
-    fpFrame.SetKiway(kiway);
-    kiway.SetPlayerFrame(FRAME_T.FRAME_FOOTPRINT_EDITOR, fpFrame);
-    return () => {
-      kiway.PlayerDidClose(FRAME_T.FRAME_FOOTPRINT_EDITOR, fpFrame);
-      fpFrame.SetKiway(null);
-    };
-  }, [kiway, fpFrame]);
-
-  // ----- undoable edits ---------------------------------------------------------
-  /** Commit one edit: snapshot for undo, buffer to the manager, mark modified. */
-  const commit = useCallback(
-    (next: PcbFootprint, description: string) => {
-      setWorkFp((prev) => {
-        if (!prev || !curLib || !curName) return prev;
-        undoStack.current.push(prev);
-        redoStack.current = [];
-        manager.current.updateFootprint(curLib, curName, next);
-        bump();
-        setStatus(description);
-        return next;
-      });
-    },
-    [curLib, curName, bump],
-  );
-
-  const undo = useCallback(() => {
-    setWorkFp((cur) => {
-      const prev = undoStack.current.pop();
-      if (!prev || !cur || !curLib || !curName) return cur;
-      redoStack.current.push(cur);
-      manager.current.updateFootprint(curLib, curName, prev);
-      bump();
-      return prev;
-    });
-    setSelection(new Set());
-  }, [curLib, curName, bump]);
-
-  const redo = useCallback(() => {
-    setWorkFp((cur) => {
-      const next = redoStack.current.pop();
-      if (!next || !cur || !curLib || !curName) return cur;
-      undoStack.current.push(cur);
-      manager.current.updateFootprint(curLib, curName, next);
-      bump();
-      return next;
-    });
-    setSelection(new Set());
-  }, [curLib, curName, bump]);
-
-  // Mirror the two stack depths into state after every commit / undo / redo /
-  // load. `workFp` and `revision` both move on all four, and an effect runs
-  // after the DOM commit, so the ref is already at its new depth here.
-  useEffect(() => {
-    setUndoDepth(undoStack.current.length);
-    setRedoDepth(redoStack.current.length);
-  }, [workFp, revision]);
-
-  // The centre to rotate/mirror about: the selection's combined bounding box.
-  const selectionCenter = useCallback((fp: PcbFootprint, sel: ReadonlySet<string>): Vec2 => {
-    let minX = Infinity,
-      minY = Infinity,
-      maxX = -Infinity,
-      maxY = -Infinity;
-    for (const id of sel) {
-      const b = fpItemBBox(fp, id);
-      if (!b) continue;
-      if (b.minX < minX) minX = b.minX;
-      if (b.minY < minY) minY = b.minY;
-      if (b.maxX > maxX) maxX = b.maxX;
-      if (b.maxY > maxY) maxY = b.maxY;
-    }
-    if (minX > maxX) return { x: 0, y: 0 };
-    return { x: Math.round((minX + maxX) / 2), y: Math.round((minY + maxY) / 2) };
-  }, []);
-
-  const moveSel = useCallback(
-    (delta: Vec2) => {
-      if (!workFp || selection.size === 0) return;
-      commit(moveFootprintItems(workFp, selection, delta), 'Move');
-    },
-    [workFp, selection, commit],
-  );
-
-  const rotateSel = useCallback(
-    (ccw: boolean) => {
-      if (!workFp || selection.size === 0) return;
-      commit(
-        rotateFootprintItems(
-          workFp,
-          selection,
-          ccw,
-          selectionCenter(workFp, selection),
-          // `frame()->GetRotationAngle()` — `editing.rotation_angle`, stored in
-          // tenths of a degree.
-          fpCfg.editing.rotation_angle / 10,
-        ),
-        ccw ? 'Rotate CCW' : 'Rotate CW',
-      );
-    },
-    [workFp, selection, commit, selectionCenter, fpCfg.editing.rotation_angle],
-  );
-
-  const mirrorSel = useCallback(() => {
-    if (!workFp || selection.size === 0) return;
-    commit(mirrorFootprintItems(workFp, selection, selectionCenter(workFp, selection)), 'Mirror');
-  }, [workFp, selection, commit, selectionCenter]);
-
-  const deleteSel = useCallback(() => {
-    if (!workFp || selection.size === 0) return;
-    commit(deleteFootprintItems(workFp, selection), 'Delete');
-    setSelection(new Set());
-  }, [workFp, selection, commit]);
-
-  const applyProps = useCallback(
-    (r: {
-      reference: string;
-      value: string;
-      description: string;
-      keywords: string;
-      models?: readonly FP_3DMODEL[];
-    }) => {
-      setPropsOpen(false);
-      if (!workFp) return;
-      let next = workFp;
-      if (r.reference !== (workFp.reference ?? '')) next = setFootprintReference(next, r.reference);
-      if (r.value !== (workFp.value ?? '')) next = setFootprintValue(next, r.value);
-      next = setFootprintDescription(next, r.description);
-      next = setFootprintKeywords(next, r.keywords);
-      // Copy the models from the panel to the footprint
-      // (`dialog_footprint_properties_fp_editor.cpp:879-882`).
-      if (r.models) next = { ...next, models: r.models.map(modelView) };
-      commit(next, 'Edit Footprint Properties');
-    },
-    [workFp, commit],
-  );
-
-  // The next pad number: one past the highest numeric pad (KiCad's PAD_TOOL).
-  const nextPadNumber = (fp: PcbFootprint): string => {
-    let max = 0;
-    for (const p of fp.pads) {
-      const n = parseInt(p.number, 10);
-      if (Number.isFinite(n) && n > max) max = n;
-    }
-    return String(max + 1);
+    void frame.LoadFootprintFromLibrary(new LIB_ID(lib, target));
   };
 
-  // Place a pad at the click (Add Pad tool). Defaults mirror KiCad's pad master:
-  // a through-hole round pad, 1.524 mm / 0.762 mm drill, on all copper + mask.
-  const placePadAt = useCallback(
-    (pos: Vec2) => {
-      if (!workFp || !curLib || !curName) return;
-      const pad: PcbPad = {
-        number: nextPadNumber(workFp),
-        type: 'thru_hole',
-        shape: 'circle',
-        at: { x: Math.round(pos.x), y: Math.round(pos.y) },
-        angle: 0,
-        size: { x: mmToIU(1.524), y: mmToIU(1.524) },
-        drill: { oblong: false, w: mmToIU(0.762), h: mmToIU(0.762) },
-        layers: ['*.Cu', '*.Mask'],
-      };
-      commit(addPad(workFp, pad), 'Add Pad');
-    },
-    [workFp, curLib, curName, commit],
-  );
-
-  // Build a graphic from its two click points, on the active layer.
-  const makeShape = useCallback(
-    (tool: string, a: Vec2, b: Vec2): PcbShape | null => {
-      // `DRAWING_TOOL`'s `m_stroke.SetWidth( bds.GetLineThickness( layer ) )`
-      // — the stroke a new graphic takes is the ACTIVE LAYER's class, out of
-      // Preferences > Footprint Editor > Graphics Defaults. This was
-      // `mmToIU( 0.1 )`, which is the silk class's default and so looked right
-      // on silk and was wrong on every other layer.
-      const base = {
-        width: mmToIU(fpLineThicknessMM(activeLayer, fpCfg)),
-        fillMode: 'none' as const,
-        layer: activeLayer,
-      };
-      if (tool === 'drawLine') return { kind: 'line', start: a, end: b, ...base };
-      if (tool === 'drawRectangle') return { kind: 'rect', start: a, end: b, ...base };
-      if (tool === 'drawCircle') return { kind: 'circle', center: a, end: b, ...base };
-      return null;
-    },
-    [activeLayer, fpCfg],
-  );
-
-  const DRAW_TOOLS = new Set(['drawLine', 'drawRectangle', 'drawCircle']);
-
-  const onPlace = useCallback(
-    (pos: Vec2) => {
-      const p = { x: Math.round(pos.x), y: Math.round(pos.y) };
-      if (activeTool === 'placePad') {
-        placePadAt(p);
-        return;
-      }
-      // `PCB_CONTROL::GridPlaceOrigin`'s picker (`pcb_control.cpp:769-800`),
-      // which the footprint editor reaches through the same PCB_CONTROL.
-      // A one-shot: the click handler returns false, so the tool pops.
-      if (activeTool === 'gridSetOrigin') {
-        setGridOrigin(p);
-        setActiveTool('selectSetRect');
-        return;
-      }
-      // `DRAWING_TOOL::PlacePoint` — `POINT_PLACER::CreateItem` sets nothing on
-      // the new `PCB_POINT` but `SetLayer( GetActiveLayer() )`, so the size is
-      // the constructor's 1 mm. `IPO_REPEAT | IPO_SINGLE_CLICK`: one click
-      // places one point and the tool stays armed.
-      if (activeTool === 'placePoint') {
-        if (workFp)
-          commit(
-            addPoint(workFp, {
-              at: p,
-              size: DEFAULT_POINT_SIZE,
-              layer: activeLayer,
-            }),
-            'Place point',
-          );
-        return;
-      }
-      // `DRAWING_TOOL::DrawBarcode` again, reached here through the footprint
-      // editor's own Place menu (`menubar_footprint_editor.cpp:193`). One
-      // click opens the properties dialog; nothing is added until it returns
-      // OK, and the tool does not re-arm (`PopTool` after the commit).
-      if (activeTool === 'placeBarcode') {
-        setBarcodeDialog({ at: p });
-        return;
-      }
-      if (DRAW_TOOLS.has(activeTool)) {
-        // Two-click drawing: first click sets the anchor, second commits the shape.
-        if (!drawStart) {
-          setDrawStart(p);
-          return;
-        }
-        const shape = makeShape(activeTool, drawStart, p);
-        setDrawStart(null);
-        if (shape && workFp)
-          commit(addShape(workFp, shape), `Draw ${activeTool.replace('draw', '').toLowerCase()}`);
-      }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    },
-    [activeTool, drawStart, placePadAt, makeShape, workFp, commit],
-  );
-
-  // Switching tools (or Escape) abandons an in-progress graphic.
-  //
-  // `toolArmed` is `TOOLS_HOLDER`'s tool stack, reduced to the one bit status
-  // pane 6 needs: nothing is pushed at frame construction, so the pane stays
-  // blank until the user arms something. See `footprintToolMsg`.
-  const selectTool = useCallback((id: string) => {
-    setActiveTool(id);
-    setDrawStart(null);
-    setToolArmed(true);
-  }, []);
-
-  // Double-click an item to edit it (pads open the pad-properties dialog).
-  const onEditItem = useCallback(
-    (id: string) => {
-      const ref = parseFpItemId(id);
-      if (ref?.kind === 'pad') setPadDialogId(id);
-      else if (workFp) setPropsOpen(true); // graphics/text → footprint properties for now
-    },
-    [workFp],
-  );
-
-  const padForDialog = useMemo(() => {
-    if (!padDialogId || !workFp) return null;
-    const ref = parseFpItemId(padDialogId);
-    return ref?.kind === 'pad' ? (workFp.pads[ref.index] ?? null) : null;
-  }, [padDialogId, workFp]);
-
-  const applyPadEdit = useCallback(
-    (e: PadEdit) => {
-      const id = padDialogId;
-      setPadDialogId(null);
-      if (!id || !workFp) return;
-      const ref = parseFpItemId(id);
-      const pad = ref?.kind === 'pad' ? workFp.pads[ref.index] : undefined;
-      if (!pad) return;
-      commit(replaceFootprintItem(workFp, id, patchPad(pad, e)), 'Edit Pad');
-    },
-    [padDialogId, workFp, commit],
-  );
-
-  // Click / box selection from the canvas (PCB_SELECTION_TOOL semantics).
-  const onSelect = useCallback((id: string | null, additive: boolean) => {
-    setSelection((prev) => {
-      if (id === null) return additive ? prev : new Set();
-      if (additive) {
-        const n = new Set(prev);
-        if (n.has(id)) n.delete(id);
-        else n.add(id);
-        return n;
-      }
-      return new Set([id]);
-    });
-  }, []);
-  const onSelectBox = useCallback((ids: string[], additive: boolean) => {
-    setSelection((prev) => (additive ? new Set([...prev, ...ids]) : new Set(ids)));
-  }, []);
-
-  const downloadText = (fileName: string, text: string): void => {
-    const url = URL.createObjectURL(new Blob([text], { type: 'application/octet-stream' }));
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = fileName;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const saveLibrary = useCallback(
-    (libName: string) => {
-      const files = manager.current.modifiedFiles(libName);
-      if (files.length === 0) {
-        setStatus('No unsaved changes');
-        return;
-      }
-      for (const f of files) downloadText(f.fileName, f.text);
-      setStatus(`Saved ${files.length} footprint${files.length === 1 ? '' : 's'} in '${libName}'`);
-      bump();
-    },
-    [bump],
-  );
-
-  const save = useCallback(() => {
-    const libName = treeSel?.lib ?? curLib;
-    if (libName) saveLibrary(libName);
-  }, [treeSel, curLib, saveLibrary]);
-
-  const saveAll = useCallback(() => {
-    for (const name of manager.current.libraryNames()) {
-      if (manager.current.isLibraryModified(name)) saveLibrary(name);
-    }
-  }, [saveLibrary]);
-
-  // ----- footprint management ---------------------------------------------------
-  const createFootprint = useCallback(
-    (name: string) => {
-      setNewFpName(null);
-      const libName = targetLib;
-      if (!libName || !name.trim()) return;
-      const fp = newFootprint(name.trim(), fpCfg);
-      manager.current.updateFootprint(libName, name.trim(), fp);
-      setSelectLibId(`${libName}:${name.trim()}`);
-      bump();
-      void loadFootprint(libName, name.trim());
-    },
-    [targetLib, bump, loadFootprint, fpCfg],
-  );
-
-  const addLibraryEntries = useCallback(
-    (entries: { fileName: string; text: string }[]) => {
-      // `.kicad_mod` files are added as a library named for their folder.
-      if (entries.length === 0) return;
-      const name = 'Imported';
-      manager.current.addProjectLibrary(name, `${name}.pretty`, entries);
-      setSelectLibId(name);
-      bump();
-    },
-    [bump],
-  );
-
-  const importFootprintText = useCallback(
-    (fileName: string, text: string) => {
-      const libName = targetLib;
-      if (!libName) {
-        setStatus('Select a library first');
-        return;
-      }
-      const name = ImportFootprint(manager.current, libName, fileName, text);
-      if (name === null) {
-        setStatus(`No footprint in ${fileName}`);
-        return;
-      }
-      bump();
-      void loadFootprint(libName, name);
-    },
-    [targetLib, bump, loadFootprint],
-  );
-
-  const deleteFootprint = useCallback(
-    (libName: string, fpName: string) => {
-      if (!window.confirm(`Delete footprint '${fpName}' from library '${libName}'?`)) return;
-      manager.current.removeFootprint(libName, fpName);
-      if (curLib === libName && curName === fpName) {
-        setWorkFp(null);
-        setCurName(null);
-      }
-      bump();
-    },
-    [curLib, curName, bump],
-  );
-
-  // ----- toolbar / toggles ------------------------------------------------------
-  const onLeftToggle = useCallback(
-    (id: string) => {
-      // The Show Grid button's right-click menu, not a button
-      // (`pcbnew/toolbars_footprint_editor.cpp:53-62`): upstream runs its rows
-      // through the same TOOL_MANAGER the button goes through, so they arrive
-      // here. `COMMON_TOOLS::GridProperties` for FRAME_FOOTPRINT_EDITOR is
-      // `ShowPreferences( _( "Grids" ), _( "Footprint Editor" ) )`
-      // (`common/tool/common_tools.cpp:626`); that page is not in our book yet,
-      // so the dialog opens without naming one.
-      if (id === 'gridProperties') {
-        setPrefsOpen('fp-grids');
-        return;
-      }
-      // `FOOTPRINT_EDIT_FRAME::ToggleLibraryTree` (`:402-419`): hiding the pane
-      // writes its width out first, because once it is hidden `GetSize().x` is no
-      // longer the width to come back to. Outside the `setToggles` updater, which
-      // runs during the render pass — see `startResize`.
-      if (id === 'showLibraryTree' && togglesRef.current.has(id)) {
-        app.updateFpEdit((s) => {
-          s.window.lib_width = panelWidthRef.current;
-        });
-      }
-      // `COMMON_TOOLS::CursorControl` (`common/tool/common_tools.cpp`) does not
-      // keep a toolbar state of its own: it writes
-      // `GetCanvas()->GetGAL()->GetOptions().m_gridStyle`'s neighbour,
-      // `m_Window.cursor.cross_hair_mode`, and the buttons' CHECK conditions read
-      // it back. So this group is the settings key, and Preferences > Display
-      // Options is the same three choices over the same value.
-      // `PCB_BASE_FRAME::SetShowPolarCoords` writes `m_PolarCoords` on the app's
-      // settings object (`footprint_editor_settings.cpp:115-116`), which is what
-      // `UpdateStatusBar`'s `if( GetShowPolarCoords() )` reads back. The button
-      // and pane 3 are one value.
-      if (id === 'togglePolarCoords') {
-        app.updateFpEdit((s) => {
-          s.editing.polar_coords = !s.editing.polar_coords;
-        });
-      }
-      // `FOOTPRINT_EDITOR_CONTROL::OnAngleSnapModeChanged`
-      // (`pcbnew/tools/footprint_editor_control.cpp:1031-1048`) maps
-      // `m_AngleSnapMode` onto these three buttons, and `PCB_ACTIONS::lineMode*`
-      // writes it back — so the group and Preferences > Editing Options'
-      // "Constrain actions to H, V, 45 degrees" are one value.
-      if (id === 'lineModeFree' || id === 'lineMode90' || id === 'lineMode45') {
-        const mode = id === 'lineMode45' ? 1 : id === 'lineMode90' ? 2 : 0;
-        app.updateFpEdit((s) => {
-          s.editing.fp_angle_snap_mode = mode;
-        });
-      }
-      if (id === 'crosshairSmall' || id === 'crosshairFull' || id === 'crosshair45') {
-        const mode = id === 'crosshair45' ? '45' : id === 'crosshairFull' ? 'full' : 'small';
-        app.updateFpEdit((s) => {
-          s.window.cursor.crosshair = mode;
-        });
-      }
-      setToggles((prev) => applyToggle(prev, id));
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    },
-    [app.updateFpEdit],
-  );
-
-  const showDatasheet = useCallback(() => {
-    setStatus('Datasheet: not defined for this footprint');
-  }, []);
-
-  const onTopAction = useCallback(
-    (id: string) => {
-      switch (id) {
-        case 'newFootprint':
-          setNewFpName('');
-          break;
-        case 'save':
-          save();
-          break;
-        case 'undo':
-          undo();
-          break;
-        case 'redo':
-          redo();
-          break;
-        case 'zoomRedraw':
-          controller.current?.redraw();
-          break;
-        case 'zoomIn':
-          controller.current?.zoomIn();
-          break;
-        case 'zoomOut':
-          controller.current?.zoomOut();
-          break;
-        case 'zoomFit':
-          controller.current?.zoomToFit();
-          break;
-        case 'rotateCCW':
-          rotateSel(true);
-          break;
-        case 'rotateCW':
-          rotateSel(false);
-          break;
-        case 'mirrorH':
-        case 'mirrorV':
-          mirrorSel();
-          break;
-        case 'footprintProperties':
-          if (workFp) setPropsOpen(true);
-          break;
-        case 'showDatasheet':
-          showDatasheet();
-          break;
-        default:
-          break; // remaining editing actions are staged
-      }
-    },
-    [save, undo, redo, rotateSel, mirrorSel, showDatasheet, workFp],
-  );
-
-  // ----- library tree (footprint_tree_pane / LIB_TREE) --------------------------
-  const libNames = manager.current.libraryNames();
-  void revision;
-
-  /**
-   * `m_frame->GetLibTreeAdapter()` — the ONE adapter this frame's tree is built
-   * on (`footprint_tree_pane.cpp:37-38`). It is an
-   * `FP_TREE_SYNCHRONIZING_ADAPTER`, so every row face is re-derived from the
-   * frame on each paint and none of it is cached: see
-   * `fp_tree_synchronizing_adapter.ts`.
-   *
-   * Built once, like the manager it wraps. Its three questions read refs rather
-   * than state so the memo never has to be rebuilt to see a fresh answer —
-   * upstream holds a `FOOTPRINT_EDIT_FRAME*` for the same reason.
-   */
-  const loadedFpIdRef = useRef('');
-  loadedFpIdRef.current = curLib && curName ? `${curLib}:${curName}` : '';
-  const contentModifiedRef = useRef(false);
-  contentModifiedRef.current =
-    !!curLib && !!curName && manager.current.isFootprintModified(curLib, curName);
+  // ----- the Footprints pane (LIB_TREE) -------------------------------------------
   const treeAdapter = useMemo(() => {
     const adapter = new FpTreeSynchronizingAdapter({
-      loadedFpId: () => loadedFpIdRef.current,
-      isContentModified: () => contentModifiedRef.current,
-      // `IsCurrentFPFromBoard()`. Always false here for the reason
-      // `frame_title.ts` gives: nothing in this port can load a footprint off
-      // a board yet — `loadFpFromBoard` is a disabled Tools row.
-      isCurrentFpFromBoard: () => false,
+      loadedFpId: () => frame.GetLoadedFPID().Format(),
+      isContentModified: () => frame.GetScreen()?.IsContentModified() === true,
+      isCurrentFpFromBoard: () => frame.IsCurrentFPFromBoard(),
     });
-    // `loadColumnConfig`, which the adapter's constructor calls on the settings
-    // struct it was handed (`common/lib_tree_model_adapter.cpp:184-197`). Ours
-    // is `fpedit.json`'s `lib_tree` block, because `FP_TREE_MODEL_ADAPTER` is
-    // built on `GetViewerSettingsBase()->m_LibTree`
-    // (`pcbnew/fp_tree_model_adapter.cpp:43-44`).
     adapter.loadColumnConfig({
       columns: app.fpEdit().lib_tree.columns,
       widths: app.fpEdit().lib_tree.column_widths,
     });
     return adapter;
-  }, [app.fpEdit]);
+  }, [app.fpEdit, frame]);
 
-  /**
-   * `m_cfg.open_libs = GetOpenLibs()` (`lib_tree_model_adapter.cpp:246`) and
-   * `OpenLibs( … )` on the way back in (`:220-232`).
-   *
-   * `LIB_TREE` owns the expansion state, so the frame cannot read it back the
-   * way `GetOpenLibs` walks the dataview; it hears every change through
-   * `onToggleLibrary` instead and keeps the set for the settings file alone.
-   */
   const openLibs = useRef<readonly string[]>(app.fpEdit().lib_tree.open_libs);
   const openLibSet = useRef(new Set(app.fpEdit().lib_tree.open_libs));
 
-  /**
-   * `FP_TREE_SYNCHRONIZING_ADAPTER::Sync` — rebuild the node tree when the SET
-   * of libraries or footprints changed, and only then.
-   *
-   * Modified-ness is deliberately not in the signature: that is the adapter's
-   * to answer live, and putting it here would rebuild the whole tree on every
-   * keystroke of an edit.
-   */
-  const treeSignature = libNames
-    .map(
-      (n) =>
-        `${n}\u0000${manager.current.isPinned(n) ? 1 : 0}\u0000${manager.current
-          .footprintNames(n)
-          .join('\u0001')}`,
-    )
-    .join('\u0002');
   const [treeNonce, setTreeNonce] = useState(0);
+  // `FP_TREE_SYNCHRONIZING_ADAPTER::Sync` over the library adapter.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: treeRevision is the Sync trigger
   useEffect(() => {
-    const mgr = manager.current;
     treeAdapter.tree.children.length = 0;
-    for (const libName of mgr.libraryNames()) {
-      // The Description column of a LIBRARY row is the fp-lib-table row's
-      // `Description()` (`fp_tree_synchronizing_adapter.cpp:265-272`), not the
-      // directory name. `ManagedFpLibrary` does not carry the table's descr, so
-      // the cell is empty rather than filled with something else.
-      const libNode = treeAdapter.addLibrary(libName, '', mgr.isPinned(libName));
-      for (const name of mgr.footprintNames(libName)) {
-        const fp = mgr.getFootprint(libName, name);
+
+    for (const libName of store.GetLibraryNames()) {
+      const libNode = treeAdapter.addLibrary(
+        libName,
+        store.GetRow(libName)?.Description?.() ?? '',
+        store.IsPinned(libName),
+      );
+
+      for (const name of store.GetFootprintNames(libName)) {
+        // FOOTPRINT_INFO: what the file says, once it is in hand.
+        const fp = store.LoadFootprint(libName, name, true);
+        const descr = fp?.GetLibDescription() ?? '';
+        const keywords = fp?.GetKeywords() ?? '';
         const item = new LibTreeNode();
         item.type = LibTreeNodeType.ITEM;
         item.parent = libNode;
         item.name = name;
         item.libNickname = libName;
         item.libItemName = name;
-        item.desc = fp?.descr ?? '';
-        // `FOOTPRINT::GetSearchTerms` (`pcbnew/footprint.cpp:1707-1725`): the
-        // nickname at 4, the name at 8 and the LIB_ID at 16 — the last two
-        // flagged as names, which is what an exact match is scored against —
-        // then each keyword token at 4, the whole keyword string at 1 and the
-        // description at 1. The last four need a file that may not be fetched
-        // yet, so they appear as the library loads.
-        const keywords = fp?.tags ?? '';
+        item.desc = descr;
+        // `FOOTPRINT::GetSearchTerms` (`pcbnew/footprint.cpp:1707-1725`).
         item.sourceSearchTerms = [
           { text: libName.toLowerCase(), score: 4 },
           { text: name.toLowerCase(), score: 8, isName: true },
@@ -1367,45 +770,63 @@ export function FootprintEditFrame({
             .filter(Boolean)
             .map((k) => ({ text: k.toLowerCase(), score: 4 })),
           { text: keywords.toLowerCase(), score: 1 },
-          { text: (fp?.descr ?? '').toLowerCase(), score: 1 },
+          { text: descr.toLowerCase(), score: 1 },
         ];
         item.rebuildSearchTerms(treeAdapter.getShownColumns());
         libNode.children.push(item);
       }
+
       treeAdapter.finishLibrary(libNode);
     }
+
     treeAdapter.tree.assignIntrinsicRanks();
     setTreeNonce((n) => n + 1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [treeSignature, treeAdapter]);
+  }, [treeRevision, treeAdapter, store]);
 
-  /**
-   * `LIB_TREE::SelectLibId`, which `FOOTPRINT_EDIT_FRAME::FocusOnLibID` and
-   * `SyncLibraryTree` call to make the tree follow the frame
-   * (`footprint_edit_frame.cpp:1186-1211`). One piece of state, because
-   * upstream is one call either way.
-   */
-  const [selectLibId, setSelectLibId] = useState('');
-  /** `EVT_LIBITEM_SELECTED` — the tree's selection, which is what
-   *  `GetTargetFPID` and the four `Init` conditions read. */
+  // The frame's LIB_TREE: the pane's selection and the calls that move it.
+  useEffect(() => {
+    const tree: LIB_TREE = {
+      GetSelectedTreeNodes: (aSelection) => {
+        const sel = treeSelRef.current;
+        if (!sel) return 0;
+        aSelection.push(
+          ...fpTreeSelectedNodes({
+            library: sel.lib,
+            footprint: sel.name ?? '',
+            pinned: store.IsPinned(sel.lib),
+          }),
+        );
+        return 1;
+      },
+      Regenerate: () => bumpTree(),
+      CenterLibId: (aLibId) => setCenterLibId(aLibId.Format()),
+      GetSelectedLibId: () => {
+        const sel = treeSelRef.current;
+        return sel ? new LIB_ID(sel.lib, sel.name ?? '') : new LIB_ID();
+      },
+      SelectLibId: (aLibId) => {
+        setSelectLibId(aLibId.Format());
+        setTreeSel({ lib: aLibId.GetLibNickname(), name: aLibId.GetLibItemName() || null });
+      },
+      Unselect: () => setTreeSel(null),
+      RefreshLibTree: () => repaint(),
+    };
+    frame.SetLibTree(tree);
+    return () => frame.SetLibTree(null);
+  }, [frame, store]);
+
   const onTreeSelect = useCallback((node: LibTreeNode | null) => {
-    if (!node) {
-      setTreeSel(null);
-      return;
-    }
-    if (node.type === LibTreeNodeType.LIBRARY) setTreeSel({ lib: node.name, name: null });
+    if (!node) setTreeSel(null);
+    else if (node.type === LibTreeNodeType.LIBRARY) setTreeSel({ lib: node.name, name: null });
     else setTreeSel({ lib: node.libNickname, name: node.libItemName });
   }, []);
 
-  /** `LoadFootprintFromLibrary`, which `FOOTPRINT_TREE_PANE::onComponentSelected`
-   *  (`footprint_tree_pane.tsx`) calls on a double-clicked footprint row. */
+  /** `FOOTPRINT_TREE_PANE::onComponentSelected` -> `LoadFootprintFromLibrary`. */
   const onLoadFootprintFromTree = useCallback(
-    (lib: string, name: string) => void loadFootprint(lib, name),
-    [loadFootprint],
+    (lib: string, name: string) => void frame.LoadFootprintFromLibrary(new LIB_ID(lib, name)),
+    [frame],
   );
 
-  /** Expanding a library fetches it — our lazy stand-in for upstream's
-   *  preloaded `FOOTPRINT_LIBRARY_ADAPTER`. Collapsing needs nothing. */
   const onTreeToggleLibrary = useCallback(
     (node: LibTreeNode, open: boolean) => {
       if (open) openLibSet.current.add(node.name);
@@ -1413,18 +834,10 @@ export function FootprintEditFrame({
       app.updateFpEdit((s) => {
         s.lib_tree.open_libs = [...openLibSet.current];
       });
-      if (!open) return;
-      void manager.current.ensureLoaded(node.name).then(bump);
     },
-    [bump, app.updateFpEdit],
+    [app.updateFpEdit],
   );
 
-  /**
-   * `m_adapter->GetContextMenuTool()` returning `FOOTPRINT_EDITOR_CONTROL`
-   * (`fp_tree_synchronizing_adapter.cpp:62-65`), which is why this tree gets
-   * the fifteen-row menu in `tree_context_menu.ts` and not `LIB_TREE`'s
-   * Pin/Unpin fallback. The widget has already selected the row.
-   */
   const onTreeItemContextMenu = useCallback((node: LibTreeNode, x: number, y: number) => {
     setTreeMenu(
       node.type === LibTreeNodeType.LIBRARY
@@ -1443,11 +856,6 @@ export function FootprintEditFrame({
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
       document.body.style.cursor = '';
-      // `cfg->m_LibWidth = m_treePane->GetSize().x` — the pane has stopped
-      // moving, so its width is what the next session opens at. Read off the
-      // ref rather than out of a `setPanelWidth` updater: that updater runs
-      // during React's render pass, and notifying the settings store from
-      // there updates one component while another is rendering.
       app.updateFpEdit((s) => {
         s.window.lib_width = panelWidthRef.current;
       });
@@ -1457,369 +865,192 @@ export function FootprintEditFrame({
     document.body.style.cursor = 'col-resize';
   };
 
-  const toggleLayer = (name: string): void => {
-    setVisible((prev) => {
-      const next = new Set(prev);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
-      return next;
-    });
-  };
-
+  // ----- toolbars and menus ----------------------------------------------------------
   /**
-   * The menu tree, mirrored for the key chain below - `menus` is built further
-   * down, and the chain has to dispatch off the live one. Same reason
-   * `useMenuHotkeys` holds a ref rather than a dependency.
+   * The left toolbar's buttons. Each runs its action; the window keeps the
+   * CHECK state the bar draws (and `fpedit.json`'s copy of the settings ones).
    */
-  const menusRef = useRef<Menu[]>([]);
-
-  // ----- keyboard ---------------------------------------------------------------
-  // One chain, in ACTION_MANAGER::RunHotKey order: the context actions this
-  // canvas owns, then the menus. See ui/menu_hotkeys.ts for why there is not a
-  // second listener beside this one.
-  useEffect(() => {
-    const dialogOpen =
-      newLibName !== null || newFpName !== null || propsOpen || padDialogId !== null;
-    const onKey = (e: KeyboardEvent): void => {
-      // Hidden frames must not act on global hotkeys (editors stay mounted
-      // behind display:none; no stamp = standalone build, always active).
-      if ((document.body.dataset.activeView ?? 'footprints') !== 'footprints') return;
-      // The library tree already claimed it (TreeSelActions).
-      // `defaultPrevented` means someone already acted on this key - EXCEPT
-      // when it was our own browser suppressor, which runs in the capture phase
-      // and cancels every combo the app claims purely to stop the browser.
-      // Reading that as "handled" is what made every hotkey in the app stop
-      // working once the dispatcher landed (c4a00590).
-      if (e.defaultPrevented && !wasBrowserSuppressed(e)) return;
-      if (dialogOpen) {
-        if (e.key === 'Escape') {
-          setNewLibName(null);
-          setNewFpName(null);
-        }
-        return;
-      }
-      // tool_dispatcher.cpp:654-670 - an editable entry takes every key, a
-      // read-only one keeps Ctrl+C. dispatchMenuHotkey re-applies this for the
-      // menus; here it gates the context branches.
-      const target = e.target as (FocusLike & { readOnly?: boolean; disabled?: boolean }) | null;
-      if (focusBlocksHotkey(target, e)) return;
-      // A canvas tool key is MD_NONE upstream, so a modified press is a
-      // different action and must fall through to the menus.
-      const plain = !e.ctrlKey && !e.metaKey && !e.altKey;
-
-      // --- context: what the live tool / selection owns -----------------------
-      if (e.key === 'Escape') {
-        // ACTIONS::cancelInteractive, scoped to whatever is running: back out
-        // of the drawing, then the tool, then the selection.
-        if (drawStart) setDrawStart(null);
-        else if (activeTool !== 'selectSetRect') selectTool('selectSetRect');
-        else setSelection(new Set());
-        return;
-      }
-      if (plain && (e.key === 'r' || e.key === 'R')) {
-        // PCB_ACTIONS::rotateCcw (R) / rotateCw (Shift+R). Neither has a row in
-        // this frame's Edit menu, so both stay here.
-        e.preventDefault();
-        rotateSel(!e.shiftKey);
+  const onLeftToggle = useCallback(
+    (id: string) => {
+      if (id === 'gridProperties') {
+        setPrefsOpen('fp-grids');
         return;
       }
 
-      // --- global: the menu accelerators --------------------------------------
-      if (dispatchMenuHotkey(menusRef.current, e, { target })) e.preventDefault();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [rotateSel, selectTool, activeTool, drawStart, newLibName, newFpName, propsOpen, padDialogId]);
+      // FOOTPRINT_EDIT_FRAME::ToggleLibraryTree: hiding writes the width first.
+      if (id === 'showLibraryTree' && togglesRef.current.has(id)) {
+        app.updateFpEdit((s) => {
+          s.window.lib_width = panelWidthRef.current;
+        });
+      }
 
-  /**
-   * `FOOTPRINT_EDIT_FRAME::IsContentModified()`
-   * (`footprint_edit_frame.cpp:368-372`): the screen's dirty bit **and** a
-   * footprint on the board. It gates Revert and the title's `*`.
-   */
-  const modified = curLib && curName ? manager.current.isFootprintModified(curLib, curName) : false;
+      if (id === 'togglePolarCoords') {
+        app.updateFpEdit((s) => {
+          s.editing.polar_coords = !s.editing.polar_coords;
+        });
+      }
 
-  /**
-   * `FOOTPRINT_EDIT_FRAME::RevertFootprint()`
-   * (`footprint_libraries_utils.cpp:1191-1218`): confirm, put the as-loaded
-   * copy back on the board, zoom-fit, and clear both the undo/redo lists and
-   * the modified flag.
-   */
-  const revert = useCallback(() => {
-    if (!curLib || !curName || !modified) return;
-    // `ConfirmRevertDialog` — the message and its grey sub-line both come from
-    // `ui/confirm.ts`, the one place `common/confirm.cpp` is transcribed.
-    if (!window.confirm(`${confirmRevertMessage(curName)}\n\n${CONFIRM_REVERT_EXTENDED}`)) return;
-    const orig = manager.current.revertFootprint(curLib, curName);
-    setWorkFp(orig ?? null);
-    setSelection(new Set());
-    undoStack.current = [];
-    redoStack.current = [];
-    bump();
-    requestAnimationFrame(() => controller.current?.zoomToFit());
-  }, [curLib, curName, modified, bump]);
+      if (id === 'lineModeFree' || id === 'lineMode90' || id === 'lineMode45') {
+        const mode = id === 'lineMode45' ? 1 : id === 'lineMode90' ? 2 : 0;
+        app.updateFpEdit((s) => {
+          s.editing.fp_angle_snap_mode = mode;
+        });
+      }
 
-  // ----- menus (menubar_footprint_editor.cpp) -----------------------------------
-  //
-  // The tree lives in `menubar.ts`. A menu built inside a `.tsx` cannot be
-  // reached by any test - `qa`'s tsconfig compiles `.ts` only - so nothing
-  // could have caught a missing row. What stays here is the frame's half: the
-  // three handlers and the ENABLE() conditions.
+      if (id === 'crosshairSmall' || id === 'crosshairFull' || id === 'crosshair45') {
+        const mode = id === 'crosshair45' ? '45' : id === 'crosshairFull' ? 'full' : 'small';
+        app.updateFpEdit((s) => {
+          s.window.cursor.crosshair = mode;
+        });
+      }
+
+      // The panes are the window's (wxAUI); everything else is an action.
+      if (id !== 'showLibraryTree' && id !== 'showLayersManager' && id !== 'showProperties') {
+        const action = actionForId(id);
+        if (action) runAction(action);
+      }
+
+      setToggles((prev) => applyToggle(prev, id));
+    },
+    [app.updateFpEdit, runAction],
+  );
+  const onLeftToggleRef = useRef(onLeftToggle);
+  onLeftToggleRef.current = onLeftToggle;
+
+  /** A top-toolbar or right-toolbar button: its action. */
+  const onToolbarAction = useCallback(
+    (id: string) => {
+      const action = actionForId(id);
+      if (action) runAction(action);
+    },
+    [runAction],
+  );
+
+  /** A menu row: its action, or the few rows that are the window's. */
   const onMenuAction = useCallback(
     (id: string) => {
       switch (id) {
-        // `COMMON_TOOLS::GridResetOrigin` — `SetGridOrigin( VECTOR2I( 0, 0 ) )`
-        // and a refresh. Not a picker, so it is a plain menu action.
-        case 'gridResetOrigin':
-          setGridOrigin({ x: 0, y: 0 });
-          break;
         case 'newLibrary':
-          setNewLibName('');
-          break;
+          // PCB_CONTROL::AddLibrary -> CreateNewLibrary: not ported; a library
+          // here is a project folder made by name.
+          setNewLibName(true);
+          return;
         case 'addLibrary':
-          setFpOpenDlg('addLibrary');
-          break;
-        case 'newFootprint':
-          setNewFpName('');
-          break;
-        case 'save':
-          save();
-          break;
-        case 'revert':
-          revert();
-          break;
-        case 'saveAll':
-          saveAll();
-          break;
-        case 'importFootprint':
-          setFpOpenDlg('importFootprint');
-          break;
-        case 'exportFootprint': {
-          const l = treeSel?.lib ?? curLib,
-            n = treeSel?.name ?? curName;
-          if (l && n) {
-            const t = manager.current.saveFootprintText(l, n);
-            if (t) downloadText(`${n}.kicad_mod`, t);
-          }
-          break;
-        }
-        case 'footprintProperties':
-          if (workFp) setPropsOpen(true);
-          break;
-        case 'close':
-          onExitToHome();
-          break;
-        case 'undo':
-          undo();
-          break;
-        case 'redo':
-          redo();
-          break;
-        case 'doDelete':
-          deleteSel();
-          break;
-        case 'zoomInCenter':
-          controller.current?.zoomIn();
-          break;
-        case 'zoomOutCenter':
-          controller.current?.zoomOut();
-          break;
-        case 'zoomFitScreen':
-          controller.current?.zoomToFit();
-          break;
-        case 'showDatasheet':
-          showDatasheet();
-          break;
-        // ACTIONS::openPreferences. The shared dialog every launcher opens.
+          setFpOpenDlg({ kind: 'addLibrary' });
+          return;
         case 'openPreferences':
           setPrefsOpen(true);
-          break;
-        // `ACTIONS::showFootprintBrowser` -> `COMMON_CONTROL::ShowPlayer`:
-        // `Kiway().Player( FRAME_FOOTPRINT_VIEWER, true )` and raise it.
+          return;
         case 'showFootprintBrowser':
           kiway?.Player(FRAME_T.FRAME_FOOTPRINT_VIEWER);
-          break;
+          return;
+        case 'close':
+          onExitToHome();
+          return;
       }
+
+      const action = actionForId(id);
+      if (action) runAction(action);
     },
-    [
-      kiway,
-      save,
-      saveAll,
-      revert,
-      undo,
-      redo,
-      deleteSel,
-      onExitToHome,
-      treeSel,
-      curLib,
-      curName,
-      workFp,
-      showDatasheet,
-    ],
+    [kiway, onExitToHome, runAction],
   );
 
-  /**
-   * The tree menu's dispatch. Most ids are the menu bar's own — upstream they
-   * are literally the same `TOOL_ACTION` objects appearing in two menus — so
-   * they route to `onMenuAction`; only the four the tree owns are handled here.
-   */
   const onTreeMenuAction = useCallback(
     (id: string) => {
       const target = treeMenu;
       setTreeMenu(null);
       if (!target) return;
+
       switch (id) {
-        // `LIBRARY_EDITOR_CONTROL::changeSelectedPinStatus`
-        // (`common/tool/library_editor_control.cpp:99-130`).
-        // Only a selected LIBRARY row is repinned; a footprint row is not.
+        // `LIBRARY_EDITOR_CONTROL::changeSelectedPinStatus`.
         case 'pinLibrary':
         case 'unpinLibrary': {
           const pin = id === 'pinLibrary';
           const sel = fpTreeSelectedNodes({
             library: target.lib,
             footprint: target.name,
-            pinned: manager.current.isPinned(target.lib),
+            pinned: store.IsPinned(target.lib),
           });
-          for (const lib of LibrariesToRepin(sel, pin))
-            manager.current.setPinned(lib.libNickname, pin);
-          bump();
-          break;
+          for (const lib of LibrariesToRepin(sel, pin)) store.SetPinned(lib.libNickname, pin);
+          bumpTree();
+          return;
         }
-        // `PCB_ACTIONS::deleteFootprint` — the tree's row, which acts on the
-        // tree selection and not on the canvas.
-        case 'deleteFootprint':
-          if (target.name) deleteFootprint(target.lib, target.name);
-          break;
-        // `ACTIONS::hideLibraryTree` — the same toggle the View > Panels row
-        // and the left toolbar button flip.
         case 'hideLibraryTree':
           onLeftToggle('showLibraryTree');
-          break;
+          return;
         default:
           onMenuAction(id);
-          break;
       }
     },
-    [treeMenu, bump, deleteFootprint, onLeftToggle, onMenuAction],
+    [treeMenu, store, onLeftToggle, onMenuAction],
   );
 
-  const menus: Menu[] = useMemo(
-    () =>
-      footprintEditorMenus(
-        {
-          action: onMenuAction,
-          tool: selectTool,
-          toggle: onLeftToggle,
-          // Preferences > Set Language. COMMON_SETTINGS is shared by every
-          // frame, so it is read and written through the common store.
-          language: common.system.language,
-          onSelectLanguage: (label: string) => app.SetLanguage(label),
-          showHotkeys: showHotkeyList,
-          showAbout: () => setAboutOpen(true),
-        },
-        {
-          showLibraryTree: toggles.has('showLibraryTree'),
-          showLayersManager: toggles.has('showLayersManager'),
-          showProperties: toggles.has('showProperties'),
-          padDisplayMode: toggles.has('padDisplayMode'),
-          graphicsOutlines: toggles.has('graphicsOutlines'),
-          textOutlines: toggles.has('textOutlines'),
-          highContrast: toggles.has('highContrast'),
-        },
-        {
-          haveFootprint: !!workFp,
-          targetLib: !!targetLib,
-          targetFootprint: !!(curName || treeSel?.name),
-          footprintSelectedInTree: !!treeSel?.name,
-          // `IsContentModified()` is the LOADED footprint's dirty bit
-          // (`footprint_edit_frame.cpp:368-372`), not the whole workspace's.
-          contentModified: modified,
-          // `board && !board->IsEmpty()` — our board is `footprintToBoard`, so
-          // it is non-empty exactly when a footprint is loaded.
-          hasItems: !!workFp,
-          undoAvailable: undoDepth > 0,
-          redoAvailable: redoDepth > 0,
-        },
-      ),
-    [
-      onMenuAction,
-      selectTool,
-      onLeftToggle,
-      toggles,
-      workFp,
-      targetLib,
-      curName,
-      treeSel,
-      modified,
-      undoDepth,
-      redoDepth,
-      common.system.language,
-      app.SetLanguage,
-    ],
-  );
+  const board = frame.GetBoard();
+  const footprint = board?.GetFirstFootprint() ?? null;
+  const targetFPID = frame.GetTargetFPID();
 
-  // The chain above reads the tree through this ref; see `menusRef`.
+  const menus: Menu[] = footprintEditorMenus(
+    {
+      action: onMenuAction,
+      tool: onToolbarAction,
+      toggle: onLeftToggle,
+      language: common.system.language,
+      onSelectLanguage: (label: string) => app.SetLanguage(label),
+      showHotkeys: showHotkeyList,
+      showAbout: () => setAboutOpen(true),
+    },
+    {
+      showLibraryTree: toggles.has('showLibraryTree'),
+      showLayersManager: toggles.has('showLayersManager'),
+      showProperties: toggles.has('showProperties'),
+      padDisplayMode: toggles.has('padDisplayMode'),
+      graphicsOutlines: toggles.has('graphicsOutlines'),
+      textOutlines: toggles.has('textOutlines'),
+      highContrast: toggles.has('highContrast'),
+    },
+    {
+      haveFootprint: footprint !== null,
+      targetLib: targetFPID.GetLibNickname() !== '',
+      targetFootprint: targetFPID.GetLibItemName() !== '',
+      footprintSelectedInTree: !!treeSel?.name,
+      contentModified: frame.IsContentModified(),
+      hasItems: !!board && !board.IsEmpty(),
+      undoAvailable: frame.GetUndoCommandCount() > 0,
+      redoAvailable: frame.GetRedoCommandCount() > 0,
+    },
+  );
+  const menusRef = useRef<Menu[]>(menus);
   menusRef.current = menus;
 
-  // ----- title (FOOTPRINT_EDIT_FRAME::UpdateTitle) -------------------------------
-  //
-  // Built by the shared rule rather than restated here - see `frame_title.ts`
-  // for the C++ and for the four branches this frame decides for itself. What
-  // used to be here got the document right and everything around it wrong: no
-  // `*`, an ASCII hyphen for the em dash, and "No footprint" where KiCad says
-  // `[no footprint loaded]`.
-  const fpTitle = useMemo(
-    () =>
-      fpFrameTitle({
-        // `IsCurrentFPFromBoard()`. Always false today: nothing here can load a
-        // footprint off a board yet - `loadFpFromBoard` is the disabled Tools
-        // row - so branch 1 is unreachable. Ported and tested anyway, so the
-        // title is already right on the day that action lands.
-        fromBoard: false,
-        // `GetLoadedFPID().IsValid()` - the branch GUARD, which upstream reads
-        // off the LOADED id while printing the LIVE one.
-        loadedFpidValid: Boolean(curLib && curName),
-        // `footprint->GetFPID().Format()` - the live id, so a rename shows
-        // through before it is saved.
-        fpid: workFp && curLib && curName ? `${curLib}:${curName}` : '',
-        // `IsFootprintLibWritable( … )`. Undefined means writable, matching
-        // upstream's `bool writable = true` seed; `FootprintLibraryManager` has
-        // no writability notion yet, so `[Read Only]` cannot appear.
-        writable: undefined,
-        // `IsContentModified()`.
-        modified,
-      }),
-    [workFp, curLib, curName, modified],
+  // The menu accelerators; the canvas's own keys go to the dispatcher.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if ((document.body.dataset.activeView ?? 'footprints') !== 'footprints') return;
+      if (e.defaultPrevented && !wasBrowserSuppressed(e)) return;
+      const target = e.target as (FocusLike & { readOnly?: boolean; disabled?: boolean }) | null;
+      if (focusBlocksHotkey(target, e)) return;
+      if (dispatchMenuHotkey(menusRef.current, e, { target })) e.preventDefault();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  // ----- title -----------------------------------------------------------------------
+  // `UpdateTitle()` whenever the frame changed.
+  useEffect(() => {
+    frame.UpdateTitle();
+  });
+
+  const modified = frame.IsContentModified();
+  useDocumentTitle('footprints', formatTitle(FP_FRAME_NAME, title, false));
+  useUnsavedGuard(modified);
+
+  // ----- Appearance ------------------------------------------------------------------
+  const layerRows = useMemo(
+    () => appearanceLayerRows(FOOTPRINT_COPPER_STACK, allFpLayers),
+    [allFpLayers],
   );
 
-  useDocumentTitle('footprints', formatTitle(FP_FRAME_NAME, fpTitle.document, modified));
-
-  // Library edits are buffered and only written by Save, so closing the tab
-  // discards them. `hasModifications()` answers across every open library
-  // rather than just the footprint on screen — losing an edit to a library you
-  // are not looking at is the easier mistake to make.
-  useUnsavedGuard(manager.current.hasModifications());
-
-  // ----- unit display -----------------------------------------------------------
-  // FOOTPRINT_EDIT_FRAME is a PCB_BASE_EDIT_FRAME, so MessageTextFromValue takes
-  // its long form off pcbIUScale — mm %.4f, mils %.2f, inches %.4f — and the
-  // value has to be converted at that scale too. It went through the SCHEMATIC
-  // iuToMM, which is a hundred times coarser, so every coordinate, delta and
-  // grid figure in the status bar read 100x too large.
-  const fmt = (iu: number): string => messageTextFromValue(pcbIuToMM(iu), unitLabel, PCB_IU_PER_MM);
-
-  /**
-   * The Appearance panel's rows, `APPEARANCE_CONTROLS::rebuildLayers`
-   * (`appearance_controls.cpp:1859-1893`): the copper stack front-to-back, then
-   * `non_cu_seq`. Shared with the PCB editor — see `widgets/appearance_layers.ts`
-   * for what this used to be instead.
-   */
-  const layerRows = useMemo(() => appearanceLayerRows(FOOTPRINT_COPPER_STACK, allFpLayers), []);
-
-  /**
-   * Which preset the combo shows — `syncLayerPresetSelection`, derived from the
-   * view rather than stored, exactly as in pcbnew. The two frames run the same
-   * function; only the layer set it compares against differs.
-   */
   const preset = useMemo(
     () =>
       matchPresetName({
@@ -1831,11 +1062,10 @@ export function FootprintEditFrame({
         allLayers: allFpLayers,
         copperLayers: FOOTPRINT_COPPER_STACK,
       }),
-    [visible, objects, flipBoard],
+    [visible, objects, flipBoard, allFpLayers],
   );
 
-  /** `doApplyLayerPreset` — the layers, the flip and the preset's active layer. */
-  const applyPreset = useCallback((name: string): void => {
+  const applyPreset = (name: string): void => {
     const p = BUILTIN_PRESETS.find((x) => x.name === name);
     if (!p) return;
     setVisible(
@@ -1846,132 +1076,99 @@ export function FootprintEditFrame({
       ),
     );
     setFlipBoard(p.flipBoard);
-    if (p.activeLayer && allFpLayers.includes(p.activeLayer)) setActiveLayer(p.activeLayer);
-  }, []);
+    if (p.activeLayer && allFpLayers.includes(p.activeLayer)) setActiveLayerName(p.activeLayer);
+  };
 
-  /**
-   * `board->GetLayerName( layer )` (:1876, and :1902's fp-editor branch, which
-   * falls back to `GetStandardLayerName`). Every place a layer is put in front
-   * of the user goes through it: the Appearance rows, the layer selector and
-   * the status bar all said `F.SilkS`, `Dwgs.User`, `F.CrtYd` where KiCad says
-   * `F.Silkscreen`, `User.Drawings`, `F.Courtyard`.
-   */
-  const layerName = useCallback((name: string): string => GetLayerName(fpLayers, name), [fpLayers]);
+  const layerName = (name: string): string => GetLayerName(fpLayers, name);
 
-  /**
-   * FOOTPRINT::GetMsgPanelInfo's FRAME_FOOTPRINT_EDITOR branch
-   * (pcbnew/footprint.cpp:2140-2157): reference/value, Library, Footprint
-   * Name, Pads, then the Doc/Keywords pair.
-   */
-  const fpMsgPanelItems = useMemo((): MsgPanelItem[] => {
-    if (!workFp) return [];
-    return [
-      { upper: workFp.reference ?? '', lower: workFp.value ?? '' },
-      { upper: 'Library', lower: curLib ?? '' },
-      { upper: 'Footprint Name', lower: curName ?? '' },
-      { upper: 'Pads', lower: String(workFp.pads.length) },
-      {
-        upper: `Doc: ${footprintStringChild(workFp, 'descr')}`,
-        lower: `Keywords: ${footprintStringChild(workFp, 'tags')}`,
-      },
-    ];
-  }, [workFp, curLib, curName]);
+  const toggleLayer = (name: string): void =>
+    setVisible((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+
+  const gridIdx = fpCfg.window.grid.last_size_idx;
+
+  const statusSpan = (name: string): JSX.Element => (
+    <span
+      ref={(el) => {
+        statusRefs.current[name] = el;
+      }}
+    />
+  );
 
   return (
     <div className="ze-app">
-      {/* `Add Library` and `Import Footprint`, over the account's tree. Both
-          were a hidden `<input type="file">`, i.e. the operating system's
-          picker, which cannot see the account at all. */}
       {fpOpenDlg &&
         app.OpenFileDialog({
-          title: fpOpenDlg === 'addLibrary' ? 'Add Library' : 'Import Footprint',
-          accept: fpOpenDlg === 'addLibrary' ? 'Add' : 'Import',
-          // The folder — `PATHS::GetDefaultUserFootprintsPath()` — is the app's.
+          title: fpOpenDlg.kind === 'addLibrary' ? 'Add Library' : 'Import Footprint',
+          accept: fpOpenDlg.kind === 'addLibrary' ? 'Add' : 'Import',
           filters: [kicadFootprintLibWildcard()],
           onDone: (file) => {
             const which = fpOpenDlg;
             setFpOpenDlg(null);
+
+            if (which.kind === 'import') {
+              which.done(file);
+              return;
+            }
+
             if (!file) return; // wxID_CANCEL
+
             const leaf = file.path.split('/').filter(Boolean).pop() ?? file.path;
-            if (which === 'addLibrary') addLibraryEntries([{ fileName: leaf, text: file.text }]);
-            else importFootprintText(leaf, file.text);
+            store.AddProjectLibrary('Imported', 'Imported.pretty', [
+              { fileName: leaf, text: file.text },
+            ]);
+            frame.SyncLibraryTree(true);
           },
         })}
 
       <MenuBar
         menus={menus}
         leftSlot={app.HomeLink({ onClick: onExitToHome })}
-        title={
-          <>
-            <b>
-              {fpTitle.modified}
-              {fpTitle.document}
-            </b>
-            {fpTitle.separator}
-            {fpTitle.frameName}
-          </>
-        }
+        title={<b>{title}</b>}
       />
 
-      {/* Top toolbar + grid / zoom / layer selector combos (toolbars_footprint_editor.cpp). */}
       <div style={{ display: 'flex', alignItems: 'center' }}>
-        <Toolbar entries={fpTopBar} orientation="horizontal" onActivate={onTopAction} />
+        <Toolbar entries={fpTopBar} orientation="horizontal" onActivate={onToolbarAction} />
         <span style={{ width: 8 }} />
-        {/* `EDA_DRAW_FRAME::UpdateGridSelectBox` (`common/eda_draw_frame.cpp:
-            200-225`): one row per `GRID_SETTINGS::grids` entry labelled by
-            `GRID_MENU::BuildChoiceList`, then a "---" rule and Edit Grids....
-            The app's own combo, never a native <select> — a wxChoice is
-            owner-drawn and takes the GTK theme. */}
+        {/* `EDA_DRAW_FRAME::UpdateGridSelectBox`. */}
         <Combo
           title="Grid"
           value={String(gridIdx)}
           options={[
             ...fpCfg.window.grid.sizes.map((g, i) => ({
               value: String(i),
-              label: gridChoiceLabel(g, unitLabel, PCB_IU_PER_MM, g.name),
+              label: gridChoiceLabel(g, unitLabel, 1e6, g.name),
             })),
             { value: GRID_LIST_SEPARATOR, label: GRID_LIST_SEPARATOR, disabled: true },
             { value: EDIT_GRIDS_LABEL, label: EDIT_GRIDS_LABEL },
           ]}
           onChange={(v) => {
             if (v === GRID_LIST_SEPARATOR) return;
-            // `COMMON_TOOLS::GridProperties` is `ShowPreferences( _( "Grids" ),
-            // _( "Footprint Editor" ) )` and a return
-            // (`common/tool/common_tools.cpp:626`), so the row opens the page
-            // rather than doing grid editing of its own.
             if (v === EDIT_GRIDS_LABEL) {
               setPrefsOpen('fp-grids');
               return;
             }
-            setGridIdx(Number(v));
+            app.updateFpEdit((s) => {
+              s.window.grid.last_size_idx = Number(v);
+            });
           }}
         />
-        <select className="ze-select" disabled title="Zoom" style={{ margin: '0 4px' }}>
-          <option>Zoom Auto</option>
-        </select>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, margin: '0 8px' }}>
-          <span
-            style={{
-              width: 12,
-              height: 12,
-              background: layerColor(activeLayer),
-              borderRadius: 2,
-              border: '1px solid #444',
-            }}
-          />
-          <select
-            className="ze-select"
-            value={activeLayer}
-            onChange={(e) => setActiveLayer(e.target.value)}
-            title="Active layer (+/- to switch)"
-          >
-            {layerRows.map((l) => (
-              <option key={l} value={l}>
-                {layerName(l)}
-              </option>
-            ))}
-          </select>
-        </span>
+        <span style={{ width: 8 }} />
+        {/* `PCB_LAYER_BOX_SELECTOR`. */}
+        <Combo
+          title="Active layer"
+          value={activeLayerName}
+          options={layerRows.map((l) => ({
+            value: l,
+            label: layerName(l),
+            swatch: layerColor(l),
+          }))}
+          onChange={setActiveLayerName}
+        />
       </div>
 
       <div className="ze-body">
@@ -1980,7 +1177,7 @@ export function FootprintEditFrame({
             <FootprintTreePane
               width={panelWidth}
               placeholder={
-                libNames.length === 0 &&
+                store.GetLibraryNames().length === 0 &&
                 app.LibraryLoadingPanel({
                   fallback: <div className="ze-muted">No footprint libraries loaded.</div>,
                   label: 'Loading footprint libraries...',
@@ -1990,6 +1187,7 @@ export function FootprintEditFrame({
               adapter={treeAdapter}
               regenerateNonce={treeNonce}
               selectLibId={selectLibId}
+              centerLibId={centerLibId}
               onSelect={onTreeSelect}
               onToggleLibrary={onTreeToggleLibrary}
               onItemContextMenu={onTreeItemContextMenu}
@@ -2015,95 +1213,45 @@ export function FootprintEditFrame({
           orientation="vertical"
           side="left"
           toggled={toggles}
-          disabledIds={FP_LEFT_DISABLED}
           onActivate={onLeftToggle}
         />
 
-        <div style={{ position: 'relative', flex: 1, minWidth: 0, display: 'flex' }}>
-          <FootprintCanvas
-            ref={controller}
-            footprint={workFp}
-            visible={visible}
-            drawOpts={drawOpts}
-            selection={selection}
-            activeTool={activeTool}
-            gridOrigin={gridOrigin}
-            showGrid={objects.grid && toggles.has('toggleGrid')}
-            // `PCB_GRID_HELPER::GetGrid`, i.e. the current grid unless an
-            // override applies to what the active tool lays down.
-            gridIU={toolGridIU}
-            // `PANEL_GAL_OPTIONS`, out of this frame's own settings object.
-            gridStyle={fpCfg.window.grid.style}
-            gridLineWidthPx={fpCfg.window.grid.line_width}
-            gridMinSpacingPx={fpCfg.window.grid.min_spacing}
-            // `window.cursor.cross_hair_mode`, which is one setting with two
-            // controls over it: `PANEL_GAL_OPTIONS`' Cursor group and the left
-            // toolbar's `ACTIONS::cursorSmallCrosshairs` group, which
-            // `COMMON_TOOLS::CursorControl` writes into the same key. Reading
-            // the toolbar's own toggle set here instead is what would let the
-            // two disagree.
-            crosshairMode={fpCfg.window.cursor.crosshair}
-            alwaysShowCursor={fpCfg.window.cursor.always_show_cursor}
-            snapping={footprintSnappingEnabled(fpCfg)}
-            // `updateEnabledLayers()` — the user layers Preferences asked for.
-            layers={fpLayers}
-            // `RULER_ITEM` is built with `frame()->GetUserUnits()`, so the
-            // Units radio group drives its graduations and its readout. The
-            // footprint VIEWER passed this and the editor did not, so the same
-            // canvas measured in mm here whatever the toolbar said.
-            measureUnits={unitLabel}
-            onCursorMove={statusReadout.setCursor}
-            onScaleChange={setScale}
-            onSelect={onSelect}
-            onSelectBox={onSelectBox}
-            onMoveItems={moveSel}
-            onPlace={onPlace}
-            onEditItem={onEditItem}
-            preview={drawStart ? { tool: activeTool, start: drawStart } : null}
-          />
-          {!workFp && (
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                pointerEvents: 'none',
-                color: '#888',
-                fontSize: 14,
-              }}
-            >
-              Double-click a footprint in the library tree to view it, or File &gt; New Footprint...
+        <div
+          style={{
+            position: 'relative',
+            flex: 1,
+            minWidth: 0,
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
+          {infoBar && (
+            <div className="ze-infobar" role="status">
+              <span style={{ flex: 1 }}>{infoBar}</span>
+              <span className="x" onClick={() => setInfoBar(null)}>
+                ✕
+              </span>
             </div>
           )}
+          <div className="ze-canvas-wrap" style={{ position: 'relative', flex: 1, minHeight: 0 }}>
+            {/* `PCB_DRAW_PANEL_GAL`: it takes the canvas's events itself, through
+                WX_VIEW_CONTROLS and the frame's TOOL_DISPATCHER. */}
+            <canvas ref={canvasRef} style={{ position: 'absolute', inset: 0, outline: 'none' }} />
+          </div>
         </div>
 
-        {/* RightToolbar is `.Right().Layer( 2 )`; LayersManager and Selection
-            Filter are `.Right().Layer( 3 )` (footprint_edit_frame.cpp:238-252).
-            A higher wxAUI layer docks further from the centre, so the toolbar
-            touches the canvas and the palettes sit outside it. */}
         <Toolbar
           entries={fpRightBar}
           orientation="vertical"
           side="right"
           activeTool={activeTool}
-          onActivate={selectTool}
+          onActivate={onToolbarAction}
         />
 
-        {/* LayersManager and SelectionFilter are both `.Right().Layer( 3 )`,
-            outside the `.Layer( 2 )` right toolbar
-            (footprint_edit_frame.cpp:243-254) — the same dock pcbnew builds, so
-            the same `.ze-rightdock` construct rather than the left dock flipped
-            over. `MinSize( FromDIP( 180 ), … )` on both panes. */}
         {toggles.has('showLayersManager') && (
           <div className="ze-rightdock" style={{ width: LAYERS_MANAGER_WIDTH }}>
             <div className="ze-panel grow">
               <div className="ze-panel-header">Appearance</div>
-              {/* `new APPEARANCE_CONTROLS( this, GetCanvas(), true )`
-                  (footprint_edit_frame.cpp:178). `fpEditor` removes the Nets
-                  page and trims the Objects rows to `s_allowedInFpEditor`;
-                  everything else is the identical widget pcbnew docks. */}
               <AppearanceControls
                 fpEditor
                 tab={tab}
@@ -2111,8 +1259,8 @@ export function FootprintEditFrame({
                 layerRows={layerRows}
                 layerName={layerName}
                 layerColor={layerColor}
-                activeLayer={activeLayer}
-                onActiveLayer={setActiveLayer}
+                activeLayer={activeLayerName}
+                onActiveLayer={setActiveLayerName}
                 visibleLayers={visible}
                 onToggleLayer={toggleLayer}
                 objects={objects}
@@ -2136,9 +1284,6 @@ export function FootprintEditFrame({
                 deleteViewportDisabled
               />
             </div>
-
-            {/* `m_auimgr.GetPane( "SelectionFilter" ).dock_proportion = 0`
-                (footprint_edit_frame.cpp:267) — a fixed-height pane. */}
             <div className="ze-panel fixed">
               <div className="ze-panel-header">Selection Filter</div>
               <div className="ze-panel-body">
@@ -2153,45 +1298,23 @@ export function FootprintEditFrame({
         )}
       </div>
 
-      {/* pcbnew-style status bar. */}
-      <MsgPanel items={fpMsgPanelItems} testId="fp-message-panel" />
+      <MsgPanel items={msgItems} testId="fp-message-panel" />
 
-      {/* FOOTPRINT_EDIT_FRAME is a PCB_BASE_EDIT_FRAME, so it gets
-          EDA_DRAW_FRAME's eight panes unchanged
-          (pcbnew/pcb_base_frame.cpp:761). */}
+      {/* EDA_DRAW_FRAME's eight panes, written by the frame through its sink. */}
       <KiStatusBar
         testIds={{ message: 'fp-status-msg', coords: 'fp-coords', tool: 'fp-tool-msg' }}
         fields={{
-          message: status,
-          // `scale` is device px per *our* IU, so the zoom factor is derived
-          // against the scale our geometry is held at, not pcbnew's.
-          zoom: zoomMsg(zoomFactorForScale(scale, dpr, SCH_IU_PER_MM)),
-          coords: <span ref={statusReadout.coordsRef} />,
-          deltas: <span ref={statusReadout.deltasRef} />,
-          // `EDA_DRAW_FRAME::DisplayGridMsg` prints the CURRENT grid, not the
-          // override the active tool is on (`common/eda_draw_frame.cpp`).
-          grid: gridMsg(fmt(footprintGridIU(fpCfg))),
-          units: unitsMsg(unitLabel),
-          // Pane 6 is `DisplayToolMsg` and pane 7 `DisplayConstraintsMsg`
-          // (`eda_draw_frame.cpp:729-744`). Ours put the active layer in pane 6
-          // — a string upstream never writes to the status bar at all — and
-          // left pane 7 empty, where real pcbnew opens on "Constrain to H, V,
-          // 45" because `DRAWING_TOOL::Reset` fills it.
-          tool: footprintToolMsg(activeTool, toolArmed),
-          // `DRAWING_TOOL::UpdateStatusBar` switches on `m_AngleSnapMode`
-          // (`pcbnew/tools/drawing_tool.cpp:340-357`), the settings field — not
-          // on a toolbar's own state, which is what reading `toggles` here was.
-          constraint: constraintsMsg(
-            fpCfg.editing.fp_angle_snap_mode === 1
-              ? 'deg45'
-              : fpCfg.editing.fp_angle_snap_mode === 2
-                ? 'deg90'
-                : 'direct',
-          ),
+          message: statusSpan('message'),
+          zoom: statusSpan('zoom'),
+          coords: statusSpan('coords'),
+          deltas: statusSpan('deltas'),
+          grid: statusSpan('grid'),
+          units: statusSpan('units'),
+          tool: statusSpan('tool'),
+          constraint: statusSpan('constraint'),
         }}
       />
 
-      {/* PANEL_SELECTION_FILTER::onRightClick's one-item wxMenu. */}
       {filterMenu && (
         <SelectionFilterOnlyMenu
           at={filterMenu}
@@ -2200,56 +1323,112 @@ export function FootprintEditFrame({
         />
       )}
 
-      {/* New Library dialog. */}
-      {newLibName !== null && (
-        <SimplePrompt
-          title="New Library"
-          label="Name"
-          placeholder="MyFootprints"
-          value={newLibName}
-          onChange={setNewLibName}
-          onCancel={() => setNewLibName(null)}
-          onOk={() => {
-            const n = newLibName.trim();
-            if (n) {
-              manager.current.createLibrary(n);
-              setSelectLibId(n);
-              setTreeSel({ lib: n, name: null });
-              setNewLibName(null);
-              bump();
-            }
-          }}
-        />
-      )}
-      {/* New Footprint dialog. */}
-      {newFpName !== null && (
-        <SimplePrompt
-          title="New Footprint"
-          label="Name"
-          placeholder="MyFootprint"
-          value={newFpName}
-          onChange={setNewFpName}
-          onCancel={() => setNewFpName(null)}
-          onOk={() => createFootprint(newFpName)}
+      {treeMenu && (
+        <ContextMenu
+          x={treeMenu.x}
+          y={treeMenu.y}
+          items={footprintTreeContextMenu(
+            { action: onTreeMenuAction },
+            {
+              library: treeMenu.lib,
+              footprint: treeMenu.name,
+              pinned: store.IsPinned(treeMenu.lib),
+            },
+            { haveFootprint: footprint !== null },
+          )}
+          onClose={() => setTreeMenu(null)}
         />
       )}
 
-      {aboutOpen && (
-        <ShowAboutDialog title={ABOUT_TITLES.footprint} onClose={() => setAboutOpen(false)} />
+      {newLibName && (
+        <WxTextEntryDialog
+          caption="New Library"
+          message="Name:"
+          onCancel={() => setNewLibName(false)}
+          onConfirm={(name) => {
+            setNewLibName(false);
+            const n = name.trim();
+            if (!n) return;
+            store.CreateLibrary(n);
+            setSelectLibId(n);
+            setTreeSel({ lib: n, name: null });
+            frame.SyncLibraryTree(true);
+          }}
+        />
       )}
-      {prefsOpen &&
-        app.Preferences(() => setPrefsOpen(null), prefsOpen === true ? undefined : prefsOpen)}
-      {propsOpen && workFp && (
-        <FootprintPropertiesDialog
-          footprint={workFp}
-          onOk={applyProps}
-          onCancel={() => setPropsOpen(false)}
+
+      {rename && (
+        <WxTextEntryDialog
+          caption={rename.dialog.aTitle}
+          message="New name:"
+          value={rename.dialog.aName}
+          onCancel={() => {
+            rename.done(false);
+            setRename(null);
+          }}
+          onConfirm={(text) => {
+            void Promise.resolve(rename.dialog.TransferDataFromWindow(text)).then((ok) => {
+              if (!ok) return;
+              rename.done(true);
+              setRename(null);
+            });
+          }}
+        />
+      )}
+
+      {saveAs && (
+        <EdaListDialog
+          title="Save Footprint As"
+          listLabel="Save in library:"
+          okLabel="Save"
+          headers={['Nickname', 'Description']}
+          rows={store.GetLibraryNames().map((n) => ({
+            value: n,
+            cells: [n, store.GetRow(n)?.Description?.() ?? ''],
+          }))}
+          initialValue={saveAs.library}
+          nameRow={{
+            label: 'Name:',
+            value: saveAs.name,
+            excludeChars: FOOTPRINT.StringLibNameInvalidChars(false),
+          }}
+          onResult={(lib, name) => {
+            if (lib === null) {
+              saveAs.done(null);
+              setSaveAs(null);
+              return;
+            }
+            const fpName = (name ?? '').trim();
+            void saveAs.validator(lib, fpName).then((ok) => {
+              if (!ok) return;
+              saveAs.done({ library: lib, name: fpName });
+              setSaveAs(null);
+            });
+          }}
+        />
+      )}
+
+      {unsaved && (
+        <UnsavedChangesDialog
+          message={unsaved.message}
+          onResult={(r) => {
+            unsaved.done(r);
+            setUnsaved(null);
+          }}
+        />
+      )}
+
+      {fpProps && (
+        <DialogFootprintPropertiesFpEditor
+          dialog={fpProps.dialog}
+          units={unitLabel}
+          onClose={(aOk) => {
+            fpProps.done(aOk);
+            setFpProps(null);
+            repaint();
+          }}
           model3d={(() => {
-            // The page edits a FOOTPRINT: this one carries the edited footprint's
-            // models and library id, which is all the page reads of it.
-            const kfp = new FOOTPRINT(null);
-            kfp.SetFPIDAsString(`${curLib ?? ''}:${curName ?? ''}`);
-            kfp.Models().push(...workFp.models.map(modelOfView));
+            const kfp = fpProps.dialog.GetFootprint();
             return {
               footprint: kfp,
               host: {
@@ -2286,7 +1465,6 @@ export function FootprintEditFrame({
             const { done } = pick3dModel;
             setPick3dModel(null);
             model3dResolverRef.current ??= PROJECT_PCB.Get3DFilenameResolver();
-            // The name KiCad stores is the path shortened against the search paths.
             done(
               file
                 ? {
@@ -2297,182 +1475,16 @@ export function FootprintEditFrame({
             );
           },
         })}
-      {padForDialog && (
-        <PadPropertiesDialog
-          pad={padForDialog}
-          onOk={applyPadEdit}
-          onCancel={() => setPadDialogId(null)}
-        />
+
+      {itemDialogs.node}
+      {kiDialogNode}
+
+      {aboutOpen && (
+        <ShowAboutDialog title={ABOUT_TITLES.footprint} onClose={() => setAboutOpen(false)} />
       )}
-
-      {treeMenu && (
-        <ContextMenu
-          x={treeMenu.x}
-          y={treeMenu.y}
-          items={footprintTreeContextMenu(
-            { action: onTreeMenuAction },
-            {
-              library: treeMenu.lib,
-              footprint: treeMenu.name,
-              pinned: manager.current.isPinned(treeMenu.lib),
-            },
-            { haveFootprint: !!workFp },
-          )}
-          onClose={() => setTreeMenu(null)}
-        />
-      )}
-
-      {/* Barcode properties: `DRAWING_TOOL::DrawBarcode` opens it before
-          placing, and the footprint editor reaches the same tool through its
-          own Place menu. */}
-      {barcodeDialog &&
-        (() => {
-          const bc: PcbBarcode =
-            barcodeDialog.index !== undefined
-              ? (workFp?.barcodes[barcodeDialog.index] ?? NEW_FP_BARCODE)
-              : {
-                  ...NEW_FP_BARCODE,
-                  at: barcodeDialog.at,
-                  layer: activeLayer,
-                };
-          return (
-            <DialogBarcodeProperties
-              units={unitLabel}
-              preview={(v) => {
-                const g = barcodeGeometry(applyBarcodeValues(bc, v));
-                return { rings: g.poly.flat(), bbox: g.bbox };
-              }}
-              commitError={(v) => barcodeCommitError(bc, v)}
-              initial={barcodeValues(bc)}
-              layers={allFpLayers}
-              layerColor={layerColor}
-              background={PCB_BACKGROUND}
-              onClose={() => setBarcodeDialog(null)}
-              onApply={(v) => {
-                const dlg = barcodeDialog;
-                setBarcodeDialog(null);
-                if (!workFp || !dlg) return;
-                const next = applyBarcodeValues(bc, v);
-                commit(
-                  dlg.index !== undefined
-                    ? setBarcode(workFp, dlg.index, next)
-                    : addBarcode(workFp, next),
-                  'Draw Barcode',
-                );
-                // `PopTool` — unlike Place Point, the barcode tool does not
-                // re-arm (`drawing_tool.cpp` runs one dialog per activation).
-                setActiveTool('selectSetRect');
-              }}
-            />
-          );
-        })()}
-
-      <TreeSelActions
-        treeSel={treeSel}
-        onDelete={deleteFootprint}
-        canvasSelection={selection.size > 0}
-      />
-      <ProgressDialog title="Load Footprint Libraries" label={loading} />
+      {prefsOpen &&
+        app.Preferences(() => setPrefsOpen(null), prefsOpen === true ? undefined : prefsOpen)}
+      <ProgressDialog title="Load Footprint Libraries" label={null} />
     </div>
   );
-}
-
-/** A tiny name-prompt modal (New Library / New Footprint). */
-function SimplePrompt({
-  title,
-  label,
-  placeholder,
-  value,
-  onChange,
-  onOk,
-  onCancel,
-}: {
-  title: string;
-  label: string;
-  placeholder: string;
-  value: string;
-  onChange: (v: string) => void;
-  onOk: () => void;
-  onCancel: () => void;
-}): JSX.Element {
-  // wxDialog maps Esc to wxID_CANCEL for free; ours has to ask. See
-  // ui/modal_escape.ts.
-  useModalEscape(onCancel);
-
-  return (
-    <div className="ze-modal-backdrop" onMouseDown={onCancel}>
-      <div className="ze-modal ze-label-dialog" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ze-modal-header">
-          {title}
-          <span className="x" onClick={onCancel}>
-            ✕
-          </span>
-        </div>
-        <div className="ze-label-dialog-body">
-          <div className="row">
-            <span>{label}</span>
-            <input
-              className="ze-search"
-              autoFocus
-              placeholder={placeholder}
-              value={value}
-              onChange={(e) => onChange(e.target.value)}
-              onKeyDown={(e) => {
-                e.stopPropagation();
-                if (e.key === 'Enter') onOk();
-              }}
-            />
-          </div>
-        </div>
-        <div className="ze-modal-footer">
-          <button type="button" className="ze-btn" onClick={onCancel}>
-            Cancel
-          </button>
-          <button type="button" className="ze-btn primary" disabled={!value.trim()} onClick={onOk}>
-            Create
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/** Del on the library-tree selection (context-menu subset). */
-function TreeSelActions({
-  treeSel,
-  onDelete,
-  canvasSelection,
-}: {
-  treeSel: { lib: string; name: string | null } | null;
-  onDelete: (lib: string, name: string) => void;
-  /** Whether the canvas has a selection, which owns Del while it does. */
-  canvasSelection: boolean;
-}): JSX.Element | null {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent): void => {
-      // Hidden frames must not act on global hotkeys (editors stay mounted
-      // behind display:none; no stamp = standalone build, always active).
-      if ((document.body.dataset.activeView ?? 'footprints') !== 'footprints') return;
-      if (!treeSel?.name) return;
-      // A context action, and the canvas holds the same key: Edit > Delete is
-      // ACTIONS::doDelete on the selection. The two are kept disjoint rather
-      // than ordered, because two window listeners have no stable order - this
-      // one declines while the canvas has a selection, and `deleteSel` is a
-      // no-op without one, so exactly one of them can ever do anything.
-      // (Edit > Delete itself is `ENABLE( cond.HasItems() )` upstream, i.e.
-      // live whenever a footprint is loaded, so its greying is no longer what
-      // keeps the two apart.)
-      // (`PCB_ACTIONS::deleteFootprint` declares no hotkey upstream at all;
-      // pcb_actions.cpp:903-907. This key is ours.)
-      if (canvasSelection) return;
-      if (focusBlocksHotkey(e.target as FocusLike | null, e)) return;
-      if (e.key === 'Delete' || e.key === 'Backspace') {
-        e.preventDefault();
-        onDelete(treeSel.lib, treeSel.name);
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [treeSel, onDelete, canvasSelection]);
-  return null;
 }

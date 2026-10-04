@@ -70,8 +70,8 @@ export class FOOTPRINT_EDIT_FRAME_INITPCB_MIXIN {
     board.SetFootprintLibAdapter(this.FootprintLibAdapter());
     this.SetBoard(board);
 
-    // Not ported: `GetBoard()->GetDesignSettings() = cfg->m_DesignSettings` —
-    // fpedit.json's design settings are not a BOARD_DESIGN_SETTINGS here.
+    // `GetBoard()->GetDesignSettings() = cfg->m_DesignSettings`
+    this.ApplyFootprintEditorDesignSettings(board);
     board.SynchronizeNetsAndNetClasses(true);
 
     // This board will only be used to hold a footprint for editing

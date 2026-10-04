@@ -317,7 +317,8 @@ describe('the board painter dims the way pcb_painter does', () => {
   it('is passed by every frame that has a high-contrast mode', () => {
     for (const frame of [
       'pcbnew/pcb_edit_frame_ui.tsx',
-      'pcbnew/footprint_edit_frame_ui.tsx',
+      // Not the Footprint Editor: it draws through PCB_PAINTER on the GAL, which
+      // reads the factor off Pgm() itself (pinned below), as pcb_painter.cpp does.
       // Not GerbView: GERBVIEW_RENDER_SETTINGS never reads
       // hicontrast_dimming_factor - only pcb_painter.cpp:176 does - so it
       // dims at RENDER_SETTINGS' own 0.2 (render_settings.cpp:42).
@@ -327,5 +328,12 @@ describe('the board painter dims the way pcb_painter does', () => {
         /hiContrastFactorFor\((?:settings\.common|app\.common\(\)|commonCfg)\.appearance\.hicontrast_dimming_factor\)/,
       );
     }
+  });
+
+  it('on the GAL, PCB_PAINTER reads it off Pgm(), as pcb_painter.cpp:176 does', () => {
+    const painter = readFileSync(resolve(process.cwd(), '../pcbnew/pcb_painter.ts'), 'utf8');
+    expect(painter).toMatch(
+      /m_hiContrastFactor = Math\.fround\(\s*1\.0 - pgm\.GetCommonSettings\(\)!\.m_Appearance\.hicontrast_dimming_factor,/,
+    );
   });
 });

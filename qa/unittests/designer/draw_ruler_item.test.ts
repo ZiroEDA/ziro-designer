@@ -243,8 +243,12 @@ describe('one ruler, three canvases', () => {
     // `RULER_ITEM` is built with `frame()->GetUserUnits()`. The footprint
     // viewer passed this and the editor did not, so the same canvas measured
     // in mm there whatever its Units radio said.
+    // The Footprint Editor measures on the GAL now: PCB_VIEWER_TOOLS::MeasureTool
+    // builds its RULER_ITEM from `frame.GetUserUnits()` itself.
+    expect(
+      readFileSync(new URL('../../../pcbnew/tools/pcb_viewer_tools.ts', import.meta.url), 'utf8'),
+    ).toMatch(/let units: EdaUnits = frame\.GetUserUnits\(\);/);
     for (const rel of [
-      '../../pcbnew/footprint_edit_frame_ui.tsx',
       // `display_footprints_frame.tsx` moved to `cvpcb/` (cvpcb/STRUCTURE.md's
       // stage two) and hands `measureUnits` through `CVPCB_APP.FootprintCanvas`
       // as a plain object field; the actual `<FootprintCanvas measureUnits=.../>`

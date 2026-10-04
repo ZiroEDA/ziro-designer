@@ -173,6 +173,8 @@ function harness(): Harness {
   const h: Partial<Harness> = { board, frame, view, menus: [], mouse: { x: 0, y: 0 } };
 
   frame.SetCanvas({
+    // Read lazily: the controls are built just below.
+    GetViewControls: () => controls,
     GetView: () => view,
     GetGAL: () => gal,
     SetCurrentCursor: () => {},

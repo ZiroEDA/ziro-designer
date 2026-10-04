@@ -206,7 +206,11 @@ export abstract class PCB_BASE_FRAME extends EDA_DRAW_FRAME {
     if (displ_opts.m_ContrastModeDisplay !== HIGH_CONTRAST_MODE.NORMAL) this.GetCanvas()?.Refresh();
   }
 
-  SetActiveLayer(aLayer: PCB_LAYER_ID): void {
+  /**
+   * `SetActiveLayer( aLayer )`. PCB_EDIT_FRAME's overload adds `aForceRedraw`,
+   * which this base and FOOTPRINT_EDIT_FRAME have no use for.
+   */
+  SetActiveLayer(aLayer: PCB_LAYER_ID, _aForceRedraw = false): void {
     this.GetScreen()!.m_Active_Layer = aLayer;
   }
 
@@ -850,6 +854,62 @@ export abstract class PCB_BASE_FRAME extends EDA_DRAW_FRAME {
     this.GetBoard()!.OnRatsnestChanged();
 
     if (aDisplayStatus) this.SetMsgPanel(this.m_pcb!);
+  }
+
+  /**
+   * `PCB_BASE_FRAME::UpdateStatusBar` (pcb_base_frame.cpp:761-815): EDA_DRAW_FRAME's
+   * zoom and units, then the cursor — absolute in field 2, relative to the
+   * local origin (or polar) in field 3 — and the grid.
+   */
+  override UpdateStatusBar(): void {
+    super.UpdateStatusBar();
+
+    const screen = this.GetScreen();
+
+    if (!screen) return;
+
+    const canvas = this.GetCanvas();
+
+    if (!canvas) return;
+
+    const cursorPos = canvas.GetViewControls().GetCursorPosition();
+    const mtv = (aValue: number): string =>
+      this.m_unitsProvider.MessageTextFromValue(aValue, false);
+
+    // display polar coordinates
+    if (this.GetShowPolarCoords()) {
+      const dx = cursorPos.x - screen.m_LocalOrigin.x;
+      const dy = cursorPos.y - screen.m_LocalOrigin.y;
+      const theta = (Math.atan2(-dy, dx) * 180) / Math.PI;
+      const ro = Math.hypot(dx, dy);
+
+      this.SetStatusText(`r ${mtv(ro)}  theta ${theta.toFixed(3)}`, 3);
+    }
+
+    // Transform absolute coordinates for user origin preferences
+    let userXpos = this.m_originTransforms.ToDisplayAbsX(cursorPos.x);
+    let userYpos = this.m_originTransforms.ToDisplayAbsY(cursorPos.y);
+
+    // Display absolute coordinates:
+    this.SetStatusText(`X ${mtv(userXpos)}  Y ${mtv(userYpos)}`, 2);
+
+    // display relative cartesian coordinates
+    if (!this.GetShowPolarCoords()) {
+      // Calculate relative coordinates
+      const relXpos = cursorPos.x - screen.m_LocalOrigin.x;
+      const relYpos = cursorPos.y - screen.m_LocalOrigin.y;
+
+      // Transform relative coordinates for user origin preferences
+      userXpos = this.m_originTransforms.ToDisplayRelX(relXpos);
+      userYpos = this.m_originTransforms.ToDisplayRelY(relYpos);
+
+      this.SetStatusText(
+        `dx ${mtv(userXpos)}  dy ${mtv(userYpos)}  dist ${mtv(Math.hypot(userXpos, userYpos))}`,
+        3,
+      );
+    }
+
+    this.DisplayGridMsg();
   }
 
   /**

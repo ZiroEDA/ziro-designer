@@ -9,7 +9,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { LIB_ID } from '@ziroeda/common/lib_id.js';
 import type { KiDialogRequest } from '@ziroeda/common/kidialog.js';
-import { BOARD } from '@ziroeda/pcbnew/board.js';
 import {
   DIALOG_FOOTPRINT_PROPERTIES_FP_EDITOR,
   type FootprintFpEditorValues,
@@ -28,7 +27,7 @@ import { FOOTPRINT_LIBRARY_STORE } from '@ziroeda/pcbnew/footprint_library_adapt
 import { ZONE_CONNECTION } from '@ziroeda/pcbnew/zones.js';
 import { PCB_FIELD } from '@ziroeda/pcbnew/pcb_field.js';
 import { FIELD_T } from '@ziroeda/common/template_fieldnames.js';
-import { type HARNESS_MOUSE, harnessCanvas } from '../support/pcb_tool_harness.js';
+import { attachFootprintFrameCanvas } from '../support/footprint_frame_canvas.js';
 
 const U = (n: number): string => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 
@@ -45,27 +44,6 @@ let frame: FOOTPRINT_EDIT_FRAME;
 let asked: KiDialogRequest[];
 let answer: 'ok' | 'cancel';
 let shown: unknown[];
-
-function attachCanvas(aFrame: FOOTPRINT_EDIT_FRAME): void {
-  const { view, controls } = harnessCanvas(aFrame.GetBoard()!, aFrame, {
-    mouse: { x: 0, y: 0 },
-    forced: null,
-    shape: null,
-  } as unknown as HARNESS_MOUSE);
-  const canvas = aFrame.GetCanvas() as unknown as Record<string, unknown>;
-  const withCrossHair = Object.assign(controls, { SetCrossHairCursorPosition: () => {} });
-  canvas.GetViewControls = () => withCrossHair;
-  canvas.DisplayBoard = (aBoard: BOARD) => {
-    view.Clear();
-    for (const item of aBoard.GetItemSet()) view.Add(item);
-  };
-  canvas.UpdateColors = () => {};
-  canvas.GetDefaultViewBBox = () => null;
-  aFrame.SetBoard(aFrame.GetBoard());
-  aFrame
-    .GetToolManager()!
-    .SetEnvironment(aFrame.GetBoard(), view, withCrossHair, aFrame.config(), aFrame);
-}
 
 beforeEach(async () => {
   asked = [];
@@ -92,11 +70,11 @@ beforeEach(async () => {
     },
     showFootprintPropertiesFpEditorDialog: (d) => {
       shown.push(d);
-      return Promise.resolve();
+      return Promise.resolve(false);
     },
   });
   frame.SetFootprintLibAdapter(store);
-  attachCanvas(frame);
+  attachFootprintFrameCanvas(frame);
   await frame.LoadFootprintFromLibrary(new LIB_ID('Lib', 'R'));
 });
 

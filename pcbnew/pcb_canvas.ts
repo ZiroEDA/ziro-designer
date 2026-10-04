@@ -220,7 +220,7 @@ export interface EditorDisplayState {
  * settings, as the layer widget, the toolbar and the inspection tool would.
  */
 export function applyDisplayState(
-  aFrame: PCB_EDIT_FRAME,
+  aFrame: PCB_BASE_FRAME,
   aPanel: PCB_DRAW_PANEL_GAL,
   aBoard: BOARD,
   aState: EditorDisplayState,

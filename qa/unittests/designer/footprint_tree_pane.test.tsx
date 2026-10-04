@@ -72,12 +72,10 @@ const rowNamed = (root: HTMLElement, name: string): HTMLElement | undefined =>
 const twistyOf = (row: HTMLElement): Element => row.querySelector('.twisty')!;
 
 /**
- * "A footprint is on the canvas", read off the placeholder the frame draws over
- * an empty canvas: `{!workFp && …}` in `FootprintEditor.tsx`, which is the one
- * DOM fact that says `m_footprint` is set without going through the canvas.
+ * "A footprint is on the canvas", read off the title `UpdateTitle` writes
+ * (`footprint_edit_frame.cpp:1094-1146`): `[no footprint loaded]` until one is.
  */
-const loaded = (root: HTMLElement): boolean =>
-  !root.textContent?.includes('Double-click a footprint in the library tree');
+const loaded = (root: HTMLElement): boolean => !root.textContent?.includes('[no footprint loaded]');
 
 /**
  * `Path2D` and `DOMMatrix`, which happy-dom does not implement and
@@ -441,25 +439,32 @@ describe('the row faces reach the DOM', () => {
    */
   it('shows the asterisk, the bold and the canvas-item outline the adapter answers', async () => {
     const container = await open();
-    fireEvent.click(rowNamed(container, 'Resistor_SMD')!);
-    // File > New Footprint…, which creates it in the selected library.
+    fireEvent.click(twistyOf(rowNamed(container, 'Resistor_SMD')!));
+    fireEvent.doubleClick(rowNamed(container, 'R_0805')!);
+    await waitFor(() => expect(loaded(container)).toBe(true));
+    // File > Footprint Properties...: an edit through the dialog is one commit,
+    // and the commit is what marks the screen modified.
     const file = Array.from(container.querySelectorAll('.ze-menu')).find((m) =>
       m.textContent?.startsWith('File'),
     )!;
     fireEvent.click(file);
-    const newFp = Array.from(container.querySelectorAll('.ze-mitem')).find((i) =>
-      i.textContent?.startsWith('New Footprint'),
-    )!;
-    fireEvent.click(newFp);
-    const input = document.querySelector('.ze-modal input') as HTMLInputElement;
-    fireEvent.change(input, { target: { value: 'NEW_FP' } });
     fireEvent.click(
-      Array.from(document.querySelectorAll('.ze-modal button')).find(
-        (b) => b.textContent === 'Create',
+      Array.from(container.querySelectorAll('.ze-mitem')).find((i) =>
+        i.textContent?.startsWith('Footprint Properties'),
       )!,
     );
-    await waitFor(() => expect(rowNamed(container, 'NEW_FP *')).toBeDefined());
-    const fpRow = rowNamed(container, 'NEW_FP *')!;
+    const inputs = Array.from(document.querySelectorAll('.ze-fpfe-dialog input[type="text"]'));
+    const description = inputs.find(
+      (i) => (i as HTMLInputElement).value === 'Resistor SMD 0805',
+    ) as HTMLInputElement;
+    fireEvent.change(description, { target: { value: 'Edited' } });
+    fireEvent.click(
+      Array.from(document.querySelectorAll('.ze-fpfe-dialog button')).find(
+        (b) => b.textContent === 'OK',
+      )!,
+    );
+    await waitFor(() => expect(rowNamed(container, 'R_0805 *')).toBeDefined());
+    const fpRow = rowNamed(container, 'R_0805 *')!;
     const cell = fpRow.querySelector('.col-item') as HTMLElement;
     expect({
       bold: cell.style.fontWeight,

@@ -294,15 +294,20 @@ describe('the manager raises an open project; it does not re-open it', () => {
     // SYMBOL_EDIT_FRAME::ProjectChanged -> SyncLibraries; never a remount, so
     // a warm frame survives the session's first real open. The key is the
     // rows and file names, not the text an autosave rewrites.
-    for (const [src, label] of [
-      [SYM, 'symbol'],
-      [FP, 'footprint'],
-    ] as const) {
-      const { code, deps } = effectAround(src, 'manager.current.dropProjectLibraries()');
-      expect(deps, label).toBe('[projectLibsKey]');
-      expect(code, label).toMatch(
+    {
+      const { code, deps } = effectAround(SYM, 'manager.current.dropProjectLibraries()');
+      expect(deps, 'symbol').toBe('[projectLibsKey]');
+      expect(code, 'symbol').toMatch(
         /setCurLib\(\(lib\) => \(lib && !manager\.current\.libraryExists\(lib\) \? null : lib\)\)/,
       );
+    }
+    {
+      // The footprint frame's libraries: the store and the frame are one per
+      // mount, so the project key is the only trigger; SyncLibraryTree is what
+      // drops a selection whose library went (`footprint_edit_frame.cpp:1149`).
+      const { code, deps } = effectAround(FP, 'store.DropProjectLibraries()');
+      expect(deps, 'footprint').toBe('[projectLibsKey, store, frame]');
+      expect(code, 'footprint').toMatch(/frame\.SyncLibraryTree\(true\)/);
     }
     expect(SYM).toMatch(
       /const projectLibsKey = useMemo\([\s\S]*?\$\{row\.name\}\\t\$\{file\.name\}/,

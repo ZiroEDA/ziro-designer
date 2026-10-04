@@ -326,7 +326,9 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // 25 -> 24 (E16h): the print path's paper-white `'#ffffff'` fill went with
   // the Canvas2D print renderer; PCBNEW_PRINTOUT clears through the GAL to the
   // print settings' background.
-  'editors/pcb': { colours: 24, metrics: 127 },
+  // 24/127 -> 22/114 (10-05): the Footprint Editor window rebuilt on
+  // FOOTPRINT_EDIT_FRAME; its old canvas placeholder and prompt styles went.
+  'editors/pcb': { colours: 22, metrics: 114 },
   // At zero, and listed rather than absent: `prefs/` is the settings store, and
   // the one literal it had - the 3D viewer's `rgb(0,255,0)` selection colour -
   // is `PARAM<COLOR4D>( "render.opengl_selection_color", …, COLOR4D( 0, 1, 0, 1 ) )`
@@ -1401,7 +1403,8 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // window's CSS deleted with it; the dialog is DIALOG_GLOBAL_EDIT_TEARDROPS
     // on the shared widgets now. Rescanned.
     // 285 -> 284 (E16h): the `editors/pcb` row, the print renderer's white.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(284);
+    // 284 -> 282 (10-05): the `editors/pcb` row, the old Footprint Editor window.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(282);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.
@@ -1604,7 +1607,8 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // Relative dialog and its banner (-19).
     // 1110 -> 1102 (10-01): `common/widgets` 683 -> 675, the old Edit
     // Teardrops window's CSS deleted with it. Rescanned.
-    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1102);
+    // 1102 -> 1089 (10-05): the `editors/pcb` row, the old Footprint Editor window.
+    expect(SITES.filter((s) => s.kind === 'metrics').length).toBe(1089);
   });
 
   it('and the two agree with the per-area table, which is where they come from', () => {

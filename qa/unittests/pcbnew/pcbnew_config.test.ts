@@ -106,6 +106,8 @@ function setup(aPro: JsonValue | null = {}, aPrl: JsonValue | null = null): Env 
     SetLayerVisible: () => {},
   };
   frame.SetCanvas({
+    // `GetViewControls()->GetCursorPosition()`, which UpdateStatusBar reads.
+    GetViewControls: () => ({ GetCursorPosition: () => ({ x: 0, y: 0 }) }),
     GetView: () => view,
     SetHighContrastLayer: () => {},
     Refresh: () => {},

@@ -24,6 +24,7 @@ import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { LSET } from '@ziroeda/common/lset.js';
 import { ESCAPE_CONTEXT, EscapeString, unescapeString } from '@ziroeda/common/string_utils.js';
 import { LIB_ID } from '@ziroeda/common/lib_id.js';
+import { FIELD_T, GetUserFieldName } from '@ziroeda/common/template_fieldnames.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import { BOARD_COMMIT } from '../board_commit.js';
 import {
@@ -120,6 +121,57 @@ export class DIALOG_FOOTPRINT_PROPERTIES_FP_EDITOR {
 
   GetFrame(): FOOTPRINT_EDIT_FRAME {
     return this.m_frame;
+  }
+
+  /**
+   * `OnAddField` (:890-918): a user field named for its row, on the active
+   * layer when that is a technical layer, else the last row's, sized by the
+   * board's text defaults for that layer.
+   */
+  MakeNewField(aFields: readonly PCB_FIELD[]): PCB_FIELD {
+    const dsnSettings = this.m_frame.GetDesignSettings();
+
+    const newField = new PCB_FIELD(
+      this.m_footprint,
+      FIELD_T.USER,
+      GetUserFieldName(aFields.length, true),
+    );
+
+    // Set active layer if legal; otherwise copy layer from previous text item
+    if (LSET.AllTechMask().test(this.m_frame.GetActiveLayer()))
+      newField.SetLayer(this.m_frame.GetActiveLayer());
+    else newField.SetLayer(aFields[aFields.length - 1]!.GetLayer());
+
+    newField.SetTextSize(dsnSettings.GetTextSize(newField.GetLayer()));
+    newField.SetTextThickness(dsnSettings.GetTextThickness(newField.GetLayer()));
+    newField.SetItalic(dsnSettings.GetTextItalic(newField.GetLayer()));
+
+    return newField;
+  }
+
+  /**
+   * `OnDeleteField`'s guard (:921-944): the mandatory rows cannot go. The
+   * message to show, or null when the row may be deleted.
+   */
+  CanDeleteField(aRow: number, aFields: readonly PCB_FIELD[]): string | null {
+    const mandatory = aFields.filter((f) => f.IsMandatory()).length;
+
+    if (aRow < mandatory) return `The first ${mandatory} fields are mandatory.`;
+
+    return null;
+  }
+
+  /**
+   * `onLayerGridRowAddUserLayer` (:961-977): the first user layer, stepping
+   * by two, that the grid does not hold yet.
+   */
+  static NextUserLayer(aLayers: readonly PCB_LAYER_ID[]): PCB_LAYER_ID {
+    let nextLayer = PCB_LAYER_ID.User_1;
+
+    while (aLayers.includes(nextLayer) && nextLayer < PCB_LAYER_ID.User_45)
+      nextLayer = (nextLayer + 2) as PCB_LAYER_ID;
+
+    return nextLayer;
   }
 
   /** `TransferDataToWindow()` (:319-493). */

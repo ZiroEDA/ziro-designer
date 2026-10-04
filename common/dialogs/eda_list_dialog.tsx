@@ -37,6 +37,8 @@ export function EdaListDialog({
   listLabel = 'Items:',
   showFilter = false,
   initialValue,
+  okLabel = 'OK',
+  nameRow,
   onResult,
 }: {
   /** The window title. */
@@ -49,12 +51,21 @@ export function EdaListDialog({
   /** The inverse of `HideFilter()`, which both Board Setup call sites use. */
   showFilter?: boolean;
   initialValue?: string;
+  /** `SetOKLabel()`; OK by default. */
+  okLabel?: string;
+  /**
+   * The name row `SAVE_AS_DIALOG` (footprint_libraries_utils.cpp:995-1055)
+   * prepends: a label and a text control whose `wxTextValidator` excludes
+   * `excludeChars`. Its trimmed text is `onResult`'s second argument.
+   */
+  nameRow?: { label: string; value: string; excludeChars: string };
   /** `null` on Cancel — `GetTextSelection()` empty. */
-  onResult: (value: string | null) => void;
+  onResult: (value: string | null, name?: string) => void;
 }): JSX.Element {
   useModalEscape(() => onResult(null));
 
   const [filter, setFilter] = useState('');
+  const [name, setName] = useState(nameRow?.value ?? '');
   const [sel, setSel] = useState<string>(() => initialValue ?? rows[0]?.value ?? '');
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -74,7 +85,8 @@ export function EdaListDialog({
     if (next) setSel(next.value);
   };
 
-  const accept = (): void => onResult(shown.some((r) => r.value === sel) ? sel : null);
+  const accept = (): void =>
+    onResult(shown.some((r) => r.value === sel) ? sel : null, nameRow ? name.trim() : undefined);
 
   return (
     <div className="ze-modal-backdrop" onMouseDown={() => onResult(null)}>
@@ -86,6 +98,21 @@ export function EdaListDialog({
           </span>
         </div>
         <div className="ze-modal-body ze-list-dialog-body">
+          {nameRow && (
+            <label className="ze-list-dialog-name">
+              <span>{nameRow.label}</span>
+              <input
+                className="ze-search"
+                autoFocus
+                value={name}
+                onChange={(e) =>
+                  setName(
+                    [...e.target.value].filter((c) => !nameRow.excludeChars.includes(c)).join(''),
+                  )
+                }
+              />
+            </label>
+          )}
           <div className="ze-list-dialog-label">{listLabel}</div>
           {/* `wxLC_REPORT|wxLC_HRULES|wxLC_VRULES|wxBORDER_SIMPLE` — the same
               report list `.ze-grid` already draws for every other WX_GRID in
@@ -106,7 +133,7 @@ export function EdaListDialog({
                     aria-selected={r.value === sel}
                     className={r.value === sel ? 'selected' : undefined}
                     onMouseDown={() => setSel(r.value)}
-                    onDoubleClick={() => onResult(r.value)}
+                    onDoubleClick={() => onResult(r.value, nameRow ? name.trim() : undefined)}
                   >
                     {r.cells.map((c, i) => (
                       <td key={headers[i] ?? i}>{c}</td>
@@ -141,7 +168,7 @@ export function EdaListDialog({
             disabled={shown.length === 0}
             onClick={accept}
           >
-            OK
+            {okLabel}
           </button>
         </div>
       </div>

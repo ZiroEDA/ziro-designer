@@ -9,13 +9,10 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { IS_NEW } from '@ziroeda/common/eda_item_flags.js';
 import { installPgm } from '@ziroeda/designer/src/editors/pcb/pcb_canvas.js';
-import { type BOARD, BOARD_USE } from '@ziroeda/pcbnew/board.js';
+import { BOARD_USE } from '@ziroeda/pcbnew/board.js';
 import type { FOOTPRINT } from '@ziroeda/pcbnew/footprint.js';
 import { FOOTPRINT_EDIT_FRAME } from '@ziroeda/pcbnew/footprint_edit_frame.js';
-import {
-  ParseBoard,
-  ParseFootprintFile,
-} from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { LIB_ID } from '@ziroeda/common/lib_id.js';
 import { SetInfoPresenter, SetQuestionPresenter } from '@ziroeda/common/confirm.js';
 import type { LIB_TREE } from '@ziroeda/common/eda_draw_frame.js';
@@ -24,7 +21,8 @@ import type { TOOL_ACTION } from '@ziroeda/common/tool/tool_action.js';
 import { LeaderMode as LEADER_MODE } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
 import { FOOTPRINT_LIBRARY_STORE } from '@ziroeda/pcbnew/footprint_library_adapter.js';
 import { PCB_ACTIONS } from '@ziroeda/pcbnew/tools/pcb_actions.js';
-import { type HARNESS_MOUSE, harnessCanvas } from './support/pcb_tool_harness.js';
+import { CLEARANCE_LAYER_FOR, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { attachFootprintFrameCanvas } from './support/footprint_frame_canvas.js';
 import { PCB_TOOL_BASE } from '@ziroeda/pcbnew/tools/pcb_tool_base.js';
 
 const U = (n: number): string => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
@@ -190,35 +188,8 @@ describe('the library round trip (footprint_editor_utils.cpp, footprint_librarie
     });
     frame.SetFootprintLibAdapter(store);
     frame.SetLibTree(tree);
-    attachCanvas(frame);
+    attachFootprintFrameCanvas(frame);
   });
-
-  /**
-   * The harness's stub canvas, which KiCad's frame always has: a zoom to fit
-   * asks its view. `DisplayBoard` puts a new board's items in that view, as
-   * PCB_DRAW_PANEL_GAL's does.
-   */
-  function attachCanvas(aFrame: FOOTPRINT_EDIT_FRAME): void {
-    const { view, controls } = harnessCanvas(aFrame.GetBoard()!, aFrame, {
-      mouse: { x: 0, y: 0 },
-      forced: null,
-      shape: null,
-    } as unknown as HARNESS_MOUSE);
-    const canvas = aFrame.GetCanvas() as unknown as Record<string, unknown>;
-    const withCrossHair = Object.assign(controls, { SetCrossHairCursorPosition: () => {} });
-    canvas.GetViewControls = () => withCrossHair;
-    canvas.DisplayBoard = (aBoard: BOARD) => {
-      view.Clear();
-      for (const item of aBoard.GetItemSet()) view.Add(item);
-    };
-    canvas.UpdateColors = () => {};
-    // PCB_DRAW_PANEL_GAL::GetDefaultViewBBox: the footprint editor has no sheet to fit.
-    canvas.GetDefaultViewBBox = () => null;
-    aFrame.SetBoard(aFrame.GetBoard());
-    aFrame
-      .GetToolManager()!
-      .SetEnvironment(aFrame.GetBoard(), view, withCrossHair, aFrame.config(), aFrame);
-  }
 
   const load = (aName: string, aLib = 'Lib'): Promise<void> =>
     frame.LoadFootprintFromLibrary(new LIB_ID(aLib, aName));
@@ -350,7 +321,7 @@ describe('the library round trip (footprint_editor_utils.cpp, footprint_librarie
     const titles: string[] = [];
     frame = new FOOTPRINT_EDIT_FRAME({ fpEdit: () => {}, setTitle: (t) => titles.push(t) });
     frame.SetFootprintLibAdapter(store);
-    attachCanvas(frame);
+    attachFootprintFrameCanvas(frame);
 
     frame.UpdateTitle();
     await frame.LoadFootprintFromLibrary(new LIB_ID('Lib', 'R'));
@@ -463,6 +434,128 @@ describe('the library round trip (footprint_editor_utils.cpp, footprint_librarie
       await run(PCB_ACTIONS.lineMode90);
 
       expect(frame.GetFootprintEditorSettings().m_AngleSnapMode).toBe(LEADER_MODE.DEG90);
+    });
+  });
+
+  describe('the window-facing half (F2d)', () => {
+    it('UpdateStatusBar writes the cursor: X and Y in field 2, dx, dy and dist in field 3', () => {
+      const fields: string[] = [];
+      frame.SetStatusTextSink((aText, aField) => {
+        fields[aField] = aText;
+      });
+      const canvas = frame.GetCanvas() as unknown as Record<string, unknown>;
+      const controls = (canvas.GetViewControls as () => Record<string, unknown>)();
+      controls.GetCursorPosition = () => ({ x: 4_000_000, y: 5_000_000 });
+      // `ACTIONS::resetLocalCoords`' origin: the deltas run from it.
+      frame.GetScreen()!.m_LocalOrigin = { x: 1_000_000, y: 1_000_000 };
+
+      frame.UpdateStatusBar();
+
+      expect(fields[2]).toBe('X 4.0000  Y 5.0000');
+      expect(fields[3]).toBe('dx 3.0000  dy 4.0000  dist 5.0000');
+    });
+
+    it("SetActiveLayer shows the active copper layer's clearance layer and hides the last one", () => {
+      const view = frame.GetCanvas()!.GetView();
+      // From a non-copper layer, so the first switch is a change.
+      frame.SetActiveLayer(PCB_LAYER_ID.F_SilkS);
+      view.SetLayerVisible(CLEARANCE_LAYER_FOR(PCB_LAYER_ID.F_Cu), false);
+      view.SetLayerVisible(CLEARANCE_LAYER_FOR(PCB_LAYER_ID.B_Cu), false);
+
+      frame.SetActiveLayer(PCB_LAYER_ID.F_Cu);
+      expect(view.IsLayerVisible(CLEARANCE_LAYER_FOR(PCB_LAYER_ID.F_Cu))).toBe(true);
+
+      frame.SetActiveLayer(PCB_LAYER_ID.B_Cu);
+      expect(view.IsLayerVisible(CLEARANCE_LAYER_FOR(PCB_LAYER_ID.F_Cu))).toBe(false);
+      expect(view.IsLayerVisible(CLEARANCE_LAYER_FOR(PCB_LAYER_ID.B_Cu))).toBe(true);
+      expect(frame.GetActiveLayer()).toBe(PCB_LAYER_ID.B_Cu);
+    });
+
+    it("fpedit.json's design settings reach the board now and every board Clear_Pcb makes", async () => {
+      const silk = {
+        line_width: 0.2,
+        text_size_h: 2,
+        text_size_v: 2.5,
+        text_thickness: 0.3,
+        text_italic: true,
+      };
+      const cfg = {
+        default_footprint_text_items: [
+          { text: 'U**', visible: true, layer: 'F.SilkS' },
+          { text: '', visible: false, layer: 'F.Fab' },
+        ],
+        default_footprint_layer_names: {},
+        user_layer_count: 0,
+        silk,
+        copper: silk,
+        edges: { line_width: 0.05 },
+        courtyard: { line_width: 0.05 },
+        fab: silk,
+        others: silk,
+      } as never;
+
+      frame.LoadFootprintEditorDesignSettings(cfg);
+      // The board in hand takes them at once (LoadSettings / CommonSettingsChanged)...
+      expect(frame.GetBoard()!.GetDesignSettings().m_TextItalic[0]).toBe(true);
+      // ...and so does the next one.
+      await frame.Clear_Pcb(false);
+
+      const bds = frame.GetBoard()!.GetDesignSettings();
+      expect(bds.m_DefaultFPTextItems.map((t) => t.m_Text)).toEqual(['U**', '']);
+      expect(bds.m_TextSize[0]).toEqual({ x: 2_000_000, y: 2_500_000 });
+      expect(bds.m_TextThickness[0]).toBe(300_000);
+      expect(bds.m_TextItalic[0]).toBe(true);
+      expect(bds.m_LineThickness[2]).toBe(50_000);
+
+      // CreateNewFootprint takes them: the reference is item 0's text.
+      expect(frame.CreateNewFootprint('', '').GetReference()).toBe('U**');
+    });
+
+    it('and Cancel saves nothing back', async () => {
+      tree.sel = new LIB_ID('Lib', 'C');
+      frame = new FOOTPRINT_EDIT_FRAME({
+        fpEdit: () => {},
+        showFootprintPropertiesFpEditorDialog: (aDialog) => {
+          // Whatever the controls hold, Cancel is not OK.
+          aDialog.GetFootprint().SetLibDescription('cancelled');
+          return Promise.resolve(false);
+        },
+      });
+      frame.SetFootprintLibAdapter(store);
+      frame.SetLibTree(tree);
+      attachFootprintFrameCanvas(frame);
+      await frame.LoadFootprintFromLibrary(new LIB_ID('Lib', 'R'));
+
+      await run(PCB_ACTIONS.footprintProperties);
+
+      expect(written).toEqual([]);
+      expect(store.LoadFootprint('Lib', 'C', true)!.GetLibDescription()).toBe('');
+    });
+
+    it('Footprint Properties on a tree footprint that is not loaded saves it back on OK', async () => {
+      await load('R');
+      tree.sel = new LIB_ID('Lib', 'C');
+      const edits: string[] = [];
+      frame = new FOOTPRINT_EDIT_FRAME({
+        fpEdit: () => {},
+        showFootprintPropertiesFpEditorDialog: (aDialog) => {
+          const v = aDialog.TransferDataToWindow();
+          edits.push(aDialog.GetFootprint().GetFPID().Format());
+          aDialog.TransferDataFromWindow({ ...v, description: 'from the tree' });
+          return Promise.resolve(true);
+        },
+      });
+      frame.SetFootprintLibAdapter(store);
+      frame.SetLibTree(tree);
+      attachFootprintFrameCanvas(frame);
+      await frame.LoadFootprintFromLibrary(new LIB_ID('Lib', 'R'));
+
+      await run(PCB_ACTIONS.footprintProperties);
+
+      expect(edits).toEqual(['Lib:C']);
+      expect(store.LoadFootprint('Lib', 'C', true)!.GetLibDescription()).toBe('from the tree');
+      // The footprint on the canvas is not the one edited.
+      expect(frame.GetBoard()!.GetFirstFootprint()!.GetFPID().Format()).toBe('Lib:R');
     });
   });
 });

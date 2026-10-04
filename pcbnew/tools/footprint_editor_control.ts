@@ -44,6 +44,8 @@ import type { FOOTPRINT_EDIT_FRAME } from '../footprint_edit_frame.js';
 import { GetFootprintDocumentationURL } from '../generate_footprint_info.js';
 import { PCB_ACTIONS } from './pcb_actions.js';
 import { PCB_TOOL_BASE } from './pcb_tool_base.js';
+import { BOARD, BOARD_USE } from '../board.js';
+import { DIALOG_FOOTPRINT_PROPERTIES_FP_EDITOR } from '../dialogs/dialog_footprint_properties_fp_editor.js';
 import type { MenuItem } from '@ziroeda/common/tool/action_menu_types.js';
 import { CheckPinnedStatus } from '@ziroeda/common/tool/library_editor_control.js';
 import {
@@ -650,7 +652,83 @@ export class FOOTPRINT_EDITOR_CONTROL extends PCB_TOOL_BASE {
     return 0;
   }
 
-  /** `RepairFootprint` (:909-975): duplicate KIIDs replaced, footprint first. */
+  /**
+   * `Properties` (:766-791): from the tree's menu on a footprint other than the
+   * one on the canvas, its properties straight out of the library; else the
+   * loaded footprint's, through OnEditItemRequest.
+   */
+  Properties(aEvent: TOOL_EVENT): number {
+    const frame = this.m_frame!;
+
+    // Check if called from tree context menu
+    if (aEvent.IsAction(PCB_ACTIONS.footprintProperties)) {
+      const treeLibId = frame.GetLibTree()?.GetSelectedLibId() ?? new LIB_ID();
+      const loaded = frame.GetBoard()!.GetFirstFootprint();
+
+      // Check if a different footprint is selected in the tree
+      if (treeLibId.IsValid() && (!loaded || !loaded.GetFPID().equals(treeLibId))) {
+        // Edit properties directly from library without loading to canvas
+        void this.editFootprintPropertiesFromLibrary(treeLibId);
+        return 0;
+      }
+    }
+
+    const footprint = frame.GetBoard()!.GetFirstFootprint();
+
+    if (footprint) {
+      this.getEditFrame<FOOTPRINT_EDIT_FRAME>().OnEditItemRequest(footprint);
+      frame.GetCanvas()?.Refresh();
+    }
+
+    return 0;
+  }
+
+  /**
+   * `editFootprintPropertiesFromLibrary( aLibId )` (:794-851): the library's
+   * footprint on a temporary holder board, the dialog over it, and on OK the
+   * edited footprint saved back to its library.
+   */
+  private async editFootprintPropertiesFromLibrary(aLibId: LIB_ID): Promise<void> {
+    const frame = this.m_frame!;
+
+    // Load the footprint from the library (without adding it to the canvas)
+    const libraryFootprint = await frame.LoadFootprint(aLibId);
+
+    if (!libraryFootprint) return;
+
+    // Create a temporary board to hold the footprint (required by the dialog)
+    const tempBoard = new BOARD();
+    tempBoard.SetBoardUse(BOARD_USE.FPHOLDER);
+
+    // Create a copy to work with and add it to the temporary board
+    const tempFootprint = FOOTPRINT.copyOfFootprint(libraryFootprint);
+    tempBoard.Add(tempFootprint);
+
+    const oldFPID = tempFootprint.GetFPID();
+    const dialog = new DIALOG_FOOTPRINT_PROPERTIES_FP_EDITOR(frame, tempFootprint);
+
+    if (!(await frame.ShowFootprintPropertiesFpEditorDialog(dialog))) return;
+
+    // Remove from temporary board before saving (to avoid double-delete)
+    tempBoard.Remove(tempFootprint);
+
+    // Save the modified footprint back to the library
+    const adapter = frame.FootprintLibAdapter();
+    const libName = aLibId.GetLibNickname();
+
+    try {
+      adapter?.SaveFootprint?.(libName, tempFootprint, true);
+
+      // Update the tree view: `UpdateLibraryTree( FindItem( oldFPID ), tempFootprint )`.
+      void oldFPID;
+      frame.SyncLibraryTree(true);
+    } catch (ioe) {
+      if (!(ioe instanceof IO_ERROR)) throw ioe;
+
+      DisplayErrorMessage(ioe.What());
+    }
+  }
+
   RepairFootprint(_aEvent: TOOL_EVENT): number {
     const footprint = this.board().Footprints()[0];
 
@@ -735,6 +813,8 @@ export class FOOTPRINT_EDITOR_CONTROL extends PCB_TOOL_BASE {
     this.Go(S(this.ShowDatasheet), ACTIONS.showDatasheet.MakeEvent());
 
     this.Go(S(this.RepairFootprint), PCB_ACTIONS.repairFootprint.MakeEvent());
+
+    this.Go(S(this.Properties), PCB_ACTIONS.footprintProperties.MakeEvent());
 
     this.Go(S(this.ToggleLayersManager), PCB_ACTIONS.showLayersManager.MakeEvent());
     this.Go(S(this.ToggleProperties), ACTIONS.showProperties.MakeEvent());

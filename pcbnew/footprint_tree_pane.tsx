@@ -22,6 +22,7 @@ export interface FootprintTreePaneProps
     | 'adapter'
     | 'regenerateNonce'
     | 'selectLibId'
+    | 'centerLibId'
     | 'onSelect'
     | 'onToggleLibrary'
     | 'onItemContextMenu'
@@ -44,6 +45,7 @@ export function FootprintTreePane({
   adapter,
   regenerateNonce,
   selectLibId,
+  centerLibId,
   onSelect,
   onToggleLibrary,
   onItemContextMenu,
@@ -108,6 +110,7 @@ export function FootprintTreePane({
           recentSearchesKey="footprints"
           regenerateNonce={regenerateNonce}
           selectLibId={selectLibId}
+          centerLibId={centerLibId}
           unselectNonce={unselectNonce}
           onSelect={onSelect}
           onChoose={onComponentSelected}

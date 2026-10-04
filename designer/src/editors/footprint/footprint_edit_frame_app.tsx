@@ -10,7 +10,9 @@
 import { FootprintModelPreview3D } from '../pcb/widgets/footprint_model_preview_3d.js';
 import { useMemo, type JSX } from 'react';
 import type { KIWAY } from '@ziroeda/common/kiway.js';
-import type { FOOTPRINT_LIBRARY_IO } from '@ziroeda/pcbnew/footprint_libraries_utils.js';
+import type { FOOTPRINT_EDIT_FRAME_APP as APP } from '@ziroeda/pcbnew/footprint_edit_frame_ui.js';
+import { installPgm } from '../pcb/pcb_canvas.js';
+import { commonSettingsOf } from '../../pgm_app.js';
 import {
   FootprintEditFrame,
   type FOOTPRINT_EDIT_FRAME_APP,
@@ -36,9 +38,9 @@ import { HomeLink } from '../../ui/HomeLink.js';
 // unreachable (see libraryHosts.ts).
 export const footprintsBase = (): string => libraryBase.footprints;
 
-/** `FootprintLibraryManager`'s storage: the resident catalogue, the hosted
+/** FOOTPRINT_LIBRARY_STORE's storage: the resident catalogue, the hosted
  *  library set, and `pcbnew.json`'s flip direction. */
-export const FP_LIBRARY_IO: FOOTPRINT_LIBRARY_IO = {
+export const FP_LIBRARY_IO: APP['libraryIo'] = {
   footprintText: (libName, fpName) =>
     // Resident catalogue first; null falls through to the network, which
     // is what a device without a bundle still uses.
@@ -80,6 +82,8 @@ export function useFootprintEditFrameApp(): FOOTPRINT_EDIT_FRAME_APP {
 
       libraryIo: FP_LIBRARY_IO,
       footprintsBase,
+      installPgm,
+      commonSettingsOf,
 
       LibraryLoadingPanel: ({ label, fallback }) => (
         <LibraryLoadingPanel kind="footprints" fallback={fallback} label={label} />

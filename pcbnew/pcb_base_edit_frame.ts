@@ -95,6 +95,8 @@ export interface APPEARANCE_CONTROLS_LIKE {
   SetLayerVisible?(aLayer: number, isVisible: boolean): void;
   /** `APPEARANCE_CONTROLS::SetObjectVisible`. */
   SetObjectVisible?(aLayer: number, isVisible: boolean): void;
+  /** `APPEARANCE_CONTROLS::OnLayerChanged`: the active layer's row follows. */
+  OnLayerChanged?(): void;
 }
 
 /** `PCB_VERTEX_EDITOR_PANE` as the frame calls it (`pcbnew/widgets/vertex_editor_pane.h`). */

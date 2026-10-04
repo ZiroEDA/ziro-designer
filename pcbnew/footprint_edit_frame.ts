@@ -22,6 +22,7 @@ import { RECURSE_MODE } from '@ziroeda/common/eda_item.js';
 import { RPT_SEVERITY_ERROR, RPT_SEVERITY_WARNING } from '@ziroeda/common/reporter.js';
 import { PCB_DRC_CODE as DRCE } from './drc/drc_item.js';
 import { PCB_ACTIONS } from './tools/pcb_actions.js';
+import { CLEARANCE_LAYER_FOR, IsCopperLayer, type PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import type { FOOTPRINT_EDITOR_SETTINGS_LIKE } from './pcb_base_frame.js';
 import { BOARD, BOARD_USE } from './board.js';
 import type { BOARD_ITEM_CONTAINER } from './board_item_container.js';
@@ -80,6 +81,8 @@ import type { ChooserFilter } from '@ziroeda/common/wx/filedlg.js';
 import type { KiDialogRequest } from '@ziroeda/common/kidialog.js';
 import type { KiDialogResult } from '@ziroeda/common/kidialog_do_not_show.js';
 import type { FOOTPRINT_LIBRARY_ADAPTER } from './footprint_library_adapter.js';
+import { LAYER_CLASS, TEXT_ITEM_INFO } from './board_design_settings.js';
+import { LSET_NameToLayer } from '@ziroeda/common/layer_ids.js';
 import type { DIALOG_FOOTPRINT_PROPERTIES_FP_EDITOR } from './dialogs/dialog_footprint_properties_fp_editor.js';
 
 export interface FOOTPRINT_EDIT_FRAME_HOOKS extends PCB_BASE_EDIT_FRAME_DIALOG_HOOKS {
@@ -164,12 +167,11 @@ export interface FOOTPRINT_EDIT_FRAME_HOOKS extends PCB_BASE_EDIT_FRAME_DIALOG_H
   dismissInfoBar?(): void;
   /**
    * `DIALOG_FOOTPRINT_PROPERTIES_FP_EDITOR dialog( this, aFootprint );
-   * dialog.ShowQuasiModal()`: resolves once the dialog is closed, whatever
-   * button closed it.
+   * dialog.ShowQuasiModal() == wxID_OK`: true when OK closed it.
    */
   showFootprintPropertiesFpEditorDialog?(
     aDialog: DIALOG_FOOTPRINT_PROPERTIES_FP_EDITOR,
-  ): Promise<void>;
+  ): Promise<boolean>;
   /** `UpdateUserInterface()`'s window half: the layer widget and the toolbars re-read. */
   updateUserInterface?(): void;
   /** `KIDIALOG( this, … ).ShowModal()`, through the window's KiDialog host. */
@@ -206,6 +208,11 @@ export class FOOTPRINT_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   protected m_libTree: LIB_TREE | null = null;
   /** `m_mruPath`: where Export last went, when `m_LastExportPath` is empty. */
   protected m_mruPath = '';
+  /**
+   * `cfg->m_DesignSettings`: `fpedit.json`'s `design_settings`, which every
+   * holder board takes (`LoadSettings`, `CommonSettingsChanged`, `Clear_Pcb`).
+   */
+  private m_cfgDesignSettings: FpEditSettings['design_settings'] | null = null;
 
   constructor(hooks: FOOTPRINT_EDIT_FRAME_HOOKS) {
     super(FRAME_T.FRAME_FOOTPRINT_EDITOR);
@@ -323,6 +330,70 @@ export class FOOTPRINT_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     // Ensure item UUIDs are valid
     // ("old" footprints can have null uuids that create issues in fp editor)
     aFootprint.FixUuids();
+  }
+
+  /**
+   * `GetDesignSettings() = cfg->m_DesignSettings` (footprint_edit_frame.cpp:787,
+   * :1525): the footprint editor's own design settings — its default text
+   * items and each layer class's line and text defaults — onto the board, now
+   * and on every board `Clear_Pcb` makes.
+   */
+  LoadFootprintEditorDesignSettings(aCfg: FpEditSettings['design_settings']): void {
+    this.m_cfgDesignSettings = aCfg;
+
+    const board = this.GetBoard();
+
+    if (board) this.ApplyFootprintEditorDesignSettings(board);
+  }
+
+  /**
+   * The copy itself. `PARAM_SCALED` stores millimetres; the board holds IU.
+   * Only what `fpedit.json` carries is copied: the dimension defaults are not
+   * in our settings file yet, and keep the board's.
+   */
+  ApplyFootprintEditorDesignSettings(aBoard: BOARD): void {
+    const cfg = this.m_cfgDesignSettings;
+
+    if (!cfg) return;
+
+    const bds = aBoard.GetDesignSettings();
+
+    bds.m_DefaultFPTextItems = cfg.default_footprint_text_items.map(
+      (item) =>
+        new TEXT_ITEM_INFO(item.text, item.visible, LSET_NameToLayer(item.layer) as PCB_LAYER_ID),
+    );
+
+    const mm = (aValue: number): number => pcbIUScale.mmToIU(aValue);
+    const classes: [
+      LAYER_CLASS,
+      FpEditSettings['design_settings'][keyof FpEditSettings['design_settings']],
+    ][] = [
+      [LAYER_CLASS.LAYER_CLASS_SILK, cfg.silk],
+      [LAYER_CLASS.LAYER_CLASS_COPPER, cfg.copper],
+      [LAYER_CLASS.LAYER_CLASS_EDGES, cfg.edges],
+      [LAYER_CLASS.LAYER_CLASS_COURTYARD, cfg.courtyard],
+      [LAYER_CLASS.LAYER_CLASS_FAB, cfg.fab],
+      [LAYER_CLASS.LAYER_CLASS_OTHERS, cfg.others],
+    ];
+
+    for (const [cls, row] of classes) {
+      const r = row as Partial<{
+        line_width: number;
+        text_size_h: number;
+        text_size_v: number;
+        text_thickness: number;
+        text_italic: boolean;
+      }>;
+
+      if (r.line_width !== undefined) bds.m_LineThickness[cls] = mm(r.line_width);
+
+      if (r.text_size_h !== undefined && r.text_size_v !== undefined)
+        bds.m_TextSize[cls] = { x: mm(r.text_size_h), y: mm(r.text_size_v) };
+
+      if (r.text_thickness !== undefined) bds.m_TextThickness[cls] = mm(r.text_thickness);
+
+      if (r.text_italic !== undefined) bds.m_TextItalic[cls] = r.text_italic;
+    }
   }
 
   /** `PROJECT_PCB::FootprintLibAdapter( &Prj() )`. */
@@ -529,6 +600,13 @@ export class FOOTPRINT_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     return this.hooks.writeTextFile?.(aPath, aText) ?? false;
   }
 
+  /** `DIALOG_FOOTPRINT_PROPERTIES_FP_EDITOR( … ).ShowQuasiModal() == wxID_OK`; Cancel without a window. */
+  ShowFootprintPropertiesFpEditorDialog(
+    aDialog: DIALOG_FOOTPRINT_PROPERTIES_FP_EDITOR,
+  ): Promise<boolean> {
+    return this.hooks.showFootprintPropertiesFpEditorDialog?.(aDialog) ?? Promise.resolve(false);
+  }
+
   /** `if( infobar->IsShownOnScreen() && infobar->HasCloseButton() ) infobar->Dismiss()`. */
   DismissInfoBar(): void {
     this.hooks.dismissInfoBar?.();
@@ -573,6 +651,43 @@ export class FOOTPRINT_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   }
 
   /** `AddFootprintToBoard` (:722-730): ReloadFootprint; the file watcher is not ported. */
+  /**
+   * `FOOTPRINT_EDIT_FRAME::SetActiveLayer` (footprint_editor_utils.cpp:275-308):
+   * the clearance layer of the active copper layer shown and the old one
+   * hidden, as the PCB editor does, then high contrast on the new layer.
+   * Declared here rather than in the footprint_editor_utils.ts mixin: a mixin
+   * cannot override a base-class method in TypeScript's type system.
+   */
+  override SetActiveLayer(aLayer: PCB_LAYER_ID, _aForceRedraw = false): void {
+    const oldLayer = this.GetActiveLayer();
+
+    if (oldLayer === aLayer) return;
+
+    super.SetActiveLayer(aLayer);
+
+    /*
+     * Follow the PCB editor logic for showing/hiding clearance layers: show only for
+     * the active copper layer or a front/back non-copper layer.
+     */
+    const getClearanceLayerForActive = (aActiveLayer: PCB_LAYER_ID): number | null =>
+      IsCopperLayer(aActiveLayer) ? CLEARANCE_LAYER_FOR(aActiveLayer) : null;
+
+    const view = this.GetCanvas()?.GetView() ?? null;
+    const oldClearanceLayer = getClearanceLayerForActive(oldLayer);
+
+    if (oldClearanceLayer !== null) view?.SetLayerVisible(oldClearanceLayer, false);
+
+    const newClearanceLayer = getClearanceLayerForActive(aLayer);
+
+    if (newClearanceLayer !== null) view?.SetLayerVisible(newClearanceLayer, true);
+
+    this.m_appearancePanel?.OnLayerChanged?.();
+
+    this.m_toolManager?.RunAction(PCB_ACTIONS.layerChanged); // notify other tools
+    this.GetCanvas()?.SetHighContrastLayer(aLayer);
+    this.GetCanvas()?.Refresh();
+  }
+
   override AddFootprintToBoard(aFootprint: FOOTPRINT | null): void {
     if (aFootprint) this.ReloadFootprint(aFootprint);
   }

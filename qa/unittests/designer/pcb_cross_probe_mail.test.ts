@@ -124,6 +124,8 @@ function setup(): Env {
   view.SetGAL(gal);
   view.SetPainter(new PCB_PAINTER(gal, FRAME_T.FRAME_PCB_EDITOR));
   frame.SetCanvas({
+    // `GetViewControls()->GetCursorPosition()`, which UpdateStatusBar reads.
+    GetViewControls: () => ({ GetCursorPosition: () => ({ x: 0, y: 0 }) }),
     GetView: () => view,
     GetGAL: () => gal,
     Refresh: () => {},
