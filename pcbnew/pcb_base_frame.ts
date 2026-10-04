@@ -9,6 +9,9 @@
  * designer's; the settings objects come through two abstract accessors so
  * the designer's stores supply them.
  */
+import { applyMixins } from '@ziroeda/core/mixins.js';
+import type { UNDO_REDO } from '@ziroeda/common/undo_redo_container.js';
+import { LOAD_SELECT_FOOTPRINT_MIXIN } from './load_select_footprint.js';
 import { IS_NEW } from '@ziroeda/common/eda_item_flags.js';
 import { ANGLE_0 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import { PCB_ACTIONS } from './tools/pcb_actions.js';
@@ -76,6 +79,7 @@ export interface FOOTPRINT_EDITOR_SETTINGS_LIKE {
   m_MagneticItems?: MAGNETIC_SETTINGS;
 }
 
+// biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (LOAD_SELECT_FOOTPRINT_MIXIN, see libs/core/mixins.ts)
 export abstract class PCB_BASE_FRAME extends EDA_DRAW_FRAME {
   protected m_pcb: BOARD | null = null;
   protected m_originTransforms: PCB_ORIGIN_TRANSFORMS;
@@ -511,6 +515,34 @@ export abstract class PCB_BASE_FRAME extends EDA_DRAW_FRAME {
   }
 
   /**
+   * `virtual void SaveCopyInUndoList( ... ) {}` (pcb_base_frame.h:319-328): a
+   * frame with no undo list ignores it; PCB_BASE_EDIT_FRAME's undo_redo.ts
+   * mixin is the one that keeps one.
+   */
+  SaveCopyInUndoList(_aItem: unknown, _aCommandType: UNDO_REDO): void {}
+
+  /**
+   * The footprint chooser (`Kiway().Player( FRAME_FOOTPRINT_CHOOSER )->ShowModal(
+   * &footprintName )`): the chosen LIB_ID text, or null when cancelled. A frame
+   * with no window has no chooser.
+   */
+  selectFootprintFromChooser(_aPreselect: string): Promise<string | null> {
+    return Promise.resolve(null);
+  }
+
+  /**
+   * The window's footprint library (`PROJECT_PCB::FootprintLibAdapter( &Prj() )`
+   * in a browser, where a library file arrives asynchronously): the load, or
+   * null to fall back on the board's synchronous adapter.
+   */
+  loadFootprintFromLibraryWindow(
+    _aFootprintId: LIB_ID,
+    _aKeepUUID: boolean,
+  ): Promise<FOOTPRINT | null> | null {
+    return null;
+  }
+
+  /**
    * `PCB_BASE_FRAME::AddFootprintToBoard` (pcb_base_frame.cpp:200-222): the
    * footprint appended, new, at the origin, on the front and unrotated.
    */
@@ -827,7 +859,7 @@ export abstract class PCB_BASE_FRAME extends EDA_DRAW_FRAME {
   override OnModify(): void {
     super.OnModify();
 
-    // GetScreen()->SetContentModified(): PCB_SCREEN lands with the canvas (#636 stage 5)
+    this.GetScreen()?.SetContentModified();
     this.GetBoard()!.IncrementTimeStamp();
 
     if (this.m_isClosing) return;
@@ -945,3 +977,7 @@ export function pcbZoomFitBox(
 
   return isDegenerate(box) ? null : box;
 }
+
+export interface PCB_BASE_FRAME extends LOAD_SELECT_FOOTPRINT_MIXIN {}
+
+applyMixins(PCB_BASE_FRAME, [LOAD_SELECT_FOOTPRINT_MIXIN]);

@@ -12,6 +12,8 @@
  * doc comment for why this class can't just `extends` it directly the way
  * `PCB_BASE_FRAME` is extended.
  */
+import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
+import type { PICKED_ITEMS_LIST, UNDO_REDO } from '@ziroeda/common/undo_redo_container.js';
 import type { GAL_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import type { DIALOG_TEXT_PROPERTIES } from './dialogs/dialog_text_properties.js';
 import type { PCB_TABLE } from './pcb_table.js';
@@ -96,7 +98,12 @@ export interface PANEL_SELECTION_FILTER_LIKE {
   OnFlashEvent?(aOptions: PCB_SELECTION_FILTER_OPTIONS): void;
 }
 
-export interface PCB_BASE_EDIT_FRAME extends UNDO_REDO_MIXIN {}
+export interface PCB_BASE_EDIT_FRAME extends UNDO_REDO_MIXIN {
+  // PCB_BASE_FRAME's virtual no-op, overridden by UNDO_REDO_MIXIN's: stated
+  // here so the two declarations resolve to the edit frame's overloads.
+  SaveCopyInUndoList(aItem: EDA_ITEM, aCommandType: UNDO_REDO): void;
+  SaveCopyInUndoList(aItemsList: PICKED_ITEMS_LIST, aCommandType: UNDO_REDO): void;
+}
 
 // biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (UNDO_REDO_MIXIN mixin, see libs/core/mixins.ts)
 export abstract class PCB_BASE_EDIT_FRAME extends PCB_BASE_FRAME {

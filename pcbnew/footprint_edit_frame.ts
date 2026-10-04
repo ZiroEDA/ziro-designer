@@ -12,6 +12,13 @@ import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import type { KIWAY_MAIL_EVENT } from '@ziroeda/common/kiway_mail.js';
 import { FOOTPRINT_EDIT_FRAME_NAME } from '@ziroeda/common/eda_draw_frame.js';
 import { PCB_BASE_EDIT_FRAME } from './pcb_base_edit_frame.js';
+import { niluuid } from '@ziroeda/common/kiid.js';
+import { IO_ERROR } from '@ziroeda/common/exceptions.js';
+import { DisplayErrorMessage, type UnsavedChangesResult } from '@ziroeda/common/confirm.js';
+import { RECURSE_MODE } from '@ziroeda/common/eda_item.js';
+import { RPT_SEVERITY_ERROR, RPT_SEVERITY_WARNING } from '@ziroeda/common/reporter.js';
+import { PCB_DRC_CODE as DRCE } from './drc/drc_item.js';
+import { PCB_ACTIONS } from './tools/pcb_actions.js';
 import type { FOOTPRINT_EDITOR_SETTINGS_LIKE } from './pcb_base_frame.js';
 import { BOARD, BOARD_USE } from './board.js';
 import type { BOARD_ITEM_CONTAINER } from './board_item_container.js';
@@ -79,6 +86,31 @@ export interface FOOTPRINT_EDIT_FRAME_HOOKS {
   ): Promise<string | null>;
   /** `OnModify()`'s window half: the title's modified mark. */
   onModify?(): void;
+  /**
+   * `PROJECT_PCB::FootprintLibAdapter( &Prj() )->LoadFootprint( nickname, name,
+   * keepUUID )`: the library's file, read. Null when it holds no such footprint;
+   * throws IO_ERROR when the library cannot be read.
+   */
+  loadFootprintFromLibrary?(aFootprintId: LIB_ID, aKeepUUID: boolean): Promise<FOOTPRINT | null>;
+  /** `adapter->SaveFootprint( aLibraryName, aFootprint )`; throws IO_ERROR. */
+  saveFootprintToLibrary?(aLibraryName: string, aFootprint: FOOTPRINT): Promise<void>;
+  /** `adapter->DeleteFootprint( nickname, fpname )`; throws IO_ERROR. */
+  deleteFootprintFromLibrary?(aNickname: string, aFootprintName: string): Promise<void>;
+  /** `adapter->IsFootprintLibWritable( nickname )`. */
+  isFootprintLibWritable?(aNickname: string): boolean;
+  /**
+   * `UnsavedChangesDialog( this, aMessage, ... )`: Save, Discard Changes or
+   * Cancel. Without a window there is nobody to ask, and nothing is saved.
+   */
+  askUnsavedChanges?(aMessage: string): Promise<UnsavedChangesResult>;
+  /** `IsOK( this, aMessage )`. */
+  isOK?(aMessage: string): Promise<boolean>;
+  /** The window's half of LoadFootprintFromLibrary: zoom to fit, the 3D view, the tree. */
+  onFootprintLoaded?(aFPID: LIB_ID): void;
+  /** `SyncLibraryTree( true )`. */
+  syncLibraryTree?(): void;
+  /** `EDA_BASE_FRAME::ShowInfoBarError`: the window's infobar. */
+  showInfoBarError?(aErrorMsg: string, aShowCloseButton: boolean): void;
 }
 
 export interface FOOTPRINT_EDIT_FRAME extends FOOTPRINT_EDIT_FRAME_LOAD_SELECT_MIXIN {}
@@ -207,6 +239,216 @@ export class FOOTPRINT_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     // Ensure item UUIDs are valid
     // ("old" footprints can have null uuids that create issues in fp editor)
     aFootprint.FixUuids();
+  }
+
+  override loadFootprintFromLibraryWindow(
+    aFootprintId: LIB_ID,
+    aKeepUUID: boolean,
+  ): Promise<FOOTPRINT | null> | null {
+    return this.hooks.loadFootprintFromLibrary?.(aFootprintId, aKeepUUID) ?? null;
+  }
+
+  override ShowInfoBarError(aErrorMsg: string, aShowCloseButton = false): void {
+    this.hooks.showInfoBarError?.(aErrorMsg, aShowCloseButton);
+  }
+
+  /** `IsCurrentFPFromBoard()`: the edited footprint came from the board (it has a link). */
+  IsCurrentFPFromBoard(): boolean {
+    const footprint = this.GetBoard()?.GetFirstFootprint() ?? null;
+
+    return footprint !== null && footprint.GetLink() !== niluuid;
+  }
+
+  /**
+   * `FOOTPRINT_EDIT_FRAME::Clear_Pcb` (initpcb.cpp:108-175): an empty
+   * footprint-holder board, after offering to save the edited footprint.
+   *
+   * @return false when the user cancelled.
+   */
+  async Clear_Pcb(doAskAboutUnsavedChanges: boolean): Promise<boolean> {
+    if (this.GetBoard() === null) return false;
+
+    if (doAskAboutUnsavedChanges && this.IsContentModified()) {
+      const answer =
+        (await this.hooks.askUnsavedChanges?.(
+          'The current footprint has been modified.  Save changes?',
+        )) ?? 'discard';
+
+      if (answer === 'cancel') return false;
+
+      if (answer === 'save' && !(await this.SaveFootprint(this.GetBoard()!.Footprints()[0]!)))
+        return false;
+    }
+
+    // Clear undo and redo lists because we want a full deletion
+    this.ClearUndoRedoList();
+    this.GetScreen()?.SetContentModified(false);
+
+    // Clear the view so we don't attempt redraws
+    this.GetCanvas()?.GetView().Clear();
+
+    const board = new BOARD();
+    this.SetBoard(board);
+
+    // Not ported: `GetBoard()->GetDesignSettings() = cfg->m_DesignSettings` —
+    // fpedit.json's design settings are not a BOARD_DESIGN_SETTINGS here.
+    board.SynchronizeNetsAndNetClasses(true);
+
+    // This board will only be used to hold a footprint for editing
+    board.SetBoardUse(BOARD_USE.FPHOLDER);
+
+    // Setup our own severities for the Footprint Checker.
+    // These are not (at present) user-editable.
+    const drcSeverities = board.GetDesignSettings().m_DRCSeverities;
+
+    for (let errorCode = DRCE.DRCE_FIRST; errorCode <= DRCE.DRCE_LAST; ++errorCode)
+      drcSeverities.set(errorCode, RPT_SEVERITY_ERROR);
+
+    drcSeverities.set(DRCE.DRCE_DRILLED_HOLES_COLOCATED, RPT_SEVERITY_WARNING);
+    drcSeverities.set(DRCE.DRCE_DRILLED_HOLES_TOO_CLOSE, RPT_SEVERITY_WARNING);
+
+    drcSeverities.set(DRCE.DRCE_PADSTACK, RPT_SEVERITY_WARNING);
+
+    drcSeverities.set(DRCE.DRCE_FOOTPRINT_TYPE_MISMATCH, RPT_SEVERITY_WARNING);
+
+    // clear filename, to avoid overwriting an old file
+    board.SetFileName('');
+
+    this.GetScreen()?.InitDataPoints(this.GetPageSizeIU());
+
+    return true;
+  }
+
+  /**
+   * `FOOTPRINT_EDIT_FRAME::LoadFootprintFromLibrary` (footprint_editor_utils.cpp:57-104):
+   * the footprint out of its library onto an emptied holder board, with a
+   * reference and value to see, unmodified.
+   */
+  async LoadFootprintFromLibrary(aFPID: LIB_ID): Promise<void> {
+    const footprint = await this.LoadFootprint(aFPID);
+
+    if (!footprint) return;
+
+    if (!(await this.Clear_Pcb(true))) return;
+
+    this.GetCanvas()?.GetViewControls().SetCrossHairCursorPosition({ x: 0, y: 0 }, false);
+    this.AddFootprintToBoard(footprint);
+
+    footprint.ClearFlags();
+
+    // if either reference or value are missing, reinstall them -
+    // otherwise you cannot see what you are doing on board
+    if (footprint.Reference().GetText() === '') footprint.SetReference('Ref**');
+
+    if (footprint.Value().GetText() === '') footprint.SetValue('Val**');
+
+    this.GetScreen()?.SetContentModified(false);
+
+    // Zoom_Automatique, Update3DView, the tree's ExpandLibId and the idle
+    // CenterLibId: the window's.
+    this.hooks.onFootprintLoaded?.(aFPID);
+  }
+
+  /**
+   * `FOOTPRINT_EDIT_FRAME::SaveFootprint` (footprint_libraries_utils.cpp:706-770):
+   * into its library, deleting the old name's file first when it was renamed.
+   *
+   * Not ported: the board-footprint branch (`SaveFootprintToBoard`, a footprint
+   * with a link) and Save As for an unnamed one, which are the window's still;
+   * and the legacy-library guard — every library here is a .pretty.
+   */
+  async SaveFootprint(aFootprint: FOOTPRINT | null): Promise<boolean> {
+    if (!aFootprint)
+      // Happen if no footprint loaded
+      return false;
+
+    const padTool = this.m_toolManager?.GetTool(PAD_TOOL);
+
+    if (padTool?.InPadEditMode()) this.m_toolManager!.RunAction(PCB_ACTIONS.recombinePad);
+
+    const libraryName = aFootprint.GetFPID().GetLibNickname();
+    const footprintName = aFootprint.GetFPID().GetLibItemName();
+    const nameChanged = this.m_footprintNameWhenLoaded !== footprintName;
+
+    if (libraryName === '' || footprintName === '') return false;
+
+    if (nameChanged) {
+      const oldFPID = new LIB_ID(libraryName, this.m_footprintNameWhenLoaded);
+      await this.DeleteFootprintFromLibrary(oldFPID, false);
+    }
+
+    if (!(await this.SaveFootprintInLibrary(aFootprint, libraryName))) return false;
+
+    if (nameChanged) {
+      this.m_footprintNameWhenLoaded = footprintName;
+      this.hooks.syncLibraryTree?.();
+    }
+
+    return true;
+  }
+
+  /**
+   * `FOOTPRINT_EDIT_FRAME::SaveFootprintInLibrary` (:818-850): the footprint
+   * written under its item name alone, every child's flags cleared.
+   */
+  async SaveFootprintInLibrary(aFootprint: FOOTPRINT, aLibraryName: string): Promise<boolean> {
+    try {
+      aFootprint.SetFPID(new LIB_ID('', aFootprint.GetFPID().GetLibItemName()));
+
+      // Clear selected, brightened, temp flags, edit flags, the whole shebang.
+      aFootprint.RunOnChildren((child) => {
+        child.ClearFlags();
+      }, RECURSE_MODE.RECURSE);
+
+      await this.hooks.saveFootprintToLibrary?.(aLibraryName, aFootprint);
+
+      aFootprint.SetFPID(new LIB_ID(aLibraryName, aFootprint.GetFPID().GetLibItemName()));
+
+      // Not ported: setFPWatcher, the file-system watcher.
+      return true;
+    } catch (ioe) {
+      if (!(ioe instanceof IO_ERROR)) throw ioe;
+
+      DisplayErrorMessage(ioe.What());
+
+      aFootprint.SetFPID(new LIB_ID(aLibraryName, aFootprint.GetFPID().GetLibItemName()));
+      return false;
+    }
+  }
+
+  /**
+   * `FOOTPRINT_EDIT_FRAME::DeleteFootprintFromLibrary` (:900-945): the file
+   * out of a writable library, after asking when `aConfirm`.
+   */
+  async DeleteFootprintFromLibrary(aFPID: LIB_ID, aConfirm: boolean): Promise<boolean> {
+    if (!aFPID.IsValid()) return false;
+
+    const nickname = aFPID.GetLibNickname();
+    const fpname = aFPID.GetLibItemName();
+
+    if (!(this.hooks.isFootprintLibWritable?.(nickname) ?? true)) {
+      const msg = `Library '${nickname}' is read only.`;
+      this.ShowInfoBarError(msg);
+      return false;
+    }
+
+    // Confirmation
+    const msg = `Delete footprint '${fpname}' from library '${nickname}'?`;
+
+    if (aConfirm && !(await (this.hooks.isOK?.(msg) ?? Promise.resolve(false)))) return false;
+
+    try {
+      await this.hooks.deleteFootprintFromLibrary?.(nickname, fpname);
+    } catch (ioe) {
+      if (!(ioe instanceof IO_ERROR)) throw ioe;
+
+      DisplayErrorMessage(ioe.What());
+      return false;
+    }
+
+    this.SetStatusText(`Footprint '${fpname}' deleted from library '${nickname}'`);
+
+    return true;
   }
 
   /** `AddFootprintToBoard` (:722-730): ReloadFootprint; the file watcher is not ported. */

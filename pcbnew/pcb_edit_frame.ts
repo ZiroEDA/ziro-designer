@@ -146,7 +146,6 @@ import { EDIT_MIXIN } from './edit.js';
 import { FILES_MIXIN } from './files.js';
 import { EDIT_ZONE_HELPERS_MIXIN } from './edit_zone_helpers.js';
 import { PCBNEW_CONFIG_MIXIN } from './pcbnew_config.js';
-import { LOAD_SELECT_FOOTPRINT_MIXIN } from './load_select_footprint.js';
 import type { LIB_ID } from '@ziroeda/common/lib_id.js';
 import type { PCB_SELECTION_FILTER_OPTIONS } from '@ziroeda/common/project/board_project_settings.js';
 import { ACTIONS, EVENTS } from '@ziroeda/common/tool/actions.js';
@@ -1008,7 +1007,6 @@ export interface PCB_EDIT_FRAME
     FILES_MIXIN,
     EDIT_ZONE_HELPERS_MIXIN,
     PCBNEW_CONFIG_MIXIN,
-    LOAD_SELECT_FOOTPRINT_MIXIN,
     PCB_DESIGN_BLOCK_UTILS_MIXIN {}
 
 // biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (INITPCB_MIXIN mixin, see libs/core/mixins.ts)
@@ -1261,7 +1259,7 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   }
 
   /** `EDA_BASE_FRAME::ShowInfoBarError( aErrorMsg, aShowCloseButton )` (eda_base_frame.cpp). */
-  ShowInfoBarError(aErrorMsg: string, aShowCloseButton = false): void {
+  override ShowInfoBarError(aErrorMsg: string, aShowCloseButton = false): void {
     this.hooks.showInfoBarError?.(aErrorMsg, aShowCloseButton);
   }
 
@@ -1278,7 +1276,7 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   // ---- EDIT_TOOL's window half (EDIT_TOOL_FRAME) -------------------------
 
   /** `EDA_BASE_FRAME::ShowInfoBarMsg( aMsg )` (eda_base_frame.cpp). */
-  ShowInfoBarMsg(aMsg: string): void {
+  override ShowInfoBarMsg(aMsg: string): void {
     this.hooks.showInfoBarMsg?.(aMsg);
   }
 
@@ -1667,6 +1665,17 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     this.ShowInfoBarMsg(
       'Automatic refill of zones can be turned off in Preferences if it becomes too slow.',
     );
+  }
+
+  override selectFootprintFromChooser(aPreselect: string): Promise<string | null> {
+    return this.hooks.selectFootprintFromChooser?.(aPreselect) ?? Promise.resolve(null);
+  }
+
+  override loadFootprintFromLibraryWindow(
+    aFootprintId: LIB_ID,
+    aKeepUUID: boolean,
+  ): Promise<FOOTPRINT | null> | null {
+    return this.hooks.loadFootprintFromLibrary?.(aFootprintId, aKeepUUID) ?? null;
   }
 
   /** `KIDIALOG( this, ... ).ShowModal()`, through the window's KiDialog host. */
@@ -3494,7 +3503,6 @@ applyMixins(PCB_EDIT_FRAME, [
   FILES_MIXIN,
   EDIT_ZONE_HELPERS_MIXIN,
   PCBNEW_CONFIG_MIXIN,
-  LOAD_SELECT_FOOTPRINT_MIXIN,
   PCB_DESIGN_BLOCK_UTILS_MIXIN,
 ]);
 

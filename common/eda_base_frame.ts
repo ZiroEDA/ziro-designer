@@ -146,6 +146,15 @@ export abstract class EDA_BASE_FRAME
    */
   ShowInfoBarWarning(_aWarningMsg: string, _aShowCloseButton = false): void {}
 
+  /**
+   * `ShowInfoBarError( aErrorMsg, aShowCloseButton )` (eda_base_frame.cpp): the
+   * frame's infobar with an error icon; a frame without one shows nothing.
+   */
+  ShowInfoBarError(_aErrorMsg: string, _aShowCloseButton = false): void {}
+
+  /** `ShowInfoBarMsg( aMsg, aShowCloseButton )` (eda_base_frame.cpp): the infobar, informational. */
+  ShowInfoBarMsg(_aMsg: string, _aShowCloseButton = false): void {}
+
   GetFrameType(): FRAME_T {
     return this.m_ident;
   }

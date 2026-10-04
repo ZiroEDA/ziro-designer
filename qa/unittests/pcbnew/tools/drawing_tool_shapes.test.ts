@@ -35,6 +35,7 @@ import { DIALOG_RULE_AREA_PROPERTIES } from '@ziroeda/pcbnew/dialogs/dialog_rule
 import { DIALOG_COPPER_ZONE } from '@ziroeda/pcbnew/dialogs/panel_zone_properties.js';
 import type { ZONE } from '@ziroeda/pcbnew/zone.js';
 import type { PCB_TABLE } from '@ziroeda/pcbnew/pcb_table.js';
+import { PCB_TEXTBOX as PcbTextboxClass, type PCB_TEXTBOX } from '@ziroeda/pcbnew/pcb_textbox.js';
 import type { PCB_REFERENCE_IMAGE } from '@ziroeda/pcbnew/pcb_reference_image.js';
 import type { PCB_BARCODE } from '@ziroeda/pcbnew/pcb_barcode.js';
 import type { IMPORT_GRAPHICS_RESULT } from '@ziroeda/pcbnew/pcb_base_edit_frame.js';
@@ -1055,6 +1056,33 @@ describe('DRAWING_TOOL::DrawRectangle as a text box (drawing_tool.cpp:411-470)',
     for (let i = 0; i < 4; i++) await new Promise((r) => setTimeout(r, 0));
   };
   const boxes = (): PCB_SHAPE[] => shapes().filter((x) => x.Type() === KICAD_T.PCB_TEXTBOX_T);
+
+  it('a second click on the first draws no box (:2275-2283)', async () => {
+    start(PCB_ACTIONS.drawTextBox);
+    click(mm(10, 10));
+    click(mm(10, 10));
+    await flush();
+    expect(boxes()).toHaveLength(0);
+  });
+
+  it("on the active layer, its margins the constructor's legacy ones (:426)", async () => {
+    h.frame.SetActiveLayer(PCB_LAYER_ID.F_Cu);
+    start(PCB_ACTIONS.drawTextBox);
+    click(mm(10, 10));
+    click(mm(30, 20));
+    await flush();
+    const b = boxes()[0]! as unknown as PCB_TEXTBOX;
+    expect(b.GetLayer()).toBe(PCB_LAYER_ID.F_Cu);
+    // PCB_TEXTBOX's constructor sets every margin to GetLegacyTextMargin() of
+    // ITS state (pcb_textbox.cpp:59-63); the tool's later text size does not move them.
+    const legacy = new PcbTextboxClass(h.board).GetLegacyTextMargin();
+    expect([b.GetMarginLeft(), b.GetMarginTop(), b.GetMarginRight(), b.GetMarginBottom()]).toEqual([
+      legacy,
+      legacy,
+      legacy,
+      legacy,
+    ]);
+  });
 
   it('two corners, then the dialog: OK commits a normalized text box, selected (:448-461)', async () => {
     start(PCB_ACTIONS.drawTextBox);
