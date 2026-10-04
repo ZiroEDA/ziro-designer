@@ -127,7 +127,8 @@ import { SCH_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { SCH_RULE_AREA } from './sch_rule_area.js';
 import { SCH_SCREEN, SCH_SCREENS } from './sch_screen.js';
 import { SCH_SHEET } from './sch_sheet.js';
-import { SCH_SHEET_LIST, SCH_SHEET_PATH } from './sch_sheet_path.js';
+import { SCH_SHEET_LIST, SCH_SHEET_PATH, SYMBOL_FILTER } from './sch_sheet_path.js';
+import { type SCH_REFERENCE, SCH_REFERENCE_LIST } from './sch_reference_list.js';
 import type { SCH_SYMBOL } from './sch_symbol.js';
 import { SCHEMATIC_SETTINGS } from './schematic_settings.js';
 
@@ -371,6 +372,22 @@ export class SCHEMATIC extends EDA_ITEM_E3 {
 
   HasHierarchy(): boolean {
     return this.m_hierarchy.length > 0;
+  }
+
+  /**
+   * `Contains( aRef )` (schematic.cpp:231): whether a symbol with \a aRef's full reference (unit
+   * included) is placed anywhere in the hierarchy.
+   */
+  Contains(aRef: SCH_REFERENCE): boolean {
+    const sheets = this.Hierarchy();
+    const references = new SCH_REFERENCE_LIST();
+
+    /// TODO(snh): This is horribly inefficient, we should be using refdesTracker for this.
+    sheets.GetSymbols(references, SYMBOL_FILTER.SYMBOL_FILTER_ALL);
+
+    for (const ref of references) if (ref.GetFullRef(true) === aRef.GetFullRef(true)) return true;
+
+    return false;
   }
 
   RefreshHierarchy(): void {

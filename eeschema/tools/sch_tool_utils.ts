@@ -447,3 +447,29 @@ export function GetSheetNamesFromPaths(
 
   return friendlyNames;
 }
+
+/**
+ * `IsUnannotatedUnitOccupied` (sch_tool_utils.cpp:145): whether \a aRefs holds unit \a aUnit of
+ * reference \a aRef from library symbol \a aLibId. Before annotation every part reads "U?", so the
+ * library id is what tells two different multi-unit parts apart.
+ */
+export function IsUnannotatedUnitOccupied(
+  aRefs: SCH_REFERENCE_LIST,
+  aRef: string,
+  aLibId: LIB_ID,
+  aUnit: number,
+): boolean {
+  for (let i = 0; i < aRefs.GetCount(); ++i) {
+    const ref = aRefs.at(i);
+
+    if (ref.GetUnit() !== aUnit) continue;
+
+    if (ref.GetRef() !== aRef) continue;
+
+    const refSym = ref.GetSymbol();
+
+    if (refSym?.GetLibId().equals(aLibId)) return true;
+  }
+
+  return false;
+}

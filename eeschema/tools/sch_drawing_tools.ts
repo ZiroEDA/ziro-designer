@@ -3,14 +3,14 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * `SCH_DRAWING_TOOLS` (eeschema/tools/sch_drawing_tools.{h,cpp}): the tool that places items on
- * the live model. Single-click items (no-connects, junctions, bus entries), two-click items
- * (labels, text, sheet pins), sheets, and the sheet-pin helpers are here (S5-5a); symbols, shapes,
- * rule areas, tables, images and imports follow.
+ * the live model. Symbols (S5-5b), single-click items (no-connects, junctions, bus
+ * entries), two-click items (labels, text, sheet pins), sheets, and the sheet-pin helpers (S5-5a)
+ * are here; shapes, rule areas, tables, images and imports follow.
  *
  * Every dialog is the window's, through SCH_EDIT_FRAME::ShowModalDialog / EditSheetProperties.
  */
 import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
-import { RECURSE_MODE } from '@ziroeda/common/eda_item.js';
+import { IGNORE_PARENT_GROUP, RECURSE_MODE } from '@ziroeda/common/eda_item.js';
 import { IS_MOVING, IS_NEW, STRUCT_DELETED } from '@ziroeda/common/eda_item_flags.js';
 import { FILL_T } from '@ziroeda/common/eda_shape.js';
 import { schIUScale } from '@ziroeda/common/eda_units.js';
@@ -31,6 +31,7 @@ import {
   BUT_LEFT,
   BUT_RIGHT,
   MD_SHIFT,
+  TA_CHOICE_MENU_CHOICE,
   TC_COMMAND,
   type TOOL_EVENT,
 } from '@ziroeda/common/tool/tool_event.js';
@@ -63,7 +64,13 @@ import {
   type ANNOTATE_ALGO_T,
   type ANNOTATE_ORDER_T,
   ANNOTATE_SCOPE_T,
+  SCH_REFERENCE,
+  SCH_REFERENCE_LIST,
 } from '../sch_reference_list.js';
+import type { PICKED_SYMBOL } from '../sch_screen.js';
+import { SCH_SYMBOL } from '../sch_symbol.js';
+import { id_eeschema_frm } from '../eeschema_id.js';
+import { SYMBOL_LIBRARY_FILTER } from '../symbol_library_common.js';
 import type { SCH_SCREEN } from '../sch_screen.js';
 import { MIN_SHEET_HEIGHT, MIN_SHEET_WIDTH, SCH_SHEET } from '../sch_sheet.js';
 import { SCH_SHEET_PATH, SYMBOL_FILTER } from '../sch_sheet_path.js';
@@ -71,12 +78,21 @@ import { SCH_SHEET_PIN, SHEET_SIDE } from '../sch_sheet_pin.js';
 import { SCH_TEXT } from '../sch_text.js';
 import type { SCHEMATIC } from '../schematic.js';
 import { EE_GRID_HELPER } from './ee_grid_helper.js';
-import { SCH_ACTIONS } from './sch_actions.js';
+import {
+  type PLACE_SYMBOL_PARAMS,
+  type PLACE_SYMBOL_UNIT_PARAMS,
+  SCH_ACTIONS,
+} from './sch_actions.js';
+import { GetUnplacedUnitsForSymbol, IsUnannotatedUnitOccupied } from './sch_tool_utils.js';
 import { SCH_LINE_WIRE_BUS_TOOL } from './sch_line_wire_bus_tool.js';
 import { SCH_TOOL_BASE } from './sch_tool_base.js';
 
 /** `FILEEXT::KiCadSchematicFileExtension` (wildcards_and_files_ext.cpp). */
 const KiCadSchematicFileExtension = 'kicad_sch';
+
+/** `POWER_SYMBOLS` (eeschema_settings.h:55): drawing.new_power_symbols' DEFAULT, GLOBAL, LOCAL. */
+const POWER_SYMBOLS_GLOBAL = 1;
+const POWER_SYMBOLS_LOCAL = 2;
 
 export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
   // The tool's memory of the last choices (sch_drawing_tools.cpp:83-104).
@@ -97,6 +113,9 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
   m_mruPath = '';
   m_lastAutoLabelRotateOnPlacement = false;
   m_drawingRuleArea = false;
+
+  m_symbolHistoryList: PICKED_SYMBOL[] = [];
+  m_powerHistoryList: PICKED_SYMBOL[] = [];
 
   private m_inDrawingTool = false; // Re-entrancy guard
 
@@ -132,6 +151,571 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
 
   private schematic(): SCHEMATIC {
     return this.m_frame!.Schematic();
+  }
+
+  /**
+   * PlaceSymbol. The chooser and the library are the window's: SCH_EDIT_FRAME::
+   * PickSymbolFromLibrary and GetLibSymbol answer asynchronously, so the coroutine waits on them
+   * (RunMainStackModal) where the C++ blocks in the modal. The "already placed" list reads each
+   * symbol's embedded library copy where the C++ reloads it from the library (SchGetLibSymbol),
+   * which is asynchronous here; the copy is what that lookup returns for a loaded schematic.
+   */
+  *PlaceSymbol(aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+    const toolParams = aEvent.Parameter<PLACE_SYMBOL_PARAMS>();
+
+    let symbol: SCH_SYMBOL | null = toolParams.m_Symbol;
+
+    // If we get a parameterised symbol, we probably just want to place that and get out of the
+    // placmeent tool, rather than popping up the chooser afterwards
+    const placeOneOnly = symbol !== null;
+
+    const filter = new SYMBOL_LIBRARY_FILTER();
+    let historyList: PICKED_SYMBOL[] | null = null;
+    let ignorePrimePosition = false;
+    const common_settings = Pgm().GetCommonSettings();
+    const schSettings = this.schematic().Settings();
+    const screen = this.m_frame!.GetScreen()!;
+    let keepSymbol = false;
+    let placeAllUnits = false;
+
+    if (this.m_inDrawingTool) return 0;
+
+    // REENTRANCY_GUARD guard( &m_inDrawingTool )
+    this.m_inDrawingTool = true;
+
+    try {
+      const controls = this.controls();
+      const grid = new EE_GRID_HELPER(this.m_toolMgr);
+      let cursorPos: VECTOR2I = { x: 0, y: 0 };
+
+      // First we need to get all instances of this sheet so we can annotate whatever symbols we
+      // place on all copies
+      const hierarchy = this.schematic().Hierarchy();
+      const newInstances = hierarchy.FindAllSheetsForScreen(
+        this.m_frame!.GetCurrentSheet().LastScreen()!,
+      );
+      newInstances.SortByPageNumbers();
+
+      // Get a list of all references in the schematic to avoid duplicates wherever they're placed
+      const existingRefs = new SCH_REFERENCE_LIST();
+      hierarchy.GetSymbols(existingRefs, SYMBOL_FILTER.SYMBOL_FILTER_ALL);
+      existingRefs.SortByReferenceOnly();
+
+      if (aEvent.IsAction(SCH_ACTIONS.placeSymbol)) {
+        historyList = this.m_symbolHistoryList;
+      } else if (aEvent.IsAction(SCH_ACTIONS.placePower)) {
+        historyList = this.m_powerHistoryList;
+        filter.FilterPowerSymbols(true);
+      } else {
+        // wxFAIL_MSG( "PlaceSymbol(): unexpected request" )
+      }
+
+      this.m_frame!.PushTool(aEvent);
+
+      const addSymbol = (aSymbol: SCH_SYMBOL) => {
+        this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
+        this.m_selectionTool!.AddItemToSel(aSymbol);
+
+        aSymbol.SetFlags(IS_NEW | IS_MOVING);
+
+        this.m_view!.ClearPreview();
+        this.m_view!.AddToPreview(aSymbol, false); // Add, but not give ownership
+
+        // Set IS_MOVING again, as AddItemToCommitAndScreen() will have cleared it.
+        aSymbol.SetFlags(IS_MOVING);
+        this.m_toolMgr!.PostAction(ACTIONS.refreshPreview);
+      };
+
+      const setCursor = () => {
+        this.m_frame!.GetCanvas()?.SetCurrentCursor(symbol ? KICURSOR.MOVING : KICURSOR.COMPONENT);
+      };
+
+      const cleanup = () => {
+        this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
+        this.m_view!.ClearPreview();
+        symbol = null;
+
+        existingRefs.Clear();
+        hierarchy.GetSymbols(existingRefs, SYMBOL_FILTER.SYMBOL_FILTER_ALL);
+        existingRefs.SortByReferenceOnly();
+      };
+
+      const annotate = () => {
+        const cfg = this.m_frame!.eeconfig();
+
+        // Then we need to annotate all instances by sheet
+        for (const instance of newInstances) {
+          const newReference = new SCH_REFERENCE(symbol!, instance);
+          const refs = new SCH_REFERENCE_LIST();
+          refs.AddItem(newReference);
+          refs.SetRefDesTracker(schSettings.m_refDesTracker);
+
+          if (cfg?.annotation.automatic || newReference.AlwaysAnnotate()) {
+            refs.ReannotateByOptions(
+              schSettings.m_AnnotateSortOrder as ANNOTATE_ORDER_T,
+              schSettings.m_AnnotateMethod as ANNOTATE_ALGO_T,
+              schSettings.m_AnnotateStartNum,
+              existingRefs,
+              false,
+              hierarchy,
+            );
+
+            refs.UpdateAnnotation();
+
+            // Update existing refs for next iteration
+            for (let i = 0; i < refs.GetCount(); i++) existingRefs.AddItem(refs.at(i));
+          }
+        }
+
+        this.m_frame!.GetCurrentSheet().UpdateAllScreenReferences();
+      };
+
+      this.Activate();
+
+      // Must be done after Activate() so that it gets set into the correct context
+      controls.ShowCursor(true);
+
+      // Set initial cursor
+      setCursor();
+
+      // Prime the pump
+      if (symbol) {
+        addSymbol(symbol);
+
+        if (toolParams.m_Reannotate) annotate();
+
+        controls.WarpMouseCursor(controls.GetMousePosition(false));
+      } else if (aEvent.HasPosition()) {
+        this.m_toolMgr!.PrimeTool(aEvent.Position());
+      } else if ((common_settings?.m_Input.immediate_actions ?? true) && !aEvent.IsReactivate()) {
+        this.m_toolMgr!.PrimeTool({ x: 0, y: 0 });
+        ignorePrimePosition = true;
+      }
+
+      // Main loop: keep receiving events
+      for (let evt = yield* this.Wait(); evt; evt = yield* this.Wait()) {
+        setCursor();
+        grid.SetSnap(!evt.Modifier(MD_SHIFT));
+        grid.SetUseGrid(this.getView()!.GetGAL()!.GetGridSnapping() && !evt.DisableGridSnapping());
+
+        cursorPos = grid.Align(controls.GetMousePosition(), GRID_HELPER_GRIDS.GRID_CONNECTABLE);
+        controls.ForceCursorPosition(true, cursorPos);
+
+        // The tool hotkey is interpreted as a click when drawing
+        const isSyntheticClick =
+          !!symbol && evt.IsActivate() && evt.HasPosition() && evt.Matches(aEvent);
+
+        if (evt.IsCancelInteractive() || (symbol && evt.IsAction(ACTIONS.undo))) {
+          this.m_frame!.GetInfoBar()?.Dismiss();
+
+          if (symbol) {
+            cleanup();
+
+            if (keepSymbol) {
+              // Re-enter symbol chooser
+              this.m_toolMgr!.PostAction(ACTIONS.cursorClick);
+            }
+          } else {
+            this.m_frame!.PopTool(aEvent);
+            break;
+          }
+        } else if (evt.IsActivate() && !isSyntheticClick) {
+          if (symbol && evt.IsMoveTool()) {
+            // we're already moving our own item; ignore the move tool
+            evt.SetPassEvent(false);
+            continue;
+          }
+
+          if (symbol) {
+            this.m_frame!.ShowInfoBarMsg('Press <ESC> to cancel symbol creation.');
+            evt.SetPassEvent(false);
+            continue;
+          }
+
+          if (evt.IsMoveTool()) {
+            // leave ourselves on the stack so we come back after the move
+            break;
+          } else {
+            this.m_frame!.PopTool(aEvent);
+            break;
+          }
+        } else if (
+          evt.IsClick(BUT_LEFT) ||
+          evt.IsDblClick(BUT_LEFT) ||
+          isSyntheticClick ||
+          evt.IsAction(ACTIONS.cursorClick) ||
+          evt.IsAction(ACTIONS.cursorDblClick)
+        ) {
+          if (!symbol) {
+            this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
+
+            const unique_libid = new Set<string>();
+            const alreadyPlaced: PICKED_SYMBOL[] = [];
+
+            for (const sheet of hierarchy) {
+              for (const item of sheet.LastScreen()!.Items().OfType(KICAD_T.SCH_SYMBOL_T)) {
+                const s = item as SCH_SYMBOL;
+
+                if (unique_libid.has(s.GetLibId().Format())) continue;
+
+                unique_libid.add(s.GetLibId().Format());
+
+                const libSymbol = s.GetLibSymbolRef();
+
+                if (libSymbol) {
+                  if (libSymbol.IsPower() !== filter.GetFilterPowerSymbols()) continue;
+
+                  alreadyPlaced.push({
+                    LibId: libSymbol.GetLibId(),
+                    Unit: 1,
+                    Convert: 1,
+                    Fields: [],
+                  });
+                }
+              }
+            }
+
+            // Pick the symbol to be placed
+            const footprintPreviews = !!this.m_frame!.eeconfig()?.appearance.footprint_preview;
+            const sel = yield* this.RunMainStackModal(() =>
+              this.m_frame!.PickSymbolFromLibrary(
+                filter,
+                historyList!,
+                alreadyPlaced,
+                footprintPreviews,
+              ),
+            );
+
+            keepSymbol = !!sel?.KeepSymbol;
+            placeAllUnits = !!sel?.PlaceAllUnits;
+
+            const libSymbol =
+              sel && sel.LibId.IsValid()
+                ? yield* this.RunMainStackModal(() => this.m_frame!.GetLibSymbol(sel.LibId))
+                : null;
+
+            if (!sel || !libSymbol) continue;
+
+            // If we started with a hotkey which has a position then warp back to that.
+            // Otherwise update to the current mouse position pinned inside the autoscroll
+            // boundaries.
+            if (evt.IsPrime() && !ignorePrimePosition) {
+              cursorPos = grid.Align(evt.Position(), GRID_HELPER_GRIDS.GRID_CONNECTABLE);
+              controls.WarpMouseCursor(cursorPos, true);
+            } else {
+              controls.PinCursorInsideNonAutoscrollArea(true);
+              cursorPos = grid.Align(
+                controls.GetMousePosition(),
+                GRID_HELPER_GRIDS.GRID_CONNECTABLE,
+              );
+            }
+
+            const cfg = this.m_frame!.eeconfig();
+
+            // Only convert between power symbol types. Regular (non-power) symbols must never be
+            // promoted to power symbols just because the default is set to Global or Local. The
+            // preference's Default option means "follow the symbol definition" and any
+            // conversion only applies to symbols that are already power symbols.
+            if (
+              libSymbol.IsPower() &&
+              !libSymbol.IsLocalPower() &&
+              cfg?.drawing.new_power_symbols === POWER_SYMBOLS_LOCAL
+            ) {
+              libSymbol.SetLocalPower();
+              let keywords = libSymbol.GetKeyWords();
+
+              // Adjust the KiCad library default fields to match the new power symbol type
+              if (keywords.includes('global power')) {
+                keywords = keywords.replaceAll('global power', 'local power');
+                libSymbol.SetKeyWords(keywords);
+              }
+
+              let desc = libSymbol.GetDescription();
+
+              if (desc.includes('global label')) {
+                desc = desc.replaceAll('global label', 'local label');
+                libSymbol.SetDescription(desc);
+              }
+            } else if (
+              libSymbol.IsPower() &&
+              !libSymbol.IsGlobalPower() &&
+              cfg?.drawing.new_power_symbols === POWER_SYMBOLS_GLOBAL
+            ) {
+              // We do not currently have local power symbols in the KiCad library, so
+              // don't update any fields
+              libSymbol.SetGlobalPower();
+            }
+
+            const placed = SCH_SYMBOL.fromPicked(
+              libSymbol,
+              this.m_frame!.GetCurrentSheet(),
+              sel,
+              cursorPos,
+              this.schematic(),
+            );
+            symbol = placed;
+            addSymbol(placed);
+            annotate();
+
+            // Update the list of references for the next symbol placement.
+            const placedSymbolReference = new SCH_REFERENCE(
+              placed,
+              this.m_frame!.GetCurrentSheet(),
+            );
+            existingRefs.AddItem(placedSymbolReference);
+            existingRefs.SortByReferenceOnly();
+
+            if (this.m_frame!.eeconfig()?.autoplace_fields.enable) {
+              // Not placed yet, so pass a nullptr screen reference
+              placed.AutoplaceFields(null, AUTOPLACE_ALGO.AUTOPLACE_AUTO);
+            }
+
+            // Update cursor now that we have a symbol
+            setCursor();
+          } else {
+            const placed: SCH_SYMBOL = symbol;
+            this.m_view!.ClearPreview();
+            this.m_frame!.AddToScreen(placed, screen);
+
+            if (this.m_frame!.eeconfig()?.autoplace_fields.enable)
+              placed.AutoplaceFields(screen, AUTOPLACE_ALGO.AUTOPLACE_AUTO);
+
+            this.m_frame!.SaveCopyForRepeatItem(placed);
+
+            const commit = new SCH_COMMIT(this.m_toolMgr!);
+            commit.Added(placed, screen);
+
+            const lwbTool = this.m_toolMgr!.GetTool(SCH_LINE_WIRE_BUS_TOOL)!;
+            lwbTool.TrimOverLappingWires(commit, this.m_selectionTool!.GetSelection());
+            lwbTool.AddJunctionsIfNeeded(commit, this.m_selectionTool!.GetSelection());
+
+            commit.Push('Place Symbol');
+
+            if (placeOneOnly) {
+              this.m_frame!.PopTool(aEvent);
+              break;
+            }
+
+            let nextSymbol: SCH_SYMBOL | null = null;
+
+            if (keepSymbol || placeAllUnits) {
+              const currentReference = new SCH_REFERENCE(placed, this.m_frame!.GetCurrentSheet());
+              const schematic = this.schematic();
+
+              if (placeAllUnits) {
+                // For unannotated references all U?-prefix symbols share the same ref string
+                // regardless of the library symbol they originate from. Only consider units
+                // already used by THIS library symbol when stepping through units, so different
+                // multi-unit parts that share a reference prefix do not collide pre-annotation.
+                const currentRefStr = currentReference.GetRef();
+                const isUnannotated = currentRefStr !== '' && currentRefStr.endsWith('?');
+                const symLibId = placed.GetLibId();
+
+                const unitOccupied = (aUnit: number): boolean => {
+                  if (!isUnannotated) {
+                    const candidate = currentReference.Clone();
+                    candidate.SetUnit(aUnit);
+                    return schematic.Contains(candidate);
+                  }
+
+                  return IsUnannotatedUnitOccupied(existingRefs, currentRefStr, symLibId, aUnit);
+                };
+
+                while (
+                  currentReference.GetUnit() <= placed.GetUnitCount() &&
+                  unitOccupied(currentReference.GetUnit())
+                ) {
+                  currentReference.SetUnit(currentReference.GetUnit() + 1);
+                }
+
+                if (currentReference.GetUnit() > placed.GetUnitCount()) {
+                  currentReference.SetUnit(1);
+                }
+              }
+
+              // We are either stepping to the next unit or next symbol
+              if (keepSymbol || currentReference.GetUnit() > 1) {
+                nextSymbol = placed.Duplicate(IGNORE_PARENT_GROUP) as SCH_SYMBOL;
+                nextSymbol.SetUnit(currentReference.GetUnit());
+                nextSymbol.SetUnitSelection(currentReference.GetUnit());
+
+                addSymbol(nextSymbol);
+                symbol = nextSymbol;
+
+                if (currentReference.GetUnit() === 1) annotate();
+
+                // Update the list of references for the next symbol placement.
+                const placedSymbolReference = new SCH_REFERENCE(
+                  nextSymbol,
+                  this.m_frame!.GetCurrentSheet(),
+                );
+                existingRefs.AddItem(placedSymbolReference);
+                existingRefs.SortByReferenceOnly();
+              }
+            }
+
+            symbol = nextSymbol;
+          }
+        } else if (evt.IsClick(BUT_RIGHT)) {
+          // Warp after context menu only if dragging...
+          if (!symbol) this.m_toolMgr!.VetoContextMenuMouseWarp();
+
+          this.m_menu.ShowContextMenu(this.m_selectionTool!.GetSelection());
+        } else if (evt.Category() === TC_COMMAND && evt.Action() === TA_CHOICE_MENU_CHOICE) {
+          const id = evt.GetCommandId()!;
+
+          if (
+            id >= id_eeschema_frm.ID_POPUP_SCH_SELECT_UNIT &&
+            id <= id_eeschema_frm.ID_POPUP_SCH_SELECT_UNIT_END
+          ) {
+            const unit = id - id_eeschema_frm.ID_POPUP_SCH_SELECT_UNIT;
+
+            if (symbol) {
+              this.m_frame!.SelectUnit(symbol, unit);
+              this.m_toolMgr!.PostAction(ACTIONS.refreshPreview);
+            }
+          } else if (
+            id >= id_eeschema_frm.ID_POPUP_SCH_SELECT_BODY_STYLE &&
+            id <= id_eeschema_frm.ID_POPUP_SCH_SELECT_BODY_STYLE_END
+          ) {
+            const bodyStyle = id - id_eeschema_frm.ID_POPUP_SCH_SELECT_BODY_STYLE + 1;
+
+            if (symbol && symbol.GetBodyStyle() !== bodyStyle) {
+              this.m_frame!.SelectBodyStyle(symbol, bodyStyle);
+              this.m_toolMgr!.PostAction(ACTIONS.refreshPreview);
+            }
+          }
+        } else if (
+          evt.IsAction(ACTIONS.duplicate) ||
+          evt.IsAction(SCH_ACTIONS.repeatDrawItem) ||
+          evt.IsAction(ACTIONS.paste)
+        ) {
+          if (symbol) {
+            wxBell();
+            continue;
+          }
+
+          // Exit.  The duplicate/repeat/paste will run in its own loop.
+          this.m_frame!.PopTool(aEvent);
+          evt.SetPassEvent();
+          break;
+        } else if (symbol && (evt.IsAction(ACTIONS.refreshPreview) || evt.IsMotion())) {
+          symbol.SetPosition(cursorPos);
+          this.m_view!.ClearPreview();
+          this.m_view!.AddToPreview(symbol, false); // Add, but not give ownership
+          this.m_frame!.SetMsgPanel(symbol);
+        } else if (symbol && evt.IsAction(ACTIONS.doDelete)) {
+          cleanup();
+        } else if (
+          symbol &&
+          (evt.IsAction(ACTIONS.redo) ||
+            evt.IsAction(SCH_ACTIONS.editWithLibEdit) ||
+            evt.IsAction(SCH_ACTIONS.changeSymbol))
+        ) {
+          wxBell();
+        } else if (
+          symbol &&
+          (evt.IsAction(SCH_ACTIONS.properties) ||
+            evt.IsAction(SCH_ACTIONS.editReference) ||
+            evt.IsAction(SCH_ACTIONS.editValue) ||
+            evt.IsAction(SCH_ACTIONS.editFootprint) ||
+            evt.IsAction(SCH_ACTIONS.autoplaceFields) ||
+            evt.IsAction(SCH_ACTIONS.cycleBodyStyle) ||
+            evt.IsAction(SCH_ACTIONS.setExcludeFromBOM) ||
+            evt.IsAction(SCH_ACTIONS.setExcludeFromBoard) ||
+            evt.IsAction(SCH_ACTIONS.setExcludeFromSim) ||
+            evt.IsAction(SCH_ACTIONS.setExcludeFromPosFiles) ||
+            evt.IsAction(SCH_ACTIONS.setDNP) ||
+            evt.IsAction(SCH_ACTIONS.rotateCW) ||
+            evt.IsAction(SCH_ACTIONS.rotateCCW) ||
+            evt.IsAction(SCH_ACTIONS.mirrorV) ||
+            evt.IsAction(SCH_ACTIONS.mirrorH))
+        ) {
+          this.m_toolMgr!.PostAction(ACTIONS.refreshPreview);
+          evt.SetPassEvent();
+        } else {
+          evt.SetPassEvent();
+        }
+
+        // Enable autopanning and cursor capture only when there is a symbol to be placed
+        controls.SetAutoPan(symbol !== null);
+        controls.CaptureCursor(symbol !== null);
+      }
+
+      controls.SetAutoPan(false);
+      controls.CaptureCursor(false);
+      this.m_frame!.GetCanvas()?.SetCurrentCursor(KICURSOR.ARROW);
+
+      return 0;
+    } finally {
+      this.m_inDrawingTool = false;
+    }
+  }
+
+  PlaceNextSymbolUnit(aEvent: TOOL_EVENT): number {
+    const params = aEvent.Parameter<PLACE_SYMBOL_UNIT_PARAMS>();
+    let symbol: SCH_SYMBOL | null = params.m_Symbol;
+    const requestedUnit = params.m_Unit;
+
+    // TODO: get from selection
+    if (!symbol) {
+      const symbolTypes = [KICAD_T.SCH_SYMBOL_T];
+      const selection = this.m_selectionTool!.RequestSelection(symbolTypes);
+
+      if (selection.Size() !== 1) {
+        this.m_frame!.ShowInfoBarMsg('Select a single symbol to place the next unit.');
+        return 0;
+      }
+
+      if (selection.Front()!.Type() !== KICAD_T.SCH_SYMBOL_T) return 0; // wxCHECK
+      symbol = selection.Front() as SCH_SYMBOL;
+    }
+
+    if (!symbol) return 0;
+
+    if (!symbol.IsMultiUnit()) {
+      this.m_frame!.ShowInfoBarMsg('This symbol has only one unit.');
+      return 0;
+    }
+
+    const missingUnits = GetUnplacedUnitsForSymbol(symbol);
+
+    if (missingUnits.size === 0) {
+      this.m_frame!.ShowInfoBarMsg('All units of this symbol are already placed.');
+      return 0;
+    }
+
+    let nextMissing: number;
+
+    if (requestedUnit > 0) {
+      if (!missingUnits.has(requestedUnit)) {
+        this.m_frame!.ShowInfoBarMsg('Requested unit already placed.');
+        return 0;
+      }
+
+      nextMissing = requestedUnit;
+    } else {
+      // Find the lowest unit number that is missing
+      nextMissing = Math.min(...missingUnits);
+    }
+
+    // std::make_unique<SCH_SYMBOL>( *symbol ): the copy constructor
+    const newSymbol = symbol.Clone() as SCH_SYMBOL;
+    const sheetPath = this.m_frame!.GetCurrentSheet();
+
+    // Use SetUnitSelection(int) to update ALL instance references at once.
+    // This is important for shared sheets where the same screen is used by multiple
+    // sheet instances - we want the new symbol unit to appear correctly on all instances.
+    newSymbol.SetUnitSelection(nextMissing);
+    newSymbol.SetUnit(nextMissing);
+    newSymbol.SetRefProp(symbol.GetRef(sheetPath, false));
+
+    // Post the new symbol - don't reannotate it - we set the reference ourselves
+    this.m_toolMgr!.PostAction<PLACE_SYMBOL_PARAMS>(SCH_ACTIONS.placeSymbol, {
+      m_Symbol: newSymbol,
+      m_Reannotate: false,
+    });
+    return 0;
   }
 
   *SingleClickPlace(aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
@@ -1487,8 +2071,10 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
 
   protected override setTransitions(): void {
     // clang-format off
-    // PlaceSymbol, PlaceNextSymbolUnit, ImportSheet, DrawShape, DrawRuleArea, DrawTable,
-    // PlaceImage and ImportGraphics follow (S5-5b, S5-5c).
+    // ImportSheet, DrawShape, DrawRuleArea, DrawTable, PlaceImage and ImportGraphics follow (S5-5c).
+    this.Go(this.PlaceSymbol, SCH_ACTIONS.placeSymbol.MakeEvent());
+    this.Go(this.PlaceSymbol, SCH_ACTIONS.placePower.MakeEvent());
+    this.Go(SYNC_HANDLER(this.PlaceNextSymbolUnit), SCH_ACTIONS.placeNextSymbolUnit.MakeEvent());
     this.Go(this.SingleClickPlace, SCH_ACTIONS.placeNoConnect.MakeEvent());
     this.Go(this.SingleClickPlace, SCH_ACTIONS.placeJunction.MakeEvent());
     this.Go(this.SingleClickPlace, SCH_ACTIONS.placeBusWireEntry.MakeEvent());

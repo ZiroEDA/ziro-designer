@@ -68,6 +68,10 @@ import { SCH_BASE_FRAME } from './sch_base_frame.js';
 import { SCH_COMMIT } from './sch_commit.js';
 import { AUTOPLACE_ALGO, type SCH_ITEM } from './sch_item.js';
 import type { SCH_SCREEN } from './sch_screen.js';
+import type { SYMBOL_LIBRARY_FILTER } from './symbol_library_common.js';
+import type { PICKED_SYMBOL } from './sch_screen.js';
+import type { LIB_SYMBOL } from './lib_symbol.js';
+import type { LIB_ID } from '@ziroeda/common/lib_id.js';
 import type { SCH_SHEET } from './sch_sheet.js';
 import type { SCH_SHEET_PATH } from './sch_sheet_path.js';
 import type { SCH_CLEANUP_FLAGS, SCHEMATIC } from './schematic.js';
@@ -169,6 +173,18 @@ export interface SCH_EDIT_FRAME_HOOKS {
     aHierarchy: SCH_SHEET_PATH,
     aSourceSheetFilename?: string,
   ): SHEET_PROPERTIES_RESULT | null | Promise<SHEET_PROPERTIES_RESULT | null>;
+  /**
+   * DIALOG_SYMBOL_CHOOSER's answer (picksymbol.cpp): the symbol chosen, its unit (0 when the
+   * symbol itself was picked), the fields edited, and the two checkboxes; null when cancelled.
+   */
+  pickSymbol?(
+    aFilter: SYMBOL_LIBRARY_FILTER | null,
+    aHistoryList: readonly PICKED_SYMBOL[],
+    aAlreadyPlaced: readonly PICKED_SYMBOL[],
+    aShowFootprints: boolean,
+  ): Promise<PICKED_SYMBOL | null>;
+  /** `SchGetLibSymbol( aLibId, SymbolLibAdapter( &Prj() ), … )`: the library's symbol, or null. */
+  getLibSymbol?(aLibId: LIB_ID): Promise<LIB_SYMBOL | null>;
   /** `wxTextEntryDialog( this, aMessage, aCaption, aValue ).ShowModal()`: null when cancelled. */
   textEntry?(
     aMessage: string,
@@ -782,6 +798,43 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
     return Promise.resolve(
       this.hooks.editSheetProperties?.(aSheet, aHierarchy, aSourceSheetFilename) ?? null,
     );
+  }
+
+  /**
+   * `PickSymbolFromLibrary` (picksymbol.cpp:48, SCH_BASE_FRAME's): the symbol chooser; the pick
+   * goes to the front of \a aHistoryList. An invalid LibId (or null here) is Cancel.
+   */
+  async PickSymbolFromLibrary(
+    aFilter: SYMBOL_LIBRARY_FILTER | null,
+    aHistoryList: PICKED_SYMBOL[],
+    aAlreadyPlaced: PICKED_SYMBOL[],
+    aShowFootprints: boolean,
+  ): Promise<PICKED_SYMBOL | null> {
+    const picked =
+      (await this.hooks.pickSymbol?.(aFilter, aHistoryList, aAlreadyPlaced, aShowFootprints)) ??
+      null;
+
+    if (!picked || !picked.LibId.IsValid()) return null;
+
+    const sel: PICKED_SYMBOL = { ...picked, Unit: picked.Unit === 0 ? 1 : picked.Unit };
+
+    // std::erase_if( aHistoryList, same LibId ); insert at the front
+    for (let i = aHistoryList.length - 1; i >= 0; i--)
+      if (aHistoryList[i]!.LibId.equals(sel.LibId)) aHistoryList.splice(i, 1);
+
+    aHistoryList.unshift({
+      LibId: sel.LibId,
+      Unit: sel.Unit,
+      Convert: sel.Convert,
+      Fields: sel.Fields,
+    });
+
+    return sel;
+  }
+
+  /** `GetLibSymbol( aLibId )` (sch_base_frame.cpp:282): the symbol from the project's libraries. */
+  GetLibSymbol(aLibId: LIB_ID): Promise<LIB_SYMBOL | null> {
+    return this.hooks.getLibSymbol?.(aLibId) ?? Promise.resolve(null);
   }
 
   /** `wxTextEntryDialog`: null when cancelled, or when there is no window to ask. */
