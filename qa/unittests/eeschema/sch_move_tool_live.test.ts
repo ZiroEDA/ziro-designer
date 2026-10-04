@@ -144,6 +144,30 @@ describe('SCH_LINE_WIRE_BUS_TOOL', () => {
     expect(added.every((l) => l.IsWire() && !l.IsNew())).toBe(true);
   });
 
+  it('a diagonal click in 90-degree mode bends the wire into two orthogonal segments', () => {
+    const h = setUp();
+    const start = { x: 1000 * G, y: 1200 * G };
+    const end = { x: start.x + 10 * G, y: start.y + 4 * G };
+    const old = new Set(h.frame.GetScreen()!.Items().OfType(KICAD_T.SCH_LINE_T));
+    h.h.mouse = start;
+    h.mgr.RunAction(SCH_ACTIONS.drawWire);
+    mouse(h, TA_MOUSE_MOTION, end);
+    click(h, end);
+    h.mgr.RunAction(ACTIONS.finishInteractive);
+    const added = (
+      [...h.frame.GetScreen()!.Items().OfType(KICAD_T.SCH_LINE_T)] as SCH_LINE[]
+    ).filter((l) => !old.has(l));
+    expect(added).toHaveLength(2);
+    // each segment is horizontal or vertical, and together they run from start to end
+    for (const l of added)
+      expect(
+        l.GetStartPoint().x === l.GetEndPoint().x || l.GetStartPoint().y === l.GetEndPoint().y,
+      ).toBe(true);
+    const ends = added.flatMap((l) => [l.GetStartPoint(), l.GetEndPoint()]);
+    expect(ends.some((p) => at(p, start))).toBe(true);
+    expect(ends.some((p) => at(p, end))).toBe(true);
+  });
+
   it('AddJunction breaks the wire it lands on in two', () => {
     const h = setUp();
     const screen = h.frame.GetScreen()!;
