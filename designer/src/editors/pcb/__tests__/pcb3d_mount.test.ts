@@ -46,8 +46,7 @@ vi.mock('three', async (importOriginal) => {
   return { ...real, WebGLRenderer: FakeRenderer };
 });
 
-import { parse } from '@ziroeda/sexpr/index.js';
-import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { mount3DViewer } from '@ziroeda/3d-viewer/pcb3d.js';
 import { InitPgm } from '../../../pgm_app.js';
 
@@ -63,7 +62,7 @@ describe('mount3DViewer', () => {
       observe(): void {}
       disconnect(): void {}
     };
-    const board = readBoard(parse(readFileSync(BOARD, 'utf8')));
+    const board = ParseBoard(readFileSync(BOARD, 'utf8'));
     const host = document.createElement('div');
     document.body.appendChild(host);
     const statuses: { dx: number; dy: number; zoom: number; activity: string }[] = [];
@@ -124,11 +123,9 @@ describe('mount3DViewer', () => {
       observe(): void {}
       disconnect(): void {}
     };
-    const board = readBoard(
-      parse(
-        `(kicad_pcb (version 20241229) (generator "ziroeda") (general (thickness 1.6))
-           (paper "A4") (layers (0 "F.Cu" signal) (2 "B.Cu" signal)) (net 0 ""))`,
-      ),
+    const board = ParseBoard(
+      `(kicad_pcb (version 20241229) (generator "ziroeda") (general (thickness 1.6))
+         (paper "A4") (layers (0 "F.Cu" signal) (2 "B.Cu" signal)) (net 0 ""))`,
     );
     const host = document.createElement('div');
     document.body.appendChild(host);

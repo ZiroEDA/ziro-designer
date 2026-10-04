@@ -18,24 +18,23 @@
  * plotter, DRC and convert are covered elsewhere.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/index.js';
-import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { buildBoard3dLayers } from '@ziroeda/3d-viewer/board_3d_layers.js';
 import type { Polygon } from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';
-import type { Board } from '@ziroeda/pcbnew/types.js';
+import type { BOARD } from '@ziroeda/pcbnew/board.js';
 
 const MM = 1e6;
 const BOX = { minX: 0, minY: 0, maxX: 40 * MM, maxY: 40 * MM };
 
-const boardWith = (items: string): Board =>
-  readBoard(
-    parse(`(kicad_pcb (version 20241229) (generator "test")
+const boardWith = (items: string): BOARD =>
+  ParseBoard(
+    `(kicad_pcb (version 20241229) (generator "test")
   (layers (0 "F.Cu" signal) (31 "B.Cu" signal)
           (37 "F.SilkS" user "F.Silkscreen") (38 "B.SilkS" user "B.Silkscreen")
           (44 "Dwgs.User" user))
   (net 0 "")
   ${items}
-)`),
+)`,
   );
 
 const barcodeOn = (layer: string): string =>
@@ -59,7 +58,7 @@ const area = (polys: Polygon[] | undefined): number => {
   return total;
 };
 
-const silkTris = (b: Board): { front: number; back: number } => {
+const silkTris = (b: BOARD): { front: number; back: number } => {
   const g = buildBoard3dLayers(b, BOX);
   return { front: area(g.layers['F.SilkS']), back: area(g.layers['B.SilkS']) };
 };

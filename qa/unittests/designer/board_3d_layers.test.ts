@@ -8,8 +8,10 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { PCB_SHAPE } from '@ziroeda/pcbnew/pcb_shape.js';
-import { parse } from '@ziroeda/sexpr/index.js';
-import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { PAD_ATTRIB } from '@ziroeda/pcbnew/padstack.js';
+import { type PCB_VIA, VIATYPE } from '@ziroeda/pcbnew/pcb_track.js';
 import {
   B_Cu,
   B_Mask,
@@ -28,7 +30,6 @@ import {
   DEFAULT_HOLE_PLATING_THICKNESS,
   LAYER_RENUMBER_VERSION,
   remapLegacyLayerSet,
-  boardMaskPasteDefaults,
   buildBoard3dLayers,
   defaultPlotLayerSelection,
   parseLayerSetHex,
@@ -37,7 +38,7 @@ import {
 
 const DATA = resolve(__dirname, '../../data/zone_fill');
 const load = (stem: string) =>
-  readBoard(parse(readFileSync(resolve(DATA, `${stem}_kicad_cli.kicad_pcb`), 'utf8')));
+  ParseBoard(readFileSync(resolve(DATA, `${stem}_kicad_cli.kicad_pcb`), 'utf8'));
 
 /** Signed area of a polygon set: outlines positive, holes negative (IU²). */
 function area(polys: Polygon[]): number {
@@ -56,23 +57,14 @@ function area(polys: Polygon[]): number {
   return total;
 }
 
+/** `ComputeBoundingBox( aBoardEdgesOnly = true )`: the Edge.Cuts extent. */
 const bboxOf = (board: ReturnType<typeof load>) => {
-  let minX = Infinity,
-    minY = Infinity,
-    maxX = -Infinity,
-    maxY = -Infinity;
-  for (const s of board.shapes) {
-    if (s.layer !== 'Edge.Cuts') continue;
-    for (const p of [s.start, s.end]) {
-      if (!p) continue;
-      minX = Math.min(minX, p.x);
-      minY = Math.min(minY, p.y);
-      maxX = Math.max(maxX, p.x);
-      maxY = Math.max(maxY, p.y);
-    }
-  }
-  return { minX, minY, maxX, maxY };
+  const box = board.ComputeBoundingBox(true);
+  return { minX: box.GetLeft(), minY: box.GetTop(), maxX: box.GetRight(), maxY: box.GetBottom() };
 };
+
+const viasOf = (board: ReturnType<typeof load>): PCB_VIA[] =>
+  board.Tracks().filter((t) => t.Type() === KICAD_T.PCB_VIA_T) as PCB_VIA[];
 
 describe('BASE_SET::ParseHex / the plot layer selection', () => {
   it('reads the hex from the right, a nibble per four layer ids, skipping the _', () => {
@@ -162,11 +154,6 @@ describe('createLayers on ecc83-pp', () => {
     );
   });
 
-  it('the mask expansion comes from the file’s pad_to_mask_clearance, absent → 0', () => {
-    const d = boardMaskPasteDefaults(board);
-    expect(d.solderMaskExpansion === undefined || d.solderMaskExpansion >= 0).toBe(true);
-  });
-
   it('silk exists and is clipped to the board unless show_off_board_silk', () => {
     const silk = built.layers['F.SilkS']!;
     expect(area(silk)).toBeGreaterThan(0);
@@ -197,15 +184,16 @@ describe('blind vias and plated-copper differentiation', () => {
   const built = buildBoard3dLayers(board, bbox);
 
   it('a blind/micro via is a barrel between its own two layers, never a through hole', () => {
-    const blind = board.vias.filter((v) => v.kind !== 'through');
+    const blind = viasOf(board).filter((v) => v.GetViaType() !== VIATYPE.THROUGH);
     expect(blind.length).toBeGreaterThan(0);
     expect(built.viaBarrels).toHaveLength(blind.length);
     for (const b of built.viaBarrels) expect(b.topLayer).not.toBe(b.bottomLayer);
     // the through-hole set holds only the through vias and the pads
-    const through = board.vias.filter((v) => v.kind === 'through').length;
-    const thtPads = board.footprints
-      .flatMap((f) => f.pads)
-      .filter((p) => p.drill && p.type !== 'np_thru_hole').length;
+    const through = viasOf(board).filter((v) => v.GetViaType() === VIATYPE.THROUGH).length;
+    const thtPads = board
+      .Footprints()
+      .flatMap((f) => f.Pads())
+      .filter((p) => p.GetDrillSize().x > 0 && p.GetAttribute() !== PAD_ATTRIB.NPTH).length;
     expect(built.thID.length).toBe(through + thtPads);
   });
 
@@ -245,8 +233,8 @@ describe('addPads takes each pad’s margin from the live PAD', () => {
   const MM2 = 1e12; // IU² per mm²
 
   const build = (mask: number, paste: number, ratio: number) => {
-    const board = readBoard(parse(TEXT));
-    const bds = board.k!.GetDesignSettings();
+    const board = ParseBoard(TEXT);
+    const bds = board.GetDesignSettings();
     bds.m_SolderMaskExpansion = mask;
     bds.m_SolderPasteMargin = paste;
     bds.m_SolderPasteMarginRatio = ratio;
@@ -262,8 +250,7 @@ describe('addPads takes each pad’s margin from the live PAD', () => {
   });
 
   it('shrinks the F.Paste aperture by the board clearance', () => {
-    // 2 x 1 mm less 0.05 mm a side: 1.9 x 0.9. (A ratio makes the margin
-    // per-axis; addPads here still applies its x to both — see padMargin.)
+    // 2 x 1 mm less 0.05 mm a side: 1.9 x 0.9.
     const b = build(0, -50_000, 0);
     expect(area(b.layers['F.Paste']!) / MM2).toBeCloseTo(1.71, 6);
   });
@@ -281,8 +268,8 @@ describe('the 3D board body is the outline pcbnew builds', () => {
 )`;
 
   it('keeps a rounded rectangle rounded (GetBoardPolygonOutlines, not a square)', () => {
-    const board = readBoard(parse(TEXT));
-    expect((board.k!.Drawings()[0] as PCB_SHAPE | undefined)?.GetCornerRadius()).toBe(3e6);
+    const board = ParseBoard(TEXT);
+    expect((board.Drawings()[0] as PCB_SHAPE | undefined)?.GetCornerRadius()).toBe(3e6);
     const built = buildBoard3dLayers(board, { minX: 0, minY: 0, maxX: 20e6, maxY: 20e6 });
     const outline = built.boardPoly[0]?.[0] ?? [];
     // A square has 4 corners; a rounded one is tessellated arcs.
@@ -291,5 +278,38 @@ describe('the 3D board body is the outline pcbnew builds', () => {
     const nearest = Math.min(...outline.map((p) => Math.hypot(p.x, p.y)));
     expect(nearest).toBeGreaterThan(1.2e6);
     expect(nearest).toBeLessThan(1.3e6);
+  });
+});
+
+describe('holes: plated, non-plated, through and blind', () => {
+  const U = (n: number): string => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+  const TEXT = `(kicad_pcb (version 20241229) (generator "test")
+  (general (thickness 1.6))
+  (layers (0 "F.Cu" signal) (4 "In1.Cu" signal) (6 "In2.Cu" signal) (2 "B.Cu" signal)
+    (25 "Edge.Cuts" user))
+  (setup)
+  (net 0 "")
+  (gr_rect (start 0 0) (end 20 20) (stroke (width 0.1) (type default)) (fill no) (layer "Edge.Cuts")
+    (uuid "${U(1)}"))
+  (footprint "H" (layer "F.Cu") (at 0 0) (uuid "${U(2)}")
+    (pad "" np_thru_hole circle (at 5 5) (size 2 2) (drill 2) (layers "*.Cu" "*.Mask") (uuid "${U(3)}"))
+    (pad "1" thru_hole circle (at 15 5) (size 2 2) (drill 1) (layers "*.Cu" "*.Mask") (uuid "${U(4)}")))
+  (via (at 10 15) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu") (uuid "${U(5)}"))
+  (via blind (at 5 15) (size 0.8) (drill 0.4) (layers "F.Cu" "In1.Cu") (uuid "${U(6)}"))
+)`;
+  const built = buildBoard3dLayers(ParseBoard(TEXT), { minX: 0, minY: 0, maxX: 20e6, maxY: 20e6 });
+  const MM2 = 1e12;
+
+  it('the NPTH drill is its own set, not plated', () => {
+    // pad->TransformHoleToPolygon( npth, 0 ): a 2 mm hole, π mm² less the
+    // ERROR_INSIDE chords.
+    expect(area(built.npthOD) / MM2).toBeCloseTo(Math.PI, 1);
+    expect(area(built.npthOD) / MM2).toBeLessThanOrEqual(Math.PI);
+  });
+
+  it('the plated set holds the PTH pad and the through via, not the blind one', () => {
+    expect(built.thID).toHaveLength(2);
+    expect(built.viaBarrels).toHaveLength(1);
+    expect(built.viaBarrels[0]).toMatchObject({ topLayer: 'F.Cu', bottomLayer: 'In1.Cu' });
   });
 });

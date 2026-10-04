@@ -40,7 +40,7 @@ import { registerAiBridge } from '@ziroeda/ai';
 import { showHotkeyList } from '@ziroeda/common/hotkeys_basic.js';
 import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
 import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
-import type { Board } from '@ziroeda/pcbnew';
+import type { BOARD_3D_HANDLE } from '@ziroeda/3d-viewer/viewer3d_types.js';
 import { MenuBar } from '@ziroeda/common/tool/action_menu_bar.js';
 import { Toolbar } from '@ziroeda/common/tool/action_toolbar.js';
 import { KiStatusBar } from '@ziroeda/common/widgets/kistatusbar.js';
@@ -101,8 +101,11 @@ const APPEARANCE_PANE_MIN = 180;
 const APPEARANCE_PANE_MAX = 500;
 
 export interface Viewer3DFrameProps {
-  /** The board to show. `null` renders the chrome with an empty canvas. */
-  board: Board | null;
+  /**
+   * The board to show, as a handle: a new one is a changed board. `null`
+   * renders the chrome with an empty canvas.
+   */
+  board: BOARD_3D_HANDLE | null;
   /** The open project's own files, so ${KIPRJMOD} model paths resolve. */
   projectFiles?: { name: string; text: string }[];
   /**
@@ -247,7 +250,7 @@ export function Viewer3DFrame({
     [v3d.layer_presets],
   );
   const plot = useMemo(
-    () => (shownBoard ? plotLayerSelection(shownBoard) : undefined),
+    () => (shownBoard ? plotLayerSelection(shownBoard.k) : undefined),
     [shownBoard],
   );
   const visible3d = useMemo(
@@ -466,7 +469,7 @@ export function Viewer3DFrame({
   const projectFilesRef = useRef(projectFiles);
   projectFilesRef.current = projectFiles;
   /** What the mounted viewer was last built with, to skip a no-op reload. */
-  const builtWith = useRef<{ board: Board; opts: Viewer3dRenderOptions } | null>(null);
+  const builtWith = useRef<{ board: BOARD_3D_HANDLE; opts: Viewer3dRenderOptions } | null>(null);
 
   // Mount the three.js viewer ONCE per open (and per explicit Reload). The
   // canvas, its GL context and the camera are the frame's; everything the
@@ -485,7 +488,7 @@ export function Viewer3DFrame({
       try {
         viewer = mount3DViewer(
           el,
-          board,
+          board.k,
           projectFilesRef.current,
           stackupColsRef.current,
           opts,
@@ -532,7 +535,7 @@ export function Viewer3DFrame({
     const was = builtWith.current;
     if (was && was.board === shownBoard && was.opts === sceneOptions) return;
     builtWith.current = { board: shownBoard, opts: sceneOptions };
-    v.reload(shownBoard, stackupCols, sceneOptions, projectFiles);
+    v.reload(shownBoard.k, stackupCols, sceneOptions, projectFiles);
   }, [shownBoard, projectFiles, stackupCols, sceneOptions]);
 
   // …the CAMERA half is not: `EDA_3D_CANVAS` re-reads it in place, and
@@ -904,7 +907,7 @@ export function Viewer3DFrame({
               <div className="ze-panel grow">
                 <div className="ze-panel-header">Appearance</div>
                 <Appearance3DPanel
-                  board={shownBoard}
+                  board={shownBoard.k}
                   visible={visible3d}
                   colors={layerColors}
                   defaultColors={defaultColors}

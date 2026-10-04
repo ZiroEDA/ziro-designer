@@ -14,6 +14,7 @@ import type { CVPCB_APP } from '@ziroeda/cvpcb/cvpcb_mainframe_ui.js';
 import { FootprintCanvas } from '@ziroeda/pcbnew/pcb_draw_panel_gal_ui.js';
 import { footprintToBoard, parseFootprint } from '@ziroeda/pcbnew/footprint_edit_frame.js';
 import { DEFAULT_DRAW_OPTIONS } from '@ziroeda/pcbnew/renderBoard.js';
+import { holderHandle } from '../pcb/widgets/footprint_preview_3d.js';
 import { Viewer3DFrame } from '../pcb/Viewer3DFrame.js';
 import { loadFootprint, loadFootprintIndex } from '../../widgets/footprint_list.js';
 import { footprintsBase } from '../footprint/footprint_edit_frame_app.js';
@@ -85,7 +86,7 @@ export function useCvpcbApp(): CVPCB_APP {
           drawOpts={{ ...DEFAULT_DRAW_OPTIONS, ...props.drawOpts }}
         />
       ),
-      Viewer3DFrame: (props) => <Viewer3DFrame {...props} />,
+      Viewer3DFrame: (props) => <Viewer3DFrame {...props} board={holderHandle(props.board)} />,
     }),
     [],
   );

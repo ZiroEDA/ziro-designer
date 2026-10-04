@@ -34,9 +34,21 @@ import type { Color4d } from '@ziroeda/common/gal/color4d.js';
 import { LEGACY_COLORS } from '@ziroeda/common/gal/color4d.js';
 import type { Polygon } from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
-import type { Board } from '@ziroeda/pcbnew';
-import { B_Cu, B_Mask, F_Cu, F_Mask, GetLayerName } from '@ziroeda/common/layer_ids.js';
-import { viaIsTented } from '@ziroeda/pcbnew/exporters/export_d356.js';
+import type { BOARD } from '@ziroeda/pcbnew/board.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { LSET } from '@ziroeda/common/lset.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { PAD_DRILL_POST_MACHINING_MODE } from '@ziroeda/pcbnew/padstack.js';
+import type { PCB_VIA } from '@ziroeda/pcbnew/pcb_track.js';
+import { FP_SMD, FP_THROUGH_HOLE } from '@ziroeda/pcbnew/footprint.js';
+import {
+  CAPPING_MODE,
+  COVERING_MODE,
+  FILLING_MODE,
+  PLUGGING_MODE,
+} from '@ziroeda/pcbnew/pcb_track_types.js';
+import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
+import { B_Cu, B_Mask, F_Cu, F_Mask } from '@ziroeda/common/layer_ids.js';
 import { BOARD_STACKUP_ITEM_TYPE } from '@ziroeda/pcbnew/board_stackup_manager/board_stackup.js';
 import {
   clickSelectionParts,
@@ -87,7 +99,6 @@ import {
   plasticMaterial,
   type SMaterial,
 } from './gl_fixed_function.js';
-import { allBoardItemIds, boardItemBBox } from '@ziroeda/pcbnew/edit-board.js';
 import type {
   Grid3D,
   Move3DDir,
@@ -110,38 +121,6 @@ interface BBox {
   minY: number;
   maxX: number;
   maxY: number;
-}
-
-/**
- * `BOARD::ComputeBoundingBox( aBoardEdgesOnly = haveOutline )`: the Edge.Cuts
- * extent when there is one, else every item's. `board_adapter.cpp:255-263`.
- */
-function edgeBBox(board: Board, fallback: BBox): BBox {
-  let minX = Infinity,
-    minY = Infinity,
-    maxX = -Infinity,
-    maxY = -Infinity;
-  const inc = (x?: number, y?: number): void => {
-    if (x === undefined || y === undefined) return;
-    if (x < minX) minX = x;
-    if (y < minY) minY = y;
-    if (x > maxX) maxX = x;
-    if (y > maxY) maxY = y;
-  };
-  const shapes = [...board.shapes, ...board.footprints.flatMap((f) => f.shapes)];
-  for (const s of shapes) {
-    if (s.layer !== 'Edge.Cuts') continue;
-    inc(s.start?.x, s.start?.y);
-    inc(s.end?.x, s.end?.y);
-    inc(s.mid?.x, s.mid?.y);
-    if (s.center && s.end) {
-      const r = Math.hypot(s.end.x - s.center.x, s.end.y - s.center.y);
-      inc(s.center.x - r, s.center.y - r);
-      inc(s.center.x + r, s.center.y + r);
-    }
-    for (const p of s.pts ?? []) inc(p.x, p.y);
-  }
-  return minX < maxX ? { minX, minY, maxX, maxY } : fallback;
 }
 
 // ---------------------------------------------------------------------------
@@ -181,15 +160,15 @@ interface Adapter {
  * the `#define` defaults — `GetStackupDescriptor().GetCount()` is 0 for it,
  * and `(thickness …)` is never consulted.
  */
-function stackupThicknesses(board: Board): {
+function stackupThicknesses(board: BOARD): {
   body?: number;
   fCu?: number;
   bCu?: number;
   fMask?: number;
   bMask?: number;
 } {
-  const bds = board.k?.GetDesignSettings();
-  if (!bds?.m_HasStackup) return {};
+  const bds = board.GetDesignSettings();
+  if (!bds.m_HasStackup) return {};
   const out: { body?: number; fCu?: number; bCu?: number; fMask?: number; bMask?: number } = {};
   let body = 0;
   for (const item of bds.GetStackupDescriptor().GetList()) {
@@ -209,7 +188,7 @@ function stackupThicknesses(board: Board): {
   return out;
 }
 
-function initAdapter(board: Board, bbox: BBox, footprintHolder: boolean): Adapter {
+function initAdapter(board: BOARD, bbox: BBox, footprintHolder: boolean): Adapter {
   let boardSize: Vec2 = { x: bbox.maxX - bbox.minX, y: bbox.maxY - bbox.minY };
   // Gives a non null size to avoid issues in zoom / scale calculations
   if (boardSize.x === 0 && boardSize.y === 0) boardSize = { x: 20 * MM, y: 20 * MM };
@@ -217,7 +196,7 @@ function initAdapter(board: Board, bbox: BBox, footprintHolder: boolean): Adapte
     x: (bbox.minX + bbox.maxX) / 2,
     y: -((bbox.minY + bbox.maxY) / 2), // The y coord is inverted in 3D viewer
   };
-  const copperLayersCount = Math.max(2, board.layers.filter((l) => /\.Cu$/.test(l.name)).length);
+  const copperLayersCount = board.GetCopperLayerCount();
   // Calculate the conversion to apply to all positions.
   let s = RANGE_SCALE_3D / Math.max(boardSize.x, boardSize.y);
   // Hack to keep "home" zoom from being too small.
@@ -504,7 +483,7 @@ function gizmoSphereMaterial(color: Vec3): SMaterial {
  *  references resolve like KiCad's project directory. */
 export function mount3DViewer(
   container: HTMLElement,
-  board: Board,
+  board: BOARD,
   projectFiles?: ProjectFile[],
   /**
    * `BOARD_ADAPTER`'s `m_UseStackupColors` override — the Physical Stackup
@@ -640,7 +619,7 @@ export function mount3DViewer(
    * outlive it.
    */
   interface BoardScene {
-    board: Board;
+    board: BOARD;
     render: Viewer3dRenderOptions;
     adapter: Adapter;
     s: number;
@@ -654,7 +633,7 @@ export function mount3DViewer(
     dispose: () => void;
   }
   const buildBoardScene = (
-    board: Board,
+    board: BOARD,
     stackup: StackupColors | undefined,
     renderIn: Viewer3dRenderOptions,
     projectFiles: ProjectFile[] | undefined,
@@ -684,35 +663,28 @@ export function mount3DViewer(
           showNavigator: renderIn.visible3d.has('LAYER_3D_NAVIGATOR'),
         }
       : renderIn;
-    // `BOARD::ComputeBoundingBox( aBoardEdgesOnly = haveOutline, true )`:
-    // the Edge.Cuts extent, else every item's. The item extent is the union
-    // of the same per-item boxes the editor's selection uses — not a compile
-    // of the 2D scene, which is what stood here and took the CM5 board's
-    // 20-second layer build past the point of no picture at all.
-    let items: BBox | null = null;
-    for (const id of allBoardItemIds(board)) {
-      const b = boardItemBBox(board, id);
-      if (!b || !Number.isFinite(b.minX) || b.minX > b.maxX) continue;
-      items = items
-        ? {
-            minX: Math.min(items.minX, b.minX),
-            minY: Math.min(items.minY, b.minY),
-            maxX: Math.max(items.maxX, b.maxX),
-            maxY: Math.max(items.maxY, b.maxY),
-          }
-        : { ...b };
-    }
-    // `if( bbbox.GetWidth() == 0 && bbbox.GetHeight() == 0 ) bbbox.Inflate(
-    // pcbIUScale.mmToIU( 10 ) )` (board_adapter.cpp:363-364): an empty board
-    // — the Footprint Chooser's holder before anything is selected — still
-    // gets a scene, 20 mm square about the origin, with the background and
-    // the navigator and no board body. This returned null, and the chooser's
-    // 3D pane was a blank panel where KiCad's shows the gradient.
-    const empty = !items;
-    const bbox = edgeBBox(
-      board,
-      items ?? { minX: -10 * MM, minY: -10 * MM, maxX: 10 * MM, maxY: 10 * MM },
-    );
+    // BOARD_ADAPTER::InitSettings (board_adapter.cpp:338-366): the outline
+    // first (createBoardPolygon), then `ComputeBoundingBox( !IsFootprintHolder()
+    // && haveOutline, true )`, and a zero box inflated by 10 mm - the
+    // Footprint Chooser's empty holder still gets a scene, 20 mm about the
+    // origin, with the background and the navigator and no board body.
+    const outline = new SHAPE_POLY_SET();
+    const haveOutline = board.GetBoardPolygonOutlines(outline, true, null, false, true);
+    const box = board.ComputeBoundingBox(!board.IsFootprintHolder() && haveOutline, true);
+
+    if (box.GetWidth() === 0 && box.GetHeight() === 0) box.Inflate(10 * MM);
+
+    const bbox: BBox = {
+      minX: box.GetLeft(),
+      minY: box.GetTop(),
+      maxX: box.GetRight(),
+      maxY: box.GetBottom(),
+    };
+    const empty =
+      board.Footprints().length === 0 &&
+      board.Drawings().length === 0 &&
+      board.Tracks().length === 0 &&
+      board.Zones().length === 0;
     report('Build board outline'); // board_adapter.cpp:343
     const adapter = initAdapter(board, bbox, render.footprintHolder === true);
     const s = adapter.s;
@@ -939,7 +911,7 @@ export function mount3DViewer(
       const polys = built.layers[layer];
       if (!polys || polys.length === 0) continue;
       // create_scene.cpp:825, the BOARD's name for the layer
-      report(`Load OpenGL layer ${GetLayerName(board.layers, layer)}`);
+      report(`Load OpenGL layer ${board.GetLayerName(pcbLayerIdOf(layer))}`);
       if (layer === 'F.Mask' || layer === 'B.Mask') continue; // special case below
       const [zTop, zBot] = zOf(layer);
       const p = polys3d(polys);
@@ -1048,25 +1020,47 @@ export function mount3DViewer(
       // m_viaFrontCover / m_viaBackCover: a tented via's hole is capped by a
       // mask-coloured disk of radius drill/2 + 2·plating, at the copper top
       // pushed through ApplyScalePosition( zPos, 4 · techThickness ).
-      const side = layer === 'F.Mask' ? 'front' : 'back';
       const plating3d = 0.02 * MM * s;
-      for (const via of board.vias) {
-        // generateViaCovers: COVERED explicitly, or tented on this side. A
-        // FROM_BOARD covering mode is not COVERED here — only the tenting is
-        // resolved against the board.
-        const covering = via.covering?.[side] === true || viaIsTented(board, via, side);
-        if (!covering) continue;
-        // (post-machined and backdrilled vias are not covered — not modelled)
-        const plugged = via.plugging?.[side] === true;
-        const filled = via.filling === true || via.capping === true;
-        const holeRadius = (via.drill * s) / 2 + 2 * plating3d;
-        const [cx, cy] = to3d(via.at);
+      for (const track of board.Tracks()) {
+        if (track.Type() !== KICAD_T.PCB_VIA_T) continue;
+
+        const via = track as PCB_VIA;
+        const front = layer === 'F.Mask';
+        // generateViaCovers (create_scene.cpp:1512-1567): COVERED explicitly,
+        // or tented on this side; not where the hole is post-machined or
+        // backdrilled from this side.
+        const covering = front
+          ? via.GetFrontCoveringMode() === COVERING_MODE.COVERED ||
+            via.IsTented(PCB_LAYER_ID.F_Mask)
+          : via.GetBackCoveringMode() === COVERING_MODE.COVERED ||
+            via.IsTented(PCB_LAYER_ID.B_Mask);
+        const plugged =
+          (front ? via.GetFrontPluggingMode() : via.GetBackPluggingMode()) ===
+          PLUGGING_MODE.PLUGGED;
+        const filled =
+          via.GetFillingMode() === FILLING_MODE.FILLED ||
+          via.GetCappingMode() === CAPPING_MODE.CAPPED;
+        const postMachining =
+          (front ? via.GetFrontPostMachining() : via.GetBackPostMachining()) ??
+          PAD_DRILL_POST_MACHINING_MODE.NOT_POST_MACHINED;
+        const hasPostMachining =
+          postMachining !== PAD_DRILL_POST_MACHINING_MODE.NOT_POST_MACHINED &&
+          postMachining !== PAD_DRILL_POST_MACHINING_MODE.UNKNOWN;
+        const hasBackdrill =
+          via.GetSecondaryDrillStartLayer() === (front ? PCB_LAYER_ID.F_Cu : PCB_LAYER_ID.B_Cu);
+
+        if (!covering || hasPostMachining || hasBackdrill) continue;
+
+        const drill = via.GetDrillValue();
+        const holeRadius = (drill * s) / 2 + 2 * plating3d;
+        const [cx, cy] = to3d(via.GetStart());
         // via->LayerPair(): ztop of its top layer, zbot of its bottom layer
-        const [zt] = zOf(via.layers[0]);
-        const [, zb] = zOf(via.layers[1]);
-        const zList = layer === 'F.Mask' ? zt : zb;
+        const [top, bottom] = via.LayerPair();
+        const [zt] = zOf(LSET.Name(top) as Layer3d);
+        const [, zb] = zOf(LSET.Name(bottom) as Layer3d);
+        const zList = front ? zt : zb;
         const z = zBase + zList * 4 * adapter.nonCopperLayerThickness3DU;
-        const seg = getArcToSegmentCount(Math.trunc(via.drill / 2), ARC_HIGH_DEF, 360);
+        const seg = getArcToSegmentCount(Math.trunc(drill / 2), ARC_HIGH_DEF, 360);
         const nz = layer === 'F.Mask' ? 1 : -1;
         // generateDisk for a filled or unplugged via; generateDimple (a cone
         // 0.3·r deep into the hole) for a plugged one — both lit as a flat
@@ -1163,21 +1157,27 @@ export function mount3DViewer(
         opaqueOrder: RENDER_ORDER.opaqueModels,
         transparentOrder: RENDER_ORDER.transparentModels,
         showFootprint: (fp) => {
-          // BOARD_ADAPTER::IsFootprintShown: the five show_footprints_* flags.
-          const attrs = fp.attributes ?? [];
-          // show_footprints_dnp defaults to FALSE: a DNP part has no model on the board
-          if (attrs.includes('dnp') && !(render.showFootprintsDnp ?? false)) return false;
+          // BOARD_ADAPTER::IsFootprintShown (board_adapter.cpp:280-312).
+          if (render.footprintHolder === true) return true;
+
+          const variantName = board.GetCurrentVariant();
+          const attributes = fp.GetAttributes();
+
+          // show_footprints_not_in_posfile defaults to true, show_footprints_dnp to false.
           if (
-            attrs.includes('exclude_from_pos_files') &&
+            fp.GetExcludedFromPosFilesForVariant(variantName) &&
             render.showFootprintsNotInPosfile === false
           )
             return false;
-          const smd = attrs.includes('smd');
-          const tht = attrs.includes('through_hole');
-          if (smd && render.showFootprintsInsert === false) return false;
-          if (tht && render.showFootprintsNormal === false) return false;
-          if (!smd && !tht && render.showFootprintsVirtual === false) return false;
-          return true;
+
+          if (fp.GetDNPForVariant(variantName) && !(render.showFootprintsDnp ?? false))
+            return false;
+
+          if (attributes & FP_SMD) return render.showFootprintsInsert !== false;
+
+          if (attributes & FP_THROUGH_HOLE) return render.showFootprintsNormal !== false;
+
+          return render.showFootprintsVirtual !== false;
         },
       },
     );

@@ -206,7 +206,6 @@ import {
   zoomMsg,
 } from '@ziroeda/common/widgets/kistatusbar_format.js';
 import { DialogPcbFind } from './dialogs/dialog_find_ui.js';
-import { boardFromBOARD } from './pcb_io/kicad_sexpr/board_view.js';
 import type { DIALOG_FIND } from './dialogs/dialog_find.js';
 import { DialogPageSettings } from '@ziroeda/common/dialogs/dialog_page_settings.js';
 import { pageSettingsValue, toPaperToken } from '@ziroeda/common/dialogs/dialog_page_settings.js';
@@ -2807,14 +2806,6 @@ export function PcbEditor({
   const boardSetupRef = useRef(boardSetup);
   boardSetupRef.current = boardSetup;
 
-  /**
-   * TRANSITIONAL (E19): the 3D viewer still reads the old view model, built
-   * from the BOARD only while it is shown; deleted with its port to BOARD.
-   */
-  const board3dView = useMemo(
-    () => (show3D && board ? { ...boardFromBOARD(board.k, fileName), fileName } : null),
-    [show3D, board, fileName],
-  );
   // The frame's DIALOG_FIND while it is shown (PCB_EDIT_FRAME::ShowFindDialog).
   const [findDlg, setFindDlg] = useState<DIALOG_FIND | null>(null);
   /**
@@ -7429,9 +7420,9 @@ export function PcbEditor({
           full-viewport overlay, but it carries the frame's own chrome: menu
           bar, the single TOP_MAIN toolbar (3d-viewer has no side toolbars) and
           the 5-pane status bar. */}
-      {show3D && board3dView && (
+      {show3D && board && (
         <Viewer3DFrame
-          board={board3dView}
+          board={board}
           projectFiles={projectFiles}
           // BOARD_ADAPTER reads the stackup off the board it is given; ours is
           // held by the editor, so it is handed down. The Color column on the

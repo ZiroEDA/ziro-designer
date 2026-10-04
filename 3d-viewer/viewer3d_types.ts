@@ -84,7 +84,7 @@ export interface Viewer3D {
    * `reload()` runs. The camera, grid, selection and rollover survive.
    */
   reload: (
-    board: import('@ziroeda/pcbnew').Board,
+    board: import('@ziroeda/pcbnew/board.js').BOARD,
     stackup: import('./board_adapter_colors.js').StackupColors | undefined,
     render: Viewer3dRenderOptions,
     projectFiles?: { name: string; text: string }[],
@@ -233,4 +233,13 @@ export interface PhysicalStackup {
 
 export interface BoardFinish {
   copperFinish: string;
+}
+
+/**
+ * What a frame hands the 3D viewer: the BOARD to show, wrapped so that a new
+ * handle means "the board changed" (`EDA_3D_VIEWER_FRAME::NewDisplay`) while
+ * the BOARD itself stays the one model.
+ */
+export interface BOARD_3D_HANDLE {
+  readonly k: import('@ziroeda/pcbnew/board.js').BOARD;
 }

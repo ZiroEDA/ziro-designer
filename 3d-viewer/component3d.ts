@@ -35,7 +35,8 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { VRMLLoader } from 'three/addons/loaders/VRMLLoader.js';
-import type { Board } from '@ziroeda/pcbnew';
+import type { BOARD } from '@ziroeda/pcbnew/board.js';
+import type { FOOTPRINT, FP_3DMODEL } from '@ziroeda/pcbnew/footprint.js';
 import { PROJECT_PCB } from '@ziroeda/pcbnew/project_pcb.js';
 import { PATHS } from '@ziroeda/common/paths.js';
 import { PgmOrNull } from '@ziroeda/common/pgm_base.js';
@@ -49,9 +50,6 @@ import { loadCadModel } from './loadmodel.js';
 import { stepFaceMaterial, type SMaterial, type Vec3 } from './gl_fixed_function.js';
 
 const VRML_UNIT_MM = 2.54; // legacy VRML model unit = 0.1 inch (WRL2BASE)
-
-type Footprint = Board['footprints'][number];
-type Model = Footprint['models'][number];
 
 /** The placement frame `get3dModelsFromFootprint` builds in, 3D units. */
 export interface ModelFrame {
@@ -77,14 +75,15 @@ const rotX = (r: number): THREE.Matrix4 => new THREE.Matrix4().makeRotationX(r);
 const deg = (d: number): number => (d * Math.PI) / 180;
 
 /** KiCad placement matrix for one footprint model, in 3D units. */
-export function modelMatrix(fp: Footprint, model: Model, frame: ModelFrame): THREE.Matrix4 {
-  const flipped = fp.layer === 'B.Cu';
+export function modelMatrix(fp: FOOTPRINT, model: FP_3DMODEL, frame: ModelFrame): THREE.Matrix4 {
+  const flipped = fp.IsFlipped();
+  const pos = fp.GetPosition();
   const m = new THREE.Matrix4().makeTranslation(
-    fp.at.x * frame.scale,
-    -fp.at.y * frame.scale, // KiCad flips Y into the 3D frame
+    pos.x * frame.scale,
+    -pos.y * frame.scale, // KiCad flips Y into the 3D frame
     flipped ? frame.zTopBack : frame.zTopFront,
   );
-  m.multiply(rotZ(deg(fp.angle)));
+  m.multiply(rotZ(deg(fp.GetOrientation().AsDegrees())));
   if (flipped) {
     m.multiply(rotY(Math.PI));
     m.multiply(rotZ(Math.PI));
@@ -96,11 +95,13 @@ export function modelMatrix(fp: Footprint, model: Model, frame: ModelFrame): THR
       frame.modelUnitToWorld,
     ),
   );
-  m.multiply(new THREE.Matrix4().makeTranslation(model.offset.x, model.offset.y, model.offset.z));
-  m.multiply(rotZ(deg(-model.rotate.z)));
-  m.multiply(rotY(deg(-model.rotate.y)));
-  m.multiply(rotX(deg(-model.rotate.x)));
-  m.multiply(new THREE.Matrix4().makeScale(model.scale.x, model.scale.y, model.scale.z));
+  m.multiply(
+    new THREE.Matrix4().makeTranslation(model.m_Offset.x, model.m_Offset.y, model.m_Offset.z),
+  );
+  m.multiply(rotZ(deg(-model.m_Rotation.z)));
+  m.multiply(rotY(deg(-model.m_Rotation.y)));
+  m.multiply(rotX(deg(-model.m_Rotation.x)));
+  m.multiply(new THREE.Matrix4().makeScale(model.m_Scale.x, model.m_Scale.y, model.m_Scale.z));
   return m;
 }
 
@@ -230,7 +231,7 @@ export interface ComponentRenderHooks {
   opaqueOrder: number;
   transparentOrder: number;
   /** `BOARD_ADAPTER::IsFootprintShown`. */
-  showFootprint: (fp: Footprint) => boolean;
+  showFootprint: (fp: FOOTPRINT) => boolean;
 }
 
 /**
@@ -256,7 +257,7 @@ export interface MountedComponents {
 
 export function mountComponents(
   parent: THREE.Object3D,
-  board: Board,
+  board: BOARD,
   frame: ModelFrame,
   libBase: string,
   projectFiles?: ProjectFile[],
@@ -364,14 +365,14 @@ export function mountComponents(
     }
   };
 
-  board.footprints.forEach((fp, fpIndex) => {
+  board.Footprints().forEach((fp, fpIndex) => {
     if (hooks && !hooks.showFootprint(fp)) return;
-    for (const model of fp.models) {
-      if (model.hide || !model.path) continue;
+    for (const model of fp.Models()) {
+      if (!model.m_Show || !model.m_Filename) continue;
       // S3D_CACHE::load -> ResolvePath( aModelFile, aBasePath, aEmbeddedFilesStack ).
       // The footprint's library path is not known here; nor are embedded files
       // (the plain board view does not carry them).
-      const full = resolver.ResolvePath(model.path, '', []);
+      const full = resolver.ResolvePath(model.m_Filename, '', []);
       if (full === '') continue;
       const where = wxFindMount(full);
       if (!where) continue;
@@ -398,7 +399,7 @@ export function mountComponents(
       if (!p) {
         p = load();
         cache.set(key, p);
-        const fullName = model.path.slice(model.path.lastIndexOf('/') + 1);
+        const fullName = model.m_Filename.slice(model.m_Filename.lastIndexOf('/') + 1);
         inFlight.add(fullName);
         report?.(`Loading ${fullName}...`);
         void p.finally(() => {
@@ -409,7 +410,7 @@ export function mountComponents(
       pendingLoads.push(p);
       const matrix = modelMatrix(fp, model, frame);
       // `sM.m_Opacity`: 1 keeps the model in the opaque pass
-      const opacity = model.opacity ?? 1;
+      const opacity = model.m_Opacity;
       const opaque = opacity >= 1;
       void p.then((obj) => {
         if (cancelled || !obj) return;

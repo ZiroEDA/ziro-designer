@@ -35,8 +35,8 @@
  */
 import type { JSX } from 'react';
 import type { Color4d } from '@ziroeda/common/gal/color4d.js';
-import type { Board } from '@ziroeda/pcbnew';
-import { GetLayerName } from '@ziroeda/common/layer_ids.js';
+import type { BOARD } from '@ziroeda/pcbnew/board.js';
+import { LSET } from '@ziroeda/common/lset.js';
 import { Check } from '@ziroeda/common/wx/controls.js';
 import { ColorSwatch } from '@ziroeda/common/widgets/color_swatch.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
@@ -56,7 +56,7 @@ import {
 const SWATCH_BACKGROUND: Color4d = { r: 1, g: 1, b: 1, a: 1 };
 
 export interface Appearance3DPanelProps {
-  board: Board;
+  board: BOARD;
   /** `GetVisibleLayers()`. */
   visible: ReadonlySet<Layer3dFlag>;
   /** `GetLayerColors()`. */
@@ -82,10 +82,14 @@ export interface Appearance3DPanelProps {
 }
 
 export function Appearance3DPanel(p: Appearance3DPanelProps): JSX.Element {
-  const enabled = new Set(p.board.layers.map((l) => l.name));
+  // m_board->IsLayerEnabled( layer ), by name for the rows below.
+  const enabled = {
+    has: (aName: string): boolean => p.board.IsLayerEnabled(LSET.NameToLayer(aName)),
+  };
   const layerLabel = (row: { label: string; id: Layer3dFlag }): string => {
     const pcbLayer = pcbLayerOfFlag(row.id);
-    return pcbLayer ? GetLayerName(p.board.layers, pcbLayer) : row.label;
+    // m_frame->GetBoard()->GetLayerName( layer ): the board's name for it.
+    return pcbLayer ? p.board.GetLayerName(LSET.NameToLayer(pcbLayer)) : row.label;
   };
 
   return (

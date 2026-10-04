@@ -21,6 +21,7 @@ import { LibraryLoadingPanel } from '../../widgets/library_loading_panel.js';
 import { settings } from '../../prefs/settings.js';
 import { HomeLink } from '../../ui/HomeLink.js';
 import { footprintsBase } from '../footprint/footprint_edit_frame_app.js';
+import { holderHandle } from './widgets/footprint_preview_3d.js';
 import { Viewer3DFrame } from './Viewer3DFrame.js';
 import { installPgm } from './pcb_canvas.js';
 
@@ -49,7 +50,7 @@ export function useFootprintViewerFrameApp(): FOOTPRINT_VIEWER_FRAME_APP {
       LibraryLoadingPanel: ({ label, fallback }) => (
         <LibraryLoadingPanel kind="footprints" fallback={fallback} label={label} />
       ),
-      Viewer3DFrame: (props) => <Viewer3DFrame {...props} />,
+      Viewer3DFrame: (props) => <Viewer3DFrame {...props} board={holderHandle(props.board)} />,
     }),
     [],
   );
