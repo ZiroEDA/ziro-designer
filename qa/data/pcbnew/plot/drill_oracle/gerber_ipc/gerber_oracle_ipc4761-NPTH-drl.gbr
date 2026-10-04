@@ -1,0 +1,21 @@
+%TF.GenerationSoftware,KiCad,Pcbnew,10.0.6-10.0.6~ubuntu24.04.1*%
+%TF.CreationDate,2026-10-04T13:47:17+05:30*%
+%TF.ProjectId,gerber_oracle_ipc4761,67657262-6572-45f6-9f72-61636c655f69,B*%
+%TF.SameCoordinates,Original*%
+%TF.FileFunction,NonPlated,1,4,NPTH,Drill*%
+%TF.FilePolarity,Positive*%
+%FSLAX46Y46*%
+G04 Gerber Fmt 4.6, Leading zero omitted, Abs format (unit mm)*
+G04 Created by KiCad (PCBNEW 10.0.6-10.0.6~ubuntu24.04.1) date 2026-10-04 13:47:17*
+%MOMM*%
+%LPD*%
+G01*
+G04 APERTURE LIST*
+%TA.AperFunction,ComponentDrill*%
+%ADD10C,1.200000*%
+%TD*%
+G04 APERTURE END LIST*
+D10*
+%TO.C,U1*%
+X46000000Y-30000000D03*
+M02*

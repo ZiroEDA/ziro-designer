@@ -15,6 +15,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BOARD } from '@ziroeda/pcbnew/board.js';
 import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { EXCELLON_WRITER } from '@ziroeda/pcbnew/exporters/gendrill_excellon_writer.js';
+import { GERBER_WRITER } from '@ziroeda/pcbnew/exporters/gendrill_gerber_writer.js';
 import { DRILL_PRECISION, ZEROS_FMT } from '@ziroeda/pcbnew/exporters/gendrill_writer_base.js';
 import { PLOT_FORMAT } from '@ziroeda/common/plotters/plotter.js';
 import { DialogGendrill } from '@ziroeda/pcbnew/dialogs/dialog_gendrill.js';
@@ -109,7 +110,7 @@ function shownLabel(name: string): string {
 }
 
 describe('DialogGendrill', () => {
-  it('TransferDataToWindow: KiCad interactive defaults (mm, decimal, absolute origin, all four Excellon checks off, Gerber X2 greyed)', () => {
+  it('TransferDataToWindow: KiCad interactive defaults (mm, decimal, absolute origin, all four Excellon checks off, tenting greyed)', () => {
     const { container } = render(
       <DialogGendrill
         board={testBoard()}
@@ -129,7 +130,9 @@ describe('DialogGendrill', () => {
     // than by "Gerber X2" text (the map-format combo also offers that label).
     const radios = container.querySelectorAll<HTMLInputElement>('input[name="ze-gendrill-fmt"]');
     expect(radios[0]!.checked).toBe(true);
-    expect(radios[1]!.disabled).toBe(true);
+    expect(radios[1]!.checked).toBe(false);
+    // onFileFormatSelection: `m_generateTentingLayers->Enable( !enbl_Excellon )`.
+    expect(checkbox('Generate tenting layers').disabled).toBe(true);
     expect(shownLabel('Units')).toBe('Millimeters');
     expect(shownLabel('Zeros')).toContain('Decimal format');
     expect(shownLabel('Origin')).toBe('Absolute');
@@ -274,7 +277,9 @@ describe('DialogGendrill', () => {
     );
   });
 
-  it('Generate Report File...: writes the same report GenDrillReportFile produces directly', () => {
+  it('Generate Report File... with Excellon selected: the GERBER_WRITER report, as upstream', () => {
+    // dialog_gendrill.cpp:413 tests `m_rbExcellon->GetValue() == 0`, so the
+    // Excellon format gets GERBER_WRITER's report (its .gbr file names).
     const onOutputFile = vi.fn();
     render(
       <DialogGendrill
@@ -294,8 +299,7 @@ describe('DialogGendrill', () => {
 
     const board = ParseBoard(SOURCE);
     board.SetFileName('/oracle/gerber_oracle.kicad_pcb');
-    const writer = new EXCELLON_WRITER(board);
-    writer.SetMergeOption(false);
+    const writer = new GERBER_WRITER(board);
     const now = new Date();
     writer.SetDate(now);
     writer.GenDrillReportFile('gerber_oracle-drl.rpt');
@@ -307,6 +311,115 @@ describe('DialogGendrill', () => {
     // pin both to the same instant rather than racing wall-clock seconds.
     const stripDate = (t: string): string => t.replace(/^Created on .*$/m, 'Created on <now>');
     expect(stripDate(new TextDecoder().decode(bytes))).toBe(stripDate(expected));
+  });
+
+  it('Generate Report File... with Gerber X2 selected: the EXCELLON_WRITER report, merge option passed', () => {
+    const onOutputFile = vi.fn();
+    const { container } = render(
+      <DialogGendrill
+        board={testBoard()}
+        fileName="gerber_oracle.kicad_pcb"
+        onOutputFile={onOutputFile}
+        onClose={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText('PTH and NPTH in single file'));
+    fireEvent.click(
+      container.querySelectorAll<HTMLInputElement>('input[name="ze-gendrill-fmt"]')[1]!,
+    );
+    fireEvent.click(screen.getByText('Generate Report File...'));
+
+    const [, bytes] = onOutputFile.mock.calls[0] as [string, Uint8Array];
+    const board = ParseBoard(SOURCE);
+    board.SetFileName('/oracle/gerber_oracle.kicad_pcb');
+    const writer = new EXCELLON_WRITER(board);
+    writer.SetMergeOption(true);
+    writer.GenDrillReportFile('r.rpt');
+    const expected = new TextDecoder().decode(writer.GetWrittenFiles().get('r.rpt'));
+    const stripDate = (t: string): string => t.replace(/^Created on .*$/m, 'Created on <now>');
+
+    expect(stripDate(new TextDecoder().decode(bytes))).toBe(stripDate(expected));
+    expect(expected).toContain('.drl');
+  });
+
+  it('Gerber X2: greys the Excellon options, shows 4.6, and writes what GERBER_WRITER writes', () => {
+    const onOutputFile = vi.fn();
+    const { container } = render(
+      <DialogGendrill
+        board={testBoard()}
+        fileName="gerber_oracle.kicad_pcb"
+        onOutputFile={onOutputFile}
+        onClose={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(
+      container.querySelectorAll<HTMLInputElement>('input[name="ze-gendrill-fmt"]')[1]!,
+    );
+
+    const checkbox = (label: string): HTMLInputElement =>
+      screen.getByLabelText(label) as HTMLInputElement;
+    for (const label of [
+      'Mirror Y axis',
+      'Minimal header',
+      'PTH and NPTH in single file',
+      'Use alternate drill mode for oval holes',
+    ])
+      expect(checkbox(label).disabled).toBe(true);
+    expect(checkbox('Generate tenting layers').disabled).toBe(false);
+    expect(screen.getByText('4.6')).toBeTruthy();
+
+    fireEvent.click(screen.getByText('Generate'));
+
+    const board = ParseBoard(SOURCE);
+    board.SetFileName('/oracle/gerber_oracle.kicad_pcb');
+    const writer = new GERBER_WRITER(board);
+    writer.SetFormat(6);
+    writer.SetOptions({ x: 0, y: 0 });
+    writer.CreateDrillandMapFilesSet('', true, false, false);
+    const identity = (t: string): string =>
+      t.replace(/^(%TF\.CreationDate,|G04 Created by ).*$/gm, '<date>');
+    const got = new Map([...written(onOutputFile)].map(([k, v]) => [k, identity(v)]));
+    const want = new Map(
+      [...writer.GetWrittenFiles()].map(([k, v]) => [k, identity(new TextDecoder().decode(v))]),
+    );
+
+    expect([...got.keys()].sort()).toEqual([...want.keys()].sort());
+    expect(got).toEqual(want);
+    expect([...got.keys()].every((k) => k.endsWith('-drl.gbr'))).toBe(true);
+  });
+
+  it('Gerber X2 with tenting layers: passes aGenTenting through', () => {
+    const IPC = readFileSync(resolve(DIR, 'gerber_oracle_ipc4761.kicad_pcb'), 'utf8');
+    const ipcBoard = ParseBoard(IPC);
+    ipcBoard.SetFileName('/oracle/gerber_oracle_ipc4761.kicad_pcb');
+    const onOutputFile = vi.fn();
+    const { container } = render(
+      <DialogGendrill
+        board={ipcBoard}
+        fileName="gerber_oracle_ipc4761.kicad_pcb"
+        onOutputFile={onOutputFile}
+        onClose={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(
+      container.querySelectorAll<HTMLInputElement>('input[name="ze-gendrill-fmt"]')[1]!,
+    );
+    fireEvent.click(screen.getByText('Generate'));
+    const without = [...written(onOutputFile).keys()];
+    onOutputFile.mockClear();
+
+    fireEvent.click(screen.getByLabelText('Generate tenting layers'));
+    fireEvent.click(screen.getByText('Generate'));
+    const withTenting = [...written(onOutputFile).keys()];
+
+    expect(without.some((k) => k.includes('-tenting-'))).toBe(false);
+    expect(withTenting.filter((k) => k.includes('-tenting-')).sort()).toEqual([
+      'gerber_oracle_ipc4761-tenting-back.gbr',
+      'gerber_oracle_ipc4761-tenting-front.gbr',
+    ]);
   });
 
   it('Close and Escape both call onClose without writing anything', () => {
