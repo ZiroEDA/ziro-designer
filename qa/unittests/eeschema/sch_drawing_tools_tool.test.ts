@@ -15,7 +15,11 @@ import { TA_MOUSE_MOTION } from '@ziroeda/common/tool/tool_event.js';
 import { wxID_CANCEL, wxID_OK } from '@ziroeda/common/wx/menu.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import type { SCH_EDIT_FRAME, SCH_EDIT_FRAME_HOOKS } from '@ziroeda/eeschema/sch_edit_frame.js';
-import { LABEL_FLAG_SHAPE, type SCH_LABEL_BASE } from '@ziroeda/eeschema/sch_label.js';
+import {
+  LABEL_FLAG_SHAPE,
+  type SCH_LABEL_BASE,
+  SCH_HIERLABEL,
+} from '@ziroeda/eeschema/sch_label.js';
 import { SCH_LINE } from '@ziroeda/eeschema/sch_line.js';
 import type { SCH_SHEET } from '@ziroeda/eeschema/sch_sheet.js';
 import { SCH_ACTIONS } from '@ziroeda/eeschema/tools/sch_actions.js';
@@ -85,6 +89,20 @@ describe('SCH_DRAWING_TOOLS::SingleClickPlace', () => {
         at(n.GetPosition(), P(8, 0)),
       ),
     ).toBe(false);
+  });
+
+  it('a placed no-connect is the item Repeat copies, offset by the repeat offset', () => {
+    const h = setUp();
+    h.h.mouse = P(0, 0);
+    h.mgr.RunAction(SCH_ACTIONS.placeNoConnect);
+    h.mgr.RunAction(ACTIONS.cancelInteractive);
+    h.mgr.RunAction(SCH_ACTIONS.repeatDrawItem);
+    // default_repeat_offset: 0, 100 mils = 0, 2 grid steps
+    expect(
+      [...h.screen().Items().OfType(KICAD_T.SCH_NO_CONNECT_T)].some((n) =>
+        at(n.GetPosition(), P(0, 2)),
+      ),
+    ).toBe(true);
   });
 
   it('never stacks a second one on the same spot', () => {
@@ -236,30 +254,44 @@ describe('SCH_DRAWING_TOOLS::DrawSheet', () => {
 });
 
 describe('SCH_DRAWING_TOOLS sheet pins', () => {
-  it('autoplaceAllSheetPins pins the selected sheet; with none new it says so', () => {
+  /** Hierarchical labels inside \a sheet's own screen. */
+  const addHierLabels = (sheet: SCH_SHEET, names: string[]) => {
+    names.forEach((n, i) => {
+      const l = new SCH_HIERLABEL({ x: 0, y: i * 10 * G }, n);
+      l.SetShape(n.startsWith('OUT') ? LABEL_FLAG_SHAPE.L_OUTPUT : LABEL_FLAG_SHAPE.L_INPUT);
+      sheet.GetScreen()!.Append(l);
+    });
+  };
+  const firstSheet = (h: ReturnType<typeof setUp>) =>
+    [...h.screen().Items().OfType(KICAD_T.SCH_SHEET_T)][0] as SCH_SHEET;
+
+  it('autoplaceAllSheetPins pins every unmatched label of the selected sheet, then has none new', () => {
     const msgs: string[] = [];
     const h = setUp({}, false);
     h.frame.ShowInfoBarMsg = (m: string) => {
       msgs.push(m);
     };
-    const sheet = [...h.screen().Items().OfType(KICAD_T.SCH_SHEET_T)][0] as SCH_SHEET;
-    const before = sheet.GetPins().length;
+    const sheet = firstSheet(h);
+    addHierLabels(sheet, ['IN_A', 'OUT_B', 'IN_C']);
     h.sel.AddItemToSel(sheet as EDA_ITEM, true);
     h.mgr.RunAction(SCH_ACTIONS.autoplaceAllSheetPins);
-    // the oracle's sheets already have a pin for every label
-    expect(sheet.GetPins().length).toBe(before);
+    expect(
+      sheet
+        .GetPins()
+        .map((p) => p.GetText())
+        .sort(),
+    ).toEqual(['IN_A', 'IN_C', 'OUT_B']);
+    expect(msgs).toEqual([]);
+    h.sel.AddItemToSel(sheet as EDA_ITEM, true);
+    h.mgr.RunAction(SCH_ACTIONS.autoplaceAllSheetPins);
+    expect(sheet.GetPins()).toHaveLength(3);
     expect(msgs).toEqual(['No new hierarchical labels found.']);
   });
 
   it('placeSheetPin takes the next unmatched label, by natural order, on each click', () => {
     const h = setUp({}, false);
-    const sheet = [...h.screen().Items().OfType(KICAD_T.SCH_SHEET_T)][0] as SCH_SHEET;
-    // free two labels by removing their pins
-    const pins = [...sheet.GetPins()]
-      .sort((a, b) => (a.GetText() < b.GetText() ? -1 : 1))
-      .slice(0, 2);
-    for (const p of pins) sheet.RemovePin(p);
-    const names = pins.map((p) => p.GetText());
+    const sheet = firstSheet(h);
+    addHierLabels(sheet, ['B2', 'A10', 'A9']);
     const left = sheet.GetPosition();
     h.sel.AddItemToSel(sheet as EDA_ITEM, true);
     const y1 = { x: left.x, y: left.y + 2 * G };
@@ -267,10 +299,10 @@ describe('SCH_DRAWING_TOOLS sheet pins', () => {
     h.h.mouse = y1; // the primed click takes the first label
     h.mgr.RunAction(SCH_ACTIONS.placeSheetPin);
     click(h, y1); // places it and takes the second
-    click(h, y2); // places that
-    const placed = sheet.GetPins().filter((p) => names.includes(p.GetText()));
-    expect(placed.map((p) => p.GetText()).sort()).toEqual([...names].sort());
-    expect(placed.every((p) => p.GetShape() !== undefined && !p.IsNew())).toBe(true);
-    void LABEL_FLAG_SHAPE;
+    click(h, y2); // places that, and takes the third
+    h.mgr.RunAction(ACTIONS.cancelInteractive);
+    // StrNumCmp order: A9 before A10; B2 was taken but never placed
+    expect(sheet.GetPins().map((p) => p.GetText())).toEqual(['A9', 'A10']);
+    expect(sheet.GetPins().every((p) => !p.IsNew())).toBe(true);
   });
 });
