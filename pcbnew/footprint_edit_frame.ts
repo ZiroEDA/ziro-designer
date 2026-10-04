@@ -10,7 +10,39 @@
 import { pcbIUScale, PCB_IU_PER_MM } from '@ziroeda/common/eda_units.js';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import type { KIWAY_MAIL_EVENT } from '@ziroeda/common/kiway_mail.js';
-import { KIWAY_PLAYER } from '@ziroeda/common/kiway_player.js';
+import { FOOTPRINT_EDIT_FRAME_NAME } from '@ziroeda/common/eda_draw_frame.js';
+import { PCB_BASE_EDIT_FRAME } from './pcb_base_edit_frame.js';
+import type { FOOTPRINT_EDITOR_SETTINGS_LIKE } from './pcb_base_frame.js';
+import { BOARD, BOARD_USE } from './board.js';
+import type { BOARD_ITEM_CONTAINER } from './board_item_container.js';
+import type { FOOTPRINT } from './footprint.js';
+import { PCB_SCREEN } from './pcb_screen.js';
+import { PCBNEW_SETTINGS } from './pcbnew_settings.js';
+import { PAGE_INFO, PAGE_SIZE_TYPE } from '@ziroeda/common/page_info.js';
+import { LIB_ID } from '@ziroeda/common/lib_id.js';
+import { PgmOrNull } from '@ziroeda/common/pgm_base.js';
+import { LeaderMode as LEADER_MODE } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
+import { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
+import { TOOL_DISPATCHER } from '@ziroeda/common/tool/tool_dispatcher.js';
+import { RESET_REASON } from '@ziroeda/common/tool/tool_base.js';
+import { COMMON_CONTROL } from '@ziroeda/common/tool/common_control.js';
+import { COMMON_TOOLS } from '@ziroeda/common/tool/common_tools.js';
+import { ZOOM_TOOL } from '@ziroeda/common/tool/zoom_tool.js';
+import { EMBED_TOOL } from '@ziroeda/common/tool/embed_tool.js';
+import { PROPERTIES_TOOL } from '@ziroeda/common/tool/properties_tool.js';
+import { PCB_SELECTION_TOOL } from './tools/pcb_selection_tool.js';
+import { EDIT_TOOL } from './tools/edit_tool.js';
+import { PAD_TOOL } from './tools/pad_tool.js';
+import { DRAWING_TOOL } from './tools/drawing_tool.js';
+import { PCB_POINT_EDITOR } from './tools/pcb_point_editor.js';
+import { PCB_CONTROL } from './tools/pcb_control.js';
+import { ALIGN_DISTRIBUTE_TOOL } from './tools/align_distribute_tool.js';
+import { PCB_PICKER_TOOL } from './tools/pcb_picker_tool.js';
+import { POSITION_RELATIVE_TOOL } from './tools/position_relative_tool.js';
+import { PCB_VIEWER_TOOLS } from './tools/pcb_viewer_tools.js';
+import { PCB_GROUP_TOOL } from './tools/pcb_group_tool.js';
+import { CONVERT_TOOL } from './tools/convert_tool.js';
+import { PCB_TOOL_BASE } from './tools/pcb_tool_base.js';
 import { MAIL_T } from '@ziroeda/common/mail_type.js';
 import { applyMixins } from '@ziroeda/core/mixins.js';
 import { parse } from '@ziroeda/sexpr';
@@ -43,17 +75,170 @@ export interface FOOTPRINT_EDIT_FRAME_HOOKS {
     aHeaders: readonly string[],
     aItems: readonly (readonly string[])[],
   ): Promise<string | null>;
+  /** `OnModify()`'s window half: the title's modified mark. */
+  onModify?(): void;
 }
 
 export interface FOOTPRINT_EDIT_FRAME extends FOOTPRINT_EDIT_FRAME_LOAD_SELECT_MIXIN {}
 
+/**
+ * `FOOTPRINT_EDIT_FRAME` (pcbnew/footprint_edit_frame.cpp): a PCB_BASE_EDIT_FRAME
+ * whose BOARD is a footprint holder (`BOARD_USE::FPHOLDER`) carrying the one
+ * footprint being edited, edited by pcbnew's own tools in their footprint
+ * mode. The canvas is the window's and arrives later (`ActivateGalCanvas`),
+ * as PCB_EDIT_FRAME's does.
+ */
 // biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (FOOTPRINT_EDIT_FRAME_LOAD_SELECT_MIXIN, see libs/core/mixins.ts)
-export class FOOTPRINT_EDIT_FRAME extends KIWAY_PLAYER {
+export class FOOTPRINT_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   protected readonly hooks: FOOTPRINT_EDIT_FRAME_HOOKS;
+  /** `m_originalFootprintCopy`: the footprint as loaded, for IsContentModified. */
+  private m_originalFootprintCopy: FOOTPRINT | null = null;
+  /** `m_footprintNameWhenLoaded`. */
+  private m_footprintNameWhenLoaded = '';
 
   constructor(hooks: FOOTPRINT_EDIT_FRAME_HOOKS) {
-    super(FRAME_T.FRAME_FOOTPRINT_EDITOR, pcbIUScale, 'mm');
+    super(FRAME_T.FRAME_FOOTPRINT_EDITOR);
     this.hooks = hooks;
+
+    this.SetBoard(new BOARD());
+
+    this.GetBoard()!.SetBoardUse(BOARD_USE.FPHOLDER);
+
+    this.GetBoard()!.GetDesignSettings().m_NetSettings.GetDefaultNetclass().SetClearance(0);
+
+    this.GetBoard()!.GetDesignSettings().m_SolderMaskExpansion = 0;
+
+    this.GetBoard()!.SetVisibleAlls();
+
+    this.SetPageSettings(new PAGE_INFO(PAGE_SIZE_TYPE.A4));
+    this.SetScreen(new PCB_SCREEN(this.GetPageSettings().GetSizeIU(pcbIUScale.IU_PER_MILS)));
+
+    this.setupTools();
+  }
+
+  /** `FOOTPRINT_EDIT_FRAME::setupTools` (footprint_edit_frame.cpp:1220-1270). */
+  private setupTools(): void {
+    // Create the manager and dispatcher & route draw panel events to the dispatcher
+    this.m_toolManager = new TOOL_MANAGER();
+    this.m_toolManager.SetEnvironment(this.GetBoard(), null, null, this.config(), this);
+    this.m_toolDispatcher = new TOOL_DISPATCHER(this.m_toolManager);
+
+    this.m_toolManager.RegisterTool(new COMMON_CONTROL());
+    this.m_toolManager.RegisterTool(new COMMON_TOOLS());
+    this.m_toolManager.RegisterTool(new PCB_SELECTION_TOOL());
+    this.m_toolManager.RegisterTool(new ZOOM_TOOL());
+    this.m_toolManager.RegisterTool(new EDIT_TOOL());
+    // Not ported: PCB_EDIT_TABLE_TOOL.
+    this.m_toolManager.RegisterTool(new PAD_TOOL());
+    this.m_toolManager.RegisterTool(new DRAWING_TOOL());
+    this.m_toolManager.RegisterTool(new PCB_POINT_EDITOR());
+    this.m_toolManager.RegisterTool(new PCB_CONTROL()); // copy/paste
+    // Not yet TOOLs: LIBRARY_EDITOR_CONTROL, FOOTPRINT_EDITOR_CONTROL (the
+    // library tree is still the window's).
+    this.m_toolManager.RegisterTool(new ALIGN_DISTRIBUTE_TOOL());
+    this.m_toolManager.RegisterTool(new PCB_PICKER_TOOL());
+    this.m_toolManager.RegisterTool(new POSITION_RELATIVE_TOOL());
+    // Not yet a TOOL: ARRAY_TOOL.
+    this.m_toolManager.RegisterTool(new PCB_VIEWER_TOOLS());
+    this.m_toolManager.RegisterTool(new PCB_GROUP_TOOL());
+    this.m_toolManager.RegisterTool(new CONVERT_TOOL());
+    // Not ported: SCRIPTING_TOOL (no Python in the browser).
+    this.m_toolManager.RegisterTool(new PROPERTIES_TOOL());
+    this.m_toolManager.RegisterTool(new EMBED_TOOL());
+
+    for (const tool of this.m_toolManager.Tools()) {
+      if (tool instanceof PCB_TOOL_BASE) tool.SetIsFootprintEditor(true);
+    }
+
+    this.m_toolManager.InitTools();
+
+    this.m_toolManager.InvokeTool('common.InteractiveSelection');
+  }
+
+  GetName(): string {
+    return FOOTPRINT_EDIT_FRAME_NAME;
+  }
+
+  /** `GetModel()`: the footprint being edited. */
+  GetModel(): BOARD_ITEM_CONTAINER | null {
+    return this.GetBoard()?.GetFirstFootprint() ?? null;
+  }
+
+  /** `GetPcbNewSettings()`: the board editor's settings, which the tools share. */
+  GetPcbNewSettings(): PCBNEW_SETTINGS {
+    const cfg = PgmOrNull()?.GetSettingsManager().GetAppSettings<PCBNEW_SETTINGS>('pcbnew');
+
+    if (cfg) return cfg;
+
+    // No PGM_BASE (a unit test): the defaults, kept so edits to them stick.
+    if (!this.m_fallbackSettings) this.m_fallbackSettings = new PCBNEW_SETTINGS();
+
+    return this.m_fallbackSettings;
+  }
+
+  private m_fallbackSettings: PCBNEW_SETTINGS | null = null;
+
+  GetFootprintEditorSettings(): FOOTPRINT_EDITOR_SETTINGS_LIKE {
+    return {
+      m_DisplayInvertXAxis: false,
+      m_DisplayInvertYAxis: false,
+      m_AngleSnapMode: LEADER_MODE.DIRECT,
+    };
+  }
+
+  /**
+   * `ReloadFootprint` (footprint_edit_frame.cpp:623-718): the board emptied,
+   * the original kept for IsContentModified, the footprint added.
+   */
+  ReloadFootprint(aFootprint: FOOTPRINT): void {
+    // Cancel a mid-draw tool before the footprint it points into is freed (#24975).
+    this.GetToolManager()?.ResetTools(RESET_REASON.MODEL_RELOAD);
+
+    this.GetBoard()!.DeleteAllFootprints();
+
+    this.m_originalFootprintCopy = aFootprint.Clone() as FOOTPRINT;
+    this.m_originalFootprintCopy.SetParent(null);
+
+    this.m_footprintNameWhenLoaded = aFootprint.GetFPID().GetUniStringLibItemName();
+
+    super.AddFootprintToBoard(aFootprint);
+    // Ensure item UUIDs are valid
+    // ("old" footprints can have null uuids that create issues in fp editor)
+    aFootprint.FixUuids();
+  }
+
+  /** `AddFootprintToBoard` (:722-730): ReloadFootprint; the file watcher is not ported. */
+  override AddFootprintToBoard(aFootprint: FOOTPRINT | null): void {
+    if (aFootprint) this.ReloadFootprint(aFootprint);
+  }
+
+  /** `GetLoadedFPID()`: the edited footprint's LIB_ID, or an empty one. */
+  GetLoadedFPID(): LIB_ID {
+    const fp = this.GetBoard()?.GetFirstFootprint();
+    return fp ? fp.GetFPID() : new LIB_ID();
+  }
+
+  /** `m_footprintNameWhenLoaded`: what a rename is measured against. */
+  GetFootprintNameWhenLoaded(): string {
+    return this.m_footprintNameWhenLoaded;
+  }
+
+  /**
+   * `IsContentModified()` (footprint_edit_frame.cpp): the screen's modify flag;
+   * an empty frame is never modified.
+   */
+  override IsContentModified(): boolean {
+    return !!this.GetBoard()?.GetFirstFootprint() && this.GetScreen()?.IsContentModified() === true;
+  }
+
+  /** `m_originalFootprintCopy`, for the "Revert" and the diff. */
+  GetOriginalFootprintCopy(): FOOTPRINT | null {
+    return this.m_originalFootprintCopy;
+  }
+
+  override OnModify(): void {
+    super.OnModify();
+    this.hooks.onModify?.();
   }
 
   /** `FOOTPRINT_EDIT_FRAME::KiwayMailIn` (footprint_editor_utils.cpp:330). */

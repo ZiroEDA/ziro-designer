@@ -9,6 +9,9 @@
  * designer's; the settings objects come through two abstract accessors so
  * the designer's stores supply them.
  */
+import { IS_NEW } from '@ziroeda/common/eda_item_flags.js';
+import { ANGLE_0 } from '@ziroeda/kimath/src/geometry/eda_angle.js';
+import { PCB_ACTIONS } from './tools/pcb_actions.js';
 import { EDA_DRAW_FRAME } from '@ziroeda/common/eda_draw_frame.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common';
 import { fromPaperToken, pageSizeMM } from '@ziroeda/common/dialogs/dialog_page_settings.js';
@@ -505,6 +508,32 @@ export abstract class PCB_BASE_FRAME extends EDA_DRAW_FRAME {
    */
   GetMagneticItemsSettings(): MAGNETIC_SETTINGS {
     return this.GetPcbNewSettings().m_MagneticItems;
+  }
+
+  /**
+   * `PCB_BASE_FRAME::AddFootprintToBoard` (pcb_base_frame.cpp:200-222): the
+   * footprint appended, new, at the origin, on the front and unrotated.
+   */
+  AddFootprintToBoard(aFootprint: FOOTPRINT | null): void {
+    if (!aFootprint) return;
+
+    this.GetBoard()!.Add(aFootprint, ADD_MODE.APPEND);
+
+    aFootprint.SetFlags(IS_NEW);
+    aFootprint.SetPosition({ x: 0, y: 0 }); // cursor in GAL may not be initialized yet
+
+    // Put it on FRONT layer (note that it might be stored flipped if the lib is an archive
+    // built from a board)
+    if (aFootprint.IsFlipped())
+      aFootprint.Flip(aFootprint.GetPosition(), this.GetPcbNewSettings().m_FlipDirection);
+
+    // Place it in orientation 0 even if it is not saved with orientation 0 in lib (note that
+    // it might be stored in another orientation if the lib is an archive built from a board)
+    aFootprint.SetOrientation(ANGLE_0);
+
+    this.GetBoard()!.UpdateUserUnits(aFootprint, this.GetCanvas()?.GetView() ?? null);
+
+    this.m_toolManager?.RunAction(PCB_ACTIONS.rehatchShapes);
   }
 
   /**
