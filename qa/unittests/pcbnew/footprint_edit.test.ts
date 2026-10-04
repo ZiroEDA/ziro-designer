@@ -7,11 +7,13 @@ import { parse } from '@ziroeda/sexpr';
 import {
   readBoard,
   serializeBoard,
+} from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import {
   setFootprintField,
   setFootprintLocked,
   setFootprintOrientation,
-  type Board,
-} from '@ziroeda/pcbnew';
+} from '@ziroeda/pcbnew/edit-board.js';
+import { type Board } from '@ziroeda/pcbnew/types.js';
 
 const load = (): Board =>
   readBoard(

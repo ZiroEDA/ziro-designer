@@ -16,7 +16,10 @@ import {
   readSchematic,
   readSymbolLib,
 } from '@ziroeda/eeschema';
-import { readBoard, readFootprintFile } from '@ziroeda/pcbnew';
+import {
+  readBoard,
+  readFootprintFile,
+} from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 
 const DEMO = fileURLToPath(new URL('../../../designer/public/demos/ecc83/', import.meta.url));
 // Full corpus sweep source: the gitignored upstream clone (local dev only,

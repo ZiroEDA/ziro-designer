@@ -173,8 +173,8 @@ import type { Board, PcbTrack, PcbVia } from '../types.js';
 import {
   DEFAULT_DIMENSION_DEFAULTS,
   type DimensionDefaults as EngineDimensionDefaults,
-  type DimensionKind,
-} from '../index.js';
+} from '../draw_dimension.js';
+import { type DimensionKind } from '../types.js';
 
 /** The four control points of a `(gr_curve (pts …))`, in file order. */
 export type BezierPoints = [Vec2, Vec2, Vec2, Vec2];

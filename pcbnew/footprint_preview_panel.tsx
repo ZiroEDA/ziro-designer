@@ -17,7 +17,8 @@
  */
 import { useCallback, useEffect, useRef, type JSX } from 'react';
 import type { FOOTPRINT_PREVIEW_PANEL_BASE } from '@ziroeda/common/widgets/footprint_preview_widget.js';
-import { footprintBBox, footprintTextOnly, type PcbFootprint } from './index.js';
+import { footprintBBox, footprintTextOnly } from './edit-footprint.js';
+import { type PcbFootprint } from './types.js';
 import {
   usePreviewViewControls,
   type PreviewView,

@@ -37,7 +37,6 @@ import {
   addBarcode,
   setBarcode,
   addShape,
-  DEFAULT_POINT_SIZE,
   setFootprintReference,
   setFootprintValue,
   footprintStringChild,
@@ -47,12 +46,15 @@ import {
   replaceFootprintItem,
   parseFpItemId,
   type PadEdit,
+} from './edit-footprint.js';
+import { DEFAULT_POINT_SIZE } from './pcb_point.js';
+import {
   type PcbFootprint,
   type PcbBarcode,
   type PcbPad,
   type PcbShape,
   type PcbTextItem,
-} from './index.js';
+} from './types.js';
 import {
   FootprintPropertiesDialog,
   PadPropertiesDialog,

@@ -57,7 +57,8 @@ import { gridSizeToIU } from '@ziroeda/common/settings/grid_settings_ui.js';
 import { gridSnappingEnabled } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
 import { defaultUnitsToggle } from '@ziroeda/common/settings/app_settings_units.js';
 import type { FP_EDIT_JSON_SETTINGS_LIKE as FpEditSettings } from './footprint_editor_settings.js';
-import { readFootprintFile, type Board, type PcbFootprint, type PcbLayerDef } from './index.js';
+import { readFootprintFile } from './pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { type Board, type PcbFootprint, type PcbLayerDef } from './types.js';
 
 export interface FOOTPRINT_EDIT_FRAME_HOOKS {
   /**

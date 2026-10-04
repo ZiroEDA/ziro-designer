@@ -57,7 +57,7 @@ import {
 } from '../drc/drc_rule.js';
 import { PnsArc } from './pns_arc.js';
 import { PnsHole } from './pns_hole.js';
-import { PnsKind, LineMarker, type PnsBoardItem } from './pns_item.js';
+import { PnsKind, LineMarker, type PnsBoardItem, type PnsLinkedItem } from './pns_item.js';
 import { PnsLayerRange } from './pns_layerset.js';
 import { PNS_UNDEFINED_LAYER } from './pns_drag_algo.js';
 import { PnsSegment } from './pns_segment.js';
@@ -336,13 +336,6 @@ export interface PnsDesignSettings {
   tempOverrideTrackWidth: boolean;
   /** The real BOARD_DESIGN_SETTINGS: the indices, the overrides and the lists. */
   sizes: BOARD_DESIGN_SETTINGS;
-  /**
-   * `PNS_KICAD_IFACE_BASE::inheritTrackWidth` — the width of the track the
-   * route starts on, or null when the start item carries none. A hook because
-   * `inherit_track_width.ts` works on `Board` items and the router works on
-   * `PNS::ITEM`s; the caller owns that translation.
-   */
-  inheritTrackWidth?: (aStartItem: PnsItem, aStartPosition: Vec2) => number | null;
   /**
    * `m_UseHeightForLengthCalcs` — Board Setup > Constraints' "Include stackup
    * height in track length calculations". False is upstream's own early return
@@ -1327,6 +1320,110 @@ export class PNS_KICAD_IFACE implements PnsRouterIface, ROUTER_PREVIEW_IFACE {
    * Returns false with no design settings, which is upstream's `if( !m_board )`
    * early-out: the caller's sizes are left as they were.
    */
+  /**
+   * `PNS_KICAD_IFACE_BASE::inheritTrackWidth` (pns_kicad_iface.cpp:982-1096):
+   * the width of the track a route starts on — the start item's own, or for a
+   * via or pad the connected track whose far end is nearest the cursor, else
+   * the narrowest connected one on the start layer, else on any layer. Null
+   * is upstream's `return false`.
+   */
+  private inheritTrackWidth(aItem: PnsItem, aStartPosition: Vec2): number | null {
+    let p: Vec2;
+
+    // assert( aItem->Owner() != nullptr )
+
+    const tryGetTrackWidth = (aPnsItem: PnsItem): number => {
+      switch (aPnsItem.kind()) {
+        case PnsKind.SEGMENT_T:
+        case PnsKind.ARC_T:
+          return (aPnsItem as PnsLinkedItem).width();
+        default:
+          return -1;
+      }
+    };
+
+    const itemTrackWidth = tryGetTrackWidth(aItem);
+
+    if (itemTrackWidth > 0) return itemTrackWidth;
+
+    switch (aItem.kind()) {
+      case PnsKind.VIA_T:
+        p = (aItem as PnsVia).pos();
+        break;
+      case PnsKind.SOLID_T:
+        p = (aItem as PnsSolid).pos();
+        break;
+      default:
+        return null;
+    }
+
+    const jt = (aItem.owner() as PnsNode).findJointForItem(p, aItem);
+
+    // assert( jt != nullptr )
+    if (!jt) return null;
+
+    const linkedSegs = jt
+      .links()
+      .clone()
+      .excludeItem(aItem)
+      .filterKinds(PnsKind.SEGMENT_T | PnsKind.ARC_T);
+
+    if (linkedSegs.empty()) return null;
+
+    const sq = (a: Vec2, b: Vec2): number => (a.x - b.x) ** 2 + (a.y - b.y) ** 2;
+
+    // When a start position is provided, find the connected track whose far end is closest to
+    // the cursor. Since all tracks share the pad/via endpoint, the far-end direction is a proxy
+    // for which exit stub the user is pointing at.
+    if (aStartPosition.x !== 0 || aStartPosition.y !== 0) {
+      let closestItem: PnsItem | null = null;
+      let minDist = Number.MAX_VALUE;
+
+      for (const item of linkedSegs.items()) {
+        if (item.layer() !== this.m_startLayer) continue;
+
+        const anchor0 = item.anchor(0);
+        const anchor1 = item.anchor(1);
+
+        // The "other end" is the anchor farther from the pad/via center
+        const otherEnd = sq(anchor0, p) > sq(anchor1, p) ? anchor0 : anchor1;
+
+        const dist = sq(otherEnd, aStartPosition);
+
+        if (dist < minDist) {
+          minDist = dist;
+          closestItem = item;
+        }
+      }
+
+      if (closestItem) {
+        const w = tryGetTrackWidth(closestItem);
+
+        if (w > 0) return w;
+      }
+    }
+
+    // Fallback to minimum width when no start position provided or no valid exit stub found
+    let min_current_layer = Number.MAX_SAFE_INTEGER;
+    let min_all_layers = Number.MAX_SAFE_INTEGER;
+
+    for (const item of linkedSegs.items()) {
+      const w = tryGetTrackWidth(item);
+
+      if (w > 0) {
+        min_all_layers = Math.min(w, min_all_layers);
+
+        if (item.layer() === this.m_startLayer) min_current_layer = Math.min(w, min_current_layer);
+      }
+    }
+
+    if (min_all_layers === Number.MAX_SAFE_INTEGER) return null;
+
+    if (min_current_layer < Number.MAX_SAFE_INTEGER) return min_current_layer;
+
+    return min_all_layers;
+  }
+
   /** Whether {@link PNS_KICAD_IFACE.importSizes} has a BOARD_DESIGN_SETTINGS to read. */
   get importSizesEnabled(): boolean {
     return this.mDeps.designSettings != null;
@@ -1351,10 +1448,13 @@ export class PNS_KICAD_IFACE implements PnsRouterIface, ROUTER_PREVIEW_IFACE {
     // `startAnchor`: which end of a segment the pointer is nearer, so the dummy
     // track below sits where the user actually started.
     let startAnchor = 0;
+    // `VECTOR2I startPosInt( aStartPosition.x, aStartPosition.y )` (cpp:1112):
+    // the int constructor, so the doubles truncate.
+    const startPosInt: Vec2 = { x: Math.trunc(aStartPosition.x), y: Math.trunc(aStartPosition.y) };
 
     if (aStartItem && aStartItem.kind() === PnsKind.SEGMENT_T) {
-      const d0 = Distance(aStartPosition, aStartItem.anchor(0));
-      const d1 = Distance(aStartPosition, aStartItem.anchor(1));
+      const d0 = Distance(startPosInt, aStartItem.anchor(0));
+      const d1 = Distance(startPosInt, aStartItem.anchor(1));
 
       if (d1 < d0) startAnchor = 1;
     }
@@ -1392,7 +1492,7 @@ export class PNS_KICAD_IFACE implements PnsRouterIface, ROUTER_PREVIEW_IFACE {
 
     // `if( bds.m_UseConnectedTrackWidth && !bds.m_TempOverrideTrackWidth && aStartItem )`
     if (ds.useConnectedTrackWidth && !ds.tempOverrideTrackWidth && aStartItem) {
-      const inherited = ds.inheritTrackWidth?.(aStartItem, aStartPosition) ?? null;
+      const inherited = this.inheritTrackWidth(aStartItem, startPosInt);
 
       if (inherited !== null) {
         trackWidth = inherited;
@@ -1475,7 +1575,7 @@ export class PNS_KICAD_IFACE implements PnsRouterIface, ROUTER_PREVIEW_IFACE {
     // The width inherits from the starting track under the SAME flag as above,
     // but WITHOUT the `m_TempOverrideTrackWidth` half of the test.
     if (ds.useConnectedTrackWidth && aStartItem) {
-      const inherited = ds.inheritTrackWidth?.(aStartItem, aStartPosition) ?? null;
+      const inherited = this.inheritTrackWidth(aStartItem, startPosInt);
 
       if (inherited !== null) {
         diffPairWidth = inherited;

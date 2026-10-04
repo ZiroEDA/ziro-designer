@@ -4,14 +4,10 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
-import {
-  readBoard,
-  connectedTrackEnds,
-  dragBoardItems,
-  moveBoardItems,
-  boardItemId,
-  type Board,
-} from '@ziroeda/pcbnew';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { connectedTrackEnds } from '@ziroeda/pcbnew/connectivity.js';
+import { dragBoardItems, moveBoardItems, boardItemId } from '@ziroeda/pcbnew/edit-board.js';
+import { type Board } from '@ziroeda/pcbnew/types.js';
 
 const load = (): Board =>
   readBoard(

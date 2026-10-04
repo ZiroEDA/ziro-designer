@@ -124,13 +124,13 @@ import {
   DisplayFootprintsFrame,
   type CvpcbDisplayFootprintsApp,
 } from './display_footprints_frame.js';
-import type { PcbFootprint } from '@ziroeda/pcbnew';
+import type { PcbFootprint } from '@ziroeda/pcbnew/types.js';
 import { FOOTPRINT_FILTER } from '@ziroeda/common/footprint_filter.js';
 import {
   FOOTPRINT_LIST_IMPL,
   type FootprintIndexLibrary,
 } from '@ziroeda/pcbnew/footprint_info_impl.js';
-import { uniquePadCount } from '@ziroeda/pcbnew';
+import { uniquePadCount } from '@ziroeda/pcbnew/footprint_utils.js';
 import type { ProjectFile } from '@ziroeda/common/project_paths.js';
 import {
   projectFpLibTable,

@@ -48,7 +48,7 @@ import {
   CROSS_PROBE_FLASH_LAST_PHASE,
   crossProbeFlashSelection,
   crossProbeViewChange,
-} from '@ziroeda/pcbnew';
+} from '@ziroeda/pcbnew/cross-probing.js';
 import type { ComponentProps, JSX } from 'react';
 import { SchematicEditor } from '@ziroeda/eeschema/sch_edit_frame_ui.js';
 

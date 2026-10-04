@@ -11,7 +11,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { parse } from '@ziroeda/sexpr';
 import { readSymbolLib, type LibSymbol } from '@ziroeda/eeschema';
-import { readFootprintFile } from '@ziroeda/pcbnew';
+import { readFootprintFile } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 
 const SYM_STAGED = fileURLToPath(new URL('../../../tools/libraries/out/symbols/', import.meta.url));
 const FP_SRC = fileURLToPath(new URL('../../../kicad-footprints-src/', import.meta.url));

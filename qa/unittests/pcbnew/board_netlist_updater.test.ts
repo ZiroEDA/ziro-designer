@@ -18,13 +18,12 @@ import {
   type UpdateOptions,
   type UpdateResult,
 } from './support/netlist_update_harness.js';
+import { loadKicadNetlist } from '@ziroeda/pcbnew/netlist_reader/kicad_netlist_reader.js';
 import {
-  loadKicadNetlist,
   readBoard,
   serializeBoard,
-  type Board,
-  type PcbFootprint,
-} from '@ziroeda/pcbnew';
+} from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { type Board, type PcbFootprint } from '@ziroeda/pcbnew/types.js';
 
 // ----- fixtures ---------------------------------------------------------------
 

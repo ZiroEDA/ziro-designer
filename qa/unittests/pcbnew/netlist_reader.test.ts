@@ -15,14 +15,14 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { NETLIST } from '@ziroeda/pcbnew/netlist_reader/pcb_netlist.js';
 import {
-  NETLIST,
   NetlistParseError,
   guessNetlistFileType,
   loadCmpFootprintLinks,
   loadLegacyNetlist,
   loadNetlist,
-} from '@ziroeda/pcbnew';
+} from '@ziroeda/pcbnew/netlist_reader/netlist_reader.js';
 
 const DATA = fileURLToPath(new URL('../../data/', import.meta.url));
 const read = (name: string): string => readFileSync(DATA + name, 'utf8');

@@ -8,7 +8,7 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render } from '@testing-library/react';
-import type { Board } from '@ziroeda/pcbnew';
+import type { Board } from '@ziroeda/pcbnew/types.js';
 import { BOARD } from '@ziroeda/pcbnew/board.js';
 import { FOOTPRINT, FP_3DMODEL } from '@ziroeda/pcbnew/footprint.js';
 

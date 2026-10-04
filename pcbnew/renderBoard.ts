@@ -50,21 +50,14 @@ import {
   type WksSheet,
 } from '@ziroeda/common';
 import type { Vec2 } from '@ziroeda/kimath';
+import { dimensionBBox, dimensionSegments } from './dimension_geometry.js';
+import { arcCenter, arcSweepDegrees, tessellateArc } from './edit-board.js';
+import { displayNetname, displayNetnames, shortNetname } from './netinfo.js';
+import { imageBBox } from './pcb_reference_image.js';
+import { tableBBox, tableBorderSegments } from './table_geometry.js';
+import { textBoxBBox, textBoxCorners } from './textbox_geometry.js';
+import { footprintBBox } from './edit-footprint.js';
 import {
-  dimensionBBox,
-  dimensionSegments,
-  arcCenter,
-  arcSweepDegrees,
-  displayNetname,
-  displayNetnames,
-  shortNetname,
-  imageBBox,
-  tableBBox,
-  tableBorderSegments,
-  textBoxBBox,
-  textBoxCorners,
-  tessellateArc,
-  footprintBBox,
   type Board,
   type PcbDimension,
   type PcbImage,
@@ -75,7 +68,7 @@ import {
   type PcbPoint,
   type PcbShape,
   type PcbTextItem,
-} from './index.js';
+} from './types.js';
 import { barcodeBBox, barcodeGeometry } from './pcb_io/kicad_sexpr/board_view.js';
 import { textPenWidth } from './text_metrics.js';
 import { effectiveTextPenWidth, ITALIC_TILT } from '@ziroeda/common/font/text_box.js';

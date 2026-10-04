@@ -16,7 +16,9 @@
 import { useEffect, useRef, useState } from 'react';
 import type { JSX } from 'react';
 import { parse } from '@ziroeda/sexpr';
-import { placeFootprint, readBoard, type Board, type PcbFootprint } from '@ziroeda/pcbnew';
+import { placeFootprint } from '@ziroeda/pcbnew/netlist_reader/board_netlist_updater.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { type Board, type PcbFootprint } from '@ziroeda/pcbnew/types.js';
 import type { BOARD_3D_HANDLE, Viewer3D } from '@ziroeda/3d-viewer/viewer3d_types.js';
 import { boardToBOARD } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/board_view.js';
 import { MODELS3D_HOST } from '../../../libraryHosts.js';

@@ -46,7 +46,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX, type Ref } from 'react';
 import { PCB_IU_PER_MM, pcbIuToMM } from '@ziroeda/common';
-import { footprintMsgPanelInfo, type Board, type PcbFootprint } from '@ziroeda/pcbnew';
+import { footprintMsgPanelInfo } from '@ziroeda/pcbnew/msg_panel.js';
+import { type Board, type PcbFootprint } from '@ziroeda/pcbnew/types.js';
 import { Toolbar } from '@ziroeda/common/tool/action_toolbar.js';
 import { Combo } from '@ziroeda/common/widgets/wx_combobox.js';
 import { MsgPanel, type MsgPanelItem } from '@ziroeda/common/widgets/msgpanel_ui.js';

@@ -879,6 +879,61 @@ describe('DRAWING_TOOL::DrawTable (drawing_tool.cpp:1186-1415)', () => {
     expect(t.IsSelected()).toBe(true);
   });
 
+  /** Drag a table from (10, 10) mm to `aTo` mm and commit it; the committed table. */
+  const drawn = async (aTo: Vec2): Promise<PCB_TABLE> => {
+    start(PCB_ACTIONS.drawTable);
+    click(mm(10, 10));
+    move(aTo);
+    click(aTo);
+    await flush();
+    return tables()[0]!;
+  };
+
+  /** `KiROUND( (double) v / g ) * g`, the cell size's snap to the grid. */
+  const snapped = (v: number, g: number): number => Math.round(v / g) * g;
+
+  it('a backwards drag is a 1x1 table of the minimum cell, 5 font-widths by 3 heights (:1366-1373)', async () => {
+    const fs = h.board.GetDesignSettings().GetTextSize(PCB_LAYER_ID.F_SilkS);
+    const g = h.view.GetGAL().GetGridSize();
+    const t = await drawn(mm(2, 3));
+
+    expect([t.GetColCount(), t.GetRowCount()]).toEqual([1, 1]);
+    expect(t.GetColWidth(0)).toBe(snapped(fs.x * 5, g.x));
+    expect(t.GetRowHeight(0)).toBe(snapped(fs.y * 3, g.y));
+  });
+
+  it('counts truncate: one column per 15 font-widths, one row per 3 heights (:1366-1367)', async () => {
+    const fs = h.board.GetDesignSettings().GetTextSize(PCB_LAYER_ID.F_SilkS);
+    // 3.9 columns' and 2.9 rows' worth of drag: 3 and 2.
+    const w = (fs.x * 15 * 3.9) / MM;
+    const ht = (fs.y * 3 * 2.9) / MM;
+    const t = await drawn(mm(10 + w, 10 + ht));
+
+    expect([t.GetColCount(), t.GetRowCount()]).toEqual([3, 2]);
+  });
+
+  it('lays the cells out row-major from the first corner, every cell the same size, on the layer', async () => {
+    const fs = h.board.GetDesignSettings().GetTextSize(PCB_LAYER_ID.F_SilkS);
+    const g = h.view.GetGAL().GetGridSize();
+    const w = (fs.x * 15 * 2.5) / MM;
+    const ht = (fs.y * 3 * 2.5) / MM;
+    const t = await drawn(mm(10 + w, 10 + ht));
+    const req = { x: Math.trunc(w * MM), y: Math.trunc(ht * MM) };
+    const cw = snapped(Math.max(fs.x * 5, Math.trunc(req.x / 2)), g.x);
+    const ch = snapped(Math.max(fs.y * 3, Math.trunc(req.y / 2)), g.y);
+    const cells = t.GetCells();
+
+    expect(cells.map((c) => c.GetPosition())).toEqual([
+      mm(10, 10),
+      { x: 10 * MM + cw, y: 10 * MM },
+      { x: 10 * MM, y: 10 * MM + ch },
+      { x: 10 * MM + cw, y: 10 * MM + ch },
+    ]);
+    for (const c of cells)
+      expect(c.GetEnd()).toEqual({ x: c.GetPosition().x + cw, y: c.GetPosition().y + ch });
+    expect(t.GetLayer()).toBe(PCB_LAYER_ID.F_SilkS);
+  });
+
   it('PENCIL until the first corner, MOVING while the grid is dragged out (:1203-1210)', () => {
     start(PCB_ACTIONS.drawTable);
     expect(h.shape).toBe(KICURSOR.PENCIL);
@@ -944,6 +999,24 @@ describe('DRAWING_TOOL::PlaceReferenceImage (drawing_tool.cpp:623-872)', () => {
     expect(im.GetPosition()).toEqual(mm(50, 50));
     expect(im.GetLayer()).toBe(PCB_LAYER_ID.F_SilkS);
     expect(im.IsSelected()).toBe(true);
+  });
+
+  it('stays armed after a placement, and a second image joins the first (:812-819)', async () => {
+    imageFile = png();
+    start(PCB_ACTIONS.placeReferenceImage);
+    await flush();
+    click(mm(10, 10));
+    // `if( !immediateMode ) { ... m_toolMgr->PostAction( ACTIONS::cursorClick ) }`
+    // is not in this branch: the tool loops for the next image.
+    expect(tool.GetDrawingMode()).toBe(DRAWING_MODE.IMAGE);
+    click(mm(30, 30));
+    await flush();
+    click(mm(30, 30));
+
+    const at = images()
+      .map((i) => i.GetPosition())
+      .sort((a, b) => a.x - b.x);
+    expect(at).toEqual([mm(10, 10), mm(30, 30)]);
   });
 
   it('ARROW until a file is chosen, MOVING while the image rides (:653-661)', async () => {

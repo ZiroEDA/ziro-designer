@@ -25,7 +25,7 @@
  */
 import { useMemo, useRef, useState, type JSX } from 'react';
 import { zipSync, zlibSync, strToU8 } from 'fflate';
-import { PCB_PLOTTER } from '../index.js';
+import { PCB_PLOTTER } from '../pcb_plotter.js';
 import type { BOARD } from '../board.js';
 import { DRILL_MARKS, PCB_PLOT_PARAMS } from '../pcb_plot_params.js';
 import { EXCELLON_WRITER } from '../exporters/gendrill_excellon_writer.js';

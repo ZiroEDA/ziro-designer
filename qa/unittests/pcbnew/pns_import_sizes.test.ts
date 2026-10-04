@@ -221,16 +221,20 @@ describe('the differential pair', () => {
 });
 
 describe('inheriting the width from the track the route starts on', () => {
-  const startItem = (): PnsSegment => {
-    const seg = new PnsSegment({ a: { x: 0, y: 0 }, b: { x: MM(10), y: 0 } }, null);
+  /** A track 0.75 mm wide to start on (`inheritTrackWidth`'s first branch), or none wide. */
+  const startItem = (aWidth: number): PnsSegment => {
+    const seg = new PnsSegment(
+      { seg: { a: { x: 0, y: 0 }, b: { x: MM(10), y: 0 } }, width: aWidth },
+      null,
+    );
     seg.setLayer(0);
     return seg;
   };
 
-  const withStart = (ds: PnsDesignSettings): PnsRouterSizes => {
+  const withStart = (ds: PnsDesignSettings, aWidth = MM(0.75)): PnsRouterSizes => {
     const iface = new PNS_KICAD_IFACE(BOARD, { designSettings: ds });
     const sizes: PnsRouterSizes = { ...DEFAULT_ROUTER_SIZES };
-    iface.importSizes(sizes, startItem(), null, { x: 0, y: 0 });
+    iface.importSizes(sizes, startItem(aWidth), null, { x: 0, y: 0 });
     return sizes;
   };
 
@@ -238,7 +242,6 @@ describe('inheriting the width from the track the route starts on', () => {
     const sizes = withStart(
       designSettings({
         useConnectedTrackWidth: true,
-        inheritTrackWidth: () => MM(0.75),
       }),
     );
 
@@ -252,7 +255,6 @@ describe('inheriting the width from the track the route starts on', () => {
       designSettings({
         useConnectedTrackWidth: true,
         tempOverrideTrackWidth: true,
-        inheritTrackWidth: () => MM(0.75),
       }),
     );
 
@@ -267,7 +269,6 @@ describe('inheriting the width from the track the route starts on', () => {
       designSettings({
         useConnectedTrackWidth: true,
         tempOverrideTrackWidth: true,
-        inheritTrackWidth: () => MM(0.75),
       }),
     );
 
@@ -275,9 +276,7 @@ describe('inheriting the width from the track the route starts on', () => {
   });
 
   it('falls through to the netclass when the start item carries no width', () => {
-    const sizes = withStart(
-      designSettings({ useConnectedTrackWidth: true, inheritTrackWidth: () => null }),
-    );
+    const sizes = withStart(designSettings({ useConnectedTrackWidth: true }), 0);
 
     expect(sizes.trackWidth).toBe(MM(0.25));
   });
@@ -326,10 +325,12 @@ describe('where each number came from', () => {
     const iface = new PNS_KICAD_IFACE(BOARD, {
       designSettings: designSettings({
         useConnectedTrackWidth: true,
-        inheritTrackWidth: () => MM(0.75),
       }),
     });
-    const seg = new PnsSegment({ a: { x: 0, y: 0 }, b: { x: MM(10), y: 0 } }, null);
+    const seg = new PnsSegment(
+      { seg: { a: { x: 0, y: 0 }, b: { x: MM(10), y: 0 } }, width: MM(0.75) },
+      null,
+    );
     seg.setLayer(0);
 
     const sizes: PnsRouterSizes = { ...DEFAULT_ROUTER_SIZES };

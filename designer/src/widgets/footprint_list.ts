@@ -11,7 +11,7 @@
  * Deployments serve the full KiCad footprint set from the same hosted bucket
  * as the symbol libraries (FOOTPRINTS_BASE / VITE_FOOTPRINTS_URL).
  */
-import type { PcbFootprint } from '@ziroeda/pcbnew';
+import type { PcbFootprint } from '@ziroeda/pcbnew/types.js';
 import type { FootprintIndexLibrary } from '@ziroeda/pcbnew/footprint_info_impl.js';
 import { footprintText } from '../libraryBundleStore.js';
 import { fetchLibraryIndex, libraryBase } from '../libraryHosts.js';

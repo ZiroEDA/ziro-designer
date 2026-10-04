@@ -25,10 +25,13 @@ import {
   chainPointInside,
   simplify,
 } from '@ziroeda/kimath/src/geometry/shape_poly_set_algorithms.js';
-import { doConvertOutlineToPolygon } from '@ziroeda/pcbnew/convert_shape_list_to_polygon_legacy.js';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { ConvertOutlineToPolygon } from '@ziroeda/pcbnew/convert_shape_list_to_polygon.js';
+import type { PCB_SHAPE } from '@ziroeda/pcbnew/pcb_shape.js';
+import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import { arcConvertToPolyline } from '@ziroeda/kimath/src/geometry/shape_arc.js';
 import { padTransformHoleToPolygon } from '@ziroeda/pcbnew/transform_shape_to_polygon.js';
-import type { Board, PcbPad, PcbShape, PcbZone } from '@ziroeda/pcbnew/types.js';
+import type { Board, PcbPad, PcbZone } from '@ziroeda/pcbnew/types.js';
 import { describe, expect, it } from 'vitest';
 
 const MM = (v: number): number => Math.round(v * 1_000_000);
@@ -61,13 +64,9 @@ describe('Simplify() splits an exterior waist', () => {
 });
 
 describe('the board outline walks an arc from where the chain arrived', () => {
-  const shape = (over: Partial<PcbShape>): PcbShape => ({
-    kind: 'line',
-    width: 100_000,
-    fillMode: 'none',
-    layer: 'Edge.Cuts',
-    ...over,
-  });
+  const U = (n: number): string => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+  const line = (a: string, b: string, n: number): string =>
+    `(gr_line (start ${a}) (end ${b}) (stroke (width 0.1) (type solid)) (layer "Edge.Cuts") (uuid "${U(n)}"))`;
 
   it("rebuilds the arc as SHAPE_ARC( prevPt, mid, end ) when the neighbour's end is a few units off", () => {
     // A 10 x 10 mm outline whose top-right corner is a 2 mm arc. The line
@@ -78,16 +77,28 @@ describe('the board outline walks an arc from where the chain arrived', () => {
     const arcMid = { x: MM(8) + 1_414_214, y: MM(2) - 1_414_214 };
     const arcEnd = { x: MM(10), y: MM(2) };
     const arrived = { x: MM(8) + 3, y: 0 };
-    const shapes = [
-      shape({ start: { x: 0, y: 0 }, end: arrived }),
-      shape({ kind: 'arc', start: arcStart, mid: arcMid, end: arcEnd }),
-      shape({ start: arcEnd, end: { x: MM(10), y: MM(10) } }),
-      shape({ start: { x: MM(10), y: MM(10) }, end: { x: 0, y: MM(10) } }),
-      shape({ start: { x: 0, y: MM(10) }, end: { x: 0, y: 0 } }),
-    ];
-    const r = doConvertOutlineToPolygon(shapes, 5000, MM(0.01), true);
-    expect(r.success).toBe(true);
-    const ring = r.polygons[0]![0]!;
+    const board = ParseBoard(`(kicad_pcb (version 20241229) (generator "test")
+  (general (thickness 1.6))
+  (layers (0 "F.Cu" signal) (2 "B.Cu" signal) (25 "Edge.Cuts" user))
+  (setup)
+  (net 0 "")
+  ${line('0 0', '8.000003 0', 1)}
+  (gr_arc (start 8 0) (mid 9.414214 0.585786) (end 10 2) (stroke (width 0.1) (type solid)) (layer "Edge.Cuts") (uuid "${U(2)}"))
+  ${line('10 2', '10 10', 3)}
+  ${line('10 10', '0 10', 4)}
+  ${line('0 10', '0 0', 5)}
+)`);
+    const polys = new SHAPE_POLY_SET();
+    const ok = ConvertOutlineToPolygon(
+      board.Drawings() as PCB_SHAPE[],
+      polys,
+      5000,
+      MM(0.01),
+      true,
+      null,
+    );
+    expect(ok).toBe(true);
+    const ring = [...polys.CIterateWithHoles(0)];
     const fromArrived = arcConvertToPolyline({ p0: arrived, arcMid, p1: arcEnd, width: 0 }, 5000);
     const fromOwnStart = arcConvertToPolyline({ p0: arcStart, arcMid, p1: arcEnd, width: 0 }, 5000);
     // The two polylines differ somewhere in their interior — else there is nothing to pin.

@@ -19,8 +19,8 @@
  */
 
 import type { PcbFootprintData } from '@ziroeda/eeschema';
-import type { Board, PcbFootprint } from '@ziroeda/pcbnew';
-import { RESERVED_FOOTPRINT_PROPERTIES } from '@ziroeda/pcbnew';
+import type { Board, PcbFootprint } from '@ziroeda/pcbnew/types.js';
+import { RESERVED_FOOTPRINT_PROPERTIES } from '@ziroeda/pcbnew/types.js';
 
 const attr = (fp: PcbFootprint, name: string): boolean => fp.attributes?.includes(name) ?? false;
 

@@ -2,10 +2,10 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 import { useRef, useState, type JSX, type ReactNode } from 'react';
-import type { PadEdit } from '../index.js';
-import type { PcbFootprint, PcbPad } from '../index.js';
+import type { PadEdit } from '../edit-footprint.js';
+import type { PcbFootprint, PcbPad } from '../types.js';
 import { iuToMM, mmToIU } from '@ziroeda/common';
-import { footprintStringChild } from '../index.js';
+import { footprintStringChild } from '../edit-footprint.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import type { FOOTPRINT, FP_3DMODEL } from '../footprint.js';
 import type { PANEL_3D_MODEL_HOST, SELECTED_3D_MODEL } from './panel_fp_properties_3d_model.js';

@@ -16,7 +16,8 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
 import { exportKicadNetlist } from '@ziroeda/eeschema/cross-probing.js';
-import { loadKicadNetlist, readBoard } from '@ziroeda/pcbnew';
+import { loadKicadNetlist } from '@ziroeda/pcbnew/netlist_reader/kicad_netlist_reader.js';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 
 const DEMO = fileURLToPath(new URL('../../../designer/public/demos/ecc83/', import.meta.url));
 const read = (name: string): string => readFileSync(DEMO + name, 'utf8');

@@ -16,7 +16,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { collectDimensionValues } from '@ziroeda/pcbnew/dialogs/dialog_dimension_properties.js';
-import { startDimension } from '@ziroeda/pcbnew';
+import { startDimension } from '@ziroeda/pcbnew/draw_dimension.js';
 import type { DimensionKind } from '@ziroeda/pcbnew/types.js';
 import { dimensionDialogFields as fieldsFor } from '@ziroeda/pcbnew/dialogs/dialog_dimension_properties.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';

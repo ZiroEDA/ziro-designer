@@ -1854,7 +1854,7 @@ export function App(): JSX.Element {
                           // including the ones who never open a board.
                           const [{ readBoard }, { parse }, { boardFootprintData }] =
                             await Promise.all([
-                              import('@ziroeda/pcbnew'),
+                              import('@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js'),
                               import('@ziroeda/sexpr'),
                               import('./editors/schematic/back_annotate_source.js'),
                             ]);

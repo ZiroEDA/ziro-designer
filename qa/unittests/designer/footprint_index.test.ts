@@ -16,7 +16,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { uniquePadCount, uniquePadNumbers } from '@ziroeda/pcbnew';
+import { uniquePadCount, uniquePadNumbers } from '@ziroeda/pcbnew/footprint_utils.js';
 import { parseFootprint } from '@ziroeda/pcbnew/footprint_edit_frame.js';
 import {
   footprintIndexInfo,

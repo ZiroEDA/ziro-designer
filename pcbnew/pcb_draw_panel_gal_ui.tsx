@@ -52,7 +52,8 @@ import {
   type RulerPoint,
   type RulerUnits,
 } from '@ziroeda/common/preview_items/ruler_item.js';
-import { hitTestFootprint, itemsInBox, fpItemBBox, type PcbFootprint } from './index.js';
+import { hitTestFootprint, itemsInBox, fpItemBBox } from './edit-footprint.js';
+import { type PcbFootprint } from './types.js';
 import {
   buildScene,
   buildDrawSteps,

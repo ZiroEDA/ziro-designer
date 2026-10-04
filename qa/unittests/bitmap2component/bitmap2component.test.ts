@@ -15,7 +15,7 @@ import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/generator.js';
 import { Reporter, RPT_SEVERITY_ERROR } from '@ziroeda/common/reporter.js';
 import { BM_PUT, bm_new, type potrace_bitmap_t } from '@ziroeda/potrace';
 import { parse } from '@ziroeda/sexpr';
-import { readFootprintFile } from '@ziroeda/pcbnew';
+import { readFootprintFile } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { readSymbolLib } from '@ziroeda/eeschema';
 import { readDrawingSheet } from '@ziroeda/common/drawing_sheet/read.js';
 import {

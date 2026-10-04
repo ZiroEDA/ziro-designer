@@ -22,7 +22,7 @@ import {
   crossProbeFlashSelection,
   CROSS_PROBE_FLASH_INTERVAL_MS,
   CROSS_PROBE_FLASH_LAST_PHASE,
-} from '@ziroeda/pcbnew';
+} from '@ziroeda/pcbnew/cross-probing.js';
 import { pcbMmToIU } from '@ziroeda/common/eda_units.js';
 import { CROSS_PROBING_SETTINGS } from '@ziroeda/common/settings/app_settings.js';
 import { PCBNEW_DEFAULTS, deepMerge } from '@ziroeda/designer/src/prefs/settings.js';

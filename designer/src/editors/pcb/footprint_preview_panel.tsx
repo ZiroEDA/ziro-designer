@@ -8,7 +8,7 @@
  * preferences. The panel itself moved to `pcbnew/`; this is its wiring.
  */
 import type { FOOTPRINT_PREVIEW_PANEL_BASE } from '@ziroeda/common/widgets/footprint_preview_widget.js';
-import type { PcbFootprint } from '@ziroeda/pcbnew';
+import type { PcbFootprint } from '@ziroeda/pcbnew/types.js';
 import { FOOTPRINT_PREVIEW_PANEL_New } from '@ziroeda/pcbnew/footprint_preview_panel.js';
 import { settings } from '../../prefs/settings.js';
 import { loadFootprint } from '../../widgets/footprint_list.js';

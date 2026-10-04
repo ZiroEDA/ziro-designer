@@ -31,8 +31,8 @@ import {
   FLIP_DIRECTION,
   readFootprintFile,
   serializeFootprint,
-  type PcbFootprint,
-} from './index.js';
+} from './pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { type PcbFootprint } from './types.js';
 
 /**
  * What the manager asks of the program it runs in: where a global library's

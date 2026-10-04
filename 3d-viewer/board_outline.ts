@@ -13,7 +13,8 @@
 import { PCB_IU_PER_MM } from '@ziroeda/common/eda_units.js';
 import earcut from 'earcut';
 import type { Vec2 } from '@ziroeda/kimath';
-import { tessellateArc, type Board } from '@ziroeda/pcbnew';
+import { tessellateArc } from '@ziroeda/pcbnew/edit-board.js';
+import { type Board } from '@ziroeda/pcbnew/types.js';
 
 const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
 

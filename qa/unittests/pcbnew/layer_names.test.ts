@@ -11,7 +11,8 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr';
-import { readBoard, type Board } from '@ziroeda/pcbnew';
+import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { type Board } from '@ziroeda/pcbnew/types.js';
 import { GetLayerName, LayerName } from '@ziroeda/common/layer_ids.js';
 
 const demo = (): Board =>

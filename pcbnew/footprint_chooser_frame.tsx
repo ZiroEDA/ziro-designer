@@ -35,7 +35,7 @@ import { PanelFootprintChooser } from './widgets/panel_footprint_chooser.js';
 import type { FootprintTreeFilter } from './fp_tree_model_adapter.js';
 import { footprintHistory } from './load_select_footprint.js';
 import type { FootprintIndexLibrary } from './footprint_info_impl.js';
-import type { Board, PcbFootprint } from './index.js';
+import type { Board, PcbFootprint } from './types.js';
 import type { FOOTPRINT_PREVIEW_PANEL_BASE } from '@ziroeda/common/widgets/footprint_preview_widget.js';
 import { useModalEscape } from '@ziroeda/common/dialog_shim.js';
 import { BitmapButton, BitmapButtonSeparator } from '@ziroeda/common/widgets/bitmap_button.js';

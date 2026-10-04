@@ -13,7 +13,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
-import { DEFAULT_DIMENSION_DEFAULTS, startDimension } from '@ziroeda/pcbnew';
+import { DEFAULT_DIMENSION_DEFAULTS, startDimension } from '@ziroeda/pcbnew/draw_dimension.js';
 import {
   DIMENSION_TOOLS,
   dimensionDefaultsFrom,
