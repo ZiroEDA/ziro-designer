@@ -210,7 +210,10 @@ import type { DIALOG_FIND } from './dialogs/dialog_find.js';
 import { DialogPageSettings } from '@ziroeda/common/dialogs/dialog_page_settings.js';
 import { pageSettingsValue, toPaperToken } from '@ziroeda/common/dialogs/dialog_page_settings.js';
 import { type ExtentsBox, pcbZoomFitBox } from './pcb_base_frame.js';
-import { DialogPcbPrint } from './dialogs/dialog_print_pcbnew.js';
+import { DialogPcbPrint } from './dialogs/dialog_print_pcbnew_ui.js';
+import type { DIALOG_PRINT_PCBNEW } from './dialogs/dialog_print_pcbnew.js';
+import { wxPrinter } from '@ziroeda/common/wx/printer.js';
+import { MessageDialogError, MessageDialogOk } from '@ziroeda/common/dialogs/dialog_message.js';
 import { DialogPcbPlot } from './dialogs/dialog_plot.js';
 import {
   DialogBoardSetup,
@@ -2205,6 +2208,7 @@ export function PcbEditor({
     projectText: () => string | null;
     editZoneParams: (aZone: ZONE) => void;
     showFindDialog: (aDialog: DIALOG_FIND) => void;
+    showPrintDialog: (aDialog: DIALOG_PRINT_PCBNEW) => Promise<void>;
     showReferenceImagePropertiesDialog: (
       aDialog: DIALOG_REFERENCE_IMAGE_PROPERTIES,
     ) => Promise<boolean>;
@@ -2323,6 +2327,7 @@ export function PcbEditor({
       projectText: () => drcWindowRef.current!.projectText(),
       editZoneParams: (aZone) => drcWindowRef.current!.editZoneParams(aZone),
       showFindDialog: (aDialog) => drcWindowRef.current!.showFindDialog(aDialog),
+      showPrintDialog: (aDialog) => drcWindowRef.current!.showPrintDialog(aDialog),
       showReferenceImagePropertiesDialog: (aDialog) =>
         drcWindowRef.current!.showReferenceImagePropertiesDialog(aDialog),
       showPadPropertiesDialog: (aDialog) => drcWindowRef.current!.showPadPropertiesDialog(aDialog),
@@ -2573,7 +2578,13 @@ export function PcbEditor({
   // BOARD_EDITOR_CONTROL::PageSettings's DIALOG_PAGES_SETTINGS: the tool waits
   // on `resolve` (true when OK wrote the page and title block into the frame).
   const [pageDlg, setPageDlg] = useState<{ resolve: (aOk: boolean) => void } | null>(null);
-  const [printDlgOpen, setPrintDlgOpen] = useState(false);
+  // DIALOG_PRINT_PCBNEW while PCB_CONTROL::Print shows it, and its messages.
+  const [printDlg, setPrintDlg] = useState<{ dlg: DIALOG_PRINT_PCBNEW; done: () => void } | null>(
+    null,
+  );
+  const [printMessage, setPrintMessage] = useState<{ message: string; error: boolean } | null>(
+    null,
+  );
   const [plotDlgOpen, setPlotDlgOpen] = useState(false);
   // Folders that already exist in the project, relative to the project's own
   // folder, the Plot dialog's "Output directory:" choices (the cloud file
@@ -4490,6 +4501,8 @@ export function PcbEditor({
     /** `PCB_EDIT_FRAME::Edit_Zone_Params`'s actual open: the rendering trigger. */
     editZoneParams: (aZone: ZONE): void => setZoneProps(aZone),
     showFindDialog: (aDialog: DIALOG_FIND): void => setFindDlg(aDialog),
+    showPrintDialog: (aDialog: DIALOG_PRINT_PCBNEW): Promise<void> =>
+      new Promise<void>((resolve) => setPrintDlg({ dlg: aDialog, done: resolve })),
     showReferenceImagePropertiesDialog: (aDialog) =>
       new Promise<boolean>((resolve) => setImagePropsDlg({ dialog: aDialog, resolve })),
     showPadPropertiesDialog: (aDialog) => setPadPropsDlg(aDialog),
@@ -6114,18 +6127,6 @@ export function PcbEditor({
     },
   };
 
-  /** The netclass names of a net, for the Net Inspector's Netclass column. */
-  const netClassesOf = useCallback(
-    (name: string): readonly string[] => {
-      const nc = boardK?.FindNet(name)?.GetNetClass();
-      if (!nc) return [];
-
-      const parts = nc.GetConstituentNetclasses();
-      return parts.length > 0 ? parts.map((c) => c.GetName()) : [nc.GetName()];
-    },
-    [boardK],
-  );
-
   // `PCB_BASE_EDIT_FRAME::m_vertexEditorPane`: the floating Edit Vertices pane.
   const [vertexPane, setVertexPane] = useState<PCB_VERTEX_EDITOR_PANE | null>(null);
   const vertexPaneRef = useRef<PCB_VERTEX_EDITOR_PANE | null>(null);
@@ -6307,7 +6308,7 @@ export function PcbEditor({
         setBoardSetupOpen(true);
         break;
       case 'print':
-        setPrintDlgOpen(true);
+        runAction(ACTIONS.print);
         break;
       case 'plot':
         setPlotDlgOpen(true);
@@ -7202,8 +7203,8 @@ export function PcbEditor({
             netInspector={
               board && (
                 <PcbNetInspectorPane
-                  board={board}
-                  netClassesOf={netClassesOf}
+                  board={frameRef.current?.GetBoard() ?? null}
+                  revision={board}
                   onHighlightNets={(codes) => applyRenderHighlightRef.current(codes)}
                 />
               )
@@ -7756,18 +7757,40 @@ export function PcbEditor({
           }}
         />
       )}
-      {printDlgOpen && board && (
+      {printDlg && (
         <DialogPcbPrint
-          board={board}
-          visibleLayers={visible}
-          drawOpts={drawOpts}
-          onClose={() => setPrintDlgOpen(false)}
+          dlg={printDlg.dlg}
+          onMessage={(message, error) => setPrintMessage({ message, error })}
+          // wxPrinter::Print( this, printout, true ): the pages PCBNEW_PRINTOUT
+          // draws, into the browser's print dialog.
+          onPrint={() => {
+            new wxPrinter().Print(printDlg.dlg.createPrintout('Print'));
+          }}
+          onClose={() => {
+            const done = printDlg.done;
+            setPrintDlg(null);
+            done();
+          }}
         />
       )}
+      {printMessage &&
+        (printMessage.error ? (
+          <MessageDialogError
+            message={printMessage.message}
+            onClose={() => setPrintMessage(null)}
+          />
+        ) : (
+          <MessageDialogOk
+            caption="Information"
+            icon="information"
+            message={printMessage.message}
+            onClose={() => setPrintMessage(null)}
+          />
+        ))}
       {plotDlgOpen && board && (
         <DialogPcbPlot
-          board={board}
-          visibleLayers={visible}
+          board={frameRef.current!.GetBoard()!}
+          fileName={fileName ?? ''}
           units={unitLabel}
           projectFolders={projectFolders}
           onOutputFile={onOutputFile}

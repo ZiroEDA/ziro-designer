@@ -3,114 +3,204 @@
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
  * The Net Inspector's rows.
- * Counterpart: `PCB_NET_INSPECTOR_PANEL` and its data model.
+ * Counterpart: `PCB_NET_INSPECTOR_PANEL` (pcb_net_inspector_panel.cpp) and its
+ * data model's LIST_ITEM (pcb_net_inspector_panel_data_model.h).
  *
- * Upstream's columns are: name, net chain, netclass, total length, net chain
- * length, via count, via length, board length, pad-die length, pad count.
- *
- * The four *counting* columns are ported. The four *length* ones are not, and
- * deliberately: upstream measures them with LENGTH_DELAY_CALCULATION, which
- * optimises the routed path — merging tracks, trimming what runs inside pads,
- * folding in via and pad-to-die contributions. A naive sum of segment lengths
- * would put a number in the column that quietly disagrees with the one KiCad
- * shows for the same board, and a length that is subtly wrong is worse than a
- * column that is honestly absent. The same reasoning kept `length` and `skew`
- * out of the DRC constraints.
+ * The rows are upstream's: `buildNetsList` filters the board's NETINFO_LIST
+ * with `netFilterMatches`, and `calculateNets` measures each net through the
+ * board's LENGTH_DELAY_CALCULATION over its connectivity items, so every count
+ * and length is the one KiCad shows for the same board.
  */
+import { unescapeString, valueStringCompare } from '@ziroeda/common/string_utils.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import type { BOARD } from '../board.js';
+import type { BOARD_CONNECTED_ITEM } from '../board_connected_item.js';
+import {
+  LENGTH_DELAY_DOMAIN_OPT,
+  LENGTH_DELAY_LAYER_OPT,
+  type PATH_OPTIMISATIONS,
+} from '../length_delay_calculation/length_delay_calculation.js';
+import type { LENGTH_DELAY_CALCULATION_ITEM } from '../length_delay_calculation/length_delay_calculation_item.js';
+import type { NETINFO_ITEM } from '../netinfo_item.js';
 
-import { unescapeString } from '@ziroeda/common/string_utils.js';
-import type { Board } from '../types.js';
-
+/** One LIST_ITEM built from a net. */
 export interface NetRow {
   net: number;
+  /** `m_net_name`: `UnescapeString( aNet->GetNetname() )`. */
   name: string;
-  /** Every netclass the net belongs to, joined as the panel shows them. */
+  /** `m_net_class`: `UnescapeString( aNet->GetNetClass()->GetHumanReadableName() )`. */
   netclass: string;
   padCount: number;
   viaCount: number;
-  /** Tracks and arcs on the net; not one of upstream's columns, but free. */
-  trackCount: number;
+  viaLength: number;
+  /** `GetBoardWireLength()`: the per-layer wire lengths summed. */
+  boardLength: number;
+  padDieLength: number;
+  /** `GetTotalLength()`: board wire + via + pad-to-die. */
+  totalLength: number;
+}
+
+/** The PANEL_NET_INSPECTOR_SETTINGS the rows depend on (project_local_settings.cpp:218-236). */
+export interface NetInspectorFilter {
+  filterText: string;
+  filterByNetName: boolean;
+  filterByNetclass: boolean;
+  showZeroPadNets: boolean;
+  showUnconnectedNets: boolean;
+}
+
+export const DEFAULT_NET_INSPECTOR_FILTER: NetInspectorFilter = {
+  filterText: '',
+  filterByNetName: true,
+  filterByNetclass: true,
+  showZeroPadNets: false,
+  showUnconnectedNets: false,
+};
+
+/** `PCB_NET_INSPECTOR_PANEL::netFilterMatches` (pcb_net_inspector_panel.cpp:591-631). */
+export function netFilterMatches(aNet: NETINFO_ITEM, aCfg: NetInspectorFilter): boolean {
+  // Never show an unconnected net
+  if (aNet.GetNetCode() <= 0) return false;
+
+  const filterString = unescapeString(aCfg.filterText).toUpperCase();
+  const netName = unescapeString(aNet.GetNetname()).toUpperCase();
+  const netClassName = unescapeString(aNet.GetNetClass().GetName()).toUpperCase();
+
+  let matched = false;
+
+  // No filter - match all
+  if (filterString.length === 0) matched = true;
+
+  // Search on net class
+  if (!matched && aCfg.filterByNetclass && netClassName.includes(filterString)) matched = true;
+
+  // Search on net name
+  if (!matched && aCfg.filterByNetName && netName.includes(filterString)) matched = true;
+
+  // Remove unconnected nets if required
+  if (matched) {
+    if (!aCfg.showUnconnectedNets) matched = !netName.startsWith('UNCONNECTED-(');
+  }
+
+  return matched;
 }
 
 /**
- * One row per net that exists on the board.
- *
- * Net 0 is excluded: it is the unconnected pseudo-net, not something a user
- * assigns a netclass to or routes. Upstream's panel likewise lists real nets.
+ * `relevantConnectivityItems` (:644-666): the valid tracks, arcs, vias and pads
+ * of the connectivity, by net code.
  */
-export function netInspectorRows(
-  board: Board,
-  netClassesOf: (netName: string) => readonly string[] = () => [],
-): NetRow[] {
-  const rows = new Map<number, NetRow>();
+function relevantConnectivityItems(aBoard: BOARD): BOARD_CONNECTED_ITEM[] {
+  const types = new Set([
+    KICAD_T.PCB_TRACE_T,
+    KICAD_T.PCB_ARC_T,
+    KICAD_T.PCB_VIA_T,
+    KICAD_T.PCB_PAD_T,
+  ]);
+  const items: { net: number; parent: BOARD_CONNECTED_ITEM }[] = [];
 
-  const rowFor = (net: number): NetRow | undefined => {
-    if (net <= 0) return undefined;
-
-    let row = rows.get(net);
-    if (!row) {
-      const name = board.nets.get(net) ?? '';
-      row = {
-        net,
-        // Displayed, so unescaped — `PCB_NET_INSPECTOR_PANEL`'s data model is
-        // `UnescapeString( aNet->GetNetname() )`. The raw `name` stays the
-        // lookup key below: netclass assignments are keyed by the stored form,
-        // and unescaping before the lookup would match nothing (issue #626).
-        name: unescapeString(name),
-        // Per class, not over the joined string: upstream unescapes each
-        // `netClass->GetName()`, and a `, ` separator inserted between escaped
-        // names is not itself something to unescape.
-        netclass: [...netClassesOf(name)].map(unescapeString).join(', '),
-        padCount: 0,
-        viaCount: 0,
-        trackCount: 0,
-      };
-      rows.set(net, row);
-    }
-    return row;
-  };
-
-  // Seed from the net table so a net with no copper on it still gets a row —
-  // an unrouted net with zero of everything is exactly what the panel is used
-  // to find.
-  for (const [net] of board.nets) rowFor(net);
-
-  for (const t of board.tracks) {
-    const r = rowFor(t.net);
-    if (r) r.trackCount++;
+  for (const cnItem of aBoard.GetConnectivity().GetConnectivityAlgo().ItemList()) {
+    if (cnItem.Valid() && types.has(cnItem.Parent().Type()))
+      items.push({ net: cnItem.Net(), parent: cnItem.Parent() });
   }
 
-  for (const a of board.arcs) {
-    const r = rowFor(a.net);
-    if (r) r.trackCount++;
-  }
+  // std::ranges::sort is not stable; within one net the order does not reach
+  // a result, since the length calculation re-orders by position.
+  items.sort((a, b) => a.net - b.net);
 
-  for (const v of board.vias) {
-    const r = rowFor(v.net);
-    if (r) r.viaCount++;
-  }
-
-  for (const fp of board.footprints) {
-    for (const pad of fp.pads) {
-      const r = rowFor(pad.net ?? 0);
-      if (r) r.padCount++;
-    }
-  }
-
-  // Sorted by name, as the panel opens: nets are looked up by name far more
-  // often than by the net code the file happens to have given them.
-  return [...rows.values()].sort((a, b) => a.name.localeCompare(b.name));
+  return items.map((i) => i.parent);
 }
 
-/** The panel's summary line: how many nets, and how many are unrouted. */
-export function netInspectorSummary(rows: readonly NetRow[]): {
-  nets: number;
-  unrouted: number;
-} {
-  return {
-    nets: rows.length,
-    // A net with pads but no copper joining them has not been routed. One with
-    // no pads either is a stray net entry, not an unrouted connection.
-    unrouted: rows.filter((r) => r.padCount > 1 && r.trackCount === 0 && r.viaCount === 0).length,
+/** `calculateNets` (:668-760) over nets sorted by code. */
+function calculateNets(
+  aBoard: BOARD,
+  aNets: readonly NETINFO_ITEM[],
+  aIncludeZeroPadNets: boolean,
+): NetRow[] {
+  const calc = aBoard.GetLengthCalculation();
+  const wanted = new Set(aNets.map((n) => n.GetNetCode()));
+  const netItemsMap = new Map<number, LENGTH_DELAY_CALCULATION_ITEM[]>();
+
+  for (const item of relevantConnectivityItems(aBoard)) {
+    const code = item.GetNetCode();
+
+    if (!wanted.has(code)) continue;
+
+    let list = netItemsMap.get(code);
+
+    if (!list) {
+      list = [];
+      netItemsMap.set(code, list);
+    }
+
+    list.push(calc.GetLengthCalculationItem(item));
+  }
+
+  const opts: PATH_OPTIMISATIONS = {
+    OptimiseVias: true,
+    MergeTracks: true,
+    OptimiseTracesInPads: true,
+    InferViaInPad: false,
   };
+
+  const results: NetRow[] = [];
+
+  // foundNets: only a net with at least one connectivity item is measured.
+  for (const net of aNets) {
+    const items = netItemsMap.get(net.GetNetCode());
+
+    if (!items) continue;
+
+    const lengthDetails = calc.CalculateLengthDetails(
+      items,
+      opts,
+      null,
+      null,
+      LENGTH_DELAY_LAYER_OPT.WITH_LAYER_DETAIL,
+      LENGTH_DELAY_DOMAIN_OPT.NO_DELAY_DETAIL,
+    );
+
+    if (aIncludeZeroPadNets || lengthDetails.NumPads > 0) {
+      let boardLength = 0;
+
+      for (const length of lengthDetails.LayerLengths?.values() ?? []) boardLength += length;
+
+      results.push({
+        net: net.GetNetCode(),
+        name: unescapeString(net.GetNetname()),
+        netclass: unescapeString(net.GetNetClass().GetHumanReadableName()),
+        padCount: lengthDetails.NumPads,
+        viaCount: lengthDetails.NumVias,
+        viaLength: lengthDetails.ViaLength,
+        boardLength,
+        padDieLength: lengthDetails.PadToDieLength,
+        totalLength: boardLength + lengthDetails.ViaLength + lengthDetails.PadToDieLength,
+      });
+    }
+  }
+
+  return results;
+}
+
+/**
+ * `buildNetsList`'s rows (:513-536), in the order the list opens:
+ * `restoreSortColumn( COLUMN_NAME, true )`, the data model's `Compare` on the
+ * name column (`ValueStringCompare`).
+ */
+export function netInspectorRows(
+  aBoard: BOARD,
+  aCfg: NetInspectorFilter = DEFAULT_NET_INSPECTOR_FILTER,
+): NetRow[] {
+  const nets: NETINFO_ITEM[] = [];
+
+  for (const ni of aBoard.GetNetInfo()) {
+    if (netFilterMatches(ni, aCfg)) nets.push(ni);
+  }
+
+  nets.sort((a, b) => a.GetNetCode() - b.GetNetCode());
+
+  // "when the item values compare equal resort to pointer comparison": net
+  // code stands in for the pointer.
+  return calculateNets(aBoard, nets, aCfg.showZeroPadNets).sort(
+    (a, b) => valueStringCompare(a.name, b.name) || a.net - b.net,
+  );
 }

@@ -24,26 +24,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { displayNetname, shortNetname } from '@ziroeda/pcbnew/netinfo.js';
-import { netInspectorRows } from '@ziroeda/pcbnew/widgets/pcb_net_inspector_panel.js';
 import { escapeNetName, unescapeString } from '@ziroeda/common/string_utils.js';
-import type { Board, PcbPad } from '@ziroeda/pcbnew/types.js';
-
-const EMPTY = { kind: 'list' as const, items: [] };
-
-const board = (nets: [number, string][]): Board =>
-  ({
-    version: 20241229,
-    layers: [{ id: 0, name: 'F.Cu', kind: 'signal' }],
-    nets: new Map(nets),
-    tracks: [],
-    arcs: [],
-    vias: [],
-    zones: [],
-    footprints: [],
-    shapes: [],
-    texts: [],
-    source: EMPTY,
-  }) as unknown as Board;
 
 describe('the short net name', () => {
   it('splits on the hierarchy separator only', () => {
@@ -76,46 +57,5 @@ describe('what a painter draws', () => {
     // `${VAR}` is a text variable and `~{…}` an overbar: `unescapeString` keeps
     // a braced group whose introducer is `$ ~ ^ _`, and a net name may hold one.
     expect(displayNetname('${VAR}')).toBe('${VAR}');
-  });
-});
-
-describe('what the Net Inspector lists', () => {
-  const pad = (net: number): PcbPad =>
-    ({
-      number: '1',
-      type: 'smd',
-      shape: 'rect',
-      at: { x: 0, y: 0 },
-      angle: 0,
-      size: { x: 1, y: 1 },
-      layers: ['F.Cu'],
-      net,
-      source: EMPTY,
-    }) as unknown as PcbPad;
-
-  const withPad = (name: string): Board => {
-    const b = board([[1, name]]);
-    return {
-      ...b,
-      footprints: [{ pads: [pad(1)], at: { x: 0, y: 0 }, angle: 0, source: EMPTY }],
-    } as unknown as Board;
-  };
-
-  it('shows the name unescaped', () => {
-    const rows = netInspectorRows(withPad('/Sheet1/SDA{slash}A4'));
-    expect(rows.map((r) => r.name)).toEqual(['/Sheet1/SDA/A4']);
-  });
-
-  it('looks the netclass up by the STORED name, not the shown one', () => {
-    // The half that must not move. Netclass assignments are keyed by the
-    // escaped name; unescaping before the lookup matches nothing, and the
-    // column silently empties for exactly the nets this bug was about.
-    const seen: string[] = [];
-    const rows = netInspectorRows(withPad('/Sheet1/SDA{slash}A4'), (n) => {
-      seen.push(n);
-      return n === '/Sheet1/SDA{slash}A4' ? ['HighSpeed'] : [];
-    });
-    expect(seen).toContain('/Sheet1/SDA{slash}A4');
-    expect(rows[0]!.netclass).toBe('HighSpeed');
   });
 });

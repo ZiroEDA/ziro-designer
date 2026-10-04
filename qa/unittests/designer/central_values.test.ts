@@ -323,7 +323,10 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // the pre-port Position Relative dialog and its picker banner went with the
   // window's own positioning code; DIALOG_POSITION_RELATIVE draws in the
   // shared chrome.
-  'editors/pcb': { colours: 25, metrics: 127 },
+  // 25 -> 24 (E16h): the print path's paper-white `'#ffffff'` fill went with
+  // the Canvas2D print renderer; PCBNEW_PRINTOUT clears through the GAL to the
+  // print settings' background.
+  'editors/pcb': { colours: 24, metrics: 127 },
   // At zero, and listed rather than absent: `prefs/` is the settings store, and
   // the one literal it had - the 3D viewer's `rgb(0,255,0)` selection colour -
   // is `PARAM<COLOR4D>( "render.opengl_selection_color", …, COLOR4D( 0, 1, 0, 1 ) )`
@@ -1397,7 +1400,8 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // 289 -> 285 (10-01): `common/widgets` 134 -> 130, the old Edit Teardrops
     // window's CSS deleted with it; the dialog is DIALOG_GLOBAL_EDIT_TEARDROPS
     // on the shared widgets now. Rescanned.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(285);
+    // 285 -> 284 (E16h): the `editors/pcb` row, the print renderer's white.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(284);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.

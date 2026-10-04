@@ -17,23 +17,16 @@
  */
 import { type JSX, useMemo, useRef, useState } from 'react';
 import { useStringGrid, WxGridView } from '@ziroeda/common/wx/grid_ui.js';
-import type { Board } from '../types.js';
+import type { BOARD } from '../board.js';
 import { NetInspectorPanelView } from './net_inspector_panel.js';
-import { type NetRow, netInspectorRows } from './pcb_net_inspector_panel.js';
+import {
+  DEFAULT_NET_INSPECTOR_FILTER,
+  type NetRow,
+  netInspectorRows,
+} from './pcb_net_inspector_panel.js';
 
 /** `m_columns`' captions (`pcb_net_inspector_panel.cpp:112-147`), for the four columns ported. */
 export const NET_INSPECTOR_COLUMNS = ['Name', 'Netclass', 'Via Count', 'Pad Count'] as const;
-
-/** The list's rows once `aFilter` has been applied: a substring of the net name or the netclass. */
-export function filterNetRows(aRows: readonly NetRow[], aFilter: string): NetRow[] {
-  const needle = aFilter.trim().toLowerCase();
-
-  if (needle === '') return [...aRows];
-
-  return aRows.filter(
-    (r) => r.name.toLowerCase().includes(needle) || r.netclass.toLowerCase().includes(needle),
-  );
-}
 
 /** One grid row's cells. */
 export function netRowCells(aRow: NetRow): string[] {
@@ -41,18 +34,20 @@ export function netRowCells(aRow: NetRow): string[] {
 }
 
 interface Props {
-  board: Board;
-  /** The netclass names a net belongs to, by stored net name. */
-  netClassesOf: (aNetName: string) => readonly string[];
+  board: BOARD | null;
+  /** Changes whenever the board did: `OnBoardItemsChanged` and friends rebuild the list. */
+  revision: unknown;
   /** `OnSelChanged`: the net codes of the selected rows. */
   onHighlightNets: (aNetCodes: readonly number[]) => void;
 }
 
-export function PcbNetInspectorPane({ board, netClassesOf, onHighlightNets }: Props): JSX.Element {
+export function PcbNetInspectorPane({ board, revision, onHighlightNets }: Props): JSX.Element {
   const [filter, setFilter] = useState('');
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `revision` is the trigger for a board edit
   const rows = useMemo(
-    () => filterNetRows(netInspectorRows(board, netClassesOf), filter),
-    [board, netClassesOf, filter],
+    () =>
+      board ? netInspectorRows(board, { ...DEFAULT_NET_INSPECTOR_FILTER, filterText: filter }) : [],
+    [board, revision, filter],
   );
   const rowsRef = useRef(rows);
   rowsRef.current = rows;

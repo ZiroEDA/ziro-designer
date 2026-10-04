@@ -16,6 +16,7 @@ import * as KIPLATFORM_UI from '@ziroeda/common/kiplatform/ui.js';
 import { ORIGIN_VIEWITEM } from '@ziroeda/common/origin_viewitem.js';
 import { STATUS_TEXT_POPUP } from '@ziroeda/common/status_popup.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
+import { PCB_CONTROL_Print, type PRINT_FRAME_HOST } from '../dialogs/dialog_print_pcbnew.js';
 import type { TOOL_EVENT } from '@ziroeda/common/tool/tool_event.js';
 import { SYNC_HANDLER } from '@ziroeda/common/tool/tool_interactive.js';
 import { type RESET_REASON, RESET_REASON as RESET } from '@ziroeda/common/tool/tool_base.js';
@@ -1892,7 +1893,20 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
     return 0;
   }
 
+  /** `PCB_CONTROL::Print` (dialog_print_pcbnew.cpp:463-483). */
+  Print(_aEvent: TOOL_EVENT): number {
+    const frame = this.m_frame as unknown as PCB_BASE_EDIT_FRAME & Partial<PRINT_FRAME_HOST>;
+
+    if (!frame.ShowPrintDialog) return 0;
+
+    void PCB_CONTROL_Print(frame as PCB_BASE_EDIT_FRAME & PRINT_FRAME_HOST, this.m_toolMgr!);
+
+    return 0;
+  }
+
   protected override setTransitions(): void {
+    this.Go(SYNC_HANDLER<PCB_CONTROL>(this.Print), ACTIONS.print.MakeEvent());
+
     // Display modes
     this.Go(
       SYNC_HANDLER<PCB_CONTROL>(this.TrackDisplayMode),

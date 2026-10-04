@@ -10,6 +10,7 @@
  * The listener is `BOARD_LISTENER` as the React side subscribes to it: every
  * notification schedules one re-derivation of the view from the BOARD.
  */
+import type { PRINTING } from '@ziroeda/common/settings/app_settings.js';
 import { ROUTER_TOOL } from './router/router_tool.js';
 import { PCB_ACTIONS } from './tools/pcb_actions.js';
 import { AUTOPLACE_TOOL } from './autorouter/autoplace_tool.js';
@@ -68,6 +69,7 @@ import { DIALOG_DIMENSION_PROPERTIES } from './dialogs/dialog_dimension_properti
 import { DIALOG_SHAPE_PROPERTIES } from './dialogs/dialog_shape_properties.js';
 import { DIALOG_TARGET_PROPERTIES } from './dialogs/dialog_target_properties.js';
 import { DIALOG_FIND } from './dialogs/dialog_find.js';
+import type { DIALOG_PRINT_PCBNEW } from './dialogs/dialog_print_pcbnew.js';
 import type { PCB_REFERENCE_IMAGE } from './pcb_reference_image.js';
 import type { PCB_SHAPE } from './pcb_shape.js';
 import type { PCB_TARGET } from './pcb_target.js';
@@ -262,6 +264,8 @@ export interface PCBNEW_JSON_SETTINGS_LIKE {
     color_theme: string;
   };
   cross_probing: CROSS_PROBING_SETTINGS;
+  /** `APP_SETTINGS_BASE::m_Printing`, the `printing.*` PARAMs (app_settings.cpp). */
+  printing: Omit<PRINTING, never>;
   /** `m_AuiPanels`, the keys the Search and Net Inspector panes persist. */
   aui: Pick<AUI_PANELS, 'show_search' | 'show_net_inspector' | 'search_panel_height'>;
   pcb_display: {
@@ -440,6 +444,8 @@ export function loadPcbnewSettings(
 
   s.m_AuiPanels.show_search = json.aui.show_search;
   s.m_AuiPanels.show_net_inspector = json.aui.show_net_inspector;
+
+  Object.assign(s.m_Printing, json.printing, { layers: [...json.printing.layers] });
 
   return s;
 }
@@ -649,6 +655,17 @@ export function storePcbnewSettings(s: PCBNEW_SETTINGS, json: PCBNEW_JSON_SETTIN
   set(json.aui, 'show_search', s.m_AuiPanels.show_search);
   set(json.aui, 'show_net_inspector', s.m_AuiPanels.show_net_inspector);
 
+  for (const key of Object.keys(s.m_Printing) as (keyof PRINTING)[]) {
+    if (key === 'layers') {
+      if (json.printing.layers.join() !== s.m_Printing.layers.join()) {
+        json.printing.layers = [...s.m_Printing.layers];
+        changed = true;
+      }
+    } else {
+      set(json.printing, key, s.m_Printing[key]);
+    }
+  }
+
   return changed;
 }
 
@@ -734,6 +751,8 @@ export interface PCB_EDIT_FRAME_HOOKS {
   showGraphicItemPropertiesDialog?(aDialog: DIALOG_SHAPE_PROPERTIES): void;
   /** `m_findDialog->Show( true )`: the window draws the modeless Find dialog. */
   showFindDialog?(aDialog: DIALOG_FIND): void;
+  /** `DIALOG_PRINT_PCBNEW::ShowModal`: resolves when the dialog is closed. */
+  showPrintDialog?(aDialog: DIALOG_PRINT_PCBNEW): Promise<void>;
   /** `ShowTargetOptionsDialog`: DIALOG_TARGET_PROPERTIES, modal. */
   showTargetOptionsDialog?(aDialog: DIALOG_TARGET_PROPERTIES): void;
   /** `DIALOG_EXCHANGE_FOOTPRINTS::ShowQuasiModal()`: the window shows the dialog; it closes itself. */
@@ -1381,6 +1400,11 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
   /** `PCB_BASE_EDIT_FRAME::ShowGraphicItemPropertiesDialog( PCB_SHAPE* aShape )`. */
   ShowGraphicItemPropertiesDialog(aShape: PCB_SHAPE): void {
     this.hooks.showGraphicItemPropertiesDialog?.(new DIALOG_SHAPE_PROPERTIES(this, aShape));
+  }
+
+  /** `dlg.ShowModal()` for PCB_CONTROL::Print. */
+  ShowPrintDialog(aDlg: DIALOG_PRINT_PCBNEW): Promise<void> {
+    return this.hooks.showPrintDialog?.(aDlg) ?? Promise.resolve();
   }
 
   /** `m_findDialog`: made on the first Find. */

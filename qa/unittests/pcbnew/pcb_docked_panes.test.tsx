@@ -158,13 +158,7 @@ function Harness({ board }: { board: BOARD }) {
         onHeightChange={setHeight}
         onCloseSearch={() => setToggles((p) => applyToggle(p, 'showSearch'))}
         onCloseNetInspector={() => setToggles((p) => applyToggle(p, 'showNetInspector'))}
-        netInspector={
-          <PcbNetInspectorPane
-            board={boardFromBOARD(board)}
-            netClassesOf={() => ['Default']}
-            onHighlightNets={() => {}}
-          />
-        }
+        netInspector={<PcbNetInspectorPane board={board} revision={0} onHighlightNets={() => {}} />}
         search={
           <PcbSearchPane
             frame={{
@@ -388,14 +382,7 @@ describe('PCB_SEARCH_PANE on a real board', () => {
 describe('PCB_NET_INSPECTOR_PANEL', () => {
   it('lists the real nets with their counts, and Filter narrows by name', () => {
     const board = realBoard();
-    const view = boardFromBOARD(board);
-    render(
-      <PcbNetInspectorPane
-        board={view}
-        netClassesOf={() => ['Default']}
-        onHighlightNets={() => {}}
-      />,
-    );
+    render(<PcbNetInspectorPane board={board} revision={0} onHighlightNets={() => {}} />);
     const text = (): string => document.body.textContent ?? '';
 
     expect(text()).toContain('GND');
