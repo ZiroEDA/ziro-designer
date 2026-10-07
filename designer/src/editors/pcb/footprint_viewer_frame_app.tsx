@@ -20,7 +20,7 @@ import { loadFootprintIndex } from '../../widgets/footprint_list.js';
 import { LibraryLoadingPanel } from '../../widgets/library_loading_panel.js';
 import { settings } from '../../prefs/settings.js';
 import { HomeLink } from '../../ui/HomeLink.js';
-import { FP_LIBRARY_IO, footprintsBase } from '../footprint/footprint_edit_frame_app.js';
+import { FP_LIBRARY_IO, footprintsBase } from './footprint_lib_adapter_app.js';
 import { Viewer3DFrame } from './Viewer3DFrame.js';
 import { installPgm } from './pcb_canvas.js';
 import { commonSettingsOf } from '../../pgm_app.js';

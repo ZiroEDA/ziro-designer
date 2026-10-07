@@ -14,12 +14,11 @@
  * let a menu that did not exist read as present.
  */
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { useState, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
+import { useState, type Dispatch, type SetStateAction } from 'react';
 import { cleanup, fireEvent, render } from '@testing-library/react';
 import { parse } from '@ziroeda/sexpr';
 import { readSchematic } from '@ziroeda/eeschema';
 import { DialogAssignFootprints, type CVPCB_APP } from '@ziroeda/cvpcb/cvpcb_mainframe_ui.js';
-import type { CvpcbFootprintCanvasController } from '@ziroeda/cvpcb/display_footprints_frame.js';
 import {
   cvpcbFootprintsContextMenu,
   cvpcbSymbolsContextMenu,
@@ -39,34 +38,19 @@ type CvpcbWidened<T extends boolean | number | string> = T extends boolean
 /**
  * A minimal `CVPCB_APP`: this test lives beside cvpcb's own unit tests and
  * must not reach into `designer` (the rule the window itself is under). The
- * footprint canvas and 3D viewer stand in as plain nodes — nothing here opens
- * the viewer far enough to look inside them, only that the frame it lives in
- * mounts and closes.
+ * 3D viewer stands in as a plain node, and the footprint window's canvas
+ * finds no WebGL here — nothing opens the viewer far enough to look inside
+ * them, only that the frame it lives in mounts and closes.
  */
 function makeCvpcbApp(): CVPCB_APP {
   return {
     loadFootprintIndex: () => Promise.resolve([]),
-    loadFootprint: () => Promise.resolve(null),
-    parseFootprint: () => null,
-    footprintToBoard: (fp) => ({
-      version: 20241229,
-      layers: [],
-      nets: new Map([[0, '']]),
-      footprints: fp ? [fp] : [],
-      tracks: [],
-      arcs: [],
-      vias: [],
-      zones: [],
-      shapes: [],
-      texts: [],
-      textBoxes: [],
-      tables: [],
-      images: [],
-      dimensions: [],
-      points: [],
-      barcodes: [],
-      groups: [],
-    }),
+    libraryIo: {
+      footprintText: () => Promise.reject(new Error('none')),
+      flipLeftRight: () => false,
+    },
+    installPgm: () => {},
+    commonSettingsOf: () => ({}) as ReturnType<CVPCB_APP['commonSettingsOf']>,
     footprintsBase: () => '',
     pinnedFpLibs: [],
     language: 'en',
@@ -83,24 +67,6 @@ function makeCvpcbApp(): CVPCB_APP {
     DialogFpLibTable: () => null,
     Preferences: () => null,
     OpenFileDialog: () => null,
-    FootprintCanvas: (_props, ref) => (
-      <div
-        data-testid="cvpcb-footprint-canvas"
-        ref={(el) => {
-          if (!ref || typeof ref === 'function') return;
-          (ref as MutableRefObject<CvpcbFootprintCanvasController | null>).current = el
-            ? {
-                zoomToFit: () => {},
-                zoomIn: () => {},
-                zoomOut: () => {},
-                redraw: () => {},
-                setScale: () => {},
-                centerContents: () => {},
-              }
-            : null;
-        }}
-      />
-    ),
     Viewer3DFrame: () => <div data-testid="cvpcb-viewer3d" />,
   };
 }

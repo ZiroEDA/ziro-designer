@@ -109,11 +109,7 @@ export function useEeschemaApp(): EESCHEMA_APP {
       SaveAsDialog: (props) => <SaveAsDialog {...props} />,
       DialogSymLibTable: (props) => <DialogSymLibTable {...props} />,
       FootprintChooserFrame: (props) => (
-        <FootprintChooserFrame
-          {...props}
-          loadFootprintIndex={loadFootprintIndex}
-          loadFootprint={loadFootprint}
-        />
+        <FootprintChooserFrame {...props} loadFootprintIndex={loadFootprintIndex} />
       ),
 
       useToolbarEntries,

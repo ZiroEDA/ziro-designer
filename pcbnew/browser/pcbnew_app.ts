@@ -53,7 +53,6 @@ export interface PcbnewFootprintChooserFrameProps {
   onOk: (libId: string) => void;
   onCancel: () => void;
   loadFootprintIndex: () => Promise<FootprintIndexLibrary[]>;
-  loadFootprint: (libId: string) => Promise<PcbFootprint | null>;
 }
 
 /** `settings.common`, the fields `PcbEditor` reads at render time. */

@@ -8,11 +8,10 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render } from '@testing-library/react';
-import type { Board } from '@ziroeda/pcbnew/types.js';
 import { BOARD } from '@ziroeda/pcbnew/board.js';
 import { FOOTPRINT, FP_3DMODEL } from '@ziroeda/pcbnew/footprint.js';
 
-const seen: (Board | null)[] = [];
+const seen: (BOARD | null)[] = [];
 
 vi.mock('@ziroeda/designer/src/editors/pcb/widgets/footprint_preview_3d.js', async (orig) => {
   const real =
@@ -21,7 +20,7 @@ vi.mock('@ziroeda/designer/src/editors/pcb/widgets/footprint_preview_3d.js', asy
     >();
   return {
     ...real,
-    FootprintPreview3D: ({ board }: { board: Board | null }) => {
+    FootprintPreview3D: ({ board }: { board: BOARD | null }) => {
       seen.push(board);
       return null;
     },
@@ -55,8 +54,13 @@ describe('FootprintModelPreview3D', () => {
     );
 
     const board = seen.at(-1)!;
-    expect(board.footprints).toHaveLength(1);
-    expect(board.footprints[0]!.models.map((m) => m.path)).toEqual(['a.wrl', 'b.wrl']);
+    expect(board.Footprints()).toHaveLength(1);
+    expect(
+      board
+        .Footprints()[0]!
+        .Models()
+        .map((m) => m.m_Filename),
+    ).toEqual(['a.wrl', 'b.wrl']);
   });
 
   it('never touches the footprint it was given', () => {
@@ -71,7 +75,7 @@ describe('FootprintModelPreview3D', () => {
     render(
       <FootprintModelPreview3D footprint={fp} models={[model(''), model('a.wrl')]} version={0} />,
     );
-    expect(seen.at(-1)!.footprints[0]!.models).toHaveLength(1);
+    expect(seen.at(-1)!.Footprints()[0]!.Models()).toHaveLength(1);
   });
 
   it("redraws when the panel's change counter moves", () => {
@@ -84,6 +88,6 @@ describe('FootprintModelPreview3D', () => {
     list.push(model('b.wrl'));
     rerender(<FootprintModelPreview3D footprint={fp} models={list} version={1} />);
     expect(seen.at(-1)).not.toBe(first);
-    expect(seen.at(-1)!.footprints[0]!.models).toHaveLength(2);
+    expect(seen.at(-1)!.Footprints()[0]!.Models()).toHaveLength(2);
   });
 });

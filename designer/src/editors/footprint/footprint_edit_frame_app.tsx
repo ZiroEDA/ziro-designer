@@ -10,16 +10,14 @@
 import { FootprintModelPreview3D } from '../pcb/widgets/footprint_model_preview_3d.js';
 import { useMemo, type JSX } from 'react';
 import type { KIWAY } from '@ziroeda/common/kiway.js';
-import type { FOOTPRINT_EDIT_FRAME_APP as APP } from '@ziroeda/pcbnew/footprint_edit_frame_ui.js';
 import { installPgm } from '../pcb/pcb_canvas.js';
+import { FP_LIBRARY_IO, footprintsBase } from '../pcb/footprint_lib_adapter_app.js';
 import { commonSettingsOf } from '../../pgm_app.js';
 import {
   FootprintEditFrame,
   type FOOTPRINT_EDIT_FRAME_APP,
   type FootprintEditorFile,
 } from '@ziroeda/pcbnew/footprint_edit_frame_ui.js';
-import { footprintText } from '../../libraryBundleStore.js';
-import { libraryBase } from '../../libraryHosts.js';
 import { settings } from '../../prefs/settings.js';
 import {
   useCommonSettings,
@@ -28,36 +26,10 @@ import {
   useUserThemes,
 } from '../../prefs/useSettings.js';
 import { useToolbarEntries } from '../../ui/useToolbarEntries.js';
-import { trackLibraryLoad } from '../../widgets/library_loading.js';
 import { LibraryLoadingPanel } from '../../widgets/library_loading_panel.js';
 import { PreferencesDialog } from '../../dialogs/PreferencesDialog.js';
 import { OpenFileDialog } from '../../fs/OpenFileDialog.js';
 import { HomeLink } from '../../ui/HomeLink.js';
-
-// The hosted footprint library set, or the bundled subset when it is
-// unreachable (see libraryHosts.ts).
-export const footprintsBase = (): string => libraryBase.footprints;
-
-/** FOOTPRINT_LIBRARY_STORE's storage: the resident catalogue, the hosted
- *  library set, and `pcbnew.json`'s flip direction. */
-export const FP_LIBRARY_IO: APP['libraryIo'] = {
-  footprintText: (libName, fpName) =>
-    // Resident catalogue first; null falls through to the network, which
-    // is what a device without a bundle still uses.
-    trackLibraryLoad(
-      'footprints',
-      `Loading ${libName}...`,
-      footprintText(libName, fpName).then(async (resident) => {
-        if (resident !== null) return resident;
-        const r = await fetch(
-          `${footprintsBase()}/${encodeURIComponent(libName)}.pretty/${encodeURIComponent(fpName)}.kicad_mod`,
-        );
-        if (!r.ok) throw new Error(`${r.status}`);
-        return r.text();
-      }),
-    ),
-  flipLeftRight: () => settings.pcbnew.editing.flip_left_right,
-};
 
 /**
  * Builds the `FOOTPRINT_EDIT_FRAME_APP` the Footprint Editor is handed. One

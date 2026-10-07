@@ -15,7 +15,6 @@
  */
 import { useMemo, type JSX } from 'react';
 import type { FOOTPRINT, FP_3DMODEL } from '@ziroeda/pcbnew/footprint.js';
-import { boardFromBOARD } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/board_view.js';
 import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { FootprintPreview3D, HOLDER_BOARD } from './footprint_preview_3d.js';
 
@@ -38,7 +37,7 @@ export function FootprintModelPreview3D({
     dummy.Models().push(...models.filter((m) => m.m_Filename !== '').map((m) => m.clone()));
     dummy.SetPosition({ x: 0, y: 0 });
     holder.Add(dummy);
-    return boardFromBOARD(holder);
+    return holder;
   }, [footprint, models, version]);
 
   return <FootprintPreview3D board={board} />;

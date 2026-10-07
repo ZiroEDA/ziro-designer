@@ -248,14 +248,15 @@ describe('one ruler, three canvases', () => {
     expect(
       readFileSync(new URL('../../../pcbnew/tools/pcb_viewer_tools.ts', import.meta.url), 'utf8'),
     ).toMatch(/let units: EdaUnits = frame\.GetUserUnits\(\);/);
+    // Every PCB frame measures with that one tool now: the footprint viewer
+    // and CvPcb's footprint window register PCB_VIEWER_TOOLS, as upstream's do.
     for (const rel of [
-      // `display_footprints_frame.tsx` moved to `cvpcb/` (cvpcb/STRUCTURE.md's
-      // stage two) and hands `measureUnits` through `CVPCB_APP.FootprintCanvas`
-      // as a plain object field; the actual `<FootprintCanvas measureUnits=.../>`
-      // JSX is the designer-side adapter that implements it.
-      'editors/schematic/cvpcb_app.tsx',
+      '../../../pcbnew/footprint_viewer_frame.ts',
+      '../../../cvpcb/display_footprints_frame.ts',
     ]) {
-      expect(read(rel), `${rel} does not hand the canvas its units`).toContain('measureUnits=');
+      expect(readFileSync(new URL(rel, import.meta.url), 'utf8')).toContain(
+        'RegisterTool(new PCB_VIEWER_TOOLS())',
+      );
     }
   });
 

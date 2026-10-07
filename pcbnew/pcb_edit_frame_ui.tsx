@@ -77,7 +77,6 @@ import {
   FormatBoardAsync,
   ParseBoard,
 } from './pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { type PcbFootprint } from './types.js';
 import { type SelectionFilter } from './dialogs/dialog_filter_selection.js';
 import { BOARD_NETLIST_UPDATER } from './netlist_reader/board_netlist_updater.js';
 import { type NETLIST } from './netlist_reader/pcb_netlist.js';
@@ -7518,7 +7517,6 @@ export function PcbEditor({
           onCancel={onFootprintChooserCancel}
           {...(fpChooserPreselect ? { preselect: fpChooserPreselect } : {})}
           loadFootprintIndex={loadFootprintIndex}
-          loadFootprint={loadFootprint}
         />
       )}
 
