@@ -26,6 +26,9 @@ import { SCH_ACTIONS } from '@ziroeda/eeschema/tools/sch_actions.js';
 import type { INCREMENT_ANNOTATIONS_VALUES } from '@ziroeda/eeschema/tools/sch_editor_control.js';
 import { SCH_SELECTION_TOOL } from '@ziroeda/eeschema/tools/sch_selection_tool.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { FRAME_T } from '@ziroeda/common/frame_type.js';
+import { KIWAY_MAIL_EVENT } from '@ziroeda/common/kiway_mail.js';
+import { MAIL_T } from '@ziroeda/common/mail_type.js';
 import { FIELD_T } from '@ziroeda/common/template_fieldnames.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { openProject, schFrame, schToolHarness } from './support/sch_tool_harness.js';
@@ -288,6 +291,27 @@ describe('SCH_EDITOR_CONTROL', () => {
     h.mgr.RunAction(SCH_ACTIONS.selectOnPCB);
     expect(sent.length).toBe(2);
     expect(sent[1]![1]).toBe(true);
+  });
+
+  it('a selection the board sends (MAIL_SELECTION_FORCE) is not sent back to it', () => {
+    let selectIt: (() => void) | null = null;
+    const h = setUp({ syncSelection: () => selectIt?.() });
+    const sent: unknown[] = [];
+    (h.frame as unknown as Record<string, unknown>).SendSelectItemsToPcb = (aItems: unknown) =>
+      sent.push(aItems);
+    const t = new SCH_TEXT(P(0, 0), 'x');
+    h.frame.AddToScreen(t, h.frame.GetScreen());
+    selectIt = () => h.sel.AddItemToSel(t);
+
+    h.frame.KiwayMailIn(
+      new KIWAY_MAIL_EVENT(FRAME_T.FRAME_SCH, MAIL_T.MAIL_SELECTION_FORCE, {
+        value: '$SELECT: 0,FR1',
+      }),
+    );
+
+    expect(h.sel.GetSelection().Items().includes(t)).toBe(true);
+    expect(sent).toEqual([]);
+    expect(h.frame.IsSyncingSelection()).toBe(false);
   });
 
   it('SendSelectItemsToPcb makes F<ref> for a symbol and S<sheet path><uuid> for a sheet', () => {
