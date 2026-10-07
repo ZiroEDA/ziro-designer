@@ -30,6 +30,8 @@ import type { SCH_MARKER } from './sch_marker.js';
 import { unescapeString } from '@ziroeda/common/string_utils.js';
 import { DIALOG_BOOK_REPORTER } from '@ziroeda/common/dialogs/dialog_book_reporter.js';
 import { SCH_NAVIGATE_TOOL } from './tools/sch_navigate_tool.js';
+import { SCH_POINT_EDITOR } from './tools/sch_point_editor.js';
+import { SCH_EDIT_TABLE_TOOL } from './tools/sch_edit_table_tool.js';
 import { SCH_MOVE_TOOL } from './tools/sch_move_tool.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { schIUScale } from '@ziroeda/common/eda_units.js';
@@ -227,6 +229,22 @@ export interface SCH_EDIT_FRAME_HOOKS {
     aCaption: string,
     aValue: string,
   ): string | null | Promise<string | null>;
+  /**
+   * `wxFileDialog( this, aTitle, aDefaultDir, aDefaultFile, aWildcard, aStyle ).ShowModal()` then
+   * `GetPath()`: the project file manager's picker. Null is wxID_CANCEL, as with no hook.
+   */
+  fileDialog?(
+    aTitle: string,
+    aDefaultDir: string,
+    aDefaultFile: string,
+    aWildcard: string,
+    aStyle: number,
+  ): string | null | Promise<string | null>;
+  /**
+   * `std::ofstream( aPath ) << aText`: write a text file into the project. False is
+   * `!outFile.is_open()`, as with no hook.
+   */
+  writeTextFile?(aPath: string, aText: string): boolean;
 }
 
 // biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (SCH_UNDO_REDO_MIXIN, see libs/core/mixins.ts)
@@ -403,8 +421,10 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
     this.m_toolManager.RegisterTool(new SCH_MOVE_TOOL());
     this.m_toolManager.RegisterTool(new SCH_ALIGN_TOOL());
     this.m_toolManager.RegisterTool(new SCH_EDIT_TOOL());
+    this.m_toolManager.RegisterTool(new SCH_EDIT_TABLE_TOOL());
     this.m_toolManager.RegisterTool(new SCH_GROUP_TOOL());
     this.m_toolManager.RegisterTool(new SCH_INSPECTION_TOOL());
+    this.m_toolManager.RegisterTool(new SCH_POINT_EDITOR());
     this.m_toolManager.RegisterTool(new SCH_NAVIGATE_TOOL());
     // Not ported yet (S5, one KiCad file per step):
     // SCH_EDIT_TABLE_TOOL,
@@ -916,6 +936,24 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
 
     // Rebuild the sheet view (draw area and any other items):
     this.DisplayCurrentSheet();
+  }
+
+  /** See SCH_EDIT_FRAME_HOOKS.fileDialog. */
+  ShowFileDialog(
+    aTitle: string,
+    aDefaultDir: string,
+    aDefaultFile: string,
+    aWildcard: string,
+    aStyle: number,
+  ): Promise<string | null> {
+    return Promise.resolve(
+      this.hooks.fileDialog?.(aTitle, aDefaultDir, aDefaultFile, aWildcard, aStyle) ?? null,
+    );
+  }
+
+  /** See SCH_EDIT_FRAME_HOOKS.writeTextFile. */
+  WriteTextFile(aPath: string, aText: string): boolean {
+    return this.hooks.writeTextFile?.(aPath, aText) ?? false;
   }
 
   /** The window's half of the dialogs a tool opens: see SCH_EDIT_FRAME_HOOKS.showModal. */
