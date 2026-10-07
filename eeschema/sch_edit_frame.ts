@@ -23,6 +23,7 @@ import { FindSymbolByRefAndUnit } from './tools/sch_tool_utils.js';
 import { SCH_LINE_WIRE_BUS_TOOL } from './tools/sch_line_wire_bus_tool.js';
 import { SCH_DRAWING_TOOLS } from './tools/sch_drawing_tools.js';
 import { SCH_EDIT_TOOL } from './tools/sch_edit_tool.js';
+import { SCH_NAVIGATE_TOOL } from './tools/sch_navigate_tool.js';
 import { SCH_MOVE_TOOL } from './tools/sch_move_tool.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 import { schIUScale } from '@ziroeda/common/eda_units.js';
@@ -350,11 +351,16 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
     this.m_toolManager.RegisterTool(new SCH_LINE_WIRE_BUS_TOOL());
     this.m_toolManager.RegisterTool(new SCH_MOVE_TOOL());
     this.m_toolManager.RegisterTool(new SCH_EDIT_TOOL());
+    this.m_toolManager.RegisterTool(new SCH_NAVIGATE_TOOL());
     // Not ported yet (S5, one KiCad file per step):
     // SCH_ALIGN_TOOL (before SCH_EDIT_TOOL), SCH_EDIT_TABLE_TOOL,
     // SCH_GROUP_TOOL, SCH_INSPECTION_TOOL, SCH_DESIGN_BLOCK_CONTROL, SCH_EDITOR_CONTROL,
-    // SCH_FIND_REPLACE_TOOL, SCH_POINT_EDITOR, SCH_NAVIGATE_TOOL, PROPERTIES_TOOL, EMBED_TOOL.
+    // SCH_FIND_REPLACE_TOOL, SCH_POINT_EDITOR (before SCH_NAVIGATE_TOOL), PROPERTIES_TOOL, EMBED_TOOL.
     this.m_toolManager.InitTools();
+
+    // sch_edit_frame.cpp:458. KiCad's constructor has made the schematic by now; this frame is
+    // handed one later, and OpenProjectFiles resets the history once it holds a project.
+    if (this.m_schematic) this.m_toolManager.GetTool(SCH_NAVIGATE_TOOL)!.ResetHistory();
 
     // Run the selection tool, it is supposed to be always active
     this.m_toolManager.PostAction(ACTIONS.selectionActivate);
@@ -581,8 +587,13 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
     this.m_schematic!.SetSheetNumberAndCount();
   }
 
-  /** The window's hierarchy navigator: not on the live model. */
-  UpdateHierarchyNavigator(): void {}
+  /**
+   * `UpdateHierarchyNavigator` (sch_edit_frame.cpp:1396): the navigate tool drops history entries
+   * that no longer exist; the hierarchy tree itself is the window's.
+   */
+  UpdateHierarchyNavigator(): void {
+    this.m_toolManager?.GetTool(SCH_NAVIGATE_TOOL)?.CleanHistory();
+  }
 
   /** The window's variant chooser: not on the live model. */
   UpdateVariantSelectionCtrl(_aVariantNames: readonly string[]): void {}

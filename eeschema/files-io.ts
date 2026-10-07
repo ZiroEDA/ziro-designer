@@ -19,6 +19,7 @@ import { KICTL_CREATE } from '@ziroeda/common/kiway_player.js';
 import type { JsonValue } from '@ziroeda/common/settings/json_settings_internals.js';
 import { Pgm } from '@ziroeda/common/pgm_base.js';
 import { niluuid } from '@ziroeda/common/kiid.js';
+import { SCH_NAVIGATE_TOOL } from './tools/sch_navigate_tool.js';
 import { SCH_COMMIT } from './sch_commit.js';
 import type { SCH_EDIT_FRAME } from './sch_edit_frame.js';
 import {
@@ -302,6 +303,9 @@ export class SCH_FILES_IO_MIXIN {
 
     // Ensure all items are redrawn (especially the drawing-sheet items):
     this.GetCanvas()?.DisplaySheet(this.GetCurrentSheet().LastScreen());
+
+    // updateTitle() is the window's
+    this.GetToolManager()?.GetTool(SCH_NAVIGATE_TOOL)?.ResetHistory();
 
     return true;
   }
