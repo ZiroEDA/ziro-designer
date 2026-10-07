@@ -21,6 +21,7 @@ import type { SCH_SYMBOL } from './sch_symbol.js';
 import type { SCH_PIN } from './sch_pin.js';
 import { FindSymbolByRefAndUnit } from './tools/sch_tool_utils.js';
 import { SCH_LINE_WIRE_BUS_TOOL } from './tools/sch_line_wire_bus_tool.js';
+import { SCH_ALIGN_TOOL } from './tools/sch_align_tool.js';
 import { SCH_DRAWING_TOOLS } from './tools/sch_drawing_tools.js';
 import { SCH_EDIT_TOOL } from './tools/sch_edit_tool.js';
 import { SCH_NAVIGATE_TOOL } from './tools/sch_navigate_tool.js';
@@ -68,14 +69,14 @@ import { applyMixins } from '@ziroeda/core/mixins.js';
 import { SCH_BASE_FRAME } from './sch_base_frame.js';
 import { SCH_COMMIT } from './sch_commit.js';
 import { AUTOPLACE_ALGO, type SCH_ITEM } from './sch_item.js';
-import type { SCH_SCREEN } from './sch_screen.js';
+import { SCH_SCREEN } from './sch_screen.js';
 import type { SYMBOL_LIBRARY_FILTER } from './symbol_library_common.js';
 import type { PICKED_SYMBOL } from './sch_screen.js';
 import type { LIB_SYMBOL } from './lib_symbol.js';
 import type { LIB_ID } from '@ziroeda/common/lib_id.js';
 import type { SCH_SHEET } from './sch_sheet.js';
 import type { SCH_SHEET_PATH } from './sch_sheet_path.js';
-import type { SCH_CLEANUP_FLAGS, SCHEMATIC } from './schematic.js';
+import { type SCH_CLEANUP_FLAGS, SCHEMATIC } from './schematic.js';
 import { SCH_UNDO_REDO_MIXIN } from './schematic_undo_redo.js';
 import { SCH_DESIGN_BLOCK_UTILS_MIXIN } from './sch_design_block_utils.js';
 import type { SCH_DESIGN_BLOCK_PANE } from './widgets/sch_design_block_pane.js';
@@ -254,6 +255,22 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
   constructor(hooks: SCH_EDIT_FRAME_HOOKS) {
     super(FRAME_T.FRAME_SCH);
     this.hooks = hooks;
+
+    // sch_edit_frame.cpp:178-180
+    this.m_schematic = new SCHEMATIC(this.Prj());
+    this.m_schematic.SetSchematicHolder(this);
+    this.CreateDefaultScreens();
+  }
+
+  /** `CreateDefaultScreens` (sch_edit_frame.cpp:1066): the schematic's, shown. */
+  CreateDefaultScreens(): void {
+    this.m_schematic!.CreateDefaultScreens();
+    this.SetScreen(this.Schematic().RootScreen());
+
+    if (this.GetScreen() === null) {
+      const screen = new SCH_SCREEN(this.m_schematic);
+      this.SetScreen(screen);
+    }
   }
 
   // -------------------------------------------------------------------------------------
@@ -350,17 +367,17 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
     this.m_toolManager.RegisterTool(new SCH_DRAWING_TOOLS());
     this.m_toolManager.RegisterTool(new SCH_LINE_WIRE_BUS_TOOL());
     this.m_toolManager.RegisterTool(new SCH_MOVE_TOOL());
+    this.m_toolManager.RegisterTool(new SCH_ALIGN_TOOL());
     this.m_toolManager.RegisterTool(new SCH_EDIT_TOOL());
     this.m_toolManager.RegisterTool(new SCH_NAVIGATE_TOOL());
     // Not ported yet (S5, one KiCad file per step):
-    // SCH_ALIGN_TOOL (before SCH_EDIT_TOOL), SCH_EDIT_TABLE_TOOL,
+    // SCH_EDIT_TABLE_TOOL,
     // SCH_GROUP_TOOL, SCH_INSPECTION_TOOL, SCH_DESIGN_BLOCK_CONTROL, SCH_EDITOR_CONTROL,
     // SCH_FIND_REPLACE_TOOL, SCH_POINT_EDITOR (before SCH_NAVIGATE_TOOL), PROPERTIES_TOOL, EMBED_TOOL.
     this.m_toolManager.InitTools();
 
-    // sch_edit_frame.cpp:458. KiCad's constructor has made the schematic by now; this frame is
-    // handed one later, and OpenProjectFiles resets the history once it holds a project.
-    if (this.m_schematic) this.m_toolManager.GetTool(SCH_NAVIGATE_TOOL)!.ResetHistory();
+    // sch_edit_frame.cpp:458
+    this.m_toolManager.GetTool(SCH_NAVIGATE_TOOL)!.ResetHistory();
 
     // Run the selection tool, it is supposed to be always active
     this.m_toolManager.PostAction(ACTIONS.selectionActivate);

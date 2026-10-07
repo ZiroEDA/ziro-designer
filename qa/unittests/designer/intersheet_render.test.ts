@@ -9,12 +9,17 @@
  * `<path>` elements).
  */
 
-import { describe, expect, it } from 'vitest';
+import { PGM_BASE, SETTINGS_MANAGER, SetPgm } from '@ziroeda/common/pgm_base.js';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic } from '@ziroeda/eeschema';
 import { sheetToSvg } from '@ziroeda/eeschema/sch_plotter.js';
 import type { PlotOpts } from '@ziroeda/eeschema/sch_plotter.js';
 import { KICAD_CLASSIC } from '@ziroeda/eeschema/sch_render_settings.js';
+
+// SCH_EDIT_FRAME asks Prj() in its constructor, as KiCad's does: KiCad always has a PGM_BASE.
+beforeEach(() => SetPgm(new PGM_BASE(null, new SETTINGS_MANAGER())));
+afterEach(() => SetPgm(null));
 
 const sch = (body: string) =>
   readSchematic(parse(`(kicad_sch (version 20230121) (generator eeschema) ${body})`));

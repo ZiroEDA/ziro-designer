@@ -6,7 +6,8 @@
  * bookkeeping (`AddToScreen` / `RemoveFromScreen` / `UpdateItem`) with and
  * without a view, on both frames that now extend it.
  */
-import { describe, expect, it } from 'vitest';
+import { PGM_BASE, SETTINGS_MANAGER, SetPgm } from '@ziroeda/common/pgm_base.js';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { EDA_DRAW_PANEL_GAL } from '@ziroeda/common/draw_panel_gal.js';
 import { EDA_DRAW_FRAME } from '@ziroeda/common/eda_draw_frame.js';
 import { schIUScale } from '@ziroeda/common/eda_units.js';
@@ -28,6 +29,10 @@ import { SCH_SHEET } from '@ziroeda/eeschema/sch_sheet.js';
 import { SCH_SHEET_PIN } from '@ziroeda/eeschema/sch_sheet_pin.js';
 import { SCHEMATIC } from '@ziroeda/eeschema/schematic.js';
 import { SYMBOL_EDIT_FRAME } from '@ziroeda/eeschema/symbol_editor/symbol_edit_frame.js';
+
+// SCH_EDIT_FRAME asks Prj() in its constructor, as KiCad's does: KiCad always has a PGM_BASE.
+beforeEach(() => SetPgm(new PGM_BASE(null, new SETTINGS_MANAGER())));
+afterEach(() => SetPgm(null));
 
 describe('SchGetLibSymbol', () => {
   const lib = (map: Record<string, string>) => ({

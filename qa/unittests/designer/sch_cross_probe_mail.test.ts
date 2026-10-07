@@ -5,7 +5,8 @@
  * (`eeschema/cross-probing.cpp:202-259`), reached through KIWAY as the board
  * sends it, and the two packets the schematic sends back.
  */
-import { describe, expect, it } from 'vitest';
+import { PGM_BASE, SETTINGS_MANAGER, SetPgm } from '@ziroeda/common/pgm_base.js';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import { KIWAY } from '@ziroeda/common/kiway.js';
 import type { KIWAY_MAIL_EVENT } from '@ziroeda/common/kiway_mail.js';
@@ -15,6 +16,10 @@ import { MAIL_T } from '@ziroeda/common/mail_type.js';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import { CROSS_PROBING_SETTINGS } from '@ziroeda/common/settings/app_settings.js';
 import { SCH_EDIT_FRAME } from '@ziroeda/eeschema/sch_edit_frame.js';
+
+// SCH_EDIT_FRAME asks Prj() in its constructor, as KiCad's does: KiCad always has a PGM_BASE.
+beforeEach(() => SetPgm(new PGM_BASE(null, new SETTINGS_MANAGER())));
+afterEach(() => SetPgm(null));
 
 class PCB_STUB extends KIWAY_PLAYER {
   readonly received: [MAIL_T, string][] = [];

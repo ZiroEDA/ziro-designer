@@ -16,7 +16,12 @@ import { SCH_JUNCTION } from '@ziroeda/eeschema/sch_junction.js';
 import { SCH_LINE } from '@ziroeda/eeschema/sch_line.js';
 import { SCH_NO_CONNECT } from '@ziroeda/eeschema/sch_no_connect.js';
 import { SCH_CLEANUP_FLAGS, SCHEMATIC } from '@ziroeda/eeschema/schematic.js';
-import { describe, expect, it } from 'vitest';
+import { PGM_BASE, SETTINGS_MANAGER, SetPgm } from '@ziroeda/common/pgm_base.js';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
+// SCH_EDIT_FRAME asks Prj() in its constructor, as KiCad's does: KiCad always has a PGM_BASE.
+beforeEach(() => SetPgm(new PGM_BASE(null, new SETTINGS_MANAGER())));
+afterEach(() => SetPgm(null));
 
 const hooks: SCH_EDIT_FRAME_HOOKS = {
   crossProbingSettings: () => ({}) as ReturnType<SCH_EDIT_FRAME_HOOKS['crossProbingSettings']>,

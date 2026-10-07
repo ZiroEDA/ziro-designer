@@ -6,7 +6,8 @@
  * E3b), driven the way the editor drives it: SCH_COMMITs pushed through the frame, then
  * rolled back.  Every expectation is read off schematic_undo_redo.cpp / sch_commit.cpp.
  */
-import { describe, expect, it } from 'vitest';
+import { PGM_BASE, SETTINGS_MANAGER, SetPgm } from '@ziroeda/common/pgm_base.js';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { UNDO_REDO_LIST } from '@ziroeda/common/eda_base_frame.js';
 import { SCH_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { LIB_ID } from '@ziroeda/common/lib_id.js';
@@ -22,6 +23,10 @@ import { SCH_LINE } from '@ziroeda/eeschema/sch_line.js';
 import { SCH_SYMBOL } from '@ziroeda/eeschema/sch_symbol.js';
 import { SCH_TEXT } from '@ziroeda/eeschema/sch_text.js';
 import { SCHEMATIC } from '@ziroeda/eeschema/schematic.js';
+
+// SCH_EDIT_FRAME asks Prj() in its constructor, as KiCad's does: KiCad always has a PGM_BASE.
+beforeEach(() => SetPgm(new PGM_BASE(null, new SETTINGS_MANAGER())));
+afterEach(() => SetPgm(null));
 
 const hooks: SCH_EDIT_FRAME_HOOKS = {
   crossProbingSettings: () => ({}) as ReturnType<SCH_EDIT_FRAME_HOOKS['crossProbingSettings']>,

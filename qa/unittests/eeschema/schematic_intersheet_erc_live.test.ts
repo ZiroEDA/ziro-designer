@@ -16,7 +16,12 @@ import { SCH_GLOBALLABEL } from '@ziroeda/eeschema/sch_label.js';
 import { SCH_MARKER } from '@ziroeda/eeschema/sch_marker.js';
 import { SCHEMATIC } from '@ziroeda/eeschema/schematic.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
-import { describe, expect, it } from 'vitest';
+import { PGM_BASE, SETTINGS_MANAGER, SetPgm } from '@ziroeda/common/pgm_base.js';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
+// SCH_EDIT_FRAME asks Prj() in its constructor, as KiCad's does: KiCad always has a PGM_BASE.
+beforeEach(() => SetPgm(new PGM_BASE(null, new SETTINGS_MANAGER())));
+afterEach(() => SetPgm(null));
 
 const hooks: SCH_EDIT_FRAME_HOOKS = {
   crossProbingSettings: () => ({}) as ReturnType<SCH_EDIT_FRAME_HOOKS['crossProbingSettings']>,
