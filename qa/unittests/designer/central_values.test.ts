@@ -328,7 +328,9 @@ const BASELINE: Record<string, { colours: number; metrics: number }> = {
   // print settings' background.
   // 24/127 -> 22/114 (10-05): the Footprint Editor window rebuilt on
   // FOOTPRINT_EDIT_FRAME; its old canvas placeholder and prompt styles went.
-  'editors/pcb': { colours: 22, metrics: 114 },
+  // 22 -> 20 (10-08): the footprint frames' old Canvas2D canvas
+  // (`pcb_draw_panel_gal_ui.tsx`) went; they draw on PCB_DRAW_PANEL_GAL.
+  'editors/pcb': { colours: 20, metrics: 114 },
   // At zero, and listed rather than absent: `prefs/` is the settings store, and
   // the one literal it had - the 3D viewer's `rgb(0,255,0)` selection colour -
   // is `PARAM<COLOR4D>( "render.opengl_selection_color", …, COLOR4D( 0, 1, 0, 1 ) )`
@@ -1404,7 +1406,8 @@ describe('the scan totals, so the numbers in the PR stay true', () => {
     // on the shared widgets now. Rescanned.
     // 285 -> 284 (E16h): the `editors/pcb` row, the print renderer's white.
     // 284 -> 282 (10-05): the `editors/pcb` row, the old Footprint Editor window.
-    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(282);
+    // 282 -> 280 (10-08): the same row, the footprint frames' old canvas.
+    expect(SITES.filter((s) => s.kind === 'colours').length).toBe(280);
     // 1657 -> 1649: the same sweep. A native colour input has no useful
     // default size, so eight of the sixteen sites gave theirs an inline
     // width and height; the shared swatch takes --swatch-*-w/h. Rescanned.

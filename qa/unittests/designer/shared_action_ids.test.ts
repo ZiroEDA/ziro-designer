@@ -85,19 +85,10 @@ describe('a shared action has one id across frames', () => {
 describe('the footprint canvas gates on the renamed id', () => {
   /**
    * The rename is only half done if the toolbar says `selectSetRect` and the
-   * canvas still compares against `'select'` — the button would light and
-   * picking would be dead. Five sites in `FootprintCanvas.tsx` gate picking,
-   * the box-select, the cursor and the tool-wants-cursor flag on it.
+   * frame starts on `'select'`. The canvas that compared against it is gone:
+   * the footprint editor's PCB_SELECTION_TOOL runs on the PCB_DRAW_PANEL_GAL.
    */
-  const canvas = readFileSync(join(SRC, '../../pcbnew/pcb_draw_panel_gal_ui.tsx'), 'utf8');
   const editor = readFileSync(join(SRC, '../../pcbnew/footprint_edit_frame_ui.tsx'), 'utf8');
-
-  it('compares against selectSetRect, never the bare select', () => {
-    expect(canvas).toContain("'selectSetRect'");
-    expect(canvas).not.toContain("!== 'select'");
-    expect(canvas).not.toContain("=== 'select'");
-    expect(canvas).not.toContain("= 'select',");
-  });
 
   it('starts the footprint editor on selectSetRect', () => {
     expect(editor).toContain("useState('selectSetRect')");

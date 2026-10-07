@@ -343,8 +343,8 @@ export class BOARD_EDITOR_CONTROL extends PCB_TOOL_BASE {
       if (!this.getModel()) return;
 
       this.m_placeOrigin.SetPosition(this.board().GetDesignSettings().GetAuxOrigin());
-      // getView()->Remove / Add( m_placeOrigin ): TRANSITIONAL, the board
-      // canvas draws the marker itself (see ORIGIN_VIEWITEM).
+      this.getView()?.Remove(this.m_placeOrigin);
+      this.getView()?.Add(this.m_placeOrigin);
     }
   }
 

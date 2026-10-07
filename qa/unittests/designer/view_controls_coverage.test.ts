@@ -30,8 +30,8 @@ const CANVASES = [
   'editors/symbol/SymbolCanvas.tsx',
   // (The board editor's frame is not here: its canvas is PCB_DRAW_PANEL_GAL,
   // whose own WX_VIEW_CONTROLS takes the wheel and the drag gestures, as
-  // upstream - see the last test.)
-  '../../pcbnew/pcb_draw_panel_gal_ui.tsx',
+  // upstream - see the last test. The footprint frames are PCB_DRAW_PANEL_GALs
+  // too now.)
   // The preview panes are EDA_DRAW_PANEL_GALs upstream too, so they get
   // WX_VIEW_CONTROLS on the same terms.
   '../../common/widgets/preview_view_controls.ts',
@@ -42,7 +42,6 @@ const FITTERS = [
   '../../eeschema/sch_painter.ts',
   '../../eeschema/symbol_editor/symbol_renderer.ts',
   '../../pcbnew/pcb_edit_frame_ui.tsx',
-  '../../pcbnew/pcb_draw_panel_gal_ui.tsx',
 ];
 
 const read = (rel: string): string => readFileSync(join(SRC, rel), 'utf8');
@@ -79,7 +78,6 @@ describe('shared view controls', () => {
     ['../../eeschema/sch_painter.ts', "'sch'"],
     ['../../eeschema/symbol_editor/symbol_renderer.ts', "'symbol_editor'"],
     ['../../pcbnew/pcb_edit_frame_ui.tsx', "'pcb'"],
-    ['../../pcbnew/pcb_draw_panel_gal_ui.tsx', "'footprint_editor'"],
   ];
 
   /** Every FitFrame in the union, so a file can be checked for foreign ones. */
@@ -186,12 +184,12 @@ describe('shared view controls', () => {
   );
 
   it('every editing canvas holds its own m_panTimer', () => {
-    // Three, and the preview panes are the fourth CANVAS. If that count moves,
+    // Two, and the preview panes are the third CANVAS. If that count moves,
     // read the block comment above before changing the number. GerbView left
-    // this list when it moved onto EDA_DRAW_PANEL_GAL, pl_editor after it, and
-    // the board editor after that (#636 stage 3): their autopan is
-    // WX_VIEW_CONTROLS' own, not a canvas's copy.
-    expect(AUTOPAN_CANVASES).toHaveLength(3);
+    // this list when it moved onto EDA_DRAW_PANEL_GAL, pl_editor after it, the
+    // board editor after that (#636 stage 3), and the footprint frames last:
+    // their autopan is WX_VIEW_CONTROLS' own, not a canvas's copy.
+    expect(AUTOPAN_CANVASES).toHaveLength(2);
   });
 
   it.each(AUTOPAN_CANVASES)('%s runs handleAutoPanning on motion', (rel) => {
@@ -222,7 +220,6 @@ describe('shared view controls', () => {
     // absolute world padding, which is what made the framing depend on the
     // document's size; doZoomFit's is a multiplier on the viewport.
     const OLD: [string, RegExp][] = [
-      ['../../pcbnew/pcb_draw_panel_gal_ui.tsx', /const margin = 2 \* MM/],
       ['../../pcbnew/pcb_edit_frame_ui.tsx', /fitWorldBox\([^)]*5 \* MM/],
       // fitToContent / fitToBBox / fitSymbol each inflated their box by 8 mm
       // before scaling. (renderer.ts keeps an unrelated `pad` for a draw-cull

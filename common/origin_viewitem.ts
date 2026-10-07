@@ -36,6 +36,9 @@ import { galSnapPx } from './gal_pixel_grid.js';
 import { EDA_ITEM } from './eda_item.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import type { Color4d } from './gal/color4d.js';
+import { GAL_LAYER_ID } from './layer_id.js';
+import type { VIEW } from './view/view.js';
+import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
 
 /** `ORIGIN_VIEWITEM::MARKER_STYLE` (`include/origin_viewitem.h:44-47`). */
 export type OriginMarkerStyle = 'no_graphic' | 'cross' | 'circle_cross' | 'circle_x';
@@ -159,9 +162,8 @@ export function drawOriginViewItem(
  * UNDO_REDO::GRIDORIGIN )`, `PutDataInPreviousState` swapping positions with
  * the image).
  *
- * TRANSITIONAL: not added to the VIEW yet - the board canvas draws both
- * markers through {@link drawOriginViewItem} from the design settings, which
- * `DoSetGridOrigin` / `DoSetDrillOrigin` write alongside this position.
+ * PCB_CONTROL's grid origin and BOARD_EDITOR_CONTROL's drill / place origin
+ * are added to the VIEW in each tool's Reset, as upstream's are.
  */
 export class ORIGIN_VIEWITEM extends EDA_ITEM {
   private m_position: Vec2;
@@ -227,5 +229,59 @@ export class ORIGIN_VIEWITEM extends EDA_ITEM {
 
   SetDrawAtZero(aDrawFlag: boolean): void {
     this.m_drawAtZero = aDrawFlag;
+  }
+
+  /** `ViewBBox()`: everywhere, so the VIEW never culls it. */
+  override ViewBBox(): BOX2I {
+    const bbox = new BOX2I();
+    bbox.SetMaximum();
+    return bbox;
+  }
+
+  /** `ViewDraw( int, VIEW* )` (`common/origin_viewitem.cpp:73-114`). */
+  override ViewDraw(_aLayer: number, aView: VIEW): void {
+    const gal = aView.GetGAL()!;
+
+    // Nothing to do if the target shouldn't be drawn at 0,0 and that's where the target is.
+    if (!this.m_drawAtZero && this.m_position.x === 0 && this.m_position.y === 0) return;
+
+    gal.SetIsStroke(true);
+    gal.SetIsFill(false);
+    gal.SetLineWidth(1);
+    gal.SetStrokeColor(this.m_color);
+
+    const scaledSize = aView.ToWorld({ x: this.m_size, y: this.m_size }, false);
+    const p = this.m_position;
+
+    // Draw a circle around the marker's center point if the style demands it
+    if (this.m_style === 'circle_cross' || this.m_style === 'circle_x')
+      gal.DrawCircle(p, Math.abs(scaledSize.x));
+
+    switch (this.m_style) {
+      case 'no_graphic':
+        break;
+
+      case 'cross':
+      case 'circle_cross':
+        gal.DrawLine({ x: p.x - scaledSize.x, y: p.y }, { x: p.x + scaledSize.x, y: p.y });
+        gal.DrawLine({ x: p.x, y: p.y - scaledSize.y }, { x: p.x, y: p.y + scaledSize.y });
+        break;
+
+      case 'circle_x':
+        gal.DrawLine(
+          { x: p.x - scaledSize.x, y: p.y - scaledSize.y },
+          { x: p.x + scaledSize.x, y: p.y + scaledSize.y },
+        );
+        gal.DrawLine(
+          { x: p.x - scaledSize.x, y: p.y + scaledSize.y },
+          { x: p.x + scaledSize.x, y: p.y - scaledSize.y },
+        );
+        break;
+    }
+  }
+
+  /** `ViewGetLayers()`: `{ LAYER_GP_OVERLAY }`. */
+  override ViewGetLayers(): number[] {
+    return [GAL_LAYER_ID.LAYER_GP_OVERLAY];
   }
 }

@@ -16,7 +16,7 @@ import type { FOOTPRINT } from '@ziroeda/pcbnew/footprint.js';
 import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { PAGE_INFO } from '@ziroeda/common/page_info.js';
 import { TITLE_BLOCK } from '@ziroeda/common/title_block.js';
-import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { GAL_LAYER_ID, PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
 import { RESET_REASON } from '@ziroeda/common/tool/tool_base.js';
@@ -171,6 +171,33 @@ describe('BOARD_EDITOR_CONTROL::DrillOrigin', () => {
     click(mm(20, 25));
     h.mgr.RunAction(PCB_ACTIONS.drillResetOrigin);
     expect(bds().GetAuxOrigin()).toEqual({ x: 0, y: 0 });
+  });
+});
+
+describe('the two origin markers are VIEW items, put there by each tool’s Reset', () => {
+  const inView = (aItem: { m_viewPrivData: { m_view: unknown } | null }): boolean =>
+    aItem.m_viewPrivData?.m_view === h.view;
+
+  it('PCB_CONTROL::Reset adds m_gridOrigin at the board grid origin (:126-145)', () => {
+    const pcbControl = h.mgr.GetTool(PCB_CONTROL)!;
+    const item = pcbControl.GridOriginItem();
+    expect(inView(item as never)).toBe(true);
+    expect(item.ViewGetLayers()).toEqual([GAL_LAYER_ID.LAYER_GP_OVERLAY]);
+
+    bds().SetGridOrigin(mm(3, 4));
+    h.mgr.ResetTools(RESET_REASON.MODEL_RELOAD);
+    expect(item.GetPosition()).toEqual(mm(3, 4));
+    expect(inView(item as never)).toBe(true);
+  });
+
+  it('BOARD_EDITOR_CONTROL::Reset adds m_placeOrigin at the aux origin (:341-349)', () => {
+    const control = h.mgr.GetTool(BOARD_EDITOR_CONTROL)!;
+    const item = control.PlaceOriginItem();
+    expect(inView(item as never)).toBe(true);
+
+    bds().SetAuxOrigin(mm(7, 8));
+    h.mgr.ResetTools(RESET_REASON.MODEL_RELOAD);
+    expect(item.GetPosition()).toEqual(mm(7, 8));
   });
 });
 

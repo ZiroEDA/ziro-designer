@@ -228,8 +228,8 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
         this.m_gridOrigin.SetColor(color);
       }
 
-      // getView()->Remove / Add( m_gridOrigin ): TRANSITIONAL, the board canvas
-      // draws the marker itself (see ORIGIN_VIEWITEM).
+      this.getView()?.Remove(this.m_gridOrigin);
+      this.getView()?.Add(this.m_gridOrigin);
     }
   }
 

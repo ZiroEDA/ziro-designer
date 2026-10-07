@@ -178,16 +178,12 @@ describe('drawRulerItem', () => {
 });
 
 describe('one ruler, three canvases', () => {
-  // The board editor is not here any more: PCB_VIEWER_TOOLS::MeasureTool puts
-  // the RULER_ITEM itself on the VIEW (pcb_viewer_tools.test.ts drives it).
-  const CANVASES = ['../../pcbnew/pcb_draw_panel_gal_ui.tsx'];
+  // No PCB canvas paints a ruler of its own any more: PCB_VIEWER_TOOLS::MeasureTool
+  // puts the RULER_ITEM itself on the VIEW (pcb_viewer_tools.test.ts drives it),
+  // in the board editor and in every footprint frame.
 
   const read = (rel: string): string =>
     readFileSync(fileURLToPath(new URL(`../../../designer/src/${rel}`, import.meta.url)), 'utf8');
-
-  it.each(CANVASES)('%s paints the ruler through the shared item', (rel) => {
-    expect(read(rel)).toContain('drawRulerItem');
-  });
 
   it('the board editor puts the one RULER_ITEM on its VIEW, from PCB_VIEWER_TOOLS', () => {
     const tool = read('../../pcbnew/tools/pcb_viewer_tools.ts');
@@ -195,14 +191,19 @@ describe('one ruler, three canvases', () => {
     expect(read('../../pcbnew/pcb_edit_frame_ui.tsx')).not.toContain('drawRulerItem');
   });
 
-  it('and none of them re-derives the readout or the graduations', () => {
-    // Per occurrence, across the whole tree: the moment a canvas writes its own
-    // label block or its own tick loop it has to call one of these, and the
-    // only file allowed to is the item itself.
-    for (const rel of CANVASES) {
+  it('and no PCB frame window re-derives the readout or the graduations', () => {
+    // The moment a window writes its own label block or its own tick loop it
+    // has to call one of these, and the only file allowed to is the item itself.
+    for (const rel of [
+      '../../pcbnew/pcb_edit_frame_ui.tsx',
+      '../../pcbnew/footprint_edit_frame_ui.tsx',
+      '../../pcbnew/footprint_viewer_frame_ui.tsx',
+      '../../cvpcb/display_footprints_frame_ui.tsx',
+    ]) {
       const src = read(rel);
       expect(src, `${rel} builds its own dimension strings`).not.toContain('rulerDimensionStrings');
       expect(src, `${rel} builds its own graduations`).not.toContain('rulerTicks');
+      expect(src, `${rel} paints a ruler of its own`).not.toContain('drawRulerItem');
     }
   });
 

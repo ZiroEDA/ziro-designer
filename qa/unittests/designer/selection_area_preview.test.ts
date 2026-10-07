@@ -241,7 +241,6 @@ describe('the lasso mode follows its winding', () => {
 describe('there is one copy of the table', () => {
   const CANVASES = [
     'editors/symbol/SymbolCanvas.tsx',
-    '../../pcbnew/pcb_draw_panel_gal_ui.tsx',
     'editors/schematic/components/SchematicCanvas.tsx',
   ];
 

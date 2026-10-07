@@ -393,7 +393,6 @@ import { LIB_ID } from '@ziroeda/common/lib_id.js';
 import type { BOARD_EDITOR_CONTROL } from './tools/board_editor_control.js';
 import type { FOOTPRINT } from './footprint.js';
 import {
-  drawOriginMarkers,
   PCB_DEFAULT_GRID_IU,
   PCB_DEFAULT_GRID_ORIGIN,
   DEFAULT_DRAW_OPTIONS,
@@ -3200,10 +3199,6 @@ export function PcbEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setupSourceKey, rootPro, openNonce]);
 
-  /** `GetDesignSettings().GetAuxOrigin()`: the drill/place file origin. */
-  const auxOriginOf = (): { x: number; y: number } =>
-    frameRef.current?.GetBoard()?.GetDesignSettings().GetAuxOrigin() ?? { x: 0, y: 0 };
-
   const draw = useCallback(() => {
     const __t0 = PERF ? performance.now() : 0;
     const canvas = canvasRef.current;
@@ -3258,17 +3253,6 @@ export function PcbEditor({
     // but disappear — a translucent zone fill washes the magenta out to a faint
     // grey tick you only find by zooming right in — and they come back cleanly
     // The board itself, when the VIEW is not drawing it: the raster blit.
-    // The drill/place file origin marker, screen-space like the anchors and,
-    // like them, drawn above the board (LAYER_GP_OVERLAY).
-    drawOriginMarkers(
-      ctx,
-      { aux: auxOriginOf(), grid: gridOriginRef.current },
-      v,
-      canvas.width,
-      canvas.height,
-      dpr,
-      drawOpts.theme,
-    );
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     // Back and inner net names. On the GPU they were recorded into the board's
     // own draw at the depth pcbnew files them at (see the `recordInner` call
