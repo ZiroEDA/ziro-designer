@@ -35,9 +35,21 @@ export class PCB_VIEWER_TOOLS extends PCB_TOOL_BASE {
     super('pcbnew.PCBViewerTools');
   }
 
+  /** `m_footprintFrame`: is this tool associated with a footprint frame. */
+  private m_footprintFrame = false;
+
+  /**
+   * `SetFootprintFrame( aIsFrame )`: the footprint editor, the library browser,
+   * the chooser and CvPcb's footprint window each set it once they register
+   * this tool.
+   */
+  SetFootprintFrame(aIsFrame: boolean): void {
+    this.m_footprintFrame = aIsFrame;
+  }
+
   /** `IsFootprintFrame()`. */
-  private IsFootprintFrame(): boolean {
-    return this.frame<PCB_BASE_FRAME>().IsType(FRAME_T.FRAME_FOOTPRINT_EDITOR);
+  IsFootprintFrame(): boolean {
+    return this.m_footprintFrame;
   }
 
   override Init(): boolean {

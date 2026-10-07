@@ -107,7 +107,6 @@ import type { wxTextValidator } from '@ziroeda/common/validators.js';
 import { DisplayErrorMessage } from '@ziroeda/common/confirm.js';
 import { MICROWAVE_TOOL, type MICROWAVE_HOST } from './microwave/microwave_tool.js';
 import { PCB_VIEWER_TOOLS } from './tools/pcb_viewer_tools.js';
-import type { PcbFootprint } from './types.js';
 import type { NETLIST } from './netlist_reader/pcb_netlist.js';
 import { type DIALOG_DRC_LIKE, DRC_TOOL } from './tools/drc_tool.js';
 import type { DRC_JOB_HOOKS, DRC_JOB_REQUEST } from './browser/drc_job.js';
@@ -764,12 +763,10 @@ export interface PCB_EDIT_FRAME_HOOKS extends PCB_BASE_EDIT_FRAME_DIALOG_HOOKS {
    */
   placingFootprint?(): boolean;
   /**
-   * The board half of `FOOTPRINT_VIEWER_FRAME::AddFootprintToPCB`
-   * (`footprint_viewer_frame.cpp:735-779`): `selectionClear`, then
-   * `PostAction( PCB_ACTIONS::placeFootprint, newFootprint )` with a copy of
-   * the library footprint, so it rides the cursor until a click drops it.
+   * `Kiway().GetBlockingDialog()->Close( true )`: the modal open over the
+   * board (the footprint chooser), which the Library Browser's Insert closes.
    */
-  placeFootprintFromLibrary?(aFpid: string, aFootprint: PcbFootprint): void;
+  closeBlockingDialog?(): void;
   /** `findDialogs()`: the open modeless dialogs' rectangles, in canvas client pixels. */
   findDialogRects(): BOX2D[];
   /**
@@ -3138,13 +3135,9 @@ export class PCB_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     return this.hooks.placingFootprint?.() ?? false;
   }
 
-  /**
-   * What `FOOTPRINT_VIEWER_FRAME::AddFootprintToPCB` does to this frame once
-   * it has passed its two checks (`footprint_viewer_frame.cpp:735-779`). See
-   * `footprint_viewer_frame.ts`'s `FOOTPRINT_VIEWER_PCB_TARGET`.
-   */
-  PlaceFootprintFromLibraryBrowser(aFpid: string, aFootprint: PcbFootprint): void {
-    this.hooks.placeFootprintFromLibrary?.(aFpid, aFootprint);
+  /** `Kiway().GetBlockingDialog()->Close( true )`, asked by the Library Browser. */
+  CloseBlockingDialog(): void {
+    this.hooks.closeBlockingDialog?.();
   }
 
   override findDialogRects(): BOX2D[] {

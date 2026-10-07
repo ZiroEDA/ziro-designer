@@ -40,6 +40,7 @@ import { DisplayErrorMessage, IsOK } from '@ziroeda/common/confirm.js';
 import { ADVANCED_CFG } from '@ziroeda/common/advanced_config.js';
 import { IS_NEW, SKIP_STRUCT } from '@ziroeda/common/eda_item_flags.js';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
+import type { FOOTPRINT_VIEWER_FRAME } from '../footprint_viewer_frame.js';
 import type { BOARD } from '../board.js';
 import { CLIPBOARD_IO } from '../kicad_clipboard.js';
 import { NETINFO_LIST } from '../netinfo.js';
@@ -47,7 +48,7 @@ import { PCB_REFERENCE_IMAGE } from '../pcb_reference_image.js';
 import { PCB_TEXT } from '../pcb_text.js';
 import { PCB_TRACK, type PCB_VIA } from '../pcb_track.js';
 import type { PASTE_MODE } from '../pcb_base_edit_frame.js';
-import { PCB_ACTIONS, PCB_EVENTS } from './pcb_actions.js';
+import { type FPVIEWER_CONSTANTS, PCB_ACTIONS, PCB_EVENTS } from './pcb_actions.js';
 import { BOARD_COMMIT } from '../board_commit.js';
 import { Build_Board_Characteristics_Table } from '../board_tables/board_characteristics_table.js';
 import { Build_Board_Stackup_Table } from '../board_tables/board_stackup_table.js';
@@ -1893,6 +1894,32 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
     return 0;
   }
 
+  /**
+   * `SaveFpToBoard` (pcb_control.cpp:172-180): the footprint editor's
+   * `SaveFootprintToBoard( true )`, or the library browser's
+   * `AddFootprintToPCB()`.
+   *
+   * Not ported: the footprint editor's `SaveFootprintToBoard`. Nothing here
+   * loads a footprint off a board into the editor, so there is no board copy
+   * to update.
+   */
+  SaveFpToBoard(_aEvent: TOOL_EVENT): number {
+    if (this.m_frame!.IsType(FRAME_T.FRAME_FOOTPRINT_VIEWER))
+      (this.m_frame as unknown as FOOTPRINT_VIEWER_FRAME).AddFootprintToPCB();
+
+    return 0;
+  }
+
+  /** `IterateFootprint` (pcb_control.cpp:201-207). */
+  IterateFootprint(aEvent: TOOL_EVENT): number {
+    if (this.m_frame!.IsType(FRAME_T.FRAME_FOOTPRINT_VIEWER))
+      (this.m_frame as unknown as FOOTPRINT_VIEWER_FRAME).SelectAndViewFootprint(
+        aEvent.Parameter<FPVIEWER_CONSTANTS>(),
+      );
+
+    return 0;
+  }
+
   /** `PCB_CONTROL::Print` (dialog_print_pcbnew.cpp:463-483). */
   Print(_aEvent: TOOL_EVENT): number {
     const frame = this.m_frame as unknown as PCB_BASE_EDIT_FRAME & Partial<PRINT_FRAME_HOST>;
@@ -1906,6 +1933,17 @@ export class PCB_CONTROL extends PCB_TOOL_BASE {
 
   protected override setTransitions(): void {
     this.Go(SYNC_HANDLER<PCB_CONTROL>(this.Print), ACTIONS.print.MakeEvent());
+
+    // Footprint library actions
+    this.Go(SYNC_HANDLER<PCB_CONTROL>(this.SaveFpToBoard), PCB_ACTIONS.saveFpToBoard.MakeEvent());
+    this.Go(
+      SYNC_HANDLER<PCB_CONTROL>(this.IterateFootprint),
+      PCB_ACTIONS.nextFootprint.MakeEvent(),
+    );
+    this.Go(
+      SYNC_HANDLER<PCB_CONTROL>(this.IterateFootprint),
+      PCB_ACTIONS.previousFootprint.MakeEvent(),
+    );
 
     // Display modes
     this.Go(

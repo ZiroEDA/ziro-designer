@@ -2345,8 +2345,8 @@ export function PcbEditor({
             | null
             | undefined
         )?.PlacingFootprint() ?? false,
-      placeFootprintFromLibrary: (aFpid, aFootprint) =>
-        placeFromBrowserRef.current(aFpid, aFootprint),
+      // `Kiway().GetBlockingDialog()->Close( true )`: the footprint chooser.
+      closeBlockingDialog: () => setFpChooserOpenRef.current(false),
       textEntry: (aPrompt, aCaption, aValue, aValidator) =>
         mwWindowRef.current!.textEntry(aPrompt, aCaption, aValue, aValidator),
       mwavePolygonalShapeDialog: () => mwWindowRef.current!.polygonDialog(),
@@ -2737,6 +2737,7 @@ export function PcbEditor({
   );
   /** `SelectFootprintFromLibrary`'s FOOTPRINT_CHOOSER_FRAME is open. */
   const [fpChooserOpen, setFpChooserOpen] = useState(false);
+  const setFpChooserOpenRef = useRef(setFpChooserOpen);
   /** The `LIB_ID` text the chooser opens on (`SelectFootprintFromLibrary`'s `aPreselect`). */
   const [fpChooserPreselect, setFpChooserPreselect] = useState('');
   /** What the open chooser answers, `SelectFootprintFromLibrary` being `await`ing it. */
@@ -4790,27 +4791,6 @@ export function PcbEditor({
     fpChooserResolveRef.current?.(null);
     fpChooserResolveRef.current = null;
   };
-
-  /**
-   * `FOOTPRINT_VIEWER_FRAME::AddFootprintToPCB`'s board half
-   * (`footprint_viewer_frame.cpp:735-779`): `selectionClear`, then
-   * `PostAction( PCB_ACTIONS::placeFootprint, newFootprint )` - the tool runs
-   * with the footprint as its parameter, so it is on the cursor at once and
-   * the next click commits it.
-   */
-  const placeFromBrowser = (aFpid: string, _aFootprint: PcbFootprint): void => {
-    setFpChooserOpen(false);
-    const frame = frameRef.current;
-    if (!frame) return;
-    frame.GetToolManager()?.RunAction(ACTIONS.selectionClear);
-    const fpid = new LIB_ID();
-    fpid.Parse(aFpid);
-    void frame.LoadFootprint(fpid).then((fp) => {
-      if (fp) frame.GetToolManager()?.PostAction(PCB_ACTIONS.placeFootprint, fp);
-    });
-  };
-  const placeFromBrowserRef = useRef(placeFromBrowser);
-  placeFromBrowserRef.current = placeFromBrowser;
 
   /**
    * Place a snap point (`DRAWING_TOOL::PlacePoint`, drawing_tool.cpp:914-930).

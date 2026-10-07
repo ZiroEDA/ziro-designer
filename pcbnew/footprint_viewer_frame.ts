@@ -15,7 +15,6 @@
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import type { KIWAY_MAIL_EVENT } from '@ziroeda/common/kiway_mail.js';
-import { KIWAY_PLAYER } from '@ziroeda/common/kiway_player.js';
 import { MAIL_T } from '@ziroeda/common/mail_type.js';
 import { RSTRING_T } from '@ziroeda/common/project.js';
 import { EdaCombinedMatcher } from '@ziroeda/common/eda_pattern_match.js';
@@ -24,15 +23,39 @@ import type { FOOTPRINT_INFO } from '@ziroeda/common/footprint_info.js';
 import { DisplayErrorMessage } from '@ziroeda/common/confirm.js';
 import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
 import { listBoxFindString, wxNOT_FOUND } from '@ziroeda/common/widgets/wx_listbox.js';
-import type { PcbFootprint } from './types.js';
+import { type EDA_DRAW_FRAME_LIKE, IGNORE_PARENT_GROUP } from '@ziroeda/common/eda_item.js';
+import { IS_NEW } from '@ziroeda/common/eda_item_flags.js';
+import { niluuid } from '@ziroeda/common/kiid.js';
+import { LIB_ID } from '@ziroeda/common/lib_id.js';
+import type { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
+import { PgmOrNull } from '@ziroeda/common/pgm_base.js';
+import { ACTIONS } from '@ziroeda/common/tool/actions.js';
+import { COMMON_CONTROL } from '@ziroeda/common/tool/common_control.js';
+import { COMMON_TOOLS } from '@ziroeda/common/tool/common_tools.js';
+import { RESET_REASON } from '@ziroeda/common/tool/tool_base.js';
+import { TOOL_DISPATCHER } from '@ziroeda/common/tool/tool_dispatcher.js';
+import { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
+import { ZOOM_TOOL } from '@ziroeda/common/tool/zoom_tool.js';
+import { LeaderMode as LEADER_MODE } from '@ziroeda/kimath/src/geometry/geometry_utils.js';
+import { BOARD, BOARD_USE } from './board.js';
+import { BOARD_COMMIT } from './board_commit.js';
+import type { BOARD_ITEM_CONTAINER } from './board_item_container.js';
+import type { FOOTPRINT } from './footprint.js';
+import type { FOOTPRINT_LIBRARY_ADAPTER } from './footprint_library_adapter.js';
+import { type FOOTPRINT_EDITOR_SETTINGS_LIKE, PCB_BASE_FRAME } from './pcb_base_frame.js';
+import { PCB_SCREEN } from './pcb_screen.js';
+import { PCBNEW_SETTINGS } from './pcbnew_settings.js';
+import { FPVIEWER_CONSTANTS, PCB_ACTIONS } from './tools/pcb_actions.js';
+import { PCB_CONTROL } from './tools/pcb_control.js';
+import { PCB_PICKER_TOOL } from './tools/pcb_picker_tool.js';
+import { PCB_SELECTION_TOOL } from './tools/pcb_selection_tool.js';
+import { PCB_VIEWER_TOOLS } from './tools/pcb_viewer_tools.js';
 
-/** `enum class FPVIEWER_CONSTANTS` (`footprint_viewer_frame.h:41-47`). */
-export enum FPVIEWER_CONSTANTS {
-  NEW_PART = 0,
-  NEXT_PART = 1,
-  PREVIOUS_PART = 2,
-  RELOAD_PART = 3,
-}
+/**
+ * `enum class FPVIEWER_CONSTANTS` (`footprint_viewer_frame.h:41-47`). Declared
+ * with the actions whose parameter it is, which load before this module.
+ */
+export { FPVIEWER_CONSTANTS };
 
 /** `_( "Footprint Library Browser" )`, the constructor's title and the title's tail. */
 export const FOOTPRINT_VIEWER_TITLE = 'Footprint Library Browser';
@@ -275,41 +298,42 @@ export function paneWidthOrBest(aWidth: number, aBest: number): number {
 }
 
 /**
- * What `AddFootprintToPCB` asks of `FRAME_PCB_EDITOR`'s player — the two
- * members of `PCB_EDIT_FRAME` / `BOARD_EDITOR_CONTROL` it reaches for.
+ * What `AddFootprintToPCB` asks of `FRAME_PCB_EDITOR`'s player beyond its
+ * PCB_BASE_FRAME: `toolMgr->GetTool<BOARD_EDITOR_CONTROL>()->PlacingFootprint()`,
+ * and `Kiway().GetBlockingDialog()->Close( true )`.
  */
-export interface FOOTPRINT_VIEWER_PCB_TARGET {
-  /** `toolMgr->GetTool<BOARD_EDITOR_CONTROL>()->PlacingFootprint()`. */
+export interface FOOTPRINT_VIEWER_PCB_TARGET extends PCB_BASE_FRAME {
   PlacingFootprint(): boolean;
-  /**
-   * The rest of `AddFootprintToPCB` on the board side: `selectionClear`, a
-   * `Duplicate()` of the viewed footprint with its orphaned pad nets cleared,
-   * put on the front, and `PostAction( PCB_ACTIONS::placeFootprint,
-   * newFootprint )` — the footprint rides the cursor and the next click drops
-   * it.
-   */
-  PlaceFootprintFromLibraryBrowser(aFpid: string, aFootprint: PcbFootprint): void;
+  CloseBlockingDialog(): void;
 }
 
 function isPcbTarget(aFrame: unknown): aFrame is FOOTPRINT_VIEWER_PCB_TARGET {
-  const f = aFrame as Partial<FOOTPRINT_VIEWER_PCB_TARGET> | null;
+  if (!(aFrame instanceof PCB_BASE_FRAME)) return false;
 
-  return (
-    !!f &&
-    typeof f.PlacingFootprint === 'function' &&
-    typeof f.PlaceFootprintFromLibraryBrowser === 'function'
-  );
+  const f = aFrame as Partial<FOOTPRINT_VIEWER_PCB_TARGET>;
+
+  return typeof f.PlacingFootprint === 'function' && typeof f.CloseBlockingDialog === 'function';
 }
 
 /** What the frame reaches through its window. */
 export interface FOOTPRINT_VIEWER_FRAME_HOOKS {
   /** `ReCreateLibraryList()`, which `MAIL_RELOAD_LIB` runs. */
   reCreateLibraryList(): void;
-  /** `GetBoard()->GetFirstFootprint()`: the footprint on show, and its LIB_ID. */
-  getFirstFootprint(): { fpid: string; footprint: PcbFootprint } | null;
+  /**
+   * The list half of `SelectAndViewFootprint( aMode )`: the row stepped to and
+   * selected, its name made current. The window then has {@link
+   * FOOTPRINT_VIEWER_FRAME.ViewFootprint} load it.
+   */
+  selectAndViewFootprint(aMode: FPVIEWER_CONSTANTS): void;
 }
 
-export class FOOTPRINT_VIEWER_FRAME extends KIWAY_PLAYER {
+/**
+ * `FOOTPRINT_VIEWER_FRAME` (`footprint_viewer_frame.cpp`): the Footprint
+ * Library Browser, a PCB_BASE_FRAME whose BOARD is a footprint holder showing
+ * the one footprint picked in its lists. The two lists live in the window;
+ * the board, its tools and the hand-over to the board editor live here.
+ */
+export class FOOTPRINT_VIEWER_FRAME extends PCB_BASE_FRAME {
   private readonly hooks: FOOTPRINT_VIEWER_FRAME_HOOKS;
 
   /**
@@ -321,12 +345,116 @@ export class FOOTPRINT_VIEWER_FRAME extends KIWAY_PLAYER {
   private m_curNickname = '';
   private m_curFootprintName = '';
 
+  /** `PROJECT_PCB::FootprintLibAdapter( &Prj() )`. */
+  private m_footprintLibAdapter: FOOTPRINT_LIBRARY_ADAPTER | null = null;
+
+  /** `SelectAndViewFootprint`'s load in flight; a newer one supersedes it. */
+  private m_loadSerial = 0;
+
   constructor(hooks: FOOTPRINT_VIEWER_FRAME_HOOKS) {
-    super(FRAME_T.FRAME_FOOTPRINT_VIEWER, pcbIUScale, 'mm');
+    super(FRAME_T.FRAME_FOOTPRINT_VIEWER);
     this.hooks = hooks;
     // `m_aboutTitle = _HKI( "KiCad Footprint Library Browser" )`, the product
     // being ours.
     this.m_aboutTitle = ABOUT_TITLES.footprintViewer;
+
+    this.SetBoard(new BOARD());
+
+    // This board will only be used to hold a footprint for viewing
+    this.GetBoard()!.SetBoardUse(BOARD_USE.FPHOLDER);
+
+    // In viewer, the default net clearance is not known (it depends on the actual board).
+    // So we do not show the default clearance, by setting it to 0
+    // The footprint or pad specific clearance will be shown
+    this.GetBoard()!.GetDesignSettings().m_NetSettings.GetDefaultNetclass().SetClearance(0);
+
+    // Don't show the default board solder mask clearance in the footprint viewer.  Only the
+    // footprint or pad clearance setting should be shown if it is not 0.
+    this.GetBoard()!.GetDesignSettings().m_SolderMaskExpansion = 0;
+
+    // Ensure all layers and items are visible:
+    this.GetBoard()!.SetVisibleAlls();
+
+    this.SetScreen(new PCB_SCREEN(this.GetPageSizeIU()));
+
+    this.GetScreen()!.m_Center = true; // Center coordinate origins on screen.
+
+    this.GetGalDisplayOptions().m_axesEnabled = true;
+
+    // Create the manager and dispatcher & route draw panel events to the dispatcher
+    this.m_toolManager = new TOOL_MANAGER();
+    this.m_toolManager.SetEnvironment(this.GetBoard(), null, null, this.config(), this);
+    this.m_toolDispatcher = new TOOL_DISPATCHER(this.m_toolManager);
+
+    this.m_toolManager.RegisterTool(new PCB_CONTROL());
+    this.m_toolManager.RegisterTool(new PCB_SELECTION_TOOL());
+    this.m_toolManager.RegisterTool(new COMMON_TOOLS()); // for std context menus (zoom & grid)
+    this.m_toolManager.RegisterTool(new COMMON_CONTROL());
+    this.m_toolManager.RegisterTool(new PCB_PICKER_TOOL()); // for setting grid origin
+    this.m_toolManager.RegisterTool(new ZOOM_TOOL());
+    this.m_toolManager.RegisterTool(new PCB_VIEWER_TOOLS());
+
+    this.m_toolManager.GetTool(PCB_VIEWER_TOOLS)!.SetFootprintFrame(true);
+
+    this.m_toolManager.InitTools();
+    this.m_toolManager.InvokeTool('common.InteractiveSelection');
+  }
+
+  GetName(): string {
+    return 'FootprintViewerFrame';
+  }
+
+  /** `GetModel()`: `GetBoard()->GetFirstFootprint()`. */
+  GetModel(): BOARD_ITEM_CONTAINER | null {
+    return this.GetBoard()?.GetFirstFootprint() ?? null;
+  }
+
+  /** `Kiface().KifaceSettings()`: pcbnew's settings, which `FootprintAutoZoom` flips. */
+  override config(): PCBNEW_SETTINGS {
+    return this.GetPcbNewSettings();
+  }
+
+  /**
+   * `SelectAndViewFootprint( aMode )` (`footprint_viewer_frame.cpp:1013-1060`),
+   * which `PCB_CONTROL::IterateFootprint` runs with the action's parameter.
+   */
+  SelectAndViewFootprint(aMode: FPVIEWER_CONSTANTS): void {
+    if (this.getCurNickname() === '') return;
+
+    this.hooks.selectAndViewFootprint(aMode);
+  }
+
+  /** `PCB_BASE_FRAME::GetPcbNewSettings()`: `GetAppSettings<PCBNEW_SETTINGS>( "pcbnew" )`. */
+  GetPcbNewSettings(): PCBNEW_SETTINGS {
+    const cfg = PgmOrNull()?.GetSettingsManager().GetAppSettings<PCBNEW_SETTINGS>('pcbnew');
+
+    if (cfg) return cfg;
+
+    // No PGM_BASE (a unit test): the defaults, kept so edits to them stick.
+    if (!this.m_fallbackSettings) this.m_fallbackSettings = new PCBNEW_SETTINGS();
+
+    return this.m_fallbackSettings;
+  }
+
+  private m_fallbackSettings: PCBNEW_SETTINGS | null = null;
+
+  /** `PCB_BASE_FRAME::GetFootprintEditorSettings()`; the viewer reads none of it. */
+  GetFootprintEditorSettings(): FOOTPRINT_EDITOR_SETTINGS_LIKE {
+    return {
+      m_DisplayInvertXAxis: false,
+      m_DisplayInvertYAxis: false,
+      m_AngleSnapMode: LEADER_MODE.DIRECT,
+    };
+  }
+
+  /** `PROJECT_PCB::FootprintLibAdapter( &Prj() )`, handed in by the window. */
+  SetFootprintLibAdapter(aAdapter: FOOTPRINT_LIBRARY_ADAPTER | null): void {
+    this.m_footprintLibAdapter = aAdapter;
+    this.GetBoard()?.SetFootprintLibAdapter(aAdapter);
+  }
+
+  GetFootprintLibAdapter(): FOOTPRINT_LIBRARY_ADAPTER | null {
+    return this.m_footprintLibAdapter;
   }
 
   /** `Prj().GetRString( … )`, or the frame's own copy when there is no project. */
@@ -366,6 +494,93 @@ export class FOOTPRINT_VIEWER_FRAME extends KIWAY_PLAYER {
     this.setRstring(RSTRING_T.PCB_FOOTPRINT_VIEWER_FP_NAME, aName);
   }
 
+  /**
+   * The board half of `SelectAndViewFootprint( aMode )`
+   * (`footprint_viewer_frame.cpp:1031-1055`), once the list has settled on a
+   * name: the selection cleared quietly, the board emptied, the footprint
+   * loaded from the library and shown, and the view updated. The library's
+   * file may still be on its way, so the load is awaited; a newer call
+   * supersedes an older one still waiting.
+   */
+  async ViewFootprint(): Promise<void> {
+    const serial = ++this.m_loadSerial;
+    const board = this.GetBoard()!;
+
+    // Delete the current footprint
+    this.m_toolManager?.GetTool(PCB_SELECTION_TOOL)?.ClearSelection(true /* quiet mode */);
+
+    board.DeleteAllFootprints();
+    board.RemoveUnusedNets(null);
+
+    const nickname = this.getCurNickname();
+    const name = this.getCurFootprintName();
+    const adapter = this.m_footprintLibAdapter;
+    let footprint: FOOTPRINT | null = null;
+
+    if (adapter && nickname !== '' && name !== '') {
+      footprint = adapter.LoadFootprintAsync
+        ? await adapter.LoadFootprintAsync(nickname, name, false)
+        : adapter.LoadFootprint(nickname, name, false);
+    }
+
+    if (serial !== this.m_loadSerial) return;
+
+    if (footprint) this.displayFootprint(footprint);
+
+    this.Update3DView(true, true);
+    this.updateView();
+    this.GetCanvas()?.Refresh();
+  }
+
+  /**
+   * `displayFootprint( aFootprint )`. Upstream first gives each pad a net
+   * named for its pin function from `m_comp`, the COMPONENT CvPcb's caller
+   * hands in; the browser opened on its own has an empty one, so no pad gets
+   * a net.
+   */
+  private displayFootprint(aFootprint: FOOTPRINT): void {
+    this.GetBoard()!.Add(aFootprint);
+
+    this.m_toolManager?.RunAction(PCB_ACTIONS.rehatchShapes);
+  }
+
+  /** `updateView()` (`:1063-1079`). */
+  updateView(): void {
+    const canvas = this.GetCanvas();
+
+    if (canvas) {
+      canvas.UpdateColors();
+      canvas.DisplayBoard(this.GetBoard()!);
+    }
+
+    this.m_toolManager?.ResetTools(RESET_REASON.MODEL_RELOAD);
+
+    const cfg = this.GetPcbNewSettings();
+
+    if (canvas) {
+      if (cfg.m_FootprintViewerAutoZoomOnSelect)
+        this.m_toolManager?.RunAction(ACTIONS.zoomFitScreen);
+      else this.m_toolManager?.RunAction(ACTIONS.centerContents);
+    }
+
+    this.UpdateMsgPanel();
+  }
+
+  /** `UpdateMsgPanel()` (`:325-336`): the footprint's own message panel. */
+  override UpdateMsgPanel(): void {
+    super.UpdateMsgPanel();
+
+    const fp = this.GetModel() as FOOTPRINT | null;
+
+    if (fp) {
+      const msgItems: MSG_PANEL_ITEM[] = [];
+      fp.GetMsgPanelInfo(this as unknown as EDA_DRAW_FRAME_LIKE, msgItems);
+      this.SetMsgPanel(msgItems);
+    } else {
+      this.SetMsgPanel([]);
+    }
+  }
+
   /** `FOOTPRINT_VIEWER_FRAME::KiwayMailIn` (`footprint_viewer_frame.cpp:973-984`). */
   override KiwayMailIn(mail: KIWAY_MAIL_EVENT): void {
     switch (mail.Command()) {
@@ -379,9 +594,8 @@ export class FOOTPRINT_VIEWER_FRAME extends KIWAY_PLAYER {
   }
 
   /**
-   * `AddFootprintToPCB()` (`footprint_viewer_frame.cpp:707-783`): "export the
-   * current footprint name and close the library browser" — in fact, hand a
-   * copy of the footprint on show to the board editor to place, and raise it.
+   * `AddFootprintToPCB()` (`footprint_viewer_frame.cpp:744-801`): hand a copy
+   * of the footprint on show to the board editor, on the cursor, and raise it.
    *
    * Nothing happens with no footprint on the board. With no board editor alive
    * it is `DisplayErrorMessage( "No board currently open." )`; with a
@@ -392,7 +606,7 @@ export class FOOTPRINT_VIEWER_FRAME extends KIWAY_PLAYER {
    * Returns whether the footprint was handed over.
    */
   AddFootprintToPCB(): boolean {
-    const shown = this.hooks.getFirstFootprint();
+    const shown = this.GetBoard()?.GetFirstFootprint() ?? null;
 
     if (!shown) return false;
 
@@ -405,16 +619,60 @@ export class FOOTPRINT_VIEWER_FRAME extends KIWAY_PLAYER {
       return false;
     }
 
+    const cfg = pcbframe.GetPcbNewSettings();
+    const toolMgr = pcbframe.GetToolManager()!;
+
     if (pcbframe.PlacingFootprint()) {
       DisplayErrorMessage(FPVIEWER_PLACEMENT_IN_PROGRESS);
       return false;
     }
 
-    pcbframe.PlaceFootprintFromLibraryBrowser(shown.fpid, shown.footprint);
+    pcbframe.CloseBlockingDialog();
+
+    toolMgr.RunAction(ACTIONS.selectionClear);
+    const commit = new BOARD_COMMIT(pcbframe);
+
+    // Create the "new" footprint
+    const newFootprint = shown.Duplicate(IGNORE_PARENT_GROUP) as FOOTPRINT;
+    newFootprint.SetParent(pcbframe.GetBoard());
+    newFootprint.SetLink(niluuid);
+    newFootprint.SetFlags(IS_NEW); // whatever
+
+    for (const pad of newFootprint.Pads()) {
+      // Set the pads ratsnest settings to the global settings
+      pad.SetLocalRatsnestVisible(cfg.m_Display.m_ShowGlobalRatsnest);
+
+      // Pads in the library all have orphaned nets.  Replace with Default.
+      pad.SetNetCode(0);
+    }
+
+    // Put it on FRONT layer,
+    // (Can be stored flipped if the lib is an archive built from a board)
+    if (newFootprint.IsFlipped())
+      newFootprint.Flip(newFootprint.GetPosition(), cfg.m_FlipDirection);
+
+    const viewControls = pcbframe.GetCanvas()?.GetViewControls() ?? null;
+    const cursorPos = viewControls?.GetCursorPosition() ?? { x: 0, y: 0 };
+
+    commit.Add(newFootprint);
+    viewControls?.SetCrossHairCursorPosition({ x: 0, y: 0 }, false);
+    pcbframe.PlaceFootprint(newFootprint);
+
+    newFootprint.SetPosition({ x: 0, y: 0 });
+    viewControls?.SetCrossHairCursorPosition(cursorPos, false);
+    commit.Push('Insert Footprint');
 
     // `pcbframe->Raise()`.
     kiway?.Player(FRAME_T.FRAME_PCB_EDITOR);
+    toolMgr.PostAction(PCB_ACTIONS.placeFootprint, newFootprint);
+
+    newFootprint.ClearFlags();
 
     return true;
   }
+}
+
+/** `LIB_ID( getCurNickname(), getCurFootprintName() )`, for a caller that wants one. */
+export function viewerLibId(aFrame: FOOTPRINT_VIEWER_FRAME): LIB_ID {
+  return new LIB_ID(aFrame.getCurNickname(), aFrame.getCurFootprintName());
 }

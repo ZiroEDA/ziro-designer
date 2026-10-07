@@ -264,6 +264,8 @@ export class FOOTPRINT_EDIT_FRAME extends PCB_BASE_EDIT_FRAME {
     this.m_toolManager.RegisterTool(new PROPERTIES_TOOL());
     this.m_toolManager.RegisterTool(new EMBED_TOOL());
 
+    this.m_toolManager.GetTool(PCB_VIEWER_TOOLS)!.SetFootprintFrame(true);
+
     for (const tool of this.m_toolManager.Tools()) {
       if (tool instanceof PCB_TOOL_BASE) tool.SetIsFootprintEditor(true);
     }
