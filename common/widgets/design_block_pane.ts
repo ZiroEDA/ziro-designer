@@ -18,6 +18,7 @@ import { DESIGN_BLOCK_FILE_T, DESIGN_BLOCK_IO_MGR } from '../design_block_io.js'
 import type { DESIGN_BLOCK_LIBRARY_ADAPTER } from '../design_block_library_adapter.js';
 import { IO_ERROR } from '../exceptions.js';
 import { LIB_ID } from '../lib_id.js';
+import type { LibTreeNode } from '../lib_tree_model.js';
 import type { LIBRARY_MANAGER } from '../libraries/library_manager.js';
 import { LIBRARY_TABLE_SCOPE, LIBRARY_TABLE_TYPE } from '../libraries/library_table.js';
 import { KiCadDesignBlockLibPathExtension } from '../wildcards_and_files_ext.js';
@@ -76,6 +77,22 @@ export class DESIGN_BLOCK_PANE {
     this.m_frame = aFrame;
     this.m_dialogs = aDialogs;
     this.m_historyList = aHistoryList;
+  }
+
+  /** `LIB_TREE::GetCurrentTreeNode()`: the chooser's tree reports the node it is on. */
+  private m_currentTreeNode: LibTreeNode | null = null;
+
+  /** The chooser's LIB_TREE sets the node under the pointer (or the selected one) here. */
+  SetCurrentTreeNode(aNode: LibTreeNode | null): void {
+    this.m_currentTreeNode = aNode;
+  }
+
+  /**
+   * `GetDesignBlockPanel()`: PANEL_DESIGN_BLOCK_CHOOSER, as far as DESIGN_BLOCK_CONTROL reaches
+   * into it - `GetLibTree()->GetCurrentTreeNode()`.
+   */
+  GetDesignBlockPanel(): { GetLibTree(): { GetCurrentTreeNode(): LibTreeNode | null } | null } {
+    return { GetLibTree: () => ({ GetCurrentTreeNode: () => this.m_currentTreeNode }) };
   }
 
   /** The chooser reports its selection here. */

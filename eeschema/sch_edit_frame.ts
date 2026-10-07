@@ -31,6 +31,10 @@ import { unescapeString } from '@ziroeda/common/string_utils.js';
 import { DIALOG_BOOK_REPORTER } from '@ziroeda/common/dialogs/dialog_book_reporter.js';
 import { SCH_NAVIGATE_TOOL } from './tools/sch_navigate_tool.js';
 import { SCH_POINT_EDITOR } from './tools/sch_point_editor.js';
+import { SCH_DESIGN_BLOCK_CONTROL } from './tools/sch_design_block_control.js';
+import { PROPERTIES_TOOL } from '@ziroeda/common/tool/properties_tool.js';
+import { EMBED_TOOL } from '@ziroeda/common/tool/embed_tool.js';
+import { SCH_FIND_REPLACE_TOOL } from './tools/sch_find_replace_tool.js';
 import { SCH_EDIT_TABLE_TOOL } from './tools/sch_edit_table_tool.js';
 import { SCH_MOVE_TOOL } from './tools/sch_move_tool.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
@@ -240,11 +244,6 @@ export interface SCH_EDIT_FRAME_HOOKS {
     aWildcard: string,
     aStyle: number,
   ): string | null | Promise<string | null>;
-  /**
-   * `std::ofstream( aPath ) << aText`: write a text file into the project. False is
-   * `!outFile.is_open()`, as with no hook.
-   */
-  writeTextFile?(aPath: string, aText: string): boolean;
 }
 
 // biome-ignore lint/suspicious/noUnsafeDeclarationMerging: TS multiple inheritance (SCH_UNDO_REDO_MIXIN, see libs/core/mixins.ts)
@@ -424,12 +423,13 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
     this.m_toolManager.RegisterTool(new SCH_EDIT_TABLE_TOOL());
     this.m_toolManager.RegisterTool(new SCH_GROUP_TOOL());
     this.m_toolManager.RegisterTool(new SCH_INSPECTION_TOOL());
+    this.m_toolManager.RegisterTool(new SCH_DESIGN_BLOCK_CONTROL());
+    // Not ported yet: SCH_EDITOR_CONTROL, registered here upstream.
+    this.m_toolManager.RegisterTool(new SCH_FIND_REPLACE_TOOL());
     this.m_toolManager.RegisterTool(new SCH_POINT_EDITOR());
     this.m_toolManager.RegisterTool(new SCH_NAVIGATE_TOOL());
-    // Not ported yet (S5, one KiCad file per step):
-    // SCH_EDIT_TABLE_TOOL,
-    // SCH_DESIGN_BLOCK_CONTROL, SCH_EDITOR_CONTROL,
-    // SCH_FIND_REPLACE_TOOL, SCH_POINT_EDITOR (before SCH_NAVIGATE_TOOL), PROPERTIES_TOOL, EMBED_TOOL.
+    this.m_toolManager.RegisterTool(new PROPERTIES_TOOL());
+    this.m_toolManager.RegisterTool(new EMBED_TOOL());
     this.m_toolManager.InitTools();
 
     // sch_edit_frame.cpp:458
@@ -949,11 +949,6 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
     return Promise.resolve(
       this.hooks.fileDialog?.(aTitle, aDefaultDir, aDefaultFile, aWildcard, aStyle) ?? null,
     );
-  }
-
-  /** See SCH_EDIT_FRAME_HOOKS.writeTextFile. */
-  WriteTextFile(aPath: string, aText: string): boolean {
-    return this.hooks.writeTextFile?.(aPath, aText) ?? false;
   }
 
   /** The window's half of the dialogs a tool opens: see SCH_EDIT_FRAME_HOOKS.showModal. */

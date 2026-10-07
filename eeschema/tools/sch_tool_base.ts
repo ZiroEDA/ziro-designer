@@ -25,12 +25,12 @@ import type { Vec2 as VECTOR2D } from '@ziroeda/kimath/src/math/vector2.js';
 import { SCH_COLLECTOR } from '../sch_collectors.js';
 import { SCH_COMMIT } from '../sch_commit.js';
 import type { SCH_BASE_FRAME } from '../sch_base_frame.js';
-import { SCH_EDIT_FRAME } from '../sch_edit_frame.js';
+import type { SCH_EDIT_FRAME } from '../sch_edit_frame.js';
 import { SCH_ITEM } from '../sch_item.js';
 import type { SCH_PIN } from '../sch_pin.js';
 import type { SCH_TEXT } from '../sch_text.js';
 import type { SCH_VIEW } from '../sch_view.js';
-import { SYMBOL_EDIT_FRAME } from '../symbol_editor/symbol_edit_frame.js';
+import type { SYMBOL_EDIT_FRAME } from '../symbol_editor/symbol_edit_frame.js';
 import type { SCH_SELECTION_TOOL } from './sch_selection_tool.js';
 
 export abstract class SCH_TOOL_BASE<T extends SCH_BASE_FRAME> extends TOOL_INTERACTIVE {
@@ -71,7 +71,9 @@ export abstract class SCH_TOOL_BASE<T extends SCH_BASE_FRAME> extends TOOL_INTER
     if (aReason === RESET_REASON.MODEL_RELOAD || aReason === RESET_REASON.SUPERMODEL_RELOAD) {
       // Init variables used by every drawing tool
       this.m_frame = this.getEditFrame<T>();
-      this.m_isSymbolEditor = this.m_frame instanceof SYMBOL_EDIT_FRAME;
+      // dynamic_cast<SYMBOL_EDIT_FRAME*>( m_frame ) != nullptr, by frame type: the frame classes
+      // import every tool, so a value import of them here is a cycle.
+      this.m_isSymbolEditor = !!this.m_frame?.IsType(FRAME_T.FRAME_SCH_SYMBOL_EDITOR);
     }
 
     this.m_view = this.getView() as SCH_VIEW | null;
@@ -283,11 +285,11 @@ export abstract class SCH_TOOL_BASE<T extends SCH_BASE_FRAME> extends TOOL_INTER
     // a drag operation.
     if (selected && item.HasFlag(SELECTED_BY_DRAG)) item.ClearSelected();
 
-    if (this.m_frame instanceof SYMBOL_EDIT_FRAME) {
+    if (this.m_frame?.IsType(FRAME_T.FRAME_SCH_SYMBOL_EDITOR)) {
       // SYMBOL_EDIT_FRAME::SaveCopyInUndoList( wxEmptyString, LIB_SYMBOL* ): the symbol
       // editor's undo arrives with its tools.
-    } else if (this.m_frame instanceof SCH_EDIT_FRAME) {
-      const schematicFrame = this.m_frame;
+    } else if (this.m_frame?.IsType(FRAME_T.FRAME_SCH)) {
+      const schematicFrame = this.m_frame as unknown as SCH_EDIT_FRAME;
       schematicFrame.SaveCopyInUndoList(
         schematicFrame.GetScreen()!,
         item,

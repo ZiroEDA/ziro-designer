@@ -52,7 +52,7 @@ import { reanchorFields } from '../fieldbox.js';
 import { nearestHalfGridPosition } from '@ziroeda/common/eda_draw_frame.js';
 import { CalcArcCenter } from '@ziroeda/kimath/src/trigo.js';
 import { fieldId, refId, sheetPinId } from './hittest.js';
-import { alignBoxes, type ItemBox } from './sch_align_tool.js';
+import { alignBoxes, type ItemBox } from './sch_align_record.js';
 import { normalizeTable } from './table_layout.js';
 import { angleOfSide, constrainOnEdge, sideOfAngle, type SheetEdge } from './sch_sheet_pin_tool.js';
 import { hasCellSelection, promoteCellSelection } from './table_cells.js';

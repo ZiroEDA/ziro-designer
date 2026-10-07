@@ -26,7 +26,7 @@
 import type { LibSymbol, Schematic, Vec2 } from '../types.js';
 import { contains, inflate, sheetPinBBox, type BBox } from './bbox.js';
 import { collectFieldBoxes, refId, type ItemRef } from './hittest.js';
-import { alignBoxes } from './sch_align_tool.js';
+import { alignBoxes } from './sch_align_record.js';
 import { MovableItems } from './sch_request_selection.js';
 
 /**

@@ -43,7 +43,15 @@ import { ORIGIN_TRANSFORMS } from '@ziroeda/common/origin_transforms.js';
 import type { PAGE_INFO } from '@ziroeda/common/page_info.js';
 import { GetColorSettings as PgmGetColorSettings } from '@ziroeda/common/pgm_base.js';
 import type { COLOR_SETTINGS } from '@ziroeda/common/settings/color_settings.js';
-import { strNumCmp } from '@ziroeda/common/string_utils.js';
+import { strNumCmp, unescapeString } from '@ziroeda/common/string_utils.js';
+import { SCH_SEARCH_DATA } from '@ziroeda/common/eda_search_data.js';
+import { FIELD_T } from '@ziroeda/common/template_fieldnames.js';
+import { ACTIONS } from '@ziroeda/common/tool/actions.js';
+import type { SELECTION } from '@ziroeda/common/tool/selection.js';
+import type { SCH_FIELD } from './sch_field.js';
+import type { SCH_LABEL_BASE } from './sch_label.js';
+import type { SCH_SYMBOL } from './sch_symbol.js';
+import type { SCH_TEXT } from './sch_text.js';
 import type { TITLE_BLOCK } from '@ziroeda/common/title_block.js';
 import { RESET_REASON } from '@ziroeda/common/tool/tool_base.js';
 import { VIEW_UPDATE_FLAGS } from '@ziroeda/common/view/view_item.js';
@@ -71,6 +79,25 @@ export interface SCH_LIB_SYMBOL_SOURCE<S> {
 }
 
 /** `LEGACY_SYMBOL_LIB`, the `<project>-cache.lib` a V5 project carries: symbols by cache name. */
+/**
+ * `DIALOG_SCH_FIND` (eeschema/dialogs/dialog_sch_find.h): the modeless Find / Find and Replace
+ * dialog. The window owns it; the frame drives it through these.
+ */
+export interface DIALOG_SCH_FIND {
+  SetFindEntries(aEntries: readonly string[], aFindString: string): void;
+  GetFindEntries(): string[];
+  SetReplaceEntries(aEntries: readonly string[]): void;
+  GetReplaceEntries(): string[];
+  Show(aShow: boolean): void;
+  Destroy(): void;
+}
+
+/** `new DIALOG_SCH_FIND( this, aData, …, aReplace ? wxFR_REPLACEDIALOG : 0 )`. */
+export type DIALOG_SCH_FIND_FACTORY = (
+  aData: SCH_SEARCH_DATA,
+  aReplace: boolean,
+) => DIALOG_SCH_FIND | null;
+
 export interface SCH_LEGACY_CACHE_LIB<S> {
   IsCache(): boolean;
   FindSymbol(aName: string): S | null | undefined;
@@ -179,6 +206,104 @@ export abstract class SCH_BASE_FRAME extends EDA_DRAW_FRAME {
    * EESCHEMA_SETTINGS, null in the symbol editor. Its eeschema rows are the JSON slice's
    * (`m_Input.drag_is_move` is `input.drag_is_move`), see EESCHEMA_SETTINGS.
    */
+  private m_findReplaceDialog: DIALOG_SCH_FIND | null = null;
+  private m_findReplaceDialogFactory: DIALOG_SCH_FIND_FACTORY | null = null;
+
+  /** The window installs how it builds DIALOG_SCH_FIND; with none, no dialog opens. */
+  SetFindReplaceDialogFactory(aFactory: DIALOG_SCH_FIND_FACTORY | null): void {
+    this.m_findReplaceDialogFactory = aFactory;
+  }
+
+  /** `ShowFindReplaceDialog( aReplace )` (sch_base_frame.cpp:522). */
+  ShowFindReplaceDialog(aReplace: boolean): void {
+    let findString = '';
+
+    const selection = (
+      this.m_toolManager?.FindTool('common.InteractiveSelection') as {
+        GetSelection(): SELECTION;
+      } | null
+    )?.GetSelection();
+
+    if (selection && selection.Size() === 1) {
+      const front = selection.Front()!;
+
+      switch (front.Type()) {
+        case KICAD_T.SCH_SYMBOL_T: {
+          const symbol = front as unknown as SCH_SYMBOL;
+          findString = unescapeString(symbol.GetField(FIELD_T.VALUE)!.GetText());
+          break;
+        }
+
+        case KICAD_T.SCH_FIELD_T:
+          findString = unescapeString((front as unknown as SCH_FIELD).GetText());
+          break;
+
+        case KICAD_T.SCH_LABEL_T:
+        case KICAD_T.SCH_GLOBAL_LABEL_T:
+        case KICAD_T.SCH_HIER_LABEL_T:
+        case KICAD_T.SCH_SHEET_PIN_T:
+          findString = unescapeString((front as unknown as SCH_LABEL_BASE).GetText());
+          break;
+
+        case KICAD_T.SCH_TEXT_T:
+          findString = unescapeString((front as unknown as SCH_TEXT).GetText());
+
+          if (findString.includes('\n')) findString = findString.slice(0, findString.indexOf('\n'));
+
+          break;
+
+        default:
+          break;
+      }
+    }
+
+    if (this.m_findReplaceDialog) this.m_findReplaceDialog.Destroy();
+
+    this.m_findReplaceDialog =
+      this.m_findReplaceDialogFactory?.(this.m_findReplaceData as SCH_SEARCH_DATA, aReplace) ??
+      null;
+
+    if (!this.m_findReplaceDialog) return;
+
+    this.m_findReplaceDialog.SetFindEntries(this.m_findStringHistoryList, findString);
+    this.m_findReplaceDialog.SetReplaceEntries(this.m_replaceStringHistoryList);
+    this.m_findReplaceDialog.Show(true);
+  }
+
+  /** `GetFindReplaceDialog()` (sch_base_frame.h:248). */
+  GetFindReplaceDialog(): DIALOG_SCH_FIND | null {
+    return this.m_findReplaceDialog;
+  }
+
+  /** `ShowFindReplaceStatus( aMsg, aStatusTime )` (sch_base_frame.cpp:577). */
+  ShowFindReplaceStatus(aMsg: string, aStatusTime: number): void {
+    const infoBar = this.GetInfoBar();
+
+    if (!infoBar) return;
+
+    // Prepare the infobar, since we don't know its state
+    infoBar.RemoveAllButtons();
+    infoBar.AddCloseButton?.();
+
+    infoBar.ShowMessageFor(aMsg, aStatusTime, 'information');
+  }
+
+  /** `ClearFindReplaceStatus()` (sch_base_frame.cpp:587). */
+  ClearFindReplaceStatus(): void {
+    this.GetInfoBar()?.Dismiss();
+  }
+
+  /** `OnFindDialogClose()` (sch_base_frame.cpp:593): the dialog's close handler calls it. */
+  OnFindDialogClose(): void {
+    this.m_findStringHistoryList = this.m_findReplaceDialog!.GetFindEntries();
+    this.m_replaceStringHistoryList = this.m_findReplaceDialog!.GetReplaceEntries();
+
+    this.m_findReplaceDialog!.Destroy();
+    this.m_findReplaceDialog = null;
+
+    this.m_toolManager?.RunAction(ACTIONS.updateFind);
+  }
+
   private m_busSyntaxHelpPresenter: (() => void) | null = null;
 
   /**
@@ -238,6 +363,7 @@ export abstract class SCH_BASE_FRAME extends EDA_DRAW_FRAME {
 
   constructor(aFrameType: FRAME_T, aIuScale: EdaIuScale = schIUScale, aUnits: EdaUnits = 'mm') {
     super(aFrameType, aIuScale, aUnits);
+    this.m_findReplaceData = new SCH_SEARCH_DATA();
   }
 
   override GetOriginTransforms(): ORIGIN_TRANSFORMS {

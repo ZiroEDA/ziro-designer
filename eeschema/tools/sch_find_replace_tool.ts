@@ -21,6 +21,28 @@ import { EdaCombinedMatcher } from '@ziroeda/common/eda_pattern_match.js';
 import { unescapeString } from '@ziroeda/common/string_utils.js';
 import { refId } from './hittest.js';
 import { schSymbolLibraryName } from '../lib_symbol.js';
+import { type EDA_ITEM, RECURSE_MODE } from '@ziroeda/common/eda_item.js';
+import { type EDA_SEARCH_DATA, SCH_SEARCH_DATA } from '@ziroeda/common/eda_search_data.js';
+import { FRAME_T } from '@ziroeda/common/frame_type.js';
+import { FIELD_T } from '@ziroeda/common/template_fieldnames.js';
+import { ACTIONS, EVENTS } from '@ziroeda/common/tool/actions.js';
+import type { TOOL_EVENT } from '@ziroeda/common/tool/tool_event.js';
+import { SYNC_HANDLER } from '@ziroeda/common/tool/tool_interactive.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { stdSort } from '@ziroeda/kimath/src/clipper2/clipper.core.js';
+import type { SCH_BASE_FRAME } from '../sch_base_frame.js';
+import { SCH_COMMIT } from '../sch_commit.js';
+import type { SCH_EDIT_FRAME } from '../sch_edit_frame.js';
+import type { SCH_FIELD } from '../sch_field.js';
+import type { SCH_ITEM } from '../sch_item.js';
+import type { SCH_LABEL_BASE } from '../sch_label.js';
+import { SCH_SCREENS, type SCH_SCREEN } from '../sch_screen.js';
+import type { SCH_SHEET } from '../sch_sheet.js';
+import { SCH_SHEET_LIST, type SCH_SHEET_PATH } from '../sch_sheet_path.js';
+import type { SCH_SYMBOL } from '../sch_symbol.js';
+import type { SYMBOL_EDIT_FRAME } from '../symbol_editor/symbol_edit_frame.js';
+import { SCH_ACTIONS } from './sch_actions.js';
+import { SCH_TOOL_BASE } from './sch_tool_base.js';
 
 /**
  * EDA_SEARCH_MATCH_MODE. `permissive` is the Search panel's mode — upstream's
@@ -631,4 +653,460 @@ export function replaceInSymbol(
   });
 
   return changed ? { ...sym, properties, units } : null;
+}
+
+// ---------------------------------------------------------------------------------------------
+// The live tool. Everything above is the record model's and goes when the window switches.
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * `SCH_FIND_REPLACE_TOOL` (eeschema/tools/sch_find_replace_tool.{h,cpp}): Find, Find Next and
+ * Previous, Replace and Replace All over the live schematic or the symbol being edited.
+ */
+export class SCH_FIND_REPLACE_TOOL extends SCH_TOOL_BASE<SCH_BASE_FRAME> {
+  private m_afterItem: SCH_ITEM | null = null;
+  private m_afterItemScreen: SCH_SCREEN | null = null;
+  private m_lastSearchString = '';
+  private m_foundItemHighlighted = false;
+
+  constructor() {
+    super('eeschema.FindReplace');
+  }
+
+  /** `static_cast<SCH_EDIT_FRAME*>( m_frame )->GetCurrentSheet()` when the frame is FRAME_SCH. */
+  private currentSheet(): SCH_SHEET_PATH | null {
+    return this.m_frame!.GetFrameType() === FRAME_T.FRAME_SCH
+      ? (this.m_frame as unknown as SCH_EDIT_FRAME).GetCurrentSheet()
+      : null;
+  }
+
+  /** `dynamic_cast<SCH_SEARCH_DATA*>( &data )`. */
+  private static schData(aData: EDA_SEARCH_DATA): SCH_SEARCH_DATA | null {
+    return aData instanceof SCH_SEARCH_DATA ? aData : null;
+  }
+
+  FindAndReplace(aEvent: TOOL_EVENT): number {
+    this.m_frame!.ShowFindReplaceDialog(aEvent.IsAction(ACTIONS.findAndReplace));
+    return this.UpdateFind(aEvent);
+  }
+
+  UpdateFind(aEvent: TOOL_EVENT): number {
+    const data = this.m_frame!.GetFindReplaceData();
+    const schSearchData = SCH_FIND_REPLACE_TOOL.schData(data);
+    const sheetPath = this.currentSheet();
+    const selectedOnly = schSearchData ? schSearchData.searchSelectedOnly : false;
+
+    const visit = (aItem: EDA_ITEM, aSheet: SCH_SHEET_PATH | null) => {
+      // We may get triggered when the dialog is not opened due to binding
+      // SelectedItemsModified we also get triggered when the find dialog is
+      // closed....so we need to double check the dialog is open.
+      if (
+        this.m_frame!.GetFindReplaceDialog() !== null &&
+        data.findString !== '' &&
+        aItem.Matches(data, aSheet) &&
+        (!selectedOnly || aItem.IsSelected())
+      ) {
+        aItem.SetForceVisible(true);
+        this.m_selectionTool!.BrightenItem(aItem);
+        this.m_foundItemHighlighted = true;
+      } else if (aItem.IsBrightened() || aItem.IsForceVisible()) {
+        aItem.SetForceVisible(false);
+        this.m_selectionTool!.UnbrightenItem(aItem);
+      }
+    };
+
+    const visitAll = () => {
+      if (this.m_frame!.IsType(FRAME_T.FRAME_SCH_SYMBOL_EDITOR)) {
+        const symbol = (this.m_frame as unknown as SYMBOL_EDIT_FRAME).GetCurSymbol();
+
+        if (symbol) {
+          for (const item of symbol.GetDrawItems()) visit(item, null);
+        }
+      } else {
+        for (const item of this.m_frame!.GetScreen()!.Items()) {
+          visit(item, sheetPath);
+
+          item.RunOnChildren(
+            (aChild: SCH_ITEM) => visit(aChild, sheetPath),
+            RECURSE_MODE.NO_RECURSE,
+          );
+        }
+      }
+    };
+
+    if (
+      aEvent.IsAction(ACTIONS.find) ||
+      aEvent.IsAction(ACTIONS.findAndReplace) ||
+      aEvent.IsAction(ACTIONS.updateFind)
+    ) {
+      this.m_foundItemHighlighted = false;
+      visitAll();
+    } else if (aEvent.Matches(EVENTS.SelectedItemsModified)) {
+      for (const item of this.m_selectionTool!.GetSelection()) visit(item, sheetPath);
+    } else if (
+      aEvent.Matches(EVENTS.PointSelectedEvent) ||
+      aEvent.Matches(EVENTS.SelectedEvent) ||
+      aEvent.Matches(EVENTS.UnselectedEvent) ||
+      aEvent.Matches(EVENTS.ClearedEvent)
+    ) {
+      if (!this.m_frame!.GetFindReplaceDialog()) {
+        if (this.m_foundItemHighlighted) {
+          this.m_foundItemHighlighted = false;
+          visitAll();
+        }
+      } else if (selectedOnly) {
+        // Normal find modifies the selection, but selection-based find does not, so we want
+        // to start over in the items we are searching through when the selection changes
+        this.m_afterItem = null;
+        this.m_afterItemScreen = null;
+        visitAll();
+      }
+    } else if (this.m_foundItemHighlighted) {
+      this.m_foundItemHighlighted = false;
+      visitAll();
+    }
+
+    this.getView()?.UpdateItems();
+    this.m_frame!.GetCanvas()?.Refresh();
+
+    return 0;
+  }
+
+  private nextMatch(
+    aScreen: SCH_SCREEN,
+    aSheet: SCH_SHEET_PATH | null,
+    aAfter: SCH_ITEM | null,
+    aData: EDA_SEARCH_DATA,
+    reversed: boolean,
+  ): SCH_ITEM | null {
+    const schSearchData = SCH_FIND_REPLACE_TOOL.schData(aData);
+    const selectedOnly = schSearchData ? schSearchData.searchSelectedOnly : false;
+    let past_item = !aAfter;
+    const sorted_items: SCH_ITEM[] = [];
+
+    const addItem = (item: SCH_ITEM) => {
+      sorted_items.push(item);
+
+      if (item.Type() === KICAD_T.SCH_SYMBOL_T) {
+        const cmp = item as unknown as SCH_SYMBOL;
+
+        for (const field of cmp.GetFields()) sorted_items.push(field);
+
+        for (const pin of cmp.GetPins()) sorted_items.push(pin);
+      } else if (item.Type() === KICAD_T.SCH_SHEET_T) {
+        const sheet = item as unknown as SCH_SHEET;
+
+        for (const field of sheet.GetFields()) sorted_items.push(field);
+
+        for (const pin of sheet.GetPins()) sorted_items.push(pin);
+      } else if (item.IsType([KICAD_T.SCH_LABEL_LOCATE_ANY_T])) {
+        const label = item as unknown as SCH_LABEL_BASE;
+
+        for (const field of label.GetFields()) sorted_items.push(field);
+      }
+    };
+
+    if (selectedOnly) {
+      for (const item of this.m_selectionTool!.GetSelection()) addItem(item as SCH_ITEM);
+    } else if (this.m_frame!.IsType(FRAME_T.FRAME_SCH_SYMBOL_EDITOR)) {
+      const symbol = (this.m_frame as unknown as SYMBOL_EDIT_FRAME).GetCurSymbol();
+
+      if (symbol) {
+        for (const item of symbol.GetDrawItems()) addItem(item);
+      }
+    } else {
+      for (const item of aScreen.Items()) addItem(item);
+    }
+
+    stdSort(sorted_items, (a: SCH_ITEM, b: SCH_ITEM) => {
+      if (a.GetPosition().x === b.GetPosition().x) {
+        // Ensure deterministic sort
+        if (a.GetPosition().y === b.GetPosition().y) return a.m_Uuid < b.m_Uuid;
+
+        return a.GetPosition().y < b.GetPosition().y;
+      }
+
+      return a.GetPosition().x < b.GetPosition().x;
+    });
+
+    if (reversed) sorted_items.reverse();
+
+    for (const item of sorted_items) {
+      if (item === aAfter) {
+        past_item = true;
+      } else if (past_item) {
+        if (aData.markersOnly && item.Type() === KICAD_T.SCH_MARKER_T) return item;
+
+        if (item.Matches(aData, aSheet)) return item;
+      }
+    }
+
+    return null;
+  }
+
+  FindNext(aEvent: TOOL_EVENT): number {
+    const data = this.m_frame!.GetFindReplaceData();
+    let searchAllSheets = false;
+    let selectedOnly = false;
+    const isReversed = aEvent.IsAction(ACTIONS.findPrevious);
+    let item: SCH_ITEM | null = null;
+    let currentSheet: SCH_SHEET_PATH | null = null;
+    let afterSheet: SCH_SHEET_PATH | null = null;
+
+    const schSearchData = SCH_FIND_REPLACE_TOOL.schData(data);
+
+    if (schSearchData) {
+      if (this.m_frame!.GetFrameType() === FRAME_T.FRAME_SCH) {
+        currentSheet = afterSheet = (this.m_frame as unknown as SCH_EDIT_FRAME).GetCurrentSheet();
+        searchAllSheets = !schSearchData.searchCurrentSheetOnly;
+      }
+
+      selectedOnly = schSearchData.searchSelectedOnly;
+    }
+
+    if (aEvent.IsAction(ACTIONS.findNextMarker)) data.markersOnly = true;
+    else if (data.findString === '') return this.FindAndReplace(ACTIONS.find.MakeEvent());
+
+    if (this.m_afterItem && this.m_afterItemScreen !== this.m_frame!.GetScreen()) {
+      this.m_afterItem = null;
+      this.m_afterItemScreen = null;
+    }
+
+    if (data.findString !== this.m_lastSearchString) {
+      this.m_afterItem = null;
+      this.m_afterItemScreen = null;
+      this.m_lastSearchString = data.findString;
+    }
+
+    let wrappedAround = false;
+
+    for (let attempt = 0; attempt < 2; ++attempt) {
+      if (attempt === 1) {
+        if (this.m_afterItem === null) break; // already a fresh session; nothing to wrap to
+
+        this.m_afterItem = null;
+        this.m_afterItemScreen = null;
+        afterSheet = null;
+        wrappedAround = true;
+      }
+
+      const freshSession = this.m_afterItem === null;
+
+      if (afterSheet || !searchAllSheets || selectedOnly)
+        item = this.nextMatch(
+          this.m_frame!.GetScreen()!,
+          currentSheet,
+          this.m_afterItem,
+          data,
+          isReversed,
+        );
+
+      if (!item && searchAllSheets && !selectedOnly) {
+        if (this.m_frame!.GetFrameType() === FRAME_T.FRAME_SCH) {
+          const editFrame = this.m_frame as unknown as SCH_EDIT_FRAME;
+          const screens = new SCH_SCREENS(editFrame.Schematic().Root());
+          const paths = new SCH_SHEET_LIST();
+
+          screens.BuildClientSheetPathList();
+
+          for (let screen = screens.GetFirst(); screen; screen = screens.GetNext()) {
+            for (const sheet of screen.GetClientSheetPaths()) paths.push(sheet);
+          }
+
+          paths.SortByPageNumbers(false);
+
+          if (isReversed) paths.reverse();
+
+          for (const sheet of paths) {
+            if (afterSheet && !freshSession) {
+              if (afterSheet.GetCurrentHash() === sheet.GetCurrentHash()) afterSheet = null;
+
+              continue;
+            }
+
+            item = this.nextMatch(sheet.LastScreen()!, sheet, null, data, isReversed);
+
+            if (item) {
+              if (!editFrame.Schematic().CurrentSheet().equals(sheet))
+                editFrame.GetToolManager()!.RunAction(SCH_ACTIONS.changeSheet, sheet);
+
+              break;
+            }
+          }
+        }
+      }
+
+      if (item) break;
+    }
+
+    if (item) {
+      this.m_afterItem = item;
+      this.m_afterItemScreen = this.m_frame!.GetScreen();
+
+      if (!selectedOnly) {
+        this.m_selectionTool!.ClearSelection();
+        this.m_selectionTool!.AddItemToSel(item);
+      }
+
+      if (!item.IsBrightened()) {
+        // Clear any previous brightening
+        this.UpdateFind(aEvent);
+
+        // Brighten (and show) found object
+        item.SetForceVisible(true);
+        this.m_selectionTool!.BrightenItem(item);
+        this.m_foundItemHighlighted = true;
+      }
+
+      this.m_frame!.FocusOnLocation(item.GetBoundingBox().GetCenter());
+      this.m_frame!.GetCanvas()?.Refresh();
+
+      if (wrappedAround) {
+        let msg: string;
+
+        if (this.m_frame!.GetFrameType() === FRAME_T.FRAME_SCH_SYMBOL_EDITOR)
+          msg = 'Reached end of symbol.';
+        else if (searchAllSheets) msg = 'Reached end of schematic.';
+        else msg = 'Reached end of sheet.';
+
+        this.m_frame!.ShowFindReplaceStatus(msg, 2000);
+      }
+    } else {
+      this.m_afterItem = null;
+      this.m_afterItemScreen = null;
+      this.m_frame!.ShowFindReplaceStatus('No matches found.', 2000);
+    }
+
+    return 0;
+  }
+
+  private getCurrentMatch(): EDA_ITEM | null {
+    const data = this.m_frame!.GetFindReplaceData();
+    const schSearchData = SCH_FIND_REPLACE_TOOL.schData(data);
+    const selectedOnly = schSearchData ? schSearchData.searchSelectedOnly : false;
+
+    return selectedOnly ? this.m_afterItem : this.m_selectionTool!.GetSelection().Front();
+  }
+
+  HasMatch(): boolean {
+    const data = this.m_frame!.GetFindReplaceData();
+    const match = this.getCurrentMatch();
+    const sheetPath = this.currentSheet();
+
+    return !!match && match.Matches(data, sheetPath);
+  }
+
+  ReplaceAndFindNext(_aEvent: TOOL_EVENT): number {
+    const data = this.m_frame!.GetFindReplaceData();
+    const item = this.getCurrentMatch();
+    const currentSheet = this.currentSheet();
+
+    if (data.findString === '') return this.FindAndReplace(ACTIONS.find.MakeEvent());
+
+    if (item && this.HasMatch()) {
+      const commit = new SCH_COMMIT(this.m_frame!);
+      const sch_item = item as SCH_ITEM;
+
+      commit.Modify(sch_item, this.m_frame!.GetScreen(), RECURSE_MODE.NO_RECURSE);
+
+      if (item.Replace(data, currentSheet)) {
+        if (currentSheet) currentSheet.UpdateAllScreenReferences();
+
+        commit.Push('Find and Replace');
+      }
+
+      this.FindNext(ACTIONS.findNext.MakeEvent());
+    }
+
+    return 0;
+  }
+
+  ReplaceAll(_aEvent: TOOL_EVENT): number {
+    const data = this.m_frame!.GetFindReplaceData();
+    let currentSheet: SCH_SHEET_PATH | null = null;
+    let currentSheetOnly = true;
+    let selectedOnly = false;
+
+    const schSearchData = SCH_FIND_REPLACE_TOOL.schData(data);
+
+    if (schSearchData) {
+      if (this.m_frame!.GetFrameType() === FRAME_T.FRAME_SCH) {
+        currentSheet = (this.m_frame as unknown as SCH_EDIT_FRAME).GetCurrentSheet();
+        currentSheetOnly = schSearchData.searchCurrentSheetOnly;
+      }
+
+      selectedOnly = schSearchData.searchSelectedOnly;
+    }
+
+    const commit = new SCH_COMMIT(this.m_frame!);
+
+    if (data.findString === '') return this.FindAndReplace(ACTIONS.find.MakeEvent());
+
+    const doReplace = (aItem: SCH_ITEM, aSheet: SCH_SHEET_PATH | null, aData: EDA_SEARCH_DATA) => {
+      if (!aSheet) return; // wxCHECK_RET( aSheet, "must have a sheetpath for undo" )
+
+      commit.Modify(aItem, aSheet.LastScreen(), RECURSE_MODE.NO_RECURSE);
+
+      if (aItem.Replace(aData, aSheet)) this.m_frame!.UpdateItem(aItem, false, true);
+    };
+
+    if (currentSheetOnly || selectedOnly) {
+      let item = this.nextMatch(this.m_frame!.GetScreen()!, currentSheet, null, data, false);
+
+      while (item) {
+        if (!selectedOnly || item.IsSelected()) doReplace(item, currentSheet, data);
+
+        item = this.nextMatch(this.m_frame!.GetScreen()!, currentSheet, item, data, false);
+      }
+    } else if (this.m_frame!.GetFrameType() === FRAME_T.FRAME_SCH) {
+      const schematicFrame = this.m_frame as unknown as SCH_EDIT_FRAME;
+      const allSheets = schematicFrame.Schematic().Hierarchy();
+      const screens = new SCH_SCREENS(schematicFrame.Schematic().Root());
+
+      for (let screen = screens.GetFirst(); screen; screen = screens.GetNext()) {
+        const sheets = allSheets.FindAllSheetsForScreen(screen);
+
+        for (let ii = 0; ii < sheets.length; ++ii) {
+          let item = this.nextMatch(screen, sheets[ii]!, null, data, false);
+
+          while (item) {
+            if (ii === 0) {
+              doReplace(item, sheets[0]!, data);
+            } else if (item.Type() === KICAD_T.SCH_FIELD_T) {
+              const field = item as unknown as SCH_FIELD;
+
+              // References must be handled for each distinct sheet
+              if (field.GetId() === FIELD_T.REFERENCE) doReplace(field, sheets[ii]!, data);
+            }
+
+            item = this.nextMatch(screen, sheets[ii]!, item, data, false);
+          }
+        }
+      }
+    }
+
+    if (!commit.Empty()) {
+      commit.Push('Find and Replace All');
+
+      if (currentSheet) currentSheet.UpdateAllScreenReferences();
+    }
+
+    return 0;
+  }
+
+  protected override setTransitions(): void {
+    this.Go(SYNC_HANDLER(this.FindAndReplace), ACTIONS.find.MakeEvent());
+    this.Go(SYNC_HANDLER(this.FindAndReplace), ACTIONS.findAndReplace.MakeEvent());
+    this.Go(SYNC_HANDLER(this.FindNext), ACTIONS.findNext.MakeEvent());
+    this.Go(SYNC_HANDLER(this.FindNext), ACTIONS.findPrevious.MakeEvent());
+    this.Go(SYNC_HANDLER(this.FindNext), ACTIONS.findNextMarker.MakeEvent());
+    this.Go(SYNC_HANDLER(this.ReplaceAndFindNext), ACTIONS.replaceAndFindNext.MakeEvent());
+    this.Go(SYNC_HANDLER(this.ReplaceAll), ACTIONS.replaceAll.MakeEvent());
+    this.Go(SYNC_HANDLER(this.UpdateFind), ACTIONS.updateFind.MakeEvent());
+    this.Go(SYNC_HANDLER(this.UpdateFind), EVENTS.SelectedItemsModified);
+    this.Go(SYNC_HANDLER(this.UpdateFind), EVENTS.PointSelectedEvent);
+    this.Go(SYNC_HANDLER(this.UpdateFind), EVENTS.SelectedEvent);
+    this.Go(SYNC_HANDLER(this.UpdateFind), EVENTS.UnselectedEvent);
+    this.Go(SYNC_HANDLER(this.UpdateFind), EVENTS.ClearedEvent);
+  }
 }

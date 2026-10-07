@@ -29,7 +29,7 @@
 
 import type { LibSymbol, Schematic } from '../types.js';
 import { emptyBBox, includePoint, isEmpty, type BBox } from './bbox.js';
-import { alignBoxes } from './sch_align_tool.js';
+import { alignBoxes } from './sch_align_record.js';
 
 const union = (boxes: readonly { box: BBox }[]): BBox => {
   const out = emptyBBox();

@@ -52,7 +52,7 @@ export * from './label_properties.js';
 export * from './field_properties.js';
 export * from './change_text_type.js';
 export * from './set_attribute.js';
-export * from './sch_align_tool.js';
+export * from './sch_align_record.js';
 export * from './sch_drag_start.js';
 export * from '../autoplace_fields.js';
 export * from './sch_sheet_pin_tool.js';

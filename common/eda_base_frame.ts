@@ -58,6 +58,11 @@ export interface WX_INFOBAR {
   IsLocked(): boolean;
   /** `AddButton( wxHyperlinkCtrl* )` (wx_infobar.h:127). */
   AddButton(aHypertextButton: WX_INFOBAR_HYPERLINK): void;
+  /**
+   * `AddCloseButton( aTooltip = _( "Hide this message." ) )` (wx_infobar.cpp:375). A bar that
+   * draws no close button leaves it out.
+   */
+  AddCloseButton?(aTooltip?: string): void;
   /** `RemoveAllButtons()` (wx_infobar.h:141). */
   RemoveAllButtons(): void;
   /** `ShowMessageFor( aMessage, aTime, aFlags )` (wx_infobar.h:165): shown, then dismissed after aTime ms. */

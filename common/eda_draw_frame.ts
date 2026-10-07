@@ -22,6 +22,7 @@
  * `gridOrigin` defaults to zero, which makes both `fmod` offsets zero.
  */
 
+import { EDA_SEARCH_DATA } from './eda_search_data.js';
 import { LIB_ID } from './lib_id.js';
 import type { LibTreeNode } from './lib_tree_model.js';
 import { type Color4d, LEGACY_COLORS } from './gal/color4d.js';
@@ -266,8 +267,22 @@ export abstract class EDA_DRAW_FRAME extends KIWAY_PLAYER {
   /// For those frames that support polar coordinates.
   protected m_polarCoords = false;
 
+  protected m_findReplaceData: EDA_SEARCH_DATA = new EDA_SEARCH_DATA();
+  protected m_findStringHistoryList: string[] = [];
+  protected m_replaceStringHistoryList: string[] = [];
+
   constructor(aFrameType: FRAME_T, aIuScale: EdaIuScale, aUnits: EdaUnits) {
     super(aFrameType, aIuScale, aUnits);
+  }
+
+  /** `GetFindReplaceData()` (eda_draw_frame.cpp:198). */
+  GetFindReplaceData(): EDA_SEARCH_DATA {
+    return this.m_findReplaceData;
+  }
+
+  /** `GetFindHistoryList()` (eda_draw_frame.h:121). */
+  GetFindHistoryList(): string[] {
+    return this.m_findStringHistoryList;
   }
 
   /**

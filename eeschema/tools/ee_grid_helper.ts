@@ -66,7 +66,7 @@ import type { LibSymbol, SchSymbol, Schematic, Vec2 } from '../types.js';
 import { schSymbolLibraryName } from '../lib_symbol.js';
 import { refId, type ItemRef } from './hittest.js';
 import type { BBox } from './bbox.js';
-import { alignBoxes } from './sch_align_tool.js';
+import { alignBoxes } from './sch_align_record.js';
 
 /** `SNAP_RANGE` (`eeschema/default_values.h:87`), in mils: default_values.ts's. */
 export { SNAP_RANGE };

@@ -12,7 +12,7 @@ import { describe, it, expect } from 'vitest';
 import { parse } from '@ziroeda/sexpr/index.js';
 import { readSchematic } from '@ziroeda/eeschema';
 import { refId } from '@ziroeda/eeschema/tools/hittest.js';
-import { alignItems } from '@ziroeda/eeschema/tools/sch_align_tool.js';
+import { alignItems } from '@ziroeda/eeschema/tools/sch_align_record.js';
 import { mmToIU } from '@ziroeda/common/eda_units.js';
 
 const mm = (v: number): number => mmToIU(v);
