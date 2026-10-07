@@ -7,8 +7,6 @@
  */
 import { describe, expect, it } from 'vitest';
 import { toggleObject, type ObjectState } from '@ziroeda/pcbnew/widgets/appearance_controls.js';
-import { netnameColorFor } from '@ziroeda/pcbnew/renderBoard.js';
-import { PCB_SPECIAL } from '@ziroeda/pcbnew/pcbTheme.js';
 
 const base = { fpText: true, fpValues: true, fpReferences: true, tracks: true } as ObjectState;
 const pick = (s: ObjectState): [boolean, boolean, boolean] => [
@@ -43,27 +41,5 @@ describe('Footprint Text meta-control', () => {
   it('leaves unrelated rows alone', () => {
     expect(toggleObject(base, 'tracks').tracks).toBe(false);
     expect(pick(toggleObject(base, 'tracks'))).toEqual([true, true, true]);
-  });
-});
-
-describe('pad net-name colour (draw(PAD) netname branch)', () => {
-  it('uses the netnames white at 0.7, the value the painter overrides in', () => {
-    // builtin_color_themes.h lists LAYER_PAD_NETNAMES as white 0.9, but
-    // RENDER_SETTINGS::update() replaces it with NETNAMES_LAYER_ID_START.
-    // Taking 0.9 at face value drew pad text at (250,235,235) over a red pad
-    // where pcbnew draws (234,178,178).
-    expect(PCB_SPECIAL.padName).toBe('rgba(255,255,255,0.7)');
-    // Via descriptions get no such override and keep their own colour.
-    expect(PCB_SPECIAL.viaName).toBe('rgba(50,50,50,0.9)');
-  });
-
-  it('darkens over a copper layer bright enough to need it', () => {
-    // SMD pad netnames resolve to GetNetnameLayer( F_Cu / B_Cu ), so they take
-    // the same brightness rule as a track's: light over dark copper, inverted
-    // over light copper.
-    expect(netnameColorFor('F.Cu', undefined, true)).toBe('rgba(255,255,255,0.7)');
-    expect(netnameColorFor('B.Cu', undefined, true)).toBe('rgba(255,255,255,0.7)');
-    // In1.Cu's green is over the 0.5 brightness line, so its labels invert.
-    expect(netnameColorFor('In1.Cu', undefined, true)).toBe('rgba(0,0,0,0.7)');
   });
 });

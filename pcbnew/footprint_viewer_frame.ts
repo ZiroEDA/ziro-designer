@@ -13,7 +13,6 @@
  * `footprint_edit_frame_ui.tsx` owns `FOOTPRINT_EDIT_FRAME`'s.
  */
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
-import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import type { KIWAY_MAIL_EVENT } from '@ziroeda/common/kiway_mail.js';
 import { MAIL_T } from '@ziroeda/common/mail_type.js';
 import { RSTRING_T } from '@ziroeda/common/project.js';
@@ -23,7 +22,7 @@ import type { FOOTPRINT_INFO } from '@ziroeda/common/footprint_info.js';
 import { DisplayErrorMessage } from '@ziroeda/common/confirm.js';
 import { ABOUT_TITLES } from '@ziroeda/common/eda_base_frame_about_titles.js';
 import { listBoxFindString, wxNOT_FOUND } from '@ziroeda/common/widgets/wx_listbox.js';
-import { type EDA_DRAW_FRAME_LIKE, IGNORE_PARENT_GROUP } from '@ziroeda/common/eda_item.js';
+import { IGNORE_PARENT_GROUP } from '@ziroeda/common/eda_item.js';
 import { IS_NEW } from '@ziroeda/common/eda_item_flags.js';
 import { niluuid } from '@ziroeda/common/kiid.js';
 import { LIB_ID } from '@ziroeda/common/lib_id.js';
@@ -574,7 +573,7 @@ export class FOOTPRINT_VIEWER_FRAME extends PCB_BASE_FRAME {
 
     if (fp) {
       const msgItems: MSG_PANEL_ITEM[] = [];
-      fp.GetMsgPanelInfo(this as unknown as EDA_DRAW_FRAME_LIKE, msgItems);
+      fp.GetMsgPanelInfo(this.AsDrawFrameLike(), msgItems);
       this.SetMsgPanel(msgItems);
     } else {
       this.SetMsgPanel([]);

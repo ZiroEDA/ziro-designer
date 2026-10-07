@@ -35,6 +35,7 @@ import {
   serializeFootprint,
 } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { DEFAULT_POINT_SIZE } from '@ziroeda/pcbnew/pcb_point.js';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import {
   addBoardPoint,
   boardItemBBox,
@@ -51,7 +52,8 @@ import {
 import { footprintBBox } from '@ziroeda/pcbnew/edit-footprint.js';
 import { isBoardItemLocked, setBoardItemsLocked } from '@ziroeda/pcbnew/edit-board.js';
 import { livePanel } from './support/live_panel.js';
-import { pcbPointMsgPanelInfo } from '@ziroeda/pcbnew/msg_panel.js';
+import type { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
+import { TEST_PCB_FRAME } from './support/test_pcb_frame.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/generator.js';
 import type { Board } from '@ziroeda/pcbnew/types.js';
@@ -400,8 +402,12 @@ describe('the message panel', () => {
     // value — it stands in for the `Type` row every other item gets from
     // `GetFriendlyName`, which is why it reads "PCB Point" and not "Point" —
     // and X and Y are separate rows, unlike its neighbours' position pair.
-    const b = read();
-    const rows = pcbPointMsgPanelInfo({ board: b, units: 'mm', frame: 'pcb_edit' }, b.points[0]!);
+    const board = ParseBoard(BOARD);
+    const frame = new TEST_PCB_FRAME(board);
+    frame.SetUserUnits('mm');
+    const list: MSG_PANEL_ITEM[] = [];
+    board.Points()[0]!.GetMsgPanelInfo(frame.AsDrawFrameLike(), list);
+    const rows = list.map((i) => ({ upper: i.GetUpperText(), lower: i.GetLowerText() }));
 
     expect(rows.map((r) => r.upper)).toEqual([
       'PCB Point',

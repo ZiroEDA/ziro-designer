@@ -14,15 +14,7 @@
  * unit-agnostic and testing it in millimetres would only add noise.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/index.js';
-import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { buildScene } from '@ziroeda/pcbnew/renderBoard.js';
-import {
-  GlMatrix,
-  GlPath,
-  GL_PATH_FACTORY,
-  asGlPath,
-} from '@ziroeda/designer/src/render/gl/gl_path.js';
+import { GlPath } from '@ziroeda/designer/src/render/gl/gl_path.js';
 
 const near = (a: number, b: number, eps = 1e-6): boolean => Math.abs(a - b) < eps;
 
@@ -132,103 +124,5 @@ describe('GlPath', () => {
         { x: x1, y: y1 },
       ]);
     }
-  });
-});
-
-describe('GlMatrix', () => {
-  it('translate and rotate return new matrices', () => {
-    // The regression this guards: DOMMatrix.translate/rotate are non-mutating
-    // (translateSelf/rotateSelf are the mutating pair). If these mutated, the
-    // single matrix buildScene chains per pad would accumulate every previous
-    // pad's placement, and footprints would drift in placement order.
-    const base = new GlMatrix();
-    const moved = base.translate(5, 7);
-    expect(base.m).toEqual([1, 0, 0, 1, 0, 0]);
-    expect(moved.m).toEqual([1, 0, 0, 1, 5, 7]);
-    expect(moved).not.toBe(base);
-  });
-
-  it('rotates in degrees, as DOMMatrix does', () => {
-    const r = new GlMatrix().rotate(90);
-    // A quarter turn maps (1,0) to (0,1).
-    const [a, b] = r.m;
-    expect(near(a, 0)).toBe(true);
-    expect(near(b, 1)).toBe(true);
-  });
-});
-
-describe('GlPath.addPath', () => {
-  it('applies the matrix and leaves the source alone', () => {
-    const sub = new GlPath();
-    sub.moveTo(1, 0);
-    sub.lineTo(2, 0);
-
-    const dst = new GlPath();
-    dst.addPath(sub, new GlMatrix().translate(10, 20));
-
-    expect(dst.subpaths[0]!.pts).toEqual([
-      { x: 11, y: 20 },
-      { x: 12, y: 20 },
-    ]);
-    // Reused across pads, so a shared sub-path must not be moved in place.
-    expect(sub.subpaths[0]!.pts).toEqual([
-      { x: 1, y: 0 },
-      { x: 2, y: 0 },
-    ]);
-  });
-
-  it('composes translate then rotate the way pad placement does', () => {
-    const sub = new GlPath();
-    sub.moveTo(1, 0);
-    const dst = new GlPath();
-    // buildScene's exact chain: matrix().translate(at).rotate(-angle).
-    dst.addPath(sub, new GlMatrix().translate(100, 100).rotate(90));
-    const p = dst.subpaths[0]!.pts[0]!;
-    // Rotation happens in the translated frame, so (1,0) lands at (100,101).
-    expect(near(p.x, 100)).toBe(true);
-    expect(near(p.y, 101)).toBe(true);
-  });
-});
-
-describe('buildScene through the GL factory', () => {
-  const board = (): ReturnType<typeof readBoard> =>
-    readBoard(
-      parse(`(kicad_pcb (version 20241229) (generator "test")
-  (layers (0 "F.Cu" signal) (31 "B.Cu" signal) (44 "Edge.Cuts" user))
-  (net 0 "")
-  (net 1 "VCC")
-  (segment (start 100 100) (end 120 100) (width 0.25) (layer "F.Cu") (net 1))
-  (footprint "R_0805"
-    (layer "F.Cu")
-    (at 110 110)
-    (pad "1" thru_hole circle (at 0 0) (size 1.5 1.5) (drill 0.8)
-      (layers "*.Cu") (net 1 "VCC")))
-)`),
-    );
-
-  it('produces readable geometry for a real board', () => {
-    const scene = buildScene(board(), {}, GL_PATH_FACTORY);
-
-    // The track: one stroke bucket keyed by width, holding a two-point run.
-    const cu = scene.layers.get('F.Cu');
-    expect(cu).toBeDefined();
-    const trackWidths = [...cu!.tracks.keys()];
-    expect(trackWidths.length).toBeGreaterThan(0);
-    const track = asGlPath(cu!.tracks.get(trackWidths[0]!)!);
-    expect(track.subpaths.length).toBeGreaterThan(0);
-    expect(track.subpaths[0]!.pts.length).toBeGreaterThanOrEqual(2);
-
-    // The pad's drill: placed through a matrix, so this is the end-to-end
-    // check that addPath's transform survived the trip through buildScene.
-    const holes = asGlPath(scene.padHolesPlated);
-    expect(holes.subpaths.length).toBeGreaterThan(0);
-    const all = holes.subpaths.flatMap((s) => s.pts);
-    expect(all.length).toBeGreaterThan(0);
-    // The footprint sits at (110,110) mm, so the drill ring must be centred
-    // there — not at the origin, which is where it is built before placement.
-    const cx = all.reduce((s, q) => s + q.x, 0) / all.length;
-    const cy = all.reduce((s, q) => s + q.y, 0) / all.length;
-    expect(Math.abs(cx - 110e6) / 1e6).toBeLessThan(0.5);
-    expect(Math.abs(cy - 110e6) / 1e6).toBeLessThan(0.5);
   });
 });

@@ -17,7 +17,6 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
-import { buildScene } from '@ziroeda/pcbnew/renderBoard.js';
 import { ReferenceImageCache, base64ToBytes } from '@ziroeda/pcbnew/pcb_reference_image.js';
 import type { Board, PcbImage } from '@ziroeda/pcbnew/types.js';
 
@@ -57,14 +56,14 @@ class RecordingPath2D {
 const PNG =
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
-const image = (over: Partial<PcbImage> = {}): PcbImage => ({
+const _image = (over: Partial<PcbImage> = {}): PcbImage => ({
   at: { x: MM(10), y: MM(20) },
   layer: 'F.SilkS',
   data: PNG,
   ...over,
 });
 
-const board = (images: PcbImage[]): Board => ({
+const _board = (images: PcbImage[]): Board => ({
   version: 20240108,
   layers: [{ id: 0, name: 'F.Cu', kind: 'signal' }],
   nets: new Map([[0, '']]),
@@ -82,52 +81,6 @@ const board = (images: PcbImage[]): Board => ({
   points: [],
   barcodes: [],
   groups: [],
-});
-
-describe('the scene', () => {
-  it('records the payload rather than trying to hold pixels', () => {
-    const scene = buildScene(board([image()]));
-
-    expect(scene.images).toHaveLength(1);
-    expect(scene.images[0]?.data).toBe(PNG);
-    expect(scene.images[0]?.layer).toBe('F.SilkS');
-  });
-
-  it('records where the picture goes, centred on its position', () => {
-    // `(at …)` is the middle of a reference image, so the box straddles it.
-    const box = buildScene(board([image()])).images[0]?.box;
-
-    expect(box).toBeDefined();
-    expect((box!.minX + box!.maxX) / 2).toBeCloseTo(MM(10), -3);
-    expect((box!.minY + box!.maxY) / 2).toBeCloseTo(MM(20), -3);
-  });
-
-  it('grows the box with the scale', () => {
-    const plain = buildScene(board([image()])).images[0]!.box;
-    const doubled = buildScene(board([image({ scale: 2 })])).images[0]!.box;
-
-    // Not exactly twice: the size is rounded once, after multiplying pixels by
-    // the per-pixel IU and the scale together, so doubling the scale and
-    // doubling the rounded answer can differ by an internal unit — a nanometre.
-    expect(doubled.maxX - doubled.minX).toBeCloseTo(2 * (plain.maxX - plain.minX), -1);
-    expect(doubled.maxX - doubled.minX).toBeGreaterThan(plain.maxX - plain.minX);
-  });
-
-  it('leaves the graphics strokes alone', () => {
-    // An outline here would put a permanent box around every picture that does
-    // decode; outlining is the paint pass's fallback, not the scene's job.
-    const withImage = buildScene(board([image()]));
-    const without = buildScene(board([]));
-
-    expect(withImage.layers.get('F.SilkS')?.gfxStrokes.size ?? 0).toBe(0);
-    expect(without.layers.get('F.SilkS')?.gfxStrokes.size ?? 0).toBe(0);
-  });
-
-  it('records each image separately, so two do not collapse into one', () => {
-    const scene = buildScene(board([image(), image({ at: { x: MM(50), y: MM(50) } })]));
-
-    expect(scene.images).toHaveLength(2);
-  });
 });
 
 describe('base64ToBytes', () => {

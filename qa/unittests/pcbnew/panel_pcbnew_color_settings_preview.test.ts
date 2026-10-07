@@ -129,7 +129,10 @@ describe('updatePreview', () => {
     const { p, view, gal } = preview();
     createPreviewItems(p);
     const cs = new COLOR_SETTINGS('user');
-    cs.LoadFromJsonPaths({ 'board.background': 'rgb(10, 20, 30)', 'board.copper.f': 'rgb(1, 2, 3)' });
+    cs.LoadFromJsonPaths({
+      'board.background': 'rgb(10, 20, 30)',
+      'board.copper.f': 'rgb(1, 2, 3)',
+    });
     updatePreview(p, cs);
     const rs = view.GetPainter().GetSettings() as PCB_RENDER_SETTINGS;
     expect(rs.GetLayerColor(PCB_LAYER_ID.F_Cu)).toEqual(cs.GetColor(PCB_LAYER_ID.F_Cu));

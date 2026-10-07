@@ -56,7 +56,6 @@ const CROSSHAIR_OWNERS: [canvas: string, file: string][] = [
 /** Everything that draws a grid or a crosshair, for the no-local-copy sweep. */
 const ALL = [...new Set([...GRID_OWNERS, ...CROSSHAIR_OWNERS].map(([, f]) => f))].concat([
   'editors/schematic/components/SchematicCanvas.tsx',
-  '../../pcbnew/renderBoard.ts',
   'editors/symbol/SymbolCanvas.tsx',
 ]);
 

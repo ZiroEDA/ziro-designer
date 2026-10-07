@@ -579,6 +579,13 @@ export class PCB_BARCODE extends BOARD_ITEM {
     if (parentFP && aFrame.GetName() === PCB_EDIT_FRAME_NAME)
       aList.push(new MSG_PANEL_ITEM('Footprint', parentFP.GetReference()));
 
+    aList.push(
+      new MSG_PANEL_ITEM(
+        'Barcode',
+        ENUM_MAP.Instance<BARCODE_T>('BARCODE_T').ToString(this.m_kind),
+      ),
+    );
+
     // Don't use GetShownText() here; we want to show the user the variable references
     aList.push(new MSG_PANEL_ITEM('Text', KIUI_EllipsizeStatusText(aFrame, this.GetText())));
 

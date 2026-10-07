@@ -393,12 +393,6 @@ import { LIB_ID } from '@ziroeda/common/lib_id.js';
 import type { BOARD_EDITOR_CONTROL } from './tools/board_editor_control.js';
 import type { FOOTPRINT } from './footprint.js';
 import {
-  PCB_DEFAULT_GRID_IU,
-  PCB_DEFAULT_GRID_ORIGIN,
-  DEFAULT_DRAW_OPTIONS,
-  type PcbDrawOptions,
-} from './renderBoard.js';
-import {
   applyDisplayState,
   attachBoardToPanel,
   createPcbDrawPanel,
@@ -449,7 +443,6 @@ import {
   PCB_BACKGROUND,
   PCB_CURSOR,
   PCB_OBJECT_COLORS,
-  PCB_SPECIAL,
 } from './pcbTheme.js';
 import { PcbPropertiesPanel } from './widgets/pcb_properties_panel_ui.js';
 import { PcbNetInspectorPane } from './widgets/pcb_net_inspector_panel_ui.js';
@@ -473,7 +466,11 @@ import type { PcbSearchWiring } from './widgets/search_handlers.js';
 import { PCB_VERTEX_EDITOR_PANE } from './widgets/vertex_editor_pane.js';
 import { VertexEditorWindow } from './pcb_base_edit_frame_ui.js';
 import { drawCrosshair, gridSnappingEnabled } from '@ziroeda/common/draw_panel_gal_grid_cursor.js';
-import { gridSizeToIU, gridSizesIU } from '@ziroeda/common/settings/grid_settings_ui.js';
+import {
+  DEFAULT_GRID_INDEX,
+  gridSizeToIU,
+  gridSizesIU,
+} from '@ziroeda/common/settings/grid_settings_ui.js';
 import { PCB_CONTROL, PCB_DEFAULT_TOOLBARS } from './toolbars_pcb_editor.js';
 import '@ziroeda/common/widgets/shell.css';
 import { ShowAboutDialog } from '@ziroeda/common/dialog_about/AboutDialog_main.js';
@@ -490,7 +487,6 @@ import {
   wasBrowserSuppressed,
   type FocusLike,
 } from '@ziroeda/common/browser_hotkeys.js';
-import { hiContrastFactorFor } from '@ziroeda/common/render_settings.js';
 import { parseColor4d, toCssColor, type Color4d } from '@ziroeda/common/gal/color4d.js';
 
 const MM = PCB_IU_PER_MM; // pcbnew IU is 1 nm (base_units.h)
@@ -579,7 +575,9 @@ function pcbGridSizesIU(cfg: PCBNEW_JSON_SETTINGS_LIKE): number[] {
 
 /** The grid the frame opens on: `window.grid.last_size_idx` into that list. */
 function storedPcbGridIU(cfg: PCBNEW_JSON_SETTINGS_LIKE): number {
-  return pcbGridSizesIU(cfg)[cfg.window.grid.last_size_idx] ?? PCB_DEFAULT_GRID_IU;
+  return (
+    pcbGridSizesIU(cfg)[cfg.window.grid.last_size_idx] ?? PCB_GRIDS[DEFAULT_GRID_INDEX.pcbnew]!
+  );
 }
 
 /** The aux bar's `toggled` sets, hoisted so a render does not build a new one
@@ -1720,9 +1718,11 @@ export function PcbEditor({
   // to the GAL on open (pcb_base_edit_frame.cpp) and which both the dots and
   // the snap are measured from. A ref because `draw` and the pointer handlers
   // read it without wanting to be rebuilt when the board object is replaced.
-  const gridOriginRef = useRef<{ x: number; y: number }>(PCB_DEFAULT_GRID_ORIGIN);
-  gridOriginRef.current =
-    frameRef.current?.GetBoard()?.GetDesignSettings().GetGridOrigin() ?? PCB_DEFAULT_GRID_ORIGIN;
+  const gridOriginRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  gridOriginRef.current = frameRef.current?.GetBoard()?.GetDesignSettings().GetGridOrigin() ?? {
+    x: 0,
+    y: 0,
+  };
   // `GRID_HELPER::m_auxAxis` — the point the current gesture started from, kept
   // reachable for its whole duration so an off-grid item can be put back
   // exactly where it came from. Set at the start of a move/drag and cleared
@@ -2880,15 +2880,12 @@ export function PcbEditor({
   const showSearch = toggles.has('showSearch');
   const showNetInspector = toggles.has('showNetInspector');
 
-  // Draw options derived from the Objects tab + zone display mode.
-  /** `PCBNEW_SETTINGS::m_Display` + `m_ViewersDisplay`, this page's slice. */
-  const display = pcbCfg.pcb_display;
   /**
    * `::GetColorSettings( cfg->m_ColorTheme )` with the user's overrides on top
    * — Preferences > PCB Editor > Colors, and the footprint editor's page too,
    * because both write the `board` namespace.
    *
-   * `drawOpts.theme` was left undefined here, so every colour came from
+   * The theme was left undefined here once, so every colour came from
    * `pcbTheme.ts`' built-in constants and the Colors page had nothing behind
    * it. `PCB_DRAW_PANEL_GAL`'s painter is loaded from the same call
    * (`pcb_draw_panel_gal.cpp:780-790`), and `CommonSettingsChanged` re-runs it,
@@ -2897,68 +2894,6 @@ export function PcbEditor({
   const theme = useMemo(
     () => pcbThemeWithOverrides(pcbCfg.appearance.color_theme, userColors, userThemes),
     [pcbCfg.appearance.color_theme, userColors, userThemes],
-  );
-  const drawOpts = useMemo<PcbDrawOptions>(
-    () => ({
-      ...DEFAULT_DRAW_OPTIONS,
-      tracks: objects.tracks,
-      vias: objects.vias,
-      pads: objects.pads,
-      zones: objects.zones,
-      points: objects.points,
-      fpValues: objects.fpValues,
-      fpReferences: objects.fpReferences,
-      fpText: objects.fpText,
-      drawingSheet: objects.drawingSheet,
-      trackOpacity: opacity.tracks,
-      viaOpacity: opacity.vias,
-      padOpacity: opacity.pads,
-      zoneOpacity: opacity.zones,
-      imageOpacity: opacity.images,
-      zoneOutline: toggles.has('zoneDisplayOutline'),
-      // Display-mode toggles: on = sketch (outline) = fill off (m_Display*Fill).
-      trackFill: pcbCfg.pcb_display.track_fill,
-      viaFill: pcbCfg.pcb_display.via_fill,
-      padFill: pcbCfg.pcb_display.pad_fill,
-      filledShapeOpacity: opacity.filledShapes,
-      contrastMode: contrast,
-      // `m_hiContrastFactor = 1.0 - hicontrast_dimming_factor`
-      // (`pcbnew/pcb_painter.cpp:176`). The inversion is the point: Preferences
-      // asks how much to DIM and the painter wants how much SURVIVES.
-      hiContrastFactor: hiContrastFactorFor(commonCfg.appearance.hicontrast_dimming_factor),
-      activeLayer,
-      theme,
-      // Preferences > PCB Editor > Display Options. `m_Display.m_NetNames` is
-      // ONE 4-valued choice that gates three different items at three
-      // thresholds — `pcb_painter.cpp:1403` for a pad, `:1118` for a via, and
-      // the track branch for the rest — so it fans out here rather than being
-      // stored three times.
-      netNames: display.net_names_mode >= 2,
-      padNetNames: display.net_names_mode === 1 || display.net_names_mode === 3,
-      viaNetNames: display.net_names_mode !== 0,
-      padNumbers: display.pad_numbers,
-      padClearance: display.pad_clearance,
-      viaColorForThPads: display.pad_use_via_color_for_normal_th_padstacks,
-      trackClearanceMode: display.track_clearance_mode,
-      // `LAYER_BOARD_OUTLINE_AREA` — the Objects tab's "Board Area Shadow"
-      // row, which had a checkbox and nothing behind it.
-      boardOutlineArea: objects.boardAreaShadow,
-      // Identity-stable: the cache mutates the map and asks for a redraw, and
-      // the paint pass reads it then. Nothing here needs to change for a decode
-      // to become visible.
-    }),
-    [
-      objects,
-      opacity,
-      toggles,
-      contrast,
-      activeLayer,
-      display,
-      theme,
-      pcbCfg.pcb_display.pad_fill,
-      pcbCfg.pcb_display.track_fill,
-      pcbCfg.pcb_display.via_fill,
-    ],
   );
 
   // The left-toolbar high-contrast button reflects the Layer Display mode.
@@ -3344,7 +3279,7 @@ export function PcbEditor({
           toPx: (p) => ({ x: p.x * sx + v.tx, y: p.y * v.scale + v.ty }),
           style: 'circle_cross',
           size: 10 * dpr,
-          color: drawOpts.theme?.special.auxItems ?? PCB_SPECIAL.auxItems,
+          color: theme.special.auxItems,
           drawAtZero: true,
           snapTypes: sp.snapTypes,
           lineWidth: Math.max(1, dpr),
@@ -3389,7 +3324,7 @@ export function PcbEditor({
     notePcbPaint('gl', __t0);
     setScale(v.scale);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, drawOpts]);
+  }, [visible, theme]);
 
   const requestDraw = useCallback(() => {
     cancelAnimationFrame(rafRef.current);
@@ -3404,7 +3339,7 @@ export function PcbEditor({
   // `applyDisplayState` — so this only asks for the frame.
   useEffect(() => {
     requestDraw();
-  }, [visible, drawOpts, requestDraw]);
+  }, [visible, theme, requestDraw]);
 
   // The selection lives on the VIEW (PCB_SELECTION_TOOL's `m_selection` on
   // LAYER_SELECT_OVERLAY), and PCB_PAINTER draws what a selected item adds - an
@@ -5274,19 +5209,19 @@ export function PcbEditor({
       board
         ? enabledLayerNames(frameRef.current?.GetBoard()).map((name) => ({
             name,
-            color: drawOpts.theme?.layerColors[name] ?? layerColor(name),
+            color: theme.layerColors[name] ?? layerColor(name),
           }))
         : [],
-    [board, drawOpts.theme],
+    [board, theme],
   );
   /** The copper rows the zone dialog's layer list draws, with their swatches. */
   const copperLayerRows = useMemo(
     () =>
       copperLayers.map((name) => ({
         name,
-        color: drawOpts.theme?.layerColors[name] ?? layerColor(name),
+        color: theme.layerColors[name] ?? layerColor(name),
       })),
-    [copperLayers, drawOpts.theme],
+    [copperLayers, theme],
   );
   const layerRows = useMemo(
     () =>
@@ -6508,7 +6443,7 @@ export function PcbEditor({
   const itemDialogs = usePcbItemDialogs({
     units: unitLabel,
     board: () => frameRef.current?.GetBoard() ?? null,
-    layerColor: (aName) => drawOpts.theme?.layerColors[aName] ?? layerColor(aName),
+    layerColor: (aName) => theme.layerColors[aName] ?? layerColor(aName),
     background: PCB_BACKGROUND,
   });
   itemDialogsRef.current = itemDialogs;

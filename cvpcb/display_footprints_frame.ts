@@ -8,7 +8,6 @@
  * Footprints, through the same PCB_DRAW_PANEL_GAL and PCB_PAINTER every
  * PCB frame draws with. The window is `display_footprints_frame_ui.tsx`.
  */
-import { type EDA_DRAW_FRAME_LIKE } from '@ziroeda/common/eda_item.js';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
 import { LIB_ID } from '@ziroeda/common/lib_id.js';
 import type { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
@@ -337,7 +336,7 @@ export class DISPLAY_FOOTPRINTS_FRAME extends PCB_BASE_FRAME {
     const footprint = this.GetBoard()?.GetFirstFootprint() ?? null;
     const items: MSG_PANEL_ITEM[] = [];
 
-    if (footprint) footprint.GetMsgPanelInfo(this as unknown as EDA_DRAW_FRAME_LIKE, items);
+    if (footprint) footprint.GetMsgPanelInfo(this.AsDrawFrameLike(), items);
 
     this.SetMsgPanel(items);
   }

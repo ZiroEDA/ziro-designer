@@ -39,7 +39,12 @@ import {
   correctEccForKind,
 } from '@ziroeda/pcbnew/dialogs/dialog_barcode_properties.js';
 import { encodeBarcode } from '@ziroeda/zint';
-import { pcbBarcodeMsgPanelInfo } from '@ziroeda/pcbnew/msg_panel.js';
+import type { MSG_PANEL_ITEM } from '@ziroeda/common/widgets/msgpanel.js';
+import { FRAME_T } from '@ziroeda/common/frame_type.js';
+import { FOOTPRINT_EDIT_FRAME_NAME, PCB_EDIT_FRAME_NAME } from '@ziroeda/common/eda_draw_frame.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { TEST_PCB_FRAME } from './support/test_pcb_frame.js';
 import { livePanel } from './support/live_panel.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import type { Board, PcbBarcode } from '@ziroeda/pcbnew/types.js';
@@ -400,20 +405,32 @@ describe('what the properties dialog decides', () => {
 });
 
 describe('the message panel', () => {
+  /** PCB_BARCODE::GetMsgPanelInfo on the live item, in a frame of \a aType. */
+  const rows = (src = BOARD, aType = FRAME_T.FRAME_PCB_EDITOR, aLocked = false) => {
+    const board = ParseBoard(src);
+    // `aFrame->GetName() == PCB_EDIT_FRAME_NAME` is what the rows test.
+    const frame = new (class extends TEST_PCB_FRAME {
+      override GetName(): string {
+        return aType === FRAME_T.FRAME_PCB_EDITOR ? PCB_EDIT_FRAME_NAME : FOOTPRINT_EDIT_FRAME_NAME;
+      }
+    })(board, aType);
+    frame.SetUserUnits('mm');
+    const barcode = board.Drawings().find((d) => d.Type() === KICAD_T.PCB_BARCODE_T)!;
+    barcode.SetLocked(aLocked);
+    const list: MSG_PANEL_ITEM[] = [];
+    barcode.GetMsgPanelInfo(frame.AsDrawFrameLike(), list);
+    return list.map((i) => ({ upper: i.GetUpperText(), lower: i.GetLowerText() }));
+  };
+
   it('shows PCB_BARCODE::GetMsgPanelInfo’s rows', () => {
     // `pcb_barcode.cpp:539-560`. `Barcode` carries the ENUM_MAP spelling —
     // `QR_CODE`, not the dialog's "QR Code (ISO 18004)" — and the angle goes
     // through `%g`, so it has no degree sign.
-    const b = read();
-    const rows = pcbBarcodeMsgPanelInfo(
-      { board: b, units: 'mm', frame: 'pcb_edit' },
-      b.barcodes[0]!,
-    );
-
-    expect(rows.map((r) => r.upper)).toEqual(['Barcode', 'Text', 'Layer', 'Angle', 'Text Height']);
-    expect(rows[0]!.lower).toBe('QR_CODE');
-    expect(rows[1]!.lower).toBe('ZIRO');
-    expect(rows[3]!.lower).toBe('0');
+    const r = rows();
+    expect(r.map((x) => x.upper)).toEqual(['Barcode', 'Text', 'Layer', 'Angle', 'Text Height']);
+    expect(r[0]!.lower).toBe('QR_CODE');
+    expect(r[1]!.lower).toBe('ZIRO');
+    expect(r[3]!.lower).toBe('0');
   });
 
   it('shows the raw text, variable references and all', () => {
@@ -421,34 +438,17 @@ describe('the message panel', () => {
     // references" (`:548`) — the opposite of what most items do, and the
     // reason is that a barcode's content is often generated.
     const src = BOARD.replace('(text "ZIRO")', '(text "${REFERENCE}")');
-    const b = read(src);
-    const rows = pcbBarcodeMsgPanelInfo(
-      { board: b, units: 'mm', frame: 'pcb_edit' },
-      b.barcodes[0]!,
-    );
-
-    expect(rows[1]!.lower).toBe('${REFERENCE}');
+    expect(rows(src)[1]!.lower).toBe('${REFERENCE}');
   });
 
   it('adds Status only in the board editor, and only when locked', () => {
-    const b = setBoardItemsLocked(read(), new Set(['barcode:0']), true);
-    const inPcb = pcbBarcodeMsgPanelInfo(
-      { board: b, units: 'mm', frame: 'pcb_edit' },
-      b.barcodes[0]!,
+    expect(rows(BOARD, FRAME_T.FRAME_PCB_EDITOR, true).map((r) => r.upper)).toContain('Status');
+    expect(rows(BOARD, FRAME_T.FRAME_FOOTPRINT_EDITOR, true).map((r) => r.upper)).not.toContain(
+      'Status',
     );
-    const inFp = pcbBarcodeMsgPanelInfo(
-      { board: b, units: 'mm', frame: 'footprint_edit' },
-      b.barcodes[0]!,
+    expect(rows(BOARD, FRAME_T.FRAME_PCB_EDITOR, false).map((r) => r.upper)).not.toContain(
+      'Status',
     );
-
-    expect(inPcb.map((r) => r.upper)).toContain('Status');
-    expect(inFp.map((r) => r.upper)).not.toContain('Status');
-    expect(
-      pcbBarcodeMsgPanelInfo(
-        { board: read(), units: 'mm', frame: 'pcb_edit' },
-        read().barcodes[0]!,
-      ).map((r) => r.upper),
-    ).not.toContain('Status');
   });
 });
 
