@@ -77,6 +77,20 @@ import { SCH_SHEET_PATH, SYMBOL_FILTER } from '../sch_sheet_path.js';
 import { SCH_SHEET_PIN, SHEET_SIDE } from '../sch_sheet_pin.js';
 import { SCH_TEXT } from '../sch_text.js';
 import type { SCHEMATIC } from '../schematic.js';
+import { type Color4d, COLOR4D_UNSPECIFIED } from '@ziroeda/common/gal/color4d.js';
+import {
+  LeaderMode,
+  POLYGON_GEOM_MANAGER,
+} from '@ziroeda/common/preview_items/polygon_geom_manager.js';
+import { LINE_STYLE, STROKE_PARAMS } from '@ziroeda/common/stroke_params.js';
+import type { SHAPE_T } from '@ziroeda/common/eda_shape.js';
+import { KiROUND } from '@ziroeda/kimath/src/math/util.js';
+import { SCH_SHAPE } from '../sch_shape.js';
+import { SCH_TABLE } from '../sch_table.js';
+import { SCH_TABLECELL } from '../sch_tablecell.js';
+import { SCH_TEXTBOX } from '../sch_textbox.js';
+import { LINE_MODE } from './sch_actions.js';
+import { RULE_AREA_CREATE_HELPER } from './rule_area_create_helper.js';
 import { EE_GRID_HELPER } from './ee_grid_helper.js';
 import {
   type PLACE_SYMBOL_PARAMS,
@@ -109,6 +123,10 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
   m_lastTextboxHJustify: GR_TEXT_H_ALIGN_T = GR_TEXT_H_ALIGN_T.GR_TEXT_H_ALIGN_LEFT;
   m_lastTextboxVJustify: GR_TEXT_V_ALIGN_T = GR_TEXT_V_ALIGN_T.GR_TEXT_V_ALIGN_TOP;
   m_lastFillStyle: FILL_T = FILL_T.NO_FILL;
+  m_lastFillColor: Color4d = COLOR4D_UNSPECIFIED;
+  m_lastTextboxFillColor: Color4d = COLOR4D_UNSPECIFIED;
+  m_lastStroke = new STROKE_PARAMS(0, LINE_STYLE.DEFAULT, COLOR4D_UNSPECIFIED);
+  m_lastTextboxStroke = new STROKE_PARAMS(0, LINE_STYLE.DEFAULT, COLOR4D_UNSPECIFIED);
   m_lastTextboxFillStyle: FILL_T = FILL_T.NO_FILL;
   m_mruPath = '';
   m_lastAutoLabelRotateOnPlacement = false;
@@ -1506,6 +1524,637 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
     }
   }
 
+  *DrawShape(aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+    const schematic = this.schematic();
+    const sch_settings = schematic.Settings();
+    let item: SCH_SHAPE | null = null;
+    const isTextBox = aEvent.IsAction(SCH_ACTIONS.drawTextBox);
+    const type = aEvent.Parameter<SHAPE_T>();
+    let description = '';
+
+    if (this.m_inDrawingTool) return 0;
+
+    // REENTRANCY_GUARD guard( &m_inDrawingTool )
+    this.m_inDrawingTool = true;
+
+    try {
+      const controls = this.controls();
+      const grid = new EE_GRID_HELPER(this.m_toolMgr);
+      let cursorPos: VECTOR2I = { x: 0, y: 0 };
+
+      // We might be running as the same shape in another co-routine.  Make sure that one
+      // gets whacked.
+      this.m_toolMgr!.DeactivateTool();
+
+      this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
+
+      this.m_frame!.PushTool(aEvent);
+
+      const setCursor = () => {
+        this.m_frame!.GetCanvas()?.SetCurrentCursor(KICURSOR.PENCIL);
+      };
+
+      const cleanup = () => {
+        this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
+        this.m_view!.ClearPreview();
+        item = null;
+      };
+
+      this.Activate();
+
+      // Must be done after Activate() so that it gets set into the correct context
+      controls.ShowCursor(true);
+
+      // Set initial cursor
+      setCursor();
+
+      if (aEvent.HasPosition()) this.m_toolMgr!.PrimeTool(aEvent.Position());
+
+      // Main loop: keep receiving events
+      for (let evt = yield* this.Wait(); evt; evt = yield* this.Wait()) {
+        setCursor();
+        grid.SetSnap(!evt.Modifier(MD_SHIFT));
+        grid.SetUseGrid(this.getView()!.GetGAL()!.GetGridSnapping() && !evt.DisableGridSnapping());
+
+        cursorPos = grid.Align(controls.GetMousePosition(), GRID_HELPER_GRIDS.GRID_GRAPHICS);
+        controls.ForceCursorPosition(true, cursorPos);
+
+        // The tool hotkey is interpreted as a click when drawing
+        const isSyntheticClick =
+          !!item && evt.IsActivate() && evt.HasPosition() && evt.Matches(aEvent);
+
+        if (evt.IsCancelInteractive() || (item && evt.IsAction(ACTIONS.undo))) {
+          if (item) {
+            cleanup();
+          } else {
+            this.m_frame!.PopTool(aEvent);
+            break;
+          }
+        } else if (evt.IsActivate() && !isSyntheticClick) {
+          if (item && evt.IsMoveTool()) {
+            // we're already drawing our own item; ignore the move tool
+            evt.SetPassEvent(false);
+            continue;
+          }
+
+          if (item) cleanup();
+
+          if (evt.IsPointEditor()) {
+            // don't exit (the point editor runs in the background)
+          } else if (evt.IsMoveTool()) {
+            // leave ourselves on the stack so we come back after the move
+            break;
+          } else {
+            this.m_frame!.PopTool(aEvent);
+            break;
+          }
+        } else if (!item && (evt.IsClick(BUT_LEFT) || evt.IsAction(ACTIONS.cursorClick))) {
+          this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
+
+          let created: SCH_SHAPE;
+
+          if (isTextBox) {
+            const textbox = new SCH_TEXTBOX(
+              SCH_LAYER_ID.LAYER_NOTES,
+              0,
+              this.m_lastTextboxFillStyle,
+            );
+
+            textbox.SetTextSize({
+              x: sch_settings.m_DefaultTextSize,
+              y: sch_settings.m_DefaultTextSize,
+            });
+
+            // Must come after SetTextSize()
+            textbox.SetBold(this.m_lastTextBold);
+            textbox.SetItalic(this.m_lastTextItalic);
+
+            textbox.SetTextAngle(this.m_lastTextboxAngle);
+            textbox.SetHorizJustify(this.m_lastTextboxHJustify);
+            textbox.SetVertJustify(this.m_lastTextboxVJustify);
+            textbox.SetStroke(this.m_lastTextboxStroke);
+            textbox.SetFillColor(this.m_lastTextboxFillColor);
+            textbox.SetParent(schematic);
+
+            created = textbox;
+            description = 'Add Text Box';
+          } else {
+            created = new SCH_SHAPE(type, SCH_LAYER_ID.LAYER_NOTES, 0, this.m_lastFillStyle);
+
+            created.SetStroke(this.m_lastStroke);
+            created.SetFillColor(this.m_lastFillColor);
+            created.SetParent(schematic);
+            description = `Add ${created.GetFriendlyName()}`;
+          }
+
+          item = created;
+          created.SetFlags(IS_NEW);
+          created.BeginEdit(cursorPos);
+
+          this.m_view!.ClearPreview();
+          this.m_view!.AddToPreview(created.Clone());
+        } else if (
+          item &&
+          (evt.IsClick(BUT_LEFT) ||
+            evt.IsDblClick(BUT_LEFT) ||
+            isSyntheticClick ||
+            evt.IsAction(ACTIONS.cursorClick) ||
+            evt.IsAction(ACTIONS.cursorDblClick) ||
+            evt.IsAction(ACTIONS.finishInteractive))
+        ) {
+          const drawn: SCH_SHAPE = item;
+          let finished = false;
+
+          if (
+            evt.IsDblClick(BUT_LEFT) ||
+            evt.IsAction(ACTIONS.cursorDblClick) ||
+            evt.IsAction(ACTIONS.finishInteractive)
+          ) {
+            finished = true;
+          } else {
+            finished = !drawn.ContinueEdit(cursorPos);
+          }
+
+          if (finished) {
+            drawn.EndEdit();
+            drawn.ClearEditFlags();
+            drawn.SetFlags(IS_NEW);
+
+            if (isTextBox) {
+              const textbox = drawn as SCH_TEXTBOX;
+
+              controls.SetAutoPan(false);
+              controls.CaptureCursor(false);
+
+              // DIALOG_TEXT_PROPERTIES: QuasiModal required for syntax help and Scintilla auto-complete
+              if (
+                (yield* this.RunMainStackModal(() =>
+                  this.m_frame!.ShowModalDialog('DIALOG_TEXT_PROPERTIES', [textbox]),
+                )) !== wxID_OK
+              ) {
+                cleanup();
+                continue;
+              }
+
+              this.m_lastTextBold = textbox.IsBold();
+              this.m_lastTextItalic = textbox.IsItalic();
+              this.m_lastTextboxAngle = textbox.GetTextAngle();
+              this.m_lastTextboxHJustify = textbox.GetHorizJustify();
+              this.m_lastTextboxVJustify = textbox.GetVertJustify();
+              this.m_lastTextboxStroke = textbox.GetStroke();
+              this.m_lastTextboxFillStyle = textbox.GetFillMode();
+              this.m_lastTextboxFillColor = textbox.GetFillColor();
+            } else {
+              this.m_lastStroke = drawn.GetStroke();
+              this.m_lastFillStyle = drawn.GetFillMode();
+              this.m_lastFillColor = drawn.GetFillColor();
+            }
+
+            const commit = new SCH_COMMIT(this.m_toolMgr!);
+            commit.Add(drawn, this.m_frame!.GetScreen());
+            commit.Push(`Draw ${drawn.GetClass()}`);
+
+            this.m_selectionTool!.AddItemToSel(drawn);
+            item = null;
+
+            this.m_view!.ClearPreview();
+            this.m_toolMgr!.PostAction(ACTIONS.activatePointEditor);
+          }
+        } else if (
+          evt.IsAction(ACTIONS.duplicate) ||
+          evt.IsAction(SCH_ACTIONS.repeatDrawItem) ||
+          evt.IsAction(ACTIONS.paste)
+        ) {
+          if (item) {
+            wxBell();
+            continue;
+          }
+
+          // Exit.  The duplicate/repeat/paste will run in its own loop.
+          this.m_frame!.PopTool(aEvent);
+          evt.SetPassEvent();
+          break;
+        } else if (item && (evt.IsAction(ACTIONS.refreshPreview) || evt.IsMotion())) {
+          const drawn: SCH_SHAPE = item;
+          drawn.CalcEdit(cursorPos);
+          this.m_view!.ClearPreview();
+          this.m_view!.AddToPreview(drawn.Clone());
+          this.m_frame!.SetMsgPanel(drawn);
+        } else if (evt.IsDblClick(BUT_LEFT) && !item) {
+          this.m_toolMgr!.RunAction(SCH_ACTIONS.properties);
+        } else if (evt.IsClick(BUT_RIGHT)) {
+          // Warp after context menu only if dragging...
+          if (!item) this.m_toolMgr!.VetoContextMenuMouseWarp();
+
+          this.m_menu.ShowContextMenu(this.m_selectionTool!.GetSelection());
+        } else if (item && evt.IsAction(ACTIONS.redo)) {
+          wxBell();
+        } else {
+          evt.SetPassEvent();
+        }
+
+        // Enable autopanning and cursor capture only when there is a shape being drawn
+        controls.SetAutoPan(item !== null);
+        controls.CaptureCursor(item !== null);
+      }
+
+      controls.SetAutoPan(false);
+      controls.CaptureCursor(false);
+      this.m_frame!.GetCanvas()?.SetCurrentCursor(KICURSOR.ARROW);
+      return 0;
+    } finally {
+      this.m_inDrawingTool = false;
+    }
+  }
+
+  *DrawRuleArea(aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+    if (this.m_inDrawingTool) return 0;
+
+    // REENTRANCY_GUARD guard( &m_inDrawingTool ); SCOPED_SET_RESET scopedDrawMode( m_drawingRuleArea, true )
+    this.m_inDrawingTool = true;
+    const wasDrawingRuleArea = this.m_drawingRuleArea;
+    this.m_drawingRuleArea = true;
+
+    const controls = this.controls();
+    const grid = new EE_GRID_HELPER(this.m_toolMgr);
+    let cursorPos: VECTOR2I = { x: 0, y: 0 };
+
+    const ruleAreaTool = new RULE_AREA_CREATE_HELPER(
+      this.getView()!,
+      this.m_frame!,
+      this.m_toolMgr!,
+    );
+    const polyGeomMgr = new POLYGON_GEOM_MANAGER(ruleAreaTool);
+    let started = false;
+
+    try {
+      // We might be running as the same shape in another co-routine.  Make sure that one
+      // gets whacked.
+      this.m_toolMgr!.DeactivateTool();
+
+      this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
+
+      this.m_frame!.PushTool(aEvent);
+
+      const setCursor = () => {
+        this.m_frame!.GetCanvas()?.SetCurrentCursor(KICURSOR.PENCIL);
+      };
+
+      const cleanup = () => {
+        polyGeomMgr.Reset();
+        started = false;
+        controls.SetAutoPan(false);
+        controls.CaptureCursor(false);
+        this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
+      };
+
+      this.Activate();
+
+      // Must be done after Activate() so that it gets set into the correct context
+      controls.ShowCursor(true);
+
+      // Set initial cursor
+      setCursor();
+
+      if (aEvent.HasPosition()) this.m_toolMgr!.PrimeTool(aEvent.Position());
+
+      // Main loop: keep receiving events
+      for (let evt = yield* this.Wait(); evt; evt = yield* this.Wait()) {
+        setCursor();
+
+        grid.SetSnap(!evt.Modifier(MD_SHIFT));
+        grid.SetUseGrid(this.getView()!.GetGAL()!.GetGridSnapping() && !evt.DisableGridSnapping());
+
+        cursorPos = grid.Align(controls.GetMousePosition(), GRID_HELPER_GRIDS.GRID_CONNECTABLE);
+        controls.ForceCursorPosition(true, cursorPos);
+
+        polyGeomMgr.SetLeaderMode(
+          this.m_frame!.eeconfig()?.drawing.line_mode === LINE_MODE.LINE_MODE_FREE
+            ? LeaderMode.DIRECT
+            : LeaderMode.DEG45,
+        );
+
+        if (evt.IsCancelInteractive()) {
+          if (started) {
+            cleanup();
+          } else {
+            this.m_frame!.PopTool(aEvent);
+
+            // We've handled the cancel event.  Don't cancel other tools
+            evt.SetPassEvent(false);
+            break;
+          }
+        } else if (evt.IsActivate()) {
+          if (started) cleanup();
+
+          if (evt.IsPointEditor()) {
+            // don't exit (the point editor runs in the background)
+          } else if (evt.IsMoveTool()) {
+            // leave ourselves on the stack so we come back after the move
+            break;
+          } else {
+            this.m_frame!.PopTool(aEvent);
+            break;
+          }
+        } else if (evt.IsClick(BUT_RIGHT)) {
+          if (!started) this.m_toolMgr!.VetoContextMenuMouseWarp();
+
+          this.m_menu.ShowContextMenu(this.m_selectionTool!.GetSelection());
+        }
+        // events that lock in nodes
+        else if (
+          evt.IsClick(BUT_LEFT) ||
+          evt.IsDblClick(BUT_LEFT) ||
+          evt.IsAction(ACTIONS.cursorClick) ||
+          evt.IsAction(ACTIONS.cursorDblClick) ||
+          evt.IsAction(SCH_ACTIONS.closeOutline)
+        ) {
+          // Check if it is double click / closing line (so we have to finish the zone)
+          const endPolygon =
+            evt.IsDblClick(BUT_LEFT) ||
+            evt.IsAction(ACTIONS.cursorDblClick) ||
+            evt.IsAction(SCH_ACTIONS.closeOutline) ||
+            polyGeomMgr.NewPointClosesOutline(cursorPos);
+
+          if (endPolygon) {
+            polyGeomMgr.SetFinished();
+            polyGeomMgr.Reset();
+
+            started = false;
+            controls.SetAutoPan(false);
+            controls.CaptureCursor(false);
+          }
+          // adding a corner
+          else if (polyGeomMgr.AddPoint(cursorPos)) {
+            if (!started) {
+              started = true;
+
+              controls.SetAutoPan(true);
+              controls.CaptureCursor(true);
+            }
+          }
+        } else if (
+          started &&
+          (evt.IsAction(SCH_ACTIONS.deleteLastPoint) ||
+            evt.IsAction(ACTIONS.doDelete) ||
+            evt.IsAction(ACTIONS.undo))
+        ) {
+          const last = polyGeomMgr.DeleteLastCorner();
+
+          if (last) {
+            cursorPos = last;
+            controls.WarpMouseCursor(cursorPos, true);
+            controls.ForceCursorPosition(true, cursorPos);
+            polyGeomMgr.SetCursorPosition(cursorPos);
+          } else {
+            cleanup();
+          }
+        } else if (started && (evt.IsMotion() || evt.IsDrag(BUT_LEFT))) {
+          polyGeomMgr.SetCursorPosition(cursorPos);
+        } else if (
+          evt.IsAction(ACTIONS.duplicate) ||
+          evt.IsAction(SCH_ACTIONS.repeatDrawItem) ||
+          evt.IsAction(ACTIONS.paste)
+        ) {
+          if (started) {
+            wxBell();
+            continue;
+          }
+
+          // Exit.  The duplicate/repeat/paste will run in its own loop.
+          this.m_frame!.PopTool(aEvent);
+          evt.SetPassEvent();
+          break;
+        } else {
+          evt.SetPassEvent();
+        }
+      } // end while
+
+      controls.SetAutoPan(false);
+      controls.CaptureCursor(false);
+      this.m_frame!.GetCanvas()?.SetCurrentCursor(KICURSOR.ARROW);
+      return 0;
+    } finally {
+      ruleAreaTool.Dispose();
+      this.m_drawingRuleArea = wasDrawingRuleArea;
+      this.m_inDrawingTool = false;
+    }
+  }
+
+  *DrawTable(aEvent: TOOL_EVENT): COROUTINE_BODY<number> {
+    const schematic = this.schematic();
+    let table: SCH_TABLE | null = null;
+
+    if (this.m_inDrawingTool) return 0;
+
+    // REENTRANCY_GUARD guard( &m_inDrawingTool )
+    this.m_inDrawingTool = true;
+
+    try {
+      const controls = this.controls();
+      const grid = new EE_GRID_HELPER(this.m_toolMgr);
+      let cursorPos: VECTOR2I = { x: 0, y: 0 };
+
+      // We might be running as the same shape in another co-routine.  Make sure that one
+      // gets whacked.
+      this.m_toolMgr!.DeactivateTool();
+
+      this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
+
+      this.m_frame!.PushTool(aEvent);
+
+      const setCursor = () => {
+        this.m_frame!.GetCanvas()?.SetCurrentCursor(KICURSOR.PENCIL);
+      };
+
+      const cleanup = () => {
+        this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
+        this.m_view!.ClearPreview();
+        table = null;
+      };
+
+      this.Activate();
+
+      // Must be done after Activate() so that it gets set into the correct context
+      controls.ShowCursor(true);
+
+      // Set initial cursor
+      setCursor();
+
+      if (aEvent.HasPosition()) this.m_toolMgr!.PrimeTool(aEvent.Position());
+
+      // Main loop: keep receiving events
+      for (let evt = yield* this.Wait(); evt; evt = yield* this.Wait()) {
+        setCursor();
+        grid.SetSnap(!evt.Modifier(MD_SHIFT));
+        grid.SetUseGrid(this.getView()!.GetGAL()!.GetGridSnapping() && !evt.DisableGridSnapping());
+
+        cursorPos = grid.Align(controls.GetMousePosition(), GRID_HELPER_GRIDS.GRID_GRAPHICS);
+        controls.ForceCursorPosition(true, cursorPos);
+
+        // The tool hotkey is interpreted as a click when drawing
+        const isSyntheticClick =
+          !!table && evt.IsActivate() && evt.HasPosition() && evt.Matches(aEvent);
+
+        if (evt.IsCancelInteractive() || (table && evt.IsAction(ACTIONS.undo))) {
+          if (table) {
+            cleanup();
+          } else {
+            this.m_frame!.PopTool(aEvent);
+            break;
+          }
+        } else if (evt.IsActivate() && !isSyntheticClick) {
+          if (table && evt.IsMoveTool()) {
+            // we're already drawing our own item; ignore the move tool
+            evt.SetPassEvent(false);
+            continue;
+          }
+
+          if (table) cleanup();
+
+          if (evt.IsPointEditor()) {
+            // don't exit (the point editor runs in the background)
+          } else if (evt.IsMoveTool()) {
+            // leave ourselves on the stack so we come back after the move
+            break;
+          } else {
+            this.m_frame!.PopTool(aEvent);
+            break;
+          }
+        } else if (!table && (evt.IsClick(BUT_LEFT) || evt.IsAction(ACTIONS.cursorClick))) {
+          this.m_toolMgr!.RunAction(ACTIONS.selectionClear);
+
+          const created = new SCH_TABLE(0);
+          created.SetColCount(1);
+
+          const tableCell = new SCH_TABLECELL();
+          const defaultTextSize = schematic.Settings().m_DefaultTextSize;
+
+          tableCell.SetTextSize({ x: defaultTextSize, y: defaultTextSize });
+          created.AddCell(tableCell);
+
+          created.SetParent(schematic);
+          created.SetFlags(IS_NEW);
+          created.SetPosition(cursorPos);
+          table = created;
+
+          this.m_view!.ClearPreview();
+          this.m_view!.AddToPreview(created.Clone());
+        } else if (
+          table &&
+          (evt.IsClick(BUT_LEFT) ||
+            evt.IsDblClick(BUT_LEFT) ||
+            isSyntheticClick ||
+            evt.IsAction(ACTIONS.cursorClick) ||
+            evt.IsAction(ACTIONS.cursorDblClick) ||
+            evt.IsAction(ACTIONS.finishInteractive))
+        ) {
+          const drawn: SCH_TABLE = table;
+          drawn.ClearEditFlags();
+          drawn.SetFlags(IS_NEW);
+          drawn.Normalize();
+
+          // DIALOG_TABLE_PROPERTIES: QuasiModal required for Scintilla auto-complete
+          if (
+            (yield* this.RunMainStackModal(() =>
+              this.m_frame!.ShowModalDialog('DIALOG_TABLE_PROPERTIES', [drawn]),
+            )) === wxID_OK
+          ) {
+            const commit = new SCH_COMMIT(this.m_toolMgr!);
+            commit.Add(drawn, this.m_frame!.GetScreen());
+            commit.Push('Draw Table');
+
+            this.m_selectionTool!.AddItemToSel(drawn);
+            this.m_toolMgr!.PostAction(ACTIONS.activatePointEditor);
+          }
+
+          table = null;
+          this.m_view!.ClearPreview();
+        } else if (table && (evt.IsAction(ACTIONS.refreshPreview) || evt.IsMotion())) {
+          const sizing: SCH_TABLE = table;
+          const gridSize = grid.GetGridSize(grid.GetItemGrid(sizing));
+          const fontSize = schematic.Settings().m_DefaultTextSize;
+          const origin = sizing.GetPosition();
+          const requestedSize = { x: cursorPos.x - origin.x, y: cursorPos.y - origin.y };
+
+          // int division truncates toward zero
+          const colCount = Math.max(1, Math.trunc(requestedSize.x / (fontSize * 15)));
+          const rowCount = Math.max(1, Math.trunc(requestedSize.y / (fontSize * 2)));
+
+          const cellSize = {
+            x: Math.max(gridSize.x * 5, Math.trunc(requestedSize.x / colCount)),
+            y: Math.max(gridSize.y * 2, Math.trunc(requestedSize.y / rowCount)),
+          };
+
+          cellSize.x = KiROUND(cellSize.x / gridSize.x) * gridSize.x;
+          cellSize.y = KiROUND(cellSize.y / gridSize.y) * gridSize.y;
+
+          sizing.ClearCells();
+          sizing.SetColCount(colCount);
+
+          for (let col = 0; col < colCount; ++col) sizing.SetColWidth(col, cellSize.x);
+
+          for (let row = 0; row < rowCount; ++row) {
+            sizing.SetRowHeight(row, cellSize.y);
+
+            for (let col = 0; col < colCount; ++col) {
+              const cell = new SCH_TABLECELL();
+              const defaultTextSize = schematic.Settings().m_DefaultTextSize;
+
+              cell.SetTextSize({ x: defaultTextSize, y: defaultTextSize });
+              cell.SetPosition({ x: origin.x + col * cellSize.x, y: origin.y + row * cellSize.y });
+              cell.SetEnd({
+                x: cell.GetPosition().x + cellSize.x,
+                y: cell.GetPosition().y + cellSize.y,
+              });
+              sizing.AddCell(cell);
+            }
+          }
+
+          this.m_view!.ClearPreview();
+          this.m_view!.AddToPreview(sizing.Clone());
+          this.m_frame!.SetMsgPanel(sizing);
+        } else if (evt.IsDblClick(BUT_LEFT) && !table) {
+          this.m_toolMgr!.RunAction(SCH_ACTIONS.properties);
+        } else if (evt.IsClick(BUT_RIGHT)) {
+          // Warp after context menu only if dragging...
+          if (!table) this.m_toolMgr!.VetoContextMenuMouseWarp();
+
+          this.m_menu.ShowContextMenu(this.m_selectionTool!.GetSelection());
+        } else if (
+          evt.IsAction(ACTIONS.duplicate) ||
+          evt.IsAction(SCH_ACTIONS.repeatDrawItem) ||
+          evt.IsAction(ACTIONS.paste)
+        ) {
+          if (table) {
+            wxBell();
+            continue;
+          }
+
+          // Exit.  The duplicate/repeat/paste will run in its own loop.
+          this.m_frame!.PopTool(aEvent);
+          evt.SetPassEvent();
+          break;
+        } else if (table && evt.IsAction(ACTIONS.redo)) {
+          wxBell();
+        } else {
+          evt.SetPassEvent();
+        }
+
+        // Enable autopanning and cursor capture only when there is a shape being drawn
+        controls.SetAutoPan(table !== null);
+        controls.CaptureCursor(table !== null);
+      }
+
+      controls.SetAutoPan(false);
+      controls.CaptureCursor(false);
+      this.m_frame!.GetCanvas()?.SetCurrentCursor(KICURSOR.ARROW);
+      return 0;
+    } finally {
+      this.m_inDrawingTool = false;
+    }
+  }
+
   /**
    * DrawSheet. drawSheetFromDesignBlock (a DESIGN_BLOCK's schematic) is not ported yet: the design
    * block libraries are not on the live model.
@@ -2071,7 +2720,14 @@ export class SCH_DRAWING_TOOLS extends SCH_TOOL_BASE<SCH_EDIT_FRAME> {
 
   protected override setTransitions(): void {
     // clang-format off
-    // ImportSheet, DrawShape, DrawRuleArea, DrawTable, PlaceImage and ImportGraphics follow (S5-5c).
+    // ImportSheet, PlaceImage and ImportGraphics follow.
+    this.Go(this.DrawShape, SCH_ACTIONS.drawRectangle.MakeEvent());
+    this.Go(this.DrawShape, SCH_ACTIONS.drawCircle.MakeEvent());
+    this.Go(this.DrawShape, SCH_ACTIONS.drawArc.MakeEvent());
+    this.Go(this.DrawShape, SCH_ACTIONS.drawBezier.MakeEvent());
+    this.Go(this.DrawShape, SCH_ACTIONS.drawTextBox.MakeEvent());
+    this.Go(this.DrawRuleArea, SCH_ACTIONS.drawRuleArea.MakeEvent());
+    this.Go(this.DrawTable, SCH_ACTIONS.drawTable.MakeEvent());
     this.Go(this.PlaceSymbol, SCH_ACTIONS.placeSymbol.MakeEvent());
     this.Go(this.PlaceSymbol, SCH_ACTIONS.placePower.MakeEvent());
     this.Go(SYNC_HANDLER(this.PlaceNextSymbolUnit), SCH_ACTIONS.placeNextSymbolUnit.MakeEvent());
