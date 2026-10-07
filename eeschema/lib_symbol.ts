@@ -7,6 +7,7 @@
  */
 
 import { type Reporter, RPT_SEVERITY_ERROR } from '@ziroeda/common/reporter.js';
+import { UNITS_PROVIDER } from '@ziroeda/common/units_provider.js';
 import { isList, head, str, atom, type SList } from '@ziroeda/sexpr/types.js';
 import type { LibGraphic, LibPin, LibSymbol, LibSymbolUnit, SchField, Vec2 } from './types.js';
 import { writeLibSymbolNode } from './sch_io/sexpr/write-symbol-lib.js';
@@ -42,8 +43,8 @@ import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import { stdSort } from '@ziroeda/kimath/src/clipper2/clipper.core.js';
 import { DEFAULT_PIN_NAME_OFFSET } from './default_values.js';
 import { SCH_FIELD } from './sch_field.js';
-import { AUTOPLACE_ALGO, BODY_STYLE, SCH_ITEM } from './sch_item.js';
-import { SCH_PIN } from './sch_pin.js';
+import { type AUTOPLACE_ALGO, BODY_STYLE, SCH_ITEM } from './sch_item.js';
+import type { SCH_PIN } from './sch_pin.js';
 import type { SCH_SCREEN } from './sch_screen.js';
 import { SCH_SHAPE } from './sch_shape.js';
 import type { SCH_SHEET_PATH } from './sch_sheet_path.js';
@@ -1952,10 +1953,18 @@ export class LIB_SYMBOL extends SYMBOL {
    * @return -1 if this symbol is less than \a aRhs, 1 if this symbol is greater than \a aRhs,
    *         or 0 if this symbol is the same as \a aRhs
    */
-  Compare(aRhs: LIB_SYMBOL, aCompareFlags = 0): number {
+  Compare(aRhs: LIB_SYMBOL, aCompareFlags = 0, aReporter: Reporter | null = null): number {
+    const unitsProvider = new UNITS_PROVIDER(schIUScale, 'mm'); // EDA_UNITS::MM
+
+    // #define REPORT( msg ) and ITEM_DESC( item ) (lib_symbol.cpp:2138-2143)
+    const REPORT = (aMsg: string): void => {
+      if (aReporter) aReporter.Report(aMsg);
+    };
+    const ITEM_DESC = (aItem: SCH_ITEM): string => aItem.GetItemDescription(unitsProvider, false);
+
     if (this === aRhs) return 0;
 
-    if ((aCompareFlags & SCH_ITEM.COMPARE_FLAGS.ERC) === 0) {
+    if (!aReporter && (aCompareFlags & SCH_ITEM.COMPARE_FLAGS.ERC) === 0) {
       const t1 = wxCmp(this.m_name, aRhs.m_name);
 
       if (t1) return t1;
@@ -1972,13 +1981,27 @@ export class LIB_SYMBOL extends SYMBOL {
       }
     }
 
-    if (this.m_options !== aRhs.m_options)
-      return this.m_options === LIBRENTRYOPTIONS.ENTRY_NORMAL ? -1 : 1;
+    let retv = 0;
 
-    const unitDiff = this.m_unitCount - aRhs.m_unitCount;
+    if (this.m_options !== aRhs.m_options) {
+      retv = this.m_options === LIBRENTRYOPTIONS.ENTRY_NORMAL ? -1 : 1;
+      REPORT('Power flag differs.');
 
-    if (unitDiff) return unitDiff;
+      if (!aReporter) return retv;
+    }
 
+    {
+      const tmp = this.m_unitCount - aRhs.m_unitCount;
+
+      if (tmp) {
+        retv = tmp;
+        REPORT('Unit count differs.');
+
+        if (!aReporter) return retv;
+      }
+    }
+
+    // Make sure shapes are sorted. No need with fields or pins as those are matched by id/name and number.
     const bySchItems = (a: SCH_ITEM, b: SCH_ITEM): number =>
       SCH_ITEM.cmp_items(a, b) ? -1 : SCH_ITEM.cmp_items(b, a) ? 1 : 0;
 
@@ -2002,32 +2025,57 @@ export class LIB_SYMBOL extends SYMBOL {
     const a = setOf(this);
     const b = setOf(aRhs);
 
-    const shapeDiff = a.shapes.length - b.shapes.length;
+    {
+      const tmp = a.shapes.length - b.shapes.length;
 
-    if (shapeDiff) {
-      return shapeDiff;
-    } else {
-      for (let i = 0; i < a.shapes.length; i++) {
-        const tmp2 = a.shapes[i]!.compare(b.shapes[i]!, aCompareFlags);
+      if (tmp) {
+        retv = tmp;
+        REPORT('Graphic item count differs.');
 
-        if (tmp2) return tmp2;
+        if (!aReporter) return retv;
+      } else {
+        for (let i = 0; i < a.shapes.length; i++) {
+          const tmp2 = a.shapes[i]!.compare(b.shapes[i]!, aCompareFlags);
+
+          if (tmp2) {
+            retv = tmp2;
+            REPORT(`Graphic item differs: ${ITEM_DESC(a.shapes[i]!)}; ${ITEM_DESC(b.shapes[i]!)}.`);
+
+            if (!aReporter) return retv;
+          }
+        }
       }
     }
 
     for (const aPin of a.pins) {
       const bPin = aRhs.GetPin(aPin.GetNumber(), aPin.GetUnit(), aPin.GetBodyStyle());
 
-      if (!bPin) return 1;
+      if (!bPin) {
+        retv = 1;
+        REPORT(`Extra pin in schematic symbol: ${ITEM_DESC(aPin)}.`);
 
-      const tmp = SCH_ITEM.prototype.compare.call(aPin, bPin, aCompareFlags);
+        if (!aReporter) return retv;
+      } else {
+        const tmp = SCH_ITEM.prototype.compare.call(aPin, bPin, aCompareFlags);
 
-      if (tmp) return tmp;
+        if (tmp) {
+          retv = tmp;
+          REPORT(`Pin ${aPin.GetNumber()} differs: ${ITEM_DESC(aPin)}; ${ITEM_DESC(bPin)}`);
+
+          if (!aReporter) return retv;
+        }
+      }
     }
 
     for (const bPin of b.pins) {
       const aPin = aRhs.GetPin(bPin.GetNumber(), bPin.GetUnit(), bPin.GetBodyStyle());
 
-      if (!aPin) return 1;
+      if (!aPin) {
+        retv = 1;
+        REPORT(`Missing pin in schematic symbol: ${ITEM_DESC(bPin)}.`);
+
+        if (!aReporter) return retv;
+      }
     }
 
     for (const aField of a.fields) {
@@ -2035,25 +2083,42 @@ export class LIB_SYMBOL extends SYMBOL {
         ? aRhs.GetField(aField.GetId())
         : aRhs.GetField(aField.GetName());
 
-      if (!bField) return 1;
+      if (!bField) {
+        retv = 1;
+        REPORT(`Extra field in schematic symbol: ${ITEM_DESC(aField)}.`);
 
-      let tmp = 0;
+        if (!aReporter) return retv;
+      } else {
+        let tmp = 0;
 
-      // The server login/password fields are not compared: C++ wxString::compare
-      if (aCompareFlags & SCH_ITEM.COMPARE_FLAGS.EQUALITY)
-        tmp = wxCmp(aField.GetText(), bField.GetText());
+        // For EQUALITY comparison, we need to compare field content directly
+        // since SCH_ITEM::compare() returns 0 for EQUALITY flag
+        if (aCompareFlags & SCH_ITEM.COMPARE_FLAGS.EQUALITY) {
+          // Compare field text content
+          tmp = wxCmp(aField.GetText(), bField.GetText());
+        }
 
-      if (tmp === 0) {
-        let fieldCompareFlags = aCompareFlags;
+        if (tmp === 0) {
+          let fieldCompareFlags = aCompareFlags;
 
-        // For ERC tests, the field position has no matter, so do not test it
-        if (aCompareFlags & SCH_ITEM.COMPARE_FLAGS.ERC)
-          fieldCompareFlags |= SCH_ITEM.COMPARE_FLAGS.SKIP_TST_POS;
+          // SCH_FIELD::compare() injects SKIP_TST_POS for ERC, but it is bypassed
+          // by the base-class call below, so mirror it here (issue 24657).
+          if (aCompareFlags & SCH_ITEM.COMPARE_FLAGS.ERC)
+            fieldCompareFlags |= SCH_ITEM.COMPARE_FLAGS.SKIP_TST_POS;
 
-        tmp = SCH_ITEM.prototype.compare.call(aField, bField, fieldCompareFlags);
+          // Fall back to base class comparison for other properties
+          tmp = SCH_ITEM.prototype.compare.call(aField, bField, fieldCompareFlags);
+        }
+
+        if (tmp !== 0) {
+          retv = tmp;
+          REPORT(
+            `Field '${aField.GetName(false)}' differs: ${ITEM_DESC(aField)}; ${ITEM_DESC(bField)}.`,
+          );
+
+          if (!aReporter) return retv;
+        }
       }
-
-      if (tmp !== 0) return tmp;
     }
 
     for (const bField of b.fields) {
@@ -2061,61 +2126,120 @@ export class LIB_SYMBOL extends SYMBOL {
         ? aRhs.GetField(bField.GetId())
         : aRhs.GetField(bField.GetName());
 
-      if (!aField) return 1;
-    }
+      if (!aField) {
+        retv = 1;
+        REPORT(`Missing field in schematic symbol: ${ITEM_DESC(bField)}.`);
 
-    const filterDiff = this.m_fpFilters.length - aRhs.m_fpFilters.length;
-
-    if (filterDiff) {
-      return filterDiff;
-    } else {
-      for (let i = 0; i < this.m_fpFilters.length; i++) {
-        const tmp2 = wxCmp(this.m_fpFilters[i]!, aRhs.m_fpFilters[i]!);
-
-        if (tmp2) return tmp2;
+        if (!aReporter) return retv;
       }
     }
 
-    const kw = wxCmp(this.m_keyWords, aRhs.m_keyWords);
+    {
+      const tmp = this.m_fpFilters.length - aRhs.m_fpFilters.length;
 
-    if (kw) return kw;
+      if (tmp) {
+        retv = tmp;
+        REPORT('Footprint filter count differs.');
 
-    const offsetDiff = this.m_pinNameOffset - aRhs.m_pinNameOffset;
+        if (!aReporter) return retv;
+      } else {
+        for (let i = 0; i < this.m_fpFilters.length; i++) {
+          const tmp2 = wxCmp(this.m_fpFilters[i]!, aRhs.m_fpFilters[i]!);
 
-    if (offsetDiff) return offsetDiff;
+          if (tmp2) {
+            retv = tmp2;
+            REPORT('Footprint filters differ.');
 
-    if ((aCompareFlags & SCH_ITEM.COMPARE_FLAGS.ERC) === 0) {
-      if (this.m_showPinNames !== aRhs.m_showPinNames) return this.m_showPinNames ? 1 : -1;
-
-      if (this.m_showPinNumbers !== aRhs.m_showPinNumbers) return this.m_showPinNumbers ? 1 : -1;
-
-      if (this.m_excludedFromSim !== aRhs.m_excludedFromSim) return this.m_excludedFromSim ? -1 : 1;
-
-      if (this.m_excludedFromBOM !== aRhs.m_excludedFromBOM) return this.m_excludedFromBOM ? -1 : 1;
-
-      if (this.m_excludedFromBoard !== aRhs.m_excludedFromBoard)
-        return this.m_excludedFromBoard ? -1 : 1;
-
-      if (this.m_excludedFromPosFiles !== aRhs.m_excludedFromPosFiles)
-        return this.m_excludedFromPosFiles ? -1 : 1;
+            if (!aReporter) return retv;
+          }
+        }
+      }
     }
 
-    if (this.m_unitsLocked !== aRhs.m_unitsLocked) return this.m_unitsLocked ? 1 : -1;
+    {
+      const tmp = wxCmp(this.m_keyWords, aRhs.m_keyWords);
 
-    // Compare unit display names…
-    const names = (m: Map<number, string>) => [...m].sort((x, y) => x[0] - y[0]);
-    const un = lexLess(names(this.m_unitDisplayNames), names(aRhs.m_unitDisplayNames), (x, y) =>
-      x[0] !== y[0] ? x[0] < y[0] : wxCmp(x[1], y[1]) < 0,
-    );
+      if (tmp) {
+        retv = tmp;
+        REPORT('Symbol keywords differ.');
 
-    if (un) return un < 0 ? -1 : 1;
+        if (!aReporter) return retv;
+      }
+    }
 
-    // … and body style names.
-    const bn = lexLess(this.m_bodyStyleNames, aRhs.m_bodyStyleNames, (x, y) => wxCmp(x, y) < 0);
+    {
+      const tmp = this.m_pinNameOffset - aRhs.m_pinNameOffset;
 
-    if (bn) return bn < 0 ? -1 : 1;
+      if (tmp) {
+        retv = tmp;
+        REPORT('Symbol pin name offsets differ.');
 
-    return 0;
+        if (!aReporter) return retv;
+      }
+    }
+
+    if ((aCompareFlags & SCH_ITEM.COMPARE_FLAGS.ERC) === 0) {
+      if (this.m_showPinNames !== aRhs.m_showPinNames) {
+        retv = this.m_showPinNames ? 1 : -1;
+        REPORT('Show pin names settings differ.');
+
+        if (!aReporter) return retv;
+      }
+
+      if (this.m_showPinNumbers !== aRhs.m_showPinNumbers) {
+        retv = this.m_showPinNumbers ? 1 : -1;
+        REPORT('Show pin numbers settings differ.');
+
+        if (!aReporter) return retv;
+      }
+
+      if (this.m_excludedFromSim !== aRhs.m_excludedFromSim) {
+        retv = this.m_excludedFromSim ? -1 : 1;
+        REPORT('Exclude from simulation settings differ.');
+
+        if (!aReporter) return retv;
+      }
+
+      if (this.m_excludedFromBOM !== aRhs.m_excludedFromBOM) {
+        retv = this.m_excludedFromBOM ? -1 : 1;
+        REPORT('Exclude from bill of materials settings differ.');
+
+        if (!aReporter) return retv;
+      }
+
+      if (this.m_excludedFromBoard !== aRhs.m_excludedFromBoard) {
+        retv = this.m_excludedFromBoard ? -1 : 1;
+        REPORT('Exclude from board settings differ.');
+
+        if (!aReporter) return retv;
+      }
+
+      if (this.m_excludedFromPosFiles !== aRhs.m_excludedFromPosFiles) {
+        retv = this.m_excludedFromPosFiles ? -1 : 1;
+        REPORT('Exclude from position files settings differ.');
+
+        if (!aReporter) return retv;
+      }
+    }
+
+    if (!aReporter) {
+      if (this.m_unitsLocked !== aRhs.m_unitsLocked) return this.m_unitsLocked ? 1 : -1;
+
+      // Compare unit display names...
+      const names = (m: Map<number, string>) => [...m].sort((x, y) => x[0] - y[0]);
+      const un = lexLess(names(this.m_unitDisplayNames), names(aRhs.m_unitDisplayNames), (x, y) =>
+        x[0] !== y[0] ? x[0] < y[0] : wxCmp(x[1], y[1]) < 0,
+      );
+
+      if (un) return un < 0 ? -1 : 1;
+
+      // ... and body style names.
+      const bn = lexLess(this.m_bodyStyleNames, aRhs.m_bodyStyleNames, (x, y) => wxCmp(x, y) < 0);
+
+      if (bn) return bn < 0 ? -1 : 1;
+    }
+
+    return retv;
   }
 
   /**

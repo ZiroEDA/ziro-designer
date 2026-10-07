@@ -176,6 +176,20 @@ export abstract class SCH_BASE_FRAME extends EDA_DRAW_FRAME {
    * EESCHEMA_SETTINGS, null in the symbol editor. Its eeschema rows are the JSON slice's
    * (`m_Input.drag_is_move` is `input.drag_is_move`), see EESCHEMA_SETTINGS.
    */
+  private m_busSyntaxHelpPresenter: (() => void) | null = null;
+
+  /**
+   * `SCH_TEXT::ShowSyntaxHelp( this )` (sch_text.cpp): the modeless Bus Syntax Help, an
+   * HTML_MESSAGE_BOX the window shows and raises when it is already open.
+   */
+  ShowBusSyntaxHelp(): void {
+    this.m_busSyntaxHelpPresenter?.();
+  }
+
+  SetBusSyntaxHelpPresenter(aPresenter: (() => void) | null): void {
+    this.m_busSyntaxHelpPresenter = aPresenter;
+  }
+
   eeconfig(): EeschemaSettings | null {
     return this.config() instanceof EESCHEMA_SETTINGS ? currentEeschemaSettings() : null;
   }

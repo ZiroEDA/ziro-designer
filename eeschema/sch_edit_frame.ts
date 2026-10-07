@@ -24,6 +24,11 @@ import { SCH_LINE_WIRE_BUS_TOOL } from './tools/sch_line_wire_bus_tool.js';
 import { SCH_ALIGN_TOOL } from './tools/sch_align_tool.js';
 import { SCH_DRAWING_TOOLS } from './tools/sch_drawing_tools.js';
 import { SCH_EDIT_TOOL } from './tools/sch_edit_tool.js';
+import { SCH_GROUP_TOOL } from './tools/sch_group_tool.js';
+import { SCH_INSPECTION_TOOL } from './tools/sch_inspection_tool.js';
+import type { SCH_MARKER } from './sch_marker.js';
+import { unescapeString } from '@ziroeda/common/string_utils.js';
+import { DIALOG_BOOK_REPORTER } from '@ziroeda/common/dialogs/dialog_book_reporter.js';
 import { SCH_NAVIGATE_TOOL } from './tools/sch_navigate_tool.js';
 import { SCH_MOVE_TOOL } from './tools/sch_move_tool.js';
 import { BOX2I } from '@ziroeda/kimath/src/math/box2.js';
@@ -87,6 +92,28 @@ export interface SHEET_PROPERTIES_RESULT {
   isUndoable: boolean;
   clearAnnotation: boolean;
   updateHierarchyNavigator: boolean;
+}
+
+/** `DIFF_SYMBOLS_DIALOG_NAME` (sch_edit_frame.cpp:135). */
+const DIFF_SYMBOLS_DIALOG_NAME = 'DiffSymbolsDialog';
+
+/**
+ * `DIALOG_ERC` (dialogs/dialog_erc.h) as SCH_INSPECTION_TOOL drives it. The dialog is the
+ * window's; the frame hands it over through its hooks.
+ */
+export interface DIALOG_ERC {
+  Show(aShow: boolean): void;
+  Raise(): void;
+  /** `okButton->SetDefault()` with the focus on it, as ShowERCDialog asks. */
+  FocusOkButton(): void;
+  IsShownOnScreen(): boolean;
+  PrevMarker(): void;
+  NextMarker(): void;
+  SelectMarker(aMarker: SCH_MARKER): void;
+  /** Exclude \a aMarker, or whichever marker the dialog has selected when null. */
+  ExcludeMarker(aMarker: SCH_MARKER | null): void;
+  /** `Destroy()`, from onCloseErcDialog / EDA_EVT_CLOSE_ERC_DIALOG. */
+  Destroy(): void;
 }
 
 export interface SCH_EDIT_FRAME_HOOKS {
@@ -187,6 +214,13 @@ export interface SCH_EDIT_FRAME_HOOKS {
   ): Promise<PICKED_SYMBOL | null>;
   /** `SchGetLibSymbol( aLibId, SymbolLibAdapter( &Prj() ), … )`: the library's symbol, or null. */
   getLibSymbol?(aLibId: LIB_ID): Promise<LIB_SYMBOL | null>;
+  /** `new DIALOG_ERC( this )`: the window's ERC dialog for this frame; null when there is none. */
+  ercDialog?(): DIALOG_ERC | null;
+  /** `PROJECT_SCH::SymbolLibAdapter( &Prj() )->HasLibrary( aNickname, aCheckEnabled )`. */
+  symbolLibHasLibrary?(aNickname: string, aCheckEnabled: boolean): boolean;
+  /** `m_hierarchy->UpdateHierarchySelection()`: the window's hierarchy tree follows the selection. */
+  updateHierarchySelection?(): void;
+  /** `DIALOG_CHANGE_SYMBOLS` from the diff dialog's Update button (onCloseSymbolDiffDialog). */
   /** `wxTextEntryDialog( this, aMessage, aCaption, aValue ).ShowModal()`: null when cancelled. */
   textEntry?(
     aMessage: string,
@@ -369,10 +403,12 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
     this.m_toolManager.RegisterTool(new SCH_MOVE_TOOL());
     this.m_toolManager.RegisterTool(new SCH_ALIGN_TOOL());
     this.m_toolManager.RegisterTool(new SCH_EDIT_TOOL());
+    this.m_toolManager.RegisterTool(new SCH_GROUP_TOOL());
+    this.m_toolManager.RegisterTool(new SCH_INSPECTION_TOOL());
     this.m_toolManager.RegisterTool(new SCH_NAVIGATE_TOOL());
     // Not ported yet (S5, one KiCad file per step):
     // SCH_EDIT_TABLE_TOOL,
-    // SCH_GROUP_TOOL, SCH_INSPECTION_TOOL, SCH_DESIGN_BLOCK_CONTROL, SCH_EDITOR_CONTROL,
+    // SCH_DESIGN_BLOCK_CONTROL, SCH_EDITOR_CONTROL,
     // SCH_FIND_REPLACE_TOOL, SCH_POINT_EDITOR (before SCH_NAVIGATE_TOOL), PROPERTIES_TOOL, EMBED_TOOL.
     this.m_toolManager.InitTools();
 
@@ -709,6 +745,80 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
     }
 
     return false;
+  }
+
+  private m_ercDialog: DIALOG_ERC | null = null;
+  private m_diffSymbolDialog: DIALOG_BOOK_REPORTER | null = null;
+
+  /** `GetErcDialog` (sch_edit_frame.cpp:2455): made on first use. */
+  GetErcDialog(): DIALOG_ERC | null {
+    if (!this.m_ercDialog) this.m_ercDialog = this.hooks.ercDialog?.() ?? null;
+
+    return this.m_ercDialog;
+  }
+
+  /** `onCloseErcDialog` (sch_edit_frame.cpp:2464): the dialog is destroyed and forgotten. */
+  CloseErcDialog(): void {
+    if (this.m_ercDialog) {
+      this.m_ercDialog.Destroy();
+      this.m_ercDialog = null;
+    }
+  }
+
+  /** `GetSymbolDiffDialog` (sch_edit_frame.cpp:2410): made on first use, with its Update button. */
+  GetSymbolDiffDialog(): DIALOG_BOOK_REPORTER {
+    if (!this.m_diffSymbolDialog) {
+      this.m_diffSymbolDialog = new DIALOG_BOOK_REPORTER(
+        DIFF_SYMBOLS_DIALOG_NAME,
+        'Compare Symbol with Library',
+        (aName, aId) => this.onCloseSymbolDiffDialog(aName, aId),
+      );
+
+      this.m_diffSymbolDialog.SetApplyLabel('Update Symbol from Library...');
+    }
+
+    return this.m_diffSymbolDialog;
+  }
+
+  /** `onCloseSymbolDiffDialog` (sch_edit_frame.cpp:2426): Update opens Change Symbols on the symbol. */
+  private onCloseSymbolDiffDialog(aName: string, aId: 'ok' | 'apply'): void {
+    if (this.m_diffSymbolDialog && aName === DIFF_SYMBOLS_DIALOG_NAME) {
+      if (aId === 'apply') {
+        const symbolUUID = this.m_diffSymbolDialog.GetUserItemID();
+
+        // CallAfter
+        queueMicrotask(() => {
+          const item = symbolUUID ? this.ResolveItem(symbolUUID) : null;
+
+          if (item && item.Type() === KICAD_T.SCH_SYMBOL_T) {
+            this.m_toolManager!.RunAction(ACTIONS.selectItem, item as EDA_ITEM);
+
+            void this.ShowModalDialog('DIALOG_CHANGE_SYMBOLS', [item], 0 /* MODE::UPDATE */);
+          }
+        });
+      }
+
+      this.m_diffSymbolDialog = null;
+    }
+  }
+
+  /** `SymbolLibAdapter( &Prj() )->HasLibrary( aNickname, aCheckEnabled )`. */
+  SymbolLibHasLibrary(aNickname: string, aCheckEnabled: boolean): boolean {
+    return this.hooks.symbolLibHasLibrary?.(aNickname, aCheckEnabled) ?? false;
+  }
+
+  /** `UpdateNetHighlightStatus` (sch_edit_frame.cpp:2097): the highlighted net in the status bar. */
+  UpdateNetHighlightStatus(): void {
+    if (this.GetHighlightedConnection() !== '') {
+      this.SetStatusText(`Highlighted net: ${unescapeString(this.GetHighlightedConnection())}`);
+    } else {
+      this.SetStatusText('');
+    }
+  }
+
+  /** `UpdateHierarchySelection` (sch_edit_frame.cpp:1414): the hierarchy tree is the window's. */
+  UpdateHierarchySelection(): void {
+    this.hooks.updateHierarchySelection?.();
   }
 
   /**

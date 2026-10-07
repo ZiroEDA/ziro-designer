@@ -140,3 +140,16 @@ export class STATUS_TEXT_POPUP extends STATUS_POPUP {
     if (this.m_statusLine) this.m_statusLine.style.color = aColor;
   }
 }
+
+/**
+ * `canvas->SetStatusPopup( popup->GetPanel() )`: what the canvas asks of the popup's panel,
+ * whether it has the focus.
+ */
+export function StatusPopupPanel(aPopup: STATUS_POPUP): { HasFocus(): boolean } {
+  return {
+    HasFocus: () => {
+      const panel = aPopup.GetPanel();
+      return !!panel && typeof document !== 'undefined' && panel.contains(document.activeElement);
+    },
+  };
+}

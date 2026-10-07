@@ -22,6 +22,13 @@ export interface BOOK_REPORTER_PAGE {
   title: string;
   /** What the page's reporter was given, in order. */
   messages: readonly string[];
+  /** An `AddBlankPage` page's content (a widget the caller put on it); absent on an HTML page. */
+  panel?: BOOK_REPORTER_BLANK_PAGE;
+}
+
+/** `AddBlankPage( aTitle )`'s wxPanel: the caller sets what it holds, the window draws it. */
+export interface BOOK_REPORTER_BLANK_PAGE {
+  content: unknown;
 }
 
 /**
@@ -43,7 +50,11 @@ export class WX_HTML_REPORT_BOX_REPORTER extends Reporter {
 export type BOOK_REPORTER_CLOSE_ID = 'ok' | 'apply';
 
 export class DIALOG_BOOK_REPORTER {
-  private m_pages: { title: string; reporter: WX_HTML_REPORT_BOX_REPORTER }[] = [];
+  private m_pages: {
+    title: string;
+    reporter: WX_HTML_REPORT_BOX_REPORTER;
+    panel?: BOOK_REPORTER_BLANK_PAGE;
+  }[] = [];
   private m_shown = false;
   private m_userItemID: string | null = null;
   private readonly m_listeners = new Set<() => void>();
@@ -83,6 +94,18 @@ export class DIALOG_BOOK_REPORTER {
     return reporter;
   }
 
+  /** `AddBlankPage( aTitle )`: a notebook page with an empty panel for the caller to fill. */
+  AddBlankPage(aTitle: string): BOOK_REPORTER_BLANK_PAGE {
+    const panel: BOOK_REPORTER_BLANK_PAGE = { content: null };
+    this.m_pages.push({
+      title: aTitle,
+      reporter: new WX_HTML_REPORT_BOX_REPORTER(() => this.notify()),
+      panel,
+    });
+    this.notify();
+    return panel;
+  }
+
   GetPageCount(): number {
     return this.m_pages.length;
   }
@@ -92,6 +115,7 @@ export class DIALOG_BOOK_REPORTER {
     return this.m_pages.map((p) => ({
       title: p.title,
       messages: p.reporter.lines.map((l) => l.message),
+      ...(p.panel ? { panel: p.panel } : {}),
     }));
   }
 
