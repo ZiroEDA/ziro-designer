@@ -539,6 +539,25 @@ export function setEeschemaSettingsProvider(fn: () => EeschemaSettings): void {
   eeschemaSettingsProvider = fn;
 }
 
+/**
+ * The writer half: KiCad assigns into the live EESCHEMA_SETTINGS and SaveSettings writes it out;
+ * the store here replaces rather than mutates, so a write goes through its updater. No app
+ * registered writes nothing.
+ */
+let updateEeschemaSettingsProvider: (mutate: (s: EeschemaSettings) => void) => void = () => {};
+
+/** The settings store installs this once, through `OnKifaceStart`. */
+export function setUpdateEeschemaSettingsProvider(
+  fn: (mutate: (s: EeschemaSettings) => void) => void,
+): void {
+  updateEeschemaSettingsProvider = fn;
+}
+
+/** A write to the live `eeschema.json`. */
+export function updateEeschemaSettings(mutate: (s: EeschemaSettings) => void): void {
+  updateEeschemaSettingsProvider(mutate);
+}
+
 /** The live `eeschema.json`. */
 export function currentEeschemaSettings(): EeschemaSettings {
   return eeschemaSettingsProvider();

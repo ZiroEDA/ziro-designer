@@ -128,6 +128,7 @@ import { SCH_TABLE } from '../sch_table.js';
 import { SCH_TABLECELL } from '../sch_tablecell.js';
 import { RotateAndMirrorPin } from '../symb_transforms_utils.js';
 import { SYMBOL_EDIT_FRAME } from '../symbol_editor/symbol_edit_frame.js';
+import type { SCH_POINT_EDITOR } from './sch_point_editor.js';
 import { EE_GRID_HELPER } from './ee_grid_helper.js';
 import { SCH_ACTIONS, type DRAW_SEGMENT_EVENT_PARAMS } from './sch_actions.js';
 import { SCH_SELECTION } from './sch_selection.js';
@@ -960,13 +961,14 @@ export class SCH_SELECTION_TOOL extends SELECTION_TOOL {
     return this.getViewControls() as unknown as VIEW_CONTROLS;
   }
 
-  /** `m_toolMgr->GetTool<SCH_POINT_EDITOR>() && …->HasPoint()`: the point editor is S5's. */
+  /**
+   * `m_toolMgr->GetTool<SCH_POINT_EDITOR>() && …->HasPoint()`. Found by name: the point editor
+   * imports this tool's frame, so a value import would cycle.
+   */
   private pointEditorHasPoint(): boolean {
-    const pointEditor = this.m_toolMgr!.FindTool('eeschema.PointEditor') as unknown as {
-      HasPoint?(): boolean;
-    } | null;
+    const pointEditor = this.m_toolMgr!.FindTool('eeschema.PointEditor') as SCH_POINT_EDITOR | null;
 
-    return !!pointEditor?.HasPoint?.();
+    return !!pointEditor?.HasPoint();
   }
 
   /** Main's TA_CHOICE_MENU_CHOICE branch: unit, body style, alternate function, pin tricks, bus unfold. */

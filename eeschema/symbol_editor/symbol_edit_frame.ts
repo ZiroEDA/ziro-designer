@@ -8,7 +8,10 @@
  * reaches them through {@link SYMBOL_EDIT_FRAME_HOOKS}.
  */
 import type { LIB_SYMBOL } from '../lib_symbol.js';
-import { currentSymbolEditorSettings } from './symbol_editor_settings.js';
+import {
+  currentSymbolEditorSettings,
+  type SymbolEditorSettings,
+} from './symbol_editor_settings.js';
 import type { APP_SETTINGS_BASE } from '@ziroeda/common/settings/app_settings.js';
 import { LIB_EDIT_FRAME_NAME } from '@ziroeda/common/eda_draw_frame.js';
 import { FRAME_T } from '@ziroeda/common/frame_type.js';
@@ -66,6 +69,34 @@ export class SYMBOL_EDIT_FRAME extends SCH_BASE_FRAME {
   /** `IsSymbolAlias()` (symbol_edit_frame.cpp:2225): the symbol is derived from another. */
   IsSymbolAlias(): boolean {
     return !!this.m_symbol && !this.m_symbol.IsRoot();
+  }
+
+  // `IsSymbolFromSchematic()` / `IsSymbolFromLegacyLibrary()` (symbol_edit_frame.{h:273,cpp:892}):
+  // the window knows where its symbol came from and which library row holds it, and sets them.
+  private m_isSymbolFromSchematic = false;
+  private m_isSymbolFromLegacyLibrary = false;
+
+  SetSymbolOrigin(aFromSchematic: boolean, aFromLegacyLibrary: boolean): void {
+    this.m_isSymbolFromSchematic = aFromSchematic;
+    this.m_isSymbolFromLegacyLibrary = aFromLegacyLibrary;
+  }
+
+  IsSymbolFromSchematic(): boolean {
+    return this.m_isSymbolFromSchematic;
+  }
+
+  IsSymbolFromLegacyLibrary(): boolean {
+    return !!this.m_symbol && this.m_isSymbolFromLegacyLibrary;
+  }
+
+  /** `IsSymbolEditable()` (symbol_edit_frame.cpp:2231). */
+  IsSymbolEditable(): boolean {
+    return !!this.m_symbol && (!this.IsSymbolFromLegacyLibrary() || this.IsSymbolFromSchematic());
+  }
+
+  /** `GetSettings()` (symbol_edit_frame.h:221): the frame's SYMBOL_EDITOR_SETTINGS. */
+  GetSettings(): SymbolEditorSettings | null {
+    return this.libeditconfig();
   }
 
   /** `GetShowInvisibleFields()` (symbol_edit_frame.cpp:2264): libeditconfig()->m_ShowHiddenFields. */

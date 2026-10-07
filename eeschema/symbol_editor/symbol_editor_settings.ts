@@ -108,6 +108,13 @@ export interface SymbolEditorSettings {
     /** `defaults.pin_num_size`, `DEFAULT_PINNUM_SIZE` = 50 (`default_values.h:42`). */
     pin_num_size: number;
   };
+  /**
+   * `editing.arc_edit_mode` -> `m_ArcEditMode` (`symbol_editor_settings.cpp:105-107`), default
+   * `KEEP_CENTER_ADJUST_ANGLE_RADIUS` (0). The point editor reads and cycles it.
+   */
+  editing: {
+    arc_edit_mode: 0 | 1 | 2;
+  };
   /** `SYMBOL_EDITOR_SETTINGS::REPEAT`, `repeat.*` (`symbol_editor_settings.cpp:75-79`). */
   repeat: {
     /** `repeat.label_delta`, 1. The spin control's range is -10..10. */
@@ -194,6 +201,9 @@ export const SYMBOL_EDITOR_DEFAULTS: SymbolEditorSettings = {
     pin_name_size: 50,
     pin_num_size: 50,
   },
+  editing: {
+    arc_edit_mode: 0,
+  },
   repeat: {
     label_delta: 1,
     pin_step: 100,
@@ -249,6 +259,22 @@ let symbolEditorSettingsProvider: () => SymbolEditorSettings = () => SYMBOL_EDIT
 /** The settings store installs this once (`designer/src/prefs/settings.ts`). */
 export function setSymbolEditorSettingsProvider(fn: () => SymbolEditorSettings): void {
   symbolEditorSettingsProvider = fn;
+}
+
+/** The writer half, as `updateEeschemaSettings`: no app registered writes nothing. */
+let updateSymbolEditorSettingsProvider: (mutate: (s: SymbolEditorSettings) => void) => void =
+  () => {};
+
+/** The settings store installs this once, through `OnKifaceStart`. */
+export function setUpdateSymbolEditorSettingsProvider(
+  fn: (mutate: (s: SymbolEditorSettings) => void) => void,
+): void {
+  updateSymbolEditorSettingsProvider = fn;
+}
+
+/** A write to the live `symbol_editor.json`. */
+export function updateSymbolEditorSettings(mutate: (s: SymbolEditorSettings) => void): void {
+  updateSymbolEditorSettingsProvider(mutate);
 }
 
 /** The live `symbol_editor.json`. */

@@ -53,7 +53,10 @@ import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
 import type { SCH_GROUP } from './sch_group.js';
 import type { SCH_ITEM } from './sch_item.js';
 import type { SCH_SCREEN } from './sch_screen.js';
-import { currentSymbolEditorSettings } from './symbol_editor/symbol_editor_settings.js';
+import {
+  currentSymbolEditorSettings,
+  type SymbolEditorSettings,
+} from './symbol_editor/symbol_editor_settings.js';
 
 /** `LIB_TREE_MODEL_ADAPTER::GetPinningSymbol()`: the star a pinned library is listed with. */
 export const PINNING_SYMBOL = '☆ ';
@@ -188,6 +191,14 @@ export abstract class SCH_BASE_FRAME extends EDA_DRAW_FRAME {
 
   SetBusSyntaxHelpPresenter(aPresenter: (() => void) | null): void {
     this.m_busSyntaxHelpPresenter = aPresenter;
+  }
+
+  /**
+   * `libeditconfig()` (sch_base_frame.cpp:197): SYMBOL_EDITOR_SETTINGS when config() is one -
+   * the symbol editor's frame - else null. SYMBOL_EDITOR_SETTINGS is the JSON slice here.
+   */
+  libeditconfig(): SymbolEditorSettings | null {
+    return this.IsType(FRAME_T.FRAME_SCH_SYMBOL_EDITOR) ? currentSymbolEditorSettings() : null;
   }
 
   eeconfig(): EeschemaSettings | null {

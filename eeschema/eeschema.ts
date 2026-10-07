@@ -32,10 +32,15 @@ import {
   LIBRARY_TABLE_SCOPE,
   LIBRARY_TABLE_TYPE,
 } from '@ziroeda/common/libraries/library_table.js';
-import { type EeschemaSettings, setEeschemaSettingsProvider } from './eeschema_settings.js';
+import {
+  type EeschemaSettings,
+  setEeschemaSettingsProvider,
+  setUpdateEeschemaSettingsProvider,
+} from './eeschema_settings.js';
 import {
   type SymbolEditorSettings,
   setSymbolEditorSettingsProvider,
+  setUpdateSymbolEditorSettingsProvider,
 } from './symbol_editor/symbol_editor_settings.js';
 
 /** `kiface( "eeschema", KIWAY::FACE_SCH )`. [data] */
@@ -51,9 +56,15 @@ export const EESCHEMA_KIFACE_NAME = 'eeschema';
 export function OnKifaceStart(
   aEeschema: () => EeschemaSettings,
   aSymbolEditor: () => SymbolEditorSettings,
+  aUpdateEeschema?: (mutate: (s: EeschemaSettings) => void) => void,
+  aUpdateSymbolEditor?: (mutate: (s: SymbolEditorSettings) => void) => void,
 ): void {
   setSymbolEditorSettingsProvider(aSymbolEditor);
   setEeschemaSettingsProvider(aEeschema);
+
+  if (aUpdateSymbolEditor) setUpdateSymbolEditorSettingsProvider(aUpdateSymbolEditor);
+
+  if (aUpdateEeschema) setUpdateEeschemaSettingsProvider(aUpdateEeschema);
 }
 
 /**

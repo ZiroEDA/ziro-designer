@@ -2883,4 +2883,6 @@ setColorPickerTabStore({
 eeschemaOnKifaceStart(
   () => settings.eeschema,
   () => settings.symbolEditor,
+  (mutate) => settings.updateEeschema(mutate),
+  (mutate) => settings.updateSymbolEditor(mutate),
 );
