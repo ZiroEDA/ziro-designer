@@ -9,7 +9,8 @@ import { resolve } from 'node:path';
 import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import { PGM_BASE, SETTINGS_MANAGER, SetPgm } from '@ziroeda/common/pgm_base.js';
 import { ACTIONS } from '@ziroeda/common/tool/actions.js';
-import { wxFD_OVERWRITE_PROMPT, wxFD_SAVE } from '@ziroeda/common/wx/defs.js';
+import { wxFD_OVERWRITE_PROMPT, wxFD_SAVE, wxICON_ERROR, wxOK } from '@ziroeda/common/wx/defs.js';
+import { MEMORY_FILESYSTEM, wxMountFileSystem } from '@ziroeda/common/wx/filefn.js';
 import { SCH_TABLE } from '@ziroeda/eeschema/sch_table.js';
 import { SCH_TABLECELL } from '@ziroeda/eeschema/sch_tablecell.js';
 import type { SCH_EDIT_FRAME_HOOKS } from '@ziroeda/eeschema/sch_edit_frame.js';
@@ -24,7 +25,25 @@ const FAR = 3000 * G;
 const P = (x: number, y: number) => ({ x: FAR + x * G, y: FAR + y * G });
 
 beforeEach(() => SetPgm(new PGM_BASE(null, new SETTINGS_MANAGER())));
-afterEach(() => SetPgm(null));
+let unmount: (() => void) | null = null;
+afterEach(() => {
+  SetPgm(null);
+  unmount?.();
+  unmount = null;
+});
+
+/** The project directory, mounted writable as the app mounts an open project. */
+function mountDisk() {
+  const fs = new MEMORY_FILESYSTEM();
+  unmount = wxMountFileSystem('/proj', fs);
+  return {
+    read: (aRel: string) => {
+      const bytes = fs.Read(aRel);
+      return bytes ? new TextDecoder().decode(bytes) : null;
+    },
+    list: () => (fs.List('') ?? []).map((e) => e.name),
+  };
+}
 
 const flush = async () => {
   for (let i = 0; i < 6; i++) await new Promise((r) => setTimeout(r, 0));
@@ -130,9 +149,11 @@ describe('SCH_EDIT_TABLE_TOOL', () => {
     h.select(h.table.GetCell(0, 0)!);
     h.mgr.RunAction(ACTIONS.addRowBelow);
 
-    const copy = h.table.GetCell(1, 0)!;
-    expect(copy.m_Uuid).not.toBe(h.table.GetCell(0, 0)!.m_Uuid);
-    expect(copy.GetText()).toBe('');
+    // InsertCell( ( row + 1 ) * GetColCount(), cell ) puts each copy at the same index, so the
+    // new row holds the copies in reverse column order, upstream too. Every cell is its own.
+    const uuids = h.table.GetCells().map((c) => c.m_Uuid);
+    expect(new Set(uuids).size).toBe(uuids.length);
+    expect([h.table.GetCell(1, 0)!.GetText(), h.table.GetCell(1, 1)!.GetText()]).toEqual(['', '']);
   });
 
   it('deletes the rows and columns holding a selected cell, keeping the rest of the sizes', () => {
@@ -193,16 +214,12 @@ describe('SCH_EDIT_TABLE_TOOL', () => {
   });
 
   it('exports the table as CSV, quoting commas and doubling quotes, adding .csv', async () => {
-    const written: [string, string][] = [];
     const asked: unknown[][] = [];
+    const disk = mountDisk();
     const h = setUp({
       fileDialog: (...args) => {
         asked.push(args);
         return '/proj/table';
-      },
-      writeTextFile: (aPath, aText) => {
-        written.push([aPath, aText]);
-        return true;
       },
     });
     h.table.GetCell(0, 1)!.SetText('x,y');
@@ -215,23 +232,42 @@ describe('SCH_EDIT_TABLE_TOOL', () => {
     expect(asked).toEqual([
       ['Export Table to CSV', '', '', 'CSV files (*.csv)|*.csv', wxFD_SAVE | wxFD_OVERWRITE_PROMPT],
     ]);
-    expect(written).toEqual([['/proj/table.csv', 'A,"x,y"\n"q""r",D\n']]);
+    expect(disk.read('table.csv')).toBe('A,"x,y"\n"q""r",D\n');
   });
 
-  it('a cancelled export writes nothing', async () => {
-    const written: string[] = [];
+  it('a path no writable mount covers is the "Failed to open file" message box', async () => {
+    const boxes: unknown[] = [];
     const h = setUp({
-      fileDialog: () => null,
-      writeTextFile: (aPath) => {
-        written.push(aPath);
-        return true;
+      fileDialog: () => '/nowhere/table.csv',
+      showModal: (aDialog, _aItems, aArg) => {
+        boxes.push([aDialog, aArg]);
+        return 0;
       },
     });
     h.select(h.table.GetCell(0, 0)!);
     h.mgr.RunAction(ACTIONS.exportTableCSV);
     await flush();
 
-    expect(written).toEqual([]);
+    expect(boxes).toEqual([
+      [
+        'wxMessageBox',
+        {
+          message: 'Failed to open file:\n/nowhere/table.csv',
+          caption: 'Export Error',
+          style: wxOK | wxICON_ERROR,
+        },
+      ],
+    ]);
+  });
+
+  it('a cancelled export writes nothing', async () => {
+    const disk = mountDisk();
+    const h = setUp({ fileDialog: () => null });
+    h.select(h.table.GetCell(0, 0)!);
+    h.mgr.RunAction(ACTIONS.exportTableCSV);
+    await flush();
+
+    expect(disk.list()).toEqual([]);
   });
 
   it('Edit Table opens DIALOG_TABLE_PROPERTIES on the cells’ table', async () => {

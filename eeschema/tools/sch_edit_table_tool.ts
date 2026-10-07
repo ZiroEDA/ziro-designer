@@ -16,6 +16,7 @@ import { SYNC_HANDLER } from '@ziroeda/common/tool/tool_interactive.js';
 import type { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
 import type { BASE_SCREEN_LIKE } from '@ziroeda/common/undo_redo_container.js';
 import { wxFD_OVERWRITE_PROMPT, wxFD_SAVE, wxICON_ERROR, wxOK } from '@ziroeda/common/wx/defs.js';
+import { wxWriteFileSync } from '@ziroeda/common/wx/filefn.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { SCH_COLLECTOR } from '../sch_collectors.js';
 import { SCH_COMMIT } from '../sch_commit.js';
@@ -181,8 +182,8 @@ export class SCH_EDIT_TABLE_TOOL extends TABLE_TOOL_BASE {
       out += '\n';
     }
 
-    // Open file for writing
-    if (!this.m_frame!.WriteTextFile(filePath, out)) {
+    // Open file for writing (std::ofstream on the mounted file system)
+    if (!wxWriteFileSync(filePath, new TextEncoder().encode(out))) {
       yield* this.RunMainStackModal(() =>
         this.m_frame!.ShowModalDialog('wxMessageBox', [], {
           message: `Failed to open file:\n${filePath}`,
