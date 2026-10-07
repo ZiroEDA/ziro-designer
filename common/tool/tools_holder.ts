@@ -23,8 +23,10 @@ export interface TOOLS_HOLDER_INPUT_SETTINGS {
   immediate_actions: boolean;
 }
 
-/** `COMMON_SETTINGS_CHANGED` flag: hotkeys were changed. */
-export const HOTKEYS_CHANGED = 0x02;
+/** `CommonSettingsChanged` flags (tools_holder.h:151-153). [data] */
+export const ENVVARS_CHANGED = 0x0001;
+export const TEXTVARS_CHANGED = 0x0002;
+export const HOTKEYS_CHANGED = 0x0004;
 
 export abstract class TOOLS_HOLDER {
   protected m_toolManager: TOOL_MANAGER | null;

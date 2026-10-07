@@ -156,11 +156,11 @@ describe('the board syncing its selection to the schematic', () => {
 });
 
 describe('the schematic syncing its selection to the board', () => {
-  it('SendSelectItemsToPcb mails $SELECT: 0,<parts>, forced or not, and nothing for no parts', () => {
+  it('SendSelectPartsToPcb mails $SELECT: 0,<parts>, forced or not, and nothing for no parts', () => {
     const env = setup();
-    env.frame.SendSelectItemsToPcb(['FR1', 'S/a/b/'], false);
-    env.frame.SendSelectItemsToPcb(['PU1/2'], true);
-    env.frame.SendSelectItemsToPcb([], true);
+    env.frame.SendSelectPartsToPcb(['FR1', 'S/a/b/'], false);
+    env.frame.SendSelectPartsToPcb(['PU1/2'], true);
+    env.frame.SendSelectPartsToPcb([], true);
     expect(env.pcb.received).toEqual([
       [MAIL_T.MAIL_SELECTION, '$SELECT: 0,FR1,S/a/b/'],
       [MAIL_T.MAIL_SELECTION_FORCE, '$SELECT: 0,PU1/2'],

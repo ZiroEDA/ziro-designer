@@ -49,11 +49,11 @@
  * by `sch_edit_frame.ts` with `applyMixins` - the pattern `pcbnew/undo_redo.ts` uses.  Each
  * method takes `this: SCH_EDIT_FRAME`.
  *
- * Not here: the `PAGESETTINGS` command (`DS_PROXY_UNDO_ITEM` is not ported; such a picker
- * is skipped), and the view calls (`ClearHiddenFlags`, the canvas refresh): the live frame
- * has no view yet.
+ * Not here: the view calls (`ClearHiddenFlags`, the canvas refresh): the live frame has no
+ * view yet.
  */
 
+import { DS_PROXY_UNDO_ITEM } from '@ziroeda/common/drawing_sheet/ds_proxy_undo_item.js';
 import { UNDO_REDO_LIST } from '@ziroeda/common/eda_base_frame.js';
 import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import { UR_TRANSIENT } from '@ziroeda/common/eda_item_flags.js';
@@ -356,7 +356,16 @@ export class SCH_UNDO_REDO_MIXIN {
 
         bulkAddedItems.push(schItem!);
       } else if (status === UNDO_REDO.PAGESETTINGS) {
-        // DS_PROXY_UNDO_ITEM::Restore: not ported (see the header).
+        if (!this.GetCurrentSheet().equals(undoSheet)) {
+          this.SetCurrentSheet(undoSheet);
+          this.DisplayCurrentSheet();
+        }
+
+        // swap current settings with stored settings
+        const alt_item = new DS_PROXY_UNDO_ITEM(this);
+        const item = eda_item as DS_PROXY_UNDO_ITEM;
+        item.Restore(this);
+        item.assign(alt_item);
       } else if (status === UNDO_REDO.REPEAT_ITEM) {
         if (!clearedRepeatItems) {
           this.ClearRepeatItemsList();
@@ -575,9 +584,7 @@ export class SCH_UNDO_REDO_MIXIN {
       this.PutDataInPreviousState(undo);
       undo.ClearListAndDeleteItems(() => {});
 
-      const selTool = this.GetToolManager()?.FindTool(
-        'eeschema.InteractiveSelection',
-      ) as unknown as {
+      const selTool = this.GetToolManager()?.FindTool('common.InteractiveSelection') as unknown as {
         RebuildSelection(): void;
       } | null;
 

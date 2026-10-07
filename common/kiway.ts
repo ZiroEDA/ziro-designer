@@ -155,6 +155,15 @@ export class KIWAY {
   }
 
   /** `GetPlayerFrame( aFrameType )`: the live player of that type, or null. */
+  /**
+   * `CommonSettingsChanged( aFlags )` (kiway.cpp:599): every open player hears it. The project
+   * manager's frame (`m_top`) is the program's, not a KIWAY_PLAYER here, and ENVVARS_CHANGED's
+   * library preload is the program's library loader; neither runs through this.
+   */
+  CommonSettingsChanged(aFlags: number): void {
+    for (const frame of this.m_playerFrame.values()) frame.CommonSettingsChanged(aFlags);
+  }
+
   GetPlayerFrame(aFrameType: FRAME_T): KIWAY_PLAYER | null {
     return this.m_playerFrame.get(aFrameType) ?? null;
   }

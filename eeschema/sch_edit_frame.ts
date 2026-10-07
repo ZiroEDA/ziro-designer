@@ -27,11 +27,15 @@ import { SCH_EDIT_TOOL } from './tools/sch_edit_tool.js';
 import { SCH_GROUP_TOOL } from './tools/sch_group_tool.js';
 import { SCH_INSPECTION_TOOL } from './tools/sch_inspection_tool.js';
 import type { SCH_MARKER } from './sch_marker.js';
-import { unescapeString } from '@ziroeda/common/string_utils.js';
+import { ESCAPE_CONTEXT, EscapeString, unescapeString } from '@ziroeda/common/string_utils.js';
+import { FIELD_T } from '@ziroeda/common/template_fieldnames.js';
+import { PgmOrNull } from '@ziroeda/common/pgm_base.js';
+import { TEXTVARS_CHANGED } from '@ziroeda/common/tool/tools_holder.js';
 import { DIALOG_BOOK_REPORTER } from '@ziroeda/common/dialogs/dialog_book_reporter.js';
 import { SCH_NAVIGATE_TOOL } from './tools/sch_navigate_tool.js';
 import { SCH_POINT_EDITOR } from './tools/sch_point_editor.js';
 import { SCH_DESIGN_BLOCK_CONTROL } from './tools/sch_design_block_control.js';
+import { SCH_EDITOR_CONTROL } from './tools/sch_editor_control.js';
 import { PROPERTIES_TOOL } from '@ziroeda/common/tool/properties_tool.js';
 import { EMBED_TOOL } from '@ziroeda/common/tool/embed_tool.js';
 import { SCH_FIND_REPLACE_TOOL } from './tools/sch_find_replace_tool.js';
@@ -73,7 +77,7 @@ import { TOOL_DISPATCHER } from '@ziroeda/common/tool/tool_dispatcher.js';
 import { ZOOM_TOOL } from '@ziroeda/common/tool/zoom_tool.js';
 import { PICKER_TOOL } from '@ziroeda/common/tool/picker_tool.js';
 import { SCH_SELECTION_TOOL } from './tools/sch_selection_tool.js';
-import { wxID_CANCEL } from '@ziroeda/common/wx/menu.js';
+import { wxID_CANCEL, wxID_OK } from '@ziroeda/common/wx/menu.js';
 import { VIEW_UPDATE_FLAGS } from '@ziroeda/common/view/view_item.js';
 import { TOOL_MANAGER } from '@ziroeda/common/tool/tool_manager.js';
 import { applyMixins } from '@ziroeda/core/mixins.js';
@@ -87,7 +91,7 @@ import type { LIB_SYMBOL } from './lib_symbol.js';
 import type { LIB_ID } from '@ziroeda/common/lib_id.js';
 import type { SCH_SHEET } from './sch_sheet.js';
 import type { SCH_SHEET_PATH } from './sch_sheet_path.js';
-import { type SCH_CLEANUP_FLAGS, SCHEMATIC } from './schematic.js';
+import { SCH_CLEANUP_FLAGS, SCHEMATIC } from './schematic.js';
 import { SCH_UNDO_REDO_MIXIN } from './schematic_undo_redo.js';
 import { SCH_DESIGN_BLOCK_UTILS_MIXIN } from './sch_design_block_utils.js';
 import type { SCH_DESIGN_BLOCK_PANE } from './widgets/sch_design_block_pane.js';
@@ -107,6 +111,14 @@ const DIFF_SYMBOLS_DIALOG_NAME = 'DiffSymbolsDialog';
  * `DIALOG_ERC` (dialogs/dialog_erc.h) as SCH_INSPECTION_TOOL drives it. The dialog is the
  * window's; the frame hands it over through its hooks.
  */
+/** `DIALOG_SYMBOL_FIELDS_TABLE` as SCH_EDITOR_CONTROL drives it. */
+export interface DIALOG_SYMBOL_FIELDS_TABLE {
+  Show(aShow: boolean): void;
+  Raise(): void;
+  ShowEditTab(): void;
+  ShowExportTab(): void;
+}
+
 export interface DIALOG_ERC {
   Show(aShow: boolean): void;
   Raise(): void;
@@ -222,6 +234,26 @@ export interface SCH_EDIT_FRAME_HOOKS {
   getLibSymbol?(aLibId: LIB_ID): Promise<LIB_SYMBOL | null>;
   /** `new DIALOG_ERC( this )`: the window's ERC dialog for this frame; null when there is none. */
   ercDialog?(): DIALOG_ERC | null;
+  /**
+   * `new DIALOG_SYMBOL_FIELDS_TABLE( this )`: the modeless Symbol Fields Table, which the window
+   * builds; GetSymbolFieldsTableDialog keeps it.
+   */
+  symbolFieldsTableDialog?(): DIALOG_SYMBOL_FIELDS_TABLE | null;
+  /**
+   * The AUI half of ToggleSearch, ToggleSchematicHierarchy, ToggleNetNavigator,
+   * ToggleProperties, ToggleLibraryTree and ToggleRemoteSymbolPanel (sch_edit_frame.cpp,
+   * net_navigator.cpp): the window owns `m_auimgr` and its panes, and shows or hides the one
+   * KiCad names (`SearchPaneName()`, ...), saving its size into `m_AuiPanels` as upstream does.
+   */
+  togglePane?(
+    aPane:
+      | 'Search'
+      | 'SchematicHierarchy'
+      | 'NetNavigator'
+      | 'Properties'
+      | 'DesignBlocks'
+      | 'RemoteSymbol',
+  ): void;
   /** `PROJECT_SCH::SymbolLibAdapter( &Prj() )->HasLibrary( aNickname, aCheckEnabled )`. */
   symbolLibHasLibrary?(aNickname: string, aCheckEnabled: boolean): boolean;
   /** `m_hierarchy->UpdateHierarchySelection()`: the window's hierarchy tree follows the selection. */
@@ -424,7 +456,7 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
     this.m_toolManager.RegisterTool(new SCH_GROUP_TOOL());
     this.m_toolManager.RegisterTool(new SCH_INSPECTION_TOOL());
     this.m_toolManager.RegisterTool(new SCH_DESIGN_BLOCK_CONTROL());
-    // Not ported yet: SCH_EDITOR_CONTROL, registered here upstream.
+    this.m_toolManager.RegisterTool(new SCH_EDITOR_CONTROL());
     this.m_toolManager.RegisterTool(new SCH_FIND_REPLACE_TOOL());
     this.m_toolManager.RegisterTool(new SCH_POINT_EDITOR());
     this.m_toolManager.RegisterTool(new SCH_NAVIGATE_TOOL());
@@ -771,6 +803,140 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
   private m_diffSymbolDialog: DIALOG_BOOK_REPORTER | null = null;
 
   /** `GetErcDialog` (sch_edit_frame.cpp:2455): made on first use. */
+  private m_symbolFieldsTableDialog: DIALOG_SYMBOL_FIELDS_TABLE | null = null;
+
+  /** `GetSymbolFieldsTableDialog()` (sch_edit_frame.cpp:2474). */
+  GetSymbolFieldsTableDialog(): DIALOG_SYMBOL_FIELDS_TABLE | null {
+    if (!this.m_symbolFieldsTableDialog)
+      this.m_symbolFieldsTableDialog = this.hooks.symbolFieldsTableDialog?.() ?? null;
+
+    return this.m_symbolFieldsTableDialog;
+  }
+
+  /** `onCloseSymbolFieldsTableDialog()`: the dialog's close handler calls it. */
+  OnCloseSymbolFieldsTableDialog(): void {
+    this.m_symbolFieldsTableDialog = null;
+  }
+
+  /** `ToggleSearch()` (sch_edit_frame.cpp:2845). */
+  ToggleSearch(): void {
+    this.hooks.togglePane?.('Search');
+  }
+
+  /** `ToggleSchematicHierarchy()` (sch_edit_frame.cpp:2911). */
+  ToggleSchematicHierarchy(): void {
+    this.hooks.togglePane?.('SchematicHierarchy');
+  }
+
+  /** `ToggleNetNavigator()` (net_navigator.cpp:674). */
+  ToggleNetNavigator(): void {
+    this.hooks.togglePane?.('NetNavigator');
+  }
+
+  /** `ToggleProperties()` (sch_edit_frame.cpp:2885). */
+  override ToggleProperties(): void {
+    this.hooks.togglePane?.('Properties');
+  }
+
+  /** `ToggleLibraryTree()` (sch_edit_frame.cpp:2954): the Design Blocks pane. */
+  override ToggleLibraryTree(): void {
+    this.hooks.togglePane?.('DesignBlocks');
+  }
+
+  /** `ToggleRemoteSymbolPanel()` (sch_edit_frame.cpp:2996). */
+  ToggleRemoteSymbolPanel(): void {
+    this.hooks.togglePane?.('RemoteSymbol');
+  }
+
+  /** `OnAnnotate()` (dialog_annotate.cpp:284): the modeless DIALOG_ANNOTATE, shown or raised. */
+  OnAnnotate(): void {
+    void this.ShowModalDialog('DIALOG_ANNOTATE', []);
+  }
+
+  /**
+   * `ShowSchematicSetupDialog( aInitialPage )` (eeschema_config.cpp:103). The window runs
+   * DIALOG_SCHEMATIC_SETUP; on OK the frame does what follows it upstream.
+   */
+  async ShowSchematicSetupDialog(aInitialPage = ''): Promise<void> {
+    // One dialog at a time.
+    if (this.m_schematicSetupDialogOpen) return;
+
+    const oldAliases = this.Prj().GetProjectFile().m_BusAliases;
+    const oldAliasesKey = JSON.stringify([...oldAliases]);
+
+    this.m_schematicSetupDialogOpen = true;
+    let result: number;
+
+    try {
+      result = await this.ShowModalDialog('DIALOG_SCHEMATIC_SETUP', [], aInitialPage);
+    } finally {
+      this.m_schematicSetupDialogOpen = false;
+    }
+
+    if (result === wxID_OK) {
+      // Mark document as modified so that project settings can be saved as part of doc save
+      this.OnModify();
+
+      this.Kiway()?.CommonSettingsChanged(TEXTVARS_CHANGED);
+
+      this.Prj().IncrementTextVarsTicker();
+      this.Prj().IncrementNetclassesTicker();
+      PgmOrNull()?.GetSettingsManager().SaveProject();
+
+      const settings = this.Schematic().Settings();
+      const rs = this.GetRenderSettings();
+
+      if (rs) {
+        rs.SetDefaultPenWidth(settings.m_DefaultLineWidth);
+        rs.m_LabelSizeRatio = settings.m_LabelSizeRatio;
+        rs.m_TextOffsetRatio = settings.m_TextOffsetRatio;
+        rs.m_PinSymbolSize = settings.m_PinSymbolSize;
+        rs.m_SymbolLineWidth = settings.m_DefaultLineWidth;
+
+        rs.SetDashLengthRatio(settings.m_DashedLineDashRatio);
+        rs.SetGapLengthRatio(settings.m_DashedLineGapRatio);
+      }
+
+      this.GetCanvas()?.GetView()?.MarkDirty();
+      this.GetCanvas()?.GetView()?.UpdateAllItems(VIEW_UPDATE_FLAGS.REPAINT);
+
+      const newAliases = this.Prj().GetProjectFile().m_BusAliases;
+
+      if (oldAliasesKey !== JSON.stringify([...newAliases]))
+        this.RecalculateConnections(null, SCH_CLEANUP_FLAGS.GLOBAL_CLEANUP);
+
+      // RefreshOperatingPointDisplay(): the simulator is not ported, so there is no operating
+      // point to show.
+      this.GetCanvas()?.Refresh();
+    }
+  }
+
+  /// The `dialogMutex` of ShowSchematicSetupDialog: a second request while one is open does nothing.
+  private m_schematicSetupDialogOpen = false;
+
+  /// `m_syncingPcbToSchSelection`: recursion guard when synchronizing selection from PCB.
+  private m_syncingPcbToSchSelection = false;
+
+  /**
+   * `OnModify()` (sch_edit_frame.cpp:1333). `Kiway().LocalHistory().NoteFileChange` is the
+   * desktop's local file history, which the cloud store replaces; the title the window builds
+   * from IsContentModified().
+   */
+  override OnModify(): void {
+    super.OnModify();
+
+    this.GetScreen()?.SetContentModified();
+
+    if (this.m_isClosing) return;
+
+    this.GetCanvas()?.Refresh();
+  }
+
+  /** `IsSyncingSelection()` (sch_edit_frame.h:812). */
+  IsSyncingSelection(): boolean {
+    return this.m_syncingPcbToSchSelection;
+  }
+
   GetErcDialog(): DIALOG_ERC | null {
     if (!this.m_ercDialog) this.m_ercDialog = this.hooks.ercDialog?.() ?? null;
 
@@ -1186,7 +1352,14 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
 
         const focusOnFirst = paramStr[0] === '1';
 
-        this.hooks.syncSelection(syncStr.split(','), focusOnFirst);
+        this.m_syncingPcbToSchSelection = true; // recursion guard
+
+        try {
+          this.hooks.syncSelection(syncStr.split(','), focusOnFirst);
+        } finally {
+          this.m_syncingPcbToSchSelection = false;
+        }
+
         break;
       }
 
@@ -1279,12 +1452,53 @@ export class SCH_EDIT_FRAME extends SCH_BASE_FRAME implements SCHEMATIC_HOLDER {
     kiway.ExpressMail(FRAME_T.FRAME_PCB_EDITOR, MAIL_T.MAIL_PCB_UPDATE, payload, this);
   }
 
+  /** `SCH_EDIT_FRAME::SendSelectItemsToPcb( aItems, aForce )` (eeschema/cross-probing.cpp:312). */
+  SendSelectItemsToPcb(aItems: readonly EDA_ITEM[], aForce: boolean): void {
+    const parts: string[] = [];
+
+    for (const item of aItems) {
+      switch (item.Type()) {
+        case KICAD_T.SCH_SYMBOL_T: {
+          const symbol = item as unknown as SCH_SYMBOL;
+          const ref = symbol.GetField(FIELD_T.REFERENCE)!.GetText();
+
+          parts.push(`F${EscapeString(ref, ESCAPE_CONTEXT.CTX_IPC)}`);
+          break;
+        }
+
+        case KICAD_T.SCH_SHEET_T: {
+          // For cross probing, we need the full path of the sheet, because
+          // we search by the footprint path prefix in the PCB editor
+          const full_path = this.GetCurrentSheet().PathAsString() + item.m_Uuid;
+
+          parts.push(`S${full_path}`);
+          break;
+        }
+
+        case KICAD_T.SCH_PIN_T: {
+          const pin = item as unknown as SCH_PIN;
+          const symbol = pin.GetParentSymbol() as unknown as SCH_SYMBOL;
+          const ref = symbol.GetRef(this.GetCurrentSheet(), false);
+
+          parts.push(
+            `P${EscapeString(ref, ESCAPE_CONTEXT.CTX_IPC)}/${EscapeString(pin.GetShownNumber(), ESCAPE_CONTEXT.CTX_IPC)}`,
+          );
+          break;
+        }
+
+        default:
+          break;
+      }
+    }
+
+    this.SendSelectPartsToPcb(parts, aForce);
+  }
+
   /**
-   * `SCH_EDIT_FRAME::SendSelectItemsToPcb` (eeschema/cross-probing.cpp:312),
-   * over the parts `syncSelectionParts` gives, in selection order. Nothing is
-   * sent for no parts, as upstream.
+   * SendSelectItemsToPcb from the packet parts on: the record window builds its parts from
+   * record ids (`syncSelectionParts`) and joins here. Nothing is sent for no parts.
    */
-  SendSelectItemsToPcb(aParts: readonly string[], aForce: boolean): void {
+  SendSelectPartsToPcb(aParts: readonly string[], aForce: boolean): void {
     if (aParts.length === 0) return;
 
     let command = '$SELECT: 0,';

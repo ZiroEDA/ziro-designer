@@ -2032,7 +2032,7 @@ export function SchematicEditor({
     const key = parts.join(',');
     if (key === lastSchPartsRef.current) return;
     lastSchPartsRef.current = key;
-    schFrameRef.current!.SendSelectItemsToPcb(parts, false);
+    schFrameRef.current!.SendSelectPartsToPcb(parts, false);
   }, [selection, currentPath]);
 
   /**
@@ -8133,7 +8133,7 @@ export function SchematicEditor({
             // and the mail waits for it if it is still mounting.
             action: () => {
               kiway.Player(FRAME_T.FRAME_PCB_EDITOR);
-              schFrameRef.current!.SendSelectItemsToPcb(parts, true);
+              schFrameRef.current!.SendSelectPartsToPcb(parts, true);
             },
           });
       }
