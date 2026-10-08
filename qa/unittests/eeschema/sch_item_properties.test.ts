@@ -12,6 +12,16 @@ import { TYPE_HASH } from '@ziroeda/common/properties/property.js';
 import { PROPERTY_MANAGER } from '@ziroeda/common/properties/property_mgr.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { SCH_ITEM } from '@ziroeda/eeschema/sch_item.js';
+import { SCH_GROUP } from '@ziroeda/eeschema/sch_group.js';
+import { SCH_JUNCTION } from '@ziroeda/eeschema/sch_junction.js';
+import { SCH_SHEET_PIN } from '@ziroeda/eeschema/sch_sheet_pin.js';
+import { SCH_TEXT } from '@ziroeda/eeschema/sch_text.js';
+import {
+  SCH_DIRECTIVE_LABEL,
+  SCH_GLOBALLABEL,
+  SCH_HIERLABEL,
+  SCH_LABEL,
+} from '@ziroeda/eeschema/sch_label.js';
 import type { SCH_SYMBOL } from '@ziroeda/eeschema/sch_symbol.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { openProject, schFrame, schToolHarness } from './support/sch_tool_harness.js';
@@ -65,5 +75,68 @@ describe('SCH_ITEM_DESC', () => {
       ['A', 1],
       ['B', 2],
     ]);
+  });
+});
+
+/** The property names a type shows: masked base properties gone, its own and its bases' kept. */
+const shown = (aType: object) =>
+  PROPERTY_MANAGER.Instance()
+    .GetProperties(TYPE_HASH(aType as never))
+    .map((p) => p.Name());
+
+describe('the leaf registrations', () => {
+  it('SCH_JUNCTION_DESC: Diameter (a size) and Color, over SCH_ITEM', () => {
+    const names = shown(SCH_JUNCTION);
+    expect(names).toEqual(expect.arrayContaining(['Diameter', 'Color', 'Unit', 'Private']));
+
+    const j = new SCH_JUNCTION({ x: 0, y: 0 });
+    const diameter = PROPERTY_MANAGER.Instance().GetProperty(TYPE_HASH(SCH_JUNCTION), 'Diameter')!;
+    diameter.set(j, 2540);
+    expect(j.GetDiameter()).toBe(2540);
+  });
+
+  it('SCH_TEXT_DESC: Text Size in Text Properties; Mirrored, Width, Height, Thickness, Orientation masked', () => {
+    const names = shown(SCH_TEXT);
+    expect(names).toContain('Text Size');
+    for (const masked of ['Mirrored', 'Width', 'Height', 'Thickness', 'Orientation'])
+      expect(names).not.toContain(masked);
+    expect(names).toEqual(expect.arrayContaining(['Text', 'Italic', 'Bold']));
+    expect(PROPERTY_MANAGER.Instance().GetProperty(TYPE_HASH(SCH_TEXT), 'Text Size')!.Group()).toBe(
+      'Text Properties',
+    );
+  });
+
+  it('SCH_SHEET_PIN_DESC: everything a hierarchical label has', () => {
+    expect(shown(SCH_SHEET_PIN)).toEqual(expect.arrayContaining(['Text Size', 'Text']));
+  });
+
+  it('SCH_GROUP_DESC: Name in Group Properties; no Position X/Y', () => {
+    const names = shown(SCH_GROUP);
+    expect(names).toContain('Name');
+    expect(names).not.toContain('Position X');
+    expect(names).not.toContain('Position Y');
+  });
+
+  it('SCH_LABEL_DESC: Shape only on global and hierarchical labels and sheet pins; Hyperlink masked', () => {
+    const shape = PROPERTY_MANAGER.Instance().GetProperty(TYPE_HASH(SCH_HIERLABEL), 'Shape')!;
+    expect(shape.Available(new SCH_HIERLABEL({ x: 0, y: 0 }, 'H'))).toBe(true);
+    expect(shape.Available(new SCH_GLOBALLABEL({ x: 0, y: 0 }, 'G'))).toBe(true);
+    expect(shape.Available(new SCH_LABEL({ x: 0, y: 0 }, 'L'))).toBe(false);
+    expect(shown(SCH_LABEL)).not.toContain('Hyperlink');
+    expect(shown(SCH_LABEL)).toContain('Text Size');
+  });
+
+  it('SCH_DIRECTIVE_LABEL_DESC: its own Shape and Pin length; the text properties it has no use for masked', () => {
+    const names = shown(SCH_DIRECTIVE_LABEL);
+    expect(names).toEqual(expect.arrayContaining(['Shape', 'Pin length']));
+    for (const masked of [
+      'Text',
+      'Thickness',
+      'Italic',
+      'Bold',
+      'Horizontal Justification',
+      'Vertical Justification',
+    ])
+      expect(names).not.toContain(masked);
   });
 });

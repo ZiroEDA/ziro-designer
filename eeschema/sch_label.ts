@@ -13,6 +13,16 @@
  */
 
 import { ResolveTextVars } from '@ziroeda/common/common.js';
+import {
+  ENUM_MAP,
+  type INSPECTABLE_ITEM,
+  PROPERTY,
+  PROPERTY_DISPLAY,
+  PROPERTY_ENUM,
+  TYPE_CAST,
+  TYPE_INT,
+} from '@ziroeda/common/properties/property.js';
+import { PROPERTY_MANAGER, REGISTER_TYPE } from '@ziroeda/common/properties/property_mgr.js';
 import type { EDA_ITEM, INSPECTOR, OutStr } from '@ziroeda/common/eda_item.js';
 import { INSPECT_RESULT, RECURSE_MODE } from '@ziroeda/common/eda_item.js';
 import { EDA_SEARCH_DATA } from '@ziroeda/common/eda_search_data.js';
@@ -2176,3 +2186,118 @@ export class SCH_HIERLABEL extends SCH_LABEL_BASE {
     return samePt(EDA_TEXT.prototype.GetTextPos.call(this), aPosition);
   }
 }
+
+/**
+ * `static struct SCH_LABEL_DESC` (eeschema/sch_label.cpp:2418). Upstream registers SCH_LABEL_BASE,
+ * SCH_LABEL and SCH_HIERLABEL here, and SCH_GLOBALLABEL only by its casts and inheritance.
+ */
+(() => {
+  const labelShapeEnum = ENUM_MAP.Instance<LABEL_SHAPE>('LABEL_SHAPE');
+
+  if (labelShapeEnum.Choices().GetCount() === 0) {
+    labelShapeEnum
+      .Map(LABEL_SHAPE.LABEL_INPUT, 'Input')
+      .Map(LABEL_SHAPE.LABEL_OUTPUT, 'Output')
+      .Map(LABEL_SHAPE.LABEL_BIDI, 'Bidirectional')
+      .Map(LABEL_SHAPE.LABEL_TRISTATE, 'Tri-state')
+      .Map(LABEL_SHAPE.LABEL_PASSIVE, 'Passive');
+  }
+
+  const propMgr = PROPERTY_MANAGER.Instance();
+  REGISTER_TYPE(SCH_LABEL_BASE);
+  REGISTER_TYPE(SCH_LABEL);
+  REGISTER_TYPE(SCH_HIERLABEL);
+
+  propMgr.AddTypeCast(new TYPE_CAST(SCH_LABEL, SCH_LABEL_BASE));
+  propMgr.AddTypeCast(new TYPE_CAST(SCH_HIERLABEL, SCH_LABEL_BASE));
+  propMgr.AddTypeCast(new TYPE_CAST(SCH_GLOBALLABEL, SCH_LABEL_BASE));
+
+  propMgr.AddTypeCast(new TYPE_CAST(SCH_LABEL, SCH_TEXT));
+  propMgr.AddTypeCast(new TYPE_CAST(SCH_HIERLABEL, SCH_TEXT));
+  propMgr.AddTypeCast(new TYPE_CAST(SCH_GLOBALLABEL, SCH_TEXT));
+
+  propMgr.AddTypeCast(new TYPE_CAST(SCH_LABEL, EDA_TEXT));
+  propMgr.AddTypeCast(new TYPE_CAST(SCH_HIERLABEL, EDA_TEXT));
+  propMgr.AddTypeCast(new TYPE_CAST(SCH_GLOBALLABEL, EDA_TEXT));
+
+  propMgr.InheritsAfter(SCH_LABEL_BASE, SCH_TEXT);
+  propMgr.InheritsAfter(SCH_LABEL, SCH_LABEL_BASE);
+  propMgr.InheritsAfter(SCH_HIERLABEL, SCH_LABEL_BASE);
+  propMgr.InheritsAfter(SCH_GLOBALLABEL, SCH_LABEL_BASE);
+
+  const hasLabelShape = (aItem: INSPECTABLE_ITEM): boolean => {
+    if (aItem instanceof SCH_LABEL_BASE)
+      return aItem.IsType([
+        KICAD_T.SCH_GLOBAL_LABEL_T,
+        KICAD_T.SCH_HIER_LABEL_T,
+        KICAD_T.SCH_SHEET_PIN_T,
+      ]);
+
+    return false;
+  };
+
+  propMgr
+    .AddProperty(
+      new PROPERTY_ENUM<SCH_LABEL_BASE, LABEL_SHAPE>(
+        SCH_LABEL_BASE,
+        'Shape',
+        'SetLabelShape',
+        'GetLabelShape',
+        labelShapeEnum,
+      ),
+    )
+    .SetAvailableFunc(hasLabelShape);
+
+  propMgr.Mask(SCH_LABEL_BASE, EDA_TEXT, 'Hyperlink');
+})();
+
+/**
+ * `static struct SCH_DIRECTIVE_LABEL_DESC` (eeschema/sch_label.cpp:2472).
+ */
+(() => {
+  const flagShapeEnum = ENUM_MAP.Instance<FLAG_SHAPE>('FLAG_SHAPE');
+
+  if (flagShapeEnum.Choices().GetCount() === 0) {
+    flagShapeEnum
+      .Map(FLAG_SHAPE.FLAG_DOT, 'Dot')
+      .Map(FLAG_SHAPE.FLAG_CIRCLE, 'Circle')
+      .Map(FLAG_SHAPE.FLAG_DIAMOND, 'Diamond')
+      .Map(FLAG_SHAPE.FLAG_RECTANGLE, 'Rectangle');
+  }
+
+  const propMgr = PROPERTY_MANAGER.Instance();
+  REGISTER_TYPE(SCH_DIRECTIVE_LABEL);
+  propMgr.AddTypeCast(new TYPE_CAST(SCH_DIRECTIVE_LABEL, SCH_LABEL_BASE));
+  propMgr.AddTypeCast(new TYPE_CAST(SCH_DIRECTIVE_LABEL, SCH_TEXT));
+  propMgr.AddTypeCast(new TYPE_CAST(SCH_DIRECTIVE_LABEL, EDA_TEXT));
+
+  propMgr.InheritsAfter(SCH_DIRECTIVE_LABEL, SCH_LABEL_BASE);
+
+  propMgr.AddProperty(
+    new PROPERTY_ENUM<SCH_DIRECTIVE_LABEL, FLAG_SHAPE>(
+      SCH_DIRECTIVE_LABEL,
+      'Shape',
+      'SetFlagShape',
+      'GetFlagShape',
+      flagShapeEnum,
+    ),
+  );
+
+  propMgr.AddProperty(
+    new PROPERTY<SCH_DIRECTIVE_LABEL, number>(
+      SCH_DIRECTIVE_LABEL,
+      'Pin length',
+      'SetPinLength',
+      'GetPinLength',
+      TYPE_INT,
+      PROPERTY_DISPLAY.PT_SIZE,
+    ),
+  );
+
+  propMgr.Mask(SCH_DIRECTIVE_LABEL, EDA_TEXT, 'Text');
+  propMgr.Mask(SCH_DIRECTIVE_LABEL, EDA_TEXT, 'Thickness');
+  propMgr.Mask(SCH_DIRECTIVE_LABEL, EDA_TEXT, 'Italic');
+  propMgr.Mask(SCH_DIRECTIVE_LABEL, EDA_TEXT, 'Bold');
+  propMgr.Mask(SCH_DIRECTIVE_LABEL, EDA_TEXT, 'Horizontal Justification');
+  propMgr.Mask(SCH_DIRECTIVE_LABEL, EDA_TEXT, 'Vertical Justification');
+})();
