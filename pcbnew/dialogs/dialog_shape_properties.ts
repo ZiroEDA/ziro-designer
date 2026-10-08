@@ -20,9 +20,11 @@ import { BOARD_COMMIT } from '../board_commit.js';
 import type { PCB_BASE_EDIT_FRAME } from '../pcb_base_edit_frame.js';
 import type { PCB_SHAPE } from '../pcb_shape.js';
 import type { TransferResult } from './dialog_text_properties.js';
-import type { PcbShape } from '../types.js';
 import type { Vec2 } from '@ziroeda/kimath/src/math/vector2.js';
 import type { LineStyleToken } from '@ziroeda/common/stroke_params.js';
+
+/** The shape the window names, SHAPE_T as the file spells it. */
+export type ShapeKind = 'line' | 'arc' | 'circle' | 'rect' | 'poly' | 'curve';
 
 /** The mask layer that pairs with a graphic's own layer, F.SilkS -> F.Mask. */
 /** Every field DIALOG_SHAPE_PROPERTIES edits, for a board graphic. */
@@ -38,7 +40,7 @@ export interface ShapeValues {
    * two corners. The NODE has to be rebuilt for it, because the kind is the
    * node's head token.
    */
-  kind: PcbShape['kind'];
+  kind: ShapeKind;
   lineWidth: number;
   strokeType: LineStyleToken;
   /** `(radius …)`, a rounded rectangle's corner. Zero for every other kind. */
@@ -85,12 +87,10 @@ export function shapePointsUsed(aShape: SHAPE_T): {
 /** Resolve a `shape:N` id, or null when the selection is not one shape. */
 const ZERO: Vec2 = { x: 0, y: 0 };
 
-/** DIALOG_SHAPE_PROPERTIES::TransferDataToWindow. */
-/** DIALOG_SHAPE_PROPERTIES::TransferDataFromWindow. */
 // ---------------------------------------------------------------------------
 // DIALOG_SHAPE_PROPERTIES over the live PCB_SHAPE (#636 stage 6)
 
-const SHAPE_KIND: Partial<Record<SHAPE_T, PcbShape['kind']>> = {
+const SHAPE_KIND: Partial<Record<SHAPE_T, ShapeKind>> = {
   [SHAPE_T.SEGMENT]: 'line',
   [SHAPE_T.RECTANGLE]: 'rect',
   [SHAPE_T.ARC]: 'arc',

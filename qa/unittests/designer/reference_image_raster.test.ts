@@ -16,11 +16,7 @@
  * in a profiler, which is exactly the kind of thing to hold with a test.
  */
 import { describe, expect, it, vi } from 'vitest';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import { ReferenceImageCache, base64ToBytes } from '@ziroeda/pcbnew/pcb_reference_image.js';
-import type { Board, PcbImage } from '@ziroeda/pcbnew/types.js';
-
-const MM = (n: number): number => mmToIU(n);
 
 /** Records path ops instead of drawing, so a scene can be built under node. */
 class RecordingPath2D {
@@ -55,33 +51,6 @@ class RecordingPath2D {
 /** A 1x1 PNG, so the header parser has real pixel dimensions to read. */
 const PNG =
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
-
-const _image = (over: Partial<PcbImage> = {}): PcbImage => ({
-  at: { x: MM(10), y: MM(20) },
-  layer: 'F.SilkS',
-  data: PNG,
-  ...over,
-});
-
-const _board = (images: PcbImage[]): Board => ({
-  version: 20240108,
-  layers: [{ id: 0, name: 'F.Cu', kind: 'signal' }],
-  nets: new Map([[0, '']]),
-  footprints: [],
-  tracks: [],
-  arcs: [],
-  vias: [],
-  zones: [],
-  shapes: [],
-  texts: [],
-  dimensions: [],
-  textBoxes: [],
-  tables: [],
-  images,
-  points: [],
-  barcodes: [],
-  groups: [],
-});
 
 describe('base64ToBytes', () => {
   it('decodes to the PNG magic number', () => {

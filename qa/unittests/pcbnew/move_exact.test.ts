@@ -22,47 +22,8 @@ import {
   moveKeepsSelectionInBounds,
   polarTranslation,
 } from '@ziroeda/pcbnew/dialogs/dialog_move_exact.js';
-import type { Board, PcbShape, PcbTrack } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
-
-const _track = (x0: number, y0: number, x1: number, y1: number): PcbTrack => ({
-  start: { x: MM(x0), y: MM(y0) },
-  end: { x: MM(x1), y: MM(y1) },
-  width: MM(0.25),
-  layer: 'F.Cu',
-  net: 0,
-});
-
-const _rect = (x0: number, y0: number, x1: number, y1: number): PcbShape => ({
-  kind: 'rect',
-  start: { x: MM(x0), y: MM(y0) },
-  end: { x: MM(x1), y: MM(y1) },
-  width: 0,
-  fillMode: 'solid',
-  layer: 'F.SilkS',
-});
-
-const _board = (over: Partial<Board> = {}): Board => ({
-  version: 20240108,
-  layers: [{ id: 0, name: 'F.Cu', kind: 'signal' }],
-  nets: new Map([[0, '']]),
-  footprints: [],
-  tracks: [],
-  arcs: [],
-  vias: [],
-  zones: [],
-  shapes: [],
-  texts: [],
-  dimensions: [],
-  textBoxes: [],
-  tables: [],
-  images: [],
-  points: [],
-  barcodes: [],
-  groups: [],
-  ...over,
-});
 
 /** Within a nanometre — rotation goes through trigonometry, then rounds to IU. */
 const near = (got: number, want: number): void =>

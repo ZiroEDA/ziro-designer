@@ -11,50 +11,10 @@
  * and moves when position 0's transform is not the identity.
  */
 import { describe, expect, it } from 'vitest';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import { arraySize } from '@ziroeda/pcbnew/dialogs/dialog_create_array.js';
 import { ARRAY_CIRCULAR_OPTIONS, ARRAY_GRID_OPTIONS } from '@ziroeda/common/array_options.js';
 import { EDA_ANGLE } from '@ziroeda/kimath/src/geometry/eda_angle.js';
 import type { VECTOR2I } from '@ziroeda/kimath/src/math/vector2.js';
-
-import type { Board, PcbVia } from '@ziroeda/pcbnew/types.js';
-
-const MM = (n: number): number => mmToIU(n);
-
-const _via = (x: number, y: number): PcbVia => ({
-  at: { x: MM(x), y: MM(y) },
-  size: MM(0.8),
-  drill: MM(0.4),
-  layers: ['F.Cu', 'B.Cu'],
-  kind: 'through',
-  net: 0,
-});
-
-const _board = (vias: PcbVia[]): Board => ({
-  version: 20240108,
-  layers: [{ id: 0, name: 'F.Cu', kind: 'signal' }],
-  nets: new Map([[0, '']]),
-  footprints: [],
-  tracks: [],
-  arcs: [],
-  vias,
-  zones: [],
-  shapes: [],
-  texts: [],
-  dimensions: [],
-  textBoxes: [],
-  tables: [],
-  images: [],
-  points: [],
-  barcodes: [],
-  groups: [],
-});
-
-/** Every via position, sorted, so the *set* can be compared without order. */
-const _positions = (b: Board): string[] =>
-  b.vias
-    .map((v) => `${Math.round(v.at.x / 1000)},${Math.round(v.at.y / 1000)}`)
-    .sort((a, z) => a.localeCompare(z));
 
 /** The dialog's fields onto ARRAY_GRID_OPTIONS, as TransferDataFromWindow sets them. */
 const gridOpts = (o: {

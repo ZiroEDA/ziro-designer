@@ -19,6 +19,9 @@ import { EDA_ANGLE, EDA_ANGLE_T } from '@ziroeda/kimath/src/geometry/eda_angle.j
 import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import { BOARD } from '@ziroeda/pcbnew/board.js';
 import { PCB_TABLE } from '@ziroeda/pcbnew/pcb_table.js';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
 import { PCB_TABLECELL } from '@ziroeda/pcbnew/pcb_tablecell.js';
 
 const deg = (d: number) => new EDA_ANGLE(d, EDA_ANGLE_T.DEGREES_T);
@@ -180,5 +183,120 @@ describe('PCB_TABLE', () => {
     d.SetStrokeRows(false);
     expect(t.Similarity(d)).toBeCloseTo(0.9, 12);
     expect(t.equals(d)).toBe(false);
+  });
+});
+
+describe('PCB_TABLE::DrawBorders, the lines a table draws', () => {
+  const MM = (n: number): number => pcbIUScale.mmToIU(n);
+  /** A 2x2 grid at (0,0)-(20,10), cells 10x5, in row-major order. */
+  const cell = (
+    text: string,
+    x0: number,
+    y0: number,
+    x1: number,
+    y1: number,
+    span = '(span 1 1)',
+  ): string => `(table_cell "${text}"
+          (start ${x0} ${y0}) (end ${x1} ${y1})
+          (margins 1 1 1 1)
+          ${span}
+          (layer "F.SilkS")
+          (uuid "aaaaaaaa-0000-0000-0000-00000000000${text}")
+          (effects (font (size 1 1))))`;
+
+  const TABLE = (opts = '', spans: string[] = []): string => `(table
+      (column_count 2)
+      (uuid "d6f049b1-ff3f-4087-ba96-404a150d1c9b")
+      (layer "F.SilkS")
+      ${opts || '(border (external yes) (header no) (stroke (width 0.2) (type solid)))\n    (separators (rows yes) (cols yes) (stroke (width 0.05) (type solid)))'}
+      (column_widths 10 10)
+      (row_heights 5 5)
+      (cells
+        ${cell('1', 0, 0, 10, 5, spans[0] ?? '(span 1 1)')}
+        ${cell('2', 10, 0, 20, 5, spans[1] ?? '(span 1 1)')}
+        ${cell('3', 0, 5, 10, 10, spans[2] ?? '(span 1 1)')}
+        ${cell('4', 10, 5, 20, 10, spans[3] ?? '(span 1 1)')}))`;
+
+  type Seg = {
+    a: { x: number; y: number };
+    b: { x: number; y: number };
+    width: number;
+    style: LINE_STYLE;
+  };
+  const segs = (opts?: string, spans?: string[]): Seg[] => {
+    const board = ParseBoard(`(kicad_pcb (version 20241229) (generator "test")
+  (layers (0 "F.Cu" signal) (2 "B.Cu" signal) (5 "F.SilkS" user "F.Silkscreen"))
+  (net 0 "")
+  ${TABLE(opts, spans)})`);
+    const table = board.Drawings().find((d) => d.Type() === KICAD_T.PCB_TABLE_T) as PCB_TABLE;
+    const out: Seg[] = [];
+    table.DrawBorders((a, b, stroke) =>
+      out.push({ a, b, width: stroke.GetWidth(), style: stroke.GetLineStyle() }),
+    );
+    return out;
+  };
+
+  it('draws each interior divider as one segment per cell, plus four outer edges', () => {
+    // A column separator is a *cell's right edge*, so a 2-row table gets two
+    // vertical segments that together form one visible divider; likewise two
+    // horizontal ones across the two columns. 2 + 2 + 4 frame = 8.
+    expect(segs()).toHaveLength(8);
+  });
+
+  it('drops the outer frame when external is off', () => {
+    expect(
+      segs(
+        '(border (external no) (header no))\n    (separators (rows yes) (cols yes) (stroke (width 0.05) (type solid)))',
+      ),
+    ).toHaveLength(4);
+  });
+
+  it('draws nothing at all with every flag off', () => {
+    expect(
+      segs('(border (external no) (header no))\n    (separators (rows no) (cols no))'),
+    ).toHaveLength(0);
+  });
+
+  it('draws the header line in the border weight, not the separator weight', () => {
+    // `row == 0 && StrokeHeaderSeparator()` wins before the
+    // StrokeColumns/StrokeRows fallthrough. Row 0 only: one column-separator
+    // segment (col 0) and two row-separator segments (one per column) = 3.
+    const s = segs(
+      '(border (external no) (header yes) (stroke (width 0.2) (type solid)))\n    (separators (rows no) (cols no))',
+    );
+    expect(s).toHaveLength(3);
+    for (const seg of s) expect(seg.width).toBe(MM(0.2));
+  });
+
+  it('uses the separator weight and style for the rest', () => {
+    const s = segs(
+      '(border (external no) (header no))\n    (separators (rows yes) (cols yes) (stroke (width 0.05) (type dash)))',
+    );
+    for (const seg of s) expect(seg.width).toBe(MM(0.05));
+    expect(s[0]!.style).toBe(LINE_STYLE.DASH);
+  });
+
+  const NOEXT =
+    '(border (external no) (header no))\n    (separators (rows yes) (cols yes) (stroke (width 0.05) (type solid)))';
+  /** [vertical, horizontal] segment counts. */
+  const vh = (s: Seg[]): [number, number] => [
+    s.filter((x) => x.a.x === x.b.x).length,
+    s.filter((x) => x.a.y === x.b.y).length,
+  ];
+
+  it('skips a cell that was merged away', () => {
+    // colSpan 0 means a neighbour swallowed it, so its right edge is not drawn.
+    expect(vh(segs(NOEXT))).toEqual([2, 2]);
+    expect(vh(segs(NOEXT, ['(span 1 1)', '(span 1 1)', '(span 0 1)', '(span 1 1)']))).toEqual([
+      1, 2,
+    ]);
+  });
+
+  it('draws no column separator for a cell spanning to the last column', () => {
+    // Nothing beyond it to separate from: this is what makes a merged cell
+    // look merged rather than merely wide.
+    expect(vh(segs(NOEXT, ['(span 2 1)', '(span 1 1)', '(span 1 1)', '(span 1 1)']))).toEqual([
+      1, 2,
+    ]);
   });
 });

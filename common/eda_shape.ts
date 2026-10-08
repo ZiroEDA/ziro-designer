@@ -538,6 +538,9 @@ export abstract class EDA_SHAPE {
   }
 
   GetHatching(): SHAPE_POLY_SET {
+    // `EDA_SHAPE::UpdateHatching()`, qualified: the base's, not an override.
+    EDA_SHAPE.prototype.UpdateHatching.call(this);
+
     if (!this.m_hatchingCache)
       this.m_hatchingCache = { hatching: new SHAPE_POLY_SET(), hatchLines: [] };
 
@@ -545,6 +548,8 @@ export abstract class EDA_SHAPE {
   }
 
   GetHatchLines(): readonly SEG[] {
+    EDA_SHAPE.prototype.UpdateHatching.call(this);
+
     if (!this.m_hatchingCache)
       this.m_hatchingCache = { hatching: new SHAPE_POLY_SET(), hatchLines: [] };
 
@@ -1439,7 +1444,7 @@ export abstract class EDA_SHAPE {
       hole_base.SetClosed(true);
 
       // Build holes
-      const bbox = this.GetHatching().BBox(0);
+      const bbox = this.hatching().BBox(0);
       const holes = new SHAPE_POLY_SET();
 
       const x_offset = bbox.GetX() - (bbox.GetX() % gridsize) - gridsize;

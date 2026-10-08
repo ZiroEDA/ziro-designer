@@ -15,11 +15,13 @@
  * The last describe below ties each flag to the engine to keep the two honest.
  */
 import { describe, expect, it } from 'vitest';
-import type { DimensionKind } from '@ziroeda/pcbnew/types.js';
 import { dimensionDialogFields as fieldsFor } from '@ziroeda/pcbnew/dialogs/dialog_dimension_properties.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 
 /** The dimension kinds as the KICAD_T each one is (pcb_dimension.h). */
+/** The five `(dimension (type …))` kinds, as the file spells them. */
+type DimensionKind = 'aligned' | 'orthogonal' | 'center' | 'radial' | 'leader';
+
 const TYPE_OF: Record<DimensionKind, KICAD_T> = {
   aligned: KICAD_T.PCB_DIM_ALIGNED_T,
   orthogonal: KICAD_T.PCB_DIM_ORTHOGONAL_T,

@@ -23,16 +23,41 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { parse } from '@ziroeda/sexpr/index.js';
+import type { EDA_TEXT } from '@ziroeda/common/eda_text.js';
+import { FIELD_T } from '@ziroeda/common/template_fieldnames.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import type { BOARD } from '@ziroeda/pcbnew/board.js';
+import type { BOARD_ITEM } from '@ziroeda/pcbnew/board_item.js';
+import type { FOOTPRINT } from '@ziroeda/pcbnew/footprint.js';
+import { UNCONNECTED_LAYER_MODE } from '@ziroeda/pcbnew/padstack.js';
+import type { PCB_DIMENSION_BASE } from '@ziroeda/pcbnew/pcb_dimension.js';
+import type { PCB_TEXT } from '@ziroeda/pcbnew/pcb_text.js';
+import type { PCB_VIA } from '@ziroeda/pcbnew/pcb_track.js';
 import {
-  readBoard,
-  readFootprintFile,
+  FormatBoard,
+  FormatFootprintForLibrary,
+  ParseBoard,
+  ParseFootprintFile,
 } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { serializeFootprint } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 
 const dataFile = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(`../../data/${rel}`, import.meta.url)), 'utf8');
+
+const valueHidden = (fp: FOOTPRINT): boolean => !fp.GetField(FIELD_T.VALUE)!.IsVisible();
+const referenceHidden = (fp: FOOTPRINT): boolean => !fp.GetField(FIELD_T.REFERENCE)!.IsVisible();
+/**
+ * The hidden texts a file can hide: Reference, Value and the fp_texts. The
+ * Datasheet and Description fields are born invisible (FOOTPRINT's
+ * constructor), so they say nothing about how a `hide` was read.
+ */
+const hiddenTexts = (fp: FOOTPRINT): EDA_TEXT[] =>
+  [
+    fp.GetField(FIELD_T.REFERENCE)!,
+    fp.GetField(FIELD_T.VALUE)!,
+    ...fp.GraphicalItems().filter((t) => t.Type() === KICAD_T.PCB_TEXT_T),
+  ].filter((t) => !(t as unknown as EDA_TEXT).IsVisible()) as unknown as EDA_TEXT[];
+const boardTexts = (b: BOARD): PCB_TEXT[] =>
+  b.Drawings().filter((d) => d.Type() === KICAD_T.PCB_TEXT_T) as PCB_TEXT[];
 
 // ---------------------------------------------------------------------------
 // Real KiCad output
@@ -41,50 +66,45 @@ const dataFile = (rel: string): string =>
 describe('files KiCad wrote', () => {
   it('hides the Value text bitmap2component marked with a bare `hide`', () => {
     // `(fp_text value "LOGO" (at 0.75 0) (layer "F.SilkS") hide …)`, written by
-    // the installed KiCad 10.0.5's own bitmap2component. Before the port this
-    // came back `hide: false`: the file loaded clean and one field was wrong.
-    const fp = readFootprintFile(
-      parse(dataFile('bitmap2component/kicad_square24_300dpi.kicad_mod')),
-    )!;
-    const value = fp.texts.find((t) => t.kind === 'value')!;
-    expect(value.hide).toBe(true);
+    // the installed KiCad 10.0.5's own bitmap2component.
+    const fp = ParseFootprintFile(dataFile('bitmap2component/kicad_square24_300dpi.kicad_mod'));
+    expect(valueHidden(fp)).toBe(true);
     // The reference text in the same file carries no `hide` at all.
-    expect(fp.texts.find((t) => t.kind === 'reference')!.hide).toBe(false);
+    expect(referenceHidden(fp)).toBe(false);
   });
 
   it('keeps that hidden Value hidden across a write and a re-read', () => {
     // We re-emit `(hide yes)` rather than the bare token, so the round trip is
     // also the proof that the two spellings mean the same thing to us.
-    const fp = readFootprintFile(
-      parse(dataFile('bitmap2component/kicad_square24_300dpi.kicad_mod')),
-    )!;
-    const back = readFootprintFile(parse(serializeFootprint(fp)))!;
-    expect(back.texts.find((t) => t.kind === 'value')!.hide).toBe(true);
-    expect(back.texts.find((t) => t.kind === 'reference')!.hide).toBe(false);
+    const fp = ParseFootprintFile(dataFile('bitmap2component/kicad_square24_300dpi.kicad_mod'));
+    const back = ParseFootprintFile(FormatFootprintForLibrary(fp));
+    expect(valueHidden(back)).toBe(true);
+    expect(referenceHidden(back)).toBe(false);
   });
 
   it('hides both bare-`hide` footprint texts of a v20220211 board', () => {
     // qa/data/pcbnew/issue10906.kicad_pcb — KiCad's own corpus.
-    const board = readBoard(parse(dataFile('pcbnew/issue10906.kicad_pcb')));
-    const hidden = board.footprints.flatMap((f) => f.texts).filter((t) => t.hide);
+    const board = ParseBoard(dataFile('pcbnew/issue10906.kicad_pcb'));
+    const hidden = board.Footprints().flatMap(hiddenTexts);
     expect(hidden).toHaveLength(2);
-    expect(hidden.map((t) => t.kind).sort()).toEqual(['reference', 'value']);
+    expect(board.Footprints().filter(valueHidden)).toHaveLength(1);
+    expect(board.Footprints().filter(referenceHidden)).toHaveLength(1);
 
-    const back = readBoard(parse(serializeBoard(board)));
-    expect(back.footprints.flatMap((f) => f.texts).filter((t) => t.hide)).toHaveLength(2);
+    const back = ParseBoard(FormatBoard(board));
+    expect(back.Footprints().flatMap(hiddenTexts)).toHaveLength(2);
   });
 
   it('reads the bare `bold` inside `(font …)` of a v20220621 board', () => {
     // qa/data/pcbnew/connection_width_rules.kicad_pcb has six
     // `(effects (font (size 0.2 0.2) (thickness 0.04) bold) …)` texts and no
     // other text at all, so "some are bold" cannot pass by accident.
-    const board = readBoard(parse(dataFile('pcbnew/connection_width_rules.kicad_pcb')));
-    expect(board.texts.length).toBeGreaterThan(0);
-    expect(board.texts.every((t) => t.bold === true)).toBe(true);
-    expect(board.texts.every((t) => t.italic === false)).toBe(true);
+    const board = ParseBoard(dataFile('pcbnew/connection_width_rules.kicad_pcb'));
+    expect(boardTexts(board).length).toBeGreaterThan(0);
+    expect(boardTexts(board).every((t) => t.IsBold())).toBe(true);
+    expect(boardTexts(board).every((t) => !t.IsItalic())).toBe(true);
 
-    const back = readBoard(parse(serializeBoard(board)));
-    expect(back.texts.every((t) => t.bold === true)).toBe(true);
+    const back = ParseBoard(FormatBoard(board));
+    expect(boardTexts(back).every((t) => t.IsBold())).toBe(true);
   });
 });
 
@@ -92,213 +112,219 @@ describe('files KiCad wrote', () => {
 // One assertion per call site, driven by the bare form
 // ---------------------------------------------------------------------------
 
-const boardWith = (body: string) =>
-  readBoard(parse(`(kicad_pcb (version 20241229) (generator "test") ${body})`));
+const boardWith = (body: string): BOARD =>
+  ParseBoard(`(kicad_pcb (version 20241229) (generator "test") ${body})`);
+const firstOf = <T extends BOARD_ITEM>(b: BOARD, type: KICAD_T): T =>
+  [...b.Tracks(), ...b.Drawings()].find((i) => i.Type() === type)! as T;
 
 describe('the default at each call site', () => {
   const teardrops = (inner: string) =>
-    boardWith(
-      `(via (at 10 10) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu") (net 0) (teardrops ${inner}))`,
-    ).vias[0]!.teardrops!;
+    firstOf<PCB_VIA>(
+      boardWith(
+        `(via (at 10 10) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu") (net 0) (teardrops ${inner}))`,
+      ),
+      KICAD_T.PCB_VIA_T,
+    ).GetTeardropParams();
 
   it('enabled: parseMaybeAbsentBool( true ) at :682', () => {
     // TEARDROP_PARAMETERS's ctor leaves m_Enabled false, so a bare token that
     // read as its own default would be indistinguishable from an absent one.
-    expect(teardrops('(enabled)').enabled).toBe(true);
-    expect(teardrops('enabled').enabled).toBe(true);
-    expect(teardrops('(enabled no)').enabled).toBe(false);
-    expect(teardrops('(best_length_ratio 0.5)').enabled).toBe(false);
+    expect(teardrops('(enabled)').m_Enabled).toBe(true);
+    expect(teardrops('enabled').m_Enabled).toBe(true);
+    expect(teardrops('(enabled no)').m_Enabled).toBe(false);
+    expect(teardrops('(best_length_ratio 0.5)').m_Enabled).toBe(false);
   });
 
   it('allow_two_segments: parseMaybeAbsentBool( true ) at :686', () => {
-    expect(teardrops('(allow_two_segments)').allowUseTwoTracks).toBe(true);
-    expect(teardrops('allow_two_segments').allowUseTwoTracks).toBe(true);
-    expect(teardrops('(allow_two_segments no)').allowUseTwoTracks).toBe(false);
+    expect(teardrops('(allow_two_segments)').m_AllowUseTwoTracks).toBe(true);
+    expect(teardrops('allow_two_segments').m_AllowUseTwoTracks).toBe(true);
+    expect(teardrops('(allow_two_segments no)').m_AllowUseTwoTracks).toBe(false);
   });
 
   it('prefer_zone_connections: parseMaybeAbsentBool( FALSE ) at :690, stored inverted', () => {
     // The one call site on this list whose default is false, and upstream
-    // negates it into m_TdOnPadsInZones. A bare token therefore means
-    // "prefer_zone_connections = false", i.e. teardrops DO go on pads in zones.
-    expect(teardrops('(prefer_zone_connections)').tdOnPadsInZones).toBe(true);
-    expect(teardrops('prefer_zone_connections').tdOnPadsInZones).toBe(true);
-    expect(teardrops('(prefer_zone_connections yes)').tdOnPadsInZones).toBe(false);
-    expect(teardrops('(prefer_zone_connections no)').tdOnPadsInZones).toBe(true);
+    // negates it into m_TdOnPadsInZones.
+    expect(teardrops('(prefer_zone_connections)').m_TdOnPadsInZones).toBe(true);
+    expect(teardrops('prefer_zone_connections').m_TdOnPadsInZones).toBe(true);
+    expect(teardrops('(prefer_zone_connections yes)').m_TdOnPadsInZones).toBe(false);
+    expect(teardrops('(prefer_zone_connections no)').m_TdOnPadsInZones).toBe(true);
   });
 
   it('curved_edges: parseMaybeAbsentBool( true ) at :720', () => {
-    expect(teardrops('(curved_edges)').curvedEdges).toBe(true);
-    expect(teardrops('curved_edges').curvedEdges).toBe(true);
-    expect(teardrops('(curved_edges no)').curvedEdges).toBe(false);
+    expect(teardrops('(curved_edges)').m_CurvedEdges).toBe(true);
+    expect(teardrops('curved_edges').m_CurvedEdges).toBe(true);
+    expect(teardrops('(curved_edges no)').m_CurvedEdges).toBe(false);
   });
 
   const dimension = (fmt: string, style: string) =>
-    boardWith(
-      `(dimension (type aligned) (layer "Dwgs.User") (pts (xy 0 0) (xy 10 0)) ` +
-        `(format ${fmt}) (style (thickness 0.1) (arrow_length 1) ${style}))`,
-    ).dimensions[0]!;
+    firstOf<PCB_DIMENSION_BASE>(
+      boardWith(
+        `(dimension (type aligned) (layer "Dwgs.User") (pts (xy 0 0) (xy 10 0)) ` +
+          `(format ${fmt}) (style (thickness 0.1) (arrow_length 1) ${style}))`,
+      ),
+      KICAD_T.PCB_DIM_ALIGNED_T,
+    );
 
   it('suppress_zeroes: parseMaybeAbsentBool( true ) at :4727', () => {
-    expect(dimension('(units 3) (suppress_zeroes)', '').format!.suppressZeroes).toBe(true);
-    expect(dimension('(units 3) suppress_zeroes', '').format!.suppressZeroes).toBe(true);
-    expect(dimension('(units 3) (suppress_zeroes no)', '').format!.suppressZeroes).toBe(false);
+    expect(dimension('(units 3) (suppress_zeroes)', '').GetSuppressZeroes()).toBe(true);
+    expect(dimension('(units 3) suppress_zeroes', '').GetSuppressZeroes()).toBe(true);
+    expect(dimension('(units 3) (suppress_zeroes no)', '').GetSuppressZeroes()).toBe(false);
   });
 
   it('keep_text_aligned: parseMaybeAbsentBool( true ) at :4802', () => {
-    expect(dimension('(units 3)', '(keep_text_aligned)').style.keepTextAligned).toBe(true);
-    expect(dimension('(units 3)', 'keep_text_aligned').style.keepTextAligned).toBe(true);
-    expect(dimension('(units 3)', '(keep_text_aligned no)').style.keepTextAligned).toBe(false);
+    expect(dimension('(units 3)', '(keep_text_aligned)').GetKeepTextAligned()).toBe(true);
+    expect(dimension('(units 3)', 'keep_text_aligned').GetKeepTextAligned()).toBe(true);
+    expect(dimension('(units 3)', '(keep_text_aligned no)').GetKeepTextAligned()).toBe(false);
   });
 
   const grText = (effects: string) =>
-    boardWith(`(gr_text "x" (at 0 0) (layer "F.SilkS") (effects ${effects}))`).texts[0]!;
+    boardTexts(boardWith(`(gr_text "x" (at 0 0) (layer "F.SilkS") (effects ${effects}))`))[0]!;
 
   it('bold: parseMaybeAbsentBool( true ) at :803', () => {
-    expect(grText('(font (size 1 1) bold)').bold).toBe(true);
-    expect(grText('(font (size 1 1) (bold))').bold).toBe(true);
-    expect(grText('(font (size 1 1) (bold no))').bold).toBe(false);
-    expect(grText('(font (size 1 1))').bold).toBe(false);
+    expect(grText('(font (size 1 1) bold)').IsBold()).toBe(true);
+    expect(grText('(font (size 1 1) (bold))').IsBold()).toBe(true);
+    expect(grText('(font (size 1 1) (bold no))').IsBold()).toBe(false);
+    expect(grText('(font (size 1 1))').IsBold()).toBe(false);
   });
 
   it('italic: parseMaybeAbsentBool( true ) at :807', () => {
-    expect(grText('(font (size 1 1) italic)').italic).toBe(true);
-    expect(grText('(font (size 1 1) (italic))').italic).toBe(true);
-    expect(grText('(font (size 1 1) (italic no))').italic).toBe(false);
-    expect(grText('(font (size 1 1))').italic).toBe(false);
+    expect(grText('(font (size 1 1) italic)').IsItalic()).toBe(true);
+    expect(grText('(font (size 1 1) (italic))').IsItalic()).toBe(true);
+    expect(grText('(font (size 1 1) (italic no))').IsItalic()).toBe(false);
+    expect(grText('(font (size 1 1))').IsItalic()).toBe(false);
   });
 
   it('hide inside (effects …): parseMaybeAbsentBool( true ) at :841', () => {
-    // parseEDA_TEXT's own hide, the pre-v7 location. It is read — a malformed
-    // argument is still an error below — but on a BOARD text it changes
-    // nothing: "Hidden PCB text is no longer supported", parsePCB_TEXT sets
-    // the text visible again (pcb_io_kicad_sexpr_parser.cpp:3830-3831).
-    expect(grText('(font (size 1 1)) hide').hide).toBe(false);
-    expect(grText('(font (size 1 1)) (hide)').hide).toBe(false);
-    expect(grText('(font (size 1 1)) (hide no)').hide).toBe(false);
-    expect(grText('(font (size 1 1))').hide).toBe(false);
+    // parseEDA_TEXT's own hide, the pre-v7 location. It is read, but on a BOARD
+    // text it changes nothing: "Hidden PCB text is no longer supported",
+    // parsePCB_TEXT sets the text visible again (…_parser.cpp:3830-3831).
+    expect(grText('(font (size 1 1)) hide').IsVisible()).toBe(true);
+    expect(grText('(font (size 1 1)) (hide)').IsVisible()).toBe(true);
+    expect(grText('(font (size 1 1)) (hide no)').IsVisible()).toBe(true);
+    expect(grText('(font (size 1 1))').IsVisible()).toBe(true);
   });
 
-  const fpText = (tokens: string) =>
+  const fpValue = (tokens: string) =>
     boardWith(
       `(footprint "L:F" (layer "F.Cu") (at 0 0) ` +
         `(fp_text value "V" (at 0 0) (layer "F.Fab") ${tokens} (effects (font (size 1 1)))))`,
-    ).footprints[0]!.texts.find((t) => t.kind === 'value')!;
+    ).Footprints()[0]!;
 
   it('hide on the text item: parseMaybeAbsentBool( true ) at :3913', () => {
-    expect(fpText('hide').hide).toBe(true);
-    expect(fpText('(hide)').hide).toBe(true);
-    expect(fpText('(hide no)').hide).toBe(false);
-    expect(fpText('').hide).toBe(false);
+    expect(valueHidden(fpValue('hide'))).toBe(true);
+    expect(valueHidden(fpValue('(hide)'))).toBe(true);
+    expect(valueHidden(fpValue('(hide no)'))).toBe(false);
+    expect(valueHidden(fpValue(''))).toBe(false);
   });
 
   const model = (tokens: string) =>
     boardWith(
       `(footprint "L:F" (layer "F.Cu") (at 0 0) (model "x.step" ${tokens} (offset (xyz 0 0 0))))`,
-    ).footprints[0]!.models[0]!;
+    )
+      .Footprints()[0]!
+      .Models()[0]!;
 
   it('hide on a 3D model: parseMaybeAbsentBool( true ) at :955', () => {
-    expect(model('hide').hide).toBe(true);
-    expect(model('(hide)').hide).toBe(true);
-    expect(model('(hide no)').hide).toBe(false);
-    expect(model('').hide).toBe(false);
+    expect(model('hide').m_Show).toBe(false);
+    expect(model('(hide)').m_Show).toBe(false);
+    expect(model('(hide no)').m_Show).toBe(true);
+    expect(model('').m_Show).toBe(true);
   });
 
   const footprint = (tokens: string) =>
-    boardWith(`(footprint "L:F" (layer "F.Cu") ${tokens} (at 0 0))`).footprints[0]!;
+    boardWith(`(footprint "L:F" (layer "F.Cu") ${tokens} (at 0 0))`).Footprints()[0]!;
 
   it('locked on a footprint: parseMaybeAbsentBool( true ) at :5074', () => {
     // The bare form is how `(module …)` wrote it before 6.0.
-    expect(footprint('locked').locked).toBe(true);
-    expect(footprint('(locked)').locked).toBe(true);
-    expect(footprint('(locked no)').locked).toBe(false);
-    expect(footprint('').locked).toBe(false);
+    expect(footprint('locked').IsLocked()).toBe(true);
+    expect(footprint('(locked)').IsLocked()).toBe(true);
+    expect(footprint('(locked no)').IsLocked()).toBe(false);
+    expect(footprint('').IsLocked()).toBe(false);
   });
 
   // Segments (:7389), arcs (:7294), vias (:7591), graphic shapes (:3611),
   // text boxes (:4181) and dimensions (:4951) all share one reader helper, so
-  // each item kind gets its own row: a single-kind assertion could not tell a
-  // helper that stopped being reached from one that is still right.
-  const lockable: Array<
-    [string, string, (b: ReturnType<typeof boardWith>) => boolean | undefined]
-  > = [
+  // each item kind gets its own row.
+  const lockable: Array<[string, string, KICAD_T]> = [
     [
       'segment',
       '(segment TOKEN (start 0 0) (end 1 1) (width 0.2) (layer "F.Cu") (net 0))',
-      (b) => b.tracks[0]!.locked,
+      KICAD_T.PCB_TRACE_T,
     ],
     [
       'arc',
       '(arc TOKEN (start 0 0) (mid 1 0) (end 1 1) (width 0.2) (layer "F.Cu") (net 0))',
-      (b) => b.arcs[0]!.locked,
+      KICAD_T.PCB_ARC_T,
     ],
     [
       'via',
       '(via TOKEN (at 5 5) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu") (net 0))',
-      (b) => b.vias[0]!.locked,
+      KICAD_T.PCB_VIA_T,
     ],
     [
       'gr_line',
       '(gr_line BARE (start 0 0) (end 1 1) (stroke (width 0.1) (type default)) (layer "F.SilkS") LIST)',
-      (b) => b.shapes[0]!.locked,
+      KICAD_T.PCB_SHAPE_T,
     ],
     [
       'gr_text_box',
       '(gr_text_box BARE "t" (start 0 0) (end 5 5) (layer "F.SilkS") LIST)',
-      (b) => b.textBoxes[0]!.locked,
+      KICAD_T.PCB_TEXTBOX_T,
     ],
     [
       'dimension',
       '(dimension BARE (type aligned) (layer "Dwgs.User") (pts (xy 0 0) (xy 9 0)) ' +
         '(style (thickness 0.1) (arrow_length 1)) LIST)',
-      (b) => b.dimensions[0]!.locked,
+      KICAD_T.PCB_DIM_ALIGNED_T,
     ],
   ];
 
   // The bare word is the legacy form, and the parser takes it only where the
-  // 5.99 writer put it: before the first child (`if( token == T_locked )` at
-  // the loop head, then `Expecting( T_LEFT )`), so the templates place it there.
-  // A shape and a text box take the bare word only at the head and the list
-  // form only among the children (`parsePCB_SHAPE` expects `(start` right
-  // after it): BARE and LIST mark the two places.
+  // 5.99 writer put it: before the first child. BARE and LIST mark the two
+  // places a shape and a text box take the two forms.
   const withToken = (template: string, bare: string, list: string): string =>
     template.includes('BARE')
       ? template.replace('BARE', bare).replace('LIST', list)
       : template.replace('TOKEN', bare || list);
-  for (const [name, template, pick] of lockable) {
+  for (const [name, template, type] of lockable) {
     it(`locked on a ${name}: parseMaybeAbsentBool( true )`, () => {
-      expect(pick(boardWith(withToken(template, 'locked', '')))).toBe(true);
-      expect(pick(boardWith(withToken(template, '', '(locked)')))).toBe(true);
-      expect(pick(boardWith(withToken(template, '', '(locked no)')))).toBe(false);
-      // `BOARD_ITEM::m_isLocked` starts false; the model has no "unsaid".
-      expect(pick(boardWith(withToken(template, '', '')))).toBe(false);
+      const locked = (bare: string, list: string): boolean =>
+        firstOf(boardWith(withToken(template, bare, list)), type).IsLocked();
+      expect(locked('locked', '')).toBe(true);
+      expect(locked('', '(locked)')).toBe(true);
+      expect(locked('', '(locked no)')).toBe(false);
+      // `BOARD_ITEM::m_isLocked` starts false.
+      expect(locked('', '')).toBe(false);
     });
   }
 
-  const via = (tokens: string) =>
-    boardWith(`(via (at 5 5) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu") (net 0) ${tokens})`)
-      .vias[0]!;
-  const pad = (tokens: string) =>
+  const viaMode = (tokens: string) =>
+    firstOf<PCB_VIA>(
+      boardWith(`(via (at 5 5) (size 0.8) (drill 0.4) (layers "F.Cu" "B.Cu") (net 0) ${tokens})`),
+      KICAD_T.PCB_VIA_T,
+    )
+      .Padstack()
+      .UnconnectedLayerMode();
+  const padMode = (tokens: string) =>
     boardWith(
       `(footprint "L:F" (layer "F.Cu") (at 0 0) ` +
         `(pad "1" thru_hole circle (at 0 0) (size 1 1) (drill 0.5) (layers "*.Cu") ${tokens}))`,
-    ).footprints[0]!.pads[0]!;
+    )
+      .Footprints()[0]!
+      .Pads()[0]!
+      .Padstack()
+      .UnconnectedLayerMode();
 
   it('remove_unused_layers / keep_end_layers / start_end_only: parseMaybeAbsentBool( true )', () => {
-    // :6366 and :6373 on a pad; :7497, :7503 and :7509 on a via. Both the
-    // argument-less list and the bare token have to reach the same place.
-    // The argument-less list is the "absent" form these accept; the bare word
-    // is not one of them — a pad's and a via's token loops demand a `(` for
-    // every child but the legacy `locked` (`if( token != T_LEFT ) Expecting`).
-    expect(via('(remove_unused_layers)').unconnectedLayerMode).toBe('remove_all');
-    expect(via('(keep_end_layers)').unconnectedLayerMode).toBe('remove_except_start_and_end');
-    expect(via('(start_end_only)').unconnectedLayerMode).toBe('start_end_only');
-    expect(pad('(remove_unused_layers)').unconnectedLayerMode).toBe('remove_all');
+    // :6366 and :6373 on a pad; :7497, :7503 and :7509 on a via.
+    expect(viaMode('(remove_unused_layers)')).toBe(UNCONNECTED_LAYER_MODE.REMOVE_ALL);
+    expect(viaMode('(keep_end_layers)')).toBe(UNCONNECTED_LAYER_MODE.REMOVE_EXCEPT_START_AND_END);
+    expect(viaMode('(start_end_only)')).toBe(UNCONNECTED_LAYER_MODE.START_END_ONLY);
+    expect(padMode('(remove_unused_layers)')).toBe(UNCONNECTED_LAYER_MODE.REMOVE_ALL);
     // A via ignores an explicit `no` (it only ever calls the setter with true),
-    // a pad applies it — so the default is not the only thing under test here.
-    expect(via('(remove_unused_layers no)').unconnectedLayerMode).toBeUndefined();
-    // KEEP_ALL is the padstack's starting mode, and the view spells it as the
-    // absent token; `SetRemoveUnconnected( false )` lands on the same mode.
-    expect(pad('(remove_unused_layers no)').unconnectedLayerMode ?? 'keep_all').toBe('keep_all');
+    // a pad applies it; KEEP_ALL is the padstack's starting mode either way.
+    expect(viaMode('(remove_unused_layers no)')).toBe(UNCONNECTED_LAYER_MODE.KEEP_ALL);
+    expect(padMode('(remove_unused_layers no)')).toBe(UNCONNECTED_LAYER_MODE.KEEP_ALL);
   });
 });
 
@@ -317,13 +343,13 @@ describe('a malformed flag is an error, not a default', () => {
 
   it('accepts `true`/`false`, which pcbnew — unlike eeschema — allows', () => {
     // pcb_io_kicad_sexpr_parser.cpp:274 and :276.
-    expect(
-      boardWith('(gr_text "x" (at 0 0) (layer "F.SilkS") (effects (font (size 1 1) (bold true))))')
-        .texts[0]!.bold,
-    ).toBe(true);
-    expect(
-      boardWith('(gr_text "x" (at 0 0) (layer "F.SilkS") (effects (font (size 1 1) (bold false))))')
-        .texts[0]!.bold,
-    ).toBe(false);
+    expect(grTextOf('(bold true)').IsBold()).toBe(true);
+    expect(grTextOf('(bold false)').IsBold()).toBe(false);
   });
 });
+
+function grTextOf(bold: string): PCB_TEXT {
+  return boardTexts(
+    boardWith(`(gr_text "x" (at 0 0) (layer "F.SilkS") (effects (font (size 1 1) ${bold})))`),
+  )[0]!;
+}

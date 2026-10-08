@@ -25,7 +25,6 @@ import {
 import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
 import type { PCB_EDIT_FRAME } from '@ziroeda/pcbnew/pcb_edit_frame.js';
 import type { PAD } from '@ziroeda/pcbnew/pad.js';
-import { boardFromBOARD } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/board_view.js';
 import { PCB_IO_KICAD_SEXPR_PARSER } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_parser.js';
 import type { PCB_VIA } from '@ziroeda/pcbnew/pcb_track.js';
 import { TARGET_TD } from '@ziroeda/pcbnew/teardrop/teardrop_parameters.js';

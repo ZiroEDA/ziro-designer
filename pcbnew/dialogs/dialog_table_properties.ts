@@ -58,14 +58,6 @@ export interface TableValues {
   cellText: string[][];
 }
 
-/**
- * `BOARD::IsBackLayer` for the standard layer set: a back layer is one whose
- * name starts with `B.`.
- */
-export function isBackLayer(layer: string): boolean {
-  return layer.startsWith('B.');
-}
-
 /** `TransferDataToWindow`: the dialog's starting values. */
 /** `TransferDataFromWindow`, plus the source patching that makes it stick. */
 // ---------------------------------------------------------------------------

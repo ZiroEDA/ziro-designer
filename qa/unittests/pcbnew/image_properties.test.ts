@@ -14,18 +14,13 @@
  */
 import { imageSizeIU } from '@ziroeda/pcbnew/pcb_reference_image.js';
 import { describe, expect, it } from 'vitest';
-import { U, writtenItems } from './support/written_node.js';
 import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
-import { parse } from '@ziroeda/sexpr/index.js';
 import {
   scaleForHeight,
   scaleForWidth,
   sizeForScale,
   type ImageValues,
 } from '@ziroeda/pcbnew/dialogs/dialog_reference_image_properties.js';
-import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import type { Board, PcbImage } from '@ziroeda/pcbnew/types.js';
 
 const MM = (n: number): number => mmToIU(n);
 
@@ -33,31 +28,12 @@ const MM = (n: number): number => mmToIU(n);
 const PNG =
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
-const image = (over: Partial<PcbImage> = {}): PcbImage => ({
+/** An image at (10, 20) mm on F.SilkS: what the dialog's window starts from. */
+const image = (over: { scale?: number } = {}) => ({
   at: { x: MM(10), y: MM(20) },
   layer: 'F.SilkS',
   data: PNG,
   ...over,
-});
-
-const board = (images: PcbImage[]): Board => ({
-  version: 20240108,
-  layers: [{ id: 0, name: 'F.Cu', kind: 'signal' }],
-  nets: new Map([[0, '']]),
-  footprints: [],
-  tracks: [],
-  arcs: [],
-  vias: [],
-  zones: [],
-  shapes: [],
-  texts: [],
-  dimensions: [],
-  textBoxes: [],
-  tables: [],
-  images,
-  points: [],
-  barcodes: [],
-  groups: [],
 });
 
 describe('the three-way binding', () => {

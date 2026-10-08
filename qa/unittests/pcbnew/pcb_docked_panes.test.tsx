@@ -33,7 +33,6 @@ import {
   pcbTogglesFromSettings,
 } from '@ziroeda/pcbnew/pcb_edit_frame.js';
 import { PCB_IO_KICAD_SEXPR_PARSER } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_parser.js';
-import { boardFromBOARD } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/board_view.js';
 import { PCB_SHAPE } from '@ziroeda/pcbnew/pcb_shape.js';
 import { PCBNEW_SETTINGS } from '@ziroeda/pcbnew/pcbnew_settings.js';
 import { PcbNetInspectorPane } from '@ziroeda/pcbnew/widgets/pcb_net_inspector_panel_ui.js';

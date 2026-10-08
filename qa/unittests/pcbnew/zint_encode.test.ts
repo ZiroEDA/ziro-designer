@@ -24,7 +24,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { encodeBarcode } from '@ziroeda/zint';
-import type { BarcodeEcc, BarcodeKind } from '@ziroeda/pcbnew/types.js';
+import type { BarcodeEcc, BarcodeKind } from '@ziroeda/zint';
 
 interface Case {
   kind: BarcodeKind;

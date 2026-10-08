@@ -20,18 +20,11 @@
  * the outline of the next. A box that included the text could not produce that.
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/index.js';
-import { readFootprintFile } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { footprintBBox } from '@ziroeda/pcbnew/edit-footprint.js';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
-import type { PcbFootprint } from '@ziroeda/pcbnew/types.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { ParseFootprintFile } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 
-/**
- * Two pads 1 mm square at x = ±5, so the copper box is 11 x 1 mm; the reference
- * sits 3 mm above the origin and the value 3 mm below, so a box that counted
- * them would be about 11 x 7 mm instead. Deliberately extreme, because the
- * whole point is which of the two numbers the pitch comes from.
- */
+const mmToIU = (n: number): number => pcbIUScale.mmToIU(n);
+
 const source = (ref: string): string => `(footprint "D"
   (version 20241229) (generator "pcbnew")
   (layer "F.Cu")
@@ -44,25 +37,16 @@ const source = (ref: string): string => `(footprint "D"
 )
 `;
 
-const footprint = (ref: string): PcbFootprint => {
-  const fp = readFootprintFile(parse(source(ref)))!;
-  fp.reference = ref;
-  return fp;
-};
-
-/** `aComponentGap`'s default, 1 mm (spread_footprints.h). */
-const GAP = mmToIU(1);
-
-describe('SpreadFootprints measures the footprint without its text', () => {
+describe('SpreadFootprints measures the footprint without its text (GetBoundingBox( false ))', () => {
   it('the text-free box is the copper, 11 x 1 mm', () => {
-    // Pads at ±5 with a 1 mm square face: x spans -5.5..5.5, y spans -0.5..0.5.
-    const box = footprintBBox(footprint('D1'), false)!;
-    expect(box.maxX - box.minX).toBe(mmToIU(11));
-    expect(box.maxY - box.minY).toBe(mmToIU(1));
+    const box = ParseFootprintFile(source('D1')).GetBoundingBox(false);
+    expect(box.GetWidth()).toBe(mmToIU(11));
+    expect(box.GetHeight()).toBe(mmToIU(1));
   });
 
   it('the box WITH text is far taller, which is what made the layout airy', () => {
-    const box = footprintBBox(footprint('D1'), true)!;
-    expect(box.maxY - box.minY).toBeGreaterThan(mmToIU(6));
+    expect(ParseFootprintFile(source('D1')).GetBoundingBox(true).GetHeight()).toBeGreaterThan(
+      mmToIU(6),
+    );
   });
 });

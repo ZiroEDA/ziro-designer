@@ -12,7 +12,6 @@ import {
   matchingNets,
   UpgradeGlobStarToRegex,
 } from '@ziroeda/common/dialogs/dialog_assign_netclass.js';
-import { connectedItemIdsOnNets } from '@ziroeda/pcbnew/edit-board.js';
 import { installPgm } from '@ziroeda/designer/src/editors/pcb/pcb_canvas.js';
 import { PCB_EDIT_FRAME, type PCB_EDIT_FRAME_HOOKS } from '@ziroeda/pcbnew/pcb_edit_frame.js';
 import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
@@ -88,22 +87,6 @@ describe('DialogAssignNetclass', () => {
 });
 
 describe('the board editor runs BOARD_EDITOR_CONTROL::AssignNetclass', () => {
-  it('SelectAllItemsOnNet walks every connected item', () => {
-    const board = {
-      tracks: [{ net: 1 }, { net: 2 }],
-      arcs: [{ net: 1 }],
-      vias: [{ net: 2 }],
-      footprints: [{ pads: [{ net: 1 }, {}] }],
-      zones: [{ net: 1 }],
-    } as unknown as Parameters<typeof connectedItemIdsOnNets>[0];
-    expect(connectedItemIdsOnNets(board, new Set([1]))).toEqual([
-      'track:0',
-      'arc:0',
-      'pad:0:0',
-      'zone:0',
-    ]);
-  });
-
   // BOARD_EDITOR_CONTROL::AssignNetclass (board_editor_control.cpp:2117-2190).
   const BOARD_TEXT = `(kicad_pcb (version 20241229) (generator "pcbnew") (generator_version "9.0")
     (general (thickness 1.6) (legacy_teardrops no)) (paper "A4")

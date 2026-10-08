@@ -30,7 +30,6 @@ import { ConvertOutlineToPolygon } from '@ziroeda/pcbnew/convert_shape_list_to_p
 import type { PCB_SHAPE } from '@ziroeda/pcbnew/pcb_shape.js';
 import { SHAPE_POLY_SET } from '@ziroeda/kimath/src/geometry/shape_poly_set.js';
 import { arcConvertToPolyline } from '@ziroeda/kimath/src/geometry/shape_arc.js';
-import type { Board, PcbZone } from '@ziroeda/pcbnew/types.js';
 import { describe, expect, it } from 'vitest';
 
 const MM = (v: number): number => Math.round(v * 1_000_000);

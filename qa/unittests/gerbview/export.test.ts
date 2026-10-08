@@ -14,8 +14,14 @@
  * wrong.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/index.js';
-import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { LAYER_T } from '@ziroeda/pcbnew/board_types.js';
+import type { BOARD } from '@ziroeda/pcbnew/board.js';
+import { PAD_SHAPE } from '@ziroeda/pcbnew/padstack.js';
+import type { PCB_SHAPE } from '@ziroeda/pcbnew/pcb_shape.js';
 import {
   EXCELLON_IMAGE,
   GERBER_FILE_IMAGE,
@@ -39,7 +45,6 @@ import {
   UNDEFINED_LAYER,
   UNSELECTED_LAYER,
 } from '@ziroeda/common/layer_ids.js';
-import { isSolidFill } from '@ziroeda/pcbnew/shape_fill.js';
 
 // ---------------------------------------------------------------------------
 // helpers
@@ -461,14 +466,15 @@ describe('the board header', () => {
     expect(ids).toEqual([0, 4, 6, 2]);
   });
 
-  it('is read back by readBoard with those ids and names', async () => {
-    const board = readBoard(parse(await exportText([{ image: emptyTop(), name: 'top' }])));
-    const byName = new Map(board.layers.map((l) => [l.name, l]));
-    expect(byName.get('F.Cu')).toMatchObject({ id: 0, kind: 'signal' });
-    expect(byName.get('B.Cu')).toMatchObject({ id: 2, kind: 'signal' });
-    expect(byName.get('F.Mask')).toMatchObject({ id: 1, kind: 'user' });
-    expect(byName.get('Edge.Cuts')).toMatchObject({ id: 25, kind: 'user' });
-    expect(board.layers.length).toBe(20);
+  it('is read back by ParseBoard with those ids and types', async () => {
+    const board = ParseBoard(await exportText([{ image: emptyTop(), name: 'top' }]));
+    expect(board.GetLayerType(PCB_LAYER_ID.F_Cu)).toBe(LAYER_T.LT_SIGNAL);
+    expect(board.GetLayerType(PCB_LAYER_ID.B_Cu)).toBe(LAYER_T.LT_SIGNAL);
+    // `(N "F.Mask" user)`: LAYER::ParseType has no "user" arm, so it is
+    // LT_UNDEFINED (board.cpp:878-895).
+    expect(board.GetLayerType(PCB_LAYER_ID.F_Mask)).toBe(LAYER_T.LT_UNDEFINED);
+    expect(board.GetLayerType(PCB_LAYER_ID.Edge_Cuts)).toBe(LAYER_T.LT_UNDEFINED);
+    expect(board.GetEnabledLayers().count()).toBe(20);
   });
 });
 
@@ -789,61 +795,55 @@ describe('the exported board reads back', () => {
     'M02*',
   ].join('\n');
 
-  const board = async () =>
-    readBoard(
-      parse(
-        await exportText([
-          { image: parseGerber(FULL_GERBER, 'board-F_Cu.gbr'), name: 'top' },
-          { image: parseGerber(SILK_GERBER, 'board-F_SilkS.gbr'), name: 'silk' },
-          { image: parseExcellon(SLOT_FILE, 'board-PTH.drl'), name: 'drill' },
-        ]),
-      ),
+  const board = async (): Promise<BOARD> =>
+    ParseBoard(
+      await exportText([
+        { image: parseGerber(FULL_GERBER, 'board-F_Cu.gbr'), name: 'top' },
+        { image: parseGerber(SILK_GERBER, 'board-F_SilkS.gbr'), name: 'silk' },
+        { image: parseExcellon(SLOT_FILE, 'board-PTH.drl'), name: 'drill' },
+      ]),
     );
+  const shapes = (b: BOARD): PCB_SHAPE[] =>
+    b.Drawings().filter((d) => d.Type() === KICAD_T.PCB_SHAPE_T) as PCB_SHAPE[];
+  const traces = (b: BOARD) => b.Tracks().filter((t) => t.Type() === KICAD_T.PCB_TRACE_T);
 
-  it('parses through @ziroeda/sexpr and readBoard', async () => {
+  it('parses through ParseBoard', async () => {
     await expect(board()).resolves.toBeDefined();
   });
 
   it('puts the copper trace on F.Cu as a track', async () => {
-    const b = await board();
-    expect(b.tracks.map((t) => t.layer)).toEqual(['F.Cu']);
-    expect(b.tracks[0]!.start).toEqual({ x: 0, y: 0 });
-    expect(b.tracks[0]!.end).toEqual({ x: 5e6, y: 0 });
+    const t = traces(await board());
+    expect(t.map((x) => x.GetLayer())).toEqual([PCB_LAYER_ID.F_Cu]);
+    expect(t[0]!.GetStart()).toEqual({ x: 0, y: 0 });
+    expect(t[0]!.GetEnd()).toEqual({ x: 5e6, y: 0 });
   });
 
   it('puts the silkscreen trace on F.SilkS as a graphic', async () => {
-    const lines = (await board()).shapes.filter((s) => s.kind === 'line');
-    expect(lines.map((s) => s.layer)).toEqual(['F.SilkS']);
+    const lines = shapes(await board()).filter((s) => s.GetShape() === SHAPE_T.SEGMENT);
+    expect(lines.map((s) => s.GetLayer())).toEqual([PCB_LAYER_ID.F_SilkS]);
   });
 
   it('puts the region and the flashed pads on F.Cu, filled', async () => {
-    // `IsSolidFill()`, not truthiness: `'none'` is a non-empty string.
-    const filled = (await board()).shapes.filter(isSolidFill);
+    const filled = shapes(await board()).filter((s) => s.IsSolidFill());
     expect(filled.length).toBeGreaterThan(0);
-    expect(filled.every((s) => s.layer === 'F.Cu')).toBe(true);
+    expect(filled.every((s) => s.GetLayer() === PCB_LAYER_ID.F_Cu)).toBe(true);
   });
 
   it('reads the routed slot back as a footprint with one pad', async () => {
     // A `(footprint …)` with no `(at …)`; parseFOOTPRINT leaves such a
     // footprint at the origin rather than rejecting it.
     const b = await board();
-    expect(b.footprints.length).toBe(1);
-    expect(b.footprints[0]!.lib).toBe('slot');
-    expect(b.footprints[0]!.pads.length).toBe(1);
-    expect(b.footprints[0]!.pads[0]!.shape).toBe('oval');
+    expect(b.Footprints().length).toBe(1);
+    expect(b.Footprints()[0]!.GetFPID().GetLibItemName()).toBe('slot');
+    expect(b.Footprints()[0]!.Pads().length).toBe(1);
+    expect(b.Footprints()[0]!.Pads()[0]!.GetShape(PCB_LAYER_ID.F_Cu)).toBe(PAD_SHAPE.OVAL);
   });
 
   it('lands nothing on a layer the header did not declare', async () => {
     const b = await board();
-    const declared = new Set(b.layers.map((l) => l.name));
-    const used = [
-      ...b.shapes.map((s) => s.layer),
-      ...b.tracks.map((t) => t.layer),
-      ...b.arcs.map((a) => a.layer),
-      ...b.vias.flatMap((v) => v.layers),
-    ];
+    const used = [...shapes(b), ...b.Tracks()].flatMap((i) => i.GetLayerSet().Seq());
     expect(used.length).toBeGreaterThan(0);
-    for (const layer of used) expect(declared.has(layer)).toBe(true);
+    for (const layer of used) expect(b.IsLayerEnabled(layer)).toBe(true);
   });
 
   it('accepts the unquoted layer names upstream writes', async () => {
@@ -854,7 +854,7 @@ describe('the exported board reads back', () => {
     ]);
     expect(text).toContain('(layer F.SilkS)');
     expect(text).not.toContain('"F.SilkS"');
-    expect(readBoard(parse(text)).shapes[0]!.layer).toBe('F.SilkS');
+    expect(ParseBoard(text).Drawings()[0]!.GetLayer()).toBe(PCB_LAYER_ID.F_SilkS);
   });
 });
 

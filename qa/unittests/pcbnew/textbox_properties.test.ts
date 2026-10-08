@@ -20,37 +20,7 @@
  * in-memory check cannot tell those failures apart from success.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/index.js';
-import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import {
-  joinJustify,
-  splitJustify,
-  type TextBoxValues,
-} from '@ziroeda/pcbnew/dialogs/dialog_textbox_properties.js';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
-import type { Board } from '@ziroeda/pcbnew/types.js';
-
-const MM = (n: number): number => mmToIU(n);
-
-const BOX = (justify = '(justify top)'): string => `(gr_text_box "boxed"
-    (start 50 50) (end 60 56)
-    (margins 1 2 3 4)
-    (layer "F.SilkS")
-    (uuid "11111111-0000-0000-0000-000000000005")
-    (effects (font (size 0.9 1.1) (thickness 0.15) (bold yes)) ${justify})
-    (border yes)
-    (stroke (width 0.12) (type dot))
-    (knockout no))`;
-
-const read = (src = BOX()): Board =>
-  readBoard(
-    parse(`(kicad_pcb (version 20241229) (generator "test")
-  (layers (0 "F.Cu" signal) (31 "B.Cu" signal) (44 "Edge.Cuts" user) (39 "F.SilkS" user "F.Silkscreen"))
-  (net 0 "")
-  ${src}
-)`),
-  );
+import { joinJustify, splitJustify } from '@ziroeda/pcbnew/dialogs/dialog_textbox_properties.js';
 
 /** Apply a change and read the file back, which is where the failures show. */
 describe('splitting a justify token', () => {

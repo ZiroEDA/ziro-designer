@@ -7,34 +7,29 @@
  * the file.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/index.js';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
-import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import {
-  ParseBoard,
-  serializeBoard,
-} from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import {
-  collectPlacementPage,
-  collectPlacementSources,
-  hasKeepoutParametersSet,
-  initialRuleAreaPage,
-  placementFromPage,
-  ruleAreaValuesError,
-  withPlacementRadio,
-  withPlacementSelection,
-  type PlacementSources,
-  type RuleAreaValues,
-} from '@ziroeda/pcbnew/dialogs/dialog_rule_area_properties.js';
-import type { Board, PcbZone } from '@ziroeda/pcbnew/types.js';
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { collectPlacementSources } from '@ziroeda/pcbnew/dialogs/dialog_rule_area_properties.js';
+import type { BOARD } from '@ziroeda/pcbnew/board.js';
+import type { ZONE } from '@ziroeda/pcbnew/zone.js';
+import { PLACEMENT_SOURCE_T } from '@ziroeda/pcbnew/zone_settings.js';
 import { writtenItems } from './support/written_node.js';
 
-const MM = (n: number): number => mmToIU(n);
-const load = (text: string): Board => readBoard(parse(text));
-const roundTrip = (b: Board): Board => load(serializeBoard(b));
-const zone = (b: Board, i = 0): PcbZone => b.zones[i]!;
+const load = (text: string): BOARD => ParseBoard(text);
+const zone = (b: BOARD, i = 0): ZONE => b.Zones()[i]!;
 /** The written items, one line, header excluded. */
-const flat = (b: Board): string => writtenItems(b);
+const flat = (b: BOARD): string => writtenItems(b);
+const keepouts = (z: ZONE) => ({
+  tracks: z.GetDoNotAllowTracks(),
+  vias: z.GetDoNotAllowVias(),
+  pads: z.GetDoNotAllowPads(),
+  copperPour: z.GetDoNotAllowZoneFills(),
+  footprints: z.GetDoNotAllowFootprints(),
+});
+const placement = (z: ZONE) => ({
+  enabled: z.GetPlacementAreaEnabled(),
+  sourceType: z.GetPlacementAreaSourceType(),
+  source: z.GetPlacementAreaSource(),
+});
 
 const KEEPOUT = `(keepout (tracks not_allowed) (vias not_allowed) (pads allowed)
     (copperpour allowed) (footprints allowed))`;
@@ -42,9 +37,9 @@ const KEEPOUT = `(keepout (tracks not_allowed) (vias not_allowed) (pads allowed)
 /** One rule area, plus whatever extra zone/footprint text a case needs. */
 const src = (opts: { keepout?: string; placement?: string; extra?: string } = {}): string => `
 (kicad_pcb (version 20240108) (generator test)
-  (layers (0 "F.Cu" signal) (31 "B.Cu" signal))
+  (layers (0 "F.Cu" signal) (2 "B.Cu" signal))
   (net 0 "")
-  (zone (net 0) (net_name "") (layer "F.Cu") (uuid "ra") (name "guard") (hatch edge 0.5)
+  (zone (net 0) (net_name "") (layer "F.Cu") (uuid "00000000-0000-4000-8000-0000000000aa") (name "guard") (hatch edge 0.5)
     (connect_pads (clearance 0))
     (min_thickness 0.25)
     ${opts.keepout ?? KEEPOUT}
@@ -61,46 +56,50 @@ describe('reading a rule area', () => {
     const b = load(
       src({ keepout: '', placement: '(placement (enabled yes) (sheetname "/pwr/"))' }),
     );
-    expect(zone(b).ruleArea).toEqual({
+    expect(zone(b).GetIsRuleArea()).toBe(true);
+    // A rule area the file names no keepouts for keeps the constructor's.
+    expect(keepouts(zone(b))).toEqual({
       tracks: true,
       vias: true,
       pads: true,
       copperPour: false,
       footprints: false,
     });
-    expect(zone(b).placementArea).toEqual({
+    expect(placement(zone(b))).toEqual({
       enabled: true,
-      sourceType: 'sheetname',
+      sourceType: PLACEMENT_SOURCE_T.SHEETNAME,
       source: '/pwr/',
     });
   });
 
   it('leaves a plain copper zone alone', () => {
     const b = load(src({ keepout: '' }));
-    expect(zone(b).ruleArea).toBeUndefined();
-    expect(zone(b).placementArea).toBeUndefined();
+    expect(zone(b).GetIsRuleArea()).toBe(false);
+    expect(zone(b).GetPlacementAreaEnabled()).toBe(false);
   });
 
   it('reads each placement source token, and defaults a bare (placement)', () => {
-    const of = (p: string) => zone(load(src({ placement: p }))).placementArea;
+    const of = (p: string) => placement(zone(load(src({ placement: p }))));
 
     expect(of('(placement (enabled no) (component_class "RF"))')).toEqual({
       enabled: false,
-      sourceType: 'component_class',
+      sourceType: PLACEMENT_SOURCE_T.COMPONENT_CLASS,
       source: 'RF',
     });
     expect(of('(placement (enabled yes) (group "bank A"))')).toEqual({
       enabled: true,
-      sourceType: 'group',
+      sourceType: PLACEMENT_SOURCE_T.GROUP_PLACEMENT,
       source: 'bank A',
     });
     // No name token at all: the ZONE constructor's SHEETNAME and "" stand.
-    expect(of('(placement)')).toEqual({ enabled: false, sourceType: 'sheetname', source: '' });
+    expect(of('(placement)')).toEqual({
+      enabled: false,
+      sourceType: PLACEMENT_SOURCE_T.SHEETNAME,
+      source: '',
+    });
   });
 
-  it('passes the placement block through the writer untouched', () => {
-    // The writer emits a stored source verbatim; if it ever rebuilt the node
-    // from the model, an unmodelled placement token would vanish on save.
+  it('writes the placement block back', () => {
     const b = load(src({ placement: '(placement (enabled yes) (group "bank A"))' }));
     expect(flat(b)).toContain('(placement (enabled yes) (group "bank A"))');
   });

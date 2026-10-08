@@ -23,64 +23,7 @@ import { PCBNEW_SETTINGS } from '@ziroeda/pcbnew/pcbnew_settings.js';
 import { PCB_ACTIONS } from '@ziroeda/pcbnew/tools/pcb_actions.js';
 import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { IPC356D_WRITER } from '@ziroeda/pcbnew/exporters/export_d356.js';
-import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { internNewD356Netname, iuToD356 } from '@ziroeda/pcbnew/exporters/export_d356.js';
-import type { Board, PcbPad, PcbVia } from '@ziroeda/pcbnew/types.js';
-
-const P = (x: number, y: number) => ({ x, y });
-
-const pad = (over: Partial<PcbPad> = {}): PcbPad => ({
-  number: '1',
-  type: 'smd',
-  shape: 'rect',
-  at: P(1_000_000, 2_000_000),
-  angle: 0,
-  size: P(1_500_000, 800_000),
-  layers: ['F.Cu', 'F.Mask'],
-  net: 1,
-  ...over,
-});
-
-const via = (over: Partial<PcbVia> = {}): PcbVia => ({
-  at: P(0, 0),
-  size: 800_000,
-  drill: 400_000,
-  layers: ['F.Cu', 'B.Cu'],
-  kind: 'through',
-  net: 1,
-  ...over,
-});
-
-const board = (over: Partial<Board> = {}): Board => ({
-  version: 20240108,
-  layers: [
-    { id: 0, name: 'F.Cu', kind: 'signal' },
-    { id: 31, name: 'B.Cu', kind: 'signal' },
-  ],
-  nets: new Map([
-    [0, ''],
-    [1, 'GND'],
-    [2, 'VCC'],
-  ]),
-  footprints: [],
-  tracks: [],
-  arcs: [],
-  vias: [],
-  zones: [],
-  shapes: [],
-  texts: [],
-  dimensions: [],
-  textBoxes: [],
-  tables: [],
-  images: [],
-  points: [],
-  barcodes: [],
-  groups: [],
-  ...over,
-});
-
-const fp = (pads: PcbPad[], reference = 'R1') =>
-  ({ reference, layer: 'F.Cu', at: P(0, 0), pads }) as never;
 
 const records = (text: string): string[] =>
   text.split('\n').filter((l) => l && !l.startsWith('P  ') && l !== '999');

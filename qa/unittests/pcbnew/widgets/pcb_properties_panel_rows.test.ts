@@ -20,19 +20,45 @@ import { type EDA_ITEM, RECURSE_MODE } from '@ziroeda/common/eda_item.js';
 import { pcbIUScale, pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
 import { LSET_Name, LSET_NameToLayer } from '@ziroeda/common/layer_ids.js';
 import type { BOARD } from '@ziroeda/pcbnew/board.js';
-import type { BOARD_ITEM } from '@ziroeda/pcbnew/board_item.js';
 import { PAD_DRILL_POST_MACHINING_MODE } from '@ziroeda/pcbnew/padstack.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import type { BOARD_ITEM } from '@ziroeda/pcbnew/board_item.js';
+import type { FOOTPRINT } from '@ziroeda/pcbnew/footprint.js';
+import type { PAD } from '@ziroeda/pcbnew/pad.js';
+import type { PCB_DIMENSION_BASE } from '@ziroeda/pcbnew/pcb_dimension.js';
+import type { PCB_GROUP } from '@ziroeda/pcbnew/pcb_group.js';
+import type { PCB_REFERENCE_IMAGE } from '@ziroeda/pcbnew/pcb_reference_image.js';
+import type { PCB_SHAPE } from '@ziroeda/pcbnew/pcb_shape.js';
+import type { PCB_TABLE } from '@ziroeda/pcbnew/pcb_table.js';
+import type { PCB_TEXT } from '@ziroeda/pcbnew/pcb_text.js';
+import type { PCB_TEXTBOX } from '@ziroeda/pcbnew/pcb_textbox.js';
+import type { PCB_TRACK, PCB_VIA } from '@ziroeda/pcbnew/pcb_track.js';
+import type { ZONE } from '@ziroeda/pcbnew/zone.js';
+import { ZONE_CONNECTION } from '@ziroeda/pcbnew/zones.js';
 import {
-  boardFromBOARD,
-  boardItemOfViewId,
-} from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/board_view.js';
+  CAPPING_MODE,
+  COVERING_MODE,
+  FILLING_MODE,
+  PLUGGING_MODE,
+  TENTING_MODE,
+} from '@ziroeda/pcbnew/pcb_track_types.js';
+import { DIM_UNITS_MODE } from '@ziroeda/pcbnew/pcb_dimension_types.js';
+import type { PCB_DIM_ALIGNED } from '@ziroeda/pcbnew/pcb_dimension.js';
+import { PAD_SHAPE, UNCONNECTED_LAYER_MODE } from '@ziroeda/pcbnew/padstack.js';
 import {
-  FormatBoard,
-  ParseBoard,
-  readBoard,
-  serializeBoard,
-} from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import type { Board } from '@ziroeda/pcbnew/types.js';
+  FP_BOARD_ONLY,
+  FP_DNP,
+  FP_EXCLUDE_FROM_BOM,
+  FP_EXCLUDE_FROM_POS_FILES,
+} from '@ziroeda/pcbnew/footprint.js';
+import { FILL_T } from '@ziroeda/common/eda_shape.js';
+import { LINE_STYLE } from '@ziroeda/common/stroke_params.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import {
+  GR_TEXT_H_ALIGN_T as H,
+  GR_TEXT_V_ALIGN_T as V,
+} from '@ziroeda/common/font/text_attributes.js';
+import { FormatBoard, ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import {
   PCB_PROPERTIES_PANEL,
   type PCB_GRID_ROW,
@@ -40,8 +66,8 @@ import {
 import { TEST_PCB_FRAME } from '../support/test_pcb_frame.js';
 
 /**
- * The live panel behind the view ids these tests speak: each view carries the
- * BOARD and frame it was derived from.
+ * The live panel behind each BOARD these tests read: the frame it sits in and
+ * the text it was read from.
  */
 interface LIVE {
   kb: BOARD;
@@ -49,13 +75,79 @@ interface LIVE {
   /** The text the BOARD was read from, so an edit can run on a fresh copy. */
   text: string;
 }
-const LIVE_OF = new WeakMap<Board, LIVE>();
+const LIVE_OF = new WeakMap<BOARD, LIVE>();
 
-function viewOf(ctx: LIVE): Board {
-  const view = boardFromBOARD(ctx.kb, 'test.kicad_pcb');
-  LIVE_OF.set(view, ctx);
-  return view;
+function viewOf(ctx: LIVE): BOARD {
+  LIVE_OF.set(ctx.kb, ctx);
+  return ctx.kb;
 }
+
+/** The board's drawings of that type, in board order. */
+const drawingsOf = <T extends BOARD_ITEM>(kb: BOARD, ...aTypes: KICAD_T[]): T[] =>
+  kb.Drawings().filter((d) => aTypes.includes(d.Type())) as T[];
+const tracksOf = <T extends BOARD_ITEM>(kb: BOARD, aType: KICAD_T): T[] =>
+  kb.Tracks().filter((t) => t.Type() === aType) as unknown as T[];
+const DIMENSION_TYPES = [
+  KICAD_T.PCB_DIM_ALIGNED_T,
+  KICAD_T.PCB_DIM_ORTHOGONAL_T,
+  KICAD_T.PCB_DIM_LEADER_T,
+  KICAD_T.PCB_DIM_CENTER_T,
+  KICAD_T.PCB_DIM_RADIAL_T,
+];
+
+/**
+ * The item a `kind:index[:sub]` id names: each kind's items in board order,
+ * a pad by its footprint and its index there.
+ */
+function itemOf(kb: BOARD, id: string): EDA_ITEM | null {
+  const [kind, a, b] = id.split(':');
+  const i = Number(a);
+  const lists: Record<string, readonly EDA_ITEM[]> = {
+    footprint: kb.Footprints(),
+    track: tracksOf(kb, KICAD_T.PCB_TRACE_T),
+    arc: tracksOf(kb, KICAD_T.PCB_ARC_T),
+    via: tracksOf(kb, KICAD_T.PCB_VIA_T),
+    zone: kb.Zones(),
+    shape: drawingsOf(kb, KICAD_T.PCB_SHAPE_T),
+    text: drawingsOf(kb, KICAD_T.PCB_TEXT_T),
+    textbox: drawingsOf(kb, KICAD_T.PCB_TEXTBOX_T),
+    table: drawingsOf(kb, KICAD_T.PCB_TABLE_T),
+    image: drawingsOf(kb, KICAD_T.PCB_REFERENCE_IMAGE_T),
+    dimension: drawingsOf(kb, ...DIMENSION_TYPES),
+    point: kb.Points(),
+    group: kb.Groups(),
+  };
+  if (kind === 'pad') return kb.Footprints()[i]?.Pads()[Number(b)] ?? null;
+  return lists[kind!]?.[i] ?? null;
+}
+
+// The live items the assertions read back off a board.
+const fp0 = (b: BOARD | null | undefined): FOOTPRINT | undefined => b?.Footprints()[0];
+const padOf = (b: BOARD | null | undefined, j: number): PAD | undefined => fp0(b)?.Pads()[j];
+const track0 = (b: BOARD | null | undefined): PCB_TRACK | undefined =>
+  b ? tracksOf<PCB_TRACK>(b, KICAD_T.PCB_TRACE_T)[0] : undefined;
+const via0 = (b: BOARD | null | undefined): PCB_VIA | undefined =>
+  b ? tracksOf<PCB_VIA>(b, KICAD_T.PCB_VIA_T)[0] : undefined;
+const zone0 = (b: BOARD | null | undefined): ZONE | undefined => b?.Zones()[0];
+const text0 = (b: BOARD | null | undefined): PCB_TEXT | undefined =>
+  b ? drawingsOf<PCB_TEXT>(b, KICAD_T.PCB_TEXT_T)[0] : undefined;
+const shapeN = (b: BOARD | null | undefined, n: number): PCB_SHAPE | undefined =>
+  b ? drawingsOf<PCB_SHAPE>(b, KICAD_T.PCB_SHAPE_T)[n] : undefined;
+const textbox0 = (b: BOARD | null | undefined): PCB_TEXTBOX | undefined =>
+  b ? drawingsOf<PCB_TEXTBOX>(b, KICAD_T.PCB_TEXTBOX_T)[0] : undefined;
+const table0 = (b: BOARD | null | undefined): PCB_TABLE | undefined =>
+  b ? drawingsOf<PCB_TABLE>(b, KICAD_T.PCB_TABLE_T)[0] : undefined;
+const image0 = (b: BOARD | null | undefined): PCB_REFERENCE_IMAGE | undefined =>
+  b ? drawingsOf<PCB_REFERENCE_IMAGE>(b, KICAD_T.PCB_REFERENCE_IMAGE_T)[0] : undefined;
+const dim0 = (b: BOARD | null | undefined): PCB_DIMENSION_BASE | undefined =>
+  b ? drawingsOf<PCB_DIMENSION_BASE>(b, ...DIMENSION_TYPES)[0] : undefined;
+const group0 = (b: BOARD | null | undefined): PCB_GROUP | undefined => b?.Groups()[0];
+/** The via's front and back TENTING_MODE. */
+const tenting = (b: BOARD | null | undefined): [TENTING_MODE, TENTING_MODE] | undefined => {
+  const v = via0(b);
+  return v ? [v.GetFrontTentingMode(), v.GetBackTentingMode()] : undefined;
+};
+const justify = (t: PCB_TEXT | undefined) => [t?.GetHorizJustify(), t?.GetVertJustify()];
 
 /** An item of the board, children included, by uuid. */
 function findByUuid(kb: BOARD, uuid: string): EDA_ITEM | null {
@@ -79,34 +171,33 @@ function findByUuid(kb: BOARD, uuid: string): EDA_ITEM | null {
 
 /** The row type these tests read: a grid cell whose edit returns the next view. */
 type PcbPropRow = Omit<PCB_GRID_ROW, 'set'> & {
-  set?: (v: string | number | boolean) => Board | null;
+  set?: (v: string | number | boolean) => BOARD | null;
 };
 
 /** The colour each layer's swatch is painted in: the frame's colour settings. */
-const swatchOf = (board: Board, layer: string): string => {
+const swatchOf = (board: BOARD, layer: string): string => {
   const ctx = LIVE_OF.get(board)!;
   const c = ctx.frame.GetColorSettings().GetColor(ctx.kb.GetLayerID(layer));
   return `rgba(${Math.round(c.r * 255)}, ${Math.round(c.g * 255)}, ${Math.round(c.b * 255)}, ${c.a})`;
 };
 
-/** `EDA_ITEM::GetFriendlyName()` of the item a view id names. */
-const pcbItemFriendlyName = (board: Board, id: string): string | undefined =>
-  boardItemOfViewId(board, id)?.GetFriendlyName();
+/** `EDA_ITEM::GetFriendlyName()` of the item an id names. */
+const pcbItemFriendlyName = (board: BOARD, id: string): string | undefined =>
+  itemOf(board, id)?.GetFriendlyName();
 
 const MM = (n: number): number => mmToIU(n);
-const load = (text: string): Board => {
+const load = (text: string): BOARD => {
   const kb = ParseBoard(text);
   return viewOf({ kb, frame: new TEST_PCB_FRAME(kb), text });
 };
-/** What the board WRITES — `serializeBoard`, KiCad's own formatter over the model. */
-const written = (board: Board): string =>
-  LIVE_OF.has(board) ? FormatBoard(LIVE_OF.get(board)!.kb) : serializeBoard(board);
+/** What the board WRITES: `FormatBoard`, KiCad's own formatter over the model. */
+const written = (board: BOARD): string => FormatBoard(board);
 /** The written board with the pretty-printer's newlines squeezed out. */
-const flat = (board: Board): string =>
+const flat = (board: BOARD): string =>
   written(board).replace(/\s+/g, ' ').replace(/\( /g, '(').replace(/ \)/g, ')');
 
 /** The nth top-level node of that head in the written board, flattened. */
-const flatNode = (board: Board, headName: string, nth = 0): string => {
+const flatNode = (board: BOARD, headName: string, nth = 0): string => {
   const root = parse(written(board));
   const nodes = root.items.filter((i) => isList(i) && head(i) === headName);
   const node = nodes[nth];
@@ -118,10 +209,10 @@ const flatNode = (board: Board, headName: string, nth = 0): string => {
 };
 
 /** The first board text's own node as written. */
-const writtenText = (board: Board): string => flatNode(board, 'gr_text');
+const writtenText = (board: BOARD): string => flatNode(board, 'gr_text');
 
 /** The head of every DIRECT child of the first footprint node as written. */
-const fpChildren = (board: Board): string[] => {
+const fpChildren = (board: BOARD): string[] => {
   const root = parse(written(board));
   const fp = root.items.find((i) => isList(i) && head(i) === 'footprint');
   return (fp && isList(fp) ? fp.items : []).filter(isList).map((i) => head(i) ?? '');
@@ -250,9 +341,9 @@ const B = load(SRC);
  * uuid — and returns that board's view, so each test's rows stay what they
  * read, as the old view-returning rows did.
  */
-const rowsFor = (id: string, board: Board = B): PcbPropRow[] => {
+const rowsFor = (id: string, board: BOARD = B): PcbPropRow[] => {
   const ctx = LIVE_OF.get(board)!;
-  const item = boardItemOfViewId(board, id);
+  const item = itemOf(board, id);
   const gridRows = (c: LIVE, it: EDA_ITEM | null) => {
     const panel = new PCB_PROPERTIES_PANEL(c.frame);
     panel.SetSelectionProvider(() => (it ? [it] : []));
@@ -408,14 +499,14 @@ describe('FOOTPRINT rows', () => {
     expect(layer.choices).toEqual(['F.Cu', 'B.Cu']);
 
     const flipped = layer.set?.('B.Cu');
-    expect(flipped?.footprints[0]?.layer).toBe('B.Cu');
+    expect(fp0(flipped)?.GetLayer()).toBe(PCB_LAYER_ID.B_Cu);
     // A flip, not a layer assignment: the children move with it.
     // FOOTPRINT::SetLayerAndFlip is Flip( GetPosition(), LEFT_RIGHT )
     // (footprint.cpp:2923-2929): the first pad, at (10, 21) on the front,
     // mirrors about the anchor's x — which it sits on — so it stays at (10, 21).
     // (The view panel mirrored top-bottom and put it at (10, 19).)
-    expect(flipped?.footprints[0]?.pads[0]?.at).toEqual({ x: MM(10), y: MM(21) });
-    expect(flipped?.footprints[0]?.pads[0]?.layers).toContain('B.Cu');
+    expect(padOf(flipped, 0)?.GetPosition()).toEqual({ x: MM(10), y: MM(21) });
+    expect(padOf(flipped, 0)?.IsOnLayer(PCB_LAYER_ID.B_Cu)).toBe(true);
   });
 
   it('shows the orientation normalised to (-180, 180] with the degree sign', () => {
@@ -433,17 +524,17 @@ describe('FOOTPRINT rows', () => {
     // leaves the other axis alone. A builder that wrote the anchor without
     // moving the children leaves the pad at (10, 21) and fails here.
     const movedX = row(rows, 'Position X').set?.(MM(12));
-    expect(movedX?.footprints[0]?.at).toEqual({ x: MM(12), y: MM(20) });
-    expect(movedX?.footprints[0]?.pads[0]?.at).toEqual({ x: MM(12), y: MM(21) });
+    expect(fp0(movedX)?.GetPosition()).toEqual({ x: MM(12), y: MM(20) });
+    expect(padOf(movedX, 0)?.GetPosition()).toEqual({ x: MM(12), y: MM(21) });
 
     const movedY = row(rows, 'Position Y').set?.(MM(25));
-    expect(movedY?.footprints[0]?.at).toEqual({ x: MM(10), y: MM(25) });
-    expect(movedY?.footprints[0]?.pads[0]?.at).toEqual({ x: MM(10), y: MM(26) });
+    expect(fp0(movedY)?.GetPosition()).toEqual({ x: MM(10), y: MM(25) });
+    expect(padOf(movedY, 0)?.GetPosition()).toEqual({ x: MM(10), y: MM(26) });
   });
 
   it('commits Reference and Value into the footprint fields', () => {
-    expect(row(rows, 'Reference').set?.('R7')?.footprints[0]?.reference).toBe('R7');
-    expect(row(rows, 'Value').set?.('22k')?.footprints[0]?.value).toBe('22k');
+    expect(fp0(row(rows, 'Reference').set?.('R7'))?.GetReference()).toBe('R7');
+    expect(fp0(row(rows, 'Value').set?.('22k'))?.GetValue()).toBe('22k');
   });
 
   it('rejects an orientation that is not a number rather than writing NaN', () => {
@@ -459,27 +550,29 @@ describe('FOOTPRINT rows', () => {
  */
 describe('FOOTPRINT rows: the editable attributes and overrides', () => {
   const rows = rowsFor('footprint:0');
-  const fp = (b: Board | null | undefined) => b?.footprints[0];
+  const fp = fp0;
+  const attr = (b: BOARD | null | undefined, flag: number): boolean =>
+    ((fp(b)?.GetAttributes() ?? 0) & flag) !== 0;
 
   it('toggles each attribute flag, into (attr …) and into the model', () => {
     // The fixture is `(attr smd exclude_from_bom dnp)`, so each assertion moves
     // a flag that is not already where it is being put.
     const boardOnly = row(rows, 'Not in Schematic').set?.(true);
-    expect(fp(boardOnly)?.attributes).toContain('board_only');
+    expect(attr(boardOnly, FP_BOARD_ONLY)).toBe(true);
     expect(written(boardOnly!)).toContain('board_only');
 
     const posFiles = row(rows, 'Exclude From Position Files').set?.(true);
-    expect(fp(posFiles)?.attributes).toContain('exclude_from_pos_files');
+    expect(attr(posFiles, FP_EXCLUDE_FROM_POS_FILES)).toBe(true);
 
     const noBom = row(rows, 'Exclude From Bill of Materials').set?.(false);
-    expect(fp(noBom)?.attributes).not.toContain('exclude_from_bom');
+    expect(attr(noBom, FP_EXCLUDE_FROM_BOM)).toBe(false);
     expect(written(noBom!)).not.toContain('exclude_from_bom');
 
     const dnp = row(rows, 'Do not Populate').set?.(false);
-    expect(fp(dnp)?.attributes).not.toContain('dnp');
+    expect(attr(dnp, FP_DNP)).toBe(false);
 
     const courtyard = row(rows, 'Exempt From Courtyard Requirement').set?.(true);
-    expect(fp(courtyard)?.attributes).toContain('allow_missing_courtyard');
+    expect(fp(courtyard)?.AllowMissingCourtyard()).toBe(true);
   });
 
   it('keeps Exempt From Courtyard Requirement in Overrides, not Attributes', () => {
@@ -494,11 +587,11 @@ describe('FOOTPRINT rows: the editable attributes and overrides', () => {
     expect(row(rows, 'Clearance Override').optional).toBe(true);
 
     const set = row(rows, 'Clearance Override').set?.(MM(0.4));
-    expect(fp(set)?.localClearance).toBe(MM(0.4));
+    expect(fp(set)?.GetLocalClearance()).toBe(MM(0.4));
     expect(written(set!)).toContain('(clearance 0.4)');
 
     const paste = row(rows, 'Solderpaste Margin Override').set?.(MM(0.1));
-    expect(fp(paste)?.localSolderPasteMargin).toBe(MM(0.1));
+    expect(fp(paste)?.GetLocalSolderPasteMargin()).toBe(MM(0.1));
     expect(written(paste!)).toContain('(solder_paste_margin 0.1)');
   });
 
@@ -506,13 +599,13 @@ describe('FOOTPRINT rows: the editable attributes and overrides', () => {
     const ratio = row(rows, 'Solderpaste Margin Ratio Override');
     expect(ratio.value).toBe('');
     const set = ratio.set?.('-0.05');
-    expect(fp(set)?.localSolderPasteMarginRatio).toBe(-0.05);
+    expect(fp(set)?.GetLocalSolderPasteMarginRatio()).toBe(-0.05);
     expect(written(set!)).toContain('(solder_paste_margin_ratio -0.05)');
 
     const cleared = row(rowsFor('footprint:0', set!), 'Solderpaste Margin Ratio Override').set?.(
       '',
     );
-    expect(fp(cleared)?.localSolderPasteMarginRatio).toBeUndefined();
+    expect(fp(cleared)?.GetLocalSolderPasteMarginRatio()).toBeUndefined();
     expect(written(cleared!)).not.toContain('solder_paste_margin_ratio');
   });
 
@@ -543,14 +636,14 @@ describe('FOOTPRINT rows: the editable attributes and overrides', () => {
     // N)` is a plain static_cast of it. Solid is 2; writing 3 for it would make
     // KiCad read the footprint back as "thermal reliefs for PTH".
     const solid = row(rows, 'Zone Connection Style').set?.('Solid');
-    expect(fp(solid)?.zoneConnection).toBe('full');
+    expect(fp(solid)?.GetLocalZoneConnection()).toBe(ZONE_CONNECTION.FULL);
     expect(written(solid!)).toContain('(zone_connect 2)');
 
     const none = row(rows, 'Zone Connection Style').set?.('None');
     expect(written(none!)).toContain('(zone_connect 0)');
 
     const tht = row(rows, 'Zone Connection Style').set?.('Thermal reliefs for PTH');
-    expect(fp(tht)?.zoneConnection).toBe('tht_thermal');
+    expect(fp(tht)?.GetLocalZoneConnection()).toBe(ZONE_CONNECTION.THT_THERMAL);
     expect(written(tht!)).toContain('(zone_connect 3)');
 
     // INHERITED is -1 and is never written: upstream emits the token only when
@@ -559,17 +652,17 @@ describe('FOOTPRINT rows: the editable attributes and overrides', () => {
     // a `(zone_connect 1)` of its own and would satisfy a whole-file search.
     expect(fpChildren(solid!)).toContain('zone_connect');
     const back = row(rowsFor('footprint:0', solid!), 'Zone Connection Style').set?.('Inherited');
-    expect(fp(back)?.zoneConnection).toBeUndefined();
+    expect(fp(back)?.GetLocalZoneConnection()).toBe(ZONE_CONNECTION.INHERITED);
     expect(fpChildren(back!)).not.toContain('zone_connect');
   });
 
   it('reads a zone_connect the way KiCad casts it', () => {
-    const withZc = (n: number): Board =>
+    const withZc = (n: number): BOARD =>
       load(SRC.replace('(attr smd exclude_from_bom dnp)', `(attr smd) (zone_connect ${n})`));
-    expect(withZc(0).footprints[0]?.zoneConnection).toBe('none');
-    expect(withZc(1).footprints[0]?.zoneConnection).toBe('thermal');
-    expect(withZc(2).footprints[0]?.zoneConnection).toBe('full');
-    expect(withZc(3).footprints[0]?.zoneConnection).toBe('tht_thermal');
+    expect(fp0(withZc(0))?.GetLocalZoneConnection()).toBe(ZONE_CONNECTION.NONE);
+    expect(fp0(withZc(1))?.GetLocalZoneConnection()).toBe(ZONE_CONNECTION.THERMAL);
+    expect(fp0(withZc(2))?.GetLocalZoneConnection()).toBe(ZONE_CONNECTION.FULL);
+    expect(fp0(withZc(3))?.GetLocalZoneConnection()).toBe(ZONE_CONNECTION.THT_THERMAL);
   });
 });
 
@@ -629,13 +722,13 @@ describe("FOOTPRINT rows: the footprint's own fields", () => {
     // (:405-431) — there is no reserved-name filter. The view panel had one.
     expect(fieldRows()).toContain('Sheetname');
     expect(row(rows, 'Sheetname').value).toBe('/');
-    expect(F.footprints[0]?.sheetname).toBeUndefined();
+    expect(fp0(F)?.GetSheetname()).toBe('');
   });
 
   it('commits an edited field into the model AND its source', () => {
     const next = row(rows, 'MPN').set?.('RC0805-B');
-    const fp = next?.footprints[0];
-    expect(fp?.fields?.find((f) => f.name === 'MPN')?.value).toBe('RC0805-B');
+    const fp = fp0(next);
+    expect(fp?.GetField('MPN')?.GetText()).toBe('RC0805-B');
     // The written board is what survives a reload, so the patched source is the
     // half that matters: a model-only edit reverts on the next open.
     expect(written(next!)).toContain('"MPN" "RC0805-B"');
@@ -649,7 +742,7 @@ describe("FOOTPRINT rows: the footprint's own fields", () => {
     // exist on every footprint whether or not the file wrote them.
     const bare = rowsFor('footprint:0');
     const next = row(bare, 'Datasheet').set?.('https://example/ds.pdf');
-    expect(next?.footprints[0]?.fields?.map((f) => f.name)).toEqual(['Datasheet', 'Description']);
+    expect(fp0(next)?.GetField('Datasheet')?.GetText()).toBe('https://example/ds.pdf');
     expect(written(next!)).toContain('"Datasheet" "https://example/ds.pdf"');
   });
 
@@ -717,7 +810,9 @@ describe('PAD rows', () => {
 
   it('commits Copper Layers as the two booleans a PTH pad stores', () => {
     const next = row(pth, 'Copper Layers').set?.('Front, back and connected layers');
-    expect(next?.footprints[0]?.pads[1]?.unconnectedLayerMode).toBe('remove_except_start_and_end');
+    expect(padOf(next, 1)?.GetUnconnectedLayerMode()).toBe(
+      UNCONNECTED_LAYER_MODE.REMOVE_EXCEPT_START_AND_END,
+    );
     const text = written(next!);
     expect(text).toContain('(remove_unused_layers yes)');
     expect(text).toContain('(keep_end_layers yes)');
@@ -747,11 +842,11 @@ describe('PAD rows', () => {
     ]);
 
     const named = row(smd, 'Pin Name').set?.('CLK');
-    expect(named?.footprints[0]?.pads[0]?.pinFunction).toBe('CLK');
+    expect(padOf(named, 0)?.GetPinFunction()).toBe('CLK');
     expect(written(named!)).toContain('(pinfunction "CLK")');
 
     const typed = row(smd, 'Pin Type').set?.('power_in');
-    expect(typed?.footprints[0]?.pads[0]?.pinType).toBe('power_in');
+    expect(padOf(typed, 0)?.GetPinType()).toBe('power_in');
     expect(written(typed!)).toContain('(pintype "power_in")');
   });
 
@@ -764,7 +859,7 @@ describe('PAD rows', () => {
     expect(row(pth, 'Clearance Override').value).toBe(MM(0.3));
     // The model field really is set, so the "cleared" assertion below is not
     // reading an always-undefined property.
-    expect(B.footprints[0]?.pads[1]?.localClearance).toBe(MM(0.3));
+    expect(padOf(B, 1)?.GetLocalClearance()).toBe(MM(0.3));
   });
 
   it('clears an override when the cell is emptied', () => {
@@ -774,10 +869,10 @@ describe('PAD rows', () => {
     // the rejection and the clear would be indistinguishable.
     expect(next).not.toBeNull();
     expect(next).not.toBeUndefined();
-    expect(next?.footprints[0]?.pads[1]?.localClearance ?? null).toBeNull();
+    expect(padOf(next, 1)?.GetLocalClearance() ?? null).toBeNull();
     // The pad is otherwise untouched, so this is a cleared override and not a
     // dropped pad.
-    expect(next?.footprints[0]?.pads[1]?.number).toBe('2');
+    expect(padOf(next, 1)?.GetNumber()).toBe('2');
   });
 
   it('offers the board’s nets as the Net choices, sorted by name', () => {
@@ -789,7 +884,7 @@ describe('PAD rows', () => {
     // The file declares `(net 2 "VCC")` before `(net 1 "GND")`, and
     // `NETINFO_LIST::AppendNet` renumbers a code that is not the next
     // consecutive one (netinfo_list.cpp:160-165): VCC is net 1 on the board.
-    expect(row(smd, 'Net').set?.('VCC')?.footprints[0]?.pads[0]?.net).toBe(1);
+    expect(padOf(row(smd, 'Net').set?.('VCC'), 0)?.GetNetname()).toBe('VCC');
   });
 
   it('offers the pad type and shape as labels, and commits the token', () => {
@@ -804,7 +899,9 @@ describe('PAD rows', () => {
       'Chamfered rectangle',
       'Custom',
     ]);
-    expect(row(smd, 'Pad Shape').set?.('Oval')?.footprints[0]?.pads[0]?.shape).toBe('oval');
+    expect(padOf(row(smd, 'Pad Shape').set?.('Oval'), 0)?.GetShape(PCB_LAYER_ID.F_Cu)).toBe(
+      PAD_SHAPE.OVAL,
+    );
     // A label that is not on the list is refused, not written through.
     expect(row(smd, 'Pad Shape').set?.('Hexagon')).toBeNull();
   });
@@ -873,9 +970,9 @@ describe('TRACK and ARC rows', () => {
     // `PCB_TRACK::SetHasSolderMask` — the track's layer SET gains F.Mask, which
     // the file spells `(layers "F.Cu" "F.Mask")`.
     const masked = row(track, 'Soldermask').set?.(true);
-    expect(masked?.tracks[0]?.maskLayer).toBe('F.Mask');
+    expect(track0(masked)?.HasSolderMask()).toBe(true);
     const margin = row(track, 'Soldermask Margin Override').set?.(MM(0.05));
-    expect(margin?.tracks[0]?.solderMaskMargin).toBe(MM(0.05));
+    expect(track0(margin)?.GetLocalSolderMaskMargin()).toBe(MM(0.05));
     expect(row(track, 'Soldermask Margin Override').optional).toBe(true);
   });
 
@@ -896,11 +993,11 @@ describe('TRACK and ARC rows', () => {
     const layer = row(track, 'Layer');
     expect(layer.choices).toEqual(['F.Cu', 'In1.Cu', 'In2.Cu', 'B.Cu']);
     expect(layer.swatch).toBe(swatchOf(B, 'F.Cu'));
-    expect(layer.set?.('B.Cu')?.tracks[0]?.layer).toBe('B.Cu');
+    expect(track0(layer.set?.('B.Cu'))?.GetLayer()).toBe(PCB_LAYER_ID.B_Cu);
   });
 
   it('commits a width in internal units', () => {
-    expect(row(track, 'Width').set?.(MM(0.5))?.tracks[0]?.width).toBe(MM(0.5));
+    expect(track0(row(track, 'Width').set?.(MM(0.5)))?.GetWidth()).toBe(MM(0.5));
   });
 });
 
@@ -977,7 +1074,7 @@ describe('VIA rows', () => {
 
   it('writes each flag the way FormatOptBool does, and drops it for the board', () => {
     const tented = row(rows, 'Front tenting').set?.('Tented');
-    expect(tented?.vias[0]?.tenting).toEqual({ front: true, back: undefined });
+    expect(tenting(tented)).toEqual([TENTING_MODE.TENTED, TENTING_MODE.FROM_BOARD]);
     // `(front yes) (back none)` — the sides are independent, and `none` is how
     // the empty optional is spelled.
     expect(flatNode(tented!, 'via')).toContain('(tenting (front yes) (back none))');
@@ -988,13 +1085,13 @@ describe('VIA rows', () => {
     expect(row(rows, 'Capping').value).toBe('Not capped');
     expect(row(rows, 'Capping').set?.('Not capped')).toBeNull();
     const capped = row(rows, 'Capping').set?.('Capped');
-    expect(capped?.vias[0]?.capping).toBe(true);
+    expect(via0(capped)?.GetCappingMode()).toBe(CAPPING_MODE.CAPPED);
     expect(flatNode(capped!, 'via')).toContain('(capping yes)');
 
     // Back to the board: the token goes away rather than reading `(capping none)`,
     // because the writer emits it only `if( …is_capped.has_value() )`.
     const back = row(rowsFor('via:0', capped!), 'Capping').set?.('From board stackup');
-    expect(back?.vias[0]?.capping).toBeUndefined();
+    expect(via0(back)?.GetCappingMode()).toBe(CAPPING_MODE.FROM_BOARD);
     expect(flatNode(back!, 'via')).not.toContain('capping');
   });
 
@@ -1007,78 +1104,41 @@ describe('VIA rows', () => {
            (plugging (front yes) (back yes)) (capping yes) (filling no))`,
       ),
     );
-    expect(withFlags.vias[0]?.tenting).toEqual({ front: true, back: false });
-    expect(withFlags.vias[0]?.covering).toEqual({ front: false, back: undefined });
-    expect(withFlags.vias[0]?.plugging).toEqual({ front: true, back: true });
-    expect(withFlags.vias[0]?.capping).toBe(true);
-    expect(withFlags.vias[0]?.filling).toBe(false);
+    const v = via0(withFlags)!;
+    expect(tenting(withFlags)).toEqual([TENTING_MODE.TENTED, TENTING_MODE.NOT_TENTED]);
+    expect([v.GetFrontCoveringMode(), v.GetBackCoveringMode()]).toEqual([
+      COVERING_MODE.NOT_COVERED,
+      COVERING_MODE.FROM_BOARD,
+    ]);
+    expect([v.GetFrontPluggingMode(), v.GetBackPluggingMode()]).toEqual([
+      PLUGGING_MODE.PLUGGED,
+      PLUGGING_MODE.PLUGGED,
+    ]);
+    expect(v.GetCappingMode()).toBe(CAPPING_MODE.CAPPED);
+    expect(v.GetFillingMode()).toBe(FILLING_MODE.NOT_FILLED);
 
     // `parseFrontBackOptBool( true )`: before the sides could differ, tenting was
     // written as bare words, and `none` reset both.
     const legacy = load(
       SRC.replace(`(net 1) (uuid "${U.v1}"))`, `(net 1) (uuid "${U.v1}") (tenting front))`),
     );
-    expect(legacy.vias[0]?.tenting?.front).toBe(true);
-    expect(legacy.vias[0]?.tenting?.back).toBeUndefined();
+    expect(tenting(legacy)).toEqual([TENTING_MODE.TENTED, TENTING_MODE.FROM_BOARD]);
 
     // `none` resets BOTH sides whatever came before it, so this is not
     // "front, then nothing" — it is nothing at all.
     const legacyNone = load(
       SRC.replace(`(net 1) (uuid "${U.v1}"))`, `(net 1) (uuid "${U.v1}") (tenting front none))`),
     );
-    expect(legacyNone.vias[0]?.tenting?.front).toBeUndefined();
+    expect(tenting(legacyNone)).toEqual([TENTING_MODE.FROM_BOARD, TENTING_MODE.FROM_BOARD]);
 
-    // And a via that says nothing carries no object, not an empty one: the
+    // And a via that says nothing follows the board on both sides: the
     // writer's test is `has_value()` on each side.
-    expect(B.vias[0]?.tenting).toBeUndefined();
-  });
-
-  it('builds no flag tokens for a via that follows the board, and one for each that does not', () => {
-    // The BUILDER is the path a newly placed via takes, having no source. The
-    // writer's own condition is `has_value()` on the side or the drill flag
-    // (pcb_io_kicad_sexpr.cpp:2740-2778), so an opinion-free via gains nothing.
-    const withVia = (via: Board['vias'][number]): Board => ({ ...load(SRC), vias: [via] });
-    const bare = flatNode(
-      withVia({
-        at: { x: 0, y: 0 },
-        size: MM(0.8),
-        drill: MM(0.4),
-        layers: ['F.Cu', 'B.Cu'],
-        kind: 'through',
-        net: 0,
-        // An EMPTY object, not an absent one: this is the state a `(tenting
-        // none)` in the file leaves, and the one the panel leaves when both
-        // sides go back to the board. `has_value()` is false on each side, so
-        // the token is still not written.
-        tenting: {},
-        covering: {},
-      }),
-      'via',
-    );
-    for (const t of ['tenting', 'covering', 'plugging', 'capping', 'filling'])
-      expect(bare, t).not.toContain(t);
-
-    const opinionated = flatNode(
-      withVia({
-        at: { x: 0, y: 0 },
-        size: MM(0.8),
-        drill: MM(0.4),
-        layers: ['F.Cu', 'B.Cu'],
-        kind: 'through',
-        net: 0,
-        tenting: { front: true },
-        filling: false,
-      }),
-      'via',
-    );
-    expect(opinionated).toContain('(tenting (front yes) (back none))');
-    expect(opinionated).toContain('(filling no)');
-    expect(opinionated).not.toContain('covering');
+    expect(tenting(B)).toEqual([TENTING_MODE.FROM_BOARD, TENTING_MODE.FROM_BOARD]);
   });
 
   it('commits the diameter and the hole', () => {
-    expect(row(rows, 'Diameter').set?.(MM(1))?.vias[0]?.size).toBe(MM(1));
-    expect(row(rows, 'Hole').set?.(MM(0.5))?.vias[0]?.drill).toBe(MM(0.5));
+    expect(via0(row(rows, 'Diameter').set?.(MM(1)))?.GetWidth(PCB_LAYER_ID.F_Cu)).toBe(MM(1));
+    expect(via0(row(rows, 'Hole').set?.(MM(0.5)))?.GetDrillValue()).toBe(MM(0.5));
   });
 });
 
@@ -1099,14 +1159,7 @@ describe('the padstack drill groups, on the pad and the via', () => {
   );
   const via = rowsFor('via:0', drilled);
   /** The live PADSTACK of the first via / the PTH pad on a view's BOARD. */
-  const viaStack = (b: Board) =>
-    (
-      LIVE_OF.get(b)!
-        .kb.Tracks()
-        .find((t) => 'GetDrill' in t) as unknown as {
-        Padstack(): import('@ziroeda/pcbnew/padstack.js').PADSTACK;
-      }
-    ).Padstack();
+  const viaStack = (b: BOARD) => via0(b)!.Padstack();
   const layerName = (l: number) => LSET_Name(l);
 
   it('reads a backdrill by its START layer, which is the side', () => {
@@ -1130,7 +1183,7 @@ describe('the padstack drill groups, on the pad and the via', () => {
     expect(names(via)).not.toContain('Top Backdrill Size');
     expect(names(via)).not.toContain('Top Backdrill Must-Cut');
 
-    const both = rowsFor('via:0', row(via, 'Backdrill Mode').set?.('Backdrill both') as Board);
+    const both = rowsFor('via:0', row(via, 'Backdrill Mode').set?.('Backdrill both') as BOARD);
     expect(names(both)).toContain('Top Backdrill Size');
     // `SetBackdrillMode` gives a new side a drill 10% over the main hole
     // (padstack.cpp:549-550) — 0.4 mm here, so 0.44.
@@ -1278,11 +1331,11 @@ describe('the Teardrops group, on both items that have one', () => {
 
   it('commits through the item, and writes the (teardrops …) node', () => {
     const on = row(via, 'Enable Teardrops').set?.(true);
-    expect(on?.vias[0]?.teardrops?.enabled).toBe(true);
+    expect(via0(on)?.GetTeardropParams().m_Enabled).toBe(true);
     expect(flat(on!)).toContain('(teardrops');
 
     const curved = row(pad, 'Curved Teardrops').set?.(true);
-    expect(curved?.footprints[0]?.pads[1]?.teardrops?.curvedEdges).toBe(true);
+    expect(padOf(curved, 1)?.GetTeardropParams().m_CurvedEdges).toBe(true);
     expect(flat(curved!)).toContain('(curved_edges yes)');
   });
 
@@ -1293,7 +1346,7 @@ describe('the Teardrops group, on both items that have one', () => {
     const prefer = row(pad, 'Prefer Zone Connections');
     expect(prefer.value).toBe(true);
     const off = prefer.set?.(false);
-    expect(off?.footprints[0]?.pads[1]?.teardrops?.tdOnPadsInZones).toBe(true);
+    expect(padOf(off, 1)?.GetTeardropParams().m_TdOnPadsInZones).toBe(true);
     expect(flat(off!)).toContain('(prefer_zone_connections no)');
   });
 
@@ -1306,7 +1359,7 @@ describe('the Teardrops group, on both items that have one', () => {
     const legacy = load(
       SRC.replace('(net 0 "")', '(general (legacy_teardrops yes))\n  (net 0 "")'),
     );
-    expect(legacy.legacyTeardrops).toBe(true);
+    expect(legacy.LegacyTeardrops()).toBe(true);
     expect(groupOrder(rowsFor('via:0', legacy))).not.toContain('Teardrops');
     expect(groupOrder(rowsFor('pad:0:1', legacy))).not.toContain('Teardrops');
   });
@@ -1387,16 +1440,16 @@ describe('ZONE rows', () => {
     for (const n of hatchRows) expect(row(rows, n).set, n).toBeUndefined();
 
     const hatchedBoard = row(rows, 'Fill Mode').set?.('Hatch pattern');
-    const hatched = rowsFor('zone:0', hatchedBoard as Board);
+    const hatched = rowsFor('zone:0', hatchedBoard as BOARD);
     for (const n of hatchRows) expect(row(hatched, n).set, n).toBeTypeOf('function');
-    expect(row(hatched, 'Hatch Width').set?.(MM(0.6))?.zones[0]?.hatchThickness).toBe(MM(0.6));
+    expect(zone0(row(hatched, 'Hatch Width').set?.(MM(0.6)))?.GetHatchThickness()).toBe(MM(0.6));
 
     // `hatch_min_hole_area` is a plain number the fill node rebuild writes out,
     // and it is the EDITED value, not the one the zone came in with — the node
     // is rebuilt from scratch on every apply, so reading it off the old zone
     // silently discarded this row's edit.
     const ratio = row(hatched, 'Hatch Minimum Hole Ratio').set?.('0.42');
-    expect(ratio?.zones[0]?.hatchHoleMinArea).toBe(0.42);
+    expect(zone0(ratio)?.GetHatchHoleMinArea()).toBe(0.42);
     expect(flat(ratio!)).toContain('(hatch_min_hole_area 0.42)');
   });
 
@@ -1404,7 +1457,7 @@ describe('ZONE rows', () => {
     // `SetWriteableFunc( isAreaBasedIslandRemoval )`.
     expect(row(rows, 'Minimum Island Area').set).toBeUndefined();
     const byArea = row(rows, 'Remove Islands').set?.('Below area limit');
-    const area = rowsFor('zone:0', byArea as Board);
+    const area = rowsFor('zone:0', byArea as BOARD);
     expect(row(area, 'Minimum Island Area').set).toBeTypeOf('function');
   });
 
@@ -1422,7 +1475,7 @@ describe('ZONE rows', () => {
   });
 
   it('commits a priority', () => {
-    expect(row(rows, 'Priority').set?.(7)?.zones[0]?.priority).toBe(7);
+    expect(zone0(row(rows, 'Priority').set?.(7))?.GetAssignedPriority()).toBe(7);
   });
 });
 
@@ -1469,7 +1522,7 @@ describe('ZONE rows: a rule area', () => {
 
   it('commits a flag back as the file word, not the model bool', () => {
     const next = row(rows, 'Keep Out Vias').set?.(true);
-    expect(next?.zones[0]?.ruleArea?.vias).toBe(true);
+    expect(zone0(next)?.GetDoNotAllowVias()).toBe(true);
     expect(flat(next!)).toContain('(vias not_allowed)');
     // The other four are rewritten from the model and must not flip with it.
     expect(flat(next!)).toContain('(tracks not_allowed)');
@@ -1482,7 +1535,7 @@ describe('ZONE rows: a rule area', () => {
     expect(row(rows, 'Source Name').value).toBe('PWR');
 
     const renamed = row(rows, 'Source Name').set?.('GND');
-    expect(renamed?.zones[0]?.placementArea?.source).toBe('GND');
+    expect(zone0(renamed)?.GetPlacementAreaSource()).toBe('GND');
     expect(flat(renamed!)).toContain('(component_class "GND")');
 
     // The source token IS the type, so changing the type moves the name into a
@@ -1570,7 +1623,7 @@ describe('TEXT rows', () => {
   });
 
   it('commits the text', () => {
-    expect(row(rows, 'Text').set?.('goodbye')?.texts[0]?.text).toBe('goodbye');
+    expect(text0(row(rows, 'Text').set?.('goodbye'))?.GetText()).toBe('goodbye');
   });
 
   it('writes the justification as the (justify …) words, in EDA_TEXT order', () => {
@@ -1581,11 +1634,11 @@ describe('TEXT rows', () => {
     expect(row(rows, 'Vertical Justification').value).toBe('Center');
 
     const left = row(rows, 'Horizontal Justification').set?.('Left');
-    expect(left?.texts[0]?.justify).toEqual(['left']);
+    expect(justify(text0(left))).toEqual([H.GR_TEXT_H_ALIGN_LEFT, V.GR_TEXT_V_ALIGN_CENTER]);
     expect(written(left!)).toContain('(justify left)');
 
     const bottom = row(rowsFor('text:0', left!), 'Vertical Justification').set?.('Bottom');
-    expect(bottom?.texts[0]?.justify).toEqual(['left', 'bottom']);
+    expect(justify(text0(bottom))).toEqual([H.GR_TEXT_H_ALIGN_LEFT, V.GR_TEXT_V_ALIGN_BOTTOM]);
     expect(written(bottom!)).toContain('(justify left bottom)');
 
     const mirrored = row(rowsFor('text:0', bottom!), 'Mirrored').set?.(true);
@@ -1593,11 +1646,11 @@ describe('TEXT rows', () => {
 
     // Back to both defaults: the token goes away rather than reading `(justify)`.
     const back = row(rowsFor('text:0', bottom!), 'Horizontal Justification').set?.('Center');
-    const centred = row(rowsFor('text:0', back as Board), 'Vertical Justification').set?.('Center');
-    expect(centred?.texts[0]?.justify).toBeUndefined();
+    const centred = row(rowsFor('text:0', back as BOARD), 'Vertical Justification').set?.('Center');
+    expect(justify(text0(centred))).toEqual([H.GR_TEXT_H_ALIGN_CENTER, V.GR_TEXT_V_ALIGN_CENTER]);
     // Scoped to the text's own node: the fixture's text BOX carries a
     // `(justify left top)` of its own.
-    expect(writtenText(centred as Board)).not.toContain('justify');
+    expect(writtenText(centred as BOARD)).not.toContain('justify');
   });
 
   it('makes Auto Thickness a stored thickness of zero, and back', () => {
@@ -1608,7 +1661,7 @@ describe('TEXT rows', () => {
     expect(row(rows, 'Thickness').value).toBe(MM(0.15));
 
     const auto = row(rows, 'Auto Thickness').set?.(true);
-    expect(auto?.texts[0]?.thickness).toBeUndefined();
+    expect(text0(auto)?.GetTextThickness()).toBe(0);
     // Scoped to the text's own node: the fixture's zone carries a
     // `(min_thickness …)`, which a whole-file search would match.
     expect(writtenText(auto!)).not.toContain('thickness');
@@ -1622,7 +1675,7 @@ describe('TEXT rows', () => {
     // And back: `SetAutoThickness( false )` materialises exactly that width, so
     // the text keeps the pen it had rather than dropping to zero.
     const explicit = row(autoRows, 'Auto Thickness').set?.(false);
-    expect(explicit?.texts[0]?.thickness).toBe(MM(1) / 8);
+    expect(text0(explicit)?.GetTextThickness()).toBe(MM(1) / 8);
     expect(writtenText(explicit!)).toContain('(thickness 0.125)');
   });
 
@@ -1631,9 +1684,9 @@ describe('TEXT rows', () => {
     // CAN carry `(thickness 0)` — KiCad reads it as automatic and writes it back
     // without the token, and the view spells automatic as no thickness at all.
     const zero = load(SRC.replace('(thickness 0.15)', '(thickness 0)'));
-    expect(zero.texts[0]?.thickness).toBeUndefined();
+    expect(text0(zero)?.GetTextThickness()).toBe(0);
     expect(row(rowsFor('text:0', zero), 'Auto Thickness').value).toBe(true);
-    expect(serializeBoard(zero)).not.toContain('(thickness 0)');
+    expect(written(zero)).not.toContain('(thickness 0)');
   });
 });
 
@@ -1687,8 +1740,8 @@ describe('SHAPE rows', () => {
     expect(row(circle, 'Radius').kind).toBe('dist');
 
     const bigger = row(circle, 'Radius').set?.(MM(8));
-    expect(bigger?.shapes[1]?.end).toEqual({ x: MM(38), y: MM(30) });
-    expect(bigger?.shapes[1]?.center).toEqual({ x: MM(30), y: MM(30) });
+    expect(shapeN(bigger, 1)?.GetEnd()).toEqual({ x: MM(38), y: MM(30) });
+    expect(shapeN(bigger, 1)?.GetCenter()).toEqual({ x: MM(30), y: MM(30) });
   });
 
   it('gives a segment no Fill row, because a segment has nothing to fill', () => {
@@ -1709,7 +1762,7 @@ describe('SHAPE rows', () => {
     expect(fill.value).toBe('None');
 
     const hatched = fill.set?.('Cross-hatch');
-    expect(hatched?.shapes[1]?.fillMode).toBe('cross_hatch');
+    expect(shapeN(hatched, 1)?.GetFillMode()).toBe(FILL_T.CROSS_HATCH);
     expect(flat(hatched!)).toContain('(fill cross_hatch)');
   });
 
@@ -1736,8 +1789,8 @@ describe('SHAPE rows', () => {
     expect(row(rect, 'Width').value).toBe(MM(20));
     expect(row(rect, 'Height').value).toBe(MM(10));
     const wider = row(rect, 'Width').set?.(MM(30));
-    expect(wider?.shapes[4]?.start).toEqual({ x: MM(0), y: MM(0) });
-    expect(wider?.shapes[4]?.end).toEqual({ x: MM(30), y: MM(10) });
+    expect(shapeN(wider, 4)?.GetStart()).toEqual({ x: MM(0), y: MM(0) });
+    expect(shapeN(wider, 4)?.GetEnd()).toEqual({ x: MM(30), y: MM(10) });
   });
 
   it('shows the SHAPE_T, read-only', () => {
@@ -1768,12 +1821,12 @@ describe('SHAPE rows', () => {
     expect(row(rect, 'Corner Radius').set?.(MM(-1))).toBeNull();
 
     const rounded = row(rect, 'Corner Radius').set?.(MM(2));
-    expect(rounded?.shapes[4]?.cornerRadius).toBe(MM(2));
+    expect(shapeN(rounded, 4)?.GetCornerRadius()).toBe(MM(2));
     expect(flat(rounded!)).toContain('(radius 2)');
 
     // And zero drops the token: the writer emits it only when it is non-zero.
-    const square = row(rowsFor('shape:4', rounded as Board), 'Corner Radius').set?.(0);
-    expect(square?.shapes[4]?.cornerRadius).toBeUndefined();
+    const square = row(rowsFor('shape:4', rounded as BOARD), 'Corner Radius').set?.(0);
+    expect(shapeN(square, 4)?.GetCornerRadius()).toBe(0);
     expect(flat(square!)).not.toContain('radius');
   });
 
@@ -1791,8 +1844,8 @@ describe('SHAPE rows', () => {
 
     const gnd = row(copper, 'Net').set?.('GND');
     // GND is net 2 on the board (see the pad Net test: AppendNet renumbers).
-    expect(gnd?.shapes[5]?.net).toBe(2);
-    expect(gnd?.shapes[5]?.netName).toBe('GND');
+    expect(shapeN(gnd, 5)?.GetNetCode()).toBe(2);
+    expect(shapeN(gnd, 5)?.GetNetname()).toBe('GND');
     expect(flat(gnd!)).toContain('(net "GND")');
   });
 
@@ -1803,7 +1856,7 @@ describe('SHAPE rows', () => {
     expect(groupOrder(line)).not.toContain('Technical Layers');
 
     const masked = row(rowsFor('shape:5'), 'Soldermask').set?.(true);
-    expect(masked?.shapes[5]?.maskLayer).toBe('F.Mask');
+    expect(shapeN(masked, 5)?.HasSolderMask()).toBe(true);
     expect(flat(masked!)).toContain('(layers "F.Cu" "F.Mask")');
   });
 
@@ -1817,7 +1870,7 @@ describe('SHAPE rows', () => {
       'Dash-Dot-Dot',
     ]);
     expect(row(line, 'Line Style').value).toBe('Dashed');
-    expect(row(line, 'Line Style').set?.('Dotted')?.shapes[0]?.strokeType).toBe('dot');
+    expect(shapeN(row(line, 'Line Style').set?.('Dotted'), 0)?.GetLineStyle()).toBe(LINE_STYLE.DOT);
   });
 
   it('groups them Basic / Shape Properties', () => {
@@ -1860,21 +1913,21 @@ describe('TEXT BOX rows', () => {
     expect(row(rows, 'Margin Bottom').value).toBe(MM(0.8));
 
     const off = row(rows, 'Border').set?.(false);
-    expect(off?.textBoxes[0]?.border).toBe(false);
+    expect(textbox0(off)?.IsBorderEnabled()).toBe(false);
     expect(flat(off!)).toContain('(border no)');
 
     const margin = row(rows, 'Margin Top').set?.(MM(1.25));
-    expect(margin?.textBoxes[0]?.margins.top).toBe(MM(1.25));
+    expect(textbox0(margin)?.GetMarginTop()).toBe(MM(1.25));
 
     const text = row(rows, 'Text').set?.('rewritten');
-    expect(text?.textBoxes[0]?.text).toBe('rewritten');
+    expect(textbox0(text)?.GetText()).toBe('rewritten');
   });
 
   it('reads its justification, which the fixture sets to left/top', () => {
     expect(row(rows, 'Horizontal Justification').value).toBe('Left');
     expect(row(rows, 'Vertical Justification').value).toBe('Top');
     const centred = row(rows, 'Horizontal Justification').set?.('Center');
-    expect(centred?.textBoxes[0]?.justify).not.toContain('left');
+    expect(textbox0(centred)?.GetHorizJustify()).toBe(H.GR_TEXT_H_ALIGN_CENTER);
   });
 });
 
@@ -1915,16 +1968,16 @@ describe('TABLE rows', () => {
     expect(row(rows, 'Separators Style').value).toBe('Dashed');
 
     const header = row(rows, 'Header Border').set?.(true);
-    expect(header?.tables[0]?.borderHeader).toBe(true);
+    expect(table0(header)?.StrokeHeaderSeparator()).toBe(true);
     const width = row(rows, 'Separators Width').set?.(MM(0.3));
-    expect(width?.tables[0]?.separatorWidth).toBe(MM(0.3));
+    expect(table0(width)?.GetSeparatorsWidth()).toBe(MM(0.3));
   });
 
   it('moves the table from Start X/Y, which have a setter', () => {
     // `&PCB_TABLE::SetPositionX` (pcb_table.cpp:887-892) — writeable.
     expect(row(rows, 'Start X').value).toBe(MM(0));
     const moved = row(rows, 'Start X').set?.(MM(2));
-    expect(moved?.tables[0]?.cells[0]?.start?.x).toBe(MM(2));
+    expect(table0(moved)?.GetCell(0, 0)?.GetStart().x).toBe(MM(2));
   });
 });
 
@@ -1974,8 +2027,8 @@ describe('REFERENCE IMAGE rows', () => {
     const w = row(rows, 'Width').value as number;
     expect(w).toBeGreaterThan(0);
     const doubled = row(rows, 'Width').set?.(w * 2);
-    expect(doubled?.images[0]?.scale).toBeCloseTo(4);
-    const next = rowsFor('image:0', doubled as Board);
+    expect(image0(doubled)?.GetImageScale()).toBeCloseTo(4);
+    const next = rowsFor('image:0', doubled as BOARD);
     // The height went with it: one ratio, both axes. Within a nanometre — the
     // size is pixels/PPI x scale rounded to internal units, so doubling the
     // scale and doubling the rounded size differ in the last IU.
@@ -2013,10 +2066,12 @@ describe('GROUP rows', () => {
 
   it('renames the group in its own node, which is the first argument', () => {
     const renamed = row(rows, 'Name').set?.('power');
-    expect(renamed?.groups[0]?.name).toBe('power');
+    expect(group0(renamed)?.GetName()).toBe('power');
     expect(flat(renamed!)).toContain('(group "power"');
     // The members are untouched: renaming is not re-grouping.
-    expect(renamed?.groups[0]?.members).toEqual([U.gl1, U.gc1]);
+    expect(new Set([...(group0(renamed)?.GetItems() ?? [])].map((i) => i.m_Uuid))).toEqual(
+      new Set([U.gl1, U.gc1]),
+    );
   });
 });
 
@@ -2078,7 +2133,7 @@ describe('DIMENSION rows', () => {
 
     const freed = rowsFor(
       'dimension:0',
-      row(ortho, 'Keep Aligned with Dimension').set?.(false) as Board,
+      row(ortho, 'Keep Aligned with Dimension').set?.(false) as BOARD,
     );
     expect(row(freed, 'Orientation').set).toBeTypeOf('function');
   });
@@ -2095,10 +2150,10 @@ describe('DIMENSION rows', () => {
 
   it('commits a format change, and the crossbar height as its own token', () => {
     const mm = row(ortho, 'Units').set?.('Millimeters');
-    expect(mm?.dimensions[0]?.format?.units).toBe(2);
+    expect(dim0(mm)?.GetUnitsMode()).toBe(DIM_UNITS_MODE.MM);
 
     const taller = row(ortho, 'Crossbar Height').set?.(MM(20));
-    expect(taller?.dimensions[0]?.height).toBe(MM(20));
+    expect((dim0(taller) as PCB_DIM_ALIGNED | undefined)?.GetHeight()).toBe(MM(20));
     expect(flat(taller!)).toContain('(height 20)');
   });
 });
@@ -2107,7 +2162,7 @@ describe('the selection rule', () => {
   const panelRows = (ids: string[]) => {
     const ctx = LIVE_OF.get(B)!;
     const panel = new PCB_PROPERTIES_PANEL(ctx.frame);
-    const items = ids.map((id) => boardItemOfViewId(B, id)).filter((i) => i !== null);
+    const items = ids.map((id) => itemOf(B, id)).filter((i) => i !== null);
     panel.SetSelectionProvider(() => items);
     panel.UpdateData();
     return panel.GridRows({ units: 'mm', iuScale: pcbIUScale });
