@@ -30,7 +30,6 @@ import { mmToIU } from '@ziroeda/common/eda_units.js';
 import { collectItemsForSyncParts, sortedSyncParts } from '@ziroeda/pcbnew/cross-probing.js';
 import type { EDA_ITEM } from '@ziroeda/common/eda_item.js';
 import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { crossProbeZoomScale } from '@ziroeda/pcbnew/cross-probing.js';
 import { installPgm } from '@ziroeda/designer/src/editors/pcb/pcb_canvas.js';
 import { PCB_EDIT_FRAME, type PCB_EDIT_FRAME_HOOKS } from '@ziroeda/pcbnew/pcb_edit_frame.js';
@@ -143,7 +142,6 @@ const BOARD = `(kicad_pcb (version 20241229) (generator "pcbnew")
       (effects (font (size 1 1) (thickness 0.15))))))
 `;
 
-const board = readBoard(parse(BOARD));
 const kboard = ParseBoard(BOARD);
 const fp = (i: number): EDA_ITEM => kboard.Footprints()[i]!;
 const pad = (i: number, j: number): EDA_ITEM => kboard.Footprints()[i]!.Pads()[j]!;

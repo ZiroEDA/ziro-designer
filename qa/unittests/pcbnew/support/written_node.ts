@@ -11,24 +11,39 @@
  */
 import { parse, serialize } from '@ziroeda/sexpr/index.js';
 import { head, isList, type SList } from '@ziroeda/sexpr/types.js';
-import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import type { BOARD } from '@ziroeda/pcbnew/board.js';
+import {
+  FormatBoard,
+  ParseBoard,
+  readBoard,
+  serializeBoard,
+} from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import type { Board } from '@ziroeda/pcbnew/types.js';
 
+/** The board's text: the live BOARD formatted, or (until the view goes) the view serialised. */
+const textOf = (board: Board | BOARD): string =>
+  'Footprints' in board ? FormatBoard(board) : serializeBoard(board);
+
 /** A two-layer board with nothing on it. */
+export const emptyBOARD = (): BOARD =>
+  ParseBoard(
+    '(kicad_pcb (version 20241229) (generator "test") (layers (0 "F.Cu" signal) (2 "B.Cu" signal)))',
+  );
+
+/** The old view of {@link emptyBOARD}. */
 export const emptyBoard = (): Board =>
   readBoard(
     '(kicad_pcb (version 20241229) (generator "test") (layers (0 "F.Cu" signal) (31 "B.Cu" signal)))',
   );
 
 /** Every top-level node of that head in the written board. */
-export function writtenNodes(board: Board, headName: string): SList[] {
-  const root = parse(serializeBoard(board));
+export function writtenNodes(board: Board | BOARD, headName: string): SList[] {
+  const root = parse(textOf(board));
   return root.items.filter((i): i is SList => isList(i) && head(i) === headName);
 }
 
 /** The nth top-level node of that head in the written board. */
-export function writtenNode(board: Board, headName: string, nth = 0): SList {
+export function writtenNode(board: Board | BOARD, headName: string, nth = 0): SList {
   const node = writtenNodes(board, headName)[nth];
   if (!node) throw new Error(`no (${headName} …) #${nth} in the written board`);
   return node;
@@ -59,8 +74,8 @@ const HEADER_HEADS = new Set([
 ]);
 
 /** Every top-level ITEM node of the written board, flattened and joined on one line. */
-export function writtenItems(board: Board): string {
-  const root = parse(serializeBoard(board));
+export function writtenItems(board: Board | BOARD): string {
+  const root = parse(textOf(board));
   return root.items
     .filter((i): i is SList => isList(i) && !HEADER_HEADS.has(head(i) ?? ''))
     .map(flatText)

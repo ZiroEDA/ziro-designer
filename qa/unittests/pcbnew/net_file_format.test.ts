@@ -20,13 +20,14 @@ import { describe, expect, it } from 'vitest';
 import { parse } from '@ziroeda/sexpr/index.js';
 import { head, isList, type SList, type SNode } from '@ziroeda/sexpr/types.js';
 import { arg, numArg } from '@ziroeda/sexpr/query.js';
-import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import type { BOARD } from '@ziroeda/pcbnew/board.js';
+import type { BOARD_CONNECTED_ITEM } from '@ziroeda/pcbnew/board_connected_item.js';
+import { FormatBoard, ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 import { ORPHANED_NET } from '@ziroeda/pcbnew/netinfo.js';
-import type { Board } from '@ziroeda/pcbnew/types.js';
 import { U } from './support/written_node.js';
 
-const load = (text: string): Board => readBoard(parse(text));
+const load = (text: string): BOARD => ParseBoard(text);
 
 /** A board with one of everything that carries a net, at `version`. */
 function src(version: number, decls: string, netOf: (name: string) => string): string {
@@ -66,15 +67,26 @@ const legacy = (): string =>
 /** A 20251028-or-later file: names on the items, and no declaration table. */
 const modern = (): string => src(20260206, '', (n) => `(net "${n}")`);
 
-const netsOf = (b: Board): Record<string, number> => ({
-  padGND: b.footprints[0]!.pads[0]!.net ?? 0,
-  padVCC: b.footprints[0]!.pads[1]!.net ?? 0,
-  shape: b.shapes.find((s) => s.uuid === U('g1'))!.net ?? 0,
-  trackGND: b.tracks[0]!.net,
-  trackVCC: b.tracks[1]!.net,
-  arc: b.arcs[0]!.net,
-  via: b.vias[0]!.net,
-  zone: b.zones[0]!.net,
+/** The connected item with that uuid, wherever the board keeps it. */
+const byUuid = (b: BOARD, tag: string): BOARD_CONNECTED_ITEM => {
+  const all = [
+    ...b.Tracks(),
+    ...b.Zones(),
+    ...b.Drawings(),
+    ...b.Footprints().flatMap((f) => f.Pads()),
+  ] as BOARD_CONNECTED_ITEM[];
+  return all.find((x) => x.m_Uuid === U(tag))!;
+};
+
+const netsOf = (b: BOARD): Record<string, number> => ({
+  padGND: byUuid(b, 'p1').GetNetCode(),
+  padVCC: byUuid(b, 'p2').GetNetCode(),
+  shape: byUuid(b, 'g1').GetNetCode(),
+  trackGND: byUuid(b, 't1').GetNetCode(),
+  trackVCC: byUuid(b, 't2').GetNetCode(),
+  arc: byUuid(b, 'a1').GetNetCode(),
+  via: byUuid(b, 'v1').GetNetCode(),
+  zone: byUuid(b, 'z1').GetNetCode(),
 });
 
 // -----------------------------------------------------------------------------
@@ -103,7 +115,7 @@ describe('reading', () => {
     // `FindNet` misses, so `parseNet` news up a NETINFO_ITEM and adds it to the
     // board. NETINFO_LIST's own constructor holds the unconnected net, and
     // getFreeNetCode hands out 1, 2, … in the order the names first appear.
-    expect([...load(modern()).nets]).toEqual([
+    expect([...load(modern()).GetNetInfo()].map((n) => [n.GetNetCode(), n.GetNetname()])).toEqual([
       [0, ''],
       [1, 'GND'],
       [2, 'VCC'],
@@ -112,16 +124,16 @@ describe('reading', () => {
 
   it('holds the unconnected net on a file that never mentions one', () => {
     const b = load('(kicad_pcb (version 20260206) (generator "pcbnew"))');
-    expect(b.nets.get(0)).toBe('');
+    expect(b.FindNet(0)!.GetNetname()).toBe('');
   });
 
   it('gives every item naming one net the same code', () => {
     // Two shapes naming the same net must land on the same one — the reason
     // upstream *adds* the created net rather than resolving each reference on
     // its own.
-    const b = load(modern());
-    expect(b.tracks[0]!.net).toBe(b.zones[0]!.net);
-    expect(b.vias[0]!.net).toBe(b.tracks[1]!.net);
+    const n = netsOf(load(modern()));
+    expect(n.trackGND).toBe(n.zone);
+    expect(n.via).toBe(n.trackVCC);
   });
 
   it('leaves a legacy netcode the table never declared with no net at all', () => {
@@ -133,7 +145,7 @@ describe('reading', () => {
       `(kicad_pcb (version 20241229) (net 0 "") (net 1 "GND")
          (segment (start 0 0) (end 1 0) (width 0.2) (layer "F.Cu") (net 7)))`,
     );
-    expect(b.tracks[0]!.net).toBe(ORPHANED_NET);
+    expect(b.Tracks()[0]!.GetNetCode()).toBe(ORPHANED_NET);
   });
 
   it('orphans a pad whose code and name disagree', () => {
@@ -145,8 +157,10 @@ describe('reading', () => {
     const pad = (net: string): number =>
       load(`(kicad_pcb (version 20241229) (net 0 "") (net 1 "GND") (net 2 "VCC")
         (footprint "R" (layer "F.Cu") (at 0 0)
-          (pad "1" smd rect (at 0 0) (size 1 1) (layers "F.Cu") ${net})))`).footprints[0]!.pads[0]!
-        .net ?? 0;
+          (pad "1" smd rect (at 0 0) (size 1 1) (layers "F.Cu") ${net})))`)
+        .Footprints()[0]!
+        .Pads()[0]!
+        .GetNetCode();
 
     expect(pad('(net 1 "GND")')).toBe(1);
     expect(pad('(net 1 "VCC")')).toBe(0);
@@ -183,8 +197,7 @@ describe('writing', () => {
   it('writes a legacy file at the current version, names and no table', () => {
     // `PCB_IO_KICAD_SEXPR::SaveBoard` always writes SEXPR_BOARD_FILE_VERSION;
     // a pre-10.0 file is re-saved in the 10.0 spelling.
-    const b = load(legacy());
-    const out = serializeBoard(b);
+    const out = FormatBoard(load(legacy()));
     expect(out).toContain('(version 20260206)');
     expect(netTokens(out).every((t) => /^"/.test(t))).toBe(true);
     expect(hasNetName(out)).toBe(false);
@@ -193,14 +206,7 @@ describe('writing', () => {
   it('writes names into a 20251028 file, and no net_name', () => {
     // `format( const PCB_TRACK* )`: `(net %s)` with `Quotew( GetNetname() )`,
     // and `format( const ZONE* )` has no `(net_name …)` left to write.
-    const b = load(modern());
-    const out = serializeBoard({
-      ...b,
-      tracks: b.tracks.map((t) => ({ ...t })),
-      vias: b.vias.map((v) => ({ ...v })),
-      arcs: b.arcs.map((a) => ({ ...a })),
-      zones: b.zones.map((z) => ({ ...z })),
-    });
+    const out = FormatBoard(load(modern()));
     expect(netTokens(out).every((t) => /^"/.test(t))).toBe(true);
     expect(netTokens(out)).toContain('"GND"');
     expect(hasNetName(out)).toBe(false);
@@ -209,15 +215,9 @@ describe('writing', () => {
   it('omits a 20251028 zone net when there is none to write', () => {
     // `aZone->IsOnCopperLayer() && !aZone->GetIsRuleArea() && GetNetCode() > 0`.
     const b = load(modern());
-    const out = serializeBoard({
-      ...b,
-      tracks: [],
-      arcs: [],
-      vias: [],
-      shapes: [],
-      footprints: [],
-      zones: [{ ...b.zones[0]!, net: 0 }],
-    });
+    for (const item of [...b.Tracks(), ...b.Drawings(), ...b.Footprints()]) b.Remove(item);
+    b.Zones()[0]!.SetNetCode(0);
+    const out = FormatBoard(b);
     expect(netTokens(out)).toEqual([]);
   });
 
@@ -226,11 +226,7 @@ describe('writing', () => {
     // again must still be the same netlist. A numeric net written into a file
     // with no declaration table is a silent rewire.
     const b = load(modern());
-    const again = load(serializeBoard(b));
+    const again = load(FormatBoard(b));
     expect(netsOf(again)).toEqual(netsOf(b));
   });
 });
-
-// -----------------------------------------------------------------------------
-// the property patchers
-// -----------------------------------------------------------------------------

@@ -2,10 +2,9 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * BOARD_NETLIST_UPDATER on the live BOARD, for the netlist tests: a view board
- * written into its BOARD (so a test may edit the view first), a frame that
- * answers what the updater asks, the dialog's setters, and the results read
- * back as the view the tests were written against.
+ * BOARD_NETLIST_UPDATER on the live BOARD, for the netlist tests: a frame that
+ * answers what the updater asks, the dialog's setters, and the counts the
+ * dialog reports. The board is updated in place and handed back.
  */
 import { LIB_ID } from '@ziroeda/common/lib_id.js';
 import { Reporter } from '@ziroeda/common/reporter.js';
@@ -18,9 +17,7 @@ import {
   type NETLIST_FOOTPRINT_LOADER,
 } from '@ziroeda/pcbnew/netlist_reader/board_netlist_updater.js';
 import { PCB_EDIT_FRAME } from '@ziroeda/pcbnew/pcb_edit_frame.js';
-import { boardFromBOARD, boardToBOARD } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/board_view.js';
 import { ParseFootprintFile } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import type { Board } from '@ziroeda/pcbnew/types.js';
 import { TEST_PCB_FRAME } from './test_pcb_frame.js';
 
 /** The board editor frame's half the updater asks for, as PCB_EDIT_FRAME's. */
@@ -46,7 +43,8 @@ export interface UpdateOptions {
 }
 
 export interface UpdateResult {
-  board: Board;
+  /** The board the updater ran on, updated in place. */
+  board: BOARD;
   addedFootprints: number[];
   errorCount: number;
   warningCount: number;
@@ -83,13 +81,11 @@ export function libraryLoader(aLibrary: ReadonlyMap<string, string>): NETLIST_FO
 }
 
 export function runLiveUpdate(
-  board: Board,
+  kb: BOARD,
   netlist: NETLIST,
   loader: NETLIST_FOOTPRINT_LOADER,
   options: UpdateOptions = {},
 ): { reporter: Reporter; result: UpdateResult; kb: BOARD } {
-  const kb: BOARD = boardToBOARD(board);
-
   // A board in the editor always has its project (SynchronizeComponentClasses reads it).
   if (!kb.GetProject()) {
     const manager = new SETTINGS_MANAGER();
@@ -115,7 +111,7 @@ export function runLiveUpdate(
     reporter,
     kb,
     result: {
-      board: boardFromBOARD(kb, board.fileName),
+      board: kb,
       addedFootprints: updater.GetAddedFootprints().map((fp) => kb.Footprints().indexOf(fp)),
       errorCount: updater.GetErrorCount(),
       warningCount: updater.GetWarningCount(),

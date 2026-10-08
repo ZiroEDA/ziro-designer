@@ -15,7 +15,12 @@ import { GENERATOR, GENERATOR_VERSION } from '@ziroeda/common/generator.js';
 import { Reporter, RPT_SEVERITY_ERROR } from '@ziroeda/common/reporter.js';
 import { BM_PUT, bm_new, type potrace_bitmap_t } from '@ziroeda/potrace';
 import { parse } from '@ziroeda/sexpr';
-import { readFootprintFile } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { ParseFootprintFile } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { SHAPE_T } from '@ziroeda/common/eda_shape.js';
+import { FIELD_T } from '@ziroeda/common/template_fieldnames.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import type { PCB_SHAPE } from '@ziroeda/pcbnew/pcb_shape.js';
 import { readSymbolLib } from '@ziroeda/eeschema';
 import { readDrawingSheet } from '@ziroeda/common/drawing_sheet/read.js';
 import {
@@ -239,13 +244,17 @@ describe("our own readers take KiCad's dialect as KiCad does", () => {
    * converter writes still opens in our editors with the meaning KiCad gives it.
    */
   it('footprint: one solid fp_poly on the chosen layer, and the Value text hidden', () => {
-    const fp = readFootprintFile(parse(convert(ring30(), FOOTPRINT_FMT, 300, 300, 'Dwgs.User')))!;
-    const polys = fp.shapes.filter((s) => s.kind === 'poly');
+    const fp = ParseFootprintFile(convert(ring30(), FOOTPRINT_FMT, 300, 300, 'Dwgs.User'));
+    const polys = fp
+      .GraphicalItems()
+      .filter(
+        (s) => s.Type() === KICAD_T.PCB_SHAPE_T && (s as PCB_SHAPE).GetShape() === SHAPE_T.POLY,
+      ) as PCB_SHAPE[];
     expect(polys).toHaveLength(1);
-    expect(polys[0]!.fillMode).toBe('solid');
-    expect(polys[0]!.layer).toBe('Dwgs.User');
-    expect(fp.texts.find((t) => t.kind === 'value')!.hide).toBe(true);
-    expect(fp.texts.find((t) => t.kind === 'reference')!.hide).toBe(false);
+    expect(polys[0]!.IsSolidFill()).toBe(true);
+    expect(polys[0]!.GetLayer()).toBe(PCB_LAYER_ID.Dwgs_User);
+    expect(fp.GetField(FIELD_T.VALUE)!.IsVisible()).toBe(false);
+    expect(fp.GetField(FIELD_T.REFERENCE)!.IsVisible()).toBe(true);
   });
 
   it('symbol library: one outline-filled polyline, all four properties hidden', () => {

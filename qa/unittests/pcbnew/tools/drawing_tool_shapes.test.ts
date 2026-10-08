@@ -45,8 +45,9 @@ import {
   PCB_DIMENSION_BASE,
   type PCB_DIM_ALIGNED,
   PCB_DIM_ORTHOGONAL,
+  type PCB_DIM_RADIAL,
 } from '@ziroeda/pcbnew/pcb_dimension.js';
-import { DIM_ARROW_DIRECTION } from '@ziroeda/pcbnew/pcb_dimension_types.js';
+import { DIM_ARROW_DIRECTION, DIM_UNITS_FORMAT } from '@ziroeda/pcbnew/pcb_dimension_types.js';
 import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import { sub } from '@ziroeda/kimath/src/math/vector2.js';
 import { PCB_TRACK, type PCB_VIA } from '@ziroeda/pcbnew/pcb_track.js';
@@ -686,6 +687,71 @@ describe('DRAWING_TOOL::DrawDimension (drawing_tool.cpp:1580-2045)', () => {
     click(mm(40, 5));
     // OUTWARD is the default (pcb_dimension.cpp), so one flip is INWARD.
     expect(dims()[0]!.GetArrowDirection()).toBe(DIM_ARROW_DIRECTION.INWARD);
+  });
+
+  it('a radial takes "R " and a leader of three default arrows, NOT the board arrow length (pcb_dimension.cpp:1557-1565)', () => {
+    // `m_leaderLength = m_arrowLength * 3` runs in the constructor, on the
+    // base class's 50 mil arrow, before SET_ORIGIN applies the board's own.
+    h.board.GetDesignSettings().m_DimensionArrowLength = 2 * MM;
+    start(PCB_ACTIONS.drawRadialDimension);
+    click(mm(10, 10));
+    move(mm(20, 10));
+    click(mm(20, 10));
+    const d = dims()[0]! as PCB_DIM_RADIAL;
+    expect(d.Type()).toBe(KICAD_T.PCB_DIM_RADIAL_T);
+    expect(d.GetPrefix()).toBe('R ');
+    expect(d.GetLeaderLength()).toBe(3 * pcbIUScale.mmToIU(1.27));
+    expect(d.GetArrowLength()).toBe(2 * MM);
+  });
+
+  it('a leader is an override reading "Leader" with no unit suffix (pcb_dimension.cpp:1361-1370)', () => {
+    start(PCB_ACTIONS.drawLeader);
+    click(mm(10, 10));
+    move(mm(20, 10));
+    click(mm(20, 10));
+    const d = dims()[0]!;
+    expect(d.Type()).toBe(KICAD_T.PCB_DIM_LEADER_T);
+    expect(d.GetOverrideTextEnabled()).toBe(true);
+    expect(d.GetOverrideText()).toBe('Leader');
+    expect(d.GetUnitsFormat()).toBe(DIM_UNITS_FORMAT.NO_SUFFIX);
+    expect(d.GetText()).toBe('Leader');
+  });
+
+  it('a centre mark snaps to 45 degrees whatever the snap mode (:1872, constrainDimension)', () => {
+    // |x| 3 > |y| 1 * 2: the y component is zeroed.
+    start(PCB_ACTIONS.drawCenterDimension);
+    click(mm(50, 50));
+    move(mm(53, 51));
+    click(mm(53, 51));
+    expect(sub(dims()[0]!.GetEnd(), dims()[0]!.GetStart())).toEqual(mm(3, 0));
+  });
+
+  it('a centre mark near the diagonal goes onto it, keeping the larger axis (:1417)', () => {
+    start(PCB_ACTIONS.drawCenterDimension);
+    click(mm(50, 50));
+    move(mm(60, 58));
+    click(mm(60, 58));
+    expect(sub(dims()[0]!.GetEnd(), dims()[0]!.GetStart())).toEqual(mm(10, 10));
+  });
+
+  it('an aligned end is left free, the default snap mode being DIRECT', () => {
+    start(PCB_ACTIONS.drawAlignedDimension);
+    click(mm(10, 10));
+    move(mm(20, 13));
+    click(mm(20, 13));
+    move(mm(20, 5));
+    click(mm(20, 5));
+    expect(dims()[0]!.GetEnd()).toEqual(mm(20, 13));
+  });
+
+  it('a dimension on a back layer reads mirrored (SetMirrored( IsBackLayer( layer ) ))', () => {
+    h.frame.SetActiveLayer(PCB_LAYER_ID.B_Cu);
+    start(PCB_ACTIONS.drawAlignedDimension);
+    click(mm(10, 10));
+    click(mm(30, 10));
+    move(mm(30, 5));
+    click(mm(30, 5));
+    expect(dims()[0]!.IsMirrored()).toBe(true);
   });
 });
 

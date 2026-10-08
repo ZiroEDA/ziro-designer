@@ -11,7 +11,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { parse } from '@ziroeda/sexpr';
 import { readSymbolLib, type LibSymbol } from '@ziroeda/eeschema';
-import { readFootprintFile } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { ParseFootprintFile } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 
 const SYM_STAGED = fileURLToPath(new URL('../../../tools/libraries/out/symbols/', import.meta.url));
 const FP_SRC = fileURLToPath(new URL('../../../kicad-footprints-src/', import.meta.url));
@@ -80,8 +80,10 @@ describe.skipIf(!existsSync(FP_SRC))('official footprint library sweep', () => {
     for (const dir of pretties) {
       for (const f of readdirSync(FP_SRC + dir)) {
         if (!f.endsWith('.kicad_mod')) continue;
-        const fp = readFootprintFile(parse(readFileSync(`${FP_SRC}${dir}/${f}`, 'utf8')));
-        expect(fp, `${dir}/${f}`).toBeTruthy();
+        expect(
+          () => ParseFootprintFile(readFileSync(`${FP_SRC}${dir}/${f}`, 'utf8')),
+          `${dir}/${f}`,
+        ).not.toThrow();
         count++;
       }
     }

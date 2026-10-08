@@ -25,14 +25,11 @@ import { PGM_BASE, SETTINGS_MANAGER, SetPgm } from '@ziroeda/common/pgm_base.js'
 SetPgm(new PGM_BASE(null, new SETTINGS_MANAGER()));
 beforeEach(() => SetPgm(new PGM_BASE(null, new SETTINGS_MANAGER())));
 afterEach(() => SetPgm(null));
-import { parse } from '@ziroeda/sexpr';
 import { Reporter, RPT_SEVERITY_ACTION } from '@ziroeda/common';
 import { formatSchematicNetlist } from '@ziroeda/eeschema/cross-probing.js';
 import { setHeadlessNetlistProvider } from '@ziroeda/pcbnew/netlist_from_schematic.js';
-import {
-  readBoard,
-  serializeBoard,
-} from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { FormatBoard, ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { kiidPathAsString } from '@ziroeda/common/kiid.js';
 import { libraryLoader, runLiveUpdate } from '../pcbnew/support/netlist_update_harness.js';
 import { fetchNetlistFromSchematic } from '@ziroeda/pcbnew/netlist_from_schematic.js';
 
@@ -175,7 +172,7 @@ describe('BOARD_NETLIST_UPDATER over the Arduino_Uno template', () => {
 
   const run = (dryRun: boolean, relink = false) => {
     if (!fetched.ok) throw new Error(fetched.error);
-    const board = readBoard(parse(boardText));
+    const board = ParseBoard(boardText);
     const { reporter, result } = runLiveUpdate(board, fetched.netlist, libraryLoader(library), {
       isDryRun: dryRun,
       // The dialog's defaults (dialog_update_pcb_base.cpp).
@@ -193,11 +190,12 @@ describe('BOARD_NETLIST_UPDATER over the Arduino_Uno template', () => {
 
   it('finds every footprint already on the board, nothing added, nothing removed', () => {
     const { board, result } = run(true);
+    const before = board.Footprints().length;
     expect(result.newFootprintCount).toBe(0);
     expect(result.errorCount).toBe(0);
     expect(actionsOf(run(true).reporter).some((m) => m.startsWith('Add J'))).toBe(false);
     expect(actionsOf(run(true).reporter).some((m) => m.startsWith('Remove'))).toBe(false);
-    expect(result.board.footprints).toHaveLength(board.footprints.length);
+    expect(result.board.Footprints()).toHaveLength(before);
   });
 
   it('matches footprints to symbols through their UUID paths, either way round', () => {
@@ -205,12 +203,14 @@ describe('BOARD_NETLIST_UPDATER over the Arduino_Uno template', () => {
       const { result } = run(false, relink);
       expect(result.errorCount).toBe(0);
       expect(result.newFootprintCount).toBe(0);
-      const refs = result.board.footprints
-        .map((f) => f.reference)
-        .filter((r) => r?.startsWith('J'));
+      const refs = result.board
+        .Footprints()
+        .map((f) => f.GetReference())
+        .filter((r) => r.startsWith('J'));
       expect(refs.sort()).toEqual(['J1', 'J2', 'J3', 'J4']);
-      for (const fp of result.board.footprints) {
-        if (fp.reference?.startsWith('J')) expect(fp.path).toMatch(/^\/[0-9a-f-]+$/i);
+      for (const fp of result.board.Footprints()) {
+        if (fp.GetReference().startsWith('J'))
+          expect(kiidPathAsString(fp.GetPath())).toMatch(/^\/[0-9a-f-]+$/i);
       }
     }
   });
@@ -225,13 +225,13 @@ describe('BOARD_NETLIST_UPDATER over the Arduino_Uno template', () => {
     const { result, reporter } = run(false);
     expect(actionsOf(reporter)).not.toContain("Updated J1 sheetfile to ''.");
 
-    const text = serializeBoard(result.board);
+    const text = FormatBoard(result.board);
     expect(text).not.toContain('"Sheetfile"');
     expect(text.match(/\(sheetfile "Arduino_Uno.kicad_sch"\)/g)?.length).toBe(
       boardText.match(/"Sheetfile"/g)?.length,
     );
-    const j1 = result.board.footprints.find((f) => f.reference === 'J1')!;
-    expect(j1.sheetfile).toBe('Arduino_Uno.kicad_sch');
+    const j1 = result.board.Footprints().find((f) => f.GetReference() === 'J1')!;
+    expect(j1.GetSheetfile()).toBe('Arduino_Uno.kicad_sch');
   });
 
   it('reports the updates a KiCad 6-era board genuinely needs, and nothing more', () => {

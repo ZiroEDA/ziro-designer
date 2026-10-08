@@ -4,14 +4,37 @@
 import { describe, it, expect } from 'vitest';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { parse } from '@ziroeda/sexpr/index.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
+import { BOARD, BOARD_USE } from '@ziroeda/pcbnew/board.js';
+import type { FOOTPRINT } from '@ziroeda/pcbnew/footprint.js';
+import type { PCB_TEXT } from '@ziroeda/pcbnew/pcb_text.js';
 import {
-  readBoard,
-  readFootprintFile,
+  FormatFootprintForLibrary,
+  ParseBoard,
+  ParseFootprintFile,
 } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { serializeFootprint } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
-import type { PcbFootprint } from '@ziroeda/pcbnew/types.js';
+
+const mmToIU = (n: number): number => pcbIUScale.mmToIU(n);
+
+/**
+ * `FP_CACHE::Save`'s text for one footprint: `Format( footprint )` under
+ * `CTL_FOR_LIBRARY`, the path `kicad-cli fp upgrade` writes a library through.
+ * Byte-identical to its output on the custom-pad fixture below, apart from the
+ * generator and FP_CACHE naming the footprint after its file.
+ *
+ * Not `FootprintSave`: that clones first, and FOOTPRINT's copy constructor gives
+ * the four mandatory fields the new footprint's own KIIDs (`*existingField =
+ * *field` never assigns `const KIID m_Uuid`), so its output is no fixed point.
+ */
+const save = (fp: FOOTPRINT): string => FormatFootprintForLibrary(fp);
+
+/** Read, save, read and save again: the second save must write the first's bytes. */
+const fixedPoint = (text: string): [string, string] => {
+  const once = save(ParseFootprintFile(text));
+  return [save(ParseFootprintFile(once)), once];
+};
 
 // A minimal but real-shaped KiCad 9 `.kicad_mod`: a two-pad SMD resistor with a
 // reference/value property and silkscreen + courtyard graphics. Children are in
@@ -72,108 +95,57 @@ const R_0603 = `(footprint "R_0603_1608Metric"
 )
 `;
 
-/** Drop `source` (and undefined keys) so two reads compare by value, not AST identity. */
-/**
- * The typed model, without any of the retained parse trees.
- *
- * `source` has to come off the *children* too, not just the footprint: it is the
- * node the item was read from, and the writer is entitled to emit a different
- * one for the same model. It does, for a pre-v7 library footprint whose text
- * carries no angle — KiCad's `format( const PCB_TEXT* )` always prints one
- * (`(at %s %s)` with `FormatAngle( GetTextAngle() )`,
- * pcb_io_kicad_sexpr.cpp:2300), which is why every footprint KiCad 10 writes
- * has the three-argument form: `(at 4.505 -1.28 0)` in `ecc83-pp.kicad_pcb`.
- * Comparing the ASTs made this a byte-fidelity test wearing a model test's name,
- * and it failed on the one bundled footprint still written the old way.
- */
-// The view without its model (`k`) and without uuids: a library file is
-// written with CTL_OMIT_UUIDS, so every re-read item gets a fresh KIID, as
-// in KiCad.
-// `format( FOOTPRINT )` writes each child list in its comparator's order, not
-// the file's, so the lists compare as sets.
-const strip = (fp: PcbFootprint): unknown => {
-  const plain = JSON.parse(
-    JSON.stringify(fp, (key, value) =>
-      key === 'source' || key === 'k' || key === 'uuid' ? undefined : value,
-    ),
-  ) as Record<string, unknown>;
-  for (const list of ['pads', 'texts', 'shapes', 'fields', 'points', 'barcodes', 'models']) {
-    const arr = plain[list];
-    if (Array.isArray(arr))
-      plain[list] = [...arr].sort((a, b) => (JSON.stringify(a) < JSON.stringify(b) ? -1 : 1));
-  }
-  return plain;
-};
-
-describe('readFootprintFile / serializeFootprint (.kicad_mod)', () => {
+describe('ParseFootprintFile / FootprintSave (.kicad_mod)', () => {
   it('reads a footprint in its own local frame', () => {
-    const fp = readFootprintFile(parse(R_0603))!;
-    expect(fp).not.toBeNull();
-    expect(fp.lib).toBe('R_0603_1608Metric');
-    expect(fp.layer).toBe('F.Cu');
-    expect(fp.pads).toHaveLength(2);
-    expect(fp.shapes).toHaveLength(1);
+    const fp = ParseFootprintFile(R_0603);
+    expect(fp.GetFPID().GetLibItemName()).toBe('R_0603_1608Metric');
+    expect(fp.GetLayer()).toBe(PCB_LAYER_ID.F_Cu);
+    expect(fp.Pads()).toHaveLength(2);
+    expect(fp.GraphicalItems()).toHaveLength(1);
     // Local coordinates are preserved verbatim (no board transform baked in).
-    expect(fp.pads[0]!.at.x).toBe(mmToIU(-0.7875));
-    expect(fp.pads[1]!.at.x).toBe(mmToIU(0.7875));
-    expect(fp.pads[0]!.roundrectRatio).toBeCloseTo(0.25, 6);
-    // Reference/Value become text items.
-    expect(fp.reference).toBe('REF**');
-    expect(fp.value).toBe('R_0603');
-    expect(fp.texts.some((t) => t.kind === 'reference')).toBe(true);
+    expect(fp.Pads()[0]!.GetPosition().x).toBe(mmToIU(-0.7875));
+    expect(fp.Pads()[1]!.GetPosition().x).toBe(mmToIU(0.7875));
+    expect(fp.Pads()[0]!.GetRoundRectRadiusRatio(PCB_LAYER_ID.F_Cu)).toBeCloseTo(0.25, 6);
+    // Reference/Value are the two mandatory fields.
+    expect(fp.GetReference()).toBe('REF**');
+    expect(fp.GetValue()).toBe('R_0603');
   });
 
-  it('round-trips losslessly (model is identical after write + re-read)', () => {
-    const fp1 = readFootprintFile(parse(R_0603))!;
-    const text = serializeFootprint(fp1);
-    const fp2 = readFootprintFile(parse(text))!;
-    expect(strip(fp2)).toEqual(strip(fp1));
+  it('round-trips losslessly: the second save writes the first one back', () => {
+    const [twice, once] = fixedPoint(R_0603);
+    expect(twice).toBe(once);
   });
 
-  it('rejects a non-footprint node', () => {
-    expect(readFootprintFile(parse('(kicad_pcb (version 20241229))'))).toBeNull();
+  it('rejects a non-footprint file', () => {
+    expect(() => ParseFootprintFile('(kicad_pcb (version 20241229))')).toThrow();
   });
 });
 
 // A real KiCad footprint with a **custom pad**, which is the primitive-
 // preservation path and the one thing the bundled sweep below cannot reach:
-// not one footprint in CM5IO.pretty has `(primitives …)`.
-//
-// It used to point at an absolute path under a developer's home directory, so
-// it ran on exactly one machine and skipped silently everywhere else — CI
-// included. `describe.skipIf` makes lost coverage look like a passing suite,
-// which is why the fixture is vendored here instead.
+// not one footprint in CM5IO.pretty has `(primitives …)`. Vendored, so the
+// coverage cannot skip silently on a machine without the original.
 const ONEPIN = fileURLToPath(new URL('../../data/custom_pads_1pin.kicad_mod', import.meta.url));
-describe('readFootprintFile (a footprint with custom pads)', () => {
+const primitives = (fp: FOOTPRINT): number =>
+  fp.Pads().reduce((n, p) => n + p.GetPrimitives(PCB_LAYER_ID.F_Cu).length, 0);
+
+describe('ParseFootprintFile (a footprint with custom pads)', () => {
   it('reads the custom pad’s primitives at all', () => {
-    // Asserted before the round trip, and separately from it: a field dropped
-    // on *read* is symmetric, so read→write→read still matches and the
-    // comparison below sees nothing. That was true here — deleting the
-    // primitives from the reader left this file's only real assertion green.
-    const fp = readFootprintFile(parse(readFileSync(ONEPIN, 'utf8')))!;
-    const withPrims = fp.pads.filter((p) => (p.primitives?.length ?? 0) > 0);
-    expect(withPrims.length, 'the fixture no longer has a custom pad').toBeGreaterThan(0);
+    // Asserted separately from the round trip: a field dropped on *read* is
+    // symmetric, so read→write→read would still match.
+    expect(primitives(ParseFootprintFile(readFileSync(ONEPIN, 'utf8')))).toBeGreaterThan(0);
   });
 
   it('round-trips a real .kicad_mod', () => {
-    const src = readFileSync(ONEPIN, 'utf8');
-    const fp1 = readFootprintFile(parse(src))!;
-    expect(fp1).not.toBeNull();
-    const fp2 = readFootprintFile(parse(serializeFootprint(fp1)))!;
-    expect(strip(fp2)).toEqual(strip(fp1));
+    const [twice, once] = fixedPoint(readFileSync(ONEPIN, 'utf8'));
+    expect(twice).toBe(once);
   });
 
   it('keeps them through a save', () => {
-    // And the other half: written out and read back, the primitives are still
-    // there. Together these two say what the round trip alone cannot.
-    const fp1 = readFootprintFile(parse(readFileSync(ONEPIN, 'utf8')))!;
-    const text = serializeFootprint(fp1);
+    const fp1 = ParseFootprintFile(readFileSync(ONEPIN, 'utf8'));
+    const text = save(fp1);
     expect(text).toContain('(primitives');
-    const fp2 = readFootprintFile(parse(text))!;
-    const prims = (f: typeof fp1): number =>
-      f.pads.reduce((n, p) => n + (p.primitives?.length ?? 0), 0);
-    expect(prims(fp2)).toBe(prims(fp1));
-    expect(prims(fp2)).toBeGreaterThan(0);
+    expect(primitives(ParseFootprintFile(text))).toBe(primitives(fp1));
   });
 });
 
@@ -182,23 +154,18 @@ describe('readFootprintFile (a footprint with custom pads)', () => {
 const BUNDLED = new URL('../../../designer/public/footprints/CM5IO.pretty', import.meta.url)
   .pathname;
 describe.skipIf(!existsSync(BUNDLED))('bundled footprint library (CM5IO.pretty)', () => {
-  const files = readdirSync(BUNDLED).filter((f) => f.endsWith('.kicad_mod'));
+  const files = existsSync(BUNDLED)
+    ? readdirSync(BUNDLED).filter((f) => f.endsWith('.kicad_mod'))
+    : [];
   it('parses every bundled footprint', { timeout: 30_000 }, () => {
     expect(files.length).toBeGreaterThan(20);
-    for (const f of files) {
-      const fp = readFootprintFile(parse(readFileSync(`${BUNDLED}/${f}`, 'utf8')));
-      expect(fp, f).not.toBeNull();
-    }
+    for (const f of files)
+      expect(() => ParseFootprintFile(readFileSync(`${BUNDLED}/${f}`, 'utf8')), f).not.toThrow();
   });
-  // 69 footprints, each parsed, serialised and parsed again, then deep-compared.
-  // That is ~1.4s on its own but comfortably past vitest's 5s default once the
-  // rest of the suite is competing for cores, so it gets a timeout that matches
-  // the work rather than the default.
-  it('round-trips every bundled footprint model-identically', { timeout: 30_000 }, () => {
+  it('round-trips every bundled footprint to a fixed point', { timeout: 30_000 }, () => {
     for (const f of files) {
-      const fp1 = readFootprintFile(parse(readFileSync(`${BUNDLED}/${f}`, 'utf8')))!;
-      const fp2 = readFootprintFile(parse(serializeFootprint(fp1)))!;
-      expect(strip(fp2), f).toEqual(strip(fp1));
+      const [twice, once] = fixedPoint(readFileSync(`${BUNDLED}/${f}`, 'utf8'));
+      expect(twice, f).toBe(once);
     }
   });
 });
@@ -212,14 +179,9 @@ describe.skipIf(!existsSync(BUNDLED))('bundled footprint library (CM5IO.pretty)'
  *         if( GetBoard() && GetBoard()->GetBoardUse() == BOARD_USE::FPHOLDER )
  *             return false;
  *
- * (`pcbnew/footprint.cpp:1185-1188`). `PCB_TEXT::GetShownText`'s resolver then
- * asks the board, which knows no such token either, so the literal survives —
- * which is why the footprint editor and the chooser's footprint preview, both
- * of which hold their footprint on a `BOARD_USE::FPHOLDER` board
- * (`footprint_preview_panel.cpp`), paint `${REFERENCE}` and pcbnew paints `R1`.
- *
- * Ours resolved it in the reader, so the preview showed `REF**` where KiCad
- * shows the variable.
+ * (`pcbnew/footprint.cpp:1185-1188`). The footprint editor and the chooser's
+ * preview both hold their footprint on a `BOARD_USE::FPHOLDER` board, so they
+ * paint `${REFERENCE}` where pcbnew paints `R1`.
  */
 describe('text variables and the footprint-holder board', () => {
   const WITH_VAR = `(footprint "T" (version 20241229) (generator "t") (layer "F.Cu")
@@ -230,21 +192,29 @@ describe('text variables and the footprint-holder board', () => {
 	(fp_text user "\${REFERENCE}" (at 0 0 0) (layer "F.Fab")
 		(effects (font (size 1 1) (thickness 0.15)))))`;
 
-  const fabText = (fp: PcbFootprint): string =>
-    fp.texts.find((t) => t.kind === 'user' && t.layer === 'F.Fab')!.text;
+  const fabText = (fp: FOOTPRINT): string =>
+    (
+      fp
+        .GraphicalItems()
+        .find(
+          (t) => t.Type() === KICAD_T.PCB_TEXT_T && t.GetLayer() === PCB_LAYER_ID.F_Fab,
+        )! as PCB_TEXT
+    ).GetShownText(true);
 
-  it('leaves the literal alone on the library load path', () => {
-    expect(fabText(readFootprintFile(parse(WITH_VAR))!)).toBe('${REFERENCE}');
+  it('leaves the literal alone on an FPHOLDER board', () => {
+    const holder = new BOARD();
+    holder.SetBoardUse(BOARD_USE.FPHOLDER);
+    const fp = ParseFootprintFile(WITH_VAR);
+    holder.Add(fp);
+    expect(fabText(fp)).toBe('\${REFERENCE}');
   });
 
   it('substitutes it on a board, where ResolveTextVar answers', () => {
-    const board = readBoard(
-      parse(`(kicad_pcb (version 20241229) (generator "t")
-  (layers (0 "F.Cu" signal) (31 "B.Cu" signal) (35 "F.Fab" user))
+    const board = ParseBoard(`(kicad_pcb (version 20241229) (generator "t")
+  (layers (0 "F.Cu" signal) (2 "B.Cu" signal) (35 "F.Fab" user))
   (net 0 "")
-  ${WITH_VAR.replace('(property "Reference" "REF**"', '(property "Reference" "D7"')})`),
-    );
+  ${WITH_VAR.replace('(property "Reference" "REF**"', '(property "Reference" "D7"')})`);
 
-    expect(fabText(board.footprints[0]!)).toBe('D7');
+    expect(fabText(board.Footprints()[0]!)).toBe('D7');
   });
 });

@@ -2,15 +2,15 @@
 // Copyright (C) 2026 ZiroEDA and contributors.
 // Portions derived from KiCad, copyright The KiCad Developers. See NOTICE.md.
 /**
- * ZONE_BORDER_DISPLAY_STYLE::INVISIBLE_BORDER on teardrop zones — the style
- * upstream's writer has no token for, so the reader has to restore it.
+ * A teardrop zone's border style on load. KiCad's writer has no token for
+ * ZONE_BORDER_DISPLAY_STYLE::INVISIBLE_BORDER, so a teardrop zone is written
+ * `(hatch none …)` and `parseZONE` reads that back as NO_HATCH: nothing in the
+ * parser restores INVISIBLE_BORDER (only pcb_painter.cpp:3028 consults it).
  */
 import { describe, it, expect } from 'vitest';
-import { parse } from '@ziroeda/sexpr/index.js';
-import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import type { Board } from '@ziroeda/pcbnew/types.js';
-
-const load = (text: string): Board => readBoard(parse(text));
+import { ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { TEARDROP_TYPE } from '@ziroeda/pcbnew/teardrop/teardrop_parameters.js';
+import { ZONE_BORDER_DISPLAY_STYLE } from '@ziroeda/pcbnew/zone_settings.js';
 
 /** A teardrop zone as KiCad writes it: `(hatch none …)` and the attr. */
 const TEARDROP_ZONE = `(kicad_pcb (version 20241229) (generator "pcbnew")
@@ -27,34 +27,35 @@ const TEARDROP_ZONE = `(kicad_pcb (version 20241229) (generator "pcbnew")
 // Generation and writing (INVISIBLE_BORDER, `(hatch none …)`) are
 // TEARDROP_MANAGER's, pinned in teardrop_manager.test.ts.
 describe('teardrop zone borders', () => {
-  it('the view shows a teardrop zone’s `none` as invisible', () => {
-    // The parser reads NO_HATCH (it has no token for INVISIBLE_BORDER); the
-    // view says 'invisible' for any teardrop area, as the painter draws it.
-    const z = load(TEARDROP_ZONE).zones[0]!;
+  it('reads a teardrop zone’s `none` as NO_HATCH, as parseZONE does', () => {
+    const z = ParseBoard(TEARDROP_ZONE).Zones()[0]!;
 
-    expect(z.teardropType).toBe('viapad');
-    expect(z.hatchStyle).toBe('invisible');
+    expect(z.GetTeardropAreaType()).toBe(TEARDROP_TYPE.TD_VIAPAD);
+    expect(z.GetHatchStyle()).toBe(ZONE_BORDER_DISPLAY_STYLE.NO_HATCH);
   });
 
-  it('leaves a plain zone’s `none` alone', () => {
-    const b = load(`(kicad_pcb (version 20240108)
+  it('reads a plain zone’s `none` the same way', () => {
+    const z = ParseBoard(`(kicad_pcb (version 20240108)
       (zone (net 1) (net_name "N1") (layer "F.Cu") (hatch none 0.5)
         (connect_pads (clearance 0.5)) (min_thickness 0.25)
         (fill yes) (polygon (pts (xy 0 0) (xy 5 0) (xy 5 5))))
-    )`);
+    )`).Zones()[0]!;
 
-    expect(b.zones[0]!.hatchStyle).toBe('none');
-    expect(b.zones[0]!.teardropType).toBeUndefined();
+    expect(z.GetHatchStyle()).toBe(ZONE_BORDER_DISPLAY_STYLE.NO_HATCH);
+    expect(z.GetTeardropAreaType()).toBe(TEARDROP_TYPE.TD_NONE);
   });
 
   it('keeps edge and full styles intact', () => {
-    const b = load(`(kicad_pcb (version 20240108)
+    const b = ParseBoard(`(kicad_pcb (version 20240108)
       (zone (net 1) (layer "F.Cu") (hatch edge 0.5)
         (fill yes) (polygon (pts (xy 0 0) (xy 5 0) (xy 5 5))))
       (zone (net 1) (layer "F.Cu") (hatch full 0.5)
         (fill yes) (polygon (pts (xy 0 0) (xy 5 0) (xy 5 5))))
     )`);
 
-    expect(b.zones.map((z) => z.hatchStyle)).toEqual(['edge', 'full']);
+    expect(b.Zones().map((z) => z.GetHatchStyle())).toEqual([
+      ZONE_BORDER_DISPLAY_STYLE.DIAGONAL_EDGE,
+      ZONE_BORDER_DISPLAY_STYLE.DIAGONAL_FULL,
+    ]);
   });
 });

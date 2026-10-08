@@ -4,12 +4,10 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { basename, join } from 'node:path';
 import { homedir } from 'node:os';
-import { parse } from '@ziroeda/sexpr';
-import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { FormatBoard, ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
 const ORACLE = join(homedir(), 'kicad-oracle/resave');
 for (const file of process.argv.slice(2)) {
-  const ours = serializeBoard(readBoard(parse(readFileSync(file, 'utf8'))));
+  const ours = FormatBoard(ParseBoard(readFileSync(file, 'utf8')));
   const out = `/tmp/claude-1000/-home-akshay-ziro-designer-1/15148123-613d-432e-97fc-3df8ea77a351/scratchpad/ours_${basename(file)}`;
   writeFileSync(out, ours);
   const theirs = join(ORACLE, basename(file));

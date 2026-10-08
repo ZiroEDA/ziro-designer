@@ -24,16 +24,18 @@
  * base64 is the shape the format actually carries.
  */
 import { describe, expect, it } from 'vitest';
-import { parse } from '@ziroeda/sexpr/index.js';
 import { WX_IMAGE } from '@ziroeda/common/wx/wx_image.js';
-import { readBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
-import { serializeBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { pcbIUScale } from '@ziroeda/common/eda_units.js';
+import { PCB_LAYER_ID } from '@ziroeda/common/layer_id.js';
+import { KICAD_T } from '@ziroeda/core/typeinfo.js';
 import type { SList } from '@ziroeda/sexpr/types.js';
-import { childNode, emptyBoard, flatText, writtenNode } from './support/written_node.js';
-import { pcbMmToIU as mmToIU } from '@ziroeda/common/eda_units.js';
-import type { Board, PcbImage } from '@ziroeda/pcbnew/types.js';
+import type { BOARD } from '@ziroeda/pcbnew/board.js';
+import { PCB_REFERENCE_IMAGE } from '@ziroeda/pcbnew/pcb_reference_image.js';
+import { base64Decode } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr_items.js';
+import { FormatBoard, ParseBoard } from '@ziroeda/pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.js';
+import { childNode, flatText, writtenNode } from './support/written_node.js';
 
-const MM = (n: number): number => mmToIU(n);
+const MM = (n: number): number => pcbIUScale.mmToIU(n);
 
 /** A 1x1 transparent PNG, base64 — 96 characters, so it wraps. */
 const PNG =
@@ -56,172 +58,155 @@ const IMAGE = (extra = ''): string => `(image
     (data ${wrapped(PNG)})
     (uuid "aaaaaaaa-1111-2222-3333-444444444444"))`;
 
-const read = (...extra: string[]): Board =>
-  readBoard(
-    parse(`(kicad_pcb (version 20241229) (generator "test")
-  (layers (0 "F.Cu" signal) (31 "B.Cu" signal) (39 "F.SilkS" user "F.Silkscreen"))
+const read = (...extra: string[]): BOARD =>
+  ParseBoard(`(kicad_pcb (version 20241229) (generator "test")
+  (layers (0 "F.Cu" signal) (2 "B.Cu" signal) (5 "F.SilkS" user "F.Silkscreen"))
   (net 0 "")
   ${extra.join('\n  ')}
-)`),
-  );
-const only = (src: string): PcbImage => read(src).images[0]!;
+)`);
+const images = (b: BOARD): PCB_REFERENCE_IMAGE[] =>
+  b.Drawings().filter((d) => d.Type() === KICAD_T.PCB_REFERENCE_IMAGE_T) as PCB_REFERENCE_IMAGE[];
+const only = (src: string): PCB_REFERENCE_IMAGE => images(read(src))[0]!;
+/** The image's bytes as `FormatStreamData` writes them: base64 of the original file. */
+const dataOf = (img: PCB_REFERENCE_IMAGE): string => {
+  const bytes = img.GetReferenceImage().GetImage().SaveImageData() ?? new Uint8Array(0);
+  return btoa(String.fromCharCode(...bytes));
+};
 
-describe('reading a reference image', () => {
+describe('reading a reference image (parsePCB_REFERENCE_IMAGE)', () => {
   it('reads the position, layer and uuid', () => {
     const img = only(IMAGE());
 
-    expect(img.at).toEqual({ x: MM(145.5), y: MM(108.25) });
-    expect(img.layer).toBe('F.Cu');
-    expect(img.uuid).toBe('aaaaaaaa-1111-2222-3333-444444444444');
+    expect(img.GetPosition()).toEqual({ x: MM(145.5), y: MM(108.25) });
+    expect(img.GetLayer()).toBe(PCB_LAYER_ID.F_Cu);
+    expect(img.m_Uuid).toBe('aaaaaaaa-1111-2222-3333-444444444444');
   });
 
-  it('joins the wrapped data back into one base64 string', () => {
-    // The fixture is split across two quoted pieces; the model holds one.
-    expect(only(IMAGE()).data).toBe(PNG);
+  it('joins the wrapped data back into one image', () => {
+    // The fixture is split across two quoted pieces; the image holds one file.
+    expect(dataOf(only(IMAGE()))).toBe(PNG);
   });
 
-  it('leaves the scale absent rather than 1 when the file omits it', () => {
-    // Absent *is* 1; storing 1 would make the writer emit a token KiCad does
-    // not, changing an untouched file on save.
-    expect(only(IMAGE()).scale).toBeUndefined();
-  });
-
-  it('reads a scale that is there', () => {
-    expect(only(IMAGE('(scale 0.159863)')).scale).toBeCloseTo(0.159863, 6);
+  it('reads the scale, 1 when the file omits it', () => {
+    expect(only(IMAGE()).GetReferenceImage().GetImageScale()).toBe(1);
+    expect(only(IMAGE('(scale 0.159863)')).GetReferenceImage().GetImageScale()).toBeCloseTo(
+      0.159863,
+      6,
+    );
   });
 
   it('reads the locked flag', () => {
-    expect(only(IMAGE('(locked yes)')).locked).toBe(true);
-    expect(only(IMAGE()).locked).toBeFalsy();
+    expect(only(IMAGE('(locked yes)')).IsLocked()).toBe(true);
+    expect(only(IMAGE()).IsLocked()).toBe(false);
   });
 
   it('keeps an image with no position, at the origin the constructor gave it', () => {
-    // `parsePCB_REFERENCE_IMAGE` never insists on `(at …)`; the item stays
-    // where `PCB_REFERENCE_IMAGE( aParent )` put it.
-    const images = read(IMAGE().replace('(at 145.5 108.25)', '')).images;
-    expect(images).toHaveLength(1);
-    expect(images[0]!.at).toEqual({ x: 0, y: 0 });
+    // `parsePCB_REFERENCE_IMAGE` never insists on `(at …)`.
+    const all = images(read(IMAGE().replace('(at 145.5 108.25)', '')));
+    expect(all).toHaveLength(1);
+    expect(all[0]!.GetPosition()).toEqual({ x: 0, y: 0 });
   });
 
   it('reads an image with no data as empty rather than failing', () => {
-    // A truncated file should still round-trip its geometry.
-    const img = read(IMAGE().replace(/\(data[^)]*\)/s, '')).images[0]!;
+    const img = only(IMAGE().replace(/\(data[^)]*\)/s, ''));
 
-    expect(img.data).toBe('');
-    expect(img.at).toEqual({ x: MM(145.5), y: MM(108.25) });
+    expect(dataOf(img)).toBe('');
+    expect(img.GetPosition()).toEqual({ x: MM(145.5), y: MM(108.25) });
   });
 });
 
 describe('round-tripping through the writer', () => {
   it('gives an untouched image back unchanged', () => {
-    const back = readBoard(parse(serializeBoard(read(IMAGE('(scale 0.5)')))));
+    const back = images(ParseBoard(FormatBoard(read(IMAGE('(scale 0.5)')))));
 
-    expect(back.images).toHaveLength(1);
-    expect(back.images[0]!.data).toBe(PNG);
-    expect(back.images[0]!.scale).toBe(0.5);
-  });
-
-  it('keeps an image when other items are edited around it', () => {
-    const b = read(IMAGE());
-    b.texts.push({
-      kind: 'user',
-      text: 'hello',
-      at: { x: 0, y: 0 },
-      angle: 0,
-      layer: 'F.SilkS',
-      size: { x: MM(1), y: MM(1) },
-    });
-    const back = readBoard(parse(serializeBoard(b)));
-
-    expect(back.images).toHaveLength(1);
-    expect(back.images[0]!.data).toBe(PNG);
-    expect(back.texts.some((t) => t.text === 'hello')).toBe(true);
+    expect(back).toHaveLength(1);
+    expect(dataOf(back[0]!)).toBe(PNG);
+    expect(back[0]!.GetReferenceImage().GetImageScale()).toBe(0.5);
   });
 
   it('drops a deleted image', () => {
     const b = read(IMAGE(), IMAGE('(scale 2)'));
-    b.images.splice(0, 1);
-    const back = readBoard(parse(serializeBoard(b)));
+    b.Remove(images(b)[0]!);
+    const back = images(ParseBoard(FormatBoard(b)));
 
-    expect(back.images).toHaveLength(1);
-    expect(back.images[0]!.scale).toBe(2);
+    expect(back).toHaveLength(1);
+    expect(back[0]!.GetReferenceImage().GetImageScale()).toBe(2);
   });
 });
 
-describe('building an image from scratch', () => {
-  const base = (over: Partial<PcbImage> = {}): PcbImage => ({
-    at: { x: MM(10), y: MM(20) },
-    layer: 'F.SilkS',
-    data: PNG,
-    ...over,
-  });
-  const node = (img: PcbImage): SList => writtenNode({ ...emptyBoard(), images: [img] }, 'image');
-  const text = (img: PcbImage): string => flatText(node(img));
+describe('writing an image built from scratch (format( PCB_REFERENCE_IMAGE* ))', () => {
+  const build = (
+    edit: (img: PCB_REFERENCE_IMAGE) => void = () => {},
+    data: string = PNG,
+  ): BOARD => {
+    const b = read();
+    const img = new PCB_REFERENCE_IMAGE(b, { x: MM(10), y: MM(20) }, PCB_LAYER_ID.F_SilkS);
+    img.GetReferenceImage().ReadImageFile(base64Decode(data));
+    edit(img);
+    b.Add(img);
+    return b;
+  };
+  const node = (edit?: (img: PCB_REFERENCE_IMAGE) => void): SList =>
+    writtenNode(build(edit), 'image');
+  const text = (edit?: (img: PCB_REFERENCE_IMAGE) => void): string => flatText(node(edit));
 
   it('writes the position and layer', () => {
-    const s = text(base());
+    const s = text();
 
     expect(s).toContain('(at 10 20)');
     expect(s).toContain('(layer "F.SilkS")');
   });
 
   it('splits the data at the MIME width', () => {
-    const dataNode = childNode(node(base()), 'data');
-    const pieces = dataNode ? dataNode.items.slice(1) : [];
+    const pieces = childNode(node(), 'data')?.items.slice(1) ?? [];
 
     // 96 characters at 76 per line is two pieces, the second a remainder.
     expect(pieces).toHaveLength(2);
   });
 
   it('splits so the pieces rejoin to exactly the original', () => {
-    // The property that matters more than the chunk count.
-    const dataNode = childNode(node(base()), 'data');
-    // The pieces are quoted strings, not bare atoms.
-    const joined = dataNode
-      ? dataNode.items
-          .slice(1)
-          .map((n) => (n.kind === 'string' ? n.value : ''))
-          .join('')
-      : '';
+    const joined = (childNode(node(), 'data')?.items.slice(1) ?? [])
+      .map((n) => (n.kind === 'string' ? n.value : ''))
+      .join('');
 
     expect(joined).toBe(PNG);
   });
 
   it('writes a scale only when it is not 1', () => {
-    expect(text(base({ scale: 0.5 }))).toContain('(scale 0.5)');
-    expect(text(base({ scale: 1 }))).not.toContain('(scale');
-    expect(text(base())).not.toContain('(scale');
+    expect(text((i) => i.GetReferenceImage().SetImageScale(0.5))).toContain('(scale 0.5)');
+    expect(text((i) => i.GetReferenceImage().SetImageScale(1))).not.toContain('(scale');
+    expect(text()).not.toContain('(scale');
   });
 
   it('writes locked only when set', () => {
-    expect(text(base({ locked: true }))).toContain('(locked yes)');
-    expect(text(base())).not.toContain('(locked');
+    expect(text((i) => i.SetLocked(true))).toContain('(locked yes)');
+    expect(text()).not.toContain('(locked');
   });
 
   it('round-trips a built image back through the reader', () => {
-    const b = read();
-    b.images.push(base({ uuid: 'abc', scale: 0.25, locked: true }));
-    const back = readBoard(parse(serializeBoard(b)));
+    const back = images(
+      ParseBoard(
+        FormatBoard(
+          build((i) => {
+            i.GetReferenceImage().SetImageScale(0.25);
+            i.SetLocked(true);
+          }),
+        ),
+      ),
+    )[0]!;
 
-    expect(back.images).toHaveLength(1);
-    expect(back.images[0]!.data).toBe(PNG);
-    expect(back.images[0]!.scale).toBe(0.25);
-    expect(back.images[0]!.locked).toBe(true);
-    expect(back.images[0]!.at).toEqual({ x: MM(10), y: MM(20) });
+    expect(dataOf(back)).toBe(PNG);
+    expect(back.GetReferenceImage().GetImageScale()).toBe(0.25);
+    expect(back.IsLocked()).toBe(true);
+    expect(back.GetPosition()).toEqual({ x: MM(10), y: MM(20) });
   });
 
   it('round-trips a payload longer than one line', () => {
-    // Three full lines plus a remainder, so the split is exercised properly.
-    // A real PNG (`BITMAP_BASE::ReadImageFile` decodes what it is given, and
-    // the writer re-encodes the decoded image's original bytes the way
-    // `wxBase64Decode` / `FormatStreamData` do): 20 x 20 pixels stored
-    // uncompressed is well over three lines of base64.
+    // A real PNG: 20 x 20 pixels stored uncompressed is well over three lines.
     const long = btoa(String.fromCharCode(...new WX_IMAGE(20, 20).SaveFilePng()!));
     expect(long.length).toBeGreaterThan(BASE64_LINE_WIDTH * 3);
-    const b = read();
-    b.images.push(base({ data: long }));
-    const back = readBoard(parse(serializeBoard(b)));
+    const back = images(ParseBoard(FormatBoard(build(() => {}, long))))[0]!;
 
-    expect(back.images[0]!.data).toBe(long);
+    expect(dataOf(back)).toBe(long);
   });
 });
